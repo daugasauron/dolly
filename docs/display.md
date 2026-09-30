@@ -36,6 +36,9 @@ These additive semantics keep mailbox v5's record size and offsets unchanged.
 Graphics leases receive hover and button events, including while captured;
 terminal selection still receives only left-button drags. SDL2 translates these
 records and captured movement into ordinary SDL mouse events.
+Pointer presence is event 10 (action 1 enter, 0 leave); window keyboard focus is
+event 4 (action 1 gain, 0 loss). SDL forwards enter/leave so edge scrolling stops
+outside the canvas, and clears held keys/buttons when the browser loses focus.
 
 ## Lifecycle and terminal
 
@@ -69,21 +72,15 @@ into the process frame without an intermediate Image allocation; process-to-
 kernel and checked browser copies still occur. Prefer a small logical resolution
 for software-rendered 3D; the browser scales the complete image.
 
-- `/gamedev/` runs Singularity. Space/click fires, G changes gravity, E pulses,
-  A/D or drag orbits, W/S zooms, R resets, Q/Escape exits.
 - `/bhop/` runs Airtime's Foundry course. A/D plus mouse turning builds air
   speed; Space or either wheel direction jumps. Escape pauses/releases capture,
   Q exits, R resets and 1–4 select practice sections. It uses its own fixed-step
   movement controller, not Box3D player physics. The [agent overlay](bhop.md)
   supports OpenRouter and local Codex with recorded framebuffer attempts.
-- `/gamedev-phone/` keeps touch controls inside the same Wasm program.
-  It still needs a memory64-capable browser.
 
 ```sh
-make -f /usr/src/dolly/gamedev/gamedev.mk
-graphics-demo --frames 12
 # In the bhop image:
 make -f /usr/src/dolly/bhop/bhop.mk all check
 ```
 
-The retained sources and gamedev skill document the adapter and game mechanics.
+The retained sources document the adapter and game mechanics.

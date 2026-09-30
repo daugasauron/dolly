@@ -1,5 +1,25 @@
 import assert from "node:assert/strict";
 
+export async function buildLogProof() {
+  const {buildLog} = await import(new URL("../src/build-log.mjs", document.baseURI));
+  const element = document.createElement("pre"), log = buildLog(element);
+  log.append("\x1b[1;3");
+  log.append("2mbuilding 日本語\x1b[0m\r");
+  log.append("\n\x1b[38:2:1:2:3mdone");
+  log.append("\x1b[m <script>text</script>");
+  if (element.textContent !== "building 日本語\ndone <script>text</script>" || element.children.length) {
+    throw new Error("Split compiler output lost text or created HTML");
+  }
+  log.append("x".repeat(1024 * 1024));
+  log.append("tail");
+  if (element.textContent.length !== 1024 * 1024 || !element.textContent.endsWith("tail")) {
+    throw new Error("Build output exceeded its bound or lost the tail");
+  }
+  log.clear(); log.append("retry");
+  if (element.textContent !== "retry") throw new Error("Build retry retained old output");
+  return true;
+}
+
 export async function buildBufferReuse() {
   const base = new URL("../", document.baseURI);
   const [registry, policy, transport, builder, graph, artifactStore] = await Promise.all([
@@ -7,7 +27,7 @@ export async function buildBufferReuse() {
     "src/image-builder.mjs", "src/image-build.mjs", "src/image-artifact.mjs",
   ].map(path => import(new URL(path, base).href)));
   const definition = registry.DOLLY_IMAGES.find(image => image.image === "system-build");
-  const source = `DOLLY 3\nIMAGE buffer-proof\nFROM HOST /${definition.dollyfile} ${definition.sha256}\nENTRY /bin/slop\n`;
+  const source = `DOLLY 4\nIMAGE buffer-proof\nFROM HOST /${definition.dollyfile} ${definition.sha256}\nENTRY /bin/slop\n`;
   const sources = [...registry.DOLLY_IMAGES.map(image => ({ path: `/${image.dollyfile}`, byteLength: image.byteLength })),
     ...registry.DOLLY_STATIC_SOURCES];
   const network = transport.localServicesTransport(policy.consumeDollyHttpPolicy({}, sources, base));
@@ -36,6 +56,7 @@ export async function buildBufferReuse() {
 }
 
 export async function runImageBuildProof({ evaluate, wait, submit, click, press, openResult, pageCount }) {
+  assert.equal(await evaluate(`(${buildLogProof.toString()})()`), true);
   assert.match(await evaluate(`(${buildBufferReuse.toString()})()`), /^[0-9a-f]{64}$/);
   const quote = text => "'" + text.replaceAll("'", "'\\''") + "'";
   const waitState = state => wait("document.querySelector('#image-build')?.dataset.state", value => value === state, `build ${state}`);
@@ -52,12 +73,13 @@ export async function runImageBuildProof({ evaluate, wait, submit, click, press,
     const {DOLLY_IMAGES} = await import(new URL('../dist/dolly-images.mjs', document.baseURI));
     return DOLLY_IMAGES.find(image => image.image === 'system').sha256;
   })()`);
-  const source = `DOLLY 3
+  const source = `DOLLY 4
 IMAGE build-proof
 FROM HOST /Dollyfile-system ${base}
 FILE /tmp/proof/hello.c
     #include <stdio.h>
-    int main(void) { puts("BUILT-IN-WASM"); return 0; }
+    #warning BUILD-COMPILER-WARNING
+    int main(void) { puts("BUILT-IN-WASM"); fputs("LIVE-BUILD-STDERR\\n", stderr); return 0; }
 FILE /tmp/proof/check.slop
     if curl -fsS https://webgpu.dolly.invalid/v1/models; then exit 1; fi
     if download /etc/dolly/Dollyfile; then exit 1; fi
@@ -71,9 +93,10 @@ SLOP timeout 2 /tmp/proof/stdin
 SLOP test "$(printf pipe-input | cat)" = pipe-input
 SLOP printf file-input > /tmp/proof/input
 SLOP test "$(cat < /tmp/proof/input)" = file-input
+SLOP cc /tmp/proof/hello.c -o /usr/bin/hello
+SLOP /usr/bin/hello
 SLOP printf 'LIVE-BUILD-OUTPUT\\n'
 SLOP sleep 4
-SLOP cc /tmp/proof/hello.c -o /usr/bin/hello
 EXPORTS TOOL hello
 SLOP rm -rf /tmp/proof
 ENTRY /bin/foreground -i /bin/slop
@@ -87,11 +110,16 @@ ENTRY /bin/foreground -i /bin/slop
     assert.equal(await submit("printf kept > /workspace/build-parent-proof"), 0);
     const pages = await pageCount();
     await start(source);
-    assert.equal(await evaluate("document.querySelector('#image-build pre').textContent"), source);
+    assert.equal(await evaluate("document.querySelector('#image-build [data-recipe]').textContent"), source);
     const progress = await wait("(async () => ({text: await __dolly.visibleTerminalText(), status: __buildStatus}))()",
       state => state.status !== null || /\nLIVE-BUILD-OUTPUT\r?\n/.test(state.text), "live build log before completion");
     assert.match(progress.text, /\nLIVE-BUILD-OUTPUT\r?\n/);
     assert.equal(progress.status, null);
+    const output = await evaluate("document.querySelector('#image-build [data-output]').textContent");
+    assert.match(output, /warning: BUILD-COMPILER-WARNING/);
+    assert.match(output, /\nBUILT-IN-WASM\n/);
+    assert.match(output, /\nLIVE-BUILD-STDERR\n/);
+    assert.match(output, /\nLIVE-BUILD-OUTPUT\n/);
     assert.equal(await pageCount(), pages, "building must not open a blank tab");
     await waitState("ready");
     assert.equal(await wait("__buildStatus", value => value !== null, "successful build status"), 0);
@@ -114,10 +142,14 @@ ENTRY /bin/foreground -i /bin/slop
     } finally { await result.close(); }
     console.log("browser: HTTP build starts and streams without approval; only clicking Open image opens a completed result, without parent files or local build services");
 
-    await start(source.replace("SLOP sleep 4", "SLOP false"));
+    await start(source.replace("SLOP sleep 4", `FILE /tmp/proof/error.c
+    #error BUILD-COMPILER-ERROR
+SLOP cc /tmp/proof/error.c -o /tmp/proof/error`));
     await waitState("error");
     assert.notEqual(await wait("__buildStatus", value => value !== null, "failed build status"), 0);
     assert.match(await evaluate("document.querySelector('#image-build [role=status]').textContent"), /bootstrap failed/);
+
+    assert.match(await evaluate("document.querySelector('#image-build [data-output]').textContent"), /error: BUILD-COMPILER-ERROR/);
 
     await start(source.replace("SLOP sleep 4", "SLOP sleep 60"));
     await click('#image-build [data-action="cancel"]');

@@ -1,0 +1,5 @@
+In file included from .cache/0ad-investigation/architecture.cpp:1:
+.cache/0ad-investigation/0ad-0.28.0/source/lib/sysdep/arch.h:88:3: error: "architecture not correctly detected (either none or multiple ARCH_* defined)"
+   88 | # error "architecture not correctly detected (either none or multiple ARCH_* defined)"
+      |   ^
+1 error generated.

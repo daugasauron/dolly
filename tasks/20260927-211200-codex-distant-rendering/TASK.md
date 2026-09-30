@@ -11,7 +11,7 @@ silhouettes, readable team boundaries and close detail while suppressing detail
 smaller than a screen pixel. Preserve approximately 100 FPS, using matched
 baseline/candidate measurements rather than raising resolution blindly.
 
-Source: src/blockwalker/scene.wgsl; evidence: build/overnight-20260928/.
+Source: src/slopyard/scene.wgsl; evidence: build/overnight-20260928/.
 
 Candidate uses native pixel centers, filters subpixel ground details, and fades
 the coarse color palette/dither with distance. The old two-pixel quantization
@@ -27,4 +27,4 @@ Packaged Chrome/Firefox near/far screenshots inspected; normal aged Firefox
 checks pass with all 163 original actors and no readbacks/errors. Final
 Firefox samples: 99.8 / 105.7 / 115.6 / 111.2 FPS. The source-only matched comparison above remains
 the evidence for shader cost; final package/source/preservation checks pass.
-Local image: http://127.0.0.1:9097/blockwalker/.
+Local image: http://127.0.0.1:9097/slopyard/.

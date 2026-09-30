@@ -19,10 +19,10 @@ another metre and uses two2.5m stages. It clears loaded heads while retaining
 Fresh1500s combined run: all3 parcels delivered,2 carousel handoffs, maximum
 joint separation.002994m. Chronological magnetic chains95→38→delivery are
 verified for96 and98;97 is collected directly. Full trace/source preservation:
-`build/blockwalker-compound-regressions-chrome-competition-v5/salvage/`.
+`build/slopyard-compound-regressions-chrome-competition-v5/salvage/`.
 
 Image37 Chrome/Firefox restore the carousel holding98, with attachment retained,
 and match all98 catalog blueprints/programs. Three focused GPU views in both
-browsers were captured and inspected under `build/blockwalker-carousel-final-
+browsers were captured and inspected under `build/slopyard-carousel-final-
 view-{chrome,firefox}/`. Packaged Firefox runs118 objects at45.42FPS with real-time
 simulation after30s warmup. See `docs/crash-handoff.md` for checkpoint evidence.

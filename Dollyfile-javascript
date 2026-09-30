@@ -1,18 +1,18 @@
 DOLLY 4
 IMAGE javascript
 
-FROM HOST /Dollyfile-system 8a30cd60d97d666756d6ab5de0b3ca35b4d2b0b45bf2beafc984c87311333517
+FROM HOST /Dollyfile-system 74c02dd497d360082605c3179a9b01bd6d06fe1abdde3855cd719417f1bc58e0
 
-COPY FROM HOST /Dollyfile-typescript-build 5c61c66a4bca40fa71ae543fbb7136d8962e7d85c1d45a7b6d83ca2401d8e540 /usr/bin/qjs /usr/bin/qjs
-COPY FROM HOST /Dollyfile-typescript-build 5c61c66a4bca40fa71ae543fbb7136d8962e7d85c1d45a7b6d83ca2401d8e540 /usr/bin/janis /usr/bin/janis
-COPY FROM HOST /Dollyfile-typescript-build 5c61c66a4bca40fa71ae543fbb7136d8962e7d85c1d45a7b6d83ca2401d8e540 /usr/bin/tsc /usr/bin/tsc
-COPY FROM HOST /Dollyfile-typescript-build 5c61c66a4bca40fa71ae543fbb7136d8962e7d85c1d45a7b6d83ca2401d8e540 /usr/lib/libdolly-js.a /usr/lib/libdolly-js.a
-COPY FROM HOST /Dollyfile-typescript-build 5c61c66a4bca40fa71ae543fbb7136d8962e7d85c1d45a7b6d83ca2401d8e540 /usr/include/dolly/quickjs-runner.h /usr/include/dolly/quickjs-runner.h
-COPY FROM HOST /Dollyfile-typescript-build 5c61c66a4bca40fa71ae543fbb7136d8962e7d85c1d45a7b6d83ca2401d8e540 /usr/include/quickjs.h /usr/include/quickjs.h
-COPY FROM HOST /Dollyfile-typescript-build 5c61c66a4bca40fa71ae543fbb7136d8962e7d85c1d45a7b6d83ca2401d8e540 /usr/lib/dolly/node.js /usr/lib/dolly/node.js
-COPY FROM HOST /Dollyfile-typescript-build 5c61c66a4bca40fa71ae543fbb7136d8962e7d85c1d45a7b6d83ca2401d8e540 /usr/lib/janis/runtime.js /usr/lib/janis/runtime.js
-COPY FROM HOST /Dollyfile-typescript-build 5c61c66a4bca40fa71ae543fbb7136d8962e7d85c1d45a7b6d83ca2401d8e540 /usr/lib/typescript /usr/lib/typescript
-COPY FROM HOST /Dollyfile-typescript-build 5c61c66a4bca40fa71ae543fbb7136d8962e7d85c1d45a7b6d83ca2401d8e540 /usr/share/licenses/quickjs-ng/LICENSE /usr/share/licenses/quickjs-ng/LICENSE
+COPY FROM HOST /Dollyfile-typescript-build 75cf53818c4ed472d15913483ae5bfd589e551c35f187a7cfacd5f925e409d07 /usr/bin/qjs /usr/bin/qjs
+COPY FROM HOST /Dollyfile-typescript-build 75cf53818c4ed472d15913483ae5bfd589e551c35f187a7cfacd5f925e409d07 /usr/bin/janis /usr/bin/janis
+COPY FROM HOST /Dollyfile-typescript-build 75cf53818c4ed472d15913483ae5bfd589e551c35f187a7cfacd5f925e409d07 /usr/bin/tsc /usr/bin/tsc
+COPY FROM HOST /Dollyfile-typescript-build 75cf53818c4ed472d15913483ae5bfd589e551c35f187a7cfacd5f925e409d07 /usr/lib/libdolly-js.a /usr/lib/libdolly-js.a
+COPY FROM HOST /Dollyfile-typescript-build 75cf53818c4ed472d15913483ae5bfd589e551c35f187a7cfacd5f925e409d07 /usr/include/dolly/quickjs-runner.h /usr/include/dolly/quickjs-runner.h
+COPY FROM HOST /Dollyfile-typescript-build 75cf53818c4ed472d15913483ae5bfd589e551c35f187a7cfacd5f925e409d07 /usr/include/quickjs.h /usr/include/quickjs.h
+COPY FROM HOST /Dollyfile-typescript-build 75cf53818c4ed472d15913483ae5bfd589e551c35f187a7cfacd5f925e409d07 /usr/lib/dolly/node.js /usr/lib/dolly/node.js
+COPY FROM HOST /Dollyfile-typescript-build 75cf53818c4ed472d15913483ae5bfd589e551c35f187a7cfacd5f925e409d07 /usr/lib/janis/runtime.js /usr/lib/janis/runtime.js
+COPY FROM HOST /Dollyfile-typescript-build 75cf53818c4ed472d15913483ae5bfd589e551c35f187a7cfacd5f925e409d07 /usr/lib/typescript /usr/lib/typescript
+COPY FROM HOST /Dollyfile-typescript-build 75cf53818c4ed472d15913483ae5bfd589e551c35f187a7cfacd5f925e409d07 /usr/share/licenses/quickjs-ng/LICENSE /usr/share/licenses/quickjs-ng/LICENSE
 
 EXPORTS TOOL qjs
 EXPORTS TOOL janis

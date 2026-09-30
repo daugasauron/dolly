@@ -1,14 +1,11 @@
 default
 bhop
 classicube
-external-source
-gamedev
-gamedev-phone
 gpu-fluid
 javascript
 neovim
 pi
 python
-python-pi
 rts-arena
 rust-tools
+slopyard

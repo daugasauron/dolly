@@ -1,0 +1,71 @@
+import assert from "node:assert/strict";
+import {readFile} from "node:fs/promises";
+import {chromium,firefox} from "playwright-core";
+import {startBrowserServer} from "./browser-server.mjs";
+
+const browserName=process.argv[2]??"chromium";
+const compression=process.argv[3]??"auto";
+assert.ok(["chromium","firefox"].includes(browserName));
+assert.ok(["auto","uncompressed"].includes(compression));
+const provider=(compression==='uncompressed'?'import "/test/fixtures/gpu-no-bc.mjs";\n':'')+
+  await readFile(new URL('../src/gpu-worker.mjs',import.meta.url),'utf8');
+const server=await startBrowserServer(new URL('..',import.meta.url).pathname,'gpu-sdk',0,
+  new Map([['/src/gpu-worker.mjs',provider]]),
+  {'gpu-render.c':'test/fixtures/gpu-render.c'});
+let browser,deadline;
+try {
+  browser=browserName==='firefox'
+    ? await firefox.launch({headless:false,firefoxUserPrefs:{'dom.webgpu.enabled':true}})
+    : await chromium.launch({channel:'chrome',headless:false,
+    args:['--no-sandbox','--ozone-platform=x11','--enable-unsafe-webgpu','--use-angle=vulkan','--enable-features=Vulkan,VulkanFromANGLE']});
+  deadline=setTimeout(()=>void browser.close(),90000);
+  const page=await browser.newPage(),errors=[];
+  page.on('pageerror',error=>errors.push(error.message));
+  await page.addInitScript(origin=>{
+    globalThis.DOLLY_HTTP_POLICY={maxRequests:1,rules:[{origin,pathPrefix:'/fixture/',methods:['GET']}]};
+  },server.origin);
+  await page.goto(`${server.origin}/gpu-sdk/`);
+  await page.waitForFunction(()=>['ready','failed'].includes(document.documentElement.dataset.dollyStatus));
+  assert.equal(await page.evaluate(()=>document.documentElement.dataset.dollyStatus),'ready',
+    await page.locator('#bootstrap-log').textContent());
+  await page.evaluate(()=>__dolly.waitForInteractiveTerminal(/dolly:[^\n]*\$\s*$/,'shell'));
+  const submit=command=>page.evaluate(text=>__dolly.submit(text),command);
+  assert.equal(await submit(`curl -fsS ${server.origin}/fixture/gpu-render.c -o /tmp/gpu-render.c`),0);
+  assert.equal(await submit('cc /tmp/gpu-render.c -ldolly-gpu -o /tmp/gpu-render'),0,
+    await page.evaluate(()=>__dolly.visibleTerminalText()));
+  for(let run=0;run<2;run++) {
+    const status=await submit('/tmp/gpu-render');
+    assert.equal(status,0,JSON.stringify(await page.evaluate(()=>__dolly.gpu)));
+    await page.evaluate(()=>__dolly.waitForInteractiveTerminal(/GPU texture\/depth\/indexed rendering PASS/,'GPU render result'));
+    const terminal=await page.evaluate(()=>__dolly.visibleTerminalText());
+    assert.match(terminal,/GPU texture\/depth\/indexed rendering PASS/);
+    if(run===0)console.log(terminal.match(/GPU BC texture checks: [^\n]*/)?.[0]);
+  }
+  await page.evaluate(()=>{globalThis.gpuHoldStatus=null;void __dolly.submit('/tmp/gpu-render --hold').then(status=>{globalThis.gpuHoldStatus=status;});});
+  let held=false;
+  for(let i=0;i<100;i++) {
+    if((await page.evaluate(()=>__dolly.visibleTerminalText())).includes('GPU_RENDER_HOLD')){held=true;break;}
+    await new Promise(resolve=>setTimeout(resolve,100));
+  }
+  assert.ok(held,'Guest never reached the held render state');
+  await page.keyboard.press('Control+c');
+  await page.waitForFunction(()=>globalThis.gpuHoldStatus!==null);
+  assert.equal(await page.evaluate(()=>globalThis.gpuHoldStatus),130);
+  assert.equal(await submit('/tmp/gpu-render'),0,await page.evaluate(()=>__dolly.visibleTerminalText()));
+  const boundary=await page.evaluate(async()=>{
+    const {gpuBoundaryProof}=await import('/test/fixtures/gpu-boundary.mjs');return gpuBoundaryProof();
+  });
+  const retirement=await page.evaluate(async()=>{
+    const {gpuRetirementProof}=await import('/test/fixtures/gpu-boundary.mjs');return gpuRetirementProof();
+  });
+  const submission=await page.evaluate(async()=>{
+    const {gpuSubmissionProof}=await import('/test/fixtures/gpu-boundary.mjs');return gpuSubmissionProof();
+  });
+  assert.deepEqual(errors,[]);
+  assert.equal(await submit('echo GPU_SHELL_RECOVERY > /tmp/gpu-recovery && cat /tmp/gpu-recovery'),0);
+  const adapter=await page.evaluate(()=>__dolly.gpu.adapter);
+  assert.equal(await page.evaluate(()=>__dolly.gpu.isFallbackAdapter),false);
+  console.log(JSON.stringify({browser:browser.version(),adapter,compression,guestCompiled:true,freshProcesses:3,interruptRecovery:true,textureDepthIndexed:true,boundary,retirement,submission}));
+} finally {
+  clearTimeout(deadline);await browser?.close();await server.close();
+}

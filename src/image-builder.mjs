@@ -1,4 +1,7 @@
 import { createHost, buildHost } from "./host/modules.mjs";
+import { DOLLY_IMAGES } from "../dist/dolly-images.mjs";
+import { describeImageArtifact, saveImageArtifact, sha256 } from "./image-artifact.mjs";
+import { inspectDollyfile } from "./dollyfile-view.mjs";
 
 // Disposable Wasm userspace, with the caller's browser policy and no display,
 // file picker, local service or ENTRY. Used for dependencies and Studio builds.
@@ -9,14 +12,14 @@ export async function buildImage(image, artifacts, networkPolicy, report, { cust
   const host = await createHost("browser", buildHost, {
     send: message => worker.postMessage(message), resources: { http: { network: networkPolicy } },
   });
-  let abort;
+  let abort, result;
   const decoder = new TextDecoder("utf-8", { ignoreBOM: true });
   try {
     signal?.throwIfAborted();
     worker = new Worker(new URL("./runtime-worker.mjs", import.meta.url), {
       type: "module", name: `dolly-build-${image}`,
     });
-    return await new Promise((resolve, reject) => {
+    result = await new Promise((resolve, reject) => {
       abort = () => reject(signal.reason);
       signal?.addEventListener("abort", abort, { once: true });
       worker.addEventListener("error", event => reject(new Error(event.message || "Image build worker failed")), { once: true });
@@ -47,5 +50,22 @@ export async function buildImage(image, artifacts, networkPolicy, report, { cust
     signal?.removeEventListener("abort", abort);
     host.dispose();
     worker?.terminate();
+    const tail = decoder.decode();
+    if (tail && !signal?.aborted) report(tail);
   }
+  // Drop the build filesystem before hashing and persisting its exported copy.
+  // Otherwise large images retain both Wasm storage and browser cache copies.
+  signal?.throwIfAborted();
+  const definition = DOLLY_IMAGES.find(candidate => candidate.image === image);
+  const recipeSha256 = image === "custom"
+    ? await sha256(new TextEncoder().encode(customSource)) : definition.sha256;
+  report("verifying completed image...\n");
+  const artifact = await describeImageArtifact(result.bytes, recipeSha256, result.inputs);
+  signal?.throwIfAborted();
+  const slot = image === "custom" ? `custom:${inspectDollyfile(customSource).image}` : `/${definition.dollyfile}`;
+  report("caching completed image...\n");
+  const saved = await saveImageArtifact(artifact, slot);
+  report(saved ? "saved completed image artifact\n" : "image built; local cache unavailable\n");
+  signal?.throwIfAborted();
+  return artifact;
 }

@@ -134,6 +134,8 @@ test("the production seed contains only bootstrap and compiler executables, not 
   }
   assert.ok(files.has("/seed/usr/include/stdio.h"));
   assert.ok(![...files.keys()].some(path => path.includes("/c++/v1/")));
+  for (const port of ["boost/version.hpp", "png.h", "unicode/utypes.h"])
+    assert.ok(!files.has("/seed/usr/include/" + port), `SDK cache port leaked into the compiler seed: ${port}`);
 });
 
 test("the process gate can only copy between one process and kernel memory", async () => {
@@ -166,6 +168,7 @@ test("Emscripten's JSON export list is derived from the Wasm contract", async ()
   );
   const gpuContract = await readWasmInterface(artifact("dolly-gpu-0.wasm"));
   const threadsContract = await readWasmInterface(artifact("dolly-threads-supervisor-0.wasm"));
+  const audioContract = await readWasmInterface(artifact("dolly-audio-0.wasm"));
 
   for (const entry of contract.imports) {
     if (!moduleInfrastructure.has(entry.name) && !loaderBackedFunctions.has(entry.name)) {
@@ -179,6 +182,7 @@ test("Emscripten's JSON export list is derived from the Wasm contract", async ()
   for (const entry of supervisorContract.exports) expected.add(`_${entry.name}`);
   for (const entry of threadsContract.exports) expected.add(`_${entry.name}`);
   for (const entry of gpuContract.exports) if (entry.type.kind === "func") expected.add(`_${entry.name}`);
+  for (const entry of audioContract.exports) if (entry.type.kind === "func") expected.add(`_${entry.name}`);
 
   assert.deepEqual(actual, [...expected].sort());
 });
@@ -338,21 +342,19 @@ test("system snapshots are sealed to their visible recipe chain", async () => {
   const projectDir = new URL("..", import.meta.url).pathname;
   const definitions = await discoverImageDefinitions(projectDir);
   const expectedPrograms = new Map([
+    ["audio-sdk", "/usr/lib/libdolly-audio.a"],
     ["bhop", "/usr/bin/bhop"],
+    ["slopyard", "/usr/bin/slopyard"],
     ["classicube", "/usr/bin/classicube-agent"],
     ["classicube-build", "/usr/bin/classicube"],
     ["codex", "/usr/bin/codex"],
     ["codex-build", "/usr/bin/codex"],
     ["default", "/bin/slop"],
     ["dollyfile-studio", "/usr/bin/dollyfile-lint"],
-    ["external-source", "/usr/bin/xxd"],
     ["fd-build", "/usr/bin/fd"],
     ["pi", "/usr/bin/pi"],
     ["pi-local", "/usr/bin/pi"],
     ["python", "/bin/slop"],
-    ["python-pi", "/usr/bin/pi"],
-    ["gamedev", "/usr/bin/graphics-demo"],
-    ["gamedev-phone", "/usr/bin/graphics-demo"],
     ["system", "/usr/bin/rg"],
     ["system-build", "/bin/slop"],
     ["system-tools", "/usr/bin/git"],
@@ -362,18 +364,24 @@ test("system snapshots are sealed to their visible recipe chain", async () => {
     ["rust-tools", "/usr/bin/patti"],
     ["protox-build", "/usr/bin/protox"],
     ["javascript", "/usr/bin/tsc"],
+    ["llama-build", "/usr/lib/dolly-llm/libllama.a"],
+    ["local-llm-build", "/usr/bin/dolly-llama"],
     ["typescript-build", "/usr/bin/tsc"],
     ["pi-build", "/usr/bin/pi"],
     ["pi-runtime", "/usr/bin/pi"],
     ["python-runtime", "/usr/bin/python"],
     ["gamedev-sdk", "/usr/lib/libbox3d.a"],
+    ["gpu-sdk", "/usr/lib/libdolly-gpu.a"],
+    ["gpu-fluid", "/usr/bin/fluid"],
     ["ghostty-build", "/usr/bin/zig"],
     ["cmake-build", "/usr/bin/cmake"],
     ["neovim-build", "/usr/bin/nvim"],
     ["neovim", "/usr/bin/nvim"],
     ["sdl2-build", "/usr/lib/libSDL2.a"],
+    ["openal-build", "/usr/lib/libopenal.a"],
     ["rts-build", "/usr/bin/seven-kingdoms"],
     ["rts-arena", "/usr/bin/rts-arena"],
+    ["zero-ad", "/usr/bin/zero-ad"],
   ]);
   for (const image of DOLLY_IMAGES.map(({ image }) => image)) {
     const snapshot = await readFile(artifact(`dolly-${image}-system.snapshot`));
@@ -411,7 +419,9 @@ test("system snapshots are sealed to their visible recipe chain", async () => {
       "/usr/lib/dolly/dolly-kernel-plugin-0.wasm"]) {
       assert.ok(metadata.manifest.includes(required), `${image} must explicitly retain ${required}`);
     }
-    assert.equal(metadata.manifest.some((path) => /\/usr\/src\/dolly\/(?:slop\.c|dollyfile\.c|process-tools\/|dso-)/.test(path) ||
+    assert.equal(metadata.manifest.includes("/usr/src/dolly/dollyfile.c"),
+      graph.exporters.has("FOLDER:dollyfile-source"), `${image}: Dollyfile compiler source`);
+    assert.equal(metadata.manifest.some((path) => /\/usr\/src\/dolly\/(?:slop\.c|process-tools\/|dso-)/.test(path) ||
       /\/process-bin\/(?!compiler$)/.test(path)), false, `${image} must not retain bootstrap probes`);
     for (const recipe of recipes) assert.ok(metadata.manifest.includes(recipe.retainedPath));
     assert.equal(metadata.manifest.some((path) => path.startsWith("/workspace")), false);
@@ -420,7 +430,7 @@ test("system snapshots are sealed to their visible recipe chain", async () => {
     assert.equal(metadata.byteLength, snapshot.byteLength);
     assert.equal(metadata.sha256, createHash("sha256").update(snapshot).digest("hex"));
     assert.ok(metadata.manifest.includes("/bin/foreground"));
-    const shellStartup = ["default", "codex", "rts-arena", "pi", "pi-local", "python", "python-pi", "gamedev", "gamedev-phone", "bhop", "classicube", "neovim", "dollyfile-studio"].includes(image);
+    const shellStartup = ["default", "codex", "rts-arena", "pi", "pi-local", "python", "bhop", "classicube", "neovim", "dollyfile-studio", "zero-ad"].includes(image);
     assert.equal(metadata.manifest.includes("/etc/dolly/init.slop"), shellStartup, `${image}: shell startup`);
     assert.deepEqual(metadata.entry, graph.root.entry);
     assert.equal(metadata.manifest.some(path => path.startsWith("/usr/lib/python3.14/test/")), false);
@@ -522,6 +532,7 @@ test("the main Wasm has an explicit, minimal browser boundary", async () => {
   assert.deepEqual(policy.http, ["env.dolly_http_dispatch"]);
   assert.deepEqual(policy.download, ["env.dolly_download_dispatch"]);
   assert.deepEqual(policy.gpu, ["env.dolly_gpu_dispatch"]);
+  assert.deepEqual(policy.audio, ["env.dolly_audio_dispatch"]);
   assert.equal(
     actual.some((name) => /nodefs|opfs|fetch|socket|spawn|process|pthread|thread_/.test(name)),
     false,

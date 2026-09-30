@@ -1,6 +1,6 @@
-import { MAX_SNAPSHOT_BYTES } from "./snapshot-records.mjs";
 // Static delivery for an already authorized bootstrap input or snapshot pack.
 const partLimit = 20 * 1024 * 1024;
+const assetLimit = 1024 * 1024 * 1024;
 const hash = async bytes => [...new Uint8Array(await crypto.subtle.digest("SHA-256", bytes))]
   .map(byte => byte.toString(16).padStart(2, "0")).join("");
 
@@ -31,7 +31,7 @@ export async function decodeStaticAsset(response, target, init, maximumBytes, fe
       url.username || url.password || !/^https?:$/.test(url.protocol)) throw new Error("invalid multipart asset request");
   const manifest = JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(await boundedAssetBody(response, 65536, init.signal)));
   if (!Number.isSafeInteger(manifest.byteLength) || manifest.byteLength <= 0 ||
-      manifest.byteLength > maximumBytes || manifest.byteLength > MAX_SNAPSHOT_BYTES ||
+      manifest.byteLength > maximumBytes || manifest.byteLength > assetLimit ||
       !/^[0-9a-f]{64}$/.test(manifest.sha256) || !Array.isArray(manifest.parts) ||
       manifest.parts.length < 2 || manifest.parts.length > 64 ||
       manifest.parts.some(part => !Number.isSafeInteger(part.byteLength) || part.byteLength <= 0 ||

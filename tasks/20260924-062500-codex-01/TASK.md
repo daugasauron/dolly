@@ -22,7 +22,7 @@ the gantry tray's obstructed pickup lane.
 The isolated pair completed two physical deliveries in 400 s, including a stack
 at the depot. Repeating across five save/reload cycles also passed, minimum
 courier uprightness 0.98273; its only contact partners were the two crates.
-Logs: `build/blockwalker-dock-{repeat-clear,restart}.log`. The permanent playground
+Logs: `build/slopyard-dock-{repeat-clear,restart}.log`. The permanent playground
 fixture checks gantry grip, released tray support, courier grip, delivery,
 non-overlapping magnetic ownership and restart continuation.
 
@@ -31,15 +31,15 @@ The first full-population trial exposed a lookout/cargo collision, fixed in
 six process/world reloads: all 51 objects, no removals, ten deliveries.
 Kawasemi delivered at 86.03/228.55 s, travelled 738.81 m and kept uprightness
 >=0.98275. Marrowstep made 1498 supported airborne placements, including 385 in
-the final five minutes. Evidence: `build/blockwalker-dock-population-cargo-42.log`.
+the final five minutes. Evidence: `build/slopyard-dock-population-cargo-42.log`.
 
-Image 16 rebuilt inside Dolly in 26.3 s (`build/blockwalker-playground-image16.log`).
-The packaged physics/driving suite passed (`build/blockwalker-dock-driver.log`),
+Image 16 rebuilt inside Dolly in 26.3 s (`build/slopyard-playground-image16.log`).
+The packaged physics/driving suite passed (`build/slopyard-dock-driver.log`),
 including both new regressions, cargo pickup and 73 Eyes-camera samples.
 Actual 9099 served-image checks matched all catalog controllers and showed a
 loaded courier travelling 6.44 m with all 51 objects intact and no browser errors.
 Follow/Eyes GPU views were inspected. The five-second Chrome/NVIDIA sample was
-36.58 FPS (`build/blockwalker-dock-preview.log` and matching directory).
+36.58 FPS (`build/slopyard-dock-preview.log` and matching directory).
 
 Package: 232147096 bytes, SHA-256
 `a01ebdb9e7d33fa2a3deaa462b21a4861b143c754b0f2e09aea5aa3c57f965c1`.

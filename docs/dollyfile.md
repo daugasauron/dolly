@@ -31,12 +31,8 @@ base's entry program never starts. Replace `<sha256>` with the referenced
 recipe's digest. `node scripts/update-module-pins.mjs` refreshes references
 through the catalog, including nested modules and image dependencies.
 
-[`Dollyfile-external-source`](../Dollyfile-external-source) is a runnable
-`SOURCE URL` example: it downloads upstream `xxd.c` from a fixed Git commit,
-verifies its digest, and compiles `/usr/bin/xxd` inside Dolly. Only the base image
-uses `HOST`; the C source is neither vendored nor fetched by the host build.
-Open `/external-source/rebuild/`, then try `printf Dolly | xxd` or
-`printf 446f6c6c79 | xxd -r -p`. The prebuilt route needs no upstream download.
+[`Dollyfile-gpu-fluid`](../Dollyfile-gpu-fluid) uses `SOURCE URL` to fetch
+pinned upstream code and builds it inside Dolly.
 External sources still require browser CORS and permission from the HTTP broker;
 the recipe cannot grant itself network access.
 
@@ -103,6 +99,9 @@ exports. Every imported artifact contributes its original source provenance.
 The Python+Pi recipe demonstrates copying Python into an independently built
 Pi userspace.
 
+Artifacts may be up to 2 GiB. Their payloads stay in the shared filesystem;
+the builder reads metadata and copies selected files in bounded chunks.
+
 Modules share the current filesystem and environment. `REQUIRES TOOL cc`
 checks command availability on `PATH`; the command need not have a declared
 provider. `REQUIRES ENV NAME` checks the environment. Other named assertions
@@ -129,6 +128,10 @@ cached/custom images and restored sessions. An unknown, disabled or incompatible
 provider fails with its name and reason before the image starts. Runtime is the
 mandatory base. Host requirements cannot be exported or grant authority: the
 embedding chooses providers and the HTTP broker still controls network access.
+The standard page selects runtime plus these declarations; an embedding can
+restrict that selection. The system shell declares display, HTTP, upload,
+download and snapshots. GPU and audio images add their own providers; Slopyard
+also adds threads. Installing a compiler or copying an SDK does not enable them.
 
 Build hosts supply their own providers. Compiling a GPU program needs no GPU;
 running a GPU program during the build does. Avoid executing graphics startup as

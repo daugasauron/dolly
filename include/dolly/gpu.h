@@ -3,7 +3,8 @@
 #include <stddef.h>
 #include <stdint.h>
 
-/* Experimental client of dolly-gpu-0.wat; not the WebGPU C API. */
+/* Experimental client of dolly-gpu-0.wat; not the WebGPU C API.
+ * Test FEATURE_LARGE_BATCH before recording more than 256 commands. */
 typedef struct {
   uint64_t scope;
   uint32_t sequence, count;
@@ -11,6 +12,10 @@ typedef struct {
   unsigned char packet[DOLLY_GPU_PACKET_BYTES];
   unsigned char reply[DOLLY_GPU_REPLY_BYTES];
 } dolly_gpu;
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 int dolly_gpu_open(dolly_gpu *g, uint32_t width, uint32_t height);
 int dolly_gpu_close(dolly_gpu *g);
@@ -35,3 +40,7 @@ void dolly_gpu_dispatch(dolly_gpu *g, uint64_t pipeline, uint64_t group, unsigne
 void dolly_gpu_copy(dolly_gpu *g, uint64_t src, uint64_t dst, uint64_t size);
 void dolly_gpu_map(dolly_gpu *g, uint64_t id, uint64_t size);
 void dolly_gpu_submit(dolly_gpu *g);
+
+#ifdef __cplusplus
+}
+#endif

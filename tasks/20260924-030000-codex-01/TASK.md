@@ -10,8 +10,8 @@ stopped transferring cargo. Its controller remained in lowering phase 3 from
 ridge; release requires a fixed height below 1.65 m. The crate is tilted
 (uprightness 0.808). Surviving is not sufficient evidence of continued activity.
 
-Replay `build/blockwalker-air-traffic-long-42/10-blockwalker-world.json` with
-the in-Dolly probe `build/blockwalker-northline.{c,mjs}`. Measure piston position,
+Replay `build/slopyard-air-traffic-long-42/10-slopyard-world.json` with
+the in-Dolly probe `build/slopyard-northline.{c,mjs}`. Measure piston position,
 rate, magnet load and the crate's actual support before changing the controller.
 Preserve the mechanism and physical pickup; do not snap the crate into position.
 
@@ -24,8 +24,8 @@ The 120-second replay measured piston extension fixed at 1.16 m, magnet height
 controller never released. The candidate uses `magnets[].targetSupportForce`
 and piston rate instead of its fixed height threshold: release at 1800.417 s,
 nine set-downs, 5.802 m traversal range, all 45 objects retained. CSVs, saved
-worlds and comparison are in `build/blockwalker-northline-proof/`; logs are
-`build/blockwalker-northline-{baseline,candidate1}.log` (both exit 0).
+worlds and comparison are in `build/slopyard-northline-proof/`; logs are
+`build/slopyard-northline-{baseline,candidate1}.log` (both exit 0).
 
 The support reading is derived from actual Box3D contacts in C, uses the existing
 last-substep force convention, and excludes the target's own assembly. It lives
@@ -33,14 +33,14 @@ only in live physics sensors; transient contact data is not added to world saves
 The fresh 600-second regression completed 40 set-downs across a restart, with
 3357 airborne and 469 supported samples. Driving, Eyes, tilted turntable, cargo
 scoring and courier-clearance checks also passed in
-`build/blockwalker-gantry-driver2.log` (exit 0).
+`build/slopyard-gantry-driver2.log` (exit 0).
 
 The embedded fixture uses ballast cargo within the magnet's lifting capacity:
 6.456 N of support while captured on the floor, zero during lift, cargo raised to
 1.992 m and released to 0.485 m. A light crate already hovers slightly after
 capture and cannot prove grounded support. Final embedded contact-force,
 buoyancy, controller-containment and exact pre-tick restore checks passed in
-`build/blockwalker-gantry-integration2.log` (exit 0).
+`build/slopyard-gantry-integration2.log` (exit 0).
 
 Packaged locally in 23.6 s using the unchanged runtime:
 232123849 bytes, SHA-256

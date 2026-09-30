@@ -28,7 +28,7 @@ Only new bodies move to the requested height; rootHeight retains the normal
 standing height. Omitted world y uses the terrain/water even from ground practice.
 No host, GPU or machine ABI changes.
 
-Verification: `test/blockwalker-cargo-browser.mjs` runs actual Box3D/GPU code
+Verification: `test/slopyard-cargo-browser.mjs` runs actual Box3D/GPU code
 inside the browser. Tidelock carried a loose alloy crate **5.699 m vertically**,
 returned to the low level, and kept about **0.971 m** center separation between
 crate and platform. Quayfin carried another crate on its **12.506 m** route with
@@ -38,12 +38,12 @@ no bodies. Crates dropped from 8 m landed normally and survived the removal grac
 period. Restart preserved exact IDs, poses/velocities and rootHeight; the loaded
 lift remained supported throughout another eight seconds.
 
-The existing `test/blockwalker-agent-browser.mjs` also passed: four distinct
+The existing `test/slopyard-agent-browser.mjs` also passed: four distinct
 fresh-world magnetic cargo machines, practice pickup/lift/release, latched magnet
 restoration, water/flight/bridge physics and saved-world continuation. Both browser
 runs used the 4 GiB/no-swap process-tree guard. The C image build took 16.6 seconds
-inside Dolly. Logs: `build/blockwalker-cargo-height-{build,browser,integration}.log`;
-measured traces and GPU frames: `build/blockwalker-cargo/`.
+inside Dolly. Logs: `build/slopyard-cargo-height-{build,browser,integration}.log`;
+measured traces and GPU frames: `build/slopyard-cargo/`.
 
 Live update: uploaded the 364,544-byte source archive through Dolly's normal file
 picker, compiled with the existing in-image cc in **3.24 s**, ran `--check` in
@@ -51,8 +51,8 @@ picker, compiled with the existing in-image cc in **3.24 s**, ran `--check` in
 conversation reimport was needed. Exact comparison retained all **35 objects**,
 magnetic attachments and the full **192,426,340-byte** native history, verified by
 SHA-256. Pi resumed on the same filesystem with instructions to try loading the
-existing Tidelock and Quayfin. Evidence: `build/blockwalker-cargo-update.log` and
-`build/blockwalker-walking/cargo-updated-proof.json`.
+existing Tidelock and Quayfin. Evidence: `build/slopyard-cargo-update.log` and
+`build/slopyard-walking/cargo-updated-proof.json`.
 
 The resumed Astra/xhigh Pi used the actual `drop_cargo` tool with world y, creating
 crate 43 above the live Tidelock at x163.5,y6.2,z-6. Timed `watch_world` results
@@ -65,5 +65,5 @@ on Quayfin's deck 279 seconds later after travelling 9.36 m. Its center was
 0.127 m horizontally from deck block 39, with 0.982 m vertical separation.
 This establishes live deck carriage; inter-machine transfer remains unproven.
 Actual Pi tool arguments/results are preserved in
-`build/blockwalker-walking/cargo-pi-proof.json`. Implemented in 1abd0bd; further
+`build/slopyard-walking/cargo-pi-proof.json`. Implemented in 1abd0bd; further
 cargo-transfer design work belongs to the ongoing larger-world task.

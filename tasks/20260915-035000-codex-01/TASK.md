@@ -34,8 +34,8 @@ checks passed. No application code changed beyond the bundled design data.
 Five actual GPU views passed with all objects retained and simulation matching
 wall time. Measured rates were 34–43 FPS while the live Pi world also ran;
 these short observations do not isolate GPU cost. The courier, beacon and boat
-images were visually inspected. Evidence: `build/blockwalker-island-starters-build.log`,
-`build/blockwalker-island-starters-integration.log`,
-`build/blockwalker-island-starters-proof.json`, `build/blockwalker-islands-gallery.log`
-and `build/blockwalker-islands/`. All test browsers exited. The existing live
+images were visually inspected. Evidence: `build/slopyard-island-starters-build.log`,
+`build/slopyard-island-starters-integration.log`,
+`build/slopyard-island-starters-proof.json`, `build/slopyard-islands-gallery.log`
+and `build/slopyard-islands/`. All test browsers exited. The existing live
 world/full conversation were not migrated or modified by this starter update.

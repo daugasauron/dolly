@@ -4,7 +4,7 @@
 - PRIORITY: 250
 - TAGS: game,content,physics
 
-Continue the Blockwalker branch through September 24, 2026, 21:00 JST.
+Continue the Slopyard branch through September 24, 2026, 21:00 JST.
 The user likes the cave and wants more interesting places and characters.
 Start from verified checkpoint f9e8083, preserve the original saved world and
 native Pi history, and keep the existing walkers and island cargo competition.
@@ -23,7 +23,7 @@ The first 68-object run reached 1047 seconds before exposing an
 The mine crew survived, with five completed porter-to-aircraft deliveries and
 72 measured foot placements by the new biped. The final checkpoint requires the
 courier fix and another combined run. Temporary trials and saved reproductions
-are under `build/blockwalker-mine-*`; they are not automatically shipped content.
+are under `build/slopyard-mine-*`; they are not automatically shipped content.
 
 The final candidate adds nine machines and a salvage relic: a rotary boring rig,
 mine porter, two team lookouts, sump inspection float, physical ventilator,
@@ -35,22 +35,22 @@ Mine and Dispatch camera buttons expose the district and its nearby crew.
 
 Verified component trials, compiled inside Dolly:
 
-- `build/blockwalker-mine-models-first/`: 300 s with powered/unpowered paddles.
+- `build/slopyard-mine-models-first/`: 300 s with powered/unpowered paddles.
   Launch travel 93.770/8.852 m, no thrusters; minimum powered up 0.98978.
   Hibari made 18 and 20 supported airborne foot placements, including late ones.
-- `build/blockwalker-salvage-run-reach/`: final 23-part crane, relic and float
+- `build/slopyard-salvage-run-reach/`: final 23-part crane, relic and float
   survive 1200 s, 21 supported transfers between water and land. Relic height
   -3.515 to 2.948 m; maximum joint separation 0.0711 m; zero removals.
-- `build/blockwalker-mine-driver/`: real drill gating, sample stock/reload,
+- `build/slopyard-mine-driver/`: real drill gating, sample stock/reload,
   porter clearance, wrong aircraft attachment and previous physics checks pass.
   Keyboard-driven vehicle travels 8.691 m and picks up cargo; no browser errors.
-- `build/blockwalker-water-benchmark-first/`: a water-level terrain shortlist
+- `build/slopyard-water-benchmark-first/`: a water-level terrain shortlist
   matches 129480 old coverage queries across all maps. Identical saved state
   after 3600 timed steps; 50244 to 47430 ms (5.6% less time in this trial).
-- `build/blockwalker-mine-preservation.json`: original world, character, config
+- `build/slopyard-mine-preservation.json`: original world, character, config
   and complete native Pi history remain byte-identical to the previous proof.
 
-`build/blockwalker-mine-continuous-final0/` completes 1800 s without reloads:
+`build/slopyard-mine-continuous-final0/` completes 1800 s without reloads:
 all 70 originals survive, 31 deliveries, East 33 / West 23, and five complete
 lift/hauler/loading-crane/barge/receiving-crane chains. Both teams receive heavy
 and light cargo in the last fifteen minutes. Hibari makes 119 supported foot
@@ -61,7 +61,7 @@ salvage crane 32 transfers. This run exposed an
 its three early mine deliveries do not establish sustained mine throughput.
 
 The corrected porter completes a second uninterrupted 1200 s population trial
-(`build/blockwalker-mine-continuous-final42/`): all 70 originals remain, 26
+(`build/slopyard-mine-continuous-final42/`): all 70 originals remain, 26
 scored deliveries, East 21 / West 13, seven porter pickups, six mine handoffs
 and five scored cores. Hibari makes 83 supported foot placements, 20 in the
 final quarter; the salvage crane makes 21 transfers. A saved courier set-down
@@ -80,14 +80,14 @@ Final image 27 is served by the owned 9099 preview. Source archive:
 (232415220 bytes), built inside Dolly in 26.0 s using the existing runtime.
 The other twelve local image catalog entries are byte-for-byte metadata matches.
 
-`build/blockwalker-competition-preview-mine27-chrome/` and `...-firefox/`
+`build/slopyard-competition-preview-mine27-chrome/` and `...-firefox/`
 verify the actual served image, all 70 original objects and programs, terrain 2,
 51 saved designs, world export/import and zero deaths/errors/HTTP calls.
 Seven 15 s camera samples each: Chrome 56–61 FPS, Firefox 46–57 FPS, simulation
 0.998/1.000 times real time, zero GPU readback bytes. Framebuffers inspect the
 mine, dispatch, biped, paddle launch and salvage crane. Final controller limits
 pass 70000 finite calls, 1000 deliberately paused calls and five rejected
-runaways (`build/blockwalker-controller-final.log`). The original protected
+runaways (`build/slopyard-controller-final.log`). The original protected
 world and complete Pi history remain untouched.
 
 The next user goal, through September 25 at 07:00 JST, is tracked separately in

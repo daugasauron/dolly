@@ -210,7 +210,15 @@ static void DollyPumpEvents(_THIS)
             break;
         case DOLLY_INPUT_EVENT_FOCUS:
             SDL_SetKeyboardFocus(event.action ? video->window : NULL);
-            if (!event.action) SDL_ResetKeyboard();
+            if (!event.action) {
+                SDL_SetMouseFocus(NULL);
+                SDL_ResetKeyboard();
+                for (Uint8 button = SDL_BUTTON_LEFT; button <= SDL_BUTTON_X2; ++button)
+                    SDL_SendMouseButton(video->window, 0, SDL_RELEASED, button);
+            }
+            break;
+        case DOLLY_INPUT_EVENT_POINTER_PRESENCE:
+            SDL_SetMouseFocus(event.action ? video->window : NULL);
             break;
         default:
             break;

@@ -203,7 +203,12 @@ int main(int argc, char **argv) {
   do {
     EXPECT(curl_multi_perform(multi, &running), CURLM_OK);
     if (now() - started > 5) { fprintf(stderr, "CURL FAIL: %d concurrent transfers timed out\n", running); ++failures; break; }
-    if (running) nanosleep(&(struct timespec){.tv_nsec = 10000000}, NULL);
+    if (running) {
+      long timeout = 0;
+      EXPECT(curl_multi_timeout(multi, &timeout), CURLM_OK);
+      if (timeout > 0) nanosleep(&(struct timespec){
+          .tv_sec = timeout / 1000, .tv_nsec = timeout % 1000 * 1000000}, NULL);
+    }
   } while (running);
   CURLMsg *message;
   while ((message = curl_multi_info_read(multi, &remaining)) != NULL) {

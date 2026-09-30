@@ -7,7 +7,7 @@
 During the final mine population trial with seed 42, East air courier 59 remains
 in its lower phase from approximately 300 s through at least 660 s. The machine
 survives, but its delivery stops. Evidence is being collected in
-`build/blockwalker-mine-continuous-final42/`. Inspect the actual attached cargo,
+`build/slopyard-mine-continuous-final42/`. Inspect the actual attached cargo,
 clearance and contact forces in the saved state; verify release and scoring by
 replaying the world with its original physics and controller memory.
 
@@ -18,7 +18,7 @@ the neighboring crate estimate is not the actual surface below the load.
 The controller now descends slowly until measured support permits release,
 bounded by terrain clearance rather than the neighboring-crate estimate.
 
-`build/blockwalker-lower-resume-contact/` replays checkpoint 600 with unchanged
+`build/slopyard-lower-resume-contact/` replays checkpoint 600 with unchanged
 poses, velocities, attachments and controller memory. The original remains
 stuck for 15 s. With only the two courier programs replaced, courier 59 releases
 on supporting contact after 7.65 s and scores its first delivery. The full

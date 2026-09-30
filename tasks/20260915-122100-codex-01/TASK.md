@@ -12,10 +12,10 @@ Fresh and settled consecutive real-browser launches render paragraphs and long
 messages correctly, and both prompt messages arrive intact. A very early image
 during one consecutive launch had a transient layout discrepancy; it did not
 reproduce after startup settled. Direct C row inspection retained paragraph
-breaks. Evidence: build/blockwalker-trace-{wrap,alone,reload,debug}/. Source-only
+breaks. Evidence: build/slopyard-trace-{wrap,alone,reload,debug}/. Source-only
 compilation took about 4.1 s. The image and updated integration/reopen suite passed. In-Dolly source hashes
 match the package, and the resumed real Pi panel renders the larger word-wrapped
-traces (build/blockwalker-walking/bipeds-running.png).
+traces (build/slopyard-walking/bipeds-running.png).
 
 A synthetic per-frame log flood took median 72-78 ms per whole game frame with
 50 background objects. Instrumentation measured about 22 ms per complete UI

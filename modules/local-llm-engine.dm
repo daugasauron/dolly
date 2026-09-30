@@ -2,7 +2,6 @@ DOLLY 4
 MODULE local-llm-engine
 
 REQUIRES TOOL cc
-REQUIRES HOST gpu@0
 REQUIRES TOOL c++
 REQUIRES TOOL tar
 REQUIRES HEADER llama
@@ -12,7 +11,7 @@ REQUIRES LIB ggml-base
 REQUIRES LIB ggml-cpu
 REQUIRES LIB ggml-webgpu
 
-SOURCE HOST /static/llama/engine.tar /tmp/llm-engine.tar c02566f90ce915ba83c964e003c4ebb21b250c5ed08bb44d73612941b42b6870
+SOURCE HOST /static/llama/engine.tar /tmp/llm-engine.tar a5fd8cd7d850b651f0d5519b72213a1b3373dc8a80f7a98ef9f4a69bec0b0ed6
 SLOP tar -xf /tmp/llm-engine.tar -C /
 SLOP c++ -std=c++20 -O1 -I/usr/include/dolly-llm -I/usr/src/dolly-llm/include \
   /usr/src/dolly-llm/main.cpp /usr/src/dolly-llm/webgpu.cpp \

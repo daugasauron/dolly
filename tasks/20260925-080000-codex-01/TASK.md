@@ -31,28 +31,28 @@ holds a 3.651 N load at 3.646 N, with speed 0.024 m/s after settling.
 
 Verification:
 
-- `test/blockwalker-bearings-browser.mjs [source.tar]` compiles C inside Dolly.
+- `test/slopyard-bearings-browser.mjs [source.tar]` compiles C inside Dolly.
   All four sizes rotate under load on all three axes, with maximum separation
   0.01177 m; reversed X/Z mounts also pass. Direct joint checks prove mounting
   across the base and rotor faces. A loaded world round-trip retains pose/mass.
   A base-mounted hinge stays stationary while the rotor turns; a base-mounted
   piston extends 1.5 m with 0.00048 m separation. The existing actuator suite
   passes. Browser clicks verify all sizes, face placement, rejected shrinking,
-  undo, export and import. Evidence: `build/blockwalker-bearing-proof/`.
+  undo, export and import. Evidence: `build/slopyard-bearing-proof/`.
 - Final open-frame crew, 360 simulated seconds, including a loaded save/reopen
   and an aircraft leaving/returning: three reloads, three shots, all three
   crates physically contact the aircraft, no dropped loads or crew collisions.
   Maximum separation: slinger 0.00620 m, loader 0.01493 m. Evidence:
-  `build/blockwalker-launcher-wide-open-mast/proof.json` and its traces.
+  `build/slopyard-launcher-wide-open-mast/proof.json` and its traces.
 - The populated-world run exposed an unbounded turret command after
   a disturbance. With bounded commands and the final geometry both teams reload/fire, all 96 objects
   remain, four cargo deliveries complete, and crew collisions/controller errors
-  are zero over 180 s: `build/blockwalker-launcher-wide-final-populated/proof.json`.
+  are zero over 180 s: `build/slopyard-launcher-wide-final-populated/proof.json`.
 - A closer heavy crate remains unrequested while all three light crates reload
-  and hit, including loaded save/reopen: `build/blockwalker-launcher-wide-light-only2/`.
+  and hit, including loaded save/reopen: `build/slopyard-launcher-wide-light-only2/`.
 
 Completed September 25, 2026. Image 29 is served at
-`http://127.0.0.1:9099/blockwalker/` by the owned preview service. C compilation
+`http://127.0.0.1:9099/slopyard/` by the owned preview service. C compilation
 and `--check` ran inside Dolly. Image: 232599131 bytes, SHA-256
 `d0ec8d9091babaa91a832b21e7353d1354037e1fd88708972c931df97f3408e1`.
 Source archive SHA-256:
@@ -62,11 +62,11 @@ Chrome and Firefox checks of the served image pass: all 91 programs/blueprints
 match the catalog, both crews render correctly, and the old 125-object world
 restores with its programs and delivery ledger retained. Browser errors and
 model HTTP requests are zero. Evidence:
-`build/blockwalker-image29-preview/proof.json` and
-`build/blockwalker-image29-preview-firefox/proof.json`.
+`build/slopyard-image29-preview/proof.json` and
+`build/slopyard-image29-preview-firefox/proof.json`.
 
 All six protected files (392379755 bytes, including the complete Pi history),
 twelve other images and thirteen catalog entries remain unchanged:
-`build/blockwalker-image29-preservation.json`. Existing saved worlds retain
+`build/slopyard-image29-preservation.json`. Existing saved worlds retain
 their own designs; a fresh session gets the replacement crews. No push or
 public deployment was performed.

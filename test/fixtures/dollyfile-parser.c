@@ -3,6 +3,7 @@
 #define main dollyfile_main
 #include "../../src/dollyfile.c"
 #undef main
+#include <sys/resource.h>
 
 static Buffer source;
 static Buffer child_source;
@@ -81,24 +82,33 @@ int main(int argc, char **argv) {
     result = artifact_has_path(&artifact, argv[2]) ? 0 : 2;
   } else if (strcmp(argv[1], "artifact-reuse") == 0) {
     const char *pin = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
-    engine.artifact.bytes.data = malloc(1);
+    engine.artifact.stream = tmpfile();
     strcpy(engine.artifact.recipe_sha256, pin);
     // There is no corresponding host file: this call must use the decoded input.
-    result = read_artifact(&engine.artifact, pin);
+    result = read_artifact(&engine.artifact, "unused", pin);
     char *kind = NULL, *name = NULL;
     int header = 0;
     size_t operations = 0;
     char comment[] = "# between COPY rows", declaration[] = "DOLLY 3";
     if (result == 0) result = process_line(&engine, "probe", 0, 1, comment,
         NULL, 0, &tools, &exports, &kind, &name, &header, &operations, 0);
-    if (engine.artifact.bytes.data == NULL) result = 2;
+    if (engine.artifact.stream == NULL) result = 2;
     if (result == 0) result = process_line(&engine, "probe", 0, 2, declaration,
         NULL, 0, &tools, &exports, &kind, &name, &header, &operations, 0);
-    if (engine.artifact.bytes.data != NULL || engine.artifact.recipe_sha256[0]) result = 2;
-    engine.artifact.bytes.data = malloc(1);
+    if (engine.artifact.stream != NULL || engine.artifact.recipe_sha256[0]) result = 2;
+    engine.artifact.stream = tmpfile();
     strcpy(engine.artifact.recipe_sha256, pin);
-    if (read_artifact(&engine.artifact, "different") != -ENOENT ||
-        engine.artifact.bytes.data != NULL || engine.artifact.recipe_sha256[0]) result = 2;
+    if (read_artifact(&engine.artifact, "/absent-dolly-fixture", "different") != -ENOENT ||
+        engine.artifact.stream != NULL || engine.artifact.recipe_sha256[0]) result = 2;
+  } else if (strcmp(argv[1], "read-artifact") == 0 && (argc == 4 || argc == 6)) {
+    const struct rlimit limit = {64 * 1024 * 1024, 64 * 1024 * 1024};
+    if (setrlimit(RLIMIT_AS, &limit) != 0) return 2;
+    result = read_artifact(&engine.artifact, argv[2], argv[3]);
+    if (result == 0 && argc == 6) {
+      const dolly_fs_record *record = artifact_file(&engine.artifact, argv[4]);
+      if (record == NULL || record->kind != DOLLY_FS_FILE) result = -EINVAL;
+      else result = copy_artifact_file(&engine.artifact, record - engine.artifact.records, argv[5]);
+    }
   } else if (strcmp(argv[1], "image-locator") == 0) {
     result = valid_image_locator(argv[2]) ? 0 : 2;
   } else if (strcmp(argv[1], "path") == 0) {

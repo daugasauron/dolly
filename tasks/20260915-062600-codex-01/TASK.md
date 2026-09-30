@@ -4,7 +4,7 @@
 - PRIORITY: 200
 - TAGS: runtime,performance,timers
 
-Blockwalker tree construction improved from 1.31 to 0.47 ms/frame, with identical
+Slopyard tree construction improved from 1.31 to 0.47 ms/frame, with identical
 GPU images, but total FPS still varied between roughly 37 and 57. The GPU itself
 measured about 0.4 ms. Isolating the live Pi world did not eliminate variation.
 Do not attribute it to timer scheduling yet.
@@ -14,15 +14,15 @@ Janis uses deadline-based poll waits for its 16 ms frame timer. Measure actual
 1–16 ms poll/sleep wakeups in Dolly, idle and with the real game workload, then
 compare frame pacing. Keep deadlines canonical in Wasm and preserve process
 lifecycle/cancellation. Prefer deadline-aware wakeups over faster idle polling.
-Evidence so far: `build/blockwalker-isolated-compare/` and the linked
+Evidence so far: `build/slopyard-isolated-compare/` and the linked
 [profiling task](../20260915-060200-codex-01/TASK.md).
 
 ## Reproduced in the browser
 
-`build/blockwalker-timers-check.mjs` runs actual `Dolly.fsPoll` and Janis timers,
+`build/slopyard-timers-check.mjs` runs actual `Dolly.fsPoll` and Janis timers,
 then renders the full 42-object world. It uses the unchanged built runtime and
 image, no mocks and no HTTP calls. The guarded browser run passed with no removals.
-Evidence: `build/blockwalker-timers/timers.json` and matching browser log.
+Evidence: `build/slopyard-timers/timers.json` and matching browser log.
 
 Forty sequential waits per delay measured: 1–12 ms poll/timeout requests wake at
 about **16 ms**; 16 ms requests wake at about **32 ms**. Zero-time polls return
@@ -67,8 +67,8 @@ universally precise. Across four populated 16 ms timer windows, mean gaps were
 26.75–28.92 ms before (34.6–37.4 FPS), and 17.24–18.32 ms after (54.6–58.0 FPS).
 Simulation followed wall time and all 45 objects survived each replay. These
 are shared-host measurements, not isolated GPU benchmarks. Evidence:
-`build/blockwalker-timer-comparison.json`, `blockwalker-timers-{before,after}/`
-and `blockwalker-timers-recheck-{before,after}/`.
+`build/slopyard-timer-comparison.json`, `slopyard-timers-{before,after}/`
+and `slopyard-timers-recheck-{before,after}/`.
 
 The existing core browser suite passed in Chromium (20.6 s) and Firefox
 (28.3 s), including compiled C/C++, readiness, pipes, interruption, descendants
@@ -76,7 +76,7 @@ and HTTP cancellation. The C poll probe now checks that short absolute sleeps
 on both monotonic and real-time clocks do not return early. All userspace C was
 compiled inside Dolly. The focused game editor browser passed joint keys,
 cameras, underside placement, remapping, materials, anchoring and import/export.
-Logs: `build/blockwalker-timer-{core,editor,abi}.log`. Typed supervisor exports
+Logs: `build/slopyard-timer-{core,editor,abi}.log`. Typed supervisor exports
 and exact browser imports passed; the import-review JSON and export test also
 now include the already-existing GPU boundary that their old expectations missed.
 

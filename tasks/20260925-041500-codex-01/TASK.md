@@ -19,8 +19,8 @@ payout apply no force in zero gravity. A hanging 0.864 N load stays at
 5.600029 m with 5.599998 m paid out. A 0.2 N motor gains only 0.0000062 m
 in ten seconds; a 4 N motor lifts 2.103 m in four seconds. Brake/recreated
 length holds, and two free endpoints conserve linear momentum. Evidence:
-`build/blockwalker-compound-regressions-chrome-rope/rope/regression.log`;
-source `build/blockwalker-rope/trial.c`. This proves the center-anchor physics
+`build/slopyard-compound-regressions-chrome-rope/rope/regression.log`;
+source `build/slopyard-rope/trial.c`. This proves the center-anchor physics
 only, not an editable/rendered/saved game block. Next: block-local endpoints,
 finite-force controls, visible cable/slack and full persistence, then a working
 suspended-magnet machine. Salvaging missed light cargo from water would give
@@ -33,23 +33,23 @@ persistence exposes paidOut/tension sensors and retains magnetic cargo through
 twenty reopens: 10.952 N suspended tension, 1.157 m lift and 1.587 m payout.
 Seven malformed cable-state imports leave the current world intact. Slack
 length and a winch disabled by a rigid neighboring bridge round-trip correctly.
-Evidence: `build/blockwalker-compound-regressions-chrome-winch-{engine,state}/`.
+Evidence: `build/slopyard-compound-regressions-chrome-winch-{engine,state}/`.
 Rendering, builder controls and a real salvage workload remain before promotion;
 canonical source and served image remain at checkpoint 33.
 
 The complete block now passes Chrome and Firefox: the ordinary lower/capture/
 hoist program lifts its crate over 2 m, and payout leaves visible cable slack
 above a grounded load. Builder placement, R/F binding, force/capacity changes
-and exact design export/import pass. `build/blockwalker-winch-view-{chrome,
+and exact design export/import pass. `build/slopyard-winch-view-{chrome,
 firefox}/proof.json` records that workload; Firefox also passes bearing physics
 and twenty reopens of the previously crashing 97-object save. The canonical
 combined browser check includes these winch tests and passes in
-`build/blockwalker-image35-canonical-proof/`. Salvage boats are tracked separately
+`build/slopyard-image35-canonical-proof/`. Salvage boats are tracked separately
 in `20260925-052300-codex-01`; this block does not collide or wrap its cable
 around terrain.
 
 Verified and bundled in local image 35. Chrome and Firefox verify all 93
 bundled designs and restore both the 125-object format-2 world and original
-51-object format-1 save. `build/blockwalker-image35-preview{,-firefox}/proof.json`.
+51-object format-1 save. `build/slopyard-image35-preview{,-firefox}/proof.json`.
 Protected files and twelve other images remain unchanged. Source SHA-256:
 `42a882d7abe466aec3ab476e012d64bbcced33cba1422a018f716571fabcc94c`.

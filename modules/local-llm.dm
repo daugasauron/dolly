@@ -1,5 +1,6 @@
 DOLLY 4
 MODULE local-llm
+REQUIRES HOST gpu@0
 
 REQUIRES TOOL janis
 REQUIRES TOOL tar

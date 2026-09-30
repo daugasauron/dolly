@@ -10,7 +10,7 @@ and dark mineral seams on vertical faces. Keep exposed ledge edges and the matte
 late-90s style. This is a generic terrain-material shader, with no collision or
 actor-program changes.
 
-Prepared comparison: `build/blockwalker-quarry-colors/{before,after}.wgsl` and
+Prepared comparison: `build/slopyard-quarry-colors/{before,after}.wgsl` and
 `browser.mjs`. Render identical saved-world views in Chrome and Firefox, inspect
 the quarry and other shared rock surfaces, and measure the existing populated
 rendering sample. Keep the shader unbundled until the comparison supports it.

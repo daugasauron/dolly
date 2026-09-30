@@ -35,7 +35,7 @@ performance improvement. The gantry, pier and boat images were inspected; the
 boat and pier were recaptured from seaward because the landward view hid them
 behind the shoreline. No boarding or boat-to-pier cargo transfer is claimed.
 
-Evidence: `build/blockwalker-service-build.log`, `build/blockwalker-service-integration.log`,
-`build/blockwalker-service-proof.json`, `build/blockwalker-service-gallery.log`
-and `build/blockwalker-service/`. All test browsers exited. The live Pi world
+Evidence: `build/slopyard-service-build.log`, `build/slopyard-service-integration.log`,
+`build/slopyard-service-proof.json`, `build/slopyard-service-gallery.log`
+and `build/slopyard-service/`. All test browsers exited. The live Pi world
 was not migrated; this change only updates fresh-world population data.

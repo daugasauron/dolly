@@ -18,7 +18,7 @@ Exact750s replay with the final33 program runs200s with zero contacts and
 minimumup.98228; its large trace export failed, but states/results were retained.
 The first variant's full exported replay records zero contacts/minup.980523.
 Fresh145s final-variant diagnostic has no33/93 contacts. Evidence under
-`build/blockwalker-compound-regressions-chrome-{scout-clear,fresh-traffic-v2}/`.
+`build/slopyard-compound-regressions-chrome-{scout-clear,fresh-traffic-v2}/`.
 
 Fresh1500s combined catalog preserves every original design; the two tracked
 bipeds remain above.950918/.961194 up. This closes the measured traffic defect,

@@ -19,6 +19,7 @@ modules. This page records compatibility, not a second source inventory.
 | Neovim | Source-built editor, Dollyfile highlighting/linting in Studio, Slop shell commands | No PTY `:terminal`, tmux or LuaJIT FFI; [editor guide](neovim.md) |
 | raylib / Box3D | Software-rendered 2D/3D games and real 3D rigid-body physics | No DOM/WebGL; serial physics; [display API](display.md) |
 | SDL2 / Seven Kingdoms | Source-built CPU rendering, input and two Pi players in the [RTS experiment](rts-arena.md) | No audio/threads; remote model APIs require CORS |
+| 0 A.D. Release 28 | Real wasm64 engine, two selected scenarios, Athens/Petra economy, hardware WebGPU in Chrome/Firefox, audio, deterministic save continuation, replay/control and a two-peer relay match; [build/run](sources.md#0-ad-bootstrap) | External engine bootstrap; selected content; buffered audio latency; slow HTTP multiplayer; no lobby/native peers/network rejoin |
 | Zig / Ghostty | Separate private Zig compiler; source-built VT renderer | Builder image only; system copies finished display artifacts |
 
 ## Python and Bonnie

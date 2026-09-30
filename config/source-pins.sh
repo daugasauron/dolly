@@ -1,4 +1,4 @@
-# Canonical external-source pins for Dolly's reproducible build.
+# Canonical upstream source pins for Dolly's reproducible build.
 # This file is shell syntax so the fetch/build scripts consume it directly.
 
 DOLLY_EMSDK_VERSION=6.0.8
@@ -57,6 +57,12 @@ DOLLY_ZLIB_VERSION=1.3.2
 DOLLY_ZLIB_COMMIT=da607da739fa6047df13e66a2af6b8bec7c2a498
 DOLLY_ZLIB_URL='https://github.com/madler/zlib.git'
 
+DOLLY_0AD_VERSION=0.28.0
+DOLLY_0AD_SOURCE_URL='https://releases.wildfiregames.com/0ad-0.28.0-unix-build.tar.xz'
+DOLLY_0AD_SOURCE_SHA256=27e217755ef76a922fe58dbf593d96e54b6ed2375d23f548c35619aa6bd5a42a
+DOLLY_0AD_DATA_URL='https://releases.wildfiregames.com/0ad-0.28.0-unix-data.tar.xz'
+DOLLY_0AD_DATA_SHA256=e844b30ae2102c47e0a4fff2f0e0ef05ba0cebb1890aa72276fa12457c39526f
+
 DOLLY_LIBFFI_VERSION=3.5.2
 DOLLY_LIBFFI_URL='https://github.com/libffi/libffi/releases/download/v3.5.2/libffi-3.5.2.tar.gz'
 DOLLY_LIBFFI_SHA256=f3a3082a23b37c293a4fcd1053147b371f2ff91fa7ea1b2a52e335676bac82dc
@@ -93,6 +99,10 @@ DOLLY_CMAKE_SHA256=c46400618b4f1f2b43507f24fb22f3ae830c3416cf23b776e16e1d413aa89
 DOLLY_SDL2_VERSION=2.32.10
 DOLLY_SDL2_URL='https://www.libsdl.org/release/SDL2-2.32.10.tar.gz'
 DOLLY_SDL2_SHA256=5f5993c530f084535c65a6879e9b26ad441169b3e25d789d83287040a9ca5165
+
+DOLLY_OPENAL_VERSION=1.24.3
+DOLLY_OPENAL_URL='https://openal-soft.org/openal-releases/openal-soft-1.24.3.tar.bz2'
+DOLLY_OPENAL_SHA256=cb5e6197a1c0da0edcf2a81024953cc8fa8545c3b9474e48c852af709d587892
 
 DOLLY_SEVEN_KINGDOMS_VERSION=2.15.7
 DOLLY_SEVEN_KINGDOMS_URL='https://downloads.sourceforge.net/project/skfans/7KAA%202.15.7/7kaa-2.15.7.tar.gz'
@@ -166,3 +176,7 @@ DOLLY_DAWN_WEBGPU_SHA256=9c36eb46ada070b9cc0de2bdfd04c1fa1a1fd852cc1ebb371e96e68
 
 DOLLY_LUA55_URL='https://www.lua.org/ftp/lua-5.5.1.tar.gz'
 DOLLY_LUA55_SHA256=1c4b4068d67061f2a2231ad2b5422e77acea1487ea9890f6320af614f4373dce
+
+# Native shader translator used by the 0 A.D. asset preparation step.
+DOLLY_0AD_NAGA_VERSION=30.0.1
+DOLLY_0AD_NAGA_SHA256=45283c11b8b1da1936214eefc9caf9c1bc74ae5c090023eaea84ba317a194c8c

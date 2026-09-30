@@ -90,7 +90,6 @@ FILE /usr/share/licenses/uucode/LICENSE.md
 EXPORTS LIB    ghostty-vt /usr/lib/libghostty-vt.a
 EXPORTS LIB    display    /usr/lib/libdisplay.so
 EXPORTS HEADER ghostty-vt /usr/include/ghostty
-EXPORTS ENV    DISPLAY    /usr/lib/libdisplay.so
 
 SLOP rm \
   -rf \

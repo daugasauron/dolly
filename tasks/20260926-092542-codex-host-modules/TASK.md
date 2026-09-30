@@ -134,13 +134,13 @@ Verified implementation:
   acknowledge readiness before synchronous calls and refresh shared memory after
   growth. Failed GPU opens retire their scope before publishing completion;
   Firefox's immediate-retry test exposed the old ordering race.
-- Blockwalker and its twelve dependencies compiled inside Dolly. Fluid rebuilt
+- Slopyard and its twelve dependencies compiled inside Dolly. Fluid rebuilt
   in 17.1 seconds with cached dependencies. The final kernel change preserved
   the image build identity, avoiding another dependency rebuild.
 - 282 source checks, 40 pinned recipes and six targeted artifact/ABI checks pass:
   `build/host-modules-source-final.log`, `build/host-modules-recipes-final.log`,
   `build/host-modules-outer-abi-final.log`. Capability fingerprint generation also
-  passes (`build/capability-fingerprint-blockwalker.json`).
+  passes (`build/capability-fingerprint-slopyard.json`).
 - Chrome and Firefox pass real in-Dolly compile/link, transitive archive, DSO,
   forged GPU call, network denial, early image rejection and session reload:
   `build/host-modules-contract-{chrome,firefox}/proof.json`.
@@ -149,17 +149,17 @@ Verified implementation:
   `build/host-compute-{chrome,firefox}/proof.json`.
 - System image passes C/C++, process/DSO ABI, shared filesystem, rg/fd, HTTP and
   cancellation in Chrome and Firefox: `build/host-modules-system-core.log`.
-- Blockwalker passes rendering, edits, typing, held-key release, fullscreen,
+- Slopyard passes rendering, edits, typing, held-key release, fullscreen,
   design/world restore, repeated saves and preservation after failed saves:
-  `build/blockwalker-session/result.json`,
-  `build/blockwalker-session-firefox/result.json`.
+  `build/slopyard-session/result.json`,
+  `build/slopyard-session-firefox/result.json`.
 - Fluid passes both browsers: controls, solver output matched against direct GPU
   replay, no normal-frame readback, two interrupt/restarts, malformed packets,
   quotas, ownership, scope reuse, validation recovery and memory growth, with and
   without a canvas: `build/fluid-proof/results.json`,
   `build/host-modules-fluid-browser-final.log`.
 
-Draft preview: http://127.0.0.1:9098/blockwalker/ via
+Draft preview: http://127.0.0.1:9098/slopyard/ via
 `dolly-host-modules-draft.service`. Frozen image44 remains on port9099 via
-`dolly-blockwalker-checkpoint44.service`. No production deployment or merge.
+`dolly-slopyard-checkpoint44.service`. No production deployment or merge.
 Threads and the outstanding Lua/performance work remain separate tasks.

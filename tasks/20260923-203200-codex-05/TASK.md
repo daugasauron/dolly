@@ -11,7 +11,7 @@ those rows. Five actuator pairs work at the physics level but their keybindings
 and live angles are hidden during play. This makes learning the biped manually
 needlessly difficult. Do not simplify its verified body/controller to hide this.
 
-Verified screenshot: `build/blockwalker-audit-20260923/biped-manual-controls.png`;
+Verified screenshot: `build/slopyard-audit-20260923/biped-manual-controls.png`;
 the browser exported the selected 29-part, 12-actuator design. Allow inspection
 of every actuator and binding while testing. Verify with this biped and a larger
 saved design, keeping keyboard control and camera behavior intact.
@@ -20,6 +20,6 @@ Fixed with paged actuator controls. Bounded Chrome checks verified both the
 12-actuator Sidelight biped and the 46-part, 13-actuator Landfreighter: the last
 page exposes their remaining bindings/angles and highlights the final key while
 it actually drives the mechanism. Existing camera and editor checks also pass.
-Evidence: `build/blockwalker-retro-editor.log`, `build/blockwalker-retro-preview.log`,
-`build/blockwalker-proof/biped-controls-page-2.png` and
-`build/blockwalker-retro-proof/landfreighter-controls-page-2.png`.
+Evidence: `build/slopyard-retro-editor.log`, `build/slopyard-retro-preview.log`,
+`build/slopyard-proof/biped-controls-page-2.png` and
+`build/slopyard-retro-proof/landfreighter-controls-page-2.png`.

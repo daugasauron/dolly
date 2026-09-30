@@ -41,6 +41,8 @@ semantics, and lifecycle rules matter more than a high-level wrapper API.
   and process bookkeeping.
 - Experimental GPU buffers/textures are explicit external device resources,
   brokered through the versioned GPU interface; CPU userspace state remains in Wasm.
+- Queued PCM playback is an explicit external audio resource. Decoding, mixing
+  and source buffers remain in Wasm; the sound interface grants no audio capture.
 - The browser host is not Dolly's filesystem and cannot provide native
   subprocesses.
 - Network access crosses one explicit, restrictable browser broker. Programs do

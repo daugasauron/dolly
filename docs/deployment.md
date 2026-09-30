@@ -3,7 +3,7 @@
 The public sites are [GitHub Pages](https://daugasauron.github.io/dolly/) and
 [daugasauron.com](https://daugasauron.com/), backed by the Cloudflare Pages
 project `dolly`. Both use the same code, Dollyfiles and packaging pipeline.
-The domain publishes the full catalog, including Codex; GitHub Pages publishes
+The domain publishes the release catalog, including Codex; GitHub Pages publishes
 a smaller selection to fit its 1 GB limit. The domain also includes the
 “Agents at play” recordings; application code is shared between both hosts.
 
@@ -22,28 +22,31 @@ and its index link. The page and media are committed under
 `sites/daugasauron.com/agents` and covered by the release seal:
 
 ```sh
-DOLLY_BUILD_IMAGES=all bash scripts/package-pages.sh build/dolly-domain.tar.gz build/domain-releases daugasauron.com
+DOLLY_BUILD_IMAGES="$(paste -sd, config/domain-pages-images.txt)" bash scripts/package-pages.sh build/dolly-domain.tar.gz build/domain-releases daugasauron.com
 ```
 
 Use `github-pages` as the third argument for GitHub Pages. It receives no
-showcase page, link or media. Pi Local and Dollyfile Studio remain in its menu,
-with links and bookmark redirects to daugasauron.com: their bundled model
-exceeds GitHub Pages' site size limit. Fluid runs directly on both sites.
+showcase page, link or media. Pi Local, Dollyfile Studio and 0 A.D. remain in its
+menu, with links and bookmark redirects to daugasauron.com: the bundled model
+and game assets exceed GitHub Pages' site size limit. Fluid runs directly on both
+sites. Slopyard is unfinished and excluded from this release on both sites.
 
 The static exporter uses the supplied prefix; the Pages exporter uses `/`.
 Both verify sealed input, reject an existing destination and publish staging
 atomically. Neither uploads anything. Run `sha256sum --check deployment.sha256`
 inside an export to verify its uploaded bytes.
 
-Packaging defaults to all images. For GitHub Pages only, use
-[github-pages-images.txt](../config/github-pages-images.txt), which excludes
-Codex and the two images hosted on the domain but retains RTS Arena and fluid.
+Packaging defaults to all images. Deploy with
+[domain-pages-images.txt](../config/domain-pages-images.txt) or
+[github-pages-images.txt](../config/github-pages-images.txt). The GitHub selection
+excludes Codex and the three images hosted on the domain but retains RTS Arena
+and fluid. Both selections exclude Slopyard.
 Selection includes all build dependencies; omitted Dollyfiles remain in source.
 Use the same selection when preparing, snapshotting and packaging each artifact:
 
 ```sh
 export DOLLY_BUILD_IMAGES="$(paste -sd, config/github-pages-images.txt)"
-# For daugasauron.com instead: export DOLLY_BUILD_IMAGES=all
+# For daugasauron.com, read config/domain-pages-images.txt instead.
 node scripts/update-module-pins.mjs
 bash scripts/prepare-image-sources.sh
 npm run snapshot

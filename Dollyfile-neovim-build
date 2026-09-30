@@ -2,7 +2,7 @@ DOLLY 4
 IMAGE neovim-build
 
 # Reusable Neovim build artifacts.
-FROM HOST /Dollyfile-cmake-build 3493103ae1581b42a54597c69799c17cdf4ed4eb6555e557b986cb7fbc33b7dc
+FROM HOST /Dollyfile-cmake-build 78635522f8b11a686a0ac9fb32ab48eb8c6927db7f2f5e48f8b673fdb1b14b07
 USE HOST /modules/lua.dm f1bdfa705764c6bdec88f3ee58861679104bc7c0a7d7a2a62857354e7db55d78
 USE HOST /modules/lpeg.dm c2adc63362b42fb79d6fde4cfccba289ec444ae45cbd92aedaea410e48fcf5c9
 USE HOST /modules/luv.dm ce1863a205af5ae5c340f8d4ea52cef80ff8340f9144828c7e8f001d7c87d65a

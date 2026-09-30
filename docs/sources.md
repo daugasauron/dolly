@@ -48,7 +48,9 @@ Dollyfile/module rows --> browser broker --> exact SHA-256-checked files in Wasm
 
 The Emscripten data file contains the bootstrap seed: process sysroot and Clang
 headers, Dolly headers and ABI schemas, Slop/Dollyfile/core-command source, and
-the private compiler executable. Emscripten's standalone `dolly-seed.mjs` loader
+the private compiler executable. Base headers come from a fresh SDK sysroot;
+ports previously installed in the shared Emscripten cache are excluded.
+Emscripten's standalone `dolly-seed.mjs` loader
 mounts it at `/seed` only for a root rebuild without a `FROM` base;
 `src/dolly.c` installs those inputs into `/usr` before compilation. Prebuilt
 images and builds with a base already contain their compiler and do not fetch
@@ -183,6 +185,252 @@ browser and that the resulting retained files can be serialized.
 - The common seed is still large because it includes current Clang/LLVM and
   complete compiler headers.
 
+## 0 A.D. bootstrap
+
+The experimental Release 28 port in `toolchain/0ad`
+cross-compiles the engine and its C/C++/Rust dependencies outside Dolly. This is
+an explicit bootstrap exception. Source/data archives are pinned in
+`config/source-pins.sh`, additional dependency archives in
+`toolchain/0ad/dependencies.tsv`, and SDK ports by the pinned Emscripten image.
+SpiderMonkey reuses the compiler seed's Rust bootstrap, std and libc patches.
+The executable imports only the exact `dolly-process-0` contract; no Emscripten
+JavaScript loader accompanies it.
+
+On Linux x86_64 with an existing Dolly process sysroot, Podman, systemd user
+scopes, Python 3, make, m4 and pkg-config:
+
+```sh
+bash toolchain/0ad/build-engine.sh
+bash toolchain/0ad/prepare-headless.sh
+systemd-run --user --scope -p MemoryMax=3G -p MemorySwapMax=0 node test/0ad-engine-browser.mjs
+```
+
+Set `DOLLY_PROCESS_SYSROOT` to the project-relative sysroot directory if it is
+not `.cache/process-sysroot`. The browser check needs the default runtime/image
+built and Chrome installed. Builds use two jobs, a 4 GiB limit and no swap.
+For engine-only iterations run `toolchain/0ad/engine.sh` inside the pinned SDK
+container, then `bash toolchain/0ad/link-engine.sh`. Logs and downloaded browser
+evidence live under `.cache/0ad/`; generated Wasm/content under `build/0ad/`.
+
+The headless bundle selects the official combat demo, Temperate Roadway (2),
+simulation scripts and ICU data. It runs
+headlessly with serial tasks, shared JS contexts and separate realms, no native
+JIT, and heap-backed fixed-address pools. SDL uses Dolly's existing backend;
+curl uses its restrictable HTTP broker. Browser checks exercise real simulation,
+serialization, deterministic replay, save/load, guest pipes and process
+interruption/recovery, plus house construction, training, gathering and Petra AI.
+The save/load check compares 100 subsequent turns against uninterrupted play,
+including loading in a fresh process. The small upstream data patch avoids RNG
+draws and commands during AI restoration and keeps full and incremental entity
+observations consistent.
+Graphical content and restricted multiplayer are covered below; measurements are in
+[`tasks/20260923-115439-0ad-baseline`](../tasks/20260923-115439-0ad-baseline/TASK.md).
+
+Multiplayer retains upstream ENet 1.3.18 reliability/fragmentation and replaces
+its native socket backend with `enet-dolly.c`, above the existing HTTP ABI.
+The guest supplies `DOLLY_ENET_RELAY`; the browser policy must allow POST to that
+exact capability URL. `node toolchain/0ad/relay.mjs 8090 BROWSER_ORIGIN` starts a
+loopback relay and prints two participant URLs and logical addresses. Each
+participant gets only its own URL. Start the host with
+`-autostart=scenarios/combat_demo -autostart-host -autostart-host-players=2`
+and the other participant with `-autostart-client=10.0.0.1`; give them distinct
+`-autostart-playername` values. Add `-autostart-nonvisual -nosound -quickstart`
+for the verified headless match. These are normal upstream network game paths;
+`-dolly-control` remains an offline interface.
+
+The server and client pumps run serially in Wasm, draining at most 64 available
+events per frame. Sends to peers already marked disconnected fail before packet
+creation. The relay routes only bounded
+datagrams within its pre-created room, with no native UDP/TCP forwarding or
+arbitrary destination access. Ports and sender addresses are assigned by the
+relay; eight socket leases per participant expire after 60 seconds idle, pruned
+on the next request. A room supports 2–8 participants; two are browser-tested.
+Lobby, STUN, LAN discovery, native-client interoperability and network rejoin
+are outside this baseline. Remote deployment requires an explicitly configured
+HTTPS relay endpoint; the supplied CLI binds loopback only. Synchronous HTTP
+polling is slow: the 29.8-second combat match took 72.3 seconds on the test host.
+Both peers recorded all 149 identical turn hashes and the same winner, exited
+normally with no engine warnings/errors, and released every relay socket.
+
+`node --test test/0ad-relay.test.mjs` checks routing and quotas.
+`test/0ad-enet-browser.mjs` checks reliable fragmented 10 KB echoes, fresh socket
+reuse and browser denial of another participant's URL. Link its fixture after
+`enet.sh` using `bash toolchain/0ad/link.sh build/0ad/enet-check.wasm
+.cache/0ad/enet-check.o .cache/0ad/sysroot/lib/static/libenet.a`.
+`systemd-run --user --scope -p MemoryMax=4G -p MemorySwapMax=0 node
+test/0ad-multiplayer-browser.mjs` exercises the two real engines with the GPU
+disabled. The measured process-tree peak was 1,852,792,832 bytes.
+The optional `visual` or `visual-client` argument uses the packaged `zero-ad`
+image with a graphical host or client, respectively, and a headless peer. Run
+on the desktop with a 6 GiB scope; hardware mode rejects fallback adapters.
+An explicit second argument, `software`, selects SwiftShader for Xvfb checks.
+The test sends a real order to selected units and compares every shared turn's
+commands and hashes plus winner metadata. Per-process timestamps are excluded.
+Both arrangements passed all 149 shared turns on hardware: 112 seconds with a
+graphical client (4.83 GB peak), and 137 seconds with a graphical host (5.19 GB).
+The headless host now keeps polling after victory until all connected peers
+have simulated the winning turn. Both peers record the winner, exit cleanly
+and release their relay sockets.
+
+OpenAL Soft 1.24.3 is checksum-pinned in `config/source-pins.sh`.
+`npm run image -- openal-build` builds and installs its static library, headers,
+CMake package and licenses inside Dolly, then compiles and runs the stereo
+loopback check against that installation. Its loopback mixer runs serially:
+`config/openal-dolly.patch` polls its event queue after rendering and replaces
+its internal semaphore with a counter. It does not enable Dolly thread creation
+or POSIX semaphores. The external 0 A.D. bootstrap consumes the same prepared
+source; `openal.sh` builds its library and mixer fixture. Link the
+latter with `bash toolchain/0ad/link.sh build/0ad/openal-check.wasm
+.cache/0ad/openal-check.o .cache/0ad/sysroot/lib/libopenal.a`, then run
+`node test/0ad-openal-browser.mjs`. Two fresh processes each exercise two contexts,
+stereo positioning and playback completion. The game uses that mixer, decodes
+Vorbis in Wasm and polls sound items between PCM chunks. It keeps up to 32,768
+frames (683 ms) queued to tolerate slow render frames. This adds output latency;
+frames longer than the cushion can still cause audible gaps. Dolly skips the
+unsupported telemetry worker, so sound-enabled launches need no `-quickstart`
+option (upstream quickstart also disables sound).
+
+`Dollyfile-audio-sdk` builds the reusable PCM library inside Dolly.
+`node test/audio-browser.mjs` links a client against that SDK and verifies
+real Web Audio output, bounded queues, fresh processes and Ctrl-C cleanup.
+Chrome runs with GPU disabled and muted speaker output; an analyser measures
+the rendered signal. The typed `dolly-audio-0` contract and authority limits are
+documented in [the sound interface](audio.md) and
+[the browser review map](browser-boundary.md#experimental-audio-provider).
+
+After preparing those official archives, `bash toolchain/0ad/prepare-shaders.sh`
+builds checksum-pinned Naga 30.0.1 with its locked dependencies and the same
+native Rust bootstrap. It translates the release's SPIR-V graphics and buffer-compute variants to
+`build/0ad/shaders`, retaining their define indexes, streams and uniform offsets.
+Combined samplers become texture/sampler pairs in group 1; push constants become
+a uniform buffer in group 2. Group 0 retains material uniforms. Group 3 carries
+guest sampler descriptors for clamp-to-border emulation, including filtered
+edges and mip levels; this adds no browser capability. Buffer-only compute
+shaders use the existing single buffer group, with write-only storage declarations
+lowered to WGSL read/write access. Bindless, shadow and texture-compute variants
+are excluded from this renderer baseline.
+`node test/0ad-shaders-browser.mjs` compiles and links every converted shader in
+Chrome's software WebGPU adapter and checks the real upstream canvas shader's
+colors, orientation, grayscale uniform and border/mip filtering. Both skinning
+variants also check weighted positions, packed normals/tangents and offset/bounds
+guards. This validates shader conversion;
+it does not by itself establish a playable renderer. The GPU packet path has
+its separate guest-compiled check in `test/gpu-render-browser.mjs`.
+
+After the headless bundle and shaders exist, package the complete upstream
+content and build the `zero-ad` image:
+
+```sh
+python3 toolchain/0ad/package-graphics.py .cache/0ad/0ad-0.28.0
+node toolchain/0ad/prepare-distribution.mjs
+systemd-run --user --scope -p MemoryMax=10G -p MemorySwapMax=0 npm run image -- zero-ad
+systemd-run --user --scope -p MemoryMax=5G -p MemorySwapMax=0 node test/0ad-graphics-browser.mjs zero-ad hardware
+DOLLY_BUILD_IMAGES=zero-ad npm run publish
+npm run serve
+```
+
+The graphics package contains every upstream map, civilization, texture, model,
+animation, sound and music track. Native SPIR-V is omitted; translated WGSL serves
+the supported rendering paths. Content stays compressed in bounded ZIP archives, which the upstream VFS
+mounts normally. `prepare-distribution.mjs` copies the engine/content and generates
+SHA-256-pinned `SOURCE HOST` entries in `modules/zero-ad.dm` and `Dollyfile-zero-ad`.
+Assembly inherits the default image and uses Dolly's normal source-download and
+snapshot pipeline. The external engine build remains the explicit bootstrap
+exception described above; there is no host filesystem shortcut. Upstream
+engine/content notices and ICU/OpenAL licenses are retained.
+
+Opening `/zero-ad/` starts the upstream main menu. The `zero-ad` shell command
+also opens that menu and forwards explicit engine arguments, for example:
+
+```sh
+zero-ad -autostart=scenarios/combat_demo
+zero-ad -autostart=skirmishes/temperate_roadway_2p -autostart-civ=1:athen -autostart-civ=2:athen -autostart-ai=2:petra -autostart-aidiff=2:1
+```
+
+F10 opens the game menu; Ctrl-F10 exits cleanly to the shell and writes replay
+metadata. Ctrl-C interrupts the process; forced termination may leave incomplete
+replay metadata. Saves and replays live under `/opt/0ad/data` in the guest
+filesystem. Use Dolly's session save/download commands to retain them outside
+the current tab. `-version` and `-dolly-control` also work through the wrapper,
+which sets ICU's data path.
+
+The Wasm renderer uses bounded GPU packets, an offscreen backbuffer with opaque presentation,
+indexed meshes, reflected uniforms and translated upstream shaders. SDL owns
+input. Defaults select system cursors and low texture quality, with shadows,
+silhouettes, advanced water, postprocessing and antialiasing disabled.
+The graphics menu exposes supported controls, including texture quality and
+up to 16× anisotropic filtering. Streamed buffers, aligned uniform ranges and
+unchanged resource groups are reused. Released resources retain their allocation
+charges until GPU work completes.
+The binding cache reclaims entries at the admitted object limit, submitting
+pending draws and waiting for allocation retirement before reusing that capacity.
+Upstream GPU skinning keeps animation outputs on the device, using distinct
+storage pools for positions and packed half-float attributes. Providers without
+half-float vertex support retain CPU skinning. The normal graphics option can
+switch paths during a match; `-conf=gpuskinning:false` selects CPU explicitly.
+
+The browser check rejects fallback adapters by default. It exercises drag
+selection, movement recorded in the upstream replay, graphical quick-save/load,
+training and completed house construction through the economy UI, Petra progress,
+audible data in the browser audio graph, live skinning and texture-quality changes,
+fresh processes and shell recovery. Append `auto cpu` after the browser name
+to check CPU skinning, or `core` for core WebGPU limits with optional features
+disabled. Speaker output is muted during the test. Quick-save uses upstream's
+in-memory snapshot. `test/0ad-menu-browser.mjs` exercises graphics options,
+ordinary menu save/load across fresh processes, and menu-created matches;
+ordinary `.0adsave` persistence also has its headless test below.
+For Firefox on the desktop, append `firefox` to the browser-check command. For
+software correctness, use `xvfb-run -a node test/0ad-graphics-browser.mjs zero-ad
+software` (Xvfb and xauth required). Run hardware checks serially.
+On this dual-GPU Linux machine, Firefox 155 presents a black WebGPU canvas when
+forced to the AMD Vulkan ICD, including in a standalone canvas test. Chrome on
+AMD and Firefox on the default NVIDIA adapter render correctly; details and
+reproduction evidence are in the gameplay task below.
+Firefox 155 also exits during a standalone device-destruction test with pending
+GPU readback, consistent with [Mozilla bug 1976766](https://bugzilla.mozilla.org/show_bug.cgi?id=1976766)
+(marked fixed for 157/158). Chrome's injected game-device-loss test preserves
+the shell/files and starts a fresh game successfully.
+
+The full installed image is about 2.07 GB. Browser boot streams independently
+verified snapshot packs into Wasm memory; it does not retain a second complete
+JavaScript copy. Full-content menu, gameplay and resource measurements are kept
+in the [gameplay performance task](../tasks/20260924-115634-0ad-gameplay-performance/TASK.md).
+Memory caps above are measured test bounds, not requirements for every map or
+a guarantee of performance on another machine.
+
+`pyrogenesis -dolly-control -autostart-nonvisual -autostart=scenarios/combat_demo`
+adds a line-oriented guest JSON protocol to the ordinary autostart options.
+Each request contains `id` and `op`; each response echoes `id` and contains
+`ok` plus `result` or `error`. Engine diagnostics go to stderr. EOF or `quit`
+ends the process normally. Use `-quickstart -writableRoot -mod=public` and set
+`ICU_DATA` to the bundle's `data/icu` directory, as in the browser check.
+
+| Operation | Additional properties / result |
+| --- | --- |
+| `observe` | Players, full entity representations, positions, health and simulation time; preserves AI events/caches |
+| `step` | `turns` (1–1000, default 1), optional `commands: [{player, command}]`; returns state after stepping |
+| `hash` | Full deterministic simulation state hash |
+| `save`, `load` | `name`: 1–100 letters, digits, `_` or `-`; uses ordinary `.0adsave` archives in the guest filesystem |
+| `reset` | Upstream game `attributes`, optional `player` (default 1); returns initial state |
+| `quit` | Clean shutdown |
+
+Commands are upstream simulation command objects, such as
+`{"type":"walk","entities":[11],"x":65,"z":140,"queued":false}`.
+The control mode currently requires an offline headless game. Requests are
+limited to 1 MiB and 1000 commands per step. It is a guest program protocol;
+it adds no browser imports or network listeners.
+
+Observations expose all entities and are intended for diagnostics/control, not
+fog-of-war competition. `data.patch` lets Petra serialize its saved data while
+its deferred restoration is pending and fixes reconstruction side effects and
+stale entity observations. Browser checks prove exact saved-state hash restoration,
+fresh-process loading, and 100-turn continuations matching uninterrupted play.
+Deterministic recorded-command replay is checked separately.
+
+For the smaller SpiderMonkey-only build/check, use
+`bash toolchain/0ad/build-spidermonkey.sh` and
+`systemd-run --user --scope -p MemoryMax=3G -p MemorySwapMax=0 node test/0ad-spidermonkey-browser.mjs`.
+
 ## Rust compiler seed and source-built tools
 
 `npm run build:rust-seed` explicitly builds the external Rust 1.98.1 / LLVM
@@ -254,8 +502,9 @@ from upstream revision `2fc06364715b967f1860aea9cf38778875588b17`.
 Optional larger models download through ordinary sandbox HTTP.
 
 Pi-local also rebuilds the canonical `src/dollyfile.c` through
-`modules/dollyfile.dm`, using the existing in-image compiler. Its 1 GiB image
-input bound allows Studio and custom images to inherit the larger Pi base.
+`modules/dollyfile.dm`, using the existing in-image compiler. Its file-backed
+reader accepts image inputs up to 2 GiB without copying all payloads into the
+builder process, allowing Studio and custom images to inherit larger bases.
 The pinned weight chunks remain readable by the running original 512 MiB
 bootstrap executor. This updates the tool without replacing the compiler seed
 or invalidating its cached descendants; future seed builds use the same source.

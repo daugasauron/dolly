@@ -154,8 +154,9 @@ export class DollyProcessSupervisor {
   }
 
   static async create(dolly, kernelMemory, applicationBase, hostAbi, serviceHost, threadHost) {
-    const [gateBytes, contractBytes, dsoBytes, threadBytes] = await Promise.all([
+    const [gateBytes, contractBytes, dsoBytes, threadBytes, workerBytes] = await Promise.all([
       "dolly-process-gate-0.wasm", "dolly-process-0.wasm", "dolly-process-dso-0.wasm", "dolly-threads-0.wasm",
+      "dolly-process-worker.mjs",
     ].map(async name => {
       const response = await fetch(new URL(`dist/${name}`, applicationBase), {
         cache: "no-store", credentials: "same-origin", redirect: "error",
@@ -164,15 +165,21 @@ export class DollyProcessSupervisor {
       return response.arrayBuffer();
     }));
     const gateModule = await WebAssembly.compile(gateBytes);
-    return new DollyProcessSupervisor(
-      dolly,
-      kernelMemory,
-      gateModule,
-      new URL("./process-worker.mjs", import.meta.url),
-      parseWasmInterface(contractBytes, "dolly-process-0"),
-      parseWasmInterface(dsoBytes, "dolly-process-dso-0"),
-      hostAbi, serviceHost, parseWasmInterface(threadBytes, "dolly-threads-0"), threadHost,
-    );
+    // Fresh Workers share trusted code bytes, never process memory or JS state.
+    const workerUrl = new URL(URL.createObjectURL(new Blob([workerBytes], { type: "text/javascript" })));
+    try {
+      const supervisor = new DollyProcessSupervisor(
+        dolly, kernelMemory, gateModule, workerUrl,
+        parseWasmInterface(contractBytes, "dolly-process-0"),
+        parseWasmInterface(dsoBytes, "dolly-process-dso-0"),
+        hostAbi, serviceHost, parseWasmInterface(threadBytes, "dolly-threads-0"), threadHost,
+      );
+      supervisor.releaseWorkerSource = () => URL.revokeObjectURL(workerUrl.href);
+      return supervisor;
+    } catch (error) {
+      URL.revokeObjectURL(workerUrl.href);
+      throw error;
+    }
   }
 
   spawn(path, arguments_, {
@@ -420,7 +427,7 @@ export class DollyProcessSupervisor {
     worker.addEventListener("error", thread.errorHandler, { once: true });
     worker.addEventListener("messageerror", thread.messageErrorHandler, { once: true });
     worker.postMessage({ type: "configure", pid, tid: thread.tid, argument, threaded, module, memory, control,
-      processInterface, dsoContract: this.dsoContract, hostAbi: this.hostAbi });
+      clockOrigin: performance.timeOrigin, processInterface, dsoContract: this.dsoContract, hostAbi: this.hostAbi });
   }
 
   #canLaunch(process) {
@@ -760,5 +767,7 @@ export class DollyProcessSupervisor {
     this.deferred.clear();
     this.compiledModules.clear();
     this.compiledModuleBytes = 0;
+    this.releaseWorkerSource?.();
+    this.releaseWorkerSource = undefined;
   }
 }

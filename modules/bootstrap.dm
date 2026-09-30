@@ -8,13 +8,13 @@ SOURCE HOST /include/dolly/toolchain.h /usr/include/dolly/toolchain.h 6f9da3258e
 SOURCE HOST /include/dolly/runtime.h   /usr/include/dolly/runtime.h   060f61049f36cec927ca4560a53f870c0af08052d5e7506981f5e61657873b71
 SOURCE HOST /include/dolly/process.h   /usr/include/dolly/process.h   904cefd9556bdeacd8db75588d7cefc4506b50300545a107f5a84e07091d0732
 SOURCE HOST /include/dolly/http.h      /usr/include/dolly/http.h      836dacaa6965e33be30d1ef38fe0d828c3889e8a44c752659a5747ebfe4637cf
-SOURCE HOST /include/dolly/display.h   /usr/include/dolly/display.h   f6cb60e0b7d53286cb4af0b728bf2f460a2993a0f8c5f72c9d7a97386cd1cf48
+SOURCE HOST /include/dolly/display.h   /usr/include/dolly/display.h   79d18634affb585f7c41219f8dc09dedb8a611daf65d36a164d1a8d91779de2e
 SOURCE HOST /include/dolly/download.h  /usr/include/dolly/download.h  8924a3e4c82183c2840f9734dcca8a2427b085c5e004d32c90496f926246cc89
 
 SOURCE HOST /include/dolly/host.h /usr/include/dolly/host.h 0b579ac94098b2997772f2ff2cfa3aafd8dd2812bb5ef6f658e341e33b10aa28
 SOURCE HOST /include/dolly/host-abi.h /usr/include/dolly/host-abi.h 544f73c7e5249c1a27f6ea968ee8cffa81b113addaf4d428fa1ca268c382c108
-SOURCE HOST /include/dolly/gpu.h /usr/include/dolly/gpu.h 4cadb0e39b3fd77d137353baf150bd68af08461fb33456eace4342d8e5d4dcf4
-SOURCE HOST /include/dolly/gpu-abi.h /usr/include/dolly/gpu-abi.h 9f807cee8eeb31c8c3b5ea4fc278db9f97765a3e43b62b87f2083b55b64572e2
+SOURCE HOST /include/dolly/gpu.h /usr/include/dolly/gpu.h 4c77c750144fb65eba1de4694ae3b78522a2162810fd83f72dda1592f1578000
+SOURCE HOST /include/dolly/gpu-abi.h /usr/include/dolly/gpu-abi.h 2b963f80c3881332e88ff942278ee35ef61158db308816e833d807c05376705c
 SOURCE HOST /include/dolly/upload.h /usr/include/dolly/upload.h 606a8b7813716940e5e287b2881230334d875db4c328c8b1677471d6f5cb5a42
 SOURCE HOST /include/dolly/snapshot.h /usr/include/dolly/snapshot.h a8e74773a232b79b3655ecc6c744b3debd9db2eafc5757c088646fce650ba953
 

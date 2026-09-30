@@ -3,6 +3,7 @@ import { consumeDollyHttpPolicy } from "./http-policy.mjs";
 import { localServicesTransport } from "./local-services.mjs";
 import { prepareImageArtifacts } from "./image-build.mjs";
 import { buildImage } from "./image-builder.mjs";
+import { buildLog } from "./build-log.mjs";
 
 const image = document.body.dataset.image;
 const button = document.querySelector("#build"), cancel = document.querySelector("#cancel");
@@ -13,14 +14,15 @@ const sources = [
 ];
 const network = localServicesTransport(consumeDollyHttpPolicy(globalThis, sources, new URL("../", import.meta.url)));
 let controller;
-const report = text => { log.textContent = (log.textContent + text).slice(-8192); };
+const output = buildLog(log);
+const report = text => output.append(text);
 cancel.addEventListener("click", () => controller?.abort());
 button.addEventListener("click", async () => {
   controller = new AbortController();
   const { signal } = controller;
   button.disabled = true;
   cancel.hidden = false;
-  log.textContent = "";
+  output.clear();
   status.textContent = "Building inside Dolly…";
   document.documentElement.dataset.dollyStatus = "building";
   try {

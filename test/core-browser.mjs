@@ -32,7 +32,23 @@ try {
       assert.equal(await page.evaluate(() => document.documentElement.dataset.dollyStatus), "ready",
         await page.locator("#bootstrap-log").textContent());
       await page.evaluate(() => __dolly.waitForInteractiveTerminal(/dolly:[^\n]*\$\s*$/, "shell"));
+      if (image === "default") assert.deepEqual(
+        await page.evaluate(() => [...__dolly.hostModules].sort()),
+        ["display@0", "download@0", "http@0", "runtime@0", "snapshot@0", "upload@0"]);
       const submit = command => page.evaluate(text => __dolly.submit(text), command);
+      const starts = [];
+      const recordRequest = request => { if (/^https?:/.test(request.url())) starts.push(request.url()); };
+      page.context().on("request", recordRequest);
+      // Routing disables the HTTP cache too; process creation must use retained
+      // code bytes, including the first run of an executable such as Git.
+      await page.context().route("**/*", route => route.abort());
+      try {
+        assert.equal(await submit("mkdir /tmp/core-offline && git -C /tmp/core-offline init && git -C /tmp/core-offline rev-parse --git-dir && echo fresh > /tmp/core-offline/value && cat /tmp/core-offline/value && rm -rf /tmp/core-offline"), 0);
+        assert.deepEqual(starts, [], "process startup made HTTP requests");
+      } finally {
+        await page.context().unroute("**/*");
+        page.context().off("request", recordRequest);
+      }
       for (const fixture of ["process-wrong-call", "process-wrong-start", "process-wrong-memory"]) {
         assert.equal(await submit(`curl -fsS ${server.origin}/fixture/${fixture}.wasm -o /tmp/core-invalid`), 0);
         assert.equal(await submit("/tmp/core-invalid"), 126, fixture);

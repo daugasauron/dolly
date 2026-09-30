@@ -16,6 +16,7 @@ import { readWasmInterface } from "./wasm-interface.mjs";
 import { DOLLY_PROCESS_ABI_DIGEST } from "../dist/dolly-process-abi.mjs";
 import { imageInputs, imageInputsMatch } from "../src/image-inputs.mjs";
 import { parseGeneratedConstant } from "./site-release.mjs";
+import { ensureSnapshotPacks } from "./share-pages-snapshots.mjs";
 
 const projectDir = resolve(import.meta.dirname, "..");
 const planOnly = process.argv[2] === "--plan";
@@ -214,5 +215,14 @@ if (!planOnly) for (const image of images) {
     console.log(`dolly: ${result.action} ${image}: ${result.reason}`);
   }
   if (result.action !== "reuse") await buildImage(image, inputs);
-  completed.set(image, result.metadata ?? await readMetadata(image));
+  const metadata = result.metadata ?? await readMetadata(image);
+  const packed = await ensureSnapshotPacks(resolve(projectDir, "dist"), metadata);
+  if (packed !== metadata) {
+    const temporary = `${metadataPath(image)}.${process.pid}.tmp`;
+    try {
+      await writeFile(temporary, `// Generated snapshot manifest.\nexport const DOLLY_SYSTEM_SNAPSHOT = Object.freeze(${JSON.stringify(packed, null, 2)});\n`);
+      await rename(temporary, metadataPath(image));
+    } finally { await rm(temporary, { force: true }); }
+  }
+  completed.set(image, packed);
 }

@@ -5,6 +5,11 @@ fluid image, in-sandbox local inference, verified artifacts and browser limits.
 
 `Dollyfile-gpu-fluid` provides the GPU demonstration: an upstream C fluid solver
 compiled inside Dolly, with interactive liquid ink and volumetric smoke.
+It inherits [`Dollyfile-gpu-sdk`](../Dollyfile-gpu-sdk), whose reusable
+[`gpu` module](../modules/gpu.dm) compiles the client library inside Dolly.
+Programs include `<dolly/gpu.h>` and link with `-ldolly-gpu`; the fluid recipe
+contains only its application adapter and upstream sources. The texture/depth/
+indexed-rendering browser test links against this installed SDK.
 
 The compile target remains a private memory64 process with its single
 `dolly_process_0.call` import. Operation 128 selects the separately versioned
@@ -33,11 +38,14 @@ never recycled; scope generations distinguish process lifetimes.
 
 The provider owns eight private scope slots, with one pending request per slot,
 one visible surface, at most 4,096 live objects per scope, 1 MiB packets with at
-most 256 records, 128 KiB shader source, 1 GiB individual buffers and 4 GiB
-aggregate buffer allocations. A bind group accepts at most sixteen buffers;
-vertex input accepts one buffer with up to eight float32x2/x3/x4 attributes.
+most 1,024 records, 128 KiB shader source, 1 GiB individual buffers and 4 GiB
+aggregate buffer/texture allocations. Legacy commands accept sixteen buffer
+bindings and one vertex stream with eight float32x2/x3/x4 attributes.
+Clients check CAPABILITIES bit 128 before exceeding the legacy 256-record limit.
 These are experimental GPU quotas, unrelated to
-the HTTP response limit. Released allocation credits wait for queue completion.
+the HTTP response limit. Release invalidates a handle immediately without waiting
+for the GPU. Pending allocations and object slots remain charged until queue
+completion; explicit WAIT and CLOSE also collect completed releases.
 Cancellation retains a provider slot until outstanding work settles. An immediate
 restart defers its open until the provider retires the old scope and wakes it.
 Limits bound admitted resources, not exact driver memory consumption or shader time.
@@ -113,6 +121,9 @@ from the original prototype. Test options do not
 modify personal profiles. Browser-controlled adapter selection
 uses `powerPreference: "high-performance"`; WebGPU does not provide a portable
 vendor-selection API. NVIDIA and AMD use the same shader and command path.
+Runtime status includes the browser's `isFallbackAdapter` value. The 0 A.D.
+graphics check defaults to hardware and rejects software fallback; its explicit
+`software` mode remains available for correctness checks on SwiftShader.
 
 For an isolated Chrome window on this machine's X11 desktop:
 
@@ -127,8 +138,32 @@ CAPABILITIES reports admitted feature bits and device-clamped limits in a fixed
 pipeline constants. Existing packets remain compatible. These additions support
 unchanged llama.cpp WGSL and introduce no additional outer imports.
 
-This prototype omits textures, depth attachments, dynamic bindings and
-asynchronous error records. Shader diagnostics currently
-appear in the browser console, while the C caller receives errno. It establishes
-the command, compute, presentation and lifecycle path; it does not yet accelerate
-existing game renderers.
+CAPABILITIES bit 64 admits additive texture rendering records 18–26. They provide
+2D/cube textures and mip uploads, samplers, one color and optional depth/stencil
+attachment, indexed/instanced draws, eight vertex streams, sixteen attributes,
+four typed resource groups, blend/depth/cull state and viewport/scissor controls.
+Existing record layouts remain unchanged. Texture formats and all packed layouts
+are specified in the WAT contract. Textures count against the same allocation
+quota as buffers; the provider exposes no external image or URL import.
+
+Bit 256 admits BC1/BC2/BC3 compressed textures when the adapter supports them.
+Their base dimensions and upload extents contain whole 4×4 blocks, including
+the smallest mip levels. Allocation accounting includes every padded block.
+Clients retain an uncompressed path for adapters without this feature.
+
+Bit 512 admits `float16x2` and `float16x4` vertex formats. Vertex fetch converts
+these to `f32` shader inputs without requiring the separate `shader-f16` feature.
+
+Passes must end before submit and cannot cross packets. Queue uploads execute
+before submitted draws: use separate aligned uniform ranges for different draws
+or submit before overwriting a consumed range. Bind groups use fixed offsets;
+there is no dynamic-offset or native graphics API adapter. Shader diagnostics
+appear in the browser console while the C caller receives errno.
+
+`node test/gpu-render-browser.mjs` compiles its C fixture inside Dolly and checks
+texture colors, depth occlusion, indexed meshes, multiple streams/groups,
+offscreen sampling, viewport bounds and close/interrupt/restart cleanup. It also
+runs the GPU boundary proof. Chromium and Firefox use a desktop hardware adapter
+and reject a fallback adapter. This checks correctness, not benchmark performance.
+No runtime or default image rebuild is needed when only the provider and these
+fixture sources change.

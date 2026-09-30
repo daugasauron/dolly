@@ -4,7 +4,7 @@
 - PRIORITY: 200
 - TAGS: filesystem,browser,workflow
 
-A complete Blockwalker recovery archive grew to 87,224,320 bytes. Uploading it
+A complete Slopyard recovery archive grew to 87,224,320 bytes. Uploading it
 through the ordinary file picker failed with `upload: File too large`. Earlier
 archives below 64 MiB worked. The full native Pi conversation accounts for most
 of the size; it must remain intact. This is separate from the completed HTTP
@@ -21,7 +21,7 @@ including cancellation/error handling without losing the shell.
 Current recovery workaround: gzip compressed this archive to 63,057,451 bytes,
 which fits the existing upload limit; decompress through ordinary Dolly tools.
 Larger future archives may need chunks. The original complete archive remains
-in `build/blockwalker-walking/outposts-state.tar`.
+in `build/slopyard-walking/outposts-state.tar`.
 
 The later focus-view migration verified the chunk workaround: a 143,513,600-byte
 USTAR archive compressed to 104,211,289 bytes and was uploaded as three files
@@ -30,12 +30,12 @@ of at most 48 MiB through the ordinary file picker. Inside Dolly,
 restored all 32 creations and the complete 141,563,139-byte native conversation.
 Its original SHA-256 prefix matched after restoration. This gzip requires the
 explicit `-` stdin argument. Temporary imported chunks were then removed.
-Evidence: `build/blockwalker-walking/focus-restored-proof.json`. This manual
+Evidence: `build/slopyard-walking/focus-restored-proof.json`. This manual
 workaround does not complete the streaming upload/download work above.
 
 September25: two physics diagnostics completed but ordinary downloads of their
-large JSONL traces failed(-22): `build/blockwalker-biped-observe.log` and
-`build/blockwalker-warehouse-store-clear.log`. The latter retained its successful
+large JSONL traces failed(-22): `build/slopyard-biped-observe.log` and
+`build/slopyard-warehouse-store-clear.log`. The latter retained its successful
 world/regression result; a48MiB reduced diagnostic trace exported successfully.
 The bundled gzip only supports decompression; the attempted compression helper
 therefore failed before the next trace could export. A small local diagnostic

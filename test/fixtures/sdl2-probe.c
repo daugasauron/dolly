@@ -33,12 +33,23 @@ int main(int argc, char **argv)
     SDL_StartTextInput();
     char typed[128] = "";
     int clicks = 0, right_clicks = 0, keys = 0, quit = 0;
+    int enters = 0, leaves = 0, focus_losses = 0;
+    const int presence = argc > 1 && !strcmp(argv[1], "presence");
     for (int frame = 0; !quit; ++frame) {
         assert(SDL_RenderClear(renderer) == 0);
         assert(SDL_RenderCopy(renderer, texture, NULL, NULL) == 0);
         SDL_RenderPresent(renderer);
         SDL_Event event;
         while (SDL_PollEvent(&event)) {
+            if (event.type == SDL_WINDOWEVENT && presence) {
+                if (event.window.event == SDL_WINDOWEVENT_ENTER) ++enters;
+                if (event.window.event == SDL_WINDOWEVENT_LEAVE) ++leaves;
+                if (event.window.event == SDL_WINDOWEVENT_FOCUS_LOST) {
+                    ++focus_losses;
+                    assert(!SDL_GetKeyboardState(NULL)[SDL_SCANCODE_RIGHT]);
+                    assert(!(SDL_GetMouseState(NULL, NULL) & SDL_BUTTON_LMASK));
+                }
+            }
             if (event.type == SDL_QUIT) quit = 1;
             if (event.type == SDL_TEXTINPUT) {
                 assert(strlen(typed) + strlen(event.text.text) < sizeof(typed));
@@ -65,6 +76,7 @@ int main(int argc, char **argv)
         assert(clicks == 1 && right_clicks == 1 && keys == 1);
         assert(!strcmp(typed, "aB!é😀xx日本語 ✓"));
     }
+    if (presence) assert(enters >= 2 && leaves >= 1 && focus_losses >= 1);
     puts("SDL2-PROBE-OK");
     return 0;
 }

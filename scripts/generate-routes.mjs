@@ -11,8 +11,10 @@ import {
 } from "./image-definitions.mjs";
 import { createDollyfileGraphLoader } from "./dollyfile-graph.mjs";
 import { renderDollyfilePage } from "./render-dollyfile-view.mjs";
+import { bundleProcessWorker } from "./bundle-process-worker.mjs";
 
 const projectDir = resolve(import.meta.dirname, "..");
+await bundleProcessWorker(projectDir);
 const loadGraph = createDollyfileGraphLoader(projectDir);
 const outputDir = resolve(projectDir, "build/routes");
 const template = await readFile(resolve(projectDir, "terminal.html"), "utf8");
@@ -25,7 +27,7 @@ const graphs = await Promise.all(definitions.map(async (definition) => ({
   definition,
   graph: await loadGraph(definition.filename),
 })));
-const headless = new Set(graphs.filter(({ graph }) => !graph.exporters.has("ENV:DISPLAY"))
+const headless = new Set(graphs.filter(({ graph }) => !graph.root.hostRequirements.includes("display@0"))
   .map(({ definition }) => definition.image));
 await writeImageRegistry(projectDir, definitions, staticSources);
 const menuTemplate = await readFile(resolve(projectDir, "index.html"), "utf8");
@@ -50,6 +52,7 @@ const menu = menuTemplate.replace(/<tbody>[\s\S]*?<\/tbody>/, () =>
     <td class="description">Dolly userspace</td><td><div class="image-links"><a href="./${image}/">open →</a>
     <a href="./${image}/rebuild/">rebuild</a><a href="./view/${image}/">Dollyfile</a></div></td>
     </tr>`)).join("\n") + "\n</tbody>");
+await rm(outputDir, { recursive: true, force: true });
 await mkdir(outputDir, { recursive: true });
 await writeFile(resolve(outputDir, "index.html"), menu);
 const routes = [
@@ -113,7 +116,6 @@ const graphPages = graphs.flatMap(({ definition, graph }) => [
     graph,
   })),
 ]);
-await rm(resolve(outputDir, "view"), { recursive: true, force: true });
 for (const page of graphPages) {
   const output = resolve(outputDir, page.path);
   await mkdir(resolve(output, ".."), { recursive: true });

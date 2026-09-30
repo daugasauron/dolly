@@ -12,7 +12,7 @@ The experiment is the compile target, not Linux emulation. See
 Open [daugasauron.com](https://daugasauron.com/) or
 [GitHub Pages](https://daugasauron.github.io/dolly/). The home page lists each
 image, its Dollyfile and its prebuilt/rebuild routes: shell tools, Python, Pi,
-Neovim, gamedev and Dollyfile Studio.
+Neovim, Slopyard and Dollyfile Studio.
 
 `/custom/` builds a pasted or uploaded Dollyfile in a fresh sandbox.
 Studio provides Pi, Neovim syntax/linting and `dollyfile-build FILE`; builds

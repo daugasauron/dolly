@@ -53,18 +53,6 @@ export default function dollyTools(pi) {
     );
   });
 
-  if (fs.existsSync("/usr/bin/graphics-demo")) {
-    pi.registerCommand("demo", {
-      description: "Run Dolly's source-built framebuffer demo",
-      handler: async (_args, context) => {
-        const result = Dolly.shell("graphics-demo");
-        if (result.status !== 0 && result.status !== 130) {
-          context.ui.notify(`graphics-demo exited with status ${result.status}`, "warning");
-        }
-      },
-    });
-  }
-
   pi.registerTool({
     name: "bash",
     label: "slop",

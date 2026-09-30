@@ -44,7 +44,7 @@ Focused browser/Dolly proofs pass under
   carrying actual cargo. No courier contacts over 121.600 s; both parcels stay
   attached during loaded yielding; no errors/deaths.
 - `regression-v1`: retained standalone
-  `test/fixtures/blockwalker-air-traffic.c` compiles inside Dolly and passes the
+  `test/fixtures/slopyard-air-traffic.c` compiles inside Dolly and passes the
   same natural crossing without a captured-world dependency.
 
 Inputs, traces, output worlds and browser proofs are retained beside `RESULT.md`.

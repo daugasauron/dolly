@@ -12,7 +12,7 @@ contact force reaches 179 N before the tip. The porter is neutral and is not
 magnetically captured. Its pickup program disables all non-cargo avoidance.
 
 Reproduction and contact evidence:
-`build/blockwalker-compound-regressions-chrome-checkpoint-porter-observe/salvage/`.
+`build/slopyard-compound-regressions-chrome-checkpoint-porter-observe/salvage/`.
 `salvage-loaded.json` is the 750-second pre-incident save; `salvage-dock.json`
 is the first tip. `contact-proof.json` identifies the contacting parts.
 
@@ -23,9 +23,9 @@ and starts carrying it home. It has no guard contacts, errors or deaths; all 113
 original actors, other programs and machine blueprints remain (115 at the end).
 No guards, capture rules, forces or placements changed.
 
-Evidence: `build/blockwalker-compound-regressions-chrome-checkpoint-porter-traffic/`
+Evidence: `build/slopyard-compound-regressions-chrome-checkpoint-porter-traffic/`
 `salvage/porter-proof.json`, full contacts and final world. Candidate:
-`build/blockwalker-checkpoint-followup/porter-traffic.js`.
+`build/slopyard-checkpoint-followup/porter-traffic.js`.
 Fresh combined verification and packaging remain required before closing.
 The served checkpoint remains `ce3a392`.
 

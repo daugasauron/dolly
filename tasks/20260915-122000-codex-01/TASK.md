@@ -24,9 +24,9 @@ Verified inside Dolly and real Chrome:
   355431228-byte/1853-entry native history, including its verified 354579335-byte
   earlier prefix. Credential-free bipeds-state.tar contains the completed save.
 
-Evidence: build/blockwalker-draft/proof.json,
-build/blockwalker-biped-checkpoint-integration.log, and under
-build/blockwalker-walking/: recovered-drafts-proof.json,
+Evidence: build/slopyard-draft/proof.json,
+build/slopyard-biped-checkpoint-integration.log, and under
+build/slopyard-walking/: recovered-drafts-proof.json,
 recovered-drafts-persisted-proof.json, bipeds-restore-proof.json.
 
 A diagnostic helper's competing download handlers caused an unhandled ENOENT

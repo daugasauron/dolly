@@ -10,7 +10,7 @@ catch an opposing aircraft and reel it toward the tower. Use ordinary blocks,
 existing forces and a generic embedded controller. Opponents keep their normal
 programs and physical capabilities; captures must allow escape and teammate rescue.
 
-Inputs: `build/blockwalker-tether/{interceptor.js,generate.py,catalog.json,hover.c}`.
+Inputs: `build/slopyard-tether/{interceptor.js,generate.py,catalog.json,hover.c}`.
 First verify the articulated head can fly using observed part positions, then
 test actual interception against unmodified couriers in the populated world.
 The existing winch is a distance constraint; it does not wrap around obstacles.

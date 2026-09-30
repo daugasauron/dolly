@@ -21,14 +21,14 @@ no reported deaths. A courier stalls over122 from598.1 because truck111 keeps it
 traffic-clearance altitude above pickup reach (task20260925-195200). Gun106 has
 never selected a loaded enemy. The run was stopped after exporting900s; it is not
 an1800s failure/pass or evidence that payload impacts work. Three progress saves
-are retained in `build/blockwalker-compound-regressions-chrome-payload-defense/`
-`salvage/`; log `build/blockwalker-payload-defense/trial.log`. No full terminal
+are retained in `build/slopyard-compound-regressions-chrome-payload-defense/`
+`salvage/`; log `build/slopyard-payload-defense/trial.log`. No full terminal
 trace/result was exported before stopping.
 
 The next trial changes only yard gun87's program, leaving its body, loader,
 ammunition and opponents unchanged. It covers the earlier completed courier
-route. Inputs: `build/blockwalker-payload-defense/{yard-catalog.json,yard-defense.c}`;
-output `build/blockwalker-compound-regressions-chrome-payload-yard/salvage/`.
+route. Inputs: `build/slopyard-payload-defense/{yard-catalog.json,yard-defense.c}`;
+output `build/slopyard-compound-regressions-chrome-payload-yard/salvage/`.
 Maximum600s, with physical hit/drop evidence required, no missing original actors,
 controller errors, deaths or friendly projectile impacts. Await terminal evidence.
 The playable image41 remains unchanged.
@@ -48,7 +48,7 @@ remain. This changes control commands, not motor forces, body masses or magnets.
 
 Matched120s baseline/candidate replay now starts from the actual300s yard save,
 when gun87 holds91 and courier59 carries80. Only87's program changes. Fixture:
-`build/blockwalker-payload-defense/payload-comparison.c`; candidate:
+`build/slopyard-payload-defense/payload-comparison.c`; candidate:
 `energy-comparison-catalog.json`; output `...-chrome-payload-energy/salvage/`.
 Require a real payload hit and subsequent airborne grip loss while the carrier's
 magnet remains powered, absent in baseline, plus no actor losses/errors/friendly
@@ -87,7 +87,7 @@ and other programs remain. Maximum1800s; requires an actual hit followed by grip
 loss aloft while the carrier magnet remains powered, then60s further observation.
 Exports300s progress and the first armed light-payload encounter, so the next
 comparison can use a naturally occurring shot opportunity. Output:
-`build/blockwalker-compound-regressions-chrome-payload-couriers/salvage/`.
+`build/slopyard-compound-regressions-chrome-payload-couriers/salvage/`.
 Do not edit these frozen inputs while the trial runs; image41 stays playable.
 
 Early live checkpoint:119 actors, no deaths at300s. First loaded-target save

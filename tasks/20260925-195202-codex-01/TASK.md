@@ -7,8 +7,8 @@
 In fresh competition-v5, parcel 99 remains aboard freighter 55 at 1500 simulated
 seconds. East warehouse 77 receives no delivered heavy cargo within its 48 m
 range in any of the 750 samples. Its loaded-cargo storage regression passes.
-Reproduce from `build/blockwalker-compound-regressions-chrome-competition-v5/`
-`salvage/blockwalker-world.json`; verify a real delivery followed by storage.
+Reproduce from `build/slopyard-compound-regressions-chrome-competition-v5/`
+`salvage/slopyard-world.json`; verify a real delivery followed by storage.
 
 The unchanged continuation identifies a route bug: every reverse maneuver
 retreats one waypoint, leaving the boat trying to reach the original loading
@@ -26,10 +26,10 @@ that same parcel. Freighter deliveries and warehouse jobs both increase 0→1;
 minimum up is 0.959849, 123 final objects, no controller errors or deaths. All
 machine blueprints remain unchanged; delivered parcels receive normal recolors.
 
-Evidence: `build/blockwalker-compound-regressions-chrome-checkpoint-freighter-escape/`
+Evidence: `build/slopyard-compound-regressions-chrome-checkpoint-freighter-escape/`
 `salvage/freight-proof.json`, full contacts and final world. The failed first
 candidate remains under `...-chrome-checkpoint-freighter-shore/salvage/`.
-Candidate: `build/blockwalker-checkpoint-followup/freighter-escape.js`.
+Candidate: `build/slopyard-checkpoint-followup/freighter-escape.js`.
 Fresh combined verification and packaging are still required. The served
 checkpoint remains `ce3a392`.
 
@@ -48,15 +48,15 @@ all-parts check exceeded the controller budget and was rejected.
 The exact1500→1860s replay changes only53's program and passes: parcel99 moves
 53→54 at1639s→55 at1668s;53 returns and collects103, trips1→2. Minimum up.990627,
 122 final objects, no errors/deaths, all original actors/blueprints preserved.
-Evidence: `build/blockwalker-compound-regressions-chrome-renewal-hauler-transfer/`
+Evidence: `build/slopyard-compound-regressions-chrome-renewal-hauler-transfer/`
 `salvage/hauler-proof.json`, raw C status0. Candidate:
-`build/blockwalker-world-renewal/hauler-recovery-budget.js`.
+`build/slopyard-world-renewal/hauler-recovery-budget.js`.
 A previous replay failed an incorrect hauler depot-score assertion despite the
 handoff; the final fixture checks the physical intermediate transfer instead.
 Fresh combined verification remains required; image38 bundles neither candidate.
 
 Fresh image39 trial used only53,55,56,106,111 changed:
-`build/blockwalker-battery-supply/fresh-chain-{catalog.json,c}`. The last two
+`build/slopyard-battery-supply/fresh-chain-{catalog.json,c}`. The last two
 programs are battery resupply work tracked in20260926-000614. At1200s the scene
 has22 deliveries and no deaths, but neither warehouse has completed a job.
 Maximum1800s; do not treat the isolated sailing/hauler passes as a full-chain pass.
@@ -117,10 +117,10 @@ The diagonal route passes its short fresh-world physical test. It crosses
 the original vehicle and motor controller. Cargo112 attaches53 at20.02s,54 at
 208.02s,55 at244.02s (sampled), then53 picks a different load116 at297.02s.
 At300s:119 objects, minimum hauler up0.991456, no controller errors/deaths or
-missing originals. Raw0, `build/blockwalker-compound-regressions-chrome-`
+missing originals. Raw0, `build/slopyard-compound-regressions-chrome-`
 `freight-diagonal/salvage/regression.log` and full trace. This proves the outbound
 handoff and return for another pickup; island storage still needs the combined
-run. Candidate: `build/blockwalker-battery-supply/hauler-diagonal-route.js`.
+run. Candidate: `build/slopyard-battery-supply/hauler-diagonal-route.js`.
 
 Checkpoint follow-up: the fresh `battery-diagonal-drop` run fails its combined
 quotas at1800s:134 objects,29 deliveries, no deaths/controller errors, zero jobs
@@ -133,7 +133,7 @@ and projects the pickup point onto the arm's reachable5–7m workspace. Exact
 1200→1440s replay `handoff-recovery` passes with actual magnet attachments:
 112→54→55, then116→54;131 objects, no errors, missing originals or deaths.
 Only54 and tender111 change in that replay. Evidence:
-`build/blockwalker-compound-regressions-chrome-handoff-recovery/salvage/`.
+`build/slopyard-compound-regressions-chrome-handoff-recovery/salvage/`.
 This verifies the observed quay jam, not fresh sustained island deliveries.
 The served checkpoint remains image40; these programs are not bundled.
 
@@ -142,7 +142,7 @@ barge55 exceeds its execution budget during detour search. The crane has handed
 112 to55, which retains an actual magnet attachment;119 objects,7 deliveries,
 no deaths or missing originals. Three fired rounds have13 intended impacts,
 no friendly impacts. The saved failure is under
-`build/blockwalker-compound-regressions-chrome-battery-handoff-fresh/salvage/`.
+`build/slopyard-compound-regressions-chrome-battery-handoff-fresh/salvage/`.
 
 The unbundled boat escape program tests48 paths with8 collision samples each in
 one control update. `freighter-incremental.js` evaluates one candidate per update,
@@ -158,7 +158,7 @@ The old controller does not repeat the budget error after restart, so the fixtur
 correctly fails its reproduction assertion; do not call this an overall pass.
 The incremental candidate retains112 and clears the departure obstruction with
 no controller errors, missing originals or deaths. Final metrics are in
-`build/blockwalker-compound-regressions-chrome-freighter-budget/salvage/regression.log`.
+`build/slopyard-compound-regressions-chrome-freighter-budget/salvage/regression.log`.
 Fresh-world verification is necessary to check the previously observed budget
 failure and complete deliveries; restarting the old program is not a fix.
 
@@ -170,7 +170,7 @@ they do not indicate a lost load or navigation failure. Future departure checks
 must allow progress around the route instead of requiring the northern row.
 
 Fresh combined verification now completes both freight chains twice in1800s.
-`build/blockwalker-compound-regressions-chrome-battery-incremental-fresh/salvage/`
+`build/slopyard-compound-regressions-chrome-battery-incremental-fresh/salvage/`
 contains the full trace,300s progress saves and `freight-proof.json`.
 Actual magnet attachments (seconds; boat pickup sampled):
 
@@ -193,6 +193,6 @@ barge detours. The detour evaluates one candidate per control update, with the
 existing interpreter budget and normal thrusters. Image41 builds inside Dolly
 in46.0s. Chrome and Firefox each verify111 bundled designs and seven saved worlds,
 including this134-object final state, with preserved programs/blueprints and no
-new errors/deaths. Evidence: `build/blockwalker-image41-preview{,-firefox}/proof.json`.
+new errors/deaths. Evidence: `build/slopyard-image41-preview{,-firefox}/proof.json`.
 Served artifacts match local hashes; protected user state and12 other images are
-unchanged. Completed in tag `blockwalker-stable-20260926-image41`.
+unchanged. Completed in tag `slopyard-stable-20260926-image41`.

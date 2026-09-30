@@ -121,8 +121,6 @@ export function browserShellCases(modules, fixtureOrigin) {
     ["echo USR-BIN-LIST-END"],
     ["ls /usr/lib/libdisplay.so"],
     ["test ! -e /usr/bin/ghostty-vt"],
-    ["graphics-demo --frames 2", undefined,
-      hasModule("gamedev") ? 0 : 127],
     ["cc --version"],
     ["c++ --version"],
     ["echo \"int main(void) { volatile unsigned long n = 0; for (;;) n++; }\" > interrupt-loop.c"],

@@ -9,8 +9,8 @@ At 16.117 s, reconstructing its stance chain from actual root pose and measured
 joint angles under ideal rigid constraints misses the foot by 0.849 m. Actual
 quaternion residuals include 2.91 degrees at hip-pitch joint 19, 2.29 degrees at
 knee 20 and roughly 2 degrees at shoulder welds. Maximum linear separation is
-only 0.00653 m. Evidence: `build/blockwalker-replant-trial/{geometry,proof}.json`
-and `build/blockwalker-replant-{geometry,deflection}.py`.
+only 0.00653 m. Evidence: `build/slopyard-replant-trial/{geometry,proof}.json`
+and `build/slopyard-replant-{geometry,deflection}.py`.
 
 The pinned Box3D source defaults all joint constraints to 60 Hz with damping
 ratio 2. The solver caps frequency at one quarter of the substep frequency:
@@ -33,7 +33,7 @@ hinge angular residual from 2.935 to 0.841 degrees and maximum weld residual
 from 2.130 to 0.732 degrees. Ideal stance-chain reconstruction error fell from
 0.849 to 0.301 m. It removed the 0.383 s swing scrape, but increased landing
 stance slip from 0.096 to 0.840 m. Both versions completed zero scored steps.
-`build/blockwalker-constraint-trial/comparison.json` records the source hashes,
+`build/slopyard-constraint-trial/comparison.json` records the source hashes,
 unchanged blueprint/controller and detailed measurements.
 
 The subsequent paired 120 s whole-world replay retained all 49 objects in
@@ -48,8 +48,8 @@ The instrumented world loops took 153.347 and 154.303 wall seconds respectively.
 They use the same wide camera and one-second state saves; these figures do not
 isolate CPU/GPU cost. GPU counters are cumulative across launches in that browser,
 so the raw frame totals must not be treated as independent frame rates.
-`build/blockwalker-stiffness-world/` contains both traces, six GPU images and
-`comparison.json`; `blockwalker-stiffness-world-final.log` records completion.
+`build/slopyard-stiffness-world/` contains both traces, six GPU images and
+`comparison.json`; `slopyard-stiffness-world-final.log` records completion.
 
 No game source, default physics or live state changed. Pi subsequently achieved
 four alternating biped lifts/landings under the existing constraints in XXVIII;

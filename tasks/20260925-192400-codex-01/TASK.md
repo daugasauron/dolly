@@ -15,7 +15,7 @@ with their existing one-way thrusters, forces and horizontal attitude control.
 Exact210→450s replay changes only59: baseline also delivers, but reaches9.519m/s
 downward; candidate maximum descent2.576m/s, minimumup.979090 and two deliveries
 (101/80). Original actors/other programs and blueprints stay. Evidence:
-`build/blockwalker-compound-regressions-chrome-courier-descent/salvage/`.
+`build/slopyard-compound-regressions-chrome-courier-descent/salvage/`.
 
 Fresh1500s combined run ends with both couriers upright; East makes6 deliveries,
 West3, and both slingshots fire5 times. West subsequently waits above an occupied

@@ -42,22 +42,7 @@ const imageSpecs = [
     uses: ["default", "python", "startup-python"],
     program: "/bin/slop",
   },
-  {
-    image: "python-pi", filename: "Dollyfile-python-pi",
-    uses: [
-      "default", "python", "quickjs", "typescript", "pi",
-      "python-pi-integration",
-    ],
-    program: "/usr/bin/pi",
-  },
-  {
-    image: "gamedev", filename: "Dollyfile-gamedev",
-    uses: [
-      "default", "quickjs", "typescript", "pi", "gamedev",
-      "startup-gamedev",
-    ],
-    program: "/usr/bin/graphics-demo",
-  },
+  { image: "bhop", filename: "Dollyfile-bhop" },
 ];
 async function loadImages() {
   return Promise.all(imageSpecs.map(async (spec) => ({
@@ -88,7 +73,7 @@ test("QuickJS is selected only by Pi-bearing images", async () => {
   assert.equal(pythonGraph.modules.some(({ name }) => name === "quickjs"), false);
 
   for (const { spec, graph } of images.filter(({ spec }) =>
-    ["pi", "python-pi", "gamedev"].includes(spec.image))) {
+    ["pi", "bhop"].includes(spec.image))) {
     const quickjs = graph.modules.find(({ name }) => name === "quickjs");
     const pi = graph.modules.find(({ name }) => name === "pi-build");
     assert.ok(quickjs, `${spec.image} must include quickjs`);
@@ -360,22 +345,6 @@ test("production exports exclude build-only checks and unconsumed archives", asy
     ({ command }) => command[0] === "python" && command.includes("-B")), false);
 });
 
-test("host preparation can select one image and only its reachable modules", async () => {
-  const { execFile } = await import("node:child_process");
-  const { promisify } = await import("node:util");
-  const run = promisify(execFile);
-  const { stdout } = await run(process.execPath, ["scripts/list-images.mjs", "--modules"], {
-    cwd: projectDir,
-    env: { ...process.env, DOLLY_BUILD_IMAGES: "default" },
-  });
-  const modules = stdout.trim().split("\n");
-  assert.ok(modules.includes("default"));
-  assert.equal(modules.includes("quickjs"), false);
-  assert.equal(modules.includes("pi"), false);
-  assert.equal(modules.includes("python"), false);
-  assert.equal(modules.includes("gamedev"), false);
-});
-
 test("non-temporary SOURCE inputs are retained or explicitly removed by their module", async () => {
   const modules = uniqueModules(await loadImages());
   const contains = (root, path) => path === root || path.startsWith(`${root}/`);
@@ -467,7 +436,6 @@ test("build modules declare tools used by their own recipes", async () => {
     ["awk", ["cc"]],
     ["curl", ["ar", "cc"]],
     ["gamedev-sdk", ["ar", "cc", "mkdir"]],
-    ["gamedev", ["cc", "make"]],
     ["ghostty", ["ar", "cc", "zig"]],
     ["git", ["ar", "cc", "mkdir", "rm"]],
     ["ninja", ["make"]],
@@ -530,8 +498,6 @@ test("compiled modules declare their direct C header surfaces", async () => {
 
   const ghostty = modules.get("ghostty");
   assert.ok(ghostty.exports.some(({ type, name }) => type === "LIB" && name === "display"));
-  assert.ok(ghostty.exports.some(({ type, name, details }) =>
-    type === "ENV" && name === "DISPLAY" && details[0] === "/usr/lib/libdisplay.so"));
   assert.equal(ghostty.exports.some(({ type, name }) =>
     type === "FILE" && name === "display-wasm"), false);
   assert.ok(ghostty.files.some(({ path }) =>

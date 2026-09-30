@@ -2,7 +2,7 @@ DOLLY 4
 IMAGE cmake-build
 
 # Keep the expensive bootstrap reusable across source-build workspaces.
-FROM HOST /Dollyfile-system-tools 460845a3300d8f79d8c481436d53307ac906d4d760ff841e73c03af76f6d3e8a
+FROM HOST /Dollyfile-system-tools cb8e61a5f2d20d4f0176a3be5c3d9b1cd2875144bea3cd27a3ce904146b69eca
 USE HOST /modules/libuv.dm fd3b00cb6bb0a8f04be63e98860f965ad19142212edcc275d5af392297ccba3f
 USE HOST /modules/posix-shell.dm f549dd966c59473892d2fc9f11a19a9b7eaf1c344b1b4a62c5dbf2fbedcc3753
 USE HOST /modules/cmake.dm 18615a2a9db885162d52eae2dbd86201d75a9256b2e31ba277b79e39052f4f67

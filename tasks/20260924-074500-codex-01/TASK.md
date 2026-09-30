@@ -4,7 +4,7 @@
 - PRIORITY: 250
 - TAGS: game,physics,world,teams
 
-September 24 steering for the active Blockwalker playground goal: two island
+September 24 steering for the active Slopyard playground goal: two island
 teams compete over cargo from the central landmass. Add abandoned industrial
 spaces, elevators and covered passages that make flying alone insufficient.
 Explore scout communication, crane/boat chains, parachute deliveries and cargo
@@ -54,7 +54,7 @@ coordinates when the sender cannot see the cargo. Visibility uses Eyes/root
 range and the actual terrain boxes. Each island awards 1 point for light cargo
 and 8 points above 8 kg; physical release and settling are required.
 
-Prototype catalog: `build/blockwalker-competition-catalog.json`, 60 objects /
+Prototype catalog: `build/slopyard-competition-catalog.json`, 60 objects /
 1604 parts. It preserves the 51-object cast, moves two old crates away from new
 walls, assigns island teams, equips existing lookouts/aircraft with supply radio,
 and adds nine machines. It was integrated after the physical handoff and
@@ -63,37 +63,37 @@ ignored experiments; only the final designs belong in the source catalog.
 
 Measured evidence (all C compiled inside Dolly, disposable Chrome, 4 GiB/no swap):
 
-- `build/blockwalker-supply-driver.log`: permanent physical/browser checks pass;
+- `build/slopyard-supply-driver.log`: permanent physical/browser checks pass;
   9.992 m driven, 71 Eyes camera samples, actual pickup, no browser errors.
   These include old/new map imports, terrain collisions, multi-block support,
   team isolation, occluded sight, remote scout dispatch, saved radio/jobs and
   invalid radio output/import. The newer descent-bound sensor check is pending.
-- `build/blockwalker-supply-view.log`: parcel descent 1.667 m/s, saved midair chute
+- `build/slopyard-supply-view.log`: parcel descent 1.667 m/s, saved midair chute
   and timing, six-parcel bound after 800 s; zero removals. GPU canopy inspected.
-- `build/blockwalker-competition-population-fleet900.log`: all original 60 objects
+- `build/slopyard-competition-population-fleet900.log`: all original 60 objects
   survive 900 simulated seconds and four process/world reloads. East 12 / West 8,
   13 total deliveries. Both ore pallets pass through lift, hauler, loading crane,
   their team's barge and receiving crane; both barges return. Third load departs.
   Minimum barge up: East 0.94653 / West 0.96450. Segment saves, controller memories,
   physical carrier traces and foot traces are in the matching artifact directory.
   The west courier wedged a rotor under a lintel: this run is not a full pass.
-- `build/blockwalker-courier-clearance-descent.log`: the revised courier rejects
+- `build/slopyard-courier-clearance-descent.log`: the revised courier rejects
   the exact blocked landing column, then accepts another scout report and makes
   a real delivery. Both teams score; remote dispatch, three reloads, zero removals,
   minimum up 0.97921, maximum joint separation 0.04596 m over 485.150 s.
-- `build/blockwalker-receive-ready.log`: replay of two docked loaded barges verifies
+- `build/slopyard-receive-ready.log`: replay of two docked loaded barges verifies
   both receiving cranes score eight points, including a reload during unloading;
   39.867 s, zero removals, minimum barge up 0.98946.
 
-- `build/blockwalker-competition-population-clearance1200.log`: revised descent
+- `build/slopyard-competition-population-clearance1200.log`: revised descent
   checks survive 1200 s and six reloads with all 60 original objects present,
   East 21 / West 9, 16 deliveries, both scout-driven air couriers scoring and
   three complete heavy chains. The fourth pallet exposed a loading-crane jam,
   repaired and verified below. Minimum barge up 0.93811.
-- `build/blockwalker-payload-force.log`: identical aircraft and flight command
+- `build/slopyard-payload-force.log`: identical aircraft and flight command
   lift a 0.913 kg parcel to 9.639 m; the 10.952 kg pallet stays at 0.485 m while
   the magnet saturates at 30 N. Both trials acquire the load and have no removals.
-- `build/blockwalker-crane-inspect-fourth/`: actual contacts show the stalled
+- `build/slopyard-crane-inspect-fourth/`: actual contacts show the stalled
   magnet head pressing against pallet 72 with 87.4 N, while its radial piston
   is at the 1.5 m limit. A staged alignment attempt oscillated and was rejected.
   Greater pickup clearance and a 2 m radial stroke free that exact saved load
@@ -102,24 +102,24 @@ Measured evidence (all C compiled inside Dolly, disposable Chrome, 4 GiB/no swap
   The crane now waits for vehicle clearance, powers its magnet near the cargo,
   and damps centering against measured cargo velocity.
 
-- `build/blockwalker-freight-regression-damped.log`: four consecutive heavy
+- `build/slopyard-freight-regression-damped.log`: four consecutive heavy
   deliveries, two per team, in 1358.417 s across six reloads. Each pallet passes
   through all five physical carriers in order. East 16 / West 16; zero removals,
   minimum barge up 0.94919, maximum joint separation 0.02891 m. The final
-  regression lives in `test/fixtures/blockwalker-competition.c` and can run
+  regression lives in `test/fixtures/slopyard-competition.c` and can run
   through the existing driver browser harness's optional fixture argument.
-- `build/blockwalker-competition-ui-checkpoint.log`: actual Foundry/Quay/East/West
+- `build/slopyard-competition-ui-checkpoint.log`: actual Foundry/Quay/East/West
   buttons, lift follow/Eyes and fullscreen focus, score/radio/mass HUD, no browser
   errors. Instrumented 68-object sample: 18.58 FPS, zero GPU readback bytes.
   This harness samples world state every frame; normal gameplay is measured
   separately below. Screenshots and proof are in the matching artifact directory.
-- `build/blockwalker-competition-driver2.log`: current permanent physics and
+- `build/slopyard-competition-driver2.log`: current permanent physics and
   keyboard/browser checks pass, including aircraft descent bounds. 10.875 m
   driven, 76 Eyes samples, actual pickup, zero removals/browser errors. The
   object-count assertion now excludes replenished supplies while still checking
   the original cast, player and manually dropped cargo.
 
-- `build/blockwalker-competition-controllers2.log`: all 60 catalog controllers
+- `build/slopyard-competition-controllers2.log`: all 60 catalog controllers
   complete 1000 calls each; a finite controller survives an injected 50 ms wait;
   five runaway cases stop. Trial-memory validation and long-running controller
   clocks round-trip. The older dock courier needed a water-height fallback for
@@ -129,11 +129,11 @@ The earned 60-object candidate became the canonical catalog in `8b34788`. Image 
 was the first packaged competition checkpoint: 232306971 bytes, SHA-256
 `525859b01b59aa20c6171f8ee5b2cf2dfc7c26632e525dab220afdd88ee3ef9e`.
 The build took 24.4 s, with unchanged runtime and reused dependency images
-(`build/blockwalker-playground-image17.log`). Image 16 files remain under
-`build/blockwalker-image16-preserved/`; original learned sessions/history and
+(`build/slopyard-playground-image17.log`). Image 16 files remain under
+`build/slopyard-image16-preserved/`; original learned sessions/history and
 recovery archives are unchanged.
 
-`build/blockwalker-competition-preview-image17.log` checks the actual 9099 image:
+`build/slopyard-competition-preview-image17.log` checks the actual 9099 image:
 all 60 catalog controllers match, 41 library designs, all original objects remain,
 zero removals, no browser errors or model requests. The imported 68-object live
 world replenishes to 69 objects and advances 30.083 simulated seconds during
@@ -148,7 +148,7 @@ one-line GPU-provider change improves that virtual-display case to 55 FPS while
 preserving normal desktop performance and GPU validation. See the closed
 [GPU wait task](../20260924-113600-codex-01/TASK.md).
 
-`build/blockwalker-competition-population-repaired-7.log` passes the combined
+`build/slopyard-competition-population-repaired-7.log` passes the combined
 trial with a different route seed: 1200 simulated seconds, six process/world
 reloads, all 60 original objects intact, zero removals, 22 deliveries, East 21 /
 West 10. Three heavy pallets traverse all five carriers in order and score;
@@ -161,14 +161,14 @@ in `f2c1d9d`: all three cranes retain suspended pallets through crowded sensors
 and reloads, then finish two heavy deliveries per team. The permanent freight
 fixture passes 1353.117 seconds, nine reloads and zero removals. All 60 catalog
 controllers also pass 1000 calls each in
-`build/blockwalker-competition-controllers-guarded.log`.
+`build/slopyard-competition-controllers-guarded.log`.
 
 Image 18 was the packaged crane-recovery checkpoint: 232307762 bytes, SHA-256
 `dba39efa290c5578f5c3038bcd568f085ae4a2ba61bfd0b2e40c5628b176a375`.
 Source tar: `925b6514a29c6d8f7384866ce6088c59a6e346033a47ff0624a5380f729a53f5`.
 The unchanged-runtime rebuild took 23.8 seconds
-(`build/blockwalker-playground-image18.log`). The actual served image passes
-`build/blockwalker-competition-preview-image18-desktop.log` in Firefox:
+(`build/slopyard-playground-image18.log`). The actual served image passes
+`build/slopyard-competition-preview-image18-desktop.log` in Firefox:
 all catalog controllers match, 69 live objects, zero errors/removals/model
 requests, 56.35 / 58.32 FPS at Quay/focus and 30.2 simulated seconds per 30.02
 wall seconds. Original learned sessions and complete native Pi history remain

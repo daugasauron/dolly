@@ -9,6 +9,7 @@ import { DOLLY_THREAD_EXIT } from "./threads-abi.mjs";
 
 const PROCESS_EXIT = Symbol("Dolly process exit");
 const THREAD_EXIT = Symbol("Dolly thread exit");
+const CLOCK_TIME = 48;
 const DSO_OPEN = 112;
 const DSO_SYMBOL = 113;
 const DSO_CLOSE = 114;
@@ -36,11 +37,14 @@ if (!(configuration.module instanceof WebAssembly.Module) ||
     !(configuration.memory instanceof WebAssembly.Memory) ||
     !(configuration.control instanceof SharedArrayBuffer) ||
     configuration.control.byteLength !== 16 ||
+    !Number.isFinite(configuration.clockOrigin) ||
     !Number.isInteger(configuration.pid) || configuration.pid <= 0) {
   throw new Error("Dolly process received an invalid configuration");
 }
 
 const control = new Int32Array(configuration.control);
+const clockOffset = performance.timeOrigin - configuration.clockOrigin;
+let lastClockCheck = -Infinity;
 let exited = false;
 let threadResult;
 let instance;
@@ -465,6 +469,13 @@ function processDsoCall(operation, request, response) {
   }
 }
 
+function clockResponse(clock, response, now) {
+  const nanoseconds = Math.round((clock === 0 ? Date.now() : now + clockOffset) * 1e6);
+  new DataView(configuration.memory.buffer, response.address, 8)
+    .setBigUint64(0, BigInt(nanoseconds), true);
+  return 8n;
+}
+
 function call(operation, requestAddressValue, requestSizeValue,
               responseAddressValue, responseCapacityValue) {
   if (!Number.isInteger(operation) || operation < 0) {
@@ -483,6 +494,16 @@ function call(operation, requestAddressValue, requestSizeValue,
     ? new DataView(configuration.memory.buffer, request.address, 8).getBigUint64(0, true) : undefined;
   if (processFfi?.handles(operation)) {
     return processFfi.call(operation, request, response);
+  }
+  let clock;
+  if (operation === CLOCK_TIME && request.size === 16 && response.size >= 8 && response.size <= 1024 * 1024) {
+    const packet = new DataView(configuration.memory.buffer, request.address, 16);
+    if (packet.getUint32(0, true) <= 1 && packet.getUint32(4, true) === 0)
+      clock = packet.getUint32(0, true);
+    const now = performance.now();
+    // Frequent clock reads need no worker round trip. Still enter the kernel
+    // at least once per millisecond so clock-only loops deliver pending signals.
+    if (clock !== undefined && now - lastClockCheck < 1) return clockResponse(clock, response, now);
   }
   const sequence = (Atomics.add(control, 0, 1) + 1) | 0;
   self.postMessage({
@@ -507,6 +528,12 @@ function call(operation, requestAddressValue, requestSizeValue,
   if (operation === DOLLY_THREAD_EXIT && result >= 0n) {
     threadResult = exitingResult;
     throw THREAD_EXIT;
+  }
+  if (clock !== undefined) {
+    lastClockCheck = result === 8n ? performance.now() : -Infinity;
+    // Sample the same clock after kernel checks too: Firefox rounds Worker
+    // time origins, so alternating the two clocks can otherwise move backwards.
+    if (result === 8n) return clockResponse(clock, response, lastClockCheck);
   }
   if (operation === 5 && result >= 0n) {
     exited = true;

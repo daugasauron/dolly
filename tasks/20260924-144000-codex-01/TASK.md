@@ -9,8 +9,8 @@ stops heavy deliveries at 1986.133 s. The hauler repeatedly targets Air parcel
 80 at (-49.79, 51.17), while ore pallet 79 waits on the lift. Its magnet stays
 1.94 m high over the small parcel and cannot attach. The freight path is idle.
 The exact 3600 s state and ten-second contact/sensor replay are preserved in
-`build/blockwalker-continuous-population-fresh42/segment-3600/` and
-`build/blockwalker-lift-jam-baseline/`.
+`build/slopyard-continuous-population-fresh42/segment-3600/` and
+`build/slopyard-lift-jam-baseline/`.
 
 All six outstanding air parcels also accumulate at just two drop sites:
 three around the foundry and three around the western ruins. Couriers reject
@@ -29,7 +29,7 @@ The ore-only candidate recovers the exact stalled pallet 79: East scores it at
 parcel remains in the world. This replay stops at 4135.517 s because lookout
 34 tips near Marrowstep, not because of a freight failure. Preserve that
 independent failure rather than reporting the whole continuation as passing.
-Evidence: `build/blockwalker-ore-recovery-selected/segment-0720/`.
+Evidence: `build/slopyard-ore-recovery-selected/segment-0720/`.
 
 Root/carrier traces independently identify the recovered pallet on lift 52 at
 3600.017 s, hauler 53 at 3615.017, crane 54 at 3808.517, East barge 55 at
@@ -40,18 +40,18 @@ new one: a midair reload retains seed, next-drop time and parachute; after
 800 more simulated seconds, all six active parcels originate at distinct
 sites, all chutes have folded, and nothing is removed. The measured descent
 velocity is -1.667 m/s for a 0.913 kg parcel. Evidence:
-`build/blockwalker-supply-spacing-distinct.log` and its saved world.
+`build/slopyard-supply-spacing-distinct.log` and its saved world.
 
 The physical freight regression with a distracting light parcel passes at
 1453.567 s: East 16 / West 16, eleven reloads, no removals, minimum barge up
 0.94671, maximum separation 0.02841 m. Four heavy pallets complete all five
 carriers in order. The light parcel remains loose and uncollected. The same
 trial includes an occupied loading pad, simultaneous boat arrivals and brief
-observation loss at all three cranes. `build/blockwalker-quay-delay-parcel/`.
+observation loss at all three cranes. `build/slopyard-quay-delay-parcel/`.
 The general game/controls check also passes: 11.684 m driven through real keys,
 75 Eyes samples, actual magnetic pickup, and no browser errors.
-`build/blockwalker-reconciled-driver.log` and
-`build/blockwalker-reconciled-driver/cargo-physics.log`.
+`build/slopyard-reconciled-driver.log` and
+`build/slopyard-reconciled-driver/cargo-physics.log`.
 
 The uninterrupted default-seed 90-minute trial finishes with all 60 originals,
 zero removals, 68 deliveries and a 91–91 score. All 18 heavy deliveries have
@@ -59,11 +59,11 @@ independently traced lift → hauler → loading crane → team barge → receiv
 crane handoffs. Each team receives two heavy and three light deliveries in
 the last fifteen minutes. This verifies freight continuity; a separate
 [Marrowstep controller stall](../20260924-162500-codex-01/TASK.md) remains.
-Evidence: `build/blockwalker-continuous-population-fresh0-90m/summary.json`.
+Evidence: `build/slopyard-continuous-population-fresh0-90m/summary.json`.
 The image-22 2400 s population also retains all originals, with seven heavy
 chains. In the final fifteen minutes East receives two heavy/three light
 deliveries and West one heavy/two light.
-`build/blockwalker-continuous-population-image22-0/summary.json`.
+`build/slopyard-continuous-population-image22-0/summary.json`.
 
 Verified in packaged source `c092744`; the
 [checkpoint](../20260923-213000-codex-01/TASK.md) records served-browser evidence.
@@ -73,7 +73,7 @@ heavy freight after four loads: the fifth pallet rests on the lift while the
 hauler repeatedly approaches it with its magnet off. In the saved state the
 pole is near the pallet's corner, but the program requires a horizontal gap
 below 0.22 m to the whole pallet's center before powering it. This rejects a
-physically reachable surface. Evidence: `build/blockwalker-rivalry-checkpoint42/`.
+physically reachable surface. Evidence: `build/slopyard-rivalry-checkpoint42/`.
 The candidate powers the magnet within the cargo's sensed bounds, leaving
 actual capture to the unchanged 0.65 m contact query and rejecting wrong targets.
 Verify saved recovery and uninterrupted fresh freight before closing again.
@@ -83,9 +83,9 @@ it to the quay; the hauler returns for the next pallet while the crane begins
 pickup. All 125 objects remain, with 37 deliveries and no errors. The same
 continuation preserves all four stored heavy loads and Kawasemi completes its
 second delivery. The candidate is now canonical; fresh continuity remains
-pending. Evidence: `build/blockwalker-forklift-foundry-contact/`.
+pending. Evidence: `build/slopyard-forklift-foundry-contact/`.
 
-Image 29 fresh seed-42 endurance (`build/blockwalker-rivalry-image29-fresh42/`)
+Image 29 fresh seed-42 endurance (`build/slopyard-rivalry-image29-fresh42/`)
 retains all 117 objects over 2400 s, with 27 deliveries and no controller errors,
 but no heavy pallet reaches either island. Pallet 92 reaches the quay standing
 on edge; the loading crane remains in `pickup` from 679.85 s to the end, with
@@ -95,7 +95,7 @@ upstream of the warehouse handlers (0/0 stored). Preserve this exact save.
 Raising the head before horizontal alignment and using the observed cargo top
 recovers pickup, but the maximum lift still leaves the upright pallet on the
 ground (37.7 N support) and against the crane (21.6 N contact). It cannot swing
-clear. Evidence: `build/blockwalker-forklift-quay-clearance/`. Improve physical
+clear. Evidence: `build/slopyard-forklift-quay-clearance/`. Improve physical
 lifting clearance as well as the pickup program; this is not a completed fix.
 
 A 67-part crane prototype adds a mast level, a 3x3 bearing and a second lowering
@@ -104,7 +104,7 @@ settles it. Replaying the exact 117-object failure, it picks up upright pallet
 92 at about 8 s, lifts it clear, and releases onto East barge 55 at 30 s. The
 barge sails with that physical pallet, and the original hauler deposits pallet
 97 at the quay. No other design, cargo pose, mass or capture force was changed.
-`build/blockwalker-forklift-quay-high-lift-joint-feedback/`. The prototype is not
+`build/slopyard-forklift-quay-high-lift-joint-feedback/`. The prototype is not
 bundled; fresh repeated freight and warehouse operation remain required.
 
 The fresh isolated nine-machine chain with only that quay replacement runs
@@ -113,28 +113,28 @@ quay-to-barge transfers. West receives and stores one heavy pallet; East's
 receiving crane wedges its pallet against the quay while swinging. The original
 hauler is also slow (first quay arrival at 899 s). Thus the two-per-team storage
 assertion fails; this is not an endurance pass. Evidence:
-`build/blockwalker-rivalry-crane-fresh-chain/`. Taller, broad-bearing receiving
+`build/slopyard-rivalry-crane-fresh-chain/`. Taller, broad-bearing receiving
 cranes with ordinary sensor-driven programs are the next source-only experiment.
 
 Matching 67-part receiving cranes recover the saved East failure when their
 program aims at a fixed receiving-pad position and waits for cargo to settle,
 rather than continuously chasing a swinging cargo COM. East pallet 10 reaches
 the pad at 1844.567 s and is stored by warehouse 8; both delivered heavy loads
-are now stored. `build/blockwalker-forklift-receiving-high-lift-settle/`.
+are now stored. `build/slopyard-forklift-receiving-high-lift-settle/`.
 This proves saved-failure recovery, not repeated fresh operation on both sides.
 
 A fresh 1800 s trial of all three raised cranes plus a six-wheel hauler retains
 17 objects without program errors, but makes no deliveries. The hauler reaches
 its final route segment at 134 s, drifts sideways during its turn, and wedges
 its first pallet against the foundry exit by 160 s. It remains upright and
-powered but cannot proceed. `build/blockwalker-rivalry-six-wheel-three-cranes/`.
+powered but cannot proceed. `build/slopyard-rivalry-six-wheel-three-cranes/`.
 The new hauler and receiving cranes remain excluded from the source checkpoint;
 only the separately verified raised loading crane is promoted.
 
 Lookahead steering gets the six-wheel hauler through the factory and transfers
 the first pallet onto East's barge by 263 s, but its strict centered-pickup
 condition stalls the second load. East's receiving head stops 0.249 m off the
-cargo COM at its minimum reach. `build/blockwalker-rivalry-lookahead-three-cranes/`
+cargo COM at its minimum reach. `build/slopyard-rivalry-lookahead-three-cranes/`
 runs 1800 s with 17 retained objects and no errors, but still no deliveries.
 
 A third lowering stage provides enough travel to reach a barge, and a 0.4 m
@@ -143,7 +143,7 @@ the hanging column touching the quay edge (part 34 supports about 115 N), so
 more travel alone cannot fix it. Moving the boat's authored berth offshore and
 adding ordinary retract-on-obstruction behavior does not yet clear that already
 wedged state. The hauler also stalls lifting a corner-held second pallet;
-retracting its boom is insufficient. Preserve `build/blockwalker-forklift-
+retracting its boom is insufficient. Preserve `build/slopyard-forklift-
 {telescopic-receivers,safe-berth,retract-recover}/`. No cargo was relocated or
 removed. A 26-part twin-mast hauler with two parallel lifting rams and a wider
 ballasted chassis is the next fresh physical design test. These remain excluded.
@@ -153,21 +153,21 @@ lifting ram. It initially drags its pallet while turning. Giving both rams
 2 m travel, targeting 1.75 m lift and waiting for cargo support to disappear
 completes three trips in a fresh 900 s run, with 18 retained objects and no
 errors. The quay then cannot reach the second pallet; East's z=26 berth is
-blocked by the inlet wall. `build/blockwalker-rivalry-tandem-clearance/`.
+blocked by the inlet wall. `build/slopyard-rivalry-tandem-clearance/`.
 
 Shortening the quay boom by one block (65 parts) and restoring the berth to
 z=24 recovers that exact saved world: a 300 s replay transfers the waiting
 pallet to West, while East delivers and stores its original load. The hauler
 reaches four trips, 19 objects remain and no program errors occur. The replay
 changes the loaded barge's program only. Evidence:
-`build/blockwalker-forklift-telescopic-quay-center-berth/`. This is still excluded
+`build/slopyard-forklift-telescopic-quay-center-berth/`. This is still excluded
 pending fresh repeated deliveries/storage on both teams.
 
 Fresh 1800 s verification of the short-boom/center-berth candidate retains 19
 objects with no errors and proves a complete East chain (lift, hauler, quay,
 barge, receiver, warehouse). It fails repeated storage: East 1 / West 0.
 West capsizes around 635 s while turning with an upright pallet, then blocks
-berth reuse. `build/blockwalker-rivalry-telescopic-quay-center-fresh/freight-proof.json`.
+berth reuse. `build/slopyard-rivalry-telescopic-quay-center-fresh/freight-proof.json`.
 The next physical candidate puts three ballast blocks along each barge's lower
 centerline and reduces turn commands while carrying. No masses are weakened.
 
@@ -175,7 +175,7 @@ The ballasted-barge candidate completes and stores one heavy load on each team
 in a fresh 1200 s run, retains 20 objects and has no errors. Minimum boat up
 is 0.951 East / 0.798 West. Both loads pass through lift, hauler, quay, barge,
 receiver and warehouse by physical ownership; no cargo is moved by the fixture.
-`build/blockwalker-rivalry-ballasted-barges/freight-proof.json`. A third pallet
+`build/slopyard-rivalry-ballasted-barges/freight-proof.json`. A third pallet
 rolls beyond the crane program's fixed 2 m pickup circle but remains within
 its physical boom reach. Expand selection to the reachable land-side annulus;
 verify that exact saved failure and then repeated fresh operation before bundling.
@@ -185,7 +185,7 @@ hauler, quay, ballasted barges and longer-reach receivers makes six heavy
 deliveries and stores two loads per island. All 24 objects remain and controller
 errors are zero. The unchanged warehouse programs still have later loads in
 route/planning phases at the cutoff. Evidence:
-`build/blockwalker-rivalry-compound-reachable-freight/freight-proof.json`.
+`build/slopyard-rivalry-compound-reachable-freight/freight-proof.json`.
 The original nine-machine comparison stores zero loads; rigidity alone does
 not fix the reach/alignment failures. A fresh populated 2400 s run is underway;
 keep this issue open pending that result and packaged verification.
@@ -195,7 +195,7 @@ objects, 35 deliveries, six complete heavy freight chains and two supported,
 unheld heavy loads stored beyond each team's receiving pad. Both third loads
 are with warehouse handlers at the cutoff; the quay is loading the seventh.
 There are no controller errors, crew contacts or recovery-truck rollovers.
-`build/blockwalker-rivalry-compound-freight-populated42/{report,freight-proof}.json`.
+`build/slopyard-rivalry-compound-freight-populated42/{report,freight-proof}.json`.
 The six changed freight models/programs are now canonical; the ore lift and
 warehouse handlers are unchanged. Image 32 is building for bundled browser
 checks. West's missing ammunition recovery is reopened separately.
@@ -205,6 +205,6 @@ restore the older 125-object world and render the new freight machinery without
 errors. The full physics regressions pass, including distinct air supplies and
 mine production. The fresh 2400 s run physically delivers six heavy pallets
 and is loading the seventh, beyond the prior four-load jam. Evidence:
-`build/blockwalker-image33-preview{,-firefox}/`, `build/blockwalker-driver/`
-and `build/blockwalker-rivalry-view-firefox-crowded-image33-freight/`.
+`build/slopyard-image33-preview{,-firefox}/`, `build/slopyard-driver/`
+and `build/slopyard-rivalry-view-firefox-crowded-image33-freight/`.
 Later warehouse routing remains a separate open issue; no cargo was removed.

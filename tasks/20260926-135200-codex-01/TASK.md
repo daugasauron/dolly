@@ -11,7 +11,7 @@ program, retained sensor snapshots, controller budgets and saved-world behavior.
 Do not reduce simulation quality or remove gameplay to improve the numbers.
 
 Baseline: image43,29fb53f. Inputs and disposable browser evidence:
-`build/blockwalker-performance-30m-20260926/`. C compilation remains inside Dolly.
+`build/slopyard-performance-30m-20260926/`. C compilation remains inside Dolly.
 Use sampled phase timings to identify costs without putting a host clock call
 around every controller operation. Quantify improvements with uninstrumented
 browser runs in alternating order, and verify equivalent physics and saves
@@ -62,7 +62,7 @@ resumed the comparison; the user's browser/profile was not touched.
 Final Firefox comparison: stock44.30/43.44FPS, candidate49.07/49.73FPS
 (average43.87→49.40,+12.6%). Median intervals21→19ms; p95 intervals35→30–31ms.
 No missing actors, new deaths or errors. Combined raw measurements:
-`build/blockwalker-performance-30m-20260926/comparison.json`.
+`build/slopyard-performance-30m-20260926/comparison.json`.
 The final implementation is11 added/3 removed C lines; rejected constructor
 experiments are not included. The models, programs, physics timing and FPS badge
 remain unchanged.
@@ -78,11 +78,11 @@ Packaged as image44 in41.8s inside Dolly using the existing runtime/dependencies
 Chrome and Firefox each verify111 bundled designs/programs and seven restored
 worlds, including format1 and actual magnetic attachments, with no new errors,
 deaths or model requests. Rendered views and persistent FPS badges inspected.
-`build/blockwalker-image44-preview{,-firefox}/proof.json`.
+`build/slopyard-image44-preview{,-firefox}/proof.json`.
 All22 archived sources and served artifact hashes match; six protected save/
 history files and39 other snapshots are unchanged. All13 image entries remain,
-only blockwalker metadata changes, and40 recipe lint checks pass.
-`build/blockwalker-image44-artifacts.json`. Local app remains on port9099.
+only slopyard metadata changes, and40 recipe lint checks pass.
+`build/slopyard-image44-artifacts.json`. Local app remains on port9099.
 
 The final constructor diagnostic passes1,250 allocations of1–25 numeric fields,
 and another1,250 with nested arrays/strings under the4MiB heap limit. The original

@@ -18,7 +18,7 @@ arms, counterweights and articulated broad feet are legitimate mechanisms.
 **Sidelight XXVIII — measured-motion landing damper** has 29 parts and ten
 powered hinges. Actual Pi developed it through standing, single support, swing,
 landing and alternating-transfer experiments. The first successful compact
-source is 10460 characters, preserved in `build/blockwalker-repeat-seed.json`.
+source is 10460 characters, preserved in `build/slopyard-repeat-seed.json`.
 The local default image now includes it as **Sidelight - two-legged walker**
 at (60,-50), with all prior 49 catalog entries unchanged.
 
@@ -37,20 +37,20 @@ float32 storage. No physics tuning, hidden balance assistance or anchoring was
 introduced. The gait is slow: later placements settle near 17.5 s apart.
 
 Evidence and three timed GPU images per physics replay:
-`build/blockwalker-repeat-trial/`, `build/blockwalker-biped-world/` and
-`build/blockwalker-biped-checkpoint/`. Their matching browser/check scripts and
+`build/slopyard-repeat-trial/`, `build/slopyard-biped-world/` and
+`build/slopyard-biped-checkpoint/`. Their matching browser/check scripts and
 logs reproduce the runs inside Dolly. The image build took 20.8 s and produced
 231885791 bytes (SHA prefix 29aec82041b76b9c). Current source pins are in the
 Dollyfile/module. Guard the complete test tree with 4 GiB/no swap.
 
 Pi released exact original source/blueprint as live ID 62 at (60,-50). It
 walked 4.09964 m over 226.717 s before the checkpoint, staying upright, with all
-52 earlier objects unchanged. The updated `blockwalker-sidelight` session
+52 earlier objects unchanged. The updated `slopyard-sidelight` session
 preserves 53 objects/1390 parts and the full 337,244,715-byte native history.
 All five files matched after import; world/history hashes matched inside Dolly,
 and the real session compatibility check passed. Actual Astra/xhigh continuation
 and the advancing-world backup preserve every old ID/source and the entire
-history prefix. Evidence: `build/blockwalker-walking/sidelight-*-proof.json`.
+history prefix. Evidence: `build/slopyard-walking/sidelight-*-proof.json`.
 
 The first biped checkpoint is complete. Faster sustained walking continues in
 [its separate issue](../20260915-102900-codex-01/TASK.md); the broader timed goal
@@ -73,10 +73,10 @@ physical landings and 2.84939 m forward travel at 172 s. The 50 other objects
 survived. Do not promote the faster candidate. This run measures survival and
 motion, not ordinary rendering performance (dense world saves took 270 wall s).
 
-`build/blockwalker-fast-world/failure-proof.json`, poses and two pre-failure GPU
+`build/slopyard-fast-world/failure-proof.json`, poses and two pre-failure GPU
 images retain the failure. The browser assertion correctly rejected removal
 before 240 s; no persistence claim is made for the failed candidate. The 90 s
-practice evidence and three images remain in `build/blockwalker-fast-trial/`.
+practice evidence and three images remain in `build/slopyard-fast-trial/`.
 Late-failure findings are included in the resumed Pi prompt.
 
 ## Earlier findings

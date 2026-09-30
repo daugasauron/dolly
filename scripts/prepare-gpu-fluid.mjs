@@ -6,17 +6,17 @@ const hash=bytes=>createHash("sha256").update(bytes).digest("hex");
 const entries=[
  ...(await readdir(new URL("src/gpu/fluid/",root))).sort().map(file=>[`src/gpu/fluid/${file}`,`/usr/src/dolly/fluid/${file}`]),
 ];
-let module="DOLLY 4\nMODULE gpu-fluid\n\nREQUIRES TOOL cc\nREQUIRES HEADER gpu\nREQUIRES HOST gpu@0\nREQUIRES HOST display@0\n\n";
+let module="DOLLY 4\nMODULE gpu-fluid\n\nREQUIRES TOOL cc\nREQUIRES HEADER gpu\nREQUIRES LIB dolly-gpu\nREQUIRES HOST gpu@0\nREQUIRES HOST display@0\n\n";
 for(const [source,path] of entries){const content=await readFile(new URL(source,root),"utf8");module+=`FILE ${path}\n${content.trimEnd().split("\n").map(line=>`    ${line}`).join("\n")}\n\n`;}
 for(const [path,include] of [["cglm/cglm.h","../platform.h"],["webgpu/wgpu_common.h","../platform.h"],["webgpu/imgui_overlay.h","../without-imgui.h"],["cimgui.h","without-imgui.h"],["sokol_time.h","platform.h"]])module+=`FILE /usr/src/dolly/fluid/${path}\n    #include "${include}"\n\n`;
 await writeFile(new URL("modules/gpu-fluid.dm",root),module);
 const headers=JSON.parse(await readFile(new URL("config/fluid-cglm-headers.json",root),"utf8"));
 const cglm=headers.map(({path,sha256})=>`SOURCE URL https://raw.githubusercontent.com/recp/cglm/144d1e7c29b3b0c6dede7917a0476cc95248559c/include/${path} /usr/src/dolly/fluid/${path} ${sha256}`).join("\n");
-const parent=hash(await readFile(new URL("Dollyfile-system",root)));
+const parent=hash(await readFile(new URL("Dollyfile-gpu-sdk",root)));
 await writeFile(new URL("Dollyfile-gpu-fluid",root),`DOLLY 4
 IMAGE gpu-fluid
 
-FROM HOST /Dollyfile-system ${parent}
+FROM HOST /Dollyfile-gpu-sdk ${parent}
 USE HOST /modules/gpu-fluid.dm ${hash(module)}
 
 SOURCE URL https://raw.githubusercontent.com/samdauwe/webgpu-native-examples/9a7c30753d6f44630564a8316eb9c44211ff0ecc/src/examples/fluid_simulation.c /usr/src/dolly/fluid/fluid_simulation.c 74d7a9fa5b0c23988016589cf57554028c38a1cd49916d03d9aeead85a045c40
@@ -36,4 +36,4 @@ FILE /etc/dolly/gpu-fluid.slop
 
 ENTRY /bin/foreground -i /bin/slop /etc/dolly/gpu-fluid.slop
 `);
-console.log("dolly: prepared the separate GPU fluid image; existing recipes are unchanged");
+console.log("dolly: prepared GPU fluid sources and recipe");

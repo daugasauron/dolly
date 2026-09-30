@@ -48,7 +48,7 @@ Source evidence in `build/base-zones-20260927/`:
   bytes; six protected saves, the other catalog entries and 56 image/runtime
   assets are unchanged. Selected image build takes 61.3 s.
 
-Local preview: `http://127.0.0.1:9097/blockwalker/`. Complete checkpoint backup:
+Local preview: `http://127.0.0.1:9097/slopyard/`. Complete checkpoint backup:
 `build/checkpoint-20260927-bases/`; source tar
 `20caec75c35595a1bb4016d40edc844f389a04a1fb03f3828f97b55f31382e1b`.
 

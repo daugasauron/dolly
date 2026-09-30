@@ -36,7 +36,7 @@ int dolly_gpu_read(dolly_gpu *g, uint64_t buffer, uint64_t offset, uint64_t leng
 void dolly_gpu_begin(dolly_gpu *g) { g->length=40;g->count=0;u32(g->packet,36,0); }
 void *dolly_gpu_record(dolly_gpu *g, uint32_t opcode, size_t bytes) {
   bytes=(bytes+7)&~(size_t)7;
-  if(bytes<8 || bytes>sizeof(g->packet)-g->length || g->count==256) {
+  if(bytes<8 || bytes>sizeof(g->packet)-g->length || g->count==DOLLY_GPU_MAX_COMMANDS) {
     fputs("GPU client packet capacity exceeded\n",stderr);abort();
   }
   void *p=g->packet+g->length;memset(p,0,bytes);g->length+=bytes;g->count++;

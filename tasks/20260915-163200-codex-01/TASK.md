@@ -31,7 +31,7 @@ free fall reads zero; a3.650692 N block reads3.650690 N at10 Hz and3.650683 N
 at60 Hz. An anchored arm pressing its own blocks reports30.09657 N self force
 and zero outside support. A separate dynamic crate supports the cantilever's
 root with1.52918 N; total beam support14.60275 N matches its14.60277 N weight.
-These checks are part of `src/blockwalker/check.mjs`.
+These checks are part of `src/slopyard/check.mjs`.
 
 At identical physics state, seven batches of50 complete sensor passes over
 53 characters/1461 blocks had median cost .8139 ms before and .9346 ms after:
@@ -39,8 +39,8 @@ At identical physics state, seven batches of50 complete sensor passes over
 even reading every character at60 Hz adds .7242% of a16.667 ms frame budget.
 The two builds produced byte-identical1159561-byte saved worlds, including
 all poses and controller memory. Evidence:
-`build/blockwalker-sensors-benchmark-matched/` and
-`build/blockwalker-forces-packaged/`.
+`build/slopyard-sensors-benchmark-matched/` and
+`build/slopyard-forces-packaged/`.
 
 The image build reused dependencies and took20.7 s; snapshot231956389 bytes,
 SHAd43f7c3247c94951db7295ec558255feb9108cf1e142a4110b9bd9efeb08b3a3.
@@ -50,8 +50,8 @@ matched benchmark72984 and packaged check61037 are terminal0; no test browser
 remains. The earlier helper upload failed on an existing destination and was
 fixed to upload into/tmp before copying; this was not a product failure.
 
-Live migration to `blockwalker-forces` verified every archived workspace hash,
+Live migration to `slopyard-forces` verified every archived workspace hash,
 new packaged C/agent/catalog sources and session compatibility. It retained
 all53 live creations,76 designs and the entire384715559-byte native history.
-Restore75530 and verifier87245 are terminal0. The previous `blockwalker-patrol`
+Restore75530 and verifier87245 are terminal0. The previous `slopyard-patrol`
 session and its image remain available; nothing was pushed or deployed.

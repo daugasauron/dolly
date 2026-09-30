@@ -1,4 +1,5 @@
-import { createHost, interactiveHost } from "./host/modules.mjs";
+import { buildLog } from "./build-log.mjs";
+import { createHost, buildHost } from "./host/modules.mjs";
 import { DisplayTransport } from "./host/display.mjs";
 import { prepareImageArtifacts, loadImageHostRequirements } from "./image-build.mjs";
 import { buildImage } from "./image-builder.mjs";
@@ -31,13 +32,9 @@ const sessionButton = document.querySelector("#session-open");
 const sessionDialog = document.querySelector("#session-dialog");
 const sessionName = document.querySelector("#session-name");
 const sessionDetail = document.querySelector("#session-detail");
-bootstrapLog.replaceChildren();
-
-const bootstrapMaximumLines = 40;
-const bootstrapMaximumCharacters = 8192;
-const bootstrapLines = [];
-let bootstrapCharacters = 0;
-let bootstrapFragment = "";
+const bootstrapOutput = buildLog(bootstrapLog);
+bootstrapOutput.clear();
+const appendBootstrap = text => bootstrapOutput.append(text);
 
 const encoder = new TextEncoder();
 const textDecoder = new TextDecoder("utf-8", { ignoreBOM: true });
@@ -77,48 +74,6 @@ function displayFatal(message) {
   bootstrapLog.hidden = false;
   appendBootstrap(`\nFATAL\n${message}\n`);
   document.documentElement.dataset.dollyStatus = "failed";
-}
-
-function appendBootstrap(text, flush = false) {
-  const normalized = `${bootstrapFragment}${text}`
-    .replaceAll("\r\n", "\n")
-    .replaceAll("\r", "\n");
-  const lastNewline = normalized.lastIndexOf("\n");
-  let complete = "";
-  if (flush) {
-    complete = normalized;
-    bootstrapFragment = "";
-  } else if (lastNewline === -1) {
-    bootstrapFragment = normalized.slice(-bootstrapMaximumCharacters);
-  } else {
-    complete = normalized.slice(0, lastNewline + 1);
-    bootstrapFragment = normalized
-      .slice(lastNewline + 1)
-      .slice(-bootstrapMaximumCharacters);
-  }
-  if (complete === "") return;
-
-  let offset = 0;
-  while (offset < complete.length) {
-    const newline = complete.indexOf("\n", offset);
-    const end = newline === -1 ? complete.length : newline + 1;
-    const record = complete.slice(offset, end)
-      .replace(/\x1b\[[0-9;:]*m/g, "")
-      .slice(-bootstrapMaximumCharacters);
-    const node = document.createTextNode(record);
-    bootstrapLines.push(node);
-    bootstrapCharacters += record.length;
-    bootstrapLog.append(node);
-    offset = end;
-  }
-
-  while (bootstrapLines.length > bootstrapMaximumLines ||
-         bootstrapCharacters > bootstrapMaximumCharacters) {
-    const expired = bootstrapLines.shift();
-    bootstrapCharacters -= expired.data.length;
-    expired.remove();
-  }
-  bootstrapLog.scrollTop = bootstrapLog.scrollHeight;
 }
 
 async function toggleFullscreen(event) {
@@ -389,6 +344,28 @@ function pushPointer(event, action) {
   }
 }
 
+function pushPointerPresence(inside) {
+  if (transport?.graphicsActive() &&
+      !transport.pushRecord({ type: 10, action: inside ? 1 : 0 })) {
+    document.documentElement.dataset.inputOverflow = "true";
+  }
+}
+canvas.addEventListener("pointerenter", () => pushPointerPresence(true));
+canvas.addEventListener("pointerleave", () => pushPointerPresence(false));
+window.addEventListener("blur", () => {
+  selecting = false;
+  pushPointerPresence(false);
+  if (transport && !transport.pushRecord({ type: DisplayTransport.focusEvent, action: 0 })) {
+    document.documentElement.dataset.inputOverflow = "true";
+  }
+});
+window.addEventListener("focus", () => {
+  if (transport && !transport.pushRecord({ type: DisplayTransport.focusEvent, action: 1 })) {
+    document.documentElement.dataset.inputOverflow = "true";
+  }
+  pushPointerPresence(canvas.matches(":hover"));
+});
+
 canvas.addEventListener("pointerdown", (event) => {
   if (!transport || (event.button !== 0 && !transport.graphicsActive())) return;
   if (transport.relativePointerRequested()) {
@@ -596,13 +573,15 @@ async function boot() {
   if (image === "custom" && !customSource) {
     throw new Error("No uploaded Dollyfile is available in this tab. Return to the Dolly menu.");
   }
-  host = await createHost("browser", globalThis.DOLLY_HOST_MODULES ?? interactiveHost, {
+  const requiredHost = [...await loadImageHostRequirements(image, customSource)];
+  if (sessionSnapshot !== undefined) requiredHost.push("snapshot@0");
+  host = await createHost("browser", globalThis.DOLLY_HOST_MODULES ??
+    [...requiredHost, ...(bootMode === "rebuild" ? buildHost : [])], {
     send: (message, transfers = []) => runtimeWorker.postMessage(message, transfers),
     resources: { http: { network: applicationNetwork }, display: { canvas }, gpu: { mount } },
   });
   delete globalThis.DOLLY_HOST_MODULES;
-  host.require(await loadImageHostRequirements(image, customSource));
-  if (sessionSnapshot !== undefined) host.require(["snapshot@0"]);
+  host.require(requiredHost);
   const customArtifact = image === "custom" && bootMode === "snapshot"
     ? await loadCustomImage(customSource, restoredSession?.customImage.artifact ??
       JSON.parse(sessionStorage.getItem("dolly-custom-artifact"))) : undefined;
@@ -636,6 +615,7 @@ async function boot() {
     type: "module",
     name: "dolly-runtime",
   });
+  runtimeWorker.addEventListener("error", () => host.dispose());
   runtimeWorker.addEventListener("message", (event) => {
     const message = event.data;
     void host.handle(message).catch(error => displayFatal(error.message));
@@ -651,6 +631,7 @@ async function boot() {
       runtimeWorker.terminate();
       document.documentElement.dataset.dollyStatus = "exited";
     } else if (message.type === "error" && runtimeReady) {
+      host.dispose();
       const detail = message.stack ? `${message.message}\n${message.stack}` : message.message;
       for (const reject of runtimeFailureRejectors) reject(new Error(detail));
       runtimeFailureRejectors.clear();
@@ -692,7 +673,7 @@ async function boot() {
     });
     runtimeWorker.addEventListener("error", reject, { once: true });
   });
-  appendBootstrap(bootstrapDecoder.decode(), true);
+  appendBootstrap(bootstrapDecoder.decode());
   runtimeReady = true;
   if (ready.bootMode !== bootMode) throw new Error("runtime boot mode mismatch");
   if (ready.routeImage !== image || (image !== "custom" && ready.image !== image)) {
@@ -742,6 +723,7 @@ async function boot() {
   window.__dolly = {
     worker: runtimeWorker,
     get gpu() { return host.get("gpu")?.status ?? {}; },
+    get audio() { return host.get("audio")?.status; },
     hostModules: host.enabled,
     hostUnavailable: host.unavailable,
     display: presenter,
@@ -803,6 +785,7 @@ boot().catch((error) => {
   presenter?.stop();
   resizeObserver?.disconnect();
   runtimeWorker?.terminate();
+  host?.dispose();
   displayFatal(error instanceof Error ? error.message : String(error));
 });
 

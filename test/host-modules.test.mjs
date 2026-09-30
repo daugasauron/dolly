@@ -8,8 +8,26 @@ import { inspectDollyfile } from "../src/dollyfile-view.mjs";
 import { imageHostRequirements } from "../src/image-requirements.mjs";
 import { hostRequirements, executableHostRequirements, checkHostAbi } from "../src/host/requirements.mjs";
 import { createDollyfileGraphLoader } from "../scripts/dollyfile-graph.mjs";
+import { discoverImageDefinitions } from "../scripts/image-definitions.mjs";
 
 const digest = value => createHash("sha256").update(value).digest("hex");
+test("retained images declare only their runtime providers using Dollyfile 4", async () => {
+  const root = new URL("../", import.meta.url).pathname;
+  const load = createDollyfileGraphLoader(root);
+  const graphics = new Set(["gpu-sdk", "gpu-fluid", "pi-local", "dollyfile-studio", "slopyard", "zero-ad"]);
+  const audio = new Set(["audio-sdk", "zero-ad"]);
+  const interactive = new Set("default audio-sdk bhop classicube codex dollyfile-studio gamedev-sdk gpu-fluid gpu-sdk javascript neovim pi pi-local pi-runtime python python-runtime rts-arena rust-tools slopyard system zero-ad".split(" "));
+  for (const image of await discoverImageDefinitions(root)) {
+    const graph = await load(image.filename);
+    for (const recipe of graph.records) assert.equal(recipe.version, 4, recipe.location);
+    const expected = interactive.has(image.image)
+      ? ["display@0", "download@0", "http@0", "snapshot@0", "upload@0"] : [];
+    if (graphics.has(image.image)) expected.push("gpu@0");
+    if (audio.has(image.image)) expected.push("audio@0");
+    if (image.image === "slopyard") expected.push("threads@0");
+    assert.deepEqual(graph.root.hostRequirements, expected.sort(), image.image);
+  }
+});
 test("Dollyfile 4 host requirements are versioned declarations, not exported objects", () => {
   const source = requirement => `DOLLY 4\nMODULE test\n${requirement}\n`;
   assert.deepEqual(inspectDollyfile(source("REQUIRES HOST gpu@0\nREQUIRES HOST http@0\nREQUIRES HOST gpu@0")).hostRequirements,

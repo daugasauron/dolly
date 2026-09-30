@@ -25,7 +25,7 @@ Scouts inspect at the radio cadence; couriers honor fresh claims. Failed jobs
 now re-seek at the courier's current position rather than returning empty to base.
 
 Reproduce the focused checks with
-`xvfb-run -a node test/blockwalker-controller-browser.mjs test/fixtures/blockwalker-team-strategy.c`.
+`xvfb-run -a node test/slopyard-controller-browser.mjs test/fixtures/slopyard-team-strategy.c`.
 The runner builds current source with the image compiler inside Dolly.
 
 Evidence in `build/combat-20260927/`:

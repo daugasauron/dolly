@@ -116,76 +116,72 @@ export async function loadPackagedSnapshotMetadata(image, checked = new Map(), a
   return metadata;
 }
 
-export async function loadPackagedSystemSnapshot(image, metadata, signal) {
-  if (metadata.encoding === "packs") {
-    const parts = [];
-    for (const pack of validateSnapshotPacks(metadata)) {
-      signal?.throwIfAborted();
-      const url = new URL(`dist/packs/${pack.sha256}.snapshot.gz`, packBase);
-      const init = { cache: "force-cache", credentials: "same-origin", redirect: "error", signal };
-      const response = await decodeStaticAsset(await fetch(url, init), url, init, pack.encodedByteLength);
-      if (!response.ok || !response.body) throw new Error(`snapshot pack returned HTTP ${response.status}`);
-      const reader = response.body.pipeThrough(new DecompressionStream("gzip")).getReader();
-      const bytes = new Uint8Array(pack.byteLength);
-      let offset = 0;
-      try {
-        for (;;) {
-          const { done, value } = await reader.read();
-          if (done) break;
-          if (value.length > bytes.length - offset) { await reader.cancel(); throw new Error("snapshot pack exceeds declared size"); }
-          bytes.set(value, offset);
-          offset += value.length;
-        }
-      } finally { reader.releaseLock(); }
-      if (offset !== bytes.length || await sha256(bytes) !== pack.sha256) throw new Error("snapshot pack integrity mismatch");
-      parts.push(bytes);
-    }
-    const bytes = mergeSnapshotRecords(parts);
-    if (bytes.length !== metadata.byteLength || await sha256(bytes) !== metadata.sha256) throw new Error("packed snapshot integrity mismatch");
-    return bytes.buffer;
+async function* packagedSnapshotParts(image, metadata, signal) {
+  const packed = metadata.encoding === "packs";
+  const parts = packed ? validateSnapshotPacks(metadata) : [metadata];
+  for (const part of parts) {
+    signal?.throwIfAborted();
+    const compressed = packed || metadata.encoding === "gzip";
+    const url = packed
+      ? new URL(`dist/packs/${part.sha256}.snapshot.gz`, packBase)
+      : new URL(`dist/dolly-${image}-system.snapshot${compressed ? ".gz" : ""}`, applicationBase);
+    const init = { cache: packed ? "force-cache" : "no-store", credentials: "same-origin", redirect: "error", signal };
+    const expected = compressed ? part.encodedByteLength : part.byteLength;
+    const response = await decodeStaticAsset(await fetch(url, init), url, init, expected);
+    if (!response.ok || !response.body) throw new Error(`snapshot returned HTTP ${response.status}`);
+    const declared = response.headers.get("content-length");
+    if (declared !== null && Number(declared) !== expected) throw new Error("snapshot HTTP content length mismatch");
+    const body = compressed ? response.body.pipeThrough(new DecompressionStream("gzip")) : response.body;
+    yield { ...part, body };
   }
-  const compressed = metadata.encoding === "gzip";
-  const artifactUrl = new URL(
-    `dist/dolly-${image}-system.snapshot${compressed ? ".gz" : ""}`, applicationBase,
-  );
-  let response;
-  try {
-    response = await fetch(artifactUrl, {
-      cache: "no-store", credentials: "same-origin", redirect: "error", signal,
-    });
-  } catch {
-    throw new Error("The packaged system snapshot could not be loaded");
-  }
-  if (!response.ok) throw new Error(`The packaged system snapshot returned HTTP ${response.status}`);
-  const declared = response.headers.get("content-length");
-  const expectedLength = compressed ? metadata.encodedByteLength : metadata.byteLength;
-  if (declared !== null && Number(declared) !== expectedLength) {
-    throw new Error("The packaged system snapshot has the wrong HTTP content length");
-  }
-  if (!response.body) throw new Error("The packaged system snapshot has no body");
-  const stream = compressed
-    ? response.body.pipeThrough(new DecompressionStream("gzip"))
-    : response.body;
-  const reader = stream.getReader();
-  const bytes = new Uint8Array(metadata.byteLength);
-  let offset = 0;
-  try {
-    for (;;) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      if (value.byteLength > bytes.byteLength - offset) {
-        await reader.cancel();
-        throw new Error("The packaged system snapshot exceeds its declared size");
+}
+
+// The sink owns incremental hashing. Every part is checked before another is
+// requested; the caller verifies the complete canonical image before booting.
+export async function streamPackagedSystemSnapshot(image, metadata, write, endPart, signal) {
+  for await (const part of packagedSnapshotParts(image, metadata, signal)) {
+    const reader = part.body.getReader();
+    let size = 0;
+    try {
+      for (;;) {
+        signal?.throwIfAborted();
+        const { done, value } = await reader.read();
+        if (done) break;
+        if (value.length > part.byteLength - size) throw new Error("snapshot exceeds declared size");
+        await write(value);
+        size += value.length;
       }
-      bytes.set(value, offset);
-      offset += value.byteLength;
-    }
-  } finally {
-    reader.releaseLock();
+      if (size !== part.byteLength || await endPart() !== part.sha256) throw new Error("snapshot integrity mismatch");
+    } catch (error) {
+      await reader.cancel().catch(() => {});
+      throw error;
+    } finally { reader.releaseLock(); }
   }
-  if (offset !== metadata.byteLength || await sha256(bytes) !== metadata.sha256) {
-    throw new Error("The packaged system snapshot failed its integrity check");
+}
+
+export async function loadPackagedSystemSnapshot(image, metadata, signal) {
+  const parts = [];
+  for await (const part of packagedSnapshotParts(image, metadata, signal)) {
+    const reader = part.body.getReader(), bytes = new Uint8Array(part.byteLength);
+    let offset = 0;
+    try {
+      for (;;) {
+        signal?.throwIfAborted();
+        const { done, value } = await reader.read();
+        if (done) break;
+        if (value.length > bytes.length - offset) throw new Error("snapshot exceeds declared size");
+        bytes.set(value, offset);
+        offset += value.length;
+      }
+      if (offset !== bytes.length || await sha256(bytes) !== part.sha256) throw new Error("snapshot integrity mismatch");
+      parts.push(bytes);
+    } catch (error) {
+      await reader.cancel().catch(() => {});
+      throw error;
+    } finally { reader.releaseLock(); }
   }
+  const bytes = parts.length === 1 ? parts[0] : mergeSnapshotRecords(parts);
+  if (bytes.length !== metadata.byteLength || await sha256(bytes) !== metadata.sha256) throw new Error("packed snapshot integrity mismatch");
   return bytes.buffer;
 }
 
@@ -251,11 +247,10 @@ export async function loadImageArtifactDescriptor(recipeSha256, inputs = []) {
 export async function loadImageArtifact(descriptor) {
   try {
     const id = `${DOLLY_IMAGE_BUILD_ID}:${descriptor.recipeSha256}`;
-    let bytes = await databaseOperation("readonly", (_store, payloads) => payloads.get(id));
-    if (bytes instanceof Blob) {
-      if (bytes.size !== descriptor.byteLength || bytes.size > snapshotSizeLimit) return null;
-      bytes = await bytes.arrayBuffer();
-    }
+    const payload = await databaseOperation("readonly", (_store, payloads) => payloads.get(id));
+    const size = payload instanceof Blob ? payload.size : payload?.byteLength;
+    if (size !== descriptor.byteLength || size <= 0 || size > snapshotSizeLimit) return null;
+    const bytes = payload instanceof Blob ? await payload.arrayBuffer() : payload;
     if (!(bytes instanceof ArrayBuffer) || bytes.byteLength !== descriptor.byteLength ||
         bytes.byteLength > snapshotSizeLimit) return null;
     const artifact = await describeImageArtifact(bytes, descriptor.recipeSha256, descriptor.inputs);

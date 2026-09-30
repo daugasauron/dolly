@@ -5,25 +5,7 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { promisify } from "node:util";
 import test from "node:test";
-import vm from "node:vm";
 import { DisplayTransport as Display } from "../src/host/display.mjs";
-
-test("plain bootstrap logs strip color codes after assembling split lines", async () => {
-  const source = await readFile(new URL("../src/browser.mjs", import.meta.url), "utf8");
-  const records = [];
-  const context = {
-    bootstrapFragment: "", bootstrapLines: [], bootstrapCharacters: 0,
-    bootstrapMaximumCharacters: 10000, bootstrapMaximumLines: 40,
-    bootstrapLog: { append: node => records.push(node.data), scrollHeight: 0 },
-    document: { createTextNode: data => ({ data }) },
-  };
-  const append = vm.runInNewContext(source.slice(source.indexOf("function appendBootstrap("),
-    source.indexOf("async function toggleFullscreen(")) + "\nappendBootstrap", context);
-  append("\x1b[1;3");
-  append("2mbuilding 日本語\x1b[0m\r\n\x1b[38:2:1:2:3mdone");
-  append("\x1b[m", true);
-  assert.deepEqual(records, ["building 日本語\n", "done"]);
-});
 
 test("display text packets and copied selections preserve literal UTF-8", async () => {
   const buffer = new SharedArrayBuffer(4096);

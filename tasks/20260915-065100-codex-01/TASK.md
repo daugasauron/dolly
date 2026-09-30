@@ -9,9 +9,9 @@ with cause `controller`, detail `Controller deadline exceeded`, and up=0.999784.
 Its finite, bounded gait had run for over an hour. This was a controller-limit
 failure, not a fall. Pi released a replacement as ID 59; its original design and
 history remain saved. Evidence: the 21:48:35 UTC mirror in
-`build/blockwalker-walking/current-state/blockwalker-world.json` and Pi history.
+`build/slopyard-walking/current-state/slopyard-world.json` and Pi history.
 
-`src/blockwalker/world.c` limits each QuickJS controller call by elapsed wall
+`src/slopyard/world.c` limits each QuickJS controller call by elapsed wall
 time. Measure whether Worker descheduling, GC or clock syscall overhead can
 consume the 4 ms allowance for an otherwise small bounded controller. Do not
 assume the cause from this one event or simply raise the timeout. Consider a
@@ -34,8 +34,8 @@ pause/GC event at live age 4256.9 s was not recorded.
 All 45 bundled controllers completed 45,000 fixed-pose calls. A 240-tick actual
 physics replay produced byte-identical complete world/controller state before
 and after (SHA-256 `d028d35d32e98852d19e7a49d5915319a167548814f64ef72d5fcebb50ae0fb3`).
-Evidence: `build/blockwalker-controller-probe/{wall,fuel}.csv`, `*-world.json`,
-`build/blockwalker-controller-compare.log`. Both variants were compiled inside
+Evidence: `build/slopyard-controller-probe/{wall,fuel}.csv`, `*-world.json`,
+`build/slopyard-controller-compare.log`. Both variants were compiled inside
 Dolly under a 4 GiB/no-swap browser scope.
 
 The candidate allows two engine interrupt checkpoints, then fails on the next.
@@ -51,11 +51,11 @@ call crosses the existing kernel interface. This is an execution budget, not a
 4 ms wall-time guarantee; the tool description now says so and directs programs
 to simulation time. Empty loops stopped in 0.07–0.17 ms, regex in 1.8–2.0 ms.
 
-The focused regression is `test/blockwalker-controller-browser.mjs` with the
-small C fixture `test/fixtures/blockwalker-controllers.c`. It uploads current app
+The focused regression is `test/slopyard-controller-browser.mjs` with the
+small C fixture `test/fixtures/slopyard-controllers.c`. It uploads current app
 sources and compiles the fixture inside Dolly, without rebuilding an image.
 It passed 45,000 ordinary calls, the paused controller and five runaway cases
-(`build/blockwalker-controller-check.log`). Full image/native and live update
+(`build/slopyard-controller-check.log`). Full image/native and live update
 verification is recorded below.
 
 ## Browser and live update verification
@@ -63,21 +63,21 @@ verification is recorded below.
 The rebuilt image passed the existing embedded/browser integration, including
 runaway removal, feedback flight, water, magnetic cargo and restored world.
 The focused source-only C probe passed again after the final change. All C
-compilation ran inside Dolly. Logs: `build/blockwalker-controller-integration.log`,
-`blockwalker-controller-check.log`, `blockwalker-controller-update.log`.
+compilation ran inside Dolly. Logs: `build/slopyard-controller-integration.log`,
+`slopyard-controller-check.log`, `slopyard-controller-update.log`.
 
 An isolated restore of the actual paused 52-object/1361-part world preserved
 controller source, memory, frequency, seed, IDs and three attachments with zero
 pose error. It exposed an old double-to-integer truncation: saved seconds times
 60 could be one ulp below an integral tick. Round to the nearest integer on load;
 the regression retains both affected step counts (1032202 and 261688).
-Evidence: `build/blockwalker-walking/controller-memory-restore.json`.
+Evidence: `build/slopyard-walking/controller-memory-restore.json`.
 
 The live update preserved all five backed-up files byte-for-byte, including the
 complete 309,962,807-byte native Pi history (1,481 JSONL entries). Its SHA-256 is
 `a7d0c76b992095eac8cb6191ba46f14b80cdd2f78f17cd04ef72f572828c160f`.
 A chunked full recovery archive and unchanged-file proof are in
-`build/blockwalker-walking/controller-{restore,updated}-proof.json`.
+`build/slopyard-walking/controller-{restore,updated}-proof.json`.
 Live continuation is verified at 22:29:48 UTC: world time advanced from
 25482.8167 to 25733.5167 s, all 52 objects remain, and removals remain nine.
 Requests reached 381/380 completed with actual `gpt-6-astra` / `xhigh` metadata;

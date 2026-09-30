@@ -38,20 +38,20 @@ with no magnetic attachment. An initial analysis assumed a flat-bottom resting
 height; inspecting the actual poses showed the rail support and corrected that
 assumption. The ordinary gravity simulation remained active.
 
-Evidence: `build/blockwalker-surveyors/{surveyors,proof}.json`, five inspected
-`surveyor-*.png` GPU images, and `build/blockwalker-surveyors-browser.log`.
+Evidence: `build/slopyard-surveyors/{surveyors,proof}.json`, five inspected
+`surveyor-*.png` GPU images, and `build/slopyard-surveyors-browser.log`.
 Recording complete world state four times per second slowed this instrumented
 run to 145.2 wall seconds; it is not a normal rendering benchmark.
 
 The fresh-population browser integration passed, including separate magnetic
 loads, all world identities after reopen, native actuator checks and saved
-attachments/controllers. Evidence: `build/blockwalker-surveyors-integration.log`.
+attachments/controllers. Evidence: `build/slopyard-surveyors-integration.log`.
 No live-session migration was needed for this catalog update.
 
 The final compact catalog is built and served at the existing 9099 preview.
-Build evidence: `build/blockwalker-surveyors-build.log` (19.6 s, 231,809,346-byte
+Build evidence: `build/slopyard-surveyors-build.log` (19.6 s, 231,809,346-byte
 snapshot). Six full-screen views ran at 33.6–46.9 FPS with simulation matching
 wall time and zero removals; the separate live Pi world was running concurrently.
 These shared-host measurements do not isolate GPU or per-creature cost.
-Evidence and inspected images: `build/blockwalker-survey-gallery/` and its
+Evidence and inspected images: `build/slopyard-survey-gallery/` and its
 matching browser log. No new permanent test suite was needed for this data change.

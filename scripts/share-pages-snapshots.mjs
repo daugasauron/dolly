@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { createHash } from "node:crypto";
-import { mkdir, readFile, readdir, writeFile } from "node:fs/promises";
+import { mkdir, readFile, readdir, rename, rm, stat, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { gzipSync } from "node:zlib";
 import { decodeSnapshotRecords, encodeSnapshotRecords, mergeSnapshotRecords, validateSnapshotPacks } from "../src/snapshot-records.mjs";
@@ -28,6 +28,36 @@ export function splitSnapshotRecords(records) {
   }
   finish();
   return parts;
+}
+
+async function writeSnapshotPack(directory, bytes) {
+  const sha256 = digest(bytes), compressed = gzipSync(bytes, { level: 6 });
+  const path = resolve(directory, "packs", `${sha256}.snapshot.gz`), temporary = `${path}.${process.pid}.tmp`;
+  try {
+    await writeFile(temporary, compressed);
+    await rename(temporary, path);
+  } finally { await rm(temporary, { force: true }); }
+  return { sha256, byteLength: bytes.length, encodedByteLength: compressed.length };
+}
+
+export async function ensureSnapshotPacks(directory, metadata) {
+  if (metadata.encoding === "packs") {
+    const present = await Promise.all(validateSnapshotPacks(metadata).map(async pack => {
+      try { return (await stat(resolve(directory, "packs", `${pack.sha256}.snapshot.gz`))).size === pack.encodedByteLength; }
+      catch (error) { if (error.code === "ENOENT") return false; throw error; }
+    }));
+    if (present.every(Boolean)) return metadata;
+  }
+  const bytes = await readFile(resolve(directory, `dolly-${metadata.image}-system.snapshot`));
+  if (bytes.length !== metadata.byteLength || digest(bytes) !== metadata.sha256) throw new Error("snapshot mismatch");
+  await mkdir(resolve(directory, "packs"), { recursive: true });
+  const packs = [];
+  for (const records of splitSnapshotRecords(decodeSnapshotRecords(bytes))) {
+    packs.push(await writeSnapshotPack(directory, encodeSnapshotRecords(records)));
+  }
+  const result = { ...metadata, encoding: "packs", packs };
+  validateSnapshotPacks(result);
+  return result;
 }
 
 export async function shareSnapshots(directory, snapshots) {
@@ -60,11 +90,9 @@ export async function shareSnapshots(directory, snapshots) {
   for (const group of groups.values()) {
     for (const records of splitSnapshotRecords(group.records)) {
       const bytes = encodeSnapshotRecords(records);
-      const sha256 = digest(bytes), compressed = gzipSync(bytes, { level: 6 });
-      const pack = { sha256, byteLength: bytes.length, encodedByteLength: compressed.length };
-      parts.set(sha256, bytes);
-      await writeFile(resolve(directory, "packs", `${sha256}.snapshot.gz`), compressed);
-      packedBytes += compressed.length;
+      const pack = await writeSnapshotPack(directory, bytes);
+      parts.set(pack.sha256, bytes);
+      packedBytes += pack.encodedByteLength;
       for (const image of group.images) image.packs.push(pack);
     }
   }

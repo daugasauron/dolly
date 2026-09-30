@@ -21,7 +21,7 @@ the previous C revision inside the finished image failed at `dolly/gpu.h`.
 The source tar contains them during the build, but the module exported only its
 program/source folder. Export both GPU headers so the included C source can be
 rebuilt inside the final image. The failed comparison produced no measurements;
-its log is retained as `build/blockwalker-outposts-missing-headers.log`.
+its log is retained as `build/slopyard-outposts-missing-headers.log`.
 
 ## Verification, 2026-09-15 03:04 JST
 
@@ -34,8 +34,8 @@ now supports matte alloy panels, emissive marker strips and solar cells.
 The native floor, solid-beam and passage checks passed in the in-Dolly build.
 The focused browser integration passed with a crate surviving under the arch,
 eight total survivors and save/restart retaining removal records and loaded
-magnets. Logs: `build/blockwalker-outposts-integration.log` and final native
-image build `build/blockwalker-outposts-final-build.log`.
+magnets. Logs: `build/slopyard-outposts-integration.log` and final native
+image build `build/slopyard-outposts-final-build.log`.
 
 The comparison browser compiled revision 8f8bdda inside Dolly using the now
 exported GPU headers. Before/after runs restored the same 15-creature, 263-part
@@ -45,9 +45,9 @@ advanced at least 98% of wall time, with zero removals. This short end-to-end
 browser comparison does not isolate GPU execution time. The earlier run with
 the live world also rendering showed mixed per-view changes at 38–47 FPS.
 
-Final images and measurements: `build/blockwalker-outposts/outposts-after-*.png`,
+Final images and measurements: `build/slopyard-outposts/outposts-after-*.png`,
 `outposts-before.json`, `outposts-after.json`; comparison log:
-`build/blockwalker-outposts-comparison.log`. The final arch markers face the
+`build/slopyard-outposts-comparison.log`. The final arch markers face the
 normal approach view. All test browsers have exited. Live restoration is in
 progress from the complete 87,224,320-byte `outposts-state.tar` recovery archive.
 

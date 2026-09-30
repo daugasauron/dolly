@@ -40,6 +40,6 @@ native camera, under-floor placement, library programs, cargo, water, feedback
 flight and saved-world checks passed. The live Pi world was untouched during
 verification. No browser authority or GPU ABI changes were needed.
 
-Evidence: `build/blockwalker-focus-build.log`, `build/blockwalker-focus-browser.log`,
-`build/blockwalker-focus-editor.log`, `build/blockwalker-focus-integration.log`
-and `build/blockwalker-focus/`. All three test browsers exited.
+Evidence: `build/slopyard-focus-build.log`, `build/slopyard-focus-browser.log`,
+`build/slopyard-focus-editor.log`, `build/slopyard-focus-integration.log`
+and `build/slopyard-focus/`. All three test browsers exited.

@@ -1,0 +1,137 @@
+DOLLY 4
+MODULE zero-ad
+
+REQUIRES HOST audio@0
+REQUIRES HOST gpu@0
+REQUIRES HOST display@0
+REQUIRES HOST http@0
+
+REQUIRES TOOL slop
+
+# External wasm64 bootstrap; pinned sources and port instructions: docs/sources.md.
+SOURCE HOST /static/zero-ad/pyrogenesis.wasm /opt/0ad/system/pyrogenesis 25f466a84d802ccb8c2c279248e75bccde8ddcb4d25371ba69ab8ff8d07aef36
+SOURCE HOST /static/zero-ad/data/config/default.cfg /opt/0ad/data/config/default.cfg 96fe2f626983f3a9b2392095c11f04b3a8a318531408ce9aea0f4bd5c2a60f5a
+SOURCE HOST /static/zero-ad/data/config/keys.txt /opt/0ad/data/config/keys.txt 469f8fa2807838de81d53dda3a78b1676013e4fd18bd696d53693f09a21b9410
+SOURCE HOST /static/zero-ad/data/config/local.cfg /opt/0ad/data/config/local.cfg a34b76c8a1c5e2008b6dfa026f2b2fe21cee9bb49a881f00877b299e7579258c
+SOURCE HOST /static/zero-ad/data/icu/icudt68l.dat /opt/0ad/data/icu/icudt68l.dat d8e42c5c797e98f934a6a31e959231c2396ab68242f95d9e7b9f7783f71dc611
+SOURCE HOST /static/zero-ad/data/l10n/.tx/config /opt/0ad/data/l10n/.tx/config 5f52c7d149211b418ca602c5e737248be8b263bdd8ac3d79ecc7c5584f65b4e8
+SOURCE HOST /static/zero-ad/data/l10n/ca.engine.po /opt/0ad/data/l10n/ca.engine.po a1c07a8db1e20935a86cdd6354ff3897f633bba5a533c9e46170b96599dc1f6d
+SOURCE HOST /static/zero-ad/data/l10n/cs.engine.po /opt/0ad/data/l10n/cs.engine.po 409139f2337cf54a6e599c30d5d81255a7c3fe092a57b307636556bdea05379e
+SOURCE HOST /static/zero-ad/data/l10n/de.engine.po /opt/0ad/data/l10n/de.engine.po 70f03f8c81905ec614c790b4abeadabf26a3b08fcdfb6f3db79f132464d1db4c
+SOURCE HOST /static/zero-ad/data/l10n/el.engine.po /opt/0ad/data/l10n/el.engine.po 212b93fe25bbe0696d7ebe6f991e1c3ff67a0b0c39a34f88d97c75627d556775
+SOURCE HOST /static/zero-ad/data/l10n/en_GB.engine.po /opt/0ad/data/l10n/en_GB.engine.po 11d4a5fb307ce179fa62dae4f08cdbc9d7283972864a9d69053d00067ff32a94
+SOURCE HOST /static/zero-ad/data/l10n/engine.pot /opt/0ad/data/l10n/engine.pot da69a0c8a874cc8719d4b0a4823ffbb0ffb35f2c8d8a43bd73750f0f77e44003
+SOURCE HOST /static/zero-ad/data/l10n/es.engine.po /opt/0ad/data/l10n/es.engine.po 49075bbf0952ef5293db9814c7983db71fd1e50796b7da3cb5630bd3e793b1b8
+SOURCE HOST /static/zero-ad/data/l10n/eu.engine.po /opt/0ad/data/l10n/eu.engine.po 10977f86ca158b880cfbb456309a92c7e1226569a126ced20e2ceeabe63ae571
+SOURCE HOST /static/zero-ad/data/l10n/fi.engine.po /opt/0ad/data/l10n/fi.engine.po 306a8dc3e74625ded5cc4b5063ec30c36c755552497badb95723166905e3d1d7
+SOURCE HOST /static/zero-ad/data/l10n/fr.engine.po /opt/0ad/data/l10n/fr.engine.po 6333c06ef6a054a2b70cc413adc7742d1eac3d936ebfa90f52f01d529caba6af
+SOURCE HOST /static/zero-ad/data/l10n/gl.engine.po /opt/0ad/data/l10n/gl.engine.po e72d4ca0b0aa799b403d9f0f9a273aa9139f72eeae8a900ed7a950f1fdf59f30
+SOURCE HOST /static/zero-ad/data/l10n/hu.engine.po /opt/0ad/data/l10n/hu.engine.po 28b3c10d3eb48c501443cbcbb38673cb558f906f961da92258f4b321ac03c409
+SOURCE HOST /static/zero-ad/data/l10n/id.engine.po /opt/0ad/data/l10n/id.engine.po e608537ce3b2b3be8b481c6989b734b00819e3499c0b2ffd544bcee3fd91df2a
+SOURCE HOST /static/zero-ad/data/l10n/it.engine.po /opt/0ad/data/l10n/it.engine.po 07e4b808d3cda0108916d29c4e4ce14ce2dc77ddff519b42d6c75efe026d5b04
+SOURCE HOST /static/zero-ad/data/l10n/ja.engine.po /opt/0ad/data/l10n/ja.engine.po 036cad0926938ebab3dc217c0a866a9374d4e76a30448a8980e8ba9b3d8695e0
+SOURCE HOST /static/zero-ad/data/l10n/ko.engine.po /opt/0ad/data/l10n/ko.engine.po f07399c60c61ff47d522f69edfc5b7bd57deed41b38777834fa457d659df9b3b
+SOURCE HOST /static/zero-ad/data/l10n/messages.json /opt/0ad/data/l10n/messages.json 69075b1f49598bce2061f8cf5f6667b14a83e852790c645da4801d3d590fe3ec
+SOURCE HOST /static/zero-ad/data/l10n/nl.engine.po /opt/0ad/data/l10n/nl.engine.po 76f884572e9b995d81066d857ef449e7fdeac8a030b032fa299fa0fb134a6ca4
+SOURCE HOST /static/zero-ad/data/l10n/pl.engine.po /opt/0ad/data/l10n/pl.engine.po abe2a28c539aa44e5890824f9adb1086cc6f990544ea21e308bc65a6887371e3
+SOURCE HOST /static/zero-ad/data/l10n/pt_BR.engine.po /opt/0ad/data/l10n/pt_BR.engine.po 3a75e135d72ad7e9b74d2b2102b1d3c1d50dc85cfe67744566b44c8ee24b32d5
+SOURCE HOST /static/zero-ad/data/l10n/pt_PT.engine.po /opt/0ad/data/l10n/pt_PT.engine.po 18b2886502b571cce9e71753ae8c1698397b3860033f458aaf0716eb4532b622
+SOURCE HOST /static/zero-ad/data/l10n/ru.engine.po /opt/0ad/data/l10n/ru.engine.po 8127458fec3a646de4b0d0746508bcf6807f284f9c0b8d092c88ed983483ce3f
+SOURCE HOST /static/zero-ad/data/l10n/sk.engine.po /opt/0ad/data/l10n/sk.engine.po 130df26696f2f5a103ee1223ac931dc00edb84fb7c26e5e1159b7206a6fad527
+SOURCE HOST /static/zero-ad/data/l10n/sv.engine.po /opt/0ad/data/l10n/sv.engine.po 3b4232796a9254ea6d41c1fbcc8e8ec82632ca95c5bbd6e9f250a9ad2aedfa89
+SOURCE HOST /static/zero-ad/data/l10n/tr.engine.po /opt/0ad/data/l10n/tr.engine.po 0b0192793897e87ba2d5b60118711068c9b981de9c2d3788915af0f2b7376c17
+SOURCE HOST /static/zero-ad/data/l10n/uk.engine.po /opt/0ad/data/l10n/uk.engine.po 303d5a0d4a33e0e3aba4e9434cad1441dc5b60192aa02dd7a5f4848108579726
+SOURCE HOST /static/zero-ad/data/l10n/vi.engine.po /opt/0ad/data/l10n/vi.engine.po d78db32075c6f14986fb7dd15aef9c16bb403218cad2fac4d4d2a93d26573feb
+SOURCE HOST /static/zero-ad/data/l10n/zh.engine.po /opt/0ad/data/l10n/zh.engine.po 83ba33b05a7de119d01d05792fb8d83065713c113c523fc4c9c6042619600f90
+SOURCE HOST /static/zero-ad/data/l10n/zh_TW.engine.po /opt/0ad/data/l10n/zh_TW.engine.po 39d9eb57dd0295f4a019c9b6a3143043a9e484accc5d2b1c7a896c6fd17b7f79
+SOURCE HOST /static/zero-ad/data/mods/mod/mod-000.zip /opt/0ad/data/mods/mod/mod-000.zip d2c610658d71ffaacbde08b465df2c73a64a96c559eaa1056d85e7fcf62b98a9
+SOURCE HOST /static/zero-ad/data/mods/mod/mod-001.zip /opt/0ad/data/mods/mod/mod-001.zip b24cfd7461d450e94063583f46cd8710f33f5100b0cfad3aee11af5710cb27d1
+SOURCE HOST /static/zero-ad/data/mods/mod/mod-002.zip /opt/0ad/data/mods/mod/mod-002.zip 01bde749cbf0a4043fc215aa19d2e5a128d69d540c896245b5e182109f3d4636
+SOURCE HOST /static/zero-ad/data/mods/public/public-000.zip /opt/0ad/data/mods/public/public-000.zip 0096259433fb2acf46fa3d82552fafa4764dc8bae106a555452d2380ea7ce807
+SOURCE HOST /static/zero-ad/data/mods/public/public-001.zip /opt/0ad/data/mods/public/public-001.zip dd60e1af1638bc7081617a5421a78c8892c0b8789664e2bf8990a69b563f43f6
+SOURCE HOST /static/zero-ad/data/mods/public/public-002.zip /opt/0ad/data/mods/public/public-002.zip 237df7832d66ec2bb198586da1d4f7e3d625390e7876981ea91c4c4140e789a3
+SOURCE HOST /static/zero-ad/data/mods/public/public-003.zip /opt/0ad/data/mods/public/public-003.zip 5f6379be428ecbeb1d2d56b3154dc9fd0108983e0927546e4fd4da751660a403
+SOURCE HOST /static/zero-ad/data/mods/public/public-004.zip /opt/0ad/data/mods/public/public-004.zip e35de8aa76780f97a420e70316693ff9655e88e505a88041ec3c89ccbb729d79
+SOURCE HOST /static/zero-ad/data/mods/public/public-005.zip /opt/0ad/data/mods/public/public-005.zip 0fa40df502aa3f33ff80446330f76f220833f49f70dd1fca9c388265a295e05d
+SOURCE HOST /static/zero-ad/data/mods/public/public-006.zip /opt/0ad/data/mods/public/public-006.zip 76b55a3de12bd2c8a4b5b44216bad07b48ba9251bc890904e1bd2708387a0207
+SOURCE HOST /static/zero-ad/data/mods/public/public-007.zip /opt/0ad/data/mods/public/public-007.zip cf43ad1e7cb5e03c1b6399b613427d02056f43be606daade26c68b523afead71
+SOURCE HOST /static/zero-ad/data/mods/public/public-008.zip /opt/0ad/data/mods/public/public-008.zip 89a26042e23f09c34855ff1d966fde8fe1e80809bc7cc510d96be0d0d9c997aa
+SOURCE HOST /static/zero-ad/data/mods/public/public-009.zip /opt/0ad/data/mods/public/public-009.zip 5be6c1ac2ace6976fed4886ce831d6e595b46341261d412c13548df7427de2a9
+SOURCE HOST /static/zero-ad/data/mods/public/public-010.zip /opt/0ad/data/mods/public/public-010.zip 9505f12920dac7c40ed6c1056164b505476855e5148bd5b38172ab8cc72aedca
+SOURCE HOST /static/zero-ad/data/mods/public/public-011.zip /opt/0ad/data/mods/public/public-011.zip f20d31a2028940a2e72e2dfb57a5ea59bc86d87aab3a2707ae8633fe12e06760
+SOURCE HOST /static/zero-ad/data/mods/public/public-012.zip /opt/0ad/data/mods/public/public-012.zip e8359ca923c65eb36b936c0886b8f3d20347964aa82b2e3175a4db94ae9eee2e
+SOURCE HOST /static/zero-ad/data/mods/public/public-013.zip /opt/0ad/data/mods/public/public-013.zip 1a79dd67beda8e6f591eb15184f79a50c3a56bd1b0fd83d18bfc1d33e233681c
+SOURCE HOST /static/zero-ad/data/mods/public/public-014.zip /opt/0ad/data/mods/public/public-014.zip 9c6c00383e8ba46e2b7a66a1d6dc6300aa00627e13e21392f0848012d26642d9
+SOURCE HOST /static/zero-ad/data/mods/public/public-015.zip /opt/0ad/data/mods/public/public-015.zip 600eb36fca2c85c8561e5a997c4be470f5f2006d9d6af8f3dd839ae9794cdd02
+SOURCE HOST /static/zero-ad/data/mods/public/public-016.zip /opt/0ad/data/mods/public/public-016.zip 38d5e65b1d6ad61ac112a7edf4ff411b956a3f2d6126b4a2cac055ee9f54b481
+SOURCE HOST /static/zero-ad/data/mods/public/public-017.zip /opt/0ad/data/mods/public/public-017.zip 18c237544641e0d213fc862e26547d8e895f2e41962d5ec7d885fef18c5686c7
+SOURCE HOST /static/zero-ad/data/mods/public/public-018.zip /opt/0ad/data/mods/public/public-018.zip 9a0e672f5aea86887b0c0c179181f2c864089f34d7b307ef317f0405ea5d610e
+SOURCE HOST /static/zero-ad/data/mods/public/public-019.zip /opt/0ad/data/mods/public/public-019.zip 49178b93376a6fad1346b0e8704ef4932cf2d763f34ed22b106cfaab00e406b0
+SOURCE HOST /static/zero-ad/data/mods/public/public-020.zip /opt/0ad/data/mods/public/public-020.zip 5fa00bf1b05e907b2858995bb430b6ccebb634fc2be56fe09c545c1c726432d4
+SOURCE HOST /static/zero-ad/data/mods/public/public-021.zip /opt/0ad/data/mods/public/public-021.zip ee196e2f5399adcbed5618bb13d276ea4766b02445f14404e27bdac139197611
+SOURCE HOST /static/zero-ad/data/mods/public/public-022.zip /opt/0ad/data/mods/public/public-022.zip f33f2e70365a356d18b5e2b143e42ef1781196418a02aa50a288e0c935452906
+SOURCE HOST /static/zero-ad/data/mods/public/public-023.zip /opt/0ad/data/mods/public/public-023.zip 6264d7dc38a16b642bee8b561f1d717278f452514af39604d5c8ba7a5863b194
+SOURCE HOST /static/zero-ad/data/mods/public/public-024.zip /opt/0ad/data/mods/public/public-024.zip 1654ce2a282fd841070b979a3a86ba5a8747b704c09b6f1b2dfb3b843ddc195b
+SOURCE HOST /static/zero-ad/data/mods/public/public-025.zip /opt/0ad/data/mods/public/public-025.zip 5acb6d7602ac8af088e2442f5683f58af21c20a82d7f8fd4dd22c9a8b8b575df
+SOURCE HOST /static/zero-ad/data/mods/public/public-026.zip /opt/0ad/data/mods/public/public-026.zip 5dfb886210e68bbbce7573efda8fd754a45947ee28d72c872bdbf8a8f1c9b82e
+SOURCE HOST /static/zero-ad/data/mods/public/public-027.zip /opt/0ad/data/mods/public/public-027.zip 6015d78dc64207f60336f45a4997b70b655222674700758e8271d1b0871e460b
+SOURCE HOST /static/zero-ad/data/mods/public/public-028.zip /opt/0ad/data/mods/public/public-028.zip 911b631a31200354942fe877871d91104c1661ef2c69dffb0602b45dd7ef0b7a
+SOURCE HOST /static/zero-ad/data/mods/public/public-029.zip /opt/0ad/data/mods/public/public-029.zip 1409dc7c0075d326dc506b7b2b5e3db05143e262eaf848c32af0a4a80be6d3b1
+SOURCE HOST /static/zero-ad/data/mods/public/public-030.zip /opt/0ad/data/mods/public/public-030.zip d6486d65a19faf53c9b8c5305b7359d953a4006f13cdc6fd540fd720ef7a2993
+SOURCE HOST /static/zero-ad/data/mods/public/public-031.zip /opt/0ad/data/mods/public/public-031.zip 7c68ee72822aced94417392620397ac4fdcafa683f705b228f96a3008efc0e7c
+SOURCE HOST /static/zero-ad/data/mods/public/public-032.zip /opt/0ad/data/mods/public/public-032.zip cfc3f734806d0b877b29fdb121d6ca039602448a3fff3f40661700c261daa0c2
+SOURCE HOST /static/zero-ad/data/mods/public/public-033.zip /opt/0ad/data/mods/public/public-033.zip b0eca264b6d780c5676004f48cc231445bb13aa10681542b830d378174b232e5
+SOURCE HOST /static/zero-ad/data/mods/public/public-034.zip /opt/0ad/data/mods/public/public-034.zip 124fdae64ec9d75f22db1c300e951b28f0d562fd7330d980b909bc2120773dfe
+SOURCE HOST /static/zero-ad/data/mods/public/public-035.zip /opt/0ad/data/mods/public/public-035.zip ac6840912d0901a6da54ff6c6e505a75e617351eb3e174ae99fa123758f36a1c
+SOURCE HOST /static/zero-ad/data/mods/public/public-036.zip /opt/0ad/data/mods/public/public-036.zip 5029588ec8d2dffac8edd78c86ecb18eb09cc159954080af682189a9441748f7
+SOURCE HOST /static/zero-ad/data/mods/public/public-037.zip /opt/0ad/data/mods/public/public-037.zip 41eb72969e3425369831413f0f7063e1890b2e01b73ce671ad1bd7d0c8b7a420
+SOURCE HOST /static/zero-ad/data/mods/public/public-038.zip /opt/0ad/data/mods/public/public-038.zip 453ef0861d491a638608545a156ae8916234435d49f65a7a451f4e9a42f6287d
+SOURCE HOST /static/zero-ad/data/mods/public/public-039.zip /opt/0ad/data/mods/public/public-039.zip eefc6543d2ea371454411e2748a3c2bf8d1811a8b2f4b276e8cb6fa1714b379e
+SOURCE HOST /static/zero-ad/data/mods/public/public-040.zip /opt/0ad/data/mods/public/public-040.zip 3229e0f1a3246aa6c5478e78023e384713faf43184b6359160b1b15c8dcef71f
+SOURCE HOST /static/zero-ad/data/mods/public/public-041.zip /opt/0ad/data/mods/public/public-041.zip 62ad8747c143ce5e79814735286e371bb98f7da9125543342be1c2daac22e8f4
+SOURCE HOST /static/zero-ad/data/mods/public/public-042.zip /opt/0ad/data/mods/public/public-042.zip da6f654d4d92beed192d47a53cd182d63177393ee8a86dedca86de017ae8e8a7
+SOURCE HOST /static/zero-ad/data/mods/public/public-043.zip /opt/0ad/data/mods/public/public-043.zip 9f789e50773f52c0df2fcf7a7822bb4f234414eb842225180f95203109dbdeb0
+SOURCE HOST /static/zero-ad/data/mods/public/public-044.zip /opt/0ad/data/mods/public/public-044.zip f812e094cce4c0f191ec78c92afce6f081f18ec72589ceb690d00e7744fc11fc
+SOURCE HOST /static/zero-ad/data/mods/public/public-045.zip /opt/0ad/data/mods/public/public-045.zip b7d593cb02684436758155a6f91b860e629b2d82be51c8c1593239405cba9daf
+SOURCE HOST /static/zero-ad/data/mods/public/public-046.zip /opt/0ad/data/mods/public/public-046.zip 52c49aa927fcd9147b67bb539d5d9e16e748c5247cfff36a847f40b4c517fa1d
+SOURCE HOST /static/zero-ad/data/mods/public/public-047.zip /opt/0ad/data/mods/public/public-047.zip b2e5059a86d3ca1698e1ef3661c1497a5248540dcbc855feae5a4000579574b9
+SOURCE HOST /static/zero-ad/data/mods/public/public-048.zip /opt/0ad/data/mods/public/public-048.zip a339055ff934602fdd3031b03e129ae5d7b7bc4b8378529c33c714649bf136bf
+SOURCE HOST /static/zero-ad/data/mods/public/public-049.zip /opt/0ad/data/mods/public/public-049.zip c206eb734e6dff6ec8e20a1f7403b89a2b546e48b712ceef951718279d963dae
+SOURCE HOST /static/zero-ad/data/mods/public/public-050.zip /opt/0ad/data/mods/public/public-050.zip 0a5f3c162bb569b5b1d2ab91dcad086eb99ec1740ca984a42b2917d92371f10a
+SOURCE HOST /static/zero-ad/data/mods/public/public-051.zip /opt/0ad/data/mods/public/public-051.zip c729e22dc02894f02de53a3c7229d47696d96ef3cd801731939a7af6b991569f
+SOURCE HOST /static/zero-ad/data/mods/public/public-052.zip /opt/0ad/data/mods/public/public-052.zip 83ef37c21137383df0d3a0ec5f9f592f442241a08538b32fc86dbf440e7d6d1d
+SOURCE HOST /static/zero-ad/data/mods/public/public-053.zip /opt/0ad/data/mods/public/public-053.zip 166ef2bfc42b4793cf8136010cee69f83441c358e154a0fc194b4b8f1e574477
+SOURCE HOST /static/zero-ad/data/mods/public/public-054.zip /opt/0ad/data/mods/public/public-054.zip 643a4bb9033a87d11c6a6070335892dc8fcc5859b84427706d16e621b442468a
+SOURCE HOST /static/zero-ad/data/mods/public/public-055.zip /opt/0ad/data/mods/public/public-055.zip 12cc1958f42e0a320f1621abf6024c8c9964c80b22170ae699adfaf66bdd64a4
+SOURCE HOST /static/zero-ad/data/mods/public/public-056.zip /opt/0ad/data/mods/public/public-056.zip 63627d1029624f86950ea6f46aafef9e7d1ce563276c50ed08a7f631bc0b62a5
+SOURCE HOST /static/zero-ad/data/mods/public/public-057.zip /opt/0ad/data/mods/public/public-057.zip 91c3ac8d3a0d2fe7b8b7c3f6c90973d67ccc41ed494838948491405c9ba00aa4
+SOURCE HOST /static/zero-ad/data/mods/public/public-058.zip /opt/0ad/data/mods/public/public-058.zip 12b5b03f94745f99016510deb2f077d4d39f9303a140926253f19de406feeb88
+SOURCE HOST /static/zero-ad/data/mods/public/public-059.zip /opt/0ad/data/mods/public/public-059.zip 1f78a9b236b70de9faeaa73054a052e38b398f24531bc4c45b7467329a9d02de
+SOURCE HOST /static/zero-ad/data/mods/public/public-060.zip /opt/0ad/data/mods/public/public-060.zip c4c7dce4156eb43ba29211bfe9ed10a71b117e9685695ed51acb19e9c4d1a213
+SOURCE HOST /static/zero-ad/data/mods/public/public-061.zip /opt/0ad/data/mods/public/public-061.zip c67f8e46052529ba064f4c64eae70dd8fa9c7938a1739400fd2b2c7afdf69887
+SOURCE HOST /static/zero-ad/data/mods/public/public-062.zip /opt/0ad/data/mods/public/public-062.zip ab245ee59377db133e46bbed6d590a227f95cd5651af86e69e14c7fb18b801b8
+SOURCE HOST /static/zero-ad/data/mods/public/public-063.zip /opt/0ad/data/mods/public/public-063.zip f844de08cf9e9d3d2fe7088bc6b282c60d0e38a901db8daafbf0ad5fa9ad3b36
+SOURCE HOST /static/zero-ad/data/mods/public/public-064.zip /opt/0ad/data/mods/public/public-064.zip 1bd40289a40b147ed939b76266beaafb60d603ef4fcf81b63a51079f6abf54a4
+SOURCE HOST /static/zero-ad/data/mods/public/public-065.zip /opt/0ad/data/mods/public/public-065.zip 8e4b0c515205d1638011af98a87ea460c1bfed7622b121c4c2098dca015db212
+SOURCE HOST /static/zero-ad/data/mods/public/public-066.zip /opt/0ad/data/mods/public/public-066.zip ff8bd651dbdf1134796d99379f31cff1014a59544b1cd239091d61d76a74913c
+SOURCE HOST /static/zero-ad/data/mods/public/public-067.zip /opt/0ad/data/mods/public/public-067.zip d7639f22ea4eefcf84cee816a2a8864885e174c7a280a84b19265c894e3a68e8
+SOURCE HOST /static/zero-ad/data/mods/public/public-068.zip /opt/0ad/data/mods/public/public-068.zip fe9bebd4e707f4f7f0db2479b899447249f27f54bd38ff64c39481ef64faca88
+SOURCE HOST /static/zero-ad/data/mods/public/public-069.zip /opt/0ad/data/mods/public/public-069.zip 0792a9ff7e33ef6f13b34a1a6c5ea62a4497b6aeadf44224c4d923c9f9768908
+SOURCE HOST /static/zero-ad/data/mods/public/public-070.zip /opt/0ad/data/mods/public/public-070.zip 71faa553abc1ae0cd3ab9af0d359d658283d2626fd561b02e6f4a2450dd78c4f
+SOURCE HOST /static/zero-ad/data/mods/public/public-071.zip /opt/0ad/data/mods/public/public-071.zip 3b3dcef918b9d869c6cee66c78e7e7d30b511d6b55fb382a82985c4e221ef052
+SOURCE HOST /static/zero-ad/data/mods/public/public-072.zip /opt/0ad/data/mods/public/public-072.zip 90c102042b2518a97ca3a1d51ecde451052b1a607a90f4f68ff1a9187dc6e4ca
+SOURCE HOST /static/zero-ad/data/mods/public/public-073.zip /opt/0ad/data/mods/public/public-073.zip dfaec24e2d8e779d102b2f033db4fdb9bfadd6cab84ce4ec37d8e4d79a8a514c
+SOURCE HOST /static/zero-ad/licenses/ICU-LICENSE /opt/0ad/licenses/ICU-LICENSE f155f8f66833bdc8e0479656256bfac1d66a9ec9df4aa56292308f522b4e3fa7
+SOURCE HOST /static/zero-ad/licenses/LICENSE.md /opt/0ad/licenses/LICENSE.md 956637a06a3cbddb79b0ea87b987cf9938c533412a71cfd74f261a399eb153eb
+SOURCE HOST /static/zero-ad/licenses/OpenAL-Soft-COPYING /opt/0ad/licenses/OpenAL-Soft-COPYING d808ce217e5b611854da622b57ec29fe545584c48bc5352fae72a4b6e5074a15
+SOURCE HOST /static/zero-ad/licenses/license_gpl-2.0.txt /opt/0ad/licenses/license_gpl-2.0.txt ab15fd526bd8dd18a9e77ebc139656bf4d33e97fc7238cd11bf60e2b9b8666c6
+SOURCE HOST /static/zero-ad/licenses/license_lgpl-2.1.txt /opt/0ad/licenses/license_lgpl-2.1.txt c68fd1ffc1623ea0dace21abf57305818e4998a4ae0c79010aaaa943eb660b55
+SOURCE HOST /static/zero-ad/licenses/license_mit.txt /opt/0ad/licenses/license_mit.txt 1969da35a4ec9d24f82280fe693d656d890ad61a8b477144e8184d0969463b08
+
+FILE /usr/bin/zero-ad
+    #!/bin/slop
+    export ICU_DATA=/opt/0ad/data/icu
+    /opt/0ad/system/pyrogenesis -writableRoot -mod=public -conf=hotkey.exit:Ctrl+F10 "$@"
+SLOP /usr/bin/zero-ad -version
+EXPORTS TOOL zero-ad
+EXPORTS FOLDER zero-ad /opt/0ad

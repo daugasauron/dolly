@@ -21,16 +21,16 @@ machines after two seconds. Source now retains them, including across saves.
 The lifecycle fixture physically regrips a retained scored crate and lets an
 upside-down machine recover through its program after more than 100 seconds.
 The current one-way-jet repeat passes in world and practice modes:
-`build/blockwalker-retention-one-way-recovery/`.
+`build/slopyard-retention-one-way-recovery/`.
 
 The lifter and guard prototypes use ordinary wheels, pistons and magnets.
 A 120 s defensive trial overturns a real raider; defense is imperfect because
 the scout falls first. A saved continuation physically rights the friendly scout.
 The 600 s populated trial retains all 76 starting objects, makes 15 deliveries,
 and repeatedly tips/rights both raiders without controller errors. Evidence:
-`build/blockwalker-rivalry-defense-intercept/`,
-`build/blockwalker-forklift-rescue/`, and
-`build/blockwalker-rivalry-mainland-first/`. Successful physical interaction is
+`build/slopyard-rivalry-defense-intercept/`,
+`build/slopyard-forklift-rescue/`, and
+`build/slopyard-rivalry-mainland-first/`. Successful physical interaction is
 proven; reliable strategic disruption of deliveries is not.
 
 Solid quarry terraces and a drivable service road are in `249bcd2`. Remaining

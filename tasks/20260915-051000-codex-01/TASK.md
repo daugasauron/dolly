@@ -28,13 +28,13 @@ means an exact upright resting-height assertion is inappropriate for that moving
 trial; the separate drops verify resting heights. The existing solid overhead
 beam and passage checks still pass.
 
-`test/blockwalker-browser.mjs` passed the new camera button and existing place,
+`test/slopyard-browser.mjs` passed the new camera button and existing place,
 population, prompt, builder, magnet and persistence controls. It rendered the
 real new shader with no browser errors or ordinary GPU readbacks. The complete
-`test/blockwalker-agent-browser.mjs` passed with the 35-object/880-part population,
+`test/slopyard-agent-browser.mjs` passed with the 35-object/880-part population,
 including its cargo machines, flights, boats, bridges and save/reload. Both used
-the 4 GiB/no-swap browser guard. Logs: `build/blockwalker-basin-{build,editor,integration}.log`;
-native measurements: `build/blockwalker-proof/physics-check.log`.
+the 4 GiB/no-swap browser guard. Logs: `build/slopyard-basin-{build,editor,integration}.log`;
+native measurements: `build/slopyard-proof/physics-check.log`.
 
 The basin, crystal outcrop and entrance GPU images were inspected. An initial
 full-view gallery measured 33 FPS, so performance was checked against old code.
@@ -44,17 +44,17 @@ instance with the same shader, measured 54–57 FPS for both geometries. These
 comparisons did not reproduce a substantial basin-specific slowdown; the shared
 setup's timings vary and should not be described as an isolated GPU benchmark.
 All runs retained 35 objects/880 parts, real-time simulation and zero removals.
-Artifacts: `build/blockwalker-basin/`, `build/blockwalker-shader-compare/`,
-`build/blockwalker-terrain-compare/` and their matching build-directory logs.
+Artifacts: `build/slopyard-basin/`, `build/slopyard-shader-compare/`,
+`build/slopyard-terrain-compare/` and their matching build-directory logs.
 
 The live update waited for Pi's compaction to finish, then paused the game and
 saved a recovery archive. In-place compilation took 1.57 s and native checks
 5.37 s. Verification retained all **44 objects/1053 parts**, magnetic attachments,
 world age and the exact SHA-256 of the complete **235,645,401-byte** native history.
-Pi resumed through real Astra/xhigh calls in session `blockwalker-basin` and
+Pi resumed through real Astra/xhigh calls in session `slopyard-basin` and
 received the new terrain coordinates while retaining its current gantry work.
 The first running backup still had all 44 objects and no new removals.
 The actual resumed `watch_world` tool reports `terrain.basin: [46,0,72]`,
 confirming that the live command loaded the updated C binary.
-Evidence: `build/blockwalker-basin-{update,resume,monitor}.log` and
-`build/blockwalker-walking/basin-{restore,updated}-proof.json`.
+Evidence: `build/slopyard-basin-{update,resume,monitor}.log` and
+`build/slopyard-walking/basin-{restore,updated}-proof.json`.

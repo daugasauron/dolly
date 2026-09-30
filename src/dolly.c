@@ -842,7 +842,8 @@ int dolly_terminal_present_pending(void) {
     dolly_input_event *event = &display_mailbox.events[
         cursor & (DOLLY_DISPLAY_EVENT_CAPACITY - 1)];
     if (event->type == DOLLY_INPUT_EVENT_POINTER_MOTION ||
-        event->type == DOLLY_INPUT_EVENT_POINTER_CAPTURE) {
+        event->type == DOLLY_INPUT_EVENT_POINTER_CAPTURE ||
+        event->type == DOLLY_INPUT_EVENT_POINTER_PRESENCE) {
       event->type = 0;
       continue;
     }
@@ -1272,6 +1273,12 @@ int dolly_process_bootstrap_resume_prepare(uintptr_t size,
 }
 
 EMSCRIPTEN_KEEPALIVE
+int dolly_bootstrap_snapshot_begin(uintptr_t size) {
+  if (initialize_boot_environment() != 0) return 1;
+  return dolly_snapshot_stream_begin(size) != 0;
+}
+
+EMSCRIPTEN_KEEPALIVE
 int dolly_bootstrap_snapshot(uintptr_t size) {
   if (initialize_boot_environment() != 0) return 1;
   puts("dolly: restoring precompiled system snapshot");
@@ -1297,6 +1304,15 @@ int dolly_bootstrap_finish(void) {
     return 1;
   }
   return dolly_snapshot_prune() != 0;
+}
+
+EMSCRIPTEN_KEEPALIVE
+int dolly_bootstrap_snapshot_end(void) {
+  if (dolly_snapshot_stream_finish() != 0) {
+    fprintf(stderr, "dolly: invalid streamed system snapshot: %s\n", strerror(errno));
+    return 1;
+  }
+  return dolly_bootstrap_finish();
 }
 
 static uint32_t take_entry_u32(const unsigned char **cursor,

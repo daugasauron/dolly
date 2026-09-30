@@ -13,7 +13,7 @@ Exact300→480s comparison changes only38: parcel97 delivered around337s,98
 magnetically picked377s and delivered402s;3 deliveries/4 trips by480s. The
 unchanged60s replay cannot leave. All107 earlier actors/other programs and
 machine blueprints remain, with no errors/deaths or porter/carousel contacts.
-Evidence: `build/blockwalker-compound-regressions-chrome-carousel-porter-
+Evidence: `build/slopyard-compound-regressions-chrome-carousel-porter-
 clearance/salvage/porter-proof.json` and full trace.
 
 Separate physical obstructions required taller carousel heads, including room

@@ -1,10 +1,10 @@
 // Preprocessed with the target compiler; these values are never host errno.
 #include <errno.h>
 #define DOLLY_ERRNO(name) DOLLY_ERRNO_VALUE(#name, name)
-DOLLY_ERRNO(EAGAIN)
 DOLLY_ERRNO(EBADF)
 DOLLY_ERRNO(E2BIG)
 DOLLY_ERRNO(EACCES)
+DOLLY_ERRNO(EAGAIN)
 DOLLY_ERRNO(EBUSY)
 DOLLY_ERRNO(ECANCELED)
 DOLLY_ERRNO(EDQUOT)

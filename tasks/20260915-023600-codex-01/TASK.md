@@ -32,7 +32,7 @@ Skybarge was at y=6.178 m, up=0.999. Existing-empty-world and subsequent
 seven-creature save/restart checks passed without adding starter duplicates.
 Editor, library, camera, keyboard, magnet and material checks also passed.
 
-Evidence: `build/blockwalker-starter-world-integration.log`,
-`build/blockwalker-starter-world-editor.log`,
-`build/blockwalker-proof/fresh-world-0.json` through `fresh-world-5.json`, and
-`build/blockwalker-proof/fresh-harbor.png`.
+Evidence: `build/slopyard-starter-world-integration.log`,
+`build/slopyard-starter-world-editor.log`,
+`build/slopyard-proof/fresh-world-0.json` through `fresh-world-5.json`, and
+`build/slopyard-proof/fresh-harbor.png`.

@@ -10,6 +10,7 @@
       main { max-width: 70rem; margin: 2rem auto; padding: 0 1rem; }
       a { color: inherit; } button { font: inherit; cursor: pointer; }
       pre { white-space: pre-wrap; overflow-wrap: anywhere; }
+      #bootstrap-log { height: 65vh; overflow: auto; }
     </style>
     <script src="{{DOLLY_BASE}}coi-serviceworker.js"></script>
   </head>
@@ -21,7 +22,7 @@
       <button id="build" disabled>Build image</button>
       <button id="cancel" hidden>Cancel</button>
       <p id="status" role="status"></p>
-      <pre id="bootstrap-log" aria-label="Build output"></pre>
+      <pre id="bootstrap-log" aria-label="Build output" tabindex="0"></pre>
     </main>
     <script type="module" src="{{DOLLY_BASE}}src/image-build-page.mjs"></script>
   </body>

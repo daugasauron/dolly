@@ -17,9 +17,9 @@ the loader and slinger in the combined world. Inspect the boat and visible
 cable in Chrome and Firefox before bundling it. No actor-specific engine logic,
 teleports, ammunition respawning or hidden movement helpers.
 
-Starting evidence: `build/blockwalker-rivalry-wide-patrol-continued/blockwalker-
-world.json`; cable mechanics and rendered hoist: `test/fixtures/blockwalker-
-winch.c`, `test/fixtures/blockwalker-winch-view.mjs`.
+Starting evidence: `build/slopyard-rivalry-wide-patrol-continued/slopyard-
+world.json`; cable mechanics and rendered hoist: `test/fixtures/slopyard-
+winch.c`, `test/fixtures/slopyard-winch-view.mjs`.
 
 The unbundled prototype now physically recovers a crate from 7.7 m below the
 world origin, retains its load through save/reopen, notices a manual magnet-off
@@ -27,7 +27,7 @@ interruption, retrieves the dropped crate again and places it on shore. Its
 ordinary program folds the boom, sails, unfolds and lowers until measured
 support. The 300 s trial records two pickups, one shoreline handoff, minimum
 up=0.992695 and maximum joint error 0.001741 m. Cargo remains unheld and physical
-on the mainland afterward. `build/blockwalker-compound-regressions-chrome-
+on the mainland afterward. `build/slopyard-compound-regressions-chrome-
 salvage-long-hulls/` records the complete trace and saved world.
 
 The shallow pontoons rolled under the crane. Deeper hulls solved initial
@@ -41,16 +41,16 @@ The populated continuation preserves the exact 3000 s world and adds only this
 boat. It uses existing submerged ammunition, broadcasts ready after unloading
 and releases its claim so the land crew can collect it. Patrol, real crew
 handoffs and rendered inspection remain before promotion. Prototype files live
-under `build/blockwalker-salvage/`; canonical source and served image remain 35.
+under `build/slopyard-salvage/`; canonical source and served image remain 35.
 
 The first populated continuation retained all 134 original objects and their
 programs, reached 138 objects/45 deliveries without deaths/errors and physically
 recovered fired crate 91. Loaded reopen passed. Its fixed docking waypoint let
 wave-induced roll place the cargo just beyond the shore; it lowered back into
-water and never handed off. Evidence: `build/blockwalker-compound-regressions-
+water and never handed off. Evidence: `build/slopyard-compound-regressions-
 chrome-salvage-populated/salvage/`. The next prototype extends the boom two blocks
 and aligns the actual suspended cargo before lowering; it remains unbundled.
-Chrome rendered the loaded prototype without errors in `build/blockwalker-
+Chrome rendered the loaded prototype without errors in `build/slopyard-
 salvage-view-chrome/`; visual inspection confirms the cable and crane layout.
 
 The 131-part crane with actual load alignment succeeds in the existing world:
@@ -60,7 +60,7 @@ The 3154.6 -> 3754.6 continuation retains all 135 old objects (143 total),
 records 50 deliveries, no deaths/program errors and minimum boat up=0.989301.
 Only warehouse programs 77/78 changed to address their separate execution-budget
 failure (task 20260925-061503); boats, trucks, loaders and guards keep their
-programs and all objects remain. `build/blockwalker-compound-regressions-chrome-
+programs and all objects remain. `build/slopyard-compound-regressions-chrome-
 salvage-warehouse-resumed/salvage/` contains the trace and exact loaded/dock saves.
 Truck still carries 91; loader/slinger reuse is not yet proved. Continue this
 world with the separately measured truck return-route candidate.
@@ -71,7 +71,7 @@ obstacle checks. The unbundled follow-up uses its measured hull footprint,
 observed terrain and floating traffic to reject obstructed approaches, postpone
 that cargo and steer through clear local water. It resumes the prior upright
 3754.6 s save; no object is moved or removed to recover from the failed trial.
-Evidence of the failure: `build/blockwalker-compound-regressions-chrome-
+Evidence of the failure: `build/slopyard-compound-regressions-chrome-
 salvage-return-route/salvage/`. Warehouse 78 completes its fifth stored load
 in this run with the bounded planner; trucks still need compatible routing and
 escape clearance.
@@ -84,12 +84,12 @@ at 3822.617 -> slinger at 3857.617 -> fired at 4059.617. Round 89: boat -> shore
 at 3756.617 -> truck at 3862.617 -> loader at 4068.617 -> slinger at 4103.617 ->
 fired at 4197.1. West shots increase 3 -> 5; East 6 -> 8. Both warehouses reach
 five stores. The boat now rejects the obstructed cargo and patrols safely.
-Evidence: `build/blockwalker-compound-regressions-chrome-salvage-safe-clearance/`.
+Evidence: `build/slopyard-compound-regressions-chrome-salvage-safe-clearance/`.
 Fresh-world and final Chrome/Firefox inspection/packaging remain.
 
 Chrome and Firefox both render the loaded dock scene and 149-object continuation
 with no errors or model requests; images were inspected. Evidence:
-`build/blockwalker-salvage-view-{chrome,firefox}/`. `build/blockwalker-salvage/
+`build/slopyard-salvage-view-{chrome,firefox}/`. `build/slopyard-salvage/
 relay-proof.json` verifies both ordered physical holder chains across the three
 explicit program-update continuations.
 
@@ -115,8 +115,8 @@ Verified in packaged image 36 on September 25, 2026. Chrome and Firefox match
 all 94 bundled blueprints/programs and restore the 125-object format-2 world,
 the original 51-object format-1 world (retaining its sixteen historic deaths),
 and the 125-object format-5 continuation without new errors or deaths.
-Evidence: `build/blockwalker-image36-preview{,-firefox}/proof.json`.
+Evidence: `build/slopyard-image36-preview{,-firefox}/proof.json`.
 Snapshot SHA-256:
 `aaa757c571d6f3234e0a52570f9ecc7d9f2c50f0a66f3349e08e75af3cc45c38`.
 All six protected files, twelve other images and thirteen catalog entries pass
-`build/blockwalker-image36-preservation.json`. No public deployment was made.
+`build/slopyard-image36-preservation.json`. No public deployment was made.

@@ -47,8 +47,8 @@ At 244 physics steps it had moved 3.1306 m, with root y=-1.2906 m and up=0.99499
 Existing camera, under-floor placement, edits, key bindings and magnet UI checks
 also passed; ordinary GPU readback was zero and no browser errors were reported.
 Both suites ran separately under 4 GiB/no-swap process-tree limits.
-Evidence: `build/blockwalker-library-integration.log`,
-`build/blockwalker-library-editor.log`, `build/blockwalker-proof/program-ui.json`,
+Evidence: `build/slopyard-library-integration.log`,
+`build/slopyard-library-editor.log`, `build/slopyard-proof/program-ui.json`,
 `design-library.png` and `library-program-playing.png`.
 
 The feature is built and verified. Preserve the current live Pi compaction before

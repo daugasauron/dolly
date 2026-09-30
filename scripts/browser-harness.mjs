@@ -14,7 +14,7 @@ import { runClassiCubeAgentProof } from "../test/fixtures/classicube-agent-brows
 import { relayProvider } from "../src/rts/spectator/relay.mjs";
 import { runClassiCubeProof } from "../test/fixtures/classicube-browser.mjs";
 import { runRtsLauncherProof } from "../test/fixtures/rts-launcher-browser.mjs";
-import { lstat, mkdir, mkdtemp, readdir, readFile, rm, writeFile } from "node:fs/promises";
+import { lstat, mkdir, mkdtemp, open, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import { createServer } from "node:http";
 import { tmpdir } from "node:os";
 import { extname, resolve, sep } from "node:path";
@@ -100,7 +100,6 @@ const uploadMode = isMode("upload");
 const customDollyfileMode = isMode("custom-dollyfile");
 const studioMode = isMode("dollyfile-studio");
 const imageBuildMode = isMode("image-build", "image-build-pages");
-const graphicsMode = isMode("graphics");
 const sdl2Mode = isMode("sdl2");
 const rtsMode = isMode("rts");
 const rtsLauncherMode = isMode("rts-launcher");
@@ -192,21 +191,24 @@ const selectedDefinition = imageDefinitions.find(({ image }) => image === select
 const selectedGraph = await loadDollyfileGraph(projectDir, selectedDefinition.filename);
 const selectedModuleNames = new Set(selectedGraph.modules.map(({ name }) => name));
 const hasZig = selectedGraph.exporters.has("TOOL:zig");
-const interactiveBuildProbe = (cmakeMode || sdl2Mode) && !selectedGraph.exporters.has("ENV:DISPLAY");
+const interactiveBuildProbe = (cmakeMode || sdl2Mode) && !selectedGraph.root.hostRequirements.includes("display@0");
 // GPU presentation is verified on the desktop; inventory needs only the image's filesystem.
 const headlessInventory = imageInventoryMode &&
-  (!selectedGraph.exporters.has("ENV:DISPLAY") || ["gpu-fluid", "blockwalker"].includes(selectedImage));
+  (!selectedGraph.root.hostRequirements.includes("display@0") || selectedGraph.root.hostRequirements.includes("gpu@0"));
+const gpuBrowser = selectedGraph.root.hostRequirements.includes("gpu@0") &&
+  !snapshotExportMode && !buildPageMode && !headlessInventory;
 const displayDefinition = imageDefinitions.find(definition => definition.image === "ghostty-build");
-const buildProbeRecipe = interactiveBuildProbe ? `DOLLY 3
+const buildProbeRecipe = interactiveBuildProbe ? `DOLLY 4
 IMAGE browser-build-probe
 FROM HOST /${selectedDefinition.filename} ${selectedGraph.root.sha256}
+REQUIRES HOST display@0
 ${["/usr/lib/libdisplay.so", "/usr/share/fonts/IosevkaTerm-SemiBold.ttf"].map(path =>
   `COPY FROM HOST /${displayDefinition.filename} ${createHash("sha256").update(displayDefinition.source).digest("hex")} ${path} ${path}`).join("\n")}
 EXPORTS LIB display /usr/lib/libdisplay.so
 EXPORTS ENV DISPLAY /usr/lib/libdisplay.so
 ENTRY /bin/foreground -i /bin/slop
 ` : null;
-const iterationRecipe = iterationMode ? `DOLLY 3
+const iterationRecipe = iterationMode ? `DOLLY 4
 IMAGE iteration
 FROM HOST /${selectedDefinition.filename} ${selectedGraph.root.sha256}
 SLOP mkdir -p /opt/iteration/bin; cp /bin/echo /opt/iteration/bin/echo
@@ -275,6 +277,10 @@ const libcurlContractRequests = [];
 const libcurlCancelledRequests = [];
 let curlCliRequest = null;
 let snapshotUpload = null;
+const snapshotOutput = process.env.DOLLY_SNAPSHOT_OUTPUT && resolve(process.env.DOLLY_SNAPSHOT_OUTPUT);
+if (snapshotExportMode && (!snapshotOutput || !snapshotOutput.startsWith(`${resolve(projectDir, "dist")}${sep}`))) {
+  throw new Error("snapshot export requires an output path inside Dolly's dist directory");
+}
 const staticRequestPaths = new Set();
 let corruptAssetPart = false;
 const assetPartRequests = [];
@@ -718,21 +724,26 @@ function startServer() {
           response.writeHead(413, isolatedHeaders).end("invalid snapshot size");
           return;
         }
-        const chunks = [];
         let received = 0;
-        for await (const chunk of request) {
-          received += chunk.length;
-          if (received > snapshotSizeLimit) {
-            response.writeHead(413, isolatedHeaders).end("snapshot too large");
-            return;
+        const file = await open(snapshotOutput, "wx");
+        let complete = false;
+        try {
+          for await (const chunk of request) {
+            received += chunk.length;
+            if (received > declaredLength) throw new Error("snapshot exceeds declared size");
+            for (let offset = 0; offset < chunk.length;) {
+              const { bytesWritten } = await file.write(chunk, offset, chunk.length - offset);
+              if (bytesWritten === 0) throw new Error("snapshot export write failed");
+              offset += bytesWritten;
+            }
           }
-          chunks.push(chunk);
+          if (received !== declaredLength) throw new Error("incomplete snapshot");
+          complete = true;
+        } finally {
+          await file.close();
+          if (!complete) await rm(snapshotOutput, { force: true });
         }
-        if (received !== declaredLength) {
-          response.writeHead(400, isolatedHeaders).end("incomplete snapshot");
-          return;
-        }
-        snapshotUpload = Buffer.concat(chunks, received);
+        snapshotUpload = received;
         response.writeHead(204, isolatedHeaders).end();
         return;
       }
@@ -874,6 +885,7 @@ async function connectDebugger({ debugPort, page, target }) {
   });
 
   let nextId = 1;
+  let failure;
   const pending = new Map();
   socket.addEventListener("close", () => {
     for (const handler of pending.values()) handler.reject(new Error("Chrome debugger disconnected"));
@@ -881,6 +893,13 @@ async function connectDebugger({ debugPort, page, target }) {
   });
   socket.addEventListener("message", (event) => {
     const message = JSON.parse(String(event.data));
+    if (message.method === "Inspector.targetCrashed") {
+      failure = new Error("Chrome renderer crashed");
+      for (const handler of pending.values()) handler.reject(failure);
+      pending.clear();
+      socket.close();
+      return;
+    }
     if (!message.id) return;
     const handler = pending.get(message.id);
     if (!handler) return;
@@ -890,6 +909,7 @@ async function connectDebugger({ debugPort, page, target }) {
   });
 
   function send(method, params = {}) {
+    if (failure) return Promise.reject(failure);
     if (socket.readyState !== WebSocket.OPEN) return Promise.reject(new Error("Chrome debugger disconnected"));
     const id = nextId++;
     return new Promise((resolveCommand, reject) => {
@@ -1065,205 +1085,17 @@ async function waitForCommandResult(send, sequence, description) {
   );
 }
 
-async function runGraphicsProof(send, phone = false) {
-  for (const [arguments_, status] of [["--frames 12", 0], ["--frames 0", 2], ["--frames -1", 2]]) {
-    assert.equal(await evaluate(send, `window.__dolly.submit(${JSON.stringify(`graphics-demo ${arguments_}`)})`), status);
-  }
-  assert.equal(
-    await evaluate(
-      send,
-      `window.__dolly.submit(${JSON.stringify(
-        "test -s /usr/src/dolly/gamedev/graphics-demo.c && " +
-        "test -s /usr/src/dolly/gamedev/gamedev.mk",
-      )})`,
-    ),
-    0,
-    "the gamedev image did not retain its source-visible starter",
-  );
-  const performanceBeforeGraphics = await measureShellBatch(
-    send,
-    "before-graphics",
-  );
-  await evaluate(
-    send,
-    `window.__graphicsResult = null;
-     window.__dolly.submit("graphics-demo").then(
-       status => { window.__graphicsResult = { status }; },
-       error => { window.__graphicsResult = { error: String(error) }; },
-     ); true`,
-  );
-  await waitForValue(
-    send,
-    "window.__dolly.graphicsActive",
-    (value) => value === true,
-    "graphics framebuffer ownership",
-    200,
-  );
-  const graphicsPixels = await waitForValue(
-    send,
-    `(() => {
-      const canvas = document.querySelector('#display');
-      const pixels = canvas.getContext('2d')
-        .getImageData(0, 0, canvas.width, canvas.height).data;
-      let background = 0;
-      let accent = 0;
-      for (let index = 0; index < pixels.length; index += 4) {
-        const red = pixels[index];
-        const green = pixels[index + 1];
-        const blue = pixels[index + 2];
-        if (red <= 20 && green <= 35 && blue >= 15 && blue <= 55 &&
-            pixels[index + 3] === 255) background++;
-        if (Math.max(red, green, blue) - Math.min(red, green, blue) > 35 &&
-            red + green + blue > 200 && pixels[index + 3] === 255) accent++;
-      }
-      return { background, accent };
-    })()`,
-    (value) => value.background > 1000 && value.accent > 100,
-    "graphics-demo RGBA frame",
-    200,
-  );
-  assert.ok(graphicsPixels.background > graphicsPixels.accent);
-  await evaluate(send, `(() => {
-    const canvas = document.querySelector('#display');
-    window.__graphicsBefore = canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height).data;
-    window.__dolly.key('g', 'KeyG');
-  })()`);
-  const framesBefore = await evaluate(send, "Number(document.documentElement.dataset.frameSequence)");
-  await delay(1500);
-  assert.ok(await evaluate(send, "Number(document.documentElement.dataset.frameSequence)") - framesBefore >= 10,
-    "the physics field must keep presenting frames");
-  const changed = await evaluate(send, `(() => {
-    const canvas = document.querySelector('#display');
-    const after = canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height).data;
-    const before = window.__graphicsBefore;
-    delete window.__graphicsBefore;
-    let changed = 0;
-    for (let i = 0; i < before.length; i += 4) {
-      if (before[i] !== after[i] || before[i + 1] !== after[i + 1] || before[i + 2] !== after[i + 2]) changed++;
-    }
-    return changed / (after.length / 4);
-  })()`);
-  assert.ok(changed > 0.01, "the field must visibly change the rigid-body scene");
-  if (phone) {
-    const screenshot = await send("Page.captureScreenshot", { format: "png" });
-    await writeFile(resolve(projectDir, "build/singularity-phone-chrome.png"), screenshot.data, "base64");
-  }
-  const gesture = await evaluate(send, `(() => {
-    const transport = window.__dolly.transport, original = transport.pushPointer;
-    window.__graphicsPointerActions = [];
-    transport.pushPointer = function(x, y, action, event) {
-      window.__graphicsPointerActions.push(action);
-      return original.call(this, x, y, action, event);
-    };
-    window.__restoreGraphicsPointer = () => { transport.pushPointer = original; };
-    const bounds = document.querySelector('#display').getBoundingClientRect();
-    return { x: bounds.x + bounds.width * 0.5, y: bounds.y + bounds.height * 0.4 };
-  })()`);
-  try {
-    await send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ ...gesture, id: 1 }] });
-    for (let i = 1; i <= 4; ++i) {
-      await send("Input.dispatchTouchEvent", { type: "touchMove",
-        touchPoints: [{ x: gesture.x + i * 12, y: gesture.y + i * 8, id: 1 }] });
-    }
-    await send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
-    const actions = await evaluate(send, "window.__graphicsPointerActions");
-    assert.equal(actions[0], 1);
-    assert.ok(actions.includes(2), "touch drag must reach graphics, not terminal scrolling");
-    assert.equal(actions.at(-1), 0);
-  } finally {
-    await evaluate(send, "window.__restoreGraphicsPointer(); delete window.__restoreGraphicsPointer; delete window.__graphicsPointerActions");
-  }
-  if (phone) {
-    const exit = await evaluate(send, `(() => {
-      const canvas = document.querySelector('#display'), bounds = canvas.getBoundingClientRect();
-      return { x: bounds.x + (16 + 4.5 * Math.floor((canvas.width - 32) / 5)) * bounds.width / canvas.width,
-        y: bounds.y + (canvas.height - 37) * bounds.height / canvas.height };
-    })()`);
-    await send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ ...exit, id: 1 }] });
-    await send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
-  } else {
-    assert.equal(await evaluate(send, "window.__dolly.key('q', 'KeyQ')"), true);
-  }
-  assert.deepEqual(
-    await waitForValue(
-      send,
-      "window.__graphicsResult",
-      (value) => value !== null,
-      "graphics-demo normal release",
-      200,
-    ),
-    { status: 0 },
-  );
-  assert.equal(await evaluate(send, "window.__dolly.graphicsActive"), false);
-  assert.equal(
-    await evaluate(
-      send,
-      "window.__dolly.submit('echo GRAPHICS-RESTORED > graphics-restored.txt')",
-    ),
-    0,
-  );
-
-  await evaluate(
-    send,
-    `window.__graphicsInterruptResult = null;
-     window.__dolly.submit("graphics-demo").then(
-       status => { window.__graphicsInterruptResult = { status }; },
-       error => { window.__graphicsInterruptResult = { error: String(error) }; },
-     ); true`,
-  );
-  await waitForValue(
-    send,
-    "window.__dolly.graphicsActive",
-    (value) => value === true,
-    "interruptible graphics framebuffer ownership",
-    200,
-  );
-  await dispatchKey(send, { key: "c", code: "KeyC", modifiers: 2, windowsVirtualKeyCode: 67 });
-  assert.deepEqual(
-    await waitForValue(
-      send,
-      "window.__graphicsInterruptResult",
-      (value) => value !== null,
-      "graphics-demo SIGINT restoration",
-      200,
-    ),
-    { status: 130 },
-  );
-  assert.equal(await evaluate(send, "window.__dolly.graphicsActive"), false);
-  assert.equal(
-    await evaluate(
-      send,
-      "window.__dolly.submit('grep -q GRAPHICS-RESTORED graphics-restored.txt')",
-    ),
-    0,
-    "terminal or filesystem did not survive forced graphics restoration",
-  );
-  const performanceAfterGraphics = await measureShellBatch(
-    send,
-    "after-graphics",
-  );
-  assert.ok(
-    performanceAfterGraphics.milliseconds <=
-      Math.max(2000, performanceBeforeGraphics.milliseconds * 4),
-    `commands slowed down after framebuffer restoration: ${JSON.stringify({
-      before: performanceBeforeGraphics,
-      after: performanceAfterGraphics,
-    })}`,
-  );
-  assert.ok(
-    performanceAfterGraphics.frames <= performanceAfterGraphics.commands * 6,
-    `terminal produced too many post-graphics frames: ${JSON.stringify(
-      performanceAfterGraphics,
-    )}`,
-  );
-  console.log(
-    `browser: ${phone ? "portrait/Wasm EXIT button" : "desktop/Q"} graphics, finite frames, gravity, touch drag and Ctrl-C; post-framebuffer command batch ${performanceAfterGraphics.milliseconds}ms/` +
-    `${performanceAfterGraphics.frames} frames; before ` +
-    `${performanceBeforeGraphics.milliseconds}ms/${performanceBeforeGraphics.frames} frames`,
-  );
-}
-
 async function enterRecoveryShell(send) {
+  if (selectedImage === "zero-ad") {
+    const state = await waitForValue(send, `(async () => window.__dolly?.graphicsActive ? "game" :
+      /(?:^|\\n)dolly:[^\\n]*\\$\\s*$/.test(await window.__dolly?.visibleTerminalText() ?? "") ? "shell" : "")()`,
+      Boolean, "0 A.D. game or launcher shell", 1200);
+    if (state === "game") {
+      await dispatchKey(send, { key: "F10", code: "F10", modifiers: 2, windowsVirtualKeyCode: 121 });
+    }
+    return evaluate(send,
+      `window.__dolly.waitForInteractiveTerminal(/(?:^|\\n)dolly:[^\\n]*\\$\\s*$/, "0 A.D. launcher shell")`);
+  }
   if (selectedImage === "rts-arena") {
     await evaluate(send, `window.__dolly.waitForInteractiveTerminal(/Type to search/, "RTS launcher")`);
     await dispatchKey(send, { key: "Escape", code: "Escape", windowsVirtualKeyCode: 27 });
@@ -1274,19 +1106,7 @@ async function enterRecoveryShell(send) {
       `window.__dolly.waitForInteractiveTerminal(/(?:^|\\n)dolly:[^\\n]*\\$\\s*$/, "runtime image Slop prompt")`);
   }
   let entryPid;
-  if (["gamedev", "gamedev-phone"].includes(selectedImage)) {
-    entryPid = await waitForValue(
-      send,
-      "window.__dolly?.graphicsActive ? window.__dolly.foregroundPid : 0",
-      (value) => value > 0,
-      "gamedev entry display lease",
-      200,
-    );
-    assert.equal(
-      await evaluate(send, "window.__dolly.key('q', 'KeyQ')"),
-      true,
-    );
-  } else if (["classicube", "bhop"].includes(selectedImage)) {
+  if (["classicube", "bhop"].includes(selectedImage)) {
     await waitForValue(send, "window.__dolly?.graphicsActive", Boolean, "ClassiCube world");
     await waitForValue(send, "document.querySelector('#display').width === 1280 && document.querySelector('#display').height === 960", Boolean, "ClassiCube controls");
     const point = await evaluate(send, `(() => { const r = document.querySelector('#display').getBoundingClientRect();
@@ -1302,7 +1122,7 @@ async function enterRecoveryShell(send) {
     await dispatchKey(send, { key: "c", code: "KeyC", modifiers: 2, windowsVirtualKeyCode: 67 });
   } else {
     entryPid = await evaluate(send,
-      `window.__dolly.waitForInteractiveTerminal(${["pi", "python-pi", "pi-local", "dollyfile-studio"].includes(selectedImage)
+      `window.__dolly.waitForInteractiveTerminal(${["pi", "pi-local", "dollyfile-studio"].includes(selectedImage)
         ? "/Bash is not installed|Dollyfile Studio.*dolly-hello/" : "/(?:^|\\n)dolly:[^\\n]*\\$\\s*$/"}, "image entry terminal")`);
     await dispatchKey(send, {
       key: "d",
@@ -1615,7 +1435,9 @@ if (realOpenRouterMode || rtsLiveMode || classicubeAgentLiveMode || bhopAgentLiv
   if (requestedProfile) await mkdir(userDataDir, { recursive: true });
 }
 chrome = spawn(chromeBinary, [
-  "--headless=new", "--no-sandbox", "--disable-gpu",
+  "--no-sandbox",
+  ...(gpuBrowser ? ["--ozone-platform=x11", "--enable-unsafe-webgpu", "--use-angle=vulkan",
+    "--enable-features=Vulkan,VulkanFromANGLE"] : ["--headless=new", "--disable-gpu"]),
   "--remote-debugging-port=0",
   `--user-data-dir=${userDataDir}`,
   piDevelopmentMode || realOpenRouterMode ? "--window-size=1280,1120" : "--window-size=1280,800",
@@ -1628,6 +1450,7 @@ chrome.stderr.on("data", bytes => { chromeDiagnostics = (chromeDiagnostics + byt
     debugPort,
     page: "about:blank",
   });
+  await debuggerClient.send("Inspector.enable");
   await debuggerClient.send("Runtime.enable");
   await debuggerClient.send("Page.enable");
   await debuggerClient.send("Browser.setDownloadBehavior", {
@@ -1655,7 +1478,7 @@ chrome.stderr.on("data", bytes => { chromeDiagnostics = (chromeDiagnostics + byt
           const request = get.call(this, key), store = this.name;
           request.addEventListener('success', () => {
             const value = request.result;
-            globalThis.__artifactReads.push({ store, key, bytes: (value instanceof ArrayBuffer ? value : value?.bytes)?.byteLength ?? 0 });
+            globalThis.__artifactReads.push({ store, key, bytes: value instanceof Blob ? value.size : (value instanceof ArrayBuffer ? value : value?.bytes)?.byteLength ?? 0 });
           });
           return request;
         };
@@ -1865,7 +1688,7 @@ chrome.stderr.on("data", bytes => { chromeDiagnostics = (chromeDiagnostics + byt
       assert.equal(await submit("printf 'DOLLY 2\\n' | dollyfile-lint --stdin Draft"), 1);
       for (const suffix of ["$&", "$$", "$'", "$`", "東京"]) {
         const label = `Dollyfile-${suffix}`;
-        assert.equal(await submit(`message=$(printf 'DOLLY 3\\n' | dollyfile-lint --stdin ${shellQuote(label)} 2>&1); status=$?; test "$status" = 1 && test "$message" = ${shellQuote(`${label}:1: missing IMAGE or MODULE`)}`), 0);
+        assert.equal(await submit(`message=$(printf 'DOLLY 4\\n' | dollyfile-lint --stdin ${shellQuote(label)} 2>&1); status=$?; test "$status" = 1 && test "$message" = ${shellQuote(`${label}:1: missing IMAGE or MODULE`)}`), 0);
       }
       assert.equal(await submit("test -f /home/dolly/.pi/agent/skills/dollyfiles/SKILL.md && test -f /home/dolly/.pi/agent/extensions/local-model-provider.js"), 0);
       try {
@@ -1883,7 +1706,7 @@ chrome.stderr.on("data", bytes => { chromeDiagnostics = (chromeDiagnostics + byt
         window.__studioEditorStatus = null;
         __dolly.submit('nvim /workspace/Dollyfile').then(status => { window.__studioEditorStatus = status; });
       })()`);
-      await waitForTerminalText(send, /DOLLY 3/, "Studio editor recipe");
+      await waitForTerminalText(send, /DOLLY 4/, "Studio editor recipe");
       await clearTerminalSelection(send);
       await typeText(send, "G");
       const yellowOnLine = row => evaluate(send, `(() => {
@@ -2096,6 +1919,12 @@ chrome.stderr.on("data", bytes => { chromeDiagnostics = (chromeDiagnostics + byt
       break browserProof;
     }
     if (debuggerDisconnectMode) {
+      const crashed = await connectDebugger({ debugPort, page: "about:blank" });
+      await crashed.send("Inspector.enable");
+      const stranded = assert.rejects(evaluate(crashed.send, "new Promise(() => {})"), /Chrome renderer crashed/);
+      await assert.rejects(crashed.send("Page.crash"), /Chrome renderer crashed/);
+      await stranded;
+      await assert.rejects(evaluate(crashed.send, "true"), /Chrome renderer crashed/);
       const pending = evaluate(debuggerClient.send, "new Promise(() => {})");
       await evaluate(debuggerClient.send, "true");
       const rejected = assert.rejects(pending, /Chrome debugger disconnected/);
@@ -2444,6 +2273,15 @@ chrome.stderr.on("data", bytes => { chromeDiagnostics = (chromeDiagnostics + byt
         assert.equal(await waitForValue(send, "window.__sdlResult", value => value !== null, "SDL2 input completion"), 0);
         assert.equal(await evaluate(send, "__dolly.transport.graphicsActive()"), false);
         assert.equal(await submit("test -s /tmp/dolly-sdl2/probe.c"), 0);
+        await evaluate(send, `window.__sdlResult = null; void __dolly.submit('/tmp/dolly-sdl2/probe presence').then(status => window.__sdlResult = status); true`);
+        await waitForValue(send, "__dolly.transport.graphicsActive()", Boolean, "SDL2 pointer presence");
+        for (const x of [100, -10, 100])
+          await send("Input.dispatchMouseEvent", {type:"mouseMoved",x,y:100});
+        await send("Input.dispatchKeyEvent", {type:"keyDown",key:"ArrowRight",code:"ArrowRight"});
+        await send("Input.dispatchMouseEvent", {type:"mousePressed",button:"left",buttons:1,clickCount:1,x:100,y:100});
+        await evaluate(send, `window.dispatchEvent(new Event('blur')); true`);
+        await dispatchKey(send, {key:"Escape",code:"Escape",windowsVirtualKeyCode:27});
+        assert.equal(await waitForValue(send, "window.__sdlResult", value => value !== null, "SDL2 focus recovery"), 0);
         for (const name of ["input.cpp", "input.h", "arena.h", "rts-input-probe.cpp"])
           assert.equal(await submit(`curl -fsS ${localOrigin}/fixture/${name} -o /tmp/dolly-sdl2/${name}`), 0);
         assert.equal(await submit("mkdir /tmp/dolly-sdl2/player && c++ -O0 -I/usr/include/SDL2 /tmp/dolly-sdl2/input.cpp /tmp/dolly-sdl2/rts-input-probe.cpp -o /tmp/dolly-sdl2/rts-input-probe -lSDL2 -lz -lm && /tmp/dolly-sdl2/rts-input-probe"), 0);
@@ -2456,22 +2294,6 @@ chrome.stderr.on("data", bytes => { chromeDiagnostics = (chromeDiagnostics + byt
         await submit("rm -rf /tmp/dolly-sdl2");
       }
       console.log("browser: SDL2 source build, RGB565 presentation, typed Unicode/repeat/composition/paste and shortcut filtering, keyboard/click input, display restoration, offscreen ordered batches, PNG screenshots, invalid batches and held-input cancellation passed");
-      break browserProof;
-    }
-    if (graphicsMode) {
-      assert.ok(["gamedev", "gamedev-phone"].includes(selectedImage));
-      assert.equal(await waitForValue(debuggerClient.send,
-        "document.documentElement?.dataset.dollyStatus ?? ''",
-        value => value === "ready" || value === "failed", "gamedev boot"), "ready");
-      await enterRecoveryShell(debuggerClient.send);
-      await runGraphicsProof(debuggerClient.send);
-      await debuggerClient.send("Emulation.setDeviceMetricsOverride", {
-        width: 390, height: 844, deviceScaleFactor: 2, mobile: true,
-      });
-      await debuggerClient.send("Emulation.setTouchEmulationEnabled", { enabled: true, maxTouchPoints: 5 });
-      await evaluate(debuggerClient.send, "dispatchEvent(new Event('resize'))");
-      assert.equal(await evaluate(debuggerClient.send, "document.querySelector('#phone-menu')"), null);
-      await runGraphicsProof(debuggerClient.send, true);
       break browserProof;
     }
     if (gitTransportMode) {
@@ -3145,7 +2967,7 @@ install(TARGETS probe RUNTIME DESTINATION bin)
         };
         if (requestedMode === "image-inventory-rebuild") await build(selectedImage);
         const artifact = `/etc/dolly/artifacts/${selectedGraph.root.sha256}.snapshot`;
-        const recipe = `DOLLY 3\nIMAGE inventory-proof\nFROM HOST /${selectedDefinition.filename} ${selectedGraph.root.sha256}\n` +
+        const recipe = `DOLLY 4\nIMAGE inventory-proof\nFROM HOST /${selectedDefinition.filename} ${selectedGraph.root.sha256}\n` +
           `FILE /tmp/inventory.c\n${source.trimEnd().split("\n").map(line => `    ${line}`).join("\n")}\n` +
           `SLOP cc -O1 /tmp/inventory.c -o /tmp/inventory\n` +
           `SLOP help > /tmp/help\n` +
@@ -3193,11 +3015,6 @@ install(TARGETS probe RUNTIME DESTINATION bin)
           "live manifest verification must reject a different digest");
         assert.equal(await submit(`${scratch}/inventory ${scratch}/help ${manifestHash}`), 0,
           "live manifest, system paths and help must match the packaged image");
-        if (selectedImage === "external-source") {
-          assert.equal(await submit("test \"$(command -v xxd)\" = /usr/bin/xxd"), 0);
-          assert.equal(await submit("test \"$(printf Dolly | xxd -p)\" = 446f6c6c79"), 0);
-          assert.equal(await submit("test \"$(printf 446f6c6c79 | xxd -r -p)\" = Dolly"), 0);
-        }
       } finally {
         await submit(`rm -rf ${scratch}`);
       }
@@ -3230,7 +3047,7 @@ install(TARGETS probe RUNTIME DESTINATION bin)
           assert.equal(await submit(`./${name} ${scratch}`), 0, `${name} preserves path kinds`);
         }
         assert.equal(await submit(`cc -O0 dollyfile.c -o dollyfile`), 0);
-        const entryRecipe = "DOLLY 3\nIMAGE entry-missing\nENTRY /bin/slop\n";
+        const entryRecipe = "DOLLY 4\nIMAGE entry-missing\nENTRY /bin/slop\n";
         assert.equal(await submit(`printf %b ${shellQuote(entryRecipe.replaceAll("\n", "\\n"))} > ${scratch}/Dollyfile`), 0);
         assert.equal(await submit(`./dollyfile FILE:${scratch}/Dollyfile ${localOrigin} 2> ${scratch}/entry-error`), 1);
         assert.equal(await submit(`grep -q 'must be retained' ${scratch}/entry-error`), 0,
@@ -4159,11 +3976,10 @@ int main(int argc, char **argv) {
         `${browserBasePrefix}/${selectedImage}/`,
         `${browserBasePrefix}/Dollyfile${selectedImage === "default" ? "" : `-${selectedImage}`}`,
         `${browserBasePrefix}/dist/dolly-images.mjs`,
-        ...(!packagedSite ? [`${browserBasePrefix}/dist/dolly-${selectedImage}-system.snapshot`] : []),
       ]) {
         assert.ok(staticRequestPaths.has(required), `prefixed route did not request ${required}`);
       }
-      if (packagedSite) assert.ok([...staticRequestPaths].some(path => path.includes("/dist/packs/")), "packaged image did not load shared packs");
+      assert.ok([...staticRequestPaths].some(path => path.includes("/dist/packs/")), "image did not load snapshot packs");
       assert.equal([...staticRequestPaths].some((path) => path.includes("/static/")), false,
         "prebuilt route fetched rebuild-only source inputs");
       await debuggerClient.send("Page.navigate", {
@@ -4186,7 +4002,7 @@ int main(int argc, char **argv) {
         chrome: document.querySelectorAll('header, nav, h1, main > p').length,
       }))()`);
       assert.equal(viewer.chrome, 0);
-      assert.match(viewer.source, /DOLLY 3/);
+      assert.match(viewer.source, /DOLLY 4/);
       assert.match(viewer.source, new RegExp(`IMAGE ${selectedImage}`));
       assert.ok(viewer.links.some((link) =>
         link.href.startsWith(`${browserBasePrefix}/static/`) ||
@@ -4418,7 +4234,7 @@ int main(int argc, char **argv) {
         const { DOLLY_IMAGES } = await import(${JSON.stringify(new URL("dist/dolly-images.mjs", iterationAssets).href)});
         const { prepareImageArtifacts } = await import(${JSON.stringify(new URL("src/image-build.mjs", iterationAssets).href)});
         const make = async (name, value) => {
-          const source = new TextEncoder().encode('DOLLY 3\\nIMAGE ' + name + '\\nENTRY /bin/slop\\n');
+          const source = new TextEncoder().encode('DOLLY 4\\nIMAGE ' + name + '\\nENTRY /bin/slop\\n');
           return describeImageArtifact(encodeSnapshotRecords(new Map([
             ['/etc/dolly/Dollyfile', {kind: 2, data: source}],
             ['/etc/dolly/artifact', {kind: 2, data: new TextEncoder().encode(value)}],
@@ -4463,7 +4279,7 @@ int main(int argc, char **argv) {
         try {
           if (!await saveImageArtifact({...piArtifact, bytes: new ArrayBuffer(1), byteLength: 1}, '/' + pi.dollyfile)) throw new Error('corrupt Pi fixture write failed');
           const [artifact] = await prepareImageArtifacts('custom',
-            'DOLLY 3\\nIMAGE cache-consumer\\nFROM HOST /' + pi.dollyfile + ' ' + pi.sha256 + '\\nENTRY /bin/slop\\n',
+            'DOLLY 4\\nIMAGE cache-consumer\\nFROM HOST /' + pi.dollyfile + ' ' + pi.sha256 + '\\nENTRY /bin/slop\\n',
             async () => { throw new Error('corruption must recover the exact published bytes, not rebuild a new identity'); }, () => {});
           recovered = artifact.sha256 === piArtifact.sha256 && artifact.bytes.byteLength === piArtifact.bytes.byteLength;
         } finally { await saveImageArtifact(piArtifact, '/' + pi.dollyfile); }
@@ -4521,12 +4337,7 @@ int main(int argc, char **argv) {
       break browserProof;
     }
     if (snapshotExportMode) {
-      const output = resolve(process.env.DOLLY_SNAPSHOT_OUTPUT ?? "");
-      const distDirectory = resolve(projectDir, "dist");
-      if (!process.env.DOLLY_SNAPSHOT_OUTPUT ||
-          !output.startsWith(`${distDirectory}${sep}`)) {
-        throw new Error("snapshot export requires an output path inside Dolly's dist directory");
-      }
+      const output = snapshotOutput;
       await waitForValue(debuggerClient.send, "document.querySelector('#bootstrap-log') !== null",
         Boolean, "build page");
       await evaluate(debuggerClient.send,
@@ -4574,15 +4385,14 @@ int main(int argc, char **argv) {
         {
           method: "POST",
           headers: { "content-type": "application/octet-stream" },
-          body: window.__dolly.systemSnapshot,
+          body: new Blob([window.__dolly.systemSnapshot]),
         },
       ).then((response) => response.status)`);
       assert.equal(uploadStatus, 204);
-      assert.equal(snapshotUpload?.length, evidence.snapshotBytes);
-      await writeFile(output, snapshotUpload, { flag: "wx" });
+      assert.equal(snapshotUpload, evidence.snapshotBytes);
       await writeFile(`${output}.inputs.json`, JSON.stringify(evidence.inputs), { flag: "wx" });
       console.log(
-        `browser: exported ${snapshotUpload.length} byte ${selectedImage} snapshot ` +
+        `browser: exported ${snapshotUpload} byte ${selectedImage} snapshot ` +
         "without starting a display or image entry",
       );
       break browserProof;
@@ -4868,9 +4678,6 @@ int main(int argc, char **argv) {
         debuggerClient.send, /! Slop/, "Pi's Slop-aware header",
       );
       assert.doesNotMatch(piHeaderText, /!\s+(?:to run )?bash/i);
-      if (selectedImage === "python-pi") {
-        assert.match(piHeaderText, /\[Skills\][\s\S]*\bbonnie\b/);
-      }
       await clearTerminalSelection(debuggerClient.send);
       await typeText(debuggerClient.send, "! ls");
       await dispatchKey(debuggerClient.send, {
@@ -5710,7 +5517,6 @@ int main(int argc, char **argv) {
     "the shell or shared filesystem did not survive foreground SIGINT",
   );
 
-  if (["gamedev", "gamedev-phone"].includes(selectedImage)) await runGraphicsProof(debuggerClient.send);
 
   const initialFontSize = await evaluate(debuggerClient.send, "window.__dolly.fontSize");
   await dispatchKey(debuggerClient.send, {
@@ -6283,7 +6089,7 @@ int main(int argc, char **argv) {
   }
 } catch (error) {
   if (chrome && (chrome.exitCode !== null || chrome.signalCode !== null ||
-      debuggerClient?.socket.readyState === WebSocket.CLOSED)) {
+      debuggerClient?.socket.readyState === WebSocket.CLOSED || error.message === "Chrome renderer crashed")) {
     process.stderr.write(`browser process: exit ${chrome?.exitCode}, signal ${chrome?.signalCode}\n${chromeDiagnostics}\n`);
   }
   if (debuggerClient) {

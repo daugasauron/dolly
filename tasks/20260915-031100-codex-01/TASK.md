@@ -43,6 +43,6 @@ with simulation matching wall time and all 21 objects/403 parts retained. The
 live Pi world was also active; these short measurements are not an isolated
 GPU comparison. The final header was visually checked.
 
-Evidence: `build/blockwalker-larger-starters-integration.log`,
-`build/blockwalker-larger-starters-editor.log`, `build/blockwalker-showcase.log`,
-`build/blockwalker-showcase/showcase.json` and its PNGs. All test browsers exited.
+Evidence: `build/slopyard-larger-starters-integration.log`,
+`build/slopyard-larger-starters-editor.log`, `build/slopyard-showcase.log`,
+`build/slopyard-showcase/showcase.json` and its PNGs. All test browsers exited.

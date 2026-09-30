@@ -10,7 +10,7 @@ later language runtimes. Production images remain unchanged. The branch selects
 four workers for the world; canonical image verification passed in both browsers.
 Prerequisite: 20260926-092542-codex-host-modules defines headers, client libraries
 and versioned host-provider requirements. Implement threads through that system.
-Blockwalker's 20 Hz controller choice and unfinished Lua migration remain in
+Slopyard's 20 Hz controller choice and unfinished Lua migration remain in
 20260923-211500-codex-01. Keep the existing image44 preview recoverable.
 
 Existing foundation and blockers:
@@ -33,7 +33,7 @@ Existing foundation and blockers:
 - DSO/FFI tables and loader state currently belong to one JS Worker. Ordinary
   WebAssembly tables cannot simply be sent to another Worker as shared tables.
 - `src/gamedev/box3d-platform.c` uses dummy mutex/semaphore/thread operations;
-  Blockwalker selects workerCount=1. Raising the count alone would be incorrect.
+  Slopyard selects workerCount=1. Raising the count alone would be incorrect.
 
 Proposed execution model:
 
@@ -203,7 +203,7 @@ Implementation progress, September 26 (not a completion claim):
 The SDK overlay (build/threads-overlay.tar) is disposable: it installs the new
 seed compiler and threaded target libraries into an existing system sandbox;
 ordinary C/C++ test programs compile there. Canonical build scripts now prepare
-that target. The full native seed build now passes; its 13-image Blockwalker
+that target. The full native seed build now passes; its 13-image Slopyard
 dependency build is running. Helpers:
 build/threads-{kernel,compiler,toolchain,substrate,pthread}-build.sh and
 build/threads-overlay.py. No preview, commit or deployment contains this work.
@@ -222,7 +222,7 @@ complete output saves, including poses and controller memories, are identical.
 Paired 1/2/4/4/2/1 means: simulation 14,253/13,357/13,138 ms; physics
 3,234/2,366/2,019 ms. Four workers reduce physics time 37.6% and total simulation
 time 7.8%; this is not a rendered-FPS claim. Evidence and reproduction harnesses:
-`build/blockwalker-threads/chrome/comparison.json`, `probe-browser.mjs`,
+`build/slopyard-threads/chrome/comparison.json`, `probe-browser.mjs`,
 `physics.c`, `compare.mjs`. Browser FPS and Firefox comparisons follow below.
 
 The probe exposed Emscripten sched_yield's browser event-queue dependency.
@@ -236,18 +236,18 @@ Chrome render-loop samples (1/2/4/4/2/1, 15 s warmup +15 s measured) are
 Variation prevents a reliable rendered-FPS uplift claim; p95 frame intervals
 remain 32 ms despite all averages exceeding 60. These count submitted game
 frames, not distinct physical-monitor presentations. Evidence:
-`build/blockwalker-threads/render-chrome/proof.json`.
+`build/slopyard-threads/render-chrome/proof.json`.
 
 Firefox repeats the same complete-save equality across all six physics runs.
 Its 1/2/4 means are simulation 13,714/12,884/12,508 ms and physics
 3,674/2,817/2,452 ms (four workers: 33.3% less physics time, 8.8% less total).
-Evidence: `build/blockwalker-threads/firefox/comparison.json`.
+Evidence: `build/slopyard-threads/firefox/comparison.json`.
 
 The canonical seed rebuild passes (`build/threads-native-build.log`), followed
 by 282 source tests and five targeted exact ABI checks. Runtime ID:
 `d9dee7375fb5ec91f293a97359d2e2f5a64bbb9a8e4fc7e15c848eb99a995299`;
 image-build ID: `8affcfc8ac0fe1dff92eae8d4f017a539a933dc55e1dda4b9e37cc247a922530`.
-`build/threads-blockwalker-image.log` records the completed canonical rebuild.
+`build/threads-slopyard-image.log` records the completed canonical rebuild.
 The permanent compiler check now uses the normal SDK by default; `--overlay`
 is only for development against an older image.
 
@@ -256,11 +256,11 @@ Firefox render-loop samples are 191.0/202.9/208.6/207.0/203.9/191.7 FPS for
 p95 frame interval is 18 ms versus 19 ms. These remain game frame submissions,
 not monitor refreshes. All simulation steps advance at real time and the same
 134 objects survive without controller faults. Chrome remains noisy. Evidence:
-`build/blockwalker-threads/render-{chrome,firefox}/comparison.json`.
+`build/slopyard-threads/render-{chrome,firefox}/comparison.json`.
 
 Completed September 26 on the uncommitted branch:
 
-- Full 13-image build passed in 578.6 s; final Blockwalker build took 42.4 s.
+- Full 13-image build passed in 578.6 s; final Slopyard build took 42.4 s.
   Snapshot: 253,529,766 bytes,
   `47c8b72bcb56826f34810000f7de7eaf8499f81e9c47c04b1d5e8ec838f61d2d`.
   The Dollyfile dependency declares threads@0 and the bundled executable has
@@ -274,7 +274,7 @@ Completed September 26 on the uncommitted branch:
   have no controller errors, deaths or lost characters. Chrome: 93.6/103.5 FPS;
   Firefox: 214.0/215.6 FPS. These are submitted frames, not monitor presentations
   or a controlled improvement over image44. Normal-image evidence and screenshots:
-  `build/blockwalker-threads/image-{chrome,firefox}/`.
+  `build/slopyard-threads/image-{chrome,firefox}/`.
 - Empty Box3D world heap growth for 1/2/4 workers is
   174,160/2,418,768/6,887,504 bytes in both browsers: four workers add about
   6.4 MiB of guest heap over one. The initial 16 MiB linear memory fits all three;
@@ -283,7 +283,7 @@ Completed September 26 on the uncommitted branch:
 - Both browsers pass actual named-session save/reload, blueprint/world recovery,
   typing isolation, fullscreen, quick-save and preserving the last good snapshot
   after failed storage. Logs: `build/threads-game-session-{chrome,firefox}.log`.
-- Local preview: http://127.0.0.1:9097/blockwalker/ using
+- Local preview: http://127.0.0.1:9097/slopyard/ using
   `dolly-threads-preview.service` and this live worktree. Frozen 9098/9099 services
   remain unchanged. No commit, push or production deployment.
 

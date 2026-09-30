@@ -7,7 +7,7 @@ USE HOST /modules/upload.dm         17c1f142a2568513d94f331962ace1e27fe4c03a06c3
 USE HOST /modules/ninja.dm          00e13c414b1e63bd373c1b8d0b54c6e079c138a808d428a0e5d9ab287040354c
 USE HOST /modules/zlib.dm           348b3b868f0dccd5a70d5f8b5d2e02b6b3c683284c32ebff821b40306a8853e3
 USE HOST /modules/gzip.dm f159cc4ed4c045f89a3ce1477c513e9ee00b4a949dc7903ac0ef059fbdb5227a
-USE HOST /modules/curl.dm           03a4d53e87b23cd786fbf1f7854c29bcac91518a6e902fec607cc83119a1b0e5
+USE HOST /modules/curl.dm           f10de286ae1175027ea4ba290382fdc595c85b4946902677d56846169bb230c4
 USE HOST /modules/git.dm            549e11481b59c19e77aadcad3d9be2d1629387ac445f9d9477f3b0d1353d1976
 USE HOST /modules/awk.dm            45d33d625d8bfe1aae4fd850b7a45f38eca692e998e05c98577c3ac82c1068a3
 USE HOST /modules/sbase.dm          c0bb65bbab9228cf4e60c134c85c7cf5b5407b1f192c6ef4065b29ccdc035b3b

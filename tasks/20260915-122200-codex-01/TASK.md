@@ -31,8 +31,8 @@ binary/tools and remains compatible. Subsequent real Pi activity preserves all
 Current native history363582174bytes; ten verified gpt-6-astra/xhigh requests.
 No host C compilation, physics assistance or new outer imports.
 
-Evidence: build/blockwalker-trial-failure/{proof.json,trial-failures.json},
-build/blockwalker-failure-integration/, and
-build/blockwalker-walking/practice-stop-{before,after,updated,live}-proof.json.
+Evidence: build/slopyard-trial-failure/{proof.json,trial-failures.json},
+build/slopyard-failure-integration/, and
+build/slopyard-walking/practice-stop-{before,after,updated,live}-proof.json.
 These are source and live-session checks. The fresh packaged image remains at
 39e1971; include this change in the next image checkpoint under the world task.

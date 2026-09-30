@@ -39,8 +39,8 @@ maximum controller stance drift .462378 m and worst tracked support-block drift
 or identify the interfering parts. #72 remains experimental; no release.
 
 Exact records and full trial results are retained in
-`build/blockwalker-arms-library-{71,72}.json` and
-`build/blockwalker-arms-{standing,initial-walking}-practice-result.json`.
+`build/slopyard-arms-library-{71,72}.json` and
+`build/slopyard-arms-{standing,initial-walking}-practice-result.json`.
 The independent 90.017 s populated-world diagnostic reproduced the interference:
 hand31 hit hip joints5/6 (sampled peaks1.823/2.723 Ns), and hand34 hit18/19
 (.944/2.995 Ns). There were747 contact samples, approximately .1 s apart;
@@ -49,20 +49,20 @@ hit static ground, no dynamic external impulse was sampled, and oriented arm
 clearance stayed above3.632 m. Exact body/source verified; all54 test-world
 objects survived. Instrumented wall time96.573 s. C compiled inside Dolly;
 browser tree limited to4 GiB/no swap, handle3259 terminal0, scope inactive.
-`build/blockwalker-arms-collision-world/contact-proof.json` and the full report
+`build/slopyard-arms-collision-world/contact-proof.json` and the full report
 preserve the evidence. This diagnoses #72; it is not a300 s successor pass.
 
 Pi saved the forward/aft raised layout as#73. Its trial stopped for posture at
 131.517 s after two scored steps, six aborts and a transfer timeout; full result
-is `build/blockwalker-arms-raised-practice-result.json`.
+is `build/slopyard-arms-raised-practice-result.json`.
 The737-character contact report was delivered through the normal Pi prompt box
-(`build/blockwalker-arms-contact-steer.mjs`). Pi is now trying symmetric outward
+(`build/slopyard-arms-contact-steer.mjs`). Pi is now trying symmetric outward
 shoulder spacers on#72. No experimental arm body has been released.
 
 The07:28 export preserved all53 live creations, all65 archived designs and the
 entire374481137-byte native history prefix (now381693874 bytes). Live#67 was
 upright at3346.483 s with232 scored placements,31 reversals and no aborts.
-`build/blockwalker-walking/arms-progress-proof.json` verifies preservation,
+`build/slopyard-walking/arms-progress-proof.json` verifies preservation,
 actual Astra/xhigh requests and receipt of the complete contact report prompt.
 
 ## Spacer and attitude experiments
@@ -74,7 +74,7 @@ alternating landings, seven scored steps and eight aborts. Its first arm contact
 flag appeared at228.8 s during the fall; this supports, but does not independently
 prove, the clearance fix. The added supporting-hip attitude term in#76 made
 things worse: posture failure at81.25 s after two scored steps. All exact saved
-bodies/controllers and complete results remain in `build/blockwalker-arms-*`.
+bodies/controllers and complete results remain in `build/slopyard-arms-*`.
 
 Pi's next matched experiment holds the arms neutral on#75. A verified C update
 now also exposes per-part support/self-contact force estimates; see the
@@ -82,7 +82,7 @@ now also exposes per-part support/self-contact force estimates; see the
 Box3D's raw `totalNormalImpulse` solver accumulator. It establishes nonzero
 contact, but its value is not net momentum change integrated over a tick.
 
-The new live session `blockwalker-forces` preserves all53 live creations and76
+The new live session `slopyard-forces` preserves all53 live creations and76
 designs, with full384715559-byte native history verified before resuming. At
 the saved checkpoint live#67 was upright at4452.4 s (74.2 min),308 scored
 placements,41 reversals and zero aborts. The948-character continuation prompt
@@ -93,10 +93,10 @@ Quiet-arm #77 fell at 99.067 s with five alternating landings, two scored.
 Across 621 elevated-foot samples, the opposite foot carried above 9.13 N and
 the raised foot had zero sampled external support. There were 32 self-contact
 samples, peaking at 36.69 N; arm force first appeared during the fall at 97.85 s.
-Exact records #77/#78 and the quiet-arm result are in `build/blockwalker-arms-*`.
+Exact records #77/#78 and the quiet-arm result are in `build/slopyard-arms-*`.
 The neutral blueprint comparison gives 25% more mass and a .619 m higher COM
 than #62; rigidly locked roll inertia rises 37%. This is a geometric calculation,
-not measured articulated response (`blockwalker-arms-mass-comparison.json`).
+not measured articulated response (`slopyard-arms-mass-comparison.json`).
 
 Saved #78 uses slower, better-damped transfers and recent external-force
 evidence for support. Its trial was interrupted for a sandbox update; Pi was

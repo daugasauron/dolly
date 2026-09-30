@@ -26,15 +26,15 @@ placements, but the unfinished final backward attempt reached .30146 m root-foot
 stance slip (.36187 m worst individual stance-block displacement). Upright at
 the end, no physical failure; this is partial progress, not a release candidate.
 Pi is capping individual swing reach after reversals before testing again.
-Exact source/body:build/blockwalker-patrol-seed.json; result:
-build/blockwalker-patrol-first-result.json. Patrol event rows include direction
+Exact source/body:build/slopyard-patrol-seed.json; result:
+build/slopyard-patrol-first-result.json. Patrol event rows include direction
 at index3 and use the label "stable signed landing"; adapt physical analysis
 accordingly rather than reusing the forward-only event layout unchanged.
 
 Actual support-block geometry confirms Patrol I's late slip was planar
 translation/yaw: six-block centroid moved .21980m and rotated -8.323 degrees
 while all centers remained near y=.485. Evidence:
-build/blockwalker-patrol-stance-slip.json. Reach-capped #60 still slipped
+build/slopyard-patrol-stance-slip.json. Reach-capped #60 still slipped
 .2629m; slower-backward #61 reduced root-foot slip to .1551m but individual
 support-block displacement remained .281m. Neither was released.
 
@@ -43,8 +43,8 @@ the remaining part indices and six-block feet are unchanged. Its300s practice
 trial scored12 forward and8 backward placements with three reversals and no
 aborts. Maximum root-foot stance slip was .01811m, worst support-block
 displacement .02010m. Root range[-1.74365,2.22679] overshoots the +/-1.5 targets.
-Exact body/source: build/blockwalker-patrol-library-62.json; full returned
-practice state/memory: build/blockwalker-patrol-yaw-practice-result.json.
+Exact body/source: build/slopyard-patrol-library-62.json; full returned
+practice state/memory: build/slopyard-patrol-yaw-practice-result.json.
 Pi is comparing zero yaw commands on the same body before refining bounds.
 
 An independent600s populated-world test of exact #62 completed in one browser
@@ -57,7 +57,7 @@ The actual Pi comparison #63/Patrol V failed for posture at285.9667s
 comparison confirms the exact same body and controller except a comment and
 multiplying the hip-yaw command by zero. This supports active yaw feedback for
 this gait; it does not establish general stability. Full result and source:
-build/blockwalker-patrol-yaw-braking-result.json and -library-63.json.
+build/slopyard-patrol-yaw-braking-result.json and -library-63.json.
 
 The populated run passed600.05 simulated seconds (643.635 instrumented wall),
 53 objects/1461 parts, zero removals and exact full-world restoration including
@@ -71,10 +71,10 @@ actual ground impulses. Root Z range[-1.9644,2.0762]m, netX=-.3560m.
 There were767 supported airborne samples,630 with zero total impulse on the
 swing foot. Some opposite-leg rubbing remains (peak1.1658Ns); no sampled
 dynamic external impulses acted on any part. Sampling is about.1 simulation
-seconds, not every tick. Evidence: build/blockwalker-patrol-clear-world/
+seconds, not every tick. Evidence: build/slopyard-patrol-clear-world/
 contains proof.json, the contact/pose report, exact restored world, three
 GPU frames and a30s actual-world video patrol-world.webm. Analysis is in
-build/blockwalker-patrol-analysis.py.
+build/slopyard-patrol-analysis.py.
 
 Source catalog now includes exact verified #62 as Sidelight IV - patrolling
 biped, at(55,-85);53 objects/1461 parts, with all52 older entries preserved.
@@ -92,10 +92,10 @@ The new image is built and verified:53 bundled objects/1461 parts, including
 all older entries, Sidelight III/IV and the early failed-trial stopping change.
 Fresh20s browser check matched all bundled controller sources and the exact
 patrol body; no removals or model requests. Evidence:
-build/blockwalker-patrol-packaged/proof.json; image build log and retry log.
+build/slopyard-patrol-packaged/proof.json; image build log and retry log.
 
 The live session was migrated via normal chunked browser uploads and restored
-as blockwalker-patrol. All workspace hashes and session compatibility matched.
+as slopyard-patrol. All workspace hashes and session compatibility matched.
 Post-resume proof preserves all53 live objects/1390 parts, all65 older library
 designs (now67 with the bundled aliases),14 removals, and the full374481137-byte
 native history prefix; native history is now374504337bytes. Actual Astra/xhigh
@@ -103,5 +103,5 @@ requests resumed, and the834-character continuation prompt arrived intact.
 Live#67 was upright at376.183s with25 scored placements, three reversals,
 zero aborts and .018086m maximum stance slip. These runtime counters do not
 replace the independent600s physical audit. Evidence:
-build/blockwalker-walking/patrol-{image-restore,continuation}-proof.json.
+build/slopyard-walking/patrol-{image-restore,continuation}-proof.json.
 Continue the separately tracked tighter-bound/contact work,20260915-153500-codex-01.

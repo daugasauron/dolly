@@ -4,14 +4,14 @@
 - PRIORITY: 240
 - TAGS: game,controllers,combat
 
-In `build/blockwalker-compound-regressions-chrome-battery-external-round/salvage/`,
+In `build/slopyard-compound-regressions-chrome-battery-external-round/salvage/`,
 the first resupplied shot101 targets courier59 at1574.217s. Predicted miss is
 1.871m; measured nearest root distance is2.374m, with no hostile or friendly
 projectile contacts. Supply works, but this shot does not impede air retrieval.
 
 The editable slinger program samples flight time at0.1s intervals and releases
 within min(2.5m,0.95×target radius). Candidate `slinger-fine-aim.js` under
-`build/blockwalker-battery-supply/` refines the best interval at0.01s and requires
+`build/slopyard-battery-supply/` refines the best interval at0.01s and requires
 a1.15m miss. No engine forces, opponent changes or guaranteed collision.
 `fine-aim.c` was prepared to replay the same attached-round save with the original
 and candidate program for90s each. Input `external-gun.json`
@@ -60,14 +60,14 @@ the missing freight/resupply quotas, not an aiming pass for the whole world.
 The verified program is now in canonical catalog entry106. Packaging remains
 pending; the served image39 still has the old program. This establishes repeated
 hits, not shootdowns or balanced air retrieval. A separate mass comparison is
-prepared in `build/blockwalker-dense-ammunition/`: same force-limited program and
+prepared in `build/slopyard-dense-ammunition/`: same force-limited program and
 attached-round save, with round101 changed from alloy to existing ballast. It
 has not run. The prototype derives its mass limit from magnet strength/gravity
 and retains the light-cargo ceiling; no engine forces or opponent changes.
 
-Packaged and verified in image40, tag `blockwalker-checkpoint-20260926-image40`.
+Packaged and verified in image40, tag `slopyard-checkpoint-20260926-image40`.
 Chrome and Firefox match all111 bundled programs/blueprints and restore six
 saved worlds with physical attachments intact, no browser/controller errors.
-Evidence: `build/blockwalker-image40-preview{,-firefox}/proof.json`. The source
+Evidence: `build/slopyard-image40-preview{,-firefox}/proof.json`. The source
 change is de15bf9; this closes interception accuracy, not sustained resupply or
 shootdowns. The separate supply and world-competition tasks remain open.

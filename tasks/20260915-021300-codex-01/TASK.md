@@ -25,7 +25,7 @@ Do not blindly expand the broker deadline or change the requested reasoning leve
 
 Verify an actual compaction succeeds through the existing browser broker, then
 normal tool work continues. Evidence: events.jsonl in the latest current-state
-backup; build/blockwalker-compaction-finish.log. Source deadline:
+backup; build/slopyard-compaction-finish.log. Source deadline:
 scripts/codex-relay.mjs. Check browser provider deadlines separately.
 
 ## Verification, 2026-09-15 02:27 JST
@@ -49,7 +49,7 @@ new compaction entry. Pi then used the real game observation tool, inspected all
 17 saved creatures and the GPU frame, and reported the attached crane cargo.
 Browser and relay deadlines are unchanged; no upstream Pi source was patched.
 
-Evidence: `build/blockwalker-summary-probe.log`,
-`build/blockwalker-summary-proof/summary-probe.json` and request metadata in
+Evidence: `build/slopyard-summary-probe.log`,
+`build/slopyard-summary-proof/summary-probe.json` and request metadata in
 that proof directory. The focused probe passed under a 4 GiB/no-swap scope.
 Migration into the ongoing live session remains in the larger-world task.

@@ -1,7 +1,7 @@
 DOLLY 4
 IMAGE system-build
 
-USE HOST /modules/bootstrap.dm 9b5e6b294e505b8fc1c963c7afe5fa7c929b62b1be519928c76ffb7c079af40e
+USE HOST /modules/bootstrap.dm 043fc6d72e2a57107906dca780d18a205441d6ea6f9b954d874ec78386ad56d7
 USE HOST /modules/core-tools.dm dacba7093371e19dba6ef09c46ed4a8976965d9fe2ebcac3a4965c7c77f7b350
 USE HOST /modules/tar.dm 2868ed138733f40f58640f260107d8bd0541af77414af7fb3929d568b9f2931e
 USE HOST /modules/make.dm 3d898f4189cd334b3f7120d67adf4bb1c75a43c2bee8d4b7f8d9015352449018

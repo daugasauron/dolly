@@ -71,6 +71,7 @@ for required in \
   dist/dolly.wasm \
   dist/dolly.data \
   dist/dolly-process-abi.mjs \
+  dist/dolly-process-worker.mjs \
   dist/dolly-threads-abi.mjs \
   dist/dolly-threads-0.wasm \
   dist/dolly-threads-supervisor-0.wasm \
@@ -83,6 +84,7 @@ for required in \
   dist/dolly-kernel-plugin-abi.mjs \
   dist/dolly-browser-0.wasm \
   dist/dolly-gpu-0.wasm \
+  dist/dolly-audio-0.wasm \
   dist/dolly-process-gate-0.wasm; do
   if [[ ! -f "${project_dir}/${required}" ]]; then
     echo "dolly: Pages artifact is missing ${required}" >&2
@@ -128,6 +130,7 @@ cp "${project_dir}/src/browser.mjs" \
   "${project_dir}/src/image-builder.mjs" \
   "${project_dir}/src/image-build-service.mjs" \
   "${project_dir}/src/image-build-ui.mjs" \
+  "${project_dir}/src/build-log.mjs" \
   "${project_dir}/src/local-services.mjs" \
   "${project_dir}/src/custom-image.mjs" \
   "${project_dir}/src/image-inputs.mjs" \
@@ -150,6 +153,9 @@ cp "${project_dir}/src/browser.mjs" \
   "${project_dir}/src/gpu-worker.mjs" \
   "${project_dir}/src/gpu-bridge.mjs" \
   "${project_dir}/src/gpu-abi.mjs" \
+  "${project_dir}/src/audio-abi.mjs" \
+  "${project_dir}/src/audio-bridge.mjs" \
+  "${project_dir}/src/audio-provider.mjs" \
   "${staging}/site/src/"
 cp "${project_dir}"/abi/*.wat "${staging}/site/abi/"
 cp "${project_dir}"/include/dolly/*.h "${staging}/site/include/dolly/"
@@ -192,6 +198,7 @@ cp \
   "${project_dir}/dist/dolly-seed.mjs" \
   "${project_dir}/dist/dolly.wasm" \
   "${project_dir}/dist/dolly-process-abi.mjs" \
+  "${project_dir}/dist/dolly-process-worker.mjs" \
   "${project_dir}/dist/dolly-threads-abi.mjs" \
   "${project_dir}/dist/dolly-threads-0.wasm" \
   "${project_dir}/dist/dolly-threads-supervisor-0.wasm" \
@@ -204,6 +211,7 @@ cp \
   "${project_dir}/dist/dolly-kernel-plugin-abi.mjs" \
   "${project_dir}/dist/dolly-browser-0.wasm" \
   "${project_dir}/dist/dolly-gpu-0.wasm" \
+  "${project_dir}/dist/dolly-audio-0.wasm" \
   "${project_dir}/dist/dolly-process-gate-0.wasm" \
   "${staging}/site/dist/"
 for image_name in "${image_names[@]}"; do

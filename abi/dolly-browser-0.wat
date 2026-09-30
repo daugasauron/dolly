@@ -6,6 +6,8 @@
 
   ;; Bounded GPU device commands only; no URL, DOM selector or host pointer.
   (import "env" "dolly_gpu_dispatch" (func (param i64 i64) (result i32)))
+  ;; Bounded stereo PCM playback; no recording, URL or browser object access.
+  (import "env" "dolly_audio_dispatch" (func (param i64 i64) (result i32)))
 
   ;; The only Wasm-selected network edge. Null method means cancellation.
   ;; Implementation: src/dolly.c supplies spans; src/http-broker.mjs applies

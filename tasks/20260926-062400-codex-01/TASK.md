@@ -16,8 +16,8 @@ restricted to the existing48m observation radius. Geometry must come from Box3D,
 including articulated parts and broad turntable mounts, without actor-specific
 navigation rules. Keep allocations off existing controllers' paths when unused.
 
-Prototype: `build/blockwalker-collision-sensors/world.c`; unbundled.
-Static planner evidence: `build/blockwalker-battery-supply/route-900-space.json`.
+Prototype: `build/slopyard-collision-sensors/world.c`; unbundled.
+Static planner evidence: `build/slopyard-battery-supply/route-900-space.json`.
 Before completion, verify query bounds/range/error behavior inside Dolly, prove
 physical navigation/reloading improves without collisions/losses/controller
 errors, measure populated performance, and verify rendering/save compatibility.
@@ -40,7 +40,7 @@ The body-owner revision also passes its real in-Dolly query checks. Its exact900
 static sensor replay finds a14-point route through the machinery after34 node
 expansions/1.7s of controller updates; the broad-circle search exhausted223 nodes.
 Evidence: `...-chrome-collision-bounds-body/salvage/geometry.json` and
-`build/blockwalker-collision-sensors/route-900-space.json`. The paired physical
+`build/slopyard-collision-sensors/route-900-space.json`. The paired physical
 replay is now running as `battery-shape-route`; no movement result yet.
 
 Completed paired900→1260s trial: both branches retain130 objects,2 jobs and4 shots,
@@ -49,7 +49,7 @@ candidate physically crosses the machinery gap, reaching(61.487,45.669) from
 (73.739,19.800); minimum up0.999995. This proves movement, not resupply. Full trace:
 `...-chrome-battery-shape-route/salvage/`. A follow-up paired1260→1800s run changes
 only tender steering/lookahead; its inputs remain frozen under
-`build/blockwalker-collision-sensors/{follow-catalog.json,follow-replay.c}`.
+`build/slopyard-collision-sensors/{follow-catalog.json,follow-replay.c}`.
 
 The1260→1800s follow-up also completes, raw1, with138 objects in both branches.
 Candidate tender jobs increase2→4; baseline remains2. Both still have4 gun shots

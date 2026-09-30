@@ -1,12 +1,12 @@
-# Replace Blockwalker JavaScript controllers and JSON game data with Lua
+# Replace Slopyard JavaScript controllers and JSON game data with Lua
 
 - STATUS: OPEN
 - PRIORITY: 200
 - TAGS: game,architecture,scripting
 
 User requested Lua instead of embedded JavaScript and YAML instead of JSON for
-Blockwalker. The C game currently creates a QuickJS runtime for each movement
-controller (`src/blockwalker/world.c`). Catalogs, archived designs and world
+Slopyard. The C game currently creates a QuickJS runtime for each movement
+controller (`src/slopyard/world.c`). Catalogs, archived designs and world
 saves contain JSON, including controller source and persistent controller memory.
 QuickJS is also used by the separate embedded Pi integration.
 
@@ -49,7 +49,7 @@ with Lua table catalogs/saves/configuration. Fresh roster is 81 objects/1,834
 parts (was 111/2,703), using 43 programs; old worlds retain their designs through
 verified source translations. Local preview still serves image44; do not mistake
 prototype results for a deployed checkpoint. Browser experiments and logs are in
-`build/blockwalker-lua/`.
+`build/slopyard-lua/`.
 
 Verified so far: 130,000 old-JavaScript/Lua command comparisons match exactly;
 81,000 curated-controller calls pass; loops, recursion, heap exhaustion, denied
@@ -95,10 +95,10 @@ trimaran, 131-part salvage boat, crane and 93-part carousel remain stable.
 The slinger/flak programs also execute without error, but these isolated trials
 provide no opponent/reloading scenario and do not validate combat behavior.
 
-SIMD check: Blockwalker already builds the Box3D SSE2 path through the
+SIMD check: Slopyard already builds the Box3D SSE2 path through the
 `target("simd128")` wrapper, and the current in-Dolly-built probe declares
 `+simd128`. This is the same library present since image31. Historical paired
-Firefox data (`build/blockwalker-simd-wrapper-firefox/proof.json`) shows 6.8%
+Firefox data (`build/slopyard-simd-wrapper-firefox/proof.json`) shows 6.8%
 less full simulation time versus scalar. Physics uses one worker; the current
 controller/render measurements already include SIMD.
 
@@ -111,7 +111,7 @@ migration error: a missing missed-cargo cooldown was compared with a number.
 The maintained East air courier and both corresponding legacy translations now
 use zero for an absent cooldown. The same corrected saved program completes
 all six Chrome worker-count trials without controller faults; complete output
-saves match across counts. Evidence: `build/blockwalker-threads/chrome/`.
+saves match across counts. Evidence: `build/slopyard-threads/chrome/`.
 
 The generic thread checkpoint is now verified and previewed on 9097. Normal
 in-image Chrome/Firefox runs restore the same 134-object Lua world at 20 Hz,
@@ -119,7 +119,7 @@ advance at real time without faults/losses, and measure 93.6/103.5 and
 214.0/215.6 submitted frames per second respectively. This meets 60 on that
 counter in these samples, but is not a steady 16.7 ms guarantee or a paired
 speedup against image44. Named-session game/blueprint save/reload checks pass
-both browsers. Evidence: `build/blockwalker-threads/image-{chrome,firefox}/`
+both browsers. Evidence: `build/slopyard-threads/image-{chrome,firefox}/`
 and `build/threads-game-session-{chrome,firefox}.log`. Remaining old harness
 reconciliation is not silently closed by the thread checkpoint.
 
@@ -127,6 +127,6 @@ Checkpoint reconciliation removes the unreferenced old designs.json,
 archive-designs.json and driver.js from canonical/bundled source (956,136bytes,
 161lines). The maintained catalog is designs.lua; all43 Lua program files are
 referenced. Legacy-program translations and preserved user saves remain intact.
-The old blockwalker-browser harness still refers to a nonexistent archived Lua
+The old slopyard-browser harness still refers to a nonexistent archived Lua
 catalog; this belongs to the remaining harness reconciliation, not a runtime
 requirement to ship the obsolete catalogs.

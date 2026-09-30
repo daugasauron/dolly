@@ -39,7 +39,7 @@ and joint) in Firefox, with no simulation drift. Evidence:
 build/overnight-20260928/render-equivalence/proof.json. Preliminary ordinary
 rendering averages 1.28 ms for tree construction, versus about 1.6 ms before.
 
-The exact maintained `blockwalker-observation.c` fixture now passes inside
+The exact maintained `slopyard-observation.c` fixture now passes inside
 Dolly against the actual mature world: all 163 articulated-character pairs are
 bit-identical to uncached distances before and after 90 physics steps, with no
 controller errors. Evidence: `build/action-front-20260927/observation-exact/`.
@@ -59,7 +59,7 @@ functions, time-only functions, retained blueprints/input, varargs, deterministi
 random/memory and error propagation. Evidence: `build/action-front-20260927/arity-v1/`
 and `build/overnight-20260928/arity/proof-v1.json`. Normal rendered-game integration
 is still pending; this measurement is simulation cost, not an FPS claim.
-The exact retained `blockwalker-controller-arguments.c` fixture additionally
+The exact retained `slopyard-controller-arguments.c` fixture additionally
 passes native-callback argument behavior inside Dolly (`arity-retained/`).
 
 The normal, unprofiled Firefox pair now passes with the same saved world and
@@ -77,4 +77,4 @@ Aged 163-actor Firefox views: 99.8 / 105.7 / 115.6 / 111.2 FPS, all originals re
 no errors/readbacks. The final populated continuation reaches 600 s with
 157 actors, nine deliveries and no controller faults/removals. Retain the earlier paired source-only measurements when attributing individual
 optimization improvements. No population or physics-rate reduction.
-Local image: http://127.0.0.1:9097/blockwalker/.
+Local image: http://127.0.0.1:9097/slopyard/.

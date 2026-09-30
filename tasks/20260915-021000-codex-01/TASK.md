@@ -34,6 +34,6 @@ the records exactly. Their designs/controllers also remained in the library.
 Existing magnet pickup/lift/release and restored cargo attachment, boat buoyancy,
 anchored bridge and feedback flight checks passed.
 
-Evidence: `build/blockwalker-diagnostics-integration.log`,
-`build/blockwalker-proof/blockwalker-integration.json` and the `removals` array in
-`build/blockwalker-proof/blockwalker-world.json`.
+Evidence: `build/slopyard-diagnostics-integration.log`,
+`build/slopyard-proof/slopyard-integration.json` and the `removals` array in
+`build/slopyard-proof/slopyard-world.json`.

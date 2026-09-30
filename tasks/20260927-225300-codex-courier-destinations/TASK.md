@@ -15,7 +15,7 @@ Normal collection must resume if the destination returns. Do not invent a goal
 or award a delivery. Preserve ordinary flight and airborne traffic clearance.
 
 Verified in Dolly: `build/overnight-20260928/team-audit/depot-v2/inspection.txt`.
-The maintained `test/fixtures/blockwalker-courier-depot.c` is the exact passing
+The maintained `test/fixtures/slopyard-courier-depot.c` is the exact passing
 fixture. The courier leaves nearby freight unclaimed for 45 s without its depot;
 with a valid depot it physically picks up and lifts the load at 42.133 s. Removing
 only destination metadata makes it lower and release at 49.867 s, with 2.278 N

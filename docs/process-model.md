@@ -1,7 +1,7 @@
 # Process model
 
 Ordinary commands run in fresh private wasm64 memories. The kernel owns shared
-files, open-file descriptions, processes, clocks, terminal state and HTTP.
+files, open-file descriptions, processes, clock waits, terminal state and HTTP.
 Processes inherit selected handles and values, never another address space.
 
 ## Machine boundary
@@ -16,6 +16,8 @@ in the [machine contracts](../abi/README.md).
 Workers; each process still gets a distinct memory object. Requests use bounded
 relative ranges and fixed-width fields, not pointers retained by the kernel.
 Errors use the pinned target's errno values, not Linux numbering.
+Frequent clock reads use the process Worker's browser clock, aligned with the
+kernel's time origin, with a kernel signal check at least once per millisecond.
 
 A Wasm start section may initialize private memory/TLS, but must not make kernel
 calls. Execution begins at `_start`; the C startup object completes TLS

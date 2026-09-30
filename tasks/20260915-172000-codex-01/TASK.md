@@ -12,12 +12,12 @@ next physics update, so it receives a false unloaded reading.
 Restore finite load feedback along with a valid saved attachment, bounded by
 the magnet's powered force limit. Older saves without load should remain valid.
 Verify the exact pre-reload world and include load equality in the browser
-save/reopen regression. Evidence: `build/blockwalker-walking/source-limit-`
+save/reopen regression. Evidence: `build/slopyard-walking/source-limit-`
 `{before-world,after-world,world-differences}.json`.
 
 Implemented and compiled inside the owned sandbox. Restoring the exact original
 save and reopening now preserves the complete world with all three load values.
-The permanent `test/fixtures/blockwalker-reopen.mjs` passed against all 53 live
+The permanent `test/fixtures/slopyard-reopen.mjs` passed against all 53 live
 objects and 78 designs (54029 terminal 0); it compares every saved creature,
 design, removal and installed controller before any physics tick. The normal
 agent browser suite now runs that same regression before continuing its crane
@@ -32,4 +32,4 @@ Packaged and reverified on 2026-09-23 in image SHA256
 `65e99be9e04e3a0e1741230f1707372ffc381bbcaa7529085ed5ae8851a15735`.
 The fresh packaged browser suite passed exact pre-tick world restoration and
 then continued carrying the saved crane load. Log:
-`build/blockwalker-september-integration.log`, handle 65383 terminal 0.
+`build/slopyard-september-integration.log`, handle 65383 terminal 0.

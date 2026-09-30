@@ -16,7 +16,7 @@ and move more than1m. Their distances are3.435/2.747/1.761m. Some other rescue
 attempts fail; an upright instant is not counted as sustained recovery.
 
 Full grip/release identities, team checks, follow-ups and preserved capture/
-rescue saves: `build/blockwalker-compound-regressions-chrome-competition-v5/
+rescue saves: `build/slopyard-compound-regressions-chrome-competition-v5/
 salvage/competition-proof.json`. All original sources/blueprints remain except
 the documented cargo/traffic fixes. No hidden righting force or respawn.
 

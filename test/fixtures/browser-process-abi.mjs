@@ -18,7 +18,8 @@ async function runWorker(configuration) {
         if (data.type === "finished" && data.status === 0) resolve();
         else if (data.type !== "started") reject(new Error(data.message ?? `unexpected process message: ${data.type}`));
       };
-      worker.postMessage({ type: "configure", pid: 1, control: new SharedArrayBuffer(16), ...configuration });
+      worker.postMessage({ type: "configure", pid: 1, control: new SharedArrayBuffer(16),
+        clockOrigin: performance.timeOrigin, ...configuration });
     });
   } finally { clearTimeout(timer); worker.terminate(); }
 }

@@ -67,7 +67,7 @@ test("the C parser and JavaScript inspector agree on quoted words, paths and dec
       const expected = inspectDollyfile(prefix + "SLOP " + raw + "\n").slops[0].command;
       assert.deepEqual(run("words", raw).stdout.split("\0").slice(0, -1), expected);
     }
-    for (const locator of ["/Dollyfile", "/Dollyfile-pi", "/Dollyfile-python-pi", "/Dollyfile-", "/Dollyfile-/bad",
+    for (const locator of ["/Dollyfile", "/Dollyfile-pi", "/Dollyfile-pi-local", "/Dollyfile-", "/Dollyfile-/bad",
       `/Dollyfile-${"a".repeat(32)}`, `/Dollyfile-${"a".repeat(33)}`]) {
       let accepted = true;
       try { inspectDollyfile(`DOLLY 3\nIMAGE check\nFROM HOST ${locator} ${"0".repeat(64)}\nENTRY /bin/slop\n`); }

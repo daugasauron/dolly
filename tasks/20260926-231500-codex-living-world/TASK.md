@@ -6,7 +6,7 @@
 
 User requested overnight work until **2026-09-27 08:00 JST** (September 26,
 23:00 UTC), explicitly confirming the corrected date. Preserve the threaded
-checkpoint and prepare a tested local preview on the existing Blockwalker branch.
+checkpoint and prepare a tested local preview on the existing Slopyard branch.
 No production deployment is requested. At 07:43 JST the user requested an early
 checkpoint. The selected image is frozen and the actual 9097 smoke check passes.
 This closes the bounded overnight round; listed gameplay/performance follow-ups

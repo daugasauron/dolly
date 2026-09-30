@@ -6,7 +6,7 @@
 
 Sidelight II advances 7.208 m in 300 s with 18 alternating ground-clear
 placements, but its opposite feet sometimes rub during swing. Actual Box3D
-pair/impulse measurements are in build/blockwalker-contact/proof.json.
+pair/impulse measurements are in build/slopyard-contact/proof.json.
 Keep that verified design and the original. Use actual Astra/xhigh Pi, real
 physics feedback and a few timed GPU frames to improve foot separation and
 weight-transfer speed. Save each experiment before replacing it.
@@ -37,14 +37,14 @@ impulse was observed during the supported airborne samples.
 The first fixture mistakenly spawned directly on Sidelight II at (80,-50).
 That entangled-body result is not gait evidence. The corrected test at (80,-85)
 verified initial separation and used compact diagnostics plus bounded exports.
-Both attempts remain under build/blockwalker-longreach-world* and
-build/blockwalker-longreach-clear-world*. The corrected browser exited 0;
+Both attempts remain under build/slopyard-longreach-world* and
+build/slopyard-longreach-clear-world*. The corrected browser exited 0;
 proof.json and contact-comparison.json contain the measurements.
 
 Actual Pi released exactly one unchanged copy as #66 at (55,-85), seed6601.
 At age134.63 s it had eight scored steps, 3.468 m forward travel and no aborts.
 All 54 older creations and the full 362960038-byte native-history prefix remain;
-build/blockwalker-walking/longreach-release-proof.json verifies this.
+build/slopyard-walking/longreach-release-proof.json verifies this.
 The live world has 55 objects/1448 parts. Packaging the new source catalog
 and the practice-failure update remains part of the next world checkpoint.
 

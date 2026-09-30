@@ -31,22 +31,22 @@ selected three different seeded route offsets. Rime's hydraulic legs moved
 0.780 m. The exact Pi blueprints/controllers and original 30 placements are
 preserved in the enlarged catalog.
 
-Evidence: `build/blockwalker-landers/{landers,proof}.json` and three real GPU
+Evidence: `build/slopyard-landers/{landers,proof}.json` and three real GPU
 frames. The probe saved/read every physical pose four times per second, so its
 68.2 s wall duration is instrumentation-heavy and is not ordinary game speed.
 The complete browser physics and
 save/reload suite passed for the new catalog; log:
-`build/blockwalker-landers-integration.log`.
+`build/slopyard-landers-integration.log`.
 
 Normal full-screen rendering measured **53–57 FPS** across six views of the
 35-object/880-part world, with simulation/wall time ratio 0.996–1.004, zero new
 removals and zero model requests. The live Pi browser was also running, so this
 is a shared-workload observation. GPU images of the aircraft, loaded pier/boat
-and whole world were inspected. Evidence: `build/blockwalker-fleet/fleet.json`,
-six `fleet-*.png` images and `build/blockwalker-fleet-browser.log`.
+and whole world were inspected. Evidence: `build/slopyard-fleet/fleet.json`,
+six `fleet-*.png` images and `build/slopyard-fleet-browser.log`.
 
 Camera/prompt/focus verification passed after deriving the number of population
 pages from the current catalog: real moving-body following, manual release,
 safe removal of a followed body, expanded picking and nine GPU captures across
-viewport layouts. Log: `build/blockwalker-landers-focus.log`. The fresh image
+viewport layouts. Log: `build/slopyard-landers-focus.log`. The fresh image
 rebuilt inside Dolly in 16.5 s and is served on the branch's port 9099 preview.

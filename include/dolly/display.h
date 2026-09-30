@@ -55,6 +55,8 @@ typedef enum {
   DOLLY_INPUT_EVENT_POINTER_MOTION = 8,
   // action is 1 while captured, 0 after capture is lost.
   DOLLY_INPUT_EVENT_POINTER_CAPTURE = 9,
+  // action is 1 while the pointer is over the surface, 0 after it leaves.
+  DOLLY_INPUT_EVENT_POINTER_PRESENCE = 10,
 } dolly_input_event_type;
 
 typedef enum {

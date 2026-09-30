@@ -10,8 +10,8 @@ West courier 60 completes three deliveries, then waits over cargo 104 from
 waiting with 113 because parcel 112 blocks its receiving pad. The unchanged
 90-second continuation reproduces the wait.
 
-Reproduce from `build/blockwalker-compound-regressions-chrome-competition-v5/`
-`salvage/blockwalker-world.json`. Preserve the bounded descent controller and
+Reproduce from `build/slopyard-compound-regressions-chrome-competition-v5/`
+`salvage/slopyard-world.json`. Preserve the bounded descent controller and
 all actors. Recovery must use ordinary controls and complete another delivery.
 
 An unbundled candidate adds a 20-second blocked-descent timeout and 180-second
@@ -21,9 +21,9 @@ is 0.981964, and mine porter handoffs increase 4→5 after its pad becomes clear
 All 118 original actors, other programs and blueprints remain; 120 objects at
 the end, no controller errors or deaths. A second blocked wait also times out.
 
-Evidence: `build/blockwalker-compound-regressions-chrome-checkpoint-courier-traffic/`
+Evidence: `build/slopyard-compound-regressions-chrome-checkpoint-courier-traffic/`
 `salvage/traffic-proof.json`, final world and full trace. Candidate:
-`build/blockwalker-checkpoint-followup/courier-traffic.js`.
+`build/slopyard-checkpoint-followup/courier-traffic.js`.
 The served checkpoint remains `ce3a392`; fresh combined verification and
 packaging are still required before closing this task.
 
@@ -38,13 +38,13 @@ payload-defense experiment. At900s, it has waited since598.1 over parcel122 at
 Tender111 is7.22m away, within its traffic exclusion distance; clearance raises
 the commanded height above the magnet's reach. Tender111 itself waits for a free
 ammunition bay. Gun106 has never seen a loaded enemy and remains holding its first
-round. The900s save is retained under `build/blockwalker-compound-regressions-`
+round. The900s save is retained under `build/slopyard-compound-regressions-`
 `chrome-payload-defense/salvage/progress-payload-0900.json`; the diagnostic was
 stopped after this save, not reported as a completed1800s test.
 
 Both current couriers have identical source. The existing20s traffic backoff
 adds only four lines to that source and preserves clearance and thrust limits.
-Prepared continuation, not run: `build/blockwalker-payload-defense/`
+Prepared continuation, not run: `build/slopyard-payload-defense/`
 `{channel-courier-catalog.json,channel-courier-defense.c}`. Load the900s save and
 change only59's program; preserve all actors. Require another courier delivery
 and independently measure projectile contact/cargo grip loss; no weaker opponent
@@ -55,5 +55,5 @@ East59 has three deliveries and two blocked-pickup yields; West60 has five
 deliveries and is carrying129. All111 originals remain among130 objects, with no
 controller errors/deaths. This supports continued investigation, but the combined
 defense fixture is unfinished and these programs remain unbundled. Image41 is the
-served checkpoint. Evidence: `build/blockwalker-compound-regressions-chrome-`
+served checkpoint. Evidence: `build/slopyard-compound-regressions-chrome-`
 `payload-couriers/salvage/progress-payload-1200.json`.

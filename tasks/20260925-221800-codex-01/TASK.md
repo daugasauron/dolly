@@ -5,7 +5,7 @@
 - TAGS: game,content,visuals
 
 The user requested another stable checkpoint and local deployment. Image41 is
-the playable build; `blockwalker-local-20260926-image41` records the latest
+the playable build; `slopyard-local-20260926-image41` records the latest
 verification. The broader goal has resumed after that deployment. Further candidates
 stay separate until their cargo, defense, interaction and terrain behavior is
 verified; the broader gameplay task remains open.
@@ -26,14 +26,14 @@ characters and save compatibility unless a measured problem justifies a change.
 Start from checkpoint 2860af6/image37. Known freight, porter and guard coordination
 problems are tracked in 195200, 195201, 195202 and 205300. Their earlier combined
 candidate failed and must not be promoted as a bundle. New experiments live in
-`build/blockwalker-world-renewal/`; keep verification evidence with this issue.
+`build/slopyard-world-renewal/`; keep verification evidence with this issue.
 
 First terrain-material pass: rust brick, teal steel/water, ochre rock and mossy
 ground with reduced haze. Before/after Chrome captures use the identical saved
 1500-second, 118-object world and six fixed cameras. Both run without errors;
 30-second warmup plus 15-second sample measures 32.10→32.63 FPS. This single pair
 shows no observed slowdown, not a proven speedup. Evidence:
-`build/blockwalker-world-renewal/chrome/`. The material pass is packaged in image38;
+`build/slopyard-world-renewal/chrome/`. The material pass is packaged in image38;
 geometry, stronger defenses and cargo competition remain unfinished.
 
 Firefox also passes the same six views and populated performance check:
@@ -46,20 +46,20 @@ recovery passes; evidence is recorded in task20260925-195202. It remains unbundl
 Image38 compiles inside Dolly and passes packaged Chrome/Firefox checks: all98
 designs/programs, five saved worlds, loaded carousel/boat attachments, no browser
 or controller errors. Other images and protected user state retain their hashes.
-See `build/blockwalker-image38-preview{,-firefox}/` and image38-preservation.json.
+See `build/slopyard-image38-preview{,-firefox}/` and image38-preservation.json.
 The unverified terrain4 prototype is retained locally under
-`build/blockwalker-world-renewal/terrain-v4-source/`; it is not part of the image.
+`build/slopyard-world-renewal/terrain-v4-source/`; it is not part of the image.
 
 Terrain4 prototype now passes real in-Dolly physics and save checks: roof stops
 a falling box at14.6m while ground clearance remains0.5m, terrain0–4 restore,
 unknown terrain5 is rejected. A240-second populated run finishes with111 objects,
 five deliveries, no removed actors/deaths/controller errors; tracked biped minimum
 up0.949477/0.997399/0.996846/0.999185/0.961194. Evidence:
-`build/blockwalker-compound-regressions-chrome-renewal-terrain-v4a/salvage/`.
+`build/slopyard-compound-regressions-chrome-renewal-terrain-v4a/salvage/`.
 Chrome views of the freight shed, slag terraces and existing districts are
 inspected. With111→112 objects,30s warmup then15s sampling gives31.96FPS; no
 errors. This is not a matched comparison against image38. Evidence:
-`build/blockwalker-world-renewal/terrain-chrome/`.
+`build/slopyard-world-renewal/terrain-chrome/`.
 
 The six covered stock loads remain unused in that first trial. A six-wheel shed
 loader using the existing recovery program completes the transfer: cargo101 is
@@ -99,7 +99,7 @@ terrain3 at32.73FPS versus terrain4 at25.59FPS. Coarse profiling attributes most
 CPU time to world_step (14.53→14.96ms per physics step); rendering stays around
 3ms/frame. Deep profiling identifies controller/sensor work as the main cost;
 its own clock instrumentation materially reduces FPS, so use the coarse pair
-for performance. Evidence: `build/blockwalker-world-renewal/{terrain-pair,
+for performance. Evidence: `build/slopyard-world-renewal/{terrain-pair,
 profile,deep-profile}-firefox/`.
 
 A controller-phase geometry cache improves a separate matched terrain4 run from
@@ -109,7 +109,7 @@ exact simulation comparison are under verification before packaging image39.
 
 The final cache pair measures23.94→32.85FPS on the same119-object terrain4 save;
 world_step cost15.04→14.53ms. Both runs finish with121 objects and no errors.
-`build/blockwalker-world-renewal/cache2-firefox/` records the paired sample.
+`build/slopyard-world-renewal/cache2-firefox/` records the paired sample.
 Static terrain boxes are materialized once per terrain version; sensor bounds
 are shared only within one controller phase. Physics frequency/substeps stay60/8.
 
@@ -121,7 +121,7 @@ The canonical test now allows60s, retaining all distance/stability/contact
 assertions. Initial failed run: `...-chrome-checkpoint39/`; corrected full run passes below.
 
 
-Image39 checkpoint verified (`blockwalker-checkpoint-20260925-image39`):
+Image39 checkpoint verified (`slopyard-checkpoint-20260925-image39`):
 `...-chrome-checkpoint39a/salvage/checkpoint-proof.json` confirms the full playground
 fixture plus a fresh300s run:119 objects,8 deliveries,2 shots/hostile hits, no
 controller errors/deaths. The entire saved state equals the uncached baseline,
@@ -134,17 +134,17 @@ snapshot234713867bytes, SHAf382c050e77ecf19fe0676cdd4bb9f00ae7c37d310bd26eccd24c
 Packaged Chrome/Firefox checks pass all111 designs and six saved worlds, including
 original format1 and terrain4, with loaded carousel95→98 andboat94→91 magnets
 physically attached. Other12 images,13 catalog entries and six protected files
-remain unchanged. Evidence: `build/blockwalker-image39-preview{,-firefox}/`,
-`build/blockwalker-image39-preservation.json`;40 recipe lint checks pass.
+remain unchanged. Evidence: `build/slopyard-image39-preview{,-firefox}/`,
+`build/slopyard-image39-preservation.json`;40 recipe lint checks pass.
 Local preview9099 serves this image. The broader task remains open: sustained
 ammunition retrieval, cargo throughput, traffic coordination and balanced air
 defense still need work; two hits do not establish successful shootdowns.
 
 2026-09-26: user requested a stable checkpoint. Keep image39 at07967f6 as the
-playable build; tag `blockwalker-stable-20260926` also records the current handoff
+playable build; tag `slopyard-stable-20260926` also records the current handoff
 and follow-ups. Both browsers recheck all111 catalog entries, six saved worlds
 and physical magnet attachments with no errors. Image/source hashes and protected
-files/catalog are unchanged. Evidence: `build/blockwalker-checkpoint-20260926-`
+files/catalog are unchanged. Evidence: `build/slopyard-checkpoint-20260926-`
 `preview{,-firefox}/proof.json` and corresponding preservation.json.
 Supply experiments remain unbundled; task20260926-000614 records their failed
 sustained-supply checks and the first completed tender delivery. This broader
@@ -155,7 +155,7 @@ The next material pass is verified in Chrome and Firefox and is now in
 Matched119-object300s save,14 fixed camera views,30s warmup/15s sample:
 Chrome30.40→30.73FPS; Firefox33.89→33.98FPS. Both retain121 final objects with no
 errors/deaths. These pairs show approximately unchanged performance. No collision
-geometry or physics changes. Evidence: `build/blockwalker-ground-materials/`
+geometry or physics changes. Evidence: `build/slopyard-ground-materials/`
 `bundle2-{chrome,firefox}/`. The screenshot bundle is produced inside Dolly;
 earlier attempts hit a download timeout and the seed tar's extract-only interface.
 
@@ -169,8 +169,8 @@ Image40 packages the verified interception and ground-material changes; all111
 designs remain and every blueprint is unchanged from image39. Chrome/Firefox
 pass catalog, six-save restoration and loaded-magnet checks. Protected state and
 other images are preserved;40 recipe lint checks pass. Build44.7s. Evidence:
-`build/blockwalker-image40-preview{,-firefox}/proof.json`, image40-preservation.json
-and image40-build.log. Tag `blockwalker-checkpoint-20260926-image40` records the
+`build/slopyard-image40-preview{,-firefox}/proof.json`, image40-preservation.json
+and image40-build.log. Tag `slopyard-checkpoint-20260926-image40` records the
 checkpoint; image39 rollback artifacts are retained. Remaining controller
 experiments stay unbundled, including the failed final placement replay.
 
@@ -181,7 +181,7 @@ hit59 twice, no friendly impacts, no actor losses/controller errors; neither
 courier delivers during90s. Minimum up is0.977654/0.984358. The heavier variant
 has a larger altitude excursion, but altitude already differs before the counted
 impacts; do not attribute the entire excursion to the shot. Evidence:
-`build/blockwalker-compound-regressions-chrome-battery-dense-ammo/salvage/`.
+`build/slopyard-compound-regressions-chrome-battery-dense-ammo/salvage/`.
 The ammunition change remains unbundled. A45s impact-detail fixture is prepared
 but unrun; it also records contacts while the round is still attached.
 
@@ -194,19 +194,19 @@ keep the friendly-fire clearance and rescue task205300 open.
 
 The yard edge-stripe shader comparison finishes in Chrome:30.38→29.94FPS on the
 same119-object save, ending121 objects with no errors. Evidence:
-`build/blockwalker-yard-markings/paired-chrome/`. Firefox and visual review are
+`build/slopyard-yard-markings/paired-chrome/`. Firefox and visual review are
 not complete, so it remains unbundled alongside the untested rescue dozer.
 No new gameplay or shader experiments enter this checkpoint.
 
 Final checkpoint confirmation: Firefox starts all111 bundled designs and reloads
 the newest1440s handoff save with131 objects, unchanged programs/blueprints and
 no errors/deaths. Rendered views inspected. Evidence:
-`build/blockwalker-stable-image40-preview-firefox/proof.json`.
+`build/slopyard-stable-image40-preview-firefox/proof.json`.
 Served source/snapshot/Wasm match local files; runtime identities recompute
 correctly. Six protected files (392379755 bytes),12 other images and13 catalog
-entries remain unchanged. Evidence: `build/blockwalker-stable-image40-`
+entries remain unchanged. Evidence: `build/slopyard-stable-image40-`
 `{artifacts,preservation}.json`. No disposable simulations remain active.
-Checkpoint notes tag: `blockwalker-stable-20260926-image40`; source stays at
+Checkpoint notes tag: `slopyard-stable-20260926-image40`; source stays at
 image40 implementation300d656. Local preview remains available on9099.
 
 Worn dock/platform edge stripes now pass both browser comparisons and visual
@@ -216,10 +216,10 @@ with121 objects and no errors/deaths. These samples show roughly0.4/0.9FPS lower
 rates; they are not evidence of a performance improvement. Eight shader lines
 add muted yellow/charcoal edge paint only to broad, thin, horizontal steel decks.
 No geometry or physics changes. Source updated; served image40 remains unchanged.
-Evidence: `build/blockwalker-yard-markings/paired-{chrome,firefox}/`.
+Evidence: `build/slopyard-yard-markings/paired-{chrome,firefox}/`.
 
 Next air-defense experiment, prepared but unrun:
-`build/blockwalker-payload-defense/{catalog.json,slinger.js,defense.c}`. The existing
+`build/slopyard-payload-defense/{catalog.json,slinger.js,defense.c}`. The existing
 channel gun waits for an enemy aircraft carrying cargo and aims at the payload.
 This tests whether a normal light projectile can break the magnetic cargo grip,
 which could interrupt deliveries even when the aircraft stabilizes after impact.
@@ -246,9 +246,9 @@ and seven restored worlds pass, including the134-object1800s run. No new errors,
 deaths or model requests; original saved attachments and programs are preserved.
 Six protected files392379755bytes,12 other images and13 catalog entries remain
 unchanged. Served source/snapshot/runtime hashes match local artifacts; all40
-recipe lint checks pass. Evidence: `build/blockwalker-image41-`
+recipe lint checks pass. Evidence: `build/slopyard-image41-`
 `{artifacts,preservation}.json` and `preview{,-firefox}/proof.json`.
-Tag `blockwalker-stable-20260926-image41`; local9099 preview remains available.
+Tag `slopyard-stable-20260926-image41`; local9099 preview remains available.
 All disposable browser trials ended;11 orphaned Xvfb-only test scopes were stopped.
 The broader competition goal and ammunition/rescue issues remain open.
 
@@ -268,16 +268,16 @@ Latest checkpoint request: stopped the fresh defense experiment after retaining
 its1200s save; no experimental browser remains active. Rechecked image41 in Chrome
 and Firefox, including rendered views and all111 exported designs. Served hashes,
 22 canonical source files and six preserved user files match. New checkpoint-notes
-tag: `blockwalker-checkpoint-20260926-image41`. Broader gameplay goals remain open;
+tag: `slopyard-checkpoint-20260926-image41`. Broader gameplay goals remain open;
 payload ejection, reliable rescues and sustained ammunition supply are unproven.
 
 Local deployment confirmed again after the completed, failed multipart-ammunition
 trial. Chrome and Firefox each render the world, compare all111 fresh designs and
 restore the134-object1800s save with zero errors/deaths/model requests. Served
 artifacts,22 canonical source files and six protected user files match image41.
-Evidence: `build/blockwalker-local-deploy-20260926-preview{,-firefox}/proof.json`
-and `build/blockwalker-local-deploy-20260926-artifacts.json`. No rebuild was needed;
-the preview remains at http://127.0.0.1:9099/blockwalker/.
+Evidence: `build/slopyard-local-deploy-20260926-preview{,-firefox}/proof.json`
+and `build/slopyard-local-deploy-20260926-artifacts.json`. No rebuild was needed;
+the preview remains at http://127.0.0.1:9099/slopyard/.
 
 Passive multi-block cargo classification now passes physical transfer, both
 browser render/save checks and the existing loaded-lift/boat regression; task

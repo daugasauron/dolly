@@ -10,8 +10,8 @@ crew contacts or truck tipping. Both slingers restock/fire (East 7, West 5),
 and the boat completes a recovery/handoff. East warehouse remains at zero:
 heavy pallet 95 rests against forklift 77's rear ballast, with its magnet off.
 The program excludes physically carried cargo and waits in seek forever.
-Exact reproduction: `build/blockwalker-compound-regressions-chrome-salvage-
-fresh-slew/salvage/blockwalker-world.json` (t=1200).
+Exact reproduction: `build/slopyard-compound-regressions-chrome-salvage-
+fresh-slew/salvage/slopyard-world.json` (t=1200).
 
 The candidate detects an ungripped load resting on its own chassis during seek,
 drives slowly away from the cargo while holding its heading and retracting the
@@ -27,15 +27,15 @@ updated. Pallet 95 leaves the chassis, is magnetically picked up, and is stored
 unheld at (174.114,4.485,34.440); East completes its first store at 1314 s. All
 119 original objects/other programs remain; world reaches 125 objects and 31
 deliveries, no errors/deaths/crew contacts/truck tipping. Both warehouses have
-stored at least one load. Evidence: `build/blockwalker-compound-regressions-
+stored at least one load. Evidence: `build/slopyard-compound-regressions-
 chrome-salvage-warehouse-shed/salvage/`. Packaging verification remains.
 
 Verified in packaged image 36 on September 25, 2026. Chrome and Firefox match
 all 94 bundled blueprints/programs and restore the 125-object format-2 world,
 the original 51-object format-1 world (retaining its sixteen historic deaths),
 and the 125-object format-5 continuation without new errors or deaths.
-Evidence: `build/blockwalker-image36-preview{,-firefox}/proof.json`.
+Evidence: `build/slopyard-image36-preview{,-firefox}/proof.json`.
 Snapshot SHA-256:
 `aaa757c571d6f3234e0a52570f9ecc7d9f2c50f0a66f3349e08e75af3cc45c38`.
 All six protected files, twelve other images and thirteen catalog entries pass
-`build/blockwalker-image36-preservation.json`. No public deployment was made.
+`build/slopyard-image36-preservation.json`. No public deployment was made.

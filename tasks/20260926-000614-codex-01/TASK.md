@@ -9,7 +9,7 @@ The300→660s continuation preserves125 objects, records16 total deliveries and
 has no controller errors/deaths, but the tender completes zero transfers. The
 battery fires its third starting crate and then waits with no further ammunition.
 Baseline raw status1: the four-shot requirement fails. Evidence:
-`build/blockwalker-compound-regressions-chrome-battery-supply-baseline/salvage/`.
+`build/slopyard-compound-regressions-chrome-battery-supply-baseline/salvage/`.
 
 Tender111 holds a claim on108 while trying an obstructed pickup position. That
 claim eventually expires and the shuttle reloads at~350s, so this is delay rather
@@ -22,7 +22,7 @@ porter38. Its second load100 waits for a clear unloading bay. Boat94 is trying
 to recover fired110 from the channel, retaining the existing salvage interaction.
 Do not delete these actors, teleport cargo or bypass safety/physical constraints.
 
-Candidate `build/blockwalker-battery-supply/recovery-clear-picks.js` prunes blocked
+Candidate `build/slopyard-battery-supply/recovery-clear-picks.js` prunes blocked
 pickup positions and rechecks them before routing. The exact300s replay changes
 only111's program (`clear-picks-world.json`/`clear-picks-catalog.json`); the served
 checkpoint is unchanged. Trial: `...-chrome-battery-clear-picks/salvage/`.
@@ -72,7 +72,7 @@ jobs and the gun three shots: raw status1 fails the four-shot requirement. This
 is component progress, not a completed supply chain. The browser wrapper also
 reported an Xvfb cleanup failure after exporting the complete test artifacts.
 
-Resume from this trial's `blockwalker-world.json`; inspect gun106/shuttle107
+Resume from this trial's `slopyard-world.json`; inspect gun106/shuttle107
 requests and visibility of101 before changing geometry or controller behavior.
 The final candidate tests floor support separately and includes terrain walls
 in full-vehicle overlap cost, allowing paths that reduce an existing overlap.
@@ -88,9 +88,9 @@ on101 is only5s old, so the idle loader may simply be waiting for expiry.
 
 At the user's checkpoint request, the served image39 still contains none of
 these program experiments. Preserve the failed runs. Harness:
-`build/blockwalker-salvage-combined-browser.mjs` with BLOCKWALKER_WORLD,
-BLOCKWALKER_CATALOG and BLOCKWALKER_FIXTURE pointing at the saved world, candidate
-catalog and matching fixture in `build/blockwalker-battery-supply/`.
+`build/slopyard-salvage-combined-browser.mjs` with SLOPYARD_WORLD,
+SLOPYARD_CATALOG and SLOPYARD_FIXTURE pointing at the saved world, candidate
+catalog and matching fixture in `build/slopyard-battery-supply/`.
 It compiles and simulates inside Dolly; use the bounded browser scope described
 in `docs/crash-handoff.md`.
 
@@ -154,7 +154,7 @@ shuttle's reach; candidate retains it for the entire120s. Neither branch achieve
 a shuttle or gun attachment. Both preserve all actors with no controller errors
 or deaths, minimum tender up0.992410/0.992503. Continuing alignment prevents the
 bad release but does not complete delivery. Keep this candidate unbundled.
-Evidence: `build/blockwalker-compound-regressions-chrome-battery-placement-replay/salvage/`.
+Evidence: `build/slopyard-compound-regressions-chrome-battery-placement-replay/salvage/`.
 
 The crate remains suspended with retracted rams: at959.53s its root is0.837m
 above the floor, conservative lower bound0.137m, speed≈0.017m/s, and no support
@@ -163,7 +163,7 @@ velocity and ram-settling checks pass and the lower bound is within0.2m of the
 floor. The matched909.52→1029.52s replay passes: release941.57s at(73.555,27.977),
 then actual121→107 at960.53s→106 at999.53s (sampled);126 objects, no deaths/errors,
 minimum tender up0.992507. Baseline still misses both handoffs. Evidence:
-`build/blockwalker-compound-regressions-chrome-battery-low-drop/salvage/`.
+`build/slopyard-compound-regressions-chrome-battery-low-drop/salvage/`.
 This fixes the observed placement failure; sustained combined verification is
 running as `battery-diagonal-drop` with the diagonal freight route.
 
@@ -172,7 +172,7 @@ four shots but only one outside-supplied shot, no controller errors/deaths and n
 warehouse jobs. Its first tender job moves unused starting round110; that is not
 recycling. External round125 fires at1361.433s. The four rounds produce19 intended
 aircraft impacts and no friendly airborne impacts; sustained supply still fails.
-Evidence: `build/blockwalker-compound-regressions-chrome-battery-diagonal-drop/salvage/`.
+Evidence: `build/slopyard-compound-regressions-chrome-battery-diagonal-drop/salvage/`.
 
 125 is supported and nearly stationary while lowering, but a radial0.1m release
 tolerance delays it for hundreds of seconds. `recovery-bay-tolerance.js` uses
@@ -181,11 +181,11 @@ checks. Exact1200→1440s `handoff-recovery` passes:125 attaches107 at1219.367s,
 then106 and fires at1279.283s. Crane54's edge-grasp fix also passes in that replay;
 131 objects, no missing originals/errors/deaths. This fixture verifies handoffs
 and firing, not the new shot's impact. Evidence:
-`build/blockwalker-compound-regressions-chrome-handoff-recovery/salvage/`.
+`build/slopyard-compound-regressions-chrome-handoff-recovery/salvage/`.
 
 Fresh combined validation is prepared but not run:
-`build/blockwalker-battery-supply/{handoff-recovery-catalog.json,fresh-handoff-progress.c}`.
-Use `build/blockwalker-progress-browser.mjs`; its existing in-Dolly download
+`build/slopyard-battery-supply/{handoff-recovery-catalog.json,fresh-handoff-progress.c}`.
+Use `build/slopyard-progress-browser.mjs`; its existing in-Dolly download
 command exports progress saves while the fixture runs, verified in the handoff
 and guard replays. Preserve the failed full run. Image40 bundles none of these
 supply/freight candidates; this issue stays open at the stable checkpoint.
@@ -205,7 +205,7 @@ No second physical resupply cycle is established.
 
 The tender continues selecting and approaching pickups rather than permanently
 deadlocking, but is too slow. Latest evidence and raw failed result:
-`build/blockwalker-compound-regressions-chrome-battery-incremental-fresh/salvage/`.
+`build/slopyard-compound-regressions-chrome-battery-incremental-fresh/salvage/`.
 Image41 is packaged with the verified shuttle reach recheck and tender
 clearance/drop fixes, alongside the freight programs. Sustained supply remains
 open; neither the quota nor friendly-fire clearance has been weakened.
@@ -220,7 +220,7 @@ that wider-grid candidate is warranted by this result.
 progress toward the edge of the search area remains. On the same frozen sensor,
 it rejects the approach and selects the next after12.85s of simulated controller
 updates. This static result is not a movement or resupply pass.
-Prepared physical paired replay, not run: `build/blockwalker-battery-supply/`
+Prepared physical paired replay, not run: `build/slopyard-battery-supply/`
 `{no-dead-end-catalog.json,pickup-replay.c}`, from battery-incremental-fresh's
 progress-chain-0900.json. Change only111, each branch360s; require a new actual
 111→107→106→shot cycle, upright tender, no losses/errors/friendly airborne hits.
@@ -230,7 +230,7 @@ The paired900→1260s trial is now complete and fails: both branches finish with
 0.999996/0.999997; neither branch loses actors or produces controller errors,
 deaths or friendly impacts. The candidate selects different pickups, but remains
 near(71.738,19.987) while planning. Full traces and saves:
-`build/blockwalker-compound-regressions-chrome-battery-no-dead-end/salvage/`.
+`build/slopyard-compound-regressions-chrome-battery-no-dead-end/salvage/`.
 The static planner's223 reachable nodes form an enclosed pocket among broad
 machine bounds; removing dead-end paths alone is insufficient. Task062400
 investigates actual collision-shape observations. Keep this candidate unbundled.

@@ -11,7 +11,7 @@ magnetic pickup from underwater followed by delivery/release onto a tray.
 Keep the original live creations and full Pi history. Bundle only verified
 designs, preserving all older catalog entries and placements.
 
-The 330-second guarded fresh replay is `build/blockwalker-expedition-browser.mjs`.
+The 330-second guarded fresh replay is `build/slopyard-expedition-browser.mjs`.
 It loads the actual Pi blueprints/controllers and separate cargo into Dolly,
 records poses/magnet states and timed GPU captures, with no agent HTTP requests.
 
@@ -25,7 +25,7 @@ controller based only on a short successful practice trial.
 
 All 46 objects/1,254 parts survived 330.017 simulation seconds. This instrumented
 replay saved full poses twice per second and took 466.0 wall seconds; it does not
-measure ordinary rendering FPS. Evidence: `build/blockwalker-expedition/`,
+measure ordinary rendering FPS. Evidence: `build/slopyard-expedition/`,
 `proof.json`, seven timed GPU images and matching browser/analysis logs.
 
 Obsidian Kite completed four basin circuits with actual takeoff/return/landing
@@ -47,7 +47,7 @@ The catalog now adds only Obsidian Kite, Underpass and its crate: **45 objects /
 1,211 parts**, with the first 42 entries unchanged. Sources/controllers are the
 actual Pi designs. The app rebuilt inside Dolly in 17.0 seconds; the native
 checks passed. Fresh-world persistence/integration passed, including magnetic pickup,
-release and restored attachments (`build/blockwalker-expedition-integration.log`).
+release and restored attachments (`build/slopyard-expedition-integration.log`).
 Existing live
 objects and history were not migrated or replaced for this data-only update.
 
@@ -60,7 +60,7 @@ in the live world. This issue stays open for verification of the recovery design
 The new guarded 360 s replay kept all **51 objects/1431 parts** alive. It took
 482.76 wall seconds while saving detailed state once per simulated second;
 this is an instrumented verification run, not ordinary rendering performance.
-`build/blockwalker-recovery/` contains the full trace, eight GPU images and proof.
+`build/slopyard-recovery/` contains the full trace, eight GPU images and proof.
 
 Longwake completed two full five-leg routes, traversing z=-120..-59.21 and
 x=-118.26..-108.89, minimum up=0.997988, no stall retries. Its maximum sampled
@@ -84,10 +84,10 @@ and (-75,-70). All 47 objects/1297 parts survived 120 s. The injected lift faile
 at 4.4 s; its watchdog fired at 7.2 s, sequential replant ran from 9.217 to
 12.567 s, and the next completed step was at 13.967 s. It then reached 83 cycles,
 five reversals and minimum up=0.994916. The normal copy completed 91 cycles with
-no resets. `build/blockwalker-flat-recovery/{flat-recovery,proof}.json` and four
+no resets. `build/slopyard-flat-recovery/{flat-recovery,proof}.json` and four
 GPU frames provide the evidence; the instrumented run took 195.304 wall seconds.
 
-`build/blockwalker-recovery-catalog.json` prepares **49 objects/1345 parts**:
+`build/slopyard-recovery-catalog.json` prepares **49 objects/1345 parts**:
 the original 45 unchanged, plus Longwake, Amberguard, Lattice and its crate at
 (-30.92,6.3,-74). This candidate is verified but **not yet bundled**. Batch it
 with the next app/image checkpoint rather than interrupting the live biped
@@ -102,7 +102,7 @@ The catalog now contains **49 objects/1345 parts**; all original 45 entries
 compare unchanged. The app compiled inside Dolly and packaged in 21.0 s.
 Source archive SHA-256:
 `620e218c4cf98fee3d51bfee71bf98a23a3260606490d9ff170e17ee8b453278`.
-`build/blockwalker-survey-final-build.log` records the build.
+`build/slopyard-survey-final-build.log` records the build.
 
 The guarded fresh-image browser replay passed with zero removals and all 49
 objects restored after reopening, including separate cargo and its attachments.
@@ -110,12 +110,12 @@ The old 3-second sampler missed Postbird's 2-second release interval: its
 neighboring samples were at 11.4 and 14.05 simulation seconds. Using 30 one-second
 samples keeps the same deliberate wait time and unchanged assertions. The actual
 release is now observed at 11.55, 12.18, 12.68 and 13.27 s. Evidence is retained in
-`build/blockwalker-survey/`, `blockwalker-survey-check-final.log` and the earlier
-`blockwalker-survey-missed-release/` trace. This changes observation frequency,
+`build/slopyard-survey/`, `slopyard-survey-check-final.log` and the earlier
+`slopyard-survey-missed-release/` trace. This changes observation frequency,
 not the controller or physics.
 
 The live session was imported into the updated image through the ordinary file
 picker. All five selected workspace files match the archive byte-for-byte;
 world and full native history also match SHA-256 inside Dolly. The compatible
-`blockwalker-survey` session retains all 52 live objects/1361 parts and the entire
+`slopyard-survey` session retains all 52 live objects/1361 parts and the entire
 324,538,688-byte conversation. The biped remains an independent open task.

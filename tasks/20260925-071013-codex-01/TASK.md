@@ -17,7 +17,7 @@ remains bounded to two expansions per callback with the same physical controls.
 Exact1500→1920s replay: both warehouses complete their next store (jobs1→2),
 East104 at1696s and West109 at1772s. All125 original actors/other programs and
 machine blueprints remain;129 final objects,36 deliveries, no errors/deaths or
-crew collisions. Evidence: `build/blockwalker-compound-regressions-chrome-
+crew collisions. Evidence: `build/slopyard-compound-regressions-chrome-
 warehouse-clear-proof/salvage/`, including storage-events.json and salvage-proof.json.
 
 Fresh competition-v5 has Westjobs1; East receives no delivered heavy cargo and

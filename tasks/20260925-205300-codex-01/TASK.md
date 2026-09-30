@@ -13,8 +13,8 @@ The final saved pose places friendly guard 73 inside the swing-clearance check:
 guard radius 4.823 m, root distance 9.812 m, available clearance 4.989 m against
 the program's required 7.395 m. The guard is approaching teammate 71 for a rescue.
 This is an observed reason to hold fire, not missing ammunition. Reproduce from
-`build/blockwalker-compound-regressions-chrome-checkpoint-combined/`
-`salvage/blockwalker-world.json`; sources and all machine blueprints are preserved.
+`build/slopyard-compound-regressions-chrome-checkpoint-combined/`
+`salvage/slopyard-world.json`; sources and all machine blueprints are preserved.
 
 Investigate generic coordination or path planning that moves friendly traffic
 out of the sweep and lets the loaded gun resume. Preserve captures, rescues and
@@ -25,7 +25,7 @@ The served image remains the earlier stable checkpoint; this trial is unbundled.
 Further saved-state inspection: guard73 is fully inverted (up−1.000000), not
 merely standing in the way. Its program sets all wheel commands and lift to zero
 below up0.2, so route yielding alone cannot recover this state. Teammate71 is also
-fallen (up0.117727) but farther from the gun. `build/blockwalker-guard-recovery/`
+fallen (up0.117727) but farther from the gun. `build/slopyard-guard-recovery/`
 contains an unrun matched120s replay and a generic program candidate: extend the
 existing hydraulic forks while overturned, then resume patrol after stabilizing
 upright. No added forces, moved actors or changed opponents. Require physical
@@ -37,17 +37,17 @@ existing fork rams lift the candidate to−0.708646, but neither becomes upright
 or lets the loaded gun fire. Rear wheels reach the ground while the vehicle
 leans on its extended forks. Both retain all actors, with no friendly hits or
 controller errors. Evidence:
-`build/blockwalker-compound-regressions-chrome-guard-righting/salvage/`.
+`build/slopyard-compound-regressions-chrome-guard-righting/salvage/`.
 
 A second paired60s `guard-traction` replay starts from that tilted1560s save.
 Positive/negative wheel drive moves73 clear and gun87 fires91, but final up is
 −0.710745/−0.758045 with zero upright time. No friendly hits, missing actors,
 errors or deaths. Firing alone is not successful rescue; neither variant is
-promoted. Evidence: `build/blockwalker-compound-regressions-chrome-guard-traction/salvage/`.
+promoted. Evidence: `build/slopyard-compound-regressions-chrome-guard-traction/salvage/`.
 Its progress filenames end1560, but their embedded simulation time is1590.
 
 An untested heavier teammate rescue-dozer prototype is retained under
-`build/blockwalker-rescue-dozer/`. Its added ballast currently uses finish2
+`build/slopyard-rescue-dozer/`. Its added ballast currently uses finish2
 (glow); change to finish3 (stripe) before testing. No prototype is bundled.
 Preserve captures and physical teammate rescue. Image40 remains the checkpoint.
 
@@ -56,12 +56,12 @@ adding one33-part,67.088kg teammate at(60,−28); all originals remain. It grips
 both fallen teammates and rights71, which ends with90.40 consecutive seconds
 upright after release. It cannot right73 or let gun87 fire91.122 final objects,
 no errors/deaths/missing originals/friendly impacts; dozer minimum up0.84836,
-final1.0. Evidence: `build/blockwalker-compound-regressions-chrome-rescue-dozer/salvage/`.
+final1.0. Evidence: `build/slopyard-compound-regressions-chrome-rescue-dozer/salvage/`.
 This is partial physical rescue evidence, not a completed traffic fix.
 
 Trace shows73 is grabbed by only one100N magnet on wheel20 (body mass2.131kg),
 then the hydraulic lift loses it. A new program candidate in
-`build/blockwalker-rescue-dozer/grip-catalog.json` requires enough attached magnet
+`build/slopyard-rescue-dozer/grip-catalog.json` requires enough attached magnet
 force for the target's weight before lifting, approaches its center of mass more
 slowly once gripped, and ramps the existing hydraulic extension. Same blueprint
 and opponents, no engine changes. This variant is prepared, not yet verified.
@@ -69,7 +69,7 @@ and opponents, no engine changes. This variant is prepared, not yet verified.
 The grip/slow-lift variant also fails the heavy rescue at1800s:121 objects,
 71 upright for73.45s after release,73 never attached, gun91 not fired, no errors,
 losses or friendly impacts. Dozer minimum up improves to0.98439; final1.0.
-Evidence: `build/blockwalker-compound-regressions-chrome-rescue-grip/salvage/`.
+Evidence: `build/slopyard-compound-regressions-chrome-rescue-grip/salvage/`.
 It repeatedly approaches73 then changes its job to opponent72 and retreats.
 The program adopts the first magnet's owner even during a teammate rescue;
 incidental grips can replace the intended target.
@@ -89,10 +89,10 @@ three magnets hold73 at the final frame (parts20,18,20; loads19.94/100/100N).
 It no longer adopts opponent72 as its rescue target. The short test ends only
 2.88s into that lift; this is not yet a verified failed lifting maneuver.
 
-Evidence: `build/blockwalker-compound-regressions-chrome-rescue-target/salvage/`
+Evidence: `build/slopyard-compound-regressions-chrome-rescue-target/salvage/`
 contains both worlds and1740s progress saves. Candidate final pose is
 (70.998,0.698,−17.683), guard(75.672,1.486,−10.945). Baseline has no73 attachment.
-Prepared, not run: `build/blockwalker-rescue-dozer/held-continuation.c`,60s from
+Prepared, not run: `build/slopyard-rescue-dozer/held-continuation.c`,60s from
 guard-candidate.json with the unchanged target-grip program. It records the
 dozer's ram angles, magnet loads and controller state every second, and still
 requires physical righting plus91 fired without actor losses or friendly hits.
@@ -105,7 +105,7 @@ first lift, the base100N piston stays near zero extension and the upper one near
 0.61m. A second lift reaches0.96m at the upper piston but again fails to tilt73.
 The42.45kg guard weighs about170N in this world's gravity; serial pistons do not
 add lifting force. All three magnetic grips alone are insufficient.
-Evidence: `build/blockwalker-compound-regressions-chrome-rescue-held/salvage/`.
+Evidence: `build/slopyard-compound-regressions-chrome-rescue-held/salvage/`.
 
 Prepared mechanical alternative: three parallel100N pistons drive one rigid
 magnetic crossbar. The first37-part prototype interferes with its front wheels

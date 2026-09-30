@@ -67,7 +67,17 @@ try {
       overrides.set(path, await readFile(new URL(`./fixtures/${source}`, import.meta.url)));
       assert.equal(await submit(`curl -fsS ${server.origin}${path} -o /tmp/${source}`), 0);
       const started = performance.now();
-      const status = await submit(`${compiler} -O1 -pthread /tmp/${source} -o /tmp/compiled-thread && /tmp/compiled-thread`);
+      const requests = [], record = request => { if (/^https?:/.test(request.url())) requests.push(request.url()); };
+      page.context().on("request", record);
+      await page.context().route("**/*", route => route.abort());
+      let status;
+      try {
+        status = await submit(`${compiler} -O1 -pthread /tmp/${source} -o /tmp/compiled-thread && /tmp/compiled-thread`);
+        assert.deepEqual(requests, [], "compilation and thread startup made HTTP requests");
+      } finally {
+        await page.context().unroute("**/*");
+        page.context().off("request", record);
+      }
       const terminal = await page.evaluate(() => __dolly.visibleTerminalText());
       assert.equal(status, 0, terminal);
       assert.ok(terminal.includes(marker), terminal);

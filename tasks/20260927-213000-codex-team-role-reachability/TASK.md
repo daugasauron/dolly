@@ -30,7 +30,7 @@ Verification, all compiled/run inside Dolly in one disposable browser:
   and reaches 4 patrol goals / 180 s. Guard 43 at (-36, .65, -46) enters after 24.4 s and
   stays on supported ground. These staging proposals await final layout integration.
 - `team-audit/role-contact-v1`: the maintained
-  `test/fixtures/blockwalker-role-chains.c` is included byte-for-byte and passes.
+  `test/fixtures/slopyard-role-chains.c` is included byte-for-byte and passes.
   Real help→response→claim→guard deference→pickup leads to magnetic release at
   139.517 s with 42.065 N external support, up 0.997454 and sole clearance −4.2 mm.
   Rescue completes at 143.517 s; the original porter resumes its controller.
@@ -68,7 +68,7 @@ stable supported landing. Sidelight makes 31 clean placements, 25 alternations,
 33 alternations, 14.748 m range, minimum up 0.970635 and one successful recovery.
 Five slipping Sidelight placements were excluded. The exact tested controller
 is now canonical. `compatibility-v1` executes the exact maintained
-`test/fixtures/blockwalker-biped.c`: both make 6/4 clean placements and 8
+`test/fixtures/slopyard-biped.c`: both make 6/4 clean placements and 8
 alternations in 180 s.
 This does not establish general collision robustness or resolve the historical
 late-fall scope in `20260915-110000-codex-01`.
@@ -93,7 +93,7 @@ times are 211.167/368.667 s, minimum up is 0.994459/0.985554, and horizontal
 axis spans are 28.404×19.391 / 21.409×68.189 m. The first private fixture
 accidentally placed cargo in a flooded inlet; the corrected case asserts dry
 ground rather than changing courier behavior. `surveyors-regression-v2` executes
-the exact maintained `test/fixtures/blockwalker-biped-scout.c` against the latest
+the exact maintained `test/fixtures/slopyard-biped-scout.c` against the latest
 staged terrain 9 and sensor-argument optimization. All three missions pass, with
 the original biped's prior delivery and upright walking retained. Marrowstep and
 Sundial's exact source hashes are recorded in `surveyors-v2/comparison.json`.

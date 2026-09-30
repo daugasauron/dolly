@@ -27,7 +27,7 @@ Terrain 8 opens a second map bookmark page for the roof decks and shared sea ber
 saved terrain 6/7 retains its original combat width and tint.
 
 Focused real Dolly verification passed on 2026-09-27:
-`test/fixtures/blockwalker-placement.c`, compiled inside wasm64 and run in Chrome.
+`test/fixtures/slopyard-placement.c`, compiled inside wasm64 and run in Chrome.
 Evidence: `build/base-zones-20260927/placement-v1/terminal.log` and `proof.json`.
 It checks all three teams, complete-footprint bounds, unsupported/water/occupied
 positions, missed-ray cancellation, actual roof support, lower turntable plates,
@@ -58,5 +58,5 @@ Reproduce the combined check with the prepared UI runner and source archive:
 `build/action-front-20260927/placement/ui-browser.mjs ui-v4` under the documented
 single 4 GiB Xvfb/Chrome scope (Node `--preserve-symlinks --preserve-symlinks-main`).
 The committed physical fixture also runs against current source through
-`node test/blockwalker-controller-browser.mjs test/fixtures/blockwalker-placement.c`
+`node test/slopyard-controller-browser.mjs test/fixtures/slopyard-placement.c`
 in the same browser scope.

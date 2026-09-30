@@ -8,6 +8,7 @@ import { processSmokeSources } from "./fixtures/process-smoke.mjs";
 import { tarArchive } from "./fixtures/tar.mjs";
 import { buildIdentities } from "../scripts/write-build-id.mjs";
 import { imageInputsMatch } from "../src/image-inputs.mjs";
+import { bundleProcessWorker } from "../scripts/bundle-process-worker.mjs";
 
 export const mimeTypes = new Map([
   [".html", "text/html; charset=utf-8"],
@@ -22,9 +23,14 @@ export const mimeTypes = new Map([
   [".woff2", "font/woff2"],
 ]);
 export const browserSources = new Set([
-  ...["abi", "modules", "requirements", "runtime", "display", "gpu", "http", "download", "upload", "snapshot", "threads"].map(name => `src/host/${name}.mjs`),
+  ...["abi", "modules", "requirements", "runtime", "display", "gpu", "audio", "http", "download", "upload", "snapshot", "threads"].map(name => `src/host/${name}.mjs`),
   "test/fixtures/browser-boundary.mjs",
   "test/fixtures/gpu-boundary.mjs",
+  "test/fixtures/gpu-retirement-worker.mjs",
+  "test/fixtures/gpu-surface-observer.mjs",
+  "test/fixtures/gpu-no-bc.mjs",
+  "test/fixtures/gpu-core-limits.mjs",
+  "test/fixtures/audio-boundary.mjs",
   "test/fixtures/fluid-direct.mjs",
   "test/fixtures/http-admission-worker.mjs",
   "test/fixtures/browser-process-abi.mjs",
@@ -43,6 +49,7 @@ export const browserSources = new Set([
   "src/image-build-page.mjs",
   "src/image-build-service.mjs",
   "src/image-build-ui.mjs",
+  "src/build-log.mjs",
   "src/local-services.mjs",
   "src/custom-image.mjs",
   "src/image-inputs.mjs",
@@ -65,9 +72,13 @@ export const browserSources = new Set([
   "src/gpu-bridge.mjs",
   "src/gpu-abi.mjs",
   "src/threads-abi.mjs",
+  "src/audio-abi.mjs",
+  "src/audio-bridge.mjs",
+  "src/audio-provider.mjs",
 ]);
 
-export async function startBrowserServer(projectDir, image = "default", port = 0, sourceOverrides = new Map()) {
+export async function startBrowserServer(projectDir, image = "default", port = 0, sourceOverrides = new Map(), fixtures = {}, responseHeaders = {}) {
+  await bundleProcessWorker(projectDir);
   await Promise.all(["dolly-images.mjs", "dolly.wasm", "dolly.data", `dolly-${image}-system.snapshot`]
     .map(path => access(resolve(projectDir, "dist", path)))).catch(error => {
       throw new Error(`Core browser checks need a built runtime and ${image} image. Run npm run build:runtime once, then npm run image -- ${image}.`, { cause: error });
@@ -122,7 +133,14 @@ export async function startBrowserServer(projectDir, image = "default", port = 0
       files.set(`/dist/${name}`, `dist/${name}`);
     }
   }
+  for (const name of await readdir(resolve(projectDir, "dist/packs")).catch(error => {
+    if (error.code === "ENOENT") return [];
+    throw error;
+  })) {
+    if (/^[0-9a-f]{64}\.snapshot\.gz$/.test(name)) files.set(`/dist/packs/${name}`, `dist/packs/${name}`);
+  }
   for (const [name, path] of Object.entries(processSmokeSources)) files.set(`/fixture/${name}`, path);
+  for (const [name, path] of Object.entries(fixtures)) files.set(`/fixture/${name}`, path);
   for (const name of ["process-wrong-call", "process-wrong-start", "process-wrong-memory"]) {
     files.set(`/fixture/${name}.wasm`, `build/${name}.wasm`);
   }
@@ -131,14 +149,14 @@ export async function startBrowserServer(projectDir, image = "default", port = 0
   files.set("/custom/rebuild", "build/routes/custom/rebuild/index.html");
   files.set("/custom/run", "build/routes/custom/run/index.html");
   files.set("/session", "build/routes/session/index.html");
-  const requests = new Set();
+  const requests = new Map();
   let cancelledRequests = 0;
   const server = createServer(async (request, response) => {
     const headers = { "cache-control": "no-store", "cross-origin-opener-policy": "same-origin",
-      "cross-origin-embedder-policy": "require-corp", "cross-origin-resource-policy": "same-origin" };
+      "cross-origin-embedder-policy": "require-corp", "cross-origin-resource-policy": "same-origin", ...responseHeaders };
     try {
       const path = decodeURIComponent(new URL(request.url, "http://localhost").pathname).replace(/\/+$/, "");
-      requests.add(path);
+      requests.set(path, (requests.get(path) ?? 0) + 1);
       if (path === "/fixture/echo" && request.method === "POST") {
         response.writeHead(200, { ...headers, "content-type": "application/octet-stream" });
         request.pipe(response);
@@ -182,6 +200,7 @@ export async function startBrowserServer(projectDir, image = "default", port = 0
       const relative = /^\/session\/[A-Za-z0-9._-]{1,64}$/.test(path)
         ? "build/routes/session/open.html" : files.get(path);
       if (!relative) throw new Error("not a test asset");
+      if (path.startsWith("/dist/packs/")) headers["cache-control"] = "public, max-age=31536000, immutable";
       if (sourceOverrides.has(path)) {
         response.writeHead(200, {...headers,"content-type":mimeTypes.get(extname(relative)) ?? "application/octet-stream"});
         response.end(request.method === "HEAD" ? undefined : sourceOverrides.get(path));

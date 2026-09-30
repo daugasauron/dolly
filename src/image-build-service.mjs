@@ -83,7 +83,7 @@ export class ImageBuildService extends EventTarget {
       try { this.emit(job, { type: "progress", state: this.state }); }
       catch (error) { this.cancel(error); }
     }, 10_000);
-    this.status("building", `Building ${job.name}… Logs stream to the calling command.`);
+    this.status("building", `Building ${job.name}…`);
     void this.execute(job);
     return response(body, 200, url);
   }
@@ -93,6 +93,7 @@ export class ImageBuildService extends EventTarget {
       const artifact = await this.run(job.source, text => {
         job.controller.signal.throwIfAborted();
         this.emit(job, { type: "log", text });
+        this.dispatchEvent(new MessageEvent("log", { data: text }));
       }, job.controller.signal);
       job.controller.signal.throwIfAborted();
       this.result = { source: job.source, name: job.name, artifact };

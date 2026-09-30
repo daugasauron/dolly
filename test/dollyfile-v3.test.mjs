@@ -81,20 +81,19 @@ test("images separate reusable runtimes from applications and configuration", as
     "rust-sdk": ["system-build"], "rust-build": ["rust-sdk"], "rust-tools": ["system", "rust-build"],
     ripgrep: ["rust-build"], "fd-build": ["rust-build"], "protox-build": ["rust-build"],
     "codex-build": ["rust-build", "protox-build"], codex: ["system", "codex-build"],
-    "external-source": ["system"], "gpu-fluid": ["system"], blockwalker: ["gamedev-sdk", "javascript", "pi-build"],
+    "gpu-fluid": ["gpu-sdk"], "gpu-sdk": ["system"], slopyard: ["gamedev-sdk", "javascript", "pi-build"],
     "llama-build": ["cmake-build"], "local-llm-build": ["llama-build"],
     "dollyfile-studio": ["pi-local", "neovim-build"],
     "cmake-build": ["system-tools"], "neovim-build": ["cmake-build"],
-    "sdl2-build": ["cmake-build"], "rts-build": ["sdl2-build"],
+    "sdl2-build": ["cmake-build"], "openal-build": ["cmake-build"], "rts-build": ["sdl2-build"],
     "classicube-build": ["sdl2-build"], classicube: ["pi-runtime", "classicube-build", "sdl2-build"],
     "rts-arena": ["pi-runtime", "rts-build"],
     neovim: ["system", "neovim-build"],
     "pi-runtime": ["javascript", "pi-build"], pi: ["pi-runtime"], "pi-local": ["pi", "local-llm-build", "llama-build"],
     "python-runtime": ["system"], python: ["python-runtime"],
-    "gamedev-sdk": ["system"], gamedev: ["pi", "gamedev-sdk"],
-    "gamedev-phone": ["gamedev"],
-    bhop: ["gamedev", "sdl2-build"],
-    "python-pi": ["pi-runtime", "python"],
+    "gamedev-sdk": ["system"],
+    bhop: ["gamedev-sdk", "javascript", "pi-build", "sdl2-build"],
+    "zero-ad": ["default"], "audio-sdk": ["system"],
   };
   for (const definition of await discoverImageDefinitions(project)) {
     const graph = await loadDollyfileGraph(project, definition.filename);
@@ -104,7 +103,7 @@ test("images separate reusable runtimes from applications and configuration", as
       assert.equal(graph.exporters.has("ENV:DISPLAY"), false);
       assert.equal(graph.records.some(record => ["git", "ghostty", "startup-default"].includes(record.name)), false);
     }
-    if (["system-tools", "cmake-build", "neovim-build", "sdl2-build", "classicube-build", "rts-build", "typescript-build", "pi-build", "llama-build", "local-llm-build"].includes(definition.image)) {
+    if (["system-tools", "cmake-build", "neovim-build", "sdl2-build", "openal-build", "classicube-build", "rts-build", "typescript-build", "pi-build", "llama-build", "local-llm-build"].includes(definition.image)) {
       assert.equal(graph.exporters.has("ENV:DISPLAY"), false);
       assert.equal(recipeRecords(graph).some(record => ["ghostty-build", "rust-sdk", "rust-build"].includes(record.name)), false);
     }
@@ -127,25 +126,18 @@ test("images separate reusable runtimes from applications and configuration", as
       assert.ok(pages.some(page => page.includes(`/view/${dependency}/"`)), `${definition.image} must link its ${dependency} dependency`);
       assert.ok(records.some(record => record.kind === "image" && record.name === dependency));
     }
-    if (definition.image === "python-pi") {
-      assert.equal(graph.root.uses.length, 1, "only integration executes in the combined image");
-      assert.deepEqual(graph.root.artifacts.filter(artifact => artifact.copy).map(({ source, destination }) => [source, destination]),
-        ["/usr/bin/python", "/usr/bin/python3", "/usr/bin/bonnie", "/usr/include/python3.14",
-          "/usr/include/ffi.h", "/usr/include/ffitarget.h", "/usr/lib/python3.14", "/usr/lib/bonnie",
-          "/usr/lib/libpython3.14.a", "/usr/lib/libffi.a", "/usr/share/licenses/cpython",
-          "/usr/share/licenses/libffi", "/etc/bonnie"].map(path => [path, path]));
-    }
+
   }
   const definitions = await discoverImageDefinitions(project);
-  assert.deepEqual(new Set((await selectImageDefinitions(definitions, "python-pi")).map(item => item.image)),
-    new Set(["python-pi", "pi-runtime", "javascript", "python", "python-runtime", "system", "ghostty-build",
-      "system-tools", "system-build", "rust-sdk", "rust-build", "ripgrep", "fd-build", "typescript-build", "pi-build"]));
   assert.deepEqual((await selectImageDefinitions(definitions, "all")).map(item => item.image),
     definitions.map(item => item.image));
   const githubImages = (await readFile(resolve(project, "config/github-pages-images.txt"), "utf8")).trim().split("\n");
   const selected = await selectImageDefinitions(definitions, githubImages.join(","));
   assert.deepEqual(selected.map(item => item.image), definitions
-    .filter(item => !["codex", "codex-build", "protox-build", "pi-local", "dollyfile-studio", "llama-build", "local-llm-build", "blockwalker"].includes(item.image)).map(item => item.image));
+    .filter(item => !["codex", "codex-build", "protox-build", "pi-local", "dollyfile-studio", "llama-build", "local-llm-build", "zero-ad", "audio-sdk", "openal-build"].includes(item.image)).map(item => item.image));
+  const domainImages = (await readFile(resolve(project, "config/domain-pages-images.txt"), "utf8")).trim().split("\n");
+  assert.deepEqual((await selectImageDefinitions(definitions, domainImages.join(","))).map(item => item.image),
+    definitions.map(item => item.image));
 });
 
 test("inspection permits repeated, mixed modules and unresolved runtime assertions", async () => {

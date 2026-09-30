@@ -5,6 +5,7 @@ REQUIRES TOOL cc
 REQUIRES HEADER gpu
 REQUIRES HOST gpu@0
 REQUIRES HOST display@0
+REQUIRES LIB dolly-gpu
 
 FILE /usr/src/dolly/fluid/app.c
     #include "platform.h"

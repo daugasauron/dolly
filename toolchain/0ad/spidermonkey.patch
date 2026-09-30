@@ -1,0 +1,171 @@
+--- a/build/moz.configure/init.configure
++++ b/build/moz.configure/init.configure
+@@ -603,8 +603,8 @@
+     elif cpu == "sh4":
+         canonical_cpu = "sh4"
+         endianness = "little"
+-    elif cpu == "wasm32" and allow_wasi:
+-        canonical_cpu = "wasm32"
++    elif cpu in ("wasm32", "wasm64") and allow_wasi:
++        canonical_cpu = cpu
+         endianness = "little"
+     else:
+         raise ValueError("Unknown CPU type: %s" % cpu)
+--- a/build/moz.configure/rust.configure
++++ b/build/moz.configure/rust.configure
+@@ -405,7 +405,8 @@
+             return narrowed[0].rust_target
+ 
+         # Finally, see if the vendor can be used to disambiguate.
+-        narrowed = [c for c in candidates if c.target.vendor == host_or_target.vendor]
++        vendors = ("pc", "unknown") if host_or_target.vendor == "pc" else (host_or_target.vendor,)
++        narrowed = [c for c in candidates if c.target.vendor in vendors]
+         if len(narrowed) == 1:
+             return narrowed[0].rust_target
+ 
+@@ -515,14 +516,16 @@
+     return rustc_target
+ 
+ 
++option(env="RUST_TARGET", nargs=1, help="Explicit Rust target triple", when=rust_compiler)
++
+ @depends(
+-    rustc, target, c_compiler, rust_supported_targets, arm_target, when=rust_compiler
++    rustc, target, c_compiler, rust_supported_targets, arm_target, "RUST_TARGET", when=rust_compiler
+ )
+ @checking("for rust target triplet")
+ def rust_target_triple(
+-    rustc, target, compiler_info, rust_supported_targets, arm_target
++    rustc, target, compiler_info, rust_supported_targets, arm_target, override
+ ):
+-    rustc_target = detect_rustc_target(
++    rustc_target = override[0] if override else detect_rustc_target(
+         target, compiler_info, arm_target, rust_supported_targets
+     )
+     assert_rust_compile(target, rustc_target, rustc)
+--- a/js/src/build/moz.build
++++ b/js/src/build/moz.build
+@@ -42,6 +42,9 @@
+ 
+ FORCE_STATIC_LIB = True
+ STATIC_LIBRARY_NAME = "js_static"
++
++if not CONFIG["JS_SHARED_LIBRARY"]:
++    USE_LIBS += ["jsrust", "mozglue"]
+ 
+ if CONFIG["JS_HAS_INTL_API"]:
+     USE_LIBS += [
+--- a/js/src/gc/Memory.cpp
++++ b/js/src/gc/Memory.cpp
+@@ -78,7 +78,7 @@
+  */
+ static const int MaxLastDitchAttempts = 32;
+ 
+-#ifdef JS_64BIT
++#if defined(JS_64BIT) && !defined(__wasi__)
+ /*
+  * On some 64-bit platforms we can use a random, scattershot allocator that
+  * tries addresses from the available range at random. If the address range
+@@ -122,7 +122,7 @@
+ size_t VirtualMemoryLimit() { return virtualMemoryLimit; }
+ 
+ bool UsingScattershotAllocator() {
+-#ifdef JS_64BIT
++#if defined(JS_64BIT) && !defined(__wasi__)
+   return numAddressBits >= MinAddressBitsForRandomAlloc;
+ #else
+   return false;
+@@ -172,7 +172,7 @@
+ #endif  // wasi
+ static void* MapAlignedPagesLastDitch(size_t length, size_t alignment);
+ 
+-#ifdef JS_64BIT
++#if defined(JS_64BIT) && !defined(__wasi__)
+ static void* MapAlignedPagesRandom(size_t length, size_t alignment);
+ #endif
+ 
+@@ -272,7 +272,7 @@
+   return region;
+ }
+ 
+-#ifdef JS_64BIT
++#if defined(JS_64BIT) && !defined(__wasi__)
+ 
+ /* Returns a random number in the given range. */
+ static inline uint64_t GetNumberInRange(uint64_t minNum, uint64_t maxNum) {
+@@ -379,7 +379,7 @@
+     pageSize = size_t(sysconf(_SC_PAGESIZE));
+     allocGranularity = pageSize;
+ #endif
+-#ifdef JS_64BIT
++#if defined(JS_64BIT) && !defined(__wasi__)
+ #  ifdef XP_WIN
+     minValidAddress = size_t(sysinfo.lpMinimumApplicationAddress);
+     maxValidAddress = size_t(sysinfo.lpMaximumApplicationAddress);
+@@ -399,7 +399,7 @@
+       hugeSplit = (UINT64_C(1) << (numAddressBits - 1)) - 1 - allocGranularity;
+     }
+ #else  // !defined(JS_64BIT)
+-    numAddressBits = 32;
++    numAddressBits = sizeof(uintptr_t) * 8;
+ #endif
+ #ifdef RLIMIT_AS
+     if (jit::HasJitBackend()) {
+@@ -413,7 +413,7 @@
+   }
+ }
+ 
+-#ifdef JS_64BIT
++#if defined(JS_64BIT) && !defined(__wasi__)
+ /* The JS engine uses 47-bit pointers; all higher bits must be clear. */
+ static inline bool IsInvalidRegion(void* region, size_t length) {
+   const uint64_t invalidPointerMask = UINT64_C(0xffff800000000000);
+@@ -501,7 +501,7 @@
+ #endif  // !__wasi__
+ }
+ 
+-#ifdef JS_64BIT
++#if defined(JS_64BIT) && !defined(__wasi__)
+ 
+ /*
+  * This allocator takes advantage of the large address range on some 64-bit
+--- a/mfbt/RandomNum.cpp
++++ b/mfbt/RandomNum.cpp
+@@ -7,6 +7,9 @@
+ #include "mozilla/RandomNum.h"
+ 
+ #include <fcntl.h>
++#ifdef __EMSCRIPTEN__
++#  include <sys/random.h>
++#endif
+ #ifdef XP_UNIX
+ #  include <unistd.h>
+ #endif
+@@ -93,6 +96,9 @@
+ #if defined(XP_WIN)
+   return !!RtlGenRandom(aBuffer, aLength);
+ 
++#elif defined(__EMSCRIPTEN__)
++  return getrandom(aBuffer, aLength, 0) == static_cast<ssize_t>(aLength);
++
+ #elif defined(USE_ARC4RANDOM)  // defined(XP_WIN)
+ 
+   arc4random_buf(aBuffer, aLength);
+--- a/python/mozbuild/mozbuild/configure/constants.py
++++ b/python/mozbuild/mozbuild/configure/constants.py
+@@ -82,6 +82,7 @@
+     "x86": 32,
+     "x86_64": 64,
+     "wasm32": 32,
++    "wasm64": 64,
+ }
+ 
+ 
+@@ -133,6 +134,7 @@
+         ("loongarch64", "__loongarch64"),
+         ("sh4", "__sh__"),
+         ("wasm32", "__wasm32__"),
++        ("wasm64", "__wasm64__"),
+     )
+ )
+ 

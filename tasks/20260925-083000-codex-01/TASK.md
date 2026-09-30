@@ -30,7 +30,7 @@ The source-only prototype has two 14-part, 20 Hz trucks. The isolated 420 s
 settling trial physically recovers three crates, passes all three through the
 loader and slinger, and fires three shots with two aircraft hits. All 13 spawned
 objects remain; no crew contacts/errors occur; a loaded save/reopen retains its
-magnet attachment. `build/blockwalker-launcher-restock-settle/proof.json`.
+magnet attachment. `build/slopyard-launcher-restock-settle/proof.json`.
 
 The first populated run exhausts truck 93's program budget while planning a
 pickup at 120.567 s. Incremental A* and one pickup approach per callback address
@@ -38,8 +38,8 @@ that without increasing the engine budget. The final route program passes a
 420 s isolated replay (three recoveries/handoffs, two shots/hits; third arm starts
 spinning at 417.57 s) and 600 s populated operation: 106 retained objects,
 12 deliveries, no program errors or crew contacts. Evidence:
-`build/blockwalker-launcher-restock-route/` and
-`build/blockwalker-rivalry-restock-directed42/recovery-proof.json`.
+`build/slopyard-launcher-restock-route/` and
+`build/slopyard-rivalry-restock-directed42/recovery-proof.json`.
 
 The populated result is not a completion pass. East recovers one crate but its
 loaded slinger misses a target pass while the truck patrols inside the arm's
@@ -56,7 +56,7 @@ A* chooses a reachable frontier node toward the actual destination, and uses
 the truck's complete loaded footprint. East's usual opposing flight stays at
 least 55.57 m away, beyond the 48 m sensor range; the candidate relocates that
 whole crew 22 m west without changing its geometry or other 81 placements.
-`build/blockwalker-rivalry-restock-patrol-continued/` preserves the failure.
+`build/slopyard-rivalry-restock-patrol-continued/` preserves the failure.
 
 The stricter truck clearance exposed a separate loader deadlock: a reachable
 crate at the slider's endpoint could never satisfy its magnet-on tolerance.
@@ -67,7 +67,7 @@ lift and loaded save/reopen, the final 600 s isolated trial completes three
 recoveries, three handoffs and three shots, with two physical aircraft hits.
 All 13 objects remain; no crew contacts/errors occur. The truck also retrieves
 one of its already-fired crates. Evidence:
-`build/blockwalker-launcher-restock-interrupted-reachable/proof.json`.
+`build/slopyard-launcher-restock-interrupted-reachable/proof.json`.
 The full-world trace additionally shows the truck abandoning cargo 21 twice as
 another machine picks it up (127 s and 234 s), and leaving occupied starting
 bays alone. Both-team sustained restocking and visual/performance checks remain.
@@ -75,7 +75,7 @@ bays alone. Both-team sustained restocking and visual/performance checks remain.
 The first full-world relocated run stops at 85.85 s after guard 72 approaches,
 magnetically grabs truck 93 at 70 s and tips it. This is actual enemy behavior,
 not a terrain failure. The candidate adds ordinary sensor-based escape steering
-while keeping the guard and its physics intact. `build/blockwalker-rivalry-
+while keeping the guard and its physics intact. `build/slopyard-rivalry-
 restock-quay-relocated42/` preserves the failure; the current `restock-evade42`
 run also fails explicitly if either truck stays tipped for ten seconds.
 
@@ -84,20 +84,20 @@ with no controller errors, crew contacts or truck rollovers. Both crews fire
 four shots, including actual truck → loader → slinger handoffs: East cargo 104
 and West cargo 91 (previously fired ammunition). East is returning with another
 crate at the end; West is seeking its next one. Evidence:
-`build/blockwalker-rivalry-restock-evade42/recovery-proof.json`.
+`build/slopyard-rivalry-restock-evade42/recovery-proof.json`.
 
 Chrome and Firefox import that 108-object save, render both crews and trucks,
 and export both truck programs exactly. No browser errors or model requests
 occur. Short view samples are 28–32 FPS in Chrome and 12–16 in Firefox; these
 are not warmed performance benchmarks. The existing crowded-performance issue
-remains open. `build/blockwalker-restock-view-{chrome,firefox}/proof.json`.
+remains open. `build/slopyard-restock-view-{chrome,firefox}/proof.json`.
 The verified 93-design catalog and relocated Red Sling camera are now canonical
 source; packaged-image verification remains before closing this task.
 
 Verified and packaged in `108b25d` (local image 30). Chrome and Firefox verify
 all 93 bundled sources/blueprints and restore the older 125-object world without
 errors or model requests. The revised Red Sling camera frames the relocated
-crew. `build/blockwalker-image30-preview{,-firefox}/proof.json`. Preservation
+crew. `build/slopyard-image30-preview{,-firefox}/proof.json`. Preservation
 checks retain all six protected files and the twelve other images.
 
 Paired Firefox timing on the same 900 s saved population measures 1800 ticks:
@@ -105,7 +105,7 @@ Paired Firefox timing on the same 900 s saved population measures 1800 ticks:
 (106 versus 108 objects, all other programs unchanged). Their measured added
 simulation cost is about 2.6%; all runs finish without errors. This is a CPU
 simulation comparison, not rendered FPS. Evidence:
-`build/blockwalker-recovery-cost-firefox/proof.json`.
+`build/slopyard-recovery-cost-firefox/proof.json`.
 
 Reopened after the rigid-assembly conversion. The 2400 s populated candidate
 retains 127 objects, makes 35 deliveries and has zero crew contacts or truck
@@ -114,7 +114,7 @@ shots; West fires its three initial crates but completes no recovery. Its
 truck remains upright, patrols and repeatedly evades enemies. Inspect its
 reachable cargo and actual route failures before changing its program or crew
 placement. Do not respawn ammo or weaken the opposing guard. Evidence:
-`build/blockwalker-rivalry-compound-freight-populated42/recovery-proof.json`.
+`build/slopyard-rivalry-compound-freight-populated42/recovery-proof.json`.
 
 Trace diagnosis: two of West's three fired crates finish on the seabed; the
 third rests near x=0, outside its home patrol. The truck attempts only cargo
@@ -128,8 +128,8 @@ The wider patrol alone does not fix recovery: continuing the exact 2400 s
 world to 3000 s completes no further restock on either team. A 60 s sensor replay
 shows East holding cargo 103 in wait_bay outside the bay's terrain observations;
 West's planner rejects every route because its reachable local area is smaller
-than its 24 m frontier requirement. Evidence: `build/blockwalker-rivalry-wide-
-patrol-continued/` and `build/blockwalker-forklift-trucks-stalled-sensors/`.
+than its 24 m frontier requirement. Evidence: `build/slopyard-rivalry-wide-
+patrol-continued/` and `build/slopyard-forklift-trucks-stalled-sensors/`.
 
 A program-only return-route candidate continues that same 3000 s world, retaining
 all poses, memory, cargo and guards. Waiting trucks can navigate toward home;
@@ -139,14 +139,14 @@ eight shots total), with 137 objects retained, 45 deliveries, four heavy loads
 stored per island and zero crew contacts, controller failures or truck rollovers.
 West still completes no recovery: its conservative escape logic repeatedly
 reacts to nearby traffic. This candidate is not yet bundled. Evidence:
-`build/blockwalker-rivalry-return-route-continued/`. The next replay tests
+`build/slopyard-rivalry-return-route-continued/`. The next replay tests
 closing-speed avoidance and a short wait after another machine releases cargo.
 
 Closing-speed avoidance and wider tangent escapes still leave West without a
 recovery in the same 600 s continuation. Considering only an enemy's approach
 reduces West's escape loops but sends the loaded East truck into a blocked cave
 route; that version loses East's improvement. Neither traffic variant is
-promoted. Evidence: `build/blockwalker-rivalry-{traffic-route,incoming-route}-
+promoted. Evidence: `build/slopyard-rivalry-{traffic-route,incoming-route}-
 continued/`. Keep the proven return-home/local-frontier changes separate from
 these failed avoidance experiments.
 
@@ -157,34 +157,34 @@ margin. Suzu 79 stays roughly 14.4 m away at that threshold. A new unbundled
 candidate includes that margin (plus 0.5 m for waypoint following) in route
 clearance too. This preserves the original escape reaction and all guards.
 The replay also checks actual crew contact forces and sustained truck tipping.
-`build/blockwalker-salvage/guard-clearance.js` and `clearance-continued.c`.
+`build/slopyard-salvage/guard-clearance.js` and `clearance-continued.c`.
 
 Matching route and escape clearance solves the loaded West truck's loop in the
 actual 3754.6 s population. In 600 s, both salvaged rounds pass through truck 93,
 loader 88 and slinger 87; West shots rise 3 -> 5 and East 6 -> 8. No crew contacts,
 truck tipping, program errors or deaths occur; 149 objects and 56 deliveries
-remain. `build/blockwalker-compound-regressions-chrome-salvage-safe-clearance/`
+remain. `build/slopyard-compound-regressions-chrome-salvage-safe-clearance/`
 preserves sensors, physical holder transitions and the final save. The guards
 and escape routine were unchanged. Fresh-world/packaged verification remains.
 
 Fresh-world verification now completes both crews' restocking over 1200 s:
 East four recoveries/seven shots; West two recoveries/five shots. The boat
 also completes a recovery/handoff; no controller errors, deaths, crew contacts
-or truck rollovers occur. `build/blockwalker-compound-regressions-chrome-
+or truck rollovers occur. `build/slopyard-compound-regressions-chrome-
 salvage-fresh-slew/`. That run's separate warehouse assertion is resolved by
 20260925-070046 using an exact-save continuation.
 
 A warmed packaged Firefox sample of the populated world (150 objects) records
 591 frames in 15.032 s, 39.32 FPS and 15.017 simulated seconds, after 30 s warmup.
 No controller errors or deaths. This is one rendered sample, not a comparison
-against a previous build: `build/blockwalker-image36-performance-firefox/`.
+against a previous build: `build/slopyard-image36-performance-firefox/`.
 
 Verified in packaged image 36 on September 25, 2026. Chrome and Firefox match
 all 94 bundled blueprints/programs and restore the 125-object format-2 world,
 the original 51-object format-1 world (retaining its sixteen historic deaths),
 and the 125-object format-5 continuation without new errors or deaths.
-Evidence: `build/blockwalker-image36-preview{,-firefox}/proof.json`.
+Evidence: `build/slopyard-image36-preview{,-firefox}/proof.json`.
 Snapshot SHA-256:
 `aaa757c571d6f3234e0a52570f9ecc7d9f2c50f0a66f3349e08e75af3cc45c38`.
 All six protected files, twelve other images and thirteen catalog entries pass
-`build/blockwalker-image36-preservation.json`. No public deployment was made.
+`build/slopyard-image36-preservation.json`. No public deployment was made.

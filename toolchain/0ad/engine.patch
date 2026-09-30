@@ -1,0 +1,2782 @@
+--- a/source/graphics/LOSTexture.cpp
++++ b/source/graphics/LOSTexture.cpp
+@@ -190,7 +190,8 @@
+ 	deviceCommandContext->SetViewports(1, &viewportRect);
+ 
+ 	const bool flip =
+-		deviceCommandContext->GetDevice()->GetBackend() == Renderer::Backend::Backend::VULKAN;
++		(deviceCommandContext->GetDevice()->GetBackend() == Renderer::Backend::Backend::VULKAN ||
++		deviceCommandContext->GetDevice()->GetBackend() == Renderer::Backend::Backend::WEBGPU);
+ 	const float bottomV = flip ? 1.0 : 0.0f;
+ 	const float topV = flip ? 0.0f : 1.0f;
+ 
+--- a/source/graphics/MapGenerator.cpp
++++ b/source/graphics/MapGenerator.cpp
+@@ -86,8 +86,10 @@
+ 		m_ScriptInterface.SetCallbackData(static_cast<void*>(this));
+ 
+ 		// Enable the script to be aborted
++#if !defined(DOLLY)
+ 		JS_AddInterruptCallback(m_ScriptInterface.GetGeneralJSContext(),
+ 			&MapGenerationInterruptCallback);
++#endif
+ 
+ 		// Set initial seed, callback data.
+ 		// Expose functions, globals and classes relevant to the map scripts.
+@@ -130,7 +132,9 @@
+ 
+ 	~CMapGenerationCallbacks()
+ 	{
++#if !defined(DOLLY)
+ 		JS_AddInterruptCallback(m_ScriptInterface.GetGeneralJSContext(), nullptr);
++#endif
+ 		m_ScriptInterface.SetCallbackData(nullptr);
+ 	}
+ 
+--- a/source/graphics/MiniMapTexture.cpp
++++ b/source/graphics/MiniMapTexture.cpp
+@@ -263,7 +263,7 @@
+ 	}};
+ 	m_QuadVertexInputLayout = g_Renderer.GetVertexInputLayout(attributes);
+ 
+-	m_Flipped = device->GetBackend() == Renderer::Backend::Backend::VULKAN;
++	m_Flipped = (device->GetBackend() == Renderer::Backend::Backend::VULKAN || device->GetBackend() == Renderer::Backend::Backend::WEBGPU);
+ 
+ 	const uint32_t stride = m_VertexArray.GetStride();
+ 	if (device->GetCapabilities().instancing)
+--- a/source/graphics/ShaderManager.cpp
++++ b/source/graphics/ShaderManager.cpp
+@@ -226,7 +226,8 @@
+ 		supportedShaders.emplace_back("arb");
+ 	if (m_Device->GetBackend() == Renderer::Backend::Backend::GL)
+ 		supportedShaders.emplace_back("glsl");
+-	if (m_Device->GetBackend() == Renderer::Backend::Backend::VULKAN)
++	if (m_Device->GetBackend() == Renderer::Backend::Backend::VULKAN ||
++		m_Device->GetBackend() == Renderer::Backend::Backend::WEBGPU)
+ 		supportedShaders.emplace_back("spirv");
+ 
+ 	// Find a first suitable technique that we can use.
+--- a/source/graphics/TerrainTextureManager.cpp
++++ b/source/graphics/TerrainTextureManager.cpp
+@@ -224,7 +224,7 @@
+ 			LOGERROR("Failed to load alphamap: %s", alphaMapType.string8());
+ 
+ 			const VfsPath standard("standard");
+-			if (path != standard)
++			if (alphaMapType != standard)
+ 				return LoadAlphaMap(standard);
+ 			return m_TerrainAlphas.end();
+ 		}
+--- a/source/graphics/TextureManager.cpp
++++ b/source/graphics/TextureManager.cpp
+@@ -37,6 +37,7 @@
+ #include "ps/Filesystem.h"
+ #include "ps/Profiler2.h"
+ #include "ps/Util.h"
++#include "renderer/backend/Backend.h"
+ #include "renderer/backend/IDevice.h"
+ #include "renderer/backend/IDeviceCommandContext.h"
+ #include "renderer/backend/ITexture.h"
+@@ -76,7 +77,9 @@
+ 
+ 	if (dxt)
+ 	{
+-		if (hasS3TC)
++		// WebGPU requires compressed base dimensions to contain whole 4x4 blocks.
++		if (hasS3TC && (device->GetBackend() != Renderer::Backend::Backend::WEBGPU ||
++			(textureData.m_Width % 4 == 0 && textureData.m_Height % 4 == 0)))
+ 		{
+ 			switch (dxt)
+ 			{
+--- a/source/lib/allocators/dynarray.cpp
++++ b/source/lib/allocators/dynarray.cpp
+@@ -36,6 +36,7 @@
+ #include <algorithm>
+ #include <cstdint>
+ #include <cstring>
++#include <cstdlib>
+ 
+ static Status validate_da(DynArray* da)
+ {
+@@ -69,7 +70,15 @@
+ 	ENSURE(max_size != 0);
+ 	const size_t max_size_pa = Align<g_PageSize>(max_size);
+ 
++#if OS_DOLLY
++	// Linear memory cannot reserve inaccessible pages. Keep the fixed buffer
++	// address required by Pool, allocating its bounded capacity up front.
++	u8* p = nullptr;
++	if (posix_memalign(reinterpret_cast<void**>(&p), g_PageSize, max_size_pa))
++		return ERR::NO_MEM;
++#else
+ 	u8* p = (u8*)vm::ReserveAddressSpace(max_size_pa);
++#endif
+ 	if(!p)
+ 		return ERR::NO_MEM;	// NOWARN (already done in vm)
+ 
+@@ -87,7 +96,11 @@
+ {
+ 	CHECK_DA(da);
+ 
++#if OS_DOLLY
++	free(da->base);
++#else
+ 	vm::ReleaseAddressSpace(da->base, da->max_size_pa);
++#endif
+ 
+ 	// wipe out the DynArray for safety
+ 	memset(da, 0, sizeof(*da));
+@@ -116,13 +129,19 @@
+ 	// expanding
+ 	if(size_delta_pa > 0)
+ 	{
++#if OS_DOLLY
++		memset(end, 0, size_delta_pa);
++#else
+ 		ok = vm::Commit(uintptr_t(end), size_delta_pa);
++#endif
+ 		if(!ok)
+ 			debug_printf("Commit failed (%p %lld)\n", (void *)end, (long long)size_delta_pa);
+ 	}
+ 	// shrinking
++#if !OS_DOLLY
+ 	else if(size_delta_pa < 0)
+ 		ok = vm::Decommit(uintptr_t(end+size_delta_pa), -size_delta_pa);
++#endif
+ 	// else: no change in page count, e.g. if going from size=1 to 2
+ 	// (we don't want mem_* to have to handle size=0)
+ 
+--- a/source/lib/byte_order.h
++++ b/source/lib/byte_order.h
+@@ -36,7 +36,7 @@
+ #ifndef BYTE_ORDER
+ # define LITTLE_ENDIAN 0x4321
+ # define BIG_ENDIAN    0x1234
+-# if ARCH_IA32 || ARCH_IA64 || ARCH_AMD64 || ARCH_ALPHA || ARCH_ARM || ARCH_AARCH64 || ARCH_MIPS || ARCH_E2K || ARCH_PPC64 || defined(__LITTLE_ENDIAN__)
++# if ARCH_IA32 || ARCH_IA64 || ARCH_AMD64 || ARCH_ALPHA || ARCH_ARM || ARCH_AARCH64 || ARCH_MIPS || ARCH_E2K || ARCH_PPC64 || ARCH_WASM64 || defined(__LITTLE_ENDIAN__)
+ #  define BYTE_ORDER LITTLE_ENDIAN
+ # else
+ #  define BYTE_ORDER BIG_ENDIAN
+--- a/source/lib/debug.cpp
++++ b/source/lib/debug.cpp
+@@ -283,11 +283,11 @@
+ 	// header
+ 	if(!writer(
+ 		L"%ls\r\n"
+-		L"Location: %ls:%d (%hs)\r\n"
++		L"Location: %ls:%d (%ls)\r\n"
+ 		L"\r\n"
+ 		L"Call stack:\r\n"
+ 		L"\r\n",
+-		description, filename, line, func
++		description, filename, line, wstring_from_utf8(func).c_str()
+ 	))
+ 	{
+ fail:
+--- a/source/lib/file/io/io.cpp
++++ b/source/lib/file/io/io.cpp
+@@ -58,12 +58,23 @@
+ 		ENSURE(lseek(cb.aio_fildes, cb.aio_offset, SEEK_SET) == cb.aio_offset);
+ #endif
+ 
+-		void* buf = (void*)cb.aio_buf;	// cast from volatile void*
+-		const ssize_t bytesTransferred = (cb.aio_lio_opcode == LIO_WRITE)? write(cb.aio_fildes, buf, cb.aio_nbytes) : read(cb.aio_fildes, buf, cb.aio_nbytes);
+-		if(bytesTransferred < 0)
+-			WARN_RETURN(StatusFromErrno());
+-
+-		cb.aio_nbytes = (size_t)bytesTransferred;
++		u8* buf = (u8*)cb.aio_buf;
++		size_t completed = 0;
++		while (completed < cb.aio_nbytes)
++		{
++			const size_t remaining = cb.aio_nbytes - completed;
++			const ssize_t count = cb.aio_lio_opcode == LIO_WRITE
++				? write(cb.aio_fildes, buf + completed, remaining)
++				: read(cb.aio_fildes, buf + completed, remaining);
++			if (count < 0 && errno == EINTR)
++				continue;
++			if (count < 0)
++				WARN_RETURN(StatusFromErrno());
++			if (count == 0)
++				break;
++			completed += size_t(count);
++		}
++		cb.aio_nbytes = completed;
+ 	}
+ 
+ 	return INFO::OK;
+--- a/source/lib/ogl.cpp
++++ b/source/lib/ogl.cpp
+@@ -34,7 +34,7 @@
+ #if !CONFIG2_GLES
+ # if OS_WIN
+ #  include <glad/wgl.h>
+-# elif !OS_MACOSX
++# elif !OS_MACOSX && !OS_DOLLY
+ #  include <SDL_config.h>
+ #  include <SDL_syswm.h>
+ #  if defined(SDL_VIDEO_DRIVER_X11)
+@@ -216,7 +216,7 @@
+ static int GLVersion;
+ #if OS_WIN
+ static int WGLVersion;
+-#elif !CONFIG2_GLES && !OS_MACOSX
++#elif !CONFIG2_GLES && !OS_MACOSX && !OS_DOLLY
+ #if defined(SDL_VIDEO_DRIVER_X11)
+ static int GLXVersion;
+ #endif
+@@ -424,7 +424,7 @@
+ 
+ #if OS_WIN
+ bool ogl_Init(void* (load)(const char*), void* hdc)
+-#elif !CONFIG2_GLES && !OS_MACOSX
++#elif !CONFIG2_GLES && !OS_MACOSX && !OS_DOLLY
+ bool ogl_Init(void* (load)(const char*), void* display, int subsystem)
+ #else
+ bool ogl_Init(void* (load)(const char*))
+@@ -454,7 +454,7 @@
+ 		LOAD_ERROR("Failed to load WGL functions.");
+ 		return false;
+ 	}
+-# elif !OS_MACOSX
++# elif !OS_MACOSX && !OS_DOLLY
+ 	const SDL_SYSWM_TYPE sysWMType = static_cast<SDL_SYSWM_TYPE>(subsystem);
+ #  if defined(SDL_VIDEO_DRIVER_X11)
+ 	if (sysWMType == SDL_SYSWM_X11)
+@@ -518,7 +518,7 @@
+ #if !CONFIG2_GLES && OS_WIN
+ 	if (ogl_HaveExtension("WGL_EXT_swap_control"))
+ 		wglSwapIntervalEXT(interval);
+-#elif !CONFIG2_GLES && !OS_MACOSX
++#elif !CONFIG2_GLES && !OS_MACOSX && !OS_DOLLY
+ #if defined(SDL_VIDEO_DRIVER_X11)
+ 	if (GLXVersion && ogl_HaveExtension("GLX_SGI_swap_control"))
+ 		glXSwapIntervalSGI(interval);
+--- a/source/lib/ogl.h
++++ b/source/lib/ogl.h
+@@ -46,7 +46,7 @@
+  **/
+ #if OS_WIN
+ extern bool ogl_Init(void* (load)(const char*), void* hdc);
+-#elif !OS_MACOSX && !CONFIG2_GLES
++#elif !OS_MACOSX && !OS_DOLLY && !CONFIG2_GLES
+ extern bool ogl_Init(void* (load)(const char*), void* display, int subsystem);
+ #else
+ extern bool ogl_Init(void* (load)(const char*));
+--- a/source/lib/posix/posix_aio.h
++++ b/source/lib/posix/posix_aio.h
+@@ -27,10 +27,11 @@
+ // POSIX declarations, this one is harmless (no incompatible declarations)
+ // and can safely be used on Windows as well.
+ #include <fcntl.h>
++#include <signal.h>
+ 
+ #if OS_WIN
+ # include "lib/sysdep/os/win/wposix/waio.h"
+-#elif OS_ANDROID || OS_OPENBSD
++#elif OS_ANDROID || OS_OPENBSD || OS_DOLLY
+ // Android doesn't provide aio.h. We don't actually use aio on Linuxes (see
+ // CONFIG2_FILE_ENABLE_AIO) but we use its symbols and structs, so define
+ // them here
+--- a/source/lib/sysdep/arch.h
++++ b/source/lib/sysdep/arch.h
+@@ -83,8 +83,14 @@
+ # define ARCH_E2K 0
+ #endif
+ 
++#if defined(__wasm64__)
++# define ARCH_WASM64 1
++#else
++# define ARCH_WASM64 0
++#endif
++
+ // ensure exactly one architecture has been detected
+-#if (ARCH_IA32+ARCH_IA64+ARCH_AMD64+ARCH_ALPHA+ARCH_ARM+ARCH_AARCH64+ARCH_MIPS+ARCH_E2K+ARCH_PPC64) != 1
++#if (ARCH_IA32+ARCH_IA64+ARCH_AMD64+ARCH_ALPHA+ARCH_ARM+ARCH_AARCH64+ARCH_MIPS+ARCH_E2K+ARCH_PPC64+ARCH_WASM64) != 1
+ # error "architecture not correctly detected (either none or multiple ARCH_* defined)"
+ #endif
+ 
+--- a/source/lib/sysdep/os/unix/unix.cpp
++++ b/source/lib/sysdep/os/unix/unix.cpp
+@@ -69,7 +69,7 @@
+ 	fprintf(stderr, "%ls: %ls\n", caption, msg); // must not use fwprintf, since stderr is byte-oriented
+ }
+ 
+-#if OS_MACOSX || OS_ANDROID
++#if OS_MACOSX || OS_ANDROID || OS_DOLLY
+ static ErrorReactionInternal try_gui_display_error(const wchar_t* /*text*/, bool /*manual_break*/,
+ 	bool /*allow_suppress*/, bool /*no_continue*/)
+ {
+@@ -214,6 +214,11 @@
+ ErrorReactionInternal sys_display_error(const wchar_t* text, size_t flags)
+ {
+ 	debug_printf("%s\n\n", utf8_from_wstring(text).c_str());
++
++#if OS_DOLLY
++	if (!isatty(STDIN_FILENO))
++		return ERI_EXIT;
++#endif
+ 
+ 	const bool manual_break   = (flags & DE_MANUAL_BREAK  ) != 0;
+ 	const bool allow_suppress = (flags & DE_ALLOW_SUPPRESS) != 0;
+@@ -353,6 +358,9 @@
+ 
+ Status sys_open_url(const std::string& url)
+ {
++#if OS_DOLLY
++	return ERR::NOT_SUPPORTED;
++#else
+ 	pid_t pid = fork();
+ 	if (pid < 0)
+ 	{
+@@ -379,6 +387,7 @@
+ 
+ 		return INFO::OK;
+ 	}
++#endif
+ }
+ 
+ FILE* sys_OpenFile(const OsPath& pathname, const char* mode)
+--- a/source/lib/sysdep/os.h
++++ b/source/lib/sysdep/os.h
+@@ -97,6 +97,11 @@
+ #else
+ # define OS_AMIGA 0
+ #endif
++#if defined(DOLLY)
++# define OS_DOLLY 1
++#else
++# define OS_DOLLY 0
++#endif
+ // Unix-based
+ #if defined(unix) || defined(__unix) || defined(__unix__) || defined(_XOPEN_SOURCE) || defined(_POSIX_SOURCE)
+ # define OS_UNIX 1
+@@ -107,7 +112,7 @@
+ // convenience: additionally set OS_UNIX for Unix-based OSes
+ // note: doing this in an separate section instead of adding the extra define
+ // to all affected OSes saves a few undefs or macro redefinition warnings.
+-#if OS_LINUX || OS_MACOSX || OS_BSD || OS_SOLARIS
++#if OS_LINUX || OS_MACOSX || OS_BSD || OS_SOLARIS || OS_DOLLY
+ # undef OS_UNIX
+ # define OS_UNIX 1
+ #endif
+--- a/source/main.cpp
++++ b/source/main.cpp
+@@ -53,6 +53,9 @@
+ #include "lib/types.h"
+ #include "lobby/IXmppClient.h"
+ #include "network/NetClient.h"
++#if OS_DOLLY
++#include "network/NetServer.h"
++#endif
+ #include "ps/ArchiveBuilder.h"
+ #include "ps/CConsole.h"
+ #include "ps/CLogger.h"
+@@ -500,6 +503,17 @@
+ 	if (g_NetClient)
+ 		g_NetClient->Poll();
+ 
++#if OS_DOLLY
++	// Keep serving the winning turn until every connected peer has simulated it.
++	if (g_Game && g_Game->IsGameFinished())
++	{
++		if (!g_NetServer || g_NetServer->HaveAllClientsSimulated(g_Game->GetTurnManager()->GetCurrentTurn()))
++			QuitEngine(EXIT_SUCCESS);
++		g_Profiler.Frame();
++		return;
++	}
++#endif
++
+ 	static u32 turn = 0;
+ 	if (g_Game && g_Game->IsGameStarted() && g_Game->GetTurnManager())
+ 		if (g_Game->GetTurnManager()->Update(DEFAULT_TURN_LENGTH, 1))
+@@ -507,8 +521,10 @@
+ 
+ 	g_Profiler.Frame();
+ 
++#if !OS_DOLLY
+ 	if (g_Game->IsGameFinished())
+ 		QuitEngine(EXIT_SUCCESS);
++#endif
+ }
+ 
+ static void MainControllerInit()
+@@ -523,6 +539,10 @@
+ {
+ 	in_reset_handlers();
+ }
++
++#if OS_DOLLY
++void DollyControl_Run(FILE* output);
++#endif
+ 
+ static std::optional<RL::Interface> CreateRLInterface(const CmdLineArgs& args)
+ {
+@@ -558,6 +578,28 @@
+ static void RunGameOrAtlas(const std::span<const char* const> argv)
+ {
+ 	const CmdLineArgs args(argv);
++#if OS_DOLLY
++	std::unique_ptr<FILE, decltype(&fclose)> controlOutput(nullptr, fclose);
++	if (args.Has("dolly-control"))
++	{
++		if (!args.Has("autostart-nonvisual") || args.Has("autostart-client") || args.Has("autostart-host") || args.Has("rl-interface"))
++		{
++			fprintf(stderr, "-dolly-control requires an offline, nonvisual autostart game\n");
++			g_ExitStatus = EXIT_FAILURE;
++			return;
++		}
++		const int descriptor = dup(STDOUT_FILENO);
++		if (descriptor >= 0)
++			controlOutput.reset(fdopen(descriptor, "w"));
++		if (!controlOutput || dup2(STDERR_FILENO, STDOUT_FILENO) < 0)
++		{
++			if (!controlOutput && descriptor >= 0) close(descriptor);
++			perror("Dolly control output");
++			g_ExitStatus = EXIT_FAILURE;
++			return;
++		}
++	}
++#endif
+ 
+ 	g_CmdLineArgs = args;
+ 
+@@ -761,6 +803,13 @@
+ #else
+ 					Frame(rlInterface ? &*rlInterface : nullptr, fixedFrameFrequency);
+ #endif
++#if OS_DOLLY
++				else if (controlOutput)
++				{
++					DollyControl_Run(controlOutput.get());
++					QuitEngine(EXIT_SUCCESS);
++				}
++#endif
+ 				else if(rlInterface)
+ 					rlInterface->TryApplyMessage();
+ 				else
+@@ -805,7 +854,7 @@
+ int main(int argc, char* argv[])
+ #endif
+ {
+-#if OS_UNIX
++#if OS_UNIX && !OS_DOLLY
+ 	// Don't allow people to run the game with root permissions,
+ 	//	because bad things can happen, check before we do anything
+ 	if (geteuid() == 0)
+--- a/source/network/NetClient.cpp
++++ b/source/network/NetClient.cpp
+@@ -31,6 +31,9 @@
+ #include "network/NetMessage.h"
+ #include "network/NetProtocol.h"
+ #include "network/NetSession.h"
++#ifdef DOLLY
++#include "network/NetServer.h"
++#endif
+ #include "network/StunClient.h"
+ #include "ps/CLogger.h"
+ #include "ps/CStr.h"
+@@ -184,8 +187,10 @@
+ 	CNetClientSession* session = new CNetClientSession(*this);
+ 	bool ok = session->Connect(m_ServerAddress, m_ServerPort, enetClient);
+ 	SetAndOwnSession(session);
++#ifndef DOLLY
+ 	if (ok)
+ 		m_PollingThread = std::thread(Threading::HandleExceptions<CNetClientSession::RunNetLoop>::Wrapper, m_Session);
++#endif
+ 	return ok;
+ }
+ 
+@@ -324,10 +329,14 @@
+ 	if (m_Session)
+ 		m_Session->Shutdown();
+ 
++#ifdef DOLLY
++	delete m_Session;
++#else
+ 	if (m_PollingThread.joinable())
+ 		// Use detach() over join() because we don't want to wait for the session
+ 		// (which may be polling or trying to send messages).
+ 		m_PollingThread.detach();
++#endif
+ 
+ 	// The polling thread will cleanup the session on its own,
+ 	// mark it as nullptr here so we know we're done using it.
+@@ -336,6 +345,12 @@
+ 
+ void CNetClient::Poll()
+ {
++#ifdef DOLLY
++	if (g_NetServer)
++		g_NetServer->Poll();
++	if (m_Session)
++		m_Session->PollOnce();
++#endif
+ 	if (!m_Session)
+ 		return;
+ 
+--- a/source/network/NetServer.cpp
++++ b/source/network/NetServer.cpp
+@@ -87,7 +87,11 @@
+  * Smaller numbers may hurt performance; larger numbers will
+  * hurt latency responding to messages from game thread.
+  */
++#ifdef DOLLY
++static const int HOST_SERVICE_TIMEOUT = 0;
++#else
+ static const int HOST_SERVICE_TIMEOUT = 50;
++#endif
+ 
+ /**
+  * Once ping goes above turn length * command delay,
+@@ -139,7 +143,12 @@
+ 		}
+ 
+ 		// Wait for it to shut down cleanly
++#ifdef DOLLY
++		m_SavedCommands.clear();
++		SAFE_DELETE(m_ScriptInterface);
++#else
+ 		m_WorkerThread.join();
++#endif
+ 	}
+ 
+ #if CONFIG2_MINIUPNPC
+@@ -206,7 +215,13 @@
+ 	m_State = SERVER_STATE_PREGAME;
+ 
+ 	// Launch the worker thread
++#ifdef DOLLY
++	auto context = ScriptContext::CreateContext();
++	m_ScriptInterface = new ScriptInterface("Engine", "Net server", context);
++	m_InitAttributes.init(m_ScriptInterface->GetGeneralJSContext(), JS::UndefinedValue());
++#else
+ 	m_WorkerThread = std::thread(Threading::HandleExceptions<RunThread>::Wrapper, this);
++#endif
+ 
+ #if CONFIG2_MINIUPNPC
+ 	// Launch the UPnP thread
+@@ -366,6 +381,11 @@
+ bool CNetServerWorker::SendMessage(ENetPeer* peer, const CNetMessage* message)
+ {
+ 	ENSURE(m_Host);
++#ifdef DOLLY
++	// ENet can mark a closing peer before its disconnect event is dispatched.
++	if (peer->state != ENET_PEER_STATE_CONNECTED)
++		return false;
++#endif
+ 
+ 	CNetServerSession* session = static_cast<CNetServerSession*>(peer->data);
+ 
+@@ -402,6 +422,26 @@
+ 	return ok;
+ }
+ 
++#ifdef DOLLY
++void CNetServerWorker::Poll()
++{
++	if (m_Shutdown || !m_ScriptInterface)
++		return;
++	for (unsigned i = 0; i < 64; ++i)
++	{
++		bool hadEvent = false;
++		if (!RunStep(&hadEvent))
++		{
++			m_Shutdown = true;
++			break;
++		}
++		if (!hadEvent)
++			break;
++	}
++	m_Stats->LatchHostState(m_Host);
++}
++#endif
++
+ void CNetServerWorker::RunThread(CNetServerWorker* data)
+ {
+ 	debug_SetThreadName("NetServer");
+@@ -434,8 +474,9 @@
+ 	SAFE_DELETE(m_ScriptInterface);
+ }
+ 
+-bool CNetServerWorker::RunStep()
+-{
++bool CNetServerWorker::RunStep(bool* hadEvent)
++{
++	if (hadEvent) *hadEvent = false;
+ 	// Check for messages from the game thread.
+ 	// (Do as little work as possible while the mutex is held open,
+ 	// to avoid performance problems and deadlocks.)
+@@ -505,6 +546,8 @@
+ 		// Reached timeout with no events - try again
+ 		return true;
+ 	}
++
++	if (hadEvent) *hadEvent = true;
+ 
+ 	// Process the event:
+ 
+@@ -1714,6 +1757,15 @@
+ 	delete m_Worker;
+ }
+ 
++#ifdef DOLLY
++void CNetServer::Poll() { m_Worker->Poll(); }
++
++bool CNetServer::HaveAllClientsSimulated(u32 turn) const
++{
++	return !m_Worker->m_ServerTurnManager || m_Worker->m_ServerTurnManager->HaveAllClientsSimulated(turn);
++}
++#endif
++
+ bool CNetServer::UseLobbyAuth() const
+ {
+ 	return m_LobbyAuth;
+--- a/source/network/NetServer.h
++++ b/source/network/NetServer.h
+@@ -121,6 +121,10 @@
+ 	 * @return true on success, false on error (e.g. port already in use)
+ 	 */
+ 	bool SetupConnection(const u16 port);
++#ifdef DOLLY
++	void Poll();
++	bool HaveAllClientsSimulated(u32 turn) const;
++#endif
+ 
+ 	/**
+ 	 * Call from the GUI to asynchronously notify all clients that they should start loading the game.
+@@ -244,6 +248,9 @@
+ 	 * @return true on success, false on error (e.g. port already in use)
+ 	 */
+ 	bool SetupConnection(const u16 port);
++#ifdef DOLLY
++	void Poll();
++#endif
+ 
+ 	/**
+ 	 * The given GUID will be (re)assigned to the given player ID.
+@@ -436,7 +443,7 @@
+ 
+ 	static void RunThread(CNetServerWorker* data);
+ 	void Run();
+-	bool RunStep();
++	bool RunStep(bool* hadEvent = nullptr);
+ 
+ 	std::thread m_WorkerThread;
+ 	std::mutex m_WorkerMutex;
+--- a/source/network/NetServerTurnManager.h
++++ b/source/network/NetServerTurnManager.h
+@@ -67,6 +67,16 @@
+ 	 */
+ 	u32 GetReadyTurn() { return m_ReadyTurn; }
+ 
++#ifdef DOLLY
++	bool HaveAllClientsSimulated(u32 turn) const
++	{
++		for (const auto& [id, client] : m_ClientsData)
++			if (client.simulatedTurn < turn)
++				return false;
++		return true;
++	}
++#endif
++
+ 	/**
+ 	 * Returns the turn length that was used for the given turn.
+ 	 * Requires turn <= GetReadyTurn().
+--- a/source/network/NetSession.cpp
++++ b/source/network/NetSession.cpp
+@@ -31,7 +31,11 @@
+ 
+ #include <cstddef>
+ 
++#ifdef DOLLY
++constexpr int NETCLIENT_POLL_TIMEOUT = 0;
++#else
+ constexpr int NETCLIENT_POLL_TIMEOUT = 50;
++#endif
+ 
+ constexpr int CHANNEL_COUNT = 1;
+ 
+@@ -92,6 +96,24 @@
+ 	return true;
+ }
+ 
++#ifdef DOLLY
++void CNetClientSession::PollOnce()
++{
++	m_FileTransferer.Poll();
++	Flush();
++	for (unsigned i = 0; i < 64; ++i)
++	{
++		bool hadEvent = false;
++		Poll(&hadEvent);
++		if (!hadEvent)
++			break;
++	}
++	Flush();
++	m_LastReceivedTime = enet_time_get() - m_Server->lastReceiveTime;
++	m_MeanRTT = m_Server->roundTripTime;
++}
++#endif
++
+ void CNetClientSession::RunNetLoop(CNetClientSession* session)
+ {
+ 	ENSURE(!session->m_LoopRunning);
+@@ -122,13 +144,16 @@
+ 	m_ShouldShutdown = true;
+ }
+ 
+-void CNetClientSession::Poll()
+-{
++void CNetClientSession::Poll(bool* hadEvent)
++{
++	if (hadEvent) *hadEvent = false;
+ 	ENetEvent event;
+ 
+ 	// Use the timeout to make the thread wait and save CPU time.
+ 	if (enet_host_service(m_Host, &event, NETCLIENT_POLL_TIMEOUT) <= 0)
+ 		return;
++
++	if (hadEvent) *hadEvent = true;
+ 
+ 	if (event.type == ENET_EVENT_TYPE_CONNECT)
+ 	{
+--- a/source/network/NetSession.h
++++ b/source/network/NetSession.h
+@@ -90,6 +90,9 @@
+ 	 * Processes pending messages.
+ 	 */
+ 	void ProcessPolledMessages();
++#ifdef DOLLY
++	void PollOnce();
++#endif
+ 
+ 	/**
+ 	 * Queue up a message to send to the server on the next Loop() call.
+@@ -111,7 +114,7 @@
+ 	/**
+ 	 * Process queued incoming messages.
+ 	 */
+-	void Poll();
++	void Poll(bool* hadEvent = nullptr);
+ 
+ 	/**
+ 	 * Flush queued outgoing network messages.
+--- a/source/ps/CLogger.cpp
++++ b/source/ps/CLogger.cpp
+@@ -213,7 +213,7 @@
+ 
+ 		const CVector2D savedTranslate = textRenderer.GetTranslate();
+ 
+-		textRenderer.PrintfAdvance(L"[%8.3f] %hs: ", msg.time, type);
++		textRenderer.PrintfAdvance(L"[%8.3f] %s: ", msg.time, type);
+ 		// Display the actual message in white so it's more readable
+ 		textRenderer.SetCurrentColor(CColor(1.0f, 1.0f, 1.0f, 1.0f));
+ 		textRenderer.Put(0.0f, 0.0f, msg.message.c_str());
+--- a/source/ps/GameSetup/GameSetup.cpp
++++ b/source/ps/GameSetup/GameSetup.cpp
+@@ -122,7 +122,7 @@
+ #include <utility>
+ 
+ 
+-#if !(OS_WIN || OS_MACOSX || OS_ANDROID) // assume all other platforms use X11 for wxWidgets
++#if !(OS_WIN || OS_MACOSX || OS_ANDROID || OS_DOLLY) // assume all other platforms use X11 for wxWidgets
+ #define MUST_INIT_X11 1
+ #include <X11/Xlib.h>
+ #else
+@@ -313,7 +313,7 @@
+ 	setenv("SDL_VIDEO_X11_DGAMOUSE", "0", 0);
+ #endif
+ 
+-	if(SDL_Init(SDL_INIT_VIDEO|SDL_INIT_TIMER|SDL_INIT_NOPARACHUTE) < 0)
++	if(SDL_Init(SDL_INIT_VIDEO|(OS_DOLLY ? 0 : SDL_INIT_TIMER)|SDL_INIT_NOPARACHUTE) < 0)
+ 	{
+ 		LOGERROR("SDL library initialization failed: %s", SDL_GetError());
+ 		throw PSERROR_System_SDLInitFailed();
+@@ -627,8 +627,10 @@
+ 	// system already inits those)
+ 	curl_global_init(CURL_GLOBAL_ALL & ~CURL_GLOBAL_WIN32);
+ 
++#ifndef DOLLY
+ 	if (!g_Quickstart)
+ 		g_UserReporter.Initialize(); // after config
++#endif
+ 
+ 	PROFILE2_EVENT("Init finished");
+ 	return true;
+--- a/source/ps/GameSetup/HWDetect.cpp
++++ b/source/ps/GameSetup/HWDetect.cpp
+@@ -23,7 +23,9 @@
+ #include "lib/debug.h"
+ #include "lib/external_libraries/curl.h"
+ #include "lib/external_libraries/enet.h"
++#if CONFIG2_LOBBY
+ #include "lib/external_libraries/gloox.h"
++#endif
+ #include "lib/external_libraries/png.h"
+ #include "lib/external_libraries/libsdl.h"
+ #include "lib/path.h"
+@@ -209,7 +211,9 @@
+ 	appendLibrary(LibraryReporter{rq, "boost"}.Add("version", BOOST_VERSION).MakeReport());
+ 	appendLibrary(LibraryReporter{rq, "enet"}.Add("version", std::to_string(ENET_VERSION)).MakeReport());
+ 	appendLibrary(LibraryReporter{rq, "fmt"}.Add("version", FMT_VERSION).MakeReport());
++#if CONFIG2_LOBBY
+ 	appendLibrary(LibraryReporter{rq, "gloox"}.Add("version", gloox_version()).MakeReport());
++#endif
+ 	appendLibrary(LibraryReporter{rq, "libicu"}.Add("version", U_ICU_VERSION).MakeReport());
+ 	appendLibrary(LibraryReporter{rq, "libcurl"}.Add("version", std::string(curl_version())).MakeReport());
+ #if CONFIG2_AUDIO
+--- a/source/ps/SavedGame.cpp
++++ b/source/ps/SavedGame.cpp
+@@ -122,23 +122,27 @@
+ 	JS::RootedValue guiMetadata(rq.cx);
+ 	Script::ReadStructuredClone(rq, guiMetadataClone, &guiMetadata);
+ 
+-	// get some camera data
+-	const CVector3D cameraPosition = g_Game->GetView()->GetCameraPosition();
+-	const CVector3D cameraRotation = g_Game->GetView()->GetCameraRotation();
+-
+-	JS::RootedValue cameraMetadata(rq.cx);
+-
+-	Script::CreateObject(
+-		rq,
+-		&cameraMetadata,
+-		"PosX", cameraPosition.X,
+-		"PosY", cameraPosition.Y,
+-		"PosZ", cameraPosition.Z,
+-		"RotX", cameraRotation.X,
+-		"RotY", cameraRotation.Y,
+-		"Zoom", g_Game->GetView()->GetCameraZoom());
+-
+-	Script::SetProperty(rq, guiMetadata, "camera", cameraMetadata);
++	if (g_Game->GetView())
++	{
++		// get some camera data
++		const CVector3D cameraPosition = g_Game->GetView()->GetCameraPosition();
++		const CVector3D cameraRotation = g_Game->GetView()->GetCameraRotation();
++
++		JS::RootedValue cameraMetadata(rq.cx);
++
++		Script::CreateObject(
++			rq,
++			&cameraMetadata,
++			"PosX", cameraPosition.X,
++			"PosY", cameraPosition.Y,
++			"PosZ", cameraPosition.Z,
++			"RotX", cameraRotation.X,
++			"RotY", cameraRotation.Y,
++			"Zoom", g_Game->GetView()->GetCameraZoom());
++
++		Script::SetProperty(rq, guiMetadata, "camera", cameraMetadata);
++
++	}
+ 
+ 	Script::SetProperty(rq, metadata, "gui", guiMetadata);
+ 	Script::SetProperty(rq, metadata, "description", description);
+--- a/source/ps/TaskManager.cpp
++++ b/source/ps/TaskManager.cpp
+@@ -35,6 +35,15 @@
+ 
+ namespace Threading
+ {
++#if defined(DOLLY)
++class TaskManager::Impl {};
++TaskManager::TaskManager() : m{std::make_unique<Impl>()} {}
++TaskManager::TaskManager(size_t) : TaskManager() {}
++TaskManager::~TaskManager() = default;
++size_t TaskManager::GetNumberOfWorkers() const { return 0; }
++void TaskManager::PushTask(std::function<void()> task, TaskPriority) { task(); }
++#else
++
+ 
+ namespace
+ {
+@@ -284,4 +293,5 @@
+ 	std::invoke(callable, object);
+ }
+ 
++#endif
+ } // namespace Threading
+--- a/source/ps/VideoMode.cpp
++++ b/source/ps/VideoMode.cpp
+@@ -16,6 +16,9 @@
+  */
+ 
+ #include "precompiled.h"
++#if OS_DOLLY
++#include "renderer/backend/dolly/Device.h"
++#endif
+ 
+ #include "VideoMode.h"
+ 
+@@ -95,6 +98,7 @@
+ 		fallback = Renderer::Backend::Backend::DUMMY;
+ 		break;
+ 	case Renderer::Backend::Backend::DUMMY:
++	case Renderer::Backend::Backend::WEBGPU:
+ 		break;
+ 	case Renderer::Backend::Backend::VULKAN:
+ 		fallback = Renderer::Backend::Backend::GL;
+@@ -113,6 +117,9 @@
+ 		break;
+ 	case Renderer::Backend::Backend::GL_ARB:
+ 		name = "GL ARB";
++		break;
++	case Renderer::Backend::Backend::WEBGPU:
++		name = "Dolly WebGPU";
+ 		break;
+ 	case Renderer::Backend::Backend::DUMMY:
+ 		name = "Dummy";
+@@ -186,8 +193,10 @@
+ 
+ 	if (m_Cursor)
+ 		SDL_FreeCursor(m_Cursor);
++	m_Cursor = nullptr;
+ 	if (m_CursorSurface)
+ 		SDL_FreeSurface(m_CursorSurface);
++	m_CursorSurface = nullptr;
+ 
+ 	if (name.empty())
+ 	{
+@@ -306,7 +315,9 @@
+ 	m_ConfigVSync = g_ConfigDB.Get("vsync", m_ConfigVSync);
+ 
+ 	const std::string rendererBackend{g_ConfigDB.Get("rendererbackend", std::string{})};
+-	if (rendererBackend == "glarb")
++	if (rendererBackend == "dolly")
++		m_Backend = Renderer::Backend::Backend::WEBGPU;
++	else if (rendererBackend == "glarb")
+ 		m_Backend = Renderer::Backend::Backend::GL_ARB;
+ 	else if (rendererBackend == "dummy")
+ 		m_Backend = Renderer::Backend::Backend::DUMMY;
+@@ -575,7 +586,7 @@
+ 		h = DEFAULT_WINDOW_H;
+ 	}
+ 
+-	if (!m_ConfigFullscreen)
++	if (!m_ConfigFullscreen && !OS_DOLLY)
+ 	{
+ 		// Limit the window to the screen size (if known)
+ 		if (m_PreferredW)
+@@ -658,6 +669,11 @@
+ {
+ 	switch (m_Backend)
+ 	{
++	case Renderer::Backend::Backend::WEBGPU:
++#if OS_DOLLY
++		m_BackendDevice = Renderer::Backend::Dolly::CreateDevice(window);
++#endif
++		break;
+ 	case Renderer::Backend::Backend::GL:
+ 		m_BackendDevice = Renderer::Backend::GL::CreateDevice(window, false);
+ 		break;
+--- a/source/ps/strings/StringBuilder.h
++++ b/source/ps/strings/StringBuilder.h
+@@ -29,7 +29,7 @@
+ #if defined(__cpp_lib_to_chars)
+ #include <charconv>
+ #else
+-#include <fmt/core.h>
++#include <fmt/format.h>
+ #endif
+ 
+ namespace PS
+--- a/source/renderer/GPUSkinnedModelRenderer.cpp
++++ b/source/renderer/GPUSkinnedModelRenderer.cpp
+@@ -351,14 +351,15 @@
+ 	ModelRData* modelRData{new ModelRData(key)};
+ 
+ 	const size_t numberOfVertices{modelDefRData->m_Array.GetNumberOfVertices()};
++	// Distinct pools keep writable shader bindings from aliasing.
+ 	modelRData->m_PositionHandle = g_Renderer.GetVertexBufferManager().AllocateChunk(
+ 		OUTPUT_POSITION_STRIDE, numberOfVertices, Renderer::Backend::IBuffer::Type::VERTEX,
+ 		Renderer::Backend::IBuffer::Usage::STORAGE,
+-		nullptr, CVertexBufferManager::Group::WATER);
++		nullptr, CVertexBufferManager::Group::MODEL_POSITIONS);
+ 	modelRData->m_NormalTangentHandle = g_Renderer.GetVertexBufferManager().AllocateChunk(
+ 		OUTPUT_NORMAL_TANGENT_STRIDE, numberOfVertices, Renderer::Backend::IBuffer::Type::VERTEX,
+ 		Renderer::Backend::IBuffer::Usage::STORAGE,
+-		nullptr, CVertexBufferManager::Group::WATER);
++		nullptr, CVertexBufferManager::Group::MODEL_ATTRIBUTES);
+ 
+ 	return modelRData;
+ }
+--- a/source/renderer/RenderingOptions.cpp
++++ b/source/renderer/RenderingOptions.cpp
+@@ -245,16 +245,10 @@
+ 	m_ConfigHooks->Setup("gpuskinning", [this]() {
+ 		const Renderer::Backend::IDevice::Capabilities& capabilities{
+ 			g_VideoMode.GetBackendDevice()->GetCapabilities()};
+-		if (!g_ConfigDB.Get("gpuskinning", false))
+-			return;
+-
+-		if (capabilities.computeShaders && capabilities.storage)
+-			m_GPUSkinning = true;
+-		else
+-		{
+-			m_GPUSkinning = false;
++		const bool requested = g_ConfigDB.Get("gpuskinning", false);
++		m_GPUSkinning = requested && capabilities.computeShaders && capabilities.storage;
++		if (requested && !m_GPUSkinning)
+ 			LOGMESSAGE("GPU skinning isn't supported on the current hardware.");
+-		}
+ 
+ 		if (CRenderer::IsInitialised())
+ 			g_Renderer.MakeShadersDirty();
+--- a/source/renderer/SceneRenderer.cpp
++++ b/source/renderer/SceneRenderer.cpp
+@@ -573,7 +573,8 @@
+ 
+ 	// Save the model-view-projection matrix so the shaders can use it for projective texturing
+ 	wm.m_ReflectionMatrix = m_ViewCamera.GetViewProjection();
+-	if (deviceCommandContext->GetDevice()->GetBackend() == Renderer::Backend::Backend::VULKAN)
++	if ((deviceCommandContext->GetDevice()->GetBackend() == Renderer::Backend::Backend::VULKAN ||
++		deviceCommandContext->GetDevice()->GetBackend() == Renderer::Backend::Backend::WEBGPU))
+ 	{
+ 		CMatrix3D flip;
+ 		flip.SetIdentity();
+@@ -664,7 +665,8 @@
+ 	wm.m_RefractionProjInvMatrix = m_ViewCamera.GetProjection().GetInverse();
+ 	wm.m_RefractionViewInvMatrix = m_ViewCamera.GetOrientation();
+ 
+-	if (deviceCommandContext->GetDevice()->GetBackend() == Renderer::Backend::Backend::VULKAN)
++	if ((deviceCommandContext->GetDevice()->GetBackend() == Renderer::Backend::Backend::VULKAN ||
++		deviceCommandContext->GetDevice()->GetBackend() == Renderer::Backend::Backend::WEBGPU))
+ 	{
+ 		CMatrix3D flip;
+ 		flip.SetIdentity();
+--- a/source/renderer/VertexBufferManager.cpp
++++ b/source/renderer/VertexBufferManager.cpp
+@@ -65,6 +65,12 @@
+ 	case CVertexBufferManager::Group::WATER:
+ 		name = "Water";
+ 		break;
++	case CVertexBufferManager::Group::MODEL_POSITIONS:
++		name = "ModelPositions";
++		break;
++	case CVertexBufferManager::Group::MODEL_ATTRIBUTES:
++		name = "ModelAttributes";
++		break;
+ 	default:
+ 		debug_warn("Unknown buffer group");
+ 		break;
+--- a/source/renderer/VertexBufferManager.h
++++ b/source/renderer/VertexBufferManager.h
+@@ -46,6 +46,8 @@
+ 		DEFAULT,
+ 		TERRAIN,
+ 		WATER,
++		MODEL_POSITIONS,
++		MODEL_ATTRIBUTES,
+ 		COUNT
+ 	};
+ 
+--- a/source/renderer/backend/Backend.h
++++ b/source/renderer/backend/Backend.h
+@@ -29,6 +29,7 @@
+ 	GL,
+ 	GL_ARB,
+ 	VULKAN,
++	WEBGPU,
+ 	DUMMY
+ };
+ 
+--- a/source/scriptinterface/ScriptContext.cpp
++++ b/source/scriptinterface/ScriptContext.cpp
+@@ -104,7 +104,24 @@
+ 
+ std::shared_ptr<ScriptContext> ScriptContext::CreateContext(int contextSize, uint32_t heapGrowthBytesGCTrigger)
+ {
++#if defined(DOLLY)
++	// Serial tasks share one context and retain their separate realms.
++	static std::weak_ptr<ScriptContext> current;
++	if (std::shared_ptr<ScriptContext> context = current.lock())
++	{
++		if (contextSize > context->m_ContextSize)
++		{
++			context->m_ContextSize = contextSize;
++			JS_SetGCParameter(context->m_cx, JSGC_MAX_BYTES, contextSize);
++		}
++		return context;
++	}
++	auto context = std::make_shared<ScriptContext>(contextSize, heapGrowthBytesGCTrigger);
++	current = context;
++	return context;
++#else
+ 	return std::make_shared<ScriptContext>(contextSize, heapGrowthBytesGCTrigger);
++#endif
+ }
+ 
+ ScriptContext::ScriptContext(int contextSize, uint32_t heapGrowthBytesGCTrigger):
+--- a/source/soundmanager/SoundManager.cpp
++++ b/source/soundmanager/SoundManager.cpp
+@@ -40,6 +40,11 @@
+ #include "soundmanager/items/ISoundItem.h"
+ #include "soundmanager/scripting/SoundGroup.h"
+ 
++#ifdef DOLLY
++#define AL_ALEXT_PROTOTYPES
++#include <AL/alext.h>
++#include <cerrno>
++#endif
+ #include <SDL_timer.h>
+ #include <algorithm>
+ #include <cstring>
+@@ -63,7 +68,9 @@
+ 		m_DeadItems = new ItemsList;
+ 		m_Shutdown = false;
+ 
++#ifndef DOLLY
+ 		m_WorkerThread = std::thread(Threading::HandleExceptions<RunThread>::Wrapper, this);
++#endif
+ 	}
+ 
+ 	~CSoundManagerWorker()
+@@ -89,7 +96,9 @@
+ 
+ 		}
+ 
++#ifndef DOLLY
+ 		m_WorkerThread.join();
++#endif
+ 
+ 		return true;
+ 	}
+@@ -99,6 +108,20 @@
+ 		std::lock_guard<std::mutex> lock(m_WorkerMutex);
+ 		m_Items->push_back(anItem);
+ 	}
++
++#ifdef DOLLY
++	void Poll()
++	{
++		for (auto it = m_Items->begin(); it != m_Items->end();)
++			if ((*it)->IdleTask())
++				++it;
++			else
++			{
++				m_DeadItems->push_back(*it);
++				it = m_Items->erase(it);
++			}
++	}
++#endif
+ 
+ 	void CleanupItems()
+ 	{
+@@ -198,7 +221,11 @@
+ 	if (g_SoundManager)
+ 		return;
+ 
++#ifdef DOLLY
++	ALCdevice* device = alcLoopbackOpenDeviceSOFT(nullptr);
++#else
+ 	ALCdevice* device = alcOpenDevice(nullptr);
++#endif
+ 	if (!device)
+ 	{
+ 		LOGWARNING("No audio device was found.");
+@@ -280,6 +307,10 @@
+ CSoundManager::~CSoundManager()
+ {
+ 	UnregisterFileReloadFunc(ReloadChangedFileCB, this);
++#ifdef DOLLY
++	if (m_Audio.scope)
++		dolly_audio_close(&m_Audio);
++#endif
+ 
+ 	if (m_Worker)
+ 	{
+@@ -321,11 +352,20 @@
+ 	Status ret = INFO::OK;
+ 
+ 	if(!m_Device)
++#ifdef DOLLY
++		m_Device = alcLoopbackOpenDeviceSOFT(nullptr);
++#else
+ 		m_Device = alcOpenDevice(nullptr);
++#endif
+ 
+ 	if (m_Device)
+ 	{
++#ifdef DOLLY
++		ALCint attribs[] = {ALC_STEREO_SOURCES, 16, ALC_FORMAT_CHANNELS_SOFT, ALC_STEREO_SOFT,
++			ALC_FORMAT_TYPE_SOFT, ALC_FLOAT_SOFT, ALC_FREQUENCY, DOLLY_AUDIO_RATE, 0};
++#else
+ 		ALCint attribs[] = {ALC_STEREO_SOURCES, 16, 0};
++#endif
+ 		m_Context = alcCreateContext(m_Device, &attribs[0]);
+ 
+ 		if (m_Context)
+@@ -374,6 +414,14 @@
+ #endif // !OS_UNIX
+ 	}
+ 
++#ifdef DOLLY
++	if (m_Enabled && dolly_audio_open(&m_Audio) < 0)
++	{
++		LOGERROR("Dolly PCM device open failed: %d", errno);
++		m_Enabled = false;
++		ret = ERR::FAIL;
++	}
++#endif
+ 	return ret;
+ }
+ 
+@@ -599,6 +647,37 @@
+ 
+ 		if (m_Worker)
+ 			m_Worker->CleanupItems();
++#ifdef DOLLY
++		if (m_Worker)
++			m_Worker->Poll();
++		dolly_audio_status status;
++		if (dolly_audio_get_status(&m_Audio, &status) < 0)
++		{
++			LOGERROR("Dolly PCM status failed: %d", errno);
++			m_Enabled = false;
++			return;
++		}
++		// Keep a bounded cushion across render frames. Suspended browser audio
++		// must not advance the mixer or accumulate stale effects.
++		if (status.state != 1)
++			return;
++		// Whole chunks bound the number of browser buffers even at high FPS.
++		constexpr uint32_t chunkFrames = 2048, queueFrames = 32768;
++		float pcm[chunkFrames * DOLLY_AUDIO_CHANNELS];
++		while (status.queued_frames + chunkFrames <= queueFrames)
++		{
++			alcRenderSamplesSOFT(m_Device, pcm, chunkFrames);
++			if (dolly_audio_write(&m_Audio, pcm, chunkFrames) != static_cast<int>(chunkFrames))
++			{
++				LOGERROR("Dolly PCM write failed: %d", errno);
++				m_Enabled = false;
++				return;
++			}
++			status.queued_frames += chunkFrames;
++			if (m_Worker)
++				m_Worker->Poll();
++		}
++#endif
+ 	}
+ }
+ 
+@@ -819,6 +898,12 @@
+ 
+ void CSoundManager::RunHardwareDetection()
+ {
++#ifdef DOLLY
++	m_SoundCardNames = "Dolly stereo PCM";
++	if (const char* version = alGetString(AL_VERSION))
++		m_OpenALVersion = version;
++	return;
++#endif
+ 	// OpenAL alGetString might not return anything interesting on certain platforms
+ 	// (see https://stackoverflow.com/questions/28960638 for an example).
+ 	// However our previous code supported only Windows, and alGetString does work on
+--- a/source/soundmanager/SoundManager.h
++++ b/source/soundmanager/SoundManager.h
+@@ -31,6 +31,9 @@
+ #include "scripting/SoundGroup.h"
+ #include "simulation2/system/Entity.h"
+ 
++#ifdef DOLLY
++#include <dolly/audio.h>
++#endif
+ #include <AL/al.h>
+ #include <AL/alc.h>
+ #include <map>
+@@ -61,6 +64,9 @@
+ 
+ protected:
+ 
++#ifdef DOLLY
++	dolly_audio m_Audio{};
++#endif
+ 	ALCcontext* m_Context;
+ 	ALCdevice* m_Device;
+ 	ALSourceHolder* m_ALSourceBuffer;
+--- a/source/third_party/mongoose/mongoose.cpp
++++ b/source/third_party/mongoose/mongoose.cpp
+@@ -4230,6 +4230,11 @@
+ 
+ struct mg_context *mg_start(mg_callback_t user_callback, void *user_data,
+                             const char **options) {
++#if defined(DOLLY)
++  fprintf(stderr, "Dolly does not support listening HTTP servers.\n");
++  errno = ENOTSUP;
++  return NULL;
++#else
+   struct mg_context *ctx;
+   const char *name, *value, *default_value;
+   int i;
+@@ -4311,4 +4316,5 @@
+   }
+ 
+   return ctx;
+-}
++#endif
++}
+--- a/build/premake/premake5.lua
++++ b/build/premake/premake5.lua
+@@ -90,7 +90,9 @@
+ arch = "x86"
+ macos_arch = "x86_64"
+ 
+-if _OPTIONS["android"] then
++if os.istarget("emscripten") then
++	arch = "wasm64"
++elseif _OPTIONS["android"] then
+ 	arch = "arm"
+ elseif os.istarget("windows") then
+ 	if os.getenv("HOSTTYPE") then
+@@ -165,7 +167,7 @@
+ -- The pc file doesn't specify the required -DDEBUG needed in that case
+ local mozjs_is_debug_build = false
+ if _OPTIONS["with-system-mozjs"] then
+-	local _, errorCode = os.outputof(cc .. " $(pkg-config mozjs-128 --cflags) ./tests/mozdebug.c -o /dev/null")
++	local _, errorCode = os.outputof(cc .. " $(pkg-config mozjs-128 --cflags) -c ./tests/mozdebug.c -o /dev/null")
+ 	if errorCode ~= 0 then
+ 		mozjs_is_debug_build = true
+ 	end
+@@ -178,6 +180,11 @@
+ location(_OPTIONS["outpath"])
+ configurations { "Release", "Debug" }
+ startproject "pyrogenesis"
++if os.istarget("emscripten") then
++	architecture "wasm64"
++	defines { "DOLLY", "CONFIG2_FILE_ENABLE_AIO=0", "CONFIG2_TIMER_ALLOW_RDTSC=0" }
++	buildoptions { "-m64", "-matomics", "-mbulk-memory", "-fwasm-exceptions", "-sWASM_LEGACY_EXCEPTIONS=0", "-sSUPPORT_LONGJMP=wasm", "-O2", "-msimd128" }
++end
+ 
+ source_root = rootdir.."/source/" -- default for most projects - overridden by local in others
+ 
+@@ -915,6 +922,9 @@
+ 	if not _OPTIONS["without-nvtt"] then
+ 		table.insert(extern_libs, "nvtt")
+ 	end
++	if os.istarget("emscripten") then
++		table.insert(source_dirs, "renderer/backend/dolly")
++	end
+ 	setup_static_lib_project("graphics", source_dirs, extern_libs, {})
+ 
+ 
+@@ -1005,6 +1015,7 @@
+ 
+ 	-- OS-specific
+ 	sysdep_dirs = {
++		emscripten = { "lib/sysdep/os/unix", "lib/sysdep/os/dolly", "lib/sysdep/arch/wasm64" },
+ 		linux = { "lib/sysdep/os/linux", "lib/sysdep/os/unix" },
+ 		-- note: RC file must be added to main_exe project.
+ 		-- note: don't add "lib/sysdep/os/win/aken.cpp" because that must be compiled with the DDK.
+@@ -1040,10 +1051,13 @@
+ 	end
+ 
+ 	setup_static_lib_project("lowlevel", source_dirs, extern_libs, extra_params)
++	if os.istarget("emscripten") then
++		removefiles { source_root.."lib/sysdep/os/unix/unix_executable_pathname.cpp" }
++	end
+ 
+ 
+ 	extern_libs = { "glad" }
+-	if not os.istarget("windows") and not _OPTIONS["android"] and not os.istarget("macosx") then
++	if not os.istarget("windows") and not _OPTIONS["android"] and not os.istarget("macosx") and not os.istarget("emscripten") then
+ 		table.insert(extern_libs, "x11")
+ 	end
+ 	setup_static_lib_project("gladwrapper", {}, extern_libs, { no_pch = 1 })
+@@ -1123,7 +1137,7 @@
+ 	"oleaut32",
+ }
+ 
+-if not os.istarget("windows") and not _OPTIONS["android"] and not os.istarget("macosx") then
++if not os.istarget("windows") and not _OPTIONS["android"] and not os.istarget("macosx") and not os.istarget("emscripten") then
+ 	-- X11 should only be linked on *nix
+ 	table.insert(used_extern_libs, "x11")
+ end
+@@ -1164,7 +1178,9 @@
+ 	project_add_contents(source_root, {}, {}, extra_params)
+ 	project_add_extern_libs(used_extern_libs, target_type)
+ 
+-	dependson { "Collada" }
++	if not os.istarget("emscripten") then
++		dependson { "Collada" }
++	end
+ 
+ 	rtti "off"
+ 
+@@ -1578,7 +1594,9 @@
+ 	project_add_contents(source_root, {}, {}, extra_params)
+ 	project_add_extern_libs(used_extern_libs, target_type)
+ 
+-	dependson { "Collada" }
++	if not os.istarget("emscripten") then
++		dependson { "Collada" }
++	end
+ 
+ 	rtti "off"
+ 
+@@ -1670,7 +1688,9 @@
+ 	setup_atlas_frontends()
+ end
+ 
+-setup_collada_projects()
++if not os.istarget("emscripten") then
++	setup_collada_projects()
++end
+ 
+ if not _OPTIONS["without-tests"] then
+ 	setup_tests()
+--- /dev/null
++++ b/source/lib/sysdep/arch/wasm64/wasm64.cpp
+@@ -0,0 +1,4 @@
++#include "precompiled.h"
++#include "lib/sysdep/cpu.h"
++
++const char* cpu_IdentifierString() { return "WebAssembly64"; }
+--- /dev/null
++++ b/source/lib/sysdep/os/dolly/dolly.cpp
+@@ -0,0 +1,48 @@
++#include "precompiled.h"
++#include "lib/debug.h"
++#include "lib/sysdep/dir_watch.h"
++#include "lib/sysdep/os_cpu.h"
++#include "lib/sysdep/sysdep.h"
++#include <climits>
++#include <unistd.h>
++
++size_t os_cpu_NumProcessors() { return 1; }
++uintptr_t os_cpu_ProcessorMask() { return 1; }
++size_t os_cpu_PageSize() { return 65536; }
++size_t os_cpu_LargePageSize() { return 0; }
++// Host physical memory is not exposed to the guest.
++size_t os_cpu_QueryMemorySize() { return 0; }
++size_t os_cpu_MemoryAvailable() { return 0; }
++uintptr_t os_cpu_SetThreadAffinityMask(uintptr_t mask) { return mask == 1 ? 1 : 0; }
++Status os_cpu_CallByEachCPU(OsCpuCallback cb, uintptr_t data)
++{
++	cb(0, data);
++	return INFO::OK;
++}
++
++OsPath sys_ExecutablePathname()
++{
++	char path[PATH_MAX];
++	const ssize_t size = readlink("/proc/self/exe", path, sizeof(path) - 1);
++	if (size < 0 || size == sizeof(path) - 1)
++		return OsPath();
++	path[size] = 0;
++	return OsPath(path);
++}
++
++void* debug_GetCaller(void*, const wchar_t*) { return nullptr; }
++Status debug_DumpStack(wchar_t* buf, size_t size, void*, const wchar_t*)
++{
++	if (size) buf[0] = 0;
++	return ERR::NOT_SUPPORTED;
++}
++Status debug_ResolveSymbol(void*, wchar_t* symbol, wchar_t* file, int* line)
++{
++	if (symbol) *symbol = 0;
++	if (file) *file = 0;
++	if (line) *line = 0;
++	return ERR::NOT_SUPPORTED;
++}
++void debug_SetThreadName(const char*) {}
++Status dir_watch_Add(const OsPath&, PDirWatch&) { return ERR::NOT_SUPPORTED; }
++Status dir_watch_Poll(DirWatchNotifications&) { return ERR::NOT_SUPPORTED; }
+--- /dev/null
++++ b/source/ps/DollyControl.cpp
+@@ -0,0 +1,204 @@
++// SPDX-License-Identifier: GPL-2.0-or-later
++#include "precompiled.h"
++
++#if OS_DOLLY
++#include "ps/CStr.h"
++#include "ps/Game.h"
++#include "ps/GameSetup/GameSetup.h"
++#include "ps/Loader.h"
++#include "ps/SavedGame.h"
++#include "ps/Util.h"
++#include "scriptinterface/JSON.h"
++#include "scriptinterface/Object.h"
++#include "scriptinterface/ScriptContext.h"
++#include "scriptinterface/ScriptInterface.h"
++#include "scriptinterface/ScriptRequest.h"
++#include "scriptinterface/StructuredClone.h"
++#include "simulation2/Simulation2.h"
++#include "simulation2/system/Component.h"
++#include "simulation2/system/LocalTurnManager.h"
++#include <js/Array.h>
++#include <js/Exception.h>
++#include <cstdio>
++#include <stdexcept>
++#include <string>
++
++namespace
++{
++template<typename T>
++T Property(const ScriptRequest& rq, JS::HandleValue request, const char* name)
++{
++	T value{};
++	if (!Script::HasProperty(rq, request, name) || !Script::GetProperty(rq, request, name, value))
++		throw std::runtime_error(std::string("Missing or invalid property: ") + name);
++	return value;
++}
++
++std::string State()
++{
++	CSimulation2& simulation = *g_Game->GetSimulation2();
++	ScriptRequest rq(simulation.GetScriptInterface());
++	JS::RootedValue state(rq.cx);
++	if (!simulation.GetScriptInterface().Eval(R"JS((() => {
++		const state = Engine.QueryInterface(SYSTEM_ENTITY, IID_GuiInterface).GetSimulationState();
++		state.entities = {};
++		for (const id of Engine.GetEntitiesWithInterface(IID_AIProxy))
++		{
++			const proxy = Engine.QueryInterface(id, IID_AIProxy);
++			const needsFullGet = proxy.needsFullGet, changes = proxy.changes;
++			try { state.entities[id] = proxy.GetFullRepresentation(); }
++			finally { proxy.needsFullGet = needsFullGet; proxy.changes = changes; }
++		}
++		return state;
++	})())JS", &state))
++		throw std::runtime_error("Observation failed");
++	return Script::StringifyJSON(rq, &state, false);
++}
++
++void Start(const ScriptInterface& control, JS::HandleValue attributes,
++	int player, const std::string& savedState)
++{
++	EndGame();
++	g_Game = new CGame(true);
++	const ScriptInterface& script = g_Game->GetSimulation2()->GetScriptInterface();
++	ScriptRequest rq(script);
++	JS::RootedValue copy(rq.cx, Script::CloneValueFromOtherCompartment(script, control, attributes));
++	g_Game->SetPlayerID(player);
++	g_Game->StartGame(&copy, savedState);
++	LDR_NonprogressiveLoad();
++	if (g_Game->ReallyStartGame() != PSRETURN_OK)
++		throw std::runtime_error("Game loading failed");
++}
++
++std::string Execute(const ScriptInterface& control, const ScriptRequest& rq,
++	JS::HandleValue request, const std::string& operation)
++{
++	if (operation == "observe")
++		return State();
++	if (operation == "hash")
++	{
++		std::string hash;
++		if (!g_Game->GetSimulation2()->ComputeStateHash(hash, false))
++			throw std::runtime_error("State hashing failed");
++		return "\"" + Hexify(hash) + "\"";
++	}
++	if (operation == "step")
++	{
++		const int turns = Script::HasProperty(rq, request, "turns") ? Property<int>(rq, request, "turns") : 1;
++		if (turns < 1 || turns > 1000)
++			throw std::runtime_error("turns must be between 1 and 1000");
++		std::vector<std::pair<int, std::string>> commands;
++		if (Script::HasProperty(rq, request, "commands"))
++		{
++			JS::RootedValue array(rq.cx);
++			Script::GetProperty(rq, request, "commands", &array);
++			bool isArray = false;
++			if (!JS::IsArrayObject(rq.cx, array, &isArray) || !isArray)
++				throw std::runtime_error("commands must be an array");
++			JS::RootedObject object(rq.cx, &array.toObject());
++			uint32_t length;
++			if (!JS::GetArrayLength(rq.cx, object, &length) || length > 1000)
++				throw std::runtime_error("At most 1000 commands are allowed per step");
++			for (uint32_t i = 0; i < length; ++i)
++			{
++				JS::RootedValue entry(rq.cx), command(rq.cx);
++				if (!JS_GetElement(rq.cx, object, i, &entry) || !entry.isObject() ||
++					!Script::GetProperty(rq, entry, "command", &command) || !command.isObject())
++					throw std::runtime_error("Each command needs player and command properties");
++				commands.emplace_back(Property<int>(rq, entry, "player"), Script::StringifyJSON(rq, &command, false));
++			}
++		}
++		const ScriptInterface& script = g_Game->GetSimulation2()->GetScriptInterface();
++		ScriptRequest gameRequest(script);
++		auto* turnManager = static_cast<CLocalTurnManager*>(g_Game->GetTurnManager());
++		for (const auto& [player, json] : commands)
++		{
++			JS::RootedValue command(gameRequest.cx);
++			if (!Script::ParseJSON(gameRequest, json, &command))
++				throw std::runtime_error("Invalid game command");
++			turnManager->PostCommand(player, command);
++		}
++		for (int i = 0; i < turns; ++i)
++			turnManager->Update(DEFAULT_TURN_LENGTH, 1);
++		return State();
++	}
++	if (operation == "save" || operation == "load")
++	{
++		const std::string name = Property<std::string>(rq, request, "name");
++		if (name.empty() || name.size() > 100 || name.find_first_not_of("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-") != std::string::npos)
++			throw std::runtime_error("Save name must contain 1 to 100 letters, digits, underscores or hyphens");
++		if (operation == "save")
++		{
++			JS::RootedValue metadata(rq.cx);
++			Script::CreateObject(rq, &metadata);
++			if (SavedGames::Save(CStr(name).FromUTF8(), L"Dolly control", *g_Game->GetSimulation2(),
++				Script::WriteStructuredClone(rq, metadata)) < 0)
++				throw std::runtime_error("Saving failed");
++		}
++		else
++		{
++			auto saved = SavedGames::Load(control, CStr(name).FromUTF8());
++			if (!saved)
++				throw std::runtime_error("Loading failed");
++			JS::RootedValue metadata(rq.cx, saved->metadata), attributes(rq.cx);
++			if (!Script::GetProperty(rq, metadata, "initAttributes", &attributes))
++				throw std::runtime_error("Save has no initAttributes");
++			Start(control, attributes, Property<int>(rq, metadata, "playerID"), saved->savedState);
++		}
++		return "null";
++	}
++	if (operation == "reset")
++	{
++		JS::RootedValue attributes(rq.cx);
++		if (!Script::GetProperty(rq, request, "attributes", &attributes) || !attributes.isObject())
++			throw std::runtime_error("reset needs game attributes");
++		const int player = Script::HasProperty(rq, request, "player") ? Property<int>(rq, request, "player") : 1;
++		Start(control, attributes, player, "");
++		return State();
++	}
++	throw std::runtime_error("Unknown operation: " + operation);
++}
++}
++
++void DollyControl_Run(FILE* output)
++{
++	ScriptInterface control("Engine", "Dolly control", g_ScriptContext);
++	ScriptRequest rq(control);
++	for (;;)
++	{
++		std::string line;
++		bool oversized = false;
++		int c;
++		while ((c = fgetc(stdin)) != EOF && c != '\n')
++		{
++			if (line.size() < 1024 * 1024) line += static_cast<char>(c);
++			else oversized = true;
++		}
++		if (c == EOF && line.empty()) break;
++		JS::RootedValue request(rq.cx), id(rq.cx, JS::NullValue());
++		std::string result;
++		bool ok = true, quit = false;
++		try
++		{
++			if (oversized || !Script::ParseJSON(rq, line, &request) || !request.isObject())
++				throw std::runtime_error("Expected a JSON object of at most 1 MiB");
++			if (Script::HasProperty(rq, request, "id")) Script::GetProperty(rq, request, "id", &id);
++			const std::string operation = Property<std::string>(rq, request, "op");
++			quit = operation == "quit";
++			result = quit ? "null" : Execute(control, rq, request, operation);
++		}
++		catch (const std::exception& error)
++		{
++			JS_ClearPendingException(rq.cx);
++			JS::RootedValue message(rq.cx);
++			Script::ToJSVal(rq, &message, std::string(error.what()));
++			result = Script::StringifyJSON(rq, &message, false);
++			ok = false;
++		}
++		const std::string responseId = Script::StringifyJSON(rq, &id, false);
++		fprintf(output, "{\"id\":%s,\"ok\":%s,\"%s\":%s}\n", responseId.c_str(),
++			ok ? "true" : "false", ok ? "result" : "error", result.c_str());
++		if (fflush(output) || quit) break;
++	}
++}
++#endif
+--- /dev/null
++++ b/source/renderer/backend/dolly/Device.cpp
+@@ -0,0 +1,1076 @@
++/* 0 A.D. Dolly renderer. SPDX-License-Identifier: GPL-2.0-or-later */
++#include "precompiled.h"
++#include "graphics/ShaderDefines.h"
++#include "lib/file/vfs/vfs.h"
++#include "ps/CLogger.h"
++#include "ps/CStrIntern.h"
++#include "ps/Filesystem.h"
++#include "ps/XML/Xeromyces.h"
++#include "renderer/backend/Backend.h"
++#include "renderer/backend/CompareOp.h"
++#include "renderer/backend/IDevice.h"
++#include "renderer/backend/IDeviceCommandContext.h"
++#include "renderer/backend/IFramebuffer.h"
++#include "renderer/backend/IShaderProgram.h"
++#include "renderer/backend/PipelineState.h"
++#include "renderer/backend/Sampler.h"
++#include "scriptinterface/Object.h"
++#include <dolly/gpu.h>
++#include <SDL_video.h>
++#include <algorithm>
++#include <array>
++#include <cerrno>
++#include <cstring>
++#include <functional>
++#include <map>
++#include <set>
++#include <tuple>
++
++namespace Renderer::Backend::Dolly
++{
++using Handle = uint64_t;
++static void U32(void* p, size_t at, uint32_t value) { std::memcpy(static_cast<char*>(p)+at, &value, 4); }
++static void U64(void* p, size_t at, uint64_t value) { std::memcpy(static_cast<char*>(p)+at, &value, 8); }
++static void F32(void* p, size_t at, float value) { std::memcpy(static_cast<char*>(p)+at, &value, 4); }
++static size_t Align(size_t n, size_t alignment) { return (n+alignment-1)/alignment*alignment; }
++static void Require(bool value, const char* operation)
++{
++    if (!value) { LOGERROR("Dolly renderer: %s (errno %d)", operation, errno); std::abort(); }
++}
++static std::string Read(const VfsPath& path)
++{
++    CVFSFile file;
++    Require(file.Load(g_VFS, path) == PSRETURN_OK, path.string8().c_str());
++    return std::string(reinterpret_cast<const char*>(file.GetBuffer()), file.GetBufferSize());
++}
++
++// Commands and all bookkeeping live in the guest. Flush ends the current pass;
++// the context may resume its persistent offscreen target with load operations.
++struct Queue
++{
++    std::unique_ptr<dolly_gpu> gpu = std::make_unique<dolly_gpu>();
++    Handle next = 0;
++    uint64_t submission = 1;
++    uint64_t frame = 1;
++    bool encoded = false;
++    std::vector<Handle> retired;
++    std::set<Handle> allocations;
++    size_t objects=0, pendingRetired=0, objectLimit=0;
++    std::vector<Handle> uniformBuffers;
++    static constexpr size_t uniformChunkBytes = 512*1024;
++    std::vector<uint8_t> uniformData = std::vector<uint8_t>(uniformChunkBytes);
++    size_t uniformPosition = 0, uniformUploadStart = 0;
++    uint32_t uniformAlignment = 0, commandLimit = 240;
++    std::function<void()> beforeFlush, afterFlush;
++    std::function<void(size_t)> reclaimObjects;
++    Handle New(bool allocation=false)
++    {
++        if(objects==objectLimit && reclaimObjects)reclaimObjects(1);
++        Require(objects<objectLimit,"GPU object capacity");
++        ++objects;Handle handle=++next;
++        if(allocation)allocations.insert(handle);
++        return handle;
++    }
++    void RawBatch()
++    {
++        if (gpu->count) Require(dolly_gpu_batch(gpu.get()) >= 0, "submit command packet");
++        dolly_gpu_begin(gpu.get());
++    }
++    void Flush()
++    {
++        if (beforeFlush) beforeFlush();
++        if (uniformPosition != uniformUploadStart)
++        {
++            size_t offset=uniformUploadStart%uniformChunkBytes,bytes=uniformPosition-uniformUploadStart;
++            void* p=dolly_gpu_record(gpu.get(),DOLLY_GPU_WRITE_BUFFER,32+bytes);
++            U64(p,8,uniformBuffers[uniformUploadStart/uniformChunkBytes]);U64(p,16,offset);
++            U32(p,24,32);U32(p,28,bytes);std::memcpy(static_cast<char*>(p)+32,uniformData.data()+offset,bytes);
++            uniformUploadStart=uniformPosition;
++        }
++        if (encoded) { dolly_gpu_submit(gpu.get()); encoded = false; ++submission; }
++        for (Handle handle : retired)
++        {
++            if (gpu->count >= commandLimit || gpu->length+16 > sizeof(gpu->packet)) RawBatch();
++            U64(dolly_gpu_record(gpu.get(), DOLLY_GPU_RELEASE, 16), 8, handle);
++            if(allocations.erase(handle))++pendingRetired;
++            else --objects;
++        }
++        retired.clear();
++        RawBatch();
++        if (afterFlush) afterFlush();
++    }
++    void Wait()
++    {
++        Flush();
++        if(!pendingRetired)return;
++        Require(dolly_gpu_wait(gpu.get())==0,"GPU resource retirement");
++        objects-=pendingRetired;pendingRetired=0;
++    }
++    void Reserve(size_t bytes, unsigned records = 1)
++    {
++        Require(bytes <= DOLLY_GPU_PACKET_BYTES-128 && records <= commandLimit, "command capacity");
++        size_t pending=uniformPosition-uniformUploadStart;
++        if (gpu->count+records+(pending?1:0) > commandLimit ||
++            gpu->length+bytes+(pending?32+Align(pending,8):0) > DOLLY_GPU_PACKET_BYTES-64) Flush();
++    }
++    void* Record(unsigned op, size_t bytes)
++    {
++        Reserve(Align(bytes,8));
++        return dolly_gpu_record(gpu.get(),op,bytes);
++    }
++    Handle Buffer(size_t bytes, unsigned usage)
++    {
++        Handle handle = New(true);
++        void* p = Record(DOLLY_GPU_CREATE_BUFFER,32);
++        U64(p,8,handle); U64(p,16,Align(bytes,4)); U32(p,24,usage);
++        return handle;
++    }
++    void Write(Handle handle, size_t offset, const void* data, size_t bytes)
++    {
++        Require(offset%4 == 0 && bytes%4 == 0, "buffer write alignment");
++        auto* source = static_cast<const uint8_t*>(data);
++        while (bytes)
++        {
++            size_t count = std::min(bytes, size_t(512*1024));
++            void* p = Record(DOLLY_GPU_WRITE_BUFFER,32+count);
++            U64(p,8,handle); U64(p,16,offset); U32(p,24,32); U32(p,28,count);
++            std::memcpy(static_cast<char*>(p)+32,source,count);
++            source += count; offset += count; bytes -= count;
++        }
++    }
++    std::pair<Handle,size_t> Uniform(const void* data,size_t bytes)
++    {
++        // Distinct aligned ranges survive every intermediate submission. Reuse
++        // starts only after Present submits all draws from the previous frame.
++        Require(uniformAlignment && bytes && bytes<=uniformChunkBytes,"uniform allocation size");
++        size_t position=Align(uniformPosition,uniformAlignment);
++        if(position%uniformChunkBytes+bytes>uniformChunkBytes)position=Align(position,uniformChunkBytes);
++        if(position/uniformChunkBytes!=uniformUploadStart/uniformChunkBytes)
++        {
++            Flush();uniformPosition=uniformUploadStart=position;
++        }
++        size_t chunk=position/uniformChunkBytes,offset=position%uniformChunkBytes;
++        if(chunk==uniformBuffers.size())uniformBuffers.push_back(Buffer(uniformChunkBytes,72));
++        Handle handle=uniformBuffers[chunk];
++        bool pending=uniformPosition!=uniformUploadStart;
++        Reserve(Align(position+bytes-uniformPosition,8)+(pending?0:32),pending?0:1);
++        std::memcpy(uniformData.data()+offset,data,bytes);
++        uniformPosition=position+bytes;
++        return {handle,offset};
++    }
++    Handle Shader(const std::string& code)
++    {
++        Handle handle = New();
++        void* p = Record(DOLLY_GPU_CREATE_SHADER,24+code.size());
++        U64(p,8,handle); U32(p,16,code.size()); std::memcpy(static_cast<char*>(p)+24,code.data(),code.size());
++        return handle;
++    }
++};
++
++class Device;
++class Context;
++class Texture;
++class Framebuffer;
++class Program;
++class Pipeline;
++class ComputePipeline;
++class VertexLayout;
++
++class Device final : public IDevice
++{
++public:
++    explicit Device(SDL_Window* window);
++    ~Device() override;
++    Backend GetBackend() const override { return Backend::WEBGPU; }
++    const std::string& GetName() const override { return name; }
++    const std::string& GetVersion() const override { return version; }
++    const std::string& GetDriverInformation() const override { return name; }
++    const std::vector<std::string>& GetExtensions() const override { return extensions; }
++    void Report(const ScriptRequest& rq, JS::HandleValue settings) override { Script::SetProperty(rq,settings,"name","Dolly WebGPU"); }
++    std::unique_ptr<IDeviceCommandContext> CreateCommandContext() override;
++    std::unique_ptr<IGraphicsPipelineState> CreateGraphicsPipelineState(const SGraphicsPipelineStateDesc&) override;
++    std::unique_ptr<IComputePipelineState> CreateComputePipelineState(const SComputePipelineStateDesc&) override;
++    std::unique_ptr<IVertexInputLayout> CreateVertexInputLayout(std::span<const SVertexAttributeFormat>) override;
++    std::unique_ptr<ITexture> CreateTexture(const char*,ITexture::Type,uint32_t,Format,uint32_t,uint32_t,const Sampler::Desc&,uint32_t,uint32_t) override;
++    std::unique_ptr<ITexture> CreateTexture2D(const char* label,uint32_t usage,Format format,uint32_t w,uint32_t h,const Sampler::Desc& sampler,uint32_t mips,uint32_t samples) override
++    { return CreateTexture(label,ITexture::Type::TEXTURE_2D,usage,format,w,h,sampler,mips,samples); }
++    std::unique_ptr<IFramebuffer> CreateFramebuffer(const char*,SColorAttachment*,SDepthStencilAttachment*) override;
++    std::unique_ptr<IBuffer> CreateBuffer(const char*,IBuffer::Type,uint32_t,uint32_t) override;
++    std::unique_ptr<IShaderProgram> CreateShaderProgram(const CStr&,const CShaderDefines&) override;
++    bool AcquireNextBackbuffer() override { return true; }
++    IFramebuffer* GetCurrentBackbuffer(AttachmentLoadOp,AttachmentStoreOp,AttachmentLoadOp,AttachmentStoreOp) override;
++    void Present() override;
++    void OnWindowResize(uint32_t,uint32_t) override;
++    bool IsTextureFormatSupported(Format) const override;
++    bool IsFramebufferFormatSupported(Format) const override;
++    Format GetPreferredDepthStencilFormat(uint32_t,bool,bool) const override;
++    uint32_t AllocateQuery() override { Require(false,"timestamp queries unsupported"); return 0; }
++    void FreeQuery(uint32_t) override {}
++    bool IsQueryResultAvailable(uint32_t) const override { return false; }
++    uint64_t GetQueryResult(uint32_t) override { Require(false,"timestamp query result unsupported"); return 0; }
++    const Capabilities& GetCapabilities() const override { return capabilities; }
++    Handle SamplerHandle(const Sampler::Desc&);
++    void PresentCommands();
++    Queue queue;
++    Context* context = nullptr;
++    Capabilities capabilities{};
++    std::string name, version = "dolly-gpu-0 texture rendering";
++    std::vector<std::string> extensions;
++    std::unique_ptr<ITexture> backColor, backDepth;
++    std::unique_ptr<Framebuffer> backbuffer;
++    std::map<std::array<uint32_t,8>,Handle> samplers;
++    Handle presentVS=0,presentFS=0,presentPipeline=0,presentGroup=0;
++    uint32_t width=0,height=0;
++    uint64_t nextLayout=0;
++    bool surfaceBGRA=false;
++};
++
++template<class Interface> class Owned : public Interface
++{
++public:
++    explicit Owned(Device* device) : device(device) {}
++    IDevice* GetDevice() override { return device; }
++    Device* device;
++};
++class Buffer final : public Owned<IBuffer>
++{
++public:
++    Buffer(Device* device,Type type,uint32_t size,uint32_t usage)
++        : Owned(device),type(type),usage(usage),size(size),bytes(usage&Usage::STORAGE?0:Align(size,4))
++    { handle=device->queue.Buffer(size,(type==Type::VERTEX?32:type==Type::INDEX?16:type==Type::UNIFORM?64:0)|12|(usage&Usage::STORAGE?128:0)); }
++    ~Buffer() override { device->queue.retired.push_back(handle); }
++    Type GetType() const override { return type; }
++    uint32_t GetSize() const override { return size; }
++    uint32_t GetUsage() const override { return usage; }
++    void Upload(const void* data,uint32_t offset,uint32_t count)
++    {
++        Require(offset<=size && count<=size-offset,"buffer upload bounds");
++        if(!count)return;
++        if(usage&Usage::STORAGE)
++        {
++            // GPU writes invalidate a CPU shadow, including any padding bytes.
++            Require(offset%4==0 && count%4==0,"storage upload alignment");
++            if(lastUsed==device->queue.submission)device->queue.Flush();
++            device->queue.Write(handle,offset,data,count);return;
++        }
++        if(std::memcmp(bytes.data()+offset,data,count)==0)return;
++        const auto* source=static_cast<const uint8_t*>(data);
++        constexpr uint32_t compareBlockBytes=4096;
++        while(count>=compareBlockBytes && !std::memcmp(bytes.data()+offset+count-compareBlockBytes,source+count-compareBlockBytes,compareBlockBytes))
++            count-=compareBlockBytes;
++        while(count>=compareBlockBytes && !std::memcmp(bytes.data()+offset,source,compareBlockBytes))
++        { offset+=compareBlockBytes;source+=compareBlockBytes;count-=compareBlockBytes; }
++        if(lastUsed==device->queue.submission)device->queue.Flush();
++        std::memcpy(bytes.data()+offset,source,count);
++        size_t start=offset&~size_t(3),end=Align(offset+count,4);
++        device->queue.Write(handle,start,bytes.data()+start,end-start);
++    }
++    Type type;
++    uint64_t lastUsed=0;
++    uint32_t usage,size;
++    Handle handle;
++    std::vector<uint8_t> bytes;
++};
++static uint32_t TextureFormat(Format format)
++{
++    switch(format)
++    {
++    case Format::R8G8B8A8_UNORM: case Format::R8G8B8_UNORM: case Format::B8G8R8A8_UNORM:
++    case Format::A8_UNORM: case Format::L8_UNORM: return 1;
++    case Format::R8_UNORM: return 3;
++    case Format::R8G8_UNORM: return 4;
++    case Format::D24_UNORM_S8_UINT: return 5;
++    case Format::D32_SFLOAT: return 6;
++    case Format::BC1_RGB_UNORM: case Format::BC1_RGBA_UNORM: return 7;
++    case Format::BC2_UNORM: return 8;
++    case Format::BC3_UNORM: return 9;
++    default: return 0;
++    }
++}
++class Texture final : public Owned<ITexture>
++{
++public:
++    Texture(Device* device,Type type,uint32_t usage,Format format,uint32_t w,uint32_t h,const Sampler::Desc& desc,uint32_t mips)
++        : Owned(device),type(type),format(format),usage(usage),width(w),height(h),mips(mips)
++    {
++        Require(device->IsTextureFormatSupported(format) && type!=Type::TEXTURE_2D_MULTISAMPLE,"texture format/type");
++        handle=device->queue.New(true);
++        void* p=device->queue.Record(DOLLY_GPU_CREATE_TEXTURE,48);
++        U64(p,8,handle);U32(p,16,w);U32(p,20,h);U32(p,24,type==Type::TEXTURE_CUBE?6:1);U32(p,28,mips);U32(p,32,TextureFormat(format));
++        U32(p,36,(usage&7)|((usage&(Usage::COLOR_ATTACHMENT|Usage::DEPTH_STENCIL_ATTACHMENT))?16:0));
++        sampler=device->SamplerHandle(desc);
++        borderParameters={unsigned(desc.addressModeU==Sampler::AddressMode::CLAMP_TO_BORDER) |
++            (unsigned(desc.addressModeV==Sampler::AddressMode::CLAMP_TO_BORDER)<<1) |
++            (unsigned(format==Format::BC1_RGB_UNORM)<<2),
++            unsigned(desc.minFilter),unsigned(desc.mipFilter),unsigned(desc.borderColor)};
++        Require(!(borderParameters[0]&3) || (type==Type::TEXTURE_2D && desc.minFilter==desc.magFilter),
++            "border sampling requires 2D textures with matching min/mag filters");
++    }
++    ~Texture() override { device->queue.retired.push_back(handle); }
++    Type GetType() const override { return type; }
++    uint32_t GetUsage() const override { return usage; }
++    Format GetFormat() const override { return format; }
++    uint32_t GetWidth() const override { return width; }
++    uint32_t GetHeight() const override { return height; }
++    uint32_t GetMIPLevelCount() const override { return mips; }
++    Type type;
++    Format format;
++    uint32_t usage,width,height,mips;
++    uint64_t lastUsed=0;
++    Handle handle,sampler;
++    std::array<uint32_t,4> borderParameters;
++};
++class Framebuffer final : public Owned<IFramebuffer>
++{
++public:
++    Framebuffer(Device* device,SColorAttachment color,SDepthStencilAttachment depth)
++        : Owned(device),color(color),depth(depth) {}
++    const CColor& GetClearColor() const override { return color.clearColor; }
++    uint32_t GetWidth() const override { return color.texture?color.texture->GetWidth():depth.texture->GetWidth(); }
++    uint32_t GetHeight() const override { return color.texture?color.texture->GetHeight():depth.texture->GetHeight(); }
++    SColorAttachment color;
++    SDepthStencilAttachment depth;
++};
++class VertexLayout final : public Owned<IVertexInputLayout>
++{
++public:
++    VertexLayout(Device* device,std::span<const SVertexAttributeFormat> values)
++        : Owned(device),attributes(values.begin(),values.end()),id(++device->nextLayout) {}
++    std::vector<SVertexAttributeFormat> attributes;
++    uint64_t id;
++};
++class Program final : public Owned<IShaderProgram>
++{
++public:
++    struct Binding { CStrIntern name; unsigned group,offset,size; bool cube=false; Texture* texture=nullptr; Buffer* buffer=nullptr; };
++    explicit Program(Device* device) : Owned(device) {}
++    ~Program() override { for(Handle handle:{vertex,fragment,compute})if(handle)device->queue.retired.push_back(handle); }
++    int32_t GetBindingSlot(CStrIntern name) const override
++    { for(size_t i=0;i<bindings.size();i++)if(bindings[i].name==name)return i;return -1; }
++    std::vector<VfsPath> GetFileDependencies() const override { return files; }
++    void Add(CStrIntern name,unsigned group,unsigned offset,unsigned size,bool cube=false)
++    {
++        int32_t slot=GetBindingSlot(name);
++        if(slot>=0) { const auto& b=bindings[slot];Require(b.group==group && b.offset==offset && b.size==size,"shared shader binding mismatch");return; }
++        bindings.push_back({name,group,offset,size,cube});
++        if(group!=1)uniforms[group].resize(Align(std::max(uniforms[group].size(),size_t(offset)+size),16));
++    }
++    std::vector<Binding> bindings;
++    std::array<std::vector<uint8_t>,3> uniforms;
++    struct UniformSlice { Handle handle=0;size_t offset=0;uint64_t frame=0; };
++    std::array<UniformSlice,3> uniformSlices;
++    std::vector<VfsPath> files;
++    std::map<VertexAttributeStream,uint32_t> streams;
++    Handle vertex=0,fragment=0,compute=0;
++    unsigned storageBindings=0;
++    bool borderSampling=false;
++};
++class Pipeline final : public Owned<IGraphicsPipelineState>
++{
++public:
++    Pipeline(Device* device,const SGraphicsPipelineStateDesc& desc) : Owned(device),desc(desc) {}
++    ~Pipeline() override
++    {
++        for(auto& [key,handle]:handles)device->queue.retired.push_back(handle);
++    }
++    IShaderProgram* GetShaderProgram() const override { return desc.shaderProgram; }
++    Handle Get(VertexLayout*,Framebuffer*);
++    SGraphicsPipelineStateDesc desc;
++    std::map<std::tuple<uint64_t,uint32_t,uint32_t>,Handle> handles;
++    struct Entry {
++        unsigned binding,kind;Handle resource;size_t size,offset=0;
++        auto operator<=>(const Entry&) const = default;
++    };
++};
++
++class ComputePipeline final : public Owned<IComputePipelineState>
++{
++public:
++    ComputePipeline(Device* device,Program* program) : Owned(device),program(program)
++    {
++        Require(program->compute && !program->vertex && !program->fragment,"compute shader stage");
++        handle=device->queue.New();void* p=device->queue.Record(DOLLY_GPU_COMPUTE_PIPELINE,36);
++        U64(p,8,handle);U64(p,16,program->compute);U32(p,24,4);std::memcpy(static_cast<char*>(p)+32,"main",4);
++    }
++    ~ComputePipeline() override { device->queue.retired.push_back(handle); }
++    IShaderProgram* GetShaderProgram() const override { return program; }
++    Program* program;
++    Handle handle;
++};
++
++std::unique_ptr<IComputePipelineState> Device::CreateComputePipelineState(const SComputePipelineStateDesc& desc)
++{ return std::make_unique<ComputePipeline>(this,desc.shaderProgram->As<Program>()); }
++
++std::unique_ptr<IShaderProgram> Device::CreateShaderProgram(const CStr& input,const CShaderDefines& defines)
++{
++    std::string name=input.c_str();
++    if(name.starts_with("spirv/"))name.replace(0,6,"wgsl/");
++    VfsPath index=L"shaders/"+wstring_from_utf8(name)+L".xml";
++    CXeromyces xml;
++    if(xml.Load(g_VFS,index)!=PSRETURN_OK)return {};
++    int fileAttr=xml.GetAttributeID("file"),nameAttr=xml.GetAttributeID("name"),valueAttr=xml.GetAttributeID("value");
++    VfsPath selected;
++    XERO_ITER_EL(xml.GetRoot(),variant)
++    {
++        CShaderDefines candidate;
++        XERO_ITER_EL(variant,defineList) XERO_ITER_EL(defineList,define)
++        {
++            auto attrs=define.GetAttributes();CStrIntern value(attrs.GetNamedItem(valueAttr));
++            if(value!=CStrIntern("UNDEFINED"))candidate.Add(CStrIntern(attrs.GetNamedItem(nameAttr)),value);
++        }
++        if(candidate==defines){selected=L"shaders/"+variant.GetAttributes().GetNamedItem(fileAttr).FromUTF8();break;}
++    }
++    if(selected.empty())
++    {
++        LOGERROR("No Dolly shader variant for '%s'",name);
++        for(auto& [key,value]:defines.GetMap())LOGERROR("  %s=%s",key.c_str(),value.c_str());
++        return {};
++    }
++    CXeromyces metadata;
++    if(metadata.Load(g_VFS,selected)!=PSRETURN_OK)return {};
++    auto result=std::make_unique<Program>(this);
++    result->files={index,selected};
++    auto attr=[&](const XMBElement& el,const char* key){return el.GetAttributes().GetNamedItem(metadata.GetAttributeID(key));};
++    auto is=[&](const XMBElement& el,const char* key){return el.GetNodeName()==metadata.GetElementID(key);};
++    XERO_ITER_EL(metadata.GetRoot(),stage)
++    {
++        VfsPath path=L"shaders/"+attr(stage,"file").FromUTF8();result->files.push_back(path);
++        Handle handle=queue.Shader(Read(path));
++        result->borderSampling|=attr(stage,"dolly_border")=="true";
++        if(is(stage,"vertex"))result->vertex=handle;
++        else if(is(stage,"compute"))result->compute=handle;
++        else { Require(is(stage,"fragment"),"shader stage");result->fragment=handle; }
++        XERO_ITER_EL(stage,item)
++        {
++            if(is(item,"stream"))
++            {
++                const std::array<const char*,11> names={"pos","normal","color","uv0","uv1","uv2","uv3","uv4","uv5","uv6","uv7"};
++                auto found=std::find(names.begin(),names.end(),attr(item,"name"));
++                Require(found!=names.end(),"vertex stream name");
++                result->streams[static_cast<VertexAttributeStream>(found-names.begin())]=attr(item,"location").ToUInt();
++            }
++            else if(is(item,"push_constant"))result->Add(CStrIntern(attr(item,"name")),2,attr(item,"offset").ToUInt(),attr(item,"size").ToUInt());
++            else if(is(item,"descriptor_sets"))XERO_ITER_EL(item,set) XERO_ITER_EL(set,binding)
++            {
++                unsigned group=attr(set,"set").ToUInt(),index=attr(binding,"binding").ToUInt();
++                CStr type=attr(binding,"type");
++                if(type=="uniform")
++                {
++                    Require(group==0 && index==0,"material uniform block");
++                    result->uniforms[0].resize(Align(attr(binding,"size").ToUInt(),16));
++                    XERO_ITER_EL(binding,member)result->Add(CStrIntern(attr(member,"name")),0,attr(member,"offset").ToUInt(),attr(member,"size").ToUInt());
++                }
++                else if(type=="storageBuffer")
++                {
++                    Require(result->compute && group==1,"compute storage binding");
++                    result->Add(CStrIntern(attr(binding,"name")),1,index,0);
++                    result->storageBindings=std::max(result->storageBindings,index+1);
++                }
++                else
++                {
++                    Require(group==1 && (type=="sampler2D" || type=="samplerCube") && attr(binding,"sampler_binding").ToUInt()==index+1,"texture binding");
++                    result->Add(CStrIntern(attr(binding,"name")),1,index,0,type=="samplerCube");
++                }
++            }
++        }
++    }
++    return result;
++}
++
++Handle Device::SamplerHandle(const Sampler::Desc& desc)
++{
++    auto address=[](Sampler::AddressMode mode)->unsigned
++    {
++        switch(mode)
++        {
++        case Sampler::AddressMode::REPEAT:return 1;
++        case Sampler::AddressMode::MIRRORED_REPEAT:return 2;
++        case Sampler::AddressMode::CLAMP_TO_BORDER:
++        case Sampler::AddressMode::CLAMP_TO_EDGE:return 0;
++        default:Require(false,"sampler border addressing unsupported");return 0;
++        }
++    };
++    Require(desc.mipLODBias==0,"sampler LOD bias unsupported");
++    std::array<uint32_t,8> key={unsigned(desc.minFilter),unsigned(desc.magFilter),unsigned(desc.mipFilter),
++        address(desc.addressModeU),address(desc.addressModeV),address(desc.addressModeW),
++        desc.compareEnabled?unsigned(desc.compareOp)+1:0,desc.anisotropyEnabled?uint32_t(desc.maxAnisotropy):1};
++    if(auto it=samplers.find(key);it!=samplers.end())return it->second;
++    Handle handle=queue.New();void* p=queue.Record(DOLLY_GPU_CREATE_SAMPLER,48);U64(p,8,handle);
++    for(size_t i=0;i<key.size();i++)U32(p,16+4*i,key[i]);
++    samplers.emplace(key,handle);return handle;
++}
++static unsigned VertexFormat(Format format)
++{
++    switch(format)
++    {
++    case Format::R32_SFLOAT:return 1;
++    case Format::R32G32_SFLOAT:return 2;
++    case Format::R32G32B32_SFLOAT:return 3;
++    case Format::R32G32B32A32_SFLOAT:return 4;
++    case Format::R8G8B8A8_UNORM:return 5;
++    case Format::R8G8B8A8_UINT:return 7;
++    case Format::R16G16_UNORM:return 9;
++    case Format::R16G16_UINT:return 11;
++    case Format::R16G16_SFLOAT:return 13;
++    case Format::R16G16B16_SFLOAT:case Format::R16G16B16A16_SFLOAT:return 14;
++    default:Require(false,"vertex format unsupported");return 0;
++    }
++}
++Handle Pipeline::Get(VertexLayout* layout,Framebuffer* framebuffer)
++{
++    const unsigned color=framebuffer->color.texture?TextureFormat(framebuffer->color.texture->GetFormat()):0,
++        depth=framebuffer->depth.texture?TextureFormat(framebuffer->depth.texture->GetFormat()):0;
++    auto key=std::tuple{layout->id,color,depth};
++    if(auto it=handles.find(key);it!=handles.end())return it->second;
++    Require(desc.rasterizationState.polygonMode==PolygonMode::FILL && !desc.depthStencilState.stencilTestEnabled,
++        "wireframe/stencil rendering unsupported");
++    auto* program=desc.shaderProgram->As<Program>();
++    std::vector<SVertexAttributeFormat> attributes;
++    unsigned buffers=0;
++    for(const auto& attribute:layout->attributes)
++    {
++        if(!program->streams.contains(attribute.stream))continue;
++        attributes.push_back(attribute);buffers=std::max(buffers,attribute.bindingSlot+1);
++    }
++    Require(attributes.size()==program->streams.size() && buffers<=8,"missing shader vertex streams");
++    Handle handle=device->queue.New();void* p=device->queue.Record(DOLLY_GPU_GRAPHICS_PIPELINE,112+16*(buffers+attributes.size()));
++    U64(p,8,handle);U64(p,16,program->vertex);U64(p,24,program->fragment);U32(p,32,color);U32(p,36,depth);
++    U32(p,44,unsigned(desc.rasterizationState.cullMode));U32(p,48,unsigned(desc.rasterizationState.frontFace));
++    U32(p,52,desc.depthStencilState.depthTestEnabled?unsigned(desc.depthStencilState.depthCompareOp)+1:8);
++    U32(p,56,desc.depthStencilState.depthWriteEnabled);
++    if(desc.rasterizationState.depthBiasEnabled)
++    {
++        U32(p,60,int32_t(desc.rasterizationState.depthBiasConstantFactor));
++        F32(p,64,desc.rasterizationState.depthBiasSlopeFactor);
++    }
++    U32(p,72,desc.blendState.colorWriteMask);U32(p,76,desc.blendState.enabled);
++    auto factor=[](BlendFactor factor)->unsigned
++    {
++        if(unsigned(factor)<=unsigned(BlendFactor::ONE_MINUS_DST_ALPHA))return unsigned(factor);
++        if(factor==BlendFactor::SRC_ALPHA_SATURATE)return 10;
++        Require(false,"constant/dual-source blend factors unsupported");return 0;
++    };
++    U32(p,80,unsigned(desc.blendState.colorBlendOp));U32(p,84,factor(desc.blendState.srcColorBlendFactor));U32(p,88,factor(desc.blendState.dstColorBlendFactor));
++    U32(p,92,unsigned(desc.blendState.alphaBlendOp));U32(p,96,factor(desc.blendState.srcAlphaBlendFactor));U32(p,100,factor(desc.blendState.dstAlphaBlendFactor));
++    U32(p,104,buffers);U32(p,108,attributes.size());
++    // Unused slots still have valid descriptors; the draw binds a small dummy buffer.
++    for(unsigned i=0;i<buffers;i++)U32(p,112+i*16,4);
++    for(size_t i=0;i<attributes.size();i++)
++    {
++        const auto& attribute=attributes[i];size_t at=112+(buffers+i)*16;
++        U32(p,112+attribute.bindingSlot*16,attribute.stride);U32(p,116+attribute.bindingSlot*16,unsigned(attribute.rate));
++        U32(p,at,attribute.bindingSlot);U32(p,at+4,program->streams.at(attribute.stream));
++        U32(p,at+8,VertexFormat(attribute.format));U32(p,at+12,attribute.offset);
++    }
++    handles.emplace(key,handle);return handle;
++}
++std::unique_ptr<IGraphicsPipelineState> Device::CreateGraphicsPipelineState(const SGraphicsPipelineStateDesc& desc)
++{ return std::make_unique<Pipeline>(this,desc); }
++std::unique_ptr<IVertexInputLayout> Device::CreateVertexInputLayout(std::span<const SVertexAttributeFormat> attributes)
++{ return std::make_unique<VertexLayout>(this,attributes); }
++std::unique_ptr<IBuffer> Device::CreateBuffer(const char*,IBuffer::Type type,uint32_t size,uint32_t usage)
++{ return std::make_unique<Buffer>(this,type,size,usage); }
++std::unique_ptr<ITexture> Device::CreateTexture(const char*,ITexture::Type type,uint32_t usage,Format format,uint32_t width,uint32_t height,
++    const Sampler::Desc& sampler,uint32_t mips,uint32_t samples)
++{
++    Require(samples==1 && !(usage&ITexture::Usage::STORAGE),"multisample/storage textures unsupported");
++    return std::make_unique<Texture>(this,type,usage,format,width,height,sampler,mips);
++}
++std::unique_ptr<IFramebuffer> Device::CreateFramebuffer(const char*,SColorAttachment* color,SDepthStencilAttachment* depth)
++{
++    Require(color && color->texture,"depth-only framebuffer unsupported");
++    return std::make_unique<Framebuffer>(this,*color,depth?*depth:SDepthStencilAttachment{});
++}
++bool Device::IsTextureFormatSupported(Format format) const
++{ const auto type=TextureFormat(format);return type && (type<7 || capabilities.S3TC); }
++bool Device::IsFramebufferFormatSupported(Format format) const
++{ return format==Format::R8G8B8A8_UNORM || format==Format::D32_SFLOAT || format==Format::D24_UNORM_S8_UINT; }
++Format Device::GetPreferredDepthStencilFormat(uint32_t,bool depth,bool stencil) const
++{ return depth?(stencil?Format::D24_UNORM_S8_UINT:Format::D32_SFLOAT):Format::UNDEFINED; }
++
++class Context final : public Owned<IDeviceCommandContext>
++{
++public:
++    explicit Context(Device*);
++    ~Context() override;
++    void SetGraphicsPipelineState(IGraphicsPipelineState* state) override
++    { Require(!computePass,"graphics pipeline inside compute pass");pipeline=state->As<Pipeline>();computePipeline=nullptr; }
++    void SetComputePipelineState(IComputePipelineState* state) override
++    { Require(computePass,"compute pipeline outside compute pass");computePipeline=state->As<ComputePipeline>();pipeline=nullptr; }
++    void BlitFramebuffer(IFramebuffer*,IFramebuffer*,const Rect&,const Rect&,Sampler::Filter) override { Require(false,"framebuffer blit unsupported"); }
++    void ResolveFramebuffer(IFramebuffer*,IFramebuffer*) override { Require(false,"multisample resolve unsupported"); }
++    void BeginFramebufferPass(IFramebuffer*) override;
++    void EndFramebufferPass() override;
++    void ClearFramebuffer(bool,bool,bool) override;
++    void ReadbackFramebufferSync(uint32_t,uint32_t,uint32_t,uint32_t,void*) override;
++    void UploadTexture(ITexture* texture,Format format,const void* data,size_t bytes,uint32_t mip,uint32_t layer) override
++    { UploadTextureRegion(texture,format,data,bytes,0,0,std::max(1u,texture->GetWidth()>>mip),std::max(1u,texture->GetHeight()>>mip),mip,layer); }
++    void UploadTextureRegion(ITexture*,Format,const void*,size_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t,uint32_t) override;
++    void UploadBuffer(IBuffer* buffer,const void* data,uint32_t size) override { UploadBufferRegion(buffer,data,0,size); }
++    void UploadBuffer(IBuffer* buffer,const UploadBufferFunction& fn) override { UploadBufferRegion(buffer,0,buffer->GetSize(),fn); }
++    void UploadBufferRegion(IBuffer* buffer,const void* data,uint32_t offset,uint32_t size) override
++    { buffer->As<Buffer>()->Upload(data,offset,size); }
++    void UploadBufferRegion(IBuffer* buffer,uint32_t offset,uint32_t size,const UploadBufferFunction& fn) override
++    { std::vector<uint8_t> bytes(size);fn(bytes.data());UploadBufferRegion(buffer,bytes.data(),offset,size); }
++    void SetScissors(uint32_t,const Rect*) override;
++    void SetViewports(uint32_t,const Rect*) override;
++    void SetVertexInputLayout(IVertexInputLayout* value) override { layout=value->As<VertexLayout>(); }
++    void SetVertexBuffer(uint32_t slot,IBuffer* buffer,uint32_t offset) override;
++    void SetVertexBufferData(uint32_t slot,const void* data,uint32_t size) override;
++    void SetIndexBuffer(IBuffer* buffer) override;
++    void SetIndexBufferData(const void* data,uint32_t size) override;
++    void BeginPass() override { Require(framebuffer!=nullptr,"draw pass without framebuffer"); }
++    void EndPass() override {}
++    void Draw(uint32_t first,uint32_t count) override { DrawMesh(false,first,count,0,1,0); }
++    void DrawIndexed(uint32_t first,uint32_t count,int32_t offset) override { DrawMesh(true,first,count,0,1,offset); }
++    void DrawInstanced(uint32_t first,uint32_t count,uint32_t firstInstance,uint32_t instances) override
++    { DrawMesh(false,first,count,firstInstance,instances,0); }
++    void DrawIndexedInstanced(uint32_t first,uint32_t count,uint32_t firstInstance,uint32_t instances,int32_t offset) override
++    { DrawMesh(true,first,count,firstInstance,instances,offset); }
++    void DrawIndexedInRange(uint32_t first,uint32_t count,uint32_t,uint32_t) override { DrawIndexed(first,count,0); }
++    void BeginComputePass() override
++    { Require(!framebuffer && !computePass,"nested compute pass");computePass=true; }
++    void EndComputePass() override
++    { Require(computePass,"compute pass not open");computePass=false; }
++    void Dispatch(uint32_t,uint32_t,uint32_t) override;
++    // WebGPU provides visibility between compute dispatches and render passes.
++    void InsertMemoryBarrier(uint32_t,uint32_t,uint32_t,uint32_t) override
++    { Require(!framebuffer && !computePass,"memory barrier inside pass"); }
++    void SetTexture(int32_t,ITexture*) override;
++    void SetStorageTexture(int32_t,ITexture*) override { Require(false,"storage texture unsupported"); }
++    void SetStorageBuffer(int32_t,IBuffer*) override;
++    void SetUniform(int32_t slot,float x) override { SetUniform(slot,std::span(&x,1)); }
++    void SetUniform(int32_t slot,float x,float y) override { const float v[]={x,y};SetUniform(slot,v); }
++    void SetUniform(int32_t slot,float x,float y,float z) override { const float v[]={x,y,z};SetUniform(slot,v); }
++    void SetUniform(int32_t slot,float x,float y,float z,float w) override { const float v[]={x,y,z,w};SetUniform(slot,v); }
++    void SetUniform(int32_t,std::span<const float>) override;
++    void InsertTimestampQuery(uint32_t,bool) override { Require(false,"timestamp queries unsupported"); }
++    void BeginScopedLabel(const char*) override {}
++    void EndScopedLabel() override {}
++    // Commands already belong to the device queue; Present submits the tail.
++    void Flush() override { Require(!framebuffer && !computePass,"flush inside pass"); }
++    void Pause();
++    void Resume(bool clearColor=false,bool clearDepth=false);
++    void Viewport();
++    void DrawMesh(bool,uint32_t,uint32_t,uint32_t,uint32_t,int32_t);
++    Program* CurrentProgram() const
++    {
++        Require(pipeline || computePipeline,"binding without pipeline");
++        return pipeline?pipeline->desc.shaderProgram->As<Program>():computePipeline->program;
++    }
++    void ReclaimObjects(size_t needed);
++    Pipeline::Entry UniformEntry(Program*,unsigned,unsigned);
++    Handle BindResources(Handle,unsigned,const std::vector<Pipeline::Entry>&,bool compute=false);
++    Pipeline* pipeline=nullptr;
++    ComputePipeline* computePipeline=nullptr;
++    VertexLayout* layout=nullptr;
++    Framebuffer* framebuffer=nullptr;
++    struct VertexBinding { Buffer* buffer=nullptr;uint32_t offset=0; };
++    std::array<VertexBinding,8> vertices;
++    std::vector<std::unique_ptr<Buffer>> uploadedVertices,uploadedIndices;
++    size_t nextUploadedVertex=0,nextUploadedIndex=0;
++    std::unique_ptr<Buffer> dummy;
++    Buffer* indices=nullptr;
++    struct ResourceGroup { Handle handle=0;uint64_t frame=0; };
++    std::map<std::tuple<Handle,unsigned,std::vector<Pipeline::Entry>>,ResourceGroup,std::less<>> resourceGroups;
++    std::vector<Pipeline::Entry> bindingEntries;
++    std::vector<Handle> bindingGroups;
++    std::map<std::array<uint32_t,32>,std::pair<Handle,size_t>> borderUniforms;
++    Rect viewport{},scissor{};
++    bool passOpen=false,resumeEnabled=true,computePass=false;
++};
++Context::Context(Device* device) : Owned(device)
++{
++    Require(!device->context,"one serial rendering context");device->context=this;
++    dummy=std::make_unique<Buffer>(device,IBuffer::Type::VERTEX,16,0);
++    device->queue.beforeFlush=[this]{Pause();};
++    device->queue.afterFlush=[this]{if(resumeEnabled)Resume();};
++    device->queue.reclaimObjects=[this](size_t needed){ReclaimObjects(needed);};
++}
++Context::~Context()
++{
++    EndFramebufferPass();
++    for(auto& buffer:uploadedVertices)buffer.reset();
++    uploadedIndices.clear();dummy.reset();
++    for(auto& [key,group]:resourceGroups)device->queue.retired.push_back(group.handle);
++    device->queue.Flush();device->queue.beforeFlush={};device->queue.afterFlush={};device->queue.reclaimObjects={};device->context=nullptr;
++}
++void Context::ReclaimObjects(size_t needed)
++{
++    auto& queue=device->queue;
++    if(queue.objects+needed<=queue.objectLimit)return;
++    auto fits=[&]{return queue.objects-queue.pendingRetired-queue.retired.size()+needed<=queue.objectLimit;};
++    // Prune between draws: a binding being assembled must survive until its draw.
++    for(bool current:{false,true})
++    {
++        if(fits())break;
++        for(auto it=resourceGroups.begin();it!=resourceGroups.end();)
++        {
++            if(!current && it->second.frame==queue.frame){++it;continue;}
++            queue.retired.push_back(it->second.handle);it=resourceGroups.erase(it);
++        }
++    }
++    queue.Wait();
++    Require(queue.objects+needed<=queue.objectLimit,"GPU resident objects exceed capacity");
++}
++void Context::Pause()
++{
++    if(!passOpen)return;
++    dolly_gpu_record(device->queue.gpu.get(),DOLLY_GPU_END_RENDER_PASS,8);passOpen=false;
++}
++void Context::Resume(bool clearColor,bool clearDepth)
++{
++    if(!framebuffer || passOpen)return;
++    bool resume=resumeEnabled;resumeEnabled=false;device->queue.Reserve(112,2);resumeEnabled=resume;
++    void* p=dolly_gpu_record(device->queue.gpu.get(),DOLLY_GPU_BEGIN_RENDER_PASS,64);
++    framebuffer->color.texture->As<Texture>()->lastUsed=device->queue.submission;
++    if(framebuffer->depth.texture)framebuffer->depth.texture->As<Texture>()->lastUsed=device->queue.submission;
++    U64(p,8,framebuffer->color.texture->As<Texture>()->handle);
++    U64(p,16,framebuffer->depth.texture?framebuffer->depth.texture->As<Texture>()->handle:0);
++    U32(p,24,framebuffer->GetWidth());U32(p,28,framebuffer->GetHeight());U32(p,32,clearColor);U32(p,36,clearDepth);
++    const CColor& color=framebuffer->color.clearColor;
++    F32(p,40,color.r);F32(p,44,color.g);F32(p,48,color.b);F32(p,52,color.a);F32(p,56,1);
++    passOpen=true;device->queue.encoded=true;Viewport();
++}
++void Context::BeginFramebufferPass(IFramebuffer* value)
++{
++    Require(!framebuffer && !computePass,"nested framebuffer pass");framebuffer=value->As<Framebuffer>();
++    viewport=scissor={0,0,int32_t(framebuffer->GetWidth()),int32_t(framebuffer->GetHeight())};
++    Resume(framebuffer->color.loadOp!=AttachmentLoadOp::LOAD,framebuffer->depth.loadOp!=AttachmentLoadOp::LOAD);
++}
++void Context::EndFramebufferPass() { Pause();framebuffer=nullptr; }
++void Context::ClearFramebuffer(bool color,bool depth,bool stencil)
++{
++    Require(framebuffer!=nullptr,"clear without framebuffer");
++    Require(!framebuffer->depth.texture || framebuffer->depth.texture->GetFormat()!=Format::D24_UNORM_S8_UINT || depth==stencil,
++        "independent depth/stencil clear unsupported");
++    Pause();Resume(color,depth);
++}
++void Context::Viewport()
++{
++    if(!passOpen)return;
++    void* p=device->queue.Record(DOLLY_GPU_VIEWPORT,48);
++    F32(p,8,viewport.x);F32(p,12,framebuffer->GetHeight()-viewport.y-viewport.height);
++    F32(p,16,viewport.width);F32(p,20,viewport.height);F32(p,28,1);
++    U32(p,32,scissor.x);U32(p,36,framebuffer->GetHeight()-scissor.y-scissor.height);U32(p,40,scissor.width);U32(p,44,scissor.height);
++}
++void Context::SetViewports(uint32_t count,const Rect* values)
++{
++    Require(framebuffer && count==1,"one viewport required");viewport=*values;Viewport();
++}
++void Context::SetScissors(uint32_t count,const Rect* values)
++{
++    Require(framebuffer && count<=1,"at most one scissor");
++    scissor=count?*values:Rect{0,0,int32_t(framebuffer->GetWidth()),int32_t(framebuffer->GetHeight())};
++    int32_t x=std::clamp(scissor.x,0,int32_t(framebuffer->GetWidth())),y=std::clamp(scissor.y,0,int32_t(framebuffer->GetHeight()));
++    scissor={x,y,std::max(0,std::min(scissor.x+scissor.width,int32_t(framebuffer->GetWidth()))-x),
++        std::max(0,std::min(scissor.y+scissor.height,int32_t(framebuffer->GetHeight()))-y)};Viewport();
++}
++void Context::SetVertexBuffer(uint32_t slot,IBuffer* buffer,uint32_t offset)
++{
++    Require(slot<8,"vertex slot");vertices[slot]={buffer->As<Buffer>(),offset};
++}
++void Context::SetVertexBufferData(uint32_t slot,const void* data,uint32_t size)
++{
++    Require(slot<8,"vertex slot");
++    if(nextUploadedVertex==uploadedVertices.size())uploadedVertices.emplace_back();
++    auto& buffer=uploadedVertices[nextUploadedVertex++];
++    if(!buffer || buffer->size<size)buffer=std::make_unique<Buffer>(device,IBuffer::Type::VERTEX,size,0);
++    buffer->Upload(data,0,size);vertices[slot]={buffer.get(),0};
++}
++void Context::SetIndexBuffer(IBuffer* buffer) { indices=buffer->As<Buffer>(); }
++void Context::SetIndexBufferData(const void* data,uint32_t size)
++{
++    if(nextUploadedIndex==uploadedIndices.size())uploadedIndices.emplace_back();
++    auto& buffer=uploadedIndices[nextUploadedIndex++];
++    if(!buffer || buffer->size<size)buffer=std::make_unique<Buffer>(device,IBuffer::Type::INDEX,size,0);
++    buffer->Upload(data,0,size);indices=buffer.get();
++}
++void Context::SetTexture(int32_t slot,ITexture* value)
++{
++    if(slot<0)return;
++    Require(pipeline && value,"texture without shader/resource");
++    auto* program=pipeline->desc.shaderProgram->As<Program>();
++    Require(size_t(slot)<program->bindings.size() && program->bindings[slot].group==1,"texture slot");
++    program->bindings[slot].texture=value->As<Texture>();
++}
++void Context::SetUniform(int32_t slot,std::span<const float> values)
++{
++    if(slot<0)return;
++    auto* program=CurrentProgram();
++    Require(size_t(slot)<program->bindings.size(),"uniform slot");const auto& binding=program->bindings[slot];
++    Require(binding.group!=1,"uniform bounds");
++    auto* target=program->uniforms[binding.group].data()+binding.offset;
++    size_t bytes=std::min(values.size_bytes(),size_t(binding.size));
++    if(std::memcmp(target,values.data(),bytes))
++    {
++        std::memcpy(target,values.data(),bytes);
++        program->uniformSlices[binding.group].frame=0;
++    }
++}
++
++Pipeline::Entry Context::UniformEntry(Program* program,unsigned group,unsigned binding)
++{
++    auto& bytes=program->uniforms[group];auto& slice=program->uniformSlices[group];
++    if(slice.frame!=device->queue.frame)
++    {
++        auto [handle,offset]=device->queue.Uniform(bytes.data(),bytes.size());
++        slice={handle,offset,device->queue.frame};
++    }
++    return {binding,0,slice.handle,bytes.size(),slice.offset};
++}
++Handle Context::BindResources(Handle gpuPipeline,unsigned group,const std::vector<Pipeline::Entry>& entries,bool compute)
++{
++    auto found=resourceGroups.find(std::tie(gpuPipeline,group,entries));
++    if(found==resourceGroups.end())
++        found=resourceGroups.emplace(std::make_tuple(gpuPipeline,group,entries),ResourceGroup{}).first;
++    auto& cached=found->second;
++    cached.frame=device->queue.frame;
++    if(!cached.handle)
++    {
++        cached.handle=device->queue.New();
++        const size_t stride=compute?24:32;
++        void* p=device->queue.Record(compute?DOLLY_GPU_BIND_GROUP:DOLLY_GPU_RESOURCE_GROUP,32+stride*entries.size());
++        U64(p,8,cached.handle);U64(p,16,gpuPipeline);U32(p,24,compute?entries.size():group);
++        if(!compute)U32(p,28,entries.size());
++        for(size_t i=0;i<entries.size();i++)
++        {
++            const auto& entry=entries[i];size_t at=32+i*stride;
++            if(compute)Require(group==0 && entry.binding==i && entry.kind==0,"contiguous compute buffer bindings");
++            else {U32(p,at,entry.binding);U32(p,at+4,entry.kind);at+=8;}
++            U64(p,at,entry.resource);U64(p,at+8,entry.offset);U64(p,at+16,entry.size);
++        }
++    }
++    return cached.handle;
++}
++void Context::SetStorageBuffer(int32_t slot,IBuffer* value)
++{
++    if(slot<0)return;
++    Require(computePipeline && value,"storage binding without compute pipeline/resource");
++    auto* program=computePipeline->program;
++    Require(size_t(slot)<program->bindings.size() && program->bindings[slot].group==1,"storage slot");
++    Require(value->GetUsage()&IBuffer::Usage::STORAGE,"buffer is not storage");
++    program->bindings[slot].buffer=value->As<Buffer>();
++}
++void Context::Dispatch(uint32_t x,uint32_t y,uint32_t z)
++{
++    Require(computePass && computePipeline,"dispatch without compute pass/pipeline");
++    ReclaimObjects(24);
++    auto* program=computePipeline->program;
++    device->queue.Reserve(4352+program->uniforms[0].size()+program->uniforms[2].size(),24);
++    auto& entries=bindingEntries;entries.clear();
++    if(!program->uniforms[0].empty())entries.push_back(UniformEntry(program,0,0));
++    for(size_t i=0;i<program->bindings.size();i++)
++    {
++        const auto& binding=program->bindings[i];if(binding.group!=1)continue;
++        auto* buffer=binding.buffer;Require(buffer,"unbound storage buffer");
++        entries.push_back({binding.offset+1,0,buffer->handle,buffer->size});
++    }
++    if(!program->uniforms[2].empty())entries.push_back(UniformEntry(program,2,program->storageBindings+1));
++    std::sort(entries.begin(),entries.end());
++    Handle group=BindResources(computePipeline->handle,0,entries,true);
++    void* p=device->queue.Record(DOLLY_GPU_COMPUTE,40);
++    U64(p,8,computePipeline->handle);U64(p,16,group);U32(p,24,x);U32(p,28,y);U32(p,32,z);
++    for(size_t i=0;i<program->bindings.size();i++)
++        if(program->bindings[i].group==1)program->bindings[i].buffer->lastUsed=device->queue.submission;
++    device->queue.encoded=true;
++}
++
++void Context::DrawMesh(bool indexed,uint32_t first,uint32_t count,uint32_t firstInstance,uint32_t instances,int32_t base)
++{
++    if(!count || !instances)return;
++    Require(framebuffer && pipeline && layout,"incomplete draw state");
++    ReclaimObjects(24);
++    auto* program=pipeline->desc.shaderProgram->As<Program>();
++    device->queue.Reserve(4352+program->uniforms[0].size()+program->uniforms[2].size(),24);
++    Handle gpuPipeline=pipeline->Get(layout,framebuffer);
++    unsigned lastGroup=program->borderSampling?3:0;
++    std::array<uint32_t,32> borderParameters{};
++    for(const auto& binding:program->bindings)lastGroup=std::max(lastGroup,binding.group);
++    auto& groups=bindingGroups;groups.clear();
++    if(!program->bindings.empty())for(unsigned group=0;group<=lastGroup;group++)
++    {
++        auto& entries=bindingEntries;entries.clear();
++        if(group==1)
++        {
++            for(size_t i=0;i<program->bindings.size();i++)
++            {
++                const auto& binding=program->bindings[i];if(binding.group!=1)continue;
++                Texture* texture=binding.texture;Require(texture,"unbound texture");
++                Require(binding.offset<16,"texture binding limit");
++                std::copy(texture->borderParameters.begin(),texture->borderParameters.end(),borderParameters.begin()+binding.offset*2);
++                entries.push_back({binding.offset,binding.cube?2u:1u,texture->handle,0});
++                entries.push_back({binding.offset+1,3,texture->sampler,0});
++            }
++        }
++        else if(group==3)
++        {
++            auto [it,inserted]=borderUniforms.try_emplace(borderParameters);
++            if(inserted)it->second=device->queue.Uniform(borderParameters.data(),sizeof(borderParameters));
++            const auto [handle,offset]=it->second;
++            entries.push_back({0,0,handle,sizeof(borderParameters),offset});
++        }
++        else if(!program->uniforms[group].empty())
++        {
++            entries.push_back(UniformEntry(program,group,0));
++        }
++        groups.push_back(BindResources(gpuPipeline,group,entries));
++    }
++    unsigned buffers=0;
++    for(const auto& attribute:layout->attributes)if(program->streams.contains(attribute.stream))buffers=std::max(buffers,attribute.bindingSlot+1);
++    void* p=device->queue.Record(DOLLY_GPU_DRAW_MESH,80+8*groups.size()+24*buffers);
++    for(size_t i=0;i<program->bindings.size();i++)
++        if(program->bindings[i].group==1)program->bindings[i].texture->lastUsed=device->queue.submission;
++    U64(p,8,gpuPipeline);
++    if(indexed){Require(indices!=nullptr,"missing index buffer");indices->lastUsed=device->queue.submission;U64(p,16,indices->handle);U64(p,32,indices->size);U32(p,60,1);}
++    U32(p,40,count);U32(p,44,instances);U32(p,48,first);U32(p,52,base);U32(p,56,firstInstance);U32(p,64,groups.size());U32(p,68,buffers);
++    for(size_t i=0;i<groups.size();i++)U64(p,80+i*8,groups[i]);
++    for(unsigned i=0;i<buffers;i++)
++    {
++        auto [buffer,offset]=vertices[i];if(!buffer){buffer=dummy.get();offset=0;}
++        size_t at=80+8*groups.size()+24*i;Require(offset<buffer->size,"vertex offset");
++        buffer->lastUsed=device->queue.submission;
++        U64(p,at,buffer->handle);U64(p,at+8,offset);U64(p,at+16,buffer->size-offset);
++    }
++}
++void Context::UploadTextureRegion(ITexture* resource,Format dataFormat,const void* data,size_t bytes,
++    uint32_t x,uint32_t y,uint32_t width,uint32_t height,uint32_t mip,uint32_t layer)
++{
++    auto* texture=resource->As<Texture>();
++    unsigned sourceBytes=0;
++    switch(dataFormat)
++    {
++    case Format::R8_UNORM:case Format::A8_UNORM:case Format::L8_UNORM:sourceBytes=1;break;
++    case Format::R8G8_UNORM:sourceBytes=2;break;
++    case Format::R8G8B8_UNORM:sourceBytes=3;break;
++    case Format::R8G8B8A8_UNORM:case Format::B8G8R8A8_UNORM:sourceBytes=4;break;
++    case Format::BC1_RGB_UNORM:case Format::BC1_RGBA_UNORM:sourceBytes=8;break;
++    case Format::BC2_UNORM:case Format::BC3_UNORM:sourceBytes=16;break;
++    default:Require(false,"texture upload format unsupported");
++    }
++    const auto format=TextureFormat(texture->format);
++    const unsigned block=format>=7?4:1;
++    const unsigned columns=(width+block-1)/block, blockRows=(height+block-1)/block;
++    unsigned targetBytes=format==3?1:format==4?2:format==7?8:format>=8?16:4;
++    Require(bytes==size_t(columns)*blockRows*sourceBytes,"texture upload byte count");
++    Require(x%block==0 && y%block==0,"texture upload block alignment");
++    Require(targetBytes==4 || dataFormat==texture->format,"texture conversion format");
++    resumeEnabled=false;Pause();
++    if(texture->lastUsed==device->queue.submission)device->queue.Flush();
++    const auto* source=static_cast<const uint8_t*>(data);
++    uint32_t rows=std::max(1u,512*1024/(columns*targetBytes));
++    for(uint32_t row=0;row<blockRows;row+=rows)
++    {
++        uint32_t count=std::min(rows,blockRows-row);size_t length=size_t(columns)*count*targetBytes;
++        void* p=device->queue.Record(DOLLY_GPU_WRITE_TEXTURE,48+length);
++        U64(p,8,texture->handle);U32(p,16,mip);U32(p,20,layer);U32(p,24,x);U32(p,28,y+row*block);
++        U32(p,32,columns*block);U32(p,36,count*block);U32(p,40,length);
++        auto* target=static_cast<uint8_t*>(p)+48;
++        if(sourceBytes==targetBytes && dataFormat!=Format::B8G8R8A8_UNORM)std::memcpy(target,source+size_t(row)*columns*sourceBytes,length);
++        else for(size_t i=0;i<size_t(columns)*count;i++)
++        {
++            const auto* pixel=source+(size_t(row)*columns+i)*sourceBytes;auto* out=target+i*4;
++            if(dataFormat==Format::A8_UNORM){out[0]=out[1]=out[2]=255;out[3]=pixel[0];}
++            else if(dataFormat==Format::L8_UNORM){out[0]=out[1]=out[2]=pixel[0];out[3]=255;}
++            else if(dataFormat==Format::B8G8R8A8_UNORM){out[0]=pixel[2];out[1]=pixel[1];out[2]=pixel[0];out[3]=pixel[3];}
++            else {Require(sourceBytes==3,"RGB conversion");out[0]=pixel[0];out[1]=pixel[1];out[2]=pixel[2];out[3]=255;}
++        }
++    }
++    resumeEnabled=true;Resume();
++}
++Device::Device(SDL_Window* window)
++{
++    int w=0,h=0;SDL_GetWindowSize(window,&w,&h);
++    int size=dolly_gpu_open(queue.gpu.get(),w,h);Require(size>=16,"open GPU");
++    name=std::string(reinterpret_cast<char*>(queue.gpu->reply)+16,size-16);
++    Require(dolly_gpu_capabilities(queue.gpu.get())==128,"GPU capabilities");
++    uint32_t features;std::memcpy(&features,queue.gpu->reply,4);
++    uint32_t objectLimit;std::memcpy(&objectLimit,queue.gpu->reply+4,4);queue.objectLimit=objectLimit;
++    Require(features&DOLLY_GPU_FEATURE_TEXTURE_RENDER,"texture rendering capability");
++    queue.commandLimit=(features&DOLLY_GPU_FEATURE_LARGE_BATCH?DOLLY_GPU_MAX_COMMANDS:256)-16;
++    std::memcpy(&queue.uniformAlignment,queue.gpu->reply+32,4);
++    Require(queue.uniformAlignment && Queue::uniformChunkBytes%queue.uniformAlignment==0,"uniform alignment");
++    surfaceBGRA=features&DOLLY_GPU_FEATURE_SURFACE_BGRA;
++    capabilities.S3TC=features&DOLLY_GPU_FEATURE_TEXTURE_BC;
++    capabilities.computeShaders=capabilities.storage=features&DOLLY_GPU_FEATURE_VERTEX_F16;
++    dolly_gpu_begin(queue.gpu.get());
++    capabilities.maxTextureSize=8192;capabilities.maxSampleCount=1;capabilities.maxAnisotropy=16;capabilities.instancing=true;capabilities.anisotropicFiltering=true;
++    presentVS=queue.Shader("@vertex fn main(@builtin(vertex_index) i:u32)->@builtin(position) vec4f {let p=array<vec2f,3>(vec2f(-1,-1),vec2f(3,-1),vec2f(-1,3));return vec4f(p[i],0,1);}");
++    presentFS=queue.Shader("@group(0) @binding(0) var image:texture_2d<f32>; @fragment fn main(@builtin(position) p:vec4f)->@location(0) vec4f {return vec4f(textureLoad(image,vec2i(p.xy),0).rgb,1);}");
++    presentPipeline=queue.New();void* p=queue.Record(DOLLY_GPU_GRAPHICS_PIPELINE,112);
++    U64(p,8,presentPipeline);U64(p,16,presentVS);U64(p,24,presentFS);U32(p,52,8);U32(p,72,15);U32(p,84,1);U32(p,96,1);
++    OnWindowResize(w,h);
++}
++Device::~Device()
++{
++    Require(context==nullptr,"context outlived device");
++    backbuffer.reset();backColor.reset();backDepth.reset();
++    queue.retired.insert(queue.retired.end(),queue.uniformBuffers.begin(),queue.uniformBuffers.end());queue.Flush();
++    Require(dolly_gpu_close(queue.gpu.get())==0,"close GPU");
++}
++std::unique_ptr<IDeviceCommandContext> Device::CreateCommandContext() { return std::make_unique<Context>(this); }
++void Device::OnWindowResize(uint32_t w,uint32_t h)
++{
++    Require(!context || !context->framebuffer,"resize inside framebuffer pass");
++    if(presentGroup)queue.retired.push_back(presentGroup);
++    backbuffer.reset();backColor.reset();backDepth.reset();width=w;height=h;
++    const auto sampler=Sampler::MakeDefaultSampler(Sampler::Filter::NEAREST,Sampler::AddressMode::CLAMP_TO_EDGE);
++    backColor=CreateTexture2D("Dolly backbuffer",ITexture::Usage::COLOR_ATTACHMENT|ITexture::Usage::SAMPLED,Format::R8G8B8A8_UNORM,w,h,sampler,1,1);
++    backDepth=CreateTexture2D("Dolly depth",ITexture::Usage::DEPTH_STENCIL_ATTACHMENT,Format::D32_SFLOAT,w,h,sampler,1,1);
++    backbuffer=std::make_unique<Framebuffer>(this,SColorAttachment{backColor.get(),AttachmentLoadOp::CLEAR,AttachmentStoreOp::STORE,CColor(0,0,0,1)},
++        SDepthStencilAttachment{backDepth.get(),AttachmentLoadOp::CLEAR,AttachmentStoreOp::STORE});
++    presentGroup=queue.New();void* p=queue.Record(DOLLY_GPU_RESOURCE_GROUP,64);
++    U64(p,8,presentGroup);U64(p,16,presentPipeline);U32(p,28,1);U32(p,36,1);U64(p,40,backColor->As<Texture>()->handle);
++}
++IFramebuffer* Device::GetCurrentBackbuffer(AttachmentLoadOp color,AttachmentStoreOp,AttachmentLoadOp depth,AttachmentStoreOp)
++{
++    backbuffer->color.loadOp=color;backbuffer->depth.loadOp=depth;return backbuffer.get();
++}
++void Device::PresentCommands()
++{
++    queue.Reserve(176,3);
++    void* p=queue.Record(DOLLY_GPU_BEGIN_RENDER_PASS,64);U32(p,24,width);U32(p,28,height);U32(p,32,1);F32(p,52,1);F32(p,56,1);
++    p=queue.Record(DOLLY_GPU_DRAW_MESH,88);U64(p,8,presentPipeline);U32(p,40,3);U32(p,44,1);U32(p,64,1);U64(p,80,presentGroup);
++    queue.Record(DOLLY_GPU_END_RENDER_PASS,8);queue.encoded=true;
++}
++void Device::Present()
++{
++    Require(!context || !context->framebuffer,"present inside framebuffer pass");
++    if(context)for(auto it=context->resourceGroups.begin();it!=context->resourceGroups.end();)
++    {
++        if(it->second.frame==queue.frame){++it;continue;}
++        queue.retired.push_back(it->second.handle);it=context->resourceGroups.erase(it);
++    }
++    PresentCommands();queue.Flush();queue.uniformPosition=queue.uniformUploadStart=0;++queue.frame;
++    if(context)
++    {
++        context->nextUploadedVertex=context->nextUploadedIndex=0;
++        context->borderUniforms.clear();
++    }
++}
++void Context::ReadbackFramebufferSync(uint32_t x,uint32_t y,uint32_t width,uint32_t height,void* output)
++{
++    Require(!framebuffer,"readback inside framebuffer pass");
++    device->queue.Flush();size_t stride=Align(width*4,256),size=stride*height;
++    Handle buffer=device->queue.Buffer(size,9);device->PresentCommands();
++    void* p=device->queue.Record(DOLLY_GPU_CAPTURE_FRAME,32);U64(p,8,buffer);U32(p,16,x);U32(p,20,device->height-y-height);U32(p,24,width);U32(p,28,height);
++    device->queue.Flush();
++    dolly_gpu_map(device->queue.gpu.get(),buffer,size);device->queue.RawBatch();
++    auto* bytes=static_cast<uint8_t*>(output);
++    for(size_t row=0;row<height;row++)
++    {
++        Require(dolly_gpu_read(device->queue.gpu.get(),buffer,row*stride,width*4)==int(width*4),"framebuffer readback");
++        for(size_t col=0;col<width;col++)
++        {
++            const auto* pixel=device->queue.gpu->reply+col*4;auto* destination=bytes+((height-1-row)*width+col)*3;
++            destination[0]=pixel[device->surfaceBGRA?2:0];destination[1]=pixel[1];destination[2]=pixel[device->surfaceBGRA?0:2];
++        }
++    }
++    device->queue.retired.push_back(buffer);device->queue.Flush();
++}
++std::unique_ptr<IDevice> CreateDevice(SDL_Window* window)
++{
++    if(!window)return {};
++    return std::make_unique<Device>(window);
++}
++} // namespace Renderer::Backend::Dolly
+--- /dev/null
++++ b/source/renderer/backend/dolly/Device.h
+@@ -0,0 +1,8 @@
++// SPDX-License-Identifier: GPL-2.0-or-later
++#pragma once
++#include <memory>
++struct SDL_Window;
++namespace Renderer::Backend { class IDevice; }
++namespace Renderer::Backend::Dolly {
++std::unique_ptr<IDevice> CreateDevice(SDL_Window* window);
++}

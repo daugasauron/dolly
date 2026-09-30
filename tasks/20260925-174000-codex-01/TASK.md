@@ -12,7 +12,7 @@ The program evaluates14/10/6m lookahead, lateral escape directions and swept
 terrain/traffic clearance. Exact90.016667s pre-capture continuation with only
 92/93 changed runs300s without truck tipping, crew contacts, errors or deaths.
 All97 earlier actors/other programs remain;104 objects,7 deliveries, one East
-handoff, both trucks upright. Evidence: `build/blockwalker-compound-regressions-
+handoff, both trucks upright. Evidence: `build/slopyard-compound-regressions-
 chrome-warehouse-recovery-wide/salvage/`.
 
 Fresh1500s combined run completes four East and two West recoveries, with no

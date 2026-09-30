@@ -15,7 +15,7 @@ footprint against actual nearby body bounds. It waits for obstructing crane
 parts rather than treating the crane's whole radius as an overhead obstacle.
 Motors, forces, Atlas, tug and cargo designs are unchanged.
 
-Exact retained regression: `test/fixtures/blockwalker-dock-courier.c`.
+Exact retained regression: `test/fixtures/slopyard-dock-courier.c`.
 Dolly proof: `build/overnight-20260928/team-audit/dock/clearance-v1/`.
 Supported Atlas setdown 18.367 s → actual courier grip 30.200 s → supported
 island release 87.417 s → engine delivery 88.417 s. Both releases require
@@ -30,4 +30,4 @@ Packaged Chrome/Firefox exports match every catalog program, blueprint and
 starting coordinate. The populated continuation, protected-save restore and
 source/package preservation checks pass. The original physical dock-chain
 proof above remains unchanged.
-Local image: http://127.0.0.1:9097/blockwalker/.
+Local image: http://127.0.0.1:9097/slopyard/.

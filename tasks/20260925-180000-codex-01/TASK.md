@@ -17,7 +17,7 @@ boom/hook contacts after payout. Exact550→1450s navigation replay:3 pickups,
 3 supported shore handoffs and real94→93→88→87→shot chains for cargo89/91.
 All107 original actors/other programs/designs remain; no errors/deaths or crew
 contacts. Trucks can be captured in this replay; that is explicitly permitted.
-Evidence: `build/blockwalker-compound-regressions-chrome-{boat-clearance,
+Evidence: `build/slopyard-compound-regressions-chrome-{boat-clearance,
 boat-approach}/salvage/`, boat-proof.json and salvage-proof.json.
 
 Fresh1500s combined run:2 pickups/2 handoffs, minimumup.988549, both recovered

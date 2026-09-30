@@ -1,6 +1,8 @@
 #include "process-kernel.h"
 #include "upload.h"
 #include "gpu-kernel.h"
+#include "audio-kernel.h"
+#include <dolly/audio-abi.h>
 #include <dolly/gpu-abi.h>
 
 #include <dolly/http.h>
@@ -302,6 +304,7 @@ static void mark_process_exited(dolly_kernel_process *process, int status,
   }
   dolly_kernel_display_release_owner(process->pid);
   dolly_gpu_release_owner(process->pid);
+  dolly_audio_release_owner(process->pid);
   release_process_resources(process);
   process->status = status >= 0 && status <= 255 ? status : 126;
   process->exit_signal = signal_number;
@@ -1648,6 +1651,8 @@ static int64_t process_dispatch(int pid, int tid, uint32_t operation,
   if (tid && (!thread || thread->retired)) return -ESRCH;
   dolly_http_body *body = thread ? &thread->body : &process->body;
   switch (operation) {
+    case DOLLY_AUDIO_PROCESS_OP:
+      return dolly_audio_process_call(pid, process_mailbox, request_size, response_capacity);
     case DOLLY_GPU_PROCESS_OP:
       return dolly_gpu_process_call(pid, process_mailbox, request_size, response_capacity);
     case DOLLY_PROCESS_ARGUMENT_SIZES:

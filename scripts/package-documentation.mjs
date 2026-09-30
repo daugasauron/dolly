@@ -5,8 +5,12 @@ import { dirname, resolve, sep } from "node:path";
 import { pathToFileURL } from "node:url";
 
 const linkedSources = new Set([
-  "src/dolly.c", "src/dollyfile.c", "src/upload.c", "src/gpu-kernel.c", "config/source-pins.sh", "config/zig-sdk-files.txt",
-  "config/github-pages-images.txt",
+  "src/dolly.c", "src/dollyfile.c", "src/upload.c", "src/gpu-kernel.c", "src/audio-kernel.c", "config/source-pins.sh", "config/zig-sdk-files.txt",
+  "config/domain-pages-images.txt", "config/github-pages-images.txt",
+  "src/process/mmap.c", "src/libcurl-fetch.c",
+  "test/gpu-render-browser.mjs",
+  ...["architecture-probe.log", "spidermonkey-configure.log", "fixed-browser.json", "architecture.patch"]
+    .map(name => `tasks/20260923-113538-0ad-investigation/${name}`),
 ]);
 const recipePath = /^Dollyfile(?:-[a-z][a-z0-9-]*)?$/;
 // Documentation examples are text, not additional images to build and publish.

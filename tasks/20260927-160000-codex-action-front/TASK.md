@@ -80,8 +80,8 @@ objects, programs and tether attachments from terrain 7 and resumes normally.
 73 canonical sources, six protected saves and the existing catalog; preservation
 checks retain 56 other image/runtime assets. Build and its physical checks pass.
 
-Served locally at http://127.0.0.1:9097/blockwalker/. Image SHA256:
+Served locally at http://127.0.0.1:9097/slopyard/. Image SHA256:
 `9c9941a7f063eccac97109027dda40a49af9c29748e4d6b45d4c56a560b6fe87`.
-Checkpoint branch: `codex/blockwalker-checkpoint-20260927-action-front`.
+Checkpoint branch: `codex/slopyard-checkpoint-20260927-action-front`.
 Rotated tether reuse/encounter frequency remain in their separate existing task;
 this does not claim unlimited ammunition or every station firing continuously.

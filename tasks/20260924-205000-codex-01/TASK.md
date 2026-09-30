@@ -25,20 +25,20 @@ The physical pilot fixture passes with remapped H–O wheel bindings and with th
 whole car rotated so its Eyes face +X and wheel axes run Z: forward 6.554/6.618 m,
 right yaw negative, left positive. Individual wheel commands remain available;
 an empty replacement program produces no movement or actuator commands despite
-W/D/E input. Evidence: `build/blockwalker-driver-edit/pilot-physics.log`.
+W/D/E input. Evidence: `build/slopyard-driver-edit/pilot-physics.log`.
 
-`build/blockwalker-driver-ui/` verifies the actual camera/keyboard path: 11.210 m
+`build/slopyard-driver-ui/` verifies the actual camera/keyboard path: 11.210 m
 travel, physical magnetic pickup and release, zero browser errors. The repeated
 import test found and fixed a leftover upload temporary file.
-`build/blockwalker-driver-edit3/` exports the displayed source, imports a W→I
+`build/slopyard-driver-edit3/` exports the displayed source, imports a W→I
 edit, rejects invalid replacement source, restarts and exports the same program
 from the actual driven character. W travel is 0.000000034 m; I travel is 4.573 m.
 The saved character contains the edited source and measured controller memory.
 The physical pilot and source-edit checks are part of
-`test/blockwalker-driver-browser.mjs`.
+`test/slopyard-driver-browser.mjs`.
 
 The packaged image also passes source import/edit/invalid-replacement/restart
-and active-character export in Firefox (`build/blockwalker-driver-edit-firefox2/`):
+and active-character export in Firefox (`build/slopyard-driver-edit-firefox2/`):
 W travel 0.000000069 m, I travel 4.600 m, zero browser errors. The maintained
 regression remaps the input through an ordinary wrapper program, without
 matching implementation spelling. Controller budgets pass all 70000 finite,

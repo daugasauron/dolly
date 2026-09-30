@@ -73,6 +73,8 @@ test("builds start immediately, stream before completion, and release the lease 
     await new Promise(resolve => { finish = resolve; });
     return { sha256: "a".repeat(64) };
   });
+  const visible = [];
+  service.addEventListener("log", event => visible.push(event.data));
   const response = await service.fetch(url, request());
   const reader = response.body.getReader();
   assert.equal(response.url, url.href);
@@ -80,6 +82,7 @@ test("builds start immediately, stream before completion, and release the lease 
   assert.equal(runs, 1);
   assert.equal((await service.fetch(url, request())).status, 409);
   assert.deepEqual(await event(reader), { type: "log", text: "compile first\n" });
+  assert.deepEqual(visible, ["compile first\n"]);
   assert.equal(service.state, "building");
   finish();
   assert.equal((await event(reader)).type, "result");
