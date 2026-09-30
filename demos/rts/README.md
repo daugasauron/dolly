@@ -12,8 +12,8 @@ Open `/rts-arena/`; build with `npm run image -- rts-arena`.
 
 ## Use
 
-- The launcher offers a bundled replay, OpenRouter key setup, local Codex import
-  ([game-agent](../game-agent/README.md)) and model menus. **Start match** begins
+- The launcher offers a bundled replay, OpenRouter key setup, local Codex or
+  Claude relay import ([game-agent](../game-agent/README.md)) and model menus. **Start match** begins
   model calls; loading the image makes none.
 - From the shell: `rts-arena [PROVIDER::]MODEL_1 [PROVIDER::]MODEL_2 [seconds] [USD]`
   (defaults 600 s and $1 of reported cost; not a billing guarantee).

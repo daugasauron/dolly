@@ -3,16 +3,21 @@ import { pick } from "./picker.mjs";
 import { ask } from "./prompt.mjs";
 import { importRelay } from "./relay.mjs";
 export { ask } from "./prompt.mjs";
-export { relayProvider } from "./relay.mjs";
+export { relayProviders } from "./relay.mjs";
 export const demoMatch = "/usr/share/dolly/rts/rts-high-vs-xhigh";
 
+const relays = {
+  "codex-local": { name: "Codex", setup: "codex login, then start demos/game-agent/codex-relay.mjs" },
+  "claude-local": { name: "Claude", setup: "set ANTHROPIC_API_KEY, then start demos/game-agent/claude-relay.mjs" },
+};
+
 export function modelLabel(model) {
-  const price = model.provider === "codex-local" ? "subscription" :
+  const price = relays[model.provider] ? "local proxy, cost not reported" :
     `$${model.cost.input}/$${model.cost.output} per M input/output tokens`;
   return `${model.id} [${model.input.includes("image") ? "vision" : "text only"}]${model.reasoning ? " [reasoning]" : ""} — ${price}`;
 }
 
-const providerName = provider => provider === "openrouter" ? "OpenRouter" : "Local Codex";
+const providerName = provider => provider === "openrouter" ? "OpenRouter" : `Local ${relays[provider].name}`;
 const playerLabel = player => player ? `${providerName(player.provider)} · ${player.model} · ${player.effort}` : "Choose provider, model and effort";
 const selector = player => `${player.provider}::${player.model}:${player.effort}`;
 
@@ -58,15 +63,16 @@ export async function launcher() {
       if (key) await registry.login(provider, "api_key", { prompt: async () => key, notify: () => {} });
       notice = `OpenRouter key saved. ${await refresh()}\nSave your Dolly session to retain credentials across reloads.`;
     } else {
-      const action = await pick("Connect local Codex", [
-        { value: "upload", label: "Choose models.json", description: "Import the file printed by your running Codex proxy" },
+      const action = await pick(`Connect local ${relays[provider].name}`, [
+        { value: "upload", label: "Choose models.json", description: `Import the file printed by your running ${relays[provider].name} proxy` },
         { value: "back", label: "Back" },
-      ], "On your computer: codex login, then start scripts/codex-relay.mjs.\n" +
+      ], `On your computer: ${relays[provider].setup}.\n` +
         "Pass your Dolly page's origin (the address before /rts-arena/) to the proxy.\n" +
-        "Keep the proxy running. Choose its models.json; keep native auth.json on your computer.");
-      if (action?.value !== "upload" || !await importRelay(fs, run, directory)) return false;
+        "Keep the proxy running. Choose its models.json; keep native credentials on your computer.");
+      const imported = action?.value === "upload" && await importRelay(fs, run, directory);
+      if (!imported) return false;
       runtime = undefined; await models();
-      notice = "Local Codex configuration imported. Keep the proxy running while agents play.";
+      notice = `${providerName(imported)} configuration imported. Keep the proxy running while agents play.`;
     }
     return true;
   };
@@ -74,7 +80,7 @@ export async function launcher() {
     let selectedProvider = previous?.provider, selectedModel = previous?.model;
     for (;;) {
       const registry = await models();
-      const chosenProvider = await pick(`Player ${player} provider`, ["openrouter", "codex-local"].map(id => ({
+      const chosenProvider = await pick(`Player ${player} provider`, ["openrouter", ...Object.keys(relays)].map(id => ({
         value: id, label: providerName(id),
         description: registry.hasConfiguredAuth(id) ? "Configured" : "Set up this provider next",
       })), "Choose an account for this player. You can connect it here.", selectedProvider);
@@ -109,7 +115,7 @@ export async function launcher() {
         { value: "player1", label: "Player 1", description: playerLabel(match.players[0]), detail: playerLabel(match.players[0]) },
         { value: "player2", label: "Player 2", description: playerLabel(match.players[1]), detail: playerLabel(match.players[1]) },
         { value: "seconds", label: "Duration", description: `${match.seconds} seconds` },
-        { value: "dollars", label: "Spending limit", description: `$${match.dollars} reported usage; subscriptions report $0` },
+        { value: "dollars", label: "Spending limit", description: `$${match.dollars} reported usage; local proxies report $0` },
         { value: "start", label: "Start match", description: match.players.every(Boolean) ? "Begin agent calls with these settings" : "Choose both players first" },
         { value: "back", label: "Back", description: "Keep these choices and return to the menu" },
       ], message, selected);
@@ -126,7 +132,7 @@ export async function launcher() {
         const duration = selected === "seconds";
         const value = await ask(duration ? "Match duration" : "Spending limit", { fallback: match[selected],
           note: duration ? "Seconds, from 10 to 3600. Escape also stops a running match." :
-            "USD, based on reported model usage. In-flight calls can exceed the limit; subscriptions report $0.",
+            "USD, based on reported model usage. In-flight calls can exceed the limit; local proxies report $0.",
           validate: value => (duration ? Number.isInteger(Number(value)) && Number(value) >= 10 && Number(value) <= 3600 :
             Number.isFinite(Number(value)) && Number(value) > 0) ? "" : duration ? "Enter a whole number from 10 to 3600." : "Enter an amount greater than zero.",
         });
@@ -146,6 +152,7 @@ export async function launcher() {
         { value: "match", label: "New match", description: "Choose two agents and review their settings" },
         { value: "openrouter", label: "OpenRouter", description: runtime?.hasConfiguredAuth("openrouter") ? "Key saved · replace key or refresh models" : "Connect with an API key" },
         { value: "codex-local", label: "Local Codex", description: runtime?.hasConfiguredAuth("codex-local") ? "Configuration imported · replace proxy settings" : "Use your subscription through a local proxy" },
+        { value: "claude-local", label: "Local Claude", description: runtime?.hasConfiguredAuth("claude-local") ? "Configuration imported · replace proxy settings" : "Use your Anthropic API key through a local proxy" },
         { value: "shell", label: "Shell", description: "Return to Dolly's command line" },
       ], notice);
       if (!option || option.value === "shell") return;

@@ -47,7 +47,7 @@ export function visionModels(catalog, cached = []) {
 }
 
 export function validateSelection(config) {
-  if (!config || !["openrouter", "codex-local"].includes(config.provider) || typeof config.model !== "string" ||
+  if (!config || !["openrouter", "codex-local", "claude-local"].includes(config.provider) || typeof config.model !== "string" ||
       config.model.length > 256 || !["off", "minimal", "low", "medium", "high", "xhigh", "max"].includes(config.effort))
     throw Error("Choose a provider, vision model and supported reasoning effort.");
   return { provider: config.provider, model: config.model, effort: config.effort };

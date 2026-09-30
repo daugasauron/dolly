@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { modelLabel, relayProvider } from "../spectator/launcher.mjs";
+import { modelLabel, relayProviders } from "../spectator/launcher.mjs";
 import { createPicker } from "../spectator/picker.mjs";
 import { createPrompt } from "../spectator/prompt.mjs";
 import { importRelay } from "../spectator/relay.mjs";
@@ -42,7 +42,7 @@ test("picker filters live with Pi's fuzzy matcher, navigates, edits, pastes and 
 test("model picker distinguishes vision, text-only, reasoning and reported prices", () => {
   const model = { id: "example", input: ["text"], reasoning: false, cost: { input: 0.2, output: 0.5 } };
   assert.match(modelLabel(model), /text only.*\$0.2\/\$0.5/);
-  assert.match(modelLabel({ ...model, provider: "codex-local", input: ["image"], reasoning: true }), /vision.*reasoning.*subscription/);
+  assert.match(modelLabel({ ...model, provider: "claude-local", input: ["image"], reasoning: true }), /vision.*reasoning.*cost not reported/);
 });
 
 test("secret prompt shows masked paste feedback, edits and cancels without printing the credential", () => {
@@ -86,11 +86,16 @@ test("picker initially selects the current effort and preserves it when resized"
 test("local relay import accepts only its provider data, never native auth or command credentials", () => {
   const provider = { api: "openai-codex-responses", baseUrl: "http://127.0.0.1:9002", apiKey: "fixture-capability",
     models: [{ id: "example", input: ["image"], headers: { ignored: "not imported" } }], headers: { ignored: "not imported" } };
-  const read = value => relayProvider({ providers: { "codex-local": value } });
+  const read = value => relayProviders({ providers: { "codex-local": value } })["codex-local"];
   assert.equal(read(provider).apiKey, "fixture-capability");
   assert.equal(read(provider).headers, undefined);
   assert.equal(read(provider).models[0].headers, undefined);
-  assert.throws(() => relayProvider({ auth_mode: "chatgpt", tokens: {} }), /models.json/);
+  assert.throws(() => relayProviders({ auth_mode: "chatgpt", tokens: {} }), /models.json/);
+  const compat = { forceAdaptiveThinking: true };
+  const claude = { ...provider, api: "anthropic-messages", models: [{ id: "claude-fixture", input: ["text", "image"], compat }] };
+  assert.deepEqual(relayProviders({ providers: { "claude-local": claude } })["claude-local"].models[0].compat, compat);
+  assert.throws(() => relayProviders({ providers: { "claude-local": provider } }), /models.json/, "each relay serves only its own API");
+  assert.throws(() => relayProviders({ providers: { "codex-local": provider, "claude-local": claude } }), /models.json/);
   for (const baseUrl of ["https://example.com", "http://localhost@evil.test", "http://127.0.0.1:9002/path"])
     assert.throws(() => read({ ...provider, baseUrl }), /models.json/);
   assert.throws(() => read({ ...provider, apiKey: "!some-command" }), /models.json/);
@@ -108,7 +113,7 @@ test("relay upload preserves other providers and leaves configuration intact on 
   assert.deepEqual(JSON.parse(fs.readFileSync(path)), original);
   const config = { providers: { "codex-local": { api: "openai-codex-responses", baseUrl: "http://127.0.0.1:9092",
     apiKey: "fixture-capability", models: [{ id: "vision", input: ["image"] }] }, untrusted: { apiKey: "!command" } } };
-  assert.equal(await importRelay(fs, upload(config), directory), true);
+  assert.equal(await importRelay(fs, upload(config), directory), "codex-local");
   const merged = JSON.parse(fs.readFileSync(path));
   assert.deepEqual(merged.providers.openrouter, original.providers.openrouter);
   assert.equal(merged.providers["codex-local"].apiKey, "fixture-capability");
