@@ -5,7 +5,7 @@ import assert from "node:assert/strict";
 import { Buffer } from "node:buffer";
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { readFile } from "node:fs/promises";
+import { access, readFile } from "node:fs/promises";
 import test from "node:test";
 
 import {
@@ -368,7 +368,9 @@ test("registry, routes, and source viewer derive from Dollyfiles", async () => {
     knownImages.filter(({ image }) => selected.has(image)),
   );
   for (const image of DOLLY_IMAGES) {
-    await readFile(new URL(`../build/routes/${image.image}/index.html`, import.meta.url));
+    // Build-only images have no display and only the rebuild screen.
+    const bootRoute = access(new URL(`../build/routes/${image.image}/index.html`, import.meta.url)).then(() => true, () => false);
+    assert.equal(await bootRoute, image.hostRequirements.includes("display@0"), `${image.image}: boot route`);
     await readFile(new URL(`../build/routes/${image.image}/rebuild/index.html`, import.meta.url));
     await readFile(new URL(`../build/routes/view/${image.image}/index.html`, import.meta.url));
     assert.ok(image.byteLength > 0);
