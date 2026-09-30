@@ -2,7 +2,7 @@ import { DOLLY_ERRNO as E } from "../../dist/dolly-errno.mjs";
 import { DOLLY_GPU_SLOTS, DOLLY_GPU_REPLY_BYTES } from "./abi.mjs";
 
 export async function createGpuBridge(memory, mailbox, canvas, complete, status) {
-  const worker = new Worker(new URL("./gpu-worker.mjs", import.meta.url), { type: "module", name: "dolly-gpu" });
+  const worker = new Worker(new URL("./worker.mjs", import.meta.url), { type: "module", name: "dolly-gpu" });
   const control = new Int32Array(new SharedArrayBuffer(8));
   let failed = false;
   let ready, rejectReady;

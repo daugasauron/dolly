@@ -1,4 +1,3 @@
-import { createHost } from "../host/modules.mjs";
 import { installOutputDevices } from "../host/runtime/runtime.mjs";
 import { MAX_SNAPSHOT_BYTES as snapshotSizeLimit } from "./snapshot-records.mjs";
 import { DOLLY_BUILD_ID } from "../dist/dolly-build-id.mjs";
@@ -17,7 +16,9 @@ const MAX_DOLLYFILE_BYTES = 128 * 1024;
 const encoder = new TextEncoder();
 const decoder = new TextDecoder("utf-8", { ignoreBOM: true });
 
-const bootConfig = await new Promise((resolve, reject) => {
+// Listen before the host registry loads its manifests: the page's configure
+// message may arrive while that import is still pending.
+const configured = new Promise((resolve, reject) => {
   const timeout = setTimeout(
     () => reject(new Error("Dolly boot configuration was not provided")), 10_000,
   );
@@ -28,6 +29,8 @@ const bootConfig = await new Promise((resolve, reject) => {
     resolve(event.data);
   });
 });
+const { createHost } = await import("../host/modules.mjs");
+const bootConfig = await configured;
 
 const bootMode = bootConfig.mode === "rebuild" ? "rebuild" : "snapshot";
 const configuredImage = bootConfig.image;
