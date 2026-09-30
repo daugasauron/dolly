@@ -1,0 +1,14 @@
+DOLLY 4
+IMAGE hello
+
+REQUIRES HOST display@0
+
+# A runnable image without a compiler: only the program, the entry helper and
+# the terminal plugin, copied out of images that built them.
+COPY FROM HOST /Dollyfile-hello-build 83730c36a5e2e17be4705ebbdf92827d2779f5645ab06fb92ca0b8c74657d6cb /usr/bin/life /usr/bin/life
+COPY FROM HOST /Dollyfile-system 185ebf97607078ce3d84dc41dd7f05b666fb94c1d304d918b5e439f0bb613c08 /bin/foreground /bin/foreground
+COPY FROM HOST /Dollyfile-system 185ebf97607078ce3d84dc41dd7f05b666fb94c1d304d918b5e439f0bb613c08 /usr/lib/libdisplay.so /usr/lib/libdisplay.so
+COPY FROM HOST /Dollyfile-system 185ebf97607078ce3d84dc41dd7f05b666fb94c1d304d918b5e439f0bb613c08 /usr/share/fonts/IosevkaTerm-SemiBold.ttf /usr/share/fonts/IosevkaTerm-SemiBold.ttf
+EXPORTS ENV DISPLAY /usr/lib/libdisplay.so
+
+ENTRY /bin/foreground -i /usr/bin/life

@@ -1,0 +1,40 @@
+DOLLY 4
+IMAGE hello-build
+
+# Build-only image: the compiler stays here; consumers copy the result.
+FROM HOST /Dollyfile-system-build dc227bcd544a0fcb8ed8f4e4c755f37ae640ca619ac123ec377438b938a0ddf8
+
+FILE /tmp/hello/life.c
+    #include <stdio.h>
+    #include <stdlib.h>
+    #include <string.h>
+    #include <time.h>
+    enum { W = 48, H = 18 };
+    static int grid[H][W], next[H][W];
+    int main(int argc, char **argv) {
+      int frames = argc > 1 ? atoi(argv[1]) : 200;
+      grid[1][2] = grid[2][3] = grid[3][1] = grid[3][2] = grid[3][3] = 1;
+      grid[8][20] = grid[8][21] = grid[8][22] = 1;
+      for (int f = 0; f < frames; f++) {
+        printf("\033[H\033[2J\033[1;33mlife in a lean Dolly image\033[0m  frame %d\n", f);
+        for (int y = 0; y < H; y++) {
+          for (int x = 0; x < W; x++) fputs(grid[y][x] ? "\033[32m#\033[0m" : ".", stdout);
+          putchar('\n');
+        }
+        fflush(stdout);
+        for (int y = 0; y < H; y++) for (int x = 0; x < W; x++) {
+          int n = 0;
+          for (int dy = -1; dy <= 1; dy++) for (int dx = -1; dx <= 1; dx++)
+            if (dy || dx) n += grid[(y + dy + H) % H][(x + dx + W) % W];
+          next[y][x] = n == 3 || (grid[y][x] && n == 2);
+        }
+        memcpy(grid, next, sizeof grid);
+        struct timespec pause = {0, 80000000};
+        nanosleep(&pause, NULL);
+      }
+      return 0;
+    }
+SLOP cc -O2 /tmp/hello/life.c -o /usr/bin/life
+EXPORTS TOOL life
+
+ENTRY /bin/slop

@@ -1,0 +1,8 @@
+DOLLY 4
+IMAGE hello-on-runtime
+
+FROM HOST /Dollyfile-runtime 7e5346f2dae1b77b2a57a0286441af10cbaa351ee53ff45f5b4ca71e848e8e6f
+# Install the lean hello image's files into this one.
+COPY FROM HOST /Dollyfile-hello a5c5ac2477207a06e40e1704db68090491a745e9153508520eb6ee44ee5b6333 / /
+
+ENTRY /bin/foreground -i /bin/slop

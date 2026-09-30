@@ -1,0 +1,30 @@
+DOLLY 4
+IMAGE runtime
+
+REQUIRES HOST display@0
+REQUIRES HOST http@0
+REQUIRES HOST download@0
+REQUIRES HOST upload@0
+REQUIRES HOST snapshot@0
+
+# The system userspace without its C/C++ toolchain: shell, tools, Git, curl and
+# the terminal, copied out of the image that built them.
+COPY FROM HOST /Dollyfile-system 185ebf97607078ce3d84dc41dd7f05b666fb94c1d304d918b5e439f0bb613c08 /bin /bin
+COPY FROM HOST /Dollyfile-system 185ebf97607078ce3d84dc41dd7f05b666fb94c1d304d918b5e439f0bb613c08 /usr/bin/git /usr/bin/git
+COPY FROM HOST /Dollyfile-system 185ebf97607078ce3d84dc41dd7f05b666fb94c1d304d918b5e439f0bb613c08 /usr/bin/curl /usr/bin/curl
+COPY FROM HOST /Dollyfile-system 185ebf97607078ce3d84dc41dd7f05b666fb94c1d304d918b5e439f0bb613c08 /usr/bin/session-recover /usr/bin/session-recover
+COPY FROM HOST /Dollyfile-system 185ebf97607078ce3d84dc41dd7f05b666fb94c1d304d918b5e439f0bb613c08 /usr/share/git-core /usr/share/git-core
+COPY FROM HOST /Dollyfile-system 185ebf97607078ce3d84dc41dd7f05b666fb94c1d304d918b5e439f0bb613c08 /usr/share/licenses /usr/share/licenses
+COPY FROM HOST /Dollyfile-system 185ebf97607078ce3d84dc41dd7f05b666fb94c1d304d918b5e439f0bb613c08 /usr/share/fonts /usr/share/fonts
+COPY FROM HOST /Dollyfile-system 185ebf97607078ce3d84dc41dd7f05b666fb94c1d304d918b5e439f0bb613c08 /usr/lib/libdisplay.so /usr/lib/libdisplay.so
+COPY FROM HOST /Dollyfile-system 185ebf97607078ce3d84dc41dd7f05b666fb94c1d304d918b5e439f0bb613c08 /etc/gitconfig /etc/gitconfig
+COPY FROM HOST /Dollyfile-system 185ebf97607078ce3d84dc41dd7f05b666fb94c1d304d918b5e439f0bb613c08 /home/dolly/.gitconfig /home/dolly/.gitconfig
+# The compiler front ends would only report a missing compiler here; derived
+# builds still run this image's own /bin/dollyfile.
+SLOP rm /bin/cc /bin/c++ /bin/ld /bin/ar
+
+EXPORTS ENV PATH /bin:/usr/bin
+EXPORTS ENV SHELL /bin/slop
+EXPORTS ENV DISPLAY /usr/lib/libdisplay.so
+
+ENTRY /bin/foreground -i /bin/slop
