@@ -1,7 +1,7 @@
 # Ship a Slop-compatible shutil with Python
 
 - STATUS: OPEN
-- PRIORITY: 200
+- PRIORITY: 150
 - TAGS: python,demo,slop,compatibility
 
 Owner request (2026-09-30): "for python, it should ship with a slop compatible

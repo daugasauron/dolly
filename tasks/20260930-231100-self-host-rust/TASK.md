@@ -1,7 +1,7 @@
 # Build the Rust compiler inside the userspace
 
 - STATUS: OPEN
-- PRIORITY: 220
+- PRIORITY: 250
 - TAGS: toolchain,bootstrap,rust
 
 Owner goal: rustc must be compiled inside Dolly, not cross-built on the host. Today the Rust seed (rustc 1.98.1 against a separate LLVM 22) is built by scripts/build-rust-toolchain.sh on the host (demos/rust/README.md).

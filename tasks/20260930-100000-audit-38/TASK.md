@@ -1,7 +1,7 @@
 # Janis silent no-ops and dead shim code
 
 - STATUS: OPEN
-- PRIORITY: 170
+- PRIORITY: 100
 - TAGS: bug,janis,demo,cleanup
 
 `chmod` does nothing, `accessSync` ignores its mode, `mkdtemp` is not exclusive,

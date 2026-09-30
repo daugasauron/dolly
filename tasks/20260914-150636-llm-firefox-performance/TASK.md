@@ -1,7 +1,7 @@
 # Investigate the local LLM performance gap in Firefox
 
 - STATUS: OPEN
-- PRIORITY: 200
+- PRIORITY: 60
 - TAGS: gpu,llm,performance
 
 The in-image llama.cpp checkpoint produces correct Qwen3.5-0.8B output in

@@ -1,7 +1,7 @@
 # Build Zig completely inside the userspace
 
 - STATUS: OPEN
-- PRIORITY: 230
+- PRIORITY: 290
 - TAGS: toolchain,bootstrap,zig
 
 Owner goal: Zig must be compiled inside Dolly, not on the host. Today host Zig builds the frontend and host LLVM/LLD link zig.wasm (docs/sources.md bootstrap exceptions), used only by ghostty-build.

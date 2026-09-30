@@ -1,6 +1,6 @@
 # Bonnie package installer checks and markers
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 170
 - TAGS: bug,demo,python
 
@@ -29,3 +29,9 @@ Correct distribution-name validation and marker evaluation, or delegation to pip
 Bonnie checks the PyPI name and evaluates markers (`313783d`);
 `demos/python/test/recipes.test.mjs` covers it under host Python. Missing: the
 Python image test from "Done when".
+
+## Closed (2026-10-01)
+
+Superseded by `20260930-225918-pip-http`: stock pip over the HTTP broker
+replaces Bonnie, which is then deleted. The fixes recorded above (`313783d`)
+stay until then.

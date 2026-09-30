@@ -1,7 +1,7 @@
 # Reduce peak memory when saving a large restored session
 
 - STATUS: OPEN
-- PRIORITY: 300
+- PRIORITY: 200
 - TAGS: runtime,persistence,memory
 
 Restoring the 387804845-byte native Pi history and its 51-object world through

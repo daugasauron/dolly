@@ -1,7 +1,7 @@
 # Janis Node API correctness bugs
 
 - STATUS: OPEN
-- PRIORITY: 210
+- PRIORITY: 120
 - TAGS: bug,janis,demo
 
 `fs.promises.rmdir` maps to `rmSync` and deletes files (`src/runtimes/janis.js:1055`);

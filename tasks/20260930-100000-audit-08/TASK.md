@@ -1,7 +1,7 @@
 # Guest-controlled sizes reach trusted allocations and file reads
 
 - STATUS: OPEN
-- PRIORITY: 200
+- PRIORITY: 150
 - TAGS: security,core,kernel,boundary
 
 The HTTP body staging buffer is `malloc` of a guest-chosen size per process and thread

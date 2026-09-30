@@ -1,7 +1,7 @@
 # Pi tool replacement loses truncation and corrupts binary edits
 
 - STATUS: OPEN
-- PRIORITY: 240
+- PRIORITY: 120
 - TAGS: bug,pi,demo
 
 `src/pi/dolly-tools.js` replaces Pi's bash/read/write/edit tools. Neither `bash` (`:60-80`) nor

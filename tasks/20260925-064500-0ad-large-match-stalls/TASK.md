@@ -1,7 +1,7 @@
 # Reduce simulation stalls in developed 0 A.D. matches
 
 - STATUS: OPEN
-- PRIORITY: 240
+- PRIORITY: 80
 - TAGS: performance,wasm64,0ad
 
 Follow-up to the [gameplay audit](../20260924-115634-0ad-gameplay-performance/TASK.md),

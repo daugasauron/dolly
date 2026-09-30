@@ -1,7 +1,7 @@
 # Build 0 A.D. completely inside the userspace
 
 - STATUS: OPEN
-- PRIORITY: 200
+- PRIORITY: 270
 - TAGS: demo,zero-ad,bootstrap
 
 Owner goal: the 0 A.D. engine, SpiderMonkey and its dependencies must be compiled inside Dolly instead of by demos/zero-ad/toolchain on the host.

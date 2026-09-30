@@ -1,7 +1,7 @@
 # Patti Cargo subset bugs
 
 - STATUS: OPEN
-- PRIORITY: 190
+- PRIORITY: 80
 - TAGS: bug,demo,rust
 
 `src/commands/patti.c:1193`: a `[[bin]]` without `path` compiles `src/main.rs` instead of

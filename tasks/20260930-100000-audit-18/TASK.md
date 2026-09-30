@@ -1,7 +1,7 @@
 # Unbounded bootstrap output and trusted-source fetch buffering
 
 - STATUS: OPEN
-- PRIORITY: 200
+- PRIORITY: 150
 - TAGS: security,boundary
 
 `dolly_bootstrap_write_bytes` / `emscripten_out/err` have no length bound: `HEAPU8.slice` can

@@ -1,7 +1,7 @@
 # Measure independent Studio task correctness beyond successful builds
 
 - STATUS: OPEN
-- PRIORITY: 50
+- PRIORITY: 40
 - TAGS: audit,local-model,testing
 
 ## Evidence

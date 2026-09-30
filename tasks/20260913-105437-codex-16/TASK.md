@@ -1,7 +1,7 @@
 # Prepare only changed inputs for a selected image build
 
 - STATUS: OPEN
-- PRIORITY: 25
+- PRIORITY: 170
 - TAGS: audit,build
 
 ## Evidence

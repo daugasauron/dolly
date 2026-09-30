@@ -1,7 +1,7 @@
 # Process syscall sequence counter overflows after 2^31 calls
 
 - STATUS: OPEN
-- PRIORITY: 220
+- PRIORITY: 90
 - TAGS: bug,core,kernel
 
 `src/process-worker.mjs:508` computes `(Atomics.add(control, 0, 1) + 1) | 0`, which becomes

@@ -1,7 +1,7 @@
 # Stream large selected file imports and exports
 
 - STATUS: OPEN
-- PRIORITY: 200
+- PRIORITY: 150
 - TAGS: filesystem,browser,workflow
 
 A complete Slopyard recovery archive grew to 87,224,320 bytes. Uploading it

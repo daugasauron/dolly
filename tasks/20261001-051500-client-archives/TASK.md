@@ -1,7 +1,7 @@
 # Client archives keep members of earlier builds, so the seed depends on build history
 
 - STATUS: OPEN
-- PRIORITY: 260
+- PRIORITY: 305
 - TAGS: bug,build,reproducibility,core
 
 `scripts/build.sh` adds each module's client object to `build/libdolly-NAME.a`

@@ -1,7 +1,7 @@
 # Build Rust programs with threads@0
 
 - STATUS: OPEN
-- PRIORITY: 200
+- PRIORITY: 260
 - TAGS: rust,threads,codex,toolchain
 
 Owner suggestion (2026-10-01): the Rust port predates `threads@0`; Rust
