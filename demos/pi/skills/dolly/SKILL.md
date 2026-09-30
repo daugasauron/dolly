@@ -29,25 +29,22 @@ Dollyfiles, toolchain, commands, Pi integration, terminal, or tests.
 
 ## Repository map
 
-- `abi/`: typed Wasm machine contracts and snapshot extension.
+- `abi/`: typed Wasm machine contracts.
 - `include/dolly/`: C-facing platform and HTTP interfaces.
 - `src/dolly.c`: kernel integration and boot; `src/process-kernel.c`: process
   records, descriptors, signals and filesystem operations.
-- `src/runtime-worker.mjs`: isolated worker instantiation and broker mailboxes.
-- `src/browser.mjs`: trusted browser UI and capability provider.
-- `src/http-policy.mjs`: browser-side network authorization.
-- `src/slop.c`: deliberately small shell compatibility surface.
+- `src/runtime-worker.mjs`: runtime Worker boot, image build and restore.
+- `src/browser.mjs`, `src/host/`: trusted page and browser host modules.
+- `src/http-policy.mjs`, `src/http-broker.mjs`: network authorization and transport.
+- `src/slop.c`, `src/commands/`: the shell and Dolly's own commands.
 - `src/libcurl-fetch.c`: libcurl compatibility over Dolly HTTP, never sockets.
-- `src/runtimes/`: QuickJS/Janis, Node compatibility, and CPython ports.
-- `src/pi/`: Pi extension, prompt, settings, theme, and skills.
-- `Dollyfile*`: sequential, auditable image recipes.
-- `scripts/build.sh`: host build and pinned upstream source staging.
-- `scripts/build-system-snapshot.mjs`: executes each Dollyfile inside Wasm and
-  emits an immutable boot image.
-- `scripts/browser-harness.mjs`: real-browser security and behavior proofs.
-- `test/`: fast contract and source-level regression tests.
-- `abi/README.md`, `docs/architecture.md`, `docs/security.md`, and
-  `docs/dollyfile.md`: focused design references.
+- `Dollyfile*`, `modules/`: core image recipes. `demos/DEMO/`: everything else
+  (JavaScript, Python, Pi, games) with its own recipes, sources and tests.
+- `scripts/build.sh`: kernel and compiler seed; `npm run image -- IMAGE` builds
+  an image inside Wasm in a headless browser.
+- `test/`, `demos/*/test/`: source and real-browser tests.
+- `README.md`, `abi/README.md` and `docs/`: architecture, process model, browser
+  boundary, Dollyfile and other focused references.
 
 ## Working method
 
@@ -56,9 +53,9 @@ Dollyfiles, toolchain, commands, Pi integration, terminal, or tests.
    libc/runtime, then command or agent behavior.
 3. Keep Dollyfile operations sequential and every external byte pinned by
    SHA-256. Update the recipe hash whenever a staged source changes.
-4. Build with `npm run build`. Run `npm test`; for UI, broker, persistence, or
-   lifecycle changes, also run the appropriate real-browser mode in
-   `scripts/test-browser.sh`.
+4. Build with `npm run build:runtime` and `npm run image -- IMAGE`. Run
+   `npm run test:source`; for UI, broker, persistence or lifecycle changes, also
+   run `npm run test:core` or the relevant browser suite.
 5. Inspect the main module's exact imports after ABI changes. A browser test
    must prove denied host access and the intended capability allowlist.
 
