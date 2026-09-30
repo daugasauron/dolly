@@ -1162,57 +1162,36 @@ static int64_t terminal_packet(dolly_kernel_process *process,
   memcpy(&request, process_mailbox, sizeof(request));
   if (request.reserved != 0) return -EINVAL;
   dolly_process_terminal_response response = {0};
-  switch (request.operation) {
-    case DOLLY_PROCESS_TERMINAL_READ: {
-      int descriptor = descriptor_for(process, request.descriptor);
-      if (descriptor < 0) return descriptor;
-      (void)descriptor;
-      if (!process->terminal_descriptors[request.descriptor]) return -ENOTTY;
-      const int byte = dolly_kernel_terminal_read();
-      if (byte < 0 && dolly_kernel_deadline_pending(request.deadline_nanoseconds)) {
-        return DOLLY_PROCESS_DISPATCH_DEFERRED;
-      }
-      response.value = byte;
-      break;
+  if (request.operation == DOLLY_PROCESS_TERMINAL_PUBLISH_RESULT) {
+    dolly_terminal_publish_result((int)request.flags);
+    return respond(&response, sizeof(response));
+  }
+  if (request.operation != DOLLY_PROCESS_TERMINAL_READ &&
+      request.operation != DOLLY_PROCESS_TERMINAL_ISATTY &&
+      request.operation != DOLLY_PROCESS_TERMINAL_MODE_GET &&
+      request.operation != DOLLY_PROCESS_TERMINAL_MODE_SET &&
+      request.operation != DOLLY_PROCESS_TERMINAL_SIZE) return -EINVAL;
+  const int descriptor = descriptor_for(process, request.descriptor);
+  if (descriptor < 0) return descriptor;
+  const int terminal = process->terminal_descriptors[request.descriptor] != 0;
+  if (request.operation == DOLLY_PROCESS_TERMINAL_ISATTY) {
+    response.value = terminal;
+  } else if (!terminal) {
+    return -ENOTTY;
+  } else if (request.operation == DOLLY_PROCESS_TERMINAL_READ) {
+    const int byte = dolly_kernel_terminal_read();
+    if (byte < 0 && dolly_kernel_deadline_pending(request.deadline_nanoseconds)) {
+      return DOLLY_PROCESS_DISPATCH_DEFERRED;
     }
-    case DOLLY_PROCESS_TERMINAL_ISATTY: {
-      int descriptor = descriptor_for(process, request.descriptor);
-      if (descriptor < 0) return descriptor;
-      (void)descriptor;
-      response.value = process->terminal_descriptors[request.descriptor] != 0;
-      break;
-    }
-    case DOLLY_PROCESS_TERMINAL_MODE_GET: {
-      int descriptor = descriptor_for(process, request.descriptor);
-      if (descriptor < 0) return descriptor;
-      (void)descriptor;
-      if (!process->terminal_descriptors[request.descriptor]) return -ENOTTY;
-      response.value = dolly_kernel_terminal_mode();
-      break;
-    }
-    case DOLLY_PROCESS_TERMINAL_MODE_SET: {
-      int descriptor = descriptor_for(process, request.descriptor);
-      if (descriptor < 0) return descriptor;
-      (void)descriptor;
-      if (!process->terminal_descriptors[request.descriptor]) return -ENOTTY;
-      const int result = dolly_kernel_terminal_set_mode(request.flags);
-      if (result < 0) return result;
-      break;
-    }
-    case DOLLY_PROCESS_TERMINAL_SIZE: {
-      int descriptor = descriptor_for(process, request.descriptor);
-      if (descriptor < 0) return descriptor;
-      (void)descriptor;
-      if (!process->terminal_descriptors[request.descriptor]) return -ENOTTY;
-      response.columns = dolly_terminal_columns();
-      response.rows = dolly_terminal_rows();
-      break;
-    }
-    case DOLLY_PROCESS_TERMINAL_PUBLISH_RESULT:
-      dolly_terminal_publish_result((int)request.flags);
-      break;
-    default:
-      return -EINVAL;
+    response.value = byte;
+  } else if (request.operation == DOLLY_PROCESS_TERMINAL_MODE_GET) {
+    response.value = dolly_kernel_terminal_mode();
+  } else if (request.operation == DOLLY_PROCESS_TERMINAL_MODE_SET) {
+    const int result = dolly_kernel_terminal_set_mode(request.flags);
+    if (result < 0) return result;
+  } else {
+    response.columns = dolly_terminal_columns();
+    response.rows = dolly_terminal_rows();
   }
   return respond(&response, sizeof(response));
 }
