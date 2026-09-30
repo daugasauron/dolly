@@ -93,6 +93,10 @@ Remaining:
 - Display's kernel state (lease, frames, terminal renderer) is still in
   `src/dolly.c`, and its mailbox also carries core terminal state (foreground,
   interrupts, input ring): split a runtime-owned terminal mailbox.
-- Stage 3: move display, HTTP, download and upload operations and packets from
-  `process.h` into their modules (changes the process ABI digest).
+- Stage 3 (owner decision): move display, HTTP, download and upload operations
+  and packets from `process.h` into their modules. Today their layouts are in
+  the exact-bytes process ABI digest; gpu and audio packets are identified only
+  by `NAME@0`. Moving them without a per-module digest (like threads'
+  `DOLLY_THREADS_ABI_DIGEST`) would weaken executable identity, so choose:
+  per-module digests stamped by the client, or keep module packets in `process.h`.
 - `threads@0` kernel code stays in `process-kernel.c` (thread table).
