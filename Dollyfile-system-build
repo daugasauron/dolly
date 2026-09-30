@@ -2,10 +2,9 @@ DOLLY 4
 IMAGE system-build
 
 USE HOST /modules/bootstrap.dm f4fb4c79d9b4f955847af5279f7e2abeb50c52aa60e12e69097a9aa0edc2baba
-USE HOST /modules/core-tools.dm 4251955ea2d59efcd2626ebc60e5997c6d2b1dac17b9213354d0a7db96a50395
+USE HOST /modules/core-tools.dm 5b51cdcbe68b64867ce6573477aa977cbe12cfbf2742e7a766f5291bde493fd9
 USE HOST /modules/tar.dm 2868ed138733f40f58640f260107d8bd0541af77414af7fb3929d568b9f2931e
-USE HOST /modules/make.dm fd8453a63c625c27dacea611da7c47dab1797a418c02ab6ed0ab4f7be2fd60b3
-USE HOST /modules/sbase.dm 76fa8a95ffc86141c2a7e903d9f83fdcf659248bc96b013e5192770ddc269ab4
+USE HOST /modules/make.dm 3d898f4189cd334b3f7120d67adf4bb1c75a43c2bee8d4b7f8d9015352449018
 USE HOST /modules/cpp.dm 4c0c70a0453498b138387708cf7d7f831a9eb636899576e5f36351cdfcb3af74
 
 ENTRY /bin/slop

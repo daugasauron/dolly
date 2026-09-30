@@ -17,14 +17,18 @@ static double now(void) {
   return (double)value.tv_sec * 1e3 + (double)value.tv_nsec / 1e6;
 }
 
-int dolly_spawn_env_cwd(const char *path, int argc, char **argv, char *const envp[],
-                        const char *cwd, int stdin_fd, int stdout_fd, int stderr_fd,
-                        double timeout_milliseconds) {
+// posix_spawn inherits every non-CLOEXEC descriptor, as INHERIT_FDS_ALL does.
+int dolly_spawn_mapped(const char *path, int argc, char **argv, char *const envp[],
+                       const char *cwd, uint32_t descriptor_inheritance,
+                       const dolly_process_fd_mapping *mappings,
+                       uint32_t mapping_count, double timeout_milliseconds) {
   size_t bytes = strlen(path);
   for (int index = 0; index < argc; index++) bytes += strlen(argv[index]) + 1;
   for (int index = 0; envp[index] != NULL; index++) bytes += strlen(envp[index]) + 1;
-  if (path[0] != '/' || cwd != NULL || stdin_fd != 0 || stdout_fd != 1 || stderr_fd != 2 ||
-      timeout_milliseconds < -1) return -EINVAL;
+  if (path[0] != '/' || cwd != NULL ||
+      descriptor_inheritance != DOLLY_PROCESS_INHERIT_FDS_ALL ||
+      mappings != NULL || mapping_count != 0 || timeout_milliseconds < -1)
+    return -EINVAL;
   if (bytes > DOLLY_PROCESS_PACKET_LIMIT) return -E2BIG;
   pid_t pid;
   const int error = posix_spawn(&pid, path, NULL, NULL, argv, envp);

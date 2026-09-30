@@ -96,6 +96,7 @@ export function browserShellCases(modules, fixtureOrigin) {
     ["echo LS-ALL-BEGIN"],
     ["ls -a flags"],
     ["echo LS-ALL-END"],
+    ["cat -n shell.txt"],
     ["pwd -P"],
     ["rm -f flags/missing"],
     ["rm -rf flags"],

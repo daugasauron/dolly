@@ -31,7 +31,7 @@ await browserTest("core", { image }, async ({ server, open }) => {
   const cancelledBefore = server.cancelledRequests;
   for (const command of [
     "sleep 30; echo bad > /tmp/core-interrupted",
-    "sleep 30 | /bin/slop -c 'sleep 30; echo bad > /tmp/core-interrupted'",
+    "sleep 30 | /bin/slop -c 'echo bad > /tmp/core-interrupted'",
     "(sleep 30) | /bin/slop -c 'echo bad > /tmp/core-interrupted'",
     'echo "$(sleep 30)" "$(echo bad > /tmp/core-interrupted)"',
     'for item in "$(sleep 30)" "$(echo bad > /tmp/core-interrupted)"; do echo bad > /tmp/core-interrupted; done',
@@ -57,11 +57,12 @@ await browserTest("core", { image }, async ({ server, open }) => {
   assert.equal(await submit("printf 'needle\\n' > /tmp/core-search; grep -q needle /tmp/core-search && test \"$(find /tmp -maxdepth 1 -name core-search)\" = /tmp/core-search && rm /tmp/core-search"), 0);
   assert.equal(await submit([
     "mkdir -p /tmp/core-commands/a /tmp/core-commands/b /tmp/core-commands/many && cd /tmp/core-commands",
-    "test \"$(echo --)\" = -- && [ ! -e /bin/cd ] && ! command cd /",
+    "test \"$(echo --)\" = -- && ! test -x /tmp && [ \\( -d / -a ! -f / \\) -o -z x ]",
     "printf 'gr\\303\\274\\303\\237e\\n' > utf8 && test \"$(file -b utf8)\" = 'UTF-8 Unicode text'",
     "printf abcdef > dd.txt && printf XY | dd of=dd.txt bs=1 seek=2 conv=notrunc && test \"$(cat dd.txt)\" = abXYef",
-    "printf XY | dd of=dd.txt bs=1 seek=1 && test \"$(cat dd.txt)\" = aXY",
+    "printf XY | dd of=dd.txt bs=1 seek=1 && test \"$(cat dd.txt)\" = aXY && ! tail -f dd.txt",
     "timeout 0 sleep 1",
+    "timeout 60 sh -c 'echo x >&3' 3> fd3 && test \"$(cat fd3)\" = x",
     "printf 'one\\n' > a/file && printf 'two\\n' > b/file && { diff -u a/file b/file > change.patch; test $? -eq 1; }",
     "cd a && ! patch file < ../change.patch && test \"$(cat file)\" = one && patch -p1 < ../change.patch && test \"$(cat file)\" = two && cd ..",
     "cd many && seq 1 600 | xargs touch && cd ..",

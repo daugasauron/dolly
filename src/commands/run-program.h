@@ -41,9 +41,10 @@ static char *find_program(const char *name, const char *search) {
   return NULL;
 }
 
-// Runs argv with this process's environment and standard descriptors. A
-// timeout of -1 disables the deadline. Returns the program's status, or
-// reports why it could not run and returns 127 (not found) or 126.
+// Runs argv with this process's environment and inherited descriptors, as
+// Slop runs a command. A timeout of -1 disables the deadline. Returns the
+// program's status, or reports why it could not run and returns 127 (not
+// found) or 126.
 static int run_program(const char *self, int argc, char **argv,
                        const char *search, double timeout_milliseconds) {
   char *found = find_program(argv[0], search);
@@ -54,9 +55,10 @@ static int run_program(const char *self, int argc, char **argv,
     return errno == ENOENT ? 127 : 126;
   }
   char *empty[] = {NULL};
-  const int pid = dolly_spawn_env_cwd(path, argc, argv,
-                                      environ == NULL ? empty : environ, NULL,
-                                      0, 1, 2, timeout_milliseconds);
+  const int pid = dolly_spawn_mapped(path, argc, argv,
+                                     environ == NULL ? empty : environ, NULL,
+                                     DOLLY_PROCESS_INHERIT_FDS_ALL, NULL, 0,
+                                     timeout_milliseconds);
   free(path);
   int status = 126;
   const int result = pid < 0 ? pid : dolly_wait(pid, &status);
