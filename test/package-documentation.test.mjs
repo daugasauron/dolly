@@ -12,7 +12,7 @@ test("documentation packaging closes local links without exposing private source
   const project = resolve(root, "project"), site = resolve(root, "site");
   for (const path of ["docs", "src", "abi", "tasks/20260913-120000-proof", "tasks/20260914-160027-gpu-checkpoint"]) await mkdir(resolve(project, path), { recursive: true });
   await writeFile(resolve(project, "docs/a.md"), "[b](b.md#heading) [ABI](../abi/README.md) [unselected image](../Dollyfile-extra)");
-  await writeFile(resolve(project, "Dollyfile-extra"), "DOLLY 3\nIMAGE extra\n");
+  await writeFile(resolve(project, "Dollyfile-extra"), "DOLLY 4\nIMAGE extra\n");
   await writeFile(resolve(project, "docs/b.md"), "[a](a.md) [source](../src/dolly.c) [issues](../tasks/README.md)");
   await writeFile(resolve(project, "abi/README.md"), "[a](../docs/a.md)");
   await writeFile(resolve(project, "src/dolly.c"), "public source\n");
@@ -40,9 +40,9 @@ test("partial releases include recipe examples without selecting their images or
   const project = resolve(root, "project"), site = resolve(root, "site");
   for (const path of ["docs", "abi"]) await mkdir(resolve(project, path), { recursive: true });
   await mkdir(site);
-  const example = "DOLLY 3\nIMAGE example\nENTRY /bin/slop\n";
+  const example = "DOLLY 4\nIMAGE example\nENTRY /bin/slop\n";
   await writeFile(resolve(project, "Dollyfile-example"), example);
-  await writeFile(resolve(site, "Dollyfile-selected"), "DOLLY 3\nIMAGE selected\nENTRY /bin/slop\n");
+  await writeFile(resolve(site, "Dollyfile-selected"), "DOLLY 4\nIMAGE selected\nENTRY /bin/slop\n");
   await writeFile(resolve(project, "abi/README.md"), "ABI");
   await writeFile(resolve(project, "docs/a.md"),
     "[example](../Dollyfile-example#part) [ABI](../abi/README.md)\n```\n[unchanged](../Dollyfile-example)\n```\n");

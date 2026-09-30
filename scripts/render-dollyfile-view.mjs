@@ -110,7 +110,7 @@ function renderSlop(record, row, prefix, spacing, rest) {
 
 function renderSource(record, graph) {
   const rows = new Map(record.rows.map((row) => [row.line, row]));
-  return record.source.split("\n").map((value, index) => {
+  return record.source.split(/\r\n|\r|\n/).map((value, index) => {
     const number = index + 1;
     const row = rows.get(number);
     let body = escapeHtml(value);
@@ -155,5 +155,5 @@ export function renderDollyfilePage(record, graph) {
     b { color: #f2d45c; } .comment { color: #77736c; }
   </style>
 </head>
-<body><main><pre aria-label="${escapeHtml(record.relative)} source"><code>${renderSource(record, graph)}</code></pre></main></body></html>\n`;
+<body><main><pre aria-label="${escapeHtml(record.location.slice(1))} source"><code>${renderSource(record, graph)}</code></pre></main></body></html>\n`;
 }

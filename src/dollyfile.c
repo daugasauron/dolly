@@ -12,6 +12,7 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
+#include <dolly/host-abi.h>
 #include <dolly/http.h>
 #include <dolly/runtime.h>
 #include "sha256.h"
@@ -86,6 +87,9 @@ typedef struct {
   char **environment_names;
   size_t environment_name_count;
   size_t environment_name_capacity;
+  char **host_requirements;
+  size_t host_requirement_count;
+  size_t host_requirement_capacity;
   char *selected_image;
   Scope exports;
   Artifact artifact;
@@ -201,21 +205,10 @@ static int publish_download(const char *temporary, const char *destination, size
   return status;
 }
 
-static int valid_name(const char *value) {
+// Image names allow 32 bytes and module names 64: [a-z][a-z0-9-]*.
+static int valid_name(const char *value, size_t limit) {
   const size_t length = strlen(value);
-  if (length == 0 || length > 32 || value[0] < 'a' || value[0] > 'z') return 0;
-  for (size_t index = 1; index < length; ++index) {
-    if (!((value[index] >= 'a' && value[index] <= 'z') ||
-          (value[index] >= '0' && value[index] <= '9') || value[index] == '-')) {
-      return 0;
-    }
-  }
-  return 1;
-}
-
-static int valid_module_name(const char *value) {
-  const size_t length = strlen(value);
-  if (length == 0 || length > 64 || value[0] < 'a' || value[0] > 'z') return 0;
+  if (length == 0 || length > limit || value[0] < 'a' || value[0] > 'z') return 0;
   for (size_t index = 1; index < length; ++index) {
     if (!((value[index] >= 'a' && value[index] <= 'z') ||
           (value[index] >= '0' && value[index] <= '9') || value[index] == '-')) {
@@ -739,8 +732,6 @@ static int resolve_tool(const char *name, char **path_out) {
   return result;
 }
 
-static int compare_strings(const void *left, const void *right);
-
 static int collect_paths(char ***paths, size_t *count, size_t *capacity,
                          const char *path) {
   if (forbidden_keep(path)) return -EPERM;
@@ -1061,7 +1052,7 @@ static int read_artifact_receipt(Engine *engine, const unsigned char *bytes,
     if (result == 0) {
       sha256_bytes(source, strlen(source), actual);
       if ((strcmp(kind, "IMAGE") != 0 && strcmp(kind, "MODULE") != 0) ||
-          !valid_module_name(name) || !valid_absolute_path(location) ||
+          !valid_name(name, 64) || !valid_absolute_path(location) ||
           !valid_sha256(digest) || strcmp(actual, digest) != 0 ||
           strlen(source) > MAX_RECIPE_BYTES) result = -EBADMSG;
     }
@@ -1274,7 +1265,8 @@ static int execute_recipe(Engine *engine, const char *locator,
 
 static int valid_host_requirement(const char *value) {
   const char *at = strchr(value, '@');
-  if (at == NULL || at == value || at - value > 31 || value[0] < 'a' || value[0] > 'z') return 0;
+  if (at == NULL || at == value || at - value >= DOLLY_HOST_NAME_BYTES ||
+      value[0] < 'a' || value[0] > 'z') return 0;
   for (const char *p = value; p < at; ++p) {
     if (!((*p >= 'a' && *p <= 'z') || (*p >= '0' && *p <= '9') || *p == '-')) return 0;
   }
@@ -1289,9 +1281,24 @@ static int valid_host_requirement(const char *value) {
   return number <= 65535;
 }
 
+// An image can require only one ABI revision of each provider.
+static int require_host(Engine *engine, const char *value) {
+  const size_t prefix = (size_t)(strchr(value, '@') - value) + 1;
+  for (size_t index = 0; index < engine->host_requirement_count; ++index) {
+    const char *existing = engine->host_requirements[index];
+    if (strncmp(existing, value, prefix) == 0 && strcmp(existing, value) != 0) {
+      fprintf(stderr, "dollyfile: HOST %s conflicts with %s\n", value, existing);
+      return 2;
+    }
+  }
+  const int result = append_string(&engine->host_requirements, &engine->host_requirement_count,
+                                   &engine->host_requirement_capacity, value);
+  return result == 0 && engine->host_requirement_count > DOLLY_HOST_MAX_RECORDS ? 2 : result;
+}
+
 static int valid_image_locator(const char *value) {
   return strcmp(value, "/Dollyfile") == 0 ||
-         (strncmp(value, "/Dollyfile-", 11) == 0 && valid_name(value + 11));
+         (strncmp(value, "/Dollyfile-", 11) == 0 && valid_name(value + 11, 32));
 }
 
 static int process_line(Engine *engine, const char *locator, size_t depth,
@@ -1299,7 +1306,6 @@ static int process_line(Engine *engine, const char *locator, size_t depth,
                         const unsigned char *body, size_t body_length,
                         Scope *visible, Scope *exports, char **kind, char **name,
                         int *header_seen, size_t *operations, int execute) {
-  strip_comment(line);
   char *text = trim(line);
   if (*text == '\0') return 0;
   char *separator = text;
@@ -1310,11 +1316,11 @@ static int process_line(Engine *engine, const char *locator, size_t depth,
   // operation can mutate files or start a memory-intensive compiler process.
   if (strcmp(text, "COPY") != 0) dispose_artifact(&engine->artifact);
   if (!*header_seen) {
-    if (strcmp(text, "DOLLY") != 0 || (strcmp(arguments, "3") != 0 && strcmp(arguments, "4") != 0)) {
-      fprintf(stderr, "dollyfile: %s:%zu: first declaration must be DOLLY 3 or DOLLY 4\n", locator, line_number);
+    if (strcmp(text, "DOLLY") != 0 || strcmp(arguments, "4") != 0) {
+      fprintf(stderr, "dollyfile: %s:%zu: first declaration must be DOLLY 4\n", locator, line_number);
       return 2;
     }
-    *header_seen = arguments[0] - '0';
+    *header_seen = 1;
     return 0;
   }
   if (*kind == NULL) {
@@ -1324,7 +1330,10 @@ static int process_line(Engine *engine, const char *locator, size_t depth,
     const char *value = parsed == 0 && count == 1 ? identity[0] : "";
     free(identity);
     if ((strcmp(text, "IMAGE") != 0 && strcmp(text, "MODULE") != 0) ||
-        (strcmp(text, "IMAGE") == 0 ? !valid_name(value) : !valid_module_name(value))) return 2;
+        (strcmp(text, "IMAGE") == 0 ? !valid_name(value, 32) : !valid_name(value, 64))) {
+      fprintf(stderr, "dollyfile: %s:%zu: expected IMAGE or MODULE with a valid name\n", locator, line_number);
+      return 2;
+    }
     *kind = strdup(text);
     *name = strdup(value);
     return *kind == NULL || *name == NULL ? -ENOMEM : 0;
@@ -1371,7 +1380,7 @@ static int process_line(Engine *engine, const char *locator, size_t depth,
     result = split_words(arguments, &words, &count);
     const int host = result == 0 && count == 2 && strcmp(words[0], "HOST") == 0;
     if (host) {
-      if (*header_seen < 4 || !valid_host_requirement(words[1])) result = 2;
+      result = valid_host_requirement(words[1]) ? require_host(engine, words[1]) : 2;
     } else if (result == 0 && (count != 2 || !valid_object_type(words[0]) ||
         (strcmp(words[0], "ENV") == 0 ? !valid_environment_name(words[1]) : !valid_object_name(words[1])))) result = 2;
     // HOST describes the completed image. Its provider is checked by the host
@@ -1419,7 +1428,7 @@ static int process_line(Engine *engine, const char *locator, size_t depth,
   } else if (strcmp(text, "SOURCE") == 0) {
     result = split_words(arguments, &words, &count);
     if (result == 0 && (count != 4 || (strcmp(words[0], "HOST") != 0 && strcmp(words[0], "URL") != 0) ||
-        (strcmp(words[0], "HOST") == 0 && !valid_absolute_path(words[1])) ||
+        (strcmp(words[0], "HOST") == 0 && (!valid_absolute_path(words[1]) || strpbrk(words[1], "?#") != NULL)) ||
         (strcmp(words[0], "URL") == 0 && ((strncmp(words[1], "https://", 8) != 0 &&
           strncmp(words[1], "http://", 7) != 0) || strchr(words[1], '#') != NULL)) ||
         !valid_absolute_path(words[2]) || !valid_sha256(words[3]))) result = 2;
@@ -1479,6 +1488,11 @@ static int append_recipe(Engine *engine, const char *kind, const char *name,
     if (strcmp(record->locator, locator) == 0) {
       return strcmp(record->digest, digest) == 0 ? 0 : -EBADMSG;
     }
+    // Recipes are retained by kind and name under /etc/dolly/recipes.
+    if (strcmp(record->kind, kind) == 0 && strcmp(record->name, name) == 0) {
+      fprintf(stderr, "dollyfile: %s %s at %s is already %s\n", kind, name, locator, record->locator);
+      return -EEXIST;
+    }
   }
   if (engine->recipe_count == engine->recipe_capacity) {
     const size_t next = engine->recipe_capacity == 0 ? 4 : engine->recipe_capacity * 2;
@@ -1496,6 +1510,17 @@ static int append_recipe(Engine *engine, const char *kind, const char *name,
   memcpy(record->digest, digest, 65);
   return record->kind != NULL && record->name != NULL &&
          record->locator != NULL && record->source != NULL ? 0 : -ENOMEM;
+}
+
+// Returns the end of the physical line at *cursor and moves *cursor past its
+// LF, CRLF or CR terminator.
+static size_t next_line(const Buffer *recipe, size_t *cursor) {
+  size_t end = *cursor;
+  while (end < recipe->length && recipe->data[end] != '\n' && recipe->data[end] != '\r') ++end;
+  size_t next = end;
+  if (next + 1 < recipe->length && recipe->data[next] == '\r' && recipe->data[next + 1] == '\n') ++next;
+  *cursor = next < recipe->length ? next + 1 : next;
+  return end;
 }
 
 static int execute_recipe(Engine *engine, const char *locator,
@@ -1553,10 +1578,9 @@ static int execute_recipe(Engine *engine, const char *locator,
     Buffer logical = {.limit = MAX_LOGICAL_LINE_BYTES};
     int continued = 0;
     do {
-      size_t end = cursor;
-      while (end < recipe.length && recipe.data[end] != '\n' &&
-             recipe.data[end] != '\r') ++end;
-      char *physical = strndup((char *)recipe.data + cursor, end - cursor);
+      const size_t start = cursor;
+      const size_t end = next_line(&recipe, &cursor);
+      char *physical = strndup((char *)recipe.data + start, end - start);
       if (physical == NULL) { result = -ENOMEM; break; }
       strip_comment(physical);
       size_t length = strlen(physical);
@@ -1566,9 +1590,6 @@ static int execute_recipe(Engine *engine, const char *locator,
       if (logical.length != 0 && append_buffer(" ", 1, &logical) != 1) result = -ENOMEM;
       if (result == 0 && append_buffer(physical, length, &logical) != length) result = -EFBIG;
       free(physical);
-      if (end < recipe.length && recipe.data[end] == '\r' &&
-          end + 1 < recipe.length && recipe.data[end + 1] == '\n') ++end;
-      cursor = end < recipe.length ? end + 1 : end;
       ++physical_line;
       if (continued && cursor >= recipe.length) {
         fprintf(stderr, "dollyfile: %s:%zu: unterminated continuation\n",
@@ -1587,22 +1608,13 @@ static int execute_recipe(Engine *engine, const char *locator,
         break;
       }
     }
-    int file_directive = 0;
-    char *probe = strdup((char *)logical.data);
-    if (probe == NULL) result = 1;
-    else {
-      strip_comment(probe);
-      char *trimmed = trim(probe);
-      file_directive = strncmp(trimmed, "FILE", 4) == 0 &&
-                       isspace((unsigned char)trimmed[4]);
-      free(probe);
-    }
+    const char *directive = (const char *)logical.data;
+    while (isspace((unsigned char)*directive)) ++directive;
     Buffer body = {.limit = MAX_RECIPE_BYTES};
-    if (result == 0 && file_directive) {
+    if (strncmp(directive, "FILE", 4) == 0 && isspace((unsigned char)directive[4])) {
       while (cursor < recipe.length) {
-        size_t end = cursor;
-        while (end < recipe.length && recipe.data[end] != '\n' &&
-               recipe.data[end] != '\r') ++end;
+        size_t next = cursor;
+        const size_t end = next_line(&recipe, &next);
         if (end - cursor < 4 || memcmp(recipe.data + cursor, "    ", 4) != 0) break;
         if (append_buffer(recipe.data + cursor + 4, end - cursor - 4, &body) !=
                 end - cursor - 4 ||
@@ -1610,9 +1622,7 @@ static int execute_recipe(Engine *engine, const char *locator,
           result = 1;
           break;
         }
-        if (end < recipe.length && recipe.data[end] == '\r' &&
-            end + 1 < recipe.length && recipe.data[end + 1] == '\n') ++end;
-        cursor = end < recipe.length ? end + 1 : end;
+        cursor = next;
         ++physical_line;
       }
     }
@@ -1905,6 +1915,10 @@ static void dispose_engine(Engine *engine) {
     free(engine->environment_names[index]);
   }
   free(engine->environment_names);
+  for (size_t index = 0; index < engine->host_requirement_count; ++index) {
+    free(engine->host_requirements[index]);
+  }
+  free(engine->host_requirements);
 }
 
 static void usage(FILE *stream) {

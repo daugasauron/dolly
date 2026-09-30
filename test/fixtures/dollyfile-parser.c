@@ -1,22 +1,27 @@
-// Isolated diagnostic of the actual C parser. These test-only hooks supply a
-// recipe from a fixture and capture shell arguments; they never run host tools.
+// Isolated diagnostic of the actual C parser. These test-only hooks serve
+// recipes from a fixture directory and capture shell arguments; they never run
+// host tools.
 #define main dollyfile_main
 #include "../../src/dollyfile.c"
 #undef main
 #include <sys/resource.h>
 
-static Buffer source;
-static Buffer child_source;
+static const char *fixture_directory;
 static int capture_shell;
 static int captured_input = -1;
 
 int dolly_http_perform(const dolly_http_request *request, dolly_http_response *response) {
-  const Buffer *input = &source;
-  if (strcmp(request->url, "http://fixture.invalid/modules/child.dm") == 0) input = &child_source;
-  else if (strcmp(request->url, "http://fixture.invalid/modules/probe.dm") != 0 &&
-           strcmp(request->url, "http://fixture.invalid/Dollyfile") != 0) abort();
-  response->status = 200;
-  return request->write(input->data, input->length, request->write_context) == input->length ? 0 : -EIO;
+  static const char base[] = "http://fixture.invalid/";
+  if (fixture_directory == NULL || strncmp(request->url, base, sizeof(base) - 1) != 0) abort();
+  char path[PATH_MAX];
+  snprintf(path, sizeof(path), "%s/%s", fixture_directory, request->url + sizeof(base) - 1);
+  Buffer input = {.limit = 1024 * 1024};
+  int status = read_file_buffer(path, &input);
+  response->status = status == 0 ? 200 : 404;
+  if (status == 0 && input.length != 0 &&
+      request->write(input.data, input.length, request->write_context) != input.length) status = -EIO;
+  free(input.data);
+  return status == -ENOENT ? 0 : status;
 }
 void dolly_http_response_dispose(dolly_http_response *response) { (void)response; }
 int dolly_write_file(const char *path, const void *bytes, size_t length) {
@@ -46,25 +51,17 @@ int main(int argc, char **argv) {
   Scope tools = {0}, exports = {0};
   Engine engine = {.host_base = strdup("http://fixture.invalid")};
 
-  if (strcmp(argv[1], "environment") == 0 && argc == 4) {
-    source.limit = child_source.limit = MAX_RECIPE_BYTES;
-    result = read_file_buffer(argv[2], &source);
-    if (result == 0) result = read_file_buffer(argv[3], &child_source);
-    if (result == 0) result = execute_recipe(&engine, "/Dollyfile", NULL,
-                                             0, &tools, 1, 0, &exports);
-    const Object *value = scope_find(&engine.exports, "ENV", "DOLLY_TEST_VALUE");
-    if (value != NULL) printf("ENV-VALUE:%s\nENV-EXPORT:%s\n", getenv(value->name), value->detail);
-    free(source.data);
-    free(child_source.data);
-  } else if (strcmp(argv[1], "parse") == 0) {
-    source.limit = MAX_RECIPE_BYTES;
+  if (strcmp(argv[1], "check") == 0) {
+    // Parse DIR/Dollyfile as a custom root, fetching its modules from DIR.
+    fixture_directory = argv[2];
+    char root[PATH_MAX];
+    snprintf(root, sizeof(root), "FILE:%s/Dollyfile", argv[2]);
     unsetenv("DOLLY_TEST_VALUE");
-    result = read_file_buffer(argv[2], &source);
-    if (result == 0) result = execute_recipe(&engine, "/modules/probe.dm", NULL,
-                                             2, &tools, 0, 0, &exports);
+    result = execute_recipe(&engine, root, NULL, 0, &tools, 1, 0, &exports);
     const char *value = getenv("DOLLY_TEST_VALUE");
     if (value != NULL) printf("ENV-VALUE:%s\n", value);
-    free(source.data);
+    const Object *exported = scope_find(&engine.exports, "ENV", "DOLLY_TEST_VALUE");
+    if (exported != NULL) printf("ENV-EXPORT:%s\n", exported->detail);
   } else if (strcmp(argv[1], "words") == 0) {
     char **words = NULL;
     size_t count = 0;
@@ -89,8 +86,8 @@ int main(int argc, char **argv) {
     char *kind = NULL, *name = NULL;
     int header = 0;
     size_t operations = 0;
-    char comment[] = "# between COPY rows", declaration[] = "DOLLY 3";
-    if (result == 0) result = process_line(&engine, "probe", 0, 1, comment,
+    char blank[] = "  ", declaration[] = "DOLLY 4";
+    if (result == 0) result = process_line(&engine, "probe", 0, 1, blank,
         NULL, 0, &tools, &exports, &kind, &name, &header, &operations, 0);
     if (engine.artifact.stream == NULL) result = 2;
     if (result == 0) result = process_line(&engine, "probe", 0, 2, declaration,
@@ -109,10 +106,13 @@ int main(int argc, char **argv) {
       if (record == NULL || record->kind != DOLLY_FS_FILE) result = -EINVAL;
       else result = copy_artifact_file(&engine.artifact, record - engine.artifact.records, argv[5]);
     }
+  } else if (strcmp(argv[1], "recipe-names") == 0 && argc == 4) {
+    // Retained recipe paths derive from kind and name, so two locators cannot share them.
+    const char *digest = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
+    result = append_recipe(&engine, "IMAGE", "base", "/Dollyfile-base", digest, "base");
+    if (result == 0) result = append_recipe(&engine, "IMAGE", argv[2], argv[3], digest, "root");
   } else if (strcmp(argv[1], "image-locator") == 0) {
     result = valid_image_locator(argv[2]) ? 0 : 2;
-  } else if (strcmp(argv[1], "path") == 0) {
-    result = valid_absolute_path(argv[2]) ? 0 : 2;
   } else if (strcmp(argv[1], "kind") == 0 && argc == 4) {
     result = validate_export(argv[2], "probe", argv[3], NULL, 0);
   }

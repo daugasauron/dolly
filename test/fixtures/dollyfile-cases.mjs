@@ -8,7 +8,7 @@ const outputs = "/usr/share/dollyfile-parser-test";
 const digest = value => createHash("sha256").update(value).digest("hex");
 export const parserRecipes = new Map();
 function module(name, rows) {
-  const source = `DOLLY 3\nMODULE ${name}\n${rows}\n`;
+  const source = `DOLLY 4\nMODULE ${name}\n${rows}\n`;
   inspectDollyfile(source);
   const path = `/modules/${name}.dm`;
   parserRecipes.set(path, source);
@@ -73,7 +73,7 @@ const cases = [
   { name: "bare-file", uses: bareFile, error: "FILE failed" },
 ];
 for (const item of cases) {
-  const source = `DOLLY 3\nIMAGE parser-test\n${seed}${item.uses}ENTRY /bin/slop ""\n`;
+  const source = `DOLLY 4\nIMAGE parser-test\n${seed}${item.uses}ENTRY /bin/slop ""\n`;
   inspectDollyfile(source);
   parserRecipes.set(`/fixture/parser-${item.name}.Dollyfile`, source);
 }
@@ -81,7 +81,7 @@ parserRecipes.set("/fixture/parser-before.txt", "before");
 parserRecipes.set("/fixture/parser-after.txt", "after");
 cases.push({ name: "nul", error: "could not load recipe", check: `test ! -e ${outputs}/nul` });
 parserRecipes.set("/fixture/parser-nul.Dollyfile",
-  `DOLLY 3\nIMAGE parser-test\nSLOP printf changed > ${outputs}/nul\n# comment\0ignored\nENTRY /bin/slop\n`);
+  `DOLLY 4\nIMAGE parser-test\nSLOP printf changed > ${outputs}/nul\n# comment\0ignored\nENTRY /bin/slop\n`);
 
 export async function runDollyfileCases(submit, origin) {
   const run = async command => assert.equal(await submit(command), 0, command);

@@ -26,7 +26,7 @@ try {
       await page.goto(server.origin + "/custom/");
       const original = await page.locator("#source").inputValue();
       const pin = original.match(/FROM HOST \/Dollyfile-system ([0-9a-f]{64})/)[1];
-      const source = `DOLLY 3
+      const source = `DOLLY 4
 IMAGE custom-session
 FROM HOST /Dollyfile-system ${pin}
 FILE /tmp/session-hello.c
@@ -57,7 +57,7 @@ ENTRY /bin/foreground -i /bin/slop
       };
       await page.locator("#source").fill("DOLLY 2");
       await page.locator("form button[type=submit]").click();
-      assert.match(await page.locator("#status").textContent(), /DOLLY 3/);
+      assert.match(await page.locator("#status").textContent(), /DOLLY 4/);
       assert.equal(new URL(page.url()).pathname, "/custom/");
       const oversized = join(scratch, "oversized");
       await writeFile(oversized, "x".repeat(128 * 1024 + 1));

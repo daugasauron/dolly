@@ -4,9 +4,7 @@ import { mkdtemp, mkdir, writeFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createHash } from "node:crypto";
-import { inspectDollyfile } from "../src/dollyfile-view.mjs";
-import { imageHostRequirements } from "../src/image-requirements.mjs";
-import { hostRequirements, executableHostRequirements, checkHostAbi } from "../src/host/requirements.mjs";
+import { executableHostRequirements, checkHostAbi } from "../src/host/requirements.mjs";
 import { createDollyfileGraphLoader } from "../scripts/dollyfile-graph.mjs";
 import { discoverImageDefinitions } from "../scripts/image-definitions.mjs";
 
@@ -19,7 +17,6 @@ test("retained images declare only their runtime providers using Dollyfile 4", a
   const interactive = new Set("default audio-sdk bhop classicube codex dollyfile-studio gamedev-sdk gpu-fluid gpu-sdk javascript neovim pi pi-local pi-runtime python python-runtime rts-arena rust-tools slopyard system zero-ad".split(" "));
   for (const image of await discoverImageDefinitions(root)) {
     const graph = await load(image.filename);
-    for (const recipe of graph.records) assert.equal(recipe.version, 4, recipe.location);
     const expected = interactive.has(image.image)
       ? ["display@0", "download@0", "http@0", "snapshot@0", "upload@0"] : [];
     if (graphics.has(image.image)) expected.push("gpu@0");
@@ -28,19 +25,6 @@ test("retained images declare only their runtime providers using Dollyfile 4", a
     assert.deepEqual(graph.root.hostRequirements, expected.sort(), image.image);
   }
 });
-test("Dollyfile 4 host requirements are versioned declarations, not exported objects", () => {
-  const source = requirement => `DOLLY 4\nMODULE test\n${requirement}\n`;
-  assert.deepEqual(inspectDollyfile(source("REQUIRES HOST gpu@0\nREQUIRES HOST http@0\nREQUIRES HOST gpu@0")).hostRequirements,
-    ["gpu@0", "http@0"]);
-  for (const invalid of ["gpu", "gpu@01", "GPU@0", "gpu@-1", "gpu@65536", "gpu@0 extra"]) {
-    assert.throws(() => inspectDollyfile(source(`REQUIRES HOST ${invalid}`)));
-  }
-  assert.throws(() => inspectDollyfile(source("EXPORTS HOST gpu@0")));
-  assert.throws(() => inspectDollyfile(source("REQUIRES HOST gpu@0").replace("DOLLY 4", "DOLLY 3")));
-  assert.throws(() => hostRequirements(["gpu@0", "gpu@1"]));
-  assert.deepEqual(inspectDollyfile("DOLLY 3\nMODULE legacy\n").hostRequirements, []);
-});
-
 test("build graph and artifact requirements inherit FROM and USE, not COPY", async () => {
   const dir = await mkdtemp(join(tmpdir(), "dolly-host-modules-"));
   try {
@@ -52,13 +36,7 @@ test("build graph and artifact requirements inherit FROM and USE, not COPY", asy
     const sources = new Map([["/Dollyfile", root], ["/Dollyfile-base", base], ["/Dollyfile-donor", donor], ["/modules/child.dm", child]]);
     for (const [path, source] of sources) await writeFile(join(dir, path.slice(1)), source);
     const graph = await createDollyfileGraphLoader(dir)();
-    const loaded = [];
-    const observed = await imageHostRequirements(root, async ref => { loaded.push(ref.location); return sources.get(ref.location); });
-    assert.deepEqual(observed, ["display@0", "gpu@0", "http@0"]);
-    assert.deepEqual(graph.root.hostRequirements, observed);
-    assert.deepEqual(loaded, ["/Dollyfile-base", "/modules/child.dm"]);
-    sources.set("/modules/child.dm", child.replace("gpu@0", "http@1"));
-    await assert.rejects(imageHostRequirements(root, async ref => sources.get(ref.location)));
+    assert.deepEqual(graph.root.hostRequirements, ["display@0", "gpu@0", "http@0"]);
   } finally { await rm(dir, { recursive: true, force: true }); }
 });
 

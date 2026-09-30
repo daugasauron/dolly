@@ -42,7 +42,7 @@ export const browserSources = new Set([
   "src/http-broker.mjs",
   "src/kernel-plugin.mjs",
   "src/image-entry.mjs",
-  "src/image-requirements.mjs",
+  "src/dollyfile-graph.mjs",
   "src/image-artifact.mjs",
   "src/image-build.mjs",
   "src/image-builder.mjs",

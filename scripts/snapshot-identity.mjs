@@ -14,7 +14,7 @@ export function verifySnapshotIdentity(definition, graph, parsed, processContrac
     recipes.map((recipe) => `${recipe.locator} ${recipe.sha256}\n`).join("");
   const actualLock = decoder.decode(parsed.files.get("/etc/dolly/recipes.lock") ?? new Uint8Array());
   if (actualLock !== expectedLock) throw new Error("snapshot recipe lock does not match source");
-  const sourceByPath = new Map(graph.records.map((record) => [`/${record.relative}`, record.source]));
+  const sourceByPath = new Map(graph.records.map((record) => [record.location, record.source]));
   for (const recipe of recipes) {
     const embedded = parsed.files.get(recipe.retainedPath);
     if (!embedded || sha256(embedded) !== recipe.sha256 ||

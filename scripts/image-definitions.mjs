@@ -81,7 +81,7 @@ export async function inspectStaticSources(projectDir, definitions, staticDirect
   for (const definition of definitions) {
     const graph = await loadGraph(definition.filename);
     for (const module of graph.records) {
-      const path = `/${module.relative}`;
+      const path = module.location;
       const previous = sources.get(path);
       if (previous && previous.sha256 !== module.sha256) {
         throw new Error(`${definition.filename}: conflicting module ${path}`);
@@ -100,7 +100,7 @@ export async function inspectStaticSources(projectDir, definitions, staticDirect
             source.location.startsWith("/include/dolly/")) ||
           source.location.includes("..")) {
         throw new Error(
-          `${record.relative}:${source.line}: HOST source is outside trusted build inputs`,
+          `${record.location}:${source.line}: HOST source is outside trusted build inputs`,
         );
       }
       const previous = sources.get(source.location);
@@ -118,7 +118,7 @@ export async function inspectStaticSources(projectDir, definitions, staticDirect
       const sha256 = createHash("sha256").update(bytes).digest("hex");
       if (sha256 !== source.sha256) {
         throw new Error(
-          `${record.relative}:${source.line}: ${source.location} has SHA256 ${sha256}, ` +
+          `${record.location}:${source.line}: ${source.location} has SHA256 ${sha256}, ` +
           `expected ${source.sha256}`,
         );
       }

@@ -1,16 +1,25 @@
-import { DOLLY_IMAGES, DOLLY_STATIC_SOURCES } from "../dist/dolly-images.mjs";
-import { imageHostRequirements } from "./image-requirements.mjs";
-import { inspectDollyfile } from "./dollyfile-view.mjs";
+import { DOLLY_IMAGES } from "../dist/dolly-images.mjs";
+import { loadRecipeGraph } from "./dollyfile-graph.mjs";
 import { imageInputs, imageInputsMatch } from "./image-inputs.mjs";
 import { describeImageArtifact, loadImageArtifactDescriptor, loadImageArtifact, saveImageArtifact,
-  loadPackagedSnapshotMetadata, loadPackagedSystemSnapshot, sha256 } from "./image-artifact.mjs";
+  loadPackagedSnapshotMetadata, loadPackagedSystemSnapshot } from "./image-artifact.mjs";
+
+const applicationBase = new URL("../", import.meta.url);
+
+// A custom recipe may reference only this release's published recipes.
+function customRecipeGraph(customSource, signal) {
+  return loadRecipeGraph(async location => {
+    if (location === "Dollyfile") return new TextEncoder().encode(customSource);
+    const response = await fetch(new URL(location.slice(1), applicationBase), { credentials: "same-origin", redirect: "error", signal });
+    if (!response.ok) throw new Error(`${location}: HTTP ${response.status}; this release does not publish that recipe`);
+    return response.arrayBuffer();
+  }, "Dollyfile");
+}
 
 // Only explicit image references schedule builds. Modules still execute in
 // order inside their caller's userspace; this traversal makes no input guesses.
 export async function prepareImageArtifacts(image, customSource, build, report, signal) {
   const definitions = new Map(DOLLY_IMAGES.map(definition => [definition.image, definition]));
-  const sources = new Map(DOLLY_STATIC_SOURCES.map(source => [source.path, source]));
-  const applicationBase = new URL("../", import.meta.url);
   const artifacts = new Map(), active = new Set();
   async function materialize(node) {
     signal?.throwIfAborted();
@@ -33,23 +42,6 @@ export async function prepareImageArtifacts(image, customSource, build, report, 
     node.artifact = artifact;
     signal?.throwIfAborted();
     return artifact;
-  }
-  async function customReferences(source, stack = []) {
-    signal?.throwIfAborted();
-    if (stack.length >= 16) throw new Error("recipe depth exceeds 16");
-    const recipe = inspectDollyfile(source);
-    const references = [...recipe.artifacts];
-    for (const use of recipe.uses) {
-      if (stack.includes(use.location)) throw new Error(`recipe cycle at ${use.location}`);
-      const admitted = sources.get(use.location);
-      if (admitted?.sha256 !== use.sha256) throw new Error(`${use.location}: module pin is not in this release; update its hash, regenerate routes and republish`);
-      const response = await fetch(new URL(use.location.slice(1), applicationBase), { credentials: "same-origin", redirect: "error", signal });
-      if (!response.ok) throw new Error(`${use.location}: HTTP ${response.status}`);
-      const bytes = await response.arrayBuffer();
-      if (bytes.byteLength !== admitted.byteLength || await sha256(bytes) !== use.sha256) throw new Error(`${use.location}: module pin mismatch`);
-      references.push(...await customReferences(new TextDecoder().decode(bytes), [...stack, use.location]));
-    }
-    return references;
   }
   async function resolve(reference) {
     signal?.throwIfAborted();
@@ -85,7 +77,7 @@ export async function prepareImageArtifacts(image, customSource, build, report, 
     artifacts.set(definition.sha256, node);
     return node;
   }
-  const references = image === "custom" ? await customReferences(customSource) : definitions.get(image).artifacts;
+  const references = image === "custom" ? (await customRecipeGraph(customSource, signal)).artifacts : definitions.get(image).artifacts;
   const selected = new Map();
   for (const reference of references) selected.set(reference.sha256, await resolve(reference));
   const loaded = [];
@@ -96,15 +88,5 @@ export async function prepareImageArtifacts(image, customSource, build, report, 
 // Resolve compatibility from pinned recipes before materializing large artifacts.
 export async function loadImageHostRequirements(image, customSource) {
   if (image !== "custom") return DOLLY_IMAGES.find(definition => definition.image === image).hostRequirements ?? [];
-  const sources = new Map([...DOLLY_STATIC_SOURCES.map(source => [source.path, source]),
-    ...DOLLY_IMAGES.map(definition => [`/${definition.dollyfile}`, definition])]);
-  return imageHostRequirements(customSource, async reference => {
-    const admitted = sources.get(reference.location);
-    if (admitted?.sha256 !== reference.sha256) throw new Error(`${reference.location}: recipe pin is not in this release`);
-    const response = await fetch(new URL(`..${reference.location}`, import.meta.url), { credentials: "same-origin", redirect: "error" });
-    if (!response.ok) throw new Error(`${reference.location}: HTTP ${response.status}`);
-    const bytes = await response.arrayBuffer();
-    if (bytes.byteLength !== admitted.byteLength || await sha256(bytes) !== reference.sha256) throw new Error(`${reference.location}: recipe pin mismatch`);
-    return new TextDecoder().decode(bytes);
-  });
+  return (await customRecipeGraph(customSource)).root.hostRequirements;
 }

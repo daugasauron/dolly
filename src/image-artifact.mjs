@@ -1,7 +1,7 @@
 import { DOLLY_IMAGE_BUILD_ID } from "../dist/dolly-image-build-id.mjs";
 import { DOLLY_IMAGES } from "../dist/dolly-images.mjs";
 import { imageInputs, imageInputsMatch } from "./image-inputs.mjs";
-import { imageHostRequirements } from "./image-requirements.mjs";
+import { loadRecipeGraph } from "./dollyfile-graph.mjs";
 import { hostRequirements } from "./host/requirements.mjs";
 import { decodeStaticAsset } from "./static-asset.mjs";
 import { decodeSnapshotRecords, mergeSnapshotRecords, validateSnapshotPacks, MAX_SNAPSHOT_BYTES as snapshotSizeLimit } from "./snapshot-records.mjs";
@@ -191,17 +191,16 @@ export async function describeImageArtifact(bytes, recipeSha256, inputs = []) {
   const source = records.get("/etc/dolly/Dollyfile");
   if (source?.kind !== 2 || await sha256(source.data) !== recipeSha256 ||
       records.get("/etc/dolly/artifact")?.kind !== 2) throw new Error("artifact recipe identity mismatch");
-  const decoder = new TextDecoder("utf-8", { fatal: true });
-  const required = await imageHostRequirements(decoder.decode(source.data), async reference => {
-    const path = reference.location.startsWith("/modules/")
-      ? `/etc/dolly/recipes${reference.location}`
-      : `/etc/dolly/recipes/${reference.location === "/Dollyfile" ? "default" : reference.location.slice(11)}.Dollyfile`;
+  // The artifact retains every recipe it was built from, named by kind and name.
+  const graph = await loadRecipeGraph(location => {
+    if (location === "Dollyfile") return source.data;
+    const path = location.startsWith("/modules/") ? `/etc/dolly/recipes${location}`
+      : `/etc/dolly/recipes/${location === "/Dollyfile" ? "default" : location.slice(11)}.Dollyfile`;
     const record = records.get(path);
-    if (record?.kind !== 2 || await sha256(record.data) !== reference.sha256) {
-      throw new Error(`host requirement recipe integrity mismatch: ${reference.location}`);
-    }
-    return decoder.decode(record.data);
-  });
+    if (record?.kind !== 2) throw new Error(`artifact does not retain recipe ${location}`);
+    return record.data;
+  }, "Dollyfile");
+  const required = graph.root.hostRequirements;
   return { buildId: DOLLY_IMAGE_BUILD_ID, recipeSha256, sha256: await sha256(bytes),
     inputs: imageInputs(inputs), hostRequirements: required,
     byteLength: bytes.byteLength, manifest: [...records.keys()], bytes };

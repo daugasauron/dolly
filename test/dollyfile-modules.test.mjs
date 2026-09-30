@@ -119,14 +119,14 @@ test("an aggregate imports its requirements into its child scope", async () => {
   const fixture = await mkdtemp(resolve(tmpdir(), "dolly-imported-requirement-"));
   try {
     await mkdir(resolve(fixture, "modules"));
-    const seed = "DOLLY 3\nMODULE seed\n\nEXPORTS TOOL cc\n";
-    const child = `DOLLY 3
+    const seed = "DOLLY 4\nMODULE seed\n\nEXPORTS TOOL cc\n";
+    const child = `DOLLY 4
 MODULE child
 
 REQUIRES TOOL cc
 EXPORTS TOOL result
 `;
-    const aggregate = `DOLLY 3
+    const aggregate = `DOLLY 4
 MODULE aggregate
 
 REQUIRES TOOL cc
@@ -139,7 +139,7 @@ EXPORTS TOOL result
       writeFile(resolve(fixture, "modules/child.dm"), child),
       writeFile(resolve(fixture, "modules/aggregate.dm"), aggregate),
     ]);
-    await writeFile(resolve(fixture, "Dollyfile"), `DOLLY 3
+    await writeFile(resolve(fixture, "Dollyfile"), `DOLLY 4
 IMAGE default
 
 USE HOST /modules/seed.dm      ${digest(seed)}
@@ -160,8 +160,8 @@ test("aggregate filesystem exports use their declared paths without provider che
   const fixture = await mkdtemp(resolve(tmpdir(), "dolly-explicit-export-"));
   try {
     await mkdir(resolve(fixture, "modules"));
-    const child = "DOLLY 3\nMODULE child\n\nEXPORTS LIB z /usr/lib/libz.a\n";
-    const aggregate = `DOLLY 3
+    const child = "DOLLY 4\nMODULE child\n\nEXPORTS LIB z /usr/lib/libz.a\n";
+    const aggregate = `DOLLY 4
 MODULE aggregate
 
 USE HOST /modules/child.dm ${digest(child)}
@@ -171,7 +171,7 @@ EXPORTS LIB z /usr/lib/replacement.a
       writeFile(resolve(fixture, "modules/child.dm"), child),
       writeFile(resolve(fixture, "modules/aggregate.dm"), aggregate),
     ]);
-    await writeFile(resolve(fixture, "Dollyfile"), `DOLLY 3
+    await writeFile(resolve(fixture, "Dollyfile"), `DOLLY 4
 IMAGE default
 
 USE HOST /modules/aggregate.dm ${digest(aggregate)}
@@ -185,7 +185,7 @@ ENTRY /bin/result
 });
 
 test("FILE consumes four-space-indented content and stops at the first other line", () => {
-  const parsed = inspectDollyfile(`DOLLY 3
+  const parsed = inspectDollyfile(`DOLLY 4
 MODULE inline
 REQUIRES TOOL printf
 
@@ -516,16 +516,6 @@ test("the system graph retains no retired extras or Awk generator inputs", async
   const awk = graph.modules.find(({ name }) => name === "awk");
   assert.equal(awk.files.some(({ path }) =>
     path.endsWith("/awk-maketab") || path.endsWith("/proctab.c")), false);
-});
-
-test("recipes reject directives before the image or module declaration", () => {
-  assert.throws(
-    () => inspectDollyfile(`DOLLY 3
-SOURCE HOST /static/input /tmp/input ${"0".repeat(64)}
-MODULE bad
-`, "modules/bad.dm"),
-    /expected IMAGE or MODULE/,
-  );
 });
 
 test("Patti pins its C implementation and parser without a Python runtime dependency", async () => {
