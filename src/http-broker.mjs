@@ -31,10 +31,7 @@ export class NetworkTransport {
   static error = 5;
   static kind = 6;
 
-  constructor(buffer, address, capacity, policy, {
-    fetchRequest = globalThis.fetch.bind(globalThis),
-    baseURL = globalThis.location?.href,
-  } = {}) {
+  constructor(buffer, address, capacity, policy, { fetchRequest = globalThis.fetch.bind(globalThis) } = {}) {
     if (!(buffer instanceof SharedArrayBuffer) || !Number.isSafeInteger(address) ||
         address <= 0 || address % 64 !== 0 || capacity !== DOLLY_HTTP_CHUNK_CAPACITY ||
         address > buffer.byteLength - DOLLY_HTTP_SLOT_COUNT * (NetworkTransport.headerSize + capacity)) {
@@ -46,7 +43,6 @@ export class NetworkTransport {
     this.capacity = capacity;
     this.policy = policy;
     this.fetchRequest = fetchRequest;
-    this.baseURL = baseURL;
     // Host bookkeeping, never derived from a guest's claimed active count.
     this.slots = Array(DOLLY_HTTP_SLOT_COUNT).fill(null);
     this.closed = false;
@@ -196,7 +192,9 @@ class HttpTransfer {
     let timeout, failure = errno.EINVAL;
     try {
       this.check();
-      const target = new URL(url, this.broker.baseURL);
+      // Absolute only: the page URL is no implicit base for Wasm requests.
+      const target = URL.parse(url);
+      if (target === null) throw new HttpError(errno.EINVAL, "HTTP requires an absolute URL");
       if (target.protocol !== "http:" && target.protocol !== "https:")
         throw new HttpError(errno.EPROTONOSUPPORT, "HTTP requires HTTP(S)");
       if (target.username !== "" || target.password !== "")
