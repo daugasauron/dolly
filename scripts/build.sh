@@ -204,10 +204,7 @@ EOF
 mapfile -t clients < <(node scripts/host-modules.mjs client)
 for client in "${clients[@]}"; do
   read -r module source <<<"${client}"
-  # Updating a copy keeps members of earlier builds, as the released seed does
-  # (tasks/20261001-051500-client-archives).
-  cp -p -- "build/libdolly-${module}.a" "build/libdolly-${module}.a.new" 2>/dev/null ||
-    rm -f -- "build/libdolly-${module}.a.new"
+  rm -f -- "build/libdolly-${module}.a.new"
   echo "${emcc} -c ${source} -o build/process-${module}-client.o"
   echo "/emsdk/upstream/emscripten/emar rcsD build/libdolly-${module}.a.new build/process-${module}-client.o"
 done | in_container
