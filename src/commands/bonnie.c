@@ -112,7 +112,6 @@ static int fetch_metadata(const char *url, Buffer *response) {
   curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
   curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1L);
   curl_easy_setopt(curl, CURLOPT_FAILONERROR, 1L);
-  curl_easy_setopt(curl, CURLOPT_USERAGENT, "bonnie/0.6 (Dolly wasm64)");
   curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, append_memory);
   curl_easy_setopt(curl, CURLOPT_WRITEDATA, response);
   CURLcode result = CURLE_FAILED_INIT;
@@ -151,7 +150,6 @@ static int download_wheel_once(const char *url, const char *path,
   curl_easy_setopt(curl, CURLOPT_URL, url);
   curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1L);
   curl_easy_setopt(curl, CURLOPT_FAILONERROR, 1L);
-  curl_easy_setopt(curl, CURLOPT_USERAGENT, "bonnie/0.6 (Dolly wasm64)");
   curl_easy_setopt(curl, CURLOPT_WRITEDATA, output);
   *curl_result = curl_easy_perform(curl);
   curl_easy_cleanup(curl);
@@ -256,6 +254,14 @@ static int helper_satisfies(const char *specification, const char *version) {
   char *arguments[] = {
       "/usr/bin/python", (char *)helper_path, "satisfies",
       (char *)specification, (char *)version, NULL,
+  };
+  return run_helper(5, arguments);
+}
+
+static int helper_applicable(const char *specification, const char *output) {
+  char *arguments[] = {
+      "/usr/bin/python", (char *)helper_path, "applicable",
+      (char *)specification, (char *)output, NULL,
   };
   return run_helper(5, arguments);
 }
@@ -605,6 +611,28 @@ static int queue_append(RequirementQueue *queue, const char *requirement) {
   return 0;
 }
 
+/* Requested requirements may carry environment markers; dependencies arrive
+ * from the helper with theirs already evaluated. */
+static int queue_root(RequirementQueue *queue, const char *requirement) {
+  if (strchr(requirement, ';') == NULL || strncmp(requirement, "https://", 8) == 0) {
+    return queue_append(queue, requirement);
+  }
+  char path[64], line[BONNIE_MAX_LINE];
+  snprintf(path, sizeof(path), "/tmp/bonnie-%ld.applicable", (long)getpid());
+  FILE *input = NULL;
+  int result = helper_applicable(requirement, path) == 0 &&
+      (input = fopen(path, "r")) != NULL ? 0 : -1;
+  if (result == 0 && fgets(line, sizeof(line), input) != NULL) {
+    line[strcspn(line, "\n")] = '\0';
+    result = queue_append(queue, line);
+  } else if (result == 0) {
+    printf("bonnie: ignoring %s: markers do not match this environment\n", requirement);
+  }
+  if (input != NULL) fclose(input);
+  remove(path);
+  return result;
+}
+
 static int queue_requirements_file(RequirementQueue *queue, const char *path) {
   FILE *input = fopen(path, "r");
   if (input == NULL) {
@@ -648,7 +676,7 @@ static int queue_requirements_file(RequirementQueue *queue, const char *path) {
       result = -1;
       break;
     }
-    if (queue_append(queue, requirement) != 0) {
+    if (queue_root(queue, requirement) != 0) {
       fprintf(stderr, "bonnie: %s:%u: could not queue requirement\n",
               path, line_number);
       result = -1;
@@ -699,10 +727,6 @@ static int make_metadata_plan(const char *specification, unsigned sequence,
                                      selection_path) != 0) result = -1;
   Plan selection = {0};
   if (result == 0 && read_plan(selection_path, &selection) != 0) result = -1;
-  if (result == 0 && strcmp(name, selection.name) != 0) {
-    fputs("bonnie: PyPI returned a mismatched project name\n", stderr);
-    result = -1;
-  }
   remove(metadata_path);
   remove(selection_path);
   if (result != 0) {
@@ -720,10 +744,6 @@ static int make_metadata_plan(const char *specification, unsigned sequence,
   if (result == 0 && helper_metadata("plan", specification, metadata_path,
                                      plan_path) != 0) result = -1;
   if (result == 0 && read_plan(plan_path, plan) != 0) result = -1;
-  if (result == 0 && strcmp(name, plan->name) != 0) {
-    fputs("bonnie: PyPI returned a mismatched project name\n", stderr);
-    result = -1;
-  }
   remove(metadata_path);
   remove(plan_path);
   dispose_plan(&selection);
@@ -1338,7 +1358,7 @@ int main(int argc, char **argv) {
       fprintf(stderr, "bonnie: unsupported option: %s\n", argv[index]);
       dispose_queue(&queue);
       return 2;
-    } else if (queue_append(&queue, argv[index]) != 0) {
+    } else if (queue_root(&queue, argv[index]) != 0) {
       fputs("bonnie: could not queue requirement\n", stderr);
       dispose_queue(&queue);
       return 1;

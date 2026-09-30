@@ -166,13 +166,20 @@ def _write_line(stream, key: str, value: str) -> None:
     stream.write(f"{key} {value}\n")
 
 
+def _pypi_name(requirement, metadata: dict) -> str:
+    name = PACKAGING["canonicalize_name"](metadata.get("info", {}).get("name") or "")
+    if name != PACKAGING["canonicalize_name"](requirement.name):
+        raise ValueError(f"PyPI returned project {name!r} for {requirement.name}")
+    return name
+
+
 def select(specification: str, metadata_path: str, output_path: str) -> None:
     with open(metadata_path, "r", encoding="utf-8") as source:
         metadata = json.load(source)
     requirement, version = _select(specification, metadata)
     with open(output_path, "w", encoding="utf-8", newline="\n") as output:
         output.write("BONNIE 1\n")
-        _write_line(output, "name", PACKAGING["canonicalize_name"](requirement.name))
+        _write_line(output, "name", _pypi_name(requirement, metadata))
         _write_line(output, "version", str(version))
 
 
@@ -206,6 +213,15 @@ def _requirement_without_marker(requirement) -> str:
     if requirement.url is not None:
         result += " @ " + requirement.url
     return result
+
+
+def applicable(specification: str, output_path: str) -> None:
+    """Write the requirement without its marker, or nothing when it excludes us."""
+    requirement = PACKAGING["Requirement"](specification)
+    environment = {**PACKAGING["default_environment"](), "extra": ""}
+    with open(output_path, "w", encoding="utf-8", newline="\n") as output:
+        if requirement.marker is None or requirement.marker.evaluate(environment):
+            output.write(_requirement_without_marker(requirement) + "\n")
 
 
 def _dependencies(raw_dependencies: list[str] | None, extras: set[str]) -> list[str]:
@@ -246,7 +262,7 @@ def plan(specification: str, metadata_path: str, output_path: str) -> None:
 
     with open(output_path, "w", encoding="utf-8", newline="\n") as output:
         output.write("BONNIE 1\n")
-        _write_line(output, "name", PACKAGING["canonicalize_name"](requirement.name))
+        _write_line(output, "name", _pypi_name(requirement, metadata))
         _write_line(output, "version", str(version))
         _write_line(output, "kind", _artifact_kind(selected))
         _write_line(output, "url", selected["url"])
@@ -812,7 +828,8 @@ def check_installed() -> int:
 
 def main(arguments: list[str]) -> int:
     if not arguments or arguments[0] in {"-h", "--help"}:
-        print("usage: bonnie.py select SPEC METADATA OUTPUT", file=sys.stderr)
+        print("usage: bonnie.py applicable SPEC OUTPUT", file=sys.stderr)
+        print("       bonnie.py select SPEC METADATA OUTPUT", file=sys.stderr)
         print("       bonnie.py combine LEFT RIGHT OUTPUT", file=sys.stderr)
         print("       bonnie.py plan SPEC METADATA OUTPUT", file=sys.stderr)
         print("       bonnie.py inspect WHEEL OUTPUT", file=sys.stderr)
@@ -829,7 +846,9 @@ def main(arguments: list[str]) -> int:
         print("       bonnie.py check", file=sys.stderr)
         return 2
     try:
-        if arguments[0] == "select" and len(arguments) == 4:
+        if arguments[0] == "applicable" and len(arguments) == 3:
+            applicable(arguments[1], arguments[2])
+        elif arguments[0] == "select" and len(arguments) == 4:
             select(arguments[1], arguments[2], arguments[3])
         elif arguments[0] == "combine" and len(arguments) == 4:
             combine(arguments[1], arguments[2], arguments[3])

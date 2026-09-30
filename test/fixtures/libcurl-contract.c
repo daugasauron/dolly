@@ -97,6 +97,9 @@ int main(int argc, char **argv) {
   UNSUPPORTED(CURLOPT_IPRESOLVE, (long)CURL_IPRESOLVE_V4);
   UNSUPPORTED(CURLOPT_PORT, 1234L);
   UNSUPPORTED(CURLOPT_SEEKDATA, (void *)1);
+  UNSUPPORTED(CURLOPT_USERAGENT, "fixture/1");
+  UNSUPPORTED(CURLOPT_ACCEPT_ENCODING, "identity");
+  EXPECT(curl_easy_setopt(curl, CURLOPT_ACCEPT_ENCODING, ""), CURLE_OK);
   EXPECT(curl_global_trace("all"), CURLE_NOT_BUILT_IN);
   EXPECT(curl_easy_setopt(curl, (CURLoption)99999, 0L), CURLE_UNKNOWN_OPTION);
   curl_easy_cleanup(curl);

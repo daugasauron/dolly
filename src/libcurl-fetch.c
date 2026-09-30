@@ -21,8 +21,6 @@ typedef struct {
   uint32_t magic;
   char *url;
   char *custom_method;
-  char *user_agent;
-  char *accept_encoding;
   char *range;
   char *username;
   char *password;
@@ -120,8 +118,6 @@ static void destroy_easy(DollyEasy *easy) {
   if (!valid_easy(easy)) return;
   free(easy->url);
   free(easy->custom_method);
-  free(easy->user_agent);
-  free(easy->accept_encoding);
   free(easy->range);
   free(easy->username);
   free(easy->password);
@@ -400,8 +396,6 @@ CURL *curl_easy_duphandle(CURL *handle) {
   copy->magic = magic;
   copy->url = NULL;
   copy->custom_method = NULL;
-  copy->user_agent = NULL;
-  copy->accept_encoding = NULL;
   copy->range = NULL;
   copy->username = NULL;
   copy->password = NULL;
@@ -410,8 +404,6 @@ CURL *curl_easy_duphandle(CURL *handle) {
   copy->content_type = NULL;
   if (!replace_string(&copy->url, source->url) ||
       !replace_string(&copy->custom_method, source->custom_method) ||
-      !replace_string(&copy->user_agent, source->user_agent) ||
-      !replace_string(&copy->accept_encoding, source->accept_encoding) ||
       !replace_string(&copy->range, source->range) ||
       !replace_string(&copy->username, source->username) ||
       !replace_string(&copy->password, source->password) ||
@@ -462,8 +454,6 @@ CURLcode curl_easy_setopt(CURL *handle, CURLoption option, ...) {
   switch (option) {
     case CURLOPT_URL: STRING_OPTION(url); break;
     case CURLOPT_CUSTOMREQUEST: STRING_OPTION(custom_method); break;
-    case CURLOPT_USERAGENT: STRING_OPTION(user_agent); break;
-    case CURLOPT_ACCEPT_ENCODING: STRING_OPTION(accept_encoding); break;
     case CURLOPT_RANGE: STRING_OPTION(range); break;
     case CURLOPT_USERNAME: STRING_OPTION(username); break;
     case CURLOPT_PASSWORD: STRING_OPTION(password); break;
@@ -514,9 +504,17 @@ CURLcode curl_easy_setopt(CURL *handle, CURLoption option, ...) {
       else result = CURLE_NOT_BUILT_IN;
       break;
     }
+    case CURLOPT_ACCEPT_ENCODING: {
+      /* Fetch always negotiates and decodes the encodings the browser supports,
+       * which is what "" requests. It cannot send a caller-chosen list. */
+      const char *value = va_arg(arguments, const char *);
+      if (value != NULL && value[0] != '\0') result = CURLE_NOT_BUILT_IN;
+      break;
+    }
 
     /* These controls need facilities this adapter does not implement. Do not
      * acknowledge them merely because upstream headers define the options. */
+    case CURLOPT_USERAGENT: /* The browser owns User-Agent. */
     case CURLOPT_REDIR_PROTOCOLS_STR:
     case CURLOPT_PINNEDPUBLICKEY:
     case CURLOPT_SEEKFUNCTION:
@@ -598,32 +596,6 @@ static CURLcode prepare_transfer(DollyEasy *easy, DollyTransfer *transfer) {
   for (struct curl_slist *line = easy->headers; line != NULL; line = line->next) {
     if (!append_header(&headers, &headers_length, &headers_capacity, line->data))
       result = CURLE_OUT_OF_MEMORY;
-  }
-  if (result == CURLE_OK && easy->user_agent != NULL) {
-    char *line = NULL;
-    size_t length = strlen(easy->user_agent) + sizeof("User-Agent: ");
-    line = malloc(length);
-    if (line == NULL) result = CURLE_OUT_OF_MEMORY;
-    else {
-      snprintf(line, length, "User-Agent: %s", easy->user_agent);
-      if (!append_header(&headers, &headers_length, &headers_capacity, line))
-        result = CURLE_OUT_OF_MEMORY;
-      free(line);
-    }
-  }
-  if (result == CURLE_OK && easy->accept_encoding != NULL) {
-    const char *value = easy->accept_encoding[0] == '\0'
-                            ? "gzip, deflate"
-                            : easy->accept_encoding;
-    size_t length = strlen(value) + sizeof("Accept-Encoding: ");
-    char *line = malloc(length);
-    if (line == NULL) result = CURLE_OUT_OF_MEMORY;
-    else {
-      snprintf(line, length, "Accept-Encoding: %s", value);
-      if (!append_header(&headers, &headers_length, &headers_capacity, line))
-        result = CURLE_OUT_OF_MEMORY;
-      free(line);
-    }
   }
   if (result == CURLE_OK && easy->range != NULL) {
     size_t length = strlen(easy->range) + sizeof("Range: bytes=");
