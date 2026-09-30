@@ -1,6 +1,6 @@
 # Dollyfile parsers and graph walkers disagree and are duplicated
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 230
 - TAGS: dollyfile,bug,core
 
@@ -27,3 +27,12 @@ One authoritative grammar with exhaustive agreement tests; one graph walker.
 
 - Parser agreement tests cover every directive, continuation, CRLF, FILE bodies, ENTRY limits
   and duplicate host requirements; both parsers agree.
+
+## Resolution (2026-10-01)
+
+Fixed in `76a941a`: one recipe graph walker (`src/dollyfile-graph.mjs`) replaces
+the three; the C executor and the JavaScript parser agree on conflicting host
+revisions, provider limits, IMAGE/MODULE lines and `SOURCE HOST` paths.
+Verified by `test/dollyfile-parser.test.mjs` ("the C executor and the JavaScript
+recipe graph accept exactly the same recipes", "the C and JavaScript parsers
+decode the same words and values"), passing on `core/host-modules`.

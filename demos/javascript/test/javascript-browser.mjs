@@ -54,7 +54,7 @@ const overlapping = new Map();
 const fixtures = Object.fromEntries(["janis-files.mjs", "janis-process.mjs", "utf8-browser.mjs", "utf8-cases.mjs", "utf8-writer.c"]
   .map(name => [name, `demos/javascript/test/fixtures/${name}`]));
 await demoTest("javascript", { image: "javascript", timeout: 600_000, server: { handle, fixtures } }, async ({ server, open }) => {
-  const { page, submit, run, start } = await open({ policy: { maxRequests: 256,
+  const { page, submit, run, start, waitText } = await open({ policy: { maxRequests: 256,
     rules: [{ origin: server.origin, pathPrefix: "/fixture/", methods: ["GET", "POST"] }] } });
   const scratch = "/tmp/dolly-javascript-test";
   await run(`mkdir ${scratch} && cd ${scratch} && for name in ${Object.keys(fixtures).join(" ")}; do curl -fsS ${server.origin}/fixture/$name -o $name || exit 1; done`);
@@ -79,8 +79,8 @@ await demoTest("javascript", { image: "javascript", timeout: 600_000, server: { 
     [`qjs -m -e "import { answer } from '${scratch}/ts/answer.js'; if (answer !== 42) throw new Error('bad TypeScript emit')"`],
   ]) await run(command, status);
 
-  const loop = start("qjs -e 'for (;;) {}'");
-  await page.waitForFunction(() => __dolly.transport.foregroundInterruptible());
+  const loop = start("qjs -e 'console.log(\"LOOP-STARTED\"); for (;;) {}'");
+  await waitText(/\nLOOP-STARTED/);
   await page.keyboard.press("Control+c");
   assert.equal(await loop.done, 130, "Ctrl-C did not interrupt a QuickJS bytecode loop");
 

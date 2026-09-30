@@ -67,23 +67,6 @@
         max-width: calc(100vw - 2rem); padding: 0.5rem 0.75rem;
         background: #262626; border: 1px solid #77736c; font-size: 14px;
       }
-      #session-open { position: fixed; right: 0.5rem; bottom: 0.35rem; z-index: 6;
-        padding: 0.15rem 0.45rem; color: inherit; background: #262626;
-        border: 1px solid #77736c; font: inherit; font-size: 13px; cursor: pointer; }
-      #session-open[data-failed] { border-color: #e98773; }
-      #session-dialog { width: min(420px, calc(100vw - 2rem)); padding: 1.2rem;
-        background: #262626; color: inherit; border: 1px solid #77736c; font: inherit; }
-      #session-dialog::backdrop { background: #0008; }
-      #session-dialog h2 { margin: 0 0 1rem; font-size: 20px; }
-      #session-dialog p { font-size: 14px; line-height: 1.5; }
-      #session-dialog label { display: block; margin: 1rem 0 0.4rem; }
-      #session-dialog input { width: 100%; padding: 0.4rem; font: inherit;
-        color: inherit; background: #191919; border: 1px solid #77736c; }
-      #session-dialog button { padding: 0.35rem 0.65rem; font: inherit;
-        color: inherit; background: #333; border: 1px solid #77736c; cursor: pointer; }
-      #session-dialog a { color: #f2d45c; }
-      #session-dialog nav { display: flex; gap: 0.6rem; align-items: center; margin-top: 1rem; }
-      #session-dialog nav a { margin-right: auto; font-size: 14px; }
       #file-upload { background: #262626; color: #e8e3d7; border: 1px solid #77736c;
         max-width: calc(100vw - 2rem); font: inherit; }
       #file-upload::backdrop { background: #0008; }
@@ -115,23 +98,6 @@
       <pre id="bootstrap-log" aria-live="polite"></pre>
     </main>
     <div id="session-status" role="status" hidden></div>
-    <button id="session-open" type="button" aria-label="Save session" title="Save session (Ctrl+Shift+S)" hidden>Save</button>
-    <dialog id="session-dialog" aria-labelledby="session-title">
-      <form id="session-form">
-        <h2 id="session-title">Save session</h2>
-        <p id="session-detail" role="status"></p>
-        <p>Keep the program’s latest checkpoint, files and agent history in this browser.
-          Save again to keep later changes.</p>
-        <label for="session-name">Session name</label>
-        <input id="session-name" name="name" required minlength="1" maxlength="64"
-          pattern="[A-Za-z0-9._\-]+" autocomplete="off" spellcheck="false">
-        <nav>
-          <a id="session-list" target="_blank" rel="noopener">Saved sessions ↗</a>
-          <button id="session-close" type="button">Close</button>
-          <button id="session-save" type="submit">Save</button>
-        </nav>
-      </form>
-    </dialog>
     <script>globalThis.DOLLY_BOOT = Object.freeze({ image: "{{DOLLY_IMAGE}}", mode: "{{DOLLY_MODE}}", loadSession: {{DOLLY_LOAD_SESSION}} });</script>
     <script type="module">
       const assets = new URL("{{DOLLY_BASE}}", document.baseURI);

@@ -1,6 +1,6 @@
 # Orphan and broken browser tests
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 170
 - TAGS: tests,cleanup
 
@@ -29,3 +29,11 @@ Every browser script is either wired into a documented runner or deleted; broken
 
 - A single documented command runs all core browser scenarios; demo scenarios are runnable by
   name; no dead modes remain.
+
+## Resolution (2026-10-01)
+
+Every core browser test is `test/*-browser.mjs`, run by `npm run test:browser`
+(`test/browser-tests.mjs`, all but the hardware GPU render test); every demo test
+lives in `demos/NAME/test/`, run by `npm run test:demos`. The legacy harness and
+its modes are deleted (`01b1b2e`). Verified: the core suite passes in Chromium
+and Firefox on `core/host-modules`.

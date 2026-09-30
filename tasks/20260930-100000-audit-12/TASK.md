@@ -28,3 +28,13 @@ Shared helpers live once (e.g. `fs-record.h`); dispatch cases are small function
 ## Done when
 
 - Duplicates removed; kernel and browser tests unchanged in behavior.
+
+## Progress (2026-10-01)
+
+- `process_dispatch` routes every host module operation through the generated
+  `dolly_kernel_module` table; module packets and state live in `host/*/kernel.c`.
+- GPU and audio share `src/device-lease.c` instead of two copies.
+- The unreachable terminal wait path and its session servicing are gone from
+  `src/dolly.c` (1,432 -> 988 lines since the checkpoint).
+- Remaining: the core file-system and descriptor cases of `process_dispatch`
+  (kernel audit K2, K6).

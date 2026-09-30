@@ -1,6 +1,6 @@
 import { DOLLY_SESSION_MAX_BYTES, validSessionName } from "../../src/session-store.mjs";
 
-// Mailbox v2, mirrored by session-snapshot.c. No filesystem paths cross here.
+// Mailbox v2, mirrored by kernel.c. No filesystem paths cross here.
 export class SessionTransport {
   static requestSequence = 0;
   static completedSequence = 1;

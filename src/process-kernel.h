@@ -30,8 +30,8 @@ int64_t dolly_kernel_request_path(int pid, uintptr_t request_size,
                                   char *path, size_t capacity);
 
 /* Terminal services of dolly.c used by process dispatch. */
-int dolly_terminal_read_raw_timeout(double milliseconds);
-int dolly_terminal_raw_ready_timeout(double milliseconds);
+int dolly_kernel_terminal_read(void);
+int dolly_kernel_terminal_ready(void);
 uint32_t dolly_terminal_columns(void);
 uint32_t dolly_terminal_rows(void);
 uint32_t dolly_kernel_terminal_mode(void);

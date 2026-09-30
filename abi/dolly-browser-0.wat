@@ -10,8 +10,8 @@
   (import "env" "dolly_audio_dispatch" (func (param i64 i64) (result i32)))
 
   ;; The only Wasm-selected network edge. Null method means cancellation.
-  ;; Implementation: src/dolly.c supplies spans; src/http-broker.mjs applies
-  ;; src/http-policy.mjs BEFORE making the request. No other import loads URLs.
+  ;; Implementation: host/http/kernel.c supplies spans; host/http/broker.mjs applies
+  ;; host/http/policy.mjs BEFORE making the request. No other import loads URLs.
   (import "env" "dolly_http_dispatch"
     (func (param i64 i64 i64 i64 i64 i64 i64 i64 i32 i32) (result i32)))
 

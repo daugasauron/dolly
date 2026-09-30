@@ -11,7 +11,7 @@ const valueTypes = new Map([
   [0x74, "nullexnref"],
 ]);
 
-class Reader {
+export class Reader {
   constructor(bytes, label = "WebAssembly binary") {
     this.bytes = bytes;
     this.offset = 0;

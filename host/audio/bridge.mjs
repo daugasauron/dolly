@@ -1,10 +1,13 @@
 import * as A from "./abi.mjs";
 import { DOLLY_ERRNO as E } from "../../dist/dolly-errno.mjs";
 
+// Reply slots are a 64-byte header and the reply bytes (src/device-lease.h).
+const stride = 64 + A.DOLLY_AUDIO_REPLY_BYTES;
+
 export function createAudioBridge(memory, mailbox, send, complete) {
   const slots = new Array(A.DOLLY_AUDIO_SLOTS);
   if (!Number.isSafeInteger(mailbox) || mailbox <= 0 || mailbox % 4 ||
-      mailbox > memory.buffer.byteLength - A.DOLLY_AUDIO_SLOTS * 80) throw new Error("Invalid audio mailbox");
+      mailbox > memory.buffer.byteLength - A.DOLLY_AUDIO_SLOTS * stride) throw new Error("Invalid audio mailbox");
   function acknowledge(message) {
     const slot = (message.scope - 1) % A.DOLLY_AUDIO_SLOTS, entry = slots[slot];
     if (!entry || entry.scope !== message.scope) return;
@@ -13,8 +16,8 @@ export function createAudioBridge(memory, mailbox, send, complete) {
       const valid = message.bytes instanceof Uint8Array && message.bytes.byteLength <= A.DOLLY_AUDIO_REPLY_BYTES &&
         Number.isInteger(message.error) && message.error >= 0 && message.error <= 4095;
       const error = valid ? message.error : E.EIO, bytes = valid && !error ? message.bytes : new Uint8Array();
-      const words = new Int32Array(memory.buffer, mailbox + slot * 80, 16);
-      new Uint8Array(memory.buffer, mailbox + slot * 80 + 64, bytes.length).set(bytes);
+      const words = new Int32Array(memory.buffer, mailbox + slot * stride, 16);
+      new Uint8Array(memory.buffer, mailbox + slot * stride + 64, bytes.length).set(bytes);
       Atomics.store(words, 1, entry.scope); Atomics.store(words, 2, entry.sequence);
       Atomics.store(words, 3, error); Atomics.store(words, 4, bytes.length); Atomics.store(words, 0, 1);
       entry.pending = false;

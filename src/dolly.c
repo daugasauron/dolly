@@ -19,7 +19,6 @@
 
 #include "fs-record.h"
 #include "process-kernel.h"
-#include "snapshot/kernel.h"
 #include "system-snapshot.h"
 
 static uint32_t consumed_interrupt_sequence;
@@ -145,74 +144,46 @@ static int handle_terminal_event(const dolly_input_event *event,
   return result;
 }
 
-static int dolly_terminal_fill_raw_timeout(double milliseconds) {
+// Buffers decoded terminal input bytes; returns 1 when some are ready and -1
+// otherwise. The kernel thread never waits for input.
+static int fill_terminal_input(void) {
   for (;;) {
-    dolly_session_service();
     // A graphics owner consumes semantic records through
     // dolly_display_next_event. No terminal reader may race it for the shared
     // single-consumer event ring.
     if (display_lease.generation != 0) return -1;
-    if (encoded_input_cursor < encoded_input_length) {
-      return 1;
-    }
+    if (encoded_input_cursor < encoded_input_length) return 1;
     encoded_input_cursor = 0;
     encoded_input_length = 0;
 
     if (display_driver != NULL &&
-        handle_terminal_event(NULL, encoded_input,
-                                     sizeof(encoded_input),
-                                     &encoded_input_length) == 0 &&
+        handle_terminal_event(NULL, encoded_input, sizeof(encoded_input),
+                              &encoded_input_length) == 0 &&
         encoded_input_length != 0) continue;
 
     uint32_t read = atomic_load_explicit(&display_mailbox.event_read,
                                          memory_order_relaxed);
     uint32_t write = atomic_load_explicit(&display_mailbox.event_write,
                                           memory_order_acquire);
-    if (read != write) {
-      dolly_input_event event =
-          display_mailbox.events[read & (DOLLY_DISPLAY_EVENT_CAPACITY - 1)];
-      atomic_store_explicit(&display_mailbox.event_read, read + 1,
-                            memory_order_release);
-      if (display_driver != NULL &&
-          handle_terminal_event(&event, encoded_input,
-                                       sizeof(encoded_input),
-                                       &encoded_input_length) == 0 &&
-          encoded_input_length != 0) continue;
+    if (read == write) return -1;
+    dolly_input_event event =
+        display_mailbox.events[read & (DOLLY_DISPLAY_EVENT_CAPACITY - 1)];
+    atomic_store_explicit(&display_mailbox.event_read, read + 1,
+                          memory_order_release);
+    if (display_driver == NULL ||
+        handle_terminal_event(&event, encoded_input, sizeof(encoded_input),
+                              &encoded_input_length) != 0) {
       encoded_input_length = 0;
-      continue;
-    }
-
-    uint32_t wake = atomic_load_explicit(&display_mailbox.event_wake,
-                                         memory_order_acquire);
-    // A session request shares this wake word but is not an input-ring event.
-    // Check it after snapshotting the word, then refuse to sleep if the
-    // browser changed the word in the check-to-wait window.
-    dolly_session_service();
-    if (atomic_load_explicit(&display_mailbox.event_write,
-                             memory_order_acquire) == read &&
-        atomic_load_explicit(&display_mailbox.event_wake,
-                             memory_order_acquire) == wake) {
-      if (milliseconds == 0) return -1;
-      emscripten_atomic_wait_u32((void *)&display_mailbox.event_wake, wake,
-                                 milliseconds < 0
-                                     ? ATOMICS_WAIT_DURATION_INFINITE
-                                     : milliseconds);
-      dolly_session_service();
-      if (milliseconds >= 0 &&
-          atomic_load_explicit(&display_mailbox.event_write,
-                               memory_order_acquire) == read) {
-        return -1;
-      }
     }
   }
 }
 
-int dolly_terminal_raw_ready_timeout(double milliseconds) {
-  return dolly_terminal_fill_raw_timeout(milliseconds) > 0;
+int dolly_kernel_terminal_ready(void) {
+  return fill_terminal_input() > 0;
 }
 
-int dolly_terminal_read_raw_timeout(double milliseconds) {
-  if (dolly_terminal_fill_raw_timeout(milliseconds) <= 0) return -1;
+int dolly_kernel_terminal_read(void) {
+  if (fill_terminal_input() <= 0) return -1;
   return encoded_input[encoded_input_cursor++];
 }
 

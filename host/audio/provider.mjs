@@ -4,16 +4,14 @@ import { DOLLY_ERRNO as E } from "../../dist/dolly-errno.mjs";
 const fail = errno => { throw Object.assign(new Error("Audio request failed"), {errno}); };
 const response = size => new Uint8Array(size);
 
-export function createAudioProvider(report = () => {}) {
+export function createAudioProvider() {
   const streams = new Map(), generations = new Uint32Array(A.DOLLY_AUDIO_SLOTS);
   let context, resumePending = false;
-  const counters = {writtenFrames: 0, playedFrames: 0, underruns: 0, peakQueuedFrames: 0, peakBuffers: 0};
 
   function finish(stream, node) {
     if (!stream.nodes.delete(node)) return;
     node.source.disconnect();
     stream.played += node.frames;
-    counters.playedFrames += node.frames;
   }
   function queued(stream) {
     const now = context.currentTime;
@@ -27,16 +25,13 @@ export function createAudioProvider(report = () => {}) {
   function status() {
     let queuedFrames = 0, buffers = 0;
     for (const stream of streams.values()) { queuedFrames += queued(stream); buffers += stream.nodes.size; }
-    counters.peakQueuedFrames = Math.max(counters.peakQueuedFrames, queuedFrames);
-    counters.peakBuffers = Math.max(counters.peakBuffers, buffers);
-    return {...counters, activeScopes: streams.size, queuedFrames, buffers, state: context?.state ?? "closed"};
+    return {activeScopes: streams.size, queuedFrames, buffers, state: context?.state ?? "closed"};
   }
-  function publish() { report(status()); }
   function resume() {
     if (!resumePending && context?.state === "suspended" && streams.size &&
         navigator.userActivation?.hasBeenActive) {
       resumePending = true;
-      const settled = () => { resumePending = false; publish(); };
+      const settled = () => { resumePending = false; };
       void context.resume().then(settled, settled);
     }
   }
@@ -46,7 +41,6 @@ export function createAudioProvider(report = () => {}) {
     streams.delete(scope);
     for (const node of stream.nodes) { node.source.onended = null; node.source.stop(); node.source.disconnect(); }
     stream.nodes.clear();
-    publish();
   }
   function dispatch(packet) {
     try {
@@ -94,11 +88,9 @@ export function createAudioProvider(report = () => {}) {
           const source = context.createBufferSource(); source.buffer = buffer;
           source.connect(context.destination);
           const now = context.currentTime, start = Math.max(stream.end, now + 0.01);
-          if (stream.played && stream.end < now) ++counters.underruns;
           const node = {source, frames, start, end: start + frames / A.DOLLY_AUDIO_RATE};
-          source.onended = () => { finish(stream, node); publish(); };
+          source.onended = () => finish(stream, node);
           source.start(start); stream.end = node.end; stream.nodes.add(node);
-          counters.writtenFrames += frames;
           result = response(4); new DataView(result.buffer).setUint32(0, frames, true);
         } else if (op === A.DOLLY_AUDIO_STATUS) {
           if (packet.length !== 32) fail(E.EINVAL);
@@ -114,7 +106,6 @@ export function createAudioProvider(report = () => {}) {
           release(scope); result = response(0);
         } else fail(E.ENOSYS);
       }
-      publish();
       return {bytes: result, error: 0};
     } catch (error) {
       if (!error.errno) console.warn("Dolly audio:", error);

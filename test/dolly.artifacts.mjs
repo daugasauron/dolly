@@ -234,7 +234,7 @@ test("system snapshots are sealed to their visible recipe chain", async () => {
   const projectDir = new URL("..", import.meta.url).pathname;
   const definitions = await discoverImageDefinitions(projectDir);
   const expectedPrograms = new Map([
-    ["audio-sdk", "/usr/lib/libdolly-audio.a"],
+    ["audio-sdk", "/usr/lib/dolly/process/libdolly-audio.a"],
     ["bhop", "/usr/bin/bhop"],
     ["slopyard", "/usr/bin/slopyard"],
     ["classicube", "/usr/bin/classicube-agent"],
@@ -263,7 +263,7 @@ test("system snapshots are sealed to their visible recipe chain", async () => {
     ["pi-runtime", "/usr/bin/pi"],
     ["python-runtime", "/usr/bin/python"],
     ["gamedev-sdk", "/usr/lib/libbox3d.a"],
-    ["gpu-sdk", "/usr/lib/libdolly-gpu.a"],
+    ["gpu-sdk", "/usr/lib/dolly/process/libdolly-gpu.a"],
     ["gpu-fluid", "/usr/bin/fluid"],
     ["ghostty-build", "/usr/bin/zig"],
     ["cmake-build", "/usr/bin/cmake"],

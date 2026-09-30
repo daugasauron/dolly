@@ -25,6 +25,15 @@ packaging and ABI tests read only these manifests.
 | `kernel` | Kernel C; defines `dolly_NAME_kernel`, the process operations it handles and its release hook ([`process-kernel.h`](../src/process-kernel.h)) |
 | `client` | Process C linked as `libdolly-NAME.a`; it records `DOLLY_HOST_REQUIRE(NAME, VERSION)` |
 
+A provider's `browser()` and `worker()` receive the page's shared resources
+(`mount`, `canvas`, `keyboard`, `applicationBase`, `showStatus`, `fatal`), `send`
+to the other side, `get(dependency)` and its `configuration`. They return an
+instance whose optional members the registry calls: `start` (Worker/page
+handshake), `messages`, `bindings` (kernel imports), `service` (periodic work),
+`imageRestored(context)` (after the system image is restored, before image-phase
+starts), `claimsKey(event)` (take a key from the display), `surfaceSize`,
+`entryStarted(context)` (the image ENTRY may now run) and `dispose`.
+
 `runtime` uses the same format; its files are the core in `src/`, `abi/` and
 `include/dolly/`. Adding a module takes its directory, one name in
 `manifests.mjs`, its imports in `abi/dolly-browser-0.wat` and its row in

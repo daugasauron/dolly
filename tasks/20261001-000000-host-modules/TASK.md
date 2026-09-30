@@ -85,11 +85,11 @@ stay hand-written: they are where a human reviews authority.
   `process-kernel.c` names no module (`5a9b77e`).
 - `cc` links every client archive by default; GPU and audio clients ship once,
   in the seed (`790d66e`, `07cf165`).
-- Page shell (stage 1b): in progress on `core/page-modules`.
+- Page shell done: display input, session UI and build admission live in their
+  modules; `src/browser.mjs` 770 -> 376 lines (`eb4f1c5`). Session restore moved
+  from the runtime Worker into the snapshot module's `imageRestored` hook.
 
 Remaining:
-- `runtime-worker.mjs` still validates and restores sessions itself (snapshot@0):
-  needs a restore phase before display's image phase.
 - Display's kernel state (lease, frames, terminal renderer) is still in
   `src/dolly.c`, and its mailbox also carries core terminal state (foreground,
   interrupts, input ring): split a runtime-owned terminal mailbox.
@@ -100,3 +100,6 @@ Remaining:
   `DOLLY_THREADS_ABI_DIGEST`) would weaken executable identity, so choose:
   per-module digests stamped by the client, or keep module packets in `process.h`.
 - `threads@0` kernel code stays in `process-kernel.c` (thread table).
+- Stale path comments that change pinned bytes, for the next seed change:
+  `host/upload/upload.h` (names `abi/dolly-upload-0.wat`) and the Pi skill
+  `demos/pi/skills/dolly/SKILL.md` (names `src/host/`, `src/http-*.mjs`).
