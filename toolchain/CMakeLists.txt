@@ -130,6 +130,9 @@ add_executable(dolly-process-zig
   "${DOLLY_ZIG_OBJECT}"
 )
 foreach(tool compiler zig)
+  # A new process contract restamps the tool, so relink it to drop the old stamp.
+  set_property(TARGET dolly-process-${tool} APPEND PROPERTY
+    LINK_DEPENDS /src/build/generated/dolly-process-abi-digest.h)
   target_include_directories(dolly-process-${tool} PRIVATE
     ../build/include
     ../build/generated
