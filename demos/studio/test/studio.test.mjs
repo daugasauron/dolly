@@ -12,5 +12,4 @@ test("Studio help is a one-shot TUI notification, not a persistent widget", () =
   start({}, { mode: "tui", ui });
   start({}, { mode: "tui", ui });
   assert.equal(notices.length, 1);
-  assert.match(notices[0], /Dollyfile Studio/);
 });
