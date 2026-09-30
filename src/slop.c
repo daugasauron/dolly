@@ -18,11 +18,11 @@
 #include <dolly/runtime.h>
 
 #define SLOP_MAX_LINE 65536
-#define SLOP_MAX_ARGS 512
 #define SLOP_MAX_HISTORY 1000
 #define SLOP_MAX_HEREDOCS 32
 #define SLOP_DEFERRED_DOLLAR ((char)0x1d)
 #define SLOP_DYNAMIC_DESCRIPTOR (-2)
+#define SLOP_BOTH_OUTPUTS (-3)
 
 typedef enum {
   TOKEN_WORD,
@@ -65,6 +65,15 @@ typedef struct {
 } Completion;
 typedef struct { Completion *items; size_t count; size_t capacity; } Completions;
 typedef struct LocalFrame LocalFrame;
+typedef struct {
+  int destination;
+  int saved;
+  int was_open;
+} DescriptorBackup;
+typedef struct {
+  DescriptorBackup items[10];
+  size_t count;
+} DescriptorState;
 
 typedef struct {
   int interactive;
@@ -92,6 +101,8 @@ typedef struct {
   unsigned getopts_index;
   size_t getopts_offset;
   LocalFrame *local_frame;
+  // Originals of descriptors changed by `exec`; NULL makes them permanent.
+  DescriptorState *descriptors;
 } Shell;
 
 enum {
@@ -100,16 +111,15 @@ enum {
   LOOP_CONTROL_CONTINUE,
 };
 
-typedef struct { char *name; char *old_value; int existed; } EnvironmentChange;
+typedef struct { char *name; char *old_value; int existed; int exported; } EnvironmentChange;
 struct LocalFrame {
   EnvironmentChange *changes;
   size_t count;
   size_t capacity;
 };
 typedef struct {
-  char **environment;
-  size_t environment_count;
-  size_t environment_capacity;
+  Arguments environment;
+  Arguments exported;
   int cwd;
 } ShellStateSnapshot;
 
@@ -284,8 +294,7 @@ static void arguments_dispose(Arguments *arguments) {
 }
 
 static int argument_push_owned(Arguments *arguments, char *text) {
-  if (arguments->count == SLOP_MAX_ARGS ||
-      !grow((void **)&arguments->items, &arguments->capacity,
+  if (!grow((void **)&arguments->items, &arguments->capacity,
             arguments->count + 2, sizeof(*arguments->items))) {
     free(text);
     return 0;
@@ -502,34 +511,82 @@ static int expand_parameter_word(Shell *shell, const char *source,
   return quote == '\0';
 }
 
-static void shell_state_snapshot_dispose(ShellStateSnapshot *snapshot) {
-  for (size_t index = 0; index < snapshot->environment_count; index++)
-    free(snapshot->environment[index]);
-  free(snapshot->environment);
-  if (snapshot->cwd >= 0) close(snapshot->cwd);
-  memset(snapshot, 0, sizeof(*snapshot));
-  snapshot->cwd = -1;
+// Every shell variable lives in `environ`; only these names reach children.
+static Arguments exported_names;
+
+static size_t exported_index(const char *name, size_t length) {
+  for (size_t index = 0; index < exported_names.count; index++) {
+    if (strlen(exported_names.items[index]) == length &&
+        memcmp(exported_names.items[index], name, length) == 0) return index;
+  }
+  return SIZE_MAX;
 }
 
-static int shell_state_capture(ShellStateSnapshot *snapshot) {
-  snapshot->cwd = open(".", O_RDONLY | O_DIRECTORY | O_CLOEXEC);
-  if (snapshot->cwd < 0) return 0;
+static int export_variable(const char *name) {
+  return exported_index(name, strlen(name)) != SIZE_MAX ||
+         argument_push(&exported_names, name);
+}
+
+static void unexport_variable(const char *name) {
+  const size_t index = exported_index(name, strlen(name));
+  if (index == SIZE_MAX) return;
+  free(exported_names.items[index]);
+  exported_names.items[index] = exported_names.items[--exported_names.count];
+  exported_names.items[exported_names.count] = NULL;
+}
+
+// Borrowed pointers into `environ`; valid until the next variable change.
+static char **exported_environment(void) {
+  size_t count = 0;
+  for (char **entry = environ; entry != NULL && *entry != NULL; entry++) count++;
+  char **result = calloc(count + 1, sizeof(*result));
+  if (result == NULL) return NULL;
+  size_t used = 0;
   for (char **entry = environ; entry != NULL && *entry != NULL; entry++) {
-    char *copy = strdup(*entry);
-    if (copy == NULL ||
-        !grow((void **)&snapshot->environment,
-              &snapshot->environment_capacity,
-              snapshot->environment_count + 1, sizeof(*snapshot->environment))) {
-      free(copy);
-      shell_state_snapshot_dispose(snapshot);
+    const char *equals = strchr(*entry, '=');
+    if (equals != NULL &&
+        exported_index(*entry, (size_t)(equals - *entry)) != SIZE_MAX)
+      result[used++] = *entry;
+  }
+  return result;
+}
+
+static int arguments_copy(const Arguments *source, Arguments *copy) {
+  for (size_t index = 0; index < source->count; index++) {
+    if (!argument_push(copy, source->items[index])) {
+      arguments_dispose(copy);
       return 0;
     }
-    snapshot->environment[snapshot->environment_count++] = copy;
   }
   return 1;
 }
 
-static int shell_state_restore(const ShellStateSnapshot *snapshot) {
+static void shell_state_snapshot_dispose(ShellStateSnapshot *snapshot) {
+  arguments_dispose(&snapshot->environment);
+  arguments_dispose(&snapshot->exported);
+  if (snapshot->cwd >= 0) close(snapshot->cwd);
+  snapshot->cwd = -1;
+}
+
+static int shell_state_capture(ShellStateSnapshot *snapshot) {
+  memset(snapshot, 0, sizeof(*snapshot));
+  snapshot->cwd = open(".", O_RDONLY | O_DIRECTORY | O_CLOEXEC);
+  if (snapshot->cwd < 0) return 0;
+  for (char **entry = environ; entry != NULL && *entry != NULL; entry++) {
+    if (!argument_push(&snapshot->environment, *entry)) {
+      shell_state_snapshot_dispose(snapshot);
+      return 0;
+    }
+  }
+  if (!arguments_copy(&exported_names, &snapshot->exported)) {
+    shell_state_snapshot_dispose(snapshot);
+    return 0;
+  }
+  return 1;
+}
+
+// Consumes the snapshot's exported names.
+static int shell_state_restore(ShellStateSnapshot *snapshot) {
   Arguments current_names = {0};
   for (char **entry = environ; entry != NULL && *entry != NULL; entry++) {
     const char *equals = strchr(*entry, '=');
@@ -545,8 +602,8 @@ static int shell_state_restore(const ShellStateSnapshot *snapshot) {
     if (unsetenv(current_names.items[index]) != 0) ok = 0;
   }
   arguments_dispose(&current_names);
-  for (size_t index = 0; index < snapshot->environment_count; index++) {
-    const char *entry = snapshot->environment[index];
+  for (size_t index = 0; index < snapshot->environment.count; index++) {
+    const char *entry = snapshot->environment.items[index];
     const char *equals = strchr(entry, '=');
     if (equals == NULL) continue;
     char *name = strndup(entry, (size_t)(equals - entry));
@@ -557,84 +614,156 @@ static int shell_state_restore(const ShellStateSnapshot *snapshot) {
     if (setenv(name, equals + 1, 1) != 0) ok = 0;
     free(name);
   }
+  arguments_dispose(&exported_names);
+  exported_names = snapshot->exported;
+  memset(&snapshot->exported, 0, sizeof(snapshot->exported));
   if (fchdir(snapshot->cwd) != 0) ok = 0;
   return ok;
 }
 
+// Internal descriptors stay above the 0-9 user range and out of children.
+static int high_descriptor(int descriptor) {
+  if (descriptor < 0) return -1;
+  const int moved = fcntl(descriptor, F_DUPFD_CLOEXEC, 10);
+  close(descriptor);
+  return moved;
+}
+
+// An unlinked temporary file for pipeline, substitution and here-document bytes.
+static int spool_file(void) {
+  char path[] = "/tmp/slop-spool-XXXXXX";
+  const int descriptor = mkstemp(path);
+  if (descriptor >= 0) unlink(path);
+  return high_descriptor(descriptor);
+}
+
+static int descriptor_state_save(DescriptorState *state, int destination) {
+  for (size_t index = 0; index < state->count; index++) {
+    if (state->items[index].destination == destination) return 1;
+  }
+  if (destination < 0 || destination > 9 || state->count == 10) {
+    errno = EINVAL;
+    return 0;
+  }
+  errno = 0;
+  const int saved = fcntl(destination, F_DUPFD_CLOEXEC, 10);
+  if (saved < 0 && errno != EBADF) return 0;
+  state->items[state->count++] = (DescriptorBackup){
+      .destination = destination,
+      .saved = saved,
+      .was_open = saved >= 0,
+  };
+  return 1;
+}
+
+static void descriptor_state_restore(DescriptorState *state) {
+  fflush(NULL);
+  while (state->count != 0) {
+    DescriptorBackup *backup = &state->items[--state->count];
+    if (backup->was_open) {
+      (void)dup2(backup->saved, backup->destination);
+      close(backup->saved);
+    } else {
+      (void)close(backup->destination);
+    }
+  }
+  clearerr(stdin);
+  clearerr(stdout);
+  clearerr(stderr);
+}
+
+// Keeps the redirections; a subshell's scope still restores them on exit.
+static void descriptor_state_commit(DescriptorState *state, DescriptorState *scope) {
+  for (size_t index = 0; index < state->count; index++) {
+    DescriptorBackup *backup = &state->items[index];
+    size_t saved = 0;
+    while (scope != NULL && saved < scope->count &&
+           scope->items[saved].destination != backup->destination) saved++;
+    if (scope != NULL && saved == scope->count) scope->items[scope->count++] = *backup;
+    else if (backup->was_open) close(backup->saved);
+  }
+  state->count = 0;
+}
+
+static int descriptor_state_duplicate(DescriptorState *state, int destination,
+                                      int source) {
+  if (!descriptor_state_save(state, destination)) return 0;
+  if (source < 0) {
+    if (close(destination) != 0 && errno != EBADF) return 0;
+    return 1;
+  }
+  return dup2(source, destination) >= 0;
+}
+
+typedef struct {
+  Shell shell;
+  Functions functions;
+  ShellStateSnapshot state;
+  DescriptorState descriptors;
+} Subshell;
+
+// A subshell is a private copy of the interpreter state. Files remain shared.
+static int subshell_enter(Shell *shell, Subshell *subshell) {
+  memset(subshell, 0, sizeof(*subshell));
+  if (!shell_state_capture(&subshell->state)) return 0;
+  Shell *nested = &subshell->shell;
+  *nested = *shell;
+  nested->argc = 0;
+  nested->argv = NULL;
+  nested->argv_array_owned = 0;
+  nested->argv_strings_owned = 0;
+  nested->active = 1;
+  nested->exit_status = 0;
+  nested->loop_depth = 0;
+  nested->loop_control = LOOP_CONTROL_NONE;
+  nested->loop_levels = 0;
+  nested->function_depth = 0;
+  nested->source_depth = 0;
+  nested->returning = 0;
+  nested->return_status = 0;
+  nested->local_frame = NULL;
+  nested->functions = &subshell->functions;
+  nested->descriptors = &subshell->descriptors;
+  if (!shell_argv_clone(nested, shell) ||
+      !functions_clone(shell->functions, &subshell->functions)) {
+    shell_argv_dispose(nested);
+    functions_dispose(&subshell->functions);
+    shell_state_snapshot_dispose(&subshell->state);
+    fputs("slop: subshell: out of memory\n", stderr);
+    return 0;
+  }
+  return 1;
+}
+
+static int subshell_leave(Shell *shell, Subshell *subshell, int status) {
+  Shell *nested = &subshell->shell;
+  functions_dispose(&subshell->functions);
+  shell_argv_dispose(nested);
+  descriptor_state_restore(&subshell->descriptors);
+  if (!shell_state_restore(&subshell->state))
+    fputs("slop: could not restore subshell state\n", stderr);
+  shell_state_snapshot_dispose(&subshell->state);
+  interrupt_shell(shell, nested->terminating_signal);
+  return nested->active ? status : nested->exit_status;
+}
+
 static int capture_command(Shell *shell, const char *command, Buffer *output) {
   const size_t starting_length = output->length;
-  ShellStateSnapshot state = {0};
-  if (!shell_state_capture(&state)) return 0;
-  char path[] = "/tmp/slop-substitution-XXXXXX";
-  int descriptor = mkstemp(path);
-  if (descriptor < 0) {
-    shell_state_snapshot_dispose(&state);
+  const int descriptor = spool_file();
+  Subshell subshell;
+  if (descriptor < 0 || !subshell_enter(shell, &subshell)) {
+    if (descriptor >= 0) close(descriptor);
     return 0;
   }
-  unlink(path);
-  int saved = dup(STDOUT_FILENO);
-  if (saved < 0 || dup2(descriptor, STDOUT_FILENO) < 0) {
-    if (saved >= 0) close(saved);
-    close(descriptor);
-    shell_state_snapshot_dispose(&state);
-    return 0;
+  int status = 1;
+  if (descriptor_state_duplicate(&subshell.descriptors, STDOUT_FILENO,
+                                 descriptor)) {
+    // The outer `-e` must not turn `$(false; echo value)` into a failure.
+    subshell.shell.errexit = 0;
+    status = execute_text(&subshell.shell, command);
   }
-  clearerr(stdout);
-  // Command substitution has its own control state. In particular, `exit`
-  // must not terminate the outer shell and the outer `-e` must not turn a
-  // useful `$(false; echo value)` sequence into an expansion failure.
-  Shell nested = *shell;
-  nested.argc = 0;
-  nested.argv = NULL;
-  nested.argv_array_owned = 0;
-  nested.argv_strings_owned = 0;
-  if (!shell_argv_clone(&nested, shell)) {
-    dup2(saved, STDOUT_FILENO);
-    close(saved);
-    close(descriptor);
-    clearerr(stdout);
-    shell_state_snapshot_dispose(&state);
-    return 0;
-  }
-  nested.active = 1;
-  nested.errexit = 0;
-  nested.exit_status = 0;
-  nested.loop_depth = 0;
-  nested.loop_control = LOOP_CONTROL_NONE;
-  nested.loop_levels = 0;
-  nested.function_depth = 0;
-  nested.source_depth = 0;
-  nested.returning = 0;
-  nested.return_status = 0;
-  Functions nested_functions = {0};
-  if (!functions_clone(shell->functions, &nested_functions)) {
-    shell_argv_dispose(&nested);
-    dup2(saved, STDOUT_FILENO);
-    close(saved);
-    close(descriptor);
-    clearerr(stdout);
-    shell_state_snapshot_dispose(&state);
-    return 0;
-  }
-  nested.functions = &nested_functions;
-  const int command_status = execute_text(&nested, command);
-  interrupt_shell(shell, nested.terminating_signal);
-  shell->substitution_status = nested.active ? command_status : nested.exit_status;
+  shell->substitution_status = subshell_leave(shell, &subshell, status);
   shell->last_status = shell->substitution_status;
-  functions_dispose(&nested_functions);
-  shell_argv_dispose(&nested);
-  fflush(stdout);
-  fsync(STDOUT_FILENO);
-  dup2(saved, STDOUT_FILENO);
-  close(saved);
-  clearerr(stdout);
-  const int restored = shell_state_restore(&state);
-  shell_state_snapshot_dispose(&state);
-  if (!restored) {
-    close(descriptor);
-    fputs("slop: could not restore command-substitution state\n", stderr);
-    return 0;
-  }
   if (lseek(descriptor, 0, SEEK_SET) < 0) {
     close(descriptor);
     return 0;
@@ -1266,6 +1395,8 @@ static TokenKind operator_kind(const char *source, size_t *length,
   if (strncmp(source, "||", 2) == 0) { *length = 2; return TOKEN_OR; }
 
   const char *operator = source;
+  // Bash's `&>word` and `&>>word` redirect both stdout and stderr.
+  if (operator[0] == '&' && operator[1] == '>') operator++;
   unsigned parsed_descriptor = 0;
   if (token_boundary && isdigit((unsigned char)*operator)) {
     const char *digits = operator;
@@ -1281,8 +1412,11 @@ static TokenKind operator_kind(const char *source, size_t *length,
       *descriptor = (int)parsed_descriptor;
   }
   if (*operator == '<' || *operator == '>') {
+    const int both = operator != source && *source == '&';
+    const int explicit_descriptor = *descriptor >= 0;
     const char direction = *operator++;
     if (*descriptor < 0) *descriptor = direction == '<' ? 0 : 1;
+    if (both) *target_descriptor = SLOP_BOTH_OUTPUTS;
     TokenKind redirection = direction == '<' ? TOKEN_INPUT : TOKEN_OUTPUT;
     if (direction == '<' && *operator == '<') {
       redirection = TOKEN_HEREDOC;
@@ -1298,6 +1432,11 @@ static TokenKind operator_kind(const char *source, size_t *length,
         operator++;
       } else if (*operator == '$') {
         *target_descriptor = SLOP_DYNAMIC_DESCRIPTOR;
+      } else if (!isdigit((unsigned char)*operator) && direction == '>' &&
+                 !explicit_descriptor) {
+        // Bash's `>&word` with a non-descriptor word is `&>word`.
+        redirection = TOKEN_OUTPUT;
+        *target_descriptor = SLOP_BOTH_OUTPUTS;
       } else {
         unsigned target = 0;
         while (isdigit((unsigned char)*operator)) {
@@ -1345,6 +1484,7 @@ static int invalid_descriptor_redirection(const char *source) {
   if (*operator == '-') return !redirection_boundary((unsigned char)operator[1]);
   const char *target = operator;
   while (isdigit((unsigned char)*operator)) operator++;
+  if (operator == target) return source[0] != '>';
   return operator != target + 1 ||
          !redirection_boundary((unsigned char)*operator);
 }
@@ -1352,6 +1492,7 @@ static int invalid_descriptor_redirection(const char *source) {
 static int lex(const char *source, TokenList *tokens) {
   size_t pending_heredocs[SLOP_MAX_HEREDOCS];
   size_t pending_count = 0;
+  int both_outputs = 0;
   while (*source != '\0') {
     while (*source == ' ' || *source == '\t' || *source == '\r') source++;
     /* A backslash-newline is removed before token recognition. In
@@ -1416,6 +1557,10 @@ static int lex(const char *source, TokenList *tokens) {
             stderr);
       return 0;
     }
+    if (source[0] == '&' && source[1] != '&' && source[1] != '>') {
+      fputs("slop: background jobs (&) are not supported\n", stderr);
+      return 0;
+    }
     if (invalid_descriptor_redirection(source)) {
       fputs("slop: invalid file descriptor redirection; descriptors are 0 through 9\n",
             stderr);
@@ -1441,6 +1586,8 @@ static int lex(const char *source, TokenList *tokens) {
         }
       }
       if (!token_push(tokens, kind, NULL, 0)) return 0;
+      both_outputs = target_descriptor == SLOP_BOTH_OUTPUTS;
+      if (both_outputs) target_descriptor = -1;
       tokens->items[tokens->count - 1].newline = kind == TOKEN_SEMI && *source == '\n';
       tokens->items[tokens->count - 1].descriptor = descriptor;
       tokens->items[tokens->count - 1].target_descriptor = target_descriptor;
@@ -1467,7 +1614,7 @@ static int lex(const char *source, TokenList *tokens) {
         int ignored_target;
         operator_kind(source, &operator_length, 0, &ignored_descriptor,
                       &ignored_target);
-        if (operator_length != 0) break;
+        if (operator_length != 0 || *source == '&') break;
       }
       char byte = *source;
       int protected = quote != '\0';
@@ -1532,6 +1679,12 @@ static int lex(const char *source, TokenList *tokens) {
     tokens->items[tokens->count - 1].positional_fields =
         quoted && deferred_quoted_positional_fields(
                       tokens->items[tokens->count - 1].text);
+    if (both_outputs) {
+      if (!token_push(tokens, TOKEN_DUP_OUTPUT, NULL, 0)) return 0;
+      tokens->items[tokens->count - 1].descriptor = STDERR_FILENO;
+      tokens->items[tokens->count - 1].target_descriptor = STDOUT_FILENO;
+      both_outputs = 0;
+    }
     continue;
 word_error:
     free(word.data);
@@ -1588,65 +1741,82 @@ static int compare_strings(const void *left, const void *right) {
   return strcmp(*(const char *const *)left, *(const char *const *)right);
 }
 
+static int glob_active(const Token *token, size_t index) {
+  return strchr("*?[", token->text[index]) != NULL &&
+         (token->quote_mask ? token->quote_mask[index] != 'q' : !token->quoted);
+}
+
+// Quoted metacharacters and every backslash become literal pattern bytes.
+static int glob_pattern(Buffer *pattern, const Token *token, size_t start,
+                        size_t end) {
+  for (size_t index = start; index < end; index++) {
+    const char byte = token->text[index];
+    const int protected = token->quote_mask ? token->quote_mask[index] == 'q'
+                                            : token->quoted;
+    if ((byte == '\\' || (protected && strchr("*?[]", byte))) &&
+        !buffer_character(pattern, '\\')) return 0;
+    if (!buffer_character(pattern, byte)) return 0;
+  }
+  return 1;
+}
+
+// Matches the components of token->text from `offset` below `path`.
+static int glob_below(const Token *token, size_t offset, Buffer *path,
+                      Arguments *matches) {
+  const char *text = token->text;
+  const size_t path_length = path->length;
+  size_t end = offset;
+  int pattern = 0;
+  while (text[end] != '\0' && text[end] != '/') pattern |= glob_active(token, end++);
+  size_t next = end;
+  while (text[next] == '/') next++;
+  int ok = 1;
+  if (!pattern) {
+    struct stat metadata;
+    ok = buffer_append(path, text + offset, next - offset);
+    if (ok && text[next] != '\0') ok = glob_below(token, next, path, matches);
+    else if (ok && lstat(path->data, &metadata) == 0) ok = argument_push(matches, path->data);
+  } else {
+    Buffer component = {0};
+    DIR *stream = opendir(path_length == 0 ? "." : path->data);
+    ok = glob_pattern(&component, token, offset, end);
+    struct dirent *entry;
+    while (ok && stream != NULL && (entry = readdir(stream)) != NULL) {
+      if (entry->d_name[0] == '.' && component.data[0] != '.') continue;
+      if (!wildcard_match(component.data, entry->d_name)) continue;
+      struct stat metadata;
+      path->length = path_length;
+      ok = buffer_append(path, entry->d_name, strlen(entry->d_name)) &&
+           buffer_append(path, text + end, next - end);
+      if (ok && text[next] != '\0') ok = glob_below(token, next, path, matches);
+      else if (ok && (next == end || stat(path->data, &metadata) == 0))
+        ok = argument_push(matches, path->data);
+    }
+    if (stream != NULL) closedir(stream);
+    free(component.data);
+  }
+  path->length = path_length;
+  if (path->data != NULL) path->data[path_length] = '\0';
+  return ok;
+}
+
 static int expand_glob(Arguments *arguments, const Token *token) {
   int has_pattern = 0;
-  for (size_t index = 0; token->text[index]; index++)
-    if (strchr("*?[", token->text[index]) &&
-        (token->quote_mask ? token->quote_mask[index] != 'q' : !token->quoted)) has_pattern = 1;
+  for (size_t index = 0; token->text[index]; index++) has_pattern |= glob_active(token, index);
   if (!has_pattern) return argument_push(arguments, token->text);
-  const char *slash = strrchr(token->text, '/');
-  size_t directory_length = slash == NULL ? 0 : (size_t)(slash - token->text);
-  int root_directory = slash == token->text;
-  const char *suffix = slash == NULL ? token->text : slash + 1;
-  if (!*suffix) return argument_push(arguments, token->text);
-  for (size_t index = 0; index < directory_length; index++)
-    if (strchr("*?[", token->text[index]) &&
-        (!token->quote_mask || token->quote_mask[index] != 'q'))
-      return argument_push(arguments, token->text);
-  char *directory = slash == NULL ? strdup(".")
-                    : root_directory ? strdup("/")
-                                     : strndup(token->text, directory_length);
-  if (directory == NULL) return 0;
-  DIR *stream = opendir(directory);
-  if (stream == NULL) { free(directory); return argument_push(arguments, token->text); }
   Arguments matches = {0};
-  Buffer pattern_buffer = {0};
-  for (const char *byte = suffix; *byte; byte++) {
-    int protected = token->quote_mask && token->quote_mask[byte - token->text] == 'q';
-    if ((*byte == '\\' || (protected && strchr("*?[]", *byte))) &&
-        !buffer_character(&pattern_buffer, '\\')) goto glob_error;
-    if (!buffer_character(&pattern_buffer, *byte)) goto glob_error;
-  }
-  const char *pattern = pattern_buffer.data;
-  struct dirent *entry;
-  while ((entry = readdir(stream)) != NULL) {
-    if (entry->d_name[0] == '.' && pattern[0] != '.') continue;
-    if (!wildcard_match(pattern, entry->d_name)) continue;
-    size_t length = slash == NULL ? strlen(entry->d_name)
-                    : root_directory ? 1 + strlen(entry->d_name)
-                                     : directory_length + 1 + strlen(entry->d_name);
-    char *path = malloc(length + 1);
-    if (path == NULL) goto glob_error;
-    if (slash == NULL) strcpy(path, entry->d_name);
-    else if (root_directory) snprintf(path, length + 1, "/%s", entry->d_name);
-    else snprintf(path, length + 1, "%.*s/%s", (int)directory_length, token->text, entry->d_name);
-    if (!argument_push_owned(&matches, path)) goto glob_error;
-  }
-  closedir(stream);
-  free(directory);
-  free(pattern_buffer.data);
-  if (matches.count == 0) { arguments_dispose(&matches); return argument_push(arguments, token->text); }
-  qsort(matches.items, matches.count, sizeof(*matches.items), compare_strings);
-  for (size_t index = 0; index < matches.count; index++) {
-    char *path = matches.items[index];
+  Buffer path = {0};
+  int ok = glob_below(token, 0, &path, &matches);
+  free(path.data);
+  if (ok && matches.count == 0) ok = argument_push(arguments, token->text);
+  if (matches.count != 0)
+    qsort(matches.items, matches.count, sizeof(*matches.items), compare_strings);
+  for (size_t index = 0; ok && index < matches.count; index++) {
+    ok = argument_push_owned(arguments, matches.items[index]);
     matches.items[index] = NULL;
-    if (!argument_push_owned(arguments, path)) { arguments_dispose(&matches); return 0; }
   }
   arguments_dispose(&matches);
-  return 1;
-glob_error:
-  free(pattern_buffer.data);
-  closedir(stream); free(directory); arguments_dispose(&matches); return 0;
+  return ok;
 }
 
 enum command_resolution { COMMAND_FOUND, COMMAND_NOT_FOUND, COMMAND_PATH_TOO_LONG };
@@ -1673,27 +1843,38 @@ static enum command_resolution resolved_command_at(
       ? COMMAND_PATH_TOO_LONG : COMMAND_FOUND;
 }
 
+// Yields each PATH directory in order; an empty entry names the cwd.
+static int next_path_directory(const char **cursor, const char **directory,
+                               size_t *length) {
+  if (*cursor == NULL) return 0;
+  const char *separator = strchr(*cursor, ':');
+  *length = separator == NULL ? strlen(*cursor) : (size_t)(separator - *cursor);
+  *directory = *length == 0 ? "." : *cursor;
+  if (*length == 0) *length = 1;
+  *cursor = separator == NULL ? NULL : separator + 1;
+  return 1;
+}
+
+static const char *path_variable(void) {
+  const char *path = getenv("PATH");
+  return path == NULL ? "" : path;
+}
+
 static enum command_resolution resolve_command(const char *command,
                                                 char *resolved, size_t capacity) {
   if (strchr(command, '/') != NULL) {
     return resolved_command_at(command, resolved, capacity);
   }
-  const char *path = getenv("PATH");
-  if (path == NULL) path = "";
-  do {
-    const char *separator = strchr(path, ':');
-    size_t length = separator == NULL ? strlen(path) : (size_t)(separator - path);
-    const char *directory = length == 0 ? "." : path;
-    if (length == 0) length = 1;
+  const char *cursor = path_variable(), *directory;
+  size_t length;
+  while (next_path_directory(&cursor, &directory, &length)) {
     int written = snprintf(resolved, capacity, "%.*s/%s", (int)length, directory, command);
     if (written >= 0 && (size_t)written < capacity) {
       const enum command_resolution found =
           resolved_command_at(resolved, resolved, capacity);
       if (found != COMMAND_NOT_FOUND) return found;
     }
-    if (separator == NULL) break;
-    path = separator + 1;
-  } while (1);
+  }
   return COMMAND_NOT_FOUND;
 }
 
@@ -1714,8 +1895,50 @@ static int set_assignment(const char *word) {
   return status == 0 ? 1 : -1;
 }
 
+static int remember_variable(const char *name, EnvironmentChange *change) {
+  change->name = strdup(name);
+  if (change->name == NULL) return 0;
+  const char *old = getenv(name);
+  change->existed = old != NULL;
+  change->old_value = old == NULL ? NULL : strdup(old);
+  change->exported = exported_index(name, strlen(name)) != SIZE_MAX;
+  if (old != NULL && change->old_value == NULL) { free(change->name); return 0; }
+  return 1;
+}
+
 static int ifs_byte(const char *ifs, char byte) {
-  return ifs[0] != '\0' && strchr(ifs, byte) != NULL;
+  return byte != '\0' && strchr(ifs, byte) != NULL;
+}
+
+// Reads one logical line from fd 0 without consuming bytes after it, so the
+// next reader of the same file or pipe sees them. 1 ok, 0 memory, -1 errno.
+static int read_line(Buffer *line, int raw, int *reached_eof) {
+  const int seekable = lseek(STDIN_FILENO, 0, SEEK_CUR) >= 0;
+  char bytes[4096];
+  int escaped = 0;
+  for (;;) {
+    const ssize_t count = read(STDIN_FILENO, bytes, seekable ? sizeof(bytes) : 1);
+    if (count < 0 && errno == EINTR) continue;
+    if (count < 0) return -1;
+    if (count == 0) {
+      *reached_eof = 1;
+      return !escaped || buffer_character(line, '\\');
+    }
+    for (ssize_t index = 0; index < count; index++) {
+      const char byte = bytes[index];
+      if (escaped) {
+        escaped = 0;
+        if (byte == '\n') continue;
+      } else if (byte == '\n') {
+        if (seekable && lseek(STDIN_FILENO, index + 1 - count, SEEK_CUR) < 0) return -1;
+        return 1;
+      } else if (!raw && byte == '\\') {
+        escaped = 1;
+        continue;
+      }
+      if (!buffer_character(line, byte)) return 0;
+    }
+  }
 }
 
 static int builtin_read(int argc, char **argv) {
@@ -1744,25 +1967,9 @@ static int builtin_read(int argc, char **argv) {
 
   Buffer line = {0};
   int reached_eof = 0;
-  for (;;) {
-    int byte = fgetc(stdin);
-    if (byte == EOF) {
-      reached_eof = 1;
-      break;
-    }
-    if (byte == '\n') break;
-    if (!raw && byte == '\\') {
-      byte = fgetc(stdin);
-      if (byte == EOF) {
-        reached_eof = 1;
-        if (!buffer_character(&line, '\\')) goto memory_error;
-        break;
-      }
-      if (byte == '\n') continue;
-    }
-    if (!buffer_character(&line, (char)byte)) goto memory_error;
-  }
-  if (ferror(stdin)) {
+  const int result = read_line(&line, raw, &reached_eof);
+  if (result == 0) goto memory_error;
+  if (result < 0) {
     fprintf(stderr, "slop: read: %s\n", strerror(errno));
     free(line.data);
     return 1;
@@ -1797,18 +2004,20 @@ memory_error:
   return 1;
 }
 
-static int print_shell_variables(void) {
-  ShellStateSnapshot snapshot = {0};
+static int print_shell_variables(int exported_only) {
+  ShellStateSnapshot snapshot;
   if (!shell_state_capture(&snapshot)) {
-    fputs("slop: set: out of memory\n", stderr);
+    fputs("slop: out of memory\n", stderr);
     return 1;
   }
-  qsort(snapshot.environment, snapshot.environment_count,
-        sizeof(*snapshot.environment), compare_strings);
-  for (size_t index = 0; index < snapshot.environment_count; index++) {
-    const char *entry = snapshot.environment[index];
+  qsort(snapshot.environment.items, snapshot.environment.count,
+        sizeof(*snapshot.environment.items), compare_strings);
+  for (size_t index = 0; index < snapshot.environment.count; index++) {
+    const char *entry = snapshot.environment.items[index];
     const char *equals = strchr(entry, '=');
-    if (equals == NULL) continue;
+    if (equals == NULL || (exported_only &&
+        exported_index(entry, (size_t)(equals - entry)) == SIZE_MAX)) continue;
+    if (exported_only) fputs("export ", stdout);
     fwrite(entry, 1, (size_t)(equals - entry) + 1, stdout);
     fputc('\'', stdout);
     for (const char *value = equals + 1; *value != '\0'; value++) {
@@ -1825,12 +2034,10 @@ static int print_shell_options(const Shell *shell, int commands) {
   if (commands) {
     printf("set %co errexit\n", shell->errexit ? '-' : '+');
     printf("set %co pipefail\n", shell->pipefail ? '-' : '+');
-    puts("set -o posix");
     printf("set %co xtrace\n", shell->xtrace ? '-' : '+');
   } else {
     printf("errexit %s\n", shell->errexit ? "on" : "off");
     printf("pipefail %s\n", shell->pipefail ? "on" : "off");
-    puts("posix on");
     printf("xtrace %s\n", shell->xtrace ? "on" : "off");
   }
   return ferror(stdout) ? 1 : 0;
@@ -1840,7 +2047,7 @@ static int set_named_option(Shell *shell, const char *name, int enabled) {
   if (strcmp(name, "errexit") == 0) shell->errexit = enabled;
   else if (strcmp(name, "pipefail") == 0) shell->pipefail = enabled;
   else if (strcmp(name, "xtrace") == 0) shell->xtrace = enabled;
-  else if (strcmp(name, "posix") != 0) {
+  else {
     fprintf(stderr, "slop: set: unsupported option name: %s\n", name);
     return 0;
   }
@@ -1994,17 +2201,10 @@ static int builtin_local(Shell *shell, int argc, char **argv) {
       }
       change = &frame->changes[frame->count];
       memset(change, 0, sizeof(*change));
-      change->name = strndup(word, name_length);
-      if (change->name == NULL) {
-        fputs("slop: local: out of memory\n", stderr);
-        return 1;
-      }
-      const char *old_value = getenv(change->name);
-      change->existed = old_value != NULL;
-      change->old_value = old_value == NULL ? NULL : strdup(old_value);
-      if (old_value != NULL && change->old_value == NULL) {
-        free(change->name);
-        memset(change, 0, sizeof(*change));
+      char *name = strndup(word, name_length);
+      const int remembered = name != NULL && remember_variable(name, change);
+      free(name);
+      if (!remembered) {
         fputs("slop: local: out of memory\n", stderr);
         return 1;
       }
@@ -2204,7 +2404,7 @@ static int builtin(Shell *shell, int argc, char **argv, int *handled) {
     }
     char *new_cwd = getcwd(NULL, 0);
     if (new_cwd == NULL || setenv("OLDPWD", old_cwd, 1) != 0 ||
-        setenv("PWD", new_cwd, 1) != 0) {
+        setenv("PWD", new_cwd, 1) != 0 || !export_variable("OLDPWD")) {
       fprintf(stderr, "slop: cd: could not publish directory state: %s\n",
               strerror(errno));
       free(old_cwd);
@@ -2217,12 +2417,21 @@ static int builtin(Shell *shell, int argc, char **argv, int *handled) {
     return 0;
   }
   if (strcmp(argv[0], "export") == 0) {
+    if (argc == 1 || (argc == 2 && strcmp(argv[1], "-p") == 0))
+      return print_shell_variables(1);
     for (int index = 1; index < argc; index++) {
-      int result = set_assignment(argv[index]);
-      if (result < 0) return 1;
-      if (result == 0 && !valid_name(argv[index], strlen(argv[index]))) {
+      size_t name_length;
+      if (!assignment(argv[index], &name_length)) name_length = strlen(argv[index]);
+      char *name = strndup(argv[index], name_length);
+      if (name == NULL) return 1;
+      const int valid = valid_name(name, name_length);
+      const int ok = valid && set_assignment(argv[index]) >= 0 &&
+                     export_variable(name);
+      free(name);
+      if (!valid) {
         fprintf(stderr, "slop: export: invalid name: %s\n", argv[index]); return 2;
       }
+      if (!ok) return 1;
     }
     return 0;
   }
@@ -2232,6 +2441,7 @@ static int builtin(Shell *shell, int argc, char **argv, int *handled) {
         fprintf(stderr, "slop: unset: invalid name: %s\n", argv[index]); return 2;
       }
       if (unsetenv(argv[index]) != 0) return 1;
+      unexport_variable(argv[index]);
     }
     return 0;
   }
@@ -2270,7 +2480,7 @@ static int builtin(Shell *shell, int argc, char **argv, int *handled) {
     return 0;
   }
   if (strcmp(argv[0], "set") == 0) {
-    if (argc == 1) return print_shell_variables();
+    if (argc == 1) return print_shell_variables(0);
     int argument = 1;
     for (; argument < argc; argument++) {
       const char *option = argv[argument];
@@ -2391,39 +2601,11 @@ static int run_function(Shell *shell, const Function *function,
   return status;
 }
 
-static int run_with_descriptors(Shell *shell, int argc, char **argv,
-                                int input, int output, int error) {
-  if (!shell->active) return shell->exit_status;
-  if (argc == 0) return 0;
-  int handled = 0;
-  int is_builtin = builtin_name(argv[0]);
-  Function *function = is_builtin ? NULL : function_lookup(shell->functions, argv[0]);
-  if (is_builtin || function != NULL) {
-    int saved[3] = {dup(0), dup(1), dup(2)};
-    if (saved[0] < 0 || saved[1] < 0 || saved[2] < 0 ||
-        dup2(input, 0) < 0 || dup2(output, 1) < 0 || dup2(error, 2) < 0) {
-      for (int index = 0; index < 3; index++) if (saved[index] >= 0) close(saved[index]);
-      return 126;
-    }
-    clearerr(stdin); clearerr(stdout); clearerr(stderr);
-    int status = is_builtin ? builtin(shell, argc, argv, &handled)
-                            : run_function(shell, function, argc, argv);
-    fflush(NULL);
-    dup2(saved[0], 0); dup2(saved[1], 1); dup2(saved[2], 2);
-    close(saved[0]); close(saved[1]); close(saved[2]);
-    clearerr(stdin); clearerr(stdout); clearerr(stderr);
-    return status;
-  }
-  char path[1024];
-  enum command_resolution resolution = resolve_command(argv[0], path, sizeof(path));
-  if (resolution == COMMAND_PATH_TOO_LONG) { fprintf(stderr, "slop: %s: path is too long\n", argv[0]); return 126; }
-  if (resolution != COMMAND_FOUND) { fprintf(stderr, "slop: %s: command not found\n", argv[0]); return 127; }
-  int pid = dolly_spawn(path, argc, argv, input, output, error);
-  if (pid < 0) { fprintf(stderr, "slop: %s: spawn failed: %s\n", argv[0], strerror(-pid)); return 126; }
+static int wait_command(Shell *shell, pid_t pid) {
   int status;
   pid_t waited;
   do { waited = waitpid(pid, &status, 0); } while (waited < 0 && errno == EINTR);
-  if (waited < 0) { fprintf(stderr, "slop: %s: wait failed: %s\n", argv[0], strerror(errno)); return 126; }
+  if (waited < 0) { fprintf(stderr, "slop: wait failed: %s\n", strerror(errno)); return 126; }
   if (WIFSIGNALED(status)) {
     interrupt_shell(shell, WTERMSIG(status));
     return 128 + WTERMSIG(status);
@@ -2431,17 +2613,50 @@ static int run_with_descriptors(Shell *shell, int argc, char **argv,
   return WIFEXITED(status) ? WEXITSTATUS(status) : 126;
 }
 
-static int save_environment_change(const char *word, EnvironmentChange *change) {
-  size_t name_length;
-  if (!assignment(word, &name_length)) return 0;
-  change->name = strndup(word, name_length);
-  if (change->name == NULL) return -1;
-  const char *old = getenv(change->name);
-  change->existed = old != NULL;
-  change->old_value = old == NULL ? NULL : strdup(old);
-  if (old != NULL && change->old_value == NULL) { free(change->name); return -1; }
-  if (setenv(change->name, word + name_length + 1, 1) != 0) {
-    free(change->name); free(change->old_value); return -1;
+// The child inherits the shell's descriptors 0-9 and its exported variables.
+// With `detached`, the caller waits for the returned pid itself.
+static int spawn_command(Shell *shell, int argc, char **argv, pid_t *detached) {
+  char path[PATH_MAX];
+  enum command_resolution resolution = resolve_command(argv[0], path, sizeof(path));
+  if (resolution == COMMAND_PATH_TOO_LONG) { fprintf(stderr, "slop: %s: path is too long\n", argv[0]); return 126; }
+  if (resolution != COMMAND_FOUND) { fprintf(stderr, "slop: %s: command not found\n", argv[0]); return 127; }
+  char **environment = exported_environment();
+  if (environment == NULL) { fputs("slop: out of memory\n", stderr); return 126; }
+  fflush(NULL);
+  const int pid = dolly_spawn_mapped(path, argc, argv, environment, NULL,
+                                     DOLLY_PROCESS_INHERIT_FDS_ALL, NULL, 0, -1);
+  free(environment);
+  if (pid < 0) { fprintf(stderr, "slop: %s: spawn failed: %s\n", argv[0], strerror(-pid)); return 126; }
+  if (detached != NULL) {
+    *detached = pid;
+    return 0;
+  }
+  return wait_command(shell, pid);
+}
+
+static int run_command_words(Shell *shell, int argc, char **argv,
+                             pid_t *detached) {
+  if (!shell->active) return shell->exit_status;
+  if (builtin_name(argv[0])) {
+    int handled;
+    return builtin(shell, argc, argv, &handled);
+  }
+  Function *function = function_lookup(shell->functions, argv[0]);
+  if (function != NULL) return run_function(shell, function, argc, argv);
+  return spawn_command(shell, argc, argv, detached);
+}
+
+// A command-prefix assignment is exported to that command only.
+static int save_environment_change(const char *word, size_t name_length,
+                                   EnvironmentChange *change) {
+  char *name = strndup(word, name_length);
+  const int ok = name != NULL && remember_variable(name, change);
+  free(name);
+  if (!ok) return 0;
+  if (setenv(change->name, word + name_length + 1, 1) != 0 ||
+      !export_variable(change->name)) {
+    restore_environment_changes(change, 1);
+    return 0;
   }
   return 1;
 }
@@ -2451,6 +2666,8 @@ static void restore_environment_changes(EnvironmentChange *changes, size_t count
     EnvironmentChange *change = &changes[--count];
     if (change->existed) setenv(change->name, change->old_value, 1);
     else unsetenv(change->name);
+    if (change->exported) export_variable(change->name);
+    else unexport_variable(change->name);
     free(change->name); free(change->old_value);
   }
 }
@@ -2460,17 +2677,6 @@ static int open_redirection(const char *path, int flags) {
   if (descriptor < 0) fprintf(stderr, "slop: %s: %s\n", path, strerror(errno));
   return descriptor;
 }
-
-typedef struct {
-  int destination;
-  int saved;
-  int was_open;
-} DescriptorBackup;
-
-typedef struct {
-  DescriptorBackup items[10];
-  size_t count;
-} DescriptorState;
 
 static int token_is_file_redirection(TokenKind kind) {
   return kind == TOKEN_INPUT || kind == TOKEN_OUTPUT || kind == TOKEN_APPEND ||
@@ -2484,77 +2690,10 @@ static int token_is_redirection(TokenKind kind) {
 
 static int open_heredoc(Shell *shell, const Token *token);
 
-static int descriptor_state_save(DescriptorState *state, int destination) {
-  for (size_t index = 0; index < state->count; index++) {
-    if (state->items[index].destination == destination) return 1;
-  }
-  if (destination < 0 || destination > 9 || state->count == 10) {
-    errno = EINVAL;
-    return 0;
-  }
-  errno = 0;
-  const int saved = fcntl(destination, F_DUPFD, 10);
-  if (saved < 0 && errno != EBADF) return 0;
-  state->items[state->count++] = (DescriptorBackup){
-      .destination = destination,
-      .saved = saved,
-      .was_open = saved >= 0,
-  };
-  return 1;
-}
-
-static int descriptor_state_save_all(DescriptorState *state) {
-  for (int descriptor = 0; descriptor <= 9; descriptor++) {
-    if (!descriptor_state_save(state, descriptor)) return 0;
-  }
-  return 1;
-}
-
-static void descriptor_state_restore(DescriptorState *state) {
+// Applies expanded redirections in order to the shell's own descriptors.
+static int apply_redirections(Shell *shell, DescriptorState *state,
+                              const Token *tokens, size_t start, size_t end) {
   fflush(NULL);
-  while (state->count != 0) {
-    DescriptorBackup *backup = &state->items[--state->count];
-    if (backup->was_open) {
-      (void)dup2(backup->saved, backup->destination);
-      close(backup->saved);
-    } else {
-      (void)close(backup->destination);
-    }
-  }
-  clearerr(stdin);
-  clearerr(stdout);
-  clearerr(stderr);
-}
-
-static void descriptor_state_commit(DescriptorState *state) {
-  while (state->count != 0) {
-    DescriptorBackup *backup = &state->items[--state->count];
-    if (backup->was_open) close(backup->saved);
-  }
-}
-
-static int descriptor_state_duplicate(DescriptorState *state, int destination,
-                                      int source) {
-  if (!descriptor_state_save(state, destination)) return 0;
-  if (source < 0) {
-    if (close(destination) != 0 && errno != EBADF) return 0;
-    return 1;
-  }
-  return dup2(source, destination) >= 0;
-}
-
-static int apply_descriptor_redirections(Shell *shell, DescriptorState *state,
-                                         const Token *tokens, size_t start,
-                                         size_t end, int pipeline_input,
-                                         int pipeline_output) {
-  fflush(NULL);
-  if ((pipeline_input != STDIN_FILENO &&
-       !descriptor_state_duplicate(state, STDIN_FILENO, pipeline_input)) ||
-      (pipeline_output != STDOUT_FILENO &&
-       !descriptor_state_duplicate(state, STDOUT_FILENO, pipeline_output))) {
-    fprintf(stderr, "slop: pipeline redirection: %s\n", strerror(errno));
-    return 0;
-  }
   for (size_t cursor = start; cursor < end; cursor++) {
     const Token *token = &tokens[cursor];
     if (!token_is_redirection(token->kind)) continue;
@@ -2567,7 +2706,6 @@ static int apply_descriptor_redirections(Shell *shell, DescriptorState *state,
       }
       continue;
     }
-
     const char *path = tokens[++cursor].text;
     const int flags = token->kind == TOKEN_INPUT
                           ? O_RDONLY
@@ -2579,129 +2717,12 @@ static int apply_descriptor_redirections(Shell *shell, DescriptorState *state,
                            ? open_heredoc(shell, token)
                            : open_redirection(path, flags);
     if (opened < 0) return 0;
-    int duplicated = opened == token->descriptor
-                         ? token->descriptor
-                         : dup2(opened, token->descriptor);
-    if (opened != token->descriptor) close(opened);
-    if (duplicated < 0) return 0;
-  }
-  clearerr(stdin);
-  clearerr(stdout);
-  clearerr(stderr);
-  return 1;
-}
-
-typedef struct {
-  DescriptorState descriptors;
-  int streams[3];
-  int owned[32];
-  size_t owned_count;
-} CommandRedirections;
-
-static void command_redirections_dispose(CommandRedirections *redirections) {
-  for (size_t index = 0; index < redirections->owned_count; index++)
-    close(redirections->owned[index]);
-  redirections->owned_count = 0;
-  descriptor_state_restore(&redirections->descriptors);
-}
-
-static int command_redirections_own(CommandRedirections *redirections,
-                                    int descriptor) {
-  if (redirections->owned_count ==
-      sizeof(redirections->owned) / sizeof(redirections->owned[0])) {
-    close(descriptor);
-    errno = EMFILE;
-    return -1;
-  }
-  redirections->owned[redirections->owned_count++] = descriptor;
-  return descriptor;
-}
-
-static int command_redirections_copy(CommandRedirections *redirections,
-                                     int descriptor) {
-  const int copy = fcntl(descriptor, F_DUPFD, 10);
-  return copy < 0 ? -1 : command_redirections_own(redirections, copy);
-}
-
-static int apply_command_redirections(Shell *shell,
-                                      CommandRedirections *redirections,
-                                      const Token *tokens, size_t start,
-                                      size_t end, int pipeline_input,
-                                      int pipeline_output) {
-  redirections->streams[0] = pipeline_input;
-  redirections->streams[1] = pipeline_output;
-  redirections->streams[2] = STDERR_FILENO;
-  for (size_t cursor = start; cursor < end; cursor++) {
-    const Token *token = &tokens[cursor];
-    if (!token_is_redirection(token->kind)) continue;
-    const int destination = token->descriptor;
-    if (token->kind == TOKEN_DUP_INPUT || token->kind == TOKEN_DUP_OUTPUT) {
-      int source = token->target_descriptor;
-      if (source >= 0 && source <= STDERR_FILENO)
-        source = redirections->streams[source];
-      if (destination <= STDERR_FILENO) {
-        if (source < 0) {
-          const int flags = destination == STDIN_FILENO ? O_RDONLY : O_WRONLY;
-          source = open_redirection("/dev/null", flags);
-          if (source >= 0)
-            source = command_redirections_own(redirections, source);
-        } else {
-          source = command_redirections_copy(redirections, source);
-        }
-        if (source < 0) goto descriptor_error;
-        redirections->streams[destination] = source;
-      } else if (!descriptor_state_duplicate(&redirections->descriptors,
-                                             destination, source)) {
-        goto descriptor_error;
-      }
-      continue;
-    }
-
-    const char *path = tokens[++cursor].text;
-    const int flags = token->kind == TOKEN_INPUT
-                          ? O_RDONLY
-                          : O_WRONLY | O_CREAT |
-                                (token->kind == TOKEN_APPEND ? O_APPEND
-                                                            : O_TRUNC);
-    int opened = token->kind == TOKEN_HEREDOC
-                     ? open_heredoc(shell, token)
-                     : open_redirection(path, flags);
-    if (opened < 0) return 0;
-    if (destination <= STDERR_FILENO) {
-      const int routed = fcntl(opened, F_DUPFD, 10);
+    if (opened != token->descriptor) {
+      const int moved = dup2(opened, token->descriptor);
       close(opened);
-      if (routed < 0 || command_redirections_own(redirections, routed) < 0)
-        goto descriptor_error;
-      redirections->streams[destination] = routed;
-    } else {
-      if (!descriptor_state_save(&redirections->descriptors, destination)) {
-        close(opened);
-        goto descriptor_error;
-      }
-      const int duplicated = opened == destination
-                                 ? destination
-                                 : dup2(opened, destination);
-      if (opened != destination) close(opened);
-      if (duplicated < 0) goto descriptor_error;
+      if (moved < 0) return 0;
     }
   }
-  return 1;
-
-descriptor_error:
-  fprintf(stderr, "slop: redirection: %s\n", strerror(errno));
-  return 0;
-}
-
-static int command_redirections_commit(CommandRedirections *redirections) {
-  fflush(NULL);
-  for (int descriptor = 0; descriptor <= STDERR_FILENO; descriptor++) {
-    if (redirections->streams[descriptor] != descriptor &&
-        dup2(redirections->streams[descriptor], descriptor) < 0) return 0;
-  }
-  for (size_t index = 0; index < redirections->owned_count; index++)
-    close(redirections->owned[index]);
-  redirections->owned_count = 0;
-  descriptor_state_commit(&redirections->descriptors);
   clearerr(stdin);
   clearerr(stdout);
   clearerr(stderr);
@@ -2739,10 +2760,15 @@ static void trace_word(const char *word) {
   fputc('\'', stderr);
 }
 
-static void trace_simple(Shell *shell, Arguments *arguments,
-                         Token *tokens, size_t start, size_t end) {
+static void trace_simple(Shell *shell, const Arguments *assignments,
+                         const Arguments *arguments, const Token *tokens,
+                         size_t start, size_t end) {
   if (!shell->xtrace) return;
   fputc('+', stderr);
+  for (size_t index = 0; index < assignments->count; index++) {
+    fputc(' ', stderr);
+    trace_word(assignments->items[index]);
+  }
   for (size_t index = 0; index < arguments->count; index++) {
     fputc(' ', stderr);
     trace_word(arguments->items[index]);
@@ -2767,139 +2793,137 @@ static void trace_simple(Shell *shell, Arguments *arguments,
   }
   fputc('\n', stderr);
   fflush(stderr);
-  fsync(STDERR_FILENO);
 }
 
-static int expand_deferred_dollars(Shell *shell, Token *tokens,
-                                   size_t start, size_t end) {
-  for (size_t index = start; index < end; index++) {
-    if (tokens[index].positional_fields) continue;
-    if (tokens[index].text == NULL ||
-        strchr(tokens[index].text, SLOP_DEFERRED_DOLLAR) == NULL) continue;
-    Buffer expanded = {0}, expanded_mask = {0};
-    const char *cursor = tokens[index].text;
-    while (*cursor != '\0') {
-      const char protection = tokens[index].quote_mask
-          ? tokens[index].quote_mask[cursor - tokens[index].text] : 'u';
-      if (*cursor != SLOP_DEFERRED_DOLLAR) {
-        if (!buffer_character(&expanded, *cursor++)) goto memory_error;
-      } else if (cursor[1] == SLOP_DEFERRED_DOLLAR) {
+// POSIX: an expansion error exits a non-interactive shell.
+static int expansion_error(Shell *shell) {
+  if (shell->active && !shell->interactive) {
+    shell->active = 0;
+    shell->exit_status = 1;
+  }
+  return -1;
+}
+
+static int expand_dollars(Shell *shell, Token *token) {
+  if (token->positional_fields || token->text == NULL ||
+      strchr(token->text, SLOP_DEFERRED_DOLLAR) == NULL) return 1;
+  Buffer expanded = {0}, expanded_mask = {0};
+  const char *cursor = token->text;
+  while (*cursor != '\0') {
+    const char protection = token->quote_mask
+        ? token->quote_mask[cursor - token->text] : 'u';
+    if (*cursor != SLOP_DEFERRED_DOLLAR) {
+      if (!buffer_character(&expanded, *cursor++)) goto memory_error;
+    } else if (cursor[1] == SLOP_DEFERRED_DOLLAR) {
+      cursor++;
+      if (!buffer_character(&expanded, *cursor++)) goto memory_error;
+    } else {
+      cursor++;
+      if (!isdigit((unsigned char)*cursor)) goto malformed;
+      size_t length = 0;
+      while (isdigit((unsigned char)*cursor)) {
+        const unsigned digit = (unsigned)(*cursor - '0');
+        if (length > (SIZE_MAX - digit) / 10) goto malformed;
+        length = length * 10 + digit;
         cursor++;
-        if (!buffer_character(&expanded, *cursor++)) goto memory_error;
-      } else {
-        cursor++;
-        if (!isdigit((unsigned char)*cursor)) goto malformed;
-        size_t length = 0;
-        while (isdigit((unsigned char)*cursor)) {
-          const unsigned digit = (unsigned)(*cursor - '0');
-          if (length > (SIZE_MAX - digit) / 10) goto malformed;
-          length = length * 10 + digit;
-          cursor++;
-        }
-        if (*cursor++ != ':' || strlen(cursor) < length) goto malformed;
-        char *expression = strndup(cursor, length);
-        if (expression == NULL) goto memory_error;
-        const char *expression_cursor = expression;
-        const int result = expand_dollar_now(shell, &expression_cursor, &expanded);
-        const int complete = result >= 0 && *expression_cursor == '\0';
-        free(expression);
-        if (!complete) goto expansion_error;
-        cursor += length;
       }
-      if (tokens[index].quote_mask) {
-        while (expanded_mask.length < expanded.length)
-          if (!buffer_character(&expanded_mask, protection)) goto memory_error;
-      }
+      if (*cursor++ != ':' || strlen(cursor) < length) goto malformed;
+      char *expression = strndup(cursor, length);
+      if (expression == NULL) goto memory_error;
+      const char *expression_cursor = expression;
+      const int result = expand_dollar_now(shell, &expression_cursor, &expanded);
+      const int complete = result >= 0 && *expression_cursor == '\0';
+      free(expression);
+      if (!complete) goto expansion_failed;
+      cursor += length;
     }
-    free(tokens[index].text);
-    tokens[index].text = buffer_release(&expanded);
-    if (tokens[index].quote_mask) {
-      free(tokens[index].quote_mask);
-      tokens[index].quote_mask = buffer_release(&expanded_mask);
-      if (!tokens[index].quote_mask) return 0;
+    if (token->quote_mask) {
+      while (expanded_mask.length < expanded.length)
+        if (!buffer_character(&expanded_mask, protection)) goto memory_error;
     }
-    if (tokens[index].text == NULL) return 0;
-    continue;
+  }
+  free(token->text);
+  token->text = buffer_release(&expanded);
+  if (token->quote_mask) {
+    free(token->quote_mask);
+    token->quote_mask = buffer_release(&expanded_mask);
+    if (!token->quote_mask) return 0;
+  }
+  return token->text != NULL;
 
 malformed:
-    fputs("slop: malformed deferred expansion\n", stderr);
-expansion_error:
-    free(expanded_mask.data);
-    free(expanded.data);
-    return -1;
+  fputs("slop: malformed deferred expansion\n", stderr);
+expansion_failed:
+  free(expanded_mask.data);
+  free(expanded.data);
+  return expansion_error(shell);
 memory_error:
-    free(expanded_mask.data);
-    free(expanded.data);
-    return 0;
-  }
-  return 1;
+  free(expanded_mask.data);
+  free(expanded.data);
+  return 0;
 }
 
-static int resolve_dynamic_descriptors(Token *tokens, size_t start,
-                                       size_t end) {
-  for (size_t index = start; index < end; index++) {
-    Token *token = &tokens[index];
-    if ((token->kind != TOKEN_DUP_INPUT &&
-         token->kind != TOKEN_DUP_OUTPUT) ||
-        token->target_descriptor != SLOP_DYNAMIC_DESCRIPTOR) continue;
-    if (token->text != NULL && token->text[0] == '-' &&
-        token->text[1] == '\0') {
-      token->target_descriptor = -1;
-      continue;
-    }
-    if (token->text == NULL || token->text[0] < '0' || token->text[0] > '9' ||
-        token->text[1] != '\0') {
-      fprintf(stderr, "slop: %s: bad file descriptor\n",
-              token->text == NULL ? "" : token->text);
-      return 0;
-    }
-    token->target_descriptor = token->text[0] - '0';
-  }
-  return 1;
-}
-
-static int expand_tilde_words(Token *tokens, size_t start, size_t end,
-                              int command_context) {
+// `~` starts a fully unquoted word or the value of an assignment.
+static int expand_tilde(Token *token, size_t offset) {
   const char *home = getenv("HOME");
-  if (home == NULL || home[0] == '\0') return 1;
-  int command_seen = 0;
+  if (home == NULL || home[0] == '\0' || token->quoted || token->text == NULL)
+    return 1;
+  const char *tilde = token->text + offset;
+  if (tilde[0] != '~' || (tilde[1] != '\0' && tilde[1] != '/')) return 1;
+  const size_t home_length = strlen(home);
+  const size_t suffix_length = strlen(tilde + 1);
+  if (offset > SIZE_MAX - home_length - suffix_length - 1) return 0;
+  const size_t length = offset + home_length + suffix_length;
+  char *expanded = malloc(length + 1);
+  char *mask = malloc(length + 1);
+  if (expanded == NULL || mask == NULL) { free(expanded); free(mask); return 0; }
+  memcpy(expanded, token->text, offset);
+  memcpy(expanded + offset, home, home_length);
+  memcpy(expanded + offset + home_length, tilde + 1, suffix_length + 1);
+  memset(mask, 'u', length);
+  if (token->quote_mask) {
+    memcpy(mask, token->quote_mask, offset);
+    memcpy(mask + offset + home_length, token->quote_mask + offset + 1, suffix_length);
+  }
+  memset(mask + offset, 'q', home_length);
+  mask[length] = '\0';
+  free(token->quote_mask);
+  token->quote_mask = mask;
+  free(token->text);
+  token->text = expanded;
+  return 1;
+}
+
+// Returns 1 on success, 0 when out of memory and -1 after an expansion error.
+static int expand_word(Shell *shell, Token *token, size_t tilde_offset) {
+  if (!expand_tilde(token, tilde_offset)) return 0;
+  return expand_dollars(shell, token);
+}
+
+static int expand_redirections(Shell *shell, Token *tokens, size_t start,
+                               size_t end) {
   for (size_t index = start; index < end; index++) {
     Token *token = &tokens[index];
-    if (token->kind != TOKEN_WORD || token->text == NULL) continue;
-    const int redirection_path = index > start &&
-        token_is_file_redirection(tokens[index - 1].kind);
-    size_t name_length = 0;
-    const int assignment_word = !token->quoted && command_context &&
-                                !command_seen && !redirection_path &&
-                                assignment(token->text, &name_length);
-    if (!assignment_word && command_context && !redirection_path)
-      command_seen = 1;
-    if (token->quoted) continue;
-    char *tilde = assignment_word ? token->text + name_length + 1
-                                  : token->text;
-    if (tilde[0] != '~' || (tilde[1] != '\0' && tilde[1] != '/')) continue;
-    const size_t prefix = (size_t)(tilde - token->text);
-    const size_t home_length = strlen(home);
-    const size_t suffix_length = strlen(tilde + 1);
-    if (prefix > SIZE_MAX - home_length - suffix_length - 1) return 0;
-    char *expanded = malloc(prefix + home_length + suffix_length + 1);
-    if (expanded == NULL) return 0;
-    memcpy(expanded, token->text, prefix);
-    memcpy(expanded + prefix, home, home_length);
-    memcpy(expanded + prefix + home_length, tilde + 1, suffix_length + 1);
-    char *mask = malloc(prefix + home_length + suffix_length + 1);
-    if (!mask) { free(expanded); return 0; }
-    memset(mask, 'u', prefix + home_length + suffix_length);
-    if (token->quote_mask) {
-      memcpy(mask, token->quote_mask, prefix);
-      memcpy(mask + prefix + home_length, token->quote_mask + prefix + 1, suffix_length);
+    if (token->kind == TOKEN_HEREDOC) {
+      index++;
+    } else if (token_is_file_redirection(token->kind)) {
+      const int expanded = expand_word(shell, &tokens[++index], 0);
+      if (expanded <= 0) return expanded;
+    } else if ((token->kind == TOKEN_DUP_INPUT ||
+                token->kind == TOKEN_DUP_OUTPUT) &&
+               token->target_descriptor == SLOP_DYNAMIC_DESCRIPTOR) {
+      const int expanded = expand_word(shell, token, 0);
+      if (expanded <= 0) return expanded;
+      if (strcmp(token->text, "-") == 0) {
+        token->target_descriptor = -1;
+      } else if (token->text[0] >= '0' && token->text[0] <= '9' &&
+                 token->text[1] == '\0') {
+        token->target_descriptor = token->text[0] - '0';
+      } else {
+        fprintf(stderr, "slop: %s: bad file descriptor\n", token->text);
+        return -1;
+      }
     }
-    memset(mask + prefix, 'q', home_length);
-    mask[prefix + home_length + suffix_length] = '\0';
-    free(token->quote_mask);
-    token->quote_mask = mask;
-    free(token->text);
-    token->text = expanded;
   }
   return 1;
 }
@@ -2951,42 +2975,25 @@ static int expand_heredoc(Shell *shell, const char *source, Buffer *output) {
 
 static int open_heredoc(Shell *shell, const Token *token) {
   Buffer contents = {0};
-  int expanded = token->quoted
-                     ? buffer_append(&contents, token->text,
-                                     strlen(token->text))
-                     : expand_heredoc(shell, token->text, &contents);
+  const int expanded = token->quoted
+      ? buffer_append(&contents, token->text, strlen(token->text))
+      : expand_heredoc(shell, token->text, &contents);
   if (!expanded) {
     free(contents.data);
-    return -1;
+    return expansion_error(shell);
   }
-  Token result = {
-      .kind = TOKEN_WORD,
-      .text = buffer_release(&contents),
-  };
-  if (result.text == NULL) return -1;
-
-  char path[] = "/tmp/slop-heredoc-XXXXXX";
-  const int descriptor = mkstemp(path);
-  if (descriptor < 0) {
-    free(result.text);
-    return -1;
-  }
-  unlink(path);
+  const int descriptor = spool_file();
   size_t offset = 0;
-  const size_t length = strlen(result.text);
-  while (offset < length) {
-    const ssize_t written = write(descriptor, result.text + offset,
-                                  length - offset);
+  while (descriptor >= 0 && offset < contents.length) {
+    const ssize_t written = write(descriptor, contents.data + offset,
+                                  contents.length - offset);
     if (written < 0 && errno == EINTR) continue;
-    if (written <= 0) {
-      close(descriptor);
-      free(result.text);
-      return -1;
-    }
+    if (written <= 0) break;
     offset += (size_t)written;
   }
-  free(result.text);
-  if (lseek(descriptor, 0, SEEK_SET) < 0) {
+  free(contents.data);
+  if (descriptor >= 0 &&
+      (offset != contents.length || lseek(descriptor, 0, SEEK_SET) < 0)) {
     close(descriptor);
     return -1;
   }
@@ -3028,152 +3035,117 @@ static int expand_word_arguments(Shell *shell, Arguments *arguments,
   return 1;
 }
 
+// Assignments are recognized before expansion and only with an unquoted name.
+static int assignment_word(const Token *token, size_t *name_length) {
+  return token->kind == TOKEN_WORD && assignment(token->text, name_length) &&
+         (token->quote_mask == NULL ||
+          memchr(token->quote_mask, 'q', *name_length + 1) == NULL);
+}
+
+// POSIX order: command words, then redirection words, then assignments from
+// left to right, each visible to the next. Redirections apply after tracing.
 static int run_simple_mutable(Shell *shell, Token *tokens, size_t start,
-                              size_t end, int pipeline_input,
-                              int pipeline_output) {
-  Arguments arguments = {0};
-  CommandRedirections redirections = {0};
+                              size_t end, pid_t *detached) {
+  Arguments assignments = {0}, arguments = {0};
+  DescriptorState descriptors = {0};
+  EnvironmentChange *changes = NULL;
+  size_t changed = 0, changes_capacity = 0;
+  int status = 1, expansion = 1;
   shell->substitution_status = 0;
-  const int dollar_status = expand_deferred_dollars(shell, tokens, start, end);
-  if (!shell->active) return shell->exit_status;
-  if (dollar_status == 0) goto memory_error;
-  if (dollar_status < 0) goto expansion_error;
-  if (!expand_tilde_words(tokens, start, end, 1)) goto memory_error;
-  if (!resolve_dynamic_descriptors(tokens, start, end)) goto syntax_error;
-  int command_seen = 0;
-  size_t command_index = SIZE_MAX;
+  size_t command_start = end;
   for (size_t index = start; index < end; index++) {
     Token *token = &tokens[index];
-    if (token->kind == TOKEN_WORD) {
-      size_t name_length = 0;
-      if (!command_seen && assignment(token->text, &name_length)) {
-        if (!argument_push(&arguments, token->text)) goto memory_error;
-        continue;
-      }
-      if (command_seen && assignment(token->text, &name_length) &&
-          (strcmp(arguments.items[command_index], "export") == 0 ||
-           strcmp(arguments.items[command_index], "local") == 0)) {
-        if (!argument_push(&arguments, token->text)) goto memory_error;
-        continue;
-      }
-      const size_t before = arguments.count;
-      if (!expand_word_arguments(shell, &arguments, token)) goto memory_error;
-      if (!command_seen && arguments.count != before) {
-        command_seen = 1;
-        command_index = before;
+    if (token_is_redirection(token->kind)) {
+      if (token_is_file_redirection(token->kind) &&
+          (++index >= end || tokens[index].kind != TOKEN_WORD)) {
+        fputs("slop: redirection requires a path\n", stderr);
+        status = 2;
+        goto done;
       }
       continue;
     }
-    if (!token_is_redirection(token->kind)) {
-      fputs("slop: invalid simple command\n", stderr); goto syntax_error;
+    if (token->kind != TOKEN_WORD) {
+      fputs("slop: invalid simple command\n", stderr);
+      status = 2;
+      goto done;
     }
-    if (token_is_file_redirection(token->kind) &&
-        (++index >= end || tokens[index].kind != TOKEN_WORD)) {
-      fputs("slop: redirection requires a path\n", stderr); goto syntax_error;
+    size_t name_length;
+    if (command_start == end && assignment_word(token, &name_length)) continue;
+    if (command_start == end) command_start = index;
+    const int declaration = arguments.count != 0 &&
+        (strcmp(arguments.items[0], "export") == 0 ||
+         strcmp(arguments.items[0], "local") == 0) &&
+        assignment_word(token, &name_length);
+    expansion = expand_word(shell, token, declaration ? name_length + 1 : 0);
+    if (expansion <= 0) goto expansion_failed;
+    if (!(declaration ? argument_push(&arguments, token->text)
+                      : expand_word_arguments(shell, &arguments, token)))
+      goto memory_error;
+  }
+  expansion = expand_redirections(shell, tokens, start, end);
+  if (expansion <= 0) goto expansion_failed;
+
+  const int persistent = arguments.count == 0 ||
+      (arguments.count == 1 && strcmp(arguments.items[0], "exec") == 0);
+  for (size_t index = start; index < command_start; index++) {
+    Token *token = &tokens[index];
+    size_t name_length;
+    if (token_is_redirection(token->kind)) {
+      if (token_is_file_redirection(token->kind)) index++;
+      continue;
     }
-  }
-  trace_simple(shell, &arguments, tokens, start, end);
-  if (!apply_command_redirections(shell, &redirections, tokens, start, end,
-                                  pipeline_input, pipeline_output))
-    goto command_error;
-  size_t prefix = 0;
-  while (prefix < arguments.count) {
-    size_t ignored;
-    if (!assignment(arguments.items[prefix], &ignored)) break;
-    prefix++;
-  }
-  if (prefix == arguments.count) {
-    for (size_t index = 0; index < prefix; index++) if (set_assignment(arguments.items[index]) < 0) goto command_error;
-    arguments_dispose(&arguments);
-    command_redirections_dispose(&redirections);
-    return shell->substitution_status;
-  }
-  if (strcmp(arguments.items[prefix], "exec") == 0 &&
-      prefix + 1 == arguments.count) {
-    for (size_t index = 0; index < prefix; index++) {
-      if (set_assignment(arguments.items[index]) < 0) goto command_error;
+    if (!assignment_word(token, &name_length)) continue;
+    expansion = expand_word(shell, token, name_length + 1);
+    if (expansion <= 0) goto expansion_failed;
+    if (!argument_push(&assignments, token->text)) goto memory_error;
+    if (persistent) {
+      if (set_assignment(token->text) < 0) goto memory_error;
+      continue;
     }
-    if (!command_redirections_commit(&redirections)) goto command_error;
-    arguments_dispose(&arguments);
-    return 0;
+    if (!grow((void **)&changes, &changes_capacity, changed + 1,
+              sizeof(*changes)) ||
+        !save_environment_change(token->text, name_length, &changes[changed]))
+      goto memory_error;
+    changed++;
   }
-  EnvironmentChange *changes = prefix == 0 ? NULL : calloc(prefix, sizeof(*changes));
-  if (prefix != 0 && changes == NULL) goto memory_error;
-  size_t changed = 0;
-  for (; changed < prefix; changed++) {
-    if (save_environment_change(arguments.items[changed], &changes[changed]) < 0) {
-      restore_environment_changes(changes, changed); free(changes); goto command_error;
-    }
+  trace_simple(shell, &assignments, &arguments, tokens, start, end);
+  if (!apply_redirections(shell, &descriptors, tokens, start, end)) goto done;
+  if (arguments.count == 0) {
+    status = shell->substitution_status;
+  } else if (persistent) {
+    descriptor_state_commit(&descriptors, shell->descriptors);
+    status = 0;
+  } else {
+    status = run_command_words(shell, (int)arguments.count, arguments.items,
+                               detached);
   }
-  int status = run_with_descriptors(shell, (int)(arguments.count - prefix),
-                                    arguments.items + prefix,
-                                    redirections.streams[STDIN_FILENO],
-                                    redirections.streams[STDOUT_FILENO],
-                                    redirections.streams[STDERR_FILENO]);
-  restore_environment_changes(changes, changed);
-  free(changes);
-  arguments_dispose(&arguments);
-  command_redirections_dispose(&redirections);
-  return status;
+  goto done;
+
 memory_error:
   fputs("slop: out of memory\n", stderr);
-expansion_error:
-command_error:
+  goto done;
+expansion_failed:
+  if (!shell->active) status = shell->exit_status;
+  else if (expansion == 0) fputs("slop: out of memory\n", stderr);
+done:
+  restore_environment_changes(changes, changed);
+  free(changes);
+  descriptor_state_restore(&descriptors);
+  arguments_dispose(&assignments);
   arguments_dispose(&arguments);
-  command_redirections_dispose(&redirections);
-  return 1;
-syntax_error:
-  arguments_dispose(&arguments);
-  command_redirections_dispose(&redirections);
-  return 2;
+  return status;
 }
 
 static int run_simple(Shell *shell, Token *tokens, size_t start, size_t end,
-                      int pipeline_input, int pipeline_output) {
+                      pid_t *detached) {
   const size_t count = end - start;
   TokenList copy = {0};
   if (!tokens_clone_range(tokens, start, end, &copy)) {
     fputs("slop: out of memory\n", stderr);
     return 1;
   }
-  const int status = run_simple_mutable(shell, copy.items, 0, count,
-                                        pipeline_input, pipeline_output);
+  const int status = run_simple_mutable(shell, copy.items, 0, count, detached);
   tokens_dispose(&copy);
-  return status;
-}
-
-static int run_pipeline(Shell *shell, Token *tokens, size_t start, size_t end) {
-  if (start == end) { fputs("slop: expected a command\n", stderr); return 2; }
-  int input = STDIN_FILENO, owned_input = -1, status = 0;
-  int rightmost_failure = 0;
-  size_t stage = start;
-  for (size_t index = start; index <= end; index++) {
-    if (index != end && tokens[index].kind != TOKEN_PIPE) continue;
-    if (stage == index) {
-      fputs("slop: pipeline requires commands on both sides\n", stderr);
-      if (owned_input >= 0) close(owned_input);
-      return 2;
-    }
-    int output = STDOUT_FILENO;
-    if (index != end) {
-      char path[] = "/tmp/slop-pipeline-XXXXXX";
-      output = mkstemp(path);
-      if (output < 0) { if (owned_input >= 0) close(owned_input); return 1; }
-      unlink(path);
-    }
-    status = run_simple(shell, tokens, stage, index, input, output);
-    if (status != 0) rightmost_failure = status;
-    if (owned_input >= 0) close(owned_input);
-    owned_input = -1;
-    if (index != end) {
-      if (lseek(output, 0, SEEK_SET) < 0) { close(output); return 1; }
-      input = owned_input = output;
-    }
-    stage = index + 1;
-    if (!shell->active) break;
-  }
-  if (owned_input >= 0) close(owned_input);
-  if (shell->pipefail && rightmost_failure != 0) status = rightmost_failure;
   return status;
 }
 
@@ -3221,12 +3193,6 @@ static int command_word(const CommandParser *parser, const char *word) {
 static int execute_list(Shell *shell, CommandParser *parser, int execute,
                         int suppress_errexit, unsigned stops,
                         unsigned *stopped);
-static int compound_redirection_end(const CommandParser *parser, size_t start,
-                                    size_t *end);
-static int apply_compound_redirections(Shell *shell, const Token *tokens,
-                                       size_t start, size_t end,
-                                       DescriptorState *descriptors,
-                                       int pipeline_output);
 
 static int function_header(const CommandParser *parser, char **name,
                            size_t *body_start) {
@@ -3271,48 +3237,16 @@ static int function_header(const CommandParser *parser, char **name,
 
 static int parse_group(Shell *shell, CommandParser *parser, int execute,
                        int suppress_errexit) {
-  const size_t body_start = ++parser->cursor;
-  CommandParser probe = {
-      .tokens = parser->tokens,
-      .cursor = body_start,
-      .end = parser->end,
-  };
-  unsigned probe_stop = 0;
-  (void)execute_list(shell, &probe, 0, 1, STOP_RBRACE, &probe_stop);
-  if (probe.error || probe_stop != STOP_RBRACE) {
-    fputs("slop: group requires }\n", stderr);
-    parser->error = 1;
-    return 2;
-  }
-  size_t command_end = probe.cursor + 1;
-  if (!compound_redirection_end(parser, command_end, &command_end)) {
-    parser->error = 1;
-    return 2;
-  }
-  if (!execute) {
-    parser->cursor = command_end;
-    return 0;
-  }
-
-  DescriptorState descriptors = {0};
-  if (!apply_compound_redirections(shell, parser->tokens, probe.cursor + 1,
-                                   command_end, &descriptors,
-                                   STDOUT_FILENO)) {
-    descriptor_state_restore(&descriptors);
-    fputs("slop: could not apply group redirection\n", stderr);
-    parser->error = 1;
-    return 2;
-  }
+  parser->cursor++;
   unsigned stopped = 0;
   const int status = execute_list(shell, parser, execute, suppress_errexit,
                                   STOP_RBRACE, &stopped);
-  descriptor_state_restore(&descriptors);
   if (parser->error || stopped != STOP_RBRACE) {
     fputs("slop: group requires }\n", stderr);
     parser->error = 1;
     return 2;
   }
-  parser->cursor = command_end;
+  parser->cursor++;
   return status;
 }
 
@@ -3339,205 +3273,34 @@ static int compound_redirection_end(const CommandParser *parser, size_t start,
 
 static int apply_compound_redirections(Shell *shell, const Token *tokens,
                                        size_t start, size_t end,
-                                       DescriptorState *descriptors,
-                                       int pipeline_output) {
+                                       DescriptorState *descriptors) {
   TokenList copy = {0};
   if (!tokens_clone_range(tokens, start, end, &copy)) return 0;
-  const size_t count = end - start;
-  const int dollars = expand_deferred_dollars(shell, copy.items, 0, count);
-  if (dollars <= 0 ||
-      !expand_tilde_words(copy.items, 0, count, 0)) {
-    tokens_dispose(&copy);
-    return 0;
-  }
-  if (!resolve_dynamic_descriptors(copy.items, 0, count)) {
-    tokens_dispose(&copy);
-    return 0;
-  }
-  if (!apply_descriptor_redirections(shell, descriptors, copy.items, 0, count,
-                                     STDIN_FILENO, pipeline_output))
-    goto redirection_error;
+  const int ok = expand_redirections(shell, copy.items, 0, end - start) > 0 &&
+      apply_redirections(shell, descriptors, copy.items, 0, end - start);
   tokens_dispose(&copy);
-  return 1;
-
-redirection_error:
-  tokens_dispose(&copy);
-  return 0;
+  return ok;
 }
 
 static int parse_subshell(Shell *shell, CommandParser *parser, int execute,
                           int suppress_errexit) {
-  const size_t body_start = ++parser->cursor;
-  CommandParser probe = {
-      .tokens = parser->tokens,
-      .cursor = body_start,
-      .end = parser->end,
-  };
-  unsigned probe_stop = 0;
-  (void)execute_list(shell, &probe, 0, 1, STOP_RPAREN, &probe_stop);
-  if (probe.error || probe_stop != STOP_RPAREN) {
-    fputs("slop: subshell requires )\n", stderr);
+  parser->cursor++;
+  Subshell subshell;
+  if (execute && !subshell_enter(shell, &subshell)) {
     parser->error = 1;
     return 2;
   }
-  size_t command_end = probe.cursor + 1;
-  if (!compound_redirection_end(parser, command_end, &command_end)) {
-    parser->error = 1;
-    return 2;
-  }
-  size_t pipeline_end = command_end;
-  if (pipeline_end < parser->end &&
-      parser->tokens[pipeline_end].kind == TOKEN_PIPE) {
-    for (;;) {
-      const size_t stage_start = ++pipeline_end;
-      while (pipeline_end < parser->end) {
-        const TokenKind kind = parser->tokens[pipeline_end].kind;
-        if (kind == TOKEN_PIPE || kind == TOKEN_SEMI || kind == TOKEN_AND ||
-            kind == TOKEN_OR || kind == TOKEN_RPAREN) break;
-        pipeline_end++;
-      }
-      if (stage_start == pipeline_end) {
-        fputs("slop: pipeline requires commands on both sides\n", stderr);
-        parser->error = 1;
-        return 2;
-      }
-      if (pipeline_end >= parser->end ||
-          parser->tokens[pipeline_end].kind != TOKEN_PIPE) break;
-    }
-  }
-  if (!execute) {
-    parser->cursor = pipeline_end;
-    return 0;
-  }
-
-  DescriptorState descriptors = {0};
-  int pipeline_output = -1;
-  if (pipeline_end != command_end) {
-    char path[] = "/tmp/slop-pipeline-XXXXXX";
-    pipeline_output = mkstemp(path);
-    if (pipeline_output >= 0) unlink(path);
-  }
-  if ((pipeline_end != command_end && pipeline_output < 0) ||
-      !descriptor_state_save_all(&descriptors) ||
-      !apply_compound_redirections(shell, parser->tokens, probe.cursor + 1,
-                                   command_end, &descriptors,
-                                   pipeline_output >= 0 ? pipeline_output
-                                                        : STDOUT_FILENO)) {
-    descriptor_state_restore(&descriptors);
-    if (pipeline_output >= 0) close(pipeline_output);
-    fputs("slop: could not apply subshell redirection\n", stderr);
-    parser->error = 1;
-    return 2;
-  }
-  ShellStateSnapshot state = {0};
-  if (!shell_state_capture(&state)) {
-    descriptor_state_restore(&descriptors);
-    if (pipeline_output >= 0) close(pipeline_output);
-    fputs("slop: subshell: could not capture shell state\n", stderr);
-    parser->error = 1;
-    return 2;
-  }
-  Shell nested = *shell;
-  nested.argc = 0;
-  nested.argv = NULL;
-  nested.argv_array_owned = 0;
-  nested.argv_strings_owned = 0;
-  nested.active = 1;
-  nested.exit_status = 0;
-  nested.loop_depth = 0;
-  nested.loop_control = LOOP_CONTROL_NONE;
-  nested.loop_levels = 0;
-  nested.function_depth = 0;
-  nested.returning = 0;
-  nested.source_depth = 0;
-  nested.return_status = 0;
-  nested.local_frame = NULL;
-  Functions nested_functions = {0};
-  if (!shell_argv_clone(&nested, shell) ||
-      !functions_clone(shell->functions, &nested_functions)) {
-    shell_argv_dispose(&nested);
-    functions_dispose(&nested_functions);
-    shell_state_snapshot_dispose(&state);
-    descriptor_state_restore(&descriptors);
-    if (pipeline_output >= 0) close(pipeline_output);
-    fputs("slop: subshell: out of memory\n", stderr);
-    parser->error = 1;
-    return 2;
-  }
-  nested.functions = &nested_functions;
   unsigned stopped = 0;
-  const int status = execute_list(&nested, parser, 1, suppress_errexit,
-                                  STOP_RPAREN, &stopped);
-  functions_dispose(&nested_functions);
-  shell_argv_dispose(&nested);
-  const int restored = shell_state_restore(&state);
-  shell_state_snapshot_dispose(&state);
-  descriptor_state_restore(&descriptors);
-  if (!restored) {
-    if (pipeline_output >= 0) close(pipeline_output);
-    fputs("slop: subshell: could not restore shell state\n", stderr);
-    parser->error = 1;
-    return 2;
-  }
+  int status = execute_list(execute ? &subshell.shell : shell, parser, execute,
+                            suppress_errexit, STOP_RPAREN, &stopped);
+  if (execute) status = subshell_leave(shell, &subshell, status);
   if (parser->error || stopped != STOP_RPAREN) {
-    if (pipeline_output >= 0) close(pipeline_output);
     fputs("slop: subshell requires )\n", stderr);
     parser->error = 1;
     return 2;
   }
-  if (nested.terminating_signal) {
-    interrupt_shell(shell, nested.terminating_signal);
-    if (pipeline_output >= 0) close(pipeline_output);
-    parser->cursor = pipeline_end;
-    return shell->exit_status;
-  }
-  int pipeline_status = status;
-  int rightmost_failure = status == 0 ? 0 : status;
-  if (pipeline_output >= 0) {
-    if (lseek(pipeline_output, 0, SEEK_SET) < 0) {
-      close(pipeline_output);
-      parser->error = 1;
-      return 2;
-    }
-    int input = pipeline_output;
-    size_t stage_start = command_end + 1;
-    for (size_t cursor = stage_start; cursor <= pipeline_end; cursor++) {
-      if (cursor != pipeline_end &&
-          parser->tokens[cursor].kind != TOKEN_PIPE) continue;
-      int output = STDOUT_FILENO;
-      if (cursor != pipeline_end) {
-        char path[] = "/tmp/slop-pipeline-XXXXXX";
-        output = mkstemp(path);
-        if (output >= 0) unlink(path);
-        if (output < 0) {
-          close(input);
-          parser->error = 1;
-          return 2;
-        }
-      }
-      pipeline_status = run_simple(shell, parser->tokens, stage_start, cursor,
-                                   input, output);
-      close(input);
-      if (pipeline_status != 0) rightmost_failure = pipeline_status;
-      if (!shell->active) {
-        if (cursor != pipeline_end) close(output);
-        break;
-      }
-      if (cursor != pipeline_end) {
-        if (lseek(output, 0, SEEK_SET) < 0) {
-          close(output);
-          parser->error = 1;
-          return 2;
-        }
-        input = output;
-      }
-      stage_start = cursor + 1;
-    }
-  }
-  parser->cursor = pipeline_end;
-  return shell->pipefail && rightmost_failure != 0
-             ? rightmost_failure
-             : pipeline_status;
+  parser->cursor++;
+  return status;
 }
 
 static int parse_function_definition(Shell *shell, CommandParser *parser,
@@ -3574,8 +3337,7 @@ static int expand_loop_words(Shell *shell, Token *tokens, size_t start,
     }
     TokenList copy = {0};
     if (!tokens_clone_range(tokens, index, index + 1, &copy)) return 0;
-    const int ok = expand_deferred_dollars(shell, copy.items, 0, 1) > 0 &&
-        expand_tilde_words(copy.items, 0, 1, 0) &&
+    const int ok = expand_word(shell, copy.items, 0) > 0 &&
         expand_word_arguments(shell, values, copy.items);
     tokens_dispose(&copy);
     if (!ok) return 0;
@@ -3603,6 +3365,7 @@ static int parse_for(Shell *shell, CommandParser *parser, int execute,
   }
 
   Arguments values = {0};
+  int failed = 0;
   if (command_word(parser, "in")) {
     parser->cursor++;
     const size_t words_start = parser->cursor;
@@ -3612,11 +3375,9 @@ static int parse_for(Shell *shell, CommandParser *parser, int execute,
     }
     if (execute && !expand_loop_words(shell, parser->tokens, words_start,
                                       parser->cursor, &values)) {
-      fputs("slop: could not expand for word list\n", stderr);
       arguments_dispose(&values);
-      free(variable);
-      parser->error = 1;
-      return 2;
+      execute = 0;
+      failed = 1;
     }
   } else if (execute) {
     for (int index = 1; index < shell->argc; index++) {
@@ -3693,7 +3454,7 @@ static int parse_for(Shell *shell, CommandParser *parser, int execute,
   parser->cursor = body_end + 1;
   arguments_dispose(&values);
   free(variable);
-  return iterations == 0 ? 0 : status;
+  return failed ? 1 : iterations == 0 ? 0 : status;
 
 syntax_error:
   arguments_dispose(&values);
@@ -3765,23 +3526,24 @@ static int parse_while(Shell *shell, CommandParser *parser, int execute,
   return body_status;
 }
 
-static char *expand_case_text(Shell *shell, const Token *token,
-                              size_t start, size_t length) {
-  Token copy = {
-      .kind = TOKEN_WORD,
-      .text = strndup(token->text + start, length),
-      .quoted = token->quoted,
-  };
-  if (copy.text == NULL) return NULL;
-  const int dollar_status = expand_deferred_dollars(shell, &copy, 0, 1);
-  if (dollar_status <= 0 ||
-      !expand_tilde_words(&copy, 0, 1, 0)) {
-    free(copy.quote_mask);
-    free(copy.text);
-    return NULL;
+// A case pattern keeps only its unquoted metacharacters active.
+static char *expand_case_text(Shell *shell, const Token *token, int pattern) {
+  TokenList copy = {0};
+  if (!tokens_clone_range(token, 0, 1, &copy)) return NULL;
+  char *result = NULL;
+  if (expand_word(shell, copy.items, 0) > 0) {
+    Buffer text = {0};
+    if (!pattern) {
+      result = copy.items[0].text;
+      copy.items[0].text = NULL;
+    } else if (glob_pattern(&text, copy.items, 0, strlen(copy.items[0].text))) {
+      result = buffer_release(&text);
+    } else {
+      free(text.data);
+    }
   }
-  free(copy.quote_mask);
-  return copy.text;
+  tokens_dispose(&copy);
+  return result;
 }
 
 static int parse_case(Shell *shell, CommandParser *parser, int execute,
@@ -3794,14 +3556,9 @@ static int parse_case(Shell *shell, CommandParser *parser, int execute,
     return 2;
   }
   char *value = execute
-      ? expand_case_text(shell, &parser->tokens[parser->cursor], 0,
-                         strlen(parser->tokens[parser->cursor].text))
-      : NULL;
-  if (execute && value == NULL) {
-    fputs("slop: could not expand case word\n", stderr);
-    parser->error = 1;
-    return 2;
-  }
+      ? expand_case_text(shell, &parser->tokens[parser->cursor], 0) : NULL;
+  int failed = execute && value == NULL;
+  if (failed) execute = 0;
   parser->cursor++;
   if (!command_word(parser, "in")) {
     fputs("slop: case requires in\n", stderr);
@@ -3819,7 +3576,7 @@ static int parse_case(Shell *shell, CommandParser *parser, int execute,
     if (command_word(parser, "esac")) {
       parser->cursor++;
       free(value);
-      return status;
+      return failed ? 1 : status;
     }
 
     int clause_match = 0;
@@ -3843,21 +3600,18 @@ static int parse_case(Shell *shell, CommandParser *parser, int execute,
         break;
       }
       if (token->kind != TOKEN_WORD || !need_pattern) break;
-      if (execute) {
-        char *pattern = expand_case_text(shell, token, 0, strlen(token->text));
+      if (execute && !matched && !clause_match) {
+        char *pattern = expand_case_text(shell, token, 1);
         if (pattern == NULL) {
-          fputs("slop: could not expand case pattern\n", stderr);
-          free(value);
-          parser->error = 1;
-          return 2;
+          failed = 1;
+          execute = 0;
+        } else if (wildcard_match(pattern, value)) {
+          clause_match = 1;
         }
-        if (token->quoted ? strcmp(pattern, value) == 0
-                          : wildcard_match(pattern, value)) clause_match = 1;
         free(pattern);
       }
       parser->cursor++;
       need_pattern = 0;
-      if (closed) break;
     }
     if (!closed || need_pattern) {
       fputs("slop: case pattern requires )\n", stderr);
@@ -3885,7 +3639,7 @@ static int parse_case(Shell *shell, CommandParser *parser, int execute,
     if (stopped == STOP_ESAC) {
       parser->cursor++;
       free(value);
-      return status;
+      return failed ? 1 : status;
     }
     parser->cursor++;
   }
@@ -3951,6 +3705,195 @@ static int parse_if(Shell *shell, CommandParser *parser, int execute,
   return parse_if_branch(shell, parser, execute, suppress_errexit);
 }
 
+static int compound_start(const CommandParser *parser) {
+  return (parser->cursor < parser->end &&
+          parser->tokens[parser->cursor].kind == TOKEN_LPAREN) ||
+         command_word(parser, "{") || command_word(parser, "if") ||
+         command_word(parser, "for") || command_word(parser, "while") ||
+         command_word(parser, "until") || command_word(parser, "case");
+}
+
+static int parse_compound(Shell *shell, CommandParser *parser, int execute,
+                          int suppress_errexit) {
+  if (command_word(parser, "{"))
+    return parse_group(shell, parser, execute, suppress_errexit);
+  if (command_word(parser, "if"))
+    return parse_if(shell, parser, execute, suppress_errexit);
+  if (command_word(parser, "for"))
+    return parse_for(shell, parser, execute, suppress_errexit);
+  if (command_word(parser, "case"))
+    return parse_case(shell, parser, execute, suppress_errexit);
+  if (command_word(parser, "while") || command_word(parser, "until"))
+    return parse_while(shell, parser, execute, suppress_errexit,
+                       command_word(parser, "until"));
+  return parse_subshell(shell, parser, execute, suppress_errexit);
+}
+
+// Parses one command without running it. Returns where a compound body ends
+// (and its trailing redirections begin); the cursor moves past the command.
+static size_t skip_command(Shell *shell, CommandParser *parser,
+                           unsigned stops) {
+  if (compound_start(parser)) {
+    (void)parse_compound(shell, parser, 0, 1);
+    const size_t body_end = parser->cursor;
+    if (!parser->error &&
+        !compound_redirection_end(parser, body_end, &parser->cursor))
+      parser->error = 1;
+    return body_end;
+  }
+  const size_t start = parser->cursor;
+  while (parser->cursor < parser->end) {
+    const TokenKind kind = parser->tokens[parser->cursor].kind;
+    if (kind == TOKEN_SEMI || kind == TOKEN_CASE_END || kind == TOKEN_AND ||
+        kind == TOKEN_OR || kind == TOKEN_PIPE ||
+        (kind == TOKEN_RPAREN && (stops & STOP_RPAREN) != 0)) break;
+    parser->cursor++;
+  }
+  if (start == parser->cursor) {
+    fputs("slop: expected a command\n", stderr);
+    parser->error = 1;
+  }
+  return parser->cursor;
+}
+
+static int run_command(Shell *shell, CommandParser *parser, size_t body_end,
+                       size_t end, int suppress_errexit, pid_t *detached) {
+  int status = 1;
+  if (!compound_start(parser)) {
+    status = run_simple(shell, parser->tokens, parser->cursor, end, detached);
+  } else {
+    DescriptorState descriptors = {0};
+    if (apply_compound_redirections(shell, parser->tokens, body_end, end,
+                                    &descriptors))
+      status = parse_compound(shell, parser, 1, suppress_errexit);
+    descriptor_state_restore(&descriptors);
+  }
+  parser->cursor = end;
+  return status;
+}
+
+static int pipe_follows(const CommandParser *parser) {
+  return parser->cursor < parser->end &&
+         parser->tokens[parser->cursor].kind == TOKEN_PIPE;
+}
+
+// A literal non-builtin, non-function command becomes its own process, so
+// its stage can stream into a pipe without waiting.
+static int spawns_directly(Shell *shell, const CommandParser *parser,
+                           size_t end) {
+  if (compound_start(parser)) return 0;
+  for (size_t index = parser->cursor; index < end; index++) {
+    const Token *token = &parser->tokens[index];
+    size_t name_length;
+    if (token_is_redirection(token->kind)) {
+      if (token_is_file_redirection(token->kind)) index++;
+    } else if (!assignment_word(token, &name_length)) {
+      return strchr(token->text, SLOP_DEFERRED_DOLLAR) == NULL &&
+             !builtin_name(token->text) &&
+             function_lookup(shell->functions, token->text) == NULL;
+    }
+  }
+  return 0;
+}
+
+typedef struct { pid_t pid; int status; } PipelineStage;
+
+// Every stage is a subshell. Processes stream through kernel pipes; a stage
+// that runs inside Slop writes to a spool file so no stage waits on a reader
+// that has not started.
+static int run_pipeline(Shell *shell, CommandParser *parser, size_t end,
+                        int suppress_errexit, unsigned stops) {
+  PipelineStage *stages = NULL;
+  size_t count = 0, capacity = 0;
+  int input = -1, status = 1;
+  for (;;) {
+    CommandParser probe = *parser;
+    const size_t body_end = skip_command(shell, &probe, stops);
+    const int last = !pipe_follows(&probe);
+    const int streams = !last && spawns_directly(shell, parser, probe.cursor);
+    int output = -1, next_input = -1;
+    if (!last && streams) {
+      int ends[2];
+      if (pipe(ends) == 0) {
+        next_input = high_descriptor(ends[0]);
+        output = high_descriptor(ends[1]);
+      }
+    } else if (!last) {
+      output = next_input = spool_file();
+    }
+    if (!grow((void **)&stages, &capacity, count + 1, sizeof(*stages)) ||
+        (!last && (output < 0 || next_input < 0))) {
+      fprintf(stderr, "slop: pipeline: %s\n", strerror(errno));
+      if (output >= 0) close(output);
+      if (next_input >= 0 && next_input != output) close(next_input);
+      break;
+    }
+    PipelineStage *stage = &stages[count++];
+    *stage = (PipelineStage){.status = 1};
+    Subshell subshell;
+    if (subshell_enter(shell, &subshell)) {
+      if ((input < 0 || descriptor_state_duplicate(&subshell.descriptors,
+                                                   STDIN_FILENO, input)) &&
+          (output < 0 || descriptor_state_duplicate(&subshell.descriptors,
+                                                    STDOUT_FILENO, output))) {
+        CommandParser command = *parser;
+        stage->status = run_command(&subshell.shell, &command, body_end,
+                                    probe.cursor, suppress_errexit,
+                                    streams ? &stage->pid : NULL);
+      }
+      stage->status = subshell_leave(shell, &subshell, stage->status);
+    }
+    if (input >= 0) close(input);
+    if (streams) close(output);
+    else if (output >= 0) lseek(output, 0, SEEK_SET);
+    input = next_input;
+    parser->cursor = probe.cursor + 1;
+    if (last) status = stage->status;
+    if (last || !shell->active) break;
+  }
+  if (input >= 0) close(input);
+  parser->cursor = end;
+  for (size_t index = 0; index < count; index++) {
+    if (stages[index].pid > 0)
+      stages[index].status = wait_command(shell, stages[index].pid);
+    if (shell->pipefail && stages[index].status != 0)
+      status = stages[index].status;
+  }
+  free(stages);
+  return status;
+}
+
+static int execute_pipeline(Shell *shell, CommandParser *parser, int execute,
+                            int suppress_errexit, unsigned stops) {
+  CommandParser probe = *parser;
+  const size_t body_end = skip_command(shell, &probe, stops);
+  if (!pipe_follows(&probe)) {
+    if (probe.error) {
+      parser->error = 1;
+      return 2;
+    }
+    if (!execute) {
+      parser->cursor = probe.cursor;
+      return 0;
+    }
+    return run_command(shell, parser, body_end, probe.cursor,
+                       suppress_errexit, NULL);
+  }
+  while (!probe.error && pipe_follows(&probe)) {
+    probe.cursor++;
+    (void)skip_command(shell, &probe, stops);
+  }
+  if (probe.error) {
+    parser->error = 1;
+    return 2;
+  }
+  if (!execute) {
+    parser->cursor = probe.cursor;
+    return 0;
+  }
+  return run_pipeline(shell, parser, probe.cursor, suppress_errexit, stops);
+}
+
 static int execute_list(Shell *shell, CommandParser *parser, int execute,
                         int suppress_errexit, unsigned stops,
                         unsigned *stopped) {
@@ -4006,52 +3949,11 @@ static int execute_list(Shell *shell, CommandParser *parser, int execute,
       free(function_name);
       if (parser->error) return 2;
       if (should_run) status = result;
-    } else if (command_word(parser, "{")) {
-      const int result = parse_group(shell, parser, should_run,
-                                     suppress_command_errexit);
-      if (parser->error) return 2;
-      if (should_run) status = result;
-    } else if (parser->tokens[parser->cursor].kind == TOKEN_LPAREN) {
-      const int result = parse_subshell(shell, parser, should_run,
-                                       suppress_command_errexit);
-      if (parser->error) return 2;
-      if (should_run) status = result;
-    } else if (command_word(parser, "if")) {
-      const int result = parse_if(shell, parser, should_run, suppress_command_errexit);
-      if (parser->error) return 2;
-      if (should_run) status = result;
-    } else if (command_word(parser, "for")) {
-      const int result = parse_for(shell, parser, should_run, suppress_command_errexit);
-      if (parser->error) return 2;
-      if (should_run) status = result;
-    } else if (command_word(parser, "while") || command_word(parser, "until")) {
-      const int until = command_word(parser, "until");
-      const int result = parse_while(shell, parser, should_run,
-                                     suppress_command_errexit, until);
-      if (parser->error) return 2;
-      if (should_run) status = result;
-    } else if (command_word(parser, "case")) {
-      const int result = parse_case(shell, parser, should_run,
-                                    suppress_command_errexit);
-      if (parser->error) return 2;
-      if (should_run) status = result;
     } else {
-      const size_t start = parser->cursor;
-      while (parser->cursor < parser->end) {
-        const TokenKind kind = parser->tokens[parser->cursor].kind;
-        if (kind == TOKEN_SEMI || kind == TOKEN_CASE_END ||
-            kind == TOKEN_AND || kind == TOKEN_OR) break;
-        if (kind == TOKEN_RPAREN && (stops & STOP_RPAREN) != 0) break;
-        parser->cursor++;
-      }
-      if (start == parser->cursor) {
-        fputs("slop: missing command around conditional operator\n", stderr);
-        parser->error = 1;
-        return 2;
-      }
-      if (should_run) {
-        status = run_pipeline(shell, parser->tokens, start, parser->cursor);
-      }
+      const int result = execute_pipeline(shell, parser, should_run,
+                                          suppress_command_errexit, stops);
+      if (parser->error) return 2;
+      if (should_run) status = result;
     }
 
     if (should_run) {
@@ -4308,21 +4210,17 @@ static int collect_completions(const char *word, int command_position,
     return ok;
   }
 
-  const char *path = getenv("PATH");
-  if (path == NULL) path = "";
-  do {
-    const char *separator = strchr(path, ':');
-    size_t length = separator == NULL ? strlen(path) : (size_t)(separator - path);
-    char *directory = length == 0 ? strdup(".") : strndup(path, length);
+  const char *cursor = path_variable(), *entry;
+  size_t length;
+  while (next_path_directory(&cursor, &entry, &length)) {
+    char *directory = strndup(entry, length);
     if (directory == NULL ||
         !complete_directory(directory, word, "", 1, completions)) {
       free(directory);
       return 0;
     }
     free(directory);
-    if (separator == NULL) break;
-    path = separator + 1;
-  } while (1);
+  }
   return 1;
 }
 
@@ -4703,22 +4601,40 @@ static int interactive(Shell *shell) {
   return shell->active ? shell->last_status : shell->exit_status;
 }
 
-static char *read_script(const char *path) {
-  FILE *file = fopen(path, "rb");
-  if (file == NULL) { fprintf(stderr, "slop: %s: %s\n", path, strerror(errno)); return NULL; }
+static char *read_descriptor(int descriptor) {
   Buffer source = {0};
   char bytes[4096];
-  size_t count;
-  while ((count = fread(bytes, 1, sizeof(bytes), file)) != 0) {
-    if (!buffer_append(&source, bytes, count)) { fclose(file); free(source.data); return NULL; }
+  ssize_t count;
+  while ((count = read(descriptor, bytes, sizeof(bytes))) != 0) {
+    if (count < 0 && errno == EINTR) continue;
+    if (count < 0 || !buffer_append(&source, bytes, (size_t)count)) {
+      free(source.data);
+      return NULL;
+    }
   }
-  if (ferror(file) || fclose(file) != 0) { free(source.data); return NULL; }
   return buffer_release(&source);
 }
 
+static char *read_script(const char *path) {
+  const int descriptor = open(path, O_RDONLY | O_CLOEXEC);
+  char *source = descriptor < 0 ? NULL : read_descriptor(descriptor);
+  if (source == NULL) fprintf(stderr, "slop: %s: %s\n", path, strerror(errno));
+  if (descriptor >= 0) close(descriptor);
+  return source;
+}
+
 static void usage(FILE *stream) {
-  fputs("usage: slop [-enx] [-c COMMAND [NAME [ARG ...]] | FILE [ARG ...]]\n",
+  fputs("usage: slop [-cenx] [COMMAND [NAME [ARG ...]] | FILE [ARG ...]]\n",
         stream);
+}
+
+static int run_script(Shell *shell, const char *source) {
+  const int status = execute_text(shell, source);
+  const int result = shell->active ? status : shell->exit_status;
+  shell_argv_dispose(shell);
+  functions_dispose(shell->functions);
+  if (shell->terminating_signal) raise(shell->terminating_signal);
+  return result;
 }
 
 int main(int argc, char **argv) {
@@ -4729,16 +4645,22 @@ int main(int argc, char **argv) {
       .argc = argc,
       .argv = argv,
   };
+  for (char **entry = environ; entry != NULL && *entry != NULL; entry++) {
+    char *name = strndup(*entry, strcspn(*entry, "="));
+    if (name == NULL || !export_variable(name)) { perror("slop"); return 1; }
+    free(name);
+  }
   int index = 1;
+  int command = 0;
   if (index < argc && strcmp(argv[index], "--help") == 0) { usage(stdout); return 0; }
-  while (index < argc && argv[index][0] == '-' && argv[index][1] != '\0' &&
-         strcmp(argv[index], "-c") != 0) {
+  for (; index < argc && argv[index][0] == '-' && argv[index][1] != '\0'; index++) {
     if (strcmp(argv[index], "--") == 0) {
       index++;
       break;
     }
     for (size_t option = 1; argv[index][option] != '\0'; option++) {
-      if (argv[index][option] == 'e') shell.errexit = 1;
+      if (argv[index][option] == 'c') command = 1;
+      else if (argv[index][option] == 'e') shell.errexit = 1;
       else if (argv[index][option] == 'n') shell.noexec = 1;
       else if (argv[index][option] == 'x') shell.xtrace = 1;
       else {
@@ -4747,9 +4669,9 @@ int main(int argc, char **argv) {
         return 2;
       }
     }
-    index++;
   }
-  if (index == argc) {
+  if (!export_variable("PWD")) { perror("slop"); return 1; }
+  if (index == argc && !command && isatty(STDIN_FILENO)) {
     const int status = interactive(&shell);
     shell_argv_dispose(&shell);
     functions_dispose(&functions);
@@ -4760,29 +4682,24 @@ int main(int argc, char **argv) {
   const int cwd_status = setenv("PWD", cwd, 1);
   free(cwd);
   if (cwd_status != 0) { perror("slop: PWD"); return 1; }
-  if (strcmp(argv[index], "-c") == 0) {
-    if (++index == argc) { usage(stderr); return 2; }
-    const char *command = argv[index++];
+  if (command) {
+    if (index == argc) { usage(stderr); return 2; }
+    const char *text = argv[index++];
     char *default_parameters[] = {"slop", NULL};
     shell.argc = index < argc ? argc - index : 1;
     shell.argv = index < argc ? argv + index : default_parameters;
-    int status = execute_text(&shell, command);
-    const int result = shell.active ? status : shell.exit_status;
-    shell_argv_dispose(&shell);
-    functions_dispose(&functions);
-    if (shell.terminating_signal) raise(shell.terminating_signal);
-    return result;
+    return run_script(&shell, text);
   }
-  if (argv[index][0] == '-') { fprintf(stderr, "slop: unsupported option: %s\n", argv[index]); return 2; }
-  char *source = read_script(argv[index]);
+  char *source = index == argc ? read_descriptor(STDIN_FILENO)
+                               : read_script(argv[index]);
   if (source == NULL) return 1;
-  shell.argc = argc - index;
-  shell.argv = argv + index;
-  int status = execute_text(&shell, source);
+  if (index < argc) {
+    shell.argc = argc - index;
+    shell.argv = argv + index;
+  } else {
+    shell.argc = 1;
+  }
+  const int status = run_script(&shell, source);
   free(source);
-  const int result = shell.active ? status : shell.exit_status;
-  shell_argv_dispose(&shell);
-  functions_dispose(&functions);
-  if (shell.terminating_signal) raise(shell.terminating_signal);
-  return result;
+  return status;
 }

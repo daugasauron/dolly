@@ -1,4 +1,4 @@
-// Builtin-only cases also run under ASan with all external spawning denied.
+// Cases run in Bash, native Slop under ASan and Dolly; `slop` is the shell under test.
 // Dolly always pops explicit dot arguments, including after set --. Bash can
 // retain replacements at top level; those three cases record its different status.
 export const sourceFiles = {
@@ -92,6 +92,29 @@ export const shellCases = [
   ["redirection-only substitution status", "> $(exit 7)result", 7],
   ["heredoc-only substitution status", "<<EOF\n$(exit 5)\nEOF\n", 5],
   ["quoted heredoc does not substitute", "<<'EOF'\n$(exit 5)\nEOF\n", 0],
+  ["background jobs are rejected before anything runs", "exit 7; true &", 2, 7],
+  ["bash redirections name stdout and stderr", String.raw`slop -c 'echo o; echo e >&2' &> both; echo x &>> both; slop -c 'echo e >&2' >& one; test "$(cat both):$(cat one)" = "o
+e
+x:e"`, 0],
+  ["globs expand directory components", 'mkdir -p g/a g/b; : > g/a/x.o; : > g/b/y.o; set -- g/*/*.o; test "$#:$1:$2" = 2:g/a/x.o:g/b/y.o || exit 91; rm -f g/*/*.o; set -- g/*/*; test "$#:$1" = "1:g/*/*"', 0],
+  ["unset parameter error exits the shell", "X=; : ${X:?unset}; exit 91", 1, 127],
+  ["arithmetic error exits the shell", ": $((1/0)); exit 91", 1],
+  ["pipeline stages are subshells", 'x=0; exit 3 | x=1 | cd /; test "$x" = 0 && test "$PWD" != /', 0],
+  ["assignments apply from left to right", 'a=x b=$a; test "$b" = x || exit 91; x=1; x=2 y=$x printenv y > y; test "$(cat y)" = 2 || exit 92; x=2 printf %s $x > z; test "$(cat z)" = 1', 0],
+  ["descriptors 3 through 9 reach child commands", String.raw`slop -c 'echo x >&3' 3> three; exec 4> four; slop -c 'echo y >&4'; exec 4>&-; test "$(cat three)$(cat four)" = xy`, 0],
+  ["quoting affects only quoted case pattern parts", String.raw`p='*'; case ab in "a*"|"$p") exit 91;; "a"*) ;; *) exit 92;; esac; case ab in $p) ;; *) exit 93;; esac`, 0],
+  ["argument lists are not capped at 511", 'i=0; until case $i in 600) true;; *) false;; esac; do set -- "$@" x; i=$((i+1)); done; printf %s "$@" > many || exit 91; test $# = 600', 0],
+  ["only exported variables reach children", 'v=1; printenv v > /dev/null && exit 91; export v; printenv v > /dev/null || exit 92; unset v; v=2; printenv v > /dev/null && exit 93; w=3 printenv w > /dev/null || exit 94; (export w=4); printenv w > /dev/null && exit 95; for loop in a; do :; done; printenv loop > /dev/null && exit 96; :', 0],
+  ["closed standard descriptors stay closed", "cat replace.slop >&- 2> /dev/null && exit 91; cat <&- 2> /dev/null && exit 92; :", 0],
+  ["unsupported shell options are rejected", "set -o posix", 2, 0],
+  ["compound commands are pipeline stages", String.raw`printf 'a\nb\n' | while read -r l; do n=$l; echo "x$l"; done | cat > loop; test -z "$n" && test "$(cat loop)" = "xa
+xb" && echo hi | { read -r x; test "$x" = hi; }`, 0],
+  ["pipeline stages run concurrently", String.raw`rm -f flag; slop -c 'while test ! -e flag; do :; done; echo done' | { touch flag; cat; } > streamed; test "$(cat streamed)" = done`, 0],
+  ["read consumes exactly one line", String.raw`printf 'a\nb\n' > two; { read -r x; cat; } < two > rest; test "$x:$(cat rest)" = a:b`, 0],
+  ["non-terminal standard input is a script", "echo 'x=4; exit $x' | slop", 4],
+  ["option letters combine with -c", "slop -ec 'false; exit 3'", 1],
+  ["compound commands take redirections", String.raw`n=0; while read -r l; do n=$((n+1)); done < two; for i in 1; do echo $i; done > one; if :; then echo if; fi >> one; test "$n:$(cat one)" = "2:1
+if"`, 0],
 ];
 
 export function shellQuote(value) { return `'${value.replaceAll("'", "'\\''")}'`; }
