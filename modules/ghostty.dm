@@ -74,6 +74,7 @@ FILE /tmp/ghostty/Makefile
     >cc \
     >  -shared \
     >  --dolly-kernel-plugin \
+    >  -O2 \
     >  -std=c17 \
     >  -I /tmp/ghostty \
     >  -I /usr/include \
