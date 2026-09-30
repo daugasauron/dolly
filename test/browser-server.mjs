@@ -77,15 +77,23 @@ export const browserSources = new Set([
   "src/audio-provider.mjs",
 ]);
 
-export async function startBrowserServer(projectDir, image = "default", port = 0, sourceOverrides = new Map(), fixtures = {}, responseHeaders = {}) {
+// Serves this checkout to browser tests and the image builder on 127.0.0.1.
+// IMAGE's route and current snapshot are required; null serves no image route
+// (the builder, whose image is being built). Options: port; sourceOverrides
+// (path -> body, may change while serving); fixtures (name -> file under
+// /fixture/); responseHeaders (added to every response); handle(request,
+// response, path, headers), which returns true when it answered the request.
+export async function startBrowserServer(projectDir, image = "default",
+  { port = 0, sourceOverrides = new Map(), fixtures = {}, responseHeaders = {}, handle } = {}) {
   await bundleProcessWorker(projectDir);
-  await Promise.all(["dolly-images.mjs", "dolly.wasm", "dolly.data", `dolly-${image}-system.snapshot`]
+  const rebuild = image ? `npm run image -- ${image}` : "npm run image -- IMAGE";
+  await Promise.all(["dolly-images.mjs", "dolly.wasm", "dolly.data", ...image ? [`dolly-${image}-system.snapshot`] : []]
     .map(path => access(resolve(projectDir, "dist", path)))).catch(error => {
-      throw new Error(`Core browser checks need a built runtime and ${image} image. Run npm run build:runtime once, then npm run image -- ${image}.`, { cause: error });
+      throw new Error(`Browser checks need a built runtime and image. Run npm run build:runtime once, then ${rebuild}.`, { cause: error });
     });
   const { DOLLY_IMAGES, DOLLY_STATIC_SOURCES } = await import(pathToFileURL(resolve(projectDir, "dist/dolly-images.mjs")));
   const recipes = await recipeFiles(projectDir);
-  if (!DOLLY_IMAGES.some(definition => definition.image === image)) {
+  if (image && !DOLLY_IMAGES.some(definition => definition.image === image)) {
     throw new Error(`Build ${image} once with npm run image -- ${image}, then retry the browser check.`);
   }
   try {
@@ -111,13 +119,12 @@ export async function startBrowserServer(projectDir, image = "default", port = 0
       if (!imageInputsMatch(metadata.inputs, inputs)) throw new Error(`${definition.image} has stale dependency outputs`);
       return metadata;
     }
-    const metadata = await check(DOLLY_IMAGES.find(definition => definition.image === image));
-    for (const recipe of metadata.recipes) {
+    if (image) for (const recipe of (await check(DOLLY_IMAGES.find(definition => definition.image === image))).recipes) {
       const bytes = await readFile(resolve(projectDir, recipes.get(recipe.sourcePath)));
       if (createHash("sha256").update(bytes).digest("hex") !== recipe.sha256) throw new Error(`${recipe.sourcePath} changed`);
     }
   } catch (error) {
-    throw new Error(`Core artifacts are stale or incomplete: ${error.message}. Rebuild changed native code with npm run build:runtime, then run npm run image -- ${image}.`, { cause: error });
+    throw new Error(`Core artifacts are stale or incomplete: ${error.message}. Rebuild changed native code with npm run build:runtime, then run ${rebuild}.`, { cause: error });
   }
   const files = new Map([...browserSources].map(path => [`/${path}`, path]));
   for (const definition of DOLLY_IMAGES) {
@@ -145,8 +152,10 @@ export async function startBrowserServer(projectDir, image = "default", port = 0
   for (const name of ["process-wrong-call", "process-wrong-start", "process-wrong-memory"]) {
     files.set(`/fixture/${name}.wasm`, `build/${name}.wasm`);
   }
-  files.set(`/${image}`, `build/routes/${image}/index.html`);
-  files.set(`/${image}/rebuild`, `build/routes/${image}/rebuild/index.html`);
+  if (image) {
+    files.set(`/${image}`, `build/routes/${image}/index.html`);
+    files.set(`/${image}/rebuild`, `build/routes/${image}/rebuild/index.html`);
+  }
   files.set("/custom", "build/routes/custom/index.html");
   files.set("/custom/rebuild", "build/routes/custom/rebuild/index.html");
   files.set("/custom/run", "build/routes/custom/run/index.html");
@@ -159,6 +168,7 @@ export async function startBrowserServer(projectDir, image = "default", port = 0
     try {
       const path = decodeURIComponent(new URL(request.url, "http://localhost").pathname).replace(/\/+$/, "");
       requests.set(path, (requests.get(path) ?? 0) + 1);
+      if (await handle?.(request, response, path, headers)) return;
       if (path === "/fixture/echo" && request.method === "POST") {
         response.writeHead(200, { ...headers, "content-type": "application/octet-stream" });
         request.pipe(response);
@@ -217,7 +227,8 @@ export async function startBrowserServer(projectDir, image = "default", port = 0
         else stream.pipe(response);
       });
     } catch {
-      response.writeHead(404, headers).end();
+      if (!response.headersSent) response.writeHead(404, headers);
+      response.end();
     }
   });
   await new Promise((resolveListen, reject) => {

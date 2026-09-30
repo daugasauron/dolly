@@ -14,17 +14,11 @@ function build({ projectDir, image, output, profile, port, state }) {
   return new Promise((resolveBuild, reject) => {
     // Always launch a browser build. Its server hides packaged snapshots;
     // only this owned profile can supply completed image artifacts.
-    const child = spawn(resolve(projectDir, "scripts/test-browser.sh"), [], {
+    const child = spawn(process.execPath, [
+      resolve(projectDir, "scripts/build-snapshot-browser.mjs"), image, output, "--unpackaged", state,
+    ], {
       cwd: projectDir,
-      env: {
-        ...process.env,
-        DOLLY_IMAGE: image,
-        DOLLY_BROWSER_MODE: "snapshot-unpackaged",
-        DOLLY_SNAPSHOT_OUTPUT: output,
-        DOLLY_BROWSER_PROFILE: profile,
-        DOLLY_BROWSER_PORT: String(port),
-        DOLLY_EXPECT_CACHE_STATE: state,
-      },
+      env: { ...process.env, DOLLY_BROWSER_PROFILE: profile, DOLLY_BROWSER_PORT: String(port) },
       stdio: "inherit",
     });
     child.once("error", reject);

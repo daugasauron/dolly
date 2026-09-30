@@ -3,7 +3,7 @@ import { chromium } from "playwright-core";
 import { startBrowserServer } from "../../../test/browser-server.mjs";
 
 const server = await startBrowserServer(new URL("../../../", import.meta.url).pathname,
-  "default", 0, new Map(), { "openal.wasm": "build/0ad/openal-check.wasm" });
+  "default", { fixtures: { "openal.wasm": "build/0ad/openal-check.wasm" } });
 let browser, deadline, page;
 try {
   browser = await chromium.launch({ channel: "chrome", headless: true,

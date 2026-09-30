@@ -4,7 +4,7 @@ import {readFile,mkdir} from 'node:fs/promises';
 import {chromium} from 'playwright-core';
 import {startBrowserServer} from '../../../test/browser-server.mjs';
 const output=new URL('../../../build/slopyard-proof/',import.meta.url);await mkdir(output,{recursive:true});
-const site=await startBrowserServer(new URL('../../../',import.meta.url).pathname,'slopyard',19199);
+const site=await startBrowserServer(new URL('../../../',import.meta.url).pathname,'slopyard',{port:19199});
 const browser=await chromium.launch({channel:'chrome',headless:false,args:['--no-sandbox','--ozone-platform=x11','--enable-unsafe-webgpu','--use-angle=vulkan','--enable-features=Vulkan,VulkanFromANGLE']});
 const page=await browser.newPage({acceptDownloads:true,viewport:{width:1280,height:720}});
 const shell=()=>page.evaluate(()=>__dolly.waitForInteractiveTerminal(/dolly:[^\n]*\$\s*$/,'shell'));

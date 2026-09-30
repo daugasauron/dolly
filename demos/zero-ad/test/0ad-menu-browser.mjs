@@ -12,7 +12,7 @@ await mkdir(output,{recursive:true});
 const provider=(await readFile(root+'/src/gpu-worker.mjs','utf8')).replace(
   'insert(scope,id,"sampler",device.createSampler({',
   'stats.maxAnisotropy=Math.max(stats.maxAnisotropy??1,maxAnisotropy);insert(scope,id,"sampler",device.createSampler({');
-const server=url?null:await startBrowserServer(root,'zero-ad',0,new Map([['/src/gpu-worker.mjs',provider]]));
+const server=url?null:await startBrowserServer(root,'zero-ad',{sourceOverrides:new Map([['/src/gpu-worker.mjs',provider]])});
 let browser,page,deadline;
 try {
   browser=browserName==='firefox'

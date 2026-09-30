@@ -6,7 +6,7 @@ import {startBrowserServer} from '../../../test/browser-server.mjs';
 const root=new URL('../../../',import.meta.url).pathname;
 const output=new URL('../../../build/llm-proof/',import.meta.url);
 await mkdir(output,{recursive:true});
-const site=await startBrowserServer(root,'pi-local',0,new Map(),{}, {'content-security-policy':"connect-src 'self'"});
+const site=await startBrowserServer(root,'pi-local',{responseHeaders:{'content-security-policy':"connect-src 'self'"}});
 try {
   for(const name of (process.env.DOLLY_LLM_BROWSERS??'chromium,firefox').split(',')) {
     const browser=await ({chromium,firefox})[name].launch(name==='chromium'

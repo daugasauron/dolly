@@ -5,7 +5,7 @@ import {startBrowserServer} from "../../../test/browser-server.mjs";
 import {createRelayRoom} from "../toolchain/relay.mjs";
 
 const server = await startBrowserServer(new URL("../../../", import.meta.url).pathname,
-  "default", 0, new Map(), {"enet.wasm": "build/0ad/enet-check.wasm"});
+  "default", { fixtures: {"enet.wasm": "build/0ad/enet-check.wasm"} });
 const room = createRelayRoom();
 const relay = createServer((request, response) => void room.handle(request, response, server.origin));
 relay.maxConnections = 32; relay.requestTimeout = 10000;

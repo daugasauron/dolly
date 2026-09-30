@@ -6,7 +6,7 @@ import {parseWasmInterface} from '../src/wasm-interface.mjs';
 import {executableHostRequirements} from '../src/host/requirements.mjs';
 
 const kind=process.argv[2]??'chrome', output=`build/host-modules-contract-${kind}`;
-const overrides=new Map(), server=await startBrowserServer(process.cwd(),'system',0,overrides);
+const overrides=new Map(), server=await startBrowserServer(process.cwd(),'system',{sourceOverrides:overrides});
 await fs.mkdir(output,{recursive:true});
 let browser;
 try {

@@ -25,8 +25,8 @@ let provider='import "/test/fixtures/gpu-surface-observer.mjs";\n'+(await readFi
 if(backend==='software')provider=provider.replace('powerPreference: "high-performance"','forceFallbackAdapter: true');
 if(compression==='uncompressed')provider='import "/test/fixtures/gpu-no-bc.mjs";\n'+provider;
 if(compression==='core')provider='import "/test/fixtures/gpu-core-limits.mjs";\n'+provider;
-const server=await startBrowserServer(root.pathname,image,0,new Map([['/src/gpu-worker.mjs',provider]]),
-  fixtures);
+const server=await startBrowserServer(root.pathname,image,{sourceOverrides:new Map([['/src/gpu-worker.mjs',provider]]),
+  fixtures});
 let browser,deadline,page;
 try {
   browser=browserName==='firefox'
