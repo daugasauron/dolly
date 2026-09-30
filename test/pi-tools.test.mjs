@@ -1,67 +1,52 @@
 import assert from "node:assert/strict";
-import { readFile } from "node:fs/promises";
-import { runInNewContext } from "node:vm";
-import { posix as path } from "node:path";
+import { chmod, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import test from "node:test";
+import dollyTools, { slop } from "../src/pi/dolly-tools.js";
 
-test("Pi's Slop tool streams output and reports nonzero exits as tool errors", async () => {
-  const source = await readFile(new URL("../src/pi/dolly-tools.js", import.meta.url), "utf8");
-  const registered = new Map();
-  let status = 0;
-  runInNewContext(source.replace("export default function", "function") + "\ndollyTools(pi);", {
-    TextDecoder,
-    __janisBuiltin: name => name === "fs" ? { existsSync: () => false } : {},
-    __janisShellStream: (_command, stdout, stderr) => {
-      stdout(new TextEncoder().encode("output β\n"));
-      stderr(new TextEncoder().encode("diagnostic\n"));
-      return { status };
-    },
-    pi: { on() {}, registerTool(tool) { registered.set(tool.name, tool); } },
-  });
-  const updates = [];
-  const run = () => registered.get("bash").execute("call", { command: "probe" },
-    new AbortController().signal, update => updates.push(update), { cwd: "/workspace" });
-  const result = await run();
-  assert.equal(result.details.status, 0);
-  assert.equal(result.content[0].text, "output β\ndiagnostic\n");
-  assert.equal(updates.length, 2);
-  status = 7;
-  await assert.rejects(run, /output β\ndiagnostic\n\nCommand exited with code 7/);
-  status = 130;
-  await assert.rejects(run, /Command exited with code 130/);
+// The host stand-in for Dolly's Slop is found on PATH exactly like /bin/slop.
+const root = await mkdtemp(join(tmpdir(), "dolly-pi-tools-"));
+await writeFile(join(root, "slop"), '#!/bin/sh\nexec /bin/sh "$@"\n');
+await chmod(join(root, "slop"), 0o755);
+process.env.PATH = `${root}:${process.env.PATH}`;
+test.after(() => rm(root, { recursive: true, force: true }));
+
+const tools = new Map();
+dollyTools({ on() {}, registerTool: (tool) => tools.set(tool.name, tool) });
+const context = { cwd: root, sessionManager: { getSessionId: () => "test", getSessionFile() {} } };
+const run = (name, input, signal) => tools.get(name).execute("call", input, signal, undefined, context);
+
+test("Pi's Slop tool keeps upstream truncation and its full-output file", async () => {
+  const result = await run("bash", { command: "seq 1 3000" });
+  const [, fullOutput] = result.content[0].text.match(/\[Showing lines 1001-3000 of 3000\. Full output: (.+)\]$/);
+  try {
+    assert.equal(await readFile(fullOutput, "utf8"), Array.from({ length: 3000 }, (_, index) => `${index + 1}\n`).join(""));
+  } finally { await rm(fullOutput); }
 });
 
-test("Pi edits require a unique nonempty match and a real change before writing", async () => {
-  const source = await readFile(new URL("../src/pi/dolly-tools.js", import.meta.url), "utf8");
-  const registered = new Map();
-  let contents = "", writes = 0;
-  runInNewContext(source.replace("export default function", "function") + "\ndollyTools(pi);", {
-    __janisBuiltin: name => name === "path" ? path : { existsSync: () => false },
-    Dolly: {
-      readFile(target) { assert.equal(target, "/workspace/file"); return contents; },
-      writeFile(target, value) { assert.equal(target, "/workspace/file"); writes++; contents = value; },
-    },
-    pi: { on() {}, registerTool(tool) { registered.set(tool.name, tool); } },
-  });
-  const edit = (old_text, new_text) => registered.get("edit").execute("call",
-    { path: "file", old_text, new_text }, undefined, undefined, { cwd: "/workspace" });
-  for (const [original, old, replacement, error] of [
-    ["one", "one", "one", /No changes/],
-    ["", "", "insert", /old_text must not be empty/],
-    ["aaa", "aa", "b", /more than once/],
-    ["one one", "one", "two", /more than once/],
-    ["one", "missing", "two", /not found/],
-  ]) {
-    contents = original;
-    await assert.rejects(() => edit(old, replacement), error);
-    assert.equal(contents, original);
-    assert.equal(writes, 0);
-  }
-  contents = "\uFEFFα\r\nold\r\n😀\r\n";
-  assert.match((await edit("old", "$& new")).content[0].text, /Edited/);
-  assert.equal(contents, "\uFEFFα\r\n$& new\r\n😀\r\n");
-  assert.equal(writes, 1);
-  await edit(contents, "");
-  assert.equal(contents, "");
-  assert.equal(writes, 2);
+test("Pi's Slop tool reports exit status, cancellation and timeout after partial output", async () => {
+  await assert.rejects(run("bash", { command: "printf partial; exit 7" }), /^Error: partial\n\nCommand exited with code 7$/);
+  await assert.rejects(run("bash", { command: "printf partial; exec sleep 5" }, AbortSignal.timeout(300)),
+    /^Error: partial\n\nCommand aborted$/);
+  await assert.rejects(run("bash", { command: "printf partial; exec sleep 5", timeout: 0.3 }),
+    /^Error: partial\n\nCommand timed out after 0.3 seconds$/);
+});
+
+test("Slop output decodes interleaved stdout and stderr scalars independently", async () => {
+  let output = "";
+  const command = String.raw`printf '\343'; sleep .05; printf '\360\237' >&2; sleep .05; printf '\201\202'; sleep .05; printf '\230\200' >&2`;
+  const { exitCode } = await slop.exec(command, root, { onData: (data) => { output += data; } });
+  assert.equal(exitCode, 0);
+  assert.deepEqual([...output].sort(), ["あ", "😀"]);
+});
+
+test("Pi's edit refuses non-UTF-8 files and follows the session cwd", async () => {
+  const latin1 = Buffer.from("café old\n", "latin1");
+  await writeFile(join(root, "latin1.txt"), latin1);
+  await assert.rejects(run("edit", { path: "latin1.txt", edits: [{ oldText: "old", newText: "new" }] }), /utf-8/i);
+  assert.deepEqual(await readFile(join(root, "latin1.txt")), latin1);
+  await writeFile(join(root, "text.txt"), "\uFEFFα\r\nold\r\n😀\r\n");
+  await run("edit", { path: "text.txt", edits: [{ oldText: "old", newText: "$& new" }] });
+  assert.equal(await readFile(join(root, "text.txt"), "utf8"), "\uFEFFα\r\n$& new\r\n😀\r\n");
 });

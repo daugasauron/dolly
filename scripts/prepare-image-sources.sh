@@ -153,9 +153,7 @@ if has_module codex; then
   copy_static src/codex/config.toml codex/config.toml
 fi
 if has_module quickjs; then
-  for command in qjs janis; do
-    copy_static "${project_dir}/src/commands/${command}.c" "default/commands/${command}.c"
-  done
+  copy_static "${project_dir}/src/commands/janis.c" default/commands/janis.c
   copy_static "${project_dir}/src/runtimes/quickjs-main.c" default/runtimes/quickjs-main.c
   copy_static "${project_dir}/src/runtimes/quickjs-runner.h" default/runtimes/quickjs-runner.h
   copy_static "${project_dir}/src/runtimes/dolly-node.js" default/runtimes/dolly-node.js
@@ -194,7 +192,6 @@ if has_module pi-build; then
   copy_static "${project_dir}/src/commands/pi.c" default/commands/pi.c
   copy_static "${project_dir}/config/pi-tsconfig.dolly.json" default/pi-tsconfig.dolly.json
   copy_static "${project_dir}/config/pi-quickjs-compat.mjs" default/pi-quickjs-compat.mjs
-  copy_static "${project_dir}/src/runtimes/apply-pi-quickjs-compat.mjs" default/runtimes/apply-pi-quickjs-compat.mjs
 fi
 if has_module pi; then
   copy_static "${project_dir}/src/pi/dolly-tools.js" default/pi/dolly-tools.js

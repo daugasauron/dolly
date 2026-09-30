@@ -42,40 +42,6 @@ const env = new Proxy(envTarget, {
   preventExtensions() { return false; },
 });
 
-const stdout = {
-  get isTTY() { return Boolean(Dolly.isatty(1)); },
-  columns: 100,
-  rows: 30,
-  writableLength: 0,
-  write(value) {
-    return Boolean(Dolly.stdout(value instanceof Uint8Array ? value : String(value)));
-  },
-  on() { return this; },
-  once(_event, listener) {
-    if (typeof listener === "function") queueMicrotask(listener);
-    return this;
-  },
-};
-
-const stderr = {
-  ...stdout,
-  get isTTY() { return Boolean(Dolly.isatty(2)); },
-  write(value) {
-    return Boolean(Dolly.stderr(value instanceof Uint8Array ? value : String(value)));
-  },
-};
-
-const stdin = {
-  get isTTY() { return Boolean(Dolly.isatty(0)); },
-  readable: true,
-  setEncoding() { return this; },
-  setRawMode() { return this; },
-  resume() { return this; },
-  pause() { return this; },
-  on() { return this; },
-  once() { return this; },
-};
-
 globalThis.process = {
   argv: [
     globalThis.scriptExecutable ?? "qjs",
@@ -83,47 +49,15 @@ globalThis.process = {
     ...(globalThis.scriptArgs ?? []),
   ],
   env,
-  platform: "wasm",
-  arch: "wasm64",
-  version: "v22.19.0-dolly",
-  versions: { dolly: "0" },
-  release: { name: "dolly" },
   pid: Dolly.pid,
   ppid: Dolly.ppid,
   title: "qjs",
-  stdin,
-  stdout,
-  stderr,
   exitCode: 0,
   cwd: () => Dolly.cwd(),
   chdir: (path) => Dolly.chdir(String(path)),
   nextTick: (callback, ...args) => queueMicrotask(() => callback(...args)),
   emitWarning() {},
-  on() { return this; },
-  once() { return this; },
-  off() { return this; },
-  removeListener() { return this; },
-  getBuiltinModule() { return undefined; },
 };
-
-if (typeof globalThis.queueMicrotask !== "function") {
-  globalThis.queueMicrotask = (callback) => Promise.resolve().then(callback);
-}
-
-let nextTimerId = 1;
-const timers = new Map();
-globalThis.setTimeout = (callback, _delay = 0, ...args) => {
-  const id = nextTimerId++;
-  timers.set(id, { callback, args, repeat: false });
-  return id;
-};
-globalThis.clearTimeout = (id) => timers.delete(id);
-globalThis.setInterval = (callback, _delay = 0, ...args) => {
-  const id = nextTimerId++;
-  timers.set(id, { callback, args, repeat: true });
-  return id;
-};
-globalThis.clearInterval = globalThis.clearTimeout;
 
 class DollyAbortSignal {
   aborted = false;
@@ -284,52 +218,6 @@ function bytesToBinary(bytes) {
   }
   return result;
 }
-
-const base64Alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
-globalThis.btoa = (value) => {
-  const input = String(value);
-  let output = "";
-  for (let index = 0; index < input.length; index += 3) {
-    const a = input.charCodeAt(index) & 255;
-    const hasB = index + 1 < input.length;
-    const hasC = index + 2 < input.length;
-    const b = hasB ? input.charCodeAt(index + 1) & 255 : 0;
-    const c = hasC ? input.charCodeAt(index + 2) & 255 : 0;
-    output += base64Alphabet[a >> 2];
-    output += base64Alphabet[((a & 3) << 4) | (b >> 4)];
-    output += hasB ? base64Alphabet[((b & 15) << 2) | (c >> 6)] : "=";
-    output += hasC ? base64Alphabet[c & 63] : "=";
-  }
-  return output;
-};
-
-globalThis.atob = (value) => {
-  let input = String(value).replace(/\s/g, "");
-  if (input.length % 4 === 1 || /[^A-Za-z0-9+/=]/.test(input) ||
-      /=/.test(input.slice(0, -2))) {
-    const error = new Error("The string to be decoded is not correctly encoded.");
-    error.name = "InvalidCharacterError";
-    throw error;
-  }
-  input += "=".repeat((4 - input.length % 4) % 4);
-  let output = "";
-  for (let index = 0; index < input.length; index += 4) {
-    const a = base64Alphabet.indexOf(input[index]);
-    const b = base64Alphabet.indexOf(input[index + 1]);
-    const c = input[index + 2] === "=" ? 0 : base64Alphabet.indexOf(input[index + 2]);
-    const d = input[index + 3] === "=" ? 0 : base64Alphabet.indexOf(input[index + 3]);
-    if (a < 0 || b < 0 || c < 0 || d < 0 ||
-        input[index + 2] === "=" && input[index + 3] !== "=") {
-      const error = new Error("The string to be decoded is not correctly encoded.");
-      error.name = "InvalidCharacterError";
-      throw error;
-    }
-    output += String.fromCharCode((a << 2) | (b >> 4));
-    if (input[index + 2] !== "=") output += String.fromCharCode(((b & 15) << 4) | (c >> 2));
-    if (input[index + 3] !== "=") output += String.fromCharCode(((c & 3) << 6) | d);
-  }
-  return output;
-};
 
 class DollyBuffer extends Uint8Array {
   static from(value, encoding = "utf8") {
@@ -759,7 +647,7 @@ globalThis.__dollyHttpPump = () => {
     if (request.sequence === null) {
       try {
         request.sequence = Dolly.httpStart(request.method, request.requestUrl,
-          request.headerBlock, request.requestBody);
+          request.headerBlock, request.requestBody, request.followRedirects);
         request.requestBody = null;
       } catch (error) {
         // Keep polling active transfers while admission waits for pool capacity.
@@ -816,6 +704,11 @@ globalThis.fetch = (input, init = {}) => {
   }
   const headerBlock = [...headers].map(([name, value]) => `${name}: ${value}\r\n`).join("");
   const signal = init.signal === undefined ? input.signal : init.signal;
+  // The broker either follows redirects or fails them; it never exposes one.
+  const redirect = init.redirect ?? input.redirect ?? "follow";
+  if (redirect !== "follow" && redirect !== "error") {
+    return Promise.reject(new TypeError(`Janis fetch does not support redirect: "${redirect}"`));
+  }
   return new Promise((resolve, reject) => {
     if (signal?.aborted) {
       reject(signal.reason);
@@ -831,6 +724,7 @@ globalThis.fetch = (input, init = {}) => {
       method,
       headerBlock,
       requestBody: body,
+      followRedirects: redirect === "follow",
       resolve,
       reject,
       controller,
@@ -847,6 +741,3 @@ globalThis.fetch = (input, init = {}) => {
     signal?.addEventListener("abort", request.abort);
   });
 };
-
-globalThis.performance = { now: () => Date.now(), timeOrigin: Date.now() };
-globalThis.structuredClone = (value) => JSON.parse(JSON.stringify(value));

@@ -3,7 +3,7 @@ IMAGE typescript-build
 
 FROM HOST /Dollyfile-system-tools f9a4d794be0fc8b746eef3a43ac240d53053a41620190d7d77411b68447efd8f
 
-USE HOST /modules/quickjs.dm ceff8fba865ecefb8052d425f433a0ccef75c39e8185b08d1a33c25457ec8495
+USE HOST /modules/quickjs.dm 9d28e0fdb04f5ca6926b2245b5ba8469fe6d878a2939ce487bc94a46e74d78aa
 USE HOST /modules/typescript.dm beb61c3becd7f5591964ed4bb3dd19e652a77ec92ae2748e40867e8dd320e7e8
 
 ENTRY /bin/slop

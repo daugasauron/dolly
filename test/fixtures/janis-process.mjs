@@ -1,4 +1,4 @@
-import { spawn, spawnSync, execFile } from 'node:child_process';
+import { spawn, spawnSync, execFile, execSync } from 'node:child_process';
 import fs from 'node:fs';
 import { setTimeout as delay } from 'node:timers/promises';
 
@@ -8,7 +8,7 @@ const failures = [];
 function assert(value, message) { if (!value) throw new Error(message); }
 async function check(name, operation) {
   try { await operation(); console.log(`JANIS-PROCESS PASS: ${name}`); }
-  catch (error) { failures.push(name); console.log(`JANIS-PROCESS FAIL: ${name}: ${error.stack ?? error}`); }
+  catch (error) { failures.push(`${name}: ${error} ${error?.code ?? ''}`); console.log(`JANIS-PROCESS FAIL: ${name}: ${error.stack ?? error}`); }
 }
 function completion(child) {
   let stdout = Buffer.alloc(0), stderr = Buffer.alloc(0), error;
@@ -158,24 +158,38 @@ await check('unsupported child options fail explicitly', async () => {
       `unsupported options accepted: ${JSON.stringify(options)}`);
   }
 });
-if (fs.existsSync('/home/dolly/.pi/agent/extensions/dolly-tools.js')) await check('Pi extension tool and user shell operations propagate abort', async () => {
-  const { default: install } = await import('/home/dolly/.pi/agent/extensions/dolly-tools.js');
-  const tools = new Map(), handlers = new Map();
-  install({ on: (name, handler) => handlers.set(name, handler), registerTool: tool => tools.set(tool.name, tool), registerCommand() {} });
-  for (const userShell of [false, true]) {
-    const controller = new AbortController();
-    const command = '/bin/echo prefix; /bin/sleep 2';
-    let prefix = false, error;
-    const timer = setTimeout(() => controller.abort(), 150);
-    try {
-      if (userShell) await handlers.get('user_bash')().operations.exec(command, root,
-        { signal: controller.signal, onData: data => { prefix ||= String(data).includes('prefix'); } });
-      else await tools.get('bash').execute('probe', { command }, controller.signal,
-        update => { prefix ||= update.content[0].text.includes('prefix'); }, { cwd: root });
-    } catch (value) { error = value; }
-    finally { clearTimeout(timer); }
-    assert(prefix && error?.name === 'AbortError', `Pi ${userShell ? 'user shell' : 'tool'} did not stream/cancel`);
-  }
+if (fs.existsSync('/home/dolly/.pi/agent/extensions/dolly-tools.js')) await check('Pi shell tool and user shell operations stream and cancel Slop', async () => {
+  await import('/usr/lib/node_modules/@earendil-works/pi-coding-agent/dist/main.js');
+  const { default: install, slop } = await import('/home/dolly/.pi/agent/extensions/dolly-tools.js');
+  const tools = new Map();
+  install({ on() {}, registerTool: tool => tools.set(tool.name, tool) });
+  const context = { cwd: root, sessionManager: { getSessionId: () => 'probe', getSessionFile() {} } };
+  const command = 'printf prefix; /bin/sleep 5';
+  const started = Date.now();
+  let error;
+  try { await tools.get('bash').execute('probe', { command }, AbortSignal.timeout(1000), undefined, context); }
+  catch (value) { error = value; }
+  assert(error?.message === 'prefix\n\nCommand aborted' && Date.now() - started < 4000, `Pi shell tool did not cancel: ${error}`);
+  let output = '';
+  error = undefined;
+  try { await slop.exec(command, root, { signal: AbortSignal.timeout(1000), onData: data => { output += data; } }); }
+  catch (value) { error = value; }
+  assert(output === 'prefix' && error?.message === 'aborted', `Pi user shell did not stream/cancel: ${error}`);
+});
+await check('execSync returns exact binary stdout without an encoding', async () => {
+  const bytes = Buffer.from([0, 255, 0xe3, 0x81, 10]);
+  fs.writeFileSync(`${root}/binary`, bytes);
+  assert(execSync(`/bin/cat ${root}/binary`).equals(bytes), 'execSync decoded binary output');
+  assert(execSync(`/bin/cat ${root}/binary`, { encoding: 'hex' }) === '00ffe3810a', 'execSync ignored its encoding');
+});
+await check('fetch redirect "error" fails redirects and "manual" is refused', async () => {
+  assert((await fetch(`${origin}/fixture/http.txt`, { redirect: 'error' })).ok, 'redirect "error" broke a plain request');
+  let error;
+  try { await fetch(`${origin}/fixture/http-redirect`, { redirect: 'error' }); } catch (value) { error = value; }
+  assert(error, 'redirect "error" followed a redirect');
+  error = undefined;
+  try { await fetch(`${origin}/fixture/http.txt`, { redirect: 'manual' }); } catch (value) { error = value; }
+  assert(error instanceof TypeError, 'redirect "manual" was not refused');
 });
 await check('HTTP policy errors retain code, errno and request identity', async () => {
   let error;
@@ -309,5 +323,5 @@ await check('combined signals and timer promises abort mid-wait', async () => {
   try { await delay(200, undefined, { signal }); } catch (value) { error = value; }
   assert(signal.reason === reason && error?.name === 'AbortError' && error.cause === reason, 'timer ignored mid-wait abort');
 });
-if (failures.length) throw new Error(`${failures.length} Janis process/abort groups failed`);
+if (failures.length) throw new Error(`Janis process/abort groups failed:\n${failures.join('\n')}`);
 console.log('JANIS-PROCESS-OK');

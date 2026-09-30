@@ -1,7 +1,7 @@
 DOLLY 4
 IMAGE dollyfile-studio
 
-FROM HOST /Dollyfile-pi-local 3c1f6307ef667636344b5081eb3dddc7d253e9aec67cc55cf59ec0f3081dd601
+FROM HOST /Dollyfile-pi-local 05ef32f310cfb3f5f88d4b2dc6004bad00861d9d63047365b2b5befe148ac215
 USE HOST /modules/neovim-runtime.dm f4acbf91b3d53e7142d3f68d9fa5d2c679bab1a0153e3192a5fa017200a8c336
 USE HOST /modules/dollyfile-studio.dm 1871cb4c1c7aa3bda1eb5c7228d0e57358c8d5f26baf6ae29f9b922baad6e24c
 

@@ -1,7 +1,7 @@
 DOLLY 4
 IMAGE rts-arena
 
-FROM HOST /Dollyfile-pi-runtime a617f870e8664301e7c524d9dcfc609d20abc45dbdf1fa265d15b14571523582
+FROM HOST /Dollyfile-pi-runtime e6129070ea4081f7753a748172ccdcdeab1ea80af135d60a2b079881b862a339
 COPY FROM HOST /Dollyfile-rts-build 4a51064dfb2d741839264cd3771cd410b5da8821805a94bcdd749bc9a443109e /usr/bin/seven-kingdoms /usr/bin/seven-kingdoms
 COPY FROM HOST /Dollyfile-rts-build 4a51064dfb2d741839264cd3771cd410b5da8821805a94bcdd749bc9a443109e /usr/share/7kaa /usr/share/7kaa
 COPY FROM HOST /Dollyfile-rts-build 4a51064dfb2d741839264cd3771cd410b5da8821805a94bcdd749bc9a443109e /usr/src/7kaa /usr/src/7kaa

@@ -1,17 +1,8 @@
 import assert from "node:assert/strict";
-import { readFile } from "node:fs/promises";
 import test from "node:test";
-import vm from "node:vm";
+import { janisContext } from "./fixtures/janis-context.mjs";
 
-const sandbox = vm.createContext({ ArrayBuffer, Uint8Array, console, Dolly: {
-  encode: value => new TextEncoder().encode(value),
-  decode: bytes => new TextDecoder().decode(bytes),
-  getenv() {}, terminalSize: () => ({ columns: 80, rows: 24 }),
-  isatty: () => false, cwd: () => "/workspace", fsAccess() { throw Error("ENOENT"); },
-} });
-for (const file of ["dolly-node.js", "janis.js"]) {
-  vm.runInContext(await readFile(new URL(`../src/runtimes/${file}`, import.meta.url), "utf8"), sandbox);
-}
+const sandbox = janisContext();
 
 test("Pi can reconstruct and read a provider error Response", async () => {
   for (const status of [400, 401, 429, 502]) {

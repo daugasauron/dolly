@@ -163,5 +163,62 @@ await check("package exports and imports preserve literal filenames", () => {
     equal(internal(`#literal/${name}`), name);
   }
 });
+await check("rmdir refuses files in every API form", async () => {
+  const file = `${root}/rmdir-file`;
+  fs.writeFileSync(file, "keep");
+  rejects(() => fs.rmdirSync(file), "ENOTDIR");
+  equal(await fsp.rmdir(file).catch(error => error.code), "ENOTDIR");
+  equal((await new Promise(resolve => fs.rmdir(file, resolve)))?.code, "ENOTDIR");
+  equal(fs.readFileSync(file, "utf8"), "keep");
+});
+await check("mkdtemp creates distinct new directories and no parents", async () => {
+  const first = fs.mkdtempSync(`${root}/temp-`), second = await fsp.mkdtemp(`${root}/temp-`);
+  equal(first !== second && fs.statSync(first).isDirectory() && fs.statSync(second).isDirectory(), true);
+  rejects(() => fs.mkdtempSync(`${root}/missing-parent/temp-`), "ENOENT");
+});
+await check("createReadStream reads inclusive byte ranges", async () => {
+  fs.writeFileSync(`${root}/range`, "0123456789");
+  const read = options => new Promise((resolve, reject) => {
+    let text = "";
+    fs.createReadStream(`${root}/range`, options).on("data", chunk => { text += chunk; })
+      .on("end", () => resolve(text)).on("error", reject);
+  });
+  equal(await read({ start: 2, end: 4, encoding: "utf8" }), "234");
+  equal(await read({ start: 8 }), "89");
+  equal(await read("utf8"), "0123456789");
+});
+await check("permission changes fail explicitly; access modes and copy errors come from the substrate", () => {
+  rejects(() => fs.chmodSync(`${root}/target`, 0o600), "ENOSYS");
+  fs.accessSync(`${root}/target`, fs.constants.R_OK | fs.constants.W_OK);
+  rejects(() => fs.accessSync(`${root}/target`, 8), "EINVAL");
+  rejects(() => fs.copyFileSync(`${root}/absent`, `${root}/copy`), "ENOENT");
+});
+await check("relative require picks a file over a same-named directory", () => {
+  fs.mkdirSync(`${root}/require-lib/helper`, { recursive: true });
+  fs.writeFileSync(`${root}/require-lib/helper.js`, "module.exports = 'file';");
+  equal(createRequire(`${root}/require-lib/entry.cjs`)("./helper"), "file");
+});
+await check("package export conditions follow the manifest key order", () => {
+  const directory = `${root}/node_modules/condition-order`;
+  fs.mkdirSync(directory, { recursive: true });
+  for (const name of ["node", "default"]) fs.writeFileSync(`${directory}/${name}.cjs`, `module.exports = ${JSON.stringify(name)};`);
+  fs.writeFileSync(`${directory}/package.json`, JSON.stringify({ exports: {
+    ".": { node: "./node.cjs", default: "./default.cjs" },
+    "./default-first": { default: "./default.cjs", node: "./node.cjs" },
+  } }));
+  const require = createRequire(`${root}/entry.cjs`);
+  equal([require("condition-order"), require("condition-order/default-first")], ["node", "default"]);
+});
+await check("structuredClone keeps object graphs and refuses functions; performance measures elapsed time", () => {
+  const value = { date: new Date(5), map: new Map([[1, new Set([2])]]), bytes: Uint8Array.of(1, 2), missing: undefined };
+  value.self = value;
+  const copy = structuredClone(value);
+  equal(copy !== value && copy.self === copy && copy.date.getTime() === 5 && copy.map.get(1).has(2) &&
+    copy.bytes[1] === 2 && "missing" in copy, true);
+  let error;
+  try { structuredClone({ run() {} }); } catch (failure) { error = failure; }
+  equal(error instanceof TypeError, true);
+  equal(performance.now() > 0 && performance.now() < 3600e3, true);
+});
 if (failures.length) throw new Error(`${failures.length} Janis filesystem/environment groups failed`);
 console.log("JANIS-FILES-OK");

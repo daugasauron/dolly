@@ -1,15 +1,10 @@
 import assert from "node:assert/strict";
-import { readFile } from "node:fs/promises";
 import { StringDecoder } from "node:string_decoder";
 import { createInterface } from "node:readline";
 import { PassThrough } from "node:stream";
 import test from "node:test";
-import vm from "node:vm";
 import { janisContext as context } from "./fixtures/janis-context.mjs";
 import { decoderCases, decodeChunks, utf8Vectors } from "./fixtures/utf8-cases.mjs";
-
-const extension = await readFile(new URL("../src/pi/dolly-tools.js", import.meta.url), "utf8");
-
 
 test("readline scans split UTF-8, CRLF, blank lines and a final unterminated line", async () => {
   const sandbox = context();
@@ -131,24 +126,4 @@ test("stdin preserves split UTF-8 and flushes at EOF; binary output remains byte
   const bytes = Uint8Array.of(0xe3);
   process.stdout.write(bytes);
   assert.equal(written[0], bytes);
-});
-
-test("Pi shell tool decodes interleaved stdout/stderr independently and flushes both", async () => {
-  const sandbox = context();
-  sandbox.__janisShellStream = (_command, out, err) => {
-    out(Uint8Array.of(0xe3)); err(Uint8Array.of(0xf0, 0x9f));
-    out(Uint8Array.of(0x81, 0x82)); err(Uint8Array.of(0x98, 0x80));
-    out(Uint8Array.of(0xe3)); err(Uint8Array.of(0xf0));
-    return { status: 0 };
-  };
-  const install = vm.runInContext(`(() => { ${extension.replace("export default ", "")}; return dollyTools; })()`, sandbox);
-  const registered = new Map();
-  install({ on() {}, registerCommand() {}, registerTool(tool) { registered.set(tool.name, tool); } });
-  const updates = [];
-  const result = await registered.get("bash").execute("test", { command: ":" }, undefined,
-    value => updates.push(value.content[0].text), { cwd: "/workspace" });
-  assert.equal(result.content[0].text, "あ😀��");
-  assert.ok(updates.includes("あ"));
-  assert.ok(updates.includes("あ😀"));
-  assert.equal(result.details.status, 0);
 });

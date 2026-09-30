@@ -7,7 +7,7 @@ surface over Dolly's files, lifecycle and HTTP. Neither is native Node.
 QuickJS-ng + Janis node:* adapters → dolly-process-0 → Wasm kernel
 ```
 
-`qjs`, `janis`, `tsc` and `pi` are ordinary WasmFS programs.
+`janis`, `tsc` and `pi` are ordinary WasmFS programs; `qjs` links to `janis`.
 The headless `typescript-build` image compiles QuickJS and the TypeScript
 launcher on `system-tools`. The interactive `javascript` image copies those
 programs, libraries and headers into `system`, so display changes reuse them.
@@ -27,6 +27,8 @@ Replacing the JavaScript engine would not remove the need for Node adapters.
 Module resolution is confined to WasmFS. Missing packages, files, exports and
 builtin adapters fail; resolution never fetches code or calls a host loader.
 There is no npm client, native addon, worker thread or nested WebAssembly engine.
+Dolly has no permission model or host resource view: `chmod`, `os.cpus`,
+`os.totalmem`/`freemem` and `process.memoryUsage` fail with `ENOSYS`.
 Pi's Photon resize dependency is consequently excluded.
 
 ## Child processes and HTTP
@@ -41,8 +43,10 @@ Only three stdio descriptors and Dolly's finite signal set are supported.
 Detached processes, identities and IPC fail. Unref stops keeping the parent's
 event loop alive; descendants are still disposed when their parent exits.
 
-Fetch uses nonblocking Dolly HTTP operations. Abort before headers, during
-response reading, or through reader cancellation releases the operation.
+Fetch uses nonblocking Dolly HTTP operations. The broker follows redirects or,
+with `redirect: "error"`, fails them; `"manual"` is rejected. Abort before
+headers, during response reading, or through reader cancellation releases the
+operation.
 These adapters receive no browser Worker, Fetch, socket or host-process handle.
 HTTP limits and eager buffering are documented in [HTTP](http.md).
 

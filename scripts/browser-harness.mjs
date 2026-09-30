@@ -292,6 +292,15 @@ const janisAbortRequests = [];
 const httpOverlapPairs = new Map();
 let cancelledQueuedRequestSeen = false;
 const piFixtureStream = { request: 0, phase: "idle" };
+// The Pi fixture model calls these tools in order, then answers.
+const piFixtureTools = [
+  ["write", { path: "/workspace/pi-http-test.txt", content: "pi crossed Dolly's HTTP broker\n日本語😀\n" }],
+  ["edit", { path: "/workspace/pi-http-test.txt", edits: [{ oldText: "HTTP broker", newText: "HTTP broker via edit" }] }],
+  ["bash", { command: "seq 1 3000 | tee /workspace/pi-lines.txt; printf 'old\\377\\n' > /workspace/pi-latin1.txt" }],
+  ["read", { path: "/workspace/pi-lines.txt" }],
+  ["edit", { path: "/workspace/pi-latin1.txt", edits: [{ oldText: "old", newText: "new" }] }],
+];
+const piFinalRequest = piFixtureTools.length + 1;
 
 function delay(milliseconds) {
   return new Promise((resolveDelay) => setTimeout(resolveDelay, milliseconds));
@@ -560,19 +569,9 @@ function startServer() {
               name: "dolly_installed_probe",
               arguments: "{}",
             } : null
-          : toolResultCount === 0 ? {
-              name: "write",
-              arguments: JSON.stringify({
-                path: "/workspace/pi-http-test.txt",
-                content: "pi crossed Dolly's HTTP broker\n日本語😀\n",
-              }),
-            } : toolResultCount === 1 ? {
-              name: "edit",
-              arguments: JSON.stringify({
-                path: "/workspace/pi-http-test.txt",
-                old_text: "HTTP broker",
-                new_text: "HTTP broker via edit",
-              }),
+          : toolResultCount < piFixtureTools.length ? {
+              name: piFixtureTools[toolResultCount][0],
+              arguments: JSON.stringify(piFixtureTools[toolResultCount][1]),
             } : null;
         const responseOrdinal = toolResultCount + 1;
         const events = nextTool === null
@@ -5091,11 +5090,11 @@ int main(int argc, char **argv) {
       let prefixBaselineFrame = null;
       let prefixRenderedFrame = null;
       for (let attempt = 0; attempt < 600; attempt++) {
-        if (piFixtureStream.request === 3 && piFixtureStream.phase === "waiting" &&
+        if (piFixtureStream.request === piFinalRequest && piFixtureStream.phase === "waiting" &&
             prefixBaselineFrame === null) {
           prefixBaselineFrame = await currentFrameSequence(debuggerClient.send);
         }
-        if (piFixtureStream.request === 3 && piFixtureStream.phase === "prefix") {
+        if (piFixtureStream.request === piFinalRequest && piFixtureStream.phase === "prefix") {
           const frame = await currentFrameSequence(debuggerClient.send);
           if (prefixBaselineFrame !== null && frame !== prefixBaselineFrame) {
             prefixRenderedFrame = frame;
@@ -5106,7 +5105,7 @@ int main(int argc, char **argv) {
       }
       assert.equal(
         piFixtureStream.request,
-        3,
+        piFinalRequest,
         "Pi did not reach the deliberately split final fixture response",
       );
       assert.equal(
@@ -5121,10 +5120,10 @@ int main(int argc, char **argv) {
 
       const streamedTurn = await waitForHttpQuiet(
         debuggerClient.send,
-        httpRequestCountBefore + 3,
-        "Pi's three incrementally streamed fixture requests",
+        httpRequestCountBefore + piFinalRequest,
+        "Pi's incrementally streamed fixture requests",
       );
-      assert.equal(streamedTurn.requests, httpRequestCountBefore + 3);
+      assert.equal(streamedTurn.requests, httpRequestCountBefore + piFinalRequest);
       await waitForTerminalText(
         debuggerClient.send,
         /日本語😀 DOLLY-PI-HTTP-EDIT-OK/,
@@ -5132,10 +5131,10 @@ int main(int argc, char **argv) {
       );
       await clearTerminalSelection(debuggerClient.send);
 
-      for (let attempt = 0; attempt < 600 && piModelRequests.length < 3; attempt++) {
+      for (let attempt = 0; attempt < 600 && piModelRequests.length < piFinalRequest; attempt++) {
         await delay(100);
       }
-      assert.equal(piModelRequests.length, 3, "Pi did not complete its fixture tool round trip");
+      assert.equal(piModelRequests.length, piFinalRequest, "Pi did not complete its fixture tool round trips");
       assert.ok(piModelRequests.every((request) => request.authorization === fixtureCredential));
       assert.ok(
         piModelRequests.every((request) =>
@@ -5151,24 +5150,19 @@ int main(int argc, char **argv) {
           piModelRequests[0].payload.messages,
         )}`,
       );
-      const toolMessages = piModelRequests[1].payload.messages.filter(
-        (message) => message.role === "tool",
-      );
-      assert.equal(toolMessages.length, 1);
-      assert.match(
-        JSON.stringify(toolMessages[0].content),
-        /Wrote 45 bytes to \/workspace\/pi-http-test\.txt/,
-        "Pi did not use Dolly's extension-provided write tool",
-      );
-      const editedToolMessages = piModelRequests[2].payload.messages.filter(
-        (message) => message.role === "tool",
-      );
-      assert.equal(editedToolMessages.length, 2);
-      assert.match(
-        JSON.stringify(editedToolMessages.at(-1).content),
-        /Edited \/workspace\/pi-http-test\.txt/,
-        "Pi did not use Dolly's extension-provided edit tool",
-      );
+      // Each request carries one more tool result: upstream Pi's own wording.
+      const toolResults = piModelRequests.slice(1).map(({ payload }) => {
+        const results = payload.messages.filter((message) => message.role === "tool");
+        return JSON.stringify(results.at(-1)?.content);
+      });
+      for (const [index, expected] of [
+        /Successfully wrote \d+ bytes to \/workspace\/pi-http-test\.txt/,
+        /Successfully replaced 1 block\(s\) in \/workspace\/pi-http-test\.txt/,
+        /Showing lines 1001-3000 of 3000\. Full output: \/tmp\/pi-bash-[0-9a-f]+\.log/,
+        /Showing lines 1-2000 of 3001\. Use offset=2001 to continue/,
+        /not valid UTF-8/,
+      ].entries()) assert.match(toolResults[index], expected, `Pi ${piFixtureTools[index][0]} tool result`);
+      const fullOutput = toolResults[2].match(/\/tmp\/pi-bash-[0-9a-f]+\.log/)[0];
       await delay(500);
 
       const completedScreenshot = await debuggerClient.send("Page.captureScreenshot", {
@@ -5214,16 +5208,20 @@ int main(int argc, char **argv) {
         debuggerClient.send,
         "window.__dolly.submit(\"grep \\\"pi crossed Dolly's HTTP broker via edit\\\" /workspace/pi-http-test.txt\")",
       );
-      assert.equal(fileStatus, 0, "Pi's extension-provided write tool did not create the file");
+      assert.equal(fileStatus, 0, "Pi's write and edit tools did not update the file");
       const unicodeStatus = await evaluate(
         debuggerClient.send,
         `window.__dolly.submit(${JSON.stringify("grep '日本語😀' /workspace/pi-http-test.txt")})`,
       );
       assert.equal(unicodeStatus, 0, "Pi's streamed tool arguments corrupted UTF-8 file contents");
+      for (const [command, failure] of [
+        [`cmp ${fullOutput} /workspace/pi-lines.txt`, "Pi's bash full-output file is incomplete"],
+        ["printf 'old\\377\\n' | cmp - /workspace/pi-latin1.txt", "Pi's refused edit changed non-UTF-8 bytes"],
+      ]) assert.equal(await evaluate(debuggerClient.send, `window.__dolly.submit(${JSON.stringify(command)})`), 0, failure);
       console.log(
         `browser: upstream Pi TUI started in Ghostty at frame ${startup.frame}, ` +
-        "yellow theme, live thinking animation, incremental SSE, and Dolly " +
-        "write/edit extension crossed the HTTP fixture; Ctrl-D exited; " +
+        "yellow theme, live thinking animation, incremental SSE, and upstream " +
+        "write/edit/Slop bash/read tools with truncation crossed the HTTP fixture; Ctrl-D exited; " +
         "screenshot build/pi-chrome.png",
       );
       break browserProof;

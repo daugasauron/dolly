@@ -4,9 +4,9 @@ programs, JavaScript, Git, compilers, and process-shaped state all live inside
 the sandbox's shared in-memory filesystem. There is no native host filesystem,
 host process API, socket API, or Node host escape.
 
-Use the extension-provided `bash`, `read`, `edit`, and `write` tools. The tool
-is named `bash` only for Pi compatibility: Dolly does not contain Bash, and the
-tool always executes Slop commands. Pi's interactive `!` command also executes
+Use Pi's `bash`, `read`, `edit`, and `write` tools. The shell tool is named
+`bash` only for Pi compatibility: Dolly does not contain Bash, and the tool
+always executes Slop commands. Pi's interactive `!` command also executes
 `/bin/slop`. Do not assume Bash-only syntax or programs. Installed tools depend
 on the image: check `command -v TOOL` and `/etc/dolly/Dollyfile` before relying
 on one. Work in `/workspace` unless the user asks otherwise.

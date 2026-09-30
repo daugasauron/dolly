@@ -772,10 +772,7 @@ static JSValue js_dolly_fs_readdir(JSContext *context,
   DIR *directory = opendir(path);
   const int saved_errno = errno;
   JS_FreeCString(context, path);
-  if (directory == NULL) {
-    return JS_ThrowInternalError(context, "fsReaddir failed: %s",
-                                 strerror(saved_errno));
-  }
+  if (directory == NULL) return fs_error(context, "scandir", saved_errno);
   JSValue result = JS_NewArray(context);
   uint32_t index = 0;
   struct dirent *entry;
@@ -792,12 +789,15 @@ static JSValue js_dolly_fs_operation(JSContext *context,
                                      JSValueConst this_value,
                                      int argc, JSValueConst *argv, int magic) {
   (void)this_value;
+  static const char *const syscalls[] = {"access", "mkdir", "unlink", "rmdir", "rename", "copyfile"};
   if (argc < 1) return JS_ThrowTypeError(context, "filesystem operation requires a path");
+  int32_t mode = F_OK;
+  if (magic == 0 && argc > 1 && JS_ToInt32(context, &mode, argv[1]) < 0) return JS_EXCEPTION;
   const char *first = JS_ToCString(context, argv[0]);
   if (first == NULL) return JS_EXCEPTION;
   const char *second = NULL;
   int status = 0;
-  if (magic == 0) status = access(first, F_OK);
+  if (magic == 0) status = access(first, mode);
   else if (magic == 1) status = mkdir(first, 0755);
   else if (magic == 2) status = unlink(first);
   else if (magic == 3) status = rmdir(first);
@@ -810,19 +810,19 @@ static JSValue js_dolly_fs_operation(JSContext *context,
     else {
       size_t length = 0;
       char *contents = read_file(first, &length);
-      status = contents == NULL ? -1 : dolly_write_file(second, contents, length);
-      free(contents);
-      if (status < 0) errno = -status;
+      if (contents == NULL) {
+        status = -1;
+      } else {
+        status = dolly_write_file(second, contents, length);
+        free(contents);
+        if (status < 0) errno = -status;
+      }
     }
   }
   const int saved_errno = errno;
   if (second != NULL) JS_FreeCString(context, second);
   JS_FreeCString(context, first);
-  if (status != 0) {
-    return JS_ThrowInternalError(context, "filesystem operation failed: %s",
-                                 strerror(saved_errno));
-  }
-  return JS_UNDEFINED;
+  return status != 0 ? fs_error(context, syscalls[magic], saved_errno) : JS_UNDEFINED;
 }
 
 static JSValue js_dolly_realpath(JSContext *context, JSValueConst this_value,
@@ -835,10 +835,7 @@ static JSValue js_dolly_realpath(JSContext *context, JSValueConst this_value,
   char *status = realpath(path, resolved);
   const int saved_errno = errno;
   JS_FreeCString(context, path);
-  if (status == NULL) {
-    return JS_ThrowInternalError(context, "realpath failed: %s", strerror(saved_errno));
-  }
-  return JS_NewString(context, resolved);
+  return status == NULL ? fs_error(context, "realpath", saved_errno) : JS_NewString(context, resolved);
 }
 
 static JSValue js_dolly_read_raw(JSContext *context, JSValueConst this_value,
@@ -943,10 +940,12 @@ static JSValue js_dolly_http_start(JSContext *context,
     return JS_EXCEPTION;
   }
 
+  // Fetch's default redirect mode is "follow"; false asks the broker to fail them.
+  const int follow = argc < 5 || JS_ToBool(context, argv[4]);
   unsigned int sequence = 0;
   const int status = dolly_http_start(
       method, url, headers == NULL ? "" : headers, body, body_length,
-      DOLLY_HTTP_FOLLOW_REDIRECTS, &sequence);
+      follow ? DOLLY_HTTP_FOLLOW_REDIRECTS : 0, &sequence);
   JS_FreeCString(context, method);
   JS_FreeCString(context, url);
   if (headers != NULL) JS_FreeCString(context, headers);
@@ -1334,6 +1333,19 @@ static JSValue js_dolly_pump_jobs(JSContext *context, JSValueConst this_value,
   return drain_command_jobs(context) < 0 ? JS_EXCEPTION : JS_UNDEFINED;
 }
 
+// QuickJS's own value serializer keeps cycles, Map/Set, Date, RegExp and typed
+// arrays; functions and other host objects fail instead of being dropped.
+static JSValue js_structured_clone(JSContext *context, JSValueConst this_value,
+                                   int argc, JSValueConst *argv) {
+  (void)this_value;
+  size_t length = 0;
+  uint8_t *bytes = JS_WriteObject(context, &length, argc > 0 ? argv[0] : JS_UNDEFINED,
+                                  JS_WRITE_OBJ_REFERENCE);
+  if (bytes == NULL) return JS_EXCEPTION;
+  JSValue result = JS_ReadObject(context, bytes, length, JS_READ_OBJ_REFERENCE);
+  js_free(context, bytes);
+  return result;
+}
 
 static int install_dolly_backend(JSContext *context) {
   JSValue global = JS_GetGlobalObject(context);
@@ -1369,7 +1381,7 @@ static int install_dolly_backend(JSContext *context) {
   DOLLY_JS_FUNCTION("isatty", js_dolly_isatty, 1);
   DOLLY_JS_FUNCTION("terminalSize", js_dolly_terminal_size, 0);
   DOLLY_JS_FUNCTION("exit", js_dolly_exit, 1);
-  DOLLY_JS_FUNCTION("httpStart", js_dolly_http_start, 4);
+  DOLLY_JS_FUNCTION("httpStart", js_dolly_http_start, 5);
   DOLLY_JS_FUNCTION("httpPoll", js_dolly_http_poll, 1);
   DOLLY_JS_FUNCTION("httpCancel", js_dolly_http_cancel, 1);
   DOLLY_JS_FUNCTION("processSpawn", js_dolly_process_spawn, 6);
@@ -1423,7 +1435,9 @@ static int install_dolly_backend(JSContext *context) {
   JS_SetPropertyStr(context, dolly, "stderr",
                     JS_NewCFunctionMagic(context, js_dolly_write, "stderr", 1,
                                          JS_CFUNC_generic_magic, 1));
-  if (JS_SetPropertyStr(context, global, "Dolly", dolly) < 0) {
+  if (JS_SetPropertyStr(context, global, "Dolly", dolly) < 0 ||
+      JS_SetPropertyStr(context, global, "structuredClone",
+                        JS_NewCFunction(context, js_structured_clone, "structuredClone", 1)) < 0) {
     JS_FreeValue(context, global);
     return -1;
   }
