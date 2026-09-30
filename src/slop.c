@@ -84,6 +84,7 @@ typedef struct {
   int terminating_signal;
   int errexit;
   int xtrace;
+  int nounset;
   int noexec;
   int pipefail;
   int loop_depth;
@@ -417,6 +418,7 @@ static const char *parameter_value(Shell *shell, const char *name,
     if (shell->errexit) temporary[index++] = 'e';
     if (shell->interactive) temporary[index++] = 'i';
     if (shell->noexec) temporary[index++] = 'n';
+    if (shell->nounset) temporary[index++] = 'u';
     if (shell->xtrace) temporary[index++] = 'x';
     temporary[index] = '\0';
     return temporary;
@@ -1058,6 +1060,14 @@ static int append_pattern_removal(Buffer *word, const char *value,
   return buffer_append(word, value, length);
 }
 
+// `set -u`: expanding an unset parameter other than $@ and $* is an error.
+static int unset_parameter_error(const Shell *shell, const char *name,
+                                 size_t length, int set) {
+  if (set || !shell->nounset) return 0;
+  fprintf(stderr, "slop: %.*s: parameter not set\n", (int)length, name);
+  return 1;
+}
+
 static int expand_dollar_now(Shell *shell, const char **cursor, Buffer *word) {
   const char *source = *cursor + 1;
   if (source[0] == '(' && source[1] == '(') {
@@ -1128,9 +1138,11 @@ static int expand_dollar_now(Shell *shell, const char **cursor, Buffer *word) {
         return -1;
       }
       char temporary[64];
-      const char *value = parameter_value(shell, length_name,
-                                          (size_t)(body_cursor - length_name),
-                                          temporary, NULL);
+      int set;
+      const size_t name_length = (size_t)(body_cursor - length_name);
+      const char *value = parameter_value(shell, length_name, name_length,
+                                          temporary, &set);
+      if (unset_parameter_error(shell, length_name, name_length, set)) return -1;
       char result[64];
       const int written = value == NULL ? -1 :
           snprintf(result, sizeof(result), "%zu", strlen(value));
@@ -1175,7 +1187,11 @@ static int expand_dollar_now(Shell *shell, const char **cursor, Buffer *word) {
       char temporary[64];
       int set;
       const char *value = parameter_value(shell, name, length, temporary, &set);
-      if (!value) { free(variable); return -1; }
+      if (!value || (pattern_operation &&
+                     unset_parameter_error(shell, name, length, set))) {
+        free(variable);
+        return -1;
+      }
       const int usable = set && (!colon || value[0] != '\0');
       const char *replacement = body_cursor;
       const size_t replacement_length = (size_t)(closing - body_cursor);
@@ -1257,8 +1273,10 @@ static int expand_dollar_now(Shell *shell, const char **cursor, Buffer *word) {
     }
   } else {
     char temporary[64];
-    const char *value = parameter_value(shell, name, length, temporary, NULL);
-    if (value == NULL || !buffer_append(word, value, strlen(value))) return -1;
+    int set;
+    const char *value = parameter_value(shell, name, length, temporary, &set);
+    if (value == NULL || unset_parameter_error(shell, name, length, set) ||
+        !buffer_append(word, value, strlen(value))) return -1;
   }
   *cursor = source;
   return 1;
@@ -2033,10 +2051,12 @@ static int print_shell_variables(int exported_only) {
 static int print_shell_options(const Shell *shell, int commands) {
   if (commands) {
     printf("set %co errexit\n", shell->errexit ? '-' : '+');
+    printf("set %co nounset\n", shell->nounset ? '-' : '+');
     printf("set %co pipefail\n", shell->pipefail ? '-' : '+');
     printf("set %co xtrace\n", shell->xtrace ? '-' : '+');
   } else {
     printf("errexit %s\n", shell->errexit ? "on" : "off");
+    printf("nounset %s\n", shell->nounset ? "on" : "off");
     printf("pipefail %s\n", shell->pipefail ? "on" : "off");
     printf("xtrace %s\n", shell->xtrace ? "on" : "off");
   }
@@ -2045,6 +2065,7 @@ static int print_shell_options(const Shell *shell, int commands) {
 
 static int set_named_option(Shell *shell, const char *name, int enabled) {
   if (strcmp(name, "errexit") == 0) shell->errexit = enabled;
+  else if (strcmp(name, "nounset") == 0) shell->nounset = enabled;
   else if (strcmp(name, "pipefail") == 0) shell->pipefail = enabled;
   else if (strcmp(name, "xtrace") == 0) shell->xtrace = enabled;
   else {
@@ -2487,16 +2508,16 @@ static int builtin(Shell *shell, int argc, char **argv, int *handled) {
       if (strcmp(option, "--") == 0) { argument++; break; }
       if ((option[0] != '-' && option[0] != '+') || option[1] == '\0') break;
       const int enabled = option[0] == '-';
-      if (strcmp(option + 1, "o") == 0) {
-        if (argument + 1 == argc) return print_shell_options(shell, !enabled);
-        if (!set_named_option(shell, argv[++argument], enabled)) return 2;
-        continue;
-      }
       for (size_t index = 1; option[index] != '\0'; index++) {
         if (option[index] == 'e') shell->errexit = enabled;
+        else if (option[index] == 'u') shell->nounset = enabled;
         else if (option[index] == 'x') shell->xtrace = enabled;
-        else {
-          fputs("slop: set: only e, x, and named -o options are supported\n", stderr);
+        else if (option[index] != 'o') {
+          fputs("slop: set: only e, u, x, and named -o options are supported\n", stderr);
+          return 2;
+        } else if (argument + 1 == argc) {
+          return print_shell_options(shell, !enabled);
+        } else if (!set_named_option(shell, argv[++argument], enabled)) {
           return 2;
         }
       }
@@ -4624,7 +4645,7 @@ static char *read_script(const char *path) {
 }
 
 static void usage(FILE *stream) {
-  fputs("usage: slop [-cenx] [COMMAND [NAME [ARG ...]] | FILE [ARG ...]]\n",
+  fputs("usage: slop [-cenux] [COMMAND [NAME [ARG ...]] | FILE [ARG ...]]\n",
         stream);
 }
 
@@ -4662,6 +4683,7 @@ int main(int argc, char **argv) {
       if (argv[index][option] == 'c') command = 1;
       else if (argv[index][option] == 'e') shell.errexit = 1;
       else if (argv[index][option] == 'n') shell.noexec = 1;
+      else if (argv[index][option] == 'u') shell.nounset = 1;
       else if (argv[index][option] == 'x') shell.xtrace = 1;
       else {
         fprintf(stderr, "slop: unsupported option: -%c\n",

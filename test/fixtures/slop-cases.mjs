@@ -113,6 +113,11 @@ xb" && echo hi | { read -r x; test "$x" = hi; }`, 0],
   ["read consumes exactly one line", String.raw`printf 'a\nb\n' > two; { read -r x; cat; } < two > rest; test "$x:$(cat rest)" = a:b`, 0],
   ["non-terminal standard input is a script", "echo 'x=4; exit $x' | slop", 4],
   ["option letters combine with -c", "slop -ec 'false; exit 3'", 1],
+  ["set -u exits on unset parameters but keeps defaults", 'set -u; : "${x-d}${x:-e}${x+f}${x:=g}"; unset x; : $x; exit 91', 1, 127],
+  ["set -u covers positional and length expansions", 'set -u; set -- a; : "$@" "$*" "$1" ${#1}; : $2; exit 91', 1, 127],
+  ["set +u restores unset expansion", "set -eu; set +u; : $x; set -o nounset; set +o nounset; : $x", 0],
+  ["pipefail reports the rightmost failing stage", 'set -o pipefail; (exit 2) | (exit 3) | true; test $? = 3 || exit 91; slop -c "exit 5" | cat; test $? = 5 || exit 92; false | true | cat; test $? = 1 || exit 93; set +o pipefail; false | true', 0],
+  ["set -euo pipefail stops at a failing pipeline", 'set -euo pipefail; test "$-" != "${-%u*}" || exit 91; : "${unset_but_defaulted:-ok}"; true | (exit 4) | cat; exit 92', 4],
   ["compound commands take redirections", String.raw`n=0; while read -r l; do n=$((n+1)); done < two; for i in 1; do echo $i; done > one; if :; then echo if; fi >> one; test "$n:$(cat one)" = "2:1
 if"`, 0],
 ];

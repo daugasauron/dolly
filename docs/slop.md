@@ -15,9 +15,9 @@ same filesystem-module loader used for every other command.
 Slop has three entry modes:
 
 ```text
-slop [-enx]
-slop [-enx] -c 'command' [name [arg ...]]
-slop [-enx] script [arg ...]
+slop [-enux]
+slop [-enux] -c 'command' [name [arg ...]]
+slop [-enux] script [arg ...]
 ```
 
 The no-argument form is interactive when standard input is a terminal;
@@ -25,8 +25,8 @@ otherwise it reads its complete standard input as a script, so
 `echo 'cmd' | sh` works. GNU Make uses `/bin/slop -c`. Script mode reads a
 file from WasmFS. All modes use the same parser and executor. `-n` parses
 without executing and is useful for checking imported build scripts; `-e`
-enables checked execution and `-x` prints executed commands. Option letters
-combine, as in `-ec`.
+enables checked execution, `-u` rejects unset parameters and `-x` prints
+executed commands. Option letters combine, as in `-ec`.
 
 The interactive form has a deliberately small line editor inside Slop. Left
 and Right move the cursor, Up and Down browse command history, and Tab completes
@@ -97,7 +97,7 @@ The current language supports:
   time; tab-stripping `<<-` is deliberately not part of this finite form;
 - `$VAR`, `${VAR}`, `$?`, `$$`, `$#`, `$-`, `$0` through `$9`, `$@`, and
   `$*`; exact quoted `"$@"` words preserve every positional argument and empty
-  field, while `$-` reports Slop's active `e`, `i`, `n`, and `x` flags;
+  field, while `$-` reports Slop's active `e`, `i`, `n`, `u`, and `x` flags;
 - the finite `${VAR-word}`, `${VAR=word}`, `${VAR+word}`, and `${VAR?message}`
   default/assignment/alternate/error forms, plus their colon variants
   `${VAR:-word}`, `${VAR:=word}`, `${VAR:+word}`, and `${VAR:?message}`;
@@ -146,9 +146,13 @@ The current language supports:
   script or function, not its caller;
 - `eval [WORD ...]`, which joins its already-expanded arguments with spaces and
   parses the result in the current interpreter;
-- `set -e`/`set +e`, command tracing with `set -x`/`set +x`, and named
-  `set -o`/`set +o` options for `pipefail`, `errexit`, and `xtrace`; other
-  options fail with status 2; option letters may be combined, as in `set -ex`;
+- `set -e`/`set +e`, `set -u`/`set +u`, command tracing with
+  `set -x`/`set +x`, and named `set -o`/`set +o` options for `errexit`,
+  `nounset`, `pipefail`, and `xtrace`; other options fail with status 2;
+  letters combine, as in `set -euo pipefail`. Under `set -u`, expanding an
+  unset parameter other than `$@` and `$*` is an expansion error, while the
+  `-`, `=`, `+` and `?` forms still select their words; bare names inside
+  `$((...))` still read as 0, as in POSIX;
 - state-aware `type [-p|-P] NAME ...`, which can distinguish Slop functions,
   builtins, filesystem executables, and missing commands.
 
