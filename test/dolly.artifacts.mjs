@@ -247,7 +247,7 @@ test("system snapshots are sealed to their visible recipe chain", async () => {
     ["pi", "/usr/bin/pi"],
     ["pi-local", "/usr/bin/pi"],
     ["python", "/bin/slop"],
-    ["system", "/usr/bin/rg"],
+    ["system", "/usr/lib/libdisplay.so"],
     ["system-build", "/bin/slop"],
     ["system-tools", "/usr/bin/git"],
     ["ripgrep", "/usr/bin/rg"],
