@@ -1,4 +1,5 @@
 import { formatWasmType, sameWasmType, providerSatisfiesImport } from "./wasm-interface.mjs";
+import { hex } from "./static-asset.mjs";
 
 function unique(entries, key) {
   const result = new Map();
@@ -22,7 +23,7 @@ export function validateProcessInterface(contract, process, digest) {
   if (process.customSections.includes("dylink.0")) {
     fail("a process executable must not be a side module");
   }
-  const stamp = [...section("dolly.process")].map(x => x.toString(16).padStart(2, "0")).join("");
+  const stamp = hex(section("dolly.process"));
   if (stamp !== digest) fail("wrong dolly.process stamp");
   const key = x => `${x.module}.${x.name}`;
   const allowed = unique(contract.imports, key);
@@ -84,7 +85,7 @@ export function validateDsoHost(contract, exports) {
 export function validateDsoInterface(contract, dso, digest) {
   const stamps = dso.customSectionData.filter(section => section.name === "dolly.process.dso");
   if (stamps.length !== 1 ||
-      [...stamps[0].data].map(x => x.toString(16).padStart(2, "0")).join("") !== digest) {
+      hex(stamps[0].data) !== digest) {
     throw new TypeError("shared object has the wrong dolly.process.dso stamp");
   }
   if (dso.customSections.includes("dolly.process")) throw new TypeError("shared object must not carry a process entry stamp");

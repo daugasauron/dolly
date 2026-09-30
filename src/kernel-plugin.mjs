@@ -1,4 +1,5 @@
 import { DOLLY_KERNEL_PLUGIN_ABI_DIGEST } from "../dist/dolly-kernel-plugin-abi.mjs";
+import { hex } from "./static-asset.mjs";
 
 // Boot-only Wasm linking, not a browser capability imported by the guest.
 // Inputs are bytes and real kernel Wasm exports. No paths, URLs, JavaScript
@@ -48,7 +49,6 @@ export function instantiateKernelPlugin(bytes, kernel, memory) {
   }
   const module = new WebAssembly.Module(bytes);
   const stamps = WebAssembly.Module.customSections(module, "dolly.abi");
-  const hex = (data) => [...new Uint8Array(data)].map(x => x.toString(16).padStart(2, "0")).join("");
   if (stamps.length !== 1 || hex(stamps[0]) !== DOLLY_KERNEL_PLUGIN_ABI_DIGEST) {
     throw new TypeError("resident plugin has the wrong ABI stamp");
   }

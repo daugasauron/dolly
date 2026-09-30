@@ -2,9 +2,11 @@
 const partLimit = 20 * 1024 * 1024;
 const assetLimit = 1024 * 1024 * 1024;
 
+export const hex = bytes =>
+  Array.from(bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes), byte => byte.toString(16).padStart(2, "0")).join("");
+
 export async function sha256(bytes) {
-  return [...new Uint8Array(await crypto.subtle.digest("SHA-256", bytes))]
-    .map(byte => byte.toString(16).padStart(2, "0")).join("");
+  return hex(await crypto.subtle.digest("SHA-256", bytes));
 }
 
 // Release assets live under _dolly/RELEASE/; user-facing routes do not.

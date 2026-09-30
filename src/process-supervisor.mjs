@@ -12,6 +12,7 @@ import {
   DOLLY_PROCESS_SPAWN_FOREGROUND, DOLLY_PROCESS_SPAWN_INHERIT_ENVIRONMENT,
   DOLLY_PROCESS_SPAWN_INTERACTIVE,
 } from "./process-constants.mjs";
+import { hex } from "./static-asset.mjs";
 
 const encoder = new TextEncoder();
 const spawnHeaderSize = DOLLY_PROCESS_SIZEOF.dolly_process_spawn_request;
@@ -26,12 +27,6 @@ const compiledModuleCacheBytes = 256 * 1024 * 1024;
 const compilationNoticeMilliseconds = 250;
 const largeInteractiveProcessBytes = 128 * 1024 * 1024;
 const workerReclamationMilliseconds = 500;
-
-function hex(bytes) {
-  return [...new Uint8Array(bytes)]
-    .map((byte) => byte.toString(16).padStart(2, "0"))
-    .join("");
-}
 
 function terminalFailureReason(error) {
   const message = error instanceof Error ? error.message : String(error);

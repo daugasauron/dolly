@@ -10,6 +10,7 @@ import { imageInputs } from "./image-inputs.mjs";
 import { inspectDollyfile, MAX_DOLLYFILE_BYTES } from "./dollyfile-view.mjs";
 import { decodeImageEntry } from "./image-entry.mjs";
 import { checkedCustomArtifact } from "./custom-image.mjs";
+import { hex } from "./static-asset.mjs";
 
 const encoder = new TextEncoder();
 const decoder = new TextDecoder("utf-8", { ignoreBOM: true });
@@ -310,7 +311,7 @@ try {
       }, () => {
         if (dolly._dolly_snapshot_stream_write(0n, 1) !== 0)
           throw new Error("Dolly rejected an incomplete snapshot part");
-        return [...staging().subarray(0, 32)].map(byte => byte.toString(16).padStart(2, "0")).join("");
+        return hex(staging().subarray(0, 32));
       });
       bootstrapStatus = dolly._dolly_bootstrap_snapshot_end();
       snapshotBytes = snapshotMetadata.byteLength;
