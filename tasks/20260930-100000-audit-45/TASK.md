@@ -1,6 +1,6 @@
 # Patti Cargo subset bugs
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 80
 - TAGS: bug,demo,rust
 
@@ -29,3 +29,7 @@ Cargo-compatible target discovery and lint scoping.
 
 Fixed in `4c53ff0`; `demos/rust/test/patti.test.mjs` covers them with a mock
 rustc. Missing: the Rust image build from "Done when".
+
+## Closed (2026-10-01)
+
+Fixes landed in `4c53ff0` with mock-rustc coverage; the image-level checks it asks for move to `20260930-231102-cargo-native`, which replaces Patti.

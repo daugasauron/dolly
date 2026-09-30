@@ -26,3 +26,9 @@ Feasible now without LLVM. Measurements in `demos/zig-self-host/README.md` on th
   image) and `zig build` (this zig only emits C).
 - Next: replace `zig.dm` with these stages, switch `ghostty.dm` to the C path,
   drop `build-native-zig.sh`, the CMake zig target and the docs/sources.md row.
+
+## Test to carry over (2026-10-01)
+
+From the closed `20261001-014500-zig-sdk-browser`: a browser check that the
+in-sandbox Zig compiles a small Zig program and a C interop case (the old
+`test/fixtures/zig-sdk.mjs` is in `git show core/host-modules~1:test/fixtures/zig-sdk.mjs`).

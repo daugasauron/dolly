@@ -1,4 +1,4 @@
-# Compile independent Rust crates concurrently
+# Run build tools' jobs in parallel
 
 - STATUS: OPEN
 - PRIORITY: 230
@@ -31,3 +31,12 @@ builds, at the owner's request.
 - `codex-build`, ripgrep and fd build with `-j 4` or more, produce the same
   outputs as a serial build, and the wall times are recorded against the
   serial times.
+
+## Broader scope (Fable review, 2026-10-01)
+
+Patti's `-j` is the first step. The same need applies to every build tool:
+Make runs with one job slot (`config/make-dolly.patch:131-135`), Ninja and
+Cargo follow, and LLVM inside Dolly (`20260930-232236-llvm-in-dolly`) is only
+practical in parallel. Give concurrent spawns a supervisor memory budget (the
+cap is 32 processes, `src/process-supervisor.mjs:23`) and update
+`docs/architecture.md`, which records serial execution as a decision.

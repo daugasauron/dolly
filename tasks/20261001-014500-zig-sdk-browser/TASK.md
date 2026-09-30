@@ -1,6 +1,6 @@
 # Port the Zig SDK browser check to the core suite
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 150
 - TAGS: tests,zig,core
 
@@ -12,3 +12,7 @@ terminal display, as `demos/browser.mjs` `displayProbe` does for demos. The demo
 port ran it that way and it passed in 13 s (with `printf` instead of `echo --`).
 
 Done when: a `test/*-browser.mjs` runs the cases in Chromium and Firefox.
+
+## Closed (2026-10-01)
+
+It checks the host-built Zig SDK that `20260930-231000-self-host-zig` removes (the in-sandbox Zig emits C only). A check that the in-sandbox Zig compiles a Zig program and C interop moves to that task.

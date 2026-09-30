@@ -41,3 +41,21 @@ names is a full URL, host included.
   names a full URL; `docs/dollyfile.md` describes it.
 - The catalog built from the local server and from the published site gives the
   same image identities; pin, lint, graph and view tools handle full URLs.
+
+## Proposal (Fable review, 2026-10-01)
+
+- Syntax, with the digest right after every URL (today `SOURCE` is
+  `location DEST SHA` but `USE` is `location SHA`):
+  `FROM https://daugasauron.com/Dollyfile-system SHA`,
+  `COPY FROM https://…/Dollyfile-codex-build SHA SRC DST`,
+  `USE https://…/modules/search-tools.dm SHA`,
+  `SOURCE https://…/static/codex/sources-00.part SHA DST`.
+- Identity: recipes name one canonical published origin; identity stays the
+  hash of recipe text plus SHA-256 pins, so a mirror changes nothing. The
+  embedding maps the canonical origin to a mirror in the build policy, which is
+  already trusted browser state: `npm run serve` maps it to localhost, a fresh
+  clone serves unpublished files under the same mapping. The build policy
+  becomes exactly the graph's pinned URLs (`20260930-232236-rebuild-network`).
+  `join_host_url` and the `HOST-BASE` argument in `src/dollyfile.c` go away.
+- Keep `REQUIRES HOST name@abi`: once resources drop `HOST`, the word means
+  only browser host modules, matching `host/` and `DOLLY_HOST_REQUIRE`.
