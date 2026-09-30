@@ -1,6 +1,6 @@
 # Integrate PCM playback as a v4 host module for 0 A.D.
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 260
 - TAGS: audio,abi,0ad
 
@@ -37,4 +37,6 @@ audio reach the browser graph, alongside rendering, gameplay input, save/load,
 fresh processes and shell recovery. Logs are in
 `build/slopyard-integration-20260930/{audio,zero-ad}-{chromium,firefox}.log`.
 
-Remaining: record the merge commit after full integration verification.
+Merge `1f0995d` reconciles both histories; local main now contains the verified
+integration through `136f1e2`. All 40 domain images pass packaged browser
+inventories, including audio SDK and 0 A.D. The default image remains audio-free.

@@ -1,6 +1,6 @@
 # Finish Slopyard and Dollyfile v4 integration onto main
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 270
 - TAGS: release,runtime,images
 
@@ -9,13 +9,13 @@ Dollyfile rebuild output, no HTTP/module requests per process start, removal of
 the four retired interactive images, and minimal v4 host requirements throughout.
 Audio for 0 A.D. is tracked in `20260930-001-v4-audio`.
 
-Prepared in source on 2026-09-30 in `work/gpu-shaders`:
+Completed on 2026-09-30 in `work/gpu-shaders` and merged into local main:
 
 - Main's audio, 0 A.D., GPU and streaming snapshots are integrated with the
   branch's host modules and threads. Main revision is
   `e3ba5fb5704785bae9fa2f6610ac2fa5e1f716f2`. Prepared source is committed at
   `faf8f36`; merge `1f0995d` records both histories with the same verified tree.
-  Main has not yet advanced to this merge.
+  Local main now contains this merge and the verified fixes through `136f1e2`.
 - Slopyard source, recipes, tests, retained paths, save tags and URL are renamed.
   No old-name reader or redirect was added. Six recovered save files are
   hash-verified in the private `build/slopyard-migration-20260930/original/`.
@@ -61,8 +61,8 @@ Evidence:
   syntax checks.
 - No active source/catalog/route reference uses the old game name. Original
   private backups and immutable past releases are preserved.
-- Execution permissions were restored. Native parser/retention fixtures pass;
-  the combined runtime builds and passes exact browser-import and kernel ABI
+- Native parser/retention fixtures pass. The combined runtime builds and passes
+  exact browser-import and kernel ABI
   checks. Log: `build/slopyard-integration-20260930/runtime-build.log`.
 - All 287 source tests pass (`source-tests.log` in the same directory).
   Chromium verifies split ANSI/CRLF output, literal text, bounded log retention,
@@ -103,15 +103,19 @@ Evidence:
   Studio passes this check (`studio-inventory.log`); its hardware runtime and
   compiler-output checks remain separate and passed.
 
-Remaining gates (do not close until verified):
-
-1. Finish local-LLM checks, artifact validation and packaged-image inventories.
-2. Verify complete distribution packaging, then advance main to the verified
-   merge and record final evidence. No push or deployment has occurred.
-
-The previous Podman, process-execution and metadata-write permission failures
-are resolved. Images must still be rebuilt against the combined runtime; do not
-bypass staleness checks or mark old images current.
+- Both browsers pass bundled local-LLM inference, reuse, cancellation, session
+  restore and fresh boot with external requests denied (`local-llm-browser.log`).
+- All 27 artifact checks pass (`artifact-tests.log`). The final source run passes
+  all 287 tests; all 40 pinned image recipes lint.
+- Both distributions pass packaged browser inventories: 40 images for the domain,
+  30 bundled on GitHub Pages. The GitHub site contains 867,722,627 file bytes;
+  Pi Local, Studio and 0 A.D. retain domain links. Both catalogs contain Slopyard
+  and its rebuild route, preserve the game SDK, and exclude the retired images.
+  Accepted source is `136f1e2149d157113d5d3d2d580080840b1891db`. Local releases:
+  `build/slopyard-integration-20260930/{domain,github}-releases/current`;
+  manifests begin `424eb5ba7d57` and `215e2af95733`, respectively.
+- Main was fast-forwarded from `e3ba5fb` through `136f1e2` after verification.
+  No push or external deployment occurred during this integration.
 
 The ignored `build/slopyard-integration-20260930/main-preparation.json` records
 source preparation. Its one-time scripts MUST NOT be rerun over the edited tree.
