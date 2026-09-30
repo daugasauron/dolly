@@ -2,9 +2,9 @@
 
 Run `dollyfile-build /workspace/Dollyfile` in Studio, including through
 Pi's shell tool. The Studio module declares `REQUIRES HOST build@0`; other images
-and page-initiated rebuilds cannot reach the build service. Building starts immediately, without an approval prompt. Logs
-stream back to the caller; compile or builder failures give a nonzero command
-exit. Correct the recipe and submit it again. The current Studio filesystem,
+and page-initiated rebuilds cannot reach the build service. Building starts
+immediately, without an approval prompt. Logs stream back to the caller; compile
+or builder failures give a nonzero command exit. Correct the recipe and submit it again. The current Studio filesystem,
 credentials and session stay separate from the new build.
 
 After success, click **Open image** to launch the result in a new tab. This

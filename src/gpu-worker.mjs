@@ -615,7 +615,8 @@ async function execute(request, scope, parsed) {
       // A fixed name: the adapter's vendor/description would fingerprint the device.
       const name=encode.encode("WebGPU");
       output=new Uint8Array(16+name.length);
-      const v=new DataView(output.buffer);v.setBigUint64(0,BigInt(scope.id),true);v.setUint32(8,width,true);v.setUint32(12,height,true);
+      const v=new DataView(output.buffer);
+      v.setBigUint64(0,BigInt(scope.id),true);v.setUint32(8,width,true);v.setUint32(12,height,true);
       output.set(name,16);
     } else {
       ensure(!scope.lost && device,"GPU scope lost",E.EIO);

@@ -3220,7 +3220,7 @@ int main(int argc, char **argv) {
       const fixture = `${localOrigin}${browserBase}test/fixtures/browser-boundary.mjs`;
       const result = await evaluate(debuggerClient.send,
         `import(${JSON.stringify(fixture)}).then(module => module.runBrowserBoundaryChecks(new URL('../', document.baseURI).href))`);
-      assert.equal(result.imports, 29);
+      assert.equal(result.imports, 30);
       assert.equal(result.pluginRejections, 3);
       assert.equal(result.policyDeniedBeforeFetch, true);
       assert.equal(result.nonConsumingDeadline, true);
@@ -4076,8 +4076,8 @@ int main(int argc, char **argv) {
       assert.equal(menuEvidence.descriptions.length, imageDefinitions.length);
       const menuImages = menuEvidence.descriptions.map(({ image }) => image);
       assert.equal(menuImages[0], "default");
-      const builds = new Set(imageDefinitions.filter(({image}) => /-(build|sdk|runtime)$/.test(image) ||
-        ["system", "ripgrep", "rust-tools"].includes(image)).map(({image}) => image));
+      const builds = new Set(imageDefinitions.filter(({image}, index) => !displayed[index] ||
+        /-(build|sdk|runtime)$/.test(image) || ["system", "ripgrep", "rust-tools"].includes(image)).map(({image}) => image));
       const firstBuild = menuImages.findIndex(image => builds.has(image));
       assert.ok(firstBuild >= 0);
       assert.ok(menuImages.slice(firstBuild).every(image => builds.has(image)), "interactive image follows build images");
