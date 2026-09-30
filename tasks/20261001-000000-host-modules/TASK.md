@@ -95,9 +95,19 @@ stay hand-written: they are where a human reviews authority.
   (988 -> 361 lines). Image inputs unchanged.
 
 Remaining:
-- The display mailbox also carries core terminal state (foreground, interrupts,
-  result, size): split a runtime-owned terminal mailbox. Its layout is compiled
-  into every image's resident display library, so the split rebuilds images.
+- The display mailbox also carries core terminal state: split a runtime-owned
+  terminal mailbox. Plan (2026-10-01):
+  - Move `result_sequence`, `result_status`, `foreground_pid`, `flags`
+    (foreground interruptible), `interrupt_sequence` and `interrupt_target_pid`
+    to a `dolly_terminal_mailbox` in the runtime, exported through the
+    supervisor contract. The kernel writes it from `dolly.c`; the page's
+    Ctrl+C and the test helpers read it through `host/runtime/`. Images without
+    a display then keep foreground, result and interrupt semantics.
+  - `terminal_cols`/`terminal_rows` stay: the display library writes them.
+  - The resident display library (`src/ghostty/`) does not touch the six
+    fields, but removing them shifts every later offset it does use, so drop
+    them (and bump `DOLLY_DISPLAY_MAILBOX_VERSION`) with the next catalog
+    rebuild. Until then they can stay as unused padding.
 - Stage 3 (owner decision): move display, HTTP, download and upload operations
   and packets from `process.h` into their modules. Today their layouts are in
   the exact-bytes process ABI digest; gpu and audio packets are identified only
