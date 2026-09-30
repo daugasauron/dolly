@@ -13,7 +13,7 @@ fi
 input_key="$({
   printf '%s\n' 'dolly-rust-seed-1' "$DOLLY_EMSDK_IMAGE"
   sha256sum toolchain/rust/* scripts/build-rust-toolchain.sh include/dolly/process.h include/dolly/runtime.h
-  sha256sum "$sysroot"/* | cut -d' ' -f1
+  find "$sysroot" -type f | sort | xargs sha256sum | cut -d' ' -f1
 } | sha256sum | cut -d' ' -f1)"
 if [[ -f "$port/seed.inputs" && "$(cat "$port/seed.inputs")" == "$input_key" &&
       -f "$port/seed.sha256" ]] && (cd "$port" && sha256sum --check --status seed.sha256); then

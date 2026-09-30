@@ -42,7 +42,8 @@ int clock_nanosleep(clockid_t clock, int flags,
   }
 
   const dolly_process_clock_sleep_request packet = {
-      .clock_id = clock == CLOCK_REALTIME ? 0 : 1,
+      .clock_id = clock == CLOCK_REALTIME
+          ? DOLLY_PROCESS_CLOCK_REALTIME : DOLLY_PROCESS_CLOCK_MONOTONIC,
       .flags = 0,
       .deadline_nanoseconds = deadline,
   };

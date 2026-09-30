@@ -146,8 +146,8 @@ static int stream_roundtrip(void) {
     offsets[index] = cursor - bytes;
     uint32_t kind, path;
     uint64_t length;
-    CHECK(take_u32(&cursor, end, &kind) == 0 && take_u32(&cursor, end, &path) == 0 &&
-          take_u64(&cursor, end, &length) == 0);
+    CHECK(dolly_fs_take_u32(&cursor, end, &kind) == 0 && dolly_fs_take_u32(&cursor, end, &path) == 0 &&
+          dolly_fs_take_u64(&cursor, end, &length) == 0);
     cursor += path + length;
   }
   offsets[6] = size;
@@ -213,7 +213,7 @@ int main(void) {
   CHECK(descriptor >= 0 && fstat(descriptor, &metadata) == 0);
   const size_t saved_size = metadata.st_size;
   unsigned char *saved = malloc(saved_size);
-  CHECK(saved != NULL && read_exact(descriptor, saved, saved_size) == 0 && close(descriptor) == 0);
+  CHECK(saved != NULL && dolly_fs_read_exact(descriptor, saved, saved_size) == 0 && close(descriptor) == 0);
   const int result = check_roundtrip();
   CHECK(dolly_fs_remove_tree(ROOT) == 0);
   FILE *manifest = fopen("/etc/dolly/image.manifest", "w");

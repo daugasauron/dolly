@@ -7,7 +7,6 @@
 #include <string.h>
 #include <sys/stat.h>
 #include <unistd.h>
-#include <emscripten/emscripten.h>
 
 #include "process-kernel.h"
 #include "upload.h"
@@ -22,9 +21,7 @@ static char *temporary;
 static char *destination;
 static size_t received;
 
-EMSCRIPTEN_KEEPALIVE
 uintptr_t dolly_upload_mailbox_address(void) { return (uintptr_t)&mailbox; }
-EMSCRIPTEN_KEEPALIVE
 uint32_t dolly_upload_mailbox_version(void) { return 0; }
 
 void dolly_upload_cancel_process(int pid) {

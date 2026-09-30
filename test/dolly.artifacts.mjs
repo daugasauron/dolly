@@ -7,6 +7,8 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 import {
+  emscriptenExports,
+  layoutDigest,
   validateBrowserImports,
   validateProcess,
   validateRuntime,
@@ -38,21 +40,6 @@ const kernelPluginContractPath = new URL(
   import.meta.url,
 );
 const processContractPath = new URL("../dist/dolly-process-0.wasm", import.meta.url);
-const moduleInfrastructure = new Set([
-  "memory",
-  "__indirect_function_table",
-  "__memory_base",
-  "__stack_pointer",
-  "__table_base",
-  "__table_base32",
-]);
-const loaderBackedFunctions = new Set([
-  "invoke_v",
-  "invoke_ijj",
-  "invoke_ijji",
-  "invoke_jj",
-  "invoke_vjj",
-]);
 
 test("the resident kernel plugin contract is exact, wasm64, and has no command entry", async () => {
   const contract = await readWasmInterface(kernelPluginContractPath);
@@ -74,9 +61,9 @@ test("dolly-process-0 is a minimal private-memory executable contract", async ()
   const layout = contract.customSectionData.filter(
     (section) => section.name === "dolly.process.layout",
   );
-  const expectedLayout = createHash("sha256").update(
-    await readFile(new URL("../include/dolly/process.h", import.meta.url)),
-  ).digest("hex");
+  const expectedLayout = Buffer.from(
+    await layoutDigest([new URL("../include/dolly/process.h", import.meta.url)]),
+  ).toString("hex");
   assert.deepEqual(
     contract.imports.map((entry) => `${entry.module}.${entry.name}`),
     ["env.memory", "dolly_process_0.call"],
@@ -153,38 +140,22 @@ test("the process gate can only copy between one process and kernel memory", asy
   );
 });
 
-test("Emscripten's JSON export list is derived from the Wasm contract", async () => {
-  const actual = JSON.parse(
-    await readFile(new URL("../build/runtime-exports.json", import.meta.url), "utf8"),
+test("the kernel exports exactly the functions its contracts declare", async () => {
+  const hostContracts = await Promise.all(
+    ["display", "http", "upload", "snapshot", "supervisor", "threads-supervisor", "gpu", "audio"]
+      .map(name => readWasmInterface(artifact(`dolly-${name}-0.wasm`))),
   );
-  const expected = new Set(["_main"]);
-  const contract = await readWasmInterface(kernelPluginContractPath);
-  const displayContract = await readWasmInterface(artifact("dolly-display-0.wasm"));
-  const uploadContract = await readWasmInterface(artifact("dolly-upload-0.wasm"));
-  const httpContract = await readWasmInterface(artifact("dolly-http-0.wasm"));
-  const snapshotContract = await readWasmInterface(artifact("dolly-snapshot-0.wasm"));
-  const supervisorContract = await readWasmInterface(
-    artifact("dolly-supervisor-0.wasm"),
+  const expected = emscriptenExports(await readWasmInterface(kernelPluginContractPath), hostContracts);
+  assert.deepEqual(
+    JSON.parse(await readFile(new URL("../build/runtime-exports.json", import.meta.url), "utf8")),
+    expected,
   );
-  const gpuContract = await readWasmInterface(artifact("dolly-gpu-0.wasm"));
-  const threadsContract = await readWasmInterface(artifact("dolly-threads-supervisor-0.wasm"));
-  const audioContract = await readWasmInterface(artifact("dolly-audio-0.wasm"));
-
-  for (const entry of contract.imports) {
-    if (!moduleInfrastructure.has(entry.name) && !loaderBackedFunctions.has(entry.name)) {
-      expected.add(`_${entry.name}`);
-    }
-  }
-  for (const entry of displayContract.exports) expected.add(`_${entry.name}`);
-  for (const entry of uploadContract.exports) expected.add(`_${entry.name}`);
-  for (const entry of httpContract.exports) expected.add(`_${entry.name}`);
-  for (const entry of snapshotContract.exports) expected.add(`_${entry.name}`);
-  for (const entry of supervisorContract.exports) expected.add(`_${entry.name}`);
-  for (const entry of threadsContract.exports) expected.add(`_${entry.name}`);
-  for (const entry of gpuContract.exports) if (entry.type.kind === "func") expected.add(`_${entry.name}`);
-  for (const entry of audioContract.exports) if (entry.type.kind === "func") expected.add(`_${entry.name}`);
-
-  assert.deepEqual(actual, [...expected].sort());
+  const runtime = await readWasmInterface(artifact("dolly.wasm"));
+  assert.deepEqual(
+    runtime.exports.filter(entry => entry.type.kind === "func" && entry.name.startsWith("dolly_"))
+      .map(entry => `_${entry.name}`).sort(),
+    expected.filter(name => name.startsWith("_dolly_")),
+  );
 });
 
 test("the runtime implements the resident kernel plugin contract", async () => {

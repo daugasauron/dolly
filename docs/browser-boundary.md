@@ -110,7 +110,8 @@ Process and thread Workers load a fixed, self-contained build-time bundle.
 The supervisor fetches it once per runtime, retains a Blob URL for fresh Worker
 creation and revokes that URL on disposal. Images and guest packets select no
 script URLs. This removes HTTP loads on each process start while preserving
-fresh JavaScript state and private memories for ordinary processes.
+fresh JavaScript state and private memories for ordinary processes. The
+supervisor admits at most 32 process Workers; further spawns fail with EAGAIN.
 
 [`threads.mjs`](../src/host/threads.mjs) owns the optional `threads@0` Worker
 budget: at most 16 Workers per threaded process and 64 across the provider.

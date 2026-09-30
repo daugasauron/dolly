@@ -28,6 +28,110 @@ typedef struct {
   const unsigned char *data;
 } dolly_fs_record;
 
+static inline int dolly_fs_read_exact(int descriptor, unsigned char *bytes, uintptr_t size) {
+  while (size != 0) {
+    const ssize_t count = read(descriptor, bytes, size);
+    if (count < 0 && errno == EINTR) continue;
+    if (count <= 0) {
+      if (count == 0) errno = EIO;
+      return -1;
+    }
+    bytes += (uintptr_t)count;
+    size -= (uintptr_t)count;
+  }
+  return 0;
+}
+
+static inline int dolly_fs_write_exact(int descriptor, const unsigned char *bytes,
+                                       uintptr_t size) {
+  while (size != 0) {
+    const ssize_t count = write(descriptor, bytes, size);
+    if (count < 0 && errno == EINTR) continue;
+    if (count <= 0) {
+      if (count == 0) errno = EIO;
+      return -1;
+    }
+    bytes += (uintptr_t)count;
+    size -= (uintptr_t)count;
+  }
+  return 0;
+}
+
+// Reads a whole regular file of at most `limit` bytes into a NUL-terminated
+// allocation. Fails with EINVAL for other file types and EFBIG when larger.
+static inline int dolly_fs_read_file(const char *path, uintptr_t limit,
+                                     unsigned char **bytes, uintptr_t *size) {
+  *bytes = NULL;
+  *size = 0;
+  const int descriptor = open(path, O_RDONLY);
+  if (descriptor < 0) return -1;
+  struct stat metadata;
+  int error = fstat(descriptor, &metadata) != 0 ? errno
+      : !S_ISREG(metadata.st_mode) ? EINVAL
+      : (uint64_t)metadata.st_size > limit ? EFBIG : 0;
+  unsigned char *contents = error == 0 ? malloc((size_t)metadata.st_size + 1) : NULL;
+  if (error == 0 && contents == NULL) error = ENOMEM;
+  if (error == 0 && dolly_fs_read_exact(descriptor, contents, (uintptr_t)metadata.st_size) != 0) {
+    error = errno;
+  }
+  if (close(descriptor) != 0 && error == 0) error = errno;
+  if (error != 0) {
+    free(contents);
+    errno = error;
+    return -1;
+  }
+  contents[metadata.st_size] = '\0';
+  *bytes = contents;
+  *size = (uintptr_t)metadata.st_size;
+  return 0;
+}
+
+// Little-endian record fields shared by image and session encodings.
+static inline void dolly_fs_put_u32(unsigned char **cursor, uint32_t value) {
+  for (unsigned shift = 0; shift < 32; shift += 8) *(*cursor)++ = (unsigned char)(value >> shift);
+}
+
+static inline void dolly_fs_put_u64(unsigned char **cursor, uint64_t value) {
+  for (unsigned shift = 0; shift < 64; shift += 8) *(*cursor)++ = (unsigned char)(value >> shift);
+}
+
+static inline int dolly_fs_take_bytes(const unsigned char **cursor, const unsigned char *end,
+                                      uintptr_t length, const unsigned char **result) {
+  if (length > (uintptr_t)(end - *cursor)) return -1;
+  *result = *cursor;
+  *cursor += length;
+  return 0;
+}
+
+static inline int dolly_fs_take_u32(const unsigned char **cursor, const unsigned char *end,
+                                    uint32_t *result) {
+  const unsigned char *bytes;
+  if (dolly_fs_take_bytes(cursor, end, 4, &bytes) != 0) return -1;
+  *result = (uint32_t)bytes[0] | (uint32_t)bytes[1] << 8 |
+            (uint32_t)bytes[2] << 16 | (uint32_t)bytes[3] << 24;
+  return 0;
+}
+
+static inline int dolly_fs_take_u64(const unsigned char **cursor, const unsigned char *end,
+                                    uint64_t *result) {
+  const unsigned char *bytes;
+  if (dolly_fs_take_bytes(cursor, end, 8, &bytes) != 0) return -1;
+  uint64_t value = 0;
+  for (unsigned index = 0; index < 8; ++index) value |= (uint64_t)bytes[index] << (index * 8);
+  *result = value;
+  return 0;
+}
+
+// Adds a record size to an encoding total bounded by `limit` (EFBIG).
+static inline int dolly_fs_checked_add(uintptr_t *total, uintptr_t amount, uintptr_t limit) {
+  if (amount > limit || *total > limit - amount) {
+    errno = EFBIG;
+    return -1;
+  }
+  *total += amount;
+  return 0;
+}
+
 static inline int dolly_fs_valid_path(const char *path) {
   const size_t length = strlen(path);
   if (length < 2 || length >= PATH_MAX || path[0] != '/' ||
@@ -77,15 +181,9 @@ static inline int dolly_fs_read_data(const dolly_fs_record *record,
   }
   int descriptor = open(record->path, O_RDONLY);
   if (descriptor < 0) return -1;
-  uintptr_t offset = 0;
-  while (offset < record->size) {
-    const ssize_t count = read(descriptor, output + offset, record->size - offset);
-    if (count < 0 && errno == EINTR) continue;
-    if (count <= 0) {
-      const int error = count < 0 ? errno : EIO;
-      close(descriptor); errno = error; return -1;
-    }
-    offset += (uintptr_t)count;
+  if (dolly_fs_read_exact(descriptor, output, record->size) != 0) {
+    const int error = errno;
+    close(descriptor); errno = error; return -1;
   }
   return close(descriptor);
 }
@@ -195,15 +293,9 @@ static inline int dolly_fs_restore(const dolly_fs_record *records, size_t count,
       // Modes are compatibility metadata, not an execution permission model.
       int descriptor = open(record->path, O_WRONLY | O_CREAT | O_TRUNC, 0777);
       if (descriptor < 0) return -1;
-      uintptr_t offset = 0;
-      while (offset < record->size) {
-        const ssize_t size = write(descriptor, record->data + offset, record->size - offset);
-        if (size < 0 && errno == EINTR) continue;
-        if (size <= 0) {
-          const int error = size < 0 ? errno : EIO;
-          close(descriptor); errno = error; return -1;
-        }
-        offset += (uintptr_t)size;
+      if (dolly_fs_write_exact(descriptor, record->data, record->size) != 0) {
+        const int error = errno;
+        close(descriptor); errno = error; return -1;
       }
       if (close(descriptor) != 0) return -1;
     }

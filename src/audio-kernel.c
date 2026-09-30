@@ -27,13 +27,10 @@ _Static_assert(sizeof(Reply) == 80, "Audio reply stride");
 static _Alignas(64) Reply replies[DOLLY_AUDIO_SLOTS];
 static Lease leases[DOLLY_AUDIO_SLOTS];
 
-#define DOLLY_EM_JS(...) EM_JS(__VA_ARGS__)
 DOLLY_EM_JS(int, dolly_audio_dispatch, (const void *packet, uintptr_t bytes), {
   if (!Module["audioDispatch"]) return -ENOSYS;
   return Module["audioDispatch"]({memory: HEAPU8.buffer, address: packet, bytes});
 });
-#undef DOLLY_EM_JS
-EMSCRIPTEN_KEEPALIVE
 uintptr_t dolly_audio_mailbox_address(void) { return (uintptr_t)replies; }
 
 void dolly_audio_release_owner(int pid) {
