@@ -154,11 +154,7 @@ foreach(tool compiler zig)
     "-Wl,--whole-archive"
     /src/build/libdolly-process.a
     "-Wl,--no-whole-archive"
-    /src/build/libdolly-runtime.a
-    /src/build/libdolly-http.a
-    /src/build/libdolly-display.a
-    /src/build/libdolly-download.a
-    /src/build/libdolly-upload.a
+    ${DOLLY_CLIENT_LIBRARIES}
     ${DOLLY_LLVM_LIBRARIES}
   )
   target_link_options(dolly-process-${tool} PRIVATE

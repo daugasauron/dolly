@@ -216,6 +216,7 @@ while read -r module source; do
     "${process_compile_flags[@]}" -c "${source}" -o "${object}"
   "${container[@]}" /emsdk/upstream/emscripten/emar rcsD "build/libdolly-${module}.a" "${object}"
 done < <(node scripts/host-modules.mjs client)
+mapfile -t client_links < <(node scripts/host-modules.mjs client | awk '{ print "-ldolly-" $1 }' | uniq)
 
 build_process() {
   local output="$1"
@@ -224,7 +225,7 @@ build_process() {
   "${container[@]}" /emsdk/upstream/emscripten/emcc \
     "${process_compile_flags[@]}" "${process_link_flags[@]}" "$@" \
     -Wl,--whole-archive build/libdolly-process.a -Wl,--no-whole-archive \
-    -Lbuild -ldolly-runtime -ldolly-http -ldolly-display -ldolly-download -ldolly-upload \
+    -Lbuild "${client_links[@]}" \
     -o "${staged}"
   mv -- "${staged}" "${output}"
 }
@@ -236,7 +237,7 @@ build_process_cxx() {
   "${container[@]}" /emsdk/upstream/emscripten/em++ \
     "${process_compile_flags[@]}" "${process_link_flags[@]}" "$@" \
     -Wl,--whole-archive build/libdolly-process.a -Wl,--no-whole-archive \
-    -Lbuild -ldolly-runtime -ldolly-http -ldolly-display -ldolly-download -ldolly-upload \
+    -Lbuild "${client_links[@]}" \
     -o "${staged}"
   mv -- "${staged}" "${output}"
 }
@@ -307,7 +308,8 @@ node scripts/dolly-abi.mjs emit-digest-header \
   -DDOLLY_ZIG_DIR="${zig_container_dir}" \
   -DDOLLY_ZIG_OBJECT="/src/${native_zig_object#"${project_dir}/"}" \
   -DDOLLY_PROCESS_SYSROOT_DIR="${process_sysroot_container_dir}" \
-  -DDOLLY_KERNEL_SOURCES="$(node scripts/host-modules.mjs kernel | sed 's#^#/src/#' | paste -sd ';')"
+  -DDOLLY_KERNEL_SOURCES="$(node scripts/host-modules.mjs kernel | sed 's#^#/src/#' | paste -sd ';')" \
+  -DDOLLY_CLIENT_LIBRARIES="$(printf '/src/build/lib%s.a\n' "${client_links[@]#-l}" | paste -sd ';')"
 "${container[@]}" cmake --build build/runtime --target dolly-process-compiler dolly-process-zig --parallel
 node scripts/dolly-abi.mjs stamp-process \
   build/dolly-process-0.wasm \

@@ -1,7 +1,9 @@
+#include <algorithm>
 #include <cerrno>
 #include <cstdlib>
 #include <cstdio>
 #include <cstring>
+#include <dirent.h>
 #include <limits.h>
 #include <map>
 #include <memory>
@@ -731,6 +733,23 @@ bool link_side_module(const std::string &output,
   return result.retCode == 0 && result.canRunAgain;
 }
 
+// Every host module's client archive in the process sysroot. The linker pulls
+// only referenced members, so a program records only the modules it uses.
+std::vector<std::string> host_client_libraries() {
+  std::vector<std::string> libraries;
+  DIR *directory = opendir(kProcessSysroot);
+  while (dirent *entry = directory == nullptr ? nullptr : readdir(directory)) {
+    const std::string name = entry->d_name;
+    if (name.size() > 11 && name.rfind("libdolly-", 0) == 0 && name != "libdolly-process.a" &&
+        name.compare(name.size() - 2, 2, ".a") == 0) {
+      libraries.push_back("-l" + name.substr(3, name.size() - 5));
+    }
+  }
+  if (directory != nullptr) closedir(directory);
+  std::sort(libraries.begin(), libraries.end());
+  return libraries;
+}
+
 bool link_process_executable(const std::string &output,
                              const std::vector<std::string> &inputs,
                              const std::vector<std::string> &linker_options,
@@ -799,10 +818,11 @@ bool link_process_executable(const std::string &output,
       sysroot + "/crt1.o",
       "-L" + sysroot,
       "-L" + std::string(kProcessSysroot),
-      "-ldolly-runtime", "-ldolly-http", "-ldolly-display", "-ldolly-download", "-ldolly-upload",
   });
+  const std::vector<std::string> clients = host_client_libraries();
+  arguments.insert(arguments.end(), clients.begin(), clients.end());
   if (pthread) arguments.insert(arguments.end(), {
-      "-ldolly-threads", "-lstandalonewasm-mt-memgrow", "-lstubs", "-lc-mt",
+      "-lstandalonewasm-mt-memgrow", "-lstubs", "-lc-mt",
       "-ldlmalloc-mt", "-lclang_rt.builtins-wasmsjlj-mt",
   });
   else arguments.insert(arguments.end(), {
