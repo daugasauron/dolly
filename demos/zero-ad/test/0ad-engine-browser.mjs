@@ -6,10 +6,10 @@ import { startBrowserServer } from "../../../test/browser-server.mjs";
 const output = new URL("../../../.cache/0ad/browser/", import.meta.url);
 await mkdir(output, { recursive: true });
 const server = await startBrowserServer(new URL("../../../", import.meta.url).pathname,
-  "default", 0, new Map(), {
+  "default", { fixtures: {
     "pyrogenesis.wasm": "build/0ad/pyrogenesis.wasm",
     "0ad-data.tar": "build/0ad/headless-data.tar",
-  });
+  } });
 let browser, deadline, page;
 try {
   browser = await chromium.launch({ channel: "chrome", headless: true,

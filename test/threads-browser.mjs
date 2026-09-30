@@ -9,7 +9,7 @@ const kind = process.argv[2] ?? "chrome";
 const compile = process.argv.includes("--compiler");
 const output = `build/threads-${compile ? "compiler" : "substrate"}-${kind}`;
 const overrides = new Map(), path = "/fixture/process-wrong-call.wasm";
-const server = await startBrowserServer(process.cwd(), "system", 0, overrides);
+const server = await startBrowserServer(process.cwd(), "system", { sourceOverrides: overrides });
 let browser, deadline;
 try {
   browser = kind === "firefox" ? await firefox.launch({ headless: true })

@@ -2,8 +2,8 @@ import assert from "node:assert/strict";
 import {chromium, firefox} from "playwright-core";
 import {startBrowserServer} from "./browser-server.mjs";
 
-const server = await startBrowserServer(new URL("..", import.meta.url).pathname, "audio-sdk", 0,
-  new Map(), {"audio.c": "test/fixtures/audio.c", "audio-client-contract.c": "test/fixtures/audio-client-contract.c"});
+const server = await startBrowserServer(new URL("..", import.meta.url).pathname, "audio-sdk",
+  { fixtures: {"audio.c": "test/fixtures/audio.c", "audio-client-contract.c": "test/fixtures/audio-client-contract.c"} });
 let browser, deadline, page;
 try {
   const browserName = process.argv[2] ?? "chromium";

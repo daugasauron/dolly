@@ -23,7 +23,7 @@ for(const group of groups) {
 // not the digest of a concatenation or the last successful download.
 const metadata={...original,encoding:'packs',packs:parts.reverse()};
 const overrides=new Map();
-const server=await startBrowserServer(root,'default',0,overrides);
+const server=await startBrowserServer(root,'default',{sourceOverrides:overrides});
 const browser=await chromium.launch({channel:'chrome',headless:true,args:['--no-sandbox','--disable-gpu']});
 const deadline=setTimeout(()=>void browser.close(),120000);
 try {
