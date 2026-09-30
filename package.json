@@ -13,8 +13,6 @@
     "image": "node scripts/build-image.mjs",
     "snapshot": "node scripts/build-image.mjs",
     "snapshot:reproducible": "node scripts/build-image.mjs --reproducible",
-    "census": "node scripts/platform-census.mjs",
-    "fingerprint": "node scripts/capability-fingerprint.mjs",
     "pi:census": "node scripts/pi-runtime-census.mjs",
     "build": "npm run build:runtime && npm run snapshot",
     "test": "npm run test:source && node test/core-browser.mjs",
