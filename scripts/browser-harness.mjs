@@ -25,7 +25,7 @@ import {
   selectImageDefinitions,
 } from "./image-definitions.mjs";
 import { loadDollyfileGraph } from "./dollyfile-graph.mjs";
-import { recipeFiles } from "./recipe-files.mjs";
+import { recipeDemo, recipeFiles } from "./recipe-files.mjs";
 import { shellCases, sourceFiles, shellQuote } from "../test/fixtures/slop-cases.mjs";
 import { browserShellCases } from "../test/fixtures/browser-shell-cases.mjs";
 import { decoderCases } from "../demos/javascript/test/fixtures/utf8-cases.mjs";
@@ -4078,11 +4078,8 @@ int main(int argc, char **argv) {
       assert.equal(menuEvidence.descriptions.length, imageDefinitions.length);
       const menuImages = menuEvidence.descriptions.map(({ image }) => image);
       assert.equal(menuImages[0], "default");
-      const builds = new Set(imageDefinitions.filter(({image}, index) => !displayed[index] ||
-        /-(build|sdk|runtime)$/.test(image) || ["system", "ripgrep", "rust-tools"].includes(image)).map(({image}) => image));
-      const firstBuild = menuImages.findIndex(image => builds.has(image));
-      assert.ok(firstBuild >= 0);
-      assert.ok(menuImages.slice(firstBuild).every(image => builds.has(image)), "interactive image follows build images");
+      const groups = menuImages.map(image => recipeDemo(imageDefinitions.find(item => item.image === image).path) ?? "");
+      assert.deepEqual(groups, groups.toSorted(), "core images come first, then each demo's images together");
       for (const { image, text, height } of menuEvidence.descriptions) {
         assert.ok(text, `${image}: missing image description`);
         assert.ok(height <= 40, `${image}: row is too tall (${height}px)`);

@@ -11,6 +11,8 @@ import {
 } from "./image-definitions.mjs";
 import { createDollyfileGraphLoader } from "./dollyfile-graph.mjs";
 import { renderDollyfilePage } from "./render-dollyfile-view.mjs";
+import { imageDescriptions, menuRow } from "./image-menu.mjs";
+import { recipeDemo } from "./recipe-files.mjs";
 import { bundleProcessWorker } from "./bundle-process-worker.mjs";
 
 const projectDir = resolve(import.meta.dirname, "..");
@@ -29,29 +31,21 @@ const graphs = await Promise.all(definitions.map(async (definition) => ({
 const headless = new Set(graphs.filter(({ graph }) => !graph.root.hostRequirements.includes("display@0"))
   .map(({ definition }) => definition.image));
 await writeImageRegistry(projectDir, definitions, staticSources);
-const menuTemplate = await readFile(resolve(projectDir, "index.html"), "utf8");
-const rows = new Map([...menuTemplate.matchAll(/<tr class="image" data-image="([^"]+)">[\s\S]*?<\/tr>/g)]
-  .map(([row, image]) => [image, row]));
-// Headless images only supply build outputs: rebuilding them is their only route.
-for (const image of headless) {
-  const description = rows.get(image)?.match(/<td class="description">(.*?)<\/td>/)?.[1] ?? "Compiler build tools.";
-  rows.set(image, `<tr class="image" data-image="${image}"><th scope="row">${image}</th>
-    <td class="description">${description}</td><td><div class="image-links"><a href="./${image}/rebuild/">rebuild</a>
-    <a href="./view/${image}/">Dollyfile</a></div></td></tr>`);
-}
-const isBuild = image => headless.has(image) || /-(build|sdk|runtime)$/.test(image) ||
-  ["system", "ripgrep", "rust-tools"].includes(image);
+const descriptions = await imageDescriptions(projectDir);
+const group = ({ path }) => recipeDemo(path) ?? "";
 const ordered = [...definitions].sort((a, b) =>
+  group(a).localeCompare(group(b), "en") ||
   Number(b.image === "default") - Number(a.image === "default") ||
-  Number(isBuild(a.image)) - Number(isBuild(b.image)) || a.image.localeCompare(b.image, "en"));
-const firstBuild = ordered.find(({ image }) => isBuild(image))?.image;
-const menu = menuTemplate.replace(/<tbody>[\s\S]*?<\/tbody>/, () =>
-  "<tbody>\n" + ordered.map(({ image }) =>
-    (image === firstBuild ? '<tr class="group"><th colspan="3">Build images</th></tr>\n' : "") +
-    (rows.get(image) ?? `<tr class="image" data-image="${image}"><th scope="row"><a href="./${image}/">${image}</a></th>
-    <td class="description">Dolly userspace</td><td><div class="image-links"><a href="./${image}/">open →</a>
-    <a href="./${image}/rebuild/">rebuild</a><a href="./view/${image}/">Dollyfile</a></div></td>
-    </tr>`)).join("\n") + "\n</tbody>");
+  Number(headless.has(a.image)) - Number(headless.has(b.image)) || a.image.localeCompare(b.image, "en"));
+const rows = ordered.map((definition, index) => {
+  const description = descriptions.get(definition.image);
+  if (!description) throw new Error(`${definition.image}: describe it as "- \`${definition.image}\`: …" in its README`);
+  const heading = index === 0 || group(ordered[index - 1]) !== group(definition)
+    ? `<tr class="group"><th colspan="3">${group(definition) ? `Demo: ${group(definition)}` : "Core"}</th></tr>\n` : "";
+  return heading + menuRow(definition.image, description, !headless.has(definition.image));
+});
+const menuTemplate = await readFile(resolve(projectDir, "index.html"), "utf8");
+const menu = menuTemplate.replace(/<tbody>[\s\S]*?<\/tbody>/, () => `<tbody>\n${rows.join("\n")}\n</tbody>`);
 await rm(outputDir, { recursive: true, force: true });
 await mkdir(outputDir, { recursive: true });
 await writeFile(resolve(outputDir, "index.html"), menu);
