@@ -86,6 +86,18 @@ export async function runProcessSmoke(submit, origin) {
     assert.equal(await submit(`./dso-check ${scratch}/dso-library.so 37`), 37,
       "a DSO exits only its owning process through the shared libc provider");
     await run(`./fs-check read ${scratch}/data`);
+    // The driver follows Clang's defaults, output names and input kinds.
+    await run("printf '#include <string.h>\\n#if defined(__OPTIMIZE__) || defined(__STRICT_ANSI__) || __STDC_VERSION__ != 201710L\\n#error not the Clang default\\n#endif\\nint main(void) { return strdup(\"x\")[0] != 120; }\\n' > defaults.c && cc defaults.c -o defaults && ./defaults");
+    await run("printf '#if defined(__OPTIMIZE__) || defined(__STRICT_ANSI__) || __cplusplus != 201703L\\n#error not the Clang default\\n#endif\\nint main() {}\\n' > defaults.cpp && c++ defaults.cpp -o defaults && ./defaults");
+    await run("mkdir src && cp defaults.c src/unit.c && cc -c src/unit.c && test -f unit.o && test ! -e src/unit.o");
+    await run("cc -c -MD src/unit.c -o built.o && grep -q '^built.o: src/unit.c' built.d && cc -c -MMD src/unit.c && grep -q '^unit.o: src/unit.c' unit.d");
+    await run("cp unit.o unit.lo && cc unit.lo -o linked && ./linked");
+    await run("cc -shared -Wl,-h,libunit.so.1 dso-library.c -o soname.so");
+    await run(`cc -shared -Wl,--no-undefined dso-library.c -o checked.so && ./dso-check ${scratch}/checked.so`);
+    await run(`c++ -shared -Wl,--no-undefined dso-cpp-library.cpp -o checked-cpp.so && ./dso-cpp-check ${scratch}/checked-cpp.so`);
+    await run("printf 'int missing(void);\\nint use(void) { return missing(); }\\n' > undefined.c && cc -shared undefined.c -o undefined.so");
+    assert.notEqual(await submit("cc -shared -Wl,--no-undefined undefined.c -o undefined.so"), 0,
+      "--no-undefined accepted an undefined symbol");
   } finally {
     await submit(`cd /workspace; rm -rf ${scratch}`);
   }

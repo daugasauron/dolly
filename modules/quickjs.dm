@@ -28,6 +28,7 @@ FILE /tmp/quickjs/Makefile
     NAMES := dtoa libregexp libunicode quickjs
     OBJECTS := /tmp/quickjs/main.o $(addprefix /tmp/quickjs/,$(addsuffix .o,$(NAMES)))
     CPPFLAGS := \
+      -O2 \
       -std=gnu11 \
       -I /usr/src/quickjs \
       -I /usr/include/dolly \

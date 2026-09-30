@@ -15,12 +15,12 @@ PROTOC = "/usr/bin/protox"
 [[rustc]]
 package = "codex-core"
 crate-type = "rlib"
-args = ["-C", "codegen-units=16", "-C", "lto=off", "-Ztime-passes"]
+args = ["-C", "codegen-units=16", "-C", "lto=off"]
 
 [[rustc]]
 package = "codex-tui"
 crate-type = "rlib"
-args = ["-C", "codegen-units=16", "-C", "lto=off", "-Ztime-passes"]
+args = ["-C", "codegen-units=16", "-C", "lto=off"]
 
 [[rustc]]
 crate-name = "codex"

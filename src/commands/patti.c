@@ -722,7 +722,7 @@ struct Node {
   Node *next;
   Package *package;
   const char *context;
-  Value *features, *metadata;
+  Value *features, *metadata, *search; /* search: native -L paths, inherited by dependents */
   Edges normal, build;
   char *artifact;
   int state;
@@ -764,7 +764,7 @@ static Node *node_get(Package *p, const char *context) {
   for (Node *n = nodes; n; n = n->next) if (n->package == p && equal(n->context, context)) return n;
   Arena *previous = memory; memory = &permanent;
   Node *n = allocate(sizeof(*n)); n->package = p; n->context = context;
-  n->features = value(ARRAY); n->metadata = value(TABLE);
+  n->features = value(ARRAY); n->metadata = value(TABLE); n->search = value(ARRAY);
   if (last_node) last_node->next = n; else nodes = n;
   last_node = n; ++changes; memory = previous; return n;
 }
@@ -812,7 +812,10 @@ static Package *dependency(Package *p, const char *alias, Value *spec) {
         if (strlen(v) == len && !strncmp(entry, v, len)) locked = true;
       }
     }
-    if (!locked || !version_matches(str(get(r, "version")), getstr(spec, "version", "*"))) continue;
+    /* Like Cargo, a path or Git dependency without a requirement accepts any
+     * locked version, including a prerelease. */
+    const char *requirement = getstr(spec, "version", NULL);
+    if (!locked || (requirement && !version_matches(str(get(r, "version")), requirement))) continue;
     if (selected) fail("%s: ambiguous or missing locked dependency: %s", p->id, alias);
     selected = r;
   }
@@ -981,11 +984,7 @@ static void hash_text(Sha256 *hash, const char *text) {
   for (size_t i = 0; i < 8; ++i) size[i] = (unsigned char)(length >> (8 * i));
   sha256_update(hash, size, sizeof(size)); sha256_update(hash, text, (size_t)length);
 }
-static bool within(const char *path, const char *root) {
-  size_t n = strlen(root); return starts(path, root) && (!path[n] || path[n] == '/');
-}
-static void hash_tree(Sha256 *hash, const char *path, bool source) {
-  if (source && (within(path, options.target) || equal(path, options.cache))) return;
+static void hash_tree(Sha256 *hash, const char *path) {
   hash_text(hash, path);
   struct stat s;
   if (lstat(path, &s)) {
@@ -1006,11 +1005,26 @@ static void hash_tree(Sha256 *hash, const char *path, bool source) {
     struct dirent *entry;
     while ((entry = readdir(dir))) if (!equal(entry->d_name, ".") && !equal(entry->d_name, "..")) add(names, entry->d_name);
     closedir(dir); sort(names);
-    for (size_t i = 0; i < names->size; ++i) hash_tree(hash, path_join(path, str(names->items[i])), source);
+    for (size_t i = 0; i < names->size; ++i) hash_tree(hash, path_join(path, str(names->items[i])));
   } else fail("resume does not support special files: %s", path);
 }
-static char *fingerprint(Value *args, Package *p, Value *env) {
-  Sha256 hash; sha256_init(&hash); hash_text(&hash, "patti-c-cache-2"); hash_text(&hash, toolchain_hash);
+/* rustc's dep-info names every source file the crate read, including modules
+ * and include_str! inputs outside the package root, once as a "path:" rule. */
+static void hash_sources(Sha256 *hash, const char *artifact, const char *root) {
+  char *depinfo = format("%s.d", artifact), *save;
+  if (!exists(depinfo)) { hash_text(hash, "no dep-info"); return; }
+  for (char *line = strtok_r(read_text(depinfo), "\n", &save); line; line = strtok_r(NULL, "\n", &save)) {
+    size_t n = strlen(line);
+    if (line[0] == '#' || n < 2 || line[n - 1] != ':') continue;
+    line[n - 1] = 0;
+    char *out = line;
+    for (char *in = line; *in; ++in) { if (*in == '\\' && in[1] == ' ') ++in; *out++ = *in; }
+    *out = 0;
+    hash_tree(hash, path_join(root, line));
+  }
+}
+static char *fingerprint(Value *args, Package *p, Value *env, const char *artifact) {
+  Sha256 hash; sha256_init(&hash); hash_text(&hash, "patti-c-cache-3"); hash_text(&hash, toolchain_hash);
   for (size_t i = 0; i < args->size; ++i) hash_text(&hash, str(args->items[i]));
   Value *keys = value(ARRAY);
   for (size_t i = 0; i < env->size; ++i) add(keys, env->keys[i]);
@@ -1018,35 +1032,36 @@ static char *fingerprint(Value *args, Package *p, Value *env) {
   for (size_t i = 0; i < keys->size; ++i) {
     const char *key = str(keys->items[i]); hash_text(&hash, key); hash_text(&hash, str(get(env, key)));
   }
-  hash_tree(&hash, p->root, true); hash_tree(&hash, str(get(env, "OUT_DIR")), false);
+  hash_sources(&hash, artifact, p->root); hash_tree(&hash, str(get(env, "OUT_DIR")));
   for (size_t i = 0; i + 1 < args->size; ++i) {
     const char *arg = str(args->items[i]), *next = str(args->items[i + 1]), *eq = strchr(next, '=');
-    if (equal(arg, "--extern") && eq) hash_tree(&hash, eq + 1, false);
-    else if (equal(arg, "-L") && !starts(next, "dependency=")) hash_tree(&hash, absolute(path_join(p->root, eq ? eq + 1 : next)), false);
+    if (equal(arg, "--extern") && eq) hash_tree(&hash, eq + 1);
+    else if (equal(arg, "-L") && !starts(next, "dependency=")) hash_tree(&hash, absolute(path_join(p->root, eq ? eq + 1 : next)));
     else if (equal(arg, "-C") && starts(next, "link-arg=") && next[9] != '-')
-      hash_tree(&hash, absolute(path_join(p->root, next + 9)), false);
+      hash_tree(&hash, absolute(path_join(p->root, next + 9)));
   }
   return hash_finish(&hash);
 }
 static void prepare_cache(void) {
   Arena temporary = {0}; memory = &temporary;
   Sha256 hash; sha256_init(&hash);
-  hash_tree(&hash, parent(parent(compiler)), false);
-  if (exists("/usr/lib/dolly/process")) hash_tree(&hash, "/usr/lib/dolly/process", false);
+  hash_tree(&hash, parent(parent(compiler)));
+  if (exists("/usr/lib/dolly/process")) hash_tree(&hash, "/usr/lib/dolly/process");
   Value *inputs = get(get(build_config, "cache"), "inputs");
-  for (size_t i = 0; i < inputs->size; ++i) hash_tree(&hash, absolute(str(inputs->items[i])), false);
+  for (size_t i = 0; i < inputs->size; ++i) hash_tree(&hash, absolute(str(inputs->items[i])));
   char *hex = hash_finish(&hash); memory = &permanent; toolchain_hash = copy(hex); release(&temporary);
 }
 static void execute(Value *args, Package *p, Value *env, const char *output) {
   Arena *previous = memory; memory = &permanent;
   Value *record = value(TABLE); put(record, "argv", value_copy(args)); setstr(record, "cwd", p->root);
   append(get(report, "commands"), record); memory = previous;
-  char *artifact = NULL, *stamp = NULL, *key = NULL;
+  char *artifact = NULL, *stamp = NULL;
   if (equal(str(args->items[0]), compiler) && options.resume && !repairing()) {
     for (size_t i = 0; i + 1 < args->size; ++i) if (equal(str(args->items[i]), "-o")) artifact = (char *)str(args->items[i + 1]);
     if (artifact) {
-      stamp = format("%s.fingerprint", artifact); key = fingerprint(args, p, env);
-      if (exists(artifact) && exists(stamp) && equal(read_text(stamp), format("%s %s\n", key, digest(artifact)))) {
+      stamp = format("%s.fingerprint", artifact);
+      if (exists(artifact) && exists(stamp) &&
+          equal(read_text(stamp), format("%s %s\n", fingerprint(args, p, env, artifact), digest(artifact)))) {
         printf("patti: reuse %s\n", artifact); fflush(stdout);
         memory = &permanent; put(record, "status", number(0)); put(record, "cached", boolean(true)); memory = previous;
         write_report(); return;
@@ -1063,7 +1078,8 @@ static void execute(Value *args, Package *p, Value *env, const char *output) {
     fail("%s: command exited %d: %s", p->id, status, str(args->items[0]));
   }
   if (stamp) {
-    FILE *file = open_file(stamp, "w"); fprintf(file, "%s %s\n", key, digest(artifact)); close_file(file);
+    FILE *file = open_file(stamp, "w");
+    fprintf(file, "%s %s\n", fingerprint(args, p, env, artifact), digest(artifact)); close_file(file);
   }
 }
 static void compile(Node *node, const char *name, const char *source, const char *kind,
@@ -1074,7 +1090,10 @@ static void compile(Node *node, const char *name, const char *source, const char
   char *key = hash_finish(&hash); key[16] = 0;
   Value *args = arguments(compiler, "--crate-name", name, source, "--edition", getstr(p->info, "edition", "2015"),
       "--crate-type", kind, "-C", format("opt-level=%d", options.opt), "-C", "panic=abort", "-C", "codegen-units=1",
-      "-C", format("metadata=%s", key), "--cap-lints", "allow", "-L", format("dependency=%s", deps), "-o", output, NULL);
+      "-C", format("metadata=%s", key), "-L", format("dependency=%s", deps), "-o", output,
+      "--emit", format("link,dep-info=%s.d", output), NULL);
+  /* Like Cargo, report lints only for local path and workspace packages. */
+  if (get(p->record, "source")->type != NIL) { append(args, string("--cap-lints")); append(args, string("allow")); }
   for (size_t i = 0; i < node->features->size; ++i) {
     /* Feature names come from Cargo manifests and must remain one rustc token. */
     const char *feature = str(node->features->items[i]);
@@ -1128,8 +1147,10 @@ static void build_instructions(Node *node, const char *log, Value *env, Value *e
     } else if (equal(key, "rustc-env")) {
       eq = strchr(v, '='); if (!eq || eq == v) fail("invalid rustc-env instruction");
       *eq = 0; setstr(env, v, eq + 1);
-    } else if (equal(key, "rustc-link-search") || equal(key, "rustc-link-lib")) {
-      append(extra, string(equal(key, "rustc-link-search") ? "-L" : "-l")); append(extra, string(v));
+    } else if (equal(key, "rustc-link-search")) {
+      Arena *previous = memory; memory = &permanent; add(node->search, v); memory = previous;
+    } else if (equal(key, "rustc-link-lib")) {
+      append(extra, string("-l")); append(extra, string(v));
     } else if (equal(key, "warning")) {
       printf("patti: %s: %s\n", node->package->id, v); fflush(stdout);
     } else if (links && !starts(key, "rustc-") && !starts(key, "rerun-")) {
@@ -1140,6 +1161,16 @@ static void build_instructions(Node *node, const char *log, Value *env, Value *e
       Arena *previous = memory; memory = &permanent; setstr(node->metadata, key, v); memory = previous;
     } else if (!equal(key, "rerun-if-changed") && !equal(key, "rerun-if-env-changed")) fail("unsupported build instruction: %s=%s", key, v);
   }
+}
+/* Cargo's source for a [[bin]] without a path. */
+static char *bin_source(Package *p, Value *bin) {
+  const char *name = str(get(bin, "name")), *path = getstr(bin, "path", NULL);
+  if (path) return path_join(p->root, path);
+  const char *candidates[] = {format("src/bin/%s.rs", name), format("src/bin/%s/main.rs", name),
+                              equal(name, p->name) ? "src/main.rs" : NULL};
+  for (size_t i = 0; i < 3; ++i)
+    if (candidates[i] && exists(path_join(p->root, candidates[i]))) return path_join(p->root, candidates[i]);
+  fail("%s: cannot infer the source of binary %s", p->id, name);
 }
 static void build(Node *node, bool root) {
   if (node->state == 2) return;
@@ -1163,6 +1194,14 @@ static void build(Node *node, bool root) {
     if (!repairing()) execute(arguments(script, NULL), p, env, log);
     build_instructions(node, log, env, extra);
   }
+  /* Like Cargo, native search paths also reach every dependent's link. */
+  memory = &permanent;
+  for (size_t i = 0; i < node->normal.size; ++i) {
+    Value *inherited = node->normal.items[i].node->search;
+    for (size_t j = 0; j < inherited->size; ++j) add(node->search, str(inherited->items[j]));
+  }
+  memory = &temporary;
+  for (size_t i = 0; i < node->search->size; ++i) { append(extra, string("-L")); append(extra, node->search->items[i]); }
   const char *lib_source = path_join(p->root, getstr(p->lib, "path", "src/lib.rs"));
   if (exists(lib_source)) {
     const char *name = getstr(p->lib, "name", identifier(p->name, false));
@@ -1190,7 +1229,7 @@ static void build(Node *node, bool root) {
     if (node->artifact) edge_put(&dependencies, getstr(p->lib, "name", identifier(p->name, false)), node);
     const char *name = str(get(selected, "name"));
     char *destination = path_join(options.target, name);
-    compile(node, identifier(name, false), path_join(p->root, getstr(selected, "path", "src/main.rs")), "bin", destination, dependencies, env, extra);
+    compile(node, identifier(name, false), bin_source(p, selected), "bin", destination, dependencies, env, extra);
     memory = &permanent; setstr(report, "binary", destination); memory = &temporary;
     printf("patti: built %s\n", destination); fflush(stdout);
   }

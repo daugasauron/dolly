@@ -201,8 +201,9 @@ owns DNS, connection pooling, HTTP versions, TLS, decompression, forbidden
 headers, and redirect mechanics. The broker removes browser-owned transport
 headers such as `User-Agent` and `Accept-Encoding` before calling Fetch; this
 also avoids engine-specific CORS preflights while leaving application headers,
-including `Authorization`, intact. `USERAGENT` and `ACCEPT_ENCODING` supply
-request metadata, not authority over those browser-owned wire headers.
+including `Authorization`, intact. `USERAGENT` therefore returns
+`CURLE_NOT_BUILT_IN`. `ACCEPT_ENCODING` accepts only `""` (every encoding the
+browser supports, decoded before delivery) and NULL; an explicit list fails.
 
 `CURLOPT_PROTOCOLS_STR` accepts case-insensitive HTTP/HTTPS lists, `ALL`, or NULL
 to restore both. Unsupported or empty lists fail without replacing the current
@@ -217,7 +218,9 @@ options return `CURLE_UNKNOWN_OPTION`. Callers must check these results.
 
 TLS verification is mandatory: enabling peer/hostname verification succeeds,
 disabling it fails. `FOLLOWLOCATION` accepts only boolean intent, as described
-above. Redirect protocol and method
+above. Without it a redirect cannot return its 3xx response as libcurl would:
+Fetch hides that response, so the transfer fails with `CURLE_COULDNT_CONNECT`,
+indistinguishable from a network or CORS failure. Redirect protocol and method
 controls are unsupported, not silently remembered for a future implementation.
 Zero-sized uploads do not consume input; short uploads and read-callback aborts
 fail before dispatch. A custom write callback receives its exact context, even NULL.

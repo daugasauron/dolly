@@ -43,6 +43,12 @@ Dolly; final executables do not import WASI or browser libc.
 
 The compiler and Zig are ordinary private processes. C++ uses the real pinned
 libc++/libc++abi archives and matching headers installed by `modules/cpp.dm`.
+`cc` keeps Clang's defaults (`-O0`, `gnu17`, `gnu++17`) and input suffix rules.
+Objects are always position independent, so `-fPIC` changes nothing, and `-m64`
+names the only target. `-lc`, `-lm`, `-ldl`, `-lrt`, `-lpthread` and `-lutil` name
+parts of the process libc and add nothing. A DSO's undefined symbols become imports
+from its owning executable; `-Wl,--no-undefined` restricts them to the process
+runtime's exported provider set.
 Process-local DSOs share their owner's runtime, allocator, memory and table.
 Their loader checks exact provider symbol types before instantiation.
 DSO/FFI operations are intercepted in that Worker, not forwarded to a browser
@@ -87,9 +93,7 @@ and table references before acknowledging a child as waitable. Parent shutdown
 retires descendants first.
 
 Unexpected Worker failure produces status 126 and a bounded printable diagnostic.
-Compiler launchers retry that infrastructure status up to twice; ordinary
-compiler errors return immediately. Failure handled by a parent does not poison
-unrelated top-level processes.
+Failure handled by a parent does not poison unrelated top-level processes.
 
 Worker termination has no completion event. Large interactive processes receive
 a bounded reclamation window before exit is acknowledged, reducing competition

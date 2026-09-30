@@ -406,6 +406,20 @@ test("Bonnie is a retained two-file command with transactional graph helpers", a
     assert.match(requirement, />=2/);
     assert.match(requirement, /<3/);
     assert.match(requirement, /!=2\.5/);
+    const metadata = resolve(temporary, "metadata.json");
+    const selected = resolve(temporary, "selected.txt");
+    const releases = { "1.0": [{ packagetype: "bdist_wheel", filename: "Demo_Project-1.0-py3-none-any.whl" }] };
+    await writeFile(metadata, JSON.stringify({ info: { name: "Demo_Project" }, releases }));
+    execFileSync("python3", [helperPath, "select", "demo.project", metadata, selected]);
+    assert.match(await readFile(selected, "utf8"), /^name demo-project$/m);
+    await writeFile(metadata, JSON.stringify({ info: { name: "other" }, releases }));
+    assert.throws(() => execFileSync("python3", [helperPath, "select", "demo-project", metadata, selected],
+      { stdio: "pipe" }), /PyPI returned project 'other'/);
+    const applicable = resolve(temporary, "applicable.txt");
+    execFileSync("python3", [helperPath, "applicable", 'Demo[b,a]>=1; python_version >= "3"', applicable]);
+    assert.equal(await readFile(applicable, "utf8"), "Demo[a,b]>=1\n");
+    execFileSync("python3", [helperPath, "applicable", 'demo; python_version < "3"', applicable]);
+    assert.equal(await readFile(applicable, "utf8"), "");
     execFileSync("python3", ["-B", resolve(projectDir, "test/fixtures/bonnie-policy.py"), helperPath, temporary]);
   } finally {
     await rm(temporary, { recursive: true, force: true });

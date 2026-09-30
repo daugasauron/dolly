@@ -21,7 +21,7 @@ FILE /tmp/zlib/Makefile
     OBJECTS := $(addprefix /tmp/zlib/,$(addsuffix .o,$(NAMES)))
     all: /usr/lib/libz.a
     /tmp/zlib/%.o: /usr/src/zlib/%.c
-    >$(CC) -std=c17 -I /usr/src/zlib -DZ_HAVE_UNISTD_H -c $< -o $@
+    >$(CC) -std=c17 -O2 -I /usr/src/zlib -DZ_HAVE_UNISTD_H -c $< -o $@
     /usr/lib/libz.a: $(OBJECTS)
     >$(AR) rcs $@ $^
 SLOP CWD /usr/src/zlib make \
