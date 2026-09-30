@@ -13,10 +13,9 @@ and [the audio task](../tasks/20260930-001-v4-audio/TASK.md).
 The clean rename, retired-image removal, live build output, bundled process
 worker and minimal v4 host declarations are prepared. Main's 0 A.D., audio, GPU
 and streaming snapshots are integrated in source. The combined runtime builds
-and passes its exact browser-import and kernel ABI checks. The 40-image browser
-rebuild is in progress, logged in `build/slopyard-integration-20260930/images-build.log`.
-The system/compiler bases, CMake, SDL2, Bhop, ClassiCube, Codex, Pi Local, Neovim
-and Studio have rebuilt. The remaining image builds are still running.
+and passes its exact browser-import and kernel ABI checks. All 40 images now
+validate against current recipes; the final replan reused every image. Logs:
+`build/slopyard-integration-20260930/{images-build,images-replan}.log`.
 Main has not advanced to the merge; no push or deployment has occurred here.
 
 All 287 source tests pass. Real Chromium checks pass for streaming build-log
@@ -27,10 +26,12 @@ hardware GPU rendering and fluid compute/control/recovery checks. Bhop passes
 movement, controls, exit and recovery on its rebased image. ClassiCube passes
 movement, block placement/removal in saved data, save/reload and recovery.
 Codex passes TUI/tool use and its test-server login flows; Neovim passes editing,
-file writes, shell commands and recovery.
+file writes, shell commands and recovery. Python passes subprocesses and Bonnie;
+RTS Arena passes replay and its setup workflow. Studio's full rebuild-output
+check passes live warnings/errors/stdout/stderr, cancellation and result opening.
 Evidence is in
 `build/slopyard-integration-20260930/`. Studio rebuild output and final packaged
-image inventories remain pending.
+image inventories remain pending; the verification queue is running.
 All 40 images lint, all 384
 HOST sources verify, and 1,403 routes regenerate. Route generation clears only
 its own generated output. The new worker bundle has no external imports.

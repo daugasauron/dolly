@@ -67,7 +67,10 @@ Evidence:
 - All 287 source tests pass (`source-tests.log` in the same directory).
   Chromium verifies split ANSI/CRLF output, literal text, bounded log retention,
   clearing for retries, and standalone compiler rebuild cancellation/retry.
-  The full image rebuild is running (`images-build.log`).
+  All 40 images now validate against the combined runtime and current recipes
+  (`images-build.log`, `images-replan.log`). The final replan reused every image.
+  Studio's full build-output check passes warnings, errors, stdout/stderr before
+  completion, cancellation and opening the finished image (`studio-build-browser.log`).
 - Chromium and Firefox pass core and compiled-thread checks with HTTP blocked:
   commands and thread creation make zero HTTP requests after boot. C/C++
   compilation, cancellation, recovery and ABI rejection also pass.
@@ -91,13 +94,14 @@ Evidence:
 - Rebuilt Neovim passes shifted input, writing files, Slop shell commands and
   exit/recovery (`neovim-browser.log`). A dangling call to the previously removed
   menu-test helper was removed from that check.
+- Python passes child processes, streaming, cancellation and Bonnie's real
+  PEP 517 policy/cleanup (`python-browser.log`). RTS Arena passes replay, setup,
+  masked paste, model/effort selection and credential persistence. Its selection
+  check now waits for menu rendering (`rts-launcher-browser.log`).
 
 Remaining gates (do not close until verified):
 
-1. Finish the image rebuild, the Studio compiler rebuild-output check and
-   retained-image inventory checks. The running build cached the old Slopyard
-   recipe before its import fix; if it rejects that recipe, replan normally.
-   The corrected Slopyard image is already built and verified separately.
+1. Finish local-LLM checks, artifact validation and packaged-image inventories.
 2. Verify complete distribution packaging, then advance main to the verified
    merge and record final evidence. No push or deployment has occurred.
 

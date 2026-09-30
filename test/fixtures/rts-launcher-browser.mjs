@@ -18,7 +18,7 @@ export async function runRtsLauncherProof({ send, evaluate, key, input, projectD
       (await send("Page.captureScreenshot", { format: "png" })).data, "base64");
   };
   const wait = async (expression, expected) => {
-    for (let n=0; n<600; n++) { if (await evaluate(expression) === expected) return; await new Promise(resolve=>setTimeout(resolve,100)); }
+    for (let n=0; n<600; n++) { if (await (typeof expression === "function" ? expression() : evaluate(expression)) === expected) return; await new Promise(resolve=>setTimeout(resolve,100)); }
     throw Error(`Timed out waiting for ${expression}`);
   };
   await wait("document.documentElement?.dataset.dollyStatus", "ready");
@@ -39,11 +39,12 @@ export async function runRtsLauncherProof({ send, evaluate, key, input, projectD
   await shot("pasted-key"); await enter(); await title("Player 1 model · OpenRouter");
   await input("gem fla"); await screen("> gem fla");
   const selected = async () => (await text()).match(/^→ .+$/m)?.[0];
+  await wait(async () => Boolean(await selected()), true);
   const before = await selected(); assert.ok(before);
-  await key({key:"ArrowDown",code:"ArrowDown",windowsVirtualKeyCode:40}); await screen("> gem fla");
-  assert.notEqual(await selected(),before);
-  await key({key:"ArrowUp",code:"ArrowUp",windowsVirtualKeyCode:38}); await screen("> gem fla");
-  assert.equal(await selected(),before); await shot("openrouter-models");
+  await key({key:"ArrowDown",code:"ArrowDown",windowsVirtualKeyCode:40});
+  await wait(async () => { const value = await selected(); return Boolean(value) && value !== before; }, true);
+  await key({key:"ArrowUp",code:"ArrowUp",windowsVirtualKeyCode:38});
+  await wait(selected, before); await shot("openrouter-models");
   await escape(); await title("Player 1 provider"); await escape(); await title("New match"); await escape(); await home();
   await choose("DOLLY / RTS ARENA", "localcodex"); await choose("Connect local Codex");
   await wait("!!document.querySelector('#file-upload[open]')",true);
