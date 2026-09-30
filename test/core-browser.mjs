@@ -82,7 +82,7 @@ try {
       await page.waitForFunction(() => !__dolly.httpActive);
       assert.equal(server.cancelledRequests, cancelledBefore + 1, "cancelled HTTP response stayed open");
       assert.equal(await submit(`mkdir /tmp/core-tar; curl -fsS ${server.origin}/fixture/root.tar -o /tmp/core.tar && tar -xf /tmp/core.tar -C /tmp/core-tar && test "$(cat /tmp/core-tar/file)" = 'root preserved' && rm -rf /tmp/core-tar /tmp/core.tar`), 0);
-      assert.equal(await submit("printf 'needle\\n' > /tmp/core-search; rg -q needle /tmp/core-search && test \"$(fd --max-depth 1 '^core-search$' /tmp)\" = /tmp/core-search && rm /tmp/core-search"), 0);
+      assert.equal(await submit("printf 'needle\\n' > /tmp/core-search; grep -q needle /tmp/core-search && test \"$(find /tmp -maxdepth 1 -name core-search)\" = /tmp/core-search && rm /tmp/core-search"), 0);
       assert.equal(await submit([
         "mkdir -p /tmp/core-commands/a /tmp/core-commands/b /tmp/core-commands/many && cd /tmp/core-commands",
         "test \"$(echo --)\" = -- && [ ! -e /bin/cd ] && ! command cd /",
@@ -134,7 +134,7 @@ try {
       assert.notEqual(await submitDefault("curl -fsS /fixture/http.txt"), 0);
       assert.equal(await submitDefault(`curl -fsS ${server.origin}/Dollyfile -o /tmp/source && cmp /tmp/source /etc/dolly/Dollyfile`), 0);
       await defaults.close();
-      console.log(`core: ${name} passed ABI, process, filesystem, C/C++, rg/fd, interruption, HTTP, download and cache checks in ${((performance.now() - started) / 1000).toFixed(1)}s`);
+      console.log(`core: ${name} passed ABI, process, filesystem, C/C++, grep/find, interruption, HTTP, download and cache checks in ${((performance.now() - started) / 1000).toFixed(1)}s`);
     } catch (error) {
       if (expired) throw new Error(`${name}: core browser checks exceeded 120 seconds`, { cause: error });
       if (page && !page.isClosed()) console.error(await page.evaluate(() => globalThis.__dolly?.visibleTerminalText()).catch(() => ""));

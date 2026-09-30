@@ -3,5 +3,6 @@ IMAGE system-tools
 
 FROM HOST /Dollyfile-system-build 71a1ad2292333b56aa27f0d32c85814e642050468064525afacb9e4ff9ef7f59
 USE HOST /modules/default.dm 3ae7e0105469774709db8719dd80696f8880a59c3d834c23305f22a491117b0e
+USE HOST /modules/posix-shell.dm f549dd966c59473892d2fc9f11a19a9b7eaf1c344b1b4a62c5dbf2fbedcc3753
 
 ENTRY /bin/slop

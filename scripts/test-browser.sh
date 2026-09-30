@@ -84,7 +84,7 @@ DOLLY_IMAGE=rust-tools DOLLY_BROWSER_MODE=rust-tools \
   node "${project_dir}/scripts/browser-harness.mjs" "${chrome}"
 DOLLY_IMAGE=rust-sdk DOLLY_BROWSER_MODE=source-download \
   node "${project_dir}/scripts/browser-harness.mjs" "${chrome}"
-for image in default system pi dollyfile-studio; do
+for image in pi dollyfile-studio; do
   for tool in ripgrep fd; do
     DOLLY_IMAGE="${image}" DOLLY_BROWSER_MODE="${tool}" \
       node "${project_dir}/scripts/browser-harness.mjs" "${chrome}"

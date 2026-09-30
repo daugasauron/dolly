@@ -78,12 +78,12 @@ test("images separate reusable runtimes from applications and configuration", as
   const expected = {
     "ghostty-build": ["system-build"], "system-build": [],
     "system-tools": ["system-build"],
-    system: ["system-tools", "ghostty-build", "ripgrep", "fd-build"], default: ["system"], javascript: ["system", "typescript-build"],
+    system: ["system-tools", "ghostty-build"], default: ["system"], javascript: ["system", "typescript-build"],
     "typescript-build": ["system-tools"], "pi-build": ["typescript-build"],
     "rust-sdk": ["system-build"], "rust-build": ["rust-sdk"], "rust-tools": ["system", "rust-build"],
     ripgrep: ["rust-build"], "fd-build": ["rust-build"], "protox-build": ["rust-build"],
-    "codex-build": ["rust-build", "protox-build"], codex: ["system", "codex-build"],
-    "gpu-fluid": ["gpu-sdk"], "gpu-sdk": ["system"], slopyard: ["gamedev-sdk", "javascript", "pi-build"],
+    "codex-build": ["rust-build", "protox-build"], codex: ["system", "codex-build", "ripgrep", "fd-build"],
+    "gpu-fluid": ["gpu-sdk"], "gpu-sdk": ["system"], slopyard: ["gamedev-sdk", "javascript", "ripgrep", "fd-build", "pi-build"],
     "llama-build": ["cmake-build"], "local-llm-build": ["llama-build"],
     "dollyfile-studio": ["pi-local", "neovim-build"],
     "cmake-build": ["system-tools"], "neovim-build": ["cmake-build"],
@@ -91,10 +91,10 @@ test("images separate reusable runtimes from applications and configuration", as
     "classicube-build": ["sdl2-build"], classicube: ["pi-runtime", "classicube-build", "sdl2-build"],
     "rts-arena": ["pi-runtime", "rts-build"],
     neovim: ["system", "neovim-build"],
-    "pi-runtime": ["javascript", "pi-build"], pi: ["pi-runtime"], "pi-local": ["pi", "local-llm-build", "llama-build"],
+    "pi-runtime": ["javascript", "ripgrep", "fd-build", "pi-build"], pi: ["pi-runtime"], "pi-local": ["pi", "local-llm-build", "llama-build"],
     "python-runtime": ["system"], python: ["python-runtime"],
     "gamedev-sdk": ["system"],
-    bhop: ["gamedev-sdk", "javascript", "pi-build", "sdl2-build"],
+    bhop: ["gamedev-sdk", "javascript", "ripgrep", "fd-build", "pi-build", "sdl2-build"],
     "zero-ad": ["default"], "audio-sdk": ["system"],
   };
   for (const definition of await discoverImageDefinitions(project)) {

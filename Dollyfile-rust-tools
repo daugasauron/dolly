@@ -1,7 +1,7 @@
 DOLLY 4
 IMAGE rust-tools
 
-FROM HOST /Dollyfile-system 489a5fad3c2e592710b56e5ba823c9a0dc831e745757b81d514c88aefd3813ba
+FROM HOST /Dollyfile-system eb86c13034c52515b0bd24b2217cc422d3f9663c3eab2ca1dd246f2951c07bd1
 
 COPY FROM HOST /Dollyfile-rust-build 667feee43dc51e2f91178acd67c61981bc54c498c2a046febb14a11dd2c0adeb /opt/rust-sdk /opt/rust-sdk
 COPY FROM HOST /Dollyfile-rust-build 667feee43dc51e2f91178acd67c61981bc54c498c2a046febb14a11dd2c0adeb /usr/bin/patti /usr/bin/patti

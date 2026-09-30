@@ -1,7 +1,7 @@
 DOLLY 4
 IMAGE system
 
-FROM HOST /Dollyfile-system-tools 9279ebf1488b5e576da375c951376184b4aa526ee84458572523285f3bab613c
+FROM HOST /Dollyfile-system-tools 3051c4de64fca7d4f1932c8afb7caf7daeac5289c50c035f434c7d933e72e5de
 
 REQUIRES HOST display@0
 REQUIRES HOST http@0
@@ -15,17 +15,6 @@ COPY FROM HOST /Dollyfile-ghostty-build 5e3c8958b2974fe522e5865435a98fc3bee08468
 COPY FROM HOST /Dollyfile-ghostty-build 5e3c8958b2974fe522e5865435a98fc3bee08468bc07724eb13fed5c7d3c66e6 /usr/share/licenses/uucode /usr/share/licenses/uucode
 EXPORTS LIB display /usr/lib/libdisplay.so
 EXPORTS ENV DISPLAY /usr/lib/libdisplay.so
-
-# Keep the tools produced by the in-sandbox Rust source builds.
-COPY FROM HOST /Dollyfile-ripgrep 092a140fd43a73a9d94b53cf682bdf40476d24c82ce1492a8d1d703e0da11b04 /usr/bin/rg /usr/bin/rg
-COPY FROM HOST /Dollyfile-ripgrep 092a140fd43a73a9d94b53cf682bdf40476d24c82ce1492a8d1d703e0da11b04 /usr/share/licenses/ripgrep /usr/share/licenses/ripgrep
-COPY FROM HOST /Dollyfile-ripgrep 092a140fd43a73a9d94b53cf682bdf40476d24c82ce1492a8d1d703e0da11b04 /usr/share/dolly/builds/ripgrep.json /usr/share/dolly/builds/ripgrep.json
-EXPORTS TOOL rg
-
-COPY FROM HOST /Dollyfile-fd-build 2510a18f0f27fa06d82359f6bd7bed29b0f184438318b0ef84edd52bb440a42b /usr/bin/fd /usr/bin/fd
-COPY FROM HOST /Dollyfile-fd-build 2510a18f0f27fa06d82359f6bd7bed29b0f184438318b0ef84edd52bb440a42b /usr/share/licenses/fd /usr/share/licenses/fd
-COPY FROM HOST /Dollyfile-fd-build 2510a18f0f27fa06d82359f6bd7bed29b0f184438318b0ef84edd52bb440a42b /usr/share/dolly/builds/fd.json /usr/share/dolly/builds/fd.json
-EXPORTS TOOL fd
 
 USE HOST /modules/session-recovery.dm 1329ea6fdc0fa46d717f4e45fde26fd9ab8ff7253045c8757b780c6ef7fc1ee0
 
