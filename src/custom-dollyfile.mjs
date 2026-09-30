@@ -1,5 +1,6 @@
 import { inspectDollyfile, MAX_DOLLYFILE_BYTES } from "./dollyfile-view.mjs";
 import { DOLLY_IMAGES } from "../dist/dolly-images.mjs";
+import { publicURL } from "./static-asset.mjs";
 
 const form = document.querySelector("#custom-dollyfile");
 const source = document.querySelector("#source");
@@ -40,8 +41,6 @@ form.addEventListener("submit", event => {
   try {
     if (inspectDollyfile(source.value).kind !== "image") throw new Error("Upload an IMAGE recipe, not a MODULE");
     sessionStorage.setItem(storageKey, source.value);
-    const target = new URL("../custom/rebuild/", import.meta.url);
-    target.pathname = target.pathname.replace(/\/_dolly\/[0-9a-f]{64}\//, "/");
-    location.assign(target);
+    location.assign(publicURL("custom/rebuild/"));
   } catch (error) { status.textContent = error.message; }
 });

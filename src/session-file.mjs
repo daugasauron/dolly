@@ -1,10 +1,9 @@
 import { DOLLY_SESSION_MAX_BYTES, DOLLY_SESSION_METADATA_MAX_BYTES as metadataLimit,
   validateSessionRecord, decodeSessionSnapshot } from "./session-store.mjs";
+import { sha256 } from "./static-asset.mjs";
 
 const magic = new TextEncoder().encode("DOLLYSF1");
 const headerSize = magic.length + 4;
-const checksum = async bytes => [...new Uint8Array(await crypto.subtle.digest("SHA-256", bytes))]
-  .map(byte => byte.toString(16).padStart(2, "0")).join("");
 
 export async function exportSessionFile(record) {
   validateSessionRecord(record);
@@ -12,7 +11,7 @@ export async function exportSessionFile(record) {
   const metadata = new TextEncoder().encode(JSON.stringify({
     name, formatVersion, buildId, image, imageIdentity, updatedAt, encoding,
     ...(customImage === undefined ? {} : { customImage }),
-    byteLength: bytes.byteLength, sha256: await checksum(bytes),
+    byteLength: bytes.byteLength, sha256: await sha256(bytes),
   }));
   if (metadata.byteLength > metadataLimit) throw new Error("Session metadata is too large");
   const header = new Uint8Array(headerSize);
@@ -40,7 +39,7 @@ export async function importSessionFile(file) {
   const record = { name, formatVersion, buildId, image, imageIdentity, updatedAt, encoding, bytes,
     ...(customImage === undefined ? {} : { customImage }) };
   validateSessionRecord(record);
-  if (await checksum(bytes) !== metadata.sha256) throw new Error("Session file checksum failed; the file is damaged");
+  if (await sha256(bytes) !== metadata.sha256) throw new Error("Session file checksum failed; the file is damaged");
   const decoded = await decodeSessionSnapshot(record);
   if (decoded.byteLength < 16) throw new Error("Session file contains an incomplete snapshot");
   return record;
