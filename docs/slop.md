@@ -15,15 +15,18 @@ same filesystem-module loader used for every other command.
 Slop has three entry modes:
 
 ```text
-slop
+slop [-enx]
 slop [-enx] -c 'command' [name [arg ...]]
 slop [-enx] script [arg ...]
 ```
 
-The no-argument form is interactive. GNU Make uses `/bin/slop -c`. Script mode
-reads a file from WasmFS. All modes use the same parser and executor.
-`-n` parses without executing and is useful for checking imported build
-scripts; `-e` enables checked execution and `-x` prints executed commands.
+The no-argument form is interactive when standard input is a terminal;
+otherwise it reads its complete standard input as a script, so
+`echo 'cmd' | sh` works. GNU Make uses `/bin/slop -c`. Script mode reads a
+file from WasmFS. All modes use the same parser and executor. `-n` parses
+without executing and is useful for checking imported build scripts; `-e`
+enables checked execution and `-x` prints executed commands. Option letters
+combine, as in `-ec`.
 
 The interactive form has a deliberately small line editor inside Slop. Left
 and Right move the cursor, Up and Down browse command history, and Tab completes
@@ -54,6 +57,7 @@ runtimes conventional script entry points without a host process escape.
 The current language supports:
 
 - commands separated by newline or `;`, with `&&`, `||`, and `!` status logic;
+  a lone `&` is a syntax error because Slop has no background jobs;
 - nested `if`/`then`/`elif`/`else`/`fi` command lists; conditions suppress
   `set -e` while selected bodies retain normal failure behavior;
 - finite nested `for NAME [in WORD ...]; do ...; done` loops; an omitted `in`
@@ -64,25 +68,29 @@ The current language supports:
   nested loops; levels larger than the active nesting depth target the
   outermost active loop;
 - nested `case WORD in PATTERN[|PATTERN]...) ... ;; ... esac` selection using
-  Slop's deterministic wildcard matcher and first-match execution;
+  Slop's deterministic wildcard matcher and first-match execution; quoted
+  parts of a pattern match literally, as in `"$prefix"*)`;
 - named `NAME () { COMMANDS; }` functions with function-local positional
   parameters, scoped `local NAME[=VALUE] ...` variables, `return [STATUS]`, a
   recursion limit of 64 calls, and ordinary current-interpreter
   `{ COMMANDS; }` groups whose trailing redirections wrap the complete group;
-- parenthesized `(COMMANDS)` groups with private cwd, environment, functions,
-  positional/option state, and `exit`; their file mutations remain in the
-  shared WasmFS, their finite standard-stream redirections wrap the complete
-  group, they can form the first stage of a serial pipeline, and no process is
-  created;
-- serial pipelines of any length with `|`; the optional `set -o pipefail`
-  returns the rightmost nonzero stage status without introducing concurrency;
+- parenthesized `(COMMANDS)` subshells with private cwd, variables, exported
+  names, functions, positional/option state, `exec` descriptors and `exit`;
+  their file mutations remain in the shared WasmFS and no process is created;
+- trailing redirections on every compound command, as in
+  `while read -r line; do ...; done < file`;
+- pipelines of any length with `|` whose stages, simple or compound, each run
+  as a subshell (see [pipelines](#pipelines)); the optional `set -o pipefail`
+  returns the rightmost nonzero stage status;
 - single and double quotes, backslash escapes, and boundary comments with `#`;
 - backslash-newline continuation in scripts and `-c` command text;
 - ordered `<`, `>`, and `>>` file redirections for descriptors 0 through 9,
   descriptor duplication and closing with forms such as `2>&1`, `6>&1`,
   `7<&0`, and `5>&-`, execution-time descriptor words such as `>&$fd` that
   must resolve to exactly one digit or `-`, and persistent descriptor setup
-  through redirection-only `exec`;
+  through redirection-only `exec`; Bash's `&>file`, `&>>file` and `>&file`
+  send both stdout and stderr to the file; child commands inherit descriptors
+  0 through 9 exactly, including closed ones;
 - up to 32 `<<DELIMITER` here-documents on one command line; literal quoted
   delimiters suppress expansion, while unquoted bodies expand parameters,
   arithmetic, command substitutions, and simple legacy backticks at execution
@@ -94,7 +102,8 @@ The current language supports:
   default/assignment/alternate/error forms, plus their colon variants
   `${VAR:-word}`, `${VAR:=word}`, `${VAR:+word}`, and `${VAR:?message}`;
   the colon variants also select empty values, and selected words support
-  nested dollar expansion;
+  nested dollar expansion; any expansion error, including `${VAR?}` and
+  arithmetic errors, exits a non-interactive shell with status 1;
 - byte length with `${#VAR}` and shortest/longest wildcard prefix or suffix
   removal with `${VAR#pattern}`, `${VAR##pattern}`, `${VAR%pattern}`, and
   `${VAR%%pattern}`;
@@ -105,16 +114,20 @@ The current language supports:
   variables, parentheses, unary, multiplicative, additive, shift, comparison,
   equality, bitwise, and short-circuit logical operators; evaluated division
   errors fail expansion;
-- deterministic `*`, `?`, and bracket globbing in one path component;
+- deterministic `*`, `?`, and bracket globbing in every path component, as in
+  `rm -f build/*/*.o`;
 - execution-time `~` expansion at the start of a fully unquoted word or the
   value of an assignment, using the current `HOME`; named-user forms are not
   part of Dolly's no-user-model shell;
-- persistent assignments, command-prefix assignments, `export`, and `unset`;
+- persistent and command-prefix assignments, performed from left to right so
+  `a=x b=$a` sets `b` to `x`; only variables inherited from the environment,
+  marked with `export`, or assigned as a command prefix reach child commands;
+  `export` or `export -p` lists them and `unset` also drops the mark;
 - sorted shell-state output from bare `set`, positional replacement with
   `set [--] ARG ...`, and checked `shift [N]`;
 - line input with `read [-r] [NAME ...]`; it assigns shell state, honors `IFS`
-  for deterministic basic field splitting, and works with ordinary `<`
-  redirection;
+  for deterministic basic field splitting, and consumes exactly one line so
+  the next reader of the same file or pipe continues after it;
 - deterministic `IFS` byte splitting for fully unquoted expansion words,
   including empty-field removal and globbing after splitting; literal words
   are not split merely because they contain an `IFS` byte, and quoted or
@@ -134,9 +147,8 @@ The current language supports:
 - `eval [WORD ...]`, which joins its already-expanded arguments with spaces and
   parses the result in the current interpreter;
 - `set -e`/`set +e`, command tracing with `set -x`/`set +x`, and named
-  `set -o`/`set +o` options for `pipefail`, `errexit`, `xtrace`, and the
-  compatibility-only `posix` probe; option letters may be combined, as in
-  `set -ex`;
+  `set -o`/`set +o` options for `pipefail`, `errexit`, and `xtrace`; other
+  options fail with status 2; option letters may be combined, as in `set -ex`;
 - state-aware `type [-p|-P] NAME ...`, which can distinguish Slop functions,
   builtins, filesystem executables, and missing commands.
 
@@ -198,11 +210,7 @@ non-repository comparison and apply engines with paging disabled; `patch`
 supports the finite noninteractive unified-patch subset shown by `patch --help`.
 
 The current subset does not implement aliases, background jobs, job control,
-parameter substring slicing, or search-and-replacement. Except for a
-parenthesized group in the first position, compound commands are not pipeline
-stages yet; use a temporary file or wrap the required operation in an ordinary
-command when importing a script that pipes into or out of `case`, `if`, or a
-loop.
+parameter substring slicing, or search-and-replacement.
 Those are added only when a useful source build demonstrates a need and the
 semantics can remain explicit.
 Slop is therefore not advertised as POSIX `sh` or Bash.
@@ -228,24 +236,26 @@ as pipeline or parenthesized-group status inversion only at a command boundary;
 inside `/bin/[ ! -d path ]` it remains an argument to the separately compiled
 test command.
 
-## Synchronous semantics
+## Pipelines
 
-Slop intentionally executes ordinary commands serially: `spawn` returns a
-kernel-owned child handle, then Slop waits for its status. Each external command
-has a fresh private Wasm instance; see [the process model](process-model.md).
-Slop implements pipelines by running each stage in order and spooling bytes
-through an unlinked temporary WasmFS file. Command substitution uses the same
-pattern. Temporary names disappear immediately; their open descriptors and
-contents remain entirely inside Wasm memory until closed.
+Lists run serially: Slop spawns each external command, which gets a fresh
+private Wasm instance (see [the process model](process-model.md)), and waits
+for its status. A pipeline starts all of its stages before it waits. Every
+stage is a subshell, so `exit`, `cd` and assignments in a stage never reach the
+shell. A stage whose command name is a literal external command runs as its
+own process and streams into a kernel pipe, so `make 2>&1 | tee log` shows
+progress and `find / | head` stops reading early. A stage that runs inside
+Slop (a builtin, function, compound command, or computed command name) writes
+its complete output to an unlinked WasmFS spool file before the next stage
+starts, so the single-threaded shell never waits on a reader that has not
+started. Command substitution and here-documents use the same spool.
 
-This is slower and differs from concurrent Unix pipes under streaming or
-unbounded workloads. It is the preferred compatibility rule for now: bounded
-compiler recipes and agent utilities behave predictably without inventing
-threads, host processes, async JavaScript callbacks, or a scheduler. `-jN` is
-similarly accepted by Dolly's GNU Make port but clamped to one effective job.
+Dolly's process libc does not yet raise `SIGPIPE` when a write finds no
+reader. After a consumer such as `head` exits, the producer receives `EPIPE`
+instead of terminating: `seq 1 2000000 | head -n 1` prints `1` at once, but
+`seq` still runs to completion and reports `Broken pipe`.
+`-jN` is accepted by Dolly's GNU Make port but clamped to one effective job.
 
-A trailing consumer such as `head -20` therefore cannot terminate an unbounded
-producer through `SIGPIPE`: the producer must finish before `head` starts.
 Plain `Ctrl+C` targets the currently running foreground process tree through
 Dolly's kernel `SIGINT` path and returns status 130, leaving Slop and the
 shared in-memory filesystem alive. Cooperative polling gets a 500 ms grace
@@ -257,7 +267,7 @@ There is no fixed 60-second tool deadline. Callers may supply a timeout, and
 timed spawns have a trusted supervisor timer that returns status 124 even for
 uninstrumented CPU loops. The kernel filesystem and parent survive.
 
-SIGINT stops the remaining list, serial pipeline and command-substitution work.
+SIGINT stops the remaining list, pipeline and command-substitution work.
 An ordinary `exit 130` is a command failure and does not interrupt later commands.
 See the [process cancellation contract](process-model.md#cancellation).
 
@@ -287,8 +297,9 @@ node --test test/slop.test.mjs
 DOLLY_IMAGE=default DOLLY_BROWSER_MODE=slop ./scripts/test-browser.sh
 ```
 
-The native test needs Bash and a host `cc` with ASan/UBSan; it denies external
-spawning. Browser tests execute real Wasm commands. For a shell-only edit,
+The native test needs Bash and a host `cc` with ASan/UBSan; its small spawn
+shim runs host commands with the inherited descriptors and the exact
+environment Slop passes. Browser tests execute real Wasm commands. For a shell-only edit,
 `DOLLY_BROWSER_MODE=slop-source` compiles
 the current source inside a disposable browser session before running the same
 cases, without rebuilding all images.
