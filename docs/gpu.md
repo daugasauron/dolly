@@ -7,18 +7,18 @@ kernels return `ENOSYS`. It is a small C client, not `webgpu.h`, OpenGL or Vulka
 
 ```mermaid
 flowchart LR
-  prog["C program + WGSL"] -- "process call 128" --> kernel["Kernel gpu-kernel.c"]
+  prog["C program + WGSL"] -- "process call 128" --> kernel["Kernel host/gpu/kernel.c"]
   kernel -- "env.dolly_gpu_dispatch(packet, bytes)" --> bridge["gpu-bridge.mjs"]
   bridge --> worker["GPU Worker: gpu-worker.mjs"]
   worker --> webgpu["WebGPU device"] --> canvas["OffscreenCanvas to compositor"]
 ```
 
-- Contract and packet layouts: [`dolly-gpu-0.wat`](../abi/dolly-gpu-0.wat); C
-  and JavaScript constants are generated from it. Client: [`gpu.h`](../include/dolly/gpu.h),
-  [`gpu/client.c`](../src/gpu/client.c), built in Dolly by
+- Contract and packet layouts: [`host/gpu/dolly-gpu-0.wat`](../host/gpu/dolly-gpu-0.wat); C
+  and JavaScript constants are generated from it. Client: [`host/gpu/gpu.h`](../host/gpu/gpu.h),
+  [`gpu/client.c`](../host/gpu/client.c), built in Dolly by
   [`gpu.dm`](../modules/gpu.dm) into `-ldolly-gpu`
   ([`Dollyfile-gpu-sdk`](../Dollyfile-gpu-sdk)).
-- The kernel ([`gpu-kernel.c`](../src/gpu-kernel.c)) ties each scope to a process
+- The kernel ([`host/gpu/kernel.c`](../host/gpu/kernel.c)) ties each scope to a process
   and revokes it on exit, abort or forced termination.
 - The provider copies each packet before acknowledging it and validates structure
   before executing; WebGPU validates WGSL and pipelines. Accepted batches are not

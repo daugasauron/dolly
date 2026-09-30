@@ -4,8 +4,8 @@ One canvas has two producers: the resident Ghostty terminal and, while it holds 
 lease, one foreground graphics process. Terminal parsing, rasterization and
 application input handling stay in Wasm; the browser only checks and blits RGBA
 frames and forwards bounded input records
-([`dolly-display-0.wat`](../abi/dolly-display-0.wat),
-[`host/display.mjs`](../src/host/display.mjs)).
+([`host/display/dolly-display-0.wat`](../host/display/dolly-display-0.wat),
+[`host/display.mjs`](../host/display/display.mjs)).
 
 ```mermaid
 flowchart LR
@@ -36,7 +36,7 @@ flowchart LR
 
 ## Graphics processes
 
-[`display.h`](../include/dolly/display.h) exposes these operations over
+[`host/display/display.h`](../host/display/display.h) exposes these operations over
 `dolly_process_0.call`:
 
 | Operation | Purpose |

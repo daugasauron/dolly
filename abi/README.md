@@ -10,13 +10,13 @@ WAT file document its semantics.
 | [`dolly-process-0.wat`](dolly-process-0.wat) | Ordinary executables: private shared memory64, one import `dolly_process_0.call`, export `_start` |
 | [`dolly-process-gate-0.wat`](dolly-process-gate-0.wat) | Policy-free copier between a process memory and the kernel mailbox |
 | [`dolly-process-dso-0.wat`](dolly-process-dso-0.wat) | Optional process-local shared objects and FFI infrastructure |
-| [`dolly-threads-0.wat`](dolly-threads-0.wat), [`dolly-threads-supervisor-0.wat`](dolly-threads-supervisor-0.wat) | Optional `-pthread` profile and its supervisor exports |
+| [`host/threads/dolly-threads-0.wat`](../host/threads/dolly-threads-0.wat), [`host/threads/dolly-threads-supervisor-0.wat`](../host/threads/dolly-threads-supervisor-0.wat) | Optional `-pthread` profile and its supervisor exports |
 | [`dolly-host-0.wat`](dolly-host-0.wat) | `dolly.host` records naming required host modules; no authority |
-| [`dolly-gpu-0.wat`](dolly-gpu-0.wat), [`dolly-audio-0.wat`](dolly-audio-0.wat) | Additive process operations 128 and 129 and their browser imports |
+| [`host/gpu/dolly-gpu-0.wat`](../host/gpu/dolly-gpu-0.wat), [`host/audio/dolly-audio-0.wat`](../host/audio/dolly-audio-0.wat) | Additive process operations 128 and 129 and their browser imports |
 | [`dolly-kernel-plugin-0.wat`](dolly-kernel-plugin-0.wat) | The resident display plugin; never an ordinary program target |
 | [`dolly-browser-0.wat`](dolly-browser-0.wat) | The complete typed outer import allowlist of the kernel |
 | [`dolly-supervisor-0.wat`](dolly-supervisor-0.wat) | Kernel exports the trusted supervisor uses |
-| [`dolly-display-0.wat`](dolly-display-0.wat), [`dolly-http-0.wat`](dolly-http-0.wat), [`dolly-download-0.wat`](dolly-download-0.wat), [`dolly-upload-0.wat`](dolly-upload-0.wat), [`dolly-snapshot-0.wat`](dolly-snapshot-0.wat) | Browser-facing mailboxes and dispatch imports |
+| [`host/display/dolly-display-0.wat`](../host/display/dolly-display-0.wat), [`host/http/dolly-http-0.wat`](../host/http/dolly-http-0.wat), [`host/download/dolly-download-0.wat`](../host/download/dolly-download-0.wat), [`host/upload/dolly-upload-0.wat`](../host/upload/dolly-upload-0.wat), [`host/snapshot/dolly-snapshot-0.wat`](../host/snapshot/dolly-snapshot-0.wat) | Browser-facing mailboxes and dispatch imports |
 
 A contract makes a boundary reviewable and lets the build derive retained exports
 exactly; listing a function does not make it guest authority.

@@ -17,9 +17,9 @@ flowchart LR
 
 ## Transport
 
-- Contract: [`dolly-http-0.wat`](../abi/dolly-http-0.wat); kernel side in
+- Contract: [`host/http/dolly-http-0.wat`](../host/http/dolly-http-0.wat); kernel side in
   [`dolly.c`](../src/dolly.c); browser side in
-  [`host/http.mjs`](../src/host/http.mjs) and [`http-broker.mjs`](../src/http-broker.mjs).
+  [`host/http.mjs`](../host/http/http.mjs) and [`host/http/broker.mjs`](../host/http/broker.mjs).
 - The import passes span descriptors only. The broker checks them against fixed
   caps before copying: method 32 B, URL 8 KiB, headers 64 KiB, body 8 MiB.
   Policy can lower these caps, never raise them. Metadata is literal UTF-8
@@ -89,7 +89,7 @@ Fetch, so a generic transport failure alone does not identify its cause.
 
 ## In-Wasm clients
 
-- C: [`http.h`](../include/dolly/http.h) provides `dolly_http_start`, `_poll`,
+- C: [`host/http/http.h`](../host/http/http.h) provides `dolly_http_start`, `_poll`,
   `_cancel` and the synchronous `dolly_http_perform`.
 - libcurl: official curl 8.21 headers over
   [`libcurl-fetch.c`](../src/libcurl-fetch.c), linked with `-lcurl`. It covers

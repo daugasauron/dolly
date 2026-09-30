@@ -30,9 +30,9 @@ flowchart LR
 | Part | Code | Role |
 | --- | --- | --- |
 | Page | [`browser.mjs`](../src/browser.mjs), [`terminal.html`](../terminal.html) | Boots one route, owns canvas, keyboard, clipboard and Save |
-| Host modules | [`host/modules.mjs`](../src/host/modules.mjs) | Fixed registry of browser providers; see [browser boundary](browser-boundary.md) |
+| Host modules | [`host/`](../host/README.md) | One directory and manifest per bridge: JavaScript provider, WAT contract, C header, kernel C, process client; see [browser boundary](browser-boundary.md) |
 | Runtime Worker | [`runtime-worker.mjs`](../src/runtime-worker.mjs) | Loads the kernel, restores or builds the image, runs its ENTRY |
-| Kernel | [`dolly.c`](../src/dolly.c), [`process-kernel.c`](../src/process-kernel.c), [`system-snapshot.c`](../src/system-snapshot.c), [`session-snapshot.c`](../src/session-snapshot.c) | WasmFS, open files, pipes, processes, signals, terminal, HTTP slots, snapshots ([build](../toolchain/CMakeLists.txt)) |
+| Kernel | [`dolly.c`](../src/dolly.c), [`process-kernel.c`](../src/process-kernel.c), [`system-snapshot.c`](../src/system-snapshot.c) | WasmFS, open files, pipes, processes, signals, terminal, image snapshots; module operations go to each module's `kernel.c` ([build](../toolchain/CMakeLists.txt)) |
 | Supervisor | [`process-supervisor.mjs`](../src/process-supervisor.mjs) | Compiles executables, gives each process a fresh memory, gate and Worker (one per thread), forwards syscalls, enforces deadlines |
 | Process Worker | [`process-worker.mjs`](../src/process-worker.mjs), [`process-ffi.mjs`](../src/process-ffi.mjs) | Instantiates the executable; loads process-local DSOs and FFI |
 | Process libc | [`libc-adapter.c`](../src/process/libc-adapter.c), [`signal.c`](../src/process/signal.c) | Maps Emscripten musl's low-level calls to process operations |

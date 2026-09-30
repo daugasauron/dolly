@@ -44,8 +44,8 @@ flowchart LR
   `.dolly-session` files, checksummed but not authenticated; imports never
   overwrite an existing name.
 
-Code: kernel [`session-snapshot.c`](../src/session-snapshot.c); page
-[`session-transport.mjs`](../src/session-transport.mjs),
+Code: kernel [`host/snapshot/kernel.c`](../host/snapshot/kernel.c); page
+[`host/snapshot/transport.mjs`](../host/snapshot/transport.mjs),
 [`session-store.mjs`](../src/session-store.mjs),
 [`session-file.mjs`](../src/session-file.mjs), list page
 [`sessions.mjs`](../src/sessions.mjs).
@@ -54,11 +54,11 @@ Code: kernel [`session-snapshot.c`](../src/session-snapshot.c); page
 
 - `upload DESTINATION` opens the browser's file picker. The chosen file's bytes
   (at most 64 MiB) land at a new path; existing files are never overwritten and
-  no host name or path enters Wasm ([`upload.c`](../src/upload.c),
+  no host name or path enters Wasm ([`host/upload/kernel.c`](../host/upload/kernel.c),
   [`upload.dm`](../modules/upload.dm)).
 - `download FILE` copies one regular file of at most 64 MiB. The page shows
   **Save NAME (SIZE)** and **Dismiss**; nothing reaches the download manager until
   the user clicks Save. At most four offers wait; more fail with `EBUSY`
-  ([`download.mjs`](../src/host/download.mjs), [`download.dm`](../modules/download.dm)).
+  ([`host/download/download.mjs`](../host/download/download.mjs), [`download.dm`](../modules/download.dm)).
 - Neither is a network path, but uploaded bytes are ordinary sandbox data that
   allowed HTTP can send elsewhere.

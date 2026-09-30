@@ -41,22 +41,22 @@ flowchart TB
 [`abi/dolly-browser-0.wat`](../abi/dolly-browser-0.wat) is the exact outer import
 allowlist; the build rejects any other import and artifact checks reject
 undeclared `dolly_*` exports.
-[`host/modules.mjs`](../src/host/modules.mjs) assigns each import to one
-provider; a disabled provider's imports return `ENOSYS`. Images and packets
+[`host/modules.mjs`](../host/modules.mjs) assigns each import to the module whose
+[manifest](../host/README.md) owns it; a disabled module's imports return `ENOSYS`. Images and packets
 select no JavaScript or Worker URL.
 
 | Module | Channel | Authority | Code |
 | --- | --- | --- | --- |
-| `runtime@0` | memory, clocks, entropy, environment, seed preload, text output | Kernel memory and boot inputs; process Workers | [`runtime.mjs`](../src/host/runtime.mjs), [`process-supervisor.mjs`](../src/process-supervisor.mjs) |
-| `http@0` | `env.dolly_http_dispatch`, 16-slot pool | The only agent-selected network edge, under the page's policy | [`http.mjs`](../src/host/http.mjs), [`http-broker.mjs`](../src/http-broker.mjs), [`http-policy.mjs`](../src/http-policy.mjs) |
-| `download@0` | `env.dolly_download_dispatch` | Offer one copied file (64 MiB) under a checked basename; saved only by a user click; at most 4 waiting | [`download.mjs`](../src/host/download.mjs) |
-| `upload@0` | mailbox | Ask for a file; the user picks it; 64 MiB of bytes, no name or path; refused for 2 s after a cancel | [`upload.mjs`](../src/host/upload.mjs), [`upload-transport.mjs`](../src/upload-transport.mjs), [`upload.c`](../src/upload.c) |
-| `snapshot@0` | mailbox | Save and restore opaque session deltas (512 MiB) on user action | [`snapshot.mjs`](../src/host/snapshot.mjs), [`session-transport.mjs`](../src/session-transport.mjs) |
-| `display@0` | mailbox | Publish checked RGBA frames; receive bounded input records; load the display plugin from WasmFS | [`display.mjs`](../src/host/display.mjs), [`kernel-plugin.mjs`](../src/kernel-plugin.mjs) |
-| `gpu@0` | `env.dolly_gpu_dispatch` | Bounded WebGPU packets, 8 scopes, 4,096 objects each, 4 GiB total, one canvas | [`gpu.mjs`](../src/host/gpu.mjs), [`gpu-bridge.mjs`](../src/gpu-bridge.mjs), [`gpu-worker.mjs`](../src/gpu-worker.mjs) |
-| `audio@0` | `env.dolly_audio_dispatch` | Stereo PCM output, 4 streams of 1 s; no capture | [`audio.mjs`](../src/host/audio.mjs), [`audio-bridge.mjs`](../src/audio-bridge.mjs), [`audio-provider.mjs`](../src/audio-provider.mjs) |
-| `threads@0` | supervisor | Worker per thread of an admitted executable: 16 per process, 64 total | [`threads.mjs`](../src/host/threads.mjs) |
-| `build@0` | reserved URL via `http@0` | Start a disposable image build that writes the image cache | [`build.mjs`](../src/host/build.mjs), [`local-services.mjs`](../src/local-services.mjs), [`image-build-service.mjs`](../src/image-build-service.mjs) |
+| `runtime@0` | memory, clocks, entropy, environment, seed preload, text output | Kernel memory and boot inputs; process Workers | [`host/runtime/`](../host/runtime/module.json) ([`process-supervisor.mjs`](../src/process-supervisor.mjs)) |
+| `http@0` | `env.dolly_http_dispatch`, 16-slot pool | The only agent-selected network edge, under the page's policy | [`host/http/`](../host/http/module.json) |
+| `download@0` | `env.dolly_download_dispatch` | Offer one copied file (64 MiB) under a checked basename; saved only by a user click; at most 4 waiting | [`host/download/`](../host/download/module.json) |
+| `upload@0` | mailbox | Ask for a file; the user picks it; 64 MiB of bytes, no name or path; refused for 2 s after a cancel | [`host/upload/`](../host/upload/module.json) |
+| `snapshot@0` | mailbox | Save and restore opaque session deltas (512 MiB) on user action | [`host/snapshot/`](../host/snapshot/module.json) |
+| `display@0` | mailbox | Publish checked RGBA frames; receive bounded input records; load the display plugin from WasmFS | [`host/display/`](../host/display/module.json) ([`kernel-plugin.mjs`](../src/kernel-plugin.mjs)) |
+| `gpu@0` | `env.dolly_gpu_dispatch` | Bounded WebGPU packets, 8 scopes, 4,096 objects each, 4 GiB total, one canvas | [`host/gpu/`](../host/gpu/module.json) |
+| `audio@0` | `env.dolly_audio_dispatch` | Stereo PCM output, 4 streams of 1 s; no capture | [`host/audio/`](../host/audio/module.json) |
+| `threads@0` | supervisor | Worker per thread of an admitted executable: 16 per process, 64 total | [`host/threads/`](../host/threads/module.json) |
+| `build@0` | reserved URL via `http@0` | Start a disposable image build that writes the image cache | [`host/build/`](../host/build/module.json) |
 
 - `REQUIRES HOST` lines and executable `dolly.host` records
   ([`dolly-host-0.wat`](../abi/dolly-host-0.wat)) are compatibility demands, not
