@@ -40,8 +40,7 @@ unsupported. Normal/interrupted exits restore terminal mode.
 
 ```sh
 npm run image -- neovim
-DOLLY_IMAGE=neovim DOLLY_BUILD_IMAGES=neovim DOLLY_BROWSER_MODE=neovim bash scripts/test-browser.sh
-DOLLY_IMAGE=system bash demos/cmake/test-libuv.sh
+npm run test:demos -- neovim cmake
 ```
 
 Browser tests cover source compilation, parsers, Unicode editing/paste,

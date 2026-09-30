@@ -6,6 +6,8 @@ SDL2 with a Dolly video backend for the framebuffer and input; ClassiCube, Seven
 
 - `sdl2-build`: SDL2 software rendering for the Dolly framebuffer.
 
+Browser test: `npm run test:demos -- sdl2` (`demos/sdl2/test/sdl2-browser.mjs`).
+
 ## Sources
 
 | Component | Outside-browser preparation | Inside-Dolly result |

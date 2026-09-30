@@ -5,3 +5,5 @@ CMake bootstrapped from upstream source over a small libuv port. Neovim, SDL2, l
 ## Images
 
 - `cmake-build`: CMake bootstrap and libuv.
+
+Browser test: `npm run test:demos -- cmake` (`demos/cmake/test/cmake-browser.mjs`), which also builds libuv from source.

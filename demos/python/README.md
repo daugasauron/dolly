@@ -7,6 +7,8 @@ Source-built CPython with libffi, `_ctypes` and C/C++ extension builds, plus the
 - `python`: CPython, Bonnie and native-extension tools.
 - `python-runtime`: CPython and its native-extension SDK.
 
+Browser test: `npm run test:demos -- python` (`demos/python/test/python-browser.mjs`); `DOLLY_PYTHON_PACKAGES=1` adds a Pandas source build from PyPI.
+
 ## Sources
 
 | Component | Outside-browser preparation | Inside-Dolly result |
