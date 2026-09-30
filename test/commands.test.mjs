@@ -66,6 +66,28 @@ test("timeout 0 disables the deadline", () => {
   assert.equal(run(timeout, ["0.05", "sleep", "5"]).status, 124);
 });
 
+test("Dolly's own core tools keep their no-permission and finite semantics", async () => {
+  const testTool = await buildInline("test"), bracket = await buildInline("bracket");
+  const status = (program, args) => run(program, args).status;
+  assert.equal(status(testTool, ["-x", "."]), 1, "a directory is not an executable candidate");
+  assert.equal(status(testTool, ["-x", testTool]), 0);
+  assert.equal(status(bracket, ["(", "-n", "a", "-a", "-z", "", ")", "-o", "!", "-d", ".", "]"]), 0);
+  assert.equal(status(bracket, ["!", "(", "a", "=", "a", ")", "-a", "-d", ".", "]"]), 1);
+  assert.equal(status(bracket, ["-n", "a"]), 2);
+  assert.equal(run(await buildInline("cat"), ["-n"], { input: "a\nb\n" }).stdout, "     1\ta\n     2\tb\n");
+  assert.equal(run(await buildInline("echo"), ["--"]).stdout, "--\n");
+  assert.equal(status(await buildInline("ls"), ["--color=never", "."]), 0);
+  const tail = build("tail");
+  assert.equal(run(tail, ["-n", "1"], { input: "a\nb\n" }).stdout, "b\n");
+  assert.equal(run(tail, ["-f"], { input: "a\n", timeout: 5000 }).status, 2);
+  await writeFile(join(scratch, "install-source"), "bytes");
+  assert.equal(status(build("install"), ["-m", "755", "-o", "nobody", "-g", "nogroup",
+    "install-source", "installed"]), 0);
+  assert.equal(await readFile(join(scratch, "installed"), "utf8"), "bytes");
+  assert.equal(run(build("du"), ["-b", "install-source"]).stdout, "5\tinstall-source\n");
+  assert.equal(run(build("rev"), [], { input: "aé✓b\n" }).stdout, "b✓éa\n");
+});
+
 test("env, command and time resolve programs on the resulting PATH", () => {
   const env = build("env");
   assert.equal(run(env, ["-i", "FOO=bar", env]).stdout, "FOO=bar\n");

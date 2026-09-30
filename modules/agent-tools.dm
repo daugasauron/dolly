@@ -1,8 +1,9 @@
 DOLLY 4
 MODULE agent-tools
 
-# Dolly-owned commands which upstream sbase cannot provide: those which start
-# another program use the in-userspace spawn/wait contract instead of fork.
+# Focused compatibility commands used by build systems and coding agents.
+# Each remains a separate Wasm executable; wrappers which launch another tool
+# do so through Dolly's in-userspace spawn/wait contract.
 REQUIRES HEADER libc
 REQUIRES HEADER runtime
 REQUIRES TOOL   cc
@@ -10,7 +11,11 @@ REQUIRES TOOL   git
 REQUIRES TOOL   make
 REQUIRES TOOL   rm
 
-SOURCE HOST /static/default/commands/run-program.h /tmp/agent-tools/run-program.h 69926596156d69af5fc24a9d7da0f250fd2de610b1bc2a590b9663ed66de2247
+SOURCE HOST /static/default/commands/run-program.h /tmp/agent-tools/run-program.h 677cab1ebff7f32b87f8566939d8cd0bffa9a0b94307f0cdc81ea6d05e76243e
+SOURCE HOST /static/default/commands/install.c     /tmp/agent-tools/install.c     605b04b67970f478771ee89a37c178748579fe6440ad0568e90fadcfa00922c4
+SOURCE HOST /static/default/commands/tail.c        /tmp/agent-tools/tail.c        f0a892066f2e6fe42667bf1765496f8347c8bfe53094ce22e0922e4ffc87c36b
+SOURCE HOST /static/default/commands/du.c          /tmp/agent-tools/du.c          55b6a61ea8dc2a4355aaafc9a80d2218f397fa4d1e170b78462863fc9cb2ed63
+SOURCE HOST /static/default/commands/rev.c         /tmp/agent-tools/rev.c         3539529d49f26629a6518437dc76631f113bcc5822ff5dbc8aa26481933f3d05
 SOURCE HOST /static/default/commands/command.c     /tmp/agent-tools/command.c     93610e7ec64b99dd6a128d66e5a49b453464fa317434167251b492d4913e44da
 SOURCE HOST /static/default/commands/xargs.c       /tmp/agent-tools/xargs.c       48b9860d4954b71a067fed59a892d04194e95471ca0067c81f60f9eb83a09c84
 SOURCE HOST /static/default/commands/find.c        /tmp/agent-tools/find.c        342ba6df849456d47646b7531718ca9682d27b3215c355ebb156eae7e8b16813
@@ -25,7 +30,7 @@ SOURCE HOST /static/default/commands/tty.c         /tmp/agent-tools/tty.c       
 
 FILE /tmp/agent-tools/Makefile
     .RECIPEPREFIX := >
-    NAMES := command xargs find env time timeout realpath diff patch hostname tty
+    NAMES := install tail du rev command xargs find env time timeout realpath diff patch hostname tty
     TOOLS := $(addprefix /bin/,$(NAMES))
     all: $(TOOLS)
     /bin/%: /tmp/agent-tools/%.c /tmp/agent-tools/run-program.h
@@ -33,6 +38,10 @@ FILE /tmp/agent-tools/Makefile
 SLOP make \
   -f /tmp/agent-tools/Makefile
 
+EXPORTS TOOL install
+EXPORTS TOOL tail
+EXPORTS TOOL du
+EXPORTS TOOL rev
 EXPORTS TOOL command
 EXPORTS TOOL xargs
 EXPORTS TOOL find

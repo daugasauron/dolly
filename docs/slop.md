@@ -69,17 +69,22 @@ threads, host processes or a scheduler.
 
 ## Commands
 
-- File and text utilities are unchanged upstream sbase, built by its own Makefile
-  ([`sbase.dm`](../modules/sbase.dm)). They follow POSIX, not GNU: `cat -n` and
-  `ls --color` fail. `install` is sbase `xinstall`; `[` is `test`. `ln -s` works;
-  hard links fail in WasmFS. Owners are numeric.
-- Commands that need spawn or Dolly specifics are Dolly's own
-  ([`agent-tools.dm`](../modules/agent-tools.dm),
-  [`core-tools.dm`](../modules/core-tools.dm); sources in `src/commands/`):
-  `command`, `env`, `find`, `time`,
-  `timeout`, `xargs`, `realpath`, `diff` and `patch` (over Git), `hostname`, `tty`,
-  `foreground`, `help`, `clear`, `stat`, `file`. Each prints its supported subset
-  with `--help`; other options fail.
+- Core tools are Dolly's own ([`core-tools.dm`](../modules/core-tools.dm)),
+  compiled with plain `cc` in `system-build` before Make, whose recipes need `cp`:
+  `cat [-n]`, `cp`, `mv`, `ls [--color]`, `echo`, `touch`, `pwd`, `test`/`[` with
+  `!`, `-a`, `-o` and parentheses, `foreground`, `help`, `clear`, `stat`, `file`.
+  There are no permission bits: `test -x` means a regular file, `-r`/`-w` that
+  the path exists. `/bin/cd` is a compatibility command; plain `cd` is the builtin.
+- [`agent-tools.dm`](../modules/agent-tools.dm) (sources in `src/commands/`) adds
+  `command`, `env`, `find`, `time`, `timeout`, `xargs`, `diff` and `patch` (over
+  Git), which run programs with Slop's descriptors; `install`, whose mode, owner
+  and group options are syntax only and create no metadata; `tail`, which rejects
+  follow mode; `du`, which counts logical in-memory bytes; UTF-8 `rev`;
+  `realpath`, `hostname`, `tty`. Each prints its supported subset with `--help`;
+  other options fail.
+- The other file and text utilities are unchanged upstream sbase, built by its
+  own Makefile in `system-tools` ([`sbase.dm`](../modules/sbase.dm)). They follow
+  POSIX, not GNU. `ln -s` works; hard links fail in WasmFS.
 - GNU Make 4.4.1 ([`make.dm`](../modules/make.dm),
   [`make-dolly.c`](../src/runtimes/make-dolly.c)) uses `/bin/slop` for every
   recipe and `$(shell …)`; `-jN` is accepted and runs serially. `ninja` is

@@ -92,8 +92,8 @@ if has_module gzip; then
   copy_static src/commands/gzip.c default/commands/gzip.c
 fi
 if has_module agent-tools; then
-  for source in run-program.h command.c xargs.c find.c env.c time.c timeout.c \
-      realpath.c diff.c patch.c hostname.c tty.c; do
+  for source in run-program.h install.c tail.c du.c rev.c command.c xargs.c \
+      find.c env.c time.c timeout.c realpath.c diff.c patch.c hostname.c tty.c; do
     copy_static "${project_dir}/src/commands/${source}" "default/commands/${source}"
   done
 fi
