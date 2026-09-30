@@ -27,8 +27,6 @@ FILE /tmp/sbase/dolly.mk
     >ln -s test /bin/[
     .RECIPEPREFIX :=
     include Makefile
-    # Slop does not accept the combined -ec that .POSIX makes pass.
-    .SHELLFLAGS = -c
 SLOP make \
   -C /tmp/sbase \
   -f dolly.mk \
