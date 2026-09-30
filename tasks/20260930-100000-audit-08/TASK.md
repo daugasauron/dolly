@@ -35,4 +35,8 @@ HTTP body staging is capped at 8 MiB (`E2BIG`, tested by
 `src/process/http-check.c` from `test/network-browser.mjs`) and freed when a
 thread or process ends. Trusted reads of `/etc/dolly/entry`, `/etc/dolly/image`
 and the compiler trace use `readBoundedFile`; the clock id is read once.
-Missing: tests for the boot-file bounds.
+Missing: tests for the boot-file bounds. Sessions cannot carry an oversized
+`/etc/dolly/entry`: `dolly_session_excluded_path` drops `/etc/dolly/*`, and a
+65 KiB entry written in a live session came back as the image's 78-byte entry
+after reload (checked 2026-10-01). A test therefore needs a custom image whose
+build leaves an oversized entry.
