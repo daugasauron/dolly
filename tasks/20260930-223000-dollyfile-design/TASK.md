@@ -54,3 +54,37 @@ understanding before any change is proposed.
   embed the time or random bytes in file contents. Reproducibility is checked by
   rebuilding (`npm run image -- IMAGE --reproducible`), not prevented. Should
   builds run with a fixed `SOURCE_DATE_EPOCH`?
+
+## Hands-on findings (2026-09-30, branch `experiment/dollyfile`, `demos/lean/`)
+
+Measured by building and booting real images:
+
+- **Lean images work with today's language.** `hello` copies one program built in
+  a build-only image (`hello-build`) plus `/bin/foreground`, the display plugin and
+  the font: 8.9 MB, boots and runs. `runtime` copies the system userspace without
+  its compiler (10 `COPY FROM` rows, one `SLOP rm` of the compiler front ends):
+  19.7 MB instead of 159.6 MB for `system`; Git, pipes and PATH work; `cc` is absent.
+  Two isolated cold builds and one cached build are byte-identical.
+- **Boot cost follows size.** Local cold boot to ready: `default` about 2.0 s,
+  `runtime` about 0.42 s. Every catalog image today carries the 135 MiB C/C++
+  toolchain (compiler 75 MiB, process SDK 27 MiB, headers about 25 MiB), including
+  games that never compile.
+- **Friction observed.** Each copied path repeats the builder pin; `COPY` imports no
+  environment, so `PATH`, `SHELL` and `DISPLAY` are re-declared. Both are explicit
+  and grepable; neither blocks anything.
+- **External sources need CORS.** Of six common upstream hosts (GitHub codeload and
+  releases, lua.org, GNU, PyPI, npm) only npm allows a cross-origin fetch. This is
+  why sources are staged as `HOST` inputs.
+- **Build context.** A recipe built in Studio or `/custom/` can only use inline
+  `FILE` bodies and site or URL sources; multi-file projects from the author's
+  workspace have no pinned way into the build sandbox.
+
+Candidate directions, for the owner to choose:
+
+1. A compiler-free core runtime image built by `COPY FROM`, and demos that do not
+   compile at runtime built on it (no language change).
+2. Importing named export objects (`TOOL`, `LIB`, `FOLDER`, `ENV`) from a completed
+   image, using the receipt's recorded members. Helps multi-file objects and
+   environment; does not help bulk copies, where directory `COPY` is already one row.
+3. A pinned build context for Studio and custom recipes (files from the author's
+   workspace, hashed in the recipe), if multi-file projects matter.
