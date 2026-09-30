@@ -33,7 +33,9 @@ with the contract's 8 GiB ceiling.
 | Signals | Kernel pending state, in-Wasm handlers and bounded termination fallback |
 
 This is correspondence, not complete Linux emulation. Fork, process replacement,
-threads, raw sockets and job-control groups are unsupported.
+raw sockets and job-control groups are unsupported. Threads are the optional
+`threads@0` profile: statically linked executables, at most 16 thread Workers
+per process and 64 in total, without DSO or FFI operations.
 
 ## Libc, linking and descriptors
 
@@ -55,8 +57,15 @@ target; see [Ghostty](zig-ghostty.md).
 
 Descriptor flags are per handle; file offsets and status flags belong to shared
 open descriptions. Pipe duplicates share O_NONBLOCK: empty reads/full writes
-return EAGAIN, and closing all writers gives EOF. FD_CLOEXEC works for files,
-pipes and duplicates.
+return EAGAIN, and closing all writers gives EOF. Writing without readers raises
+SIGPIPE, leaving EPIPE when it is ignored or handled. FD_CLOEXEC works for files,
+pipes and duplicates. Opening `/dev/stdin`, `/dev/stdout` or `/dev/stderr`
+duplicates the caller's descriptor 0, 1 or 2.
+
+`chmod` stores permission bits that `stat` reports and WasmFS enforces for
+reading and writing; execution ignores them, open/mkdir modes are not part of
+the ABI, and images and sessions do not preserve them. `chown` succeeds only
+for the single owner and group, zero.
 
 Spawn selects none, standard streams, or all non-CLOEXEC descriptors, then
 applies explicit parent-to-child mappings. Sources always refer to the parent,
@@ -66,8 +75,9 @@ Python maps `close_fds` and `pass_fds` to this same operation.
 
 `poll` observes regular files, bounded pipes and the in-Wasm tty without
 consuming input. Absolute deadlines permit deferred retry; delivered signals
-wake it with EINTR. The terminal owns canonical input, echo and independent
-OPOST/ONLCR bits. Raw LF is preserved; cooked output can map LF to CRLF.
+wake it with EINTR. Terminal reads return the display's raw input bytes; the
+ICANON and ECHO bits round-trip through termios without a kernel line
+discipline. Output honors independent OPOST/ONLCR bits, mapping LF to CRLF.
 
 Advisory file locks are not implemented: valid F_GETLK/F_SETLK/F_SETLKW return
 ENOTSUP, and invalid descriptors return EBADF. They never pretend to lock.
@@ -106,7 +116,7 @@ Positive-PID `kill(pid, 0)` checks existence.
 Dolly supports a finite signal set and rejects unsupported signals/action flags.
 
 Wait records distinguish signal termination from ordinary exit. `exit(130)`
-is not SIGINT. libc exposes POSIX wait status; `dolly_wait` returns normalized
+is not SIGINT. `waitpid` accepts a child PID, or -1 and 0 for any child. libc exposes POSIX wait status; `dolly_wait` returns normalized
 shell status. Slop uses the wait record to stop remaining list, serial pipeline
 and command-substitution work after SIGINT, while an ordinary exit 130 remains
 a command failure.
@@ -141,7 +151,8 @@ kernel handles are reclaimed, but named files may remain. Ignored/blocked
 signals do not shorten sleeps; delivered handlers interrupt sleep/poll, while
 SA_RESTART restarts read/write/wait.
 
-Timed spawns carry absolute monotonic deadlines; the supervisor enforces them
+Timed spawns carry absolute monotonic deadlines at most one day away; the
+kernel rejects later ones with EINVAL and the supervisor enforces them
 with a browser timer and status 124 even for pure CPU loops without safepoints.
 Python `Popen.wait(timeout=...)` instead stops waiting without killing the child.
 HTTP polling is nonblocking so runtimes can service timers and cancellation

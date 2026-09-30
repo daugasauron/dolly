@@ -17,8 +17,9 @@ private Wasm processes: Slop, compilers, runtimes, tools, games
 ## Processes and tools
 
 Every ordinary command is a `dolly-process-0` executable with a private
-memory and one typed call import. Each spawn gets a fresh Worker and runtime
-state; kernel files and inherited descriptors survive process replacement.
+memory and one typed call import. Each spawn gets fresh Workers (one per
+thread) and runtime state; kernel files and inherited descriptors survive
+process replacement.
 A multi-memory Wasm gate copies bounded packets, not host objects or pointers.
 
 Executable files are found through `PATH`; supported `#!` scripts resolve
@@ -37,9 +38,9 @@ C++ and process-local DSOs share their owning process's memory/table, not the
 kernel's. See [process semantics](process-model.md).
 
 The kernel owns spawn/wait, pipes and signals. The supervisor can terminate an
-uncooperative Worker without discarding the filesystem. Fork, native threads,
-raw sockets and complete POSIX job control are unsupported. Serial execution is
-intentional. Slop stops interrupted lists and pipelines, propagates signal
+uncooperative Worker without discarding the filesystem. Fork, raw sockets and
+complete POSIX job control are unsupported; threads are an optional host
+profile. Serial execution is intentional. Slop stops interrupted lists and pipelines, propagates signal
 termination through nested shells, and keeps the interactive prompt usable.
 
 ## Images and files
