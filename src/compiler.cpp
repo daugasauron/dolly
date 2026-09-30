@@ -125,7 +125,7 @@ void add_library(DriverOptions &options, const std::string &name,
   }
 }
 
-// Like Clang, classify inputs by suffix: C and C++ sources are compiled and
+// Like Clang, classify inputs by suffix: C, C++ and assembly sources are compiled and
 // every other input (objects, archives, shared objects, unknown files) is
 // passed to the linker. `-x` selects the language of non-object inputs.
 std::string source_language(const std::string &input, int default_language,
@@ -140,6 +140,8 @@ std::string source_language(const std::string &input, int default_language,
   for (const char *suffix : {".cc", ".cp", ".cpp", ".cxx", ".c++", ".C", ".CPP"}) {
     if (ends_with(input, suffix)) return "c++";
   }
+  if (ends_with(input, ".S") || ends_with(input, ".sx")) return "assembler-with-cpp";
+  if (ends_with(input, ".s")) return "assembler";
   return "";
 }
 
@@ -454,9 +456,9 @@ std::vector<const char *> argument_pointers(
   return pointers;
 }
 
-bool run_frontend(const std::string &source, const std::string &language,
-                  const std::string &output,
-                  const DriverOptions &options) {
+bool run_clang(const std::string &source, const std::string &language,
+               const std::string &output,
+               const DriverOptions &options) {
   if (const char *trace = std::getenv("DOLLY_CC_TRACE");
       trace != nullptr && std::strcmp(trace, "1") == 0) {
     if (FILE *trace_file = std::fopen("/tmp/dolly-cc-trace.log", "w")) {
@@ -633,6 +635,54 @@ bool run_frontend(const std::string &source, const std::string &language,
   diagnostic_buffer->FlushDiagnostics(compiler.getDiagnostics());
 
   return parsed && clang::ExecuteCompilerInvocation(&compiler);
+}
+
+// Whether assembly text holds only line markers, comments and blank lines.
+bool assembles_nothing(const std::string &path) {
+  auto buffer = llvm::MemoryBuffer::getFile(path);
+  if (!buffer) return false;
+  for (llvm::StringRef rest = (*buffer)->getBuffer(); !rest.empty();) {
+    auto [line, next] = rest.split('\n');
+    line = line.trim();
+    if (!line.empty() && !line.starts_with("#") && !line.starts_with("//")) return false;
+    rest = next;
+  }
+  return true;
+}
+
+// Dolly has no WebAssembly assembler. Assembly that preprocesses to nothing,
+// such as x86 code behind #if, still yields an empty object as with Clang;
+// any real assembly fails explicitly.
+bool run_frontend(const std::string &source, const std::string &language,
+                  const std::string &output,
+                  const DriverOptions &options) {
+  if (options.preprocess_only ||
+      (language != "assembler" && language != "assembler-with-cpp")) {
+    return run_clang(source, language, output, options);
+  }
+  std::string text = source;
+  if (language == "assembler-with-cpp") {
+    DriverOptions preprocessing = options;
+    preprocessing.preprocess_only = true;
+    text = output + ".s";
+    if (!run_clang(source, language, text, preprocessing)) return false;
+  }
+  const bool empty = assembles_nothing(text);
+  if (text != source) std::remove(text.c_str());
+  if (!empty) {
+    std::fprintf(stderr, "dolly-cc: %s: WebAssembly assembly is unsupported\n",
+                 source.c_str());
+    return false;
+  }
+  const std::string blank = output + ".c";
+  FILE *file = std::fopen(blank.c_str(), "w");
+  if (file == nullptr) return false;
+  std::fclose(file);
+  DriverOptions compiling = options;
+  compiling.dependency_output = false;
+  const bool compiled = run_clang(blank, "c", output, compiling);
+  std::remove(blank.c_str());
+  return compiled;
 }
 
 bool link_side_module(const std::string &output,

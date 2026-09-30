@@ -98,6 +98,10 @@ export async function runProcessSmoke(submit, origin) {
     await run("printf 'int missing(void);\\nint use(void) { return missing(); }\\n' > undefined.c && cc -shared undefined.c -o undefined.so");
     assert.notEqual(await submit("cc -shared -Wl,--no-undefined undefined.c -o undefined.so"), 0,
       "--no-undefined accepted an undefined symbol");
+    // No WebAssembly assembler: guarded foreign assembly is an empty object, real assembly fails.
+    await run("printf '#if defined(__x86_64__)\\n  movq %%rax, %%rbx\\n#endif\\n' > guarded.S && cc -c guarded.S -o guarded.o && test -s guarded.o");
+    assert.notEqual(await submit("printf 'movq %%rax, %%rbx\\n' > real.S && cc -c real.S -o real.o"), 0,
+      "assembly compiled without an assembler");
   } finally {
     await submit(`cd /workspace; rm -rf ${scratch}`);
   }
