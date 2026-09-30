@@ -17,7 +17,8 @@ function uleb(value) {
 export async function runBrowserBoundaryChecks(assetRoot) {
   const asset = path => new URL(path, assetRoot).href;
   const { instantiateKernelPlugin } = await import(asset("src/kernel-plugin.mjs"));
-  const { NetworkTransport, DOLLY_HTTP_MAILBOX_VERSION, DOLLY_HTTP_SLOT_COUNT } = await import(asset("src/http-broker.mjs"));
+  const { NetworkTransport } = await import(asset("src/http-broker.mjs"));
+  const { DOLLY_HTTP_MAILBOX_VERSION, DOLLY_HTTP_SLOT_COUNT } = await import(asset("src/host/http-abi.mjs"));
   const { DollyHttpPolicy, restrictDollyHttpPolicy, httpPolicyConfigurations } = await import(asset("src/http-policy.mjs"));
   const { DOLLY_KERNEL_PLUGIN_ABI_DIGEST } = await import(asset("dist/dolly-kernel-plugin-abi.mjs"));
   const { DOLLY_ERRNO: errno } = await import(asset("dist/dolly-errno.mjs"));
@@ -49,9 +50,7 @@ export async function runBrowserBoundaryChecks(assetRoot) {
   const policy = new DollyHttpPolicy({ rules: [{ origin: fixtureOrigin,
     path: "/fixture/http.txt", methods: ["GET"], timeoutMilliseconds: 1000 }] });
   let calls = 0, signal, received = false;
-  const broker = new NetworkTransport(new SharedArrayBuffer(64 + DOLLY_HTTP_SLOT_COUNT * (65536 + 64)), 64, 65536, policy, {
-    baseURL: location.href,
-  });
+  const broker = new NetworkTransport(new SharedArrayBuffer(64 + DOLLY_HTTP_SLOT_COUNT * (65536 + 64)), 64, 65536, policy);
   const word = broker.address / 4;
   const words = broker.words;
   const handle = generation => (generation - 1) * DOLLY_HTTP_SLOT_COUNT + 1;
@@ -93,7 +92,13 @@ export async function runBrowserBoundaryChecks(assetRoot) {
   await begin(3, "/fixture/http.txt");
   check(calls === 1 && Atomics.load(words, word + NetworkTransport.error) === errno.EDQUOT,
     "quota exhaustion was not distinguished before Fetch");
+  // The fixture server is this page's origin, which the default policy denies.
   broker.policy = new DollyHttpPolicy(undefined);
+  await begin(4, "/fixture/http.txt");
+  check(calls === 1 && Atomics.load(words, word + NetworkTransport.error) === errno.EACCES,
+    "the default policy admitted the page origin");
+  const appBase = "https://app.dolly.invalid/", remote = () => new DollyHttpPolicy(undefined, [], appBase);
+  broker.policy = remote();
   await begin(4, "http://127.0.0.1:1/"); // Browsers reject this unsafe port opaquely.
   check(Atomics.load(words, word + NetworkTransport.error) === errno.EIO,
     "native Fetch failure lost its transport errno");
@@ -132,16 +137,16 @@ export async function runBrowserBoundaryChecks(assetRoot) {
     await settled();
     check(observations.length === (valid ? 1 : 0), `metadata was rewritten before Fetch: ${JSON.stringify(fields)}`);
     check(Atomics.load(words, word + NetworkTransport.error) ===
-      (valid ? errno.EIO : fields.url ? errno.EACCES : errno.EINVAL), "literal metadata lost its errno");
+      (valid ? errno.EIO : errno.EINVAL), "literal metadata lost its errno");
   }
   check(observations[0] === "\u00A0value\u00A0", "Unicode header whitespace was stripped");
 
   broker.fetchRequest = fetchRequest;
-  const unrestricted = new DollyHttpPolicy();
+  const unrestricted = remote();
   for (let index = 0; index < 300; index++) unrestricted.authorize(new URL(fixtureOrigin), "GET", new Headers(), 0);
   const restricted = new DollyHttpPolicy({ rules: [{ origin: fixtureOrigin,
     path: "/fixture/http-redirect", methods: ["POST"] }] });
-  const inherited = parent => restrictDollyHttpPolicy(new DollyHttpPolicy(), httpPolicyConfigurations(parent));
+  const inherited = parent => restrictDollyHttpPolicy(remote(), httpPolicyConfigurations(parent), [], appBase);
   const observed = async () => (await fetch(new URL("/fixture/http-observations", fixtureOrigin))).json();
   let sequence = 10;
   for (const [policy, flags, status, follows] of [

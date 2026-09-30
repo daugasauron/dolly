@@ -109,6 +109,13 @@ function normalizeRule(rule) {
   });
 }
 
+// Whole segments only: "/v1" admits "/v1" and "/v1/x", never "/v1-admin".
+// Encoded separators could re-segment the path on the server.
+function pathWithin(pathname, prefix) {
+  if (/%(?:2f|5c)/i.test(pathname)) return false;
+  return pathname === prefix || pathname.startsWith(prefix.endsWith("/") ? prefix : `${prefix}/`);
+}
+
 function normalizeTrustedSource(source, applicationBase) {
   if (source === null || typeof source !== "object" ||
       typeof source.path !== "string" || !source.path.startsWith("/") ||
@@ -132,6 +139,7 @@ function normalizeTrustedSource(source, applicationBase) {
 export class DollyHttpPolicy {
   constructor(configuration, trustedSources = [], applicationBase = globalThis.location?.href) {
     this.hardened = configuration !== undefined;
+    this.applicationOrigin = applicationBase === undefined ? null : new URL(applicationBase).origin;
     this.rules = this.hardened
       ? Object.freeze((configuration.rules ?? []).map(normalizeRule))
       : Object.freeze([]);
@@ -144,7 +152,10 @@ export class DollyHttpPolicy {
       const rule = normalizeTrustedSource(source, applicationBase);
       return [rule.href, rule];
     }));
+    // Each exact build input may be fetched a few times per page, not endlessly.
+    this.maxBootstrapRequests = this.hardened ? 4 * this.trustedSources.size : Infinity;
     this.requests = 0;
+    this.bootstrapRequests = 0;
   }
 
   authorize(target, method, headers, requestBytes) {
@@ -157,13 +168,13 @@ export class DollyHttpPolicy {
     if (rule) {
       // Recipe and source URLs are build inputs selected by the embedding page,
       // not capabilities granted by an untrusted Dollyfile. They are exact,
-      // read-only, credential-free URLs with byte-for-byte response limits.
+      // read-only, credential-free URLs with byte-for-byte response limits and
+      // their own quota, so a large source graph cannot exhaust agent requests.
+      if (++this.bootstrapRequests > this.maxBootstrapRequests) {
+        throw new HttpError(DOLLY_ERRNO.EDQUOT, "Dolly bootstrap source quota exceeded");
+      }
       for (const name of credentialHeaderNames) headers.delete(name);
     } else {
-      // Exact build inputs are embedding-selected capabilities and have their
-      // own byte bound. They do not spend the quota for agent-selected
-      // requests; otherwise a large source graph can exhaust networking before
-      // the built userspace ever starts.
       if (++this.requests > this.maxRequests) {
         throw new HttpError(DOLLY_ERRNO.EDQUOT, "Dolly HTTP request quota exceeded");
       }
@@ -171,13 +182,15 @@ export class DollyHttpPolicy {
         rule = this.rules.find((candidate) =>
           candidate.origin === target.origin &&
           (candidate.path === null
-            ? target.pathname.startsWith(candidate.pathPrefix)
+            ? pathWithin(target.pathname, candidate.pathPrefix)
             : target.pathname === candidate.path) &&
           candidate.methods.has(upperMethod));
         if (!rule) throw new HttpError(DOLLY_ERRNO.EACCES, "Dolly HTTP policy denied the request");
       } else {
-        if (target.protocol !== "http:" && target.protocol !== "https:") {
-          throw new HttpError(DOLLY_ERRNO.EPROTONOSUPPORT, "Dolly HTTP requires HTTP(S)");
+        // The app's origin serves sessions, cached images and code without CORS.
+        // Only exact bootstrap sources or an explicit embedding rule reach it.
+        if (target.origin === this.applicationOrigin) {
+          throw new HttpError(DOLLY_ERRNO.EACCES, "Dolly HTTP policy denied the application origin");
         }
         rule = {
           followRedirects: true,

@@ -156,3 +156,37 @@ test("bootstrap sources are exact read-only broker capabilities", () => {
     /denied/,
   );
 });
+
+test("path prefixes match whole segments and reject encoded separators", () => {
+  const policy = new DollyHttpPolicy({ maxRequests: 100, rules: [{ origin: "https://models.example", pathPrefix: "/v1", methods: ["GET"] }] });
+  const allowed = path => {
+    try { policy.authorize(new URL(path, "https://models.example"), "GET", new Headers(), 0); return true; }
+    catch { return false; }
+  };
+  assert.deepEqual(["/v1", "/v1/", "/v1/models", "/v1/a/%2e%2e/b"].map(allowed), [true, true, true, true]);
+  assert.deepEqual(["/v1-admin", "/v1%2F..", "/v1/..%2fadmin", "/v1/%5c..", "/v2", "/v1/../admin"].map(allowed),
+    [false, false, false, false, false, false]);
+});
+
+test("the default policy denies the application origin except exact bootstrap sources", () => {
+  const policy = new DollyHttpPolicy(undefined, [{ path: "/static/tool.tar", byteLength: 1234 }], "https://dolly.example/app/");
+  assert.equal(policy.authorize(new URL("https://dolly.example/app/static/tool.tar"), "GET", new Headers(), 0).maxResponseBytes, 1234);
+  for (const target of ["https://dolly.example/app/static/tool.tar?x", "https://dolly.example/other-site/",
+    "https://dolly.example/app/_dolly/", "https://dolly.example/app/static/tool.tar"]) {
+    const method = target.endsWith("tool.tar") ? "POST" : "GET";
+    assert.throws(() => policy.authorize(new URL(target), method, new Headers(), 0), /denied/, target);
+  }
+  assert.equal(policy.authorize(new URL("https://dolly.example:8443/"), "GET", new Headers(), 0).followRedirects, true);
+  const explicit = new DollyHttpPolicy({ rules: [{ origin: "https://dolly.example", pathPrefix: "/fixture/" }] },
+    [], "https://dolly.example/app/");
+  assert.doesNotThrow(() => explicit.authorize(new URL("https://dolly.example/fixture/x"), "GET", new Headers(), 0));
+});
+
+test("bootstrap sources have a bounded hardened quota separate from agent requests", () => {
+  const policy = new DollyHttpPolicy({ maxRequests: 1, rules: [] },
+    [{ path: "/static/tool.tar", byteLength: 1234 }], "https://dolly.example/app/");
+  const fetchSource = () => policy.authorize(new URL("https://dolly.example/app/static/tool.tar"), "GET", new Headers(), 0);
+  for (let index = 0; index < 4; index++) fetchSource();
+  assert.throws(fetchSource, /quota/);
+  assert.equal(policy.requests, 0);
+});

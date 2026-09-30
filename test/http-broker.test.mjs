@@ -1,7 +1,8 @@
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import test from "node:test";
-import { NetworkTransport, DOLLY_HTTP_LIMITS, DOLLY_HTTP_SLOT_COUNT } from "../src/http-broker.mjs";
+import { NetworkTransport, DOLLY_HTTP_LIMITS } from "../src/http-broker.mjs";
+import { DOLLY_HTTP_SLOT_COUNT } from "../src/host/http-abi.mjs";
 import { DollyHttpPolicy, httpPolicyConfigurations, restrictDollyHttpPolicy } from "../src/http-policy.mjs";
 import { localServicesTransport } from "../src/local-services.mjs";
 import { DOLLY_ERRNO as errno } from "../dist/dolly-errno.mjs";
@@ -13,7 +14,7 @@ function fixture(configuration = {}, fetchRequest) {
       timeoutMilliseconds: 1000, ...configuration }],
   });
   const broker = new NetworkTransport(new SharedArrayBuffer(64 + DOLLY_HTTP_SLOT_COUNT * (65536 + 64)), 64, 65536,
-    policy, { fetchRequest, baseURL: target });
+    policy, { fetchRequest });
   let currentSequence = 1;
   const address = () => broker.address + ((currentSequence - 1) % DOLLY_HTTP_SLOT_COUNT) * (65536 + 64);
   const store = (field, value) => Atomics.store(broker.words, address() / 4 + field, value);
@@ -76,6 +77,12 @@ test("HTTP authorization happens before any fetch", async () => {
   assert.equal(f.load(NetworkTransport.state), 3);
   assert.equal(f.load(NetworkTransport.error), errno.EACCES);
   assert.equal(f.broker.active, false);
+  for (const [url, error] of [["/allowed", errno.EINVAL], ["//fixture.example/allowed", errno.EINVAL],
+    ["file:///etc/passwd", errno.EPROTONOSUPPORT]]) {
+    await bounded(f.request({ url }, 2));
+    assert.equal(f.load(NetworkTransport.error), error, url);
+  }
+  assert.equal(calls, 0, "relative URLs never resolve against the page");
 });
 
 test("multipart delivery is restricted to embedding-selected sources, including inherited policy", async () => {
@@ -260,7 +267,7 @@ test("HTTP metadata is not repaired by stripping Unicode before validation", asy
     assert.equal(await f.broker.dispatch(admission(f, fields)), 0);
     await consume(f, settled(f));
     assert.equal(calls, 0, JSON.stringify(fields));
-    assert.equal(f.load(NetworkTransport.error), fields.url ? errno.EACCES : errno.EINVAL);
+    assert.equal(f.load(NetworkTransport.error), errno.EINVAL);
   }
 });
 
