@@ -1,14 +1,19 @@
 import { SessionTransport } from "./transport.mjs";
+import { mountSessionSave } from "./ui.mjs";
 
-export function browser({ send }) {
+export function browser(page) {
   let transport;
+  const session = mountSessionSave(page, () => transport);
   return {
-    get transport() { return transport; },
-    dispose() { transport?.close(); },
+    get name() { return session.name; },
+    save: session.save,
+    claimsKey: session.claimsKey,
+    entryStarted: session.entryStarted,
+    dispose() { session.abort(); transport?.close(); },
     start(message) {
       if (message.version !== 2) throw new Error(`unsupported session mailbox ${message.version}`);
       transport = new SessionTransport(message.memory, message.address, message.nameAddress, message.nameCapacity,
-        message.transferAddress, message.transferCapacity, () => send({ type: "snapshot-request" }));
+        message.transferAddress, message.transferCapacity, () => page.send({ type: "snapshot-request" }));
     },
   };
 }

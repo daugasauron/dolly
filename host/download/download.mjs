@@ -13,7 +13,7 @@ function validName(name) {
 
 // Wasm can only ask. Each file reaches the browser's download manager through
 // one user click on its Save button, never automatically.
-export function browser() {
+export function browser({ keyboard }) {
   const pending = new Int32Array(new SharedArrayBuffer(4));
   const panel = document.createElement("ul");
   panel.id = "downloads";
@@ -53,7 +53,7 @@ export function browser() {
             item.remove();
             panel.hidden = panel.childElementCount === 0;
             Atomics.sub(pending, 0, 1);
-            document.querySelector("#keyboard")?.focus({ preventScroll: true });
+            keyboard?.focus({ preventScroll: true });
           }, { once: true });
           return element;
         };
@@ -65,6 +65,7 @@ export function browser() {
         document.documentElement.dataset.downloadName = name;
       },
     },
+    claimsKey: event => panel.contains(event.target),
     dispose() { panel.remove(); for (const url of [...urls]) revoke(url); },
   };
 }
