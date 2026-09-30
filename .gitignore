@@ -1,5 +1,5 @@
-build
-dist
+/build
+/dist
 .cache/
 node_modules
 __pycache__/
