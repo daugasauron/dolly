@@ -1,7 +1,7 @@
 # Codex TUI exits: "terminal input stream closed during startup"
 
 - STATUS: OPEN
-- PRIORITY: 190
+- PRIORITY: 320
 - TAGS: bug,codex,demo,terminal
 
 `npm run test:demos -- codex` (2026-10-01, images rebuilt from the new seed):
