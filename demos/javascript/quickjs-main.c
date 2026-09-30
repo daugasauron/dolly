@@ -789,10 +789,10 @@ static JSValue js_dolly_fs_operation(JSContext *context,
                                      JSValueConst this_value,
                                      int argc, JSValueConst *argv, int magic) {
   (void)this_value;
-  static const char *const syscalls[] = {"access", "mkdir", "unlink", "rmdir", "rename", "copyfile"};
+  static const char *const syscalls[] = {"access", "mkdir", "unlink", "rmdir", "rename", "copyfile", "chmod"};
   if (argc < 1) return JS_ThrowTypeError(context, "filesystem operation requires a path");
   int32_t mode = F_OK;
-  if (magic == 0 && argc > 1 && JS_ToInt32(context, &mode, argv[1]) < 0) return JS_EXCEPTION;
+  if ((magic == 0 || magic == 6) && argc > 1 && JS_ToInt32(context, &mode, argv[1]) < 0) return JS_EXCEPTION;
   const char *first = JS_ToCString(context, argv[0]);
   if (first == NULL) return JS_EXCEPTION;
   const char *second = NULL;
@@ -801,6 +801,7 @@ static JSValue js_dolly_fs_operation(JSContext *context,
   else if (magic == 1) status = mkdir(first, 0755);
   else if (magic == 2) status = unlink(first);
   else if (magic == 3) status = rmdir(first);
+  else if (magic == 6) status = chmod(first, (mode_t)mode);
   else if (magic == 4 || magic == 5) {
     if (argc < 2 || (second = JS_ToCString(context, argv[1])) == NULL) {
       JS_FreeCString(context, first);
@@ -1420,7 +1421,7 @@ static int install_dolly_backend(JSContext *context) {
 #define DOLLY_FS_FUNCTION(name, magic)                                         \
   JS_SetPropertyStr(context, dolly, name,                                      \
                     JS_NewCFunctionMagic(context, js_dolly_fs_operation, name, \
-                                         magic == 4 || magic == 5 ? 2 : 1,     \
+                                         magic >= 4 ? 2 : 1,                   \
                                          JS_CFUNC_generic_magic, magic))
   DOLLY_FS_FUNCTION("fsAccess", 0);
   DOLLY_FS_FUNCTION("fsMkdir", 1);
@@ -1428,6 +1429,7 @@ static int install_dolly_backend(JSContext *context) {
   DOLLY_FS_FUNCTION("fsRmdir", 3);
   DOLLY_FS_FUNCTION("fsRename", 4);
   DOLLY_FS_FUNCTION("fsCopy", 5);
+  DOLLY_FS_FUNCTION("fsChmod", 6);
 #undef DOLLY_FS_FUNCTION
   JS_SetPropertyStr(context, dolly, "stdout",
                     JS_NewCFunctionMagic(context, js_dolly_write, "stdout", 1,

@@ -26,11 +26,17 @@ test("unsupported readline terminal operations fail explicitly", () => {
     assert.throws(() => readline[name](), { code: "ENOSYS" });
 });
 
-test("unsupported permission and host resource queries fail explicitly", async () => {
+test("chmod reaches the substrate with a numeric mode", async () => {
+  const calls = [];
+  const fs = janisContext({ fsChmod: (path, mode) => { calls.push([path, mode]); } }).__janisBuiltin("fs");
+  fs.chmodSync("/workspace/file", 0o755);
+  await fs.promises.chmod("/workspace/file", "644");
+  assert.deepEqual(calls, [["/workspace/file", 0o755], ["/workspace/file", 0o644]]);
+});
+
+test("unsupported host resource queries fail explicitly", async () => {
   const janis = janisContext();
-  const [fs, os] = ["fs", "os"].map(janis.__janisBuiltin);
-  assert.throws(() => fs.chmodSync("/workspace/file", 0o755), { code: "ENOSYS" });
-  await assert.rejects(fs.promises.chmod("/workspace/file", 0o755), { code: "ENOSYS" });
+  const os = janis.__janisBuiltin("os");
   for (const name of ["cpus", "totalmem", "freemem"]) assert.throws(() => os[name](), { code: "ENOSYS" });
   assert.throws(() => janis.process.memoryUsage(), { code: "ENOSYS" });
   await assert.rejects(janis.fetch("https://example.test/", { redirect: "manual" }), { name: "TypeError" });

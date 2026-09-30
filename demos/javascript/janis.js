@@ -1023,8 +1023,8 @@ const janisFs = {
   utimesSync: (path, atime, mtime) => fsNative(path, () => Dolly.fsUtimes(
     String(path), atime instanceof Date ? atime.getTime() / 1000 : Number(atime),
     mtime instanceof Date ? mtime.getTime() / 1000 : Number(mtime))),
-  // Dolly has no file permission model.
-  chmodSync: unsupported("chmod"),
+  chmodSync: (path, mode) => fsNative(path, () => Dolly.fsChmod(String(path),
+    typeof mode === "string" ? Number.parseInt(mode, 8) : Number(mode))),
   openSync,
   closeSync,
   readSync,
