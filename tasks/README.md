@@ -19,11 +19,7 @@ Put reproduction steps, evidence, and completion criteria in the task body.
 Set `STATUS: CLOSED` after verifying the fix and record the result or commit;
 `tatr ls -c` lists closed issues. The current CLI has no `close` command.
 
-The `audit` tasks come from the 2026-09-13 review of deployed main at `ff633f7`.
-Each task distinguishes reproduced failures from architectural recommendations.
-Local evidence paths refer to the original investigation checkout and may not exist in a fresh clone.
-
-Follow-up findings and measurements are recorded with their implementation and
-validation in the corresponding issues. Overnight work is on
-`codex/core-iteration-20260913` in `work/core-iteration`; the original rts-arena
-checkout and its tracker remain available at the repository root.
+The `audit` tasks tagged before 2026-09-30 come from the 2026-09-13 review of deployed
+main at `ff633f7`. Tasks `20260930-100000-audit-*` come from the 2026-09-30 takeover
+audit of main `4340d03`; each records whether a finding was reproduced in a browser,
+confirmed by reading, or suspected. Local evidence paths may not exist in a fresh clone.
