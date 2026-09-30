@@ -1,7 +1,7 @@
 import { DOLLY_PROCESS_ABI_DIGEST } from "../dist/dolly-process-abi.mjs";
 import { DOLLY_ERRNO } from "../dist/dolly-errno.mjs";
 import { createProcessFfi } from "./process-ffi.mjs";
-import { parseWasmInterface } from "./wasm-interface.mjs";
+import { parseWasmInterface, Reader } from "./wasm-interface.mjs";
 import { requireDsoType, validateDsoHost, validateDsoInterface } from "./process-abi.mjs";
 import { executableHostRequirements, checkHostAbi } from "../host/requirements.mjs";
 
@@ -74,78 +74,39 @@ function decodeResult() {
   return BigInt.asIntN(64, low | (high << 32n));
 }
 
-function readUleb(bytes, cursor, bits = 64) {
-  let value = 0n;
-  let shift = 0n;
-  const maximum = Math.ceil(bits / 7);
-  for (let count = 0; count < maximum; ++count) {
-    if (cursor.offset >= bytes.length) throw new TypeError("truncated dylink metadata");
-    const byte = bytes[cursor.offset++];
-    value |= BigInt(byte & 0x7f) << shift;
-    if ((byte & 0x80) === 0) {
-      if (value >= (1n << BigInt(bits))) throw new TypeError("oversized dylink integer");
-      return value;
-    }
-    shift += 7n;
-  }
-  throw new TypeError("invalid dylink integer");
-}
-
-function readDylinkString(bytes, cursor, end) {
-  const length = Number(readUleb(bytes.subarray(0, end), cursor, 32));
-  if (!Number.isSafeInteger(length) || length > end - cursor.offset) {
-    throw new TypeError("invalid dylink string");
-  }
-  const value = decoder.decode(bytes.subarray(cursor.offset, cursor.offset + length));
-  cursor.offset += length;
-  return value;
-}
-
 function dylinkRequirements(module) {
   const sections = WebAssembly.Module.customSections(module, "dylink.0");
   if (sections.length !== 1) throw new TypeError("shared object needs one dylink.0 section");
-  const bytes = new Uint8Array(sections[0]);
-  const cursor = { offset: 0 };
+  const reader = new Reader(new Uint8Array(sections[0]), "dylink.0");
   let requirements;
   const needed = [];
   const weakImports = new Set();
-  while (cursor.offset < bytes.length) {
-    const id = Number(readUleb(bytes, cursor, 8));
-    const size = Number(readUleb(bytes, cursor, 32));
-    if (!Number.isSafeInteger(size) || size > bytes.length - cursor.offset) {
-      throw new TypeError("invalid dylink subsection size");
-    }
-    const end = cursor.offset + size;
+  while (!reader.done) {
+    const id = Number(reader.unsigned(8));
+    const section = reader.subreader(reader.u32(), "dylink.0 subsection");
     if (id === 1) {
       if (requirements) throw new TypeError("duplicate dylink memory metadata");
-      const memorySize = readUleb(bytes.subarray(0, end), cursor);
-      const memoryAlignment = readUleb(bytes.subarray(0, end), cursor, 32);
-      const tableSize = readUleb(bytes.subarray(0, end), cursor);
-      const tableAlignment = readUleb(bytes.subarray(0, end), cursor, 32);
-      requirements = { memorySize, memoryAlignment, tableSize, tableAlignment };
+      requirements = { memorySize: section.unsigned(64), memoryAlignment: section.unsigned(32),
+        tableSize: section.unsigned(64), tableAlignment: section.unsigned(32) };
     } else if (id === 2) {
-      const count = Number(readUleb(bytes.subarray(0, end), cursor, 32));
-      for (let index = 0; index < count; ++index) {
-        const name = readDylinkString(bytes, cursor, end);
+      for (let count = section.u32(); count > 0; --count) {
+        const name = section.string();
         if (!name || name.includes("/") || name.includes("..")) {
           throw new TypeError("unsafe dylink dependency name");
         }
         needed.push(name);
       }
     } else if (id === 4) {
-      const count = Number(readUleb(bytes.subarray(0, end), cursor, 32));
-      for (let index = 0; index < count; ++index) {
-        const moduleName = readDylinkString(bytes, cursor, end);
-        const symbolName = readDylinkString(bytes, cursor, end);
-        const flags = readUleb(bytes.subarray(0, end), cursor, 32);
+      for (let count = section.u32(); count > 0; --count) {
+        const moduleName = section.string();
+        const symbolName = section.string();
+        const flags = section.unsigned(32);
         // WebAssembly dynamic-linking symbol flags use the low two bits for
         // binding and 1 for weak binding. Preserve the import namespace in the
         // key instead of assuming that equal spellings from env and GOT agree.
         if ((flags & 3n) === 1n) weakImports.add(`${moduleName}\0${symbolName}`);
       }
     }
-    if (cursor.offset > end) throw new TypeError("overfilled dylink subsection");
-    cursor.offset = end;
   }
   if (!requirements) throw new TypeError("shared object lacks dylink memory metadata");
   if (requirements.memorySize > BigInt(DOLLY_PROCESS_DSO_LIMIT) ||

@@ -1,5 +1,6 @@
 import { DOLLY_KERNEL_PLUGIN_ABI_DIGEST } from "../dist/dolly-kernel-plugin-abi.mjs";
 import { hex } from "./static-asset.mjs";
+import { Reader } from "./wasm-interface.mjs";
 
 // Boot-only Wasm linking, not a browser capability imported by the guest.
 // Inputs are bytes and real kernel Wasm exports. No paths, URLs, JavaScript
@@ -15,28 +16,16 @@ const maximumBytes = 64 * 1024 * 1024;
 function allocationRequirements(module) {
   const sections = WebAssembly.Module.customSections(module, "dylink.0");
   if (sections.length !== 1) throw new TypeError("plugin needs one dylink.0 record");
-  const bytes = new Uint8Array(sections[0]);
-  let offset = 0;
-  const integer = () => {
-    let value = 0n;
-    for (let shift = 0n; shift < 64n; shift += 7n) {
-      if (offset === bytes.length) throw new TypeError("truncated plugin allocation record");
-      const byte = bytes[offset++];
-      value |= BigInt(byte & 127) << shift;
-      if (!(byte & 128)) return value;
-    }
-    throw new TypeError("invalid plugin allocation integer");
-  };
+  const reader = new Reader(new Uint8Array(sections[0]), "plugin dylink.0");
   // This profile has exactly the memory/table allocation subsection, with no
   // NEEDED libraries, runtime paths, or other loader extensions.
-  if (integer() !== 1n) throw new TypeError("unsupported plugin linking record");
-  const length = integer();
-  if (length !== BigInt(bytes.length - offset)) throw new TypeError("invalid plugin record size");
-  const size = integer();
-  const alignment = integer();
-  const tableSize = integer();
-  const tableAlignment = integer();
-  if (offset !== bytes.length || size > BigInt(maximumBytes) || alignment > 20n ||
+  if (reader.unsigned(8) !== 1n) throw new TypeError("unsupported plugin linking record");
+  const record = reader.subreader(reader.u32(), "plugin allocation record");
+  const size = record.unsigned(64);
+  const alignment = record.unsigned(32);
+  const tableSize = record.unsigned(64);
+  const tableAlignment = record.unsigned(32);
+  if (!reader.done || !record.done || size > BigInt(maximumBytes) || alignment > 20n ||
       tableSize > 65536n || tableAlignment !== 0n) {
     throw new TypeError("unsupported plugin allocation requirements");
   }
