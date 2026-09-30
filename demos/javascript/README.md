@@ -1,7 +1,13 @@
 # JavaScript
 
 QuickJS-ng is the engine; Janis adds a finite Node-compatible surface over Dolly's
-files, processes and HTTP. Neither is native Node.
+files, processes and HTTP. Neither is native Node. The adapters receive no
+browser Worker, Fetch, socket or host-process handle.
+
+Replacing the engine would not remove the need for Node adapters. Revisit it only
+for an engine-level incompatibility, not a missing adapter; a replacement must use
+Dolly's filesystem and network boundary and pass repeated-invocation and
+cancellation tests.
 
 ## Images
 
@@ -37,6 +43,6 @@ programs; `typescript-build` compiles them headless on `system-tools` and
 
 - No npm client, native addons, worker threads or nested WebAssembly.
 - Only three stdio descriptors; detached processes and IPC fail.
-- `chmod`, `os.cpus`, `os.totalmem`/`freemem` and `process.memoryUsage` fail
-  with `ENOSYS`.
+- `os.cpus`, `os.totalmem`/`freemem` and `process.memoryUsage` fail with
+  `ENOSYS`. `chmod` reaches the kernel, which checks the path and changes nothing.
 - `redirect: "manual"` is rejected; response chunks are buffered eagerly.
