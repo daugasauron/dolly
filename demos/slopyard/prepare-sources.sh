@@ -1,6 +1,6 @@
 # Sourced by scripts/prepare-image-sources.sh.
 if has_module lua55; then
-  lua55_archive="$(scripts/fetch-pinned-archive.sh lua55)"
+  lua55_archive="$(bash scripts/fetch-pinned-archive.sh lua55)"
   copy_static "${lua55_archive}" slopyard/lua-5.5.1.tar.gz
 fi
 if has_module slopyard; then
