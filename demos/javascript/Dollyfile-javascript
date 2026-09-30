@@ -1,7 +1,7 @@
 DOLLY 4
 IMAGE javascript
 
-FROM HOST /Dollyfile-system c110bb79b1f233808476de99abf1425cd58c06a2646c9806703c38d20fbcbfe4
+FROM HOST /Dollyfile-system 185ebf97607078ce3d84dc41dd7f05b666fb94c1d304d918b5e439f0bb613c08
 
 COPY FROM HOST /Dollyfile-typescript-build ad75f13406b3ac1f3ff9bc7655bc7b35d4b77b26e0fcc5a6c5b3919188298a1a /usr/bin/qjs /usr/bin/qjs
 COPY FROM HOST /Dollyfile-typescript-build ad75f13406b3ac1f3ff9bc7655bc7b35d4b77b26e0fcc5a6c5b3919188298a1a /usr/bin/janis /usr/bin/janis

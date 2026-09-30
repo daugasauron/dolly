@@ -16,6 +16,6 @@ COPY FROM HOST /Dollyfile-ghostty-build 82f6100a1510bc570bea5ed6e1ead95bf0b99ffd
 EXPORTS LIB display /usr/lib/libdisplay.so
 EXPORTS ENV DISPLAY /usr/lib/libdisplay.so
 
-USE HOST /modules/session-recovery.dm cbc60f82e9e74610aab42fed85e88d69d7043afbefa6325b2b50795a4197d86e
+USE HOST /modules/session-recovery.dm bc7d741e157956b24dda82153bfc99bede218d2196ffeebee4062f83c6cd32b9
 
 ENTRY /bin/foreground -i /bin/slop

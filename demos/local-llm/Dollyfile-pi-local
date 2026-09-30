@@ -1,7 +1,7 @@
 DOLLY 4
 IMAGE pi-local
 
-FROM HOST /Dollyfile-pi 1c9cc8341f37c634f329a8b778e61b144802cf556baa4d48400f197255ab6f9c
+FROM HOST /Dollyfile-pi 77e768df51d39c271e881d839824cc574923d3cd620535e9ca05e4483be268ad
 COPY FROM HOST /Dollyfile-local-llm-build 3880e5de655ed22e8da344402e7a8038ce2749b2a3cee65a603e8cb832173fda /usr/bin/dolly-llama /usr/bin/dolly-llama
 COPY FROM HOST /Dollyfile-llama-build aadd39a54087092dad791e457f7c85d6a8273e2d24b24873ad17d091cbeade11 /usr/share/licenses/dolly-llm /usr/share/licenses/dolly-llm
 EXPORTS TOOL dolly-llama
