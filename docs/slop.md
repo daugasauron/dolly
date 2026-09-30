@@ -55,13 +55,9 @@ threads, host processes or a scheduler.
   builtin, a function or a compound command. A stage runs to completion before
   the next one starts and reads its output from an unlinked spool file. Command
   substitutions and here-documents use the same spool.
-- A command writing to a spool writes into a kernel pipe that Slop drains into
-  the file. At 64 MiB Slop closes the pipe, sends the writer `SIGPIPE` and
-  reports `stopped at the 64 MiB spool limit`; the stage or substitution ends
-  with status 141, so kernel memory stays bounded.
 - Unlike concurrent Unix pipes, `make | tee log` shows output only once Make
   finishes, and a consumer such as `head` cannot stop an unbounded producer:
-  `seq 1 999999999 | head` runs until the spool limit stops `seq`.
+  `seq 1 999999999 | head` runs until `seq` finishes or Ctrl+C stops it.
 - The pipeline's status is the last stage's, or with `pipefail` the rightmost
   failing one.
 - Ctrl+C interrupts the foreground command (status 130) and stops the rest of the

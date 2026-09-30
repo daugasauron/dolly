@@ -127,7 +127,6 @@ xb" && echo hi | { read -r x; test "$x" = hi; }`, 0],
   ["set -euo pipefail stops at a failing pipeline", 'set -euo pipefail; test "$-" != "${-%u*}" || exit 91; : "${unset_but_defaulted:-ok}"; true | (exit 4) | cat; exit 92', 4],
   ["compound commands take redirections", String.raw`n=0; while read -r l; do n=$((n+1)); done < two; for i in 1; do echo $i; done > one; if :; then echo if; fi >> one; test "$n:$(cat one)" = "2:1
 if"`, 0],
-  ["a writer beyond the pipeline spool limit is stopped", "set -o pipefail; dd if=/dev/urandom bs=1048576 count=65 2> /dev/null | dd bs=1 count=1 2> /dev/null | wc -c > one; test $? = 141 && test $(cat one) = 1", 0],
   ["an unset PATH searches /bin and /usr/bin", "unset PATH; slop -c 'exit 7'", 7, 127],
 ];
 
