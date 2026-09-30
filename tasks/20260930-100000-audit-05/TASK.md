@@ -1,6 +1,6 @@
 # Writing to a pipe with no reader never raises SIGPIPE
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 220
 - TAGS: bug,core,kernel,compatibility
 
@@ -23,3 +23,7 @@ SIGPIPE is ignored or handled.
 
 - Browser check: `yes | head -n 1` (or an equivalent bounded producer) prints one line and no
   error; a C program ignoring SIGPIPE sees EPIPE.
+
+## Resolution (2026-09-30)
+
+By design. Slop pipelines are serial, so no producer writes into a pipe whose reader has exited; writes without a reader fail with EPIPE (restored in fix/kernel2, aa4e312).

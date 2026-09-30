@@ -1,6 +1,6 @@
 # Process ABI identity hashes header comments but not the value encodings
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 170
 - TAGS: core,kernel,maintainability
 
@@ -27,3 +27,7 @@ The ABI contract defines the encodings it depends on and its identity covers the
 
 - Encodings are named constants in the contract and checked by the ABI tests.
 - Changing a comment in `process.h` does not change the ABI identity; changing an encoding does.
+
+## Resolution (2026-09-30)
+
+By design: executable identity hashes the exact bytes of process.h, so any change rebuilds everything downstream (owner: replicability over rebuild time). Value encodings are now also defined explicitly in process.h.

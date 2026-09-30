@@ -1,6 +1,6 @@
 # chmod, chown and fchmod report success without doing anything
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 260
 - TAGS: bug,core,compatibility
 
@@ -24,3 +24,7 @@ explicit ENOSYS/EPERM for ownership) is honest and documented.
 
 - Browser check: `chmod 644 /missing` fails with ENOENT; `chmod` on an existing file either
   changes `stat` mode or fails explicitly; same for `chown`.
+
+## Resolution (2026-09-30)
+
+By design, not a bug. Dolly has one user and no permission bits (owner, 2026-09-30; libc-adapter.c@4340d03: "no permission boundary inside its shared userspace"). chmod/chown now only validate that the target exists (ENOENT/EBADF) and change nothing (fix/kernel2, d41df0c).

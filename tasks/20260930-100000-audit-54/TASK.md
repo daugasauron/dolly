@@ -1,6 +1,6 @@
 # Image builds rewrite tracked pin lines
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 130
 - TAGS: iteration,build,dollyfile
 
@@ -22,3 +22,7 @@ Pin updates are an explicit step or disappear with a v5 design.
 ## Done when
 
 - A normal image build leaves tracked files unchanged unless a recipe changed.
+
+## Resolution (2026-09-30)
+
+By design. Pins stay in recipe text (no lock file, owner decision); tooling rewrites them after an upstream change.

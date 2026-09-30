@@ -1,6 +1,6 @@
 # Re-check serial-execution and bootstrap patches
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 90
 - TAGS: build,demo,compatibility
 
@@ -24,3 +24,7 @@ Each patch has a current reason; new files live as files.
 ## Done when
 
 - Patch inventory recorded with a reason per patch; obsolete ones removed.
+
+## Resolution (2026-09-30)
+
+By design. Serial execution is intentional (AGENTS.md); the serial Make, Samurai and fd patches stay.

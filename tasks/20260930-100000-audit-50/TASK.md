@@ -1,6 +1,6 @@
 # Propose Dollyfile v5 after the syntax audit
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 150
 - TAGS: dollyfile,core
 
@@ -23,3 +23,7 @@ A written v5 proposal with rationale, migration and what it removes.
 ## Done when
 
 - Proposal recorded in this task with examples; owner decides whether to implement.
+
+## Resolution (2026-09-30)
+
+Proposal written and rejected by the owner; see 20260930-200000-dollyfile-v5 and 20260930-223000-dollyfile-design.

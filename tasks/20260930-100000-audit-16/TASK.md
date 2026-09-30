@@ -1,6 +1,6 @@
 # Default HTTP policy allows same-origin reads and resolves relative URLs
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 260
 - TAGS: security,boundary
 
@@ -28,3 +28,7 @@ bootstrap source list; the shared-origin risk is documented.
 
 - Browser check: `curl -fsS /index.html` and `curl -fsS <page-origin>/...` from the default
   image fail; SOURCE HOST rebuilds still fetch their pinned same-origin inputs.
+
+## Resolution (2026-09-30)
+
+By design. The default HTTP policy has no restrictions, the page origin included; DOLLY_HTTP_POLICY restricts it (owner, 2026-09-30; eecab3d). The build bridge the audit worried about is separate and now requires build@0.

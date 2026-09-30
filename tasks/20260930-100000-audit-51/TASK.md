@@ -1,6 +1,6 @@
 # Seed contents invalidate every image on small edits
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 180
 - TAGS: iteration,build,core
 
@@ -27,3 +27,7 @@ must.
 ## Done when
 
 - `default` rebuilds without rust-sdk/ripgrep/fd; measured core-chain rebuild time recorded.
+
+## Resolution (2026-09-30)
+
+By design. Inline pins cascade and a seed or upstream change rebuilds every downstream image; the owner prefers complete replicability over rebuild time.

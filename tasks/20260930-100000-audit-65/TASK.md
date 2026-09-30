@@ -1,6 +1,6 @@
 # Decide the runtime's demo-only device capabilities
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 120
 - TAGS: core,boundary,demo
 
@@ -25,3 +25,7 @@ consumer.
 ## Done when
 
 - Owner decision recorded; core images do not enable demo capabilities.
+
+## Resolution (2026-09-30)
+
+Owner decision (2026-09-30): games stay in the repository, so the optional gpu@0, audio@0 and threads@0 host modules stay in the modular runtime.

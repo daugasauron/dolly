@@ -1,6 +1,6 @@
 # Tracker priorities and duplicates
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 100
 - TAGS: tests,cleanup
 
@@ -25,3 +25,7 @@ Priorities follow the core-first direction; duplicates merged.
 ## Done when
 
 - Demo tasks re-prioritized below core work; duplicates closed with links.
+
+## Resolution (2026-09-30)
+
+Done: demo gameplay tasks now rank below core work (2e353f6).

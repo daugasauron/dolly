@@ -1,6 +1,6 @@
 # libcurl adapter misreports redirects and accepted-but-stripped options
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 190
 - TAGS: bug,compatibility,core
 
@@ -21,3 +21,7 @@ Redirect responses are returned as responses; unsupported options fail explicitl
 ## Done when
 
 - Browser curl check: `curl -sI` on a redirecting fixture prints the 3xx status.
+
+## Resolution (2026-09-30)
+
+USERAGENT and ACCEPT_ENCODING are accepted and ignored by design (docs/http.md: request metadata, not authority over browser-owned headers; CMake depends on it). A redirect without FOLLOWLOCATION cannot expose the 3xx response in a browser; documented. Relative URLs now fail in libcurl (fix/kernel2, 69dcf81).
