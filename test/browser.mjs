@@ -1,7 +1,7 @@
 // Shared Playwright setup for Dolly browser tests:
 //
 //   await browserTest("name", { image, server, timeout }, async ({ name, browser, server, open }) => {
-//     const { page, submit, text } = await open({ policy, prompt, path, setup });
+//     const { page, submit, text, result, waitForText } = await open({ policy, prompt, path, setup });
 //     assert.equal(await submit("true"), 0);
 //   });
 //
@@ -10,8 +10,11 @@
 // open() loads the image route (path, default /IMAGE/) in a new page after
 // installing DOLLY_HTTP_POLICY = policy and awaiting setup(page), then waits for
 // boot and the shell prompt (null skips it). submit(command) resolves to the
-// exit status; text() reads the visible terminal. On failure the latest page's
-// terminal is printed; each browser is closed after timeout milliseconds.
+// exit status; text() reads the visible terminal; result(action) runs action()
+// (typing, a paste) and resolves to the status of the command it completes;
+// waitForText(pattern) waits until the visible terminal matches. On failure the
+// latest page's terminal is printed; each browser is closed after timeout
+// milliseconds.
 import { chromium, firefox } from "playwright-core";
 import { startBrowserServer } from "./browser-server.mjs";
 
@@ -33,6 +36,19 @@ async function openImage(browser, origin, image, { policy, prompt = shellPrompt,
     page,
     submit: command => page.evaluate(command => __dolly.submit(command), command),
     text: () => page.evaluate(() => __dolly.visibleTerminalText()),
+    async result(action) {
+      const sequence = await page.evaluate(() => __dolly.transport.currentResultSequence());
+      await action();
+      return page.evaluate(sequence => __dolly.transport.waitForResult(sequence), sequence);
+    },
+    // waitForFunction does not await an async predicate, so poll in the page.
+    waitForText: ({ source, flags }) => page.evaluate(async ({ source, flags }) => {
+      const pattern = new RegExp(source, flags), deadline = Date.now() + 30000;
+      while (!pattern.test(await __dolly.visibleTerminalText())) {
+        if (Date.now() > deadline) throw new Error(`terminal never matched ${pattern}`);
+        await new Promise(resolve => setTimeout(resolve, 50));
+      }
+    }, { source, flags }),
   };
 }
 
@@ -47,8 +63,10 @@ export async function browserTest(label, { image = "default", server: serverOpti
     for (const name of names) {
       const started = performance.now();
       const browser = await (name === "chromium"
-        ? chromium.launch({ channel: "chrome", headless: true, args: ["--no-sandbox", "--disable-gpu"] })
-        : firefox.launch({ headless: true }));
+        // WebGPU runs on the browsers' software adapters; Firefox's clipboard
+        // testing pref lets Ctrl+Shift+V read without a paste prompt.
+        ? chromium.launch({ channel: "chrome", headless: true, args: ["--no-sandbox", "--disable-gpu", "--enable-unsafe-webgpu"] })
+        : firefox.launch({ headless: true, firefoxUserPrefs: { "dom.events.testing.asyncClipboard": true, "dom.webgpu.enabled": true } }));
       let expired = false;
       const deadline = setTimeout(() => { expired = true; void browser.close(); }, timeout);
       try {
