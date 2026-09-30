@@ -79,6 +79,12 @@ Serve directory `index.html` files. Unknown navigations use the packaged
 `404.html`, preserving URL and 404 status for first visits to named sessions.
 Missing assets must not receive an HTML success response. Preserve MIME types.
 
+Browser storage is per origin. On GitHub Pages every site of one account shares
+`ACCOUNT.github.io`, so any of that account's Pages sites can read Dolly's saved
+sessions (which may hold credentials) and image cache, and a compromised sibling
+site can read or replace them. Serve Dolly from its own origin, such as
+daugasauron.com, when sessions matter.
+
 Prefer `Cross-Origin-Opener-Policy: same-origin`,
 `Cross-Origin-Embedder-Policy: require-corp` and
 `Cross-Origin-Resource-Policy: same-origin`. On hosts without these headers,
@@ -94,8 +100,8 @@ This deployment is static only: no Functions, Worker, R2 origin or proxy.
 The Pages exporter enforces its configured file/count/header limits and
 Brotli-compresses oversized source/compiler downloads. Incompressible source
 archives and large snapshot packs use 20 MiB file parts. Their original URL
-returns a bounded manifest with `X-Dolly-Parts: 1`; Dolly verifies and joins the
-fixed sibling parts before consuming the original bytes. Snapshot gzip encoding
+returns a bounded manifest with `X-Dolly-Parts: 1`; Dolly streams the fixed
+sibling parts, verifying each part's hash before delivering its bytes. Snapshot gzip encoding
 is unchanged. Browser-loaded runtime code is not precompressed or split.
 
 Compressed SOURCE downloads use `application/octet-stream`: the tested Pages

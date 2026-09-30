@@ -55,11 +55,12 @@ export class DisplayTransport {
     if (!(buffer instanceof SharedArrayBuffer)) {
       throw new Error("Dolly display transport requires shared Wasm memory");
     }
-    if (address % 4 !== 0 || eventSize !== 128 ||
-        (eventCapacity & (eventCapacity - 1)) !== 0 ||
-        clipboardCapacity <= 0 || pasteAddress <= 0 || copyAddress <= 0 ||
-        pasteAddress + clipboardCapacity > buffer.byteLength ||
-        copyAddress + clipboardCapacity > buffer.byteLength) {
+    const within = (start, length) => Number.isSafeInteger(start) && Number.isSafeInteger(length) &&
+      start > 0 && length > 0 && start <= buffer.byteLength - length;
+    if (address % 4 !== 0 || eventSize !== 128 || !Number.isSafeInteger(eventCapacity) ||
+        eventCapacity <= 0 || (eventCapacity & (eventCapacity - 1)) !== 0 ||
+        !within(address, DisplayTransport.headerSize + eventCapacity * eventSize) ||
+        !within(pasteAddress, clipboardCapacity) || !within(copyAddress, clipboardCapacity)) {
       throw new Error("Dolly supplied an invalid display mailbox");
     }
     this.bytes = new Uint8Array(buffer);
@@ -151,17 +152,21 @@ export class DisplayTransport {
     });
   }
 
+  // All or nothing: a partially delivered paste or command would be worse
+  // than a visible refusal. This page is the sole producer, so free records
+  // counted here cannot disappear before they are written.
   pushText(text) {
-    const bytes = encoder.encode(text);
-    let offset = 0;
-    while (offset < bytes.length) {
+    const bytes = encoder.encode(text), chunks = [];
+    for (let offset = 0; offset < bytes.length;) {
       let end = Math.min(offset + 88, bytes.length);
       while (end > offset && end < bytes.length && (bytes[end] & 0xc0) === 0x80) end--;
-      if (end === offset) return false;
-      const chunk = textDecoder.decode(bytes.subarray(offset, end));
-      if (!this.pushRecord({ type: DisplayTransport.textEvent, text: chunk })) return false;
+      chunks.push(textDecoder.decode(bytes.subarray(offset, end)));
       offset = end;
     }
+    const read = Atomics.load(this.words, this.word + DisplayTransport.eventRead) >>> 0;
+    const write = Atomics.load(this.words, this.word + DisplayTransport.eventWrite) >>> 0;
+    if (chunks.length > this.eventCapacity - ((write - read) >>> 0)) return false;
+    for (const chunk of chunks) this.pushRecord({ type: DisplayTransport.textEvent, text: chunk });
     return true;
   }
 
@@ -374,7 +379,7 @@ export class DisplayTransport {
 }
 
 export class FramebufferPresenter {
-  constructor(canvasElement, buffer, frameAddresses, capacity, displayTransport) {
+  constructor(canvasElement, buffer, frameAddresses, capacity, displayTransport, fatal) {
     this.canvas = canvasElement;
     this.context = canvasElement.getContext("2d", { alpha: false });
     if (!this.context) throw new Error("Dolly requires a 2D canvas context");
@@ -382,6 +387,7 @@ export class FramebufferPresenter {
     this.frameAddresses = frameAddresses;
     this.capacity = capacity;
     this.transport = displayTransport;
+    this.fatal = fatal;
     this.sequence = -1;
     this.running = true;
   }
@@ -389,9 +395,15 @@ export class FramebufferPresenter {
   start() {
     const paint = () => {
       if (!this.running) return;
-      this.transport.publishAnimationFrame();
-      this.updateCursor();
-      this.paint();
+      try {
+        this.transport.publishAnimationFrame();
+        this.updateCursor();
+        this.paint();
+      } catch (error) {
+        this.stop();
+        this.fatal(error.message);
+        return;
+      }
       requestAnimationFrame(paint);
     };
     requestAnimationFrame(paint);
@@ -409,7 +421,6 @@ export class FramebufferPresenter {
     const styles = ["text", "default", "crosshair", "pointer", "none", "crosshair"];
     const style = styles[this.transport.cursorStyle()] ?? "default";
     if (this.canvas.style.cursor !== style) this.canvas.style.cursor = style;
-    document.documentElement.dataset.cursorStyle = style;
   }
 
   paint() {
@@ -443,13 +454,6 @@ export class FramebufferPresenter {
       const dimensions = this.transport.dimensions();
       document.documentElement.dataset.terminalCols = String(dimensions.cols);
       document.documentElement.dataset.terminalRows = String(dimensions.rows);
-      const geometry = this.transport.geometry();
-      document.documentElement.dataset.cursorCol = String(geometry.cursorCol);
-      document.documentElement.dataset.cursorRow = String(geometry.cursorRow);
-      document.documentElement.dataset.cellWidth = String(geometry.cellWidth);
-      document.documentElement.dataset.cellHeight = String(geometry.cellHeight);
-      document.documentElement.dataset.paddingX = String(geometry.paddingX);
-      document.documentElement.dataset.paddingY = String(geometry.paddingY);
       return;
     }
   }
@@ -459,20 +463,22 @@ export class FramebufferPresenter {
 export const contract = Object.freeze({ name: "display", version: 0, header: "dolly/display.h",
   abi: ["dolly-display-0", "dolly-kernel-plugin-0"], dependencies: ["runtime@0"], phase: "image", imports: [] });
 
-export function browser({ canvas }) {
+export function browser({ canvas, fatal }) {
   let transport, presenter;
   return {
     get transport() { return transport; },
     get presenter() { return presenter; },
     start(message) {
-      if (message.version !== 5 || !Array.isArray(message.frameAddresses) ||
-          message.frameAddresses.length !== 2 || message.frameAddresses.some(address => !address)) {
-        throw new Error("invalid display provider handshake");
-      }
       transport = new DisplayTransport(message.memory, message.address, message.eventSize,
         message.eventCapacity, message.pasteAddress, message.copyAddress, message.clipboardCapacity);
+      const capacity = message.frameCapacity, limit = message.memory.byteLength;
+      if (message.version !== 5 || !Array.isArray(message.frameAddresses) ||
+          message.frameAddresses.length !== 2 || !Number.isSafeInteger(capacity) || capacity <= 0 ||
+          message.frameAddresses.some(address => !Number.isSafeInteger(address) || address <= 0 || address > limit - capacity)) {
+        throw new Error("invalid display provider handshake");
+      }
       presenter = new FramebufferPresenter(canvas, message.memory, message.frameAddresses,
-        message.frameCapacity, transport);
+        capacity, transport, fatal);
       presenter.start();
     },
     dispose() { presenter?.stop(); },

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { UploadTransport, UPLOAD_MAX_BYTES } from "../src/upload-transport.mjs";
+import { UploadTransport, UPLOAD_MAX_BYTES, UPLOAD_CANCEL_QUIET_MILLISECONDS } from "../src/upload-transport.mjs";
 import { DOLLY_ERRNO as errno } from "../dist/dolly-errno.mjs";
 
 const pause = () => new Promise(resolve => setTimeout(resolve, 5));
@@ -109,4 +109,23 @@ test("cancellation during a file read cannot leak a late chunk into the next req
   await pending;
   assert.equal(Atomics.load(words, 3), 0);
   assert.equal(Atomics.load(words, 2), 1);
+});
+
+test("a user cancel refuses immediate repeat requests without reopening the picker", async (t) => {
+  let now = 1000;
+  t.mock.method(performance, "now", () => now);
+  let calls = 0;
+  const { transport, words } = fixture(() => { calls++; return calls === 1 ? null : new Blob(["later"]); });
+  for (const sequence of [1, 2]) {
+    Atomics.store(words, 0, sequence);
+    const pending = transport.poll();
+    assert.deepEqual(await consume(transport), { bytes: Buffer.alloc(0), error: errno.ECANCELED });
+    await pending;
+  }
+  assert.equal(calls, 1, "the picker stayed closed during the quiet period");
+  now += UPLOAD_CANCEL_QUIET_MILLISECONDS;
+  Atomics.store(words, 0, 3);
+  const pending = transport.poll();
+  assert.equal((await consume(transport)).bytes.toString(), "later");
+  await pending;
 });

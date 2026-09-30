@@ -39,9 +39,13 @@ export function check() {
   return null;
 }
 
+// Bootstrap text only feeds the page's 1 MiB log; one write never sends more.
+const maxBootstrapMessage = 1024 * 1024;
+
 export function worker({ send, applicationBase, abi, service }) {
   const memory = new WebAssembly.Memory({ initial: 1024n, maximum: 131072n, shared: true, address: "i64" });
   let supervisor, threadProvider;
+  const text = value => `${String(value).slice(-maxBootstrapMessage)}\n`;
   return {
     memory,
     setThreadProvider(provider) {
@@ -50,9 +54,10 @@ export function worker({ send, applicationBase, abi, service }) {
     },
     options: {
       wasmMemory: memory,
-      bootstrapWriteBytes: bytes => send({ type: "bootstrap-bytes", bytes }),
-      print: text => send({ type: "bootstrap", text: `${text}\n` }),
-      printErr: text => send({ type: "bootstrap", text: `${text}\n`, error: true }),
+      bootstrapWriteBytes: bytes => send({ type: "bootstrap-bytes",
+        bytes: bytes.length > maxBootstrapMessage ? bytes.slice(-maxBootstrapMessage) : bytes }),
+      print: value => send({ type: "bootstrap", text: text(value) }),
+      printErr: value => send({ type: "bootstrap", text: text(value), error: true }),
     },
     async supervisor(dolly) {
       return supervisor ??= await DollyProcessSupervisor.create(dolly, memory, applicationBase, abi, service, threadProvider);

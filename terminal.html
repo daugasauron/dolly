@@ -96,6 +96,12 @@
       #image-build details { margin-bottom: 0.6rem; }
       #image-build pre { max-height: 40vh; overflow: auto; white-space: pre-wrap; font: inherit; }
       #image-build button { color: inherit; background: inherit; border: 1px solid #77736c; font: inherit; cursor: pointer; }
+      #downloads { position: fixed; left: 0.6rem; bottom: 0.6rem; z-index: 7; margin: 0; padding: 0.5rem;
+        max-width: calc(100vw - 1.2rem); list-style: none; background: #262626; border: 1px solid #f2d45c; font-size: 14px; }
+      #downloads[hidden] { display: none; }
+      #downloads li + li { margin-top: 0.4rem; }
+      #downloads button { margin-right: 0.4rem; color: inherit; background: #333; border: 1px solid #77736c;
+        font: inherit; cursor: pointer; }
       @media (max-width: 640px) {
         #bootstrap-log { padding: 0.65rem 0.75rem; }
       }

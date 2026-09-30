@@ -11,7 +11,9 @@ try {
   hash.update(chunk.subarray(0,17));const digest=hash.digest('hex');
   for(const restricted of [false,true]){
     const page=await browser.newPage();
-    if(restricted)await page.addInitScript(origin=>{globalThis.DOLLY_HTTP_POLICY={rules:[{origin,pathPrefix:'/fixture/',maxResponseBytes:1024}]};},site.origin);
+    // The page origin is never ambient; both cases grant its fixtures explicitly.
+    await page.addInitScript(({origin,restricted})=>{globalThis.DOLLY_HTTP_POLICY={rules:[{origin,pathPrefix:'/fixture/',methods:['GET','POST'],
+      ...(restricted?{maxResponseBytes:1024}:{})}]};},{origin:site.origin,restricted});
     await page.goto(site.origin+'/'+image+'/');
     await page.waitForFunction(()=>['ready','failed'].includes(document.documentElement.dataset.dollyStatus),null,{timeout:60000});
     assert.equal(await page.evaluate(()=>document.documentElement.dataset.dollyStatus),'ready',await page.locator('#bootstrap-log').textContent());

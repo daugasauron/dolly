@@ -1,12 +1,13 @@
 import { HttpError, isDollyCredentialHeader, stripDollyBrowserOwnedHeaders } from "./http-policy.mjs";
 import { DOLLY_ERRNO as errno } from "../dist/dolly-errno.mjs";
 import { decodeStaticAsset } from "./static-asset.mjs";
+import { DOLLY_HTTP_SLOT_COUNT, DOLLY_HTTP_CHUNK_CAPACITY, DOLLY_HTTP_MAX_METHOD, DOLLY_HTTP_MAX_URL,
+  DOLLY_HTTP_MAX_HEADERS, DOLLY_HTTP_MAX_BODY } from "./host/http-abi.mjs";
 
 const encoder = new TextEncoder();
 const decoder = new TextDecoder("utf-8", { fatal: true, ignoreBOM: true });
-export const DOLLY_HTTP_MAILBOX_VERSION = 5;
-export const DOLLY_HTTP_SLOT_COUNT = 16;
-export const DOLLY_HTTP_LIMITS = Object.freeze({ method: 32, url: 8192, headers: 65536, body: 8 * 1024 * 1024 });
+export const DOLLY_HTTP_LIMITS = Object.freeze({ method: DOLLY_HTTP_MAX_METHOD, url: DOLLY_HTTP_MAX_URL,
+  headers: DOLLY_HTTP_MAX_HEADERS, body: DOLLY_HTTP_MAX_BODY });
 
 // Host-only acknowledgement: admission copies or rejects the spans before the
 // import returns. One descriptor at a time, but independent streaming transfers.
@@ -30,12 +31,9 @@ export class NetworkTransport {
   static error = 5;
   static kind = 6;
 
-  constructor(buffer, address, capacity, policy, {
-    fetchRequest = globalThis.fetch.bind(globalThis),
-    baseURL = globalThis.location?.href,
-  } = {}) {
+  constructor(buffer, address, capacity, policy, { fetchRequest = globalThis.fetch.bind(globalThis) } = {}) {
     if (!(buffer instanceof SharedArrayBuffer) || !Number.isSafeInteger(address) ||
-        address <= 0 || address % 64 !== 0 || capacity !== 65536 ||
+        address <= 0 || address % 64 !== 0 || capacity !== DOLLY_HTTP_CHUNK_CAPACITY ||
         address > buffer.byteLength - DOLLY_HTTP_SLOT_COUNT * (NetworkTransport.headerSize + capacity)) {
       throw new TypeError("invalid HTTP mailbox pool bounds");
     }
@@ -45,7 +43,6 @@ export class NetworkTransport {
     this.capacity = capacity;
     this.policy = policy;
     this.fetchRequest = fetchRequest;
-    this.baseURL = baseURL;
     // Host bookkeeping, never derived from a guest's claimed active count.
     this.slots = Array(DOLLY_HTTP_SLOT_COUNT).fill(null);
     this.closed = false;
@@ -195,7 +192,9 @@ class HttpTransfer {
     let timeout, failure = errno.EINVAL;
     try {
       this.check();
-      const target = new URL(url, this.broker.baseURL);
+      // Absolute only: resolving against the page would make its own origin ambient.
+      const target = URL.parse(url);
+      if (target === null) throw new HttpError(errno.EINVAL, "HTTP requires an absolute URL");
       if (target.protocol !== "http:" && target.protocol !== "https:")
         throw new HttpError(errno.EPROTONOSUPPORT, "HTTP requires HTTP(S)");
       if (target.username !== "" || target.password !== "")

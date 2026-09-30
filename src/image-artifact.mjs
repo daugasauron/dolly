@@ -3,18 +3,13 @@ import { DOLLY_IMAGES } from "../dist/dolly-images.mjs";
 import { imageInputs, imageInputsMatch } from "./image-inputs.mjs";
 import { imageHostRequirements } from "./image-requirements.mjs";
 import { hostRequirements } from "./host/requirements.mjs";
-import { decodeStaticAsset } from "./static-asset.mjs";
+import { decodeStaticAsset, publicURL, sha256 } from "./static-asset.mjs";
 import { decodeSnapshotRecords, mergeSnapshotRecords, validateSnapshotPacks, MAX_SNAPSHOT_BYTES as snapshotSizeLimit } from "./snapshot-records.mjs";
 const applicationBase = new URL("../", import.meta.url);
-const packBase = new URL(applicationBase);
-packBase.pathname = packBase.pathname.replace(/_dolly\/[0-9a-f]{64}\/$/, "");
 const imageDefinitions = new Map(DOLLY_IMAGES.map(definition => [definition.image, definition]));
 const encoder = new TextEncoder();
 const expectedRecipes = image => imageDefinitions.get(image).recipes;
-export async function sha256(bytes) {
-  return [...new Uint8Array(await crypto.subtle.digest("SHA-256", bytes))]
-    .map(byte => byte.toString(16).padStart(2, "0")).join("");
-}
+export { sha256 };
 
 function validSnapshotPath(path) {
   return typeof path === "string" && path.startsWith("/") && path.length > 1 &&
@@ -123,7 +118,7 @@ async function* packagedSnapshotParts(image, metadata, signal) {
     signal?.throwIfAborted();
     const compressed = packed || metadata.encoding === "gzip";
     const url = packed
-      ? new URL(`dist/packs/${part.sha256}.snapshot.gz`, packBase)
+      ? publicURL(`dist/packs/${part.sha256}.snapshot.gz`)
       : new URL(`dist/dolly-${image}-system.snapshot${compressed ? ".gz" : ""}`, applicationBase);
     const init = { cache: packed ? "force-cache" : "no-store", credentials: "same-origin", redirect: "error", signal };
     const expected = compressed ? part.encodedByteLength : part.byteLength;
@@ -213,8 +208,7 @@ async function databaseOperation(mode, operation) {
     request.onupgradeneeded = () => {
       // This database contains rebuildable images, never named user sessions.
       if (request.result.objectStoreNames.contains("images")) request.result.deleteObjectStore("images");
-      const store = request.result.createObjectStore("images", { keyPath: "id" });
-      store.createIndex("slot", ["buildId", "slot"]);
+      request.result.createObjectStore("images", { keyPath: "id" });
       request.result.createObjectStore("payloads");
     };
     request.onsuccess = () => resolve(request.result);
@@ -258,32 +252,43 @@ export async function loadImageArtifact(descriptor) {
   } catch { return null; }
 }
 
+// Rebuildable images only; a bounded cache so builds cannot fill browser storage.
+export const IMAGE_CACHE_MAX_ENTRIES = 32;
+export const IMAGE_CACHE_MAX_BYTES = 8 * 1024 ** 3;
+
 export async function saveImageArtifact(artifact, slot = artifact.recipeSha256) {
   try {
     if (artifact.buildId !== DOLLY_IMAGE_BUILD_ID || !(artifact.bytes instanceof ArrayBuffer) ||
         artifact.bytes.byteLength !== artifact.byteLength || artifact.byteLength <= 0 ||
         artifact.byteLength > snapshotSizeLimit) return false;
     const id = `${DOLLY_IMAGE_BUILD_ID}:${artifact.recipeSha256}`;
-    const { buildId, recipeSha256, sha256, inputs, hostRequirements } = artifact;
+    const { buildId, recipeSha256, sha256, inputs, hostRequirements, byteLength } = artifact;
     await databaseOperation("readwrite", (store, payloads) => {
       payloads.put(new Blob([artifact.bytes]), id);
-      const published = store.put({ buildId, recipeSha256, sha256, inputs, hostRequirements, byteLength: artifact.bytes.byteLength, slot, id });
+      const published = store.put({ buildId, recipeSha256, sha256, inputs, hostRequirements, byteLength, slot, id,
+        savedAt: performance.timeOrigin + performance.now() });
       // Publish and prune atomically: failed writes preserve the previous pair,
       // and concurrent writers cannot prune each other's newly published data.
+      // Older runtimes and the slot's previous version go first, then the least
+      // recently saved images beyond the entry and byte bounds.
       const remove = key => { store.delete(key); payloads.delete(key); };
-      const oldVersions = store.index("slot").openKeyCursor(IDBKeyRange.only([DOLLY_IMAGE_BUILD_ID, slot]));
-      oldVersions.onsuccess = () => {
-        const cursor = oldVersions.result;
-        if (!cursor) return;
-        if (cursor.primaryKey !== id) remove(cursor.primaryKey);
-        cursor.continue();
-      };
-      const oldRuntimes = store.openKeyCursor();
-      oldRuntimes.onsuccess = () => {
-        const cursor = oldRuntimes.result;
-        if (!cursor) return;
-        if (!String(cursor.key).startsWith(`${DOLLY_IMAGE_BUILD_ID}:`)) remove(cursor.key);
-        cursor.continue();
+      const kept = [], cursor = store.openCursor();
+      cursor.onsuccess = () => {
+        const entry = cursor.result?.value;
+        if (entry) {
+          if (entry.id !== id) {
+            if (entry.buildId !== DOLLY_IMAGE_BUILD_ID || entry.slot === slot) remove(entry.id);
+            else kept.push(entry);
+          }
+          cursor.result.continue();
+          return;
+        }
+        kept.sort((left, right) => (right.savedAt ?? 0) - (left.savedAt ?? 0));
+        let total = byteLength;
+        kept.forEach((entry, index) => {
+          total += entry.byteLength;
+          if (index + 1 >= IMAGE_CACHE_MAX_ENTRIES || total > IMAGE_CACHE_MAX_BYTES) remove(entry.id);
+        });
       };
       return published;
     });

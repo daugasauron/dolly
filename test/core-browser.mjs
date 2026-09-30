@@ -11,6 +11,14 @@ if (names.some(name => !["chromium", "firefox"].includes(name))) {
 const projectDir = new URL("..", import.meta.url).pathname;
 const image = process.env.DOLLY_IMAGE ?? "default";
 const server = await startBrowserServer(projectDir, image);
+async function boot(page) {
+  await page.goto(`${server.origin}/${image}/`);
+  await page.waitForFunction(() => ["ready", "failed"].includes(document.documentElement.dataset.dollyStatus));
+  assert.equal(await page.evaluate(() => document.documentElement.dataset.dollyStatus), "ready",
+    await page.locator("#bootstrap-log").textContent());
+  await page.evaluate(() => __dolly.waitForInteractiveTerminal(/dolly:[^\n]*\$\s*$/, "shell"));
+  return command => page.evaluate(text => __dolly.submit(text), command);
+}
 try {
   for (const name of names) {
     const started = performance.now();
@@ -27,15 +35,10 @@ try {
         globalThis.DOLLY_HTTP_POLICY = { maxRequests: 256,
           rules: [{ origin, pathPrefix: "/fixture/", methods: ["GET"] }] };
       }, server.origin);
-      await page.goto(`${server.origin}/${image}/`);
-      await page.waitForFunction(() => ["ready", "failed"].includes(document.documentElement.dataset.dollyStatus));
-      assert.equal(await page.evaluate(() => document.documentElement.dataset.dollyStatus), "ready",
-        await page.locator("#bootstrap-log").textContent());
-      await page.evaluate(() => __dolly.waitForInteractiveTerminal(/dolly:[^\n]*\$\s*$/, "shell"));
+      const submit = await boot(page);
       if (image === "default") assert.deepEqual(
         await page.evaluate(() => [...__dolly.hostModules].sort()),
         ["display@0", "download@0", "http@0", "runtime@0", "snapshot@0", "upload@0"]);
-      const submit = command => page.evaluate(text => __dolly.submit(text), command);
       const starts = [];
       const recordRequest = request => { if (/^https?:/.test(request.url())) starts.push(request.url()); };
       page.context().on("request", recordRequest);
@@ -82,7 +85,40 @@ try {
       assert.equal(await submit("printf 'needle\\n' > /tmp/core-search; rg -q needle /tmp/core-search && test \"$(fd --max-depth 1 '^core-search$' /tmp)\" = /tmp/core-search && rm /tmp/core-search"), 0);
       assert.notEqual(await submit(`curl -fsS ${server.origin}/denied`), 0);
       assert.equal(server.requests.has("/denied"), false, "denied userspace HTTP reached the host server");
-      console.log(`core: ${name} passed ABI, process, filesystem, C/C++, rg/fd, interruption and HTTP checks in ${((performance.now() - started) / 1000).toFixed(1)}s`);
+      // Only images declaring build@0 reach the page's build service.
+      assert.notEqual(await submit("curl -fsS -d 'DOLLY 4' https://build.dolly.invalid/v1/builds"), 0);
+      assert.equal(await page.locator("#image-build").count(), 0);
+      // Wasm only offers downloads: each needs a click, and the queue is bounded.
+      const automatic = page.waitForEvent("download", { timeout: 1000 }).then(() => true, () => false);
+      assert.equal(await submit("download /etc/dolly/Dollyfile"), 0);
+      assert.equal(await automatic, false, "download started without a click");
+      const saved = page.waitForEvent("download");
+      await page.click("#downloads button");
+      assert.equal((await saved).suggestedFilename(), "Dollyfile");
+      for (let index = 0; index < 4; index++) assert.equal(await submit("download /etc/dolly/Dollyfile"), 0);
+      assert.notEqual(await submit("download /etc/dolly/Dollyfile"), 0, "download prompts are unbounded");
+      for (let index = 0; index < 4; index++) await page.getByRole("button", { name: "Dismiss" }).first().click();
+      assert.equal(await page.locator("#downloads").isHidden(), true);
+      assert.deepEqual(await page.evaluate(async () => {
+        const { saveImageArtifact, loadImageArtifactDescriptor, IMAGE_CACHE_MAX_ENTRIES } = await import("/src/image-artifact.mjs");
+        const { DOLLY_IMAGE_BUILD_ID: buildId } = await import("/dist/dolly-image-build-id.mjs");
+        const recipe = index => index.toString(16).padStart(64, "0"), kept = [];
+        for (let index = 0; index <= IMAGE_CACHE_MAX_ENTRIES; index++) {
+          await saveImageArtifact({ buildId, recipeSha256: recipe(index), sha256: "a".repeat(64), inputs: [],
+            hostRequirements: [], byteLength: 16, bytes: new ArrayBuffer(16) }, `custom:bound-${index}`);
+        }
+        for (let index = 0; index <= IMAGE_CACHE_MAX_ENTRIES; index++) kept.push(!!await loadImageArtifactDescriptor(recipe(index)));
+        return [kept[0], kept.filter(Boolean).length === IMAGE_CACHE_MAX_ENTRIES];
+      }), [false, true], "image cache exceeded its entry bound");
+      // Without an embedding policy, the app origin is not ambient: only exact
+      // bootstrap sources reach it and relative URLs never resolve against it.
+      const defaults = await browser.newPage();
+      const submitDefault = await boot(defaults);
+      assert.notEqual(await submitDefault(`curl -fsS ${server.origin}/fixture/http.txt`), 0);
+      assert.notEqual(await submitDefault("curl -fsS /fixture/http.txt"), 0);
+      assert.equal(await submitDefault(`curl -fsS ${server.origin}/Dollyfile -o /tmp/source && cmp /tmp/source /etc/dolly/Dollyfile`), 0);
+      await defaults.close();
+      console.log(`core: ${name} passed ABI, process, filesystem, C/C++, rg/fd, interruption, HTTP, download and cache checks in ${((performance.now() - started) / 1000).toFixed(1)}s`);
     } catch (error) {
       if (expired) throw new Error(`${name}: core browser checks exceeded 120 seconds`, { cause: error });
       if (page && !page.isClosed()) console.error(await page.evaluate(() => globalThis.__dolly?.visibleTerminalText()).catch(() => ""));

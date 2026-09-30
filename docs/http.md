@@ -63,7 +63,9 @@ to distinguish browser-hidden CORS, redirect, DNS, or TLS failures.
 The page-side provider optionally accepts a `globalThis.DOLLY_HTTP_POLICY`
 object before `browser.mjs` loads. A hardened policy contains exact-origin
 rules, an exact path or path prefix, allowed methods, byte/time limits, and the
-names of credential headers that may reach that destination. The module
+names of credential headers that may reach that destination. A prefix matches
+whole path segments (`/v1` admits `/v1/models`, not `/v1-admin`); paths with
+encoded `/` or `\` never match a prefix. The module
 consumes and deletes that global during boot. It always uses
 `credentials: "omit"` and a no-referrer policy. Explicit destination policies
 reject redirects so a request body cannot reach an unvalidated destination.
@@ -87,10 +89,12 @@ Credential values are ordinary Dolly state. Pi may store them in its in-memory
 home directory or environment and sends its own authorization header, just as
 it does on a conventional machine. The broker never owns, injects, or rewrites
 the value. Explicit policies default to 256 authorization attempts, including
-denied attempts; exact trusted bootstrap downloads are exempt. With no policy
-object, including in the public Pages demo, it
-preserves those headers and permits generic HTTP(S), including caller-requested
-redirects, without a lifetime request-count limit. Request byte caps, explicit response quotas
+denied attempts; exact trusted bootstrap downloads instead share a quota of four
+per listed source. With no policy object, including in the public Pages demo, it
+preserves those headers and permits generic HTTP(S) except the app's own origin,
+including caller-requested redirects, without a lifetime request-count limit.
+Only exact bootstrap sources reach the app origin; an explicit rule may grant
+more of it. The broker resolves no relative URL. Request byte caps, explicit response quotas
 and deadlines still apply. The default deadline is ten minutes so reasoning
 and conversation summaries can finish; explicit policy values take precedence. It is therefore
 useful but not safe against exfiltration. Embeddings that need containment
@@ -202,8 +206,8 @@ request metadata, not authority over those browser-owned wire headers.
 
 `CURLOPT_PROTOCOLS_STR` accepts case-insensitive HTTP/HTTPS lists, `ALL`, or NULL
 to restore both. Unsupported or empty lists fail without replacing the current
-restriction. The adapter rejects a forbidden scheme before dispatch; a relative
-URL requires both schemes because only the browser knows its base URL. Duplicated
+restriction. The adapter rejects a forbidden scheme before dispatch; the browser
+rejects relative URLs. Duplicated
 handles retain the restriction. `HTTPAUTH` supports NONE and BASIC; NONE disables
 automatic credentials. Negotiated authentication (including ANY), OAuth token
 options, cookies, proxies, certificate/key/pinning configuration, protocol/version

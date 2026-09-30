@@ -1,5 +1,6 @@
 import { inspectDollyfile } from "./dollyfile-view.mjs";
 import { imageInputs } from "./image-inputs.mjs";
+import { publicURL } from "./static-asset.mjs";
 
 export const DOLLY_SESSION_FORMAT_VERSION = 2;
 export const DOLLY_SESSION_MAX_BYTES = 512 * 1024 * 1024;
@@ -49,10 +50,8 @@ export function sessionCompatible(record, definitions, buildId, imageBuildId) {
 
 export function sessionLoadUrl(name, applicationBase) {
   if (!validSessionName(name)) throw new TypeError("invalid Dolly session name");
-  const base = new URL(applicationBase);
   // Local releases pin assets by digest; named-session links stay public and stable.
-  base.pathname = base.pathname.replace(/_dolly\/[0-9a-f]{64}\/$/, "");
-  return new URL(`session/${name}`, base);
+  return publicURL(`session/${name}`, applicationBase);
 }
 
 export async function listStoredSessions() {
@@ -104,21 +103,6 @@ async function collectStream(stream, maximum) {
   } finally {
     reader.releaseLock();
   }
-}
-
-export async function encodeSessionSnapshot(bytes) {
-  if (!(bytes instanceof ArrayBuffer) || bytes.byteLength < 16 ||
-      bytes.byteLength > DOLLY_SESSION_MAX_BYTES) {
-    throw new TypeError("invalid Dolly session snapshot");
-  }
-  if (typeof CompressionStream !== "function") {
-    return { encoding: "identity", bytes };
-  }
-  return encodeSessionStream(async write => {
-    for (let offset = 0; offset < bytes.byteLength; offset += 65536) {
-      await write(new Uint8Array(bytes, offset, Math.min(65536, bytes.byteLength - offset)));
-    }
-  });
 }
 
 export async function encodeSessionStream(produce) {

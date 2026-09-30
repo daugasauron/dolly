@@ -1,6 +1,8 @@
 import { DOLLY_ERRNO as errno } from "../dist/dolly-errno.mjs";
 
 export const UPLOAD_MAX_BYTES = 64 * 1024 * 1024;
+// After the user cancels, requests are refused briefly so the page stays usable.
+export const UPLOAD_CANCEL_QUIET_MILLISECONDS = 2000;
 const chunkCapacity = 65536;
 const pause = () => new Promise(resolve => setTimeout(resolve, 25));
 
@@ -15,6 +17,7 @@ export class UploadTransport {
     this.bytes = new Uint8Array(buffer, address + 64, chunkCapacity);
     this.chooseFile = chooseFile;
     this.active = null;
+    this.quietUntil = 0;
     Atomics.store(this.words, 8, 1);
   }
 
@@ -41,8 +44,10 @@ export class UploadTransport {
     };
     try {
       if (cancelled()) return;
-      const file = await this.chooseFile(controller.signal);
+      const quiet = performance.now() < this.quietUntil;
+      const file = quiet ? null : await this.chooseFile(controller.signal);
       if (!file) {
+        if (!quiet && !cancelled()) this.quietUntil = performance.now() + UPLOAD_CANCEL_QUIET_MILLISECONDS;
         await publish(new Uint8Array(), true, errno.ECANCELED);
       } else if (!(file instanceof Blob) || file.size > UPLOAD_MAX_BYTES) {
         await publish(new Uint8Array(), true, errno.EFBIG);

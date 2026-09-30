@@ -69,6 +69,10 @@ int main(void) {
     await press({ key: "Escape", code: "Escape", windowsVirtualKeyCode: 27 });
     await done(1);
     assert.equal(await submit("test ! -e /workspace/upload-cancelled"), 0);
+    // Right after a user cancel, a request fails without reopening the modal picker.
+    assert.equal(await submit("upload /workspace/upload-cancelled"), 1);
+    assert.equal(await evaluate("!!document.querySelector('#file-upload[open]')"), false);
+    await new Promise(resolve => setTimeout(resolve, 2000));
 
     await start("upload /workspace/upload-interrupted");
     await press({ key: "c", code: "KeyC", modifiers: 2, windowsVirtualKeyCode: 67 });

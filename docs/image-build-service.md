@@ -1,9 +1,10 @@
 # Building from Studio
 
 Run `dollyfile-build /workspace/Dollyfile` in Studio, including through
-Pi's shell tool. Building starts immediately, without an approval prompt. Logs
-stream back to the caller; compile or builder failures give a nonzero command
-exit. Correct the recipe and submit it again. The current Studio filesystem,
+Pi's shell tool. The Studio module declares `REQUIRES HOST build@0`; other images
+and page-initiated rebuilds cannot reach the build service. Building starts
+immediately, without an approval prompt. Logs stream back to the caller; compile
+or builder failures give a nonzero command exit. Correct the recipe and submit it again. The current Studio filesystem,
 credentials and session stay separate from the new build.
 
 After success, click **Open image** to launch the result in a new tab. This
@@ -23,6 +24,9 @@ There is no new Wasm import or native build server. The existing
 `env.dolly_http_dispatch` broker routes one browser-local request:
 `POST https://build.dolly.invalid/v1/builds` with a literal UTF-8 Dollyfile body.
 It starts a build and returns its event stream. There is no HTTP opening endpoint.
+The page admits it only when `build@0` is enabled and the image ENTRY has started;
+otherwise the request fails with `EACCES`. Builds write the bounded image cache
+(32 images, 8 GiB) and can evict older entries, including other custom images.
 
 No queries, credentials, alternate origins, redirects or other methods are
 accepted. Local admission is independent of the remote HTTP allowlist; all

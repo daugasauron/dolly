@@ -1,4 +1,5 @@
-import { createHttpAdmission, NetworkTransport, DOLLY_HTTP_MAILBOX_VERSION, DOLLY_HTTP_SLOT_COUNT } from "../http-broker.mjs";
+import { createHttpAdmission, NetworkTransport } from "../http-broker.mjs";
+import { DOLLY_HTTP_MAILBOX_VERSION, DOLLY_HTTP_SLOT_COUNT } from "./http-abi.mjs";
 
 export const contract = Object.freeze({ name: "http", version: 0, header: "dolly/http.h",
   abi: ["dolly-http-0"], dependencies: ["runtime@0"], phase: "kernel",

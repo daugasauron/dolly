@@ -9,23 +9,30 @@ import { DisplayTransport as Display } from "../src/host/display.mjs";
 
 test("display text packets and copied selections preserve literal UTF-8", async () => {
   const buffer = new SharedArrayBuffer(4096);
-  const transport = new Display(buffer, 0, 128, 8, 2048, 3072, 1024);
+  const transport = new Display(buffer, 64, 128, 8, 2048, 3072, 1024);
+  const word = field => transport.word + field;
   for (const padding of [0, 1, 84, 85, 86, 87, 88, 89, 175]) {
     transport.words.fill(0);
     const text = "a".repeat(padding) + "\uFEFF日本語😀";
     assert.equal(transport.pushText(text), true);
     const packets = [];
-    for (let index = 0; index < transport.words[Display.eventWrite]; index++) {
-      const offset = Display.headerSize + index * 128;
+    for (let index = 0; index < transport.words[word(Display.eventWrite)]; index++) {
+      const offset = transport.address + Display.headerSize + index * 128;
       const length = new DataView(buffer, offset, 128).getUint16(36, true);
       packets.push(Buffer.from(buffer, offset + 40, length));
     }
     assert.deepEqual(Buffer.concat(packets), Buffer.from(text), `packet boundary after ${padding} bytes`);
     const bytes = Buffer.from(text);
     transport.bytes.set(bytes, transport.copyAddress);
-    transport.words[Display.copyFlags] = Display.copyAvailable;
-    transport.words[Display.copyLength] = bytes.length;
+    transport.words[word(Display.copyFlags)] = Display.copyAvailable;
+    transport.words[word(Display.copyLength)] = bytes.length;
     assert.equal(transport.copySelection(), text, "selection text must remain literal");
+  }
+  transport.words.fill(0);
+  assert.equal(transport.pushText("x".repeat(88 * 8 + 1)), false, "text larger than the free ring");
+  assert.equal(transport.words[word(Display.eventWrite)], 0, "a refused text sends no partial records");
+  for (const [address, capacity] of [[64, 0], [64, 12], [0, 8], [64, 64]]) {
+    assert.throws(() => new Display(buffer, address, 128, capacity, 2048, 3072, 1024), /invalid display mailbox/);
   }
 });
 

@@ -95,6 +95,7 @@ rm -f \
   -o build/dolly-kernel-plugin-0.wasm
 
 node scripts/generate-host-abi.mjs
+node scripts/generate-http-abi.mjs
 node scripts/generate-threads-abi.mjs
 for contract in dolly-threads-0 dolly-threads-supervisor-0; do
   "${container[@]}" /emsdk/upstream/bin/wasm-as "abi/${contract}.wat" \

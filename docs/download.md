@@ -40,17 +40,20 @@ The browser-facing contract in `abi/dolly-download-0.wat` contains:
 ```
 
 The four values are name pointer/length and data pointer/length in kernel
-memory64. They describe one capability call, not four capabilities. Generated
-loader glue validates safe numeric ranges, literal UTF-8, filename length and
-characters, and the 64 MiB bound before copying the bytes out of shared memory.
-Leading U+FEFF is part of the name, not a BOM to discard.
-The worker independently validates the copied request and transfers its
-unshared `ArrayBuffer`. The page validates it again, creates a Blob URL, clicks
-a hidden anchor carrying only the validated base name, and revokes the URL.
+memory64. They describe one capability call, not four capabilities. The binding
+in `src/host/download.mjs` validates safe numeric ranges, literal UTF-8, filename
+length and characters, and the 64 MiB bound before copying the bytes out of
+shared memory. Leading U+FEFF is part of the name, not a BOM to discard.
+It transfers the copied, unshared `ArrayBuffer` to the page, which validates it
+again and shows **Save NAME (SIZE)** and **Dismiss** buttons. Nothing reaches
+the browser's download manager until the user clicks Save; only then does the
+page create a Blob URL for a hidden anchor carrying the validated base name. At
+most four requests wait for a click; further requests fail with `EBUSY`. At most
+four Blob URLs are retained, each for at most a minute.
 
-The browser proof configures a real Chrome download directory, invokes
-`/bin/download`, checks literal ASCII/Unicode names at dispatch, and compares
-the downloaded bytes. The browser chooses the final local filename. Static
+The browser proofs check that no download starts before the click, that the
+queue refuses a fifth request, literal ASCII/Unicode names, and the downloaded
+bytes. The browser chooses the final local filename. Static
 tests also verify the WAT signature and exact import allowlist.
 
 ## Security meaning
@@ -65,7 +68,6 @@ Download is not ambient host filesystem access:
 
 `env.dolly_http_dispatch` therefore remains the sole agent-selected network
 edge. Download is nevertheless a real Wasm-to-browser capability: after total
-userspace compromise, malicious Wasm can request that readable sandbox files
-be downloaded. An embedding that needs confirmation, file-count/byte quotas,
-or no downloads must enforce that policy in the trusted browser provider, just
-as network policy is enforced outside the compromised userspace.
+userspace compromise, malicious Wasm can offer any readable sandbox file under
+any valid name. The user's click is the confirmation; an embedding that needs
+no downloads omits `download@0` with `DOLLY_HOST_MODULES`.

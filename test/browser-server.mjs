@@ -23,7 +23,7 @@ export const mimeTypes = new Map([
   [".woff2", "font/woff2"],
 ]);
 export const browserSources = new Set([
-  ...["abi", "modules", "requirements", "runtime", "display", "gpu", "audio", "http", "download", "upload", "snapshot", "threads"].map(name => `src/host/${name}.mjs`),
+  ...["abi", "modules", "requirements", "runtime", "display", "gpu", "audio", "http", "http-abi", "download", "upload", "snapshot", "threads", "build"].map(name => `src/host/${name}.mjs`),
   "test/fixtures/browser-boundary.mjs",
   "test/fixtures/gpu-boundary.mjs",
   "test/fixtures/gpu-retirement-worker.mjs",
@@ -46,7 +46,6 @@ export const browserSources = new Set([
   "src/image-artifact.mjs",
   "src/image-build.mjs",
   "src/image-builder.mjs",
-  "src/image-build-page.mjs",
   "src/image-build-service.mjs",
   "src/image-build-ui.mjs",
   "src/build-log.mjs",
@@ -145,6 +144,7 @@ export async function startBrowserServer(projectDir, image = "default", port = 0
     files.set(`/fixture/${name}.wasm`, `build/${name}.wasm`);
   }
   files.set(`/${image}`, `build/routes/${image}/index.html`);
+  files.set(`/${image}/rebuild`, `build/routes/${image}/rebuild/index.html`);
   files.set("/custom", "build/routes/custom/index.html");
   files.set("/custom/rebuild", "build/routes/custom/rebuild/index.html");
   files.set("/custom/run", "build/routes/custom/run/index.html");

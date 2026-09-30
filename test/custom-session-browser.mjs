@@ -123,6 +123,10 @@ ENTRY /bin/foreground -i /bin/slop
       await page.close();
       await rebuildPage.close();
       page = await context.newPage();
+      // The page origin is never ambient: this embedding grants its fixtures again.
+      await page.addInitScript((origin) => {
+        globalThis.DOLLY_HTTP_POLICY = { rules: [{ origin, pathPrefix: "/fixture/", methods: ["GET"] }] };
+      }, server.origin);
       await page.goto(server.origin + "/session/custom-proof");
       await boot();
       await check();

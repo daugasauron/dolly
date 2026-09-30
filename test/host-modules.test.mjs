@@ -25,6 +25,7 @@ test("retained images declare only their runtime providers using Dollyfile 4", a
     if (graphics.has(image.image)) expected.push("gpu@0");
     if (audio.has(image.image)) expected.push("audio@0");
     if (image.image === "slopyard") expected.push("threads@0");
+    if (image.image === "dollyfile-studio") expected.push("build@0");
     assert.deepEqual(graph.root.hostRequirements, expected.sort(), image.image);
   }
 });

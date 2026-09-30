@@ -612,9 +612,12 @@ async function execute(request, scope, parsed) {
         query:device.createQuerySet({type:"timestamp",count:timestampQueries}),
         resolve:device.createBuffer({size:timestampQueries*8,usage:GPUBufferUsage.QUERY_RESOLVE|GPUBufferUsage.COPY_SRC}),
         read:device.createBuffer({size:timestampQueries*8,usage:GPUBufferUsage.MAP_READ|GPUBufferUsage.COPY_DST}),busy:false}));
-      output=new Uint8Array(16+Math.min(240,encode.encode(adapterName).length));
-      const v=new DataView(output.buffer);v.setBigUint64(0,BigInt(scope.id),true);v.setUint32(8,width,true);v.setUint32(12,height,true);
-      output.set(encode.encode(adapterName).subarray(0,240),16);
+      // A fixed name: the adapter's vendor/description would fingerprint the device.
+      const name=encode.encode("WebGPU");
+      output=new Uint8Array(16+name.length);
+      const v=new DataView(output.buffer);
+      v.setBigUint64(0,BigInt(scope.id),true);v.setUint32(8,width,true);v.setUint32(12,height,true);
+      output.set(name,16);
     } else {
       ensure(!scope.lost && device,"GPU scope lost",E.EIO);
       if(request.op===A.DOLLY_GPU_BATCH)await batch(scope,parsed);

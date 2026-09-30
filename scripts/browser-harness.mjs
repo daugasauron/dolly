@@ -935,6 +935,14 @@ async function evaluate(send, expression) {
   return evaluation.result.value;
 }
 
+// A real user click, which download prompts require.
+async function clickElement(send, selector) {
+  const point = await evaluate(send, `(() => { const r = document.querySelector(${JSON.stringify(selector)}).getBoundingClientRect();
+    return { x: r.x + r.width / 2, y: r.y + r.height / 2 }; })()`);
+  await send("Input.dispatchMouseEvent", { type: "mousePressed", ...point, button: "left", buttons: 1, clickCount: 1 });
+  await send("Input.dispatchMouseEvent", { type: "mouseReleased", ...point, button: "left", buttons: 0, clickCount: 1 });
+}
+
 async function waitForValue(send, expression, predicate, description, attempts = 12000) {
   let value;
   for (let attempt = 0; attempt < attempts; attempt++) {
@@ -1537,7 +1545,7 @@ chrome.stderr.on("data", bytes => { chromeDiagnostics = (chromeDiagnostics + byt
     : debuggerDisconnectMode ? "about:blank" : customDollyfileMode
       ? new URL("custom/", menuPage).href : menuMode
       ? menuPage
-      : iterationMode || interactiveBuildProbe || sessionRebuildMode || process.env.DOLLY_BROWSER_MODE === "image-inventory-rebuild"
+      : buildPageMode || iterationMode || interactiveBuildProbe || sessionRebuildMode || process.env.DOLLY_BROWSER_MODE === "image-inventory-rebuild"
       ? rebuildPage
       : interactivePage;
   console.log(`browser: ${requestedMode ?? "core"} ${initialPage}`);
@@ -2077,6 +2085,7 @@ chrome.stderr.on("data", bytes => { chromeDiagnostics = (chromeDiagnostics + byt
         const download = async name => {
           assert.match(name, /^(parts\.json|match-\d+\.part|player[12]\.rpl)$/);
           assert.equal(await submit(`download /tmp/rts-live-export/${name}`), 0);
+          await clickElement(send, "#downloads button");
           let bytes;
           for (let attempt = 0; attempt < 400 && !bytes; attempt++) {
             bytes = await readFile(resolve(browserDownloadDirectory, name)).catch(() => null);
@@ -2145,6 +2154,7 @@ chrome.stderr.on("data", bytes => { chromeDiagnostics = (chromeDiagnostics + byt
         if (!matchStart.active) for (const name of ["training-key.png", "training-click.png"]) {
           if (await submit(`test -f /tmp/rts-replay-test/${name}`) !== 0) continue;
           assert.equal(await submit(`download /tmp/rts-replay-test/${name}`), 0);
+          await clickElement(send, "#downloads button");
           let bytes;
           for (let attempt = 0; attempt < 200 && !bytes; attempt++) {
             bytes = await readFile(resolve(browserDownloadDirectory, name)).catch(() => null);
@@ -3210,7 +3220,7 @@ int main(int argc, char **argv) {
       const fixture = `${localOrigin}${browserBase}test/fixtures/browser-boundary.mjs`;
       const result = await evaluate(debuggerClient.send,
         `import(${JSON.stringify(fixture)}).then(module => module.runBrowserBoundaryChecks(new URL('../', document.baseURI).href))`);
-      assert.equal(result.imports, 29);
+      assert.equal(result.imports, 30);
       assert.equal(result.pluginRejections, 3);
       assert.equal(result.policyDeniedBeforeFetch, true);
       assert.equal(result.nonConsumingDeadline, true);
@@ -3222,11 +3232,11 @@ int main(int argc, char **argv) {
       }
       await enterRecoveryShell(debuggerClient.send);
       if (httpDefaultsMode) {
+        // The default policy grants neither the page origin nor relative URLs;
+        // default redirects are covered by the in-page boundary fixture.
         for (const command of [
-          `if curl -fsS ${localOrigin}/fixture/http-redirect; then false; else true; fi`,
-          `curl -fsSL ${localOrigin}/fixture/http-redirect > /tmp/boundary-redirect.txt`,
-          'grep -q \'"method":"GET"\' /tmp/boundary-redirect.txt',
-          "rm -f /tmp/boundary-redirect.txt",
+          `if curl -fsSL ${localOrigin}/fixture/http.txt; then false; else true; fi`,
+          "if curl -fsS /fixture/http.txt; then false; else true; fi",
         ]) assert.equal(await evaluate(debuggerClient.send, `window.__dolly.submit(${JSON.stringify(command)})`), 0, command);
       }
       if (!externalPage) {
@@ -3245,7 +3255,7 @@ int main(int argc, char **argv) {
         await submit("rm -f /tmp/boundary-source.c /tmp/boundary-denied /tmp/boundary-corrupt");
         console.log("browser: broker reconstructed an authorized multipart source; corruption and unauthorized sibling access rejected");
       }
-      for (const command of [
+      if (boundaryMode) for (const command of [
         `if curl -fsS ${localOrigin}/not-allowed; then false; else true; fi`,
         `curl -fsS ${localOrigin}/fixture/http.txt > /tmp/boundary-http.txt`,
         "grep -q FETCHED-THROUGH-BROWSER /tmp/boundary-http.txt",
@@ -4011,15 +4021,12 @@ int main(int argc, char **argv) {
       break browserProof;
     }
     if (buildPageMode) {
-      await waitForValue(debuggerClient.send, "document.querySelector('#build')?.disabled === false", Boolean, "image build controls", 200);
-      assert.equal(await evaluate(debuggerClient.send, "!!document.querySelector('#display')"), false);
-      await evaluate(debuggerClient.send, "document.querySelector('#build').click()");
-      await waitForValue(debuggerClient.send, "document.querySelector('#bootstrap-log').textContent.length", value => value > 0, "active build output", 200);
-      await evaluate(debuggerClient.send, "document.querySelector('#cancel').click()");
-      await waitForValue(debuggerClient.send, "document.documentElement.dataset.dollyStatus", value => value === "cancelled", "cancelled build", 200);
-      await evaluate(debuggerClient.send, "document.querySelector('#build').click()");
       assert.equal(await waitForValue(debuggerClient.send, "document.documentElement.dataset.dollyStatus",
-        value => ["ready", "failed"].includes(value), "headless image build"), "ready");
+        value => ["built", "failed"].includes(value), "headless image rebuild"), "built");
+      const screen = await evaluate(debuggerClient.send, `({ log: document.querySelector('#bootstrap-log').textContent,
+        logVisible: !document.querySelector('#bootstrap-log').hidden, displayHidden: document.querySelector('#display').hidden })`);
+      assert.deepEqual([screen.logVisible, screen.displayHidden], [true, true]);
+      assert.match(screen.log, new RegExp(`\\nBUILT ${selectedImage} · [0-9.]+ MiB · sha256 [0-9a-f]{64}\\n$`));
       const manifest = await evaluate(debuggerClient.send, `(async () => {
         const { DOLLY_IMAGES } = await import(${JSON.stringify(new URL("dist/dolly-images.mjs", menuPage).href)});
         const { loadImageArtifactDescriptor, loadImageArtifact } = await import(${JSON.stringify(new URL("src/image-artifact.mjs", menuPage).href)});
@@ -4030,7 +4037,7 @@ int main(int argc, char **argv) {
       assert.ok(manifest.includes("/usr/libexec/dolly/process-bin/compiler"));
       assert.equal(manifest.includes("/usr/lib/libdisplay.so"), false);
       assert.equal(manifest.includes("/usr/bin/git"), false);
-      console.log("browser: headless compiler build cancels, retries and saves a verified artifact");
+      console.log("browser: headless rebuild keeps its log, reports the result and saves a verified artifact");
       break browserProof;
     }
     if (menuMode) {
@@ -4061,15 +4068,16 @@ int main(int argc, char **argv) {
       assert.equal(menuEvidence.title, "DOLLY");
       assert.equal(menuEvidence.background, "rgb(38, 38, 38)");
       assert.match(menuEvidence.font, /Dolly IosevkaTerm SemiBold/);
-      assert.deepEqual(menuEvidence.links.toSorted(), imageDefinitions.flatMap(({ image }) => [
-        ...(["system-build", "rust-sdk", "rust-build", "ripgrep", "fd-build", "protox-build", "codex-build"].includes(image) ? [] : [`${image}/`]),
-        `${image}/rebuild/`, `view/${image}/`,
+      const displayed = await Promise.all(imageDefinitions.map(async ({ filename }) =>
+        (await loadDollyfileGraph(projectDir, filename)).root.hostRequirements.includes("display@0")));
+      assert.deepEqual(menuEvidence.links.toSorted(), imageDefinitions.flatMap(({ image }, index) => [
+        ...(displayed[index] ? [`${image}/`] : []), `${image}/rebuild/`, `view/${image}/`,
       ]).map(path => new URL(path, menuEvidence.url).href).toSorted());
       assert.equal(menuEvidence.descriptions.length, imageDefinitions.length);
       const menuImages = menuEvidence.descriptions.map(({ image }) => image);
       assert.equal(menuImages[0], "default");
-      const builds = new Set(imageDefinitions.filter(({image}) => /-(build|sdk|runtime)$/.test(image) ||
-        ["system", "ripgrep", "rust-tools"].includes(image)).map(({image}) => image));
+      const builds = new Set(imageDefinitions.filter(({image}, index) => !displayed[index] ||
+        /-(build|sdk|runtime)$/.test(image) || ["system", "ripgrep", "rust-tools"].includes(image)).map(({image}) => image));
       const firstBuild = menuImages.findIndex(image => builds.has(image));
       assert.ok(firstBuild >= 0);
       assert.ok(menuImages.slice(firstBuild).every(image => builds.has(image)), "interactive image follows build images");
@@ -5334,15 +5342,13 @@ int main(int argc, char **argv) {
     const submit = command => evaluate(debuggerClient.send,
       `window.__dolly.submit(${JSON.stringify(command)})`);
     assert.equal(await submit(`echo DOLLY-BROWSER-DOWNLOAD > ${path}`), 0);
-    const count = await evaluate(debuggerClient.send,
-      "Number(document.documentElement.dataset.downloadCount ?? 0)");
     const previousFiles = new Set(await readdir(browserDownloadDirectory));
     assert.equal(await submit(`download ${path}`), 0);
-    await waitForValue(debuggerClient.send,
-      "Number(document.documentElement.dataset.downloadCount ?? 0)",
-      value => value === count + 1, "browser download dispatch", 200);
-    assert.equal(await evaluate(debuggerClient.send, "document.documentElement.dataset.downloadName"),
-      name, "download dispatch changed the literal filename");
+    assert.equal(await waitForValue(debuggerClient.send, "document.querySelector('#downloads li')?.dataset.name ?? ''",
+      Boolean, "browser download prompt", 200), name, "download dispatch changed the literal filename");
+    await delay(500);
+    assert.deepEqual(new Set(await readdir(browserDownloadDirectory)), previousFiles, "download started without a click");
+    await clickElement(debuggerClient.send, "#downloads button");
     let downloadedBytes = null, savedName;
     for (let attempt = 0; attempt < 200; attempt++) {
       const files = (await readdir(browserDownloadDirectory)).filter(file =>

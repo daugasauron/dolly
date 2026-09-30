@@ -1,7 +1,9 @@
 (module
   ;; Browser-facing display and input contract. The browser supplies shared
-  ;; memory and one bootstrap-only text sink. Once the source-built display
-  ;; driver is resident, raw terminal output never crosses this boundary.
+  ;; memory and one text sink for output written while no display driver is
+  ;; resident: boot, rebuilds and headless images. The page shows it only as
+  ;; bounded plain text in the bootstrap log. Once the source-built driver is
+  ;; resident, the kernel sends raw terminal output to it instead.
   (import "env" "memory" (memory i64 1024 131072 shared))
   (import "env" "dolly_bootstrap_write_bytes"
     (func $dolly_bootstrap_write_bytes (param i64 i64)))
