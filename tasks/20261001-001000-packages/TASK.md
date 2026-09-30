@@ -64,3 +64,32 @@ match with good taste. Sketch, to be validated by the experiment below:
    working tool and session size against booting the dedicated image. Build an
    installer only if installs take seconds, sessions stay far below 512 MiB and the
    ENV gap has a small fix.
+
+## Measured (2026-10-01, experiment 2 without the session step)
+
+Packages were the files each image adds to or changes in `default` (excluding
+`/etc/dolly/`), packed as deterministic ustar `.tgz`, served locally, and
+installed into a live `default` tab with `curl`, `sha256sum -c` and
+`gzip -dc | tar -xf - -C /`. Times are Chrome / Firefox wall time per command.
+
+| Package | Files | Raw | gzip | Image | Unpack | First run |
+| --- | --- | --- | --- | --- | --- | --- |
+| neovim | 2,125 | 36 MB | 9.7 MB | 196 MB | 1.0 / 1.7 s | `nvim --version` 0.1 s |
+| python | 1,070 | 41 MB | 16.1 MB | 201 MB | 1.4 / 2.2 s | `python -c` 0.1 s |
+| pi (with rg, fd) | 6,006 | 82 MB | 22.4 MB | 243 MB | 2.5 s | `pi --version` 3.0 s |
+
+Fetch and digest took at most 0.2 s each. Booting the dedicated image instead
+takes 2.3 s (neovim, python) or 2.9 s (pi) in Chrome against 1.9 s for
+`default`, so a live install costs about as much as switching images, while
+moving 10-22 MB instead of the whole image.
+
+Gaps found:
+- Dolly's `tar` rejects symlinks (`validate path at ./usr/bin/qjs`, errno 138)
+  and GNU long names (`././@LongLink`), and has no `-z`. Packages must be ustar
+  with symlinks dereferenced (python's `python3 -> python` then costs 3 MB),
+  or `tar` must learn both.
+- Not yet measured: saving and reloading the session (size against 512 MiB,
+  and the lost `ENV`).
+
+Scripts: `pack.mjs`, `install.mjs` and `boot.mjs` in the session scratchpad
+(not committed).
