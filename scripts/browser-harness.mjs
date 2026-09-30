@@ -2717,8 +2717,6 @@ install(TARGETS probe RUNTIME DESTINATION bin)
         "document.documentElement?.dataset.dollyStatus ?? ''",
         value => value === "ready" || value === "failed", "Neovim boot", 1200), "ready");
       if (selectedImage === "neovim") {
-        await runLocalMenuProof(expression => evaluate(debuggerClient.send, expression),
-          key => dispatchKey(debuggerClient.send, key), debuggerClient.send);
         await dispatchKey(debuggerClient.send, {key: "Escape", code: "Escape", windowsVirtualKeyCode: 27});
         await waitForTerminalText(debuggerClient.send, /Neovim inside Dolly/, "direct Neovim ENTRY");
         await clearTerminalSelection(debuggerClient.send);
@@ -2745,7 +2743,7 @@ install(TARGETS probe RUNTIME DESTINATION bin)
           "Neovim :q recovery shell")`);
         assert.equal(await evaluate(debuggerClient.send,
           `window.__dolly.submit("printf NVIM-RECOVERY-OK")`), 0);
-        console.log("browser: Neovim startup, local menu focus, shifted text, Escape, :w, :! Slop command and :q recovery passed");
+        console.log("browser: Neovim startup, shifted text, Escape, :w, :! Slop command and :q recovery passed");
         break browserProof;
       }
       await enterRecoveryShell(debuggerClient.send);

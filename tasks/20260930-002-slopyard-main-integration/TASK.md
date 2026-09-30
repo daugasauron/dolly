@@ -85,6 +85,12 @@ Evidence:
   in saved map data, save/reload and exit/cancellation recovery. Its save inspector
   now copies filename bytes before decoding the resizable snapshot buffer
   (`classicube-browser.log`).
+- Rebuilt Codex passes TUI editing/paste, real shell-tool execution and exit,
+  plus device-login cancellation, credential persistence, restart and refresh
+  against its test server (`codex-browser.log`, `codex-login-browser.log`).
+- Rebuilt Neovim passes shifted input, writing files, Slop shell commands and
+  exit/recovery (`neovim-browser.log`). A dangling call to the previously removed
+  menu-test helper was removed from that check.
 
 Remaining gates (do not close until verified):
 

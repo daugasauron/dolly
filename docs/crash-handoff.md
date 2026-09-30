@@ -15,8 +15,8 @@ worker and minimal v4 host declarations are prepared. Main's 0 A.D., audio, GPU
 and streaming snapshots are integrated in source. The combined runtime builds
 and passes its exact browser-import and kernel ABI checks. The 40-image browser
 rebuild is in progress, logged in `build/slopyard-integration-20260930/images-build.log`.
-The system/compiler bases, CMake, SDL2, Bhop, Pi Runtime, ClassiCube and Protox
-have rebuilt. Codex is compiling its Rust dependencies.
+The system/compiler bases, CMake, SDL2, Bhop, ClassiCube, Codex, Pi Local, Neovim
+and Studio have rebuilt. The remaining image builds are still running.
 Main has not advanced to the merge; no push or deployment has occurred here.
 
 All 287 source tests pass. Real Chromium checks pass for streaming build-log
@@ -26,6 +26,8 @@ audio playback, 0 A.D. rendering/audio/gameplay/save-load, Slopyard save imports
 hardware GPU rendering and fluid compute/control/recovery checks. Bhop passes
 movement, controls, exit and recovery on its rebased image. ClassiCube passes
 movement, block placement/removal in saved data, save/reload and recovery.
+Codex passes TUI/tool use and its test-server login flows; Neovim passes editing,
+file writes, shell commands and recovery.
 Evidence is in
 `build/slopyard-integration-20260930/`. Studio rebuild output and final packaged
 image inventories remain pending.
