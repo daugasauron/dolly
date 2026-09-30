@@ -1,7 +1,7 @@
 DOLLY 4
 IMAGE gpu-sdk
 
-FROM HOST /Dollyfile-system 489a5fad3c2e592710b56e5ba823c9a0dc831e745757b81d514c88aefd3813ba
+FROM HOST /Dollyfile-system 606697340ee3ee66ec799bd8bde8c40f753838da43e4eb51eea26c16d3ca97f3
 REQUIRES HOST gpu@0
 USE HOST /modules/gpu.dm d1e11ceb8d20737a904240d77d5375a8d62cbfb35542a5cb24ece5929ced0e3d
 

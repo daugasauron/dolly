@@ -8,7 +8,7 @@ REQUIRES TOOL tar
 # and C++ separately; this is not Zig's distribution for every target OS.
 # Like Clang in the bootstrap seed, this compiler is built by the outer
 # toolchain and validated against dolly-process-0. It runs entirely in Wasm.
-SOURCE HOST /static/default/zig.wasm /usr/bin/zig 7eb95f68ec8c81d45e00a9686d10a119cfb108d2be5ce86d187166d7c5fbf5d5
+SOURCE HOST /static/default/zig.wasm /usr/bin/zig 343eeb339f4c8fa5259ee7adb12cc003c857a0b85c9f598ee475d4e42c2d00e0
 SOURCE HOST /static/default/zig-lib.tar    /tmp/zig-lib.tar 205fcde54b306ab68dcbbbbe45d1c1b314147b6dd9b3dcaf48a56eb8e70497e2
 SLOP tar \
   -xf /tmp/zig-lib.tar \

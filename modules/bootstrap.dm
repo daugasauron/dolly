@@ -5,8 +5,8 @@ MODULE bootstrap
 # and C headers are the externally supplied bootstrap seed. How those headers
 # eventually map to the lower-level machine contract is deliberately open.
 SOURCE HOST /include/dolly/toolchain.h /usr/include/dolly/toolchain.h 6f9da3258e970e356c31034e1f109a04ac8bd5ab57dc82c19aebf293289fb415
-SOURCE HOST /include/dolly/runtime.h   /usr/include/dolly/runtime.h   060f61049f36cec927ca4560a53f870c0af08052d5e7506981f5e61657873b71
-SOURCE HOST /include/dolly/process.h   /usr/include/dolly/process.h   904cefd9556bdeacd8db75588d7cefc4506b50300545a107f5a84e07091d0732
+SOURCE HOST /include/dolly/runtime.h   /usr/include/dolly/runtime.h   c6ada3507d48f5503aff635ea18bf12f50a22b76e29a77f1ced5833f08998778
+SOURCE HOST /include/dolly/process.h   /usr/include/dolly/process.h   aa92325b8d0b762c278398c4001abd210c5c46f414407ac9f5a04334545a72b1
 SOURCE HOST /include/dolly/http.h      /usr/include/dolly/http.h      836dacaa6965e33be30d1ef38fe0d828c3889e8a44c752659a5747ebfe4637cf
 SOURCE HOST /include/dolly/display.h   /usr/include/dolly/display.h   79d18634affb585f7c41219f8dc09dedb8a611daf65d36a164d1a8d91779de2e
 SOURCE HOST /include/dolly/download.h  /usr/include/dolly/download.h  8924a3e4c82183c2840f9734dcca8a2427b085c5e004d32c90496f926246cc89

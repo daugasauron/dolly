@@ -1,9 +1,9 @@
 DOLLY 4
 IMAGE rust-sdk
 
-FROM HOST /Dollyfile-system-build 71a1ad2292333b56aa27f0d32c85814e642050468064525afacb9e4ff9ef7f59
+FROM HOST /Dollyfile-system-build 7743a179e80606fc7ce410f47cfdbb9b6f6975d9234095f174d4f630204c0372
 USE HOST /modules/zlib.dm 1fc01e0f9f165d635e2dde3feff11ad43a10489bdb557dba8313a1b6c5cfb80c
 USE HOST /modules/gzip.dm f159cc4ed4c045f89a3ce1477c513e9ee00b4a949dc7903ac0ef059fbdb5227a
-USE HOST /modules/rust-sdk.dm f49110d91e06763b7b73f9069ee06441bd8a215b843c747b9ae3cb9ccffcf529
+USE HOST /modules/rust-sdk.dm a35e433a792edef30600101f8fa5db8f8631ee1dfdaa2b1cc5e8fe4a38b2919c
 
 ENTRY /bin/slop
