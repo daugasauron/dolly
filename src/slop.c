@@ -137,6 +137,23 @@ static void interrupt_shell(Shell *shell, int signal_number) {
   shell->exit_status = 128 + signal_number;
 }
 
+// An interactive shell survives Ctrl+C: SIGINT only records the request, and
+// loops, which may run without any child to interrupt, poll for it.
+static volatile sig_atomic_t interrupt_requested;
+
+static void request_interrupt(int signal_number) {
+  (void)signal_number;
+  interrupt_requested = 1;
+}
+
+static void poll_interrupt(Shell *shell) {
+  if (!shell->interactive) return;
+  if (dolly_interrupt_poll() == SIGINT) interrupt_requested = 1;
+  if (!interrupt_requested) return;
+  interrupt_requested = 0;
+  interrupt_shell(shell, SIGINT);
+}
+
 static int execute_text(Shell *shell, const char *text);
 static int execute_tokens(Shell *shell, TokenList *list);
 static char *read_script(const char *path);
@@ -3574,7 +3591,8 @@ static int parse_for(Shell *shell, CommandParser *parser, int execute,
         .end = parser->end,
     };
     unsigned stopped = 0;
-    int run = execute && iteration_index < iterations;
+    if (execute) poll_interrupt(shell);
+    int run = execute && shell->active && iteration_index < iterations;
     if (run && setenv(variable, values.items[iteration_index], 1) != 0) {
       fprintf(stderr, "slop: for: %s\n", strerror(errno));
       status = 1;
@@ -3629,6 +3647,7 @@ static int parse_while(Shell *shell, CommandParser *parser, int execute,
 
   if (execute) shell->loop_depth++;
   for (;;) {
+    if (execute) poll_interrupt(shell);
     CommandParser condition = {
         .tokens = parser->tokens,
         .cursor = condition_start,
@@ -4674,6 +4693,12 @@ static int interactive(Shell *shell) {
   }
   shell->interactive = 1;
   shell->active = 1;
+  const struct sigaction interrupt = {.sa_handler = request_interrupt,
+                                      .sa_flags = SA_RESTART};
+  if (sigaction(SIGINT, &interrupt, NULL) != 0) {
+    fprintf(stderr, "slop: SIGINT: %s\n", strerror(errno));
+    return 1;
+  }
   char *line = malloc(SLOP_MAX_LINE + 1);
   if (line == NULL) return 1;
   History history = {0};
@@ -4696,6 +4721,7 @@ static int interactive(Shell *shell) {
       const char *command = line;
       while (isspace((unsigned char)*command)) command++;
       report_status = *command != '\0' && *command != '#';
+      interrupt_requested = 0;
       if (report_status) shell->last_status = execute_text(shell, line);
     }
     if (shell->terminating_signal) {
