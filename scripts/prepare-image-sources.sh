@@ -51,7 +51,10 @@ has_module git && git_dir="$("${project_dir}/scripts/prepare-git.sh")"
 has_module make && make_dir="$("${project_dir}/scripts/prepare-make.sh")"
 has_module ninja && samurai_dir="$("${project_dir}/scripts/prepare-samurai.sh")"
 has_module cpp && emscripten_system_dir="$("${project_dir}/scripts/fetch-pinned-checkout.sh" emscripten)"
-has_module zig && zig_dir="$("${project_dir}/scripts/prepare-zig-native.sh")"
+if has_module zig; then
+  zig_dir="$("${project_dir}/scripts/prepare-zig-native.sh")"
+  wamr_dir="$("${project_dir}/scripts/fetch-pinned-checkout.sh" wamr)"
+fi
 if has_module ghostty; then
   ghostty_checkout="$("${project_dir}/scripts/fetch-pinned-checkout.sh" ghostty)"
   ghostty_dir="$("${project_dir}/scripts/prepare-ghostty-source.sh" "${ghostty_checkout}")"
@@ -95,9 +98,6 @@ if has_module ghostty; then
   copy_static "${project_dir}/src/ghostty/display.c" default/ghostty/display.c
   copy_static "${stb_header}" default/stb_truetype.h
   copy_static "${runtime_font}" default/IosevkaTerm-SemiBold.ttf
-fi
-if has_module zig; then
-  copy_static "${project_dir}/build/process-tools/zig.wasm" default/zig.wasm
 fi
 
 if has_module make; then
@@ -158,9 +158,19 @@ if has_module zig; then
     [[ -z "${entry}" || "${entry}" == \#* ]] && continue
     zig_sdk_inputs+=("${zig_dir}/lib/${entry}" "/usr/lib/zig/${entry}")
   done < config/zig-sdk-files.txt
-  node scripts/build-source-tar.mjs "${static_dir}/default/zig-lib.tar" \
+  node scripts/build-source-tar.mjs "${static_dir}/default/zig.tar" \
     "${zig_sdk_inputs[@]}" \
+    "${zig_dir}/src" /tmp/zig/src \
+    "${zig_dir}/stage1/zig1.wasm" /tmp/zig/stage1/zig1.wasm \
+    "${zig_dir}/stage1/wasi.c" /tmp/zig/stage1/wasi.c \
+    "${zig_dir}/stage1/panic.h" /tmp/zig/stage1/panic.h \
+    src/zig/config.zig /tmp/zig/config.zig \
     "${zig_dir}/LICENSE" /usr/share/licenses/zig/LICENSE
+  node scripts/build-source-tar.mjs "${static_dir}/default/wamr.tar" \
+    "${wamr_dir}/core" /tmp/wamr/core \
+    src/zig/zig1.c /tmp/wamr/zig1.c \
+    src/zig/wamr-platform.c /tmp/wamr/wamr-platform.c \
+    src/zig/platform_internal.h /tmp/wamr/platform_internal.h
 fi
 if has_module ghostty; then
 node scripts/build-source-tar.mjs "${static_dir}/default/ghostty.tar" \

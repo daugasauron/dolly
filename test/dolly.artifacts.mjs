@@ -242,6 +242,7 @@ test("system snapshots are sealed to their visible recipe chain", async () => {
     ["system", "/usr/lib/libdisplay.so"],
     ["system-build", "/bin/slop"],
     ["system-tools", "/usr/bin/git"],
+    ["zig-build", "/usr/bin/zig"],
   ]);
   assert.deepEqual([...corePrograms.keys()].sort(), definitions
     .filter(definition => !definition.path.startsWith("demos/")).map(definition => definition.image).sort());

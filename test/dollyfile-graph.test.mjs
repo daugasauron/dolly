@@ -77,7 +77,7 @@ test("unreferenced module sources are admitted without staging their inputs or e
 
 test("images separate reusable runtimes from applications and configuration", async () => {
   const core = {
-    "system-build": [], "system-tools": ["system-build"], "ghostty-build": ["system-build"],
+    "system-build": [], "system-tools": ["system-build"], "zig-build": ["system-build"], "ghostty-build": ["zig-build"],
     system: ["system-tools", "ghostty-build"], default: ["system"], "gpu-sdk": ["system"], "audio-sdk": ["system"],
   };
   const files = await recipeFiles(project);
@@ -91,7 +91,7 @@ test("images separate reusable runtimes from applications and configuration", as
       assert.deepEqual(records.filter(record => files.get(record.locator).startsWith("demos/")), [],
         `core image ${definition.image} uses demo recipes`);
     }
-    assert.equal(graph.exporters.has("TOOL:zig"), definition.image === "ghostty-build");
+    assert.equal(graph.exporters.has("TOOL:zig"), ["zig-build", "ghostty-build"].includes(definition.image));
     if (!graph.root.hostRequirements.includes("display@0") && definition.image !== "ghostty-build") {
       assert.equal(graph.exporters.has("ENV:DISPLAY"), false, definition.image);
       assert.equal(records.some(record => record.name === "ghostty-build"), false, definition.image);

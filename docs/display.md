@@ -63,19 +63,21 @@ flowchart LR
 
 ## Zig and the Ghostty build
 
+- `zig-build` ([`Dollyfile-zig-build`](../Dollyfile-zig-build),
+  [`zig.dm`](../modules/zig.dm)) builds Zig 0.16 from its source archive with
+  Dolly `cc`, as upstream `bootstrap.c` does with two substitutions. WAMR, built
+  by `cc` ([`zig1.c`](../src/zig/zig1.c)), interprets upstream `zig1.wasm`
+  because wasm2c's translation overflows a browser Worker's native stack. zig1
+  emits zig2 as C with only the C backend ([`config.zig`](../src/zig/config.zig)),
+  which `cc` compiles to `/usr/bin/zig`.
 - `ghostty-build` ([`Dollyfile-ghostty-build`](../Dollyfile-ghostty-build),
-  [`zig.dm`](../modules/zig.dm), [`ghostty.dm`](../modules/ghostty.dm)) runs Zig
-  0.16 as a private process to compile Ghostty VT, then Dolly `cc` links
-  `/usr/lib/libdisplay.so`. `system` copies only that plugin, the font and
-  licenses.
-- `zig.wasm` is an explicit bootstrap exception: the pinned host Zig builds its
-  frontend and LLVM/LLD links it ([`build-native-zig.sh`](../scripts/build-native-zig.sh),
-  [`zig-0.16.0-dolly-native.patch`](../patches/zig-0.16.0-dolly-native.patch)).
-  The SDK files are listed in [`zig-sdk-files.txt`](../config/zig-sdk-files.txt).
-- Clang and Zig each link their own LLVM/LLD. That duplicates builder code but
-  lets ordinary images omit Zig without a shared LLVM loader or compiler-specific
-  API. There is no Zig-to-C translation, nested interpreter or host compilation
-  service.
+  [`ghostty.dm`](../modules/ghostty.dm)) has that Zig emit Ghostty VT and
+  compiler_rt as C, compiles them with `cc` and links `/usr/lib/libdisplay.so`.
+  `system` copies only that plugin, the font and licenses.
+- This Zig has no LLVM: it emits only C, so there is no `zig build` or `zig cc`.
+  Host preparation only patches the pinned tree for Emscripten's wasm64 layouts
+  and WasmFS ([`zig-0.16.0-dolly-native.patch`](../patches/zig-0.16.0-dolly-native.patch));
+  the SDK files are listed in [`zig-sdk-files.txt`](../config/zig-sdk-files.txt).
 - Ghostty's generated option and Unicode tables are pinned source inputs
   ([`src/ghostty/generated/`](../src/ghostty/generated/README.md));
   [`ghostty-dolly.patch`](../config/ghostty-dolly.patch) zeroes page-pool buffers.

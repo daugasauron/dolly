@@ -17,6 +17,7 @@ trusted browser code) plus a minimal POSIX userspace. Everything else is a
 - `system`: Shared shell, Git, display and C/C++ SDK.
 - `system-tools`: Headless shell, Git, curl, Make and POSIX tools.
 - `system-build`: C/C++ compiler, headers and basic build tools.
+- `zig-build`: Zig built from source by the C/C++ compiler; emits C.
 - `ghostty-build`: Ghostty terminal build with Zig and its SDK.
 - `gpu-sdk`: `system` with the WebGPU host module (`gpu@0`).
 - `audio-sdk`: `system` with the PCM playback host module (`audio@0`).

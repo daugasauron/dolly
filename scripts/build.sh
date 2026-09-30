@@ -52,8 +52,6 @@ if [[ ! -f "${project_dir}/.cache/llvm-wasm/lib/libclangFrontend.a" ||
   exit 1
 fi
 
-zig_dir="$("${project_dir}/scripts/prepare-zig-native.sh")"
-zig_container_dir="/src/${zig_dir#"${project_dir}/"}"
 mapfile -t font_paths < <(bash "${project_dir}/scripts/fetch-iosevka.sh")
 web_font="${font_paths[0]}"
 
@@ -272,9 +270,6 @@ node scripts/dolly-abi.mjs stamp-process build/dolly-process-0.wasm \
 node scripts/dolly-abi.mjs validate-process-dso \
   build/dolly-process-0.wasm build/dolly-process-dso-0.wasm build/dso-types.wasm
 
-native_zig_object="$("${project_dir}/scripts/build-native-zig.sh")"
-
-
 node scripts/host-modules.mjs kernel-modules > build/generated/dolly-kernel-modules.h.new
 replace_if_changed build/generated/dolly-kernel-modules.h.new build/generated/dolly-kernel-modules.h
 kernel_contracts=()
@@ -305,18 +300,16 @@ node scripts/dolly-abi.mjs emit-digest-header \
   -DLLVM_DIR=/src/.cache/llvm-wasm/lib/cmake/llvm \
   -DClang_DIR=/src/.cache/llvm-wasm/lib/cmake/clang \
   -DLLD_DIR=/src/.cache/llvm-wasm/lib/cmake/lld \
-  -DDOLLY_ZIG_DIR="${zig_container_dir}" \
-  -DDOLLY_ZIG_OBJECT="/src/${native_zig_object#"${project_dir}/"}" \
   -DDOLLY_PROCESS_SYSROOT_DIR="${process_sysroot_container_dir}" \
   -DDOLLY_KERNEL_SOURCES="$(node scripts/host-modules.mjs kernel | sed 's#^#/src/#' | paste -sd ';')" \
   -DDOLLY_CLIENT_LIBRARIES="$(printf '/src/build/lib%s.a\n' "${client_links[@]#-l}" | paste -sd ';')"
-"${container[@]}" cmake --build build/runtime --target dolly-process-compiler dolly-process-zig --parallel
+"${container[@]}" cmake --build build/runtime --target dolly-process-compiler --parallel
 node scripts/dolly-abi.mjs stamp-process \
   build/dolly-process-0.wasm \
-  build/process-tools/compiler.wasm build/process-tools/zig.wasm
+  build/process-tools/compiler.wasm
 node scripts/dolly-abi.mjs validate-process \
   build/dolly-process-0.wasm \
-  build/process-tools/compiler.wasm build/process-tools/zig.wasm
+  build/process-tools/compiler.wasm
 cp build/process-tools/compiler.wasm build/process-bin/compiler
 "${container[@]}" cmake --build build/runtime --target dolly --parallel
 

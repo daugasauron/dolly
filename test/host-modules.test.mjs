@@ -15,7 +15,7 @@ test("retained images declare only their runtime providers using Dollyfile 4", a
   const interactive = ["display@0", "download@0", "http@0", "snapshot@0", "upload@0"];
   const core = {
     default: interactive, system: interactive, "gpu-sdk": [...interactive, "gpu@0"],
-    "audio-sdk": [...interactive, "audio@0"], "system-build": [], "system-tools": [], "ghostty-build": [],
+    "audio-sdk": [...interactive, "audio@0"], "system-build": [], "system-tools": [], "zig-build": [], "ghostty-build": [],
   };
   const optional = new Set(["audio@0", "build@0", "gpu@0", "threads@0"]);
   for (const image of await discoverImageDefinitions(root)) {

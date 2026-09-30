@@ -9,7 +9,7 @@ fi
 case "$1" in
   quickjs) cache_name=quickjs-ng ;;
   emscripten) cache_name=emscripten-source ;;
-  sbase|awk|curl|git|zlib|samurai|ghostty|raylib|box3d|pi-source|cpython) cache_name="$1" ;;
+  sbase|awk|curl|git|zlib|samurai|ghostty|raylib|box3d|pi-source|cpython|wamr) cache_name="$1" ;;
   *) echo "dolly: unknown pinned Git source: $1" >&2; exit 64 ;;
 esac
 prefix="DOLLY_${1^^}"

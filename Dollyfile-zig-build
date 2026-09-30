@@ -1,0 +1,8 @@
+DOLLY 4
+IMAGE zig-build
+
+FROM HOST /Dollyfile-system-build f320855c6e680ecf68c7b3a5824538c10fab5b5d66ee8f72edb0d1b632d5ecfe
+
+USE HOST /modules/zig.dm 853076d50227e36eec78027c266313eb125e349b3495579a35548d9395e262dd
+
+ENTRY /bin/slop

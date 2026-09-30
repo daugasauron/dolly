@@ -21,10 +21,9 @@ flowchart TD
 | Emscripten 6.0.8 | Digest-pinned container links the kernel, process sysroot, gate and seed ([`CMakeLists.txt`](../toolchain/CMakeLists.txt), [`build.sh`](../scripts/build.sh)) | Kernel plus process libc; the seed holds headers, Slop, Dollyfile and core-command source |
 | LLVM/Clang/LLD 24 | Wasm64 libraries linked into one stamped compiler executable ([`build-toolchain.sh`](../scripts/build-toolchain.sh)) | `cc`, `c++`, `ld`, `ar` spawn it as a private process |
 | libc++/libc++abi | Pinned Emscripten archives; headers archived separately | Installed by [`cpp.dm`](../modules/cpp.dm); no handwritten substitutes |
-| Zig 0.16 | Host Zig builds the frontend; LLVM/LLD links `zig.wasm` | Only in `ghostty-build` ([display](display.md#zig-and-the-ghostty-build)) |
 
 Demo exceptions (the Rust compiler seed, the 0 A.D. engine) are recorded in their
-demo READMEs. Every externally built program (compiler, Zig, Rust seed, 0 A.D.)
+demo READMEs. Every externally built program (compiler, Rust seed, 0 A.D.)
 validates against `dolly-process-0` exactly and ships without an Emscripten
 JavaScript loader. Host preparation may
 configure and patch pinned trees deterministically and reviewably, but must not
@@ -62,7 +61,7 @@ compile the programs an image claims to build.
 | Make, Ninja | GNU Make 4.4.1 and Samurai 1.3 | `-jN` runs serially |
 | Git, curl | Local Git 2.55 and HTTP clone/fetch/push over Fetch-backed libcurl ([HTTP](http.md)) | CORS applies; no sockets; clean/smudge filters unported |
 | Awk, zlib, gzip | One True Awk (Bison output prepared outside), zlib 1.3.2, Dolly `gzip` | |
-| Zig, Ghostty | Private Zig compiler; source-built terminal ([display](display.md)) | Builder image only |
+| Zig, Ghostty | Zig 0.16 built from source by `cc`; source-built terminal ([display](display.md#zig-and-the-ghostty-build)) | Builder images only; Zig emits only C |
 
 Everything above Dolly's core (Python, JavaScript and Pi, Neovim, Rust, games) is
 a demo under `demos/`, listed in `demos/README.md`.

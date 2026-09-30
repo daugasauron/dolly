@@ -12,13 +12,11 @@ test("preparation keys track their code and survive checkout relocation", async 
   const inputs = [
     "config/source-pins.sh", "config/samurai-dolly.patch",
     "scripts/prepare-samurai.sh", "scripts/prepare-zig-native.sh",
-    "scripts/build-native-zig.sh", "patches/zig-0.16.0-dolly-native.patch",
-    "src/zig/native-main.zig", "src/zig/native-build-options.zig",
+    "patches/zig-0.16.0-dolly-native.patch",
   ];
   const recipes = [
     ["prepare-samurai.sh", "recipe_hash"],
     ["prepare-zig-native.sh", "recipe_digest"],
-    ["build-native-zig.sh", "object_digest"],
   ];
   // Execute only each script's key calculation, not a network fetch or compiler.
   const key = async (root, [script, variable]) => {
@@ -49,10 +47,6 @@ test("preparation keys track their code and survive checkout relocation", async 
       assert.notEqual(await key(original, recipe), baseline);
       await writeFile(path, source);
     }
-    const native = await key(original, recipes[2]);
-    const preparation = join(original, "scripts/prepare-zig-native.sh");
-    await writeFile(preparation, `${await readFile(preparation, "utf8")}\n# changed preparation\n`);
-    assert.notEqual(await key(original, recipes[2]), native);
   } finally {
     await rm(scratch, { recursive: true, force: true });
   }

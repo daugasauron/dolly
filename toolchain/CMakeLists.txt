@@ -5,13 +5,6 @@ find_package(LLVM REQUIRED CONFIG)
 find_package(LLD REQUIRED CONFIG)
 find_package(Clang REQUIRED CONFIG)
 
-if(NOT DOLLY_ZIG_DIR OR NOT EXISTS "${DOLLY_ZIG_DIR}/src/zig_llvm.cpp" OR
-   NOT EXISTS "${DOLLY_ZIG_DIR}/lib/std/std.zig")
-  message(FATAL_ERROR "DOLLY_ZIG_DIR must name the prepared Zig source tree")
-endif()
-if(NOT DOLLY_ZIG_OBJECT OR NOT EXISTS "${DOLLY_ZIG_OBJECT}")
-  message(FATAL_ERROR "DOLLY_ZIG_OBJECT must name the prepared Zig frontend object")
-endif()
 if(NOT DOLLY_PROCESS_SYSROOT_DIR OR
    NOT EXISTS "${DOLLY_PROCESS_SYSROOT_DIR}/SHA256SUMS" OR
    NOT EXISTS "${DOLLY_PROCESS_SYSROOT_DIR}/libdolly-process.a")
@@ -124,64 +117,57 @@ add_executable(dolly-process-compiler
 target_link_libraries(dolly-process-compiler PRIVATE
   clangFrontendTool clangCodeGen clangFrontend clangBasic
 )
-add_executable(dolly-process-zig
-  ../src/process/zig.c
-  "${DOLLY_ZIG_DIR}/src/zig_llvm.cpp"
-  "${DOLLY_ZIG_OBJECT}"
+# A new process contract restamps the tool, so relink it to drop the old stamp.
+set_property(TARGET dolly-process-compiler APPEND PROPERTY
+  LINK_DEPENDS /src/build/generated/dolly-process-abi-digest.h)
+target_include_directories(dolly-process-compiler PRIVATE
+  ../build/include
+  ../build/generated
+  ${LLVM_INCLUDE_DIRS}
+  ${CLANG_INCLUDE_DIRS}
+  ${LLD_INCLUDE_DIRS}
 )
-foreach(tool compiler zig)
-  # A new process contract restamps the tool, so relink it to drop the old stamp.
-  set_property(TARGET dolly-process-${tool} APPEND PROPERTY
-    LINK_DEPENDS /src/build/generated/dolly-process-abi-digest.h)
-  target_include_directories(dolly-process-${tool} PRIVATE
-    ../build/include
-    ../build/generated
-    ${LLVM_INCLUDE_DIRS}
-    ${CLANG_INCLUDE_DIRS}
-    ${LLD_INCLUDE_DIRS}
-  )
-  target_compile_options(dolly-process-${tool} PRIVATE
-    -m64
-    -O2
-    -fno-exceptions
-    -fno-rtti
-    -fwasm-exceptions
-    -matomics
-    -mbulk-memory
-    -sSUPPORT_LONGJMP=wasm
-    -sWASM_LEGACY_EXCEPTIONS=0
-  )
-  target_compile_features(dolly-process-${tool} PRIVATE cxx_std_17)
-  target_link_libraries(dolly-process-${tool} PRIVATE
-    /src/build/process-crt1.o
-    "-Wl,--whole-archive"
-    /src/build/libdolly-process.a
-    "-Wl,--no-whole-archive"
-    ${DOLLY_CLIENT_LIBRARIES}
-    ${DOLLY_LLVM_LIBRARIES}
-  )
-  target_link_options(dolly-process-${tool} PRIVATE
-    -nostartfiles
-    -m64
-    -O2
-    -fwasm-exceptions
-    -matomics
-    -mbulk-memory
-    "SHELL:-Wl,--shared-memory,--no-check-features"
-    "SHELL:-Wl,--export=__dolly_dso_allocate,--export=__stack_pointer,--export-table,--growable-table"
-    -sSTANDALONE_WASM=1
-    -sIMPORTED_MEMORY=1
-    -sSHARED_MEMORY=1
-    -sSUPPORT_LONGJMP=wasm
-    -sWASM_LEGACY_EXCEPTIONS=0
-    -sALLOW_MEMORY_GROWTH=1
-    -sINITIAL_MEMORY=33554432
-    -sMAXIMUM_MEMORY=8589934592
-    -sSTACK_SIZE=8388608
-  )
-  set_target_properties(dolly-process-${tool} PROPERTIES
-    OUTPUT_NAME ${tool}
-    SUFFIX .wasm
-    RUNTIME_OUTPUT_DIRECTORY /src/build/process-tools
-  )
-endforeach()
+target_compile_options(dolly-process-compiler PRIVATE
+  -m64
+  -O2
+  -fno-exceptions
+  -fno-rtti
+  -fwasm-exceptions
+  -matomics
+  -mbulk-memory
+  -sSUPPORT_LONGJMP=wasm
+  -sWASM_LEGACY_EXCEPTIONS=0
+)
+target_compile_features(dolly-process-compiler PRIVATE cxx_std_17)
+target_link_libraries(dolly-process-compiler PRIVATE
+  /src/build/process-crt1.o
+  "-Wl,--whole-archive"
+  /src/build/libdolly-process.a
+  "-Wl,--no-whole-archive"
+  ${DOLLY_CLIENT_LIBRARIES}
+  ${DOLLY_LLVM_LIBRARIES}
+)
+target_link_options(dolly-process-compiler PRIVATE
+  -nostartfiles
+  -m64
+  -O2
+  -fwasm-exceptions
+  -matomics
+  -mbulk-memory
+  "SHELL:-Wl,--shared-memory,--no-check-features"
+  "SHELL:-Wl,--export=__dolly_dso_allocate,--export=__stack_pointer,--export-table,--growable-table"
+  -sSTANDALONE_WASM=1
+  -sIMPORTED_MEMORY=1
+  -sSHARED_MEMORY=1
+  -sSUPPORT_LONGJMP=wasm
+  -sWASM_LEGACY_EXCEPTIONS=0
+  -sALLOW_MEMORY_GROWTH=1
+  -sINITIAL_MEMORY=33554432
+  -sMAXIMUM_MEMORY=8589934592
+  -sSTACK_SIZE=8388608
+)
+set_target_properties(dolly-process-compiler PROPERTIES
+  OUTPUT_NAME compiler
+  SUFFIX .wasm
+  RUNTIME_OUTPUT_DIRECTORY /src/build/process-tools
+)
