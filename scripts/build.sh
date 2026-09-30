@@ -266,7 +266,7 @@ node scripts/dolly-abi.mjs emit-digest-module \
   dist/dolly-process-abi.mjs \
   DOLLY_PROCESS_ABI_DIGEST
 
-node test/build-dso-fixtures.mjs "${container[@]}" /emsdk/upstream/bin/wasm-as
+node test/build-dso-fixtures.mjs "${container[@]}"
 node scripts/dolly-abi.mjs stamp-process build/dolly-process-0.wasm \
   build/process-dso-host.wasm build/process-dso-bad-host.wasm
 node scripts/dolly-abi.mjs validate-process-dso \

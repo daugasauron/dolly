@@ -4,10 +4,11 @@ import { resolve, relative } from "node:path";
 import { appendCustomSection } from "../src/wasm-interface.mjs";
 import { DOLLY_PROCESS_ABI_DIGEST } from "../dist/dolly-process-abi.mjs";
 
-// The build passes its pinned container/wasm-as command. All staging is owned
-// here and removed even on failure; fixtures never enter the userspace seed.
+// The build passes its pinned container command; one launch assembles every
+// fixture. All staging is owned here and removed even on failure; fixtures
+// never enter the userspace seed.
 const [command, ...args] = process.argv.slice(2);
-if (!command) throw new Error("expected the pinned wasm-as command");
+if (!command) throw new Error("expected the pinned container command");
 const host = await readFile("test/fixtures/process-dso-host.wat", "utf8");
 const library = await readFile("test/fixtures/dso-types.wat", "utf8");
 function change(source, from, to) {
@@ -40,14 +41,14 @@ const cases = {
 };
 const staging = await mkdtemp(resolve("build/dso-fixtures-"));
 try {
-  for (const [name, source] of Object.entries(cases)) {
-    const wat = resolve(staging, `${name}.wat`);
-    const wasm = resolve(staging, `${name}.wasm`);
-    await writeFile(wat, source);
-    execFileSync(command, [...args, relative(process.cwd(), wat), "--enable-memory64",
-      "--enable-reference-types", "--enable-threads", "--enable-exception-handling", "--disable-compact-imports", "-o",
-      relative(process.cwd(), wasm)], { stdio: "inherit" });
-    let bytes = new Uint8Array(await readFile(wasm));
+  const flags = "--enable-memory64 --enable-reference-types --enable-threads --enable-exception-handling --disable-compact-imports";
+  const staged = name => relative(process.cwd(), resolve(staging, name));
+  for (const [name, source] of Object.entries(cases)) await writeFile(`${staged(name)}.wat`, source);
+  execFileSync(command, [...args, "bash", "-euc", Object.keys(cases)
+    .map(name => `/emsdk/upstream/bin/wasm-as ${staged(name)}.wat ${flags} -o ${staged(name)}.wasm`).join("\n")],
+    { stdio: "inherit" });
+  for (const name of Object.keys(cases)) {
+    let bytes = new Uint8Array(await readFile(`${staged(name)}.wasm`));
     if (name.startsWith("dso-")) {
       bytes = appendCustomSection(bytes, "dylink.0", Uint8Array.of(1, 4, 16, 0, 0, 0));
       bytes = appendCustomSection(bytes, "dolly.process.dso", Buffer.from(DOLLY_PROCESS_ABI_DIGEST, "hex"));
