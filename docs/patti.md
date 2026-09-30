@@ -30,9 +30,10 @@ download missing archives. Each invocation verifies and extracts fresh source
 from the cache, preserving archive modification times to filesystem precision.
 By default, builds regenerate all crate artifacts and build-script outputs. `--resume` verifies
 content fingerprints before reusing compiler artifacts and always runs build
-scripts again. It hashes compiler arguments, environment, sources, generated
-outputs, dependencies, native search paths, and the SDK. Changed or corrupt
-artifacts rebuild. It does not use incremental compilation or file locks.
+scripts again. It hashes compiler arguments, environment, every source file in the
+compiler's dependency information (including `include_str!` inputs outside the
+package), generated outputs, dependencies, native search paths, and the SDK.
+Changed or corrupt artifacts rebuild. It does not use incremental compilation or file locks.
 
 The implemented Cargo subset covers workspace package/dependency inheritance,
 path dependencies, crates.io dependencies pinned in the workspace lockfile,
@@ -41,7 +42,11 @@ optional/default/forwarded features, and separate build dependency features.
 Pinned Git dependencies require an explicit `--patch NAME=PATH` source override;
 Patti does not clone repositories. Build scripts compile and execute inside Dolly with Cargo
 environment variables, `OUT_DIR`, cfg directives, environment outputs, and
-native library/search-path directives.
+native library/search-path directives; search paths also reach dependents. As in
+Cargo, a `[[bin]]` without `path` uses `src/bin/NAME.rs`, `src/bin/NAME/main.rs`
+or, for the package's own name, `src/main.rs`, and only registry packages have
+their lints capped. The SDK's `rustc` sets `RUSTC_BOOTSTRAP=1` for every crate, so
+build scripts that probe for nightly features enable unstable code paths.
 
 Procedural macros compile and execute inside Dolly with the complete
 [rust-sdk image](../Dollyfile-rust-sdk). They use build-context features and the
