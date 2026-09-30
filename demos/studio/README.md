@@ -5,3 +5,5 @@ Write, lint and build Dollyfiles with Pi, local models and Neovim. Builds use th
 ## Images
 
 - `dollyfile-studio`: Create images with Pi, local models and Neovim.
+
+Browser test: `npm run test:demos -- studio` (`demos/studio/test/studio-browser.mjs`).

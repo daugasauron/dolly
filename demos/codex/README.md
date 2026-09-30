@@ -10,6 +10,8 @@ binary is supplied by the host.
 - `codex`: Codex TUI with shell tools, ripgrep and fd.
 - `codex-build`: Source-built Codex and its build record.
 
+Browser test: `npm run test:demos -- codex` (`demos/codex/test/codex-browser.mjs`).
+
 The reusable stages are `rust-sdk`, `rust-tools`, `ripgrep`, `protox-build`,
 `codex-build`, and `codex`. The Codex build stage keeps the completed CLI and its
 command record, and discards the temporary Rust SDK and crate artifacts. The
