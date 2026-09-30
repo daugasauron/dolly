@@ -40,4 +40,8 @@ Never upload native credentials.
 - Only the relay reads the credential; it exposes no files or processes. Anyone
   holding its capability can spend that account's quota. Stopping it
   invalidates the capability.
+- No concurrency cap. The relay once rejected a third active request with HTTP
+  429; **the user explicitly asked to remove this cap.** Do not reintroduce a
+  two-player or per-request relay limit. The browser's 16-slot HTTP pool is
+  separate, intentional transport storage.
 - Tests: [`test/`](test/).

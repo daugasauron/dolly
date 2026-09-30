@@ -35,7 +35,6 @@ sequenceDiagram
   ([`dolly-process-0.wat`](../abi/dolly-process-0.wat)). Memory is at most 8 GiB.
 - A start section may initialize memory/TLS but must not call the kernel.
 - Found through `PATH`; `#!` lines name an absolute in-Wasm interpreter, nested at most 4 deep.
-  Permission bits never affect execution.
 - `readlink("/proc/self/exe")` returns the loaded image's canonical path; there is
   no general `/proc`.
 - The compiler is itself a private process behind `cc`, `c++`, `ld` and `ar`
@@ -66,12 +65,14 @@ sequenceDiagram
 - Terminal reads return raw input bytes. `ICANON`/`ECHO` round-trip through termios
   without a line discipline; `OPOST`/`ONLCR` map LF to CRLF on output.
 - There is one user and no permission bits: `chmod`, `chown` and `access` only
-  check that the file exists, and nothing changes a file's mode.
+  check that the file exists, and nothing changes a file's mode
+  ([why](architecture.md#decisions)).
 - The cwd is an open directory handle: it follows renames, `getcwd` fails with
   `ENOENT` after unlink, `fchdir` works.
 - `mmap` makes private copies; `MAP_SHARED` writes back on `msync` and whole
   `munmap` ([`mmap.c`](../src/process/mmap.c)). Mappings are not coherent with
-  other writers.
+  other writers, do not extend the file past EOF, and cannot trap there: Wasm
+  cannot protect or revoke part of linear memory.
 - Advisory locks (`F_GETLK`, `F_SETLK`, `F_SETLKW`) return `ENOTSUP`.
 
 ## Spawn and wait
@@ -86,9 +87,15 @@ sequenceDiagram
 - `SPAWN_FOREGROUND` and `SPAWN_INTERACTIVE` are explicit roles. Ctrl+C sends
   SIGINT to the foreground tree but spares an interactive owner (the shell),
   which reads Ctrl+C as input while it has no running children. Image scripts
-  use `/bin/foreground`; the browser knows no command names.
+  use `/bin/foreground`; the browser knows no command names. Only the
+  foreground tree can pass the role on; retirement returns it to the nearest
+  foreground ancestor.
 - Retirement drops the Worker, memory and gate before the child is waitable.
-  Parent exit retires descendants first.
+  Parent exit retires descendants first. Worker termination has no completion
+  event, so a large interactive process gets 500 ms of reclamation before its
+  exit is acknowledged, sparing the recovery shell. Nothing guarantees against
+  browser memory pressure; this is one reason execution is
+  [serial](architecture.md#decisions).
 
 ## Signals
 
@@ -100,7 +107,11 @@ sequenceDiagram
   unsupported.
 - A process that does not finish a delivered signal within 500 ms is terminated;
   a second Ctrl+C within one second terminates at once. The filesystem and the
-  shell survive; forced termination runs no cleanup.
+  shell survive; kernel or supervisor failure is outside this guarantee.
+- Normal exit runs `atexit` handlers; default signal termination and forced
+  termination do not, so named temporary files may remain.
+- Delivered handlers interrupt sleep and `poll`; `SA_RESTART` restarts read,
+  write and wait. Ignored or blocked signals do not shorten sleeps.
 - `SIGCHLD` is queued once a child is waitable. `SIGWINCH` follows terminal
   resizes and never forces termination.
 - Clock reads use the Worker's clock aligned to the kernel's origin, but enter the
@@ -122,4 +133,4 @@ sequenceDiagram
 ## Unsupported
 
 `fork`, `exec` replacement, job control and process groups, raw sockets, and
-user/group identities fail explicitly.
+changing user or group identity fail explicitly.

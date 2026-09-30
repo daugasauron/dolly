@@ -36,8 +36,10 @@ sequenceDiagram
 
   Success is a final `result` followed by the end of the stream; a terminal
   `{"type":"error","message":"…"}` or a stream without `result` is failure.
-- Limits: 8 MiB of response and 45 minutes. Closing the page, cancelling the
-  request, Ctrl+C or **Cancel** stops the build. Missing dependencies build first.
+- Limits: 8 MiB of response, which also bounds output a caller never reads, and
+  45 minutes. The progress event every 10 s keeps quiet builds observable without
+  extending that deadline. Closing the page, cancelling the request, Ctrl+C or
+  **Cancel** stops the build. Missing dependencies build first.
 
 ## Results
 
@@ -45,7 +47,10 @@ sequenceDiagram
   the browser image cache (32 images, 8 GiB, least recently saved evicted).
   Keep the recipe: eviction means rebuilding.
 - **Open image** launches `/custom/run/` in a new tab. It checks the cached
-  bytes and inherits the parent's HTTP policy, intersected with its own.
+  bytes and inherits the parent's HTTP policy, intersected with its own: the
+  smaller limits apply and request counters start fresh
+  ([policy rules](browser-boundary.md#host-modules)). The URL alone is not a
+  portable image link.
 - Studio's own files, credentials and session stay separate from the build.
 
 Code: [`build.mjs`](../src/host/build.mjs),

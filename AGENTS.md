@@ -95,6 +95,8 @@ Prefer simple serial semantics over multiprocessing or performance machinery.
 - Do not automatically allow every import emitted by a new program. Inspect the
   requirement, decide whether it belongs in the stable substrate, and evolve a
   versioned contract deliberately.
+- The API's shape is a user-led design decision. Operation profiling is not an
+  audit deliverable or a prerequisite for changing it.
 - Prefer unchanged upstream source plus target/toolchain configuration over
   source forks and per-program compatibility patches.
 - Keep the canonical machine contract in WAT/Wasm. JSON may be generated when a
@@ -112,6 +114,20 @@ Prefer simple serial semantics over multiprocessing or performance machinery.
 - The core (runtime, host modules and minimal userspace) lives at the top level
   and never depends on `demos/`. Each demo owns its recipes, sources, staging
   hook, tests and docs in `demos/DEMO/`.
+
+# Porting rules
+
+- Do not claim Linux or AMD64 to pass detection. Use upstream's portable paths
+  and explicit unsupported results.
+- Report unsupported capabilities accurately so upstream selects its fallbacks;
+  an unimplemented operation cannot return success.
+- Do not broaden browser authority merely to make a port pass. No native device
+  passthrough or ambient JavaScript `GPUDevice`, no OpenAL-to-WebAudio glue, no
+  WebSocket/WebRTC shortcut, no path around the HTTP broker.
+- Count every new resource kind, such as textures, in its quotas; existing
+  buffer quotas do not bound a new API.
+- A browser cache may hold immutable distribution bytes; it must not become the
+  mutable guest filesystem.
 
 # Bootstrapping direction
 

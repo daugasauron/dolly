@@ -43,7 +43,8 @@ slop [-enux] script [arg ...]
 - `. FILE ARGS` restores the caller's positional parameters afterwards, even
   after `set --`.
 - Not implemented: aliases, job control, `${VAR:off:len}`, `${VAR/pat/rep}`,
-  `<<-`, `"prefix$@"` word forms.
+  `<<-`, `"prefix$@"` word forms. Features are added only when a useful source
+  build needs them and their semantics stay explicit.
 
 ## Serial pipelines and interrupts
 
@@ -55,8 +56,8 @@ threads, host processes or a scheduler.
   the next one starts and reads its output from an unlinked spool file. Command
   substitutions and here-documents use the same spool.
 - A command writing to a spool writes into a kernel pipe that Slop drains into
-  the file. At 64 MiB Slop closes the pipe and reports `stopped at the 64 MiB
-  spool limit`: the writer gets `SIGPIPE` and its stage or substitution ends
+  the file. At 64 MiB Slop closes the pipe, sends the writer `SIGPIPE` and
+  reports `stopped at the 64 MiB spool limit`; the stage or substitution ends
   with status 141, so kernel memory stays bounded.
 - Unlike concurrent Unix pipes, `make | tee log` shows output only once Make
   finishes, and a consumer such as `head` cannot stop an unbounded producer:
@@ -85,6 +86,8 @@ threads, host processes or a scheduler.
 - The other file and text utilities are unchanged upstream sbase, built by its
   own Makefile in `system-tools` ([`sbase.dm`](../modules/sbase.dm)). They follow
   POSIX, not GNU. `ln -s` works; hard links fail in WasmFS.
+- `uname` and `hostname` report the fixed Dolly/wasm64 identity, never the
+  browser's.
 - GNU Make 4.4.1 ([`make.dm`](../modules/make.dm),
   [`make-dolly.c`](../src/runtimes/make-dolly.c)) uses `/bin/slop` for every
   recipe and `$(shell …)`; `-jN` is accepted and runs serially. `ninja` is

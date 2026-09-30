@@ -20,17 +20,27 @@ flowchart LR
   and Pi conversations (`~/.pi/agent/sessions`). It does not hold processes,
   descriptors, scrollback, environment, cwd, hard links, timestamps or modes.
 - `/run`, `/dev` and `/seed` are excluded ([`session-records.h`](../src/session-records.h));
-  the uncompressed delta is at most 512 MiB.
+  the uncompressed delta is at most 512 MiB, and exceeding it fails the save
+  visibly. A failed save leaves the previous record intact.
+- Hashing, encoding and restoring stay in Wasm: sessions add no Wasm import or
+  path-level browser filesystem API. The kernel serves a save even while the
+  foreground program sleeps or waits for input. IndexedDB stores the encoded
+  delta as a Blob, avoiding large serialization copies.
 - Loading needs the same runtime build and image identity. Otherwise **Recover
   files** boots `system` and copies changed regular files from `/workspace` and
   `/home` into `/workspace/recovered-NAME`
-  ([`session-recover.c`](../src/commands/session-recover.c)).
+  ([`session-recover.c`](../src/commands/session-recover.c)). System changes,
+  deletions and symlinks are skipped; saved startup files and credentials stay
+  in that folder for inspection without becoming live config. Recovery refuses
+  an existing destination and leaves the save unchanged.
 - On a rebuild route, the first save checks that the rebuilt base is
   byte-identical to the prebuilt image.
 - Custom-image saves record the Dollyfile, image digest and HTTP restrictions;
-  the image itself must still be in this browser's image cache. Restoring
-  intersects the saved restrictions with the current policy.
-- Saves stay in this browser profile and origin. Exports are unencrypted
+  the image itself must still be in this browser's image cache, so importing the
+  file into another browser does not install the image. Restoring intersects
+  the saved restrictions with the current policy; a save cannot widen it.
+- Saves stay in this browser profile and origin; they are never uploaded,
+  synced or shared by the session URL. Exports are unencrypted
   `.dolly-session` files, checksummed but not authenticated; imports never
   overwrite an existing name.
 

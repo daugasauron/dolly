@@ -38,6 +38,19 @@ flowchart LR
 | Process libc | [`libc-adapter.c`](../src/process/libc-adapter.c), [`signal.c`](../src/process/signal.c) | Maps Emscripten musl's low-level calls to process operations |
 | Display | [`ghostty/display.c`](../src/ghostty/display.c), [`kernel-plugin.mjs`](../src/kernel-plugin.mjs) | Resident terminal emulator and rasterizer; see [display](display.md) |
 
+## Decisions
+
+- **Serial execution is intentional.** Slop runs one command at a time,
+  pipeline stages included; Make `-jN` and Ninja run one job. Compiler recipes
+  and agent tools then behave predictably without a scheduler, host processes or
+  async callbacks. Every process is a fresh Worker and memory, and Worker
+  termination has no completion event, so concurrent processes would multiply
+  memory pressure in one tab.
+- **One user, no permission bits.** Every process is the same principal and the
+  containment boundary is the browser, so modes would protect nothing. Execute
+  bits never select programs; `chmod` and `chown` check that the path exists
+  and change nothing.
+
 ## System calls
 
 Every kernel request is one bounded packet through the process's single import.
@@ -98,6 +111,16 @@ flowchart TD
   [`Dollyfile-system`](../Dollyfile-system), [`Dollyfile`](../Dollyfile) (default),
   [`Dollyfile-gpu-sdk`](../Dollyfile-gpu-sdk), [`Dollyfile-audio-sdk`](../Dollyfile-audio-sdk);
   their modules live in `modules/`.
+- The graph is split so an edit rebuilds only its descendants: each builder
+  starts from the smallest image with its tools. Neither Git nor display
+  packaging is an input to the Rust producers (`rust-sdk` starts from
+  `system-build`); CMake, Neovim and SDL build from `system-tools` without
+  display or Rust.
+- Toolchains stay in build-only images; shipped images copy their exact outputs,
+  as `system` copies Ghostty's plugin and font without the Zig SDK
+  ([Dollyfile](dollyfile.md#building)).
+- Prebuilt boot restores a sealed snapshot without downloading the compiler seed
+  or compiling anything.
 - Demos build `FROM` core images; the core never uses a demo.
 - The kernel's WasmFS is the only filesystem. Browser storage holds only opaque
   image snapshots and [sessions](sessions.md); nothing is mounted.

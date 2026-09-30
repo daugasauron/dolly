@@ -18,6 +18,9 @@ WAT file document its semantics.
 | [`dolly-supervisor-0.wat`](dolly-supervisor-0.wat) | Kernel exports the trusted supervisor uses |
 | [`dolly-display-0.wat`](dolly-display-0.wat), [`dolly-http-0.wat`](dolly-http-0.wat), [`dolly-download-0.wat`](dolly-download-0.wat), [`dolly-upload-0.wat`](dolly-upload-0.wat), [`dolly-snapshot-0.wat`](dolly-snapshot-0.wat) | Browser-facing mailboxes and dispatch imports |
 
+A contract makes a boundary reviewable and lets the build derive retained exports
+exactly; listing a function does not make it guest authority.
+
 Architecture and authority: [architecture](../docs/architecture.md),
 [process model](../docs/process-model.md), [browser boundary](../docs/browser-boundary.md).
 
@@ -31,12 +34,14 @@ Architecture and authority: [architecture](../docs/architecture.md),
 ```
 
 - Exactly those imports and `_start() -> ()`; no `dylink.0`, WASI, Fetch, DOM or
-  filesystem import.
+  filesystem import. A program supplies its own table, libc or allocator only if
+  it needs them.
 - One `dolly.process` section holds the contract digest; one
   `dolly.process.memory` section holds initial and maximum pages.
-- The digest covers the typed WAT and the exact bytes of
-  [`process.h`](../include/dolly/process.h): any change to that header, even a
-  comment, changes executable identity.
+- The digest covers the contract's typed imports and exports and the SHA-256 of
+  the exact bytes of [`process.h`](../include/dolly/process.h). Identity hashes exact
+  bytes, so every opcode, flag or layout change necessarily changes it; no
+  normalizer decides which edits are prose.
 - [`generate-abi-constants.mjs`](../scripts/generate-abi-constants.mjs) derives
   JavaScript constants from `process.h` and from the WAT exported globals;
   `dist/dolly-errno.mjs` comes from the pinned target's `<errno.h>`.
@@ -55,8 +60,9 @@ node scripts/dolly-abi.mjs validate-browser build/dolly-browser-0.wasm dist/doll
 
 The browser repeats the executable checks before instantiation with the same
 parser and validator ([`wasm-interface.mjs`](../src/wasm-interface.mjs),
-[`process-abi.mjs`](../src/process-abi.mjs)). This is defense in depth; host
-containment rests on the kernel's outer imports.
+[`process-abi.mjs`](../src/process-abi.mjs)). The compiled WAT contract supplies
+the expected types; a digest stamp alone does not establish compatibility. This
+is defense in depth; host containment rests on the kernel's outer imports.
 
 ## Changing a contract
 

@@ -52,7 +52,8 @@ bash scripts/package-pages.sh build/dolly-pages.tar.gz build/github-releases git
   input, refuse an existing destination, publish atomically and upload nothing;
   `sha256sum --check deployment.sha256` checks an export.
 - Pass predecessor releases to `export:pages` so open tabs keep their immutable
-  assets; GitHub Pages replaces the whole site on each deploy.
+  assets; GitHub Pages replaces the whole site on each deploy. Limits fail
+  before publication and never silently drop a predecessor.
 
 ## Delivery contract
 
@@ -68,12 +69,28 @@ bash scripts/package-pages.sh build/dolly-pages.tar.gz build/github-releases git
 - Send `Cross-Origin-Opener-Policy: same-origin`,
   `Cross-Origin-Embedder-Policy: require-corp` and
   `Cross-Origin-Resource-Policy: same-origin` where possible; otherwise
-  [`coi-serviceworker.js`](../coi-serviceworker.js) provides isolation.
+  [`coi-serviceworker.js`](../coi-serviceworker.js) isolates same-origin
+  responses and passes cross-origin broker requests through unchanged.
 - Snapshot `.gz` files are application payloads: never mark them
   `Content-Encoding: gzip`.
 - The Cloudflare exporter splits oversized sources and packs into verified 20 MiB
   parts ([`static-asset.mjs`](../src/static-asset.mjs)) and Brotli-compresses
-  large downloads as `application/octet-stream`.
+  large downloads as `application/octet-stream`: the tested Pages runtime
+  overwrites the encoding of Wasm MIME types. Do not substitute Workers Static
+  Assets; its tested encoding behavior differs. Browser-loaded runtime code is
+  never precompressed or split.
 - Disable CDN HTML rewriting, email obfuscation and injected analytics; they
   change the reviewed page. Serve Dolly from its own origin when sessions matter:
   storage is shared by every site on an origin.
+
+## Release rules
+
+- Upload immutable assets before switching HTML, and never replace existing
+  immutable bytes: the release hash in asset URLs keeps an open tab from mixing
+  releases.
+- Compare decoded immutable bytes against `release/files.sha256`, not the
+  compressed wire representation.
+- Verify delivered hashes and requests, not dashboard settings. Never put
+  credentials in build artifacts or edit source while sealing.
+- Docs publish every git-tracked text file they link outside `demos/`
+  ([`package-documentation.mjs`](../scripts/package-documentation.mjs)).

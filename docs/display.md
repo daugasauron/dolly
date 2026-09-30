@@ -72,6 +72,10 @@ flowchart LR
   frontend and LLVM/LLD links it ([`build-native-zig.sh`](../scripts/build-native-zig.sh),
   [`zig-0.16.0-dolly-native.patch`](../patches/zig-0.16.0-dolly-native.patch)).
   The SDK files are listed in [`zig-sdk-files.txt`](../config/zig-sdk-files.txt).
+- Clang and Zig each link their own LLVM/LLD. That duplicates builder code but
+  lets ordinary images omit Zig without a shared LLVM loader or compiler-specific
+  API. There is no Zig-to-C translation, nested interpreter or host compilation
+  service.
 - Ghostty's generated option and Unicode tables are pinned source inputs
   ([`src/ghostty/generated/`](../src/ghostty/generated/README.md));
   [`ghostty-dolly.patch`](../config/ghostty-dolly.patch) zeroes page-pool buffers.
