@@ -9,7 +9,7 @@ interrupting the main agent. Branch `codex/0ad-baseline-20260923`, worktree
 `work/0ad-baseline`, starts at research commit `6b60ffc` over the user-confirmed
 Slopyard checkpoint `aa28100`.
 
-The [investigation](../../docs/0ad-feasibility.md) remains the requirements map.
+The `investigation` remains the requirements map.
 Success requires the real Release 28 engine and content, not a replacement game
 or an arithmetic-only demo. Keep the complete baseline scope while implementing
 the dependency chain:

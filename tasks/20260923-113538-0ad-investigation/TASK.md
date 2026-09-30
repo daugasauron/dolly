@@ -15,7 +15,7 @@ The original checkout and the main/Slopyard branch refs were not changed.
 
 ## Result
 
-[The report](../../docs/0ad-feasibility.md) covers the target build, dependencies,
+`The report` covers the target build, dependencies,
 SpiderMonkey, threads, renderer/shaders, assets/memory, audio, multiplayer,
 agent integration and staged acceptance criteria. Source target: official 0 A.D.
 28 archive and tag `v0.28.0` at `a2cae4d69f816e9e9d7eecb6bf88f762afc0c90d`.

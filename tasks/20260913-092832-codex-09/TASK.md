@@ -7,7 +7,7 @@
 
 ## Evidence
 
-[Janis's builtin module map](../../src/runtimes/janis.js) includes callable placeholders:
+[Janis's builtin module map](../../demos/javascript/janis.js) includes callable placeholders:
 `net.isIP` always returns 0, `isIPv4`/`isIPv6` always return false, and several readline cursor
 functions return success without performing the requested operation.
 The source-runtime probe returned 0 for `net.isIP("127.0.0.1")`.

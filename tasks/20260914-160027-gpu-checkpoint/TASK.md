@@ -47,7 +47,7 @@ saves files and conversations. The first image load includes the 580 MB weights.
 
 Use HTTPS or localhost. Local inference requires `shader-f16`; this NVIDIA/Linux
 Chrome setup needs the isolated-profile flags in
-[local models](../../docs/browser-local-models.md#browser-and-storage-requirements).
+`local models`.
 Firefox renders the fluid correctly but Qwen generation remains around 0.5
 tokens/s, [tracked separately](../20260914-150636-llm-firefox-performance/TASK.md).
 The 0.8B model is small and its coding/tool reliability is limited. Context is

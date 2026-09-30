@@ -6,7 +6,7 @@
 
 ## Evidence
 
-Running the actual [Janis](../../src/runtimes/janis.js) and [Dolly JS](../../src/runtimes/dolly-node.js)
+Running the actual [Janis](../../demos/javascript/janis.js) and [Dolly JS](../../demos/javascript/dolly-node.js)
 sources from `ff633f7` in a Node VM produced:
 
 | Input filename | Result of fileURLToPath(pathToFileURL(filename)) |

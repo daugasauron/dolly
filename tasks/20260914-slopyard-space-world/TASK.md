@@ -110,4 +110,4 @@ does not fix production save memory usage.
 Keep C compilation inside Dolly and one test browser at a time under 4 GiB/no
 swap. Never deep-assert binary Buffers; use `.equals()`. Do not inspect terminal
 text during GPU mode because that helper synthesizes pointer input.
-Read [the crash handoff](../../docs/crash-handoff.md) before browser work.
+Read `the crash handoff` before browser work.

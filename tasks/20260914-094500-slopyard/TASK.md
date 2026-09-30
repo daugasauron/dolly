@@ -17,7 +17,7 @@ real joint motors and floor collision, return to the original build, and actual
 GPU rendering in a browser. Preserve the rest of the catalog and record evidence.
 
 Implemented on `codex/slopyard-20260914`, based on main `e0dc968`.
-See [controls and architecture](../../docs/slopyard.md).
+See `controls and architecture`.
 
 Verified 2026-09-14:
 
