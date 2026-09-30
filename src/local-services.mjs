@@ -9,8 +9,10 @@ function reservedLocalURL(url) {
 
 // Review all local authority here. Remote rules never grant these services;
 // absent services (including in build workers) fail closed, not to Fetch.
-export function localServicesTransport(remotePolicy, { build } = {}, remoteFetch = globalThis.fetch.bind(globalThis)) {
+// The page adds services.build only for an enabled build@0 after ENTRY starts.
+export function localServicesTransport(remotePolicy, services = {}, remoteFetch = globalThis.fetch.bind(globalThis)) {
   function localRule(url, method, bytes) {
+    const { build } = services;
     if (!url.username && !url.password && !url.search && !url.hash) {
       if (build && url.origin === BUILD_ORIGIN && bytes <= BUILD_LIMITS.maxRequestBytes && method === "POST" &&
           url.pathname === "/v1/builds") return [build, BUILD_LIMITS];

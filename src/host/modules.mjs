@@ -7,11 +7,12 @@ import * as download from "./download.mjs";
 import * as upload from "./upload.mjs";
 import * as snapshot from "./snapshot.mjs";
 import * as threads from "./threads.mjs";
+import * as build from "./build.mjs";
 import { hostRequirement, hostRequirements } from "./requirements.mjs";
 import { DOLLY_ERRNO as E } from "../../dist/dolly-errno.mjs";
 
 // This fixed registry is trusted embedding code. Images select no JS or Worker URLs.
-const definitions = [runtime, display, http, gpu, audio, download, upload, snapshot, threads];
+const definitions = [runtime, display, http, gpu, audio, download, upload, snapshot, threads, build];
 export const hostContracts = Object.freeze(definitions.map(module => module.contract));
 export const buildHost = Object.freeze(["runtime@0", "http@0", "threads@0"]);
 const byName = new Map(definitions.map(module => [module.contract.name, module]));

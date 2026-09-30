@@ -6,6 +6,7 @@ import { buildImage } from "./image-builder.mjs";
 import { mountImageBuild } from "./image-build-ui.mjs";
 import { loadCustomImage } from "./custom-image.mjs";
 import { describeImageArtifact, sha256 } from "./image-artifact.mjs";
+import { inspectDollyfile } from "./dollyfile-view.mjs";
 import { consumeDollyHttpPolicy, httpPolicyConfigurations, restrictDollyHttpPolicy } from "./http-policy.mjs";
 import { localServicesTransport } from "./local-services.mjs";
 import {
@@ -60,6 +61,7 @@ let sessionSavePromise = null;
 let sessionSaveController = null;
 let sessionStatusTimer;
 let lastSessionSave = null;
+let sessionError = "";
 const heldKeys = new Map();
 
 function displayFatal(message) {
@@ -98,7 +100,7 @@ function sendResize() {
   }
 }
 
-function showSessionStatus(message, persistent = false) {
+function showStatus(message, persistent = false) {
   const status = document.querySelector("#session-status");
   clearTimeout(sessionStatusTimer);
   status.textContent = message;
@@ -133,7 +135,7 @@ function openSessionDialog() {
   if (document.pointerLockElement) document.exitPointerLock();
   sessionName.value = currentSessionName ?? activeImage ?? "session";
   updateSessionControls(document.documentElement.dataset.sessionStatus === "failed"
-    ? `Save failed: ${document.documentElement.dataset.sessionError}` : undefined);
+    ? `Save failed: ${sessionError}` : undefined);
   sessionDialog.showModal();
   sessionName.focus();
   sessionName.select();
@@ -158,11 +160,8 @@ async function saveCurrentSession(requestedName) {
     if (!activeCustomImage && builtSystemSnapshot !== null && !rebuiltSessionBaseVerified) {
       const { DOLLY_SYSTEM_SNAPSHOT: metadata } = await import(
         `../dist/dolly-${activeImage}-system-snapshot.mjs`);
-      const digest = await crypto.subtle.digest("SHA-256", builtSystemSnapshot);
-      const actual = [...new Uint8Array(digest)]
-        .map(byte => byte.toString(16).padStart(2, "0")).join("");
       if (metadata.image !== activeImage || metadata.buildId !== DOLLY_IMAGE_BUILD_ID ||
-          metadata.byteLength !== builtSystemSnapshot.byteLength || metadata.sha256 !== actual) {
+          metadata.byteLength !== builtSystemSnapshot.byteLength || metadata.sha256 !== await sha256(builtSystemSnapshot)) {
         throw new Error("Rebuilt filesystem differs from the prebuilt session base; no session was saved");
       }
       rebuiltSessionBaseVerified = true;
@@ -178,8 +177,7 @@ async function saveCurrentSession(requestedName) {
     }
     if (name !== currentSessionName && await loadStoredSession(name) !== null &&
         !window.confirm(`Replace the saved session '${name}'?`)) return null;
-    delete document.documentElement.dataset.sessionError;
-    showSessionStatus(`Saving ${name}…`, true);
+    showStatus(`Saving ${name}…`, true);
     document.documentElement.dataset.sessionStatus = "capturing";
     updateSessionControls(`Saving ${name}…`);
     sessionButton.disabled = sessionName.disabled = document.querySelector("#session-save").disabled = true;
@@ -213,15 +211,14 @@ async function saveCurrentSession(requestedName) {
     document.documentElement.dataset.sessionBytes = String(encodedSize);
     document.documentElement.dataset.sessionStatus = "saved";
     history.replaceState(null, "", sessionLoadUrl(name, new URL("../", import.meta.url)));
-    showSessionStatus(`Saved ${name} locally · /session lists your saves`);
+    showStatus(`Saved ${name} locally · /session lists your saves`);
     updateSessionControls();
     return name;
   })().catch((error) => {
     document.documentElement.dataset.sessionStatus = "failed";
-    document.documentElement.dataset.sessionError =
-      error instanceof Error ? error.message : String(error);
-    showSessionStatus(`Save failed: ${document.documentElement.dataset.sessionError}`, true);
-    updateSessionControls(`Save failed: ${document.documentElement.dataset.sessionError}`);
+    sessionError = error instanceof Error ? error.message : String(error);
+    showStatus(`Save failed: ${sessionError}`, true);
+    updateSessionControls(`Save failed: ${sessionError}`);
     throw error;
   }).finally(() => {
     sessionSavePromise = null;
@@ -256,7 +253,7 @@ function handleKeyboardEvent(event) {
     return;
   }
   if (!transport) return;
-  if (event.target.closest?.("#image-build")) return;
+  if (event.target.closest?.("#image-build, #downloads")) return;
   if (event.type === "keydown" && event.key === "Escape" && document.pointerLockElement === canvas) {
     document.exitPointerLock();
     event.preventDefault();
@@ -298,8 +295,7 @@ function handleKeyboardEvent(event) {
         }
       } catch (error) {
         document.documentElement.dataset.clipboard = "failed";
-        document.documentElement.dataset.clipboardError =
-          error instanceof Error ? error.message : String(error);
+        showStatus(`Copy failed: ${error.message}`);
       }
     }
     return;
@@ -311,9 +307,7 @@ function handleKeyboardEvent(event) {
     event.stopImmediatePropagation();
     return;
   }
-  if (!transport.pushKey(event)) {
-    document.documentElement.dataset.inputOverflow = "true";
-  }
+  transport.pushKey(event);
   if (event.type === "keyup") heldKeys.delete(event.code);
   else heldKeys.set(event.code, {key:event.key,code:event.code,type:"keydown",repeat:false,
     ctrlKey:event.ctrlKey,shiftKey:event.shiftKey,altKey:event.altKey,metaKey:event.metaKey});
@@ -339,30 +333,21 @@ function pointerPosition(event) {
 
 function pushPointer(event, action) {
   const position = pointerPosition(event);
-  if (!transport?.pushPointer(position.x, position.y, action, event)) {
-    document.documentElement.dataset.inputOverflow = "true";
-  }
+  transport?.pushPointer(position.x, position.y, action, event);
 }
 
 function pushPointerPresence(inside) {
-  if (transport?.graphicsActive() &&
-      !transport.pushRecord({ type: 10, action: inside ? 1 : 0 })) {
-    document.documentElement.dataset.inputOverflow = "true";
-  }
+  if (transport?.graphicsActive()) transport.pushRecord({ type: 10, action: inside ? 1 : 0 });
 }
 canvas.addEventListener("pointerenter", () => pushPointerPresence(true));
 canvas.addEventListener("pointerleave", () => pushPointerPresence(false));
 window.addEventListener("blur", () => {
   selecting = false;
   pushPointerPresence(false);
-  if (transport && !transport.pushRecord({ type: DisplayTransport.focusEvent, action: 0 })) {
-    document.documentElement.dataset.inputOverflow = "true";
-  }
+  transport?.pushRecord({ type: DisplayTransport.focusEvent, action: 0 });
 });
 window.addEventListener("focus", () => {
-  if (transport && !transport.pushRecord({ type: DisplayTransport.focusEvent, action: 1 })) {
-    document.documentElement.dataset.inputOverflow = "true";
-  }
+  transport?.pushRecord({ type: DisplayTransport.focusEvent, action: 1 });
   pushPointerPresence(canvas.matches(":hover"));
 });
 
@@ -373,9 +358,8 @@ canvas.addEventListener("pointerdown", (event) => {
     event.preventDefault();
     if (!event.isTrusted) return;
     if (document.pointerLockElement !== canvas) {
-      const failed = error => { document.documentElement.dataset.pointerLockError = String(error); };
-      try { void Promise.resolve(canvas.requestPointerLock()).catch(failed); }
-      catch (error) { failed(error); }
+      // Browsers may refuse capture; the game then keeps absolute pointer input.
+      try { void Promise.resolve(canvas.requestPointerLock()).catch(() => {}); } catch {}
     } else {
       pushPointer(event, 1);
     }
@@ -390,9 +374,7 @@ canvas.addEventListener("pointerdown", (event) => {
 });
 canvas.addEventListener("pointermove", (event) => {
   if (document.pointerLockElement === canvas) {
-    if (transport?.relativePointerRequested() && !transport.pushPointerMotion(event)) {
-      document.documentElement.dataset.inputOverflow = "true";
-    }
+    if (transport?.relativePointerRequested()) transport.pushPointerMotion(event);
     event.preventDefault();
     return;
   }
@@ -420,11 +402,7 @@ canvas.addEventListener("pointercancel", (event) => {
 });
 document.addEventListener("pointerlockchange", () => {
   selecting = false;
-  const captured = document.pointerLockElement === canvas;
-  document.documentElement.dataset.pointerLocked = String(captured);
-  if (transport && !transport.pushRecord({ type: 9, action: captured ? 1 : 0 })) {
-    document.documentElement.dataset.inputOverflow = "true";
-  }
+  transport?.pushRecord({ type: 9, action: document.pointerLockElement === canvas ? 1 : 0 });
 });
 canvas.addEventListener("wheel", (event) => {
   if (!transport) return;
@@ -435,9 +413,7 @@ canvas.addEventListener("wheel", (event) => {
   else if (event.deltaMode === WheelEvent.DOM_DELTA_PAGE) {
     deltaRows *= Math.max(1, dimensions.rows);
   }
-  if (!transport.pushScroll(deltaRows)) {
-    document.documentElement.dataset.inputOverflow = "true";
-  }
+  transport.pushScroll(deltaRows);
   event.preventDefault();
 }, { passive: false });
 document.addEventListener("fullscreenchange", () => {
@@ -448,7 +424,6 @@ document.addEventListener("fullscreenchange", () => {
 
 async function submitInput(command, input = `${command}\r`) {
   const sequence = transport.currentResultSequence();
-  document.documentElement.dataset.dollyCommand = command;
   if (!transport.pushText(input)) throw new Error("Dolly input mailbox is full");
   let rejectRuntimeFailure;
   const runtimeFailure = new Promise((_resolve, reject) => {
@@ -564,9 +539,10 @@ async function boot() {
       JSON.parse(sessionStorage.getItem("dolly-custom-policy")),
       trustedBootstrapSources, applicationBase);
   }
+  // Builders and the page's own rebuild never reach local services. The image
+  // ENTRY gets the build service only for an enabled build@0 (see below).
   const buildNetwork = localServicesTransport(httpPolicy);
-  const imageBuild = mountImageBuild(buildNetwork, httpPolicyConfigurations(httpPolicy));
-  const applicationNetwork = localServicesTransport(httpPolicy, { build: imageBuild });
+  const localServices = {};
   const customSource = image === "custom"
     ? restoredSession?.customImage.source ?? sessionStorage.getItem("dolly-custom-source")
     : undefined;
@@ -575,25 +551,36 @@ async function boot() {
   }
   const requiredHost = [...await loadImageHostRequirements(image, customSource)];
   if (sessionSnapshot !== undefined) requiredHost.push("snapshot@0");
+  appendBootstrap(`DOLLY / ${image.toUpperCase()} / ${restoredSession
+    ? `${recovering ? "RECOVER FILES FROM" : "RESTORE SESSION"} ${restoredSession.name}`
+    : bootMode === "rebuild"
+    ? "REBUILD FROM SOURCE"
+    : "PRECOMPILED SYSTEM"}\n\n`);
+  const buildDependency = (name, inputs) => buildImage(name, inputs, buildNetwork, appendBootstrap);
+  const prepareArtifacts = () => prepareImageArtifacts(image, customSource, buildDependency,
+    text => appendBootstrap(`${text}\n`));
+  if (bootMode === "rebuild" && !requiredHost.includes("display@0")) {
+    // Build images have no terminal: keep the complete log and report the result.
+    const artifacts = await prepareArtifacts();
+    const built = await buildImage(image, artifacts, buildNetwork, appendBootstrap, { customSource });
+    const name = customSource === undefined ? image : inspectDollyfile(customSource).image;
+    appendBootstrap(`\nBUILT ${name} · ${(built.byteLength / 1024 / 1024).toFixed(1)} MiB · sha256 ${built.sha256}\n`);
+    document.documentElement.dataset.dollyStatus = "built";
+    return;
+  }
   host = await createHost("browser", globalThis.DOLLY_HOST_MODULES ??
     [...requiredHost, ...(bootMode === "rebuild" ? buildHost : [])], {
     send: (message, transfers = []) => runtimeWorker.postMessage(message, transfers),
-    resources: { http: { network: applicationNetwork }, display: { canvas }, gpu: { mount } },
+    resources: { http: { network: localServicesTransport(httpPolicy, localServices) },
+      display: { canvas, fatal: displayFatal }, gpu: { mount } },
   });
   delete globalThis.DOLLY_HOST_MODULES;
   host.require(requiredHost);
   const customArtifact = image === "custom" && bootMode === "snapshot"
     ? await loadCustomImage(customSource, restoredSession?.customImage.artifact ??
       JSON.parse(sessionStorage.getItem("dolly-custom-artifact"))) : undefined;
-  appendBootstrap(`DOLLY / ${image.toUpperCase()} / ${restoredSession
-    ? `${recovering ? "RECOVER FILES FROM" : "RESTORE SESSION"} ${restoredSession.name}`
-    : bootMode === "rebuild"
-    ? "REBUILD FROM SOURCE"
-    : "PRECOMPILED SYSTEM"}\n\n`);
   keyboard.addEventListener("compositionend", (event) => {
-    if (!transport?.pushText(event.data)) {
-      document.documentElement.dataset.inputOverflow = "true";
-    }
+    transport?.pushText(event.data);
     keyboard.value = "";
   });
   window.addEventListener("paste", (event) => {
@@ -601,14 +588,9 @@ async function boot() {
         (event.target !== document.body && event.target !== canvas))) return;
     event.preventDefault();
     const text = event.clipboardData?.getData("text/plain") ?? "";
-    if (text && !transport?.pushPaste(text)) {
-      document.documentElement.dataset.inputOverflow = "true";
-    }
+    if (text && !transport?.pushPaste(text)) showStatus("Paste not delivered: the program's input buffer is full or too small");
   });
-
-  const buildDependency = (image, artifacts) => buildImage(image, artifacts, buildNetwork, appendBootstrap);
-  const artifacts = bootMode === "rebuild"
-    ? await prepareImageArtifacts(image, customSource, buildDependency, text => appendBootstrap(`${text}\n`)) : [];
+  const artifacts = bootMode === "rebuild" ? await prepareArtifacts() : [];
 
   const workerUrl = new URL("./runtime-worker.mjs", import.meta.url);
   runtimeWorker = new Worker(workerUrl, {
@@ -698,7 +680,7 @@ async function boot() {
   } else activeImageIdentity = sessionImageIdentity(DOLLY_IMAGES, activeImage);
   if (recovering) {
     document.documentElement.dataset.sessionStatus = "recovered";
-    showSessionStatus(`Recovered files in /workspace/recovered-${restoredSession.name}. Ctrl+Shift+S saves this as a new session.`, true);
+    showStatus(`Recovered files in /workspace/recovered-${restoredSession.name}. Ctrl+Shift+S saves this as a new session.`, true);
   } else if (restoredSession) {
     document.documentElement.dataset.session = restoredSession.name;
     document.documentElement.dataset.sessionStatus = "restored";
@@ -707,6 +689,9 @@ async function boot() {
   updateSessionControls();
   if (transport && !transport.pushResize(mount.clientWidth, mount.clientHeight, devicePixelRatio)) {
     throw new Error("Dolly display input ring rejected its initial resize");
+  }
+  if (host.enabled.includes("build@0")) {
+    localServices.build = mountImageBuild(buildNetwork, httpPolicyConfigurations(httpPolicy));
   }
   runtimeWorker.postMessage({ type: "entry-ready-ack" });
   bootstrapLog.hidden = !!transport;
@@ -721,11 +706,9 @@ async function boot() {
   document.documentElement.dataset.dollyStatus = "ready";
 
   window.__dolly = {
-    worker: runtimeWorker,
     get gpu() { return host.get("gpu")?.status ?? {}; },
     get audio() { return host.get("audio")?.status; },
     hostModules: host.enabled,
-    hostUnavailable: host.unavailable,
     display: presenter,
     transport,
     get foregroundPid() {
@@ -781,11 +764,6 @@ async function boot() {
 boot().catch((error) => {
   console.error(error);
   runtimeReady = false;
-  networkTransport?.close();
-  presenter?.stop();
-  resizeObserver?.disconnect();
-  runtimeWorker?.terminate();
-  host?.dispose();
   displayFatal(error instanceof Error ? error.message : String(error));
 });
 

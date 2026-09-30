@@ -9,6 +9,8 @@ REQUIRES TOOL tar
 REQUIRES TOOL slop
 REQUIRES TOOL sha256sum
 REQUIRES TOOL sed
+# dollyfile-build starts disposable image builds through the page.
+REQUIRES HOST build@0
 
 SOURCE HOST /static/studio/studio.tar /tmp/dollyfile-studio/source.tar f5b670b273b67ef29e8afd517fa9bc1b20e4ccdc082e6393e2c1a850e7793e6d
 SLOP tar -xf /tmp/dollyfile-studio/source.tar -C /

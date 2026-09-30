@@ -18,7 +18,6 @@ await bundleProcessWorker(projectDir);
 const loadGraph = createDollyfileGraphLoader(projectDir);
 const outputDir = resolve(projectDir, "build/routes");
 const template = await readFile(resolve(projectDir, "terminal.html"), "utf8");
-const buildTemplate = await readFile(resolve(projectDir, "build-image.html"), "utf8");
 const definitions = await selectImageDefinitions(await discoverImageDefinitions(projectDir));
 const primaryImage = definitions.find(({ image }) => image === "default")?.image ??
   definitions[0].image;
@@ -33,10 +32,11 @@ await writeImageRegistry(projectDir, definitions, staticSources);
 const menuTemplate = await readFile(resolve(projectDir, "index.html"), "utf8");
 const rows = new Map([...menuTemplate.matchAll(/<tr class="image" data-image="([^"]+)">[\s\S]*?<\/tr>/g)]
   .map(([row, image]) => [image, row]));
+// Headless images only supply build outputs: rebuilding them is their only route.
 for (const image of headless) {
   const description = rows.get(image)?.match(/<td class="description">(.*?)<\/td>/)?.[1] ?? "Compiler build tools.";
-  rows.set(image, `<tr class="image" data-image="${image}"><th scope="row"><a href="./${image}/">${image}</a></th>
-    <td class="description">${description}</td><td><div class="image-links"><a href="./${image}/">open →</a><a href="./${image}/rebuild/">rebuild</a>
+  rows.set(image, `<tr class="image" data-image="${image}"><th scope="row">${image}</th>
+    <td class="description">${description}</td><td><div class="image-links"><a href="./${image}/rebuild/">rebuild</a>
     <a href="./view/${image}/">Dollyfile</a></div></td></tr>`);
 }
 const isBuild = image => headless.has(image) || /-(build|sdk|runtime)$/.test(image) ||
@@ -57,7 +57,7 @@ await mkdir(outputDir, { recursive: true });
 await writeFile(resolve(outputDir, "index.html"), menu);
 const routes = [
   ...definitions.flatMap(({ image }) => [
-    { path: `${image}/index.html`, base: "../", image, mode: "snapshot", load: false },
+    ...(headless.has(image) ? [] : [{ path: `${image}/index.html`, base: "../", image, mode: "snapshot", load: false }]),
     { path: `${image}/rebuild/index.html`, base: "../../", image, mode: "rebuild", load: false },
   ]),
   { path: "custom/rebuild/index.html", base: "../../", image: "custom", mode: "rebuild", load: false },
@@ -71,7 +71,7 @@ const routes = [
 for (const route of routes) {
   const output = resolve(outputDir, route.path);
   await mkdir(resolve(output, ".."), { recursive: true });
-  const page = (headless.has(route.image) && !route.load ? buildTemplate : template)
+  const page = template
     .replaceAll("{{DOLLY_ROUTE_HEAD}}", route.load ? `<script>
       const match = /^(.*\\/)session\\/([A-Za-z0-9._-]{1,64})\\/?$/.exec(location.pathname);
       if (match && match[2] !== "." && match[2] !== "..") {
