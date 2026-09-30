@@ -31,5 +31,7 @@ A no-change `npm run build:runtime` took 88 s: the staged headers, generated
 constants, kernel module table and client archives got new mtimes every run,
 so CMake recompiled the kernel and relinked the in-Dolly compiler and Zig.
 Each is now replaced only when its bytes change: 23 s, with identical runtime
-and image-input hashes. Remaining: the ~45 separate container launches, and
+and image-input hashes. Batching the fixture, process-object and client
+compiles into single container launches (48 -> 24 launches) brings it to 14 s.
+Remaining: `test/build-dso-fixtures.mjs` (4 s of container launches) and the
 `dist/` outputs deleted before every link.

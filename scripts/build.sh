@@ -25,6 +25,9 @@ else
   exit 1
 fi
 
+# Runs one command per stdin line in a single container launch.
+in_container() { "${container[@]}" bash -euc "$(cat)"; }
+
 # Replaces a file only when its bytes change, so unchanged inputs rebuild nothing.
 replace_if_changed() {
   if cmp -s -- "$1" "$2"; then rm -f -- "$1"; else mv -- "$1" "$2"; fi
@@ -104,10 +107,11 @@ node scripts/dolly-abi.mjs bind-process-layout \
   build/dolly-process-0.wasm \
   include/dolly/process.h
 
-for fixture in process-minimal process-no-dso process-wrong-call process-wrong-start process-wrong-memory; do
-  "${container[@]}" /emsdk/upstream/bin/wasm-as "test/fixtures/${fixture}.wat" \
-    --enable-memory64 --enable-threads --disable-compact-imports \
-    -o "build/${fixture}.wasm"
+fixtures=(process-minimal process-no-dso process-wrong-call process-wrong-start process-wrong-memory)
+for fixture in "${fixtures[@]}"; do
+  echo "/emsdk/upstream/bin/wasm-as test/fixtures/${fixture}.wat --enable-memory64 --enable-threads --disable-compact-imports -o build/${fixture}.wasm"
+done | in_container
+for fixture in "${fixtures[@]}"; do
   node scripts/dolly-abi.mjs stamp-process build/dolly-process-0.wasm "build/${fixture}.wasm"
   if [[ "${fixture}" != process-wrong-* ]]; then
     node scripts/dolly-abi.mjs validate-process build/dolly-process-0.wasm "build/${fixture}.wasm"
@@ -159,42 +163,23 @@ process_link_flags=(
     mv -- "${startup_staging}/crt1.o" build/process-crt1.o
   fi
 )
-"${container[@]}" /emsdk/upstream/emscripten/emcc \
-  "${process_compile_flags[@]}" -c src/process/libc-adapter.c \
-  -o build/process-libc-adapter.o
-"${container[@]}" /emsdk/upstream/emscripten/emcc \
-  "${process_compile_flags[@]}" -c src/process/runtime-adapter.c \
-  -o build/process-runtime-adapter.o
-"${container[@]}" /emsdk/upstream/emscripten/emcc \
-  "${process_compile_flags[@]}" -c src/process/mmap.c \
-  -o build/process-mmap.o
-"${container[@]}" /emsdk/upstream/emscripten/emcc \
-  "${process_compile_flags[@]}" -c src/process/time.c \
-  -o build/process-time.o
-"${container[@]}" /emsdk/upstream/emscripten/emcc \
-  "${process_compile_flags[@]}" -c src/process/poll.c \
-  -o build/process-poll.o
-"${container[@]}" /emsdk/upstream/emscripten/emcc \
-  "${process_compile_flags[@]}" -c src/process/signal.c \
-  -o build/process-signal.o
-"${container[@]}" /emsdk/upstream/emscripten/emcc \
-  "${process_compile_flags[@]}" "${process_libc_internal_flags[@]}" -c \
-  /emsdk/upstream/emscripten/system/lib/pthread/pthread_self_stub.c \
-  -o build/process-pthread-self.o
-"${container[@]}" /emsdk/upstream/emscripten/emcc \
-  "${process_compile_flags[@]}" "${process_libc_internal_flags[@]}" -c \
-  /emsdk/upstream/emscripten/system/lib/libc/musl/src/thread/default_attr.c \
-  -o build/process-default-attr.o
-"${container[@]}" /emsdk/upstream/emscripten/emcc \
-  "${process_compile_flags[@]}" "${process_libc_internal_flags[@]}" -c \
-  src/process/pthread-stubs.c \
-  -o build/process-pthread-stub.o
-for source in pthread_mutexattr_init pthread_mutexattr_settype pthread_mutexattr_destroy; do
-  "${container[@]}" /emsdk/upstream/emscripten/emcc \
-    "${process_compile_flags[@]}" "${process_libc_internal_flags[@]}" -c \
-    "/emsdk/upstream/emscripten/system/lib/libc/musl/src/thread/${source}.c" \
-    -o "build/process-${source}.o"
-done
+emcc="/emsdk/upstream/emscripten/emcc ${process_compile_flags[*]}"
+libc_internal="${process_libc_internal_flags[*]}"
+emscripten_libc=/emsdk/upstream/emscripten/system/lib
+in_container <<EOF
+${emcc} -c src/process/libc-adapter.c -o build/process-libc-adapter.o
+${emcc} -c src/process/runtime-adapter.c -o build/process-runtime-adapter.o
+${emcc} -c src/process/mmap.c -o build/process-mmap.o
+${emcc} -c src/process/time.c -o build/process-time.o
+${emcc} -c src/process/poll.c -o build/process-poll.o
+${emcc} -c src/process/signal.c -o build/process-signal.o
+${emcc} ${libc_internal} -c ${emscripten_libc}/pthread/pthread_self_stub.c -o build/process-pthread-self.o
+${emcc} ${libc_internal} -c ${emscripten_libc}/libc/musl/src/thread/default_attr.c -o build/process-default-attr.o
+${emcc} ${libc_internal} -c src/process/pthread-stubs.c -o build/process-pthread-stub.o
+${emcc} ${libc_internal} -c ${emscripten_libc}/libc/musl/src/thread/pthread_mutexattr_init.c -o build/process-pthread_mutexattr_init.o
+${emcc} ${libc_internal} -c ${emscripten_libc}/libc/musl/src/thread/pthread_mutexattr_settype.c -o build/process-pthread_mutexattr_settype.o
+${emcc} ${libc_internal} -c ${emscripten_libc}/libc/musl/src/thread/pthread_mutexattr_destroy.c -o build/process-pthread_mutexattr_destroy.o
+EOF
 (
   process_archive_staging="$(mktemp -d build/.process-archive.XXXXXX)"
   trap 'rm -rf -- "${process_archive_staging}"' EXIT
@@ -216,17 +201,20 @@ done
 )
 
 # Each host module's process client forms libdolly-NAME.a.
-while read -r module source; do
-  object="build/process-${module}-client.o"
-  "${container[@]}" /emsdk/upstream/emscripten/emcc \
-    "${process_compile_flags[@]}" -c "${source}" -o "${object}"
+mapfile -t clients < <(node scripts/host-modules.mjs client)
+for client in "${clients[@]}"; do
+  read -r module source <<<"${client}"
   # Updating a copy keeps members of earlier builds, as the released seed does
   # (tasks/20261001-051500-client-archives).
   cp -p -- "build/libdolly-${module}.a" "build/libdolly-${module}.a.new" 2>/dev/null ||
     rm -f -- "build/libdolly-${module}.a.new"
-  "${container[@]}" /emsdk/upstream/emscripten/emar rcsD "build/libdolly-${module}.a.new" "${object}"
+  echo "${emcc} -c ${source} -o build/process-${module}-client.o"
+  echo "/emsdk/upstream/emscripten/emar rcsD build/libdolly-${module}.a.new build/process-${module}-client.o"
+done | in_container
+for client in "${clients[@]}"; do
+  read -r module _ <<<"${client}"
   replace_if_changed "build/libdolly-${module}.a.new" "build/libdolly-${module}.a"
-done < <(node scripts/host-modules.mjs client)
+done
 mapfile -t client_links < <(node scripts/host-modules.mjs client | awk '{ print "-ldolly-" $1 }' | uniq)
 
 build_process() {

@@ -48,8 +48,10 @@ by `slopyard --integration-check` switches to the world view, sets the camera
 writes `Game.call('snapshot')` PNGs. Chrome ran headed on the private Xvfb
 display (headless software WebGPU fails with "Slopyard GPU: I/O error"). Frame
 counters in the snapshots: 70 before and 69 after on the west quarry view.
-Firefox on Xvfb provides no GPU adapter, so the Firefox half of the
-comparison is still missing. Evidence, patch and scripts:
+Firefox on Xvfb provides no GPU adapter (also tried headed with
+`gfx.webgpu.ignore-blocklist`, `dom.webgpu.allow-software-adapter`,
+`gfx.webgpu.force-enabled` and `VK_ICD_FILENAMES` set to lavapipe), so the Firefox
+half of the comparison needs a display with a GPU. Evidence, patch and scripts:
 `build/evidence/slopyard-quarry/` (local).
 
 Still required: the Firefox comparison and the populated rendering sample; then
