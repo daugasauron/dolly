@@ -17,3 +17,8 @@ test("the gamedev SDK declares its tools, headers and licenses", async () => {
   assert.deepEqual(sdk.exports.filter(({ type }) => type === "HEADER").map(({ name }) => name),
     ["raylib", "box3d", "dolly-raylib"]);
 });
+
+test("Slopyard declares GPU rendering and threads", async () => {
+  const requirements = (await loadProjectGraph("Dollyfile-slopyard")).root.hostRequirements;
+  for (const name of ["gpu@0", "threads@0"]) assert.ok(requirements.includes(name), name);
+});

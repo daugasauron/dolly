@@ -12,18 +12,17 @@ const digest = value => createHash("sha256").update(value).digest("hex");
 test("retained images declare only their runtime providers using Dollyfile 4", async () => {
   const root = new URL("../", import.meta.url).pathname;
   const load = createDollyfileGraphLoader(root);
-  const graphics = new Set(["gpu-sdk", "gpu-fluid", "pi-local", "dollyfile-studio", "slopyard", "zero-ad"]);
-  const audio = new Set(["audio-sdk", "zero-ad"]);
-  const interactive = new Set("default audio-sdk bhop classicube codex dollyfile-studio gamedev-sdk gpu-fluid gpu-sdk javascript neovim pi pi-local pi-runtime python python-runtime rts-arena rust-tools slopyard system zero-ad".split(" "));
+  const interactive = ["display@0", "download@0", "http@0", "snapshot@0", "upload@0"];
+  const core = {
+    default: interactive, system: interactive, "gpu-sdk": [...interactive, "gpu@0"],
+    "audio-sdk": [...interactive, "audio@0"], "system-build": [], "system-tools": [], "ghostty-build": [],
+  };
+  const optional = new Set(["audio@0", "build@0", "gpu@0", "threads@0"]);
   for (const image of await discoverImageDefinitions(root)) {
-    const graph = await load(image.filename);
-    const expected = interactive.has(image.image)
-      ? ["display@0", "download@0", "http@0", "snapshot@0", "upload@0"] : [];
-    if (graphics.has(image.image)) expected.push("gpu@0");
-    if (audio.has(image.image)) expected.push("audio@0");
-    if (image.image === "slopyard") expected.push("threads@0");
-    if (image.image === "dollyfile-studio") expected.push("build@0");
-    assert.deepEqual(graph.root.hostRequirements, expected.sort(), image.image);
+    const requirements = (await load(image.filename)).root.hostRequirements;
+    if (core[image.image]) assert.deepEqual(requirements, core[image.image].toSorted(), image.image);
+    const base = requirements.filter(name => !optional.has(name));
+    assert.ok(base.length === 0 || base.join() === interactive.join(), image.image);
   }
 });
 test("build graph and artifact requirements inherit FROM and USE, not COPY", async () => {

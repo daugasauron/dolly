@@ -39,13 +39,11 @@ test("audio module binds the bridge, acknowledges replies, revokes and disposes"
   assert.equal(dispatch(BigInt(address), 32n), -E.ENOSYS);
 });
 
-test("0 A.D. and its audio SDK declare playback without requiring threads", async () => {
+test("the audio SDK declares playback without requiring threads", async () => {
   const root = new URL("../", import.meta.url).pathname;
   const graph = createDollyfileGraphLoader(root);
-  for (const recipe of ["Dollyfile-zero-ad", "Dollyfile-audio-sdk"]) {
-    const requirements = (await graph(recipe)).root.hostRequirements;
-    assert.ok(requirements.includes("audio@0"));
-    assert.ok(!requirements.includes("threads@0"));
-  }
+  const requirements = (await graph("Dollyfile-audio-sdk")).root.hostRequirements;
+  assert.ok(requirements.includes("audio@0"));
+  assert.ok(!requirements.includes("threads@0"));
   assert.ok(!(await graph("Dollyfile")).root.hostRequirements.includes("audio@0"));
 });

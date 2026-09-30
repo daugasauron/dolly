@@ -25,7 +25,7 @@
     "serve": "node scripts/serve.mjs",
     "test:core": "node test/core-browser.mjs",
     "test:custom-sessions": "node test/custom-session-browser.mjs",
-    "test:artifacts": "node --test test/*.artifacts.mjs",
+    "test:artifacts": "node --test 'test/*.artifacts.mjs' 'demos/**/*.artifacts.mjs'",
     "test:full": "npm run build && npm run test:artifacts && npm test && ./scripts/test-browser.sh"
   },
   "dependencies": {
