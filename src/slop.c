@@ -6,6 +6,7 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <limits.h>
+#include <poll.h>
 #include <signal.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -639,6 +640,130 @@ static int spool_file(void) {
   return high_descriptor(descriptor);
 }
 
+static int write_all(int descriptor, const char *bytes, size_t length) {
+  while (length != 0) {
+    const ssize_t written = write(descriptor, bytes, length);
+    if (written < 0 && errno == EINTR) continue;
+    if (written <= 0) return 0;
+    bytes += written;
+    length -= (size_t)written;
+  }
+  return 1;
+}
+
+// A pipeline stage or command substitution runs to completion before its
+// output is read, so the output collects in a spool file. A command writing
+// to a spool gets a kernel pipe instead, which Slop drains into the file. At
+// SPOOL_LIMIT Slop closes the pipe: the writer gets SIGPIPE and kernel memory
+// stays bounded even for an endless writer such as `yes`.
+#define SPOOL_LIMIT ((off_t)64 << 20)
+typedef struct Spool {
+  int descriptor;
+  dev_t device;
+  ino_t inode;
+  struct Spool *outer;
+} Spool;
+static Spool *active_spools;
+
+static int spool_begin(Spool *spool) {
+  struct stat metadata;
+  spool->descriptor = spool_file();
+  if (spool->descriptor < 0 || fstat(spool->descriptor, &metadata) != 0) {
+    if (spool->descriptor >= 0) close(spool->descriptor);
+    return 0;
+  }
+  spool->device = metadata.st_dev;
+  spool->inode = metadata.st_ino;
+  spool->outer = active_spools;
+  active_spools = spool;
+  return 1;
+}
+
+// Stops collecting; returns the spool rewound for reading, or -1.
+static int spool_end(Spool *spool) {
+  active_spools = spool->outer;
+  if (lseek(spool->descriptor, 0, SEEK_SET) == 0) return spool->descriptor;
+  close(spool->descriptor);
+  return -1;
+}
+
+typedef struct {
+  Spool *spool;
+  int reader, writer;
+  off_t size;
+} Drain;
+
+static Spool *spool_at(int descriptor) {
+  struct stat metadata;
+  if (fstat(descriptor, &metadata) != 0 || !S_ISREG(metadata.st_mode)) return NULL;
+  Spool *spool = active_spools;
+  while (spool != NULL && (spool->device != metadata.st_dev ||
+                           spool->inode != metadata.st_ino)) spool = spool->outer;
+  return spool;
+}
+
+// Maps each child descriptor 1-9 that writes to an active spool onto a pipe,
+// one per spool. Returns 0 with errno set when a pipe cannot be created.
+static int spool_drains(Drain drains[9], size_t *count,
+                        dolly_process_fd_mapping mappings[9],
+                        uint32_t *mapping_count) {
+  for (int descriptor = 1; descriptor <= 9 && active_spools != NULL; descriptor++) {
+    Spool *spool = spool_at(descriptor);
+    if (spool == NULL) continue;
+    size_t index = 0;
+    while (index < *count && drains[index].spool != spool) index++;
+    if (index == *count) {
+      int ends[2];
+      struct stat collected;
+      if (pipe(ends) != 0) return 0;
+      drains[(*count)++] = (Drain){spool, high_descriptor(ends[0]),
+                                   high_descriptor(ends[1]), 0};
+      if (drains[index].reader < 0 || drains[index].writer < 0 ||
+          fstat(spool->descriptor, &collected) != 0) return 0;
+      drains[index].size = collected.st_size;
+    }
+    mappings[(*mapping_count)++] = (dolly_process_fd_mapping){
+        (uint32_t)drains[index].writer, (uint32_t)descriptor};
+  }
+  return 1;
+}
+
+// Copies pipe bytes into their spools until every writer has closed.
+// Returns 0, EFBIG when a spool reached SPOOL_LIMIT, or another errno.
+static int drain_spools(Drain *drains, size_t count) {
+  static char bytes[65536];
+  struct pollfd readers[9];
+  for (size_t index = 0; index < count; index++)
+    readers[index] = (struct pollfd){.fd = drains[index].reader, .events = POLLIN};
+  int error = 0;
+  for (size_t open = count; open != 0;) {
+    if (poll(readers, count, -1) < 0) {
+      if (errno == EINTR) continue;
+      return errno;
+    }
+    for (size_t index = 0; index < count; index++) {
+      Drain *drain = &drains[index];
+      if (drain->reader < 0 || readers[index].revents == 0) continue;
+      ssize_t length = read(drain->reader, bytes, sizeof(bytes));
+      if (length < 0 && errno == EINTR) continue;
+      if (length < 0) error = errno;
+      const off_t room = SPOOL_LIMIT - drain->size;
+      if (length > room) {
+        length = room;
+        error = EFBIG;
+      }
+      if (length > 0 && !write_all(drain->spool->descriptor, bytes, (size_t)length))
+        error = errno;
+      drain->size += length > 0 ? length : 0;
+      if (length > 0 && error == 0) continue;
+      close(drain->reader);
+      drain->reader = readers[index].fd = -1;
+      open--;
+    }
+  }
+  return error;
+}
+
 static int descriptor_state_save(DescriptorState *state, int destination) {
   for (size_t index = 0; index < state->count; index++) {
     if (state->items[index].destination == destination) return 1;
@@ -751,25 +876,24 @@ static int subshell_leave(Shell *shell, Subshell *subshell, int status) {
 
 static int capture_command(Shell *shell, const char *command, Buffer *output) {
   const size_t starting_length = output->length;
-  const int descriptor = spool_file();
+  Spool spool;
   Subshell subshell;
-  if (descriptor < 0 || !subshell_enter(shell, &subshell)) {
-    if (descriptor >= 0) close(descriptor);
+  if (!spool_begin(&spool)) return 0;
+  if (!subshell_enter(shell, &subshell)) {
+    close(spool_end(&spool));
     return 0;
   }
   int status = 1;
   if (descriptor_state_duplicate(&subshell.descriptors, STDOUT_FILENO,
-                                 descriptor)) {
+                                 spool.descriptor)) {
     // The outer `-e` must not turn `$(false; echo value)` into a failure.
     subshell.shell.errexit = 0;
     status = execute_text(&subshell.shell, command);
   }
   shell->substitution_status = subshell_leave(shell, &subshell, status);
   shell->last_status = shell->substitution_status;
-  if (lseek(descriptor, 0, SEEK_SET) < 0) {
-    close(descriptor);
-    return 0;
-  }
+  const int descriptor = spool_end(&spool);
+  if (descriptor < 0) return 0;
   char bytes[4096];
   ssize_t count;
   while ((count = read(descriptor, bytes, sizeof(bytes))) > 0) {
@@ -2635,28 +2759,45 @@ static int wait_command(Shell *shell, pid_t pid) {
 }
 
 // The child inherits the shell's descriptors 0-9 and its exported variables.
-// With `detached`, the caller waits for the returned pid itself.
-static int spawn_command(Shell *shell, int argc, char **argv, pid_t *detached) {
+static int spawn_command(Shell *shell, int argc, char **argv) {
   char path[PATH_MAX];
   enum command_resolution resolution = resolve_command(argv[0], path, sizeof(path));
   if (resolution == COMMAND_PATH_TOO_LONG) { fprintf(stderr, "slop: %s: path is too long\n", argv[0]); return 126; }
   if (resolution != COMMAND_FOUND) { fprintf(stderr, "slop: %s: command not found\n", argv[0]); return 127; }
   char **environment = exported_environment();
   if (environment == NULL) { fputs("slop: out of memory\n", stderr); return 126; }
-  fflush(NULL);
-  const int pid = dolly_spawn_mapped(path, argc, argv, environment, NULL,
-                                     DOLLY_PROCESS_INHERIT_FDS_ALL, NULL, 0, -1);
-  free(environment);
-  if (pid < 0) { fprintf(stderr, "slop: %s: spawn failed: %s\n", argv[0], strerror(-pid)); return 126; }
-  if (detached != NULL) {
-    *detached = pid;
-    return 0;
+  Drain drains[9];
+  size_t drain_count = 0;
+  dolly_process_fd_mapping mappings[9];
+  uint32_t mapping_count = 0;
+  int pid;
+  if (!spool_drains(drains, &drain_count, mappings, &mapping_count)) {
+    pid = -errno;
+  } else {
+    fflush(NULL);
+    pid = dolly_spawn_mapped(path, argc, argv, environment, NULL,
+                             DOLLY_PROCESS_INHERIT_FDS_ALL, mappings,
+                             mapping_count, -1);
   }
-  return wait_command(shell, pid);
+  free(environment);
+  for (size_t index = 0; index < drain_count; index++) close(drains[index].writer);
+  const int drained = pid < 0 ? 0 : drain_spools(drains, drain_count);
+  for (size_t index = 0; index < drain_count; index++) {
+    if (drains[index].reader >= 0) close(drains[index].reader);
+  }
+  if (pid < 0) { fprintf(stderr, "slop: %s: spawn failed: %s\n", argv[0], strerror(-pid)); return 126; }
+  const int status = wait_command(shell, pid);
+  if (drained != 0 && !shell->terminating_signal) {
+    // The shell whose output was cut off ends as if by SIGPIPE.
+    fprintf(stderr, "slop: %s: %s\n", argv[0], drained == EFBIG
+            ? "stopped at the 64 MiB spool limit" : strerror(drained));
+    shell->active = 0;
+    shell->exit_status = 128 + SIGPIPE;
+  }
+  return status;
 }
 
-static int run_command_words(Shell *shell, int argc, char **argv,
-                             pid_t *detached) {
+static int run_command_words(Shell *shell, int argc, char **argv) {
   if (!shell->active) return shell->exit_status;
   if (builtin_name(argv[0])) {
     int handled;
@@ -2664,7 +2805,7 @@ static int run_command_words(Shell *shell, int argc, char **argv,
   }
   Function *function = function_lookup(shell->functions, argv[0]);
   if (function != NULL) return run_function(shell, function, argc, argv);
-  return spawn_command(shell, argc, argv, detached);
+  return spawn_command(shell, argc, argv);
 }
 
 // A command-prefix assignment is exported to that command only.
@@ -3004,17 +3145,11 @@ static int open_heredoc(Shell *shell, const Token *token) {
     return expansion_error(shell);
   }
   const int descriptor = spool_file();
-  size_t offset = 0;
-  while (descriptor >= 0 && offset < contents.length) {
-    const ssize_t written = write(descriptor, contents.data + offset,
-                                  contents.length - offset);
-    if (written < 0 && errno == EINTR) continue;
-    if (written <= 0) break;
-    offset += (size_t)written;
-  }
+  const int written = descriptor >= 0 &&
+      write_all(descriptor, contents.data, contents.length) &&
+      lseek(descriptor, 0, SEEK_SET) == 0;
   free(contents.data);
-  if (descriptor >= 0 &&
-      (offset != contents.length || lseek(descriptor, 0, SEEK_SET) < 0)) {
+  if (descriptor >= 0 && !written) {
     close(descriptor);
     return -1;
   }
@@ -3066,7 +3201,7 @@ static int assignment_word(const Token *token, size_t *name_length) {
 // POSIX order: command words, then redirection words, then assignments from
 // left to right, each visible to the next. Redirections apply after tracing.
 static int run_simple_mutable(Shell *shell, Token *tokens, size_t start,
-                              size_t end, pid_t *detached) {
+                              size_t end) {
   Arguments assignments = {0}, arguments = {0};
   DescriptorState descriptors = {0};
   EnvironmentChange *changes = NULL;
@@ -3137,8 +3272,7 @@ static int run_simple_mutable(Shell *shell, Token *tokens, size_t start,
     descriptor_state_commit(&descriptors, shell->descriptors);
     status = 0;
   } else {
-    status = run_command_words(shell, (int)arguments.count, arguments.items,
-                               detached);
+    status = run_command_words(shell, (int)arguments.count, arguments.items);
   }
   goto done;
 
@@ -3157,15 +3291,14 @@ done:
   return status;
 }
 
-static int run_simple(Shell *shell, Token *tokens, size_t start, size_t end,
-                      pid_t *detached) {
+static int run_simple(Shell *shell, Token *tokens, size_t start, size_t end) {
   const size_t count = end - start;
   TokenList copy = {0};
   if (!tokens_clone_range(tokens, start, end, &copy)) {
     fputs("slop: out of memory\n", stderr);
     return 1;
   }
-  const int status = run_simple_mutable(shell, copy.items, 0, count, detached);
+  const int status = run_simple_mutable(shell, copy.items, 0, count);
   tokens_dispose(&copy);
   return status;
 }
@@ -3778,10 +3911,10 @@ static size_t skip_command(Shell *shell, CommandParser *parser,
 }
 
 static int run_command(Shell *shell, CommandParser *parser, size_t body_end,
-                       size_t end, int suppress_errexit, pid_t *detached) {
+                       size_t end, int suppress_errexit) {
   int status = 1;
   if (!compound_start(parser)) {
-    status = run_simple(shell, parser->tokens, parser->cursor, end, detached);
+    status = run_simple(shell, parser->tokens, parser->cursor, end);
   } else {
     DescriptorState descriptors = {0};
     if (apply_compound_redirections(shell, parser->tokens, body_end, end,
@@ -3798,108 +3931,54 @@ static int pipe_follows(const CommandParser *parser) {
          parser->tokens[parser->cursor].kind == TOKEN_PIPE;
 }
 
-// A literal non-builtin, non-function command becomes its own process, so
-// its stage can stream into a pipe without waiting.
-static int spawns_directly(Shell *shell, const CommandParser *parser,
-                           size_t end) {
-  if (compound_start(parser)) return 0;
-  for (size_t index = parser->cursor; index < end; index++) {
-    const Token *token = &parser->tokens[index];
-    size_t name_length;
-    if (token_is_redirection(token->kind)) {
-      if (token_is_file_redirection(token->kind)) index++;
-    } else if (!assignment_word(token, &name_length)) {
-      return strchr(token->text, SLOP_DEFERRED_DOLLAR) == NULL &&
-             !builtin_name(token->text) &&
-             function_lookup(shell->functions, token->text) == NULL;
-    }
-  }
-  return 0;
-}
-
-typedef struct { pid_t pid; int status; } PipelineStage;
-
-// Every stage is a subshell. Processes stream through kernel pipes; a stage
-// that runs inside Slop writes to a spool file so no stage waits on a reader
-// that has not started.
+// Serial execution is intentional: each stage is a subshell that runs to
+// completion, then the next stage reads its spooled output.
 static int run_pipeline(Shell *shell, CommandParser *parser, size_t end,
                         int suppress_errexit, unsigned stops) {
-  PipelineStage *stages = NULL;
-  size_t count = 0, capacity = 0;
-  int input = -1, status = 1;
+  int input = -1, status = 1, failure = 0;
   for (;;) {
     CommandParser probe = *parser;
     const size_t body_end = skip_command(shell, &probe, stops);
     const int last = !pipe_follows(&probe);
-    const int streams = !last && spawns_directly(shell, parser, probe.cursor);
-    int output = -1, next_input = -1;
-    if (!last && streams) {
-      int ends[2];
-      if (pipe(ends) == 0) {
-        next_input = high_descriptor(ends[0]);
-        output = high_descriptor(ends[1]);
-      }
-    } else if (!last) {
-      output = next_input = spool_file();
-    }
-    if (!grow((void **)&stages, &capacity, count + 1, sizeof(*stages)) ||
-        (!last && (output < 0 || next_input < 0))) {
+    Spool output;
+    if (!last && !spool_begin(&output)) {
       fprintf(stderr, "slop: pipeline: %s\n", strerror(errno));
-      if (output >= 0) close(output);
-      if (next_input >= 0 && next_input != output) close(next_input);
+      status = 1;
       break;
     }
-    PipelineStage *stage = &stages[count++];
-    *stage = (PipelineStage){.status = 1};
     Subshell subshell;
+    status = 1;
     if (subshell_enter(shell, &subshell)) {
       if ((input < 0 || descriptor_state_duplicate(&subshell.descriptors,
                                                    STDIN_FILENO, input)) &&
-          (output < 0 || descriptor_state_duplicate(&subshell.descriptors,
-                                                    STDOUT_FILENO, output))) {
+          (last || descriptor_state_duplicate(&subshell.descriptors,
+                                              STDOUT_FILENO, output.descriptor))) {
         CommandParser command = *parser;
-        stage->status = run_command(&subshell.shell, &command, body_end,
-                                    probe.cursor, suppress_errexit,
-                                    streams ? &stage->pid : NULL);
+        status = run_command(&subshell.shell, &command, body_end, probe.cursor,
+                             suppress_errexit);
       }
-      stage->status = subshell_leave(shell, &subshell, stage->status);
+      status = subshell_leave(shell, &subshell, status);
     }
     if (input >= 0) close(input);
-    if (streams) close(output);
-    else if (output >= 0) lseek(output, 0, SEEK_SET);
-    input = next_input;
+    input = last ? -1 : spool_end(&output);
+    if (status != 0) failure = status;
     parser->cursor = probe.cursor + 1;
-    if (last) status = stage->status;
     if (last || !shell->active) break;
+    if (input < 0) {
+      fprintf(stderr, "slop: pipeline: %s\n", strerror(errno));
+      break;
+    }
   }
   if (input >= 0) close(input);
   parser->cursor = end;
-  for (size_t index = 0; index < count; index++) {
-    if (stages[index].pid > 0)
-      stages[index].status = wait_command(shell, stages[index].pid);
-    if (shell->pipefail && stages[index].status != 0)
-      status = stages[index].status;
-  }
-  free(stages);
-  return status;
+  return shell->pipefail && failure != 0 ? failure : status;
 }
 
 static int execute_pipeline(Shell *shell, CommandParser *parser, int execute,
                             int suppress_errexit, unsigned stops) {
   CommandParser probe = *parser;
   const size_t body_end = skip_command(shell, &probe, stops);
-  if (!pipe_follows(&probe)) {
-    if (probe.error) {
-      parser->error = 1;
-      return 2;
-    }
-    if (!execute) {
-      parser->cursor = probe.cursor;
-      return 0;
-    }
-    return run_command(shell, parser, body_end, probe.cursor,
-                       suppress_errexit, NULL);
-  }
+  const int single = !pipe_follows(&probe);
   while (!probe.error && pipe_follows(&probe)) {
     probe.cursor++;
     (void)skip_command(shell, &probe, stops);
@@ -3912,7 +3991,9 @@ static int execute_pipeline(Shell *shell, CommandParser *parser, int execute,
     parser->cursor = probe.cursor;
     return 0;
   }
-  return run_pipeline(shell, parser, probe.cursor, suppress_errexit, stops);
+  return single
+      ? run_command(shell, parser, body_end, probe.cursor, suppress_errexit)
+      : run_pipeline(shell, parser, probe.cursor, suppress_errexit, stops);
 }
 
 static int execute_list(Shell *shell, CommandParser *parser, int execute,

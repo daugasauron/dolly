@@ -45,16 +45,24 @@ slop [-enux] script [arg ...]
 - Not implemented: aliases, job control, `${VAR:off:len}`, `${VAR/pat/rep}`,
   `<<-`, `"prefix$@"` word forms.
 
-## Pipelines and interrupts
+## Serial pipelines and interrupts
 
-- Every pipeline stage is a subshell. A stage that is a literal external command
-  runs as its own process and streams through a kernel pipe, so `make | tee log`
-  shows progress and `find / | head` stops early (the writer gets `SIGPIPE`).
-- A stage that runs inside Slop (builtin, function, compound command, computed
-  command name) writes to an unlinked spool file before the next stage starts.
-  Command substitutions and here-documents use the same spool.
+Serial execution is intentional: Slop runs one command at a time, without
+threads, host processes or a scheduler.
+
+- Every pipeline stage is a subshell, whatever it runs: an external command, a
+  builtin, a function or a compound command. A stage runs to completion before
+  the next one starts and reads its output from an unlinked spool file. Command
+  substitutions and here-documents use the same spool.
+- A command writing to a spool writes into a kernel pipe that Slop drains into
+  the file. At 64 MiB Slop closes the pipe and reports `stopped at the 64 MiB
+  spool limit`: the writer gets `SIGPIPE` and its stage or substitution ends
+  with status 141, so kernel memory stays bounded.
+- Unlike concurrent Unix pipes, `make | tee log` shows output only once Make
+  finishes, and a consumer such as `head` cannot stop an unbounded producer:
+  `seq 1 999999999 | head` runs until the spool limit stops `seq`.
 - The pipeline's status is the last stage's, or with `pipefail` the rightmost
-  failing one. Lists run one command at a time.
+  failing one.
 - Ctrl+C interrupts the foreground command (status 130) and stops the rest of the
   list, pipeline or substitution; an ordinary `exit 130` does not. See
   [process model](process-model.md#signals).
