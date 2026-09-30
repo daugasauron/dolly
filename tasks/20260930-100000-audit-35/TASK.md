@@ -23,3 +23,18 @@ Correct output or explicit failure.
 ## Done when
 
 - Browser tests for each command's corrected behavior.
+
+## Progress (2026-10-01)
+
+- `file`, `echo --` and `stat %a` are fixed (`3c43dca`), covered by
+  `test/commands.test.mjs`.
+- `/bin/cd` is right as an external utility: it validates its argument and
+  cannot change its caller's directory (as on Linux). The real bug was `command`:
+  it was only an external program, so `command cd`, `command export` and
+  `command -v cd` never reached Slop's built-ins. Slop now has a `command`
+  built-in (`-v`, `-p`; functions skipped), checked by the Slop case "command
+  runs built-ins in the shell and skips functions"; the external
+  `/usr/bin/command` stays for `find -exec` and `env`. Browser verification
+  comes with the next catalog rebuild.
+- `install -m/-o/-g` stay accepted no-ops: the owner decided (2026-10-01) that
+  permission operations remain no-ops in the one-user userspace.
