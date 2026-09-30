@@ -1,0 +1,60 @@
+# Host modules: one directory per bridge, a module-agnostic core
+
+- STATUS: OPEN
+- PRIORITY: 330
+- TAGS: core,architecture,boundary,abi
+
+Owner direction (2026-09-30/10-01): the core is library code for a generic,
+extensible runtime. A host bridge is one modular component: a host JS module
+plus the runtime C header that maps to it. Chosen layout: one directory per
+module.
+
+```
+host/<name>/   <name>.mjs (contract, browser(), worker()), helpers,
+               dolly-<name>-0.wat, <name>.h, kernel.c, client.c, README.md
+host/modules.mjs   the one registry
+abi/           core contracts: process, gate, supervisor, dso, host records,
+               dolly-browser-0.wat (the outer import allowlist)
+include/dolly/ runtime.h, process.h, host.h
+src/           kernel core, supervisor, process Worker, page shell
+```
+
+Adding a bridge = its directory + one registry line + its import in
+`abi/dolly-browser-0.wat` + its row in `docs/browser-boundary.md`. The last two
+stay hand-written: they are where a human reviews authority.
+
+## Findings (four read-only audits, 2026-09-30, reports in `build/evidence/simplify/`)
+
+- gpu, audio and threads already follow the pattern: own WAT op numbers; the
+  kernel reaches gpu/audio through `dolly_<m>_process_call` and
+  `dolly_<m>_release_owner` only.
+- display, http, download and upload predate it: ~800 of `dolly.c`'s 1,168 lines,
+  ~360 lines of `process-kernel.c`, and ~150 lines of the ABI-hashed `process.h`.
+- ~430 of `browser.mjs`'s 770 lines are display input, snapshot save UI and build
+  wiring; `runtime-worker.mjs` hard-codes session restore.
+- Module lists are hand-kept in ~15 places (`build.sh`, CMake, `package-pages.sh`
+  twice and disagreeing, `browser-server.mjs`, `dolly.artifacts.mjs`,
+  `generate-abi-constants.mjs`). Contract fields `abi` and `header` are never read.
+- The display mailbox also carries core terminal state (foreground pid,
+  interrupts, input ring), so the terminal depends on display@0's layout.
+
+## Plan
+
+1. JS (no kernel or image bytes change; test against current images): move module
+   JS into `host/<name>/`; move display input, snapshot UI and build wiring out of
+   `browser.mjs` behind generic page resources and hooks; session restore as an
+   explicit snapshot phase; derive every module list from the registry or the
+   directory; remove dead code found by the audits.
+2. C (kernel bytes change, process ABI unchanged): move WATs, headers, kernel C and
+   clients into `host/<name>/`; one static `dolly_kernel_module` table replaces
+   per-module switch cases and release calls; build globs `host/*/`.
+3. Process ABI (every executable and image rebuilds): move display, http, download
+   and upload ops and packets from `process.h` into their modules; split a
+   runtime-owned terminal mailbox from display@0.
+
+## Done when
+
+- `grep -rn "display\|http\|gpu\|audio\|download\|upload\|snapshot\|threads" src/browser.mjs src/runtime-worker.mjs src/process-kernel.c src/dolly.c`
+  finds only registry-driven code.
+- Adding a module touches only its directory plus the two review points.
+- source, artifact, core and browser suites pass in Chrome and Firefox after each stage.
