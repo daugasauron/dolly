@@ -703,10 +703,6 @@ export class DollyProcessSupervisor {
     this.#retire(process);
   }
 
-  interrupt(pid) {
-    return this.#forceExit(pid, 128 + DOLLY_PROCESS_SIGINT, DOLLY_PROCESS_SIGINT);
-  }
-
   #forceExit(pid, status, signalNumber = 0) {
     const process = this.processes.get(pid);
     if (!process) return false;

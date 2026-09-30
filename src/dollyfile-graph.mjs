@@ -1,14 +1,10 @@
 import { inspectDollyfile } from "./dollyfile-view.mjs";
 import { hostRequirements } from "../host/requirements.mjs";
+import { sha256 } from "./static-asset.mjs";
 
 const MAX_USE_DEPTH = 16;
 const decoder = new TextDecoder("utf-8", { fatal: true, ignoreBOM: true });
 const key = object => `${object.type}:${object.name}`;
-
-async function sha256(bytes) {
-  return [...new Uint8Array(await crypto.subtle.digest("SHA-256", bytes))]
-    .map(byte => byte.toString(16).padStart(2, "0")).join("");
-}
 
 // The recipe graph of one image, as /bin/dollyfile reads it: the root and its
 // USE modules, plus the FROM/COPY images it imports. `read(location)` returns a

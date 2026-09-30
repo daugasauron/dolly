@@ -201,20 +201,17 @@ export function parseWasmInterface(input, label = "WebAssembly binary") {
   const rawExports = [];
   const customSections = [];
   const customSectionData = [];
-  const sections = [];
   let hasStart = false;
 
   while (!reader.done) {
     const id = reader.u8();
     const size = reader.u32();
     const section = reader.subreader(size, `${label} section ${id}`);
-    sections.push(id);
 
     if (id === 0) {
       const name = section.string();
       customSections.push(name);
       customSectionData.push({ name, data: section.take(section.bytes.length - section.offset) });
-      sections[sections.length - 1] = `custom:${name}`;
     } else if (id === 1) {
       readVector(section, (item) => {
         if (item.u8() !== 0x60) item.fail("only function types are supported");
@@ -303,13 +300,7 @@ export function parseWasmInterface(input, label = "WebAssembly binary") {
     exports,
     customSections,
     customSectionData,
-    sections,
     hasStart,
-    counts: {
-      types: types.length,
-      importedFunctions: importedFunctions.length,
-      definedFunctions: definedFunctionTypes.length,
-    },
   };
 }
 

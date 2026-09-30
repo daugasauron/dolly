@@ -8,11 +8,10 @@ import { validSessionName, DOLLY_SESSION_MAX_BYTES } from "./session-store.mjs";
 import { describeImageArtifact, saveImageArtifact, sha256,
   loadPackagedSnapshotMetadata, streamPackagedSystemSnapshot } from "./image-artifact.mjs";
 import { imageInputs } from "./image-inputs.mjs";
-import { inspectDollyfile } from "./dollyfile-view.mjs";
+import { inspectDollyfile, MAX_DOLLYFILE_BYTES } from "./dollyfile-view.mjs";
 import { decodeImageEntry } from "./image-entry.mjs";
 import { checkedCustomArtifact } from "./custom-image.mjs";
 
-const MAX_DOLLYFILE_BYTES = 128 * 1024;
 const encoder = new TextEncoder();
 const decoder = new TextDecoder("utf-8", { ignoreBOM: true });
 
