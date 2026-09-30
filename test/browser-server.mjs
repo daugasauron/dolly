@@ -156,6 +156,11 @@ export async function startBrowserServer(projectDir, image = "default",
     files.set(`/${image}`, `build/routes/${image}/index.html`);
     files.set(`/${image}/rebuild`, `build/routes/${image}/rebuild/index.html`);
   }
+  files.set("", "build/routes/index.html");
+  for (const entry of await readdir(resolve(projectDir, "build/routes/view"), { recursive: true })) {
+    if (entry.endsWith("index.html")) files.set(`/view/${entry.slice(0, -"/index.html".length)}`, `build/routes/view/${entry}`);
+  }
+  files.set("/load", "build/routes/load/index.html");
   files.set("/custom", "build/routes/custom/index.html");
   files.set("/custom/rebuild", "build/routes/custom/rebuild/index.html");
   files.set("/custom/run", "build/routes/custom/run/index.html");
