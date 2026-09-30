@@ -80,6 +80,22 @@ try {
       assert.equal(server.cancelledRequests, cancelledBefore + 1, "cancelled HTTP response stayed open");
       assert.equal(await submit(`mkdir /tmp/core-tar; curl -fsS ${server.origin}/fixture/root.tar -o /tmp/core.tar && tar -xf /tmp/core.tar -C /tmp/core-tar && test "$(cat /tmp/core-tar/file)" = 'root preserved' && rm -rf /tmp/core-tar /tmp/core.tar`), 0);
       assert.equal(await submit("printf 'needle\\n' > /tmp/core-search; rg -q needle /tmp/core-search && test \"$(fd --max-depth 1 '^core-search$' /tmp)\" = /tmp/core-search && rm /tmp/core-search"), 0);
+      assert.equal(await submit([
+        "mkdir -p /tmp/core-commands/a /tmp/core-commands/b /tmp/core-commands/many && cd /tmp/core-commands",
+        "test \"$(echo --)\" = -- && [ ! -e /bin/cd ] && ! command cd /",
+        "printf 'gr\\303\\274\\303\\237e\\n' > utf8 && test \"$(file -b utf8)\" = 'UTF-8 Unicode text'",
+        "printf abcdef > dd.txt && printf XY | dd of=dd.txt bs=1 seek=2 conv=notrunc && test \"$(cat dd.txt)\" = abXYef",
+        "printf XY | dd of=dd.txt bs=1 seek=1 && test \"$(cat dd.txt)\" = aXY",
+        "timeout 0 sleep 1",
+        "printf 'one\\n' > a/file && printf 'two\\n' > b/file && { diff -u a/file b/file > change.patch; test $? -eq 1; }",
+        "cd a && ! patch file < ../change.patch && test \"$(cat file)\" = one && patch -p1 < ../change.patch && test \"$(cat file)\" = two && cd ..",
+        "cd many && seq 1 600 | xargs touch && cd ..",
+        "! find many -type f -exec slop -c 'printf \"%s\\n\" \"$@\" >> exec.log; exit 1' slop {} +",
+        "test \"$(sort -u exec.log | sed -n '$=')\" = 600",
+        "test \"$(seq 1 100000 | xargs echo | sed -n '$=')\" -gt 1",
+        "test \"$(seq 1 100000 | xargs echo | tr ' ' '\\n' | sed -n '$=')\" = 100000",
+        "cd / && rm -rf /tmp/core-commands",
+      ].join(" && ")), 0, "POSIX command behavior");
       assert.notEqual(await submit(`curl -fsS ${server.origin}/denied`), 0);
       assert.equal(server.requests.has("/denied"), false, "denied userspace HTTP reached the host server");
       console.log(`core: ${name} passed ABI, process, filesystem, C/C++, rg/fd, interruption and HTTP checks in ${((performance.now() - started) / 1000).toFixed(1)}s`);

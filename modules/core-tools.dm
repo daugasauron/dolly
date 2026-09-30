@@ -101,31 +101,34 @@ FILE /tmp/core-tools/stat.c
     #include <sys/stat.h>
     #include <time.h>
     
-    static const char *kind(const struct stat *metadata) {
-      if (S_ISDIR(metadata->st_mode)) return "directory";
-      if (S_ISLNK(metadata->st_mode)) return "symbolic link";
-      if (S_ISREG(metadata->st_mode)) return "regular file";
-      if (S_ISCHR(metadata->st_mode)) return "character device";
-      if (S_ISFIFO(metadata->st_mode)) return "fifo";
+    static const char *kind(mode_t mode) {
+      if (S_ISDIR(mode)) return "directory";
+      if (S_ISLNK(mode)) return "symbolic link";
+      if (S_ISREG(mode)) return "regular file";
+      if (S_ISCHR(mode)) return "character device";
+      if (S_ISFIFO(mode)) return "fifo";
       return "other";
+    }
+    
+    static void print_mode(mode_t mode) {
+      putchar(S_ISDIR(mode) ? 'd' : S_ISLNK(mode) ? 'l' : S_ISCHR(mode) ? 'c' : S_ISFIFO(mode) ? 'p' : '-');
+      for (int bit = 8; bit >= 0; bit--) putchar(mode & (1u << bit) ? "xwr"[bit % 3] : '-');
     }
     
     static void formatted(const char *format, const char *path, const struct stat *metadata) {
       for (const char *cursor = format; *cursor != '\0'; cursor++) {
-        if (*cursor != '%' || cursor[1] == '\0') { fputc(*cursor, stdout); continue; }
-        cursor++;
-        switch (*cursor) {
-          case '%': fputc('%', stdout); break;
+        if (*cursor != '%') { putchar(*cursor); continue; }
+        switch (*++cursor) {
+          case '%': putchar('%'); break;
           case 'n': fputs(path, stdout); break;
           case 's': printf("%lld", (long long)metadata->st_size); break;
-          case 'F': fputs(kind(metadata), stdout); break;
+          case 'F': fputs(kind(metadata->st_mode), stdout); break;
           case 'Y': printf("%lld", (long long)metadata->st_mtime); break;
-          case 'a': fputc('0', stdout); break;
-          case 'A': fputc(S_ISDIR(metadata->st_mode) ? 'd' : '-', stdout); break;
-          default: fputc('%', stdout); fputc(*cursor, stdout); break;
+          case 'a': printf("%o", (unsigned)(metadata->st_mode & 07777)); break;
+          case 'A': print_mode(metadata->st_mode); break;
         }
       }
-      fputc('\n', stdout);
+      putchar('\n');
     }
     
     int main(int argc, char **argv) {
@@ -137,8 +140,14 @@ FILE /tmp/core-tools/stat.c
       } else if (first < argc && strncmp(argv[first], "--format=", 9) == 0) {
         format = argv[first++] + 9;
       } else if (first < argc && strcmp(argv[first], "--help") == 0) {
-        fputs("usage: stat [-c FORMAT] FILE ...\nformats: %n name, %s size, %F type, %Y mtime\n", stdout);
+        fputs("usage: stat [-c FORMAT] FILE ...\nformats: %n name, %s size, %F type, %Y mtime, %a octal mode, %A mode, %% percent\n", stdout);
         return 0;
+      }
+      for (const char *cursor = format; cursor != NULL && (cursor = strchr(cursor, '%')) != NULL; cursor += 2) {
+        if (cursor[1] == '\0' || strchr("%nsFYaA", cursor[1]) == NULL) {
+          fprintf(stderr, "stat: unsupported format directive: %.2s\n", cursor);
+          return 2;
+        }
       }
       if (first == argc) { fputs("stat: missing file operand\n", stderr); return 2; }
       int status = 0;
@@ -154,7 +163,7 @@ FILE /tmp/core-tools/stat.c
         struct tm *broken = localtime(&metadata.st_mtime);
         if (broken != NULL) strftime(timestamp, sizeof(timestamp), "%Y-%m-%d %H:%M:%S", broken);
         printf("  File: %s\n  Size: %lld\tType: %s\nModify: %s\n",
-               argv[first], (long long)metadata.st_size, kind(&metadata), timestamp);
+               argv[first], (long long)metadata.st_size, kind(metadata.st_mode), timestamp);
       }
       return status;
     }
@@ -166,6 +175,22 @@ FILE /tmp/core-tools/file.c
     #include <stdio.h>
     #include <string.h>
     #include <sys/stat.h>
+    
+    // Printable ASCII and well-formed UTF-8; a sequence may be cut off only
+    // where the sample ends before the file does.
+    static int text(const unsigned char *bytes, size_t length, int sampled) {
+      for (size_t index = 0; index < length;) {
+        const unsigned char byte = bytes[index++];
+        size_t extra = byte < 0x80 ? 0 : byte >= 0xc2 && byte <= 0xdf ? 1
+            : byte >= 0xe0 && byte <= 0xef ? 2 : byte >= 0xf0 && byte <= 0xf4 ? 3 : 4;
+        if (extra == 4 || (extra == 0 && !isprint(byte) && !isspace(byte))) return 0;
+        for (; extra != 0; extra--, index++) {
+          if (index == length) return sampled;
+          if ((bytes[index] & 0xc0) != 0x80) return 0;
+        }
+      }
+      return 1;
+    }
     
     static const char *classify(const char *path, int mime) {
       static char result[96];
@@ -191,12 +216,12 @@ FILE /tmp/core-tools/file.c
       if (length >= 2 && bytes[0] == 0x1f && bytes[1] == 0x8b)
         return mime ? "application/gzip" : "gzip compressed data";
       if (length == 0) return mime ? "application/x-empty" : "empty";
-      int text = 1;
+      if (!text(bytes, length, length == sizeof(bytes)))
+        return mime ? "application/octet-stream" : "data";
       for (size_t index = 0; index < length; index++) {
-        if (bytes[index] == 0 || (!isprint(bytes[index]) && !isspace(bytes[index]))) { text = 0; break; }
+        if (bytes[index] >= 0x80) return mime ? "text/plain" : "UTF-8 Unicode text";
       }
-      return text ? (mime ? "text/plain" : "ASCII text")
-                  : (mime ? "application/octet-stream" : "data");
+      return mime ? "text/plain" : "ASCII text";
     }
     
     int main(int argc, char **argv) {
