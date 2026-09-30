@@ -1,10 +1,4 @@
 # Sourced by scripts/prepare-image-sources.sh.
-if has_module dollyfile; then
-  node scripts/build-source-tar.mjs "${static_dir}/default/dollyfile-source.tar" \
-    src/dollyfile.c /usr/src/dolly/dollyfile.c \
-    src/sha256.h /usr/src/dolly/sha256.h \
-    src/fs-record.h /usr/src/dolly/fs-record.h
-fi
 if has_module local-llm-weights; then
   node demos/local-llm/prepare-local-llm-weights.mjs "${static_dir}/llama"
 fi

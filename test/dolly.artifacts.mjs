@@ -391,8 +391,6 @@ test("system snapshots are sealed to their visible recipe chain", async () => {
       "/usr/lib/dolly/dolly-kernel-plugin-0.wasm"]) {
       assert.ok(metadata.manifest.includes(required), `${image} must explicitly retain ${required}`);
     }
-    assert.equal(metadata.manifest.includes("/usr/src/dolly/dollyfile.c"),
-      graph.exporters.has("FOLDER:dollyfile-source"), `${image}: Dollyfile compiler source`);
     assert.equal(metadata.manifest.some((path) => /\/usr\/src\/dolly\/(?:slop\.c|process-tools\/|dso-)/.test(path) ||
       /\/process-bin\/(?!compiler$)/.test(path)), false, `${image} must not retain bootstrap probes`);
     for (const recipe of recipes) assert.ok(metadata.manifest.includes(recipe.retainedPath));

@@ -1,15 +1,15 @@
 DOLLY 4
 IMAGE rts-arena
 
-FROM HOST /Dollyfile-pi-runtime 4c4ce015ea4f7d49a32bb07a02976a2d369a05e7057ab988dc21b0172e3e8f11
-COPY FROM HOST /Dollyfile-rts-build 9d6441b2ada061b171f4246359b143811833791d8154c9ab4f050ffa1f077f4f /usr/bin/seven-kingdoms /usr/bin/seven-kingdoms
-COPY FROM HOST /Dollyfile-rts-build 9d6441b2ada061b171f4246359b143811833791d8154c9ab4f050ffa1f077f4f /usr/share/7kaa /usr/share/7kaa
-COPY FROM HOST /Dollyfile-rts-build 9d6441b2ada061b171f4246359b143811833791d8154c9ab4f050ffa1f077f4f /usr/src/7kaa /usr/src/7kaa
-COPY FROM HOST /Dollyfile-rts-build 9d6441b2ada061b171f4246359b143811833791d8154c9ab4f050ffa1f077f4f /usr/src/dolly/rts /usr/src/dolly/rts
-COPY FROM HOST /Dollyfile-rts-build 9d6441b2ada061b171f4246359b143811833791d8154c9ab4f050ffa1f077f4f /usr/include/SDL2 /usr/include/SDL2
-COPY FROM HOST /Dollyfile-rts-build 9d6441b2ada061b171f4246359b143811833791d8154c9ab4f050ffa1f077f4f /usr/lib/libSDL2.a /usr/lib/libSDL2.a
-COPY FROM HOST /Dollyfile-rts-build 9d6441b2ada061b171f4246359b143811833791d8154c9ab4f050ffa1f077f4f /usr/share/licenses/7kaa /usr/share/licenses/7kaa
-COPY FROM HOST /Dollyfile-rts-build 9d6441b2ada061b171f4246359b143811833791d8154c9ab4f050ffa1f077f4f /usr/share/licenses/SDL2 /usr/share/licenses/SDL2
+FROM HOST /Dollyfile-pi-runtime 41961a0c7271e177a6ae97ad444fe14131776b59d34dce07fc4f06709d89530e
+COPY FROM HOST /Dollyfile-rts-build 21c8f71af9b872df16046724e140fc6d235f64250393c0d9126ae228ebb799ca /usr/bin/seven-kingdoms /usr/bin/seven-kingdoms
+COPY FROM HOST /Dollyfile-rts-build 21c8f71af9b872df16046724e140fc6d235f64250393c0d9126ae228ebb799ca /usr/share/7kaa /usr/share/7kaa
+COPY FROM HOST /Dollyfile-rts-build 21c8f71af9b872df16046724e140fc6d235f64250393c0d9126ae228ebb799ca /usr/src/7kaa /usr/src/7kaa
+COPY FROM HOST /Dollyfile-rts-build 21c8f71af9b872df16046724e140fc6d235f64250393c0d9126ae228ebb799ca /usr/src/dolly/rts /usr/src/dolly/rts
+COPY FROM HOST /Dollyfile-rts-build 21c8f71af9b872df16046724e140fc6d235f64250393c0d9126ae228ebb799ca /usr/include/SDL2 /usr/include/SDL2
+COPY FROM HOST /Dollyfile-rts-build 21c8f71af9b872df16046724e140fc6d235f64250393c0d9126ae228ebb799ca /usr/lib/libSDL2.a /usr/lib/libSDL2.a
+COPY FROM HOST /Dollyfile-rts-build 21c8f71af9b872df16046724e140fc6d235f64250393c0d9126ae228ebb799ca /usr/share/licenses/7kaa /usr/share/licenses/7kaa
+COPY FROM HOST /Dollyfile-rts-build 21c8f71af9b872df16046724e140fc6d235f64250393c0d9126ae228ebb799ca /usr/share/licenses/SDL2 /usr/share/licenses/SDL2
 EXPORTS TOOL seven-kingdoms
 EXPORTS HEADER sdl2 /usr/include/SDL2
 EXPORTS LIB SDL2 /usr/lib/libSDL2.a

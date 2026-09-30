@@ -32,8 +32,6 @@ volatile `/run/dolly-llm`, so they are gone after a reload. Pins:
   the functions this backend uses, and the `dolly-llama` command.
 - [`local-model-provider.js`](local-model-provider.js), [`client.mjs`](client.mjs):
   Pi's provider; it talks to `dolly-llama` over pipes, one JSON request per line.
-- [`dollyfile.dm`](dollyfile.dm): recompiles `/bin/dollyfile` from
-  `src/dollyfile.c` inside the image.
 - [`prepare-local-llm.sh`](prepare-local-llm.sh) only fetches sources and Dawn
   headers; [`test/local-llm-browser.mjs`](test/local-llm-browser.mjs) is an opt-in
   real-model check.

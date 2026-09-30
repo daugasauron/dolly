@@ -1,7 +1,7 @@
 DOLLY 4
 IMAGE system
 
-FROM HOST /Dollyfile-system-tools 2d36f063b59ef610ecb67bda8a69a00caf442bd3df36fa837dc01a2fba159d48
+FROM HOST /Dollyfile-system-tools 568f55f581d3c607abaf241dbb3306badc332a703e08d7fb3dddd0f6925499b5
 
 REQUIRES HOST display@0
 REQUIRES HOST http@0
@@ -9,10 +9,10 @@ REQUIRES HOST download@0
 REQUIRES HOST upload@0
 REQUIRES HOST snapshot@0
 
-COPY FROM HOST /Dollyfile-ghostty-build 86f6ce767f961d4e2e7a60b0753fd085f900d57bfc5ac35bb18c34c99d17b704 /usr/lib/libdisplay.so /usr/lib/libdisplay.so
-COPY FROM HOST /Dollyfile-ghostty-build 86f6ce767f961d4e2e7a60b0753fd085f900d57bfc5ac35bb18c34c99d17b704 /usr/share/fonts/IosevkaTerm-SemiBold.ttf /usr/share/fonts/IosevkaTerm-SemiBold.ttf
-COPY FROM HOST /Dollyfile-ghostty-build 86f6ce767f961d4e2e7a60b0753fd085f900d57bfc5ac35bb18c34c99d17b704 /usr/share/licenses/ghostty /usr/share/licenses/ghostty
-COPY FROM HOST /Dollyfile-ghostty-build 86f6ce767f961d4e2e7a60b0753fd085f900d57bfc5ac35bb18c34c99d17b704 /usr/share/licenses/uucode /usr/share/licenses/uucode
+COPY FROM HOST /Dollyfile-ghostty-build 82f6100a1510bc570bea5ed6e1ead95bf0b99ffd562cc48e6f848d4e7ed6b64e /usr/lib/libdisplay.so /usr/lib/libdisplay.so
+COPY FROM HOST /Dollyfile-ghostty-build 82f6100a1510bc570bea5ed6e1ead95bf0b99ffd562cc48e6f848d4e7ed6b64e /usr/share/fonts/IosevkaTerm-SemiBold.ttf /usr/share/fonts/IosevkaTerm-SemiBold.ttf
+COPY FROM HOST /Dollyfile-ghostty-build 82f6100a1510bc570bea5ed6e1ead95bf0b99ffd562cc48e6f848d4e7ed6b64e /usr/share/licenses/ghostty /usr/share/licenses/ghostty
+COPY FROM HOST /Dollyfile-ghostty-build 82f6100a1510bc570bea5ed6e1ead95bf0b99ffd562cc48e6f848d4e7ed6b64e /usr/share/licenses/uucode /usr/share/licenses/uucode
 EXPORTS LIB display /usr/lib/libdisplay.so
 EXPORTS ENV DISPLAY /usr/lib/libdisplay.so
 

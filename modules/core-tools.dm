@@ -66,7 +66,7 @@ FILE /tmp/core-tools/help.c
       fputs("selection: case WORD in PATTERN[|PATTERN]...) COMMANDS ;; ... esac\n", stdout);
       fputs("functions/groups: NAME () { COMMANDS; }; return [STATUS]; { COMMANDS; }; (COMMANDS)\n", stdout);
       fputs("expansion: $VAR ${VAR} ${VAR:-WORD} ${VAR:=WORD} ${VAR:+WORD} ${VAR:?WORD} ${#VAR} ${VAR#PATTERN} ${VAR##PATTERN} ${VAR%PATTERN} ${VAR%%PATTERN} $? $$ $# $0..9 $@ $* $(command) `command` $((integer expression)) and globs; set [--] ARG...; shift [N]\n", stdout);
-      fputs("options: set -e/+e -x/+x -o/+o pipefail; set -o lists finite options\n", stdout);
+      fputs("options: set -e/+e -u/+u -x/+x -o/+o pipefail; set -o lists finite options\n", stdout);
       fputs("make recipes run serially through /bin/slop -c\n", stdout);
       if (access("/usr/bin/tsc", F_OK) == 0)
         fputs("TypeScript: tsc FILE.ts --target ES2023 --module ES2022\n", stdout);

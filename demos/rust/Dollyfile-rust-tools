@@ -1,12 +1,12 @@
 DOLLY 4
 IMAGE rust-tools
 
-FROM HOST /Dollyfile-system 4c95416d68a23d0244e640a70da50b9dc444938126a609ae5d4c4fd5b79b9c0e
+FROM HOST /Dollyfile-system c110bb79b1f233808476de99abf1425cd58c06a2646c9806703c38d20fbcbfe4
 
-COPY FROM HOST /Dollyfile-rust-build abac3e111206dc4cff864dd2253b223537f2da0ed09aa83afddd773145de0323 /opt/rust-sdk /opt/rust-sdk
-COPY FROM HOST /Dollyfile-rust-build abac3e111206dc4cff864dd2253b223537f2da0ed09aa83afddd773145de0323 /usr/bin/patti /usr/bin/patti
-COPY FROM HOST /Dollyfile-rust-build abac3e111206dc4cff864dd2253b223537f2da0ed09aa83afddd773145de0323 /usr/share/licenses/rust /usr/share/licenses/rust
-COPY FROM HOST /Dollyfile-rust-build abac3e111206dc4cff864dd2253b223537f2da0ed09aa83afddd773145de0323 /usr/share/licenses/patti /usr/share/licenses/patti
+COPY FROM HOST /Dollyfile-rust-build 441732a73f8ac8c27ec632328ab559f78403d94f060a0f5d78eb457a462a4995 /opt/rust-sdk /opt/rust-sdk
+COPY FROM HOST /Dollyfile-rust-build 441732a73f8ac8c27ec632328ab559f78403d94f060a0f5d78eb457a462a4995 /usr/bin/patti /usr/bin/patti
+COPY FROM HOST /Dollyfile-rust-build 441732a73f8ac8c27ec632328ab559f78403d94f060a0f5d78eb457a462a4995 /usr/share/licenses/rust /usr/share/licenses/rust
+COPY FROM HOST /Dollyfile-rust-build 441732a73f8ac8c27ec632328ab559f78403d94f060a0f5d78eb457a462a4995 /usr/share/licenses/patti /usr/share/licenses/patti
 EXPORTS ENV PATH APPEND /opt/rust-sdk/bin
 EXPORTS TOOL rustc
 EXPORTS TOOL patti

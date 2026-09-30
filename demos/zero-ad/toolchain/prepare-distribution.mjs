@@ -35,7 +35,7 @@ REQUIRES HOST http@0
 
 REQUIRES TOOL slop
 
-# External wasm64 bootstrap; pinned sources and port instructions: docs/sources.md.
+# External wasm64 bootstrap; pinned sources and port instructions: demos/zero-ad/README.md.
 ${sources.join("\n")}
 
 FILE /usr/bin/zero-ad
