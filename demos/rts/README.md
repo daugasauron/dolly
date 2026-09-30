@@ -97,7 +97,7 @@ counter. Keep a match time limit. The public OpenRouter image needs no relay.
 For an automated browser run, allow `http://127.0.0.1:9011` as another relay
 origin and set `DOLLY_BROWSER_PORT=9011`, `DOLLY_RTS_MODELS_FILE` to its printed
 configuration path, and `DOLLY_RTS_MODELS` to two comma-separated selectors when
-running the `rts-live` mode below. This still uses the real browser HTTP broker.
+running the live match below. This still uses the real browser HTTP broker.
 
 ## How it works
 
@@ -131,9 +131,7 @@ Swap model arguments for a return match with the opposite starting positions.
 
 ## Validation and remaining work
 
-Chrome proofs: `DOLLY_IMAGE=sdl2-build DOLLY_BROWSER_MODE=sdl2
-./scripts/test-browser.sh`, then `DOLLY_IMAGE=rts-arena DOLLY_BROWSER_MODE=rts
-./scripts/test-browser.sh`. They cover real rendering/input, process reload,
+Chrome proofs: `npm run test:demos -- sdl2 rts`. They cover real rendering/input, process reload,
 PNG encoding, visible move-only cursor positioning, lifecycle-menu/shortcut guards, rejected/cancelled batches,
 separate player views, continuous simulation, real Pi RPC/tool/history streaming against an explicitly scripted
 local HTTP provider, and orderly shutdown. A normal town click and recruit key
@@ -160,25 +158,23 @@ not credentials or the bulky screenshot histories. Player 2 won at frame 27741.
 Replay engines animate between recorded observations; playback needs no account
 or network. The viewer samples current game frames on a 33 ms redraw cadence.
 
-The opt-in `rts-live` browser mode defaults to an inexpensive OpenRouter match,
+The opt-in live match (`DOLLY_RTS_LIVE=1`) defaults to an inexpensive OpenRouter match,
 bounded by 20 minutes and $0.50 in reported costs. Override the comma-separated models
 with `DOLLY_RTS_MODELS`, duration with `DOLLY_RTS_SECONDS`, and the reported-cost
 cutoff (at most $2) with `DOLLY_RTS_USD`. It reads
-one key from stdin without echoing, uses a fresh profile, and exports verified
+one key piped on stdin, uses a fresh profile, and exports verified
 histories/replays to `build/rts-live-match.json` (base64 file contents), using
 bounded download chunks for long histories. OpenRouter runs include
 the key's billed usage delta (which may include other concurrent users of that key).
 Native recordings are also downloaded independently to
 `build/rts-live-player1.rpl` and `build/rts-live-player2.rpl` and compared with
-their archived bytes. Test an uploaded recording through the native loader with
-`DOLLY_IMAGE=rts-arena DOLLY_BROWSER_MODE=rts-replay DOLLY_RTS_REPLAY_FILE=FILE
-./scripts/test-browser.sh`.
+their archived bytes.
 The September 8 live proof completed with 7 DeepSeek actions and 11 Grok actions,
 both thinking streams, no API errors, and a clean timed exit. Reported usage was
 about $0.048; this is not an invoice or a latency comparison.
 
 ```sh
-DOLLY_BUILD_IMAGES=rts-arena DOLLY_IMAGE=rts-arena DOLLY_BROWSER_MODE=rts-live ./scripts/test-browser.sh
+DOLLY_RTS_LIVE=1 node demos/rts/test/rts-browser.mjs < openrouter-key
 ```
 
 On September 9, a browser match using the local Codex subscription relay reached
@@ -192,10 +188,9 @@ A second run, with `high` as player 1 and `xhigh` as player 2, ended with player
 winning at frame 27,741. Both downloaded `.RPL` files were independently uploaded
 into fresh browser sessions and replayed through native EOF at exactly that
 frame. The files and full histories are in `build/rts-high-vs-xhigh/`.
-The `rts-split-replay` browser proof uploads that match, checks animation between
+The browser test's split replay of the included bundle checks animation between
 observations, synchronized pause/speed controls, both native EOFs, exact final
-traces, unchanged recordings, zero HTTP requests and shell recovery. Set
-`DOLLY_RTS_REPLAY_BUNDLE` to test its smaller replay-only `.tar.gz` bundle.
+traces, unchanged recordings, zero HTTP requests and shell recovery.
 
 The first winning run's directory-based export omitted replay files. Required
 artifacts are now included by their explicit filenames, each native replay is

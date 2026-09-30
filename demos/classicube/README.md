@@ -140,26 +140,22 @@ packs and audio are disabled. `classicube-pack`, compiled against the existing
 zlib inside Dolly, compresses join maps and saved worlds. Unwatched clients run
 at 15 FPS and publish screenshots only when their agent requests one.
 
-Browser modes `classicube` and `classicube-agent` test manual play and the full
+`npm run test:demos -- classicube` tests manual play and the full
 agent flow against an explicitly scripted provider in Chrome through DevTools
 automation. Checks cover unobstructed game pixels, panel toggles, mouse/keyboard
 typing (separately from paste), F11 in the editor and settings, selection,
 scrolling and empty searches, provider connection, interruption,
-handoff and session restoration. The opt-in
-`classicube-agent-live` mode reads an OpenRouter key from stdin without echoing
-and runs a bounded live test in a fresh browser profile. `DOLLY_CLASSICUBE_MODEL`
-selects the model. Set `DOLLY_CLASSICUBE_MODELS_FILE` to the proxy's configuration
-path to test Codex through the upload flow without an OpenRouter key. Allow the
+handoff and session restoration. Set `DOLLY_CLASSICUBE_MODELS_FILE` to the proxy's
+configuration path to test live Codex through the upload flow instead. Allow the
 test's exact origin on the proxy; `DOLLY_BROWSER_PORT` selects a stable port.
 Reports are exported only after checking that they contain no credential.
 
-`classicube-playwright` exercises multiple real clients with live Codex agents.
+That live run also exercises multiple real clients with live Codex agents.
 Start the proxy allowing the test origin, then run:
 
 ```sh
-DOLLY_IMAGE=classicube DOLLY_BROWSER_MODE=classicube-playwright \
 DOLLY_BROWSER_PORT=9093 DOLLY_CLASSICUBE_MODELS_FILE=/private/models.json \
-scripts/test-browser.sh
+node demos/classicube/test/classicube-browser.mjs
 ```
 
 The test types exploration/building prompts, checks actual server block changes,

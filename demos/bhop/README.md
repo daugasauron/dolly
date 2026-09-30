@@ -63,10 +63,9 @@ Build with `npm run image -- bhop`. The module compiles the input adapter and
 shared SDL viewer inside Dolly. Its private filesystem input protocol is an
 application protocol, with no new browser imports or network capabilities.
 `node --test test/bhop*.test.mjs` checks course preservation and input encoding.
-`DOLLY_IMAGE=bhop DOLLY_BROWSER_MODE=bhop-agent scripts/test-browser.sh` tests the
-OpenRouter path with scripted inference and the real game. Use
-`DOLLY_BROWSER_MODE=bhop-agent-live` and `DOLLY_BHOP_MODELS_FILE=/path/to/models.json`
-for a live subscription attempt (with the same `DOLLY_IMAGE=bhop`).
+`npm run test:demos -- bhop` tests the OpenRouter path with scripted inference and the
+real game. Run `DOLLY_BHOP_MODELS_FILE=/path/to/models.json node demos/bhop/test/bhop-browser.mjs`
+for a live subscription attempt.
 
 ## Playing and rebuilding
 
