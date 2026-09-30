@@ -34,3 +34,20 @@ describe the code as it is.
   proposal is recorded.
 - All audit tasks are fixed or explicitly deferred with a reason; the whole catalog is rebuilt
   and verified in real browsers; a local server runs the result.
+
+## Status (2026-10-01)
+
+- Core/demo boundary: done. Demos own their recipes, tests and docs under
+  `demos/`; the old harness is gone; the core artifact test names no demo
+  (`630c407`); remaining leaks are the site packaging lists
+  (`20260930-100000-audit-63`).
+- Build and run authority: done (`build@0`, `dc719d0`).
+- One rebuild screen: done (terminal page bootstrap log; the build-only page is
+  gone).
+- Dollyfile audit: v5 proposal recorded and rejected by the owner
+  (`20260930-200000-dollyfile-v5`); the design as executed is in
+  `20260930-223000-dollyfile-design`; the HOST keyword goes next
+  (`20260930-230823-full-urls`).
+- Audit tasks: 16 closed on 2026-10-01 with evidence; the rest are open with
+  current priorities. Catalog rebuilt and verified 2026-10-01 (39 of 40 images;
+  zero-ad waits for `20260930-231200-self-host-zero-ad`).
