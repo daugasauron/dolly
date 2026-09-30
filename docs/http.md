@@ -38,8 +38,8 @@ flowchart LR
 
 ## Policy
 
-Without a policy object (the public demo) the broker permits any HTTP(S) URL
-except the app's own origin, keeps caller credential headers, follows redirects
+Without a policy object (the public demo) the broker permits any HTTP(S) URL,
+the app's own origin included, keeps caller credential headers, follows redirects
 on request, and applies a 10-minute deadline, no request quota and no response
 cap. **This does not prevent exfiltration.** Restricted embeddings set a policy
 before `browser.mjs` loads; the broker consumes and deletes the global:

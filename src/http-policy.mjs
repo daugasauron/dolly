@@ -139,7 +139,6 @@ function normalizeTrustedSource(source, applicationBase) {
 export class DollyHttpPolicy {
   constructor(configuration, trustedSources = [], applicationBase = globalThis.location?.href) {
     this.hardened = configuration !== undefined;
-    this.applicationOrigin = applicationBase === undefined ? null : new URL(applicationBase).origin;
     this.rules = this.hardened
       ? Object.freeze((configuration.rules ?? []).map(normalizeRule))
       : Object.freeze([]);
@@ -187,11 +186,6 @@ export class DollyHttpPolicy {
           candidate.methods.has(upperMethod));
         if (!rule) throw new HttpError(DOLLY_ERRNO.EACCES, "Dolly HTTP policy denied the request");
       } else {
-        // The app's origin serves sessions, cached images and code without CORS.
-        // Only exact bootstrap sources or an explicit embedding rule reach it.
-        if (target.origin === this.applicationOrigin) {
-          throw new HttpError(DOLLY_ERRNO.EACCES, "Dolly HTTP policy denied the application origin");
-        }
         rule = {
           followRedirects: true,
           credentialHeaders: null,

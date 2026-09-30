@@ -26,7 +26,7 @@ const stored = (page, name) => page.evaluate(async name => {
 async function newPage(context, rules) {
   const page = await context.newPage();
   page.setDefaultTimeout(30000);
-  // The page origin is never ambient: each embedding grants its fixtures again.
+  // A restricted embedding grants its fixtures again on every page.
   if (rules) await page.addInitScript(rules => { globalThis.DOLLY_HTTP_POLICY = { rules }; }, rules);
   return page;
 }

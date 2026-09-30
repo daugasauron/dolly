@@ -98,10 +98,9 @@ await browserTest("core", { image }, async ({ server, open }) => {
     for (let index = 0; index <= IMAGE_CACHE_MAX_ENTRIES; index++) kept.push(!!await loadImageArtifactDescriptor(recipe(index)));
     return [kept[0], kept.filter(Boolean).length === IMAGE_CACHE_MAX_ENTRIES];
   }), [false, true], "image cache exceeded its entry bound");
-  // Without an embedding policy, the app origin is not ambient: only exact
-  // bootstrap sources reach it and relative URLs never resolve against it.
+  // Without an embedding policy every HTTP(S) destination is reachable,
+  // the page's own origin included.
   const defaults = await open();
-  assert.notEqual(await defaults.submit(`curl -fsS ${server.origin}/fixture/http.txt`), 0);
-  assert.notEqual(await defaults.submit("curl -fsS /fixture/http.txt"), 0);
+  assert.equal(await defaults.submit(`curl -fsS ${server.origin}/fixture/http.txt -o /dev/null`), 0);
   assert.equal(await defaults.submit(`curl -fsS ${server.origin}/Dollyfile -o /tmp/source && cmp /tmp/source /etc/dolly/Dollyfile`), 0);
 });

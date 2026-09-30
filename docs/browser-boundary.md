@@ -78,8 +78,8 @@ select no JavaScript or Worker URL.
   **The default permits arbitrary HTTP(S), including credentials stored in Dolly:
   it does not prevent exfiltration.** An allowlist bounds destinations, not what
   an allowed destination does with the data.
-- URLs must be absolute. The default denies the app's own origin (it serves code,
-  sessions and caches without CORS) except exact bootstrap sources.
+- The default includes the app's own origin (same-origin requests need no CORS);
+  relative URLs resolve against the page. Restrict it with a policy.
 - Loopback and LAN hosts are ordinary destinations: responses need CORS, but the
   request itself still reaches them.
 - Reserved `*.dolly.invalid` URLs never reach Fetch; redirects cannot enter them

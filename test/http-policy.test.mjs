@@ -168,18 +168,11 @@ test("path prefixes match whole segments and reject encoded separators", () => {
     [false, false, false, false, false, false]);
 });
 
-test("the default policy denies the application origin except exact bootstrap sources", () => {
-  const policy = new DollyHttpPolicy(undefined, [{ path: "/static/tool.tar", byteLength: 1234 }], "https://dolly.example/app/");
-  assert.equal(policy.authorize(new URL("https://dolly.example/app/static/tool.tar"), "GET", new Headers(), 0).maxResponseBytes, 1234);
-  for (const target of ["https://dolly.example/app/static/tool.tar?x", "https://dolly.example/other-site/",
-    "https://dolly.example/app/_dolly/", "https://dolly.example/app/static/tool.tar"]) {
-    const method = target.endsWith("tool.tar") ? "POST" : "GET";
-    assert.throws(() => policy.authorize(new URL(target), method, new Headers(), 0), /denied/, target);
+test("the default policy admits every HTTP(S) destination, the page origin included", () => {
+  const policy = new DollyHttpPolicy(undefined, [], "https://dolly.example/app/");
+  for (const target of ["https://dolly.example/app/any/file", "https://other.example/", "http://127.0.0.1:8080/"]) {
+    assert.equal(policy.authorize(new URL(target), "GET", new Headers(), 0).followRedirects, true, target);
   }
-  assert.equal(policy.authorize(new URL("https://dolly.example:8443/"), "GET", new Headers(), 0).followRedirects, true);
-  const explicit = new DollyHttpPolicy({ rules: [{ origin: "https://dolly.example", pathPrefix: "/fixture/" }] },
-    [], "https://dolly.example/app/");
-  assert.doesNotThrow(() => explicit.authorize(new URL("https://dolly.example/fixture/x"), "GET", new Headers(), 0));
 });
 
 test("bootstrap sources have a bounded hardened quota separate from agent requests", () => {

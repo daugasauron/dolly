@@ -92,11 +92,6 @@ export async function runBrowserBoundaryChecks(assetRoot) {
   await begin(3, "/fixture/http.txt");
   check(calls === 1 && Atomics.load(words, word + NetworkTransport.error) === errno.EDQUOT,
     "quota exhaustion was not distinguished before Fetch");
-  // The fixture server is this page's origin, which the default policy denies.
-  broker.policy = new DollyHttpPolicy(undefined);
-  await begin(4, "/fixture/http.txt");
-  check(calls === 1 && Atomics.load(words, word + NetworkTransport.error) === errno.EACCES,
-    "the default policy admitted the page origin");
   const appBase = "https://app.dolly.invalid/", remote = () => new DollyHttpPolicy(undefined, [], appBase);
   broker.policy = remote();
   await begin(4, "http://127.0.0.1:1/"); // Browsers reject this unsafe port opaquely.

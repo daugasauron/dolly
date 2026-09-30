@@ -77,12 +77,9 @@ test("HTTP authorization happens before any fetch", async () => {
   assert.equal(f.load(NetworkTransport.state), 3);
   assert.equal(f.load(NetworkTransport.error), errno.EACCES);
   assert.equal(f.broker.active, false);
-  for (const [url, error] of [["/allowed", errno.EINVAL], ["//fixture.example/allowed", errno.EINVAL],
-    ["file:///etc/passwd", errno.EPROTONOSUPPORT]]) {
-    await bounded(f.request({ url }, 2));
-    assert.equal(f.load(NetworkTransport.error), error, url);
-  }
-  assert.equal(calls, 0, "relative URLs never resolve against the page");
+  await bounded(f.request({ url: "file:///etc/passwd" }, 2));
+  assert.equal(f.load(NetworkTransport.error), errno.EPROTONOSUPPORT);
+  assert.equal(calls, 0);
 });
 
 test("multipart delivery is restricted to embedding-selected sources, including inherited policy", async () => {
