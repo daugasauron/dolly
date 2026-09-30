@@ -128,6 +128,7 @@ xb" && echo hi | { read -r x; test "$x" = hi; }`, 0],
   ["compound commands take redirections", String.raw`n=0; while read -r l; do n=$((n+1)); done < two; for i in 1; do echo $i; done > one; if :; then echo if; fi >> one; test "$n:$(cat one)" = "2:1
 if"`, 0],
   ["an unset PATH searches /bin and /usr/bin", "unset PATH; slop -c 'exit 7'", 7, 127],
+  ["command runs built-ins in the shell and skips functions", String.raw`ls() { return 91; }; command cd /tmp && test "$(pwd)" = /tmp || exit 92; command export CMD=1; test "$CMD" = 1 || exit 93; command ls / > /dev/null || exit 94; test "$(command -v cd):$(command -v ls)" = cd:ls || exit 95; case "$(command -p -v cat)" in /*/cat) ;; *) exit 96;; esac`, 0],
 ];
 
 export function shellQuote(value) { return `'${value.replaceAll("'", "'\\''")}'`; }

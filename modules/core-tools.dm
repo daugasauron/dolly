@@ -56,7 +56,7 @@ FILE /tmp/core-tools/help.c
       }
       const char *path = getenv("PATH");
       fputs("Dolly Slop: minimal agent-tool compatibility inside Wasm\n", stdout);
-      fputs("stateful builtins: : . source eval exec exit return cd export unset set shift read getopts local break continue type\n", stdout);
+      fputs("stateful builtins: : . source eval exec exit return cd export unset set shift read getopts local break continue type command\n", stdout);
       printf("PATH=%s\n", path == NULL ? "" : path);
       fputs("commands are files on PATH; inspect this image with ls /bin /usr/bin\n", stdout);
       fputs("exec supports permanent redirections, not replacing the shell\n", stdout);

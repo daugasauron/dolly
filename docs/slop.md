@@ -29,7 +29,7 @@ slop [-enux] script [arg ...]
 | Redirections | descriptors 0–9: `<`, `>`, `>>`, `n>&m`, `n<&m`, `n>&-`, `>&$fd`, `&>`, `&>>`, `>&file`; redirection-only `exec`; up to 32 `<<` here-documents per line; on compound commands too |
 | Parameters | `$VAR`, `${VAR}`, `$?`, `$$`, `$#`, `$-`, `$0`–`$9`, `$@`, `$*`, `"$@"` |
 | Expansions | `${VAR-w}`, `=`, `+`, `?` and their `:` forms; `${#VAR}`; `#`, `##`, `%`, `%%`; `$(…)`; simple backticks; `$((…))` in signed 64-bit; `*`, `?`, `[…]` globs; leading `~`; `IFS` splitting of unquoted expansions |
-| Builtins | `: . source eval exec exit return cd export unset set shift read getopts local type break continue` |
+| Builtins | `: . source eval exec exit return cd export unset set shift read getopts local type command break continue` |
 | Options | `set -e -u -x`; `set -o NAME` for errexit, nounset, pipefail and xtrace; combined as in `set -euo pipefail` |
 
 - Expansion happens when a command runs, so `x=1 && echo "$x"` prints `1`.

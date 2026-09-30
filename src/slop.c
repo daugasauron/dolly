@@ -1899,12 +1899,12 @@ static const char *path_variable(void) {
   return path == NULL ? "/bin:/usr/bin" : path;
 }
 
-static enum command_resolution resolve_command(const char *command,
+static enum command_resolution resolve_command(const char *command, const char *search,
                                                 char *resolved, size_t capacity) {
   if (strchr(command, '/') != NULL) {
     return resolved_command_at(command, resolved, capacity);
   }
-  const char *cursor = path_variable(), *directory;
+  const char *cursor = search, *directory;
   size_t length;
   while (next_path_directory(&cursor, &directory, &length)) {
     int written = snprintf(resolved, capacity, "%.*s/%s", (int)length, directory, command);
@@ -2262,7 +2262,7 @@ static int builtin_name(const char *name) {
   static const char *const names[] = {
       ":", ".", "source", "eval", "return", "exit", "break", "continue", "cd",
       "export", "unset", "set", "shift", "read", "getopts", "local",
-      "type", "exec",
+      "type", "exec", "command",
   };
   for (size_t index = 0; index < sizeof(names) / sizeof(names[0]); index++) {
     if (strcmp(name, names[index]) == 0) return 1;
@@ -2270,9 +2270,12 @@ static int builtin_name(const char *name) {
   return 0;
 }
 
+static int command_builtin(Shell *shell, int argc, char **argv);
+
 static int builtin(Shell *shell, int argc, char **argv, int *handled) {
   *handled = 1;
   if (strcmp(argv[0], ":") == 0) return 0;
+  if (strcmp(argv[0], "command") == 0) return command_builtin(shell, argc, argv);
   if (strcmp(argv[0], "exec") == 0) {
     fputs("slop: exec: replacing the shell with a command is unsupported\n",
           stderr);
@@ -2287,7 +2290,7 @@ static int builtin(Shell *shell, int argc, char **argv, int *handled) {
     const char *path = argv[1];
     if (strchr(path, '/') == NULL) {
       const enum command_resolution resolution =
-          resolve_command(path, resolved, sizeof(resolved));
+          resolve_command(path, path_variable(), resolved, sizeof(resolved));
       if (resolution != COMMAND_FOUND) {
         fprintf(stderr, "slop: %s: %s: not found\n", argv[0], path);
         return 1;
@@ -2577,7 +2580,7 @@ static int builtin(Shell *shell, int argc, char **argv, int *handled) {
         continue;
       }
       char path[1024];
-      if (resolve_command(name, path, sizeof(path)) == COMMAND_FOUND) {
+      if (resolve_command(name, path_variable(), path, sizeof(path)) == COMMAND_FOUND) {
         if (path_only) puts(path);
         else printf("%s is %s\n", name, path);
       } else {
@@ -2656,9 +2659,9 @@ static int wait_command(Shell *shell, pid_t pid) {
 }
 
 // The child inherits the shell's descriptors 0-9 and its exported variables.
-static int spawn_command(Shell *shell, int argc, char **argv) {
+static int spawn_command(Shell *shell, int argc, char **argv, const char *search) {
   char path[PATH_MAX];
-  enum command_resolution resolution = resolve_command(argv[0], path, sizeof(path));
+  enum command_resolution resolution = resolve_command(argv[0], search, path, sizeof(path));
   if (resolution == COMMAND_PATH_TOO_LONG) { fprintf(stderr, "slop: %s: path is too long\n", argv[0]); return 126; }
   if (resolution != COMMAND_FOUND) { fprintf(stderr, "slop: %s: command not found\n", argv[0]); return 127; }
   char **environment = exported_environment();
@@ -2679,7 +2682,42 @@ static int run_command_words(Shell *shell, int argc, char **argv) {
   }
   Function *function = function_lookup(shell->functions, argv[0]);
   if (function != NULL) return run_function(shell, function, argc, argv);
-  return spawn_command(shell, argc, argv);
+  return spawn_command(shell, argc, argv, path_variable());
+}
+
+// command NAME runs a built-in or a program, never a function; -v prints what
+// would run and -p searches the default PATH.
+static int command_builtin(Shell *shell, int argc, char **argv) {
+  const char *search = path_variable();
+  int describe = 0, argument = 1;
+  for (; argument < argc && argv[argument][0] == '-'; argument++) {
+    if (strcmp(argv[argument], "--") == 0) { argument++; break; }
+    if (strcmp(argv[argument], "-p") == 0) search = "/bin:/usr/bin";
+    else if (strcmp(argv[argument], "-v") == 0) describe = 1;
+    else {
+      fprintf(stderr, "slop: command: unsupported option: %s\n", argv[argument]);
+      return 2;
+    }
+  }
+  if (argument == argc) return describe ? 2 : 0;
+  if (!describe) {
+    int handled;
+    return builtin_name(argv[argument])
+        ? builtin(shell, argc - argument, argv + argument, &handled)
+        : spawn_command(shell, argc - argument, argv + argument, search);
+  }
+  int status = 0;
+  for (; argument < argc; argument++) {
+    char path[PATH_MAX];
+    if (builtin_name(argv[argument]) || function_lookup(shell->functions, argv[argument]) != NULL) {
+      puts(argv[argument]);
+    } else if (resolve_command(argv[argument], search, path, sizeof(path)) == COMMAND_FOUND) {
+      puts(path);
+    } else {
+      status = 1;
+    }
+  }
+  return status;
 }
 
 // A command-prefix assignment is exported to that command only.
