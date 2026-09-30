@@ -12,7 +12,6 @@ import {
 import { createDollyfileGraphLoader } from "./dollyfile-graph.mjs";
 import { renderDollyfilePage } from "./render-dollyfile-view.mjs";
 import { imageDescriptions, menuRow } from "./image-menu.mjs";
-import { recipeDemo } from "./recipe-files.mjs";
 import { bundleProcessWorker } from "./bundle-process-worker.mjs";
 
 const projectDir = resolve(import.meta.dirname, "..");
@@ -32,16 +31,16 @@ const headless = new Set(graphs.filter(({ graph }) => !graph.root.hostRequiremen
   .map(({ definition }) => definition.image));
 await writeImageRegistry(projectDir, definitions, staticSources);
 const descriptions = await imageDescriptions(projectDir);
-const group = ({ path }) => recipeDemo(path) ?? "";
+// Runnable images first (default leading), then one build image section.
+const isBuild = image => /-(build|sdk|runtime|tools)$/.test(image) || ["system", "ripgrep"].includes(image);
 const ordered = [...definitions].sort((a, b) =>
-  group(a).localeCompare(group(b), "en") ||
   Number(b.image === "default") - Number(a.image === "default") ||
-  Number(headless.has(a.image)) - Number(headless.has(b.image)) || a.image.localeCompare(b.image, "en"));
-const rows = ordered.map((definition, index) => {
+  Number(isBuild(a.image)) - Number(isBuild(b.image)) || a.image.localeCompare(b.image, "en"));
+const firstBuild = ordered.find(({ image }) => isBuild(image))?.image;
+const rows = ordered.map(definition => {
   const description = descriptions.get(definition.image);
   if (!description) throw new Error(`${definition.image}: describe it as "- \`${definition.image}\`: …" in its README`);
-  const heading = index === 0 || group(ordered[index - 1]) !== group(definition)
-    ? `<tr class="group"><th colspan="3">${group(definition) ? `Demo: ${group(definition)}` : "Core"}</th></tr>\n` : "";
+  const heading = definition.image === firstBuild ? '<tr class="group"><th colspan="3">Build images</th></tr>\n' : "";
   return heading + menuRow(definition.image, description, !headless.has(definition.image));
 });
 const menuTemplate = await readFile(resolve(projectDir, "index.html"), "utf8");
