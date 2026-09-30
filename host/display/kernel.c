@@ -219,223 +219,6 @@ static int process_may_acquire_display(int pid) {
       dolly_process_descends_from(pid, (int)foreground);
 }
 
-static int lease_acquire(int owner_pid,
-                                 dolly_display_surface *surface) {
-  if (surface == NULL) return -EINVAL;
-  memset(surface, 0, sizeof(*surface));
-  if (display_driver == NULL || display_frames[0] == NULL ||
-      display_frames[1] == NULL) {
-    return -ENODEV;
-  }
-  if (!process_may_acquire_display(owner_pid)) return -EPERM;
-  if (display_lease.generation != 0) return -EBUSY;
-
-  uint32_t width = atomic_load_explicit(&display_mailbox.frame_width,
-                                         memory_order_acquire);
-  uint32_t height = atomic_load_explicit(&display_mailbox.frame_height,
-                                          memory_order_relaxed);
-  uint32_t stride = atomic_load_explicit(&display_mailbox.frame_stride,
-                                          memory_order_relaxed);
-  if (width == 0 || height == 0 || stride != width * 4u) {
-    const int status = consume_initial_display_resize();
-    if (status != 0) return status;
-    width = atomic_load_explicit(&display_mailbox.frame_width,
-                                 memory_order_acquire);
-    height = atomic_load_explicit(&display_mailbox.frame_height,
-                                  memory_order_relaxed);
-    stride = atomic_load_explicit(&display_mailbox.frame_stride,
-                                  memory_order_relaxed);
-  }
-  if (width == 0 || height == 0 || stride != width * 4u ||
-      (uint64_t)stride * height > display_frame_capacity) {
-    return -EIO;
-  }
-
-  uint64_t generation = next_display_generation++;
-  if (generation == 0) generation = next_display_generation++;
-  display_driver->set_suspended(1);
-  display_lease.generation = generation;
-  display_lease.owner_pid = owner_pid;
-  display_lease.width = width;
-  display_lease.height = height;
-  display_lease.stride = stride;
-  encoded_input_cursor = 0;
-  encoded_input_length = 0;
-  atomic_store_explicit(&display_mailbox.copy_length, 0, memory_order_relaxed);
-  atomic_store_explicit(&display_mailbox.copy_flags, 0, memory_order_relaxed);
-  atomic_fetch_add_explicit(&display_mailbox.copy_sequence, 1,
-                            memory_order_release);
-  atomic_store_explicit(&display_mailbox.cursor_col, UINT32_MAX,
-                        memory_order_relaxed);
-  atomic_store_explicit(&display_mailbox.cursor_row, UINT32_MAX,
-                        memory_order_relaxed);
-  atomic_store_explicit(&display_mailbox.cursor_style,
-                        DOLLY_DISPLAY_CURSOR_DEFAULT, memory_order_release);
-  atomic_fetch_or_explicit(&display_mailbox.flags,
-                           DOLLY_DISPLAY_GRAPHICS_ACTIVE,
-                           memory_order_release);
-
-  surface->generation = generation;
-  surface->width = width;
-  surface->height = height;
-  surface->stride = stride;
-  surface->pixel_format = DOLLY_DISPLAY_PIXEL_RGBA8;
-  return 0;
-}
-
-static int lease_set_size(int owner_pid, uint64_t generation,
-                                  uint32_t width, uint32_t height,
-                                  dolly_display_surface *surface) {
-  if (surface == NULL || width == 0 || height == 0 ||
-      width > DOLLY_DISPLAY_MAX_WIDTH || height > DOLLY_DISPLAY_MAX_HEIGHT ||
-      (uint64_t)width * height * 4u > display_frame_capacity) {
-    return -EINVAL;
-  }
-  int status = validate_display_lease(owner_pid, generation);
-  if (status != 0) return status;
-  display_lease.width = width;
-  display_lease.height = height;
-  display_lease.stride = width * 4u;
-  surface->generation = generation;
-  surface->width = width;
-  surface->height = height;
-  surface->stride = display_lease.stride;
-  surface->pixel_format = DOLLY_DISPLAY_PIXEL_RGBA8;
-  return 0;
-}
-
-static int lease_begin_frame(int owner_pid, uint64_t generation,
-                                     dolly_display_frame *frame) {
-  if (frame == NULL) return -EINVAL;
-  memset(frame, 0, sizeof(*frame));
-  int status = validate_display_lease(owner_pid, generation);
-  if (status != 0) return status;
-
-  const uint32_t width = display_lease.width;
-  const uint32_t height = display_lease.height;
-  const uint32_t stride = display_lease.stride;
-  const uint64_t length = (uint64_t)stride * height;
-  if (width == 0 || height == 0 || stride != width * 4u ||
-      length > display_frame_capacity) {
-    return -EIO;
-  }
-  const uint32_t active = atomic_load_explicit(&display_mailbox.frame_index,
-                                                memory_order_acquire) & 1u;
-  const uint32_t next = active ^ 1u;
-  frame->pixels = display_frames[next];
-  frame->capacity = (size_t)length;
-  frame->buffer_index = next;
-  frame->width = width;
-  frame->height = height;
-  frame->stride = stride;
-  frame->pixel_format = DOLLY_DISPLAY_PIXEL_RGBA8;
-  display_lease.staging_buffer = next;
-  display_lease.staging_offset = 0;
-  display_lease.staging = 1;
-  return 0;
-}
-
-static int lease_write_frame(int owner_pid, uint64_t generation,
-                                     uint32_t buffer_index, size_t offset,
-                                     const unsigned char *bytes, size_t size) {
-  int status = validate_display_lease(owner_pid, generation);
-  if (status != 0) return status;
-  const size_t capacity = (size_t)display_lease.stride * display_lease.height;
-  if (!display_lease.staging || bytes == NULL ||
-      buffer_index != display_lease.staging_buffer ||
-      offset != display_lease.staging_offset || offset > capacity ||
-      size > capacity - offset) {
-    return -EINVAL;
-  }
-  memcpy(display_frames[buffer_index] + offset, bytes, size);
-  display_lease.staging_offset += size;
-  return 0;
-}
-
-static int lease_present(int owner_pid, uint64_t generation,
-                                 uint32_t buffer_index) {
-  int status = validate_display_lease(owner_pid, generation);
-  if (status != 0) return status;
-  const uint32_t active = atomic_load_explicit(&display_mailbox.frame_index,
-                                                memory_order_acquire) & 1u;
-  if (buffer_index >= DOLLY_DISPLAY_FRAME_COUNT ||
-      buffer_index != (active ^ 1u) || !display_lease.staging ||
-      buffer_index != display_lease.staging_buffer) {
-    return -EINVAL;
-  }
-  const uint32_t width = display_lease.width;
-  const uint32_t height = display_lease.height;
-  const uint32_t stride = display_lease.stride;
-  if (width == 0 || height == 0 || stride != width * 4u ||
-      (uint64_t)stride * height > display_frame_capacity) {
-    return -EIO;
-  }
-  if (display_lease.staging_offset != (size_t)stride * height) return -ENODATA;
-  atomic_store_explicit(&display_mailbox.frame_width, width,
-                        memory_order_relaxed);
-  atomic_store_explicit(&display_mailbox.frame_height, height,
-                        memory_order_relaxed);
-  atomic_store_explicit(&display_mailbox.frame_stride, stride,
-                        memory_order_relaxed);
-  atomic_store_explicit(&display_mailbox.frame_index, buffer_index,
-                        memory_order_release);
-  atomic_fetch_add_explicit(&display_mailbox.frame_sequence, 1,
-                            memory_order_acq_rel);
-  display_lease.staging = 0;
-  display_lease.staging_offset = 0;
-  return 0;
-}
-
-static int lease_poll_frame(int owner_pid, uint64_t generation,
-                                    uint32_t sequence, uint32_t *current) {
-  if (current == NULL) return -EINVAL;
-  const int status = validate_display_lease(owner_pid, generation);
-  if (status != 0) return status;
-  *current = atomic_load_explicit(
-      &display_mailbox.animation_frame_sequence, memory_order_acquire);
-  return *current == sequence ? 0 : 1;
-}
-
-static int lease_set_cursor(int owner_pid, uint64_t generation,
-                                    uint32_t cursor) {
-  int status = validate_display_lease(owner_pid, generation);
-  if (status != 0) return status;
-  if (cursor > DOLLY_DISPLAY_CURSOR_CAPTURED) return -EINVAL;
-  atomic_store_explicit(&display_mailbox.cursor_style, cursor,
-                        memory_order_release);
-  return 0;
-}
-
-static int lease_poll_event(int owner_pid, uint64_t generation,
-                                    dolly_input_event *event) {
-  if (event == NULL) return -EINVAL;
-  int status = validate_display_lease(owner_pid, generation);
-  if (status != 0) return status;
-  const uint32_t read = atomic_load_explicit(&display_mailbox.event_read,
-                                              memory_order_relaxed);
-  const uint32_t write = atomic_load_explicit(&display_mailbox.event_write,
-                                               memory_order_acquire);
-  if (read == write) return 0;
-  const dolly_input_event candidate =
-      display_mailbox.events[read & (DOLLY_DISPLAY_EVENT_CAPACITY - 1)];
-  atomic_store_explicit(&display_mailbox.event_read, read + 1,
-                        memory_order_release);
-  const size_t data_length = (size_t)candidate.key_length +
-                             candidate.code_length + candidate.text_length;
-  if (data_length > sizeof(candidate.data)) return -EPROTO;
-  status = update_suspended_terminal_layout(&candidate);
-  if (status != 0) return status;
-  *event = candidate;
-  return 1;
-}
-
-static int lease_release(int owner_pid, uint64_t generation) {
-  int status = validate_display_lease(owner_pid, generation);
-  if (status != 0) return status;
-  release_display_lease_for_pid(owner_pid);
-  return 0;
-}
-
 uint32_t dolly_terminal_columns(void) {
   return atomic_load_explicit(&display_mailbox.terminal_cols,
                               memory_order_acquire);
@@ -647,18 +430,19 @@ int dolly_display_install(const dolly_display_driver_v3 *candidate) {
   return 0;
 }
 
-static void encode_display_surface(
-    const dolly_display_surface *surface, uint64_t capacity,
-    uint32_t buffer_index, dolly_process_display_surface_response *response) {
-  *response = (dolly_process_display_surface_response){
-      .generation = surface->generation,
+// Every surface response describes the current lease.
+static int64_t respond_surface(unsigned char *mailbox, uint64_t capacity,
+                               uint32_t buffer_index) {
+  const dolly_process_display_surface_response response = {
+      .generation = display_lease.generation,
       .capacity = capacity,
       .buffer_index = buffer_index,
-      .width = surface->width,
-      .height = surface->height,
-      .stride = surface->stride,
-      .pixel_format = surface->pixel_format,
+      .width = display_lease.width,
+      .height = display_lease.height,
+      .stride = display_lease.stride,
+      .pixel_format = DOLLY_DISPLAY_PIXEL_RGBA8,
   };
+  return dolly_kernel_respond(mailbox, &response, sizeof(response));
 }
 
 static int64_t display_acquire_packet(int pid, unsigned char *mailbox,
@@ -668,12 +452,58 @@ static int64_t display_acquire_packet(int pid, unsigned char *mailbox,
       response_capacity < sizeof(dolly_process_display_surface_response)) {
     return -EINVAL;
   }
-  dolly_display_surface surface;
-  const int result = lease_acquire(pid, &surface);
-  if (result != 0) return result;
-  dolly_process_display_surface_response response;
-  encode_display_surface(&surface, 0, 0, &response);
-  return dolly_kernel_respond(mailbox, &response, sizeof(response));
+  if (display_driver == NULL || display_frames[0] == NULL ||
+      display_frames[1] == NULL) {
+    return -ENODEV;
+  }
+  if (!process_may_acquire_display(pid)) return -EPERM;
+  if (display_lease.generation != 0) return -EBUSY;
+
+  uint32_t width = atomic_load_explicit(&display_mailbox.frame_width,
+                                         memory_order_acquire);
+  uint32_t height = atomic_load_explicit(&display_mailbox.frame_height,
+                                          memory_order_relaxed);
+  uint32_t stride = atomic_load_explicit(&display_mailbox.frame_stride,
+                                          memory_order_relaxed);
+  if (width == 0 || height == 0 || stride != width * 4u) {
+    const int status = consume_initial_display_resize();
+    if (status != 0) return status;
+    width = atomic_load_explicit(&display_mailbox.frame_width,
+                                 memory_order_acquire);
+    height = atomic_load_explicit(&display_mailbox.frame_height,
+                                  memory_order_relaxed);
+    stride = atomic_load_explicit(&display_mailbox.frame_stride,
+                                  memory_order_relaxed);
+  }
+  if (width == 0 || height == 0 || stride != width * 4u ||
+      (uint64_t)stride * height > display_frame_capacity) {
+    return -EIO;
+  }
+
+  uint64_t generation = next_display_generation++;
+  if (generation == 0) generation = next_display_generation++;
+  display_driver->set_suspended(1);
+  display_lease.generation = generation;
+  display_lease.owner_pid = pid;
+  display_lease.width = width;
+  display_lease.height = height;
+  display_lease.stride = stride;
+  encoded_input_cursor = 0;
+  encoded_input_length = 0;
+  atomic_store_explicit(&display_mailbox.copy_length, 0, memory_order_relaxed);
+  atomic_store_explicit(&display_mailbox.copy_flags, 0, memory_order_relaxed);
+  atomic_fetch_add_explicit(&display_mailbox.copy_sequence, 1,
+                            memory_order_release);
+  atomic_store_explicit(&display_mailbox.cursor_col, UINT32_MAX,
+                        memory_order_relaxed);
+  atomic_store_explicit(&display_mailbox.cursor_row, UINT32_MAX,
+                        memory_order_relaxed);
+  atomic_store_explicit(&display_mailbox.cursor_style,
+                        DOLLY_DISPLAY_CURSOR_DEFAULT, memory_order_release);
+  atomic_fetch_or_explicit(&display_mailbox.flags,
+                           DOLLY_DISPLAY_GRAPHICS_ACTIVE,
+                           memory_order_release);
+  return respond_surface(mailbox, 0, 0);
 }
 
 static int64_t display_set_size_packet(int pid, unsigned char *mailbox,
@@ -685,13 +515,18 @@ static int64_t display_set_size_packet(int pid, unsigned char *mailbox,
   }
   dolly_process_display_size_request request;
   memcpy(&request, mailbox, sizeof(request));
-  dolly_display_surface surface;
-  const int result = lease_set_size(
-      pid, request.generation, request.width, request.height, &surface);
-  if (result != 0) return result;
-  dolly_process_display_surface_response response;
-  encode_display_surface(&surface, 0, 0, &response);
-  return dolly_kernel_respond(mailbox, &response, sizeof(response));
+  if (request.width == 0 || request.height == 0 ||
+      request.width > DOLLY_DISPLAY_MAX_WIDTH ||
+      request.height > DOLLY_DISPLAY_MAX_HEIGHT ||
+      (uint64_t)request.width * request.height * 4u > display_frame_capacity) {
+    return -EINVAL;
+  }
+  const int status = validate_display_lease(pid, request.generation);
+  if (status != 0) return status;
+  display_lease.width = request.width;
+  display_lease.height = request.height;
+  display_lease.stride = request.width * 4u;
+  return respond_surface(mailbox, 0, 0);
 }
 
 static int64_t display_begin_frame_packet(int pid, unsigned char *mailbox,
@@ -703,20 +538,20 @@ static int64_t display_begin_frame_packet(int pid, unsigned char *mailbox,
   }
   dolly_process_display_generation_request request;
   memcpy(&request, mailbox, sizeof(request));
-  dolly_display_frame frame;
-  const int result = lease_begin_frame(
-      pid, request.generation, &frame);
-  if (result != 0) return result;
-  dolly_display_surface surface = {
-      .generation = request.generation,
-      .width = frame.width,
-      .height = frame.height,
-      .stride = frame.stride,
-      .pixel_format = frame.pixel_format,
-  };
-  dolly_process_display_surface_response response;
-  encode_display_surface(&surface, frame.capacity, frame.buffer_index, &response);
-  return dolly_kernel_respond(mailbox, &response, sizeof(response));
+  const int status = validate_display_lease(pid, request.generation);
+  if (status != 0) return status;
+  const uint64_t length = (uint64_t)display_lease.stride * display_lease.height;
+  if (display_lease.width == 0 || display_lease.height == 0 ||
+      display_lease.stride != display_lease.width * 4u ||
+      length > display_frame_capacity) {
+    return -EIO;
+  }
+  const uint32_t active = atomic_load_explicit(&display_mailbox.frame_index,
+                                                memory_order_acquire) & 1u;
+  display_lease.staging_buffer = active ^ 1u;
+  display_lease.staging_offset = 0;
+  display_lease.staging = 1;
+  return respond_surface(mailbox, length, display_lease.staging_buffer);
 }
 
 static int64_t display_write_frame_packet(int pid, unsigned char *mailbox,
@@ -729,10 +564,20 @@ static int64_t display_write_frame_packet(int pid, unsigned char *mailbox,
   if (request.reserved != 0 || request.size > SIZE_MAX ||
       request.offset > SIZE_MAX ||
       request.size != request_size - sizeof(request)) return -EINVAL;
-  return lease_write_frame(
-      pid, request.generation, request.buffer_index,
-      (size_t)request.offset, mailbox + sizeof(request),
-      (size_t)request.size);
+  const int status = validate_display_lease(pid, request.generation);
+  if (status != 0) return status;
+  const size_t capacity = (size_t)display_lease.stride * display_lease.height;
+  const size_t offset = (size_t)request.offset, size = (size_t)request.size;
+  if (!display_lease.staging ||
+      request.buffer_index != display_lease.staging_buffer ||
+      offset != display_lease.staging_offset || offset > capacity ||
+      size > capacity - offset) {
+    return -EINVAL;
+  }
+  memcpy(display_frames[request.buffer_index] + offset,
+         mailbox + sizeof(request), size);
+  display_lease.staging_offset += size;
+  return 0;
 }
 
 static int64_t display_present_packet(int pid, unsigned char *mailbox,
@@ -743,8 +588,37 @@ static int64_t display_present_packet(int pid, unsigned char *mailbox,
   dolly_process_display_present_request request;
   memcpy(&request, mailbox, sizeof(request));
   if (request.reserved != 0) return -EINVAL;
-  return lease_present(
-      pid, request.generation, request.buffer_index);
+  const int status = validate_display_lease(pid, request.generation);
+  if (status != 0) return status;
+  const uint32_t active = atomic_load_explicit(&display_mailbox.frame_index,
+                                                memory_order_acquire) & 1u;
+  const uint32_t buffer_index = request.buffer_index;
+  if (buffer_index >= DOLLY_DISPLAY_FRAME_COUNT ||
+      buffer_index != (active ^ 1u) || !display_lease.staging ||
+      buffer_index != display_lease.staging_buffer) {
+    return -EINVAL;
+  }
+  const uint32_t width = display_lease.width;
+  const uint32_t height = display_lease.height;
+  const uint32_t stride = display_lease.stride;
+  if (width == 0 || height == 0 || stride != width * 4u ||
+      (uint64_t)stride * height > display_frame_capacity) {
+    return -EIO;
+  }
+  if (display_lease.staging_offset != (size_t)stride * height) return -ENODATA;
+  atomic_store_explicit(&display_mailbox.frame_width, width,
+                        memory_order_relaxed);
+  atomic_store_explicit(&display_mailbox.frame_height, height,
+                        memory_order_relaxed);
+  atomic_store_explicit(&display_mailbox.frame_stride, stride,
+                        memory_order_relaxed);
+  atomic_store_explicit(&display_mailbox.frame_index, buffer_index,
+                        memory_order_release);
+  atomic_fetch_add_explicit(&display_mailbox.frame_sequence, 1,
+                            memory_order_acq_rel);
+  display_lease.staging = 0;
+  display_lease.staging_offset = 0;
+  return 0;
 }
 
 static int64_t display_wait_frame_packet(int pid, unsigned char *mailbox,
@@ -757,14 +631,15 @@ static int64_t display_wait_frame_packet(int pid, unsigned char *mailbox,
   dolly_process_display_wait_request request;
   memcpy(&request, mailbox, sizeof(request));
   if (request.reserved != 0) return -EINVAL;
-  uint32_t sequence = request.sequence;
-  const int result = lease_poll_frame(
-      pid, request.generation, request.sequence, &sequence);
-  if (result < 0) return result;
-  if (result == 0 && dolly_kernel_deadline_pending(request.deadline_nanoseconds)) {
+  const int status = validate_display_lease(pid, request.generation);
+  if (status != 0) return status;
+  const uint32_t sequence = atomic_load_explicit(
+      &display_mailbox.animation_frame_sequence, memory_order_acquire);
+  const int changed = sequence != request.sequence;
+  if (!changed && dolly_kernel_deadline_pending(request.deadline_nanoseconds)) {
     return DOLLY_PROCESS_DISPATCH_DEFERRED;
   }
-  const dolly_process_display_wait_response response = {result, sequence};
+  const dolly_process_display_wait_response response = {changed, sequence};
   return dolly_kernel_respond(mailbox, &response, sizeof(response));
 }
 
@@ -776,8 +651,12 @@ static int64_t display_set_cursor_packet(int pid, unsigned char *mailbox,
   dolly_process_display_cursor_request request;
   memcpy(&request, mailbox, sizeof(request));
   if (request.reserved != 0) return -EINVAL;
-  return lease_set_cursor(
-      pid, request.generation, request.cursor);
+  const int status = validate_display_lease(pid, request.generation);
+  if (status != 0) return status;
+  if (request.cursor > DOLLY_DISPLAY_CURSOR_CAPTURED) return -EINVAL;
+  atomic_store_explicit(&display_mailbox.cursor_style, request.cursor,
+                        memory_order_release);
+  return 0;
 }
 
 static int64_t display_next_event_packet(int pid, unsigned char *mailbox,
@@ -789,18 +668,32 @@ static int64_t display_next_event_packet(int pid, unsigned char *mailbox,
   }
   dolly_process_display_event_request request;
   memcpy(&request, mailbox, sizeof(request));
-  dolly_input_event event;
-  memset(&event, 0, sizeof(event));
-  const int result = lease_poll_event(
-      pid, request.generation, &event);
-  if (result < 0) return result;
-  if (result == 0 && dolly_kernel_deadline_pending(request.deadline_nanoseconds)) {
-    return DOLLY_PROCESS_DISPATCH_DEFERRED;
+  int status = validate_display_lease(pid, request.generation);
+  if (status != 0) return status;
+  dolly_process_display_event_response response = {0};
+  const uint32_t read = atomic_load_explicit(&display_mailbox.event_read,
+                                              memory_order_relaxed);
+  const uint32_t write = atomic_load_explicit(&display_mailbox.event_write,
+                                               memory_order_acquire);
+  if (read == write) {
+    if (dolly_kernel_deadline_pending(request.deadline_nanoseconds)) {
+      return DOLLY_PROCESS_DISPATCH_DEFERRED;
+    }
+    return dolly_kernel_respond(mailbox, &response, sizeof(response));
   }
-  dolly_process_display_event_response response = {.result = result};
+  const dolly_input_event event =
+      display_mailbox.events[read & (DOLLY_DISPLAY_EVENT_CAPACITY - 1)];
+  atomic_store_explicit(&display_mailbox.event_read, read + 1,
+                        memory_order_release);
+  const size_t data_length = (size_t)event.key_length +
+                             event.code_length + event.text_length;
+  if (data_length > sizeof(event.data)) return -EPROTO;
+  status = update_suspended_terminal_layout(&event);
+  if (status != 0) return status;
   _Static_assert(sizeof(response.event) == sizeof(event),
                  "process/display event layouts diverged");
-  if (result == 1) memcpy(response.event, &event, sizeof(event));
+  response.result = 1;
+  memcpy(response.event, &event, sizeof(event));
   return dolly_kernel_respond(mailbox, &response, sizeof(response));
 }
 
@@ -811,7 +704,10 @@ static int64_t display_release_packet(int pid, unsigned char *mailbox,
       response_capacity != 0) return -EINVAL;
   dolly_process_display_generation_request request;
   memcpy(&request, mailbox, sizeof(request));
-  return lease_release(pid, request.generation);
+  const int status = validate_display_lease(pid, request.generation);
+  if (status != 0) return status;
+  release_display_lease_for_pid(pid);
+  return 0;
 }
 
 static int64_t display_call(int pid, int tid, uint32_t operation, unsigned char *mailbox,
