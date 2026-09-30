@@ -10,7 +10,7 @@ export async function packageDomain(site) {
   await cp(new URL("../sites/daugasauron.com/agents", import.meta.url), resolve(site, "agents"),
     { recursive: true, force: false, errorOnExist: true });
   await writeFile(index, source.replace("<!-- site-links -->",
-    '<p><a href="./agents/">Agents at play →</a></p>'));
+    '<p><a href="./agents/">Demo videos →</a></p>'));
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
