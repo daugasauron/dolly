@@ -59,6 +59,8 @@ DOLLY_PORT=9000 npm run serve
 
 npm run test:source                   # Node source tests
 npm run test:core                     # core scenarios in Chrome and Firefox
+npm run test:artifacts                # exact contracts of the built artifacts
+npm run test:full                     # rebuilds every image first: hours
 ```
 
 More browser suites live under `test/` and `demos/*/test/`. Image builds rewrite

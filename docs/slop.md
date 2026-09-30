@@ -43,7 +43,8 @@ slop [-enux] script [arg ...]
 - `. FILE ARGS` restores the caller's positional parameters afterwards, even
   after `set --`.
 - Not implemented: aliases, job control, `${VAR:off:len}`, `${VAR/pat/rep}`,
-  `<<-`, `"prefix$@"` word forms.
+  `<<-`, `"prefix$@"` word forms. Features are added only when a useful source
+  build needs them and their semantics stay explicit.
 
 ## Pipelines and interrupts
 
@@ -71,7 +72,8 @@ slop [-enux] script [arg ...]
   `command`, `env`, `find`, `time`,
   `timeout`, `xargs`, `realpath`, `diff` and `patch` (over Git), `hostname`, `tty`,
   `foreground`, `help`, `clear`, `stat`, `file`. Each prints its supported subset
-  with `--help`; other options fail.
+  with `--help`; other options fail. `uname` and `hostname` report the fixed
+  Dolly/wasm64 identity, never the browser's.
 - GNU Make 4.4.1 ([`make.dm`](../modules/make.dm),
   [`make-dolly.c`](../src/runtimes/make-dolly.c)) uses `/bin/slop` for every
   recipe and `$(shell …)`; `-jN` is accepted and runs serially. `ninja` is

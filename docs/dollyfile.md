@@ -68,6 +68,10 @@ the top level and in `modules/`, demo recipes in `demos/DEMO/`
 - `SHA256` is 64 lowercase hex digits of the exact referenced bytes.
   `node scripts/update-module-pins.mjs` refreshes USE/FROM/COPY pins
   (`--sources` also local `SOURCE HOST` pins).
+- Pins stay inline and cascade: each pin covers everything the referenced
+  recipe pins, so a change anywhere changes the hash of every recipe that
+  depends on it and rebuilds those images. That is intended: every image is
+  completely replicable from its recipe chain.
 - Never retained: `/tmp`, `/workspace`, `/home/dolly/.pi/agent/auth.json`,
   `/home/dolly/.pi/agent/sessions`. `FILE` may write scratch under `/tmp/`;
   `FOLDER`, exports and `COPY` destinations may not. This is not a secret scanner.
@@ -86,9 +90,13 @@ the top level and in `modules/`, demo recipes in `demos/DEMO/`
   images are earlier builds of at most 2 GiB; an image cannot share a name with
   one it imports.
 - `SOURCE` downloads through the HTTP broker, creates parent directories and
-  replaces `DESTINATION` only after the digest matches. The broker, not the
-  recipe, decides which URLs are reachable. Downloads are not retained by
-  themselves.
+  replaces `DESTINATION` only after the digest matches. Downloads are not
+  retained by themselves.
+- `HOST` inputs are exact files the serving site publishes, which the embedding
+  page grants to builds; `URL` inputs are external and pass only if the
+  embedding's HTTP policy allows them. A recipe never grants itself network
+  access. Upstream hosts often send no CORS headers, so upstream archives are
+  staged and published as `SOURCE HOST` files ([sources](sources.md#pins-and-identity)).
 - `EXPORTS ENV NAME VALUE` sets the variable now; `EXPORTS ENV NAME APPEND VALUE`
   appends `:VALUE` (or sets it when empty); `EXPORTS ENV NAME` keeps the current
   value, which must be set at the end. Final values are stored in the image.
@@ -160,10 +168,18 @@ flowchart TD
   root recipe hash and the snapshot digests of its direct `FROM`/`COPY` images.
   The browser uses a verified local artifact, then a published one, and otherwise
   builds the missing dependency in a disposable runtime first.
+- Modules are never cached by their declared outputs: arbitrary reads,
+  overwrites and deletions make that insufficient. Unpinned downloads inside a
+  `SLOP` command are not made reproducible by the cache.
+- `COPY FROM` a build-only image is the multi-stage mechanism: toolchains stay
+  in images that are only built, shipped images copy exact outputs, and the
+  consumer keeps the builder's recipe chain in `/etc/dolly/recipes` as
+  provenance. There is no catalog-wide solver.
 - Images without `display@0` only build: their route shows the log and never
   runs ENTRY.
 - Published images share content-addressed compressed packs of identical file
-  records; the browser rebuilds and verifies each exact snapshot before restoring.
+  records, deduplicating distribution without layer mounts in WasmFS; the
+  browser rebuilds and verifies each exact snapshot before restoring.
 - `npm run image -- IMAGE` stages local sources, refreshes `SOURCE HOST` and recipe
   pins and builds with the existing runtime; `--plan` only shows what would
   rebuild. `SOURCE URL` pins are never refreshed automatically.

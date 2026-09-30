@@ -68,7 +68,18 @@ select no JavaScript or Worker URL.
   ([Studio builds](image-build-service.md)).
 - Builders ([`image-builder.mjs`](../src/image-builder.mjs)) inherit the page's
   HTTP policy but get no display, file picker or local service, and never run
-  ENTRY.
+  ENTRY. One build runs per page; cancellation holds that lease until the
+  builder stops.
+- Build and custom-session policy comes from trusted browser state, never from
+  recipe or snapshot contents. A result tab intersects the saved parent policy
+  with its own; missing inheritance fails closed, so reopening a build cannot
+  silently restore unrestricted HTTP. Build results are opaque retained files,
+  not permission to execute host code.
+- Audio and GPU scope, lease and object IDs are never reused and request
+  sequences only increase, so a stale handle never reaches a successor. The
+  browser tracks one outstanding request per slot: fabricated Wasm mailbox
+  completions cannot bypass admission, and a revoked or cancelled slot stays
+  occupied until the provider settles.
 
 ## Network
 
@@ -84,6 +95,17 @@ select no JavaScript or Worker URL.
   request itself still reaches them.
 - Reserved `*.dolly.invalid` URLs never reach Fetch; redirects cannot enter them
   and remote rules cannot grant them.
+- The broker owns a fixed 16-slot provider table, independent of the guest's
+  claimed free slots. Cancellation is acknowledged at once but holds the host
+  slot until the provider settles, so forged slot state or repeated cancellation
+  cannot grow a host queue. The kernel acknowledges records by compare-exchange,
+  so a late acknowledgement cannot erase a terminal failure.
+- Multipart reassembly ([`static-asset.mjs`](../src/static-asset.mjs)) applies
+  only to exact bootstrap sources (every inherited policy must agree), pinned
+  snapshot packs and user-clicked source links. The manifest holds sizes and
+  hashes, never destinations; parts are fixed `.part-N` siblings fetched without
+  guest headers, credentials, queries or redirects, within the original deadline
+  and byte bound (64 parts of 20 MiB, 1 GiB). A remote response cannot activate it.
 
 ## Other crossings
 
@@ -106,7 +128,20 @@ select no JavaScript or Worker URL.
 - Images never retain `/tmp`, `/workspace` or Pi's `auth.json` and sessions. This
   is not a secret scanner. A hash proves byte identity, not that an image is benign.
 
-## Recheck
+## Required checks
+
+- Exact typed outer imports; no automatic allowance for new port requirements.
+- Denied HTTP never reaches Fetch; credentials, redirects, limits and
+  cancellation stay enforceable after arbitrary guest mailbox writes.
+- Span, frame, input, file-transfer and decompression bounds fail closed.
+- Filesystem and process operations stay in Wasm; unsupported fork, socket and
+  host operations fail without fallbacks.
+- Fixed loaders cannot resolve guest-selected URLs, paths or JavaScript.
+- Process failure and forced termination preserve the kernel and shell.
+
+These are testable design invariants, not a formal containment proof. Worker
+termination and resource bounds help availability but do not protect against
+browser-wide memory pressure or engine failure.
 
 ```sh
 node scripts/dolly-abi.mjs validate-browser build/dolly-browser-0.wasm dist/dolly.wasm

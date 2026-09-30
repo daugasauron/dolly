@@ -20,12 +20,15 @@ flowchart TD
 | --- | --- | --- |
 | Emscripten 6.0.8 | Digest-pinned container links the kernel, process sysroot, gate and seed ([`CMakeLists.txt`](../toolchain/CMakeLists.txt), [`build.sh`](../scripts/build.sh)) | Kernel plus process libc; the seed holds headers, Slop, Dollyfile and core-command source |
 | LLVM/Clang/LLD 24 | Wasm64 libraries linked into one stamped compiler executable ([`build-toolchain.sh`](../scripts/build-toolchain.sh)) | `cc`, `c++`, `ld`, `ar` spawn it as a private process |
-| libc++/libc++abi | Pinned Emscripten archives; headers archived separately | Installed by [`cpp.dm`](../modules/cpp.dm) |
+| libc++/libc++abi | Pinned Emscripten archives; headers archived separately | Installed by [`cpp.dm`](../modules/cpp.dm); no handwritten substitutes |
 | Zig 0.16 | Host Zig builds the frontend; LLVM/LLD links `zig.wasm` | Only in `ghostty-build` ([display](display.md#zig-and-the-ghostty-build)) |
 
 Demo exceptions (the Rust compiler seed, the 0 A.D. engine) are recorded in their
-demo READMEs. Host preparation may configure and patch pinned trees
-deterministically, but must not compile the programs an image claims to build.
+demo READMEs. Every externally built program (compiler, Zig, Rust seed, 0 A.D.)
+validates against `dolly-process-0` exactly and ships without an Emscripten
+JavaScript loader. Host preparation may
+configure and patch pinned trees deterministically and reviewably, but must not
+compile the programs an image claims to build.
 
 ## Pins and identity
 
@@ -36,7 +39,8 @@ deterministically, but must not compile the programs an image claims to build.
 - [`prepare-image-sources.sh`](../scripts/prepare-image-sources.sh) stages the
   selected catalog's inputs (each demo adds a `prepare-sources.sh` hook);
   [`verify-static-sources.mjs`](../scripts/verify-static-sources.mjs) checks every
-  `SOURCE HOST` row against its bytes.
+  `SOURCE HOST` row against its bytes. Only those rows and module texts are
+  trusted build inputs; adding one means referencing it from a recipe.
 - [`build-source-tar.mjs`](../scripts/build-source-tar.mjs) writes deterministic
   ustar archives (regular files only, fixed metadata, no host paths). The in-Dolly
   `/bin/tar` ([`tar.dm`](../modules/tar.dm)) extracts only regular files and

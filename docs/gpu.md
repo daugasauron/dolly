@@ -35,4 +35,5 @@ flowchart LR
   at most 64 KiB per call; `CAPTURE_FRAME` copies the caller's own surface
   rectangle into its buffer.
 - No packet names a URL, DOM node, host pointer or native process. Shader time and
-  driver memory are not bounded; device loss depends on the browser.
+  driver memory are not bounded; device loss depends on the browser. A failed
+  GPU Worker wakes pending calls with `EIO`.
