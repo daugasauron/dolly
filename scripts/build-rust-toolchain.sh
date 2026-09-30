@@ -27,6 +27,8 @@ if [[ ! -f "$port/prepare.inputs" || "$(cat "$port/prepare.inputs")" != "$prepar
 fi
 cp toolchain/rust/wasm64-emscripten-probe.json "$port/wasm64-emscripten-probe.json"
 bash toolchain/rust/build-llvm.sh > "$port/llvm-build.log" 2>&1
+# package.py takes the one main object; a reused target directory may hold older ones.
+rm -f "$port"/target/wasm64-emscripten-probe/debug/deps/rustc_main-*
 bash toolchain/rust/build.sh > "$port/compiler-build.jsonl" 2> "$port/compiler-build.log"
 bash toolchain/rust/build-sdk.sh > "$port/sdk-build.jsonl" 2> "$port/sdk-build.log"
 python3 toolchain/rust/package.py "$port/compiler-build.jsonl" "$port/sdk-build.jsonl"
