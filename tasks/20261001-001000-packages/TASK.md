@@ -1,4 +1,4 @@
-# Packages: name the existing mechanism, measure runtime install before building it
+# amy: install packages from inside the runtime
 
 - STATUS: OPEN
 - PRIORITY: 170
@@ -25,6 +25,25 @@ complexity; no new Dollyfile version otherwise.
   and the dolly-js block (bhop, slopyard) row for row.
 - Sessions replay files only: `EXPORTS ENV` of anything installed at runtime is
   lost on reload (`/etc/dolly/environment` is read at image restore).
+
+## amy (owner idea, 2026-10-01)
+
+`amy install python` inside a running session. Sketch, to be validated by the
+experiment below:
+
+- **Name to recipe:** one site-published index (e.g. `/amy/index`) maps a name to
+  its pinned package module (`HOST /modules/python.dm SHA`) and the digest of a
+  prebuilt payload. The index is the only unpinned step; the pin is recorded.
+- **Payload:** exactly the package module's files plus its receipt, built in the
+  browser like any image (a root image of copied files, as `demos/lean` shows),
+  not the 20-300x larger builder.
+- **amy itself:** a small core command. It fetches the index and payload over the
+  HTTP broker (same origin, default policy), verifies SHA-256, checks `REQUIRES`
+  against `/etc/dolly/artifact`, extracts without overwriting different bytes, and
+  appends `USE HOST /modules/python.dm SHA` to `/etc/dolly/installed`. That file
+  plus `FROM <booted image>` is a Dollyfile that reproduces the session.
+- **Open:** ENV exports are lost on session reload; the payload format (tarball vs
+  snapshot packs); the 512 MiB session cap for large SDKs.
 
 ## Next
 
