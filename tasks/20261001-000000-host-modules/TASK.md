@@ -72,3 +72,27 @@ stay hand-written: they are where a human reviews authority.
   finds only registry-driven code.
 - Adding a module touches only its directory plus the two review points.
 - source, artifact, core and browser suites pass in Chrome and Firefox after each stage.
+
+## Progress (2026-10-01, branch `core/host-modules`)
+
+- Stage 1 done: `host/NAME/module.json` per module; registry, build, CMake,
+  sysroot, constants, packaging, test server and ABI tests read manifests
+  (`fe9cac9`); format documented in [`host/README.md`](../../host/README.md).
+  The manifest-driven ownership test caught the runtime's terminal output
+  declared in the display contract; it moved to the supervisor contract.
+- Stage 2 done: `dolly_kernel_module` table generated from manifests; display,
+  HTTP, download, upload, GPU, audio kernel code in `host/NAME/kernel.c`;
+  `process-kernel.c` names no module (`5a9b77e`).
+- `cc` links every client archive by default; GPU and audio clients ship once,
+  in the seed (`790d66e`, `07cf165`).
+- Page shell (stage 1b): in progress on `core/page-modules`.
+
+Remaining:
+- `runtime-worker.mjs` still validates and restores sessions itself (snapshot@0):
+  needs a restore phase before display's image phase.
+- Display's kernel state (lease, frames, terminal renderer) is still in
+  `src/dolly.c`, and its mailbox also carries core terminal state (foreground,
+  interrupts, input ring): split a runtime-owned terminal mailbox.
+- Stage 3: move display, HTTP, download and upload operations and packets from
+  `process.h` into their modules (changes the process ABI digest).
+- `threads@0` kernel code stays in `process-kernel.c` (thread table).
