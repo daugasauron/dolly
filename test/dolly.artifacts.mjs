@@ -227,7 +227,8 @@ test("the runtime implements the canonical streaming HTTP mailbox contract", asy
     assert.ok(actual, `runtime is missing ${required.module}.${required.name}`);
     assert.equal(sameWasmType(actual.type, required.type), true);
   }
-  for (const required of contract.exports) {
+  // Exported globals are contract constants for generated headers, not kernel exports.
+  for (const required of contract.exports.filter(entry => entry.type.kind === "func")) {
     const actual = runtime.exports.find((entry) => entry.name === required.name);
     assert.ok(actual, `runtime is missing ${required.name}`);
     assert.equal(sameWasmType(actual.type, required.type), true);
