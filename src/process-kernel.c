@@ -794,16 +794,33 @@ static int directory_path(int descriptor, char *buffer, size_t capacity) {
 }
 
 static int decode_path_request(dolly_kernel_process *process,
-                               uintptr_t request_size,
+                               uintptr_t request_size, uint32_t allowed_flags,
                                dolly_process_path_request *request,
                                char **path, int *directory) {
   if (request_size < sizeof(*request)) return -EINVAL;
   memcpy(request, process_mailbox, sizeof(*request));
   if (request->reserved != 0 ||
       request->path_size != request_size - sizeof(*request)) return -EINVAL;
-  return path_from_packet(process, request->directory_descriptor,
-                          process_mailbox + sizeof(*request),
-                          request->path_size, path, directory);
+  int result = path_from_packet(process, request->directory_descriptor,
+                                process_mailbox + sizeof(*request),
+                                request->path_size, path, directory);
+  if (result == 0 && (request->flags & ~allowed_flags) != 0) {
+    free(*path);
+    *path = NULL;
+    result = -EINVAL;
+  }
+  return result;
+}
+
+static int decode_two_path_request(uintptr_t request_size,
+                                   dolly_process_two_path_request *request) {
+  if (request_size < sizeof(*request)) return -EINVAL;
+  memcpy(request, process_mailbox, sizeof(*request));
+  const uintptr_t paths_size = request_size - sizeof(*request);
+  if (request->old_path_size == 0 || request->new_path_size == 0 ||
+      request->old_path_size > paths_size ||
+      request->new_path_size != paths_size - request->old_path_size) return -EINVAL;
+  return 0;
 }
 
 int64_t dolly_kernel_request_path(int pid, uintptr_t request_size,
@@ -813,8 +830,8 @@ int64_t dolly_kernel_request_path(int pid, uintptr_t request_size,
   dolly_process_path_request request;
   char *requested = NULL;
   int directory = AT_FDCWD;
-  int result = decode_path_request(process, request_size, &request, &requested, &directory);
-  if (result == 0 && request.flags != 0) result = -EINVAL;
+  int result = decode_path_request(process, request_size, 0, &request,
+                                   &requested, &directory);
   if (result == 0 && directory == AT_FDCWD) {
     if (strlen(requested) >= capacity) result = -ENAMETOOLONG;
     else strcpy(path, requested);
@@ -1599,8 +1616,8 @@ static int64_t process_dispatch(int pid, int tid, uint32_t operation,
       dolly_process_path_request request;
       char *path = NULL;
       int directory = AT_FDCWD;
-      int result = decode_path_request(process, request_size, &request,
-                                       &path, &directory);
+      int result = decode_path_request(process, request_size, UINT32_MAX,
+                                       &request, &path, &directory);
       int flags = result == 0 ? open_flags(request.flags) : result;
       if (flags < 0) result = flags;
       int guest_fd = result == 0 ? unused_descriptor(process, 0) : -1;
@@ -1630,8 +1647,9 @@ static int64_t process_dispatch(int pid, int tid, uint32_t operation,
       dolly_process_path_request request;
       char *path = NULL;
       int directory = AT_FDCWD;
-      int result = decode_path_request(process, request_size, &request,
-                                       &path, &directory);
+      int result = decode_path_request(process, request_size,
+                                       DOLLY_PROCESS_PATH_NOFOLLOW,
+                                       &request, &path, &directory);
       struct stat metadata;
       if (result == 0 &&
           fstatat(directory, path, &metadata,
@@ -1647,9 +1665,8 @@ static int64_t process_dispatch(int pid, int tid, uint32_t operation,
       dolly_process_path_request request;
       char *path = NULL;
       int directory = AT_FDCWD;
-      int result = decode_path_request(process, request_size, &request,
+      int result = decode_path_request(process, request_size, 0, &request,
                                        &path, &directory);
-      if (result == 0 && request.flags != 0) result = -EINVAL;
       if (result == 0 && mkdirat(directory, path, 0777) != 0) result = -errno;
       free(path);
       return result;
@@ -1658,10 +1675,9 @@ static int64_t process_dispatch(int pid, int tid, uint32_t operation,
       dolly_process_path_request request;
       char *path = NULL;
       int directory = AT_FDCWD;
-      int result = decode_path_request(process, request_size, &request,
-                                       &path, &directory);
-      if (result == 0 &&
-          (request.flags & ~DOLLY_PROCESS_PATH_DIRECTORY) != 0) result = -EINVAL;
+      int result = decode_path_request(process, request_size,
+                                       DOLLY_PROCESS_PATH_DIRECTORY,
+                                       &request, &path, &directory);
       if (result == 0 && unlinkat(
           directory, path,
           (request.flags & DOLLY_PROCESS_PATH_DIRECTORY) != 0 ? AT_REMOVEDIR : 0) != 0) {
@@ -1672,14 +1688,9 @@ static int64_t process_dispatch(int pid, int tid, uint32_t operation,
     }
     case DOLLY_PROCESS_PATH_RENAME:
     case DOLLY_PROCESS_PATH_LINK: {
-      if (request_size < sizeof(dolly_process_two_path_request)) return -EINVAL;
       dolly_process_two_path_request request;
-      memcpy(&request, process_mailbox, sizeof(request));
-      if (request.old_path_size == 0 || request.new_path_size == 0 ||
-          request.old_path_size > request_size - sizeof(request) ||
-          request.new_path_size != request_size - sizeof(request) - request.old_path_size) {
-        return -EINVAL;
-      }
+      const int invalid = decode_two_path_request(request_size, &request);
+      if (invalid != 0) return invalid;
       char *old_path = NULL;
       char *new_path = NULL;
       int old_directory = AT_FDCWD;
@@ -1703,15 +1714,10 @@ static int64_t process_dispatch(int pid, int tid, uint32_t operation,
       return result;
     }
     case DOLLY_PROCESS_PATH_SYMLINK: {
-      if (request_size < sizeof(dolly_process_two_path_request)) return -EINVAL;
       dolly_process_two_path_request request;
-      memcpy(&request, process_mailbox, sizeof(request));
-      if (request.old_directory_descriptor != UINT32_MAX ||
-          request.old_path_size == 0 || request.new_path_size == 0 ||
-          request.old_path_size > request_size - sizeof(request) ||
-          request.new_path_size != request_size - sizeof(request) - request.old_path_size) {
-        return -EINVAL;
-      }
+      const int invalid = decode_two_path_request(request_size, &request);
+      if (invalid != 0) return invalid;
+      if (request.old_directory_descriptor != UINT32_MAX) return -EINVAL;
       const unsigned char *target_bytes = process_mailbox + sizeof(request);
       if (memchr(target_bytes, 0, request.old_path_size) != NULL) return -EINVAL;
       char *target = malloc((size_t)request.old_path_size + 1);
@@ -1733,9 +1739,8 @@ static int64_t process_dispatch(int pid, int tid, uint32_t operation,
       dolly_process_path_request request;
       char *path = NULL;
       int directory = AT_FDCWD;
-      int result = decode_path_request(process, request_size, &request,
+      int result = decode_path_request(process, request_size, 0, &request,
                                        &path, &directory);
-      if (result == 0 && request.flags != 0) result = -EINVAL;
       if (result == 0) {
         if (strcmp(path, "/proc/self/exe") == 0) {
           if (response_capacity == 0) result = -EINVAL;
@@ -1765,9 +1770,8 @@ static int64_t process_dispatch(int pid, int tid, uint32_t operation,
       dolly_process_path_request request;
       char *path = NULL;
       int directory = AT_FDCWD;
-      int result = decode_path_request(process, request_size, &request,
+      int result = decode_path_request(process, request_size, 0, &request,
                                        &path, &directory);
-      if (result == 0 && request.flags != 0) result = -EINVAL;
       int descriptor = -1;
       if (result == 0) {
         descriptor = openat(directory, path, O_RDONLY | O_DIRECTORY);
@@ -1786,9 +1790,8 @@ static int64_t process_dispatch(int pid, int tid, uint32_t operation,
       dolly_process_path_request request;
       char *path = NULL;
       int directory = AT_FDCWD;
-      int result = decode_path_request(
-          process, request_size, &request, &path, &directory);
-      if (result == 0 && request.flags != 0) result = -EINVAL;
+      int result = decode_path_request(process, request_size, 0, &request,
+                                       &path, &directory);
       struct stat metadata;
       if (result == 0 && fstatat(directory, path, &metadata, 0) != 0) {
         result = -errno;
