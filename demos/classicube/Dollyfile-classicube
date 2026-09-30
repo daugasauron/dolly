@@ -1,14 +1,14 @@
 DOLLY 4
 IMAGE classicube
 
-FROM HOST /Dollyfile-pi-runtime 8f481dd98f9fe994d30082f6ff35b17a994815db80c0d5f440c91f055ce42b9d
-COPY FROM HOST /Dollyfile-classicube-build 0465ded69598eae7bd96cf3f463012d2d1bb3e3abddfdc41ed280b27cf96fed8 /usr/bin/classicube /usr/bin/classicube
-COPY FROM HOST /Dollyfile-classicube-build 0465ded69598eae7bd96cf3f463012d2d1bb3e3abddfdc41ed280b27cf96fed8 /usr/share/classicube /home/dolly/classicube
-COPY FROM HOST /Dollyfile-classicube-build 0465ded69598eae7bd96cf3f463012d2d1bb3e3abddfdc41ed280b27cf96fed8 /usr/share/licenses/classicube /usr/share/licenses/classicube
-COPY FROM HOST /Dollyfile-sdl2-build 5b143ad61d42c0cf8228306ef7566cf12e91177684faa8d7f79c79e0fc0129e1 /usr/share/licenses/SDL2 /usr/share/licenses/SDL2
+FROM HOST /Dollyfile-pi-runtime 4b11113517173d00438a04c982f4e489f9c967cae8f7818645535162c0c713d1
+COPY FROM HOST /Dollyfile-classicube-build 42da7a6c2d488c5ae826bb1126f5f8c7f1ee4f7d34e2c764c8cc0aeafe3a6c83 /usr/bin/classicube /usr/bin/classicube
+COPY FROM HOST /Dollyfile-classicube-build 42da7a6c2d488c5ae826bb1126f5f8c7f1ee4f7d34e2c764c8cc0aeafe3a6c83 /usr/share/classicube /home/dolly/classicube
+COPY FROM HOST /Dollyfile-classicube-build 42da7a6c2d488c5ae826bb1126f5f8c7f1ee4f7d34e2c764c8cc0aeafe3a6c83 /usr/share/licenses/classicube /usr/share/licenses/classicube
+COPY FROM HOST /Dollyfile-sdl2-build 9915b6ee3967562841cc03a5b7cdf06ecd085da90bff6539e209f80637de9baf /usr/share/licenses/SDL2 /usr/share/licenses/SDL2
 
-COPY FROM HOST /Dollyfile-sdl2-build 5b143ad61d42c0cf8228306ef7566cf12e91177684faa8d7f79c79e0fc0129e1 /usr/include/SDL2 /usr/include/SDL2
-COPY FROM HOST /Dollyfile-sdl2-build 5b143ad61d42c0cf8228306ef7566cf12e91177684faa8d7f79c79e0fc0129e1 /usr/lib/libSDL2.a /usr/lib/libSDL2.a
+COPY FROM HOST /Dollyfile-sdl2-build 9915b6ee3967562841cc03a5b7cdf06ecd085da90bff6539e209f80637de9baf /usr/include/SDL2 /usr/include/SDL2
+COPY FROM HOST /Dollyfile-sdl2-build 9915b6ee3967562841cc03a5b7cdf06ecd085da90bff6539e209f80637de9baf /usr/lib/libSDL2.a /usr/lib/libSDL2.a
 EXPORTS TOOL classicube
 EXPORTS HEADER sdl2 /usr/include/SDL2
 EXPORTS LIB SDL2 /usr/lib/libSDL2.a

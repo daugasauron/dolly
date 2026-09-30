@@ -1,11 +1,11 @@
 DOLLY 4
 IMAGE codex
 
-FROM HOST /Dollyfile-system 185ebf97607078ce3d84dc41dd7f05b666fb94c1d304d918b5e439f0bb613c08
-COPY FROM HOST /Dollyfile-codex-build 8584964ef0797de53bcbd7b4f80ccbb3cd5269c2a0c965714aaf031ccc4b3294 /usr/bin/codex /usr/libexec/codex
-COPY FROM HOST /Dollyfile-codex-build 8584964ef0797de53bcbd7b4f80ccbb3cd5269c2a0c965714aaf031ccc4b3294 /usr/share/licenses/codex /usr/share/licenses/codex
-COPY FROM HOST /Dollyfile-codex-build 8584964ef0797de53bcbd7b4f80ccbb3cd5269c2a0c965714aaf031ccc4b3294 /usr/share/dolly/builds/codex.json /usr/share/dolly/builds/codex.json
-USE HOST /modules/search-tools.dm 8190eabffba104647b748bf634730e506721f321bd81bcf8fc59e2a0e7951771
+FROM HOST /Dollyfile-system b9a6deb13307037d9d0e29b6897f634b795516e250b77e3cb479f4d47b0ad4de
+COPY FROM HOST /Dollyfile-codex-build 2f0271059898826487b26433a275878367f73995adf58c74f998d2c4e21653e0 /usr/bin/codex /usr/libexec/codex
+COPY FROM HOST /Dollyfile-codex-build 2f0271059898826487b26433a275878367f73995adf58c74f998d2c4e21653e0 /usr/share/licenses/codex /usr/share/licenses/codex
+COPY FROM HOST /Dollyfile-codex-build 2f0271059898826487b26433a275878367f73995adf58c74f998d2c4e21653e0 /usr/share/dolly/builds/codex.json /usr/share/dolly/builds/codex.json
+USE HOST /modules/search-tools.dm db934a88d3f978d94a486ff688481a556e4af8e01890fc5186713edb0d80dc58
 USE HOST /modules/codex.dm 8155b6254883adc9f2cbf563c0454cb58dac243ef16a07fee02edf31251ef44e
 
 FILE /etc/dolly/init.slop

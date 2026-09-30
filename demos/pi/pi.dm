@@ -1,13 +1,13 @@
 DOLLY 4
 MODULE pi
 
-USE HOST /modules/search-tools.dm 8190eabffba104647b748bf634730e506721f321bd81bcf8fc59e2a0e7951771
+USE HOST /modules/search-tools.dm db934a88d3f978d94a486ff688481a556e4af8e01890fc5186713edb0d80dc58
 EXPORTS TOOL rg
 EXPORTS TOOL fd
-COPY FROM HOST /Dollyfile-pi-build 51e88433b5fdcee7c4cff05a0ba45e834c98a02a0eb3c749a22b89c731f77ecb /usr/bin/pi /usr/bin/pi
-COPY FROM HOST /Dollyfile-pi-build 51e88433b5fdcee7c4cff05a0ba45e834c98a02a0eb3c749a22b89c731f77ecb /usr/lib/node_modules /usr/lib/node_modules
-COPY FROM HOST /Dollyfile-pi-build 51e88433b5fdcee7c4cff05a0ba45e834c98a02a0eb3c749a22b89c731f77ecb /usr/src/pi-source /usr/src/pi-source
-COPY FROM HOST /Dollyfile-pi-build 51e88433b5fdcee7c4cff05a0ba45e834c98a02a0eb3c749a22b89c731f77ecb /usr/share/licenses/pi-source/LICENSE /usr/share/licenses/pi-source/LICENSE
+COPY FROM HOST /Dollyfile-pi-build 0de87642d2270c612af51ecc9973e0320df1ba2b591ea2711c9c37d6a1ae6bae /usr/bin/pi /usr/bin/pi
+COPY FROM HOST /Dollyfile-pi-build 0de87642d2270c612af51ecc9973e0320df1ba2b591ea2711c9c37d6a1ae6bae /usr/lib/node_modules /usr/lib/node_modules
+COPY FROM HOST /Dollyfile-pi-build 0de87642d2270c612af51ecc9973e0320df1ba2b591ea2711c9c37d6a1ae6bae /usr/src/pi-source /usr/src/pi-source
+COPY FROM HOST /Dollyfile-pi-build 0de87642d2270c612af51ecc9973e0320df1ba2b591ea2711c9c37d6a1ae6bae /usr/share/licenses/pi-source/LICENSE /usr/share/licenses/pi-source/LICENSE
 
 SOURCE HOST /static/default/pi/dolly-tools.js                    /home/dolly/.pi/agent/extensions/dolly-tools.js edd123743a5a8fcc7ddb80d4c8dd57ba7f6159705eaac8cc07340034bd9b9a29
 SOURCE HOST /static/default/pi/SYSTEM.md                         /home/dolly/.pi/agent/SYSTEM.md                 bfd8505b6f40533d9d5a19101a4bd62c9447d55e707f50aabbd22f1f2dbbe92e

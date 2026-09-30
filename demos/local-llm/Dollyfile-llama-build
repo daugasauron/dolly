@@ -1,7 +1,7 @@
 DOLLY 4
 IMAGE llama-build
 
-FROM HOST /Dollyfile-cmake-build 97cb703a64bf273a460f95acdbc6d895cffa812800fa2882acc075a7ae333818
+FROM HOST /Dollyfile-cmake-build 272bbca6b2cb3f502a4dbb4626f88da52de424924733841678737d8b800ea83a
 USE HOST /modules/llama-core.dm 1e02f888ada6d6a93f706c91589fb17c95414b3a3ef7e3653a6a792387a66e87
 
 ENTRY /bin/slop
