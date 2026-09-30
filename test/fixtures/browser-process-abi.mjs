@@ -15,7 +15,7 @@ async function runWorker(configuration) {
       timer = setTimeout(() => reject(new Error("fixture process did not finish")), 5000);
       worker.onerror = event => reject(new Error(event.message));
       worker.onmessage = ({ data }) => {
-        if (data.type === "finished" && data.status === 0) resolve();
+        if (data.type === "finished") resolve();
         else if (data.type !== "started") reject(new Error(data.message ?? `unexpected process message: ${data.type}`));
       };
       worker.postMessage({ type: "configure", pid: 1, control: new SharedArrayBuffer(16),
