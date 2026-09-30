@@ -5,7 +5,7 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { promisify } from "node:util";
 import test from "node:test";
-import { DisplayTransport as Display } from "../host/display/display.mjs";
+import { DisplayTransport as Display, FramebufferPresenter } from "../host/display/display.mjs";
 import { stagedIncludeDirectory } from "../scripts/host-modules.mjs";
 const includeDirectory = await stagedIncludeDirectory();
 
@@ -35,6 +35,23 @@ test("display text packets and copied selections preserve literal UTF-8", async 
   assert.equal(transport.words[word(Display.eventWrite)], 0, "a refused text sends no partial records");
   for (const [address, capacity] of [[64, 0], [64, 12], [0, 8], [64, 64]]) {
     assert.throws(() => new Display(buffer, address, 128, capacity, 2048, 3072, 1024), /invalid display mailbox/);
+  }
+});
+
+test("the presenter refuses a malformed published frame", () => {
+  const buffer = new SharedArrayBuffer(16384);
+  const transport = new Display(buffer, 64, 128, 8, 2048, 3072, 1024);
+  const presenter = new FramebufferPresenter({ getContext: () => ({}) }, buffer, [8192, 16350], 1024,
+    transport, () => {});
+  const word = field => transport.word + field;
+  // index, width, height, stride: bad buffer, stride, empty, over capacity, past the memory.
+  for (const [index, width, height, stride] of [[2, 4, 4, 16], [0, 4, 4, 12], [0, 0, 4, 0], [0, 16, 32, 64], [1, 4, 4, 16]]) {
+    transport.words[word(Display.frameIndex)] = index;
+    transport.words[word(Display.frameWidth)] = width;
+    transport.words[word(Display.frameHeight)] = height;
+    transport.words[word(Display.frameStride)] = stride;
+    transport.words[word(Display.frameSequence)] += 1;
+    assert.throws(() => presenter.paint(), /invalid framebuffer/, `${index} ${width}x${height} stride ${stride}`);
   }
 });
 

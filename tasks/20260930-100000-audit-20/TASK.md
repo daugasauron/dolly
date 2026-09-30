@@ -1,6 +1,6 @@
 # Display handshake and graphics paste bounds
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 190
 - TAGS: bug,boundary
 
@@ -32,3 +32,11 @@ The display handshake rejects a zero event capacity and out-of-range regions,
 a bad frame is fatal, and paste is all or nothing (`095cae9`);
 `test/terminal-ring.test.mjs` covers the handshake and paste. Missing: a test
 with a malformed frame.
+
+## Result (2026-10-01)
+
+`test/terminal-ring.test.mjs` "the presenter refuses a malformed published
+frame" publishes a bad buffer index, a wrong stride, an empty frame, a frame
+over capacity and one past the end of memory; `FramebufferPresenter.paint`
+throws for each, and `start()` turns that into the page's fatal error. The
+handshake and whole-paste cases were already covered there.

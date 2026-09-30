@@ -1,6 +1,6 @@
 # Supervisor launch robustness: deadlines, compile order and one failure killing all
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 180
 - TAGS: bug,core,lifecycle
 
@@ -34,3 +34,11 @@ Deadlines more than a day away return `EINVAL` from the kernel; each launch
 has its own error handling and ABI checks run before compilation (`26277ef`).
 The 126 fixtures in `test/core-browser.mjs` cover invalid executables.
 Missing: a raw-ABI spawn with an out-of-range deadline.
+
+## Result (2026-10-01)
+
+`test/fixtures/process-lifecycle.c` now spawns with a deadline two days away
+through `dolly_spawn_timeout` and gets `EINVAL` from the kernel's
+`valid_spawn_deadline`, then keeps running; the 126 fixtures in
+`test/core-browser.mjs` cover invalid executables. `test/process-browser.mjs`
+passes in Chrome and Firefox.

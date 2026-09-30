@@ -272,6 +272,8 @@ int main(int argc, char **argv) {
   close(quiet);
   const int after_cap = child(argv[0], "exit130");
   CHECK(after_cap > 0 && waitpid(after_cap, &status, 0) == after_cap);
+  // The kernel refuses a spawn deadline more than a day away.
+  CHECK(dolly_spawn_timeout(argv[0], 2, sleep_arguments, 0, 1, 2, 2 * 86400e3) == -EINVAL);
   puts("PROCESS-LIFECYCLE-OK");
   return 0;
 }
