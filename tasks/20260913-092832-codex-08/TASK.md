@@ -1,6 +1,6 @@
 # Move browser scenarios out of the shared harness
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 50
 - TAGS: audit,cleanup,testing
 
@@ -22,3 +22,8 @@ independent scenario selection or makes a concrete change easier to maintain.
 - Keep shared browser startup, transport, and orchestration in the harness.
 - Preserve existing mode names and behavior; avoid introducing another test framework.
 - Verify affected modes while extracting them.
+
+## Resolution (2026-10-01)
+
+Superseded: the shared harness is deleted and every scenario is a standalone
+Playwright test (`01b1b2e`, `6a5176e`).
