@@ -3,7 +3,6 @@ import { createHost, buildHost } from "../host/modules.mjs";
 import { DisplayTransport } from "../host/display/display.mjs";
 import { prepareImageArtifacts, loadImageHostRequirements } from "./image-build.mjs";
 import { buildImage } from "./image-builder.mjs";
-import { mountImageBuild } from "../host/build/ui.mjs";
 import { loadCustomImage } from "./custom-image.mjs";
 import { describeImageArtifact, sha256 } from "./image-artifact.mjs";
 import { inspectDollyfile } from "./dollyfile-view.mjs";
@@ -177,8 +176,8 @@ async function boot() {
       JSON.parse(sessionStorage.getItem("dolly-custom-policy")),
       trustedBootstrapSources, applicationBase);
   }
-  // Builders and the page's own rebuild never reach local services. The image
-  // ENTRY gets the build service only for an enabled build@0 (see below).
+  // Builders and the page's own rebuild never reach local services. An enabled
+  // build@0 adds the build service to localServices once the image ENTRY starts.
   const buildNetwork = localServicesTransport(httpPolicy);
   const localServices = {};
   const customSource = image === "custom"
@@ -210,7 +209,10 @@ async function boot() {
     [...requiredHost, ...(bootMode === "rebuild" ? buildHost : [])], {
     send: (message, transfers = []) => runtimeWorker.postMessage(message, transfers),
     resources: { mount, canvas, keyboard, applicationBase, showStatus, fatal: displayFatal },
-    configuration: { http: { network: localServicesTransport(httpPolicy, localServices) } },
+    configuration: {
+      http: { network: localServicesTransport(httpPolicy, localServices) },
+      build: { network: buildNetwork, policies: httpPolicyConfigurations(httpPolicy), services: localServices },
+    },
   });
   delete globalThis.DOLLY_HOST_MODULES;
   host.require(requiredHost);
@@ -301,9 +303,6 @@ async function boot() {
   await host.entryStarted({ image, custom, systemSnapshot: builtSystemSnapshot,
     identity: custom ? customSessionIdentity(custom) : sessionImageIdentity(DOLLY_IMAGES, image),
     restored: restoredSession && { name: restoredSession.name, recovering } });
-  if (host.enabled.includes("build@0")) {
-    localServices.build = mountImageBuild(buildNetwork, httpPolicyConfigurations(httpPolicy));
-  }
   runtimeWorker.postMessage({ type: "entry-ready-ack" });
   // A module that shows the canvas replaces the bootstrap log.
   bootstrapLog.hidden = !canvas.hidden;

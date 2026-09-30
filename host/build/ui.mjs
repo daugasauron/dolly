@@ -5,7 +5,7 @@ import { loadImageArtifactDescriptor } from "../../src/image-artifact.mjs";
 import { openCustomImage } from "../../src/custom-image.mjs";
 import { buildLog } from "../../src/build-log.mjs";
 
-export function mountImageBuild(network, policies) {
+export function mountImageBuild(network, policies, keyboard) {
   const service = new ImageBuildService(async (source, report, signal) => {
     const artifacts = await prepareImageArtifacts("custom", source,
       (image, artifacts) => buildImage(image, artifacts, network, report, { signal }),
@@ -49,7 +49,7 @@ export function mountImageBuild(network, policies) {
       try { openCustomImage({ ...service.result, policies }); }
       catch (error) { panel.querySelector('[role="status"]').textContent = error.message; }
     } else if (action === "close") panel.hidden = true;
-    if (action) document.querySelector("#keyboard")?.focus({ preventScroll: true });
+    if (action) keyboard?.focus({ preventScroll: true });
   });
   for (const event of ["keydown", "keyup", "pointerdown", "click"]) panel.addEventListener(event, e => e.stopPropagation());
   panel.addEventListener("keydown", event => {
@@ -57,7 +57,7 @@ export function mountImageBuild(network, policies) {
       event.preventDefault();
       service.cancel();
       panel.hidden = true;
-      document.querySelector("#keyboard")?.focus({ preventScroll: true });
+      keyboard?.focus({ preventScroll: true });
     }
   });
   service.addEventListener("change", render);
