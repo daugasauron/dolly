@@ -19,10 +19,11 @@ export async function imageDescriptions(projectDir) {
   return descriptions;
 }
 
-// Images without a display only produce build outputs: rebuilding is their only route.
+// Only the root builder has no display: it cannot be opened, only rebuilt.
 export function menuRow(image, description, interactive) {
   const name = interactive ? `<a href="./${image}/">${image}</a>` : image;
-  const open = interactive ? `<a href="./${image}/">open →</a>` : "";
+  const open = interactive ? `<a href="./${image}/">open →</a>`
+    : '<span class="unavailable" title="Built before the display exists; rebuild it instead">open →</span>';
   return `<tr class="image" data-image="${image}"><th scope="row">${name}</th>
   <td class="description">${description}</td><td><div class="image-links">${open}<a href="./${image}/rebuild/">rebuild</a><a href="./view/${image}/">Dollyfile</a></div></td></tr>`;
 }
