@@ -20,4 +20,23 @@ Leads:
   `/dev/stderr` are, since `26277ef`). Check which fd it uses and what `read` or
   `poll` returns there.
 
+## Findings (2026-10-01, 05:30)
+
+- Still fails on `takeover-20260930`: the image entry prints the error before
+  the sign-in screen.
+- Codex is not threaded (`threads@0` is not enabled for the codex image) and
+  is spawned by `/usr/bin/codex` (`demos/codex/launch.c`) as a nested
+  foreground child. A C probe that does the same (nested
+  `dolly_spawn_foreground`, raw mode, pipes set `O_NONBLOCK`, SIGWINCH
+  `SA_RESTART|SA_SIGINFO`, `poll` on fd 0 with 1 ms timeouts, `read`) gets
+  `isatty(0) = 1` and reads a typed key in the default image.
+- A temporary trace of failing process calls while Codex starts shows only
+  expected results: `PATH_OPEN`/`PATH_STAT` `ENOENT`, `PATH_READLINK` `EINVAL`
+  on non-links, `PATH_CREATE_DIRECTORY` `EEXIST`, `FD_READ` `EAGAIN`; no failing
+  `poll` or terminal call. So the `None` is probably produced inside Codex:
+  `TuiEventStream::poll_crossterm_event` also returns `None` when its
+  `resume_stream` ends, and `demos/codex/config/tui-events.patch` replaces the
+  crossterm `EventStream` on Emscripten. Next: log the `EventResult` error or
+  the `resume_stream` end in that patch and rebuild `codex-build`.
+
 Done when: the Codex demo test passes in Chrome.
