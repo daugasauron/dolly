@@ -45,7 +45,11 @@ sequenceDiagram
 - The supervisor caches compiled modules by SHA-256 (64 entries, 256 MiB), never
   instances; at most 32 processes exist at once and further spawns fail `EAGAIN`.
 - An unexpected Worker failure exits the process with status 126 and a one-line
-  diagnostic; it does not affect unrelated processes.
+  diagnostic; it does not affect unrelated processes. `cc`, `c++`, `ld` and `ar`
+  retry that status up to twice
+  ([`runtime-adapter.c`](../src/process/runtime-adapter.c)), so long serial
+  source builds survive a transient browser Worker allocation failure without
+  hiding deterministic source errors.
 
 ## Descriptors and files
 
