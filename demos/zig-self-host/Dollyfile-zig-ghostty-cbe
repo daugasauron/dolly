@@ -1,0 +1,7 @@
+DOLLY 4
+IMAGE zig-ghostty-cbe
+
+FROM HOST /Dollyfile-zig-stage2-hostc 2dd57ce898b08a3f5138d06cdd3c32670672c3abb8b730c2b86607240f828b4b
+USE HOST /modules/zig-ghostty-cbe.dm f7cb56c6f36b19a1081016d49e1440f0254f286b1f2b4ab435690a9d4108dc8d
+
+ENTRY /bin/slop
