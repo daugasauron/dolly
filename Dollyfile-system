@@ -1,7 +1,7 @@
 DOLLY 4
 IMAGE system
 
-FROM HOST /Dollyfile-system-tools cb8e61a5f2d20d4f0176a3be5c3d9b1cd2875144bea3cd27a3ce904146b69eca
+FROM HOST /Dollyfile-system-tools f9a4d794be0fc8b746eef3a43ac240d53053a41620190d7d77411b68447efd8f
 
 REQUIRES HOST display@0
 REQUIRES HOST http@0
@@ -9,22 +9,22 @@ REQUIRES HOST download@0
 REQUIRES HOST upload@0
 REQUIRES HOST snapshot@0
 
-COPY FROM HOST /Dollyfile-ghostty-build f38c959dea5b6dbf692c66993bdf479b88bc17090dc8da6b95071ebb1d99aa42 /usr/lib/libdisplay.so /usr/lib/libdisplay.so
-COPY FROM HOST /Dollyfile-ghostty-build f38c959dea5b6dbf692c66993bdf479b88bc17090dc8da6b95071ebb1d99aa42 /usr/share/fonts/IosevkaTerm-SemiBold.ttf /usr/share/fonts/IosevkaTerm-SemiBold.ttf
-COPY FROM HOST /Dollyfile-ghostty-build f38c959dea5b6dbf692c66993bdf479b88bc17090dc8da6b95071ebb1d99aa42 /usr/share/licenses/ghostty /usr/share/licenses/ghostty
-COPY FROM HOST /Dollyfile-ghostty-build f38c959dea5b6dbf692c66993bdf479b88bc17090dc8da6b95071ebb1d99aa42 /usr/share/licenses/uucode /usr/share/licenses/uucode
+COPY FROM HOST /Dollyfile-ghostty-build 749fc35153b39cb286c0aa55582d98d6d7c71a40647b5d6056f79de138ead24f /usr/lib/libdisplay.so /usr/lib/libdisplay.so
+COPY FROM HOST /Dollyfile-ghostty-build 749fc35153b39cb286c0aa55582d98d6d7c71a40647b5d6056f79de138ead24f /usr/share/fonts/IosevkaTerm-SemiBold.ttf /usr/share/fonts/IosevkaTerm-SemiBold.ttf
+COPY FROM HOST /Dollyfile-ghostty-build 749fc35153b39cb286c0aa55582d98d6d7c71a40647b5d6056f79de138ead24f /usr/share/licenses/ghostty /usr/share/licenses/ghostty
+COPY FROM HOST /Dollyfile-ghostty-build 749fc35153b39cb286c0aa55582d98d6d7c71a40647b5d6056f79de138ead24f /usr/share/licenses/uucode /usr/share/licenses/uucode
 EXPORTS LIB display /usr/lib/libdisplay.so
 EXPORTS ENV DISPLAY /usr/lib/libdisplay.so
 
 # Keep the tools produced by the in-sandbox Rust source builds.
-COPY FROM HOST /Dollyfile-ripgrep 58fb5c720f53ae5dcdbf1c4800842cd8044bb315d7bb94a2c6b235c551af1398 /usr/bin/rg /usr/bin/rg
-COPY FROM HOST /Dollyfile-ripgrep 58fb5c720f53ae5dcdbf1c4800842cd8044bb315d7bb94a2c6b235c551af1398 /usr/share/licenses/ripgrep /usr/share/licenses/ripgrep
-COPY FROM HOST /Dollyfile-ripgrep 58fb5c720f53ae5dcdbf1c4800842cd8044bb315d7bb94a2c6b235c551af1398 /usr/share/dolly/builds/ripgrep.json /usr/share/dolly/builds/ripgrep.json
+COPY FROM HOST /Dollyfile-ripgrep 24bc0eee35e3a0d2d9d3395a025075a264172b3e82521d87ede465519262c501 /usr/bin/rg /usr/bin/rg
+COPY FROM HOST /Dollyfile-ripgrep 24bc0eee35e3a0d2d9d3395a025075a264172b3e82521d87ede465519262c501 /usr/share/licenses/ripgrep /usr/share/licenses/ripgrep
+COPY FROM HOST /Dollyfile-ripgrep 24bc0eee35e3a0d2d9d3395a025075a264172b3e82521d87ede465519262c501 /usr/share/dolly/builds/ripgrep.json /usr/share/dolly/builds/ripgrep.json
 EXPORTS TOOL rg
 
-COPY FROM HOST /Dollyfile-fd-build caffd0a493e16c5c56d25ee4c5e8219a8c586ae9a78fa3f4cc55d7effe0b9de4 /usr/bin/fd /usr/bin/fd
-COPY FROM HOST /Dollyfile-fd-build caffd0a493e16c5c56d25ee4c5e8219a8c586ae9a78fa3f4cc55d7effe0b9de4 /usr/share/licenses/fd /usr/share/licenses/fd
-COPY FROM HOST /Dollyfile-fd-build caffd0a493e16c5c56d25ee4c5e8219a8c586ae9a78fa3f4cc55d7effe0b9de4 /usr/share/dolly/builds/fd.json /usr/share/dolly/builds/fd.json
+COPY FROM HOST /Dollyfile-fd-build 9f0f2ee3bc72425b37d0f5b4774d279e6190bd7f1d0b7a1728f976567a87e8d8 /usr/bin/fd /usr/bin/fd
+COPY FROM HOST /Dollyfile-fd-build 9f0f2ee3bc72425b37d0f5b4774d279e6190bd7f1d0b7a1728f976567a87e8d8 /usr/share/licenses/fd /usr/share/licenses/fd
+COPY FROM HOST /Dollyfile-fd-build 9f0f2ee3bc72425b37d0f5b4774d279e6190bd7f1d0b7a1728f976567a87e8d8 /usr/share/dolly/builds/fd.json /usr/share/dolly/builds/fd.json
 EXPORTS TOOL fd
 
 USE HOST /modules/session-recovery.dm 1329ea6fdc0fa46d717f4e45fde26fd9ab8ff7253045c8757b780c6ef7fc1ee0

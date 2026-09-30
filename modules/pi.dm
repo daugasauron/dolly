@@ -1,11 +1,11 @@
 DOLLY 4
 MODULE pi
 
-COPY FROM HOST /Dollyfile-pi-build 6368594b9d6eff822dd0a1b9843d6847bdf955027df2652773f488569247cf98 /usr/bin/pi /usr/bin/pi
-COPY FROM HOST /Dollyfile-pi-build 6368594b9d6eff822dd0a1b9843d6847bdf955027df2652773f488569247cf98 /usr/lib/pi /usr/lib/pi
-COPY FROM HOST /Dollyfile-pi-build 6368594b9d6eff822dd0a1b9843d6847bdf955027df2652773f488569247cf98 /usr/lib/node_modules /usr/lib/node_modules
-COPY FROM HOST /Dollyfile-pi-build 6368594b9d6eff822dd0a1b9843d6847bdf955027df2652773f488569247cf98 /usr/src/pi-source /usr/src/pi-source
-COPY FROM HOST /Dollyfile-pi-build 6368594b9d6eff822dd0a1b9843d6847bdf955027df2652773f488569247cf98 /usr/share/licenses/pi-source/LICENSE /usr/share/licenses/pi-source/LICENSE
+COPY FROM HOST /Dollyfile-pi-build 612f5cdb84bce2c552d651e74ebf7f8abc1afa101e6cada6af80842fea8cd618 /usr/bin/pi /usr/bin/pi
+COPY FROM HOST /Dollyfile-pi-build 612f5cdb84bce2c552d651e74ebf7f8abc1afa101e6cada6af80842fea8cd618 /usr/lib/pi /usr/lib/pi
+COPY FROM HOST /Dollyfile-pi-build 612f5cdb84bce2c552d651e74ebf7f8abc1afa101e6cada6af80842fea8cd618 /usr/lib/node_modules /usr/lib/node_modules
+COPY FROM HOST /Dollyfile-pi-build 612f5cdb84bce2c552d651e74ebf7f8abc1afa101e6cada6af80842fea8cd618 /usr/src/pi-source /usr/src/pi-source
+COPY FROM HOST /Dollyfile-pi-build 612f5cdb84bce2c552d651e74ebf7f8abc1afa101e6cada6af80842fea8cd618 /usr/share/licenses/pi-source/LICENSE /usr/share/licenses/pi-source/LICENSE
 
 SOURCE HOST /static/default/pi/dolly-tools.js                    /home/dolly/.pi/agent/extensions/dolly-tools.js dcfb60bd010d479c40bd4ad0f91111bc5d3e928794be3eceadd7e516c0e5981f
 SOURCE HOST /static/default/pi/SYSTEM.md                         /home/dolly/.pi/agent/SYSTEM.md                 34ef04d9e0414c95c672b3d9f933a74de0ddad9dba352030b5af842df3820d32
