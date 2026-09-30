@@ -711,7 +711,7 @@ function startServer() {
         );
         return;
       }
-      if (requestUrl.pathname === "/__dolly_build_page" && snapshotExportMode) {
+      if (requestUrl.pathname === "/__dolly_build_page" && (snapshotExportMode || headlessInventory)) {
         response.writeHead(200, { ...isolatedHeaders, "content-type": "text/html; charset=utf-8" });
         response.end('<!doctype html><title>Dolly image build</title><pre id="bootstrap-log"></pre>');
         return;
@@ -1532,12 +1532,11 @@ chrome.stderr.on("data", bytes => { chromeDiagnostics = (chromeDiagnostics + byt
   if (codexLoginMode) await debuggerClient.send("Page.addScriptToEvaluateOnNewDocument", {
     source: `(${codexLoginFetch.toString()})(${JSON.stringify(localOrigin)});`,
   });
-  const initialPage = snapshotExportMode ? new URL("/__dolly_build_page", localOrigin).href
+  const initialPage = snapshotExportMode || headlessInventory ? new URL("/__dolly_build_page", localOrigin).href
     : sourceDownloadMode ? new URL("view/rust-sdk/modules/rust-sdk/", menuPage).href
     : debuggerDisconnectMode ? "about:blank" : customDollyfileMode
       ? new URL("custom/", menuPage).href : menuMode
       ? menuPage
-      : headlessInventory ? interactivePage
       : iterationMode || interactiveBuildProbe || sessionRebuildMode || process.env.DOLLY_BROWSER_MODE === "image-inventory-rebuild"
       ? rebuildPage
       : interactivePage;

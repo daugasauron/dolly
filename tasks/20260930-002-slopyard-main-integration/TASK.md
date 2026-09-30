@@ -98,6 +98,10 @@ Evidence:
   PEP 517 policy/cleanup (`python-browser.log`). RTS Arena passes replay, setup,
   masked paste, model/effort selection and credential persistence. Its selection
   check now waits for menu rendering (`rts-launcher-browser.log`).
+- Packaged inventory checks for GPU images now use the empty build page, so
+  they inspect the restored filesystem without starting the interactive app.
+  Studio passes this check (`studio-inventory.log`); its hardware runtime and
+  compiler-output checks remain separate and passed.
 
 Remaining gates (do not close until verified):
 
