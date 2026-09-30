@@ -3,6 +3,7 @@ import {createServer} from "node:http";
 import {mkdir, readFile} from "node:fs/promises";
 import {chromium} from "playwright-core";
 import {startBrowserServer} from "../../../test/browser-server.mjs";
+import {acceptDownload} from "../../browser.mjs";
 import {createRelayRoom} from "../toolchain/relay.mjs";
 import {hasGameHud} from "./fixtures/0ad-hud.mjs";
 
@@ -104,7 +105,7 @@ try {
   for (const [index, page] of pages.entries()) {
     const submit = command => page.evaluate(command => __dolly.submit(command), command);
     const download = async (path, name) => {
-      const event = page.waitForEvent("download"), running = submit(`download ${path}`);
+      const running = submit(`download ${path}`), event = acceptDownload(page, () => running);
       const file = await event; await file.saveAs(new URL(name, output).pathname);
       assert.equal(await running, 0); return readFile(new URL(name, output), "utf8");
     };

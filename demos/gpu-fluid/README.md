@@ -41,7 +41,7 @@ finite, nonzero evolution. `fluid --bench 512 1080 120` measures 120 steps after
 20 warmups, without frame pacing or the panel; initialization is excluded.
 Append `smoke` or `shaded` to benchmark the volumetric rendering modes.
 
-`node demos/gpu-fluid/test/fluid-browser.mjs` exercises Chrome and Firefox on the desktop and
+`node demos/gpu-fluid/test/gpu-fluid-browser.mjs` exercises Chrome and Firefox on the desktop and
 replays captured upstream shaders, buffers and dispatches in a direct browser
 worker. That comparison retains decoding, WebGPU validation, queue backpressure
 and a DOM-connected canvas, but omits the C program, Dolly transport and host

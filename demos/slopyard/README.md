@@ -414,15 +414,7 @@ The single game [Dollyfile](Dollyfile-slopyard) reuses `gamedev-sdk` and Pi/Java
 the C sources inside Dolly, and runs `slopyard --check` against actual
 Box3D motors in both directions on all three axes, braking under gravity,
 four-wheel driving and reversing on the floor, finite magnet pickup/lift/release,
-overload, removed targets, and 40 seconds of joint/assembly/floor stability. `demos/slopyard/test/slopyard-browser.mjs`
-drives camera controls, the editor, key assignment, export/import, physics
-and restart in Chrome, including a 160-part design.
-`demos/slopyard/test/slopyard-bearings-browser.mjs` exercises every bearing size/axis,
-anchored piston loops, loaded winches, slack, builder controls and save/restore.
-`demos/slopyard/test/slopyard-import-browser.mjs` checks manual/programmed/legacy design
-round trips, restored magnetic loads and cargo credit, corrupt inputs and failed
-writes. Both checks accept a source tar path for compilation inside an existing
-image. The import check optionally accepts an older world file as a third argument.
+overload, removed targets, and 40 seconds of joint/assembly/floor stability.
 `demos/slopyard/test/slopyard-driver-browser.mjs` verifies keyboard steering, the Eyes camera,
 and Lua program import/restart. Pass a source tar path to compile edited code
 inside the existing image. `demos/slopyard/test/slopyard-controller-browser.mjs` accepts a
@@ -430,18 +422,8 @@ C fixture path; `demos/slopyard/test/fixtures/slopyard-mechanics.c` checks obser
 programmable cargo ownership/scoring, long cables and saved-world continuation.
 `demos/slopyard/test/fixtures/slopyard-traffic.c` replays a loaded barge pinned against a
 patrol boat and requires physical escape and island delivery after a reload.
-`demos/slopyard/test/slopyard-spectator-browser.mjs` checks ride-along Eyes against actual
-block poses while character programs continue, camera switching and leaving
-the view with WASD. It also accepts a source tar for compilation in Dolly.
-`demos/slopyard/test/slopyard-session-browser.mjs` checks the visible browser save workflow,
-real refresh restoration, modal input isolation and retention after storage failure.
-`demos/slopyard/test/slopyard-agent-browser.mjs` checks direct C calls, actual GPU PNGs,
-exact trial timing, controller timeout containment, surviving creatures and
-world restoration. Set `SLOPYARD_RELAY_CONFIG` to a private relay config path
-to exercise real Astra inference instead. That optional run uses port 19199;
-include `http://127.0.0.1:19199` in the relay's exact allowed origins.
-On this Linux machine it can run under `xvfb-run -a` with the NVIDIA Vulkan
-adapter, without opening a window on the desktop.
+Both need a GPU; on this Linux machine they can run under `xvfb-run -a` with the
+NVIDIA Vulkan adapter, without opening a window on the desktop.
 
 ## Sources
 

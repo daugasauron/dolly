@@ -2,6 +2,9 @@ import assert from 'node:assert/strict';
 import {mkdir,readFile,writeFile} from 'node:fs/promises';
 import {chromium,firefox} from 'playwright-core';
 import {startBrowserServer} from '../../../test/browser-server.mjs';
+import {acceptDownload} from '../../browser.mjs';
+
+if(!process.env.DISPLAY){console.log('local-llm: skipped, it needs a GPU window on DISPLAY');process.exit(0);}
 
 const root=new URL('../../../',import.meta.url).pathname;
 const output=new URL('../../../build/llm-proof/',import.meta.url);
@@ -49,7 +52,7 @@ try {
       let status;try{status=await running;}finally{clearInterval(progress);}
       assert.equal(status,0,await text());
       assert.match(await text(),/LOCAL-LLM-PROOF-OK/);
-      const download=page.waitForEvent('download');const downloading=submit('download /workspace/local-llm-proof.json');
+      const downloading=submit('download /workspace/local-llm-proof.json'),download=acceptDownload(page,()=>downloading);
       const file=await download;const resultPath=new URL(`${name}.json`,output).pathname;
       await file.saveAs(resultPath);assert.equal(await downloading,0);await page.waitForTimeout(200);
       const result=JSON.parse(await readFile(resultPath,'utf8'));
