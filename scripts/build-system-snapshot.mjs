@@ -1,7 +1,6 @@
 #!/usr/bin/env node
 
 import { spawn } from "node:child_process";
-import { createHash } from "node:crypto";
 import { readFile, rename, rm, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 
@@ -25,13 +24,6 @@ if (process.argv.length > 3 || (process.argv[2] !== undefined && !planOnly)) {
 }
 const started = performance.now();
 const loadGraph = createDollyfileGraphLoader(projectDir);
-const snapshotBrowserProfile = process.env.DOLLY_BROWSER_PROFILE ??
-  resolve(projectDir, ".cache/snapshot-browser-profile");
-const snapshotBrowserPort = process.env.DOLLY_BROWSER_PORT ?? String(
-  20_000 + (Number.parseInt(
-    createHash("sha256").update(projectDir).digest("hex").slice(0, 8), 16,
-  ) % 20_000),
-);
 const definitions = await selectImageDefinitions(await discoverImageDefinitions(projectDir));
 const graphs = new Map(await Promise.all(definitions.map(async (definition) => [
   definition.image,
@@ -67,17 +59,8 @@ function expectedModules(image) {
 
 function runSnapshotBuild(image, output) {
   return new Promise((resolveBuild, reject) => {
-    const child = spawn(resolve(projectDir, "scripts/test-browser.sh"), [], {
-      cwd: projectDir,
-      env: {
-        ...process.env,
-        DOLLY_BROWSER_MODE: "snapshot-export",
-        DOLLY_BROWSER_PROFILE: snapshotBrowserProfile,
-        DOLLY_BROWSER_PORT: snapshotBrowserPort,
-        DOLLY_IMAGE: image,
-        DOLLY_SNAPSHOT_OUTPUT: output,
-      },
-      stdio: "inherit",
+    const child = spawn(process.execPath, [resolve(projectDir, "scripts/build-snapshot-browser.mjs"), image, output], {
+      cwd: projectDir, stdio: "inherit",
     });
     child.once("error", reject);
     child.once("exit", (status, signal) => {
