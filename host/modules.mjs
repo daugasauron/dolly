@@ -94,7 +94,7 @@ export async function createHost(side, enabled, { send, resources = {}, configur
   return {
     get, options, transfers, configuration: config,
     enabled: [...instances.keys()].map(name => `${name}@${byName.get(name).contract.version}`),
-    unavailable: Object.fromEntries(reasons), require: requireModules, dispose,
+    require: requireModules, dispose,
     // The Worker calls this after restoring the system image and before starting
     // image-phase modules, in registry order.
     async imageRestored(context) {
