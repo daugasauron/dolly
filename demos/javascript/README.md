@@ -46,3 +46,5 @@ programs; `typescript-build` compiles them headless on `system-tools` and
 - `os.cpus`, `os.totalmem`/`freemem` and `process.memoryUsage` fail with
   `ENOSYS`. `chmod` reaches the kernel, which checks the path and changes nothing.
 - `redirect: "manual"` is rejected; response chunks are buffered eagerly.
+
+Test: `npm run test:demos -- javascript` ([`test/`](test/)).

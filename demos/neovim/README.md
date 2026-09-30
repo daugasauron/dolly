@@ -24,3 +24,5 @@ Ctrl+C is Dolly's process interrupt, not an insert-mode exit.
 ## Limits
 
 - No PTY `:terminal`, tmux, detached jobs, raw sockets, threads or LuaJIT FFI.
+
+Test: `npm run test:demos -- neovim` ([`test/`](test/)).

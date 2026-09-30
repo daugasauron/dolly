@@ -158,24 +158,6 @@ await check('unsupported child options fail explicitly', async () => {
       `unsupported options accepted: ${JSON.stringify(options)}`);
   }
 });
-if (fs.existsSync('/home/dolly/.pi/agent/extensions/dolly-tools.js')) await check('Pi shell tool and user shell operations stream and cancel Slop', async () => {
-  await import('/usr/lib/node_modules/@earendil-works/pi-coding-agent/dist/main.js');
-  const { default: install, slop } = await import('/home/dolly/.pi/agent/extensions/dolly-tools.js');
-  const tools = new Map();
-  install({ on() {}, registerTool: tool => tools.set(tool.name, tool) });
-  const context = { cwd: root, sessionManager: { getSessionId: () => 'probe', getSessionFile() {} } };
-  const command = 'printf prefix; /bin/sleep 5';
-  const started = Date.now();
-  let error;
-  try { await tools.get('bash').execute('probe', { command }, AbortSignal.timeout(1000), undefined, context); }
-  catch (value) { error = value; }
-  assert(error?.message === 'prefix\n\nCommand aborted' && Date.now() - started < 4000, `Pi shell tool did not cancel: ${error}`);
-  let output = '';
-  error = undefined;
-  try { await slop.exec(command, root, { signal: AbortSignal.timeout(1000), onData: data => { output += data; } }); }
-  catch (value) { error = value; }
-  assert(output === 'prefix' && error?.message === 'aborted', `Pi user shell did not stream/cancel: ${error}`);
-});
 await check('execSync returns exact binary stdout without an encoding', async () => {
   const bytes = Buffer.from([0, 255, 0xe3, 0x81, 10]);
   fs.writeFileSync(`${root}/binary`, bytes);
@@ -221,16 +203,13 @@ await check('fetch preserves binary uploads, byte views and queued input ownersh
   assert(actual.every((byte, index) => byte === bytes[index]), 'queued fetch borrowed mutable input');
   assert(typeof Dolly.http === 'undefined', 'unused synchronous HTTP adapter remains');
 });
-await check('HTTP process upload limit includes UTF-8 metadata and packet header', async () => {
+await check('uploads larger than a process packet are staged; the body limit applies before dispatch', async () => {
   const url = `${origin}/fixture/bytes`;
-  const headers = { 'x-byte-test': 'metadata' };
-  const capacity = 1024 * 1024 - 24 - new TextEncoder().encode(`POST${url}x-byte-test: metadata\r\n`).length;
-  const body = new Uint8Array(capacity).fill(0xa5);
-  const response = await fetch(url, { method: 'POST', headers, body });
-  const actual = new Uint8Array(await response.arrayBuffer());
-  assert(actual.length === capacity && actual.every(byte => byte === 0xa5), 'exact packet-limit upload failed');
+  const body = new Uint8Array(1024 * 1024 + 1).fill(0xa5);
+  const actual = new Uint8Array(await (await fetch(url, { method: 'POST', body })).arrayBuffer());
+  assert(actual.length === body.length && actual.every(byte => byte === 0xa5), 'staged upload changed bytes');
   let error;
-  try { await fetch(url, { method: 'POST', headers, body: new Uint8Array(capacity + 1) }); }
+  try { await fetch(url, { method: 'POST', body: new Uint8Array(8 * 1024 * 1024 + 1) }); }
   catch (value) { error = value; }
   assert(error?.code === 'E2BIG' && error.requestId === 0, 'oversize upload was not rejected before dispatch');
 });

@@ -1,11 +1,12 @@
 import assert from "node:assert/strict";
 import { mkdir, writeFile } from "node:fs/promises";
-import { shellQuote } from "../../../../test/fixtures/slop-cases.mjs";
+import { shellQuote } from "../../../browser.mjs";
 
 // Upstream tui/input_boundary.rs discards input for up to one second after protected screens draw.
 export const codexProtectedInputDelay = 1100;
 
-export async function runCodexTui(send, evaluate, origin) {
+export async function runCodexTui(page, origin) {
+  const evaluate = expression => page.evaluate(expression);
   const pause = ms => new Promise(resolve => setTimeout(resolve, ms));
   const submit = command => evaluate(`window.__dolly.submit(${JSON.stringify(command)})`);
   const run = async command => assert.equal(await submit(command), 0, command);
@@ -39,7 +40,7 @@ stream_max_retries = 0
   await run(`printf ${shellQuote(config.replaceAll("\n", "\\n"))} > ~/.codex/config.toml`);
   await run("codex --version > /tmp/codex-version && grep -q '^codex-cli ' /tmp/codex-version && cmp ~/.codex/installation_id /tmp/codex-id");
   await run("mkdir -p /workspace/codex-demo; cd /workspace/codex-demo");
-  await send("Emulation.setDeviceMetricsOverride", { width: 1440, height: 1100, deviceScaleFactor: 1, mobile: false });
+  await page.setViewportSize({ width: 1440, height: 1100 });
   await run("clear");
   const running = submit("codex --no-alt-screen");
   async function waitText(pattern) {
@@ -76,8 +77,7 @@ stream_max_retries = 0
   assert.match(text, /└ DOLLY-CODEX-TOOL-PROOF/);
   await mkdir("build/codex-tui-check", { recursive: true });
   await writeFile("build/codex-tui-check/terminal.txt", text);
-  const { data } = await send("Page.captureScreenshot", { format: "png" });
-  await writeFile("build/codex-tui-check/screenshot.png", Buffer.from(data, "base64"));
+  await page.screenshot({ path: "build/codex-tui-check/screenshot.png" });
   await input("/status");
   await key("Enter");
   await waitText(/Dolly test fixture/);

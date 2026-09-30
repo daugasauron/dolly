@@ -44,3 +44,5 @@ never overwrites), then `pi --provider claude-local --model claude-sonnet-5-5`.
 - Image resizing is off: Photon needs nested WebAssembly.
 - OAuth logins depend on the provider's CORS; there is no callback listener.
 - No PTY: run `nvim` from Slop, not from Pi's shell tool.
+
+Test: `npm run test:demos -- pi` ([`test/`](test/)).

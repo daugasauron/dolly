@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { readFile, writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
+import { acceptDownload } from '../../../browser.mjs';
 import { firstAttempt } from './bhop-provider.mjs';
 const delay=ms=>new Promise(resolve=>setTimeout(resolve,ms));
 
@@ -15,7 +16,7 @@ export async function runBhopAgentProof({page,projectDir,fixture,modelsFile,down
     const name='bhop-probe';await __dolly.saveSession(name);
     const url=performance.getEntriesByType('resource').find(e=>e.name.endsWith('/src/browser.mjs')).name;
     const store=await import(new URL('session-store.mjs',url));
-    const buffer=await store.decodeSessionSnapshot(await store.loadStoredSession(name));await store.deleteStoredSession(name);
+    const buffer=(await store.decodeSessionSnapshot(await store.loadStoredSession(name))).slice(0);await store.deleteStoredSession(name);
     document.querySelector('#session-status').style.display='none';
     const bytes=new Uint8Array(buffer),view=new DataView(buffer),decode=new TextDecoder(),result={events:[],attempts:{},profile:{},game:{}};let offset=16;
     for(let n=0;n<view.getUint32(12,true);n++) {
@@ -111,9 +112,7 @@ export async function runBhopAgentProof({page,projectDir,fixture,modelsFile,down
   await key('Escape');await delay(150);await key('Tab');
   await state(s=>s.game.owner===0&&s.profile['ui.conf'].includes('interface=1'),'review controls visible');
   await page.waitForFunction(()=>!__dolly.transport.relativePointerRequested()&&!document.pointerLockElement);
-  const downloaded=page.waitForEvent('download',{timeout:60000});
-  await click(770,66);await shot('exporting');console.log('browser: bhop cancellation passed; exporting attempt replay');
-  const download=await downloaded;
+  const download=await acceptDownload(page,()=>click(770,66));
   assert.equal(await download.failure(),null);
   const replayPath=resolve(downloadDirectory,'bhop-attempts.html');await download.saveAs(replayPath);
   const replay=await readFile(replayPath,'utf8');assert.doesNotMatch(replay,/sk-or-v1-|Bearer /);
@@ -138,8 +137,7 @@ export async function runBhopAgentProof({page,projectDir,fixture,modelsFile,down
   assert.deepEqual(restored.profile,s.profile);assert.deepEqual(restored.attempts,s.attempts);
   assert.equal(await page.evaluate(()=>__dolly.httpRequestCount),0,'restore does not start inference');
   await shot('restored');
-  const savedDownload=page.waitForEvent('download',{timeout:60000});await click(770,66);
-  const savedReplay=await savedDownload;assert.equal(await savedReplay.failure(),null);
+  const savedReplay=await acceptDownload(page,()=>click(770,66));assert.equal(await savedReplay.failure(),null);
   const savedPath=resolve(downloadDirectory,'bhop-restored-attempts.html');await savedReplay.saveAs(savedPath);
   const savedHTML=await readFile(savedPath,'utf8');assert.equal(savedHTML,replay,'restored attempts remain available through the review button');
   if(fixture) {

@@ -40,3 +40,5 @@ Open `/rts-arena/`; build with `npm run image -- rts-arena`.
 - Recordings are not portable across game builds.
 - Process packets are limited to 1 MiB, so very long conversations can outgrow a
   request.
+
+Test: `npm run test:demos -- rts` ([`test/`](test/)).

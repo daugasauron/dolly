@@ -44,3 +44,5 @@ Open `/slopyard/`; build with `npm run image -- slopyard`. Slopyard needs
 - An unfinished experiment.
 - Winch cables do not collide with terrain.
 - Walking after rescue and repeated combat rounds are incomplete.
+
+Test: `npm run test:demos -- slopyard` ([`test/`](test/)).

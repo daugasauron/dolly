@@ -34,3 +34,5 @@ stirring, Q or Escape returns to Slop. `fluid --check` verifies the solver;
   headless/Xvfb in testing; compute success alone does not prove rendering.
 - GPU pass timestamps exclude copies, transport and CPU work; they are not frame
   latency.
+
+Test: `npm run test:demos -- gpu-fluid` ([`test/`](test/)).

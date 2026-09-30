@@ -53,9 +53,18 @@ try {
   await wait(() => label().includes("Replay complete"), "both full native replays", 600);
   assert(!closed, "viewer remains open at EOF for review");
   assert(frames().every(frame => frame === 27741), `both panes display the final native frame: ${frames()}`);
+  // Every recorded event reached its pane: the trace format may have changed since recording.
+  const { replayTimeline } = await import("/usr/src/dolly/rts/spectator/replay.mjs");
+  const { traceText } = await import("/usr/src/dolly/rts/spectator/trace.mjs");
+  const recorded = name => fs.readFileSync(`${match}/${name}`, "utf8");
+  const expected = ["", ""];
+  for (const event of replayTimeline(JSON.parse(recorded("match.json")), [1, 2].map(index =>
+    recorded(`player${index}.events.jsonl`).trim().split("\n").map(JSON.parse))).events) {
+    expected[event.player - 1] = (expected[event.player - 1] + traceText(event)).slice(-16000);
+  }
   for (const index of [1, 2]) {
     const trace = fs.readFileSync(`${scratch}/player${index}.txt`, "utf8");
-    assert(trace === fs.readFileSync(`${match}/player${index}.txt`, "utf8"), `player ${index} final trace matches recording`);
+    assert(trace === expected[index - 1], `player ${index} final trace shows every recorded event`);
     assert(fs.readFileSync(`${match}/player${index}-game/NONAME.RPL`).equals(originals[index - 1]), "source replay is unchanged");
   }
   console.log(`replay-proof: EOF verified frames=${frames().join(",")}; traces match`);

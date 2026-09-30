@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import {mkdir,readFile} from 'node:fs/promises';
 import {chromium,firefox} from 'playwright-core';
 import {startBrowserServer} from '../../../test/browser-server.mjs';
+import {acceptDownload} from '../../browser.mjs';
 import {hasGameHud} from './fixtures/0ad-hud.mjs';
 
 const root=new URL('../../../',import.meta.url).pathname;
@@ -105,7 +106,7 @@ try {
   await page.evaluate(()=>__dolly.waitForInteractiveTerminal(/dolly:[^\n]*\$\s*$/,'menu check shell'));
   const submit=command=>page.evaluate(text=>__dolly.submit(text),command);
   const download=async(path,name)=>{
-    const event=page.waitForEvent('download'),running=submit('download '+path);
+    const running=submit('download '+path),event=acceptDownload(page,()=>running);
     const file=await event;await file.saveAs(`${output}/${name}`);assert.equal(await running,0);
     return readFile(`${output}/${name}`,'utf8');
   };

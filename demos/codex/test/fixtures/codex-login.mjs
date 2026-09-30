@@ -24,7 +24,7 @@ export const codexLoginRules = [
     .map(path => ({ origin: backend, path, methods: [path.endsWith("/responses") ? "POST" : "GET"], credentialHeaders: ["authorization"] })),
 ];
 
-// Installed only by the test harness, after broker admission. Production URLs
+// Installed only by the browser test, after broker admission. Production URLs
 // remain visible to Codex and the policy; a local service supplies synthetic OAuth.
 export function codexLoginFetch(origin) {
   const nativeFetch = globalThis.fetch.bind(globalThis);
@@ -133,7 +133,8 @@ export function createCodexLoginFixture() {
   };
 }
 
-export async function runCodexLogin(send, evaluate, fixture) {
+export async function runCodexLogin(page, fixture) {
+  const evaluate = expression => page.evaluate(expression);
   const pause = ms => new Promise(resolve => setTimeout(resolve, ms));
   const submit = command => evaluate(`window.__dolly.submit(${JSON.stringify(command)})`);
   const run = async command => assert.equal(await submit(command), 0, command);
@@ -155,7 +156,7 @@ export async function runCodexLogin(send, evaluate, fixture) {
     }
     throw Error(`Codex did not show ${pattern}: ${text}`);
   }
-  await send("Emulation.setDeviceMetricsOverride", { width: 1440, height: 1100, deviceScaleFactor: 1, mobile: false });
+  await page.setViewportSize({ width: 1440, height: 1100 });
   await run("mkdir -p /workspace/codex-demo; cd /workspace/codex-demo");
   await run("clear");
   let running = submit("codex --no-alt-screen -m gpt-5.5");

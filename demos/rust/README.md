@@ -47,3 +47,5 @@ patti build --offline --manifest-path project/Cargo.toml --bin program
   application threads, dynamic Rust libraries, tests or benchmarks.
 - Git dependencies need an explicit `--patch`. Target patches live in
   [`config/patches/`](config/patches/).
+
+Test: `npm run test:demos -- rust` ([`test/`](test/)).

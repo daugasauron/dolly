@@ -3,6 +3,8 @@ import {mkdir,readFile,writeFile} from 'node:fs/promises';
 import {chromium,firefox} from 'playwright-core';
 import {startBrowserServer} from '../../../test/browser-server.mjs';
 
+if(!process.env.DISPLAY){console.log('gpu-fluid: skipped, it needs a GPU window on DISPLAY');process.exit(0);}
+
 // Instrument only this test server: nested Worker loads are not reliably routed
 // by Playwright. Record accepted copies, then turn recording off for timings.
 const original=await readFile(new URL('../../../host/gpu/worker.mjs',import.meta.url),'utf8');

@@ -3,19 +3,20 @@ import fs from 'node:fs/promises';
 import assert from 'node:assert/strict';
 import {chromium} from 'playwright-core';
 import {startBrowserServer} from '../../../test/browser-server.mjs';
+import {acceptDownload} from '../../browser.mjs';
 const output='build/slopyard-driver';await fs.mkdir(output,{recursive:true});
 const site=await startBrowserServer(process.cwd(),'slopyard');
 const browser=await chromium.launch({channel:'chrome',headless:false,args:['--no-sandbox','--ozone-platform=x11','--enable-unsafe-webgpu','--use-angle=vulkan','--enable-features=Vulkan,VulkanFromANGLE']});
 const page=await browser.newPage({viewport:{width:1280,height:720},acceptDownloads:true}),errors=[];page.setDefaultTimeout(60000);page.on('pageerror',e=>errors.push(e.message));
 const command=s=>page.evaluate(s=>__dolly.submit(s),s),shell=()=>page.evaluate(()=>__dolly.waitForInteractiveTerminal(/dolly:[^\n]*\$\s*$/,'shell'));
 async function upload(path,dest){const run=command('upload '+dest);await page.waitForSelector('#file-upload[open]');await page.locator('#file-upload input').setInputFiles(path);assert.equal(await run,0);}
-async function download(name){const event=page.waitForEvent('download'),run=command('download /workspace/'+name);await(await event).saveAs(output+'/'+name);assert.equal(await run,0);return parseLua(await fs.readFile(output+'/'+name,'utf8'));}
+async function download(name){const run=command('download /workspace/'+name),event=acceptDownload(page,()=>run);await(await event).saveAs(output+'/'+name);assert.equal(await run,0);return parseLua(await fs.readFile(output+'/'+name,'utf8'));}
 const frames=async()=>{const n=await page.evaluate(()=>__dolly.gpu.stats.frames);await page.waitForFunction(n=>__dolly.gpu.stats.frames>n+8,n);};
 async function start(){const n=await page.evaluate(()=>__dolly.gpu.stats.frames),run=command('slopyard --integration-check');run.catch(()=>{});await page.waitForFunction(n=>__dolly.gpu?.active&&__dolly.gpu.stats.frames>n+10,n);return {run};}
 async function finish({run},driving=false){if(driving){await page.keyboard.press('Escape');await frames();}await page.keyboard.press('Escape');assert.equal(await run,0);await shell();}
 async function hold(keys,ms){for(const k of keys)await page.keyboard.down(k);const start=Date.now();await page.waitForTimeout(ms);const end=Date.now();for(const k of keys)await page.keyboard.up(k);await frames();return {start,end};}
 async function importProgram(file){await page.mouse.click(845,170);await page.waitForSelector('#file-upload[open]');await page.locator('#file-upload input').setInputFiles(file);await frames();}
-async function exportProgram(name){const event=page.waitForEvent('download');await page.mouse.click(700,170);await(await event).saveAs(output+'/'+name);await frames();return fs.readFile(output+'/'+name,'utf8');}
+async function exportProgram(name){const event=acceptDownload(page,()=>page.mouse.click(700,170));await(await event).saveAs(output+'/'+name);await frames();return fs.readFile(output+'/'+name,'utf8');}
 try{
  await page.goto(site.origin+'/slopyard/');await page.waitForFunction(()=>globalThis.__dolly?.gpu?.stats?.frames>20);await page.keyboard.press('Escape');await shell();
  if(process.argv[2]){await upload(process.argv[2],'/tmp/playground.tar');assert.equal(await command('tar -xf /tmp/playground.tar -C /'),0);}

@@ -10,7 +10,7 @@ async function upload(local,target){const running=command('upload '+target);awai
 try{
  await p.goto(site.origin+'/slopyard/');await p.waitForFunction(()=>globalThis.__dolly?.gpu?.stats?.frames>20,null,{timeout:60000});await p.keyboard.press('Escape');await p.evaluate(()=>__dolly.waitForInteractiveTerminal(/dolly:[^\n]*\$\s*$/,'shell'));
  await upload(process.argv[2]||'demos/slopyard/test/fixtures/slopyard-controllers.c','/tmp/controller-probe.c');await upload('build/slopyard-controller-source.tar','/tmp/controller-source.tar');assert.equal(await command('tar -xf /tmp/controller-source.tar -C /'),0);
- const recipe=await readFile('modules/slopyard.dm','utf8');const compile=recipe.split('\n').find(s=>s.startsWith('SLOP cc ')).slice(5).replace('/usr/src/dolly/slopyard/main.c','-I /usr/src/dolly/slopyard /tmp/controller-probe.c').replace(' /usr/src/dolly/slopyard/world.c','').replace('-o /usr/bin/slopyard','-o /tmp/controller-probe');
+ const recipe=await readFile('demos/slopyard/slopyard.dm','utf8');const compile=recipe.split('\n').find(s=>s.startsWith('SLOP cc ')).slice(5).replace('/usr/src/dolly/slopyard/main.c','-I /usr/src/dolly/slopyard /tmp/controller-probe.c').replace(' /usr/src/dolly/slopyard/world.c','').replace('-o /usr/bin/slopyard','-o /tmp/controller-probe');
  assert.equal(await command(compile),0);assert.equal(await command('/tmp/controller-probe'),0);
  assert.equal(await p.evaluate(()=>__dolly.httpRequestCount),0);
  console.log(await p.evaluate(()=>__dolly.visibleTerminalText()));

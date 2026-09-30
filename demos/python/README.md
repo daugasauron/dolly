@@ -35,3 +35,5 @@ Open `/python/`; build with `npm run image -- python`.
 - NumPy 2.5.2 and Pandas 3.0.5 build from source; other native packages may not.
   NumPy uses Meson's debug, no-CPU-optimization build to fit the compiler budget.
 - No full resolver backtracking.
+
+Test: `npm run test:demos -- python` ([`test/`](test/)).

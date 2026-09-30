@@ -10,3 +10,5 @@ ClassiCube, Seven Kingdoms and Airtime build on it.
 `sdl2-build` compiles the pinned release inside Dolly ([`sdl2.dm`](sdl2.dm)) with
 the backend in [`SDL_dollyvideo.c`](SDL_dollyvideo.c) and
 [`sdl2-dolly.patch`](sdl2-dolly.patch). Audio and thread creation are unavailable.
+
+Test: `npm run test:demos -- sdl2` ([`test/`](test/)).

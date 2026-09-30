@@ -187,8 +187,11 @@ await check("createReadStream reads inclusive byte ranges", async () => {
   equal(await read({ start: 8 }), "89");
   equal(await read("utf8"), "0123456789");
 });
-await check("permission changes fail explicitly; access modes and copy errors come from the substrate", () => {
-  rejects(() => fs.chmodSync(`${root}/target`, 0o600), "ENOSYS");
+await check("chmod, access modes and copy errors come from the substrate", () => {
+  const mode = fs.statSync(`${root}/target`).mode;
+  fs.chmodSync(`${root}/target`, 0o600);
+  equal(fs.statSync(`${root}/target`).mode, mode);
+  rejects(() => fs.chmodSync(`${root}/absent`, 0o600), "ENOENT");
   fs.accessSync(`${root}/target`, fs.constants.R_OK | fs.constants.W_OK);
   rejects(() => fs.accessSync(`${root}/target`, 8), "EINVAL");
   rejects(() => fs.copyFileSync(`${root}/absent`, `${root}/copy`), "ENOENT");

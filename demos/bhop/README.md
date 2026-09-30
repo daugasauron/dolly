@@ -35,3 +35,5 @@ Open `/bhop/`; build with `npm run image -- bhop`.
 - No task duration or cost cap; the agent retries five seconds after finishing
   until you interrupt it.
 - HTML attempt exports use the 64 MiB download limit.
+
+Test: `npm run test:demos -- bhop` ([`test/`](test/)).

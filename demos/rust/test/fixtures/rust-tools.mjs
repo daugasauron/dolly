@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { shellQuote } from "../../../../test/fixtures/slop-cases.mjs";
+import { shellQuote } from "../../../browser.mjs";
 
 export const rustToolSources = {
   "macro.rs": "demos/rust/test/fixtures/rust/macro.rs",
@@ -14,7 +14,7 @@ export async function runRustTools(submit, origin) {
   try {
     await run(`cd ${root}`);
     for (const name of Object.keys(rustToolSources)) {
-      await run(`curl -fsS ${origin}/fixture/rust/${name} -o ${name}`);
+      await run(`curl -fsS ${origin}/fixture/${name} -o ${name}`);
     }
     await run("rustc --crate-name tiny_macro --crate-type proc-macro macro.rs -o tiny_macro.wasm");
     await run("rustc macro-library.rs --edition=2021 --crate-name macro_library --crate-type rlib --extern tiny_macro=tiny_macro.wasm -o libmacro_library.rlib");

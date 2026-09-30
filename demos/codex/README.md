@@ -39,3 +39,5 @@ the TUI returns to Slop; `codex` starts it again.
 - No native sockets, fork hooks, application threads, file locks or clipboard.
   Socket-based clients such as HTTP MCP are unsupported.
 - SQLite uses one connection without WAL. TUI sessions are ephemeral.
+
+Test: `npm run test:demos -- codex` ([`test/`](test/)).
