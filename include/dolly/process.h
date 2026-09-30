@@ -10,9 +10,9 @@ extern "C" {
 
 /*
  * The packet contract behind abi/dolly-process-0.wat. The ABI identity hashes
- * this header with comments and whitespace removed: every constant and layout
- * below is part of it, while prose is not. scripts/generate-abi-constants.mjs
- * derives the JavaScript constants from the same declarations.
+ * the exact bytes of this header, so any edit changes executable identity.
+ * scripts/generate-abi-constants.mjs derives the JavaScript constants from
+ * the same declarations.
  */
 #define DOLLY_PROCESS_ABI_VERSION 0u
 #define DOLLY_PROCESS_PACKET_LIMIT (1024u * 1024u)

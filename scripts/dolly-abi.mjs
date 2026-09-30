@@ -261,17 +261,10 @@ export async function stampProcesses(contractPath, processPaths) {
   }
 }
 
-// Comments and formatting are prose, not layout: hash only the declarations.
-export function normalizedContractSource(path, text) {
-  const comments = path.endsWith(".wat") ? /;;[^\n]*/g : /\/\*[\s\S]*?\*\/|\/\/[^\n]*/g;
-  return text.replace(comments, " ").replace(/\s+/g, " ").trim();
-}
-
+// The exact source bytes, so any change to them changes executable identity.
 export async function layoutDigest(sourcePaths) {
   const hash = createHash("sha256");
-  for (const path of sourcePaths) {
-    hash.update(`${normalizedContractSource(String(path), await readFile(path, "utf8"))}\n`);
-  }
+  for (const path of sourcePaths) hash.update(await readFile(path));
   return new Uint8Array(hash.digest());
 }
 
