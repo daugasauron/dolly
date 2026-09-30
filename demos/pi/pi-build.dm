@@ -23,7 +23,7 @@ SOURCE HOST /static/default/pi-source.tar                        /tmp/pi/pi-sour
 SOURCE HOST /static/default/pi-generated-model-data.tar          /tmp/pi/pi-generated-model-data.tar             46d06b81f8ca1396981dc30c709aff2c702d83ca0d89ac0db5ebc95767ed22a6
 SOURCE HOST /static/default/pi-runtime-packages.tar              /tmp/pi/pi-runtime-packages.tar                 e395b7d88cbcc3afa020437507b309cc37a6f0b0645e038842a304a6aa6d2998
 SOURCE HOST /static/default/pi-tsconfig.dolly.json               /tmp/pi/tsconfig.dolly.json                     5b810ca0942889c635e7675a2945578d6d02d1be6dba98bb860269882d2ea825
-SOURCE HOST /static/default/pi-quickjs-compat.mjs                /tmp/pi/quickjs-compat.mjs                      4bb0c0fc355abfd0a501378d6f5ad1342164c9014d807dd59b60c95861598f6a
+SOURCE HOST /static/default/pi-quickjs-compat.mjs                /tmp/pi/quickjs-compat.mjs                      c6ec3dbec10ba7bab56b94292292d493bc730d34171d904a4a972a150a991f49
 SOURCE HOST /static/default/commands/pi.c                        /tmp/pi/pi.c                                    2296ec09e6b95b0d0dd065f806138e48eaad855d77d6366adfdfc33d720da98e
 
 SLOP tar \

@@ -2,21 +2,21 @@ DOLLY 4
 IMAGE bhop
 
 FROM HOST /Dollyfile-gamedev-sdk 38fb8293a6377ef7735c737c600bd6cb90346d1a24ff2c332821dda6f1602867
-COPY FROM HOST /Dollyfile-javascript 8949b2093859d5ac37aa2827651d419598f00d4d6dee2d16f2f2bf616fd66b8b /usr/lib/libdolly-js.a /usr/lib/libdolly-js.a
-COPY FROM HOST /Dollyfile-javascript 8949b2093859d5ac37aa2827651d419598f00d4d6dee2d16f2f2bf616fd66b8b /usr/include/quickjs.h /usr/include/quickjs.h
-COPY FROM HOST /Dollyfile-javascript 8949b2093859d5ac37aa2827651d419598f00d4d6dee2d16f2f2bf616fd66b8b /usr/include/dolly/quickjs-runner.h /usr/include/dolly/quickjs-runner.h
-COPY FROM HOST /Dollyfile-javascript 8949b2093859d5ac37aa2827651d419598f00d4d6dee2d16f2f2bf616fd66b8b /usr/lib/dolly/node.js /usr/lib/dolly/node.js
-COPY FROM HOST /Dollyfile-javascript 8949b2093859d5ac37aa2827651d419598f00d4d6dee2d16f2f2bf616fd66b8b /usr/lib/janis/runtime.js /usr/lib/janis/runtime.js
+COPY FROM HOST /Dollyfile-javascript fa636694182f7f7977c5ccf930750af705ef3d92fb6e3b251dda8fa53fca661c /usr/lib/libdolly-js.a /usr/lib/libdolly-js.a
+COPY FROM HOST /Dollyfile-javascript fa636694182f7f7977c5ccf930750af705ef3d92fb6e3b251dda8fa53fca661c /usr/include/quickjs.h /usr/include/quickjs.h
+COPY FROM HOST /Dollyfile-javascript fa636694182f7f7977c5ccf930750af705ef3d92fb6e3b251dda8fa53fca661c /usr/include/dolly/quickjs-runner.h /usr/include/dolly/quickjs-runner.h
+COPY FROM HOST /Dollyfile-javascript fa636694182f7f7977c5ccf930750af705ef3d92fb6e3b251dda8fa53fca661c /usr/lib/dolly/node.js /usr/lib/dolly/node.js
+COPY FROM HOST /Dollyfile-javascript fa636694182f7f7977c5ccf930750af705ef3d92fb6e3b251dda8fa53fca661c /usr/lib/janis/runtime.js /usr/lib/janis/runtime.js
 EXPORTS LIB dolly-js /usr/lib/libdolly-js.a
 EXPORTS HEADER quickjs /usr/include/quickjs.h
 EXPORTS HEADER quickjs-runner /usr/include/dolly/quickjs-runner.h
-USE HOST /modules/pi.dm 59fa1c157c7c5ad56d7cacf66b15140961a023f8e452e2abb172aa54deddff1f
-COPY FROM HOST /Dollyfile-sdl2-build 3dd199843ed339387856c0bb9db55cb8a1de77d8357c7dd4f76828504af7d8e7 /usr/include/SDL2 /usr/include/SDL2
-COPY FROM HOST /Dollyfile-sdl2-build 3dd199843ed339387856c0bb9db55cb8a1de77d8357c7dd4f76828504af7d8e7 /usr/lib/libSDL2.a /usr/lib/libSDL2.a
-COPY FROM HOST /Dollyfile-sdl2-build 3dd199843ed339387856c0bb9db55cb8a1de77d8357c7dd4f76828504af7d8e7 /usr/share/licenses/SDL2 /usr/share/licenses/SDL2
+USE HOST /modules/pi.dm c1369bb34ab6da075f2264145b10dcae9365ea9f9a14dddea214450411597514
+COPY FROM HOST /Dollyfile-sdl2-build 09a84311de0608602adace2f3e1d00ece3533a0449caf69a570cdd5f6ff59e19 /usr/include/SDL2 /usr/include/SDL2
+COPY FROM HOST /Dollyfile-sdl2-build 09a84311de0608602adace2f3e1d00ece3533a0449caf69a570cdd5f6ff59e19 /usr/lib/libSDL2.a /usr/lib/libSDL2.a
+COPY FROM HOST /Dollyfile-sdl2-build 09a84311de0608602adace2f3e1d00ece3533a0449caf69a570cdd5f6ff59e19 /usr/share/licenses/SDL2 /usr/share/licenses/SDL2
 EXPORTS HEADER sdl2 /usr/include/SDL2
 EXPORTS LIB SDL2 /usr/lib/libSDL2.a
-USE HOST /modules/bhop.dm 93df40d716fc01d70b615f1dfc67be20b4751599819efcaad89f4114e726a9ae
+USE HOST /modules/bhop.dm c371ef86fb4754361c3c9e8e2ba1eae7c7cbc30d9b3353251cee963fc0022f58
 
 FILE /etc/dolly/init.slop
     if test -f "$HOME/.dollyrc"; then

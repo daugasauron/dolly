@@ -46,7 +46,10 @@ export async function packageDocumentation(project, site, roots) {
     visited.add(path);
     await mkdir(dirname(destination), { recursive: true });
     if (!path.endsWith(".md")) {
-      await writeFile(destination, bytes);
+      // A file the site already publishes keeps its staged bytes.
+      await writeFile(destination, bytes, { flag: "wx" }).catch(error => {
+        if (error.code !== "EEXIST") throw error;
+      });
       continue;
     }
     const contents = bytes.toString("utf8");

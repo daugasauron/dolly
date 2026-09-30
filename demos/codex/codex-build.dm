@@ -20,7 +20,7 @@ SOURCE HOST /static/codex/sources-04.part /tmp/codex-sources-04.part 558e0757c62
 SOURCE HOST /static/codex/sources-05.part /tmp/codex-sources-05.part e1bb9db8d87698c18e31dd7d5954baa9b32276e838c59f10dfdabda2efe08521
 SOURCE HOST /static/codex/sources-06.part /tmp/codex-sources-06.part fe124daa94cb64402b121fa9bb9f5dc6264d5f89d9684762b6d2c99eeeb5d8a5
 SOURCE HOST /static/codex/no-js.c /tmp/codex-no-js.c 5b2a995a8f36f4917f40f39af9806be9d4646d90850585fbc8bd904ff18c45fd
-SOURCE HOST /static/codex/patti.toml /tmp/codex-patti.toml d0576e2f732a57850652677d3b95abab03f5875c599de51e5244b6081ca9c334
+SOURCE HOST /static/codex/patti.toml /tmp/codex-patti.toml 104a7e2428fc418b9da14e4da2ac8d14b8e7b9af40eb1d768d89c74034a82dea
 SLOP cat /tmp/codex-sources-00.part /tmp/codex-sources-01.part /tmp/codex-sources-02.part /tmp/codex-sources-03.part /tmp/codex-sources-04.part /tmp/codex-sources-05.part /tmp/codex-sources-06.part | gzip -dc - | tar -xf - -C /
 SLOP rm /tmp/codex-sources-00.part /tmp/codex-sources-01.part /tmp/codex-sources-02.part /tmp/codex-sources-03.part /tmp/codex-sources-04.part /tmp/codex-sources-05.part /tmp/codex-sources-06.part
 SLOP mkdir -p /tmp/codex-build/tools

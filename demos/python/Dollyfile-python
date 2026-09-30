@@ -2,7 +2,7 @@ DOLLY 4
 IMAGE python
 
 FROM HOST /Dollyfile-python-runtime 387b1a6c1831f2a15f63323c40efa8100daa268b07fa34d0a162cd988e6e92c9
-USE HOST /modules/bonnie.dm 942f621a8a21988b9e69198cd74a09119db5c7019616ddc960889a17123ef447
+USE HOST /modules/bonnie.dm ab706f6722e1ad785e4d9f48f572ab7291f1d946b4ff7472128be11ae096f7a4
 USE HOST /modules/startup-python.dm f10cb6883d3324f201b76b4c3f36aeb0f368ee18a119ab7e018ba56b93b646b6
 
 ENTRY /bin/foreground -i /bin/slop /etc/dolly/init.slop

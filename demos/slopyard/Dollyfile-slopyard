@@ -2,15 +2,15 @@ DOLLY 4
 IMAGE slopyard
 
 FROM HOST /Dollyfile-gamedev-sdk 38fb8293a6377ef7735c737c600bd6cb90346d1a24ff2c332821dda6f1602867
-COPY FROM HOST /Dollyfile-javascript 8949b2093859d5ac37aa2827651d419598f00d4d6dee2d16f2f2bf616fd66b8b /usr/lib/libdolly-js.a /usr/lib/libdolly-js.a
-COPY FROM HOST /Dollyfile-javascript 8949b2093859d5ac37aa2827651d419598f00d4d6dee2d16f2f2bf616fd66b8b /usr/include/quickjs.h /usr/include/quickjs.h
-COPY FROM HOST /Dollyfile-javascript 8949b2093859d5ac37aa2827651d419598f00d4d6dee2d16f2f2bf616fd66b8b /usr/include/dolly/quickjs-runner.h /usr/include/dolly/quickjs-runner.h
-COPY FROM HOST /Dollyfile-javascript 8949b2093859d5ac37aa2827651d419598f00d4d6dee2d16f2f2bf616fd66b8b /usr/lib/dolly/node.js /usr/lib/dolly/node.js
-COPY FROM HOST /Dollyfile-javascript 8949b2093859d5ac37aa2827651d419598f00d4d6dee2d16f2f2bf616fd66b8b /usr/lib/janis/runtime.js /usr/lib/janis/runtime.js
+COPY FROM HOST /Dollyfile-javascript fa636694182f7f7977c5ccf930750af705ef3d92fb6e3b251dda8fa53fca661c /usr/lib/libdolly-js.a /usr/lib/libdolly-js.a
+COPY FROM HOST /Dollyfile-javascript fa636694182f7f7977c5ccf930750af705ef3d92fb6e3b251dda8fa53fca661c /usr/include/quickjs.h /usr/include/quickjs.h
+COPY FROM HOST /Dollyfile-javascript fa636694182f7f7977c5ccf930750af705ef3d92fb6e3b251dda8fa53fca661c /usr/include/dolly/quickjs-runner.h /usr/include/dolly/quickjs-runner.h
+COPY FROM HOST /Dollyfile-javascript fa636694182f7f7977c5ccf930750af705ef3d92fb6e3b251dda8fa53fca661c /usr/lib/dolly/node.js /usr/lib/dolly/node.js
+COPY FROM HOST /Dollyfile-javascript fa636694182f7f7977c5ccf930750af705ef3d92fb6e3b251dda8fa53fca661c /usr/lib/janis/runtime.js /usr/lib/janis/runtime.js
 EXPORTS LIB dolly-js /usr/lib/libdolly-js.a
 EXPORTS HEADER quickjs /usr/include/quickjs.h
 EXPORTS HEADER quickjs-runner /usr/include/dolly/quickjs-runner.h
-USE HOST /modules/pi.dm 59fa1c157c7c5ad56d7cacf66b15140961a023f8e452e2abb172aa54deddff1f
+USE HOST /modules/pi.dm c1369bb34ab6da075f2264145b10dcae9365ea9f9a14dddea214450411597514
 USE HOST /modules/lua55.dm 513075df4b1b3a4f7bc5c3a6e7dcea1c0e54f07a4e677ebea647ae7b0fc4a96b
 USE HOST /modules/slopyard.dm 1b3f4a2f7ea9adfca043d808c31ee851f3aee9a39a2d49f5884d48fea7c5f5f2
 

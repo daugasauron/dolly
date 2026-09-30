@@ -4,7 +4,7 @@ MODULE dollyfile
 REQUIRES TOOL cc
 REQUIRES TOOL tar
 
-SOURCE HOST /static/default/dollyfile-source.tar /tmp/dollyfile-source.tar 0a43c714991585aee690e93628c74703ab2c88abdef2b6fa13cbfcbc5a538058
+SOURCE HOST /static/default/dollyfile-source.tar /tmp/dollyfile-source.tar 2b09942deed5106005647c06547c4a0597375a94b04912cb5173a77cb7d9c9bf
 SLOP tar -xf /tmp/dollyfile-source.tar -C /
 SLOP cc -O1 /usr/src/dolly/dollyfile.c -o /bin/dollyfile
 

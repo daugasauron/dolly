@@ -4,13 +4,13 @@ MODULE pi
 USE HOST /modules/search-tools.dm cea2f2c2202965d91d0fc4631a5050cd67da073a95071e52726b79089db4f8f1
 EXPORTS TOOL rg
 EXPORTS TOOL fd
-COPY FROM HOST /Dollyfile-pi-build ea081958b68b22f2110d9558abc3d9b239b213399db9818632026677d4f12455 /usr/bin/pi /usr/bin/pi
-COPY FROM HOST /Dollyfile-pi-build ea081958b68b22f2110d9558abc3d9b239b213399db9818632026677d4f12455 /usr/lib/node_modules /usr/lib/node_modules
-COPY FROM HOST /Dollyfile-pi-build ea081958b68b22f2110d9558abc3d9b239b213399db9818632026677d4f12455 /usr/src/pi-source /usr/src/pi-source
-COPY FROM HOST /Dollyfile-pi-build ea081958b68b22f2110d9558abc3d9b239b213399db9818632026677d4f12455 /usr/share/licenses/pi-source/LICENSE /usr/share/licenses/pi-source/LICENSE
+COPY FROM HOST /Dollyfile-pi-build 5ed2db331d040a74011567a90924274f9851966d028a8875aecbce692a3b6de8 /usr/bin/pi /usr/bin/pi
+COPY FROM HOST /Dollyfile-pi-build 5ed2db331d040a74011567a90924274f9851966d028a8875aecbce692a3b6de8 /usr/lib/node_modules /usr/lib/node_modules
+COPY FROM HOST /Dollyfile-pi-build 5ed2db331d040a74011567a90924274f9851966d028a8875aecbce692a3b6de8 /usr/src/pi-source /usr/src/pi-source
+COPY FROM HOST /Dollyfile-pi-build 5ed2db331d040a74011567a90924274f9851966d028a8875aecbce692a3b6de8 /usr/share/licenses/pi-source/LICENSE /usr/share/licenses/pi-source/LICENSE
 
-SOURCE HOST /static/default/pi/dolly-tools.js                    /home/dolly/.pi/agent/extensions/dolly-tools.js dcfb60bd010d479c40bd4ad0f91111bc5d3e928794be3eceadd7e516c0e5981f
-SOURCE HOST /static/default/pi/SYSTEM.md                         /home/dolly/.pi/agent/SYSTEM.md                 34ef04d9e0414c95c672b3d9f933a74de0ddad9dba352030b5af842df3820d32
+SOURCE HOST /static/default/pi/dolly-tools.js                    /home/dolly/.pi/agent/extensions/dolly-tools.js edd123743a5a8fcc7ddb80d4c8dd57ba7f6159705eaac8cc07340034bd9b9a29
+SOURCE HOST /static/default/pi/SYSTEM.md                         /home/dolly/.pi/agent/SYSTEM.md                 bfd8505b6f40533d9d5a19101a4bd62c9447d55e707f50aabbd22f1f2dbbe92e
 SOURCE HOST /static/default/pi/settings.json                     /home/dolly/.pi/agent/settings.json             26df82e404bbee8f70c40b9ac275eb76a577120c96f2e70fa3f4ed41917814b7
 SOURCE HOST /static/default/pi/dolly-theme.json                  /home/dolly/.pi/agent/themes/dolly.json         ed4737d4339c7458fa46c6f351c8a619e762189c051206aef1a8840e1f288297
 SOURCE HOST /static/default/pi/dolly-skill.md                    /home/dolly/.pi/agent/skills/dolly/SKILL.md     860bf06d7a7bb4d7cc3bd40e9f30893f1e88dba5d3a1b89eb35549e17bb673e9

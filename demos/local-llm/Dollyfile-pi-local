@@ -1,12 +1,12 @@
 DOLLY 4
 IMAGE pi-local
 
-FROM HOST /Dollyfile-pi 47d77c45047741c7047dd018e10efc263de1d11fcc34c5251312e207aaf5d63a
+FROM HOST /Dollyfile-pi bf0a7121bd1e2ecb0517beda18b4bd23cedcc836121b5fc3c907b80bdd88f4ea
 COPY FROM HOST /Dollyfile-local-llm-build 6046ed789f11bc69e79feed3acb3efae94464a7175eb8ba0ef5059661a64c4f6 /usr/bin/dolly-llama /usr/bin/dolly-llama
 COPY FROM HOST /Dollyfile-llama-build 1858df253abc10d9aea7e96f9978acaba7368394aca8f58afa0b85123cdc7ca4 /usr/share/licenses/dolly-llm /usr/share/licenses/dolly-llm
 EXPORTS TOOL dolly-llama
-USE HOST /modules/dollyfile.dm 98ec7a93963f1d4796d8b33f1a77d552c7cda0be073d07bcb26796a399114a79
+USE HOST /modules/dollyfile.dm 587d3b04915b06d716767ba13de8d52fe8043fd8e1c91e0a1d49789306336d7c
 USE HOST /modules/local-llm-weights.dm f0fba4d57e8994d00ba7fc718391d4b7b125b8cebb868536bffb855f0ff96f04
-USE HOST /modules/local-llm.dm 4d8edc0acf04d0d2cf41182260a38ad4f34777b42857935b47013bec6475ac24
+USE HOST /modules/local-llm.dm 8d50691af1190241cffb88e86952ea8d0bfcf99fb700dcf6bf94492fc4881237
 
 ENTRY /bin/foreground -i /bin/slop /etc/dolly/init.slop
