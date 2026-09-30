@@ -1,4 +1,3 @@
-#include "kernel.h"
 #include "process-kernel.h"
 #include <dolly/gpu-abi.h>
 #include <emscripten/emscripten.h>
@@ -31,7 +30,7 @@ DOLLY_EM_JS(int, dolly_gpu_dispatch, (const void *packet, uintptr_t bytes), {
 });
 uintptr_t dolly_gpu_mailbox_address(void) { return (uintptr_t)replies; }
 
-void dolly_gpu_release_owner(int pid) {
+static void gpu_release_owner(int pid) {
   for (unsigned i = 0; i < DOLLY_GPU_SLOTS; ++i) {
     if (leases[i].pid != pid) continue;
     dolly_gpu_dispatch(NULL, leases[i].scope);
@@ -40,7 +39,8 @@ void dolly_gpu_release_owner(int pid) {
   }
 }
 
-int64_t dolly_gpu_process_call(int pid, unsigned char *packet, size_t size, size_t capacity) {
+static int64_t gpu_call(int pid, int tid, uint32_t operation, unsigned char *packet,
+                          uintptr_t size, uintptr_t capacity) {
   if (size < sizeof(Header) || size > DOLLY_GPU_PACKET_BYTES) return -EINVAL;
   Header h;
   memcpy(&h, packet, sizeof(h));
@@ -90,7 +90,13 @@ int64_t dolly_gpu_process_call(int pid, unsigned char *packet, size_t size, size
   lease->pending = 0;
   atomic_store(&reply->state, 0);
   if (lease->operation == DOLLY_GPU_CLOSE || (lease->operation == DOLLY_GPU_OPEN && result < 0)) {
-    dolly_gpu_release_owner(pid);
+    gpu_release_owner(pid);
   }
   return result;
 }
+
+static void gpu_release(int pid, int tid) {
+  if (tid == 0) gpu_release_owner(pid);
+}
+
+const dolly_kernel_module dolly_gpu_kernel = {DOLLY_GPU_PROCESS_OP, DOLLY_GPU_PROCESS_OP, gpu_call, gpu_release};

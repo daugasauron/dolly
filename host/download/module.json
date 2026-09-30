@@ -7,6 +7,6 @@
   "contracts": ["dolly-download-0.wat"],
   "process": [],
   "headers": ["download.h"],
-  "kernel": [],
+  "kernel": ["kernel.c"],
   "client": ["client.c"]
 }

@@ -275,6 +275,7 @@ node scripts/dolly-abi.mjs validate-process-dso \
 native_zig_object="$("${project_dir}/scripts/build-native-zig.sh")"
 
 
+node scripts/host-modules.mjs kernel-modules > build/generated/dolly-kernel-modules.h
 kernel_contracts=()
 while read -r contract; do kernel_contracts+=("build/$(basename "${contract}" .wat).wasm"); done \
   < <(node scripts/host-modules.mjs contracts)

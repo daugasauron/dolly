@@ -26,6 +26,7 @@ add_executable(dolly ${DOLLY_KERNEL_SOURCES})
 
 target_include_directories(dolly PRIVATE
   ../build/include
+  ../build/generated
   ../src
   ../host
 )

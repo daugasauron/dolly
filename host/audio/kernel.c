@@ -1,4 +1,3 @@
-#include "kernel.h"
 #include "process-kernel.h"
 #include <dolly/audio-abi.h>
 #include <emscripten/emscripten.h>
@@ -33,7 +32,7 @@ DOLLY_EM_JS(int, dolly_audio_dispatch, (const void *packet, uintptr_t bytes), {
 });
 uintptr_t dolly_audio_mailbox_address(void) { return (uintptr_t)replies; }
 
-void dolly_audio_release_owner(int pid) {
+static void audio_release_owner(int pid) {
   for (unsigned i = 0; i < DOLLY_AUDIO_SLOTS; ++i) {
     if (leases[i].pid != pid) continue;
     dolly_audio_dispatch(NULL, leases[i].scope);
@@ -42,7 +41,8 @@ void dolly_audio_release_owner(int pid) {
   }
 }
 
-int64_t dolly_audio_process_call(int pid, unsigned char *packet, size_t size, size_t capacity) {
+static int64_t audio_call(int pid, int tid, uint32_t operation, unsigned char *packet,
+                          uintptr_t size, uintptr_t capacity) {
   if (size < sizeof(Header) || size > DOLLY_AUDIO_PACKET_BYTES) return -EINVAL;
   Header h;
   memcpy(&h, packet, sizeof(h));
@@ -93,7 +93,13 @@ int64_t dolly_audio_process_call(int pid, unsigned char *packet, size_t size, si
   lease->pending = 0;
   atomic_store(&reply->state, 0);
   if (lease->operation == DOLLY_AUDIO_CLOSE || (lease->operation == DOLLY_AUDIO_OPEN && result < 0)) {
-    dolly_audio_release_owner(pid);
+    audio_release_owner(pid);
   }
   return result;
 }
+
+static void audio_release(int pid, int tid) {
+  if (tid == 0) audio_release_owner(pid);
+}
+
+const dolly_kernel_module dolly_audio_kernel = {DOLLY_AUDIO_PROCESS_OP, DOLLY_AUDIO_PROCESS_OP, audio_call, audio_release};

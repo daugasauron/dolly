@@ -26,7 +26,14 @@ export function stagedIncludeDirectory() {
   })();
 }
 
-if (process.argv[1] === fileURLToPath(import.meta.url)) {
+// The kernel's module table: every module with kernel sources except the
+// runtime, whose sources are the kernel itself, defines dolly_NAME_kernel.
+export const kernelModuleList = () => hostManifests.filter(({ name, kernel }) => name !== "runtime" && kernel.length)
+  .map(({ name }) => `DOLLY_KERNEL_MODULE(${name})\n`).join("");
+
+if (process.argv[1] === fileURLToPath(import.meta.url) && process.argv[2] === "kernel-modules") {
+  process.stdout.write(`// Generated from the host module manifests.\n${kernelModuleList()}`);
+} else if (process.argv[1] === fileURLToPath(import.meta.url)) {
   const field = process.argv[2];
   if (process.argv.length !== 3 || !["host", "contracts", "process", "headers", "kernel", "client"].includes(field)) {
     throw new Error("usage: host-modules.mjs host|contracts|process|headers|kernel|client");

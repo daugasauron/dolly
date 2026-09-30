@@ -1,4 +1,5 @@
 #include <errno.h>
+#include <limits.h>
 #include <stddef.h>
 #include <stdatomic.h>
 #include <stdint.h>
@@ -9,8 +10,8 @@
 #include <unistd.h>
 
 #include "process-kernel.h"
-#include "kernel.h"
 
+#include <dolly/process.h>
 #include <dolly/upload.h>
 
 _Static_assert(offsetof(dolly_upload_mailbox, data) == 64, "upload mailbox layout");
@@ -24,7 +25,7 @@ static size_t received;
 uintptr_t dolly_upload_mailbox_address(void) { return (uintptr_t)&mailbox; }
 uint32_t dolly_upload_mailbox_version(void) { return 0; }
 
-void dolly_upload_cancel_process(int pid) {
+static void upload_cancel(int pid) {
   if (owner != pid || pid <= 0) return;
   atomic_store(&mailbox.cancelled, atomic_load(&mailbox.request));
   if (descriptor >= 0) close(descriptor);
@@ -37,9 +38,9 @@ void dolly_upload_cancel_process(int pid) {
   received = 0;
 }
 
-int64_t dolly_upload_process_file(int pid, const char *path) {
+static int64_t upload_file(int pid, const char *path) {
   if (atomic_load(&mailbox.enabled) != 1) {
-    dolly_upload_cancel_process(pid);
+    upload_cancel(pid);
     return -ENOSYS;
   }
   if (owner != 0 && owner != pid) return -EBUSY;
@@ -53,13 +54,13 @@ int64_t dolly_upload_process_file(int pid, const char *path) {
     destination = strdup(path);
     temporary = strdup("/tmp/dolly-upload-XXXXXX");
     if (destination == NULL || temporary == NULL) {
-      dolly_upload_cancel_process(pid);
+      upload_cancel(pid);
       return -ENOMEM;
     }
     descriptor = mkstemp(temporary);
     if (descriptor < 0) {
       const int status = -errno;
-      dolly_upload_cancel_process(pid);
+      upload_cancel(pid);
       return status;
     }
     atomic_store(&mailbox.consumed, atomic_load(&mailbox.chunk));
@@ -97,6 +98,20 @@ int64_t dolly_upload_process_file(int pid, const char *path) {
       else if (rename(temporary, destination) != 0) status = -errno;
     }
   }
-  dolly_upload_cancel_process(pid);
+  upload_cancel(pid);
   return status;
 }
+
+static int64_t upload_call(int pid, int tid, uint32_t operation, unsigned char *packet,
+                           uintptr_t request_size, uintptr_t response_capacity) {
+  char path[PATH_MAX + 1];
+  const int64_t result = dolly_kernel_request_path(pid, request_size, path, sizeof(path));
+  return result != 0 ? result : upload_file(pid, path);
+}
+
+static void upload_release(int pid, int tid) {
+  if (tid == 0) upload_cancel(pid);
+}
+
+const dolly_kernel_module dolly_upload_kernel = {
+    DOLLY_PROCESS_UPLOAD_FILE, DOLLY_PROCESS_UPLOAD_FILE, upload_call, upload_release};

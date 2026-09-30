@@ -1,4 +1,5 @@
 #include "kernel.h"
+#include "process-kernel.h"
 #include "sha256.h"
 #include "session-records.h"
 
@@ -492,3 +493,6 @@ void dolly_session_service(void) {
   emscripten_atomic_notify((void *)&session_mailbox.completed_sequence,
                            EMSCRIPTEN_NOTIFY_ALL_WAITERS);
 }
+
+// The page drives sessions through the snapshot mailbox; no process operations.
+const dolly_kernel_module dolly_snapshot_kernel = {0};

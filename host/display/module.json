@@ -8,6 +8,6 @@
   "contracts": ["dolly-display-0.wat"],
   "process": [],
   "headers": ["display.h"],
-  "kernel": [],
+  "kernel": ["kernel.c"],
   "client": ["client.c"]
 }

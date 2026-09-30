@@ -1,12 +1,6 @@
 #include "fs-record.h"
 #include "process-kernel.h"
-#include "upload/kernel.h"
-#include "gpu/kernel.h"
-#include "audio/kernel.h"
-#include <dolly/audio-abi.h>
-#include <dolly/gpu-abi.h>
 
-#include <dolly/http.h>
 #include <dolly/process.h>
 #include <dolly/threads.h>
 
@@ -37,22 +31,14 @@ enum {
   DOLLY_KERNEL_SHEBANG_LIMIT = 4096,
   DOLLY_KERNEL_SHEBANG_DEPTH = 4,
   DOLLY_KERNEL_THREAD_LIMIT = 64,
-  /* The browser admits at most 8 MiB per request body (dolly-http-0.wat). */
-  DOLLY_KERNEL_HTTP_BODY_LIMIT = 8 * 1024 * 1024,
 };
 
 static const uint64_t DOLLY_KERNEL_SPAWN_DEADLINE_LIMIT =
     UINT64_C(24) * 60 * 60 * 1000000000;
 
 typedef struct {
-  unsigned char *bytes;
-  size_t size, written;
-} dolly_http_body;
-
-typedef struct {
   int tid, waiter, waiting_on, retired;
   uint64_t result;
-  dolly_http_body body;
 } dolly_kernel_thread;
 
 typedef struct {
@@ -87,8 +73,6 @@ typedef struct {
   unsigned char *image;
   size_t image_size;
   uint64_t deadline_nanoseconds;
-  uint32_t http_sequences[DOLLY_HTTP_SLOT_COUNT];
-  dolly_http_body body;
   dolly_kernel_thread threads[DOLLY_KERNEL_THREAD_LIMIT];
   int signal_tid;
   uint32_t pending_signals;
@@ -106,6 +90,29 @@ static int foreground_pid;
 extern char **environ;
 int dolly_process_signal(int pid, int signal_number);
 
+#define DOLLY_KERNEL_MODULE(name) extern const dolly_kernel_module dolly_##name##_kernel;
+#include "dolly-kernel-modules.h"
+#undef DOLLY_KERNEL_MODULE
+#define DOLLY_KERNEL_MODULE(name) &dolly_##name##_kernel,
+static const dolly_kernel_module *const kernel_modules[] = {
+#include "dolly-kernel-modules.h"
+};
+#undef DOLLY_KERNEL_MODULE
+
+static void release_modules(int pid, int tid) {
+  for (size_t index = 0; index < sizeof(kernel_modules) / sizeof(*kernel_modules); ++index)
+    if (kernel_modules[index]->release) kernel_modules[index]->release(pid, tid);
+}
+
+static const dolly_kernel_module *module_for(uint32_t operation) {
+  for (size_t index = 0; index < sizeof(kernel_modules) / sizeof(*kernel_modules); ++index) {
+    const dolly_kernel_module *module = kernel_modules[index];
+    if (module->call && operation >= module->first_operation &&
+        operation <= module->last_operation) return module;
+  }
+  return NULL;
+}
+
 static dolly_kernel_process *find_process(int pid) {
   for (size_t index = 0; index < DOLLY_KERNEL_PROCESS_LIMIT; ++index) {
     if (process_table[index].state != DOLLY_KERNEL_PROCESS_FREE &&
@@ -114,11 +121,6 @@ static dolly_kernel_process *find_process(int pid) {
     }
   }
   return NULL;
-}
-
-static void http_body_discard(dolly_http_body *body) {
-  free(body->bytes);
-  memset(body, 0, sizeof(*body));
 }
 
 static dolly_kernel_thread *find_thread(dolly_kernel_process *process, int tid) {
@@ -248,17 +250,8 @@ static void release_descriptor(dolly_kernel_process *process,
 }
 
 static void release_process_resources(dolly_kernel_process *process) {
-  dolly_upload_cancel_process(process->pid);
-  http_body_discard(&process->body);
-  for (size_t i = 0; i < DOLLY_KERNEL_THREAD_LIMIT; ++i)
-    http_body_discard(&process->threads[i].body);
+  release_modules(process->pid, 0);
   memset(process->threads, 0, sizeof(process->threads));
-  for (size_t index = 0; index < DOLLY_HTTP_SLOT_COUNT; ++index) {
-    if (process->http_sequences[index] != 0) {
-      (void)dolly_http_cancel(process->http_sequences[index]);
-      process->http_sequences[index] = 0;
-    }
-  }
   for (size_t index = 0; index < DOLLY_KERNEL_DESCRIPTOR_LIMIT; ++index) {
     release_descriptor(process, (uint32_t)index);
   }
@@ -309,9 +302,6 @@ static void mark_process_exited(dolly_kernel_process *process, int status,
     if (child->state == DOLLY_KERNEL_PROCESS_FREE || child->parent_pid != pid) continue;
     mark_process_exited(child, status, signal_number);
   }
-  dolly_kernel_display_release_owner(process->pid);
-  dolly_gpu_release_owner(process->pid);
-  dolly_audio_release_owner(process->pid);
   release_process_resources(process);
   process->status = status >= 0 && status <= 255 ? status : 126;
   process->exit_signal = signal_number;
@@ -816,6 +806,31 @@ static int decode_path_request(dolly_kernel_process *process,
                           request->path_size, path, directory);
 }
 
+int64_t dolly_kernel_request_path(int pid, uintptr_t request_size,
+                                  char *path, size_t capacity) {
+  dolly_kernel_process *process = find_process(pid);
+  if (process == NULL) return -ESRCH;
+  dolly_process_path_request request;
+  char *requested = NULL;
+  int directory = AT_FDCWD;
+  int result = decode_path_request(process, request_size, &request, &requested, &directory);
+  if (result == 0 && request.flags != 0) result = -EINVAL;
+  if (result == 0 && directory == AT_FDCWD) {
+    if (strlen(requested) >= capacity) result = -ENAMETOOLONG;
+    else strcpy(path, requested);
+  } else if (result == 0) {
+    result = directory_path(directory, path, capacity);
+    const size_t prefix = result == 0 ? strlen(path) : 0, length = strlen(requested);
+    if (result == 0 && prefix + 1 + length >= capacity) result = -ENAMETOOLONG;
+    else if (result == 0) {
+      path[prefix] = '/';
+      memcpy(path + prefix + 1, requested, length + 1);
+    }
+  }
+  free(requested);
+  return result;
+}
+
 static uint32_t stable_file_type(mode_t mode) {
   if (S_ISREG(mode)) return DOLLY_PROCESS_FILE_REGULAR;
   if (S_ISDIR(mode)) return DOLLY_PROCESS_FILE_DIRECTORY;
@@ -1137,7 +1152,6 @@ static int64_t fd_write_packet(dolly_kernel_process *process,
 
 static double deferred_milliseconds = -1;
 
-static int monotonic_deadline_pending(uint64_t deadline_nanoseconds);
 
 static int64_t terminal_packet(dolly_kernel_process *process,
                                uintptr_t request_size,
@@ -1155,7 +1169,7 @@ static int64_t terminal_packet(dolly_kernel_process *process,
       (void)descriptor;
       if (!process->terminal_descriptors[request.descriptor]) return -ENOTTY;
       const int byte = dolly_terminal_read_raw_timeout(0);
-      if (byte < 0 && monotonic_deadline_pending(request.deadline_nanoseconds)) {
+      if (byte < 0 && dolly_kernel_deadline_pending(request.deadline_nanoseconds)) {
         return DOLLY_PROCESS_DISPATCH_DEFERRED;
       }
       response.value = byte;
@@ -1203,21 +1217,7 @@ static int64_t terminal_packet(dolly_kernel_process *process,
   return respond(&response, sizeof(response));
 }
 
-static void encode_display_surface(
-    const dolly_display_surface *surface, uint64_t capacity,
-    uint32_t buffer_index, dolly_process_display_surface_response *response) {
-  *response = (dolly_process_display_surface_response){
-      .generation = surface->generation,
-      .capacity = capacity,
-      .buffer_index = buffer_index,
-      .width = surface->width,
-      .height = surface->height,
-      .stride = surface->stride,
-      .pixel_format = surface->pixel_format,
-  };
-}
-
-static int monotonic_deadline_pending(uint64_t deadline_nanoseconds) {
+int dolly_kernel_deadline_pending(uint64_t deadline_nanoseconds) {
   if (deadline_nanoseconds == 0) return 0;
   if (deadline_nanoseconds == UINT64_MAX) return 1;
   const uint64_t current = clock_nanoseconds(CLOCK_MONOTONIC);
@@ -1322,7 +1322,7 @@ static int64_t fd_poll_packet(dolly_kernel_process *process,
     memcpy(process_mailbox + sizeof(dolly_process_poll_response) +
                (size_t)index * sizeof(result), &result, sizeof(result));
   }
-  if (ready == 0 && monotonic_deadline_pending(request.deadline_nanoseconds)) {
+  if (ready == 0 && dolly_kernel_deadline_pending(request.deadline_nanoseconds)) {
     return DOLLY_PROCESS_DISPATCH_DEFERRED;
   }
   const dolly_process_poll_response response = {
@@ -1332,284 +1332,6 @@ static int64_t fd_poll_packet(dolly_kernel_process *process,
   };
   memcpy(process_mailbox, &response, sizeof(response));
   return (int64_t)expected_response;
-}
-
-static int64_t display_acquire_packet(dolly_kernel_process *process,
-                                      uintptr_t request_size,
-                                      uintptr_t response_capacity) {
-  if (request_size != 0 ||
-      response_capacity < sizeof(dolly_process_display_surface_response)) {
-    return -EINVAL;
-  }
-  dolly_display_surface surface;
-  const int result = dolly_kernel_display_acquire(process->pid, &surface);
-  if (result != 0) return result;
-  dolly_process_display_surface_response response;
-  encode_display_surface(&surface, 0, 0, &response);
-  return respond(&response, sizeof(response));
-}
-
-static int64_t display_set_size_packet(dolly_kernel_process *process,
-                                       uintptr_t request_size,
-                                       uintptr_t response_capacity) {
-  if (request_size != sizeof(dolly_process_display_size_request) ||
-      response_capacity < sizeof(dolly_process_display_surface_response)) {
-    return -EINVAL;
-  }
-  dolly_process_display_size_request request;
-  memcpy(&request, process_mailbox, sizeof(request));
-  dolly_display_surface surface;
-  const int result = dolly_kernel_display_set_size(
-      process->pid, request.generation, request.width, request.height, &surface);
-  if (result != 0) return result;
-  dolly_process_display_surface_response response;
-  encode_display_surface(&surface, 0, 0, &response);
-  return respond(&response, sizeof(response));
-}
-
-static int64_t display_begin_frame_packet(dolly_kernel_process *process,
-                                          uintptr_t request_size,
-                                          uintptr_t response_capacity) {
-  if (request_size != sizeof(dolly_process_display_generation_request) ||
-      response_capacity < sizeof(dolly_process_display_surface_response)) {
-    return -EINVAL;
-  }
-  dolly_process_display_generation_request request;
-  memcpy(&request, process_mailbox, sizeof(request));
-  dolly_display_frame frame;
-  const int result = dolly_kernel_display_begin_frame(
-      process->pid, request.generation, &frame);
-  if (result != 0) return result;
-  dolly_display_surface surface = {
-      .generation = request.generation,
-      .width = frame.width,
-      .height = frame.height,
-      .stride = frame.stride,
-      .pixel_format = frame.pixel_format,
-  };
-  dolly_process_display_surface_response response;
-  encode_display_surface(&surface, frame.capacity, frame.buffer_index, &response);
-  return respond(&response, sizeof(response));
-}
-
-static int64_t display_write_frame_packet(dolly_kernel_process *process,
-                                          uintptr_t request_size,
-                                          uintptr_t response_capacity) {
-  if (request_size < sizeof(dolly_process_display_write_request) ||
-      response_capacity != 0) return -EINVAL;
-  dolly_process_display_write_request request;
-  memcpy(&request, process_mailbox, sizeof(request));
-  if (request.reserved != 0 || request.size > SIZE_MAX ||
-      request.offset > SIZE_MAX ||
-      request.size != request_size - sizeof(request)) return -EINVAL;
-  return dolly_kernel_display_write_frame(
-      process->pid, request.generation, request.buffer_index,
-      (size_t)request.offset, process_mailbox + sizeof(request),
-      (size_t)request.size);
-}
-
-static int64_t display_present_packet(dolly_kernel_process *process,
-                                      uintptr_t request_size,
-                                      uintptr_t response_capacity) {
-  if (request_size != sizeof(dolly_process_display_present_request) ||
-      response_capacity != 0) return -EINVAL;
-  dolly_process_display_present_request request;
-  memcpy(&request, process_mailbox, sizeof(request));
-  if (request.reserved != 0) return -EINVAL;
-  return dolly_kernel_display_present(
-      process->pid, request.generation, request.buffer_index);
-}
-
-static int64_t display_wait_frame_packet(dolly_kernel_process *process,
-                                         uintptr_t request_size,
-                                         uintptr_t response_capacity) {
-  if (request_size != sizeof(dolly_process_display_wait_request) ||
-      response_capacity < sizeof(dolly_process_display_wait_response)) {
-    return -EINVAL;
-  }
-  dolly_process_display_wait_request request;
-  memcpy(&request, process_mailbox, sizeof(request));
-  if (request.reserved != 0) return -EINVAL;
-  uint32_t sequence = request.sequence;
-  const int result = dolly_kernel_display_poll_frame(
-      process->pid, request.generation, request.sequence, &sequence);
-  if (result < 0) return result;
-  if (result == 0 && monotonic_deadline_pending(request.deadline_nanoseconds)) {
-    return DOLLY_PROCESS_DISPATCH_DEFERRED;
-  }
-  const dolly_process_display_wait_response response = {result, sequence};
-  return respond(&response, sizeof(response));
-}
-
-static int64_t display_set_cursor_packet(dolly_kernel_process *process,
-                                         uintptr_t request_size,
-                                         uintptr_t response_capacity) {
-  if (request_size != sizeof(dolly_process_display_cursor_request) ||
-      response_capacity != 0) return -EINVAL;
-  dolly_process_display_cursor_request request;
-  memcpy(&request, process_mailbox, sizeof(request));
-  if (request.reserved != 0) return -EINVAL;
-  return dolly_kernel_display_set_cursor(
-      process->pid, request.generation, request.cursor);
-}
-
-static int64_t display_next_event_packet(dolly_kernel_process *process,
-                                         uintptr_t request_size,
-                                         uintptr_t response_capacity) {
-  if (request_size != sizeof(dolly_process_display_event_request) ||
-      response_capacity < sizeof(dolly_process_display_event_response)) {
-    return -EINVAL;
-  }
-  dolly_process_display_event_request request;
-  memcpy(&request, process_mailbox, sizeof(request));
-  dolly_input_event event;
-  memset(&event, 0, sizeof(event));
-  const int result = dolly_kernel_display_poll_event(
-      process->pid, request.generation, &event);
-  if (result < 0) return result;
-  if (result == 0 && monotonic_deadline_pending(request.deadline_nanoseconds)) {
-    return DOLLY_PROCESS_DISPATCH_DEFERRED;
-  }
-  dolly_process_display_event_response response = {.result = result};
-  _Static_assert(sizeof(response.event) == sizeof(event),
-                 "process/display event layouts diverged");
-  if (result == 1) memcpy(response.event, &event, sizeof(event));
-  return respond(&response, sizeof(response));
-}
-
-static int64_t display_release_packet(dolly_kernel_process *process,
-                                      uintptr_t request_size,
-                                      uintptr_t response_capacity) {
-  if (request_size != sizeof(dolly_process_display_generation_request) ||
-      response_capacity != 0) return -EINVAL;
-  dolly_process_display_generation_request request;
-  memcpy(&request, process_mailbox, sizeof(request));
-  return dolly_kernel_display_release(process->pid, request.generation);
-}
-
-static int64_t http_body_write_packet(dolly_http_body *body,
-                                     uintptr_t request_size) {
-  if (request_size == 0) { http_body_discard(body); return 0; }
-  if (request_size <= sizeof(dolly_process_http_body_write_request)) return -EINVAL;
-  dolly_process_http_body_write_request request;
-  memcpy(&request, process_mailbox, sizeof(request));
-  const size_t length = request_size - sizeof(request);
-  if (request.total_size > DOLLY_KERNEL_HTTP_BODY_LIMIT) return -E2BIG;
-  if (request.offset > request.total_size ||
-      length > request.total_size - request.offset) return -EINVAL;
-  if (request.offset == 0) {
-    http_body_discard(body);
-    body->bytes = malloc((size_t)request.total_size);
-    if (body->bytes == NULL) return -ENOMEM;
-    body->size = (size_t)request.total_size;
-  }
-  if (body->bytes == NULL || request.total_size != body->size ||
-      request.offset != body->written) return -EINVAL;
-  memcpy(body->bytes + body->written,
-         process_mailbox + sizeof(request), length);
-  body->written += length;
-  return 0;
-}
-
-static int64_t http_start_packet(dolly_kernel_process *process, dolly_http_body *body,
-                                 uintptr_t request_size,
-                                 uintptr_t response_capacity) {
-  if (request_size < sizeof(dolly_process_http_start_request) ||
-      response_capacity < sizeof(dolly_process_http_start_response)) {
-    return -EINVAL;
-  }
-  dolly_process_http_start_request request;
-  memcpy(&request, process_mailbox, sizeof(request));
-  if (request.method_size == 0 || request.url_size == 0 ||
-      request.body_size > SIZE_MAX) return -EINVAL;
-  const size_t method_size = request.method_size;
-  const size_t url_size = request.url_size;
-  const size_t headers_size = request.headers_size;
-  const size_t body_size = (size_t)request.body_size;
-  size_t remaining = (size_t)request_size - sizeof(request);
-  if (method_size > remaining) return -EINVAL;
-  remaining -= method_size;
-  if (url_size > remaining) return -EINVAL;
-  remaining -= url_size;
-  if (headers_size > remaining) return -EINVAL;
-  remaining -= headers_size;
-  const int staged = body_size != 0 && remaining == 0;
-  if ((staged ? (body_size != body->size ||
-                 body_size != body->written) : body_size != remaining) ||
-      method_size > SIZE_MAX - url_size - headers_size - 3) return -EINVAL;
-
-  const unsigned char *cursor = process_mailbox + sizeof(request);
-  if (memchr(cursor, 0, method_size) != NULL ||
-      memchr(cursor + method_size, 0, url_size) != NULL ||
-      memchr(cursor + method_size + url_size, 0, headers_size) != NULL) {
-    return -EINVAL;
-  }
-  char *strings = malloc(method_size + url_size + headers_size + 3);
-  if (strings == NULL) return -ENOMEM;
-  char *method = strings;
-  char *url = method + method_size + 1;
-  char *headers = url + url_size + 1;
-  memcpy(method, cursor, method_size);
-  method[method_size] = 0;
-  cursor += method_size;
-  memcpy(url, cursor, url_size);
-  url[url_size] = 0;
-  cursor += url_size;
-  memcpy(headers, cursor, headers_size);
-  headers[headers_size] = 0;
-  cursor += headers_size;
-
-  unsigned int sequence = 0;
-  const int result = dolly_http_start(
-      method, url, headers, staged ? body->bytes : cursor,
-      body_size, request.flags, &sequence);
-  free(strings);
-  if (result != 0) return result;
-  process->http_sequences[(sequence - 1) % DOLLY_HTTP_SLOT_COUNT] = sequence;
-  const dolly_process_http_start_response response = {sequence, 0};
-  return respond(&response, sizeof(response));
-}
-
-static int64_t http_poll_packet(dolly_kernel_process *process,
-                                uintptr_t request_size,
-                                uintptr_t response_capacity) {
-  if (request_size != sizeof(dolly_process_http_poll_request) ||
-      response_capacity < sizeof(dolly_process_http_poll_response)) {
-    return -EINVAL;
-  }
-  dolly_process_http_poll_request request;
-  memcpy(&request, process_mailbox, sizeof(request));
-  if (request.reserved != 0 || request.sequence == 0 ||
-      request.sequence != process->http_sequences[(request.sequence - 1) % DOLLY_HTTP_SLOT_COUNT]) return -ESTALE;
-  dolly_http_chunk chunk = {0};
-  const size_t data_capacity =
-      (size_t)response_capacity - sizeof(dolly_process_http_poll_response);
-  const int result = dolly_http_poll(
-      request.sequence, &chunk,
-      process_mailbox + sizeof(dolly_process_http_poll_response),
-      data_capacity);
-  if (result < 0) return result;
-  if (chunk.length > data_capacity) return -EOVERFLOW;
-  const dolly_process_http_poll_response response = {
-      (uint32_t)result, chunk.status, chunk.kind, chunk.error, chunk.eof, 0, chunk.length,
-  };
-  memcpy(process_mailbox, &response, sizeof(response));
-  if (chunk.eof) process->http_sequences[(request.sequence - 1) % DOLLY_HTTP_SLOT_COUNT] = 0;
-  return (int64_t)(sizeof(response) + chunk.length);
-}
-
-static int64_t http_cancel_packet(dolly_kernel_process *process,
-                                  uintptr_t request_size,
-                                  uintptr_t response_capacity) {
-  if (request_size != sizeof(dolly_process_http_cancel_request) ||
-      response_capacity != 0) return -EINVAL;
-  dolly_process_http_cancel_request request;
-  memcpy(&request, process_mailbox, sizeof(request));
-  if (request.reserved != 0 || request.sequence == 0 ||
-      request.sequence != process->http_sequences[(request.sequence - 1) % DOLLY_HTTP_SLOT_COUNT]) return -ESTALE;
-  const int result = dolly_http_cancel(request.sequence);
-  if (result == 0) process->http_sequences[(request.sequence - 1) % DOLLY_HTTP_SLOT_COUNT] = 0;
-  return result;
 }
 
 uint32_t dolly_process_supervisor_version(void) { return 0; }
@@ -1647,12 +1369,9 @@ static int64_t process_dispatch(int pid, int tid, uint32_t operation,
 
   dolly_kernel_thread *thread = find_thread(process, tid);
   if (tid && (!thread || thread->retired)) return -ESRCH;
-  dolly_http_body *body = thread ? &thread->body : &process->body;
+  const dolly_kernel_module *module = module_for(operation);
+  if (module) return module->call(pid, tid, operation, process_mailbox, request_size, response_capacity);
   switch (operation) {
-    case DOLLY_AUDIO_PROCESS_OP:
-      return dolly_audio_process_call(pid, process_mailbox, request_size, response_capacity);
-    case DOLLY_GPU_PROCESS_OP:
-      return dolly_gpu_process_call(pid, process_mailbox, request_size, response_capacity);
     case DOLLY_PROCESS_ARGUMENT_SIZES:
       if (request_size != 0) return -EINVAL;
       return vector_sizes(process->arguments, process->argument_count,
@@ -2199,32 +1918,6 @@ static int64_t process_dispatch(int pid, int tid, uint32_t operation,
     }
     case DOLLY_PROCESS_TERMINAL:
       return terminal_packet(process, request_size, response_capacity);
-    case DOLLY_PROCESS_UPLOAD_FILE:
-    case DOLLY_PROCESS_DOWNLOAD_FILE: {
-      dolly_process_path_request request;
-      char *path = NULL;
-      int directory = AT_FDCWD;
-      int64_t result = decode_path_request(process, request_size, &request,
-                                          &path, &directory);
-      if (result == 0 && request.flags != 0) result = -EINVAL;
-      char absolute[PATH_MAX + 1];
-      if (result == 0 && directory != AT_FDCWD) {
-        result = directory_path(directory, absolute, sizeof(absolute));
-        if (result == 0) {
-          const size_t prefix = strlen(absolute), length = strlen(path);
-          if (prefix + 1 + length >= sizeof(absolute)) result = -ENAMETOOLONG;
-          else {
-            absolute[prefix] = '/';
-            memcpy(absolute + prefix + 1, path, length + 1);
-          }
-        }
-      }
-      if (result == 0) result = operation == DOLLY_PROCESS_UPLOAD_FILE
-          ? dolly_upload_process_file(process->pid, directory == AT_FDCWD ? path : absolute)
-          : dolly_download_file(directory == AT_FDCWD ? path : absolute);
-      free(path);
-      return result;
-    }
     case DOLLY_PROCESS_CLOCK_TIME: {
       if (request_size != sizeof(dolly_process_clock_request) ||
           response_capacity < sizeof(dolly_process_clock_response)) return -EINVAL;
@@ -2275,35 +1968,6 @@ static int64_t process_dispatch(int pid, int tid, uint32_t operation,
       }
       return (int64_t)response_capacity;
     }
-    case DOLLY_PROCESS_DISPLAY_ACQUIRE:
-      return display_acquire_packet(process, request_size, response_capacity);
-    case DOLLY_PROCESS_DISPLAY_SET_SIZE:
-      return display_set_size_packet(process, request_size, response_capacity);
-    case DOLLY_PROCESS_DISPLAY_BEGIN_FRAME:
-      return display_begin_frame_packet(process, request_size, response_capacity);
-    case DOLLY_PROCESS_DISPLAY_WRITE_FRAME:
-      return display_write_frame_packet(process, request_size, response_capacity);
-    case DOLLY_PROCESS_DISPLAY_PRESENT:
-      return display_present_packet(process, request_size, response_capacity);
-    case DOLLY_PROCESS_DISPLAY_WAIT_FRAME:
-      return display_wait_frame_packet(process, request_size, response_capacity);
-    case DOLLY_PROCESS_DISPLAY_SET_CURSOR:
-      return display_set_cursor_packet(process, request_size, response_capacity);
-    case DOLLY_PROCESS_DISPLAY_NEXT_EVENT:
-      return display_next_event_packet(process, request_size, response_capacity);
-    case DOLLY_PROCESS_DISPLAY_RELEASE:
-      return display_release_packet(process, request_size, response_capacity);
-    case DOLLY_PROCESS_HTTP_START: {
-      const int64_t result = http_start_packet(process, body, request_size, response_capacity);
-      http_body_discard(body);
-      return result;
-    }
-    case DOLLY_PROCESS_HTTP_BODY_WRITE:
-      return http_body_write_packet(body, request_size);
-    case DOLLY_PROCESS_HTTP_POLL:
-      return http_poll_packet(process, request_size, response_capacity);
-    case DOLLY_PROCESS_HTTP_CANCEL:
-      return http_cancel_packet(process, request_size, response_capacity);
     case DOLLY_PROCESS_EXIT: {
       if (request_size != sizeof(dolly_process_exit_request)) return -EINVAL;
       dolly_process_exit_request request;
@@ -2354,7 +2018,7 @@ int dolly_threads_unstarted(int pid, int tid) {
   dolly_kernel_process *process = find_process(pid);
   dolly_kernel_thread *thread = process ? find_thread(process, tid) : NULL;
   if (!thread || tid == process->signal_tid) return -ESRCH;
-  http_body_discard(&thread->body);
+  release_modules(pid, tid);
   memset(thread, 0, sizeof(*thread));
   return 0;
 }
@@ -2366,7 +2030,7 @@ int dolly_threads_retired(int pid, int tid, uint64_t result) {
     return -ESRCH;
   thread->result = result;
   thread->retired = 1;
-  http_body_discard(&thread->body);
+  release_modules(pid, tid);
   int receiver = 0;
   for (size_t i = 0; i < DOLLY_KERNEL_THREAD_LIMIT; ++i) {
     dolly_kernel_thread *other = &process->threads[i];

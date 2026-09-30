@@ -8,6 +8,6 @@
   "contracts": ["dolly-http-0.wat"],
   "process": [],
   "headers": ["http.h"],
-  "kernel": [],
+  "kernel": ["kernel.c"],
   "client": ["client.c"]
 }
