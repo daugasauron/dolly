@@ -10,13 +10,13 @@ COPY FROM HOST /Dollyfile-javascript 32b4a4613a8406e9c962f5a6e7cec350c0cc6e62ced
 EXPORTS LIB dolly-js /usr/lib/libdolly-js.a
 EXPORTS HEADER quickjs /usr/include/quickjs.h
 EXPORTS HEADER quickjs-runner /usr/include/dolly/quickjs-runner.h
-USE HOST /modules/pi.dm e2687d9005a1972e9d3579bc3d0e13ef2a09273c8307faf786ecc7144132f0b3
+USE HOST /modules/pi.dm 386689974c07051d76dcd9c8f4f877c9b539058d3febbff46d5c995d45975d26
 COPY FROM HOST /Dollyfile-sdl2-build c4a567f718d8b5e673316035640dd7bbc9a8cdd5dc3088b1cf2b6f4db929ebde /usr/include/SDL2 /usr/include/SDL2
 COPY FROM HOST /Dollyfile-sdl2-build c4a567f718d8b5e673316035640dd7bbc9a8cdd5dc3088b1cf2b6f4db929ebde /usr/lib/libSDL2.a /usr/lib/libSDL2.a
 COPY FROM HOST /Dollyfile-sdl2-build c4a567f718d8b5e673316035640dd7bbc9a8cdd5dc3088b1cf2b6f4db929ebde /usr/share/licenses/SDL2 /usr/share/licenses/SDL2
 EXPORTS HEADER sdl2 /usr/include/SDL2
 EXPORTS LIB SDL2 /usr/lib/libSDL2.a
-USE HOST /modules/bhop.dm c371ef86fb4754361c3c9e8e2ba1eae7c7cbc30d9b3353251cee963fc0022f58
+USE HOST /modules/bhop.dm e090f5cc1f33f58d9e97e5f230b0f16b3b5caccc1ccfb3801ec21b221fadf4e9
 
 FILE /etc/dolly/init.slop
     if test -f "$HOME/.dollyrc"; then

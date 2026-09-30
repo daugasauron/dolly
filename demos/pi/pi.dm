@@ -1,7 +1,7 @@
 DOLLY 4
 MODULE pi
 
-USE HOST /modules/search-tools.dm 3348c62fccad91836daa86c28ea61db372216b32d79e39df5f815759674ce147
+USE HOST /modules/search-tools.dm 4ebb52efbb858e7d821ad37525f2381bc7fe0c60e1b1b2983f62accb36b0eedf
 EXPORTS TOOL rg
 EXPORTS TOOL fd
 COPY FROM HOST /Dollyfile-pi-build 3f7bc49708d8e32906e11dccfeead06e934b9152715d3fca50700580e382f1bc /usr/bin/pi /usr/bin/pi

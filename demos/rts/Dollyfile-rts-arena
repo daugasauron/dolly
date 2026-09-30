@@ -1,7 +1,7 @@
 DOLLY 4
 IMAGE rts-arena
 
-FROM HOST /Dollyfile-pi-runtime cc083b0d260ea4c65c06b0966788101f6f7af8c160d5fd97a870d0ad66ff0e69
+FROM HOST /Dollyfile-pi-runtime ed036b807272915448cad69519cbaf5c1aed493309d23eb436c60c1be36ad801
 COPY FROM HOST /Dollyfile-rts-build c347abf82d3953ba2fb5e8556370f02c34d103891118356263006a6ab17d91af /usr/bin/seven-kingdoms /usr/bin/seven-kingdoms
 COPY FROM HOST /Dollyfile-rts-build c347abf82d3953ba2fb5e8556370f02c34d103891118356263006a6ab17d91af /usr/share/7kaa /usr/share/7kaa
 COPY FROM HOST /Dollyfile-rts-build c347abf82d3953ba2fb5e8556370f02c34d103891118356263006a6ab17d91af /usr/src/7kaa /usr/src/7kaa
@@ -13,6 +13,6 @@ COPY FROM HOST /Dollyfile-rts-build c347abf82d3953ba2fb5e8556370f02c34d103891118
 EXPORTS TOOL seven-kingdoms
 EXPORTS HEADER sdl2 /usr/include/SDL2
 EXPORTS LIB SDL2 /usr/lib/libSDL2.a
-USE HOST /modules/rts-arena.dm b9cc0b656f8741eb83a71c491c53b55b7eb55e2a704eea2b8cc2f2e08d184018
+USE HOST /modules/rts-arena.dm 72bf5ec66135f2915f0eafb3276a1556a95d05c747dfc23d0ebc3a4a84eb15dc
 
 ENTRY /bin/foreground -i /bin/slop /etc/dolly/init.slop
