@@ -39,9 +39,11 @@ sequenceDiagram
 - `readlink("/proc/self/exe")` returns the loaded image's canonical path; there is
   no general `/proc`.
 - The compiler is itself a private process behind `cc`, `c++`, `ld` and `ar`
-  ([`compiler.cpp`](../src/compiler.cpp)). It keeps Clang's defaults and suffix
-  rules; objects are always position independent, `-m64` is the only target and
-  `-lc -lm -ldl -lrt -lpthread -lutil` add nothing.
+  ([`compiler.cpp`](../src/compiler.cpp)). It defaults to `-O2` with `-std=c17`
+  or `-std=c++23` and follows Clang's suffix rules; objects are always position
+  independent, `-m64` is the only target, `-lc -lm -ldl -lrt -lpthread -lutil`
+  add nothing, and `-Wl,--no-undefined` is accepted because the exact typed
+  import validation after linking is its target equivalent.
 - The supervisor caches compiled modules by SHA-256 (64 entries, 256 MiB), never
   instances; at most 32 processes exist at once and further spawns fail `EAGAIN`.
 - An unexpected Worker failure exits the process with status 126 and a one-line

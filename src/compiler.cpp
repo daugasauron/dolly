@@ -71,11 +71,12 @@ struct DriverOptions {
   bool include_system_dependencies = false;
   bool end_options = false;
   bool exceptions_disabled = false;
+  bool optimization_selected = false;
   bool export_dynamic = false;
   bool kernel_plugin = false;
   bool shared_library = false;
   bool link_cxx_runtime = false;
-  bool no_undefined = false;
+  bool standard_selected = false;
   bool unsigned_char = false;
   bool pthread = false;
   DebugInfoKind debug_info = DebugInfoKind::None;
@@ -283,10 +284,13 @@ int parse_driver_options(int argc, const char *const *argv, DriverOptions &optio
                      argv[0], options.forced_language.c_str());
         return -1;
       }
-    } else if (starts_with(argument, "-std=") ||
-               argument == "-O0" || argument == "-O1" ||
+    } else if (starts_with(argument, "-std=")) {
+      options.standard_selected = true;
+      options.frontend_options.push_back(argument);
+    } else if (argument == "-O0" || argument == "-O1" ||
                argument == "-O2" || argument == "-O3" ||
                argument == "-Os" || argument == "-Oz") {
+      options.optimization_selected = true;
       options.frontend_options.push_back(argument);
     } else if (argument == "-funsigned-char" || argument == "-fno-signed-char") {
       options.unsigned_char = true;
@@ -408,8 +412,6 @@ int parse_driver_options(int argc, const char *const *argv, DriverOptions &optio
           options.linker_options.push_back("--soname");
         } else if (starts_with(option, "-h")) {
           options.linker_options.push_back("--soname=" + option.substr(2));
-        } else if (option == "--no-undefined") {
-          options.no_undefined = true;
         } else if (option == "--version" || option == "-v") {
           options.linker_version = true;
         } else if (option == "--allow-shlib-undefined") {
@@ -426,8 +428,10 @@ int parse_driver_options(int argc, const char *const *argv, DriverOptions &optio
           // still emit the markers, so consume them at the public driver
           // boundary instead of forwarding unsupported no-ops to wasm-ld.
         } else if (!option.empty() && option != "--no-as-needed" &&
-                   option != "--as-needed") {
+                   option != "--as-needed" && option != "--no-undefined") {
           // Dolly links no ELF shared libraries, so as-needed has no meaning.
+          // Dolly validates the exact typed import set after linking, which is
+          // the target-equivalent of --no-undefined for permitted ABI imports.
           options.linker_options.push_back(option);
         }
         if (comma == std::string::npos) break;
@@ -575,7 +579,11 @@ bool run_clang(const std::string &source, const std::string &language,
       backend_options_initialized = true;
     }
   }
+  if (!options.optimization_selected) arguments.push_back("-O2");
   if (options.unsigned_char) arguments.push_back("-fno-signed-char");
+  if (!options.standard_selected) {
+    arguments.push_back(language == "c++" ? "-std=c++23" : "-std=c17");
+  }
   if (language == "c++") {
     // Process-target C++ deliberately retains libc++'s normal visibility
     // annotations.  Header-defined implementation details are hidden and
@@ -834,7 +842,7 @@ bool link_process_executable(const std::string &output,
 bool link_process_shared_object(const std::string &output,
                                 const std::vector<std::string> &inputs,
                                 const std::vector<std::string> &linker_options,
-                                bool strip_debug, bool no_undefined) {
+                                bool strip_debug) {
   std::vector<std::string> arguments = {
       "wasm-ld",
       "-o", output,
@@ -844,6 +852,7 @@ bool link_process_shared_object(const std::string &output,
       "--no-check-features",
       "--export=__wasm_call_ctors",
       "--export-dynamic",
+      "--unresolved-symbols=import-dynamic",
       "-shared",
       // Dolly intentionally has no ELF-style symbol interposition. Bind a
       // DSO's own definitions locally so template instantiations and other
@@ -856,17 +865,6 @@ bool link_process_shared_object(const std::string &output,
       "-L" + std::string(kProcessSysroot),
       "-L/usr/lib",
   };
-  // Undefined symbols become imports resolved from the owning executable at
-  // load time. --no-undefined admits only the process runtime's provider set,
-  // the symbols every -rdynamic executable exports.
-  if (no_undefined) {
-    arguments.insert(arguments.end(), {
-        "--unresolved-symbols=report-all",
-        std::string("--allow-undefined-file=") + kProcessDynamicProviderSymbols,
-    });
-  } else {
-    arguments.push_back("--unresolved-symbols=import-dynamic");
-  }
   if (strip_debug) arguments.push_back("--strip-debug");
   arguments.insert(arguments.end(), inputs.begin(), inputs.end());
   // Compiler builtins are implementation details of the DSO. libc, libc++,
@@ -1643,10 +1641,6 @@ int compile_and_link(const DriverOptions &options, int default_language,
     std::fputs("dolly-cc: the C++ runtime belongs to processes, not kernel plugins\n", stderr);
     return 64;
   }
-  if (options.kernel_plugin && options.no_undefined) {
-    std::fputs("dolly-cc: --no-undefined is unsupported for kernel plugins\n", stderr);
-    return 64;
-  }
   const std::string output = options.output.empty() ? "a.out" : options.output;
   std::vector<std::string> temporary_objects;
   std::vector<std::string> link_inputs;
@@ -1689,8 +1683,7 @@ int compile_and_link(const DriverOptions &options, int default_language,
       : (options.shared_library
              ? link_process_shared_object(linked, link_inputs,
                                           options.linker_options,
-                                          options.debug_info == DebugInfoKind::None,
-                                          options.no_undefined)
+                                          options.debug_info == DebugInfoKind::None)
              : link_process_executable(linked, link_inputs,
                                        options.linker_options,
                                        needs_cxx_runtime,
