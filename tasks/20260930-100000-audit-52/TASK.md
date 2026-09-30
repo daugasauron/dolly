@@ -32,5 +32,5 @@ constants, kernel module table and client archives got new mtimes every run,
 so CMake recompiled the kernel and relinked the in-Dolly compiler and Zig.
 Each is now replaced only when its bytes change: 23 s, with identical runtime
 and image-input hashes. Batching the fixture, process-object and client
-compiles, and the 18 DSO fixtures, into single container launches (48 -> 7)
+compiles, and the 18 DSO fixtures, into single container launches (48 -> 16)
 brings it to 9 s. Remaining: the `dist/` outputs deleted before every link.
