@@ -155,7 +155,9 @@ process_link_flags=(
   "${container[@]}" /emsdk/upstream/emscripten/emcc \
     "${process_compile_flags[@]}" -c src/process/crt1.c \
     -o "${startup_staging}/crt1.o"
-  replace_if_changed "${startup_staging}/crt1.o" build/process-crt1.o
+  if ! cmp -s "${startup_staging}/crt1.o" build/process-crt1.o; then
+    mv -- "${startup_staging}/crt1.o" build/process-crt1.o
+  fi
 )
 "${container[@]}" /emsdk/upstream/emscripten/emcc \
   "${process_compile_flags[@]}" -c src/process/libc-adapter.c \
@@ -208,7 +210,9 @@ done
   build/process-pthread_mutexattr_init.o \
   build/process-pthread_mutexattr_settype.o \
   build/process-pthread_mutexattr_destroy.o
-  replace_if_changed "${process_archive_staging}/libdolly-process.a" build/libdolly-process.a
+  if ! cmp -s "${process_archive_staging}/libdolly-process.a" build/libdolly-process.a; then
+    mv -- "${process_archive_staging}/libdolly-process.a" build/libdolly-process.a
+  fi
 )
 
 # Each host module's process client forms libdolly-NAME.a.
