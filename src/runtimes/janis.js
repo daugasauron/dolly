@@ -2521,13 +2521,6 @@ function janisStreamPump() {
   runDueTimers();
   return pumpChildren();
 }
-globalThis.__janisStreamPump = janisStreamPump;
-function janisShellStream(command, stdout, stderr, timeout, options = {}) {
-  const result = collectChild("/bin/slop", ["-c", command], { ...options, timeout }, stdout, stderr);
-  if (result.error) throw result.error;
-  return { status: result.status ?? 128 + childSignals[result.signal] };
-}
-globalThis.__janisShellStream = janisShellStream;
 
 // Called by quickjs-main.c after draining each microtask batch. It blocks only
 // inside the Wasm worker and keeps the runtime alive exactly while referenced

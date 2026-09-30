@@ -1,38 +1,67 @@
-// This is a Pi extension, not a Pi source patch. It replaces the four default
-// coding tools with implementations that use Janis's in-Wasm Dolly substrate.
+// This is a Pi extension, not a Pi source patch. Pi's upstream bash and edit
+// tools keep their truncation, full-output files and edit semantics; Dolly
+// only supplies the Slop shell and refuses edits that would corrupt bytes.
+import { spawn } from "node:child_process";
+import { access, readFile, writeFile } from "node:fs/promises";
+import { basename, resolve } from "node:path";
+import { createBashToolDefinition, createEditToolDefinition } from "@earendil-works/pi-coding-agent";
 
-const path = globalThis.__janisBuiltin("path");
-const fs = globalThis.__janisBuiltin("fs");
-
-const text = (value) => ({ content: [{ type: "text", text: String(value) }], details: {} });
-const absolute = (value, cwd) => path.resolve(cwd, String(value));
-
-function object(properties, required) {
-  return { type: "object", properties, required, additionalProperties: false };
+// Each pipe has its own decoder, so interleaved stdout/stderr cannot split a
+// UTF-8 scalar inside Pi's single output decoder.
+function forwardText(stream, onData) {
+  const decoder = new TextDecoder("utf-8", { ignoreBOM: true });
+  const emit = (value) => { if (value) onData(Buffer.from(value)); };
+  stream?.on("data", (bytes) => emit(decoder.decode(bytes, { stream: true })))
+    .on("end", () => emit(decoder.decode()));
 }
-const string = (description) => ({ type: "string", description });
+
+// Pi's BashOperations contract: resolve the exit code, or reject with
+// "aborted" / "timeout:SECONDS" so Pi reports the partial output.
+export const slop = {
+  exec: (command, cwd, { onData, signal, timeout, env }) => new Promise((resolveExit, reject) => {
+    if (signal?.aborted) return reject(new Error("aborted"));
+    const child = spawn("slop", ["-c", command], { cwd, env, stdio: ["ignore", "pipe", "pipe"] });
+    forwardText(child.stdout, onData);
+    forwardText(child.stderr, onData);
+    let timedOut = false;
+    const kill = () => child.kill("SIGKILL");
+    const timer = timeout && setTimeout(() => { timedOut = true; kill(); }, timeout * 1000);
+    signal?.addEventListener("abort", kill);
+    child.on("error", reject);
+    child.on("close", (exitCode) => {
+      clearTimeout(timer);
+      signal?.removeEventListener("abort", kill);
+      if (signal?.aborted) reject(new Error("aborted"));
+      else if (timedOut) reject(new Error(`timeout:${timeout}`));
+      else resolveExit({ exitCode });
+    });
+  }),
+};
+
+// Pi edits decoded text and writes it back as UTF-8; invalid bytes would
+// silently become U+FFFD, so such files are refused before any change.
+const utf8Only = new TextDecoder("utf-8", { fatal: true });
+const utf8Edits = {
+  access,
+  writeFile,
+  async readFile(path) {
+    const bytes = await readFile(path);
+    utf8Only.decode(bytes);
+    return bytes;
+  },
+};
+
+// Pi binds a tool's cwd at creation; follow the calling session's cwd instead.
+function sessionTool(create) {
+  return {
+    ...create(process.cwd()),
+    execute: (id, input, signal, update, context) =>
+      create(context.cwd).execute(id, input, signal, update, context),
+  };
+}
 
 export default function dollyTools(pi) {
-  pi.on("user_bash", () => ({ operations: {
-    async exec(command, cwd, options) {
-      const stdout = new TextDecoder("utf-8", { ignoreBOM: true });
-      const stderr = new TextDecoder("utf-8", { ignoreBOM: true });
-      const chunk = (decoder, bytes) => {
-        const value = decoder.decode(bytes, { stream: true });
-        if (value) options.onData(Buffer.from(value));
-      };
-      try {
-        const result = globalThis.__janisShellStream(command,
-          bytes => chunk(stdout, bytes), bytes => chunk(stderr, bytes),
-          options.timeout === undefined ? undefined : options.timeout * 1000,
-          { cwd, env: options.env, signal: options.signal });
-        return { exitCode: result.status };
-      } finally {
-        const tail = stdout.decode() + stderr.decode();
-        if (tail) options.onData(Buffer.from(tail));
-      }
-    },
-  } }));
+  pi.on("user_bash", () => ({ operations: slop }));
   pi.on("session_start", async (_event, context) => {
     if (context.mode === "tui") {
       context.ui.setHeader((_tui, theme) => ({
@@ -53,91 +82,8 @@ export default function dollyTools(pi) {
     );
   });
 
-  pi.registerTool({
-    name: "bash",
-    label: "slop",
-    description: "Execute a command with the Slop shell inside the Dolly WebAssembly sandbox.",
-    parameters: object({ command: string("Slop command to execute") }, ["command"]),
-    async execute(_id, parameters, signal, update, context) {
-      if (signal?.aborted) throw new Error("command cancelled");
-      const stdout = new TextDecoder("utf-8", { ignoreBOM: true });
-      const stderr = new TextDecoder("utf-8", { ignoreBOM: true });
-      let output = "";
-      const onChunk = (decoder, bytes) => {
-        const chunk = decoder.decode(bytes, { stream: true });
-        if (!chunk) return;
-        output += chunk;
-        update?.({ ...text(output), details: { status: null } });
-      };
-      const result = globalThis.__janisShellStream(
-        parameters.command, bytes => onChunk(stdout, bytes), bytes => onChunk(stderr, bytes),
-        undefined, { cwd: context.cwd, signal },
-      );
-      output += stdout.decode() + stderr.decode();
-      if (result.status !== 0) throw new Error(`${output}${output ? "\n" : ""}Command exited with code ${result.status}`);
-      if (!output) output = `(status ${result.status})`;
-      return { ...text(output), details: { status: result.status } };
-    },
-  });
-
-  pi.registerTool({
-    name: "read",
-    label: "read",
-    description: "Read a UTF-8 file from Dolly's in-memory filesystem.",
-    parameters: object({
-      path: string("File path, relative to the current workspace or absolute"),
-      offset: { type: "number", description: "First line to return, one-based" },
-      limit: { type: "number", description: "Maximum number of lines" },
-    }, ["path"]),
-    async execute(_id, parameters, _signal, _update, context) {
-      const contents = Dolly.readFile(absolute(parameters.path, context.cwd));
-      const lines = contents.split("\n");
-      const start = Math.max(0, (parameters.offset ?? 1) - 1);
-      const end = parameters.limit === undefined ? lines.length : start + parameters.limit;
-      return text(lines.slice(start, end).join("\n"));
-    },
-  });
-
-  pi.registerTool({
-    name: "write",
-    label: "write",
-    description: "Create or replace a UTF-8 file in Dolly's in-memory filesystem.",
-    parameters: object({
-      path: string("File path, relative to the current workspace or absolute"),
-      content: string("Complete file contents"),
-    }, ["path", "content"]),
-    async execute(_id, parameters, _signal, _update, context) {
-      const target = absolute(parameters.path, context.cwd);
-      fs.mkdirSync(path.dirname(target), { recursive: true });
-      Dolly.writeFile(target, parameters.content);
-      return text(`Wrote ${Buffer.byteLength(parameters.content)} bytes to ${target}`);
-    },
-  });
-
-  pi.registerTool({
-    name: "edit",
-    label: "edit",
-    description: "Replace one exact text occurrence in a UTF-8 file in Dolly's filesystem.",
-    parameters: object({
-      path: string("File path, relative to the current workspace or absolute"),
-      old_text: string("Exact text to replace; it must occur once"),
-      new_text: string("Replacement text"),
-    }, ["path", "old_text", "new_text"]),
-    async execute(_id, parameters, _signal, _update, context) {
-      const target = absolute(parameters.path, context.cwd);
-      const contents = Dolly.readFile(target);
-      if (!parameters.old_text.length) throw new Error("old_text must not be empty");
-      if (parameters.old_text === parameters.new_text) throw new Error("No changes: old_text and new_text are identical");
-      const first = contents.indexOf(parameters.old_text);
-      if (first < 0) throw new Error("old_text was not found");
-      if (contents.indexOf(parameters.old_text, first + 1) >= 0) {
-        throw new Error("old_text occurs more than once");
-      }
-      Dolly.writeFile(target,
-        `${contents.slice(0, first)}${parameters.new_text}${contents.slice(first + parameters.old_text.length)}`);
-      return text(`Edited ${target}`);
-    },
-  });
+  pi.registerTool(sessionTool((cwd) => createBashToolDefinition(cwd, { operations: slop })));
+  pi.registerTool(sessionTool((cwd) => createEditToolDefinition(cwd, { operations: utf8Edits })));
 
   pi.registerTool({
     name: "download",
@@ -145,13 +91,16 @@ export default function dollyTools(pi) {
     description:
       "Download one file from Dolly's in-memory filesystem through the browser. " +
       "Use only when the user asks to save or download a file to their device.",
-    parameters: object({
-      path: string("File path, relative to the current workspace or absolute"),
-    }, ["path"]),
+    parameters: {
+      type: "object",
+      properties: { path: { type: "string", description: "File path, relative to the current workspace or absolute" } },
+      required: ["path"],
+      additionalProperties: false,
+    },
     async execute(_id, parameters, _signal, _update, context) {
-      const target = absolute(parameters.path, context.cwd);
+      const target = resolve(context.cwd, String(parameters.path));
       Dolly.download(target);
-      return text(`Started browser download: ${path.basename(target)}`);
+      return { content: [{ type: "text", text: `Started browser download: ${basename(target)}` }], details: {} };
     },
   });
 }

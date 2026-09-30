@@ -158,24 +158,23 @@ await check('unsupported child options fail explicitly', async () => {
       `unsupported options accepted: ${JSON.stringify(options)}`);
   }
 });
-if (fs.existsSync('/home/dolly/.pi/agent/extensions/dolly-tools.js')) await check('Pi extension tool and user shell operations propagate abort', async () => {
-  const { default: install } = await import('/home/dolly/.pi/agent/extensions/dolly-tools.js');
-  const tools = new Map(), handlers = new Map();
-  install({ on: (name, handler) => handlers.set(name, handler), registerTool: tool => tools.set(tool.name, tool), registerCommand() {} });
-  for (const userShell of [false, true]) {
-    const controller = new AbortController();
-    const command = '/bin/echo prefix; /bin/sleep 2';
-    let prefix = false, error;
-    const timer = setTimeout(() => controller.abort(), 150);
-    try {
-      if (userShell) await handlers.get('user_bash')().operations.exec(command, root,
-        { signal: controller.signal, onData: data => { prefix ||= String(data).includes('prefix'); } });
-      else await tools.get('bash').execute('probe', { command }, controller.signal,
-        update => { prefix ||= update.content[0].text.includes('prefix'); }, { cwd: root });
-    } catch (value) { error = value; }
-    finally { clearTimeout(timer); }
-    assert(prefix && error?.name === 'AbortError', `Pi ${userShell ? 'user shell' : 'tool'} did not stream/cancel`);
-  }
+if (fs.existsSync('/home/dolly/.pi/agent/extensions/dolly-tools.js')) await check('Pi shell tool and user shell operations stream and cancel Slop', async () => {
+  await import('/usr/lib/node_modules/@earendil-works/pi-coding-agent/dist/main.js');
+  const { default: install, slop } = await import('/home/dolly/.pi/agent/extensions/dolly-tools.js');
+  const tools = new Map();
+  install({ on() {}, registerTool: tool => tools.set(tool.name, tool) });
+  const context = { cwd: root, sessionManager: { getSessionId: () => 'probe', getSessionFile() {} } };
+  const command = 'printf prefix; /bin/sleep 5';
+  const started = Date.now();
+  let error;
+  try { await tools.get('bash').execute('probe', { command }, AbortSignal.timeout(1000), undefined, context); }
+  catch (value) { error = value; }
+  assert(error?.message === 'prefix\n\nCommand aborted' && Date.now() - started < 4000, `Pi shell tool did not cancel: ${error}`);
+  let output = '';
+  error = undefined;
+  try { await slop.exec(command, root, { signal: AbortSignal.timeout(1000), onData: data => { output += data; } }); }
+  catch (value) { error = value; }
+  assert(output === 'prefix' && error?.message === 'aborted', `Pi user shell did not stream/cancel: ${error}`);
 });
 await check('HTTP policy errors retain code, errno and request identity', async () => {
   let error;

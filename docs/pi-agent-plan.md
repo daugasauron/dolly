@@ -25,7 +25,9 @@ host esbuild is used separately for browser WebGPU assets.
 
 ## Use
 
-Pi's `bash` tool and interactive `!` execute Slop, not Bash.
+Pi's upstream tools run unchanged over Janis. Dolly's extension plugs Slop into
+the `bash` tool and interactive `!` (not Bash) and refuses edits of non-UTF-8
+files, which Pi would otherwise rewrite with U+FFFD.
 `/bin/sh` is a compatibility alias to Slop. Child stdout/stderr stream through
 real process pipes; cancellation uses the same lifecycle boundary as other tools.
 Installed programs depend on the image: use `command -v TOOL`.
