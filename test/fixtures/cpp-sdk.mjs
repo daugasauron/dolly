@@ -98,6 +98,10 @@ export async function runCppSdkCases(submit, python) {
     await run(`c++ -shared --dolly-kernel-plugin ${scratch}/plugin.cpp -o ${scratch}/plugin.so`);
     assert.equal(await submit(`c++ -shared --dolly-kernel-plugin ${scratch}/plugin.cpp -lc++ -o ${scratch}/unsupported.so`), 64);
     await run(`test ! -e ${scratch}/unsupported.so && test ! -e /usr/lib/libc++.a && test ! -e /usr/lib/libc++abi.a`);
+    // A plugin import outside the kernel-plugin contract fails at link time, not at boot.
+    await write("outside.cpp", 'extern "C" int outside(); extern "C" int plugin_answer() { return outside(); }\n');
+    assert.notEqual(await submit(`c++ -shared --dolly-kernel-plugin ${scratch}/outside.cpp -o ${scratch}/outside.so`), 0);
+    await run(`test ! -e ${scratch}/outside.so`);
     await write("constructor.c", 'extern int count; __attribute__((constructor)) static void initialize(void) { count = 42; }\n');
     await write("constructor-main.c", 'int count; int main(void) { return count != 42; }\n');
     await run(`cc -c ${scratch}/constructor.c -o ${scratch}/constructor.o`);

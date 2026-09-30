@@ -1080,8 +1080,7 @@ bool is_mutable_i64_global(const llvm::wasm::WasmImport &entry) {
 bool validate_side_module_loaded(const std::string &path,
                                  const LoadedWasm &contract,
                                  const LoadedWasm &command,
-                                 const std::vector<LoadedWasm> *providers = nullptr,
-                                 bool allow_unresolved_provider = false) {
+                                 const std::vector<LoadedWasm> *providers = nullptr) {
   auto first_section = command.object->section_begin();
   if (first_section == command.object->section_end()) {
     std::fprintf(stderr, "dolly-cc: %s has no sections\n", path.c_str());
@@ -1133,7 +1132,6 @@ bool validate_side_module_loaded(const std::string &path,
         }
       }
       if (supplied) continue;
-      if (allow_unresolved_provider && entry.Module == "env") continue;
       std::fprintf(stderr,
                    "dolly-cc: import is outside the kernel-plugin contract: %s.%s\n",
                    entry.Module.str().c_str(), entry.Field.str().c_str());
@@ -1177,7 +1175,7 @@ bool load_needed_providers(const LoadedWasm &consumer,
     if (!load_wasm(path, provider) ||
         !validate_side_module_loaded(
             path, contract, provider,
-            providers.empty() ? nullptr : &providers, false) ||
+            providers.empty() ? nullptr : &providers) ||
         !has_kernel_plugin_stamp_loaded(path, provider)) {
       std::fprintf(stderr, "dolly-cc: invalid needed library: %s\n",
                    path.c_str());
@@ -1198,8 +1196,7 @@ bool validate_shared_object(const std::string &path,
     return false;
   }
   return validate_side_module_loaded(
-      path, contract, module,
-      providers.empty() ? nullptr : &providers, providers.empty());
+      path, contract, module, providers.empty() ? nullptr : &providers);
 }
 
 bool has_kernel_plugin_stamp_loaded(const std::string &path,
