@@ -504,17 +504,15 @@ CURLcode curl_easy_setopt(CURL *handle, CURLoption option, ...) {
       else result = CURLE_NOT_BUILT_IN;
       break;
     }
-    case CURLOPT_ACCEPT_ENCODING: {
-      /* Fetch always negotiates and decodes the encodings the browser supports,
-       * which is what "" requests. It cannot send a caller-chosen list. */
-      const char *value = va_arg(arguments, const char *);
-      if (value != NULL && value[0] != '\0') result = CURLE_NOT_BUILT_IN;
+    case CURLOPT_USERAGENT:
+    case CURLOPT_ACCEPT_ENCODING:
+      /* Request metadata, not authority over browser-owned wire headers: the
+       * broker strips both, which also avoids engine-specific CORS preflights. */
+      (void)va_arg(arguments, const char *);
       break;
-    }
 
     /* These controls need facilities this adapter does not implement. Do not
      * acknowledge them merely because upstream headers define the options. */
-    case CURLOPT_USERAGENT: /* The browser owns User-Agent. */
     case CURLOPT_REDIR_PROTOCOLS_STR:
     case CURLOPT_PINNEDPUBLICKEY:
     case CURLOPT_SEEKFUNCTION:
@@ -578,12 +576,9 @@ static CURLcode prepare_transfer(DollyEasy *easy, DollyTransfer *transfer) {
   reset_result(easy);
   const unsigned protocol = strncasecmp(easy->url, "http://", 7) == 0 ? PROTOCOL_HTTP :
       strncasecmp(easy->url, "https://", 8) == 0 ? PROTOCOL_HTTPS : 0;
-  /* A relative URL's scheme is host-resolved. It cannot satisfy a narrower
-   * caller restriction without guessing the browser's base URL. */
-  if (protocol != 0 ? !(easy->protocols & protocol) :
-      easy->url[0] != '/' || easy->protocols != PROTOCOL_ALL) {
-    return CURLE_UNSUPPORTED_PROTOCOL;
-  }
+  /* The broker admits only absolute http: and https: URLs. */
+  if (protocol == 0 && easy->url[0] == '/') return CURLE_URL_MALFORMAT;
+  if (!(easy->protocols & protocol)) return CURLE_UNSUPPORTED_PROTOCOL;
 
   unsigned char *body = NULL;
   size_t body_size = 0;

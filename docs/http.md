@@ -66,7 +66,8 @@ globalThis.DOLLY_HTTP_POLICY = {
 - Bootstrap sources (recipes and `SOURCE HOST` files) are exact credential-free
   GETs with pinned byte bounds; under an explicit policy each gets 4 requests.
 - Fetch always uses `credentials: "omit"` and no referrer. The broker drops
-  browser-owned headers such as `User-Agent` and `Accept-Encoding`.
+  browser-owned headers such as `User-Agent` and `Accept-Encoding`, which also
+  avoids engine-specific CORS preflights.
 
 ## CORS
 
@@ -82,11 +83,13 @@ widens authority accordingly. Never send credentials through a public CORS proxy
 - libcurl: official curl 8.21 headers over
   [`libcurl-fetch.c`](../src/libcurl-fetch.c), linked with `-lcurl`. It covers
   easy and multi handles, header lists, common methods, read/write/header/debug
-  callbacks, `HTTPAUTH` basic and info queries. Fetch owns TLS, DNS, pooling,
-  compression and redirects, so options such as `USERAGENT`, proxies, cookies,
-  certificates, disabling TLS verification and transfer timeouts return
-  `CURLE_NOT_BUILT_IN`; unknown options return `CURLE_UNKNOWN_OPTION`. A
-  disallowed redirect fails with `CURLE_COULDNT_CONNECT`.
+  callbacks, `HTTPAUTH` basic and info queries. `USERAGENT` and
+  `ACCEPT_ENCODING` are accepted request metadata, not authority over those
+  browser-owned headers. Fetch owns TLS, DNS, pooling, compression and redirects,
+  so options such as proxies, cookies, certificates, disabling TLS verification
+  and transfer timeouts return `CURLE_NOT_BUILT_IN`; unknown options return
+  `CURLE_UNKNOWN_OPTION`. A relative URL fails with `CURLE_URL_MALFORMAT` and a
+  disallowed redirect with `CURLE_COULDNT_CONNECT`.
 - Git: upstream `git` and `git-remote-http(s)` link that libcurl
   ([`git.dm`](../modules/git.dm)): clone, fetch and push over HTTP. Clean/smudge
   filters are not ported.
