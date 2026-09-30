@@ -95,6 +95,11 @@ export async function createHost(side, enabled, { send, resources = {}, configur
     get, options, transfers, configuration: config,
     enabled: [...instances.keys()].map(name => `${name}@${byName.get(name).contract.version}`),
     unavailable: Object.fromEntries(reasons), require: requireModules, dispose,
+    // The Worker calls this after restoring the system image and before starting
+    // image-phase modules, in registry order.
+    async imageRestored(context) {
+      for (const instance of instances.values()) await instance.imageRestored?.(context);
+    },
     // The page calls this once the image ENTRY may run, right before it lets
     // the Worker start it: modules may then show their UI and admit services.
     entryStarted(context) {

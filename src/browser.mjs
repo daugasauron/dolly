@@ -212,6 +212,8 @@ async function boot() {
     configuration: {
       http: { network: localServicesTransport(httpPolicy, localServices) },
       build: { network: buildNetwork, policies: httpPolicyConfigurations(httpPolicy), services: localServices },
+      snapshot: sessionSnapshot === undefined ? {}
+        : { bytes: sessionSnapshot, ...(recovering ? { recover: restoredSession.name } : {}) },
     },
   });
   delete globalThis.DOLLY_HOST_MODULES;
@@ -254,12 +256,10 @@ async function boot() {
     artifacts,
     ...(customSource === undefined ? {} : { customSource }),
     ...(customArtifact === undefined ? {} : { customArtifact }),
-    ...(sessionSnapshot === undefined ? {} : { sessionSnapshot }),
-    ...(recovering ? { recoverSession: restoredSession.name } : {}),
   };
   runtimeWorker.postMessage(
     workerConfiguration,
-    [...host.transfers, ...artifacts.map(artifact => artifact.bytes), ...(sessionSnapshot === undefined ? [] : [sessionSnapshot]),
+    [...host.transfers, ...artifacts.map(artifact => artifact.bytes),
       ...(customArtifact === undefined ? [] : [customArtifact.bytes])],
   );
 

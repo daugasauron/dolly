@@ -4,7 +4,6 @@ import { DOLLY_BUILD_ID } from "../dist/dolly-build-id.mjs";
 import { DOLLY_IMAGE_BUILD_ID } from "../dist/dolly-image-build-id.mjs";
 import { DOLLY_ERRNO } from "../dist/dolly-errno.mjs";
 import { DOLLY_IMAGES } from "../dist/dolly-images.mjs";
-import { validSessionName, DOLLY_SESSION_MAX_BYTES } from "./session-store.mjs";
 import { describeImageArtifact, saveImageArtifact, sha256,
   loadPackagedSnapshotMetadata, streamPackagedSystemSnapshot } from "./image-artifact.mjs";
 import { imageInputs } from "./image-inputs.mjs";
@@ -45,17 +44,6 @@ if ((configuredImage === "custom" || bootConfig.customSource !== undefined) &&
      bootConfig.customSource.includes("\0"))) {
   throw new Error("invalid uploaded Dollyfile");
 }
-if (bootConfig.sessionSnapshot !== undefined &&
-    (!(bootConfig.sessionSnapshot instanceof ArrayBuffer) ||
-     bootConfig.sessionSnapshot.byteLength < 16 ||
-     bootConfig.sessionSnapshot.byteLength > DOLLY_SESSION_MAX_BYTES ||
-     bootMode !== "snapshot")) {
-  throw new Error("invalid Dolly session snapshot");
-}
-
-if (bootConfig.recoverSession !== undefined &&
-    (!validSessionName(bootConfig.recoverSession) || bootConfig.sessionSnapshot === undefined ||
-     configuredImage !== "system")) throw new Error("invalid Dolly file recovery request");
 
 const applicationBase = new URL("../", import.meta.url);
 function locateArtifact(path) {
@@ -347,28 +335,8 @@ try {
   // Image pruning removes bootstrap inputs. Publish the current release URL
   // after artifact capture/restore so portable images never retain a build host.
   replaceFile("/etc/dolly/host.base", applicationBase.href);
-  if (bootConfig.sessionSnapshot !== undefined) host.require(["snapshot@0"]);
-  host.get("snapshot")?.captureBase(dolly);
-  if (bootConfig.recoverSession !== undefined) {
-    const path = "/tmp/dolly-session-recovery.delta";
-    const destination = `/workspace/recovered-${bootConfig.recoverSession}`;
-    bootstrapStage(`recovering saved files into ${destination}...`);
-    replaceFile(path, new Uint8Array(bootConfig.sessionSnapshot));
-    bootConfig.sessionSnapshot.transfer(0);
-    bootConfig.sessionSnapshot = undefined;
-    try {
-      const program = "/usr/bin/session-recover";
-      if (await processSupervisor.spawn([program, path, destination]) !== 0) {
-        throw new Error("File recovery failed; the original saved session is unchanged");
-      }
-    } finally { dolly.FS.unlink(path); }
-  } else if (bootConfig.sessionSnapshot !== undefined) {
-    bootstrapStage("restoring named session filesystem...");
-    host.get("snapshot").restore(dolly, bootConfig.sessionSnapshot);
-    bootConfig.sessionSnapshot.transfer(0);
-    bootConfig.sessionSnapshot = undefined;
-    bootstrapStage("named session filesystem restored");
-  }
+  await host.imageRestored({ dolly, supervisor: processSupervisor, stage: bootstrapStage,
+    writeFile: replaceFile, image: configuredImage });
 
   await host.start("image", { dolly, memory, kernelExports });
 
