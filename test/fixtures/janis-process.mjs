@@ -1,4 +1,4 @@
-import { spawn, spawnSync, execFile } from 'node:child_process';
+import { spawn, spawnSync, execFile, execSync } from 'node:child_process';
 import fs from 'node:fs';
 import { setTimeout as delay } from 'node:timers/promises';
 
@@ -8,7 +8,7 @@ const failures = [];
 function assert(value, message) { if (!value) throw new Error(message); }
 async function check(name, operation) {
   try { await operation(); console.log(`JANIS-PROCESS PASS: ${name}`); }
-  catch (error) { failures.push(name); console.log(`JANIS-PROCESS FAIL: ${name}: ${error.stack ?? error}`); }
+  catch (error) { failures.push(`${name}: ${error} ${error?.code ?? ''}`); console.log(`JANIS-PROCESS FAIL: ${name}: ${error.stack ?? error}`); }
 }
 function completion(child) {
   let stdout = Buffer.alloc(0), stderr = Buffer.alloc(0), error;
@@ -176,6 +176,21 @@ if (fs.existsSync('/home/dolly/.pi/agent/extensions/dolly-tools.js')) await chec
   catch (value) { error = value; }
   assert(output === 'prefix' && error?.message === 'aborted', `Pi user shell did not stream/cancel: ${error}`);
 });
+await check('execSync returns exact binary stdout without an encoding', async () => {
+  const bytes = Buffer.from([0, 255, 0xe3, 0x81, 10]);
+  fs.writeFileSync(`${root}/binary`, bytes);
+  assert(execSync(`/bin/cat ${root}/binary`).equals(bytes), 'execSync decoded binary output');
+  assert(execSync(`/bin/cat ${root}/binary`, { encoding: 'hex' }) === '00ffe3810a', 'execSync ignored its encoding');
+});
+await check('fetch redirect "error" fails redirects and "manual" is refused', async () => {
+  assert((await fetch(`${origin}/fixture/http.txt`, { redirect: 'error' })).ok, 'redirect "error" broke a plain request');
+  let error;
+  try { await fetch(`${origin}/fixture/http-redirect`, { redirect: 'error' }); } catch (value) { error = value; }
+  assert(error, 'redirect "error" followed a redirect');
+  error = undefined;
+  try { await fetch(`${origin}/fixture/http.txt`, { redirect: 'manual' }); } catch (value) { error = value; }
+  assert(error instanceof TypeError, 'redirect "manual" was not refused');
+});
 await check('HTTP policy errors retain code, errno and request identity', async () => {
   let error;
   try { await fetch(`${origin}/not-allowed`); } catch (value) { error = value; }
@@ -308,5 +323,5 @@ await check('combined signals and timer promises abort mid-wait', async () => {
   try { await delay(200, undefined, { signal }); } catch (value) { error = value; }
   assert(signal.reason === reason && error?.name === 'AbortError' && error.cause === reason, 'timer ignored mid-wait abort');
 });
-if (failures.length) throw new Error(`${failures.length} Janis process/abort groups failed`);
+if (failures.length) throw new Error(`Janis process/abort groups failed:\n${failures.join('\n')}`);
 console.log('JANIS-PROCESS-OK');

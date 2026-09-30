@@ -227,6 +227,10 @@ class JanisEventEmitter {
   }
 }
 
+function unsupported(what, code = "ENOSYS") {
+  return () => { throw Object.assign(new Error(`Janis does not support ${what}`), { code }); };
+}
+
 class JanisTimer {
   constructor(id) { this.id = id; }
   ref() { const timer = janisTimers.get(this.id); if (timer) timer.ref = true; return this; }
@@ -466,20 +470,15 @@ Object.assign(process, {
     return true;
   },
   hrtime(previous = undefined) {
-    const nanoseconds = BigInt(Date.now()) * 1000000n;
-    const seconds = Number(nanoseconds / 1000000000n);
-    const remainder = Number(nanoseconds % 1000000000n);
-    if (!previous) return [seconds, remainder];
-    let deltaSeconds = seconds - previous[0];
-    let deltaNanoseconds = remainder - previous[1];
-    if (deltaNanoseconds < 0) { deltaSeconds--; deltaNanoseconds += 1000000000; }
-    return [deltaSeconds, deltaNanoseconds];
+    let elapsed = process.hrtime.bigint();
+    if (previous) elapsed -= BigInt(previous[0]) * 1000000000n + BigInt(previous[1]);
+    return [Number(elapsed / 1000000000n), Number(elapsed % 1000000000n)];
   },
-  uptime: () => (Date.now() - performance.timeOrigin) / 1000,
-  memoryUsage: () => ({ rss: 0, heapTotal: 0, heapUsed: 0, external: 0, arrayBuffers: 0 }),
-  resourceUsage: () => ({}),
+  uptime: () => performance.now() / 1000,
+  memoryUsage: unsupported("process.memoryUsage"),
+  resourceUsage: unsupported("process.resourceUsage"),
 });
-process.hrtime.bigint = () => BigInt(Date.now()) * 1000000n;
+process.hrtime.bigint = () => BigInt(Math.round(performance.now() * 1e6));
 const janisProcessEvents = new JanisEventEmitter();
 for (const method of [
   "on", "addListener", "prependListener", "once", "prependOnceListener",
@@ -631,56 +630,41 @@ class JanisStats {
 class JanisDirent extends JanisStats {
   constructor(name, native) { super(native); this.name = name; this.parentPath = ""; this.path = ""; }
 }
-function makeFsError(error, path, syscall) {
-  const result = error && typeof error === "object"
-    ? error
-    : new Error(String(error));
-  if (!result.code) {
-    const message = String(result.message ?? result);
-    result.code = message.includes("No such file or directory") ? "ENOENT"
-      : message.includes("File exists") ? "EEXIST"
-        : message.includes("Not a directory") ? "ENOTDIR"
-          : message.includes("Is a directory") ? "EISDIR"
-            : message.includes("Directory not empty") ? "ENOTEMPTY"
-              : "EIO";
-  }
-  result.path ??= String(path);
-  result.syscall ??= syscall;
-  return result;
-}
-function fsNative(path, syscall, operation) {
+// Native Dolly filesystem errors carry errno code and syscall; add the path.
+function fsNative(path, operation) {
   try { return operation(); }
-  catch (error) { throw makeFsError(error, path, syscall); }
+  catch (error) { error.path ??= String(path); throw error; }
 }
 function fsStat(path) {
-  return new JanisStats(fsNative(path, "stat", () => Dolly.fsStat(String(path))));
+  return new JanisStats(fsNative(path, () => Dolly.fsStat(String(path))));
 }
 function fsLstat(path) {
-  return new JanisStats(fsNative(path, "lstat", () => Dolly.fsLstat(String(path))));
+  return new JanisStats(fsNative(path, () => Dolly.fsLstat(String(path))));
 }
 function fsFstat(descriptor) {
   return new JanisStats(Dolly.fsFstat(fsDescriptor(descriptor)));
 }
 function fsExists(path) { try { Dolly.fsAccess(String(path)); return true; } catch { return false; } }
+function isFile(path) { try { return fsStat(path).isFile(); } catch { return false; } }
 function fsMkdir(path, options = {}) {
   path = resolvePath(path);
-  const recursive = options === true || options?.recursive;
-  if (!recursive) {
-    fsNative(path, "mkdir", () => Dolly.fsMkdir(path));
-    return;
-  }
-  let current = path.startsWith("/") ? "/" : "";
+  if (!(options === true || options?.recursive)) return void fsNative(path, () => Dolly.fsMkdir(path));
+  let current = "";
   for (const part of path.split("/").filter(Boolean)) {
-    current = current === "/" ? `/${part}` : current ? `${current}/${part}` : part;
-    if (!fsExists(current)) {
-      try { fsNative(current, "mkdir", () => Dolly.fsMkdir(current)); }
-      catch (error) { if (error.code !== "EEXIST" || !fsStat(current).isDirectory()) throw error; }
+    current += `/${part}`;
+    try { fsNative(current, () => Dolly.fsMkdir(current)); }
+    catch (error) {
+      if (error.code !== "EEXIST") throw error;
+      if (!fsStat(current).isDirectory())
+        throw Object.assign(new Error(`not a directory: ${current}`), { code: "ENOTDIR", path: current, syscall: "mkdir" });
     }
-    else if (!fsStat(current).isDirectory()) {
-      throw Object.assign(new Error(`ENOTDIR: not a directory, mkdir '${current}'`), {
-        code: "ENOTDIR", path: current, syscall: "mkdir",
-      });
-    }
+  }
+}
+function fsMkdtemp(prefix) {
+  for (;;) {
+    const path = `${prefix}${Math.random().toString(36).slice(2, 8)}`;
+    try { fsNative(path, () => Dolly.fsMkdir(path)); return path; }
+    catch (error) { if (error.code !== "EEXIST") throw error; }
   }
 }
 function fsRead(path, options = undefined) {
@@ -717,7 +701,7 @@ function withFile(path, flags, operation) {
   try { return operation(fd); } finally { closeSync(fd); }
 }
 function fsReaddir(path, options = undefined) {
-  const names = fsNative(path, "scandir", () => Dolly.fsReaddir(String(path)));
+  const names = fsNative(path, () => Dolly.fsReaddir(String(path)));
   if (!options?.withFileTypes) return names;
   return names.map((name) => Object.assign(new JanisDirent(name, fsLstat(janisPath.join(path, name))), {
     parentPath: String(path), path: String(path),
@@ -733,11 +717,11 @@ function fsRemove(path, options = {}) {
   }
   if (metadata.isDirectory()) {
     if (options?.recursive) for (const name of fsReaddir(path)) fsRemove(janisPath.join(path, name), options);
-    fsNative(path, "rmdir", () => Dolly.fsRmdir(path));
-  } else fsNative(path, "unlink", () => Dolly.fsUnlink(path));
+    fsNative(path, () => Dolly.fsRmdir(path));
+  } else fsNative(path, () => Dolly.fsUnlink(path));
 }
 function fsRealpath(path) {
-  return fsNative(path, "realpath", () => Dolly.realpath(String(path)));
+  return fsNative(path, () => Dolly.realpath(String(path)));
 }
 
 function janisGlobSegment(pattern, value) {
@@ -889,7 +873,7 @@ function openSync(path, flags = "r") {
   if (flags & ~supported) {
     throw Object.assign(new Error("unsupported file flags"), { code: "ENOTSUP" });
   }
-  return fsNative(path, "open", () => Dolly.fsOpen(String(path), flags));
+  return fsNative(path, () => Dolly.fsOpen(String(path), flags));
 }
 function closeSync(descriptor) { return Dolly.fsClose(fsDescriptor(descriptor)); }
 function fileIo(writing, descriptor, buffer, offset, length, position) {
@@ -979,10 +963,23 @@ class JanisTransform extends JanisDuplex {
 class JanisPassThrough extends JanisTransform {}
 
 function createReadStream(path, options = {}) {
+  if (typeof options === "string") options = { encoding: options };
+  const { start = 0, end = Infinity } = options;
   const stream = new JanisReadable();
+  if (options.encoding) stream.setEncoding(options.encoding);
   queueMicrotask(() => {
-    try { stream.push(fsRead(path, options.encoding)); stream.push(null); stream.emit("close"); }
-    catch (error) { stream.emit("error", error); }
+    try {
+      withFile(path, options.flags ?? "r", (fd) => {
+        const block = Buffer.alloc(65536);
+        for (let position = start, count; position <= end; position += count) {
+          count = readSync(fd, block, 0, Math.min(block.length, end - position + 1), position);
+          if (!count) break;
+          stream.push(Buffer.from(block.subarray(0, count)));
+        }
+      });
+      stream.push(null);
+      stream.emit("close");
+    } catch (error) { stream.emit("error", error); }
   });
   return stream;
 }
@@ -1016,49 +1013,31 @@ const janisFs = {
     if (typeof options === "function") { callback = options; options = {}; }
     callbackResult(() => fsGlobSync(pattern, options), callback);
   },
-  unlinkSync: (path) => fsNative(path, "unlink", () => Dolly.fsUnlink(String(path))),
-  rmdirSync: (path) => fsNative(path, "rmdir", () => Dolly.fsRmdir(String(path))),
+  unlinkSync: (path) => fsNative(path, () => Dolly.fsUnlink(String(path))),
+  rmdirSync: (path) => fsNative(path, () => Dolly.fsRmdir(String(path))),
   rmSync: fsRemove,
   renameSync: (from, to) => Dolly.fsRename(String(from), String(to)),
   copyFileSync: (from, to) => Dolly.fsCopy(String(from), String(to)),
   realpathSync: fsRealpath,
-  accessSync: (path) => fsNative(path, "access", () => Dolly.fsAccess(String(path))),
-  utimesSync: (path, atime, mtime) => fsNative(path, "utimes", () => Dolly.fsUtimes(
+  accessSync: (path, mode = 0) => fsNative(path, () => Dolly.fsAccess(String(path), mode)),
+  utimesSync: (path, atime, mtime) => fsNative(path, () => Dolly.fsUtimes(
     String(path), atime instanceof Date ? atime.getTime() / 1000 : Number(atime),
     mtime instanceof Date ? mtime.getTime() / 1000 : Number(mtime))),
-  // Dolly intentionally has no permission model.
-  chmodSync() {},
+  // Dolly has no file permission model.
+  chmodSync: unsupported("chmod"),
   openSync,
   closeSync,
   readSync,
   writeSync,
   createReadStream,
   createWriteStream,
-  mkdtempSync: (prefix) => { const path = `${prefix}${Math.random().toString(16).slice(2, 10)}`; fsMkdir(path, { recursive: true }); return path; },
-  watch() { throw Object.assign(new Error("filesystem watching is not supported"), { code: "ERR_METHOD_NOT_IMPLEMENTED" }); },
-  watchFile() { return janisFs.watch(); },
+  mkdtempSync: fsMkdtemp,
+  watch: unsupported("filesystem watching", "ERR_METHOD_NOT_IMPLEMENTED"),
+  watchFile: unsupported("filesystem watching", "ERR_METHOD_NOT_IMPLEMENTED"),
   unwatchFile() {},
 };
 
 const janisFsPromises = {
-  access: async (path) => janisFs.accessSync(path),
-  stat: async (path) => janisFs.statSync(path),
-  lstat: async (path) => janisFs.lstatSync(path),
-  fstat: async (fd) => janisFs.fstatSync(fd),
-  readFile: async (path, options) => janisFs.readFileSync(path, options),
-  writeFile: async (path, data, options) => janisFs.writeFileSync(path, data, options),
-  appendFile: async (path, data, options) => janisFs.appendFileSync(path, data, options),
-  mkdir: async (path, options) => janisFs.mkdirSync(path, options),
-  readdir: async (path, options) => janisFs.readdirSync(path, options),
-  unlink: async (path) => janisFs.unlinkSync(path),
-  rm: async (path, options) => janisFs.rmSync(path, options),
-  rmdir: async (path, options) => janisFs.rmSync(path, options),
-  rename: async (from, to) => janisFs.renameSync(from, to),
-  copyFile: async (from, to) => janisFs.copyFileSync(from, to),
-  realpath: async (path) => janisFs.realpathSync(path),
-  utimes: async (path, atime, mtime) => janisFs.utimesSync(path, atime, mtime),
-  mkdtemp: async (prefix) => janisFs.mkdtempSync(prefix),
-  chmod: async () => {},
   open: async (path, flags) => {
     let fd = openSync(path, flags);
     const current = () => fsDescriptor(fd);
@@ -1074,14 +1053,10 @@ const janisFsPromises = {
     };
   },
 };
-for (const [name, sync] of [
-  ["access", janisFs.accessSync], ["stat", janisFs.statSync], ["lstat", janisFs.lstatSync], ["fstat", janisFs.fstatSync],
-  ["readFile", janisFs.readFileSync], ["writeFile", janisFs.writeFileSync],
-  ["appendFile", janisFs.appendFileSync], ["mkdir", janisFs.mkdirSync],
-  ["readdir", janisFs.readdirSync], ["unlink", janisFs.unlinkSync], ["rmdir", janisFs.rmdirSync],
-  ["rm", janisFs.rmSync], ["rename", janisFs.renameSync], ["copyFile", janisFs.copyFileSync],
-  ["realpath", janisFs.realpathSync], ["utimes", janisFs.utimesSync],
-]) {
+for (const name of ["access", "stat", "lstat", "fstat", "readFile", "writeFile", "appendFile", "mkdir",
+  "readdir", "unlink", "rmdir", "rm", "rename", "copyFile", "realpath", "utimes", "mkdtemp", "chmod"]) {
+  const sync = janisFs[`${name}Sync`];
+  janisFsPromises[name] = async (...args) => sync(...args);
   janisFs[name] = (...args) => {
     const callback = typeof args.at(-1) === "function" ? args.pop() : undefined;
     if (!callback) return janisFsPromises[name](...args);
@@ -1090,7 +1065,6 @@ for (const [name, sync] of [
 }
 janisFs.promises = janisFsPromises;
 
-function quoteShell(value) { return `'${String(value).replaceAll("'", "'\\''")}'`; }
 const janisChildren = new Map();
 const childSignals = { SIGINT: 2, SIGKILL: 9, SIGTERM: 15 };
 function unsupportedChild(message) { return Object.assign(new Error(message), { code: "ENOTSUP" }); }
@@ -1323,7 +1297,8 @@ function pumpChildren() {
   }
   return completed;
 }
-function collectChild(command, args, options, onStdout, onStderr) {
+function spawnSync(command, args = [], options = {}) {
+  if (!Array.isArray(args)) { options = args ?? {}; args = []; }
   const child = spawn(command, args, options);
   const record = janisChildren.get(child);
   let closed = false, error;
@@ -1332,16 +1307,13 @@ function collectChild(command, args, options, onStdout, onStderr) {
   const maxBuffer = options.maxBuffer ?? 1024 * 1024;
   child.on("error", value => { error = value; });
   child.once("close", () => { closed = true; });
-  for (const [index, stream, callback] of [[0, child.stdout, onStdout], [1, child.stderr, onStderr]]) {
+  for (const [index, stream] of [[0, child.stdout], [1, child.stderr]]) {
     stream?.on("data", bytes => {
-      if (callback) callback(bytes);
-      else {
-        lengths[index] += bytes.length;
-        if (lengths[index] > maxBuffer) {
-          error = Object.assign(new Error("child output exceeded maxBuffer"), { code: "ENOBUFS" });
-          child.kill("SIGKILL");
-        } else chunks[index].push(Buffer.from(bytes));
-      }
+      lengths[index] += bytes.length;
+      if (lengths[index] > maxBuffer) {
+        error = Object.assign(new Error("child output exceeded maxBuffer"), { code: "ENOBUFS" });
+        child.kill("SIGKILL");
+      } else chunks[index].push(Buffer.from(bytes));
     });
   }
   child.stdin?.end(options.input ?? Buffer.alloc(0));
@@ -1363,12 +1335,15 @@ function collectChild(command, args, options, onStdout, onStderr) {
   return { pid: child.pid, status: child.exitCode, signal: child.signalCode, error,
     stdout: decode(output[0]), stderr: decode(output[1]), output: [null, ...output.map(decode)] };
 }
-function spawnSync(command, args = [], options = {}) {
+function execFileSync(command, args, options = {}) {
   if (!Array.isArray(args)) { options = args ?? {}; args = []; }
-  return collectChild(command, args, options);
-}
-function runChild(command, args = [], options = {}) {
-  return spawnSync(command, args, { ...options, encoding: "utf8" });
+  const result = spawnSync(command, args, options);
+  if (result.error) throw result.error;
+  if (result.status !== 0) {
+    throw Object.assign(new Error(String(result.stderr) || `command exited ${result.status ?? result.signal}`),
+      { status: result.status, signal: result.signal, stdout: result.stdout, stderr: result.stderr });
+  }
+  return result.stdout;
 }
 function execResult(child, options, callback) {
   const buffers = [[], []], lengths = [0, 0];
@@ -1420,19 +1395,9 @@ const janisChildProcess = {
   spawn,
   spawnSync,
   exec,
-  execSync: (command, options = {}) => {
-    const result = runChild(command, [], { ...options, shell: true });
-    if (result.error) throw result.error;
-    if (result.status !== 0) throw new Error(result.stderr || `command exited ${result.status ?? result.signal}`);
-    return options.encoding ? result.stdout : Buffer.from(result.stdout);
-  },
+  execSync: (command, options = {}) => execFileSync(command, [], { ...options, shell: true }),
   execFile,
-  execFileSync: (command, args, options = {}) => {
-    const result = spawnSync(command, args, options);
-    if (result.error) throw result.error;
-    if (result.status !== 0) throw new Error(String(result.stderr) || `command exited ${result.status ?? result.signal}`);
-    return result.stdout;
-  },
+  execFileSync,
 };
 
 function rotateRight(value, count) {
@@ -1632,15 +1597,16 @@ const janisOs = {
   release: () => "0",
   hostname: () => "dolly",
   userInfo: () => ({ username: "dolly", uid: 0, gid: 0, shell: "/bin/slop", homedir: process.env.HOME || "/home/dolly" }),
-  cpus: () => [{ model: "WebAssembly", speed: 0, times: { user: 0, nice: 0, sys: 0, idle: 0, irq: 0 } }],
-  totalmem: () => 0,
-  freemem: () => 0,
+  cpus: unsupported("os.cpus"),
+  totalmem: unsupported("os.totalmem"),
+  freemem: unsupported("os.freemem"),
   endianness: () => "LE",
 };
 
 function formatValue(value) {
   if (typeof value === "string") return value;
-  try { return JSON.stringify(value); } catch { return String(value); }
+  if (typeof value === "function") return `[Function: ${value.name || "(anonymous)"}]`;
+  try { return JSON.stringify(value) ?? String(value); } catch { return String(value); }
 }
 const janisUtil = {
   inspect: (value) => formatValue(value),
@@ -1667,6 +1633,31 @@ const janisUtil = {
   stripVTControlCharacters: (value) => String(value).replace(/\x1b\[[0-?]*[ -/]*[@-~]/g, ""),
 };
 
+// Calls back once: when the stream ends or finishes, errors, or closes early.
+function streamFinished(stream, options, callback = options) {
+  const listeners = { end: () => settle(), finish: () => settle(), error: settle,
+    close: () => settle(Object.assign(new Error("Premature close"), { code: "ERR_STREAM_PREMATURE_CLOSE" })) };
+  const cleanup = () => { for (const name in listeners) stream.off(name, listeners[name]); };
+  function settle(error) { cleanup(); callback(error); }
+  for (const name in listeners) stream.on(name, listeners[name]);
+  return cleanup;
+}
+function streamPipeline(...streams) {
+  const callback = streams.pop();
+  let settled = false;
+  const settle = error => {
+    if (settled) return;
+    settled = true;
+    if (error) for (const stream of streams) stream.destroy?.();
+    callback(error);
+  };
+  streams.forEach((stream, index) => {
+    if (index + 1 < streams.length) stream.pipe(streams[index + 1]);
+    stream.on("error", settle);
+  });
+  streamFinished(streams.at(-1), settle);
+  return streams.at(-1);
+}
 const janisStream = {
   Stream: JanisEventEmitter,
   Readable: JanisReadable,
@@ -1674,13 +1665,12 @@ const janisStream = {
   Duplex: JanisDuplex,
   Transform: JanisTransform,
   PassThrough: JanisPassThrough,
-  pipeline: (...args) => { const callback = typeof args.at(-1) === "function" ? args.pop() : undefined; for (let index = 0; index + 1 < args.length; index++) args[index].pipe(args[index + 1]); callback?.(); return args.at(-1); },
-  finished: (stream, callback) => { stream.once("end", () => callback?.()); stream.once("finish", () => callback?.()); return () => {}; },
+  pipeline: streamPipeline,
+  finished: streamFinished,
 };
-const janisStreamPromises = {
-  pipeline: async (...streams) => janisStream.pipeline(...streams),
-  finished: async () => {},
-};
+const settledBy = operation => (...args) => new Promise((resolve, reject) =>
+  operation(...args, error => error ? reject(error) : resolve()));
+const janisStreamPromises = { pipeline: settledBy(streamPipeline), finished: settledBy(streamFinished) };
 
 function janisDiagnosticChannel(name) {
   return {
@@ -1968,37 +1958,18 @@ const janisBuiltinModuleNames = [
 ];
 
 function janisModuleFile(candidate) {
-  for (const path of [
-    candidate,
-    `${candidate}.js`,
-    `${candidate}.mjs`,
-    `${candidate}.cjs`,
-    janisPath.join(candidate, "index.js"),
-    janisPath.join(candidate, "index.mjs"),
-  ]) {
-    try {
-      if (fsStat(path).isFile()) return path;
-    }
-    catch {}
-  }
-  return undefined;
+  return [candidate, `${candidate}.js`, `${candidate}.mjs`, `${candidate}.cjs`,
+    `${candidate}/index.js`, `${candidate}/index.mjs`].find(isFile);
 }
 
+// Matching conditions are tried in the exports object's own key order.
 function janisExportTarget(value, conditions) {
   if (typeof value === "string") return value;
-  if (Array.isArray(value)) {
-    for (const candidate of value) {
-      const target = janisExportTarget(candidate, conditions);
-      if (target !== undefined) return target;
-    }
-    return undefined;
-  }
-  if (value && typeof value === "object") {
-    for (const condition of conditions)
-      if (Object.hasOwn(value, condition)) {
-        const target = janisExportTarget(value[condition], conditions);
-        if (target !== undefined) return target;
-      }
+  const candidates = Array.isArray(value) ? value : value && typeof value === "object"
+    ? Object.keys(value).filter((key) => conditions.includes(key)).map((key) => value[key]) : [];
+  for (const candidate of candidates) {
+    const target = janisExportTarget(candidate, conditions);
+    if (target !== undefined) return target;
   }
   return undefined;
 }
@@ -2023,6 +1994,8 @@ function janisMappedTarget(map, key, conditions) {
   }
   return best?.target?.replaceAll("*", () => best.match);
 }
+
+const janisConditions = (forRequire) => [forRequire ? "require" : "import", "node", "default"];
 
 function janisPackageExport(exportsValue, subpath, conditions) {
   const key = subpath ? `./${subpath}` : ".";
@@ -2051,11 +2024,8 @@ function janisPackageImport(specifier, baseName, forRequire = false, raw = false
           code: "ERR_INVALID_PACKAGE_CONFIG",
         });
       }
-      const conditions = forRequire
-        ? ["require", "default", "node"]
-        : ["import", "default", "node"];
       const target = manifest.imports && typeof manifest.imports === "object"
-        ? janisMappedTarget(manifest.imports, specifier, conditions)
+        ? janisMappedTarget(manifest.imports, specifier, janisConditions(forRequire))
         : undefined;
       if (target === undefined) {
         throw Object.assign(new Error(`Package import '${specifier}' is not defined by '${manifestPath}'`), {
@@ -2205,10 +2175,7 @@ function janisResolveModule(specifier, baseName, forRequire = false, raw = false
 
     let target;
     if (manifest.exports !== undefined) {
-      const conditions = forRequire
-        ? ["require", "default", "node"]
-        : ["import", "default", "node"];
-      target = janisPackageExport(manifest.exports, subpath, conditions);
+      target = janisPackageExport(manifest.exports, subpath, janisConditions(forRequire));
       if (target === undefined) {
         throw Object.assign(new Error(`Package '${packageName}' does not export './${subpath}'`), {
           code: "ERR_PACKAGE_PATH_NOT_EXPORTED",
@@ -2284,9 +2251,8 @@ function createJanisRequire(filename = "/usr/lib/janis/index.js") {
     if (!value.startsWith("/") && !value.startsWith("./") && !value.startsWith("../"))
       return janisResolveModule(value, filename, true);
     const candidate = value.startsWith("/") ? normalizePath(value) : resolvePath(base, value);
-    for (const path of [candidate, `${candidate}.js`, `${candidate}.cjs`, `${candidate}.json`, janisPath.join(candidate, "index.js")]) {
-      if (fsExists(path)) return path;
-    }
+    const resolved = [candidate, `${candidate}.js`, `${candidate}.cjs`, `${candidate}.json`, `${candidate}/index.js`].find(isFile);
+    if (resolved) return resolved;
     throw Object.assign(new Error(`Cannot find module '${specifier}'`), {
       code: "MODULE_NOT_FOUND",
     });
@@ -2347,10 +2313,6 @@ function janisIPv6(value) {
     (halves.length === 2 ? parts.length < 8 : parts.length === 8);
 }
 
-function unavailableReadlineTerminal() {
-  throw Object.assign(new Error("Janis readline does not implement terminal editing or keypress events"), { code: "ENOSYS" });
-}
-
 const janisBuiltinModules = {
   "assert/strict": undefined,
   async_hooks: janisAsyncHooks,
@@ -2380,10 +2342,10 @@ const janisBuiltinModules = {
   querystring: janisQuerystring,
   readline: {
     createInterface: (options, output) => new JanisReadline(options, output),
-    emitKeypressEvents: unavailableReadlineTerminal,
-    clearLine: unavailableReadlineTerminal,
-    cursorTo: unavailableReadlineTerminal,
-    moveCursor: unavailableReadlineTerminal,
+    emitKeypressEvents: unsupported("readline keypress events"),
+    clearLine: unsupported("readline terminal editing"),
+    cursorTo: unsupported("readline terminal editing"),
+    moveCursor: unsupported("readline terminal editing"),
   },
   stream: janisStream,
   "stream/promises": janisStreamPromises,
@@ -2421,12 +2383,6 @@ janisBuiltinModules.sqlite = {
     constructor() { throw new Error("Janis does not provide SQLite yet"); }
   },
 };
-
-function unavailableZlib() {
-  const error = new Error("Janis does not provide Node zlib bindings yet");
-  error.code = "ERR_METHOD_NOT_IMPLEMENTED";
-  throw error;
-}
 
 for (const name of ["http", "https", "net"]) {
   class SocketLike extends JanisEventEmitter { setTimeout() { return this; } setNoDelay() { return this; } destroy() { this.emit("close"); } }
@@ -2475,6 +2431,7 @@ for (const name of ["http", "https", "net"]) {
     STATUS_CODES: {},
   };
 }
+const unavailableZlib = unsupported("zlib", "ERR_METHOD_NOT_IMPLEMENTED");
 janisBuiltinModules.zlib = {
   constants: {},
   codes: {},
@@ -2500,11 +2457,6 @@ globalThis.__janisBuiltin = (name) => {
 process.getBuiltinModule = (name) =>
   janisBuiltinModules[String(name).replace(/^node:/, "")];
 
-if (typeof globalThis.DOMException !== "function") {
-  globalThis.DOMException = class DOMException extends Error {
-    constructor(message = "", name = "Error") { super(message); this.name = name; }
-  };
-}
 if (typeof globalThis.Event !== "function") {
   globalThis.Event = class Event { constructor(type) { this.type = type; } };
 }

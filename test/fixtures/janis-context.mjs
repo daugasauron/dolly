@@ -4,8 +4,10 @@ const [runtime, janis] = await Promise.all(["dolly-node.js", "janis.js"].map(nam
   readFile(new URL(`../../src/runtimes/${name}`, import.meta.url), "utf8")));
 
 export function janisContext(overrides = {}) {
+  // Globals that QuickJS-ng or quickjs-main.c provide before Janis loads.
   const sandbox = vm.createContext({
-    ArrayBuffer, SharedArrayBuffer, Uint8Array, console,
+    ArrayBuffer, SharedArrayBuffer, Uint8Array, atob, btoa, console, DOMException,
+    performance, queueMicrotask, structuredClone,
     Dolly: {
       encode: value => new TextEncoder().encode(value),
       decode: bytes => new TextDecoder("utf-8", { ignoreBOM: true }).decode(bytes),
