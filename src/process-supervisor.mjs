@@ -278,7 +278,8 @@ export class DollyProcessSupervisor {
     const receiver = process.threaded
       ? [...process.threads.values()].sort((a, b) => a.tid - b.tid)[0] : process;
     const deferred = this.deferred.get(receiver);
-    if (deferred) {
+    // A deferred EXIT is past signal handling; the kernel completes it.
+    if (deferred && deferred.message.operation !== DOLLY_PROCESS_EXIT) {
       this.#clearDeferred(receiver);
       this.#signal(receiver, deferred.message.sequence, interruptedSystemCall);
     }
