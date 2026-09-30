@@ -1,6 +1,6 @@
 # Remove dead kernel/libc API and dead ABI tooling
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 150
 - TAGS: core,cleanup
 
@@ -28,3 +28,14 @@ Only used API remains; export derivation is tested, not re-implemented in tests.
 ## Done when
 
 - Dead symbols and the census are deleted; ABI and browser tests still pass.
+
+## Result (2026-10-01)
+
+Verified on `takeover-20260930` after `630c407`: none of the listed socket,
+`system`/`popen`/`getpass`/`alarm` wrappers or the process-side `dolly_fclose`
+exist (`grep -rn` over `src include host scripts test docs`); the kernel's
+`dolly_fclose` remains as the resident plugin's `fclose`. The spawn wrappers
+share `spawn_mapped`/`spawn_process`. `scripts/dolly-abi.mjs` has no
+`loaderBackedFunctions` or `GOT.mem` branch, the platform census is deleted,
+and `dolly_snapshot_stream_finish` is called by the kernel. Artifact ABI tests
+(22) and every core browser test pass in Chrome and Firefox.

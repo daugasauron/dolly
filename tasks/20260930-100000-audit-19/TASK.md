@@ -1,6 +1,6 @@
 # No trusted cap on concurrent process Workers
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 210
 - TAGS: security,boundary,core
 
@@ -22,3 +22,11 @@ beyond it.
 ## Done when
 
 - Browser check: a spawn loop beyond the cap gets EAGAIN and the shell stays usable.
+
+## Result (2026-10-01)
+
+The supervisor caps live processes at 32 (`processWorkerLimit` in
+`src/process-supervisor.mjs`); a process `SPAWN` beyond it returns `EAGAIN`.
+`test/fixtures/process-lifecycle.c` now spawns sleeping children until the
+spawn fails, checks `-EAGAIN`, kills and reaps them, and spawns again;
+`test/process-browser.mjs` passes in Chrome and Firefox.

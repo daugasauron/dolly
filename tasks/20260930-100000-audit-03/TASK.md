@@ -1,6 +1,6 @@
 # Threaded process exit can report a false Worker failure
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 200
 - TAGS: bug,core,kernel,lifecycle
 
@@ -25,3 +25,11 @@ Thread completion after process EXIT is ignored or accounted without failing the
 
 - A browser check with a threaded program that exits while threads are finishing never reports a
   Worker failure and returns the real exit status (repeat enough times to exercise the race).
+
+## Result (2026-10-01)
+
+Process `EXIT` from any thread disposes the other threads' Workers and their
+message handlers before a late `thread-finished` can reach the kernel
+(`26277ef`). `test/threads-browser.mjs` now runs a program whose eight threads
+finish while `main` calls `exit(37)`, ten times; every run reports 37 with no
+Worker failure, in Chrome and Firefox.

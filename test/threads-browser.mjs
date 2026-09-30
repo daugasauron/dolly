@@ -53,6 +53,13 @@ await browserTest("threads", { image: "system", server: { fixtures, sourceOverri
   assert.notEqual(await submit("/tmp/ending"), 0);
   await run("printf alive > /tmp/alive && test $(cat /tmp/alive) = alive");
 
+  // Threads that finish while their process exits leave the exit status intact.
+  sourceOverrides.set(probe, "#include <pthread.h>\n#include <stdlib.h>\n" +
+    "static void *body(void *unused) { return unused; }\n" +
+    "int main(void) { pthread_t thread; for (int i = 0; i < 8; ++i) pthread_create(&thread, 0, body, 0); exit(37); }\n");
+  await run(`curl -fsS ${server.origin}${probe} -o /tmp/racing.c && cc -O1 -pthread /tmp/racing.c -o /tmp/racing`);
+  for (let round = 0; round < 10; ++round) assert.equal(await submit("/tmp/racing"), 37, `round ${round}`);
+
   // Thread executables must carry exactly one compatible stamp and the child entry.
   const saved = page.waitForEvent("download");
   await run(`download ${threaded}`);

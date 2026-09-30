@@ -2,6 +2,7 @@
 #include <dolly/runtime.h>
 #include <dolly/process.h>
 #include <errno.h>
+#include <fcntl.h>
 #include <poll.h>
 #include <signal.h>
 #include <stdio.h>
@@ -256,6 +257,21 @@ int main(int argc, char **argv) {
     CHECK(WIFEXITED(status) && WEXITSTATUS(status) == 0);
     if (failures) return 1;
   }
+  // The supervisor caps live processes; a spawn beyond the cap fails.
+  const int quiet = open("/dev/null", O_WRONLY);
+  char *sleep_arguments[] = {argv[0], "sleep", NULL};
+  int held[64], count = 0, spawned = 0;
+  while (count < 64 && (spawned = dolly_spawn(argv[0], 2, sleep_arguments, 0, quiet, 2)) > 0) {
+    held[count++] = spawned;
+  }
+  CHECK(spawned == -EAGAIN && count > 0 && count < 64);
+  for (int index = 0; index < count; ++index) {
+    CHECK(kill(held[index], SIGKILL) == 0);
+    CHECK(waitpid(held[index], &status, 0) == held[index]);
+  }
+  close(quiet);
+  const int after_cap = child(argv[0], "exit130");
+  CHECK(after_cap > 0 && waitpid(after_cap, &status, 0) == after_cap);
   puts("PROCESS-LIFECYCLE-OK");
   return 0;
 }
