@@ -1,3 +1,6 @@
+#include <errno.h>
+#include <fcntl.h>
+#include <signal.h>
 #include <stdio.h>
 #include <string.h>
 #include <unistd.h>
@@ -8,12 +11,16 @@ static int produce(void) {
       (ssize_t)(sizeof(message) - 1) ? 0 : 30;
 }
 
+/* The standard stream paths name this process's own pipe descriptors. */
 static int consume(void) {
   static const char expected[] = "PROCESS-PIPE-DATA\n";
   char bytes[sizeof(expected)] = {0};
+  const int input = open("/dev/stdin", O_RDONLY);
+  const int output = open("/dev/stdout", O_WRONLY);
+  if (input < 0 || output < 0) return 34;
   size_t offset = 0;
   while (offset < sizeof(expected) - 1) {
-    const ssize_t count = read(STDIN_FILENO, bytes + offset,
+    const ssize_t count = read(input, bytes + offset,
                                sizeof(expected) - 1 - offset);
     if (count < 0) return 31;
     if (count == 0) break;
@@ -28,12 +35,23 @@ static int consume(void) {
     fputc('\n', stderr);
     return 32;
   }
-  return write(STDOUT_FILENO, "PROCESS-PIPE-OK\n", 16) == 16 ? 0 : 33;
+  return write(output, "PROCESS-PIPE-OK\n", 16) == 16 ? 0 : 33;
+}
+
+/* A write without readers raises SIGPIPE; ignoring it leaves EPIPE. */
+static int broken(int ignore) {
+  int descriptors[2];
+  if (pipe(descriptors) != 0 || close(descriptors[0]) != 0) return 35;
+  if (ignore && signal(SIGPIPE, SIG_IGN) == SIG_ERR) return 36;
+  const ssize_t written = write(descriptors[1], "x", 1);
+  return ignore && written == -1 && errno == EPIPE ? 0 : 37;
 }
 
 int main(int argc, char **argv) {
   if (argc != 2) return 2;
   if (strcmp(argv[1], "produce") == 0) return produce();
   if (strcmp(argv[1], "consume") == 0) return consume();
+  if (strcmp(argv[1], "broken") == 0) return broken(0);
+  if (strcmp(argv[1], "ignored") == 0) return broken(1);
   return 2;
 }

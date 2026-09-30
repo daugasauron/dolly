@@ -94,13 +94,13 @@ rm -f \
   --disable-compact-imports \
   -o build/dolly-kernel-plugin-0.wasm
 
-node scripts/generate-host-abi.mjs
-node scripts/generate-threads-abi.mjs
+node scripts/generate-abi-constants.mjs
 for contract in dolly-threads-0 dolly-threads-supervisor-0; do
   "${container[@]}" /emsdk/upstream/bin/wasm-as "abi/${contract}.wat" \
     --enable-memory64 --disable-compact-imports -o "build/${contract}.wasm"
 done
-node scripts/generate-threads-abi.mjs build/dolly-threads-0.wasm
+node scripts/dolly-abi.mjs bind-process-layout build/dolly-threads-0.wasm \
+  abi/dolly-threads-0.wat include/dolly/threads.h
 node scripts/dolly-abi.mjs emit-digest-header build/dolly-threads-0.wasm \
   build/generated/dolly-threads-abi-digest.h DOLLY_THREADS_ABI_DIGEST
 node scripts/dolly-abi.mjs emit-digest-module build/dolly-threads-0.wasm \
@@ -353,9 +353,7 @@ node scripts/dolly-abi.mjs validate-process-dso \
 
 native_zig_object="$("${project_dir}/scripts/build-native-zig.sh")"
 
-node scripts/generate-gpu-abi.mjs
 "${container[@]}" /emsdk/upstream/bin/wasm-as abi/dolly-gpu-0.wat --enable-memory64 --enable-threads --disable-compact-imports -o build/dolly-gpu-0.wasm
-node scripts/generate-audio-abi.mjs
 "${container[@]}" /emsdk/upstream/bin/wasm-as abi/dolly-audio-0.wat --enable-memory64 --enable-threads --disable-compact-imports -o build/dolly-audio-0.wasm
 
 node scripts/dolly-abi.mjs emit-emscripten-exports \

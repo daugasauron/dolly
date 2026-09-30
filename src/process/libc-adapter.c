@@ -30,6 +30,13 @@
 
 #define DOLLY_PROCESS_IO_CHUNK 16384u
 
+_Static_assert(__WASI_WHENCE_SET == DOLLY_PROCESS_SEEK_SET &&
+               __WASI_WHENCE_CUR == DOLLY_PROCESS_SEEK_CURRENT &&
+               __WASI_WHENCE_END == DOLLY_PROCESS_SEEK_END, "seek whence encoding");
+_Static_assert(__WASI_CLOCKID_REALTIME == DOLLY_PROCESS_CLOCK_REALTIME &&
+               __WASI_CLOCKID_MONOTONIC == DOLLY_PROCESS_CLOCK_MONOTONIC,
+               "clock encoding");
+
 int isatty(int descriptor) { return dolly_isatty(descriptor); }
 
 int uname(struct utsname *information) {
@@ -321,7 +328,10 @@ __wasi_errno_t __wasi_fd_write(__wasi_fd_t descriptor,
         DOLLY_PROCESS_FD_WRITE, packet, packet_size, &response, sizeof(response));
     free(packet);
     const __wasi_errno_t error = call_errno(result);
-    if (error != 0) return *completed != 0 ? 0 : error;
+    if (error != 0 && *completed != 0) return 0;
+    /* POSIX raises SIGPIPE; EPIPE remains when it is ignored or handled. */
+    if (error == EPIPE) raise(SIGPIPE);
+    if (error != 0) return error;
     if ((uint64_t)result != sizeof(response) || response.size > size) return EIO;
     *completed += response.size;
     if (response.size == 0) return 0;
@@ -393,25 +403,39 @@ static int directory_descriptor(int descriptor) {
   return descriptor == AT_FDCWD ? -1 : descriptor;
 }
 
+static int checked_path_size(const char *path, size_t *size) {
+  if (path == NULL) return -EFAULT;
+  *size = strnlen(path, PATH_MAX + 1u);
+  if (*size == 0) return -ENOENT;
+  return *size > PATH_MAX ? -ENAMETOOLONG : 0;
+}
+
+/* Sends a fixed request header followed by the path bytes. */
+static int64_t call_with_path(uint32_t operation, const void *header,
+                              size_t header_size, const char *path,
+                              size_t path_size, void *response,
+                              size_t response_capacity) {
+  unsigned char *packet = malloc(header_size + path_size);
+  if (packet == NULL) return -ENOMEM;
+  memcpy(packet, header, header_size);
+  memcpy(packet + header_size, path, path_size);
+  const int64_t result = dolly_process_call(
+      operation, packet, header_size + path_size, response, response_capacity);
+  free(packet);
+  return result;
+}
+
 static int64_t path_call(uint32_t operation, int directory, uint32_t flags,
                          const char *path, void *response,
                          size_t response_capacity) {
-  if (path == NULL) return -EFAULT;
-  const size_t path_size = strnlen(path, PATH_MAX + 1u);
-  if (path_size == 0) return -ENOENT;
-  if (path_size > PATH_MAX) return -ENAMETOOLONG;
-  unsigned char *packet = malloc(sizeof(dolly_process_path_request) + path_size);
-  if (packet == NULL) return -ENOMEM;
+  size_t path_size;
+  const int checked = checked_path_size(path, &path_size);
+  if (checked != 0) return checked;
   const dolly_process_path_request request = {
       (uint32_t)directory_descriptor(directory), flags, 0, (uint32_t)path_size,
   };
-  memcpy(packet, &request, sizeof(request));
-  memcpy(packet + sizeof(request), path, path_size);
-  const int64_t result = dolly_process_call(
-      operation, packet, sizeof(request) + path_size,
-      response, response_capacity);
-  free(packet);
-  return result;
+  return call_with_path(operation, &request, sizeof(request), path, path_size,
+                        response, response_capacity);
 }
 
 static uint32_t translate_open_flags(int flags) {
@@ -449,14 +473,28 @@ int __syscall_openat(int directory, const char *path, int flags, ...) {
       ? (int)response.descriptor : -EIO;
 }
 
+static mode_t file_type_mode(uint32_t type) {
+  switch (type) {
+    case DOLLY_PROCESS_FILE_REGULAR: return S_IFREG;
+    case DOLLY_PROCESS_FILE_DIRECTORY: return S_IFDIR;
+    case DOLLY_PROCESS_FILE_SYMBOLIC_LINK: return S_IFLNK;
+    case DOLLY_PROCESS_FILE_CHARACTER_DEVICE: return S_IFCHR;
+    case DOLLY_PROCESS_FILE_BLOCK_DEVICE: return S_IFBLK;
+    case DOLLY_PROCESS_FILE_FIFO: return S_IFIFO;
+    case DOLLY_PROCESS_FILE_SOCKET: return S_IFSOCK;
+    default: return 0;
+  }
+}
+
 static int decode_stat(const dolly_process_stat_response *source,
                        struct stat *target) {
-  if (source->reserved[0] != 0 || source->reserved[1] != 0) return -EIO;
+  if (source->reserved[0] != 0 || source->reserved[1] != 0 ||
+      (source->mode & ~07777u) != 0) return -EIO;
   memset(target, 0, sizeof(*target));
   target->st_dev = source->device;
   target->st_ino = source->inode;
   target->st_size = source->size;
-  target->st_mode = source->mode;
+  target->st_mode = file_type_mode(source->file_type) | source->mode;
   target->st_nlink = source->link_count;
   target->st_uid = source->user;
   target->st_gid = source->group;
@@ -594,12 +632,9 @@ int __syscall_utimensat(int directory, const char *path,
         DOLLY_PROCESS_FD_SET_TIMES, &request, sizeof(request), NULL, 0);
     return called < 0 ? (int)called : 0;
   }
-  const size_t path_size = strnlen(path, PATH_MAX + 1u);
-  if (path_size == 0) return -ENOENT;
-  if (path_size > PATH_MAX) return -ENAMETOOLONG;
-  const size_t packet_size = sizeof(dolly_process_path_times_request) + path_size;
-  unsigned char *packet = malloc(packet_size);
-  if (packet == NULL) return -ENOMEM;
+  size_t path_size;
+  result = checked_path_size(path, &path_size);
+  if (result != 0) return result;
   dolly_process_path_times_request request = {
       .directory_descriptor = (uint32_t)directory_descriptor(directory),
       .flags = (flags & AT_SYMLINK_NOFOLLOW) != 0
@@ -607,15 +642,10 @@ int __syscall_utimensat(int directory, const char *path,
       .path_size = (uint32_t)path_size,
   };
   encode_timestamps(times, &request.access, &request.modification, &result);
-  if (result == 0) {
-    memcpy(packet, &request, sizeof(request));
-    memcpy(packet + sizeof(request), path, path_size);
-    const int64_t called = dolly_process_call(
-        DOLLY_PROCESS_PATH_SET_TIMES, packet, packet_size, NULL, 0);
-    result = called < 0 ? (int)called : 0;
-  }
-  free(packet);
-  return result;
+  if (result != 0) return result;
+  const int64_t called = call_with_path(DOLLY_PROCESS_PATH_SET_TIMES, &request,
+                                        sizeof(request), path, path_size, NULL, 0);
+  return called < 0 ? (int)called : 0;
 }
 
 static int decode_filesystem_stat(
@@ -674,42 +704,36 @@ int __syscall_umask(mode_t mask) {
   return __atomic_exchange_n(&current, mask & 0777, __ATOMIC_SEQ_CST);
 }
 
-int __syscall_chmod(const char *path, mode_t mode) {
-  (void)path;
-  (void)mode;
-  return 0;
+static int set_path_mode(int directory, const char *path, mode_t mode,
+                         uint32_t flags) {
+  size_t path_size;
+  const int checked = checked_path_size(path, &path_size);
+  if (checked != 0) return checked;
+  const dolly_process_path_mode_request request = {
+      (uint32_t)directory_descriptor(directory), flags, mode & 07777,
+      (uint32_t)path_size,
+  };
+  const int64_t result = call_with_path(DOLLY_PROCESS_PATH_SET_MODE, &request,
+                                        sizeof(request), path, path_size, NULL, 0);
+  return result < 0 ? (int)result : 0;
 }
 
-int __syscall_fchmod(int descriptor, mode_t mode) {
-  (void)descriptor;
-  (void)mode;
-  return 0;
+int __syscall_chmod(const char *path, mode_t mode) {
+  return set_path_mode(AT_FDCWD, path, mode, 0);
 }
 
 int __syscall_fchmodat2(int directory, const char *path,
                         mode_t mode, int flags) {
-  (void)directory;
-  (void)path;
-  (void)mode;
-  (void)flags;
-  return 0;
+  if ((flags & ~AT_SYMLINK_NOFOLLOW) != 0) return -EINVAL;
+  return set_path_mode(directory, path, mode,
+                       flags != 0 ? DOLLY_PROCESS_PATH_NOFOLLOW : 0);
 }
 
-int __syscall_fchown32(int descriptor, unsigned user, unsigned group) {
-  (void)descriptor;
-  (void)user;
-  (void)group;
-  return 0;
-}
-
-int __syscall_fchownat(int directory, const char *path,
-                       uid_t user, gid_t group, int flags) {
-  (void)directory;
-  (void)path;
-  (void)user;
-  (void)group;
-  (void)flags;
-  return 0;
+int __syscall_fchmod(int descriptor, mode_t mode) {
+  const dolly_process_fd_mode_request request = {(uint32_t)descriptor, mode & 07777};
+  const int64_t result = dolly_process_call(
+      DOLLY_PROCESS_FD_SET_MODE, &request, sizeof(request), NULL, 0);
+  return result < 0 ? (int)result : 0;
 }
 
 int __syscall_mknodat(int directory, const char *path,
@@ -726,72 +750,6 @@ int __syscall_fchdir(int descriptor) {
   const int64_t result = path_call(
       DOLLY_PROCESS_PATH_SET_CURRENT_DIRECTORY, descriptor, 0, ".", NULL, 0);
   return result < 0 ? (int)result : 0;
-}
-
-int __syscall_accept4(int descriptor, uintptr_t address,
-                      uintptr_t address_length, int flags, int unused1,
-                      int unused2) {
-  (void)descriptor; (void)address; (void)address_length; (void)flags;
-  (void)unused1; (void)unused2;
-  return -ENOSYS;
-}
-
-int __syscall_bind(int descriptor, uintptr_t address, int address_length,
-                   int unused1, int unused2, int unused3) {
-  (void)descriptor; (void)address; (void)address_length;
-  (void)unused1; (void)unused2; (void)unused3;
-  return -ENOSYS;
-}
-
-int __syscall_connect(int descriptor, uintptr_t address, int address_length,
-                      int unused1, int unused2, int unused3) {
-  return __syscall_bind(descriptor, address, address_length,
-                        unused1, unused2, unused3);
-}
-
-int __syscall_getsockname(int descriptor, uintptr_t address,
-                          uintptr_t address_length, int unused1, int unused2,
-                          int unused3) {
-  (void)descriptor; (void)address; (void)address_length;
-  (void)unused1; (void)unused2; (void)unused3;
-  return -ENOSYS;
-}
-
-int __syscall_listen(int descriptor, int backlog, int unused1, int unused2,
-                     int unused3, int unused4) {
-  (void)descriptor; (void)backlog; (void)unused1; (void)unused2;
-  (void)unused3; (void)unused4;
-  return -ENOSYS;
-}
-
-int __syscall_recvmsg(int descriptor, uintptr_t message, int flags,
-                      int unused1, int unused2, int unused3) {
-  (void)descriptor; (void)message; (void)flags;
-  (void)unused1; (void)unused2; (void)unused3;
-  return -ENOSYS;
-}
-
-int __syscall_sendmsg(int descriptor, uintptr_t message, int flags,
-                      int unused1, int unused2, int unused3) {
-  return __syscall_recvmsg(descriptor, message, flags,
-                           unused1, unused2, unused3);
-}
-
-int __syscall_setsockopt(int descriptor, int level, int option,
-                         uintptr_t value, int value_size, int unused) {
-  (void)descriptor; (void)level; (void)option; (void)value;
-  (void)value_size; (void)unused;
-  return -ENOSYS;
-}
-
-int __syscall_shutdown(int descriptor, int how, int unused1, int unused2,
-                       int unused3, int unused4) {
-  return __syscall_listen(descriptor, how, unused1, unused2, unused3, unused4);
-}
-
-int __syscall_socket(int domain, int type, int protocol, int unused1,
-                     int unused2, int unused3) {
-  return __syscall_listen(domain, type, protocol, unused1, unused2, unused3);
 }
 
 int getaddrinfo(const char *node, const char *service,
@@ -922,6 +880,27 @@ static int stat_path(int directory, const char *path, struct stat *metadata,
       &response, sizeof(response));
   if (result < 0) return (int)result;
   return (uint64_t)result == sizeof(response) ? decode_stat(&response, metadata) : -EIO;
+}
+
+/* Every existing file belongs to the only user and group, zero. */
+static int keep_owner(int exists, unsigned user, unsigned group) {
+  if (exists != 0) return exists;
+  return (user == (unsigned)-1 || user == 0) && (group == (unsigned)-1 || group == 0)
+      ? 0 : -EPERM;
+}
+
+int __syscall_fchown32(int descriptor, unsigned user, unsigned group) {
+  struct stat metadata;
+  return keep_owner(__syscall_fstat64(descriptor, &metadata), user, group);
+}
+
+int __syscall_fchownat(int directory, const char *path,
+                       uid_t user, gid_t group, int flags) {
+  if ((flags & ~AT_SYMLINK_NOFOLLOW) != 0) return -EINVAL;
+  struct stat metadata;
+  return keep_owner(stat_path(directory, path, &metadata,
+                              flags != 0 ? DOLLY_PROCESS_PATH_NOFOLLOW : 0),
+                    user, group);
 }
 
 int __syscall_stat64(const char *path, struct stat *metadata) {
@@ -1098,6 +1077,24 @@ static int fd_flags_set(uint32_t operation, int descriptor, uint32_t flags) {
   return result < 0 ? (int)result : result == 0 ? 0 : -EIO;
 }
 
+static int get_status_flags(int descriptor) {
+  const int status = fd_flags_get(DOLLY_PROCESS_FD_GET_FLAGS, descriptor);
+  if (status < 0) return status;
+  const int readable = (status & DOLLY_PROCESS_FD_STATUS_READ) != 0;
+  const int writable = (status & DOLLY_PROCESS_FD_STATUS_WRITE) != 0;
+  return (readable && writable ? O_RDWR : writable ? O_WRONLY : O_RDONLY) |
+      (status & DOLLY_PROCESS_FD_STATUS_APPEND ? O_APPEND : 0) |
+      (status & DOLLY_PROCESS_FD_STATUS_NONBLOCK ? O_NONBLOCK : 0);
+}
+
+/* F_SETFL ignores the access mode; musl always adds O_LARGEFILE. */
+static int set_status_flags(int descriptor, int flags) {
+  if ((flags & ~(O_ACCMODE | O_LARGEFILE | O_APPEND | O_NONBLOCK)) != 0) return -EINVAL;
+  return fd_flags_set(DOLLY_PROCESS_FD_SET_FLAGS, descriptor,
+      (flags & O_APPEND ? DOLLY_PROCESS_FD_STATUS_APPEND : 0) |
+      (flags & O_NONBLOCK ? DOLLY_PROCESS_FD_STATUS_NONBLOCK : 0));
+}
+
 /*
  * Emscripten musl lowers ioctl() to this syscall veneer and passes a pointer
  * to the packed variadic argument.  Standalone Wasm otherwise contributes a
@@ -1127,10 +1124,9 @@ int __syscall_ioctl(int descriptor, int request, uintptr_t arguments) {
       if (argument == 0) return -EFAULT;
       int enabled = 0;
       memcpy(&enabled, (const void *)argument, sizeof(enabled));
-      int flags = fd_flags_get(DOLLY_PROCESS_FD_GET_FLAGS, descriptor);
+      const int flags = get_status_flags(descriptor);
       if (flags < 0) return flags;
-      flags = enabled ? flags | O_NONBLOCK : flags & ~O_NONBLOCK;
-      return fd_flags_set(DOLLY_PROCESS_FD_SET_FLAGS, descriptor, flags);
+      return set_status_flags(descriptor, enabled ? flags | O_NONBLOCK : flags & ~O_NONBLOCK);
     }
     case TCGETS: {
       if (argument == 0) return -EFAULT;
@@ -1232,10 +1228,9 @@ int __syscall_fcntl64(int descriptor, int command, uintptr_t arguments) {
       return fd_flags_set(DOLLY_PROCESS_FD_SET_DESCRIPTOR_FLAGS, descriptor,
           (integer & FD_CLOEXEC) != 0 ? DOLLY_PROCESS_FD_CLOEXEC : 0);
     case F_GETFL:
-      return fd_flags_get(DOLLY_PROCESS_FD_GET_FLAGS, descriptor);
+      return get_status_flags(descriptor);
     case F_SETFL:
-      return arguments == 0 ? -EINVAL :
-          fd_flags_set(DOLLY_PROCESS_FD_SET_FLAGS, descriptor, integer);
+      return arguments == 0 ? -EINVAL : set_status_flags(descriptor, integer);
     case F_GETLK:
     case F_SETLK:
     case F_SETLKW: {
@@ -1266,9 +1261,8 @@ int __syscall_pipe2(int descriptors[2], int flags) {
       response.read_descriptor > INT_MAX || response.write_descriptor > INT_MAX ||
       response.read_descriptor == response.write_descriptor) return -EIO;
   if (flags & O_NONBLOCK) {
-    int error = fd_flags_set(DOLLY_PROCESS_FD_SET_FLAGS, response.read_descriptor, O_NONBLOCK);
-    if (error == 0)
-      error = fd_flags_set(DOLLY_PROCESS_FD_SET_FLAGS, response.write_descriptor, O_NONBLOCK);
+    int error = set_status_flags(response.read_descriptor, O_NONBLOCK);
+    if (error == 0) error = set_status_flags(response.write_descriptor, O_NONBLOCK);
     if (error != 0) {
       close(response.read_descriptor);
       close(response.write_descriptor);

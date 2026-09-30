@@ -31,6 +31,11 @@ static int write_file(const char *directory) {
   if (close(descriptor) != 0) return 17;
   if (rename("first.txt", "second.txt") != 0) return 18;
   if (stat("second.txt", &metadata) != 0 || metadata.st_size != sizeof(payload)) return 19;
+  if (chmod("second.txt", 0640) != 0 || stat("second.txt", &metadata) != 0 ||
+      metadata.st_mode != (S_IFREG | 0640) ||
+      chmod("missing.txt", 0640) != -1 || errno != ENOENT) return 14;
+  if (chown("second.txt", 0, 0) != 0 || chown("second.txt", 1, 1) != -1 ||
+      errno != EPERM || chown("missing.txt", 0, 0) != -1 || errno != ENOENT) return 15;
   descriptor = open("truncate.txt", O_CREAT | O_TRUNC | O_WRONLY, 0666);
   if (descriptor < 0 || write(descriptor, "12345678", 8) != 8 ||
       close(descriptor) != 0 || truncate("truncate.txt", 3) != 0 ||
@@ -81,6 +86,12 @@ static int read_file(const char *directory) {
       memcmp(large_buffer, large_payload, sizeof(large_payload)) != 0) return 36;
   descriptor = open("second.txt", O_RDWR);
   if (descriptor < 0) return 31;
+  const int status = fcntl(descriptor, F_GETFL);
+  struct stat metadata;
+  if ((status & O_ACCMODE) != O_RDWR || fcntl(descriptor, F_SETFL, status | O_APPEND) != 0 ||
+      (fcntl(descriptor, F_GETFL) & O_APPEND) == 0 || fcntl(descriptor, F_SETFL, status) != 0 ||
+      fchmod(descriptor, 0600) != 0 || fstat(descriptor, &metadata) != 0 ||
+      metadata.st_mode != (S_IFREG | 0600)) return 38;
   mapping = mmap(NULL, sizeof(payload), PROT_READ | PROT_WRITE,
                  MAP_SHARED, descriptor, 0);
   if (mapping == MAP_FAILED) return 32;

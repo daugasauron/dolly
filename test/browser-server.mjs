@@ -61,6 +61,7 @@ export const browserSources = new Set([
   "src/wasm-interface.mjs",
   "src/process-supervisor.mjs",
   "src/process-worker.mjs",
+  "src/process-constants.mjs",
   "src/session-store.mjs",
   "src/session-file.mjs",
   "src/session-transport.mjs",

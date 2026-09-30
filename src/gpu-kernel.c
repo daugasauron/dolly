@@ -26,12 +26,9 @@ _Static_assert(offsetof(Reply, bytes) == 64, "GPU reply header");
 static _Alignas(64) Reply replies[DOLLY_GPU_SLOTS];
 static Lease leases[DOLLY_GPU_SLOTS];
 
-#define DOLLY_EM_JS(...) EM_JS(__VA_ARGS__)
 DOLLY_EM_JS(int, dolly_gpu_dispatch, (const void *packet, uintptr_t bytes), {
   return -ENOSYS;
 });
-#undef DOLLY_EM_JS
-EMSCRIPTEN_KEEPALIVE
 uintptr_t dolly_gpu_mailbox_address(void) { return (uintptr_t)replies; }
 
 void dolly_gpu_release_owner(int pid) {

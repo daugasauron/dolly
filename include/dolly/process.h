@@ -8,6 +8,12 @@
 extern "C" {
 #endif
 
+/*
+ * The packet contract behind abi/dolly-process-0.wat. The ABI identity hashes
+ * this header with comments and whitespace removed: every constant and layout
+ * below is part of it, while prose is not. scripts/generate-abi-constants.mjs
+ * derives the JavaScript constants from the same declarations.
+ */
 #define DOLLY_PROCESS_ABI_VERSION 0u
 #define DOLLY_PROCESS_PACKET_LIMIT (1024u * 1024u)
 #define DOLLY_PROCESS_DSO_LIMIT (512u * 1024u * 1024u)
@@ -17,7 +23,7 @@ extern "C" {
  * The only callable import of a Dolly process. Request and response packets
  * use fixed-width little-endian fields and contain offsets, never process or
  * kernel pointers. A non-negative result is the response size. A negative
- * result is a negated POSIX errno value.
+ * result is a negated errno value of the target libc.
  */
 int64_t dolly_process_call(uint32_t operation,
                            const void *request, uint64_t request_size,
@@ -59,6 +65,8 @@ enum dolly_process_operation {
   DOLLY_PROCESS_PATH_SET_CURRENT_DIRECTORY = 41,
   DOLLY_PROCESS_PATH_STAT_FILESYSTEM = 42,
   DOLLY_PROCESS_PATH_SET_TIMES = 43,
+  /* dolly_process_path_mode_request -> no response. */
+  DOLLY_PROCESS_PATH_SET_MODE = 44,
 
   DOLLY_PROCESS_CLOCK_TIME = 48,
   DOLLY_PROCESS_RANDOM = 49,
@@ -71,9 +79,13 @@ enum dolly_process_operation {
   DOLLY_PROCESS_FD_SET_DESCRIPTOR_FLAGS = 56,
   /* path_request -> no response; user-selected file, no overwrite. */
   DOLLY_PROCESS_UPLOAD_FILE = 57,
+  /* dolly_process_fd_mode_request -> no response. Pipes return EINVAL. */
+  DOLLY_PROCESS_FD_SET_MODE = 58,
 
   DOLLY_PROCESS_SPAWN = 64,
   DOLLY_PROCESS_WAIT = 65,
+  /* Empty -> i32 signal to handle now, or zero. A nonzero result must be
+   * acknowledged; until then no further signal is reported. */
   DOLLY_PROCESS_INTERRUPT_POLL = 66,
   DOLLY_PROCESS_INFO = 67,
   DOLLY_PROCESS_SIGNAL = 68,
@@ -128,10 +140,53 @@ enum dolly_process_wait_flags {
   DOLLY_PROCESS_WAIT_NONBLOCK = 1u << 0,
 };
 
+/*
+ * Signal numbers of EXIT, WAIT, SIGNAL and INTERRUPT_POLL packets; zero means
+ * none. SIGNAL and signal termination accept DOLLY_PROCESS_SIGNAL_MASK.
+ * INTERRUPT_POLL also reports the kernel-generated SIGCHLD.
+ */
+enum dolly_process_signal {
+  DOLLY_PROCESS_SIGHUP = 1,
+  DOLLY_PROCESS_SIGINT = 2,
+  DOLLY_PROCESS_SIGQUIT = 3,
+  DOLLY_PROCESS_SIGABRT = 6,
+  DOLLY_PROCESS_SIGKILL = 9,
+  DOLLY_PROCESS_SIGPIPE = 13,
+  DOLLY_PROCESS_SIGTERM = 15,
+  DOLLY_PROCESS_SIGCHLD = 17,
+  DOLLY_PROCESS_SIGWINCH = 28,
+};
+#define DOLLY_PROCESS_SIGNAL_MASK                                          \
+  (1u << DOLLY_PROCESS_SIGHUP | 1u << DOLLY_PROCESS_SIGINT |              \
+   1u << DOLLY_PROCESS_SIGQUIT | 1u << DOLLY_PROCESS_SIGABRT |            \
+   1u << DOLLY_PROCESS_SIGKILL | 1u << DOLLY_PROCESS_SIGPIPE |            \
+   1u << DOLLY_PROCESS_SIGTERM | 1u << DOLLY_PROCESS_SIGWINCH)
+
 enum dolly_process_fd_dup_flags {
   /* target_descriptor is an inclusive lower bound instead of an exact fd. */
   DOLLY_PROCESS_FD_DUP_MINIMUM = 1u << 0,
   DOLLY_PROCESS_FD_DUP_CLOEXEC = 1u << 1,
+};
+
+/* FD_GET_FLAGS reports these open-description status bits. FD_SET_FLAGS
+ * replaces APPEND and NONBLOCK; the access-mode bits are read-only. */
+enum dolly_process_fd_status_flags {
+  DOLLY_PROCESS_FD_STATUS_READ = 1u << 0,
+  DOLLY_PROCESS_FD_STATUS_WRITE = 1u << 1,
+  DOLLY_PROCESS_FD_STATUS_APPEND = 1u << 2,
+  DOLLY_PROCESS_FD_STATUS_NONBLOCK = 1u << 3,
+};
+
+enum dolly_process_seek_whence {
+  DOLLY_PROCESS_SEEK_SET = 0,
+  DOLLY_PROCESS_SEEK_CURRENT = 1,
+  DOLLY_PROCESS_SEEK_END = 2,
+};
+
+/* Clock identifiers of CLOCK_TIME, CLOCK_RESOLUTION and CLOCK_SLEEP. */
+enum dolly_process_clock {
+  DOLLY_PROCESS_CLOCK_REALTIME = 0,
+  DOLLY_PROCESS_CLOCK_MONOTONIC = 1,
 };
 
 enum dolly_process_open_flags {
@@ -199,8 +254,8 @@ typedef struct {
 
 typedef struct {
   uint32_t status;
-  /* Zero for normal exit; otherwise SIGINT=2, SIGKILL=9 or SIGTERM=15.
-   * A signalled exit has status=128+signal_number, never inferred from status. */
+  /* Zero for normal exit, otherwise a DOLLY_PROCESS_SIG* value. A signalled
+   * exit has status=128+signal_number, never inferred from status. */
   uint32_t signal_number;
 } dolly_process_exit_request;
 
@@ -261,6 +316,12 @@ typedef struct {
   uint32_t descriptor;
   uint32_t flags;
 } dolly_process_fd_flags;
+
+/* Permission bits (at most 07777, POSIX octal values). */
+typedef struct {
+  uint32_t descriptor;
+  uint32_t mode;
+} dolly_process_fd_mode_request;
 
 typedef struct {
   uint32_t flags;
@@ -371,7 +432,8 @@ typedef struct {
   uint32_t path_size;
   uint64_t argument_bytes;
   uint64_t environment_bytes;
-  /* Absolute monotonic time, or UINT64_MAX when no deadline is active. */
+  /* Absolute monotonic time at most 24 hours after the SPAWN call (EINVAL
+   * otherwise), or UINT64_MAX when no deadline is active. */
   uint64_t deadline_nanoseconds;
 } dolly_process_spawn_request;
 
@@ -380,14 +442,18 @@ typedef struct {
   uint32_t reserved;
 } dolly_process_spawn_response;
 
+/* A positive child PID, or zero for any child. */
 typedef struct {
   uint32_t pid;
   uint32_t flags;
 } dolly_process_wait_request;
 
+/* The reaped child and its status; see dolly_process_exit_request. */
 typedef struct {
+  uint32_t pid;
   uint32_t status;
   uint32_t signal_number;
+  uint32_t reserved;
 } dolly_process_wait_response;
 
 typedef struct {
@@ -395,8 +461,8 @@ typedef struct {
   uint32_t parent_pid;
 } dolly_process_info_response;
 
-/* Positive PID only; signal 0 checks existence. Only INT/KILL/TERM are supported.
- * On success the kernel echoes this packet for supervisor delivery. */
+/* Positive PID only; signal 0 checks existence, otherwise a DOLLY_PROCESS_SIG*
+ * value. On success the kernel echoes this packet for supervisor delivery. */
 typedef struct {
   uint32_t pid;
   uint32_t signal_number;
@@ -606,6 +672,15 @@ typedef struct {
   /* path bytes follow; they are not NUL terminated */
 } dolly_process_path_request;
 
+/* flags: DOLLY_PROCESS_PATH_NOFOLLOW; mode as in dolly_process_fd_mode_request. */
+typedef struct {
+  uint32_t directory_descriptor;
+  uint32_t flags;
+  uint32_t mode;
+  uint32_t path_size;
+  /* path bytes follow; they are not NUL terminated */
+} dolly_process_path_mode_request;
+
 typedef struct {
   uint32_t directory_descriptor;
   uint32_t flags;
@@ -629,6 +704,7 @@ typedef struct {
   uint64_t modification_nanoseconds;
   uint64_t change_nanoseconds;
   uint64_t blocks;
+  /* Permission bits (07777); file_type carries the file type. */
   uint32_t mode;
   uint32_t link_count;
   uint32_t user;
@@ -666,136 +742,69 @@ typedef struct {
   /* old path bytes, then new path bytes */
 } dolly_process_two_path_request;
 
-#if defined(__cplusplus)
-static_assert(sizeof(dolly_process_vector_sizes) == 16);
-static_assert(sizeof(dolly_process_fd_io_request) == 16);
-static_assert(sizeof(dolly_process_fd_pread_request) == 24);
-static_assert(sizeof(dolly_process_fd_truncate_request) == 16);
-static_assert(sizeof(dolly_process_fd_request) == 8);
-static_assert(sizeof(dolly_process_timestamp) == 16);
-static_assert(sizeof(dolly_process_fd_times_request) == 40);
-static_assert(sizeof(dolly_process_fd_dup_request) == 16);
-static_assert(sizeof(dolly_process_fd_flags) == 8);
-static_assert(sizeof(dolly_process_poll_request) == 16);
-static_assert(sizeof(dolly_process_poll_query) == 8);
-static_assert(sizeof(dolly_process_poll_response) == 16);
-static_assert(sizeof(dolly_process_poll_result) == 8);
-static_assert(sizeof(dolly_process_directory_entry) == 24);
-static_assert(sizeof(dolly_process_directory_request) == 24);
-static_assert(sizeof(dolly_process_stat_response) == 88);
-static_assert(sizeof(dolly_process_filesystem_stat_response) == 96);
-static_assert(sizeof(dolly_process_spawn_request) == 56);
-static_assert(sizeof(dolly_process_fd_mapping) == 8);
-static_assert(sizeof(dolly_process_pipe_request) == 8);
-static_assert(sizeof(dolly_process_two_path_request) == 16);
-static_assert(sizeof(dolly_process_path_times_request) == 48);
-static_assert(sizeof(dolly_process_terminal_request) == 24);
-static_assert(sizeof(dolly_process_terminal_response) == 16);
-static_assert(sizeof(dolly_process_http_start_request) == 24);
-static_assert(sizeof(dolly_process_http_start_response) == 8);
-static_assert(sizeof(dolly_process_http_poll_request) == 8);
-static_assert(sizeof(dolly_process_http_poll_response) == 32);
-static_assert(sizeof(dolly_process_http_cancel_request) == 8);
-static_assert(sizeof(dolly_process_display_size_request) == 16);
-static_assert(sizeof(dolly_process_display_generation_request) == 8);
-static_assert(sizeof(dolly_process_display_surface_response) == 40);
-static_assert(sizeof(dolly_process_display_write_request) == 32);
-static_assert(sizeof(dolly_process_display_present_request) == 16);
-static_assert(sizeof(dolly_process_display_wait_request) == 24);
-static_assert(sizeof(dolly_process_display_wait_response) == 8);
-static_assert(sizeof(dolly_process_display_cursor_request) == 16);
-static_assert(sizeof(dolly_process_display_event_request) == 16);
-static_assert(sizeof(dolly_process_display_event_response) == 136);
-static_assert(sizeof(dolly_process_clock_sleep_request) == 16);
-static_assert(sizeof(dolly_process_dso_open_request) == 16);
-static_assert(sizeof(dolly_process_dso_symbol_request) == 16);
-static_assert(sizeof(dolly_process_dso_close_request) == 8);
-static_assert(sizeof(dolly_process_dso_response) == 256);
-static_assert(sizeof(dolly_process_ffi_call_request) == 32);
-static_assert(sizeof(dolly_process_ffi_closure_request) == 8);
-static_assert(sizeof(dolly_process_ffi_closure_response) == 8);
-static_assert(sizeof(dolly_process_ffi_closure_prep_request) == 40);
+#ifdef __cplusplus
+#define DOLLY_PROCESS_LAYOUT(type, size) static_assert(sizeof(type) == size, #type)
 #else
-_Static_assert(sizeof(dolly_process_vector_sizes) == 16, "process ABI layout");
-_Static_assert(sizeof(dolly_process_fd_io_request) == 16, "process ABI layout");
-_Static_assert(sizeof(dolly_process_fd_pread_request) == 24, "process ABI layout");
-_Static_assert(sizeof(dolly_process_fd_truncate_request) == 16, "process ABI layout");
-_Static_assert(sizeof(dolly_process_fd_request) == 8, "process ABI layout");
-_Static_assert(sizeof(dolly_process_timestamp) == 16, "process ABI layout");
-_Static_assert(sizeof(dolly_process_fd_times_request) == 40,
-               "process ABI layout");
-_Static_assert(sizeof(dolly_process_fd_dup_request) == 16, "process ABI layout");
-_Static_assert(sizeof(dolly_process_fd_flags) == 8, "process ABI layout");
-_Static_assert(sizeof(dolly_process_poll_request) == 16,
-               "process ABI layout");
-_Static_assert(sizeof(dolly_process_poll_query) == 8,
-               "process ABI layout");
-_Static_assert(sizeof(dolly_process_poll_response) == 16,
-               "process ABI layout");
-_Static_assert(sizeof(dolly_process_poll_result) == 8,
-               "process ABI layout");
-_Static_assert(sizeof(dolly_process_directory_entry) == 24, "process ABI layout");
-_Static_assert(sizeof(dolly_process_directory_request) == 24, "process ABI layout");
-_Static_assert(sizeof(dolly_process_stat_response) == 88, "process ABI layout");
-_Static_assert(sizeof(dolly_process_filesystem_stat_response) == 96,
-               "process ABI layout");
-_Static_assert(sizeof(dolly_process_spawn_request) == 56, "process ABI layout");
-_Static_assert(sizeof(dolly_process_fd_mapping) == 8, "process ABI layout");
-_Static_assert(sizeof(dolly_process_pipe_request) == 8, "process ABI layout");
-_Static_assert(sizeof(dolly_process_two_path_request) == 16, "process ABI layout");
-_Static_assert(sizeof(dolly_process_path_times_request) == 48,
-               "process ABI layout");
-_Static_assert(sizeof(dolly_process_terminal_request) == 24, "process ABI layout");
-_Static_assert(sizeof(dolly_process_terminal_response) == 16, "process ABI layout");
-_Static_assert(sizeof(dolly_process_http_start_request) == 24,
-               "process ABI layout");
-_Static_assert(sizeof(dolly_process_http_start_response) == 8,
-               "process ABI layout");
-_Static_assert(sizeof(dolly_process_http_poll_request) == 8,
-               "process ABI layout");
-_Static_assert(sizeof(dolly_process_http_poll_response) == 32,
-               "process ABI layout");
-_Static_assert(sizeof(dolly_process_http_cancel_request) == 8,
-               "process ABI layout");
-_Static_assert(sizeof(dolly_process_display_size_request) == 16,
-               "process ABI layout");
-_Static_assert(sizeof(dolly_process_display_generation_request) == 8,
-               "process ABI layout");
-_Static_assert(sizeof(dolly_process_display_surface_response) == 40,
-               "process ABI layout");
-_Static_assert(sizeof(dolly_process_display_write_request) == 32,
-               "process ABI layout");
-_Static_assert(sizeof(dolly_process_display_present_request) == 16,
-               "process ABI layout");
-_Static_assert(sizeof(dolly_process_display_wait_request) == 24,
-               "process ABI layout");
-_Static_assert(sizeof(dolly_process_display_wait_response) == 8,
-               "process ABI layout");
-_Static_assert(sizeof(dolly_process_display_cursor_request) == 16,
-               "process ABI layout");
-_Static_assert(sizeof(dolly_process_display_event_request) == 16,
-               "process ABI layout");
-_Static_assert(sizeof(dolly_process_display_event_response) == 136,
-               "process ABI layout");
-_Static_assert(sizeof(dolly_process_clock_sleep_request) == 16,
-               "process ABI layout");
-_Static_assert(sizeof(dolly_process_dso_open_request) == 16,
-               "process ABI layout");
-_Static_assert(sizeof(dolly_process_dso_symbol_request) == 16,
-               "process ABI layout");
-_Static_assert(sizeof(dolly_process_dso_close_request) == 8,
-               "process ABI layout");
-_Static_assert(sizeof(dolly_process_dso_response) == 256,
-               "process ABI layout");
-_Static_assert(sizeof(dolly_process_ffi_call_request) == 32,
-               "process ABI layout");
-_Static_assert(sizeof(dolly_process_ffi_closure_request) == 8,
-               "process ABI layout");
-_Static_assert(sizeof(dolly_process_ffi_closure_response) == 8,
-               "process ABI layout");
-_Static_assert(sizeof(dolly_process_ffi_closure_prep_request) == 40,
-               "process ABI layout");
+#define DOLLY_PROCESS_LAYOUT(type, size) _Static_assert(sizeof(type) == size, #type)
 #endif
+DOLLY_PROCESS_LAYOUT(dolly_process_vector_sizes, 16);
+DOLLY_PROCESS_LAYOUT(dolly_process_fd_io_request, 16);
+DOLLY_PROCESS_LAYOUT(dolly_process_fd_pread_request, 24);
+DOLLY_PROCESS_LAYOUT(dolly_process_fd_truncate_request, 16);
+DOLLY_PROCESS_LAYOUT(dolly_process_fd_request, 8);
+DOLLY_PROCESS_LAYOUT(dolly_process_timestamp, 16);
+DOLLY_PROCESS_LAYOUT(dolly_process_fd_times_request, 40);
+DOLLY_PROCESS_LAYOUT(dolly_process_fd_dup_request, 16);
+DOLLY_PROCESS_LAYOUT(dolly_process_fd_flags, 8);
+DOLLY_PROCESS_LAYOUT(dolly_process_poll_request, 16);
+DOLLY_PROCESS_LAYOUT(dolly_process_poll_query, 8);
+DOLLY_PROCESS_LAYOUT(dolly_process_poll_response, 16);
+DOLLY_PROCESS_LAYOUT(dolly_process_poll_result, 8);
+DOLLY_PROCESS_LAYOUT(dolly_process_directory_entry, 24);
+DOLLY_PROCESS_LAYOUT(dolly_process_directory_request, 24);
+DOLLY_PROCESS_LAYOUT(dolly_process_stat_response, 88);
+DOLLY_PROCESS_LAYOUT(dolly_process_filesystem_stat_response, 96);
+DOLLY_PROCESS_LAYOUT(dolly_process_spawn_request, 56);
+DOLLY_PROCESS_LAYOUT(dolly_process_fd_mapping, 8);
+DOLLY_PROCESS_LAYOUT(dolly_process_pipe_request, 8);
+DOLLY_PROCESS_LAYOUT(dolly_process_two_path_request, 16);
+DOLLY_PROCESS_LAYOUT(dolly_process_path_times_request, 48);
+DOLLY_PROCESS_LAYOUT(dolly_process_terminal_request, 24);
+DOLLY_PROCESS_LAYOUT(dolly_process_terminal_response, 16);
+DOLLY_PROCESS_LAYOUT(dolly_process_http_start_request, 24);
+DOLLY_PROCESS_LAYOUT(dolly_process_http_start_response, 8);
+DOLLY_PROCESS_LAYOUT(dolly_process_http_poll_request, 8);
+DOLLY_PROCESS_LAYOUT(dolly_process_http_poll_response, 32);
+DOLLY_PROCESS_LAYOUT(dolly_process_http_cancel_request, 8);
+DOLLY_PROCESS_LAYOUT(dolly_process_display_size_request, 16);
+DOLLY_PROCESS_LAYOUT(dolly_process_display_generation_request, 8);
+DOLLY_PROCESS_LAYOUT(dolly_process_display_surface_response, 40);
+DOLLY_PROCESS_LAYOUT(dolly_process_display_write_request, 32);
+DOLLY_PROCESS_LAYOUT(dolly_process_display_present_request, 16);
+DOLLY_PROCESS_LAYOUT(dolly_process_display_wait_request, 24);
+DOLLY_PROCESS_LAYOUT(dolly_process_display_wait_response, 8);
+DOLLY_PROCESS_LAYOUT(dolly_process_display_cursor_request, 16);
+DOLLY_PROCESS_LAYOUT(dolly_process_display_event_request, 16);
+DOLLY_PROCESS_LAYOUT(dolly_process_display_event_response, 136);
+DOLLY_PROCESS_LAYOUT(dolly_process_clock_sleep_request, 16);
+DOLLY_PROCESS_LAYOUT(dolly_process_dso_open_request, 16);
+DOLLY_PROCESS_LAYOUT(dolly_process_dso_symbol_request, 16);
+DOLLY_PROCESS_LAYOUT(dolly_process_dso_close_request, 8);
+DOLLY_PROCESS_LAYOUT(dolly_process_dso_response, 256);
+DOLLY_PROCESS_LAYOUT(dolly_process_ffi_call_request, 32);
+DOLLY_PROCESS_LAYOUT(dolly_process_ffi_closure_request, 8);
+DOLLY_PROCESS_LAYOUT(dolly_process_ffi_closure_response, 8);
+DOLLY_PROCESS_LAYOUT(dolly_process_ffi_closure_prep_request, 40);
+DOLLY_PROCESS_LAYOUT(dolly_process_exit_request, 8);
+DOLLY_PROCESS_LAYOUT(dolly_process_fd_mode_request, 8);
+DOLLY_PROCESS_LAYOUT(dolly_process_path_mode_request, 16);
+DOLLY_PROCESS_LAYOUT(dolly_process_wait_request, 8);
+DOLLY_PROCESS_LAYOUT(dolly_process_wait_response, 16);
+DOLLY_PROCESS_LAYOUT(dolly_process_signal_request, 8);
+DOLLY_PROCESS_LAYOUT(dolly_process_fd_seek_request, 16);
+DOLLY_PROCESS_LAYOUT(dolly_process_clock_request, 16);
+DOLLY_PROCESS_LAYOUT(dolly_process_path_request, 16);
+#undef DOLLY_PROCESS_LAYOUT
 
 #ifdef __cplusplus
 }

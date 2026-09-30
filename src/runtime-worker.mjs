@@ -63,8 +63,14 @@ function locateArtifact(path) {
   return new URL(`dist/${path}`, applicationBase).href;
 }
 
+// Guest-writable files are bounded before trusted code copies them.
+function readBoundedFile(dolly, path, limit) {
+  if (dolly.FS.stat(path).size > limit) throw new Error(`${path} is larger than ${limit} bytes`);
+  return dolly.FS.readFile(path);
+}
+
 function readImageEntry(dolly) {
-  return decodeImageEntry(dolly.FS.readFile("/etc/dolly/entry"));
+  return decodeImageEntry(readBoundedFile(dolly, "/etc/dolly/entry", 64 * 1024));
 }
 
 async function runImageEntry(dolly, supervisor) {
@@ -366,7 +372,7 @@ try {
 
   await host.start("image", { dolly, memory, kernelExports });
 
-  const runtimeImage = decoder.decode(dolly.FS.readFile("/etc/dolly/image"));
+  const runtimeImage = decoder.decode(readBoundedFile(dolly, "/etc/dolly/image", 256));
   if (configuredImage !== "custom" && runtimeImage !== configuredImage) {
     throw new Error(`Dollyfile selected image ${runtimeImage}, expected ${configuredImage}`);
   }
@@ -393,7 +399,7 @@ try {
   try {
     compilerTrace = dolly === null
       ? ""
-      : decoder.decode(dolly.FS.readFile("/tmp/dolly-cc-trace.log")).trim();
+      : decoder.decode(readBoundedFile(dolly, "/tmp/dolly-cc-trace.log", 64 * 1024)).trim();
   } catch {
     // Compiler tracing is opt-in and absent in normal sessions.
   }

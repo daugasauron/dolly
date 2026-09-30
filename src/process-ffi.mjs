@@ -7,6 +7,10 @@
  */
 
 import { DOLLY_ERRNO } from "../dist/dolly-errno.mjs";
+import {
+  DOLLY_PROCESS_FFI_CALL as FFI_CALL, DOLLY_PROCESS_FFI_CLOSURE_ALLOC as FFI_CLOSURE_ALLOC,
+  DOLLY_PROCESS_FFI_CLOSURE_FREE as FFI_CLOSURE_FREE, DOLLY_PROCESS_FFI_CLOSURE_PREP as FFI_CLOSURE_PREP,
+} from "./process-constants.mjs";
 
 const FFI_OK = 0;
 const FFI_BAD_TYPEDEF = 1;
@@ -31,10 +35,6 @@ const FFI_TYPE_STRUCT = 13;
 const FFI_TYPE_POINTER = 14;
 const FFI_TYPE_COMPLEX = 15;
 
-const FFI_CALL = 120;
-const FFI_CLOSURE_ALLOC = 121;
-const FFI_CLOSURE_FREE = 122;
-const FFI_CLOSURE_PREP = 123;
 const localOperations = new Set([
   FFI_CALL,
   FFI_CLOSURE_ALLOC,

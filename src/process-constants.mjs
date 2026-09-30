@@ -1,0 +1,199 @@
+// Generated from include/dolly/process.h.
+export const DOLLY_PROCESS_ABI_VERSION = 0;
+export const DOLLY_PROCESS_PACKET_LIMIT = 1048576;
+export const DOLLY_PROCESS_DSO_LIMIT = 536870912;
+export const DOLLY_PROCESS_DSO_ERROR_CAPACITY = 240;
+export const DOLLY_PROCESS_ARGUMENT_SIZES = 1;
+export const DOLLY_PROCESS_ARGUMENTS = 2;
+export const DOLLY_PROCESS_ENVIRONMENT_SIZES = 3;
+export const DOLLY_PROCESS_ENVIRONMENT = 4;
+export const DOLLY_PROCESS_EXIT = 5;
+export const DOLLY_PROCESS_FD_READ = 16;
+export const DOLLY_PROCESS_FD_WRITE = 17;
+export const DOLLY_PROCESS_FD_CLOSE = 18;
+export const DOLLY_PROCESS_FD_SEEK = 19;
+export const DOLLY_PROCESS_FD_STAT = 20;
+export const DOLLY_PROCESS_FD_SYNC = 21;
+export const DOLLY_PROCESS_FD_DUP = 22;
+export const DOLLY_PROCESS_FD_PIPE = 23;
+export const DOLLY_PROCESS_FD_READ_DIRECTORY = 24;
+export const DOLLY_PROCESS_FD_PREAD = 25;
+export const DOLLY_PROCESS_FD_TRUNCATE = 26;
+export const DOLLY_PROCESS_FD_STAT_FILESYSTEM = 27;
+export const DOLLY_PROCESS_FD_SET_TIMES = 28;
+export const DOLLY_PROCESS_FD_PWRITE = 29;
+export const DOLLY_PROCESS_FD_GET_FLAGS = 30;
+export const DOLLY_PROCESS_FD_SET_FLAGS = 31;
+export const DOLLY_PROCESS_PATH_OPEN = 32;
+export const DOLLY_PROCESS_PATH_STAT = 33;
+export const DOLLY_PROCESS_PATH_CREATE_DIRECTORY = 34;
+export const DOLLY_PROCESS_PATH_REMOVE = 35;
+export const DOLLY_PROCESS_PATH_RENAME = 36;
+export const DOLLY_PROCESS_PATH_LINK = 37;
+export const DOLLY_PROCESS_PATH_SYMLINK = 38;
+export const DOLLY_PROCESS_PATH_READLINK = 39;
+export const DOLLY_PROCESS_PATH_GET_CURRENT_DIRECTORY = 40;
+export const DOLLY_PROCESS_PATH_SET_CURRENT_DIRECTORY = 41;
+export const DOLLY_PROCESS_PATH_STAT_FILESYSTEM = 42;
+export const DOLLY_PROCESS_PATH_SET_TIMES = 43;
+export const DOLLY_PROCESS_PATH_SET_MODE = 44;
+export const DOLLY_PROCESS_CLOCK_TIME = 48;
+export const DOLLY_PROCESS_RANDOM = 49;
+export const DOLLY_PROCESS_TERMINAL = 50;
+export const DOLLY_PROCESS_DOWNLOAD_FILE = 51;
+export const DOLLY_PROCESS_CLOCK_RESOLUTION = 52;
+export const DOLLY_PROCESS_CLOCK_SLEEP = 53;
+export const DOLLY_PROCESS_FD_POLL = 54;
+export const DOLLY_PROCESS_FD_GET_DESCRIPTOR_FLAGS = 55;
+export const DOLLY_PROCESS_FD_SET_DESCRIPTOR_FLAGS = 56;
+export const DOLLY_PROCESS_UPLOAD_FILE = 57;
+export const DOLLY_PROCESS_FD_SET_MODE = 58;
+export const DOLLY_PROCESS_SPAWN = 64;
+export const DOLLY_PROCESS_WAIT = 65;
+export const DOLLY_PROCESS_INTERRUPT_POLL = 66;
+export const DOLLY_PROCESS_INFO = 67;
+export const DOLLY_PROCESS_SIGNAL = 68;
+export const DOLLY_PROCESS_SIGNAL_ACKNOWLEDGE = 69;
+export const DOLLY_PROCESS_HTTP_START = 80;
+export const DOLLY_PROCESS_HTTP_POLL = 81;
+export const DOLLY_PROCESS_HTTP_CANCEL = 82;
+export const DOLLY_PROCESS_HTTP_BODY_WRITE = 83;
+export const DOLLY_PROCESS_DISPLAY_ACQUIRE = 96;
+export const DOLLY_PROCESS_DISPLAY_SET_SIZE = 97;
+export const DOLLY_PROCESS_DISPLAY_BEGIN_FRAME = 98;
+export const DOLLY_PROCESS_DISPLAY_WRITE_FRAME = 99;
+export const DOLLY_PROCESS_DISPLAY_PRESENT = 100;
+export const DOLLY_PROCESS_DISPLAY_WAIT_FRAME = 101;
+export const DOLLY_PROCESS_DISPLAY_SET_CURSOR = 102;
+export const DOLLY_PROCESS_DISPLAY_NEXT_EVENT = 103;
+export const DOLLY_PROCESS_DISPLAY_RELEASE = 104;
+export const DOLLY_PROCESS_DSO_OPEN = 112;
+export const DOLLY_PROCESS_DSO_SYMBOL = 113;
+export const DOLLY_PROCESS_DSO_CLOSE = 114;
+export const DOLLY_PROCESS_FFI_CALL = 120;
+export const DOLLY_PROCESS_FFI_CLOSURE_ALLOC = 121;
+export const DOLLY_PROCESS_FFI_CLOSURE_FREE = 122;
+export const DOLLY_PROCESS_FFI_CLOSURE_PREP = 123;
+export const DOLLY_PROCESS_SPAWN_INHERIT_ENVIRONMENT = 1;
+export const DOLLY_PROCESS_SPAWN_FOREGROUND = 2;
+export const DOLLY_PROCESS_SPAWN_INTERACTIVE = 4;
+export const DOLLY_PROCESS_INHERIT_FDS_NONE = 0;
+export const DOLLY_PROCESS_INHERIT_FDS_STDIO = 1;
+export const DOLLY_PROCESS_INHERIT_FDS_ALL = 2;
+export const DOLLY_PROCESS_FD_CLOEXEC = 1;
+export const DOLLY_PROCESS_WAIT_NONBLOCK = 1;
+export const DOLLY_PROCESS_SIGHUP = 1;
+export const DOLLY_PROCESS_SIGINT = 2;
+export const DOLLY_PROCESS_SIGQUIT = 3;
+export const DOLLY_PROCESS_SIGABRT = 6;
+export const DOLLY_PROCESS_SIGKILL = 9;
+export const DOLLY_PROCESS_SIGPIPE = 13;
+export const DOLLY_PROCESS_SIGTERM = 15;
+export const DOLLY_PROCESS_SIGCHLD = 17;
+export const DOLLY_PROCESS_SIGWINCH = 28;
+export const DOLLY_PROCESS_SIGNAL_MASK = 268477006;
+export const DOLLY_PROCESS_FD_DUP_MINIMUM = 1;
+export const DOLLY_PROCESS_FD_DUP_CLOEXEC = 2;
+export const DOLLY_PROCESS_FD_STATUS_READ = 1;
+export const DOLLY_PROCESS_FD_STATUS_WRITE = 2;
+export const DOLLY_PROCESS_FD_STATUS_APPEND = 4;
+export const DOLLY_PROCESS_FD_STATUS_NONBLOCK = 8;
+export const DOLLY_PROCESS_SEEK_SET = 0;
+export const DOLLY_PROCESS_SEEK_CURRENT = 1;
+export const DOLLY_PROCESS_SEEK_END = 2;
+export const DOLLY_PROCESS_CLOCK_REALTIME = 0;
+export const DOLLY_PROCESS_CLOCK_MONOTONIC = 1;
+export const DOLLY_PROCESS_OPEN_READ = 1;
+export const DOLLY_PROCESS_OPEN_WRITE = 2;
+export const DOLLY_PROCESS_OPEN_CREATE = 4;
+export const DOLLY_PROCESS_OPEN_EXCLUSIVE = 8;
+export const DOLLY_PROCESS_OPEN_TRUNCATE = 16;
+export const DOLLY_PROCESS_OPEN_APPEND = 32;
+export const DOLLY_PROCESS_OPEN_DIRECTORY = 64;
+export const DOLLY_PROCESS_OPEN_NOFOLLOW = 128;
+export const DOLLY_PROCESS_OPEN_CLOEXEC = 256;
+export const DOLLY_PROCESS_PATH_DIRECTORY = 1;
+export const DOLLY_PROCESS_PATH_NOFOLLOW = 2;
+export const DOLLY_PROCESS_TIME_NOW = 1;
+export const DOLLY_PROCESS_TIME_OMIT = 2;
+export const DOLLY_PROCESS_DSO_GLOBAL = 1;
+export const DOLLY_PROCESS_FILE_UNKNOWN = 0;
+export const DOLLY_PROCESS_FILE_REGULAR = 1;
+export const DOLLY_PROCESS_FILE_DIRECTORY = 2;
+export const DOLLY_PROCESS_FILE_SYMBOLIC_LINK = 3;
+export const DOLLY_PROCESS_FILE_CHARACTER_DEVICE = 4;
+export const DOLLY_PROCESS_FILE_BLOCK_DEVICE = 5;
+export const DOLLY_PROCESS_FILE_FIFO = 6;
+export const DOLLY_PROCESS_FILE_SOCKET = 7;
+export const DOLLY_PROCESS_POLL_READ = 1;
+export const DOLLY_PROCESS_POLL_WRITE = 2;
+export const DOLLY_PROCESS_POLL_PRIORITY = 4;
+export const DOLLY_PROCESS_POLL_ERROR = 8;
+export const DOLLY_PROCESS_POLL_HANGUP = 16;
+export const DOLLY_PROCESS_POLL_INVALID = 32;
+export const DOLLY_PROCESS_POLL_IGNORED_DESCRIPTOR = 4294967295;
+export const DOLLY_PROCESS_TERMINAL_READ = 1;
+export const DOLLY_PROCESS_TERMINAL_ISATTY = 2;
+export const DOLLY_PROCESS_TERMINAL_MODE_GET = 3;
+export const DOLLY_PROCESS_TERMINAL_MODE_SET = 4;
+export const DOLLY_PROCESS_TERMINAL_SIZE = 5;
+export const DOLLY_PROCESS_TERMINAL_PUBLISH_RESULT = 6;
+export const DOLLY_PROCESS_SIZEOF = Object.freeze({
+  dolly_process_vector_sizes: 16,
+  dolly_process_fd_io_request: 16,
+  dolly_process_fd_pread_request: 24,
+  dolly_process_fd_truncate_request: 16,
+  dolly_process_fd_request: 8,
+  dolly_process_timestamp: 16,
+  dolly_process_fd_times_request: 40,
+  dolly_process_fd_dup_request: 16,
+  dolly_process_fd_flags: 8,
+  dolly_process_poll_request: 16,
+  dolly_process_poll_query: 8,
+  dolly_process_poll_response: 16,
+  dolly_process_poll_result: 8,
+  dolly_process_directory_entry: 24,
+  dolly_process_directory_request: 24,
+  dolly_process_stat_response: 88,
+  dolly_process_filesystem_stat_response: 96,
+  dolly_process_spawn_request: 56,
+  dolly_process_fd_mapping: 8,
+  dolly_process_pipe_request: 8,
+  dolly_process_two_path_request: 16,
+  dolly_process_path_times_request: 48,
+  dolly_process_terminal_request: 24,
+  dolly_process_terminal_response: 16,
+  dolly_process_http_start_request: 24,
+  dolly_process_http_start_response: 8,
+  dolly_process_http_poll_request: 8,
+  dolly_process_http_poll_response: 32,
+  dolly_process_http_cancel_request: 8,
+  dolly_process_display_size_request: 16,
+  dolly_process_display_generation_request: 8,
+  dolly_process_display_surface_response: 40,
+  dolly_process_display_write_request: 32,
+  dolly_process_display_present_request: 16,
+  dolly_process_display_wait_request: 24,
+  dolly_process_display_wait_response: 8,
+  dolly_process_display_cursor_request: 16,
+  dolly_process_display_event_request: 16,
+  dolly_process_display_event_response: 136,
+  dolly_process_clock_sleep_request: 16,
+  dolly_process_dso_open_request: 16,
+  dolly_process_dso_symbol_request: 16,
+  dolly_process_dso_close_request: 8,
+  dolly_process_dso_response: 256,
+  dolly_process_ffi_call_request: 32,
+  dolly_process_ffi_closure_request: 8,
+  dolly_process_ffi_closure_response: 8,
+  dolly_process_ffi_closure_prep_request: 40,
+  dolly_process_exit_request: 8,
+  dolly_process_fd_mode_request: 8,
+  dolly_process_path_mode_request: 16,
+  dolly_process_wait_request: 8,
+  dolly_process_wait_response: 16,
+  dolly_process_signal_request: 8,
+  dolly_process_fd_seek_request: 16,
+  dolly_process_clock_request: 16,
+  dolly_process_path_request: 16,
+});

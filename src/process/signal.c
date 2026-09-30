@@ -10,6 +10,12 @@ __attribute__((import_module("dolly_process_0"), import_name("call")))
 int64_t raw_process_call(uint32_t operation, const void *request,
                         uint64_t request_size, void *response, uint64_t capacity);
 
+_Static_assert(SIGHUP == DOLLY_PROCESS_SIGHUP && SIGINT == DOLLY_PROCESS_SIGINT &&
+               SIGQUIT == DOLLY_PROCESS_SIGQUIT && SIGABRT == DOLLY_PROCESS_SIGABRT &&
+               SIGKILL == DOLLY_PROCESS_SIGKILL && SIGPIPE == DOLLY_PROCESS_SIGPIPE &&
+               SIGTERM == DOLLY_PROCESS_SIGTERM && SIGCHLD == DOLLY_PROCESS_SIGCHLD &&
+               SIGWINCH == DOLLY_PROCESS_SIGWINCH, "process signal numbers");
+
 static struct sigaction actions[_NSIG];
 static _Thread_local sigset_t blocked, pending;
 static dolly_lock action_lock;
@@ -56,12 +62,10 @@ static int deliver_pending(void) {
     dolly_lock_release(&action_lock);
     if (action.sa_handler == SIG_IGN) continue;
     if (action.sa_handler == SIG_DFL) {
-      switch (number) {
-        case SIGCHLD: case SIGURG: case SIGWINCH: continue;
-        case SIGHUP: case SIGINT: case SIGQUIT: case SIGABRT:
-        case SIGKILL: case SIGPIPE: case SIGTERM: dolly_exit_signal(number);
-        default: errno = ENOTSUP; return -1;
-      }
+      if (number == SIGCHLD || number == SIGURG || number == SIGWINCH) continue;
+      if (number < 32 && ((DOLLY_PROCESS_SIGNAL_MASK >> number) & 1u)) dolly_exit_signal(number);
+      errno = ENOTSUP;
+      return -1;
     }
     const sigset_t previous = blocked;
     for (int bit = 1; bit < _NSIG; ++bit) {
