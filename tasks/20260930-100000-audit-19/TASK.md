@@ -30,3 +30,6 @@ The supervisor caps live processes at 32 (`processWorkerLimit` in
 `test/fixtures/process-lifecycle.c` now spawns sleeping children until the
 spawn fails, checks `-EAGAIN`, kills and reaps them, and spawns again;
 `test/process-browser.mjs` passes in Chrome and Firefox.
+
+The fixture only fails on these checks since `48a73f5`; with the cap expectation
+changed to `ENOMEM` the browser test fails (`LIFECYCLE FAIL line 267`).
