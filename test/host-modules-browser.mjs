@@ -28,7 +28,7 @@ try {
     await run(`curl -fsS ${server.origin}/fixture/process-check.c -o ${path}`);
   }
   async function requirements(path) {
-    const pending=page.waitForEvent('download');await run(`download ${path}`);
+    const pending=page.waitForEvent('download');await run(`download ${path}`);await page.click('#downloads button');
     const download=await pending, file=`${output}/${path.split('/').at(-1)}.wasm`;
     await download.saveAs(file);
     return executableHostRequirements(parseWasmInterface(await fs.readFile(file)));

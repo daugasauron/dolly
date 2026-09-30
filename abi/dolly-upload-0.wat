@@ -1,7 +1,9 @@
 (module
-  ;; Explicit local-user input. No new callable host import: the page polls
-  ;; this mailbox and offers a file picker. Only a user's selection supplies
-  ;; bytes. No host path, filename, handle, URL or filesystem operation crosses.
+  ;; Explicit local-user input. No new callable host import: the kernel worker
+  ;; reports each new request to the page, which offers a file picker. Only a
+  ;; user's selection supplies bytes. No host path, filename, handle, URL or
+  ;; filesystem operation crosses. A request right after the user cancelled
+  ;; fails with ECANCELED without reopening the picker.
   (import "env" "memory" (memory i64 1024 131072 shared))
   (func (export "dolly_upload_mailbox_address") (result i64) i64.const 0)
   (func (export "dolly_upload_mailbox_version") (result i32) i32.const 0)

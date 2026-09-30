@@ -61,7 +61,8 @@
   ;; OPEN starts with scope=0; kernel binds a process-owned lease before dispatch.
   ;; Sequence is nonzero u32, monotonically increasing per lease, never reused.
   ;; OPEN body: u32 width,height. Reply: u64 scope, u32 width,height, then
-  ;; at most 240 UTF-8 bytes naming the admitted adapter (no terminating NUL).
+  ;; at most 240 UTF-8 bytes of provider name (no terminating NUL). Browsers
+  ;; return the fixed name "WebGPU", never the adapter's vendor or description.
   ;; BATCH body: u32 count,reserved then count records, each 8-byte aligned.
   ;; Record prefix: u32 opcode,bytes including prefix. Reserved fields are zero.
   ;; BUFFER[32]: u64 id,size; u32 WebGPU usage,reserved.
