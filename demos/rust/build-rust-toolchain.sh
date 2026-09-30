@@ -13,7 +13,7 @@ fi
 input_key="$({
   printf '%s\n' 'dolly-rust-seed-1' "$DOLLY_EMSDK_IMAGE"
   sha256sum demos/rust/toolchain/* demos/rust/build-rust-toolchain.sh include/dolly/process.h include/dolly/runtime.h
-  sha256sum "$sysroot"/* | cut -d' ' -f1
+  find "$sysroot" -type f | sort | xargs sha256sum | cut -d' ' -f1
 } | sha256sum | cut -d' ' -f1)"
 if [[ -f "$port/seed.inputs" && "$(cat "$port/seed.inputs")" == "$input_key" &&
       -f "$port/seed.sha256" ]] && (cd "$port" && sha256sum --check --status seed.sha256); then
@@ -27,6 +27,8 @@ if [[ ! -f "$port/prepare.inputs" || "$(cat "$port/prepare.inputs")" != "$prepar
 fi
 cp demos/rust/toolchain/wasm64-emscripten-probe.json "$port/wasm64-emscripten-probe.json"
 bash demos/rust/toolchain/build-llvm.sh > "$port/llvm-build.log" 2>&1
+# package.py takes the one main object; a reused target directory may hold older ones.
+rm -f "$port"/target/wasm64-emscripten-probe/debug/deps/rustc_main-*
 bash demos/rust/toolchain/build.sh > "$port/compiler-build.jsonl" 2> "$port/compiler-build.log"
 bash demos/rust/toolchain/build-sdk.sh > "$port/sdk-build.jsonl" 2> "$port/sdk-build.log"
 python3 demos/rust/toolchain/package.py "$port/compiler-build.jsonl" "$port/sdk-build.jsonl"

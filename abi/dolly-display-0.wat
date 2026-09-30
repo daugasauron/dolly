@@ -59,4 +59,8 @@
   ;; installation the resident driver consumes it without host interpretation.
   (func (export "dolly_terminal_write_bytes") (param i64 i64))
 
+  ;; Publish at most one dirty terminal frame per call. Returns zero or a
+  ;; negative errno; it never consumes pending terminal input.
+  (func (export "dolly_terminal_present_pending") (result i32) i32.const 0)
+
 )

@@ -21,8 +21,8 @@ int dolly_spawn(const char *path, int argc, char **argv,
 int dolly_spawn_foreground(const char *path, int argc, char **argv,
                            int interactive);
 
-// Spawn with a kernel-owned deadline. A deadline expiry returns shell status
-// 124 without a host process.
+// Spawn with a kernel-owned deadline of at most one day; -1 means none. A
+// deadline expiry returns shell status 124 without a host process.
 int dolly_spawn_timeout(const char *path, int argc, char **argv,
                         int stdin_fd, int stdout_fd, int stderr_fd,
                         double timeout_milliseconds);
@@ -104,31 +104,21 @@ int dolly_interrupt_poll(void);
 // the current Dolly command with the conventional shell status 130.
 void dolly_interrupt_checkpoint(void);
 
-// Dolly terminals are WasmFS character devices whose browser-free line and
-// raw disciplines live in the runtime. The descriptor-kind check distinguishes
-// them from other character devices such as /dev/null. libc's isatty uses this
-// same operation; redirected files and pipes return false.
+// True for descriptors connected to the in-Wasm terminal, not for other
+// character devices such as /dev/null, redirected files or pipes. libc's
+// isatty uses this same operation.
 int dolly_isatty(int descriptor);
 
 // Terminates only the currently executing Dolly process.
 void dolly_exit(int status) __attribute__((__noreturn__));
 void dolly_exit_signal(int signal_number) __attribute__((__noreturn__));
 
-// Compatibility spelling used only by the resident kernel display plugin.
-int dolly_fclose(FILE *stream);
-
-// POSIX-shaped shell helpers execute /bin/slop as another private process.
-int dolly_system(const char *command);
-FILE *dolly_popen(const char *command, const char *mode);
-int dolly_pclose(FILE *stream);
-
-char *dolly_getpass(const char *prompt);
 ssize_t dolly_getrandom(void *buffer, size_t length, unsigned flags);
 
-// POSIX-shaped waiting and signals above Dolly's private processes.
+// POSIX-shaped waiting and signals above Dolly's private processes. waitpid
+// accepts a child PID or -1/0 for any child; kill needs a positive PID.
 pid_t dolly_waitpid(pid_t pid, int *status, int options);
 int dolly_kill(pid_t pid, int signal_number);
-unsigned dolly_alarm(unsigned seconds);
 
 // Raw sockets are deliberately absent. HTTP-capable libraries must use the
 // typed dolly_http_perform broker, whose sole outer edge is browser Fetch.

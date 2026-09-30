@@ -66,6 +66,8 @@ try {
         'echo "$(sleep 30)" "$(echo bad > /tmp/core-interrupted)"',
         'for item in "$(sleep 30)" "$(echo bad > /tmp/core-interrupted)"; do echo bad > /tmp/core-interrupted; done',
         `curl -fsS ${server.origin}/fixture/slow; echo bad > /tmp/core-interrupted`,
+        // /dev/stdin is the process's terminal descriptor, not a kernel read.
+        "cat /dev/stdin; echo bad > /tmp/core-interrupted",
       ]) {
         await page.evaluate(text => {
           globalThis.interruptedStatus = null;

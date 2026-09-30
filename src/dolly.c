@@ -13,18 +13,22 @@
 
 #include <emscripten/atomic.h>
 #include <emscripten/emscripten.h>
-#include <emscripten/wasmfs.h>
 
 #include <dolly/display.h>
 #include <dolly/http.h>
+#include <dolly/runtime.h>
 
-#include "dolly-runtime.h"
+#include "fs-record.h"
 #include "process-kernel.h"
 #include "session-snapshot.h"
 #include "system-snapshot.h"
 
+enum {
+  DOLLY_HTTP_MAILBOX_VERSION = 5,
+  DOLLY_HTTP_MAILBOX_HEADER_SIZE = 64,
+};
+
 static uint32_t consumed_interrupt_sequence;
-static uint32_t active_terminal_mask = 0x7u;
 static uint32_t terminal_mode_flags =
     DOLLY_TERMINAL_CANONICAL | DOLLY_TERMINAL_ECHO |
     DOLLY_TERMINAL_OPOST | DOLLY_TERMINAL_ONLCR;
@@ -36,7 +40,7 @@ _Static_assert((DOLLY_DISPLAY_EVENT_CAPACITY &
 _Alignas(64) static dolly_display_mailbox display_mailbox;
 static const dolly_display_driver_v3 *display_driver;
 static unsigned char *display_module_bytes;
-static size_t display_module_length;
+static uintptr_t display_module_length;
 static unsigned char *display_frames[DOLLY_DISPLAY_FRAME_COUNT];
 _Alignas(64) static unsigned char
     display_paste_buffer[DOLLY_DISPLAY_CLIPBOARD_CAPACITY];
@@ -80,10 +84,6 @@ static uint32_t next_http_slot;
 static unsigned char encoded_input[256];
 static size_t encoded_input_length;
 static size_t encoded_input_cursor;
-static unsigned char cooked_line[4096];
-static size_t cooked_length;
-static size_t cooked_cursor;
-static int cooked_boundary;
 
 static int update_suspended_terminal_layout(const dolly_input_event *event);
 
@@ -101,38 +101,10 @@ static void release_display_lease_for_pid(int owner_pid) {
   if (display_lease.generation == 0 || display_lease.owner_pid != owner_pid) {
     return;
   }
-  display_lease.generation = 0;
-  display_lease.owner_pid = 0;
-  display_lease.width = 0;
-  display_lease.height = 0;
-  display_lease.stride = 0;
-  display_lease.staging_buffer = 0;
-  display_lease.staging_offset = 0;
-  display_lease.staging = 0;
-  // Events already published while the graphics owner was active belong to
-  // that ownership epoch and must not leak into the restored shell. Preserve
-  // only layout changes so Ghostty returns at the current canvas size.
-  uint32_t read = atomic_load_explicit(&display_mailbox.event_read,
-                                       memory_order_relaxed);
-  const uint32_t write = atomic_load_explicit(&display_mailbox.event_write,
-                                               memory_order_acquire);
-  while (read != write) {
-    const dolly_input_event event =
-        display_mailbox.events[read & (DOLLY_DISPLAY_EVENT_CAPACITY - 1)];
-    ++read;
-    atomic_store_explicit(&display_mailbox.event_read, read,
-                          memory_order_release);
-    if (event.type == DOLLY_INPUT_EVENT_RESIZE) {
-      (void)update_suspended_terminal_layout(&event);
-    }
-  }
-  const uint32_t paste_sequence = atomic_load_explicit(
-      &display_mailbox.paste_sequence, memory_order_acquire);
-  atomic_store_explicit(&display_mailbox.paste_consumed_sequence,
-                        paste_sequence, memory_order_release);
-  encoded_input_cursor = 0;
-  encoded_input_length = 0;
-  dolly_terminal_reset_cooked();
+  memset(&display_lease, 0, sizeof(display_lease));
+  // Events published while the graphics owner was active belong to that
+  // ownership epoch and must not leak into the restored shell.
+  dolly_terminal_discard_pending_input();
   if (display_driver != NULL) display_driver->set_suspended(0);
   atomic_store_explicit(&display_mailbox.cursor_style,
                         DOLLY_DISPLAY_CURSOR_TEXT, memory_order_release);
@@ -149,7 +121,6 @@ EM_JS(void, dolly_bootstrap_write_bytes,
 
 // The trusted host registry supplies these typed imports. The generated
 // Emscripten binding fails closed if a host omits that step.
-#define DOLLY_EM_JS(...) EM_JS(__VA_ARGS__)
 DOLLY_EM_JS(int, dolly_http_dispatch,
       (const char *method, uintptr_t method_size,
        const char *url, uintptr_t url_size,
@@ -159,70 +130,56 @@ DOLLY_EM_JS(int, dolly_http_dispatch,
 DOLLY_EM_JS(int, dolly_download_dispatch,
       (const unsigned char *name, uintptr_t name_length,
        const unsigned char *bytes, uintptr_t length), { return -ENOSYS; });
-#undef DOLLY_EM_JS
 
-EMSCRIPTEN_KEEPALIVE
 uintptr_t dolly_display_mailbox_address(void) {
   return (uintptr_t)&display_mailbox;
 }
 
-EMSCRIPTEN_KEEPALIVE
 uint32_t dolly_display_mailbox_version(void) {
   return DOLLY_DISPLAY_MAILBOX_VERSION;
 }
 
-EMSCRIPTEN_KEEPALIVE
 uint32_t dolly_display_event_size(void) {
   return DOLLY_DISPLAY_EVENT_SIZE;
 }
 
-EMSCRIPTEN_KEEPALIVE
 uint32_t dolly_display_event_capacity(void) {
   return DOLLY_DISPLAY_EVENT_CAPACITY;
 }
 
-EMSCRIPTEN_KEEPALIVE
 uintptr_t dolly_display_framebuffer_address(uint32_t index) {
   return index < DOLLY_DISPLAY_FRAME_COUNT
       ? (uintptr_t)display_frames[index] : 0;
 }
 
-EMSCRIPTEN_KEEPALIVE
 uintptr_t dolly_display_framebuffer_capacity(void) {
   return display_frame_capacity;
 }
 
-EMSCRIPTEN_KEEPALIVE
 uintptr_t dolly_display_paste_buffer_address(void) {
   return (uintptr_t)display_paste_buffer;
 }
 
-EMSCRIPTEN_KEEPALIVE
 uintptr_t dolly_display_copy_buffer_address(void) {
   return (uintptr_t)display_copy_buffer;
 }
 
-EMSCRIPTEN_KEEPALIVE
 uint32_t dolly_display_clipboard_capacity(void) {
   return DOLLY_DISPLAY_CLIPBOARD_CAPACITY;
 }
 
-EMSCRIPTEN_KEEPALIVE
 uintptr_t dolly_http_mailbox_address(void) {
   return (uintptr_t)http_mailboxes;
 }
 
-EMSCRIPTEN_KEEPALIVE
 uint32_t dolly_http_slot_count(void) {
   return DOLLY_HTTP_SLOT_COUNT;
 }
 
-EMSCRIPTEN_KEEPALIVE
 uint32_t dolly_http_mailbox_version(void) {
   return DOLLY_HTTP_MAILBOX_VERSION;
 }
 
-EMSCRIPTEN_KEEPALIVE
 uint32_t dolly_http_chunk_capacity(void) {
   return DOLLY_HTTP_CHUNK_CAPACITY;
 }
@@ -394,12 +351,6 @@ int dolly_terminal_read_raw_timeout(double milliseconds) {
   return encoded_input[encoded_input_cursor++];
 }
 
-int dolly_terminal_read_raw(void) {
-  return dolly_terminal_read_raw_timeout(-1);
-}
-
-static int update_suspended_terminal_layout(const dolly_input_event *event);
-
 static int consume_initial_display_resize(void) {
   const uint32_t read = atomic_load_explicit(&display_mailbox.event_read,
                                               memory_order_relaxed);
@@ -471,7 +422,6 @@ int dolly_kernel_display_acquire(int owner_pid,
   display_lease.stride = stride;
   encoded_input_cursor = 0;
   encoded_input_length = 0;
-  dolly_terminal_reset_cooked();
   atomic_store_explicit(&display_mailbox.copy_length, 0, memory_order_relaxed);
   atomic_store_explicit(&display_mailbox.copy_flags, 0, memory_order_relaxed);
   atomic_fetch_add_explicit(&display_mailbox.copy_sequence, 1,
@@ -680,18 +630,11 @@ uint32_t dolly_terminal_rows(void) {
                               memory_order_acquire);
 }
 
-void dolly_terminal_reset_cooked(void) {
-  cooked_length = 0;
-  cooked_cursor = 0;
-  cooked_boundary = 0;
-  clearerr(stdin);
-}
-
 void dolly_terminal_discard_pending_input(void) {
   // An application may return immediately on a key-down event while the
   // matching key-up record is already queued. That record belongs to the old
-  // foreground command and must not become input to its successor. Preserve
-  // resize records so Ghostty still adopts the latest browser geometry.
+  // foreground command or display owner and must not become input to its
+  // successor. Preserve resize records so Ghostty adopts the current geometry.
   uint32_t read = atomic_load_explicit(&display_mailbox.event_read,
                                        memory_order_relaxed);
   const uint32_t write = atomic_load_explicit(&display_mailbox.event_write,
@@ -712,7 +655,6 @@ void dolly_terminal_discard_pending_input(void) {
                         paste_sequence, memory_order_release);
   encoded_input_cursor = 0;
   encoded_input_length = 0;
-  dolly_terminal_reset_cooked();
 }
 
 void dolly_terminal_publish_result(int status) {
@@ -746,7 +688,6 @@ void dolly_kernel_foreground_publish(int pid, int interruptible) {
   }
 }
 
-EMSCRIPTEN_KEEPALIVE
 int dolly_process_take_interrupt(void) {
   const uint32_t sequence = atomic_load_explicit(
       &display_mailbox.interrupt_sequence, memory_order_acquire);
@@ -763,41 +704,18 @@ int dolly_process_take_interrupt(void) {
       ? (int)target : 0;
 }
 
-int dolly_isatty(int descriptor) {
-  if (descriptor >= STDIN_FILENO && descriptor <= STDERR_FILENO) {
-    if ((active_terminal_mask & (1u << descriptor)) != 0) return 1;
-    errno = ENOTTY;
-    return 0;
-  }
-  struct stat metadata;
-  if (fstat(descriptor, &metadata) != 0) return 0;
-  if (S_ISCHR(metadata.st_mode)) return 1;
-  errno = ENOTTY;
-  return 0;
+uint32_t dolly_kernel_terminal_mode(void) {
+  return terminal_mode_flags;
 }
 
-int dolly_terminal_mode_get(int descriptor) {
-  if (!dolly_isatty(descriptor)) return -errno;
-  return (int)terminal_mode_flags;
-}
-
-int dolly_terminal_mode_set(int descriptor, uint32_t flags) {
+int dolly_kernel_terminal_set_mode(uint32_t flags) {
   const uint32_t valid = DOLLY_TERMINAL_CANONICAL | DOLLY_TERMINAL_ECHO |
       DOLLY_TERMINAL_OPOST | DOLLY_TERMINAL_ONLCR;
   if ((flags & ~valid) != 0) return -EINVAL;
-  if (!dolly_isatty(descriptor)) return -errno;
   terminal_mode_flags = flags;
-  dolly_terminal_reset_cooked();
   return 0;
 }
 
-void dolly_terminal_write(const char *text) {
-  if (text != NULL) {
-    dolly_terminal_write_bytes((const unsigned char *)text, strlen(text));
-  }
-}
-
-EMSCRIPTEN_KEEPALIVE
 void dolly_terminal_write_bytes(const unsigned char *bytes, uintptr_t length) {
   if (bytes == NULL || length == 0) return;
   if (display_driver != NULL) {
@@ -827,7 +745,6 @@ void dolly_terminal_write_bytes(const unsigned char *bytes, uintptr_t length) {
  * may expose a terminal-query response, and a presentation tick must neither
  * consume nor discard those input bytes.
  */
-EMSCRIPTEN_KEEPALIVE
 int dolly_terminal_present_pending(void) {
   if (display_driver == NULL || display_lease.generation != 0) return 0;
   unsigned char preserved;
@@ -872,74 +789,11 @@ int dolly_terminal_present_pending(void) {
       NULL, &preserved, 0, &output_length);
 }
 
-static void echo_byte(unsigned char byte) {
-  dolly_terminal_write_bytes(&byte, 1);
-}
-
-// This is Dolly's WasmFS stdin device. It implements a small canonical line
-// discipline above the in-Wasm mailbox and never delegates to Emscripten JS.
-int _wasmfs_stdin_get_char(void) {
-  if ((terminal_mode_flags & DOLLY_TERMINAL_CANONICAL) == 0) {
-    const int byte = dolly_terminal_read_raw();
-    if (byte < 0) return -1;
-    if ((terminal_mode_flags & DOLLY_TERMINAL_ECHO) != 0) {
-      echo_byte((unsigned char)byte);
-    }
-    return byte;
-  }
-  if (cooked_cursor < cooked_length) return cooked_line[cooked_cursor++];
-  if (cooked_boundary) {
-    cooked_boundary = 0;
-    cooked_length = 0;
-    cooked_cursor = 0;
-    return -1;
-  }
-
-  cooked_length = 0;
-  cooked_cursor = 0;
-  int escape = 0;
-  for (;;) {
-    int byte = dolly_terminal_read_raw();
-    if (escape != 0) {
-      if ((escape == 1 && (byte == '[' || byte == 'O'))) {
-        escape = 2;
-      } else if (byte >= '@' && byte <= '~') {
-        escape = 0;
-      }
-      continue;
-    }
-    if (byte == 0x1b) {
-      escape = 1;
-    } else if (byte == 0x03) {
-      cooked_length = 0;
-      dolly_terminal_write("^C\r\n");
-      cooked_line[cooked_length++] = '\n';
-      break;
-    } else if (byte == 0x04) {
-      if (cooked_length == 0) return -1;
-      break;
-    } else if (byte == 0x7f || byte == '\b') {
-      if (cooked_length != 0) {
-        cooked_length--;
-        dolly_terminal_write("\b \b");
-      }
-    } else if (byte == '\r' || byte == '\n') {
-      cooked_line[cooked_length++] = '\n';
-      dolly_terminal_write("\r\n");
-      break;
-    } else if (byte >= ' ' && cooked_length + 1 < sizeof(cooked_line)) {
-      cooked_line[cooked_length++] = (unsigned char)byte;
-      echo_byte((unsigned char)byte);
-    }
-  }
-
-  cooked_boundary = 1;
-  return cooked_line[cooked_cursor++];
-}
-
-backend_t wasmfs_create_root_dir(void) {
-  return wasmfs_create_memory_backend();
-}
+// Processes reach the terminal through their own descriptors, and /dev/stdin
+// resolves to descriptor 0, so the kernel never reads WasmFS stdin. Defining
+// this device callback keeps Emscripten's JavaScript fallback out of the
+// kernel's imports.
+int _wasmfs_stdin_get_char(void) { return -1; }
 
 _Noreturn void dolly_assert_fail(const char *condition, const char *file,
                                  unsigned line, const char *function) {
@@ -977,50 +831,21 @@ int dolly_write_file(const char *path, const void *bytes, size_t length) {
 }
 
 int dolly_download_file(const char *path) {
-  enum { DOLLY_DOWNLOAD_MAX_BYTES = 64 * 1024 * 1024 };
   if (path == NULL || path[0] == '\0') return -EINVAL;
-  struct stat metadata;
-  if (stat(path, &metadata) != 0) return -errno;
-  if (!S_ISREG(metadata.st_mode)) return -EINVAL;
-  if (metadata.st_size < 0 || metadata.st_size > DOLLY_DOWNLOAD_MAX_BYTES) {
-    return -EFBIG;
-  }
   const char *name = strrchr(path, '/');
   name = name == NULL ? path : name + 1;
   const size_t name_length = strlen(name);
   if (name_length == 0 || name_length > 255 || strcmp(name, ".") == 0 ||
       strcmp(name, "..") == 0) return -EINVAL;
-
-  const size_t length = (size_t)metadata.st_size;
-  unsigned char *contents = malloc(length == 0 ? 1 : length);
-  if (contents == NULL) return -ENOMEM;
-  int descriptor = open(path, O_RDONLY);
-  if (descriptor < 0) {
-    const int status = -errno;
-    free(contents);
-    return status;
-  }
-  size_t offset = 0;
-  int status = 0;
-  while (offset < length) {
-    const ssize_t count = read(descriptor, contents + offset, length - offset);
-    if (count < 0 && errno == EINTR) continue;
-    if (count <= 0) {
-      status = count == 0 ? -EIO : -errno;
-      break;
-    }
-    offset += (size_t)count;
-  }
-  if (close(descriptor) != 0 && status == 0) status = -errno;
-  if (status == 0) {
-    status = dolly_download_dispatch((const unsigned char *)name, name_length,
-                                     contents, length);
-  }
+  unsigned char *contents;
+  uintptr_t length;
+  if (dolly_fs_read_file(path, 64 * 1024 * 1024, &contents, &length) != 0) return -errno;
+  const int status = dolly_download_dispatch((const unsigned char *)name, name_length,
+                                             contents, length);
   free(contents);
   return status;
 }
 
-EMSCRIPTEN_KEEPALIVE
 int dolly_display_prepare(void) {
   const char *driver_path = getenv("DISPLAY");
   if (driver_path == NULL || driver_path[0] != '/') {
@@ -1030,45 +855,28 @@ int dolly_display_prepare(void) {
 
   printf("dolly: preparing sandbox display library %s\n", driver_path);
   fflush(stdout);
-  FILE *file = fopen(driver_path, "rb");
-  struct stat metadata;
-  if (file == NULL) {
-    fprintf(stderr, "dolly: could not open display library: %s\n", strerror(errno));
-    return 1;
-  }
-  if (fstat(fileno(file), &metadata) != 0 || !S_ISREG(metadata.st_mode) ||
-      metadata.st_size < 8 || metadata.st_size > 64 * 1024 * 1024) {
-    fclose(file);
-    fputs("dolly: invalid display library size or type\n", stderr);
-    return 1;
-  }
   free(display_module_bytes);
-  display_module_length = (size_t)metadata.st_size;
-  display_module_bytes = malloc(display_module_length);
-  const int loaded = display_module_bytes != NULL &&
-      fread(display_module_bytes, 1, display_module_length, file) == display_module_length;
-  const int closed = fclose(file) == 0;
-  if (!loaded || !closed) {
+  const int status = dolly_fs_read_file(driver_path, 64 * 1024 * 1024,
+                                        &display_module_bytes, &display_module_length);
+  if (status != 0 || display_module_length < 8) {
+    fprintf(stderr, "dolly: invalid display library: %s\n",
+            status != 0 ? strerror(errno) : "too short");
     free(display_module_bytes);
     display_module_bytes = NULL;
     display_module_length = 0;
-    fputs("dolly: could not read display library\n", stderr);
     return 1;
   }
   return 0;
 }
 
-EMSCRIPTEN_KEEPALIVE
 uintptr_t dolly_display_module_address(void) {
   return (uintptr_t)display_module_bytes;
 }
 
-EMSCRIPTEN_KEEPALIVE
 uintptr_t dolly_display_module_size(void) {
   return display_module_length;
 }
 
-EMSCRIPTEN_KEEPALIVE
 int dolly_display_install(const dolly_display_driver_v3 *candidate) {
   static const char font_path[] = "/usr/share/fonts/IosevkaTerm-SemiBold.ttf";
   if (display_driver != NULL || candidate == NULL || candidate->abi_version != 3 ||
@@ -1117,22 +925,10 @@ static int copy_seed_file(const char *source, const char *destination) {
   int status = 0;
   for (;;) {
     const ssize_t count = read(input, bytes, sizeof(bytes));
-    if (count < 0) {
-      status = -1;
+    if (count <= 0 || dolly_fs_write_exact(output, bytes, (uintptr_t)count) != 0) {
+      status = count == 0 ? 0 : -1;
       break;
     }
-    if (count == 0) break;
-    size_t offset = 0;
-    while (offset < (size_t)count) {
-      const ssize_t written = write(output, bytes + offset,
-                                    (size_t)count - offset);
-      if (written <= 0) {
-        status = -1;
-        break;
-      }
-      offset += (size_t)written;
-    }
-    if (status != 0) break;
   }
   int saved_error = status == 0 ? 0 : errno;
   if (close(output) != 0 && status == 0) {
@@ -1248,7 +1044,6 @@ static int initialize_boot_environment(void) {
 
 static int load_image_environment(void);
 
-EMSCRIPTEN_KEEPALIVE
 int dolly_process_bootstrap_prepare(void) {
   if (initialize_boot_environment() != 0) return 1;
   if (install_seed_tree("/seed/usr", "/usr") != 0) {
@@ -1258,7 +1053,6 @@ int dolly_process_bootstrap_prepare(void) {
   return 0;
 }
 
-EMSCRIPTEN_KEEPALIVE
 int dolly_process_bootstrap_resume_prepare(uintptr_t size,
                                            uint32_t resume_uses) {
   if (resume_uses != 1 || initialize_boot_environment() != 0) return 1;
@@ -1272,13 +1066,11 @@ int dolly_process_bootstrap_resume_prepare(uintptr_t size,
   return 0;
 }
 
-EMSCRIPTEN_KEEPALIVE
 int dolly_bootstrap_snapshot_begin(uintptr_t size) {
   if (initialize_boot_environment() != 0) return 1;
   return dolly_snapshot_stream_begin(size) != 0;
 }
 
-EMSCRIPTEN_KEEPALIVE
 int dolly_bootstrap_snapshot(uintptr_t size) {
   if (initialize_boot_environment() != 0) return 1;
   puts("dolly: restoring precompiled system snapshot");
@@ -1296,7 +1088,6 @@ int dolly_bootstrap_snapshot(uintptr_t size) {
   return dolly_snapshot_prune() != 0;
 }
 
-EMSCRIPTEN_KEEPALIVE
 int dolly_bootstrap_finish(void) {
   if (load_image_environment() != 0) {
     fprintf(stderr, "dolly: invalid built image environment: %s\n",
@@ -1306,27 +1097,12 @@ int dolly_bootstrap_finish(void) {
   return dolly_snapshot_prune() != 0;
 }
 
-EMSCRIPTEN_KEEPALIVE
 int dolly_bootstrap_snapshot_end(void) {
   if (dolly_snapshot_stream_finish() != 0) {
     fprintf(stderr, "dolly: invalid streamed system snapshot: %s\n", strerror(errno));
     return 1;
   }
   return dolly_bootstrap_finish();
-}
-
-static uint32_t take_entry_u32(const unsigned char **cursor,
-                               const unsigned char *end, int *valid) {
-  if (!*valid || (size_t)(end - *cursor) < 4) {
-    *valid = 0;
-    return 0;
-  }
-  const uint32_t value = (uint32_t)(*cursor)[0] |
-                         ((uint32_t)(*cursor)[1] << 8) |
-                         ((uint32_t)(*cursor)[2] << 16) |
-                         ((uint32_t)(*cursor)[3] << 24);
-  *cursor += 4;
-  return value;
 }
 
 static int valid_environment_name_bytes(const unsigned char *name,
@@ -1345,82 +1121,42 @@ static int valid_environment_name_bytes(const unsigned char *name,
 }
 
 static int load_image_environment(void) {
-  int descriptor = open("/etc/dolly/environment", O_RDONLY);
-  if (descriptor < 0) return -1;
-  struct stat metadata;
-  if (fstat(descriptor, &metadata) != 0 || metadata.st_size < 16 ||
-      metadata.st_size > 128 * 1024) {
-    const int saved = errno == 0 ? EINVAL : errno;
-    close(descriptor);
-    errno = saved;
-    return -1;
-  }
-  unsigned char *bytes = malloc((size_t)metadata.st_size);
-  if (bytes == NULL) {
-    close(descriptor);
-    return -1;
-  }
-  size_t offset = 0;
-  while (offset < (size_t)metadata.st_size) {
-    const ssize_t count = read(descriptor, bytes + offset,
-                               (size_t)metadata.st_size - offset);
-    if (count <= 0) {
-      const int saved = count == 0 ? EINVAL : errno;
-      free(bytes);
-      close(descriptor);
-      errno = saved;
-      return -1;
-    }
-    offset += (size_t)count;
-  }
-  if (close(descriptor) != 0 || memcmp(bytes, "DOLLYENV", 8) != 0) {
+  unsigned char *bytes;
+  uintptr_t size;
+  if (dolly_fs_read_file("/etc/dolly/environment", 128 * 1024, &bytes, &size) != 0) return -1;
+  if (size < 16 || memcmp(bytes, "DOLLYENV", 8) != 0) {
     free(bytes);
     errno = EINVAL;
     return -1;
   }
   const unsigned char *cursor = bytes + 8;
-  const unsigned char *end = bytes + metadata.st_size;
-  int valid = 1;
-  int error = EINVAL;
-  const uint32_t version = take_entry_u32(&cursor, end, &valid);
-  const uint32_t count = take_entry_u32(&cursor, end, &valid);
-  if (!valid || version != 1 || count > 256) valid = 0;
-  for (uint32_t index = 0; valid && index < count; ++index) {
-    const uint32_t name_length = take_entry_u32(&cursor, end, &valid);
-    const uint32_t value_length = take_entry_u32(&cursor, end, &valid);
-    if (!valid || name_length == 0 || name_length > 128 ||
+  const unsigned char *end = bytes + size;
+  uint32_t version = 0, count = 0;
+  int error = dolly_fs_take_u32(&cursor, end, &version) != 0 ||
+      dolly_fs_take_u32(&cursor, end, &count) != 0 || version != 1 || count > 256 ? EINVAL : 0;
+  for (uint32_t index = 0; error == 0 && index < count; ++index) {
+    uint32_t name_length, value_length;
+    const unsigned char *name, *value;
+    if (dolly_fs_take_u32(&cursor, end, &name_length) != 0 ||
+        dolly_fs_take_u32(&cursor, end, &value_length) != 0 ||
         value_length > 64 * 1024 ||
-        (size_t)(end - cursor) < (size_t)name_length + value_length ||
-        memchr(cursor, '\0', name_length) != NULL ||
-        !valid_environment_name_bytes(cursor, name_length) ||
-        memchr(cursor + name_length, '\0', value_length) != NULL) {
-      valid = 0;
+        dolly_fs_take_bytes(&cursor, end, name_length, &name) != 0 ||
+        dolly_fs_take_bytes(&cursor, end, value_length, &value) != 0 ||
+        !valid_environment_name_bytes(name, name_length) ||
+        memchr(value, '\0', value_length) != NULL) {
+      error = EINVAL;
       break;
     }
-    char *name = malloc((size_t)name_length + 1);
-    char *value = malloc((size_t)value_length + 1);
-    if (name == NULL || value == NULL) {
-      free(name);
-      free(value);
-      valid = 0;
-      error = ENOMEM;
-      break;
-    }
-    memcpy(name, cursor, name_length);
-    name[name_length] = '\0';
-    cursor += name_length;
-    memcpy(value, cursor, value_length);
-    value[value_length] = '\0';
-    cursor += value_length;
-    if (setenv(name, value, 1) != 0) {
-      valid = 0;
-      error = errno;
-    }
-    free(name);
-    free(value);
+    char *entry_name = strndup((const char *)name, name_length);
+    char *entry_value = strndup((const char *)value, value_length);
+    if (entry_name == NULL || entry_value == NULL) error = ENOMEM;
+    else if (setenv(entry_name, entry_value, 1) != 0) error = errno;
+    free(entry_name);
+    free(entry_value);
   }
   free(bytes);
-  if (!valid || cursor != end) {
+  if (error == 0 && cursor != end) error = EINVAL;
+  if (error != 0) {
     errno = error;
     return -1;
   }

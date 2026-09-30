@@ -6,26 +6,18 @@
 #include <stddef.h>
 #include <stdint.h>
 
-uint32_t dolly_process_supervisor_version(void);
-uintptr_t dolly_process_mailbox_address(void);
-uintptr_t dolly_process_mailbox_capacity(void);
-int dolly_process_spawn_serialized(uintptr_t request_size);
-int64_t dolly_process_dispatch(int pid, uint32_t operation,
-                               uintptr_t request_size,
-                               uintptr_t response_capacity);
-double dolly_process_deferred_milliseconds(void);
-int dolly_process_next_launch(void);
-uintptr_t dolly_process_image_address(int pid);
-uintptr_t dolly_process_image_size(int pid);
-int dolly_process_image_consumed(int pid);
-int dolly_process_worker_started(int pid);
-int dolly_process_worker_failed(int pid, int status, int signal_number);
-int dolly_process_worker_retired(int pid);
-int dolly_process_spawn_flags(int pid);
-int dolly_process_signal(int pid, int signal_number);
-double dolly_process_deadline_remaining(int pid);
-int dolly_process_collect(int pid);
-int dolly_process_parent(int pid);
+/* Terminal services of dolly.c used by process dispatch. */
+int dolly_terminal_read_raw_timeout(double milliseconds);
+int dolly_terminal_raw_ready_timeout(double milliseconds);
+uint32_t dolly_terminal_columns(void);
+uint32_t dolly_terminal_rows(void);
+uint32_t dolly_kernel_terminal_mode(void);
+int dolly_kernel_terminal_set_mode(uint32_t flags);
+void dolly_terminal_publish_result(int status);
+void dolly_terminal_write_bytes(const unsigned char *bytes, uintptr_t length);
+void dolly_terminal_discard_pending_input(void);
+int dolly_download_file(const char *path);
+
 int dolly_process_descends_from(int pid, int ancestor_pid);
 void dolly_kernel_foreground_publish(int pid, int interruptible);
 void dolly_kernel_terminal_resized(void);
@@ -51,5 +43,10 @@ int dolly_kernel_display_release(int pid, uint64_t generation);
 void dolly_kernel_display_release_owner(int pid);
 
 #define DOLLY_PROCESS_DISPATCH_DEFERRED INT64_MIN
+
+/* Browser imports that return target errno values. EM_JS stringifies its
+ * JavaScript body; this extra expansion first replaces C macros such as ENOSYS
+ * with their numbers. */
+#define DOLLY_EM_JS(...) EM_JS(__VA_ARGS__)
 
 #endif

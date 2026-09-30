@@ -5,21 +5,21 @@ import { validateProcessInterface } from "./process-abi.mjs";
 import { validateThreadProfile } from "./host/threads.mjs";
 import { DOLLY_THREAD_SPAWN } from "./threads-abi.mjs";
 import { executableHostRequirements, checkHostAbi } from "./host/requirements.mjs";
+import {
+  DOLLY_PROCESS_EXIT, DOLLY_PROCESS_PACKET_LIMIT as packetLimit, DOLLY_PROCESS_SIGINT,
+  DOLLY_PROCESS_SIGKILL, DOLLY_PROCESS_SIGNAL, DOLLY_PROCESS_SIGNAL_ACKNOWLEDGE,
+  DOLLY_PROCESS_SIGWINCH, DOLLY_PROCESS_SIZEOF, DOLLY_PROCESS_SPAWN,
+  DOLLY_PROCESS_SPAWN_FOREGROUND, DOLLY_PROCESS_SPAWN_INHERIT_ENVIRONMENT,
+  DOLLY_PROCESS_SPAWN_INTERACTIVE,
+} from "./process-constants.mjs";
 
 const encoder = new TextEncoder();
-const packetLimit = 1024 * 1024;
-const spawnHeaderSize = 56;
-const inheritEnvironment = 1;
-const spawnForeground = 2;
-const spawnInteractive = 4;
+const spawnHeaderSize = DOLLY_PROCESS_SIZEOF.dolly_process_spawn_request;
+// The kernel's deferred-call result; processes never observe it.
 const deferredResult = -(1n << 63n);
-const processSpawn = 64;
-const processSignal = 68;
-const signalAcknowledge = 69;
-const supportedSignals = [0, 1, 2, 3, 6, 9, 13, 15, 28];
-const sigint = 2;
-const sigwinch = 28;
 const interruptedSystemCall = -BigInt(DOLLY_ERRNO.EINTR);
+// Trusted bound on concurrent process Workers, independent of kernel records.
+const processWorkerLimit = 32;
 const interruptGraceMilliseconds = 500;
 const compiledModuleCacheEntries = 64;
 const compiledModuleCacheBytes = 256 * 1024 * 1024;
@@ -86,7 +86,8 @@ function encodeSpawn(path, arguments_, environment, descriptors, flags) {
 
   const packet = new Uint8Array(size);
   const view = new DataView(packet.buffer);
-  view.setUint32(0, flags | (environment === undefined ? inheritEnvironment : 0), true);
+  view.setUint32(0, flags |
+    (environment === undefined ? DOLLY_PROCESS_SPAWN_INHERIT_ENVIRONMENT : 0), true);
   view.setUint32(4, arguments_.length, true);
   view.setUint32(8, environment?.length ?? 0, true);
   view.setUint32(12, 0, true);
@@ -192,7 +193,9 @@ export class DollyProcessSupervisor {
         (interactive && !foreground)) {
       throw new TypeError("invalid process foreground options");
     }
-    const flags = (foreground ? spawnForeground : 0) | (interactive ? spawnInteractive : 0);
+    if (this.processes.size >= processWorkerLimit) throw new Error("Dolly process limit reached");
+    const flags = (foreground ? DOLLY_PROCESS_SPAWN_FOREGROUND : 0) |
+      (interactive ? DOLLY_PROCESS_SPAWN_INTERACTIVE : 0);
     const packet = encodeSpawn(path, arguments_, environment, descriptors, flags);
     new Uint8Array(
       this.kernelMemory.buffer,
@@ -218,7 +221,7 @@ export class DollyProcessSupervisor {
       pid, parent, resolve, reject, worker: null, gate: null, control: null,
       memory: null, messageHandler: null, errorHandler: null,
       messageErrorHandler: null, started: false,
-      failure: null, interactive: (flags & spawnInteractive) !== 0, retiring: false,
+      failure: null, interactive: (flags & DOLLY_PROCESS_SPAWN_INTERACTIVE) !== 0, retiring: false,
       interruptTimer: null, deadlineTimer: null, retirementTimer: null,
       reclamationDeadline: 0, tid: 0, threads: new Map(), threaded: false,
     };
@@ -254,7 +257,7 @@ export class DollyProcessSupervisor {
     const now = performance.now();
     for (const target of process.interactive ? descendants : [process, ...descendants]) {
       if (now - (target.terminalInterruptAt ?? -Infinity) < 1000) {
-        this.#forceExit(target.pid, 130, sigint);
+        this.#forceExit(target.pid, 128 + DOLLY_PROCESS_SIGINT, DOLLY_PROCESS_SIGINT);
       } else {
         target.terminalInterruptAt = now;
         this.#deliverSignal(target);
@@ -263,13 +266,13 @@ export class DollyProcessSupervisor {
     return !process.interactive || descendants.length !== 0;
   }
 
-  #deliverSignal(process, signalNumber = sigint) {
+  #deliverSignal(process, signalNumber = DOLLY_PROCESS_SIGINT) {
     if (!process || process.retiring || this.processes.get(process.pid) !== process) return false;
     const result = this.dolly._dolly_process_signal(process.pid, signalNumber);
     // Resize notification is not an interrupt request and must never acquire
     // a forced-termination deadline, including before program entry.
-    if (signalNumber === sigwinch && (result !== 0 || !process.started)) return result === 0;
-    if (signalNumber === 9 || result !== 0 || !process.started) {
+    if (signalNumber === DOLLY_PROCESS_SIGWINCH && (result !== 0 || !process.started)) return result === 0;
+    if (signalNumber === DOLLY_PROCESS_SIGKILL || result !== 0 || !process.started) {
       return this.#forceExit(process.pid, 128 + signalNumber, signalNumber);
     }
     const receiver = process.threaded
@@ -279,7 +282,7 @@ export class DollyProcessSupervisor {
       this.#clearDeferred(receiver);
       this.#signal(receiver, deferred.message.sequence, interruptedSystemCall);
     }
-    if (signalNumber !== sigwinch && process.interruptTimer === null) {
+    if (signalNumber !== DOLLY_PROCESS_SIGWINCH && process.interruptTimer === null) {
       process.interruptTimer = setTimeout(() => {
         process.interruptTimer = null;
         this.#forceExit(process.pid, 128 + signalNumber, signalNumber);
@@ -292,6 +295,7 @@ export class DollyProcessSupervisor {
     this.launchChain = this.launchChain
       .then(() => this.#launchPending())
       .catch((error) => {
+        // Only a kernel that cannot name its next launch reaches this point.
         for (const process of [...this.processes.values()]) this.#fail(process, error);
       });
   }
@@ -322,10 +326,10 @@ export class DollyProcessSupervisor {
     let prepared = false;
     try {
       const parsed = parseWasmInterface(bytes);
+      memoryRequirements = validateProcessInterface(this.processContract, parsed, DOLLY_PROCESS_ABI_DIGEST);
       checkHostAbi(executableHostRequirements(parsed), this.hostAbi);
       threaded = validateThreadProfile(parsed, this.threadContract);
       module = await WebAssembly.compile(bytes);
-      memoryRequirements = validateProcessInterface(this.processContract, parsed, DOLLY_PROCESS_ABI_DIGEST);
       processInterface = { imports: parsed.imports, exports: parsed.exports };
       prepared = true;
     } finally {
@@ -370,25 +374,23 @@ export class DollyProcessSupervisor {
   }
 
   async #launchPending() {
-    for (;;) {
-      const pid = this.dolly._dolly_process_next_launch();
-      if (pid === 0) return;
+    for (let pid; (pid = this.dolly._dolly_process_next_launch()) !== 0;) {
       const process = this.processes.get(pid);
-      if (!process) throw new Error(`kernel supplied unregistered process ${pid}`);
-      const address = Number(this.dolly._dolly_process_image_address(pid));
-      const size = Number(this.dolly._dolly_process_image_size(pid));
-      if (!Number.isSafeInteger(address) || !Number.isSafeInteger(size) ||
-          address <= 0 || size < 8 || address > this.kernelMemory.buffer.byteLength - size) {
-        throw new Error(`kernel supplied an invalid executable for process ${pid}`);
-      }
-      const bytes = new Uint8Array(size);
-      bytes.set(new Uint8Array(this.kernelMemory.buffer, address, size));
-      if (this.dolly._dolly_process_image_consumed(pid) !== 0) {
-        throw new Error(`kernel did not release executable ${pid}`);
-      }
       try {
+        if (!process) throw new Error(`kernel supplied unregistered process ${pid}`);
+        const address = Number(this.dolly._dolly_process_image_address(pid));
+        const size = Number(this.dolly._dolly_process_image_size(pid));
+        if (!Number.isSafeInteger(address) || !Number.isSafeInteger(size) ||
+            address <= 0 || size < 8 || address > this.kernelMemory.buffer.byteLength - size) {
+          throw new Error(`kernel supplied an invalid executable for process ${pid}`);
+        }
+        const bytes = new Uint8Array(size);
+        bytes.set(new Uint8Array(this.kernelMemory.buffer, address, size));
+        if (this.dolly._dolly_process_image_consumed(pid) !== 0) {
+          throw new Error(`kernel did not release executable ${pid}`);
+        }
         const { module, memoryRequirements, processInterface, threaded } = await this.#compileProcess(bytes);
-        if (!this.#canLaunch(process)) continue;
+        if (this.processes.get(pid) !== process || process.retiring) continue;
         const memory = createProcessMemory(memoryRequirements);
         process.memory = memory;
         const gate = new WebAssembly.Instance(this.gateModule, {
@@ -404,9 +406,11 @@ export class DollyProcessSupervisor {
           process.threads.set(tid, process);
         }
         this.#launchWorker(process, process);
-
       } catch (error) {
-        this.#fail(process, error);
+        // A failed launch ends only its own process; exiting it in the kernel
+        // also stops next_launch from naming it again.
+        if (process) this.#fail(process, error);
+        else this.dolly._dolly_process_worker_exited(pid, 126, 0);
       }
     }
   }
@@ -430,16 +434,6 @@ export class DollyProcessSupervisor {
       clockOrigin: performance.timeOrigin, processInterface, dsoContract: this.dsoContract, hostAbi: this.hostAbi });
   }
 
-  #canLaunch(process) {
-    if (this.processes.get(process.pid) !== process || process.retiring) return false;
-    // An ancestor's EXIT can reach the kernel before its Worker posts finished.
-    if (this.dolly._dolly_process_deadline_remaining(process.pid) === -2) {
-      this.#retire(process);
-      return false;
-    }
-    return true;
-  }
-
   #signal(process, sequence, result) {
     const encoded = BigInt.asUintN(64, result);
     Atomics.store(process.control, 2, Number(encoded & 0xffffffffn));
@@ -450,15 +444,9 @@ export class DollyProcessSupervisor {
 
   #armDeadline(process) {
     const remaining = this.dolly._dolly_process_deadline_remaining(process.pid);
-    if (remaining === -1) return;
-    if (!Number.isFinite(remaining) || remaining < 0 || remaining > 86_400_000) {
-      this.#fail(process, new Error(`kernel supplied an invalid deadline for process ${process.pid}`));
-      return;
+    if (remaining >= 0) {
+      process.deadlineTimer = setTimeout(() => this.#forceExit(process.pid, 124), Math.ceil(remaining));
     }
-    process.deadlineTimer = setTimeout(
-      () => this.#forceExit(process.pid, 124),
-      Math.ceil(remaining),
-    );
   }
 
   #clearTimers(process) {
@@ -504,14 +492,16 @@ export class DollyProcessSupervisor {
         BigInt(this.mailboxAddress),
         BigInt(message.requestSize),
       );
-      // Firefox can enter a direct Wasm call twice. Use the generic call path
-      // so a completed syscall is never replayed against its response packet.
       if (message.operation === DOLLY_THREAD_SPAWN && message.requestSize === 8)
         threadArgument = new DataView(this.kernelMemory.buffer, this.mailboxAddress, 8).getBigUint64(0, true);
       const args = [process.pid, message.operation, BigInt(message.requestSize), BigInt(message.responseCapacity)];
       if (process.threaded) args.splice(1, 0, thread.tid);
-      result = process.threaded && message.operation === DOLLY_THREAD_SPAWN && !this.threadHost.available(process.pid)
-        ? -BigInt(DOLLY_ERRNO.EAGAIN)
+      const exhausted = message.operation === DOLLY_PROCESS_SPAWN
+        ? this.processes.size >= processWorkerLimit
+        : process.threaded && message.operation === DOLLY_THREAD_SPAWN && !this.threadHost.available(process.pid);
+      // Firefox can enter a direct Wasm call twice. Use the generic call path
+      // so a completed syscall is never replayed against its response packet.
+      result = exhausted ? -BigInt(DOLLY_ERRNO.EAGAIN)
         : Reflect.apply(process.threaded ? this.dolly._dolly_threads_dispatch : this.dolly._dolly_process_dispatch,
           this.dolly, args);
       if (result === deferredResult) {
@@ -523,7 +513,7 @@ export class DollyProcessSupervisor {
             if (this.deferred.get(thread) === deferred) this.#syscall(process, message, true, thread);
           }, Math.ceil(remaining));
         }
-        if (message.operation === 5 && process.interruptTimer !== null) {
+        if (message.operation === DOLLY_PROCESS_EXIT && process.interruptTimer !== null) {
           // The parent has finished cleanup; signalled children retain their
           // own deadlines while the kernel waits for them to finish theirs.
           clearTimeout(process.interruptTimer);
@@ -531,10 +521,21 @@ export class DollyProcessSupervisor {
         }
         return;
       }
-      if (result >= 0n) {
+      if (message.operation === DOLLY_PROCESS_EXIT && result === 0n) {
+        // The kernel reclaimed every thread. Stop the others now; the caller
+        // unwinds and reports "finished" like a single-threaded process.
+        for (const other of [...process.threads.values()]) {
+          if (other !== thread) this.#disposeThread(process, other);
+        }
+      } else if (result >= 0n) {
         if (result > BigInt(message.responseCapacity)) {
           throw new Error(`kernel overfilled process ${process.pid} response`);
         }
+        process.gate.exports.response(
+          BigInt(this.mailboxAddress),
+          BigInt(message.responseAddress),
+          result,
+        );
         if (message.operation === DOLLY_THREAD_SPAWN) {
           if (result !== 8n || threadArgument === undefined) throw new Error("invalid kernel thread response");
           const response = new DataView(this.kernelMemory.buffer, this.mailboxAddress, 8);
@@ -550,7 +551,7 @@ export class DollyProcessSupervisor {
             result = -BigInt(DOLLY_ERRNO.EAGAIN);
           }
         }
-        if (message.operation === processSpawn) {
+        if (message.operation === DOLLY_PROCESS_SPAWN) {
           if (result !== 8n) throw new Error("invalid kernel spawn response");
           const response = new DataView(this.kernelMemory.buffer, this.mailboxAddress, 8);
           const pid = response.getUint32(0, true);
@@ -559,27 +560,21 @@ export class DollyProcessSupervisor {
           }
           this.#registerProcess(pid, process.pid);
         }
-        if (message.operation === processSignal) {
+        if (message.operation === DOLLY_PROCESS_SIGNAL) {
           if (result !== 8n) throw new Error("invalid kernel signal response");
           const response = new DataView(this.kernelMemory.buffer, this.mailboxAddress, 8);
           signalDelivery = { pid: response.getUint32(0, true), signal: response.getUint32(4, true) };
-          if (signalDelivery.pid === 0 || signalDelivery.pid > 0x7fffffff ||
-              !supportedSignals.includes(signalDelivery.signal)) {
+          if (signalDelivery.pid === 0 || signalDelivery.pid > 0x7fffffff) {
             throw new Error("invalid kernel signal target");
           }
         }
-        if (result >= 0n) process.gate.exports.response(
-          BigInt(this.mailboxAddress),
-          BigInt(message.responseAddress),
-          result,
-        );
       }
     } catch (error) {
       this.#fail(process, error);
       return;
     }
     this.#signal(thread, message.sequence, result);
-    if (message.operation === signalAcknowledge && result === 4n &&
+    if (message.operation === DOLLY_PROCESS_SIGNAL_ACKNOWLEDGE && result === 4n &&
         new DataView(this.kernelMemory.buffer, this.mailboxAddress, 4).getInt32(0, true) === 0 &&
         process.interruptTimer !== null) {
       clearTimeout(process.interruptTimer);
@@ -617,7 +612,8 @@ export class DollyProcessSupervisor {
       else if (last) this.#forceExit(process.pid, 0);
       else this.serviceDeferred();
     } else if (message.type === "finished") {
-      this.dolly._dolly_process_worker_failed(process.pid, message.status ?? 0, 0);
+      // _start returned (status zero), or EXIT has already recorded the status.
+      this.dolly._dolly_process_worker_exited(process.pid, 0, 0);
       this.#retire(process);
     } else if (message.type === "failed") {
       const detail = message.stack ? `${message.message}\n${message.stack}` : message.message;
@@ -691,20 +687,20 @@ export class DollyProcessSupervisor {
     );
     detail.message = `Dolly process ${process.pid} failed: ${detail.message}`;
     process.failure = detail;
-    this.dolly._dolly_process_worker_failed(process.pid, 126, 0);
+    this.dolly._dolly_process_worker_exited(process.pid, 126, 0);
     if (!process.reject) console.error(detail.stack ?? detail.message);
     this.#retire(process);
   }
 
   interrupt(pid) {
-    return this.#forceExit(pid, 130, sigint);
+    return this.#forceExit(pid, 128 + DOLLY_PROCESS_SIGINT, DOLLY_PROCESS_SIGINT);
   }
 
   #forceExit(pid, status, signalNumber = 0) {
     const process = this.processes.get(pid);
     if (!process) return false;
     if (process.retiring) return true;
-    this.dolly._dolly_process_worker_failed(pid, status, signalNumber);
+    this.dolly._dolly_process_worker_exited(pid, status, signalNumber);
     this.#retire(process);
     return true;
   }

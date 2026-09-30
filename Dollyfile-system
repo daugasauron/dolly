@@ -1,7 +1,7 @@
 DOLLY 4
 IMAGE system
 
-FROM HOST /Dollyfile-system-tools 3051c4de64fca7d4f1932c8afb7caf7daeac5289c50c035f434c7d933e72e5de
+FROM HOST /Dollyfile-system-tools 2d36f063b59ef610ecb67bda8a69a00caf442bd3df36fa837dc01a2fba159d48
 
 REQUIRES HOST display@0
 REQUIRES HOST http@0
@@ -9,13 +9,13 @@ REQUIRES HOST download@0
 REQUIRES HOST upload@0
 REQUIRES HOST snapshot@0
 
-COPY FROM HOST /Dollyfile-ghostty-build 5e3c8958b2974fe522e5865435a98fc3bee08468bc07724eb13fed5c7d3c66e6 /usr/lib/libdisplay.so /usr/lib/libdisplay.so
-COPY FROM HOST /Dollyfile-ghostty-build 5e3c8958b2974fe522e5865435a98fc3bee08468bc07724eb13fed5c7d3c66e6 /usr/share/fonts/IosevkaTerm-SemiBold.ttf /usr/share/fonts/IosevkaTerm-SemiBold.ttf
-COPY FROM HOST /Dollyfile-ghostty-build 5e3c8958b2974fe522e5865435a98fc3bee08468bc07724eb13fed5c7d3c66e6 /usr/share/licenses/ghostty /usr/share/licenses/ghostty
-COPY FROM HOST /Dollyfile-ghostty-build 5e3c8958b2974fe522e5865435a98fc3bee08468bc07724eb13fed5c7d3c66e6 /usr/share/licenses/uucode /usr/share/licenses/uucode
+COPY FROM HOST /Dollyfile-ghostty-build 86f6ce767f961d4e2e7a60b0753fd085f900d57bfc5ac35bb18c34c99d17b704 /usr/lib/libdisplay.so /usr/lib/libdisplay.so
+COPY FROM HOST /Dollyfile-ghostty-build 86f6ce767f961d4e2e7a60b0753fd085f900d57bfc5ac35bb18c34c99d17b704 /usr/share/fonts/IosevkaTerm-SemiBold.ttf /usr/share/fonts/IosevkaTerm-SemiBold.ttf
+COPY FROM HOST /Dollyfile-ghostty-build 86f6ce767f961d4e2e7a60b0753fd085f900d57bfc5ac35bb18c34c99d17b704 /usr/share/licenses/ghostty /usr/share/licenses/ghostty
+COPY FROM HOST /Dollyfile-ghostty-build 86f6ce767f961d4e2e7a60b0753fd085f900d57bfc5ac35bb18c34c99d17b704 /usr/share/licenses/uucode /usr/share/licenses/uucode
 EXPORTS LIB display /usr/lib/libdisplay.so
 EXPORTS ENV DISPLAY /usr/lib/libdisplay.so
 
-USE HOST /modules/session-recovery.dm 1329ea6fdc0fa46d717f4e45fde26fd9ab8ff7253045c8757b780c6ef7fc1ee0
+USE HOST /modules/session-recovery.dm cbc60f82e9e74610aab42fed85e88d69d7043afbefa6325b2b50795a4197d86e
 
 ENTRY /bin/foreground -i /bin/slop

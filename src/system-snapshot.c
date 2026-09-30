@@ -2,8 +2,6 @@
 #include "fs-record.h"
 #include "sha256.h"
 
-#include <emscripten/emscripten.h>
-
 #include <errno.h>
 #include <fcntl.h>
 #include <stdint.h>
@@ -30,8 +28,6 @@ typedef struct {
   char **paths;
   size_t count;
 } dolly_snapshot_manifest;
-
-static int read_exact(int descriptor, unsigned char *bytes, uintptr_t size);
 
 static void dispose_manifest(dolly_snapshot_manifest *manifest) {
   if (manifest == NULL) return;
@@ -62,35 +58,16 @@ static int valid_manifest_path(const char *path) {
 // consumes that list and never discovers files by walking the filesystem.
 static int load_manifest(dolly_snapshot_manifest *manifest) {
   memset(manifest, 0, sizeof(*manifest));
-  int descriptor = open("/etc/dolly/image.manifest", O_RDONLY);
-  if (descriptor < 0) return -1;
-  struct stat metadata = {0};
-  if (fstat(descriptor, &metadata) != 0 || metadata.st_size <= 0 ||
-      metadata.st_size > DOLLY_SNAPSHOT_MAX_MANIFEST_SIZE) {
-    fprintf(stderr, "dolly: invalid manifest size: %lld (%s)\n",
-            (long long)metadata.st_size, strerror(errno));
-    close(descriptor);
-    errno = EINVAL;
-    return -1;
-  }
-  const size_t size = (size_t)metadata.st_size;
-  manifest->storage = malloc(size + 1);
-  if (manifest->storage == NULL) {
-    close(descriptor);
-    return -1;
-  }
-  const int read_status = read_exact(descriptor, (unsigned char *)manifest->storage, size);
-  const int close_status = close(descriptor);
-  if (read_status != 0 || close_status != 0) {
-    dispose_manifest(manifest);
-    return -1;
-  }
-  if (memchr(manifest->storage, 0, size) != NULL) {
+  unsigned char *bytes;
+  uintptr_t size;
+  if (dolly_fs_read_file("/etc/dolly/image.manifest", DOLLY_SNAPSHOT_MAX_MANIFEST_SIZE,
+                         &bytes, &size) != 0) return -1;
+  manifest->storage = (char *)bytes;
+  if (size == 0 || memchr(manifest->storage, 0, size) != NULL) {
     dispose_manifest(manifest);
     errno = EINVAL;
     return -1;
   }
-  manifest->storage[size] = '\0';
   if (manifest->storage[size - 1] != '\n') {
     fprintf(stderr, "dolly: image manifest lacks a final newline (last=%u)\n",
             (unsigned char)manifest->storage[size - 1]);
@@ -200,73 +177,13 @@ int dolly_snapshot_prune(void) {
 }
 
 static int checked_add(uintptr_t *total, uintptr_t amount) {
-  if (amount > DOLLY_SNAPSHOT_MAX_SIZE ||
-      *total > DOLLY_SNAPSHOT_MAX_SIZE - amount) {
-    errno = EFBIG;
-    return -1;
-  }
-  *total += amount;
-  return 0;
+  return dolly_fs_checked_add(total, amount, DOLLY_SNAPSHOT_MAX_SIZE);
 }
 
-static void put_u32(unsigned char **cursor, uint32_t value) {
-  for (unsigned shift = 0; shift < 32; shift += 8) {
-    *(*cursor)++ = (unsigned char)(value >> shift);
-  }
-}
-
-static void put_u64(unsigned char **cursor, uint64_t value) {
-  for (unsigned shift = 0; shift < 64; shift += 8) {
-    *(*cursor)++ = (unsigned char)(value >> shift);
-  }
-}
-
-static int take_bytes(const unsigned char **cursor, const unsigned char *end,
-                      uintptr_t length, const unsigned char **result) {
-  if (length > (uintptr_t)(end - *cursor)) return -1;
-  *result = *cursor;
-  *cursor += length;
-  return 0;
-}
-
-static int take_u32(const unsigned char **cursor, const unsigned char *end,
-                    uint32_t *result) {
-  const unsigned char *bytes;
-  if (take_bytes(cursor, end, 4, &bytes) != 0) return -1;
-  *result = (uint32_t)bytes[0] | (uint32_t)bytes[1] << 8 |
-            (uint32_t)bytes[2] << 16 | (uint32_t)bytes[3] << 24;
-  return 0;
-}
-
-static int take_u64(const unsigned char **cursor, const unsigned char *end,
-                    uint64_t *result) {
-  const unsigned char *bytes;
-  if (take_bytes(cursor, end, 8, &bytes) != 0) return -1;
-  uint64_t value = 0;
-  for (unsigned index = 0; index < 8; ++index) {
-    value |= (uint64_t)bytes[index] << (index * 8);
-  }
-  *result = value;
-  return 0;
-}
-
-static int read_exact(int descriptor, unsigned char *bytes, uintptr_t size) {
-  while (size != 0) {
-    ssize_t count = read(descriptor, bytes, size);
-    if (count < 0 && errno == EINTR) continue;
-    if (count <= 0) return -1;
-    bytes += (uintptr_t)count;
-    size -= (uintptr_t)count;
-  }
-  return 0;
-}
-
-EMSCRIPTEN_KEEPALIVE
 uint32_t dolly_snapshot_format_version(void) {
   return DOLLY_SNAPSHOT_VERSION;
 }
 
-EMSCRIPTEN_KEEPALIVE
 uintptr_t dolly_snapshot_restore_address(uintptr_t size) {
   if (size < DOLLY_SNAPSHOT_HEADER_SIZE || size > DOLLY_SNAPSHOT_MAX_SIZE) {
     return 0;
@@ -298,10 +215,10 @@ static int restore_staged(uintptr_t size, const char *only_path) {
   const unsigned char *magic;
   uint32_t version;
   uint32_t file_count;
-  if (take_bytes(&cursor, end, sizeof(DOLLY_SNAPSHOT_MAGIC), &magic) != 0 ||
+  if (dolly_fs_take_bytes(&cursor, end, sizeof(DOLLY_SNAPSHOT_MAGIC), &magic) != 0 ||
       memcmp(magic, DOLLY_SNAPSHOT_MAGIC, sizeof(DOLLY_SNAPSHOT_MAGIC)) != 0 ||
-      take_u32(&cursor, end, &version) != 0 ||
-      take_u32(&cursor, end, &file_count) != 0 ||
+      dolly_fs_take_u32(&cursor, end, &version) != 0 ||
+      dolly_fs_take_u32(&cursor, end, &file_count) != 0 ||
       version != DOLLY_SNAPSHOT_VERSION || file_count != manifest_count) {
     dispose_manifest(&manifest);
     errno = EINVAL;
@@ -316,14 +233,14 @@ static int restore_staged(uintptr_t size, const char *only_path) {
     uint64_t data_length_64;
     const unsigned char *path;
     const unsigned char *data;
-    if (take_u32(&cursor, end, &records[record].kind) != 0 ||
+    if (dolly_fs_take_u32(&cursor, end, &records[record].kind) != 0 ||
         records[record].kind < DOLLY_FS_DIRECTORY || records[record].kind > DOLLY_FS_SYMLINK ||
-        take_u32(&cursor, end, &path_length) != 0 || path_length == 0 ||
+        dolly_fs_take_u32(&cursor, end, &path_length) != 0 || path_length == 0 ||
         path_length > 4096 ||
-        take_u64(&cursor, end, &data_length_64) != 0 ||
+        dolly_fs_take_u64(&cursor, end, &data_length_64) != 0 ||
         data_length_64 > DOLLY_SNAPSHOT_MAX_SIZE ||
-        take_bytes(&cursor, end, path_length, &path) != 0 ||
-        take_bytes(&cursor, end, (uintptr_t)data_length_64, &data) != 0) {
+        dolly_fs_take_bytes(&cursor, end, path_length, &path) != 0 ||
+        dolly_fs_take_bytes(&cursor, end, (uintptr_t)data_length_64, &data) != 0) {
       errno = EINVAL;
       goto done;
     }
@@ -439,16 +356,16 @@ static int stream_field(void) {
     uint32_t version;
     cursor += 8;
     if (memcmp(stream.scratch, DOLLY_SNAPSHOT_MAGIC, 8) != 0 ||
-        take_u32(&cursor, end, &version) != 0 || version != DOLLY_SNAPSHOT_VERSION ||
-        take_u32(&cursor, end, &stream.count) != 0 || stream.count == 0 ||
+        dolly_fs_take_u32(&cursor, end, &version) != 0 || version != DOLLY_SNAPSHOT_VERSION ||
+        dolly_fs_take_u32(&cursor, end, &stream.count) != 0 || stream.count == 0 ||
         stream.count > stream.manifest.count) return -1;
     stream.remaining = stream.count;
     stream.phase = 1;
   } else if (stream.phase == 1) {
     uint32_t path_size;
     uint64_t size;
-    if (take_u32(&cursor, end, &stream.record.kind) != 0 ||
-        take_u32(&cursor, end, &path_size) != 0 || take_u64(&cursor, end, &size) != 0 ||
+    if (dolly_fs_take_u32(&cursor, end, &stream.record.kind) != 0 ||
+        dolly_fs_take_u32(&cursor, end, &path_size) != 0 || dolly_fs_take_u64(&cursor, end, &size) != 0 ||
         stream.record.kind < DOLLY_FS_DIRECTORY || stream.record.kind > DOLLY_FS_SYMLINK ||
         path_size < 2 || path_size >= sizeof(stream.scratch) || size > DOLLY_SNAPSHOT_MAX_SIZE ||
         (stream.record.kind == DOLLY_FS_DIRECTORY && size != 0) ||
@@ -487,7 +404,6 @@ static int stream_field(void) {
   return 0;
 }
 
-EMSCRIPTEN_KEEPALIVE
 int dolly_snapshot_stream_write(uintptr_t size, uint32_t end_part) {
   if (!stream.active || size > restore_capacity || end_part > 1) {
     errno = EINVAL;
@@ -550,16 +466,16 @@ int dolly_snapshot_stream_finish(void) {
   sha256_init(&sha);
   unsigned char buffer[64 * 1024], *cursor = buffer;
   memcpy(cursor, DOLLY_SNAPSHOT_MAGIC, 8); cursor += 8;
-  put_u32(&cursor, DOLLY_SNAPSHOT_VERSION);
-  put_u32(&cursor, stream.manifest.count);
+  dolly_fs_put_u32(&cursor, DOLLY_SNAPSHOT_VERSION);
+  dolly_fs_put_u32(&cursor, stream.manifest.count);
   sha256_update(&sha, buffer, 16);
   for (size_t index = 0; index < stream.manifest.count; ++index) {
     dolly_fs_record record = {.path = stream.manifest.paths[index]};
     if (dolly_fs_metadata(record.path, &record.kind, &record.size) != 0) return stream_dispose(-1);
     cursor = buffer;
-    put_u32(&cursor, record.kind);
-    put_u32(&cursor, strlen(record.path));
-    put_u64(&cursor, record.size);
+    dolly_fs_put_u32(&cursor, record.kind);
+    dolly_fs_put_u32(&cursor, strlen(record.path));
+    dolly_fs_put_u64(&cursor, record.size);
     sha256_update(&sha, buffer, 16);
     sha256_update(&sha, record.path, strlen(record.path));
     if (record.kind == DOLLY_FS_FILE) {
@@ -567,7 +483,7 @@ int dolly_snapshot_stream_finish(void) {
       if (stream.descriptor < 0) return stream_dispose(-1);
       while (record.size != 0) {
         const size_t amount = record.size < sizeof(buffer) ? record.size : sizeof(buffer);
-        if (read_exact(stream.descriptor, buffer, amount) != 0) return stream_dispose(-1);
+        if (dolly_fs_read_exact(stream.descriptor, buffer, amount) != 0) return stream_dispose(-1);
         sha256_update(&sha, buffer, amount);
         record.size -= amount;
       }
@@ -630,15 +546,15 @@ static int capture_snapshot(void) {
   unsigned char *cursor = capture_bytes;
   memcpy(cursor, DOLLY_SNAPSHOT_MAGIC, sizeof(DOLLY_SNAPSHOT_MAGIC));
   cursor += sizeof(DOLLY_SNAPSHOT_MAGIC);
-  put_u32(&cursor, DOLLY_SNAPSHOT_VERSION);
-  put_u32(&cursor, (uint32_t)file_count);
+  dolly_fs_put_u32(&cursor, DOLLY_SNAPSHOT_VERSION);
+  dolly_fs_put_u32(&cursor, (uint32_t)file_count);
 
   for (size_t index = 0; index < file_count; ++index) {
     uint32_t path_size = (uint32_t)strlen(manifest.paths[index]);
     uintptr_t data_size = metadata[index].size;
-    put_u32(&cursor, metadata[index].kind);
-    put_u32(&cursor, path_size);
-    put_u64(&cursor, data_size);
+    dolly_fs_put_u32(&cursor, metadata[index].kind);
+    dolly_fs_put_u32(&cursor, path_size);
+    dolly_fs_put_u64(&cursor, data_size);
     memcpy(cursor, manifest.paths[index], path_size);
     cursor += path_size;
     if (dolly_fs_read_data(&metadata[index], cursor) != 0) {
@@ -659,7 +575,6 @@ static int capture_snapshot(void) {
   return 0;
 }
 
-EMSCRIPTEN_KEEPALIVE
 int dolly_snapshot_capture(void) {
   discard_capture();
   const int result = capture_snapshot();
@@ -667,12 +582,10 @@ int dolly_snapshot_capture(void) {
   return result;
 }
 
-EMSCRIPTEN_KEEPALIVE
 uintptr_t dolly_snapshot_address(void) {
   return (uintptr_t)capture_bytes;
 }
 
-EMSCRIPTEN_KEEPALIVE
 uintptr_t dolly_snapshot_size(void) {
   return capture_size;
 }

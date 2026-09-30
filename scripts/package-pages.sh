@@ -56,6 +56,7 @@ for required in \
   src/wasm-interface.mjs \
   src/process-supervisor.mjs \
   src/process-worker.mjs \
+  src/process-constants.mjs \
   src/threads-abi.mjs \
   src/session-store.mjs \
   src/session-file.mjs \
@@ -140,6 +141,7 @@ cp "${project_dir}/src/browser.mjs" \
   "${project_dir}/src/wasm-interface.mjs" \
   "${project_dir}/src/process-supervisor.mjs" \
   "${project_dir}/src/process-worker.mjs" \
+  "${project_dir}/src/process-constants.mjs" \
   "${project_dir}/src/threads-abi.mjs" \
   "${project_dir}/src/session-store.mjs" \
   "${project_dir}/src/session-file.mjs" \

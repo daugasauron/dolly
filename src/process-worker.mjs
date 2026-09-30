@@ -6,17 +6,17 @@ import { requireDsoType, validateDsoHost, validateDsoInterface } from "./process
 import { executableHostRequirements, checkHostAbi } from "./host/requirements.mjs";
 
 import { DOLLY_THREAD_EXIT } from "./threads-abi.mjs";
+import {
+  DOLLY_PROCESS_CLOCK_MONOTONIC, DOLLY_PROCESS_CLOCK_REALTIME, DOLLY_PROCESS_CLOCK_TIME,
+  DOLLY_PROCESS_DSO_CLOSE, DOLLY_PROCESS_DSO_ERROR_CAPACITY, DOLLY_PROCESS_DSO_GLOBAL,
+  DOLLY_PROCESS_DSO_LIMIT, DOLLY_PROCESS_DSO_OPEN, DOLLY_PROCESS_DSO_SYMBOL, DOLLY_PROCESS_EXIT,
+  DOLLY_PROCESS_FFI_CALL, DOLLY_PROCESS_FFI_CLOSURE_PREP, DOLLY_PROCESS_PACKET_LIMIT,
+  DOLLY_PROCESS_SIZEOF,
+} from "./process-constants.mjs";
 
 const PROCESS_EXIT = Symbol("Dolly process exit");
 const THREAD_EXIT = Symbol("Dolly thread exit");
-const CLOCK_TIME = 48;
-const DSO_OPEN = 112;
-const DSO_SYMBOL = 113;
-const DSO_CLOSE = 114;
-const DSO_GLOBAL = 1;
-const DSO_RESPONSE_SIZE = 256;
-const DSO_ERROR_CAPACITY = 240;
-const DSO_LIMIT = 512 * 1024 * 1024;
+const DSO_RESPONSE_SIZE = DOLLY_PROCESS_SIZEOF.dolly_process_dso_response;
 const encoder = new TextEncoder();
 const decoder = new TextDecoder("utf-8", { fatal: true, ignoreBOM: true });
 
@@ -45,7 +45,6 @@ if (!(configuration.module instanceof WebAssembly.Module) ||
 const control = new Int32Array(configuration.control);
 const clockOffset = performance.timeOrigin - configuration.clockOrigin;
 let lastClockCheck = -Infinity;
-let exited = false;
 let threadResult;
 let instance;
 let processTable;
@@ -149,7 +148,7 @@ function dylinkRequirements(module) {
     cursor.offset = end;
   }
   if (!requirements) throw new TypeError("shared object lacks dylink memory metadata");
-  if (requirements.memorySize > BigInt(DSO_LIMIT) ||
+  if (requirements.memorySize > BigInt(DOLLY_PROCESS_DSO_LIMIT) ||
       requirements.memoryAlignment > 31n ||
       requirements.tableSize > 0xffffffffn ||
       requirements.tableAlignment > 31n) {
@@ -375,7 +374,7 @@ function instantiateDso(bytes, flags) {
   const handle = nextDsoHandle++;
   const record = { handle, module, instance: dsoInstance, symbols: dsoSymbols, flags, references: 1 };
   loadedDsos.set(handle, record);
-  if ((flags & DSO_GLOBAL) !== 0) globalDsos.push(record);
+  if ((flags & DOLLY_PROCESS_DSO_GLOBAL) !== 0) globalDsos.push(record);
   const constructors = dsoInstance.exports.__wasm_call_ctors;
   if (constructors !== undefined) constructors();
   return handle;
@@ -384,7 +383,7 @@ function instantiateDso(bytes, flags) {
 function writeDsoResponse(response, value = 0n, error = 0, message = "") {
   if (response.size < DSO_RESPONSE_SIZE) return -BigInt(DOLLY_ERRNO.ENOBUFS);
   const bytes = encoder.encode(message);
-  const messageSize = Math.min(bytes.length, DSO_ERROR_CAPACITY);
+  const messageSize = Math.min(bytes.length, DOLLY_PROCESS_DSO_ERROR_CAPACITY);
   const output = new Uint8Array(configuration.memory.buffer, response.address,
                                 DSO_RESPONSE_SIZE);
   output.fill(0);
@@ -412,13 +411,13 @@ function processDsoCall(operation, request, response) {
       dsoHostValidated = true;
     }
     const view = new DataView(configuration.memory.buffer, request.address, request.size);
-    if (operation === DSO_OPEN) {
+    if (operation === DOLLY_PROCESS_DSO_OPEN) {
       if (request.size < 16) throw new TypeError("short DSO_OPEN packet");
       const flags = view.getUint32(0, true);
       const reserved = view.getUint32(4, true);
       const size = view.getBigUint64(8, true);
-      if ((flags & ~DSO_GLOBAL) !== 0 || reserved !== 0 ||
-          size !== BigInt(request.size - 16) || size > BigInt(DSO_LIMIT)) {
+      if ((flags & ~DOLLY_PROCESS_DSO_GLOBAL) !== 0 || reserved !== 0 ||
+          size !== BigInt(request.size - 16) || size > BigInt(DOLLY_PROCESS_DSO_LIMIT)) {
         throw new TypeError("invalid DSO_OPEN packet");
       }
       const handle = size === 0n ? 1n : instantiateDso(
@@ -427,7 +426,7 @@ function processDsoCall(operation, request, response) {
       );
       return writeDsoResponse(response, handle);
     }
-    if (operation === DSO_SYMBOL) {
+    if (operation === DOLLY_PROCESS_DSO_SYMBOL) {
       if (request.size < 16) throw new TypeError("short DSO_SYMBOL packet");
       const handle = view.getBigUint64(0, true);
       const nameSize = view.getUint32(8, true);
@@ -449,7 +448,7 @@ function processDsoCall(operation, request, response) {
       }
       return writeDsoResponse(response, symbolAddress(value));
     }
-    if (operation === DSO_CLOSE) {
+    if (operation === DOLLY_PROCESS_DSO_CLOSE) {
       if (request.size !== 8) throw new TypeError("invalid DSO_CLOSE packet");
       const handle = view.getBigUint64(0, true);
       if (handle === 1n) return writeDsoResponse(response);
@@ -470,7 +469,8 @@ function processDsoCall(operation, request, response) {
 }
 
 function clockResponse(clock, response, now) {
-  const nanoseconds = Math.round((clock === 0 ? Date.now() : now + clockOffset) * 1e6);
+  const nanoseconds = Math.round(
+    (clock === DOLLY_PROCESS_CLOCK_REALTIME ? Date.now() : now + clockOffset) * 1e6);
   new DataView(configuration.memory.buffer, response.address, 8)
     .setBigUint64(0, BigInt(nanoseconds), true);
   return 8n;
@@ -483,29 +483,33 @@ function call(operation, requestAddressValue, requestSizeValue,
   }
   const request = checkedRange(requestAddressValue, requestSizeValue);
   const response = checkedRange(responseAddressValue, responseCapacityValue);
-  if (operation === DSO_OPEN || operation === DSO_SYMBOL || operation === DSO_CLOSE) {
+  if (operation >= DOLLY_PROCESS_DSO_OPEN && operation <= DOLLY_PROCESS_DSO_CLOSE) {
     if (configuration.threaded) return writeDsoResponse(response, 0n, DOLLY_ERRNO.ENOTSUP,
       "dynamic linking is not supported by the static thread profile");
     return processDsoCall(operation, request, response);
   }
-  if (configuration.threaded && operation >= 120 && operation <= 123)
-    return -BigInt(DOLLY_ERRNO.ENOTSUP);
+  if (configuration.threaded && operation >= DOLLY_PROCESS_FFI_CALL &&
+      operation <= DOLLY_PROCESS_FFI_CLOSURE_PREP) return -BigInt(DOLLY_ERRNO.ENOTSUP);
   const exitingResult = operation === DOLLY_THREAD_EXIT && request.size === 8
     ? new DataView(configuration.memory.buffer, request.address, 8).getBigUint64(0, true) : undefined;
   if (processFfi?.handles(operation)) {
     return processFfi.call(operation, request, response);
   }
   let clock;
-  if (operation === CLOCK_TIME && request.size === 16 && response.size >= 8 && response.size <= 1024 * 1024) {
+  if (operation === DOLLY_PROCESS_CLOCK_TIME && request.size === 16 && response.size >= 8 &&
+      response.size <= DOLLY_PROCESS_PACKET_LIMIT) {
     const packet = new DataView(configuration.memory.buffer, request.address, 16);
-    if (packet.getUint32(0, true) <= 1 && packet.getUint32(4, true) === 0)
-      clock = packet.getUint32(0, true);
+    const id = packet.getUint32(0, true);
+    if ((id === DOLLY_PROCESS_CLOCK_REALTIME || id === DOLLY_PROCESS_CLOCK_MONOTONIC) &&
+        packet.getUint32(4, true) === 0) clock = id;
     const now = performance.now();
     // Frequent clock reads need no worker round trip. Still enter the kernel
     // at least once per millisecond so clock-only loops deliver pending signals.
     if (clock !== undefined && now - lastClockCheck < 1) return clockResponse(clock, response, now);
   }
-  const sequence = (Atomics.add(control, 0, 1) + 1) | 0;
+  // Positive 31-bit sequences wrap from 2^31 - 1 back to one.
+  const sequence = Atomics.load(control, 0) % 0x7fffffff + 1;
+  Atomics.store(control, 0, sequence);
   self.postMessage({
     type: "syscall",
     pid: configuration.pid, tid: configuration.tid,
@@ -535,10 +539,7 @@ function call(operation, requestAddressValue, requestSizeValue,
     // time origins, so alternating the two clocks can otherwise move backwards.
     if (result === 8n) return clockResponse(clock, response, lastClockCheck);
   }
-  if (operation === 5 && result >= 0n) {
-    exited = true;
-    throw PROCESS_EXIT;
-  }
+  if (operation === DOLLY_PROCESS_EXIT && result >= 0n) throw PROCESS_EXIT;
   return result;
 }
 
@@ -565,12 +566,12 @@ try {
     self.postMessage({ type: "thread-finished", pid: configuration.pid, tid: configuration.tid, result: threadResult });
   } else {
     instance.exports._start();
-    self.postMessage({ type: "finished", pid: configuration.pid, tid: configuration.tid, status: 0 });
+    self.postMessage({ type: "finished", pid: configuration.pid, tid: configuration.tid });
   }
 } catch (error) {
   if (error === THREAD_EXIT && configuration.threaded && typeof threadResult === "bigint") {
     self.postMessage({ type: "thread-finished", pid: configuration.pid, tid: configuration.tid, result: threadResult });
-  } else if (error === PROCESS_EXIT && exited) {
+  } else if (error === PROCESS_EXIT) {
     self.postMessage({ type: "finished", pid: configuration.pid, tid: configuration.tid });
   } else {
     self.postMessage({
