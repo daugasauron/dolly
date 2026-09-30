@@ -18,8 +18,8 @@ trusted browser code) plus a minimal POSIX userspace. Everything else is a
 - `system-tools`: Headless shell, Git, curl, Make and POSIX tools.
 - `system-build`: C/C++ compiler, headers and basic build tools.
 - `ghostty-build`: Ghostty terminal build with Zig and its SDK.
-- `gpu-sdk`: C client library for the `gpu@0` host module.
-- `audio-sdk`: C client library for the `audio@0` host module.
+- `gpu-sdk`: `system` with the WebGPU host module (`gpu@0`).
+- `audio-sdk`: `system` with the PCM playback host module (`audio@0`).
 
 ## Try it
 
@@ -59,18 +59,20 @@ DOLLY_PORT=9000 npm run serve
 
 npm run test:source                   # Node source tests
 npm run test:core                     # core scenarios in Chrome and Firefox
+npm run test:browser                  # every core browser test (test/*-browser.mjs)
+npm run test:demos                    # demo browser tests (demos/*/test/)
 npm run test:artifacts                # exact contracts of the built artifacts
 npm run test:full                     # rebuilds every image first: hours
 ```
 
-More browser suites live under `test/` and `demos/*/test/`. Image builds rewrite
-SHA-256 pins in `Dollyfile*` and `modules/*.dm`.
+Image builds rewrite SHA-256 pins in `Dollyfile*` and `modules/*.dm`.
 
 ## Docs
 
 - [Architecture](docs/architecture.md): components, system calls, core images.
 - [Process model](docs/process-model.md): spawn, descriptors, pipes, signals.
 - [Machine contracts](abi/README.md): exact Wasm imports, exports and layouts.
+- [Host modules](host/README.md): one directory and manifest per browser bridge.
 - [Browser boundary](docs/browser-boundary.md): threat model and host modules.
 - [HTTP](docs/http.md): broker, policy, libcurl, Git, CORS.
 - [Dollyfile](docs/dollyfile.md): recipe language and image builds.
