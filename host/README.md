@@ -30,7 +30,8 @@ A provider's `browser()` and `worker()` receive the page's shared resources
 to the other side, `get(dependency)` and its `configuration`. They return an
 instance whose optional members the registry calls: `start` (Worker/page
 handshake), `messages`, `bindings` (kernel imports), `service` (periodic work),
-`claimsKey(event)` (take a key from the display), `surfaceSize`,
+`imageRestored(context)` (after the system image is restored, before image-phase
+starts), `claimsKey(event)` (take a key from the display), `surfaceSize`,
 `entryStarted(context)` (the image ENTRY may now run) and `dispose`.
 
 `runtime` uses the same format; its files are the core in `src/`, `abi/` and
