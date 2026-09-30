@@ -29,3 +29,9 @@ Tests exercise behavior through modules and binaries.
 ## Done when
 
 - Offending tests rewritten as behavior tests or deleted; suite still passes.
+
+## Progress (2026-10-01)
+
+- Removed the source-hash test from `demos/bhop/test/bhop.test.mjs`; the
+  compiled Airtime check there covers the physics.
+- Removed the prose assertion from `demos/studio/test/studio.test.mjs`.
