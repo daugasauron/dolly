@@ -63,24 +63,3 @@ in Wasm. Mouse and touch use the same records, with no browser phone mode.
 
 Before the renderer is available, bootstrap progress uses a plain-text sink.
 See [Ghostty builds](zig-ghostty.md) and the [boundary review](browser-boundary.md).
-
-## Games and rebuilding
-
-Gamedev compiles raylib's `PLATFORM_MEMORY` software renderer and Box3D's real
-3D physics from pinned source. `libdolly-raylib.a` copies rasterizer output
-into the process frame without an intermediate Image allocation; process-to-
-kernel and checked browser copies still occur. Prefer a small logical resolution
-for software-rendered 3D; the browser scales the complete image.
-
-- `/bhop/` runs Airtime's Foundry course. A/D plus mouse turning builds air
-  speed; Space or either wheel direction jumps. Escape pauses/releases capture,
-  Q exits, R resets and 1–4 select practice sections. It uses its own fixed-step
-  movement controller, not Box3D player physics. The [agent overlay](bhop.md)
-  supports OpenRouter and local Codex with recorded framebuffer attempts.
-
-```sh
-# In the bhop image:
-make -f /usr/src/dolly/bhop/bhop.mk all check
-```
-
-The retained sources document the adapter and game mechanics.

@@ -9,6 +9,7 @@ import { discoverImageDefinitions, inspectStaticSources, selectImageDefinitions 
 import { renderDollyfilePage } from "../scripts/render-dollyfile-view.mjs";
 import { updateRecipePins } from "../scripts/update-module-pins.mjs";
 import { lintDollyfiles } from "../scripts/lint-dollyfiles.mjs";
+import { recipeFiles } from "../scripts/recipe-files.mjs";
 
 const project = resolve(import.meta.dirname, "..");
 const digest = source => createHash("sha256").update(source).digest("hex");
@@ -75,71 +76,59 @@ test("unreferenced module sources are admitted without staging their inputs or e
 });
 
 test("images separate reusable runtimes from applications and configuration", async () => {
-  const expected = {
-    "ghostty-build": ["system-build"], "system-build": [],
-    "system-tools": ["system-build"],
-    system: ["system-tools", "ghostty-build"], default: ["system"], javascript: ["system", "typescript-build"],
-    "typescript-build": ["system-tools"], "pi-build": ["typescript-build"],
-    "rust-sdk": ["system-build"], "rust-build": ["rust-sdk"], "rust-tools": ["system", "rust-build"],
-    ripgrep: ["rust-build"], "fd-build": ["rust-build"], "protox-build": ["rust-build"],
-    "codex-build": ["rust-build", "protox-build"], codex: ["system", "codex-build", "ripgrep", "fd-build"],
-    "gpu-fluid": ["gpu-sdk"], "gpu-sdk": ["system"], slopyard: ["gamedev-sdk", "javascript", "ripgrep", "fd-build", "pi-build"],
-    "llama-build": ["cmake-build"], "local-llm-build": ["llama-build"],
-    "dollyfile-studio": ["pi-local", "neovim-build"],
-    "cmake-build": ["system-tools"], "neovim-build": ["cmake-build"],
-    "sdl2-build": ["cmake-build"], "openal-build": ["cmake-build"], "rts-build": ["sdl2-build"],
-    "classicube-build": ["sdl2-build"], classicube: ["pi-runtime", "classicube-build", "sdl2-build"],
-    "rts-arena": ["pi-runtime", "rts-build"],
-    neovim: ["system", "neovim-build"],
-    "pi-runtime": ["javascript", "ripgrep", "fd-build", "pi-build"], pi: ["pi-runtime"], "pi-local": ["pi", "local-llm-build", "llama-build"],
-    "python-runtime": ["system"], python: ["python-runtime"],
-    "gamedev-sdk": ["system"],
-    bhop: ["gamedev-sdk", "javascript", "ripgrep", "fd-build", "pi-build", "sdl2-build"],
-    "zero-ad": ["default"], "audio-sdk": ["system"],
+  const core = {
+    "system-build": [], "system-tools": ["system-build"], "ghostty-build": ["system-build"],
+    system: ["system-tools", "ghostty-build"], default: ["system"], "gpu-sdk": ["system"], "audio-sdk": ["system"],
   };
-  for (const definition of await discoverImageDefinitions(project)) {
+  const files = await recipeFiles(project);
+  const definitions = await discoverImageDefinitions(project);
+  for (const definition of definitions) {
     const graph = await loadDollyfileGraph(project, definition.filename);
-    assert.deepEqual([...new Set(graph.artifacts.map(artifact => artifact.image))], expected[definition.image]);
-    assert.equal(graph.exporters.has("TOOL:zig"), definition.image === "ghostty-build");
-    if (["rust-sdk", "rust-build", "ripgrep", "fd-build", "protox-build", "codex-build"].includes(definition.image)) {
-      assert.equal(graph.exporters.has("ENV:DISPLAY"), false);
-      assert.equal(graph.records.some(record => ["git", "ghostty", "startup-default"].includes(record.name)), false);
-    }
-    if (["system-tools", "cmake-build", "neovim-build", "sdl2-build", "openal-build", "classicube-build", "rts-build", "typescript-build", "pi-build", "llama-build", "local-llm-build"].includes(definition.image)) {
-      assert.equal(graph.exporters.has("ENV:DISPLAY"), false);
-      assert.equal(recipeRecords(graph).some(record => ["ghostty-build", "rust-sdk", "rust-build"].includes(record.name)), false);
-    }
-    if (definition.image === "neovim") {
-      assert.deepEqual(graph.root.entry, ["/bin/foreground", "-i", "/bin/slop", "/etc/dolly/init.slop"]);
-      const startup = graph.root.files.find(file => file.path === "/etc/dolly/init.slop").body;
-      assert.match(startup, /foreground \/usr\/bin\/nvim \/usr\/share\/nvim\/welcome.txt/);
-      assert.match(startup, /foreground -i \/bin\/slop/);
-      assert.ok(graph.root.files.some(file => file.path === "/usr/share/nvim/welcome.txt"));
-      assert.equal(graph.exporters.has("TOOL:nvim"), true);
-      assert.equal(graph.exporters.has("TOOL:cmake"), false);
-      assert.equal(graph.artifacts.filter(artifact => artifact.copy)
-        .some(artifact => /\/tmp\/|\/include\/|cmake/.test(artifact.source)), false);
-    }
+    const dependencies = [...new Set(graph.artifacts.map(artifact => artifact.image))];
     const records = recipeRecords(graph);
+    if (core[definition.image]) {
+      assert.deepEqual(dependencies, core[definition.image]);
+      assert.deepEqual(records.filter(record => files.get(record.locator).startsWith("demos/")), [],
+        `core image ${definition.image} uses demo recipes`);
+    }
+    assert.equal(graph.exporters.has("TOOL:zig"), definition.image === "ghostty-build");
+    if (!graph.root.hostRequirements.includes("display@0") && definition.image !== "ghostty-build") {
+      assert.equal(graph.exporters.has("ENV:DISPLAY"), false, definition.image);
+      assert.equal(records.some(record => record.name === "ghostty-build"), false, definition.image);
+    }
     assert.equal(records.at(-1).name, definition.image);
     assert.equal(new Set(records.map(record => record.locator)).size, records.length);
     const pages = graph.records.map(record => renderDollyfilePage(record, graph));
-    for (const dependency of expected[definition.image]) {
+    for (const dependency of dependencies) {
       assert.ok(pages.some(page => page.includes(`/view/${dependency}/"`)), `${definition.image} must link its ${dependency} dependency`);
       assert.ok(records.some(record => record.kind === "image" && record.name === dependency));
     }
-
   }
-  const definitions = await discoverImageDefinitions(project);
   assert.deepEqual((await selectImageDefinitions(definitions, "all")).map(item => item.image),
     definitions.map(item => item.image));
-  const githubImages = (await readFile(resolve(project, "config/github-pages-images.txt"), "utf8")).trim().split("\n");
-  const selected = await selectImageDefinitions(definitions, githubImages.join(","));
-  assert.deepEqual(selected.map(item => item.image), definitions
-    .filter(item => !["codex", "codex-build", "protox-build", "pi-local", "dollyfile-studio", "llama-build", "local-llm-build", "zero-ad", "audio-sdk", "openal-build"].includes(item.image)).map(item => item.image));
-  const domainImages = (await readFile(resolve(project, "config/domain-pages-images.txt"), "utf8")).trim().split("\n");
-  assert.deepEqual((await selectImageDefinitions(definitions, domainImages.join(","))).map(item => item.image),
-    definitions.map(item => item.image));
+  for (const list of ["config/github-pages-images.txt", "config/domain-pages-images.txt"]) {
+    await selectImageDefinitions(definitions, (await readFile(resolve(project, list), "utf8")).trim().split("\n").join(","));
+  }
+});
+
+test("demo recipes share the flat logical namespace and names stay unique", async () => {
+  const directory = await mkdtemp(resolve(tmpdir(), "dolly-demo-recipes-"));
+  try {
+    await mkdir(resolve(directory, "modules"));
+    await mkdir(resolve(directory, "demos/example"), { recursive: true });
+    const module = "DOLLY 4\nMODULE extra\nEXPORTS ENV EXTRA 1\n";
+    const base = "DOLLY 4\nIMAGE default\nENTRY /bin/slop\n";
+    await writeFile(resolve(directory, "Dollyfile"), base);
+    await writeFile(resolve(directory, "demos/example/extra.dm"), module);
+    await writeFile(resolve(directory, "demos/example/Dollyfile-example"),
+      `DOLLY 4\nIMAGE example\nFROM HOST /Dollyfile ${digest(base)}\nUSE HOST /modules/extra.dm ${digest(module)}\nENTRY /bin/slop\n`);
+    assert.deepEqual((await discoverImageDefinitions(directory)).map(({ filename, path }) => [filename, path]),
+      [["Dollyfile", "Dollyfile"], ["Dollyfile-example", "demos/example/Dollyfile-example"]]);
+    const graph = await loadDollyfileGraph(directory, "Dollyfile-example");
+    assert.deepEqual(recipeRecords(graph).map(record => record.locator), ["/Dollyfile", "/modules/extra.dm", "/Dollyfile-example"]);
+    await writeFile(resolve(directory, "modules/extra.dm"), module);
+    await assert.rejects(recipeFiles(directory), /\/modules\/extra\.dm is already/);
+  } finally { await rm(directory, { recursive: true, force: true }); }
 });
 
 test("inspection permits repeated, mixed modules and unresolved runtime assertions", async () => {

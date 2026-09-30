@@ -62,8 +62,8 @@ declared only by Dollyfile Studio: a reserved HTTP URL that starts an independen
 Wasm worker (up to 8 GiB memory, 45 minutes) with inherited remote policy and no
 local services, and writes the image cache. Without `build@0` the URL is denied;
 an embedding can withhold it with `DOLLY_HOST_MODULES`. Only **Open image**
-launches a result. See [local models](browser-local-models.md) and
-[Studio builds](image-build-service.md).
+launches a result. See [Studio builds](image-build-service.md) and
+`demos/local-llm/README.md`.
 
 HTTP is not a route to these services via redirects. Remote rules cannot grant
 local-service authority. Display/input, file transfer, storage and local services

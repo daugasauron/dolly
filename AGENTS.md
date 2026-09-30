@@ -109,12 +109,15 @@ Prefer simple serial semantics over multiprocessing or performance machinery.
   distribution checks out of routine source-only iterations when unnecessary.
 - Do not test implementation spelling, user-facing prose or the wording of other
   tests. Keep explicit ABI/capability checks and mocks that exercise real behavior.
+- The core (runtime, host modules and minimal userspace) lives at the top level
+  and never depends on `demos/`. Each demo owns its recipes, sources, staging
+  hook, tests and docs in `demos/DEMO/`.
 
 # Bootstrapping direction
 
 An external toolchain builds the kernel and compiler seed. The resulting
 in-sandbox C/C++ compiler builds ordinary programs into the shared filesystem.
-Keep bootstrap exceptions explicit in `docs/sources.md`.
+Keep bootstrap exceptions explicit in `docs/sources.md` or the owning demo's README.
 
 Keeping the Wasm runtime interface, filesystem substrate, lifecycle model, and
 browser network broker small and well defined is the central design priority.

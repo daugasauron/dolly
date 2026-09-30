@@ -14,11 +14,6 @@ has_module() {
   [[ -n "${selected_module[$1]:-}" ]]
 }
 
-if has_module pi-build && [[ ! -f "${project_dir}/node_modules/@earendil-works/pi-ai/package.json" ]]; then
-  echo "dolly: run npm ci before building Pi images" >&2
-  exit 1
-fi
-
 staging="$(mktemp -d "${project_dir}/dist/.image-sources.XXXXXX")"
 cleanup() {
   if [[ -d "${staging}/previous" && ! -e "${project_dir}/dist/static" ]]; then
@@ -28,7 +23,7 @@ cleanup() {
 }
 trap cleanup EXIT
 static_dir="${staging}/static"
-mkdir -p "${static_dir}/default" "${static_dir}/gamedev" "${static_dir}/python"
+mkdir -p "${static_dir}/default"
 if [[ -d "${project_dir}/dist/static" ]]; then
   cp -al -- "${project_dir}/dist/static/." "${static_dir}/"
 fi
@@ -40,42 +35,22 @@ copy_static() {
   cp --remove-destination -- "${source}" "${static_dir}/${destination}"
 }
 
-if has_module rust-sdk; then
-  node scripts/prepare-rust-seed.mjs "${static_dir}/rust/rust-sdk.tar.gz"
-fi
+# Each demo stages its own inputs in this shell, guarded by has_module.
+for demo_sources in "${project_dir}"/demos/*/prepare-sources.sh; do
+  source "${demo_sources}"
+done
 
 has_module sbase && sbase_dir="$("${project_dir}/scripts/fetch-pinned-checkout.sh" sbase)"
 if has_module awk; then
   awk_dir="$("${project_dir}/scripts/fetch-pinned-checkout.sh" awk)"
   awk_generated_dir="$("${project_dir}/scripts/generate-awk.sh")"
 fi
-has_module quickjs && quickjs_dir="$("${project_dir}/scripts/fetch-pinned-checkout.sh" quickjs)"
-has_module pi-build && pi_source_dir="$("${project_dir}/scripts/fetch-pinned-checkout.sh" pi-source)"
-has_module typescript && typescript_archive="$("${project_dir}/scripts/fetch-typescript.sh")"
 has_module curl && curl_dir="$("${project_dir}/scripts/fetch-pinned-checkout.sh" curl)"
 has_module zlib && zlib_dir="$("${project_dir}/scripts/prepare-zlib.sh")"
 has_module git && git_dir="$("${project_dir}/scripts/prepare-git.sh")"
 has_module make && make_dir="$("${project_dir}/scripts/prepare-make.sh")"
 has_module ninja && samurai_dir="$("${project_dir}/scripts/prepare-samurai.sh")"
-has_module libuv && libuv_dir="$(bash "${project_dir}/scripts/prepare-libuv.sh")"
-has_module lua55 && lua55_archive="$(bash "${project_dir}/scripts/fetch-pinned-archive.sh" lua55)"
-has_module lua && lua_archive="$(bash "${project_dir}/scripts/fetch-pinned-archive.sh" lua)"
-has_module lpeg && lpeg_dir="$(bash "${project_dir}/scripts/fetch-pinned-source.sh" lpeg)"
-has_module cmake && cmake_dir="$(bash "${project_dir}/scripts/fetch-pinned-source.sh" cmake)"
-has_module sdl2 && sdl2_dir="$(bash "${project_dir}/scripts/prepare-sdl2.sh")"
-has_module openal && openal_dir="$(bash "${project_dir}/scripts/prepare-openal.sh")"
-has_module classicube && classicube_dir="$(bash "${project_dir}/scripts/prepare-classicube.sh")"
-has_module seven-kingdoms && seven_kingdoms_dir="$(bash "${project_dir}/scripts/prepare-seven-kingdoms.sh")"
-if has_module neovim || has_module neovim-parsers; then
-  neovim_dir="$(bash "${project_dir}/scripts/prepare-neovim.sh")"
-fi
-if has_module luv; then
-  luv_dir="$(bash "${project_dir}/scripts/fetch-pinned-source.sh" luv)"
-  lua_compat53_dir="$(bash "${project_dir}/scripts/fetch-pinned-source.sh" lua_compat53)"
-fi
 has_module cpp && emscripten_system_dir="$("${project_dir}/scripts/fetch-pinned-checkout.sh" emscripten)"
-has_module libffi && libffi_dir="$("${project_dir}/scripts/prepare-libffi.sh")"
-has_module cpython && cpython_dir="$("${project_dir}/scripts/prepare-cpython.sh")"
 has_module zig && zig_dir="$("${project_dir}/scripts/prepare-zig-native.sh")"
 if has_module ghostty; then
   ghostty_checkout="$("${project_dir}/scripts/fetch-pinned-checkout.sh" ghostty)"
@@ -85,79 +60,21 @@ if has_module ghostty; then
   mapfile -t font_paths < <(bash "${project_dir}/scripts/fetch-iosevka.sh")
   runtime_font="${font_paths[1]}"
 fi
-if has_module gamedev-sdk; then
-  raylib_dir="$("${project_dir}/scripts/fetch-pinned-checkout.sh" raylib)"
-  box3d_dir="$("${project_dir}/scripts/fetch-pinned-checkout.sh" box3d)"
-fi
 if has_module session-recovery; then
   copy_static src/commands/session-recover.c session-recovery/session-recover.c
   for header in session-records.h fs-record.h; do
     copy_static "src/${header}" "session-recovery/${header}"
   done
 fi
-
-if has_module lua55; then
-  copy_static "${lua55_archive}" slopyard/lua-5.5.1.tar.gz
-fi
-
-if has_module slopyard; then
-  node scripts/prepare-slopyard.mjs "${static_dir}/slopyard/source.tar"
-fi
-
 if has_module audio; then
   copy_static src/audio/client.c audio/client.c
 fi
-
 if has_module gpu; then
   copy_static src/gpu/client.c gpu/client.c
 fi
-if has_module gpu-fluid; then
-  node scripts/prepare-gpu-fluid.mjs
-fi
-
-if has_module zero-ad; then
-  node toolchain/0ad/prepare-distribution.mjs "${static_dir}/zero-ad"
-fi
-
 if has_module curl; then
   copy_static "${project_dir}/src/commands/curl.c" default/commands/curl.c
   copy_static "${project_dir}/src/libcurl-fetch.c" default/libcurl-fetch.c
-fi
-if has_module rust-sdk; then
-  copy_static src/commands/rustc.sh rust/rustc.sh
-  copy_static src/runtimes/rust-linker.c rust/rust-linker.c
-fi
-if has_module patti; then
-  copy_static src/commands/patti.c patti/patti.c
-  copy_static src/sha256.h patti/sha256.h
-  for name in tomlc17.c tomlc17.h LICENSE; do
-    copy_static "src/third_party/tomlc17/${name}" "patti/${name}"
-  done
-fi
-for program in ripgrep protox fd; do
-  if has_module "${program}"; then
-    python3 scripts/prepare-rust-sources.py "${program}"
-    copy_static "build/rust-sources/${program}.tar" "rust/${program}.tar"
-  fi
-done
-if has_module codex-build; then
-  python3 scripts/prepare-codex-sources.py
-  for part in build/codex-source-parts/*.part; do
-    copy_static "${part}" "codex/$(basename "${part}")"
-  done
-  copy_static config/codex/no-js.c codex/no-js.c
-  copy_static config/codex/patti.toml codex/patti.toml
-fi
-if has_module codex; then
-  copy_static src/codex/launch.c codex/launch.c
-  copy_static src/codex/config.toml codex/config.toml
-fi
-if has_module quickjs; then
-  copy_static "${project_dir}/src/commands/janis.c" default/commands/janis.c
-  copy_static "${project_dir}/src/runtimes/quickjs-main.c" default/runtimes/quickjs-main.c
-  copy_static "${project_dir}/src/runtimes/quickjs-runner.h" default/runtimes/quickjs-runner.h
-  copy_static "${project_dir}/src/runtimes/dolly-node.js" default/runtimes/dolly-node.js
-  copy_static "${project_dir}/src/runtimes/janis.js" default/runtimes/janis.js
 fi
 if has_module cpp; then
   node scripts/build-source-tar.mjs "${static_dir}/default/libcxx-headers.tar" \
@@ -165,91 +82,11 @@ if has_module cpp; then
   copy_static "${emscripten_system_dir}/system/lib/libcxx/LICENSE.TXT" default/licenses/libcxx
   copy_static "${emscripten_system_dir}/system/lib/libcxxabi/LICENSE.TXT" default/licenses/libcxxabi
 fi
-if has_module cpython; then
-  for source in \
-    cpython-platform.c cpython-extension-check.c \
-    cpython-socket-stubs.c cpython-termios.c \
-    cpython-process.c cpython-subprocess.py; do
-    copy_static "${project_dir}/src/runtimes/${source}" "python/runtimes/${source}"
-  done
-fi
-if has_module libffi; then
-  copy_static "${project_dir}/src/runtimes/libffi-dolly.c" python/runtimes/libffi-dolly.c
-fi
-if has_module bonnie; then
-  copy_static "${project_dir}/src/commands/bonnie.c" python/commands/bonnie.c
-  if [[ -f "${project_dir}/src/runtimes/bonnie.py" ]]; then
-    copy_static "${project_dir}/src/runtimes/bonnie.py" python/runtimes/bonnie.py
-  fi
-fi
 if has_module make; then
   copy_static "${project_dir}/src/runtimes/make-amalgamation-dolly.c" default/runtimes/make-amalgamation-dolly.c
 fi
 if has_module ninja; then
   copy_static "${project_dir}/src/runtimes/samurai-unit-dolly.c" default/runtimes/samurai-unit-dolly.c
-fi
-if has_module pi-build; then
-  copy_static "${project_dir}/src/commands/pi.c" default/commands/pi.c
-  copy_static "${project_dir}/config/pi-tsconfig.dolly.json" default/pi-tsconfig.dolly.json
-  copy_static "${project_dir}/config/pi-quickjs-compat.mjs" default/pi-quickjs-compat.mjs
-fi
-if has_module pi; then
-  copy_static "${project_dir}/src/pi/dolly-tools.js" default/pi/dolly-tools.js
-  copy_static "${project_dir}/src/pi/SYSTEM.md" default/pi/SYSTEM.md
-  copy_static "${project_dir}/src/pi/settings.json" default/pi/settings.json
-  copy_static "${project_dir}/src/pi/dolly-theme.json" default/pi/dolly-theme.json
-  copy_static "${project_dir}/src/pi/skills/dolly/SKILL.md" default/pi/dolly-skill.md
-fi
-if has_module dollyfile; then
-  node scripts/build-source-tar.mjs "${static_dir}/default/dollyfile-source.tar" \
-    src/dollyfile.c /usr/src/dolly/dollyfile.c \
-    src/sha256.h /usr/src/dolly/sha256.h \
-    src/fs-record.h /usr/src/dolly/fs-record.h
-fi
-if has_module local-llm-weights; then
-  node scripts/prepare-local-llm-weights.mjs "${static_dir}/llama"
-fi
-if has_module llama-core; then
-  bash scripts/prepare-local-llm.sh "${static_dir}/llama/source.tar"
-fi
-if has_module local-llm-engine; then
-  node scripts/build-source-tar.mjs "${static_dir}/llama/engine.tar" \
-    src/local-llm/main.cpp /usr/src/dolly-llm/main.cpp \
-    src/local-llm/webgpu.cpp /usr/src/dolly-llm/webgpu.cpp \
-    include/dolly/gpu.h /usr/src/dolly-llm/include/dolly/gpu.h \
-    include/dolly/gpu-abi.h /usr/src/dolly-llm/include/dolly/gpu-abi.h
-fi
-if has_module local-llm; then
-  node scripts/build-source-tar.mjs "${static_dir}/llama/provider.tar" \
-    src/local-llm/client.mjs /usr/lib/dolly-llm/client.mjs \
-    src/local-llm/model.mjs /usr/lib/dolly-llm/model.mjs \
-    src/local-llm/qwen.mjs /usr/lib/dolly-llm/qwen.mjs \
-    src/local-llm/models.json /usr/share/dolly/llm/models.json \
-    src/local-llm/Qwen-LICENSE /usr/share/licenses/dolly-llm/Qwen-LICENSE \
-    src/pi/local-model-provider.js /home/dolly/.pi/agent/extensions/local-model-provider.js
-fi
-if has_module dollyfile-studio; then
-  node scripts/build-source-tar.mjs "${static_dir}/studio/studio.tar" \
-    "${project_dir}/src/studio/examples" /usr/share/dollyfile-studio/examples \
-    "${project_dir}/src/studio/install.slop" /usr/share/dollyfile-studio/install.slop \
-    "${project_dir}/src/studio/lint.mjs" /usr/share/dollyfile-studio/lint.mjs \
-    "${project_dir}/src/studio/build.mjs" /usr/share/dollyfile-studio/build.mjs \
-    "${project_dir}/src/dollyfile-view.mjs" /usr/share/dollyfile-studio/parser.mjs \
-    "${project_dir}/src/host/requirements.mjs" /usr/share/dollyfile-studio/host/requirements.mjs \
-    "${project_dir}/src/host/abi.mjs" /usr/share/dollyfile-studio/host/abi.mjs \
-    "${project_dir}/docs/dollyfile.md" /usr/share/dollyfile-studio/dollyfile.md \
-    "${project_dir}/docs/image-build-service.md" /usr/share/dollyfile-studio/build-service.md \
-    "${project_dir}/src/studio/dollyfile-lint" /usr/bin/dollyfile-lint \
-    "${project_dir}/src/studio/dollyfile-build" /usr/bin/dollyfile-build \
-    "${project_dir}/src/studio/nvim" /home/dolly/.config/nvim \
-    "${project_dir}/src/studio/pi-extension.js" /home/dolly/.pi/agent/extensions/dollyfile-studio.js \
-    "${project_dir}/src/studio/prompts" /home/dolly/.pi/agent/prompts \
-    "${project_dir}/src/pi/skills/dollyfiles" /home/dolly/.pi/agent/skills/dollyfiles
-fi
-if has_module typescript; then
-  copy_static "${project_dir}/src/commands/tsc.c" default/commands/tsc.c
-  copy_static "${project_dir}/src/runtimes/tsc-dolly.mjs" default/runtimes/tsc-dolly.mjs
-  copy_static "${typescript_archive}" default/typescript-5.9.3.tgz
 fi
 if has_module gzip; then
   copy_static src/commands/gzip.c default/commands/gzip.c
@@ -274,148 +111,6 @@ if has_module make; then
     "${make_dir}" /usr/src/make \
     "${make_dir}/COPYING" /usr/share/licenses/make/COPYING
 fi
-if has_module libuv; then
-  node scripts/build-source-tar.mjs "${static_dir}/neovim/libuv.tar" \
-    "${libuv_dir}/include" /tmp/libuv/source/include \
-    "${libuv_dir}/src" /tmp/libuv/source/src \
-    "${libuv_dir}/LICENSE" /usr/share/licenses/libuv/LICENSE \
-    "${project_dir}/src/libuv" /tmp/libuv/dolly \
-    "${project_dir}/config/libuv-dolly.mk" /tmp/libuv/Makefile
-fi
-if has_module lua; then
-  copy_static "${lua_archive}" neovim/lua-5.1.5.tar.gz
-fi
-if has_module lpeg; then
-  node scripts/build-source-tar.mjs "${static_dir}/neovim/lpeg.tar" \
-    "${lpeg_dir}" /tmp/lpeg/source \
-    "${lpeg_dir}/lpeg.html" /usr/share/licenses/lpeg/lpeg.html
-fi
-if has_module cmake; then
-  node scripts/build-source-tar.mjs "${static_dir}/neovim/cmake.tar.gz" \
-    "${cmake_dir}" /tmp/cmake/source \
-    "${project_dir}/config/cmake/Dolly.cmake" /tmp/cmake/source/Modules/Platform/Dolly.cmake \
-    "${cmake_dir}/LICENSE.rst" /usr/share/licenses/cmake/LICENSE.rst
-fi
-if has_module luv; then
-  node scripts/build-source-tar.mjs "${static_dir}/neovim/luv.tar" \
-    "${luv_dir}" /tmp/luv/source \
-    "${lua_compat53_dir}" /tmp/luv/source/deps/lua-compat-5.3 \
-    "${luv_dir}/LICENSE.txt" /usr/share/licenses/luv/LICENSE.txt \
-    "${lua_compat53_dir}/LICENSE" /usr/share/licenses/lua-compat53/LICENSE
-fi
-if has_module neovim; then
-  node scripts/build-source-tar.mjs "${static_dir}/neovim/neovim.tar.gz" \
-    "${neovim_dir}" /tmp/neovim/source \
-    "${neovim_dir}/LICENSE.txt" /usr/share/licenses/neovim/LICENSE.txt \
-    "${neovim_dir}/src/mpack/LICENSE-MIT" /usr/share/licenses/neovim/mpack \
-    "${neovim_dir}/src/nvim/vterm/LICENSE" /usr/share/licenses/neovim/vterm
-fi
-if has_module sdl2; then
-  sdl2_inputs=()
-  for entry in src include cmake CMakeLists.txt SDL2Config.cmake.in SDL2.spec.in \
-    sdl2.pc.in sdl2-config.in sdl2.m4 cmake_uninstall.cmake.in LICENSE.txt; do
-    sdl2_inputs+=("${sdl2_dir}/${entry}" "/tmp/sdl2/source/${entry}")
-  done
-  node scripts/build-source-tar.mjs "${static_dir}/sdl2/source.tar" \
-    "${sdl2_inputs[@]}" \
-    "${sdl2_dir}/LICENSE.txt" /usr/share/licenses/SDL2/LICENSE.txt
-fi
-if has_module openal; then
-  node scripts/build-source-tar.mjs "${static_dir}/openal/source.tar" \
-    "${openal_dir}" /tmp/openal/source \
-    test/fixtures/0ad-openal.cpp /tmp/openal/check.cpp \
-    "${openal_dir}/COPYING" /usr/share/licenses/OpenAL/COPYING \
-    "${openal_dir}/BSD-3Clause" /usr/share/licenses/OpenAL/BSD-3Clause \
-    "${openal_dir}/LICENSE-pffft" /usr/share/licenses/OpenAL/LICENSE-pffft \
-    "${openal_dir}/fmt-11.1.1/LICENSE" /usr/share/licenses/OpenAL/fmt
-fi
-if has_module classicube; then
-  classicube_port_inputs=()
-  for entry in Makefile config.h platform.c logger.c window.c input.c input.h http.c agent/control.h; do
-    classicube_port_inputs+=("${project_dir}/src/classicube/${entry}" "/usr/src/dolly/classicube/${entry}")
-  done
-  node scripts/build-source-tar.mjs "${static_dir}/classicube/source.tar.gz" \
-    "${classicube_dir}/src" /usr/src/classicube/src \
-    "${classicube_dir}/misc/sdl" /usr/src/classicube/misc/sdl \
-    "${classicube_dir}/license.txt" /usr/src/classicube/license.txt \
-    "${classicube_dir}/license.txt" /usr/share/licenses/classicube/license.txt \
-    "${classicube_dir}/misc/cc_textures.zip" /usr/share/classicube/texpacks/default.zip \
-    "${project_dir}/src/game-agent/control.h" /usr/src/dolly/game-agent/control.h \
-    "${classicube_port_inputs[@]}"
-fi
-if has_module classicube-agent; then
-  classicube_shared_inputs=()
-  for entry in player.js codec.mjs spectator/relay.mjs spectator/trace.mjs spectator/graphics.h; do
-    classicube_shared_inputs+=("${project_dir}/src/rts/${entry}" "/usr/src/dolly/rts/${entry}")
-  done
-  node scripts/build-source-tar.mjs "${static_dir}/classicube/agent.tar" \
-    "${project_dir}/src/classicube/agent" /usr/src/dolly/classicube/agent \
-    "${project_dir}/src/game-agent" /usr/src/dolly/game-agent \
-    "${classicube_shared_inputs[@]}"
-fi
-if has_module bhop; then
-  bhop_shared_inputs=()
-  for entry in spectator/relay.mjs spectator/trace.mjs spectator/graphics.h; do
-    bhop_shared_inputs+=("${project_dir}/src/rts/${entry}" "/usr/src/dolly/rts/${entry}")
-  done
-  node scripts/build-source-tar.mjs "${static_dir}/bhop/source.tar" \
-    "${project_dir}/src/bhop/agent" /usr/src/dolly/bhop/agent \
-    "${project_dir}/src/game-agent" /usr/src/dolly/game-agent \
-    "${bhop_shared_inputs[@]}"
-fi
-if has_module seven-kingdoms; then
-  rts_port_inputs=()
-  for entry in Makefile config.h OAUDIO.h arena.cpp arena.h input.cpp input.h; do
-    rts_port_inputs+=("${project_dir}/src/rts/${entry}" "/usr/src/dolly/rts/${entry}")
-  done
-  node scripts/build-source-tar.mjs "${static_dir}/rts/seven-kingdoms.tar.gz" \
-    "${seven_kingdoms_dir}/src" /usr/src/7kaa/src \
-    "${seven_kingdoms_dir}/include" /usr/src/7kaa/include \
-    "${seven_kingdoms_dir}/data" /usr/share/7kaa \
-    "${seven_kingdoms_dir}/COPYING" /usr/share/licenses/7kaa/COPYING \
-    "${seven_kingdoms_dir}/COPYING" /usr/src/7kaa/COPYING \
-    "${rts_port_inputs[@]}"
-fi
-if has_module rts-arena; then
-  node scripts/build-source-tar.mjs "${static_dir}/rts/arena.tar" \
-    "${project_dir}/src/rts/player.js" /usr/src/dolly/rts/player.js \
-    "${project_dir}/src/rts/codec.mjs" /usr/src/dolly/rts/codec.mjs \
-    "${project_dir}/src/rts/PLAYER.md" /usr/src/dolly/rts/PLAYER.md \
-    "${project_dir}/src/rts/spectator" /usr/src/dolly/rts/spectator \
-    "${project_dir}/src/rts/demo.tar.gz" /tmp/rts-arena/demo.tar.gz
-fi
-if has_module neovim-parsers; then
-  parser_inputs=()
-  for language in c lua vim vimdoc query markdown; do
-    parser_dir="$(bash "${project_dir}/scripts/fetch-pinned-source.sh" "treesitter_${language}")"
-    parser_target="/tmp/neovim-parsers/${language}"
-    parser_license=LICENSE
-    if [[ "${language}" == lua ]]; then parser_license=LICENSE.md; fi
-    parser_inputs+=("${parser_dir}/${parser_license}" "/usr/share/licenses/neovim-parsers/${language}")
-    parser_cmake=TreesitterParserCMakeLists.txt
-    if [[ "${language}" == markdown ]]; then
-      parser_cmake=MarkdownParserCMakeLists.txt
-      for grammar in tree-sitter-markdown tree-sitter-markdown-inline; do
-        parser_inputs+=("${parser_dir}/${grammar}/src" "${parser_target}/${grammar}/src")
-      done
-    else
-      parser_inputs+=("${parser_dir}/src" "${parser_target}/src")
-    fi
-    parser_inputs+=("${neovim_dir}/cmake.deps/cmake/${parser_cmake}" "${parser_target}/CMakeLists.txt")
-  done
-  node scripts/build-source-tar.mjs "${static_dir}/neovim/parsers.tar" "${parser_inputs[@]}" \
-    "${neovim_dir}/LICENSE.txt" /usr/share/licenses/neovim-parsers/build-recipes
-fi
-for dependency in utf8proc treesitter; do
-  if has_module "${dependency}"; then
-    dependency_dir="$(bash scripts/fetch-pinned-source.sh "${dependency}")"
-    dependency_license=LICENSE
-    if [[ "${dependency}" == utf8proc ]]; then dependency_license=LICENSE.md; fi
-    node scripts/build-source-tar.mjs "${static_dir}/neovim/${dependency}.tar" \
-      "${dependency_dir}" "/tmp/${dependency}/source" \
-      "${dependency_dir}/${dependency_license}" "/usr/share/licenses/${dependency}/LICENSE"
-  fi
-done
 if has_module ninja; then
   node scripts/build-source-tar.mjs "${static_dir}/default/samurai.tar" \
     "${samurai_dir}" /tmp/ninja/source \
@@ -462,100 +157,6 @@ node scripts/build-source-tar.mjs "${static_dir}/default/awk.tar" \
   "${awk_dir}/tran.c" /usr/src/awk/tran.c \
   "${awk_generated_dir}" /usr/src/awk \
   "${awk_dir}/LICENSE" /usr/share/licenses/awk/LICENSE
-fi
-if has_module quickjs; then
-node scripts/build-source-tar.mjs "${static_dir}/default/quickjs.tar" \
-  "${quickjs_dir}/builtin-array-fromasync.h" /usr/src/quickjs/builtin-array-fromasync.h \
-  "${quickjs_dir}/builtin-iterator-zip-keyed.h" /usr/src/quickjs/builtin-iterator-zip-keyed.h \
-  "${quickjs_dir}/builtin-iterator-zip.h" /usr/src/quickjs/builtin-iterator-zip.h \
-  "${quickjs_dir}/cutils.h" /usr/src/quickjs/cutils.h \
-  "${quickjs_dir}/dtoa.c" /usr/src/quickjs/dtoa.c \
-  "${quickjs_dir}/dtoa.h" /usr/src/quickjs/dtoa.h \
-  "${quickjs_dir}/libregexp-opcode.h" /usr/src/quickjs/libregexp-opcode.h \
-  "${quickjs_dir}/libregexp.c" /usr/src/quickjs/libregexp.c \
-  "${quickjs_dir}/libregexp.h" /usr/src/quickjs/libregexp.h \
-  "${quickjs_dir}/libunicode-table.h" /usr/src/quickjs/libunicode-table.h \
-  "${quickjs_dir}/libunicode.c" /usr/src/quickjs/libunicode.c \
-  "${quickjs_dir}/libunicode.h" /usr/src/quickjs/libunicode.h \
-  "${quickjs_dir}/list.h" /usr/src/quickjs/list.h \
-  "${quickjs_dir}/quickjs-atom.h" /usr/src/quickjs/quickjs-atom.h \
-  "${quickjs_dir}/quickjs-c-atomics.h" /usr/src/quickjs/quickjs-c-atomics.h \
-  "${quickjs_dir}/quickjs-opcode.h" /usr/src/quickjs/quickjs-opcode.h \
-  "${quickjs_dir}/quickjs.c" /usr/src/quickjs/quickjs.c \
-  "${quickjs_dir}/quickjs.h" /usr/src/quickjs/quickjs.h \
-  "${quickjs_dir}/LICENSE" /usr/share/licenses/quickjs-ng/LICENSE
-fi
-if has_module gamedev-sdk; then
-node scripts/build-source-tar.mjs "${static_dir}/gamedev/raylib.tar" \
-  "${raylib_dir}/src" /usr/src/raylib/src \
-  "${raylib_dir}/LICENSE" /usr/share/licenses/raylib/LICENSE \
-  "${raylib_dir}/README.md" /usr/src/raylib/README.md
-node scripts/build-source-tar.mjs "${static_dir}/gamedev/box3d.tar" \
-  "${box3d_dir}/src" /usr/src/box3d/src \
-  "${box3d_dir}/include" /usr/src/box3d/include \
-  "${box3d_dir}/LICENSE" /usr/share/licenses/box3d/LICENSE \
-  "${box3d_dir}/README.md" /usr/src/box3d/README.md
-fi
-if has_module cpython; then
-node scripts/build-source-tar.mjs "${static_dir}/python/cpython.tar.gz" \
-  "${cpython_dir}/Include" /usr/src/python/Include \
-  "${cpython_dir}/Parser" /usr/src/python/Parser \
-  "${cpython_dir}/Objects" /usr/src/python/Objects \
-  "${cpython_dir}/Python" /usr/src/python/Python \
-  "${cpython_dir}/Modules" /usr/src/python/Modules \
-  "${cpython_dir}/Programs" /usr/src/python/Programs \
-  "${cpython_dir}/Tools/freeze" /usr/src/python/Tools/freeze \
-  "${cpython_dir}/Lib" /usr/src/python/Lib \
-  "${cpython_dir}/Makefile" /usr/src/python/Makefile \
-  "${cpython_dir}/Makefile.pre" /usr/src/python/Makefile.pre \
-  "${cpython_dir}/Makefile.pre.in" /usr/src/python/Makefile.pre.in \
-  "${cpython_dir}/pyconfig.h" /usr/src/python/pyconfig.h \
-  "${cpython_dir}/config.status" /usr/src/python/config.status \
-  "${cpython_dir}/configure" /usr/src/python/configure \
-  "${cpython_dir}/LICENSE" /usr/share/licenses/cpython/LICENSE
-fi
-if has_module libffi; then
-node scripts/build-source-tar.mjs "${static_dir}/python/libffi.tar" \
-  "${libffi_dir}" /usr/src/libffi \
-  "${libffi_dir}/include/ffi.h" /usr/include/ffi.h \
-  "${libffi_dir}/include/ffitarget.h" /usr/include/ffitarget.h \
-  "${libffi_dir}/LICENSE" /usr/share/licenses/libffi/LICENSE
-fi
-if has_module pi-build; then
-  node scripts/build-source-tar.mjs "${static_dir}/default/pi-source.tar" \
-    "${pi_source_dir}/tsconfig.base.json" /usr/src/pi-source/tsconfig.base.json \
-    "${pi_source_dir}/LICENSE" /usr/share/licenses/pi-source/LICENSE \
-    "${pi_source_dir}/packages/telemetry/package.json" /usr/src/pi-source/packages/telemetry/package.json \
-    "${pi_source_dir}/packages/telemetry/tsconfig.build.json" /usr/src/pi-source/packages/telemetry/tsconfig.build.json \
-    "${pi_source_dir}/packages/telemetry/src" /usr/src/pi-source/packages/telemetry/src \
-    "${pi_source_dir}/packages/ai/package.json" /usr/src/pi-source/packages/ai/package.json \
-    "${pi_source_dir}/packages/ai/tsconfig.build.json" /usr/src/pi-source/packages/ai/tsconfig.build.json \
-    "${pi_source_dir}/packages/ai/src" /usr/src/pi-source/packages/ai/src \
-    "${pi_source_dir}/packages/agent/package.json" /usr/src/pi-source/packages/agent/package.json \
-    "${pi_source_dir}/packages/agent/tsconfig.build.json" /usr/src/pi-source/packages/agent/tsconfig.build.json \
-    "${pi_source_dir}/packages/agent/src" /usr/src/pi-source/packages/agent/src \
-    "${pi_source_dir}/packages/protocol/package.json" /usr/src/pi-source/packages/protocol/package.json \
-    "${pi_source_dir}/packages/protocol/tsconfig.build.json" /usr/src/pi-source/packages/protocol/tsconfig.build.json \
-    "${pi_source_dir}/packages/protocol/src" /usr/src/pi-source/packages/protocol/src \
-    "${pi_source_dir}/packages/client/package.json" /usr/src/pi-source/packages/client/package.json \
-    "${pi_source_dir}/packages/client/tsconfig.build.json" /usr/src/pi-source/packages/client/tsconfig.build.json \
-    "${pi_source_dir}/packages/client/src" /usr/src/pi-source/packages/client/src \
-    "${pi_source_dir}/packages/tui/package.json" /usr/src/pi-source/packages/tui/package.json \
-    "${pi_source_dir}/packages/tui/tsconfig.build.json" /usr/src/pi-source/packages/tui/tsconfig.build.json \
-    "${pi_source_dir}/packages/tui/src" /usr/src/pi-source/packages/tui/src \
-    "${pi_source_dir}/packages/coding-agent/package.json" /usr/src/pi-source/packages/coding-agent/package.json \
-    "${pi_source_dir}/packages/coding-agent/tsconfig.build.json" /usr/src/pi-source/packages/coding-agent/tsconfig.build.json \
-    "${pi_source_dir}/packages/coding-agent/src" /usr/src/pi-source/packages/coding-agent/src \
-    "${pi_source_dir}/packages/coding-agent/README.md" /usr/src/pi-source/packages/coding-agent/README.md \
-    "${pi_source_dir}/packages/coding-agent/CHANGELOG.md" /usr/src/pi-source/packages/coding-agent/CHANGELOG.md \
-    "${pi_source_dir}/packages/coding-agent/docs" /usr/src/pi-source/packages/coding-agent/docs \
-    "${pi_source_dir}/packages/coding-agent/examples" /usr/src/pi-source/packages/coding-agent/examples
-  # The pinned Git source omits generated model data. Restore only that exact
-  # published artifact before compiling the seven Pi workspaces in Dolly.
-  node scripts/build-source-tar.mjs "${static_dir}/default/pi-generated-model-data.tar" \
-    "${project_dir}/node_modules/@earendil-works/pi-ai/dist/providers/data" \
-    /usr/src/pi-source/packages/ai/src/providers/data
-  node scripts/build-pi-runtime-packages.mjs "${static_dir}/default/pi-runtime-packages.tar"
 fi
 if has_module zig; then
   zig_sdk_inputs=()

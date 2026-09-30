@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { execFile } from "node:child_process";
 import { createHash } from "node:crypto";
-import { cp, lstat, mkdir, mkdtemp, readFile, readdir, rm, stat, symlink, writeFile } from "node:fs/promises";
+import { lstat, mkdir, mkdtemp, readFile, readdir, rm, stat, symlink, writeFile } from "node:fs/promises";
 import { createServer } from "node:http";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -23,14 +23,10 @@ test("verified downloads recover from interruption without publishing partial or
   });
   await new Promise(resolve => server.listen(0, "127.0.0.1", resolve));
   t.after(() => new Promise(resolve => server.close(resolve)));
-  for (const directory of ["scripts", "config"]) await mkdir(join(root, directory));
-  for (const name of ["fetch-verified-file.sh", "fetch-typescript.sh"])
-    await cp(new URL(`../scripts/${name}`, import.meta.url), join(root, "scripts", name));
   const url = `http://127.0.0.1:${server.address().port}/source`;
-  await writeFile(join(root, "config/source-pins.sh"),
-    `DOLLY_TYPESCRIPT_VERSION=fixture\nDOLLY_TYPESCRIPT_URL=${url}\nDOLLY_TYPESCRIPT_SHA256=${hash}\n`);
-  const fetch = () => run("bash", [join(root, "scripts/fetch-typescript.sh")]);
   const cache = join(root, ".cache"), archive = join(cache, "typescript-fixture.tgz");
+  await mkdir(cache);
+  const fetch = () => run("bash", [new URL("../scripts/fetch-verified-file.sh", import.meta.url).pathname, url, hash, archive]);
   await assert.rejects(fetch(), error => error.code === 18);
   assert.deepEqual(await readdir(cache), []);
   response = "complete";

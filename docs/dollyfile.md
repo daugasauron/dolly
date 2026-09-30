@@ -25,7 +25,7 @@ ENTRY /bin/slop
 
 This starts from the completed Pi image and builds one more command; the base's
 compiler, shell and tools are reused and its entry program never runs.
-[`Dollyfile-gpu-fluid`](../Dollyfile-gpu-fluid) fetches pinned upstream code with
+`demos/gpu-fluid/Dollyfile-gpu-fluid` fetches pinned upstream code with
 `SOURCE URL` and builds it inside Dolly.
 
 ## Text

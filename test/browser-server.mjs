@@ -32,7 +32,6 @@ export const browserSources = new Set([
   "test/fixtures/gpu-no-bc.mjs",
   "test/fixtures/gpu-core-limits.mjs",
   "test/fixtures/audio-boundary.mjs",
-  "test/fixtures/fluid-direct.mjs",
   "test/fixtures/http-admission-worker.mjs",
   "test/fixtures/browser-process-abi.mjs",
   "coi-serviceworker.js",

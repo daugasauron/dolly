@@ -1,0 +1,25 @@
+# Demos
+
+Demos are applications built on the core runtime and userspace. Each directory
+keeps its `Dollyfile-*` images, `*.dm` modules, sources, `prepare-sources.sh`
+staging hook, tests and README. Recipes still share one flat logical namespace
+(`/Dollyfile-NAME`, `/modules/NAME.dm`); `scripts/recipe-files.mjs` maps it to files.
+Demos may use each other; the core never uses a demo.
+
+- [bhop](bhop/README.md): Airtime's Foundry strafe course with an optional agent.
+- [classicube](classicube/README.md): ClassiCube block world with a Pi agent.
+- [cmake](cmake/README.md): CMake and libuv built from source, a base for C/C++ ports.
+- [codex](codex/README.md): the Codex CLI built from Rust source inside Dolly.
+- [game-agent](game-agent/README.md): agent, viewer and relay code shared by the games.
+- [gpu-fluid](gpu-fluid/README.md): an upstream WebGPU fluid solver.
+- [javascript](javascript/README.md): QuickJS-ng, Janis and TypeScript.
+- [local-llm](local-llm/README.md): llama.cpp and a bundled Qwen model for Pi.
+- [neovim](neovim/README.md): Neovim with Lua and Tree-sitter parsers.
+- [pi](pi/README.md): the Pi coding agent.
+- [python](python/README.md): CPython and the Bonnie package installer.
+- [rts](rts/README.md): Seven Kingdoms matches between two Pi players.
+- [rust](rust/README.md): the Rust compiler seed, Patti, ripgrep and fd.
+- [sdl2](sdl2/README.md): SDL2 over the Dolly framebuffer.
+- [slopyard](slopyard/README.md): Slopyard and the raylib/Box3D gamedev SDK.
+- [studio](studio/README.md): Dollyfile Studio.
+- [zero-ad](zero-ad/README.md): 0 A.D. Release 28 and its OpenAL build.

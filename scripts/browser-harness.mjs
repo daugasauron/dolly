@@ -7,13 +7,13 @@ import { createHash } from "node:crypto";
 import { waitForDebugger } from "./browser-startup.mjs";
 import { runImageBuildProof } from "../test/fixtures/image-build-browser.mjs";
 import { buildSnapshot } from "../test/fixtures/snapshot-build.mjs";
-import { bhopProvider } from "../test/fixtures/bhop-provider.mjs";
-import { runBhopAgentProof } from "../test/fixtures/bhop-agent-browser.mjs";
-import { classicubeProvider } from "../test/fixtures/classicube-provider.mjs";
-import { runClassiCubeAgentProof } from "../test/fixtures/classicube-agent-browser.mjs";
-import { relayProvider } from "../src/rts/spectator/relay.mjs";
-import { runClassiCubeProof } from "../test/fixtures/classicube-browser.mjs";
-import { runRtsLauncherProof } from "../test/fixtures/rts-launcher-browser.mjs";
+import { bhopProvider } from "../demos/bhop/test/fixtures/bhop-provider.mjs";
+import { runBhopAgentProof } from "../demos/bhop/test/fixtures/bhop-agent-browser.mjs";
+import { classicubeProvider } from "../demos/classicube/test/fixtures/classicube-provider.mjs";
+import { runClassiCubeAgentProof } from "../demos/classicube/test/fixtures/classicube-agent-browser.mjs";
+import { relayProvider } from "../demos/rts/spectator/relay.mjs";
+import { runClassiCubeProof } from "../demos/classicube/test/fixtures/classicube-browser.mjs";
+import { runRtsLauncherProof } from "../demos/rts/test/fixtures/rts-launcher-browser.mjs";
 import { lstat, mkdir, mkdtemp, open, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import { createServer } from "node:http";
 import { tmpdir } from "node:os";
@@ -28,12 +28,12 @@ import { loadDollyfileGraph } from "./dollyfile-graph.mjs";
 import { recipeFiles } from "./recipe-files.mjs";
 import { shellCases, sourceFiles, shellQuote } from "../test/fixtures/slop-cases.mjs";
 import { browserShellCases } from "../test/fixtures/browser-shell-cases.mjs";
-import { decoderCases } from "../test/fixtures/utf8-cases.mjs";
-import { demoFixture } from "../test/fixtures/codex-responses.mjs";
-import { createCodexLoginFixture, runCodexLogin, codexLoginRules, codexLoginFetch } from "../test/fixtures/codex-login.mjs";
-import { runCodexTui, codexProtectedInputDelay } from "../test/fixtures/codex-tui.mjs";
-import { createTokioFixture } from "../test/fixtures/tokio.mjs";
-import { rustToolSources, runRustTools, runRipgrep, runFd } from "../test/fixtures/rust-tools.mjs";
+import { decoderCases } from "../demos/javascript/test/fixtures/utf8-cases.mjs";
+import { demoFixture } from "../demos/codex/test/fixtures/codex-responses.mjs";
+import { createCodexLoginFixture, runCodexLogin, codexLoginRules, codexLoginFetch } from "../demos/codex/test/fixtures/codex-login.mjs";
+import { runCodexTui, codexProtectedInputDelay } from "../demos/codex/test/fixtures/codex-tui.mjs";
+import { createTokioFixture } from "../demos/rust/test/fixtures/tokio.mjs";
+import { rustToolSources, runRustTools, runRipgrep, runFd } from "../demos/rust/test/fixtures/rust-tools.mjs";
 import { processSmokeSources, runProcessSmoke } from "../test/fixtures/process-smoke.mjs";
 import { browserSources, mimeTypes } from "../test/browser-server.mjs";
 import { parserRecipes, runDollyfileCases } from "../test/fixtures/dollyfile-cases.mjs";
@@ -42,7 +42,7 @@ import { createHttpRedirectFixture } from "../test/fixtures/http-redirect-server
 import { runUploadProof, selectFile } from "../test/fixtures/upload-browser.mjs";
 import { runSessionFilesProof, runSessionRecoveryProof } from "../test/fixtures/session-files-browser.mjs";
 import { tarArchive } from "../test/fixtures/tar.mjs";
-import { rtsProvider } from "../test/fixtures/rts-provider.mjs";
+import { rtsProvider } from "../demos/rts/test/fixtures/rts-provider.mjs";
 import { gzipSync } from "node:zlib";
 
 const projectDir = resolve(import.meta.dirname, "..");
@@ -163,7 +163,7 @@ if (requestedMode && !knownModes.has(requestedMode)) {
 const piAuditSpec = piAuditMode
   ? JSON.parse(await readFile(resolve(
       projectDir,
-      process.env.DOLLY_PI_AUDIT_FILE ?? "scripts/pi-agent-audit-prompts.json",
+      process.env.DOLLY_PI_AUDIT_FILE ?? "demos/pi/pi-agent-audit-prompts.json",
     ), "utf8"))
   : null;
 if (piAuditMode &&
@@ -359,9 +359,9 @@ function startServer() {
         }
       }
       if (sdl2Mode && requestUrl.pathname.startsWith("/fixture/")) {
-        const sources = { "sdl2-probe.c": "test/fixtures/sdl2-probe.c",
-          "rts-input-probe.cpp": "test/fixtures/rts-input-probe.cpp",
-          "input.cpp": "src/rts/input.cpp", "input.h": "src/rts/input.h", "arena.h": "src/rts/arena.h" };
+        const sources = { "sdl2-probe.c": "demos/sdl2/test/fixtures/sdl2-probe.c",
+          "rts-input-probe.cpp": "demos/rts/test/fixtures/rts-input-probe.cpp",
+          "input.cpp": "demos/rts/input.cpp", "input.h": "demos/rts/input.h", "arena.h": "demos/rts/arena.h" };
         const name = requestUrl.pathname.slice("/fixture/".length);
         if (Object.hasOwn(sources, name)) {
           response.writeHead(200, { ...isolatedHeaders, "content-type": "text/plain" });
@@ -386,17 +386,17 @@ function startServer() {
       }
       if (rtsMode && ["/fixture/rts-match.mjs", "/fixture/rts-history.mjs"].includes(requestUrl.pathname)) {
         response.writeHead(200, { ...isolatedHeaders, "content-type": "text/javascript" });
-        response.end(await readFile(resolve(projectDir, "test/fixtures", requestUrl.pathname.split("/").at(-1))));
+        response.end(await readFile(resolve(projectDir, "demos/rts/test/fixtures", requestUrl.pathname.split("/").at(-1))));
         return;
       }
       if (rtsLiveMode && requestUrl.pathname === "/fixture/rts-live.mjs") {
         response.writeHead(200, { ...isolatedHeaders, "content-type": "text/javascript" });
-        response.end(await readFile(resolve(projectDir, "test/fixtures/rts-live.mjs")));
+        response.end(await readFile(resolve(projectDir, "demos/rts/test/fixtures/rts-live.mjs")));
         return;
       }
       if (rtsSplitReplayMode && requestUrl.pathname === "/fixture/rts-split-replay.mjs") {
         response.writeHead(200, { ...isolatedHeaders, "content-type": "text/javascript" });
-        response.end(await readFile(resolve(projectDir, "test/fixtures/rts-split-replay.mjs")));
+        response.end(await readFile(resolve(projectDir, "demos/rts/test/fixtures/rts-split-replay.mjs")));
         return;
       }
       if (processSmokeMode && requestUrl.pathname.startsWith("/fixture/")) {
@@ -426,7 +426,7 @@ function startServer() {
       }
       if (utf8Mode && /^\/fixture\/utf8-(?:cases\.mjs|browser\.mjs|writer\.c)$/.test(requestUrl.pathname)) {
         response.writeHead(200, { ...isolatedHeaders, "content-type": "text/plain; charset=utf-8" });
-        response.end(await readFile(resolve(projectDir, "test/fixtures", requestUrl.pathname.split("/").at(-1))));
+        response.end(await readFile(resolve(projectDir, "demos/javascript/test/fixtures", requestUrl.pathname.split("/").at(-1))));
         return;
       }
       if (janisProcessMode && requestUrl.pathname === "/fixture/never-requested") {
@@ -682,7 +682,7 @@ function startServer() {
       }
       if (requestUrl.pathname === "/fixture/pi-extension.js") {
         const body = await readFile(
-          resolve(projectDir, "test/fixtures/pi-installed-extension.js"),
+          resolve(projectDir, "demos/pi/test/fixtures/pi-installed-extension.js"),
         );
         response.writeHead(200, {
           ...isolatedHeaders,
@@ -1661,7 +1661,7 @@ chrome.stderr.on("data", bytes => { chromeDiagnostics = (chromeDiagnostics + byt
         await selectFile(send, "#dollyfile-upload", oversized);
         await waitForValue(send, "document.querySelector('#status').textContent", text => /128 KiB/.test(text), "oversize Dollyfile rejection");
         for (const file of [false, true]) {
-          const template = file ? await readFile(resolve(projectDir, "src/studio/examples/tool.in"), "utf8") : original;
+          const template = file ? await readFile(resolve(projectDir, "demos/studio/examples/tool.in"), "utf8") : original;
           const recipe = template.replace("@SYSTEM_SHA256@", original.match(/FROM HOST \/Dollyfile-system ([0-9a-f]{64})/)[1]);
           if (file) {
             await send("Page.navigate", { url: editor });
@@ -1705,7 +1705,7 @@ chrome.stderr.on("data", bytes => { chromeDiagnostics = (chromeDiagnostics + byt
         assert.equal(await submit("hash=$(sha256sum /tmp/studio-host-source.tar | awk '{print $1}'); grep -q $hash /tmp/studio-host-module.dm"), 0);
         assert.equal(await submit('base=$(cat /etc/dolly/host.base); curl -f "${base}static/default/runtimes/quickjs-main.c" -o /tmp/studio-host-source.c && grep -q dolly_quickjs_run /tmp/studio-host-source.c'), 0);
       } finally { await submit("rm -f /tmp/studio-host-module.dm /tmp/studio-host-source.tar /tmp/studio-host-source.c"); }
-      const source = await readFile(resolve(projectDir, "test/fixtures/studio-nvim.lua"), "utf8");
+      const source = await readFile(resolve(projectDir, "demos/studio/test/fixtures/studio-nvim.lua"), "utf8");
       assert.equal(await submit(`printf '%s\\n' ${source.trimEnd().split("\n").map(shellQuote).join(" ")} > /tmp/studio-nvim.lua`), 0);
       try {
         assert.equal(await submit("timeout 60 nvim --headless -n -i NONE -S /tmp/studio-nvim.lua"), 0);
@@ -1771,7 +1771,7 @@ chrome.stderr.on("data", bytes => { chromeDiagnostics = (chromeDiagnostics + byt
     }
     if (classicubePlaywrightMode) {
       const { chromium } = await import("playwright-core");
-      const { runClassiCubeMultiplayer } = await import("../test/fixtures/classicube-multiplayer-playwright.mjs");
+      const { runClassiCubeMultiplayer } = await import("../demos/classicube/test/fixtures/classicube-multiplayer-playwright.mjs");
       const browser = await chromium.connectOverCDP(`http://127.0.0.1:${debugPort}`);
       try {
         const page = browser.contexts()[0].pages().find(page => page.url() === initialPage);
@@ -2358,7 +2358,7 @@ chrome.stderr.on("data", bytes => { chromeDiagnostics = (chromeDiagnostics + byt
       const submit = command => evaluate(debuggerClient.send,
         `window.__dolly.submit(${JSON.stringify(command)})`);
       const scratch = "/tmp/dolly-janis-process-test";
-      const source = await readFile(resolve(projectDir, "test/fixtures/janis-process.mjs"), "utf8");
+      const source = await readFile(resolve(projectDir, "demos/javascript/test/fixtures/janis-process.mjs"), "utf8");
       try {
         assert.equal(await submit(`mkdir -p ${scratch}`), 0);
         assert.equal(await submit(`printf '%s\\n' ${source.trimEnd().split("\n").map(shellQuote).join(" ")} > ${scratch}/probe.mjs`), 0);
@@ -2381,12 +2381,12 @@ chrome.stderr.on("data", bytes => { chromeDiagnostics = (chromeDiagnostics + byt
       const submit = command => evaluate(debuggerClient.send,
         `window.__dolly.submit(${JSON.stringify(command)})`);
       const scratch = "/tmp/dolly-python-process-test";
-      const source = await readFile(resolve(projectDir, "test/fixtures/python-process.py"), "utf8");
+      const source = await readFile(resolve(projectDir, "demos/python/test/fixtures/python-process.py"), "utf8");
       try {
         assert.equal(await submit(`mkdir -p ${scratch}`), 0);
         assert.equal(await submit(`printf '%s\\n' ${source.trimEnd().split("\n").map(shellQuote).join(" ")} > ${scratch}/probe.py`), 0);
         assert.equal(await submit(`python ${scratch}/probe.py ${scratch}`), 0);
-        const policySource = await readFile(resolve(projectDir, "test/fixtures/bonnie-policy.py"), "utf8");
+        const policySource = await readFile(resolve(projectDir, "demos/python/test/fixtures/bonnie-policy.py"), "utf8");
         assert.equal(await submit(`printf '%s\\n' ${policySource.trimEnd().split("\n").map(shellQuote).join(" ")} > ${scratch}/policy.py`), 0);
         assert.equal(await submit(`python ${scratch}/policy.py /usr/lib/bonnie/bonnie.py ${scratch} --build`), 0,
           "Bonnie must pass image-configured settings to a real PEP 517 backend and clean its temporary state");
@@ -2527,12 +2527,12 @@ chrome.stderr.on("data", bytes => { chromeDiagnostics = (chromeDiagnostics + byt
       const submit = command => evaluate(debuggerClient.send,
         `window.__dolly.submit(${JSON.stringify(command)})`);
       const scratch = "/tmp/dolly-janis-files-test";
-      const source = await readFile(resolve(projectDir, "test/fixtures/janis-files.mjs"), "utf8");
+      const source = await readFile(resolve(projectDir, "demos/javascript/test/fixtures/janis-files.mjs"), "utf8");
       try {
         assert.equal(await submit(`mkdir -p ${scratch} && echo target > ${scratch}/target && ln -s target ${scratch}/link && ln -s absent ${scratch}/dangling && ln -s keep-dir ${scratch}/directory-link`), 0);
         assert.equal(await submit(`printf '%s\\n' ${source.trimEnd().split("\n").map(shellQuote).join(" ")} > ${scratch}/probe.mjs`), 0);
         assert.equal(await submit(`janis -m ${scratch}/probe.mjs ${scratch}`), 0);
-        const sessions = await readFile(resolve(projectDir, "test/fixtures/pi-sessions.mjs"), "utf8");
+        const sessions = await readFile(resolve(projectDir, "demos/pi/test/fixtures/pi-sessions.mjs"), "utf8");
         assert.equal(await submit(`printf '%s\\n' ${sessions.trimEnd().split("\n").map(shellQuote).join(" ")} > ${scratch}/sessions.mjs`), 0);
         assert.equal(await submit(`janis -m ${scratch}/sessions.mjs ${scratch}`), 0);
         assert.equal(await submit("clear"), 0);
@@ -2603,7 +2603,7 @@ chrome.stderr.on("data", bytes => { chromeDiagnostics = (chromeDiagnostics + byt
           value => value !== null, "shifted text and Escape in kitty keyboard mode", 100), 0);
         assert.equal(await submit(`${scratch}/probe discipline`), 0,
           "termios output flags must round-trip and control Ghostty's actual cursor position");
-        const pythonTermios = await readFile(resolve(projectDir, "src/runtimes/cpython-termios.c"), "utf8");
+        const pythonTermios = await readFile(resolve(projectDir, "demos/python/cpython-termios.c"), "utf8");
         assert.equal(await submit(`printf '%s\\n' ${pythonTermios.trimEnd().split("\n").map(shellQuote).join(" ")} > ${scratch}/python-termios.c`), 0);
         assert.equal(await submit(`cc -Dtcgetattr=dolly_py_tcgetattr -Dtcsetattr=dolly_py_tcsetattr -Dioctl=dolly_py_ioctl ${scratch}/main.c ${scratch}/python-termios.c -o ${scratch}/python-probe`), 0);
         assert.equal(await submit(`${scratch}/python-probe discipline`), 0,
@@ -3751,7 +3751,7 @@ int main(int argc, char **argv) {
       }
       await enterRecoveryShell(debuggerClient.send);
       if (piSessions) {
-        const source = await readFile(resolve(projectDir, "test/fixtures/pi-sessions.mjs"), "utf8");
+        const source = await readFile(resolve(projectDir, "demos/pi/test/fixtures/pi-sessions.mjs"), "utf8");
         for (const command of [`mkdir ${piSessions}`,
           `printf '%s\\n' ${source.trimEnd().split("\n").map(shellQuote).join(" ")} > ${piSessions}/probe.mjs`,
           `janis -m ${piSessions}/probe.mjs ${piSessions}`]) {

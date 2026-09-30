@@ -209,7 +209,7 @@ maximum-size batch, and structural validation still precedes execution.
 Local llama.cpp inference runs inside an ordinary private process. Its C adapter
 uses this same generic provider; optional model downloads use the remote HTTP broker.
 There is no browser model loader, inference service, URL allowlist exception or
-model-specific outer import. See [local models](browser-local-models.md).
+model-specific outer import. See `demos/local-llm/README.md`.
 
 ## Local services
 
@@ -288,14 +288,14 @@ digest. Documentation publishing has an explicit source allowlist.
 The [static exporter](deployment.md) preserves this layout.
 Neither a custom recipe nor a test query can turn the server into a shell.
 
-The optional development-only Codex relay (`scripts/codex-relay.mjs`) is a
+The optional development-only Codex relay (`demos/game-agent/codex-relay.mjs`) is a
 separate HTTP destination, not a browser import or shipped local service. It
 binds loopback, checks exact Host/Origin and a random bearer capability, bounds
 requests, and forwards only the fixed Codex inference endpoint without redirects.
 Only this relay reads the local subscription login; it exposes no filesystem or
 process operations. Granting its capability permits spending that account's quota.
 
-The experimental 0 A.D. relay (`toolchain/0ad/relay.mjs`) is an explicit HTTP
+The experimental 0 A.D. relay (`demos/zero-ad/toolchain/relay.mjs`) is an explicit HTTP
 destination through the existing broker. It routes datagrams only between 2–8
 pre-created participant capabilities; it cannot contact external UDP/TCP hosts.
 Each participant has eight socket leases, each with at most 64 datagrams and
@@ -309,9 +309,9 @@ URL. The Wasm ENet adapter adds no browser import, socket or ambient fetch.
 Game code, simulation and files remain in Wasm; this separate service stores
 only bounded transport queues and lease metadata.
 
-ClassiCube's shared room (`src/classicube/agent/room.mjs`) and clients exchange
+ClassiCube's shared room (`demos/classicube/agent/room.mjs`) and clients exchange
 Classic packets through private files in the Wasm filesystem. The socket wrapper
-in `src/classicube/platform.c` recognizes only its local room marker and has no
+in `demos/classicube/platform.c` recognizes only its local room marker and has no
 host socket fallback. Map compression, world state and all game processes stay
 inside Dolly. Multiple players add no browser authority or outer imports.
 

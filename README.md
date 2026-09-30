@@ -7,6 +7,22 @@ the Wasm kernel. The browser supplies neither host files nor native subprocesses
 The experiment is the compile target, not Linux emulation. See
 [AGENTS.md](AGENTS.md) for the design intent.
 
+The product is the modular runtime (Wasm kernel, host modules, process model,
+ABI and trusted browser code) plus a minimal POSIX userspace. Both live at the
+top level. Everything else, from Pi and Python to games, is a
+[demo](demos/README.md) in `demos/DEMO/`, with its own recipes, sources, tests
+and documentation. The core never depends on a demo.
+
+## Core images
+
+- `default`: Shell, Git, Make and C/C++.
+- `system`: Shared shell, Git, display and C/C++ SDK.
+- `system-tools`: Headless shell, Git, curl, Make and POSIX tools.
+- `system-build`: C/C++ compiler, headers and basic build tools.
+- `ghostty-build`: Ghostty terminal build with Zig and its SDK.
+- `gpu-sdk`: C client library for the `gpu@0` host module.
+- `audio-sdk`: C client library for the `audio@0` host module.
+
 ## Try it
 
 Open [daugasauron.com](https://daugasauron.com/) or
@@ -24,7 +40,7 @@ processes and do not yet support custom images. `upload DESTINATION` and
 `download FILE` explicitly transfer one file. See [sessions](docs/sessions.md).
 
 Requires shared WebAssembly memory64/table64; there is no wasm32 fallback.
-[Local Qwen models](docs/browser-local-models.md) additionally need hardware
+[Local Qwen models](demos/local-llm/README.md) additionally need hardware
 WebGPU with `shader-f16`. Select a model with Pi's `/model` picker; inference
 runs inside the image.
 
@@ -54,7 +70,7 @@ npm ci
 npx playwright-core install firefox
 ./scripts/build-toolchain.sh           # expensive compiler seed
 npm run build:runtime
-npm run build:rust-seed               # expensive Rust compiler seed, once
+npm run build:rust-seed               # Rust demos only: expensive compiler seed, once
 npm run image -- default --package    # build and publish one image locally
 DOLLY_PORT=9000 npm run serve
 ```
@@ -85,8 +101,7 @@ browser builds and a cached build.
 
 - [Dollyfiles](docs/dollyfile.md) and [Studio builds](docs/image-build-service.md).
 - [Architecture](docs/architecture.md), [processes](docs/process-model.md), [ABI](abi/README.md).
-- [Slop and Make](docs/slop.md), [ports](docs/port-status.md), [Pi](docs/pi-agent-plan.md).
-- [RTS arena experiment](docs/rts-arena.md) (branch work, not deployed).
+- [Slop and Make](docs/slop.md), [ports](docs/port-status.md), [demos](demos/README.md).
 - [Issue tracker](tasks/README.md) and [direction](docs/roadmap.md).
 
 Dolly is a prototype, not full POSIX, Node or libcurl compatibility.

@@ -1,5 +1,4 @@
 import assert from "node:assert/strict";
-import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { mkdtemp, mkdir, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -9,6 +8,8 @@ import test from "node:test";
 import {
   loadDollyfileGraph, createDollyfileGraphLoader,
 } from "../scripts/dollyfile-graph.mjs";
+import { discoverImageDefinitions } from "../scripts/image-definitions.mjs";
+import { recipeFiles } from "../scripts/recipe-files.mjs";
 import { renderDollyfilePage } from "../scripts/render-dollyfile-view.mjs";
 import { inspectDollyfile } from "../src/dollyfile-view.mjs";
 
@@ -17,75 +18,33 @@ const loadProjectGraph = createDollyfileGraphLoader(projectDir);
 
 test("module-owned command sources have no divergent standalone copies", async () => {
   const commands = new Set(await readdir(resolve(projectDir, "src/commands")));
-  for (const filename of await readdir(resolve(projectDir, "modules"))) {
-    if (!filename.endsWith(".dm")) continue;
-    const module = inspectDollyfile(await readFile(resolve(projectDir, "modules", filename), "utf8"), filename);
+  for (const [location, path] of await recipeFiles(projectDir)) {
+    if (!location.startsWith("/modules/")) continue;
+    const module = inspectDollyfile(await readFile(resolve(projectDir, path), "utf8"), location);
     for (const file of module.files) {
       if (!file.path.endsWith(".c")) continue;
-      assert.ok(!commands.has(basename(file.path)), `${filename}: ${file.path} duplicates src/commands/${basename(file.path)}`);
+      assert.ok(!commands.has(basename(file.path)), `${path}: ${file.path} duplicates src/commands/${basename(file.path)}`);
     }
   }
 });
 
-const imageSpecs = [
-  {
-    image: "default", filename: "Dollyfile",
-    uses: ["default", "startup-default"], program: "/bin/slop",
-  },
-  {
-    image: "pi", filename: "Dollyfile-pi",
-    uses: ["default", "quickjs", "typescript", "pi", "startup-pi"],
-    program: "/usr/bin/pi",
-  },
-  {
-    image: "python", filename: "Dollyfile-python",
-    uses: ["default", "python", "startup-python"],
-    program: "/bin/slop",
-  },
-  { image: "bhop", filename: "Dollyfile-bhop" },
-];
-async function loadImages() {
-  return Promise.all(imageSpecs.map(async (spec) => ({
-    spec,
-    graph: await loadProjectGraph(spec.filename),
-  })));
-}
-
-function uniqueModules(images) {
+function uniqueModules(graphs) {
   const modules = new Map();
-  for (const { graph } of images) {
+  for (const graph of graphs) {
     for (const module of graph.modules) modules.set(module.name, module);
   }
   return modules;
+}
+const coreModules = async () => uniqueModules([await loadProjectGraph()]);
+async function catalogModules() {
+  const definitions = await discoverImageDefinitions(projectDir);
+  return uniqueModules(await Promise.all(definitions.map(({ filename }) => loadProjectGraph(filename))));
 }
 
 function digest(source) {
   return createHash("sha256").update(source).digest("hex");
 }
 
-test("QuickJS is selected only by Pi-bearing images", async () => {
-  const images = await loadImages();
-  const defaultGraph = images.find(({ spec }) => spec.image === "default").graph;
-  assert.equal(defaultGraph.modules.some(({ name }) => name === "quickjs"), false);
-  assert.equal(defaultGraph.exporters.has("HEADER:quickjs-runner"), false);
-  assert.equal(defaultGraph.exporters.has("LIB:dolly-js"), false);
-  const pythonGraph = images.find(({ spec }) => spec.image === "python").graph;
-  assert.equal(pythonGraph.modules.some(({ name }) => name === "quickjs"), false);
-
-  for (const { spec, graph } of images.filter(({ spec }) =>
-    ["pi", "bhop"].includes(spec.image))) {
-    const quickjs = graph.modules.find(({ name }) => name === "quickjs");
-    const pi = graph.modules.find(({ name }) => name === "pi-build");
-    assert.ok(quickjs, `${spec.image} must include quickjs`);
-    assert.ok(pi, `${spec.image} must include pi`);
-    for (const requirement of ["LIB:dolly-js", "HEADER:quickjs-runner"]) {
-      const [type, name] = requirement.split(":");
-      const edge = pi.dependencies.find((item) =>
-        item.requirement.type === type && item.requirement.name === name);
-      assert.ok(edge?.provider === quickjs, `${spec.image}: ${requirement}`);
-    }
-  }
-});
 
 test("the linked viewer preserves table alignment whitespace", async () => {
   const graph = await loadProjectGraph();
@@ -241,10 +200,6 @@ test("bootstrap exports exact compiler tools and first-class headers", async () 
   assert.ok(cpp.exports.some(({ type, name, details }) =>
     type === "ENV" && name === "CXX" && details[0] === "c++"));
 
-  const pi = (await loadProjectGraph("Dollyfile-pi"))
-    .modules.find(({ name }) => name === "pi");
-  assert.ok(pi.exports.some(({ type, name, details }) =>
-    type === "ENV" && name === "PI_SKIP_VERSION_CHECK" && details[0] === "1"));
 });
 
 test("small Dolly-owned command sources are inline", async () => {
@@ -262,40 +217,9 @@ test("small Dolly-owned command sources are inline", async () => {
   assert.match(tar.files.find(({ path }) => path.endsWith("/tar.c")).body, /BLOCK_SIZE = 512/);
 });
 
-test("Pi is compiled from pinned source after an in-sandbox TypeScript layer", async () => {
-  const graph = await loadProjectGraph("Dollyfile-pi");
-  const typescript = graph.modules.find(({ name }) => name === "typescript");
-  const pi = graph.modules.find(({ name }) => name === "pi-build");
-  assert.ok(typescript);
-  assert.ok(pi);
-  assert.ok(typescript.sources.some(({ location }) =>
-    location === "/static/default/typescript-5.9.3.tgz"));
-  assert.ok(typescript.exports.some(({ type, name }) =>
-    type === "TOOL" && name === "tsc"));
-  assert.ok(pi.sources.some(({ location }) =>
-    location === "/static/default/pi-source.tar"));
-  assert.equal(pi.sources.some(({ location }) => location.includes("pi-package.tar")), false);
-  assert.deepEqual(
-    pi.slops.filter(({ command }) => command[0] === "tsc")
-      .map(({ cwd }) => cwd),
-    [
-      "/usr/src/pi-source/packages/telemetry",
-      "/usr/src/pi-source/packages/ai",
-      "/usr/src/pi-source/packages/agent",
-      "/usr/src/pi-source/packages/protocol",
-      "/usr/src/pi-source/packages/client",
-      "/usr/src/pi-source/packages/tui",
-      "/usr/src/pi-source/packages/coding-agent",
-    ],
-  );
-  assert.ok(pi.folders.some(({ path }) => path === "/usr/src/pi-source"));
-  assert.ok(pi.exports.some(({ type, name, details }) =>
-    type === "ENV" && name === "PI_PACKAGE_DIR" &&
-    details[0] === "/usr/lib/node_modules/@earendil-works/pi-coding-agent"));
-});
 
 test("redistributed upstream modules retain their licenses", async () => {
-  const modules = uniqueModules(await loadImages());
+  const modules = await coreModules();
   const expected = new Map([
     ["make", ["/usr/share/licenses/make/COPYING"]],
     ["cpp", [
@@ -313,14 +237,6 @@ test("redistributed upstream modules retain their licenses", async () => {
     ]],
     ["awk", ["/usr/share/licenses/awk/LICENSE"]],
     ["sbase", ["/usr/share/licenses/sbase/LICENSE"]],
-    ["quickjs", ["/usr/share/licenses/quickjs-ng/LICENSE"]],
-    ["pi-build", ["/usr/share/licenses/pi-source/LICENSE"]],
-    ["libffi", ["/usr/share/licenses/libffi/LICENSE"]],
-    ["cpython", ["/usr/share/licenses/cpython/LICENSE"]],
-    ["gamedev-sdk", [
-      "/usr/share/licenses/raylib/LICENSE",
-      "/usr/share/licenses/box3d/LICENSE",
-    ]],
   ]);
   for (const [name, paths] of expected) {
     const retained = new Set(modules.get(name).files.map(({ path }) => path));
@@ -329,22 +245,17 @@ test("redistributed upstream modules retain their licenses", async () => {
 });
 
 test("production exports exclude build-only checks and unconsumed archives", async () => {
-  const modules = uniqueModules(await loadImages());
+  const modules = await coreModules();
   assert.equal(modules.get("ghostty").exports.some(
     ({ type, name }) => type === "TOOL" && name === "ghostty-vt"), false);
   assert.equal(modules.get("ghostty").sources.some(
     ({ location }) => location.endsWith("/ghostty/check.c")), false);
   assert.equal(modules.get("git").exports.some(
     ({ type, name }) => type === "LIB" && name === "git"), false);
-  assert.ok(modules.get("cpython").exports.some(
-    ({ type, name, details }) =>
-      type === "ENV" && name === "PYTHONDONTWRITEBYTECODE" && details[0] === "1"));
-  assert.equal(modules.get("cpython").slops.some(
-    ({ command }) => command[0] === "python" && command.includes("-B")), false);
 });
 
 test("non-temporary SOURCE inputs are retained or explicitly removed by their module", async () => {
-  const modules = uniqueModules(await loadImages());
+  const modules = await catalogModules();
   const contains = (root, path) => path === root || path.startsWith(`${root}/`);
   for (const module of modules.values()) {
     const retained = [
@@ -375,57 +286,9 @@ test("non-temporary SOURCE inputs are retained or explicitly removed by their mo
   }
 });
 
-test("Bonnie is a retained two-file command with transactional graph helpers", async () => {
-  const graph = await loadProjectGraph("Dollyfile-python");
-  const bonnie = graph.modules.find(({ name }) => name === "bonnie");
-  assert.deepEqual(
-    bonnie.sources.map(({ location, destination }) => [location, destination]),
-    [
-      ["/static/python/commands/bonnie.c", "/tmp/bonnie/bonnie.c"],
-      ["/static/python/runtimes/bonnie.py", "/usr/lib/bonnie/bonnie.py"],
-    ],
-  );
-  assert.ok(bonnie.files.some(({ path, body }) =>
-    path === "/usr/lib/bonnie/bonnie.py" && body === null));
-
-  const helperPath = resolve(projectDir, "src/runtimes/bonnie.py");
-  const temporary = await mkdtemp(resolve(tmpdir(), "dolly-bonnie-helper-"));
-  try {
-    const combined = resolve(temporary, "combined.txt");
-    execFileSync("python3", [
-      helperPath,
-      "combine",
-      "Requests[socks]>=2",
-      "requests<3,!=2.5",
-      combined,
-    ]);
-    const requirement = await readFile(combined, "utf8");
-    assert.match(requirement, /^requests\[socks\]/);
-    assert.match(requirement, />=2/);
-    assert.match(requirement, /<3/);
-    assert.match(requirement, /!=2\.5/);
-    const metadata = resolve(temporary, "metadata.json");
-    const selected = resolve(temporary, "selected.txt");
-    const releases = { "1.0": [{ packagetype: "bdist_wheel", filename: "Demo_Project-1.0-py3-none-any.whl" }] };
-    await writeFile(metadata, JSON.stringify({ info: { name: "Demo_Project" }, releases }));
-    execFileSync("python3", [helperPath, "select", "demo.project", metadata, selected]);
-    assert.match(await readFile(selected, "utf8"), /^name demo-project$/m);
-    await writeFile(metadata, JSON.stringify({ info: { name: "other" }, releases }));
-    assert.throws(() => execFileSync("python3", [helperPath, "select", "demo-project", metadata, selected],
-      { stdio: "pipe" }), /PyPI returned project 'other'/);
-    const applicable = resolve(temporary, "applicable.txt");
-    execFileSync("python3", [helperPath, "applicable", 'Demo[b,a]>=1; python_version >= "3"', applicable]);
-    assert.equal(await readFile(applicable, "utf8"), "Demo[a,b]>=1\n");
-    execFileSync("python3", [helperPath, "applicable", 'demo; python_version < "3"', applicable]);
-    assert.equal(await readFile(applicable, "utf8"), "");
-    execFileSync("python3", ["-B", resolve(projectDir, "test/fixtures/bonnie-policy.py"), helperPath, temporary]);
-  } finally {
-    await rm(temporary, { recursive: true, force: true });
-  }
-});
 
 test("build modules declare tools used by their own recipes", async () => {
-  const modules = uniqueModules(await loadImages());
+  const modules = await coreModules();
   const module = (name) => modules.get(name);
   assert.deepEqual(
     module("zlib").requirements.map(({ type, name }) => `${type} ${name}`),
@@ -447,16 +310,11 @@ test("build modules declare tools used by their own recipes", async () => {
   const recipeTools = new Map([
     ["awk", ["cc"]],
     ["curl", ["ar", "cc"]],
-    ["gamedev-sdk", ["ar", "cc", "mkdir"]],
     ["ghostty", ["ar", "cc", "zig"]],
     ["git", ["ar", "cc", "mkdir", "rm"]],
     ["ninja", ["make"]],
     ["agent-tools", ["cc"]],
-    ["pi-build", ["cc"]],
-    ["quickjs", ["ar", "cc"]],
     ["sbase", ["cc"]],
-    ["typescript", ["cc"]],
-    ["libffi", ["ar", "cc"]],
     ["zlib", ["ar", "cc"]],
   ]);
   for (const [name, tools] of recipeTools) {
@@ -470,10 +328,9 @@ test("build modules declare tools used by their own recipes", async () => {
 });
 
 test("compiled modules declare their direct C header surfaces", async () => {
-  const modules = uniqueModules(await loadImages());
+  const modules = await coreModules();
   const requiringLibc = [
-    "tar", "core-tools", "download", "make", "cpp", "ninja", "zlib", "curl", "git", "quickjs", "pi-build",
-    "ghostty", "awk", "sbase", "python", "libffi", "cpython", "bonnie", "gamedev-sdk",
+    "tar", "core-tools", "download", "make", "cpp", "ninja", "zlib", "curl", "git", "ghostty", "awk", "sbase",
   ];
   for (const name of requiringLibc) {
     assert.ok(
@@ -490,23 +347,13 @@ test("compiled modules declare their direct C header surfaces", async () => {
   assert.deepEqual(headers("ninja"), ["libc", "runtime"]);
   assert.deepEqual(headers("curl"), ["libc", "http"]);
   assert.deepEqual(headers("git"), ["libc", "runtime", "curl", "zlib"]);
-  assert.deepEqual(headers("quickjs"), ["libc", "runtime", "http", "download"]);
-  assert.deepEqual(headers("pi-build"), ["libc", "quickjs-runner"]);
-  assert.deepEqual(headers("python"), ["curl", "libc", "runtime", "zlib"]);
-  assert.deepEqual(headers("libffi"), ["libc"]);
-  assert.deepEqual(headers("cpython"), ["libc", "ffi", "ffitarget", "runtime", "zlib"]);
-  assert.deepEqual(headers("bonnie"), ["curl", "libc", "runtime"]);
-  assert.deepEqual(headers("gamedev-sdk"), ["libc", "display"]);
 
   const exportedHeaders = (name) => modules.get(name).exports
     .filter(({ type }) => type === "HEADER")
     .map(({ name: header }) => header);
   assert.deepEqual(exportedHeaders("zlib"), ["zlib", "zconf"]);
-  assert.deepEqual(exportedHeaders("libffi"), ["ffi", "ffitarget"]);
   assert.deepEqual(exportedHeaders("curl"), ["curl"]);
-  assert.deepEqual(exportedHeaders("quickjs"), ["quickjs-runner", "quickjs"]);
   assert.deepEqual(exportedHeaders("ghostty"), ["ghostty-vt"]);
-  assert.deepEqual(exportedHeaders("gamedev-sdk"), ["raylib", "box3d", "dolly-raylib"]);
 
   const ghostty = modules.get("ghostty");
   assert.ok(ghostty.exports.some(({ type, name }) => type === "LIB" && name === "display"));
@@ -530,20 +377,3 @@ test("the system graph retains no retired extras or Awk generator inputs", async
     path.endsWith("/awk-maketab") || path.endsWith("/proctab.c")), false);
 });
 
-test("Patti pins its C implementation and parser without a Python runtime dependency", async () => {
-  const module = inspectDollyfile(await readFile(resolve(projectDir, "modules/patti.dm"), "utf8"), "patti.dm");
-  assert.ok(!module.requirements.some(requirement => requirement.name.startsWith("python")));
-  const sources = new Map([
-    ["patti.c", "src/commands/patti.c"], ["sha256.h", "src/sha256.h"],
-    ["tomlc17.c", "src/third_party/tomlc17/tomlc17.c"],
-    ["tomlc17.h", "src/third_party/tomlc17/tomlc17.h"],
-    ["LICENSE", "src/third_party/tomlc17/LICENSE"],
-  ]);
-  assert.equal(module.sources.length, sources.size);
-  for (const source of module.sources) {
-    const path = sources.get(basename(source.location));
-    assert.ok(path, source.location);
-    assert.equal(createHash("sha256").update(await readFile(resolve(projectDir, path))).digest("hex"), source.sha256);
-  }
-  assert.ok(module.slops.some(step => step.command[0] === "cc" && step.command.includes("/usr/bin/patti")));
-});

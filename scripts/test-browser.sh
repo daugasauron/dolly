@@ -13,7 +13,7 @@ else
 fi
 
 if [[ "${DOLLY_BROWSER_MODE:-}" == tokio ]]; then
-  python3 "${project_dir}/test/fixtures/prepare-tokio.py"
+  python3 "${project_dir}/demos/rust/test/fixtures/prepare-tokio.py"
 fi
 if [[ -n "${DOLLY_BROWSER_MODE:-}" ]]; then
   exec node "${project_dir}/scripts/browser-harness.mjs" "${chrome}"
@@ -90,7 +90,7 @@ for image in pi dollyfile-studio; do
       node "${project_dir}/scripts/browser-harness.mjs" "${chrome}"
   done
 done
-python3 "${project_dir}/test/fixtures/prepare-tokio.py"
+python3 "${project_dir}/demos/rust/test/fixtures/prepare-tokio.py"
 DOLLY_IMAGE=rust-tools DOLLY_BROWSER_MODE=tokio \
   node "${project_dir}/scripts/browser-harness.mjs" "${chrome}"
 DOLLY_IMAGE=codex DOLLY_BROWSER_MODE=codex \
