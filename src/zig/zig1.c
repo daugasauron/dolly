@@ -67,9 +67,6 @@ void store64_align3(uint64_t *ptr, uint64_t value) { store_u64(ptr, value); }
 
 static void zig_wasm_start_noop(void) {}
 
-#ifdef main
-#undef main
-#endif
 #define main zig_wasi_initialize
 #define wasm__start zig_wasm_start_noop
 #include "wasi.c"

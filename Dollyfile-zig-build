@@ -3,6 +3,6 @@ IMAGE zig-build
 
 FROM HOST /Dollyfile-system-build f320855c6e680ecf68c7b3a5824538c10fab5b5d66ee8f72edb0d1b632d5ecfe
 
-USE HOST /modules/zig.dm 853076d50227e36eec78027c266313eb125e349b3495579a35548d9395e262dd
+USE HOST /modules/zig.dm fbed8ebc592763224160f11ec0a07d39372a5dc7fe6b924a76d61278770128b8
 
 ENTRY /bin/slop
