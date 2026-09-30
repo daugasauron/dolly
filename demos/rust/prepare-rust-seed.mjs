@@ -11,7 +11,7 @@ export async function stageRustSeed(project, destination) {
   catch (error) { if (error.code !== "ENOENT") throw error; }
   if (manifest !== undefined) {
     const match = /^([a-f0-9]{64})  rust-sdk\.tar\.gz\n$/.exec(manifest);
-    if (!match) throw new Error("Invalid completed Rust seed checksum record; run npm run build:rust-seed");
+    if (!match) throw new Error("Invalid completed Rust seed checksum record; run demos/rust/build-rust-toolchain.sh");
     expected = match[1];
   } else {
     kind = "pinned";
@@ -21,10 +21,10 @@ export async function stageRustSeed(project, destination) {
   }
   const bytes = await readFile(source).catch(error => {
     if (error.code !== "ENOENT") throw error;
-    throw new Error("No completed Rust compiler seed. Run npm run build:rust-seed once, then retry the image build.");
+    throw new Error("No completed Rust compiler seed. Run demos/rust/build-rust-toolchain.sh once, then retry the image build.");
   });
   if (createHash("sha256").update(bytes).digest("hex") !== expected) {
-    throw new Error(`The ${kind} Rust compiler seed failed its checksum; restore it or run npm run build:rust-seed`);
+    throw new Error(`The ${kind} Rust compiler seed failed its checksum; restore it or run demos/rust/build-rust-toolchain.sh`);
   }
   await mkdir(dirname(destination), { recursive: true });
   const staging = await mkdtemp(join(dirname(destination), ".rust-seed-"));

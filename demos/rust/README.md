@@ -13,7 +13,7 @@ are built from source with it.
 - `fd-build`: Build fd with Patti and retain fd.
 - `protox-build`: Source-built protobuf compiler for Codex.
 
-Build the seed once with `npm run build:rust-seed` (Linux x86_64, Podman, Python
+Build the seed once with `./demos/rust/build-rust-toolchain.sh` (Linux x86_64, Podman, Python
 3.12+, curl, patch), then `npm run image -- rust-tools`. `rust-sdk` starts from
 `system-build`; [`search-tools.dm`](search-tools.dm) copies `rg` and `fd` into Pi
 and Codex images.

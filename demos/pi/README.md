@@ -22,7 +22,7 @@ never overwrites), then `pi --provider claude-local --model claude-sonnet-5-5`.
   workspace packages to `/usr/lib/node_modules` (`noCheck` emit, no type
   checking). `pi-runtime` adds the prompt, settings, theme and extension.
 - External packages are listed in [`pi-runtime-packages.txt`](pi-runtime-packages.txt)
-  and verified against `package-lock.json`; `npm run pi:census` reports pins and
+  and verified against `package-lock.json`; `node demos/pi/pi-runtime-census.mjs` reports pins and
   licenses. They load from WasmFS, never from the network.
 - [`dolly-tools.js`](dolly-tools.js) plugs Slop into Pi's `bash` tool and `!`,
   refuses to edit non-UTF-8 files and adds a `download` tool.
