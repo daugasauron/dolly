@@ -674,8 +674,8 @@ static int write_all(int descriptor, const char *bytes, size_t length) {
 // A pipeline stage or command substitution runs to completion before its
 // output is read, so the output collects in a spool file. A command writing
 // to a spool gets a kernel pipe instead, which Slop drains into the file. At
-// SPOOL_LIMIT Slop closes the pipe: the writer gets SIGPIPE and kernel memory
-// stays bounded even for an endless writer such as `yes`.
+// SPOOL_LIMIT Slop closes the pipe and sends the writer SIGPIPE, so kernel
+// memory stays bounded even for an endless writer that ignores EPIPE.
 #define SPOOL_LIMIT ((off_t)64 << 20)
 typedef struct Spool {
   int descriptor;
@@ -2806,6 +2806,7 @@ static int spawn_command(Shell *shell, int argc, char **argv) {
     if (drains[index].reader >= 0) close(drains[index].reader);
   }
   if (pid < 0) { fprintf(stderr, "slop: %s: spawn failed: %s\n", argv[0], strerror(-pid)); return 126; }
+  if (drained == EFBIG) kill(pid, SIGPIPE);
   const int status = wait_command(shell, pid);
   if (drained != 0 && !shell->terminating_signal) {
     // The shell whose output was cut off ends as if by SIGPIPE.
