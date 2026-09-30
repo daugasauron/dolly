@@ -25,3 +25,13 @@ have their own explicit bound.
 ## Done when
 
 - Tests submit oversized bootstrap writes and observe truncation/rejection without large copies.
+
+## Progress (2026-10-01)
+
+The page receives at most 1 MiB per bootstrap message
+(`host/runtime/runtime.mjs`), bootstrap sources have a hardened quota and
+multipart assets stream per part. The `HEAPU8.slice` in `src/dolly.c`'s
+`dolly_bootstrap_write_bytes` is bounded too: its callers pass one process
+write (at most `DOLLY_PROCESS_PACKET_LIMIT`, 1 MiB) or a supervisor message.
+Remaining: Emscripten's `print`/`printErr` glue decodes a whole kernel string
+before `runtime.mjs` trims it, and no test sends an oversized write.
