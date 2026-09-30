@@ -132,6 +132,20 @@ static inline int dolly_fs_checked_add(uintptr_t *total, uintptr_t amount, uintp
   return 0;
 }
 
+// No image retains scratch space or the bundled agent's credentials and sessions.
+static inline int dolly_fs_unretained_path(const char *path) {
+  static const char *const prefixes[] = {
+      "/tmp", "/workspace", "/home/dolly/.pi/agent/auth.json",
+      "/home/dolly/.pi/agent/sessions",
+  };
+  for (size_t index = 0; index < sizeof(prefixes) / sizeof(prefixes[0]); ++index) {
+    const size_t length = strlen(prefixes[index]);
+    if (strncmp(path, prefixes[index], length) == 0 &&
+        (path[length] == '\0' || path[length] == '/')) return 1;
+  }
+  return 0;
+}
+
 static inline int dolly_fs_valid_path(const char *path) {
   const size_t length = strlen(path);
   if (length < 2 || length >= PATH_MAX || path[0] != '/' ||

@@ -123,7 +123,8 @@ function validModuleLocator(value) {
   return /^\/modules\/[a-z][a-z0-9-]{0,63}\.dm$/.test(value);
 }
 
-function forbiddenKeep(value) {
+// No image retains scratch space or the bundled agent's credentials and sessions.
+export function unretainedPath(value) {
   return [
     "/tmp", "/workspace", "/home/dolly/.pi/agent/auth.json",
     "/home/dolly/.pi/agent/sessions",
@@ -222,7 +223,7 @@ function inspectRecipe(source, label, rows) {
           if (details.length !== 0 && (details.length !== 1 || !sha256Pattern.test(details[0]))) fail(label, item.line, "invalid TOOL export");
         } else if (["LIB", "FILE", "FOLDER", "HEADER"].includes(type)) {
           if (details.length !== 1 || !validAbsolutePath(details[0]) ||
-              forbiddenKeep(details[0])) fail(label, item.line, `invalid ${type} export`);
+              unretainedPath(details[0])) fail(label, item.line, `invalid ${type} export`);
         } else if (type === "ENV") {
           if (details.length > 1 &&
               !(details.length === 2 && details[0] === "APPEND")) {
@@ -234,14 +235,14 @@ function inspectRecipe(source, label, rows) {
       }
       case "FILE":
         if (tokens.length !== 1 || !validAbsolutePath(tokens[0])) fail(label, item.line, "invalid FILE");
-        if (forbiddenKeep(tokens[0]) && !tokens[0].startsWith("/tmp/")) {
+        if (unretainedPath(tokens[0]) && !tokens[0].startsWith("/tmp/")) {
           fail(label, item.line, "FILE cannot retain mutable session state");
         }
         files.push({ path: tokens[0], body: item.body, line: item.line, endLine: item.endLine });
         break;
       case "FOLDER":
         if (tokens.length !== 1 || !validAbsolutePath(tokens[0]) ||
-            forbiddenKeep(tokens[0])) fail(label, item.line, "invalid FOLDER");
+            unretainedPath(tokens[0])) fail(label, item.line, "invalid FOLDER");
         folders.push({ path: tokens[0], line: item.line });
         break;
       case "SLOP": {

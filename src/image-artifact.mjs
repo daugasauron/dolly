@@ -2,6 +2,7 @@ import { DOLLY_IMAGE_BUILD_ID } from "../dist/dolly-image-build-id.mjs";
 import { DOLLY_IMAGES } from "../dist/dolly-images.mjs";
 import { imageInputs, imageInputsMatch } from "./image-inputs.mjs";
 import { loadRecipeGraph } from "./dollyfile-graph.mjs";
+import { unretainedPath } from "./dollyfile-view.mjs";
 import { hostRequirements } from "./host/requirements.mjs";
 import { decodeStaticAsset, publicURL, sha256 } from "./static-asset.mjs";
 import { decodeSnapshotRecords, mergeSnapshotRecords, validateSnapshotPacks, MAX_SNAPSHOT_BYTES as snapshotSizeLimit } from "./snapshot-records.mjs";
@@ -16,8 +17,7 @@ function validSnapshotPath(path) {
     path.length <= 4096 && !path.includes("\\") && !path.includes("\0") &&
     !path.includes("//") &&
     !path.split("/").some((part) => part === "." || part === "..") &&
-    !["/tmp", "/workspace", "/home/dolly/.pi/agent/auth.json", "/home/dolly/.pi/agent/sessions"]
-      .some((prefix) => path === prefix || path.startsWith(`${prefix}/`));
+    !unretainedPath(path);
 }
 
 async function verifyVisibleRecipes(recipes) {

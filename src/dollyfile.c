@@ -297,19 +297,6 @@ static int valid_absolute_path(const char *path) {
          strpbrk(path, "\\\r\n") == NULL;
 }
 
-static int forbidden_keep(const char *path) {
-  static const char *const prefixes[] = {
-      "/tmp", "/workspace", "/home/dolly/.pi/agent/auth.json",
-      "/home/dolly/.pi/agent/sessions",
-  };
-  for (size_t index = 0; index < sizeof(prefixes) / sizeof(prefixes[0]); ++index) {
-    const size_t length = strlen(prefixes[index]);
-    if (strncmp(path, prefixes[index], length) == 0 &&
-        (path[length] == '\0' || path[length] == '/')) return 1;
-  }
-  return 0;
-}
-
 static int mkdir_parents(const char *path, int include_last) {
   char *copy = strdup(path);
   if (copy == NULL) return -ENOMEM;
@@ -734,7 +721,7 @@ static int resolve_tool(const char *name, char **path_out) {
 
 static int collect_paths(char ***paths, size_t *count, size_t *capacity,
                          const char *path) {
-  if (forbidden_keep(path)) return -EPERM;
+  if (dolly_fs_unretained_path(path)) return -EPERM;
   struct stat metadata;
   if (lstat(path, &metadata) != 0) return -errno;
   if (!S_ISREG(metadata.st_mode) && !S_ISDIR(metadata.st_mode) &&
@@ -1084,7 +1071,7 @@ static int read_artifact_receipt(Engine *engine, const unsigned char *bytes,
     for (uint32_t member = 0; result == 0 && member < members; ++member) {
       char *path = NULL;
       result = take_text(&cursor, end, &path);
-      if (result == 0 && (!valid_absolute_path(path) || forbidden_keep(path))) result = -EINVAL;
+      if (result == 0 && (!valid_absolute_path(path) || dolly_fs_unretained_path(path))) result = -EINVAL;
       if (result == 0) result = append_string(&object.members->items, &object.members->count,
                                              &object.members->capacity, path);
       free(path);
@@ -1158,7 +1145,7 @@ static int read_artifact(Artifact *artifact, const char *path, const char *expec
     if (artifact->offsets[index] > metadata.st_size ||
         size > (uint64_t)(metadata.st_size - artifact->offsets[index]) ||
         memchr(record->path, 0, path_length) != NULL ||
-        !valid_absolute_path(record->path) || forbidden_keep(record->path) ||
+        !valid_absolute_path(record->path) || dolly_fs_unretained_path(record->path) ||
         (index != 0 && strcmp(artifact->records[index - 1].path, record->path) >= 0)) return -EINVAL;
     if (record->kind == DOLLY_FS_SYMLINK ||
         strcmp(record->path, "/etc/dolly/Dollyfile") == 0 ||
@@ -1228,7 +1215,7 @@ static int load_artifact(Engine *engine, const char *locator, const char *expect
     if (path == NULL) { result = -ENOMEM; break; }
     snprintf(path, length, "%s%s", prefix, suffix);
     if (*path == '\0' && record->kind == DOLLY_FS_DIRECTORY) { free(path); continue; }
-    if (!valid_absolute_path(path) || forbidden_keep(path)) { free(path); result = -EINVAL; break; }
+    if (!valid_absolute_path(path) || dolly_fs_unretained_path(path)) { free(path); result = -EINVAL; break; }
     selected[count] = *record;
     if (record->kind == DOLLY_FS_FILE) selected[count].size = 0;
     indices[count] = index;
@@ -1414,7 +1401,7 @@ static int process_line(Engine *engine, const char *locator, size_t depth,
         else if (count == 4 && strcmp(words[2], "APPEND") == 0) { detail = words[3]; append = 1; }
         else if (count != 2) result = 2;
       } else {
-        if (count != 3 || !valid_absolute_path(words[2]) || forbidden_keep(words[2])) result = 2;
+        if (count != 3 || !valid_absolute_path(words[2]) || dolly_fs_unretained_path(words[2])) result = 2;
         else detail = words[2];
       }
     }
@@ -1438,14 +1425,14 @@ static int process_line(Engine *engine, const char *locator, size_t depth,
   } else if (strcmp(text, "FILE") == 0) {
     result = split_words(arguments, &words, &count);
     if (result == 0 && (count != 1 || !valid_absolute_path(words[0]) ||
-        (forbidden_keep(words[0]) && strncmp(words[0], "/tmp/", 5) != 0))) result = 2;
+        (dolly_fs_unretained_path(words[0]) && strncmp(words[0], "/tmp/", 5) != 0))) result = 2;
     if (result == 0 && execute && body != NULL) result = write_inline_file(words[0], body, body_length);
     if (result == 0 && execute) result = validate_export("FILE", "FILE", words[0], NULL, 0);
-    if (result == 0 && !forbidden_keep(words[0])) result = append_string(&engine->keep,
+    if (result == 0 && !dolly_fs_unretained_path(words[0])) result = append_string(&engine->keep,
         &engine->keep_count, &engine->keep_capacity, words[0]);
   } else if (strcmp(text, "FOLDER") == 0) {
     result = split_words(arguments, &words, &count);
-    if (result == 0 && (count != 1 || !valid_absolute_path(words[0]) || forbidden_keep(words[0]))) result = 2;
+    if (result == 0 && (count != 1 || !valid_absolute_path(words[0]) || dolly_fs_unretained_path(words[0]))) result = 2;
     if (result == 0 && execute) result = validate_export("FOLDER", "FOLDER", words[0], NULL, 0);
     if (result == 0 && execute) result = collect_tree(engine, words[0]);
   } else if (strcmp(text, "ENTRY") == 0) {
