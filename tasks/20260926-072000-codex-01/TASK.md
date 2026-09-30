@@ -54,5 +54,15 @@ Firefox on Xvfb provides no GPU adapter (also tried headed with
 half of the comparison needs a display with a GPU. Evidence, patch and scripts:
 `build/evidence/slopyard-quarry/` (local).
 
-Still required: the Firefox comparison and the populated rendering sample; then
-apply the patch, update the slopyard pins and rebuild the image.
+Frame rate, Chrome on Xvfb, populated world, west quarry view, frames counted
+over 8 s: 65.0 and 66.7 FPS before, 64.4 and 65.7 after (two rounds). The
+candidate costs about 1 FPS, within run-to-run noise.
+
+Firefox exposes `navigator.gpu` but `requestAdapter()` returns null here,
+headless or headed on Xvfb, with or without lavapipe
+(`gfx.webgpu.ignore-blocklist`, `dom.webgpu.workers.enabled`); no Dolly test
+requests a Firefox adapter either. The Firefox comparison needs a display with
+a GPU.
+
+Still required: the Firefox comparison; then apply the patch, update the
+slopyard pins and rebuild the image.
