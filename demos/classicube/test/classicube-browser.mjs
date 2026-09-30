@@ -6,7 +6,7 @@
 // the test origin on the relay and pick it with DOLLY_BROWSER_PORT.
 import { readFile } from "node:fs/promises";
 import { acceptDownload, delay, demoTest, leaveGame, redirectFetch } from "../../browser.mjs";
-import { relayProvider } from "../../rts/spectator/relay.mjs";
+import { relayProviders } from "../../rts/spectator/relay.mjs";
 import { runClassiCubeAgentProof } from "./fixtures/classicube-agent-browser.mjs";
 import { runClassiCubeMultiplayer } from "./fixtures/classicube-multiplayer-playwright.mjs";
 import { classicubeProvider } from "./fixtures/classicube-provider.mjs";
@@ -14,7 +14,7 @@ import { runClassiCubeProof } from "./fixtures/classicube-singleplayer.mjs";
 
 const projectDir = new URL("../../..", import.meta.url).pathname;
 const relayFile = process.env.DOLLY_CLASSICUBE_MODELS_FILE;
-const relay = relayFile && relayProvider(JSON.parse(await readFile(relayFile, "utf8")));
+const relay = relayFile && Object.values(relayProviders(JSON.parse(await readFile(relayFile, "utf8"))))[0];
 const fixture = relayFile ? null : classicubeProvider();
 const handle = async (request, response, path, headers) => {
   if (!fixture || !path.startsWith("/fixture/classicube/api/v1/")) return false;
