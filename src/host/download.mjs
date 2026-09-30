@@ -6,9 +6,11 @@ const maximum = 64 * 1024 * 1024;
 // Requests awaiting the user's Save/Dismiss click; more fail with EBUSY.
 const maxPending = 4;
 const maxRetainedUrls = 4;
+// No separators, controls or bidi controls that could disguise the saved name.
 function validName(name) {
   return typeof name === "string" && name.length > 0 && name.length <= 255 &&
-    name !== "." && name !== ".." && !/[\/\\\u0000-\u001f\u007f]/u.test(name);
+    name !== "." && name !== ".." &&
+    !/[\/\\\u0000-\u001f\u007f\u061c\u200e\u200f\u202a-\u202e\u2066-\u2069]/u.test(name);
 }
 
 // Wasm can only ask. Each file reaches the browser's download manager through
