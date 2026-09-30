@@ -17,35 +17,6 @@ enum {
 static const uintptr_t DOLLY_SESSION_MAX_SIZE = (uintptr_t)512 * 1024 * 1024;
 static const unsigned char DOLLY_SESSION_MAGIC[8] = {'D', 'O', 'L', 'L', 'Y', 'S', 'E', 'S'};
 
-static inline int dolly_session_take_bytes(const unsigned char **cursor, const unsigned char *end,
-                                                uintptr_t length, const unsigned char **result) {
-  if (length > (uintptr_t)(end - *cursor)) return -1;
-  *result = *cursor;
-  *cursor += length;
-  return 0;
-}
-
-static inline int dolly_session_take_u32(const unsigned char **cursor, const unsigned char *end,
-                                              uint32_t *result) {
-  const unsigned char *bytes;
-  if (dolly_session_take_bytes(cursor, end, 4, &bytes) != 0) return -1;
-  *result = (uint32_t)bytes[0] | (uint32_t)bytes[1] << 8 |
-            (uint32_t)bytes[2] << 16 | (uint32_t)bytes[3] << 24;
-  return 0;
-}
-
-static inline int dolly_session_take_u64(const unsigned char **cursor, const unsigned char *end,
-                                              uint64_t *result) {
-  const unsigned char *bytes;
-  if (dolly_session_take_bytes(cursor, end, 8, &bytes) != 0) return -1;
-  uint64_t value = 0;
-  for (unsigned index = 0; index < 8; ++index) {
-    value |= (uint64_t)bytes[index] << (index * 8);
-  }
-  *result = value;
-  return 0;
-}
-
 static inline int dolly_session_excluded_path(const char *path) {
   return strcmp(path, "/run") == 0 || strncmp(path, "/run/", 5) == 0 ||
          strcmp(path, "/dev") == 0 || strncmp(path, "/dev/", 5) == 0 ||
@@ -66,10 +37,10 @@ static inline int dolly_session_decode(const unsigned char *bytes, uintptr_t siz
   const unsigned char *end = bytes + size;
   const unsigned char *magic;
   uint32_t version, count;
-  if (dolly_session_take_bytes(&cursor, end, sizeof(DOLLY_SESSION_MAGIC), &magic) != 0 ||
+  if (dolly_fs_take_bytes(&cursor, end, sizeof(DOLLY_SESSION_MAGIC), &magic) != 0 ||
       memcmp(magic, DOLLY_SESSION_MAGIC, sizeof(DOLLY_SESSION_MAGIC)) != 0 ||
-      dolly_session_take_u32(&cursor, end, &version) != 0 ||
-      dolly_session_take_u32(&cursor, end, &count) != 0 ||
+      dolly_fs_take_u32(&cursor, end, &version) != 0 ||
+      dolly_fs_take_u32(&cursor, end, &count) != 0 ||
       version != DOLLY_SESSION_VERSION || count > DOLLY_SESSION_MAX_RECORDS) return -1;
 
   dolly_fs_record *records = calloc(count == 0 ? 1 : count, sizeof(*records));
@@ -79,16 +50,16 @@ static inline int dolly_session_decode(const unsigned char *bytes, uintptr_t siz
     uint32_t path_length;
     uint64_t data_length;
     const unsigned char *path;
-    if (dolly_session_take_u32(&cursor, end, &record->kind) != 0 ||
-        dolly_session_take_u32(&cursor, end, &path_length) != 0 ||
-        dolly_session_take_u64(&cursor, end, &data_length) != 0 ||
+    if (dolly_fs_take_u32(&cursor, end, &record->kind) != 0 ||
+        dolly_fs_take_u32(&cursor, end, &path_length) != 0 ||
+        dolly_fs_take_u64(&cursor, end, &data_length) != 0 ||
         record->kind < DOLLY_SESSION_DIRECTORY || record->kind > DOLLY_SESSION_DELETED ||
         ((record->kind == DOLLY_SESSION_DIRECTORY || record->kind == DOLLY_SESSION_DELETED) &&
          data_length != 0) ||
         data_length > DOLLY_SESSION_MAX_SIZE ||
-        dolly_session_take_bytes(&cursor, end, path_length, &path) != 0 ||
+        dolly_fs_take_bytes(&cursor, end, path_length, &path) != 0 ||
         path_length == 0 || path_length >= PATH_MAX || memchr(path, 0, path_length) != NULL ||
-        dolly_session_take_bytes(&cursor, end, (uintptr_t)data_length, &record->data) != 0) goto done;
+        dolly_fs_take_bytes(&cursor, end, (uintptr_t)data_length, &record->data) != 0) goto done;
     record->path = strndup((const char *)path, path_length);
     if (record->path == NULL || !dolly_fs_valid_path(record->path) ||
         dolly_session_excluded_path(record->path)) goto done;

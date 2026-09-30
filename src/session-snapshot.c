@@ -4,7 +4,6 @@
 
 #include <dirent.h>
 #include <emscripten/atomic.h>
-#include <emscripten/emscripten.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <limits.h>
@@ -46,48 +45,7 @@ static dolly_session_records base_records;
 static int base_ready;
 
 static int checked_add(uintptr_t *total, uintptr_t amount) {
-  if (amount > DOLLY_SESSION_MAX_SIZE ||
-      *total > DOLLY_SESSION_MAX_SIZE - amount) {
-    errno = EFBIG;
-    return -1;
-  }
-  *total += amount;
-  return 0;
-}
-
-static int read_exact(int descriptor, unsigned char *bytes, uintptr_t size) {
-  while (size != 0) {
-    ssize_t count = read(descriptor, bytes, size);
-    if (count < 0 && errno == EINTR) continue;
-    if (count <= 0) return -1;
-    bytes += (uintptr_t)count;
-    size -= (uintptr_t)count;
-  }
-  return 0;
-}
-
-static int write_exact(int descriptor, const unsigned char *bytes,
-                       uintptr_t size) {
-  while (size != 0) {
-    ssize_t count = write(descriptor, bytes, size);
-    if (count < 0 && errno == EINTR) continue;
-    if (count <= 0) return -1;
-    bytes += (uintptr_t)count;
-    size -= (uintptr_t)count;
-  }
-  return 0;
-}
-
-static void put_u32(unsigned char **cursor, uint32_t value) {
-  for (unsigned shift = 0; shift < 32; shift += 8) {
-    *(*cursor)++ = (unsigned char)(value >> shift);
-  }
-}
-
-static void put_u64(unsigned char **cursor, uint64_t value) {
-  for (unsigned shift = 0; shift < 64; shift += 8) {
-    *(*cursor)++ = (unsigned char)(value >> shift);
-  }
+  return dolly_fs_checked_add(total, amount, DOLLY_SESSION_MAX_SIZE);
 }
 
 static void dispose_records(dolly_session_records *records) {
@@ -208,7 +166,7 @@ static int fingerprint_record(dolly_session_record *record) {
     uintptr_t remaining = record->size;
     while (remaining != 0) {
       const size_t length = remaining < sizeof(bytes) ? remaining : sizeof(bytes);
-      if (read_exact(descriptor, bytes, length) != 0) {
+      if (dolly_fs_read_exact(descriptor, bytes, length) != 0) {
         close(descriptor);
         return -1;
       }
@@ -234,7 +192,6 @@ static int collect_fingerprints(dolly_session_records *records) {
   return 0;
 }
 
-EMSCRIPTEN_KEEPALIVE
 int dolly_session_base_capture(void) {
   if (base_ready) return 1;
   if (collect_fingerprints(&base_records) != 0) {
@@ -306,20 +263,20 @@ static int capture_filesystem(void) {
   unsigned char *cursor = capture_bytes;
   memcpy(cursor, DOLLY_SESSION_MAGIC, sizeof(DOLLY_SESSION_MAGIC));
   cursor += sizeof(DOLLY_SESSION_MAGIC);
-  put_u32(&cursor, DOLLY_SESSION_VERSION);
-  put_u32(&cursor, count);
+  dolly_fs_put_u32(&cursor, DOLLY_SESSION_VERSION);
+  dolly_fs_put_u32(&cursor, count);
   for (size_t index = 0; index < records.count; ++index) {
     const dolly_session_record *record = &records.records[index];
     if (record->kind == 0) continue;
     const uint32_t path_length = (uint32_t)strlen(record->path);
-    put_u32(&cursor, record->kind);
-    put_u32(&cursor, path_length);
-    put_u64(&cursor, record->size);
+    dolly_fs_put_u32(&cursor, record->kind);
+    dolly_fs_put_u32(&cursor, path_length);
+    dolly_fs_put_u64(&cursor, record->size);
     memcpy(cursor, record->path, path_length);
     cursor += path_length;
     if (record->kind == DOLLY_SESSION_FILE) {
       int descriptor = open(record->path, O_RDONLY);
-      if (descriptor < 0 || read_exact(descriptor, cursor, record->size) != 0 ||
+      if (descriptor < 0 || dolly_fs_read_exact(descriptor, cursor, record->size) != 0 ||
           close(descriptor) != 0) {
         if (descriptor >= 0) close(descriptor);
         dispose_records(&records);
@@ -354,7 +311,7 @@ static int write_session_marker(const char *name) {
   const int length = snprintf(marker, sizeof(marker),
                               "DOLLY-SESSION 1\nname %s\n", name);
   const int result = length > 0 && length < (int)sizeof(marker) &&
-                             write_exact(descriptor,
+                             dolly_fs_write_exact(descriptor,
                                          (const unsigned char *)marker,
                                          (uintptr_t)length) == 0 &&
                              close(descriptor) == 0
@@ -378,37 +335,30 @@ static int valid_session_name(const unsigned char *name, uint32_t length) {
          strcmp((const char *)name, "..") != 0;
 }
 
-EMSCRIPTEN_KEEPALIVE
 uintptr_t dolly_session_mailbox_address(void) {
   return (uintptr_t)&session_mailbox;
 }
 
-EMSCRIPTEN_KEEPALIVE
 uint32_t dolly_session_mailbox_version(void) {
   return DOLLY_SESSION_VERSION;
 }
 
-EMSCRIPTEN_KEEPALIVE
 uintptr_t dolly_session_name_address(void) {
   return (uintptr_t)session_name;
 }
 
-EMSCRIPTEN_KEEPALIVE
 uint32_t dolly_session_name_capacity(void) {
   return DOLLY_SESSION_NAME_CAPACITY;
 }
 
-EMSCRIPTEN_KEEPALIVE
 uintptr_t dolly_session_transfer_address(void) {
   return (uintptr_t)session_transfer;
 }
 
-EMSCRIPTEN_KEEPALIVE
 uint32_t dolly_session_transfer_capacity(void) {
   return DOLLY_SESSION_TRANSFER_CAPACITY;
 }
 
-EMSCRIPTEN_KEEPALIVE
 uintptr_t dolly_session_restore_address(uintptr_t size) {
   if (size < DOLLY_SESSION_HEADER_SIZE || size > DOLLY_SESSION_MAX_SIZE) {
     return 0;
@@ -432,7 +382,6 @@ static int restore_filesystem(uintptr_t size) {
   return result != 0;
 }
 
-EMSCRIPTEN_KEEPALIVE
 int dolly_session_restore(uintptr_t size) {
   const int result = restore_filesystem(size);
   free(restore_bytes);
@@ -499,7 +448,6 @@ static int publish_capture(uint32_t request) {
   return wait_for_chunk(sequence, request);
 }
 
-EMSCRIPTEN_KEEPALIVE
 void dolly_session_service(void) {
   const uint32_t request = atomic_load_explicit(
       &session_mailbox.request_sequence, memory_order_acquire);
