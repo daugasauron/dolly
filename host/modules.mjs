@@ -42,7 +42,7 @@ export async function createHost(side, enabled, { send, resources = {}, configur
     try { requireModules(module.contract.dependencies); }
     catch (error) { reasons.set(name, error.message); return; }
     if (side === "browser") {
-      const reason = await module.check?.(resources[name] ?? {});
+      const reason = await module.check?.();
       if (reason) { reasons.set(name, reason); return; }
     }
     const dependency = name => {
@@ -51,7 +51,7 @@ export async function createHost(side, enabled, { send, resources = {}, configur
       }
       return get(name);
     };
-    const instance = module[side]?.({ ...resources[name], send, get: dependency,
+    const instance = module[side]?.({ ...resources, send, get: dependency,
       service: () => { for (const instance of instances.values()) instance.service?.(); },
       abi: hostContracts.map(({ name, version }) => `${name}@${version}`),
       configuration: configuration[name] ?? {} }) ?? {};

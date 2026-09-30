@@ -10,7 +10,7 @@ export async function buildImage(image, artifacts, networkPolicy, report, { cust
   const inputs = new Map(artifacts.map(artifact => [artifact.recipeSha256, artifact]));
   let worker;
   const host = await createHost("browser", buildHost, {
-    send: message => worker.postMessage(message), resources: { http: { network: networkPolicy } },
+    send: message => worker.postMessage(message), configuration: { http: { network: networkPolicy } },
   });
   let abort, result;
   const decoder = new TextDecoder("utf-8", { ignoreBOM: true });

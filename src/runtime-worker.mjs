@@ -126,7 +126,7 @@ try {
   host = await createHost("worker", bootConfig.hostModules, {
     send: (message, transfers = []) => self.postMessage(message, transfers),
     configuration: bootConfig.hostConfiguration,
-    resources: { runtime: { applicationBase } },
+    resources: { applicationBase },
   });
   const snapshotMetadata = bootMode === "snapshot"
     ? configuredImage === "custom" ? await checkedCustomArtifact(bootConfig.customSource, bootConfig.customArtifact)

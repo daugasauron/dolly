@@ -556,8 +556,8 @@ async function boot() {
   host = await createHost("browser", globalThis.DOLLY_HOST_MODULES ??
     [...requiredHost, ...(bootMode === "rebuild" ? buildHost : [])], {
     send: (message, transfers = []) => runtimeWorker.postMessage(message, transfers),
-    resources: { http: { network: localServicesTransport(httpPolicy, localServices) },
-      display: { canvas, fatal: displayFatal }, gpu: { mount } },
+    resources: { mount, canvas, fatal: displayFatal },
+    configuration: { http: { network: localServicesTransport(httpPolicy, localServices) } },
   });
   delete globalThis.DOLLY_HOST_MODULES;
   host.require(requiredHost);
