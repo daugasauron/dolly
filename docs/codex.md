@@ -37,8 +37,10 @@ requests. ChatGPT's Codex backend needs a reviewed relay when it rejects the
 browser's preflight request.
 
 The browser broker owns destination, credential, redirect and quota policy.
-Codex's OS sandbox is disabled inside this already isolated Wasm userspace;
-commands operate on Dolly's shared memory filesystem. Native sockets, process
+Codex's OS sandbox is disabled inside this already isolated Wasm userspace:
+the default config sets `approval_policy = "never"` and
+`sandbox_mode = "danger-full-access"`, so commands run without prompts on Dolly's
+shared memory filesystem. Native sockets, process
 fork hooks, application threads and advisory file locks remain unavailable.
 Tokio runs a current-thread executor; filesystem work is synchronous and child
 processes use Dolly spawn/wait. Credential and config persistence, route-client
