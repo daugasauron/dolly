@@ -613,9 +613,7 @@ export class DollyProcessSupervisor {
     process.reclamationDeadline = Math.max(
       this.#reclamationDeadline(process), reclamationDeadline,
     );
-    this.#clearTimers(process);
-    this.#disposeWorker(process);
-    this.#clearDeferred(process);
+    this.#stop(process);
     const retired = () => {
       process.retirementTimer = null;
       if (this.processes.get(process.pid) !== process) return;
@@ -687,11 +685,8 @@ export class DollyProcessSupervisor {
       .map(({ process }) => process);
     let reclamationDeadline = 0;
     for (const process of descendants) {
-      process.retiring = true;
       reclamationDeadline = Math.max(reclamationDeadline, this.#reclamationDeadline(process));
-      this.#clearTimers(process);
-      this.#disposeWorker(process);
-      this.#clearDeferred(process);
+      this.#stop(process);
     }
     return { descendants, reclamationDeadline };
   }
@@ -711,6 +706,13 @@ export class DollyProcessSupervisor {
     process.threads.delete(thread.tid);
   }
 
+  // Ends a process's Workers and timers; the kernel keeps its record until collected.
+  #stop(process) {
+    process.retiring = true;
+    this.#clearTimers(process);
+    this.#disposeWorker(process);
+  }
+
   #disposeWorker(process) {
     for (const thread of [...process.threads.values()]) this.#disposeThread(process, thread);
     this.#disposeThread(process, process);
@@ -728,9 +730,7 @@ export class DollyProcessSupervisor {
   dispose() {
     clearInterval(this.serviceTimer);
     for (const process of this.processes.values()) {
-      process.retiring = true;
-      this.#clearTimers(process);
-      this.#disposeWorker(process);
+      this.#stop(process);
       process.reject?.(new Error("Dolly runtime closed"));
     }
     this.processes.clear();
