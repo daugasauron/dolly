@@ -7,7 +7,7 @@ surface over Dolly's files, lifecycle and HTTP. Neither is native Node.
 QuickJS-ng + Janis node:* adapters → dolly-process-0 → Wasm kernel
 ```
 
-`qjs`, `janis`, `tsc` and `pi` are ordinary WasmFS programs.
+`janis`, `tsc` and `pi` are ordinary WasmFS programs; `qjs` links to `janis`.
 The headless `typescript-build` image compiles QuickJS and the TypeScript
 launcher on `system-tools`. The interactive `javascript` image copies those
 programs, libraries and headers into `system`, so display changes reuse them.
