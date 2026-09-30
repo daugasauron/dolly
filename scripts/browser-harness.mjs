@@ -25,6 +25,7 @@ import {
   selectImageDefinitions,
 } from "./image-definitions.mjs";
 import { loadDollyfileGraph } from "./dollyfile-graph.mjs";
+import { recipeFiles } from "./recipe-files.mjs";
 import { shellCases, sourceFiles, shellQuote } from "../test/fixtures/slop-cases.mjs";
 import { browserShellCases } from "../test/fixtures/browser-shell-cases.mjs";
 import { decoderCases } from "../test/fixtures/utf8-cases.mjs";
@@ -242,19 +243,21 @@ const codexFixtureAccessToken = [
   "dolly-browser-fixture",
 ].join(".");
 
-const publicSources = new Set([...browserSources, ...imageDefinitions.map(definition => definition.filename)]);
+const publicSources = new Set(browserSources);
+const recipes = await recipeFiles(projectDir);
 const sourceArtifacts = new Map(staticSources.map((source) => [
   source.path.slice(1),
   {
-    relative: source.path.startsWith("/static/")
+    relative: recipes.get(source.path) ?? (source.path.startsWith("/static/")
       ? `dist/${source.path.slice(1)}`
-      : source.path.slice(1),
+      : source.path.slice(1)),
     source,
   },
 ]));
 const routeDocuments = new Map([
   ["/", "build/routes/index.html"],
   ["/index.html", "build/routes/index.html"],
+  ...imageDefinitions.map(({ filename, path }) => [`/${filename}`, path]),
   ...imageDefinitions.flatMap(({ image }) => [
     [`/${image}`, `build/routes/${image}/index.html`],
     [`/${image}/rebuild`, `build/routes/${image}/rebuild/index.html`],
@@ -852,7 +855,7 @@ function startServer() {
       response.writeHead(200, {
         ...isolatedHeaders,
         "content-type": source?.media === "txt" || imageDefinitions.some(
-          (definition) => definition.filename === relative,
+          (definition) => definition.path === relative,
         ) ? "text/plain; charset=utf-8" :
           mimeTypes.get(extname(path)) ?? "application/octet-stream",
         ...(source?.media === "bin"

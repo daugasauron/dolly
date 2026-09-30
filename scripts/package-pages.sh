@@ -173,15 +173,14 @@ elif [[ "${site}" == "github-pages" ]]; then
   node "${project_dir}/scripts/package-github-pages.mjs" "${staging}/site"
 fi
 source_rows="$(node "${project_dir}/scripts/list-images.mjs" --sources)"
-while IFS=$'\t' read -r source_path source_metadata; do
+while IFS=$'\t' read -r source_path source_file; do
   case "${source_path}" in
-    /static/*) source_file="${project_dir}/dist${source_path}" ;;
-    /modules/*) source_file="${project_dir}${source_path}" ;;
+    /static/*|/modules/*) ;;
     *) continue ;;
   esac
   destination="${staging}/site${source_path}"
   mkdir -p "$(dirname -- "${destination}")"
-  cp -- "${source_file}" "${destination}"
+  cp -- "${project_dir}/${source_file}" "${destination}"
 done <<< "${source_rows}"
 node "${project_dir}/scripts/package-documentation.mjs" "${project_dir}" "${staging}/site" \
   docs/dollyfile.md docs/architecture.md docs/security.md docs/port-status.md \

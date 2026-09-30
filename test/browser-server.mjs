@@ -9,6 +9,7 @@ import { tarArchive } from "./fixtures/tar.mjs";
 import { buildIdentities } from "../scripts/write-build-id.mjs";
 import { imageInputsMatch } from "../src/image-inputs.mjs";
 import { bundleProcessWorker } from "../scripts/bundle-process-worker.mjs";
+import { recipeFiles } from "../scripts/recipe-files.mjs";
 
 export const mimeTypes = new Map([
   [".html", "text/html; charset=utf-8"],
@@ -83,6 +84,7 @@ export async function startBrowserServer(projectDir, image = "default", port = 0
       throw new Error(`Core browser checks need a built runtime and ${image} image. Run npm run build:runtime once, then npm run image -- ${image}.`, { cause: error });
     });
   const { DOLLY_IMAGES, DOLLY_STATIC_SOURCES } = await import(pathToFileURL(resolve(projectDir, "dist/dolly-images.mjs")));
+  const recipes = await recipeFiles(projectDir);
   if (!DOLLY_IMAGES.some(definition => definition.image === image)) {
     throw new Error(`Build ${image} once with npm run image -- ${image}, then retry the browser check.`);
   }
@@ -111,7 +113,7 @@ export async function startBrowserServer(projectDir, image = "default", port = 0
     }
     const metadata = await check(DOLLY_IMAGES.find(definition => definition.image === image));
     for (const recipe of metadata.recipes) {
-      const bytes = await readFile(resolve(projectDir, recipe.sourcePath.slice(1)));
+      const bytes = await readFile(resolve(projectDir, recipes.get(recipe.sourcePath)));
       if (createHash("sha256").update(bytes).digest("hex") !== recipe.sha256) throw new Error(`${recipe.sourcePath} changed`);
     }
   } catch (error) {
@@ -119,14 +121,14 @@ export async function startBrowserServer(projectDir, image = "default", port = 0
   }
   const files = new Map([...browserSources].map(path => [`/${path}`, path]));
   for (const definition of DOLLY_IMAGES) {
-    files.set(`/${definition.dollyfile}`, definition.dollyfile);
+    files.set(`/${definition.dollyfile}`, recipes.get(`/${definition.dollyfile}`));
     for (const suffix of [".snapshot", "-snapshot.mjs"]) {
       const path = `dist/dolly-${definition.image}-system${suffix}`;
       files.set(`/${path}`, path);
     }
   }
-  for (const source of DOLLY_STATIC_SOURCES) files.set(source.path,
-    source.path.startsWith("/static/") ? `dist${source.path}` : source.path.slice(1));
+  for (const source of DOLLY_STATIC_SOURCES) files.set(source.path, recipes.get(source.path) ??
+    (source.path.startsWith("/static/") ? `dist${source.path}` : source.path.slice(1)));
   for (const name of await readdir(resolve(projectDir, "dist"))) {
     if (/^dolly(?:-[a-z0-9-]+)?\.(?:wasm|mjs|data)$/.test(name) || name === "IosevkaTerm-SemiBold.woff2") {
       files.set(`/dist/${name}`, `dist/${name}`);

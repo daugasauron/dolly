@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { readdir, readFile, stat, writeFile } from "node:fs/promises";
+import { readFile, stat, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 
 import { inspectDollyfile } from "../src/dollyfile-view.mjs";
@@ -7,25 +7,25 @@ import {
   createDollyfileGraphLoader,
   recipeRecords,
 } from "./dollyfile-graph.mjs";
+import { recipeFiles } from "./recipe-files.mjs";
 
+// `filename` is the logical HOST name; `path` is the file in this checkout.
 export async function discoverImageDefinitions(projectDir) {
-  const entries = await readdir(projectDir, { withFileTypes: true });
-  const names = entries
-    .filter((entry) => entry.isFile() && /^Dollyfile(?:-[a-z][a-z0-9-]*)?$/.test(entry.name))
-    .map((entry) => entry.name)
-    .sort();
   const definitions = [];
-  for (const filename of names) {
-    const source = await readFile(resolve(projectDir, filename), "utf8");
+  for (const [location, path] of await recipeFiles(projectDir)) {
+    if (location.startsWith("/modules/")) continue;
+    const filename = location.slice(1);
+    const source = await readFile(resolve(projectDir, path), "utf8");
     const parsed = inspectDollyfile(source, filename);
     const expected = parsed.image === "default" ? "Dollyfile" : `Dollyfile-${parsed.image}`;
     if (filename !== expected) {
-      throw new Error(`${filename}: IMAGE ${parsed.image} must use filename ${expected}`);
+      throw new Error(`${path}: IMAGE ${parsed.image} must use filename ${expected}`);
     }
     definitions.push({
       projectDir,
       image: parsed.image,
       filename,
+      path,
       source,
       parsed,
     });
@@ -74,10 +74,6 @@ export async function selectImageDefinitions(definitions, selection = process.en
 export async function inspectStaticSources(projectDir, definitions, staticDirectory = resolve(projectDir, "dist/static")) {
   const sources = new Map();
   const loadGraph = createDollyfileGraphLoader(projectDir);
-  const modules = await readdir(resolve(projectDir, "modules"), { withFileTypes: true }).catch(error => {
-    if (error.code === "ENOENT") return [];
-    throw error;
-  });
   for (const definition of definitions) {
     const graph = await loadGraph(definition.filename);
     for (const module of graph.records) {
@@ -130,11 +126,9 @@ export async function inspectStaticSources(projectDir, definitions, staticDirect
     }
   }
   // Publishing module text does not execute it or select its build inputs.
-  for (const entry of modules) {
-    if (!entry.isFile() || !/^[a-z][a-z0-9-]{0,63}\.dm$/.test(entry.name)) continue;
-    const path = `/modules/${entry.name}`;
-    if (sources.has(path)) continue;
-    const bytes = await readFile(resolve(projectDir, path.slice(1)));
+  for (const [path, file] of await recipeFiles(projectDir)) {
+    if (!path.startsWith("/modules/") || sources.has(path)) continue;
+    const bytes = await readFile(resolve(projectDir, file));
     if (bytes.length === 0) continue;
     sources.set(path, Object.freeze({
       path, sha256: createHash("sha256").update(bytes).digest("hex"), byteLength: bytes.length,

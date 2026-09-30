@@ -1,11 +1,18 @@
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { loadRecipeGraph } from "../src/dollyfile-graph.mjs";
+import { recipeFiles } from "./recipe-files.mjs";
 
 // Loads catalog recipe graphs from a project directory, sharing parsed recipes.
 export function createDollyfileGraphLoader(projectDir) {
   const recipes = new Map();
-  const read = location => readFile(resolve(projectDir, location.slice(1)));
+  let files;
+  async function read(location) {
+    files ??= recipeFiles(projectDir);
+    const path = (await files).get(location);
+    if (!path) throw new Error(`${location}: no such recipe`);
+    return readFile(resolve(projectDir, path));
+  }
   return (rootFilename = "Dollyfile") => loadRecipeGraph(read, `/${rootFilename}`, recipes);
 }
 

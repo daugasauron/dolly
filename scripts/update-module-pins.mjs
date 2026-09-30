@@ -1,16 +1,19 @@
 #!/usr/bin/env node
 import { createHash } from "node:crypto";
-import { readdir, readFile, writeFile } from "node:fs/promises";
+import { readFile, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { inspectDollyfile } from "../src/dollyfile-view.mjs";
+import { recipeFiles } from "./recipe-files.mjs";
 
 export async function updateRecipePins(projectDir, refreshSources = false) {
   const active = new Set(), pinned = new Map();
+  const files = await recipeFiles(projectDir);
   async function pin(location) {
     if (active.has(location)) throw new Error(`${location}: recipe cycle`);
     if (pinned.has(location)) return pinned.get(location);
     active.add(location);
-    const path = resolve(projectDir, location.slice(1));
+    if (!files.has(location)) throw new Error(`${location}: no such recipe`);
+    const path = resolve(projectDir, files.get(location));
     const original = await readFile(path, "utf8");
     const recipe = inspectDollyfile(original, location);
     const lines = original.split(/\r\n|\r|\n/);
@@ -61,8 +64,8 @@ export async function updateRecipePins(projectDir, refreshSources = false) {
     pinned.set(location, sha256);
     return sha256;
   }
-  const images = (await readdir(projectDir)).filter(name => /^Dollyfile(?:-[a-z][a-z0-9-]*)?$/.test(name)).sort();
-  for (const image of images) await pin(`/${image}`);
+  const images = [...files.keys()].filter(location => !location.startsWith("/modules/")).sort();
+  for (const image of images) await pin(image);
   return { recipes: pinned.size, images: images.length };
 }
 
