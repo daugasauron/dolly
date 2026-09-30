@@ -3,7 +3,6 @@ MODULE zig-stage2
 
 # Upstream bootstrap.c steps 4-5 in Dolly: zig1 emits the compiler (with
 # /usr/src/dolly/zig/config.zig) and compiler_rt as C for wasm64-emscripten.
-# Fails today: zig1 overflows the browser Worker's native stack (README).
 REQUIRES TOOL date
 REQUIRES TOOL ln
 REQUIRES TOOL mkdir

@@ -1,8 +1,0 @@
-DOLLY 4
-IMAGE zig-stage2-hostc
-
-FROM HOST /Dollyfile-zig-stage1 ba175a324f90a9832748c56eaccf7ef6201d70c82f4e38a4dc530853a22069ab
-USE HOST /modules/zig2-host-c.dm 3db68d72c7dc7a57027b98a4fa6dd4ddabe0530a6205759c53a71b4ac72bf79e
-USE HOST /modules/zig2-cc.dm d1cc771d5d7631a1ea50326b670681dfa3e3482776332185888452acf875a0fe
-
-ENTRY /bin/slop

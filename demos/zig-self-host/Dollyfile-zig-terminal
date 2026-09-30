@@ -1,0 +1,20 @@
+DOLLY 4
+IMAGE zig-terminal
+
+# `default` with the display plugin from zig-ghostty-cbe instead of ghostty-build.
+FROM HOST /Dollyfile-system-tools 568f55f581d3c607abaf241dbb3306badc332a703e08d7fb3dddd0f6925499b5
+
+REQUIRES HOST display@0
+REQUIRES HOST http@0
+REQUIRES HOST download@0
+REQUIRES HOST upload@0
+REQUIRES HOST snapshot@0
+
+COPY FROM HOST /Dollyfile-zig-ghostty-cbe f9333ea6f688a3e80babe02c82a09842f7a12d61f9c161ae36daba616d3410ff /usr/lib/libdisplay.so /usr/lib/libdisplay.so
+COPY FROM HOST /Dollyfile-ghostty-build 82f6100a1510bc570bea5ed6e1ead95bf0b99ffd562cc48e6f848d4e7ed6b64e /usr/share/fonts/IosevkaTerm-SemiBold.ttf /usr/share/fonts/IosevkaTerm-SemiBold.ttf
+EXPORTS LIB display /usr/lib/libdisplay.so
+EXPORTS ENV DISPLAY /usr/lib/libdisplay.so
+
+USE HOST /modules/startup-default.dm 1533189a2426fb09324eb8be0cad9ed2c0ee8903e538ad56e45e9041eb1dfa3a
+
+ENTRY /bin/foreground -i /bin/slop /etc/dolly/init.slop

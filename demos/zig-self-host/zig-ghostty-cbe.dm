@@ -15,6 +15,25 @@ REQUIRES TOOL zig
 SOURCE HOST /static/zig-self-host/ghostty.tar /tmp/ghostty.tar 1e3ef30d92c3e5569ff5c1efb440168e08bafdabb87a573a1538c51a71c79155
 SLOP tar -xf /tmp/ghostty.tar -C /
 
+# With -ofmt=c, compiler_rt leaves these to the C library; the LLVM path gets
+# them from compiler_rt. A kernel plugin has no C library to import them from.
+FILE /tmp/ghostty/string.c
+    #include <stddef.h>
+    size_t strlen(const char *text) {
+      size_t length = 0;
+      while (text[length]) length++;
+      return length;
+    }
+    int memcmp(const void *left, const void *right, size_t size) {
+      const unsigned char *a = left, *b = right;
+      for (size_t index = 0; index < size; index++)
+        if (a[index] != b[index]) return a[index] - b[index];
+      return 0;
+    }
+    int bcmp(const void *left, const void *right, size_t size) {
+      return memcmp(left, right, size);
+    }
+
 FILE /tmp/ghostty/build.slop
     set -ex
     mark() { echo "zig-timing $1 $(date +%s)"; }
@@ -46,7 +65,8 @@ FILE /tmp/ghostty/build.slop
     flags='-O2 -std=c99 -fno-strict-aliasing -Wno-incompatible-pointer-types -I/usr/src/zig/lib'
     cc -c $flags '-D__builtin_return_address(level)=0' -o ghostty-vt.o ghostty-vt.c
     cc -c $flags -o compiler_rt.o compiler_rt.c
-    ar rcs /usr/lib/libghostty-vt.a ghostty-vt.o compiler_rt.o
+    cc -c -O2 -fno-builtin -o string.o string.c
+    ar rcs /usr/lib/libghostty-vt.a ghostty-vt.o compiler_rt.o string.o
     mark display-link
     cc -shared --dolly-kernel-plugin -O2 -std=c17 -I /tmp/ghostty -I /usr/include \
       /usr/src/dolly/ghostty/display.c -lghostty-vt -o /usr/lib/libdisplay.so

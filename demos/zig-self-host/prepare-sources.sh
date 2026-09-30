@@ -12,11 +12,11 @@ if has_module zig-stage1; then
     "${zig_bootstrap_inputs[@]}" \
     "${zig_bootstrap_dir}/LICENSE" /usr/share/licenses/zig/LICENSE \
     demos/zig-self-host/zig2-config.zig /usr/src/dolly/zig/config.zig
-fi
-if has_module zig2-host-c; then
-  zig2_host_c_dir="$(bash demos/zig-self-host/host-zig2-c.sh)"
-  copy_static "${zig2_host_c_dir}/zig2.c" zig-self-host/zig2.c
-  copy_static "${zig2_host_c_dir}/compiler_rt.c" zig-self-host/compiler_rt.c
+  wamr_dir="$(bash demos/zig-self-host/fetch-wamr.sh)"
+  node scripts/build-source-tar.mjs "${static_dir}/zig-self-host/wamr.tar" \
+    "${wamr_dir}/core" /tmp/wamr/core \
+    demos/zig-self-host/wamr /tmp/wamr \
+    "${wamr_dir}/LICENSE" /usr/share/licenses/wamr/LICENSE
 fi
 if has_module zig-ghostty-cbe; then
   zig_ghostty_dir="$(bash scripts/prepare-ghostty-source.sh "$(bash scripts/fetch-pinned-checkout.sh ghostty)")"

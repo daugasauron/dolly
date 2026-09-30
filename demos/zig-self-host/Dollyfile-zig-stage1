@@ -2,6 +2,6 @@ DOLLY 4
 IMAGE zig-stage1
 
 FROM HOST /Dollyfile-system-build dc227bcd544a0fcb8ed8f4e4c755f37ae640ca619ac123ec377438b938a0ddf8
-USE HOST /modules/zig-stage1.dm c77ca4b89417b59006f4e06e9562d20e16a794acd6ce11e31c3993034d661caa
+USE HOST /modules/zig-stage1.dm 5f28d50e9d461fd26f784db0b7af78ca7b2e770dcb1983a10c9059fb028f1975
 
 ENTRY /bin/slop

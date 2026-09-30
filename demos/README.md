@@ -21,3 +21,4 @@ README. Demos may use each other; the core never uses a demo.
 - [slopyard](slopyard/README.md): Slopyard and the raylib/Box3D gamedev SDK.
 - [studio](studio/README.md): Dollyfile Studio.
 - [zero-ad](zero-ad/README.md): 0 A.D. Release 28 and its OpenAL build.
+- [zig-self-host](zig-self-host/README.md): spike building Zig from source inside Dolly for Ghostty.
