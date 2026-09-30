@@ -1,0 +1,258 @@
+import { DOLLY_ERRNO } from "../../dist/dolly-errno.mjs";
+
+export class HttpError extends Error {
+  constructor(errno, message) { super(message); this.errno = errno; }
+}
+
+const credentialHeaderNames = new Set([
+  "authorization",
+  "cookie",
+  "proxy-authorization",
+  "x-api-key",
+  "api-key",
+  "x-goog-api-key",
+]);
+
+// Fetch owns these transport headers. Forwarding native libcurl values is not
+// merely ineffective: engines disagree about whether to discard them or turn
+// the request into a CORS preflight. In particular Firefox preflights a
+// caller-supplied User-Agent, which makes otherwise CORS-enabled PyPI GETs
+// fail. Normalize that browser variance at Dolly's broker boundary.
+const browserOwnedTransportHeaderNames = new Set([
+  "accept-encoding",
+  "connection",
+  "content-length",
+  "host",
+  "transfer-encoding",
+  "user-agent",
+]);
+
+export function isDollyCredentialHeader(name) {
+  return credentialHeaderNames.has(String(name).toLowerCase());
+}
+
+export function stripDollyBrowserOwnedHeaders(headers) {
+  for (const name of browserOwnedTransportHeaderNames) headers.delete(name);
+  return headers;
+}
+
+const defaultLimits = Object.freeze({
+  maxRequests: 256,
+  maxRequestBytes: 8 * 1024 * 1024,
+  maxResponseBytes: Infinity,
+  timeoutMilliseconds: 600_000,
+});
+
+function positiveInteger(value, fallback, name) {
+  const result = value ?? fallback;
+  if (!Number.isSafeInteger(result) || result <= 0) {
+    throw new TypeError(`invalid Dolly HTTP policy ${name}`);
+  }
+  return result;
+}
+
+function normalizeRule(rule) {
+  if (rule === null || typeof rule !== "object") {
+    throw new TypeError("invalid Dolly HTTP policy rule");
+  }
+  const origin = new URL(rule.origin).origin;
+  if (origin !== rule.origin || !/^https?:$/.test(new URL(origin).protocol)) {
+    throw new TypeError("Dolly HTTP policy origins must be exact HTTP(S) origins");
+  }
+  if (rule.path !== undefined && rule.pathPrefix !== undefined) {
+    throw new TypeError("Dolly HTTP policy rules cannot combine path and pathPrefix");
+  }
+  const path = rule.path === undefined ? null : String(rule.path);
+  const pathPrefix = rule.pathPrefix ?? "/";
+  if (path !== null && !path.startsWith("/")) {
+    throw new TypeError("Dolly HTTP policy paths must start with /");
+  }
+  if (typeof pathPrefix !== "string" || !pathPrefix.startsWith("/")) {
+    throw new TypeError("Dolly HTTP policy path prefixes must start with /");
+  }
+  const methods = new Set((rule.methods ?? ["GET", "HEAD"]).map((method) => {
+    if (typeof method !== "string" || !/^[A-Z]+$/.test(method)) {
+      throw new TypeError("Dolly HTTP policy methods must be uppercase tokens");
+    }
+    return method;
+  }));
+  if (rule.credential !== undefined) {
+    throw new TypeError(
+      "Dolly HTTP credentials belong inside the sandbox; use credentialHeaders",
+    );
+  }
+  const credentialHeaders = new Set((rule.credentialHeaders ?? []).map((value) => {
+    const name = String(value).toLowerCase();
+    if (!credentialHeaderNames.has(name)) {
+      throw new TypeError(`invalid Dolly HTTP credential header: ${name}`);
+    }
+    return name;
+  }));
+  return Object.freeze({
+    origin,
+    path,
+    pathPrefix,
+    methods,
+    credentialHeaders,
+    maxRequestBytes: positiveInteger(
+      rule.maxRequestBytes,
+      defaultLimits.maxRequestBytes,
+      "maxRequestBytes",
+    ),
+    maxResponseBytes: rule.maxResponseBytes == null ? Infinity :
+      positiveInteger(rule.maxResponseBytes, undefined, "maxResponseBytes"),
+    timeoutMilliseconds: positiveInteger(
+      rule.timeoutMilliseconds,
+      defaultLimits.timeoutMilliseconds,
+      "timeoutMilliseconds",
+    ),
+  });
+}
+
+// Whole segments only: "/v1" admits "/v1" and "/v1/x", never "/v1-admin".
+// Encoded separators could re-segment the path on the server.
+function pathWithin(pathname, prefix) {
+  if (/%(?:2f|5c)/i.test(pathname)) return false;
+  return pathname === prefix || pathname.startsWith(prefix.endsWith("/") ? prefix : `${prefix}/`);
+}
+
+function normalizeTrustedSource(source, applicationBase) {
+  if (source === null || typeof source !== "object" ||
+      typeof source.path !== "string" || !source.path.startsWith("/") ||
+      !Number.isSafeInteger(source.byteLength) || source.byteLength <= 0) {
+    throw new TypeError("invalid trusted Dolly bootstrap source");
+  }
+  const target = new URL(source.path.slice(1), applicationBase);
+  if (!/^https?:$/.test(target.protocol) || target.search || target.hash) {
+    throw new TypeError("invalid trusted Dolly bootstrap source URL");
+  }
+  return Object.freeze({
+    href: target.href,
+    bootstrap: true,
+    maxRequestBytes: 1,
+    maxResponseBytes: source.byteLength,
+    timeoutMilliseconds: defaultLimits.timeoutMilliseconds,
+    credentialHeaders: new Set(),
+  });
+}
+
+export class DollyHttpPolicy {
+  constructor(configuration, trustedSources = [], applicationBase = globalThis.location?.href) {
+    this.hardened = configuration !== undefined;
+    this.rules = this.hardened
+      ? Object.freeze((configuration.rules ?? []).map(normalizeRule))
+      : Object.freeze([]);
+    this.maxRequests = this.hardened ? positiveInteger(
+      configuration?.maxRequests,
+      defaultLimits.maxRequests,
+      "maxRequests",
+    ) : Infinity;
+    this.trustedSources = new Map(trustedSources.map((source) => {
+      const rule = normalizeTrustedSource(source, applicationBase);
+      return [rule.href, rule];
+    }));
+    // Each exact build input may be fetched a few times per page, not endlessly.
+    this.maxBootstrapRequests = this.hardened ? 4 * this.trustedSources.size : Infinity;
+    this.requests = 0;
+    this.bootstrapRequests = 0;
+  }
+
+  authorize(target, method, headers, requestBytes) {
+    const upperMethod = method.toUpperCase();
+    let rule = upperMethod === "GET" && requestBytes === 0 &&
+      target.username === "" && target.password === "" &&
+      target.search === "" && target.hash === ""
+      ? this.trustedSources.get(target.href)
+      : undefined;
+    if (rule) {
+      // Recipe and source URLs are build inputs selected by the embedding page,
+      // not capabilities granted by an untrusted Dollyfile. They are exact,
+      // read-only, credential-free URLs with byte-for-byte response limits and
+      // their own quota, so a large source graph cannot exhaust agent requests.
+      if (++this.bootstrapRequests > this.maxBootstrapRequests) {
+        throw new HttpError(DOLLY_ERRNO.EDQUOT, "Dolly bootstrap source quota exceeded");
+      }
+      for (const name of credentialHeaderNames) headers.delete(name);
+    } else {
+      if (++this.requests > this.maxRequests) {
+        throw new HttpError(DOLLY_ERRNO.EDQUOT, "Dolly HTTP request quota exceeded");
+      }
+      if (this.hardened) {
+        rule = this.rules.find((candidate) =>
+          candidate.origin === target.origin &&
+          (candidate.path === null
+            ? pathWithin(target.pathname, candidate.pathPrefix)
+            : target.pathname === candidate.path) &&
+          candidate.methods.has(upperMethod));
+        if (!rule) throw new HttpError(DOLLY_ERRNO.EACCES, "Dolly HTTP policy denied the request");
+      } else {
+        rule = {
+          followRedirects: true,
+          credentialHeaders: null,
+          maxRequestBytes: defaultLimits.maxRequestBytes,
+          maxResponseBytes: defaultLimits.maxResponseBytes,
+          timeoutMilliseconds: defaultLimits.timeoutMilliseconds,
+        };
+      }
+    }
+    if (requestBytes > rule.maxRequestBytes) {
+      throw new HttpError(DOLLY_ERRNO.E2BIG, "Dolly HTTP request exceeds its size limit");
+    }
+
+    // Credentials are ordinary sandbox state. Development mode preserves
+    // them. A hardened destination rule must explicitly name which common
+    // credential headers may leave for that exact destination.
+    if (rule.credentialHeaders !== null) {
+      for (const name of credentialHeaderNames) {
+        if (!rule.credentialHeaders.has(name)) headers.delete(name);
+      }
+    }
+    return rule;
+  }
+}
+
+export function consumeDollyHttpPolicy(
+  globalObject = globalThis,
+  trustedSources = [],
+  applicationBase = globalObject.location?.href,
+) {
+  const configuration = globalObject.DOLLY_HTTP_POLICY;
+  Reflect.deleteProperty(globalObject, "DOLLY_HTTP_POLICY");
+  return new DollyHttpPolicy(configuration, trustedSources, applicationBase);
+}
+
+// Trusted browser state for an explicitly opened result tab, never Wasm data.
+export function httpPolicyConfigurations(policy) {
+  if (policy.configurations) return policy.configurations;
+  return [policy.hardened ? { maxRequests: policy.maxRequests, rules: policy.rules.map(rule => ({
+    origin: rule.origin, ...(rule.path === null ? { pathPrefix: rule.pathPrefix } : { path: rule.path }),
+    methods: [...rule.methods], credentialHeaders: [...rule.credentialHeaders],
+    maxRequestBytes: rule.maxRequestBytes,
+    ...(Number.isFinite(rule.maxResponseBytes) ? { maxResponseBytes: rule.maxResponseBytes } : {}),
+    timeoutMilliseconds: rule.timeoutMilliseconds,
+  })) } : null];
+}
+
+export function restrictDollyHttpPolicy(policy, inherited, trustedSources, applicationBase) {
+  if (!Array.isArray(inherited) || inherited.length === 0 || inherited.length > 16 ||
+      new TextEncoder().encode(JSON.stringify(inherited)).byteLength > 65536) {
+    throw new Error("Invalid inherited image HTTP policy");
+  }
+  const configurations = [...new Set([...httpPolicyConfigurations(policy), ...inherited].map(value => JSON.stringify(value)))].map(value => JSON.parse(value));
+  const policies = configurations.map(configuration => new DollyHttpPolicy(configuration ?? undefined, trustedSources, applicationBase));
+  return {
+    configurations,
+    authorize(target, method, headers, bytes) {
+      // Every policy must allow it. Sequential header stripping intersects
+      // credentials too; neither the parent nor the new embedding can widen it.
+      const rules = policies.map(policy => policy.authorize(target, method, headers, bytes));
+      return {
+        bootstrap: rules.every(rule => rule.bootstrap === true),
+        followRedirects: rules.every(rule => rule.followRedirects === true),
+        maxRequestBytes: Math.min(...rules.map(rule => rule.maxRequestBytes)),
+        maxResponseBytes: Math.min(...rules.map(rule => rule.maxResponseBytes)),
+        timeoutMilliseconds: Math.min(...rules.map(rule => rule.timeoutMilliseconds)),
+      };
+    },
+  };
+}

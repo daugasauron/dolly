@@ -1,0 +1,56 @@
+(module
+  ;; Browser-facing display and input contract. Once the source-built driver
+  ;; is resident, the kernel sends raw terminal output to it.
+  (import "env" "memory" (memory i64 1024 131072 shared))
+
+  ;; Boot-only, host-initiated display installation. Wasm reads DISPLAY from
+  ;; its own filesystem and exposes bytes; the browser instantiates those
+  ;; bytes with Wasm-only imports, then returns the v3 driver structure address.
+  ;; There is deliberately no guest-callable browser loader import.
+  (func (export "dolly_display_prepare") (result i32) i32.const 0)
+  (func (export "dolly_display_module_address") (result i64) i64.const 0)
+  (func (export "dolly_display_module_size") (result i64) i64.const 0)
+  (func (export "dolly_display_install") (param i64) (result i32) i32.const 0)
+
+  ;; Mailbox version 5 starts with 32 atomic u32 fields. The final four fields
+  ;; carry PID-targeted SIGINT, a browser animation-frame sequence, and Dolly's
+  ;; closed cursor enum, including a user-click-gated capture request.
+  ;; Relative motion/capture events share the fixed 128-byte input records
+  ;; beginning at byte 128. The browser copies ordinary DOM event data without
+  ;; terminal encoding; the in-Wasm Ghostty driver owns encoding.
+  ;; Additive event 10 reports pointer presence (action 1 enter, 0 leave).
+  ;; Event 4 reports window keyboard focus (action 1 gain, 0 loss).
+  ;; Neither event grants pointer capture or changes record layout.
+  (func (export "dolly_display_mailbox_address") (result i64)
+    i64.const 0)
+  (func (export "dolly_display_mailbox_version") (result i32)
+    i32.const 5)
+  (func (export "dolly_display_event_size") (result i32)
+    i32.const 128)
+  (func (export "dolly_display_event_capacity") (result i32)
+    i32.const 256)
+
+  ;; Two fixed-address RGBA buffers are allocated in Wasm memory. The mailbox
+  ;; atomically publishes which one contains the latest complete frame and its
+  ;; checked dimensions and stride.
+  (func (export "dolly_display_framebuffer_address") (param i32) (result i64)
+    i64.const 0)
+  (func (export "dolly_display_framebuffer_capacity") (result i64)
+    i64.const 0)
+
+  ;; Clipboard data is capability-directional. The browser can publish one
+  ;; explicit user paste into the paste buffer; Dolly continuously publishes
+  ;; the active terminal selection into the copy buffer. Atomic mailbox
+  ;; sequence fields make both byte snapshots race-free.
+  (func (export "dolly_display_paste_buffer_address") (result i64)
+    i64.const 0)
+  (func (export "dolly_display_copy_buffer_address") (result i64)
+    i64.const 0)
+  (func (export "dolly_display_clipboard_capacity") (result i32)
+    i32.const 262144)
+
+  ;; Publish at most one dirty terminal frame per call. Returns zero or a
+  ;; negative errno; it never consumes pending terminal input.
+  (func (export "dolly_terminal_present_pending") (result i32) i32.const 0)
+
+)

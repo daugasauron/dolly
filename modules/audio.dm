@@ -10,7 +10,7 @@ REQUIRES TOOL ar
 REQUIRES TOOL rm
 
 SOURCE HOST /include/dolly/audio.h /usr/include/dolly/audio.h 9d291eeb25345a75bb21dbd4c422beb15f30700a5f96d5f665ca52a5d8948b65
-SOURCE HOST /include/dolly/audio-abi.h /usr/include/dolly/audio-abi.h b70df3f87184121e056c2473a32653970ad716c7add5bfab865e118267027e18
+SOURCE HOST /include/dolly/audio-abi.h /usr/include/dolly/audio-abi.h 24e538fa126aabe1a854125cb3aa732d6fbd30da55d5b4649596e9fd94a9cb65
 SOURCE HOST /static/audio/client.c /usr/src/dolly/audio/client.c 1465c9d7d83a0f93a45bf641c7a29216a2b2c7aa31a5e5a9f7145c090387f8e5
 
 SLOP cc -std=c17 -O2 -c /usr/src/dolly/audio/client.c -o /tmp/dolly-audio.o

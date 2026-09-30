@@ -9,7 +9,7 @@ REQUIRES TOOL ar
 REQUIRES TOOL rm
 
 SOURCE HOST /include/dolly/gpu.h /usr/include/dolly/gpu.h 4c77c750144fb65eba1de4694ae3b78522a2162810fd83f72dda1592f1578000
-SOURCE HOST /include/dolly/gpu-abi.h /usr/include/dolly/gpu-abi.h 2b963f80c3881332e88ff942278ee35ef61158db308816e833d807c05376705c
+SOURCE HOST /include/dolly/gpu-abi.h /usr/include/dolly/gpu-abi.h 8457fa2772a8b59df57638c53396c90085d64ffe99e3032ea157ac3a04e8dc5f
 SOURCE HOST /static/gpu/client.c /usr/src/dolly/gpu/client.c 75d4a827852bde7e441e75cd6aaf06f3bfe4da9ce41a36071cdfd4053f577cfb
 
 SLOP cc -std=c17 -O2 -c /usr/src/dolly/gpu/client.c -o /tmp/dolly-gpu.o

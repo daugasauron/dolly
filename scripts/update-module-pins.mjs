@@ -4,6 +4,7 @@ import { readFile, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { inspectDollyfile } from "../src/dollyfile-view.mjs";
 import { recipeFiles } from "./recipe-files.mjs";
+import { publishedHeaders } from "./host-modules.mjs";
 
 export async function updateRecipePins(projectDir, refreshSources = false) {
   const active = new Set(), pinned = new Map();
@@ -41,7 +42,7 @@ export async function updateRecipePins(projectDir, refreshSources = false) {
     if (refreshSources) for (const source of recipe.sources) {
       if (source.transport !== "host") continue;
       const input = source.location.startsWith("/static/") ? `dist${source.location}`
-        : source.location.startsWith("/include/dolly/") ? source.location.slice(1) : null;
+        : publishedHeaders.get(source.location) ?? null;
       if (!input) throw new Error(`${location}: HOST source is outside trusted build inputs`);
       let bytes;
       try { bytes = await readFile(resolve(projectDir, input)); }

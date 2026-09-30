@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { SessionTransport as Mailbox } from "../src/session-transport.mjs";
+import { SessionTransport as Mailbox } from "../host/snapshot/transport.mjs";
 import { sessionLoadUrl } from "../src/session-store.mjs";
 
 function fixture() {

@@ -8,7 +8,7 @@ embuilder --wasm64 build libc-mt libdlmalloc-mt libstandalonewasm-mt-memgrow \
   libclang_rt.builtins-wasmsjlj-mt libunwind-mt-wasmexcept \
   libc++-mt-wasmexcept libc++abi-mt-wasmexcept
 flags=(-m64 -O1 -pthread -fwasm-exceptions -sSUPPORT_LONGJMP=wasm \
-  -sWASM_LEGACY_EXCEPTIONS=0 -I/src/include)
+  -sWASM_LEGACY_EXCEPTIONS=0 -I/src/build/include)
 internal=(-I/emsdk/upstream/emscripten/system/lib/libc/musl/arch/emscripten \
   -I/emsdk/upstream/emscripten/system/lib/libc/musl/arch/generic \
   -I/emsdk/upstream/emscripten/system/lib/libc/musl/src/internal \

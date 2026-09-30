@@ -1,0 +1,12 @@
+{
+  "name": "download",
+  "version": 0,
+  "dependencies": ["runtime@0"],
+  "imports": ["env.dolly_download_dispatch"],
+  "host": "download.mjs",
+  "contracts": ["dolly-download-0.wat"],
+  "process": [],
+  "headers": ["download.h"],
+  "kernel": [],
+  "client": ["client.c"]
+}

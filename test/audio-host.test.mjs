@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { worker } from "../src/host/audio.mjs";
+import { worker } from "../host/audio/audio.mjs";
 import { DOLLY_ERRNO as E } from "../dist/dolly-errno.mjs";
 import { createDollyfileGraphLoader } from "../scripts/dollyfile-graph.mjs";
 

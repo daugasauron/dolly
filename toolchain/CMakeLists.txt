@@ -19,18 +19,15 @@ if(NOT DOLLY_PROCESS_SYSROOT_DIR OR
     "DOLLY_PROCESS_SYSROOT_DIR must name the prepared process target sysroot")
 endif()
 
-add_executable(dolly
-  ../src/dolly.c
-  ../src/process-kernel.c
-  ../src/session-snapshot.c
-  ../src/upload.c
-  ../src/gpu-kernel.c
-  ../src/audio-kernel.c
-  ../src/system-snapshot.c
-)
+if(NOT DOLLY_KERNEL_SOURCES)
+  message(FATAL_ERROR "DOLLY_KERNEL_SOURCES must list the host modules' kernel sources")
+endif()
+add_executable(dolly ${DOLLY_KERNEL_SOURCES})
 
 target_include_directories(dolly PRIVATE
-  ../include
+  ../build/include
+  ../src
+  ../host
 )
 target_compile_options(dolly PRIVATE
   -m64
@@ -88,20 +85,7 @@ add_custom_target(dolly-seed
   COMMAND bash /src/scripts/prepare-kernel-seed.sh
     /src/build/generated/libclang_rt.dolly.a@/seed/usr/lib/libclang_rt.builtins.a
     /src/.cache/llvm-wasm/lib/clang/24/include@/seed/usr/lib/clang/24/include
-    /src/include/dolly/http.h@/seed/usr/include/dolly/http.h
-    /src/include/dolly/display.h@/seed/usr/include/dolly/display.h
-    /src/include/dolly/download.h@/seed/usr/include/dolly/download.h
-    /src/include/dolly/runtime.h@/seed/usr/include/dolly/runtime.h
-    /src/include/dolly/process.h@/seed/usr/include/dolly/process.h
-    /src/include/dolly/threads.h@/seed/usr/include/dolly/threads.h
-    /src/include/dolly/threads-abi.h@/seed/usr/include/dolly/threads-abi.h
-    /src/include/dolly/toolchain.h@/seed/usr/include/dolly/toolchain.h
-    /src/include/dolly/host.h@/seed/usr/include/dolly/host.h
-    /src/include/dolly/host-abi.h@/seed/usr/include/dolly/host-abi.h
-    /src/include/dolly/gpu.h@/seed/usr/include/dolly/gpu.h
-    /src/include/dolly/gpu-abi.h@/seed/usr/include/dolly/gpu-abi.h
-    /src/include/dolly/upload.h@/seed/usr/include/dolly/upload.h
-    /src/include/dolly/snapshot.h@/seed/usr/include/dolly/snapshot.h
+    /src/build/include/dolly@/seed/usr/include/dolly
     /src/src/slop.c@/seed/usr/src/dolly/slop.c
     /src/src/dollyfile.c@/seed/usr/src/dolly/dollyfile.c
     /src/src/sha256.h@/seed/usr/src/dolly/sha256.h
@@ -146,7 +130,7 @@ add_executable(dolly-process-zig
 )
 foreach(tool compiler zig)
   target_include_directories(dolly-process-${tool} PRIVATE
-    ../include
+    ../build/include
     ../build/generated
     ${LLVM_INCLUDE_DIRS}
     ${CLANG_INCLUDE_DIRS}

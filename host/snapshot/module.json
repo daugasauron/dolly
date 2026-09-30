@@ -1,0 +1,13 @@
+{
+  "name": "snapshot",
+  "version": 0,
+  "dependencies": ["runtime@0"],
+  "phase": "image",
+  "imports": [],
+  "host": "snapshot.mjs",
+  "contracts": ["dolly-snapshot-0.wat"],
+  "process": [],
+  "headers": ["snapshot.h"],
+  "kernel": ["kernel.c"],
+  "client": []
+}

@@ -1,0 +1,13 @@
+{
+  "name": "audio",
+  "version": 0,
+  "dependencies": ["runtime@0"],
+  "phase": "kernel",
+  "imports": ["env.dolly_audio_dispatch"],
+  "host": "audio.mjs",
+  "contracts": ["dolly-audio-0.wat"],
+  "process": [],
+  "headers": ["audio.h", "audio-abi.h"],
+  "kernel": ["kernel.c"],
+  "client": ["client.c"]
+}

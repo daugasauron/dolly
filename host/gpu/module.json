@@ -1,0 +1,13 @@
+{
+  "name": "gpu",
+  "version": 0,
+  "dependencies": ["runtime@0"],
+  "phase": "kernel",
+  "imports": ["env.dolly_gpu_dispatch"],
+  "host": "gpu.mjs",
+  "contracts": ["dolly-gpu-0.wat"],
+  "process": [],
+  "headers": ["gpu.h", "gpu-abi.h"],
+  "kernel": ["kernel.c"],
+  "client": ["client.c"]
+}

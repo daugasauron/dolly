@@ -6,8 +6,8 @@ if has_module dollyfile-studio; then
     demos/studio/lint.mjs /usr/share/dollyfile-studio/lint.mjs \
     demos/studio/build.mjs /usr/share/dollyfile-studio/build.mjs \
     src/dollyfile-view.mjs /usr/share/dollyfile-studio/parser.mjs \
-    src/host/requirements.mjs /usr/share/dollyfile-studio/host/requirements.mjs \
-    src/host/abi.mjs /usr/share/dollyfile-studio/host/abi.mjs \
+    host/requirements.mjs /usr/share/dollyfile-studio/host/requirements.mjs \
+    host/abi.mjs /usr/share/dollyfile-studio/host/abi.mjs \
     docs/dollyfile.md /usr/share/dollyfile-studio/dollyfile.md \
     docs/image-build-service.md /usr/share/dollyfile-studio/build-service.md \
     demos/studio/dollyfile-lint /usr/bin/dollyfile-lint \

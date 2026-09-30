@@ -7,6 +7,8 @@ import test from "node:test";
 import { inspectDollyfile } from "../src/dollyfile-view.mjs";
 import { loadRecipeGraph } from "../src/dollyfile-graph.mjs";
 import { resolvePins, syntaxCases } from "./fixtures/dollyfile-syntax.mjs";
+import { stagedIncludeDirectory } from "../scripts/host-modules.mjs";
+const includeDirectory = await stagedIncludeDirectory();
 
 const project = resolve(import.meta.dirname, "..");
 
@@ -14,7 +16,7 @@ async function withParser(body) {
   const scratch = await mkdtemp(resolve(tmpdir(), "dolly-parser-"));
   try {
     const program = resolve(scratch, "parser");
-    execFileSync("cc", ["-std=c11", "-O1", "-I", resolve(project, "include"),
+    execFileSync("cc", ["-std=c11", "-O1", "-I", includeDirectory,
       resolve(project, "test/fixtures/dollyfile-parser.c"), "-o", program]);
     await body(scratch, (...args) => spawnSync(program, args, { encoding: "utf8" }));
   } finally {

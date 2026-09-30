@@ -66,18 +66,8 @@ rm -f \
   "${project_dir}/dist/dolly.mjs" \
   "${project_dir}/dist/dolly-seed.mjs" \
   "${project_dir}/dist/dolly.wasm" \
-  "${project_dir}/dist/dolly-kernel-plugin-0.wasm" \
-  "${project_dir}/dist/dolly-0.wasm" \
-  "${project_dir}/dist/dolly-process-0.wasm" \
-  "${project_dir}/dist/dolly-process-gate-0.wasm" \
-  "${project_dir}/dist/dolly-supervisor-0.wasm" \
+  "${project_dir}"/dist/dolly-*-0.wasm \
   "${project_dir}/dist/dolly-process-abi.mjs" \
-  "${project_dir}/dist/dolly-http-0.wasm" \
-  "${project_dir}/dist/dolly-display-0.wasm" \
-  "${project_dir}/dist/dolly-download-0.wasm" \
-  "${project_dir}/dist/dolly-upload-0.wasm" \
-  "${project_dir}/dist/dolly-terminal-0.wasm" \
-  "${project_dir}/dist/dolly-snapshot-0.wasm" \
   "${project_dir}/dist/dolly-build-id.mjs" \
   "${project_dir}/dist/dolly-image-build-id.mjs" \
   "${project_dir}/dist/IosevkaTerm-SemiBold.woff2" \
@@ -87,45 +77,26 @@ rm -f \
   "${project_dir}/dist/process-pipe-check.wasm" \
   "${project_dir}/dist/slop-process.wasm"
 
-"${container[@]}" /emsdk/upstream/bin/wasm-as abi/dolly-kernel-plugin-0.wat \
-  --enable-memory64 \
-  --enable-reference-types \
-  --enable-threads \
-  --disable-compact-imports \
-  -o build/dolly-kernel-plugin-0.wasm
-
+# Every WAT contract: the core ones in abi/ and those host module manifests name.
+mapfile -t contracts < <(printf '%s\n' abi/dolly-kernel-plugin-0.wat abi/dolly-host-0.wat \
+  abi/dolly-browser-0.wat; node scripts/host-modules.mjs contracts; node scripts/host-modules.mjs process)
+"${container[@]}" bash -c 'for contract; do
+  /emsdk/upstream/bin/wasm-as "${contract}" --enable-memory64 --enable-reference-types \
+    --enable-threads --enable-multimemory --enable-bulk-memory --enable-bulk-memory-opt \
+    --disable-compact-imports -o "build/$(basename "${contract}" .wat).wasm" || exit
+done' contracts "${contracts[@]}"
 node scripts/generate-abi-constants.mjs
-for contract in dolly-threads-0 dolly-threads-supervisor-0; do
-  "${container[@]}" /emsdk/upstream/bin/wasm-as "abi/${contract}.wat" \
-    --enable-memory64 --disable-compact-imports -o "build/${contract}.wasm"
-done
+mapfile -t headers < <(node scripts/host-modules.mjs headers)
+rm -rf build/include && mkdir -p build/include/dolly && cp -- "${headers[@]}" build/include/dolly/
 node scripts/dolly-abi.mjs bind-process-layout build/dolly-threads-0.wasm \
-  abi/dolly-threads-0.wat include/dolly/threads.h
+  host/threads/dolly-threads-0.wat host/threads/threads.h
 node scripts/dolly-abi.mjs emit-digest-header build/dolly-threads-0.wasm \
   build/generated/dolly-threads-abi-digest.h DOLLY_THREADS_ABI_DIGEST
 node scripts/dolly-abi.mjs emit-digest-module build/dolly-threads-0.wasm \
   dist/dolly-threads-abi.mjs DOLLY_THREADS_ABI_DIGEST
-cp build/dolly-threads-0.wasm build/dolly-threads-supervisor-0.wasm dist/
-"${container[@]}" /emsdk/upstream/bin/wasm-as abi/dolly-host-0.wat \
-  --disable-compact-imports -o build/dolly-host-0.wasm
-cp build/dolly-host-0.wasm dist/dolly-host-0.wasm
-
-"${container[@]}" /emsdk/upstream/bin/wasm-as abi/dolly-browser-0.wat \
-  --enable-memory64 --enable-threads --disable-compact-imports \
-  -o build/dolly-browser-0.wasm
-
-"${container[@]}" /emsdk/upstream/bin/wasm-as abi/dolly-process-0.wat \
-  --enable-memory64 \
-  --enable-threads \
-  --disable-compact-imports \
-  -o build/dolly-process-0.wasm
 node scripts/dolly-abi.mjs bind-process-layout \
   build/dolly-process-0.wasm \
   include/dolly/process.h
-
-"${container[@]}" /emsdk/upstream/bin/wasm-as abi/dolly-process-dso-0.wat \
-  --enable-memory64 --enable-reference-types --enable-threads --disable-compact-imports \
-  -o dist/dolly-process-dso-0.wasm
 
 for fixture in process-minimal process-no-dso process-wrong-call process-wrong-start process-wrong-memory; do
   "${container[@]}" /emsdk/upstream/bin/wasm-as "test/fixtures/${fixture}.wat" \
@@ -137,15 +108,6 @@ for fixture in process-minimal process-no-dso process-wrong-call process-wrong-s
   fi
 done
 
-"${container[@]}" /emsdk/upstream/bin/wasm-as abi/dolly-process-gate-0.wat \
-  --enable-memory64 \
-  --enable-multimemory \
-  --enable-bulk-memory \
-  --enable-bulk-memory-opt \
-  --enable-threads \
-  --disable-compact-imports \
-  -o build/dolly-process-gate-0.wasm
-
 (
   trap 'rm -f build/browser-errno.i' EXIT
   "${container[@]}" /emsdk/upstream/emscripten/emcc -m64 -E -P \
@@ -153,15 +115,10 @@ done
   node scripts/generate-browser-errno.mjs build/browser-errno.i dist/dolly-errno.mjs
 )
 
-"${container[@]}" /emsdk/upstream/bin/wasm-as abi/dolly-supervisor-0.wat \
-  --enable-memory64 \
-  --disable-compact-imports \
-  -o build/dolly-supervisor-0.wasm
-
 process_compile_flags=(
   -m64 -O1 -matomics -mbulk-memory -fwasm-exceptions
   -sSUPPORT_LONGJMP=wasm -sWASM_LEGACY_EXCEPTIONS=0
-  -I/src/include
+  -I/src/build/include
 )
 process_libc_internal_flags=(
   -I/emsdk/upstream/emscripten/system/lib/libc/musl/arch/emscripten
@@ -252,18 +209,13 @@ done
   fi
 )
 
-for module in runtime http display download upload gpu threads; do
-  if [[ "${module}" == runtime ]]; then
-    object=build/process-runtime-adapter.o
-  else
-    source="src/process/${module}-client.c"
-    [[ "${module}" != gpu ]] || source=src/gpu/client.c
-    object="build/process-${module}-client.o"
-    "${container[@]}" /emsdk/upstream/emscripten/emcc \
-      "${process_compile_flags[@]}" -c "${source}" -o "${object}"
-  fi
+# Each host module's process clients form libdolly-NAME.a.
+while read -r module source; do
+  object="build/process-${module}-client.o"
+  "${container[@]}" /emsdk/upstream/emscripten/emcc \
+    "${process_compile_flags[@]}" -c "${source}" -o "${object}"
   "${container[@]}" /emsdk/upstream/emscripten/emar rcsD "build/libdolly-${module}.a" "${object}"
-done
+done < <(node scripts/host-modules.mjs client)
 
 build_process() {
   local output="$1"
@@ -300,7 +252,8 @@ build_process build/process-bin/bootstrap src/process/bootstrap.c
 # profile. Publish only that closed runtime set for the compiler running inside
 # Dolly; no Emscripten driver or JavaScript library enters the process sysroot.
 "${container[@]}" bash scripts/build-process-threads.sh
-process_sysroot_container_dir="$("${container[@]}" ./scripts/prepare-process-sysroot.sh)"
+mapfile -t client_libraries < <(node scripts/host-modules.mjs client | awk '{ print "libdolly-" $1 ".a" }' | uniq)
+process_sysroot_container_dir="$("${container[@]}" ./scripts/prepare-process-sysroot.sh "${client_libraries[@]}")"
 
 node scripts/dolly-abi.mjs stamp-process \
   build/dolly-process-0.wasm \
@@ -317,56 +270,16 @@ node test/build-dso-fixtures.mjs "${container[@]}" /emsdk/upstream/bin/wasm-as
 node scripts/dolly-abi.mjs stamp-process build/dolly-process-0.wasm \
   build/process-dso-host.wasm build/process-dso-bad-host.wasm
 node scripts/dolly-abi.mjs validate-process-dso \
-  build/dolly-process-0.wasm dist/dolly-process-dso-0.wasm build/dso-types.wasm
-
-"${container[@]}" /emsdk/upstream/bin/wasm-as abi/dolly-display-0.wat \
-  --enable-memory64 \
-  --enable-reference-types \
-  --enable-threads \
-  --disable-compact-imports \
-  -o build/dolly-display-0.wasm
-
-"${container[@]}" /emsdk/upstream/bin/wasm-as abi/dolly-http-0.wat \
-  --enable-memory64 \
-  --enable-reference-types \
-  --enable-threads \
-  --disable-compact-imports \
-  -o build/dolly-http-0.wasm
-
-"${container[@]}" /emsdk/upstream/bin/wasm-as abi/dolly-download-0.wat \
-  --enable-memory64 \
-  --enable-reference-types \
-  --enable-threads \
-  --disable-compact-imports \
-  -o build/dolly-download-0.wasm
-
-"${container[@]}" /emsdk/upstream/bin/wasm-as abi/dolly-upload-0.wat \
-  --enable-memory64 --enable-threads --disable-compact-imports \
-  -o build/dolly-upload-0.wasm
-
-"${container[@]}" /emsdk/upstream/bin/wasm-as abi/dolly-snapshot-0.wat \
-  --enable-memory64 \
-  --enable-reference-types \
-  --enable-threads \
-  --disable-compact-imports \
-  -o build/dolly-snapshot-0.wasm
+  build/dolly-process-0.wasm build/dolly-process-dso-0.wasm build/dso-types.wasm
 
 native_zig_object="$("${project_dir}/scripts/build-native-zig.sh")"
 
-"${container[@]}" /emsdk/upstream/bin/wasm-as abi/dolly-gpu-0.wat --enable-memory64 --enable-threads --disable-compact-imports -o build/dolly-gpu-0.wasm
-"${container[@]}" /emsdk/upstream/bin/wasm-as abi/dolly-audio-0.wat --enable-memory64 --enable-threads --disable-compact-imports -o build/dolly-audio-0.wasm
 
-node scripts/dolly-abi.mjs emit-emscripten-exports \
-  build/dolly-kernel-plugin-0.wasm \
-  build/dolly-display-0.wasm \
-  build/dolly-http-0.wasm \
-  build/dolly-upload-0.wasm \
-  build/dolly-snapshot-0.wasm \
-  build/dolly-supervisor-0.wasm \
-  build/dolly-threads-supervisor-0.wasm \
-  build/dolly-gpu-0.wasm \
-  build/dolly-audio-0.wasm \
-  build/runtime-exports.json
+kernel_contracts=()
+while read -r contract; do kernel_contracts+=("build/$(basename "${contract}" .wat).wasm"); done \
+  < <(node scripts/host-modules.mjs contracts)
+node scripts/dolly-abi.mjs emit-emscripten-exports build/dolly-kernel-plugin-0.wasm \
+  "${kernel_contracts[@]}" build/runtime-exports.json
 node scripts/dolly-abi.mjs emit-digest-header \
   build/dolly-kernel-plugin-0.wasm \
   build/generated/dolly-kernel-plugin-abi-digest.h \
@@ -392,7 +305,8 @@ node scripts/dolly-abi.mjs emit-digest-header \
   -DLLD_DIR=/src/.cache/llvm-wasm/lib/cmake/lld \
   -DDOLLY_ZIG_DIR="${zig_container_dir}" \
   -DDOLLY_ZIG_OBJECT="/src/${native_zig_object#"${project_dir}/"}" \
-  -DDOLLY_PROCESS_SYSROOT_DIR="${process_sysroot_container_dir}"
+  -DDOLLY_PROCESS_SYSROOT_DIR="${process_sysroot_container_dir}" \
+  -DDOLLY_KERNEL_SOURCES="$(node scripts/host-modules.mjs kernel | sed 's#^#/src/#' | paste -sd ';')"
 "${container[@]}" cmake --build build/runtime --target dolly-process-compiler dolly-process-zig --parallel
 node scripts/dolly-abi.mjs stamp-process \
   build/dolly-process-0.wasm \
@@ -411,18 +325,9 @@ node scripts/dolly-abi.mjs validate-runtime \
   dist/dolly.wasm
 node scripts/dolly-abi.mjs validate-browser build/dolly-browser-0.wasm dist/dolly.wasm
 
-cp build/dolly-browser-0.wasm dist/dolly-browser-0.wasm
-cp build/dolly-gpu-0.wasm dist/dolly-gpu-0.wasm
-cp build/dolly-audio-0.wasm dist/dolly-audio-0.wasm
-cp build/dolly-kernel-plugin-0.wasm dist/dolly-kernel-plugin-0.wasm
-cp build/dolly-process-0.wasm dist/dolly-process-0.wasm
-cp build/dolly-process-gate-0.wasm dist/dolly-process-gate-0.wasm
-cp build/dolly-supervisor-0.wasm dist/dolly-supervisor-0.wasm
-cp build/dolly-display-0.wasm dist/dolly-display-0.wasm
-cp build/dolly-download-0.wasm dist/dolly-download-0.wasm
-cp build/dolly-upload-0.wasm dist/dolly-upload-0.wasm
-cp build/dolly-http-0.wasm dist/dolly-http-0.wasm
-cp build/dolly-snapshot-0.wasm dist/dolly-snapshot-0.wasm
+for contract in "${contracts[@]}"; do
+  cp "build/$(basename "${contract}" .wat).wasm" dist/
+done
 cp "${web_font}" dist/IosevkaTerm-SemiBold.woff2
 node scripts/bundle-process-worker.mjs
 node scripts/write-build-id.mjs dist/dolly.wasm dist/dolly.data dist/dolly-build-id.mjs

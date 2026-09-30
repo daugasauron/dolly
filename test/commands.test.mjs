@@ -5,6 +5,8 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import test from "node:test";
 import { inspectDollyfile } from "../src/dollyfile-view.mjs";
+import { stagedIncludeDirectory } from "../scripts/host-modules.mjs";
+const includeDirectory = await stagedIncludeDirectory();
 
 const project = resolve(import.meta.dirname, "..");
 const scratch = await mkdtemp(join(tmpdir(), "dolly-commands-"));
@@ -12,7 +14,7 @@ test.after(() => rm(scratch, { recursive: true, force: true }));
 
 function build(name, source = `src/commands/${name}.c`) {
   const output = join(scratch, name);
-  execFileSync("cc", ["-std=c17", "-Wall", "-Wextra", "-Werror", "-Iinclude", source,
+  execFileSync("cc", ["-std=c17", "-Wall", "-Wextra", "-Werror", `-I${includeDirectory}`, source,
     "test/fixtures/native-spawn.c", "-o", output, "-lm"], { cwd: project, stdio: "pipe" });
   return output;
 }

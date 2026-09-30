@@ -1,4 +1,4 @@
-import { hostRequirement, hostRequirements } from "./host/requirements.mjs";
+import { hostRequirement, hostRequirements } from "../host/requirements.mjs";
 
 export const MAX_DOLLYFILE_BYTES = 128 * 1024;
 

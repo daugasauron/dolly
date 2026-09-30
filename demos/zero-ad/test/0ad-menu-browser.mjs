@@ -9,10 +9,10 @@ const browserName=process.argv[2]??'firefox',url=process.argv[3];
 assert.ok(['chromium','firefox'].includes(browserName),'usage: node demos/zero-ad/test/0ad-menu-browser.mjs [chromium|firefox] [page URL]');
 const output=root+'/.cache/0ad/browser';
 await mkdir(output,{recursive:true});
-const provider=(await readFile(root+'/src/gpu-worker.mjs','utf8')).replace(
+const provider=(await readFile(root+'/host/gpu/worker.mjs','utf8')).replace(
   'insert(scope,id,"sampler",device.createSampler({',
   'stats.maxAnisotropy=Math.max(stats.maxAnisotropy??1,maxAnisotropy);insert(scope,id,"sampler",device.createSampler({');
-const server=url?null:await startBrowserServer(root,'zero-ad',{sourceOverrides:new Map([['/src/gpu-worker.mjs',provider]])});
+const server=url?null:await startBrowserServer(root,'zero-ad',{sourceOverrides:new Map([['/host/gpu/worker.mjs',provider]])});
 let browser,page,deadline;
 try {
   browser=browserName==='firefox'

@@ -4,7 +4,7 @@ import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { browserTest } from "./browser.mjs";
-import { UPLOAD_CANCEL_QUIET_MILLISECONDS } from "../src/upload-transport.mjs";
+import { UPLOAD_CANCEL_QUIET_MILLISECONDS } from "../host/upload/transport.mjs";
 
 // `upload` copies one user-chosen file into Dolly; it never overwrites, and
 // cancelling the picker or the command leaves nothing behind.

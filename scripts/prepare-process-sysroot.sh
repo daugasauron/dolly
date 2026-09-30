@@ -50,7 +50,8 @@ for library in "${libraries[@]}"; do
 done
 cp -- "${project_dir}/build/process-crt1.o" "${staging}/crt1.o"
 cp -- "${process_runtime}" "${staging}/libdolly-process.a"
-host_libraries=(libdolly-runtime.a libdolly-http.a libdolly-display.a libdolly-download.a libdolly-upload.a libdolly-gpu.a libdolly-threads.a)
+# Arguments name the host module client archives (libdolly-NAME.a).
+host_libraries=("$@")
 for library in "${host_libraries[@]}"; do
   cp -- "${project_dir}/build/${library}" "${staging}/${library}"
 done

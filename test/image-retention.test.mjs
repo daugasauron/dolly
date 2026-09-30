@@ -4,6 +4,8 @@ import { mkdtemp, mkdir, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { resolve } from "node:path";
 import test from "node:test";
+import { stagedIncludeDirectory } from "../scripts/host-modules.mjs";
+const includeDirectory = await stagedIncludeDirectory();
 
 const project = resolve(import.meta.dirname, "..");
 
@@ -24,7 +26,7 @@ test("Dollyfile retention records directories and symlinks without traversing li
   try {
     const program = resolve(scratch, "collector");
     execFileSync("cc", ["-std=c11", "-O1", "-ffunction-sections", "-fdata-sections",
-      "-Wl,--gc-sections", "-I", resolve(project, "include"),
+      "-Wl,--gc-sections", "-I", includeDirectory,
       resolve(project, "test/fixtures/image-retention.c"), "-o", program]);
     await mkdir(resolve(scratch, "tree/empty"), { recursive: true });
     await writeFile(resolve(scratch, "tree/file"), "retained");

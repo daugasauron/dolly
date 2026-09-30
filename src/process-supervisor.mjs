@@ -2,9 +2,9 @@ import { DOLLY_PROCESS_ABI_DIGEST } from "../dist/dolly-process-abi.mjs";
 import { DOLLY_ERRNO } from "../dist/dolly-errno.mjs";
 import { parseWasmInterface } from "./wasm-interface.mjs";
 import { validateProcessInterface } from "./process-abi.mjs";
-import { validateThreadProfile } from "./host/threads.mjs";
-import { DOLLY_THREAD_SPAWN } from "./threads-abi.mjs";
-import { executableHostRequirements, checkHostAbi } from "./host/requirements.mjs";
+import { validateThreadProfile } from "../host/threads/threads.mjs";
+import { DOLLY_THREAD_SPAWN } from "../host/threads/abi.mjs";
+import { executableHostRequirements, checkHostAbi } from "../host/requirements.mjs";
 import {
   DOLLY_PROCESS_EXIT, DOLLY_PROCESS_PACKET_LIMIT as packetLimit, DOLLY_PROCESS_SIGINT,
   DOLLY_PROCESS_SIGKILL, DOLLY_PROCESS_SIGNAL, DOLLY_PROCESS_SIGNAL_ACKNOWLEDGE,

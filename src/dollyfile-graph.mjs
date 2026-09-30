@@ -1,5 +1,5 @@
 import { inspectDollyfile } from "./dollyfile-view.mjs";
-import { hostRequirements } from "./host/requirements.mjs";
+import { hostRequirements } from "../host/requirements.mjs";
 
 const MAX_USE_DEPTH = 16;
 const decoder = new TextDecoder("utf-8", { fatal: true, ignoreBOM: true });

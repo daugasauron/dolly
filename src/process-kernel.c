@@ -1,8 +1,8 @@
 #include "fs-record.h"
 #include "process-kernel.h"
-#include "upload.h"
-#include "gpu-kernel.h"
-#include "audio-kernel.h"
+#include "upload/kernel.h"
+#include "gpu/kernel.h"
+#include "audio/kernel.h"
 #include <dolly/audio-abi.h>
 #include <dolly/gpu-abi.h>
 

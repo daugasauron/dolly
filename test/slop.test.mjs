@@ -5,13 +5,15 @@ import { tmpdir } from "node:os";
 import { resolve } from "node:path";
 import test from "node:test";
 import { commandCases, shellCases, sourceFiles } from "./fixtures/slop-cases.mjs";
+import { stagedIncludeDirectory } from "../scripts/host-modules.mjs";
+const includeDirectory = await stagedIncludeDirectory();
 
 test("Slop builtin semantics under sanitizers without spawning", async t => {
   const project = resolve(import.meta.dirname, "..");
   const scratch = await mkdtemp(resolve(tmpdir(), "dolly-slop-sanitizer-"));
   try {
     execFileSync("cc", ["-g", "-O1", "-fsanitize=address,undefined", "-fno-omit-frame-pointer",
-      "-no-pie", "-Iinclude", "src/slop.c", "test/fixtures/slop-denied-host.c",
+      "-no-pie", `-I${includeDirectory}`, "src/slop.c", "test/fixtures/slop-denied-host.c",
       "-o", resolve(scratch, "native-slop")], { cwd: project, stdio: "pipe" });
     for (const [name, source] of Object.entries(sourceFiles)) {
       await writeFile(resolve(scratch, name), source);

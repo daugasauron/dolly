@@ -1,0 +1,13 @@
+{
+  "name": "upload",
+  "version": 0,
+  "dependencies": ["runtime@0"],
+  "phase": "image",
+  "imports": [],
+  "host": "upload.mjs",
+  "contracts": ["dolly-upload-0.wat"],
+  "process": [],
+  "headers": ["upload.h"],
+  "kernel": ["kernel.c"],
+  "client": ["client.c"]
+}

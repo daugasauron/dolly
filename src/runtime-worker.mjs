@@ -1,5 +1,5 @@
-import { createHost } from "./host/modules.mjs";
-import { installOutputDevices } from "./host/runtime.mjs";
+import { createHost } from "../host/modules.mjs";
+import { installOutputDevices } from "../host/runtime/runtime.mjs";
 import { MAX_SNAPSHOT_BYTES as snapshotSizeLimit } from "./snapshot-records.mjs";
 import { DOLLY_BUILD_ID } from "../dist/dolly-build-id.mjs";
 import { DOLLY_IMAGE_BUILD_ID } from "../dist/dolly-image-build-id.mjs";

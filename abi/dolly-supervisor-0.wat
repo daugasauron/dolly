@@ -2,6 +2,15 @@
   ;; Typed internal boundary used by the trusted runtime Worker to schedule
   ;; private process Workers. Filesystem and process semantics remain in the
   ;; kernel Wasm implementation behind these operations.
+
+  ;; Terminal output. The browser supplies one text sink for output written
+  ;; while no display driver is resident: boot, rebuilds and headless images.
+  ;; The page shows it only as bounded plain text in the bootstrap log.
+  (import "env" "dolly_bootstrap_write_bytes" (func (param i64 i64)))
+  ;; WasmFS's output devices pass bytes back into this export. Before a display
+  ;; driver is installed they reach the bootstrap sink; after installation the
+  ;; resident driver consumes them without host interpretation.
+  (func (export "dolly_terminal_write_bytes") (param i64 i64))
   (func $version (result i32) i32.const 0)
   (func $mailbox_address (result i64) i64.const 0)
   (func $mailbox_capacity (result i64) i64.const 0)

@@ -10,13 +10,27 @@ plus the runtime C header that maps to it. Chosen layout: one directory per
 module.
 
 ```
-host/<name>/   <name>.mjs (contract, browser(), worker()), helpers,
+host/<name>/   module.json, <name>.mjs (browser(), worker()), helpers,
                dolly-<name>-0.wat, <name>.h, kernel.c, client.c, README.md
-host/modules.mjs   the one registry
+host/modules.mjs   the one registry: a list of module names
 abi/           core contracts: process, gate, supervisor, dso, host records,
                dolly-browser-0.wat (the outer import allowlist)
 include/dolly/ runtime.h, process.h, host.h
 src/           kernel core, supervisor, process Worker, page shell
+```
+
+Each module is described by one manifest, `host/<name>/module.json`, the only
+place its files are listed (owner, 2026-10-01). Everything reads it generically:
+the registry loads the manifest and the provider it names; the build takes kernel
+sources, process clients, headers and WAT contracts from it; packaging, the test
+server and the ABI tests iterate the manifests. The WAT stays the canonical ABI:
+the manifest only assigns ownership, and a test checks its `imports` against the
+WAT. `runtime` uses the same format; its manifest points at the core contracts.
+
+```json
+{ "name": "http", "version": 0, "dependencies": ["runtime@0"], "phase": "kernel",
+  "imports": ["env.dolly_http_dispatch"], "contracts": ["dolly-http-0.wat"],
+  "headers": ["http.h"], "host": "http.mjs", "kernel": ["kernel.c"], "client": ["client.c"] }
 ```
 
 Adding a bridge = its directory + one registry line + its import in

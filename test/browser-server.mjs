@@ -10,12 +10,14 @@ import { buildIdentities } from "../scripts/write-build-id.mjs";
 import { imageInputsMatch } from "../src/image-inputs.mjs";
 import { bundleProcessWorker } from "../scripts/bundle-process-worker.mjs";
 import { recipeFiles } from "../scripts/recipe-files.mjs";
+import { publishedHeaders } from "../scripts/host-modules.mjs";
 
 export const mimeTypes = new Map([
   [".html", "text/html; charset=utf-8"],
   [".md", "text/markdown; charset=utf-8"],
   [".dm", "text/plain; charset=utf-8"],
   [".h", "text/plain; charset=utf-8"],
+  [".json", "application/json"],
   [".js", "text/javascript; charset=utf-8"],
   [".mjs", "text/javascript; charset=utf-8"],
   [".wasm", "application/wasm"],
@@ -23,8 +25,14 @@ export const mimeTypes = new Map([
   [".snapshot", "application/octet-stream"],
   [".woff2", "font/woff2"],
 ]);
+// Every page and Worker source: src/*.mjs, each host module directory, and the
+// fixtures browser tests import.
+const projectRoot = new URL("..", import.meta.url);
+const listed = async (directory, pattern) => (await readdir(new URL(directory, projectRoot), { recursive: true }))
+  .filter(name => pattern.test(name)).map(name => `${directory}${name}`);
 export const browserSources = new Set([
-  ...["abi", "modules", "requirements", "runtime", "display", "gpu", "audio", "http", "http-abi", "download", "upload", "snapshot", "threads", "build"].map(name => `src/host/${name}.mjs`),
+  ...await listed("src/", /^[^/]+\.mjs$/),
+  ...await listed("host/", /\.(?:mjs|json)$/),
   "test/fixtures/browser-boundary.mjs",
   "test/fixtures/gpu-boundary.mjs",
   "test/fixtures/gpu-retirement-worker.mjs",
@@ -36,45 +44,6 @@ export const browserSources = new Set([
   "test/fixtures/browser-process-abi.mjs",
   "coi-serviceworker.js",
   "index.html",
-  "src/browser.mjs",
-  "src/dollyfile-view.mjs",
-  "src/http-policy.mjs",
-  "src/http-broker.mjs",
-  "src/kernel-plugin.mjs",
-  "src/image-entry.mjs",
-  "src/dollyfile-graph.mjs",
-  "src/image-artifact.mjs",
-  "src/image-build.mjs",
-  "src/image-builder.mjs",
-  "src/image-build-service.mjs",
-  "src/image-build-ui.mjs",
-  "src/build-log.mjs",
-  "src/local-services.mjs",
-  "src/custom-image.mjs",
-  "src/image-inputs.mjs",
-  "src/snapshot-records.mjs",
-  "src/static-asset.mjs",
-  "src/source-download.mjs",
-  "src/process-ffi.mjs",
-  "src/process-abi.mjs",
-  "src/wasm-interface.mjs",
-  "src/process-supervisor.mjs",
-  "src/process-worker.mjs",
-  "src/process-constants.mjs",
-  "src/session-store.mjs",
-  "src/session-file.mjs",
-  "src/session-transport.mjs",
-  "src/upload-transport.mjs",
-  "src/custom-dollyfile.mjs",
-  "src/sessions.mjs",
-  "src/runtime-worker.mjs",
-  "src/gpu-worker.mjs",
-  "src/gpu-bridge.mjs",
-  "src/gpu-abi.mjs",
-  "src/threads-abi.mjs",
-  "src/audio-abi.mjs",
-  "src/audio-bridge.mjs",
-  "src/audio-provider.mjs",
 ]);
 
 // Serves this checkout to browser tests and the image builder on 127.0.0.1.
@@ -135,7 +104,7 @@ export async function startBrowserServer(projectDir, image = "default",
     }
   }
   for (const source of DOLLY_STATIC_SOURCES) files.set(source.path, recipes.get(source.path) ??
-    (source.path.startsWith("/static/") ? `dist${source.path}` : source.path.slice(1)));
+    (source.path.startsWith("/static/") ? `dist${source.path}` : publishedHeaders.get(source.path)));
   for (const name of await readdir(resolve(projectDir, "dist"))) {
     if (/^dolly(?:-[a-z0-9-]+)?\.(?:wasm|mjs|data)$/.test(name) || name === "IosevkaTerm-SemiBold.woff2") {
       files.set(`/dist/${name}`, `dist/${name}`);

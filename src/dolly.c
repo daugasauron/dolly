@@ -20,7 +20,7 @@
 
 #include "fs-record.h"
 #include "process-kernel.h"
-#include "session-snapshot.h"
+#include "snapshot/kernel.h"
 #include "system-snapshot.h"
 
 enum {

@@ -8,9 +8,9 @@ const compression=process.argv[3]??"auto";
 assert.ok(["chromium","firefox"].includes(browserName));
 assert.ok(["auto","uncompressed"].includes(compression));
 const provider=(compression==='uncompressed'?'import "/test/fixtures/gpu-no-bc.mjs";\n':'')+
-  await readFile(new URL('../src/gpu-worker.mjs',import.meta.url),'utf8');
+  await readFile(new URL('../host/gpu/worker.mjs',import.meta.url),'utf8');
 const server=await startBrowserServer(new URL('..',import.meta.url).pathname,'gpu-sdk',
-  {sourceOverrides:new Map([['/src/gpu-worker.mjs',provider]]),
+  {sourceOverrides:new Map([['/host/gpu/worker.mjs',provider]]),
    fixtures:{'gpu-render.c':'test/fixtures/gpu-render.c'}});
 let browser,deadline;
 try {

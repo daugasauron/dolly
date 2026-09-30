@@ -14,12 +14,12 @@ SOURCE HOST /include/dolly/download.h  /usr/include/dolly/download.h  8924a3e4c8
 SOURCE HOST /include/dolly/host.h /usr/include/dolly/host.h 0b579ac94098b2997772f2ff2cfa3aafd8dd2812bb5ef6f658e341e33b10aa28
 SOURCE HOST /include/dolly/host-abi.h /usr/include/dolly/host-abi.h 544f73c7e5249c1a27f6ea968ee8cffa81b113addaf4d428fa1ca268c382c108
 SOURCE HOST /include/dolly/gpu.h /usr/include/dolly/gpu.h 4c77c750144fb65eba1de4694ae3b78522a2162810fd83f72dda1592f1578000
-SOURCE HOST /include/dolly/gpu-abi.h /usr/include/dolly/gpu-abi.h 2b963f80c3881332e88ff942278ee35ef61158db308816e833d807c05376705c
+SOURCE HOST /include/dolly/gpu-abi.h /usr/include/dolly/gpu-abi.h 8457fa2772a8b59df57638c53396c90085d64ffe99e3032ea157ac3a04e8dc5f
 SOURCE HOST /include/dolly/upload.h /usr/include/dolly/upload.h 606a8b7813716940e5e287b2881230334d875db4c328c8b1677471d6f5cb5a42
 SOURCE HOST /include/dolly/snapshot.h /usr/include/dolly/snapshot.h a8e74773a232b79b3655ecc6c744b3debd9db2eafc5757c088646fce650ba953
 
 SOURCE HOST /include/dolly/threads.h /usr/include/dolly/threads.h d53ba27f4e9b371c3de9482dcc6b11cf86b4563f367ea776889642aa0e52632a
-SOURCE HOST /include/dolly/threads-abi.h /usr/include/dolly/threads-abi.h e1d0ef0bcce01b335190016f009146136be9faad9ac59aca631bff35ed1b38e4
+SOURCE HOST /include/dolly/threads-abi.h /usr/include/dolly/threads-abi.h c84badea7da09c8f2f2bfc1bbc09b0fc2d93db4ac425df1d71638803250cb9d2
 
 EXPORTS HEADER libc      /usr/include
 EXPORTS HEADER toolchain /usr/include/dolly/toolchain.h

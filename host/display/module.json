@@ -1,0 +1,13 @@
+{
+  "name": "display",
+  "version": 0,
+  "dependencies": ["runtime@0"],
+  "phase": "image",
+  "imports": [],
+  "host": "display.mjs",
+  "contracts": ["dolly-display-0.wat"],
+  "process": [],
+  "headers": ["display.h"],
+  "kernel": [],
+  "client": ["client.c"]
+}

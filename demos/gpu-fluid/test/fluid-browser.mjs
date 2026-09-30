@@ -5,9 +5,9 @@ import {startBrowserServer} from '../../../test/browser-server.mjs';
 
 // Instrument only this test server: nested Worker loads are not reliably routed
 // by Playwright. Record accepted copies, then turn recording off for timings.
-const original=await readFile(new URL('../../../src/gpu-worker.mjs',import.meta.url),'utf8');
+const original=await readFile(new URL('../../../host/gpu/worker.mjs',import.meta.url),'utf8');
 const instrumented='const proof=new BroadcastChannel("dolly-fluid-proof");let recording=false;proof.onmessage=e=>{recording=e.data==="record";};\n'+original.replace('serial=serial.then(()=>execute(request,scope,parsed))','if(recording)proof.postMessage(request.bytes);serial=serial.then(()=>execute(request,scope,parsed))');
-const site=await startBrowserServer(new URL('../../../',import.meta.url).pathname,'gpu-fluid',{sourceOverrides:new Map([['/src/gpu-worker.mjs',instrumented]]),
+const site=await startBrowserServer(new URL('../../../',import.meta.url).pathname,'gpu-fluid',{sourceOverrides:new Map([['/host/gpu/worker.mjs',instrumented]]),
   fixtures:{'fluid-direct.mjs':'demos/gpu-fluid/test/fixtures/fluid-direct.mjs'}});
 const output=new URL('../../../build/fluid-proof/',import.meta.url),results=[];
 await mkdir(output,{recursive:true});

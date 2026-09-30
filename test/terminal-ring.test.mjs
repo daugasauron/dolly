@@ -5,7 +5,9 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { promisify } from "node:util";
 import test from "node:test";
-import { DisplayTransport as Display } from "../src/host/display.mjs";
+import { DisplayTransport as Display } from "../host/display/display.mjs";
+import { stagedIncludeDirectory } from "../scripts/host-modules.mjs";
+const includeDirectory = await stagedIncludeDirectory();
 
 test("display text packets and copied selections preserve literal UTF-8", async () => {
   const buffer = new SharedArrayBuffer(4096);
@@ -124,7 +126,7 @@ int main(void) {
 }
 `);
     const run = promisify(execFile);
-    await run("cc", ["-std=c11", "-I", join(project, "include"), join(scratch, "probe.c"), "-o", join(scratch, "probe")]);
+    await run("cc", ["-std=c11", "-I", includeDirectory, join(scratch, "probe.c"), "-o", join(scratch, "probe")]);
     await run(join(scratch, "probe"), []);
   } finally {
     await rm(scratch, { recursive: true, force: true });

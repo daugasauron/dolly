@@ -1,4 +1,6 @@
-import { hostContracts } from "../src/host/modules.mjs";
+import { basename } from "node:path";
+import { hostContracts } from "../host/modules.mjs";
+import { hostFiles } from "../scripts/host-modules.mjs";
 import assert from "node:assert/strict";
 import { Buffer } from "node:buffer";
 import { spawnSync } from "node:child_process";
@@ -34,6 +36,7 @@ test("unknown browser modes fail before launching Chrome", () => {
 });
 
 const artifact = (name) => new URL(`../dist/${name}`, import.meta.url);
+const contractArtifact = file => artifact(`${basename(file, ".wat")}.wasm`);
 const kernelPluginContractPath = new URL(
   "../dist/dolly-kernel-plugin-0.wasm",
   import.meta.url,
@@ -140,11 +143,8 @@ test("the process gate can only copy between one process and kernel memory", asy
 });
 
 test("the kernel exports exactly the functions its contracts declare", async () => {
-  const hostContracts = await Promise.all(
-    ["display", "http", "upload", "snapshot", "supervisor", "threads-supervisor", "gpu", "audio"]
-      .map(name => readWasmInterface(artifact(`dolly-${name}-0.wasm`))),
-  );
-  const expected = emscriptenExports(await readWasmInterface(kernelPluginContractPath), hostContracts);
+  const kernelContracts = await Promise.all(hostFiles("contracts").map(({ file }) => readWasmInterface(contractArtifact(file))));
+  const expected = emscriptenExports(await readWasmInterface(kernelPluginContractPath), kernelContracts);
   assert.deepEqual(
     JSON.parse(await readFile(new URL("../build/runtime-exports.json", import.meta.url), "utf8")),
     expected,
@@ -189,90 +189,21 @@ test("the runtime exposes typed bootstrap and process-supervisor boundaries", as
   }
 });
 
-test("the runtime implements the canonical framebuffer and input contract", async () => {
-  const contract = await readWasmInterface(artifact("dolly-display-0.wasm"));
+test("the runtime implements every host module contract its manifest names", async () => {
   const runtime = await readWasmInterface(artifact("dolly.wasm"));
-
-  for (const required of contract.imports) {
-    const actual = runtime.imports.find(
-      (entry) => entry.module === required.module && entry.name === required.name,
-    );
-    assert.ok(actual, `runtime is missing ${required.module}.${required.name}`);
-    assert.equal(sameWasmType(actual.type, required.type), true);
-  }
-  for (const required of contract.exports) {
-    const actual = runtime.exports.find((entry) => entry.name === required.name);
-    assert.ok(actual, `runtime is missing ${required.name}`);
-    assert.equal(sameWasmType(actual.type, required.type), true);
-  }
-});
-
-test("the runtime implements the canonical streaming HTTP mailbox contract", async () => {
-  const contract = await readWasmInterface(artifact("dolly-http-0.wasm"));
-  const runtime = await readWasmInterface(artifact("dolly.wasm"));
-  const dispatch = contract.imports.find(
-    (entry) => entry.module === "env" && entry.name === "dolly_http_dispatch",
-  );
-
-  assert.equal(
-    formatWasmType(dispatch.type),
-    "func(i64,i64,i64,i64,i64,i64,i64,i64,i32,i32)->(i32)",
-  );
-
-  for (const required of contract.imports) {
-    const actual = runtime.imports.find(
-      (entry) => entry.module === required.module && entry.name === required.name,
-    );
-    assert.ok(actual, `runtime is missing ${required.module}.${required.name}`);
-    assert.equal(sameWasmType(actual.type, required.type), true);
-  }
-  // Exported globals are contract constants for generated headers, not kernel exports.
-  for (const required of contract.exports.filter(entry => entry.type.kind === "func")) {
-    const actual = runtime.exports.find((entry) => entry.name === required.name);
-    assert.ok(actual, `runtime is missing ${required.name}`);
-    assert.equal(sameWasmType(actual.type, required.type), true);
-  }
-});
-
-test("the runtime implements the bounded browser download contract", async () => {
-  const contract = await readWasmInterface(artifact("dolly-download-0.wasm"));
-  const runtime = await readWasmInterface(artifact("dolly.wasm"));
-  const dispatch = contract.imports.find(
-    (entry) => entry.module === "env" && entry.name === "dolly_download_dispatch",
-  );
-  assert.equal(formatWasmType(dispatch.type), "func(i64,i64,i64,i64)->(i32)");
-  for (const required of contract.imports) {
-    const actual = runtime.imports.find(
-      (entry) => entry.module === required.module && entry.name === required.name,
-    );
-    assert.ok(actual, `runtime is missing ${required.module}.${required.name}`);
-    assert.equal(sameWasmType(actual.type, required.type), true);
-  }
-});
-
-test("user-approved upload has typed mailbox exports and no new browser import", async () => {
-  const contract = await readWasmInterface(artifact("dolly-upload-0.wasm"));
-  const runtime = await readWasmInterface(artifact("dolly.wasm"));
-  assert.deepEqual(contract.imports.map(entry => entry.name), ["memory"]);
-  for (const required of contract.exports) {
-    const actual = runtime.exports.find(entry => entry.name === required.name);
-    assert.ok(actual, required.name);
-    assert.equal(sameWasmType(actual.type, required.type), true);
-  }
-});
-
-test("the runtime implements the opaque system snapshot contract", async () => {
-  const contract = await readWasmInterface(artifact("dolly-snapshot-0.wasm"));
-  const runtime = await readWasmInterface(artifact("dolly.wasm"));
-
-  assert.deepEqual(
-    contract.imports.map((entry) => `${entry.module}.${entry.name}`),
-    ["env.memory"],
-  );
-  for (const required of contract.exports) {
-    const actual = runtime.exports.find((entry) => entry.name === required.name);
-    assert.ok(actual, `runtime is missing ${required.name}`);
-    assert.equal(sameWasmType(actual.type, required.type), true);
+  for (const { name, file } of hostFiles("contracts")) {
+    const contract = await readWasmInterface(contractArtifact(file));
+    const owned = hostContracts.find(manifest => manifest.name === name).imports;
+    for (const required of contract.imports.filter(entry => `${entry.module}.${entry.name}` !== "env.memory")) {
+      assert.ok(owned.includes(`${required.module}.${required.name}`), `${name} does not own ${required.name}`);
+      const actual = runtime.imports.find(entry => entry.module === required.module && entry.name === required.name);
+      assert.ok(actual && sameWasmType(actual.type, required.type), `${file}: runtime import ${required.name}`);
+    }
+    // Exported globals are contract constants for generated headers, not kernel exports.
+    for (const required of contract.exports.filter(entry => entry.type.kind === "func")) {
+      const actual = runtime.exports.find(entry => entry.name === required.name);
+      assert.ok(actual && sameWasmType(actual.type, required.type), `${file}: runtime export ${required.name}`);
+    }
   }
 });
 

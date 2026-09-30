@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { UploadTransport, UPLOAD_MAX_BYTES, UPLOAD_CANCEL_QUIET_MILLISECONDS } from "../src/upload-transport.mjs";
+import { UploadTransport, UPLOAD_MAX_BYTES, UPLOAD_CANCEL_QUIET_MILLISECONDS } from "../host/upload/transport.mjs";
 import { DOLLY_ERRNO as errno } from "../dist/dolly-errno.mjs";
 
 const pause = () => new Promise(resolve => setTimeout(resolve, 5));

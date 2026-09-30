@@ -17,9 +17,9 @@ function uleb(value) {
 export async function runBrowserBoundaryChecks(assetRoot) {
   const asset = path => new URL(path, assetRoot).href;
   const { instantiateKernelPlugin } = await import(asset("src/kernel-plugin.mjs"));
-  const { NetworkTransport } = await import(asset("src/http-broker.mjs"));
-  const { DOLLY_HTTP_MAILBOX_VERSION, DOLLY_HTTP_SLOT_COUNT } = await import(asset("src/host/http-abi.mjs"));
-  const { DollyHttpPolicy, restrictDollyHttpPolicy, httpPolicyConfigurations } = await import(asset("src/http-policy.mjs"));
+  const { NetworkTransport } = await import(asset("host/http/broker.mjs"));
+  const { DOLLY_HTTP_MAILBOX_VERSION, DOLLY_HTTP_SLOT_COUNT } = await import(asset("host/http/abi.mjs"));
+  const { DollyHttpPolicy, restrictDollyHttpPolicy, httpPolicyConfigurations } = await import(asset("host/http/policy.mjs"));
   const { DOLLY_KERNEL_PLUGIN_ABI_DIGEST } = await import(asset("dist/dolly-kernel-plugin-abi.mjs"));
   const { DOLLY_ERRNO: errno } = await import(asset("dist/dolly-errno.mjs"));
   const fixtureOrigin = new URL(import.meta.url).origin;
@@ -103,7 +103,7 @@ export async function runBrowserBoundaryChecks(assetRoot) {
   await cancelled;
   check(Atomics.load(words, word + NetworkTransport.error) === errno.ECANCELED,
     "interruption lost its cancellation errno");
-  await checkAdmissionQueue(broker, errno, asset("src/http-broker.mjs"));
+  await checkAdmissionQueue(broker, errno, asset("host/http/broker.mjs"));
   const observations = [];
   broker.policy = new DollyHttpPolicy({ rules: [{ origin: fixtureOrigin,
     path: "/fixture/http.txt", methods: ["GET"] }] });

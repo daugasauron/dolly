@@ -1,6 +1,6 @@
 export async function audioBoundaryProof() {
   const [{createAudioProvider}, {createAudioBridge}, {DOLLY_ERRNO: E}] = await Promise.all([
-    import("../../src/audio-provider.mjs"), import("../../src/audio-bridge.mjs"), import("../../dist/dolly-errno.mjs")]);
+    import("../../host/audio/provider.mjs"), import("../../host/audio/bridge.mjs"), import("../../dist/dolly-errno.mjs")]);
   const check = (ok, message) => { if (!ok) throw Error(message); };
   let sequence = 0;
   function packet(op, scope = 1, frames = 0) {

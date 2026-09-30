@@ -30,7 +30,7 @@ write_pc vorbisfile 1.3.7 '' "-L$sdk/lib/wasm64-emscripten -lvorbis -logg"
 emcc -m64 -O1 -matomics -mbulk-memory -Iinclude -I"$curl_source/include" \
   -c src/libcurl-fetch.c -o .cache/0ad/libcurl-fetch.o
 emar crs "$prefix/lib/libcurl.a" .cache/0ad/libcurl-fetch.o
-emcc -m64 -O1 -matomics -mbulk-memory -Iinclude -c src/gpu/client.c -o .cache/0ad/gpu-client.o
+emcc -m64 -O1 -matomics -mbulk-memory -Ibuild/include -c host/gpu/client.c -o .cache/0ad/gpu-client.o
 emar crs "$prefix/lib/libdollygpu.a" .cache/0ad/gpu-client.o
 emcc -m64 -O1 -matomics -mbulk-memory -Iinclude -c src/audio/client.c -o .cache/0ad/audio-client.o
 emar crs "$prefix/lib/libdollyaudio.a" .cache/0ad/audio-client.o

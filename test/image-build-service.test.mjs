@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { ImageBuildService, BUILD_ORIGIN, BUILD_LIMITS } from "../src/image-build-service.mjs";
-import { DollyHttpPolicy, httpPolicyConfigurations, restrictDollyHttpPolicy } from "../src/http-policy.mjs";
-import { localServicesTransport } from "../src/local-services.mjs";
+import { ImageBuildService, BUILD_ORIGIN, BUILD_LIMITS } from "../host/build/service.mjs";
+import { DollyHttpPolicy, httpPolicyConfigurations, restrictDollyHttpPolicy } from "../host/http/policy.mjs";
+import { localServicesTransport } from "../host/build/local-services.mjs";
 import { checkedCustomArtifact } from "../src/custom-image.mjs";
 import { describeImageArtifact, sha256 } from "../src/image-artifact.mjs";
 import { encodeSnapshotRecords } from "../src/snapshot-records.mjs";

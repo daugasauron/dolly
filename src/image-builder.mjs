@@ -1,4 +1,4 @@
-import { createHost, buildHost } from "./host/modules.mjs";
+import { createHost, buildHost } from "../host/modules.mjs";
 import { DOLLY_IMAGES } from "../dist/dolly-images.mjs";
 import { describeImageArtifact, saveImageArtifact, sha256 } from "./image-artifact.mjs";
 import { inspectDollyfile } from "./dollyfile-view.mjs";

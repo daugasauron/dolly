@@ -1,10 +1,10 @@
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import test from "node:test";
-import { NetworkTransport, DOLLY_HTTP_LIMITS } from "../src/http-broker.mjs";
-import { DOLLY_HTTP_SLOT_COUNT } from "../src/host/http-abi.mjs";
-import { DollyHttpPolicy, httpPolicyConfigurations, restrictDollyHttpPolicy } from "../src/http-policy.mjs";
-import { localServicesTransport } from "../src/local-services.mjs";
+import { NetworkTransport, DOLLY_HTTP_LIMITS } from "../host/http/broker.mjs";
+import { DOLLY_HTTP_SLOT_COUNT } from "../host/http/abi.mjs";
+import { DollyHttpPolicy, httpPolicyConfigurations, restrictDollyHttpPolicy } from "../host/http/policy.mjs";
+import { localServicesTransport } from "../host/build/local-services.mjs";
 import { DOLLY_ERRNO as errno } from "../dist/dolly-errno.mjs";
 
 const target = "https://fixture.example/allowed";

@@ -67,10 +67,10 @@ if has_module session-recovery; then
   done
 fi
 if has_module audio; then
-  copy_static src/audio/client.c audio/client.c
+  copy_static host/audio/client.c audio/client.c
 fi
 if has_module gpu; then
-  copy_static src/gpu/client.c gpu/client.c
+  copy_static host/gpu/client.c gpu/client.c
 fi
 if has_module curl; then
   copy_static "${project_dir}/src/commands/curl.c" default/commands/curl.c

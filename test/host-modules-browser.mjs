@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { browserTest } from "./browser.mjs";
 import { parseWasmInterface } from "../src/wasm-interface.mjs";
-import { executableHostRequirements } from "../src/host/requirements.mjs";
+import { executableHostRequirements } from "../host/requirements.mjs";
 
 const hostModules = modules => page => page.addInitScript(modules => { globalThis.DOLLY_HOST_MODULES = modules; }, modules);
 const sourceOverrides = new Map();

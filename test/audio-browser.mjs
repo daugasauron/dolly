@@ -30,7 +30,7 @@ function meter() {
 // on a page that never boots Dolly, because Chrome's page.evaluate activates.
 async function queueBeforeActivation(origin) {
   if (location.origin !== origin) return;
-  const { browser: audioHost } = await import("/src/host/audio.mjs");
+  const { browser: audioHost } = await import("/host/audio/audio.mjs");
   let completed;
   globalThis.provider = audioHost({ send: message => { completed = message; } });
   let resumeCalls = 0;
@@ -67,7 +67,7 @@ await browserTest("audio", { image: "audio-sdk", server: { fixtures } }, async (
   await page.mouse.click(10, 10);
   // A host without audio@0 refuses audio images and requests.
   const selection = await page.evaluate(async () => {
-    const { createHost } = await import("/src/host/modules.mjs");
+    const { createHost } = await import("/host/modules.mjs");
     const host = await createHost("browser", ["runtime@0"], { send() {} });
     try {
       let denied;

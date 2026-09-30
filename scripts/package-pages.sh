@@ -31,66 +31,6 @@ for row in "${image_rows[@]}"; do
   dollyfiles+=("${dollyfile}")
 done
 
-for required in \
-  index.html \
-  terminal.html \
-  coi-serviceworker.js \
-  src/browser.mjs \
-  src/dollyfile-view.mjs \
-  src/http-policy.mjs \
-  src/http-broker.mjs \
-  src/kernel-plugin.mjs \
-  src/image-entry.mjs \
-  src/dollyfile-graph.mjs \
-  src/image-artifact.mjs \
-  src/image-build.mjs \
-  src/image-builder.mjs \
-  src/image-build-service.mjs \
-  src/image-build-ui.mjs \
-  src/local-services.mjs \
-  src/custom-image.mjs \
-  src/image-inputs.mjs \
-  src/snapshot-records.mjs \
-  src/process-ffi.mjs \
-  src/process-abi.mjs \
-  src/wasm-interface.mjs \
-  src/process-supervisor.mjs \
-  src/process-worker.mjs \
-  src/process-constants.mjs \
-  src/threads-abi.mjs \
-  src/session-store.mjs \
-  src/session-file.mjs \
-  src/session-transport.mjs \
-  src/upload-transport.mjs \
-  src/custom-dollyfile.mjs \
-  src/sessions.mjs \
-  src/runtime-worker.mjs \
-  dist/dolly-images.mjs \
-  dist/dolly.mjs \
-  dist/dolly-seed.mjs \
-  dist/dolly.wasm \
-  dist/dolly.data \
-  dist/dolly-process-abi.mjs \
-  dist/dolly-process-worker.mjs \
-  dist/dolly-threads-abi.mjs \
-  dist/dolly-threads-0.wasm \
-  dist/dolly-threads-supervisor-0.wasm \
-  dist/dolly-process-0.wasm \
-  dist/dolly-process-dso-0.wasm \
-  dist/dolly-kernel-plugin-0.wasm \
-  dist/dolly-host-0.wasm \
-  dist/dolly-snapshot-0.wasm \
-  dist/dolly-errno.mjs \
-  dist/dolly-kernel-plugin-abi.mjs \
-  dist/dolly-browser-0.wasm \
-  dist/dolly-gpu-0.wasm \
-  dist/dolly-audio-0.wasm \
-  dist/dolly-process-gate-0.wasm; do
-  if [[ ! -f "${project_dir}/${required}" ]]; then
-    echo "dolly: Pages artifact is missing ${required}" >&2
-    exit 1
-  fi
-done
 for required in "${dollyfiles[@]}"; do
   [[ -f "${project_dir}/${required}" ]] || {
     echo "dolly: Pages artifact is missing ${required}" >&2
@@ -111,54 +51,16 @@ done
 
 mkdir -p "${staging}/site/src" "${staging}/site/dist" "${staging}/site/docs" \
   "${staging}/site/modules" "${staging}/site/abi" "${staging}/site/include/dolly"
-cp -R "${project_dir}/src/host" "${staging}/site/src/host"
+cp -R "${project_dir}/host" "${staging}/site/host"
 node "${project_dir}/scripts/site-release.mjs" source "${staging}/site" "${project_dir}"
 cp "${project_dir}/build/routes/index.html" "${project_dir}/terminal.html" \
   "${dollyfiles[@]/#/${project_dir}/}" \
   "${project_dir}/coi-serviceworker.js" \
   "${staging}/site/"
-cp "${project_dir}/src/browser.mjs" \
-  "${project_dir}/src/dollyfile-view.mjs" \
-  "${project_dir}/src/http-policy.mjs" \
-  "${project_dir}/src/http-broker.mjs" \
-  "${project_dir}/src/kernel-plugin.mjs" \
-  "${project_dir}/src/image-entry.mjs" \
-  "${project_dir}/src/dollyfile-graph.mjs" \
-  "${project_dir}/src/image-artifact.mjs" \
-  "${project_dir}/src/image-build.mjs" \
-  "${project_dir}/src/image-builder.mjs" \
-  "${project_dir}/src/image-build-service.mjs" \
-  "${project_dir}/src/image-build-ui.mjs" \
-  "${project_dir}/src/build-log.mjs" \
-  "${project_dir}/src/local-services.mjs" \
-  "${project_dir}/src/custom-image.mjs" \
-  "${project_dir}/src/image-inputs.mjs" \
-  "${project_dir}/src/snapshot-records.mjs" \
-  "${project_dir}/src/static-asset.mjs" \
-  "${project_dir}/src/source-download.mjs" \
-  "${project_dir}/src/process-ffi.mjs" \
-  "${project_dir}/src/process-abi.mjs" \
-  "${project_dir}/src/wasm-interface.mjs" \
-  "${project_dir}/src/process-supervisor.mjs" \
-  "${project_dir}/src/process-worker.mjs" \
-  "${project_dir}/src/process-constants.mjs" \
-  "${project_dir}/src/threads-abi.mjs" \
-  "${project_dir}/src/session-store.mjs" \
-  "${project_dir}/src/session-file.mjs" \
-  "${project_dir}/src/session-transport.mjs" \
-  "${project_dir}/src/upload-transport.mjs" \
-  "${project_dir}/src/custom-dollyfile.mjs" \
-  "${project_dir}/src/sessions.mjs" \
-  "${project_dir}/src/runtime-worker.mjs" \
-  "${project_dir}/src/gpu-worker.mjs" \
-  "${project_dir}/src/gpu-bridge.mjs" \
-  "${project_dir}/src/gpu-abi.mjs" \
-  "${project_dir}/src/audio-abi.mjs" \
-  "${project_dir}/src/audio-bridge.mjs" \
-  "${project_dir}/src/audio-provider.mjs" \
-  "${staging}/site/src/"
+cp "${project_dir}"/src/*.mjs "${staging}/site/src/"
 cp "${project_dir}"/abi/*.wat "${staging}/site/abi/"
-cp "${project_dir}"/include/dolly/*.h "${staging}/site/include/dolly/"
+mapfile -t headers < <(node "${project_dir}/scripts/host-modules.mjs" headers)
+cp "${headers[@]/#/${project_dir}/}" "${staging}/site/include/dolly/"
 cp "${project_dir}/LICENSE" "${staging}/site/LICENSE"
 for image_name in "${image_names[@]}"; do
   cp -R "${project_dir}/build/routes/${image_name}" "${staging}/site/"
@@ -199,19 +101,9 @@ cp \
   "${project_dir}/dist/dolly-process-abi.mjs" \
   "${project_dir}/dist/dolly-process-worker.mjs" \
   "${project_dir}/dist/dolly-threads-abi.mjs" \
-  "${project_dir}/dist/dolly-threads-0.wasm" \
-  "${project_dir}/dist/dolly-threads-supervisor-0.wasm" \
-  "${project_dir}/dist/dolly-process-0.wasm" \
-  "${project_dir}/dist/dolly-process-dso-0.wasm" \
-  "${project_dir}/dist/dolly-kernel-plugin-0.wasm" \
-  "${project_dir}/dist/dolly-host-0.wasm" \
-  "${project_dir}/dist/dolly-snapshot-0.wasm" \
   "${project_dir}/dist/dolly-errno.mjs" \
   "${project_dir}/dist/dolly-kernel-plugin-abi.mjs" \
-  "${project_dir}/dist/dolly-browser-0.wasm" \
-  "${project_dir}/dist/dolly-gpu-0.wasm" \
-  "${project_dir}/dist/dolly-audio-0.wasm" \
-  "${project_dir}/dist/dolly-process-gate-0.wasm" \
+  "${project_dir}"/dist/dolly-*-0.wasm \
   "${staging}/site/dist/"
 for image_name in "${image_names[@]}"; do
   cp \

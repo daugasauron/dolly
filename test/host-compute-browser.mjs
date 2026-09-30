@@ -10,12 +10,12 @@ await browserTest("host compute", { image: "system-build" }, async ({ browser, s
   await page.goto(server.origin + "/fixture/http.txt");
   const result = await page.evaluate(async code => {
     const { DOLLY_IMAGES, DOLLY_STATIC_SOURCES } = await import("/dist/dolly-images.mjs");
-    const { createHost } = await import("/src/host/modules.mjs");
+    const { createHost } = await import("/host/modules.mjs");
     const { buildImage } = await import("/src/image-builder.mjs");
     const { prepareImageArtifacts } = await import("/src/image-build.mjs");
     const { describeImageArtifact, sha256 } = await import("/src/image-artifact.mjs");
-    const { consumeDollyHttpPolicy } = await import("/src/http-policy.mjs");
-    const { localServicesTransport } = await import("/src/local-services.mjs");
+    const { consumeDollyHttpPolicy } = await import("/host/http/policy.mjs");
+    const { localServicesTransport } = await import("/host/build/local-services.mjs");
     const sources = [...DOLLY_IMAGES.map(d => ({ path: `/${d.dollyfile}`, byteLength: d.byteLength })), ...DOLLY_STATIC_SOURCES];
     const network = localServicesTransport(consumeDollyHttpPolicy(globalThis, sources, new URL("/", location.href)));
     const base = DOLLY_IMAGES.find(d => d.image === "system-build");

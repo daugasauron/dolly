@@ -1,0 +1,13 @@
+{
+  "name": "http",
+  "version": 0,
+  "dependencies": ["runtime@0"],
+  "phase": "kernel",
+  "imports": ["env.dolly_http_dispatch"],
+  "host": "http.mjs",
+  "contracts": ["dolly-http-0.wat"],
+  "process": [],
+  "headers": ["http.h"],
+  "kernel": [],
+  "client": ["client.c"]
+}

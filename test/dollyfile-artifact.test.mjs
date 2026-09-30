@@ -5,12 +5,14 @@ import { mkdtemp, open, readFile, rm, stat, truncate, writeFile } from "node:fs/
 import { tmpdir } from "node:os";
 import { resolve } from "node:path";
 import test from "node:test";
+import { stagedIncludeDirectory } from "../scripts/host-modules.mjs";
+const includeDirectory = await stagedIncludeDirectory();
 
 test("artifact reads stay bounded, preserve ranges and reject malformed snapshots", async () => {
   const scratch = await mkdtemp(resolve(tmpdir(), "dolly-artifact-"));
   try {
     const project = resolve(import.meta.dirname, ".."), program = resolve(scratch, "parser");
-    execFileSync("cc", ["-std=c11", "-O1", "-I", resolve(project, "include"),
+    execFileSync("cc", ["-std=c11", "-O1", "-I", includeDirectory,
       resolve(project, "test/fixtures/dollyfile-parser.c"), "-o", program]);
     const recipe = Buffer.from("DOLLY 4\nIMAGE artifact-proof\nENTRY /bin/slop\n");
     const pin = createHash("sha256").update(recipe).digest("hex");

@@ -1,0 +1,12 @@
+{
+  "name": "threads",
+  "version": 0,
+  "dependencies": ["runtime@0"],
+  "imports": [],
+  "host": "threads.mjs",
+  "contracts": ["dolly-threads-supervisor-0.wat"],
+  "process": ["dolly-threads-0.wat"],
+  "headers": ["threads.h", "threads-abi.h"],
+  "kernel": [],
+  "client": ["client.c"]
+}

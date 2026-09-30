@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { consumeDollyHttpPolicy, DollyHttpPolicy, isDollyCredentialHeader, httpPolicyConfigurations, restrictDollyHttpPolicy } from "../src/http-policy.mjs";
+import { consumeDollyHttpPolicy, DollyHttpPolicy, isDollyCredentialHeader, httpPolicyConfigurations, restrictDollyHttpPolicy } from "../host/http/policy.mjs";
 
 test("response quotas are optional and finite inherited quotas cannot be widened", () => {
   const target = new URL("https://models.example/weights");

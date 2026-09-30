@@ -1,14 +1,14 @@
 import { buildLog } from "./build-log.mjs";
-import { createHost, buildHost } from "./host/modules.mjs";
-import { DisplayTransport } from "./host/display.mjs";
+import { createHost, buildHost } from "../host/modules.mjs";
+import { DisplayTransport } from "../host/display/display.mjs";
 import { prepareImageArtifacts, loadImageHostRequirements } from "./image-build.mjs";
 import { buildImage } from "./image-builder.mjs";
-import { mountImageBuild } from "./image-build-ui.mjs";
+import { mountImageBuild } from "../host/build/ui.mjs";
 import { loadCustomImage } from "./custom-image.mjs";
 import { describeImageArtifact, sha256 } from "./image-artifact.mjs";
 import { inspectDollyfile } from "./dollyfile-view.mjs";
-import { consumeDollyHttpPolicy, httpPolicyConfigurations, restrictDollyHttpPolicy } from "./http-policy.mjs";
-import { localServicesTransport } from "./local-services.mjs";
+import { consumeDollyHttpPolicy, httpPolicyConfigurations, restrictDollyHttpPolicy } from "../host/http/policy.mjs";
+import { localServicesTransport } from "../host/build/local-services.mjs";
 import {
   DOLLY_SESSION_FORMAT_VERSION,
   decodeSessionSnapshot,

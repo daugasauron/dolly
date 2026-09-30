@@ -1,6 +1,6 @@
 const check=(value,message)=>{if(!value)throw Error(message);};
 
-function gpuFixture(workerUrl=new URL("../../src/gpu-worker.mjs",import.meta.url), surface=true) {
+function gpuFixture(workerUrl=new URL("../../host/gpu/worker.mjs",import.meta.url), surface=true) {
   const heap=new WebAssembly.Memory({initial:32n,maximum:64n,shared:true,address:"i64"});
   let memory=heap.buffer, address=1024*1024;
   const control=new Int32Array(new SharedArrayBuffer(8));

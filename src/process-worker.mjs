@@ -3,9 +3,9 @@ import { DOLLY_ERRNO } from "../dist/dolly-errno.mjs";
 import { createProcessFfi } from "./process-ffi.mjs";
 import { parseWasmInterface } from "./wasm-interface.mjs";
 import { requireDsoType, validateDsoHost, validateDsoInterface } from "./process-abi.mjs";
-import { executableHostRequirements, checkHostAbi } from "./host/requirements.mjs";
+import { executableHostRequirements, checkHostAbi } from "../host/requirements.mjs";
 
-import { DOLLY_THREAD_EXIT } from "./threads-abi.mjs";
+import { DOLLY_THREAD_EXIT } from "../host/threads/abi.mjs";
 import {
   DOLLY_PROCESS_CLOCK_MONOTONIC, DOLLY_PROCESS_CLOCK_REALTIME, DOLLY_PROCESS_CLOCK_TIME,
   DOLLY_PROCESS_DSO_CLOSE, DOLLY_PROCESS_DSO_ERROR_CAPACITY, DOLLY_PROCESS_DSO_GLOBAL,

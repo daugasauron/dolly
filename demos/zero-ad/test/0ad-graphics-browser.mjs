@@ -19,13 +19,13 @@ await mkdir(output,{recursive:true});
 const sources=inspectDollyfile(await readFile(new URL('demos/zero-ad/zero-ad.dm',root),'utf8')).sources;
 const fixtures=Object.fromEntries(sources.map(source=>[source.location.slice('/static/zero-ad/'.length),'dist'+source.location]));
 fixtures['pyrogenesis.wasm']='build/0ad/pyrogenesis.wasm';
-let provider='import "/test/fixtures/gpu-surface-observer.mjs";\n'+(await readFile(new URL('src/gpu-worker.mjs',root),'utf8'))
+let provider='import "/test/fixtures/gpu-surface-observer.mjs";\n'+(await readFile(new URL('host/gpu/worker.mjs',root),'utf8'))
   .replace('stats:{...stats,allocatedBytes:usedBytes}',
     'stats:{...stats,allocatedBytes:usedBytes,frameTime:performance.now(),gpuTotalMs:scope.gpuTotalMs}');
 if(backend==='software')provider=provider.replace('powerPreference: "high-performance"','forceFallbackAdapter: true');
 if(compression==='uncompressed')provider='import "/test/fixtures/gpu-no-bc.mjs";\n'+provider;
 if(compression==='core')provider='import "/test/fixtures/gpu-core-limits.mjs";\n'+provider;
-const server=await startBrowserServer(root.pathname,image,{sourceOverrides:new Map([['/src/gpu-worker.mjs',provider]]),
+const server=await startBrowserServer(root.pathname,image,{sourceOverrides:new Map([['/host/gpu/worker.mjs',provider]]),
   fixtures});
 let browser,deadline,page;
 try {

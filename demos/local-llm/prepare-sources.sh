@@ -9,8 +9,8 @@ if has_module local-llm-engine; then
   node scripts/build-source-tar.mjs "${static_dir}/llama/engine.tar" \
     demos/local-llm/main.cpp /usr/src/dolly-llm/main.cpp \
     demos/local-llm/webgpu.cpp /usr/src/dolly-llm/webgpu.cpp \
-    include/dolly/gpu.h /usr/src/dolly-llm/include/dolly/gpu.h \
-    include/dolly/gpu-abi.h /usr/src/dolly-llm/include/dolly/gpu-abi.h
+    host/gpu/gpu.h /usr/src/dolly-llm/include/dolly/gpu.h \
+    host/gpu/gpu-abi.h /usr/src/dolly-llm/include/dolly/gpu-abi.h
 fi
 if has_module local-llm; then
   node scripts/build-source-tar.mjs "${static_dir}/llama/provider.tar" \

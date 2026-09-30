@@ -22,8 +22,8 @@ test("sysroot publication keys startup code and preserves previous versions", as
   await writeFile(join(root, "provider.c"), "int fixture(void) { return 0; }\n");
   await run("cc", ["-c", "provider.c", "-o", "provider.o"], { cwd: root });
   await run("ar", ["rcsD", "build/libdolly-process.a", "provider.o"], { cwd: root });
-  for (const name of ["runtime", "http", "display", "download", "upload", "gpu", "threads"])
-    await copyFile(join(root, "build/libdolly-process.a"), join(root, `build/libdolly-${name}.a`));
+  const clients = ["runtime", "gpu"].map(name => `libdolly-${name}.a`);
+  for (const name of clients) await copyFile(join(root, "build/libdolly-process.a"), join(root, "build", name));
   for (const name of ["libstandalonewasm-ww-memgrow.a", "libstubs.a", "libc-ww.a",
     "libdlmalloc-ww.a", "libclang_rt.builtins-wasmsjlj-ww.a", "libunwind-ww-wasmexcept.a",
     "libc++-ww-wasmexcept.a", "libc++abi-ww-wasmexcept.a", "libstandalonewasm-mt-memgrow.a",
@@ -39,7 +39,7 @@ test("sysroot publication keys startup code and preserves previous versions", as
     await writeFile(join(root, "startup.c"), `int startup(void) { return ${value}; }\n`);
     await run("cc", ["-c", "startup.c", "-o", startup], { cwd: root });
   };
-  const publish = async () => (await run("bash", ["scripts/prepare-process-sysroot.sh"], {
+  const publish = async () => (await run("bash", ["scripts/prepare-process-sysroot.sh", ...clients], {
     cwd: root, env: { ...process.env, PATH: `${join(root, "bin")}:${process.env.PATH}` },
   })).stdout.trim();
   await compileStartup(1);

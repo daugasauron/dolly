@@ -8,6 +8,7 @@ import {
   recipeRecords,
 } from "./dollyfile-graph.mjs";
 import { recipeFiles } from "./recipe-files.mjs";
+import { publishedHeaders } from "./host-modules.mjs";
 
 // `filename` is the logical HOST name; `path` is the file in this checkout.
 export async function discoverImageDefinitions(projectDir) {
@@ -106,9 +107,12 @@ export async function inspectStaticSources(projectDir, definitions, staticDirect
         );
       }
       if (previous) continue;
-      const diskPath = source.location.startsWith("/static/")
-        ? resolve(staticDirectory, source.location.slice("/static/".length))
-        : resolve(projectDir, source.location.slice(1));
+      const header = publishedHeaders.get(source.location);
+      if (!source.location.startsWith("/static/") && !header) {
+        throw new Error(`${record.location}:${source.line}: ${source.location} is not a host module header`);
+      }
+      const diskPath = header ? resolve(projectDir, header)
+        : resolve(staticDirectory, source.location.slice("/static/".length));
       const [bytes, metadata] = await Promise.all([readFile(diskPath), stat(diskPath)]);
       if (!metadata.isFile()) throw new Error(`${diskPath}: static source is not a file`);
       const sha256 = createHash("sha256").update(bytes).digest("hex");

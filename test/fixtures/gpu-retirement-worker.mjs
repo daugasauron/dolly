@@ -1,4 +1,4 @@
-import "../../src/gpu-worker.mjs";
+import "../../host/gpu/worker.mjs";
 
 // Real GPU work finishes normally; the test controls when completion becomes
 // visible to the provider, making retirement accounting deterministic.

@@ -3,7 +3,7 @@ import { DOLLY_IMAGES } from "../dist/dolly-images.mjs";
 import { imageInputs, imageInputsMatch } from "./image-inputs.mjs";
 import { loadRecipeGraph } from "./dollyfile-graph.mjs";
 import { unretainedPath } from "./dollyfile-view.mjs";
-import { hostRequirements } from "./host/requirements.mjs";
+import { hostRequirements } from "../host/requirements.mjs";
 import { decodeStaticAsset, publicURL, sha256 } from "./static-asset.mjs";
 import { decodeSnapshotRecords, mergeSnapshotRecords, validateSnapshotPacks, MAX_SNAPSHOT_BYTES as snapshotSizeLimit } from "./snapshot-records.mjs";
 const applicationBase = new URL("../", import.meta.url);

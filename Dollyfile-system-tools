@@ -1,7 +1,7 @@
 DOLLY 4
 IMAGE system-tools
 
-FROM HOST /Dollyfile-system-build d75f9c00acb2477144c4ab7585dfe46ad54bd5ff333b788e9739fa3cfa629677
+FROM HOST /Dollyfile-system-build 768297ab52fb14132308adc173a3fd24650da6de657b48d006824ec7cfa04c4a
 USE HOST /modules/sbase.dm dc20896ef0f18640738eff65e5a221e6b2cf8b08371c8425d3aede76a0763b0a
 USE HOST /modules/default.dm 295c4b05422dc43ce3b8c2d5c690eab49c96842373987047e94d2d0f004fae4e
 USE HOST /modules/posix-shell.dm f549dd966c59473892d2fc9f11a19a9b7eaf1c344b1b4a62c5dbf2fbedcc3753
