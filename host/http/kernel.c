@@ -62,9 +62,9 @@ uint32_t dolly_http_chunk_capacity(void) {
   return DOLLY_HTTP_CHUNK_CAPACITY;
 }
 
-int dolly_http_start(const char *method, const char *url, const char *headers,
-                     const void *body, size_t body_size, unsigned int flags,
-                     unsigned int *sequence_out) {
+static int http_start(const char *method, const char *url, const char *headers,
+                      const void *body, size_t body_size, unsigned int flags,
+                      unsigned int *sequence_out) {
   const unsigned int valid_flags = DOLLY_HTTP_FAIL_STATUS | DOLLY_HTTP_FOLLOW_REDIRECTS;
   if (method == NULL || url == NULL || sequence_out == NULL ||
       method[0] == '\0' || url[0] == '\0' || (flags & ~valid_flags) != 0 ||
@@ -99,8 +99,8 @@ int dolly_http_start(const char *method, const char *url, const char *headers,
   return -EBUSY;
 }
 
-int dolly_http_poll(unsigned int sequence, dolly_http_chunk *chunk,
-                    void *data, size_t capacity) {
+static int http_poll(unsigned int sequence, dolly_http_chunk *chunk,
+                     void *data, size_t capacity) {
   if (chunk == NULL || (capacity != 0 && data == NULL)) return -EINVAL;
   if (sequence == 0) return -ESTALE;
   dolly_http_mailbox *mailbox = &http_mailboxes[(sequence - 1) % DOLLY_HTTP_SLOT_COUNT];
@@ -134,7 +134,7 @@ int dolly_http_poll(unsigned int sequence, dolly_http_chunk *chunk,
   return 1;
 }
 
-int dolly_http_cancel(unsigned int sequence) {
+static int http_cancel(unsigned int sequence) {
   if (sequence == 0) return -ESTALE;
   dolly_http_mailbox *mailbox = &http_mailboxes[(sequence - 1) % DOLLY_HTTP_SLOT_COUNT];
   if (atomic_load_explicit(&mailbox->sequence, memory_order_acquire) != sequence) return -ESTALE;
@@ -144,10 +144,6 @@ int dolly_http_cancel(unsigned int sequence) {
   emscripten_atomic_notify((void *)&mailbox->state, EMSCRIPTEN_NOTIFY_ALL_WAITERS);
   return 0;
 }
-
-
-/* The browser admits at most 8 MiB per request body (dolly-http-0.wat). */
-enum { HTTP_BODY_LIMIT = 8 * 1024 * 1024 };
 
 // The process that started each slot's current request.
 typedef struct { int pid; uint32_t sequence; } owned_request;
@@ -190,7 +186,7 @@ static int64_t http_body_write_packet(staged_body *body, unsigned char *mailbox,
   dolly_http_body_write_request request;
   memcpy(&request, mailbox, sizeof(request));
   const size_t length = request_size - sizeof(request);
-  if (request.total_size > HTTP_BODY_LIMIT) return -E2BIG;
+  if (request.total_size > DOLLY_HTTP_MAX_BODY) return -E2BIG;
   if (request.offset > request.total_size ||
       length > request.total_size - request.offset) return -EINVAL;
   if (request.offset == 0) {
@@ -256,7 +252,7 @@ static int64_t http_start_packet(int pid, staged_body *body, unsigned char *mail
   cursor += headers_size;
 
   unsigned int sequence = 0;
-  const int result = dolly_http_start(
+  const int result = http_start(
       method, url, headers, staged ? body->bytes : cursor,
       body_size, request.flags, &sequence);
   free(strings);
@@ -280,7 +276,7 @@ static int64_t http_poll_packet(int pid, unsigned char *mailbox,
   dolly_http_chunk chunk = {0};
   const size_t data_capacity =
       (size_t)response_capacity - sizeof(dolly_http_poll_response);
-  const int result = dolly_http_poll(
+  const int result = http_poll(
       request.sequence, &chunk,
       mailbox + sizeof(dolly_http_poll_response),
       data_capacity);
@@ -303,7 +299,7 @@ static int64_t http_cancel_packet(int pid, unsigned char *mailbox,
   memcpy(&request, mailbox, sizeof(request));
   if (request.reserved != 0 || request.sequence == 0 ||
       !owns(pid, request.sequence)) return -ESTALE;
-  const int result = dolly_http_cancel(request.sequence);
+  const int result = http_cancel(request.sequence);
   if (result == 0) requests[(request.sequence - 1) % DOLLY_HTTP_SLOT_COUNT] = (owned_request){0};
   return result;
 }
@@ -342,7 +338,7 @@ static void http_release(int pid, int tid) {
   if (tid != 0) return;
   for (size_t index = 0; index < DOLLY_HTTP_SLOT_COUNT; ++index) {
     if (requests[index].pid != pid) continue;
-    (void)dolly_http_cancel(requests[index].sequence);
+    (void)http_cancel(requests[index].sequence);
     requests[index] = (owned_request){0};
   }
 }
