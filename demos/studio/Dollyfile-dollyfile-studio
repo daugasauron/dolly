@@ -3,6 +3,6 @@ IMAGE dollyfile-studio
 
 FROM https://daugasauron.com/demos/local-llm/Dollyfile-pi-local f39b1beb146e11b034713b05ca6960e53af21a32455f2b2d78c14a63c5d10de0
 USE https://daugasauron.com/demos/neovim/neovim-runtime.dm b6c9652dd34c04e0cc30250d3e9908d9cfcd0d12c966c4d040b0068c1d8a128b
-USE https://daugasauron.com/demos/studio/dollyfile-studio.dm 3e3da7bf3f5153b5c840d6571c674e74891234ce4c55a4fe89c97a0e2ef73a52
+USE https://daugasauron.com/demos/studio/dollyfile-studio.dm b8b3cba17e6112bf2988166dadde8afcfb04fe8334b465ab6b2ead73d3a06900
 
 ENTRY /bin/foreground -i /bin/slop /etc/dolly/init.slop
