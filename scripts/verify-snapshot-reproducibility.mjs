@@ -10,7 +10,7 @@ import { pathToFileURL } from "node:url";
 import { discoverImageDefinitions } from "./image-definitions.mjs";
 import { decodeSystemSnapshot } from "./system-snapshot-format.mjs";
 
-function build({ projectDir, image, output, profile, port, state }) {
+function build({ projectDir, image, output, profile, state }) {
   return new Promise((resolveBuild, reject) => {
     // Always launch a browser build. Its server hides packaged snapshots;
     // only this owned profile can supply completed image artifacts.
@@ -18,7 +18,7 @@ function build({ projectDir, image, output, profile, port, state }) {
       resolve(projectDir, "scripts/build-snapshot-browser.mjs"), image, output, "--unpackaged", state,
     ], {
       cwd: projectDir,
-      env: { ...process.env, DOLLY_BROWSER_PROFILE: profile, DOLLY_BROWSER_PORT: String(port) },
+      env: { ...process.env, DOLLY_BROWSER_PROFILE: profile },
       stdio: "inherit",
     });
     child.once("error", reject);
@@ -65,7 +65,6 @@ async function firstDifference(leftPath, rightPath, size) {
 
 export async function verifyReproducibility({ projectDir, image, runBuild = build }) {
   const scratch = await mkdtemp(resolve(projectDir, "dist/.snapshot-repro-"));
-  const port = 20_000 + Number.parseInt(createHash("sha256").update(scratch).digest("hex").slice(0, 8), 16) % 20_000;
   const first = resolve(scratch, "cold-1.snapshot");
   try {
     let baseline;
@@ -76,7 +75,7 @@ export async function verifyReproducibility({ projectDir, image, runBuild = buil
     ]) {
       const output = resolve(scratch, `${label}.snapshot`);
       console.log(`dolly: running ${image} ${label} browser build`);
-      await runBuild({ projectDir, image, output, profile: resolve(scratch, profileName), port, state });
+      await runBuild({ projectDir, image, output, profile: resolve(scratch, profileName), state });
       decodeSystemSnapshot(await readFile(output));
       const current = { size: (await stat(output)).size, digest: await sha256(output) };
       if (baseline && (baseline.size !== current.size || baseline.digest !== current.digest)) {

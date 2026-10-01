@@ -6,7 +6,7 @@
 // IndexedDB. --unpackaged hides packaged snapshots: dependencies must be rebuilt
 // (cold) or come from that cache (warm).
 // usage: build-snapshot-browser.mjs IMAGE OUTPUT [--unpackaged cold|warm]
-// env: DOLLY_BROWSER_PROFILE (.cache/snapshot-browser-profile), DOLLY_BROWSER_PORT
+// env: DOLLY_BROWSER_PROFILE (.cache/snapshot-browser-profile)
 import { createHash } from "node:crypto";
 import { open, rm, writeFile } from "node:fs/promises";
 import { resolve, sep } from "node:path";
@@ -31,8 +31,7 @@ if (!definition || !outputArgument || ![undefined, "cold", "warm"].includes(unpa
 const output = resolve(outputArgument);
 if (!output.startsWith(resolve(projectDir, "dist") + sep)) throw new Error("OUTPUT must be inside dist/");
 const profile = resolve(process.env.DOLLY_BROWSER_PROFILE ?? resolve(projectDir, ".cache/snapshot-browser-profile"));
-const port = Number(process.env.DOLLY_BROWSER_PORT ??
-  20_000 + Number.parseInt(createHash("sha256").update(profile).digest("hex").slice(0, 8), 16) % 20_000);
+const port = 20_000 + Number.parseInt(createHash("sha256").update(profile).digest("hex").slice(0, 8), 16) % 20_000;
 const graph = await createDollyfileGraphLoader(projectDir)(definition.dollyfile);
 // Recipes' explicit upstream URLs are the only network the build may use.
 const rules = graph.records.flatMap(record => record.sources.filter(source => canonicalPath(source.location) === null))

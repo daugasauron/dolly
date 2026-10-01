@@ -68,8 +68,7 @@ function expectedModules(image) {
 // Each concurrent builder needs its own Chrome profile; the port follows it.
 function runSnapshotBuild(image, output, builder) {
   return new Promise((resolveBuild, reject) => {
-    const env = builder === 0 ? process.env
-      : { ...process.env, DOLLY_BROWSER_PROFILE: resolve(projectDir, `.cache/snapshot-browser-profile-${builder}`) };
+    const env = { ...process.env, DOLLY_BROWSER_PROFILE: resolve(projectDir, `.cache/snapshot-browser-profile-${builder}`) };
     const child = spawn(process.execPath, [resolve(projectDir, "scripts/build-snapshot-browser.mjs"), image, output], {
       cwd: projectDir, env, stdio: ["ignore", "pipe", "pipe"],
     });
