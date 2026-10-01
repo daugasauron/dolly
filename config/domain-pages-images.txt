@@ -4,6 +4,7 @@ bhop
 classicube
 codex
 dollyfile-studio
+gnu-emacs
 gpu-fluid
 javascript
 neovim

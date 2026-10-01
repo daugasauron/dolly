@@ -1,0 +1,120 @@
+DOLLY 6
+PACKAGE emacs
+
+# GNU Emacs 31.1 for the terminal. demos/emacs/prepare-emacs.sh patches and
+# configures the release outside; Dolly compiles every object and dumps it.
+FROM https://daugasauron.com/Dollyfile-system 68fc9812c2c6dc3f459eb04ad59683a04c9953e81eb8970db702e5fd43cb51f8
+REQUIRES HEADER libc
+REQUIRES TOOL   cc
+REQUIRES TOOL   ar
+REQUIRES TOOL   make
+REQUIRES TOOL   sh
+REQUIRES TOOL   sed
+REQUIRES TOOL   awk
+REQUIRES TOOL   gzip
+REQUIRES TOOL   tar
+REQUIRES TOOL   find
+REQUIRES TOOL   xargs
+REQUIRES TOOL   cp
+REQUIRES TOOL   mkdir
+REQUIRES TOOL   rm
+
+SOURCE https://daugasauron.com/dist/static/emacs/emacs.tar.gz ac28ce238740b368765501be55862bd907eeebf03d8c4b8caf2b2e51348a9f00 /tmp/emacs.tar.gz
+SLOP gzip -dc /tmp/emacs.tar.gz | tar -xf - -C /
+
+# Dolly's tar does not restore archive times. One time for every file lets
+# Make treat the generated files the release ships as current.
+FILE /tmp/emacs-release-time.c
+    #include <fcntl.h>
+    #include <stdio.h>
+    #include <sys/stat.h>
+    
+    int main(int argc, char **argv) {
+      const struct timespec release[2] = {{1787529600, 0}, {1787529600, 0}};
+      for (int index = 1; index < argc; index++) {
+        if (utimensat(AT_FDCWD, argv[index], release, 0) != 0) {
+          perror(argv[index]);
+          return 1;
+        }
+      }
+      return 0;
+    }
+SLOP cc /tmp/emacs-release-time.c -o /tmp/emacs-release-time
+SLOP find /tmp/emacs -type f -exec /tmp/emacs-release-time {} +
+
+# The release's byte-compiled Lisp is used as shipped: bootstrapping it from
+# source interprets the loadup files and overflows a browser Worker's stack.
+SLOP make -C /tmp/emacs/lib -j4
+SLOP make -C /tmp/emacs/lib-src -j4
+SLOP make -C /tmp/emacs/src -j4
+
+# Install as upstream's make install lays it out, which needs tar -c. Lisp
+# sources whose bytecode is installed are left out: upstream compresses them,
+# and Dolly's gzip only decompresses.
+SLOP mkdir -p /usr/libexec/emacs/31.1/wasm64-unknown-emscripten /usr/share/emacs/31.1 \
+  /usr/share/emacs/site-lisp /usr/share/licenses/emacs
+SLOP cp /tmp/emacs/src/emacs /usr/bin/emacs
+SLOP cp /tmp/emacs/lib-src/etags /usr/bin/etags
+SLOP cp /tmp/emacs/lib-src/hexl /usr/libexec/emacs/31.1/wasm64-unknown-emscripten/hexl
+SLOP cp /tmp/emacs/src/emacs.pdmp \
+  "/usr/libexec/emacs/31.1/wasm64-unknown-emscripten/emacs-$(/tmp/emacs/src/emacs --fingerprint).pdmp"
+SLOP cp -R /tmp/emacs/lisp /usr/share/emacs/31.1/lisp
+SLOP cp -R /tmp/emacs/etc /usr/share/emacs/31.1/etc
+SLOP cp -R /tmp/emacs/info /usr/share/info
+SLOP find /usr/share/emacs/31.1/lisp -name '*.elc' | sed 's/c$//' | xargs rm -f
+SLOP find /usr/share/emacs/31.1 -name 'Makefile*' -exec rm -f {} +
+SLOP cp /tmp/emacs/COPYING /usr/share/licenses/emacs/COPYING
+
+# Emacs's termcap.o reads this entry: Dolly's terminal with 256 colours.
+FILE /etc/termcap
+    xterm-256color|xterm|Dolly terminal:\
+    	:am:bs:km:mi:ms:xn:co#80:it#8:li#24:Co#256:pa#32767:\
+    	:AB=\E[48;5;%dm:AF=\E[38;5;%dm:op=\E[39;49m:\
+    	:AL=\E[%dL:DC=\E[%dP:DL=\E[%dM:DO=\E[%dB:IC=\E[%d@:\
+    	:LE=\E[%dD:RI=\E[%dC:SF=\E[%dS:SR=\E[%dT:UP=\E[%dA:\
+    	:ae=\E(B:al=\E[L:as=\E(0:bl=^G:bt=\E[Z:cd=\E[J:ce=\E[K:\
+    	:cl=\E[H\E[2J:cm=\E[%i%d;%dH:cr=\r:cs=\E[%i%d;%dr:ct=\E[3g:\
+    	:dc=\E[P:dl=\E[M:do=\n:ec=\E[%dX:ei=\E[4l:ho=\E[H:im=\E[4h:\
+    	:k1=\EOP:k2=\EOQ:k3=\EOR:k4=\EOS:k5=\E[15~:k6=\E[17~:\
+    	:k7=\E[18~:k8=\E[19~:k9=\E[20~:kD=\E[3~:kI=\E[2~:kN=\E[6~:\
+    	:kP=\E[5~:kb=\177:kd=\EOB:ke=\E[?1l\E>:kh=\EOH:kl=\EOD:\
+    	:kr=\EOC:ks=\E[?1h\E=:ku=\EOA:le=^H:mb=\E[5m:md=\E[1m:\
+    	:me=\E[0m:mh=\E[2m:mr=\E[7m:nd=\E[C:rc=\E8:sc=\E7:se=\E[27m:\
+    	:sf=\n:so=\E[7m:sr=\EM:st=\EH:ta=^I:te=\E[?1049l:ti=\E[?1049h:\
+    	:ue=\E[24m:up=\E[A:us=\E[4m:ve=\E[?12l\E[?25h:vi=\E[?25l:\
+    	:vs=\E[?12;25h:
+
+# Dolly's terminal reports the mouse. Turning it on also skips Emacs's
+# XTVERSION probe, whose 0.1 s wait is shorter than the terminal's reply.
+FILE /usr/share/emacs/site-lisp/site-start.el
+    ;;; -*- lexical-binding: t -*-
+    (xterm-mouse-mode 1)
+
+EXPORTS TOOL   emacs
+EXPORTS TOOL   etags
+EXPORTS FOLDER emacs-data    /usr/share/emacs
+EXPORTS FOLDER emacs-libexec /usr/libexec/emacs
+EXPORTS FOLDER emacs-info    /usr/share/info
+FILE /usr/share/licenses/emacs/COPYING
+
+FILE /tmp/emacs-check.el
+    ;;; -*- lexical-binding: t -*-
+    (require 'cl-lib)
+    (with-temp-file "/tmp/emacs-check.txt" (insert "Dolly 日本語\n"))
+    (cl-assert (equal (with-temp-buffer (insert-file-contents "/tmp/emacs-check.txt")
+                        (buffer-string))
+                      "Dolly 日本語\n"))
+    (cl-assert (equal (shell-command-to-string "printf SLOP-CHILD") "SLOP-CHILD"))
+    (cl-assert (= (call-process "/bin/slop" nil nil nil "-c" "exit 3") 3))
+    (let* ((fired nil)
+           (process (make-process :name "check" :buffer (generate-new-buffer "check")
+                                  :command '("/bin/slop" "-c" "sleep 1; printf ASYNC; exit 4"))))
+      (run-with-timer 0.2 nil (lambda () (setq fired t)))
+      (while (process-live-p process) (accept-process-output process 0.1))
+      (cl-assert fired)
+      (cl-assert (= (process-exit-status process) 4))
+      (cl-assert (equal (with-current-buffer (process-buffer process) (buffer-substring 1 6))
+                        "ASYNC")))
+    (garbage-collect)
+    (princ (format "%s %s\n" emacs-version system-type))
+SLOP timeout 120 emacs --batch -l /tmp/emacs-check.el

@@ -1,0 +1,173 @@
+--- a/configure.ac
++++ b/configure.ac
+@@ -1465,6 +1465,11 @@
+     opsys=nacl
+   ;;
+ 
++  ## Dolly: wasm64 processes over an Emscripten-derived libc
++  wasm64-*-emscripten* )
++    opsys=dolly
++  ;;
++
+   ## Cygwin ports
+   *-*-cygwin )
+     opsys=cygwin
+@@ -6198,6 +6203,9 @@
+ 
+   openbsd | dragonfly) LIBS_TERMCAP="-lncurses" ;;
+ 
++  ## Dolly has no terminfo library; use Emacs's termcap, as MS-DOS does.
++  dolly) TERMINFO=no ;;
++
+   ## hpux: Make sure we get select from libc rather than from libcurses
+   ##  because libcurses on HPUX 10.10 has a broken version of select.
+   ##  We used to use -lc -lcurses, but this may be cleaner.
+@@ -6208,6 +6216,7 @@
+ esac
+ 
+ TERMCAP_OBJ=tparam.o
++test $opsys = dolly && TERMCAP_OBJ="termcap.o tparam.o"
+ if test $TERMINFO = yes; then
+   AC_DEFINE([TERMINFO], [1],
+     [Define to 1 if you use terminfo instead of termcap.])
+@@ -6473,7 +6482,7 @@
+ dnl Everybody supports this, except MS.
+ dnl Seems like the kind of thing we should be testing for, though.
+ ## Note: PTYs are broken on darwin <6.  Use at your own risk.
+-if test "${opsys}" != "mingw32"; then
++if test "${opsys}" != "mingw32" && test "${opsys}" != "dolly"; then
+   AC_DEFINE([HAVE_PTYS], [1], [Define if the system supports pty devices.])
+ fi
+ 
+--- a/configure
++++ b/configure
+@@ -9151,6 +9151,11 @@
+     opsys=nacl
+   ;;
+ 
++  ## Dolly: wasm64 processes over an Emscripten-derived libc
++  wasm64-*-emscripten* )
++    opsys=dolly
++  ;;
++
+   ## Cygwin ports
+   *-*-cygwin )
+     opsys=cygwin
+@@ -32722,6 +32727,9 @@
+ 
+   openbsd | dragonfly) LIBS_TERMCAP="-lncurses" ;;
+ 
++  ## Dolly has no terminfo library; use Emacs's termcap, as MS-DOS does.
++  dolly) TERMINFO=no ;;
++
+   ## hpux: Make sure we get select from libc rather than from libcurses
+   ##  because libcurses on HPUX 10.10 has a broken version of select.
+   ##  We used to use -lc -lcurses, but this may be cleaner.
+@@ -32732,6 +32740,7 @@
+ esac
+ 
+ TERMCAP_OBJ=tparam.o
++test $opsys = dolly && TERMCAP_OBJ="termcap.o tparam.o"
+ if test $TERMINFO = yes; then
+ 
+ printf "%s\n" "#define TERMINFO 1" >>confdefs.h
+@@ -34471,7 +34480,7 @@
+ fi
+ 
+ ## Note: PTYs are broken on darwin <6.  Use at your own risk.
+-if test "${opsys}" != "mingw32"; then
++if test "${opsys}" != "mingw32" && test "${opsys}" != "dolly"; then
+ 
+ printf "%s\n" "#define HAVE_PTYS 1" >>confdefs.h
+ 
+--- a/lisp/loadup.el
++++ b/lisp/loadup.el
+@@ -632,6 +632,7 @@
+         ;; Recompute NAME now, so that it isn't set when we dump.
+         (if (not (or (eq system-type 'ms-dos)
+                      (eq system-type 'haiku) ;; BFS doesn't support hard links
++                     (eq system-type 'dolly) ;; nor does Dolly's file system
+                      ;; There's no point keeping old dumps around for
+                      ;; the binary used to build Lisp on the build
+                      ;; machine.
+--- a/src/callproc.c
++++ b/src/callproc.c
+@@ -1375,8 +1375,10 @@
+     return error;
+ 
+   error = posix_spawnattr_setflags (attributes,
+-				    POSIX_SPAWN_SETSID
+-				    | POSIX_SPAWN_SETSIGDEF
++#ifndef DOLLY /* Dolly has no sessions; children stay with Emacs.  */
++				    POSIX_SPAWN_SETSID |
++#endif
++				    POSIX_SPAWN_SETSIGDEF
+ 				    | POSIX_SPAWN_SETSIGMASK);
+   if (error != 0)
+     goto out;
+--- a/src/emacs.c
++++ b/src/emacs.c
+@@ -3111,8 +3111,12 @@
+ 
+   /* If we are controlling the terminal, reset terminal modes.  */
+ #if !defined DOS_NT && !(defined HAVE_ANDROID && !defined ANDROID_STUBIFY)
++#ifdef DOLLY /* No process groups: Emacs controls the one terminal.  */
++  if (true)
++#else
+   pid_t tpgrp = tcgetpgrp (STDIN_FILENO);
+   if (tpgrp != -1 && tpgrp == getpgrp ())
++#endif
+     {
+       reset_all_sys_modes ();
+       if (sig && sig != SIGTERM)
+--- a/src/keyboard.c
++++ b/src/keyboard.c
+@@ -8250,7 +8250,7 @@
+     return 0;
+   if (n_to_read > sizeof cbuf)
+     n_to_read = sizeof cbuf;
+-#elif defined USG || defined CYGWIN
++#elif defined USG || defined CYGWIN || defined DOLLY
+   /* Read some input if available, but don't wait.  */
+   n_to_read = sizeof cbuf;
+   fcntl (fileno (tty->input), F_SETFL, O_NONBLOCK);
+@@ -8284,7 +8284,7 @@
+ #endif
+ 
+ #ifndef USABLE_FIONREAD
+-#if defined (USG) || defined (CYGWIN)
++#if defined (USG) || defined (CYGWIN) || defined DOLLY
+   fcntl (fileno (tty->input), F_SETFL, 0);
+ #endif /* USG or CYGWIN */
+ #endif /* no FIONREAD */
+--- a/src/process.c
++++ b/src/process.c
+@@ -7739,7 +7739,13 @@
+       int status;
+ 
+       if (p->alive
+-	  && child_status_changed (p->pid, &status, WUNTRACED | WCONTINUED))
++	  && child_status_changed (p->pid, &status,
++#ifdef DOLLY /* No job control: Dolly's children never stop.  */
++				   0
++#else
++				   WUNTRACED | WCONTINUED
++#endif
++				   ))
+ 	{
+ 	  /* Change the status of the process that was found.  */
+ 	  changed = true;
+--- a/src/sysdep.c
++++ b/src/sysdep.c
+@@ -1143,7 +1143,11 @@
+ #ifdef IEXTEN
+   tty.main.c_lflag &= ~IEXTEN;	/* Disable other editing characters.  */
+ #endif
++#ifdef DOLLY /* The terminal ignores c_cc: its interrupt key is C-c.  Read C-g.  */
++  tty.main.c_lflag &= ~ISIG;
++#else
+   tty.main.c_lflag |= ISIG;	/* Enable signals */
++#endif
+   if (tty_out->flow_control)
+     {
+       tty.main.c_iflag |= IXON;	/* Enable start/stop output control */
