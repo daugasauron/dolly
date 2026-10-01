@@ -1,12 +1,12 @@
 DOLLY 5
 IMAGE rust-tools
 
-FROM https://daugasauron.com/Dollyfile-system ecae59a05a01920628ef81dbb98efced38e14bc8ddb8a160618b638129eb5361
+FROM https://daugasauron.com/Dollyfile-system 2a5e95954c1273b6fe2b8688436b5f9e4bf1be813194687d7792405123511f99
 
-COPY FROM https://daugasauron.com/Dollyfile-rust-build cf92a5efedd8454c839b6f73a36263fb19051c1036bedccc53c906a8a2eefc19 /opt/rust-sdk /opt/rust-sdk
-COPY FROM https://daugasauron.com/Dollyfile-rust-build cf92a5efedd8454c839b6f73a36263fb19051c1036bedccc53c906a8a2eefc19 /usr/bin/patti /usr/bin/patti
-COPY FROM https://daugasauron.com/Dollyfile-rust-build cf92a5efedd8454c839b6f73a36263fb19051c1036bedccc53c906a8a2eefc19 /usr/share/licenses/rust /usr/share/licenses/rust
-COPY FROM https://daugasauron.com/Dollyfile-rust-build cf92a5efedd8454c839b6f73a36263fb19051c1036bedccc53c906a8a2eefc19 /usr/share/licenses/patti /usr/share/licenses/patti
+COPY FROM https://daugasauron.com/Dollyfile-rust-build 093ade098b446fed1e10399268f606213a68485738da426f6faee1331a2b5539 /opt/rust-sdk /opt/rust-sdk
+COPY FROM https://daugasauron.com/Dollyfile-rust-build 093ade098b446fed1e10399268f606213a68485738da426f6faee1331a2b5539 /usr/bin/patti /usr/bin/patti
+COPY FROM https://daugasauron.com/Dollyfile-rust-build 093ade098b446fed1e10399268f606213a68485738da426f6faee1331a2b5539 /usr/share/licenses/rust /usr/share/licenses/rust
+COPY FROM https://daugasauron.com/Dollyfile-rust-build 093ade098b446fed1e10399268f606213a68485738da426f6faee1331a2b5539 /usr/share/licenses/patti /usr/share/licenses/patti
 EXPORTS ENV PATH APPEND /opt/rust-sdk/bin
 EXPORTS TOOL rustc
 EXPORTS TOOL patti

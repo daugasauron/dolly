@@ -1,7 +1,7 @@
 DOLLY 5
 IMAGE python
 
-FROM https://daugasauron.com/Dollyfile-python-runtime 1170db3f911a9414cf84b701f576171eb0606ad570af7699d065802dbbfbcae5
+FROM https://daugasauron.com/Dollyfile-python-runtime c6cdec86b9dbb3aeed0db69cae15316faebe4988cad8afd1ab7b9b83201fb3af
 USE https://daugasauron.com/modules/bonnie.dm ab0516168746a377ee157b24834412dbc0abdff1c8aa17ed1c93d45e9e95d78b
 USE https://daugasauron.com/modules/startup-python.dm f65a83176f9847d0966e08d2bb3f05582a1e9af8d09cba07daff0253e1053909
 

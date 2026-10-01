@@ -2,7 +2,7 @@ DOLLY 5
 IMAGE system-build
 
 USE https://daugasauron.com/modules/bootstrap.dm d1d1bf1358fcbe70f62d9a086f83d80d6a97d486dccf89669718c4d5d5b4df43
-USE https://daugasauron.com/modules/core-tools.dm 855535cac8979927fee813c241f0f859e13363beefd437d806da7d713117bd85
+USE https://daugasauron.com/modules/core-tools.dm f823f45e8211e0d8ccfbe83e3adee0f48f35f07a8eba6a118ac96cb85c8b1a9e
 USE https://daugasauron.com/modules/tar.dm 4fc79063fddfcd0ed821d9dbe8a914afa725f9fb3c9c4377c0ef3cffcdeab160
 USE https://daugasauron.com/modules/make.dm 10f3cd7bb305c6e828a1b811dde3eafda14dc32cf9a1480d68648acdee98e0fc
 USE https://daugasauron.com/modules/cpp.dm 5abf7e3d4edebd6b6622780f028348c3cfa987825e57fd2050f66d62c41cdebf

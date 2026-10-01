@@ -1,7 +1,7 @@
 DOLLY 5
 IMAGE rts-build
 
-FROM https://daugasauron.com/Dollyfile-sdl2-build 9663f72bd271e9700e0ebcdb013642f046ad86301049857e26317043934a799f
+FROM https://daugasauron.com/Dollyfile-sdl2-build 5330a3c87e0ab188ff857cc9fe01670d03c93968bb906816e2008ad76e686ddd
 USE https://daugasauron.com/modules/seven-kingdoms.dm 99ff97ef74787aa3a32466610fa03592daef10198d6647badcf6154304e7542c
 
 ENTRY /bin/foreground -i /bin/slop
