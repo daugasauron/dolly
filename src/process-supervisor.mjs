@@ -560,7 +560,11 @@ export class DollyProcessSupervisor {
     if (signalDelivery?.signal) {
       this.#deliverSignal(this.processes.get(signalDelivery.pid), signalDelivery.signal);
     }
-    if (!retry) this.#scheduleLaunches();
+    if (retry) return;
+    this.#scheduleLaunches();
+    // A pipe write or close can complete another thread's blocked read or poll,
+    // such as an async runtime's waker: retry now, not at the next tick.
+    if (this.dolly._dolly_process_take_wakeup()) this.serviceDeferred();
   }
 
   #message(process, message, thread = process) {
