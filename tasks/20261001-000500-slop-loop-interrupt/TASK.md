@@ -1,6 +1,6 @@
 # Ctrl+C cannot stop a builtin-only loop at the interactive Slop prompt
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 230
 - TAGS: core,kernel,slop,lifecycle,design
 
@@ -117,3 +117,10 @@ was submitted, or the kernel should deliver it to the child once spawned.
 
 Slop does not start a command after an interrupt reached the shell since the
 line was submitted; the command line ends with 130.
+
+## Closed (2026-10-01, release candidate `rc-2026-10-01`)
+
+ISIG semantics and the launch-window fix (`892c163`: Slop does not start a
+command after an interrupt reached it) shipped in the candidate; the Slop
+browser test (Ctrl+C ends a builtin loop with 130) and the Pi demo test (Ctrl+C
+while a response streams reaches Pi's editor as input) pass on it.

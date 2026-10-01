@@ -1,6 +1,6 @@
 # Build independent catalog images concurrently
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 240
 - TAGS: build,images,iteration
 
@@ -75,3 +75,10 @@ earlier the same day, with identical snapshots on cache hits. The browser
 snapshot upload now goes in 64 MiB chunks (a 412 MB image failed as one Blob
 with `ERR_BLOB_OUT_OF_MEMORY`). Still open: the done-when N >= 4 full-catalog
 measurement on a quiet machine.
+
+## Closed (2026-10-01)
+
+The release candidate's catalog built with `DOLLY_IMAGE_JOBS=4`: 41 images in
+48 min (16:11-16:59) against about 3.5 h serially, and every suite passed on
+the result. The earlier N=3 run reproduced the serial build's identities for all
+39 comparable images byte for byte.
