@@ -666,7 +666,7 @@ function fsMkdir(path, options = {}) {
 }
 function fsMkdtemp(prefix) {
   for (;;) {
-    const path = `${prefix}${Math.random().toString(36).slice(2, 8)}`;
+    const path = `${prefix}${Math.random().toString(36).slice(2, 8).padEnd(6, "0")}`;
     try { fsNative(path, () => Dolly.fsMkdir(path)); return path; }
     catch (error) { if (error.code !== "EEXIST") throw error; }
   }
@@ -852,9 +852,21 @@ function fsBytes(buffer) {
 }
 function fsIndex(value, name, limit = Number.MAX_SAFE_INTEGER) {
   if (!Number.isSafeInteger(value) || value < 0 || value > limit) {
-    throw new RangeError(`${name} is out of range`);
+    throw Object.assign(new RangeError(`${name} is out of range`), { code: "ERR_OUT_OF_RANGE" });
   }
   return value;
+}
+function fsMode(mode) {
+  const value = typeof mode === "string" && /^[0-7]+$/.test(mode) ? Number.parseInt(mode, 8) : mode;
+  if (!Number.isInteger(value) || value < 0 || value > 0xffffffff)
+    throw Object.assign(new TypeError("mode must be an unsigned integer or an octal string"), { code: "ERR_INVALID_ARG_VALUE" });
+  return value;
+}
+function fsCopyFile(from, to, mode = 0) {
+  const { COPYFILE_EXCL, COPYFILE_FICLONE_FORCE } = janisFs.constants;
+  if (fsIndex(mode, "mode", 7) & COPYFILE_FICLONE_FORCE)
+    throw Object.assign(new Error("Dolly files cannot be cloned copy-on-write"), { code: "ENOTSUP", syscall: "copyfile" });
+  fsWrite(to, fsRead(from), { flag: mode & COPYFILE_EXCL ? "wx" : "w" });
 }
 function openSync(path, flags = "r") {
   if (typeof flags === "string") {
@@ -917,6 +929,7 @@ class JanisReadable extends JanisEventEmitter {
       this.readable = false;
       const tail = this.#decoder?.end();
       if (tail) this.emit("data", tail);
+      this.readableEnded = true;
       this.emit("end");
     } else {
       const value = this.#decoder ? this.#decoder.write(chunk) : chunk;
@@ -926,7 +939,7 @@ class JanisReadable extends JanisEventEmitter {
   }
   resume() { return this; }
   pause() { return this; }
-  destroy(error) { if (error) this.emit("error", error); this.emit("close"); return this; }
+  destroy(error) { this.destroyed = true; if (error) this.emit("error", error); this.emit("close"); return this; }
   [Symbol.asyncIterator]() {
     const chunks = []; let done = false; let wake;
     this.on("data", (chunk) => { chunks.push(chunk); wake?.(); });
@@ -939,26 +952,50 @@ class JanisReadable extends JanisEventEmitter {
     return stream;
   }
 }
+const endArguments = (chunk, encoding, callback) => typeof chunk === "function" ? [undefined, undefined, chunk]
+  : typeof encoding === "function" ? [chunk, undefined, encoding] : [chunk, encoding, callback];
+// A failed write destroys the stream with its error, as in Node.
+function streamWrite(stream, chunk, encoding, callback) {
+  if (typeof encoding === "function") [encoding, callback] = [undefined, encoding];
+  const done = error => { if (error) stream.destroy(error); callback?.(error); };
+  if (stream._write) stream._write(chunk, encoding, done);
+  else done();
+  return true;
+}
 class JanisWritable extends JanisEventEmitter {
   writable = true;
   writableLength = 0;
-  write(chunk, encoding, callback) {
-    if (this._write) this._write(chunk, encoding, callback ?? (() => {}));
-    else callback?.();
-    return true;
+  constructor(options = {}) { super(); if (options.write) this._write = options.write; }
+  write(chunk, encoding, callback) { return streamWrite(this, chunk, encoding, callback); }
+  end(chunk, encoding, callback) {
+    [chunk, encoding, callback] = endArguments(chunk, encoding, callback);
+    if (chunk !== undefined) this.write(chunk, encoding);
+    callback?.();
+    this.writableFinished = true;
+    this.emit("finish");
   }
-  end(chunk, encoding, callback) { if (chunk !== undefined) this.write(chunk, encoding); callback?.(); this.emit("finish"); }
-  destroy(error) { if (error) this.emit("error", error); this.emit("close"); return this; }
+  destroy(error) { this.destroyed = true; if (error) this.emit("error", error); this.emit("close"); return this; }
 }
 class JanisDuplex extends JanisReadable {
-  write(chunk, encoding, callback) {
-    if (this._write) this._write(chunk, encoding, callback ?? (() => {}));
-    else callback?.();
-    return true;
+  write(chunk, encoding, callback) { return streamWrite(this, chunk, encoding, callback); }
+  end(chunk, encoding, callback) {
+    [chunk, encoding, callback] = endArguments(chunk, encoding, callback);
+    if (chunk !== undefined) this.write(chunk, encoding);
+    const finish = () => { callback?.(); this.writableFinished = true; this.emit("finish"); this.push(null); };
+    if (!this._flush) return finish();
+    this._flush((error, output) => {
+      if (error) return void this.destroy(error);
+      if (output !== undefined) this.push(output);
+      finish();
+    });
   }
-  end(chunk) { if (chunk !== undefined) this.write(chunk); this.emit("finish"); this.push(null); }
 }
 class JanisTransform extends JanisDuplex {
+  constructor(options = {}) {
+    super();
+    if (options.transform) this._transform = options.transform;
+    if (options.flush) this._flush = options.flush;
+  }
   _write(chunk, encoding, callback) {
     if (this._transform) this._transform(chunk, encoding, (error, output) => { if (output !== undefined) this.push(output); callback(error); });
     else { this.push(chunk); callback(); }
@@ -968,7 +1005,9 @@ class JanisPassThrough extends JanisTransform {}
 
 function createReadStream(path, options = {}) {
   if (typeof options === "string") options = { encoding: options };
-  const { start = 0, end = Infinity } = options;
+  const { start = 0, end = Number.MAX_SAFE_INTEGER } = options;
+  fsIndex(end, "end");
+  fsIndex(start, "start", end);
   const stream = new JanisReadable();
   if (options.encoding) stream.setEncoding(options.encoding);
   queueMicrotask(() => {
@@ -988,19 +1027,26 @@ function createReadStream(path, options = {}) {
   return stream;
 }
 function createWriteStream(path, options = {}) {
+  if (options.start !== undefined) unsupported("createWriteStream start; open the file and write at a position")();
   const chunks = [];
   const stream = new JanisWritable();
   stream._write = (chunk, _encoding, callback) => { chunks.push(Buffer.from(chunk)); callback(); };
   stream.end = (chunk, encoding, callback) => {
+    [chunk, encoding, callback] = endArguments(chunk, encoding, callback);
     if (chunk !== undefined) stream.write(chunk, encoding);
-    try { (options.flags === "a" ? fsAppend : fsWrite)(path, Buffer.concat(chunks)); callback?.(); stream.emit("finish"); stream.emit("close"); }
-    catch (error) { stream.emit("error", error); }
+    try { fsWrite(path, Buffer.concat(chunks), { flag: options.flags ?? "w" }); }
+    catch (error) { return void stream.destroy(error); }
+    callback?.();
+    stream.writableFinished = true;
+    stream.emit("finish");
+    stream.emit("close");
   };
   return stream;
 }
 
 const janisFs = {
-  constants: { ...Dolly.fsConstants, F_OK: 0, R_OK: 4, W_OK: 2, X_OK: 1, COPYFILE_EXCL: 1 },
+  constants: { ...Dolly.fsConstants, F_OK: 0, R_OK: 4, W_OK: 2, X_OK: 1,
+    COPYFILE_EXCL: 1, COPYFILE_FICLONE: 2, COPYFILE_FICLONE_FORCE: 4 },
   Stats: JanisStats,
   Dirent: JanisDirent,
   existsSync: fsExists,
@@ -1018,17 +1064,19 @@ const janisFs = {
     callbackResult(() => fsGlobSync(pattern, options), callback);
   },
   unlinkSync: (path) => fsNative(path, () => Dolly.fsUnlink(String(path))),
-  rmdirSync: (path) => fsNative(path, () => Dolly.fsRmdir(String(path))),
+  rmdirSync: (path, options) => {
+    if (options?.recursive) unsupported("the deprecated fs.rmdir recursive option; use fs.rm")();
+    fsNative(path, () => Dolly.fsRmdir(String(path)));
+  },
   rmSync: fsRemove,
   renameSync: (from, to) => Dolly.fsRename(String(from), String(to)),
-  copyFileSync: (from, to) => Dolly.fsCopy(String(from), String(to)),
+  copyFileSync: fsCopyFile,
   realpathSync: fsRealpath,
-  accessSync: (path, mode = 0) => fsNative(path, () => Dolly.fsAccess(String(path), mode)),
+  accessSync: (path, mode = 0) => fsNative(path, () => Dolly.fsAccess(String(path), fsIndex(mode ?? 0, "mode", 7))),
   utimesSync: (path, atime, mtime) => fsNative(path, () => Dolly.fsUtimes(
     String(path), atime instanceof Date ? atime.getTime() / 1000 : Number(atime),
     mtime instanceof Date ? mtime.getTime() / 1000 : Number(mtime))),
-  chmodSync: (path, mode) => fsNative(path, () => Dolly.fsChmod(String(path),
-    typeof mode === "string" ? Number.parseInt(mode, 8) : Number(mode))),
+  chmodSync: (path, mode) => fsNative(path, () => Dolly.fsChmod(String(path), fsMode(mode))),
   openSync,
   closeSync,
   readSync,
@@ -1611,7 +1659,11 @@ const janisOs = {
 
 function formatValue(value) {
   if (typeof value === "string") return value;
-  if (typeof value === "function") return `[Function: ${value.name || "(anonymous)"}]`;
+  if (typeof value === "function") {
+    const kind = /^class\b/.test(Function.prototype.toString.call(value)) ? "class" : value.constructor?.name ?? "Function";
+    return kind === "class" ? `[class ${value.name || "(anonymous)"}]`
+      : value.name ? `[${kind}: ${value.name}]` : `[${kind} (anonymous)]`;
+  }
   try { return JSON.stringify(value) ?? String(value); } catch { return String(value); }
 }
 const janisUtil = {
@@ -1641,11 +1693,13 @@ const janisUtil = {
 
 // Calls back once: when the stream ends or finishes, errors, or closes early.
 function streamFinished(stream, options, callback = options) {
-  const listeners = { end: () => settle(), finish: () => settle(), error: settle,
-    close: () => settle(Object.assign(new Error("Premature close"), { code: "ERR_STREAM_PREMATURE_CLOSE" })) };
+  const prematureClose = () => Object.assign(new Error("Premature close"), { code: "ERR_STREAM_PREMATURE_CLOSE" });
+  const listeners = { end: () => settle(), finish: () => settle(), error: settle, close: () => settle(prematureClose()) };
   const cleanup = () => { for (const name in listeners) stream.off(name, listeners[name]); };
   function settle(error) { cleanup(); callback(error); }
-  for (const name in listeners) stream.on(name, listeners[name]);
+  if (stream.readableEnded || stream.writableFinished) queueMicrotask(settle);
+  else if (stream.destroyed) queueMicrotask(() => settle(prematureClose()));
+  else for (const name in listeners) stream.on(name, listeners[name]);
   return cleanup;
 }
 function streamPipeline(...streams) {

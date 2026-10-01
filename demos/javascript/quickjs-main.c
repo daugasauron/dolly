@@ -790,10 +790,10 @@ static JSValue js_dolly_fs_operation(JSContext *context,
                                      JSValueConst this_value,
                                      int argc, JSValueConst *argv, int magic) {
   (void)this_value;
-  static const char *const syscalls[] = {"access", "mkdir", "unlink", "rmdir", "rename", "copyfile", "chmod"};
+  static const char *const syscalls[] = {"access", "mkdir", "unlink", "rmdir", "rename", "chmod"};
   if (argc < 1) return JS_ThrowTypeError(context, "filesystem operation requires a path");
   int32_t mode = F_OK;
-  if ((magic == 0 || magic == 6) && argc > 1 && JS_ToInt32(context, &mode, argv[1]) < 0) return JS_EXCEPTION;
+  if ((magic == 0 || magic == 5) && argc > 1 && JS_ToInt32(context, &mode, argv[1]) < 0) return JS_EXCEPTION;
   const char *first = JS_ToCString(context, argv[0]);
   if (first == NULL) return JS_EXCEPTION;
   const char *second = NULL;
@@ -802,24 +802,13 @@ static JSValue js_dolly_fs_operation(JSContext *context,
   else if (magic == 1) status = mkdir(first, 0755);
   else if (magic == 2) status = unlink(first);
   else if (magic == 3) status = rmdir(first);
-  else if (magic == 6) status = chmod(first, (mode_t)mode);
-  else if (magic == 4 || magic == 5) {
+  else if (magic == 5) status = chmod(first, (mode_t)mode);
+  else if (magic == 4) {
     if (argc < 2 || (second = JS_ToCString(context, argv[1])) == NULL) {
       JS_FreeCString(context, first);
       return JS_ThrowTypeError(context, "filesystem operation requires two paths");
     }
-    if (magic == 4) status = rename(first, second);
-    else {
-      size_t length = 0;
-      char *contents = read_file(first, &length);
-      if (contents == NULL) {
-        status = -1;
-      } else {
-        status = dolly_write_file(second, contents, length);
-        free(contents);
-        if (status < 0) errno = -status;
-      }
-    }
+    status = rename(first, second);
   }
   const int saved_errno = errno;
   if (second != NULL) JS_FreeCString(context, second);
@@ -1357,7 +1346,7 @@ static JSValue js_dolly_pump_jobs(JSContext *context, JSValueConst this_value,
 
 // QuickJS's own value serializer keeps cycles, Map/Set, Date, RegExp and typed
 // arrays; functions and other host objects fail instead of being dropped.
-static JSValue js_structured_clone(JSContext *context, JSValueConst this_value,
+static JSValue js_dolly_clone_value(JSContext *context, JSValueConst this_value,
                                    int argc, JSValueConst *argv) {
   (void)this_value;
   size_t length = 0;
@@ -1417,6 +1406,7 @@ static int install_dolly_backend(JSContext *context) {
   DOLLY_JS_FUNCTION("encode", js_dolly_encode, 1);
   DOLLY_JS_FUNCTION("decode", js_dolly_decode, 1);
   DOLLY_JS_FUNCTION("shell", js_dolly_shell, 3);
+  DOLLY_JS_FUNCTION("cloneValue", js_dolly_clone_value, 1);
 #undef DOLLY_JS_FUNCTION
   JS_SetPropertyStr(context, dolly, "pid", JS_NewInt32(context, getpid()));
   JS_SetPropertyStr(context, dolly, "ppid", JS_NewInt32(context, getppid()));
@@ -1450,8 +1440,7 @@ static int install_dolly_backend(JSContext *context) {
   DOLLY_FS_FUNCTION("fsUnlink", 2);
   DOLLY_FS_FUNCTION("fsRmdir", 3);
   DOLLY_FS_FUNCTION("fsRename", 4);
-  DOLLY_FS_FUNCTION("fsCopy", 5);
-  DOLLY_FS_FUNCTION("fsChmod", 6);
+  DOLLY_FS_FUNCTION("fsChmod", 5);
 #undef DOLLY_FS_FUNCTION
   JS_SetPropertyStr(context, dolly, "stdout",
                     JS_NewCFunctionMagic(context, js_dolly_write, "stdout", 1,
@@ -1459,9 +1448,7 @@ static int install_dolly_backend(JSContext *context) {
   JS_SetPropertyStr(context, dolly, "stderr",
                     JS_NewCFunctionMagic(context, js_dolly_write, "stderr", 1,
                                          JS_CFUNC_generic_magic, 1));
-  if (JS_SetPropertyStr(context, global, "Dolly", dolly) < 0 ||
-      JS_SetPropertyStr(context, global, "structuredClone",
-                        JS_NewCFunction(context, js_structured_clone, "structuredClone", 1)) < 0) {
+  if (JS_SetPropertyStr(context, global, "Dolly", dolly) < 0) {
     JS_FreeValue(context, global);
     return -1;
   }

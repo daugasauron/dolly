@@ -35,7 +35,7 @@ package keeps them for `INSTALL` (`pi-runtime`, `bhop`, `slopyard`) and
 
 - [`quickjs-main.c`](quickjs-main.c), [`janis.c`](janis.c),
   [`janis.js`](janis.js), [`dolly-node.js`](dolly-node.js): the runtime.
-- [`Dollyfile-typescript-build`](Dollyfile-typescript-build), [`Dollyfile-typescript-build`](Dollyfile-typescript-build),
+- [`Dollyfile-typescript-build`](Dollyfile-typescript-build), [`Dollyfile-javascript`](Dollyfile-javascript),
   [`tsc-dolly.mjs`](tsc-dolly.mjs): builds; QuickJS's ambient
   `quickjs-libc.c` is excluded.
 - Tests: [`test/`](test/).
@@ -47,5 +47,10 @@ package keeps them for `INSTALL` (`pi-runtime`, `bhop`, `slopyard`) and
 - `os.cpus`, `os.totalmem`/`freemem` and `process.memoryUsage` fail with
   `ENOSYS`. `chmod` reaches the kernel, which checks the path and changes nothing.
 - `redirect: "manual"` is rejected; response chunks are buffered eagerly.
+- Readable streams are push-only. `fs.rmdir`'s deprecated `recursive`,
+  `createWriteStream`'s `start`, `COPYFILE_FICLONE_FORCE` and `structuredClone`'s
+  `transfer` fail explicitly.
 
 Test: `npm run test:demos -- javascript` ([`test/`](test/)).
+[`node-oracle.mjs`](test/fixtures/node-oracle.mjs) runs the same API cases in Node
+and in Janis and requires identical results.

@@ -130,6 +130,14 @@ class DollyAbortController {
 globalThis.AbortSignal = DollyAbortSignal;
 globalThis.AbortController = DollyAbortController;
 
+// Values QuickJS's serializer cannot represent fail as the DOM's DataCloneError.
+globalThis.structuredClone = (value, options = undefined) => {
+  const refuse = message => { throw new DOMException(message, "DataCloneError"); };
+  if (options?.transfer?.length) refuse("Janis structuredClone does not support transfer");
+  if (typeof value === "symbol") refuse(`${String(value)} could not be cloned.`);
+  try { return Dolly.cloneValue(value); } catch (error) { refuse(error.message); }
+};
+
 globalThis.TextEncoder = class TextEncoder {
   get encoding() { return "utf-8"; }
   encode(value = "") { return Dolly.encode(String(value)); }
