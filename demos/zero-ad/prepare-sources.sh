@@ -47,7 +47,8 @@ if has_module zero-ad-engine; then
     "${zad_dir}/premake-core-5.0.0-beta7" /tmp/premake-core-5.0.0-beta7 \
     "${zad_source}/LICENSE.md" /tmp/0ad/LICENSE.md \
     demos/zero-ad/engine.patch /tmp/0ad-patches/engine.patch \
-    demos/zero-ad/premake-dolly.patch /tmp/0ad-patches/premake.patch
+    demos/zero-ad/premake-dolly.patch /tmp/0ad-patches/premake.patch \
+    demos/zero-ad/test/fixtures/0ad-spidermonkey.cpp /tmp/0ad-patches/spidermonkey-check.cpp
   # Bootstrap exception: SpiderMonkey cross-compiled by toolchain/build-spidermonkey.sh.
   mozjs_build=".cache/0ad/0ad-$(source config/source-pins.sh && echo "${DOLLY_0AD_VERSION}")/libraries/source/spidermonkey/mozjs-128.13.0/obj-dolly"
   mozjs_inputs=()

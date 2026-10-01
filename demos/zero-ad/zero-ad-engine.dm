@@ -45,6 +45,13 @@ FILE /tmp/pkgconfig/mozjs-128.pc
     Cflags: -I/tmp/mozjs/include
     Libs: -L/tmp/mozjs/lib -ljs_static -ljsrust
 
+# Probe for test/0ad-spidermonkey-browser.mjs.
+SLOP mkdir -p /usr/libexec/zero-ad
+SLOP c++ -std=c++20 -O1 -I/tmp/mozjs/include /tmp/0ad-patches/spidermonkey-check.cpp \
+  -L/tmp/mozjs/lib -ljs_static -ljsrust -lz -o /usr/libexec/zero-ad/spidermonkey-check
+SLOP /usr/libexec/zero-ad/spidermonkey-check
+FOLDER /usr/libexec/zero-ad
+
 SLOP CWD /tmp/0ad/build/premake PKG_CONFIG_PATH=/tmp/pkgconfig CC=cc CXX=c++ \
   premake5 --os=emscripten --minimal-flags --strip-binaries --with-system-mozjs \
   --without-atlas --without-nvtt --without-lobby --without-miniupnpc --without-pch \

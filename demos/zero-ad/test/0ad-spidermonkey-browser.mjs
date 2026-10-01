@@ -1,9 +1,11 @@
 import assert from "node:assert/strict";
 import { chromium } from "playwright-core";
 import { startBrowserServer } from "../../../test/browser-server.mjs";
+import { imageFile } from "./fixtures/image-file.mjs";
 
 const server = await startBrowserServer(new URL("../../../", import.meta.url).pathname,
-  "default", { fixtures: { "spidermonkey.wasm": "build/0ad/spidermonkey-check.wasm" } });
+  "default", { fixtures: { "spidermonkey.wasm":
+    await imageFile("zero-ad-engine", "/usr/libexec/zero-ad/spidermonkey-check", "spidermonkey-check.wasm") } });
 let browser, deadline, page;
 try {
   browser = await chromium.launch({ channel: "chrome", headless: true,
