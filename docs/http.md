@@ -109,3 +109,6 @@ Fetch, so a generic transport failure alone does not identify its cause.
   filters are not ported. Cancelling an exchange does not undo a ref update the
   remote already accepted.
 - Janis `fetch()` polls slots cooperatively so timers and promises keep running.
+- Python (demo): the built-in `_dolly_http` module carries `urllib.request` and
+  `requests` (pip's vendored copy included), so stock `pip` installs through the
+  broker; sockets and `ssl` stay unavailable.
