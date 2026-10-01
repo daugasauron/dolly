@@ -117,7 +117,7 @@ enum dolly_process_operation {
 enum dolly_process_spawn_flags {
   DOLLY_PROCESS_SPAWN_INHERIT_ENVIRONMENT = 1u << 0,
   DOLLY_PROCESS_SPAWN_FOREGROUND = 1u << 1,
-  /* Foreground owner survives Ctrl-C; its active descendants receive SIGINT. */
+  /* While the owner has active descendants, Ctrl-C sends SIGINT to them only. */
   DOLLY_PROCESS_SPAWN_INTERACTIVE = 1u << 2,
 };
 

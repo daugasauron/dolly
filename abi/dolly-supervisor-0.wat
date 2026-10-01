@@ -41,8 +41,8 @@
   ;; The terminal mailbox, display or not: six atomic little-endian u32 words.
   ;; Wasm writes result_sequence (incremented and notified after each shell
   ;; result), result_status, foreground_pid and foreground_interruptible (1
-  ;; while Ctrl-C would interrupt the foreground command rather than reach the
-  ;; interactive shell as input). The page asks for that interrupt by writing
+  ;; while the terminal has ISIG set, so Ctrl-C interrupts the foreground rather
+  ;; than reaching it as input). The page asks for that interrupt by writing
   ;; interrupt_target_pid, then incrementing interrupt_sequence.
   (func $terminal_mailbox_address (result i64) i64.const 0)
   ;; Consume the page's latest interrupt request: the targeted PID when it is

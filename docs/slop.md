@@ -61,7 +61,9 @@ threads, host processes or a scheduler.
 - The pipeline's status is the last stage's, or with `pipefail` the rightmost
   failing one.
 - Ctrl+C interrupts the foreground command (status 130) and stops the rest of the
-  list, pipeline or substitution; an ordinary `exit 130` does not. See
+  list, pipeline or substitution; an ordinary `exit 130` does not. A loop of
+  builtins stops too: the shell checks for SIGINT after every command. At the
+  prompt Ctrl+C is input that discards the line. See
   [process model](process-model.md#signals).
 
 ## Commands

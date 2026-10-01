@@ -11,3 +11,6 @@ int dolly_spawn_mapped(const char *path, int argc, char **argv,
 uint32_t dolly_terminal_columns(void) { return 80; }
 void dolly_terminal_publish_result(int status) {}
 int dolly_terminal_read_raw_timeout(double timeout) { return -1; }
+int dolly_terminal_mode_get(int descriptor) { return -ENOTTY; }
+int dolly_terminal_mode_set(int descriptor, uint32_t flags) { return -ENOTTY; }
+int dolly_interrupt_poll(void) { return 0; }

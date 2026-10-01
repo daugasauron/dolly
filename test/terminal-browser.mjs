@@ -135,6 +135,12 @@ await browserTest("terminal", { server }, async ({ name, server, open }) => {
   for (const key of ["Shift+Semicolon", "Shift+KeyA", "Shift+Slash", "Shift+Minus", "Escape"]) await page.keyboard.press(key);
   assert.equal(await keys, 0);
   assert.equal(await submit(`${probe} discipline`), 0, "termios output flags must round-trip and move Ghostty's cursor");
+  // A program that clears ISIG (raw mode) reads Ctrl+C as the byte 0x03.
+  const raw = start(`${probe} raw`);
+  await waitForText(/DOLLY-RAW-READY/);
+  await keyboard.focus();
+  await page.keyboard.press("Control+c");
+  assert.equal(await raw, 0);
 
   // Reading and copying the selection while a child sleeps keeps queued
   // typed text, a paste and terminal query replies for that child.

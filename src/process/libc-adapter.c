@@ -1091,8 +1091,8 @@ static int set_status_flags(int descriptor, int flags) {
  * POSIX runtimes commonly probe FIOCLEX before falling back to fcntl().
  *
  * Keep libc structures above the process ABI.  Dolly's machine contract only
- * carries semantic descriptor flags and its two terminal-discipline bits;
- * this adapter translates the target libc's ioctl numbers and layouts.
+ * carries semantic descriptor flags and its terminal-discipline bits; this
+ * adapter translates the target libc's ioctl numbers and layouts.
  */
 static uintptr_t ioctl_argument(uintptr_t arguments) {
   uintptr_t argument = 0;
@@ -1127,7 +1127,7 @@ int __syscall_ioctl(int descriptor, int request, uintptr_t arguments) {
       if (mode & DOLLY_TERMINAL_OPOST) attributes.c_oflag |= OPOST;
       if (mode & DOLLY_TERMINAL_ONLCR) attributes.c_oflag |= ONLCR;
       attributes.c_cflag = CS8 | CREAD;
-      attributes.c_lflag = ISIG;
+      if ((mode & DOLLY_TERMINAL_ISIG) != 0) attributes.c_lflag |= ISIG;
       if ((mode & DOLLY_TERMINAL_CANONICAL) != 0) {
         attributes.c_lflag |= ICANON;
       }
@@ -1159,6 +1159,7 @@ int __syscall_ioctl(int descriptor, int request, uintptr_t arguments) {
         mode |= DOLLY_TERMINAL_CANONICAL;
       }
       if ((attributes.c_lflag & ECHO) != 0) mode |= DOLLY_TERMINAL_ECHO;
+      if ((attributes.c_lflag & ISIG) != 0) mode |= DOLLY_TERMINAL_ISIG;
       if (attributes.c_oflag & OPOST) mode |= DOLLY_TERMINAL_OPOST;
       if (attributes.c_oflag & ONLCR) mode |= DOLLY_TERMINAL_ONLCR;
       return dolly_terminal_mode_set(descriptor, mode);

@@ -2,6 +2,7 @@
 #include "process-kernel.h"
 
 #include <dolly/process.h>
+#include <dolly/runtime.h>
 #include <dolly/threads.h>
 
 #include <errno.h>
@@ -173,23 +174,10 @@ static void refresh_foreground(void) {
     owner = find_process(owner->parent_pid);
   }
   foreground_pid = owner == NULL ? 0 : owner->pid;
-  int interruptible = 0;
-  if (owner != NULL && owner->state != DOLLY_KERNEL_PROCESS_EXITED) {
-    if ((owner->spawn_flags & DOLLY_PROCESS_SPAWN_INTERACTIVE) == 0) {
-      interruptible = 1;
-    } else {
-      for (size_t index = 0; index < DOLLY_KERNEL_PROCESS_LIMIT; ++index) {
-        const dolly_kernel_process *child = &process_table[index];
-        if (child->state != DOLLY_KERNEL_PROCESS_FREE && !child->worker_retired &&
-            child->pid != foreground_pid &&
-            dolly_process_descends_from(child->pid, foreground_pid)) {
-          interruptible = 1;
-          break;
-        }
-      }
-    }
-  }
-  dolly_kernel_foreground_publish(foreground_pid, interruptible);
+  // Termios ISIG: Ctrl+C is SIGINT while it is set and input once cleared.
+  dolly_kernel_foreground_publish(foreground_pid,
+      owner != NULL && owner->state != DOLLY_KERNEL_PROCESS_EXITED &&
+      (dolly_kernel_terminal_mode() & DOLLY_TERMINAL_ISIG) != 0);
 }
 
 static void dispose_vector(char ***vector, uint32_t *count) {
@@ -1206,6 +1194,7 @@ static int64_t terminal_packet(dolly_kernel_process *process,
   } else if (request.operation == DOLLY_PROCESS_TERMINAL_MODE_SET) {
     const int result = dolly_kernel_terminal_set_mode(request.flags);
     if (result < 0) return result;
+    refresh_foreground();
   } else {
     response.columns = dolly_terminal_columns();
     response.rows = dolly_terminal_rows();

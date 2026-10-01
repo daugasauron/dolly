@@ -44,8 +44,8 @@ int dolly_kernel_terminal_set_mode(uint32_t flags);
 void dolly_terminal_write_bytes(const unsigned char *bytes, uintptr_t length);
 void dolly_terminal_publish_result(int status);
 void dolly_kernel_foreground_publish(int pid, int interruptible);
-/* The foreground pid while it may be interrupted, otherwise zero. */
-int dolly_kernel_interruptible_foreground(void);
+/* The terminal's foreground owner, or zero. */
+int dolly_kernel_foreground(void);
 
 int dolly_process_descends_from(int pid, int ancestor_pid);
 void dolly_kernel_terminal_resized(void);

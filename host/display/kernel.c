@@ -206,7 +206,7 @@ static int consume_initial_display_resize(void) {
 }
 
 static int process_may_acquire_display(int pid) {
-  const int foreground = dolly_kernel_interruptible_foreground();
+  const int foreground = dolly_kernel_foreground();
   return pid > 0 && foreground > 0 &&
       dolly_process_descends_from(pid, foreground);
 }

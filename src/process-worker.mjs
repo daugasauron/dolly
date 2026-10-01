@@ -10,8 +10,8 @@ import {
   DOLLY_PROCESS_CLOCK_MONOTONIC, DOLLY_PROCESS_CLOCK_REALTIME, DOLLY_PROCESS_CLOCK_TIME,
   DOLLY_PROCESS_DSO_CLOSE, DOLLY_PROCESS_DSO_ERROR_CAPACITY, DOLLY_PROCESS_DSO_GLOBAL,
   DOLLY_PROCESS_DSO_LIMIT, DOLLY_PROCESS_DSO_OPEN, DOLLY_PROCESS_DSO_SYMBOL, DOLLY_PROCESS_EXIT,
-  DOLLY_PROCESS_FFI_CALL, DOLLY_PROCESS_FFI_CLOSURE_PREP, DOLLY_PROCESS_PACKET_LIMIT,
-  DOLLY_PROCESS_SIZEOF,
+  DOLLY_PROCESS_FFI_CALL, DOLLY_PROCESS_FFI_CLOSURE_PREP, DOLLY_PROCESS_INTERRUPT_POLL,
+  DOLLY_PROCESS_PACKET_LIMIT, DOLLY_PROCESS_SIZEOF,
 } from "./process-constants.mjs";
 
 const PROCESS_EXIT = Symbol("Dolly process exit");
@@ -44,7 +44,8 @@ if (!(configuration.module instanceof WebAssembly.Module) ||
 
 const control = new Int32Array(configuration.control);
 const clockOffset = performance.timeOrigin - configuration.clockOrigin;
-let lastClockCheck = -Infinity;
+// When the kernel last reported no pending signal for this thread.
+let lastSignalCheck = -Infinity;
 let threadResult;
 let instance;
 let processTable;
@@ -464,9 +465,15 @@ function call(operation, requestAddressValue, requestSizeValue,
     if ((id === DOLLY_PROCESS_CLOCK_REALTIME || id === DOLLY_PROCESS_CLOCK_MONOTONIC) &&
         packet.getUint32(4, true) === 0) clock = id;
     const now = performance.now();
-    // Frequent clock reads need no worker round trip. Still enter the kernel
-    // at least once per millisecond so clock-only loops deliver pending signals.
-    if (clock !== undefined && now - lastClockCheck < 1) return clockResponse(clock, response, now);
+    // Frequent clock reads and interrupt polls need no worker round trip. Still
+    // enter the kernel at least once per millisecond so such loops deliver
+    // pending signals.
+    if (clock !== undefined && now - lastSignalCheck < 1) return clockResponse(clock, response, now);
+  }
+  if (operation === DOLLY_PROCESS_INTERRUPT_POLL && request.size === 0 && response.size >= 4 &&
+      performance.now() - lastSignalCheck < 1) {
+    new DataView(configuration.memory.buffer, response.address, 4).setInt32(0, 0, true);
+    return 4n;
   }
   // Positive 31-bit sequences wrap from 2^31 - 1 back to one.
   const sequence = Atomics.load(control, 0) % 0x7fffffff + 1;
@@ -490,16 +497,14 @@ function call(operation, requestAddressValue, requestSizeValue,
     Atomics.wait(control, 1, observed);
   }
   const result = decodeResult();
+  lastSignalCheck = result === -BigInt(DOLLY_ERRNO.EINTR) ? -Infinity : performance.now();
   if (operation === DOLLY_THREAD_EXIT && result >= 0n) {
     threadResult = exitingResult;
     throw THREAD_EXIT;
   }
-  if (clock !== undefined) {
-    lastClockCheck = result === 8n ? performance.now() : -Infinity;
-    // Sample the same clock after kernel checks too: Firefox rounds Worker
-    // time origins, so alternating the two clocks can otherwise move backwards.
-    if (result === 8n) return clockResponse(clock, response, lastClockCheck);
-  }
+  // Sample the same clock after kernel checks too: Firefox rounds Worker
+  // time origins, so alternating the two clocks can otherwise move backwards.
+  if (clock !== undefined && result === 8n) return clockResponse(clock, response, lastSignalCheck);
   if (operation === DOLLY_PROCESS_EXIT && result >= 0n) throw PROCESS_EXIT;
   return result;
 }
