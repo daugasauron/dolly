@@ -1,6 +1,6 @@
 # Add an Emacs image
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 310
 - TAGS: demo,editor,image
 
@@ -87,3 +87,14 @@ container; Dolly compiles all C, dumps with pdumper and installs.
 Verification: `npm run test:demos -- emacs` passes in Chrome and Firefox and
 the package installs into a default-based session; `node test/core-browser.mjs
 chromium firefox` and `npm run test:source` pass with the kernel changes.
+
+## Closed (2026-10-02)
+
+Emacs ships as package `emacs` and application `gnu-emacs` (an image cannot share a package's name). Known limits are recorded above: `C-g` in pure Lisp loops, `M-x shell`, no PTYs.
+
+Verified on the integration branch `work/dollyfile-v6` (`0d54a87`), release
+`fcb204c0…`: 51 images rebuilt from scratch (image inputs `9f7a44a7…`),
+artifacts 20/20, source 334/334, every browser suite in Chrome and Firefox,
+image-inventory acceptance for every application and toolchain, and the demo
+tests for python, javascript, emacs (Chrome and Firefox), pi, neovim, rust,
+cmake, sdl2, studio, codex, bhop, classicube and rts in Chrome.

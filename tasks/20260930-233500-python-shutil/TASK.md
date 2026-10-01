@@ -1,6 +1,6 @@
 # Ship a Slop-compatible shutil with Python
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 150
 - TAGS: python,demo,slop,compatibility
 
@@ -15,3 +15,14 @@ check how CPython is patched today (`demos/python/`).
 
 Done when: the python image ships the Slop-compatible `shutil`, and each broken
 case has a behaviour test in the Python demo's browser checks.
+
+## Closed (2026-10-02)
+
+Fixed on `fix/python-fixes` (unchanged upstream `shutil`; `chown` and `disk_usage` fixed in the port configuration and kernel) and merged.
+
+Verified on the integration branch `work/dollyfile-v6` (`0d54a87`), release
+`fcb204c0…`: 51 images rebuilt from scratch (image inputs `9f7a44a7…`),
+artifacts 20/20, source 334/334, every browser suite in Chrome and Firefox,
+image-inventory acceptance for every application and toolchain, and the demo
+tests for python, javascript, emacs (Chrome and Firefox), pi, neovim, rust,
+cmake, sdl2, studio, codex, bhop, classicube and rts in Chrome.

@@ -1,6 +1,6 @@
 # amy: install packages from inside the runtime
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 170
 - TAGS: dollyfile,design,packages
 
@@ -230,3 +230,14 @@ Next: `amy freeze NAME`; replaying recorded rows at session load so model
 packages need not live in the delta; `ripgrep`/`fd`/`pi-coding-agent` on
 `default` once the Rust seed is rebuilt; a `pi` launcher that sets its own
 `PI_PACKAGE_DIR`.
+
+## Closed (2026-10-02)
+
+amy installs packages into a running `default` session through `packages@0`; `amy freeze` and replaying rows at session load are not built (the record holds the rows).
+
+Verified on the integration branch `work/dollyfile-v6` (`0d54a87`), release
+`fcb204c0…`: 51 images rebuilt from scratch (image inputs `9f7a44a7…`),
+artifacts 20/20, source 334/334, every browser suite in Chrome and Firefox,
+image-inventory acceptance for every application and toolchain, and the demo
+tests for python, javascript, emacs (Chrome and Firefox), pi, neovim, rust,
+cmake, sdl2, studio, codex, bhop, classicube and rts in Chrome.

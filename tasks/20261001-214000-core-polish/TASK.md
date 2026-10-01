@@ -1,6 +1,6 @@
 # Core polish: no workarounds
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 345
 - TAGS: core,audit,cleanup
 
@@ -143,3 +143,14 @@ Process ABI, libc adapter, compiler and recipes (every image rebuilds):
 - `toolchain/build-toolchain.sh` duplicates (a sparse-checkout line, a native
   `llvm-nm` the container already ships): any edit changes the toolchain cache
   key and rebuilds LLVM for hours; batch with the next toolchain bump.
+
+## Closed (2026-10-02)
+
+Merged into Dollyfile 6 Phase 3; its module edits were applied to the recipes that absorbed them. Its stricter admission became admission against the image's declared host modules (builds add the build host's). The Rust compiler seed and the 0 A.D. engine were rebuilt and relinked for its process ABI.
+
+Verified on the integration branch `work/dollyfile-v6` (`0d54a87`), release
+`fcb204c0…`: 51 images rebuilt from scratch (image inputs `9f7a44a7…`),
+artifacts 20/20, source 334/334, every browser suite in Chrome and Firefox,
+image-inventory acceptance for every application and toolchain, and the demo
+tests for python, javascript, emacs (Chrome and Firefox), pi, neovim, rust,
+cmake, sdl2, studio, codex, bhop, classicube and rts in Chrome.
