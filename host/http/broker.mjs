@@ -2,7 +2,10 @@ import { HttpError, isDollyCredentialHeader, stripDollyBrowserOwnedHeaders } fro
 import { DOLLY_ERRNO as errno } from "../../dist/dolly-errno.mjs";
 import { decodeStaticAsset } from "../../src/static-asset.mjs";
 import { DOLLY_HTTP_SLOT_COUNT, DOLLY_HTTP_CHUNK_CAPACITY, DOLLY_HTTP_MAX_METHOD, DOLLY_HTTP_MAX_URL,
-  DOLLY_HTTP_MAX_HEADERS, DOLLY_HTTP_MAX_BODY } from "./abi.mjs";
+  DOLLY_HTTP_MAX_HEADERS, DOLLY_HTTP_MAX_BODY, DOLLY_HTTP_HEADER_SIZE, DOLLY_HTTP_WORD_SEQUENCE,
+  DOLLY_HTTP_WORD_STATUS, DOLLY_HTTP_WORD_LENGTH, DOLLY_HTTP_WORD_EOF, DOLLY_HTTP_WORD_ERROR,
+  DOLLY_HTTP_WORD_KIND, DOLLY_HTTP_STATE_WRITABLE, DOLLY_HTTP_STATE_READABLE, DOLLY_HTTP_STATE_FAILED,
+  DOLLY_HTTP_KIND_URL, DOLLY_HTTP_KIND_HEADER, DOLLY_HTTP_KIND_BODY } from "./abi.mjs";
 
 const encoder = new TextEncoder();
 const decoder = new TextDecoder("utf-8", { fatal: true, ignoreBOM: true });
@@ -22,19 +25,10 @@ export function createHttpAdmission(postRequest) {
 }
 
 export class NetworkTransport {
-  static headerSize = 64;
-  static state = 0;
-  static sequence = 1;
-  static status = 2;
-  static length = 3;
-  static eof = 4;
-  static error = 5;
-  static kind = 6;
-
   constructor(buffer, address, capacity, policy, { fetchRequest = globalThis.fetch.bind(globalThis) } = {}) {
     if (!(buffer instanceof SharedArrayBuffer) || !Number.isSafeInteger(address) ||
         address <= 0 || address % 64 !== 0 || capacity !== DOLLY_HTTP_CHUNK_CAPACITY ||
-        address > buffer.byteLength - DOLLY_HTTP_SLOT_COUNT * (NetworkTransport.headerSize + capacity)) {
+        address > buffer.byteLength - DOLLY_HTTP_SLOT_COUNT * (DOLLY_HTTP_HEADER_SIZE + capacity)) {
       throw new TypeError("invalid HTTP mailbox pool bounds");
     }
     this.bytes = new Uint8Array(buffer);
@@ -129,7 +123,7 @@ class HttpTransfer {
   constructor(broker, index, sequence) {
     this.broker = broker;
     this.sequence = sequence;
-    this.address = broker.address + index * (NetworkTransport.headerSize + broker.capacity);
+    this.address = broker.address + index * (DOLLY_HTTP_HEADER_SIZE + broker.capacity);
     this.word = this.address / 4;
     this.controller = new AbortController();
     this.deadline = Infinity;
@@ -142,7 +136,7 @@ class HttpTransfer {
   }
 
   current() {
-    return (Atomics.load(this.broker.words, this.word + NetworkTransport.sequence) >>> 0) === this.sequence;
+    return (Atomics.load(this.broker.words, this.word + DOLLY_HTTP_WORD_SEQUENCE) >>> 0) === this.sequence;
   }
 
   check() {
@@ -156,8 +150,8 @@ class HttpTransfer {
     // A late provider result must not republish an error Wasm already consumed.
     if (this.terminalError || !this.current()) return;
     this.terminalError = error;
-    Atomics.store(this.broker.words, this.word + NetworkTransport.error, error);
-    Atomics.store(this.broker.words, this.word, 3);
+    Atomics.store(this.broker.words, this.word + DOLLY_HTTP_WORD_ERROR, error);
+    Atomics.store(this.broker.words, this.word, DOLLY_HTTP_STATE_FAILED);
     Atomics.notify(this.broker.words, this.word);
   }
 
@@ -173,18 +167,18 @@ class HttpTransfer {
     for (;;) {
       this.check();
       const state = Atomics.load(words, this.word);
-      if (state === 1) break;
+      if (state === DOLLY_HTTP_STATE_WRITABLE) break;
       const waiting = Atomics.waitAsync(words, this.word, state, this.deadline - performance.now());
       if (waiting.async) await waiting.value;
     }
     if (bytes.length > capacity) throw new HttpError(errno.E2BIG, "HTTP record exceeds slot capacity");
-    memory.set(bytes, this.address + NetworkTransport.headerSize);
-    Atomics.store(words, this.word + NetworkTransport.status, status);
-    Atomics.store(words, this.word + NetworkTransport.length, bytes.length);
-    Atomics.store(words, this.word + NetworkTransport.eof, eof ? 1 : 0);
-    Atomics.store(words, this.word + NetworkTransport.error, 0);
-    Atomics.store(words, this.word + NetworkTransport.kind, kind);
-    Atomics.store(words, this.word, 2);
+    memory.set(bytes, this.address + DOLLY_HTTP_HEADER_SIZE);
+    Atomics.store(words, this.word + DOLLY_HTTP_WORD_STATUS, status);
+    Atomics.store(words, this.word + DOLLY_HTTP_WORD_LENGTH, bytes.length);
+    Atomics.store(words, this.word + DOLLY_HTTP_WORD_EOF, eof ? 1 : 0);
+    Atomics.store(words, this.word + DOLLY_HTTP_WORD_ERROR, 0);
+    Atomics.store(words, this.word + DOLLY_HTTP_WORD_KIND, kind);
+    Atomics.store(words, this.word, DOLLY_HTTP_STATE_READABLE);
     Atomics.notify(words, this.word);
   }
 
@@ -230,13 +224,13 @@ class HttpTransfer {
       if (rule.bootstrap === true)
         response = await decodeStaticAsset(response, source, init, rule.maxResponseBytes, this.broker.fetchRequest);
       const status = response.status;
-      await this.publish(encoder.encode(response.url), status, false, 1);
-      await this.publish(encoder.encode(`HTTP/1.1 ${status} ${response.statusText}\r\n`), status, false, 2);
+      await this.publish(encoder.encode(response.url), status, false, DOLLY_HTTP_KIND_URL);
+      await this.publish(encoder.encode(`HTTP/1.1 ${status} ${response.statusText}\r\n`), status, false, DOLLY_HTTP_KIND_HEADER);
       for (const [name, value] of response.headers) {
         if (!isDollyCredentialHeader(name))
-          await this.publish(encoder.encode(`${name}: ${value}\r\n`), status, false, 2);
+          await this.publish(encoder.encode(`${name}: ${value}\r\n`), status, false, DOLLY_HTTP_KIND_HEADER);
       }
-      await this.publish(encoder.encode("\r\n"), status, false, 2);
+      await this.publish(encoder.encode("\r\n"), status, false, DOLLY_HTTP_KIND_HEADER);
       let responseBytes = 0;
       const publishBody = async bytes => {
         if (bytes.length > Number.MAX_SAFE_INTEGER - responseBytes)
@@ -245,7 +239,7 @@ class HttpTransfer {
         if (responseBytes > rule.maxResponseBytes)
           throw new HttpError(errno.E2BIG, "HTTP response exceeds its size limit");
         for (let offset = 0; offset < bytes.length; offset += this.broker.capacity)
-          await this.publish(bytes.subarray(offset, offset + this.broker.capacity), status, false, 3);
+          await this.publish(bytes.subarray(offset, offset + this.broker.capacity), status, false, DOLLY_HTTP_KIND_BODY);
       };
       if (response.body !== null) {
         this.reader = response.body.getReader();
@@ -255,7 +249,7 @@ class HttpTransfer {
           await publishBody(value);
         }
       }
-      await this.publish(new Uint8Array(), status, true, 3);
+      await this.publish(new Uint8Array(), status, true, DOLLY_HTTP_KIND_BODY);
     } catch (error) {
       this.fail(error instanceof HttpError ? error.errno :
         this.controller.signal.aborted ? errno.ETIMEDOUT : failure);

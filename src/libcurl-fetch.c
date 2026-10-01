@@ -672,12 +672,12 @@ static int poll_transfer(DollyEasy *easy, DollyTransfer *transfer, CURLcode *res
   status = -(int)chunk.error;
   if (chunk.status != 0) easy->response_code = transfer->response.status = chunk.status;
   CallbackContext callback = {.easy = easy, .response = &transfer->response};
-  if (status == 0 && chunk.kind == 1) {
+  if (status == 0 && chunk.kind == DOLLY_HTTP_KIND_URL) {
     if (!append_bytes(&transfer->response.effective_url, &transfer->url_length,
                       &transfer->url_capacity, bytes, chunk.length)) status = -ENOMEM;
-  } else if (status == 0 && chunk.kind == 2) {
+  } else if (status == 0 && chunk.kind == DOLLY_HTTP_KIND_HEADER) {
     if (perform_header(bytes, chunk.length, &callback) != chunk.length) status = -ECANCELED;
-  } else if (status == 0 && chunk.kind == 3 && !easy->nobody) {
+  } else if (status == 0 && chunk.kind == DOLLY_HTTP_KIND_BODY && !easy->nobody) {
     if (perform_write(bytes, chunk.length, &callback) != chunk.length) status = -ECANCELED;
   }
   if (chunk.eof) transfer->sequence = 0;
