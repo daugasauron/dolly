@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { createHash } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { mkdir, readFile, readdir, rename, rm, stat, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { gzipSync } from "node:zlib";
@@ -32,7 +32,7 @@ export function splitSnapshotRecords(records) {
 
 async function writeSnapshotPack(directory, bytes) {
   const sha256 = digest(bytes), compressed = gzipSync(bytes, { level: 6 });
-  const path = resolve(directory, "packs", `${sha256}.snapshot.gz`), temporary = `${path}.${process.pid}.tmp`;
+  const path = resolve(directory, "packs", `${sha256}.snapshot.gz`), temporary = `${path}.${randomUUID()}.tmp`;
   try {
     await writeFile(temporary, compressed);
     await rename(temporary, path);

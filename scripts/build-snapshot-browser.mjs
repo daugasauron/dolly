@@ -1,10 +1,10 @@
 #!/usr/bin/env node
 // Builds one image in headless Chrome, streaming its build log to stdout, and
 // writes the snapshot to OUTPUT (new, inside dist/) and its dependency inputs
-// to OUTPUT.inputs.json. The persistent profile and fixed port keep one origin,
-// so completed images are reused from the profile's IndexedDB. --unpackaged
-// hides packaged snapshots: dependencies must be rebuilt (cold) or come from
-// that cache (warm).
+// to OUTPUT.inputs.json. The persistent profile and a port derived from its
+// path keep one origin, so completed images are reused from the profile's
+// IndexedDB. --unpackaged hides packaged snapshots: dependencies must be rebuilt
+// (cold) or come from that cache (warm).
 // usage: build-snapshot-browser.mjs IMAGE OUTPUT [--unpackaged cold|warm]
 // env: DOLLY_BROWSER_PROFILE (.cache/snapshot-browser-profile), DOLLY_BROWSER_PORT
 import { createHash } from "node:crypto";
@@ -31,7 +31,7 @@ const output = resolve(outputArgument);
 if (!output.startsWith(resolve(projectDir, "dist") + sep)) throw new Error("OUTPUT must be inside dist/");
 const profile = resolve(process.env.DOLLY_BROWSER_PROFILE ?? resolve(projectDir, ".cache/snapshot-browser-profile"));
 const port = Number(process.env.DOLLY_BROWSER_PORT ??
-  20_000 + Number.parseInt(createHash("sha256").update(projectDir).digest("hex").slice(0, 8), 16) % 20_000);
+  20_000 + Number.parseInt(createHash("sha256").update(profile).digest("hex").slice(0, 8), 16) % 20_000);
 const graph = await createDollyfileGraphLoader(projectDir)(definition.dollyfile);
 // Recipes' explicit upstream URLs are the only network the build may use.
 const rules = graph.records.flatMap(record => record.sources.filter(source => source.transport === "url"))

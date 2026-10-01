@@ -183,6 +183,10 @@ flowchart TD
 - `npm run image -- IMAGE` stages local sources, refreshes `SOURCE HOST` and recipe
   pins and builds with the existing runtime; `--plan` only shows what would
   rebuild. `SOURCE URL` pins are never refreshed automatically.
+- Images whose dependencies are complete build concurrently, one headless Chrome
+  each; `DOLLY_IMAGE_JOBS` overrides the count chosen from available memory.
+  Each build's log is in `build/image-logs/IMAGE.log`; a failed image skips
+  only its dependents and fails the command.
 - `npm run lint:dollyfiles` checks every catalog graph (pins, names, USE depth,
   host requirements) without running anything. Catalog images are named after
   their file.
