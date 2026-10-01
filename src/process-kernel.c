@@ -3,7 +3,6 @@
 
 #include <dolly/process.h>
 #include <dolly/runtime.h>
-#include <dolly/threads.h>
 
 #include <errno.h>
 #include <dirent.h>
@@ -32,16 +31,10 @@ enum {
   DOLLY_KERNEL_PIPE_WRITE = 2,
   DOLLY_KERNEL_SHEBANG_LIMIT = 4096,
   DOLLY_KERNEL_SHEBANG_DEPTH = 4,
-  DOLLY_KERNEL_THREAD_LIMIT = 64,
 };
 
 static const uint64_t DOLLY_KERNEL_SPAWN_DEADLINE_LIMIT =
     UINT64_C(24) * 60 * 60 * 1000000000;
-
-typedef struct {
-  int tid, waiter, waiting_on, retired;
-  uint64_t result;
-} dolly_kernel_thread;
 
 typedef struct {
   size_t offset;
@@ -75,8 +68,6 @@ typedef struct {
   unsigned char *image;
   size_t image_size;
   uint64_t deadline_nanoseconds;
-  dolly_kernel_thread threads[DOLLY_KERNEL_THREAD_LIMIT];
-  int signal_tid;
   uint32_t pending_signals;
   int handling_signal;
   uint64_t alarm_deadline; /* Monotonic SIGALRM time; zero while disarmed. */
@@ -88,7 +79,6 @@ _Alignas(64) static unsigned char
     process_mailbox[DOLLY_PROCESS_PACKET_LIMIT];
 static dolly_kernel_process process_table[DOLLY_KERNEL_PROCESS_LIMIT];
 static int next_process_pid = 100;
-static uint32_t next_thread_tid = 1;
 static uint32_t live_pipe_count;
 static int foreground_pid;
 
@@ -126,23 +116,6 @@ static dolly_kernel_process *find_process(int pid) {
     }
   }
   return NULL;
-}
-
-static dolly_kernel_thread *find_thread(dolly_kernel_process *process, int tid) {
-  if (tid <= 0) return NULL;
-  for (size_t i = 0; i < DOLLY_KERNEL_THREAD_LIMIT; ++i)
-    if (process->threads[i].tid == tid) return &process->threads[i];
-  return NULL;
-}
-
-static int allocate_thread(dolly_kernel_process *process) {
-  if (next_thread_tid > INT32_MAX) return -EAGAIN;
-  for (size_t i = 0; i < DOLLY_KERNEL_THREAD_LIMIT; ++i) {
-    if (process->threads[i].tid) continue;
-    process->threads[i].tid = (int)next_thread_tid++;
-    return process->threads[i].tid;
-  }
-  return -EAGAIN;
 }
 
 static uint64_t clock_nanoseconds(clockid_t clock) {
@@ -247,7 +220,6 @@ static void release_descriptor(dolly_kernel_process *process,
 
 static void release_process_resources(dolly_kernel_process *process) {
   release_modules(process->pid, 0);
-  memset(process->threads, 0, sizeof(process->threads));
   for (size_t index = 0; index < DOLLY_KERNEL_DESCRIPTOR_LIMIT; ++index) {
     release_descriptor(process, (uint32_t)index);
   }
@@ -1353,7 +1325,7 @@ int dolly_process_spawn_serialized(uintptr_t request_size) {
   return spawn_packet(0, (size_t)request_size);
 }
 
-static int64_t process_dispatch(int pid, int tid, uint32_t operation,
+static int64_t process_dispatch(int pid, int tid, int takes_signals, uint32_t operation,
                                uintptr_t request_size,
                                uintptr_t response_capacity) {
   deferred_milliseconds = -1;
@@ -1363,13 +1335,10 @@ static int64_t process_dispatch(int pid, int tid, uint32_t operation,
   if (process == NULL) return -ESRCH;
   if (process->state != DOLLY_KERNEL_PROCESS_RUNNING &&
       operation != DOLLY_PROCESS_EXIT) return -ESRCH;
-  if ((!tid || tid == process->signal_tid) && process->pending_signals && !process->handling_signal &&
+  if (takes_signals && process->pending_signals && !process->handling_signal &&
       operation != DOLLY_PROCESS_INTERRUPT_POLL &&
       operation != DOLLY_PROCESS_SIGNAL_ACKNOWLEDGE &&
       operation != DOLLY_PROCESS_EXIT) return -EINTR;
-
-  dolly_kernel_thread *thread = find_thread(process, tid);
-  if (tid && (!thread || thread->retired)) return -ESRCH;
   const dolly_kernel_module *module = module_for(operation);
   if (module) return module->call(pid, tid, operation, process_mailbox, request_size, response_capacity);
   switch (operation) {
@@ -1887,7 +1856,7 @@ static int64_t process_dispatch(int pid, int tid, uint32_t operation,
     }
     case DOLLY_PROCESS_INTERRUPT_POLL: {
       if (request_size != 0 || response_capacity < sizeof(int32_t)) return -EINVAL;
-      const int32_t response = process->handling_signal || (tid && tid != process->signal_tid) ? 0 : next_signal(process);
+      const int32_t response = process->handling_signal || !takes_signals ? 0 : next_signal(process);
       if (response) {
         process->pending_signals &= ~(1u << response);
         process->handling_signal = response;
@@ -1895,7 +1864,7 @@ static int64_t process_dispatch(int pid, int tid, uint32_t operation,
       return respond(&response, sizeof(response));
     }
     case DOLLY_PROCESS_SIGNAL_ACKNOWLEDGE: {
-      if (tid && tid != process->signal_tid) return -EPERM;
+      if (!takes_signals) return -EPERM;
       if (request_size != sizeof(int32_t) || response_capacity < sizeof(int32_t)) return -EINVAL;
       int32_t number;
       memcpy(&number, process_mailbox, sizeof(number));
@@ -2017,113 +1986,26 @@ static int64_t process_dispatch(int pid, int tid, uint32_t operation,
 int64_t dolly_process_dispatch(int pid, uint32_t operation,
                                uintptr_t request_size,
                                uintptr_t response_capacity) {
-  return process_dispatch(pid, 0, operation, request_size, response_capacity);
+  return process_dispatch(pid, 0, 1, operation, request_size, response_capacity);
 }
 
-int dolly_threads_attach(int pid) {
-  dolly_kernel_process *process = find_process(pid);
-  if (!process || process->state != DOLLY_KERNEL_PROCESS_PENDING) return -ESRCH;
-  if (process->signal_tid) return -EALREADY;
-  int tid = allocate_thread(process);
-  if (tid > 0) process->signal_tid = tid;
-  return tid;
+int64_t dolly_kernel_dispatch(int pid, int tid, int takes_signals, uint32_t operation,
+                              uintptr_t request_size, uintptr_t response_capacity) {
+  return process_dispatch(pid, tid, takes_signals, operation, request_size, response_capacity);
 }
 
-int dolly_threads_unstarted(int pid, int tid) {
-  dolly_kernel_process *process = find_process(pid);
-  dolly_kernel_thread *thread = process ? find_thread(process, tid) : NULL;
-  if (!thread || tid == process->signal_tid) return -ESRCH;
+int dolly_kernel_process_launching(int pid) {
+  const dolly_kernel_process *process = find_process(pid);
+  return process != NULL && process->state == DOLLY_KERNEL_PROCESS_PENDING;
+}
+
+int dolly_kernel_process_running(int pid) {
+  const dolly_kernel_process *process = find_process(pid);
+  return process != NULL && process->state == DOLLY_KERNEL_PROCESS_RUNNING;
+}
+
+void dolly_kernel_thread_released(int pid, int tid) {
   release_modules(pid, tid);
-  memset(thread, 0, sizeof(*thread));
-  return 0;
-}
-
-int dolly_threads_retired(int pid, int tid, uint64_t result) {
-  dolly_kernel_process *process = find_process(pid);
-  dolly_kernel_thread *thread = process ? find_thread(process, tid) : NULL;
-  if (!thread || thread->retired || process->state != DOLLY_KERNEL_PROCESS_RUNNING)
-    return -ESRCH;
-  thread->result = result;
-  thread->retired = 1;
-  release_modules(pid, tid);
-  int receiver = 0;
-  for (size_t i = 0; i < DOLLY_KERNEL_THREAD_LIMIT; ++i) {
-    dolly_kernel_thread *other = &process->threads[i];
-    if (other->waiter == tid) other->waiter = 0;
-    if (other->tid && !other->retired && (!receiver || other->tid < receiver))
-      receiver = other->tid;
-  }
-  if (process->signal_tid == tid) process->signal_tid = receiver;
-  return receiver == 0;
-}
-
-int64_t dolly_threads_dispatch(int pid, int tid, uint32_t operation,
-                               uintptr_t request_size,
-                               uintptr_t response_capacity) {
-  deferred_milliseconds = -1;
-  dolly_kernel_process *process = find_process(pid);
-  dolly_kernel_thread *thread = process ? find_thread(process, tid) : NULL;
-  if (!thread || thread->retired || process->state != DOLLY_KERNEL_PROCESS_RUNNING)
-    return -ESRCH;
-  if (thread->waiting_on) {
-    dolly_thread_wait_request request = {0};
-    if (operation == DOLLY_THREAD_WAIT && request_size == 8 && response_capacity == 8)
-      memcpy(&request, process_mailbox, 8);
-    if (request.tid != (uint32_t)thread->waiting_on || request.flags) {
-      /* A different call abandons an interrupted wait, including signal polling. */
-      dolly_kernel_thread *target = find_thread(process, thread->waiting_on);
-      if (target && target->waiter == tid) target->waiter = 0;
-      thread->waiting_on = 0;
-    }
-  }
-  if (request_size > sizeof(process_mailbox) || response_capacity > sizeof(process_mailbox))
-    return -E2BIG;
-  if (operation < DOLLY_THREAD_SPAWN || operation > DOLLY_THREAD_WAIT)
-    return process_dispatch(pid, tid, operation, request_size, response_capacity);
-  switch (operation) {
-    case DOLLY_THREAD_SPAWN: {
-      if (request_size != 8 || response_capacity != 8) return -EINVAL;
-      int child = allocate_thread(process);
-      if (child < 0) return child;
-      dolly_thread_identity response = {(uint32_t)child, 0};
-      memcpy(process_mailbox, &response, 8);
-      return 8;
-    }
-    case DOLLY_THREAD_SELF: {
-      if (request_size || response_capacity != 8) return -EINVAL;
-      dolly_thread_identity response = {(uint32_t)tid, 0};
-      memcpy(process_mailbox, &response, 8);
-      return 8;
-    }
-    case DOLLY_THREAD_EXIT:
-      /* The Worker unwinds to its trusted JS entry wrapper first. The
-       * supervisor publishes retirement only after guest code has stopped. */
-      return request_size == 8 && !response_capacity ? 0 : -EINVAL;
-    case DOLLY_THREAD_WAIT: {
-      if (request_size != 8 || response_capacity != 8) return -EINVAL;
-      dolly_thread_wait_request request;
-      memcpy(&request, process_mailbox, 8);
-      if (request.flags & ~DOLLY_THREAD_WAIT_NONBLOCK) return -EINVAL;
-      if (request.tid == (uint32_t)tid) return -EDEADLK;
-      dolly_kernel_thread *target = find_thread(process, (int)request.tid);
-      if (!target) return -ESRCH;
-      if (target->waiter && target->waiter != tid) return -EINVAL;
-      if (!target->retired) {
-        if (request.flags & DOLLY_THREAD_WAIT_NONBLOCK) return -EAGAIN;
-        /* Like other blocking calls, the signal thread's wait yields to its signals. */
-        if (tid == process->signal_tid && process->pending_signals && !process->handling_signal)
-          return -EINTR;
-        target->waiter = tid;
-        thread->waiting_on = target->tid;
-        return DOLLY_PROCESS_DISPATCH_DEFERRED;
-      }
-      memcpy(process_mailbox, &target->result, 8);
-      memset(target, 0, sizeof(*target));
-      thread->waiting_on = 0;
-      return 8;
-    }
-  }
-  return -ENOSYS;
 }
 
 int dolly_process_next_launch(void) {

@@ -23,6 +23,15 @@ static inline int64_t dolly_kernel_respond(unsigned char *mailbox,
 }
 /* Whether a wait may continue; records the remaining time for the supervisor. */
 int dolly_kernel_deadline_pending(uint64_t deadline_nanoseconds);
+/* For a module that runs a process on several threads (host/threads/kernel.c):
+ * dispatch for one thread, where takes_signals marks the thread receiving the
+ * process's signals; the process states it may act on; and the release of what
+ * every module holds for a thread that ended. */
+int64_t dolly_kernel_dispatch(int pid, int tid, int takes_signals, uint32_t operation,
+                              uintptr_t request_size, uintptr_t response_capacity);
+int dolly_kernel_process_launching(int pid);
+int dolly_kernel_process_running(int pid);
+void dolly_kernel_thread_released(int pid, int tid);
 /* Decodes a dolly_process_path_request into a path the kernel can open. */
 int64_t dolly_kernel_request_path(int pid, uintptr_t request_size,
                                   char *path, size_t capacity);

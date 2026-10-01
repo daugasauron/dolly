@@ -7,6 +7,6 @@
   "contracts": ["dolly-threads-supervisor-0.wat"],
   "process": ["dolly-threads-0.wat"],
   "headers": ["threads.h", "threads-abi.h"],
-  "kernel": [],
+  "kernel": ["kernel.c"],
   "client": ["client.c"]
 }
