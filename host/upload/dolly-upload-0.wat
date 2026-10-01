@@ -21,4 +21,8 @@
   ;; Kernel starts another request only after browser completion. One file at
   ;; a time, at most 64 MiB; both sides enforce bounds independently. Wasm owns
   ;; destination, temporary file, atomic publication and process-exit cleanup.
+
+  ;; Process operation: a dolly_process_path_request naming the destination,
+  ;; which must not exist; no response.
+  (global (export "DOLLY_UPLOAD_FILE") i32 (i32.const 57))
 )

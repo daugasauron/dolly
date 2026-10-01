@@ -1,6 +1,7 @@
 #pragma once
 #include <stdint.h>
 #include <stdatomic.h>
+#include <dolly/upload-abi.h>
 
 /* Host mailbox layout; dolly-upload-0.wat owns its version and semantics. */
 typedef struct {

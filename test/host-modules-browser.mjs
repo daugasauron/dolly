@@ -3,6 +3,7 @@ import { readFile } from "node:fs/promises";
 import { browserTest } from "./browser.mjs";
 import { parseWasmInterface } from "../src/wasm-interface.mjs";
 import { executableHostRequirements } from "../host/requirements.mjs";
+import { DOLLY_HTTP_ABI_DIGEST } from "../host/http/abi.mjs";
 
 const hostModules = modules => page => page.addInitScript(modules => { globalThis.DOLLY_HOST_MODULES = modules; }, modules);
 const sourceOverrides = new Map();
@@ -23,11 +24,12 @@ await browserTest("host modules", { image: "system", server: { sourceOverrides }
     const pending = page.waitForEvent("download");
     await run(`download ${path}`);
     await page.click("#downloads button");
-    return executableHostRequirements(parseWasmInterface(await readFile(await (await pending).path())));
+    const bytes = await readFile(await (await pending).path());
+    return [...executableHostRequirements(parseWasmInterface(bytes)).keys()].sort();
   }
 
   // Only archive members that are actually linked contribute their requirement.
-  await source("#include <dolly/host.h>\nDOLLY_HOST_REQUIRE(http,0);\nint probe(void){return 37;}");
+  await source("#include <dolly/host.h>\n#include <dolly/http-abi.h>\nDOLLY_HOST_REQUIRE(http,0,DOLLY_HTTP_ABI_DIGEST);\nint probe(void){return 37;}");
   await run("cc -O1 -c /tmp/probe.c -o /tmp/probe.o && ar rcs /tmp/libprobe.a /tmp/probe.o");
   const linked = {};
   for (const [name, code] of Object.entries({ used: "extern int probe(void);int main(void){return probe()!=37;}",
@@ -49,17 +51,26 @@ await browserTest("host modules", { image: "system", server: { sourceOverrides }
   await run("cc -O1 /tmp/probe.c -ldolly-gpu -o /tmp/gpu-client");
   assert.ok((await requirements("/tmp/gpu-client")).includes("gpu@0"));
   assert.notEqual(await submit("/tmp/gpu-client"), 0, "a disabled provider must deny the client call");
-  for (const required of ["unknown,0", "http,1"]) {
-    await source(`#include <dolly/host.h>\n#include <stdio.h>\nDOLLY_HOST_REQUIRE(${required});\nint main(void){FILE*f=fopen("/tmp/entered","w");if(f)fclose(f);return 0;}`);
+  // So does a module whose layout differs from its provider's in one digest bit.
+  const otherLayout = [...Buffer.from(DOLLY_HTTP_ABI_DIGEST, "hex")].map((byte, index) => index ? byte : byte ^ 1);
+  for (const [required, error] of [
+    ["unknown,0,DOLLY_HTTP_ABI_DIGEST", /unknown@0 is unsupported/],
+    ["http,1,DOLLY_HTTP_ABI_DIGEST", /http@1 is unsupported/],
+    ["http,0,OTHER_LAYOUT", /http@0 has a different layout/],
+  ]) {
+    await source(`#include <dolly/host.h>\n#include <dolly/http-abi.h>\n#include <stdio.h>\n` +
+      `#define OTHER_LAYOUT ${otherLayout.join(",")}\nDOLLY_HOST_REQUIRE(${required});\n` +
+      `int main(void){FILE*f=fopen("/tmp/entered","w");if(f)fclose(f);return 0;}`);
     await run("cc -O1 /tmp/probe.c -o /tmp/denied");
-    assert.notEqual(await submit("/tmp/denied"), 0);
+    assert.equal(await submit("/tmp/denied"), 126);
+    assert.match(await text(), error);
     await run("test ! -e /tmp/entered");
   }
   // Without a requirement claim the disabled outer provider still denies the operation.
   await source("#include <dolly/process.h>\n#include <dolly/gpu-abi.h>\n#include <stdint.h>\n#include <errno.h>\nint main(void){uint64_t p[5]={DOLLY_GPU_OPEN*(1ull<<32),0,1,8,0};char reply[64];return dolly_process_call(DOLLY_GPU_PROCESS_OP,p,sizeof p,reply,sizeof reply)!=-ENOSYS;}");
   await run("cc -O1 /tmp/probe.c -o /tmp/forged && /tmp/forged");
   assert.ok(!(await requirements("/tmp/forged")).includes("gpu@0"));
-  await source('#include <dolly/host.h>\n#include <stdio.h>\nDOLLY_HOST_REQUIRE(gpu,1);\n__attribute__((constructor)) static void init(void){FILE*f=fopen("/tmp/dso-entered","w");if(f)fclose(f);}\nint probe(void){return 37;}');
+  await source('#include <dolly/host.h>\n#include <dolly/gpu-abi.h>\n#include <stdio.h>\nDOLLY_HOST_REQUIRE(gpu,1,DOLLY_GPU_ABI_DIGEST);\n__attribute__((constructor)) static void init(void){FILE*f=fopen("/tmp/dso-entered","w");if(f)fclose(f);}\nint probe(void){return 37;}');
   await run("cc -shared -O1 /tmp/probe.c -o /tmp/denied.so");
   assert.deepEqual(await requirements("/tmp/denied.so"), ["gpu@1"]);
   await source('#include <dlfcn.h>\n#include <string.h>\nint main(void){void*h=dlopen("/tmp/denied.so",RTLD_NOW);const char*e=dlerror();return h!=0||!e||!strstr(e,"gpu@1");}');

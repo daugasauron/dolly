@@ -14,7 +14,6 @@
 #include <string.h>
 
 enum {
-  DOLLY_HTTP_MAILBOX_VERSION = 5,
   DOLLY_HTTP_MAILBOX_HEADER_SIZE = 64,
 };
 
@@ -184,8 +183,8 @@ static void discard_body(staged_body *body) {
 static int64_t http_body_write_packet(staged_body *body, unsigned char *mailbox,
                                       uintptr_t request_size) {
   if (request_size == 0) { discard_body(body); return 0; }
-  if (request_size <= sizeof(dolly_process_http_body_write_request)) return -EINVAL;
-  dolly_process_http_body_write_request request;
+  if (request_size <= sizeof(dolly_http_body_write_request)) return -EINVAL;
+  dolly_http_body_write_request request;
   memcpy(&request, mailbox, sizeof(request));
   const size_t length = request_size - sizeof(request);
   if (request.total_size > HTTP_BODY_LIMIT) return -E2BIG;
@@ -208,11 +207,11 @@ static int64_t http_body_write_packet(staged_body *body, unsigned char *mailbox,
 static int64_t http_start_packet(int pid, staged_body *body, unsigned char *mailbox,
                                  uintptr_t request_size,
                                  uintptr_t response_capacity) {
-  if (request_size < sizeof(dolly_process_http_start_request) ||
-      response_capacity < sizeof(dolly_process_http_start_response)) {
+  if (request_size < sizeof(dolly_http_start_request) ||
+      response_capacity < sizeof(dolly_http_start_response)) {
     return -EINVAL;
   }
-  dolly_process_http_start_request request;
+  dolly_http_start_request request;
   memcpy(&request, mailbox, sizeof(request));
   if (request.method_size == 0 || request.url_size == 0 ||
       request.body_size > SIZE_MAX) return -EINVAL;
@@ -260,31 +259,31 @@ static int64_t http_start_packet(int pid, staged_body *body, unsigned char *mail
   free(strings);
   if (result != 0) return result;
   requests[(sequence - 1) % DOLLY_HTTP_SLOT_COUNT] = (owned_request){pid, sequence};
-  const dolly_process_http_start_response response = {sequence, 0};
+  const dolly_http_start_response response = {sequence, 0};
   return dolly_kernel_respond(mailbox, &response, sizeof(response));
 }
 
 static int64_t http_poll_packet(int pid, unsigned char *mailbox,
                                 uintptr_t request_size,
                                 uintptr_t response_capacity) {
-  if (request_size != sizeof(dolly_process_http_poll_request) ||
-      response_capacity < sizeof(dolly_process_http_poll_response)) {
+  if (request_size != sizeof(dolly_http_poll_request) ||
+      response_capacity < sizeof(dolly_http_poll_response)) {
     return -EINVAL;
   }
-  dolly_process_http_poll_request request;
+  dolly_http_poll_request request;
   memcpy(&request, mailbox, sizeof(request));
   if (request.reserved != 0 || request.sequence == 0 ||
       !owns(pid, request.sequence)) return -ESTALE;
   dolly_http_chunk chunk = {0};
   const size_t data_capacity =
-      (size_t)response_capacity - sizeof(dolly_process_http_poll_response);
+      (size_t)response_capacity - sizeof(dolly_http_poll_response);
   const int result = dolly_http_poll(
       request.sequence, &chunk,
-      mailbox + sizeof(dolly_process_http_poll_response),
+      mailbox + sizeof(dolly_http_poll_response),
       data_capacity);
   if (result < 0) return result;
   if (chunk.length > data_capacity) return -EOVERFLOW;
-  const dolly_process_http_poll_response response = {
+  const dolly_http_poll_response response = {
       (uint32_t)result, chunk.status, chunk.kind, chunk.error, chunk.eof, 0, chunk.length,
   };
   memcpy(mailbox, &response, sizeof(response));
@@ -295,9 +294,9 @@ static int64_t http_poll_packet(int pid, unsigned char *mailbox,
 static int64_t http_cancel_packet(int pid, unsigned char *mailbox,
                                   uintptr_t request_size,
                                   uintptr_t response_capacity) {
-  if (request_size != sizeof(dolly_process_http_cancel_request) ||
+  if (request_size != sizeof(dolly_http_cancel_request) ||
       response_capacity != 0) return -EINVAL;
-  dolly_process_http_cancel_request request;
+  dolly_http_cancel_request request;
   memcpy(&request, mailbox, sizeof(request));
   if (request.reserved != 0 || request.sequence == 0 ||
       !owns(pid, request.sequence)) return -ESTALE;
@@ -309,20 +308,20 @@ static int64_t http_cancel_packet(int pid, unsigned char *mailbox,
 static int64_t http_call(int pid, int tid, uint32_t operation, unsigned char *mailbox,
                          uintptr_t request_size, uintptr_t response_capacity) {
   switch (operation) {
-    case DOLLY_PROCESS_HTTP_START: {
+    case DOLLY_HTTP_START: {
       staged_body *body = body_for(pid, tid);
       if (body == NULL) return -ENOMEM;
       const int64_t result = http_start_packet(pid, body, mailbox, request_size, response_capacity);
       discard_body(body);
       return result;
     }
-    case DOLLY_PROCESS_HTTP_BODY_WRITE: {
+    case DOLLY_HTTP_BODY_WRITE: {
       staged_body *body = body_for(pid, tid);
       return body == NULL ? -ENOMEM : http_body_write_packet(body, mailbox, request_size);
     }
-    case DOLLY_PROCESS_HTTP_POLL:
+    case DOLLY_HTTP_POLL:
       return http_poll_packet(pid, mailbox, request_size, response_capacity);
-    case DOLLY_PROCESS_HTTP_CANCEL:
+    case DOLLY_HTTP_CANCEL:
       return http_cancel_packet(pid, mailbox, request_size, response_capacity);
   }
   return -EINVAL;
@@ -346,4 +345,4 @@ static void http_release(int pid, int tid) {
 }
 
 const dolly_kernel_module dolly_http_kernel = {
-    DOLLY_PROCESS_HTTP_START, DOLLY_PROCESS_HTTP_BODY_WRITE, http_call, http_release};
+    DOLLY_HTTP_START, DOLLY_HTTP_BODY_WRITE, http_call, http_release};

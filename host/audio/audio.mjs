@@ -1,6 +1,7 @@
 import { createAudioProvider } from "./provider.mjs";
 import { createAudioBridge } from "./bridge.mjs";
 import { DOLLY_ERRNO as E } from "../../dist/dolly-errno.mjs";
+export { DOLLY_AUDIO_ABI_DIGEST as digest } from "./abi.mjs";
 
 export function check() {
   return typeof globalThis.AudioContext === "function" ? null : "Web Audio playback is unavailable in this browser";

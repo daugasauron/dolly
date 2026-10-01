@@ -1,4 +1,5 @@
 import { DOLLY_ERRNO as E } from "../../dist/dolly-errno.mjs";
+export { DOLLY_DOWNLOAD_ABI_DIGEST as digest } from "./abi.mjs";
 
 const maximum = 64 * 1024 * 1024;
 // Requests awaiting the user's Save/Dismiss click; more fail with EBUSY.

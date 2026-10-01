@@ -29,6 +29,8 @@ int64_t dolly_process_call(uint32_t operation,
                            const void *request, uint64_t request_size,
                            void *response, uint64_t response_capacity);
 
+/* Host modules number their operations in their own contracts
+ * (host/NAME/dolly-NAME-0.wat), never reusing a number below. */
 enum dolly_process_operation {
   DOLLY_PROCESS_ARGUMENT_SIZES = 1,
   DOLLY_PROCESS_ARGUMENTS = 2,
@@ -69,14 +71,11 @@ enum dolly_process_operation {
   DOLLY_PROCESS_CLOCK_TIME = 48,
   DOLLY_PROCESS_RANDOM = 49,
   DOLLY_PROCESS_TERMINAL = 50,
-  DOLLY_PROCESS_DOWNLOAD_FILE = 51,
   DOLLY_PROCESS_CLOCK_RESOLUTION = 52,
   DOLLY_PROCESS_CLOCK_SLEEP = 53,
   DOLLY_PROCESS_FD_POLL = 54,
   DOLLY_PROCESS_FD_GET_DESCRIPTOR_FLAGS = 55,
   DOLLY_PROCESS_FD_SET_DESCRIPTOR_FLAGS = 56,
-  /* path_request -> no response; user-selected file, no overwrite. */
-  DOLLY_PROCESS_UPLOAD_FILE = 57,
 
   DOLLY_PROCESS_SPAWN = 64,
   DOLLY_PROCESS_WAIT = 65,
@@ -93,21 +92,6 @@ enum dolly_process_operation {
   /* i32 1 while userspace handles or ignores SIGALRM, else 0 -> no response.
    * A due SIGALRM's default action ends even a process making no system call. */
   DOLLY_PROCESS_ALARM_HANDLED = 71,
-
-  DOLLY_PROCESS_HTTP_START = 80,
-  DOLLY_PROCESS_HTTP_POLL = 81,
-  DOLLY_PROCESS_HTTP_CANCEL = 82,
-  DOLLY_PROCESS_HTTP_BODY_WRITE = 83,
-
-  DOLLY_PROCESS_DISPLAY_ACQUIRE = 96,
-  DOLLY_PROCESS_DISPLAY_SET_SIZE = 97,
-  DOLLY_PROCESS_DISPLAY_BEGIN_FRAME = 98,
-  DOLLY_PROCESS_DISPLAY_WRITE_FRAME = 99,
-  DOLLY_PROCESS_DISPLAY_PRESENT = 100,
-  DOLLY_PROCESS_DISPLAY_WAIT_FRAME = 101,
-  DOLLY_PROCESS_DISPLAY_SET_CURSOR = 102,
-  DOLLY_PROCESS_DISPLAY_NEXT_EVENT = 103,
-  DOLLY_PROCESS_DISPLAY_RELEASE = 104,
 
   DOLLY_PROCESS_DSO_OPEN = 112,
   DOLLY_PROCESS_DSO_SYMBOL = 113,
@@ -487,131 +471,6 @@ typedef struct {
   uint32_t rows;
 } dolly_process_terminal_response;
 
-/*
- * HTTP requests remain byte-oriented at the process boundary. Strings are
- * UTF-8 byte sequences without trailing NULs in the packet. The body follows
- * the three strings. For a body larger than the packet, HTTP_BODY_WRITE stages
- * it in kernel Wasm memory and HTTP_START contains only the strings. START
- * consumes the staged body on success or failure. Browser policy still owns
- * admission and byte quotas; staging does not start a network request.
- */
-typedef struct {
-  uint32_t flags;
-  uint32_t method_size;
-  uint32_t url_size;
-  uint32_t headers_size;
-  uint64_t body_size;
-} dolly_process_http_start_request;
-
-/* One staged body per process. Writes are sequential; offset=0 replaces any
- * previous body. A zero-byte packet discards it. Exit also discards it.
- * Nonempty writes contain this header followed by bytes; every write must
- * agree on total_size and continue at the exact next offset. */
-typedef struct {
-  uint64_t offset;
-  uint64_t total_size;
-} dolly_process_http_body_write_request;
-
-typedef struct {
-  uint32_t sequence;
-  uint32_t reserved;
-} dolly_process_http_start_response;
-
-typedef struct {
-  uint32_t sequence;
-  uint32_t reserved;
-} dolly_process_http_poll_request;
-
-/* HTTP_POLL never blocks: ready=0 is pending, with all remaining fields zero.
- * `length` bytes immediately follow this header when ready=1. */
-typedef struct {
-  uint32_t ready;
-  uint32_t status;
-  uint32_t kind;
-  uint32_t error;
-  uint32_t eof;
-  uint32_t reserved;
-  uint64_t length;
-} dolly_process_http_poll_response;
-
-typedef struct {
-  uint32_t sequence;
-  uint32_t reserved;
-} dolly_process_http_cancel_request;
-
-/*
- * A process never receives a pointer into the kernel framebuffer. BEGIN_FRAME
- * describes the inactive buffer, WRITE_FRAME copies bounded sequential chunks
- * into it, and PRESENT atomically publishes it after the complete frame has
- * arrived. This keeps both memories private while allowing frames larger than
- * DOLLY_PROCESS_PACKET_LIMIT.
- */
-typedef struct {
-  uint64_t generation;
-  uint32_t width;
-  uint32_t height;
-} dolly_process_display_size_request;
-
-typedef struct {
-  uint64_t generation;
-} dolly_process_display_generation_request;
-
-typedef struct {
-  uint64_t generation;
-  uint64_t capacity;
-  uint32_t buffer_index;
-  uint32_t width;
-  uint32_t height;
-  uint32_t stride;
-  uint32_t pixel_format;
-  uint32_t reserved;
-} dolly_process_display_surface_response;
-
-/* `size` pixel bytes follow this header. `offset` must be the next unwritten
- * byte of the frame begun for buffer_index. */
-typedef struct {
-  uint64_t generation;
-  uint64_t offset;
-  uint64_t size;
-  uint32_t buffer_index;
-  uint32_t reserved;
-} dolly_process_display_write_request;
-
-typedef struct {
-  uint64_t generation;
-  uint32_t buffer_index;
-  uint32_t reserved;
-} dolly_process_display_present_request;
-
-typedef struct {
-  uint64_t generation;
-  uint64_t deadline_nanoseconds;
-  uint32_t sequence;
-  uint32_t reserved;
-} dolly_process_display_wait_request;
-
-typedef struct {
-  int32_t result;
-  uint32_t sequence;
-} dolly_process_display_wait_response;
-
-typedef struct {
-  uint64_t generation;
-  uint32_t cursor;
-  uint32_t reserved;
-} dolly_process_display_cursor_request;
-
-typedef struct {
-  uint64_t generation;
-  uint64_t deadline_nanoseconds;
-} dolly_process_display_event_request;
-
-typedef struct {
-  int32_t result;
-  uint32_t reserved;
-  unsigned char event[128];
-} dolly_process_display_event_response;
-
 /* For DSO_OPEN, image_size bytes follow this header. A zero-sized image
  * selects the process executable itself. These three operations are serviced
  * inside the process Worker: they add no kernel or browser I/O capability. */
@@ -768,21 +627,6 @@ DOLLY_PROCESS_LAYOUT(dolly_process_two_path_request, 16);
 DOLLY_PROCESS_LAYOUT(dolly_process_path_times_request, 48);
 DOLLY_PROCESS_LAYOUT(dolly_process_terminal_request, 24);
 DOLLY_PROCESS_LAYOUT(dolly_process_terminal_response, 16);
-DOLLY_PROCESS_LAYOUT(dolly_process_http_start_request, 24);
-DOLLY_PROCESS_LAYOUT(dolly_process_http_start_response, 8);
-DOLLY_PROCESS_LAYOUT(dolly_process_http_poll_request, 8);
-DOLLY_PROCESS_LAYOUT(dolly_process_http_poll_response, 32);
-DOLLY_PROCESS_LAYOUT(dolly_process_http_cancel_request, 8);
-DOLLY_PROCESS_LAYOUT(dolly_process_display_size_request, 16);
-DOLLY_PROCESS_LAYOUT(dolly_process_display_generation_request, 8);
-DOLLY_PROCESS_LAYOUT(dolly_process_display_surface_response, 40);
-DOLLY_PROCESS_LAYOUT(dolly_process_display_write_request, 32);
-DOLLY_PROCESS_LAYOUT(dolly_process_display_present_request, 16);
-DOLLY_PROCESS_LAYOUT(dolly_process_display_wait_request, 24);
-DOLLY_PROCESS_LAYOUT(dolly_process_display_wait_response, 8);
-DOLLY_PROCESS_LAYOUT(dolly_process_display_cursor_request, 16);
-DOLLY_PROCESS_LAYOUT(dolly_process_display_event_request, 16);
-DOLLY_PROCESS_LAYOUT(dolly_process_display_event_response, 136);
 DOLLY_PROCESS_LAYOUT(dolly_process_clock_sleep_request, 16);
 DOLLY_PROCESS_LAYOUT(dolly_process_dso_open_request, 16);
 DOLLY_PROCESS_LAYOUT(dolly_process_dso_symbol_request, 16);

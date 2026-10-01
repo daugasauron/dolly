@@ -7,7 +7,7 @@
   "host": "http.mjs",
   "contracts": ["dolly-http-0.wat"],
   "process": [],
-  "headers": ["http.h"],
+  "headers": ["http.h", "http-abi.h"],
   "kernel": ["kernel.c"],
   "client": ["client.c"]
 }

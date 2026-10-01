@@ -7,7 +7,7 @@
   "host": "display.mjs",
   "contracts": ["dolly-display-0.wat"],
   "process": [],
-  "headers": ["display.h"],
+  "headers": ["display.h", "display-abi.h"],
   "kernel": ["kernel.c"],
   "client": ["client.c"]
 }

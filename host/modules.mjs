@@ -7,6 +7,9 @@ import { DOLLY_ERRNO as E } from "../dist/dolly-errno.mjs";
 const definitions = await Promise.all(hostManifests.map(async manifest =>
   ({ ...await import(new URL(manifest.host, manifest.url).href), contract: manifest })));
 export const hostContracts = Object.freeze(definitions.map(module => module.contract));
+// What executables may require: name@version -> the ABI digest its provider implements.
+const providedAbi = new Map(definitions.filter(module => module.digest)
+  .map(({ contract: { name, version }, digest }) => [`${name}@${version}`, digest]));
 export const buildHost = Object.freeze(["runtime@0", "http@0", "threads@0"]);
 const byName = new Map(definitions.map(module => [module.contract.name, module]));
 const owners = new Map();
@@ -65,7 +68,7 @@ export async function createHost(side, enabled, { send, resources = {}, configur
     const instance = module[side]?.({ ...resources, send, get: dependency,
       service: () => { for (const instance of instances.values()) instance.service?.(); },
       claimsKey, surfaceSize,
-      abi: hostContracts.map(({ name, version }) => `${name}@${version}`),
+      abi: providedAbi,
       configuration: configuration[name] ?? {} }) ?? {};
     instances.set(name, instance);
     for (const [key, value] of Object.entries(instance.options ?? {})) {

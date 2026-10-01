@@ -1,8 +1,7 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { browserTest } from "./browser.mjs";
-import { appendCustomSection } from "../src/wasm-interface.mjs";
-import { DOLLY_THREADS_ABI_DIGEST } from "../dist/dolly-threads-abi.mjs";
+import { DOLLY_THREADS_ABI_DIGEST } from "../host/threads/abi.mjs";
 
 const modules = ["runtime@0", "display@0", "http@0", "download@0", "upload@0", "snapshot@0"];
 const enable = modules => page => page.addInitScript(modules => { globalThis.DOLLY_HOST_MODULES = modules; }, modules);
@@ -60,7 +59,7 @@ await browserTest("threads", { image: "system", server: { fixtures, sourceOverri
   await run(`curl -fsS ${server.origin}${probe} -o /tmp/racing.c && cc -O1 -pthread /tmp/racing.c -o /tmp/racing`);
   for (let round = 0; round < 10; ++round) assert.equal(await submit("/tmp/racing"), 37, `round ${round}`);
 
-  // Thread executables must carry exactly one compatible stamp and the child entry.
+  // Thread executables must record the threads layout and export the child entry.
   const saved = page.waitForEvent("download");
   await run(`download ${threaded}`);
   await page.click("#downloads button");
@@ -69,7 +68,7 @@ await browserTest("threads", { image: "system", server: { fixtures, sourceOverri
   const incompatible = Buffer.from(valid), missingEntry = Buffer.from(valid);
   incompatible[incompatible.indexOf(digest)] ^= 1;
   missingEntry[missingEntry.indexOf("dolly_thread_start")] = "_".charCodeAt(0);
-  for (const bytes of [incompatible, missingEntry, appendCustomSection(valid, "dolly.threads", digest)]) {
+  for (const bytes of [incompatible, missingEntry]) {
     sourceOverrides.set(probe, bytes);
     await run(`curl -fsS ${server.origin}${probe} -o /tmp/threads-invalid`);
     assert.equal(await submit("/tmp/threads-invalid"), 126);

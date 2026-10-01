@@ -43,17 +43,20 @@ test("build graph and artifact requirements inherit FROM and USE, not COPY", asy
 });
 
 test("executable requirements reject malformed records and incompatible providers", () => {
-  const record = (name, version = 0) => {
-    const data = new Uint8Array(40);
+  const layout = digest("http layout"), other = digest("another http layout");
+  const record = (name, version = 0, abi = layout) => {
+    const data = new Uint8Array(72);
     data.set(new TextEncoder().encode(name));
     new DataView(data.buffer).setUint32(32, version, true);
+    data.set(Buffer.from(abi, "hex"), 40);
     return data;
   };
   const parse = (...records) => executableHostRequirements({customSectionData:
     records.map(data => ({name: "dolly.host", data}))});
-  assert.deepEqual(parse(record("http"), record("runtime"), record("http")), ["http@0", "runtime@0"]);
+  assert.deepEqual([...parse(record("http"), record("gpu"), record("http"))], [["http@0", layout], ["gpu@0", layout]]);
   assert.throws(() => parse(record("http"), record("http", 1)));
-  for (const data of [new Uint8Array(), new Uint8Array(39), record(""), record("GPU"), record("http", 65536)]) {
+  assert.throws(() => parse(record("http"), record("http", 0, other)), /conflicting/);
+  for (const data of [new Uint8Array(), new Uint8Array(71), record(""), record("GPU"), record("http", 65536)]) {
     assert.throws(() => parse(data));
   }
   const padding = record("gpu"); padding[8] = 1;
@@ -61,7 +64,9 @@ test("executable requirements reject malformed records and incompatible provider
   const reserved = record("gpu"); reserved[36] = 1;
   assert.throws(() => parse(reserved));
   assert.throws(() => parse(...Array.from({length: 65}, () => record("gpu"))));
-  assert.throws(() => checkHostAbi(["gpu@1"], ["gpu@0"]), /gpu@1/);
-  assert.throws(() => checkHostAbi(["gpu@0"], ["http@0"]), /gpu@0/);
-  assert.doesNotThrow(() => checkHostAbi(parse(record("gpu")), ["gpu@0", "runtime@0"]));
+  const provided = new Map([["http@0", layout], ["gpu@0", layout]]);
+  assert.doesNotThrow(() => checkHostAbi(parse(record("http")), provided));
+  assert.throws(() => checkHostAbi(parse(record("http", 1)), provided), /http@1 is unsupported/);
+  assert.throws(() => checkHostAbi(parse(record("audio")), provided), /audio@0 is unsupported/);
+  assert.throws(() => checkHostAbi(parse(record("http", 0, other)), provided), /http@0 has a different layout/);
 });

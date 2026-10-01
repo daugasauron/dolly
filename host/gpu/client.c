@@ -1,7 +1,7 @@
 #include <dolly/gpu.h>
 #include <dolly/host.h>
 
-DOLLY_HOST_REQUIRE(gpu, 0);
+DOLLY_HOST_REQUIRE(gpu, 0, DOLLY_GPU_ABI_DIGEST);
 #include <dolly/process.h>
 #include <errno.h>
 #include <stdio.h>

@@ -6,7 +6,7 @@
   "host": "download.mjs",
   "contracts": ["dolly-download-0.wat"],
   "process": [],
-  "headers": ["download.h"],
+  "headers": ["download.h", "download-abi.h"],
   "kernel": ["kernel.c"],
   "client": ["client.c"]
 }

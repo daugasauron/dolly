@@ -6,4 +6,8 @@
   (import "env" "memory" (memory i64 1024 131072 shared))
   (import "env" "dolly_download_dispatch"
     (func $dolly_download_dispatch (param i64 i64 i64 i64) (result i32)))
+
+  ;; Process operation: a dolly_process_path_request naming the file; no
+  ;; response.
+  (global (export "DOLLY_DOWNLOAD_FILE") i32 (i32.const 51))
 )

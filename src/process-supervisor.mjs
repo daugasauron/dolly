@@ -298,8 +298,9 @@ export class DollyProcessSupervisor {
     try {
       const parsed = parseWasmInterface(bytes);
       memoryRequirements = validateProcessInterface(this.processContract, parsed, DOLLY_PROCESS_ABI_DIGEST);
-      checkHostAbi(executableHostRequirements(parsed), this.hostAbi);
-      threaded = validateThreadProfile(parsed, this.threadContract);
+      const requirements = executableHostRequirements(parsed);
+      checkHostAbi(requirements, this.hostAbi);
+      threaded = validateThreadProfile(parsed, requirements, this.threadContract);
       module = await WebAssembly.compile(bytes);
       processInterface = { imports: parsed.imports, exports: parsed.exports };
       prepared = true;

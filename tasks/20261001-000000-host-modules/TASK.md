@@ -105,14 +105,28 @@ stay hand-written: they are where a human reviews authority.
   browser suites pass in Chrome and Firefox, except `cpp-browser`, whose
   outside-import plugin case fails independently of this change.
 
+- Stage 3 done (branch `work/module-digests`): display, HTTP, download and
+  upload op numbers are globals in their WAT contracts and their packets live
+  in `display.h`/`http.h`; `process.h` holds only the core process ABI. One
+  mechanism identifies every module with a client (display, http, download,
+  upload, gpu, audio, threads): `generate-abi-constants.mjs` writes
+  `DOLLY_NAME_ABI_DIGEST` (SHA-256 of the exact bytes of the module's WATs and
+  other headers) into `NAME-abi.h` and `abi.mjs`; the client stamps it into its
+  `dolly.host` record (now 72 bytes); each provider exports the `digest` it
+  implements; the loader refuses a different digest for executables and DSOs.
+  Threads lost its separate `dolly.threads` stamp (an executable requiring
+  `threads@0` is threaded); the runtime adapter no longer records `runtime@0`.
+  `test/host-modules-browser.mjs` proves a one-bit digest change is refused
+  (126) before entry. Seed change: every image rebuilds. Source (342), core
+  artifact (21) and browser suites pass in Chrome and Firefox, except
+  `host-compute` in Firefox: headless Firefox here returns no WebGPU adapter,
+  so `gpu@0` is never enabled (its display-less interrupt half passes).
+
 Remaining:
-- Stage 3 (owner decision): move display, HTTP, download and upload operations
-  and packets from `process.h` into their modules. Today their layouts are in
-  the exact-bytes process ABI digest; gpu and audio packets are identified only
-  by `NAME@0`. Moving them without a per-module digest (like threads'
-  `DOLLY_THREADS_ABI_DIGEST`) would weaken executable identity, so choose:
-  per-module digests stamped by the client, or keep module packets in `process.h`.
 - `threads@0` kernel code stays in `process-kernel.c` (thread table).
+- The done-when grep still finds module names in `src/browser.mjs` (display
+  transport, HTTP policy and page status) and the snapshot boot path in
+  `src/runtime-worker.mjs`/`src/dolly.c`.
 
 ## Decision (owner, 2026-10-01): stage 3
 

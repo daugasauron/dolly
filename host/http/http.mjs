@@ -1,5 +1,6 @@
 import { createHttpAdmission, NetworkTransport } from "./broker.mjs";
 import { DOLLY_HTTP_MAILBOX_VERSION, DOLLY_HTTP_SLOT_COUNT } from "./abi.mjs";
+export { DOLLY_HTTP_ABI_DIGEST as digest } from "./abi.mjs";
 
 export function browser({ send, configuration: { network } }) {
   let transport, admission;

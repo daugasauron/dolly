@@ -95,12 +95,6 @@ node scripts/generate-abi-constants.mjs
 mapfile -t headers < <(node scripts/host-modules.mjs headers)
 # -p keeps source mtimes so unchanged headers rebuild nothing.
 rm -rf build/include && mkdir -p build/include/dolly && cp -p -- "${headers[@]}" build/include/dolly/
-node scripts/dolly-abi.mjs bind-process-layout build/dolly-threads-0.wasm \
-  host/threads/dolly-threads-0.wat host/threads/threads.h
-node scripts/dolly-abi.mjs emit-digest-header build/dolly-threads-0.wasm \
-  build/generated/dolly-threads-abi-digest.h DOLLY_THREADS_ABI_DIGEST
-node scripts/dolly-abi.mjs emit-digest-module build/dolly-threads-0.wasm \
-  dist/dolly-threads-abi.mjs DOLLY_THREADS_ABI_DIGEST
 node scripts/dolly-abi.mjs bind-process-layout \
   build/dolly-process-0.wasm \
   include/dolly/process.h

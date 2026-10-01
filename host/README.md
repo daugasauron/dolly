@@ -8,7 +8,7 @@ packaging and ABI tests read only these manifests.
 ```json
 { "name": "http", "version": 0, "dependencies": ["runtime@0"], "phase": "kernel",
   "imports": ["env.dolly_http_dispatch"], "host": "http.mjs",
-  "contracts": ["dolly-http-0.wat"], "process": [], "headers": ["http.h"],
+  "contracts": ["dolly-http-0.wat"], "process": [], "headers": ["http.h", "http-abi.h"],
   "kernel": ["kernel.c"], "client": ["client.c"] }
 ```
 
@@ -18,12 +18,12 @@ packaging and ABI tests read only these manifests.
 | `dependencies` | Modules this one uses through `get(name)` |
 | `phase` | When the Worker side starts: after the kernel loads (`kernel`) or after the image is restored (`image`) |
 | `imports` | Kernel Wasm imports this module provides; `abi/dolly-browser-0.wat` is their reviewed allowlist |
-| `host` | Trusted JavaScript: `check()`, `browser()` and `worker()` sides ([`modules.mjs`](modules.mjs)) |
+| `host` | Trusted JavaScript: `check()`, `browser()` and `worker()` sides ([`modules.mjs`](modules.mjs)); a module with a client exports the `digest` it implements |
 | `contracts` | WAT of the kernel boundary: its exports are kernel exports, its imports the host's |
 | `process` | WAT of process-side ABIs, such as the threads entry point |
-| `headers` | C API, installed as `<dolly/NAME.h>`; `NAME-abi.h` is generated from the WAT constants |
+| `headers` | C API and packets, installed as `<dolly/NAME.h>`; `NAME-abi.h` is generated from the WAT constants and carries the module's ABI digest |
 | `kernel` | Kernel C; defines `dolly_NAME_kernel`, the process operations it handles and its release hook ([`process-kernel.h`](../src/process-kernel.h)) |
-| `client` | Process C linked as `libdolly-NAME.a`; it records `DOLLY_HOST_REQUIRE(NAME, VERSION)` |
+| `client` | Process C linked as `libdolly-NAME.a`; it records `DOLLY_HOST_REQUIRE(NAME, VERSION, DOLLY_NAME_ABI_DIGEST)` |
 
 A provider's `browser()` and `worker()` receive the page's shared resources
 (`mount`, `canvas`, `keyboard`, `applicationBase`, `showStatus`, `fatal`), `send`
@@ -34,8 +34,16 @@ handshake), `messages`, `bindings` (kernel imports), `service` (periodic work),
 starts), `claimsKey(event)` (take a key from the display), `surfaceSize`,
 `entryStarted(context)` (the image ENTRY may now run) and `dispose`.
 
+A module's operations and packets are its own: op numbers are globals in its WAT
+contract, packets are in its header. `DOLLY_NAME_ABI_DIGEST` is the SHA-256 of
+the exact bytes of its WAT contracts and other headers, so any edit to them
+changes the identity its client stamps. The loader refuses an executable whose
+digest differs from the provider's, as it refuses a wrong `dolly.process` stamp
+([`requirements.mjs`](requirements.mjs)).
+
 `runtime` uses the same format; its files are the core in `src/`, `abi/` and
-`include/dolly/`. Adding a module takes its directory, one name in
-`manifests.mjs`, its imports in `abi/dolly-browser-0.wat` and its row in
+`include/dolly/`, and its identity is the `dolly.process` stamp. Adding a module
+takes its directory, one name in `manifests.mjs`, its imports in
+`abi/dolly-browser-0.wat` and its row in
 [browser boundary](../docs/browser-boundary.md); the last two are where a human
 reviews the authority it adds.

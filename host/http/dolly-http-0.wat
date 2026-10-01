@@ -51,4 +51,11 @@
     i32.const 16)
   (func (export "dolly_http_chunk_capacity") (result i32)
     i32.const 65536)
+
+  ;; Process operations that start, poll and cancel requests in the slot pool;
+  ;; their packets are defined in http.h.
+  (global (export "DOLLY_HTTP_START") i32 (i32.const 80))
+  (global (export "DOLLY_HTTP_POLL") i32 (i32.const 81))
+  (global (export "DOLLY_HTTP_CANCEL") i32 (i32.const 82))
+  (global (export "DOLLY_HTTP_BODY_WRITE") i32 (i32.const 83))
 )

@@ -144,8 +144,9 @@ recipes sit at the top level and in `modules/`, demo recipes in `demos/DEMO/`
   decides network access ([browser boundary](browser-boundary.md)). `system`
   declares display, http, download, upload and snapshot.
 - Linked client libraries (`-ldolly-gpu`, `-ldolly-audio`) also stamp their
-  module into the executable's `dolly.host` section, checked at load. Calling a
-  disabled module returns `ENOSYS`.
+  module and its ABI digest into the executable's `dolly.host` section; loading
+  fails for an unknown module or a different layout. Calling a disabled module
+  returns `ENOSYS`.
 - `-pthread` programs need `REQUIRES HOST threads@0`
   ([process model](process-model.md#threads-dsos-and-ffi)).
 - Build hosts supply their own modules: compiling a GPU program needs no GPU,

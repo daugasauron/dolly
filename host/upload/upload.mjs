@@ -1,4 +1,5 @@
 import { UploadTransport, chooseUploadFile } from "./transport.mjs";
+export { DOLLY_UPLOAD_ABI_DIGEST as digest } from "./abi.mjs";
 
 // The kernel worker reports each new request; the page does not poll while idle.
 export function browser() {

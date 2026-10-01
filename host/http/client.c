@@ -8,7 +8,7 @@
 #include <string.h>
 #include <unistd.h>
 
-DOLLY_HOST_REQUIRE(http, 0);
+DOLLY_HOST_REQUIRE(http, 0, DOLLY_HTTP_ABI_DIGEST);
 
 static int append_http_text(char **target, size_t *length,
                             const unsigned char *bytes, size_t count) {
@@ -36,12 +36,12 @@ int dolly_http_start(const char *method, const char *url, const char *headers,
   if (method_size > UINT32_MAX || url_size > UINT32_MAX ||
       headers_size > UINT32_MAX ||
       method_size > DOLLY_PROCESS_PACKET_LIMIT -
-          sizeof(dolly_process_http_start_request) ||
+          sizeof(dolly_http_start_request) ||
       url_size > DOLLY_PROCESS_PACKET_LIMIT -
-          sizeof(dolly_process_http_start_request) - method_size ||
+          sizeof(dolly_http_start_request) - method_size ||
       headers_size > DOLLY_PROCESS_PACKET_LIMIT -
-          sizeof(dolly_process_http_start_request) - method_size - url_size) return -E2BIG;
-  const size_t metadata_size = sizeof(dolly_process_http_start_request) +
+          sizeof(dolly_http_start_request) - method_size - url_size) return -E2BIG;
+  const size_t metadata_size = sizeof(dolly_http_start_request) +
       method_size + url_size + headers_size;
   const int staged = body_size > DOLLY_PROCESS_PACKET_LIMIT - metadata_size;
   const size_t packet_size = metadata_size + (staged ? 0 : body_size);
@@ -49,23 +49,23 @@ int dolly_http_start(const char *method, const char *url, const char *headers,
   if (packet == NULL) return -ENOMEM;
   if (staged) {
     const size_t capacity = DOLLY_PROCESS_PACKET_LIMIT -
-        sizeof(dolly_process_http_body_write_request);
+        sizeof(dolly_http_body_write_request);
     for (size_t offset = 0; offset < body_size;) {
       const size_t length = body_size - offset > capacity ? capacity : body_size - offset;
-      const dolly_process_http_body_write_request write = {offset, body_size};
+      const dolly_http_body_write_request write = {offset, body_size};
       memcpy(packet, &write, sizeof(write));
       memcpy(packet + sizeof(write), (const unsigned char *)body + offset, length);
-      const int64_t result = dolly_process_call(DOLLY_PROCESS_HTTP_BODY_WRITE,
+      const int64_t result = dolly_process_call(DOLLY_HTTP_BODY_WRITE,
           packet, sizeof(write) + length, NULL, 0);
       if (result != 0) {
-        (void)dolly_process_call(DOLLY_PROCESS_HTTP_BODY_WRITE, NULL, 0, NULL, 0);
+        (void)dolly_process_call(DOLLY_HTTP_BODY_WRITE, NULL, 0, NULL, 0);
         free(packet);
         return result < 0 ? (int)result : -EIO;
       }
       offset += length;
     }
   }
-  const dolly_process_http_start_request request = {
+  const dolly_http_start_request request = {
       flags, (uint32_t)method_size, (uint32_t)url_size,
       (uint32_t)headers_size, body_size,
   };
@@ -78,9 +78,9 @@ int dolly_http_start(const char *method, const char *url, const char *headers,
   memcpy(packet + offset, headers, headers_size);
   offset += headers_size;
   if (!staged && body_size != 0) memcpy(packet + offset, body, body_size);
-  dolly_process_http_start_response response = {0};
+  dolly_http_start_response response = {0};
   const int64_t result = dolly_process_call(
-      DOLLY_PROCESS_HTTP_START, packet, packet_size,
+      DOLLY_HTTP_START, packet, packet_size,
       &response, sizeof(response));
   free(packet);
   if (result < 0) return (int)result;
@@ -94,20 +94,20 @@ int dolly_http_poll(unsigned int sequence, dolly_http_chunk *chunk,
                     void *data, size_t capacity) {
   if (sequence == 0 || chunk == NULL || (capacity != 0 && data == NULL) ||
       capacity > DOLLY_PROCESS_PACKET_LIMIT -
-          sizeof(dolly_process_http_poll_response)) return -EINVAL;
-  const dolly_process_http_poll_request request = {sequence, 0};
+          sizeof(dolly_http_poll_response)) return -EINVAL;
+  const dolly_http_poll_request request = {sequence, 0};
   const size_t response_capacity =
-      sizeof(dolly_process_http_poll_response) + capacity;
+      sizeof(dolly_http_poll_response) + capacity;
   unsigned char *packet = malloc(response_capacity);
   if (packet == NULL) return -ENOMEM;
   const int64_t result = dolly_process_call(
-      DOLLY_PROCESS_HTTP_POLL, &request, sizeof(request),
+      DOLLY_HTTP_POLL, &request, sizeof(request),
       packet, response_capacity);
   if (result < 0) {
     free(packet);
     return (int)result;
   }
-  dolly_process_http_poll_response response;
+  dolly_http_poll_response response;
   if ((uint64_t)result < sizeof(response)) {
     free(packet);
     return -EIO;
@@ -133,9 +133,9 @@ int dolly_http_poll(unsigned int sequence, dolly_http_chunk *chunk,
 }
 
 int dolly_http_cancel(unsigned int sequence) {
-  const dolly_process_http_cancel_request request = {sequence, 0};
+  const dolly_http_cancel_request request = {sequence, 0};
   const int64_t result = dolly_process_call(
-      DOLLY_PROCESS_HTTP_CANCEL, &request, sizeof(request), NULL, 0);
+      DOLLY_HTTP_CANCEL, &request, sizeof(request), NULL, 0);
   return result < 0 ? (int)result : result == 0 ? 0 : -EIO;
 }
 

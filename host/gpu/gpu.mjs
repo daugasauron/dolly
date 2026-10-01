@@ -1,5 +1,6 @@
 import { createGpuBridge } from "./bridge.mjs";
 import { DOLLY_ERRNO as E } from "../../dist/dolly-errno.mjs";
+export { DOLLY_GPU_ABI_DIGEST as digest } from "./abi.mjs";
 
 export async function check() {
   if (!globalThis.navigator?.gpu) return "WebGPU is unavailable in this browser";

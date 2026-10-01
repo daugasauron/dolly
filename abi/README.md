@@ -1,8 +1,9 @@
 # Machine contracts
 
 The WAT files here are the canonical source of Dolly's exact Wasm boundaries.
-C headers in `include/dolly/`, such as [`process.h`](../include/dolly/process.h),
-define packet layouts above them; generated JSON is linker input only. The comments in each
+C headers, such as [`process.h`](../include/dolly/process.h) and each host
+module's `host/NAME/NAME.h`, define packet layouts above them; generated JSON is
+linker input only. The comments in each
 WAT file document its semantics.
 
 | Contract | Boundary |
@@ -11,12 +12,12 @@ WAT file document its semantics.
 | [`dolly-process-gate-0.wat`](dolly-process-gate-0.wat) | Policy-free copier between a process memory and the kernel mailbox |
 | [`dolly-process-dso-0.wat`](dolly-process-dso-0.wat) | Optional process-local shared objects and FFI infrastructure |
 | [`host/threads/dolly-threads-0.wat`](../host/threads/dolly-threads-0.wat), [`host/threads/dolly-threads-supervisor-0.wat`](../host/threads/dolly-threads-supervisor-0.wat) | Optional `-pthread` profile and its supervisor exports |
-| [`dolly-host-0.wat`](dolly-host-0.wat) | `dolly.host` records naming required host modules; no authority |
+| [`dolly-host-0.wat`](dolly-host-0.wat) | `dolly.host` records naming required host modules and their ABI digests; no authority |
 | [`host/gpu/dolly-gpu-0.wat`](../host/gpu/dolly-gpu-0.wat), [`host/audio/dolly-audio-0.wat`](../host/audio/dolly-audio-0.wat) | Additive process operations 128 and 129 and their browser imports |
 | [`dolly-kernel-plugin-0.wat`](dolly-kernel-plugin-0.wat) | The resident display plugin; never an ordinary program target |
 | [`dolly-browser-0.wat`](dolly-browser-0.wat) | The complete typed outer import allowlist of the kernel |
 | [`dolly-supervisor-0.wat`](dolly-supervisor-0.wat) | Kernel exports the trusted supervisor uses, and the page's terminal mailbox (foreground, results, Ctrl+C) |
-| [`host/display/dolly-display-0.wat`](../host/display/dolly-display-0.wat), [`host/http/dolly-http-0.wat`](../host/http/dolly-http-0.wat), [`host/download/dolly-download-0.wat`](../host/download/dolly-download-0.wat), [`host/upload/dolly-upload-0.wat`](../host/upload/dolly-upload-0.wat), [`host/snapshot/dolly-snapshot-0.wat`](../host/snapshot/dolly-snapshot-0.wat) | Browser-facing mailboxes and dispatch imports |
+| [`host/display/dolly-display-0.wat`](../host/display/dolly-display-0.wat), [`host/http/dolly-http-0.wat`](../host/http/dolly-http-0.wat), [`host/download/dolly-download-0.wat`](../host/download/dolly-download-0.wat), [`host/upload/dolly-upload-0.wat`](../host/upload/dolly-upload-0.wat), [`host/snapshot/dolly-snapshot-0.wat`](../host/snapshot/dolly-snapshot-0.wat) | Browser-facing mailboxes, dispatch imports and the modules' process operations |
 
 A contract makes a boundary reviewable and lets the build derive retained exports
 exactly; listing a function does not make it guest authority.
@@ -42,6 +43,11 @@ Architecture and authority: [architecture](../docs/architecture.md),
   the exact bytes of [`process.h`](../include/dolly/process.h). Identity hashes exact
   bytes, so every opcode, flag or layout change necessarily changes it; no
   normalizer decides which edits are prose.
+- Each linked host module client adds a `dolly.host` record
+  ([`dolly-host-0.wat`](dolly-host-0.wat)) with its module's ABI digest: the
+  SHA-256 of the exact bytes of the module's WAT contracts and headers, generated
+  as `DOLLY_NAME_ABI_DIGEST` ([host modules](../host/README.md)). A record whose
+  digest differs from the provider's is refused like a wrong `dolly.process` stamp.
 - [`generate-abi-constants.mjs`](../scripts/generate-abi-constants.mjs) derives
   JavaScript constants from `process.h` and from the WAT exported globals;
   `dist/dolly-errno.mjs` comes from the pinned target's `<errno.h>`.
