@@ -175,6 +175,12 @@ int main(int argc, char** argv) {
     assert(tcgetattr(0, &original_terminal) == 0);
     assert(uv_tty_init(&loop, &tty, 0, 1) == 0);
     assert(uv_tty_set_mode(&tty, UV_TTY_MODE_RAW) == 0);
+    // Raw mode clears ISIG; set it again so Ctrl+C raises SIGINT for the
+    // signal callback instead of arriving as input.
+    struct termios raw;
+    assert(tcgetattr(0, &raw) == 0 && !(raw.c_lflag & ISIG));
+    raw.c_lflag |= ISIG;
+    assert(tcsetattr(0, TCSANOW, &raw) == 0);
     assert(uv_tty_get_winsize(&tty, &terminal_columns, &terminal_rows) == 0 &&
            terminal_columns > 0 && terminal_rows > 0);
     int output_fd = dup(1), output_columns, output_rows;

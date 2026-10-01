@@ -858,6 +858,26 @@ static JSValue js_dolly_read_raw(JSContext *context, JSValueConst this_value,
   return JS_NewUint8ArrayCopy(context, bytes, length);
 }
 
+// Node's raw mode clears line editing, echo and ISIG, so Ctrl+C arrives as
+// input; leaving raw mode restores the mode it replaced.
+static int janis_cooked_mode = -1;
+
+static JSValue js_dolly_set_raw_mode(JSContext *context, JSValueConst this_value,
+                                     int argc, JSValueConst *argv) {
+  (void)this_value;
+  const int raw = argc >= 1 && JS_ToBool(context, argv[0]) == 1;
+  if (raw == (janis_cooked_mode >= 0)) return JS_UNDEFINED;
+  const uint32_t line = DOLLY_TERMINAL_CANONICAL | DOLLY_TERMINAL_ECHO | DOLLY_TERMINAL_ISIG;
+  const int mode = raw ? dolly_terminal_mode_get(STDIN_FILENO) : janis_cooked_mode;
+  const int result = mode < 0 ? mode : dolly_terminal_mode_set(
+      STDIN_FILENO, raw ? (uint32_t)mode & ~line : (uint32_t)mode);
+  if (result < 0) {
+    return JS_ThrowInternalError(context, "setRawMode failed: %s", strerror(-result));
+  }
+  janis_cooked_mode = raw ? mode : -1;
+  return JS_UNDEFINED;
+}
+
 static JSValue js_dolly_isatty(JSContext *context, JSValueConst this_value,
                                int argc, JSValueConst *argv) {
   (void)this_value;
@@ -1380,6 +1400,7 @@ static int install_dolly_backend(JSContext *context) {
   DOLLY_JS_FUNCTION("readRaw", js_dolly_read_raw, 1);
   DOLLY_JS_FUNCTION("readStdin", js_dolly_read_stdin, 1);
   DOLLY_JS_FUNCTION("isatty", js_dolly_isatty, 1);
+  DOLLY_JS_FUNCTION("setRawMode", js_dolly_set_raw_mode, 1);
   DOLLY_JS_FUNCTION("terminalSize", js_dolly_terminal_size, 0);
   DOLLY_JS_FUNCTION("exit", js_dolly_exit, 1);
   DOLLY_JS_FUNCTION("httpStart", js_dolly_http_start, 5);

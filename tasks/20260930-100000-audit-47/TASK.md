@@ -5,7 +5,8 @@
 - TAGS: bug,demo,python,compatibility
 
 `signal.pause()` returns immediately; termios drops ISIG, IXON, VMIN and VTIME
-(`src/runtimes/cpython-*.c`).
+(`src/runtimes/cpython-*.c`). ISIG round-trips since the termios ISIG model
+([slop-loop-interrupt](../20261001-000500-slop-loop-interrupt/TASK.md)).
 
 ## Evidence
 

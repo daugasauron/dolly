@@ -39,10 +39,7 @@ int dolly_py_tcgetattr(int descriptor, struct termios *attributes) {
   if ((mode & DOLLY_TERMINAL_ECHO) != 0) {
     attributes->c_lflag |= ECHO | ECHOE | ECHOK;
   }
-  // Ctrl+C is Dolly command supervision and remains available in raw mode.
-  // Report ISIG as always present rather than exposing a bit that cannot
-  // truthfully disable the supervisor.
-  attributes->c_lflag |= ISIG;
+  if ((mode & DOLLY_TERMINAL_ISIG) != 0) attributes->c_lflag |= ISIG;
   attributes->c_cc[VINTR] = 3;
   attributes->c_cc[VQUIT] = 28;
   attributes->c_cc[VERASE] = 127;
@@ -67,6 +64,7 @@ int dolly_py_tcsetattr(int descriptor, int action,
   uint32_t mode = 0;
   if ((attributes->c_lflag & ICANON) != 0) mode |= DOLLY_TERMINAL_CANONICAL;
   if ((attributes->c_lflag & ECHO) != 0) mode |= DOLLY_TERMINAL_ECHO;
+  if ((attributes->c_lflag & ISIG) != 0) mode |= DOLLY_TERMINAL_ISIG;
   if (attributes->c_oflag & OPOST) mode |= DOLLY_TERMINAL_OPOST;
   if (attributes->c_oflag & ONLCR) mode |= DOLLY_TERMINAL_ONLCR;
   const int result = dolly_terminal_mode_set(descriptor, mode);

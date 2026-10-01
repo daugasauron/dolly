@@ -34,6 +34,16 @@ test("chmod reaches the substrate with a numeric mode", async () => {
   assert.deepEqual(calls, [["/workspace/file", 0o755], ["/workspace/file", 0o644]]);
 });
 
+test("raw mode reaches the terminal, so Ctrl+C becomes input, only for a TTY stdin", () => {
+  const calls = [];
+  for (const tty of [false, true]) {
+    const { process } = janisContext({ isatty: () => tty, setRawMode: raw => calls.push(raw) });
+    assert.equal(process.stdin.setRawMode(true).isRaw, true);
+    assert.equal(process.stdin.setRawMode(false).isRaw, false);
+  }
+  assert.deepEqual(calls, [true, false]);
+});
+
 test("unsupported host resource queries fail explicitly", async () => {
   const janis = janisContext();
   const os = janis.__janisBuiltin("os");
