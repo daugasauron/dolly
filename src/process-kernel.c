@@ -1167,7 +1167,6 @@ static int64_t fd_write_packet(dolly_kernel_process *process,
 
 static double deferred_milliseconds = -1;
 
-
 static int64_t terminal_packet(dolly_kernel_process *process,
                                uintptr_t request_size,
                                uintptr_t response_capacity) {

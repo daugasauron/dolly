@@ -49,7 +49,7 @@
   (import "env" "_wasmfs_get_preloaded_file_mode" (func (param i32) (result i32)))
 
   ;; WasmFS device callbacks. The embedding installs only local byte-output
-  ;; devices (runtime-worker.mjs: installOutputDevice), with EOF for reads.
+  ;; devices (host/runtime/runtime.mjs: installOutputDevices), with EOF for reads.
   ;; Filesystem contents, metadata, paths, and descriptors remain in Wasm.
   (import "env" "_wasmfs_jsimpl_alloc_file" (func (param i64 i64)))
   (import "env" "_wasmfs_jsimpl_free_file" (func (param i64 i64)))
