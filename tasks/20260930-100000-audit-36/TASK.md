@@ -27,3 +27,14 @@ Minimal in-house code: prefer unchanged upstream tools; share helpers once.
 
 - In-house duplicates replaced or justified; sbase modules consolidated; browser tests for
   affected commands pass.
+
+## Progress (2026-10-01)
+
+- The twelve sbase modules are one `modules/sbase.dm`; `tee`, `dd`,
+  `printenv`, `uname` and `which` come from sbase.
+- Still in-house: `tail`, `du`, `rev`, `rm`, `mkdir`, `tty`, `hostname`
+  (`src/commands/`) and `modules/core-tools.dm`'s ls/cp/mv/test/cat/echo/touch/pwd.
+  They exist for build ordering (`6d533a7`): system-build needs them before
+  Make, and sbase is built later with Make in system-tools. Compiling sbase's
+  single-file tools directly with `cc` in system-build would remove most of
+  them; folded into `20261001-123500-bootstrap-boundary`.
