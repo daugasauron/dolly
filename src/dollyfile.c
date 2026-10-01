@@ -73,7 +73,6 @@ typedef struct {
 } Artifact;
 
 typedef struct {
-  char *host_base;
   char **keep;
   size_t keep_count;
   size_t keep_capacity;
@@ -254,33 +253,40 @@ static int valid_object_type(const char *value) {
   return 0;
 }
 
-static int valid_module_locator(const char *value) {
-  static const char prefix[] = "/modules/";
-  const size_t length = strlen(value);
-  const size_t prefix_length = sizeof(prefix) - 1;
-  const size_t name_length = length > prefix_length + 3
-                                 ? length - prefix_length - 3
-                                 : 0;
-  if (name_length == 0 || name_length > 64 ||
-      strncmp(value, prefix, prefix_length) != 0 ||
-      strcmp(value + length - 3, ".dm") != 0 || strstr(value, "..") != NULL ||
-      strchr(value + prefix_length, '/') != NULL) return 0;
-  if (value[prefix_length] < 'a' || value[prefix_length] > 'z') return 0;
-  for (size_t index = prefix_length + 1; index < length - 3; ++index) {
-    if (!((value[index] >= 'a' && value[index] <= 'z') ||
-          (value[index] >= '0' && value[index] <= '9') ||
-          value[index] == '-')) return 0;
-  }
-  return 1;
+// SOURCE takes an absolute http(s) URL without a fragment: this returns its
+// path and query, or NULL.
+static const char *url_path(const char *value) {
+  const char *authority = strncmp(value, "https://", 8) == 0 ? value + 8
+                          : strncmp(value, "http://", 7) == 0 ? value + 7 : NULL;
+  if (authority == NULL || strpbrk(value, "#\\ \t\r\n\v\f") != NULL) return NULL;
+  const size_t length = strcspn(authority, "/?");
+  return length == 0 ? NULL : authority + length;
 }
 
-static int module_name_matches_locator(const char *locator, const char *name) {
-  static const char prefix[] = "/modules/";
-  const size_t prefix_length = sizeof(prefix) - 1;
-  const size_t name_length = strlen(name);
-  return strncmp(locator, prefix, prefix_length) == 0 &&
-         strncmp(locator + prefix_length, name, name_length) == 0 &&
-         strcmp(locator + prefix_length + name_length, ".dm") == 0;
+// FROM, COPY and USE URLs also have a path and no query. Returns the file they
+// name, or NULL.
+static const char *recipe_file_name(const char *value) {
+  const char *path = url_path(value);
+  return path == NULL || *path != '/' || strchr(path, '?') != NULL ? NULL : strrchr(path, '/') + 1;
+}
+
+static int valid_image_url(const char *value) {
+  const char *name = recipe_file_name(value);
+  return name != NULL && (strcmp(name, "Dollyfile") == 0 ||
+                          (strncmp(name, "Dollyfile-", 10) == 0 && valid_name(name + 10, 32)));
+}
+
+static int module_url_names(const char *value, const char *name) {
+  const char *file = recipe_file_name(value);
+  const size_t length = strlen(name);
+  return file != NULL && strncmp(file, name, length) == 0 && strcmp(file + length, ".dm") == 0;
+}
+
+static int valid_module_url(const char *value) {
+  const char *file = recipe_file_name(value);
+  if (file == NULL || *file < 'a' || *file > 'z') return 0;
+  const size_t length = strspn(file, "abcdefghijklmnopqrstuvwxyz0123456789-");
+  return length <= 64 && strcmp(file + length, ".dm") == 0;
 }
 
 static int valid_sha256(const char *value) {
@@ -327,19 +333,6 @@ static int mkdir_parents(const char *path, int include_last) {
   }
   free(copy);
   return 0;
-}
-
-static char *join_host_url(const Engine *engine, const char *path) {
-  if (path == NULL || path[0] != '/' || strstr(path, "..") != NULL ||
-      strchr(path, '?') != NULL || strchr(path, '#') != NULL ||
-      strchr(path, '\\') != NULL || strstr(path, "//") != NULL) return NULL;
-  const size_t base_length = strlen(engine->host_base);
-  const int has_slash = base_length != 0 && engine->host_base[base_length - 1] == '/';
-  const size_t length = base_length + strlen(path) + 1;
-  char *url = malloc(length);
-  if (url == NULL) return NULL;
-  snprintf(url, length, "%s%s", engine->host_base, path + (has_slash ? 1 : 0));
-  return url;
 }
 
 static int fetch_memory(const char *url, Buffer *buffer) {
@@ -415,16 +408,13 @@ static int sha256_file(const char *path, char output[65]) {
   return result;
 }
 
-static int fetch_recipe(Engine *engine, const char *locator, Buffer *buffer,
-                        char digest[65]) {
+// A recipe locator is a URL or, for an uploaded root, FILE:/path.
+static int fetch_recipe(const char *locator, Buffer *buffer, char digest[65]) {
   int status;
   if (strncmp(locator, "FILE:", 5) == 0) {
     status = valid_absolute_path(locator + 5) ? read_file_buffer(locator + 5, buffer) : -EINVAL;
   } else {
-    char *url = join_host_url(engine, locator);
-    if (url == NULL) return -EINVAL;
-    status = fetch_memory(url, buffer);
-    free(url);
+    status = recipe_file_name(locator) != NULL ? fetch_memory(locator, buffer) : -EINVAL;
   }
   if (status != 0) return status;
   if (buffer->length == 0 || buffer->length > MAX_RECIPE_BYTES) return -EFBIG;
@@ -433,32 +423,15 @@ static int fetch_recipe(Engine *engine, const char *locator, Buffer *buffer,
   return 0;
 }
 
-static int fetch_source(Engine *engine, const char *kind, const char *location,
-                        const char *destination, const char *expected) {
-  char *url = NULL;
-  if (strcmp(kind, "HOST") == 0) {
-    url = join_host_url(engine, location);
-  } else if (strcmp(kind, "URL") == 0 &&
-             (strncmp(location, "https://", 8) == 0 ||
-              strncmp(location, "http://", 7) == 0) &&
-             strchr(location, '#') == NULL) {
-    url = strdup(location);
-  }
-  if (url == NULL || !valid_absolute_path(destination) || !valid_sha256(expected)) {
-    free(url);
+static int fetch_source(const char *url, const char *expected, const char *destination) {
+  if (url_path(url) == NULL || !valid_absolute_path(destination) || !valid_sha256(expected)) {
     return -EINVAL;
   }
   int status = mkdir_parents(destination, 0);
-  if (status != 0) {
-    free(url);
-    return status;
-  }
+  if (status != 0) return status;
   const size_t temporary_length = strlen(destination) + 13;
   char *temporary = malloc(temporary_length);
-  if (temporary == NULL) {
-    free(url);
-    return -ENOMEM;
-  }
+  if (temporary == NULL) return -ENOMEM;
   snprintf(temporary, temporary_length, "%s.dolly-part", destination);
   unlink(temporary);
   Download download = {.descriptor = open(temporary, O_WRONLY | O_CREAT | O_EXCL, 0666)};
@@ -476,7 +449,7 @@ static int fetch_source(Engine *engine, const char *kind, const char *location,
       .write = write_download,
       .write_context = &download,
   };
-  printf("dollyfile: SOURCE %s %s -> %s\n", kind, location, destination);
+  printf("dollyfile: SOURCE %s -> %s\n", url, destination);
   fflush(stdout);
   status = dolly_http_perform(&request, &response);
   if (close(download.descriptor) != 0 && status == 0) status = -errno;
@@ -494,7 +467,7 @@ static int fetch_source(Engine *engine, const char *kind, const char *location,
     digest_hex(digest, actual);
     if (strcmp(actual, expected) != 0) {
       fprintf(stderr, "dollyfile: SHA256 mismatch for %s\nexpected %s\nactual   %s\n",
-              location, expected, actual);
+              url, expected, actual);
       status = -EBADMSG;
     }
   }
@@ -509,7 +482,6 @@ done:
   if (download.descriptor >= 0) close(download.descriptor);
   if (status != 0) unlink(temporary);
   free(temporary);
-  free(url);
   return status;
 }
 
@@ -1039,7 +1011,7 @@ static int read_artifact_receipt(Engine *engine, const unsigned char *bytes,
     if (result == 0) {
       sha256_bytes(source, strlen(source), actual);
       if ((strcmp(kind, "IMAGE") != 0 && strcmp(kind, "MODULE") != 0) ||
-          !valid_name(name, 64) || !valid_absolute_path(location) ||
+          !valid_name(name, 64) || recipe_file_name(location) == NULL ||
           !valid_sha256(digest) || strcmp(actual, digest) != 0 ||
           strlen(source) > MAX_RECIPE_BYTES) result = -EBADMSG;
     }
@@ -1283,11 +1255,6 @@ static int require_host(Engine *engine, const char *value) {
   return result == 0 && engine->host_requirement_count > DOLLY_HOST_MAX_RECORDS ? 2 : result;
 }
 
-static int valid_image_locator(const char *value) {
-  return strcmp(value, "/Dollyfile") == 0 ||
-         (strncmp(value, "/Dollyfile-", 11) == 0 && valid_name(value + 11, 32));
-}
-
 static int process_line(Engine *engine, const char *locator, size_t depth,
                         size_t line_number, char *line,
                         const unsigned char *body, size_t body_length,
@@ -1303,8 +1270,8 @@ static int process_line(Engine *engine, const char *locator, size_t depth,
   // operation can mutate files or start a memory-intensive compiler process.
   if (strcmp(text, "COPY") != 0) dispose_artifact(&engine->artifact);
   if (!*header_seen) {
-    if (strcmp(text, "DOLLY") != 0 || strcmp(arguments, "4") != 0) {
-      fprintf(stderr, "dollyfile: %s:%zu: first declaration must be DOLLY 4\n", locator, line_number);
+    if (strcmp(text, "DOLLY") != 0 || strcmp(arguments, "5") != 0) {
+      fprintf(stderr, "dollyfile: %s:%zu: first declaration must be DOLLY 5\n", locator, line_number);
       return 2;
     }
     *header_seen = 1;
@@ -1332,13 +1299,12 @@ static int process_line(Engine *engine, const char *locator, size_t depth,
   if (image && engine->entry_count != 0) result = 2;
   else if (strcmp(text, "USE") == 0) {
     result = split_words(arguments, &words, &count);
-    if (result == 0 && (count != 3 || strcmp(words[0], "HOST") != 0 ||
-        !valid_module_locator(words[1]) || !valid_sha256(words[2]))) result = 2;
+    if (result == 0 && (count != 2 || !valid_module_url(words[0]) || !valid_sha256(words[1]))) result = 2;
     if (result == 0) {
       Scope child = {0}, child_available = {0};
       result = scope_copy(&child_available, visible);
       if (result == 0) result = scope_copy(&child_available, exports);
-      if (result == 0) result = execute_recipe(engine, words[1], words[2], depth + 1,
+      if (result == 0) result = execute_recipe(engine, words[0], words[1], depth + 1,
                                                &child_available, 0, execute, &child);
       dispose_scope(&child_available);
       if (result == 0) result = scope_copy(visible, &child);
@@ -1354,15 +1320,14 @@ static int process_line(Engine *engine, const char *locator, size_t depth,
     const int copy = strcmp(text, "COPY") == 0;
     result = split_words(arguments, &words, &count);
     const size_t offset = copy ? 1 : 0;
-    if (result == 0 && (count != (copy ? 6 : 3) ||
+    if (result == 0 && (count != (copy ? 5 : 2) ||
         (copy && strcmp(words[0], "FROM") != 0) || (!copy && (!image || *operations != 0)) ||
-        strcmp(words[offset], "HOST") != 0 || !valid_image_locator(words[offset + 1]) ||
-        !valid_sha256(words[offset + 2]))) result = 2;
+        !valid_image_url(words[offset]) || !valid_sha256(words[offset + 1]))) result = 2;
     if (result == 0 && copy &&
-        ((strcmp(words[4], "/") != 0 && !valid_absolute_path(words[4])) ||
-         (strcmp(words[5], "/") != 0 && !valid_absolute_path(words[5])))) result = 2;
-    if (result == 0 && execute) result = load_artifact(engine, words[offset + 1], words[offset + 2],
-                                                       copy ? words[4] : NULL, copy ? words[5] : NULL, visible);
+        ((strcmp(words[3], "/") != 0 && !valid_absolute_path(words[3])) ||
+         (strcmp(words[4], "/") != 0 && !valid_absolute_path(words[4])))) result = 2;
+    if (result == 0 && execute) result = load_artifact(engine, words[offset], words[offset + 1],
+                                                       copy ? words[3] : NULL, copy ? words[4] : NULL, visible);
   } else if (strcmp(text, "REQUIRES") == 0) {
     result = split_words(arguments, &words, &count);
     const int host = result == 0 && count == 2 && strcmp(words[0], "HOST") == 0;
@@ -1414,12 +1379,9 @@ static int process_line(Engine *engine, const char *locator, size_t depth,
     if (result == 0) result = scope_add(exports, words[0], words[1], detail, sha256);
   } else if (strcmp(text, "SOURCE") == 0) {
     result = split_words(arguments, &words, &count);
-    if (result == 0 && (count != 4 || (strcmp(words[0], "HOST") != 0 && strcmp(words[0], "URL") != 0) ||
-        (strcmp(words[0], "HOST") == 0 && (!valid_absolute_path(words[1]) || strpbrk(words[1], "?#") != NULL)) ||
-        (strcmp(words[0], "URL") == 0 && ((strncmp(words[1], "https://", 8) != 0 &&
-          strncmp(words[1], "http://", 7) != 0) || strchr(words[1], '#') != NULL)) ||
-        !valid_absolute_path(words[2]) || !valid_sha256(words[3]))) result = 2;
-    if (result == 0 && execute) result = fetch_source(engine, words[0], words[1], words[2], words[3]);
+    if (result == 0 && (count != 3 || url_path(words[0]) == NULL || !valid_sha256(words[1]) ||
+        !valid_absolute_path(words[2]))) result = 2;
+    if (result == 0 && execute) result = fetch_source(words[0], words[1], words[2]);
   } else if (strcmp(text, "SLOP") == 0) {
     result = execute_slop(arguments, execute);
   } else if (strcmp(text, "FILE") == 0) {
@@ -1526,7 +1488,7 @@ static int execute_recipe(Engine *engine, const char *locator,
   }
   Buffer recipe = {.limit = MAX_RECIPE_BYTES};
   char digest[65];
-  int result = fetch_recipe(engine, locator, &recipe, digest);
+  int result = fetch_recipe(locator, &recipe, digest);
   if (result != 0) {
     fprintf(stderr, "dollyfile: could not load recipe %s: %d\n", locator, result);
     free(recipe.data);
@@ -1634,7 +1596,7 @@ static int execute_recipe(Engine *engine, const char *locator,
     fprintf(stderr, "dollyfile: %s: USE target must declare MODULE\n", locator);
     result = 2;
   }
-  if (result == 0 && !root && !module_name_matches_locator(locator, name)) {
+  if (result == 0 && !root && !module_url_names(locator, name)) {
     fprintf(stderr, "dollyfile: %s: MODULE %s must match its filename\n",
             locator, name);
     result = 2;
@@ -1883,7 +1845,6 @@ static int seal_manifest(Engine *engine) {
 static void dispose_engine(Engine *engine) {
   dispose_artifact(&engine->artifact);
   dispose_scope(&engine->exports);
-  free(engine->host_base);
   free(engine->selected_image);
   for (size_t index = 0; index < engine->keep_count; ++index) free(engine->keep[index]);
   free(engine->keep);
@@ -1909,7 +1870,7 @@ static void dispose_engine(Engine *engine) {
 }
 
 static void usage(FILE *stream) {
-  fputs("usage: dollyfile RECIPE-LOCATOR HOST-BASE\n", stream);
+  fputs("usage: dollyfile RECIPE-URL|FILE:/path\n", stream);
 }
 
 int main(int argc, char **argv) {
@@ -1917,13 +1878,11 @@ int main(int argc, char **argv) {
     usage(stdout);
     return 0;
   }
-  if (argc != 3 ||
-      !(strncmp(argv[2], "https://", 8) == 0 || strncmp(argv[2], "http://", 7) == 0)) {
+  if (argc != 2) {
     usage(stderr);
     return 2;
   }
-  Engine engine = {.host_base = strdup(argv[2])};
-  if (engine.host_base == NULL) return 1;
+  Engine engine = {0};
   Scope available = {0};
   Scope exports = {0};
   int status = execute_recipe(&engine, argv[1], NULL, 0,

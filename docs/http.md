@@ -68,9 +68,11 @@ globalThis.DOLLY_HTTP_POLICY = {
   destinations. `DOLLY_HTTP_FOLLOW_REDIRECTS` works only under the default policy,
   where cross-origin redirects strip `Authorization` as Fetch does, not as native
   curl does; other explicit headers and 307/308 bodies reach the next destination.
-- Bootstrap sources (recipes and `SOURCE HOST` files) are exact credential-free
-  GETs with pinned byte bounds. Under an explicit policy the N sources share a
-  budget of 4×N requests, separate from `maxRequests`.
+- Bootstrap sources (the recipes and `SOURCE` files a release publishes) are
+  exact credential-free GETs of their `https://daugasauron.com` URLs with pinned
+  byte bounds, fetched from the page's own release instead. Under an explicit
+  policy the N sources share a budget of 4×N requests, separate from
+  `maxRequests`.
 - Fetch always uses `credentials: "omit"` and no referrer. The broker drops
   browser-owned headers such as `User-Agent` and `Accept-Encoding`: engines
   disagree on whether to ignore them or preflight them (Firefox preflights a

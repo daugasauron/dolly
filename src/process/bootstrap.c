@@ -122,18 +122,14 @@ static int build_core(void) {
 
 static int run_recipe(void) {
   char *recipe = read_boot_text("/etc/dolly/recipe.locator");
-  char *host_base = read_boot_text("/etc/dolly/host.base");
-  if (recipe == NULL || host_base == NULL) {
+  if (recipe == NULL) {
     fprintf(stderr, "dolly-bootstrap: invalid boot configuration: %s\n",
             strerror(errno));
-    free(recipe);
-    free(host_base);
     return 1;
   }
-  char *arguments[] = {"/bin/dollyfile", recipe, host_base, NULL};
-  const int status = run_child("/bin/dollyfile", 3, arguments);
+  char *arguments[] = {"/bin/dollyfile", recipe, NULL};
+  const int status = run_child("/bin/dollyfile", 2, arguments);
   free(recipe);
-  free(host_base);
   return status;
 }
 

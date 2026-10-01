@@ -1,18 +1,18 @@
-DOLLY 4
+DOLLY 5
 IMAGE classicube
 
-FROM HOST /Dollyfile-pi-runtime 12b6c82ab7045ea6c0e658db80398ed812f1ed893ede6e91f3d7b5294217de4c
-COPY FROM HOST /Dollyfile-classicube-build 5ab72e3a830ade3df8d7c51861264894b3e78a75a54b3ff9bb15572e7ccaf9f6 /usr/bin/classicube /usr/bin/classicube
-COPY FROM HOST /Dollyfile-classicube-build 5ab72e3a830ade3df8d7c51861264894b3e78a75a54b3ff9bb15572e7ccaf9f6 /usr/share/classicube /home/dolly/classicube
-COPY FROM HOST /Dollyfile-classicube-build 5ab72e3a830ade3df8d7c51861264894b3e78a75a54b3ff9bb15572e7ccaf9f6 /usr/share/licenses/classicube /usr/share/licenses/classicube
-COPY FROM HOST /Dollyfile-sdl2-build 95d492d4120091b98f4fdf01766d5ccf9abdb8900db223458d01f23d3e9b1899 /usr/share/licenses/SDL2 /usr/share/licenses/SDL2
+FROM https://daugasauron.com/Dollyfile-pi-runtime e849a2aee241fba71d526572b9957dd1a1c1c388542e18e7b947f901e7cdee6f
+COPY FROM https://daugasauron.com/Dollyfile-classicube-build cf381bb047d73b236713c633c9a24036e5e6e63b83c04b8b6c262347ebeb956c /usr/bin/classicube /usr/bin/classicube
+COPY FROM https://daugasauron.com/Dollyfile-classicube-build cf381bb047d73b236713c633c9a24036e5e6e63b83c04b8b6c262347ebeb956c /usr/share/classicube /home/dolly/classicube
+COPY FROM https://daugasauron.com/Dollyfile-classicube-build cf381bb047d73b236713c633c9a24036e5e6e63b83c04b8b6c262347ebeb956c /usr/share/licenses/classicube /usr/share/licenses/classicube
+COPY FROM https://daugasauron.com/Dollyfile-sdl2-build 9663f72bd271e9700e0ebcdb013642f046ad86301049857e26317043934a799f /usr/share/licenses/SDL2 /usr/share/licenses/SDL2
 
-COPY FROM HOST /Dollyfile-sdl2-build 95d492d4120091b98f4fdf01766d5ccf9abdb8900db223458d01f23d3e9b1899 /usr/include/SDL2 /usr/include/SDL2
-COPY FROM HOST /Dollyfile-sdl2-build 95d492d4120091b98f4fdf01766d5ccf9abdb8900db223458d01f23d3e9b1899 /usr/lib/libSDL2.a /usr/lib/libSDL2.a
+COPY FROM https://daugasauron.com/Dollyfile-sdl2-build 9663f72bd271e9700e0ebcdb013642f046ad86301049857e26317043934a799f /usr/include/SDL2 /usr/include/SDL2
+COPY FROM https://daugasauron.com/Dollyfile-sdl2-build 9663f72bd271e9700e0ebcdb013642f046ad86301049857e26317043934a799f /usr/lib/libSDL2.a /usr/lib/libSDL2.a
 EXPORTS TOOL classicube
 EXPORTS HEADER sdl2 /usr/include/SDL2
 EXPORTS LIB SDL2 /usr/lib/libSDL2.a
-USE HOST /modules/classicube-agent.dm 6d7a46f226336a00c6bac6b41881b00384ad4cd7120f7a1f49612ff0b6d4c048
+USE https://daugasauron.com/modules/classicube-agent.dm c6fb58b658be2733327ca1cf83b9e39fd4a9e0ef687c4c66b89e37564f7f2f5f
 
 FILE /home/dolly/classicube/options.txt
     window-width=640

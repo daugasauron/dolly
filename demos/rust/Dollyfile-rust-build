@@ -1,8 +1,8 @@
-DOLLY 4
+DOLLY 5
 IMAGE rust-build
 
-FROM HOST /Dollyfile-rust-sdk 5517a13ba9a7876ce641c194b8f80759065bf9d8fb1ba94b71886a255a42881c
-USE HOST /modules/curl.dm c29e2e69f950959e896bcc84610c087b7cf4f53ed7a48797ca94c379c565b4a0
-USE HOST /modules/patti.dm 8b5ad8cdd1e53d61a45d8a48ad0843f72724bd9144a5aa3a25107b990c4a7813
+FROM https://daugasauron.com/Dollyfile-rust-sdk 2e9e6d3cc6c8ffe8fb158f97b7e743be924e6c643959b5bb64f91b4326cb94c8
+USE https://daugasauron.com/modules/curl.dm 1d7d9858555c829ab7c1304dab6c93e0c9d1fb51c3b901ee9172d0083383c717
+USE https://daugasauron.com/modules/patti.dm 6f4f1cdedae48acfa0878d6b1463313964f0c6e7d5afcb6cbafa6030a528da76
 
 ENTRY /bin/foreground -i /bin/slop

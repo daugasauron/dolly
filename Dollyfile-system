@@ -1,13 +1,13 @@
-DOLLY 4
+DOLLY 5
 IMAGE system
 
-FROM HOST /Dollyfile-system-tools 0fc4c99c6522fb9b49236738a31261bd3b31191cdd62ddd1ae16c39f9e464a55
+FROM https://daugasauron.com/Dollyfile-system-tools a4102dce3c4a72afda60a720a9309445e1f9fd5db7ef8f56157daf407be20ef4
 
 REQUIRES HOST http@0
 REQUIRES HOST download@0
 REQUIRES HOST upload@0
 REQUIRES HOST snapshot@0
 
-USE HOST /modules/session-recovery.dm 8f99716baa6803c8382b3eab899aff9ec9af1ec0f33fd485ec8cdde3adc97ac6
+USE https://daugasauron.com/modules/session-recovery.dm 64591f83a8a577ac39e6d569b9fa6277c0ce0d91c7d044967bacfba41d832f80
 
 ENTRY /bin/foreground -i /bin/slop

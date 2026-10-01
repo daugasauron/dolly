@@ -11,6 +11,7 @@ import { imageInputsMatch } from "../src/image-inputs.mjs";
 import { bundleProcessWorker } from "../scripts/bundle-process-worker.mjs";
 import { recipeFiles } from "../scripts/recipe-files.mjs";
 import { publishedHeaders } from "../scripts/host-modules.mjs";
+import { CANONICAL_ORIGIN } from "../src/static-asset.mjs";
 
 export const mimeTypes = new Map([
   [".html", "text/html; charset=utf-8"],
@@ -81,7 +82,8 @@ export async function startBrowserServer(projectDir, image = "default",
       checked.set(definition.image, metadata);
       const inputs = [];
       for (const reference of definition.artifacts) {
-        const parent = DOLLY_IMAGES.find(candidate => `/${candidate.dollyfile}` === reference.location && candidate.sha256 === reference.sha256);
+        const parent = DOLLY_IMAGES.find(candidate =>
+          `${CANONICAL_ORIGIN}/${candidate.dollyfile}` === reference.location && candidate.sha256 === reference.sha256);
         if (!parent) throw new Error(`${reference.location} is missing from the registry`);
         inputs.push({ recipeSha256: reference.sha256, sha256: (await check(parent)).sha256 });
       }
@@ -97,13 +99,13 @@ export async function startBrowserServer(projectDir, image = "default",
   }
   const files = new Map([...browserSources].map(path => [`/${path}`, path]));
   for (const definition of DOLLY_IMAGES) {
-    files.set(`/${definition.dollyfile}`, recipes.get(`/${definition.dollyfile}`));
+    files.set(`/${definition.dollyfile}`, recipes.get(`${CANONICAL_ORIGIN}/${definition.dollyfile}`));
     for (const suffix of [".snapshot", "-snapshot.mjs"]) {
       const path = `dist/dolly-${definition.image}-system${suffix}`;
       files.set(`/${path}`, path);
     }
   }
-  for (const source of DOLLY_STATIC_SOURCES) files.set(source.path, recipes.get(source.path) ??
+  for (const source of DOLLY_STATIC_SOURCES) files.set(source.path, recipes.get(`${CANONICAL_ORIGIN}${source.path}`) ??
     (source.path.startsWith("/static/") ? `dist${source.path}` : publishedHeaders.get(source.path)));
   for (const name of await readdir(resolve(projectDir, "dist"))) {
     if (/^dolly(?:-[a-z0-9-]+)?\.(?:wasm|mjs|data)$/.test(name) || name === "IosevkaTerm-SemiBold.woff2") {

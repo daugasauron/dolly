@@ -19,7 +19,7 @@ await browserTest("host compute", { image: "system-build" }, async ({ browser, s
     const sources = [...DOLLY_IMAGES.map(d => ({ path: `/${d.dollyfile}`, byteLength: d.byteLength })), ...DOLLY_STATIC_SOURCES];
     const network = localServicesTransport(consumeDollyHttpPolicy(globalThis, sources, new URL("/", location.href)));
     const base = DOLLY_IMAGES.find(d => d.image === "system-build");
-    const recipe = `DOLLY 4\nIMAGE compute\nFROM HOST /Dollyfile-system-build ${base.sha256}\nREQUIRES HOST gpu@0\n` +
+    const recipe = `DOLLY 5\nIMAGE compute\nFROM https://daugasauron.com/Dollyfile-system-build ${base.sha256}\nREQUIRES HOST gpu@0\n` +
       `FILE /tmp/probe.c\n${code.trimEnd().split("\n").map(line => "    " + line).join("\n")}\n` +
       "SLOP cc -O1 /tmp/probe.c -ldolly-gpu -o /usr/bin/probe\nEXPORTS TOOL probe\nENTRY /usr/bin/probe\n";
     const report = () => {};

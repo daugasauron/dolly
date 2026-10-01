@@ -1,14 +1,14 @@
-DOLLY 4
+DOLLY 5
 IMAGE neovim-build
 
 # Reusable Neovim build artifacts.
-FROM HOST /Dollyfile-cmake-build 8552fbd1af5e64f0bce477f9c2626c9f3f28c09b6d933ca0eb72d08d0f58bef2
-USE HOST /modules/lua.dm f1bdfa705764c6bdec88f3ee58861679104bc7c0a7d7a2a62857354e7db55d78
-USE HOST /modules/lpeg.dm c2adc63362b42fb79d6fde4cfccba289ec444ae45cbd92aedaea410e48fcf5c9
-USE HOST /modules/luv.dm ce1863a205af5ae5c340f8d4ea52cef80ff8340f9144828c7e8f001d7c87d65a
-USE HOST /modules/utf8proc.dm 0d09b224f12561a7501f17eae8301e2959861c5fc3e1753649530981502bd3ca
-USE HOST /modules/treesitter.dm f2b7f56b18b1354256f23acda315856315f4a599b311caa8073c74dabbb6025c
-USE HOST /modules/neovim.dm 1bd670eae5a9283d64a4346257eb08c7fa81825a19e15c1df0b49e18c28cbe1d
-USE HOST /modules/neovim-parsers.dm f9e703df21e7fa3d288c35b77325cf258c379234c3bbf1f2248720f1a0f5085d
+FROM https://daugasauron.com/Dollyfile-cmake-build 37e552e04f6033a177bbd3ae66c35887b6618bca5aa51fe38cbbdf9e58074b19
+USE https://daugasauron.com/modules/lua.dm d35cdf9a07b1f7e94956e8f61f84bf879b465c3af0bd3257d3ce183ac662db5c
+USE https://daugasauron.com/modules/lpeg.dm 28cbf12607e6786a2d152c66eec93448c12003192054146bd7cf1a6f9a686d81
+USE https://daugasauron.com/modules/luv.dm 22604626e229fb43778d1b1ce4268e34187c5bb6af5c23e276570470ffaaef31
+USE https://daugasauron.com/modules/utf8proc.dm 8bb8fb4b7e23d14112203102c08e6a776ba7b8b675638ffcfd477abd65a9cc57
+USE https://daugasauron.com/modules/treesitter.dm 8c0c7b2dd49c2d0807aadf0ee501c323de5953a8b067d2cd7120b9fdeead0db4
+USE https://daugasauron.com/modules/neovim.dm 44aedfe76f276de71d47f3841526cb44ac5ac291e3cba7c6b1218f71839ee85c
+USE https://daugasauron.com/modules/neovim-parsers.dm 523732b88c56ec33cf564c30d0ba5ca7e10be79eb24f10dc4d81dc8630b4c0f6
 
 ENTRY /bin/foreground -i /bin/slop

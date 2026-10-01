@@ -1,9 +1,9 @@
-DOLLY 4
+DOLLY 5
 IMAGE typescript-build
 
-FROM HOST /Dollyfile-system-tools 0fc4c99c6522fb9b49236738a31261bd3b31191cdd62ddd1ae16c39f9e464a55
+FROM https://daugasauron.com/Dollyfile-system-tools a4102dce3c4a72afda60a720a9309445e1f9fd5db7ef8f56157daf407be20ef4
 
-USE HOST /modules/quickjs.dm 4dfcd32efb9562351f9acdbe23c203cae7532833f8d6211586cb078a611f1b0d
-USE HOST /modules/typescript.dm beb61c3becd7f5591964ed4bb3dd19e652a77ec92ae2748e40867e8dd320e7e8
+USE https://daugasauron.com/modules/quickjs.dm f0e111f101d134c92d5b948ce88e2a8c3639bf20344309d8a0a61e4df930ae72
+USE https://daugasauron.com/modules/typescript.dm 7cbed5c70bec6f4b35a3a60ec51759ce4ca38b7fc5733b3395cfcdf88b395200
 
 ENTRY /bin/foreground -i /bin/slop

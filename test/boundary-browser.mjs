@@ -38,12 +38,15 @@ await browserTest("boundary", { server: { handle } }, async ({ server, open }) =
     .then(module => module.runBrowserBoundaryChecks(new URL("/", location.href).href)));
   partRequests.length = 0;
   corrupt = false;
-  assert.equal(await submit(`curl -fsS ${server.origin}${source} -o /tmp/boundary-source.c`), 0);
+  // Recipes name the canonical URL; the page fetches its own copy.
+  const canonical = `https://daugasauron.com${source}`;
+  assert.equal(await submit(`curl -fsS ${canonical} -o /tmp/boundary-source.c`), 0);
   assert.equal(await submit(`test "$(sha256sum /tmp/boundary-source.c | cut -d ' ' -f 1)" = ${sha256(bytes)}`), 0);
   assert.equal(partRequests.length, 2, "one authorized source fetch reads its two fixed parts");
-  assert.notEqual(await submit(`curl -fsS ${server.origin}${source}.part-0 -o /tmp/boundary-denied`), 0);
-  assert.equal(partRequests.length, 2, "derived delivery grants no guest access to sibling URLs");
+  assert.notEqual(await submit(`curl -fsS ${canonical}.part-0 -o /tmp/boundary-denied`), 0);
+  assert.notEqual(await submit(`curl -fsS ${server.origin}${source} -o /tmp/boundary-denied`), 0);
+  assert.equal(partRequests.length, 2, "derived delivery grants no guest access to sibling or mirror URLs");
   corrupt = true;
-  assert.notEqual(await submit(`curl -fsS ${server.origin}${source} -o /tmp/boundary-corrupt`), 0);
+  assert.notEqual(await submit(`curl -fsS ${canonical} -o /tmp/boundary-corrupt`), 0);
   assert.equal(await submit("rm -f /tmp/boundary-source.c /tmp/boundary-corrupt"), 0);
 });

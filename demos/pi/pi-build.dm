@@ -1,4 +1,4 @@
-DOLLY 4
+DOLLY 5
 MODULE pi-build
 
 # Pi 0.84.4 is compiled from its pinned upstream TypeScript workspace inside
@@ -19,12 +19,12 @@ REQUIRES TOOL   rm
 REQUIRES TOOL   tar
 REQUIRES TOOL   tsc
 
-SOURCE HOST /static/default/pi-source.tar                        /tmp/pi/pi-source.tar                           c7e82ac2efc5714a7ea229a2ca42f05d584364af9769c0ac33d8a64ee603912f
-SOURCE HOST /static/default/pi-generated-model-data.tar          /tmp/pi/pi-generated-model-data.tar             46d06b81f8ca1396981dc30c709aff2c702d83ca0d89ac0db5ebc95767ed22a6
-SOURCE HOST /static/default/pi-runtime-packages.tar              /tmp/pi/pi-runtime-packages.tar                 e395b7d88cbcc3afa020437507b309cc37a6f0b0645e038842a304a6aa6d2998
-SOURCE HOST /static/default/pi-tsconfig.dolly.json               /tmp/pi/tsconfig.dolly.json                     5b810ca0942889c635e7675a2945578d6d02d1be6dba98bb860269882d2ea825
-SOURCE HOST /static/default/pi-quickjs-compat.mjs                /tmp/pi/quickjs-compat.mjs                      c6ec3dbec10ba7bab56b94292292d493bc730d34171d904a4a972a150a991f49
-SOURCE HOST /static/default/commands/pi.c                        /tmp/pi/pi.c                                    2296ec09e6b95b0d0dd065f806138e48eaad855d77d6366adfdfc33d720da98e
+SOURCE https://daugasauron.com/static/default/pi-source.tar                        c7e82ac2efc5714a7ea229a2ca42f05d584364af9769c0ac33d8a64ee603912f /tmp/pi/pi-source.tar
+SOURCE https://daugasauron.com/static/default/pi-generated-model-data.tar          46d06b81f8ca1396981dc30c709aff2c702d83ca0d89ac0db5ebc95767ed22a6 /tmp/pi/pi-generated-model-data.tar
+SOURCE https://daugasauron.com/static/default/pi-runtime-packages.tar              e395b7d88cbcc3afa020437507b309cc37a6f0b0645e038842a304a6aa6d2998 /tmp/pi/pi-runtime-packages.tar
+SOURCE https://daugasauron.com/static/default/pi-tsconfig.dolly.json               5b810ca0942889c635e7675a2945578d6d02d1be6dba98bb860269882d2ea825 /tmp/pi/tsconfig.dolly.json
+SOURCE https://daugasauron.com/static/default/pi-quickjs-compat.mjs                c6ec3dbec10ba7bab56b94292292d493bc730d34171d904a4a972a150a991f49 /tmp/pi/quickjs-compat.mjs
+SOURCE https://daugasauron.com/static/default/commands/pi.c                        2296ec09e6b95b0d0dd065f806138e48eaad855d77d6366adfdfc33d720da98e /tmp/pi/pi.c
 
 SLOP tar \
   -xf /tmp/pi/pi-source.tar \

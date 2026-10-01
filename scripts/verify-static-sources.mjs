@@ -12,4 +12,4 @@ const projectDir = resolve(import.meta.dirname, "..");
 const definitions = await selectImageDefinitions(await discoverImageDefinitions(projectDir));
 const sources = await inspectStaticSources(projectDir, definitions);
 const total = sources.reduce((sum, source) => sum + source.byteLength, 0);
-console.log(`dolly: verified ${sources.length} HOST sources (${total} bytes)`);
+console.log(`dolly: verified ${sources.length} published sources (${total} bytes)`);

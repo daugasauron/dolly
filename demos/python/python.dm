@@ -1,4 +1,4 @@
-DOLLY 4
+DOLLY 5
 MODULE python
 
 # Build the Python runtime and native extension SDK; Bonnie is a later image step.
@@ -21,8 +21,8 @@ REQUIRES TOOL   tar
 REQUIRES TOOL   test
 REQUIRES TOOL   touch
 
-USE HOST /modules/libffi.dm  49616c8082050bb8da272d99755ffd8faa2207516b708b885e23be81a8d572f6
-USE HOST /modules/cpython.dm 485c45e00765d6a359192e3d6ffc0d1fdb843b04fbaef9db7a9a1d7d98686807
+USE https://daugasauron.com/modules/libffi.dm  8de2fbc9672d7ce996e1542fec3180f7a04845a64f2df90b3fea542d3d2d025f
+USE https://daugasauron.com/modules/cpython.dm e11d2772edbb6bb25a427e79d18c38ee46f659f088f5fd8062d8d278a2c9388e
 
 EXPORTS TOOL   python
 EXPORTS TOOL   python3

@@ -18,22 +18,22 @@ await demoTest("studio", { image: "dollyfile-studio", webgpu: true, timeout: 900
   await run("printf 'DOLLY 2\\n' | dollyfile-lint --stdin Draft", 1);
   // Errors name the literal file, even with replacement patterns or Unicode.
   for (const label of ["Dollyfile-$&", "Dollyfile-$$", "Dollyfile-$'", "Dollyfile-$`", "Dollyfile-東京"]) {
-    await run(`message=$(printf 'DOLLY 4\\n' | dollyfile-lint --stdin ${shellQuote(label)} 2>&1); test "$?" = 1 && test "$message" = ${shellQuote(`${label}:1: missing IMAGE or MODULE`)}`);
+    await run(`message=$(printf 'DOLLY 5\\n' | dollyfile-lint --stdin ${shellQuote(label)} 2>&1); test "$?" = 1 && test "$message" = ${shellQuote(`${label}:1: missing IMAGE or MODULE`)}`);
   }
   await run("test -f /home/dolly/.pi/agent/skills/dollyfiles/SKILL.md && test -f /home/dolly/.pi/agent/extensions/local-model-provider.js");
-  // Recipes and sources come from the page's own host, pinned by hash.
-  await run('base=$(cat /etc/dolly/host.base); curl -f "${base}modules/quickjs.dm" -o /tmp/module.dm && curl -f "${base}static/default/quickjs.tar" -o /tmp/source.tar && grep -q "$(sha256sum /tmp/source.tar | cut -d " " -f 1)" /tmp/module.dm');
-  await run('base=$(cat /etc/dolly/host.base); curl -f "${base}static/default/runtimes/quickjs-main.c" | grep -q dolly_quickjs_run && rm /tmp/module.dm /tmp/source.tar');
+  // Recipes name canonical URLs; the page serves its own copies, pinned by hash.
+  await run("curl -f https://daugasauron.com/modules/quickjs.dm -o /tmp/module.dm && curl -f https://daugasauron.com/static/default/quickjs.tar -o /tmp/source.tar && grep -q \"$(sha256sum /tmp/source.tar | cut -d ' ' -f 1)\" /tmp/module.dm");
+  await run("curl -f https://daugasauron.com/static/default/runtimes/quickjs-main.c | grep -q dolly_quickjs_run && rm /tmp/module.dm /tmp/source.tar");
   await run(`curl -fsS ${server.origin}/fixture/studio-nvim.lua -o /tmp/studio-nvim.lua && timeout 60 nvim --headless -n -i NONE -S /tmp/studio-nvim.lua`);
   await run("rm -f /tmp/studio-nvim.lua /tmp/Dollyfile-studio-lint && clear");
   const editor = start("nvim /workspace/Dollyfile");
-  await waitText(/DOLLY 4/);
+  await waitText(/DOLLY 5/);
   // An edit shows its lint error without saving; correcting it clears the error.
   await page.keyboard.type("gg$a0");
   await page.keyboard.press("Escape");
-  await waitText(/! .*DOLLY 4/);
+  await waitText(/! .*DOLLY 5/);
   await page.keyboard.type("$x");
-  for (const deadline = Date.now() + 30_000; /! .*DOLLY 4/.test(await text()); await delay(100)) {
+  for (const deadline = Date.now() + 30_000; /! .*DOLLY 5/.test(await text()); await delay(100)) {
     assert.ok(Date.now() < deadline, "correcting the recipe did not clear its error");
   }
   await page.keyboard.type(":");
@@ -44,9 +44,9 @@ await demoTest("studio", { image: "dollyfile-studio", webgpu: true, timeout: 900
   // Open image opens the result, which has neither parent files nor build services.
   const { DOLLY_IMAGES } = await import("../../../dist/dolly-images.mjs");
   const system = DOLLY_IMAGES.find(definition => definition.image === "system").sha256;
-  const recipe = `DOLLY 4
+  const recipe = `DOLLY 5
 IMAGE build-proof
-FROM HOST /Dollyfile-system ${system}
+FROM https://daugasauron.com/Dollyfile-system ${system}
 FILE /tmp/proof/hello.c
     #include <stdio.h>
     #warning BUILD-COMPILER-WARNING

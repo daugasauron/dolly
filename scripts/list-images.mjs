@@ -10,6 +10,7 @@ import {
 import { createDollyfileGraphLoader } from "./dollyfile-graph.mjs";
 import { recipeFiles } from "./recipe-files.mjs";
 import { publishedHeaders } from "./host-modules.mjs";
+import { CANONICAL_ORIGIN } from "../src/static-asset.mjs";
 
 const projectDir = resolve(import.meta.dirname, "..");
 const loadGraph = createDollyfileGraphLoader(projectDir);
@@ -18,7 +19,8 @@ if (process.argv[2] === "--sources") {
   // Served path and the checkout file holding its bytes.
   const recipes = await recipeFiles(projectDir);
   for (const { path } of await inspectStaticSources(projectDir, definitions)) {
-    console.log(`${path}\t${recipes.get(path) ?? (path.startsWith("/static/") ? `dist${path}` : publishedHeaders.get(path))}`);
+    console.log(`${path}\t${recipes.get(`${CANONICAL_ORIGIN}${path}`) ??
+      (path.startsWith("/static/") ? `dist${path}` : publishedHeaders.get(path))}`);
   }
   process.exit(0);
 }

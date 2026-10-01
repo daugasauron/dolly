@@ -1,4 +1,4 @@
-DOLLY 4
+DOLLY 5
 MODULE git
 
 REQUIRES TOOL   ar
@@ -14,7 +14,7 @@ REQUIRES HEADER runtime
 REQUIRES HEADER curl
 REQUIRES HEADER zlib
 
-SOURCE HOST /static/default/git.tar /tmp/git.tar 3c4cbd0b978b5e3d067aa63faa2db16a7e1e047e6710db744e012161138ebb67
+SOURCE https://daugasauron.com/static/default/git.tar 3c4cbd0b978b5e3d067aa63faa2db16a7e1e047e6710db744e012161138ebb67 /tmp/git.tar
 SLOP tar \
   -xf /tmp/git.tar \
   -C /

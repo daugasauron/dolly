@@ -32,11 +32,11 @@ test("Pi is compiled from pinned source after an in-sandbox TypeScript layer", a
   assert.ok(typescript);
   assert.ok(pi);
   assert.ok(typescript.sources.some(({ location }) =>
-    location === "/static/default/typescript-5.9.3.tgz"));
+    location === "https://daugasauron.com/static/default/typescript-5.9.3.tgz"));
   assert.ok(typescript.exports.some(({ type, name }) =>
     type === "TOOL" && name === "tsc"));
   assert.ok(pi.sources.some(({ location }) =>
-    location === "/static/default/pi-source.tar"));
+    location === "https://daugasauron.com/static/default/pi-source.tar"));
   assert.equal(pi.sources.some(({ location }) => location.includes("pi-package.tar")), false);
   assert.deepEqual(
     pi.slops.filter(({ command }) => command[0] === "tsc")

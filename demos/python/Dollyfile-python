@@ -1,8 +1,8 @@
-DOLLY 4
+DOLLY 5
 IMAGE python
 
-FROM HOST /Dollyfile-python-runtime a7c762975ff2dcd375215050963cd9e79c879aa4b447ac1c6c16301edd2786d0
-USE HOST /modules/bonnie.dm ab706f6722e1ad785e4d9f48f572ab7291f1d946b4ff7472128be11ae096f7a4
-USE HOST /modules/startup-python.dm f10cb6883d3324f201b76b4c3f36aeb0f368ee18a119ab7e018ba56b93b646b6
+FROM https://daugasauron.com/Dollyfile-python-runtime 1170db3f911a9414cf84b701f576171eb0606ad570af7699d065802dbbfbcae5
+USE https://daugasauron.com/modules/bonnie.dm ab0516168746a377ee157b24834412dbc0abdff1c8aa17ed1c93d45e9e95d78b
+USE https://daugasauron.com/modules/startup-python.dm f65a83176f9847d0966e08d2bb3f05582a1e9af8d09cba07daff0253e1053909
 
 ENTRY /bin/foreground -i /bin/slop /etc/dolly/init.slop

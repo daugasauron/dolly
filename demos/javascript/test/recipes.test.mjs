@@ -17,6 +17,6 @@ test("QuickJS and TypeScript declare their tools, headers and license", async ()
   assert.deepEqual(requirements(quickjs, "HEADER"), ["libc", "runtime", "http", "download"]);
   assert.deepEqual(quickjs.exports.filter(({ type }) => type === "HEADER").map(({ name }) => name),
     ["quickjs-runner", "quickjs"]);
-  assert.ok(typescript.sources.some(({ location }) => location === "/static/default/typescript-5.9.3.tgz"));
+  assert.ok(typescript.sources.some(({ location }) => location === "https://daugasauron.com/static/default/typescript-5.9.3.tgz"));
   assert.ok(typescript.exports.some(({ type, name }) => type === "TOOL" && name === "tsc"));
 });

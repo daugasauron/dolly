@@ -1,16 +1,16 @@
-DOLLY 4
+DOLLY 5
 MODULE default
 
 # Shared C/C++ build and system utilities, without a display or Rust tools.
-USE HOST /modules/download.dm       ba1ad3771193d58464d0ffe6a463f08102db9d72112d76230c771ac3f84c84b1
-USE HOST /modules/upload.dm         17c1f142a2568513d94f331962ace1e27fe4c03a06c342f615a3e5060a561fd8
-USE HOST /modules/ninja.dm          00e13c414b1e63bd373c1b8d0b54c6e079c138a808d428a0e5d9ab287040354c
-USE HOST /modules/zlib.dm           1fc01e0f9f165d635e2dde3feff11ad43a10489bdb557dba8313a1b6c5cfb80c
-USE HOST /modules/gzip.dm f159cc4ed4c045f89a3ce1477c513e9ee00b4a949dc7903ac0ef059fbdb5227a
-USE HOST /modules/curl.dm           c29e2e69f950959e896bcc84610c087b7cf4f53ed7a48797ca94c379c565b4a0
-USE HOST /modules/git.dm            549e11481b59c19e77aadcad3d9be2d1629387ac445f9d9477f3b0d1353d1976
-USE HOST /modules/awk.dm            45d33d625d8bfe1aae4fd850b7a45f38eca692e998e05c98577c3ac82c1068a3
-USE HOST /modules/agent-tools.dm    e5a1794d1d143526bc1931e9ccbcf345b54399d8b4d1d63e50bb0ae6cae0877d
+USE https://daugasauron.com/modules/download.dm       7ea1997de26f55dcbcdebf135c5a6807c6de82b361710c28b029ddc4d9f3f0dd
+USE https://daugasauron.com/modules/upload.dm         7c135b1f7b7f525b10e045c92572eebf3d09c279bc39a1a8a0a25ae607393b70
+USE https://daugasauron.com/modules/ninja.dm          232fc0c1d90d1f51f4c626ae54ee271f690b31ea39bfcd3c29b5c3726b316dd9
+USE https://daugasauron.com/modules/zlib.dm           5f7d365bd2c9a033ade4b1a319936b9ddaefb0fac0dfc19caf7cd3c3d31d08c1
+USE https://daugasauron.com/modules/gzip.dm d868ef6b11705c0ada34cb55712c8355274417208117cbee1443631622de2917
+USE https://daugasauron.com/modules/curl.dm           1d7d9858555c829ab7c1304dab6c93e0c9d1fb51c3b901ee9172d0083383c717
+USE https://daugasauron.com/modules/git.dm            bdfa72a3cef31873f71686b4481d6616e2306533c4934ffb849123c2eb5c90a6
+USE https://daugasauron.com/modules/awk.dm            662bc35207505b49c3233259b1ef18dabfefff6dd3234e4d1bd1d3af079d3ab5
+USE https://daugasauron.com/modules/agent-tools.dm    492b4d612c6eb31f0165a54e91288202e7f04dad1d9eab3c9adf4d913e6db285
 
 # Retain the runtime and SDK at these paths when the module finishes.
 EXPORTS HEADER zlib       /usr/include/zlib.h

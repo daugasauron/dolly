@@ -1,27 +1,27 @@
-DOLLY 4
+DOLLY 5
 MODULE bootstrap
 
 # This is the first step. It has no requirements: its exact compiler commands
 # and C headers are the externally supplied bootstrap seed. How those headers
 # eventually map to the lower-level machine contract is deliberately open.
-SOURCE HOST /include/dolly/toolchain.h /usr/include/dolly/toolchain.h 6f9da3258e970e356c31034e1f109a04ac8bd5ab57dc82c19aebf293289fb415
-SOURCE HOST /include/dolly/runtime.h   /usr/include/dolly/runtime.h   c6ada3507d48f5503aff635ea18bf12f50a22b76e29a77f1ced5833f08998778
-SOURCE HOST /include/dolly/process.h   /usr/include/dolly/process.h   f845167b98bfe2b30fd6730bf9441ecc534dbbe2dea748d043bb6fa4f52651f9
-SOURCE HOST /include/dolly/http.h      /usr/include/dolly/http.h      836dacaa6965e33be30d1ef38fe0d828c3889e8a44c752659a5747ebfe4637cf
-SOURCE HOST /include/dolly/display.h   /usr/include/dolly/display.h   79d18634affb585f7c41219f8dc09dedb8a611daf65d36a164d1a8d91779de2e
-SOURCE HOST /include/dolly/download.h  /usr/include/dolly/download.h  8924a3e4c82183c2840f9734dcca8a2427b085c5e004d32c90496f926246cc89
+SOURCE https://daugasauron.com/include/dolly/toolchain.h 6f9da3258e970e356c31034e1f109a04ac8bd5ab57dc82c19aebf293289fb415 /usr/include/dolly/toolchain.h
+SOURCE https://daugasauron.com/include/dolly/runtime.h   c6ada3507d48f5503aff635ea18bf12f50a22b76e29a77f1ced5833f08998778 /usr/include/dolly/runtime.h
+SOURCE https://daugasauron.com/include/dolly/process.h   f845167b98bfe2b30fd6730bf9441ecc534dbbe2dea748d043bb6fa4f52651f9 /usr/include/dolly/process.h
+SOURCE https://daugasauron.com/include/dolly/http.h      836dacaa6965e33be30d1ef38fe0d828c3889e8a44c752659a5747ebfe4637cf /usr/include/dolly/http.h
+SOURCE https://daugasauron.com/include/dolly/display.h   79d18634affb585f7c41219f8dc09dedb8a611daf65d36a164d1a8d91779de2e /usr/include/dolly/display.h
+SOURCE https://daugasauron.com/include/dolly/download.h  8924a3e4c82183c2840f9734dcca8a2427b085c5e004d32c90496f926246cc89 /usr/include/dolly/download.h
 
-SOURCE HOST /include/dolly/host.h /usr/include/dolly/host.h 0b579ac94098b2997772f2ff2cfa3aafd8dd2812bb5ef6f658e341e33b10aa28
-SOURCE HOST /include/dolly/host-abi.h /usr/include/dolly/host-abi.h 544f73c7e5249c1a27f6ea968ee8cffa81b113addaf4d428fa1ca268c382c108
-SOURCE HOST /include/dolly/gpu.h /usr/include/dolly/gpu.h 4c77c750144fb65eba1de4694ae3b78522a2162810fd83f72dda1592f1578000
-SOURCE HOST /include/dolly/gpu-abi.h /usr/include/dolly/gpu-abi.h 8457fa2772a8b59df57638c53396c90085d64ffe99e3032ea157ac3a04e8dc5f
-SOURCE HOST /include/dolly/audio.h /usr/include/dolly/audio.h 9d291eeb25345a75bb21dbd4c422beb15f30700a5f96d5f665ca52a5d8948b65
-SOURCE HOST /include/dolly/audio-abi.h /usr/include/dolly/audio-abi.h 24e538fa126aabe1a854125cb3aa732d6fbd30da55d5b4649596e9fd94a9cb65
-SOURCE HOST /include/dolly/upload.h /usr/include/dolly/upload.h 7ce5dc5cf04792d5ec0209cf89645cf96e56f42eb7c49c51fca034d71d35e10e
-SOURCE HOST /include/dolly/snapshot.h /usr/include/dolly/snapshot.h a8e74773a232b79b3655ecc6c744b3debd9db2eafc5757c088646fce650ba953
+SOURCE https://daugasauron.com/include/dolly/host.h 0b579ac94098b2997772f2ff2cfa3aafd8dd2812bb5ef6f658e341e33b10aa28 /usr/include/dolly/host.h
+SOURCE https://daugasauron.com/include/dolly/host-abi.h 544f73c7e5249c1a27f6ea968ee8cffa81b113addaf4d428fa1ca268c382c108 /usr/include/dolly/host-abi.h
+SOURCE https://daugasauron.com/include/dolly/gpu.h 4c77c750144fb65eba1de4694ae3b78522a2162810fd83f72dda1592f1578000 /usr/include/dolly/gpu.h
+SOURCE https://daugasauron.com/include/dolly/gpu-abi.h 8457fa2772a8b59df57638c53396c90085d64ffe99e3032ea157ac3a04e8dc5f /usr/include/dolly/gpu-abi.h
+SOURCE https://daugasauron.com/include/dolly/audio.h 9d291eeb25345a75bb21dbd4c422beb15f30700a5f96d5f665ca52a5d8948b65 /usr/include/dolly/audio.h
+SOURCE https://daugasauron.com/include/dolly/audio-abi.h 24e538fa126aabe1a854125cb3aa732d6fbd30da55d5b4649596e9fd94a9cb65 /usr/include/dolly/audio-abi.h
+SOURCE https://daugasauron.com/include/dolly/upload.h 7ce5dc5cf04792d5ec0209cf89645cf96e56f42eb7c49c51fca034d71d35e10e /usr/include/dolly/upload.h
+SOURCE https://daugasauron.com/include/dolly/snapshot.h a8e74773a232b79b3655ecc6c744b3debd9db2eafc5757c088646fce650ba953 /usr/include/dolly/snapshot.h
 
-SOURCE HOST /include/dolly/threads.h /usr/include/dolly/threads.h d53ba27f4e9b371c3de9482dcc6b11cf86b4563f367ea776889642aa0e52632a
-SOURCE HOST /include/dolly/threads-abi.h /usr/include/dolly/threads-abi.h c84badea7da09c8f2f2bfc1bbc09b0fc2d93db4ac425df1d71638803250cb9d2
+SOURCE https://daugasauron.com/include/dolly/threads.h d53ba27f4e9b371c3de9482dcc6b11cf86b4563f367ea776889642aa0e52632a /usr/include/dolly/threads.h
+SOURCE https://daugasauron.com/include/dolly/threads-abi.h c84badea7da09c8f2f2bfc1bbc09b0fc2d93db4ac425df1d71638803250cb9d2 /usr/include/dolly/threads-abi.h
 
 EXPORTS HEADER libc      /usr/include
 EXPORTS HEADER toolchain /usr/include/dolly/toolchain.h

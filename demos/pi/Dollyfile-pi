@@ -1,7 +1,7 @@
-DOLLY 4
+DOLLY 5
 IMAGE pi
 
-FROM HOST /Dollyfile-pi-runtime 12b6c82ab7045ea6c0e658db80398ed812f1ed893ede6e91f3d7b5294217de4c
-USE HOST /modules/startup-pi.dm 9893ca5f0b1df261ea7b34cd7451b0500f026a63eb140702f4993b13304f34a6
+FROM https://daugasauron.com/Dollyfile-pi-runtime e849a2aee241fba71d526572b9957dd1a1c1c388542e18e7b947f901e7cdee6f
+USE https://daugasauron.com/modules/startup-pi.dm 58548ae7f8226f2eae2cbad6d90bcebfa984a07e6dbc1c455b4508d897928890
 
 ENTRY /bin/foreground -i /bin/slop /etc/dolly/init.slop

@@ -1,8 +1,8 @@
-DOLLY 4
+DOLLY 5
 IMAGE zero-ad
 
-FROM HOST /Dollyfile 3b9a6a8417f397bfb0dbc0cb94aba98a009dc26c3326e306ce4e10b2bff1546b
-USE HOST /modules/zero-ad.dm d5fa38d6e6b9de46eafe9ded82b977794db394b117bf4daa82b669c679af67d7
+FROM https://daugasauron.com/Dollyfile 4884264f6d48b4ab44018a33c3f3d82c9e6d176668d18051ef9ce25101d670f6
+USE https://daugasauron.com/modules/zero-ad.dm cbcdbb90cb26f15989ba5998fc7e8d977cde82d701aec4315fd948e42380987f
 
 FILE /etc/dolly/zero-ad.slop
     /bin/foreground /usr/bin/zero-ad

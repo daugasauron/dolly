@@ -1,4 +1,4 @@
-DOLLY 4
+DOLLY 5
 MODULE startup-pi
 
 REQUIRES TOOL slop

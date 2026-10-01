@@ -9,13 +9,15 @@ import {
 } from "./dollyfile-graph.mjs";
 import { recipeFiles } from "./recipe-files.mjs";
 import { publishedHeaders } from "./host-modules.mjs";
+import { CANONICAL_ORIGIN, canonicalPath } from "../src/static-asset.mjs";
 
-// `filename` is the logical HOST name; `path` is the file in this checkout.
+// `filename` is the published name on the canonical origin; `path` is the file
+// in this checkout.
 export async function discoverImageDefinitions(projectDir) {
   const definitions = [];
-  for (const [location, path] of await recipeFiles(projectDir)) {
-    if (location.startsWith("/modules/")) continue;
-    const filename = location.slice(1);
+  for (const [url, path] of await recipeFiles(projectDir)) {
+    const filename = canonicalPath(url).slice(1);
+    if (filename.startsWith("modules/")) continue;
     const source = await readFile(resolve(projectDir, path), "utf8");
     const parsed = inspectDollyfile(source, filename);
     const expected = parsed.image === "default" ? "Dollyfile" : `Dollyfile-${parsed.image}`;
@@ -57,13 +59,13 @@ export async function selectImageDefinitions(definitions, selection = process.en
   }
   const closure = new Map();
   const loadGraph = createDollyfileGraphLoader(selected[0].projectDir);
-  const byFilename = new Map(definitions.map(definition => [definition.filename, definition]));
+  const byURL = new Map(definitions.map(definition => [`${CANONICAL_ORIGIN}/${definition.filename}`, definition]));
   async function include(definition) {
     if (closure.has(definition.image)) return;
     closure.set(definition.image, definition);
     const graph = await loadGraph(definition.filename);
     for (const reference of graph.artifacts) {
-      const dependency = byFilename.get(reference.location.slice(1));
+      const dependency = byURL.get(reference.location);
       if (!dependency) throw new Error(`missing artifact recipe ${reference.location}`);
       await include(dependency);
     }
@@ -78,7 +80,7 @@ export async function inspectStaticSources(projectDir, definitions, staticDirect
   for (const definition of definitions) {
     const graph = await loadGraph(definition.filename);
     for (const module of graph.records) {
-      const path = module.location;
+      const path = canonicalPath(module.location);
       const previous = sources.get(path);
       if (previous && previous.sha256 !== module.sha256) {
         throw new Error(`${definition.filename}: conflicting module ${path}`);
@@ -92,27 +94,26 @@ export async function inspectStaticSources(projectDir, definitions, staticDirect
       }
     }
     for (const record of graph.records) for (const source of record.sources) {
-      if (source.transport !== "host") continue;
-      if (!(source.location.startsWith("/static/") ||
-            source.location.startsWith("/include/dolly/")) ||
-          source.location.includes("..")) {
+      const path = canonicalPath(source.location);
+      if (path === null) continue;
+      if (!(path.startsWith("/static/") || path.startsWith("/include/dolly/")) || path.includes("..")) {
         throw new Error(
-          `${record.location}:${source.line}: HOST source is outside trusted build inputs`,
+          `${record.location}:${source.line}: ${source.location} is outside trusted build inputs`,
         );
       }
-      const previous = sources.get(source.location);
+      const previous = sources.get(path);
       if (previous && previous.sha256 !== source.sha256) {
         throw new Error(
           `${definition.filename}:${source.line}: conflicting metadata for ${source.location}`,
         );
       }
       if (previous) continue;
-      const header = publishedHeaders.get(source.location);
-      if (!source.location.startsWith("/static/") && !header) {
+      const header = publishedHeaders.get(path);
+      if (!path.startsWith("/static/") && !header) {
         throw new Error(`${record.location}:${source.line}: ${source.location} is not a host module header`);
       }
       const diskPath = header ? resolve(projectDir, header)
-        : resolve(staticDirectory, source.location.slice("/static/".length));
+        : resolve(staticDirectory, path.slice("/static/".length));
       const [bytes, metadata] = await Promise.all([readFile(diskPath), stat(diskPath)]);
       if (!metadata.isFile()) throw new Error(`${diskPath}: static source is not a file`);
       const sha256 = createHash("sha256").update(bytes).digest("hex");
@@ -122,15 +123,16 @@ export async function inspectStaticSources(projectDir, definitions, staticDirect
           `expected ${source.sha256}`,
         );
       }
-      sources.set(source.location, Object.freeze({
-        path: source.location,
+      sources.set(path, Object.freeze({
+        path,
         sha256,
         byteLength: bytes.length,
       }));
     }
   }
   // Publishing module text does not execute it or select its build inputs.
-  for (const [path, file] of await recipeFiles(projectDir)) {
+  for (const [url, file] of await recipeFiles(projectDir)) {
+    const path = canonicalPath(url);
     if (!path.startsWith("/modules/") || sources.has(path)) continue;
     const bytes = await readFile(resolve(projectDir, file));
     if (bytes.length === 0) continue;

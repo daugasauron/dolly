@@ -1,4 +1,4 @@
-DOLLY 4
+DOLLY 5
 MODULE sbase
 
 # Unchanged upstream sbase commands, built by sbase's own Makefile.
@@ -10,7 +10,7 @@ REQUIRES TOOL   mv
 REQUIRES TOOL   rm
 REQUIRES TOOL   tar
 
-SOURCE HOST /static/default/sbase.tar /tmp/sbase.tar a01a6a52283b100e302da15ab69cad0d228f1dd054fbbd5ce0ead6920e372e9e
+SOURCE https://daugasauron.com/static/default/sbase.tar a01a6a52283b100e302da15ab69cad0d228f1dd054fbbd5ce0ead6920e372e9e /tmp/sbase.tar
 SLOP tar \
   -xf /tmp/sbase.tar \
   -C /

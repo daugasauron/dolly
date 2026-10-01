@@ -1,4 +1,4 @@
-DOLLY 4
+DOLLY 5
 MODULE utf8proc
 
 REQUIRES HEADER libc
@@ -10,7 +10,7 @@ REQUIRES TOOL cp
 REQUIRES TOOL rm
 REQUIRES TOOL uname
 
-SOURCE HOST /static/neovim/utf8proc.tar /tmp/utf8proc/source.tar c9fdc1bf18b4d5ceb006b2847f6ead4642bfd82a7f102652cac4c13105b0e12a
+SOURCE https://daugasauron.com/static/neovim/utf8proc.tar c9fdc1bf18b4d5ceb006b2847f6ead4642bfd82a7f102652cac4c13105b0e12a /tmp/utf8proc/source.tar
 SLOP tar -xf /tmp/utf8proc/source.tar -C /
 SLOP make -C /tmp/utf8proc/source CC=cc CFLAGS=-O0 libutf8proc.a
 SLOP cp /tmp/utf8proc/source/libutf8proc.a /usr/lib/libutf8proc.a

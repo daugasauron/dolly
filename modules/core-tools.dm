@@ -1,4 +1,4 @@
-DOLLY 4
+DOLLY 5
 MODULE core-tools
 
 REQUIRES HEADER libc

@@ -18,6 +18,7 @@ import { createDollyfileGraphLoader } from "./dollyfile-graph.mjs";
 import { startBrowserServer } from "../test/browser-server.mjs";
 import { MAX_SNAPSHOT_BYTES } from "../src/snapshot-records.mjs";
 import { DOLLY_IMAGES } from "../dist/dolly-images.mjs";
+import { canonicalPath } from "../src/static-asset.mjs";
 
 const projectDir = resolve(import.meta.dirname, "..");
 const { positionals: [image, outputArgument], values: { unpackaged } } = parseArgs({
@@ -34,7 +35,7 @@ const port = Number(process.env.DOLLY_BROWSER_PORT ??
   20_000 + Number.parseInt(createHash("sha256").update(projectDir).digest("hex").slice(0, 8), 16) % 20_000);
 const graph = await createDollyfileGraphLoader(projectDir)(definition.dollyfile);
 // Recipes' explicit upstream URLs are the only network the build may use.
-const rules = graph.records.flatMap(record => record.sources.filter(source => source.transport === "url"))
+const rules = graph.records.flatMap(record => record.sources.filter(source => canonicalPath(source.location) === null))
   .map(source => ({ origin: new URL(source.location).origin, path: new URL(source.location).pathname, methods: ["GET"] }));
 
 let uploaded = 0;

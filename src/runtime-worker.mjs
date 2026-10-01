@@ -10,7 +10,7 @@ import { imageInputs } from "./image-inputs.mjs";
 import { inspectDollyfile, MAX_DOLLYFILE_BYTES } from "./dollyfile-view.mjs";
 import { decodeImageEntry } from "./image-entry.mjs";
 import { checkedCustomArtifact } from "./custom-image.mjs";
-import { hex } from "./static-asset.mjs";
+import { CANONICAL_ORIGIN, hex } from "./static-asset.mjs";
 
 const encoder = new TextEncoder();
 const decoder = new TextDecoder("utf-8", { ignoreBOM: true });
@@ -200,10 +200,8 @@ try {
     }
   };
   const recipeLocator = configuredImage === "custom"
-    ? "FILE:/etc/dolly/upload.Dollyfile"
-    : configuredImage === "default" ? "/Dollyfile" : `/Dollyfile-${configuredImage}`;
+    ? "FILE:/etc/dolly/upload.Dollyfile" : `${CANONICAL_ORIGIN}/${definition.dollyfile}`;
   replaceFile("/etc/dolly/recipe.locator", recipeLocator);
-  replaceFile("/etc/dolly/host.base", applicationBase.href);
   if (configuredImage === "custom") {
     replaceFile("/etc/dolly/upload.Dollyfile", bootConfig.customSource);
   }
@@ -244,7 +242,7 @@ try {
     if (bootstrapStatus === 0) {
       processSupervisor = await host.get("runtime").supervisor(dolly);
       const arguments_ = baseArtifact
-        ? ["/bin/dollyfile", recipeLocator, applicationBase.href]
+        ? ["/bin/dollyfile", recipeLocator]
         : ["/usr/libexec/dolly/process-bin/bootstrap"];
       bootstrapStatus = await processSupervisor.spawn(arguments_);
     }
@@ -333,9 +331,6 @@ try {
     }
   }
 
-  // Image pruning removes bootstrap inputs. Publish the current release URL
-  // after artifact capture/restore so portable images never retain a build host.
-  replaceFile("/etc/dolly/host.base", applicationBase.href);
   await host.imageRestored({ dolly, supervisor: processSupervisor, stage: bootstrapStage,
     writeFile: replaceFile, image: configuredImage });
 

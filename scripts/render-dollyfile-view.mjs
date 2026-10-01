@@ -1,3 +1,6 @@
+import { canonicalPath } from "../src/static-asset.mjs";
+import { recipeFileName } from "../src/dollyfile-view.mjs";
+
 function escapeHtml(value) {
   return String(value)
     .replaceAll("&", "&amp;")
@@ -17,9 +20,11 @@ function moduleHref(current, target, fragment = "") {
   return `../${target.name}/${fragment}`;
 }
 
+// Canonical sources link to this release's copy, others to their origin.
 function rawHref(record, location) {
   const appBase = record.kind === "image" ? "../../" : "../../../../";
-  return location.startsWith("/") ? `${appBase}${location.slice(1)}` : location;
+  const path = canonicalPath(location);
+  return path === null ? location : `${appBase}${path.slice(1)}`;
 }
 
 function link(label, href, className = "") {
@@ -92,7 +97,7 @@ function renderSourceReference(record, row, prefix, spacing, rest) {
   const before = rest.slice(0, rest.indexOf(location));
   const after = rest.slice(rest.indexOf(location) + location.length);
   return `${escapeHtml(prefix)}<b>${row.directive}</b>${escapeHtml(spacing + before)}` +
-    `${link(location, rawHref(record, location), source.transport === "host" ? "source" : "")}${escapeHtml(after)}`;
+    `${link(location, rawHref(record, location), canonicalPath(location) === null ? "" : "source")}${escapeHtml(after)}`;
 }
 
 function renderSlop(record, row, prefix, spacing, rest) {
@@ -155,5 +160,5 @@ export function renderDollyfilePage(record, graph) {
     b { color: #f2d45c; } .comment { color: #77736c; }
   </style>
 </head>
-<body><main><pre aria-label="${escapeHtml(record.location.slice(1))} source"><code>${renderSource(record, graph)}</code></pre></main></body></html>\n`;
+<body><main><pre aria-label="${escapeHtml(recipeFileName(record.location))} source"><code>${renderSource(record, graph)}</code></pre></main></body></html>\n`;
 }

@@ -1,4 +1,4 @@
-DOLLY 4
+DOLLY 5
 MODULE libuv
 
 REQUIRES HEADER libc
@@ -10,7 +10,7 @@ REQUIRES TOOL cp
 REQUIRES TOOL tar
 REQUIRES TOOL rm
 
-SOURCE HOST /static/neovim/libuv.tar /tmp/libuv/source.tar d28d193a41b305f389d8e3a2dbe186ba0c5762c2b9aab24febfc32b8fb026920
+SOURCE https://daugasauron.com/static/neovim/libuv.tar d28d193a41b305f389d8e3a2dbe186ba0c5762c2b9aab24febfc32b8fb026920 /tmp/libuv/source.tar
 SLOP tar -xf /tmp/libuv/source.tar -C /
 SLOP make -C /tmp/libuv
 SLOP cp /tmp/libuv/libuv.a /usr/lib/libuv.a

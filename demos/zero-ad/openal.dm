@@ -1,4 +1,4 @@
-DOLLY 4
+DOLLY 5
 MODULE openal
 
 REQUIRES HEADER libc
@@ -13,7 +13,7 @@ REQUIRES TOOL ar
 REQUIRES TOOL tar
 REQUIRES TOOL rm
 
-SOURCE HOST /static/openal/source.tar /tmp/openal/source.tar 716be269a99ccde5220f790e281cd1a4660152d7952eb09ba9619eab1f8c7bec
+SOURCE https://daugasauron.com/static/openal/source.tar 716be269a99ccde5220f790e281cd1a4660152d7952eb09ba9619eab1f8c7bec /tmp/openal/source.tar
 SLOP tar -xf /tmp/openal/source.tar -C /
 SLOP cmake -S /tmp/openal/source -B /tmp/openal/build \
   -DCMAKE_SYSTEM_NAME=Dolly -DCMAKE_SYSTEM_PROCESSOR=wasm64 \

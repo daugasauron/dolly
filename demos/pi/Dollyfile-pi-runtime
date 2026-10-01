@@ -1,7 +1,7 @@
-DOLLY 4
+DOLLY 5
 IMAGE pi-runtime
 
-FROM HOST /Dollyfile-javascript a9471589a243be194b427b5fa3600a31ecaa74f490cceebb8ec10c6f8e078f74
-USE HOST /modules/pi.dm 399d8c998c6dfee7eaa27f215272ebfa06ad9c2e390e13fb13b1da2f203aaccb
+FROM https://daugasauron.com/Dollyfile-javascript 9ca2e80790dd549dd61c010c5f9d09678ec7eaf7922dc0c6f0e3273602543ac5
+USE https://daugasauron.com/modules/pi.dm 1c3d13b4d2021b5d58487121b26c7ed036feed902c6b12e08013a71139c71b79
 
 ENTRY /bin/foreground -i /bin/slop

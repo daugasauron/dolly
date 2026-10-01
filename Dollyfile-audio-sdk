@@ -1,7 +1,7 @@
-DOLLY 4
+DOLLY 5
 IMAGE audio-sdk
 
-FROM HOST /Dollyfile-system beee8800f5fb14ad18fc1c45c79218ab4207b4dc9a48ef1f101884caa040862b
+FROM https://daugasauron.com/Dollyfile-system ecae59a05a01920628ef81dbb98efced38e14bc8ddb8a160618b638129eb5361
 REQUIRES HOST audio@0
 
 ENTRY /bin/foreground -i /bin/slop

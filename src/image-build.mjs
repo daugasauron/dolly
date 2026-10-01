@@ -3,15 +3,18 @@ import { loadRecipeGraph } from "./dollyfile-graph.mjs";
 import { imageInputs, imageInputsMatch } from "./image-inputs.mjs";
 import { describeImageArtifact, loadImageArtifactDescriptor, loadImageArtifact, saveImageArtifact,
   loadPackagedSnapshotMetadata, loadPackagedSystemSnapshot } from "./image-artifact.mjs";
+import { CANONICAL_ORIGIN, canonicalPath } from "./static-asset.mjs";
 
 const applicationBase = new URL("../", import.meta.url);
 
 // A custom recipe may reference only this release's published recipes.
 function customRecipeGraph(customSource, signal) {
-  return loadRecipeGraph(async location => {
-    if (location === "Dollyfile") return new TextEncoder().encode(customSource);
-    const response = await fetch(new URL(location.slice(1), applicationBase), { credentials: "same-origin", redirect: "error", signal });
-    if (!response.ok) throw new Error(`${location}: HTTP ${response.status}; this release does not publish that recipe`);
+  return loadRecipeGraph(async url => {
+    if (url === "Dollyfile") return new TextEncoder().encode(customSource);
+    const path = canonicalPath(url);
+    if (path === null) throw new Error(`${url}: this release publishes only ${CANONICAL_ORIGIN} recipes`);
+    const response = await fetch(new URL(path.slice(1), applicationBase), { credentials: "same-origin", redirect: "error", signal });
+    if (!response.ok) throw new Error(`${url}: HTTP ${response.status}; this release does not publish that recipe`);
     return response.arrayBuffer();
   }, "Dollyfile");
 }
@@ -46,7 +49,8 @@ export async function prepareImageArtifacts(image, customSource, build, report, 
   async function resolve(reference) {
     signal?.throwIfAborted();
     if (artifacts.has(reference.sha256)) return artifacts.get(reference.sha256);
-    const definition = DOLLY_IMAGES.find(candidate => `/${candidate.dollyfile}` === reference.location && candidate.sha256 === reference.sha256);
+    const definition = DOLLY_IMAGES.find(candidate =>
+      `${CANONICAL_ORIGIN}/${candidate.dollyfile}` === reference.location && candidate.sha256 === reference.sha256);
     if (!definition) throw new Error(`${reference.location}: image pin is not present in this release`);
     if (active.has(definition.image)) throw new Error(`image cycle at ${definition.image}`);
     active.add(definition.image);

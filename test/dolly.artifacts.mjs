@@ -300,7 +300,7 @@ test("system snapshots are sealed to their visible recipe chain", async () => {
   }
 });
 
-test("HOST inputs are independent exact pinned files", async () => {
+test("published inputs are independent exact pinned files", async () => {
   const projectDir = new URL("..", import.meta.url).pathname;
   const { DOLLY_IMAGES, DOLLY_STATIC_SOURCES } = await import(artifact("dolly-images.mjs"));
   const selected = new Set(DOLLY_IMAGES.map(({ image }) => image));

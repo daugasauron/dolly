@@ -9,7 +9,7 @@ import { createDollyfileGraphLoader } from "../scripts/dollyfile-graph.mjs";
 import { discoverImageDefinitions } from "../scripts/image-definitions.mjs";
 
 const digest = value => createHash("sha256").update(value).digest("hex");
-test("retained images declare only their runtime providers using Dollyfile 4", async () => {
+test("retained images declare only their runtime providers", async () => {
   const root = new URL("../", import.meta.url).pathname;
   const load = createDollyfileGraphLoader(root);
   const interactive = ["display@0", "download@0", "http@0", "snapshot@0", "upload@0"];
@@ -29,10 +29,10 @@ test("build graph and artifact requirements inherit FROM and USE, not COPY", asy
   const dir = await mkdtemp(join(tmpdir(), "dolly-host-modules-"));
   try {
     await mkdir(join(dir, "modules"));
-    const base = "DOLLY 4\nIMAGE base\nREQUIRES HOST display@0\nENTRY /bin/slop\n";
-    const donor = "DOLLY 4\nIMAGE donor\nREQUIRES HOST threads@0\nENTRY /bin/slop\n";
-    const child = "DOLLY 4\nMODULE child\nREQUIRES HOST gpu@0\n";
-    const root = `DOLLY 4\nIMAGE default\nFROM HOST /Dollyfile-base ${digest(base)}\nCOPY FROM HOST /Dollyfile-donor ${digest(donor)} /usr /usr\nUSE HOST /modules/child.dm ${digest(child)}\nREQUIRES HOST http@0\nENTRY /bin/slop\n`;
+    const base = "DOLLY 5\nIMAGE base\nREQUIRES HOST display@0\nENTRY /bin/slop\n";
+    const donor = "DOLLY 5\nIMAGE donor\nREQUIRES HOST threads@0\nENTRY /bin/slop\n";
+    const child = "DOLLY 5\nMODULE child\nREQUIRES HOST gpu@0\n";
+    const root = `DOLLY 5\nIMAGE default\nFROM https://daugasauron.com/Dollyfile-base ${digest(base)}\nCOPY FROM https://daugasauron.com/Dollyfile-donor ${digest(donor)} /usr /usr\nUSE https://daugasauron.com/modules/child.dm ${digest(child)}\nREQUIRES HOST http@0\nENTRY /bin/slop\n`;
     const sources = new Map([["/Dollyfile", root], ["/Dollyfile-base", base], ["/Dollyfile-donor", donor], ["/modules/child.dm", child]]);
     for (const [path, source] of sources) await writeFile(join(dir, path.slice(1)), source);
     const graph = await createDollyfileGraphLoader(dir)();

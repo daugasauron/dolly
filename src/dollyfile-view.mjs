@@ -119,9 +119,14 @@ function validAbsolutePath(value) {
     !value.split("/").some((part) => part === "." || part === "..");
 }
 
-function validModuleLocator(value) {
-  return /^\/modules\/[a-z][a-z0-9-]{0,63}\.dm$/.test(value);
-}
+// SOURCE takes an absolute http(s) URL without a fragment. FROM, COPY and USE
+// URLs also have a path and no query; their file is Dollyfile[-NAME] or NAME.dm.
+const sourceURL = /^https?:\/\/[^/?#\\ \t\r\n\v\f]+(?:[/?][^#\\ \t\r\n\v\f]*)?$/;
+const recipeURL = /^https?:\/\/[^/?#\\ \t\r\n\v\f]+\/[^?#\\ \t\r\n\v\f]*$/;
+// The file a recipe URL names, or "" when the value is not a recipe URL.
+export const recipeFileName = url => recipeURL.test(url) ? url.slice(url.lastIndexOf("/") + 1) : "";
+const imageFileName = /^Dollyfile(?:-[a-z][a-z0-9-]{0,31})?$/;
+const moduleFileName = /^[a-z][a-z0-9-]{0,63}\.dm$/;
 
 // No image retains scratch space or the bundled agent's credentials and sessions.
 export function unretainedPath(value) {
@@ -175,38 +180,32 @@ function inspectRecipe(source, label, rows) {
         moduleName = tokens[0];
         break;
       case "USE":
-        if (tokens.length !== 3 || tokens[0] !== "HOST" ||
-            !validModuleLocator(tokens[1]) ||
-            !sha256Pattern.test(tokens[2])) fail(label, item.line, "invalid USE");
-        uses.push({ transport: tokens[0].toLowerCase(), location: tokens[1], sha256: tokens[2], line: item.line });
+        if (tokens.length !== 2 || !moduleFileName.test(recipeFileName(tokens[0])) ||
+            !sha256Pattern.test(tokens[1])) fail(label, item.line, "invalid USE");
+        uses.push({ location: tokens[0], sha256: tokens[1], line: item.line });
         break;
       case "FROM":
       case "COPY": {
         const copy = item.directive === "COPY";
         const args = copy ? tokens.slice(1) : tokens;
-        if ((copy && tokens[0] !== "FROM") || args.length !== (copy ? 5 : 3) ||
-            args[0] !== "HOST" || !/^\/Dollyfile(?:-[a-z][a-z0-9-]{0,31})?$/.test(args[1]) ||
-            !sha256Pattern.test(args[2]) || (copy &&
-            args.slice(3).some(path => path !== "/" && !validAbsolutePath(path)))) {
+        if ((copy && tokens[0] !== "FROM") || args.length !== (copy ? 4 : 2) ||
+            !imageFileName.test(recipeFileName(args[0])) || !sha256Pattern.test(args[1]) || (copy &&
+            args.slice(2).some(path => path !== "/" && !validAbsolutePath(path)))) {
           fail(label, item.line, `invalid ${item.directive}`);
         }
         if (!copy && (!image || from || rows[2] !== item)) {
           fail(label, item.line, "FROM must be the first IMAGE operation");
         }
-        const artifact = { location: args[1], sha256: args[2], line: item.line,
-          source: copy ? args[3] : "/", destination: copy ? args[4] : "/", copy };
+        const artifact = { location: args[0], sha256: args[1], line: item.line,
+          source: copy ? args[2] : "/", destination: copy ? args[3] : "/", copy };
         artifacts.push(artifact);
         if (!copy) from = artifact;
         break;
       }
       case "SOURCE":
-        if (tokens.length !== 4 || !["HOST", "URL"].includes(tokens[0]) ||
-            (tokens[0] === "HOST" && (!validAbsolutePath(tokens[1]) || /[?#]/.test(tokens[1]))) ||
-            (tokens[0] === "URL" &&
-             (!/^https?:\/\//.test(tokens[1]) || tokens[1].includes("#"))) ||
-            !validAbsolutePath(tokens[2]) ||
-            !sha256Pattern.test(tokens[3])) fail(label, item.line, "invalid SOURCE");
-        sources.push({ transport: tokens[0].toLowerCase(), location: tokens[1], destination: tokens[2], sha256: tokens[3], line: item.line });
+        if (tokens.length !== 3 || !sourceURL.test(tokens[0]) || !sha256Pattern.test(tokens[1]) ||
+            !validAbsolutePath(tokens[2])) fail(label, item.line, "invalid SOURCE");
+        sources.push({ location: tokens[0], sha256: tokens[1], destination: tokens[2], line: item.line });
         break;
       case "REQUIRES":
         if (tokens[0] === "HOST") {
@@ -290,8 +289,8 @@ function inspectRecipe(source, label, rows) {
 
 export function inspectDollyfile(source, label = "Dollyfile") {
   const rows = directives(physicalLines(source, label), label);
-  if (rows[0]?.directive !== "DOLLY" || rows[0].args !== "4") {
-    throw new Error(`${label}:${rows[0]?.line ?? 1}: first declaration must be DOLLY 4`);
+  if (rows[0]?.directive !== "DOLLY" || rows[0].args !== "5") {
+    throw new Error(`${label}:${rows[0]?.line ?? 1}: first declaration must be DOLLY 5`);
   }
   return inspectRecipe(source, label, rows);
 }

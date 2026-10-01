@@ -1,6 +1,6 @@
-// Isolated diagnostic of the actual C parser. These test-only hooks serve
-// recipes from a fixture directory and capture shell arguments; they never run
-// host tools.
+// Isolated diagnostic of the actual C parser. These test-only hooks serve the
+// canonical origin from a fixture directory, as an embedding's mirror does, and
+// capture shell arguments; they never run host tools.
 #define main dollyfile_main
 #include "../../src/dollyfile.c"
 #undef main
@@ -11,8 +11,10 @@ static int capture_shell;
 static int captured_input = -1;
 
 int dolly_http_perform(const dolly_http_request *request, dolly_http_response *response) {
-  static const char base[] = "http://fixture.invalid/";
-  if (fixture_directory == NULL || strncmp(request->url, base, sizeof(base) - 1) != 0) abort();
+  static const char base[] = "https://daugasauron.com/";
+  if (fixture_directory == NULL) abort();
+  response->status = 404;
+  if (strncmp(request->url, base, sizeof(base) - 1) != 0) return 0;
   char path[PATH_MAX];
   snprintf(path, sizeof(path), "%s/%s", fixture_directory, request->url + sizeof(base) - 1);
   Buffer input = {.limit = 1024 * 1024};
@@ -49,7 +51,7 @@ int main(int argc, char **argv) {
   if (argc < 3) return 2;
   int result = 2;
   Scope tools = {0}, exports = {0};
-  Engine engine = {.host_base = strdup("http://fixture.invalid")};
+  Engine engine = {0};
 
   if (strcmp(argv[1], "check") == 0) {
     // Parse DIR/Dollyfile as a custom root, fetching its modules from DIR.
@@ -86,7 +88,7 @@ int main(int argc, char **argv) {
     char *kind = NULL, *name = NULL;
     int header = 0;
     size_t operations = 0;
-    char blank[] = "  ", declaration[] = "DOLLY 4";
+    char blank[] = "  ", declaration[] = "DOLLY 5";
     if (result == 0) result = process_line(&engine, "probe", 0, 1, blank,
         NULL, 0, &tools, &exports, &kind, &name, &header, &operations, 0);
     if (engine.artifact.stream == NULL) result = 2;
@@ -109,10 +111,10 @@ int main(int argc, char **argv) {
   } else if (strcmp(argv[1], "recipe-names") == 0 && argc == 4) {
     // Retained recipe paths derive from kind and name, so two locators cannot share them.
     const char *digest = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
-    result = append_recipe(&engine, "IMAGE", "base", "/Dollyfile-base", digest, "base");
+    result = append_recipe(&engine, "IMAGE", "base", "https://daugasauron.com/Dollyfile-base", digest, "base");
     if (result == 0) result = append_recipe(&engine, "IMAGE", argv[2], argv[3], digest, "root");
-  } else if (strcmp(argv[1], "image-locator") == 0) {
-    result = valid_image_locator(argv[2]) ? 0 : 2;
+  } else if (strcmp(argv[1], "image-url") == 0) {
+    result = valid_image_url(argv[2]) ? 0 : 2;
   } else if (strcmp(argv[1], "kind") == 0 && argc == 4) {
     result = validate_export(argv[2], "probe", argv[3], NULL, 0);
   }

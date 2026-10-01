@@ -1,4 +1,4 @@
-import { inspectDollyfile } from "./dollyfile-view.mjs";
+import { inspectDollyfile, recipeFileName } from "./dollyfile-view.mjs";
 import { hostRequirements } from "../host/requirements.mjs";
 import { sha256 } from "./static-asset.mjs";
 
@@ -7,7 +7,7 @@ const decoder = new TextDecoder("utf-8", { fatal: true, ignoreBOM: true });
 const key = object => `${object.type}:${object.name}`;
 
 // The recipe graph of one image, as /bin/dollyfile reads it: the root and its
-// USE modules, plus the FROM/COPY images it imports. `read(location)` returns a
+// USE modules, plus the FROM/COPY images it imports. `read(url)` returns a
 // recipe's bytes; this checks every pin. It is an inspection graph, not a
 // dependency solver: runtime assertions may resolve against files and
 // environment that recipes do not declare. Pass the same `recipes` cache to
@@ -36,7 +36,7 @@ export async function loadRecipeGraph(read, rootLocation, recipes = new Map()) {
     if (parsed.kind !== (image ? "image" : "module")) {
       throw new Error(`${location}: expected ${image ? "IMAGE" : "MODULE"}`);
     }
-    if (!image && location !== `/modules/${parsed.name}.dm`) {
+    if (!image && recipeFileName(location) !== `${parsed.name}.dm`) {
       throw new Error(`${location}: MODULE ${parsed.name} must match its filename`);
     }
     if (image && (imageNames.get(parsed.name) ?? location) !== location) {

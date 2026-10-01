@@ -1,10 +1,10 @@
-DOLLY 4
+DOLLY 5
 IMAGE system-build
 
-USE HOST /modules/bootstrap.dm c57af586f27d3d30c59c49712457a3392fe20a5d6f2247f39646aa1d50cedaaf
-USE HOST /modules/core-tools.dm 0ed707668c569b9b61175da7ec042433b9210337e196947208eea31e59f95a15
-USE HOST /modules/tar.dm 2868ed138733f40f58640f260107d8bd0541af77414af7fb3929d568b9f2931e
-USE HOST /modules/make.dm 3d898f4189cd334b3f7120d67adf4bb1c75a43c2bee8d4b7f8d9015352449018
-USE HOST /modules/cpp.dm 4c0c70a0453498b138387708cf7d7f831a9eb636899576e5f36351cdfcb3af74
+USE https://daugasauron.com/modules/bootstrap.dm d1d1bf1358fcbe70f62d9a086f83d80d6a97d486dccf89669718c4d5d5b4df43
+USE https://daugasauron.com/modules/core-tools.dm 855535cac8979927fee813c241f0f859e13363beefd437d806da7d713117bd85
+USE https://daugasauron.com/modules/tar.dm 4fc79063fddfcd0ed821d9dbe8a914afa725f9fb3c9c4377c0ef3cffcdeab160
+USE https://daugasauron.com/modules/make.dm 10f3cd7bb305c6e828a1b811dde3eafda14dc32cf9a1480d68648acdee98e0fc
+USE https://daugasauron.com/modules/cpp.dm 5abf7e3d4edebd6b6622780f028348c3cfa987825e57fd2050f66d62c41cdebf
 
 ENTRY /bin/slop
