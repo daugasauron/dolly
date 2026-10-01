@@ -113,3 +113,10 @@ Remaining:
   `DOLLY_THREADS_ABI_DIGEST`) would weaken executable identity, so choose:
   per-module digests stamped by the client, or keep module packets in `process.h`.
 - `threads@0` kernel code stays in `process-kernel.c` (thread table).
+
+## Decision (owner, 2026-10-01): stage 3
+
+Per-module digests: display, HTTP, download and upload packets move from
+`process.h` into their modules' headers, each with a layout digest its client
+stamps (as threads does with `DOLLY_THREADS_ABI_DIGEST`); `process.h` keeps only
+the core process ABI.

@@ -31,3 +31,11 @@ busy, without making Ctrl+C mutable terminal state (`include/dolly/runtime.h`).
 
 - Browser check: Ctrl+C stops `while :; do :; done` at the Slop prompt, and Ctrl+C in
   Pi while a response streams still reaches Pi as input.
+
+## Decision (owner, 2026-10-01)
+
+Termios ISIG, the Unix model. Ctrl+C is SIGINT to the foreground while its
+terminal has ISIG set and input while a program clears ISIG (raw mode, as Pi's
+editor and Codex do). Slop's line editor clears ISIG while reading a line and
+restores it while commands run, so a builtin-only loop stops. This replaces
+`include/dolly/runtime.h`'s rule that Ctrl+C is not mutable terminal state.

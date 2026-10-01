@@ -1,6 +1,6 @@
 # Page rebuilds can fetch unpinned bytes into reproducible images
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 285
 - TAGS: bug,build,reproducibility,boundary
 
@@ -27,3 +27,7 @@ external `SOURCE` URLs as exact GET rules (as CI builds do today).
 - A rebuild whose recipe fetches an unpinned URL fails explicitly (or is
   marked non-reproducible, per the decision), with a browser test; pinned
   inputs still build in Chrome and Firefox.
+
+## Decision (owner, 2026-10-01)
+
+Leave as is: builds keep the page's HTTP policy.
