@@ -17,7 +17,7 @@ export async function stageRustSeed(project, destination) {
     kind = "pinned";
     source = join(project, "dist/static/rust/rust-sdk.tar.gz");
     const recipe = inspectDollyfile(await readFile(join(project, "demos/rust/rust-sdk.dm"), "utf8"));
-    expected = recipe.sources.find(item => item.location === "/static/rust/rust-sdk.tar.gz")?.sha256;
+    expected = recipe.sources.find(item => item.location === "https://daugasauron.com/static/rust/rust-sdk.tar.gz")?.sha256;
   }
   const bytes = await readFile(source).catch(error => {
     if (error.code !== "ENOENT") throw error;

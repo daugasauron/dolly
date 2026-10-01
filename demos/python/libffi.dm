@@ -1,4 +1,4 @@
-DOLLY 4
+DOLLY 5
 MODULE libffi
 
 REQUIRES HEADER libc
@@ -9,12 +9,12 @@ REQUIRES TOOL   rm
 REQUIRES TOOL   slop
 REQUIRES TOOL   tar
 
-SOURCE HOST /static/python/libffi.tar /tmp/libffi.tar 0b9478e1c8726962026fc4fe97e647b60b00497f52e9709a8206daa5d7f5dc71
+SOURCE https://daugasauron.com/static/python/libffi.tar 0b9478e1c8726962026fc4fe97e647b60b00497f52e9709a8206daa5d7f5dc71 /tmp/libffi.tar
 SLOP tar \
   -xf /tmp/libffi.tar \
   -C /
 
-SOURCE HOST /static/python/runtimes/libffi-dolly.c /usr/src/libffi/src/dolly.c a253e2ff15cc13e771341792b3ac6b6c534af4b04e015f184e12593285877b12
+SOURCE https://daugasauron.com/static/python/runtimes/libffi-dolly.c a253e2ff15cc13e771341792b3ac6b6c534af4b04e015f184e12593285877b12 /usr/src/libffi/src/dolly.c
 
 FILE /tmp/libffi/Makefile
     .RECIPEPREFIX := >

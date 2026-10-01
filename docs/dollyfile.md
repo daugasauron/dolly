@@ -1,4 +1,4 @@
-# Dollyfile 4
+# Dollyfile 5
 
 A Dollyfile is an ordered recipe that `/bin/dollyfile`
 ([`dollyfile.c`](../src/dollyfile.c)) executes inside Wasm to build an image.
@@ -7,10 +7,10 @@ with its ENTRY program; a module (`/modules/NAME.dm`) is a reusable group of
 steps. Steps share one filesystem and environment and run in order.
 
 ```text
-DOLLY 4
+DOLLY 5
 IMAGE example
 
-FROM HOST /Dollyfile-system <sha256>
+FROM https://daugasauron.com/Dollyfile-system <sha256>
 
 FILE /tmp/example.c
     #include <stdio.h>
@@ -21,8 +21,11 @@ EXPORTS TOOL example
 ENTRY /bin/foreground -i /bin/slop
 ```
 
-Recipe locations form one flat namespace. In the checkout, core recipes sit at
-the top level and in `modules/`, demo recipes in `demos/DEMO/`
+Recipes name every image, module and file they read by full URL with its
+SHA-256. Catalog recipes and their prepared sources are published flat on one
+canonical origin, `https://daugasauron.com`: `/Dollyfile-NAME`,
+`/modules/NAME.dm`, `/static/…` and `/include/dolly/…`. In the checkout, core
+recipes sit at the top level and in `modules/`, demo recipes in `demos/DEMO/`
 ([`recipe-files.mjs`](../scripts/recipe-files.mjs)).
 
 ## Text
@@ -37,7 +40,7 @@ the top level and in `modules/`, demo recipes in `demos/DEMO/`
   only `$`, `` ` ``, `"` and `\`. Elsewhere `\` escapes the next character.
   Unclosed quotes are errors. Values are literal: expansion happens only inside
   `SLOP`.
-- The first declaration is `DOLLY 4`, the second `IMAGE name` or `MODULE name`.
+- The first declaration is `DOLLY 5`, the second `IMAGE name` or `MODULE name`.
 - `FILE /path` may be followed by a body: the following lines that start with
   four spaces, which are removed; each line ends with LF. A blank body line needs
   the four spaces; tabs do not count. Body text is literal.
@@ -46,14 +49,13 @@ the top level and in `modules/`, demo recipes in `demos/DEMO/`
 
 | Declaration | Meaning |
 | --- | --- |
-| `DOLLY 4` | Language version. |
+| `DOLLY 5` | Language version. |
 | `IMAGE name` | `[a-z][a-z0-9-]*`, at most 32 bytes. |
-| `MODULE name` | At most 64 bytes; the file must be `/modules/name.dm`. |
-| `FROM HOST /Dollyfile[-name] SHA256` | Image only, first operation: start from that completed image. |
-| `COPY FROM HOST /Dollyfile[-name] SHA256 SOURCE DESTINATION` | Copy a retained file or tree out of a completed image. |
-| `USE HOST /modules/name.dm SHA256` | Run the module here. |
-| `SOURCE HOST /path DESTINATION SHA256` | Download a file published by this site. |
-| `SOURCE URL http(s)://… DESTINATION SHA256` | Download an external file. |
+| `MODULE name` | At most 64 bytes; its URL names the file `name.dm`. |
+| `FROM URL SHA256` | Image only, first operation: start from that completed image. |
+| `COPY FROM URL SHA256 SOURCE DESTINATION` | Copy a retained file or tree out of a completed image. |
+| `USE URL SHA256` | Run the module here. |
+| `SOURCE URL SHA256 DESTINATION` | Download a file. |
 | `SLOP [CWD /directory] command…` | Run a Slop command; failure stops the build. |
 | `FILE /path` | Write the body, if any, and retain the file. |
 | `FOLDER /path` | Retain the directory and its members. |
@@ -64,10 +66,13 @@ the top level and in `modules/`, demo recipes in `demos/DEMO/`
 
 - Paths are absolute and normalized: no trailing `/`, `//`, `.`, `..`,
   backslash, CR or LF; under 4096 bytes. Only `COPY` paths and `SLOP CWD` may be
-  `/`. `SOURCE HOST` paths have no `?` or `#`; `SOURCE URL` has no `#`.
+  `/`.
+- URLs are absolute `http(s)://` with a host, no fragment and no whitespace or
+  `\`. `FROM` and `COPY` URLs name `Dollyfile` or `Dollyfile-name` and `USE`
+  URLs `name.dm`, with no query.
 - `SHA256` is 64 lowercase hex digits of the exact referenced bytes.
   `node scripts/update-module-pins.mjs` refreshes USE/FROM/COPY pins
-  (`--sources` also local `SOURCE HOST` pins).
+  (`--sources` also the pins of prepared canonical sources).
 - Pins stay inline and cascade: each pin covers everything the referenced
   recipe pins, so a change anywhere changes the hash of every recipe that
   depends on it and rebuilds those images. That is intended: every image is
@@ -92,11 +97,15 @@ the top level and in `modules/`, demo recipes in `demos/DEMO/`
 - `SOURCE` downloads through the HTTP broker, creates parent directories and
   replaces `DESTINATION` only after the digest matches. Downloads are not
   retained by themselves.
-- `HOST` inputs are exact files the serving site publishes, which the embedding
-  page grants to builds; `URL` inputs are external and pass only if the
-  embedding's HTTP policy allows them. A recipe never grants itself network
-  access. Upstream hosts often send no CORS headers, so upstream archives are
-  staged and published as `SOURCE HOST` files ([sources](sources.md#pins-and-identity)).
+- Where bytes come from never changes a recipe or its identity; pins cover
+  content. The page serves its own copy of every file its release publishes on
+  the canonical origin (a mirror), so `npm run serve`, the test server and image
+  builds build an unpublished checkout from its own files. The page grants
+  exactly those files to builds ([HTTP](http.md)); other URLs are external and
+  pass only if the embedding's HTTP policy allows them. A recipe never grants
+  itself network access. Upstream hosts often send no CORS headers, so upstream
+  archives are staged and published on the canonical origin
+  ([sources](sources.md#pins-and-identity)).
 - `EXPORTS ENV NAME VALUE` sets the variable now; `EXPORTS ENV NAME APPEND VALUE`
   appends `:VALUE` (or sets it when empty); `EXPORTS ENV NAME` keeps the current
   value, which must be set at the end. Final values are stored in the image.
@@ -154,7 +163,7 @@ then a recovery shell; reusable images enter `/bin/foreground -i /bin/slop`.
 flowchart TD
   recipe["Dollyfile + modules, pinned"] --> exec
   bases["FROM / COPY images: cached, published or built first"] --> exec
-  inputs["SOURCE HOST / URL via the HTTP broker"] --> exec
+  inputs["SOURCE URLs via the HTTP broker"] --> exec
   exec["/bin/dollyfile in a fresh runtime"] --> snap["Sealed snapshot: retained files, env, ENTRY"]
   snap -- "npm run image: headless Chrome on /IMAGE/rebuild/" --> packs["dist/ snapshot, packaged as shared packs"]
   snap -- "/IMAGE/rebuild/ in a browser" --> cache[("IndexedDB image cache")]
@@ -180,16 +189,17 @@ flowchart TD
 - Published images share content-addressed compressed packs of identical file
   records, deduplicating distribution without layer mounts in WasmFS; the
   browser rebuilds and verifies each exact snapshot before restoring.
-- `npm run image -- IMAGE` stages local sources, refreshes `SOURCE HOST` and recipe
-  pins and builds with the existing runtime; `--plan` only shows what would
-  rebuild. `SOURCE URL` pins are never refreshed automatically.
+- `npm run image -- IMAGE` stages local sources, refreshes canonical source and
+  recipe pins and builds with the existing runtime; `--plan` only shows what
+  would rebuild. External source pins are never refreshed automatically.
 - `npm run lint:dollyfiles` checks every catalog graph (pins, names, USE depth,
   host requirements) without running anything. Catalog images are named after
   their file.
 
 ## Custom images and Studio
 
-`/custom/` builds a pasted or uploaded recipe in a fresh sandbox; its pins must
-match images and modules published by that site, which publishes every module. Dollyfile Studio adds Pi,
+`/custom/` builds a pasted or uploaded recipe in a fresh sandbox; its FROM, COPY
+and USE URLs must name images and modules the release publishes on the canonical
+origin, which include every module. Dollyfile Studio adds Pi,
 Neovim linting and `dollyfile-build FILE` ([Studio builds](image-build-service.md)).
 Custom images can be saved as [sessions](sessions.md).

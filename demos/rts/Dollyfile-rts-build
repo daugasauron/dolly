@@ -1,7 +1,7 @@
-DOLLY 4
+DOLLY 5
 IMAGE rts-build
 
-FROM HOST /Dollyfile-sdl2-build 95d492d4120091b98f4fdf01766d5ccf9abdb8900db223458d01f23d3e9b1899
-USE HOST /modules/seven-kingdoms.dm 90f7910d7166ddf2efb4c2e8ab1929ea60086699b12eeb52de503dcca8a5974f
+FROM https://daugasauron.com/Dollyfile-sdl2-build 9663f72bd271e9700e0ebcdb013642f046ad86301049857e26317043934a799f
+USE https://daugasauron.com/modules/seven-kingdoms.dm 99ff97ef74787aa3a32466610fa03592daef10198d6647badcf6154304e7542c
 
 ENTRY /bin/foreground -i /bin/slop

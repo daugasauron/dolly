@@ -17,6 +17,11 @@ Owner decision needed: give every build only the URLs its recipe graph pins
 (recommended; running images keep the page policy), or mark images built with
 unpinned network access as not reproducible.
 
+Since `20260930-230823-full-urls` every build input is a URL in the pinned
+graph: published files are already exact grants by canonical URL, fetched from
+the page's own release, so a pinned-only build policy adds only the graph's
+external `SOURCE` URLs as exact GET rules (as CI builds do today).
+
 ## Done when
 
 - A rebuild whose recipe fetches an unpinned URL fails explicitly (or is

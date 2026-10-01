@@ -1,4 +1,4 @@
-DOLLY 4
+DOLLY 5
 MODULE fd
 
 REQUIRES TOOL patti
@@ -8,7 +8,7 @@ REQUIRES TOOL mkdir
 REQUIRES TOOL rm
 
 # Archives contain upstream source and checksum-verified locked crate archives.
-SOURCE HOST /static/rust/fd.tar /tmp/fd.tar a1282ebc9d7122f8df6cef3f98b64d949ed086698e14bef7cced4f7c680f8728
+SOURCE https://daugasauron.com/static/rust/fd.tar a1282ebc9d7122f8df6cef3f98b64d949ed086698e14bef7cced4f7c680f8728 /tmp/fd.tar
 SLOP tar -xf /tmp/fd.tar -C /
 SLOP patti build --offline --manifest-path /tmp/fd/source/Cargo.toml --bin fd --patch jiff=/tmp/fd/jiff-0.2.29 --patch nix@0.31.3=/tmp/fd/nix-0.31.3 --patch ignore=/tmp/fd/ignore-0.4.31 --patch libc=/opt/rust-sdk/src/libc --cache /tmp/fd/cache --target-dir /tmp/fd/build
 SLOP cp /tmp/fd/build/fd /usr/bin/fd

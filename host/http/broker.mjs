@@ -225,9 +225,10 @@ class HttpTransfer {
         referrerPolicy: "no-referrer",
         signal: this.controller.signal,
       };
-      let response = await this.broker.fetchRequest(target, init);
+      const source = rule.bootstrap === true ? new URL(rule.mirror) : target;
+      let response = await this.broker.fetchRequest(source, init);
       if (rule.bootstrap === true)
-        response = await decodeStaticAsset(response, target, init, rule.maxResponseBytes, this.broker.fetchRequest);
+        response = await decodeStaticAsset(response, source, init, rule.maxResponseBytes, this.broker.fetchRequest);
       const status = response.status;
       await this.publish(encoder.encode(response.url), status, false, 1);
       await this.publish(encoder.encode(`HTTP/1.1 ${status} ${response.statusText}\r\n`), status, false, 2);

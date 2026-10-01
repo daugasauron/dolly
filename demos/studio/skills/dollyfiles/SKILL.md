@@ -41,7 +41,7 @@ policy; protocol details are in `/usr/share/dollyfile-studio/build-service.md`.
 
 ## Important language details
 
-- `DOLLY 4`, then `IMAGE name`; FROM is the first image operation.
+- `DOLLY 5`, then `IMAGE name`; FROM is the first image operation.
 - FILE body lines start with **four spaces**, including blank content lines.
   The example shows this indentation. FILE is not a shell heredoc: no `<<EOF`.
 - Compile with `cc`; write executables to `/usr/bin`. `EXPORTS TOOL name`
@@ -52,29 +52,28 @@ policy; protocol details are in `/usr/share/dollyfile-studio/build-service.md`.
   For stdin tests, pipe text: `printf 'input\n' | tool`. `< PATH` reads a file;
   it does not supply inline text. Check results with `test "$(COMMAND)" = EXPECTED`.
 - Own and remove build scratch under `/tmp`. Do not retain credentials or agent
-  history. A local `.dm` is not a published HOST dependency; inline its steps.
+  history. A local `.dm` is not a published dependency; inline its steps.
 - ENTRY is mandatory and final. The tool example enters a Slop prompt.
   COPY FROM copies files, not environment or named exports.
 
 ## Porting upstream programs
 
-`SOURCE HOST` assets from **other modules and images** can be inspected with
-`curl`; they are published web assets, not access to the PC's filesystem.
-Read the module recipe under `/etc/dolly/recipes` for the exact path and pin.
-The current release's base URL is in `/etc/dolly/host.base`, including any
-deployment prefix. For example, inspect QuickJS's recipe and C source without
+Recipes and `SOURCE` files of **other modules and images** can be inspected
+with `curl`; they are published web assets, not access to the PC's filesystem.
+Recipes name them at `https://daugasauron.com`, and the page serves its own
+copy of each. Read the module recipe under `/etc/dolly/recipes` for the exact
+URL and pin. For example, inspect QuickJS's recipe and C source without
 installing that module:
 
 ```sh
-base=$(cat /etc/dolly/host.base)
-curl -f "${base}modules/quickjs.dm"
-curl -f "${base}static/default/runtimes/quickjs-main.c"
+curl -f https://daugasauron.com/modules/quickjs.dm
+curl -f https://daugasauron.com/static/default/runtimes/quickjs-main.c
 ```
 
 For archives, download with `curl -f URL -o /tmp/NAME.tar`, compare `sha256sum`
 with the recipe pin, then extract with `tar -xf ARCHIVE -C SCRATCH_DIRECTORY`.
 Create and clean your scratch directory; Dolly's small tar does not support `-t`.
-Use the same published HOST path and pin in the new recipe; do not turn it into
+Use the same published URL and pin in the new recipe; do not turn it into
 a localhost URL. Reading an archive does not make its tools available in Studio.
 
 Check runtime requirements before writing a large build recipe. PTYs,
@@ -87,9 +86,9 @@ The default site permits HTTP(S) and caller-requested redirects (`curl -L`),
 with byte/time limits but no lifetime request quota. Fetch still enforces CORS.
 SOURCE downloads require a direct URL. A site operator may
 impose additional policy. Changing curl to Git cannot bypass this. Use a
-published HOST source or an upstream
+published source or an upstream
 CORS-enabled URL; raw.githubusercontent.com can serve binary files too.
-Do not invent HOST paths or pins: inspect the published recipes, download an
+Do not invent URLs or pins: inspect the published recipes, download an
 accessible source once and run `sha256sum` on its bytes. If transport fails,
 report the URL and error separately from missing runtime APIs. Preserve the
 draft rather than repeatedly trying equivalent download endpoints.

@@ -1,4 +1,4 @@
-DOLLY 4
+DOLLY 5
 MODULE codex-build
 
 REQUIRES TOOL patti
@@ -12,15 +12,15 @@ REQUIRES TOOL mkdir
 REQUIRES TOOL rm
 REQUIRES TOOL protox
 
-SOURCE HOST /static/codex/sources-00.part /tmp/codex-sources-00.part bc7f7954251dfaad3b176308157252c1304fa6e4a9cd17ddbb76ecd93aa96d03
-SOURCE HOST /static/codex/sources-01.part /tmp/codex-sources-01.part 0ec30b8e31c39d5d75dfc3bac57ccc7cb3386cefc497ec54f184d54ce3080a6a
-SOURCE HOST /static/codex/sources-02.part /tmp/codex-sources-02.part f2c9a1331611014e11ad05f1a50f0d759cbaeabaccd0117b1fb984c9ebadd7e0
-SOURCE HOST /static/codex/sources-03.part /tmp/codex-sources-03.part 3e6ffe79bf6938e53f287c08d33005d55bfc5baf283726407952a538625fe50e
-SOURCE HOST /static/codex/sources-04.part /tmp/codex-sources-04.part 558e0757c624f8ca8d35258f1506ed6c79cb8393ab830199e4e6dc2048919602
-SOURCE HOST /static/codex/sources-05.part /tmp/codex-sources-05.part e1bb9db8d87698c18e31dd7d5954baa9b32276e838c59f10dfdabda2efe08521
-SOURCE HOST /static/codex/sources-06.part /tmp/codex-sources-06.part fe124daa94cb64402b121fa9bb9f5dc6264d5f89d9684762b6d2c99eeeb5d8a5
-SOURCE HOST /static/codex/no-js.c /tmp/codex-no-js.c 5b2a995a8f36f4917f40f39af9806be9d4646d90850585fbc8bd904ff18c45fd
-SOURCE HOST /static/codex/patti.toml /tmp/codex-patti.toml 104a7e2428fc418b9da14e4da2ac8d14b8e7b9af40eb1d768d89c74034a82dea
+SOURCE https://daugasauron.com/static/codex/sources-00.part bc7f7954251dfaad3b176308157252c1304fa6e4a9cd17ddbb76ecd93aa96d03 /tmp/codex-sources-00.part
+SOURCE https://daugasauron.com/static/codex/sources-01.part 0ec30b8e31c39d5d75dfc3bac57ccc7cb3386cefc497ec54f184d54ce3080a6a /tmp/codex-sources-01.part
+SOURCE https://daugasauron.com/static/codex/sources-02.part f2c9a1331611014e11ad05f1a50f0d759cbaeabaccd0117b1fb984c9ebadd7e0 /tmp/codex-sources-02.part
+SOURCE https://daugasauron.com/static/codex/sources-03.part 3e6ffe79bf6938e53f287c08d33005d55bfc5baf283726407952a538625fe50e /tmp/codex-sources-03.part
+SOURCE https://daugasauron.com/static/codex/sources-04.part 558e0757c624f8ca8d35258f1506ed6c79cb8393ab830199e4e6dc2048919602 /tmp/codex-sources-04.part
+SOURCE https://daugasauron.com/static/codex/sources-05.part e1bb9db8d87698c18e31dd7d5954baa9b32276e838c59f10dfdabda2efe08521 /tmp/codex-sources-05.part
+SOURCE https://daugasauron.com/static/codex/sources-06.part fe124daa94cb64402b121fa9bb9f5dc6264d5f89d9684762b6d2c99eeeb5d8a5 /tmp/codex-sources-06.part
+SOURCE https://daugasauron.com/static/codex/no-js.c 5b2a995a8f36f4917f40f39af9806be9d4646d90850585fbc8bd904ff18c45fd /tmp/codex-no-js.c
+SOURCE https://daugasauron.com/static/codex/patti.toml 104a7e2428fc418b9da14e4da2ac8d14b8e7b9af40eb1d768d89c74034a82dea /tmp/codex-patti.toml
 SLOP cat /tmp/codex-sources-00.part /tmp/codex-sources-01.part /tmp/codex-sources-02.part /tmp/codex-sources-03.part /tmp/codex-sources-04.part /tmp/codex-sources-05.part /tmp/codex-sources-06.part | gzip -dc - | tar -xf - -C /
 SLOP rm /tmp/codex-sources-00.part /tmp/codex-sources-01.part /tmp/codex-sources-02.part /tmp/codex-sources-03.part /tmp/codex-sources-04.part /tmp/codex-sources-05.part /tmp/codex-sources-06.part
 SLOP mkdir -p /tmp/codex-build/tools

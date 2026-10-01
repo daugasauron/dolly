@@ -1,4 +1,4 @@
-DOLLY 4
+DOLLY 5
 MODULE treesitter
 
 REQUIRES HEADER libc
@@ -10,7 +10,7 @@ REQUIRES TOOL cp
 REQUIRES TOOL rm
 REQUIRES TOOL uname
 
-SOURCE HOST /static/neovim/treesitter.tar /tmp/treesitter/source.tar c31944873f3cd13235f2e9148b474f329b6bf183823baea50eacdb125fc46f9c
+SOURCE https://daugasauron.com/static/neovim/treesitter.tar c31944873f3cd13235f2e9148b474f329b6bf183823baea50eacdb125fc46f9c /tmp/treesitter/source.tar
 SLOP tar -xf /tmp/treesitter/source.tar -C /
 SLOP make -C /tmp/treesitter/source CC=cc CFLAGS=-O0 MACHINE=wasm64-unknown-emscripten libtree-sitter.a
 SLOP cp /tmp/treesitter/source/libtree-sitter.a /usr/lib/libtree-sitter.a

@@ -12,7 +12,7 @@ test("Studio lint diagnostics preserve filenames when adding the first line numb
     const label = `Dollyfile-${name}`;
     let message, status;
     runInNewContext(source, { scriptArgs: ["--stdin", label], inspectDollyfile,
-      Dolly: { readFile: () => "DOLLY 4\n", exit: code => { status = code; } },
+      Dolly: { readFile: () => "DOLLY 5\n", exit: code => { status = code; } },
       console: { error: text => { message = text; } } });
     assert.equal(status, 1);
     assert.equal(message, `${label}:1: missing IMAGE or MODULE`);

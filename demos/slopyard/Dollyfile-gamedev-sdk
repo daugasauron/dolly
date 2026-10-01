@@ -1,7 +1,7 @@
-DOLLY 4
+DOLLY 5
 IMAGE gamedev-sdk
 
-FROM HOST /Dollyfile-system beee8800f5fb14ad18fc1c45c79218ab4207b4dc9a48ef1f101884caa040862b
-USE HOST /modules/gamedev-sdk.dm c3258c2a314f8e7cad7dcfff09c11643067a8712893d6ae0c17dd8240fd70750
+FROM https://daugasauron.com/Dollyfile-system ecae59a05a01920628ef81dbb98efced38e14bc8ddb8a160618b638129eb5361
+USE https://daugasauron.com/modules/gamedev-sdk.dm 13787386ac5e36ed5f27dfe9ee59524bd023107ac056110bfec038efb779a648
 
 ENTRY /bin/foreground -i /bin/slop

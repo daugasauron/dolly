@@ -131,17 +131,19 @@ test("bootstrap sources are exact read-only broker capabilities", () => {
   );
   const headers = new Headers({ authorization: "Bearer sandbox-secret" });
   const rule = policy.authorize(
-    new URL("https://dolly.example/app/static/tool.tar"),
+    new URL("https://daugasauron.com/static/tool.tar"),
     "GET",
     headers,
     0,
   );
+  assert.equal(rule.mirror, "https://dolly.example/app/static/tool.tar", "fetched from this release");
   assert.equal(rule.maxResponseBytes, 1234);
   assert.equal(headers.has("authorization"), false);
   assert.equal(policy.requests, 0, "trusted build inputs do not spend agent quota");
   for (const target of [
-    "https://dolly.example/app/static/tool.tar?copy=1",
-    "https://dolly.example/app/static/tool.tar/child",
+    "https://daugasauron.com/static/tool.tar?copy=1",
+    "https://daugasauron.com/static/tool.tar/child",
+    "https://dolly.example/app/static/tool.tar",
     "https://dolly.example/static/tool.tar",
   ]) {
     assert.throws(
@@ -151,7 +153,7 @@ test("bootstrap sources are exact read-only broker capabilities", () => {
   }
   assert.throws(
     () => policy.authorize(
-      new URL("https://dolly.example/app/static/tool.tar"), "POST", new Headers(), 0,
+      new URL("https://daugasauron.com/static/tool.tar"), "POST", new Headers(), 0,
     ),
     /denied/,
   );
@@ -178,7 +180,7 @@ test("the default policy admits every HTTP(S) destination, the page origin inclu
 test("bootstrap sources have a bounded hardened quota separate from agent requests", () => {
   const policy = new DollyHttpPolicy({ maxRequests: 1, rules: [] },
     [{ path: "/static/tool.tar", byteLength: 1234 }], "https://dolly.example/app/");
-  const fetchSource = () => policy.authorize(new URL("https://dolly.example/app/static/tool.tar"), "GET", new Headers(), 0);
+  const fetchSource = () => policy.authorize(new URL("https://daugasauron.com/static/tool.tar"), "GET", new Headers(), 0);
   for (let index = 0; index < 4; index++) fetchSource();
   assert.throws(fetchSource, /quota/);
   assert.equal(policy.requests, 0);

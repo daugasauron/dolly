@@ -34,10 +34,10 @@ async function customImageSessions(context, server, fixtures) {
   let page = await newPage(context, fixtures);
   await page.goto(server.origin + "/custom/");
   const original = await page.locator("#source").inputValue();
-  const pin = original.match(/FROM HOST \/Dollyfile-system ([0-9a-f]{64})/)[1];
-  const source = `DOLLY 4
+  const pin = original.match(/FROM https:\/\/daugasauron\.com\/Dollyfile-system ([0-9a-f]{64})/)[1];
+  const source = `DOLLY 5
 IMAGE custom-session
-FROM HOST /Dollyfile-system ${pin}
+FROM https://daugasauron.com/Dollyfile-system ${pin}
 FILE /tmp/session-hello.c
     #include <stdio.h>
     int main(void) { puts("CUSTOM-SOURCE-BUILT"); return 0; }

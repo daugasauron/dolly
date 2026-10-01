@@ -69,24 +69,24 @@ test("source archives reject symlinks and clean failed staging without replacing
   assert.deepEqual((await readdir(scratch)).sort(), ["input", "private", "source.tar"]);
 });
 
-test("prepared HOST bytes update module and image pins without changing URL pins", async () => {
+test("prepared published bytes update module and image pins without changing external pins", async () => {
   const scratch = await mkdtemp(join(tmpdir(), "dolly-image-source-"));
   const digest = bytes => createHash("sha256").update(bytes).digest("hex");
   const pin = "0".repeat(64);
   try {
     await mkdir(join(scratch, "modules"));
     await mkdir(join(scratch, "dist/static"), { recursive: true });
-    await writeFile(join(scratch, "Dollyfile"), `DOLLY 4\nIMAGE default\nUSE HOST /modules/tool.dm ${pin}\nENTRY /bin/slop\n`);
-    await writeFile(join(scratch, "Dollyfile-addon"), `DOLLY 4\nIMAGE addon\nFROM HOST /Dollyfile ${pin}\nENTRY /bin/slop\n`);
-    await writeFile(join(scratch, "modules/tool.dm"), `DOLLY 4\nMODULE tool\nSOURCE HOST /static/tool.c /tmp/tool.c ${pin}\nSOURCE URL https://example.invalid/source /tmp/upstream ${pin}\n`);
+    await writeFile(join(scratch, "Dollyfile"), `DOLLY 5\nIMAGE default\nUSE https://daugasauron.com/modules/tool.dm ${pin}\nENTRY /bin/slop\n`);
+    await writeFile(join(scratch, "Dollyfile-addon"), `DOLLY 5\nIMAGE addon\nFROM https://daugasauron.com/Dollyfile ${pin}\nENTRY /bin/slop\n`);
+    await writeFile(join(scratch, "modules/tool.dm"), `DOLLY 5\nMODULE tool\nSOURCE https://daugasauron.com/static/tool.c ${pin} /tmp/tool.c\nSOURCE https://example.invalid/source ${pin} /tmp/upstream\n`);
     for (const bytes of ["first source", "edited source"]) {
       await writeFile(join(scratch, "dist/static/tool.c"), bytes);
       await updateRecipePins(scratch, true);
       const module = await readFile(join(scratch, "modules/tool.dm"), "utf8");
       const base = await readFile(join(scratch, "Dollyfile"), "utf8");
       const addon = await readFile(join(scratch, "Dollyfile-addon"), "utf8");
-      assert.ok(module.includes(`/tmp/tool.c ${digest(bytes)}`));
-      assert.ok(module.includes(`/tmp/upstream ${pin}`));
+      assert.ok(module.includes(`/static/tool.c ${digest(bytes)} /tmp/tool.c`));
+      assert.ok(module.includes(`/source ${pin} /tmp/upstream`));
       assert.ok(base.includes(digest(module)));
       assert.ok(addon.includes(digest(base)));
       await updateRecipePins(scratch, true);

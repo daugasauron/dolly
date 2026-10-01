@@ -1,7 +1,7 @@
-DOLLY 4
+DOLLY 5
 IMAGE fd-build
 
-FROM HOST /Dollyfile-rust-build 4dcd55b1e9b30d009e14f37c220cb73f47694cc32debe637ba0df3736ae038ea
-USE HOST /modules/fd.dm ee8408a52f1f5bf970040208eaad71ee51d6c0469d52e5f75c0169a8c1278b8b
+FROM https://daugasauron.com/Dollyfile-rust-build cf92a5efedd8454c839b6f73a36263fb19051c1036bedccc53c906a8a2eefc19
+USE https://daugasauron.com/modules/fd.dm bd7ba52a8140e20f20d19d6d50cdbab7f6999188fa816ebb881062108e78b30f
 
 ENTRY /bin/foreground -i /bin/slop

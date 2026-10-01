@@ -1,7 +1,7 @@
-DOLLY 4
+DOLLY 5
 IMAGE protox-build
 
-FROM HOST /Dollyfile-rust-build 4dcd55b1e9b30d009e14f37c220cb73f47694cc32debe637ba0df3736ae038ea
-USE HOST /modules/protox.dm 2b28785ead27e8664fab97eb062c2e42ad9dd0f25e863d51178def99ec3b1f05
+FROM https://daugasauron.com/Dollyfile-rust-build cf92a5efedd8454c839b6f73a36263fb19051c1036bedccc53c906a8a2eefc19
+USE https://daugasauron.com/modules/protox.dm 7c50be4d0d4d43dacfed7dbd5e3a7586bbd3f4da19cce159e683376865f50eea
 
 ENTRY /bin/foreground -i /bin/slop

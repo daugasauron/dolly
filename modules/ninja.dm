@@ -1,4 +1,4 @@
-DOLLY 4
+DOLLY 5
 MODULE ninja
 
 # Samurai is a compact Ninja-compatible executor. Its upstream parser, graph,
@@ -13,8 +13,8 @@ REQUIRES TOOL   make
 REQUIRES TOOL   rm
 REQUIRES TOOL   tar
 
-SOURCE HOST /static/default/samurai.tar                   /tmp/ninja/samurai.tar          c3bb0fcfad238dcf4e4fb9edc119563570772e09fe1cc85384868964ef2f939a
-SOURCE HOST /static/default/runtimes/samurai-unit-dolly.c /tmp/ninja/samurai-unit-dolly.c 4412175ad18939c580d6a31ca89a1284d313026674d5ac4faa0841aab379a4f7
+SOURCE https://daugasauron.com/static/default/samurai.tar                   c3bb0fcfad238dcf4e4fb9edc119563570772e09fe1cc85384868964ef2f939a /tmp/ninja/samurai.tar
+SOURCE https://daugasauron.com/static/default/runtimes/samurai-unit-dolly.c 4412175ad18939c580d6a31ca89a1284d313026674d5ac4faa0841aab379a4f7 /tmp/ninja/samurai-unit-dolly.c
 
 FILE /tmp/ninja/Makefile
     .RECIPEPREFIX := >

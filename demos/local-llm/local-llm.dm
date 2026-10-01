@@ -1,4 +1,4 @@
-DOLLY 4
+DOLLY 5
 MODULE local-llm
 REQUIRES HOST gpu@0
 
@@ -7,7 +7,7 @@ REQUIRES TOOL tar
 REQUIRES TOOL sha256sum
 REQUIRES TOOL dolly-llama
 
-SOURCE HOST /static/llama/provider.tar /tmp/llm-provider.tar 72e16117c8b0cc1b8f1e5ddec6b5d141977e2c2e592d8cd5b5a73a486effb7a5
+SOURCE https://daugasauron.com/static/llama/provider.tar 72e16117c8b0cc1b8f1e5ddec6b5d141977e2c2e592d8cd5b5a73a486effb7a5 /tmp/llm-provider.tar
 SLOP tar -xf /tmp/llm-provider.tar -C /
 
 FILE /home/dolly/.pi/agent/settings.json

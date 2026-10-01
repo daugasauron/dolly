@@ -1,7 +1,7 @@
-DOLLY 4
+DOLLY 5
 IMAGE pi-build
 
-FROM HOST /Dollyfile-typescript-build 7162ce29c8249fa87556d7b4e215c04c93c254f58ac0a9016cd41e4b22d7dd58
-USE HOST /modules/pi-build.dm a41d00dd73065d591ec31e9d00178d0494252b11946821bef572b482e35f92c3
+FROM https://daugasauron.com/Dollyfile-typescript-build a43f41a2741fde0cd7a89b185d1d4d76050c6000f76c4e209fbe18c1526e675c
+USE https://daugasauron.com/modules/pi-build.dm 4f8f54685197663a2f98ee60f2ecdf777c749eb523bf7e453cccc616d8bb58a8
 
 ENTRY /bin/foreground -i /bin/slop

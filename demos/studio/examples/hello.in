@@ -1,7 +1,7 @@
-DOLLY 4
+DOLLY 5
 IMAGE hello
 
-FROM HOST /Dollyfile-system @SYSTEM_SHA256@
+FROM https://daugasauron.com/Dollyfile-system @SYSTEM_SHA256@
 
 FILE /usr/share/hello.txt
     Hello from my custom Dolly image!

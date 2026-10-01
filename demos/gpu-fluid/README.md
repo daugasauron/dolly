@@ -19,8 +19,8 @@ stirring, Q or Escape returns to Slop. `fluid --check` verifies the solver;
 ## Key files
 
 - [`Dollyfile-gpu-fluid`](Dollyfile-gpu-fluid): fetches the SHA-256-pinned
-  `fluid_simulation.c`, `webgpu.h` and cglm headers by `SOURCE URL` and compiles
-  them with `cc`.
+  `fluid_simulation.c`, `webgpu.h` and cglm headers by external `SOURCE` URLs
+  and compiles them with `cc`.
 - [`src/webgpu.c`](src/webgpu.c): the WebGPU C functions the solver uses, over
   `gpu@0`; not a complete WebGPU API.
 - [`src/app.c`](src/app.c): Dolly input, timing and a replacement control panel

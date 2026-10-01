@@ -78,18 +78,18 @@ test("an aggregate imports its requirements into its child scope", async () => {
   const fixture = await mkdtemp(resolve(tmpdir(), "dolly-imported-requirement-"));
   try {
     await mkdir(resolve(fixture, "modules"));
-    const seed = "DOLLY 4\nMODULE seed\n\nEXPORTS TOOL cc\n";
-    const child = `DOLLY 4
+    const seed = "DOLLY 5\nMODULE seed\n\nEXPORTS TOOL cc\n";
+    const child = `DOLLY 5
 MODULE child
 
 REQUIRES TOOL cc
 EXPORTS TOOL result
 `;
-    const aggregate = `DOLLY 4
+    const aggregate = `DOLLY 5
 MODULE aggregate
 
 REQUIRES TOOL cc
-USE HOST /modules/child.dm ${digest(child)}
+USE https://daugasauron.com/modules/child.dm ${digest(child)}
 
 EXPORTS TOOL result
 `;
@@ -98,11 +98,11 @@ EXPORTS TOOL result
       writeFile(resolve(fixture, "modules/child.dm"), child),
       writeFile(resolve(fixture, "modules/aggregate.dm"), aggregate),
     ]);
-    await writeFile(resolve(fixture, "Dollyfile"), `DOLLY 4
+    await writeFile(resolve(fixture, "Dollyfile"), `DOLLY 5
 IMAGE default
 
-USE HOST /modules/seed.dm      ${digest(seed)}
-USE HOST /modules/aggregate.dm ${digest(aggregate)}
+USE https://daugasauron.com/modules/seed.dm      ${digest(seed)}
+USE https://daugasauron.com/modules/aggregate.dm ${digest(aggregate)}
 
 ENTRY /bin/result
 `);
@@ -119,21 +119,21 @@ test("aggregate filesystem exports use their declared paths without provider che
   const fixture = await mkdtemp(resolve(tmpdir(), "dolly-explicit-export-"));
   try {
     await mkdir(resolve(fixture, "modules"));
-    const child = "DOLLY 4\nMODULE child\n\nEXPORTS LIB z /usr/lib/libz.a\n";
-    const aggregate = `DOLLY 4
+    const child = "DOLLY 5\nMODULE child\n\nEXPORTS LIB z /usr/lib/libz.a\n";
+    const aggregate = `DOLLY 5
 MODULE aggregate
 
-USE HOST /modules/child.dm ${digest(child)}
+USE https://daugasauron.com/modules/child.dm ${digest(child)}
 EXPORTS LIB z /usr/lib/replacement.a
 `;
     await Promise.all([
       writeFile(resolve(fixture, "modules/child.dm"), child),
       writeFile(resolve(fixture, "modules/aggregate.dm"), aggregate),
     ]);
-    await writeFile(resolve(fixture, "Dollyfile"), `DOLLY 4
+    await writeFile(resolve(fixture, "Dollyfile"), `DOLLY 5
 IMAGE default
 
-USE HOST /modules/aggregate.dm ${digest(aggregate)}
+USE https://daugasauron.com/modules/aggregate.dm ${digest(aggregate)}
 ENTRY /bin/result
 `);
     const graph = await loadDollyfileGraph(fixture);
@@ -144,7 +144,7 @@ ENTRY /bin/result
 });
 
 test("FILE consumes four-space-indented content and stops at the first other line", () => {
-  const parsed = inspectDollyfile(`DOLLY 4
+  const parsed = inspectDollyfile(`DOLLY 5
 MODULE inline
 REQUIRES TOOL printf
 

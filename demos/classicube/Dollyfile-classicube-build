@@ -1,7 +1,7 @@
-DOLLY 4
+DOLLY 5
 IMAGE classicube-build
 
-FROM HOST /Dollyfile-sdl2-build 95d492d4120091b98f4fdf01766d5ccf9abdb8900db223458d01f23d3e9b1899
-USE HOST /modules/classicube.dm 8b6e27ebf9541581abbc12894cf34e819c1afb4e23b8ff2201da8df18003c314
+FROM https://daugasauron.com/Dollyfile-sdl2-build 9663f72bd271e9700e0ebcdb013642f046ad86301049857e26317043934a799f
+USE https://daugasauron.com/modules/classicube.dm ee83032e4339bf3d05949a9223563002052a21f236d48e6f812c5ce24f0dcc6d
 
 ENTRY /bin/foreground -i /bin/slop

@@ -18,7 +18,8 @@ assert.ok(['auto','uncompressed','core'].includes(compression));
 assert.ok(['gpu','cpu'].includes(animation));
 await mkdir(output,{recursive:true});
 const sources=inspectDollyfile(await readFile(new URL('demos/zero-ad/zero-ad.dm',root),'utf8')).sources;
-const fixtures=Object.fromEntries(sources.map(source=>[source.location.slice('/static/zero-ad/'.length),'dist'+source.location]));
+const prefix='https://daugasauron.com/static/zero-ad/';
+const fixtures=Object.fromEntries(sources.map(source=>[source.location.slice(prefix.length),'dist/static/zero-ad/'+source.location.slice(prefix.length)]));
 fixtures['pyrogenesis.wasm']='build/0ad/pyrogenesis.wasm';
 let provider='import "/test/fixtures/gpu-surface-observer.mjs";\n'+(await readFile(new URL('host/gpu/worker.mjs',root),'utf8'))
   .replace('stats:{...stats,allocatedBytes:usedBytes}',
@@ -92,7 +93,7 @@ try {
   const stagingStart=performance.now();
   if(image==='default') {
     for(const source of sources) {
-      const name=source.location.slice('/static/zero-ad/'.length);
+      const name=source.location.slice(prefix.length);
       const directory=source.destination.slice(0,source.destination.lastIndexOf('/'));
       assert.equal(await submit(`mkdir -p ${directory} && curl -fsS ${server.origin}/fixture/${name} -o ${source.destination}`),0);
     }

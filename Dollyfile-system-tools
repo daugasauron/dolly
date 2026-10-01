@@ -1,10 +1,10 @@
-DOLLY 4
+DOLLY 5
 IMAGE system-tools
 
-FROM HOST /Dollyfile-system-build 4d40f6ceb0e2c49fcd45290aa6d420925fc30a217b85abc6bea9c8c31ab8a935
-USE HOST /modules/sbase.dm dc20896ef0f18640738eff65e5a221e6b2cf8b08371c8425d3aede76a0763b0a
-USE HOST /modules/default.dm 295c4b05422dc43ce3b8c2d5c690eab49c96842373987047e94d2d0f004fae4e
-USE HOST /modules/posix-shell.dm f549dd966c59473892d2fc9f11a19a9b7eaf1c344b1b4a62c5dbf2fbedcc3753
-USE HOST /modules/display.dm 9df0b2c1f08f442f1609f158b3e09a5d7aabf192ff4747d76ea2d8e0a2c4102c
+FROM https://daugasauron.com/Dollyfile-system-build 4edf51872501882458e9371e3ccbefc6089346bd5b52bf4203ee887e80b2f911
+USE https://daugasauron.com/modules/sbase.dm 1c608d80dfc15564810773de44069d25cddea890f85e852d9010bad2b3320ecf
+USE https://daugasauron.com/modules/default.dm 5bf81751fde1f7b929888e8f636dd8370942bf46c7826015488993cc00976663
+USE https://daugasauron.com/modules/posix-shell.dm 9a96f2330b6c8dccdf80ba1b92fac22ee823e81ab4ceb26fa91e5909ea290bb5
+USE https://daugasauron.com/modules/display.dm 115e66665286d6b10700ac0880620605130e6b04ea94f5a2065db07b567fe8a7
 
 ENTRY /bin/foreground -i /bin/slop

@@ -1,4 +1,4 @@
-DOLLY 4
+DOLLY 5
 MODULE rust-sdk
 
 REQUIRES TOOL cc
@@ -9,11 +9,11 @@ REQUIRES TOOL rm
 REQUIRES TOOL mkdir
 
 # External compiler/std seed; the linker adapter is compiled inside Dolly.
-SOURCE HOST /static/rust/rust-sdk.tar.gz /tmp/rust-sdk.tar.gz c48ffcd324f95725c78f08b222c563d36735d253dd119ad92939697e83922b90
+SOURCE https://daugasauron.com/static/rust/rust-sdk.tar.gz c48ffcd324f95725c78f08b222c563d36735d253dd119ad92939697e83922b90 /tmp/rust-sdk.tar.gz
 SLOP mkdir -p /opt
 SLOP gzip -dc /tmp/rust-sdk.tar.gz | tar -xf - -C /opt
-SOURCE HOST /static/rust/rustc.sh /opt/rust-sdk/bin/rustc f171e7c11501b7986912973be16256016a5449b99848e732a0f97459ce29a11e
-SOURCE HOST /static/rust/rust-linker.c /tmp/rust-linker.c 4c5c48b482e26d8cc43546bc130fb1b7913678cfe88b7175dec3b085afd3367d
+SOURCE https://daugasauron.com/static/rust/rustc.sh f171e7c11501b7986912973be16256016a5449b99848e732a0f97459ce29a11e /opt/rust-sdk/bin/rustc
+SOURCE https://daugasauron.com/static/rust/rust-linker.c 4c5c48b482e26d8cc43546bc130fb1b7913678cfe88b7175dec3b085afd3367d /tmp/rust-linker.c
 SLOP cc -O1 /tmp/rust-linker.c -o /opt/rust-sdk/bin/dolly-rust-link
 SLOP mkdir -p /usr/share/licenses/rust
 SLOP cp -R /opt/rust-sdk/licenses/. /usr/share/licenses/rust

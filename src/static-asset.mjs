@@ -9,6 +9,14 @@ export async function sha256(bytes) {
   return hex(await crypto.subtle.digest("SHA-256", bytes));
 }
 
+// Recipes name published files by full URL on one canonical origin. Each
+// embedding serves this release's files itself, so where their bytes come from
+// never changes recipe text, pins or image identity.
+export const CANONICAL_ORIGIN = "https://daugasauron.com";
+
+// The site path of a URL on the canonical origin, or null for an external URL.
+export const canonicalPath = url => url.startsWith(`${CANONICAL_ORIGIN}/`) ? url.slice(CANONICAL_ORIGIN.length) : null;
+
 // Release assets live under _dolly/RELEASE/; user-facing routes do not.
 export function publicURL(path, applicationBase = new URL("../", import.meta.url)) {
   const root = new URL(applicationBase);

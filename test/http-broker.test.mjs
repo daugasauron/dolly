@@ -8,6 +8,8 @@ import { localServicesTransport } from "../host/build/local-services.mjs";
 import { DOLLY_ERRNO as errno } from "../dist/dolly-errno.mjs";
 
 const target = "https://fixture.example/allowed";
+// The same file named on the canonical origin, which embeddings serve themselves.
+const canonical = "https://daugasauron.com/allowed";
 function fixture(configuration = {}, fetchRequest) {
   const policy = new DollyHttpPolicy({
     rules: [{ origin: new URL(target).origin, path: "/allowed", methods: ["GET", "POST"],
@@ -103,10 +105,10 @@ test("multipart delivery is restricted to embedding-selected sources, including 
       return new Response(parts[calls.length - 2]);
     });
     f.broker.policy = policy;
-    const records = await consume(f, f.request({ headers: "Authorization: Bearer private" }));
-    assert.deepEqual(calls, [target, target + ".part-0", target + ".part-1"]);
+    const records = await consume(f, f.request({ url: canonical, headers: "Authorization: Bearer private" }));
+    assert.deepEqual(calls, [target, target + ".part-0", target + ".part-1"], "fetched from the mirror");
     assert.equal(Buffer.concat(records.filter(record => record.kind === 3).map(record => record.bytes)).toString(), bytes.toString());
-    await bounded(f.request({ url: target + ".part-0" }, 2));
+    await bounded(f.request({ url: canonical + ".part-0" }, 2));
     assert.equal(calls.length, 3);
     assert.equal(f.load(NetworkTransport.error), errno.EACCES);
   }
@@ -158,9 +160,9 @@ test("redirects require both caller intent and unrestricted destination authorit
   const restricted = new DollyHttpPolicy({ rules: [{ origin: new URL(target).origin }] });
   const inherited = parent => restrictDollyHttpPolicy(new DollyHttpPolicy(), httpPolicyConfigurations(parent));
   const pinned = new DollyHttpPolicy(undefined, [{ path: "/allowed", byteLength: 100 }], target);
-  for (const [policy, flags, redirect] of [
+  for (const [policy, flags, redirect, url = target] of [
     [unrestricted, 0, "error"], [unrestricted, 2, "follow"], [unrestricted, 3, "follow"],
-    [restricted, 2, "error"], [pinned, 2, "error"],
+    [restricted, 2, "error"], [pinned, 2, "error", canonical],
     [inherited(unrestricted), 2, "follow"], [inherited(restricted), 2, "error"],
     [restrictDollyHttpPolicy(restricted, [null]), 2, "error"],
   ]) {
@@ -170,7 +172,7 @@ test("redirects require both caller intent and unrestricted destination authorit
     });
     const f = fixture({}, network.fetchRequest);
     f.broker.policy = network.policy;
-    const records = await consume(f, f.request({ flags, headers: "Authorization: Bearer sandbox-key" }));
+    const records = await consume(f, f.request({ url, flags, headers: "Authorization: Bearer sandbox-key" }));
     assert.equal(observed.redirect, redirect);
     assert.equal(observed.credentials, "omit");
     assert.equal(observed.referrerPolicy, "no-referrer");

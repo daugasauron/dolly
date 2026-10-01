@@ -2,9 +2,9 @@ import { DOLLY_IMAGE_BUILD_ID } from "../dist/dolly-image-build-id.mjs";
 import { DOLLY_IMAGES } from "../dist/dolly-images.mjs";
 import { imageInputs, imageInputsMatch } from "./image-inputs.mjs";
 import { loadRecipeGraph } from "./dollyfile-graph.mjs";
-import { unretainedPath } from "./dollyfile-view.mjs";
+import { recipeFileName, unretainedPath } from "./dollyfile-view.mjs";
 import { hostRequirements } from "../host/requirements.mjs";
-import { decodeStaticAsset, publicURL, sha256 } from "./static-asset.mjs";
+import { CANONICAL_ORIGIN, canonicalPath, decodeStaticAsset, publicURL, sha256 } from "./static-asset.mjs";
 import { decodeSnapshotRecords, mergeSnapshotRecords, validateSnapshotPacks, MAX_SNAPSHOT_BYTES as snapshotSizeLimit } from "./snapshot-records.mjs";
 const applicationBase = new URL("../", import.meta.url);
 const imageDefinitions = new Map(DOLLY_IMAGES.map(definition => [definition.image, definition]));
@@ -22,7 +22,7 @@ function validSnapshotPath(path) {
 
 async function verifyVisibleRecipes(recipes) {
   for (const recipe of recipes) {
-    const response = await fetch(new URL(recipe.sourcePath.slice(1), applicationBase), {
+    const response = await fetch(new URL(canonicalPath(recipe.sourcePath).slice(1), applicationBase), {
       cache: "no-store", credentials: "same-origin", redirect: "error",
     });
     if (!response.ok) throw new Error(`${recipe.sourcePath} returned HTTP ${response.status}`);
@@ -99,7 +99,8 @@ export async function loadPackagedSnapshotMetadata(image, checked = new Map(), a
   }
   const expectedInputs = [];
   for (const reference of imageDefinitions.get(image).artifacts) {
-    const dependency = DOLLY_IMAGES.find(candidate => `/${candidate.dollyfile}` === reference.location && candidate.sha256 === reference.sha256);
+    const dependency = DOLLY_IMAGES.find(candidate =>
+      `${CANONICAL_ORIGIN}/${candidate.dollyfile}` === reference.location && candidate.sha256 === reference.sha256);
     if (!dependency) throw new Error("packaged image input is missing");
     const parent = await loadPackagedSnapshotMetadata(dependency.image, checked, active);
     expectedInputs.push({ recipeSha256: reference.sha256, sha256: parent.sha256 });
@@ -187,12 +188,13 @@ export async function describeImageArtifact(bytes, recipeSha256, inputs = []) {
   if (source?.kind !== 2 || await sha256(source.data) !== recipeSha256 ||
       records.get("/etc/dolly/artifact")?.kind !== 2) throw new Error("artifact recipe identity mismatch");
   // The artifact retains every recipe it was built from, named by kind and name.
-  const graph = await loadRecipeGraph(location => {
-    if (location === "Dollyfile") return source.data;
-    const path = location.startsWith("/modules/") ? `/etc/dolly/recipes${location}`
-      : `/etc/dolly/recipes/${location === "/Dollyfile" ? "default" : location.slice(11)}.Dollyfile`;
+  const graph = await loadRecipeGraph(url => {
+    if (url === "Dollyfile") return source.data;
+    const name = recipeFileName(url);
+    const path = name.endsWith(".dm") ? `/etc/dolly/recipes/modules/${name}`
+      : `/etc/dolly/recipes/${name === "Dollyfile" ? "default" : name.slice("Dollyfile-".length)}.Dollyfile`;
     const record = records.get(path);
-    if (record?.kind !== 2) throw new Error(`artifact does not retain recipe ${location}`);
+    if (record?.kind !== 2) throw new Error(`artifact does not retain recipe ${url}`);
     return record.data;
   }, "Dollyfile");
   const required = graph.root.hostRequirements;

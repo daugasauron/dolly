@@ -1,4 +1,4 @@
-DOLLY 4
+DOLLY 5
 MODULE typescript
 
 # The unchanged npm TypeScript distribution runs under Janis. Its launcher is
@@ -15,9 +15,9 @@ REQUIRES TOOL   qjs
 REQUIRES TOOL   rm
 REQUIRES TOOL   tar
 
-SOURCE HOST /static/default/typescript-5.9.3.tgz   /tmp/typescript/typescript.tgz    10e108c9cf7d5f2879053dff18515fb405abf2ccef63eaaf017d9c571687a1d3
-SOURCE HOST /static/default/runtimes/tsc-dolly.mjs /usr/lib/typescript/tsc-dolly.mjs c81fe4905c8a1aeb83fd8dca09f7ad05242d2975efa91c1c7f004acc23eac80d
-SOURCE HOST /static/default/commands/tsc.c         /tmp/typescript/tsc.c             eed8eb879762896740cec873c5ff227bc819e82b422bb2a35d32d420c0aee5eb
+SOURCE https://daugasauron.com/static/default/typescript-5.9.3.tgz   10e108c9cf7d5f2879053dff18515fb405abf2ccef63eaaf017d9c571687a1d3 /tmp/typescript/typescript.tgz
+SOURCE https://daugasauron.com/static/default/runtimes/tsc-dolly.mjs c81fe4905c8a1aeb83fd8dca09f7ad05242d2975efa91c1c7f004acc23eac80d /usr/lib/typescript/tsc-dolly.mjs
+SOURCE https://daugasauron.com/static/default/commands/tsc.c         eed8eb879762896740cec873c5ff227bc819e82b422bb2a35d32d420c0aee5eb /tmp/typescript/tsc.c
 
 SLOP gzip \
   -dc \

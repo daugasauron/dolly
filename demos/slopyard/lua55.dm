@@ -1,4 +1,4 @@
-DOLLY 4
+DOLLY 5
 MODULE lua55
 
 REQUIRES TOOL cc
@@ -11,7 +11,7 @@ REQUIRES TOOL mkdir
 REQUIRES TOOL rm
 REQUIRES HEADER libc
 
-SOURCE HOST /static/slopyard/lua-5.5.1.tar.gz /tmp/lua55/source.tar.gz 1c4b4068d67061f2a2231ad2b5422e77acea1487ea9890f6320af614f4373dce
+SOURCE https://daugasauron.com/static/slopyard/lua-5.5.1.tar.gz 1c4b4068d67061f2a2231ad2b5422e77acea1487ea9890f6320af614f4373dce /tmp/lua55/source.tar.gz
 SLOP gzip -dc /tmp/lua55/source.tar.gz > /tmp/lua55/source.tar
 SLOP tar -xf /tmp/lua55/source.tar -C /tmp/lua55
 FILE /tmp/lua55/Makefile

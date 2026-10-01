@@ -1,4 +1,4 @@
-DOLLY 4
+DOLLY 5
 MODULE make
 
 # The module owns Make's build-time command vocabulary. `cp` is required here,
@@ -12,8 +12,8 @@ REQUIRES TOOL   mkdir
 REQUIRES TOOL   rm
 REQUIRES TOOL   tar
 
-SOURCE HOST /static/default/make-4.4.1.tar                     /tmp/make-4.4.1.tar                       ab75d4663bea03a167059954d9b1abf580bbbacb2dd3ac9b1dd6455d2b2ef8a0
-SOURCE HOST /static/default/runtimes/make-amalgamation-dolly.c /tmp/make-4.4.1/make-amalgamation-dolly.c c37c85dd20c843b9bface7e12bd190f8d943b18c0b2b5e0341cfdc2cba11b4fd
+SOURCE https://daugasauron.com/static/default/make-4.4.1.tar                     ab75d4663bea03a167059954d9b1abf580bbbacb2dd3ac9b1dd6455d2b2ef8a0 /tmp/make-4.4.1.tar
+SOURCE https://daugasauron.com/static/default/runtimes/make-amalgamation-dolly.c c37c85dd20c843b9bface7e12bd190f8d943b18c0b2b5e0341cfdc2cba11b4fd /tmp/make-4.4.1/make-amalgamation-dolly.c
 
 SLOP tar \
   -xf /tmp/make-4.4.1.tar \

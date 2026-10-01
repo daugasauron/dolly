@@ -1,4 +1,5 @@
 import { DOLLY_ERRNO } from "../../dist/dolly-errno.mjs";
+import { CANONICAL_ORIGIN } from "../../src/static-asset.mjs";
 
 export class HttpError extends Error {
   constructor(errno, message) { super(message); this.errno = errno; }
@@ -116,18 +117,21 @@ function pathWithin(pathname, prefix) {
   return pathname === prefix || pathname.startsWith(prefix.endsWith("/") ? prefix : `${prefix}/`);
 }
 
+// Recipes name a published file by its canonical URL; the embedding fetches it
+// from its own release (applicationBase), the canonical origin's mirror.
 function normalizeTrustedSource(source, applicationBase) {
   if (source === null || typeof source !== "object" ||
       typeof source.path !== "string" || !source.path.startsWith("/") ||
       !Number.isSafeInteger(source.byteLength) || source.byteLength <= 0) {
     throw new TypeError("invalid trusted Dolly bootstrap source");
   }
-  const target = new URL(source.path.slice(1), applicationBase);
-  if (!/^https?:$/.test(target.protocol) || target.search || target.hash) {
+  const mirror = new URL(source.path.slice(1), applicationBase);
+  if (!/^https?:$/.test(mirror.protocol) || mirror.search || mirror.hash) {
     throw new TypeError("invalid trusted Dolly bootstrap source URL");
   }
   return Object.freeze({
-    href: target.href,
+    href: new URL(`${CANONICAL_ORIGIN}${source.path}`).href,
+    mirror: mirror.href,
     bootstrap: true,
     maxRequestBytes: 1,
     maxResponseBytes: source.byteLength,
@@ -165,10 +169,11 @@ export class DollyHttpPolicy {
       ? this.trustedSources.get(target.href)
       : undefined;
     if (rule) {
-      // Recipe and source URLs are build inputs selected by the embedding page,
-      // not capabilities granted by an untrusted Dollyfile. They are exact,
-      // read-only, credential-free URLs with byte-for-byte response limits and
-      // their own quota, so a large source graph cannot exhaust agent requests.
+      // Canonical recipe and source URLs are build inputs selected by the
+      // embedding page and fetched from its mirror, not capabilities granted
+      // by an untrusted Dollyfile. They are exact, read-only, credential-free
+      // URLs with byte-for-byte response limits and their own quota, so a
+      // large source graph cannot exhaust agent requests.
       if (++this.bootstrapRequests > this.maxBootstrapRequests) {
         throw new HttpError(DOLLY_ERRNO.EDQUOT, "Dolly bootstrap source quota exceeded");
       }
@@ -246,8 +251,11 @@ export function restrictDollyHttpPolicy(policy, inherited, trustedSources, appli
       // Every policy must allow it. Sequential header stripping intersects
       // credentials too; neither the parent nor the new embedding can widen it.
       const rules = policies.map(policy => policy.authorize(target, method, headers, bytes));
+      // Every policy maps the same trusted sources to the same mirror.
+      const bootstrap = rules.every(rule => rule.bootstrap === true);
       return {
-        bootstrap: rules.every(rule => rule.bootstrap === true),
+        bootstrap,
+        ...(bootstrap && { mirror: rules[0].mirror }),
         followRedirects: rules.every(rule => rule.followRedirects === true),
         maxRequestBytes: Math.min(...rules.map(rule => rule.maxRequestBytes)),
         maxResponseBytes: Math.min(...rules.map(rule => rule.maxResponseBytes)),

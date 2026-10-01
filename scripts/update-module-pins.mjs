@@ -5,6 +5,7 @@ import { resolve } from "node:path";
 import { inspectDollyfile } from "../src/dollyfile-view.mjs";
 import { recipeFiles } from "./recipe-files.mjs";
 import { publishedHeaders } from "./host-modules.mjs";
+import { canonicalPath } from "../src/static-asset.mjs";
 
 export async function updateRecipePins(projectDir, refreshSources = false) {
   const active = new Set(), pinned = new Map();
@@ -40,10 +41,10 @@ export async function updateRecipePins(projectDir, refreshSources = false) {
       throw new Error(`${location}:${row.line}: cannot locate recipe pin`);
     }
     if (refreshSources) for (const source of recipe.sources) {
-      if (source.transport !== "host") continue;
-      const input = source.location.startsWith("/static/") ? `dist${source.location}`
-        : publishedHeaders.get(source.location) ?? null;
-      if (!input) throw new Error(`${location}: HOST source is outside trusted build inputs`);
+      const path = canonicalPath(source.location);
+      if (path === null) continue;
+      const input = path.startsWith("/static/") ? `dist${path}` : publishedHeaders.get(path) ?? null;
+      if (!input) throw new Error(`${location}: ${source.location} is outside trusted build inputs`);
       let bytes;
       try { bytes = await readFile(resolve(projectDir, input)); }
       catch (error) {
@@ -65,7 +66,7 @@ export async function updateRecipePins(projectDir, refreshSources = false) {
     pinned.set(location, sha256);
     return sha256;
   }
-  const images = [...files.keys()].filter(location => !location.startsWith("/modules/")).sort();
+  const images = [...files.keys()].filter(url => !canonicalPath(url).startsWith("/modules/")).sort();
   for (const image of images) await pin(image);
   return { recipes: pinned.size, images: images.length };
 }

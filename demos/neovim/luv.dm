@@ -1,4 +1,4 @@
-DOLLY 4
+DOLLY 5
 MODULE luv
 
 REQUIRES HEADER uv
@@ -13,7 +13,7 @@ REQUIRES TOOL ar
 REQUIRES TOOL tar
 REQUIRES TOOL rm
 
-SOURCE HOST /static/neovim/luv.tar /tmp/luv/source.tar 576f4f861cabfd1d7313d56124e1473f724f3da09060df4dc93d59936d3b4004
+SOURCE https://daugasauron.com/static/neovim/luv.tar 576f4f861cabfd1d7313d56124e1473f724f3da09060df4dc93d59936d3b4004 /tmp/luv/source.tar
 SLOP tar -xf /tmp/luv/source.tar -C /
 SLOP cmake -S /tmp/luv/source -B /tmp/luv/build \
   -DCMAKE_INSTALL_PREFIX=/usr -DCMAKE_C_FLAGS=-O0 \

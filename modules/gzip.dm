@@ -1,4 +1,4 @@
-DOLLY 4
+DOLLY 5
 MODULE gzip
 
 REQUIRES HEADER libc
@@ -7,7 +7,7 @@ REQUIRES LIB z
 REQUIRES TOOL cc
 REQUIRES TOOL rm
 
-SOURCE HOST /static/default/commands/gzip.c /tmp/gzip.c dc8fddc876932984ede5bf89a12d4e071de2d8e361354df29fa31e9df5b36f7f
+SOURCE https://daugasauron.com/static/default/commands/gzip.c dc8fddc876932984ede5bf89a12d4e071de2d8e361354df29fa31e9df5b36f7f /tmp/gzip.c
 SLOP cc -std=c17 /tmp/gzip.c -lz -o /bin/gzip
 SLOP rm /tmp/gzip.c
 EXPORTS TOOL gzip

@@ -34,8 +34,8 @@ test("Bonnie is a retained two-file command with transactional graph helpers", a
   assert.deepEqual(
     bonnie.sources.map(({ location, destination }) => [location, destination]),
     [
-      ["/static/python/commands/bonnie.c", "/tmp/bonnie/bonnie.c"],
-      ["/static/python/runtimes/bonnie.py", "/usr/lib/bonnie/bonnie.py"],
+      ["https://daugasauron.com/static/python/commands/bonnie.c", "/tmp/bonnie/bonnie.c"],
+      ["https://daugasauron.com/static/python/runtimes/bonnie.py", "/usr/lib/bonnie/bonnie.py"],
     ],
   );
   assert.ok(bonnie.files.some(({ path, body }) =>

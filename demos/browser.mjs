@@ -13,6 +13,7 @@
 import assert from "node:assert/strict";
 import { chromium } from "playwright-core";
 import { startBrowserServer } from "../test/browser-server.mjs";
+import { CANONICAL_ORIGIN } from "../src/static-asset.mjs";
 
 const projectDir = new URL("..", import.meta.url).pathname;
 export const shellPrompt = /dolly:[^\n]*\$\s*$/;
@@ -120,11 +121,11 @@ export async function displayProbe(image) {
   const { DOLLY_IMAGES } = await import("../dist/dolly-images.mjs");
   const pin = name => {
     const { dollyfile, sha256 } = DOLLY_IMAGES.find(definition => definition.image === name);
-    return `/${dollyfile} ${sha256}`;
+    return `${CANONICAL_ORIGIN}/${dollyfile} ${sha256}`;
   };
-  const recipe = ["DOLLY 4", "IMAGE display-probe", `FROM HOST ${pin(image)}`, "REQUIRES HOST display@0", "REQUIRES HOST http@0",
+  const recipe = ["DOLLY 5", "IMAGE display-probe", `FROM ${pin(image)}`, "REQUIRES HOST display@0", "REQUIRES HOST http@0",
     ...["/usr/lib/libdisplay.so", "/usr/share/fonts/IosevkaTerm-SemiBold.ttf"]
-      .map(path => `COPY FROM HOST ${pin("ghostty-build")} ${path} ${path}`),
+      .map(path => `COPY FROM ${pin("ghostty-build")} ${path} ${path}`),
     "EXPORTS LIB display /usr/lib/libdisplay.so", "EXPORTS ENV DISPLAY /usr/lib/libdisplay.so",
     "ENTRY /bin/foreground -i /bin/slop", ""].join("\n");
   return { path: "/custom/rebuild/",

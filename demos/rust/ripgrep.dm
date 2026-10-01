@@ -1,4 +1,4 @@
-DOLLY 4
+DOLLY 5
 MODULE ripgrep
 
 REQUIRES TOOL patti
@@ -8,7 +8,7 @@ REQUIRES TOOL mkdir
 REQUIRES TOOL rm
 
 # Archives contain upstream source and checksum-verified locked crate archives.
-SOURCE HOST /static/rust/ripgrep.tar /tmp/ripgrep.tar a836e0f7415d53cc6e99f1b9ef5112bd70d3acd4f0cd5cbff3c8bde46dc6daa7
+SOURCE https://daugasauron.com/static/rust/ripgrep.tar a836e0f7415d53cc6e99f1b9ef5112bd70d3acd4f0cd5cbff3c8bde46dc6daa7 /tmp/ripgrep.tar
 SLOP tar -xf /tmp/ripgrep.tar -C /
 SLOP patti build --offline --manifest-path /tmp/ripgrep/source/Cargo.toml --bin rg --patch libc=/opt/rust-sdk/src/libc --cache /tmp/ripgrep/cache --target-dir /tmp/ripgrep/build
 SLOP cp /tmp/ripgrep/build/rg /usr/bin/rg
