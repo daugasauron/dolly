@@ -119,6 +119,7 @@ select no JavaScript or Worker URL.
 | Keyboard, pointer, focus, resize, paste | Bounded records; interpretation stays in Wasm. Pointer lock only after a trusted canvas press |
 | Clipboard copy | Bounded selection text after a user Ctrl+Shift+C |
 | RGBA frames, bootstrap text | Visible output only; the browser parses no terminal or HTML content |
+| GPU indicator | Page text over the display naming the browser's adapter, or why there is none; no guest input ([`gpu.mjs`](../host/gpu/gpu.mjs)) |
 | Image cache | Verified artifacts in IndexedDB, 32 images and 8 GiB ([`image-artifact.mjs`](../src/image-artifact.mjs)) |
 | Boot and code loading | Fixed kernel artifacts only ([`runtime-worker.mjs`](../src/runtime-worker.mjs)); one bundled process Worker; the plugin loader links an explicit kernel export map and fetches nothing |
 | Clocks, entropy, exit, CPU and memory use | Inputs and availability effects only |
