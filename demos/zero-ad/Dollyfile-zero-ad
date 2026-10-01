@@ -1,7 +1,7 @@
 DOLLY 5
 IMAGE zero-ad
 
-FROM https://daugasauron.com/Dollyfile e990ed67ebe68123785fe78c455ad3f67c3caa6488337268b5bb780563362da7
+FROM https://daugasauron.com/Dollyfile 15467575fe9fc923336733bc8279482d509db03358981dbbeeb567af735732b3
 USE https://daugasauron.com/modules/zero-ad.dm cbcdbb90cb26f15989ba5998fc7e8d977cde82d701aec4315fd948e42380987f
 
 FILE /etc/dolly/zero-ad.slop

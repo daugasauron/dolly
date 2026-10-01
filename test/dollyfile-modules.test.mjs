@@ -174,7 +174,7 @@ test("bootstrap exports exact compiler tools and first-class headers", async () 
   const tools = bootstrap.exports.filter(({ type }) => type === "TOOL");
   assert.deepEqual(
     tools.map(({ name }) => name),
-    ["cc", "c++", "ld", "ar", "slop", "dollyfile", "mkdir", "rm"],
+    ["cc", "c++", "ld", "ar", "dollyfile"],
   );
   assert.equal(
     tools.some(({ sha256 }) => sha256),
@@ -183,8 +183,12 @@ test("bootstrap exports exact compiler tools and first-class headers", async () 
   );
   assert.deepEqual(
     bootstrap.exports.filter(({ type }) => type === "ENV").map(({ name }) => name),
-    ["CC", "AR", "SHELL", "PATH"],
+    ["CC", "AR", "PATH"],
   );
+  // Slop is built before any SLOP step can run, so its module uses none.
+  const slop = graph.modules.find(({ name }) => name === "slop");
+  assert.equal(slop.slops.length, 0);
+  assert.deepEqual(slop.exports.map(({ type, name }) => `${type} ${name}`), ["TOOL slop", "ENV SHELL"]);
   assert.ok(bootstrap.exports.some(({ type, name, details }) =>
     type === "LIB" && name === "compiler-rt" &&
     details[0] === "/usr/lib/libclang_rt.builtins.a"));

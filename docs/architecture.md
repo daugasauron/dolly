@@ -93,7 +93,7 @@ program, built from a [Dollyfile](dollyfile.md). Core images:
 
 ```mermaid
 flowchart TD
-  seed["compiler seed<br/>dist/dolly.data"] -- "root build" --> sb["system-build<br/>cc, core tools, make, tar"]
+  seed["compiler seed<br/>dist/dolly.data"] -- "root build" --> sb["system-build<br/>cc, Slop, core tools, make, tar"]
   sb --> st["system-tools<br/>sbase, git, curl, awk, /bin/sh"]
   sb --> zb["zig-build<br/>Zig"]
   zb --> gb["ghostty-build<br/>Ghostty"]

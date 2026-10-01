@@ -125,6 +125,16 @@ export const syntaxCases = [
   [true, probe("SLOP LABEL=value cc")],
   [true, probe("SLOP cc; unknown")],
 
+  // COMPILEC: one source, one program, nothing else.
+  [true, probe("COMPILEC /tmp/slop/slop.c /bin/slop")],
+  [true, probe('COMPILEC "/tmp/a b.c" /bin/a # comment')],
+  [false, probe("COMPILEC /tmp/slop/slop.c")],
+  [false, probe("COMPILEC slop.c /bin/slop")],
+  [false, probe("COMPILEC /tmp/slop/slop.c bin/slop")],
+  [false, probe("COMPILEC /tmp/slop/slop.c /bin/slop -O2")],
+  [false, probe("COMPILEC /tmp/slop/slop.c /bin/")],
+  [false, probe("COMPILEC")],
+
   // EXPORTS and REQUIRES.
   [true, probe('EXPORTS ENV DOLLY_TEST_VALUE "APPEND literal"')],
   [true, probe("EXPORTS ENV DOLLY_TEST_VALUE APPEND")],

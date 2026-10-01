@@ -864,28 +864,35 @@ static int take_layer_u64(const unsigned char **cursor, const unsigned char *end
   return 0;
 }
 
-static int run_slop(const char *cwd, const char *command) {
+static int run_program(const char *path, int argc, char **arguments) {
   const int input = open("/dev/null", O_RDONLY);
   if (input < 0) return -errno;
-  if (chdir(cwd) != 0) {
-    const int error = -errno;
-    close(input);
-    return error;
-  }
+  const int pid = dolly_spawn(path, argc, arguments, input, STDOUT_FILENO, STDERR_FILENO);
+  close(input);
+  if (pid < 0) return pid;
+  int status = 126;
+  const int waited = dolly_wait(pid, &status);
+  return waited != 0 ? waited : status;
+}
+
+static int run_slop(const char *cwd, const char *command) {
+  if (chdir(cwd) != 0) return -errno;
   printf("+ SLOP CWD %s %s\n", cwd, command);
   fflush(stdout);
   char *arguments[] = {"slop", "-e", "-c", (char *)command, NULL};
-  const int pid = dolly_spawn("/bin/slop", 4, arguments,
-                              input, STDOUT_FILENO, STDERR_FILENO);
-  close(input);
-  int status = pid;
-  if (pid >= 0) {
-    status = 126;
-    const int waited = dolly_wait(pid, &status);
-    if (waited != 0) status = waited;
-  }
+  int status = run_program("/bin/slop", 4, arguments);
   if (chdir("/") != 0 && status == 0) status = -errno;
   return status;
+}
+
+// The seed compiler builds the programs a root build needs before /bin/slop
+// exists; everything else compiles through SLOP cc.
+static int run_compiler(const char *source, const char *output) {
+  printf("+ COMPILEC %s %s\n", source, output);
+  fflush(stdout);
+  char *arguments[] = {"cc", "--dolly-toolchain-mode=c", "-O1", (char *)source,
+                       "-o", (char *)output, NULL};
+  return run_program("/usr/libexec/dolly/process-bin/compiler", 6, arguments);
 }
 
 static int execute_slop(char *arguments, int execute) {
@@ -1384,6 +1391,11 @@ static int process_line(Engine *engine, const char *locator, size_t depth,
     if (result == 0 && execute) result = fetch_source(words[0], words[1], words[2]);
   } else if (strcmp(text, "SLOP") == 0) {
     result = execute_slop(arguments, execute);
+  } else if (strcmp(text, "COMPILEC") == 0) {
+    result = split_words(arguments, &words, &count);
+    if (result == 0 && (count != 2 || !valid_absolute_path(words[0]) ||
+        !valid_absolute_path(words[1]))) result = 2;
+    if (result == 0 && execute) result = run_compiler(words[0], words[1]);
   } else if (strcmp(text, "FILE") == 0) {
     result = split_words(arguments, &words, &count);
     if (result == 0 && (count != 1 || !valid_absolute_path(words[0]) ||

@@ -61,19 +61,35 @@ EXPORTS FOLDER clang-headers     /usr/lib/clang/24/include
 EXPORTS FILE   compiler          /usr/libexec/dolly/process-bin/compiler
 EXPORTS FILE   kernel-plugin-abi /usr/lib/dolly/dolly-kernel-plugin-0.wasm
 
+# cc, c++, ld and ar forward to the seed compiler. Only that compiler exists at
+# this point, so COMPILEC builds them; every later recipe step uses SLOP.
+FILE /tmp/process-tools/cc.c
+    #include <dolly/toolchain.h>
+    int main(int argc, char **argv) { return dolly_toolchain_proxy(argc, argv, DOLLY_TOOLCHAIN_C); }
+FILE /tmp/process-tools/cxx.c
+    #include <dolly/toolchain.h>
+    int main(int argc, char **argv) { return dolly_toolchain_proxy(argc, argv, DOLLY_TOOLCHAIN_CXX); }
+FILE /tmp/process-tools/ld.c
+    #include <dolly/toolchain.h>
+    int main(int argc, char **argv) { return dolly_toolchain_proxy(argc, argv, DOLLY_TOOLCHAIN_LD); }
+FILE /tmp/process-tools/ar.c
+    #include <dolly/toolchain.h>
+    int main(int argc, char **argv) { return dolly_toolchain_proxy(argc, argv, DOLLY_TOOLCHAIN_AR); }
+COMPILEC /tmp/process-tools/cc.c  /bin/cc
+COMPILEC /tmp/process-tools/cxx.c /bin/c++
+COMPILEC /tmp/process-tools/ld.c  /bin/ld
+COMPILEC /tmp/process-tools/ar.c  /bin/ar
+
 EXPORTS ENV CC    cc
 EXPORTS ENV AR    ar
-EXPORTS ENV SHELL /bin/slop
 EXPORTS ENV PATH  /bin:/usr/bin
 
 # These programs are linked against the seeded process adapter, so their
 # complete input identity is the image build ID rather than this recipe
 # alone. They are still validated as dolly-process-0 executables when loaded.
+# /bin/dollyfile is the engine running this recipe; the bootstrap compiles it.
 EXPORTS TOOL cc
 EXPORTS TOOL c++
 EXPORTS TOOL ld
 EXPORTS TOOL ar
-EXPORTS TOOL slop
 EXPORTS TOOL dollyfile
-EXPORTS TOOL mkdir
-EXPORTS TOOL rm

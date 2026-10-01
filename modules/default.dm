@@ -10,7 +10,7 @@ USE https://daugasauron.com/modules/gzip.dm d868ef6b11705c0ada34cb55712c83552744
 USE https://daugasauron.com/modules/curl.dm           1d7d9858555c829ab7c1304dab6c93e0c9d1fb51c3b901ee9172d0083383c717
 USE https://daugasauron.com/modules/git.dm            bdfa72a3cef31873f71686b4481d6616e2306533c4934ffb849123c2eb5c90a6
 USE https://daugasauron.com/modules/awk.dm            662bc35207505b49c3233259b1ef18dabfefff6dd3234e4d1bd1d3af079d3ab5
-USE https://daugasauron.com/modules/agent-tools.dm    492b4d612c6eb31f0165a54e91288202e7f04dad1d9eab3c9adf4d913e6db285
+USE https://daugasauron.com/modules/agent-tools.dm    fb597e83df581adcc26ed774d8bdc90411e0e60b544b9531895a2323cdf96ba6
 
 # Retain the runtime and SDK at these paths when the module finishes.
 EXPORTS HEADER zlib       /usr/include/zlib.h

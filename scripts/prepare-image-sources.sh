@@ -63,6 +63,7 @@ if has_module ghostty; then
   mapfile -t font_paths < <(bash "${project_dir}/scripts/fetch-iosevka.sh")
   runtime_font="${font_paths[1]}"
 fi
+has_module slop && copy_static src/slop.c default/slop.c
 if has_module session-recovery; then
   copy_static src/commands/session-recover.c session-recovery/session-recover.c
   for header in session-records.h fs-record.h; do

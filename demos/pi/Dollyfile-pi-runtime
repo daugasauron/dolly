@@ -1,7 +1,7 @@
 DOLLY 5
 IMAGE pi-runtime
 
-FROM https://daugasauron.com/Dollyfile-javascript 8330efb602c7b985a2c4ff07dc8fae67820e4bde9946b545e305607e0eddc5a9
-USE https://daugasauron.com/modules/pi.dm 56e4fa026214841e93892e1e47a24a24a8e68a89eb112f04f8c57250658c6361
+FROM https://daugasauron.com/Dollyfile-javascript cd5675ec12c0369886c54f6eb842301f0317246b498329b1c8b82c368e08297a
+USE https://daugasauron.com/modules/pi.dm f246bb054b72d9351550ea71c4c5e6d6512f1310718d1aff2118379bf8012934
 
 ENTRY /bin/foreground -i /bin/slop
