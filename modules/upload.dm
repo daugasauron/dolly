@@ -13,7 +13,8 @@ FILE /tmp/upload/upload.c
     #include <string.h>
     int main(int argc, char **argv) {
       if (argc != 2 || strcmp(argv[1], "--help") == 0) {
-        fprintf(argc == 2 ? stdout : stderr, "usage: upload DESTINATION\nChoose a file in the browser (up to 64 MiB). Existing files are never replaced.\n");
+        fprintf(argc == 2 ? stdout : stderr, "usage: upload DESTINATION\nChoose a file in the browser (up to %u MiB). Existing files are never replaced.\n",
+                DOLLY_UPLOAD_MAX_SIZE >> 20);
         return argc == 2 ? 0 : 2;
       }
       puts("upload: choose a file in the browser, or cancel");

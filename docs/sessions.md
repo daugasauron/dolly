@@ -53,12 +53,14 @@ Code: kernel [`host/snapshot/kernel.c`](../host/snapshot/kernel.c); page
 ## Upload and download
 
 - `upload DESTINATION` opens the browser's file picker. The chosen file's bytes
-  (at most 64 MiB) land at a new path; existing files are never overwritten and
-  no host name or path enters Wasm ([`host/upload/kernel.c`](../host/upload/kernel.c),
-  [`upload.dm`](../modules/upload.dm)).
-- `download FILE` copies one regular file of at most 64 MiB. The page shows
-  **Save NAME (SIZE)** and **Dismiss**; nothing reaches the download manager until
-  the user clicks Save. At most four offers wait; more fail with `EBUSY`
+  (at most 1 GiB) stream in 1 MiB chunks to a new path while the dialog shows
+  progress; Cancel or Ctrl+C leaves nothing behind. Existing files are never
+  overwritten and no host name or path enters Wasm
+  ([`host/upload/kernel.c`](../host/upload/kernel.c), [`upload.dm`](../modules/upload.dm)).
+- `download FILE` streams one regular file of at most 1 GiB in 1 MiB chunks into
+  a browser Blob; Ctrl+C discards it. The page then shows **Save NAME (SIZE)**
+  and **Dismiss**; nothing reaches the download manager until the user clicks
+  Save. At most four offers wait; more fail with `EBUSY`
   ([`host/download/download.mjs`](../host/download/download.mjs), [`download.dm`](../modules/download.dm)).
 - Neither is a network path, but uploaded bytes are ordinary sandbox data that
   allowed HTTP can send elsewhere.
