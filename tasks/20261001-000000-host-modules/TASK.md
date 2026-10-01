@@ -94,20 +94,18 @@ stay hand-written: they are where a human reviews authority.
   reaches the device through `dolly_kernel_terminal_attached/render/read`
   (988 -> 361 lines). Image inputs unchanged.
 
+- Runtime terminal mailbox (`ece144d`, branch `work/terminal-mailbox`):
+  foreground pid and interruptibility, shell result and the page's interrupt
+  request live in `dolly_terminal_mailbox` (`src/dolly.c`), exported as
+  `dolly_terminal_mailbox_address` (supervisor contract) and read on the page as
+  `host.get("runtime").terminal`. Display mailbox version 6 (25 fields, events at
+  byte 100) also drops the never-read `event_wake`/`event_dropped`. Seed change:
+  every image rebuilds. A display-less embedding of `system-build` interrupts its
+  foreground ENTRY (`test/host-compute-browser.mjs`). The core artifact and
+  browser suites pass in Chrome and Firefox, except `cpp-browser`, whose
+  outside-import plugin case fails independently of this change.
+
 Remaining:
-- The display mailbox also carries core terminal state: split a runtime-owned
-  terminal mailbox. Plan (2026-10-01):
-  - Move `result_sequence`, `result_status`, `foreground_pid`, `flags`
-    (foreground interruptible), `interrupt_sequence` and `interrupt_target_pid`
-    to a `dolly_terminal_mailbox` in the runtime, exported through the
-    supervisor contract. The kernel writes it from `dolly.c`; the page's
-    Ctrl+C and the test helpers read it through `host/runtime/`. Images without
-    a display then keep foreground, result and interrupt semantics.
-  - `terminal_cols`/`terminal_rows` stay: the display library writes them.
-  - The resident display library (`src/ghostty/`) does not touch the six
-    fields, but removing them shifts every later offset it does use, so drop
-    them (and bump `DOLLY_DISPLAY_MAILBOX_VERSION`) with the next catalog
-    rebuild. Until then they can stay as unused padding.
 - Stage 3 (owner decision): move display, HTTP, download and upload operations
   and packets from `process.h` into their modules. Today their layouts are in
   the exact-bytes process ABI digest; gpu and audio packets are identified only
@@ -115,6 +113,3 @@ Remaining:
   `DOLLY_THREADS_ABI_DIGEST`) would weaken executable identity, so choose:
   per-module digests stamped by the client, or keep module packets in `process.h`.
 - `threads@0` kernel code stays in `process-kernel.c` (thread table).
-- Stale path comments that change pinned bytes, for the next seed change:
-  `host/upload/upload.h` (names `abi/dolly-upload-0.wat`) and the Pi skill
-  `demos/pi/skills/dolly/SKILL.md` (names `src/host/`, `src/http-*.mjs`).
