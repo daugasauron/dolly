@@ -1,6 +1,6 @@
 # Let stock pip install packages through the HTTP broker
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 180
 - TAGS: python,network,packages
 
@@ -62,17 +62,18 @@ As built:
   (policy denial is `PermissionError`). Built in, not a DSO: the client
   archive `libdolly-http.a` is not PIC (`R_WASM_MEMORY_ADDR_SLEB64` against
   `.L.str` when linked into a `.so`), and executables link it anyway.
-- `dolly_http.py` (pip image step, so changes skip the interpreter rebuild),
-  imported by `site-packages/dolly-http.pth`, installs on module load: a
-  default `urllib.request.HTTPHandler` for http and https, and
-  `HTTPAdapter.send` for `requests` and `pip._vendor.requests`. Responses are
-  urllib3's own `HTTPResponse` over a streaming reader, so CacheControl and
-  pip downloads work unchanged. Content-Encoding, Transfer-Encoding and
-  Content-Length are dropped: the browser decodes, and CORS hides
-  Content-Encoding but shows the encoded Content-Length (pip hit
-  `IncompleteRead` against real PyPI before this). Timeouts bound each wait
-  for a broker record; client certificates and `verify != True` raise
-  `SSLError`.
+- `_dolly_transport` (`cpython-transport.py`), imported by `site.main()` on
+  `sys.platform == "dolly"` (one `cpython-dolly.patch` hunk), installs on
+  module load: a default `urllib.request.HTTPHandler` for http and https, and
+  `HTTPAdapter.send` for `requests` and `pip._vendor.requests`. A `.pth` in
+  the system site-packages was tried first: plain venvs then fell back to the
+  socket stubs. Responses are urllib3's own `HTTPResponse` over a streaming
+  reader, so CacheControl and pip downloads work unchanged.
+  Content-Encoding, Transfer-Encoding and Content-Length are dropped: the
+  browser decodes, and CORS hides Content-Encoding but shows the encoded
+  Content-Length (pip hit `IncompleteRead` against real PyPI before this).
+  Timeouts bound each wait for a broker record; client certificates and
+  `verify != True` raise `SSLError`.
 - `pip.dm` installs the bundled pip 26.2.1 offline (`--no-compile`, so no
   build-time bytecode) and writes `/etc/pip.conf`: no version check, no root
   warning, `progress-bar = off` (rich's refresh thread never yields under
@@ -83,14 +84,27 @@ As built:
   rejects unknown options (Pandas has none).
 - Bonnie (bonnie.c, bonnie.py, bonnie.dm, its tests) is deleted.
 
-Measured:
+Measured on the final state (`b40cb7a`, images rebuilt from it), headless,
+other agents' builds sharing the machine:
 
-- `npm run test:demos -- python` passes in headless Chrome (18 s) and, with a
-  Firefox copy of the harness, in Firefox (16 s): `pip install --no-index
-  --find-links` of requests and its four dependencies from pinned
-  files.pythonhosted.org wheels served by the test server; `urllib.request`
-  and `requests` GET/POST; a cross-origin gzip response; a policy-denied URL
-  fails with "Browser HTTP policy denied the request".
+- `node demos/python/test/python-browser.mjs` passes in Chrome (22 s) and,
+  with a Firefox copy of the harness, Firefox (24 s): `pip install
+  --no-index --find-links` of requests and its four dependencies from pinned
+  files.pythonhosted.org wheels served by the test server (fetched once into
+  `.cache/python-wheelhouse` by `scripts/fetch-verified-file.sh`); a venv's pip
+  installing idna; `urllib.request` and `requests` GET/POST; a cross-origin
+  gzip response; a policy-denied URL fails with "Browser HTTP policy denied
+  the request".
+- With `DOLLY_PYTHON_PACKAGES=1` (`pip install pandas` builds NumPy 2.5.2 and
+  Pandas 3.0.5 from sdists, then uses both) it passes in Chrome (596 s) and
+  Firefox (709 s), run concurrently.
+- Build isolation (pip's default) against `--no-build-isolation`, run
+  concurrently in Chrome on the previous state: `pip install numpy pandas`
+  746 s against 496 s (build dependencies installed first, then `numpy`, then
+  `pandas`); `pip install pandas` alone 540 s. Naming NumPy builds it twice:
+  once in Pandas' isolated build environment, once for the top-level request,
+  whose wheel-cache lookup happens when its candidate is created (pip
+  `resolvelib/candidates.py:294`, by reading). Isolation stays the default.
 - Manual probe, not a test: `pip download idna six` from real PyPI under the
-  default policy succeeds in Chrome and Firefox (pip prints two warnings about
-  the missing `ssl` module).
+  default policy succeeds in Chrome and Firefox. pip prints two warnings
+  about the missing `ssl` module on index commands.
