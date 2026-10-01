@@ -41,3 +41,8 @@ Tests exercise behavior through modules and binaries.
 - Still slicing: `test/terminal-ring.test.mjs` (C functions cut out of
   `src/dolly.c`) and `test/preparation-cache.test.mjs` (key prefix of the
   prepare scripts, which guards cache keys against checkout location).
+- Plan for `test/terminal-ring.test.mjs`: it cuts `dolly_terminal_present_pending`
+  and `handle_terminal_event` out of `host/display/kernel.c` and compiles them
+  natively with stubs. Move the input-ring compaction into its own source in
+  `host/display/` that the kernel build and the test compile directly, so the
+  test needs no text markers.
