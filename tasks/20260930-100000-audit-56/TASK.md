@@ -1,6 +1,6 @@
 # Duplicate and dead build scripts and images
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 120
 - TAGS: build,cleanup
 
@@ -33,3 +33,14 @@ verification now reports "release image inputs mismatch" first). Tamper
 detection is covered by `test/site-release.test.mjs` ("release seal covers
 complete file contents, rejects changes and symlinks"). The `fetch-*.sh`
 scripts are all referenced; `Dollyfile-openal-build` remains.
+
+## Resolution (2026-10-01)
+
+- `samurai-unit-dolly` is used by `modules/ninja.dm` and staged by
+  `prepare-image-sources.sh`.
+- `prepare-image-sources.sh` (198 lines) names no demo; demos stage their own
+  inputs through `demos/DEMO/prepare-sources.sh` hooks.
+- `audio-sdk` is the core image that carries `audio@0`, exercised by
+  `test/audio-browser.mjs`.
+- `openal-build` builds OpenAL inside Dolly from pinned source: the first
+  in-sandbox piece of `20260930-231200-self-host-zero-ad`, kept for that task.
