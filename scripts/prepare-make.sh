@@ -59,7 +59,6 @@ fi
   ac_cv_func_eaccess=no \
   ac_cv_func_getrlimit=no \
   ac_cv_func_mkfifo=no \
-  ac_cv_func_pselect=no \
   ac_cv_func_setrlimit=no \
   ac_cv_func_ttyname=no \
   /emsdk/upstream/emscripten/emconfigure ./configure \

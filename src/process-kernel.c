@@ -961,8 +961,8 @@ static int64_t fd_read_packet(dolly_kernel_process *process,
   if (request_size != sizeof(dolly_process_fd_io_request)) return -EINVAL;
   dolly_process_fd_io_request request;
   memcpy(&request, process_mailbox, sizeof(request));
-  if (request.reserved != 0 || request.descriptor >= DOLLY_KERNEL_DESCRIPTOR_LIMIT ||
-      request.size > response_capacity) return -EINVAL;
+  if (request.reserved != 0 || request.size > response_capacity) return -EINVAL;
+  if (request.descriptor >= DOLLY_KERNEL_DESCRIPTOR_LIMIT) return -EBADF;
   dolly_kernel_pipe *pipe = process->pipes[request.descriptor];
   if (pipe != NULL) {
     if (process->pipe_directions[request.descriptor] != DOLLY_KERNEL_PIPE_READ) {
@@ -1120,8 +1120,8 @@ static int64_t fd_write_packet(dolly_kernel_process *process,
       response_capacity < sizeof(dolly_process_io_result)) return -EINVAL;
   dolly_process_fd_io_request request;
   memcpy(&request, process_mailbox, sizeof(request));
-  if (request.reserved != 0 || request.descriptor >= DOLLY_KERNEL_DESCRIPTOR_LIMIT ||
-      request.size != request_size - sizeof(request)) return -EINVAL;
+  if (request.reserved != 0 || request.size != request_size - sizeof(request)) return -EINVAL;
+  if (request.descriptor >= DOLLY_KERNEL_DESCRIPTOR_LIMIT) return -EBADF;
   dolly_kernel_pipe *pipe = process->pipes[request.descriptor];
   if (pipe != NULL) {
     if (process->pipe_directions[request.descriptor] != DOLLY_KERNEL_PIPE_WRITE) {

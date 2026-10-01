@@ -7,6 +7,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/select.h>
 #include <sys/wait.h>
 #include <time.h>
 #include <unistd.h>
@@ -76,6 +77,29 @@ int main(int argc, char **argv) {
   CHECK(waitpid(pid, &status, 0) == pid && WIFEXITED(status) && WEXITSTATUS(status) == 7);
   CHECK(received == 0 && sigpending(&pending) == 0 && sigismember(&pending, SIGCHLD) == 1);
   CHECK(sigprocmask(SIG_SETMASK, &old_mask, NULL) == 0 && received == 1);
+
+  /* pselect unblocks atomically: a SIGCHLD left pending while blocked
+   * interrupts before the wait, one arriving during the wait interrupts it. */
+  int idle[2];
+  fd_set readers;
+  sigset_t empty, current;
+  const struct timespec zero = {0};
+  CHECK(pipe(idle) == 0 && sigemptyset(&empty) == 0);
+  CHECK(sigprocmask(SIG_BLOCK, &mask, NULL) == 0);
+  pid = spawn_child(argv[0], "quiet");
+  CHECK(waitpid(pid, &status, 0) == pid);
+  FD_ZERO(&readers);
+  FD_SET(idle[0], &readers);
+  CHECK(pselect(idle[0] + 1, &readers, NULL, NULL, NULL, &empty) == -1 && errno == EINTR && received == 2);
+  CHECK(sigprocmask(SIG_BLOCK, NULL, &current) == 0 && sigismember(&current, SIGCHLD) == 1);
+  pid = spawn_child(argv[0], "quiet");
+  CHECK(pselect(idle[0] + 1, &readers, NULL, NULL, NULL, &empty) == -1 && errno == EINTR && received == 3);
+  CHECK(waitpid(pid, &status, 0) == pid && WEXITSTATUS(status) == 7);
+  CHECK(pselect(idle[0] + 1, &readers, NULL, NULL, &zero, &empty) == 0 && !FD_ISSET(idle[0], &readers));
+  CHECK(write(idle[1], "x", 1) == 1);
+  FD_SET(idle[0], &readers);
+  CHECK(pselect(idle[0] + 1, &readers, NULL, NULL, NULL, &empty) == 1 && FD_ISSET(idle[0], &readers));
+  CHECK(sigprocmask(SIG_SETMASK, &old_mask, NULL) == 0 && received == 3);
   CHECK(sigaction(SIGCHLD, &previous, NULL) == 0);
   puts("PROCESS-SIGCHLD-OK");
   return 0;

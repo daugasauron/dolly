@@ -1,7 +1,7 @@
 DOLLY 4
 IMAGE protox-build
 
-FROM HOST /Dollyfile-rust-build 38e609671ee72ee373caaabe3cdef997b01a4dbe0011d2fe568512642494050c
+FROM HOST /Dollyfile-rust-build 5a9013a5e036e8697b9d908ee416afad92f0fe5a3ae63f79d76b5a4eb97787c6
 USE HOST /modules/protox.dm 2b28785ead27e8664fab97eb062c2e42ad9dd0f25e863d51178def99ec3b1f05
 
 ENTRY /bin/foreground -i /bin/slop

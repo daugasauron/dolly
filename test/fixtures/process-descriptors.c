@@ -146,6 +146,7 @@ static void vectored_io(void) {
 
 static void descriptor_flags(void) {
   int fd = scratch("abc"), duplicate, pipes[2];
+  char byte = 0;
   CHECK(fcntl(fd, F_GETFD) == 0);
   CHECK(fcntl(fd, F_SETFD, FD_CLOEXEC) == 0);
   CHECK(fcntl(fd, F_GETFD) == FD_CLOEXEC);
@@ -153,12 +154,15 @@ static void descriptor_flags(void) {
   errno = 0;
   CHECK(dup2(-1, -1) == -1 && errno == EBADF);
   errno = 0;
+  CHECK(read(-1, &byte, 1) == -1 && errno == EBADF);
+  errno = 0;
+  CHECK(write(-1, &byte, 1) == -1 && errno == EBADF);
+  errno = 0;
   CHECK(fcntl(-1, F_GETFD) == -1 && errno == EBADF);
   errno = 0;
   CHECK(fcntl(-1, F_SETFD, FD_CLOEXEC) == -1 && errno == EBADF);
   duplicate = dup(fd);
   CHECK(duplicate >= 0 && fcntl(duplicate, F_GETFD) == 0);
-  char byte;
   CHECK(read(duplicate, &byte, 1) == 1 && byte == 'a');
   CHECK(read(fd, &byte, 1) == 1 && byte == 'b');
   CHECK(fcntl(duplicate, F_SETFL, O_APPEND | O_CLOEXEC | O_CREAT) == 0 && fcntl(duplicate, F_GETFD) == 0);

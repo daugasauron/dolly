@@ -1,7 +1,7 @@
 DOLLY 4
 IMAGE rust-build
 
-FROM HOST /Dollyfile-rust-sdk 8c3eb23f3169abaecdf0042500bdcfda0893643f9967a295d0fdce61d39060f8
+FROM HOST /Dollyfile-rust-sdk c4533ed0f703019cfe6c052d26604beeadc3a28338a3eb680fdbb37a7a1af0e0
 USE HOST /modules/curl.dm c29e2e69f950959e896bcc84610c087b7cf4f53ed7a48797ca94c379c565b4a0
 USE HOST /modules/patti.dm 8b5ad8cdd1e53d61a45d8a48ad0843f72724bd9144a5aa3a25107b990c4a7813
 

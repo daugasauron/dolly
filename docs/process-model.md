@@ -117,6 +117,9 @@ sequenceDiagram
   termination do not, so named temporary files may remain.
 - Delivered handlers interrupt sleep and `poll`; `SA_RESTART` restarts read,
   write and wait. Ignored or blocked signals do not shorten sleeps.
+- Because handlers run only when a syscall starts, `pselect` is the race-free
+  way to wait for a descriptor or a blocked signal: a pending signal its mask
+  unblocks interrupts it before the wait. `select` is unsupported.
 - `SIGCHLD` is queued once a child is waitable. `SIGWINCH` follows terminal
   resizes and never forces termination.
 - Clock reads use the Worker's clock aligned to the kernel's origin, but enter the

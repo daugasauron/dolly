@@ -12,7 +12,7 @@ REQUIRES TOOL   mkdir
 REQUIRES TOOL   rm
 REQUIRES TOOL   tar
 
-SOURCE HOST /static/default/make-4.4.1.tar                     /tmp/make-4.4.1.tar                       ab431ed0c4f79a05f8b681b36c1099357513b6853ca404e139900c521509718a
+SOURCE HOST /static/default/make-4.4.1.tar                     /tmp/make-4.4.1.tar                       f8055eb2fa9836b1745cb1b16a4c7141fe6446ca45fcac0ca9574734fd2763e0
 SOURCE HOST /static/default/runtimes/make-amalgamation-dolly.c /tmp/make-4.4.1/make-amalgamation-dolly.c c37c85dd20c843b9bface7e12bd190f8d943b18c0b2b5e0341cfdc2cba11b4fd
 
 SLOP tar \

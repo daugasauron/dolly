@@ -1,7 +1,7 @@
 DOLLY 4
 IMAGE sdl2-build
 
-FROM HOST /Dollyfile-cmake-build 7783af97a922ada655a8d600c838c5e22517f06c8eb293affafda5abf9109983
+FROM HOST /Dollyfile-cmake-build 16548a1050961156c7d30fe7208e52814c9de4886563a97d71bd828a82071621
 USE HOST /modules/sdl2.dm 3d6f7f22eedc212431fd05c574b39926a230311c1b1cbd3016200a4610d6688e
 
 ENTRY /bin/foreground -i /bin/slop
