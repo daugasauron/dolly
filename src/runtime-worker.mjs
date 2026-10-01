@@ -367,18 +367,9 @@ try {
   const status = await runImageEntry(dolly, processSupervisor);
   self.postMessage({ type: "exited", status });
 } catch (error) {
-  let compilerTrace = "";
-  try {
-    compilerTrace = dolly === null
-      ? ""
-      : decoder.decode(readBoundedFile(dolly, "/tmp/dolly-cc-trace.log", 64 * 1024)).trim();
-  } catch {
-    // Compiler tracing is opt-in and absent in normal sessions.
-  }
-  const message = error instanceof Error ? error.message : String(error);
   self.postMessage({
     type: "error",
-    message: compilerTrace === "" ? message : `${message}\n${compilerTrace}`,
+    message: error instanceof Error ? error.message : String(error),
     stack: error instanceof Error ? error.stack ?? "" : "",
   });
 } finally {

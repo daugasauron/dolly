@@ -723,7 +723,7 @@ FILE /usr/src/dolly/bhop/bhop.mk
 SLOP make -f /usr/src/dolly/bhop/bhop.mk all check
 
 SLOP c++ -O1 -std=c++11 -I/usr/include/SDL2 -I/tmp/bhop-stb /usr/src/dolly/game-agent/viewer.cpp -o /usr/bin/bhop-viewer -lSDL2 -lm
-SLOP cc -std=gnu11 -I/usr/include/dolly -DEMSCRIPTEN=1 -D_GNU_SOURCE -DQUICKJS_NG_BUILD -DNDEBUG -funsigned-char -fdolly-runtime-interrupt-handler /usr/src/dolly/bhop/agent/launch.c -ldolly-js -o /usr/bin/bhop-agent
+SLOP cc -std=gnu11 -I/usr/include/dolly -DEMSCRIPTEN=1 -D_GNU_SOURCE -DQUICKJS_NG_BUILD -DNDEBUG -funsigned-char /usr/src/dolly/bhop/agent/launch.c -ldolly-js -o /usr/bin/bhop-agent
 SLOP rm -rf /tmp/bhop-source.tar /tmp/bhop-stb
 
 EXPORTS TOOL bhop

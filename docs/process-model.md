@@ -43,8 +43,9 @@ sequenceDiagram
   ([`compiler.cpp`](../src/compiler.cpp)). It defaults to Clang's `-std=gnu17` and
   `-std=gnu++17` but to `-O2`, and follows Clang's suffix rules; objects are always position
   independent, `-m64` is the only target, `-lc -lm -ldl -lrt -lpthread -lutil`
-  add nothing, and `-Wl,--no-undefined` is accepted because the exact typed
-  import validation after linking is its target equivalent.
+  add nothing, and `-Wl,--no-undefined`, `--allow-shlib-undefined` and
+  `--as-needed` are accepted and ignored: Dolly links no ELF shared libraries,
+  and the exact typed import validation after linking decides.
 - The supervisor caches compiled modules by SHA-256 (64 entries, 256 MiB), never
   instances; at most 32 processes exist at once and further spawns fail `EAGAIN`.
 - An unexpected Worker failure exits the process with status 126 and a one-line
@@ -88,7 +89,7 @@ sequenceDiagram
   actions in order as mappings ([`runtime-adapter.c`](../src/process/runtime-adapter.c)).
   A child starts with default dispositions and an empty signal mask; other file
   actions, a session, process group or scheduler, and a non-empty mask return
-  `ENOTSUP`. There is no `fork`, `exec` or `posix_spawnp`.
+  `ENOTSUP`. There is no `fork` or `exec`.
 - `waitpid` accepts a child PID, `-1` or `0`. Wait records distinguish signal
   termination from exit: `exit(130)` is not SIGINT.
 - Timed spawns carry an absolute monotonic deadline at most one day away; the

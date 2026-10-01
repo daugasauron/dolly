@@ -32,7 +32,7 @@ SLOP tar \
 
 FILE /tmp/typescript/Makefile
     .RECIPEPREFIX := >
-    CPPFLAGS := -std=gnu11 -I /usr/include/dolly -DEMSCRIPTEN=1 -D_GNU_SOURCE -DQUICKJS_NG_BUILD -DNDEBUG -funsigned-char -fdolly-runtime-interrupt-handler
+    CPPFLAGS := -std=gnu11 -I /usr/include/dolly -DEMSCRIPTEN=1 -D_GNU_SOURCE -DQUICKJS_NG_BUILD -DNDEBUG -funsigned-char
     all: /usr/bin/tsc
     /usr/bin/tsc: /tmp/typescript/tsc.c /usr/lib/typescript/tsc-dolly.mjs /usr/lib/typescript/package/lib/_tsc.js
     >cc $(CPPFLAGS) $< -ldolly-js -o $@

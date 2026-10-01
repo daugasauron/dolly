@@ -32,7 +32,6 @@ FILE /tmp/ninja/Makefile
     >cc \
     >  $(CFLAGS) \
     >  -O0 \
-    >  -fdolly-runtime-interrupt-handler \
     >  -DDOLLY_SAMURAI_PART=12 \
     >  -c $(UNIT) \
     >  -o $@

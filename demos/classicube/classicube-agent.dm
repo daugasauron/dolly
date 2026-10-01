@@ -22,7 +22,7 @@ SLOP c++ -O1 -std=c++11 -I/usr/include/SDL2 -I/tmp/classicube-agent \
   /usr/src/dolly/classicube/agent/viewer.cpp -o /usr/bin/classicube-viewer -lSDL2 -lm
 SLOP cc -O2 /usr/src/dolly/classicube/agent/pack.c -o /usr/bin/classicube-pack -lz
 SLOP cc -std=gnu11 -I/usr/include/dolly -DEMSCRIPTEN=1 -D_GNU_SOURCE \
-  -DQUICKJS_NG_BUILD -DNDEBUG -funsigned-char -fdolly-runtime-interrupt-handler \
+  -DQUICKJS_NG_BUILD -DNDEBUG -funsigned-char \
   /usr/src/dolly/classicube/agent/launch.c -ldolly-js -o /usr/bin/classicube-agent
 
 EXPORTS TOOL classicube-agent

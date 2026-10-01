@@ -29,7 +29,7 @@ FOLDER /usr/share/dolly/rts
 SLOP c++ -O1 -std=c++11 -I/usr/include/SDL2 -I/tmp/rts-arena \
   /usr/src/dolly/rts/spectator/viewer.cpp -o /usr/bin/rts-viewer -lSDL2 -lm
 SLOP cc -std=gnu11 -I/usr/include/dolly -DEMSCRIPTEN=1 -D_GNU_SOURCE \
-  -DQUICKJS_NG_BUILD -DNDEBUG -funsigned-char -fdolly-runtime-interrupt-handler \
+  -DQUICKJS_NG_BUILD -DNDEBUG -funsigned-char \
   /usr/src/dolly/rts/spectator/launch.c -ldolly-js -o /usr/bin/rts-arena
 
 EXPORTS TOOL rts-viewer

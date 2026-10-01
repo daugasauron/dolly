@@ -70,7 +70,7 @@ await browserTest("process", { server: { fixtures, handle } }, async ({ server, 
   await run(`${scratch}/process-minimal.wasm | grep -q PROCESS-FREESTANDING-OK`);
 
   await fetchFixture("process-errors.c");
-  await run(`cc -O0 -fno-sanitize-coverage ${scratch}/process-errors.c -o ${scratch}/errors && ${scratch}/errors`);
+  await run(`cc -O0 ${scratch}/process-errors.c -o ${scratch}/errors && ${scratch}/errors`);
   const cancelled = submit(`${scratch}/errors cancel`);
   await waitForText(/ERRNO-SLEEPING\s*$/);
   await settle();
@@ -78,8 +78,8 @@ await browserTest("process", { server: { fixtures, handle } }, async ({ server, 
   assert.equal(await cancelled, 0, "an interrupted process sleep returns EINTR after the handler runs");
 
   for (const name of ["process-lifecycle.c", "process-descriptors.c", "process-signals.c", "process-sigchld.c", "input.tgz"]) await fetchFixture(name);
-  await run(`cc -O0 -fno-sanitize-coverage ${scratch}/process-lifecycle.c -o ${scratch}/lifecycle && timeout 15 ${scratch}/lifecycle`);
-  await run(`cc -O0 -fno-sanitize-coverage ${scratch}/process-descriptors.c -o ${scratch}/descriptors && timeout 60 ${scratch}/descriptors`);
+  await run(`cc -O0 ${scratch}/process-lifecycle.c -o ${scratch}/lifecycle && timeout 15 ${scratch}/lifecycle`);
+  await run(`cc -O0 ${scratch}/process-descriptors.c -o ${scratch}/descriptors && timeout 60 ${scratch}/descriptors`);
   await run(`cc -O0 -rdynamic ${scratch}/process-signals.c -o ${scratch}/signals && timeout 30 ${scratch}/signals ${scratch}`);
   await run(`cc -O0 ${scratch}/process-sigchld.c -o ${scratch}/sigchld && timeout 5 ${scratch}/sigchld`);
   await run(`gzip -dc ${scratch}/input.tgz | tar -xf - -C ${scratch} && test "$(cat ${scratch}/nested/message)" = TAR-STDIN-OK`);

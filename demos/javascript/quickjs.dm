@@ -37,7 +37,6 @@ FILE /tmp/quickjs/Makefile
       -DQUICKJS_NG_BUILD \
       -DNDEBUG \
       -funsigned-char \
-      -fdolly-runtime-interrupt-handler
     all: /usr/bin/janis
     /tmp/quickjs/main.o: /usr/src/dolly/runtimes/quickjs-main.c
     >cc $(CPPFLAGS) -c $< -o $@

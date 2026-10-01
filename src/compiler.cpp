@@ -208,10 +208,6 @@ void print_help(const char *program, int driver_mode) {
       "  -I DIR, -D NAME, -U NAME, -include FILE\n"
       "                     pass a preprocessing option\n"
       "  -funsigned-char    use unsigned plain char\n"
-      "  -fdolly-runtime-interrupt-handler\n"
-      "                     mark a runtime that owns its interrupt polling\n"
-      "  -fno-sanitize-coverage\n"
-      "                     accepted for build-system compatibility\n"
       "  -fexceptions       enable C++ exception throwing and catching\n"
       "  -fno-exceptions    compile C++ without exception throwing or catching\n"
       "  -fno-rtti          compile C++ without runtime type information\n"
@@ -304,13 +300,6 @@ int parse_driver_options(int argc, const char *const *argv, DriverOptions &optio
       options.unsigned_char = true;
     } else if (argument == "-fsigned-char" || argument == "-fno-unsigned-char") {
       options.unsigned_char = false;
-    } else if (argument == "-fdolly-runtime-interrupt-handler") {
-      // Language runtimes can still use this explicit marker to document that
-      // they poll dolly_interrupt_poll() at their own safe boundaries. A
-      // private process is always forcibly cancellable by terminating its
-      // Worker, so ordinary code requires no compiler instrumentation.
-    } else if (argument == "-fno-sanitize-coverage") {
-      // Accepted because upstream support-library builds commonly state it.
     } else if (argument == "-fexceptions" || argument == "-fcxx-exceptions") {
       // Accept Clang's public positive spellings. Process-target C++ enables
       // both frontend exception modes below; recording the option here keeps
@@ -342,10 +331,8 @@ int parse_driver_options(int argc, const char *const *argv, DriverOptions &optio
       // cc1 spelling is -fwrapv; the driver-level -fno-strict-overflow alias
       // is not accepted by CompilerInvocation directly.
       options.frontend_options.push_back("-fwrapv");
-    } else if (argument == "-m64" || argument == "-sMEMORY64=1") {
-      // Dolly has one fixed wasm64 target. CPython sysconfig retains these
-      // ordinary Emscripten driver assertions; accepting them cannot switch
-      // pointer width or enable a browser capability.
+    } else if (argument == "-m64") {
+      // Dolly has one fixed wasm64 target; Clang accepts the flag for it.
     } else if (argument == "-pthread") {
       options.pthread = true;
     } else if (argument == "-fPIC" || argument == "-fpic" || argument == "-fPIE" ||
@@ -435,24 +422,13 @@ int parse_driver_options(int argc, const char *const *argv, DriverOptions &optio
           options.linker_options.push_back("--soname=" + option.substr(2));
         } else if (option == "--version" || option == "-v") {
           options.linker_version = true;
-        } else if (option == "--allow-shlib-undefined") {
-          // GNU ld applies this policy to unresolved references originating in
-          // shared libraries. WebAssembly side modules represent those
-          // references as dynamic imports; wasm-ld spells the corresponding
-          // policy --allow-undefined. Keep the familiar build-system surface
-          // at the target driver boundary instead of teaching every upstream
-          // Meson project about wasm-ld's spelling.
-          options.linker_options.push_back("--allow-undefined");
         } else if (option == "--start-group" || option == "--end-group") {
-          // WebAssembly LLD rescans archive symbol tables without GNU ld's
-          // explicit group delimiters. Emscripten-compatible build systems
-          // still emit the markers, so consume them at the public driver
-          // boundary instead of forwarding unsupported no-ops to wasm-ld.
+          // wasm-ld rescans archives without GNU ld's group delimiters.
         } else if (!option.empty() && option != "--no-as-needed" &&
-                   option != "--as-needed" && option != "--no-undefined") {
-          // Dolly links no ELF shared libraries, so as-needed has no meaning.
-          // Dolly validates the exact typed import set after linking, which is
-          // the target-equivalent of --no-undefined for permitted ABI imports.
+                   option != "--as-needed" && option != "--no-undefined" &&
+                   option != "--allow-shlib-undefined") {
+          // Dolly links no ELF shared libraries, so these policies have no
+          // meaning; the typed import validation after linking decides.
           options.linker_options.push_back(option);
         }
         if (comma == std::string::npos) break;
@@ -484,18 +460,6 @@ std::vector<const char *> argument_pointers(
 bool run_clang(const std::string &source, const std::string &language,
                const std::string &output,
                const DriverOptions &options) {
-  if (const char *trace = std::getenv("DOLLY_CC_TRACE");
-      trace != nullptr && std::strcmp(trace, "1") == 0) {
-    if (FILE *trace_file = std::fopen("/tmp/dolly-cc-trace.log", "w")) {
-      std::fprintf(trace_file, "dolly-cc: compiling %s as %s", source.c_str(),
-                   language.c_str());
-      for (const std::string &option : options.frontend_options) {
-        std::fprintf(trace_file, " %s", option.c_str());
-      }
-      std::fputc('\n', trace_file);
-      std::fclose(trace_file);
-    }
-  }
   static bool targets_initialized = false;
   if (!targets_initialized) {
     llvm::InitializeAllTargets();
@@ -717,8 +681,7 @@ bool run_frontend(const std::string &source, const std::string &language,
 bool link_side_module(const std::string &output,
                       const std::vector<std::string> &inputs,
                       const std::vector<std::string> &linker_options,
-                      bool export_dynamic, bool bind_defined_locally,
-                      bool strip_debug) {
+                      bool bind_defined_locally, bool strip_debug) {
   std::vector<std::string> arguments = {
       "wasm-ld",
       "-o", output,
@@ -733,8 +696,8 @@ bool link_side_module(const std::string &output,
       "-shared",
       "--stack-first",
       "--extra-features=extended-const",
+      "--export-dynamic",
   };
-  arguments.push_back(export_dynamic ? "--export-dynamic" : "--no-export-dynamic");
   if (strip_debug) arguments.push_back("--strip-debug");
   // Keep header-defined C++ implementations local to the resident plugin.
   // It has no separate C++ runtime; all remaining imports must fit the ABI.
@@ -1077,20 +1040,6 @@ const llvm::wasm::WasmSignature *function_signature(
   return nullptr;
 }
 
-bool provider_export_satisfies_import(
-    const LoadedWasm &provider_object,
-    const llvm::wasm::WasmExport &provider,
-    const LoadedWasm &required_object,
-    const llvm::wasm::WasmImport &required) {
-  // Function imports cover CPython's callable API. Data references use the
-  // dynamic linker's typed GOT.mem relocations and never become browser
-  // imports, so no other direct provider-import form is accepted here.
-  return provider.Kind == llvm::wasm::WASM_EXTERNAL_FUNCTION &&
-         required.Kind == llvm::wasm::WASM_EXTERNAL_FUNCTION &&
-         same_callable_type(function_signature(provider_object, provider.Index),
-                            callable_type(required_object, required.SigIndex));
-}
-
 bool is_mutable_i64_global(const llvm::wasm::WasmImport &entry) {
   return entry.Kind == llvm::wasm::WASM_EXTERNAL_GLOBAL &&
          entry.Global.Type == llvm::wasm::WASM_TYPE_I64 && entry.Global.Mutable;
@@ -1098,8 +1047,7 @@ bool is_mutable_i64_global(const llvm::wasm::WasmImport &entry) {
 
 bool validate_side_module_loaded(const std::string &path,
                                  const LoadedWasm &contract,
-                                 const LoadedWasm &command,
-                                 const std::vector<LoadedWasm> *providers = nullptr) {
+                                 const LoadedWasm &command) {
   auto first_section = command.object->section_begin();
   if (first_section == command.object->section_end()) {
     std::fprintf(stderr, "dolly-cc: %s has no sections\n", path.c_str());
@@ -1128,29 +1076,8 @@ bool validate_side_module_loaded(const std::string &path,
   for (const llvm::wasm::WasmImport &entry : command.object->imports()) {
     const std::string key = interface_key(entry.Module, entry.Field);
     if (key == interface_key("env", "memory")) has_memory = true;
-    // The plugin loader binds GOT entries by symbol name.
-    if ((entry.Module == "GOT.func" || entry.Module == "GOT.mem") &&
-        is_mutable_i64_global(entry)) {
-      continue;
-    }
     const auto allowed = allowed_imports.find(key);
     if (allowed == allowed_imports.end()) {
-      bool supplied = false;
-      if (entry.Module == "env" && providers != nullptr) {
-        for (const LoadedWasm &provider : *providers) {
-          for (const llvm::wasm::WasmExport &candidate :
-               provider.object->exports()) {
-            if (candidate.Name == entry.Field &&
-                provider_export_satisfies_import(
-                    provider, candidate, command, entry)) {
-              supplied = true;
-              break;
-            }
-          }
-          if (supplied) break;
-        }
-      }
-      if (supplied) continue;
       std::fprintf(stderr,
                    "dolly-cc: import is outside the kernel-plugin contract: %s.%s\n",
                    entry.Module.str().c_str(), entry.Field.str().c_str());
@@ -1177,78 +1104,20 @@ bool validate_side_module_loaded(const std::string &path,
   return true;
 }
 
-bool has_kernel_plugin_stamp_loaded(const std::string &path,
-                                    const LoadedWasm &plugin);
-
-bool load_needed_providers(const LoadedWasm &consumer,
-                           const LoadedWasm &contract,
-                           std::vector<LoadedWasm> &providers) {
-  for (llvm::StringRef needed : consumer.object->dylinkInfo().Needed) {
-    if (needed.empty() || needed.contains('/') || needed.contains("..")) {
-      std::fprintf(stderr, "dolly-cc: invalid needed library name: %s\n",
-                   needed.str().c_str());
-      return false;
-    }
-    const std::string path = "/usr/lib/" + needed.str();
-    LoadedWasm provider;
-    if (!load_wasm(path, provider) ||
-        !validate_side_module_loaded(
-            path, contract, provider,
-            providers.empty() ? nullptr : &providers) ||
-        !has_kernel_plugin_stamp_loaded(path, provider)) {
-      std::fprintf(stderr, "dolly-cc: invalid needed library: %s\n",
-                   path.c_str());
-      return false;
-    }
-    providers.push_back(std::move(provider));
-  }
-  return true;
-}
-
-bool validate_shared_object(const std::string &path,
-                            const char *contract_path) {
+// The kernel plugin loader resolves imports only against the kernel's exports:
+// a plugin has no needed libraries.
+bool validate_kernel_plugin(const std::string &path) {
   LoadedWasm contract;
   LoadedWasm module;
-  std::vector<LoadedWasm> providers;
-  if (!load_wasm(contract_path, contract) || !load_wasm(path, module) ||
-      !load_needed_providers(module, contract, providers)) {
+  if (!load_wasm(kKernelContractPath, contract) || !load_wasm(path, module)) {
     return false;
   }
-  return validate_side_module_loaded(
-      path, contract, module, providers.empty() ? nullptr : &providers);
-}
-
-bool has_kernel_plugin_stamp_loaded(const std::string &path,
-                                    const LoadedWasm &plugin) {
-  size_t matches = 0;
-  for (const llvm::object::SectionRef &section : plugin.object->sections()) {
-    const llvm::object::WasmSection &wasm =
-        plugin.object->getWasmSection(section);
-    if (wasm.Type != llvm::wasm::WASM_SEC_CUSTOM || wasm.Name != "dolly.abi") {
-      continue;
-    }
-    matches++;
-    if (wasm.Content.size() != sizeof(DOLLY_KERNEL_PLUGIN_ABI_DIGEST) ||
-        std::memcmp(wasm.Content.data(), DOLLY_KERNEL_PLUGIN_ABI_DIGEST,
-                    sizeof(DOLLY_KERNEL_PLUGIN_ABI_DIGEST)) != 0) {
-      std::fprintf(stderr, "dolly-cc: %s has the wrong dolly.abi stamp\n",
-                   path.c_str());
-      return false;
-    }
-  }
-  if (matches != 1) {
-    std::fprintf(stderr,
-                 "dolly-cc: %s must contain exactly one dolly.abi stamp\n",
+  if (!module.object->dylinkInfo().Needed.empty()) {
+    std::fprintf(stderr, "dolly-cc: a kernel plugin cannot need libraries: %s\n",
                  path.c_str());
     return false;
   }
-  return true;
-}
-
-bool has_kernel_plugin_stamp(const std::string &path) {
-  LoadedWasm plugin;
-  return load_wasm(path, plugin) &&
-         has_kernel_plugin_stamp_loaded(path, plugin);
+  return validate_side_module_loaded(path, contract, module);
 }
 
 bool process_section(const LoadedWasm &executable, llvm::StringRef name,
@@ -1287,7 +1156,7 @@ bool process_memory_requirements(const LoadedWasm &executable,
   return false;
 }
 
-bool validate_process_executable(const std::string &path, bool stamped) {
+bool validate_process_executable(const std::string &path) {
   LoadedWasm executable;
   if (!load_wasm(path, executable)) return false;
 
@@ -1370,29 +1239,22 @@ bool validate_process_executable(const std::string &path, bool stamped) {
     return false;
   }
 
-  size_t digest_matches = 0;
-  if (!process_section(executable, "dolly.process", DOLLY_PROCESS_ABI_DIGEST,
-                       sizeof(DOLLY_PROCESS_ABI_DIGEST), digest_matches) ||
-      digest_matches != (stamped ? 1u : 0u)) {
-    std::fprintf(stderr, "dolly-cc: process executable %s has an invalid ABI stamp\n",
-                 path.c_str());
-    return false;
-  }
+  size_t digest_matches = 0, memory_matches = 0;
   unsigned char memory_requirements[16];
-  if (!process_memory_requirements(executable, memory_requirements)) return false;
-  size_t memory_matches = 0;
-  if (!process_section(executable, "dolly.process.memory", memory_requirements,
+  if (!process_memory_requirements(executable, memory_requirements) ||
+      !process_section(executable, "dolly.process", DOLLY_PROCESS_ABI_DIGEST,
+                       sizeof(DOLLY_PROCESS_ABI_DIGEST), digest_matches) ||
+      !process_section(executable, "dolly.process.memory", memory_requirements,
                        sizeof(memory_requirements), memory_matches) ||
-      memory_matches != (stamped ? 1u : 0u)) {
-    std::fprintf(stderr,
-                 "dolly-cc: process executable %s has invalid memory metadata\n",
+      digest_matches != 0 || memory_matches != 0) {
+    std::fprintf(stderr, "dolly-cc: process executable %s is already stamped\n",
                  path.c_str());
     return false;
   }
   return true;
 }
 
-bool validate_process_shared_object(const std::string &path, bool stamped) {
+bool validate_process_shared_object(const std::string &path) {
   LoadedWasm module;
   if (!load_wasm(path, module)) return false;
   auto first_section = module.object->section_begin();
@@ -1475,22 +1337,13 @@ bool validate_process_shared_object(const std::string &path, bool stamped) {
     return false;
   }
 
-  size_t dso_stamp_matches = 0;
+  size_t dso_stamp_matches = 0, executable_stamp_matches = 0;
   if (!process_section(module, "dolly.process.dso", DOLLY_PROCESS_ABI_DIGEST,
                        sizeof(DOLLY_PROCESS_ABI_DIGEST), dso_stamp_matches) ||
-      dso_stamp_matches != (stamped ? 1u : 0u)) {
-    std::fprintf(stderr,
-                 "dolly-cc: process shared object %s has an invalid ABI stamp\n",
-                 path.c_str());
-    return false;
-  }
-  size_t executable_stamp_matches = 0;
-  if (!process_section(module, "dolly.process", DOLLY_PROCESS_ABI_DIGEST,
-                       sizeof(DOLLY_PROCESS_ABI_DIGEST),
-                       executable_stamp_matches) ||
-      executable_stamp_matches != 0) {
-    std::fprintf(stderr,
-                 "dolly-cc: process shared object %s carries an executable stamp\n",
+      !process_section(module, "dolly.process", DOLLY_PROCESS_ABI_DIGEST,
+                       sizeof(DOLLY_PROCESS_ABI_DIGEST), executable_stamp_matches) ||
+      dso_stamp_matches != 0 || executable_stamp_matches != 0) {
+    std::fprintf(stderr, "dolly-cc: process shared object %s is already stamped\n",
                  path.c_str());
     return false;
   }
@@ -1552,22 +1405,8 @@ bool stamp_process_shared_object(const std::string &output) {
 
 bool stamp_kernel_plugin(const std::string &output) {
   static_assert(sizeof(DOLLY_KERNEL_PLUGIN_ABI_DIGEST) == 32);
-  // A custom section is: id 0, payload length, name length/name, then data.
-  static constexpr unsigned char prefix[] = {
-      0, 42, 9, 'd', 'o', 'l', 'l', 'y', '.', 'a', 'b', 'i'};
-  FILE *file = std::fopen(output.c_str(), "ab");
-  if (file == nullptr) {
-    std::fprintf(stderr, "dolly-cc: %s: %s\n", output.c_str(),
-                 std::strerror(errno));
-    return false;
-  }
-  bool ok = std::fwrite(prefix, 1, sizeof(prefix), file) == sizeof(prefix) &&
-            std::fwrite(DOLLY_KERNEL_PLUGIN_ABI_DIGEST, 1,
-                        sizeof(DOLLY_KERNEL_PLUGIN_ABI_DIGEST), file) ==
-                sizeof(DOLLY_KERNEL_PLUGIN_ABI_DIGEST);
-  if (std::fclose(file) != 0) ok = false;
-  if (!ok) std::fprintf(stderr, "dolly-cc: could not stamp %s\n", output.c_str());
-  return ok;
+  return append_custom_section(output, "dolly.abi", DOLLY_KERNEL_PLUGIN_ABI_DIGEST,
+                               sizeof(DOLLY_KERNEL_PLUGIN_ABI_DIGEST));
 }
 
 bool publish_file(const std::string &source, const std::string &output) {
@@ -1666,9 +1505,7 @@ int compile_and_link(const DriverOptions &options, int default_language) {
   }
   if (options.kernel_plugin &&
       !options.shared_library) {
-    std::fputs(
-        "dolly-cc: --dolly-kernel-plugin requires the process compiler and -shared\n",
-        stderr);
+    std::fputs("dolly-cc: --dolly-kernel-plugin requires -shared\n", stderr);
     return 64;
   }
   if (options.kernel_plugin && options.link_cxx_runtime) {
@@ -1701,8 +1538,9 @@ int compile_and_link(const DriverOptions &options, int default_language) {
   }
 
   // Compiler-generated helpers are part of the target runtime, not Dolly's
-  // platform substrate. Link them into every C/C++ command so operations such
-  // as 128-bit multiplication do not become kernel-plugin imports.
+  // platform substrate. A plugin links them so operations such as 128-bit
+  // multiplication do not become kernel-plugin imports; processes get them
+  // from their link profile.
   if (options.kernel_plugin) {
     link_inputs.push_back("/usr/lib/libclang_rt.builtins.a");
   }
@@ -1712,7 +1550,7 @@ int compile_and_link(const DriverOptions &options, int default_language) {
   std::remove(linked.c_str());
   const bool linked_ok = options.kernel_plugin
       ? link_side_module(linked, link_inputs, options.linker_options,
-                         true, needs_cxx_runtime,
+                         needs_cxx_runtime,
                          options.debug_info == DebugInfoKind::None)
       : (options.shared_library
              ? link_process_shared_object(linked, link_inputs,
@@ -1731,22 +1569,15 @@ int compile_and_link(const DriverOptions &options, int default_language) {
   }
   cleanup(temporary_objects);
   const bool valid = options.kernel_plugin
-      ? validate_shared_object(linked, kKernelContractPath)
+      ? validate_kernel_plugin(linked)
       : (options.shared_library
-             ? validate_process_shared_object(linked, false)
-             : validate_process_executable(linked, false));
+             ? validate_process_shared_object(linked)
+             : validate_process_executable(linked));
   const bool stamped = valid && (options.kernel_plugin
       ? stamp_kernel_plugin(linked)
       : (options.shared_library ? stamp_process_shared_object(linked)
                                 : stamp_process_executable(linked)));
-  const bool published = stamped &&
-      (options.kernel_plugin
-           ? (validate_shared_object(linked, kKernelContractPath) &&
-              has_kernel_plugin_stamp(linked))
-           : (options.shared_library
-            ? validate_process_shared_object(linked, true)
-            : validate_process_executable(linked, true))) &&
-      publish_file(linked, output);
+  const bool published = stamped && publish_file(linked, output);
   std::remove(linked.c_str());
   return published ? 0 : 1;
 }

@@ -88,7 +88,7 @@ SLOP cp -r /usr/src/pi-source/packages/coding-agent/docs /usr/src/pi-source/pack
 
 FILE /tmp/pi/Makefile
     .RECIPEPREFIX := >
-    CPPFLAGS := -std=gnu11 -I /usr/include/dolly -DEMSCRIPTEN=1 -D_GNU_SOURCE -DQUICKJS_NG_BUILD -DNDEBUG -funsigned-char -fdolly-runtime-interrupt-handler
+    CPPFLAGS := -std=gnu11 -I /usr/include/dolly -DEMSCRIPTEN=1 -D_GNU_SOURCE -DQUICKJS_NG_BUILD -DNDEBUG -funsigned-char
     all: /usr/bin/pi
     /usr/bin/pi: /tmp/pi/pi.c /usr/lib/node_modules/@earendil-works/pi-coding-agent/dist/cli.js
     >cc $(CPPFLAGS) $< -ldolly-js -o $@
