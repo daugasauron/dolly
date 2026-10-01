@@ -6,7 +6,7 @@ MODULE slop
 REQUIRES HEADER libc
 REQUIRES HEADER runtime
 
-SOURCE https://daugasauron.com/dist/static/default/slop.c 8e35c95fb3e09bc7e7d882bb6f774c70275b9c2608f23b24365065fa2835a932 /tmp/slop/slop.c
+SOURCE https://daugasauron.com/dist/static/default/slop.c bc83d460600e80590a007932a2cdebc6d6f561679cae0e3f6c51229a59b9e249 /tmp/slop/slop.c
 COMPILEC /tmp/slop/slop.c /bin/slop
 
 EXPORTS TOOL slop

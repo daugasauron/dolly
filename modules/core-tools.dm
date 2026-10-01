@@ -279,8 +279,6 @@ FILE /tmp/core-tools/help.c
       fputs("expansion: $VAR ${VAR} ${VAR:-WORD} ${VAR:=WORD} ${VAR:+WORD} ${VAR:?WORD} ${#VAR} ${VAR#PATTERN} ${VAR##PATTERN} ${VAR%PATTERN} ${VAR%%PATTERN} $? $$ $# $0..9 $@ $* $(command) `command` $((integer expression)) and globs; set [--] ARG...; shift [N]\n", stdout);
       fputs("options: set -e/+e -u/+u -x/+x -o/+o pipefail; set -o lists finite options\n", stdout);
       fputs("make runs recipes with SHELL=/bin/slop; make -jN runs N at once\n", stdout);
-      if (access("/usr/bin/tsc", F_OK) == 0)
-        fputs("TypeScript: tsc FILE.ts --target ES2023 --module ES2022\n", stdout);
       return 0;
     }
 FILE /tmp/core-tools/pwd.c
@@ -327,7 +325,11 @@ FILE /tmp/core-tools/cd.c
         return 2;
       }
       const char *path = first_path < argc ? argv[first_path] : getenv("HOME");
-      if (path == NULL || path[0] == '\0') path = "/workspace";
+      if (path == NULL || path[0] == '\0') {
+        if (first_path < argc) return 0;
+        fputs("cd: HOME is not set\n", stderr);
+        return 1;
+      }
       if (chdir(path) != 0) {
         fprintf(stderr, "cd: %s: %s\n", path, strerror(errno));
         return 1;
