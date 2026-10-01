@@ -1,7 +1,7 @@
 DOLLY 5
 IMAGE pi
 
-FROM https://daugasauron.com/demos/pi/Dollyfile-pi-runtime bd62453085d777a50132f9591564c83f4e240d6a74fbd9176349e0c1c8f60e4e
+FROM https://daugasauron.com/demos/pi/Dollyfile-pi-runtime 26199ee648760c35add51aeff4d2653456ebd036f5a011aebf5980526d4ff1b6
 USE https://daugasauron.com/demos/pi/startup-pi.dm 58548ae7f8226f2eae2cbad6d90bcebfa984a07e6dbc1c455b4508d897928890
 
 ENTRY /bin/foreground -i /bin/slop /etc/dolly/init.slop

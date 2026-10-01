@@ -1,7 +1,7 @@
 DOLLY 5
 IMAGE default
 
-FROM https://daugasauron.com/Dollyfile-system 6698e22d512ad7d0cb16536ab8bb4cacc9624ab6e4f2ccea4c8b0556e5170f92
+FROM https://daugasauron.com/Dollyfile-system 90163f7dd02a25f8b762355f8ea547aa93ead9c381e3b4d8f03109c3c830f24a
 USE https://daugasauron.com/modules/startup-default.dm 8e41a3e201907b5dace2debf89501382cc425f4bb5d06222423842b165b72688
 
 ENTRY /bin/foreground -i /bin/slop /etc/dolly/init.slop

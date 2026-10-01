@@ -1,8 +1,8 @@
 DOLLY 5
 IMAGE python
 
-FROM https://daugasauron.com/demos/python/Dollyfile-python-runtime 027d930cf0f2ec0e03e661d2cd1508caa7346eec9a59353a3c74d267cc35ad56
-USE https://daugasauron.com/demos/python/pip.dm 0000000000000000000000000000000000000000000000000000000000000000
-USE https://daugasauron.com/demos/python/startup-python.dm f65a83176f9847d0966e08d2bb3f05582a1e9af8d09cba07daff0253e1053909
+FROM https://daugasauron.com/demos/python/Dollyfile-python-runtime 767f67c9c9196d8c3a65d7dd827b307baa48281b34100b169ab5be81afba7b70
+USE https://daugasauron.com/demos/python/pip.dm d912d3aa35c5cc7f02f9f7cc1081ab4b74ae6cacb85244da685b53d896dc2a7a
+USE https://daugasauron.com/demos/python/startup-python.dm 5a6c62966b92fc497bf8b004ea2e33de412166a2aedafa04ce4eae9e2d729537
 
 ENTRY /bin/foreground -i /bin/slop /etc/dolly/init.slop

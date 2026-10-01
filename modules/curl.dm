@@ -10,7 +10,7 @@ REQUIRES TOOL   rm
 REQUIRES TOOL   tar
 
 SOURCE https://daugasauron.com/dist/static/default/curl-headers.tar 346a0298fcbdafbad7d0c0259a2d7b8539ca46c39222797c01dcac213564bf30 /tmp/curl-headers.tar
-SOURCE https://daugasauron.com/dist/static/default/libcurl-fetch.c  e95e16c33b53ede305b18bbe5c6a0c7b2c377267155d90d6a1e8a527aa805107 /usr/src/dolly/libcurl-fetch.c
+SOURCE https://daugasauron.com/dist/static/default/libcurl-fetch.c  a6bfe444189f7c731a62d2ef087432235ccb9ea4d213a6e0623d5a2fe4df819f /usr/src/dolly/libcurl-fetch.c
 SOURCE https://daugasauron.com/dist/static/default/commands/curl.c  75c202d3011209d717936320a52dd5bd57099d550acedf783f34d4220968789a /usr/src/dolly/commands/curl.c
 SLOP tar \
   -xf /tmp/curl-headers.tar \

@@ -1,18 +1,18 @@
 DOLLY 5
 IMAGE javascript
 
-FROM https://daugasauron.com/Dollyfile-system 6698e22d512ad7d0cb16536ab8bb4cacc9624ab6e4f2ccea4c8b0556e5170f92
+FROM https://daugasauron.com/Dollyfile-system 90163f7dd02a25f8b762355f8ea547aa93ead9c381e3b4d8f03109c3c830f24a
 
-COPY FROM https://daugasauron.com/demos/javascript/Dollyfile-typescript-build 1e7cbcb16c16c26e73d73f3b6728389e10b39b32dfa90109f9bfabdb90ffa041 /usr/bin/qjs /usr/bin/qjs
-COPY FROM https://daugasauron.com/demos/javascript/Dollyfile-typescript-build 1e7cbcb16c16c26e73d73f3b6728389e10b39b32dfa90109f9bfabdb90ffa041 /usr/bin/janis /usr/bin/janis
-COPY FROM https://daugasauron.com/demos/javascript/Dollyfile-typescript-build 1e7cbcb16c16c26e73d73f3b6728389e10b39b32dfa90109f9bfabdb90ffa041 /usr/bin/tsc /usr/bin/tsc
-COPY FROM https://daugasauron.com/demos/javascript/Dollyfile-typescript-build 1e7cbcb16c16c26e73d73f3b6728389e10b39b32dfa90109f9bfabdb90ffa041 /usr/lib/libdolly-js.a /usr/lib/libdolly-js.a
-COPY FROM https://daugasauron.com/demos/javascript/Dollyfile-typescript-build 1e7cbcb16c16c26e73d73f3b6728389e10b39b32dfa90109f9bfabdb90ffa041 /usr/include/dolly/quickjs-runner.h /usr/include/dolly/quickjs-runner.h
-COPY FROM https://daugasauron.com/demos/javascript/Dollyfile-typescript-build 1e7cbcb16c16c26e73d73f3b6728389e10b39b32dfa90109f9bfabdb90ffa041 /usr/include/quickjs.h /usr/include/quickjs.h
-COPY FROM https://daugasauron.com/demos/javascript/Dollyfile-typescript-build 1e7cbcb16c16c26e73d73f3b6728389e10b39b32dfa90109f9bfabdb90ffa041 /usr/lib/dolly/node.js /usr/lib/dolly/node.js
-COPY FROM https://daugasauron.com/demos/javascript/Dollyfile-typescript-build 1e7cbcb16c16c26e73d73f3b6728389e10b39b32dfa90109f9bfabdb90ffa041 /usr/lib/janis/runtime.js /usr/lib/janis/runtime.js
-COPY FROM https://daugasauron.com/demos/javascript/Dollyfile-typescript-build 1e7cbcb16c16c26e73d73f3b6728389e10b39b32dfa90109f9bfabdb90ffa041 /usr/lib/typescript /usr/lib/typescript
-COPY FROM https://daugasauron.com/demos/javascript/Dollyfile-typescript-build 1e7cbcb16c16c26e73d73f3b6728389e10b39b32dfa90109f9bfabdb90ffa041 /usr/share/licenses/quickjs-ng/LICENSE /usr/share/licenses/quickjs-ng/LICENSE
+COPY FROM https://daugasauron.com/demos/javascript/Dollyfile-typescript-build bceceeeb8cfa001eccf19c7cc8bbfe4bf88b0280ead03fb7b5a85c7519208ff0 /usr/bin/qjs /usr/bin/qjs
+COPY FROM https://daugasauron.com/demos/javascript/Dollyfile-typescript-build bceceeeb8cfa001eccf19c7cc8bbfe4bf88b0280ead03fb7b5a85c7519208ff0 /usr/bin/janis /usr/bin/janis
+COPY FROM https://daugasauron.com/demos/javascript/Dollyfile-typescript-build bceceeeb8cfa001eccf19c7cc8bbfe4bf88b0280ead03fb7b5a85c7519208ff0 /usr/bin/tsc /usr/bin/tsc
+COPY FROM https://daugasauron.com/demos/javascript/Dollyfile-typescript-build bceceeeb8cfa001eccf19c7cc8bbfe4bf88b0280ead03fb7b5a85c7519208ff0 /usr/lib/libdolly-js.a /usr/lib/libdolly-js.a
+COPY FROM https://daugasauron.com/demos/javascript/Dollyfile-typescript-build bceceeeb8cfa001eccf19c7cc8bbfe4bf88b0280ead03fb7b5a85c7519208ff0 /usr/include/dolly/quickjs-runner.h /usr/include/dolly/quickjs-runner.h
+COPY FROM https://daugasauron.com/demos/javascript/Dollyfile-typescript-build bceceeeb8cfa001eccf19c7cc8bbfe4bf88b0280ead03fb7b5a85c7519208ff0 /usr/include/quickjs.h /usr/include/quickjs.h
+COPY FROM https://daugasauron.com/demos/javascript/Dollyfile-typescript-build bceceeeb8cfa001eccf19c7cc8bbfe4bf88b0280ead03fb7b5a85c7519208ff0 /usr/lib/dolly/node.js /usr/lib/dolly/node.js
+COPY FROM https://daugasauron.com/demos/javascript/Dollyfile-typescript-build bceceeeb8cfa001eccf19c7cc8bbfe4bf88b0280ead03fb7b5a85c7519208ff0 /usr/lib/janis/runtime.js /usr/lib/janis/runtime.js
+COPY FROM https://daugasauron.com/demos/javascript/Dollyfile-typescript-build bceceeeb8cfa001eccf19c7cc8bbfe4bf88b0280ead03fb7b5a85c7519208ff0 /usr/lib/typescript /usr/lib/typescript
+COPY FROM https://daugasauron.com/demos/javascript/Dollyfile-typescript-build bceceeeb8cfa001eccf19c7cc8bbfe4bf88b0280ead03fb7b5a85c7519208ff0 /usr/share/licenses/quickjs-ng/LICENSE /usr/share/licenses/quickjs-ng/LICENSE
 
 EXPORTS TOOL qjs
 EXPORTS TOOL janis
