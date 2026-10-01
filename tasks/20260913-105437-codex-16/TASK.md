@@ -116,3 +116,10 @@ failed staging. The short-write injection now proves it was actually reached.
 All 286 source checks and 28 applicable artifact checks pass. Remaining caching
 is lower priority; selected archives are still reconstructed and this issue does
 not claim unchanged-input caching is complete.
+
+## Measured (2026-10-01)
+
+On `next`, `bash scripts/prepare-image-sources.sh` for the whole catalog took
+124 s wall (27 s user) with every input already staged, and `npm run image`
+runs it before any snapshot cache check; with the parallel scheduler a cached
+core rebuild is otherwise ~10 s per image, so preparation dominates small edits.
