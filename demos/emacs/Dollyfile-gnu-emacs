@@ -1,0 +1,25 @@
+DOLLY 6
+APPLICATION gnu-emacs
+
+FROM https://daugasauron.com/Dollyfile-system 9458aeb8551ae915f623a7dd849bdc2f1bd55c3eabac10c8eed3de297c6f2344
+REQUIRES HOST display@0
+REQUIRES HOST download@0
+REQUIRES HOST http@0
+REQUIRES HOST snapshot@0
+REQUIRES HOST upload@0
+INSTALL https://daugasauron.com/demos/emacs/Dollyfile-emacs 780f1a2e9b54dec9a477c1307aee5b9ad7a7c91324823ef471cd361d72e50eb0
+
+FILE /usr/share/emacs/welcome.txt
+    GNU Emacs inside Dolly
+    C-x C-f opens a file; C-x C-s saves it; C-g cancels.
+    M-! runs a Slop command; M-x shell and M-x compile run Slop too.
+    C-x C-c returns to Slop. Run emacs to open the editor again.
+    Files live in the sandbox. Ctrl+Shift+S saves your session in this browser.
+    No pseudoterminals, network processes or package downloads.
+
+FILE /etc/dolly/init.slop
+    /bin/foreground /usr/bin/emacs /usr/share/emacs/welcome.txt
+    printf '\nDolly: image entry exited; entering the recovery Slop shell.\n'
+    /bin/foreground -i /bin/slop
+
+ENTRY /bin/foreground -i /bin/slop /etc/dolly/init.slop
