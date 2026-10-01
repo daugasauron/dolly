@@ -16,6 +16,10 @@ From merging `work/zig-self-host` (2026-10-01):
 - `modules/ghostty.dm` carries `strlen`/`memcmp`/`bcmp` because C-output
   compiler_rt leaves them to libc and the kernel-plugin contract lacks them;
   decide whether the contract should offer them (a contract change).
+- Generate `src/ghostty/generated/` (uucode and Ghostty's Unicode tables,
+  5.4 MB committed) with their upstream Zig generators inside the sandbox and
+  drop the checked-in output; `src/ghostty/generated/README.md` predates
+  self-hosted Zig (from `20260930-100000-audit-64`).
 - Carry over the Zig SDK browser check from the closed
   `20261001-014500-zig-sdk-browser`: the in-sandbox Zig compiles a small Zig
   program and a C interop case (via its C output and `cc`).

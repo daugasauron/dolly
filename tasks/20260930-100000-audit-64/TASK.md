@@ -1,6 +1,6 @@
 # Repository weight from generated files and media
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 120
 - TAGS: cleanup,demo
 
@@ -23,3 +23,18 @@ Generated files are generated; media and legacy converters live where they are n
 ## Done when
 
 - Owner decides per item; removals do not break the affected demo.
+
+## Decisions (2026-10-01, integrator)
+
+Measured at `7779ddf`: pack 65.7 MiB; history keeps every removed byte, so
+deleting from HEAD would not shrink a clone.
+
+- `sites/daugasauron.com/agents/` videos and posters: kept. They are the
+  published `/agents/` showcase, the source of that page.
+- `demos/rts/demo.tar.gz` (872 KB, 11 files of one recorded match): kept. It is
+  demo content that `rts-arena.dm` unpacks, not generated output.
+- `src/ghostty/generated/uucode-tables.zig` (5.2 MB): generated, and should be
+  generated in the sandbox now that Zig self-hosts; moved to
+  [zig-follow-ups](../20261001-091000-zig-follow-ups/TASK.md).
+- `demos/slopyard/src/legacy-programs.lua` (2.6 MB) and `designs.lua`
+  (0.7 MB): Slopyard data, handed to the Slopyard track to drop or regenerate.
