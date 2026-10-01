@@ -69,6 +69,7 @@ a demo under `demos/`, listed in `demos/README.md`.
 ## Reproducibility
 
 `npm run image -- system-build --reproducible` compares two cold browser builds and
-a cached build. With the pinned toolchain and browser, compiler scratch names and
-LLD section merging are fixed so the snapshots match. Cross-browser bit
-reproducibility is not claimed; every input byte is still pinned and verified.
+a cached build. With the pinned toolchain and browser, compiler scratch files are
+named by their output path and LLD section merging is fixed, so the snapshots
+match. Cross-browser bit reproducibility is not claimed; every input byte is
+still pinned and verified.
