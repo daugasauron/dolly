@@ -177,3 +177,29 @@ Mechanical: `DOLLY 5` to `DOLLY 6`; `IMAGE` to the role word; `COPY FROM` to
 replace copied package blocks with `INSTALL`; `node scripts/update-module-pins.mjs`.
 Recipes on parallel branches (`work/pi-local-model`) migrate the same way at
 merge time.
+
+## Implementation (Phase 2, branch `work/dollyfile-v6`)
+
+- Engine ([`src/dollyfile.c`](../../src/dollyfile.c)): role kinds, `INSTALL`,
+  one-word `COPY`, `load_artifact` modes with the role check against the
+  imported receipt (v4), transitive exports through `USE` and `INSTALL`,
+  package `FROM` keeping nothing, optional ENTRY, the name grammar, retained
+  recipes by file name. 1936 lines before, 1920 after.
+- JavaScript ([`dollyfile-view.mjs`](../../src/dollyfile-view.mjs),
+  [`dollyfile-graph.mjs`](../../src/dollyfile-graph.mjs)): the same grammar
+  and rules; `role`, `kind`, `entry` and `artifacts[].operation` replace the
+  `copy` flag and the TOOL digest. The registry carries `role` and `entry`;
+  `generate-routes.mjs` groups the menu by role (toolchains by directory) and
+  writes `dist/dolly-packages.txt`; the browser builds only when an image has
+  no ENTRY or display; lint requires `display@0` for applications.
+- Catalog: 41 images (`python-runtime` merged into the `python` package,
+  `startup-python.dm` gone); five packages: `javascript`, `python`, `ripgrep`,
+  `fd`, `protox`. `pi-runtime`, `bhop`, `slopyard` install `javascript`;
+  `search-tools.dm` installs `ripgrep` and `fd`; `codex-build` installs
+  `protox`; `llvm-tablegen` installs `python`. `default.dm` lost 31 lines and
+  `python.dm` 11 to transitive exports.
+- Tests: the parity fixture covers roles, names, `INSTALL` and `COPY`; the
+  graph test covers what each role imports and the role errors; the python
+  and javascript demo tests open `FROM system` plus `INSTALL` through the
+  custom route (`installProbe` in `demos/browser.mjs`), which is also how
+  `amy` composes a session.

@@ -98,3 +98,13 @@ below 512 MiB). Next: teach `tar` symlinks and long names, then an installer.
 
 Scripts: `pack.mjs`, `install.mjs`, `boot.mjs` and `session.mjs` in the session scratchpad
 (not committed).
+
+## Language side (2026-10-01, `20261001-214000-dollyfile-v6`)
+
+DOLLY 6 settles the vocabulary: a `PACKAGE` recipe keeps only what it
+declares, `INSTALL URL SHA256` imports it with its exports anywhere (the row
+`amy install` executes), and the release publishes `dist/dolly-packages.txt`
+(`NAME URL SHA256` per line). `javascript`, `python`, `ripgrep`, `fd` and
+`protox` are packages. What amy still needs from the engine and runtime is
+listed in that task's design section: a live `apply` mode, artifact placement
+by the page, environment loading after session replay, and the index grant.
