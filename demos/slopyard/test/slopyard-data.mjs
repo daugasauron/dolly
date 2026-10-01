@@ -36,4 +36,4 @@ export function writeLua(value){
  const literal=v=>v===null||v===undefined?'nil':typeof v==='string'?JSON.stringify(v):typeof v==='boolean'?String(v):typeof v==='number'?(Number.isFinite(v)?String(v):Number.isNaN(v)?'(0/0)':v>0?'(1/0)':'(-1/0)'):Array.isArray(v)?'array{'+Array.from(v,literal).join(',')+'}':'{'+Object.entries(v).map(([k,x])=>'['+literal(k)+']='+literal(x)).join(',')+'}';
  return 'return '+literal(value)+'\n';
 }
-export async function compileCommand(){return (await readFile(new URL('../slopyard.dm',import.meta.url),'utf8')).split('\n').find(s=>s.startsWith('SLOP cc ')).slice(5);}
+export async function compileCommand(){return (await readFile(new URL('../Dollyfile-slopyard',import.meta.url),'utf8')).split('\n').find(s=>s.startsWith('SLOP cc ')).slice(5);}
