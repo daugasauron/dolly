@@ -22,7 +22,9 @@ export async function pagesAsset(bytes, path) {
   if (!snapshot) {
     const encoded = await compress(bytes, { params: { [constants.BROTLI_PARAM_QUALITY]: 9 } });
     if (encoded.length <= fileLimit) return { bytes: encoded, compressed: true };
-    if (!path.includes("/static/")) throw new Error(`asset exceeds Pages' 25 MiB limit after Brotli: ${path}`);
+    if (!path.includes("/static/") && !path.endsWith("/dist/dolly.data")) {
+      throw new Error(`asset exceeds Pages' 25 MiB limit after Brotli: ${path}`);
+    }
   }
   const parts = [];
   for (let offset = 0; offset < bytes.length; offset += 20 * 1024 * 1024) parts.push(bytes.subarray(offset, offset + 20 * 1024 * 1024));

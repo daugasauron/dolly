@@ -17,7 +17,8 @@ test("Pages transport compresses source assets and splits incompressible files w
   assert.ok(encoded.bytes.length < 25 * 1024 * 1024);
   assert.deepEqual(brotliDecompressSync(encoded.bytes), large);
   for (const [bytes, path] of [[large, `dist/packs/${"a".repeat(64)}.snapshot.gz`],
-    [randomBytes(large.length), "_dolly/release/dist/static/incompressible.data"]]) {
+    [randomBytes(large.length), "_dolly/release/dist/static/incompressible.data"],
+    [randomBytes(large.length), "_dolly/release/dist/dolly.data"]]) {
     const asset = await pagesAsset(bytes, path);
     assert.equal(asset.compressed, false);
     assert.deepEqual(Buffer.concat(asset.parts), bytes);
