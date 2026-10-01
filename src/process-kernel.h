@@ -27,22 +27,25 @@ int dolly_kernel_deadline_pending(uint64_t deadline_nanoseconds);
 int64_t dolly_kernel_request_path(int pid, uintptr_t request_size,
                                   char *path, size_t capacity);
 
-/* The terminal device, host/display/kernel.c. Its state shares the display
- * mailbox until the runtime owns a terminal mailbox. */
+/* The terminal device, host/display/kernel.c. */
 int dolly_kernel_terminal_attached(void);
 void dolly_kernel_terminal_render(const unsigned char *bytes, size_t length);
 int dolly_kernel_terminal_read(void);
 int dolly_kernel_terminal_ready(void);
 uint32_t dolly_terminal_columns(void);
 uint32_t dolly_terminal_rows(void);
-void dolly_terminal_publish_result(int status);
 void dolly_terminal_discard_pending_input(void);
-void dolly_kernel_foreground_publish(int pid, int interruptible);
+/* pid lost the foreground: the device takes back what it leased to it. */
+void dolly_kernel_terminal_release(int pid);
 
-/* The terminal line discipline, src/dolly.c. */
+/* The terminal line discipline and the page's terminal mailbox, src/dolly.c. */
 uint32_t dolly_kernel_terminal_mode(void);
 int dolly_kernel_terminal_set_mode(uint32_t flags);
 void dolly_terminal_write_bytes(const unsigned char *bytes, uintptr_t length);
+void dolly_terminal_publish_result(int status);
+void dolly_kernel_foreground_publish(int pid, int interruptible);
+/* The foreground pid while it may be interrupted, otherwise zero. */
+int dolly_kernel_interruptible_foreground(void);
 
 int dolly_process_descends_from(int pid, int ancestor_pid);
 void dolly_kernel_terminal_resized(void);

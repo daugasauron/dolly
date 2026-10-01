@@ -12,11 +12,11 @@
   (func (export "dolly_display_module_size") (result i64) i64.const 0)
   (func (export "dolly_display_install") (param i64) (result i32) i32.const 0)
 
-  ;; Mailbox version 5 starts with 32 atomic u32 fields. The final four fields
-  ;; carry PID-targeted SIGINT, a browser animation-frame sequence, and Dolly's
-  ;; closed cursor enum, including a user-click-gated capture request.
+  ;; Mailbox version 6 starts with 25 atomic u32 fields (display.h). The final
+  ;; two carry a browser animation-frame sequence and Dolly's closed cursor
+  ;; enum, including a user-click-gated capture request.
   ;; Relative motion/capture events share the fixed 128-byte input records
-  ;; beginning at byte 128. The browser copies ordinary DOM event data without
+  ;; beginning at byte 100. The browser copies ordinary DOM event data without
   ;; terminal encoding; the in-Wasm Ghostty driver owns encoding.
   ;; Additive event 10 reports pointer presence (action 1 enter, 0 leave).
   ;; Event 4 reports window keyboard focus (action 1 gain, 0 loss).
@@ -24,7 +24,7 @@
   (func (export "dolly_display_mailbox_address") (result i64)
     i64.const 0)
   (func (export "dolly_display_mailbox_version") (result i32)
-    i32.const 5)
+    i32.const 6)
   (func (export "dolly_display_event_size") (result i32)
     i32.const 128)
   (func (export "dolly_display_event_capacity") (result i32)

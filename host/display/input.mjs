@@ -2,9 +2,10 @@
 // size become bounded mailbox records; interpretation stays in Wasm. Listeners
 // exist from host creation so F11 works while booting; records flow once the
 // display transport starts.
-export function displayInput({ mount, canvas, keyboard, showStatus, claimsKey, surfaceSize }) {
+export function displayInput({ mount, canvas, keyboard, showStatus, claimsKey, surfaceSize, get }) {
   let transport, resizeObserver, selecting = false;
   const heldKeys = new Map();
+  const interruptForeground = () => get("runtime").terminal?.interruptForeground() ?? false;
 
   async function toggleFullscreen() {
     try {
@@ -49,7 +50,7 @@ export function displayInput({ mount, canvas, keyboard, showStatus, claimsKey, s
       releaseHeldKeys();
       if (claim === "interrupt" && interruptChord(event)) {
         event.preventDefault();
-        transport?.interruptForeground();
+        interruptForeground();
       }
       return;
     }
@@ -90,7 +91,7 @@ export function displayInput({ mount, canvas, keyboard, showStatus, claimsKey, s
       }
       return;
     }
-    if (interruptChord(event) && transport.interruptForeground()) {
+    if (interruptChord(event) && interruptForeground()) {
       event.preventDefault();
       event.stopImmediatePropagation();
       return;

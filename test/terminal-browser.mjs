@@ -142,7 +142,7 @@ await browserTest("terminal", { server }, async ({ name, server, open }) => {
     assert.equal(await submit("printf '\\033[2J\\033[H'"), 0);
     await clearSelection();
     const sleeping = start(`${probe} ${argument}`);
-    await page.waitForFunction(() => __dolly.transport.foregroundInterruptible());
+    await page.waitForFunction(() => __dolly.terminal.foregroundInterruptible());
     await page.waitForTimeout(300);
     if (argument === "") await page.keyboard.type("typed");
     else assert.equal(await page.evaluate(() => __dolly.input("typed")), true);

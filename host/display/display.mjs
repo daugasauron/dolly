@@ -6,39 +6,32 @@ const textDecoder = new TextDecoder("utf-8", { ignoreBOM: true });
 const defaultFontSizeMilli = 20000;
 
 export class DisplayTransport {
-  static headerSize = 128;
+  static headerSize = 100;
   static eventRead = 0;
   static eventWrite = 1;
-  static eventWake = 2;
-  static eventDropped = 3;
-  static resultSequence = 4;
-  static resultStatus = 5;
-  static foregroundPid = 6;
-  static flags = 7;
-  static frameSequence = 8;
-  static frameIndex = 9;
-  static frameWidth = 10;
-  static frameHeight = 11;
-  static frameStride = 12;
-  static terminalCols = 13;
-  static terminalRows = 14;
-  static fontSizeMilli = 15;
-  static pasteSequence = 16;
-  static pasteConsumedSequence = 17;
-  static pasteLength = 18;
-  static copySequence = 19;
-  static copyLength = 20;
-  static copyFlags = 21;
-  static cursorCol = 22;
-  static cursorRow = 23;
-  static cellWidth = 24;
-  static cellHeight = 25;
-  static paddingX = 26;
-  static paddingY = 27;
-  static interruptSequence = 28;
-  static interruptTargetPid = 29;
-  static animationFrameSequence = 30;
-  static cursorStyle = 31;
+  static flags = 2;
+  static frameSequence = 3;
+  static frameIndex = 4;
+  static frameWidth = 5;
+  static frameHeight = 6;
+  static frameStride = 7;
+  static terminalCols = 8;
+  static terminalRows = 9;
+  static fontSizeMilli = 10;
+  static pasteSequence = 11;
+  static pasteConsumedSequence = 12;
+  static pasteLength = 13;
+  static copySequence = 14;
+  static copyLength = 15;
+  static copyFlags = 16;
+  static cursorCol = 17;
+  static cursorRow = 18;
+  static cellWidth = 19;
+  static cellHeight = 20;
+  static paddingX = 21;
+  static paddingY = 22;
+  static animationFrameSequence = 23;
+  static cursorStyle = 24;
 
   static keyEvent = 1;
   static textEvent = 2;
@@ -97,10 +90,7 @@ export class DisplayTransport {
     if (keyBytes.length + codeBytes.length + textBytes.length > 88) return false;
     const read = Atomics.load(this.words, this.word + DisplayTransport.eventRead) >>> 0;
     const write = Atomics.load(this.words, this.word + DisplayTransport.eventWrite) >>> 0;
-    if (((write - read) >>> 0) >= this.eventCapacity) {
-      Atomics.add(this.words, this.word + DisplayTransport.eventDropped, 1);
-      return false;
-    }
+    if (((write - read) >>> 0) >= this.eventCapacity) return false;
 
     const offset = this.address + DisplayTransport.headerSize +
       (write & (this.eventCapacity - 1)) * this.eventSize;
@@ -123,8 +113,6 @@ export class DisplayTransport {
     this.bytes.set(textBytes, offset + 40 + keyBytes.length + codeBytes.length);
 
     Atomics.store(this.words, this.word + DisplayTransport.eventWrite, (write + 1) | 0);
-    Atomics.add(this.words, this.word + DisplayTransport.eventWake, 1);
-    Atomics.notify(this.words, this.word + DisplayTransport.eventWake);
     return true;
   }
 
@@ -298,34 +286,13 @@ export class DisplayTransport {
     });
   }
 
-  currentResultSequence() {
-    return Atomics.load(this.words, this.word + DisplayTransport.resultSequence);
-  }
-
-  async waitForResult(sequence) {
-    const index = this.word + DisplayTransport.resultSequence;
-    while (Atomics.load(this.words, index) === sequence) {
-      const waiting = Atomics.waitAsync(this.words, index, sequence);
-      if (waiting.async) await waiting.value;
-    }
-    return Atomics.load(this.words, this.word + DisplayTransport.resultStatus);
-  }
-
-  foregroundPid() {
-    return Atomics.load(this.words, this.word + DisplayTransport.foregroundPid);
-  }
-
-  foregroundInterruptible() {
-    return (Atomics.load(this.words, this.word + DisplayTransport.flags) & 1) !== 0;
-  }
-
   inputIdle() {
     return Atomics.load(this.words, this.word + DisplayTransport.eventRead) ===
       Atomics.load(this.words, this.word + DisplayTransport.eventWrite);
   }
 
   graphicsActive() {
-    return (Atomics.load(this.words, this.word + DisplayTransport.flags) & 2) !== 0;
+    return (Atomics.load(this.words, this.word + DisplayTransport.flags) & 1) !== 0;
   }
 
   publishAnimationFrame() {
@@ -335,8 +302,6 @@ export class DisplayTransport {
       this.word + DisplayTransport.animationFrameSequence,
       1,
     );
-    Atomics.add(this.words, this.word + DisplayTransport.eventWake, 1);
-    Atomics.notify(this.words, this.word + DisplayTransport.eventWake);
   }
 
   cursorStyle() {
@@ -344,20 +309,6 @@ export class DisplayTransport {
       this.words,
       this.word + DisplayTransport.cursorStyle,
     ) >>> 0;
-  }
-
-  interruptForeground() {
-    const pid = this.foregroundPid();
-    if (pid <= 0 || !this.foregroundInterruptible()) return false;
-    Atomics.store(
-      this.words,
-      this.word + DisplayTransport.interruptTargetPid,
-      pid,
-    );
-    Atomics.add(this.words, this.word + DisplayTransport.interruptSequence, 1);
-    Atomics.add(this.words, this.word + DisplayTransport.eventWake, 1);
-    Atomics.notify(this.words, this.word + DisplayTransport.eventWake);
-    return true;
   }
 
   fontSize() {
@@ -475,7 +426,7 @@ export function browser(page) {
       transport = new DisplayTransport(message.memory, message.address, message.eventSize,
         message.eventCapacity, message.pasteAddress, message.copyAddress, message.clipboardCapacity);
       const capacity = message.frameCapacity, limit = message.memory.byteLength;
-      if (message.version !== 5 || !Array.isArray(message.frameAddresses) ||
+      if (message.version !== 6 || !Array.isArray(message.frameAddresses) ||
           message.frameAddresses.length !== 2 || !Number.isSafeInteger(capacity) || capacity <= 0 ||
           message.frameAddresses.some(address => !Number.isSafeInteger(address) || address <= 0 || address > limit - capacity)) {
         throw new Error("invalid display provider handshake");

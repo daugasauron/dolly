@@ -35,6 +35,7 @@ const runtimeFailureRejectors = new Set();
 
 let runtimeWorker;
 let host;
+let terminal;
 let transport;
 let networkTransport;
 let runtimeReady = false;
@@ -63,7 +64,7 @@ function showStatus(message, persistent = false) {
 }
 
 async function submitInput(command, input = `${command}\r`) {
-  const sequence = transport.currentResultSequence();
+  const sequence = terminal.currentResultSequence();
   if (!transport.pushText(input)) throw new Error("Dolly input mailbox is full");
   let rejectRuntimeFailure;
   const runtimeFailure = new Promise((_resolve, reject) => {
@@ -71,7 +72,7 @@ async function submitInput(command, input = `${command}\r`) {
     runtimeFailureRejectors.add(reject);
   });
   const commandStatus = await Promise.race([
-    transport.waitForResult(sequence),
+    terminal.waitForResult(sequence),
     runtimeFailure,
   ]).finally(() => runtimeFailureRejectors.delete(rejectRuntimeFailure));
   return commandStatus;
@@ -108,12 +109,12 @@ async function visibleTerminalText() {
 async function waitForInteractiveTerminal(pattern, description, previousPid = 0) {
   let pid;
   await waitFor(async () => {
-    pid = transport.foregroundPid();
-    if (pid <= 0 || pid === previousPid || transport.foregroundInterruptible() ||
+    pid = terminal.foregroundPid();
+    if (pid <= 0 || pid === previousPid || terminal.foregroundInterruptible() ||
         transport.graphicsActive() || !transport.inputIdle()) return false;
     const text = await visibleTerminalText();
-    return transport.foregroundPid() === pid &&
-      !transport.foregroundInterruptible() && pattern.test(text);
+    return terminal.foregroundPid() === pid &&
+      !terminal.foregroundInterruptible() && pattern.test(text);
   }, description, 6000);
   const geometry = transport.geometry();
   const x = geometry.paddingX + Math.floor(geometry.cellWidth / 2);
@@ -289,6 +290,7 @@ async function boot() {
   document.documentElement.dataset.image = ready.image;
   document.documentElement.dataset.bootMode = ready.bootMode;
   document.documentElement.dataset.snapshotBytes = String(ready.snapshotBytes);
+  terminal = host.get("runtime").terminal;
   transport = host.get("display")?.transport;
   networkTransport = host.get("http")?.transport;
   let custom;
@@ -316,9 +318,10 @@ async function boot() {
     get audio() { return host.get("audio")?.status; },
     hostModules: host.enabled,
     display: host.get("display")?.presenter,
+    terminal,
     transport,
     get foregroundPid() {
-      return transport.foregroundPid();
+      return terminal.foregroundPid();
     },
     get graphicsActive() {
       return transport.graphicsActive();

@@ -10,8 +10,8 @@ extern "C" {
 #endif
 
 enum {
-  DOLLY_DISPLAY_MAILBOX_VERSION = 5,
-  DOLLY_DISPLAY_MAILBOX_HEADER_SIZE = 128,
+  DOLLY_DISPLAY_MAILBOX_VERSION = 6,
+  DOLLY_DISPLAY_MAILBOX_HEADER_SIZE = 100,
   DOLLY_DISPLAY_EVENT_SIZE = 128,
   DOLLY_DISPLAY_EVENT_CAPACITY = 256,
   DOLLY_DISPLAY_EVENT_DATA_SIZE = 88,
@@ -90,14 +90,10 @@ enum {
 };
 
 enum {
-  // Set while a nested foreground command, rather than the resident
-  // interactive shell, owns the terminal. The browser uses this bit only to
-  // distinguish terminal Ctrl-C input from a process-directed SIGINT.
-  DOLLY_DISPLAY_FOREGROUND_INTERRUPTIBLE = 1u << 0,
   // A foreground command has exclusively leased the framebuffer. This bit is
   // observable by the browser presenter, but ownership and policy remain
   // entirely inside Dolly.
-  DOLLY_DISPLAY_GRAPHICS_ACTIVE = 1u << 1,
+  DOLLY_DISPLAY_GRAPHICS_ACTIVE = 1u << 0,
 };
 
 // Browser input is deliberately semantic-but-unencoded. The browser copies
@@ -134,11 +130,6 @@ _Static_assert(sizeof(dolly_input_event) == DOLLY_DISPLAY_EVENT_SIZE,
 typedef struct {
   _Atomic uint32_t event_read;
   _Atomic uint32_t event_write;
-  _Atomic uint32_t event_wake;
-  _Atomic uint32_t event_dropped;
-  _Atomic uint32_t result_sequence;
-  _Atomic uint32_t result_status;
-  _Atomic uint32_t foreground_pid;
   _Atomic uint32_t flags;
   _Atomic uint32_t frame_sequence;
   _Atomic uint32_t frame_index;
@@ -165,11 +156,6 @@ typedef struct {
   _Atomic uint32_t cell_height;
   _Atomic uint32_t padding_x;
   _Atomic uint32_t padding_y;
-  // Ctrl-C is a process event, not ordinary stdin. The browser publishes the
-  // target before incrementing the sequence. Dolly consumes it only when that
-  // pid is still the active foreground command.
-  _Atomic uint32_t interrupt_sequence;
-  _Atomic uint32_t interrupt_target_pid;
   // The browser increments this once per animation frame while a graphics
   // lease is active. Dolly owns waiting and interruption semantics.
   _Atomic uint32_t animation_frame_sequence;
