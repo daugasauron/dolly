@@ -3,7 +3,7 @@ PACKAGE ripgrep
 REQUIRES HOST http@0
 REQUIRES HOST threads@0
 
-FROM https://daugasauron.com/demos/rust/Dollyfile-rust-build 014e36580e217570d4342cd198dc35d803950813e2726b05a2b466521ebde706
+FROM https://daugasauron.com/demos/rust/Dollyfile-rust-build fd297734cc7d949bece569a79a19df3da34cf0b37b1ed85623b75b033de9d753
 REQUIRES TOOL patti
 REQUIRES TOOL tar
 REQUIRES TOOL cp
