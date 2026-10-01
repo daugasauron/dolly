@@ -64,6 +64,7 @@ cp \
   "${project_dir}/dist/dolly-build-id.mjs" \
   "${project_dir}/dist/dolly-image-build-id.mjs" \
   "${project_dir}/dist/dolly-images.mjs" \
+  "${project_dir}/dist/dolly-packages.txt" \
   "${project_dir}/dist/dolly.data" \
   "${project_dir}/dist/dolly.mjs" \
   "${project_dir}/dist/dolly-seed.mjs" \

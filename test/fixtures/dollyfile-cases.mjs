@@ -20,8 +20,7 @@ FILE ${outputs}/cwd`,
       check: `test "$(cat ${outputs}/quoted)" = 'two words' && test "$(cat ${outputs}/cwd)" = '${scratch}/space dir'` },
     { name: "run", rows: `RUN CWD ${scratch} /bin/slop -c 'pwd > ${outputs}/run; printf %s "$1" >> ${outputs}/run' literal 'a b'
 FILE ${outputs}/run`,
-      check: `test "$(cat ${outputs}/run)" = '${scratch}
-a b'` },
+      check: `test "$(sed -n 1p ${outputs}/run)" = '${scratch}' && test "$(sed -n 2p ${outputs}/run)" = 'a b'` },
     { name: "order", rows: `SOURCE ${origin}/fixture/parser-before.txt ${digest("before")} ${outputs}/order
 SLOP slop -c 'test "$(cat ${outputs}/order)" = before'
 SOURCE ${origin}/fixture/parser-after.txt ${digest("after")} ${outputs}/order

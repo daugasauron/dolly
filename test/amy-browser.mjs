@@ -1,5 +1,8 @@
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
+import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { browserTest } from "./browser.mjs";
 import { encodeSnapshotRecords } from "../src/snapshot-records.mjs";
 import { CANONICAL_ORIGIN } from "../src/static-asset.mjs";
@@ -29,12 +32,15 @@ const bytes = parts => { const joined = new Uint8Array(parts.reduce((sum, part) 
 const file = data => ({ kind: 2, data: encoder.encode(data) });
 const snapshot = encodeSnapshotRecords(new Map([["/etc/dolly/Dollyfile", file(threaded.source)],
   ["/etc/dolly/artifact", { kind: 2, data: bytes(receipt) }], ["/usr/share/threaded", file("needs threads\n")]]));
-const fixtures = { "threaded.snapshot": snapshot };
+const scratch = await mkdtemp(join(tmpdir(), "dolly-amy-"));
+await writeFile(join(scratch, "threaded.snapshot"), snapshot);
+const fixtures = { "threaded.snapshot": join(scratch, "threaded.snapshot") };
 const artifact = `/etc/dolly/artifacts/${threaded.sha256}.snapshot`;
 const row = `INSTALL ${threaded.url} ${threaded.sha256}`;
 
 // amy in a live default session: an install is the INSTALL row executed by
 // the engine, served by packages@0, recorded, and kept by a saved session.
+try {
 await browserTest("amy", { image: "default", timeout: 300_000, server: { fixtures } }, async ({ server, open }) => {
   const policy = { maxRequests: 256, rules: [{ origin: server.origin, pathPrefix: "/fixture/", methods: ["GET"] }] };
   const session = await open({ policy });
@@ -69,10 +75,13 @@ await browserTest("amy", { image: "default", timeout: 300_000, server: { fixture
   const delta = Number(await session.page.evaluate(() => document.documentElement.dataset.sessionUncompressedBytes));
   const stored = Number(await session.page.evaluate(() => document.documentElement.dataset.sessionBytes));
   console.log(`amy session: ${delta} bytes of changes, ${stored} bytes stored`);
-  const reloaded = await open({ policy, path: "/session/?name=amy-proof" });
-  const rerun = check(reloaded);
-  await rerun("test \"$(python3 -c 'print(6 * 7)')\" = 42 && test \"$PYTHONUTF8\" = 1 && test \"$PYTHONDONTWRITEBYTECODE\" = 1");
-  await rerun(`test "$(amy installed | sed -n 1p)" = "python ${pin("python")}" && test "$(cat /usr/share/threaded)" = 'needs threads'`);
+  await session.page.goto(`${server.origin}/session/?name=amy-proof`);
+  await session.page.waitForFunction(() => ["ready", "failed"].includes(document.documentElement.dataset.dollyStatus));
+  assert.equal(await session.page.evaluate(() => document.documentElement.dataset.dollyStatus), "ready",
+    await session.page.locator("#bootstrap-log").textContent());
+  await session.page.evaluate(() => __dolly.waitForInteractiveTerminal(/dolly:[^\n]*\$\s*$/, "session shell"));
+  await run("test \"$(python3 -c 'print(6 * 7)')\" = 42 && test \"$PYTHONUTF8\" = 1 && test \"$PYTHONDONTWRITEBYTECODE\" = 1");
+  await run(`test "$(amy installed | sed -n 1p)" = "python ${pin("python")}" && test "$(cat /usr/share/threaded)" = 'needs threads'`);
 });
 
 // An image that does not declare a package's host module refuses it, naming
@@ -89,3 +98,6 @@ await browserTest("amy refusal", { image: "system", server: { fixtures } }, asyn
   await refuse("grep -q 'REQUIRES HOST packages@0' /tmp/refused");
   assert.notEqual(await system.submit("curl -fsS https://packages.dolly.invalid/v1/index -o /dev/null"), 0);
 });
+} finally {
+  await rm(scratch, { recursive: true, force: true });
+}

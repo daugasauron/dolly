@@ -100,6 +100,7 @@ export async function startBrowserServer(projectDir, image = "default",
     files.add(`dist/dolly-${definition.image}-system-snapshot.mjs`);
   }
   for (const source of DOLLY_STATIC_SOURCES) files.add(source.path.slice(1));
+  files.add("dist/dolly-packages.txt");
   for (const name of await readdir(resolve(projectDir, "dist"))) {
     if (/^dolly(?:-[a-z0-9-]+)?\.(?:wasm|mjs|data)$/.test(name) || name === "IosevkaTerm-SemiBold.woff2") {
       files.add(`dist/${name}`);
