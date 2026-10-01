@@ -227,7 +227,20 @@ above plus `LLVM_TABLEGEN`/`CLANG_TABLEGEN` set to the kept tools and
 `make -k -j4 LLVMAnalysis` compiled its whole closure, 807 TUs from Support
 to Analysis, without an error in 470 s (4.4 GiB peak, host load 6-8).
 
-Next: the compiler stage, the same way for `clangFrontendTool clangCodeGen
-lldWasm LLVMWebAssemblyCodeGen` (2,559 TUs; Clang's are the heavy ones) at
-`-j4`, keeping the 103 archives, then link the compiler and compare it with
-the seed's link.
+The same probe for the whole closure (`make -k -j4 clangFrontendTool
+clangCodeGen lldWasm LLVMWebAssemblyCodeGen`) ran 25 minutes (stopped for
+time, 214 targets done) and hit the Worker stack risk: `dolly: process N
+Worker failed while running: Maximum call stack size exceeded`, three tries
+each, for Clang's `lib/Driver/ToolChains/MSP430.cpp` and
+`lib/Sema/SemaARM.cpp`. MSP430.cpp chains 635 `StringSwitch::Case` calls from
+`MSP430Target.def`, presumably one recursion level each; SemaARM's deep
+construct is not yet located.
+The host compiles both natively; in Dolly the limit is the browser's native
+stack for a Worker running Wasm, which a page cannot raise. No other TU failed
+in that time; peak 5.7 GiB.
+
+Next: measure what bounds the recursion (which compiler phase, the depth per
+`Case`, whether V8's baseline or optimized frames run), then decide between
+an upstream source change for such chains and a compiler process that needs
+less native stack. Then the full closure at `-j4`, keep the 103 archives, link
+the compiler and compare it with the seed's link.
