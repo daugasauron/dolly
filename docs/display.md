@@ -52,9 +52,9 @@ flowchart LR
 
 - Frames are top-down non-premultiplied RGBA8. The kernel checks size, stride,
   generation and length before publishing; the browser checks again.
-- Only the foreground process or a descendant can hold the lease. Exit, trap or
-  forced termination releases it, and Ghostty redraws its retained grid; stale
-  input is drained so it cannot reach the recovery prompt.
+- Only the foreground process or a descendant can acquire the lease. Exit, trap
+  or forced termination releases it, and Ghostty redraws its retained grid;
+  stale input is drained so it cannot reach the recovery prompt.
 - Pointer capture needs a user click on the canvas; Escape or release undoes it.
   Records carry buttons, hover, relative motion, pointer enter/leave and window
   focus.

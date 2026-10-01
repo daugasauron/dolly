@@ -184,5 +184,8 @@ await browserTest("terminal", { server }, async ({ name, server, open }) => {
   }), true);
   assert.equal(await lease, 0);
   assert.equal(await page.evaluate(() => __dolly.graphicsActive), false);
+  // Exit ends a lease its owner never released.
+  assert.equal(await submit(`${probe} lease-exit`), 0);
+  assert.equal(await page.evaluate(() => __dolly.graphicsActive), false);
   assert.equal(await submit(`rm ${probe} ${probe}.c`), 0);
 });

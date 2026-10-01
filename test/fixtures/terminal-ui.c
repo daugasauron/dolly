@@ -101,6 +101,10 @@ int main(int argc, char **argv) {
     if (dolly_display_release(surface.generation) != 0) status = 9;
     return status;
   }
+  if (argc > 1 && strcmp(argv[1], "lease-exit") == 0) {
+    dolly_display_surface surface;
+    return dolly_display_acquire(&surface) == 0 ? 0 : 7;
+  }
   const int mode = dolly_terminal_mode_get(STDIN_FILENO);
   if (mode < 0 || dolly_terminal_mode_set(STDIN_FILENO, DOLLY_TERMINAL_ISIG) != 0) return 1;
   const int query = argc > 1 && strcmp(argv[1], "query") == 0;

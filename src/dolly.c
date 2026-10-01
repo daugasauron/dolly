@@ -53,11 +53,6 @@ void dolly_terminal_publish_result(int status) {
 }
 
 void dolly_kernel_foreground_publish(int pid, int interruptible) {
-  const uint32_t previous = atomic_load_explicit(
-      &terminal_mailbox.foreground_pid, memory_order_acquire);
-  if (previous != 0 && previous != (uint32_t)pid) {
-    dolly_kernel_terminal_release((int)previous);
-  }
   atomic_store_explicit(&terminal_mailbox.foreground_pid, (uint32_t)pid,
                         memory_order_release);
   atomic_store_explicit(&terminal_mailbox.foreground_interruptible,
