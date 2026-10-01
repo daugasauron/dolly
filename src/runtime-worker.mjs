@@ -122,7 +122,8 @@ try {
   const declared = bootMode === "snapshot" ? snapshotMetadata.hostRequirements ?? definition?.hostRequirements ?? []
     : configuredImage === "custom" ? inspectDollyfile(bootConfig.customSource).hostRequirements : definition.hostRequirements;
   if (!bootConfig.buildOnly && bootMode === "snapshot") host.require(declared);
-  host.admit(declared);
+  // A build runs the engine and its tools with the build host's modules too.
+  host.admit(bootMode === "rebuild" ? [...declared, ...host.enabled] : declared);
   const recipeSha256 = configuredImage === "custom"
     ? await sha256(encoder.encode(bootConfig.customSource)) : definition.sha256;
   const baseReference = configuredImage === "custom"
@@ -272,6 +273,7 @@ try {
       if (!bootConfig.buildOnly) {
         const artifact = await describeImageArtifact(copy.buffer, recipeSha256, inputs);
         host.require(artifact.hostRequirements);
+        host.admit(artifact.hostRequirements);
         const cacheSlot = configuredImage === "custom"
           ? `custom:${inspectDollyfile(bootConfig.customSource).image}` : `/${definition.dollyfile}`;
         const saved = await saveImageArtifact(artifact, cacheSlot);
