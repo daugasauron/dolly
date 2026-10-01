@@ -1,5 +1,5 @@
 // Neovim in the neovim image: the editor entry, keys, :w, :! and :q recovery,
-// then a Unicode paste, resize and terminal modes after normal exit and Ctrl-C.
+// then a Unicode paste, resize, terminal modes after exit and Ctrl-C as input.
 // Usage: node demos/neovim/test/neovim-browser.mjs
 import assert from "node:assert/strict";
 import { delay, demoTest, recoveryPrompt, writeCommand } from "../../browser.mjs";
@@ -37,7 +37,7 @@ await demoTest("neovim", { image: "neovim", timeout: 600_000 }, async ({ open })
   const mode = "#include <dolly/runtime.h>\nint main(void) { return dolly_terminal_mode_get(0); }\n";
   await run(`mkdir ${scratch} && ${writeCommand(`${scratch}/mode.c`, mode)} && cc ${scratch}/mode.c -o ${scratch}/mode`);
   const terminalMode = await submit(`${scratch}/mode`);
-  assert.ok(terminalMode >= 0 && terminalMode <= 15);
+  assert.ok(terminalMode >= 0 && terminalMode <= 31);
   await run(`printf 'DOLLY-NVIM-READY\\n' > ${scratch}/edit.txt && clear`);
   let editor = start(`nvim --clean ${scratch}/edit.txt`);
   await waitText(/DOLLY-NVIM-READY/);
@@ -77,8 +77,12 @@ await demoTest("neovim", { image: "neovim", timeout: 600_000 }, async ({ open })
   await waitText(/Dolly 日本語/);
   await ex("sleep 30");
   await delay(100);
+  // Neovim's raw mode clears ISIG: Ctrl-C is its input and ends the sleep.
+  const interrupted = Date.now();
   await page.keyboard.press("Control+c");
-  assert.notEqual(await editor.done, 0, "Ctrl-C must interrupt Neovim's thirty-second sleep");
-  assert.equal(await submit(`${scratch}/mode`), terminalMode, "SIGINT exit restores terminal discipline");
+  await delay(500);
+  await ex("q");
+  assert.equal(await editor.done, 0);
+  assert.ok(Date.now() - interrupted < 15000, "Ctrl-C must end Neovim's thirty-second sleep");
   await run(`grep -q '^Dolly 日本語$' ${scratch}/edit.txt && rm -rf ${scratch}`);
 });

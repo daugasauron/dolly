@@ -4,7 +4,15 @@ import { commandCases, shellCases, shellQuote, sourceFiles } from "./fixtures/sl
 
 // The shipped /bin/slop against the cases test/slop.test.mjs runs on src/slop.c natively.
 await browserTest("slop", {}, async ({ open }) => {
-  const { submit } = await open();
+  const { page, submit } = await open();
+  // Ctrl+C stops a loop of builtins, which makes no system call, and the
+  // shell keeps running.
+  const looping = submit("while :; do :; done");
+  await page.waitForFunction(() => __dolly.terminal.foregroundInterruptible());
+  await page.locator("#keyboard").focus();
+  await page.keyboard.press("Control+c");
+  assert.equal(await looping, 130);
+  assert.equal(await submit("true"), 0);
   const scratch = "/tmp/slop-cases";
   const write = (name, source) => `printf %b ${shellQuote(source.replaceAll("\\", "\\\\")
     .replaceAll("\n", "\\n").replaceAll("\t", "\\t"))} > ${scratch}/${name}`;

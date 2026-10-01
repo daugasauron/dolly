@@ -399,7 +399,11 @@ class JanisStdin extends JanisEventEmitter {
     this.readableEncoding = this.#decoder.encoding;
     return this;
   }
-  setRawMode(value) { this.isRaw = Boolean(value); return this; }
+  setRawMode(value) {
+    if (this.isTTY) Dolly.setRawMode(Boolean(value));
+    this.isRaw = Boolean(value);
+    return this;
+  }
   resume() { this.#resumed = true; return this; }
   pause() { this.#resumed = false; return this; }
   isActive() { return this.#resumed && this.listenerCount("data") > 0; }

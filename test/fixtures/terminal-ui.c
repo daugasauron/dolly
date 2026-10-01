@@ -73,6 +73,19 @@ int main(int argc, char **argv) {
     if (dolly_terminal_mode_set(0, (unsigned)saved) != 0) status = 3;
     return status;
   }
+  if (argc > 1 && strcmp(argv[1], "raw") == 0) {
+    // Raw mode clears ISIG, so Ctrl+C arrives as input instead of SIGINT.
+    struct termios saved, raw;
+    if (tcgetattr(0, &saved) != 0 || !(saved.c_lflag & ISIG)) return 18;
+    raw = saved;
+    raw.c_lflag &= ~(ICANON | ECHO | ISIG);
+    if (tcsetattr(0, TCSANOW, &raw) != 0) return 19;
+    puts("DOLLY-RAW-READY");
+    fflush(stdout);
+    char byte = 0;
+    const int status = read(0, &byte, 1) == 1 && byte == 3 ? 0 : 20;
+    return tcsetattr(0, TCSANOW, &saved) != 0 ? 21 : status;
+  }
   if (argc > 1 && strcmp(argv[1], "lease") == 0) {
     dolly_display_surface surface;
     if (dolly_display_acquire(&surface) != 0) return 7;
@@ -89,7 +102,7 @@ int main(int argc, char **argv) {
     return status;
   }
   const int mode = dolly_terminal_mode_get(STDIN_FILENO);
-  if (mode < 0 || dolly_terminal_mode_set(STDIN_FILENO, 0) != 0) return 1;
+  if (mode < 0 || dolly_terminal_mode_set(STDIN_FILENO, DOLLY_TERMINAL_ISIG) != 0) return 1;
   const int query = argc > 1 && strcmp(argv[1], "query") == 0;
   const int partial = argc > 1 && strcmp(argv[1], "partial") == 0;
   fputs("\033[?2004lDOLLY-UI-PREFIX\n", stdout);

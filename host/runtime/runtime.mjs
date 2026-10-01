@@ -50,7 +50,7 @@ class TerminalMailbox {
   }
 
   // Ctrl-C: Wasm interrupts the foreground command read here only if it still
-  // owns the terminal. False lets the key reach the interactive shell.
+  // owns the terminal. False (ISIG clear) lets the key reach it as input.
   interruptForeground() {
     const pid = this.foregroundPid();
     if (pid <= 0 || !this.foregroundInterruptible()) return false;

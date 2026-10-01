@@ -82,13 +82,15 @@ uint32_t dolly_terminal_rows(void);
 
 // Small terminal discipline contract. Language/libc adapters translate their
 // own termios layouts above these semantic bits. OPOST enables output
-// processing; ONLCR maps LF to CRLF when OPOST is enabled. Foreground Ctrl+C
-// remains a lifecycle operation, not mutable terminal state.
+// processing; ONLCR maps LF to CRLF when OPOST is enabled. While ISIG is set,
+// Ctrl+C sends SIGINT to the foreground; once a program clears it (raw mode),
+// Ctrl+C reaches that program as the input byte 0x03.
 enum {
   DOLLY_TERMINAL_CANONICAL = 1u << 0,
   DOLLY_TERMINAL_ECHO = 1u << 1,
   DOLLY_TERMINAL_OPOST = 1u << 2,
   DOLLY_TERMINAL_ONLCR = 1u << 3,
+  DOLLY_TERMINAL_ISIG = 1u << 4,
 };
 
 // Returns a non-negative DOLLY_TERMINAL_* mask, or a negative errno value.

@@ -65,7 +65,9 @@ sequenceDiagram
   descriptor 0, 1 or 2.
 - `poll` covers files, pipes and the terminal; signals wake it with `EINTR`.
 - Terminal reads return raw input bytes. `ICANON`/`ECHO` round-trip through termios
-  without a line discipline; `OPOST`/`ONLCR` map LF to CRLF on output.
+  without a line discipline; `OPOST`/`ONLCR` map LF to CRLF on output. While
+  `ISIG` is set (the default), Ctrl+C sends SIGINT to the foreground; a program
+  that clears it (raw mode) reads Ctrl+C as the byte 0x03.
 - There is one user and no permission bits: `chmod`, `chown` and `access` only
   check that the file exists, and nothing changes a file's mode
   ([why](architecture.md#decisions)).
@@ -91,9 +93,10 @@ sequenceDiagram
   termination from exit: `exit(130)` is not SIGINT.
 - Timed spawns carry an absolute monotonic deadline at most one day away; the
   supervisor ends the child with status 124 even inside a pure CPU loop.
-- `SPAWN_FOREGROUND` and `SPAWN_INTERACTIVE` are explicit roles. Ctrl+C sends
-  SIGINT to the foreground tree but spares an interactive owner (the shell),
-  which reads Ctrl+C as input while it has no running children. Image scripts
+- `SPAWN_FOREGROUND` and `SPAWN_INTERACTIVE` are explicit roles. Ctrl+C with
+  `ISIG` set sends SIGINT to the foreground tree; like a job-control shell, an
+  interactive owner with running children is spared. Slop clears `ISIG` while
+  it reads a line, so Ctrl+C at its prompt is input. Image scripts
   use `/bin/foreground`; the browser knows no command names. Only the
   foreground tree can pass the role on; retirement returns it to the nearest
   foreground ancestor.

@@ -219,13 +219,15 @@ export class DollyProcessSupervisor {
 
   #interruptForeground(pid) {
     const process = this.processes.get(pid);
-    if (!process || process.retiring) return false;
+    if (!process || process.retiring) return;
     const descendants = [...this.processes.values()].filter(
       (candidate) => !candidate.retiring && candidate.pid !== pid &&
         this.#descendantDepth(candidate, pid) !== 0,
     );
     const now = performance.now();
-    for (const target of process.interactive ? descendants : [process, ...descendants]) {
+    // Like a job-control shell, an interactive owner's running commands take
+    // SIGINT in its place; without any it takes SIGINT itself.
+    for (const target of process.interactive && descendants.length ? descendants : [process, ...descendants]) {
       if (now - (target.terminalInterruptAt ?? -Infinity) < 1000) {
         this.#forceExit(target.pid, 128 + DOLLY_PROCESS_SIGINT, DOLLY_PROCESS_SIGINT);
       } else {
@@ -233,7 +235,6 @@ export class DollyProcessSupervisor {
         this.#deliverSignal(target);
       }
     }
-    return !process.interactive || descendants.length !== 0;
   }
 
   #deliverSignal(process, signalNumber = DOLLY_PROCESS_SIGINT) {

@@ -22,7 +22,7 @@
 
 static uint32_t terminal_mode_flags =
     DOLLY_TERMINAL_CANONICAL | DOLLY_TERMINAL_ECHO |
-    DOLLY_TERMINAL_OPOST | DOLLY_TERMINAL_ONLCR;
+    DOLLY_TERMINAL_OPOST | DOLLY_TERMINAL_ONLCR | DOLLY_TERMINAL_ISIG;
 
 // The page's terminal mailbox (abi/dolly-supervisor-0.wat), with or without a
 // display. The process kernel owns foreground policy: the page only reads it
@@ -64,11 +64,9 @@ void dolly_kernel_foreground_publish(int pid, int interruptible) {
                         interruptible != 0, memory_order_release);
 }
 
-int dolly_kernel_interruptible_foreground(void) {
-  const uint32_t pid = atomic_load_explicit(&terminal_mailbox.foreground_pid,
-                                            memory_order_acquire);
-  return atomic_load_explicit(&terminal_mailbox.foreground_interruptible,
-                              memory_order_acquire) ? (int)pid : 0;
+int dolly_kernel_foreground(void) {
+  return (int)atomic_load_explicit(&terminal_mailbox.foreground_pid,
+                                   memory_order_acquire);
 }
 
 int dolly_process_take_interrupt(void) {
@@ -78,8 +76,9 @@ int dolly_process_take_interrupt(void) {
   consumed_interrupt_sequence = sequence;
   const int target = (int)atomic_load_explicit(
       &terminal_mailbox.interrupt_target_pid, memory_order_relaxed);
-  return target != 0 && target == dolly_kernel_interruptible_foreground()
-      ? target : 0;
+  return target != 0 && target == dolly_kernel_foreground() &&
+      atomic_load_explicit(&terminal_mailbox.foreground_interruptible,
+                           memory_order_acquire) ? target : 0;
 }
 
 EM_JS(void, dolly_bootstrap_write_bytes,
@@ -94,7 +93,7 @@ uint32_t dolly_kernel_terminal_mode(void) {
 
 int dolly_kernel_terminal_set_mode(uint32_t flags) {
   const uint32_t valid = DOLLY_TERMINAL_CANONICAL | DOLLY_TERMINAL_ECHO |
-      DOLLY_TERMINAL_OPOST | DOLLY_TERMINAL_ONLCR;
+      DOLLY_TERMINAL_OPOST | DOLLY_TERMINAL_ONLCR | DOLLY_TERMINAL_ISIG;
   if ((flags & ~valid) != 0) return -EINVAL;
   terminal_mode_flags = flags;
   return 0;

@@ -197,6 +197,13 @@ await demoTest("pi", { image: "pi", timeout: 900_000, server: { handle: provider
     if (stream.phase === "done") assert.fail("Pi buffered the final response until after its suffix");
     if (stream.phase === "prefix" && baseline !== null && (await http()).frame !== baseline) break;
   }
+  // Pi's raw mode clears ISIG: Ctrl+C while the response streams is its input
+  // (clear the editor), not SIGINT.
+  await page.keyboard.type("DOLLY-CTRL-C-DRAFT");
+  await waitText(/DOLLY-CTRL-C-DRAFT/);
+  assert.equal(stream.phase, "prefix", "the response finished before Ctrl+C");
+  await page.keyboard.press("Control+c");
+  await waitText(/^(?![\s\S]*DOLLY-CTRL-C-DRAFT)/);
   await waitText(/日本語😀 DOLLY-PI-HTTP-EDIT-OK/);
   for (let deadline = Date.now() + 30_000; (await http()).completed !== requestsBefore + finalRequest; await delay(100)) {
     assert.ok(Date.now() < deadline, "Pi's fixture requests did not complete");

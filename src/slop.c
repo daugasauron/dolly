@@ -136,6 +136,25 @@ static void interrupt_shell(Shell *shell, int signal_number) {
   shell->exit_status = 128 + signal_number;
 }
 
+// The interactive shell survives Ctrl+C: its SIGINT handler only records it.
+static volatile sig_atomic_t interrupt_requested;
+
+static void request_interrupt(int signal_number) {
+  (void)signal_number;
+  interrupt_requested = 1;
+}
+
+// A loop of builtins may make no system call that would deliver SIGINT, so
+// the shell also polls for it. A poll costs about a quarter of a builtin, so
+// only every 64th command polls; the shell stops with status 130.
+static void poll_interrupt(Shell *shell) {
+  static unsigned commands;
+  if (++commands % 64 == 0 && dolly_interrupt_poll() == SIGINT) interrupt_requested = 1;
+  if (!interrupt_requested) return;
+  interrupt_requested = 0;
+  interrupt_shell(shell, SIGINT);
+}
+
 static int execute_text(Shell *shell, const char *text);
 static int execute_tokens(Shell *shell, TokenList *list);
 static char *read_script(const char *path);
@@ -1967,7 +1986,7 @@ static int read_line(Buffer *line, int raw, int *reached_eof) {
   int escaped = 0;
   for (;;) {
     const ssize_t count = read(STDIN_FILENO, bytes, seekable ? sizeof(bytes) : 1);
-    if (count < 0 && errno == EINTR) continue;
+    if (count < 0 && errno == EINTR && !interrupt_requested) continue;
     if (count < 0) return -1;
     if (count == 0) {
       *reached_eof = 1;
@@ -3991,6 +4010,7 @@ static int execute_list(Shell *shell, CommandParser *parser, int execute,
     if (should_run) {
       if (invert) status = status == 0;
       shell->last_status = status;
+      poll_interrupt(shell);
       if (!shell->active) {
         status = shell->exit_status;
         aborted = 1;
@@ -4570,6 +4590,13 @@ static enum editor_result read_interactive_line(char *line, History *history) {
   }
 }
 
+// Ctrl+C is input to the line editor and SIGINT to the commands it runs.
+static void terminal_signals(int enabled) {
+  const int mode = dolly_terminal_mode_get(STDIN_FILENO);
+  if (mode >= 0) (void)dolly_terminal_mode_set(STDIN_FILENO, enabled
+      ? (unsigned)mode | DOLLY_TERMINAL_ISIG : (unsigned)mode & ~DOLLY_TERMINAL_ISIG);
+}
+
 static void print_prompt(void) {
   char cwd[1024];
   if (getcwd(cwd, sizeof(cwd)) == NULL) strcpy(cwd, "?");
@@ -4593,10 +4620,16 @@ static int interactive(Shell *shell) {
   }
   shell->interactive = 1;
   shell->active = 1;
+  const struct sigaction interrupt = {.sa_handler = request_interrupt};
+  if (sigaction(SIGINT, &interrupt, NULL) != 0) {
+    fprintf(stderr, "slop: SIGINT: %s\n", strerror(errno));
+    return 1;
+  }
   char *line = malloc(SLOP_MAX_LINE + 1);
   if (line == NULL) return 1;
   History history = {0};
   history_load(&history);
+  terminal_signals(0);
   while (shell->active) {
     print_prompt();
     enum editor_result result = read_interactive_line(line, &history);
@@ -4615,7 +4648,12 @@ static int interactive(Shell *shell) {
       const char *command = line;
       while (isspace((unsigned char)*command)) command++;
       report_status = *command != '\0' && *command != '#';
-      if (report_status) shell->last_status = execute_text(shell, line);
+      if (report_status) {
+        terminal_signals(1);
+        interrupt_requested = 0;
+        shell->last_status = execute_text(shell, line);
+        terminal_signals(0);
+      }
     }
     if (shell->terminating_signal) {
       shell->last_status = shell->exit_status;
@@ -4628,6 +4666,7 @@ static int interactive(Shell *shell) {
       fprintf(stderr, "slop: status %d\n", shell->last_status);
     dolly_terminal_publish_result(shell->last_status);
   }
+  terminal_signals(1);
   history_dispose(&history);
   free(line);
   return shell->active ? shell->last_status : shell->exit_status;
