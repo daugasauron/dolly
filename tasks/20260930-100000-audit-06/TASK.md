@@ -1,7 +1,7 @@
 # alarm() never delivers SIGALRM
 
 - STATUS: OPEN
-- PRIORITY: 120
+- PRIORITY: 200
 - TAGS: bug,core,compatibility
 
 `system()` and `pclose()` return `status<<8` (`src/process/runtime-adapter.c:881`, `:982`), so a
@@ -36,3 +36,22 @@ fails explicitly with a documented errno); `alarm()` either works or fails expli
   result needs either a kernel timer that raises SIGALRM at the next
   checkpoint, or no `alarm` symbol so configure scripts select their fallbacks.
   That choice is the owner's.
+
+## Decision (2026-10-01, delegated by the owner)
+
+Implement `ITIMER_REAL`; do not remove the symbols.
+- Git's `upload-pack.c` and `daemon.c` call `alarm()` unconditionally, and Git
+  has no knob to omit it (`NO_SETITIMER` covers only `progress.c`'s
+  `setitimer`). Removing `alarm` would force a Git source patch, against
+  "unchanged upstream source plus toolchain configuration".
+- Today's `alarm(n)` silently never fires: an unimplemented operation
+  reporting success.
+- The kernel already keeps per-process deadlines (`dolly_spawn_timeout`,
+  used by `timeout`), so a timer that raises SIGALRM at a deadline reuses
+  existing machinery instead of adding a subsystem.
+
+Semantics: `alarm` and `setitimer(ITIMER_REAL)` (with `it_interval`, which
+Git's progress display uses) raise SIGALRM at the deadline. The default
+action terminates the process; a handler runs at the next system call, and a
+blocking wait returns `EINTR` unless `SA_RESTART`. `ITIMER_VIRTUAL` and
+`ITIMER_PROF` fail with `EINVAL`.
