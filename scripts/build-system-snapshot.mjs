@@ -251,6 +251,7 @@ if (!planOnly) {
       running.add(task);
     }
     if (running.size) await Promise.race(running);
+    else if (waiting.length) throw new Error(`dependencies of ${waiting.join(", ")} did not finish`);
   }
   if (failed.length) {
     console.error(`dolly: ${failed.length} of ${images.length} images failed or were skipped: ${failed.join(", ")}`);
