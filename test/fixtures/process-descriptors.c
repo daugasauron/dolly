@@ -2,6 +2,8 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <poll.h>
+#include <signal.h>
+#include <spawn.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -206,7 +208,6 @@ static void descriptor_flags(void) {
   CHECK(close(saved_stdin) == 0 && close(fd) == 0);
 }
 
-#ifdef __EMSCRIPTEN__
 static void completed(int pid) {
   CHECK(pid > 0);
   int status;
@@ -214,6 +215,7 @@ static void completed(int pid) {
   CHECK(WIFEXITED(status) && WEXITSTATUS(status) == 0);
 }
 
+#ifdef __EMSCRIPTEN__
 static void inheritance(const char *path, uint32_t policy, unsigned mask,
                         const dolly_process_fd_mapping *mappings, uint32_t count) {
   char expected[16];
@@ -222,6 +224,7 @@ static void inheritance(const char *path, uint32_t policy, unsigned mask,
   completed(dolly_spawn_mapped(path, 3, arguments, NULL, NULL,
                                policy, mappings, count, 10000));
 }
+#endif
 
 static int child(int argc, char **argv) {
   if (strcmp(argv[1], "nonblocking") == 0) {
@@ -254,6 +257,58 @@ static int child(int argc, char **argv) {
   CHECK(write(22, "!", 1) == 1);
   return 0;
 }
+
+/* Swaps 20 and 21 through 30 by a relative path: dup2 actions apply in order,
+ * so 21 receives the A that 30 saved. CLOEXEC 0 stays closed in the child. */
+static void posix_spawning(char *self) {
+  int first = scratch("A"), second = scratch("B"), output[2];
+  CHECK(dup2(first, 20) == 20 && dup2(second, 21) == 21);
+  CHECK(close(first) == 0 && close(second) == 0);
+  CHECK(fcntl(20, F_SETFD, FD_CLOEXEC) == 0 && fcntl(0, F_SETFD, FD_CLOEXEC) == 0);
+  CHECK(pipe2(output, O_CLOEXEC) == 0);
+  posix_spawn_file_actions_t actions;
+  CHECK(posix_spawn_file_actions_init(&actions) == 0);
+  CHECK(posix_spawn_file_actions_adddup2(&actions, 20, 30) == 0);
+  CHECK(posix_spawn_file_actions_adddup2(&actions, 21, 20) == 0);
+  CHECK(posix_spawn_file_actions_adddup2(&actions, 30, 21) == 0);
+  CHECK(posix_spawn_file_actions_adddup2(&actions, output[1], 22) == 0);
+  char *slash = strrchr(self, '/'), *arguments[] = {self, "swap", NULL};
+  int directory = open(".", O_RDONLY | O_DIRECTORY);
+  pid_t pid;
+  CHECK(slash != NULL && slash != self && directory >= 0);
+  *slash = '\0';
+  CHECK(chdir(self) == 0);
+  *slash = '/';
+  CHECK(posix_spawn(&pid, slash + 1, &actions, NULL, arguments, environ) == 0);
+  CHECK(fchdir(directory) == 0 && close(directory) == 0 && close(output[1]) == 0);
+  completed(pid);
+  CHECK(fcntl(20, F_GETFD) == FD_CLOEXEC && fcntl(21, F_GETFD) == 0);
+  CHECK(lseek(20, 0, SEEK_CUR) == 1 && lseek(21, 0, SEEK_CUR) == 1);
+  char byte;
+  CHECK(read(output[0], &byte, 1) == 1 && byte == '!' && read(output[0], &byte, 1) == 0);
+  CHECK(posix_spawn(&pid, "/no-such-spawn-fixture", NULL, NULL, arguments, environ) == ENOENT);
+  CHECK(posix_spawn_file_actions_destroy(&actions) == 0);
+#ifdef __EMSCRIPTEN__
+  /* A fresh Dolly process cannot honor other actions, sessions or a blocked mask. */
+  posix_spawnattr_t attributes;
+  sigset_t mask;
+  CHECK(posix_spawn_file_actions_init(&actions) == 0);
+  CHECK(posix_spawn_file_actions_addclose(&actions, 21) == 0);
+  CHECK(posix_spawn(&pid, self, &actions, NULL, arguments, environ) == ENOTSUP);
+  CHECK(posix_spawnattr_init(&attributes) == 0);
+  CHECK(posix_spawnattr_setflags(&attributes, POSIX_SPAWN_SETSID) == 0);
+  CHECK(posix_spawn(&pid, self, NULL, &attributes, arguments, environ) == ENOTSUP);
+  CHECK(sigemptyset(&mask) == 0 && sigaddset(&mask, SIGINT) == 0);
+  CHECK(posix_spawnattr_setsigmask(&attributes, &mask) == 0);
+  CHECK(posix_spawnattr_setflags(&attributes, POSIX_SPAWN_SETSIGMASK) == 0);
+  CHECK(posix_spawn(&pid, self, NULL, &attributes, arguments, environ) == ENOTSUP);
+  CHECK(posix_spawnattr_destroy(&attributes) == 0 && posix_spawn_file_actions_destroy(&actions) == 0);
+#endif
+  CHECK(fcntl(0, F_SETFD, 0) == 0);
+  CHECK(close(output[0]) == 0 && close(20) == 0 && close(21) == 0);
+}
+
+#ifdef __EMSCRIPTEN__
 
 static void rejected_packets(const char *path, int writer) {
   const size_t path_size = strlen(path);
@@ -346,16 +401,12 @@ static void spawning(const char *path) {
 #endif
 
 int main(int argc, char **argv) {
-#ifdef __EMSCRIPTEN__
   if (argc > 1) return child(argc, argv);
-#else
-  (void)argc;
-  (void)argv;
-#endif
   descriptor_flags();
   nonblocking_pipes();
   vectored_io();
   record_locks();
+  posix_spawning(argv[0]);
 #ifdef __EMSCRIPTEN__
   spawning(argv[0]);
 #endif

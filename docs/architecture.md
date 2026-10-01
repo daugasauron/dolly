@@ -40,12 +40,14 @@ flowchart LR
 
 ## Decisions
 
-- **Serial execution is intentional.** Slop runs one command at a time,
-  pipeline stages included; Make `-jN` and Ninja run one job. Compiler recipes
-  and agent tools then behave predictably without a scheduler, host processes or
-  async callbacks. Every process is a fresh Worker and memory, and Worker
-  termination has no completion event, so concurrent processes would multiply
-  memory pressure in one tab.
+- **Slop is serial; builds run in parallel.** Slop runs one command at a time,
+  pipeline stages included, so agent tools behave predictably without a
+  scheduler, host processes or async callbacks. At the owner's request
+  (2026-10-01) build tools use several cores: `posix_spawn` returns without
+  waiting, each child runs in its own Worker, and only the kernel's system call
+  dispatch stays serial. Make `-jN` and its jobserver use this; Ninja still runs
+  one job. Every process is a fresh Worker and memory, and Worker termination
+  has no completion event, so `N` multiplies memory pressure in one tab.
 - **One user, no permission bits.** Every process is the same principal and the
   containment boundary is the browser, so modes would protect nothing. Execute
   bits never select programs; `chmod` and `chown` check that the path exists

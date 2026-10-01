@@ -48,7 +48,7 @@ sequenceDiagram
 - An unexpected Worker failure exits the process with status 126 and a one-line
   diagnostic; it does not affect unrelated processes. `cc`, `c++`, `ld` and `ar`
   retry that status up to twice
-  ([`runtime-adapter.c`](../src/process/runtime-adapter.c)), so long serial
+  ([`runtime-adapter.c`](../src/process/runtime-adapter.c)), so long
   source builds survive a transient browser Worker allocation failure without
   hiding deterministic source errors.
 
@@ -80,6 +80,11 @@ sequenceDiagram
 - Spawn inherits no descriptors, the standard streams, or all non-CLOEXEC
   descriptors, then applies explicit parent-to-child mappings, all read from the
   parent at once. A spawn may set the child's cwd.
+- `posix_spawn` inherits all non-CLOEXEC descriptors and replays `adddup2`
+  actions in order as mappings ([`runtime-adapter.c`](../src/process/runtime-adapter.c)).
+  A child starts with default dispositions and an empty signal mask; other file
+  actions, a session, process group or scheduler, and a non-empty mask return
+  `ENOTSUP`. There is no `fork`, `exec` or `posix_spawnp`.
 - `waitpid` accepts a child PID, `-1` or `0`. Wait records distinguish signal
   termination from exit: `exit(130)` is not SIGINT.
 - Timed spawns carry an absolute monotonic deadline at most one day away; the
@@ -94,8 +99,8 @@ sequenceDiagram
   Parent exit retires descendants first. Worker termination has no completion
   event, so a large interactive process gets 500 ms of reclamation before its
   exit is acknowledged, sparing the recovery shell. Nothing guarantees against
-  browser memory pressure; this is one reason execution is
-  [serial](architecture.md#decisions).
+  browser memory pressure; this is one reason Slop is
+  [serial](architecture.md#decisions) and parallel builds need a modest `-jN`.
 
 ## Signals
 

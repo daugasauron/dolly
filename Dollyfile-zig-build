@@ -1,7 +1,7 @@
 DOLLY 4
 IMAGE zig-build
 
-FROM HOST /Dollyfile-system-build c2ec44282356b27643bad2652d2f77f42f44f82e2ddc2c44bc7e2a330bb4c079
+FROM HOST /Dollyfile-system-build fc60f39f9a4fcba8af6456223c41a0928e07f9a04ca9565565d1d41b4605594c
 
 USE HOST /modules/zig.dm fbed8ebc592763224160f11ec0a07d39372a5dc7fe6b924a76d61278770128b8
 

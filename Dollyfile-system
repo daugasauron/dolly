@@ -1,7 +1,7 @@
 DOLLY 4
 IMAGE system
 
-FROM HOST /Dollyfile-system-tools 023edee7e5eef736c1d4152c87e2294db624a2883961dd514e06e505d76917a2
+FROM HOST /Dollyfile-system-tools 4fcef03e9e6aa275f4eacdb0a3194dc7eef8892c2e5b1b1d3947fa3b88e7883c
 
 REQUIRES HOST http@0
 REQUIRES HOST download@0

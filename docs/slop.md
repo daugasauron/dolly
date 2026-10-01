@@ -84,10 +84,11 @@ threads, host processes or a scheduler.
   POSIX, not GNU. `ln -s` works; hard links fail in WasmFS.
 - `uname` and `hostname` report the fixed Dolly/wasm64 identity, never the
   browser's.
-- GNU Make 4.4.1 ([`make.dm`](../modules/make.dm),
-  [`make-dolly.c`](../src/runtimes/make-dolly.c)) uses `/bin/slop` for every
-  recipe and `$(shell …)`; `-jN` is accepted and runs serially. `ninja` is
-  Samurai, also serial ([`ninja.dm`](../modules/ninja.dm)).
+- GNU Make 4.4.1 ([`make.dm`](../modules/make.dm)) defaults to
+  `SHELL=/bin/slop` and starts recipes with `posix_spawn`. `-jN` runs N jobs at
+  once and shares a pipe jobserver with recursive Makes. `-O` still groups each
+  target's output but warns that it has no lock (`F_SETLKW` is `ENOTSUP`).
+  `ninja` is Samurai, which still runs one job ([`ninja.dm`](../modules/ninja.dm)).
 - `cc`, `c++`, `ld` and `ar` are the private compiler
   ([process model](process-model.md#executables)); `git`, `curl` and `gzip` are
   source-built.

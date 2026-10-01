@@ -5,6 +5,7 @@
 #include <cstring>
 #include <dirent.h>
 #include <limits.h>
+#include <unistd.h>
 #include <map>
 #include <memory>
 #include <string>
@@ -1555,8 +1556,8 @@ bool publish_file(const std::string &source, const std::string &output) {
   if (std::rename(source.c_str(), output.c_str()) == 0) return true;
 
   // WasmFS cannot rename across every backend boundary (notably /tmp into a
-  // preloaded /usr directory). Dolly executes compiler jobs synchronously, so
-  // no command can observe this bounded cross-backend publication fallback.
+  // preloaded /usr directory). Build tools start dependents only after this
+  // command exits, so they never observe this bounded publication fallback.
   FILE *input = std::fopen(source.c_str(), "rb");
   if (input == nullptr) {
     std::fprintf(stderr, "dolly-cc: could not open staged output: %s\n",
@@ -1838,9 +1839,9 @@ extern "C" int dolly_toolchain_main(int argc, char **argv,
        default_language != DOLLY_TOOLCHAIN_AR)) {
     return 64;
   }
-  // Commands execute synchronously and remove staged outputs before return.
-  // A stable name also keeps LLD tie-breakers independent of cache hits.
-  constexpr unsigned long long job = 0;
+  // Concurrent compilers share /tmp: the pid keeps staged names apart, and a
+  // serial build assigns the same pids every time.
+  const unsigned long long job = static_cast<unsigned long long>(getpid());
   llvm::BumpPtrAllocator response_allocator;
   llvm::StringSaver response_saver(response_allocator);
   llvm::SmallVector<const char *, 16> arguments(argv, argv + argc);

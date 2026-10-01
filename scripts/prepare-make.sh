@@ -11,8 +11,7 @@ recipe_hash="$({
   sha256sum \
     "${BASH_SOURCE[0]}" \
     "${project_dir}/config/make-dolly.patch" \
-    "${project_dir}/config/make-sources.txt" \
-    "${project_dir}/src/runtimes/make-dolly.c" | awk '{print $1}'
+    "${project_dir}/config/make-sources.txt" | awk '{print $1}'
 } | sha256sum | awk '{print $1}')"
 output_dir="${project_dir}/build/generated/make-source-${DOLLY_MAKE_VERSION}-${recipe_hash:0:16}"
 
@@ -40,8 +39,6 @@ staging="$(mktemp -d "${project_dir}/build/generated/.make-source.XXXXXX")"
 mkdir -p "${staging}/src" "${staging}/lib"
 tar -xzf "${archive}" -C "${temporary}" --strip-components=1
 patch --silent -d "${temporary}" -p1 < "${project_dir}/config/make-dolly.patch"
-cp -- "${project_dir}/src/runtimes/make-dolly.c" \
-  "${temporary}/src/remote-stub.c"
 
 if command -v podman >/dev/null 2>&1; then
   container=(podman run --rm --userns=keep-id \
@@ -72,7 +69,6 @@ fi
     --disable-dependency-tracking \
     --disable-load \
     --disable-nls \
-    --disable-posix-spawn \
     --without-guile \
     CFLAGS="-m64 -O2 -DDOLLY" \
     LDFLAGS="-m64" >/dev/null
