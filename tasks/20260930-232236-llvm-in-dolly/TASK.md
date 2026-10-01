@@ -26,8 +26,8 @@ Source: Fable review, 2026-10-01.
   (3-4 GB) live in WasmFS inside that memory. Stage builds as images that keep
   only archives (the 2 GiB import limit forbids retaining trees).
 - The ~0.5 MB Worker stack (it stopped the wasm2c route for zig1).
-- Serial processes: the total only becomes practical with parallel build
-  jobs (`20260930-231102-parallel-rust`).
+- Parallel jobs: Make `-jN` works (`20260930-231102-parallel-rust`), but each
+  `cc` launch spends ~80 ms serially, a floor of N x 80 ms for N TUs.
 - Two LLVMs today: 24 for the seed (`config/source-pins.sh`), 22 for rustc
   (`demos/rust/toolchain/bootstrap-sources.json`); settle one before building.
 
