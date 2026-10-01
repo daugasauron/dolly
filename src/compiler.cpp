@@ -71,6 +71,7 @@ struct DriverOptions {
   bool print_search_dirs = false;
   bool dependency_output = false;
   bool include_system_dependencies = false;
+  bool phony_dependencies = false;
   bool end_options = false;
   bool exceptions_disabled = false;
   bool optimization_selected = false;
@@ -262,6 +263,8 @@ int parse_driver_options(int argc, const char *const *argv, DriverOptions &optio
     } else if (argument == "-MD" || argument == "-MMD") {
       options.dependency_output = true;
       options.include_system_dependencies = argument == "-MD";
+    } else if (argument == "-MP") {
+      options.phony_dependencies = true;
     } else if (argument == "-MF") {
       if (!take_option_value(argc, argv, index, "-MF",
                              options.dependency_file)) return -1;
@@ -631,6 +634,7 @@ bool run_clang(const std::string &source, const std::string &language,
     if (options.include_system_dependencies) {
       arguments.push_back("-sys-header-deps");
     }
+    if (options.phony_dependencies) arguments.push_back("-MP");
   }
   if (!output.empty()) arguments.insert(arguments.end(), {"-o", output});
   arguments.insert(arguments.end(), {"-x", language, source});
