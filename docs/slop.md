@@ -1,7 +1,8 @@
 # Slop and commands
 
 Slop ([`slop.c`](../src/slop.c)) is Dolly's finite shell: enough to run agent
-tools, scripts and GNU Make recipes. It is an ordinary process at `/bin/slop`
+tools, scripts and GNU Make recipes. It is an ordinary process at `/bin/slop`,
+compiled by [`slop.dm`](../modules/slop.dm) with `COMPILEC` in `system-build`
 (`/bin/sh` links to it from `system-tools`). It is not POSIX `sh` or Bash; the
 `help` command lists what it supports.
 
