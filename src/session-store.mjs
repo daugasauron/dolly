@@ -111,9 +111,6 @@ export async function decodeSessionSnapshot(record) {
     throw new Error("Stored Dolly session is invalid");
   }
   if (record.encoding === "identity") return record.bytes.slice(0);
-  if (typeof DecompressionStream !== "function") {
-    throw new Error("This browser cannot decompress the stored Dolly session");
-  }
   let offset = 0;
   const stream = new ReadableStream({
     pull(controller) {
