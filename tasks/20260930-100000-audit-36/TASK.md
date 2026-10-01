@@ -38,3 +38,11 @@ Minimal in-house code: prefer unchanged upstream tools; share helpers once.
   Make, and sbase is built later with Make in system-tools. Compiling sbase's
   single-file tools directly with `cc` in system-build would remove most of
   them; folded into `20261001-123500-bootstrap-boundary`.
+
+## Note (2026-10-01)
+
+Checked on `work/core-polish`: `agent-tools.dm` is built in `system-tools`
+after `sbase.dm`, so build order is not why those seven commands are in-house;
+sbase has fork-free `tail`, `du`, `rev`, `xinstall`, `tty` and `hostname`, but
+`test/commands.test.mjs` pins in-house behaviour (`tail -f` exits 2, `du -b`,
+UTF-8 `rev`). Replacing them is a recipe and test change, not done here.

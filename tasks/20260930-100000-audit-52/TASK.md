@@ -34,3 +34,10 @@ Each is now replaced only when its bytes change: 23 s, with identical runtime
 and image-input hashes. Batching the fixture, process-object and client
 compiles, and the 18 DSO fixtures, into single container launches (48 -> 16)
 brings it to 9 s. Remaining: the `dist/` outputs deleted before every link.
+
+## Note (2026-10-01)
+
+Still importing the test harness: `scripts/build-snapshot-browser.mjs:17`
+(`startBrowserServer`), and it detects cache reuse by scraping the log for
+"reusing local ". A working-tree dev server shared by tests and the image
+builder (`20260930-100000-audit-53`) would resolve both.

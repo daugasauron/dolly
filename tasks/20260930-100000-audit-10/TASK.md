@@ -37,3 +37,16 @@ One generator produces every contract's constants from its WAT/header; JS and C 
   client, libcurl and tests use the names (`e3c959f`).
 - Left: check the display and upload mailboxes for hand-copied offsets the
   same way.
+
+## Progress (2026-10-01, branch `work/core-polish`)
+
+The kernel-plugin loader's import list is generated from the contract next to
+its digest (`DOLLY_KERNEL_PLUGIN_IMPORTS`), and the HTTP kernel uses the
+generated `DOLLY_HTTP_MAX_BODY`. Checked as the previous note asked: the
+display (`host/display/display.mjs:10-49, 99-114`), upload
+(`host/upload/transport.mjs`), snapshot (`host/snapshot/transport.mjs`) and
+terminal (`host/runtime/runtime.mjs:17-29`) mailboxes still copy their word
+indices and sizes by hand from the C structs; `host/http/dolly-http-0.wat` is
+the pattern (WAT globals, static asserts in C, generated JS). The device
+header shared by GPU and audio is copied in about ten places. Converting them
+changes the module digests, so it belongs with the next client rebuild.

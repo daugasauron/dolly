@@ -1,6 +1,6 @@
 # cc/c++ driver diverges from clang behavior
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 140
 - TAGS: bug,compiler,core
 
@@ -226,3 +226,14 @@ Match Clang's dialect defaults: `gnu17` for C and `gnu++17` for C++; keep the
 agent snippets fail under strict `c17`, upstream CMake probes under-report
 (LLVM's `config.h`), no catalog C++ relies on the `c++23` default, and Clang's
 own defaults are what build systems assume.
+
+## Closed (2026-10-01)
+
+The decision is applied: `src/compiler.cpp` defaults to `-std=gnu17` and
+`-std=gnu++17` with `-O2` as the one documented divergence
+(`docs/process-model.md`). Done-when coverage: bare `cc` sees POSIX and BSD
+declarations (`test/cpp-browser.mjs`), `-MD`/`-MMD` and `-Wl,-h` behave like
+Clang (`test/fixtures/process-smoke.mjs`), unknown suffixes reach the linker,
+and a crashing compile fails once (the 126 retry covers only Worker launch
+failures, `5221de8`). `work/core-polish` also dropped the in-house recipes'
+`-std=c17` pins that existed only for the old default.

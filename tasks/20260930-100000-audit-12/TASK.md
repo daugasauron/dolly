@@ -38,3 +38,16 @@ Shared helpers live once (e.g. `fs-record.h`); dispatch cases are small function
   `src/dolly.c` (1,432 -> 988 lines since the checkpoint).
 - Remaining: the core file-system and descriptor cases of `process_dispatch`
   (kernel audit K2, K6).
+
+## Progress (2026-10-01, branch `work/core-polish`)
+
+Every item named by the audit is gone: the event-ring drain and the duplicated
+forward declaration left with the display kernel move, `DOLLY_EM_JS` is
+explained once in `process-kernel.h`, the snapshot helpers share
+`fs-record.h`, the supervisor's exited check and `result >= 0n` repeats are
+gone. This branch also made the HTTP and download kernels' helpers static,
+removed the unread session marker and the `main` the kernel never ran.
+Remaining, recorded in `20261001-000000-host-modules`: `process_dispatch` is
+still one switch over the core descriptor and path cases (small functions
+inline), the staging buffer appears in `system-snapshot.c` and
+`host/snapshot/kernel.c`, and `collect_tree` re-implements `dolly_fs_metadata`.
