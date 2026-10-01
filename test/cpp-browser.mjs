@@ -23,6 +23,8 @@ await browserTest("cpp", {}, async ({ open }) => {
     "echo '#include <stddef.h>' > pre.cpp && c++ -xc++ -E -P -fpermissive pre.cpp | grep -q size_t",
     "c++ -xc++ -E -v - < /dev/null > /dev/null",
     "c++ -Wl,--version && c++ -Wl,-v",
+    "echo 'int main(void) { return 0; }' > cmake-flags.c && cc -fno-common -fPIE -ffunction-sections " +
+      "-fdata-sections -funwind-tables -ftrapping-math -Xclang -fno-pch-timestamp cmake-flags.c -o cmake-flags && ./cmake-flags",
     "echo 'int main(int argc, char **argv) { return argc == 0; }' > sanity.cpp && " +
       "c++ -D_FILE_OFFSET_BITS=64 -o sanity sanity.cpp -D_FILE_OFFSET_BITS=64 && ./sanity",
     "echo 'extern int host(void); int extension(void) { return host(); }' > extension.c && " +

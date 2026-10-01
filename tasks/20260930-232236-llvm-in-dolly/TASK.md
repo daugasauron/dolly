@@ -116,3 +116,11 @@ then a build-only image that builds the tablegen tools (about 13 min serial),
 runs tablegen and keeps only archives. The 2,559-TU stage waits for Make or
 Ninja job slots (`20260930-231102-parallel-rust`): about 3.6 h serial, 28 min at
 `-j8`.
+
+## Driver flags (2026-10-01, `work/fixes-build`)
+
+`cc` accepts `-fno-common`, `-fPIE`, `-ffunction-sections`, `-fdata-sections`,
+`-funwind-tables`, `-ftrapping-math` and `-Xclang` (checked in
+`test/cpp-browser.mjs`, Chrome and Firefox). The 16 MiB initial memory is the
+process ABI's floor (`src/process-abi.mjs`), so the compiler link keeps
+passing `-Wl,--initial-memory=33554432`, as the seed build does.

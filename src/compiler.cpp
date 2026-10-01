@@ -342,8 +342,21 @@ int parse_driver_options(int argc, const char *const *argv, DriverOptions &optio
       // pointer width or enable a browser capability.
     } else if (argument == "-pthread") {
       options.pthread = true;
-    } else if (argument == "-fPIC" || argument == "-fpic" || argument == "-pipe") {
+    } else if (argument == "-fPIC" || argument == "-fpic" || argument == "-fPIE" ||
+               argument == "-fpie" || argument == "-pipe") {
       // Dolly objects are always PIC.
+    } else if (argument == "-fno-common") {
+      // Clang's default; LLVM's CMake states it.
+    } else if (argument == "-funwind-tables") {
+      // WebAssembly has no unwind tables: C++ exceptions use Wasm EH.
+    } else if (argument == "-ffunction-sections" || argument == "-fdata-sections") {
+      options.frontend_options.push_back(argument);
+    } else if (argument == "-ftrapping-math") {
+      options.frontend_options.push_back("-ffp-exception-behavior=strict");
+    } else if (argument == "-Xclang") {
+      std::string value;
+      if (!take_option_value(argc, argv, index, "-Xclang", value)) return -1;
+      options.frontend_options.push_back(value);
     } else if (argument == "-fdiagnostics-color=always") {
       options.frontend_options.push_back("-fcolor-diagnostics");
     } else if (argument == "-fdiagnostics-color=never") {
