@@ -206,3 +206,10 @@ merge time.
   and javascript demo tests open `FROM system` plus `INSTALL` through the
   custom route (`installProbe` in `demos/browser.mjs`), which is also how
   `amy` composes a session.
+- Integrator review: a recipe's own exports win over imported ones wherever
+  they appear (the deferred-capture case); the name grammar is one rule in
+  both parsers with accept and reject vectors; `COPY` is role-agnostic in the
+  spec; the engine's unretained list is scratch only (`/tmp`, `/workspace`):
+  `pi.dm` names the five files it ships under `~/.pi/agent`, which is exactly
+  what the built `pi`, `pi-local` and `dollyfile-studio` images held, and the
+  session snapshot never read that list.
