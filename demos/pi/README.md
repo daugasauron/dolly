@@ -21,7 +21,7 @@ Open `/pi/`; build with `npm run image -- pi`. Leave Pi with `/exit` or Ctrl+D.
   and verified against `package-lock.json`; `node demos/pi/pi-runtime-census.mjs` reports pins and
   licenses. They load from WasmFS, never from the network.
 - [`dolly-tools.js`](dolly-tools.js) plugs Slop into Pi's `bash` tool and `!`,
-  refuses to edit non-UTF-8 files and adds a `download` tool.
+  keeps bytes that are not UTF-8 intact in edits and adds a `download` tool.
 - Conversations live in `~/.pi/agent/sessions` (`/resume`); credentials in
   `~/.pi/agent/auth.json`. Images never retain them; saved sessions do.
 - `pi --offline` skips catalog and update traffic, not model requests.

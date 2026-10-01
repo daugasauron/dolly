@@ -1,6 +1,6 @@
 // This is a Pi extension, not a Pi source patch. Pi's upstream bash and edit
 // tools keep their truncation, full-output files and edit semantics; Dolly
-// only supplies the Slop shell and refuses edits that would corrupt bytes.
+// only supplies the Slop shell and keeps bytes that are not UTF-8 in edits.
 import { spawn } from "node:child_process";
 import { access, readFile, writeFile } from "node:fs/promises";
 import { basename, resolve } from "node:path";
@@ -38,16 +38,44 @@ export const slop = {
   }),
 };
 
-// Pi edits decoded text and writes it back as UTF-8; invalid bytes would
-// silently become U+FFFD, so such files are refused before any change.
-const utf8Only = new TextDecoder("utf-8", { fatal: true });
-const utf8Edits = {
+// Pi edits decoded text and writes it back as UTF-8, which would turn invalid
+// bytes into U+FFFD. Each byte that is not UTF-8 crosses the edit as one code
+// point of U+10FF80..U+10FFFF and is written back unchanged; files that
+// already contain those code points are refused.
+const escapeBase = 0x10ff00;
+const escapedByte = /[\u{10FF80}-\u{10FFFF}]/gu;
+const utf8 = new TextDecoder("utf-8", { fatal: true, ignoreBOM: true });
+const sequenceLength = (byte) =>
+  byte < 0x80 ? 1 : byte >= 0xc2 && byte < 0xe0 ? 2 : byte >= 0xe0 && byte < 0xf0 ? 3 : byte >= 0xf0 && byte < 0xf5 ? 4 : 0;
+function decodeKeepingBytes(path, bytes) {
+  let text = "";
+  for (let offset = 0; offset < bytes.length;) {
+    const length = sequenceLength(bytes[offset]);
+    let scalar = length === 1 ? String.fromCharCode(bytes[offset]) : "";
+    if (length > 1) try { scalar = utf8.decode(bytes.subarray(offset, offset + length)); } catch {}
+    if (scalar.match(escapedByte)) throw new Error(`${path} contains U+10FF80..U+10FFFF, which Dolly's edit reserves for non-UTF-8 bytes`);
+    if (scalar) offset += length;
+    else scalar = String.fromCodePoint(escapeBase + bytes[offset++]);
+    text += scalar;
+  }
+  return text;
+}
+const byteEdits = {
   access,
-  writeFile,
   async readFile(path) {
     const bytes = await readFile(path);
-    utf8Only.decode(bytes);
-    return bytes;
+    try { if (!utf8.decode(bytes).match(escapedByte)) return bytes; } catch {}
+    return Buffer.from(decodeKeepingBytes(path, bytes));
+  },
+  writeFile(path, text) {
+    const chunks = [];
+    let start = 0;
+    for (const match of text.matchAll(escapedByte)) {
+      chunks.push(Buffer.from(text.slice(start, match.index)), Buffer.of(match[0].codePointAt(0) - escapeBase));
+      start = match.index + match[0].length;
+    }
+    chunks.push(Buffer.from(text.slice(start)));
+    return writeFile(path, Buffer.concat(chunks));
   },
 };
 
@@ -83,7 +111,7 @@ export default function dollyTools(pi) {
   });
 
   pi.registerTool(sessionTool((cwd) => createBashToolDefinition(cwd, { operations: slop })));
-  pi.registerTool(sessionTool((cwd) => createEditToolDefinition(cwd, { operations: utf8Edits })));
+  pi.registerTool(sessionTool((cwd) => createEditToolDefinition(cwd, { operations: byteEdits })));
 
   pi.registerTool({
     name: "download",

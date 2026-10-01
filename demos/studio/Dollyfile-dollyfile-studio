@@ -1,7 +1,7 @@
 DOLLY 5
 IMAGE dollyfile-studio
 
-FROM https://daugasauron.com/demos/local-llm/Dollyfile-pi-local f986a8aa25ca107ecd75058d32b00dbb3ee6d7902c9d3a4e1eeaaa55b6704007
+FROM https://daugasauron.com/demos/local-llm/Dollyfile-pi-local 3e0758fb8b52abf815541c489d12e7418ef744d47eb9d5c3e2f11d2ee19f711b
 USE https://daugasauron.com/demos/neovim/neovim-runtime.dm b6c9652dd34c04e0cc30250d3e9908d9cfcd0d12c966c4d040b0068c1d8a128b
 USE https://daugasauron.com/demos/studio/dollyfile-studio.dm b8b3cba17e6112bf2988166dadde8afcfb04fe8334b465ab6b2ead73d3a06900
 

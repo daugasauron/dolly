@@ -222,7 +222,7 @@ await demoTest("pi", { image: "pi", timeout: 900_000, server: { handle: provider
     /Successfully replaced 1 block\(s\) in \/workspace\/pi-http-test\.txt/,
     /Showing lines 1001-3000 of 3000\. Full output: \/tmp\/pi-bash-[0-9a-f]+\.log/,
     /Showing lines 1-2000 of 3001\. Use offset=2001 to continue/,
-    /not valid UTF-8/,
+    /Successfully replaced 1 block\(s\) in \/workspace\/pi-latin1\.txt/,
   ].entries()) assert.match(results[index], expected, `Pi ${tools[index][0]} tool result`);
   const fullOutput = results[2].match(/\/tmp\/pi-bash-[0-9a-f]+\.log/)[0];
   await input("/quit");
@@ -232,6 +232,6 @@ await demoTest("pi", { image: "pi", timeout: 900_000, server: { handle: provider
     "grep -q \"pi crossed Dolly's HTTP broker via edit\" /workspace/pi-http-test.txt",
     "grep -q '日本語😀' /workspace/pi-http-test.txt",
     `cmp ${fullOutput} /workspace/pi-lines.txt`,
-    "printf 'old\\377\\n' | cmp - /workspace/pi-latin1.txt",
+    "printf 'new\\377\\n' | cmp - /workspace/pi-latin1.txt",
   ]) await run(command);
 });

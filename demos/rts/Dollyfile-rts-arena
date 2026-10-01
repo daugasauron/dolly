@@ -1,7 +1,7 @@
 DOLLY 5
 IMAGE rts-arena
 
-FROM https://daugasauron.com/demos/pi/Dollyfile-pi-runtime 88b72f9a4a316f3f4193f7be9136df2b9eefd03bf7814e516f9d29f40517666f
+FROM https://daugasauron.com/demos/pi/Dollyfile-pi-runtime a813026796b2e6de00232ad395ad8514032f06481bbba13b1d47aef5681d630b
 COPY FROM https://daugasauron.com/demos/rts/Dollyfile-rts-build c5283fee51e17e6750e7ca9f3b840689cde2b20e526f0ce516e91b3b73d9c8fd /usr/bin/seven-kingdoms /usr/bin/seven-kingdoms
 COPY FROM https://daugasauron.com/demos/rts/Dollyfile-rts-build c5283fee51e17e6750e7ca9f3b840689cde2b20e526f0ce516e91b3b73d9c8fd /usr/share/7kaa /usr/share/7kaa
 COPY FROM https://daugasauron.com/demos/rts/Dollyfile-rts-build c5283fee51e17e6750e7ca9f3b840689cde2b20e526f0ce516e91b3b73d9c8fd /usr/src/7kaa /usr/src/7kaa

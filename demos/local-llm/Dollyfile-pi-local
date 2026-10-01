@@ -1,7 +1,7 @@
 DOLLY 5
 IMAGE pi-local
 
-FROM https://daugasauron.com/demos/pi/Dollyfile-pi 080d3b9c88cc1072e1878873dd6aad22cddb070804a71a20ba2ca657479d82d2
+FROM https://daugasauron.com/demos/pi/Dollyfile-pi bc3f55e36351ded21bef11010edbe3f975e8bcf9d38c4c6a7585d07c6d84faa3
 COPY FROM https://daugasauron.com/demos/local-llm/Dollyfile-local-llm-build 3b1eb09194f50bcf7b4294aa09cb5c7c3c786c8f490a595588df2a509df394d6 /usr/bin/dolly-llama /usr/bin/dolly-llama
 COPY FROM https://daugasauron.com/demos/local-llm/Dollyfile-llama-build 6350c963920587b9a4f786b43e832f35d1cd1871b269c74c37e951f78a7c04e4 /usr/share/licenses/dolly-llm /usr/share/licenses/dolly-llm
 EXPORTS TOOL dolly-llama
