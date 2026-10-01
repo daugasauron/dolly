@@ -1,6 +1,6 @@
 # Give every image except the root builder the display and a shell
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 310
 - TAGS: images,display,core
 
@@ -38,3 +38,9 @@ from them).
 - system-tools, ghostty-build, rust-sdk, cmake-build and codex-build open to a
   working Slop with `DISPLAY` set, in Chrome and Firefox.
 - Left: release. The owner chose not to publish until 0 A.D. builds again.
+
+## Released (2026-10-01, 15:21)
+
+Local checkpoint release `35b11b69…` (`npm run publish`, served on
+localhost:9000) carries all 41 catalog images; the publish browser-checked
+each image, and the start page grays out only `system-build` and `zig-build`.
