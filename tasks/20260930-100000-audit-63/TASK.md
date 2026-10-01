@@ -46,3 +46,10 @@ Core files contain no demo names; demos own their scenarios, preparation and tes
   daugasauron.com (`dollyfile-studio`, `pi-local`, `zero-ad`) because they are
   too large for GitHub Pages; select them by snapshot size against the host's
   limits instead, and drop the names from `test/site-release.test.mjs`.
+
+## Note (2026-10-01)
+
+`scripts/package-github-pages.mjs` still names `dollyfile-studio`, `pi-local`
+and `zero-ad`. Deriving the set as the domain list minus the GitHub list would
+also redirect `codex`, `audio-sdk` and `openal-build`; selecting by snapshot
+size needs the sizes at packaging time. Left as the task's plan says.

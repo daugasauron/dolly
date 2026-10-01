@@ -11,8 +11,7 @@
 
   (import "env" "fopen" (func $fopen (param i64 i64) (result i64)))
   (import "env" "fseek" (func $fseek (param i64 i64 i32) (result i32)))
-  (import "env" "dolly_fclose"
-    (func $dolly_fclose (param i64) (result i32)))
+  (import "env" "fclose" (func $fclose (param i64) (result i32)))
   (import "env" "ftell" (func $ftell (param i64) (result i64)))
   (import "env" "malloc" (func $malloc (param i64) (result i64)))
   (import "env" "fread"
@@ -26,6 +25,11 @@
     (func $strcmp (param i64 i64) (result i32)))
   (import "env" "strncmp"
     (func $strncmp (param i64 i64 i64) (result i32)))
+  (import "env" "strlen" (func $strlen (param i64) (result i64)))
+  (import "env" "memcmp"
+    (func $memcmp (param i64 i64 i64) (result i32)))
+  (import "env" "bcmp"
+    (func $bcmp (param i64 i64 i64) (result i32)))
   (import "env" "write"
     (func $write (param i32 i64 i64) (result i64)))
   (import "env" "__errno_location"

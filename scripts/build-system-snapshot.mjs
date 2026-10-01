@@ -91,7 +91,6 @@ const metadataPath = image => resolve(projectDir, `dist/dolly-${image}-system-sn
 const readMetadata = async image => parseGeneratedConstant(await readFile(metadataPath(image), "utf8"), "DOLLY_SYSTEM_SNAPSHOT");
 
 async function inspectSnapshot(image, inputs) {
-  if (process.env.DOLLY_FORCE_SNAPSHOT === "1") return { action: "build", reason: "forced" };
   try {
     const metadata = await readMetadata(image);
     const stale = reason => ({ action: "build", reason });

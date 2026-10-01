@@ -7,9 +7,6 @@ import { DOLLY_ERRNO as E } from "../dist/dolly-errno.mjs";
 const definitions = await Promise.all(hostManifests.map(async manifest =>
   ({ ...await import(new URL(manifest.host, manifest.url).href), contract: manifest })));
 export const hostContracts = Object.freeze(definitions.map(module => module.contract));
-// What executables may require: name@version -> the ABI digest its provider implements.
-const providedAbi = new Map(definitions.filter(module => module.digest)
-  .map(({ contract: { name, version }, digest }) => [`${name}@${version}`, digest]));
 export const buildHost = Object.freeze(["runtime@0", "http@0", "threads@0"]);
 const byName = new Map(definitions.map(module => [module.contract.name, module]));
 const owners = new Map();
@@ -22,6 +19,8 @@ export async function createHost(side, enabled, { send, resources = {}, configur
   if (!["browser", "worker"].includes(side)) throw new TypeError("invalid host side");
   const selected = hostRequirements(enabled), instances = new Map(), reasons = new Map(), messages = new Map();
   const started = new Set(), pending = new Map(), options = {}, transfers = [], config = {};
+  // What executables may require: name@version -> the ABI digest its enabled provider implements.
+  const enabledAbi = new Map();
   let disposed = false;
   function requireModules(requirements) {
     for (const value of hostRequirements(requirements)) {
@@ -68,9 +67,10 @@ export async function createHost(side, enabled, { send, resources = {}, configur
     const instance = module[side]?.({ ...resources, send, get: dependency,
       service: () => { for (const instance of instances.values()) instance.service?.(); },
       claimsKey, surfaceSize,
-      abi: providedAbi,
+      abi: enabledAbi,
       configuration: configuration[name] ?? {} }) ?? {};
     instances.set(name, instance);
+    if (module.digest) enabledAbi.set(`${name}@${version}`, module.digest);
     for (const [key, value] of Object.entries(instance.options ?? {})) {
       if (key in options) throw new Error(`duplicate host option: ${key}`);
       options[key] = value;

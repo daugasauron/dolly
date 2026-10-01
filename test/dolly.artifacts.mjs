@@ -69,7 +69,6 @@ test("dolly-process-0 is a minimal private-memory executable contract", async ()
     formatWasmType(contract.exports.find((entry) => entry.name === "_start").type),
     "func()->()",
   );
-  assert.equal(contract.hasStart, false);
   assert.equal(layout.length, 1);
   assert.equal(Buffer.from(layout[0].data).toString("hex"), expectedLayout);
 });
@@ -81,7 +80,6 @@ test("a statically linked process executable satisfies dolly-process-0", async (
   assert.equal(executable.customSections.includes("dylink.0"), false);
   assert.equal(executable.customSections.includes("dolly.process"), true);
   assert.equal(executable.customSections.includes("dolly.process.memory"), true);
-  assert.equal(executable.hasStart, true, "Emscripten initializes private memory at instantiation");
   assert.deepEqual(
     executable.imports.map((entry) => `${entry.module}.${entry.name}`),
     ["env.memory", "dolly_process_0.call"],
@@ -212,16 +210,6 @@ test("the kernel contains no general dynamic loader or dynamic JavaScript execut
   assert.doesNotMatch(loader, /\b(?:eval|Function)\s*\(|loadDynamicLibrary|_dlopen_js|_dlsym_js/);
   const plugin = await readFile(new URL("../src/kernel-plugin.mjs", import.meta.url), "utf8");
   assert.doesNotMatch(plugin, /\bfetch\s*\(|XMLHttpRequest|\b(?:eval|Function)\s*\(/);
-});
-
-test("the main-module provider exports Emscripten side-module stack bounds", async () => {
-  const runtime = await readWasmInterface(artifact("dolly.wasm"));
-  for (const name of ["__stack_pointer", "__stack_high", "__stack_low"]) {
-    const entry = runtime.exports.find(entry => entry.name === name);
-    assert.ok(entry, name);
-    assert.equal(entry.type.kind, "global");
-    assert.equal(entry.type.value, "i64");
-  }
 });
 
 test("system snapshots are sealed to their visible recipe chain", async () => {

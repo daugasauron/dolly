@@ -14,7 +14,6 @@ extern "C" {
  * scripts/generate-abi-constants.mjs derives the JavaScript constants from
  * the same declarations.
  */
-#define DOLLY_PROCESS_ABI_VERSION 0u
 #define DOLLY_PROCESS_PACKET_LIMIT (1024u * 1024u)
 #define DOLLY_PROCESS_DSO_LIMIT (512u * 1024u * 1024u)
 #define DOLLY_PROCESS_DSO_ERROR_CAPACITY 240u

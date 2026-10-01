@@ -336,19 +336,10 @@ export function createProcessFfi({
 
   function tableFunction(indexValue, description) {
     const index = asBigInt(indexValue, `${description} table index`);
-    if (index >= BigInt(getTable().length)) {
+    if (index >= getTable().length) {
       throw new RangeError(`${description} table index is out of range`);
     }
-    let function_;
-    try {
-      function_ = getTable().get(Number(index));
-    } catch (numberError) {
-      try {
-        function_ = getTable().get(index);
-      } catch {
-        throw numberError;
-      }
-    }
+    const function_ = getTable().get(index);
     if (typeof function_ !== "function") {
       throw new TypeError(`${description} table slot is empty`);
     }

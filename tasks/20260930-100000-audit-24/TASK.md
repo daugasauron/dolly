@@ -44,3 +44,14 @@ Authority code is short and reviewable; test hooks are separated from production
 - Measured on `next` (2026-10-01 afternoon): 5,157 lines in `src/*.mjs` and
   3,437 in `host/*/*.mjs`; `src/browser.mjs` 380, `src/process-supervisor.mjs`
   742, `src/process-worker.mjs` 556, `src/runtime-worker.mjs` 380.
+
+## Progress (2026-10-01, branch `work/core-polish`)
+
+Removed from trusted code: the boot-error compiler-trace reader, the
+`DecompressionStream`/`CompressionStream` fallbacks, the session marker write,
+the plugin loader's hand-kept import list, the parser's start-section flag, the
+kernel's unused exports. The TextDecoder shadowing at boot records its measured
+reason. `window.__dolly` (24 members, 54 test files, 18 page launch points) is
+unchanged: isolating it needs the harnesses to inject the helpers, which is a
+test-infrastructure change rather than core polish; the upload module now polls
+only during a transfer (25 ms), driven by the kernel storing without a notify.

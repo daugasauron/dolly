@@ -1,5 +1,4 @@
 // Generated from include/dolly/process.h.
-export const DOLLY_PROCESS_ABI_VERSION = 0;
 export const DOLLY_PROCESS_PACKET_LIMIT = 1048576;
 export const DOLLY_PROCESS_DSO_LIMIT = 536870912;
 export const DOLLY_PROCESS_DSO_ERROR_CAPACITY = 240;

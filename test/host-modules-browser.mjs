@@ -50,7 +50,7 @@ await browserTest("host modules", { image: "system", server: { sourceOverrides }
   await source("#include <dolly/gpu.h>\nint main(void){static dolly_gpu g;return dolly_gpu_open(&g,0,0)<0;}");
   await run("cc -O1 /tmp/probe.c -ldolly-gpu -o /tmp/gpu-client");
   assert.ok((await requirements("/tmp/gpu-client")).includes("gpu@0"));
-  assert.notEqual(await submit("/tmp/gpu-client"), 0, "a disabled provider must deny the client call");
+  assert.equal(await submit("/tmp/gpu-client"), 126, "a disabled provider must deny the executable");
   // So does a module whose layout differs from its provider's in one digest bit.
   const otherLayout = [...Buffer.from(DOLLY_HTTP_ABI_DIGEST, "hex")].map((byte, index) => index ? byte : byte ^ 1);
   for (const [required, error] of [

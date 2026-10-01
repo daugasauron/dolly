@@ -128,9 +128,6 @@ _Noreturn void dolly_assert_fail(const char *condition, const char *file,
   abort();
 }
 
-int dolly_fclose(FILE *stream) {
-  return fclose(stream);
-}
 int dolly_write_file(const char *path, const void *bytes, size_t length) {
   if (path == NULL || (bytes == NULL && length != 0)) return -EINVAL;
   int fd = open(path, O_WRONLY | O_CREAT | O_TRUNC, 0666);
@@ -403,9 +400,5 @@ static int load_image_environment(void) {
     errno = error;
     return -1;
   }
-  return 0;
-}
-
-int main(void) {
   return 0;
 }

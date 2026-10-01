@@ -5,7 +5,7 @@
   "phase": "kernel",
   "imports": ["env.memory", "env._abort_js", "env.emscripten_resize_heap", "wasi_snapshot_preview1.clock_res_get", "wasi_snapshot_preview1.clock_time_get", "env._wasmfs_copy_preloaded_file_data", "env._wasmfs_get_num_preloaded_dirs", "env._wasmfs_get_num_preloaded_files", "env._wasmfs_get_preloaded_child_path", "env._wasmfs_get_preloaded_file_mode", "env._wasmfs_get_preloaded_file_size", "env._wasmfs_get_preloaded_parent_path", "env._wasmfs_get_preloaded_path_name", "env.emscripten_date_now", "wasi_snapshot_preview1.environ_get", "wasi_snapshot_preview1.environ_sizes_get", "wasi_snapshot_preview1.random_get", "env.dolly_bootstrap_write_bytes", "env._wasmfs_jsimpl_alloc_file", "env._wasmfs_jsimpl_free_file", "env._wasmfs_jsimpl_get_size", "env._wasmfs_jsimpl_read", "env._wasmfs_jsimpl_set_size", "env._wasmfs_jsimpl_write", "env.emscripten_err", "env.emscripten_out"],
   "host": "runtime.mjs",
-  "contracts": ["../../abi/dolly-supervisor-0.wat"],
+  "contracts": ["../../abi/dolly-supervisor-0.wat", "../../abi/dolly-image-0.wat"],
   "process": ["../../abi/dolly-process-0.wat", "../../abi/dolly-process-gate-0.wat", "../../abi/dolly-process-dso-0.wat"],
   "headers": ["../../include/dolly/runtime.h", "../../include/dolly/process.h", "../../include/dolly/host.h", "../../include/dolly/host-abi.h", "../../include/dolly/toolchain.h"],
   "kernel": ["../../src/dolly.c", "../../src/process-kernel.c", "../../src/system-snapshot.c", "../../src/device-lease.c"],

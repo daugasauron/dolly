@@ -143,7 +143,7 @@ FILE /tmp/upload/upload.c
       printf("upload: saved %s\n", argv[1]);
       return 0;
     }
-SLOP cc -std=c17 -O1 /tmp/upload/upload.c -o /bin/upload
+SLOP cc -O1 /tmp/upload/upload.c -o /bin/upload
 EXPORTS TOOL upload
 SLOP rm -rf /tmp/upload
 # Samurai is a compact Ninja-compatible executor. Its upstream parser, graph,
@@ -173,7 +173,6 @@ FILE /tmp/ninja/Makefile
     >cc \
     >  $(CFLAGS) \
     >  -O0 \
-    >  -fdolly-runtime-interrupt-handler \
     >  -DDOLLY_SAMURAI_PART=12 \
     >  -c $(UNIT) \
     >  -o $@
@@ -399,7 +398,7 @@ FILE /tmp/agent-tools/Makefile
     TOOLS := $(addprefix /bin/,$(NAMES))
     all: $(TOOLS)
     /bin/%: /tmp/agent-tools/%.c /tmp/agent-tools/run-program.h
-    >cc -std=c17 -O2 $< -o $@
+    >cc -O2 $< -o $@
 SLOP make \
   -f /tmp/agent-tools/Makefile
 

@@ -5,6 +5,7 @@
 #include <dirent.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <fnmatch.h>
 #include <limits.h>
 #include <signal.h>
 #include <stdint.h>
@@ -158,7 +159,6 @@ static void poll_interrupt(Shell *shell) {
 static int execute_text(Shell *shell, const char *text);
 static int execute_tokens(Shell *shell, TokenList *list);
 static char *read_script(const char *path);
-static int wildcard_match(const char *pattern, const char *text);
 static void print_prompt(void);
 static void restore_environment_changes(EnvironmentChange *changes,
                                         size_t count);
@@ -837,7 +837,6 @@ static int capture_command(Shell *shell, const char *command, Buffer *output) {
 }
 
 typedef struct {
-  Shell *shell;
   const char *cursor;
   int error;
   int evaluate;
@@ -1068,7 +1067,7 @@ static int expand_arithmetic(Shell *shell, const char *source, size_t length,
   }
   char *expression = buffer_release(&expanded);
   if (expression == NULL) return 0;
-  Arithmetic parser = {.shell = shell, .cursor = expression, .evaluate = 1};
+  Arithmetic parser = {.cursor = expression, .evaluate = 1};
   const long value = arithmetic_or(&parser);
   arithmetic_space(&parser);
   const int valid = !parser.error && *parser.cursor == '\0';
@@ -1099,7 +1098,7 @@ static int append_pattern_removal(Buffer *word, const char *value,
     } else {
       candidate = value + length - removed;
     }
-    const int matched = wildcard_match(pattern, candidate);
+    const int matched = fnmatch(pattern, candidate, 0) == 0;
     free(owned);
     if (!matched) continue;
     if (operation == '#')
@@ -1251,7 +1250,7 @@ static int expand_dollar_now(Shell *shell, const char **cursor, Buffer *word) {
                                    &expanded_pattern);
         char *pattern = ok ? buffer_release(&expanded_pattern) : NULL;
         if (ok) ok = pattern != NULL && append_pattern_removal(
-            word, value == NULL ? "" : value, pattern, operation, longest);
+            word, value, pattern, operation, longest);
         free(pattern);
         free(expanded_pattern.data);
       } else if (operation == '-') {
@@ -1316,8 +1315,10 @@ static int expand_dollar_now(Shell *shell, const char **cursor, Buffer *word) {
   }
 
   if (length == 1 && (name[0] == '@' || name[0] == '*')) {
+    const char *ifs = name[0] == '*' ? getenv("IFS") : NULL;
+    const char separator = ifs == NULL ? ' ' : ifs[0];
     for (int index = 1; index < shell->argc; index++) {
-      if (index != 1 && !buffer_character(word, ' ')) return -1;
+      if (index != 1 && separator != '\0' && !buffer_character(word, separator)) return -1;
       if (!buffer_append(word, shell->argv[index], strlen(shell->argv[index]))) return -1;
     }
   } else {
@@ -1444,8 +1445,23 @@ static int deferred_quoted_positional_fields(const char *text) {
     length = length * 10 + digit;
     cursor++;
   }
-  return *cursor++ == ':' && length == 2 && cursor[0] == '$' &&
-         cursor[1] == '@' && cursor[2] == '\0';
+  if (*cursor++ != ':') return 0;
+  return (length == 2 && strcmp(cursor, "$@") == 0) ||
+         (length == 4 && strcmp(cursor, "${@}") == 0);
+}
+
+// A double-quoted $@ that is not the whole word has no single meaning here.
+static int embeds_quoted_positional(const Token *token) {
+  for (const char *cursor = token->text; (cursor = strchr(cursor, SLOP_DEFERRED_DOLLAR)) != NULL;) {
+    const char *payload = strchr(++cursor, ':');
+    if (payload == NULL) return 0;
+    const size_t length = strtoul(cursor, NULL, 10);
+    if (token->quote_mask[++payload - token->text] == 'q' &&
+        ((length == 2 && strncmp(payload, "$@", 2) == 0) ||
+         (length == 4 && strncmp(payload, "${@}", 4) == 0))) return 1;
+    cursor = payload + length;
+  }
+  return 0;
 }
 
 static TokenKind operator_kind(const char *source, size_t *length,
@@ -1529,8 +1545,6 @@ static TokenKind operator_kind(const char *source, size_t *length,
     case ')': return TOKEN_RPAREN;
     default: *length = 0; return TOKEN_WORD;
   }
-  *length = 0;
-  return TOKEN_WORD;
 }
 
 static int redirection_boundary(unsigned char byte) {
@@ -1617,11 +1631,6 @@ static int lex(const char *source, TokenList *tokens) {
       pending_count = 0;
       if (!token_push(tokens, TOKEN_SEMI, NULL, 0)) return 0;
       continue;
-    }
-    if (source[0] == '<' && source[1] == '<' && source[2] == '-') {
-      fputs("slop: tab-stripping <<- here-documents are unsupported\n",
-            stderr);
-      return 0;
     }
     if (source[0] == '&' && source[1] != '&' && source[1] != '>') {
       fputs("slop: background jobs (&) are not supported\n", stderr);
@@ -1747,6 +1756,11 @@ static int lex(const char *source, TokenList *tokens) {
     tokens->items[tokens->count - 1].positional_fields =
         quoted && deferred_quoted_positional_fields(
                       tokens->items[tokens->count - 1].text);
+    if (quoted && !tokens->items[tokens->count - 1].positional_fields &&
+        embeds_quoted_positional(&tokens->items[tokens->count - 1])) {
+      fputs("slop: \"$@\" must be a whole word\n", stderr);
+      return 0;
+    }
     if (both_outputs) {
       if (!token_push(tokens, TOKEN_DUP_OUTPUT, NULL, 0)) return 0;
       tokens->items[tokens->count - 1].descriptor = STDERR_FILENO;
@@ -1764,45 +1778,6 @@ word_error:
     return 0;
   }
   return token_push(tokens, TOKEN_END, NULL, 0);
-}
-
-static int wildcard_match(const char *pattern, const char *text) {
-  while (*pattern != '\0') {
-    if (*pattern == '\\' && pattern[1]) {
-      pattern++;
-      if (*pattern++ != *text++) return 0;
-      continue;
-    }
-    if (*pattern == '*') {
-      while (*pattern == '*') pattern++;
-      if (*pattern == '\0') return 1;
-      for (; *text != '\0'; text++) if (wildcard_match(pattern, text)) return 1;
-      return wildcard_match(pattern, text);
-    }
-    if (*pattern == '?') {
-      if (*text == '\0') return 0;
-      pattern++; text++; continue;
-    }
-    if (*pattern == '[') {
-      if (*text == '\0') return 0;
-      pattern++;
-      int matched = 0;
-      int inverted = *pattern == '!' || *pattern == '^';
-      if (inverted) pattern++;
-      while (*pattern != '\0' && *pattern != ']') {
-        char first = *pattern++;
-        if (*pattern == '-' && pattern[1] != '\0' && pattern[1] != ']') {
-          pattern++;
-          char last = *pattern++;
-          if (*text >= first && *text <= last) matched = 1;
-        } else if (*text == first) matched = 1;
-      }
-      if (*pattern != ']' || matched == inverted) return 0;
-      pattern++; text++; continue;
-    }
-    if (*pattern++ != *text++) return 0;
-  }
-  return *text == '\0';
 }
 
 static int compare_strings(const void *left, const void *right) {
@@ -1851,7 +1826,7 @@ static int glob_below(const Token *token, size_t offset, Buffer *path,
     struct dirent *entry;
     while (ok && stream != NULL && (entry = readdir(stream)) != NULL) {
       if (entry->d_name[0] == '.' && component.data[0] != '.') continue;
-      if (!wildcard_match(component.data, entry->d_name)) continue;
+      if (fnmatch(component.data, entry->d_name, 0) != 0) continue;
       struct stat metadata;
       path->length = path_length;
       ok = buffer_append(path, entry->d_name, strlen(entry->d_name)) &&
@@ -2167,7 +2142,7 @@ static int builtin_getopts(Shell *shell, int argc, char **argv) {
   if (shell->getopts_offset == 1) {
     if (strcmp(word, "--") == 0) {
       shell->getopts_index++;
-      if (!publish_getopts_index(shell->getopts_index)) return 1;
+      publish_getopts_index(shell->getopts_index);
       return 1;
     }
     if (word[0] != '-' || word[1] == '\0') return 1;
@@ -2299,10 +2274,21 @@ static int builtin_name(const char *name) {
   return 0;
 }
 
+// POSIX special builtins take precedence over functions; the others yield.
+static int special_builtin_name(const char *name) {
+  static const char *const names[] = {
+      ":", ".", "source", "eval", "exec", "exit", "export", "return", "set",
+      "shift", "unset", "break", "continue",
+  };
+  for (size_t index = 0; index < sizeof(names) / sizeof(names[0]); index++) {
+    if (strcmp(name, names[index]) == 0) return 1;
+  }
+  return 0;
+}
+
 static int command_builtin(Shell *shell, int argc, char **argv);
 
-static int builtin(Shell *shell, int argc, char **argv, int *handled) {
-  *handled = 1;
+static int builtin(Shell *shell, int argc, char **argv) {
   if (strcmp(argv[0], ":") == 0) return 0;
   if (strcmp(argv[0], "command") == 0) return command_builtin(shell, argc, argv);
   if (strcmp(argv[0], "exec") == 0) {
@@ -2461,11 +2447,11 @@ static int builtin(Shell *shell, int argc, char **argv, int *handled) {
     const char *path = argument < argc
                            ? (previous ? getenv("OLDPWD") : argv[argument])
                            : getenv("HOME");
-    if (previous && (path == NULL || path[0] == '\0')) {
-      fputs("slop: cd: OLDPWD is not set\n", stderr);
+    if (path == NULL || path[0] == '\0') {
+      if (argument < argc && !previous) return 0;
+      fprintf(stderr, "slop: cd: %s is not set\n", previous ? "OLDPWD" : "HOME");
       return 1;
     }
-    if (path == NULL || path[0] == '\0') path = "/workspace";
     char *old_cwd = getcwd(NULL, 0);
     if (old_cwd == NULL) {
       fprintf(stderr, "slop: cd: %s\n", strerror(errno));
@@ -2619,7 +2605,6 @@ static int builtin(Shell *shell, int argc, char **argv, int *handled) {
     }
     return status;
   }
-  *handled = 0;
   return 0;
 }
 
@@ -2711,12 +2696,11 @@ static int spawn_command(Shell *shell, int argc, char **argv, const char *search
 
 static int run_command_words(Shell *shell, int argc, char **argv) {
   if (!shell->active) return shell->exit_status;
-  if (builtin_name(argv[0])) {
-    int handled;
-    return builtin(shell, argc, argv, &handled);
-  }
   Function *function = function_lookup(shell->functions, argv[0]);
-  if (function != NULL) return run_function(shell, function, argc, argv);
+  if (function != NULL && !special_builtin_name(argv[0])) {
+    return run_function(shell, function, argc, argv);
+  }
+  if (builtin_name(argv[0])) return builtin(shell, argc, argv);
   return spawn_command(shell, argc, argv, path_variable());
 }
 
@@ -2736,9 +2720,8 @@ static int command_builtin(Shell *shell, int argc, char **argv) {
   }
   if (argument == argc) return describe ? 2 : 0;
   if (!describe) {
-    int handled;
     return builtin_name(argv[argument])
-        ? builtin(shell, argc - argument, argv + argument, &handled)
+        ? builtin(shell, argc - argument, argv + argument)
         : spawn_command(shell, argc - argument, argv + argument, search);
   }
   int status = 0;
@@ -3706,7 +3689,7 @@ static int parse_case(Shell *shell, CommandParser *parser, int execute,
         if (pattern == NULL) {
           failed = 1;
           execute = 0;
-        } else if (wildcard_match(pattern, value)) {
+        } else if (fnmatch(pattern, value, 0) == 0) {
           clause_match = 1;
         }
         free(pattern);
@@ -4409,12 +4392,13 @@ static void complete_line(char *line, size_t *length, size_t *cursor) {
 }
 
 enum editor_result { EDITOR_LINE, EDITOR_EOF, EDITOR_INTERRUPTED };
+enum editor_key { KEY_NONE, KEY_UP, KEY_DOWN, KEY_RIGHT, KEY_LEFT, KEY_DELETE, KEY_HOME, KEY_END };
 
-static int read_escape_sequence(void) {
+static enum editor_key read_escape_sequence(void) {
   int byte = dolly_terminal_read_raw_timeout(25);
-  if (byte != '[' && byte != 'O') return 0;
+  if (byte != '[' && byte != 'O') return KEY_NONE;
   int final = dolly_terminal_read_raw_timeout(25);
-  if (final < 0) return 0;
+  if (final < 0) return KEY_NONE;
   if (final >= '0' && final <= '9') {
     int number = 0;
     do {
@@ -4424,20 +4408,20 @@ static int read_escape_sequence(void) {
     while (final >= 0 && final != '~' && !(final >= '@' && final <= '~')) {
       final = dolly_terminal_read_raw_timeout(25);
     }
-    if (final != '~') return 0;
-    if (number == 3) return 5;
-    if (number == 1 || number == 7) return 6;
-    if (number == 4 || number == 8) return 7;
-    return 0;
+    if (final != '~') return KEY_NONE;
+    if (number == 3) return KEY_DELETE;
+    if (number == 1 || number == 7) return KEY_HOME;
+    if (number == 4 || number == 8) return KEY_END;
+    return KEY_NONE;
   }
   switch (final) {
-    case 'A': return 1;
-    case 'B': return 2;
-    case 'C': return 3;
-    case 'D': return 4;
-    case 'H': return 6;
-    case 'F': return 7;
-    default: return 0;
+    case 'A': return KEY_UP;
+    case 'B': return KEY_DOWN;
+    case 'C': return KEY_RIGHT;
+    case 'D': return KEY_LEFT;
+    case 'H': return KEY_HOME;
+    case 'F': return KEY_END;
+    default: return KEY_NONE;
   }
 }
 
@@ -4452,17 +4436,17 @@ static enum editor_result read_interactive_line(char *line, History *history) {
 
   for (;;) {
     int byte = dolly_terminal_read_raw_timeout(-1);
-    int key = byte == 0x1b ? read_escape_sequence() : 0;
-    if (key != 0) byte = 0;
-    if (key == 1 || key == 2) {
-      if (key == 1 && history_cursor != 0) {
+    enum editor_key key = byte == 0x1b ? read_escape_sequence() : KEY_NONE;
+    if (key != KEY_NONE) byte = 0;
+    if (key == KEY_UP || key == KEY_DOWN) {
+      if (key == KEY_UP && history_cursor != 0) {
         if (history_cursor == history->count) {
           free(draft);
           draft = strdup(line);
         }
         editor_replace(line, &length, &cursor,
                        history->items[--history_cursor]);
-      } else if (key == 2 && history_cursor < history->count) {
+      } else if (key == KEY_DOWN && history_cursor < history->count) {
         history_cursor++;
         editor_replace(line, &length, &cursor,
                        history_cursor == history->count
@@ -4473,21 +4457,21 @@ static enum editor_result read_interactive_line(char *line, History *history) {
       search_cursor = history->count;
       continue;
     }
-    if (key == 3 || byte == 0x06) {
+    if (key == KEY_RIGHT || byte == 0x06) {
       if (cursor < length) {
         cursor++;
         editor_write("\033[C");
       }
       continue;
     }
-    if (key == 4 || byte == 0x02) {
+    if (key == KEY_LEFT || byte == 0x02) {
       if (cursor != 0) {
         cursor--;
         editor_write("\033[D");
       }
       continue;
     }
-    if (key == 5 || byte == 0x04) {
+    if (key == KEY_DELETE || byte == 0x04) {
       if (length == 0 && byte == 0x04) {
         free(draft); free(search);
         return EDITOR_EOF;
@@ -4499,12 +4483,12 @@ static enum editor_result read_interactive_line(char *line, History *history) {
       }
       continue;
     }
-    if (key == 6 || byte == 0x01) {
+    if (key == KEY_HOME || byte == 0x01) {
       cursor = 0;
       redraw_line(line, length, cursor);
       continue;
     }
-    if (key == 7 || byte == 0x05) {
+    if (key == KEY_END || byte == 0x05) {
       cursor = length;
       redraw_line(line, length, cursor);
       continue;
@@ -4655,8 +4639,8 @@ static int interactive(Shell *shell) {
       while (isspace((unsigned char)*command)) command++;
       report_status = *command != '\0' && *command != '#';
       if (report_status) {
-        terminal_signals(1);
         interrupt_requested = 0;
+        terminal_signals(1);
         shell->last_status = execute_text(shell, line);
         terminal_signals(0);
       }

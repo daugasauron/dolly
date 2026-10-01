@@ -134,3 +134,24 @@ Per-module digests: display, HTTP, download and upload packets move from
 `process.h` into their modules' headers, each with a layout digest its client
 stamps (as threads does with `DOLLY_THREADS_ABI_DIGEST`); `process.h` keeps only
 the core process ABI.
+
+## Progress (2026-10-01, branch `work/core-polish`)
+
+- The image boot exports (`dolly_bootstrap_*`, `dolly_snapshot_*`,
+  `dolly_write_file`) are implemented by the runtime, so they moved from the
+  snapshot module's contract to the runtime's `abi/dolly-image-0.wat`; the
+  snapshot contract keeps the session mailbox only. `snapshot.h` is
+  kernel-private and no longer published to programs.
+- The supervisor admits executables against the enabled providers (an
+  executable needing a disabled module exits 126 before entry, as
+  `docs/browser-boundary.md` says).
+- The kernel-plugin contract offers `strlen`, `memcmp` and `bcmp` and imports
+  `fclose` under its own name; `modules/ghostty.dm` lost its libc shim.
+- Recorded, not changed (each is a contract change): the hand-copied display,
+  upload, snapshot and terminal mailbox layouts and the shared device header;
+  the display kernel's font path (driver ABI); the four always-set GPU feature
+  bits; the HTTP clients' 10 ms sleeps and the upload page's 25 ms polling
+  (DEFERRED-based waits would replace them); the session save blocking the
+  kernel thread for up to 30 s per chunk; the version/capacity handshake
+  exports the digests make redundant; threads wired through
+  `setThreadProvider`.

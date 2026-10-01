@@ -67,7 +67,7 @@ FILE /usr/src/dolly/gamedev/sdk.mk
     
     $(MATH_COMPAT_OBJECT): /usr/src/dolly/gamedev/math-compat.c
     	mkdir -p /usr/src/dolly/gamedev/build
-    	$(CC) -std=c17 -O2 -fno-builtin -fno-sanitize-coverage -c $< -o $@
+    	$(CC) -std=c17 -O2 -fno-builtin -c $< -o $@
     
     /usr/lib/libm.a: $(MATH_COMPAT_OBJECT)
     	$(AR) rcs $@ $^

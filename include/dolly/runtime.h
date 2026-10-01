@@ -27,14 +27,8 @@ int dolly_spawn_timeout(const char *path, int argc, char **argv,
                         int stdin_fd, int stdout_fd, int stderr_fd,
                         double timeout_milliseconds);
 
-// Spawn with an explicit child environment. The input
-// array is copied into the command context and never retained or modified.
-int dolly_spawn_env(const char *path, int argc, char **argv, char *const envp[],
-                    int stdin_fd, int stdout_fd, int stderr_fd);
-
-// Explicit-environment form with the same runtime-owned deadline semantics.
-// Keeping both controls in one spawn operation avoids mutating a parent's
-// environment merely to configure a child.
+// Spawn with an explicit child environment, copied into the command context
+// and never retained or modified, and the same runtime-owned deadline.
 int dolly_spawn_env_timeout(const char *path, int argc, char **argv,
                             char *const envp[], int stdin_fd, int stdout_fd,
                             int stderr_fd, double timeout_milliseconds);
@@ -99,33 +93,25 @@ int dolly_terminal_mode_set(int descriptor, uint32_t flags);
 
 // Returns SIGINT once when the kernel has targeted this process, or zero when
 // no interrupt is pending. The supervisor retains a forced Worker-termination
-// fallback for programs that never reach a checkpoint.
+// fallback for programs that never enter the kernel.
 int dolly_interrupt_poll(void);
-
-// Compiler-inserted cancellation safepoint. A pending SIGINT terminates only
-// the current Dolly command with the conventional shell status 130.
-void dolly_interrupt_checkpoint(void);
 
 // True for descriptors connected to the in-Wasm terminal, not for other
 // character devices such as /dev/null, redirected files or pipes. libc's
 // isatty uses this same operation.
 int dolly_isatty(int descriptor);
 
-// Terminates only the currently executing Dolly process.
-void dolly_exit(int status) __attribute__((__noreturn__));
+// Terminates only the currently executing Dolly process, as killed by a signal.
 void dolly_exit_signal(int signal_number) __attribute__((__noreturn__));
-
-ssize_t dolly_getrandom(void *buffer, size_t length, unsigned flags);
 
 // POSIX-shaped waiting and signals above Dolly's private processes. waitpid
 // accepts a child PID or -1/0 for any child; kill needs a positive PID.
 pid_t dolly_waitpid(pid_t pid, int *status, int options);
 int dolly_kill(pid_t pid, int signal_number);
 
-// Raw sockets are deliberately absent. HTTP-capable libraries must use the
-// typed dolly_http_perform broker, whose sole outer edge is browser Fetch.
-// Their exact declarations come from the ordinary POSIX headers after the
-// compiler maps those names onto Dolly's failure implementations.
+// Raw sockets are deliberately absent: the POSIX socket functions fail
+// explicitly. HTTP-capable libraries use the typed dolly_http_perform broker,
+// whose sole outer edge is browser Fetch.
 
 #ifdef __cplusplus
 }

@@ -142,6 +142,11 @@ try {
   const baseArtifact = baseReference ? artifacts.get(baseReference.sha256) : null;
   if (bootMode === "rebuild" && baseReference && !baseArtifact) throw new Error("base image artifact was not provided");
   bootstrapStage("loading Dolly runtime...");
+  // Emscripten's glue decodes kernel strings with a TextDecoder it creates at
+  // import time, over views of the heap; TextDecoder rejects views of shared
+  // memory (measured in Chrome 151 and Firefox 155) and no link setting of
+  // Emscripten 6.0.8 makes it copy first. Hiding the global while the glue
+  // loads selects its JavaScript decoder instead.
   const nativeTextDecoder = globalThis.TextDecoder;
   globalThis.TextDecoder = undefined;
   const { default: createDolly } = await import("../dist/dolly.mjs");
@@ -151,7 +156,6 @@ try {
   const kernelModule = await WebAssembly.compileStreaming(fetch(locateArtifact("dolly.wasm")));
   let kernelExports;
   const dollyOptions = {
-    noInitialRun: true,
     ...host.options,
     locateFile: locateArtifact,
     instantiateWasm(imports, receive) {
@@ -363,18 +367,9 @@ try {
   const status = await runImageEntry(dolly, processSupervisor);
   self.postMessage({ type: "exited", status });
 } catch (error) {
-  let compilerTrace = "";
-  try {
-    compilerTrace = dolly === null
-      ? ""
-      : decoder.decode(readBoundedFile(dolly, "/tmp/dolly-cc-trace.log", 64 * 1024)).trim();
-  } catch {
-    // Compiler tracing is opt-in and absent in normal sessions.
-  }
-  const message = error instanceof Error ? error.message : String(error);
   self.postMessage({
     type: "error",
-    message: compilerTrace === "" ? message : `${message}\n${compilerTrace}`,
+    message: error instanceof Error ? error.message : String(error),
     stack: error instanceof Error ? error.stack ?? "" : "",
   });
 } finally {

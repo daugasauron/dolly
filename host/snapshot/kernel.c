@@ -16,7 +16,7 @@
 #include <time.h>
 #include <unistd.h>
 
-#include <dolly/snapshot.h>
+#include "snapshot.h"
 _Static_assert(sizeof(dolly_session_mailbox) == 64, "session mailbox layout");
 
 typedef struct {
@@ -301,26 +301,6 @@ static int capture_filesystem(void) {
   return 0;
 }
 
-static int write_session_marker(const char *name) {
-  (void)mkdir("/home", 0755);
-  (void)mkdir("/home/dolly", 0755);
-  int descriptor = open("/home/dolly/.dolly-session-name",
-                        O_WRONLY | O_CREAT | O_TRUNC, 0666);
-  if (descriptor < 0) return -1;
-  char marker[256];
-  const int length = snprintf(marker, sizeof(marker),
-                              "DOLLY-SESSION 1\nname %s\n", name);
-  const int result = length > 0 && length < (int)sizeof(marker) &&
-                             dolly_fs_write_exact(descriptor,
-                                         (const unsigned char *)marker,
-                                         (uintptr_t)length) == 0 &&
-                             close(descriptor) == 0
-                         ? 0
-                         : -1;
-  if (result != 0) close(descriptor);
-  return result;
-}
-
 static int valid_session_name(const unsigned char *name, uint32_t length) {
   if (length == 0 || length > 64) return 0;
   for (uint32_t index = 0; index < length; ++index) {
@@ -462,9 +442,7 @@ void dolly_session_service(void) {
     status = -EINVAL;
   } else {
     session_name[length] = '\0';
-    if (!valid_session_name(session_name, length) ||
-        write_session_marker((const char *)session_name) != 0 ||
-        capture_filesystem() != 0) {
+    if (!valid_session_name(session_name, length) || capture_filesystem() != 0) {
       status = -(errno == 0 ? EIO : errno);
     }
   }

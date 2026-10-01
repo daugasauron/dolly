@@ -170,7 +170,7 @@ int main(int argc, char **argv) {
       return 0; /* Also abandon children still queued for launch. */
     }
     if (strcmp(argv[1], "self") == 0) { kill(getpid(), SIGTERM); return 99; }
-    if (strcmp(argv[1], "checkpoint") == 0) for (;;) dolly_interrupt_checkpoint();
+    if (strcmp(argv[1], "checkpoint") == 0) for (;;) access("/", F_OK);
     if (strcmp(argv[1], "spin") == 0) for (;;) __asm__ volatile("");
     struct timespec delay = {30, 0};
     nanosleep(&delay, NULL);

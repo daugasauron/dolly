@@ -50,7 +50,7 @@ target_link_options(dolly PRIVATE
   -matomics
   -mbulk-memory
   "SHELL:-Wl,--shared-memory,--no-check-features"
-  "SHELL:-Wl,--export=getTempRet0,--export=setTempRet0,--export=__stack_pointer,--export=__stack_high,--export=__stack_low"
+  "SHELL:-Wl,--export=__stack_pointer"
   # Resident Wasm bytes are instantiated by the small boot loader. The kernel
   # has no general dlopen/dlsym JavaScript capability or dynamic JS evaluation.
   "SHELL:-Wl,--export-table,--growable-table"
@@ -66,7 +66,7 @@ target_link_options(dolly PRIVATE
   -sEXPORT_ES6=1
   -sEXPORT_NAME=createDolly
   -sENVIRONMENT=worker
-  -sINVOKE_RUN=0
+  --no-entry
   --profiling-funcs
   "SHELL:-sEXPORTED_RUNTIME_METHODS=FS,FS_createPath,FS_createDataFile,addRunDependency,removeRunDependency"
   "SHELL:-sEXPORTED_FUNCTIONS=@/src/build/runtime-exports.json"
@@ -84,8 +84,6 @@ add_custom_target(dolly-seed
     /src/src/sha256.h@/seed/usr/src/dolly/sha256.h
     /src/src/fs-record.h@/seed/usr/src/dolly/fs-record.h
     /src/build/dolly-kernel-plugin-0.wasm@/seed/usr/lib/dolly/dolly-kernel-plugin-0.wasm
-    /src/build/dolly-process-0.wasm@/seed/usr/lib/dolly/dolly-process-0.wasm
-    /src/build/dolly-threads-0.wasm@/seed/usr/lib/dolly/dolly-threads-0.wasm
     ${DOLLY_PROCESS_SYSROOT_DIR}@/seed/usr/lib/dolly/process
     /src/build/process-bin/bootstrap@/seed/usr/libexec/dolly/process-bin/bootstrap
     /src/build/process-bin/compiler@/seed/usr/libexec/dolly/process-bin/compiler

@@ -36,8 +36,8 @@ if (process.argv[1] === fileURLToPath(import.meta.url) && process.argv[2] === "k
   process.stdout.write(`// Generated from the host module manifests.\n${kernelModuleList()}`);
 } else if (process.argv[1] === fileURLToPath(import.meta.url)) {
   const field = process.argv[2];
-  if (process.argv.length !== 3 || !["host", "contracts", "process", "headers", "kernel", "client"].includes(field)) {
-    throw new Error("usage: host-modules.mjs host|contracts|process|headers|kernel|client");
+  if (process.argv.length !== 3 || !["contracts", "process", "headers", "kernel", "client"].includes(field)) {
+    throw new Error("usage: host-modules.mjs contracts|process|headers|kernel|client");
   }
   for (const { name, file } of hostFiles(field)) console.log(field === "client" ? `${name} ${file}` : file);
 }

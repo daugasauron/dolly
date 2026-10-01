@@ -24,8 +24,6 @@ FILE /tmp/curl/Makefile
     all: /usr/lib/libcurl.a /usr/bin/curl
     /tmp/libcurl-fetch.o: /usr/src/dolly/libcurl-fetch.c
     >cc \
-    >  -std=c17 \
-    >  -D_DEFAULT_SOURCE \
     >  -c $< \
     >  -o $@
     /usr/lib/libcurl.a: /tmp/libcurl-fetch.o

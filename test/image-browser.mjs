@@ -76,7 +76,7 @@ await browserTest("image", { server: { fixtures, handle }, timeout: 600_000 }, a
   assert.match(await shell.evaluate(buildBufferReuse), /^[0-9a-f]{64}$/);
   assert.equal(await shell.evaluate(async () => {
     const memory = new WebAssembly.Memory({ initial: 1024n, maximum: 131072n, shared: true, address: "i64" });
-    const { instance } = await WebAssembly.instantiateStreaming(fetch("/dist/dolly-snapshot-0.wasm"), { env: { memory } });
+    const { instance } = await WebAssembly.instantiateStreaming(fetch("/dist/dolly-image-0.wasm"), { env: { memory } });
     return instance.exports.dolly_snapshot_format_version();
   }), 2, "snapshot contract version");
   const run = async command => assert.equal(await submit(command), 0, command);

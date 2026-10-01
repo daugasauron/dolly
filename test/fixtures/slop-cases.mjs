@@ -131,6 +131,11 @@ xb" && echo hi | { read -r x; test "$x" = hi; }`, 0],
 if"`, 0],
   ["an unset PATH searches /bin and /usr/bin", "unset PATH; slop -c 'exit 7'", 7, 127],
   ["command runs built-ins in the shell and skips functions", String.raw`ls() { return 91; }; command cd /tmp && test "$(pwd)" = /tmp || exit 92; command export CMD=1; test "$CMD" = 1 || exit 93; command ls / > /dev/null || exit 94; test "$(command -v cd):$(command -v ls)" = cd:ls || exit 95; case "$(command -p -v cat)" in /*/cat) ;; *) exit 96;; esac`, 0],
+  ["braced quoted positional parameters expand to fields", 'set -- "a b" c; n=0; for x in "${@}"; do n=$((n+1)); done; case $n in 2) :;; *) exit 91;; esac', 0],
+  ["star joins with the first IFS byte", 'set -- a b c; IFS=:; case "$*" in a:b:c) :;; *) exit 91;; esac', 0],
+  ["character classes match in case patterns", 'case abc1 in [[:alpha:]]*[[:digit:]]) :;; *) exit 91;; esac', 0],
+  ["functions shadow regular builtins but not special ones", 'cd() { return 7; }; cd /; test $? = 7 || exit 91; exit() { return 8; }; exit 9', 9, 8],
+  ["cd without HOME is an error", 'unset HOME; cd', 1],
 ];
 
 export function shellQuote(value) { return `'${value.replaceAll("'", "'\\''")}'`; }

@@ -160,7 +160,7 @@ __wasi_errno_t __wasi_environ_get(uint8_t **vector, uint8_t *buffer) {
 }
 
 _Noreturn void __wasi_proc_exit(__wasi_exitcode_t status) {
-  const dolly_process_exit_request request = {status, 0};
+  const dolly_process_exit_request request = {status & 255u, 0};
   (void)dolly_process_call(
       DOLLY_PROCESS_EXIT, &request, sizeof(request), NULL, 0);
   __builtin_trap();
@@ -457,8 +457,10 @@ static uint32_t translate_open_flags(int flags) {
   return result;
 }
 
+static int set_status_flags(int descriptor, int flags);
+
+/* The mode is not part of Dolly's ABI: there is no permission model. */
 int __syscall_openat(int directory, const char *path, int flags, ...) {
-  (void)sizeof(va_list); /* The mode is intentionally not part of Dolly's ABI. */
   const uint32_t translated = translate_open_flags(flags);
   if (translated == 0) return -EINVAL;
   dolly_process_path_open_response response = {0};
@@ -466,8 +468,16 @@ int __syscall_openat(int directory, const char *path, int flags, ...) {
       DOLLY_PROCESS_PATH_OPEN, directory, translated, path,
       &response, sizeof(response));
   if (result < 0) return (int)result;
-  return (uint64_t)result == sizeof(response) && response.reserved == 0
-      ? (int)response.descriptor : -EIO;
+  if ((uint64_t)result != sizeof(response) || response.reserved != 0) return -EIO;
+  const int descriptor = (int)response.descriptor;
+  if ((flags & O_NONBLOCK) != 0) {
+    const int error = set_status_flags(descriptor, O_NONBLOCK);
+    if (error != 0) {
+      close(descriptor);
+      return error;
+    }
+  }
+  return descriptor;
 }
 
 static mode_t file_type_mode(uint32_t type) {
@@ -777,18 +787,19 @@ __attribute__((weak)) int sem_init(sem_t *semaphore, int shared, unsigned value)
 __attribute__((weak)) int sem_destroy(sem_t *semaphore) {
   (void)semaphore; errno = ENOSYS; return -1;
 }
-#endif
-
-int sysctlbyname(const char *name, void *old_value, size_t *old_size,
-                 const void *new_value, size_t new_size) {
-  (void)name;
-  (void)old_value;
-  (void)old_size;
-  (void)new_value;
-  (void)new_size;
-  errno = ENOSYS;
-  return -1;
+/* A serial process has one thread, so a cleanup handler runs only when popped. */
+void _pthread_cleanup_push(struct __ptcb *callback,
+                           void (*function)(void *), void *argument) {
+  callback->__f = function;
+  callback->__x = argument;
+  callback->__next = NULL;
 }
+void _pthread_cleanup_pop(struct __ptcb *callback, int execute) {
+  if (execute != 0 && callback != NULL && callback->__f != NULL) {
+    callback->__f(callback->__x);
+  }
+}
+#endif
 
 __wasi_errno_t __wasi_random_get(uint8_t *buffer, __wasi_size_t size) {
   if (buffer == NULL && size != 0) return EFAULT;
@@ -1336,6 +1347,14 @@ int __syscall_getcwd(char *buffer, size_t size) {
   if (result < 0) return (int)result;
   if ((uint64_t)result > size || result == 0 || buffer[result - 1] != 0) return -EIO;
   return (int)result;
+}
+
+/* Zig's C output references this BSD query; Dolly has no such table. */
+int sysctlbyname(const char *name, void *old_value, size_t *old_size,
+                 const void *new_value, size_t new_size) {
+  (void)name; (void)old_value; (void)old_size; (void)new_value; (void)new_size;
+  errno = ENOSYS;
+  return -1;
 }
 
 /*
