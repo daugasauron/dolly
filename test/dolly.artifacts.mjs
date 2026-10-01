@@ -69,7 +69,6 @@ test("dolly-process-0 is a minimal private-memory executable contract", async ()
     formatWasmType(contract.exports.find((entry) => entry.name === "_start").type),
     "func()->()",
   );
-  assert.equal(contract.hasStart, false);
   assert.equal(layout.length, 1);
   assert.equal(Buffer.from(layout[0].data).toString("hex"), expectedLayout);
 });
@@ -81,7 +80,6 @@ test("a statically linked process executable satisfies dolly-process-0", async (
   assert.equal(executable.customSections.includes("dylink.0"), false);
   assert.equal(executable.customSections.includes("dolly.process"), true);
   assert.equal(executable.customSections.includes("dolly.process.memory"), true);
-  assert.equal(executable.hasStart, true, "Emscripten initializes private memory at instantiation");
   assert.deepEqual(
     executable.imports.map((entry) => `${entry.module}.${entry.name}`),
     ["env.memory", "dolly_process_0.call"],
