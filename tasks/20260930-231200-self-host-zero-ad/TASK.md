@@ -124,6 +124,37 @@ All on the branch's images, engine and probes read from the image snapshots
   (`work/zero-ad-verify`, chain 2,450 s, `make` 280 s) the engine embeds only
   `Feb 16 2026 07:54:08`. A second build for a byte comparison was not run.
 
+### Merged with Dollyfile 6 Phase 3 (2026-10-02 morning)
+
+`main` (`e30c0b0`) merged into `work/zero-ad-self` (4e28ebc): `zero-ad-deps`
+and `zero-ad-engine` are `DOLLY 6` toolchains with their complete host sets
+(the deps image keeps the OpenAL probe, so it declares `audio@0`; the engine
+image adds `gpu@0`), `openal.dm`'s `HAVE_PTHREAD=OFF` lives in
+`Dollyfile-openal-build`, `zero-ad` takes the engine with `COPY` (the
+template in `prepare-distribution.mjs` writes the same line), staging uses
+`has_image`. `0ad-graphics-browser.mjs` reads `Dollyfile-zero-ad`
+(`zero-ad.dm` is gone). On the merged runtime (`12a4a4d7…`, seed with `-MP`,
+`SOURCE_DATE_EPOCH` and the Slop changes) `test/core-browser.mjs`,
+`cpp-browser.mjs`, `slop-browser.mjs` and `shell-browser.mjs` pass in Chrome
+and Firefox.
+
+`DOLLY_IMAGE_JOBS=4 DOLLY_BUILD_IMAGES=zero-ad npm run image` rebuilt the
+whole chain on that runtime in 3,324 s (load about 6): deps build script
+244 s, `make -j4 pyrogenesis` 380 s, the SpiderMonkey probe passes during the
+build; snapshots: `zero-ad-deps` 427,532,277 B, `zero-ad-engine`
+458,292,833 B, `zero-ad` 2,076,204,879 B. Phase 3 enables only the host
+modules an image declares, and `default` declares neither `audio@0` nor
+`gpu@0`, so the engine (which stamps both) fails there with "Required host ABI
+audio@0 is unsupported". `0ad-engine-browser.mjs` and the headless
+`0ad-multiplayer-browser.mjs` now open the `zero-ad-engine` toolchain, which
+declares both, with Chrome's software WebGPU adapter. All pass:
+`0ad-spidermonkey-browser.mjs`, `0ad-openal-browser.mjs`,
+`0ad-enet-browser.mjs`, `0ad-engine-browser.mjs` (replay state
+`be99497b21b9cb86d3a1478d2e2e09a6` again), `0ad-multiplayer-browser.mjs`
+(149 turns, hash `f3dd66c38dd8ab65aafdbdfe020a56d9`) and
+`0ad-graphics-browser.mjs zero-ad hardware` (Xvfb `:123`, boot 31.6 s, 25 ms
+per frame, economy, quick save/load, shell recovery).
+
 ### Still from the host
 
 - SpiderMonkey 128.13.0: `toolchain/build-spidermonkey.sh` cross-compiles
@@ -150,7 +181,12 @@ ran the shell scripts outside the browser for quick checks.
   needed; claiming Linux is not allowed.
 - Slop: config.sub printed `unset: invalid name: -v`; config.guess stopped on
   `<<-`. After c0bf8c8 config.sub runs cleanly and config.guess stops on the
-  missing `trap` and `umask` builtins. `js/src/old-configure` (autoconf 2.13,
+  missing `trap` and `umask` builtins. `trap` only prints an error there;
+  `umask` is what fails, because every temporary-directory fallback runs
+  `(umask 077 && mkdir ...)`. A Slop `umask` alone would not be honest: the
+  process libc only stores the mask (`__syscall_umask` in
+  `src/process/libc-adapter.c`), nothing applies it to created files, and
+  spawning does not carry it to the `mkdir` a script starts. `js/src/old-configure` (autoconf 2.13,
   2,794 lines) parses and prints `--help`; a real run stops on
   `trap: command not found` before its first check.
 - Rust: configure requires `cargo` (version check); the build runs
@@ -183,8 +219,9 @@ wasm-host patch and Slop's `trap` are needed in every case.
 
 ### Next
 
-1. Owner decision on Cargo (above); then mozbuild's wasm host, Slop `trap`,
-   and configure inside the `llvm-tablegen`-style Python image.
+1. SpiderMonkey (Cargo decided below): mozbuild's wasm host and Slop's
+   `trap`/`umask` first, then configure inside a CMake-plus-Python toolchain,
+   then Cargo built in Dolly (`20260930-231102-cargo-native`).
 2. Content: build Naga with Patti and run `convert-shaders.py` and the
    packaging in Dolly's CPython; stage the release data as `.tar.gz` (Dolly
    has no `xz`).
