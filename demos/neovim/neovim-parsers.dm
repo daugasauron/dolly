@@ -11,7 +11,7 @@ REQUIRES TOOL nvim
 REQUIRES TOOL timeout
 
 # Neovim's pinned grammars and its own CMake build recipes, all built in Dolly.
-SOURCE https://daugasauron.com/static/neovim/parsers.tar 18656076f67f0cb39a68cbe1c6f628c35faf23e2ec207f914e97874a9cf323f7 /tmp/neovim-parsers/source.tar
+SOURCE https://daugasauron.com/dist/static/neovim/parsers.tar 18656076f67f0cb39a68cbe1c6f628c35faf23e2ec207f914e97874a9cf323f7 /tmp/neovim-parsers/source.tar
 SLOP tar -xf /tmp/neovim-parsers/source.tar -C /
 FILE /tmp/neovim-parsers/build.slop
     set -ex

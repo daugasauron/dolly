@@ -37,6 +37,7 @@ export function pagesHeaders(compressed, multipart = []) {
     ...["/_dolly/*", "/dist/packs/*"].map(path => `${path}\n  ! Cache-Control\n  Cache-Control: public, max-age=31536000, immutable, no-transform`),
     "/_dolly/:release/Dollyfile*\n  Content-Type: text/plain; charset=utf-8",
     "/_dolly/:release/modules/*\n  Content-Type: text/plain; charset=utf-8",
+    "/_dolly/:release/demos/*\n  Content-Type: text/plain; charset=utf-8",
     ...[...compressed].sort().map(path => {
       if (!/^_dolly\/[a-f0-9]{64}\/[a-zA-Z0-9_./-]+$/.test(path)) throw new Error(`invalid Pages header path: ${path}`);
       // SOURCE artifacts are opaque downloads, not streaming browser modules.
@@ -44,7 +45,7 @@ export function pagesHeaders(compressed, multipart = []) {
         (path.includes("/static/") ? "\n  Content-Type: application/octet-stream" : "");
     }),
     ...[...multipart].sort().map(path => {
-      if (!/^(_dolly\/[a-f0-9]{64}\/static\/[a-zA-Z0-9_./-]+|dist\/packs\/[a-f0-9]{64}\.snapshot\.gz)$/.test(path)) throw new Error(`invalid Pages multipart path: ${path}`);
+      if (!/^(_dolly\/[a-f0-9]{64}\/dist\/static\/[a-zA-Z0-9_./-]+|dist\/packs\/[a-f0-9]{64}\.snapshot\.gz)$/.test(path)) throw new Error(`invalid Pages multipart path: ${path}`);
       return `/${path}\n  X-Dolly-Parts: 1\n  Content-Type: application/octet-stream`;
     }),
   ];

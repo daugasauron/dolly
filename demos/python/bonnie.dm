@@ -10,8 +10,8 @@ REQUIRES TOOL   python
 REQUIRES TOOL   rm
 
 # Its callers reuse the completed Python runtime image before building Bonnie.
-SOURCE https://daugasauron.com/static/python/commands/bonnie.c  a6d4c8f06f4b9de7a5d322b895e7c35e2a74180143aa7cb59d57470584b82f6c /tmp/bonnie/bonnie.c
-SOURCE https://daugasauron.com/static/python/runtimes/bonnie.py a61601ebf9e4c349076b42eb169930462d9b53538ebcc8414c0bdecb4fb0e632 /usr/lib/bonnie/bonnie.py
+SOURCE https://daugasauron.com/dist/static/python/commands/bonnie.c  a6d4c8f06f4b9de7a5d322b895e7c35e2a74180143aa7cb59d57470584b82f6c /tmp/bonnie/bonnie.c
+SOURCE https://daugasauron.com/dist/static/python/runtimes/bonnie.py a61601ebf9e4c349076b42eb169930462d9b53538ebcc8414c0bdecb4fb0e632 /usr/lib/bonnie/bonnie.py
 
 # Upstream PEP 517 config-settings, selected by normalized package name.
 # NumPy otherwise appends -O3 after CFLAGS on its generated ufunc sources.

@@ -10,7 +10,7 @@ export function deploymentBase(value) {
 export function renderReleasePage(source, path, digest, files, base = "/") {
   deploymentBase(base);
   if (!/^[0-9a-f]{64}$/.test(digest)) throw new Error("invalid release ID");
-  const directory = path === "session/open.html" ? "" : path.slice(0, path.lastIndexOf("/") + 1);
+  const directory = path.slice(0, path.lastIndexOf("/") + 1);
   const prefix = `${base}_dolly/${digest}/`;
   const assetBase = prefix + directory;
   return source.replace(/<head>/i, `<head><base href="${assetBase}">`)

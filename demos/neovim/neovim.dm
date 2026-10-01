@@ -27,7 +27,7 @@ REQUIRES TOOL gzip
 REQUIRES TOOL timeout
 REQUIRES TOOL rm
 
-SOURCE https://daugasauron.com/static/neovim/neovim.tar.gz 33277d465eebd937357c59a83378d6faef72dd47e1a20a140f16660eec598b0e /tmp/neovim/source.tar.gz
+SOURCE https://daugasauron.com/dist/static/neovim/neovim.tar.gz 33277d465eebd937357c59a83378d6faef72dd47e1a20a140f16660eec598b0e /tmp/neovim/source.tar.gz
 SLOP gzip -dc /tmp/neovim/source.tar.gz | tar -xf - -C /
 SLOP cmake -S /tmp/neovim/source -B /tmp/neovim/build \
   -DCMAKE_INSTALL_PREFIX=/usr -DCMAKE_INSTALL_LIBDIR=lib \

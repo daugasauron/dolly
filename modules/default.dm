@@ -4,13 +4,13 @@ MODULE default
 # Shared C/C++ build and system utilities, without a display or Rust tools.
 USE https://daugasauron.com/modules/download.dm       7ea1997de26f55dcbcdebf135c5a6807c6de82b361710c28b029ddc4d9f3f0dd
 USE https://daugasauron.com/modules/upload.dm         7c135b1f7b7f525b10e045c92572eebf3d09c279bc39a1a8a0a25ae607393b70
-USE https://daugasauron.com/modules/ninja.dm          232fc0c1d90d1f51f4c626ae54ee271f690b31ea39bfcd3c29b5c3726b316dd9
-USE https://daugasauron.com/modules/zlib.dm           5f7d365bd2c9a033ade4b1a319936b9ddaefb0fac0dfc19caf7cd3c3d31d08c1
-USE https://daugasauron.com/modules/gzip.dm d868ef6b11705c0ada34cb55712c8355274417208117cbee1443631622de2917
-USE https://daugasauron.com/modules/curl.dm           b615bf88786a559389a68e807bdc0484040523d49891ea5da1a045db9fd43891
-USE https://daugasauron.com/modules/git.dm            bdfa72a3cef31873f71686b4481d6616e2306533c4934ffb849123c2eb5c90a6
-USE https://daugasauron.com/modules/awk.dm            662bc35207505b49c3233259b1ef18dabfefff6dd3234e4d1bd1d3af079d3ab5
-USE https://daugasauron.com/modules/agent-tools.dm    fb597e83df581adcc26ed774d8bdc90411e0e60b544b9531895a2323cdf96ba6
+USE https://daugasauron.com/modules/ninja.dm          b1ea3b61812b11799f6b75120304ba7c3e8458207930427867809da6bdced174
+USE https://daugasauron.com/modules/zlib.dm           c9cb89bda622f88b41fb06e8fbff251610fd8390109ad1f6096dbe98c77d17f7
+USE https://daugasauron.com/modules/gzip.dm 3e7742b68f84731a5995929e0199a14bf52d9e8ac39321950b6729bec158bbde
+USE https://daugasauron.com/modules/curl.dm           dd0ccb25f10c1f93da6ddce8551dbe63bfa9ff97ce1447b500977c3a21fd454f
+USE https://daugasauron.com/modules/git.dm            9759cf314839e76932540612eaccb6a7424ede8b32477e4ec9d2946e97d1a7bf
+USE https://daugasauron.com/modules/awk.dm            f19d896eb674f78365275b90e47dd7f6db4a8d0c6f9f4e5959b1eb3c63e59aed
+USE https://daugasauron.com/modules/agent-tools.dm    b18504c1666da30a64aabb7f6b28151a2f6acbdc8f1838b10a98a6cc7ad07995
 
 # Retain the runtime and SDK at these paths when the module finishes.
 EXPORTS HEADER zlib       /usr/include/zlib.h

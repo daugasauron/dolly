@@ -4,7 +4,7 @@ import test from "node:test";
 import { loadDollyfileGraph } from "../../../scripts/dollyfile-graph.mjs";
 
 test("the Neovim image opens the editor and keeps only its runtime", async () => {
-  const graph = await loadDollyfileGraph(resolve(import.meta.dirname, "../../.."), "Dollyfile-neovim");
+  const graph = await loadDollyfileGraph(resolve(import.meta.dirname, "../../.."), "demos/neovim/Dollyfile-neovim");
   assert.deepEqual(graph.root.entry, ["/bin/foreground", "-i", "/bin/slop", "/etc/dolly/init.slop"]);
   const startup = graph.root.files.find(file => file.path === "/etc/dolly/init.slop").body;
   assert.match(startup, /foreground \/usr\/bin\/nvim \/usr\/share\/nvim\/welcome.txt/);

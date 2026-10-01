@@ -138,21 +138,22 @@ async function boot() {
   }
   const bootMode = configured.mode;
   let image = configured.image;
-  const recovering = configured.loadSession && new URL(location.href).searchParams.get("recover") === "1";
+  const query = new URL(location.href).searchParams;
+  const recovering = configured.loadSession && query.get("recover") === "1";
   let restoredSession = null;
   let sessionSnapshot;
   if (configured.loadSession) {
-    const name = decodeURIComponent(location.pathname.replace(/\/+$/, "").split("/").at(-1));
-    if (!validSessionName(name)) throw new Error("The Dolly session URL has an invalid name");
+    const name = query.get("name");
+    if (!validSessionName(name)) throw new Error("The Dolly session URL has an invalid name. Open /sessions to see saved sessions.");
     restoredSession = await loadStoredSession(name);
-    if (restoredSession === null) throw new Error(`Session '${name}' was not found in this browser. Open /session to see saved sessions.`);
+    if (restoredSession === null) throw new Error(`Session '${name}' was not found in this browser. Open /sessions to see saved sessions.`);
     if (restoredSession.name !== name) throw new Error("Stored session name does not match its key");
     if (recovering) {
       if (restoredSession.formatVersion !== DOLLY_SESSION_FORMAT_VERSION) throw new Error("This save uses an unsupported recovery format");
       if (!packagedImages.has("system")) throw new Error("File recovery needs the system image in this distribution");
       image = "system";
     } else if (!sessionCompatible(restoredSession, DOLLY_IMAGES, DOLLY_BUILD_ID, DOLLY_IMAGE_BUILD_ID)) {
-      throw new Error("This save belongs to an older runtime or image recipe. It has not been deleted or overwritten. Open /session to see saved sessions.");
+      throw new Error("This save belongs to an older runtime or image recipe. It has not been deleted or overwritten. Open /sessions to see saved sessions.");
     }
     if (!recovering) image = restoredSession.image;
     sessionSnapshot = await decodeSessionSnapshot(restoredSession);

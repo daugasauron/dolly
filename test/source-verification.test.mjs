@@ -78,7 +78,7 @@ test("prepared published bytes update module and image pins without changing ext
     await mkdir(join(scratch, "dist/static"), { recursive: true });
     await writeFile(join(scratch, "Dollyfile"), `DOLLY 5\nIMAGE default\nUSE https://daugasauron.com/modules/tool.dm ${pin}\nENTRY /bin/slop\n`);
     await writeFile(join(scratch, "Dollyfile-addon"), `DOLLY 5\nIMAGE addon\nFROM https://daugasauron.com/Dollyfile ${pin}\nENTRY /bin/slop\n`);
-    await writeFile(join(scratch, "modules/tool.dm"), `DOLLY 5\nMODULE tool\nSOURCE https://daugasauron.com/static/tool.c ${pin} /tmp/tool.c\nSOURCE https://example.invalid/source ${pin} /tmp/upstream\n`);
+    await writeFile(join(scratch, "modules/tool.dm"), `DOLLY 5\nMODULE tool\nSOURCE https://daugasauron.com/dist/static/tool.c ${pin} /tmp/tool.c\nSOURCE https://example.invalid/source ${pin} /tmp/upstream\n`);
     for (const bytes of ["first source", "edited source"]) {
       await writeFile(join(scratch, "dist/static/tool.c"), bytes);
       await updateRecipePins(scratch, true);

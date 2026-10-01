@@ -18,7 +18,7 @@ assert.ok(['auto','uncompressed','core'].includes(compression));
 assert.ok(['gpu','cpu'].includes(animation));
 await mkdir(output,{recursive:true});
 const sources=inspectDollyfile(await readFile(new URL('demos/zero-ad/zero-ad.dm',root),'utf8')).sources;
-const prefix='https://daugasauron.com/static/zero-ad/';
+const prefix='https://daugasauron.com/dist/static/zero-ad/';
 const fixtures=Object.fromEntries(sources.map(source=>[source.location.slice(prefix.length),'dist/static/zero-ad/'+source.location.slice(prefix.length)]));
 fixtures['pyrogenesis.wasm']='build/0ad/pyrogenesis.wasm';
 let provider='import "/test/fixtures/gpu-surface-observer.mjs";\n'+(await readFile(new URL('host/gpu/worker.mjs',root),'utf8'))

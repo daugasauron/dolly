@@ -15,8 +15,8 @@ REQUIRES TOOL classicube
 REQUIRES TOOL tar
 REQUIRES TOOL rm
 
-SOURCE https://daugasauron.com/static/classicube/agent.tar f93aeae2f94b6e492775dfab2545c472c9bcee023c022218942b659fc50a4e31 /tmp/classicube-agent/source.tar
-SOURCE https://daugasauron.com/static/default/stb_truetype.h ecd30b05e0dd4fea3a13c26810dd9e1992dc379049482c393d5a19e6b5090aab /tmp/classicube-agent/stb_truetype.h
+SOURCE https://daugasauron.com/dist/static/classicube/agent.tar f93aeae2f94b6e492775dfab2545c472c9bcee023c022218942b659fc50a4e31 /tmp/classicube-agent/source.tar
+SOURCE https://daugasauron.com/dist/static/default/stb_truetype.h ecd30b05e0dd4fea3a13c26810dd9e1992dc379049482c393d5a19e6b5090aab /tmp/classicube-agent/stb_truetype.h
 SLOP tar -xf /tmp/classicube-agent/source.tar -C /
 SLOP c++ -O1 -std=c++11 -I/usr/include/SDL2 -I/tmp/classicube-agent \
   /usr/src/dolly/classicube/agent/viewer.cpp -o /usr/bin/classicube-viewer -lSDL2 -lm

@@ -94,7 +94,7 @@ export async function verifySite(site) {
   const registry = parseGeneratedConstant(registrySource.split("\nexport const DOLLY_STATIC_SOURCES =", 1)[0], "DOLLY_IMAGES");
   const definitions = await selectImageDefinitions(await discoverImageDefinitions(site),
     registry.map(({ image }) => image).join(","));
-  const sources = await inspectStaticSources(site, definitions, resolve(site, "static"));
+  const sources = await inspectStaticSources(site, definitions);
   if (await readFile(resolve(site, "dist/dolly-images.mjs"), "utf8") !==
       await imageRegistrySource(site, definitions, sources)) throw new Error("release image registry mismatch");
   for (const definition of definitions) {

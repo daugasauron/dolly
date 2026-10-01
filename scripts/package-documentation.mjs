@@ -20,8 +20,8 @@ export function documentationLinks(source) {
     .filter(path => path && !/^(?:[a-z][a-z0-9+.-]*:|\/\/)/i.test(path));
 }
 
-// Docs may link to any git-tracked text file outside demos/ (demos are not
-// published), and never outside the project or the site.
+// Docs may link to any git-tracked text file outside demos/ (core docs never
+// depend on demos), and never outside the project or the site.
 function publishableFiles(project) {
   return new Set(execFileSync("git", ["ls-files", "-z"], { cwd: project, encoding: "utf8" })
     .split("\0").filter(path => path && !path.startsWith("demos/")));

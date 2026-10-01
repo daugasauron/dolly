@@ -2,7 +2,6 @@
 <html lang="en">
   <head>
     <meta charset="utf-8">
-    {{DOLLY_ROUTE_HEAD}}
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="color-scheme" content="dark">
     <title>Dolly</title>
@@ -101,9 +100,7 @@
     <script>globalThis.DOLLY_BOOT = Object.freeze({ image: "{{DOLLY_IMAGE}}", mode: "{{DOLLY_MODE}}", loadSession: {{DOLLY_LOAD_SESSION}} });</script>
     <script type="module">
       const assets = new URL("{{DOLLY_BASE}}", document.baseURI);
-      if (globalThis.DOLLY_NOT_FOUND) {
-        document.body.textContent = "Not found. Return to the Dolly home page.";
-      } else if (crossOriginIsolated) {
+      if (crossOriginIsolated) {
         sessionStorage.removeItem("dolly-isolation-retry");
         try {
           await import(new URL("src/browser.mjs", assets).href);

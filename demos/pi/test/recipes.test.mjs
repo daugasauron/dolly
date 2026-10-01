@@ -11,7 +11,7 @@ test("QuickJS is selected only by Pi-bearing images", async () => {
   assert.equal(defaultGraph.exporters.has("HEADER:quickjs-runner"), false);
   assert.equal(defaultGraph.exporters.has("LIB:dolly-js"), false);
   for (const image of ["pi", "bhop"]) {
-    const graph = await loadProjectGraph(`Dollyfile-${image}`);
+    const graph = await loadProjectGraph(`demos/${image}/Dollyfile-${image}`);
     const quickjs = graph.modules.find(({ name }) => name === "quickjs");
     const pi = graph.modules.find(({ name }) => name === "pi-build");
     assert.ok(quickjs, `${image} must include quickjs`);
@@ -26,17 +26,17 @@ test("QuickJS is selected only by Pi-bearing images", async () => {
 });
 
 test("Pi is compiled from pinned source after an in-sandbox TypeScript layer", async () => {
-  const graph = await loadProjectGraph("Dollyfile-pi");
+  const graph = await loadProjectGraph("demos/pi/Dollyfile-pi");
   const typescript = graph.modules.find(({ name }) => name === "typescript");
   const pi = graph.modules.find(({ name }) => name === "pi-build");
   assert.ok(typescript);
   assert.ok(pi);
   assert.ok(typescript.sources.some(({ location }) =>
-    location === "https://daugasauron.com/static/default/typescript-5.9.3.tgz"));
+    location === "https://daugasauron.com/dist/static/default/typescript-5.9.3.tgz"));
   assert.ok(typescript.exports.some(({ type, name }) =>
     type === "TOOL" && name === "tsc"));
   assert.ok(pi.sources.some(({ location }) =>
-    location === "https://daugasauron.com/static/default/pi-source.tar"));
+    location === "https://daugasauron.com/dist/static/default/pi-source.tar"));
   assert.equal(pi.sources.some(({ location }) => location.includes("pi-package.tar")), false);
   assert.deepEqual(
     pi.slops.filter(({ command }) => command[0] === "tsc")

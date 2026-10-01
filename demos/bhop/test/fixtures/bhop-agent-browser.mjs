@@ -131,7 +131,7 @@ export async function runBhopAgentProof({page,projectDir,fixture,modelsFile,down
   await page.bringToFront();await key('Enter');await page.keyboard.type('Saved next attempt');
   s=await state(s=>s.profile['draft.txt']==='Saved next attempt','saved draft');
   await page.evaluate(()=>__dolly.saveSession('bhop-agent-proof'));
-  await page.goto(new URL('/session/bhop-agent-proof',page.url()).href);
+  await page.goto(new URL('/session/?name=bhop-agent-proof',page.url()).href);
   await page.waitForFunction(()=>document.documentElement.dataset.dollyStatus==='ready');await page.waitForFunction(()=>__dolly.graphicsActive);
   const restored=await state(s=>s.game.frame>0,'restored game');
   assert.deepEqual(restored.profile,s.profile);assert.deepEqual(restored.attempts,s.attempts);

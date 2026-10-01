@@ -49,43 +49,18 @@ for image_name in "${image_names[@]}"; do
   done
 done
 
-mkdir -p "${staging}/site/src" "${staging}/site/dist" "${staging}/site/docs" \
-  "${staging}/site/modules" "${staging}/site/abi" "${staging}/site/include/dolly"
-cp -R "${project_dir}/host" "${staging}/site/host"
+# The site keeps checkout paths: published pages, code, recipes and sources.
+mkdir -p "${staging}/site/dist"
 node "${project_dir}/scripts/site-release.mjs" source "${staging}/site" "${project_dir}"
-cp "${project_dir}/build/routes/index.html" "${project_dir}/terminal.html" \
-  "${dollyfiles[@]/#/${project_dir}/}" \
-  "${project_dir}/coi-serviceworker.js" \
-  "${staging}/site/"
-cp "${project_dir}"/src/*.mjs "${staging}/site/src/"
-cp "${project_dir}"/abi/*.wat "${staging}/site/abi/"
-mapfile -t headers < <(node "${project_dir}/scripts/host-modules.mjs" headers)
-cp "${headers[@]/#/${project_dir}/}" "${staging}/site/include/dolly/"
-cp "${project_dir}/LICENSE" "${staging}/site/LICENSE"
-for image_name in "${image_names[@]}"; do
-  cp -R "${project_dir}/build/routes/${image_name}" "${staging}/site/"
-done
-cp -R "${project_dir}/build/routes/custom" "${project_dir}/build/routes/rebuild" \
-  "${project_dir}/build/routes/load" \
-  "${project_dir}/build/routes/session" \
-  "${staging}/site/"
-cp "${project_dir}/build/routes/404.html" "${staging}/site/404.html"
-cp -R "${project_dir}/build/routes/view" "${staging}/site/"
+mapfile -t sources < <(node "${project_dir}/scripts/list-images.mjs" --sources)
+(cd "${project_dir}" && cp --parents -R index.html 404.html terminal.html coi-serviceworker.js LICENSE \
+  host src/*.mjs abi/*.wat "${sources[@]}" "${image_names[@]}" view rebuild \
+  custom/index.html custom/rebuild custom/run session sessions "${staging}/site/")
 if [[ "${site}" == "daugasauron.com" ]]; then
   node "${project_dir}/scripts/package-domain.mjs" "${staging}/site"
 elif [[ "${site}" == "github-pages" ]]; then
   node "${project_dir}/scripts/package-github-pages.mjs" "${staging}/site"
 fi
-source_rows="$(node "${project_dir}/scripts/list-images.mjs" --sources)"
-while IFS=$'\t' read -r source_path source_file; do
-  case "${source_path}" in
-    /static/*|/modules/*) ;;
-    *) continue ;;
-  esac
-  destination="${staging}/site${source_path}"
-  mkdir -p "$(dirname -- "${destination}")"
-  cp -- "${project_dir}/${source_file}" "${destination}"
-done <<< "${source_rows}"
 documents=("${project_dir}"/docs/*.md)
 node "${project_dir}/scripts/package-documentation.mjs" "${project_dir}" "${staging}/site" \
   "${documents[@]#"${project_dir}/"}"

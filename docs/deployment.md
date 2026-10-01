@@ -63,9 +63,11 @@ bash scripts/package-pages.sh build/dolly-pages.tar.gz build/github-releases git
 | `dist/packs/HASH.snapshot.gz` | Immutable |
 | HTML and `coi-serviceworker.js` | No-store |
 
-- Serve directory `index.html` files; unknown paths get the packaged `404.html`
-  with status 404 (it handles first visits to `/session/NAME`). Missing assets
-  must never get an HTML success response.
+- Every URL is a file at its checkout path (directories serve `index.html`;
+  [`generate-routes.mjs`](../scripts/generate-routes.mjs) writes the menu, image
+  routes and recipe views), so no host needs rewrite rules. Unknown paths get
+  the packaged `404.html` with status 404; missing assets must never get an HTML
+  success response.
 - Send `Cross-Origin-Opener-Policy: same-origin`,
   `Cross-Origin-Embedder-Policy: require-corp` and
   `Cross-Origin-Resource-Policy: same-origin` where possible; otherwise

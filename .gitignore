@@ -1,5 +1,13 @@
 /build
 /dist
+# Pages scripts/generate-routes.mjs writes at their served paths.
+/index.html
+/*/index.html
+/*/rebuild/
+/custom/run/
+/view/
+!/custom/index.html
+!/sessions/index.html
 .cache/
 node_modules
 __pycache__/

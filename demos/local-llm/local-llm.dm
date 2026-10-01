@@ -7,7 +7,7 @@ REQUIRES TOOL tar
 REQUIRES TOOL sha256sum
 REQUIRES TOOL dolly-llama
 
-SOURCE https://daugasauron.com/static/llama/provider.tar 72e16117c8b0cc1b8f1e5ddec6b5d141977e2c2e592d8cd5b5a73a486effb7a5 /tmp/llm-provider.tar
+SOURCE https://daugasauron.com/dist/static/llama/provider.tar 72e16117c8b0cc1b8f1e5ddec6b5d141977e2c2e592d8cd5b5a73a486effb7a5 /tmp/llm-provider.tar
 SLOP tar -xf /tmp/llm-provider.tar -C /
 
 FILE /home/dolly/.pi/agent/settings.json

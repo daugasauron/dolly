@@ -21,8 +21,8 @@ REQUIRES TOOL   tar
 REQUIRES TOOL   test
 REQUIRES TOOL   touch
 
-USE https://daugasauron.com/modules/libffi.dm  8de2fbc9672d7ce996e1542fec3180f7a04845a64f2df90b3fea542d3d2d025f
-USE https://daugasauron.com/modules/cpython.dm e11d2772edbb6bb25a427e79d18c38ee46f659f088f5fd8062d8d278a2c9388e
+USE https://daugasauron.com/demos/python/libffi.dm  d85a99b9c4eb1ef9d1284bf43eba3eb5a7db60e26502cdb1d851b4ee7c21fc36
+USE https://daugasauron.com/demos/python/cpython.dm a0754180ed883fb06ca963b6f57431a676d1ac914fbde559d7d61be8327c0ad0
 
 EXPORTS TOOL   python
 EXPORTS TOOL   python3

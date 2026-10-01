@@ -288,7 +288,7 @@ export async function runClassiCubeAgentProof({ send, evaluate, wait, key, input
   await state(s=>s.ui.includes('interface=0') && s.ui.includes('activity=0'),'saved hidden interface and activity');
   await delay(5200); const before = await probe();
   await evaluate("__dolly.saveSession('classicube-world-proof')");
-  await send('Page.navigate',{url:await evaluate("new URL('/session/classicube-world-proof',location.href).href")});
+  await send('Page.navigate',{url:await evaluate("new URL('/session/?name=classicube-world-proof',location.href).href")});
   await wait("document.documentElement?.dataset.dollyStatus",v=>v==='ready','restored session boot');
   await wait('__dolly.graphicsActive',Boolean,'restored world display'); await wait('__dolly.transport.relativePointerRequested()',Boolean,'restored playable world');
   const restored=await probe();

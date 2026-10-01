@@ -29,8 +29,8 @@ Open [daugasauron.com](https://daugasauron.com/) or
 
 - `/IMAGE/` boots the prebuilt image; `/IMAGE/rebuild/` builds it from its
   Dollyfile in your browser; `/view/IMAGE/` shows the recipe.
-- `/custom/` builds your own [Dollyfile](docs/dollyfile.md); `/session/` lists
-  [saved sessions](docs/sessions.md).
+- `/custom/` builds your own [Dollyfile](docs/dollyfile.md); `/sessions/` lists
+  [saved sessions](docs/sessions.md) and `/session/?name=NAME` opens one.
 - `Ctrl+Shift+C`/`V` copy and paste, `Ctrl+Shift+S` saves, `F11` toggles
   fullscreen. `upload PATH` and `download FILE` move single files.
 - Needs cross-origin isolation and shared WebAssembly memory64/table64; there is

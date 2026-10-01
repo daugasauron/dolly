@@ -10,8 +10,8 @@ REQUIRES HEADER libc
 REQUIRES TOOL   cc
 REQUIRES TOOL   tar
 
-SOURCE https://daugasauron.com/static/default/zig.tar  09c1c2b13932a37fa3fded23146a7bbb2b0fb03db6e9e8a00f714a4649fea857 /tmp/zig.tar
-SOURCE https://daugasauron.com/static/default/wamr.tar d5d0e05cf074e3f4167bc0430342a39f69666d3e27ee09c748f2a2a22299dfea /tmp/wamr.tar
+SOURCE https://daugasauron.com/dist/static/default/zig.tar  09c1c2b13932a37fa3fded23146a7bbb2b0fb03db6e9e8a00f714a4649fea857 /tmp/zig.tar
+SOURCE https://daugasauron.com/dist/static/default/wamr.tar d5d0e05cf074e3f4167bc0430342a39f69666d3e27ee09c748f2a2a22299dfea /tmp/wamr.tar
 SLOP tar \
   -xf /tmp/zig.tar \
   -C /

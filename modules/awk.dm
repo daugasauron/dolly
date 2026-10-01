@@ -7,7 +7,7 @@ REQUIRES TOOL   make
 REQUIRES TOOL   rm
 REQUIRES TOOL   tar
 
-SOURCE https://daugasauron.com/static/default/awk.tar d45ffb29145610a28424f4cab15c26d1ebc34840262342ee6b23cfbd4cae936b /tmp/awk.tar
+SOURCE https://daugasauron.com/dist/static/default/awk.tar d45ffb29145610a28424f4cab15c26d1ebc34840262342ee6b23cfbd4cae936b /tmp/awk.tar
 SLOP tar \
   -xf /tmp/awk.tar \
   -C /

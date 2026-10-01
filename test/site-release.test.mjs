@@ -16,7 +16,7 @@ import { packageDomain } from "../scripts/package-domain.mjs";
 test("domain packaging adds the showcase only to its selected site, with public navigation and pinned media", async t => {
   const root = await mkdtemp(resolve(tmpdir(), "dolly-domain-test-"));
   t.after(() => rm(root, { recursive: true, force: true }));
-  const source = await readFile(new URL("../index.html", import.meta.url), "utf8");
+  const source = await readFile(new URL("../menu.html", import.meta.url), "utf8");
   for (const name of ["domain", "github"]) {
     await mkdir(resolve(root, name));
     await writeFile(resolve(root, name, "index.html"), source);
@@ -52,10 +52,8 @@ test("static pages pin assets below the deployment prefix but keep navigation pu
     assert.ok(page.includes('<script src="../src/browser.mjs">'));
     assert.ok(page.includes('<a href="../Dollyfile">'));
     assert.ok(page.includes('<a href="https://example.com/">'));
-    for (const path of ["404.html", "session/open.html"]) {
-      assert.ok(renderReleasePage('<head></head>', path, digest, files, base)
-        .includes(`<base href="${base}_dolly/${digest}/">`));
-    }
+    assert.ok(renderReleasePage('<head></head>', "404.html", digest, files, base)
+      .includes(`<base href="${base}_dolly/${digest}/">`));
   }
   for (const base of ["dolly/", "//example.com/", "/../", "/a/../b/", "/a//b/", "/a?b/", '/a"b/']) {
     assert.throws(() => deploymentBase(base), /deployment base/);
@@ -173,7 +171,7 @@ test("published server pins complete versions, preserves public session URLs and
       [`dist/packs/${packName}.snapshot.gz`]: "shared compressed bytes",
       "default/index.html": '<html><head></head><script src="../src/browser.mjs"></script><a href="../custom/">custom</a><a href="#help">help</a><a href="https://example.com/">external</a><a href="../src/browser.mjs">source</a></html>',
       "custom/index.html": '<html><head></head></html>',
-      "session/open.html": '<html><head></head><script src="src/browser.mjs"></script></html>',
+      "session/index.html": '<html><head></head><script src="../src/browser.mjs"></script></html>',
     })) await writeFile(resolve(stage, path), contents);
     const manifest = await siteManifest(stage);
     const digest = sha256(manifest);
@@ -203,8 +201,8 @@ test("published server pins complete versions, preserves public session URLs and
   assert.equal((await get("src/browser.mjs")).headers.get("cache-control"), "no-store");
   assert.equal((await get(pack)).headers.get("cache-control"), "public, max-age=31536000, immutable");
   assert.equal((await get("default")).headers.get("cache-control"), "no-store");
-  assert.match(await (await get("session/work.1")).text(), new RegExp(`<base href="/_dolly/${old}/">`));
-  assert.equal(sessionLoadUrl("work.1", `${base}/_dolly/${old}/`).href, `${base}/session/work.1`);
+  assert.match(await (await get("session/?name=work.1")).text(), new RegExp(`<base href="/_dolly/${old}/session/">`));
+  assert.equal(sessionLoadUrl("work.1", `${base}/_dolly/${old}/`).href, `${base}/session/?name=work.1`);
   const current = await version("new version", "b".repeat(64));
   assert.equal(await (await get(pack)).text(), "shared compressed bytes", "old public packs remain available after publication");
   const loosePack = `dist/packs/${"c".repeat(64)}.snapshot.gz`;

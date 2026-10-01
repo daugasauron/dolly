@@ -216,7 +216,7 @@ export const syntaxCases = [
   [false, root(image("COPY FROM https://daugasauron.com//Dollyfile-base PIN(/Dollyfile-base) /usr /usr\n"), base)],
   [false, probe(`SOURCE https://example.com/a/%2E%2e/probe.tar ${zeros} /tmp/probe.tar`)],
   [true, probe(`SOURCE https://example.com/a/.../?x=//.. ${zeros} /tmp/probe.tar`)],
-  [true, probe(`SOURCE https://daugasauron.com/static/probe.tar ${zeros} /tmp/probe.tar`)],
+  [true, probe(`SOURCE https://daugasauron.com/dist/static/probe.tar ${zeros} /tmp/probe.tar`)],
   [true, probe(`SOURCE https://example.com/probe.tar ${zeros} /tmp/probe.tar`)],
   [true, probe(`SOURCE http://example.com:8080/probe.tar?x=1 ${zeros} /tmp/probe.tar`)],
   [true, probe(`SOURCE https://example.com ${zeros} /tmp/probe.tar`)],

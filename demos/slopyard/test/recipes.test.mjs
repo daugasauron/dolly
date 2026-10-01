@@ -8,7 +8,7 @@ const requirements = (module, type) =>
   module.requirements.filter(item => item.type === type).map(({ name }) => name);
 
 test("the gamedev SDK declares its tools, headers and licenses", async () => {
-  const sdk = (await loadProjectGraph("Dollyfile-gamedev-sdk")).modules.find(({ name }) => name === "gamedev-sdk");
+  const sdk = (await loadProjectGraph("demos/slopyard/Dollyfile-gamedev-sdk")).modules.find(({ name }) => name === "gamedev-sdk");
   for (const path of ["/usr/share/licenses/raylib/LICENSE", "/usr/share/licenses/box3d/LICENSE"]) {
     assert.ok(sdk.files.some(file => file.path === path), path);
   }
@@ -19,6 +19,6 @@ test("the gamedev SDK declares its tools, headers and licenses", async () => {
 });
 
 test("Slopyard declares GPU rendering and threads", async () => {
-  const requirements = (await loadProjectGraph("Dollyfile-slopyard")).root.hostRequirements;
+  const requirements = (await loadProjectGraph("demos/slopyard/Dollyfile-slopyard")).root.hostRequirements;
   for (const name of ["gpu@0", "threads@0"]) assert.ok(requirements.includes(name), name);
 });

@@ -74,7 +74,7 @@ ENTRY /bin/foreground -i /bin/slop
   await page.locator("#session-name").fill("custom-proof");
   await page.locator("#session-save").click();
   await page.waitForFunction(() => document.documentElement.dataset.sessionStatus === "saved");
-  assert.equal(new URL(page.url()).pathname, "/session/custom-proof");
+  assert.equal(page.url(), `${server.origin}/session/?name=custom-proof`);
   const saved = await stored(page, "custom-proof");
   assert.equal(saved.image, "custom");
   assert.equal(saved.customImage.source, source);
@@ -113,13 +113,13 @@ ENTRY /bin/foreground -i /bin/slop
   assert.equal(await page.evaluate(() => __dolly.saveSession("custom-result")), "custom-result");
   await page.close();
   page = await newPage(context);
-  await page.goto(server.origin + "/session/custom-result");
+  await page.goto(server.origin + "/session/?name=custom-result");
   await boot(page);
   await check(page, ["grep -q RESULT-TAB /workspace/result-tab"]);
   await page.close();
   await rebuildPage.close();
   page = await newPage(context, fixtures);
-  await page.goto(server.origin + "/session/custom-proof");
+  await page.goto(server.origin + "/session/?name=custom-proof");
   await boot(page);
   await verify();
   await check(page, [`curl -fsS ${server.origin}/fixture/http.txt -o /tmp/http-proof`]);
@@ -129,7 +129,7 @@ ENTRY /bin/foreground -i /bin/slop
   await page.evaluate(() => __dolly.saveSession());
   const resaved = await stored(page, "custom-proof");
   assert.deepEqual(resaved.customImage.artifact, saved.customImage.artifact);
-  await page.goto(server.origin + "/session/");
+  await page.goto(server.origin + "/sessions/");
   const row = page.locator("#sessions li").filter({ hasText: "custom-proof" });
   await row.locator("a").waitFor();
   const downloadPromise = page.waitForEvent("download");
@@ -143,7 +143,7 @@ ENTRY /bin/foreground -i /bin/slop
   assert.deepEqual({ ...imported, name: "custom-proof" }, resaved);
   await page.close();
   page = await newPage(context, []);
-  await page.goto(server.origin + "/session/custom-imported");
+  await page.goto(server.origin + "/session/?name=custom-imported");
   await boot(page);
   await verify();
   assert.notEqual(await submit(page, `curl -fsS ${server.origin}/fixture/http.txt`), 0);
@@ -156,7 +156,7 @@ ENTRY /bin/foreground -i /bin/slop
     record.customImage.source += "\n# changed source\n";
     await store.saveStoredSession(record);
   });
-  await page.goto(server.origin + "/session/custom-wrong-source");
+  await page.goto(server.origin + "/session/?name=custom-wrong-source");
   await rejected(page);
   assert.deepEqual(await stored(page, "custom-imported"), imported);
   await page.evaluate(async () => {
@@ -179,10 +179,10 @@ ENTRY /bin/foreground -i /bin/slop
       db.close();
     }
   });
-  await page.goto(server.origin + "/session/custom-imported");
+  await page.goto(server.origin + "/session/?name=custom-imported");
   await rejected(page);
   assert.deepEqual(await stored(page, "custom-imported"), imported);
-  await page.goto(server.origin + "/session/");
+  await page.goto(server.origin + "/sessions/");
   const missing = page.locator("#sessions li").filter({ hasText: "custom-imported" });
   await missing.getByRole("button", { name: "Recover files", exact: true }).waitFor();
   assert.equal(await missing.locator("a").count(), 0);
@@ -198,7 +198,7 @@ ENTRY /bin/foreground -i /bin/slop
   await page.locator("form button[type=submit]").click();
   await page.waitForURL("**/custom/rebuild/");
   await boot(page);
-  await page.goto(server.origin + "/session/custom-imported");
+  await page.goto(server.origin + "/session/?name=custom-imported");
   await boot(page);
   await verify();
   assert.deepEqual(await stored(page, "custom-imported"), imported);
@@ -239,12 +239,12 @@ async function namedSessions(context, server, name) {
   assert.equal(await Promise.race([sleeping, "sleeping"]), "sleeping", "the save waited for the foreground child");
   const delta = Number(await page.evaluate(() => document.documentElement.dataset.sessionUncompressedBytes));
   assert.ok(delta > 8 << 20 && delta < 12 << 20, `a save holds changes, not the base image: ${delta} bytes`);
-  assert.equal(new URL(page.url()).pathname, "/session/browser-proof");
+  assert.equal(page.url(), `${server.origin}/session/?name=browser-proof`);
   await page.locator("#keyboard").focus();
   await page.keyboard.press("Control+c");
   assert.equal(await sleeping, 130);
 
-  await page.goto(server.origin + "/session/browser-proof");
+  await page.goto(server.origin + "/session/?name=browser-proof");
   await boot(page);
   assert.deepEqual(await page.evaluate(() => [document.documentElement.dataset.session,
     document.documentElement.dataset.sessionStatus]), ["browser-proof", "restored"]);
@@ -278,12 +278,12 @@ async function namedSessions(context, server, name) {
     await store.saveStoredSession({ ...good, name: "broken-data", encoding: "identity", bytes: new ArrayBuffer(16) });
   });
   for (const session of ["wrong-base", "broken-data", "missing-session"]) {
-    await page.goto(`${server.origin}/session/${session}`);
+    await page.goto(`${server.origin}/session/?name=${session}`);
     await rejected(page);
   }
 
   // The list page manages saves without booting a runtime.
-  await page.goto(server.origin + "/session/");
+  await page.goto(server.origin + "/sessions/");
   await page.waitForFunction(() => document.documentElement.dataset.sessionsStatus === "ready");
   assert.equal(await page.evaluate(() => typeof __dolly), "undefined");
   const rows = () => page.locator("#sessions li").count();
@@ -317,15 +317,14 @@ async function namedSessions(context, server, name) {
   assert.deepEqual(await stored(page, "broken-data"), other, "an import replaced an existing save");
   await upload("browser-proof");
   assert.equal(await rows(), 3);
-  // Legacy links resolve to the canonical path and restore the imported file.
-  await page.goto(`${server.origin}/load/?session=browser-proof`);
+  // The imported file restores, also through /session without its slash.
+  await page.goto(`${server.origin}/session?name=browser-proof`);
   await boot(page);
-  assert.equal(new URL(page.url()).pathname + new URL(page.url()).search, "/session/browser-proof");
   await check(page, ["grep -q SECOND-SAVE /workspace/session-proof.txt", "test ! -e /workspace/session-large"]);
 
   // An incompatible save is recovered as files into a fresh shell.
   const incompatible = await stored(page, "wrong-base");
-  await page.goto(server.origin + "/session/");
+  await page.goto(server.origin + "/sessions/");
   await row("wrong-base").getByRole("button", { name: "Recover files", exact: true }).click();
   await boot(page);
   assert.deepEqual(await page.evaluate(() => [document.documentElement.dataset.image,
@@ -343,7 +342,7 @@ async function namedSessions(context, server, name) {
   page.once("dialog", dialog => dialog.accept("recovered-copy"));
   assert.equal(await page.evaluate(() => __dolly.saveSession()), "recovered-copy");
   assert.deepEqual(await stored(page, "wrong-base"), incompatible, "recovery changed the original save");
-  await page.goto(`${server.origin}/session/broken-data?recover=1`);
+  await page.goto(`${server.origin}/session/?name=broken-data&recover=1`);
   await rejected(page);
   assert.notEqual(await stored(page, "broken-data"), null);
   await context.close();

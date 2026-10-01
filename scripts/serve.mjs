@@ -2,7 +2,7 @@
 
 import { readFile, readlink, readdir } from "node:fs/promises";
 import { createServer } from "node:http";
-import { extname, resolve } from "node:path";
+import { basename, extname, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { sha256 } from "./snapshot-identity.mjs";
 import { renderReleasePage, snapshotPackPath } from "./release-layout.mjs";
@@ -85,9 +85,7 @@ export function createReleaseServer(releases) {
         files = await filesFor(digest);
       }
       const route = path.replace(/\/+$/, "");
-      const session = /^session\/[A-Za-z0-9._-]{1,64}$/.test(route) && !files.has(route);
-      const relative = session ? "session/open.html" : files.has(path) ? path :
-        `${route ? route + "/" : ""}index.html`;
+      const relative = files.has(path) ? path : `${route ? route + "/" : ""}index.html`;
       if (!files.has(relative)) throw new Error("not published");
       let body = await readFile(resolve(releases, digest, relative));
       if (sha256(body) !== files.get(relative)) throw new Error("published file changed");
@@ -98,7 +96,7 @@ export function createReleaseServer(releases) {
         ...isolationHeaders,
         "cache-control": pinned || snapshotPackPath.test(relative)
           ? "public, max-age=31536000, immutable" : "no-store",
-        "content-type": /^Dollyfile(?:-|$)/.test(relative) ? "text/plain; charset=utf-8" :
+        "content-type": /^Dollyfile(?:-|$)/.test(basename(relative)) ? "text/plain; charset=utf-8" :
           mimeTypes.get(extname(relative)) ?? "application/octet-stream",
       });
       response.end(request.method === "HEAD" ? undefined : body);

@@ -149,7 +149,7 @@ export async function runClassiCubeMultiplayer({page, modelsFile, projectDir}) {
   const savedWorld=decodeWorld(gunzipSync(Buffer.from(before.world)));
   for(const e of new Map(before.events.filter(e=>e.type==='block').map(e=>[`${e.x},${e.y},${e.z}`,e])).values())assert.equal(savedWorld.blocks[e.x+e.z*savedWorld.width+e.y*savedWorld.width*savedWorld.length],e.block,'actual agent edits are in the saved world');
   await page.evaluate(()=>__dolly.saveSession('multiplayer-world-proof'));
-  await page.goto(new URL('/session/multiplayer-world-proof',page.url()).href);
+  await page.goto(new URL('/session/?name=multiplayer-world-proof',page.url()).href);
   await page.waitForFunction(()=>document.documentElement.dataset.dollyStatus==='ready'&&__dolly.graphicsActive);
   const restored=await state(s=>Object.keys(s.players).length===4&&Object.values(s.players).every(p=>p.ready==='1')&&s.events.filter(e=>e.type==='join').length>=8,'four-player session restores',75);
   assert.equal(restored.watching,2);assert.equal(restored.ui,before.ui);

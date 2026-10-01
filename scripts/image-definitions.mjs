@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import { readFile, stat, writeFile } from "node:fs/promises";
-import { resolve } from "node:path";
+import { basename, resolve } from "node:path";
 
 import { inspectDollyfile } from "../src/dollyfile-view.mjs";
 import {
@@ -11,24 +11,21 @@ import { recipeFiles } from "./recipe-files.mjs";
 import { publishedHeaders } from "./host-modules.mjs";
 import { CANONICAL_ORIGIN, canonicalPath } from "../src/static-asset.mjs";
 
-// `filename` is the published name on the canonical origin; `path` is the file
-// in this checkout.
+// `filename` is the recipe's checkout path, which is also its published path.
 export async function discoverImageDefinitions(projectDir) {
   const definitions = [];
-  for (const [url, path] of await recipeFiles(projectDir)) {
-    const filename = canonicalPath(url).slice(1);
-    if (filename.startsWith("modules/")) continue;
-    const source = await readFile(resolve(projectDir, path), "utf8");
+  for (const filename of (await recipeFiles(projectDir)).values()) {
+    if (filename.endsWith(".dm")) continue;
+    const source = await readFile(resolve(projectDir, filename), "utf8");
     const parsed = inspectDollyfile(source, filename);
     const expected = parsed.image === "default" ? "Dollyfile" : `Dollyfile-${parsed.image}`;
-    if (filename !== expected) {
-      throw new Error(`${path}: IMAGE ${parsed.image} must use filename ${expected}`);
+    if (basename(filename) !== expected) {
+      throw new Error(`${filename}: IMAGE ${parsed.image} must use filename ${expected}`);
     }
     definitions.push({
       projectDir,
       image: parsed.image,
       filename,
-      path,
       source,
       parsed,
     });
@@ -74,7 +71,7 @@ export async function selectImageDefinitions(definitions, selection = process.en
   return definitions.filter(definition => closure.has(definition.image));
 }
 
-export async function inspectStaticSources(projectDir, definitions, staticDirectory = resolve(projectDir, "dist/static")) {
+export async function inspectStaticSources(projectDir, definitions) {
   const sources = new Map();
   const loadGraph = createDollyfileGraphLoader(projectDir);
   for (const definition of definitions) {
@@ -96,7 +93,7 @@ export async function inspectStaticSources(projectDir, definitions, staticDirect
     for (const record of graph.records) for (const source of record.sources) {
       const path = canonicalPath(source.location);
       if (path === null) continue;
-      if (!(path.startsWith("/static/") || path.startsWith("/include/dolly/")) || path.includes("..")) {
+      if (!(path.startsWith("/dist/static/") || publishedHeaders.has(path)) || path.includes("..")) {
         throw new Error(
           `${record.location}:${source.line}: ${source.location} is outside trusted build inputs`,
         );
@@ -108,12 +105,7 @@ export async function inspectStaticSources(projectDir, definitions, staticDirect
         );
       }
       if (previous) continue;
-      const header = publishedHeaders.get(path);
-      if (!path.startsWith("/static/") && !header) {
-        throw new Error(`${record.location}:${source.line}: ${source.location} is not a host module header`);
-      }
-      const diskPath = header ? resolve(projectDir, header)
-        : resolve(staticDirectory, path.slice("/static/".length));
+      const diskPath = resolve(projectDir, path.slice(1));
       const [bytes, metadata] = await Promise.all([readFile(diskPath), stat(diskPath)]);
       if (!metadata.isFile()) throw new Error(`${diskPath}: static source is not a file`);
       const sha256 = createHash("sha256").update(bytes).digest("hex");
@@ -133,7 +125,7 @@ export async function inspectStaticSources(projectDir, definitions, staticDirect
   // Publishing module text does not execute it or select its build inputs.
   for (const [url, file] of await recipeFiles(projectDir)) {
     const path = canonicalPath(url);
-    if (!path.startsWith("/modules/") || sources.has(path)) continue;
+    if (!path.endsWith(".dm") || sources.has(path)) continue;
     const bytes = await readFile(resolve(projectDir, file));
     if (bytes.length === 0) continue;
     sources.set(path, Object.freeze({

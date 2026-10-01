@@ -1,8 +1,8 @@
 DOLLY 5
 IMAGE zig-build
 
-FROM https://daugasauron.com/Dollyfile-system-build 3c45fc13c8682c1ac146a98b781dd3031036a32e186734730bfae0bca466f526
+FROM https://daugasauron.com/Dollyfile-system-build 3d3f50f905c4c1c80819b80ebca9417656ff95abd45a863cab4bced0f2c5d34f
 
-USE https://daugasauron.com/modules/zig.dm beed395c1b747e5d8d6472d9070924027338d322f1f79c4d9793850920ff46c6
+USE https://daugasauron.com/modules/zig.dm 05a7591329b04eaff2cbafb2f48b77925e30d047d6faec0bee5b4e01e68e1568
 
 ENTRY /bin/slop

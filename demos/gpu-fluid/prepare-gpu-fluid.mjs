@@ -17,7 +17,7 @@ await writeFile(new URL("demos/gpu-fluid/Dollyfile-gpu-fluid",root),`DOLLY 5
 IMAGE gpu-fluid
 
 FROM https://daugasauron.com/Dollyfile-gpu-sdk ${parent}
-USE https://daugasauron.com/modules/gpu-fluid.dm ${hash(module)}
+USE https://daugasauron.com/demos/gpu-fluid/gpu-fluid.dm ${hash(module)}
 
 SOURCE https://raw.githubusercontent.com/samdauwe/webgpu-native-examples/9a7c30753d6f44630564a8316eb9c44211ff0ecc/src/examples/fluid_simulation.c 74d7a9fa5b0c23988016589cf57554028c38a1cd49916d03d9aeead85a045c40 /usr/src/dolly/fluid/fluid_simulation.c
 SOURCE https://raw.githubusercontent.com/samdauwe/webgpu-native-examples/9a7c30753d6f44630564a8316eb9c44211ff0ecc/LICENSE b40930bbcf80744c86c46a12bc9da056641d722716c378f5659b9e555ef833e1 /usr/share/licenses/webgpu-native-examples/LICENSE

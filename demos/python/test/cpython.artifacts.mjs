@@ -4,7 +4,7 @@ import test from "node:test";
 import { DOLLY_IMAGES, DOLLY_STATIC_SOURCES } from "../../../dist/dolly-images.mjs";
 
 test("prepared CPython configuration keeps bootstrap paths independent of the builder's home", {
-  skip: !DOLLY_STATIC_SOURCES.some(source => source.path === "/static/python/cpython.tar.gz"),
+  skip: !DOLLY_STATIC_SOURCES.some(source => source.path === "/dist/static/python/cpython.tar.gz"),
 }, () => {
   const archive = new URL("../../../dist/static/python/cpython.tar.gz", import.meta.url).pathname;
   for (const name of ["Makefile", "Makefile.pre", "config.status"]) {

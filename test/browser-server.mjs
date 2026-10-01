@@ -9,9 +9,7 @@ import { tarArchive } from "./fixtures/tar.mjs";
 import { buildIdentities } from "../scripts/write-build-id.mjs";
 import { imageInputsMatch } from "../src/image-inputs.mjs";
 import { bundleProcessWorker } from "../scripts/bundle-process-worker.mjs";
-import { recipeFiles } from "../scripts/recipe-files.mjs";
-import { publishedHeaders } from "../scripts/host-modules.mjs";
-import { CANONICAL_ORIGIN } from "../src/static-asset.mjs";
+import { CANONICAL_ORIGIN, canonicalPath } from "../src/static-asset.mjs";
 
 export const mimeTypes = new Map([
   [".html", "text/html; charset=utf-8"],
@@ -44,7 +42,6 @@ export const browserSources = new Set([
   "test/fixtures/http-admission-worker.mjs",
   "test/fixtures/browser-process-abi.mjs",
   "coi-serviceworker.js",
-  "index.html",
 ]);
 
 // Serves this checkout to browser tests and the image builder on 127.0.0.1.
@@ -62,7 +59,6 @@ export async function startBrowserServer(projectDir, image = "default",
       throw new Error(`Browser checks need a built runtime and image. Run npm run build:runtime once, then ${rebuild}.`, { cause: error });
     });
   const { DOLLY_IMAGES, DOLLY_STATIC_SOURCES } = await import(pathToFileURL(resolve(projectDir, "dist/dolly-images.mjs")));
-  const recipes = await recipeFiles(projectDir);
   if (image && !DOLLY_IMAGES.some(definition => definition.image === image)) {
     throw new Error(`Build ${image} once with npm run image -- ${image}, then retry the browser check.`);
   }
@@ -91,51 +87,42 @@ export async function startBrowserServer(projectDir, image = "default",
       return metadata;
     }
     if (image) for (const recipe of (await check(DOLLY_IMAGES.find(definition => definition.image === image))).recipes) {
-      const bytes = await readFile(resolve(projectDir, recipes.get(recipe.sourcePath)));
+      const bytes = await readFile(resolve(projectDir, canonicalPath(recipe.sourcePath).slice(1)));
       if (createHash("sha256").update(bytes).digest("hex") !== recipe.sha256) throw new Error(`${recipe.sourcePath} changed`);
     }
   } catch (error) {
     throw new Error(`Core artifacts are stale or incomplete: ${error.message}. Rebuild changed native code with npm run build:runtime, then run ${rebuild}.`, { cause: error });
   }
-  const files = new Map([...browserSources].map(path => [`/${path}`, path]));
+  // Served paths are checkout paths; a directory URL serves its index.html.
+  const files = new Set(browserSources);
   for (const definition of DOLLY_IMAGES) {
-    files.set(`/${definition.dollyfile}`, recipes.get(`${CANONICAL_ORIGIN}/${definition.dollyfile}`));
-    for (const suffix of [".snapshot", "-snapshot.mjs"]) {
-      const path = `dist/dolly-${definition.image}-system${suffix}`;
-      files.set(`/${path}`, path);
-    }
+    files.add(definition.dollyfile);
+    files.add(`dist/dolly-${definition.image}-system.snapshot`);
+    files.add(`dist/dolly-${definition.image}-system-snapshot.mjs`);
   }
-  for (const source of DOLLY_STATIC_SOURCES) files.set(source.path, recipes.get(`${CANONICAL_ORIGIN}${source.path}`) ??
-    (source.path.startsWith("/static/") ? `dist${source.path}` : publishedHeaders.get(source.path)));
+  for (const source of DOLLY_STATIC_SOURCES) files.add(source.path.slice(1));
   for (const name of await readdir(resolve(projectDir, "dist"))) {
     if (/^dolly(?:-[a-z0-9-]+)?\.(?:wasm|mjs|data)$/.test(name) || name === "IosevkaTerm-SemiBold.woff2") {
-      files.set(`/dist/${name}`, `dist/${name}`);
+      files.add(`dist/${name}`);
     }
   }
   for (const name of await readdir(resolve(projectDir, "dist/packs")).catch(error => {
     if (error.code === "ENOENT") return [];
     throw error;
   })) {
-    if (/^[0-9a-f]{64}\.snapshot\.gz$/.test(name)) files.set(`/dist/packs/${name}`, `dist/packs/${name}`);
+    if (/^[0-9a-f]{64}\.snapshot\.gz$/.test(name)) files.add(`dist/packs/${name}`);
   }
-  for (const [name, path] of Object.entries(processSmokeSources)) files.set(`/fixture/${name}`, path);
-  for (const [name, path] of Object.entries(fixtures)) files.set(`/fixture/${name}`, path);
+  for (const entry of await readdir(resolve(projectDir, "view"), { recursive: true })) {
+    if (entry.endsWith("index.html")) files.add(`view/${entry}`);
+  }
+  for (const page of ["index.html", ...image ? [`${image}/index.html`, `${image}/rebuild/index.html`] : [],
+    "custom/index.html", "custom/rebuild/index.html", "custom/run/index.html",
+    "session/index.html", "sessions/index.html"]) files.add(page);
+  const fixtureFiles = new Map();
+  for (const [name, path] of Object.entries({ ...processSmokeSources, ...fixtures })) fixtureFiles.set(`/fixture/${name}`, path);
   for (const name of ["process-wrong-call", "process-wrong-start", "process-wrong-memory"]) {
-    files.set(`/fixture/${name}.wasm`, `build/${name}.wasm`);
+    fixtureFiles.set(`/fixture/${name}.wasm`, `build/${name}.wasm`);
   }
-  if (image) {
-    files.set(`/${image}`, `build/routes/${image}/index.html`);
-    files.set(`/${image}/rebuild`, `build/routes/${image}/rebuild/index.html`);
-  }
-  files.set("", "build/routes/index.html");
-  for (const entry of await readdir(resolve(projectDir, "build/routes/view"), { recursive: true })) {
-    if (entry.endsWith("index.html")) files.set(`/view/${entry.slice(0, -"/index.html".length)}`, `build/routes/view/${entry}`);
-  }
-  files.set("/load", "build/routes/load/index.html");
-  files.set("/custom", "build/routes/custom/index.html");
-  files.set("/custom/rebuild", "build/routes/custom/rebuild/index.html");
-  files.set("/custom/run", "build/routes/custom/run/index.html");
-  files.set("/session", "build/routes/session/index.html");
   const requests = new Map();
   let cancelledRequests = 0;
   const server = createServer(async (request, response) => {
@@ -185,8 +172,8 @@ export async function startBrowserServer(projectDir, image = "default",
         ]));
         return;
       }
-      const relative = /^\/session\/[A-Za-z0-9._-]{1,64}$/.test(path)
-        ? "build/routes/session/open.html" : files.get(path);
+      const index = path ? `${path.slice(1)}/index.html` : "index.html";
+      const relative = fixtureFiles.get(path) ?? (files.has(path.slice(1)) ? path.slice(1) : files.has(index) ? index : null);
       if (!relative) throw new Error("not a test asset");
       if (path.startsWith("/dist/packs/")) headers["cache-control"] = "public, max-age=31536000, immutable";
       if (sourceOverrides.has(path)) {

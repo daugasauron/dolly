@@ -11,7 +11,7 @@ REQUIRES TOOL mkdir
 REQUIRES TOOL cp
 REQUIRES TOOL rm
 
-SOURCE https://daugasauron.com/static/neovim/lpeg.tar e8a9fd286cf0ba6b9eff1ac12680eca887e409236b34a556a5cf6e55957f83f6 /tmp/lpeg/source.tar
+SOURCE https://daugasauron.com/dist/static/neovim/lpeg.tar e8a9fd286cf0ba6b9eff1ac12680eca887e409236b34a556a5cf6e55957f83f6 /tmp/lpeg/source.tar
 SLOP tar -xf /tmp/lpeg/source.tar -C /
 SLOP make -C /tmp/lpeg/source CC=cc LUADIR=/usr/include/lua5.1 \
   COPT=-O0 DLLFLAGS=-shared lpeg.so

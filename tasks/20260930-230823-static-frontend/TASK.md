@@ -1,6 +1,6 @@
 # Investigate serving the whole frontend as plain static JavaScript
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 200
 - TAGS: site,frontend,build,design
 
@@ -151,3 +151,70 @@ stay real `index.html` files written as data by the generator; user-named
 sessions are `/session?name=NAME`, one static page reading the query, so no
 host needs rewrite rules. Served paths follow the repository tree, demo
 recipes included.
+
+## Result (2026-10-01, branch `work/static-classic`)
+
+Implemented the decision. Every URL is a file at its checkout path; a plain
+static server over the checkout (after `npm run image`, which runs
+`generate-routes.mjs`) serves the whole frontend with no rewrite rule.
+
+URL layout:
+
+| URL | File |
+| --- | --- |
+| `/` | `index.html`, the menu written from `menu.html` (renamed from the old template `index.html`) |
+| `/IMAGE/`, `/IMAGE/rebuild/`, `/rebuild/`, `/custom/run/`, `/custom/rebuild/` | `terminal.html` pages written by the generator |
+| `/session/?name=NAME` (`/session?name=NAME` where the server adds the slash) | `session/index.html`, one generated terminal page reading the query |
+| `/sessions/` | `sessions/index.html`, the saved-session list (was `sessions.html` at `/session/`) |
+| `/custom/` | `custom/index.html` (was `custom.html`) |
+| `/view/IMAGE/…` | generated recipe views |
+| `/404.html` | static not-found page (keeps Cloudflare Pages from its SPA fallback) |
+| recipes, headers, sources | their checkout paths: `/Dollyfile-NAME`, `/modules/NAME.dm`, `/demos/DEMO/Dollyfile-NAME`, `/demos/DEMO/NAME.dm`, `/include/dolly/NAME.h`, `/host/MODULE/NAME.h`, `/dist/static/…` |
+
+- Generated pages are gitignored at their served paths (`.gitignore`); the
+  generator removes and rewrites `view/` and overwrites route pages.
+- Removed: the `/session/NAME` mappings in `coi-serviceworker.js`,
+  `scripts/serve.mjs`, `scripts/release-layout.mjs` and `test/browser-server.mjs`;
+  `session/open.html`, the old template `404.html`, `load/` (the redirect for
+  `/load/?session=`), `{{DOLLY_ROUTE_HEAD}}` and `DOLLY_NOT_FOUND`; the flat
+  recipe namespace and its mappings (`recipeFiles` URLs, `publishedHeaders` as a
+  map, `dist${path}` lookups in the test server, pin updater, image lister and
+  packager); per-route `base` constants; the `index.html` session-name reservation.
+- Old `/session/NAME` and `/load/?session=NAME` links now 404; saves are untouched
+  and open from `/sessions/`.
+- The session list moved to `/sessions/` because `/session/` is now the terminal
+  page that reads `?name=`; one URL cannot be both pages without merging them.
+- Recipe, header and source URLs changed (`https://daugasauron.com/demos/…`,
+  `/dist/static/…`, `/host/…`), so every image identity changed;
+  `node scripts/update-module-pins.mjs` repinned 108 recipes. Cloudflare `_headers`
+  serve `/_dolly/RELEASE/demos/*` as text and split `dist/static/` parts.
+- The esbuild process Worker bundle is unchanged.
+
+Evidence (runtime `0ae5b550…`, image inputs `a7f36bfd…`; built `default`,
+`audio-sdk` and `javascript` closures, 9 images):
+
+- Plain server: `prototype/verify-checkout.mjs CHECKOUT javascript` runs
+  `static-serve.mjs` over the checkout. Chrome and Firefox: the menu lists 9
+  images with no script; `/default/` boots to the prompt in 2.0 s / 2.2 s; a save
+  moves the URL to `/session/?name=plain-static`; `/session?name=plain-static`
+  (no slash) restores its file in 2.0 s / 2.2 s; `/sessions/` lists it;
+  `/javascript/` boots in 2.2 s / 2.5 s after fetching
+  `/demos/javascript/{quickjs,typescript}.dm` and both Dollyfiles; a recipe
+  view's source link `/dist/static/default/quickjs.tar` returns 200;
+  `/system/rebuild/` fetches `/dist/static/session-recovery/*` and reaches the
+  prompt in 4.1 s / 6.0 s; no request returned 404. `pyserve.py` redirects
+  `/session?name=NAME` to `/session/?name=NAME` (301, query kept).
+- `npm run test:source`: 342 pass; 1 failure predates this branch on `next`
+  (`Patti pins its C implementation…`: `demos/rust/patti.c` changed without its
+  `patti.dm` SOURCE pin). `npm run test:artifacts`: 24 pass, 1 skip.
+- `node test/browser-tests.mjs chromium firefox` (no gpu-render): all pass
+  except one `threads` assertion that read the terminal before `PTHREAD-OK`
+  appeared under heavy host load; `threads` alone passes in both browsers.
+  `npm run test:demos -- javascript` passes.
+- `package-pages.sh` with the 9 images: release `c1bde2ea…` sealed, accepted
+  (image inventory per image) and published; `npm run serve` returns
+  `/session/?name=x` and `/session?name=x` with base `_dolly/RELEASE/session/`,
+  demo recipes and headers as text, and 404 for `/session/x` and `/load/`.
+
+Remaining: the deployed sites still use the old layout until a full catalog is
+rebuilt and published (every image identity changed).
