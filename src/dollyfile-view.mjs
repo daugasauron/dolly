@@ -179,7 +179,7 @@ function inspectRecipe(source, label, rows) {
   const folders = [];
   const artifacts = [];
   let from = null;
-  // REQUIRES HOST lines are the image's manifest and may precede FROM.
+  // REQUIRES HOST lines are the image's manifest: they follow the role line.
   let operations = 0;
 
   for (const item of rows.slice(1)) {
@@ -224,6 +224,7 @@ function inspectRecipe(source, label, rows) {
       case "REQUIRES":
         if (tokens[0] === "HOST") {
           if (tokens.length !== 2) fail(label, item.line, "invalid REQUIRES HOST; expected REQUIRES HOST NAME@ABI");
+          if (operations !== 0) fail(label, item.line, "REQUIRES HOST lines follow the role line, before every other declaration");
           try { hostRequirement(tokens[1]); } catch (error) { fail(label, item.line, error.message); }
         } else {
           assertObject(tokens, label, item, "REQUIRES");

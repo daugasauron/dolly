@@ -90,7 +90,7 @@ if has_image gzip; then
   copy_static src/commands/gzip.c default/commands/gzip.c
 fi
 if has_image system-tools; then
-  for source in run-program.h install.c tail.c du.c rev.c command.c xargs.c \
+  for source in run-program.h install.c tail.c du.c rev.c command.c xargs.c amy.c \
       find.c env.c time.c timeout.c realpath.c diff.c patch.c hostname.c tty.c; do
     copy_static "${project_dir}/src/commands/${source}" "default/commands/${source}"
   done

@@ -25,6 +25,10 @@ flowchart LR
   Policy can lower these caps, never raise them. Metadata is literal UTF-8
   without NUL.
 - URLs must be absolute `http:` or `https:`; nothing resolves against the page.
+- Reserved `*.dolly.invalid` origins never reach Fetch: an enabled `build@0` or
+  `packages@0` admits its own requests there
+  ([`local-services.mjs`](../host/http/local-services.mjs)); any other fails
+  with `EACCES`.
 - A private host acknowledgement admits one request at a time; transfers then run
   concurrently in 16 fixed slots. A handle encodes slot and generation, so stale
   handles never touch a successor. `EBUSY` means the slot is occupied.

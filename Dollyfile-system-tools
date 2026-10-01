@@ -391,10 +391,11 @@ SOURCE https://daugasauron.com/dist/static/default/commands/diff.c        e1e71b
 SOURCE https://daugasauron.com/dist/static/default/commands/patch.c       a3103333d316c939faef9b8b9cba6b2c8d5705631f8cc0be083709a013a58c2d /tmp/agent-tools/patch.c
 SOURCE https://daugasauron.com/dist/static/default/commands/hostname.c    14a20a493c8559d8b28f221a6edd9b6f89f893f3e3067093b44d7235b4ae060f /tmp/agent-tools/hostname.c
 SOURCE https://daugasauron.com/dist/static/default/commands/tty.c         c51c9598e8245d5f651ade70995f2b03fb936c42a0e99c4c81c83749c5714c7e /tmp/agent-tools/tty.c
+SOURCE https://daugasauron.com/dist/static/default/commands/amy.c         28710e45b1856d662fd3869afdb035c71f2dd09d5685acbcdf78f8ac01353f93 /tmp/agent-tools/amy.c
 
 FILE /tmp/agent-tools/Makefile
     .RECIPEPREFIX := >
-    NAMES := install tail du rev command xargs find env time timeout realpath diff patch hostname tty
+    NAMES := install tail du rev command xargs find env time timeout realpath diff patch hostname tty amy
     TOOLS := $(addprefix /bin/,$(NAMES))
     all: $(TOOLS)
     /bin/%: /tmp/agent-tools/%.c /tmp/agent-tools/run-program.h
@@ -417,6 +418,7 @@ EXPORTS TOOL diff
 EXPORTS TOOL patch
 EXPORTS TOOL hostname
 EXPORTS TOOL tty
+EXPORTS TOOL amy
 
 SLOP rm \
   -rf \

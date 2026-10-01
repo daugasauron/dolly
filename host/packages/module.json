@@ -1,0 +1,12 @@
+{
+  "name": "packages",
+  "version": 0,
+  "dependencies": ["http@0"],
+  "imports": [],
+  "host": "packages.mjs",
+  "contracts": [],
+  "process": [],
+  "headers": [],
+  "kernel": [],
+  "client": []
+}

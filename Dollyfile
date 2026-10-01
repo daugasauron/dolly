@@ -3,10 +3,12 @@ APPLICATION default
 REQUIRES HOST display@0
 REQUIRES HOST download@0
 REQUIRES HOST http@0
+REQUIRES HOST packages@0
 REQUIRES HOST snapshot@0
+REQUIRES HOST threads@0
 REQUIRES HOST upload@0
 
-FROM https://daugasauron.com/Dollyfile-system 2e4222b7ea1b82f108aed0a9830a86efa96f48927e3040061e3d4d3289962762
+FROM https://daugasauron.com/Dollyfile-system 68fc9812c2c6dc3f459eb04ad59683a04c9953e81eb8970db702e5fd43cb51f8
 REQUIRES TOOL foreground
 REQUIRES TOOL test
 REQUIRES TOOL printf

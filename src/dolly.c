@@ -319,22 +319,23 @@ int dolly_bootstrap_snapshot(uintptr_t size) {
     fprintf(stderr, "dolly: invalid system snapshot: %s\n", strerror(errno));
     return 1;
   }
-  if (load_image_environment() != 0) {
-    fprintf(stderr, "dolly: invalid image environment: %s\n", strerror(errno));
-    return 1;
-  }
   puts("dolly: precompiled system restored");
   fflush(stdout);
   return dolly_snapshot_prune() != 0;
 }
 
 int dolly_bootstrap_finish(void) {
+  return dolly_snapshot_prune() != 0;
+}
+
+// Once the filesystem is final: after the image is restored and a saved
+// session has replayed its files, so an installed environment survives a reload.
+int dolly_bootstrap_environment(void) {
   if (load_image_environment() != 0) {
-    fprintf(stderr, "dolly: invalid built image environment: %s\n",
-            strerror(errno));
+    fprintf(stderr, "dolly: invalid image environment: %s\n", strerror(errno));
     return 1;
   }
-  return dolly_snapshot_prune() != 0;
+  return 0;
 }
 
 int dolly_bootstrap_snapshot_end(void) {

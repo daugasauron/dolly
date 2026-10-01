@@ -8,7 +8,7 @@ await browserTest("core", { image }, async ({ server, open }) => {
     rules: [{ origin: server.origin, pathPrefix: "/fixture/", methods: ["GET"] }] } });
   if (image === "default") assert.deepEqual(
     await page.evaluate(() => [...__dolly.hostModules].sort()),
-    ["display@0", "download@0", "http@0", "runtime@0", "snapshot@0", "upload@0"]);
+    ["display@0", "download@0", "http@0", "packages@0", "runtime@0", "snapshot@0", "threads@0", "upload@0"]);
   const starts = [];
   const recordRequest = request => { if (/^https?:/.test(request.url())) starts.push(request.url()); };
   page.context().on("request", recordRequest);

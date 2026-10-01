@@ -25,6 +25,11 @@ function handle(request, response, path, headers) {
 // deletions, and an ENTRY argument that must keep its U+FEFF.
 const iterationRecipe = (base, marker) => `DOLLY 6
 APPLICATION iteration
+REQUIRES HOST display@0
+REQUIRES HOST download@0
+REQUIRES HOST http@0
+REQUIRES HOST snapshot@0
+REQUIRES HOST upload@0
 FROM https://daugasauron.com/${base.dollyfile} ${base.sha256}
 SLOP mkdir -p /opt/iteration/bin; cp /bin/echo /opt/iteration/bin/echo
 EXPORTS ENV PATH /opt/iteration/bin:/bin:/usr/bin

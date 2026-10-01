@@ -85,9 +85,6 @@ typedef struct {
   char **host_requirements;
   size_t host_requirement_count;
   size_t host_requirement_capacity;
-  char **package_hosts;
-  size_t package_host_count;
-  size_t package_host_capacity;
   char *selected_image;
   Scope exports;
   Artifact artifact;
@@ -1036,8 +1033,16 @@ static int write_artifact_receipt(Engine *engine) {
 
 static int valid_host_requirement(const char *value);
 
+static int host_declared(const Engine *engine, const char *requirement) {
+  for (size_t index = 0; index < engine->host_requirement_count; ++index) {
+    if (strcmp(engine->host_requirements[index], requirement) == 0) return 1;
+  }
+  return 0;
+}
+
 // Reads the receipt's recipe chain into the engine, its exports into `exports`
-// when given, and the imported image's role into `kind_out`.
+// when given, and the imported image's role into `kind_out`. An installed
+// package's host modules must already be declared: nothing is inherited.
 static int read_artifact_receipt(Engine *engine, const unsigned char *bytes,
                                  size_t length, const char *locator,
                                  const char *expected, Scope *exports,
@@ -1072,8 +1077,10 @@ static int read_artifact_receipt(Engine *engine, const unsigned char *bytes,
     char *host = NULL;
     result = take_text(&cursor, end, &host);
     if (result == 0 && !valid_host_requirement(host)) result = -EINVAL;
-    if (result == 0 && install) result = append_string(&engine->package_hosts, &engine->package_host_count,
-                                                        &engine->package_host_capacity, host);
+    if (result == 0 && install && !host_declared(engine, host)) {
+      fprintf(stderr, "dollyfile: %s needs %s: add REQUIRES HOST %s\n", locator, host, host);
+      result = 2;
+    }
     free(host);
   }
   if (result == 0 && (take_layer_u32(&cursor, end, &count) != 0 || count > 10000)) result = -EINVAL;
@@ -1210,6 +1217,19 @@ static int artifact_has_path(const Artifact *artifact, const char *path) {
 
 typedef enum { IMPORT_FROM, IMPORT_INSTALL, IMPORT_COPY } ImportMode;
 
+// The files that describe an image rather than hold its contents; a package's
+// are not its payload, so INSTALL leaves the installing image's in place.
+static int image_control_file(const char *path) {
+  static const char *const files[] = {
+      "/etc/dolly/Dollyfile", "/etc/dolly/artifact", "/etc/dolly/environment", "/etc/dolly/image",
+      "/etc/dolly/image.manifest", "/etc/dolly/recipes.lock",
+  };
+  for (size_t index = 0; index < sizeof(files) / sizeof(*files); ++index) {
+    if (strcmp(path, files[index]) == 0) return 1;
+  }
+  return 0;
+}
+
 // FROM restores an application or toolchain as the base, INSTALL merges a
 // package, COPY takes files. A package recipe keeps nothing of its base: its
 // files, environment and exports serve only the build.
@@ -1243,6 +1263,7 @@ static int load_artifact(Engine *engine, const char *locator, const char *expect
   for (uint32_t index = 0; result == 0 && index < artifact->count; ++index) {
     const dolly_fs_record *record = &artifact->records[index];
     const char *suffix = record->path;
+    if (mode == IMPORT_INSTALL && image_control_file(record->path)) continue;
     if (source != NULL && strcmp(source, "/") != 0) {
       const size_t length = strlen(source);
       if (strncmp(record->path, source, length) != 0 ||
@@ -1382,7 +1403,11 @@ static int process_line(Engine *engine, const char *locator,
   } else if (strcmp(text, "REQUIRES") == 0) {
     result = split_words(arguments, &words, &count);
     const int host = result == 0 && count == 2 && strcmp(words[0], "HOST") == 0;
-    if (host) {
+    if (host && *operations != 0) {
+      fprintf(stderr, "dollyfile: %s:%zu: REQUIRES HOST lines follow the role line, before every other declaration\n",
+              locator, line_number);
+      result = 2;
+    } else if (host) {
       result = valid_host_requirement(words[1]) ? require_host(engine, words[1]) : 2;
     } else if (result == 0 && (count != 2 || !valid_object_type(words[0]) ||
         (strcmp(words[0], "ENV") == 0 ? !valid_environment_name(words[1]) : !valid_object_name(words[1])))) result = 2;
@@ -1823,11 +1848,7 @@ static int check_host_section(Engine *engine, FILE *stream, uint32_t size, const
         (uint32_t)record[DOLLY_HOST_NAME_BYTES + 3] << 24;
     char requirement[DOLLY_HOST_NAME_BYTES + 8];
     snprintf(requirement, sizeof(requirement), "%.*s@%u", (int)length, (const char *)record, version);
-    int declared = 0;
-    for (size_t index = 0; index < engine->host_requirement_count && !declared; ++index) {
-      declared = strcmp(engine->host_requirements[index], requirement) == 0;
-    }
-    if (!declared) {
+    if (!host_declared(engine, requirement)) {
       fprintf(stderr, "dollyfile: %s uses %s: add REQUIRES HOST %s\n", path, requirement, requirement);
       return 2;
     }
@@ -1867,22 +1888,6 @@ static int check_executable_hosts(Engine *engine, const char *path) {
   return result;
 }
 
-// A package's declared modules must be declared by the installing image too.
-static int package_hosts_declared(Engine *engine) {
-  for (size_t index = 0; index < engine->package_host_count; ++index) {
-    const char *host = engine->package_hosts[index];
-    int declared = 0;
-    for (size_t other = 0; other < engine->host_requirement_count && !declared; ++other) {
-      declared = strcmp(engine->host_requirements[other], host) == 0;
-    }
-    if (!declared) {
-      fprintf(stderr, "dollyfile: an installed package needs %s: add REQUIRES HOST %s\n", host, host);
-      return 0;
-    }
-  }
-  return 1;
-}
-
 static int entry_retained(Engine *engine) {
   struct stat entry_metadata;
   if (stat(engine->entry[0], &entry_metadata) != 0 || !S_ISREG(entry_metadata.st_mode)) {
@@ -1903,7 +1908,6 @@ static int entry_retained(Engine *engine) {
 static int seal_manifest(Engine *engine) {
   if (engine->selected_image == NULL) return 1;
   if (engine->entry_count != 0 && !entry_retained(engine)) return 1;
-  if (!package_hosts_declared(engine)) return 1;
   for (size_t index = 0; index < engine->keep_count; ++index) {
     struct stat metadata;
     if (lstat(engine->keep[index], &metadata) != 0 || !S_ISREG(metadata.st_mode)) continue;
@@ -1945,6 +1949,82 @@ static int seal_manifest(Engine *engine) {
   return 0;
 }
 
+static void dispose_environment_names(Engine *engine) {
+  for (size_t index = 0; index < engine->environment_name_count; ++index) {
+    free(engine->environment_names[index]);
+  }
+  free(engine->environment_names);
+  engine->environment_names = NULL;
+  engine->environment_name_count = engine->environment_name_capacity = 0;
+}
+
+// The environment file the kernel loads at boot: the image's final values,
+// read back so a live install merges into them.
+static int read_environment_file(Engine *engine) {
+  Buffer file = {.limit = MAX_RECIPE_BYTES};
+  int result = read_file_buffer("/etc/dolly/environment", &file);
+  const unsigned char *cursor = file.data, *end = file.data + file.length, *magic;
+  uint32_t version, count = 0;
+  if (result == 0 && (take_layer_bytes(&cursor, end, 8, &magic) != 0 || memcmp(magic, "DOLLYENV", 8) != 0 ||
+      take_layer_u32(&cursor, end, &version) != 0 || version != 1 ||
+      take_layer_u32(&cursor, end, &count) != 0 || count > 256)) result = -EINVAL;
+  for (uint32_t index = 0; result == 0 && index < count; ++index) {
+    uint32_t name_length, value_length;
+    const unsigned char *name_bytes, *value_bytes;
+    if (take_layer_u32(&cursor, end, &name_length) != 0 || take_layer_u32(&cursor, end, &value_length) != 0 ||
+        take_layer_bytes(&cursor, end, name_length, &name_bytes) != 0 ||
+        take_layer_bytes(&cursor, end, value_length, &value_bytes) != 0 ||
+        memchr(name_bytes, 0, name_length) != NULL || memchr(value_bytes, 0, value_length) != NULL) {
+      result = -EINVAL;
+      break;
+    }
+    char *name = strndup((const char *)name_bytes, name_length);
+    char *value = strndup((const char *)value_bytes, value_length);
+    result = name == NULL || value == NULL ? -ENOMEM : !valid_environment_name(name) ? -EINVAL
+        : apply_environment(name, value, 0);
+    if (result == 0) result = append_string(&engine->environment_names, &engine->environment_name_count,
+                                             &engine->environment_name_capacity, name);
+    free(name);
+    free(value);
+  }
+  if (result == 0 && cursor != end) result = -EINVAL;
+  free(file.data);
+  if (result != 0) fprintf(stderr, "dollyfile: invalid image environment: %s\n", strerror(-result));
+  return result;
+}
+
+// Executed rows accumulate in /etc/dolly/installed: with the booted image's
+// recipe they are the session's recipe.
+static int record_installed(const char *locator, const char *expected) {
+  FILE *stream = fopen("/etc/dolly/installed", "a");
+  if (stream == NULL) return -errno;
+  const int result = fprintf(stream, "INSTALL %s %s\n", locator, expected) < 0 ? -EIO : 0;
+  return fclose(stream) != 0 && result == 0 ? -errno : result;
+}
+
+// `dollyfile install URL SHA256`: the INSTALL row against the live filesystem.
+// The booted image's recipe supplies the declared host modules and its
+// environment file receives the package's exported variables; nothing is sealed.
+static int install_live(Engine *engine, const char *locator, const char *expected) {
+  Scope exports = {0}, visible = {0}, own = {0};
+  int result = execute_recipe(engine, "FILE:/etc/dolly/Dollyfile", 0, &exports);
+  dispose_scope(&exports);
+  // Parsing applied the recipe's own ENV declarations; the file holds the final values.
+  dispose_environment_names(engine);
+  if (result == 0) result = read_environment_file(engine);
+  if (result == 0 && (!valid_image_url(locator) || !valid_sha256(expected))) {
+    fprintf(stderr, "dollyfile: install takes a Dollyfile URL and its SHA256\n");
+    result = 2;
+  }
+  if (result == 0) result = load_artifact(engine, locator, expected, IMPORT_INSTALL, 0, NULL, NULL, &visible, &exports, &own);
+  if (result == 0) result = write_environment_file(engine);
+  if (result == 0) result = record_installed(locator, expected);
+  dispose_scope(&exports);
+  dispose_scope(&visible);
+  dispose_scope(&own);
+  return result;
+}
+
 static void dispose_engine(Engine *engine) {
   dispose_artifact(&engine->artifact);
   dispose_scope(&engine->exports);
@@ -1960,12 +2040,7 @@ static void dispose_engine(Engine *engine) {
     free(engine->recipes[index].source);
   }
   free(engine->recipes);
-  for (size_t index = 0; index < engine->package_host_count; ++index) free(engine->package_hosts[index]);
-  free(engine->package_hosts);
-  for (size_t index = 0; index < engine->environment_name_count; ++index) {
-    free(engine->environment_names[index]);
-  }
-  free(engine->environment_names);
+  dispose_environment_names(engine);
   for (size_t index = 0; index < engine->host_requirement_count; ++index) {
     free(engine->host_requirements[index]);
   }
@@ -1973,7 +2048,8 @@ static void dispose_engine(Engine *engine) {
 }
 
 static void usage(FILE *stream) {
-  fputs("usage: dollyfile RECIPE-URL|FILE:/path\n", stream);
+  fputs("usage: dollyfile RECIPE-URL|FILE:/path\n"
+        "       dollyfile install URL SHA256\n", stream);
 }
 
 int main(int argc, char **argv) {
@@ -1981,15 +2057,21 @@ int main(int argc, char **argv) {
     usage(stdout);
     return 0;
   }
-  if (argc != 2) {
+  const int live = argc == 4 && strcmp(argv[1], "install") == 0;
+  if (argc != 2 && !live) {
     usage(stderr);
     return 2;
   }
   Engine engine = {0};
   Scope exports = {0};
-  int status = execute_recipe(&engine, argv[1], 1, &exports);
-  dispose_scope(&exports);
-  if (status == 0) status = seal_manifest(&engine);
+  int status;
+  if (live) {
+    status = install_live(&engine, argv[2], argv[3]);
+  } else {
+    status = execute_recipe(&engine, argv[1], 1, &exports);
+    dispose_scope(&exports);
+    if (status == 0) status = seal_manifest(&engine);
+  }
   dispose_engine(&engine);
   if (status < 0) {
     fprintf(stderr, "dollyfile: execution failed: %s (%d)\n",

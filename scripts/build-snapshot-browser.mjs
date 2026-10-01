@@ -71,7 +71,7 @@ async function handle(request, response, path, headers) {
 async function buildInPage(image) {
   const log = text => void globalThis.dollyBuildLog(text);
   const [registry, policy, transport, builder, graph] = await Promise.all([
-    "/dist/dolly-images.mjs", "/host/http/policy.mjs", "/host/build/local-services.mjs",
+    "/dist/dolly-images.mjs", "/host/http/policy.mjs", "/host/http/local-services.mjs",
     "/src/image-builder.mjs", "/src/image-build.mjs",
   ].map(path => import(new URL(path, location.href))));
   const sources = [

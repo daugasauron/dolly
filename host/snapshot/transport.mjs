@@ -1,4 +1,5 @@
 import { DOLLY_SESSION_MAX_BYTES, validSessionName } from "../../src/session-store.mjs";
+import { DOLLY_ERRNO } from "../../dist/dolly-errno.mjs";
 
 // Mailbox v2, mirrored by kernel.c. No filesystem paths cross here.
 export class SessionTransport {
@@ -112,6 +113,9 @@ export class SessionTransport {
       }
       await wait(SessionTransport.completedSequence, (value) => value === requested);
       const status = Atomics.load(words, SessionTransport.status);
+      if (status === -DOLLY_ERRNO.EFBIG) {
+        throw new Error(`Dolly session exceeds its ${DOLLY_SESSION_MAX_BYTES / 1024 / 1024} MiB limit; remove files or installed packages and save again`);
+      }
       if (status !== 0) throw new Error(`Dolly session capture failed with status ${status}`);
       if (offset < 16 || offset !== declaredTotal) throw new Error("Dolly session snapshot was incomplete");
       complete = true;

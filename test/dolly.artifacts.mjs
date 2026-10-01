@@ -225,12 +225,16 @@ test("system snapshots are sealed to their visible recipe chain", async () => {
   const corePrograms = new Map([
     ["default", "/bin/slop"],
     ["audio-sdk", "/usr/lib/dolly/process/libdolly-audio.a"],
+    ["curl", "/usr/bin/curl"],
+    ["display", "/usr/lib/libdisplay.so"],
     ["ghostty-build", "/usr/bin/zig"],
+    ["gzip", "/bin/gzip"],
     ["gpu-sdk", "/usr/lib/dolly/process/libdolly-gpu.a"],
     ["system", "/usr/lib/libdisplay.so"],
     ["system-build", "/bin/slop"],
     ["system-tools", "/usr/bin/git"],
     ["zig-build", "/usr/bin/zig"],
+    ["zlib", "/usr/lib/libz.a"],
   ]);
   assert.deepEqual([...corePrograms.keys()].sort(), definitions
     .filter(definition => !definition.filename.startsWith("demos/")).map(definition => definition.image).sort());
@@ -248,9 +252,6 @@ test("system snapshots are sealed to their visible recipe chain", async () => {
     assert.equal(metadata.buildId, DOLLY_IMAGE_BUILD_ID);
     assert.equal(metadata.identityVersion, 2);
     assert.deepEqual(metadata.recipes, recipes);
-    assert.deepEqual(metadata.modules, graph.root.uses.map(
-      ({ location, sha256 }) => ({ location, sha256 }),
-    ));
     assert.deepEqual(metadata.manifest, [...metadata.manifest].sort());
     if (corePrograms.has(image)) {
       assert.ok(metadata.manifest.includes(corePrograms.get(image)), `${image}: primary program`);

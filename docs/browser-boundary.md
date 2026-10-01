@@ -32,6 +32,7 @@ flowchart TB
   http --> policy["HTTP policy"]
   policy --> fetch(("Fetch"))
   policy --> build["build@0: local build service"]
+  policy --> packages["packages@0: local package service"]
   dl --> save["user clicks Save"]
   up --> picker["user picks a file"]
 ```
@@ -57,6 +58,7 @@ select no JavaScript or Worker URL.
 | `audio@0` | `env.dolly_audio_dispatch` | Stereo PCM output, 4 streams of 1 s; no capture | [`host/audio/`](../host/audio/module.json) |
 | `threads@0` | supervisor | Worker per thread of an admitted executable: 16 per process, 64 total | [`host/threads/`](../host/threads/module.json) |
 | `build@0` | reserved URL via `http@0` | Start a disposable image build that writes the image cache | [`host/build/`](../host/build/module.json) |
+| `packages@0` | reserved URL via `http@0` | Serve the package index and the verified snapshot of a published package, one at a time, 64 per page | [`host/packages/`](../host/packages/module.json) |
 
 - `REQUIRES HOST` lines and executable `dolly.host` records
   ([`dolly-host-0.wat`](../abi/dolly-host-0.wat)) are compatibility demands, not
@@ -68,7 +70,14 @@ select no JavaScript or Worker URL.
 - The page enables `runtime@0` plus the image's requirements; rebuild routes add
   `http@0` and `threads@0` for building. Only Dollyfile Studio declares
   `build@0`, and the page admits it only after ENTRY starts
-  ([Studio builds](image-build-service.md)).
+  ([Studio builds](image-build-service.md)). An image declaring `packages@0`
+  (`default`) may GET `https://packages.dolly.invalid/v1/index` and
+  `/v1/packages/SHA256` after ENTRY starts: the page serves its own
+  `dist/dolly-packages.txt` and a published package's snapshot, rebuilt and
+  verified from the release's packs exactly as a build input
+  ([`service.mjs`](../host/packages/service.mjs)). A pin outside the release is
+  404, a second concurrent snapshot 409, the 65th per page 429; the bytes are
+  ordinary sandbox data and grant nothing ([amy](dollyfile.md#packages-and-amy)).
 - Builders ([`image-builder.mjs`](../src/image-builder.mjs)) inherit the page's
   HTTP policy but get no display, file picker or local service, and never run
   ENTRY. One build runs per page; cancellation holds that lease until the
