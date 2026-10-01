@@ -45,9 +45,7 @@ jobs:
       - name: Verify audited artifact
         env:
           EXPECTED_SHA256: ${{ inputs.artifact_sha256 }}
-        run: |
-          [[ "${EXPECTED_SHA256}" =~ ^[0-9a-fA-F]{64}$ ]] || { echo 'Expected a SHA-256 digest' >&2; exit 1; }
-          printf '%s  dolly-pages.tar.gz\n' "${EXPECTED_SHA256}" | sha256sum --check --strict -
+        run: bash _source/scripts/verify-sha256.sh "${EXPECTED_SHA256}" dolly-pages.tar.gz
       - name: Extract browser build
         run: mkdir _site && tar -C _site -xzf dolly-pages.tar.gz
       - name: Verify complete release and source provenance

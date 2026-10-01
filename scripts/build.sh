@@ -172,10 +172,8 @@ ${emcc} ${libc_internal} -c ${emscripten_libc}/libc/musl/src/thread/pthread_mute
 ${emcc} ${libc_internal} -c ${emscripten_libc}/libc/musl/src/thread/pthread_mutexattr_settype.c -o build/process-pthread_mutexattr_settype.o
 ${emcc} ${libc_internal} -c ${emscripten_libc}/libc/musl/src/thread/pthread_mutexattr_destroy.c -o build/process-pthread_mutexattr_destroy.o
 EOF
-(
-  process_archive_staging="$(mktemp -d build/.process-archive.XXXXXX)"
-  trap 'rm -rf -- "${process_archive_staging}"' EXIT
-  "${container[@]}" /emsdk/upstream/emscripten/emar rcsD "${process_archive_staging}/libdolly-process.a" \
+rm -f -- build/libdolly-process.a.new
+"${container[@]}" /emsdk/upstream/emscripten/emar rcsD build/libdolly-process.a.new \
   build/process-libc-adapter.o \
   build/process-mmap.o \
   build/process-time.o \
@@ -187,10 +185,7 @@ EOF
   build/process-pthread_mutexattr_init.o \
   build/process-pthread_mutexattr_settype.o \
   build/process-pthread_mutexattr_destroy.o
-  if ! cmp -s "${process_archive_staging}/libdolly-process.a" build/libdolly-process.a; then
-    mv -- "${process_archive_staging}/libdolly-process.a" build/libdolly-process.a
-  fi
-)
+replace_if_changed build/libdolly-process.a.new build/libdolly-process.a
 
 # Each host module's process client forms libdolly-NAME.a.
 mapfile -t clients < <(node scripts/host-modules.mjs client)
