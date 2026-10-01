@@ -1,6 +1,6 @@
 """HTTP transports over Dolly's browser HTTP broker (the _dolly_http module).
 
-Importing this module (dolly-http.pth does so at startup) makes urllib.request's
+Importing this module (site.py does so at startup) makes urllib.request's
 default opener and requests' HTTPAdapter.send, including pip's vendored copy,
 send through env.dolly_http_dispatch. There is no socket or ssl emulation:
 the browser owns TLS, redirects and content decoding, and its policy decides.

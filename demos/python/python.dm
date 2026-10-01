@@ -22,7 +22,7 @@ REQUIRES TOOL   test
 REQUIRES TOOL   touch
 
 USE https://daugasauron.com/modules/libffi.dm  8de2fbc9672d7ce996e1542fec3180f7a04845a64f2df90b3fea542d3d2d025f
-USE https://daugasauron.com/modules/cpython.dm c70909b37a8e0b24a9ed46a2c969634d6257d227945511c6b3cc8ef8233df85f
+USE https://daugasauron.com/modules/cpython.dm e6c9353ebe6b1103611a4cc2df8a54b74cf588d2e510ef81a998c87c644ab374
 
 EXPORTS TOOL   python
 EXPORTS TOOL   python3

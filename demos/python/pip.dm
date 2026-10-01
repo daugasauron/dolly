@@ -3,13 +3,6 @@ MODULE pip
 
 REQUIRES TOOL python
 
-# urllib.request and requests (also pip's vendored copy) send through CPython's
-# built-in _dolly_http client; dolly-http.pth installs the transports at startup.
-SOURCE https://daugasauron.com/static/python/runtimes/dolly_http.py f07a8aedf34a620d34e8dbb640bb240245415632599d123bf4d98885c9a2b754 /usr/lib/python3.14/dolly_http.py
-FILE /usr/lib/python3.14/dolly_http.py
-FILE /usr/lib/python3.14/site-packages/dolly-http.pth
-    import dolly_http
-
 # CPython's bundled pip, installed offline without build-time bytecode.
 SLOP python \
   /usr/lib/python3.14/ensurepip/_bundled/pip-26.2.1-py3-none-any.whl/pip \
@@ -36,6 +29,6 @@ FILE /etc/pip.conf
     config-settings = setup-args=-Dbuildtype=debug
 
 SLOP python \
-  -c 'import _dolly_http, urllib.request, dolly_http; assert urllib.request.HTTPHandler.__module__ == "dolly_http"'
+  -c 'import urllib.request; assert urllib.request.HTTPHandler.__module__ == "_dolly_transport"'
 SLOP pip \
   --version

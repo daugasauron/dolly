@@ -24,11 +24,11 @@ Open `/python/`; build with `npm run image -- python`.
   [`prepare-cpython.sh`](prepare-cpython.sh): the interpreter; preparation only
   configures the pinned tree.
 - [`libffi.dm`](libffi.dm), [`libffi-dolly.c`](libffi-dolly.c): FFI over process-local calls.
-- [`cpython-http.c`](cpython-http.c): the built-in `_dolly_http` (start, poll,
-  cancel of [`http.h`](../../host/http/http.h)).
-- [`pip.dm`](pip.dm), [`dolly_http.py`](dolly_http.py): pip and the transports
-  (installed at startup by `dolly-http.pth`), a later image step so their
-  changes do not rebuild the interpreter.
+- [`cpython-http.c`](cpython-http.c), [`cpython-transport.py`](cpython-transport.py):
+  the built-in `_dolly_http` (start, poll, cancel of
+  [`http.h`](../../host/http/http.h)) and `_dolly_transport`, which `site.py`
+  imports so that urllib and requests use it, in venvs too.
+- [`pip.dm`](pip.dm): pip and its configuration, a later image step.
 - Tests: [`test/`](test/).
 
 ## Limits

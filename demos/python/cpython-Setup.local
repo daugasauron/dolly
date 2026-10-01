@@ -1,7 +1,7 @@
 # Serial process-shaped command invocation over Dolly's stable spawn/wait ABI.
 _dolly_process Modules/dolly_process.o
 
-# Python access to Dolly's brokered HTTP client; the transports are dolly_http.py.
+# Python access to Dolly's brokered HTTP client; _dolly_transport uses it.
 _dolly_http Modules/dolly_http.o
 
 # Upstream libffi 3.5.2 has a wasm64 ABI. Dolly supplies its typed indirect

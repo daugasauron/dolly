@@ -90,6 +90,7 @@ await demoTest("python", { image: "python", timeout: packages ? 7_200_000 : 600_
   const pip = `pip install --no-index --find-links ${server.origin}/fixture/wheels/`;
   await run(`${pip} requests`);
   await run(`python python-http.py ${server.origin}`);
+  await run(`python -m venv venv && venv/bin/${pip} idna`);
   await run(`cd /workspace && rm -rf ${scratch}`);
 
   if (!packages) return;

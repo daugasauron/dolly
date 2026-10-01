@@ -1,6 +1,6 @@
 // _dolly_http: CPython binding of Dolly's brokered HTTP client (dolly/http.h).
 // Requests still cross env.dolly_http_dispatch and its browser policy; there
-// is no socket or TLS here. Transports are in dolly_http.py.
+// is no socket or TLS here. Transports are in cpython-transport.py.
 #define PY_SSIZE_T_CLEAN
 #include <Python.h>
 #include <dolly/http.h>

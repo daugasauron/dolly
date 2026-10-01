@@ -30,7 +30,7 @@ EXPORTS ENV PYTHONDONTWRITEBYTECODE 1
 # The target is configured outside the browser, but every target object and
 # executable is compiled here. Dolly-owned adapters remain independent pinned
 # inputs instead of being hidden inside the upstream archive.
-SOURCE https://daugasauron.com/static/python/cpython.tar.gz ec60eceeeeb986466b498e7d095fa350be62a1b65c41793b283cc3643e12cca1 /tmp/cpython.tar.gz
+SOURCE https://daugasauron.com/static/python/cpython.tar.gz 6b9c3928b880e374b1fe36b81ef52319c57c184fdf8d1777269ba6ec795d8f1f /tmp/cpython.tar.gz
 
 SLOP gzip -dc /tmp/cpython.tar.gz | tar -xf - -C /
 
@@ -39,8 +39,9 @@ SOURCE https://daugasauron.com/static/python/runtimes/cpython-extension-check.c 
 SOURCE https://daugasauron.com/static/python/runtimes/cpython-socket-stubs.c    d54e0a1d299c128d483e7edc9dc089693e8ca53a7de54509e687a87a6368a4ce /usr/src/python/Modules/dolly_socket_stubs.c
 SOURCE https://daugasauron.com/static/python/runtimes/cpython-termios.c         90eee14e4bc72054208b30fdb53fd6cf3a8dd818f6e061674e0215bd7fc68fea /usr/src/python/Modules/dolly_termios.c
 SOURCE https://daugasauron.com/static/python/runtimes/cpython-process.c         9dfbbe0c2de367d829b4fec488ff4e17488324c4cc4c750b34de2c82547fb943 /usr/src/python/Modules/dolly_process.c
-SOURCE https://daugasauron.com/static/python/runtimes/cpython-http.c            2ee940cd48728043d188deb43a854d76d4f96fb3dce0c92df8a746478ed3033b /usr/src/python/Modules/dolly_http.c
+SOURCE https://daugasauron.com/static/python/runtimes/cpython-http.c            13610f3322a4d09aa558e5d31523a082303835bf7c5981557c09443562cdc2da /usr/src/python/Modules/dolly_http.c
 SOURCE https://daugasauron.com/static/python/runtimes/cpython-subprocess.py     cabc2b4eb15e61332c2b63454724c3b390c5f2a2f0effa2889861e123835b785 /usr/src/python/Lib/_dolly_subprocess.py
+SOURCE https://daugasauron.com/static/python/runtimes/cpython-transport.py      748fe7140692cb617b954705f5a7a293a6891fc60ef6c9ad46686d4623ff2a91 /usr/src/python/Lib/_dolly_transport.py
 
 SLOP CWD /usr/src/python touch \
   Python/frozen_modules/*.h
