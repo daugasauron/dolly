@@ -142,6 +142,11 @@ try {
   const baseArtifact = baseReference ? artifacts.get(baseReference.sha256) : null;
   if (bootMode === "rebuild" && baseReference && !baseArtifact) throw new Error("base image artifact was not provided");
   bootstrapStage("loading Dolly runtime...");
+  // Emscripten's glue decodes kernel strings with a TextDecoder it creates at
+  // import time, over views of the heap; TextDecoder rejects views of shared
+  // memory (measured in Chrome 151 and Firefox 155) and no link setting of
+  // Emscripten 6.0.8 makes it copy first. Hiding the global while the glue
+  // loads selects its JavaScript decoder instead.
   const nativeTextDecoder = globalThis.TextDecoder;
   globalThis.TextDecoder = undefined;
   const { default: createDolly } = await import("../dist/dolly.mjs");
