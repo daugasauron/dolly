@@ -1,7 +1,7 @@
 # amy: install packages from inside the runtime
 
 - STATUS: OPEN
-- PRIORITY: 170
+- PRIORITY: 300
 - TAGS: dollyfile,design,packages
 
 Owner question (2026-09-30): would a package manager fit the build images and
@@ -98,3 +98,11 @@ below 512 MiB). Next: teach `tar` symlinks and long names, then an installer.
 
 Scripts: `pack.mjs`, `install.mjs`, `boot.mjs` and `session.mjs` in the session scratchpad
 (not committed).
+
+## Owner request (2026-10-01, 21:45)
+
+Build images per model size (several Qwen sizes, plus another open-weight family)
+and make amy work: `amy install qwen3-8b` pulls the model from its build image
+into the running session. Model images: `20261001-214000-pi-local-model`.
+amy's semantics are part of the Dollyfile v6 design
+(`20261001-214000-dollyfile-v6`); amy is implemented on top of it.
