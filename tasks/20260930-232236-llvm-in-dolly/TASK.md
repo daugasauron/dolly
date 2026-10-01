@@ -124,3 +124,102 @@ Ninja job slots (`20260930-231102-parallel-rust`): about 3.6 h serial, 28 min at
 `test/cpp-browser.mjs`, Chrome and Firefox). The 16 MiB initial memory is the
 process ABI's floor (`src/process-abi.mjs`), so the compiler link keeps
 passing `-Wl,--initial-memory=33554432`, as the seed build does.
+
+## Configure and TableGen inside Dolly (2026-10-01, `work/llvm-stage1`)
+
+`demos/llvm` adds the build-only image `llvm-tablegen`: `FROM cmake-build`,
+Python copied from `python-runtime`, the seed's verified checkout staged without
+tests or docs (15,743 files, 63 MB gzip, 11-16 s to extract). CMake configures
+the tree as `scripts/build-toolchain.sh` does (PCH off), Make builds the three
+TableGen tools and runs the 13 TableGen targets of the compiler closure; the
+image keeps the tools and `/usr/share/llvm-tablegen` (configured headers and
+TableGen outputs, 228 files, 35 MB). It is a demo, not core: CMake and CPython
+are demos and the core never uses one.
+
+Method: image builds in headless Chrome 151 on the 16-core host (load 12-16
+from other agents' builds); wall times from Dolly's `time` in the image log;
+memory is the whole browser's PSS sampled every 2 s.
+
+Configure: 62-75 s configuring plus 12-16 s generating (74-90 s with
+`time`). What it needed:
+
+- Python 3: `find_package(Python3 REQUIRED)` (`llvm/CMakeLists.txt:1077`)
+  runs even with tests off. `COPY FROM python-runtime` of `/usr/bin/python`
+  and `/usr/lib/python3.14` suffices (Python 3.14.7 found).
+- `config-ix.cmake:533` always runs `sh cmake/config.guess`, even when
+  `LLVM_HOST_TRIPLE` is given. Slop stops on it (`trap: command not found`,
+  `unterminated arithmetic expansion`), and `config.guess` has no entry for
+  `uname -s` = `Dolly` anyway. `demos/llvm/llvm-host-triple.patch` infers the
+  triple only when none is given (upstreamable); Dolly's `patch` applies it.
+- PCH is `CMAKE_DISABLE_PRECOMPILE_HEADERS=ON` in LLVM 24;
+  `LLVM_ENABLE_PRECOMPILED_HEADERS` (above) is not read.
+- LLD always adds `lld/docs` and LLVM `utils/mlgo-utils`; both are staged.
+
+Generated configuration against the seed's emcmake tree (`.cache/llvm-wasm`):
+`llvm-config.h`, `abi-breaking.h`, `Targets.h`, the six target `.def` files,
+`Extension.def` and Clang's `config.h` are identical, as is every other
+`HAVE_*`, `*_SUPPORTS_*` and linker check in `CMakeCache.txt`. `config.h`
+differed in six macros: `HAVE_GETPAGESIZE`, `HAVE_SBRK`, `HAVE_SETENV`,
+`HAVE_SIGALTSTACK`, `HAVE_STRERROR_R` and `HAVE__UNWIND_BACKTRACE` were
+undefined. The first five are `cc`'s strict `-std=c17` default hiding POSIX
+from C probes (`20260930-100000-audit-41`); the recipe passes
+`-DCMAKE_C_FLAGS=-std=gnu17`, the dialect the seed's C got from Clang.
+With it the five match the seed. `_Unwind_Backtrace` stays undefined: Dolly's
+process link has none, nor does Emscripten's `libunwind-mt-wasmexcept.a`; why
+emcc's probe linked is not established.
+`BuildVariables.inc` (llvm-config only) differs in its source and build paths.
+`VCSRevision.h` and the Clang/LLD `VCSVersion.inc` are build-time outputs and
+the staged tree has no `.git`: the compiler stage needs
+`-DLLVM_FORCE_VC_REVISION=<pin> -DLLVM_FORCE_VC_REPOSITORY=<url>` to embed the
+seed's version strings.
+
+TableGen tools, the same 306 TUs at `-O3` through CMake's Makefiles:
+
+| `make` | wall | build only | peak PSS |
+| --- | --- | --- | --- |
+| `-j1` | 524 s | ~502 s | 3.6 GiB |
+| `-j4` | 208 s | 208 s | 4.1 GiB |
+| `-j6` | 165 s | ~138 s | 4.5 GiB |
+| `-j8` | fails after 8 s | | |
+
+The four rows are one image build in that order (`-j8` first, then `-j4`,
+`-j6`, `-j1`); "build only" subtracts a CMake re-configure (22-27 s) that
+deleting `bin/` between the runs caused. The committed recipe's own build, at
+host load 3-6, took 155 s at `-j4`, its TableGen step 155 s and the whole
+image 416 s; its peak, 5.4 GiB, came while capturing the snapshot.
+Configure peaks at 3.3 GiB.
+
+`-j8` fails with `slop: /bin/c++: spawn failed: Resource temporarily
+unavailable`. Every CMake compile rule is `cd DIR && c++ ...`, so each job
+holds Slop, the `c++` proxy and the compiler (a link also `cmake -E
+cmake_link_script`), plus one sub-make per target in progress: more than the 32
+process Workers (`src/process-supervisor.mjs:23`). The recipe uses `-j4`.
+
+TableGen runs: the 13 targets take 155-163 s at `-j4` (4.8 GiB peak), against 50 s
+for the same runs invoked directly (above). The top-level Makefile is
+`.NOTPARALLEL`, so the goals run one after another, each with its own
+`cmake --check-build-system`, and every custom target adds a sub-make and a
+Slop. Every TableGen output, 197 `.inc` files among them, is byte-identical to
+the seed's, and none of the seed's is missing (it has only the VCS files and
+Clang's copied resource headers besides).
+
+The snapshot is 322 MB (248 MB of it `cmake-build`). The committed recipe's
+`config.h` differs from the seed's only in `HAVE__UNWIND_BACKTRACE`, and its
+TableGen outputs match as above.
+
+Found for the next stage:
+
+- Snapshots record no mtimes and Dolly's `tar` sets none, so a configured Make
+  tree cannot continue in a later image: restored outputs and re-extracted
+  sources get new times. Either build the whole compiler in one image or let
+  each stage re-configure (90 s) with `LLVM_TABLEGEN`/`CLANG_TABLEGEN` pointing
+  at the tools kept here, as the seed uses native ones.
+- The process cap bounds `make -j` near 6 for CMake projects (each job is at
+  least three processes); `20260930-231102-parallel-rust` proposes a memory
+  budget instead.
+
+Next: the compiler stage. Configure as above plus `LLVM_TABLEGEN`,
+`CLANG_TABLEGEN` and the forced VCS revision, build `clangFrontendTool
+clangCodeGen lldWasm LLVMWebAssemblyCodeGen` (2,559 TUs; about 1 h at `-j6`,
+the measured 3.6x over `-j1`, if the process cap allows it), keep the 103
+archives, then link the compiler and compare it with the seed's link.
