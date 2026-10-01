@@ -7,7 +7,7 @@
   "host": "snapshot.mjs",
   "contracts": ["dolly-snapshot-0.wat"],
   "process": [],
-  "headers": ["snapshot.h"],
+  "headers": [],
   "kernel": ["kernel.c"],
   "client": []
 }

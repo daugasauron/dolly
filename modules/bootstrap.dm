@@ -22,7 +22,6 @@ SOURCE https://daugasauron.com/host/audio/audio.h 9d291eeb25345a75bb21dbd4c422be
 SOURCE https://daugasauron.com/host/audio/audio-abi.h 4eb1f6e8f948ec1371fd5bb0bf4e904c438504e0cbccc4380cca9c98280eea30 /usr/include/dolly/audio-abi.h
 SOURCE https://daugasauron.com/host/upload/upload.h 8d5b888175631a2f6dba010942f73e53c8514559de13ea336af804aa75f15eff /usr/include/dolly/upload.h
 SOURCE https://daugasauron.com/host/upload/upload-abi.h 314558510cb81fd81f64a2a0dac7936fbcbb1aeecf4b99763f63bd9114ea982f /usr/include/dolly/upload-abi.h
-SOURCE https://daugasauron.com/host/snapshot/snapshot.h a8e74773a232b79b3655ecc6c744b3debd9db2eafc5757c088646fce650ba953 /usr/include/dolly/snapshot.h
 
 SOURCE https://daugasauron.com/host/threads/threads.h d53ba27f4e9b371c3de9482dcc6b11cf86b4563f367ea776889642aa0e52632a /usr/include/dolly/threads.h
 SOURCE https://daugasauron.com/host/threads/threads-abi.h f65d87f501aa77cf5f371d8398681728226ad7357488eff53fc560180bf5c62b /usr/include/dolly/threads-abi.h
@@ -46,7 +45,6 @@ EXPORTS HEADER audio /usr/include/dolly/audio.h
 EXPORTS HEADER audio-abi /usr/include/dolly/audio-abi.h
 EXPORTS HEADER upload /usr/include/dolly/upload.h
 EXPORTS HEADER upload-abi /usr/include/dolly/upload-abi.h
-EXPORTS HEADER snapshot /usr/include/dolly/snapshot.h
 EXPORTS HEADER threads /usr/include/dolly/threads.h
 EXPORTS HEADER threads-abi /usr/include/dolly/threads-abi.h
 

@@ -16,7 +16,7 @@
 #include <time.h>
 #include <unistd.h>
 
-#include <dolly/snapshot.h>
+#include "snapshot.h"
 _Static_assert(sizeof(dolly_session_mailbox) == 64, "session mailbox layout");
 
 typedef struct {
