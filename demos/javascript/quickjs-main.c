@@ -17,6 +17,7 @@
 #include <dolly/download.h>
 #include <dolly/http.h>
 #include <dolly/runtime.h>
+#include <sys/random.h>
 
 #include "quickjs.h"
 #include "quickjs-runner.h"
@@ -1024,7 +1025,7 @@ static JSValue js_dolly_random(JSContext *context, JSValueConst this_value,
   }
   unsigned char *bytes = malloc(requested == 0 ? 1 : (size_t)requested);
   if (bytes == NULL) return JS_ThrowOutOfMemory(context);
-  if (dolly_getrandom(bytes, (size_t)requested, 0) != requested) {
+  if (getrandom(bytes, (size_t)requested, 0) != requested) {
     free(bytes);
     return JS_ThrowInternalError(context, "entropy request failed");
   }

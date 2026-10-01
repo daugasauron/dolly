@@ -163,12 +163,6 @@ int dolly_spawn_timeout(const char *path, int argc, char **argv,
                        timeout_milliseconds, NULL);
 }
 
-int dolly_spawn_env(const char *path, int argc, char **argv, char *const envp[],
-                    int stdin_fd, int stdout_fd, int stderr_fd) {
-  return spawn_process(path, argc, argv, envp,
-                       stdin_fd, stdout_fd, stderr_fd, -1, NULL);
-}
-
 int dolly_spawn_env_timeout(const char *path, int argc, char **argv,
                             char *const envp[], int stdin_fd, int stdout_fd,
                             int stderr_fd, double timeout_milliseconds) {
@@ -243,7 +237,7 @@ int dolly_toolchain_proxy(int argc, char **argv, int default_language) {
   return status;
 }
 
-static ssize_t process_getrandom(void *buffer, size_t length, unsigned flags) {
+ssize_t getrandom(void *buffer, size_t length, unsigned flags) {
   if ((flags & ~(unsigned)(GRND_NONBLOCK | GRND_RANDOM)) != 0) {
     errno = EINVAL;
     return -1;
@@ -275,14 +269,6 @@ static ssize_t process_getrandom(void *buffer, size_t length, unsigned flags) {
     remaining -= chunk;
   }
   return (ssize_t)length;
-}
-
-ssize_t getrandom(void *buffer, size_t length, unsigned flags) {
-  return process_getrandom(buffer, length, flags);
-}
-
-ssize_t dolly_getrandom(void *buffer, size_t length, unsigned flags) {
-  return process_getrandom(buffer, length, flags);
 }
 
 char *getpass(const char *prompt) {
@@ -594,21 +580,10 @@ int dolly_interrupt_poll(void) {
   return response == SIGINT ? response : 0;
 }
 
-void dolly_interrupt_checkpoint(void) {
-  dolly_process_info_response response;
-  (void)dolly_process_call(DOLLY_PROCESS_INFO, NULL, 0, &response, sizeof(response));
-}
-
 void dolly_exit_signal(int signal_number) {
   const dolly_process_exit_request request = {
       (uint32_t)(128 + signal_number), (uint32_t)signal_number,
   };
-  (void)dolly_process_call(DOLLY_PROCESS_EXIT, &request, sizeof(request), NULL, 0);
-  __builtin_trap();
-}
-
-void dolly_exit(int status) {
-  const dolly_process_exit_request request = {(uint32_t)(status & 255), 0};
   (void)dolly_process_call(DOLLY_PROCESS_EXIT, &request, sizeof(request), NULL, 0);
   __builtin_trap();
 }

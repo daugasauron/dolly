@@ -10,6 +10,7 @@
 #include <stddef.h>
 
 #include <dolly/runtime.h>
+#include <sys/random.h>
 
 #include "Python.h"
 
@@ -20,7 +21,7 @@ void _Py_CheckEmscriptenSignals(void) {}
 void _Py_CheckEmscriptenSignalsPeriodically(void) {}
 
 int getentropy(void *buffer, size_t length) {
-    ssize_t count = dolly_getrandom(buffer, length, 0);
+    ssize_t count = getrandom(buffer, length, 0);
     return count == (ssize_t)length ? 0 : -1;
 }
 
