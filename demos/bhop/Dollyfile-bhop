@@ -16,7 +16,7 @@ COPY FROM HOST /Dollyfile-sdl2-build 581acb02c04495b841ba9d8126f91c2b604acf37cfe
 COPY FROM HOST /Dollyfile-sdl2-build 581acb02c04495b841ba9d8126f91c2b604acf37cfe3b8aa7a45c6c67cc8b37d /usr/share/licenses/SDL2 /usr/share/licenses/SDL2
 EXPORTS HEADER sdl2 /usr/include/SDL2
 EXPORTS LIB SDL2 /usr/lib/libSDL2.a
-USE HOST /modules/bhop.dm e090f5cc1f33f58d9e97e5f230b0f16b3b5caccc1ccfb3801ec21b221fadf4e9
+USE HOST /modules/bhop.dm c371ef86fb4754361c3c9e8e2ba1eae7c7cbc30d9b3353251cee963fc0022f58
 
 FILE /etc/dolly/init.slop
     if test -f "$HOME/.dollyrc"; then

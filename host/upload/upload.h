@@ -2,7 +2,7 @@
 #include <stdint.h>
 #include <stdatomic.h>
 
-/* Host mailbox layout; abi/dolly-upload-0.wat owns its version and semantics. */
+/* Host mailbox layout; dolly-upload-0.wat owns its version and semantics. */
 typedef struct {
   _Atomic uint32_t request, cancelled, completed, chunk, consumed;
   _Atomic uint32_t length, error, eof, enabled;

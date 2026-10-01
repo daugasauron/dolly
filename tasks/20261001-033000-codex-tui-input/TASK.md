@@ -43,3 +43,18 @@ Leads:
   and leaves `state_5.sqlite` empty.
 
 Done when: the Codex demo test passes in Chrome.
+
+## Root cause (2026-10-01, 09:00)
+
+- With the diagnostic patch, Codex reports `crossterm poll failed: Custom {
+  kind: Other, error: "Failed to initialize input reader" }`: crossterm's
+  `UnixInternalEventSource::new()` failed and `InternalEventReader` swallowed it.
+- `signal_hook::low_level::pipe::register(SIGWINCH, sender)` sets
+  `F_GETFL | O_NONBLOCK | O_CLOEXEC` with `F_SETFL`. Since `26277ef` the adapter
+  rejected every F_SETFL bit except access mode, `O_LARGEFILE`, `O_APPEND` and
+  `O_NONBLOCK` with `EINVAL`; POSIX says F_SETFL ignores file creation flags.
+  The adapter answers this in-process, so the kernel trace showed nothing.
+  The C probe registered SIGWINCH with `sigaction` directly and missed it.
+- Fix: `8f5a68c` ignores file creation flags; `process-descriptors.c` checks
+  `F_SETFL` with `O_CLOEXEC | O_CREAT`. Codex links the adapter statically, so
+  `codex-build` must be rebuilt (in the `rebuild-batch` full rebuild).

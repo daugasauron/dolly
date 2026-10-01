@@ -34,8 +34,8 @@ Dollyfiles, toolchain, commands, Pi integration, terminal, or tests.
 - `src/dolly.c`: kernel integration and boot; `src/process-kernel.c`: process
   records, descriptors, signals and filesystem operations.
 - `src/runtime-worker.mjs`: runtime Worker boot, image build and restore.
-- `src/browser.mjs`, `src/host/`: trusted page and browser host modules.
-- `src/http-policy.mjs`, `src/http-broker.mjs`: network authorization and transport.
+- `src/browser.mjs`: trusted page; `host/NAME/`: one browser host module each.
+- `host/http/policy.mjs`, `host/http/broker.mjs`: network authorization and transport.
 - `src/slop.c`, `src/commands/`: the shell and Dolly's own commands.
 - `src/libcurl-fetch.c`: libcurl compatibility over Dolly HTTP, never sockets.
 - `Dollyfile*`, `modules/`: core image recipes. `demos/DEMO/`: everything else
