@@ -34,7 +34,7 @@ FILE /tmp/agent-tools/Makefile
     TOOLS := $(addprefix /bin/,$(NAMES))
     all: $(TOOLS)
     /bin/%: /tmp/agent-tools/%.c /tmp/agent-tools/run-program.h
-    >cc -std=c17 -O2 $< -o $@
+    >cc -O2 $< -o $@
 SLOP make \
   -f /tmp/agent-tools/Makefile
 

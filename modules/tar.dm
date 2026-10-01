@@ -273,8 +273,6 @@ FILE /tmp/bootstrap/tar.c
       return 0;
     }
 SLOP cc \
-  -std=c17 \
-  -D_DEFAULT_SOURCE \
   /tmp/bootstrap/tar.c \
   -o /bin/tar
 

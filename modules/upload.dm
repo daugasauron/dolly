@@ -24,6 +24,6 @@ FILE /tmp/upload/upload.c
       printf("upload: saved %s\n", argv[1]);
       return 0;
     }
-SLOP cc -std=c17 -O1 /tmp/upload/upload.c -o /bin/upload
+SLOP cc -O1 /tmp/upload/upload.c -o /bin/upload
 EXPORTS TOOL upload
 SLOP rm -rf /tmp/upload
