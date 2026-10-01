@@ -50,7 +50,7 @@ await browserTest("site", { server: { handle } }, async ({ browser, server }) =>
   await page.locator("#shortcuts").waitFor();
 
   // A large source link is a verified scripted download of the exact bytes.
-  await page.goto(`${origin}${prefix}/view/zig-build/modules/zig/`);
+  await page.goto(`${origin}${prefix}/view/zig-build/`);
   assert.ok(await page.locator("pre .line").count() > 2);
   const link = page.locator('a.source[href$="/dist/static/default/zig.tar"]');
   const saved = page.waitForEvent("download", { timeout: 120000 });

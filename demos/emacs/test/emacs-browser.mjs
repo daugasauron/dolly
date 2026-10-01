@@ -37,7 +37,10 @@ if (browsers.includes("chromium")) {
     const { dollyfile, sha256 } = DOLLY_IMAGES.find(definition => definition.image === name);
     return `${CANONICAL_ORIGIN}/${dollyfile} ${sha256}`;
   };
-  const recipe = ["DOLLY 6", "APPLICATION emacs-probe", `FROM ${pin("default")}`, `INSTALL ${pin("emacs")}`,
+  // Host requirements are never inherited: the probe restates default's.
+  const hosts = DOLLY_IMAGES.find(definition => definition.image === "default").hostRequirements;
+  const recipe = ["DOLLY 6", "APPLICATION emacs-probe", ...hosts.map(host => `REQUIRES HOST ${host}`),
+    `FROM ${pin("default")}`, `INSTALL ${pin("emacs")}`,
     "ENTRY /bin/foreground -i /bin/slop", ""].join("\n");
   await demoTest("emacs package", { image: "default", timeout: 600_000 }, async ({ open }) => {
     const { run } = await open({ path: "/custom/rebuild/", prompt: shellPrompt,

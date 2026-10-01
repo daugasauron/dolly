@@ -10,7 +10,7 @@ try {
   let source;
   try { source = readFileSync(args[0], "utf8"); }
   catch (error) { throw new Error(`Cannot read recipe ${JSON.stringify(args[0])}: ${error.message}`); }
-  if (inspectDollyfile(source).kind !== "image") throw new Error("Build an IMAGE recipe, not a MODULE");
+  if (inspectDollyfile(source).kind !== "image") throw new Error("Build an APPLICATION, TOOLCHAIN or PACKAGE recipe");
   const response = await fetch("https://build.dolly.invalid/v1/builds", {
     method: "POST", body: source,
   });

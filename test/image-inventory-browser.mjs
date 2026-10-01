@@ -58,15 +58,16 @@ await browserTest("image inventory", { image: site ? null : "default", server: {
         return { definition, manifestHash: [...new Uint8Array(digest)].map(byte => byte.toString(16).padStart(2, "0")).join("") };
       }, image);
       const artifact = `/etc/dolly/artifacts/${definition.sha256}.snapshot`;
-      const recipe = `DOLLY 6\nAPPLICATION inventory\nREQUIRES HOST display@0\nREQUIRES HOST download@0\nREQUIRES HOST http@0\n` +
-        `REQUIRES HOST snapshot@0\nREQUIRES HOST upload@0\nFROM https://daugasauron.com/${definition.dollyfile} ${definition.sha256}\n` +
+      // A build-only toolchain over the image, declaring exactly the image's host modules.
+      const hosts = definition.hostRequirements.map(requirement => `REQUIRES HOST ${requirement}\n`).join("");
+      const recipe = `DOLLY 6\nTOOLCHAIN inventory\n${hosts}FROM https://daugasauron.com/${definition.dollyfile} ${definition.sha256}\n` +
         `FILE /tmp/inventory.c\n${inventory.trimEnd().split("\n").map(line => `    ${line}`).join("\n")}\n` +
         "SLOP cc -O1 /tmp/inventory.c -o /tmp/inventory\nSLOP help > /tmp/help\n" +
         `SLOP if /tmp/inventory /tmp/help ${"0".repeat(64)} ${artifact}; then exit 1; fi\n` +
         `SLOP /tmp/inventory /tmp/help ${manifestHash} ${artifact}\n` +
         // An unretained file must fail the same check.
         `SLOP help > /usr/inventory-extra\nSLOP if /tmp/inventory /tmp/help ${manifestHash} ${artifact}; then exit 1; fi\n` +
-        "SLOP rm /usr/inventory-extra\nENTRY /bin/slop\n";
+        "SLOP rm /usr/inventory-extra\n";
       await page.evaluate(`(${buildSnapshot})(location.origin + "/", "custom", ${JSON.stringify(recipe)})`);
       assert.equal(await page.evaluate(() => document.documentElement.dataset.dollyStatus), "ready",
         `${image}: ${await page.locator("#bootstrap-log").textContent()}`);

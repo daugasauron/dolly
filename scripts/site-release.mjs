@@ -142,7 +142,8 @@ export async function verifySite(site) {
       if (JSON.stringify(metadata[key]) !== JSON.stringify(expected)) throw new Error(`${image}: release ${key} mismatch`);
     }
   }
-  return definitions.map(({ image }) => image);
+  // Acceptance builds FROM each image; packages are checked by the images that INSTALL them.
+  return definitions.filter(({ parsed }) => parsed.role !== "package").map(({ image }) => image);
 }
 
 async function verifyReleaseFiles(site) {
@@ -168,7 +169,7 @@ export async function verifyRetainedRelease(site) {
   if (!Array.isArray(registry) || !registry.length || registry.length > 256 ||
       registry.some(item => !validName(item?.image)) ||
       new Set(registry.map(item => item.image)).size !== registry.length) throw new Error("invalid retained image registry");
-  await verifyAcceptance(site, manifest, registry.map(item => item.image));
+  await verifyAcceptance(site, manifest, registry.filter(item => item.role !== "package").map(item => item.image));
   return sha256(manifest);
 }
 

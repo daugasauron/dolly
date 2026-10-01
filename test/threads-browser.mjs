@@ -4,14 +4,16 @@ import { browserTest } from "./browser.mjs";
 import { DOLLY_THREADS_ABI_DIGEST } from "../host/threads/abi.mjs";
 
 const modules = ["runtime@0", "display@0", "http@0", "download@0", "upload@0", "snapshot@0"];
+// default declares threads@0 (and packages@0); system declares neither.
 const enable = modules => page => page.addInitScript(modules => { globalThis.DOLLY_HOST_MODULES = modules; }, modules);
 const fixtures = Object.fromEntries(["threads-pthread.c", "threads-cpp.cpp", "threads-quota.c"]
   .map(name => [name, `test/fixtures/${name}`]));
 const sourceOverrides = new Map();
 const probe = "/fixture/process-wrong-call.wasm";
-await browserTest("threads", { image: "system", server: { fixtures, sourceOverrides } }, async ({ server, open }) => {
+let valid;
+await browserTest("threads", { image: "default", server: { fixtures, sourceOverrides } }, async ({ server, open }) => {
   const policy = { rules: [{ origin: server.origin, pathPrefix: "/fixture/", methods: ["GET"] }] };
-  const { page, submit, text, waitForText } = await open({ policy, setup: enable([...modules, "threads@0"]) });
+  const { page, submit, text, waitForText } = await open({ policy, setup: enable([...modules, "packages@0", "threads@0"]) });
   const run = async command => assert.equal(await submit(command), 0, `${command}\n${await text()}`);
   const errors = [];
   page.on("pageerror", error => errors.push(error.message));
@@ -63,7 +65,7 @@ await browserTest("threads", { image: "system", server: { fixtures, sourceOverri
   const saved = page.waitForEvent("download");
   await run(`download ${threaded}`);
   await page.click("#downloads button");
-  const valid = await readFile(await (await saved).path());
+  valid = await readFile(await (await saved).path());
   const digest = Buffer.from(DOLLY_THREADS_ABI_DIGEST, "hex");
   const incompatible = Buffer.from(valid), missingEntry = Buffer.from(valid);
   incompatible[incompatible.indexOf(digest)] ^= 1;
@@ -74,8 +76,11 @@ await browserTest("threads", { image: "system", server: { fixtures, sourceOverri
     assert.equal(await submit("/tmp/threads-invalid"), 126);
   }
   assert.deepEqual(errors, []);
+});
 
-  // Without the threads@0 provider a thread executable is refused.
+// An image that does not declare threads@0 refuses a thread executable.
+await browserTest("threads refusal", { image: "system", server: { fixtures, sourceOverrides } }, async ({ server, open }) => {
+  const policy = { rules: [{ origin: server.origin, pathPrefix: "/fixture/", methods: ["GET"] }] };
   const denied = await open({ policy, setup: enable(modules) });
   sourceOverrides.set(probe, valid);
   assert.equal(await denied.submit(`curl -fsS ${server.origin}${probe} -o /tmp/threads-denied`), 0);

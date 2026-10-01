@@ -17,7 +17,7 @@ const maxBytes = 4 * 1024 ** 3, bufferCeiling = 1024 ** 3, maxObjects = 4096;
 const timestampQueries = A.DOLLY_GPU_MAX_COMMANDS * 2;
 let maxBuffer = bufferCeiling, capabilities;
 const slots = Array(A.DOLLY_GPU_SLOTS).fill(null), generations = slots.map(() => 0);
-let heap, memory, mailbox, control, canvas, context, device, format, adapterName = "WebGPU", isFallbackAdapter;
+let heap, memory, mailbox, control, canvas, context, device, format;
 let queueProgress = {queued: 0, completed: 0};
 let usedBytes = 0, serial = Promise.resolve(), initializing;
 const stats = { packets: 0, packetBytes: 0, frames: 0, dispatches: 0, readbackBytes: 0, batchWallMilliseconds: 0 };
@@ -29,8 +29,6 @@ async function getDevice() {
     ensure(navigator.gpu, "This browser has no WebGPU provider", E.ENOSYS);
     const adapter = await navigator.gpu.requestAdapter({ powerPreference: "high-performance" });
     ensure(adapter, "This browser did not provide a GPU adapter", E.ENODEV);
-    adapterName = [adapter.info?.vendor, adapter.info?.architecture, adapter.info?.description].filter(Boolean).join(" ") || "WebGPU adapter";
-    isFallbackAdapter = adapter.info?.isFallbackAdapter;
     const requiredFeatures = ["timestamp-query", "shader-f16", "subgroups", "texture-compression-bc"].filter(name => adapter.features.has(name));
     const requiredLimits = {};
     for (const [name, ceiling] of Object.entries({maxBufferSize: bufferCeiling,
@@ -61,6 +59,8 @@ async function getDevice() {
     v.setUint32(88,adapter.info?.subgroupMinSize ?? 4,true);
     v.setUint32(92,adapter.info?.subgroupMaxSize ?? 128,true);
     device = created;
+    const { vendor, architecture, description, isFallbackAdapter } = adapter.info;
+    postMessage({ type: "status", info: { vendor, architecture, description, isFallbackAdapter } });
     queueProgress = {queued: 0, completed: 0};
     if (canvas) {
       context = canvas.getContext("webgpu");
@@ -75,7 +75,9 @@ async function getDevice() {
     });
     return created;
   })();
-  try { return await initializing; } finally { initializing = null; }
+  try { return await initializing; }
+  catch (error) { postMessage({ type: "status", unavailable: String(error.message ?? error).slice(0, 2048) }); throw error; }
+  finally { initializing = null; }
 }
 
 function integer(v, o) {
@@ -567,7 +569,7 @@ async function batch(scope, commands) {
         }).finally(()=>scope.submissions.splice(scope.submissions.indexOf(completed),1));
         scope.submissions.push(completed);
         completed.catch(()=>{});
-        if(texture){stats.frames++;postMessage({type:"status",active:true,width:canvas.width,height:canvas.height,adapter:adapterName,isFallbackAdapter,stats:{...stats,allocatedBytes:usedBytes}});texture=null;}
+        if(texture){stats.frames++;postMessage({type:"status",active:true,width:canvas.width,height:canvas.height,stats:{...stats,allocatedBytes:usedBytes}});texture=null;}
       } else if (op === A.DOLLY_GPU_MAP_READ) {
         ensure(!encoder,"Submit before mapping");
         const r=object(scope,id,"buffer"), offset=integer(w,16), size=integer(w,24);range(r,offset,size);

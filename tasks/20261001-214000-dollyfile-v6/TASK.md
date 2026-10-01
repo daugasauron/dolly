@@ -1,6 +1,6 @@
 # Dollyfile v6: a consistent language from first principles
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 350
 - TAGS: dollyfile,design,core
 
@@ -315,3 +315,14 @@ version stays 6.
   `pi.dm` names the five files it ships under `~/.pi/agent`, which is exactly
   what the built `pi`, `pi-local` and `dollyfile-studio` images held, and the
   session snapshot never read that list.
+
+## Closed (2026-10-02)
+
+Phase 3 (packages as the unit of reuse, RUN, explicit host requirements) is integrated with core polish, amy, the model packages and Emacs. Integration found and fixed: staging guards keyed on modules (`has_image`), image-name patterns without dots, executables admitted against the declared set in builds and at run time, and test recipes restating their base's hosts.
+
+Verified on the integration branch `work/dollyfile-v6` (`0d54a87`), release
+`fcb204c0…`: 51 images rebuilt from scratch (image inputs `9f7a44a7…`),
+artifacts 20/20, source 334/334, every browser suite in Chrome and Firefox,
+image-inventory acceptance for every application and toolchain, and the demo
+tests for python, javascript, emacs (Chrome and Firefox), pi, neovim, rust,
+cmake, sdl2, studio, codex, bhop, classicube and rts in Chrome.
