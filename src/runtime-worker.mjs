@@ -119,9 +119,10 @@ try {
       : await loadPackagedSnapshotMetadata(configuredImage)
     : null;
   const definition = imageDefinitions.get(configuredImage);
-  if (!bootConfig.buildOnly && bootMode === "snapshot") {
-    host.require(snapshotMetadata.hostRequirements ?? definition?.hostRequirements ?? []);
-  }
+  const declared = bootMode === "snapshot" ? snapshotMetadata.hostRequirements ?? definition?.hostRequirements ?? []
+    : configuredImage === "custom" ? inspectDollyfile(bootConfig.customSource).hostRequirements : definition.hostRequirements;
+  if (!bootConfig.buildOnly && bootMode === "snapshot") host.require(declared);
+  host.admit(declared);
   const recipeSha256 = configuredImage === "custom"
     ? await sha256(encoder.encode(bootConfig.customSource)) : definition.sha256;
   const baseReference = configuredImage === "custom"
