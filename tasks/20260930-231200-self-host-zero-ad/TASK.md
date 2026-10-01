@@ -30,3 +30,12 @@ the host module clients (`-ldolly-runtime -ldolly-http -ldolly-display
 
 - Released in the local checkpoint `35b11b69…` (2026-10-01, 15:21). The engine
   is still host-built; building it inside Dolly remains this task.
+
+Relinked again on `next` for the process ABI of 892c163 (per-module packets
+and `dolly.host` ABI digests; process sysroot `ef304c4d…`), with `libcurl.a`
+rebuilt against those headers: engine `9bf417de…` declares `http`, `display`,
+`gpu` and `audio` with digests. The `zero-ad` image (snapshot `56cb41bd…` for
+image inputs `fda71d69…`) passes `0ad-engine-browser.mjs` and
+`0ad-graphics-browser.mjs zero-ad hardware`. In a worktree, `link-engine.sh`
+needs real copies of its `.cache/0ad` inputs: the container mounts only the
+worktree, so symlinks into the root checkout do not resolve.
