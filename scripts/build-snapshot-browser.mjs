@@ -80,7 +80,7 @@ async function buildInPage(image) {
   ];
   const network = transport.localServicesTransport(
     policy.consumeDollyHttpPolicy(globalThis, sources, new URL("/", location.href)));
-  const build = (name, artifacts) => builder.buildImage(name, artifacts, network, log);
+  const build = (name, artifacts) => builder.buildImage(name, artifacts, { http: { network } }, log);
   const { bytes, inputs } = await build(image,
     await graph.prepareImageArtifacts(image, undefined, build, text => log(`${text}\n`)));
   const snapshot = new Uint8Array(bytes), chunk = 64 * 1024 * 1024;
