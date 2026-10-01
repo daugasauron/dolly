@@ -47,7 +47,7 @@ export function pagesHeaders(compressed, multipart = []) {
         (path.includes("/static/") ? "\n  Content-Type: application/octet-stream" : "");
     }),
     ...[...multipart].sort().map(path => {
-      if (!/^(_dolly\/[a-f0-9]{64}\/dist\/static\/[a-zA-Z0-9_./-]+|dist\/packs\/[a-f0-9]{64}\.snapshot\.gz)$/.test(path)) throw new Error(`invalid Pages multipart path: ${path}`);
+      if (!/^(_dolly\/[a-f0-9]{64}\/dist\/(static\/[a-zA-Z0-9_./-]+|dolly\.data)|dist\/packs\/[a-f0-9]{64}\.snapshot\.gz)$/.test(path)) throw new Error(`invalid Pages multipart path: ${path}`);
       return `/${path}\n  X-Dolly-Parts: 1\n  Content-Type: application/octet-stream`;
     }),
   ];

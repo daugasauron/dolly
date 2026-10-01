@@ -36,8 +36,9 @@ test("Pages headers retain isolation, explicit transport encoding and bounded ru
   assert.match(headers, /dist\/dolly.data\n  Content-Encoding: br/);
   assert.match(headers, /zig.wasm\n  Content-Encoding: br\n  Content-Type: application\/octet-stream/);
   assert.doesNotMatch(headers, /Content-Encoding: gzip/);
-  const multipart = pagesHeaders([], [prefix + "dist/static/rust/sdk.tar.gz", `dist/packs/${"b".repeat(64)}.snapshot.gz`]);
-  assert.equal((multipart.match(/X-Dolly-Parts: 1/g) ?? []).length, 2);
+  const multipart = pagesHeaders([], [prefix + "dist/static/rust/sdk.tar.gz", prefix + "dist/dolly.data",
+    `dist/packs/${"b".repeat(64)}.snapshot.gz`]);
+  assert.equal((multipart.match(/X-Dolly-Parts: 1/g) ?? []).length, 3);
   assert.doesNotMatch(multipart, /Content-Encoding/);
   assert.throws(() => pagesHeaders([], ["https://other.example/file"]), /invalid Pages multipart path/);
   assert.throws(() => pagesHeaders([prefix + "a\n/*"]), /invalid Pages header path/);
