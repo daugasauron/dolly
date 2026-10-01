@@ -102,18 +102,24 @@ return function(t, s, m, r)
   if (phase == "carry") then
     power = 1;
     if ((hypot(((s).x - at((m).goal, 0)), ((s).z - at((m).goal, 1))) < 0.22) and (speed < 0.22)) then
+      m.sink = 0;
       next("lower");
     end
   end
   if (phase == "lower") then
     power = 1;
+    m.sink = m.sink or 0;
     (m).floor = math.max((s).ground, table.unpack(map(filter((function() local value = (s).nearby; if active(value) then return value else return {} end end)(), function(c)
       return (function() local value = (function() local value = (function() local value = (c).cargo; if active(value) then return ((c).id ~= (m).job) else return value end end)(); if active(value) then return (not active((c).carriedBy)) else return value end end)(); if active(value) then return (hypot(((c).x - (s).x), ((c).z - (s).z)) < 1.2) else return value end end)()
     end), function(c)
       return ((c).y + 0.485)
     end)));
     (m).cruise = math.max((m).cruise, ((m).floor + 5.2));
-    height = ((m).floor + 3.5);
+    -- The floor estimate takes the highest cargo nearby; keep sinking until the load is supported.
+    if math.abs(s.y - (m.floor + 3.5 - m.sink)) < 0.3 and m.support < mag.targetMass * hypot(table.unpack(s.gravity)) * 0.35 then
+      m.sink = math.min(3, m.sink + 0.25 * s.dt)
+    end
+    height = m.floor + 3.5 - m.sink;
     (m).support = ((m).support + (math.min(1, ((s).dt / 0.2)) * ((mag).targetSupportForce - (m).support)));
     (m).hit = ((((m).support > (((mag).targetMass * hypot(table.unpack((s).gravity))) * 0.35)) and (speed < 0.3)) and ((m).hit + (s).dt) or 0);
     if ((m).hit > 0.4) then
@@ -121,7 +127,7 @@ return function(t, s, m, r)
     end
   end
   if (phase == "release") then
-    height = ((m).floor + 3.5);
+    height = m.floor + 3.5 - m.sink;
     if ((t - (m).ts) > 2) then
       (m).deliveries = (s).cargoDelivered;
       next("depart");
@@ -154,20 +160,18 @@ return function(t, s, m, r)
       and hypot(c.x+2*c.vx-s.x-2*s.vx,c.z+2*c.vz-s.z-2*s.vz)<c.radius+6
   end)
   if #traffic>0 then
-    local halfX,halfZ,bottom=0,0,0
-    for _,part in ipairs(s.bounds(s.id)) do
-      halfX=math.max(halfX,math.abs(part.x-s.x)+part.halfX)
-      halfZ=math.max(halfZ,math.abs(part.z-s.z)+part.halfZ)
-      bottom=math.max(bottom,s.y-part.low)
-    end
+    -- Each own part clears only the traffic below it: wide rotors stay high while the magnet descends.
+    local own=s.bounds(s.id)
     local raised=false
     for _,c in ipairs(traffic) do
-      local x,z=s.x+2*(s.vx-c.vx),s.z+2*(s.vz-c.vz)
+      local dx,dz=2*(s.vx-c.vx),2*(s.vz-c.vz)
       for _,part in ipairs(s.bounds(c.id)) do
-        if math.abs(part.x-x)<part.halfX+halfX+.25
-          and math.abs(part.z-z)<part.halfZ+halfZ+.25 then
-          local clearance=part.high+bottom+.3
-          if clearance>height then height=clearance;raised=true end
+        for _,o in ipairs(own) do
+          if math.abs(part.x-o.x-dx)<part.halfX+o.halfX+.25
+            and math.abs(part.z-o.z-dz)<part.halfZ+o.halfZ+.25 then
+            local clearance=part.high+s.y-o.low+.3
+            if clearance>height then height=clearance;raised=true end
+          end
         end
       end
     end
