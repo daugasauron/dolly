@@ -22,3 +22,11 @@ Owner decides when to push and redeploy after the cleanup.
 ## Done when
 
 - Push/deploy performed by the owner or explicitly deferred.
+
+## Status (2026-10-01, 15:47)
+
+The local checkpoint `checkpoint-2026-10-01-pm` (release `35b11b69…`, 41
+images) is served on localhost:9000. `main` is still at
+`checkpoint-2026-10-01` (`0c3cb7e`, equal to `origin/main`), 72 commits behind
+the afternoon checkpoint; pushing and redeploying daugasauron.com and GitHub
+Pages remains the owner's call.
