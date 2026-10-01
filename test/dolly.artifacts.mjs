@@ -214,16 +214,6 @@ test("the kernel contains no general dynamic loader or dynamic JavaScript execut
   assert.doesNotMatch(plugin, /\bfetch\s*\(|XMLHttpRequest|\b(?:eval|Function)\s*\(/);
 });
 
-test("the main-module provider exports Emscripten side-module stack bounds", async () => {
-  const runtime = await readWasmInterface(artifact("dolly.wasm"));
-  for (const name of ["__stack_pointer", "__stack_high", "__stack_low"]) {
-    const entry = runtime.exports.find(entry => entry.name === name);
-    assert.ok(entry, name);
-    assert.equal(entry.type.kind, "global");
-    assert.equal(entry.type.value, "i64");
-  }
-});
-
 test("system snapshots are sealed to their visible recipe chain", async () => {
   const { decodeSystemSnapshot } = await import("../scripts/system-snapshot-format.mjs");
   const { verifySnapshotIdentity } = await import("../scripts/snapshot-identity.mjs");

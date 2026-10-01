@@ -405,7 +405,3 @@ static int load_image_environment(void) {
   }
   return 0;
 }
-
-int main(void) {
-  return 0;
-}

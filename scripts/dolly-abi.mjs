@@ -295,7 +295,7 @@ export async function bindProcessLayout(contractPath, sourcePaths) {
 export function emscriptenExports(pluginContract, hostContracts) {
   const names = [...pluginContract.imports, ...hostContracts.flatMap(contract => contract.exports)]
     .filter(entry => entry.type.kind === "func").map(entry => `_${entry.name}`);
-  return [...new Set(["_main", ...names])].sort();
+  return [...new Set(names)].sort();
 }
 
 export async function emitEmscriptenExports(contractPath, outputPath, hostContractPaths) {

@@ -151,7 +151,6 @@ try {
   const kernelModule = await WebAssembly.compileStreaming(fetch(locateArtifact("dolly.wasm")));
   let kernelExports;
   const dollyOptions = {
-    noInitialRun: true,
     ...host.options,
     locateFile: locateArtifact,
     instantiateWasm(imports, receive) {
