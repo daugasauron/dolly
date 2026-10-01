@@ -3,7 +3,7 @@ IMAGE system-tools
 
 FROM https://daugasauron.com/Dollyfile-system-build ceff95486cb39b11fd773b6071bfda66f8e6fd6ba4fe6a9db77d0ccaf65309c4
 USE https://daugasauron.com/modules/sbase.dm 1c608d80dfc15564810773de44069d25cddea890f85e852d9010bad2b3320ecf
-USE https://daugasauron.com/modules/default.dm 5bf81751fde1f7b929888e8f636dd8370942bf46c7826015488993cc00976663
+USE https://daugasauron.com/modules/default.dm eb616b37696b7837cf06db5a56739ac6f23c6981289c937dcfaa825d51e7f56e
 USE https://daugasauron.com/modules/posix-shell.dm 9a96f2330b6c8dccdf80ba1b92fac22ee823e81ab4ceb26fa91e5909ea290bb5
 USE https://daugasauron.com/modules/display.dm 7dc1b2df04d4af93f7bb0674fa04a4a473ccab714945e892a1608870439f9c60
 

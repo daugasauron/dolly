@@ -1,7 +1,7 @@
 DOLLY 5
 IMAGE gpu-fluid
 
-FROM https://daugasauron.com/Dollyfile-gpu-sdk c017595783dd9bc5b23281505ba0973bf52d0e041d4d505ed4557c75d923a517
+FROM https://daugasauron.com/Dollyfile-gpu-sdk e0bc0daa638526c6256872823313a20f865291c70aa24b7e812cd1a8903c3049
 USE https://daugasauron.com/modules/gpu-fluid.dm 7778cd1b90ee57b9053e2e83fbcc5ccad460831d509b9c089ca0f7d5443048df
 
 SOURCE https://raw.githubusercontent.com/samdauwe/webgpu-native-examples/9a7c30753d6f44630564a8316eb9c44211ff0ecc/src/examples/fluid_simulation.c 74d7a9fa5b0c23988016589cf57554028c38a1cd49916d03d9aeead85a045c40 /usr/src/dolly/fluid/fluid_simulation.c
