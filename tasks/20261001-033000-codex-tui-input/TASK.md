@@ -1,6 +1,6 @@
 # Codex TUI exits: "terminal input stream closed during startup"
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 320
 - TAGS: bug,codex,demo,terminal
 
@@ -58,3 +58,9 @@ Done when: the Codex demo test passes in Chrome.
 - Fix: `8f5a68c` ignores file creation flags; `process-descriptors.c` checks
   `F_SETFL` with `O_CLOEXEC | O_CREAT`. Codex links the adapter statically, so
   `codex-build` must be rebuilt (in the `rebuild-batch` full rebuild).
+
+## Verified (2026-10-01)
+
+The catalog rebuilt from `rebuild-batch` (`8f5a68c` in the seed) passes
+`npm run test:demos` for codex in Chrome (35.8 s): the TUI reaches its
+sign-in screen and reads input.

@@ -35,3 +35,11 @@ what `build/` contained before.
   members, next to this task's reference in `scripts/build.sh`).
 - The catalog is rebuilt against the new image inputs, and a build from a fresh
   clone reproduces the release's image inputs.
+
+## Progress (2026-10-01)
+
+`3d34aa6` creates each archive fresh; the catalog was rebuilt against the new
+image inputs (`74246d78…`), and a parallel rebuild in a separate worktree
+reproduced all 40 buildable images byte for byte. Left: a build from a fresh
+clone (not a worktree seeded from this checkout's build/) reproducing the
+image inputs.

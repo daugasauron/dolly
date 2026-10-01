@@ -7,13 +7,13 @@ import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { delay, demoTest, leaveGame, redirectFetch } from "../../browser.mjs";
-import { relayProviders } from "../../rts/spectator/relay.mjs";
+import { relayProvider } from "../../rts/spectator/relay.mjs";
 import { runBhopAgentProof } from "./fixtures/bhop-agent-browser.mjs";
 import { bhopProvider } from "./fixtures/bhop-provider.mjs";
 
 const projectDir = new URL("../../..", import.meta.url).pathname;
 const modelsFile = process.env.DOLLY_BHOP_MODELS_FILE;
-const relay = modelsFile && Object.values(relayProviders(JSON.parse(await readFile(modelsFile, "utf8"))))[0];
+const relay = modelsFile && relayProvider(JSON.parse(await readFile(modelsFile, "utf8")));
 const fixture = modelsFile ? null : bhopProvider();
 const handle = async (request, response, path, headers) => {
   if (!fixture || !path.startsWith("/fixture/bhop/api/v1/")) return false;
