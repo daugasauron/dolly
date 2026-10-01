@@ -57,7 +57,14 @@ builds), patti step wall time, fixed seed; renderer RSS is the tab's peak:
 `/usr/share/dolly/builds/*.json` records are byte-identical between `-j 1` and
 `-j 4` (and `-j 8` for fd). On the previous seed, the new Patti at `-j 1`
 produced the same `rg` bytes as the old serial Patti. Recipes use `-j 4`.
-Not measured: `codex-build`.
+
+`codex-build` at `-j 4` (1,117 nodes) was cut off at 30 minutes by the agent's
+command limit, not by a failure: 1,112 nodes had started by 1,576 s, against
+3,980 s for the whole serial build; the rest lead to the `codex` binary. The
+tab's RSS rose from 4.2 GiB to a 18.9 GiB peak (one sample of a serial
+codex-build tab: 8.3 GiB), so `-j` costs memory on large crates. Still open:
+the full `codex-build` time and a byte comparison with a serial build on the
+same seed.
 
 ## Done when
 
