@@ -103,3 +103,12 @@ restores it while commands run, so a builtin-only loop stops. This replaces
   the Rust seed rebuilt (it hashes `runtime.h`), so it was not run here; nor were
   the updated Neovim and CMake demo tests.
 
+
+## Gap found (2026-10-01, 14:58)
+
+A Ctrl+C pressed right after Enter, while Slop is still launching the command,
+targets the shell (no running descendant yet); Slop records it, but the command
+then starts and runs uninterrupted (`qjs -e 'for (;;) {}'` hung until the test
+timeout). In Unix the child shares the foreground process group and receives the
+signal. Slop should not start a command when an interrupt arrived after the line
+was submitted, or the kernel should deliver it to the child once spawned.
