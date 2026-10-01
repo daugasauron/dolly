@@ -548,6 +548,10 @@ bool run_clang(const std::string &source, const std::string &language,
   arguments.insert(arguments.end(), {
       "-resource-dir", "/usr/lib/clang/24",
   });
+  // As Clang's driver does: reproducible __DATE__, __TIME__ and __TIMESTAMP__.
+  if (const char *epoch = std::getenv("SOURCE_DATE_EPOCH")) {
+    arguments.insert(arguments.end(), {"-source-date-epoch", epoch});
+  }
   // A kernel plugin is the sole resident dynamic object. Only the two libc
   // override points it actually uses are renamed; ordinary output targets the
   // private process runtime and its process-local dynamic namespace.
