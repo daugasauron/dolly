@@ -4,6 +4,7 @@
 #include <stddef.h>
 #include <stdatomic.h>
 #include <stdint.h>
+#include <dolly/display-abi.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -221,6 +222,95 @@ int dolly_display_set_cursor(uint64_t generation, uint32_t cursor);
 int dolly_display_next_event(uint64_t generation, dolly_input_event *event,
                              double timeout_milliseconds);
 int dolly_display_release(uint64_t generation);
+
+// Process packets of the DOLLY_DISPLAY_* operations. A process never receives
+// a pointer into the kernel framebuffer. BEGIN_FRAME describes the inactive
+// buffer, WRITE_FRAME copies bounded sequential chunks into it, and PRESENT
+// atomically publishes it after the complete frame has arrived. This keeps
+// both memories private while allowing frames larger than
+// DOLLY_PROCESS_PACKET_LIMIT.
+typedef struct {
+  uint64_t generation;
+  uint32_t width;
+  uint32_t height;
+} dolly_display_size_request;
+
+typedef struct {
+  uint64_t generation;
+} dolly_display_generation_request;
+
+typedef struct {
+  uint64_t generation;
+  uint64_t capacity;
+  uint32_t buffer_index;
+  uint32_t width;
+  uint32_t height;
+  uint32_t stride;
+  uint32_t pixel_format;
+  uint32_t reserved;
+} dolly_display_surface_response;
+
+// `size` pixel bytes follow this header. `offset` must be the next unwritten
+// byte of the frame begun for buffer_index.
+typedef struct {
+  uint64_t generation;
+  uint64_t offset;
+  uint64_t size;
+  uint32_t buffer_index;
+  uint32_t reserved;
+} dolly_display_write_request;
+
+typedef struct {
+  uint64_t generation;
+  uint32_t buffer_index;
+  uint32_t reserved;
+} dolly_display_present_request;
+
+typedef struct {
+  uint64_t generation;
+  uint64_t deadline_nanoseconds;
+  uint32_t sequence;
+  uint32_t reserved;
+} dolly_display_wait_request;
+
+typedef struct {
+  int32_t result;
+  uint32_t sequence;
+} dolly_display_wait_response;
+
+typedef struct {
+  uint64_t generation;
+  uint32_t cursor;
+  uint32_t reserved;
+} dolly_display_cursor_request;
+
+typedef struct {
+  uint64_t generation;
+  uint64_t deadline_nanoseconds;
+} dolly_display_event_request;
+
+typedef struct {
+  int32_t result;
+  uint32_t reserved;
+  dolly_input_event event;
+} dolly_display_event_response;
+
+#ifdef __cplusplus
+#define DOLLY_DISPLAY_LAYOUT(type, size) static_assert(sizeof(type) == size, #type)
+#else
+#define DOLLY_DISPLAY_LAYOUT(type, size) _Static_assert(sizeof(type) == size, #type)
+#endif
+DOLLY_DISPLAY_LAYOUT(dolly_display_size_request, 16);
+DOLLY_DISPLAY_LAYOUT(dolly_display_generation_request, 8);
+DOLLY_DISPLAY_LAYOUT(dolly_display_surface_response, 40);
+DOLLY_DISPLAY_LAYOUT(dolly_display_write_request, 32);
+DOLLY_DISPLAY_LAYOUT(dolly_display_present_request, 16);
+DOLLY_DISPLAY_LAYOUT(dolly_display_wait_request, 24);
+DOLLY_DISPLAY_LAYOUT(dolly_display_wait_response, 8);
+DOLLY_DISPLAY_LAYOUT(dolly_display_cursor_request, 16);
+DOLLY_DISPLAY_LAYOUT(dolly_display_event_request, 16);
+DOLLY_DISPLAY_LAYOUT(dolly_display_event_response, 136);
+#undef DOLLY_DISPLAY_LAYOUT
 
 // A display driver is a resident shared library, not an executable. DISPLAY
 // names the selected library. It is loaded once and remains in the shared Wasm

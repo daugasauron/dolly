@@ -1,8 +1,8 @@
 DOLLY 5
 IMAGE dollyfile-studio
 
-FROM https://daugasauron.com/Dollyfile-pi-local 572e7137ca4e4a0580da8929f581c0d6e0006f8b704cb43abefb59d6eb0a01ee
-USE https://daugasauron.com/modules/neovim-runtime.dm 8697bcd03834cf8f52a2181b6e99cdcddf999d621fad293ab0043627b027e8ef
+FROM https://daugasauron.com/Dollyfile-pi-local df0bc8e206e6a99e040b72af9b597626ac07b7043c98930b5da14a669c5defac
+USE https://daugasauron.com/modules/neovim-runtime.dm b5d1d8846c0563d72777e880459e9042a683788441f1c4303a6dbfc31ca41fde
 USE https://daugasauron.com/modules/dollyfile-studio.dm 9a1f87088122b3205d23a8feb80ac889ab0a7937d1148c907852057ab919b772
 
 ENTRY /bin/foreground -i /bin/slop /etc/dolly/init.slop

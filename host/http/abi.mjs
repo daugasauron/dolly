@@ -1,4 +1,4 @@
-// Generated from host/http/dolly-http-0.wat.
+// Generated from host/http/dolly-http-0.wat, host/http/http.h.
 export const DOLLY_HTTP_MAILBOX_VERSION = 5;
 export const DOLLY_HTTP_SLOT_COUNT = 16;
 export const DOLLY_HTTP_CHUNK_CAPACITY = 65536;
@@ -6,3 +6,8 @@ export const DOLLY_HTTP_MAX_METHOD = 32;
 export const DOLLY_HTTP_MAX_URL = 8192;
 export const DOLLY_HTTP_MAX_HEADERS = 65536;
 export const DOLLY_HTTP_MAX_BODY = 8388608;
+export const DOLLY_HTTP_START = 80;
+export const DOLLY_HTTP_POLL = 81;
+export const DOLLY_HTTP_CANCEL = 82;
+export const DOLLY_HTTP_BODY_WRITE = 83;
+export const DOLLY_HTTP_ABI_DIGEST = "802d06fc42315cd03254fc16943e0538b6028c9f7848d99fa8cbdfcde1ea951c";

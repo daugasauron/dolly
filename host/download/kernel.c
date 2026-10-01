@@ -43,4 +43,4 @@ static int64_t download_call(int pid, int tid, uint32_t operation, unsigned char
 }
 
 const dolly_kernel_module dolly_download_kernel = {
-    DOLLY_PROCESS_DOWNLOAD_FILE, DOLLY_PROCESS_DOWNLOAD_FILE, download_call, NULL};
+    DOLLY_DOWNLOAD_FILE, DOLLY_DOWNLOAD_FILE, download_call, NULL};

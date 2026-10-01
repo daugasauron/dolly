@@ -1,7 +1,8 @@
-/* Generated from host/threads/dolly-threads-supervisor-0.wat, host/threads/dolly-threads-0.wat. */
+/* Generated from host/threads/dolly-threads-supervisor-0.wat, host/threads/dolly-threads-0.wat, host/threads/threads.h. */
 #pragma once
 #define DOLLY_THREAD_SPAWN 144u
 #define DOLLY_THREAD_SELF 145u
 #define DOLLY_THREAD_EXIT 146u
 #define DOLLY_THREAD_WAIT 147u
 #define DOLLY_THREAD_WAIT_NONBLOCK 1u
+#define DOLLY_THREADS_ABI_DIGEST 0x41, 0x94, 0xf3, 0x34, 0x1c, 0xb9, 0x8d, 0xec, 0xaf, 0x13, 0x2d, 0x58, 0x5f, 0x45, 0x63, 0x7d, 0x3c, 0x07, 0x2c, 0xa2, 0x6a, 0x56, 0x3a, 0x9c, 0xe5, 0xe4, 0xf2, 0xc0, 0x12, 0x19, 0x7c, 0x20

@@ -1,6 +1,8 @@
 #ifndef DOLLY_DOWNLOAD_API_H
 #define DOLLY_DOWNLOAD_API_H
 
+#include <dolly/download-abi.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif

@@ -382,7 +382,7 @@ int dolly_display_install(const dolly_display_driver_v3 *candidate) {
 // Every surface response describes the current lease.
 static int64_t respond_surface(unsigned char *mailbox, uint64_t capacity,
                                uint32_t buffer_index) {
-  const dolly_process_display_surface_response response = {
+  const dolly_display_surface_response response = {
       .generation = display_lease.generation,
       .capacity = capacity,
       .buffer_index = buffer_index,
@@ -398,7 +398,7 @@ static int64_t display_acquire_packet(int pid, unsigned char *mailbox,
                                       uintptr_t request_size,
                                       uintptr_t response_capacity) {
   if (request_size != 0 ||
-      response_capacity < sizeof(dolly_process_display_surface_response)) {
+      response_capacity < sizeof(dolly_display_surface_response)) {
     return -EINVAL;
   }
   if (display_driver == NULL || display_frames[0] == NULL ||
@@ -458,11 +458,11 @@ static int64_t display_acquire_packet(int pid, unsigned char *mailbox,
 static int64_t display_set_size_packet(int pid, unsigned char *mailbox,
                                        uintptr_t request_size,
                                        uintptr_t response_capacity) {
-  if (request_size != sizeof(dolly_process_display_size_request) ||
-      response_capacity < sizeof(dolly_process_display_surface_response)) {
+  if (request_size != sizeof(dolly_display_size_request) ||
+      response_capacity < sizeof(dolly_display_surface_response)) {
     return -EINVAL;
   }
-  dolly_process_display_size_request request;
+  dolly_display_size_request request;
   memcpy(&request, mailbox, sizeof(request));
   if (request.width == 0 || request.height == 0 ||
       request.width > DOLLY_DISPLAY_MAX_WIDTH ||
@@ -481,11 +481,11 @@ static int64_t display_set_size_packet(int pid, unsigned char *mailbox,
 static int64_t display_begin_frame_packet(int pid, unsigned char *mailbox,
                                           uintptr_t request_size,
                                           uintptr_t response_capacity) {
-  if (request_size != sizeof(dolly_process_display_generation_request) ||
-      response_capacity < sizeof(dolly_process_display_surface_response)) {
+  if (request_size != sizeof(dolly_display_generation_request) ||
+      response_capacity < sizeof(dolly_display_surface_response)) {
     return -EINVAL;
   }
-  dolly_process_display_generation_request request;
+  dolly_display_generation_request request;
   memcpy(&request, mailbox, sizeof(request));
   const int status = validate_display_lease(pid, request.generation);
   if (status != 0) return status;
@@ -506,9 +506,9 @@ static int64_t display_begin_frame_packet(int pid, unsigned char *mailbox,
 static int64_t display_write_frame_packet(int pid, unsigned char *mailbox,
                                           uintptr_t request_size,
                                           uintptr_t response_capacity) {
-  if (request_size < sizeof(dolly_process_display_write_request) ||
+  if (request_size < sizeof(dolly_display_write_request) ||
       response_capacity != 0) return -EINVAL;
-  dolly_process_display_write_request request;
+  dolly_display_write_request request;
   memcpy(&request, mailbox, sizeof(request));
   if (request.reserved != 0 || request.size > SIZE_MAX ||
       request.offset > SIZE_MAX ||
@@ -532,9 +532,9 @@ static int64_t display_write_frame_packet(int pid, unsigned char *mailbox,
 static int64_t display_present_packet(int pid, unsigned char *mailbox,
                                       uintptr_t request_size,
                                       uintptr_t response_capacity) {
-  if (request_size != sizeof(dolly_process_display_present_request) ||
+  if (request_size != sizeof(dolly_display_present_request) ||
       response_capacity != 0) return -EINVAL;
-  dolly_process_display_present_request request;
+  dolly_display_present_request request;
   memcpy(&request, mailbox, sizeof(request));
   if (request.reserved != 0) return -EINVAL;
   const int status = validate_display_lease(pid, request.generation);
@@ -573,11 +573,11 @@ static int64_t display_present_packet(int pid, unsigned char *mailbox,
 static int64_t display_wait_frame_packet(int pid, unsigned char *mailbox,
                                          uintptr_t request_size,
                                          uintptr_t response_capacity) {
-  if (request_size != sizeof(dolly_process_display_wait_request) ||
-      response_capacity < sizeof(dolly_process_display_wait_response)) {
+  if (request_size != sizeof(dolly_display_wait_request) ||
+      response_capacity < sizeof(dolly_display_wait_response)) {
     return -EINVAL;
   }
-  dolly_process_display_wait_request request;
+  dolly_display_wait_request request;
   memcpy(&request, mailbox, sizeof(request));
   if (request.reserved != 0) return -EINVAL;
   const int status = validate_display_lease(pid, request.generation);
@@ -588,16 +588,16 @@ static int64_t display_wait_frame_packet(int pid, unsigned char *mailbox,
   if (!changed && dolly_kernel_deadline_pending(request.deadline_nanoseconds)) {
     return DOLLY_PROCESS_DISPATCH_DEFERRED;
   }
-  const dolly_process_display_wait_response response = {changed, sequence};
+  const dolly_display_wait_response response = {changed, sequence};
   return dolly_kernel_respond(mailbox, &response, sizeof(response));
 }
 
 static int64_t display_set_cursor_packet(int pid, unsigned char *mailbox,
                                          uintptr_t request_size,
                                          uintptr_t response_capacity) {
-  if (request_size != sizeof(dolly_process_display_cursor_request) ||
+  if (request_size != sizeof(dolly_display_cursor_request) ||
       response_capacity != 0) return -EINVAL;
-  dolly_process_display_cursor_request request;
+  dolly_display_cursor_request request;
   memcpy(&request, mailbox, sizeof(request));
   if (request.reserved != 0) return -EINVAL;
   const int status = validate_display_lease(pid, request.generation);
@@ -611,15 +611,15 @@ static int64_t display_set_cursor_packet(int pid, unsigned char *mailbox,
 static int64_t display_next_event_packet(int pid, unsigned char *mailbox,
                                          uintptr_t request_size,
                                          uintptr_t response_capacity) {
-  if (request_size != sizeof(dolly_process_display_event_request) ||
-      response_capacity < sizeof(dolly_process_display_event_response)) {
+  if (request_size != sizeof(dolly_display_event_request) ||
+      response_capacity < sizeof(dolly_display_event_response)) {
     return -EINVAL;
   }
-  dolly_process_display_event_request request;
+  dolly_display_event_request request;
   memcpy(&request, mailbox, sizeof(request));
   int status = validate_display_lease(pid, request.generation);
   if (status != 0) return status;
-  dolly_process_display_event_response response = {0};
+  dolly_display_event_response response = {0};
   const uint32_t read = atomic_load_explicit(&display_mailbox.event_read,
                                               memory_order_relaxed);
   const uint32_t write = atomic_load_explicit(&display_mailbox.event_write,
@@ -639,19 +639,17 @@ static int64_t display_next_event_packet(int pid, unsigned char *mailbox,
   if (data_length > sizeof(event.data)) return -EPROTO;
   status = update_suspended_terminal_layout(&event);
   if (status != 0) return status;
-  _Static_assert(sizeof(response.event) == sizeof(event),
-                 "process/display event layouts diverged");
   response.result = 1;
-  memcpy(response.event, &event, sizeof(event));
+  response.event = event;
   return dolly_kernel_respond(mailbox, &response, sizeof(response));
 }
 
 static int64_t display_release_packet(int pid, unsigned char *mailbox,
                                       uintptr_t request_size,
                                       uintptr_t response_capacity) {
-  if (request_size != sizeof(dolly_process_display_generation_request) ||
+  if (request_size != sizeof(dolly_display_generation_request) ||
       response_capacity != 0) return -EINVAL;
-  dolly_process_display_generation_request request;
+  dolly_display_generation_request request;
   memcpy(&request, mailbox, sizeof(request));
   const int status = validate_display_lease(pid, request.generation);
   if (status != 0) return status;
@@ -662,23 +660,23 @@ static int64_t display_release_packet(int pid, unsigned char *mailbox,
 static int64_t display_call(int pid, int tid, uint32_t operation, unsigned char *mailbox,
                             uintptr_t request_size, uintptr_t response_capacity) {
   switch (operation) {
-    case DOLLY_PROCESS_DISPLAY_ACQUIRE:
+    case DOLLY_DISPLAY_ACQUIRE:
       return display_acquire_packet(pid, mailbox, request_size, response_capacity);
-    case DOLLY_PROCESS_DISPLAY_SET_SIZE:
+    case DOLLY_DISPLAY_SET_SIZE:
       return display_set_size_packet(pid, mailbox, request_size, response_capacity);
-    case DOLLY_PROCESS_DISPLAY_BEGIN_FRAME:
+    case DOLLY_DISPLAY_BEGIN_FRAME:
       return display_begin_frame_packet(pid, mailbox, request_size, response_capacity);
-    case DOLLY_PROCESS_DISPLAY_WRITE_FRAME:
+    case DOLLY_DISPLAY_WRITE_FRAME:
       return display_write_frame_packet(pid, mailbox, request_size, response_capacity);
-    case DOLLY_PROCESS_DISPLAY_PRESENT:
+    case DOLLY_DISPLAY_PRESENT:
       return display_present_packet(pid, mailbox, request_size, response_capacity);
-    case DOLLY_PROCESS_DISPLAY_WAIT_FRAME:
+    case DOLLY_DISPLAY_WAIT_FRAME:
       return display_wait_frame_packet(pid, mailbox, request_size, response_capacity);
-    case DOLLY_PROCESS_DISPLAY_SET_CURSOR:
+    case DOLLY_DISPLAY_SET_CURSOR:
       return display_set_cursor_packet(pid, mailbox, request_size, response_capacity);
-    case DOLLY_PROCESS_DISPLAY_NEXT_EVENT:
+    case DOLLY_DISPLAY_NEXT_EVENT:
       return display_next_event_packet(pid, mailbox, request_size, response_capacity);
-    case DOLLY_PROCESS_DISPLAY_RELEASE:
+    case DOLLY_DISPLAY_RELEASE:
       return display_release_packet(pid, mailbox, request_size, response_capacity);
   }
   return -EINVAL;
@@ -689,4 +687,4 @@ static void display_release(int pid, int tid) {
 }
 
 const dolly_kernel_module dolly_display_kernel = {
-    DOLLY_PROCESS_DISPLAY_ACQUIRE, DOLLY_PROCESS_DISPLAY_RELEASE, display_call, display_release};
+    DOLLY_DISPLAY_ACQUIRE, DOLLY_DISPLAY_RELEASE, display_call, display_release};

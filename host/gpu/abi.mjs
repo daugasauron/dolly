@@ -1,4 +1,4 @@
-// Generated from host/gpu/dolly-gpu-0.wat.
+// Generated from host/gpu/dolly-gpu-0.wat, host/gpu/gpu.h.
 export const DOLLY_GPU_VERSION = 0;
 export const DOLLY_GPU_PROCESS_OP = 128;
 export const DOLLY_GPU_SLOTS = 8;
@@ -46,3 +46,4 @@ export const DOLLY_GPU_BEGIN_RENDER_PASS = 23;
 export const DOLLY_GPU_END_RENDER_PASS = 24;
 export const DOLLY_GPU_DRAW_MESH = 25;
 export const DOLLY_GPU_VIEWPORT = 26;
+export const DOLLY_GPU_ABI_DIGEST = "c947036666d5532b78179512c852d1fd58a143e067ca8c947055072ac7fc104a";

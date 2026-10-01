@@ -1,4 +1,4 @@
-// Generated from host/audio/dolly-audio-0.wat.
+// Generated from host/audio/dolly-audio-0.wat, host/audio/audio.h.
 export const DOLLY_AUDIO_VERSION = 0;
 export const DOLLY_AUDIO_PROCESS_OP = 129;
 export const DOLLY_AUDIO_SLOTS = 4;
@@ -14,3 +14,4 @@ export const DOLLY_AUDIO_OPEN = 1;
 export const DOLLY_AUDIO_WRITE = 2;
 export const DOLLY_AUDIO_STATUS = 3;
 export const DOLLY_AUDIO_CLOSE = 4;
+export const DOLLY_AUDIO_ABI_DIGEST = "bf9f97c6945174f9788f03091ca6e1c982f5b8c80488c1b5526804ceb84a1046";

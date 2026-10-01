@@ -2,9 +2,6 @@
 
 #include <dolly/process.h>
 #include <dolly/runtime.h>
-#include <dolly/host.h>
-
-DOLLY_HOST_REQUIRE(runtime, 0);
 #include <dolly/toolchain.h>
 
 #include <dlfcn.h>

@@ -1,7 +1,7 @@
 #include <dolly/audio.h>
 #include <dolly/host.h>
 
-DOLLY_HOST_REQUIRE(audio, 0);
+DOLLY_HOST_REQUIRE(audio, 0, DOLLY_AUDIO_ABI_DIGEST);
 #include <dolly/process.h>
 #include <errno.h>
 #include <string.h>

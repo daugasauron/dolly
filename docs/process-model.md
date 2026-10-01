@@ -32,7 +32,9 @@ sequenceDiagram
 
 - Import one private shared memory64 and one function,
   `dolly_process_0.call`; export `_start`; carry `dolly.process` stamps
-  ([`dolly-process-0.wat`](../abi/dolly-process-0.wat)). Memory is at most 8 GiB.
+  ([`dolly-process-0.wat`](../abi/dolly-process-0.wat)) and a `dolly.host`
+  record with the ABI digest of each host module they link
+  ([`dolly-host-0.wat`](../abi/dolly-host-0.wat)). Memory is at most 8 GiB.
 - A start section may initialize memory/TLS but must not call the kernel.
 - Found through `PATH`; `#!` lines name an absolute in-Wasm interpreter, nested at most 4 deep.
 - `readlink("/proc/self/exe")` returns the loaded image's canonical path; there is

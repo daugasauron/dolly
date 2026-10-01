@@ -114,4 +114,4 @@ static void upload_release(int pid, int tid) {
 }
 
 const dolly_kernel_module dolly_upload_kernel = {
-    DOLLY_PROCESS_UPLOAD_FILE, DOLLY_PROCESS_UPLOAD_FILE, upload_call, upload_release};
+    DOLLY_UPLOAD_FILE, DOLLY_UPLOAD_FILE, upload_call, upload_release};

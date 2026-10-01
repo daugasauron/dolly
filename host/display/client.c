@@ -7,7 +7,7 @@
 #include <string.h>
 #include <time.h>
 
-DOLLY_HOST_REQUIRE(display, 0);
+DOLLY_HOST_REQUIRE(display, 0, DOLLY_DISPLAY_ABI_DIGEST);
 
 static uint64_t monotonic_nanoseconds(void) {
   struct timespec value;
@@ -22,7 +22,7 @@ static size_t display_frame_size;
 static uint32_t display_frame_index;
 
 static int decode_display_surface(
-    int64_t result, const dolly_process_display_surface_response *response,
+    int64_t result, const dolly_display_surface_response *response,
     dolly_display_surface *surface) {
   if (result < 0) return (int)result;
   if ((uint64_t)result != sizeof(*response) || response->reserved != 0 ||
@@ -69,9 +69,9 @@ static int display_deadline(double timeout_milliseconds, uint64_t *deadline) {
 int dolly_display_acquire(dolly_display_surface *surface) {
   if (surface == NULL) return -EINVAL;
   memset(surface, 0, sizeof(*surface));
-  dolly_process_display_surface_response response = {0};
+  dolly_display_surface_response response = {0};
   const int64_t result = dolly_process_call(
-      DOLLY_PROCESS_DISPLAY_ACQUIRE, NULL, 0, &response, sizeof(response));
+      DOLLY_DISPLAY_ACQUIRE, NULL, 0, &response, sizeof(response));
   return decode_display_surface(result, &response, surface);
 }
 
@@ -80,12 +80,12 @@ int dolly_display_set_size(uint64_t generation, uint32_t width,
   if (surface == NULL || generation == 0 || width == 0 || height == 0) {
     return -EINVAL;
   }
-  const dolly_process_display_size_request request = {
+  const dolly_display_size_request request = {
       generation, width, height,
   };
-  dolly_process_display_surface_response response = {0};
+  dolly_display_surface_response response = {0};
   const int64_t result = dolly_process_call(
-      DOLLY_PROCESS_DISPLAY_SET_SIZE, &request, sizeof(request),
+      DOLLY_DISPLAY_SET_SIZE, &request, sizeof(request),
       &response, sizeof(response));
   return decode_display_surface(result, &response, surface);
 }
@@ -93,10 +93,10 @@ int dolly_display_set_size(uint64_t generation, uint32_t width,
 int dolly_display_begin_frame(uint64_t generation, dolly_display_frame *frame) {
   if (generation == 0 || frame == NULL) return -EINVAL;
   memset(frame, 0, sizeof(*frame));
-  const dolly_process_display_generation_request request = {generation};
-  dolly_process_display_surface_response response = {0};
+  const dolly_display_generation_request request = {generation};
+  dolly_display_surface_response response = {0};
   const int64_t result = dolly_process_call(
-      DOLLY_PROCESS_DISPLAY_BEGIN_FRAME, &request, sizeof(request),
+      DOLLY_DISPLAY_BEGIN_FRAME, &request, sizeof(request),
       &response, sizeof(response));
   dolly_display_surface surface;
   int status = decode_display_surface(result, &response, &surface);
@@ -129,7 +129,7 @@ int dolly_display_present(uint64_t generation, uint32_t buffer_index) {
   if (generation == 0 || generation != display_frame_generation ||
       buffer_index != display_frame_index || display_frame_size == 0 ||
       display_pixels == NULL) return -EINVAL;
-  const size_t header_size = sizeof(dolly_process_display_write_request);
+  const size_t header_size = sizeof(dolly_display_write_request);
   const size_t maximum_chunk = DOLLY_PROCESS_PACKET_LIMIT - header_size;
   unsigned char *packet = malloc(DOLLY_PROCESS_PACKET_LIMIT);
   if (packet == NULL) return -ENOMEM;
@@ -138,7 +138,7 @@ int dolly_display_present(uint64_t generation, uint32_t buffer_index) {
   while (offset < display_frame_size) {
     const size_t chunk = display_frame_size - offset > maximum_chunk
         ? maximum_chunk : display_frame_size - offset;
-    const dolly_process_display_write_request request = {
+    const dolly_display_write_request request = {
         .generation = generation,
         .offset = offset,
         .size = chunk,
@@ -147,7 +147,7 @@ int dolly_display_present(uint64_t generation, uint32_t buffer_index) {
     memcpy(packet, &request, sizeof(request));
     memcpy(packet + header_size, display_pixels + offset, chunk);
     const int64_t result = dolly_process_call(
-        DOLLY_PROCESS_DISPLAY_WRITE_FRAME, packet, header_size + chunk,
+        DOLLY_DISPLAY_WRITE_FRAME, packet, header_size + chunk,
         NULL, 0);
     if (result < 0) {
       status = (int)result;
@@ -161,11 +161,11 @@ int dolly_display_present(uint64_t generation, uint32_t buffer_index) {
   }
   free(packet);
   if (status != 0) return status;
-  const dolly_process_display_present_request request = {
+  const dolly_display_present_request request = {
       generation, buffer_index, 0,
   };
   const int64_t result = dolly_process_call(
-      DOLLY_PROCESS_DISPLAY_PRESENT, &request, sizeof(request), NULL, 0);
+      DOLLY_DISPLAY_PRESENT, &request, sizeof(request), NULL, 0);
   if (result < 0) return (int)result;
   if (result != 0) return -EIO;
   display_frame_generation = 0;
@@ -179,12 +179,12 @@ int dolly_display_wait_frame(uint64_t generation, uint32_t *sequence,
   uint64_t deadline;
   int status = display_deadline(timeout_milliseconds, &deadline);
   if (status != 0) return status;
-  const dolly_process_display_wait_request request = {
+  const dolly_display_wait_request request = {
       generation, deadline, *sequence, 0,
   };
-  dolly_process_display_wait_response response = {0};
+  dolly_display_wait_response response = {0};
   const int64_t result = dolly_process_call(
-      DOLLY_PROCESS_DISPLAY_WAIT_FRAME, &request, sizeof(request),
+      DOLLY_DISPLAY_WAIT_FRAME, &request, sizeof(request),
       &response, sizeof(response));
   if (result < 0) return (int)result;
   if ((uint64_t)result != sizeof(response) ||
@@ -194,9 +194,9 @@ int dolly_display_wait_frame(uint64_t generation, uint32_t *sequence,
 }
 
 int dolly_display_set_cursor(uint64_t generation, uint32_t cursor) {
-  const dolly_process_display_cursor_request request = {generation, cursor, 0};
+  const dolly_display_cursor_request request = {generation, cursor, 0};
   const int64_t result = dolly_process_call(
-      DOLLY_PROCESS_DISPLAY_SET_CURSOR, &request, sizeof(request), NULL, 0);
+      DOLLY_DISPLAY_SET_CURSOR, &request, sizeof(request), NULL, 0);
   return result < 0 ? (int)result : result == 0 ? 0 : -EIO;
 }
 
@@ -206,24 +206,22 @@ int dolly_display_next_event(uint64_t generation, dolly_input_event *event,
   uint64_t deadline;
   int status = display_deadline(timeout_milliseconds, &deadline);
   if (status != 0) return status;
-  const dolly_process_display_event_request request = {generation, deadline};
-  dolly_process_display_event_response response = {0};
+  const dolly_display_event_request request = {generation, deadline};
+  dolly_display_event_response response = {0};
   const int64_t result = dolly_process_call(
-      DOLLY_PROCESS_DISPLAY_NEXT_EVENT, &request, sizeof(request),
+      DOLLY_DISPLAY_NEXT_EVENT, &request, sizeof(request),
       &response, sizeof(response));
   if (result < 0) return (int)result;
   if ((uint64_t)result != sizeof(response) || response.reserved != 0 ||
       (response.result != 0 && response.result != 1)) return -EIO;
-  _Static_assert(sizeof(response.event) == sizeof(*event),
-                 "process/display event layouts diverged");
-  if (response.result == 1) memcpy(event, response.event, sizeof(*event));
+  if (response.result == 1) *event = response.event;
   return response.result;
 }
 
 int dolly_display_release(uint64_t generation) {
-  const dolly_process_display_generation_request request = {generation};
+  const dolly_display_generation_request request = {generation};
   const int64_t result = dolly_process_call(
-      DOLLY_PROCESS_DISPLAY_RELEASE, &request, sizeof(request), NULL, 0);
+      DOLLY_DISPLAY_RELEASE, &request, sizeof(request), NULL, 0);
   if (result < 0) return (int)result;
   if (result != 0) return -EIO;
   display_frame_generation = 0;

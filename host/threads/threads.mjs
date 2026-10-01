@@ -1,12 +1,10 @@
 import { sameWasmType } from "../../src/wasm-interface.mjs";
-import { DOLLY_THREADS_ABI_DIGEST } from "../../dist/dolly-threads-abi.mjs";
-import { hex } from "../../src/static-asset.mjs";
+export { DOLLY_THREADS_ABI_DIGEST as digest } from "./abi.mjs";
 
-export function validateThreadProfile(parsed, schema) {
-  const stamps = parsed.customSectionData.filter(section => section.name === "dolly.threads");
-  if (!stamps.length) return false;
-  if (stamps.length !== 1 || hex(stamps[0].data) !== DOLLY_THREADS_ABI_DIGEST)
-    throw new TypeError("process has an incompatible dolly.threads stamp");
+// An executable that links the threads client (every -pthread program) is
+// threaded; its requirement's digest is checked with the others.
+export function validateThreadProfile(parsed, requirements, schema) {
+  if (!requirements.has("threads@0")) return false;
   const expected = schema.exports.find(entry => entry.name === "dolly_thread_start");
   const actual = parsed.exports.find(entry => entry.name === expected.name);
   if (!actual || !sameWasmType(actual.type, expected.type))

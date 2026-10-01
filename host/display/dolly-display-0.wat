@@ -53,4 +53,15 @@
   ;; negative errno; it never consumes pending terminal input.
   (func (export "dolly_terminal_present_pending") (result i32) i32.const 0)
 
+  ;; Process operations of a foreground command's framebuffer lease; their
+  ;; packets are defined in display.h.
+  (global (export "DOLLY_DISPLAY_ACQUIRE") i32 (i32.const 96))
+  (global (export "DOLLY_DISPLAY_SET_SIZE") i32 (i32.const 97))
+  (global (export "DOLLY_DISPLAY_BEGIN_FRAME") i32 (i32.const 98))
+  (global (export "DOLLY_DISPLAY_WRITE_FRAME") i32 (i32.const 99))
+  (global (export "DOLLY_DISPLAY_PRESENT") i32 (i32.const 100))
+  (global (export "DOLLY_DISPLAY_WAIT_FRAME") i32 (i32.const 101))
+  (global (export "DOLLY_DISPLAY_SET_CURSOR") i32 (i32.const 102))
+  (global (export "DOLLY_DISPLAY_NEXT_EVENT") i32 (i32.const 103))
+  (global (export "DOLLY_DISPLAY_RELEASE") i32 (i32.const 104))
 )

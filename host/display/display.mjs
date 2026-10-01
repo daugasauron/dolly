@@ -1,5 +1,6 @@
 import { instantiateKernelPlugin } from "../../src/kernel-plugin.mjs";
 import { displayInput } from "./input.mjs";
+export { DOLLY_DISPLAY_ABI_DIGEST as digest } from "./abi.mjs";
 
 const encoder = new TextEncoder();
 const textDecoder = new TextDecoder("utf-8", { ignoreBOM: true });

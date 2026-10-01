@@ -7,7 +7,7 @@
   "host": "upload.mjs",
   "contracts": ["dolly-upload-0.wat"],
   "process": [],
-  "headers": ["upload.h"],
+  "headers": ["upload.h", "upload-abi.h"],
   "kernel": ["kernel.c"],
   "client": ["client.c"]
 }

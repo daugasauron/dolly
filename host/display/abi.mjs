@@ -1,0 +1,11 @@
+// Generated from host/display/dolly-display-0.wat, host/display/display.h.
+export const DOLLY_DISPLAY_ACQUIRE = 96;
+export const DOLLY_DISPLAY_SET_SIZE = 97;
+export const DOLLY_DISPLAY_BEGIN_FRAME = 98;
+export const DOLLY_DISPLAY_WRITE_FRAME = 99;
+export const DOLLY_DISPLAY_PRESENT = 100;
+export const DOLLY_DISPLAY_WAIT_FRAME = 101;
+export const DOLLY_DISPLAY_SET_CURSOR = 102;
+export const DOLLY_DISPLAY_NEXT_EVENT = 103;
+export const DOLLY_DISPLAY_RELEASE = 104;
+export const DOLLY_DISPLAY_ABI_DIGEST = "d3d0bdd1a5430c1e88e065534628314636008305a96f4e2ca6eb33ddabd45603";

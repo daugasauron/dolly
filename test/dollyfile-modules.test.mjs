@@ -168,7 +168,8 @@ test("bootstrap exports exact compiler tools and first-class headers", async () 
   assert.equal(bootstrap.slops.length, 0);
   assert.deepEqual(
     bootstrap.exports.filter(({ type }) => type === "HEADER").map(({ name }) => name),
-    ["libc", "toolchain", "runtime", "process", "http", "display", "download", "host", "host-abi", "gpu", "gpu-abi", "audio", "audio-abi", "upload", "snapshot", "threads", "threads-abi"],
+    ["libc", "toolchain", "runtime", "process", "http", "http-abi", "display", "display-abi", "download", "download-abi",
+      "host", "host-abi", "gpu", "gpu-abi", "audio", "audio-abi", "upload", "upload-abi", "snapshot", "threads", "threads-abi"],
   );
   const tools = bootstrap.exports.filter(({ type }) => type === "TOOL");
   assert.deepEqual(

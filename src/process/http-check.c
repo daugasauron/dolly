@@ -29,17 +29,17 @@ static size_t verify_body(const void *bytes, size_t length, void *context) {
 }
 
 static int upload_check(const char *url) {
-  struct { dolly_process_http_body_write_request header; unsigned char data[4]; }
+  struct { dolly_http_body_write_request header; unsigned char data[4]; }
       packet = {{1, 8}, {1, 2, 3, 4}};
-  if (dolly_process_call(DOLLY_PROCESS_HTTP_BODY_WRITE, &packet,
+  if (dolly_process_call(DOLLY_HTTP_BODY_WRITE, &packet,
       sizeof(packet.header) + 4, NULL, 0) != -EINVAL) return 103;
   packet.header.offset = 0;
-  if (dolly_process_call(DOLLY_PROCESS_HTTP_BODY_WRITE, &packet,
+  if (dolly_process_call(DOLLY_HTTP_BODY_WRITE, &packet,
       sizeof(packet.header) + 4, NULL, 0) != 0) return 104;
   packet.header.offset = 3;
-  if (dolly_process_call(DOLLY_PROCESS_HTTP_BODY_WRITE, &packet,
+  if (dolly_process_call(DOLLY_HTTP_BODY_WRITE, &packet,
       sizeof(packet.header) + 4, NULL, 0) != -EINVAL) return 105;
-  if (dolly_process_call(DOLLY_PROCESS_HTTP_BODY_WRITE, NULL, 0, NULL, 0)) return 106;
+  if (dolly_process_call(DOLLY_HTTP_BODY_WRITE, NULL, 0, NULL, 0)) return 106;
   const size_t length = 3 * 1024 * 1024 + 17;
   unsigned char *body = malloc(9 * 1024 * 1024);
   if (!body) return 107;

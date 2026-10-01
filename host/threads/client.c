@@ -3,7 +3,7 @@
 #include <dolly/host.h>
 #include <errno.h>
 
-DOLLY_HOST_REQUIRE(threads, 0);
+DOLLY_HOST_REQUIRE(threads, 0, DOLLY_THREADS_ABI_DIGEST);
 _Static_assert(sizeof(dolly_thread_identity) == 8, "thread identity packet");
 _Static_assert(sizeof(dolly_thread_wait_request) == 8, "thread wait packet");
 

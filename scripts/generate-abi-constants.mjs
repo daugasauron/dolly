@@ -1,4 +1,5 @@
 // Generates C and JavaScript constants from the canonical contract sources.
+import { createHash } from "node:crypto";
 import { readFile, writeFile } from "node:fs/promises";
 import { hostManifests } from "../host/manifests.mjs";
 import { hostFiles } from "./host-modules.mjs";
@@ -14,23 +15,37 @@ const write = async (path, text) => {
 // contracts export any gets abi.mjs beside its manifest, and NAME-abi.h when the
 // manifest lists it. The host record header is stringified into assembly and
 // therefore keeps unsuffixed integers.
-async function emitConstants(sources, module, header, suffix) {
+async function emitConstants(sources, module, header, suffix, digest) {
   const constants = [];
   for (const source of sources) constants.push(...(await read(source)).matchAll(
     /\(global \(export "(DOLLY_[A-Z0-9_]+)"\) i32 \(i32.const (\d+)\)\)/g));
-  if (!constants.length) return;
-  const origin = sources.join(", ");
-  if (header) await write(header, `/* Generated from ${origin}. */\n#pragma once\n` +
-    constants.map(([, constant, value]) => `#define ${constant} ${value}${suffix}\n`).join(""));
-  await write(module, `// Generated from ${origin}.\n` +
-    constants.map(([, constant, value]) => `export const ${constant} = ${value};\n`).join(""));
+  const c = constants.map(([, constant, value]) => `#define ${constant} ${value}${suffix}\n`);
+  const js = constants.map(([, constant, value]) => `export const ${constant} = ${value};\n`);
+  if (digest) {
+    c.push(`#define ${digest.name} ${[...digest.bytes].map(byte => `0x${byte.toString(16).padStart(2, "0")}`).join(", ")}\n`);
+    js.push(`export const ${digest.name} = "${digest.bytes.toString("hex")}";\n`);
+  }
+  if (!js.length) return;
+  const origin = [...sources, ...digest?.sources ?? []].join(", ");
+  if (header) await write(header, `/* Generated from ${origin}. */\n#pragma once\n${c.join("")}`);
+  await write(module, `// Generated from ${origin}.\n${js.join("")}`);
 }
 await emitConstants(["abi/dolly-host-0.wat"], "host/abi.mjs", "include/dolly/host-abi.h", "");
+// A module with NAME-abi.h also gets DOLLY_NAME_ABI_DIGEST, the SHA-256 of the
+// exact bytes of its contracts and other headers. Its client records the digest
+// in executables (abi/dolly-host-0.wat), so any edit to them changes identity.
 for (const { name } of hostManifests) {
-  const header = hostFiles("headers").find(entry => entry.name === name && entry.file.endsWith(`/${name}-abi.h`));
-  await emitConstants([...hostFiles("contracts"), ...hostFiles("process")]
-    .filter(entry => entry.name === name).map(entry => entry.file),
-    `host/${name}/abi.mjs`, header?.file, "u");
+  const files = field => hostFiles(field).filter(entry => entry.name === name).map(entry => entry.file);
+  const contracts = [...files("contracts"), ...files("process")];
+  const header = files("headers").find(file => file.endsWith(`/${name}-abi.h`));
+  let digest;
+  if (header) {
+    const sources = files("headers").filter(file => file !== header);
+    const hash = createHash("sha256");
+    for (const file of [...contracts, ...sources]) hash.update(await readFile(new URL(file, root)));
+    digest = { name: `DOLLY_${name.toUpperCase().replaceAll("-", "_")}_ABI_DIGEST`, sources, bytes: hash.digest() };
+  }
+  await emitConstants(contracts, `host/${name}/abi.mjs`, header, "u", digest);
 }
 
 // The process packet contract is C. Its enumerators and defines are integer

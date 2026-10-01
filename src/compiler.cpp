@@ -44,7 +44,6 @@
 
 #include "dolly-kernel-plugin-abi-digest.h"
 #include "dolly-process-abi-digest.h"
-#include "dolly-threads-abi-digest.h"
 
 LLD_HAS_DRIVER(wasm)
 
@@ -1736,9 +1735,7 @@ int compile_and_link(const DriverOptions &options, int default_language,
       ? stamp_kernel_plugin(linked)
       : (options.shared_library ? stamp_process_shared_object(linked)
                                 : stamp_process_executable(linked)));
-  const bool thread_stamped = !options.pthread || (stamped && append_custom_section(
-      linked, "dolly.threads", DOLLY_THREADS_ABI_DIGEST, sizeof(DOLLY_THREADS_ABI_DIGEST)));
-  const bool published = stamped && thread_stamped &&
+  const bool published = stamped &&
       (options.kernel_plugin
            ? (validate_shared_object(linked, kKernelContractPath) &&
               has_kernel_plugin_stamp(linked))

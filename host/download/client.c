@@ -6,7 +6,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-DOLLY_HOST_REQUIRE(download, 0);
+DOLLY_HOST_REQUIRE(download, 0, DOLLY_DOWNLOAD_ABI_DIGEST);
 
 int dolly_download_file(const char *path) {
   if (path == NULL) return -EFAULT;
@@ -23,7 +23,7 @@ int dolly_download_file(const char *path) {
   memcpy(packet, &request, sizeof(request));
   memcpy(packet + sizeof(request), path, path_size);
   const int64_t result = dolly_process_call(
-      DOLLY_PROCESS_DOWNLOAD_FILE, packet, packet_size, NULL, 0);
+      DOLLY_DOWNLOAD_FILE, packet, packet_size, NULL, 0);
   free(packet);
   return result < 0 ? (int)result : result == 0 ? 0 : -EIO;
 }
