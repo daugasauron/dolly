@@ -41,7 +41,9 @@ policy; protocol details are in `/usr/share/dollyfile-studio/build-service.md`.
 
 ## Important language details
 
-- `DOLLY 6`, then `APPLICATION name`; FROM is the first image operation.
+- `DOLLY 6`, then `APPLICATION name`, then the image's complete `REQUIRES HOST`
+  list (nothing is inherited; an image FROM system repeats system's display@0,
+  download@0, http@0, snapshot@0 and upload@0). FROM is the first image operation.
   `INSTALL URL SHA` adds a published package with its exports.
 - FILE body lines start with **four spaces**, including blank content lines.
   The example shows this indentation. FILE is not a shell heredoc: no `<<EOF`.
