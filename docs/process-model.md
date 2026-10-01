@@ -5,7 +5,7 @@ kernel ([`process-kernel.c`](../src/process-kernel.c)) owns files, open-file
 descriptions, pipes, process records, signals and the terminal; processes
 inherit handles and values, never another address space. The call path is in
 [architecture](architecture.md#system-calls); packet layouts are in
-[`process.h`](../include/dolly/process.h).
+[`process.h`](../include/dolly/process.h) and each [host module](../host/README.md)'s header.
 
 ```mermaid
 sequenceDiagram
