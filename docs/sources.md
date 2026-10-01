@@ -22,8 +22,8 @@ flowchart TD
 | LLVM/Clang/LLD 24 | Wasm64 libraries linked into one stamped compiler executable ([`build-toolchain.sh`](../scripts/build-toolchain.sh)) | `cc`, `c++`, `ld`, `ar` spawn it as a private process |
 | libc++/libc++abi | Pinned Emscripten archives; headers archived separately | Installed by [`cpp.dm`](../modules/cpp.dm); no handwritten substitutes |
 
-Demo exceptions (the Rust compiler seed, the 0 A.D. engine) are recorded in their
-demo READMEs. Every externally built program (compiler, Rust seed, 0 A.D.)
+Demo exceptions (the Rust compiler seed, 0 A.D.'s SpiderMonkey) are recorded in their
+demo READMEs. Every externally built program (compiler, Rust seed, SpiderMonkey)
 validates against `dolly-process-0` exactly and ships without an Emscripten
 JavaScript loader. Host preparation may
 configure and patch pinned trees deterministically and reviewably, but must not

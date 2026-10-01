@@ -6,7 +6,7 @@ import {startBrowserServer} from "../../../test/browser-server.mjs";
 import {acceptDownload} from "../../browser.mjs";
 import {createRelayRoom} from "../toolchain/relay.mjs";
 import {hasGameHud} from "./fixtures/0ad-hud.mjs";
-import {engineFixture} from "./fixtures/engine.mjs";
+import {engineFixture} from "./fixtures/image-file.mjs";
 
 const output = new URL("../../../.cache/0ad/browser/", import.meta.url);
 const mode=process.argv[2]??"headless", backend=process.argv[3]??"hardware";

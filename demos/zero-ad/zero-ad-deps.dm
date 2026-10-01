@@ -20,7 +20,7 @@ REQUIRES TOOL cp
 REQUIRES TOOL ln
 REQUIRES TOOL mkdir
 
-SOURCE https://daugasauron.com/dist/static/zero-ad-build/deps.tar.gz c6eaf6caee794316dad3836d8d347d254e14a7a3017971145fd764361b623004 /tmp/zad/deps.tar.gz
+SOURCE https://daugasauron.com/dist/static/zero-ad-build/deps.tar.gz e412f31045cce3f9ae1036144c7fdcac8e8bb6f6c1a024f7d81626d5bf72b28b /tmp/zad/deps.tar.gz
 SLOP gzip -dc /tmp/zad/deps.tar.gz | tar -xf - -C /
 
 # Upstream builds pkgconf with Meson; these are the values its configure step finds here.
@@ -134,6 +134,12 @@ FILE /usr/lib/pkgconfig/libenet.pc
     Version: 1.3.18
     Libs: -lenet
 SLOP pkg-config --exists zlib libcurl icu-i18n libsodium libenet libpng freetype2 vorbisfile fmt libxml-2.0 openal sdl2
+
+# Probes for test/0ad-enet-browser.mjs and test/0ad-openal-browser.mjs.
+SLOP mkdir -p /usr/libexec/zero-ad
+SLOP cc -O1 /tmp/zad/enet-check.c -lenet -o /usr/libexec/zero-ad/enet-check
+SLOP c++ -O1 /tmp/zad/openal-check.cpp -lopenal -lm -o /usr/libexec/zero-ad/openal-check
+FOLDER /usr/libexec/zero-ad
 
 EXPORTS TOOL pkgconf
 EXPORTS TOOL pkg-config

@@ -41,14 +41,14 @@ image is about 2 GB.
 
 ## How it works
 
-- Target patches: [`engine.patch`](toolchain/engine.patch),
+- Target patches: [`engine.patch`](engine.patch),
   [`spidermonkey.patch`](toolchain/spidermonkey.patch) (no JIT, serial tasks) and
   [`data.patch`](toolchain/data.patch) (deterministic Petra AI restore).
 - Graphics use the upstream backend over `gpu@0` with shaders translated to WGSL.
   Sound uses OpenAL Soft ([`openal-dolly.patch`](openal-dolly.patch), serial
   mixer) over `audio@0`.
 - Multiplayer keeps upstream ENet and replaces its sockets with
-  [`enet-dolly.c`](toolchain/enet-dolly.c) over the HTTP broker. The development
+  [`enet-dolly.c`](enet-dolly.c) over the HTTP broker. The development
   relay [`relay.mjs`](toolchain/relay.mjs) routes bounded datagrams only between
   2–8 pre-created participant URLs and never contacts other hosts.
 - `pyrogenesis -dolly-control` adds a line-based JSON protocol (observe, step,

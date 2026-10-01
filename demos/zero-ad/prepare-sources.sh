@@ -30,10 +30,12 @@ if has_module zero-ad-deps; then
     "${zad_dir}/icu/source/stubdata" /tmp/zad/icu/stubdata \
     "${zad_dir}/libsodium-1.0.20/src/libsodium" /tmp/zad/sodium/src/libsodium \
     "${zad_dir}/libsodium-1.0.20/builds/msvc/version.h" /tmp/zad/sodium/builds/msvc/version.h \
-    demos/zero-ad/toolchain/sodium.patch /tmp/zad/sodium.patch \
+    demos/zero-ad/sodium.patch /tmp/zad/sodium.patch \
     "${zad_dir}/enet-1.3.18" /tmp/zad/enet \
-    demos/zero-ad/toolchain/enet-dolly.c /tmp/zad/enet-dolly.c \
-    "${zad_dir}/boost" /tmp/zad/boost/boost
+    demos/zero-ad/enet-dolly.c /tmp/zad/enet-dolly.c \
+    "${zad_dir}/boost" /tmp/zad/boost/boost \
+    demos/zero-ad/test/fixtures/0ad-enet.c /tmp/zad/enet-check.c \
+    demos/zero-ad/test/fixtures/0ad-openal.cpp /tmp/zad/openal-check.cpp
 fi
 if has_module zero-ad-engine; then
   zad_source="${zad_dir}/0ad-$(source config/source-pins.sh && echo "${DOLLY_0AD_VERSION}")"
@@ -44,7 +46,7 @@ if has_module zero-ad-engine; then
     "${zad_source}/libraries/source/cxxtest-4.4" /tmp/0ad/libraries/source/cxxtest-4.4 \
     "${zad_dir}/premake-core-5.0.0-beta7" /tmp/premake-core-5.0.0-beta7 \
     "${zad_source}/LICENSE.md" /tmp/0ad/LICENSE.md \
-    demos/zero-ad/toolchain/engine.patch /tmp/0ad-patches/engine.patch \
+    demos/zero-ad/engine.patch /tmp/0ad-patches/engine.patch \
     demos/zero-ad/premake-dolly.patch /tmp/0ad-patches/premake.patch
   # Bootstrap exception: SpiderMonkey cross-compiled by toolchain/build-spidermonkey.sh.
   mozjs_build=".cache/0ad/0ad-$(source config/source-pins.sh && echo "${DOLLY_0AD_VERSION}")/libraries/source/spidermonkey/mozjs-128.13.0/obj-dolly"

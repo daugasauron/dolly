@@ -165,3 +165,11 @@ roots) and keep Cargo out of mozbuild with a build-system patch.
   `c++ -O2` at `-j3` in 320 s wall, 952 s summed, slowest TU 30 s, no
   failures and no Worker stack overflow. So SpiderMonkey is blocked by its
   configure and Cargo integration, not by the compiler.
+
+Host engine build removed: `toolchain/{build-engine,dependencies,engine,link-engine,prepare-engine,enet,openal}.sh`,
+`dependencies.tsv` and `wasm64.cmake`. `engine.patch`, `sodium.patch` and
+`enet-dolly.c` moved beside the recipes that use them. The ENet and OpenAL
+probes of `0ad-enet-browser.mjs` and `0ad-openal-browser.mjs` are now built in
+`zero-ad-deps` (`/usr/libexec/zero-ad`) and, like the engine, read from the
+image snapshot (`test/fixtures/image-file.mjs`). `toolchain/` keeps the
+SpiderMonkey bootstrap and the content preparation.

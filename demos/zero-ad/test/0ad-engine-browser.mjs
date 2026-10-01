@@ -3,7 +3,7 @@ import { mkdir, readFile } from "node:fs/promises";
 import { chromium } from "playwright-core";
 import { startBrowserServer } from "../../../test/browser-server.mjs";
 import { acceptDownload } from "../../browser.mjs";
-import { engineFixture } from "./fixtures/engine.mjs";
+import { engineFixture } from "./fixtures/image-file.mjs";
 
 const output = new URL("../../../.cache/0ad/browser/", import.meta.url);
 await mkdir(output, { recursive: true });
