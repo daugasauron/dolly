@@ -8,7 +8,7 @@ REQUIRES TOOL   make
 REQUIRES TOOL   rm
 REQUIRES TOOL   tar
 
-SOURCE https://daugasauron.com/static/default/zlib.tar 3ff2e65dc35be0baa91250384dbe2b0d7c16aa73496dc20eeca86221588ead73 /tmp/zlib.tar
+SOURCE https://daugasauron.com/dist/static/default/zlib.tar 3ff2e65dc35be0baa91250384dbe2b0d7c16aa73496dc20eeca86221588ead73 /tmp/zlib.tar
 SLOP tar \
   -xf /tmp/zlib.tar \
   -C /

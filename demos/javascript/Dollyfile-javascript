@@ -1,18 +1,18 @@
 DOLLY 5
 IMAGE javascript
 
-FROM https://daugasauron.com/Dollyfile-system 525e2eaa526450c55963f948e8202c68315c7cc0aeac7833dea6e2413fd14e20
+FROM https://daugasauron.com/Dollyfile-system 6698e22d512ad7d0cb16536ab8bb4cacc9624ab6e4f2ccea4c8b0556e5170f92
 
-COPY FROM https://daugasauron.com/Dollyfile-typescript-build a4d2d82df8dc428691a229c6dc4492029e35768d2c5a77f567b0a8124b683640 /usr/bin/qjs /usr/bin/qjs
-COPY FROM https://daugasauron.com/Dollyfile-typescript-build a4d2d82df8dc428691a229c6dc4492029e35768d2c5a77f567b0a8124b683640 /usr/bin/janis /usr/bin/janis
-COPY FROM https://daugasauron.com/Dollyfile-typescript-build a4d2d82df8dc428691a229c6dc4492029e35768d2c5a77f567b0a8124b683640 /usr/bin/tsc /usr/bin/tsc
-COPY FROM https://daugasauron.com/Dollyfile-typescript-build a4d2d82df8dc428691a229c6dc4492029e35768d2c5a77f567b0a8124b683640 /usr/lib/libdolly-js.a /usr/lib/libdolly-js.a
-COPY FROM https://daugasauron.com/Dollyfile-typescript-build a4d2d82df8dc428691a229c6dc4492029e35768d2c5a77f567b0a8124b683640 /usr/include/dolly/quickjs-runner.h /usr/include/dolly/quickjs-runner.h
-COPY FROM https://daugasauron.com/Dollyfile-typescript-build a4d2d82df8dc428691a229c6dc4492029e35768d2c5a77f567b0a8124b683640 /usr/include/quickjs.h /usr/include/quickjs.h
-COPY FROM https://daugasauron.com/Dollyfile-typescript-build a4d2d82df8dc428691a229c6dc4492029e35768d2c5a77f567b0a8124b683640 /usr/lib/dolly/node.js /usr/lib/dolly/node.js
-COPY FROM https://daugasauron.com/Dollyfile-typescript-build a4d2d82df8dc428691a229c6dc4492029e35768d2c5a77f567b0a8124b683640 /usr/lib/janis/runtime.js /usr/lib/janis/runtime.js
-COPY FROM https://daugasauron.com/Dollyfile-typescript-build a4d2d82df8dc428691a229c6dc4492029e35768d2c5a77f567b0a8124b683640 /usr/lib/typescript /usr/lib/typescript
-COPY FROM https://daugasauron.com/Dollyfile-typescript-build a4d2d82df8dc428691a229c6dc4492029e35768d2c5a77f567b0a8124b683640 /usr/share/licenses/quickjs-ng/LICENSE /usr/share/licenses/quickjs-ng/LICENSE
+COPY FROM https://daugasauron.com/demos/javascript/Dollyfile-typescript-build 1e7cbcb16c16c26e73d73f3b6728389e10b39b32dfa90109f9bfabdb90ffa041 /usr/bin/qjs /usr/bin/qjs
+COPY FROM https://daugasauron.com/demos/javascript/Dollyfile-typescript-build 1e7cbcb16c16c26e73d73f3b6728389e10b39b32dfa90109f9bfabdb90ffa041 /usr/bin/janis /usr/bin/janis
+COPY FROM https://daugasauron.com/demos/javascript/Dollyfile-typescript-build 1e7cbcb16c16c26e73d73f3b6728389e10b39b32dfa90109f9bfabdb90ffa041 /usr/bin/tsc /usr/bin/tsc
+COPY FROM https://daugasauron.com/demos/javascript/Dollyfile-typescript-build 1e7cbcb16c16c26e73d73f3b6728389e10b39b32dfa90109f9bfabdb90ffa041 /usr/lib/libdolly-js.a /usr/lib/libdolly-js.a
+COPY FROM https://daugasauron.com/demos/javascript/Dollyfile-typescript-build 1e7cbcb16c16c26e73d73f3b6728389e10b39b32dfa90109f9bfabdb90ffa041 /usr/include/dolly/quickjs-runner.h /usr/include/dolly/quickjs-runner.h
+COPY FROM https://daugasauron.com/demos/javascript/Dollyfile-typescript-build 1e7cbcb16c16c26e73d73f3b6728389e10b39b32dfa90109f9bfabdb90ffa041 /usr/include/quickjs.h /usr/include/quickjs.h
+COPY FROM https://daugasauron.com/demos/javascript/Dollyfile-typescript-build 1e7cbcb16c16c26e73d73f3b6728389e10b39b32dfa90109f9bfabdb90ffa041 /usr/lib/dolly/node.js /usr/lib/dolly/node.js
+COPY FROM https://daugasauron.com/demos/javascript/Dollyfile-typescript-build 1e7cbcb16c16c26e73d73f3b6728389e10b39b32dfa90109f9bfabdb90ffa041 /usr/lib/janis/runtime.js /usr/lib/janis/runtime.js
+COPY FROM https://daugasauron.com/demos/javascript/Dollyfile-typescript-build 1e7cbcb16c16c26e73d73f3b6728389e10b39b32dfa90109f9bfabdb90ffa041 /usr/lib/typescript /usr/lib/typescript
+COPY FROM https://daugasauron.com/demos/javascript/Dollyfile-typescript-build 1e7cbcb16c16c26e73d73f3b6728389e10b39b32dfa90109f9bfabdb90ffa041 /usr/share/licenses/quickjs-ng/LICENSE /usr/share/licenses/quickjs-ng/LICENSE
 
 EXPORTS TOOL qjs
 EXPORTS TOOL janis

@@ -2,8 +2,8 @@
 
 A Dollyfile is an ordered recipe that `/bin/dollyfile`
 ([`dollyfile.c`](../src/dollyfile.c)) executes inside Wasm to build an image.
-An image recipe (`/Dollyfile` for `default`, otherwise `/Dollyfile-NAME`) ends
-with its ENTRY program; a module (`/modules/NAME.dm`) is a reusable group of
+An image recipe (`Dollyfile` for `default`, otherwise `Dollyfile-NAME`) ends
+with its ENTRY program; a module (`NAME.dm`) is a reusable group of
 steps. Steps share one filesystem and environment and run in order.
 
 ```text
@@ -22,11 +22,11 @@ ENTRY /bin/foreground -i /bin/slop
 ```
 
 Recipes name every image, module and file they read by full URL with its
-SHA-256. Catalog recipes and their prepared sources are published flat on one
-canonical origin, `https://daugasauron.com`: `/Dollyfile-NAME`,
-`/modules/NAME.dm`, `/static/…` and `/include/dolly/…`. In the checkout, core
-recipes sit at the top level and in `modules/`, demo recipes in `demos/DEMO/`
-([`recipe-files.mjs`](../scripts/recipe-files.mjs)).
+SHA-256. Catalog recipes, module headers and prepared sources are published at
+their checkout path on one canonical origin, `https://daugasauron.com`: core
+recipes at the top level and in `/modules/`, demo recipes in `/demos/DEMO/`
+([`recipe-files.mjs`](../scripts/recipe-files.mjs)), headers in `/include/dolly/`
+and `/host/MODULE/`, prepared sources in `/dist/static/`.
 
 ## Text
 

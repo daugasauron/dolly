@@ -10,8 +10,9 @@ const root = fileURLToPath(new URL("..", import.meta.url));
 export const hostFiles = field => hostManifests.flatMap(manifest => [manifest[field]].flat()
   .map(path => ({ name: manifest.name, file: relative(root, fileURLToPath(new URL(path, manifest.url))) })));
 
-// Module headers are published, installed and pinned as /include/dolly/NAME.h.
-export const publishedHeaders = new Map(hostFiles("headers").map(({ file }) => [`/include/dolly/${basename(file)}`, file]));
+// Module headers are published at their checkout path and installed as
+// /usr/include/dolly/NAME.h.
+export const publishedHeaders = new Set(hostFiles("headers").map(({ file }) => `/${file}`));
 
 // A temporary include directory holding every module header as dolly/NAME.h,
 // the layout programs compile against (build.sh stages build/include alike).

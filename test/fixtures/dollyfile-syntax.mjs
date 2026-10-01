@@ -199,7 +199,7 @@ export const syntaxCases = [
   [false, root(image("COPY FROM https://daugasauron.com/Dollyfile-base PIN(/Dollyfile-base) /usr /usr/../etc\n"), base)],
   [false, root(image("COPY https://daugasauron.com/Dollyfile-base PIN(/Dollyfile-base) /usr /usr\n"), base)],
   [false, root(image("COPY FROM https://daugasauron.com/Dollyfile-base PIN(/Dollyfile-base) /usr\n"), base)],
-  [true, probe(`SOURCE https://daugasauron.com/static/probe.tar ${zeros} /tmp/probe.tar`)],
+  [true, probe(`SOURCE https://daugasauron.com/dist/static/probe.tar ${zeros} /tmp/probe.tar`)],
   [true, probe(`SOURCE https://example.com/probe.tar ${zeros} /tmp/probe.tar`)],
   [true, probe(`SOURCE http://example.com:8080/probe.tar?x=1 ${zeros} /tmp/probe.tar`)],
   [true, probe(`SOURCE https://example.com ${zeros} /tmp/probe.tar`)],

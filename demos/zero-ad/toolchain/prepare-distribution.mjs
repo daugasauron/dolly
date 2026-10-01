@@ -22,7 +22,7 @@ for (const [input, name, destination] of [
 ]) {
   await mkdir(dirname(resolve(output, name)), { recursive: true });
   await copyFile(input, resolve(output, name));
-  sources.push(`SOURCE https://daugasauron.com/static/zero-ad/${name} ${await digest(resolve(output, name))} ${destination}`);
+  sources.push(`SOURCE https://daugasauron.com/dist/static/zero-ad/${name} ${await digest(resolve(output, name))} ${destination}`);
 }
 await rm(resolve(output, "data.tar"), { force: true });
 const module = `DOLLY 5
@@ -51,7 +51,7 @@ await writeFile(resolve(root, "demos/zero-ad/Dollyfile-zero-ad"), `DOLLY 5
 IMAGE zero-ad
 
 FROM https://daugasauron.com/Dollyfile ${hash(await readFile(resolve(root, "Dollyfile")))}
-USE https://daugasauron.com/modules/zero-ad.dm ${hash(module)}
+USE https://daugasauron.com/demos/zero-ad/zero-ad.dm ${hash(module)}
 
 FILE /etc/dolly/zero-ad.slop
     /bin/foreground /usr/bin/zero-ad

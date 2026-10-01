@@ -245,7 +245,7 @@ test("system snapshots are sealed to their visible recipe chain", async () => {
     ["zig-build", "/usr/bin/zig"],
   ]);
   assert.deepEqual([...corePrograms.keys()].sort(), definitions
-    .filter(definition => !definition.path.startsWith("demos/")).map(definition => definition.image).sort());
+    .filter(definition => !definition.filename.startsWith("demos/")).map(definition => definition.image).sort());
   for (const image of DOLLY_IMAGES.map(({ image }) => image)) {
     const snapshot = await readFile(artifact(`dolly-${image}-system.snapshot`));
     const { DOLLY_SYSTEM_SNAPSHOT: metadata } = await import(
@@ -309,7 +309,7 @@ test("published inputs are independent exact pinned files", async () => {
   const sources = await inspectStaticSources(projectDir, definitions);
   assert.deepEqual(DOLLY_STATIC_SOURCES, sources);
   assert.ok(sources.every((item) =>
-    ["/static/", "/modules/", "/include/dolly/", "/Dollyfile"].some((prefix) =>
+    ["/Dollyfile", "/modules/", "/demos/", "/include/dolly/", "/host/", "/dist/static/"].some((prefix) =>
       item.path.startsWith(prefix)) &&
     /^[0-9a-f]{64}$/.test(item.sha256) && item.byteLength > 0));
   assert.equal(sources.some((item) => item.path.endsWith(".assets")), false);
@@ -328,10 +328,10 @@ test("registry, routes, and source viewer derive from Dollyfiles", async () => {
   );
   for (const image of DOLLY_IMAGES) {
     // Build-only images have no display and only the rebuild screen.
-    const bootRoute = access(new URL(`../build/routes/${image.image}/index.html`, import.meta.url)).then(() => true, () => false);
+    const bootRoute = access(new URL(`../${image.image}/index.html`, import.meta.url)).then(() => true, () => false);
     assert.equal(await bootRoute, image.hostRequirements.includes("display@0"), `${image.image}: boot route`);
-    await readFile(new URL(`../build/routes/${image.image}/rebuild/index.html`, import.meta.url));
-    await readFile(new URL(`../build/routes/view/${image.image}/index.html`, import.meta.url));
+    await readFile(new URL(`../${image.image}/rebuild/index.html`, import.meta.url));
+    await readFile(new URL(`../view/${image.image}/index.html`, import.meta.url));
     assert.ok(image.byteLength > 0);
     assert.match(image.sha256, /^[0-9a-f]{64}$/);
   }

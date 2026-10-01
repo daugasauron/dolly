@@ -1,7 +1,10 @@
 #!/usr/bin/env node
+// Writes the generated pages at their served paths in this checkout: the menu
+// index.html (from menu.html), a terminal.html page per route and the
+// Dollyfile views. Any static file server can then serve the checkout.
 
 import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
-import { resolve } from "node:path";
+import { dirname, resolve } from "node:path";
 
 import {
   discoverImageDefinitions,
@@ -17,7 +20,6 @@ import { bundleProcessWorker } from "./bundle-process-worker.mjs";
 const projectDir = resolve(import.meta.dirname, "..");
 await bundleProcessWorker(projectDir);
 const loadGraph = createDollyfileGraphLoader(projectDir);
-const outputDir = resolve(projectDir, "build/routes");
 const template = await readFile(resolve(projectDir, "terminal.html"), "utf8");
 const definitions = await selectImageDefinitions(await discoverImageDefinitions(projectDir));
 const primaryImage = definitions.find(({ image }) => image === "default")?.image ??
@@ -43,63 +45,29 @@ const rows = ordered.map(definition => {
   const heading = definition.image === firstBuild ? '<tr class="group"><th colspan="3">Build images</th></tr>\n' : "";
   return heading + menuRow(definition.image, description, !headless.has(definition.image));
 });
-const menuTemplate = await readFile(resolve(projectDir, "index.html"), "utf8");
-const menu = menuTemplate.replace(/<tbody>[\s\S]*?<\/tbody>/, () => `<tbody>\n${rows.join("\n")}\n</tbody>`);
-await rm(outputDir, { recursive: true, force: true });
-await mkdir(outputDir, { recursive: true });
-await writeFile(resolve(outputDir, "index.html"), menu);
+const menu = await readFile(resolve(projectDir, "menu.html"), "utf8");
+await writeFile(resolve(projectDir, "index.html"),
+  menu.replace(/<tbody>[\s\S]*?<\/tbody>/, () => `<tbody>\n${rows.join("\n")}\n</tbody>`));
 const routes = [
   ...definitions.flatMap(({ image }) => [
-    ...(headless.has(image) ? [] : [{ path: `${image}/index.html`, base: "../", image, mode: "snapshot", load: false }]),
-    { path: `${image}/rebuild/index.html`, base: "../../", image, mode: "rebuild", load: false },
+    ...(headless.has(image) ? [] : [{ path: `${image}/index.html`, image, mode: "snapshot" }]),
+    { path: `${image}/rebuild/index.html`, image, mode: "rebuild" },
   ]),
-  { path: "custom/rebuild/index.html", base: "../../", image: "custom", mode: "rebuild", load: false },
-  { path: "custom/run/index.html", base: "../../", image: "custom", mode: "snapshot", load: false },
-  { path: "rebuild/index.html", base: "../", image: primaryImage, mode: "rebuild", load: false },
-  { path: "load/index.html", base: "../", image: primaryImage, mode: "snapshot", load: true },
-  { path: "session/open.html", base: "", image: primaryImage, mode: "snapshot", load: true },
-  { path: "404.html", base: "", image: primaryImage, mode: "snapshot", load: true },
+  { path: "custom/rebuild/index.html", image: "custom", mode: "rebuild" },
+  { path: "custom/run/index.html", image: "custom", mode: "snapshot" },
+  { path: "rebuild/index.html", image: primaryImage, mode: "rebuild" },
+  // One page opens every saved session: /session/?name=NAME.
+  { path: "session/index.html", image: primaryImage, mode: "snapshot", loadSession: true },
 ];
-
 for (const route of routes) {
-  const output = resolve(outputDir, route.path);
-  await mkdir(resolve(output, ".."), { recursive: true });
-  const page = template
-    .replaceAll("{{DOLLY_ROUTE_HEAD}}", route.load ? `<script>
-      const match = /^(.*\\/)session\\/([A-Za-z0-9._-]{1,64})\\/?$/.exec(location.pathname);
-      if (match && match[2] !== "." && match[2] !== "..") {
-        const base = document.createElement("base");
-        const target = new URL(location.href);
-        target.pathname = match[1];
-        target.search = "";
-        target.hash = "";
-        base.href = target.href;
-        document.head.append(base);
-        const session = new URL("session/" + match[2], base.href);
-        if (new URL(location.href).searchParams.get("recover") === "1") session.search = "?recover=1";
-        history.replaceState(null, "", session);
-      } else {
-        globalThis.DOLLY_NOT_FOUND = true;
-      }
-    </script>` : "")
-    .replaceAll("{{DOLLY_BASE}}", route.base)
+  const output = resolve(projectDir, route.path);
+  await mkdir(dirname(output), { recursive: true });
+  await writeFile(output, template
+    .replaceAll("{{DOLLY_BASE}}", "../".repeat(route.path.split("/").length - 1))
     .replaceAll("{{DOLLY_IMAGE}}", route.image)
     .replaceAll("{{DOLLY_MODE}}", route.mode)
-    .replaceAll("{{DOLLY_LOAD_SESSION}}", String(route.load));
-  await writeFile(output, page);
+    .replaceAll("{{DOLLY_LOAD_SESSION}}", String(route.loadSession ?? false)));
 }
-
-// Keep old bookmarks working, but all newly saved links use /session/NAME.
-await writeFile(resolve(outputDir, "load/index.html"), `<!doctype html>
-<meta charset="utf-8"><title>Dolly sessions</title><script>
-const name = new URL(location.href).searchParams.get("session");
-const valid = name && name !== "." && name !== ".." && /^[A-Za-z0-9._-]{1,64}$/.test(name);
-location.replace(new URL("../session/" + (valid ? name : ""), location.href));
-</script>`);
-await writeFile(resolve(outputDir, "session/index.html"),
-  await readFile(resolve(projectDir, "sessions.html"), "utf8"));
-await writeFile(resolve(outputDir, "custom/index.html"),
-  await readFile(resolve(projectDir, "custom.html"), "utf8"));
 
 const graphPages = graphs.flatMap(({ definition, graph }) => [
   { path: `view/${definition.image}/index.html`, record: graph.root, graph },
@@ -109,9 +77,10 @@ const graphPages = graphs.flatMap(({ definition, graph }) => [
     graph,
   })),
 ]);
+await rm(resolve(projectDir, "view"), { recursive: true, force: true });
 for (const page of graphPages) {
-  const output = resolve(outputDir, page.path);
-  await mkdir(resolve(output, ".."), { recursive: true });
+  const output = resolve(projectDir, page.path);
+  await mkdir(dirname(output), { recursive: true });
   await writeFile(output, renderDollyfilePage(page.record, page.graph));
 }
 

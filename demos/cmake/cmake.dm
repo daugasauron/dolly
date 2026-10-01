@@ -35,7 +35,7 @@ REQUIRES TOOL true
 REQUIRES TOOL uname
 REQUIRES TOOL which
 
-SOURCE https://daugasauron.com/static/neovim/cmake.tar.gz e49a4a2cd7ed5ff7fb2b8a7bf3a0ce1a61b7dd444b20604075e2152f158c4a41 /tmp/cmake/source.tar.gz
+SOURCE https://daugasauron.com/dist/static/neovim/cmake.tar.gz e49a4a2cd7ed5ff7fb2b8a7bf3a0ce1a61b7dd444b20604075e2152f158c4a41 /tmp/cmake/source.tar.gz
 SLOP gzip -dc /tmp/cmake/source.tar.gz | tar -xf - -C /
 
 FILE /tmp/cmake/build.slop

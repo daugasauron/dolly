@@ -19,7 +19,7 @@ const loadProjectGraph = createDollyfileGraphLoader(projectDir);
 test("module-owned command sources have no divergent standalone copies", async () => {
   const commands = new Set(await readdir(resolve(projectDir, "src/commands")));
   for (const [location, path] of await recipeFiles(projectDir)) {
-    if (!location.startsWith("/modules/")) continue;
+    if (!path.endsWith(".dm")) continue;
     const module = inspectDollyfile(await readFile(resolve(projectDir, path), "utf8"), location);
     for (const file of module.files) {
       if (!file.path.endsWith(".c")) continue;

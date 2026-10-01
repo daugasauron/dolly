@@ -14,7 +14,7 @@ REQUIRES TOOL tar
 REQUIRES TOOL gzip
 REQUIRES TOOL rm
 
-SOURCE https://daugasauron.com/static/rts/seven-kingdoms.tar.gz 3aad67177fca52d82c53b9a1e4d80665e3b11457480ca434cb9c9294195b04d6 /tmp/seven-kingdoms/source.tar.gz
+SOURCE https://daugasauron.com/dist/static/rts/seven-kingdoms.tar.gz 3aad67177fca52d82c53b9a1e4d80665e3b11457480ca434cb9c9294195b04d6 /tmp/seven-kingdoms/source.tar.gz
 SLOP gzip -dc /tmp/seven-kingdoms/source.tar.gz | tar -xf - -C /
 SLOP make -f /usr/src/dolly/rts/Makefile
 

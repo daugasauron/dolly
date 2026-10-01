@@ -66,8 +66,8 @@ URL and pin. For example, inspect QuickJS's recipe and C source without
 installing that module:
 
 ```sh
-curl -f https://daugasauron.com/modules/quickjs.dm
-curl -f https://daugasauron.com/static/default/runtimes/quickjs-main.c
+curl -f https://daugasauron.com/demos/javascript/quickjs.dm
+curl -f https://daugasauron.com/dist/static/default/runtimes/quickjs-main.c
 ```
 
 For archives, download with `curl -f URL -o /tmp/NAME.tar`, compare `sha256sum`

@@ -11,7 +11,7 @@ const storeName = "sessions";
 
 export function validSessionName(value) {
   return typeof value === "string" && value.length >= 1 && value.length <= 64 &&
-    value !== "." && value !== ".." && value !== "index.html" && /^[A-Za-z0-9._-]+$/.test(value);
+    value !== "." && value !== ".." && /^[A-Za-z0-9._-]+$/.test(value);
 }
 
 export function sessionImageIdentity(definitions, selectedImage) {
@@ -51,7 +51,7 @@ export function sessionCompatible(record, definitions, buildId, imageBuildId) {
 export function sessionLoadUrl(name, applicationBase) {
   if (!validSessionName(name)) throw new TypeError("invalid Dolly session name");
   // Local releases pin assets by digest; named-session links stay public and stable.
-  return publicURL(`session/${name}`, applicationBase);
+  return publicURL(`session/?name=${name}`, applicationBase);
 }
 
 export async function listStoredSessions() {

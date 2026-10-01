@@ -8,14 +8,14 @@ single files between the user's computer and WasmFS, one user action at a time.
 flowchart LR
   boot["Boot: kernel fingerprints the base image"] --> save["Save: kernel encodes changed, new and deleted paths"]
   save -- "snapshot@0 mailbox chunks" --> gzip["Page: gzip"] --> idb[("IndexedDB, per origin")]
-  idb -- "/session/NAME" --> restore["Boot the same base, apply the delta, run ENTRY"]
+  idb -- "/session/?name=NAME" --> restore["Boot the same base, apply the delta, run ENTRY"]
 ```
 
 ## Save and load
 
 - **Save** or `Ctrl+Shift+S` stores a checkpoint named with 1–64 of
-  `A-Z a-z 0-9 . _ -` (not `.`, `..` or `index.html`). `/session/` lists saves
-  with Export, Import, Delete and Recover files; `/session/NAME` loads one.
+  `A-Z a-z 0-9 . _ -` (not `.` or `..`). `/sessions/` lists saves with Export,
+  Import, Delete and Recover files; `/session/?name=NAME` loads one.
 - A save holds files, directories, symlinks and deletions, including credentials
   and Pi conversations (`~/.pi/agent/sessions`). It does not hold processes,
   descriptors, scrollback, environment, cwd, hard links, timestamps or modes.

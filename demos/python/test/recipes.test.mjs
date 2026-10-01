@@ -12,7 +12,7 @@ const requirements = (module, type) =>
   module.requirements.filter(item => item.type === type).map(({ name }) => name);
 
 test("CPython, libffi and Bonnie declare their tools, headers, licenses and exports", async () => {
-  const graph = await loadProjectGraph("Dollyfile-python");
+  const graph = await loadProjectGraph("demos/python/Dollyfile-python");
   const module = name => graph.modules.find(item => item.name === name);
   assert.ok(module("libffi").files.some(({ path }) => path === "/usr/share/licenses/libffi/LICENSE"));
   assert.ok(module("cpython").files.some(({ path }) => path === "/usr/share/licenses/cpython/LICENSE"));
@@ -29,13 +29,13 @@ test("CPython, libffi and Bonnie declare their tools, headers, licenses and expo
 });
 
 test("Bonnie is a retained two-file command with transactional graph helpers", async () => {
-  const graph = await loadProjectGraph("Dollyfile-python");
+  const graph = await loadProjectGraph("demos/python/Dollyfile-python");
   const bonnie = graph.modules.find(({ name }) => name === "bonnie");
   assert.deepEqual(
     bonnie.sources.map(({ location, destination }) => [location, destination]),
     [
-      ["https://daugasauron.com/static/python/commands/bonnie.c", "/tmp/bonnie/bonnie.c"],
-      ["https://daugasauron.com/static/python/runtimes/bonnie.py", "/usr/lib/bonnie/bonnie.py"],
+      ["https://daugasauron.com/dist/static/python/commands/bonnie.c", "/tmp/bonnie/bonnie.c"],
+      ["https://daugasauron.com/dist/static/python/runtimes/bonnie.py", "/usr/lib/bonnie/bonnie.py"],
     ],
   );
   assert.ok(bonnie.files.some(({ path, body }) =>

@@ -105,7 +105,7 @@ await browserTest("image", { server: { fixtures, handle }, timeout: 600_000 }, a
     await target.evaluate(() => __dolly.waitForInteractiveTerminal(/dolly:[^\n]*\$\s*$/, "iteration shell"));
     assert.equal(await target.evaluate(command => __dolly.submit(command), `test "$(iteration)" = ${marker} && ` +
       'test "$DOLLY_ITERATION" = first:second && test ! -e /usr/share/iteration-deleted && test "$(which echo)" = /opt/iteration/bin/echo'), 0);
-    assert.deepEqual([...server.requests.keys()].filter(path => path.startsWith("/static/") || path === "/dist/dolly.data"), [],
+    assert.deepEqual([...server.requests.keys()].filter(path => path.startsWith("/dist/static/") || path === "/dist/dolly.data"), [],
       "a derived build fetched build sources or the compiler seed");
     return target.evaluate(async () => ({
       digest: [...new Uint8Array(await crypto.subtle.digest("SHA-256", __dolly.systemSnapshot))]

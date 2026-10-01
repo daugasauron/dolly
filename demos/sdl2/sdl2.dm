@@ -9,7 +9,7 @@ REQUIRES TOOL make
 REQUIRES TOOL tar
 REQUIRES TOOL rm
 
-SOURCE https://daugasauron.com/static/sdl2/source.tar ea695509dce4679cb7ae381d9072995ea6f5f43fb6831f1c26e7703bea12629f /tmp/sdl2/source.tar
+SOURCE https://daugasauron.com/dist/static/sdl2/source.tar ea695509dce4679cb7ae381d9072995ea6f5f43fb6831f1c26e7703bea12629f /tmp/sdl2/source.tar
 SLOP tar -xf /tmp/sdl2/source.tar -C /
 SLOP cmake -S /tmp/sdl2/source -B /tmp/sdl2/build \
   -DCMAKE_SYSTEM_NAME=Dolly -DCMAKE_SYSTEM_PROCESSOR=wasm64 \

@@ -43,10 +43,11 @@ export async function updateRecipePins(projectDir, refreshSources = false) {
     if (refreshSources) for (const source of recipe.sources) {
       const path = canonicalPath(source.location);
       if (path === null) continue;
-      const input = path.startsWith("/static/") ? `dist${path}` : publishedHeaders.get(path) ?? null;
-      if (!input) throw new Error(`${location}: ${source.location} is outside trusted build inputs`);
+      if (!path.startsWith("/dist/static/") && !publishedHeaders.has(path)) {
+        throw new Error(`${location}: ${source.location} is outside trusted build inputs`);
+      }
       let bytes;
-      try { bytes = await readFile(resolve(projectDir, input)); }
+      try { bytes = await readFile(resolve(projectDir, path.slice(1))); }
       catch (error) {
         // Other catalog images may not have been staged by this selected build.
         // verify-static-sources still requires every selected input to exist.
@@ -66,7 +67,7 @@ export async function updateRecipePins(projectDir, refreshSources = false) {
     pinned.set(location, sha256);
     return sha256;
   }
-  const images = [...files.keys()].filter(url => !canonicalPath(url).startsWith("/modules/")).sort();
+  const images = [...files.keys()].filter(url => !url.endsWith(".dm")).sort();
   for (const image of images) await pin(image);
   return { recipes: pinned.size, images: images.length };
 }

@@ -30,7 +30,7 @@ test("pin updates change only digest operands, not matching paths or comments", 
     const recipe = (sourcePin, basePin, modulePin) => `DOLLY 5
 IMAGE default
 FROM https://daugasauron.com/Dollyfile-base '${basePin}' # ${old}
-SOURCE https://daugasauron.com/static/${old} \\ # ${old}
+SOURCE https://daugasauron.com/dist/static/${old} \\ # ${old}
   "${sourcePin}" \\
   /tmp/${old} # ${old}
 COPY FROM https://daugasauron.com/Dollyfile-base ${basePin} /usr/share/${old} /usr/share/${old}
@@ -58,7 +58,7 @@ test("unreferenced module sources are admitted without staging their inputs or e
   try {
     await mkdir(resolve(directory, "modules"));
     await writeFile(resolve(directory, "Dollyfile"), "DOLLY 5\nIMAGE default\nENTRY /bin/slop\n");
-    const source = `DOLLY 5\nMODULE addon\nREQUIRES TOOL arbitrary\nSOURCE https://daugasauron.com/static/not-staged ${"0".repeat(64)} /tmp/input\n`;
+    const source = `DOLLY 5\nMODULE addon\nREQUIRES TOOL arbitrary\nSOURCE https://daugasauron.com/dist/static/not-staged ${"0".repeat(64)} /tmp/input\n`;
     await writeFile(resolve(directory, "modules/addon.dm"), source);
     await writeFile(resolve(directory, "modules/draft.dm"), "unfinished recipe");
     await writeFile(resolve(directory, "modules/empty.dm"), "");
@@ -112,7 +112,7 @@ test("images separate reusable runtimes from applications and configuration", as
   }
 });
 
-test("demo recipes share the flat logical namespace and names stay unique", async () => {
+test("demo recipes are published at their checkout paths and names stay unique", async () => {
   const directory = await mkdtemp(resolve(tmpdir(), "dolly-demo-recipes-"));
   try {
     await mkdir(resolve(directory, "modules"));
@@ -122,14 +122,14 @@ test("demo recipes share the flat logical namespace and names stay unique", asyn
     await writeFile(resolve(directory, "Dollyfile"), base);
     await writeFile(resolve(directory, "demos/example/extra.dm"), module);
     await writeFile(resolve(directory, "demos/example/Dollyfile-example"),
-      `DOLLY 5\nIMAGE example\nFROM https://daugasauron.com/Dollyfile ${digest(base)}\nUSE https://daugasauron.com/modules/extra.dm ${digest(module)}\nENTRY /bin/slop\n`);
-    assert.deepEqual((await discoverImageDefinitions(directory)).map(({ filename, path }) => [filename, path]),
-      [["Dollyfile", "Dollyfile"], ["Dollyfile-example", "demos/example/Dollyfile-example"]]);
-    const graph = await loadDollyfileGraph(directory, "Dollyfile-example");
+      `DOLLY 5\nIMAGE example\nFROM https://daugasauron.com/Dollyfile ${digest(base)}\nUSE https://daugasauron.com/demos/example/extra.dm ${digest(module)}\nENTRY /bin/slop\n`);
+    assert.deepEqual((await discoverImageDefinitions(directory)).map(({ filename }) => filename),
+      ["Dollyfile", "demos/example/Dollyfile-example"]);
+    const graph = await loadDollyfileGraph(directory, "demos/example/Dollyfile-example");
     assert.deepEqual(recipeRecords(graph).map(record => record.locator), ["https://daugasauron.com/Dollyfile",
-      "https://daugasauron.com/modules/extra.dm", "https://daugasauron.com/Dollyfile-example"]);
+      "https://daugasauron.com/demos/example/extra.dm", "https://daugasauron.com/demos/example/Dollyfile-example"]);
     await writeFile(resolve(directory, "modules/extra.dm"), module);
-    await assert.rejects(recipeFiles(directory), /\/modules\/extra\.dm is already/);
+    await assert.rejects(recipeFiles(directory), /extra\.dm is already modules\/extra\.dm/);
   } finally { await rm(directory, { recursive: true, force: true }); }
 });
 

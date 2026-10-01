@@ -29,16 +29,16 @@ EXPORTS ENV PYTHONDONTWRITEBYTECODE 1
 # The target is configured outside the browser, but every target object and
 # executable is compiled here. Dolly-owned adapters remain independent pinned
 # inputs instead of being hidden inside the upstream archive.
-SOURCE https://daugasauron.com/static/python/cpython.tar.gz 142995f7859e547bdf0b8c8d736919b1543f54aec3c220af86cbf5f31bf71b8e /tmp/cpython.tar.gz
+SOURCE https://daugasauron.com/dist/static/python/cpython.tar.gz 142995f7859e547bdf0b8c8d736919b1543f54aec3c220af86cbf5f31bf71b8e /tmp/cpython.tar.gz
 
 SLOP gzip -dc /tmp/cpython.tar.gz | tar -xf - -C /
 
-SOURCE https://daugasauron.com/static/python/runtimes/cpython-platform.c        9a58412f3ecfebfef6bbd67dfc5fa43959314568b6add06c7c0d548ddc7eb5b6 /usr/src/python/Python/dolly_platform.c
-SOURCE https://daugasauron.com/static/python/runtimes/cpython-extension-check.c 1763ec04e582beee6066af81c93fe20e8cf0d83ae7d41d935b395c5cb3cdf071 /usr/src/python/Modules/dolly_extension_check.c
-SOURCE https://daugasauron.com/static/python/runtimes/cpython-socket-stubs.c    d54e0a1d299c128d483e7edc9dc089693e8ca53a7de54509e687a87a6368a4ce /usr/src/python/Modules/dolly_socket_stubs.c
-SOURCE https://daugasauron.com/static/python/runtimes/cpython-termios.c         70126bf939cb2cc3537cb18892a84004801c24bdebc68526a621c52b4a5edc3d /usr/src/python/Modules/dolly_termios.c
-SOURCE https://daugasauron.com/static/python/runtimes/cpython-process.c         9dfbbe0c2de367d829b4fec488ff4e17488324c4cc4c750b34de2c82547fb943 /usr/src/python/Modules/dolly_process.c
-SOURCE https://daugasauron.com/static/python/runtimes/cpython-subprocess.py     cabc2b4eb15e61332c2b63454724c3b390c5f2a2f0effa2889861e123835b785 /usr/src/python/Lib/_dolly_subprocess.py
+SOURCE https://daugasauron.com/dist/static/python/runtimes/cpython-platform.c        9a58412f3ecfebfef6bbd67dfc5fa43959314568b6add06c7c0d548ddc7eb5b6 /usr/src/python/Python/dolly_platform.c
+SOURCE https://daugasauron.com/dist/static/python/runtimes/cpython-extension-check.c 1763ec04e582beee6066af81c93fe20e8cf0d83ae7d41d935b395c5cb3cdf071 /usr/src/python/Modules/dolly_extension_check.c
+SOURCE https://daugasauron.com/dist/static/python/runtimes/cpython-socket-stubs.c    d54e0a1d299c128d483e7edc9dc089693e8ca53a7de54509e687a87a6368a4ce /usr/src/python/Modules/dolly_socket_stubs.c
+SOURCE https://daugasauron.com/dist/static/python/runtimes/cpython-termios.c         70126bf939cb2cc3537cb18892a84004801c24bdebc68526a621c52b4a5edc3d /usr/src/python/Modules/dolly_termios.c
+SOURCE https://daugasauron.com/dist/static/python/runtimes/cpython-process.c         9dfbbe0c2de367d829b4fec488ff4e17488324c4cc4c750b34de2c82547fb943 /usr/src/python/Modules/dolly_process.c
+SOURCE https://daugasauron.com/dist/static/python/runtimes/cpython-subprocess.py     cabc2b4eb15e61332c2b63454724c3b390c5f2a2f0effa2889861e123835b785 /usr/src/python/Lib/_dolly_subprocess.py
 
 SLOP CWD /usr/src/python touch \
   Python/frozen_modules/*.h

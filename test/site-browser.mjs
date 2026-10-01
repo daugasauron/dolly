@@ -42,7 +42,7 @@ await browserTest("site", { server: { handle } }, async ({ browser, server }) =>
     const displayed = DOLLY_IMAGES.find(definition => definition.image === image).hostRequirements.includes("display@0");
     assert.deepEqual(links.sort(), [...displayed ? [`${prefix}/${image}/`] : [], `${prefix}/${image}/rebuild/`,
       `${prefix}/view/${image}/`].sort(), image);
-    for (const link of links) assert.ok(existsSync(`${root}build/routes${link.slice(prefix.length)}index.html`), link);
+    for (const link of links) assert.ok(existsSync(`${root}${link.slice(prefix.length + 1)}index.html`), link);
   }
   await page.click('a[href="#shortcuts"]');
   assert.equal(await page.evaluate(() => location.hash), "#shortcuts");
@@ -51,7 +51,7 @@ await browserTest("site", { server: { handle } }, async ({ browser, server }) =>
   // A large source link is a verified scripted download of the exact bytes.
   await page.goto(`${origin}${prefix}/view/zig-build/modules/zig/`);
   assert.ok(await page.locator("pre .line").count() > 2);
-  const link = page.locator('a.source[href$="/static/default/zig.tar"]');
+  const link = page.locator('a.source[href$="/dist/static/default/zig.tar"]');
   const saved = page.waitForEvent("download", { timeout: 120000 });
   await link.click();
   const download = await saved;

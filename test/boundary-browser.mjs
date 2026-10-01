@@ -6,8 +6,8 @@ import { createHttpRedirectFixture } from "./fixtures/http-redirect-server.mjs";
 
 // One source served the way the Pages export delivers oversized static assets:
 // a manifest (x-dolly-parts: 1) plus fixed sibling .part-N files.
-const source = "/static/default/commands/curl.c";
-const bytes = await readFile(new URL(`../dist${source}`, import.meta.url));
+const source = "/dist/static/default/commands/curl.c";
+const bytes = await readFile(new URL(`..${source}`, import.meta.url));
 const half = Math.ceil(bytes.length / 2), parts = [bytes.subarray(0, half), bytes.subarray(half)];
 const sha256 = value => createHash("sha256").update(value).digest("hex");
 const manifest = JSON.stringify({ byteLength: bytes.length, sha256: sha256(bytes),
@@ -22,7 +22,7 @@ async function handle(request, response, path, headers) {
     response.end(manifest);
     return true;
   }
-  const part = /^\/static\/default\/commands\/curl\.c\.part-([01])$/.exec(path);
+  const part = /^\/dist\/static\/default\/commands\/curl\.c\.part-([01])$/.exec(path);
   if (!part) return false;
   partRequests.push(path);
   response.writeHead(200, { ...headers, "content-type": "application/octet-stream" });

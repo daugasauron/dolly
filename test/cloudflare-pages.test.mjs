@@ -17,7 +17,7 @@ test("Pages transport compresses source assets and splits incompressible files w
   assert.ok(encoded.bytes.length < 25 * 1024 * 1024);
   assert.deepEqual(brotliDecompressSync(encoded.bytes), large);
   for (const [bytes, path] of [[large, `dist/packs/${"a".repeat(64)}.snapshot.gz`],
-    [randomBytes(large.length), "_dolly/release/static/incompressible.data"]]) {
+    [randomBytes(large.length), "_dolly/release/dist/static/incompressible.data"]]) {
     const asset = await pagesAsset(bytes, path);
     assert.equal(asset.compressed, false);
     assert.deepEqual(Buffer.concat(asset.parts), bytes);
@@ -29,13 +29,13 @@ test("Pages transport compresses source assets and splits incompressible files w
 
 test("Pages headers retain isolation, explicit transport encoding and bounded rules", () => {
   const prefix = `_dolly/${"a".repeat(64)}/`;
-  const headers = pagesHeaders([prefix + "dist/dolly.data", prefix + "static/default/zig.wasm"]);
+  const headers = pagesHeaders([prefix + "dist/dolly.data", prefix + "dist/static/default/zig.wasm"]);
   assert.match(headers, /Cross-Origin-Embedder-Policy: require-corp/);
   assert.match(headers, /! Cache-Control\n  Cache-Control: public, max-age=31536000, immutable, no-transform/);
   assert.match(headers, /dist\/dolly.data\n  Content-Encoding: br/);
   assert.match(headers, /zig.wasm\n  Content-Encoding: br\n  Content-Type: application\/octet-stream/);
   assert.doesNotMatch(headers, /Content-Encoding: gzip/);
-  const multipart = pagesHeaders([], [prefix + "static/rust/sdk.tar.gz", `dist/packs/${"b".repeat(64)}.snapshot.gz`]);
+  const multipart = pagesHeaders([], [prefix + "dist/static/rust/sdk.tar.gz", `dist/packs/${"b".repeat(64)}.snapshot.gz`]);
   assert.equal((multipart.match(/X-Dolly-Parts: 1/g) ?? []).length, 2);
   assert.doesNotMatch(multipart, /Content-Encoding/);
   assert.throws(() => pagesHeaders([], ["https://other.example/file"]), /invalid Pages multipart path/);

@@ -2,6 +2,7 @@ import { DOLLY_BUILD_ID } from "../../dist/dolly-build-id.mjs";
 import { DOLLY_IMAGE_BUILD_ID } from "../../dist/dolly-image-build-id.mjs";
 import { loadCustomImage } from "../../src/custom-image.mjs";
 import { sha256 } from "../../src/image-artifact.mjs";
+import { publicURL } from "../../src/static-asset.mjs";
 import {
   DOLLY_SESSION_FORMAT_VERSION,
   encodeSessionStream,
@@ -90,7 +91,7 @@ export function mountSessionSave({ keyboard, showStatus, applicationBase }, tran
   button.addEventListener("click", open);
   document.querySelector("#session-close").addEventListener("click", () => dialog.close());
   dialog.addEventListener("close", () => keyboard.focus({ preventScroll: true }));
-  document.querySelector("#session-list").href = new URL(".", sessionLoadUrl("index", applicationBase)).href;
+  document.querySelector("#session-list").href = publicURL("sessions/", applicationBase).href;
   document.querySelector("#session-form").addEventListener("submit", event => {
     event.preventDefault();
     void save(nameField.value.trim()).catch(() => {});
@@ -117,7 +118,7 @@ export function mountSessionSave({ keyboard, showStatus, applicationBase }, tran
         name = name.trim();
       }
       if (!validSessionName(name)) {
-        throw new Error("Session names use 1-64 letters, numbers, '.', '_' or '-'; index.html is reserved");
+        throw new Error("Session names use 1-64 letters, numbers, '.', '_' or '-'");
       }
       if (name !== sessionName && await loadStoredSession(name) !== null &&
           !window.confirm(`Replace the saved session '${name}'?`)) return null;
@@ -155,7 +156,7 @@ export function mountSessionSave({ keyboard, showStatus, applicationBase }, tran
       dataset.sessionBytes = String(encodedSize);
       dataset.sessionStatus = "saved";
       history.replaceState(null, "", sessionLoadUrl(name, applicationBase));
-      showStatus(`Saved ${name} locally · /session lists your saves`);
+      showStatus(`Saved ${name} locally · /sessions lists your saves`);
       update();
       return name;
     })().catch((error) => {

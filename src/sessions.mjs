@@ -95,7 +95,7 @@ input.addEventListener("change", () => {
     const name = window.prompt("Import session as:", record.name);
     if (name === null) { await refresh(); return; }
     record.name = name.trim();
-    if (!validSessionName(record.name)) throw new Error("Names use 1–64 letters, numbers, '.', '_' or '-'; index.html is reserved.");
+    if (!validSessionName(record.name)) throw new Error("Names use 1–64 letters, numbers, '.', '_' or '-'.");
     await saveStoredSession(record, { overwrite: false });
     await refresh();
   });

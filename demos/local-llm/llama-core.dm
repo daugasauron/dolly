@@ -8,7 +8,7 @@ REQUIRES TOOL make
 REQUIRES TOOL tar
 REQUIRES TOOL rm
 
-SOURCE https://daugasauron.com/static/llama/source.tar 5f3ad5d6f0579842ed9911468b521e73f430b3cd1545986a9e849fe3afa49afd /tmp/llama-source.tar
+SOURCE https://daugasauron.com/dist/static/llama/source.tar 5f3ad5d6f0579842ed9911468b521e73f430b3cd1545986a9e849fe3afa49afd /tmp/llama-source.tar
 SLOP tar -xf /tmp/llama-source.tar -C /
 SLOP cmake -S /tmp/llama -B /tmp/llama/build \
   -DCMAKE_SYSTEM_NAME=Dolly -DCMAKE_SYSTEM_PROCESSOR=wasm64 \

@@ -25,11 +25,10 @@ function fixture() {
   };
 }
 
-test("session URLs are named paths, including a deployment prefix", () => {
+test("session URLs name the session in the query, including a deployment prefix", () => {
   assert.equal(sessionLoadUrl("work.1", "https://example.test/dolly/").href,
-    "https://example.test/dolly/session/work.1");
+    "https://example.test/dolly/session/?name=work.1");
   assert.throws(() => sessionLoadUrl("../secret", "https://example.test/"));
-  assert.throws(() => sessionLoadUrl("index.html", "https://example.test/"));
 });
 
 test("publication and completion between observation and wait cannot lose a wake", async () => {

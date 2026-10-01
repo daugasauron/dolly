@@ -39,7 +39,7 @@ test("default copies Ghostty runtime bytes without its compiler or development f
 });
 
 test("the Zig archive installs exactly its supported-target SDK roots", {
-  skip: !DOLLY_STATIC_SOURCES.some(source => source.path === "/static/default/zig.tar"),
+  skip: !DOLLY_STATIC_SOURCES.some(source => source.path === "/dist/static/default/zig.tar"),
 }, async () => {
   const roots = (await readFile(new URL("../config/zig-sdk-files.txt", import.meta.url), "utf8"))
     .split("\n").filter(line => line && !line.startsWith("#"));

@@ -14,7 +14,7 @@ REQUIRES TOOL cp
 REQUIRES TOOL rm
 REQUIRES TOOL sed
 
-SOURCE https://daugasauron.com/static/neovim/lua-5.1.5.tar.gz 2640fc56a795f29d28ef15e13c34a47e223960b0240e8cb0a82d9b0738695333 /tmp/lua/source.tar.gz
+SOURCE https://daugasauron.com/dist/static/neovim/lua-5.1.5.tar.gz 2640fc56a795f29d28ef15e13c34a47e223960b0240e8cb0a82d9b0738695333 /tmp/lua/source.tar.gz
 SLOP gzip -dc /tmp/lua/source.tar.gz > /tmp/lua/source.tar
 SLOP tar -xf /tmp/lua/source.tar -C /tmp/lua
 SLOP sed 's@"/usr/local/"@"/usr/"@' /tmp/lua/lua-5.1.5/src/luaconf.h > /tmp/lua/luaconf.h
