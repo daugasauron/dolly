@@ -83,7 +83,7 @@ and gives each role one import verb; the rest follows.
 | `DOLLY 5` | `DOLLY 6` | Role keywords, `INSTALL`, `COPY` and the retained paths change meaning; every image rebuilds anyway because every pin changes. |
 | `IMAGE name` | `APPLICATION`, `TOOLCHAIN` or `PACKAGE name` | The role is the one fact the tools had to guess (3). The kind word is the role, so nothing else is needed to state it. |
 | `MODULE name` | keep | A reusable fragment run inline; caching it was rejected in v3 for good reasons. |
-| names | `[a-z][a-z0-9]*([.-][a-z0-9]+)*`, 32 bytes, both kinds | One grammar (2); dots for versions. Image URLs must name their file, as module URLs already did (9). |
+| names | `[a-z][a-z0-9]*(-[a-z0-9]+|\.[0-9]+)*`, 32 bytes, both kinds | One grammar (2); a dot starts version digits (`qwen3.5-4b`, `llama3.2-3b`, `python3.14`), which keeps the documentation copies `Dollyfile-NAME.txt` that releases publish for unselected recipes out of recipe discovery. Image URLs must name their file, as module URLs already did (9). |
 | `FROM URL SHA` | keep; a package keeps nothing of its base | The base of an application or toolchain is extended; the base of a package is only where it is built, so the package stays lean without `COPY` rows. `FROM` takes an application or toolchain, never a package. |
 | `COPY FROM URL SHA SRC DST` | `COPY URL SHA SRC DST` | One word per directive (1). Still files only: multi-stage builds pick exact outputs. |
 | new: `INSTALL URL SHA` | import a package | The missing verb (5): files, exports (ENV as values) and host requirements, anywhere, in modules too. It is also the row `amy install` executes. |
@@ -144,6 +144,9 @@ extends `pi` and `dollyfile-studio` extends `pi-local`.
   the `neovim` application; both are demo decisions for later.
 
 ### Packages and amy
+
+The specification describes only what this branch implements (`PACKAGE`,
+`INSTALL`, the index); the amy semantics below stay here until amy lands.
 
 - An amy install is the Dollyfile row `INSTALL URL SHA256`, executed against
   the live filesystem by `/bin/dollyfile`; the index maps a name to that row;

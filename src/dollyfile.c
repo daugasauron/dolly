@@ -203,17 +203,19 @@ static int publish_download(const char *temporary, const char *destination, size
   return status;
 }
 
-// Image and module names: [a-z][a-z0-9]*(-[a-z0-9]+|.[0-9]+)*, at most 32
-// bytes. A dot separates version digits only.
+// Image and module names: [a-z][a-z0-9]*(-[a-z0-9]+|\.[0-9]+)*, at most 32
+// bytes. A dot starts a run of version digits.
 static int valid_name(const char *value) {
   const size_t length = strlen(value);
   if (length == 0 || length > 32 || value[0] < 'a' || value[0] > 'z') return 0;
+  int digits_only = 0;
   for (size_t index = 1; index < length; ++index) {
     const char character = value[index], previous = value[index - 1];
-    const int digit = character >= '0' && character <= '9';
     if (character == '-' || character == '.') {
       if (previous == '-' || previous == '.' || index + 1 == length) return 0;
-    } else if (!digit && (previous == '.' || !(character >= 'a' && character <= 'z'))) return 0;
+      digits_only = character == '.';
+    } else if (!((character >= '0' && character <= '9') ||
+                 (!digits_only && character >= 'a' && character <= 'z'))) return 0;
   }
   return 1;
 }

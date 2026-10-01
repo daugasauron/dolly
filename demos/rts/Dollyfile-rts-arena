@@ -1,7 +1,7 @@
 DOLLY 6
 APPLICATION rts-arena
 
-FROM https://daugasauron.com/demos/pi/Dollyfile-pi-runtime a935ce3d42d5ac15c8c3a9139229cd5f8b51558f781492b8c1ae6dbfb317d50a
+FROM https://daugasauron.com/demos/pi/Dollyfile-pi-runtime 178fe38ebe3824ca08cf302cea7b3f3fdf621e15922b0e63a2731af8b33c21e9
 COPY https://daugasauron.com/demos/rts/Dollyfile-rts-build a093b2c1681614dc9e4b98c58083e668fbb7c286f40aee22d2ede79ece82aa18 /usr/bin/seven-kingdoms /usr/bin/seven-kingdoms
 COPY https://daugasauron.com/demos/rts/Dollyfile-rts-build a093b2c1681614dc9e4b98c58083e668fbb7c286f40aee22d2ede79ece82aa18 /usr/share/7kaa /usr/share/7kaa
 COPY https://daugasauron.com/demos/rts/Dollyfile-rts-build a093b2c1681614dc9e4b98c58083e668fbb7c286f40aee22d2ede79ece82aa18 /usr/src/7kaa /usr/src/7kaa

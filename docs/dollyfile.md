@@ -52,12 +52,14 @@ and `/host/MODULE/`, prepared sources in `/dist/static/`.
 | Role | Opened by | Imported by | ENTRY | Keeps |
 | --- | --- | --- | --- | --- |
 | `APPLICATION name` | people, at `/name/` | `FROM` | required, last | its base and everything it declares |
-| `TOOLCHAIN name` | people, when it has ENTRY | `FROM`, `COPY` | optional, last | its base and everything it declares |
-| `PACKAGE name` | nobody | `INSTALL`, `COPY` | none | only what it declares |
+| `TOOLCHAIN name` | people, when it has ENTRY | `FROM` | optional, last | its base and everything it declares |
+| `PACKAGE name` | nobody | `INSTALL` | none | only what it declares |
 | `MODULE name` | nobody | `USE` | none | runs inside its caller |
 
-- Names match `[a-z][a-z0-9]*(-[a-z0-9]+|.[0-9]+)*` and are at most 32 bytes: a
-  dot separates version digits.
+- `COPY` takes files out of an image of any role.
+- Names match `[a-z][a-z0-9]*(-[a-z0-9]+|\.[0-9]+)*` and are at most 32 bytes: a
+  dot starts a run of version digits (`qwen3.5-4b`, `python3.14`), so a
+  documentation copy such as `Dollyfile-example.txt` is never a recipe.
   Image names are unique in a catalog and so are module names; an image and a
   module may share one (`pi`, `pi.dm`).
 - An image recipe is the file `Dollyfile-NAME` (`Dollyfile` for `default`), a
@@ -103,9 +105,9 @@ and `/host/MODULE/`, prepared sources in `/dist/static/`.
   recipe pins, so a change anywhere changes the hash of every recipe that
   depends on it and rebuilds those images. That is intended: every image is
   completely replicable from its recipe chain.
-- Never retained: `/tmp`, `/workspace`, `/home/dolly/.pi/agent/auth.json`,
-  `/home/dolly/.pi/agent/sessions`. `FILE` may write scratch under `/tmp/`;
-  `FOLDER`, exports and `COPY` destinations may not. This is not a secret scanner.
+- Never retained: `/tmp` and `/workspace`. `FILE` may write scratch under
+  `/tmp/`; `FOLDER`, exports and `COPY` destinations may not. Retention is
+  explicit, so a recipe keeps credentials or sessions only by naming them.
 
 ## Execution
 
@@ -200,11 +202,10 @@ The browser runs the retained ENTRY once, and only an image with ENTRY and
 and then a recovery shell; toolchains that can be opened enter
 `/bin/foreground -i /bin/slop`.
 
-## Packages and amy
+## Packages
 
-A package is the unit both recipes and running sessions install: a lean image
-that holds only the files and exports it declares, built in a toolchain
-(`FROM`) or from nothing.
+A package is the unit recipes install: a lean image that holds only the files
+and exports it declares, built in a toolchain (`FROM`) or from nothing.
 
 ```text
 DOLLY 6
@@ -214,22 +215,13 @@ FROM https://daugasauron.com/demos/rust/Dollyfile-rust-build <sha256>
 USE https://daugasauron.com/demos/rust/ripgrep.dm <sha256>
 ```
 
-- A recipe installs it with `INSTALL URL SHA256`. `amy install NAME` executes
-  the same row in a running session: `amy` is a front end over
-  `/bin/dollyfile`, not a second installer.
-- The release publishes the package index, `dist/dolly-packages.txt`, one
-  `NAME URL SHA256` line per package; the index is the only unpinned step of an
-  install.
-- `amy` appends each executed row to `/etc/dolly/installed`. `amy freeze NAME`
-  writes the application recipe that rebuilds the session as an image:
-  `FROM` the booted image at its pin, the installed rows, and the image's ENTRY.
+- A recipe installs it with `INSTALL URL SHA256`, anywhere, in modules too.
 - Packages install into standard paths (`/usr/bin`, `/usr/lib`, `/usr/share`)
   and set environment variables only for their own use: an installed value
-  replaces the session's.
-- Trust equals the image cache's: the page materializes a package artifact
-  from its verified published snapshot, checks the package's host requirements
-  against the enabled modules, and places it at
-  `/etc/dolly/artifacts/SHA256.snapshot` before the engine runs the row.
+  replaces the importer's.
+- The release publishes the package index, `dist/dolly-packages.txt`, one
+  `NAME URL SHA256` line per package, so a session can name a package and get
+  its `INSTALL` row.
 
 ## Building
 

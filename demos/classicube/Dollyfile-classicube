@@ -1,7 +1,7 @@
 DOLLY 6
 APPLICATION classicube
 
-FROM https://daugasauron.com/demos/pi/Dollyfile-pi-runtime a935ce3d42d5ac15c8c3a9139229cd5f8b51558f781492b8c1ae6dbfb317d50a
+FROM https://daugasauron.com/demos/pi/Dollyfile-pi-runtime 178fe38ebe3824ca08cf302cea7b3f3fdf621e15922b0e63a2731af8b33c21e9
 COPY https://daugasauron.com/demos/classicube/Dollyfile-classicube-build 7411dbd4a6cc9f18cd8b3fc579ffe349a0686eb26e350e75a3a957ce243e8307 /usr/bin/classicube /usr/bin/classicube
 COPY https://daugasauron.com/demos/classicube/Dollyfile-classicube-build 7411dbd4a6cc9f18cd8b3fc579ffe349a0686eb26e350e75a3a957ce243e8307 /usr/share/classicube /home/dolly/classicube
 COPY https://daugasauron.com/demos/classicube/Dollyfile-classicube-build 7411dbd4a6cc9f18cd8b3fc579ffe349a0686eb26e350e75a3a957ce243e8307 /usr/share/licenses/classicube /usr/share/licenses/classicube

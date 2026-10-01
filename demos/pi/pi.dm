@@ -18,6 +18,10 @@ SOURCE https://daugasauron.com/dist/static/default/pi/dolly-skill.md            
 EXPORTS ENV PI_PACKAGE_DIR /usr/lib/node_modules/@earendil-works/pi-coding-agent
 EXPORTS ENV PI_SKIP_VERSION_CHECK 1
 EXPORTS TOOL pi
-FOLDER /home/dolly/.pi/agent
+FILE /home/dolly/.pi/agent/extensions/dolly-tools.js
+FILE /home/dolly/.pi/agent/SYSTEM.md
+FILE /home/dolly/.pi/agent/settings.json
+FILE /home/dolly/.pi/agent/themes/dolly.json
+FILE /home/dolly/.pi/agent/skills/dolly/SKILL.md
 
 SLOP pi --version

@@ -130,8 +130,8 @@ select no JavaScript or Worker URL.
 - Sessions and exports may contain credentials; they are neither encrypted nor
   signed. Browser storage is per origin: every site on one `github.io` account
   can read Dolly's sessions and image cache.
-- Images never retain `/tmp`, `/workspace` or Pi's `auth.json` and sessions. This
-  is not a secret scanner. A hash proves byte identity, not that an image is benign.
+- Images never retain `/tmp` or `/workspace`, and otherwise only the paths their
+  recipes name. A hash proves byte identity, not that an image is benign.
 
 ## Required checks
 

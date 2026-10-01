@@ -33,9 +33,9 @@ export const syntaxCases = [
   [false, root("DOLLY 6\nAPPLICATION Default\nENTRY /bin/slop\n")],
   [true, root(`DOLLY 6\nAPPLICATION ${"a".repeat(32)}\nENTRY /bin/slop\n`)],
   [false, root(`DOLLY 6\nAPPLICATION ${"a".repeat(33)}\nENTRY /bin/slop\n`)],
-  [true, root("DOLLY 6\nAPPLICATION qwen3.5-4b\nENTRY /bin/slop\n")],
-  [true, root("DOLLY 6\nAPPLICATION lua5.5\nENTRY /bin/slop\n")],
-  ...["example.txt", "a.b", "a..5", "a-", "a.", "-a", "a--b", "a-.5", "a.5.", "a_b"]
+  ...["qwen3.5-4b", "lua5.5", "qwen2.5-coder", "llama3.2-3b", "gemma-3n", "python3.14", "lua5.4.6-rc1"]
+    .map(name => [true, root(`DOLLY 6\nAPPLICATION ${name}\nENTRY /bin/slop\n`)]),
+  ...["example.txt", "a.b", "qwen3.5b", "a.5b", "a..5", "a-", "a.", "-a", "a--b", "a-.5", "a.5.", "a_b"]
     .map(name => [false, root(`DOLLY 6\nAPPLICATION ${name}\nENTRY /bin/slop\n`)]),
   [false, root("DOLLY 6\nENTRY /bin/slop\nAPPLICATION default\n")],
   [false, root("DOLLY 6\nAPPLICATION default\nAPPLICATION other\nENTRY /bin/slop\n")],

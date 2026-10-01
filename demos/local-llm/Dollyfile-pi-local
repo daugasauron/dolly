@@ -1,7 +1,7 @@
 DOLLY 6
 APPLICATION pi-local
 
-FROM https://daugasauron.com/demos/pi/Dollyfile-pi 87d94589c59da6d6bf10b74e19e71fdf9b79933b1fe6c83759ad306792be7821
+FROM https://daugasauron.com/demos/pi/Dollyfile-pi 3330e368bdcc0f22d36a9b1ec3ce2fd89b7044a121dc1ba86e219027997c3b80
 COPY https://daugasauron.com/demos/local-llm/Dollyfile-local-llm-build 1529d61c5922fde098471e6fdb6e945620b8baf19426a84db004ca7ee0774606 /usr/bin/dolly-llama /usr/bin/dolly-llama
 COPY https://daugasauron.com/demos/local-llm/Dollyfile-llama-build bf099ef30b1b2009d87a96b207abc0450ebea5d66de9e9db5e36db72ac1c7b23 /usr/share/licenses/dolly-llm /usr/share/licenses/dolly-llm
 EXPORTS TOOL dolly-llama

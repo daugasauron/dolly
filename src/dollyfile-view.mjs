@@ -132,19 +132,18 @@ function normalizedPath(url) {
 }
 // The file a recipe URL names, or "" when the value is not a recipe URL.
 export const recipeFileName = url => recipeURL.test(url) && normalizedPath(url) ? url.slice(url.lastIndexOf("/") + 1) : "";
-// Image and module names: [a-z][a-z0-9]*(-[a-z0-9]+|.[0-9]+)*, at most 32 bytes.
+// Image and module names: [a-z][a-z0-9]*(-[a-z0-9]+|\.[0-9]+)*, at most 32
+// bytes. A dot starts a run of version digits, so a documentation copy such as
+// Dollyfile-example.txt is never a recipe.
 export const validName = name => /^[a-z][a-z0-9]*(?:-[a-z0-9]+|\.[0-9]+)*$/.test(name) && name.length <= 32;
 // The image name a file "Dollyfile" or "Dollyfile-NAME" declares, or "".
 export const imageFileName = file => file === "Dollyfile" ? "default" : file.startsWith("Dollyfile-") ? file.slice(10) : "";
 export const moduleFileName = file => file.endsWith(".dm") ? file.slice(0, -3) : "";
 const roles = { APPLICATION: "application", TOOLCHAIN: "toolchain", PACKAGE: "package", MODULE: "module" };
 
-// No image retains scratch space or the bundled agent's credentials and sessions.
+// No image retains scratch space.
 export function unretainedPath(value) {
-  return [
-    "/tmp", "/workspace", "/home/dolly/.pi/agent/auth.json",
-    "/home/dolly/.pi/agent/sessions",
-  ].some((prefix) => value === prefix || value.startsWith(`${prefix}/`));
+  return ["/tmp", "/workspace"].some((prefix) => value === prefix || value.startsWith(`${prefix}/`));
 }
 
 function assertObject(tokens, label, item, directive) {

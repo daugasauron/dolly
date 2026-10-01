@@ -3,7 +3,7 @@ APPLICATION slopyard
 
 FROM https://daugasauron.com/demos/slopyard/Dollyfile-gamedev-sdk 270cc7f9b585f4a2c3301c9b6422a2fd325815e90e9f1bfd7ee5ff2406b27ad2
 INSTALL https://daugasauron.com/demos/javascript/Dollyfile-javascript 8cd3991393fbe6664963f683acd425ace5131f053e80a38f6ab7fcc68ab1b9de
-USE https://daugasauron.com/demos/pi/pi.dm fa866e6d7b68ac6d6be2c45f14ece1d5b960213042fd6c9b7955a6f46ecd9531
+USE https://daugasauron.com/demos/pi/pi.dm b745456fc991639b029e737fdcc99f08fb51ed8a19c5a7a7e36d3fd7b62e10ec
 USE https://daugasauron.com/demos/slopyard/lua55.dm af7ed0c29905efe5d0a4a1c538331095dbf060f18ec098690d6d9d3705f56b03
 USE https://daugasauron.com/demos/slopyard/slopyard.dm 91dfacde5e126ed733c479d674223a3faa5f2c26c1f959fb38b47b9b280a0e57
 
