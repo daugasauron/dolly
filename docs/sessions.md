@@ -24,7 +24,7 @@ flowchart LR
   variables apply when the session loads.
 - `/run`, `/dev` and `/seed` are excluded ([`session-records.h`](../src/session-records.h));
   the uncompressed delta is at most 512 MiB, and exceeding it fails the save
-  visibly. A failed save leaves the previous record intact.
+  visibly, naming the limit. A failed save leaves the previous record intact.
 - Hashing, encoding and restoring stay in Wasm: sessions add no Wasm import or
   path-level browser filesystem API. The kernel serves a save even while the
   foreground program sleeps or waits for input. IndexedDB stores the encoded
