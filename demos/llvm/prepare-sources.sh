@@ -1,5 +1,5 @@
 # Sourced by scripts/prepare-image-sources.sh.
-if has_module llvm-tablegen; then
+if has_image llvm-tablegen; then
   # The seed's checkout (scripts/build-toolchain.sh): pinned commit plus the LLD patch.
   llvm_dir="${project_dir}/.cache/llvm-project"
   bash scripts/verify-git-source.sh "${llvm_dir}" "$(source config/source-pins.sh && echo "${DOLLY_LLVM_COMMIT}")" \

@@ -1,5 +1,5 @@
 # Sourced by scripts/prepare-image-sources.sh.
-if has_module sdl2; then
+if has_image sdl2-build; then
   sdl2_dir="$(bash demos/sdl2/prepare-sdl2.sh)"
   sdl2_inputs=()
   for entry in src include cmake CMakeLists.txt SDL2Config.cmake.in SDL2.spec.in \

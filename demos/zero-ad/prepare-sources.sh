@@ -1,8 +1,8 @@
 # Sourced by scripts/prepare-image-sources.sh.
-if has_module zero-ad; then
+if has_image zero-ad; then
   node demos/zero-ad/toolchain/prepare-distribution.mjs "${static_dir}/zero-ad"
 fi
-if has_module openal; then
+if has_image openal-build; then
   openal_dir="$(bash demos/zero-ad/prepare-openal.sh)"
   node scripts/build-source-tar.mjs "${static_dir}/openal/source.tar" \
     "${openal_dir}" /tmp/openal/source \
