@@ -2,8 +2,11 @@
 #include <dolly/process.h>
 #include <dolly/runtime.h>
 #include <errno.h>
+#include <limits.h>
+#include <poll.h>
 #include <signal.h>
 #include <stdint.h>
+#include <sys/select.h>
 #include "lock.h"
 
 __attribute__((import_module("dolly_process_0"), import_name("call")))
@@ -95,10 +98,8 @@ int raise(int signal_number) {
   return deliver_pending() < 0 ? -1 : 0;
 }
 
-int pthread_sigmask(int how, const sigset_t *restrict set, sigset_t *restrict previous) {
-  if (set && how != SIG_BLOCK && how != SIG_UNBLOCK && how != SIG_SETMASK) return EINVAL;
-  if (previous) *previous = blocked;
-  if (!set) return 0;
+/* Returns deliver_pending's result: 2 when no handler ran. */
+static int set_mask(int how, const sigset_t *set) {
   for (int number = 1; number < _NSIG; ++number) {
     const int member = sigismember(set, number) == 1;
     if (how == SIG_SETMASK || member) {
@@ -107,7 +108,72 @@ int pthread_sigmask(int how, const sigset_t *restrict set, sigset_t *restrict pr
       else sigdelset(&blocked, number);
     }
   }
-  return deliver_pending() < 0 ? errno : 0;
+  return deliver_pending();
+}
+
+int pthread_sigmask(int how, const sigset_t *restrict set, sigset_t *restrict previous) {
+  if (set && how != SIG_BLOCK && how != SIG_UNBLOCK && how != SIG_SETMASK) return EINVAL;
+  if (previous) *previous = blocked;
+  if (!set) return 0;
+  return set_mask(how, set) < 0 ? errno : 0;
+}
+
+/* Atomic over Dolly's signals: a pending signal the mask unblocks interrupts
+ * before the wait, and the kernel interrupts a poll it delivers into. */
+int pselect(int count, fd_set *restrict readers, fd_set *restrict writers,
+            fd_set *restrict errors, const struct timespec *restrict timeout,
+            const sigset_t *restrict mask) {
+  if (count < 0 || count > FD_SETSIZE || (timeout && (timeout->tv_sec < 0 ||
+      timeout->tv_nsec < 0 || timeout->tv_nsec >= 1000000000))) {
+    errno = EINVAL;
+    return -1;
+  }
+  struct pollfd descriptors[FD_SETSIZE];
+  nfds_t used = 0;
+  for (int descriptor = 0; descriptor < count; ++descriptor) {
+    const short events = (readers && FD_ISSET(descriptor, readers) ? POLLIN : 0) |
+        (writers && FD_ISSET(descriptor, writers) ? POLLOUT : 0) |
+        (errors && FD_ISSET(descriptor, errors) ? POLLPRI : 0);
+    if (events) descriptors[used++] = (struct pollfd){descriptor, events, 0};
+  }
+  int milliseconds = -1;
+  if (timeout) {
+    const long long rounded = (long long)timeout->tv_sec * 1000 + (timeout->tv_nsec + 999999) / 1000000;
+    milliseconds = rounded > INT_MAX ? INT_MAX : (int)rounded;
+  }
+  const sigset_t previous = blocked;
+  const int delivered = mask ? set_mask(SIG_SETMASK, mask) : 2;
+  if (delivered >= 0 && delivered < 2) errno = EINTR;
+  int ready = delivered == 2 ? poll(descriptors, used, milliseconds) : -1;
+  if (mask) {
+    const int error = errno;
+    set_mask(SIG_SETMASK, &previous);
+    errno = error;
+  }
+  for (nfds_t index = 0; ready > 0 && index < used; ++index) {
+    if (descriptors[index].revents & POLLNVAL) { errno = EBADF; return -1; }
+  }
+  if (ready < 0) return -1;
+  if (readers) FD_ZERO(readers);
+  if (writers) FD_ZERO(writers);
+  if (errors) FD_ZERO(errors);
+  ready = 0;
+  for (nfds_t index = 0; index < used; ++index) {
+    const struct pollfd *polled = &descriptors[index];
+    if ((polled->events & POLLIN) && (polled->revents & (POLLIN | POLLHUP | POLLERR))) {
+      FD_SET(polled->fd, readers);
+      ++ready;
+    }
+    if ((polled->events & POLLOUT) && (polled->revents & (POLLOUT | POLLERR))) {
+      FD_SET(polled->fd, writers);
+      ++ready;
+    }
+    if ((polled->events & POLLPRI) && (polled->revents & POLLPRI)) {
+      FD_SET(polled->fd, errors);
+      ++ready;
+    }
+  }
+  return ready;
 }
 
 int sigprocmask(int how, const sigset_t *restrict set, sigset_t *restrict previous) {

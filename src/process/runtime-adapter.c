@@ -13,6 +13,8 @@ DOLLY_HOST_REQUIRE(runtime, 0);
 #include <limits.h>
 #include <netdb.h>
 #include <pthread.h>
+#include <signal.h>
+#include <spawn.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -814,6 +816,64 @@ int dolly_dlclose(void *handle) {
       DOLLY_PROCESS_DSO_CLOSE, &request, sizeof(request),
       &response, sizeof(response));
   return decode_dso_response(result, &response);
+}
+
+/* musl's private file-action record (src/process/fdop.h), built by the pinned
+ * libc's posix_spawn_file_actions_* functions; newest first. */
+struct fdop {
+  struct fdop *next, *prev;
+  int cmd, fd, srcfd, oflag;
+  mode_t mode;
+  char path[];
+};
+enum { FDOP_DUP2 = 2 };
+
+/* A child is a fresh process: default dispositions and an empty signal mask.
+ * Dup2 actions replay as parent-to-child descriptor mappings over the
+ * inherited non-CLOEXEC set. Other actions and attributes fail with ENOTSUP. */
+int posix_spawn(pid_t *restrict pid, const char *restrict path,
+                const posix_spawn_file_actions_t *actions,
+                const posix_spawnattr_t *restrict attributes,
+                char *const argv[restrict], char *const envp[restrict]) {
+  const short honored = POSIX_SPAWN_RESETIDS | POSIX_SPAWN_SETSIGDEF |
+      POSIX_SPAWN_SETSIGMASK | POSIX_SPAWN_USEVFORK;
+  short flags = 0;
+  sigset_t mask;
+  if (attributes != NULL) posix_spawnattr_getflags(attributes, &flags);
+  if (flags & POSIX_SPAWN_SETSIGMASK) posix_spawnattr_getsigmask(attributes, &mask);
+  else pthread_sigmask(SIG_BLOCK, NULL, &mask);
+  if ((flags & ~honored) != 0 || !sigisemptyset(&mask)) return ENOTSUP;
+  const struct fdop *oldest = NULL;
+  size_t count = 0;
+  for (const struct fdop *op = actions ? actions->__actions : NULL; op; op = op->next) {
+    if (op->cmd != FDOP_DUP2) return ENOTSUP;
+    oldest = op;
+    ++count;
+  }
+  dolly_process_fd_mapping *mappings = calloc(count + 1, sizeof(*mappings));
+  if (mappings == NULL) return ENOMEM;
+  uint32_t mapped = 0;
+  for (const struct fdop *op = oldest; op; op = op->prev) {
+    uint32_t source = (uint32_t)op->srcfd, slot = mapped;
+    for (uint32_t index = 0; index < mapped; ++index) {
+      if (mappings[index].target_descriptor == (uint32_t)op->srcfd)
+        source = mappings[index].source_descriptor;
+      if (mappings[index].target_descriptor == (uint32_t)op->fd) slot = index;
+    }
+    mappings[slot] = (dolly_process_fd_mapping){source, (uint32_t)op->fd};
+    if (slot == mapped) ++mapped;
+  }
+  char *absolute = path[0] == '/' ? NULL : realpath(path, NULL);
+  int argc = 0;
+  while (argv[argc] != NULL) ++argc;
+  const int child = path[0] != '/' && absolute == NULL ? -errno
+      : dolly_spawn_mapped(absolute ? absolute : path, argc, (char **)argv, envp, NULL,
+                           DOLLY_PROCESS_INHERIT_FDS_ALL, mappings, mapped, -1);
+  free(absolute);
+  free(mappings);
+  if (child < 0) return -child;
+  if (pid != NULL) *pid = child;
+  return 0;
 }
 
 int system(const char *command) {
