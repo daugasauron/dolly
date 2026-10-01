@@ -18,8 +18,6 @@ container=(podman run --rm --userns=keep-id -v "${project_dir}:${project_dir}" -
       -c $includes/src/thread/$name.c -o build/rustc-port/$name.o
   done
   emcc -m64 -O2 -fPIC -matomics -mbulk-memory -Iinclude \
-    -c demos/rust/toolchain/posix-spawn.c -o build/rustc-port/posix-spawn.o
-  emcc -m64 -O2 -fPIC -matomics -mbulk-memory -Iinclude \
     -c demos/rust/toolchain/dlopen.c -o build/rustc-port/dlopen.o
   for archive in build/rustc-port/package/rust-link/*.a; do
     /emsdk/upstream/bin/llvm-ar d "$archive" lib.rmeta lib.rmeta-link
@@ -39,7 +37,7 @@ done < "${sysroot}/dynamic-provider.symbols"
   --max-memory=8589934592 --initial-memory=33554432 --no-stack-first \
   --table-base=1 --global-base=1024 --extra-features=extended-const --strip-debug \
   --wrap=dlopen --wrap=dlsym --wrap=dlerror --wrap=dlclose \
-  "${port_dir}/dlopen.o" "${port_dir}/posix-spawn.o" "${port_dir}"/pthread_attr_*.o \
+  "${port_dir}/dlopen.o" "${port_dir}"/pthread_attr_*.o \
   "${port_dir}/package/rust-link/rustc-main.o" \
   "${port_dir}/package/rust-link/allocator.o" \
   "${port_dir}"/package/rust-link/*.a \
@@ -59,7 +57,7 @@ node scripts/dolly-abi.mjs stamp-process "${port_dir}/dolly-process-0.wasm" "${p
 node scripts/dolly-abi.mjs validate-process "${port_dir}/dolly-process-0.wasm" "${port_dir}/rustc.wasm"
 "${container[@]}" /emsdk/upstream/bin/llvm-ar crs \
   "${port_dir}/package/rust-sdk/lib/libdolly-rust.a" \
-  "${port_dir}/posix-spawn.o" "${port_dir}"/pthread_attr_*.o
+  "${port_dir}"/pthread_attr_*.o
 cp "${port_dir}/rustc.wasm" "${port_dir}/package/rust-sdk/bin/rustc-real"
 gzip -c "${port_dir}/rustc.wasm" > "${port_dir}/rustc.wasm.gz"
 tar --sort=name --mtime=@0 --owner=0 --group=0 --numeric-owner \

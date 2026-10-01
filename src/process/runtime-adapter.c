@@ -823,34 +823,59 @@ struct fdop {
   mode_t mode;
   char path[];
 };
-enum { FDOP_DUP2 = 2 };
+enum { FDOP_DUP2 = 2, FDOP_CHDIR = 4 };
 
-/* A child is a fresh process: default dispositions and an empty signal mask.
- * Dup2 actions replay as parent-to-child descriptor mappings over the
- * inherited non-CLOEXEC set. Other actions and attributes fail with ENOTSUP. */
-int posix_spawn(pid_t *restrict pid, const char *restrict path,
-                const posix_spawn_file_actions_t *actions,
-                const posix_spawnattr_t *restrict attributes,
-                char *const argv[restrict], char *const envp[restrict]) {
+/* A child starts with default dispositions and an empty mask, so a signal the
+ * caller blocks or ignores without resetting it cannot be honoured. */
+static int spawn_signals_supported(short flags, const posix_spawnattr_t *attributes) {
+  sigset_t mask, defaults;
+  if (flags & POSIX_SPAWN_SETSIGMASK) posix_spawnattr_getsigmask(attributes, &mask);
+  else pthread_sigmask(SIG_BLOCK, NULL, &mask);
+  sigemptyset(&defaults);
+  if (flags & POSIX_SPAWN_SETSIGDEF) posix_spawnattr_getsigdefault(attributes, &defaults);
+  for (int number = 1; number < _NSIG; ++number) {
+    if (number == SIGKILL || number == SIGSTOP) continue;
+    struct sigaction action;
+    if (sigismember(&mask, number) == 1 || sigaction(number, NULL, &action) != 0 ||
+        (action.sa_handler == SIG_IGN && sigismember(&defaults, number) != 1)) return 0;
+  }
+  return 1;
+}
+
+/* Dup2 actions replay as parent-to-child descriptor mappings over the
+ * inherited non-CLOEXEC set and chdir actions choose the child's directory;
+ * other actions and attributes fail with ENOTSUP. */
+static int spawn(pid_t *pid, const char *program, const posix_spawn_file_actions_t *actions,
+                 const posix_spawnattr_t *attributes, char *const argv[], char *const envp[],
+                 int search) {
   const short honored = POSIX_SPAWN_RESETIDS | POSIX_SPAWN_SETSIGDEF |
       POSIX_SPAWN_SETSIGMASK | POSIX_SPAWN_USEVFORK;
   short flags = 0;
-  sigset_t mask;
   if (attributes != NULL) posix_spawnattr_getflags(attributes, &flags);
-  if (flags & POSIX_SPAWN_SETSIGMASK) posix_spawnattr_getsigmask(attributes, &mask);
-  else pthread_sigmask(SIG_BLOCK, NULL, &mask);
-  if ((flags & ~honored) != 0 || !sigisemptyset(&mask)) return ENOTSUP;
+  if ((flags & ~honored) != 0 || !spawn_signals_supported(flags, attributes)) return ENOTSUP;
+  if (program[0] == '\0') return ENOENT;
   const struct fdop *oldest = NULL;
   size_t count = 0;
   for (const struct fdop *op = actions ? actions->__actions : NULL; op; op = op->next) {
-    if (op->cmd != FDOP_DUP2) return ENOTSUP;
+    if (op->cmd != FDOP_DUP2 && op->cmd != FDOP_CHDIR) return ENOTSUP;
     oldest = op;
     ++count;
   }
   dolly_process_fd_mapping *mappings = calloc(count + 1, sizeof(*mappings));
   if (mappings == NULL) return ENOMEM;
   uint32_t mapped = 0;
-  for (const struct fdop *op = oldest; op; op = op->prev) {
+  char cwd[PATH_MAX], path[PATH_MAX];
+  int error = getcwd(cwd, sizeof(cwd)) ? 0 : errno;
+  for (const struct fdop *op = oldest; op && error == 0; op = op->prev) {
+    if (op->cmd == FDOP_CHDIR) {
+      struct stat metadata;
+      const int size = op->path[0] == '/' ? snprintf(path, sizeof(path), "%s", op->path)
+          : snprintf(path, sizeof(path), "%s/%s", cwd, op->path);
+      if (size >= (int)sizeof(path)) error = ENAMETOOLONG;
+      else if (!realpath(path, cwd) || stat(cwd, &metadata) != 0) error = errno;
+      else if (!S_ISDIR(metadata.st_mode)) error = ENOTDIR;
+      continue;
+    }
     uint32_t source = (uint32_t)op->srcfd, slot = mapped;
     for (uint32_t index = 0; index < mapped; ++index) {
       if (mappings[index].target_descriptor == (uint32_t)op->srcfd)
@@ -860,17 +885,49 @@ int posix_spawn(pid_t *restrict pid, const char *restrict path,
     mappings[slot] = (dolly_process_fd_mapping){source, (uint32_t)op->fd};
     if (slot == mapped) ++mapped;
   }
-  char *absolute = path[0] == '/' ? NULL : realpath(path, NULL);
   int argc = 0;
   while (argv[argc] != NULL) ++argc;
-  const int child = path[0] != '/' && absolute == NULL ? -errno
-      : dolly_spawn_mapped(absolute ? absolute : path, argc, (char **)argv, envp, NULL,
-                           DOLLY_PROCESS_INHERIT_FDS_ALL, mappings, mapped, -1);
-  free(absolute);
+  const char *entry = search && !strchr(program, '/') ? getenv("PATH") : NULL;
+  if (search && !strchr(program, '/') && entry == NULL) entry = "/bin:/usr/bin";
+  while (error == 0) {
+    const char *end = entry ? strchr(entry, ':') : NULL;
+    const int length = entry ? (int)(end ? (size_t)(end - entry) : strlen(entry)) : 0;
+    const int size = entry ? snprintf(path, sizeof(path), "%.*s%s%s", length, entry,
+                                      length ? "/" : "", program)
+                           : snprintf(path, sizeof(path), "%s", program);
+    char absolute[PATH_MAX];
+    if (size >= (int)sizeof(path) || (path[0] != '/' &&
+        snprintf(absolute, sizeof(absolute), "%s/%s", cwd, path) >= (int)sizeof(absolute))) {
+      error = ENAMETOOLONG;
+      break;
+    }
+    const int child = dolly_spawn_mapped(path[0] == '/' ? path : absolute, argc,
+        (char **)argv, envp, cwd, DOLLY_PROCESS_INHERIT_FDS_ALL, mappings, mapped, -1);
+    if (child > 0) {
+      if (pid != NULL) *pid = child;
+      break;
+    }
+    error = -child;
+    if (end == NULL || (error != ENOENT && error != ENOTDIR)) break;
+    entry = end + 1;
+    error = 0;
+  }
   free(mappings);
-  if (child < 0) return -child;
-  if (pid != NULL) *pid = child;
-  return 0;
+  return error;
+}
+
+int posix_spawn(pid_t *restrict pid, const char *restrict path,
+                const posix_spawn_file_actions_t *actions,
+                const posix_spawnattr_t *restrict attributes,
+                char *const argv[restrict], char *const envp[restrict]) {
+  return spawn(pid, path, actions, attributes, argv, envp, 0);
+}
+
+int posix_spawnp(pid_t *restrict pid, const char *restrict file,
+                 const posix_spawn_file_actions_t *actions,
+                 const posix_spawnattr_t *restrict attributes,
+                 char *const argv[restrict], char *const envp[restrict]) {
+  return spawn(pid, file, actions, attributes, argv, envp, 1);
 }
 
 int system(const char *command) {
