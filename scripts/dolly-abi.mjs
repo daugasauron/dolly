@@ -338,7 +338,11 @@ export async function emitDigestModule(contractPath, outputPath, exportName) {
   }
   const contract = await readWasmInterface(contractPath);
   const digest = hex(contractDigest(contract));
-  const source = `export const ${exportName} = "${digest}";\n`;
+  // A contract importing functions from env also names them for its loader.
+  const functions = contract.imports.filter(entry => entry.module === "env" && entry.type.kind === "func")
+    .map(entry => entry.name);
+  const source = `export const ${exportName} = "${digest}";\n` + (functions.length === 0 ? "" :
+    `export const ${exportName.replace(/_ABI_DIGEST$/, "")}_IMPORTS = Object.freeze(${JSON.stringify(functions)});\n`);
   try {
     if (await readFile(outputPath, "utf8") === source) {
       console.log(`dolly-abi: contract digest module is current at ${outputPath}`);
