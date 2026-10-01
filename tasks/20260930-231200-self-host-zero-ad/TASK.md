@@ -79,9 +79,8 @@ agents.
   the threaded process libc lacks it). `openal.dm` now sets
   `HAVE_PTHREAD=OFF`: its mixer is serial.
 - Driver gap: premake's `ALL_CPPFLAGS` passes `-MP`, which `c++` rejected
-  (`unsupported option: -MP`, exit 64). The recipe overrides `ALL_CPPFLAGS`
-  without it until `c++` accepts `-MP` (core commit 1d02ab5, which needs a
-  runtime rebuild before images see it).
+  (`unsupported option: -MP`, exit 64). Core commit 1d02ab5 accepts it; with
+  that runtime the recipe runs upstream's Makefiles unchanged.
 - Dolly's `tar` rejects pax global headers (`tar: validate path at
   pax_global_header (errno 138)`), as in premake's GitHub archive; the
   source is repacked on the host like every other prepared source.
@@ -110,6 +109,9 @@ Checks with it:
   once at "Changing GPU skinning during a match must change compute
   activity" after typing into the console under load; the rerun passed.
 
+- `0ad-multiplayer-browser.mjs` (headless, relayed pair): passes, 149
+  synchronized turns, shared hash `f3dd66c38dd8ab65aafdbdfe020a56d9`.
+
 Still from the host: SpiderMonkey (`mozjs-host.tar.gz`: its `dist/include`,
 `libjs_static.a` and `libjsrust.a` from `toolchain/build-spidermonkey.sh`),
 the WGSL shaders (Naga, a Rust tool, run by `toolchain/prepare-shaders.sh`)
@@ -134,7 +136,10 @@ A native build of `src/slop.c` (four Dolly calls stubbed with
   `ERROR: Unknown OS: wasi` / `Unknown OS: emscripten`. A host patch is needed;
   claiming Linux is not allowed.
 - `autoconf/config.sub` runs in Slop but prints `unset: invalid name: -v`
-  (Slop's `unset` takes no options).
+  (Slop's `unset` takes no options). Core commit c0bf8c8 adds `unset -v/-f`,
+  `<<-` here-documents and backquoted subshells (`` `(umask 077 && ...)` ``
+  was parsed as `$((`); config.sub then runs cleanly and config.guess stops
+  on the missing `trap` and `umask` builtins.
 - `js/src/old-configure` (autoconf 2.13, 2,794 lines) still runs under
   mozbuild. Under native Slop it parses and prints `--help`; a real run stops
   on `trap: command not found` and `.: a script path is required` before its
@@ -173,3 +178,21 @@ probes of `0ad-enet-browser.mjs` and `0ad-openal-browser.mjs` are now built in
 `zero-ad-deps` (`/usr/libexec/zero-ad`) and, like the engine, read from the
 image snapshot (`test/fixtures/image-file.mjs`). `toolchain/` keeps the
 SpiderMonkey bootstrap and the content preparation.
+The SpiderMonkey probe is linked in `zero-ad-engine` too, so the host only
+cross-compiles SpiderMonkey's archives (`link.sh` removed).
+
+Reproducibility: two `zero-ad-engine` builds from the same inputs gave
+engines of equal size that differ in 2,079 bytes: 0 A.D. embeds
+`__DATE__ __TIME__` (`Oct  1 2026 13:42:38` against `14:26:24`), and the
+21-byte strings shift the addresses after them. Clang's driver maps
+`SOURCE_DATE_EPOCH` to cc1's `-source-date-epoch`; Dolly's `cc` builds the
+cc1 arguments itself and does not (core gap, not fixed).
+
+Final check of the branch on the runtime with `-MP` (`work/zero-ad-core`,
+host load about 4): `zero-ad-deps` build script 461 s, `zero-ad-engine`
+`make -j4 pyrogenesis` 345 s with premake's flags unchanged, the
+SpiderMonkey probe passes during the build, whole chain from `openal-build`
+1,721 s. `0ad-spidermonkey-browser.mjs`, `0ad-openal-browser.mjs`,
+`0ad-enet-browser.mjs`, `0ad-engine-browser.mjs` (replay state
+`be99497b21b9cb86d3a1478d2e2e09a6` again) and `0ad-graphics-browser.mjs zero-ad
+hardware` (combat 17 ms per frame) pass.

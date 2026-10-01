@@ -2,7 +2,7 @@ DOLLY 5
 IMAGE zero-ad
 
 FROM https://daugasauron.com/Dollyfile df7c4eb9251df91e228ac3e099f88a5e8a2c1e7631058512bf560c5174332282
-COPY FROM https://daugasauron.com/demos/zero-ad/Dollyfile-zero-ad-engine dcc75fed3b052119548fb47ff4489644793bb0b9c0a0524893b5e90676cefe33 /opt/0ad/system/pyrogenesis /opt/0ad/system/pyrogenesis
+COPY FROM https://daugasauron.com/demos/zero-ad/Dollyfile-zero-ad-engine e89a63d8f560124b569d319c0fe4f8a3cf2f3360189d96b4d20a6377481cd06d /opt/0ad/system/pyrogenesis /opt/0ad/system/pyrogenesis
 USE https://daugasauron.com/demos/zero-ad/zero-ad.dm 602d0772b06f3f9f82af501c89a3972c51bfd7ab2e8f0a55f3ea36a9dd3cd8ec
 
 FILE /etc/dolly/zero-ad.slop

@@ -14,7 +14,7 @@ REQUIRES TOOL patch
 REQUIRES TOOL cp
 REQUIRES TOOL mkdir
 
-SOURCE https://daugasauron.com/dist/static/zero-ad-build/engine.tar.gz b3c563dcbfb5adc57eadfd954c15485c086dc0cb280a9da29834252ea66b48c6 /tmp/0ad.tar.gz
+SOURCE https://daugasauron.com/dist/static/zero-ad-build/engine.tar.gz 0f135d999d53d7451fd3da44999cc4d993ccaa4aa55781c14eab65d7e1fc3c3b /tmp/0ad.tar.gz
 SLOP gzip -dc /tmp/0ad.tar.gz | tar -xf - -C /
 SLOP patch -p1 -d /tmp/0ad -i /tmp/0ad-patches/engine.patch
 
@@ -56,9 +56,7 @@ SLOP CWD /tmp/0ad/build/premake PKG_CONFIG_PATH=/tmp/pkgconfig CC=cc CXX=c++ \
   premake5 --os=emscripten --minimal-flags --strip-binaries --with-system-mozjs \
   --without-atlas --without-nvtt --without-lobby --without-miniupnpc --without-pch \
   --without-tests --without-dap-interface --outpath=../workspaces/dolly gmake
-# Premake's ALL_CPPFLAGS adds -MP, which Dolly's c++ does not accept.
-SLOP CWD /tmp/0ad/build/workspaces/dolly time make config=release -j4 CC=cc CXX=c++ AR=ar \
-  'ALL_CPPFLAGS=$(CPPFLAGS) -MD $(DEFINES) $(INCLUDES)' pyrogenesis
+SLOP CWD /tmp/0ad/build/workspaces/dolly time make config=release -j4 CC=cc CXX=c++ AR=ar pyrogenesis
 SLOP mkdir -p /opt/0ad/system
 SLOP cp /tmp/0ad/binaries/system/pyrogenesis.wasm /opt/0ad/system/pyrogenesis
 SLOP /opt/0ad/system/pyrogenesis -version
