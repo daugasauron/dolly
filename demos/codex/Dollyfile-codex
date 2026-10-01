@@ -1,11 +1,11 @@
 DOLLY 5
 IMAGE codex
 
-FROM https://daugasauron.com/Dollyfile-system e0b6186044ced011a349fa3da62f5665e9aa6d7e500a37c21bc1659fe9eb041f
-COPY FROM https://daugasauron.com/Dollyfile-codex-build 3c44c0570f1d2b0b8ca3690f4a871b62b676a4b332ed6c2563ec4e43c03df455 /usr/bin/codex /usr/libexec/codex
-COPY FROM https://daugasauron.com/Dollyfile-codex-build 3c44c0570f1d2b0b8ca3690f4a871b62b676a4b332ed6c2563ec4e43c03df455 /usr/share/licenses/codex /usr/share/licenses/codex
-COPY FROM https://daugasauron.com/Dollyfile-codex-build 3c44c0570f1d2b0b8ca3690f4a871b62b676a4b332ed6c2563ec4e43c03df455 /usr/share/dolly/builds/codex.json /usr/share/dolly/builds/codex.json
-USE https://daugasauron.com/modules/search-tools.dm 93d69a6afdb89221e9e209d2e40720415e6af7b684710bf02ff485090d9437fc
+FROM https://daugasauron.com/Dollyfile-system c64cdab2d1c90434b9580ba897e72ebcd93f51f13bf7b6fc5c419a51ff0f05f0
+COPY FROM https://daugasauron.com/Dollyfile-codex-build c9a8167cc90cc044322f8a001d5507a3d1263fcafdd765855dfd154aa17a7e56 /usr/bin/codex /usr/libexec/codex
+COPY FROM https://daugasauron.com/Dollyfile-codex-build c9a8167cc90cc044322f8a001d5507a3d1263fcafdd765855dfd154aa17a7e56 /usr/share/licenses/codex /usr/share/licenses/codex
+COPY FROM https://daugasauron.com/Dollyfile-codex-build c9a8167cc90cc044322f8a001d5507a3d1263fcafdd765855dfd154aa17a7e56 /usr/share/dolly/builds/codex.json /usr/share/dolly/builds/codex.json
+USE https://daugasauron.com/modules/search-tools.dm 63432a75fbde56eddf37cf112d36f1a3c7abc2e07fdae8b166d021b2784b22fa
 USE https://daugasauron.com/modules/codex.dm 78766a2dacd5d2212b24f785830a0a0f6b280d7ec12a427bbf44365bfaa5c700
 
 FILE /etc/dolly/init.slop
