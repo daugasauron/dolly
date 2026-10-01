@@ -66,7 +66,7 @@ int main(void){
         if(previous&&!attached){
             Value report=value_get(round->controller->ctx,round->controller->memory,"lastRelease"),supported=value_get(round->controller->ctx,report,"grounded");
             int grounded=value_truth(round->controller->ctx,supported);value_free(round->controller->ctx,supported);value_free(round->controller->ctx,report);
-            if(!grounded){assert(save_world(ctx,"/workspace/lifecycle-stall.lua"));assert(system("download /workspace/lifecycle-stall.lua")==0);}
+            if(!grounded){assert(save_world(ctx,"/workspace/lifecycle-stall.lua"));}
             assert(grounded&&tick-last_support<180);released=1;printf("TETHER physically supported release at %.3f s\n",world.age);
         }
         float up=b3RotateVector(b3Body_GetRotation(flyer->physics.parts[0].body),b3Vec3_axisY).y;
@@ -76,7 +76,7 @@ int main(void){
         previous=attached;
     }
     printf("TETHER lifecycle: captured=%d payout=%.3f groundHandleHeld=%d supportedRelease=%d sustainedFlight=%d resumedCargo=%d\n",captured,payout,handle_held,released,recovered,resumed_work);
-    if(!recovered){assert(save_world(ctx,"/workspace/lifecycle-after.lua"));assert(system("download /workspace/lifecycle-after.lua")==0);}
+    if(!recovered){assert(save_world(ctx,"/workspace/lifecycle-after.lua"));}
     int salvaged=0;
     if(!recovered){
         Creature *flyer=world_find(flyer_id);b3Pos origin=physics_position(&flyer->physics.parts[0]);
@@ -103,7 +103,7 @@ int main(void){
             if(salvaged||recovered)break;
         }
         printf("TETHER scrapyard: claimed=%d physicallyGripped=%d carried=%d supportedAfterDrop=%d deposited=%d seconds=%.3f\n",claimed,gripped,carried,settled>=180,salvaged,world.age);
-        assert(save_world(ctx,"/workspace/lifecycle-salvage.lua"));assert(system("download /workspace/lifecycle-salvage.lua")==0);
+        assert(save_world(ctx,"/workspace/lifecycle-salvage.lua"));
     }
     printf("TETHER outcome: independentFlight=%d settledInScrapyard=%d\n",recovered,salvaged);
     Creature *tug=world_find(tug_id);round=world_find(round_id);Value bay=value_get(tug->controller->ctx,tug->controller->memory,"destination");
@@ -114,7 +114,7 @@ int main(void){
     int folded=round->physics.parts[rope].winch_length<1.15f,unheld=!round->held_by&&!magnet_holds(tug,round);
     printf("TETHER final return state (event checked independently): recycled=%.0f finalBayDistance=%.3f ready=%d supported=%d folded=%d unheld=%d\n",returned,bay_distance,ready,supported,folded,unheld);
     value_text_free(round->controller->ctx,phase);value_free(round->controller->ctx,state);
-    assert(save_world(ctx,"/workspace/lifecycle-final.lua"));assert(system("download /workspace/lifecycle-final.lua")==0);
+    assert(save_world(ctx,"/workspace/lifecycle-final.lua"));
     assert(value_is_number(bx)&&value_is_number(bz)&&returned_ready);
     value_free(tug->controller->ctx,bx);value_free(tug->controller->ctx,bz);value_free(tug->controller->ctx,bay);
     assert(captured&&payout>10&&handle_held&&released&&(recovered||salvaged));

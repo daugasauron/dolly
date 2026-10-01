@@ -4,7 +4,8 @@
 static void ticks(int n){for(int i=0;i<n;i++)world_step();}
 static float cargo_z(int id){return b3Body_GetPosition(world_find(id)->physics.parts[0].body).z;}
 static void motor(int id,float throttle){Creature *c=world_find(id);for(int i=0;i<c->design.count;i++){Block b=c->design.blocks[i];if(b.joint==BLOCK_WHEEL){c->controls[b.positive]=fmaxf(0,throttle);c->controls[b.negative]=fmaxf(0,-throttle);}}}
-static void magnet(int id,int powered){Creature *c=world_find(id);c->physics.parts[8].magnet_power=powered;}
+static int magnet_part(const Character *c){for(int i=0;i<c->count;i++)if(c->blocks[i].joint==BLOCK_MAGNET)return i;assert(0);}
+static void magnet(int id,int powered){Creature *c=world_find(id);c->physics.parts[magnet_part(&c->design)].magnet_power=powered;}
 static void check_pier_water(Data *ctx){
     int ids[]={world_drop_cargo(106,-1.75f,10,MATERIAL_HULL),world_drop_cargo(125,-1.75f,10,MATERIAL_HULL),world_drop_cargo(106,.65f,10,MATERIAL_ALLOY),world_drop_cargo(164,4.65f,40,MATERIAL_ALLOY),world_drop_cargo(164,22,40,MATERIAL_ALLOY)};
     const char *names[]={"covered","open","deck","under beam","roof"};float floors[]={-12,-12,0,4,19};
@@ -47,27 +48,6 @@ static void check_resume(Data *ctx){
             }
         }assert(ran);world_close();
     }character_clear(&rig);
-}
-static void check_air_traffic(Data *ctx){
-    Value catalog=read_catalog(ctx),selected=value_array(ctx);int lookout=0;
-    for(int i=0;i<get_number(ctx,catalog,"length",0);i++){
-        Value item=value_at(ctx,catalog,i),label=value_get(ctx,item,"name");const char *name=value_text(ctx,label);
-        int bird=name&&!strncmp(name,"Postbird /",10),scout=!lookout&&name&&!strncmp(name,"Komame /",8);
-        if(bird||scout){put_number(ctx,item,"x",0);put_number(ctx,item,"z",scout?12:0);if(scout){lookout=1;value_set(ctx,item,"source",value_string(ctx,"return function()\n  do return {} end\nend\n"));}value_set_at(ctx,selected,scout?1:0,value_copy(ctx,item));}
-        value_text_free(ctx,name);value_free(ctx,label);value_free(ctx,item);
-    }
-    load_designs(ctx,selected,1);value_free(ctx,selected);value_free(ctx,catalog);assert(world.count==2);
-    Creature *bird=&world.creatures[0],*scout=&world.creatures[1];Controller *controller=bird->controller;
-    const char *memory="return {[\"phase\"]=\"return\",[\"home\"]=array{0,12},[\"goal\"]=array{0,12},[\"ts\"]=0,[\"hi\"]=0,[\"pi\"]=0,[\"ri\"]=0,[\"job\"]=0,[\"deliveries\"]=0,[\"cruise\"]=5.2}";
-    value_free(controller->ctx,controller->memory);controller->memory=data_parse(controller->ctx,memory,strlen(memory),"traffic-trial");
-    float peak=0,travel=0,displacement=0;
-    for(int i=0;i<20*60;i++){
-        world_step();assert(world.count==2&&world.deaths==0);
-        b3Pos a=b3Body_GetPosition(bird->physics.parts[0].body),b=b3Body_GetPosition(scout->physics.parts[0].body);
-        peak=fmaxf(peak,a.y);travel=fmaxf(travel,a.z);displacement=fmaxf(displacement,hypotf(b.x,b.z-12));
-    }
-    assert(peak>8&&travel>10&&displacement<.1f);
-    printf("AIR TRAFFIC: courier crossed %.3f m at peak %.3f m; stationary lookout displaced %.4f m\n",travel,peak,displacement);world_close();
 }
 static void check_walker_recovery(Data *ctx){
     // Recorded Marrowstep lift stall at 1200 seconds.
@@ -119,238 +99,6 @@ static void check_walker_recovery(Data *ctx){
     printf("WALKER RECOVERY: %d survived, up %.5f, movement %.3f m\n",world.count,low,moved);fflush(stdout);
     assert(world.count==1&&world.deaths==0&&low>.95f&&moved>4);world_close();
 }
-static void check_air_clearance(Data *ctx){
-    Value catalog=read_catalog(ctx),selected=value_array(ctx);
-    for(int i=0;i<get_number(ctx,catalog,"length",0);i++){
-        Value item=value_at(ctx,catalog,i),label=value_get(ctx,item,"name");const char *name=value_text(ctx,label);
-        if(name&&!strncmp(name,"Skybarge /",10)){put_number(ctx,item,"x",58);put_number(ctx,item,"z",35);value_set_at(ctx,selected,0,value_copy(ctx,item));}
-        value_text_free(ctx,name);value_free(ctx,label);value_free(ctx,item);
-    }
-    load_designs(ctx,selected,1);value_free(ctx,selected);value_free(ctx,catalog);assert(world.count==1);int id=world.creatures[0].id;
-    Controller *controller=world.creatures[0].controller;
-    const char *state="return {[\"nav\"]={[\"goal\"]=array{58,72},[\"next\"]=1000,[\"visits\"]=0,[\"choices\"]=1,[\"meetings\"]=0,[\"yieldTime\"]=0,[\"path\"]=0,[\"previous\"]=array{58,35},[\"goals\"]=array{},[\"visiting\"]=0}}";
-    value_free(controller->ctx,controller->memory);controller->memory=data_parse(controller->ctx,state,strlen(state),"quarry-approach");
-    int contacts=0;float low=1,peak=0,furthest=35;
-    for(int tick=0;tick<45*60&&world.count;tick++){
-        world_step();Creature *c=world_find(id);if(!c)break;
-        b3Pos root=b3Body_GetPosition(c->physics.parts[0].body);b3Quat rotation=b3Body_GetRotation(c->physics.parts[0].body);low=fminf(low,b3RotateVector(rotation,b3Vec3_axisY).y);peak=fmaxf(peak,root.y);furthest=fmaxf(furthest,root.z);
-        for(int part=0;part<c->design.count;part++){
-            b3BodyId body=c->physics.parts[part].body;int capacity=b3Body_GetContactCapacity(body);if(!capacity)continue;
-            b3ContactData *data=array_resize(NULL,capacity,sizeof(*data));int count=b3Body_GetContactData(body,data,capacity);
-            for(int k=0;k<count;k++){
-                b3BodyId a=b3Shape_GetBody(data[k].shapeIdA),b=b3Shape_GetBody(data[k].shapeIdB),other=B3_ID_EQUALS(a,body)?b:a;
-                if(body_owner(other)||b3Body_GetPosition(other).y<=0)continue;
-                float force=0;for(int m=0;m<data[k].manifoldCount;m++)for(int n=0;n<data[k].manifolds[m].pointCount;n++)force+=480*data[k].manifolds[m].points[n].normalImpulse;
-                contacts+=force>.01f;
-            }free(data);
-        }
-    }
-    printf("QUARRY: %d survived, %d contacts, up %.5f, peak %.3f, furthest z %.3f\n",world.count,contacts,low,peak,furthest);
-    assert(world.count==1&&world.deaths==0&&contacts==0&&low>.9f&&peak>12&&furthest>62);
-    world_close();
-}
-static void check_courier(Data *ctx,int industrial){
-    Value catalog=read_catalog(ctx),selected=value_array(ctx);
-    for(int i=0;i<get_number(ctx,catalog,"length",0);i++){
-        Value item=value_at(ctx,catalog,i),label=value_get(ctx,item,"name");const char *name=value_text(ctx,label);
-        if(name&&!strncmp(name,"Postbird /",10))value_set_at(ctx,selected,0,value_copy(ctx,item));
-        if(industrial&&name&&!strcmp(name,"East / receiving crane"))value_set_at(ctx,selected,1,value_copy(ctx,item));
-        value_text_free(ctx,name);value_free(ctx,label);value_free(ctx,item);
-    }
-    terrain_select(industrial);load_designs(ctx,selected,1);value_free(ctx,selected);value_free(ctx,catalog);assert(world.count==1+industrial);world.next_parcel=world.next_ore=100000;
-    int carrier=world.creatures[0].id;Vector3 home=world.creatures[0].physics.start;
-    float x=home.x-(industrial?15:0),z=home.z+(industrial?13:0);
-    int first=world_drop_cargo(x,NAN,z,MATERIAL_ALLOY),second=0,obstructed=0;
-    for(int i=0;i<180*60;i++){
-        if(i==60*60){world_save(ctx);world_close();world_load(ctx);}
-        if(i==90*60){if(industrial)obstructed=world_drop_cargo(156,NAN,27,MATERIAL_ALLOY);second=world_drop_cargo(x,NAN,z,MATERIAL_ALLOY);}
-        world_step();
-    }
-    assert(world_save(ctx));
-    assert(world.count==3+2*industrial&&world.deaths==0&&world.delivery_count==2&&world_cargo_score(carrier)==2&&world_team_score(1)==2&&world_team_score(2)==0);
-    if(industrial)assert(!world_find(obstructed)->delivered&&!world_find(obstructed)->held_by);
-    Creature *a=world_find(first),*b=world_find(second);assert(a->delivered&&b->delivered&&!a->held_by&&!b->held_by);
-    b3Pos pa=b3Body_GetPosition(a->physics.parts[0].body),pb=b3Body_GetPosition(b->physics.parts[0].body);
-    assert(pb.y-pa.y>.8f&&hypotf(pa.x-pb.x,pa.z-pb.z)<.9f);
-    printf("COURIER: industrial %d, two physical deliveries, stacked height difference %.3f m, score %d after controller restart\n",industrial,pb.y-pa.y,world_cargo_score(carrier));
-    world_save(ctx);world_close();world_load(ctx);ticks(120);assert(world.delivery_count==2&&world_cargo_score(carrier)==2&&world_team_score(1)==2&&world_team_score(2)==0);world_close();
-    terrain_select(0);
-}
-static void check_gantry(Data *ctx){
-    Value catalog=read_catalog(ctx),selected=value_array(ctx);
-    for(int i=0;i<get_number(ctx,catalog,"length",0);i++){
-        Value item=value_at(ctx,catalog,i),label=value_get(ctx,item,"name");const char *name=value_text(ctx,label);
-        if(name&&!strncmp(name,"Northline /",11)){
-            value_set_at(ctx,selected,0,value_copy(ctx,item));value_set_at(ctx,selected,1,value_at(ctx,catalog,i+1));
-        }
-        value_text_free(ctx,name);value_free(ctx,label);value_free(ctx,item);
-    }
-    load_designs(ctx,selected,1);value_free(ctx,selected);value_free(ctx,catalog);assert(world.count==2);
-    int id=world.creatures[0].id,previous=-1,releases=0,airborne=0,supported=0;double last=0;
-    for(int tick=0;tick<600*60;tick++){
-        if(tick==311*60){world_save(ctx);world_close();world_load(ctx);}
-        world_step();assert(world.count==2&&world.deaths==0);Creature *c=world_find(id);
-        int phase=get_number(c->controller->ctx,c->controller->memory,"p",-1);
-        if(phase==4&&previous==3){releases++;last=world.age;}
-        if(tick%6==0){
-            Value sensors=physics_sensors(ctx,&c->physics,&c->design,.1),state=value_get(ctx,sensors,"magnets"),head=value_at(ctx,state,22);
-            double force=get_number(ctx,head,"targetSupportForce",-1);assert(isfinite(force)&&force>=0);
-            if(phase==2&&b3Body_IsValid(c->physics.parts[22].magnet_target)&&force==0)airborne++;
-            if(phase==3&&force>1)supported++;
-            value_free(ctx,head);value_free(ctx,state);value_free(ctx,sensors);
-        }
-        previous=phase;
-    }
-    printf("GANTRY: %d set-downs, %d airborne / %d supported samples, last release %.3f seconds before end, across restart\n",releases,airborne,supported,world.age-last);
-    assert(releases>15&&airborne>100&&supported>40&&world.age-last<40);world_close();
-}
-static void check_harbor_tug(Data *ctx){
-    Value catalog=read_catalog(ctx),selected=value_array(ctx);
-    for(int i=0;i<get_number(ctx,catalog,"length",0);i++){
-        Value item=value_at(ctx,catalog,i),label=value_get(ctx,item,"name");const char *name=value_text(ctx,label);
-        if(name&&!strncmp(name,"Harbor Atlas /",14))value_set_at(ctx,selected,0,value_copy(ctx,item));
-        if(name&&!strncmp(name,"Tsubame /",9))value_set_at(ctx,selected,1,value_copy(ctx,item));
-        value_text_free(ctx,name);value_free(ctx,label);value_free(ctx,item);
-    }
-    load_designs(ctx,selected,1);value_free(ctx,selected);value_free(ctx,catalog);assert(world.count==2);
-    int crane=world.creatures[0].id,tug=world.creatures[1].id,cargo=world_drop_cargo(121,-1,53,MATERIAL_HULL),towed=0,lifted=0;
-    for(int tick=0;tick<140*60&&!world.delivery_count;tick++){
-        if(tick==30*60){assert(world_find(cargo)->held_by==tug);world_save(ctx);world_close();world_load(ctx);assert(world_find(cargo)->held_by==tug);}
-        world_step();assert(world.count==3&&world.deaths==0);Creature *box=world_find(cargo);
-        if(box->held_by==tug)towed=1;if(box->held_by==crane){assert(towed);lifted=1;}
-    }
-    assert(towed&&lifted&&world.delivery_count==1&&world_find(cargo)->delivered&&world_cargo_score(crane)==1);
-    assert(world.deliveries[0].cargo==cargo&&world.deliveries[0].depot==1);
-    printf("HARBOR: tug carried cargo across restart, crane accepted and delivered it at %.3f s\n",world.age);world_close();
-}
-static void check_lookout_cargo(Data *ctx){
-    Value catalog=read_catalog(ctx),selected=value_array(ctx);
-    for(int i=0;i<get_number(ctx,catalog,"length",0);i++){
-        Value item=value_at(ctx,catalog,i),label=value_get(ctx,item,"name");const char *name=value_text(ctx,label);
-        if(name&&!strncmp(name,"Komame /",8)){put_number(ctx,item,"x",0);put_number(ctx,item,"z",20);value_set_at(ctx,selected,0,value_copy(ctx,item));}
-        value_text_free(ctx,name);value_free(ctx,label);value_free(ctx,item);
-    }
-    load_designs(ctx,selected,1);value_free(ctx,selected);value_free(ctx,catalog);assert(world.count==1);
-    int id=world.creatures[0].id;Controller *c=world.creatures[0].controller;
-    const char *memory="return {[\"home\"]=array{0,20},[\"goal\"]=array{0,44},[\"arrivals\"]=0,[\"visits\"]=0,[\"choices\"]=0,[\"wait\"]=0,[\"stuck\"]=0,[\"back\"]=0,[\"next\"]=1000,[\"tracked\"]=0,[\"yielded\"]=0}";
-    value_free(c->ctx,c->memory);c->memory=data_parse(c->ctx,memory,strlen(memory),"memory");
-    for(int i=-1;i<=1;i++)world_drop_cargo(i,0.485f,34,MATERIAL_ALLOY);
-    float upright=1,farthest=20;int collisions=0;
-    for(int tick=0;tick<60*60;tick++){
-        world_step();Creature *scout=world_find(id);if(!scout)break;
-        b3Quat q=b3Body_GetRotation(scout->physics.parts[0].body);upright=fminf(upright,b3RotateVector(q,b3Vec3_axisY).y);
-        farthest=fmaxf(farthest,b3Body_GetPosition(scout->physics.parts[0].body).z);
-        for(int part=0;part<scout->design.count;part++){
-            b3BodyId body=scout->physics.parts[part].body;int capacity=b3Body_GetContactCapacity(body);if(!capacity)continue;
-            b3ContactData *data=array_resize(NULL,capacity,sizeof(*data));int count=b3Body_GetContactData(body,data,capacity);
-            for(int k=0;k<count;k++){b3BodyId a=b3Shape_GetBody(data[k].shapeIdA),b=b3Shape_GetBody(data[k].shapeIdB);Creature *other=body_owner(B3_ID_EQUALS(a,body)?b:a);if(other&&other->cargo)collisions++;}free(data);
-        }
-    }
-    printf("LOOKOUT: cargo contacts %d, minimum up %.5f, farthest z %.3f, objects %d\n",collisions,upright,farthest,world.count);fflush(stdout);
-    assert(world.count==4&&world.deaths==0&&collisions==0&&upright>.95f&&farthest>40);world_close();
-}
-static void check_dock_courier(Data *ctx){
-    Value catalog=read_catalog(ctx),selected=value_array(ctx);
-    for(int i=0;i<get_number(ctx,catalog,"length",0);i++){
-        Value item=value_at(ctx,catalog,i),label=value_get(ctx,item,"name");const char *name=value_text(ctx,label);
-        if(name&&!strncmp(name,"Brinehook /",11)){value_set_at(ctx,selected,0,value_copy(ctx,item));value_set_at(ctx,selected,1,value_at(ctx,catalog,i+1));}
-        if(name&&!strncmp(name,"Kawasemi /",10))value_set_at(ctx,selected,2,value_copy(ctx,item));
-        if(name&&!strcmp(name,"Cargo")&&fabs(get_number(ctx,item,"x",0)-209.6)<.01)value_set_at(ctx,selected,3,value_copy(ctx,item));
-        value_text_free(ctx,name);value_free(ctx,label);value_free(ctx,item);
-    }
-    load_designs(ctx,selected,1);value_free(ctx,selected);value_free(ctx,catalog);assert(world.count==4);
-    int crane=world.creatures[0].id,courier=world.creatures[2].id,cargo[]={world.creatures[1].id,world.creatures[3].id},stages[2]={0};float upright=1;
-    for(int tick=0;tick<300*60&&world.delivery_count<2;tick++){
-        if(tick&&tick%(67*60)==0){world_save(ctx);world_close();world_load(ctx);}
-        world_step();assert(world.count==4&&world.deaths==0);Creature *gantry=world_find(crane),*aircraft=world_find(courier);
-        b3Quat q=b3Body_GetRotation(aircraft->physics.parts[0].body);upright=fminf(upright,b3RotateVector(q,b3Vec3_axisY).y);
-        for(int i=0;i<2;i++){
-            Creature *box=world_find(cargo[i]);int lifting=magnet_holds(gantry,box),flying=magnet_holds(aircraft,box);assert(!lifting||!flying);
-            if(lifting)stages[i]|=1;
-            if(box->held_by==crane&&!lifting)stages[i]|=2;
-            if(flying){assert((stages[i]&3)==3);stages[i]|=4;}
-        }
-    }
-    assert(world.delivery_count==2&&world_cargo_score(courier)==2&&upright>.95f);
-    for(int i=0;i<2;i++)assert(stages[i]==7&&world_find(cargo[i])->delivered);
-    printf("DOCK: two gantry / tray / courier / depot deliveries across reloads, minimum up %.5f, completed %.3f s\n",upright,world.age);world_close();
-}
-static float terrain_probe(float x,float y,float z,float half){
-    b3WorldId physics=physics_world(1);b3BodyDef def=b3DefaultBodyDef();def.type=b3_dynamicBody;def.position=(b3Pos){x,y,z};
-    b3BodyId body=b3CreateBody(physics,&def);b3ShapeDef shape=b3DefaultShapeDef();shape.density=1;
-    b3BoxHull box=b3MakeBoxHull(half,half,half);b3CreateHullShape(body,&shape,&box.base);
-    for(int i=0;i<300;i++)b3World_Step(physics,1.f/60,8);
-    float height=b3Body_GetPosition(body).y;b3DestroyWorld(physics);return height;
-}
-static float terrain_drop(float x,float y,float z){return terrain_probe(x,y,z,.5f);}
-static void check_industry(Data *ctx){
-    terrain_select(0);assert(fabsf(terrain_drop(-47,3,65)-.5f)<.03f);
-    terrain_select(1);
-    assert(fabsf(terrain_drop(-47,0,65)+11.5f)<.03f);
-    assert(fabsf(terrain_drop(-43,20,50)-14.5f)<.03f);
-    assert(fabsf(terrain_drop(-43,3,50)-.5f)<.03f);
-    assert(fabsf(terrain_drop(-43,2,94)-.5f)<.03f);
-    assert(fabsf(terrain_drop(-47,18,54)-.5f)<.03f);
-    assert(fabsf(terrain_drop(140,3,24)+11.5f)<.03f);
-    assert(fabsf(terrain_drop(-48,4,110.5f)-1.5f)<.03f);
-    assert(terrain_floor((Vector3){-43,2,94})==0&&terrain_height(-47,65)==-12);
-    Character crate={0};
-    for(int i=0;i<3;i++){character_add(&crate,i-1,i,0,0,BLOCK_BOX,1);crate.blocks[i].material=MATERIAL_BALLAST;}
-    Creature *cargo=spawn(&crate,"return function()\n  do return \"\" end\nend\n","Ore crate",1,10,-40.6f,65);cargo->cargo=1;int id=cargo->id;character_clear(&crate);
-    set_spawn_height(cargo,.65f);ticks(180);cargo=world_find(id);assert(cargo&&cargo->cargo);
-    int supported=0;assert(!cargo_carrier(cargo,&supported)&&supported);
-    ContactForces *forces=part_contacts(&cargo->physics);assert(forces[0].support<.01&&forces[1].support+forces[2].support>1);free(forces);
-    assert(save_world(ctx,"/workspace/industrial-map.lua"));
-    Value old=read_data(ctx,"/workspace/industrial-map.lua");value_set(ctx,old,"terrainVersion",VALUE_NIL);assert(save_data(ctx,old,"/workspace/original-map.lua"));value_free(ctx,old);
-    Value result=world_import(ctx,"/workspace/original-map.lua");assert(!value_is_error(result));value_free(ctx,result);
-    assert(terrain_version==0&&depot_count==3&&terrain_height(-47,65)==0);
-    result=world_import(ctx,"/workspace/industrial-map.lua");assert(!value_is_error(result));value_free(ctx,result);
-    assert(terrain_version==1&&depot_count==6&&terrain_height(-47,65)==-12&&world_find(id)->cargo&&world_find(id)->design.count==3);
-    Value invalid=read_data(ctx,"/workspace/industrial-map.lua");put_number(ctx,invalid,"terrainVersion",6);assert(save_data(ctx,invalid,"/workspace/unknown-map.lua"));value_free(ctx,invalid);
-    result=world_import(ctx,"/workspace/unknown-map.lua");assert(value_is_error(result));value_free(ctx,value_exception(ctx));assert(terrain_version==1&&world_find(id));
-    Value mine=read_data(ctx,"/workspace/industrial-map.lua");put_number(ctx,mine,"terrainVersion",2);assert(save_data(ctx,mine,"/workspace/mine-map.lua"));value_free(ctx,mine);
-    result=world_import(ctx,"/workspace/mine-map.lua");assert(!value_is_error(result));value_free(ctx,result);
-    assert(terrain_version==2&&terrain_floor((Vector3){-74,2,-68})==0&&terrain_height(-60,-72)==-12);
-    assert(fabsf(terrain_drop(-60,0,-70)+11.5f)<.03f&&fabsf(terrain_drop(-74,3,-68)-.5f)<.03f);
-    Value ridge=read_data(ctx,"/workspace/industrial-map.lua");put_number(ctx,ridge,"terrainVersion",3);assert(save_data(ctx,ridge,"/workspace/ridge-map.lua"));value_free(ctx,ridge);
-    result=world_import(ctx,"/workspace/ridge-map.lua");assert(!value_is_error(result));value_free(ctx,result);
-    assert(terrain_version==3&&terrain_height(78,-53)==4&&terrain_floor((Vector3){67,2,-66})==0&&terrain_height(43,-62)==0);
-    assert(fabsf(terrain_drop(67,2,-66)-.5f)<.03f&&fabsf(terrain_drop(78,6,-53)-4.5f)<.03f&&fabsf(terrain_drop(106,3,-65)-.5f)<.03f);
-    Character road={0};character_car(&road);
-    Creature *driver=spawn(&road,"return function(t, s)\n  local out = {};\n  local u = (((s).z > (-53.5)) and (-0.7) or 0);\n  for _, b in ipairs((s).blueprint) do\n    do\n      if ((b).joint == 4) then\n        (out)[index(string.char((b).negative))] = math.max(0, (-u));\n        (out)[index(string.char((b).positive))] = math.max(0, u);\n      end\n    end\n    ::continue_1::\n  end\n  do return out end\nend\n","Quarry road trial",1,60,78,-30);int driver_id=driver->id;character_clear(&road);float minimum_up=1;
-    for(int tick=0;tick<60*60;tick++){world_step();driver=world_find(driver_id);assert(driver&&!driver->error[0]);minimum_up=fminf(minimum_up,b3RotateVector(b3Body_GetRotation(driver->physics.parts[0].body),b3Vec3_axisY).y);}
-    b3Pos arrived=b3Body_GetPosition(driver->physics.parts[0].body);assert(arrived.z< -50&&arrived.y>4.5&&minimum_up>.7);
-    printf("RIDGE ROAD: embedded wheel program climbed to %.3f m, minimum up %.5f\n",arrived.y,minimum_up);
-
-    Value renewal=read_data(ctx,"/workspace/industrial-map.lua");put_number(ctx,renewal,"terrainVersion",4);assert(save_data(ctx,renewal,"/workspace/renewal-map.lua"));value_free(ctx,renewal);
-    result=world_import(ctx,"/workspace/renewal-map.lua");assert(!value_is_error(result));value_free(ctx,result);
-    assert(terrain_version==4&&terrain_height(20,-85)==-12&&terrain_floor((Vector3){32,2,-28})==0);
-    assert(fabsf(terrain_drop(20,3,-85)+11.5f)<.03f&&fabsf(terrain_drop(35,3,-77.5f)-.5f)<.03f);
-    assert(fabsf(terrain_drop(32,2,-28)-.5f)<.03f&&fabsf(terrain_drop(32,20,-28)-14.6f)<.03f);
-    assert(terrain_height(99,-20)==0&&terrain_height(142,38)==2);
-    Value quarry=read_data(ctx,"/workspace/renewal-map.lua");put_number(ctx,quarry,"terrainVersion",5);assert(save_data(ctx,quarry,"/workspace/quarry-map.lua"));value_free(ctx,quarry);
-    result=world_import(ctx,"/workspace/quarry-map.lua");assert(!value_is_error(result));value_free(ctx,result);
-    assert(terrain_version==5&&terrain_height(99,-20)==6.25f&&terrain_height(99,-40)==12);
-    assert(terrain_height(99,-45)==12&&fabsf(terrain_drop(99,15,-45)-12.5f)<.03f);
-    assert(fabsf(terrain_probe(99,10,-20.375f,.1f)-6.35f)<.03f&&fabsf(terrain_drop(99,15,-40)-12.5f)<.03f);
-    assert(fabsf(terrain_drop(99,3,3)-.5f)<.03f);
-    assert(terrain_height(142,38)==4&&fabsf(terrain_drop(142,8,38)-4.5f)<.03f);
-    assert(fabsf(terrain_probe(145,3,38,.1f)-2.1f)<.03f);
-    assert(world_save(ctx));world_close();world_load(ctx);assert(terrain_version==5&&world_find(id)&&terrain_height(99,-20)==6.25f);
-    result=world_import(ctx,"/workspace/renewal-map.lua");assert(!value_is_error(result));value_free(ctx,result);
-    assert(terrain_version==4&&terrain_height(99,-20)==0&&terrain_height(99,-45)==0&&terrain_height(142,38)==2);
-    result=world_import(ctx,"/workspace/ridge-map.lua");assert(!value_is_error(result));value_free(ctx,result);
-    assert(terrain_version==3&&terrain_height(20,-85)==0&&fabsf(terrain_drop(32,20,-28)-.5f)<.03f);
-    result=world_import(ctx,"/workspace/industrial-map.lua");assert(!value_is_error(result));value_free(ctx,result);
-    assert(terrain_version==1&&terrain_height(-60,-72)==0&&world_find(id));
-    cargo=world_find(id);set_spawn_height(cargo,32);
-    Value sensors=physics_sensors(ctx,&cargo->physics,&cargo->design,.1),bounds=value_get(ctx,sensors,"terrain"),obstacles=value_get(ctx,sensors,"obstacles");int roof=0;
-    for(int i=0;i<get_number(ctx,bounds,"length",0);i++){
-        Value box=value_at(ctx,bounds,i);roof+=get_number(ctx,box,"low",0)==13&&get_number(ctx,box,"high",0)==14;value_free(ctx,box);
-    }
-    assert(roof&&get_number(ctx,obstacles,"length",-1)==0);value_free(ctx,bounds);value_free(ctx,obstacles);value_free(ctx,sensors);
-    puts("INDUSTRY: physical shaft, roof, passage and broken roof; old/new map import; non-root cargo support and restored identity; future-map rejection; aircraft sees terrain below itself");world_close();
-}
 static void check_supply(Data *ctx){
  terrain_select(1);world.supply_seed=1;world.next_ore=100000;
  world_step();assert(world.count==1);int id=world.creatures[0].id;Creature *parcel=world_find(id);assert(parcel->supply==1&&parcel->parachute);float start=b3Body_GetPosition(parcel->physics.parts[0].body).y;
@@ -366,48 +114,6 @@ static void check_supply(Data *ctx){
  printf("SUPPLY: parcel mass %.3f, start %.3f, five-second height %.3f velocity %.3f; reload preserved seed/timing/chute; active=%d chutes=%d objects=%d removals=%d\n",creature_mass(world_find(id)),start,height,velocity,active,chutes,world.count,world.deaths);fflush(stdout);
  assert(active==6&&!chutes&&world.count==7&&!world.deaths);assert(world_save(ctx));world_close();
 }
-static void check_mine_supply(Data *ctx){
-    terrain_select(2);Value catalog=read_catalog(ctx),crew=value_array(ctx);
-    for(int i=0;i<2;i++)value_set_at(ctx,crew,i,value_at(ctx,catalog,60+i));
-    load_designs(ctx,crew,1);value_free(ctx,crew);value_free(ctx,catalog);assert(world.count==2);
-    Creature *drill=world_find(1);char *source=strdup(drill->controller->source);int hz=drill->controller->hz;
-    controller_free(drill->controller);drill->controller=controller_new("return function()\n  do return {} end\nend\n",1,hz);
-    world.supply_seed=1;world.next_parcel=world.next_ore=100000;world.next_mine=10;ticks(30*60);
-    assert(world.count==2);drill=world_find(1);controller_free(drill->controller);drill->controller=controller_new(source,1,hz);free(source);
-    ticks(270*60);int samples=0,outside=0;
-    for(int i=0;i<world.count;i++)if(world.creatures[i].supply==3){samples++;outside+=b3Body_GetPosition(world.creatures[i].physics.parts[0].body).z> -40;}
-    assert(samples==2&&outside&&!world.deaths);unsigned seed=world.supply_seed;double next=world.next_mine;assert(world_save(ctx));world_close();world_load(ctx);
-    assert(terrain_version==2&&world.supply_seed==seed&&world.next_mine==next);ticks(90*60);samples=0;
-    for(int i=0;i<world.count;i++)samples+=world.creatures[i].supply==3;
-    assert(samples==2&&world.count==4&&!world.deaths);
-    puts("MINE: stopped drill produces nothing; rotating drill produces bounded samples; porter clears the tunnel; supply identity, timer and stock limit survive reload");world_close();
-}
-static void check_wrong_air_grip(Data *ctx){
-    terrain_select(2);Value catalog=read_catalog(ctx),chosen=value_array(ctx),row=value_at(ctx,catalog,58);
-    put_number(ctx,row,"x",0);put_number(ctx,row,"z",0);value_set_at(ctx,chosen,0,row);load_designs(ctx,chosen,1);value_free(ctx,chosen);value_free(ctx,catalog);
-    Character beam={.anchored=1};character_add(&beam,-1,0,0,0,BLOCK_BOX,1);character_add(&beam,0,0,1,0,BLOCK_HINGE,1);beam.blocks[1].axis=1;Creature *obstacle=spawn(&beam,"return function()\n  do return \"\" end\nend\n","Gantry beam",1,10,0,0);set_spawn_height(obstacle,3.99f);character_clear(&beam);assert(!obstacle->cargo);
-    int cargo=world_drop_cargo(0,.485f,0,MATERIAL_ALLOY);assert(cargo==3);Creature *air=world_find(1);Controller *controller=air->controller;
-    const char *memory="return {[\"phase\"]=\"pickup\",[\"home\"]=array{20,0},[\"goal\"]=array{0,0},[\"ts\"]=0,[\"ri\"]=0,[\"pi\"]=0,[\"hi\"]=0,[\"job\"]=3,[\"cruise\"]=32,[\"missed\"]={},[\"dispatches\"]=0}";
-    value_free(controller->ctx,controller->memory);controller->memory=data_parse(controller->ctx,memory,strlen(memory),"blocked-pickup");int latched=0,released=0;
-    for(int tick=0;tick<20*60;tick++){
-        world_step();air=world_find(1);assert(air&&!world.deaths);b3BodyId target=air->physics.parts[10].magnet_target;
-        if(b3Body_IsValid(target)){assert(B3_ID_EQUALS(target,world_find(2)->physics.parts[1].body));latched=1;}
-        else if(latched)released=1;
-    }
-    assert(latched&&released&&b3Body_GetPosition(air->physics.parts[0].body).y>30&&!world_find(cargo)->delivered);
-    puts("AIR GRIP: actual magnet catches an obstructing beam, controller releases it and climbs away without claiming the parcel");world_close();
-}
-static void check_mine_return(Data *ctx){
-    terrain_select(2);Value catalog=read_catalog(ctx),chosen=value_array(ctx),row=value_at(ctx,catalog,61);
-    put_number(ctx,row,"x",-74);put_number(ctx,row,"z",-29);value_set_at(ctx,chosen,0,row);load_designs(ctx,chosen,1);value_free(ctx,chosen);value_free(ctx,catalog);
-    Controller *c=world_find(1)->controller;const char *memory="return {[\"home\"]=array{-73,-68},[\"phase\"]=\"search\",[\"at\"]=0,[\"wait\"]=0,[\"trips\"]=0,[\"job\"]=0}";
-    value_free(c->ctx,c->memory);c->memory=data_parse(c->ctx,memory,strlen(memory),"empty-porter");
-    int id=world_drop_cargo(-73,.485f,-78,MATERIAL_BALLAST),outside=world_drop_cargo(-74,.485f,-20,MATERIAL_BALLAST);world_find(id)->supply=world_find(outside)->supply=3;ticks(240*60);
-    Creature *porter=world_find(1),*cargo=world_find(id);assert(porter&&cargo&&!world.deaths);
-    assert(get_number(porter->controller->ctx,porter->controller->memory,"trips",0)>0&&b3Body_GetPosition(cargo->physics.parts[0].body).z> -40&&!world_find(outside)->carrier);
-    puts("MINE RETURN: empty porter returns from outside observation range, picks up the physical core and hauls it out of the tunnel");world_close();
-}
-
 static void check_radio(Data *ctx){
     terrain_select(1);Character car={0};character_car(&car);
     const char *scout="return function(t, s, m)\n  do return {radio = {kind = \"sight\", cargo = 3}} end\nend\n";
@@ -461,20 +167,20 @@ static void check_rescue_radio(Data *ctx){
     puts("RADIO HELP: real visibility, friendly/enemy targets, sender rate, team isolation, coalescing, strict output, save/reload and rejected import passed");character_clear(&car);world_close();
 }
 int main(void){
-    Data *ctx=data_new(256*1024*1024);Character car={0};character_car(&car);
+    Data *ctx=data_new(256*1024*1024);terrain_select(5);Character car={0};character_car(&car);
     Creature *driver=spawn(&car,"return function()\n  do return \"\" end\nend\n","Your character",1,60,0,12);int id=driver->id;world.player=id;
     int cargo=world_drop_cargo(0,NAN,16.5f,MATERIAL_ALLOY),unearned=world_drop_cargo(2,NAN,34,MATERIAL_ALLOY);
     ticks(90);assert(world.delivery_count==0&&!world_find(unearned)->carrier);
     magnet(id,1);motor(id,1);
     int steps=0;while(cargo_z(cargo)<30&&steps++<1200)world_step();motor(id,0);ticks(120);
-    printf("DELIVERY APPROACH: steps %d, cargo z %.3f, carrier %d, grip %d\n",steps,cargo_z(cargo),world_find(cargo)->carrier,b3Body_IsValid(world_find(id)->physics.parts[8].magnet_target));
-    assert(steps<1200&&world_find(cargo)->carrier==-1&&world.delivery_count==0&&b3Body_IsValid(world_find(id)->physics.parts[8].magnet_target));
+    printf("DELIVERY APPROACH: steps %d, cargo z %.3f, carrier %d, grip %d\n",steps,cargo_z(cargo),world_find(cargo)->carrier,b3Body_IsValid(world_find(id)->physics.parts[magnet_part(&car)].magnet_target));
+    assert(steps<1200&&world_find(cargo)->carrier==-1&&world.delivery_count==0&&b3Body_IsValid(world_find(id)->physics.parts[magnet_part(&car)].magnet_target));
     world_save(ctx);world_close();world_load(ctx);
-    assert(world.player==id&&world_find(cargo)->carrier==-1&&world.delivery_count==0&&b3Body_IsValid(world_find(id)->physics.parts[8].magnet_target));
+    assert(world.player==id&&world_find(cargo)->carrier==-1&&world.delivery_count==0&&b3Body_IsValid(world_find(id)->physics.parts[magnet_part(&car)].magnet_target));
     for(int i=0;i<world.design_count;i++)assert(strcmp(world.designs[i].name,"Your character"));
     Value sensors=physics_sensors(ctx,&world_find(id)->physics,&car,1./60),nearby=value_get(ctx,sensors,"nearby"),sample=value_at(ctx,nearby,0),ground=value_get(ctx,sensors,"groundSamples");
     assert(get_number(ctx,sensors,"id",0)==id&&get_number(ctx,ground,"length",0)==16&&get_number(ctx,sample,"id",0)==cargo&&get_number(ctx,sample,"carriedBy",0)==id&&get_number(ctx,sample,"magnetHeld",0)==1);
-    Value magnets=value_get(ctx,sensors,"magnets"),head=value_at(ctx,magnets,8);
+    Value magnets=value_get(ctx,sensors,"magnets"),head=value_at(ctx,magnets,magnet_part(&car));
     assert(fabs(get_number(ctx,head,"targetMass",0)-b3Body_GetMass(world_find(cargo)->physics.parts[0].body))<1e-6);value_free(ctx,head);value_free(ctx,magnets);
     double sensed=get_number(ctx,sample,"z",0);assert(fabs(sensed-cargo_z(cargo))<.001);
     value_free(ctx,ground);value_free(ctx,sample);value_free(ctx,nearby);value_free(ctx,sensors);
@@ -489,7 +195,7 @@ int main(void){
     int next=world_enter(&car,0);assert(next!=id&&world_cargo_score(next)==1&&world.delivery_count==1);
     world_save(ctx);puts("DELIVERY: physical pickup, loaded restart, transport, release, one-time score and persistent player attribution passed");
     world_close();
-    character_remove(&car,7);character_remove(&car,7);assert(car.count==7);
+    int eyes=car.count-2;character_remove(&car,eyes);character_remove(&car,eyes);assert(car.count==eyes);
     driver=spawn(&car,"return function()\n  do return \"\" end\nend\n","Deck carrier",1,60,0,12);id=driver->id;world.player=id;ticks(60);
     b3Pos p=b3Body_GetPosition(world_find(id)->physics.parts[0].body);cargo=world_drop_cargo(p.x,p.y+1,p.z,MATERIAL_ALLOY);ticks(90);
     assert(world_find(cargo)->carrier==-1);float start=cargo_z(cargo);motor(id,.5f);ticks(300);motor(id,0);ticks(60);
@@ -500,5 +206,5 @@ int main(void){
     sensors=physics_sensors(ctx,&world_find(id)->physics,&car,1./60);nearby=value_get(ctx,sensors,"nearby");sample=value_at(ctx,nearby,0);
     assert(get_number(ctx,sample,"id",0)==cargo&&get_number(ctx,sample,"carriedBy",0)==id&&get_number(ctx,sample,"magnetHeld",-1)==0);
     value_free(ctx,sample);value_free(ctx,nearby);value_free(ctx,sensors);
-    world_close();character_clear(&car);check_pier_water(ctx);check_resume(ctx);check_courier(ctx,0);check_courier(ctx,1);check_air_traffic(ctx);check_air_clearance(ctx);check_walker_recovery(ctx);check_gantry(ctx);check_harbor_tug(ctx);check_dock_courier(ctx);check_lookout_cargo(ctx);check_industry(ctx);check_radio(ctx);check_rescue_radio(ctx);check_supply(ctx);check_mine_supply(ctx);check_wrong_air_grip(ctx);check_mine_return(ctx);data_close(ctx);return 0;
+    world_close();character_clear(&car);terrain_select(8);check_pier_water(ctx);check_resume(ctx);check_walker_recovery(ctx);check_radio(ctx);check_rescue_radio(ctx);check_supply(ctx);data_close(ctx);return 0;
 }

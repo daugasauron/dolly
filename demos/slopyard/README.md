@@ -45,4 +45,5 @@ Open `/slopyard/`; build with `npm run image -- slopyard`. Slopyard needs
 - Winch cables do not collide with terrain.
 - Walking after rescue and repeated combat rounds are incomplete.
 
-Test: `npm run test:demos -- slopyard` ([`test/`](test/)).
+Test: `node demos/slopyard/test/slopyard-browser.mjs` with `DISPLAY` set; it needs a GPU
+window, so `npm run test:demos` skips it ([`test/`](test/)).
