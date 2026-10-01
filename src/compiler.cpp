@@ -503,18 +503,17 @@ bool run_clang(const std::string &source, const std::string &language,
         "-target-feature", "+multivalue",
         "-target-feature", "+reference-types",
         "-exception-model=wasm",
-        "-mllvm", "-wasm-enable-eh",
     });
   }
   arguments.insert(arguments.end(), {
       "-resource-dir", "/usr/lib/clang/24",
   });
-  // A kernel plugin is the sole resident dynamic object. Only the two libc
-  // override points it actually uses are renamed; ordinary output targets the
-  // private process runtime and its process-local dynamic namespace.
+  // A kernel plugin is the sole resident dynamic object. The kernel implements
+  // __assert_fail in JavaScript, so a plugin's assertions reach the kernel's C
+  // reporter instead; ordinary output targets the private process runtime and
+  // its process-local dynamic namespace.
   if (options.kernel_plugin) {
     arguments.insert(arguments.end(), {
-      "-D", "fclose=dolly_fclose",
       "-D", "__assert_fail=dolly_assert_fail",
     });
   } else {
