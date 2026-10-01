@@ -6,8 +6,12 @@ send through env.dolly_http_dispatch. There is no socket or ssl emulation:
 the browser owns TLS, redirects and content decoding, and its policy decides.
 """
 
+import errno
 import io
 import sys
+import time
+
+import _dolly_http
 
 
 def _body(data):
@@ -26,18 +30,17 @@ def _body(data):
 class Response(io.RawIOBase):
     """One brokered request: status and headers on creation, then body bytes."""
 
+    _sequence = None
+
     def __init__(self, method, url, headers, body, timeout=None):
         """`timeout` bounds the wait for each record, like a socket read timeout."""
-        import _dolly_http
-        import errno
-        import time
-        self._http, self._time, self._timeout = _dolly_http, time, timeout
+        self._timeout = timeout
         header_block = "".join(f"{name}: {value}\r\n" for name, value in headers)
-        self._sequence = None
+        body = _body(body)
         while self._sequence is None:
             try:
                 self._sequence = _dolly_http.start(
-                    method, url, header_block, _body(body), _dolly_http.FOLLOW_REDIRECTS)
+                    method, url, header_block, body, _dolly_http.FOLLOW_REDIRECTS)
             except OSError as error:
                 if error.errno != errno.EBUSY:
                     raise
@@ -63,10 +66,10 @@ class Response(io.RawIOBase):
                         if field[0] not in {"content-encoding", "content-length", "transfer-encoding"}]
 
     def _next(self):
-        deadline = None if self._timeout is None else self._time.monotonic() + self._timeout
+        deadline = None if self._timeout is None else time.monotonic() + self._timeout
         while True:
             try:
-                record = self._http.poll(self._sequence)
+                record = _dolly_http.poll(self._sequence)
             except OSError:
                 self._sequence = None
                 raise
@@ -74,10 +77,10 @@ class Response(io.RawIOBase):
                 if record[2]:
                     self._sequence = None
                 return record
-            if deadline is not None and self._time.monotonic() > deadline:
+            if deadline is not None and time.monotonic() > deadline:
                 self.close()
                 raise TimeoutError("Browser HTTP response timed out")
-            self._time.sleep(0.01)
+            time.sleep(0.01)
 
     def readable(self):
         return True
@@ -93,7 +96,7 @@ class Response(io.RawIOBase):
     def close(self):
         if self._sequence is not None:
             sequence, self._sequence = self._sequence, None
-            self._http.cancel(sequence)
+            _dolly_http.cancel(sequence)
         super().close()
 
 

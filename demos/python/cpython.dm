@@ -41,7 +41,7 @@ SOURCE https://daugasauron.com/static/python/runtimes/cpython-termios.c         
 SOURCE https://daugasauron.com/static/python/runtimes/cpython-process.c         9dfbbe0c2de367d829b4fec488ff4e17488324c4cc4c750b34de2c82547fb943 /usr/src/python/Modules/dolly_process.c
 SOURCE https://daugasauron.com/static/python/runtimes/cpython-http.c            13610f3322a4d09aa558e5d31523a082303835bf7c5981557c09443562cdc2da /usr/src/python/Modules/dolly_http.c
 SOURCE https://daugasauron.com/static/python/runtimes/cpython-subprocess.py     cabc2b4eb15e61332c2b63454724c3b390c5f2a2f0effa2889861e123835b785 /usr/src/python/Lib/_dolly_subprocess.py
-SOURCE https://daugasauron.com/static/python/runtimes/cpython-transport.py      748fe7140692cb617b954705f5a7a293a6891fc60ef6c9ad46686d4623ff2a91 /usr/src/python/Lib/_dolly_transport.py
+SOURCE https://daugasauron.com/static/python/runtimes/cpython-transport.py      4567a855ff8459f6671c770dd69d93c84870bef3acd272f11ca28a394c9be92d /usr/src/python/Lib/_dolly_transport.py
 
 SLOP CWD /usr/src/python touch \
   Python/frozen_modules/*.h
