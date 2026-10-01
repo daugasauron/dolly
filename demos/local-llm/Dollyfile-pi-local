@@ -1,9 +1,9 @@
 DOLLY 5
 IMAGE pi-local
 
-FROM https://daugasauron.com/Dollyfile-pi c251c9b073a023049b14dfb503d39f84f3094d50ba2e70df4b51450624af9c06
-COPY FROM https://daugasauron.com/Dollyfile-local-llm-build 9b02c3e371434d7c24e3395b8c2f53ad38069d1533a80bbee1e71522e639948d /usr/bin/dolly-llama /usr/bin/dolly-llama
-COPY FROM https://daugasauron.com/Dollyfile-llama-build 3777dd56e5f8f5e042b94061ae747c8f83aa6edf9514cf19785a3948570ba41d /usr/share/licenses/dolly-llm /usr/share/licenses/dolly-llm
+FROM https://daugasauron.com/Dollyfile-pi df14ee7cb8589fbb930daff178637a20bd7a4ca15adf5280c3b950f7e86147fa
+COPY FROM https://daugasauron.com/Dollyfile-local-llm-build e8a55e4e739dfd2713b62fe58f87d6d54fe67e9ed0714497a6a8b5d3bb059927 /usr/bin/dolly-llama /usr/bin/dolly-llama
+COPY FROM https://daugasauron.com/Dollyfile-llama-build e354b5f2ae084cc214001daeb5e333920c97495ed1f145bf97425c6f3082e48a /usr/share/licenses/dolly-llm /usr/share/licenses/dolly-llm
 EXPORTS TOOL dolly-llama
 USE https://daugasauron.com/modules/local-llm-weights.dm a69785b8a353af1c422f1c8451e74ef3c77525c130e644f88fac689ea8ffff62
 USE https://daugasauron.com/modules/local-llm.dm 61d29f39c8a054fec01b62d23532ed40b50e3db435854349a41c835455e295d2
