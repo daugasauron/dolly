@@ -1,7 +1,7 @@
 DOLLY 5
 IMAGE zig-build
 
-FROM https://daugasauron.com/Dollyfile-system-build 4fb82f8c0cb8de4d7afabc9d8f2ae7313ab9f53d8004f9295810bfbe107b1a78
+FROM https://daugasauron.com/Dollyfile-system-build ff6006537062d23674bb25c470c69c237422eb6e487e5513d3dad706b39406c7
 
 USE https://daugasauron.com/modules/zig.dm 05a7591329b04eaff2cbafb2f48b77925e30d047d6faec0bee5b4e01e68e1568
 

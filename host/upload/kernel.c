@@ -11,6 +11,7 @@
 
 #include "process-kernel.h"
 
+#include <emscripten/atomic.h>
 #include <dolly/process.h>
 #include <dolly/upload.h>
 
@@ -23,7 +24,7 @@ static char *destination;
 static size_t received;
 
 uintptr_t dolly_upload_mailbox_address(void) { return (uintptr_t)&mailbox; }
-uint32_t dolly_upload_mailbox_version(void) { return 0; }
+uint32_t dolly_upload_mailbox_version(void) { return 1; }
 
 static void upload_cancel(int pid) {
   if (owner != pid || pid <= 0) return;
@@ -73,9 +74,12 @@ static int64_t upload_file(int pid, const char *path) {
   if (chunk == atomic_load(&mailbox.consumed)) return DOLLY_PROCESS_DISPATCH_DEFERRED;
   const uint32_t length = atomic_load(&mailbox.length);
   const uint32_t eof = atomic_load(&mailbox.eof);
+  const uint32_t size = atomic_load(&mailbox.size);
   int status = -(int)atomic_load(&mailbox.error);
-  if (length > sizeof(mailbox.data) || length > 64u * 1024u * 1024u - received ||
-      eof > 1 || (!eof && length == 0)) status = -EIO;
+  if (length > sizeof(mailbox.data) || size > DOLLY_UPLOAD_MAX_SIZE || length > size - received ||
+      eof > 1 || (!eof && length == 0) || (eof && status == 0 && received + length != size)) status = -EIO;
+  // One allocation of the final size instead of repeated growth.
+  if (status == 0 && received == 0 && ftruncate(descriptor, size) != 0) status = -errno;
   size_t offset = 0;
   while (status == 0 && offset < length) {
     const ssize_t written = write(descriptor, mailbox.data + offset, length - offset);
@@ -84,7 +88,9 @@ static int64_t upload_file(int pid, const char *path) {
     offset += (size_t)written;
   }
   received += offset;
+  // The page awaits this word before it sends the next chunk.
   atomic_store(&mailbox.consumed, chunk);
+  emscripten_atomic_notify((void *)&mailbox.consumed, EMSCRIPTEN_NOTIFY_ALL_WAITERS);
   if (!eof && status == 0) return DOLLY_PROCESS_DISPATCH_DEFERRED;
   if (status == 0) {
     if (close(descriptor) != 0) status = -errno;

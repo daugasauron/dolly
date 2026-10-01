@@ -1,10 +1,10 @@
 DOLLY 5
 IMAGE system-tools
 
-FROM https://daugasauron.com/Dollyfile-system-build 4fb82f8c0cb8de4d7afabc9d8f2ae7313ab9f53d8004f9295810bfbe107b1a78
+FROM https://daugasauron.com/Dollyfile-system-build ff6006537062d23674bb25c470c69c237422eb6e487e5513d3dad706b39406c7
 USE https://daugasauron.com/modules/sbase.dm cb8502b84efb685245699a1d02b73aad091d6942c403995ea686b3dc940767b8
-USE https://daugasauron.com/modules/default.dm e8710938123011c23b1ecf1a492b46d12da4e5652244a4d289911b7bf9d20b97
+USE https://daugasauron.com/modules/default.dm 5b35a4cc94c68a1be078d426aa6e5b3fb83c5902a3417ff8e002bca16b6f07fd
 USE https://daugasauron.com/modules/posix-shell.dm 9a96f2330b6c8dccdf80ba1b92fac22ee823e81ab4ceb26fa91e5909ea290bb5
-USE https://daugasauron.com/modules/display.dm b6a68f9fb4a5c6df413074ddcc61dd8163fc935940ae825333e120fa669bff16
+USE https://daugasauron.com/modules/display.dm 9da38eedaf21f25cc9a26f645c2eb63dccc500f8a2fe1834fb716cd4d38a5897
 
 ENTRY /bin/foreground -i /bin/slop

@@ -12,7 +12,7 @@ REQUIRES TOOL   make
 REQUIRES TOOL   rm
 
 SOURCE https://daugasauron.com/dist/static/default/commands/run-program.h 677cab1ebff7f32b87f8566939d8cd0bffa9a0b94307f0cdc81ea6d05e76243e /tmp/agent-tools/run-program.h
-SOURCE https://daugasauron.com/dist/static/default/commands/install.c     0aa8729ff8f6d8ecc454757226275b946b28c2e6783afd571f4c33a616cb4ba3 /tmp/agent-tools/install.c
+SOURCE https://daugasauron.com/dist/static/default/commands/install.c     605b04b67970f478771ee89a37c178748579fe6440ad0568e90fadcfa00922c4 /tmp/agent-tools/install.c
 SOURCE https://daugasauron.com/dist/static/default/commands/tail.c        f0a892066f2e6fe42667bf1765496f8347c8bfe53094ce22e0922e4ffc87c36b /tmp/agent-tools/tail.c
 SOURCE https://daugasauron.com/dist/static/default/commands/du.c          55b6a61ea8dc2a4355aaafc9a80d2218f397fa4d1e170b78462863fc9cb2ed63 /tmp/agent-tools/du.c
 SOURCE https://daugasauron.com/dist/static/default/commands/rev.c         3539529d49f26629a6518437dc76631f113bcc5822ff5dbc8aa26481933f3d05 /tmp/agent-tools/rev.c

@@ -1,7 +1,7 @@
 DOLLY 5
 IMAGE ripgrep
 
-FROM https://daugasauron.com/demos/rust/Dollyfile-rust-build 662bbb9cb92a5b80451b370d66ed6a4042044bc8ad5e39997d699d30cbd96a73
+FROM https://daugasauron.com/demos/rust/Dollyfile-rust-build 27f4c388e6efce2e391f4d0f8448dc4f86b9e60b93e02c05ef55b22bde93cf0e
 USE https://daugasauron.com/demos/rust/ripgrep.dm c383f6ef7914ed06fc50f36b07aa2530f3bfd92d8d7d76f84b3cb07b8a41449e
 
 ENTRY /bin/foreground -i /bin/slop

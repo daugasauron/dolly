@@ -14,10 +14,10 @@ REQUIRES HEADER http
 REQUIRES HEADER download
 
 SOURCE https://daugasauron.com/dist/static/default/quickjs.tar               d23b73610440a642dfb49de7910cbf34550d31b3a9ca375291f9c74444749d8a /tmp/quickjs.tar
-SOURCE https://daugasauron.com/dist/static/default/runtimes/quickjs-main.c   3b2b0e198241c94db21b4e2ef14181e8cb2a4e8baad75ee3aa1f0570fa8ee698 /usr/src/dolly/runtimes/quickjs-main.c
+SOURCE https://daugasauron.com/dist/static/default/runtimes/quickjs-main.c   f847883162e63edc37b537c091c1ba2304f8f73e45ad0009d863251c22c7c4a8 /usr/src/dolly/runtimes/quickjs-main.c
 SOURCE https://daugasauron.com/dist/static/default/runtimes/quickjs-runner.h dff97c2bbc62d51460e232a9f58550eb6320bd81341bff9ebf136b31a0fc206b /usr/include/dolly/quickjs-runner.h
 SOURCE https://daugasauron.com/dist/static/default/runtimes/dolly-node.js    40448087ab3ee29e64c04a99d247e16bb3e64a32f6dfe556aff71be5dc454bc2 /usr/lib/dolly/node.js
-SOURCE https://daugasauron.com/dist/static/default/runtimes/janis.js         e4d4a646731efeb057edda6179d897c30fb479e3d3e32f3a7a57259f327b0339 /usr/lib/janis/runtime.js
+SOURCE https://daugasauron.com/dist/static/default/runtimes/janis.js         0b4a5a699e2864cad8cb15b931c3d59cd1c98f6e1a43ad70229527f6c461f26b /usr/lib/janis/runtime.js
 SOURCE https://daugasauron.com/dist/static/default/commands/janis.c          08c40227d11f06e851a6406fe5ed8f8d7e5f7cdd28a3dad2609c04650a7afe1b /usr/src/dolly/commands/janis.c
 SLOP tar \
   -xf /tmp/quickjs.tar \

@@ -1,7 +1,7 @@
 DOLLY 5
 IMAGE python-runtime
 
-FROM https://daugasauron.com/Dollyfile-system f09301e9c3a830993070865b0b5ba75aa88959c586bf3c4fe98a98877177cdfd
-USE https://daugasauron.com/demos/python/python.dm 290e3bde1adee9e851599576b3ce3ae2b3e6906c75af0983c0397938ac092fbb
+FROM https://daugasauron.com/Dollyfile-system 316f5c5817b1a7eb7f59d6e7fc42269236a8778fb2399d12470d43680d5d3e52
+USE https://daugasauron.com/demos/python/python.dm 79da2161f5a8a5af27867e3e3e5e2ce0486819cb8f34864f90d81f4357083835
 
 ENTRY /bin/foreground -i /bin/slop

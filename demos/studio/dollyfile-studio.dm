@@ -12,7 +12,7 @@ REQUIRES TOOL sed
 # dollyfile-build starts disposable image builds through the page.
 REQUIRES HOST build@0
 
-SOURCE https://daugasauron.com/dist/static/studio/studio.tar 166db629f7f6ced86a651b472a22b86ec221c15a92bfece459e14ea8f49df1f5 /tmp/dollyfile-studio/source.tar
+SOURCE https://daugasauron.com/dist/static/studio/studio.tar f5d09a81bfc2a245a9122831696bc425e3490fb9b55664f1bc2e92b3d7b5b82a /tmp/dollyfile-studio/source.tar
 SLOP tar -xf /tmp/dollyfile-studio/source.tar -C /
 SLOP slop -e /usr/share/dollyfile-studio/install.slop
 SLOP dollyfile-lint /usr/share/dollyfile-studio/examples/Dollyfile-hello

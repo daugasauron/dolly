@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { UploadTransport, UPLOAD_MAX_BYTES, UPLOAD_CANCEL_QUIET_MILLISECONDS } from "../host/upload/transport.mjs";
+import { UploadTransport, UPLOAD_CANCEL_QUIET_MILLISECONDS } from "../host/upload/transport.mjs";
+import { DOLLY_UPLOAD_CHUNK_CAPACITY as capacity, DOLLY_UPLOAD_MAX_SIZE } from "../host/upload/abi.mjs";
 import { DOLLY_ERRNO as errno } from "../dist/dolly-errno.mjs";
 
 const pause = () => new Promise(resolve => setTimeout(resolve, 5));
@@ -12,7 +13,7 @@ async function until(predicate) {
   throw new Error("upload test timed out");
 }
 function fixture(choose) {
-  const transport = new UploadTransport(new SharedArrayBuffer(65536 + 128), 64, choose);
+  const transport = new UploadTransport(new SharedArrayBuffer(capacity + 128), 64, choose);
   return { transport, words: transport.words };
 }
 async function consume(transport) {
@@ -26,20 +27,24 @@ async function consume(transport) {
     error = Atomics.load(words, 6);
     const eof = Atomics.load(words, 7);
     Atomics.store(words, 4, sequence);
-    if (eof) return { bytes: Buffer.concat(chunks), error };
+    if (!eof) continue;
+    const bytes = Buffer.concat(chunks);
+    // The kernel accepts EOF only at the size announced with every chunk.
+    if (!error) assert.equal(Atomics.load(words, 9), bytes.length);
+    return { bytes, error };
   }
 }
 
 test("upload admits a fixed mailbox, never guest-selected paths or buffer sizes", () => {
-  const memory = new SharedArrayBuffer(65536 + 128);
+  const memory = new SharedArrayBuffer(capacity + 128);
   for (const address of [0, -1, 65, 132, NaN, Infinity, 2 ** 53, 64n]) {
     assert.throws(() => new UploadTransport(memory, address, () => {}));
   }
-  assert.throws(() => new UploadTransport(new ArrayBuffer(65536 + 128), 64, () => {}));
+  assert.throws(() => new UploadTransport(new ArrayBuffer(capacity + 128), 64, () => {}));
 });
 
 test("user selection transfers binary chunks with backpressure and empty files", async () => {
-  const bytes = Uint8Array.from({ length: 150000 }, (_, index) => index & 255);
+  const bytes = Uint8Array.from({ length: 2 * capacity + 150000 }, (_, index) => index & 255);
   let calls = 0;
   const { transport, words } = fixture(() => { calls++; return new Blob([calls === 1 ? bytes : ""]); });
   await transport.poll();
@@ -63,7 +68,7 @@ test("user selection transfers binary chunks with backpressure and empty files",
 test("picker cancellation, size bounds and read failures reach Wasm as errno", async () => {
   for (const [choose, error] of [
     [() => null, errno.ECANCELED],
-    [() => new Blob([new Uint8Array(UPLOAD_MAX_BYTES + 1)]), errno.EFBIG],
+    [() => ({ size: DOLLY_UPLOAD_MAX_SIZE + 1, __proto__: Blob.prototype }), errno.EFBIG],
     [() => { throw new Error("PC path must not leak in errors"); }, errno.EIO],
   ]) {
     const { transport, words } = fixture(choose);
@@ -74,10 +79,28 @@ test("picker cancellation, size bounds and read failures reach Wasm as errno", a
   }
 });
 
+test("the user's Cancel during a transfer ends the stream with ECANCELED", async () => {
+  let controller, calls = 0;
+  const { transport, words } = fixture(received => { controller = received; calls++; return new Blob([new Uint8Array(3 * capacity)]); });
+  Atomics.store(words, 0, 1);
+  const pending = transport.poll();
+  await until(() => Atomics.load(words, 3) === 1);
+  controller.abort();
+  const { bytes, error } = await consume(transport);
+  assert.equal(error, errno.ECANCELED);
+  assert.ok(bytes.length < 3 * capacity, "a cancelled upload completed");
+  await pending;
+  Atomics.store(words, 0, 2);
+  const next = transport.poll();
+  assert.equal((await consume(transport)).error, errno.ECANCELED);
+  await next;
+  assert.equal(calls, 1, "the picker reopened right after a cancel");
+});
+
 test("process cancellation retires the chooser before a new request", async () => {
   let signal;
-  const { transport, words } = fixture(received => {
-    signal = received;
+  const { transport, words } = fixture(controller => {
+    signal = controller.signal;
     return new Promise(resolve => signal.addEventListener("abort", () => resolve(null), { once: true }));
   });
   Atomics.store(words, 0, 1);
@@ -98,14 +121,16 @@ test("process cancellation retires the chooser before a new request", async () =
 test("cancellation during a file read cannot leak a late chunk into the next request", async () => {
   let finishRead;
   const blob = new Blob(["late"]);
-  blob.slice = () => ({ arrayBuffer: () => new Promise(resolve => { finishRead = resolve; }) });
+  blob.stream = () => new ReadableStream({ type: "bytes", pull: source => new Promise(resolve => {
+    finishRead = () => { source.enqueue(new TextEncoder().encode("late")); resolve(); };
+  }) });
   const { transport, words } = fixture(() => blob);
   Atomics.store(words, 0, 1);
   const pending = transport.poll();
   await until(() => finishRead);
   Atomics.store(words, 1, 1);
   assert.equal(Atomics.load(words, 2), 0, "slot remains owned until the pending read is retired");
-  finishRead(new TextEncoder().encode("late").buffer);
+  finishRead();
   await pending;
   assert.equal(Atomics.load(words, 3), 0);
   assert.equal(Atomics.load(words, 2), 1);

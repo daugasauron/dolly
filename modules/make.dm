@@ -12,7 +12,7 @@ REQUIRES TOOL   mkdir
 REQUIRES TOOL   rm
 REQUIRES TOOL   tar
 
-SOURCE https://daugasauron.com/dist/static/default/make-4.4.1.tar                     f8055eb2fa9836b1745cb1b16a4c7141fe6446ca45fcac0ca9574734fd2763e0 /tmp/make-4.4.1.tar
+SOURCE https://daugasauron.com/dist/static/default/make-4.4.1.tar                     ab75d4663bea03a167059954d9b1abf580bbbacb2dd3ac9b1dd6455d2b2ef8a0 /tmp/make-4.4.1.tar
 SOURCE https://daugasauron.com/dist/static/default/runtimes/make-amalgamation-dolly.c c37c85dd20c843b9bface7e12bd190f8d943b18c0b2b5e0341cfdc2cba11b4fd /tmp/make-4.4.1/make-amalgamation-dolly.c
 
 SLOP tar \
