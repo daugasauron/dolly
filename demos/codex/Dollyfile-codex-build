@@ -4,8 +4,8 @@ REQUIRES HOST display@0
 REQUIRES HOST http@0
 REQUIRES HOST threads@0
 
-FROM https://daugasauron.com/demos/rust/Dollyfile-rust-build fd297734cc7d949bece569a79a19df3da34cf0b37b1ed85623b75b033de9d753
-INSTALL https://daugasauron.com/demos/rust/Dollyfile-protox dc04fe55d24d3eefa329568646976b4aea3a6296dc3cd4ad95fa8cc337f20e74
+FROM https://daugasauron.com/demos/rust/Dollyfile-rust-build 1b632723b5a5a79f9cb16cbcea5174bf09cbf1175a6ce2201c3fc2549017896f
+INSTALL https://daugasauron.com/demos/rust/Dollyfile-protox 199130b9577e3a34924cde41effd257158b903e49b1519931020c5d43395f967
 REQUIRES TOOL patti
 REQUIRES TOOL cc
 REQUIRES TOOL cp

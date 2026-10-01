@@ -1,18 +1,18 @@
 DOLLY 6
 PACKAGE nvim
 
-COPY https://daugasauron.com/demos/neovim/Dollyfile-neovim-build b4594c122a7c2473da4636c2b1de73c5ff362fee1635052248cc7e3ff542ae37 /usr/bin/nvim /usr/bin/nvim
-COPY https://daugasauron.com/demos/neovim/Dollyfile-neovim-build b4594c122a7c2473da4636c2b1de73c5ff362fee1635052248cc7e3ff542ae37 /usr/share/nvim /usr/share/nvim
-COPY https://daugasauron.com/demos/neovim/Dollyfile-neovim-build b4594c122a7c2473da4636c2b1de73c5ff362fee1635052248cc7e3ff542ae37 /usr/lib/nvim /usr/lib/nvim
-COPY https://daugasauron.com/demos/neovim/Dollyfile-neovim-build b4594c122a7c2473da4636c2b1de73c5ff362fee1635052248cc7e3ff542ae37 /usr/share/licenses/neovim /usr/share/licenses/neovim
-COPY https://daugasauron.com/demos/neovim/Dollyfile-neovim-build b4594c122a7c2473da4636c2b1de73c5ff362fee1635052248cc7e3ff542ae37 /usr/share/licenses/neovim-parsers /usr/share/licenses/neovim-parsers
-COPY https://daugasauron.com/demos/neovim/Dollyfile-neovim-build b4594c122a7c2473da4636c2b1de73c5ff362fee1635052248cc7e3ff542ae37 /usr/share/licenses/libuv /usr/share/licenses/libuv
-COPY https://daugasauron.com/demos/neovim/Dollyfile-neovim-build b4594c122a7c2473da4636c2b1de73c5ff362fee1635052248cc7e3ff542ae37 /usr/share/licenses/lua /usr/share/licenses/lua
-COPY https://daugasauron.com/demos/neovim/Dollyfile-neovim-build b4594c122a7c2473da4636c2b1de73c5ff362fee1635052248cc7e3ff542ae37 /usr/share/licenses/luv /usr/share/licenses/luv
-COPY https://daugasauron.com/demos/neovim/Dollyfile-neovim-build b4594c122a7c2473da4636c2b1de73c5ff362fee1635052248cc7e3ff542ae37 /usr/share/licenses/lua-compat53 /usr/share/licenses/lua-compat53
-COPY https://daugasauron.com/demos/neovim/Dollyfile-neovim-build b4594c122a7c2473da4636c2b1de73c5ff362fee1635052248cc7e3ff542ae37 /usr/share/licenses/lpeg /usr/share/licenses/lpeg
-COPY https://daugasauron.com/demos/neovim/Dollyfile-neovim-build b4594c122a7c2473da4636c2b1de73c5ff362fee1635052248cc7e3ff542ae37 /usr/share/licenses/utf8proc /usr/share/licenses/utf8proc
-COPY https://daugasauron.com/demos/neovim/Dollyfile-neovim-build b4594c122a7c2473da4636c2b1de73c5ff362fee1635052248cc7e3ff542ae37 /usr/share/licenses/treesitter /usr/share/licenses/treesitter
+COPY https://daugasauron.com/demos/neovim/Dollyfile-neovim-build f4e62e0e3612d43720ba4fc3c27e1a92c0ec5d4f910c98329a5811131c84b40e /usr/bin/nvim /usr/bin/nvim
+COPY https://daugasauron.com/demos/neovim/Dollyfile-neovim-build f4e62e0e3612d43720ba4fc3c27e1a92c0ec5d4f910c98329a5811131c84b40e /usr/share/nvim /usr/share/nvim
+COPY https://daugasauron.com/demos/neovim/Dollyfile-neovim-build f4e62e0e3612d43720ba4fc3c27e1a92c0ec5d4f910c98329a5811131c84b40e /usr/lib/nvim /usr/lib/nvim
+COPY https://daugasauron.com/demos/neovim/Dollyfile-neovim-build f4e62e0e3612d43720ba4fc3c27e1a92c0ec5d4f910c98329a5811131c84b40e /usr/share/licenses/neovim /usr/share/licenses/neovim
+COPY https://daugasauron.com/demos/neovim/Dollyfile-neovim-build f4e62e0e3612d43720ba4fc3c27e1a92c0ec5d4f910c98329a5811131c84b40e /usr/share/licenses/neovim-parsers /usr/share/licenses/neovim-parsers
+COPY https://daugasauron.com/demos/neovim/Dollyfile-neovim-build f4e62e0e3612d43720ba4fc3c27e1a92c0ec5d4f910c98329a5811131c84b40e /usr/share/licenses/libuv /usr/share/licenses/libuv
+COPY https://daugasauron.com/demos/neovim/Dollyfile-neovim-build f4e62e0e3612d43720ba4fc3c27e1a92c0ec5d4f910c98329a5811131c84b40e /usr/share/licenses/lua /usr/share/licenses/lua
+COPY https://daugasauron.com/demos/neovim/Dollyfile-neovim-build f4e62e0e3612d43720ba4fc3c27e1a92c0ec5d4f910c98329a5811131c84b40e /usr/share/licenses/luv /usr/share/licenses/luv
+COPY https://daugasauron.com/demos/neovim/Dollyfile-neovim-build f4e62e0e3612d43720ba4fc3c27e1a92c0ec5d4f910c98329a5811131c84b40e /usr/share/licenses/lua-compat53 /usr/share/licenses/lua-compat53
+COPY https://daugasauron.com/demos/neovim/Dollyfile-neovim-build f4e62e0e3612d43720ba4fc3c27e1a92c0ec5d4f910c98329a5811131c84b40e /usr/share/licenses/lpeg /usr/share/licenses/lpeg
+COPY https://daugasauron.com/demos/neovim/Dollyfile-neovim-build f4e62e0e3612d43720ba4fc3c27e1a92c0ec5d4f910c98329a5811131c84b40e /usr/share/licenses/utf8proc /usr/share/licenses/utf8proc
+COPY https://daugasauron.com/demos/neovim/Dollyfile-neovim-build f4e62e0e3612d43720ba4fc3c27e1a92c0ec5d4f910c98329a5811131c84b40e /usr/share/licenses/treesitter /usr/share/licenses/treesitter
 EXPORTS TOOL nvim
 EXPORTS FOLDER nvim-runtime /usr/share/nvim
 EXPORTS FOLDER nvim-libraries /usr/lib/nvim

@@ -6,7 +6,7 @@ REQUIRES HOST gpu@0
 REQUIRES HOST http@0
 REQUIRES HOST upload@0
 
-FROM https://daugasauron.com/demos/local-llm/Dollyfile-llama-build dd09121e7ef51e8b76834df3c7af091e9896c6e355dae95daf2574456f1507c1
+FROM https://daugasauron.com/demos/local-llm/Dollyfile-llama-build b8a9756cdd136f989a55cda3c72c8df319cb501a47c6e6c3d8d5c40683269462
 REQUIRES TOOL cc
 REQUIRES TOOL c++
 REQUIRES TOOL tar
@@ -17,7 +17,7 @@ REQUIRES LIB ggml-base
 REQUIRES LIB ggml-cpu
 REQUIRES LIB ggml-webgpu
 
-SOURCE https://daugasauron.com/dist/static/llama/engine.tar 8ea6c9f9bfe8c0d82b09ceef945a6d0821c4466ed774256d6c97de76bf2db988 /tmp/llm-engine.tar
+SOURCE https://daugasauron.com/dist/static/llama/engine.tar 53e3285604920d0f8269f59661a1b3d8498ef1522a8b3ad43573f4db52976cc6 /tmp/llm-engine.tar
 SLOP tar -xf /tmp/llm-engine.tar -C /
 SLOP c++ -std=c++20 -O1 -I/usr/include/dolly-llm -I/usr/src/dolly-llm/include \
   /usr/src/dolly-llm/main.cpp /usr/src/dolly-llm/webgpu.cpp \
