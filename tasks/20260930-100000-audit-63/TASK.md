@@ -1,6 +1,6 @@
 # Demo code leaks into core files
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 140
 - TAGS: core,demo,cleanup
 
@@ -53,3 +53,14 @@ Core files contain no demo names; demos own their scenarios, preparation and tes
 and `zero-ad`. Deriving the set as the domain list minus the GitHub list would
 also redirect `codex`, `audio-sdk` and `openal-build`; selecting by snapshot
 size needs the sizes at packaging time. Left as the task's plan says.
+
+## Closed (2026-10-02)
+
+`scripts/package-github-pages.mjs` derives its daugasauron.com links from the
+two catalogs and recipe roles (applications the domain publishes beyond
+GitHub Pages: codex, dollyfile-studio, gnu-emacs, pi-local, zero-ad) instead of
+naming demos. `git grep -w` for demo image names over `src`, `host`, `scripts`,
+`abi`, `include` and `toolchain` finds nothing; `test/site-release.test.mjs`
+names the domain showcase's pages because it tests that site's content. Demos
+build and pass their checks in release `d84ef9c5…` (`rc-2026-10-02`).
+

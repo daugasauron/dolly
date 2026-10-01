@@ -3,13 +3,23 @@ import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { imageDescriptions, menuRow } from "./image-menu.mjs";
+import { discoverImageDefinitions } from "./image-definitions.mjs";
+
+// Applications the domain publishes beyond GitHub Pages' catalog link there.
+export async function domainOnlyApplications(projectDir) {
+  const catalog = async name => (await readFile(resolve(projectDir, "config", name), "utf8")).split("\n").filter(Boolean);
+  const github = new Set(await catalog("github-pages-images.txt"));
+  const roles = new Map((await discoverImageDefinitions(projectDir)).map(({ image, parsed }) => [image, parsed.role]));
+  return (await catalog("domain-pages-images.txt")).filter(image => !github.has(image) && roles.get(image) === "application");
+}
 
 export async function packageGithubPages(site) {
-  const descriptions = await imageDescriptions(resolve(import.meta.dirname, ".."));
+  const projectDir = resolve(import.meta.dirname, "..");
+  const descriptions = await imageDescriptions(projectDir);
   const index = resolve(site, "index.html");
   const menu = await readFile(index, "utf8");
   const rows = ['<tr class="group"><th colspan="3">Hosted on daugasauron.com</th></tr>'];
-  for (const image of ["dollyfile-studio", "pi-local", "zero-ad"]) {
+  for (const image of await domainOnlyApplications(projectDir)) {
     if (menu.includes(`data-image="${image}"`)) throw Error(`${image} is already packaged locally`);
     rows.push(menuRow(image, descriptions.get(image), true).replaceAll('href="./', 'href="https://daugasauron.com/'));
     for (const route of [image, `${image}/rebuild`, `view/${image}`]) {
