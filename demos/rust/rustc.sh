@@ -24,5 +24,4 @@ test "$has_target" = 1 || set -- --target "$sdk/wasm64-emscripten-probe.json" "$
 RUSTC_BOOTSTRAP=1 "$sdk/bin/rustc-real" \
   --sysroot "$sdk" \
   -Z unstable-options -C link-self-contained=no \
-  -C linker="$sdk/bin/dolly-rust-link" \
-  -C link-arg="$sdk/lib/libdolly-rust.a" "$@"
+  -C linker="$sdk/bin/dolly-rust-link" "$@"

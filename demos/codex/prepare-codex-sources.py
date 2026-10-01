@@ -89,7 +89,7 @@ pub mod ioctl;"""))
         #[cfg(target_os = "emscripten")]
         if res != 0 { return Err(Errno::from_raw(res)); }"""))
     elif name == "tokio":
-        for suffix in ["target", "signal-pipe", "memory-fs"]:
+        for suffix in ["target", "signal-pipe"]:
             apply(directory, Path(f"demos/rust/config/patches/tokio-{suffix}.patch"))
     else:
         subprocess.run(["patch", "--batch", "--forward", "--fuzz=0", "-p1", "-d", str(directory),

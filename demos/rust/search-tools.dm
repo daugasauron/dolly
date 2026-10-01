@@ -1,13 +1,15 @@
 DOLLY 5
 MODULE search-tools
 
+REQUIRES HOST threads@0
+
 # ripgrep and fd built from source by the Rust demo images.
-COPY FROM https://daugasauron.com/Dollyfile-ripgrep 3751efc7a6294162ef7640eb057b1c6f9e440597c00ea8e8011691752e78bebf /usr/bin/rg /usr/bin/rg
-COPY FROM https://daugasauron.com/Dollyfile-ripgrep 3751efc7a6294162ef7640eb057b1c6f9e440597c00ea8e8011691752e78bebf /usr/share/licenses/ripgrep /usr/share/licenses/ripgrep
-COPY FROM https://daugasauron.com/Dollyfile-ripgrep 3751efc7a6294162ef7640eb057b1c6f9e440597c00ea8e8011691752e78bebf /usr/share/dolly/builds/ripgrep.json /usr/share/dolly/builds/ripgrep.json
+COPY FROM https://daugasauron.com/Dollyfile-ripgrep 40404ed5c59449b67293843903b7174bbaceb90006323527e37ce64daac63517 /usr/bin/rg /usr/bin/rg
+COPY FROM https://daugasauron.com/Dollyfile-ripgrep 40404ed5c59449b67293843903b7174bbaceb90006323527e37ce64daac63517 /usr/share/licenses/ripgrep /usr/share/licenses/ripgrep
+COPY FROM https://daugasauron.com/Dollyfile-ripgrep 40404ed5c59449b67293843903b7174bbaceb90006323527e37ce64daac63517 /usr/share/dolly/builds/ripgrep.json /usr/share/dolly/builds/ripgrep.json
 EXPORTS TOOL rg
 
-COPY FROM https://daugasauron.com/Dollyfile-fd-build 81bcf0117c9dbd9da1d17255986cf12816a149c5d6a0b232efc41bccefc8d27b /usr/bin/fd /usr/bin/fd
-COPY FROM https://daugasauron.com/Dollyfile-fd-build 81bcf0117c9dbd9da1d17255986cf12816a149c5d6a0b232efc41bccefc8d27b /usr/share/licenses/fd /usr/share/licenses/fd
-COPY FROM https://daugasauron.com/Dollyfile-fd-build 81bcf0117c9dbd9da1d17255986cf12816a149c5d6a0b232efc41bccefc8d27b /usr/share/dolly/builds/fd.json /usr/share/dolly/builds/fd.json
+COPY FROM https://daugasauron.com/Dollyfile-fd-build bbd45b5b5627a01c8c5102f34e47a94eeb565bd00f7f904854a38b3d93e0337f /usr/bin/fd /usr/bin/fd
+COPY FROM https://daugasauron.com/Dollyfile-fd-build bbd45b5b5627a01c8c5102f34e47a94eeb565bd00f7f904854a38b3d93e0337f /usr/share/licenses/fd /usr/share/licenses/fd
+COPY FROM https://daugasauron.com/Dollyfile-fd-build bbd45b5b5627a01c8c5102f34e47a94eeb565bd00f7f904854a38b3d93e0337f /usr/share/dolly/builds/fd.json /usr/share/dolly/builds/fd.json
 EXPORTS TOOL fd

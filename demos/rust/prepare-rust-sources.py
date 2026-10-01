@@ -47,9 +47,7 @@ if name == "fd":
         subprocess.run(["patch", "--batch", "--fuzz=0", "-p1", "-d", str(directory),
                         "-i", str(project / "demos/rust/config/patches" / patch)], check=True)
 
-    apply(source, "fd-serial.patch")
-    for crate, patch in [("ignore-0.4.31", "ignore-serial-prune.patch"),
-                         ("nix-0.31.3", "nix-hostname.patch"),
+    for crate, patch in [("nix-0.31.3", "nix-hostname.patch"),
                          ("jiff-0.2.29", "jiff-timezone.patch")]:
         with tarfile.open(archives / f"{crate}.crate") as archive:
             archive.extractall(stage, filter="data")
