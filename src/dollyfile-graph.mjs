@@ -14,7 +14,7 @@ const key = object => `${object.type}:${object.name}`;
 // reuse parsed recipes across graphs.
 export async function loadRecipeGraph(read, rootLocation, recipes = new Map()) {
   const modules = [], records = [], edges = [], artifacts = [];
-  const active = new Set(), seen = new Set(), images = new Map(), imageNames = new Map();
+  const active = new Set(), seen = new Set(), images = new Map(), imageNames = new Map(), moduleNames = new Map();
 
   function parse(location) {
     if (!recipes.has(location)) {
@@ -39,10 +39,12 @@ export async function loadRecipeGraph(read, rootLocation, recipes = new Map()) {
     if (!image && recipeFileName(location) !== `${parsed.name}.dm`) {
       throw new Error(`${location}: MODULE ${parsed.name} must match its filename`);
     }
-    if (image && (imageNames.get(parsed.name) ?? location) !== location) {
-      throw new Error(`${location}: IMAGE ${parsed.name} is already ${imageNames.get(parsed.name)}`);
+    // Recipes are retained by kind and name, so each name has one location.
+    const names = image ? imageNames : moduleNames;
+    if ((names.get(parsed.name) ?? location) !== location) {
+      throw new Error(`${location}: ${image ? "IMAGE" : "MODULE"} ${parsed.name} is already ${names.get(parsed.name)}`);
     }
-    if (image) imageNames.set(parsed.name, location);
+    names.set(parsed.name, location);
     if (image && !stage && images.has(location)) return images.get(location);
     active.add(location);
     const record = { ...parsed, location, children: [], dependencies: [], imports: new Map(), artifactTargets: [] };

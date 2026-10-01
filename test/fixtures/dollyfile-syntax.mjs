@@ -185,6 +185,8 @@ export const syntaxCases = [
   [false, root(image("USE HOST /modules/probe.dm PIN(/modules/probe.dm)\n"), { "/modules/probe.dm": "DOLLY 5\nMODULE probe\n" })],
   [true, root(image("USE https://daugasauron.com/other/probe.dm PIN(/other/probe.dm)\n"),
     { "/other/probe.dm": "DOLLY 5\nMODULE probe\n" })],
+  [false, root(image("USE https://daugasauron.com/modules/probe.dm PIN(/modules/probe.dm)\nUSE https://daugasauron.com/other/probe.dm PIN(/other/probe.dm)\n"),
+    { "/modules/probe.dm": "DOLLY 5\nMODULE probe\n", "/other/probe.dm": "DOLLY 5\nMODULE probe\n" })],
   [true, root(image("USE https://daugasauron.com/modules/probe.dm PIN(/modules/probe.dm)\n".repeat(2)),
     { "/modules/probe.dm": "DOLLY 5\nMODULE probe\n" })],
   [false, probe("USE https://daugasauron.com/modules/probe.dm PIN(/modules/probe.dm)")],
