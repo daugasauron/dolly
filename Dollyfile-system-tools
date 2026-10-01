@@ -1,10 +1,10 @@
 DOLLY 4
 IMAGE system-tools
 
-FROM HOST /Dollyfile-system-build c2ec44282356b27643bad2652d2f77f42f44f82e2ddc2c44bc7e2a330bb4c079
+FROM HOST /Dollyfile-system-build 4d40f6ceb0e2c49fcd45290aa6d420925fc30a217b85abc6bea9c8c31ab8a935
 USE HOST /modules/sbase.dm dc20896ef0f18640738eff65e5a221e6b2cf8b08371c8425d3aede76a0763b0a
 USE HOST /modules/default.dm 295c4b05422dc43ce3b8c2d5c690eab49c96842373987047e94d2d0f004fae4e
 USE HOST /modules/posix-shell.dm f549dd966c59473892d2fc9f11a19a9b7eaf1c344b1b4a62c5dbf2fbedcc3753
-USE HOST /modules/display.dm 6607021f2335a945e24717bfd17d890f85b578955b17d9398cfb5fc891a9a8bc
+USE HOST /modules/display.dm 9df0b2c1f08f442f1609f158b3e09a5d7aabf192ff4747d76ea2d8e0a2c4102c
 
 ENTRY /bin/foreground -i /bin/slop

@@ -1,7 +1,7 @@
 DOLLY 4
 IMAGE openal-build
 
-FROM HOST /Dollyfile-cmake-build 9ec0df9ded513c0b3060afa03be8014a726e91143c1de624fc49d42d447da9b1
+FROM HOST /Dollyfile-cmake-build 8552fbd1af5e64f0bce477f9c2626c9f3f28c09b6d933ca0eb72d08d0f58bef2
 USE HOST /modules/openal.dm ada07866135c93cb39a92170c252dfdd8ff502d833c143272e8f5dd3deda8877
 
 ENTRY /bin/foreground -i /bin/slop

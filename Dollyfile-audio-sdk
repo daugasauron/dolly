@@ -1,7 +1,7 @@
 DOLLY 4
 IMAGE audio-sdk
 
-FROM HOST /Dollyfile-system 84bae05cfa07a29162b4e5baa39b342aba9dbb7d4b5cc563f5505b40c30bc87c
+FROM HOST /Dollyfile-system beee8800f5fb14ad18fc1c45c79218ab4207b4dc9a48ef1f101884caa040862b
 REQUIRES HOST audio@0
 
 ENTRY /bin/foreground -i /bin/slop
