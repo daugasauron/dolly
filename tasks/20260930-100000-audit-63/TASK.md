@@ -40,3 +40,9 @@ Core files contain no demo names; demos own their scenarios, preparation and tes
   `demos/{pi,python,slopyard}/test/*.artifacts.mjs`; 22 artifact tests pass.
 - Remaining: `scripts/package-github-pages.mjs` and `test/site-release.test.mjs`
   name demo images for the published demo page.
+- `scripts/generate-routes.mjs` no longer names `ripgrep` and the parallel
+  scheduler's comment no longer names `codex-build` (`4206e9a`).
+- Left: `scripts/package-github-pages.mjs` hard-codes the images redirected to
+  daugasauron.com (`dollyfile-studio`, `pi-local`, `zero-ad`) because they are
+  too large for GitHub Pages; select them by snapshot size against the host's
+  limits instead, and drop the names from `test/site-release.test.mjs`.
