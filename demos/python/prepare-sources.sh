@@ -13,7 +13,7 @@ if has_module cpython; then
   for source in \
     cpython-platform.c cpython-extension-check.c \
     cpython-socket-stubs.c cpython-termios.c \
-    cpython-process.c cpython-subprocess.py; do
+    cpython-process.c cpython-http.c cpython-subprocess.py; do
     copy_static "demos/python/${source}" "python/runtimes/${source}"
   done
   node scripts/build-source-tar.mjs "${static_dir}/python/cpython.tar.gz" \
@@ -32,6 +32,9 @@ if has_module cpython; then
     "${cpython_dir}/config.status" /usr/src/python/config.status \
     "${cpython_dir}/configure" /usr/src/python/configure \
     "${cpython_dir}/LICENSE" /usr/share/licenses/cpython/LICENSE
+fi
+if has_module pip; then
+  copy_static demos/python/dolly_http.py python/runtimes/dolly_http.py
 fi
 if has_module bonnie; then
   copy_static demos/python/bonnie.c python/commands/bonnie.c
