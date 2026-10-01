@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { execFileSync, spawnSync } from "node:child_process";
-import { chmod, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { chmod, mkdir, mkdtemp, readFile, rm, stat, utimes, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import test from "node:test";
@@ -86,6 +86,9 @@ test("Dolly's own core tools keep their no-permission and finite semantics", asy
   assert.equal(status(build("install"), ["-m", "755", "-o", "nobody", "-g", "nogroup",
     "install-source", "installed"]), 0);
   assert.equal(await readFile(join(scratch, "installed"), "utf8"), "bytes");
+  await utimes(join(scratch, "install-source"), 1000, 2000);
+  assert.equal(status(build("install"), ["-p", "install-source", "preserved"]), 0);
+  assert.equal((await stat(join(scratch, "preserved"))).mtimeMs, 2000_000);
   assert.equal(run(build("du"), ["-b", "install-source"]).stdout, "5\tinstall-source\n");
   assert.equal(run(build("rev"), [], { input: "aé✓b\n" }).stdout, "b✓éa\n");
 });

@@ -9,7 +9,7 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
-static int verbose;
+static int verbose, preserve_times;
 
 static void usage(FILE *stream) {
   fputs("usage: install [-cDpv] [-m MODE] [-o OWNER] [-g GROUP] SOURCE... DEST\n"
@@ -149,6 +149,11 @@ static int copy_file(const char *source, const char *destination,
     }
     if (status != 0) break;
   }
+  const struct timespec times[2] = {source_metadata.st_atim, source_metadata.st_mtim};
+  if (status == 0 && preserve_times && futimens(output, times) != 0) {
+    fprintf(stderr, "install: %s: %s\n", destination, strerror(errno));
+    status = 1;
+  }
   if (close(input) != 0 && status == 0) status = 1;
   if (close(output) != 0 && status == 0) status = 1;
   if (status == 0 && verbose) printf("%s -> %s\n", source, destination);
@@ -180,8 +185,10 @@ int main(int argc, char **argv) {
       no_target_directory = 1;
     } else if (strcmp(option, "-v") == 0 || strcmp(option, "--verbose") == 0) {
       verbose = 1;
-    } else if (strcmp(option, "-c") == 0 || strcmp(option, "-p") == 0) {
-      // `-c` is historical. Dolly has no timestamps worth preserving with `-p`.
+    } else if (strcmp(option, "-c") == 0) {
+      // Historical; install always copies.
+    } else if (strcmp(option, "-p") == 0) {
+      preserve_times = 1;
     } else if (strcmp(option, "-m") == 0 || strcmp(option, "-o") == 0 ||
                strcmp(option, "-g") == 0) {
       if (++first == argc) goto usage_error;

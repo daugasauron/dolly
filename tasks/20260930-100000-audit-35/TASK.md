@@ -1,6 +1,6 @@
 # core-tools and install report wrong results or silent success
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 200
 - TAGS: bug,commands,core
 
@@ -38,3 +38,8 @@ Correct output or explicit failure.
   comes with the next catalog rebuild.
 - `install -m/-o/-g` stay accepted no-ops: the owner decided (2026-10-01) that
   permission operations remain no-ops in the one-user userspace.
+- `install -p` now preserves the source's access and modification times with
+  `futimens` (the kernel implements it); it was ignored on the claim that Dolly
+  had no timestamps, but Make relies on them. `test/commands.test.mjs` checks it.
+- The `command` built-in's Slop case passed in Chrome and Firefox on the rebuilt
+  `rebuild-batch` catalog (2026-10-01), completing the browser verification.
