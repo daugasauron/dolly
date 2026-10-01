@@ -70,7 +70,7 @@ machine and compare codex-build with a serial build.
 ## Use on `next` (2026-10-01 afternoon)
 
 The scheduler built the 8 core images (system-build … default, audio-sdk,
-gpu-sdk) from a new seed in 9.5-11 min under load, against ~15 min serially
+gpu-sdk) from a new seed in 9.5-11 min under load, against 12-13 min serially
 earlier the same day, with identical snapshots on cache hits. The browser
 snapshot upload now goes in 64 MiB chunks (a 412 MB image failed as one Blob
 with `ERR_BLOB_OUT_OF_MEMORY`). Still open: the done-when N >= 4 full-catalog
