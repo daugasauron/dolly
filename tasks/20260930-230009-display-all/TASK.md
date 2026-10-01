@@ -30,3 +30,11 @@ from them).
 - The catalog is rebuilt and released; the start page shows "open" on every
   row except `system-build`; opening each former build-only image gives a
   working shell in Chrome and Firefox; core, artifact and demo tests pass.
+
+## Verified (2026-10-01, `rebuild-batch` catalog)
+
+- The generated start page (`build/routes/index.html`) has "open" on 40 rows
+  and a grayed "open" only on `system-build` and `zig-build`.
+- system-tools, ghostty-build, rust-sdk, cmake-build and codex-build open to a
+  working Slop with `DISPLAY` set, in Chrome and Firefox.
+- Left: release. The owner chose not to publish until 0 A.D. builds again.
