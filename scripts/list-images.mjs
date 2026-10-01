@@ -19,9 +19,10 @@ if (process.argv[2] === "--sources") {
 }
 if (process.argv[2] === "--modules") {
   const names = new Set();
+  // Module and image recipe names: a demo hook prepares a recipe's sources.
   for (const definition of definitions) {
     const graph = await loadGraph(definition.filename);
-    for (const module of graph.modules) names.add(module.name);
+    for (const record of graph.records) names.add(record.name);
   }
   for (const name of [...names].sort()) console.log(name);
   process.exit(0);
