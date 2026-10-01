@@ -28,10 +28,21 @@ for (const name of names) {
   }
 }
 
+// Pi's shrinkwrap may nest a package below the workspace that uses it (pi-ai's
+// openai); Dolly installs each listed package once, flat.
+function lockedRoot(name) {
+  const direct = `${packageRootPrefix}${name}`;
+  if (lock.packages?.[direct]) return direct;
+  const nested = Object.keys(lock.packages ?? {}).filter((path) =>
+    path.startsWith(packageRootPrefix) && path.endsWith(`/node_modules/${name}`));
+  if (nested.length !== 1) throw new Error(`Pi runtime package is not unique in package-lock.json: ${name}`);
+  return nested[0];
+}
+
 const mappings = [];
 const versions = [];
 for (const name of names) {
-  const root = `${packageRootPrefix}${name}`;
+  const root = lockedRoot(name);
   const installed = JSON.parse(await readFile(resolve(projectDir, root, "package.json"), "utf8"));
   const locked = lock.packages?.[root];
   if (!locked || typeof locked.integrity !== "string" ||

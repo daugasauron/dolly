@@ -1,7 +1,8 @@
-// Pi 0.84.4's TUI uses six ECMAScript Unicode-set (`v`) regular expressions.
-// QuickJS-ng 0.15.0 cannot parse that flag yet. Dolly's target-side post-emit
-// step applies this one exact, asserted lowering to the emitted TUI module
-// without changing the pinned upstream source tree.
+// Pi 0.99.2's TUI uses six ECMAScript Unicode-set (`v`) regular expressions.
+// QuickJS-ng 0.15.0 rejects the set difference in terminalSpacingMarkRegex and
+// silently mismatches the other five (`/^\p{Mark}$/v` rejects U+0301). Dolly's
+// target-side post-emit step applies this one exact, asserted lowering to the
+// emitted TUI module without changing the pinned upstream source tree.
 const loweredUnicodeSets = new Map([
   ["zeroWidthRegex", String.raw`/^(?:\p{Cf}|\p{Cc}|\p{Mark}|\p{Cs})+$/u`],
   ["leadingNonPrintingRegex", String.raw`/^[\p{Cf}\p{Cc}\p{Mark}\p{Cs}]+/u`],

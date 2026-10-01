@@ -37,7 +37,11 @@ Open `/pi/`; build with `npm run image -- pi`. Leave Pi with `/exit` or Ctrl+D.
 
 - No npm client or native addons; installing Pi packages that need npm fails.
   Dependency-free JavaScript extensions work via `~/.pi/agent/extensions/`.
-- Image resizing is off: Photon needs nested WebAssembly.
+- Image resizing is off: Photon needs nested WebAssembly. Another agent
+  directory needs `"images": {"autoResize": false}` in its `settings.json`, or
+  Pi omits prompt images it cannot resize.
+- The `codemode` tool fails: its QuickJS sandbox needs nested WebAssembly and
+  worker threads.
 - OAuth logins depend on the provider's CORS; there is no callback listener.
 - No PTY: run `nvim` from Slop, not from Pi's shell tool.
 

@@ -9,7 +9,8 @@ const shipped = {
   rg: ["/usr/bin/rg", "/usr/share/dolly/builds/ripgrep.json", "/usr/share/licenses/ripgrep/LICENSE-MIT"],
   fd: ["/usr/bin/fd", "/usr/share/dolly/builds/fd.json", "/usr/share/licenses/fd/LICENSE-MIT",
     "/usr/share/licenses/fd/LICENSE-APACHE"],
-  pi: ["/usr/bin/pi", "/usr/share/licenses/pi-source/LICENSE"],
+  pi: ["/usr/bin/pi", "/usr/share/licenses/pi-source/LICENSE",
+    "/usr/share/licenses/pi-source/modelcontextprotocol-typescript-sdk.txt"],
 };
 
 test("images ship Pi's tools with their licenses exactly when their recipes export them", async () => {

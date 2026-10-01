@@ -26,7 +26,9 @@ test("Pi's Slop tool keeps upstream truncation and its full-output file", async 
 });
 
 test("Pi's Slop tool reports exit status, cancellation and timeout after partial output", async () => {
-  await assert.rejects(run("bash", { command: "printf partial; exit 7" }), /^Error: partial\n\nCommand exited with code 7$/);
+  const failed = await run("bash", { command: "printf partial; exit 7" });
+  assert.equal(failed.isError, true);
+  assert.equal(failed.content[0].text, "partial\n\nCommand exited with code 7");
   await assert.rejects(run("bash", { command: "printf partial; exec sleep 5" }, AbortSignal.timeout(300)),
     /^Error: partial\n\nCommand aborted$/);
   await assert.rejects(run("bash", { command: "printf partial; exec sleep 5", timeout: 0.3 }),
