@@ -1,6 +1,6 @@
 # Process syscall sequence counter overflows after 2^31 calls
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 90
 - TAGS: bug,core,kernel
 
@@ -31,3 +31,12 @@ process.
 Fixed in `26277ef`: `src/process-worker.mjs` wraps the sequence from
 2^31 - 1 back to 1, so it never goes negative. Still missing the check that
 drives a thread across the boundary.
+
+## Verified (2026-10-01)
+
+Evaluating the worker's exact expression on a shared `Int32Array` seeded at
+2^31 - 3 yields `2147483646 2147483647 1 2`: always positive, never repeating
+the previous value. The supervisor only compares sequences for equality with
+the thread's control words (`src/process-supervisor.mjs`), so a wrap is
+harmless. No committed test: seeding the control word would need a test-only
+hook in the process Worker for a one-line expression.

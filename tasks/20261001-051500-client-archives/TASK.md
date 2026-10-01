@@ -43,3 +43,7 @@ image inputs (`74246d78…`), and a parallel rebuild in a separate worktree
 reproduced all 40 buildable images byte for byte. Left: a build from a fresh
 clone (not a worktree seeded from this checkout's build/) reproducing the
 image inputs.
+
+- The Rust seed had the same bug: `demos/rust/toolchain/link.sh` appended to an
+  existing `libdolly-rust.a`, so a deleted `posix-spawn.o` stayed in the SDK and
+  broke every Rust link (`1b3b657` creates it fresh).
