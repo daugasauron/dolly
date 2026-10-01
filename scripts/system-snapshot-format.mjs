@@ -1,9 +1,8 @@
 import { Buffer } from "node:buffer";
 import { parseWasmInterface } from "../src/wasm-interface.mjs";
 import { validateProcessInterface } from "../src/process-abi.mjs";
-import { decodeImageEntry as decodeSnapshotEntry } from "../src/image-entry.mjs";
+import { decodeImageEntry } from "../src/image-entry.mjs";
 import { decodeSnapshotRecords } from "../src/snapshot-records.mjs";
-export { decodeSnapshotEntry };
 
 const decoder = new TextDecoder("utf-8", { fatal: true, ignoreBOM: true });
 
@@ -55,7 +54,7 @@ export function resolveSnapshotFile(snapshot, path) {
 }
 
 export function validateSnapshotEntry(snapshot, contract, digest) {
-  const entry = decodeSnapshotEntry(snapshot.files.get("/etc/dolly/entry"));
+  const entry = decodeImageEntry(snapshot.files.get("/etc/dolly/entry"));
   validateProcessInterface(contract,
     parseWasmInterface(resolveSnapshotFile(snapshot, entry[0]), entry[0]), digest);
   return entry;

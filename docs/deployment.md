@@ -23,7 +23,7 @@ Use one catalog for source preparation, snapshots and packaging:
 export DOLLY_BUILD_IMAGES="$(paste -sd, config/domain-pages-images.txt)"
 node scripts/update-module-pins.mjs
 bash scripts/prepare-image-sources.sh
-npm run snapshot
+npm run image
 
 # daugasauron.com: export with predecessor releases, then upload.
 bash scripts/package-pages.sh build/domain-releases daugasauron.com

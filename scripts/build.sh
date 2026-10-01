@@ -160,7 +160,6 @@ libc_internal="${process_libc_internal_flags[*]}"
 emscripten_libc=/emsdk/upstream/emscripten/system/lib
 in_container <<EOF
 ${emcc} -c src/process/libc-adapter.c -o build/process-libc-adapter.o
-${emcc} -c src/process/runtime-adapter.c -o build/process-runtime-adapter.o
 ${emcc} -c src/process/mmap.c -o build/process-mmap.o
 ${emcc} -c src/process/time.c -o build/process-time.o
 ${emcc} -c src/process/poll.c -o build/process-poll.o
