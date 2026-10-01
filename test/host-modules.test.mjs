@@ -15,14 +15,16 @@ test("retained images declare only their runtime providers using Dollyfile 4", a
   const interactive = ["display@0", "download@0", "http@0", "snapshot@0", "upload@0"];
   const core = {
     default: interactive, system: interactive, "gpu-sdk": [...interactive, "gpu@0"],
-    "audio-sdk": [...interactive, "audio@0"], "system-build": [], "system-tools": [], "zig-build": [], "ghostty-build": [],
+    "audio-sdk": [...interactive, "audio@0"], "system-build": [], "system-tools": ["display@0"], "zig-build": [],
+    "ghostty-build": ["display@0"],
   };
   const optional = new Set(["audio@0", "build@0", "gpu@0", "threads@0"]);
   for (const image of await discoverImageDefinitions(root)) {
     const requirements = (await load(image.filename)).root.hostRequirements;
     if (core[image.image]) assert.deepEqual(requirements, core[image.image].toSorted(), image.image);
     const base = requirements.filter(name => !optional.has(name));
-    assert.ok(base.length === 0 || base.join() === interactive.join(), image.image);
+    assert.ok([[], ["display@0"], interactive].some(allowed => base.join() === allowed.join()), image.image);
+    assert.equal(base.includes("display@0"), !["system-build", "zig-build"].includes(image.image), image.image);
   }
 });
 test("build graph and artifact requirements inherit FROM and USE, not COPY", async () => {

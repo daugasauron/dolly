@@ -77,8 +77,9 @@ test("unreferenced module sources are admitted without staging their inputs or e
 
 test("images separate reusable runtimes from applications and configuration", async () => {
   const core = {
-    "system-build": [], "system-tools": ["system-build"], "zig-build": ["system-build"], "ghostty-build": ["zig-build"],
-    system: ["system-tools", "ghostty-build"], default: ["system"], "gpu-sdk": ["system"], "audio-sdk": ["system"],
+    "system-build": [], "system-tools": ["system-build", "ghostty-build"], "zig-build": ["system-build"],
+    "ghostty-build": ["zig-build"], system: ["system-tools"], default: ["system"], "gpu-sdk": ["system"],
+    "audio-sdk": ["system"],
   };
   const files = await recipeFiles(project);
   const definitions = await discoverImageDefinitions(project);
