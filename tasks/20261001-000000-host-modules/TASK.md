@@ -155,3 +155,58 @@ the core process ABI.
   kernel thread for up to 30 s per chunk; the version/capacity handshake
   exports the digests make redundant; threads wired through
   `setThreadProvider`.
+
+## Re-audit and plan (2026-10-02, branch `core/host-modules-2` on `e30c0b0`)
+
+Re-audit of the remaining list against the current code:
+
+- `src/runtime-worker.mjs` and `src/dolly.c` name no module. Their
+  `snapshot` words are the runtime's own image-artifact vocabulary
+  (`dolly_snapshot_*`, `dolly_bootstrap_snapshot*` of
+  `abi/dolly-image-0.wat`, `src/system-snapshot.c`, `dist/*.snapshot`), not
+  the `snapshot@0` session module. Renaming the image format is churn across
+  dist, scripts and docs for no architectural gain; the done-when grep is
+  read as "names no host module" for those two files.
+- `src/browser.mjs` still names display (transport, page API), http (policy
+  consumption, custom-tab restriction, build network, local services), gpu,
+  audio and snapshot (session restore selection, `snapshot@0` requirement,
+  configuration, page API), and tests `display@0` to decide runnability.
+- `src/process-kernel.c` holds the thread table (`threads[64]`,
+  `signal_tid`, `next_thread_tid`) and the four `dolly_threads_*` exports of
+  the threads supervisor contract.
+- Recorded debts still present: hand-copied mailbox word indices (display 25,
+  upload 10, session 11, terminal 6) mirrored in JS classes; the display
+  kernel's font path; four GPU feature bits the provider always sets
+  (`CAPTURE_FRAME`, `TEXTURE_RENDER`, `LARGE_BATCH`, `VERTEX_F16`; used by
+  `test/fixtures/gpu-render.c` and `demos/slopyard/src/render.c`); `usleep`
+  polling in `dolly_http_perform` and 25 ms polling in `UploadTransport`;
+  `dolly_session_service` blocking the kernel thread per chunk;
+  version/capacity handshake exports; `setThreadProvider`. The device-lease
+  header is `src/device-lease.h` only (the gpu/audio kernels include it); the
+  32-byte packet header is not duplicated in the client headers.
+
+Ordered plan (each step verified by the source suite, `core-browser` in
+Chrome and Firefox, `host-modules-browser`, `boundary-browser` and the tests
+of the touched module; steps 1-4 keep the image inputs hash `9f7a44a7…`):
+
+1. Kernel-only C. `host/display/input-ring.c` holds the input-ring handling
+   (`handle_terminal_event` and the UI compaction of
+   `dolly_terminal_present_pending`), compiled by the kernel and directly by
+   `test/terminal-ring.test.mjs` (audit-58). `host/threads/kernel.c` owns the
+   thread table and the `dolly_threads_*` exports; the process kernel offers
+   `dolly_kernel_dispatch(pid, tid, takes_signals, ...)`, a launching/running
+   query and a thread-release hook, and names no module.
+2. Page shell. The registry assembles `window.__dolly` from each browser
+   instance's `page` object; the http module consumes the embedding's policy,
+   restricts a custom tab from the inherited record, owns the local-services
+   map and gives builders their configuration (`builder`); modules that
+   depend on `http@0` reach these through `get("http")`; a static `boot(route)`
+   hook lets the snapshot module select a restored session's image,
+   requirement and configuration. An image is runnable when it has ENTRY.
+3. Session save without blocking the kernel: `dolly_session_service` publishes
+   one chunk per call and the page wakes the Worker after consuming each;
+   same mailbox, no contract change.
+4. `setThreadProvider` replaced by a registry extension the threads module
+   declares and the runtime's supervisor reads once.
+5. One contract batch (seed and every image rebuild, Rust seed, 0 A.D.
+   relink), decided per item below after steps 1-4 are verified.
