@@ -20,3 +20,15 @@ elsewhere.
 The full Firefox suite failed `terminal-browser.mjs` with
 `page.waitForFunction: Timeout 30000ms exceeded`; 6 of 7 isolated reruns passed
 (Chrome passed). Same failure rate as the terminal-mailbox branch's report.
+
+## Narrowed (2026-10-01, 12:40)
+
+- The failure is `test/terminal-browser.mjs:67`: after the mouse drag across
+  the `COPY-BRIDGE-TEXT` row, `__dolly.copySelection()` never equals the text
+  within 30 s. The first run of a Firefox loop reproduced it.
+- A probe doing only fullscreen, then twelve rounds of echo, visible-text
+  index, clear selection and drag, selected the row correctly 12/12 in Firefox.
+  So the race needs the test's earlier steps: font zoom in and back out
+  (`Ctrl+Shift+=`, `Ctrl+-`, waiting only for `__dolly.fontSize`) and the
+  clipboard paste. Next: log `transport.geometry()` and the selection on
+  failure; suspect cell metrics that lag `fontSize` after zoom.
