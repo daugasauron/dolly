@@ -39,3 +39,36 @@ authority) and record why.
 - `docs/browser-boundary.md` lists exactly what `input@0` grants.
 
 Coordinate with `20261001-000000-host-modules` (same files).
+
+## Plan (2026-10-02, `core/host-modules-2`)
+
+Taken as the seed/ABI round after the host-modules contract batch
+(`0095054c`), not folded into it: it is a contract redesign that needs its own
+verification, and the externally built 0 A.D. engine must be recompiled for
+it (`demos/zero-ad/toolchain/engine.patch` calls `dolly_display_next_event`),
+not relinked as that batch does.
+
+1. Contract `host/input/dolly-input-0.wat`: an input mailbox (event ring and
+   its words, paste buffer and sequences) and the records of `input.h`
+   (`dolly_input_event` moves there unchanged); operations ACQUIRE, NEXT_EVENT
+   and RELEASE. The input lease replaces the display lease as the raw-input
+   gate: while a foreground program holds it the terminal does not consume
+   the ring; graphics programs acquire display and input separately.
+2. Resize is surface geometry, not input: the page publishes it to the
+   display mailbox (size, scale, font size under a sequence) and the display
+   kernel feeds the driver from there; programs learn the size from the
+   display surface. Decide when porting SDL2 whether a size record stays in
+   the ring for one release.
+3. Kernel `host/input/kernel.c` from `host/display/input-ring.c` plus the
+   lease and NEXT_EVENT; the terminal line discipline reads keys through an
+   input hook that hands records to the resident decoder (`display@0`'s
+   driver) without the display kernel naming input.
+4. Page `host/input/input.mjs` from `host/display/input.mjs`: keys, pointer,
+   wheel, focus, IME text, paste and pointer lock (relative motion and
+   capture, gated by a trusted canvas press) are input authority; clipboard
+   copy of the terminal selection stays with the display (it reads the
+   driver's copy buffer); F11 fullscreen is page chrome and moves to the shell.
+5. Every image that reads input declares `input@0`; ports: SDL2
+   (`demos/sdl2/SDL_dollyvideo.c`), Slopyard, 0 A.D. (engine recompile),
+   Neovim and Emacs through the terminal; `docs/browser-boundary.md` row and
+   `abi/dolly-browser-0.wat` (no new import: a mailbox module).
