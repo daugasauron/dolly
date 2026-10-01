@@ -1074,9 +1074,11 @@ static int get_status_flags(int descriptor) {
       (status & DOLLY_PROCESS_FD_STATUS_NONBLOCK ? O_NONBLOCK : 0);
 }
 
-/* F_SETFL ignores the access mode; musl always adds O_LARGEFILE. */
+/* F_SETFL ignores the access mode and file creation flags; musl always adds O_LARGEFILE. */
 static int set_status_flags(int descriptor, int flags) {
-  if ((flags & ~(O_ACCMODE | O_LARGEFILE | O_APPEND | O_NONBLOCK)) != 0) return -EINVAL;
+  const int ignored = O_ACCMODE | O_LARGEFILE | O_CLOEXEC | O_CREAT | O_DIRECTORY | O_EXCL |
+      O_NOCTTY | O_NOFOLLOW | O_TRUNC;
+  if ((flags & ~(ignored | O_APPEND | O_NONBLOCK)) != 0) return -EINVAL;
   return fd_flags_set(DOLLY_PROCESS_FD_SET_FLAGS, descriptor,
       (flags & O_APPEND ? DOLLY_PROCESS_FD_STATUS_APPEND : 0) |
       (flags & O_NONBLOCK ? DOLLY_PROCESS_FD_STATUS_NONBLOCK : 0));

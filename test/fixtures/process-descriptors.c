@@ -159,7 +159,7 @@ static void descriptor_flags(void) {
   char byte;
   CHECK(read(duplicate, &byte, 1) == 1 && byte == 'a');
   CHECK(read(fd, &byte, 1) == 1 && byte == 'b');
-  CHECK(fcntl(duplicate, F_SETFL, O_APPEND) == 0);
+  CHECK(fcntl(duplicate, F_SETFL, O_APPEND | O_CLOEXEC | O_CREAT) == 0 && fcntl(duplicate, F_GETFD) == 0);
   CHECK((fcntl(fd, F_GETFL) & O_APPEND) != 0);
   CHECK(fcntl(fd, F_GETFD) == FD_CLOEXEC);
   CHECK(ioctl(duplicate, FIOCLEX) == 0);
