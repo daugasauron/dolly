@@ -25,3 +25,13 @@ One documented publish path with one file list.
 ## Done when
 
 - Deployment doc matches the scripts; duplicate lists merged.
+
+## Progress (2026-10-01)
+
+`docs/deployment.md` now matches the scripts for the local path: `npm run
+publish` (`package-pages.sh`, defaults `build/dolly-pages.tar.gz` and
+`build/releases`) seals a release and moves `build/releases/current`, and
+`npm run serve` follows it; the afternoon checkpoint (`35b11b69…`) was deployed
+that way, and `DOLLY_BUILD_IMAGES` limits the catalog. The GitHub release and
+workflow dispatch are described. Left: check `package-pages.sh` for the
+duplicated file lists and the repeated hashing.
