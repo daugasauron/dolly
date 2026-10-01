@@ -1,7 +1,7 @@
 DOLLY 5
 IMAGE sdl2-build
 
-FROM https://daugasauron.com/Dollyfile-cmake-build 817ce8a1bfc44c4ec93270accda7a3f1f136f192e5f381946ea46aa3538e77eb
+FROM https://daugasauron.com/Dollyfile-cmake-build f3c771a18b32321385791f3e4a69d20ab55a3d241a459e86056bfad50b7c9190
 USE https://daugasauron.com/modules/sdl2.dm b43fef76aef4fe89db771b409a23ad55efb990b3ec2425df22f459ced9bef909
 
 ENTRY /bin/foreground -i /bin/slop
