@@ -57,7 +57,9 @@ SLOP CWD /tmp/0ad/build/premake PKG_CONFIG_PATH=/tmp/pkgconfig CC=cc CXX=c++ \
   premake5 --os=emscripten --minimal-flags --strip-binaries --with-system-mozjs \
   --without-atlas --without-nvtt --without-lobby --without-miniupnpc --without-pch \
   --without-tests --without-dap-interface --outpath=../workspaces/dolly gmake
-SLOP CWD /tmp/0ad/build/workspaces/dolly time make config=release -j4 CC=cc CXX=c++ AR=ar pyrogenesis
+# __DATE__ and __TIME__ are the release's build_version.txt mtime, for reproducible builds.
+SLOP CWD /tmp/0ad/build/workspaces/dolly SOURCE_DATE_EPOCH=1771228448 \
+  time make config=release -j4 CC=cc CXX=c++ AR=ar pyrogenesis
 SLOP mkdir -p /opt/0ad/system
 SLOP cp /tmp/0ad/binaries/system/pyrogenesis.wasm /opt/0ad/system/pyrogenesis
 SLOP /opt/0ad/system/pyrogenesis -version

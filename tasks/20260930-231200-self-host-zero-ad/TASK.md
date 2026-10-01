@@ -119,7 +119,10 @@ All on the branch's images, engine and probes read from the image snapshots
   cc1's `-source-date-epoch`; Dolly's builds the cc1 arguments itself). Two
   `zero-ad-engine` builds from identical inputs had differed in 2,079 bytes:
   0 A.D. embeds `__DATE__ __TIME__`. `test/cpp-browser.mjs`, Chrome and
-  Firefox.
+  Firefox. The engine recipe sets `SOURCE_DATE_EPOCH=1771228448` (the
+  release's `build_version.txt` mtime); built on a runtime with this commit
+  (`work/zero-ad-verify`, chain 2,450 s, `make` 280 s) the engine embeds only
+  `Feb 16 2026 07:54:08`. A second build for a byte comparison was not run.
 
 ### Still from the host
 
