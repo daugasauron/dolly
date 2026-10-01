@@ -174,16 +174,16 @@ int dolly_http_perform(const dolly_http_request *request,
     }
     if ((request->flags & DOLLY_HTTP_FAIL_STATUS) != 0 &&
         chunk.status >= 400 && result == 0) result = (int)chunk.status;
-    if (result == 0 && chunk.kind == 1) {
+    if (result == 0 && chunk.kind == DOLLY_HTTP_KIND_URL) {
       result = append_http_text(&response->effective_url,
                                 &effective_url_length,
                                 data, chunk.length);
-    } else if (result == 0 && chunk.kind == 2 && request->header != NULL) {
+    } else if (result == 0 && chunk.kind == DOLLY_HTTP_KIND_HEADER && request->header != NULL) {
       if (request->header(data, chunk.length,
                           request->header_context) != chunk.length) {
         result = -ECANCELED;
       }
-    } else if (result == 0 && chunk.kind == 3 && request->write != NULL) {
+    } else if (result == 0 && chunk.kind == DOLLY_HTTP_KIND_BODY && request->write != NULL) {
       if (request->write(data, chunk.length,
                          request->write_context) != chunk.length) {
         result = -ECANCELED;

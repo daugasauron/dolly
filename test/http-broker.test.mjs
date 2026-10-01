@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import test from "node:test";
 import { NetworkTransport, DOLLY_HTTP_LIMITS } from "../host/http/broker.mjs";
-import { DOLLY_HTTP_SLOT_COUNT } from "../host/http/abi.mjs";
+import { DOLLY_HTTP_SLOT_COUNT, DOLLY_HTTP_HEADER_SIZE, DOLLY_HTTP_WORD_EOF, DOLLY_HTTP_WORD_ERROR, DOLLY_HTTP_WORD_KIND, DOLLY_HTTP_WORD_LENGTH, DOLLY_HTTP_WORD_SEQUENCE, DOLLY_HTTP_WORD_STATE } from "../host/http/abi.mjs";
 import { DollyHttpPolicy, httpPolicyConfigurations, restrictDollyHttpPolicy } from "../host/http/policy.mjs";
 import { localServicesTransport } from "../host/build/local-services.mjs";
 import { DOLLY_ERRNO as errno } from "../dist/dolly-errno.mjs";
@@ -23,8 +23,8 @@ function fixture(configuration = {}, fetchRequest) {
   const load = field => Atomics.load(broker.words, address() / 4 + field);
   const request = (overrides = {}, sequence = 1) => {
     currentSequence = sequence;
-    store(NetworkTransport.sequence, sequence);
-    store(NetworkTransport.state, 1);
+    store(DOLLY_HTTP_WORD_SEQUENCE, sequence);
+    store(DOLLY_HTTP_WORD_STATE, 1);
     return broker.request({ method: "GET", url: target, headers: "", body: null,
       flags: 0, sequence, ...overrides });
   };
@@ -47,10 +47,10 @@ async function settled(f) {
 async function consume(f, request) {
   const records = [];
   const drain = () => {
-    if (f.load(NetworkTransport.state) !== 2) return;
-    const length = f.load(NetworkTransport.length);
-    const eof = f.load(NetworkTransport.eof);
-    records.push({ kind: f.load(NetworkTransport.kind), eof,
+    if (f.load(DOLLY_HTTP_WORD_STATE) !== 2) return;
+    const length = f.load(DOLLY_HTTP_WORD_LENGTH);
+    const eof = f.load(DOLLY_HTTP_WORD_EOF);
+    records.push({ kind: f.load(DOLLY_HTTP_WORD_KIND), eof,
       bytes: f.broker.bytes.slice(f.address + 64, f.address + 64 + length) });
     Atomics.compareExchange(f.broker.words, f.word, 2, eof ? 0 : 1);
     Atomics.notify(f.broker.words, f.word);
@@ -76,13 +76,13 @@ test("HTTP authorization happens before any fetch", async () => {
   const f = fixture({}, async () => { calls++; return new Response("ok"); });
   await bounded(f.request({ url: "https://different.example/allowed" }));
   assert.equal(calls, 0);
-  assert.equal(f.load(NetworkTransport.state), 3);
-  assert.equal(f.load(NetworkTransport.error), errno.EACCES);
+  assert.equal(f.load(DOLLY_HTTP_WORD_STATE), 3);
+  assert.equal(f.load(DOLLY_HTTP_WORD_ERROR), errno.EACCES);
   assert.equal(f.broker.active, false);
   for (const [url, error] of [["/allowed", errno.EINVAL], ["//fixture.example/allowed", errno.EINVAL],
     ["file:///etc/passwd", errno.EPROTONOSUPPORT]]) {
     await bounded(f.request({ url }, 2));
-    assert.equal(f.load(NetworkTransport.error), error, url);
+    assert.equal(f.load(DOLLY_HTTP_WORD_ERROR), error, url);
   }
   assert.equal(calls, 0, "relative URLs never resolve against the page");
 });
@@ -110,7 +110,7 @@ test("multipart delivery is restricted to embedding-selected sources, including 
     assert.equal(Buffer.concat(records.filter(record => record.kind === 3).map(record => record.bytes)).toString(), bytes.toString());
     await bounded(f.request({ url: canonical + ".part-0" }, 2));
     assert.equal(calls.length, 3);
-    assert.equal(f.load(NetworkTransport.error), errno.EACCES);
+    assert.equal(f.load(DOLLY_HTTP_WORD_ERROR), errno.EACCES);
   }
   let calls = 0;
   const remote = fixture({}, async () => { calls++; return new Response(manifest, { headers: { "x-dolly-parts": "1" } }); });
@@ -147,11 +147,11 @@ test("HTTP request and response limits are enforced by the provider", async () =
   });
   await bounded(f.request({ method: "POST", body: Uint8Array.of(1, 2) }));
   assert.equal(calls, 0);
-  assert.equal(f.load(NetworkTransport.error), errno.E2BIG);
+  assert.equal(f.load(DOLLY_HTTP_WORD_ERROR), errno.E2BIG);
   await consume(f, f.request({}, 2));
   assert.equal(calls, 1);
-  assert.equal(f.load(NetworkTransport.state), 3);
-  assert.equal(f.load(NetworkTransport.error), errno.E2BIG);
+  assert.equal(f.load(DOLLY_HTTP_WORD_STATE), 3);
+  assert.equal(f.load(DOLLY_HTTP_WORD_ERROR), errno.E2BIG);
   assert.equal(f.broker.active, false);
 });
 
@@ -189,11 +189,11 @@ test("a non-consuming mailbox cannot retain HTTP resources past the host deadlin
   await bounded(f.request());
   assert.equal(signal.aborted, true);
   assert.equal(f.broker.active, false);
-  assert.equal(f.load(NetworkTransport.state), 3);
-  assert.equal(f.load(NetworkTransport.error), errno.ETIMEDOUT);
+  assert.equal(f.load(DOLLY_HTTP_WORD_STATE), 3);
+  assert.equal(f.load(DOLLY_HTTP_WORD_ERROR), errno.ETIMEDOUT);
   // A late acknowledgement of the old chunk must not erase terminal failure.
   assert.equal(Atomics.compareExchange(f.broker.words, f.word, 2, 1), 3);
-  assert.equal(f.load(NetworkTransport.state), 3);
+  assert.equal(f.load(DOLLY_HTTP_WORD_STATE), 3);
 });
 
 test("a provider ignoring abort cannot hide a deadline or release its occupied slot", async () => {
@@ -201,16 +201,16 @@ test("a provider ignoring abort cannot hide a deadline or release its occupied s
   const f = fixture({ timeoutMilliseconds: 20 }, () => new Promise(resolve => { finish = resolve; }));
   const pending = f.request();
   await bounded((async () => {
-    while (f.load(NetworkTransport.state) !== 3) await new Promise(resolve => setTimeout(resolve, 1));
+    while (f.load(DOLLY_HTTP_WORD_STATE) !== 3) await new Promise(resolve => setTimeout(resolve, 1));
   })());
-  assert.equal(f.load(NetworkTransport.error), errno.ETIMEDOUT);
+  assert.equal(f.load(DOLLY_HTTP_WORD_ERROR), errno.ETIMEDOUT);
   assert.equal(f.broker.active, true, "the unresolved provider still occupies its host slot");
-  f.store(NetworkTransport.state, 0); // Wasm consumes the terminal error.
+  f.store(DOLLY_HTTP_WORD_STATE, 0); // Wasm consumes the terminal error.
   finish(new Response("late"));
   await bounded(pending);
   assert.equal(f.broker.active, false);
-  assert.equal(f.load(NetworkTransport.state), 0, "late completion must not resurrect an unowned terminal slot");
-  assert.equal(f.load(NetworkTransport.error), errno.ETIMEDOUT);
+  assert.equal(f.load(DOLLY_HTTP_WORD_STATE), 0, "late completion must not resurrect an unowned terminal slot");
+  assert.equal(f.load(DOLLY_HTTP_WORD_ERROR), errno.ETIMEDOUT);
 });
 
 test("interrupting an old HTTP request does not abort or overwrite its successor", async () => {
@@ -233,12 +233,12 @@ test("a queued publication cannot write after interruption", async () => {
   const f = fixture({}, async () => new Response("old"));
   const pending = f.request();
   await f.broker.dispatch(cancelMessage(1));
-  f.store(NetworkTransport.sequence, 17);
-  f.store(NetworkTransport.state, 1);
+  f.store(DOLLY_HTTP_WORD_SEQUENCE, 17);
+  f.store(DOLLY_HTTP_WORD_STATE, 1);
   await bounded(pending);
-  assert.equal(f.load(NetworkTransport.state), 1);
-  assert.equal(f.load(NetworkTransport.length), 0);
-  assert.equal(f.broker.bytes[f.address + NetworkTransport.headerSize], 0);
+  assert.equal(f.load(DOLLY_HTTP_WORD_STATE), 1);
+  assert.equal(f.load(DOLLY_HTTP_WORD_LENGTH), 0);
+  assert.equal(f.broker.bytes[f.address + DOLLY_HTTP_HEADER_SIZE], 0);
 });
 
 function admission(f, overrides = {}, sequence = 1) {
@@ -253,8 +253,8 @@ function admission(f, overrides = {}, sequence = 1) {
     bytes.set(data, offset);
     offset += data.length;
   }
-  f.store(NetworkTransport.sequence, sequence);
-  f.store(NetworkTransport.state, 1);
+  f.store(DOLLY_HTTP_WORD_SEQUENCE, sequence);
+  f.store(DOLLY_HTTP_WORD_STATE, 1);
   return message;
 }
 
@@ -269,7 +269,7 @@ test("HTTP metadata is not repaired by stripping Unicode before validation", asy
     assert.equal(await f.broker.dispatch(admission(f, fields)), 0);
     await consume(f, settled(f));
     assert.equal(calls, 0, JSON.stringify(fields));
-    assert.equal(f.load(NetworkTransport.error), errno.EINVAL);
+    assert.equal(f.load(DOLLY_HTTP_WORD_ERROR), errno.EINVAL);
   }
 });
 
@@ -328,17 +328,17 @@ test("HTTP admission rejects occupied slots and cancels the exact handle", async
 test("HTTP terminal errors distinguish quota, timeout, cancellation, and opaque transport failures", async () => {
   const f = fixture({}, async () => { throw new TypeError("opaque browser rejection"); });
   await bounded(f.request());
-  assert.equal(f.load(NetworkTransport.error), errno.EIO);
+  assert.equal(f.load(DOLLY_HTTP_WORD_ERROR), errno.EIO);
   f.broker.policy.maxRequests = 1;
   await bounded(f.request({}, 2));
-  assert.equal(f.load(NetworkTransport.error), errno.EDQUOT);
+  assert.equal(f.load(DOLLY_HTTP_WORD_ERROR), errno.EDQUOT);
   f.broker.policy.maxRequests = 100;
   f.broker.fetchRequest = async () => new Response("cancel me");
   const cancelled = f.request({}, 3);
   await f.broker.dispatch(cancelMessage(3));
   await bounded(cancelled);
-  assert.equal(f.load(NetworkTransport.state), 3);
-  assert.equal(f.load(NetworkTransport.error), errno.ECANCELED);
+  assert.equal(f.load(DOLLY_HTTP_WORD_STATE), 3);
+  assert.equal(f.load(DOLLY_HTTP_WORD_ERROR), errno.ECANCELED);
 });
 
 function channel(broker, sequence) {
@@ -363,8 +363,8 @@ test("HTTP handles preserve their high bit across the Wasm i32 import", async ()
     assert.equal(await f.broker.dispatch({ ...message, sequence: sequence | 0 }), 0);
     assert.equal(await f.broker.dispatch(cancelMessage(sequence | 0)), 0);
     await bounded(settled(f));
-    assert.equal(view.load(NetworkTransport.state), 3);
-    assert.equal(view.load(NetworkTransport.error), errno.ECANCELED);
+    assert.equal(view.load(DOLLY_HTTP_WORD_STATE), 3);
+    assert.equal(view.load(DOLLY_HTTP_WORD_ERROR), errno.ECANCELED);
   }
 });
 
@@ -398,8 +398,8 @@ test("cancelled providers retain bounded host slots without blocking peers or ad
   assert.equal(providers.length, DOLLY_HTTP_SLOT_COUNT);
   providers.forEach(provider => provider.resolve(new Response("late")));
   await bounded(settled(f));
-  assert.equal(channels[0].load(NetworkTransport.state), 1, "old completions must not overwrite generation 17");
-  assert.equal(channels[0].load(NetworkTransport.length), 0);
+  assert.equal(channels[0].load(DOLLY_HTTP_WORD_STATE), 1, "old completions must not overwrite generation 17");
+  assert.equal(channels[0].load(DOLLY_HTTP_WORD_LENGTH), 0);
   const survivor = channel(f.broker, 17);
   f.broker.fetchRequest = async () => new Response("survivor");
   assert.equal(await f.broker.dispatch(admission(survivor, {}, 17)), 0);
@@ -419,7 +419,7 @@ test("cancelling one request leaves the other stream and its deadline independen
   assert.equal(await f.broker.dispatch(cancelMessage(1)), 0);
   assert(signals[0].aborted);
   assert.equal(signals[1].aborted, false);
-  assert.equal(first.load(NetworkTransport.error), errno.ECANCELED);
+  assert.equal(first.load(DOLLY_HTTP_WORD_ERROR), errno.ECANCELED);
   const records = await consume(second, settled(f));
   assert.equal(Buffer.concat(records.filter(x => x.kind === 3).map(x => x.bytes)).toString(), "peer response");
 });
@@ -433,8 +433,8 @@ test("concurrent requests share quota and each stalled reader has a deadline", a
   assert.equal(await f.broker.dispatch(admission(second, {}, 2)), 0);
   await bounded(settled(f));
   assert.equal(calls, 1);
-  assert.equal(second.load(NetworkTransport.error), errno.EDQUOT);
-  assert.equal(first.load(NetworkTransport.error), errno.ETIMEDOUT);
+  assert.equal(second.load(DOLLY_HTTP_WORD_ERROR), errno.EDQUOT);
+  assert.equal(first.load(DOLLY_HTTP_WORD_ERROR), errno.ETIMEDOUT);
   assert.equal(f.broker.active, false);
 });
 
@@ -447,7 +447,7 @@ test("runtime teardown aborts every provider and refuses already-queued admissio
   f.broker.close();
   assert.equal(await f.broker.dispatch(admission(channel(f.broker, 3), {}, 3)), -errno.ECANCELED);
   await bounded(settled(f));
-  assert.equal(first.load(NetworkTransport.error), errno.ECANCELED);
-  assert.equal(second.load(NetworkTransport.error), errno.ECANCELED);
+  assert.equal(first.load(DOLLY_HTTP_WORD_ERROR), errno.ECANCELED);
+  assert.equal(second.load(DOLLY_HTTP_WORD_ERROR), errno.ECANCELED);
   assert.equal(calls, 2);
 });

@@ -43,6 +43,22 @@
   ;; EDQUOT: request quota, E2BIG: byte cap, ETIMEDOUT: deadline, ECANCELED:
   ;; cancellation, EIO: transport. EINVAL/EFAULT/EPROTONOSUPPORT describe invalid
   ;; requests. No URL, headers, credentials, or inferred CORS cause is returned.
+  (global (export "DOLLY_HTTP_HEADER_SIZE") i32 (i32.const 64))
+  ;; u32 word indices within a slot header.
+  (global (export "DOLLY_HTTP_WORD_STATE") i32 (i32.const 0))
+  (global (export "DOLLY_HTTP_WORD_SEQUENCE") i32 (i32.const 1))
+  (global (export "DOLLY_HTTP_WORD_STATUS") i32 (i32.const 2))
+  (global (export "DOLLY_HTTP_WORD_LENGTH") i32 (i32.const 3))
+  (global (export "DOLLY_HTTP_WORD_EOF") i32 (i32.const 4))
+  (global (export "DOLLY_HTTP_WORD_ERROR") i32 (i32.const 5))
+  (global (export "DOLLY_HTTP_WORD_KIND") i32 (i32.const 6))
+  (global (export "DOLLY_HTTP_STATE_IDLE") i32 (i32.const 0))
+  (global (export "DOLLY_HTTP_STATE_WRITABLE") i32 (i32.const 1))
+  (global (export "DOLLY_HTTP_STATE_READABLE") i32 (i32.const 2))
+  (global (export "DOLLY_HTTP_STATE_FAILED") i32 (i32.const 3))
+  (global (export "DOLLY_HTTP_KIND_URL") i32 (i32.const 1))
+  (global (export "DOLLY_HTTP_KIND_HEADER") i32 (i32.const 2))
+  (global (export "DOLLY_HTTP_KIND_BODY") i32 (i32.const 3))
   (func (export "dolly_http_mailbox_address") (result i64)
     i64.const 0)
   (func (export "dolly_http_mailbox_version") (result i32)
