@@ -13,7 +13,6 @@ FROM https://daugasauron.com/demos/local-llm/Dollyfile-pi-local 0513a4169beebd96
 INSTALL https://daugasauron.com/demos/neovim/Dollyfile-nvim 6c2ba5ba419a21d9948ce09a8b6400458044540f804a727a4a5aa5a14182233e
 REQUIRES TOOL pi
 REQUIRES TOOL nvim
-REQUIRES TOOL qjs
 REQUIRES TOOL janis
 REQUIRES TOOL tar
 REQUIRES TOOL sha256sum
