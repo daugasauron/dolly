@@ -36,7 +36,3 @@ fi
 if has_module pip; then
   copy_static demos/python/dolly_http.py python/runtimes/dolly_http.py
 fi
-if has_module bonnie; then
-  copy_static demos/python/bonnie.c python/commands/bonnie.c
-  copy_static demos/python/bonnie.py python/runtimes/bonnie.py
-fi
