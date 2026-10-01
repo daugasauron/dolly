@@ -52,6 +52,7 @@ typedef struct {
   int newline;
   int descriptor;
   int target_descriptor;
+  int strip_tabs;
 } Token;
 typedef struct { Token *items; size_t count; size_t capacity; } TokenList;
 typedef struct { char *name; TokenList body; } Function;
@@ -1400,7 +1401,9 @@ static int defer_backtick(const char **cursor, Buffer *word, int double_quoted) 
   }
 
   Buffer expression = {0};
-  if (!buffer_append(&expression, "$(", 2)) return -1;
+  // `(...)` is a subshell; "$((" would read as arithmetic expansion.
+  const int subshell = start < source && *start == '(';
+  if (!buffer_append(&expression, "$( ", subshell ? 3 : 2)) return -1;
   for (const char *byte = start; byte < source; byte++) {
     if (*byte == '\\' && byte + 1 < source &&
         (strchr("$`\\", byte[1]) || (double_quoted && byte[1] == '"')))
@@ -1589,9 +1592,11 @@ static int lex(const char *source, TokenList *tokens) {
                 stderr);
           return 0;
         }
-        const char *body_start = source;
+        /* <<- removes leading tabs from every body line and the delimiter. */
+        Buffer body = {0};
         int found = 0;
         while (!found) {
+          if (operator_token->strip_tabs) while (*source == '\t') source++;
           const char *newline = strchr(source, '\n');
           const char *line_end = newline == NULL ? source + strlen(source)
                                                   : newline;
@@ -1599,17 +1604,21 @@ static int lex(const char *source, TokenList *tokens) {
           const size_t line_length = (size_t)(line_end - source);
           if (strlen(delimiter_token->text) == line_length &&
               memcmp(source, delimiter_token->text, line_length) == 0) {
-            operator_token->text =
-                strndup(body_start, (size_t)(source - body_start));
+            operator_token->text = body.data != NULL ? body.data : strdup("");
             if (operator_token->text == NULL) return 0;
             operator_token->quoted = delimiter_token->quoted;
             source = newline == NULL ? line_end : newline + 1;
             found = 1;
           } else if (newline == NULL) {
+            free(body.data);
             fprintf(stderr, "slop: unterminated here-document: %s\n",
                     delimiter_token->text);
             return 0;
           } else {
+            if (!buffer_append(&body, source, (size_t)(newline + 1 - source))) {
+              free(body.data);
+              return 0;
+            }
             source = newline + 1;
           }
         }
@@ -1617,11 +1626,6 @@ static int lex(const char *source, TokenList *tokens) {
       pending_count = 0;
       if (!token_push(tokens, TOKEN_SEMI, NULL, 0)) return 0;
       continue;
-    }
-    if (source[0] == '<' && source[1] == '<' && source[2] == '-') {
-      fputs("slop: tab-stripping <<- here-documents are unsupported\n",
-            stderr);
-      return 0;
     }
     if (source[0] == '&' && source[1] != '&' && source[1] != '>') {
       fputs("slop: background jobs (&) are not supported\n", stderr);
@@ -1637,11 +1641,8 @@ static int lex(const char *source, TokenList *tokens) {
     int target_descriptor = -1;
     TokenKind kind = operator_kind(source, &operator_length, 1, &descriptor,
                                    &target_descriptor);
-    if (kind == TOKEN_HEREDOC && source[operator_length] == '-') {
-      fputs("slop: tab-stripping <<- here-documents are unsupported\n",
-            stderr);
-      return 0;
-    }
+    const int strip_tabs = kind == TOKEN_HEREDOC && source[operator_length] == '-';
+    if (strip_tabs) operator_length++;
     if (operator_length != 0) {
       if (kind == TOKEN_SEMI && *source == '\n' && tokens->count != 0) {
         const TokenKind previous = tokens->items[tokens->count - 1].kind;
@@ -1657,6 +1658,7 @@ static int lex(const char *source, TokenList *tokens) {
       tokens->items[tokens->count - 1].newline = kind == TOKEN_SEMI && *source == '\n';
       tokens->items[tokens->count - 1].descriptor = descriptor;
       tokens->items[tokens->count - 1].target_descriptor = target_descriptor;
+      tokens->items[tokens->count - 1].strip_tabs = strip_tabs;
       if (kind == TOKEN_HEREDOC) {
         if (pending_count == SLOP_MAX_HEREDOCS) {
           fputs("slop: too many here-documents on one command line\n", stderr);
@@ -2510,9 +2512,24 @@ static int builtin(Shell *shell, int argc, char **argv, int *handled) {
     return 0;
   }
   if (strcmp(argv[0], "unset") == 0) {
-    for (int index = 1; index < argc; index++) {
+    int first = 1, functions = 0;
+    for (; first < argc && argv[first][0] == '-'; first++) {
+      if (strcmp(argv[first], "--") == 0) { first++; break; }
+      if (strcmp(argv[first], "-f") == 0) functions = 1;
+      else if (strcmp(argv[first], "-v") == 0) functions = 0;
+      else { fprintf(stderr, "slop: unset: invalid option: %s\n", argv[first]); return 2; }
+    }
+    for (int index = first; index < argc; index++) {
       if (!valid_name(argv[index], strlen(argv[index]))) {
         fprintf(stderr, "slop: unset: invalid name: %s\n", argv[index]); return 2;
+      }
+      if (functions) {
+        Function *function = function_lookup(shell->functions, argv[index]);
+        if (function == NULL) continue;
+        free(function->name);
+        tokens_dispose(&function->body);
+        *function = shell->functions->items[--shell->functions->count];
+        continue;
       }
       if (unsetenv(argv[index]) != 0) return 1;
       unexport_variable(argv[index]);
