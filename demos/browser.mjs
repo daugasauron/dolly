@@ -1,17 +1,17 @@
-// Shared setup for demo browser tests, which drive one Chrome:
+// Shared setup for demo browser tests, which drive one Chrome (or Firefox):
 //
-//   await demoTest("pi", { image: "pi", server, timeout, webgpu }, async ({ server, open }) => {
+//   await demoTest("pi", { image: "pi", server, timeout, webgpu, browser }, async ({ server, open }) => {
 //     const { page, run, start, waitText } = await open({ policy, prompt, path, setup, viewport });
 //   });
 //
 // runs against one startBrowserServer(image, server) in headless Chrome, with a
-// software WebGPU adapter when webgpu is set. open() loads the image
+// software WebGPU adapter when webgpu is set, or Firefox when browser is "firefox". open() loads the image
 // route after installing DOLLY_HTTP_POLICY = policy and awaiting setup(page),
 // then waits for boot and prompt (null skips it), returning the terminal
 // helpers below and the prompting program's pid. On failure the latest page's
 // terminal is printed; the browser is closed after timeout milliseconds.
 import assert from "node:assert/strict";
-import { chromium } from "playwright-core";
+import { chromium, firefox } from "playwright-core";
 import { startBrowserServer } from "../test/browser-server.mjs";
 import { CANONICAL_ORIGIN } from "../src/static-asset.mjs";
 
@@ -27,7 +27,10 @@ export const delay = milliseconds => new Promise(resolve => setTimeout(resolve, 
 async function openImage(browser, origin, image, { policy, prompt = shellPrompt, path = `/${image}/`, setup,
   viewport = { width: 1280, height: 800 } } = {}) {
   const context = await browser.newContext({ viewport });
-  await context.grantPermissions(["clipboard-read", "clipboard-write"], { origin });
+  // Firefox has no clipboard permissions to grant.
+  if (browser.browserType().name() === "chromium") {
+    await context.grantPermissions(["clipboard-read", "clipboard-write"], { origin });
+  }
   const page = await context.newPage();
   page.setDefaultTimeout(60_000);
   if (policy) await page.addInitScript(policy => { globalThis.DOLLY_HTTP_POLICY = policy; }, policy);
@@ -146,16 +149,18 @@ export async function installProbe(...packages) {
     setup: page => page.addInitScript(recipe => sessionStorage.setItem("dolly-custom-source", recipe), recipe) };
 }
 
-export async function demoTest(label, { image, server: serverOptions, timeout = 300_000, webgpu = false } = {}, test) {
+export async function demoTest(label, { image, server: serverOptions, timeout = 300_000, webgpu = false,
+  browser: browserName = "chromium" } = {}, test) {
   const server = await startBrowserServer(projectDir, image, serverOptions);
   const started = performance.now();
-  const browser = await chromium.launch({ channel: "chrome", headless: true,
-    args: ["--no-sandbox", "--disable-gpu", ...webgpu ? ["--enable-unsafe-webgpu"] : []] });
+  const browser = await (browserName === "firefox" ? firefox.launch({ headless: true })
+    : chromium.launch({ channel: "chrome", headless: true,
+      args: ["--no-sandbox", "--disable-gpu", ...webgpu ? ["--enable-unsafe-webgpu"] : []] }));
   let expired = false;
   const deadline = setTimeout(() => { expired = true; void browser.close(); }, timeout);
   try {
     await test({ server, open: options => openImage(browser, server.origin, image, options) });
-    console.log(`${label}: passed in ${((performance.now() - started) / 1000).toFixed(1)}s`);
+    console.log(`${label}: ${browserName} passed in ${((performance.now() - started) / 1000).toFixed(1)}s`);
   } catch (error) {
     if (expired) throw new Error(`${label} exceeded ${timeout / 1000} seconds`, { cause: error });
     const page = browser.contexts().flatMap(context => context.pages()).at(-1);
