@@ -51,3 +51,15 @@ describe the code as it is.
 - Audit tasks: 16 closed on 2026-10-01 with evidence; the rest are open with
   current priorities. Catalog rebuilt and verified 2026-10-01 (39 of 40 images;
   zero-ad waits for `20260930-231200-self-host-zero-ad`).
+
+## 2026-10-01 afternoon
+
+- Local checkpoint `checkpoint-2026-10-01-pm` (release `35b11b69…`, all 41
+  images, Codex fixed, display for every image, zero-ad relinked) is served on
+  localhost:9000.
+- On `next`, toward a smaller core: Slop leaves the seed (`COMPILEC`, seed now
+  compiles only the Dollyfile engine), module packets leave `process.h`
+  (per-module digests), the terminal mailbox leaves display@0, the frontend is
+  plain static files at repository paths, Bonnie is replaced by stock pip, and
+  demo names left `generate-routes.mjs`. `next` needs a full catalog rebuild
+  before its release.
