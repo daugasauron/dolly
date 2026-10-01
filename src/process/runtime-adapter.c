@@ -423,7 +423,7 @@ int shutdown(int descriptor, int how) {
 
 struct hostent *gethostbyname(const char *name) {
   (void)name;
-  h_errno = HOST_NOT_FOUND;
+  h_errno = NO_RECOVERY;
   return NULL;
 }
 
@@ -438,26 +438,6 @@ int getnameinfo(const struct sockaddr *address, socklen_t address_length,
   (void)service_length;
   (void)flags;
   return EAI_FAIL;
-}
-
-void _pthread_cleanup_push(struct __ptcb *callback,
-                           void (*function)(void *), void *argument) {
-  callback->__f = function;
-  callback->__x = argument;
-  callback->__next = NULL;
-}
-
-void _pthread_cleanup_pop(struct __ptcb *callback, int execute) {
-  if (execute != 0 && callback != NULL && callback->__f != NULL) {
-    callback->__f(callback->__x);
-  }
-}
-
-struct servent *getservbyname(const char *name, const char *protocol) {
-  (void)name;
-  (void)protocol;
-  h_errno = HOST_NOT_FOUND;
-  return NULL;
 }
 
 /* -1 and 0 wait for any child; Dolly has no other process groups. */
