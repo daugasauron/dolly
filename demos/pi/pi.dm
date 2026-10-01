@@ -1,7 +1,7 @@
 DOLLY 5
 MODULE pi
 
-USE https://daugasauron.com/modules/search-tools.dm 50cc079777abab0afaa6b65f6ade18a5f19c332b38c02b60be9a4db2865e7152
+USE https://daugasauron.com/modules/search-tools.dm d7917af12cd049a651a781269bf399284b932310a7211ce36864b0826349b184
 EXPORTS TOOL rg
 EXPORTS TOOL fd
 COPY FROM https://daugasauron.com/Dollyfile-pi-build edaa51252fa5f44332b23f1d0b84e6a5bd1d6434d06ede67b264cf6172448237 /usr/bin/pi /usr/bin/pi

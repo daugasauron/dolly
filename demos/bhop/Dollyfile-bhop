@@ -10,7 +10,7 @@ COPY FROM https://daugasauron.com/Dollyfile-javascript 5aaf41cfb903bdd3d83764e62
 EXPORTS LIB dolly-js /usr/lib/libdolly-js.a
 EXPORTS HEADER quickjs /usr/include/quickjs.h
 EXPORTS HEADER quickjs-runner /usr/include/dolly/quickjs-runner.h
-USE https://daugasauron.com/modules/pi.dm e946c68176e07a4ce2da2c33d039f65684d7e292e47e64aa183b0c079d8d10c6
+USE https://daugasauron.com/modules/pi.dm 3b8b5f2786b767c81b99789cd73c4b61fef6b4a04535af3201ef41977c9dcf3f
 COPY FROM https://daugasauron.com/Dollyfile-sdl2-build f526ad11f6a22e35205d667379de208d9fc7fb6788b87759d6c4d24903cae3e8 /usr/include/SDL2 /usr/include/SDL2
 COPY FROM https://daugasauron.com/Dollyfile-sdl2-build f526ad11f6a22e35205d667379de208d9fc7fb6788b87759d6c4d24903cae3e8 /usr/lib/libSDL2.a /usr/lib/libSDL2.a
 COPY FROM https://daugasauron.com/Dollyfile-sdl2-build f526ad11f6a22e35205d667379de208d9fc7fb6788b87759d6c4d24903cae3e8 /usr/share/licenses/SDL2 /usr/share/licenses/SDL2
