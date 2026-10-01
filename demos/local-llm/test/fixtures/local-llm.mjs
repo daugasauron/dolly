@@ -1,7 +1,7 @@
 // Runs in Janis inside Dolly against the real GPU and pinned model weights.
 import {writeFileSync} from 'node:fs';
 import {LocalLlama} from '/usr/lib/dolly-llm/client.mjs';
-const model=process.argv[2]??'Qwen3.5-0.8B';
+const model=process.argv[2];
 const engine=new LocalLlama(console.log),results=[];
 function check(condition,message) {if(!condition)throw Error(message);}
 const prompt=text=>`<|im_start|>user\n${text}<|im_end|>\n<|im_start|>assistant\n<think>\n\n</think>\n\n`;

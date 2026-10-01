@@ -34,7 +34,8 @@ FILE /home/dolly/.pi/agent/settings.json
       "shellPath": "/bin/slop",
       "theme": "dolly",
       "defaultProvider": "webgpu",
-      "defaultModel": "Qwen3.5-0.8B"
+      "defaultModel": "qwen3.5-2b",
+      "compaction": {"reserveTokens": 4096, "keepRecentTokens": 6144}
     }
 
 FILE /home/dolly/.dollyrc

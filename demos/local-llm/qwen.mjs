@@ -1,47 +1,51 @@
-// Qwen 3.5 uses function/parameter tags, not Qwen 3's JSON tool envelopes.
-// Pi conversation and tool formatting runs inside Janis.
+// Qwen 3.5's chat template (tokenizer.chat_template in its GGUF) with thinking off:
+// function/parameter tool calls, tool results as user turns, an empty think block
+// on the assistant turns after the latest user query.
+const tojson = value => Array.isArray(value) ? `[${value.map(tojson).join(", ")}]`
+  : value !== null && typeof value === "object"
+    ? `{${Object.entries(value).map(([key, item]) => `${JSON.stringify(key)}: ${tojson(item)}`).join(", ")}}`
+    : JSON.stringify(value);
+
 function toolText(call) {
   return `<tool_call>\n<function=${call.function.name}>\n` +
     Object.entries(JSON.parse(call.function.arguments)).map(([name, value]) =>
-      `<parameter=${name}>\n${typeof value === "string" ? value : JSON.stringify(value)}\n</parameter>`).join("\n") +
-    "\n</function>\n</tool_call>";
+      `<parameter=${name}>\n${typeof value === "string" ? value : tojson(value)}\n</parameter>\n`).join("") +
+    "</function>\n</tool_call>";
 }
 
-export function qwenRequest(request) {
-  const tools = request.tool_choice === "none" ? [] : request.tools ?? [];
-  const messages = [];
-  const lastQuery = request.messages.findLastIndex(message => message.role === "user" &&
-    !/^<tool_response>[\s\S]*<\/tool_response>$/.test(message.content.trim()));
-  const system = request.messages.filter(m => m.role === "system").map(m => m.content);
+export function qwenPrompt(messages, tools) {
+  const system = messages[0]?.role === "system" ? messages[0].content.trim() : "";
+  let prompt = "";
   if (tools.length) {
-    system.unshift('# Tools\n\n<tools>\n' + tools.map(tool => JSON.stringify(tool)).join("\n") +
-      '\n</tools>\n\nCall a function using this format:\n' +
-      '<tool_call>\n<function=FUNCTION_NAME>\n<parameter=PARAMETER_NAME>\nVALUE\n</parameter>\n</function>\n</tool_call>\n' +
-      'Include every required parameter. String values are raw text, not quoted JSON; other values are JSON. ' +
-      'An explanation may precede a call, but nothing follows it. Answer normally when no tool is needed. ' +
-      'A tool result reports what happened; use it to continue the original task, without repeating successful work.' +
-      (request.tool_choice === "required" ? '\nThis response must call a tool.' : ''));
-  }
-  for (const [index, message] of request.messages.entries()) {
-    if (message.role === "system") continue;
-    let role = message.role, content = message.content ?? "";
-    if (role === "tool") {
-      role = "user";
-      content = `<tool_response>\n${content}\n</tool_response>`;
-    } else if (message.tool_calls?.length) {
-      content += (content ? "\n\n" : "") + message.tool_calls.map(toolText).join("\n");
+    prompt = "<|im_start|>system\n# Tools\n\nYou have access to the following functions:\n\n<tools>" +
+      tools.map(tool => "\n" + tojson(tool)).join("") + "\n</tools>" +
+      "\n\nIf you choose to call a function ONLY reply in the following format with NO suffix:\n\n" +
+      "<tool_call>\n<function=example_function_name>\n<parameter=example_parameter_1>\nvalue_1\n</parameter>\n" +
+      "<parameter=example_parameter_2>\nThis is the value for the second parameter\nthat can span\nmultiple lines\n" +
+      "</parameter>\n</function>\n</tool_call>\n\n<IMPORTANT>\nReminder:\n" +
+      "- Function calls MUST follow the specified format: an inner <function=...></function> block must be nested within <tool_call></tool_call> XML tags\n" +
+      "- Required parameters MUST be specified\n" +
+      "- You may provide optional reasoning for your function call in natural language BEFORE the function call, but NOT after\n" +
+      "- If there is no function call available, answer the question like normal with your current knowledge and do not tell the user about function calls\n" +
+      "</IMPORTANT>" + (system ? "\n\n" + system : "") + "<|im_end|>\n";
+  } else if (system) prompt = `<|im_start|>system\n${system}<|im_end|>\n`;
+  const lastQuery = messages.findLastIndex(message => message.role === "user" &&
+    !/^<tool_response>[\s\S]*<\/tool_response>$/.test(message.content.trim()));
+  for (const [index, message] of messages.entries()) {
+    const content = message.content.trim();
+    if (message.role === "user") prompt += `<|im_start|>user\n${content}<|im_end|>\n`;
+    else if (message.role === "assistant") {
+      prompt += "<|im_start|>assistant\n" + (index > lastQuery ? "<think>\n\n</think>\n\n" : "") + content;
+      for (const [at, call] of (message.tool_calls ?? []).entries())
+        prompt += (at ? "\n" : content ? "\n\n" : "") + toolText(call);
+      prompt += "<|im_end|>\n";
+    } else if (message.role === "tool") {
+      if (messages[index - 1]?.role !== "tool") prompt += "<|im_start|>user";
+      prompt += `\n<tool_response>\n${content}\n</tool_response>`;
+      if (messages[index + 1]?.role !== "tool") prompt += "<|im_end|>\n";
     }
-    // Qwen retains an empty reasoning block in the current tool round.
-    if (role === "assistant" && index > lastQuery) content = "<think>\n\n</think>\n\n" + content;
-    if (messages.at(-1)?.role === role) messages.at(-1).content += "\n" + content;
-    else messages.push({ role, content });
   }
-  return {
-    model: request.model, messages: [{ role: "system", content: system.join("\n\n") }, ...messages],
-    stream: true, stream_options: { include_usage: true },
-    max_tokens: request.max_tokens ?? 1024, temperature: request.temperature ?? 0.2,
-    top_p: request.top_p ?? 0.9, extra_body: { enable_thinking: false },
-  };
+  return prompt + "<|im_start|>assistant\n<think>\n\n</think>\n\n";
 }
 
 export function qwenToolCalls(output, tools) {
