@@ -1,7 +1,7 @@
 DOLLY 5
 IMAGE gpu-sdk
 
-FROM https://daugasauron.com/Dollyfile-system c64cdab2d1c90434b9580ba897e72ebcd93f51f13bf7b6fc5c419a51ff0f05f0
+FROM https://daugasauron.com/Dollyfile-system 525e2eaa526450c55963f948e8202c68315c7cc0aeac7833dea6e2413fd14e20
 REQUIRES HOST gpu@0
 
 ENTRY /bin/foreground -i /bin/slop
