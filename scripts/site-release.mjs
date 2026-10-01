@@ -9,6 +9,7 @@ import { pathToFileURL } from "node:url";
 import { gunzipSync } from "node:zlib";
 import { mergeSnapshotRecords, validateSnapshotPacks, MAX_SNAPSHOT_BYTES } from "../src/snapshot-records.mjs";
 import { imageInputsMatch } from "../src/image-inputs.mjs";
+import { validName } from "../src/dollyfile-view.mjs";
 import { contractDigest, validateBrowserImports } from "./dolly-abi.mjs";
 import { createDollyfileGraphLoader, recipeRecords } from "./dollyfile-graph.mjs";
 import { discoverImageDefinitions, imageRegistrySource, inspectStaticSources, selectImageDefinitions } from "./image-definitions.mjs";
@@ -165,7 +166,7 @@ export async function verifyRetainedRelease(site) {
   const source = await readFile(resolve(site, "dist/dolly-images.mjs"), "utf8");
   const registry = parseGeneratedConstant(source.split("\nexport const DOLLY_STATIC_SOURCES =", 1)[0], "DOLLY_IMAGES");
   if (!Array.isArray(registry) || !registry.length || registry.length > 256 ||
-      registry.some(item => !/^[a-z][a-z0-9-]{0,31}$/.test(item?.image)) ||
+      registry.some(item => !validName(item?.image)) ||
       new Set(registry.map(item => item.image)).size !== registry.length) throw new Error("invalid retained image registry");
   await verifyAcceptance(site, manifest, registry.map(item => item.image));
   return sha256(manifest);

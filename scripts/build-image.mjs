@@ -2,12 +2,13 @@
 import { spawn } from "node:child_process";
 import { access } from "node:fs/promises";
 import { resolve } from "node:path";
+import { validName } from "../src/dollyfile-view.mjs";
 
 const projectDir = resolve(import.meta.dirname, "..");
 const arguments_ = process.argv.slice(2);
 const image = arguments_[0]?.startsWith("--") ? undefined : arguments_.shift();
 const option = arguments_.shift();
-if (arguments_.length || (image !== undefined && !/^[a-z][a-z0-9-]{0,31}$/.test(image)) ||
+if (arguments_.length || (image !== undefined && !validName(image)) ||
     (option !== undefined && !["--package", "--plan", "--reproducible"].includes(option))) {
   throw new Error("usage: npm run image -- [IMAGE] [--package|--plan|--reproducible]");
 }

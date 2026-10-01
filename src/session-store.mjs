@@ -1,4 +1,4 @@
-import { inspectDollyfile } from "./dollyfile-view.mjs";
+import { inspectDollyfile, validName } from "./dollyfile-view.mjs";
 import { imageInputs } from "./image-inputs.mjs";
 import { publicURL } from "./static-asset.mjs";
 
@@ -170,7 +170,7 @@ export function validateSessionRecord(record) {
       !validSessionName(record.name) ||
       record.formatVersion !== DOLLY_SESSION_FORMAT_VERSION ||
       typeof record.buildId !== "string" || record.buildId.length > 128 ||
-      typeof record.image !== "string" || !/^[a-z][a-z0-9-]{0,31}$/.test(record.image) ||
+      typeof record.image !== "string" || !validName(record.image) ||
       typeof record.imageIdentity !== "string" || record.imageIdentity.length > 256 ||
       !Number.isSafeInteger(record.updatedAt) ||
       !(record.bytes instanceof ArrayBuffer) || record.bytes.byteLength === 0 ||

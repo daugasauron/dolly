@@ -12,7 +12,7 @@ export async function imageDescriptions(projectDir) {
       if (error.code === "ENOENT") return "";
       throw error;
     });
-    for (const [, image, description] of text.matchAll(/^- `([a-z][a-z0-9-]*)`: (.+)$/gm)) {
+    for (const [, image, description] of text.matchAll(/^- `([a-z][a-z0-9]*(?:-[a-z0-9]+|\.[0-9]+)*)`: (.+)$/gm)) {
       descriptions.set(image, description);
     }
   }
