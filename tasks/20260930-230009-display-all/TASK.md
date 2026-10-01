@@ -12,7 +12,7 @@ Today 19 build images have no `display@0` and no open route (for example
 `system-build`, `ghostty-build`, `system-tools`, `rust-sdk` and the images built
 from them).
 
-## Change (written, stashed as "display-for-all recipes" until the Codex fix)
+## Change (`10aef56` on `rebuild-batch`, rebuilding since 09:20)
 
 - `modules/display.dm`: `REQUIRES HOST display@0`, the display library, font
   and licenses copied from `ghostty-build`, and `EXPORTS ENV DISPLAY`.
@@ -20,6 +20,9 @@ from them).
   it; `system` drops its own copy of those rows.
 - `ghostty-build` requires the display and runs the library it just built.
 - Every image except `system-build` enters `/bin/foreground -i /bin/slop`.
+- `zig-build`, added since, also cannot have the display: `ghostty-build`,
+  which builds the display library, is built from it. Its "open" is grayed out
+  like `system-build`'s.
 - Recipe pins updated; the whole catalog must be rebuilt.
 
 ## Done when

@@ -1,6 +1,6 @@
 # dd, patch, diff and timeout diverge from POSIX/GNU behavior
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 220
 - TAGS: bug,commands,core
 
@@ -24,3 +24,12 @@ Standard operand and option semantics, or explicit errors for unsupported option
 
 - Tests: `dd seek=1 conv=notrunc` preserves prefix; `patch FILE < diff` patches FILE; `diff
   -q`/`-r` behave or fail explicitly; `timeout 0 true` succeeds.
+
+## Resolution (2026-10-01)
+
+Fixed in `3c43dca` ("Share command spawning and fix find, xargs, timeout, diff,
+patch and curl"); `dd` now comes from sbase, whose `seek=` truncates only
+without `conv=notrunc`. `test/core-browser.mjs` checks `dd seek=2
+conv=notrunc` keeps the prefix, `dd seek=1` truncates, `timeout 0 sleep 1`
+succeeds, `patch FILE < diff` fails explicitly and leaves FILE unchanged while
+`patch -p1` applies; `diff` accepts `-q`, `-r` and `-N`.
