@@ -2693,6 +2693,12 @@ static int spawn_command(Shell *shell, int argc, char **argv, const char *search
   enum command_resolution resolution = resolve_command(argv[0], search, path, sizeof(path));
   if (resolution == COMMAND_PATH_TOO_LONG) { fprintf(stderr, "slop: %s: path is too long\n", argv[0]); return 126; }
   if (resolution != COMMAND_FOUND) { fprintf(stderr, "slop: %s: command not found\n", argv[0]); return 127; }
+  // Ctrl+C that reached the shell while it prepared this command cancels it.
+  if (interrupt_requested) {
+    interrupt_requested = 0;
+    interrupt_shell(shell, SIGINT);
+    return 128 + SIGINT;
+  }
   char **environment = exported_environment();
   if (environment == NULL) { fputs("slop: out of memory\n", stderr); return 126; }
   fflush(NULL);

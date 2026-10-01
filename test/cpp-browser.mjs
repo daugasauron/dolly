@@ -35,6 +35,10 @@ await browserTest("cpp", {}, async ({ open }) => {
     "echo '#include <stddef.h>' > pre.cpp && c++ -xc++ -E -P -fpermissive pre.cpp | grep -q size_t",
     "c++ -xc++ -E -v - < /dev/null > /dev/null",
     "c++ -Wl,--version && c++ -Wl,-v",
+    // Bare cc uses Clang's gnu17 default, so POSIX and BSD declarations are visible.
+    "printf '#include <math.h>\\n#include <stdio.h>\\n#include <string.h>\\n#include <time.h>\\n" +
+      "int main(void) { struct timespec t; return fileno(stdin) != 0 || M_PI < 3 || !strdup(\"x\") || " +
+      "clock_gettime(CLOCK_MONOTONIC, &t); }\\n' > posix.c && cc posix.c -o posix && ./posix",
     "echo 'int main(void) { return 0; }' > cmake-flags.c && cc -fno-common -fPIE -ffunction-sections " +
       "-fdata-sections -funwind-tables -ftrapping-math -Xclang -fno-pch-timestamp cmake-flags.c -o cmake-flags && ./cmake-flags",
     "echo 'int main(int argc, char **argv) { return argc == 0; }' > sanity.cpp && " +

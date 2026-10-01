@@ -3,6 +3,7 @@
 #include <semaphore.h>
 #include <stdatomic.h>
 #include <assert.h>
+#include <sched.h>
 #include <errno.h>
 #include <stdlib.h>
 #include <stdio.h>
@@ -113,6 +114,7 @@ static void *work(void *argument) {
 
 int main(int argc, char **argv) {
   main_tid = gettid(); main_pid = getpid();
+  assert(sched_yield() == 0);
   if (argc > 1 && strcmp(argv[1], "--main-exit") == 0) {
     pthread_t child;
     assert(pthread_create(&child, NULL, last_thread, NULL) == 0);

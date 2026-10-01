@@ -80,8 +80,8 @@ void __dolly_pthread_init(void) {
 
 int __dolly_thread_tid(void) { return __pthread_self()->tid; }
 
-/* Wasm Workers are preemptively scheduled; there is no guest yield primitive. */
-int sched_yield(void) { errno = ENOTSUP; return -1; }
+/* Each thread is a preemptively scheduled Worker: there is no guest scheduler to cede to. */
+int sched_yield(void) { return 0; }
 
 int __pthread_create(pthread_t *restrict result, const pthread_attr_t *restrict attributes,
                      void *(*entry)(void *), void *restrict argument) {

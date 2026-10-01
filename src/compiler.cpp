@@ -603,7 +603,7 @@ bool run_clang(const std::string &source, const std::string &language,
   if (!options.optimization_selected) arguments.push_back("-O2");
   if (options.unsigned_char) arguments.push_back("-fno-signed-char");
   if (!options.standard_selected) {
-    arguments.push_back(language == "c++" ? "-std=c++23" : "-std=c17");
+    arguments.push_back(language == "c++" ? "-std=gnu++17" : "-std=gnu17");
   }
   if (language == "c++") {
     // Process-target C++ deliberately retains libc++'s normal visibility
