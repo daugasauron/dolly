@@ -27,3 +27,13 @@ One generator produces every contract's constants from its WAT/header; JS and C 
 
 - No numeric ABI constant is duplicated by hand between C and JS; the artifact ABI test fails if
   a generated constant drifts.
+
+## Progress (2026-10-01)
+
+- Process constants come from one generator (`scripts/generate-abi-constants.mjs`)
+  for C and JS; the signal set is the single `DOLLY_PROCESS_SIGNAL_MASK`.
+- The HTTP mailbox layout (header size, word indices, states, chunk kinds) is
+  now WAT globals; the kernel asserts its struct against them and the broker,
+  client, libcurl and tests use the names (`e3c959f`).
+- Left: check the display and upload mailboxes for hand-copied offsets the
+  same way.
