@@ -17,7 +17,8 @@ WAT file document its semantics.
 | [`dolly-kernel-plugin-0.wat`](dolly-kernel-plugin-0.wat) | The resident display plugin; never an ordinary program target |
 | [`dolly-browser-0.wat`](dolly-browser-0.wat) | The complete typed outer import allowlist of the kernel |
 | [`dolly-supervisor-0.wat`](dolly-supervisor-0.wat) | Kernel exports the trusted supervisor uses, and the page's terminal mailbox (foreground, results, Ctrl+C) |
-| [`host/display/dolly-display-0.wat`](../host/display/dolly-display-0.wat), [`host/http/dolly-http-0.wat`](../host/http/dolly-http-0.wat), [`host/download/dolly-download-0.wat`](../host/download/dolly-download-0.wat), [`host/upload/dolly-upload-0.wat`](../host/upload/dolly-upload-0.wat), [`host/snapshot/dolly-snapshot-0.wat`](../host/snapshot/dolly-snapshot-0.wat) | Browser-facing mailboxes, dispatch imports and the modules' process operations |
+| [`dolly-image-0.wat`](dolly-image-0.wat) | Kernel exports that boot, restore, capture and stream system images |
+| [`host/display/dolly-display-0.wat`](../host/display/dolly-display-0.wat), [`host/http/dolly-http-0.wat`](../host/http/dolly-http-0.wat), [`host/download/dolly-download-0.wat`](../host/download/dolly-download-0.wat), [`host/upload/dolly-upload-0.wat`](../host/upload/dolly-upload-0.wat), [`host/snapshot/dolly-snapshot-0.wat`](../host/snapshot/dolly-snapshot-0.wat) | Browser-facing mailboxes, dispatch imports, the modules' process operations and the session mailbox |
 
 A contract makes a boundary reviewable and lets the build derive retained exports
 exactly; listing a function does not make it guest authority.
