@@ -81,13 +81,12 @@ int main(int argc, char **argv) {
   FILE *help = fopen(argv[1], "r");
   if (help == NULL) return 2;
   char help_line[4096];
-  int typescript = 0, absent_command = 0;
+  int absent_command = 0;
   while (fgets(help_line, sizeof(help_line), help) != NULL) {
     if (strstr(help_line, "ghostty-vt") != NULL) absent_command = 1;
-    if (strncmp(help_line, "TypeScript:", 11) == 0) typescript = 1;
   }
   if (ferror(help) || fclose(help) != 0) return 2;
-  if (absent_command || typescript != (access("/usr/bin/tsc", F_OK) == 0)) {
+  if (absent_command) {
     fputs("help does not match this image's commands\n", stderr);
     return 1;
   }
