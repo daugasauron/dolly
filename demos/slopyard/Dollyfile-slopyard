@@ -1,16 +1,16 @@
 DOLLY 5
 IMAGE slopyard
 
-FROM https://daugasauron.com/Dollyfile-gamedev-sdk c055e10b8e19172c3424ffd28610420aac9dfe03e00aa8f22a93f031760aee35
-COPY FROM https://daugasauron.com/Dollyfile-javascript ebe97b2e61edf823bf7f9947718f3292a50bebad0cfa5679f190bbc0a1a5ac83 /usr/lib/libdolly-js.a /usr/lib/libdolly-js.a
-COPY FROM https://daugasauron.com/Dollyfile-javascript ebe97b2e61edf823bf7f9947718f3292a50bebad0cfa5679f190bbc0a1a5ac83 /usr/include/quickjs.h /usr/include/quickjs.h
-COPY FROM https://daugasauron.com/Dollyfile-javascript ebe97b2e61edf823bf7f9947718f3292a50bebad0cfa5679f190bbc0a1a5ac83 /usr/include/dolly/quickjs-runner.h /usr/include/dolly/quickjs-runner.h
-COPY FROM https://daugasauron.com/Dollyfile-javascript ebe97b2e61edf823bf7f9947718f3292a50bebad0cfa5679f190bbc0a1a5ac83 /usr/lib/dolly/node.js /usr/lib/dolly/node.js
-COPY FROM https://daugasauron.com/Dollyfile-javascript ebe97b2e61edf823bf7f9947718f3292a50bebad0cfa5679f190bbc0a1a5ac83 /usr/lib/janis/runtime.js /usr/lib/janis/runtime.js
+FROM https://daugasauron.com/Dollyfile-gamedev-sdk 55515b869b0febe282ba149970b4aa38b6276486b50662b7a0d2f4e03049c67d
+COPY FROM https://daugasauron.com/Dollyfile-javascript 5aaf41cfb903bdd3d83764e62fe95095b8c4e78f2202e97f10ed37e41ebb670b /usr/lib/libdolly-js.a /usr/lib/libdolly-js.a
+COPY FROM https://daugasauron.com/Dollyfile-javascript 5aaf41cfb903bdd3d83764e62fe95095b8c4e78f2202e97f10ed37e41ebb670b /usr/include/quickjs.h /usr/include/quickjs.h
+COPY FROM https://daugasauron.com/Dollyfile-javascript 5aaf41cfb903bdd3d83764e62fe95095b8c4e78f2202e97f10ed37e41ebb670b /usr/include/dolly/quickjs-runner.h /usr/include/dolly/quickjs-runner.h
+COPY FROM https://daugasauron.com/Dollyfile-javascript 5aaf41cfb903bdd3d83764e62fe95095b8c4e78f2202e97f10ed37e41ebb670b /usr/lib/dolly/node.js /usr/lib/dolly/node.js
+COPY FROM https://daugasauron.com/Dollyfile-javascript 5aaf41cfb903bdd3d83764e62fe95095b8c4e78f2202e97f10ed37e41ebb670b /usr/lib/janis/runtime.js /usr/lib/janis/runtime.js
 EXPORTS LIB dolly-js /usr/lib/libdolly-js.a
 EXPORTS HEADER quickjs /usr/include/quickjs.h
 EXPORTS HEADER quickjs-runner /usr/include/dolly/quickjs-runner.h
-USE https://daugasauron.com/modules/pi.dm 0fdf87a317f95b82a65996c0138ff7757b6d9bc0ce96e91ed5657fa246c30d91
+USE https://daugasauron.com/modules/pi.dm e946c68176e07a4ce2da2c33d039f65684d7e292e47e64aa183b0c079d8d10c6
 USE https://daugasauron.com/modules/lua55.dm 74a2dd75e56a17267447143733a8e5f3afe3743208cc500b1118b3baae4b0251
 USE https://daugasauron.com/modules/slopyard.dm 53ce310a74f4e544102aa7fa3d7f4b6186a7ca1b9d75409a421e79cede1dd216
 

@@ -8,7 +8,7 @@ SOURCE https://daugasauron.com/include/dolly/toolchain.h 6f9da3258e970e356c31034
 SOURCE https://daugasauron.com/include/dolly/runtime.h   c6ada3507d48f5503aff635ea18bf12f50a22b76e29a77f1ced5833f08998778 /usr/include/dolly/runtime.h
 SOURCE https://daugasauron.com/include/dolly/process.h   f845167b98bfe2b30fd6730bf9441ecc534dbbe2dea748d043bb6fa4f52651f9 /usr/include/dolly/process.h
 SOURCE https://daugasauron.com/include/dolly/http.h      836dacaa6965e33be30d1ef38fe0d828c3889e8a44c752659a5747ebfe4637cf /usr/include/dolly/http.h
-SOURCE https://daugasauron.com/include/dolly/display.h   79d18634affb585f7c41219f8dc09dedb8a611daf65d36a164d1a8d91779de2e /usr/include/dolly/display.h
+SOURCE https://daugasauron.com/include/dolly/display.h   dfbf61538fc435d2d7a95b014c806eb8772ee147d221838ff8376aa8ee61bd02 /usr/include/dolly/display.h
 SOURCE https://daugasauron.com/include/dolly/download.h  8924a3e4c82183c2840f9734dcca8a2427b085c5e004d32c90496f926246cc89 /usr/include/dolly/download.h
 
 SOURCE https://daugasauron.com/include/dolly/host.h 0b579ac94098b2997772f2ff2cfa3aafd8dd2812bb5ef6f658e341e33b10aa28 /usr/include/dolly/host.h

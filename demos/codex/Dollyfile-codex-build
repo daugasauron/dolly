@@ -1,8 +1,8 @@
 DOLLY 5
 IMAGE codex-build
 
-FROM https://daugasauron.com/Dollyfile-rust-build 093ade098b446fed1e10399268f606213a68485738da426f6faee1331a2b5539
-COPY FROM https://daugasauron.com/Dollyfile-protox-build 086bc3d47e392a3e92238618a614816cb1b34fda6fb3705ec9e0f4a6aa9284bb /usr/bin/protox /usr/bin/protox
+FROM https://daugasauron.com/Dollyfile-rust-build ebe6ae32bac7a64cc0325e07e29ffc62ce2e24d60a6b9546651e2f9f6d9da7c0
+COPY FROM https://daugasauron.com/Dollyfile-protox-build 0bf639e898646d6375beddadbd2d16625050a4b0342518ff4e2e583e9a28607b /usr/bin/protox /usr/bin/protox
 EXPORTS TOOL protox
 USE https://daugasauron.com/modules/codex-build.dm b2af7a7a84e437d9800533e812c523899595cb80240cd375f1a071c062f5cd06
 
