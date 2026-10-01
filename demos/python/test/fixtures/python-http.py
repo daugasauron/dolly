@@ -12,6 +12,10 @@ with urllib.request.urlopen(urllib.request.Request(f"{origin}/fixture/echo", b"p
 assert requests.get(f"{origin}/fixture/http.txt").text == text
 assert requests.post(f"{origin}/fixture/echo", data=b"posted").content == b"posted"
 assert requests.get(f"{origin}/fixture/missing").status_code == 404
+decoded = "DECODED-BY-THE-BROWSER\n" * 64
+gzip_url = f"{origin.replace('127.0.0.1', 'localhost')}/fixture/gzip"
+assert urllib.request.urlopen(gzip_url).read().decode() == decoded
+assert requests.get(gzip_url).text == decoded
 for denied in (urllib.request.urlopen, requests.get):
     try:
         denied(f"{origin}/denied")

@@ -5,7 +5,7 @@ REQUIRES TOOL python
 
 # urllib.request and requests (also pip's vendored copy) send through CPython's
 # built-in _dolly_http client; dolly-http.pth installs the transports at startup.
-SOURCE https://daugasauron.com/static/python/runtimes/dolly_http.py 06bf33891038ff07da70c99490f539e34a6c8e32f1bab3466dde438cf99a2e56 /usr/lib/python3.14/dolly_http.py
+SOURCE https://daugasauron.com/static/python/runtimes/dolly_http.py f07a8aedf34a620d34e8dbb640bb240245415632599d123bf4d98885c9a2b754 /usr/lib/python3.14/dolly_http.py
 FILE /usr/lib/python3.14/dolly_http.py
 FILE /usr/lib/python3.14/site-packages/dolly-http.pth
     import dolly_http
@@ -24,17 +24,16 @@ EXPORTS TOOL pip
 EXPORTS TOOL pip3
 
 # The browser policy decides which indexes are reachable; skip pip's own
-# PyPI version check. Progress bars refresh from a thread, which would never
-# yield under Dolly's serial threading. Meson's debug build keeps sdists such
-# as NumPy (which adds -O3 otherwise) and Pandas within the compiler budget.
+# PyPI version check. Dolly has one user, uid 0. Progress bars refresh from a
+# thread, which would never yield under Dolly's serial threading. Meson's debug
+# build keeps sdists such as NumPy (which adds -O3 otherwise) and Pandas within
+# the compiler budget; pip reads one config setting from this file.
 FILE /etc/pip.conf
     [global]
     disable-pip-version-check = true
+    root-user-action = ignore
     progress-bar = off
-    config-settings =
-        setup-args=-Dbuildtype=debug
-        setup-args=-Db_ndebug=true
-        compile-args=-j1
+    config-settings = setup-args=-Dbuildtype=debug
 
 SLOP python \
   -c 'import _dolly_http, urllib.request, dolly_http; assert urllib.request.HTTPHandler.__module__ == "dolly_http"'

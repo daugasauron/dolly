@@ -57,12 +57,10 @@ class Response(io.RawIOBase):
             self.close()
             raise
         self.reason = lines[0].split(" ", 2)[2]
-        fields = [line.split(": ", 1) for line in lines[1:]]
-        # The browser already removed transfer and content codings.
-        decoded = any(name == "content-encoding" for name, _ in fields)
-        self.headers = [(name, value) for name, value in fields
-                        if name not in {"content-encoding", "transfer-encoding"} and
-                        not (decoded and name == "content-length")]
+        # The browser already removed transfer and content codings. CORS may
+        # hide Content-Encoding but show the encoded Content-Length.
+        self.headers = [field for field in (line.split(": ", 1) for line in lines[1:])
+                        if field[0] not in {"content-encoding", "content-length", "transfer-encoding"}]
 
     def _next(self):
         deadline = None if self._timeout is None else self._time.monotonic() + self._timeout

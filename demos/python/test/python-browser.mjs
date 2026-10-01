@@ -7,6 +7,7 @@ import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import { createReadStream } from "node:fs";
 import { basename } from "node:path";
+import { gzipSync } from "node:zlib";
 import { delay, demoTest } from "../../browser.mjs";
 
 const packages = process.env.DOLLY_PYTHON_PACKAGES === "1";
@@ -33,10 +34,16 @@ const wheelhouse = new Map([
 ].map(([path, sha256]) => [basename(path), execFileSync("bash", ["scripts/fetch-verified-file.sh",
   `https://files.pythonhosted.org/packages/${path}`, sha256, `.cache/python-wheelhouse/${basename(path)}`],
 { cwd: projectDir, encoding: "utf8" }).trim()]));
-// A pip --find-links page and its files.
+const gzipText = gzipSync("DECODED-BY-THE-BROWSER\n".repeat(64));
+// A pip --find-links page and its files, and a gzip response which, read
+// cross-origin, hides its Content-Encoding but not the encoded Content-Length.
 function handle(request, response, path, headers) {
   const file = wheelhouse.get(path.slice("/fixture/wheels/".length));
-  if (path === "/fixture/wheels") {
+  if (path === "/fixture/gzip") {
+    response.writeHead(200, { ...headers, "access-control-allow-origin": "*", "content-encoding": "gzip",
+      "content-length": gzipText.length, "content-type": "text/plain" });
+    response.end(gzipText);
+  } else if (path === "/fixture/wheels") {
     response.writeHead(200, { ...headers, "content-type": "text/html" });
     response.end([...wheelhouse.keys()].map(name => `<a href="/fixture/wheels/${name}">${name}</a>`).join("\n"));
   } else if (path.startsWith("/fixture/wheels/") && file) {
@@ -55,6 +62,7 @@ const fixtures = {
 await demoTest("python", { image: "python", timeout: packages ? 7_200_000 : 600_000, server: { fixtures, handle } }, async ({ server, open }) => {
   const { page, submit, run, start, waitText, input } = await open({ policy: { maxRequests: 1024, rules: [
     { origin: server.origin, pathPrefix: "/fixture/", methods: ["GET", "POST"] },
+    { origin: server.origin.replace("127.0.0.1", "localhost"), path: "/fixture/gzip" },
   ] } });
   const scratch = "/tmp/dolly-python-test";
   await run(`mkdir ${scratch} && cd ${scratch} && for name in ${Object.keys(fixtures).join(" ")}; do curl -fsS ${server.origin}/fixture/$name -o $name || exit 1; done`);
