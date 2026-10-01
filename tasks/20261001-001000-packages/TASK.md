@@ -189,3 +189,44 @@ Design, each piece a consequence of DOLLY 6 rather than an addition to it:
   keeps its copy, as `/etc/environment` does on Linux. amy says so. A package
   whose program needs a variable to start (`pi` and `PI_PACKAGE_DIR`) should set
   it from its own launcher; that is the demo's decision.
+
+### Evidence (2026-10-02, branch `work/amy`, runtime `baf2556f…`, image inputs `9f7a44a7…`)
+
+Images rebuilt with the new seed: the `default` chain (10 images, 880 s
+serial) and `python` (297 s); logs in `build/amy-evidence/`. Rust packages
+could not be built (the Rust compiler seed is being rebuilt for the new
+process ABI), so the browser test proves the host check with a crafted
+`threads@0` package and `python` as the real install.
+
+- `node test/amy-browser.mjs`: amy chromium 18.2 s, firefox 13.2 s; amy
+  refusal chromium 3.2 s, firefox 4.5 s. `amy install python` (47 MB
+  snapshot, 1,702 paths) took 1.1–2.6 s in Chrome and 2.0 s in Firefox,
+  measured from the shell prompt to the next prompt, packs served by the
+  local test server; `python3 -c` ran at once. Saving the session with
+  python installed: 47,004,062 bytes of changes, 14,594,300 bytes stored
+  (Chrome; Firefox 14,630,988). After reload `python3`, `PYTHONUTF8=1` and
+  `PYTHONDONTWRITEBYTECODE=1` were present. On `system`, `dollyfile install`
+  of the `threads@0` package exits 2 with `Dollyfile-threaded needs
+  threads@0: add REQUIRES HOST threads@0` and writes nothing; `amy install`
+  reports the missing `packages@0`; `curl` to the service fails.
+- `node test/core-browser.mjs chromium` 43.0 s, `firefox` passed (default
+  now enables `packages@0` and `threads@0`); `host-modules-browser`,
+  `boundary-browser`, `image-browser` (the engine compiled from source in
+  the session), `custom-session-browser` and `image-inventory-browser`
+  passed in both browsers; `node scripts/dolly-abi.mjs validate-browser`
+  confirms the outer import set is unchanged; `node --test test/*.test.mjs`
+  251 pass, `demos/**/*.test.mjs` 82 pass.
+- Session cap (`build/amy-evidence/session-cap.mjs`): python plus a 300 MiB
+  file saved in 3.7 s (361,574,598 bytes of changes, 14.9 MB stored);
+  python plus a 600 MiB file failed in 3.9 s with `Dolly session exceeds
+  its 512 MiB limit; remove files or installed packages and save again`,
+  nothing stored, and saved again after `rm`. The page used to print
+  `capture failed with status -22` (Dolly's `EFBIG`).
+- `npm run test:artifacts`: the checks on rebuilt images pass; the suite as
+  a whole needs the full catalog (stale images from the old seed, `fd` not
+  built here).
+
+Next: `amy freeze NAME`; replaying recorded rows at session load so model
+packages need not live in the delta; `ripgrep`/`fd`/`pi-coding-agent` on
+`default` once the Rust seed is rebuilt; a `pi` launcher that sets its own
+`PI_PACKAGE_DIR`.
