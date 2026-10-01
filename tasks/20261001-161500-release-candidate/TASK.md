@@ -58,3 +58,5 @@ after Brotli). daugasauron.com serves release `38b08a88…` (Cloudflare
 deployment `e46311f0`); `default`, Codex and Python boot from it in headless
 Chrome. GitHub Pages: release `pages-bbcb089-r1` (artifact SHA-256
 `b9be67c0…`) and workflow run 36869300866.
+GitHub Pages workflow run 36869300866 succeeded; daugasauron.github.io/dolly
+serves release `539678a6…`, and `default` and Python boot from it.
