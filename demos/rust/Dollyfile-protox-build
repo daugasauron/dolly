@@ -1,7 +1,7 @@
 DOLLY 5
 IMAGE protox-build
 
-FROM https://daugasauron.com/demos/rust/Dollyfile-rust-build 27f4c388e6efce2e391f4d0f8448dc4f86b9e60b93e02c05ef55b22bde93cf0e
+FROM https://daugasauron.com/demos/rust/Dollyfile-rust-build 3885f7e4022f7a92de7614af770c0f841f4c4108c170d512f0785046178a006c
 USE https://daugasauron.com/demos/rust/protox.dm 48739940d034ca0a4e8389943d39f0f3959f42b958bf6e6126a4a00dd58edea2
 
 ENTRY /bin/foreground -i /bin/slop

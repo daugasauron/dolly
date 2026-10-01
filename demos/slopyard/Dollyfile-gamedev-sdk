@@ -1,7 +1,7 @@
 DOLLY 5
 IMAGE gamedev-sdk
 
-FROM https://daugasauron.com/Dollyfile-system 316f5c5817b1a7eb7f59d6e7fc42269236a8778fb2399d12470d43680d5d3e52
-USE https://daugasauron.com/demos/slopyard/gamedev-sdk.dm 9461a65b13c2174f61d0717c08496bacbab6c9f5b0a8b4ffe4f24c4b6269a21a
+FROM https://daugasauron.com/Dollyfile-system 85699630e3c21e2e08ef1534ebc51a7df4892b165e60019c722aa22593e63207
+USE https://daugasauron.com/demos/slopyard/gamedev-sdk.dm e593da28d2a377dbdc927bd3b74cdc86a20f78324668cd8086e9a46a0645afe2
 
 ENTRY /bin/foreground -i /bin/slop

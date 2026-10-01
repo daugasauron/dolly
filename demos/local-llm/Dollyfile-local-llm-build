@@ -1,7 +1,7 @@
 DOLLY 5
 IMAGE local-llm-build
 
-FROM https://daugasauron.com/demos/local-llm/Dollyfile-llama-build f7b3e9e05da2f00b9c42a90d8ed0445e507403a6626502afc04b87897a2749c5
-USE https://daugasauron.com/demos/local-llm/local-llm-engine.dm 0ab79562195fcaa889aca78be379bd206c50d4d61aa8497403ea724f69ea671a
+FROM https://daugasauron.com/demos/local-llm/Dollyfile-llama-build 02830ec0ac872371d782949367653a6842e36e77702164beae8211295bb41efb
+USE https://daugasauron.com/demos/local-llm/local-llm-engine.dm 844f6261ef412e99976dfca6ce308c95d4e74b7bb1ce88c7d0a334060687fa0e
 
 ENTRY /bin/foreground -i /bin/slop

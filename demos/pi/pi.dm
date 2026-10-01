@@ -1,13 +1,13 @@
 DOLLY 5
 MODULE pi
 
-USE https://daugasauron.com/demos/rust/search-tools.dm d9959da2958c2073a638e7742afebc0013edc21bb0038ca6ad50152dbca1765f
+USE https://daugasauron.com/demos/rust/search-tools.dm 4463b924d5ec0afc6143b35d394ea25277b9a2bf064af526e291b8b355d12d6c
 EXPORTS TOOL rg
 EXPORTS TOOL fd
-COPY FROM https://daugasauron.com/demos/pi/Dollyfile-pi-build 51a3c1bc6933fd7fdf3dd80956bd3390f4f71d17007d397e0ccb09f1cfd888b5 /usr/bin/pi /usr/bin/pi
-COPY FROM https://daugasauron.com/demos/pi/Dollyfile-pi-build 51a3c1bc6933fd7fdf3dd80956bd3390f4f71d17007d397e0ccb09f1cfd888b5 /usr/lib/node_modules /usr/lib/node_modules
-COPY FROM https://daugasauron.com/demos/pi/Dollyfile-pi-build 51a3c1bc6933fd7fdf3dd80956bd3390f4f71d17007d397e0ccb09f1cfd888b5 /usr/src/pi-source /usr/src/pi-source
-COPY FROM https://daugasauron.com/demos/pi/Dollyfile-pi-build 51a3c1bc6933fd7fdf3dd80956bd3390f4f71d17007d397e0ccb09f1cfd888b5 /usr/share/licenses/pi-source /usr/share/licenses/pi-source
+COPY FROM https://daugasauron.com/demos/pi/Dollyfile-pi-build 52e398d1f93ccb1347e38af81aa102f764b2ae3c0153f7335e490a1403c21cfe /usr/bin/pi /usr/bin/pi
+COPY FROM https://daugasauron.com/demos/pi/Dollyfile-pi-build 52e398d1f93ccb1347e38af81aa102f764b2ae3c0153f7335e490a1403c21cfe /usr/lib/node_modules /usr/lib/node_modules
+COPY FROM https://daugasauron.com/demos/pi/Dollyfile-pi-build 52e398d1f93ccb1347e38af81aa102f764b2ae3c0153f7335e490a1403c21cfe /usr/src/pi-source /usr/src/pi-source
+COPY FROM https://daugasauron.com/demos/pi/Dollyfile-pi-build 52e398d1f93ccb1347e38af81aa102f764b2ae3c0153f7335e490a1403c21cfe /usr/share/licenses/pi-source /usr/share/licenses/pi-source
 
 SOURCE https://daugasauron.com/dist/static/default/pi/dolly-tools.js                    edd123743a5a8fcc7ddb80d4c8dd57ba7f6159705eaac8cc07340034bd9b9a29 /home/dolly/.pi/agent/extensions/dolly-tools.js
 SOURCE https://daugasauron.com/dist/static/default/pi/SYSTEM.md                         bfd8505b6f40533d9d5a19101a4bd62c9447d55e707f50aabbd22f1f2dbbe92e /home/dolly/.pi/agent/SYSTEM.md

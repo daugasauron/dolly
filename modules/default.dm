@@ -3,14 +3,14 @@ MODULE default
 
 # Shared C/C++ build and system utilities, without a display or Rust tools.
 USE https://daugasauron.com/modules/download.dm       7ea1997de26f55dcbcdebf135c5a6807c6de82b361710c28b029ddc4d9f3f0dd
-USE https://daugasauron.com/modules/upload.dm         843468ba13d9c32a73e19a9d61256b1579f8eaf20e1576439021f07fd3869b4a
-USE https://daugasauron.com/modules/ninja.dm          b1ea3b61812b11799f6b75120304ba7c3e8458207930427867809da6bdced174
+USE https://daugasauron.com/modules/upload.dm         5b6f04da74455d7c6518987b0589e89ec99b9155001b9becf8d27d14ff2c32e5
+USE https://daugasauron.com/modules/ninja.dm          71e8b03b542fbaf6f707eb478c38552055ee0e62c68aad3543af5557d6cdadb1
 USE https://daugasauron.com/modules/zlib.dm           c9cb89bda622f88b41fb06e8fbff251610fd8390109ad1f6096dbe98c77d17f7
-USE https://daugasauron.com/modules/gzip.dm 3e7742b68f84731a5995929e0199a14bf52d9e8ac39321950b6729bec158bbde
-USE https://daugasauron.com/modules/curl.dm           dd0ccb25f10c1f93da6ddce8551dbe63bfa9ff97ce1447b500977c3a21fd454f
+USE https://daugasauron.com/modules/gzip.dm 02ed015588675047dc8824c7f69628b53992b22b8d349a616e5e7c9afdf66efb
+USE https://daugasauron.com/modules/curl.dm           9f20518ce7fe1b8a309dbbb2befae0792e52faabb0c877f3c69e0faef71bd520
 USE https://daugasauron.com/modules/git.dm            9759cf314839e76932540612eaccb6a7424ede8b32477e4ec9d2946e97d1a7bf
 USE https://daugasauron.com/modules/awk.dm            f19d896eb674f78365275b90e47dd7f6db4a8d0c6f9f4e5959b1eb3c63e59aed
-USE https://daugasauron.com/modules/agent-tools.dm    b18504c1666da30a64aabb7f6b28151a2f6acbdc8f1838b10a98a6cc7ad07995
+USE https://daugasauron.com/modules/agent-tools.dm    6168af8ec61e765555a047b1d3ba7a37b9f16241e5ec333c928c5e50b192fab7
 
 # Retain the runtime and SDK at these paths when the module finishes.
 EXPORTS HEADER zlib       /usr/include/zlib.h

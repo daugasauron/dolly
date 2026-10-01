@@ -1,8 +1,8 @@
 DOLLY 5
 IMAGE rust-build
 
-FROM https://daugasauron.com/demos/rust/Dollyfile-rust-sdk 551f9c96f05542d3d84a18ef3b7587e1ceb437338c55445bc78dbed34d4fb95e
-USE https://daugasauron.com/modules/curl.dm dd0ccb25f10c1f93da6ddce8551dbe63bfa9ff97ce1447b500977c3a21fd454f
-USE https://daugasauron.com/demos/rust/patti.dm 3dc49efa30cfb4bb115878d0bbba0d3003415901e486f6064373ea50af1c66cd
+FROM https://daugasauron.com/demos/rust/Dollyfile-rust-sdk 5465ff2718e204b509441ed6e8894d58608a619231ee8fcb88a9aba9c41619a9
+USE https://daugasauron.com/modules/curl.dm 9f20518ce7fe1b8a309dbbb2befae0792e52faabb0c877f3c69e0faef71bd520
+USE https://daugasauron.com/demos/rust/patti.dm a454fad3bc366f72ae87bd6523f19ce92005dec6928380936f2b781c46e99f73
 
 ENTRY /bin/foreground -i /bin/slop
