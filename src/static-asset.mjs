@@ -1,6 +1,10 @@
+import { MAX_SNAPSHOT_BYTES } from "./snapshot-records.mjs";
+
 // Static delivery for an already authorized bootstrap input or snapshot pack.
-const partLimit = 20 * 1024 * 1024;
-const assetLimit = 1024 * 1024 * 1024;
+// Hosts cap file sizes, so assets travel as verified parts; nothing static is
+// larger than the largest snapshot.
+export const STATIC_PART_BYTES = 20 * 1024 * 1024;
+export const staticMaxParts = () => Math.ceil(MAX_SNAPSHOT_BYTES / STATIC_PART_BYTES);
 
 export const hex = bytes =>
   Array.from(bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes), byte => byte.toString(16).padStart(2, "0")).join("");
@@ -53,10 +57,10 @@ export async function decodeStaticAsset(response, target, init, maximumBytes, fe
       url.username || url.password || !/^https?:$/.test(url.protocol)) throw new Error("invalid multipart asset request");
   const manifest = JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(await boundedAssetBody(response, 65536, init.signal)));
   if (!Number.isSafeInteger(manifest.byteLength) || manifest.byteLength <= 0 ||
-      manifest.byteLength > maximumBytes || manifest.byteLength > assetLimit ||
-      !Array.isArray(manifest.parts) || manifest.parts.length < 2 || manifest.parts.length > 64 ||
+      manifest.byteLength > maximumBytes || manifest.byteLength > MAX_SNAPSHOT_BYTES ||
+      !Array.isArray(manifest.parts) || manifest.parts.length < 2 || manifest.parts.length > staticMaxParts() ||
       manifest.parts.some(part => !Number.isSafeInteger(part.byteLength) || part.byteLength <= 0 ||
-        part.byteLength > partLimit || !/^[0-9a-f]{64}$/.test(part.sha256)) ||
+        part.byteLength > STATIC_PART_BYTES || !/^[0-9a-f]{64}$/.test(part.sha256)) ||
       manifest.parts.reduce((size, part) => size + part.byteLength, 0) !== manifest.byteLength) {
     throw new Error("invalid multipart asset manifest");
   }
