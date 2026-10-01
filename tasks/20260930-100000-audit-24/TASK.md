@@ -41,3 +41,6 @@ Authority code is short and reviewable; test hooks are separated from production
   unused spawn options, audio counters, dead display methods.
 - Remaining: the test helpers in `window.__dolly` (submit, visible text, waits)
   still ship in the page; 54 test files and about 20 page launch points use them.
+- Measured on `next` (2026-10-01 afternoon): 5,157 lines in `src/*.mjs` and
+  3,437 in `host/*/*.mjs`; `src/browser.mjs` 380, `src/process-supervisor.mjs`
+  742, `src/process-worker.mjs` 556, `src/runtime-worker.mjs` 380.
