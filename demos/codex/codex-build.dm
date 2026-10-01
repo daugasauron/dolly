@@ -25,7 +25,7 @@ SLOP cat /tmp/codex-sources-00.part /tmp/codex-sources-01.part /tmp/codex-source
 SLOP rm /tmp/codex-sources-00.part /tmp/codex-sources-01.part /tmp/codex-sources-02.part /tmp/codex-sources-03.part /tmp/codex-sources-04.part /tmp/codex-sources-05.part /tmp/codex-sources-06.part
 SLOP mkdir -p /tmp/codex-build/tools
 SLOP cc -O1 -c /tmp/codex-no-js.c -o /tmp/codex-build/tools/no-js.o
-SLOP patti build --offline --manifest-path /tmp/codex-sources/codex-rs/cli/Cargo.toml --bin codex --target-dir /tmp/codex-build --cache /tmp/patti-cache --config /tmp/codex-patti.toml \
+SLOP patti build -j 4 --offline --manifest-path /tmp/codex-sources/codex-rs/cli/Cargo.toml --bin codex --target-dir /tmp/codex-build --cache /tmp/patti-cache --config /tmp/codex-patti.toml \
   --patch libc=/opt/rust-sdk/src/libc \
   --patch crossterm=/tmp/codex-sources/git/45fecb9508105988f42fe6ff0441783ed3717f92/. \
   --patch tokio-tungstenite=/tmp/codex-sources/git/0e5b2d73aa18dd9f0a50ee9ff199d5aef7594186/. \

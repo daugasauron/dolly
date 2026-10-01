@@ -5,6 +5,7 @@ import json
 from pathlib import Path
 import subprocess
 import sys
+import shutil
 import tarfile
 
 patti, root = str(Path(sys.argv[1]).resolve()), Path(sys.argv[2])
@@ -41,16 +42,26 @@ with tarfile.open(archive, "w:gz") as output:
 log = root / "rustc.log"
 
 
-def build():
+def build(*extra, check=True):
     log.write_text("")
-    subprocess.run([patti, "build", "--offline", "--resume", "--manifest-path", str(root / "app/Cargo.toml"),
-                    "--bin", "tool", "--cache", str(root / "cache"), "--target-dir", str(root / "target")],
-                   check=True, stdout=subprocess.DEVNULL)
+    result = subprocess.run([patti, "build", "--offline", "--resume", "--manifest-path", str(root / "app/Cargo.toml"),
+                             "--bin", "tool", "--cache", str(root / "cache"), "--target-dir", str(root / "target"), *extra],
+                            check=check, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, text=True)
+    if not check:
+        return result
     return {command[command.index("--crate-name") + 1]: command
             for command in map(json.loads, log.read_text().splitlines())}
 
 
+def outputs():
+    return {path: path.read_bytes() for path in (root / "target").rglob("*") if path.is_file()}
+
+
 commands = build()
+serial = outputs()
+shutil.rmtree(root / "target")
+assert build("-j", "3") == commands, "a parallel build ran different commands"
+assert outputs() == serial, "a parallel build's record, fingerprints or artifacts differ"
 assert commands["tool"][2] == str(root / "app/src/bin/tool.rs"), commands["tool"]
 assert "--cap-lints" in commands["crate"]
 assert not any("--cap-lints" in commands[name] for name in ["tool", "native", "pre", "build_script_build"])
@@ -60,4 +71,10 @@ for name in ["native", "tool"]:
 assert build() == {}, "an unchanged resumed build recompiled"
 (root / "shared.txt").write_text("two")
 assert list(build()) == ["tool"], "a changed include_str! input outside the package was reused"
+(root / "pre/src/lib.rs").write_text("compile_error!")
+failed = build("-j", "3", check=False)
+assert failed.returncode == 1 and "error: compile_error!" in failed.stderr, failed.stderr
+assert "pre-0.1.0-alpha.1" in failed.stderr.splitlines()[-1], failed.stderr
+(root / "pre/src/lib.rs").write_text("")
+assert list(build("-j", "3")) == ["pre"], "a resumed build after a failure did not rebuild just the crate"
 print("PATTI-BUILD-PASSED")

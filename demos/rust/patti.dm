@@ -10,7 +10,7 @@ REQUIRES TOOL curl
 REQUIRES TOOL rustc
 REQUIRES TOOL rm
 
-SOURCE HOST /static/patti/patti.c /tmp/patti/patti.c 5c670a4b979b44d082aed3e5f7a05ed2bd478d2e394d9e24f311c81779dadc4a
+SOURCE HOST /static/patti/patti.c /tmp/patti/patti.c b77f6328301f3e6006f0bf3b2e8676f854f07fe9322252daf85c2c67d0f15bc7
 SOURCE HOST /static/patti/sha256.h /tmp/patti/sha256.h 4487133c310d06add786d59fc8baab82f9b26a28cf53f3a2afd972f2f10bd123
 SOURCE HOST /static/patti/tomlc17.c /tmp/patti/tomlc17.c 89d3fe5ffe387360993c8b9df8f03eb13cd6df379b4482bcd039399f690a770f
 SOURCE HOST /static/patti/tomlc17.h /tmp/patti/tomlc17.h 281708fa05b805c32c117fc6033b0f4248257fce3440b1ac3391853bfc8f8bb5

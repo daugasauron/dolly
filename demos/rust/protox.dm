@@ -11,7 +11,7 @@ REQUIRES TOOL test
 # Archives contain upstream source and checksum-verified locked crate archives.
 SOURCE HOST /static/rust/protox.tar /tmp/protox.tar 501305f0e373d0509dbd133368c7944dffa6f710a44ee514c06bdf357fa33bf6
 SLOP tar -xf /tmp/protox.tar -C /
-SLOP patti build --offline --manifest-path /tmp/protox/source/Cargo.toml --bin protox --features bin --cache /tmp/protox/cache --target-dir /tmp/protox/build
+SLOP patti build -j 4 --offline --manifest-path /tmp/protox/source/Cargo.toml --bin protox --features bin --cache /tmp/protox/cache --target-dir /tmp/protox/build
 SLOP cp /tmp/protox/build/protox /usr/bin/protox
 SLOP mkdir -p /usr/share/licenses/protox /usr/share/dolly/builds
 SLOP cp /tmp/protox/source/LICENSE-APACHE /usr/share/licenses/protox/LICENSE-APACHE
