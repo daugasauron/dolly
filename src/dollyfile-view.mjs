@@ -123,8 +123,14 @@ function validAbsolutePath(value) {
 // URLs also have a path and no query; their file is Dollyfile[-NAME] or NAME.dm.
 const sourceURL = /^https?:\/\/[^/?#\\ \t\r\n\v\f]+(?:[/?][^#\\ \t\r\n\v\f]*)?$/;
 const recipeURL = /^https?:\/\/[^/?#\\ \t\r\n\v\f]+\/[^?#\\ \t\r\n\v\f]*$/;
+// A URL parser resolves empty, "." and ".." path segments (also spelled with
+// %2e) to another path, so a recipe names only normalized paths.
+function normalizedPath(url) {
+  const path = url.split("?")[0].replace(/^https?:\/\/[^/]*/, "");
+  return !path.includes("//") && !path.split("/").some(segment => /^(?:\.|%2e){1,2}$/i.test(segment));
+}
 // The file a recipe URL names, or "" when the value is not a recipe URL.
-export const recipeFileName = url => recipeURL.test(url) ? url.slice(url.lastIndexOf("/") + 1) : "";
+export const recipeFileName = url => recipeURL.test(url) && normalizedPath(url) ? url.slice(url.lastIndexOf("/") + 1) : "";
 const imageFileName = /^Dollyfile(?:-[a-z][a-z0-9-]{0,31})?$/;
 const moduleFileName = /^[a-z][a-z0-9-]{0,63}\.dm$/;
 
@@ -203,8 +209,8 @@ function inspectRecipe(source, label, rows) {
         break;
       }
       case "SOURCE":
-        if (tokens.length !== 3 || !sourceURL.test(tokens[0]) || !sha256Pattern.test(tokens[1]) ||
-            !validAbsolutePath(tokens[2])) fail(label, item.line, "invalid SOURCE");
+        if (tokens.length !== 3 || !sourceURL.test(tokens[0]) || !normalizedPath(tokens[0]) ||
+            !sha256Pattern.test(tokens[1]) || !validAbsolutePath(tokens[2])) fail(label, item.line, "invalid SOURCE");
         sources.push({ location: tokens[0], sha256: tokens[1], destination: tokens[2], line: item.line });
         break;
       case "REQUIRES":

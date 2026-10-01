@@ -248,10 +248,6 @@ void dolly_terminal_discard_pending_input(void) {
   encoded_input_length = 0;
 }
 
-void dolly_kernel_terminal_release(int pid) {
-  release_display_lease_for_pid(pid);
-}
-
 int dolly_kernel_terminal_attached(void) {
   return display_driver != NULL;
 }

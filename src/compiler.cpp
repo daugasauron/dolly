@@ -5,7 +5,6 @@
 #include <cstring>
 #include <dirent.h>
 #include <limits.h>
-#include <unistd.h>
 #include <map>
 #include <memory>
 #include <string>
@@ -33,6 +32,7 @@
 #include <llvm/Object/Wasm.h>
 #include <llvm/Support/Error.h>
 #include <llvm/Support/CommandLine.h>
+#include <llvm/Support/FileSystem.h>
 #include <llvm/Support/MemoryBuffer.h>
 #include <llvm/Support/Path.h>
 #include <llvm/Support/StringSaver.h>
@@ -166,11 +166,17 @@ std::string dependency_target(const DriverOptions &options, const std::string &s
   return options.output.empty() ? input_stem(source) + ".o" : options.output;
 }
 
-std::string temporary_path(unsigned long long job, size_t index,
+// Concurrent compilers share /tmp, so scratch files are named by a hash of the
+// absolute output path. wasm-ld records the staged file's name in the name
+// section, so a job must also get the same names in every build.
+std::string temporary_path(const std::string &output, size_t index,
                            const char *suffix) {
+  llvm::SmallString<256> absolute(output);
+  llvm::sys::fs::make_absolute(absolute);
   char path[128];
-  std::snprintf(path, sizeof(path), "/tmp/dolly-cc-%llu-%zu%s",
-                job, index, suffix);
+  std::snprintf(path, sizeof(path), "/tmp/dolly-cc-%016llx-%zu%s",
+                static_cast<unsigned long long>(llvm::xxh3_64bits(absolute.str())),
+                index, suffix);
   return path;
 }
 
@@ -1630,8 +1636,7 @@ int preprocess(const DriverOptions &options, int default_language) {
   return 0;
 }
 
-int compile_only(const DriverOptions &options, int default_language,
-                 unsigned long long job) {
+int compile_only(const DriverOptions &options, int default_language) {
   const std::string language = single_source_language(options, default_language);
   if (language.empty()) {
     std::fputs("dolly-cc: -c requires exactly one source input\n", stderr);
@@ -1641,7 +1646,7 @@ int compile_only(const DriverOptions &options, int default_language,
   const std::string output = options.output.empty()
                                  ? input_stem(options.inputs[0]) + ".o"
                                  : options.output;
-  const std::string staged = temporary_path(job, 0, ".o");
+  const std::string staged = temporary_path(output, 0, ".o");
   std::remove(staged.c_str());
   if (!run_frontend(options.inputs[0], language, staged, options)) {
     std::fprintf(stderr, "dolly-cc: compilation failed: %s\n",
@@ -1654,8 +1659,7 @@ int compile_only(const DriverOptions &options, int default_language,
   return published ? 0 : 1;
 }
 
-int compile_and_link(const DriverOptions &options, int default_language,
-                     unsigned long long job) {
+int compile_and_link(const DriverOptions &options, int default_language) {
   if (options.pthread && (options.shared_library || options.kernel_plugin || options.export_dynamic)) {
     std::fputs("dolly-cc: -pthread requires a static process; shared libraries and -rdynamic are unsupported\n", stderr);
     return 64;
@@ -1683,7 +1687,7 @@ int compile_and_link(const DriverOptions &options, int default_language,
       link_inputs.push_back(input);
       continue;
     }
-    const std::string object = temporary_path(job, index, ".o");
+    const std::string object = temporary_path(output, index, ".o");
     std::remove(object.c_str());
     if (language == "c++") needs_cxx_runtime = true;
     if (!run_frontend(input, language, object, options)) {
@@ -1704,7 +1708,7 @@ int compile_and_link(const DriverOptions &options, int default_language,
   }
 
   const std::string linked =
-      temporary_path(job, options.inputs.size() + 1, ".wasm");
+      temporary_path(output, options.inputs.size() + 1, ".wasm");
   std::remove(linked.c_str());
   const bool linked_ok = options.kernel_plugin
       ? link_side_module(linked, link_inputs, options.linker_options,
@@ -1747,7 +1751,7 @@ int compile_and_link(const DriverOptions &options, int default_language,
   return published ? 0 : 1;
 }
 
-int run_archive(int argc, const char *const *argv, unsigned long long job) {
+int run_archive(int argc, const char *const *argv) {
   if (argc == 2 && std::strcmp(argv[1], "--help") == 0) {
     print_help(argv[0], DOLLY_TOOLCHAIN_AR);
     return 0;
@@ -1822,7 +1826,7 @@ int run_archive(int argc, const char *const *argv, unsigned long long job) {
     }
   }
 
-  const std::string staged = temporary_path(job, 0, ".a");
+  const std::string staged = temporary_path(argv[2], 0, ".a");
   std::remove(staged.c_str());
   llvm::Error error = llvm::writeArchive(
       staged, members, llvm::SymtabWritingMode::NormalSymtab,
@@ -1849,9 +1853,6 @@ extern "C" int dolly_toolchain_main(int argc, char **argv,
        default_language != DOLLY_TOOLCHAIN_AR)) {
     return 64;
   }
-  // Concurrent compilers share /tmp: the pid keeps staged names apart, and a
-  // serial build assigns the same pids every time.
-  const unsigned long long job = static_cast<unsigned long long>(getpid());
   llvm::BumpPtrAllocator response_allocator;
   llvm::StringSaver response_saver(response_allocator);
   llvm::SmallVector<const char *, 16> arguments(argv, argv + argc);
@@ -1860,7 +1861,7 @@ extern "C" int dolly_toolchain_main(int argc, char **argv,
     return 64;
   argc = static_cast<int>(arguments.size());
   if (default_language == DOLLY_TOOLCHAIN_AR) {
-    return run_archive(argc, arguments.data(), job);
+    return run_archive(argc, arguments.data());
   }
   DriverOptions options;
   const int parse_status = parse_driver_options(argc, arguments.data(), options,
@@ -1914,10 +1915,9 @@ extern "C" int dolly_toolchain_main(int argc, char **argv,
     return preprocess(options, default_language);
   }
   return options.compile_only
-             ? compile_only(options, default_language, job)
+             ? compile_only(options, default_language)
              : compile_and_link(options,
                                 default_language == DOLLY_TOOLCHAIN_LD
                                     ? DOLLY_TOOLCHAIN_C
-                                    : default_language,
-                                job);
+                                    : default_language);
 }

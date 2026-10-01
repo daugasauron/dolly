@@ -183,7 +183,7 @@ int main(int argc, char **argv) {
     if (!strcmp(mode, "ignore-loop")) {
       puts("SIGNAL-IGNORE-READY");
       fflush(stdout);
-      const double deadline = now() + 10;
+      const double deadline = now() + 2;
       while (now() < deadline) usleep(10000);
       return 99;
     }

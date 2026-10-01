@@ -35,8 +35,6 @@ int dolly_kernel_terminal_ready(void);
 uint32_t dolly_terminal_columns(void);
 uint32_t dolly_terminal_rows(void);
 void dolly_terminal_discard_pending_input(void);
-/* pid lost the foreground: the device takes back what it leased to it. */
-void dolly_kernel_terminal_release(int pid);
 
 /* The terminal line discipline and the page's terminal mailbox, src/dolly.c. */
 uint32_t dolly_kernel_terminal_mode(void);

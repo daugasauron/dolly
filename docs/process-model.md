@@ -115,9 +115,9 @@ sequenceDiagram
   with masks, `SA_RESTART`, `SA_RESETHAND`, `SA_NODEFER` and `SA_SIGINFO`.
   Alternate stacks, `sigwait`, asynchronous preemption and `SA_NOCLDWAIT` are
   unsupported.
-- A process that does not finish a delivered signal within 500 ms is terminated;
-  a second Ctrl+C within one second terminates at once. The filesystem and the
-  shell survive; kernel or supervisor failure is outside this guarantee.
+- A process that does not finish a delivered signal within 500 ms is terminated.
+  The filesystem and the shell survive; kernel or supervisor failure is outside
+  this guarantee.
 - Normal exit runs `atexit` handlers; default signal termination and forced
   termination do not, so named temporary files may remain.
 - Delivered handlers interrupt sleep and `poll`; `SA_RESTART` restarts read,

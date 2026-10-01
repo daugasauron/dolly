@@ -44,7 +44,9 @@ if (!(configuration.module instanceof WebAssembly.Module) ||
 
 const control = new Int32Array(configuration.control);
 const clockOffset = performance.timeOrigin - configuration.clockOrigin;
-// When the kernel last reported no pending signal for this thread.
+// When this thread last returned from the kernel without EINTR. For a
+// millisecond after that, clock reads and interrupt polls are answered here
+// and a pending signal waits for the next kernel entry.
 let lastSignalCheck = -Infinity;
 let threadResult;
 let instance;

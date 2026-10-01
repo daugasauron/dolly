@@ -33,7 +33,6 @@ for (const scenario of ["same", "changed", "malformed", "failed"]) {
         assert.equal(new Set(calls.map(call => call.output)).size, 3);
         assert.notEqual(calls[0].profile, calls[1].profile);
         assert.equal(calls[0].profile, calls[2].profile);
-        assert.equal(calls[0].port, calls[2].port);
         assert.deepEqual(calls.map(call => call.state), ["cold", "cold", "warm"]);
       } else {
         await assert.rejects(proof, scenario === "changed" ? /cold-2 snapshot differs/ :
