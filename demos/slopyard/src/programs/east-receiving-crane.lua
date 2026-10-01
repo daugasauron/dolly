@@ -65,6 +65,13 @@ return function(t, s, m)
   local baseYaw = math.atan((-at(local_, 1)), at(local_, 0));
   local actual = math.atan((-(at(tip, 2) - (s).z)), (at(tip, 0) - (s).x));
   local yaw = (function() local value = (m).pick; if value ~= nil then return value else return baseYaw end end)();
+  -- An arm waiting over the pad keeps aircraft from landing their cargo on it.
+  if pad then
+    local padYaw = math.atan(-(pad.z - s.z), pad.x - s.x)
+    local sector = math.asin(math.min(1, (pad.radius + 3) / math.max(0.1, hypot(pad.x - s.x, pad.z - s.z))))
+    local function overPad(a) return math.abs(wrap(a - padYaw)) < sector end
+    if overPad(yaw) then yaw = overPad(baseYaw) and padYaw + math.pi or baseYaw end
+  end
   local lower = 0;
   local power = false;
   local reach = (function() local value = (m).reach; if active(value) then return value else return 0 end end)();

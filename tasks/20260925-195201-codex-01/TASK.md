@@ -1,6 +1,6 @@
 # Keep the yard porter from climbing machinery during pickup
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 30
 - TAGS: game,content,bug
 
@@ -40,3 +40,10 @@ parcel. Preserve access to hanging cargo without ignoring solid base geometry.
 `...-chrome-checkpoint-porter-combined-observe/salvage/contact-proof.json` retains
 actual parts/forces, pre-incident save and first-tip save. All original programs
 and actors are preserved in that diagnostic replay.
+
+## Closed (2026-10-01)
+
+Not reproduced. Mochi completed 6 carousel trips in a fresh 2,400 s audit of the
+current catalog with minimum up 0.983 and no tip (`20261001-223000-slopyard-living-world`). The September contacts
+(a guard's fork, the carousel base) were in saves that are gone, and the
+JavaScript candidate predates the Lua controllers.

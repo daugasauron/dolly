@@ -1,6 +1,6 @@
 # Give the walking robot articulated arms and magnetic hands
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 10
 - TAGS: game,agent,physics
 
@@ -119,3 +119,10 @@ checks of all 3713 steps. It remained upright in the final saved world.
 This arms extension remains experimental and OPEN. The broader living-world
 checkpoint includes the independently verified two-legged patrol body, while
 all arm attempts remain available in the recovered design library.
+
+## Closed (2026-10-01)
+
+Closed without a successor. The arm bodies (#71, #72, #77, #78) were Pi
+experiments in the September live world; none passed the walking gate, and that
+design library is not in this checkout. The Astra setup this task assumed is gone
+(Pi now uses the Codex relay). Open a new feature task if arms are still wanted.

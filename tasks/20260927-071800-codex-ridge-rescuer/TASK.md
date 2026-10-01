@@ -1,6 +1,6 @@
 # Build a ridge rescuer that can release a captured aircraft reliably
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 40
 - TAGS: game,controllers,physics
 
@@ -30,3 +30,10 @@ releases the actually captured aircraft, lets it resume flight and leaves the
 rover upright and able to return. Exercise the difficult state above plus a
 fresh populated run,20Hz control, save/reload and normal rendering. Keep forces,
 contacts and outcomes physical; no actor-ID rules, moved bodies or weakened captor.
+
+## Closed (2026-10-01)
+
+Closed. The Kamoshika prototype never entered the catalog, and its blueprint,
+controller and reproduction save lived under build/living-world-20260926/, which
+no longer exists. Grounded-machine recovery on the current catalog is one of the
+measured gaps in `20261001-223000-slopyard-living-world`.

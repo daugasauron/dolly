@@ -1,6 +1,6 @@
 # Move artillery forward and supply every station by ground and air
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 110
 - TAGS: game,logistics,combat
 
@@ -83,3 +83,14 @@ Blue Tengu makes two shots and peaks at 37,000 instructions after the fix;
 the original replay exceeded 200,000.
 No instruction budget or friendly-fire margin was increased. This bounded cost
 repair is included; the broader supply/geometry experiments remain excluded.
+
+## Closed (2026-10-01)
+
+Closed. The terrain-9 forward guns, shared suppliers, five-part rounds and boat
+salvage stayed private, and their evidence (build/overnight-2026092*/) is gone;
+the committed part (the slab-test budget fix) is in the catalog. A fresh 2,400 s
+audit of the current catalog (`20261001-223000-slopyard-living-world`) measures where that leaves the guns: Tengu
+Red/Blue fire 3 each, Red Hosen 4, Blue roof sling 4, while both Yagura roof
+batteries, the Blue Hosen and the Red roof sling never fire; the ground loaders
+complete 1–5 reloads each and the roof Hayabusa flights 3 and 6. Forward
+placement and shared supply are listed there.

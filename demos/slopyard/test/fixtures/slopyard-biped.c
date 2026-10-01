@@ -23,7 +23,7 @@ static Sole sole(Creature *c, int leg, const ContactForces *forces) {
 
 static void walk(Data *ctx, Value catalog, int index) {
     Value item = value_at(ctx, catalog, index), blocks = value_get(ctx, item, "blueprint"), code = value_get(ctx, item, "source");
-    Character design = {0}; assert(read_character(ctx, blocks, &design, 0));
+    Character design = {0}; assert(read_character(ctx, blocks, &design));
     const char *source = value_text(ctx, code);
     float x = get_number(ctx, item, "x", 0), z = get_number(ctx, item, "z", 0);
     terrain_select(8);

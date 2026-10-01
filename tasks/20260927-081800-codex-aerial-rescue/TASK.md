@@ -1,6 +1,6 @@
 # Recover fallen walkers with a flying magnetic winch
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 80
 - TAGS: game,controllers,physics
 
@@ -63,3 +63,12 @@ time out. West attempts Hibari but has no completed rescue. All 103 objects
 survive with no controller faults. Keep `checkpoint-fresh/after.lua` as the
 current populated recovery reproduction; its actual Firefox UI import and
 continued simulation pass in `checkpoint-restore/proof.json`.
+
+## Closed (2026-10-01)
+
+Closed. Tsuru East/West and their winch rescue are in the catalog. The remaining
+criterion, supported walking after a rescue, cannot be exercised now: neither
+biped fell during a 2,400 s audit of the current catalog, and the saves with
+fallen walkers are gone. That audit did expose a gap: the West foundry hauler lay
+overturned for 496 s; the West guard gripped it seven times without righting it
+and Tsuru (light machines only) never tried. It is tracked in `20261001-223000-slopyard-living-world`.
