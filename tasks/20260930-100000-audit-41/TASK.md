@@ -42,3 +42,5 @@ Left, an owner decision: the defaults `-O2` and strict `-std=c17`/`-std=c++23`
 `gnu17`/`gnu++17`. Strict modes define `__STRICT_ANSI__`, so musl hides POSIX
 declarations from sources that do not request them. Matching Clang means
 rebuilding the catalog and fixing recipes that rely on the current defaults.
+
+Owner (2026-10-01): investigate the consequences of each choice before deciding.

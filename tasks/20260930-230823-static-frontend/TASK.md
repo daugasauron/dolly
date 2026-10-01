@@ -143,3 +143,11 @@ with directory URLs the route stubs stay generated. Separately decide whether
 demo recipes keep their staging copy or the served namespace follows the tree.
 No code was changed on the branch: the one step that measured as removable is
 the URL decision above.
+
+## Decision (owner, 2026-10-01)
+
+Classic static files at the right locations: `/IMAGE/` and `/IMAGE/rebuild/`
+stay real `index.html` files written as data by the generator; user-named
+sessions are `/session?name=NAME`, one static page reading the query, so no
+host needs rewrite rules. Served paths follow the repository tree, demo
+recipes included.

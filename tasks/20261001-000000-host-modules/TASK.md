@@ -94,26 +94,43 @@ stay hand-written: they are where a human reviews authority.
   reaches the device through `dolly_kernel_terminal_attached/render/read`
   (988 -> 361 lines). Image inputs unchanged.
 
+- Runtime terminal mailbox (`ece144d`, branch `work/terminal-mailbox`):
+  foreground pid and interruptibility, shell result and the page's interrupt
+  request live in `dolly_terminal_mailbox` (`src/dolly.c`), exported as
+  `dolly_terminal_mailbox_address` (supervisor contract) and read on the page as
+  `host.get("runtime").terminal`. Display mailbox version 6 (25 fields, events at
+  byte 100) also drops the never-read `event_wake`/`event_dropped`. Seed change:
+  every image rebuilds. A display-less embedding of `system-build` interrupts its
+  foreground ENTRY (`test/host-compute-browser.mjs`). The core artifact and
+  browser suites pass in Chrome and Firefox, except `cpp-browser`, whose
+  outside-import plugin case fails independently of this change.
+
+- Stage 3 done (branch `work/module-digests`): display, HTTP, download and
+  upload op numbers are globals in their WAT contracts and their packets live
+  in `display.h`/`http.h`; `process.h` holds only the core process ABI. One
+  mechanism identifies every module with a client (display, http, download,
+  upload, gpu, audio, threads): `generate-abi-constants.mjs` writes
+  `DOLLY_NAME_ABI_DIGEST` (SHA-256 of the exact bytes of the module's WATs and
+  other headers) into `NAME-abi.h` and `abi.mjs`; the client stamps it into its
+  `dolly.host` record (now 72 bytes); each provider exports the `digest` it
+  implements; the loader refuses a different digest for executables and DSOs.
+  Threads lost its separate `dolly.threads` stamp (an executable requiring
+  `threads@0` is threaded); the runtime adapter no longer records `runtime@0`.
+  `test/host-modules-browser.mjs` proves a one-bit digest change is refused
+  (126) before entry. Seed change: every image rebuilds. Source (342), core
+  artifact (21) and browser suites pass in Chrome and Firefox, except
+  `host-compute` in Firefox: headless Firefox here returns no WebGPU adapter,
+  so `gpu@0` is never enabled (its display-less interrupt half passes).
+
 Remaining:
-- The display mailbox also carries core terminal state: split a runtime-owned
-  terminal mailbox. Plan (2026-10-01):
-  - Move `result_sequence`, `result_status`, `foreground_pid`, `flags`
-    (foreground interruptible), `interrupt_sequence` and `interrupt_target_pid`
-    to a `dolly_terminal_mailbox` in the runtime, exported through the
-    supervisor contract. The kernel writes it from `dolly.c`; the page's
-    Ctrl+C and the test helpers read it through `host/runtime/`. Images without
-    a display then keep foreground, result and interrupt semantics.
-  - `terminal_cols`/`terminal_rows` stay: the display library writes them.
-  - The resident display library (`src/ghostty/`) does not touch the six
-    fields, but removing them shifts every later offset it does use, so drop
-    them (and bump `DOLLY_DISPLAY_MAILBOX_VERSION`) with the next catalog
-    rebuild. Until then they can stay as unused padding.
-- Stage 3 (owner decision): move display, HTTP, download and upload operations
-  and packets from `process.h` into their modules. Today their layouts are in
-  the exact-bytes process ABI digest; gpu and audio packets are identified only
-  by `NAME@0`. Moving them without a per-module digest (like threads'
-  `DOLLY_THREADS_ABI_DIGEST`) would weaken executable identity, so choose:
-  per-module digests stamped by the client, or keep module packets in `process.h`.
 - `threads@0` kernel code stays in `process-kernel.c` (thread table).
-- Stale path comments in `host/upload/upload.h` and the Pi skill fixed in
-  `1466d69` (rebuild-batch).
+- The done-when grep still finds module names in `src/browser.mjs` (display
+  transport, HTTP policy and page status) and the snapshot boot path in
+  `src/runtime-worker.mjs`/`src/dolly.c`.
+
+## Decision (owner, 2026-10-01): stage 3
+
+Per-module digests: display, HTTP, download and upload packets move from
+`process.h` into their modules' headers, each with a layout digest its client
+stamps (as threads does with `DOLLY_THREADS_ABI_DIGEST`); `process.h` keeps only
+the core process ABI.

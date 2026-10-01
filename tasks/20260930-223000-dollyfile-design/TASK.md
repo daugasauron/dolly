@@ -19,9 +19,11 @@ understanding before any change is proposed.
 - A root build starts from the externally supplied seed (compiler, Slop and
   executor sources, `bootstrap.dm` tools with byte digests). Everything else
   is built from pinned inputs.
-- `HOST` inputs are published by the serving site and granted to the build as
-  exact capabilities by the embedding page; `URL` inputs are external and need
-  embedding policy. A recipe never grants itself network access.
+- Every input is a full URL (`DOLLY 5`, `20260930-230823-full-urls`). Files the
+  release publishes on the canonical origin are granted to the build as exact
+  capabilities by the embedding page, which serves its own copies; other URLs
+  are external and need embedding policy. A recipe never grants itself network
+  access.
 - Execution is sequential, with no solver, prefetch, package manager or implicit
   extraction. Retention is explicit (`FILE`, `FOLDER`, exports, `FROM`/`COPY`
   results); the snapshot never walks the filesystem.
@@ -35,7 +37,7 @@ understanding before any change is proposed.
 ## Gaps against that design (verified)
 
 1. **Browser builds do not enforce pinned-only network access.** CI builds allow
-   only the recipe graph's exact `SOURCE URL` inputs
+   only the recipe graph's exact external `SOURCE` URLs
    ([`build-snapshot-browser.mjs`](../../scripts/build-snapshot-browser.mjs)).
    `/IMAGE/rebuild/` and Studio builds use the page policy
    ([`browser.mjs`](../../src/browser.mjs) `buildNetwork`), which is unrestricted
@@ -46,10 +48,8 @@ understanding before any change is proposed.
 
 ## Questions for the owner
 
-- **`HOST`/`URL` spelling.** The distinction stays. Candidate spellings, the same
-  meaning in each: today's `SOURCE HOST /static/x DEST SHA` and `SOURCE URL https://… DEST SHA`;
-  or naming the authority instead of the transport (`SITE` for inputs the serving
-  site publishes, `URL` for external ones). Which reads best to you?
+- **`HOST`/`URL` spelling.** Settled 2026-10-01: every resource is a full URL
+  (`20260930-230823-full-urls`).
 - **Build clock and entropy.** Snapshots ignore file times, but a build can
   embed the time or random bytes in file contents. Reproducibility is checked by
   rebuilding (`npm run image -- IMAGE --reproducible`), not prevented. Should
