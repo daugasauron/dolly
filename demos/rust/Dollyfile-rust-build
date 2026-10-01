@@ -3,6 +3,6 @@ IMAGE rust-build
 
 FROM https://daugasauron.com/Dollyfile-rust-sdk 44b91792f5b3b04884911851965c7c40cc1cfa56f10b4e89a0f5446a38d7572c
 USE https://daugasauron.com/modules/curl.dm 1d7d9858555c829ab7c1304dab6c93e0c9d1fb51c3b901ee9172d0083383c717
-USE https://daugasauron.com/modules/patti.dm 6f4f1cdedae48acfa0878d6b1463313964f0c6e7d5afcb6cbafa6030a528da76
+USE https://daugasauron.com/modules/patti.dm 5a6dca13cb45b761f88acd9f013bb9ad9bfabffd514d4153fe7de5b0af8435cc
 
 ENTRY /bin/foreground -i /bin/slop
