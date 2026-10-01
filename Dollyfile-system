@@ -1,20 +1,12 @@
 DOLLY 4
 IMAGE system
 
-FROM HOST /Dollyfile-system-tools 999f80ba3d48b75a3ab3e59d45a15f25d828060d259a112a7398d4bf71b1bf52
+FROM HOST /Dollyfile-system-tools 023edee7e5eef736c1d4152c87e2294db624a2883961dd514e06e505d76917a2
 
-REQUIRES HOST display@0
 REQUIRES HOST http@0
 REQUIRES HOST download@0
 REQUIRES HOST upload@0
 REQUIRES HOST snapshot@0
-
-COPY FROM HOST /Dollyfile-ghostty-build 5389abd6771607f8861836866f8f52322e00a6ff40d12a3cb1db928b267fcd76 /usr/lib/libdisplay.so /usr/lib/libdisplay.so
-COPY FROM HOST /Dollyfile-ghostty-build 5389abd6771607f8861836866f8f52322e00a6ff40d12a3cb1db928b267fcd76 /usr/share/fonts/IosevkaTerm-SemiBold.ttf /usr/share/fonts/IosevkaTerm-SemiBold.ttf
-COPY FROM HOST /Dollyfile-ghostty-build 5389abd6771607f8861836866f8f52322e00a6ff40d12a3cb1db928b267fcd76 /usr/share/licenses/ghostty /usr/share/licenses/ghostty
-COPY FROM HOST /Dollyfile-ghostty-build 5389abd6771607f8861836866f8f52322e00a6ff40d12a3cb1db928b267fcd76 /usr/share/licenses/uucode /usr/share/licenses/uucode
-EXPORTS LIB display /usr/lib/libdisplay.so
-EXPORTS ENV DISPLAY /usr/lib/libdisplay.so
 
 USE HOST /modules/session-recovery.dm 8f99716baa6803c8382b3eab899aff9ec9af1ec0f33fd485ec8cdde3adc97ac6
 

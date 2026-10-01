@@ -14,8 +14,8 @@ trusted browser code) plus a minimal POSIX userspace. Everything else is a
 ## Core images
 
 - `default`: Shell, Git, Make and C/C++.
-- `system`: Shared shell, Git, display and C/C++ SDK.
-- `system-tools`: Headless shell, Git, curl, Make and POSIX tools.
+- `system`: `system-tools` with HTTP, file transfer and snapshots.
+- `system-tools`: Shell, display, Git, curl, Make and POSIX tools.
 - `system-build`: C/C++ compiler, headers and basic build tools.
 - `zig-build`: Zig built from source by the C/C++ compiler; emits C.
 - `ghostty-build`: Ghostty terminal build with Zig and its SDK.

@@ -1,7 +1,7 @@
 DOLLY 4
 IMAGE gpu-sdk
 
-FROM HOST /Dollyfile-system 38837b7590ce567fdf0ca087aba3265503f1aee06517a799e05930622ebdf782
+FROM HOST /Dollyfile-system 84bae05cfa07a29162b4e5baa39b342aba9dbb7d4b5cc563f5505b40c30bc87c
 REQUIRES HOST gpu@0
 
 ENTRY /bin/foreground -i /bin/slop

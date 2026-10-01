@@ -1,8 +1,12 @@
 DOLLY 4
 IMAGE ghostty-build
 
-FROM HOST /Dollyfile-zig-build b24743c4da540cbfa1f91af9c5be087adb74b4f82c4dd74ab43a5d6d048bab6d
+FROM HOST /Dollyfile-zig-build 36598c154d7762e357cb43f7aeb94708356021d67d279ce14730459784cb24cf
 
 USE HOST /modules/ghostty.dm 1ed26793237f68e30dff364c47eda610ad4f1255b62851819861a0f3c09121e2
 
-ENTRY /bin/slop
+# Opened, the image runs the display library it just built.
+REQUIRES HOST display@0
+EXPORTS ENV DISPLAY /usr/lib/libdisplay.so
+
+ENTRY /bin/foreground -i /bin/slop
