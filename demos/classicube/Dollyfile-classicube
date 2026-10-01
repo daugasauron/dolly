@@ -7,7 +7,7 @@ REQUIRES HOST snapshot@0
 REQUIRES HOST threads@0
 REQUIRES HOST upload@0
 
-FROM https://daugasauron.com/demos/pi/Dollyfile-pi-runtime 63fe6f8f3e4d7b695fbba06820f9a23e8143cf0169e5c7ef8fc3e41305e1f97a
+FROM https://daugasauron.com/demos/pi/Dollyfile-pi-runtime ce0da32bc64b0a687ec2f539f054e9397bcf729985f045a08be750df33ea19d2
 COPY https://daugasauron.com/demos/classicube/Dollyfile-classicube-build 7117a97759d2baa3b318ac477cb9aa4df1cece794f04b50a32be9d6d6ddcc5d3 /usr/bin/classicube /usr/bin/classicube
 COPY https://daugasauron.com/demos/classicube/Dollyfile-classicube-build 7117a97759d2baa3b318ac477cb9aa4df1cece794f04b50a32be9d6d6ddcc5d3 /usr/share/classicube /home/dolly/classicube
 COPY https://daugasauron.com/demos/classicube/Dollyfile-classicube-build 7117a97759d2baa3b318ac477cb9aa4df1cece794f04b50a32be9d6d6ddcc5d3 /usr/share/licenses/classicube /usr/share/licenses/classicube
