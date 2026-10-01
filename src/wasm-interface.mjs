@@ -201,7 +201,6 @@ export function parseWasmInterface(input, label = "WebAssembly binary") {
   const rawExports = [];
   const customSections = [];
   const customSectionData = [];
-  let hasStart = false;
 
   while (!reader.done) {
     const id = reader.u8();
@@ -265,9 +264,6 @@ export function parseWasmInterface(input, label = "WebAssembly binary") {
         externalKind: item.u8(),
         index: item.u32(),
       }), rawExports);
-    } else if (id === 8) {
-      section.u32();
-      hasStart = true;
     } else if (id === 13) {
       readVector(section, item => readTagType(item, types), definedTags);
     } else {
@@ -300,7 +296,6 @@ export function parseWasmInterface(input, label = "WebAssembly binary") {
     exports,
     customSections,
     customSectionData,
-    hasStart,
   };
 }
 

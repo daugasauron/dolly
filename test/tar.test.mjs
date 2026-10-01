@@ -8,7 +8,7 @@ import { inspectDollyfile } from "../src/dollyfile-view.mjs";
 import { tarArchive } from "./fixtures/tar.mjs";
 
 test("tar extracts paths and stdin, preserves block padding, and rejects damaged input", async () => {
-  const recipe = inspectDollyfile(await readFile(new URL("../modules/tar.dm", import.meta.url), "utf8"));
+  const recipe = inspectDollyfile(await readFile(new URL("../Dollyfile-system-build", import.meta.url), "utf8"));
   const directory = await mkdtemp(join(tmpdir(), "dolly-tar-check-"));
   try {
     const binary = join(directory, "tar"), archivePath = join(directory, "input.tar");

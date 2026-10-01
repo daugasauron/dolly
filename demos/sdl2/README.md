@@ -7,7 +7,7 @@ ClassiCube, Seven Kingdoms and Airtime build on it.
 
 - `sdl2-build`: SDL2 software rendering for the Dolly framebuffer.
 
-`sdl2-build` compiles the pinned release inside Dolly ([`sdl2.dm`](sdl2.dm)) with
+`sdl2-build` compiles the pinned release inside Dolly ([`Dollyfile-sdl2-build`](Dollyfile-sdl2-build)) with
 the backend in [`SDL_dollyvideo.c`](SDL_dollyvideo.c) and
 [`sdl2-dolly.patch`](sdl2-dolly.patch). Audio and thread creation are unavailable.
 

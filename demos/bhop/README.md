@@ -26,7 +26,7 @@ Open `/bhop/`; build with `npm run image -- bhop`.
 
 ## Key files
 
-- [`bhop.dm`](bhop.dm): the game, SDL viewer and input adapter, compiled in Dolly.
+- [`Dollyfile-bhop`](Dollyfile-bhop): the game, SDL viewer and input adapter, compiled in Dolly.
 - [`agent/`](agent/): mission loop, input codec and replay export.
 - Tests: [`test/`](test/).
 
@@ -34,6 +34,6 @@ Open `/bhop/`; build with `npm run image -- bhop`.
 
 - No task duration or cost cap; the agent retries five seconds after finishing
   until you interrupt it.
-- HTML attempt exports use the 64 MiB download limit.
+- HTML attempt exports use the 1 GiB download limit.
 
 Test: `npm run test:demos -- bhop` ([`test/`](test/)).

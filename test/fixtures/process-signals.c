@@ -92,7 +92,7 @@ static void alarm_child(const char *mode) {
   CHECK(setitimer(ITIMER_REAL, &every, NULL) == 0);
   spin(rounds * 15); /* About 1.5 s: well past the 500 ms interrupt grace. */
   CHECK(alarms == 0);
-  dolly_exit(0);
+  _exit(0);
 }
 
 static void check_alarms(char *self, char *directory) {
@@ -130,6 +130,7 @@ static void check_alarms(char *self, char *directory) {
   CHECK(setitimer(ITIMER_REAL, &once, NULL) == 0);
   CHECK(read(idle[0], &byte, 1) == -1 && errno == EINTR && alarms == 1);
   CHECK(alarm(1) == 0 && sleep(3) == 2 && alarms == 2);
+  CHECK(alarm(1) == 0 && pause() == -1 && errno == EINTR && alarms == 3);
 
   alarms = 0;
   const struct itimerval every = {{0, 50000}, {0, 50000}}, disarm = {0};
@@ -153,7 +154,7 @@ int main(int argc, char **argv) {
       usleep(1);
       CHECK(received == 1);
     }
-    dolly_exit(23);
+    _exit(23);
   }
   if (argc == 3 && !strncmp(argv[2], "alarm-", 6)) alarm_child(argv[2]);
   if (argc == 3) {

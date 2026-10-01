@@ -33,10 +33,6 @@ async function verifyVisibleRecipes(recipes) {
   }
 }
 
-function expectedModules(image) {
-  return imageDefinitions.get(image).modules;
-}
-
 export async function loadPackagedSnapshotMetadata(image, checked = new Map(), active = new Set()) {
   if (checked.has(image)) return checked.get(image);
   if (active.has(image)) throw new Error("packaged image cycle");
@@ -51,12 +47,10 @@ export async function loadPackagedSnapshotMetadata(image, checked = new Map(), a
     throw new Error("The packaged system snapshot is missing. Run npm run snapshot first.");
   }
   const recipes = expectedRecipes(image);
-  const modules = expectedModules(image);
   if (metadata === null || typeof metadata !== "object" ||
       metadata.image !== image || metadata.buildId !== DOLLY_IMAGE_BUILD_ID ||
       metadata.formatVersion !== 2 || metadata.identityVersion !== 2 ||
       JSON.stringify(metadata.recipes) !== JSON.stringify(recipes) ||
-      JSON.stringify(metadata.modules) !== JSON.stringify(modules) ||
       JSON.stringify(hostRequirements(metadata.hostRequirements)) !== JSON.stringify(imageDefinitions.get(image).hostRequirements ?? []) ||
       !Number.isSafeInteger(metadata.byteLength) || metadata.byteLength <= 0 ||
       metadata.byteLength > snapshotSizeLimit ||
@@ -88,7 +82,6 @@ export async function loadPackagedSnapshotMetadata(image, checked = new Map(), a
   }
   for (const required of [
     "/etc/dolly/Dollyfile",
-    "/etc/dolly/entry",
     "/etc/dolly/environment",
     "/etc/dolly/image",
     "/etc/dolly/recipes.lock",
@@ -187,12 +180,10 @@ export async function describeImageArtifact(bytes, recipeSha256, inputs = []) {
   const source = records.get("/etc/dolly/Dollyfile");
   if (source?.kind !== 2 || await sha256(source.data) !== recipeSha256 ||
       records.get("/etc/dolly/artifact")?.kind !== 2) throw new Error("artifact recipe identity mismatch");
-  // The artifact retains every recipe it was built from, named by kind and name.
+  // The artifact retains every recipe it was built from, by file name.
   const graph = await loadRecipeGraph(url => {
     if (url === "Dollyfile") return source.data;
-    const name = recipeFileName(url);
-    const path = name.endsWith(".dm") ? `/etc/dolly/recipes/modules/${name}`
-      : `/etc/dolly/recipes/${name === "Dollyfile" ? "default" : name.slice("Dollyfile-".length)}.Dollyfile`;
+    const path = `/etc/dolly/recipes/${recipeFileName(url)}`;
     const record = records.get(path);
     if (record?.kind !== 2) throw new Error(`artifact does not retain recipe ${url}`);
     return record.data;

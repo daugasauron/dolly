@@ -77,7 +77,7 @@ b3WorldTransform physics_transform(const PhysicsPart *part);
 b3Pos physics_position(const PhysicsPart *part);
 b3Pos physics_center(const PhysicsPart *part);
 b3Vec3 physics_velocity(const PhysicsPart *part);
-void physics_attach_poses(Physics *p,const Character *c,b3WorldId world,float x,float z,int landscape,const PhysicsPose *poses,int legacy_velocity);
+void physics_attach_poses(Physics *p,const Character *c,b3WorldId world,float x,float z,int landscape,const PhysicsPose *poses);
 void physics_start(Physics *p,const Character *c);
 void physics_start_sea(Physics *p,const Character *c);
 void physics_motor(Physics *p,const Character *c,const unsigned char keys[128]);

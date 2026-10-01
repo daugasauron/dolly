@@ -1,8 +1,31 @@
-DOLLY 5
-IMAGE rust-build
+DOLLY 6
+TOOLCHAIN rust-build
+REQUIRES HOST display@0
+REQUIRES HOST http@0
+REQUIRES HOST threads@0
 
-FROM https://daugasauron.com/demos/rust/Dollyfile-rust-sdk 5e466830c48322d8e7fa1d40a08cab2c8b435c6186037d91c716a986c2aa33f2
-USE https://daugasauron.com/modules/curl.dm cbbd8961693265d08eb456e898adf69fbdd1208212412a86819b688f65b68414
-USE https://daugasauron.com/demos/rust/patti.dm a454fad3bc366f72ae87bd6523f19ce92005dec6928380936f2b781c46e99f73
+FROM https://daugasauron.com/demos/rust/Dollyfile-rust-sdk a795a609deaa4459847c1df91fdd2716feb82847edf2562590ee938372f02682
+INSTALL https://daugasauron.com/Dollyfile-curl 79823c1aa4ea509aa8e2777505f71e84c19e0554e2fea2fc0883b9b265130ca3
+REQUIRES HEADER libc
+REQUIRES HEADER runtime
+REQUIRES HEADER zlib
+REQUIRES LIB z
+REQUIRES TOOL cc
+REQUIRES TOOL curl
+REQUIRES TOOL rustc
+REQUIRES TOOL rm
+
+SOURCE https://daugasauron.com/dist/static/patti/patti.c b77f6328301f3e6006f0bf3b2e8676f854f07fe9322252daf85c2c67d0f15bc7 /tmp/patti/patti.c
+SOURCE https://daugasauron.com/dist/static/patti/sha256.h 4487133c310d06add786d59fc8baab82f9b26a28cf53f3a2afd972f2f10bd123 /tmp/patti/sha256.h
+SOURCE https://daugasauron.com/dist/static/patti/tomlc17.c 89d3fe5ffe387360993c8b9df8f03eb13cd6df379b4482bcd039399f690a770f /tmp/patti/tomlc17.c
+SOURCE https://daugasauron.com/dist/static/patti/tomlc17.h 281708fa05b805c32c117fc6033b0f4248257fce3440b1ac3391853bfc8f8bb5 /tmp/patti/tomlc17.h
+SOURCE https://daugasauron.com/dist/static/patti/LICENSE f949d0976f85076c96fc5122f0632b5a1b806d8b2badbe968c42c97230e6e79e /usr/share/licenses/patti/tomlc17-LICENSE
+
+SLOP cc -std=c17 -O1 -I /tmp/patti /tmp/patti/patti.c /tmp/patti/tomlc17.c -lz -o /usr/bin/patti
+SLOP rm -rf /tmp/patti
+
+EXPORTS TOOL patti
+FILE /usr/share/licenses/patti/tomlc17-LICENSE
+SLOP patti --help
 
 ENTRY /bin/foreground -i /bin/slop

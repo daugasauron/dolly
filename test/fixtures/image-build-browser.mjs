@@ -21,11 +21,11 @@ export async function buildLogProof() {
 export async function buildBufferReuse() {
   const base = new URL("../", document.baseURI);
   const [registry, policy, transport, builder, graph, artifactStore] = await Promise.all([
-    "dist/dolly-images.mjs", "host/http/policy.mjs", "host/build/local-services.mjs",
+    "dist/dolly-images.mjs", "host/http/policy.mjs", "host/http/local-services.mjs",
     "src/image-builder.mjs", "src/image-build.mjs", "src/image-artifact.mjs",
   ].map(path => import(new URL(path, base).href)));
   const definition = registry.DOLLY_IMAGES.find(image => image.image === "system-build");
-  const source = `DOLLY 5\nIMAGE buffer-proof\nFROM https://daugasauron.com/${definition.dollyfile} ${definition.sha256}\nENTRY /bin/slop\n`;
+  const source = `DOLLY 6\nAPPLICATION buffer-proof\nREQUIRES HOST display@0\nREQUIRES HOST download@0\nREQUIRES HOST http@0\nREQUIRES HOST snapshot@0\nREQUIRES HOST upload@0\nFROM https://daugasauron.com/${definition.dollyfile} ${definition.sha256}\nENTRY /bin/slop\n`;
   const sources = [...registry.DOLLY_IMAGES.map(image => ({ path: `/${image.dollyfile}`, byteLength: image.byteLength })),
     ...registry.DOLLY_STATIC_SOURCES];
   const network = transport.localServicesTransport(policy.consumeDollyHttpPolicy({}, sources, base));

@@ -1,6 +1,6 @@
 # Diagnose the biped's late live falls
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 50
 - TAGS: game,physics,agent
 
@@ -166,3 +166,11 @@ foot/root targets (`biped-rebase`) makes Sidelight fall and does not restart
 Hibari. Rejected. Preserve strict restart, and require new supported airborne
 placements after rescue before calling this fixed. Root-path accumulation from
 small physics jitter is not evidence of walking.
+
+## Closed (2026-10-01)
+
+Closed. The diagnosed falls (a foreign walker's foot, a lookout oscillating into
+the feet, patrol walkers leaving the island) happened in Pi-era populations whose
+saves are gone. On the current catalog both bipeds stay upright through 2,400
+simulated seconds of fresh populated play (Sidelight minimum up 0.981 with two
+self-recoveries, Hibari 0.971 with one; `20261001-223000-slopyard-living-world`), and `slopyard-biped.c` passes.

@@ -11,10 +11,10 @@ test("Studio lint diagnostics preserve filenames when adding the first line numb
   for (const name of names) {
     const label = `Dollyfile-${name}`;
     let message, status;
-    runInNewContext(source, { scriptArgs: ["--stdin", label], inspectDollyfile,
-      Dolly: { readFile: () => "DOLLY 5\n", exit: code => { status = code; } },
+    runInNewContext(source, { inspectDollyfile, readFileSync: () => "DOLLY 6\n",
+      process: { argv: ["janis", "lint.mjs", "--stdin", label], exit: code => { status = code; } },
       console: { error: text => { message = text; } } });
     assert.equal(status, 1);
-    assert.equal(message, `${label}:1: missing IMAGE or MODULE`);
+    assert.equal(message, `${label}:1: missing APPLICATION, TOOLCHAIN or PACKAGE`);
   }
 });

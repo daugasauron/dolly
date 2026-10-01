@@ -84,13 +84,9 @@ unsigned sleep(unsigned seconds) {
 }
 
 int usleep(useconds_t microseconds) {
-  if (microseconds >= 1000000u) {
-    errno = EINVAL;
-    return -1;
-  }
   const struct timespec request = {
-      .tv_sec = 0,
-      .tv_nsec = (long)microseconds * 1000L,
+      .tv_sec = microseconds / 1000000u,
+      .tv_nsec = (long)(microseconds % 1000000u) * 1000L,
   };
   return nanosleep(&request, NULL);
 }

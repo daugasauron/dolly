@@ -17,7 +17,7 @@ int main(int argc,char **argv){
  int crane=named("Harbor Atlas / luffing crane"),tug=named("Tsubame / harbor tug"),courier=named("Kawasemi / dock courier"),original[256]={0};
  for(int i=0;i<world.count;i++)if(world.creatures[i].cargo)original[world.creatures[i].id]=1;
  int seconds=argc>1?atoi(argv[1]):600,complete=0;
- assert(save_world(ctx,"/workspace/dock-before.lua"));assert(system("download /workspace/dock-before.lua")==0);
+ assert(save_world(ctx,"/workspace/dock-before.lua"));
  for(int tick=0;tick<seconds*60;tick++){
   world_step();assert(!world.deaths);for(int j=0;j<world.count;j++){Creature*c=&world.creatures[j];if(c->error[0])printf("ERROR %d %s\n",c->id,c->error);assert(!c->error[0]);}
   for(int i=0;i<world.count;i++){Creature*c=&world.creatures[i];if(c->id>=256||!original[c->id])continue;Transfer*m=&transfers[c->id];
@@ -37,6 +37,6 @@ int main(int argc,char **argv){
   if(complete)break;
   if(tick%1800==1799){Creature*c=world_find(courier);b3Pos p=physics_position(&c->physics.parts[0]);Value v=value_get(c->controller->ctx,c->controller->memory,"phase");const char*s=value_text(c->controller->ctx,v);printf("STATE %.3f courier %s xyz%.4f %.4f %.4f traffic%.3f job%.0f deliveries%d\n",world.age,s?s:"",p.x,p.y,p.z,get_number(c->controller->ctx,c->controller->memory,"trafficTime",0),get_number(c->controller->ctx,c->controller->memory,"job",0),world_cargo_score(c->id));value_text_free(c->controller->ctx,s);value_free(c->controller->ctx,v);fflush(stdout);}
  }
- assert(save_world(ctx,"/workspace/dock-after.lua"));assert(system("download /workspace/dock-after.lua")==0);
+ assert(save_world(ctx,"/workspace/dock-after.lua"));
  printf("DOCK RESULT complete%d objects%d deaths%d deliveries%d\n",complete,world.count,world.deaths,world.delivery_count);world_close();data_close(ctx);return complete?0:1;
 }

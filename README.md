@@ -13,6 +13,10 @@ trusted browser code) plus a minimal POSIX userspace. Everything else is a
 
 ## Core images
 
+Every image declares its role: an `APPLICATION` people open, a `TOOLCHAIN`
+recipes build on, or a `PACKAGE` recipes and sessions install
+([Dollyfile](docs/dollyfile.md#roles-and-names)).
+
 - `default`: Shell, Git, Make and C/C++.
 - `system`: `system-tools` with HTTP, file transfer and snapshots.
 - `system-tools`: Shell, display, Git, curl, Make and POSIX tools.
@@ -21,6 +25,10 @@ trusted browser code) plus a minimal POSIX userspace. Everything else is a
 - `ghostty-build`: Ghostty terminal build with Zig and its SDK.
 - `gpu-sdk`: `system` with the WebGPU host module (`gpu@0`).
 - `audio-sdk`: `system` with the PCM playback host module (`audio@0`).
+- `zlib`: zlib, as a package.
+- `curl`: curl and libcurl over the HTTP broker, as a package.
+- `gzip`: gzip over zlib, as a package.
+- `display`: the Ghostty display plugin and its font, as a package.
 
 ## Try it
 
@@ -66,7 +74,7 @@ npm run test:artifacts                # exact contracts of the built artifacts
 npm run test:full                     # rebuilds every image first: hours
 ```
 
-Image builds rewrite SHA-256 pins in `Dollyfile*` and `modules/*.dm`.
+Image builds rewrite SHA-256 pins in `Dollyfile*`.
 
 ## Docs
 
@@ -78,6 +86,7 @@ Image builds rewrite SHA-256 pins in `Dollyfile*` and `modules/*.dm`.
 - [HTTP](docs/http.md): broker, policy, libcurl, Git, CORS.
 - [Dollyfile](docs/dollyfile.md): recipe language and image builds.
 - [Studio builds](docs/image-build-service.md): the `build@0` service.
+- [Packages and amy](docs/dollyfile.md#packages-and-amy): `amy install NAME` in a session.
 - [Slop and commands](docs/slop.md): the shell and core tools.
 - [Sessions and file transfer](docs/sessions.md).
 - [Display](docs/display.md), [GPU](docs/gpu.md), [audio](docs/audio.md).

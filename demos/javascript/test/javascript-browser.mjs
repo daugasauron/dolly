@@ -2,8 +2,15 @@
 // Janis files, processes and HTTP, and UTF-8 streams.
 // Usage: node demos/javascript/test/javascript-browser.mjs
 import assert from "node:assert/strict";
-import { delay, demoTest } from "../../browser.mjs";
+import { mkdtemp, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { delay, demoTest, installProbe } from "../../browser.mjs";
+import { observe } from "./fixtures/node-oracle.mjs";
 import { decoderCases } from "./fixtures/utf8-cases.mjs";
+
+const oracleRoot = await mkdtemp(`${tmpdir()}/janis-node-oracle-`);
+const oracle = JSON.stringify(await observe(oracleRoot));
+await rm(oracleRoot, { recursive: true });
 
 const aborted = [];
 let queuedRequestSent = false;
@@ -35,6 +42,8 @@ async function handle(request, response, path, headers) {
     }
   } else if (path === "/fixture/http-redirect") {
     response.writeHead(307, { ...headers, location: "/fixture/http.txt" }).end();
+  } else if (path === "/fixture/node-oracle") {
+    response.writeHead(200, { ...headers, "content-type": "application/json" }).end(oracle);
   } else if (path === "/fixture/utf8-reference") {
     response.writeHead(200, { ...headers, "content-type": "application/json" });
     response.end(JSON.stringify(decoderCases(TextDecoder)));
@@ -51,10 +60,10 @@ async function handle(request, response, path, headers) {
 }
 const overlapping = new Map();
 
-const fixtures = Object.fromEntries(["janis-files.mjs", "janis-process.mjs", "utf8-browser.mjs", "utf8-cases.mjs", "utf8-writer.c"]
+const fixtures = Object.fromEntries(["janis-files.mjs", "janis-process.mjs", "node-oracle.mjs", "utf8-browser.mjs", "utf8-cases.mjs", "utf8-writer.c"]
   .map(name => [name, `demos/javascript/test/fixtures/${name}`]));
 await demoTest("javascript", { image: "javascript", timeout: 600_000, server: { handle, fixtures } }, async ({ server, open }) => {
-  const { page, submit, run, start, waitText } = await open({ policy: { maxRequests: 256,
+  const { page, submit, run, start, waitText } = await open({ ...await installProbe("javascript"), policy: { maxRequests: 256,
     rules: [{ origin: server.origin, pathPrefix: "/fixture/", methods: ["GET", "POST"] }] } });
   const scratch = "/tmp/dolly-javascript-test";
   await run(`mkdir ${scratch} && cd ${scratch} && for name in ${Object.keys(fixtures).join(" ")}; do curl -fsS ${server.origin}/fixture/$name -o $name || exit 1; done`);
@@ -86,6 +95,7 @@ await demoTest("javascript", { image: "javascript", timeout: 600_000, server: { 
 
   await run("mkdir files && echo target > files/target && ln -s target files/link && ln -s absent files/dangling && ln -s keep-dir files/directory-link");
   await run(`janis -m janis-files.mjs ${scratch}/files`);
+  await run(`janis -m node-oracle.mjs ${scratch}/oracle ${server.origin}`);
   await run(`timeout 30 janis -m janis-process.mjs ${scratch} ${server.origin}`);
   await delay(100);
   assert.equal(queuedRequestSent, false, "a cancelled queued fetch reached HTTP");

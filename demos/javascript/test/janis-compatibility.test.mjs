@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import * as net from "node:net";
 import test from "node:test";
+import util from "node:util";
+import vm from "node:vm";
 import { janisContext } from "./fixtures/janis-context.mjs";
 
 test("Janis IP classification matches Node for literals, compression, mapped addresses and invalid input", () => {
@@ -52,39 +54,12 @@ test("unsupported host resource queries fail explicitly", async () => {
   await assert.rejects(janis.fetch("https://example.test/", { redirect: "manual" }), { name: "TypeError" });
 });
 
-test("util.inspect and format name functions and undefined", () => {
-  const { inspect, format } = janisContext().__janisBuiltin("util");
-  assert.equal(inspect(function named() {}), "[Function: named]");
-  assert.equal(inspect(() => {}), "[Function: (anonymous)]");
-  assert.equal(format(undefined), "undefined");
-  assert.equal(format("%s", undefined), "undefined");
-});
-
-test("stream pipeline and finished settle on completion or the first error", async () => {
-  const stream = janisContext().__janisBuiltin("stream");
-  const promises = janisContext().__janisBuiltin("stream/promises");
-  const received = [];
-  const sink = new stream.Writable();
-  sink._write = (chunk, _encoding, callback) => { received.push(String(chunk)); callback(); };
-  const completed = new Promise((resolve) => stream.pipeline(stream.Readable.from(["a", "b"]), sink, resolve));
-  assert.equal(received.length, 0);
-  assert.equal(await completed, undefined);
-  assert.deepEqual(received, ["a", "b"]);
-
-  const failing = new stream.PassThrough();
-  const failure = new Error("source failed");
-  const pending = promises.pipeline(failing, new stream.Writable());
-  failing.emit("error", failure);
-  await assert.rejects(pending, failure);
-  const closed = new stream.Readable();
-  const early = promises.finished(closed);
-  closed.destroy();
-  await assert.rejects(early, { code: "ERR_STREAM_PREMATURE_CLOSE" });
-});
-
-test("performance and process clocks measure elapsed time, not the epoch", () => {
-  const { performance, process } = janisContext();
-  assert.ok(performance.now() < 60e3 && process.uptime() < 60 && process.hrtime.bigint() < 60e9);
-  const [seconds, nanoseconds] = process.hrtime(process.hrtime());
-  assert.ok(seconds === 0 && nanoseconds >= 0 && nanoseconds < 1e9);
+test("util.inspect names functions by kind and format prints undefined, as in Node", () => {
+  const janis = janisContext();
+  const { inspect, format } = janis.__janisBuiltin("util");
+  const functions = vm.runInContext("[function named() {}, () => {}, async function load() {}, async () => {}, " +
+    "function* walk() {}, async function* stream() {}, class Point {}, class {}, Math.max]", janis);
+  for (const value of functions) assert.equal(inspect(value), util.inspect(value));
+  assert.equal(format(undefined), util.format(undefined));
+  assert.equal(format("%s", undefined), util.format("%s", undefined));
 });

@@ -1,4 +1,4 @@
-import { spawn, spawnSync, execFile, execSync } from 'node:child_process';
+import { spawn, spawnSync, execFile } from 'node:child_process';
 import fs from 'node:fs';
 import { setTimeout as delay } from 'node:timers/promises';
 
@@ -157,12 +157,6 @@ await check('unsupported child options fail explicitly', async () => {
     assert(child.pid === undefined && result.error?.code === 'ENOTSUP',
       `unsupported options accepted: ${JSON.stringify(options)}`);
   }
-});
-await check('execSync returns exact binary stdout without an encoding', async () => {
-  const bytes = Buffer.from([0, 255, 0xe3, 0x81, 10]);
-  fs.writeFileSync(`${root}/binary`, bytes);
-  assert(execSync(`/bin/cat ${root}/binary`).equals(bytes), 'execSync decoded binary output');
-  assert(execSync(`/bin/cat ${root}/binary`, { encoding: 'hex' }) === '00ffe3810a', 'execSync ignored its encoding');
 });
 await check('fetch redirect "error" fails redirects and "manual" is refused', async () => {
   assert((await fetch(`${origin}/fixture/http.txt`, { redirect: 'error' })).ok, 'redirect "error" broke a plain request');

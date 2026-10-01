@@ -1,11 +1,11 @@
 # Sourced by scripts/prepare-image-sources.sh.
-if has_module typescript; then
+if has_image typescript-build; then
   copy_static demos/javascript/tsc.c default/commands/tsc.c
   copy_static demos/javascript/tsc-dolly.mjs default/runtimes/tsc-dolly.mjs
   typescript_archive="$(demos/javascript/fetch-typescript.sh)"
   copy_static "${typescript_archive}" default/typescript-5.9.3.tgz
 fi
-if has_module quickjs; then
+if has_image typescript-build; then
   copy_static demos/javascript/janis.c default/commands/janis.c
   copy_static demos/javascript/quickjs-main.c default/runtimes/quickjs-main.c
   copy_static demos/javascript/quickjs-runner.h default/runtimes/quickjs-runner.h

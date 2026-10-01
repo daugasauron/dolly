@@ -1,6 +1,6 @@
 # Keep friendly rescue traffic clear of a loaded slingshot
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 30
 - TAGS: game,content,bug
 
@@ -167,3 +167,12 @@ without further contact evidence. Guard 45 remains upright and approaches 43.
 The shared program's other successful settled rescues do not satisfy this
 issue's heavy-vehicle and gun-clearance criteria; no speculative anti-roll fix
 was added to the packaged image.
+
+## Closed (2026-10-01)
+
+Superseded. The case (guard 73 inverted inside gun 87's swing clearance) came
+from a September world that is gone, and both candidates failed. In a fresh
+2,400 s audit of the current catalog (`20261001-223000-slopyard-living-world`) the loaded guns that never fired
+were watching an empty sector: both Yagura roof batteries and the Blue Hosen held
+a round for 2,366 s reporting "Watching combat zone", and the Red roof sling
+stayed in "hold". Gun placement is one of the gaps listed in `20261001-223000-slopyard-living-world`.

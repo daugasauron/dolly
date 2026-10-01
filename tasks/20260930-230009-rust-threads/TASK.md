@@ -1,6 +1,6 @@
 # Build Rust programs with threads@0
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 260
 - TAGS: rust,threads,codex,toolchain
 
@@ -53,3 +53,9 @@ and the Codex TUI polls crossterm on a timer instead of using its
   browser-derived value crossing into the guest.
 - `sched_yield` returns 0 in the threaded libc: POSIX lets it return at once when
   nothing else can run, and Workers cannot cede a core.
+
+## Closed (2026-10-01)
+
+Shipped in the release candidate: threaded ripgrep, fd and protox, Codex on
+upstream's threading, the no-thread patches removed; every suite passes. The
+Codex startup delay continues in `20261001-220000-codex-threaded-startup`.

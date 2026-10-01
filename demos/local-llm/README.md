@@ -1,37 +1,49 @@
 # Local models
 
 Upstream llama.cpp runs as an ordinary wasm64 process over the core `gpu@0`
-interface, serving Qwen models to Pi with no browser model loader, local server
+interface, serving open models to Pi with no browser model loader, local server
 or remote fallback.
 
 ## Images
 
-- `pi-local`: Pi with bundled Qwen3.5-0.8B. Requires WebGPU with shader-f16.
+- `pi-local`: Pi with the bundled Qwen3.5-2B. Requires WebGPU with shader-f16.
 - `llama-build`: llama.cpp libraries built for the GPU interface.
 - `local-llm-build`: The dolly-llama command built from those libraries.
+- `qwen3.5-2b`: Model package: Qwen3.5-2B weights and license.
+- `minicpm5-2b`: Model package: MiniCPM5-2B weights and license.
 
 Open `/pi-local/` (or Dollyfile Studio) and pick a model with Pi's `/model`. The
 first prompt loads it; `/local-unload` frees it. Build with
 `npm run image -- pi-local`.
 
-| Model | Q4_K_M weights | Context / output |
-| --- | ---: | ---: |
-| Qwen3.5-0.8B (bundled) | 580 MB | 8,192 / 2,048 tokens |
-| Qwen3.5-2B | 1.40 GB | 8,192 / 2,048 tokens |
-| Qwen3.5-4B | 3.01 GB | 8,192 / 2,048 tokens |
+| Model | Q4_K_M weights | Source |
+| --- | ---: | --- |
+| Qwen3.5-2B (bundled) | 1.40 GB | package `qwen3.5-2b` |
+| MiniCPM5-2B | 1.56 GB | package `minicpm5-2b`, or download |
+| Qwen3.5-4B | 3.01 GB | download |
 
-Optional models download through the HTTP broker in verified 32 MiB ranges into
-volatile `/run/dolly-llm`, so they are gone after a reload. Pins:
-[`models.json`](models.json).
+All use 16,384 tokens of context and at most 2,048 output tokens. Qwen3.5-4B is
+the one that completes most coding tasks; pick it with `/model` for real work.
+Measurements: [the model task](../../tasks/20261001-214000-pi-local-model/TASK.md).
+
+A model package holds one model's exact upstream GGUF at
+`/usr/share/dolly/llm/ID.gguf` and its license, exported as `ID`; an image
+`INSTALL`s it. Pi uses an installed model directly and downloads
+any other catalogued model, verified, into volatile `/run/dolly-llm`, so it is
+gone after a reload. Pins and prompt formats: [`models.json`](models.json).
 
 ## Key files
 
 - [`Dollyfile-llama-build`](Dollyfile-llama-build): unchanged llama.cpp and WGSL,
   built in Dolly with CMake.
 - [`webgpu.cpp`](webgpu.cpp), [`main.cpp`](main.cpp): the WebGPU C adapter for
-  the functions this backend uses, and the `dolly-llama` command.
+  the functions this backend uses, and the `dolly-llama` command. It keeps the
+  previous request's matching prompt prefix, so agent turns evaluate only new
+  tokens.
 - [`local-model-provider.js`](local-model-provider.js), [`client.mjs`](client.mjs):
   Pi's provider; it talks to `dolly-llama` over pipes, one JSON request per line.
+  [`qwen.mjs`](qwen.mjs) and [`minicpm.mjs`](minicpm.mjs) render each family's own
+  chat template and parse its tool calls.
 - [`prepare-local-llm.sh`](prepare-local-llm.sh) only fetches sources and Dawn
   headers; [`test/local-llm-browser.mjs`](test/local-llm-browser.mjs) is an opt-in
   real-model check.
@@ -43,5 +55,6 @@ volatile `/run/dolly-llm`, so they are gone after a reload. Pins:
   `--enable-dawn-features=vulkan_enable_f16_on_nvidia`.
 - Weight sizes are not total memory: each tab holds weights in WasmFS, the
   process and the GPU.
-- Small models can call tools but are not dependable coding agents. Thinking and
-  image input are off.
+- An image holds at most 2 GiB, so Qwen3.5-4B has no package. The 2B models
+  call tools but are not dependable coding agents. Thinking and image input are
+  off.

@@ -1,6 +1,6 @@
 # Ctrl+C during QuickJS startup exits 1 instead of 130
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 140
 - TAGS: bug,javascript,demo,lifecycle
 
@@ -23,3 +23,10 @@ ISIG. While Slop is still launching the command, the interrupt targets the
 shell, not the not-yet-running child, and `__dolly.foregroundPid` stays the
 interactive shell's pid while it runs `qjs`, so the test cannot wait for the
 child. A deterministic test needs a way to observe the running child.
+
+## Closed (2026-10-01)
+
+The fix ships in the release candidate (an interrupted startup exits through
+`dolly_exit_signal(SIGINT)`). A deterministic test would need Ctrl+C to land
+inside context setup, which a page cannot time; Ctrl+C right after Enter can
+still reach Slop's line editor as input before ISIG is restored.

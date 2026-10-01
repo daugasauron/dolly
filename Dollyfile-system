@@ -1,13 +1,23 @@
-DOLLY 5
-IMAGE system
-
-FROM https://daugasauron.com/Dollyfile-system-tools 46d753ab5207fbbbaf3bf2578e70bdbf3ab311a5f30b786311796be52426dbd3
-
-REQUIRES HOST http@0
+DOLLY 6
+TOOLCHAIN system
+REQUIRES HOST display@0
 REQUIRES HOST download@0
-REQUIRES HOST upload@0
+REQUIRES HOST http@0
 REQUIRES HOST snapshot@0
+REQUIRES HOST upload@0
 
-USE https://daugasauron.com/modules/session-recovery.dm 4f06ddae6665a34a78887f569628c04c23f17c3c988a9eb50b5c705265efbc9f
+FROM https://daugasauron.com/Dollyfile-system-tools 6141107accc61e9916908bcbfbbf97d0dd147f697a4ce632dc6a6bb59cd24fdc
+
+REQUIRES HEADER libc
+REQUIRES TOOL cc
+REQUIRES TOOL rm
+
+SOURCE https://daugasauron.com/dist/static/session-recovery/session-recover.c a7aab830678897e4766a5c873308caf7eb5e95f74a03c0b696e13d7afe1b14c4 /tmp/session-recovery/session-recover.c
+SOURCE https://daugasauron.com/dist/static/session-recovery/session-records.h 292acf93331576388471b273f690515871f3a76833a7ad1c6545945292e613d1 /tmp/session-recovery/session-records.h
+SOURCE https://daugasauron.com/dist/static/session-recovery/fs-record.h 585989ac06fab7f4ba0325aa1faefa414b45f96d72b3525838cea7cdffe80e3c /tmp/session-recovery/fs-record.h
+
+SLOP cc -O1 -I/tmp/session-recovery /tmp/session-recovery/session-recover.c -o /usr/bin/session-recover
+EXPORTS TOOL session-recover
+SLOP rm -rf /tmp/session-recovery
 
 ENTRY /bin/foreground -i /bin/slop

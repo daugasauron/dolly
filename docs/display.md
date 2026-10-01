@@ -64,14 +64,14 @@ flowchart LR
 ## Zig and the Ghostty build
 
 - `zig-build` ([`Dollyfile-zig-build`](../Dollyfile-zig-build),
-  [`zig.dm`](../modules/zig.dm)) builds Zig 0.16 from its source archive with
+  [`Dollyfile-zig-build`](../Dollyfile-zig-build)) builds Zig 0.16 from its source archive with
   Dolly `cc`, as upstream `bootstrap.c` does with two substitutions. WAMR, built
   by `cc` ([`zig1.c`](../src/zig/zig1.c)), interprets upstream `zig1.wasm`
   because wasm2c's translation overflows a browser Worker's native stack. zig1
   emits zig2 as C with only the C backend ([`config.zig`](../src/zig/config.zig)),
   which `cc` compiles to `/usr/bin/zig`.
 - `ghostty-build` ([`Dollyfile-ghostty-build`](../Dollyfile-ghostty-build),
-  [`ghostty.dm`](../modules/ghostty.dm)) has that Zig emit Ghostty VT and
+  [`Dollyfile-ghostty-build`](../Dollyfile-ghostty-build)) has that Zig emit Ghostty VT and
   compiler_rt as C, compiles them with `cc` and links `/usr/lib/libdisplay.so`.
   `system` copies only that plugin, the font and licenses.
 - This Zig has no LLVM: it emits only C, so there is no `zig build` or `zig cc`.

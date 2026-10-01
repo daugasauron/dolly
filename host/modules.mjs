@@ -7,9 +7,6 @@ import { DOLLY_ERRNO as E } from "../dist/dolly-errno.mjs";
 const definitions = await Promise.all(hostManifests.map(async manifest =>
   ({ ...await import(new URL(manifest.host, manifest.url).href), contract: manifest })));
 export const hostContracts = Object.freeze(definitions.map(module => module.contract));
-// What executables may require: name@version -> the ABI digest its provider implements.
-const providedAbi = new Map(definitions.filter(module => module.digest)
-  .map(({ contract: { name, version }, digest }) => [`${name}@${version}`, digest]));
 export const buildHost = Object.freeze(["runtime@0", "http@0", "threads@0"]);
 const byName = new Map(definitions.map(module => [module.contract.name, module]));
 const owners = new Map();
@@ -22,6 +19,9 @@ export async function createHost(side, enabled, { send, resources = {}, configur
   if (!["browser", "worker"].includes(side)) throw new TypeError("invalid host side");
   const selected = hostRequirements(enabled), instances = new Map(), reasons = new Map(), messages = new Map();
   const started = new Set(), pending = new Map(), options = {}, transfers = [], config = {};
+  // What executables may require: name@version -> the ABI digest its provider
+  // implements, for exactly the modules the image declares (see admit).
+  const admittedAbi = new Map();
   let disposed = false;
   function requireModules(requirements) {
     for (const value of hostRequirements(requirements)) {
@@ -68,7 +68,7 @@ export async function createHost(side, enabled, { send, resources = {}, configur
     const instance = module[side]?.({ ...resources, send, get: dependency,
       service: () => { for (const instance of instances.values()) instance.service?.(); },
       claimsKey, surfaceSize,
-      abi: providedAbi,
+      abi: admittedAbi,
       configuration: configuration[name] ?? {} }) ?? {};
     instances.set(name, instance);
     for (const [key, value] of Object.entries(instance.options ?? {})) {
@@ -98,6 +98,15 @@ export async function createHost(side, enabled, { send, resources = {}, configur
     get, options, transfers, configuration: config,
     enabled: [...instances.keys()].map(name => `${name}@${byName.get(name).contract.version}`),
     require: requireModules, dispose,
+    // Executables may use only the modules the image declares. A declared module
+    // this host does not enable (a build host) answers its calls with ENOSYS.
+    admit(requirements) {
+      admittedAbi.clear();
+      for (const value of hostRequirements(requirements)) {
+        const { name, version } = hostRequirement(value), module = byName.get(name);
+        if (module?.digest && module.contract.version === version) admittedAbi.set(value, module.digest);
+      }
+    },
     // The Worker calls this after restoring the system image and before starting
     // image-phase modules, in registry order.
     async imageRestored(context) {

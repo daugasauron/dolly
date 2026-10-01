@@ -1,8 +1,8 @@
 # Sourced by scripts/prepare-image-sources.sh.
-if has_module zero-ad; then
+if has_image zero-ad; then
   node demos/zero-ad/toolchain/prepare-distribution.mjs "${static_dir}/zero-ad"
 fi
-if has_module openal; then
+if has_image openal-build; then
   openal_dir="$(bash demos/zero-ad/prepare-openal.sh)"
   node scripts/build-source-tar.mjs "${static_dir}/openal/source.tar" \
     "${openal_dir}" /tmp/openal/source \
@@ -12,12 +12,10 @@ if has_module openal; then
     "${openal_dir}/LICENSE-pffft" /usr/share/licenses/OpenAL/LICENSE-pffft \
     "${openal_dir}/fmt-11.1.1/LICENSE" /usr/share/licenses/OpenAL/fmt
 fi
-# The build images' steps are inline: stage their sources when they are selected.
-zad_images="$(node scripts/list-images.mjs | cut -f1)"
-if grep -qx 'zero-ad-deps\|zero-ad-engine' <<< "${zad_images}"; then
+if has_image zero-ad-deps || has_image zero-ad-engine; then
   zad_dir="$(bash demos/zero-ad/prepare-build-sources.sh)"
 fi
-if grep -qx zero-ad-deps <<< "${zad_images}"; then
+if has_image zero-ad-deps; then
   node scripts/build-source-tar.mjs "${static_dir}/zero-ad-build/deps.tar.gz" \
     "${zad_dir}/pkgconf-2.5.1/libpkgconf" /tmp/zad/pkgconf/libpkgconf \
     "${zad_dir}/pkgconf-2.5.1/cli" /tmp/zad/pkgconf/cli \
@@ -39,7 +37,7 @@ if grep -qx zero-ad-deps <<< "${zad_images}"; then
     demos/zero-ad/test/fixtures/0ad-enet.c /tmp/zad/enet-check.c \
     demos/zero-ad/test/fixtures/0ad-openal.cpp /tmp/zad/openal-check.cpp
 fi
-if grep -qx zero-ad-engine <<< "${zad_images}"; then
+if has_image zero-ad-engine; then
   zad_source="${zad_dir}/0ad-$(source config/source-pins.sh && echo "${DOLLY_0AD_VERSION}")"
   node scripts/build-source-tar.mjs "${static_dir}/zero-ad-build/engine.tar.gz" \
     "${zad_source}/build/premake" /tmp/0ad/build/premake \

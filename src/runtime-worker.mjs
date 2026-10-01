@@ -10,7 +10,7 @@ import { imageInputs } from "./image-inputs.mjs";
 import { inspectDollyfile, MAX_DOLLYFILE_BYTES } from "./dollyfile-view.mjs";
 import { decodeImageEntry } from "./image-entry.mjs";
 import { checkedCustomArtifact } from "./custom-image.mjs";
-import { CANONICAL_ORIGIN, hex } from "./static-asset.mjs";
+import { CANONICAL_ORIGIN, decodeStaticAsset, hex } from "./static-asset.mjs";
 
 const encoder = new TextEncoder();
 const decoder = new TextDecoder("utf-8", { ignoreBOM: true });
@@ -119,13 +119,15 @@ try {
       : await loadPackagedSnapshotMetadata(configuredImage)
     : null;
   const definition = imageDefinitions.get(configuredImage);
-  if (!bootConfig.buildOnly && bootMode === "snapshot") {
-    host.require(snapshotMetadata.hostRequirements ?? definition?.hostRequirements ?? []);
-  }
+  const declared = bootMode === "snapshot" ? snapshotMetadata.hostRequirements ?? definition?.hostRequirements ?? []
+    : configuredImage === "custom" ? inspectDollyfile(bootConfig.customSource).hostRequirements : definition.hostRequirements;
+  if (!bootConfig.buildOnly && bootMode === "snapshot") host.require(declared);
+  // A build runs the engine and its tools with the build host's modules too.
+  host.admit(bootMode === "rebuild" ? [...declared, ...host.enabled] : declared);
   const recipeSha256 = configuredImage === "custom"
     ? await sha256(encoder.encode(bootConfig.customSource)) : definition.sha256;
   const baseReference = configuredImage === "custom"
-    ? inspectDollyfile(bootConfig.customSource).from : definition.artifacts.find(reference => !reference.copy);
+    ? inspectDollyfile(bootConfig.customSource).from : definition.artifacts.find(reference => reference.operation === "from");
   const artifacts = new Map();
   if (bootConfig.artifacts !== undefined && (!Array.isArray(bootConfig.artifacts) || bootConfig.artifacts.length > 256)) {
     throw new Error("invalid build artifacts");
@@ -142,6 +144,11 @@ try {
   const baseArtifact = baseReference ? artifacts.get(baseReference.sha256) : null;
   if (bootMode === "rebuild" && baseReference && !baseArtifact) throw new Error("base image artifact was not provided");
   bootstrapStage("loading Dolly runtime...");
+  // Emscripten's glue decodes kernel strings with a TextDecoder it creates at
+  // import time, over views of the heap; TextDecoder rejects views of shared
+  // memory (measured in Chrome 151 and Firefox 155) and no link setting of
+  // Emscripten 6.0.8 makes it copy first. Hiding the global while the glue
+  // loads selects its JavaScript decoder instead.
   const nativeTextDecoder = globalThis.TextDecoder;
   globalThis.TextDecoder = undefined;
   const { default: createDolly } = await import("../dist/dolly.mjs");
@@ -151,7 +158,6 @@ try {
   const kernelModule = await WebAssembly.compileStreaming(fetch(locateArtifact("dolly.wasm")));
   let kernelExports;
   const dollyOptions = {
-    noInitialRun: true,
     ...host.options,
     locateFile: locateArtifact,
     instantiateWasm(imports, receive) {
@@ -168,6 +174,10 @@ try {
   if (bootMode === "rebuild" && !baseArtifact) {
     bootstrapStage("loading root compiler seed...");
     const { default: loadSeed } = await import("../dist/dolly-seed.mjs");
+    // Static hosts may serve the seed as verified parts; the packager takes the joined bytes.
+    const seedURL = locateArtifact("dolly.data");
+    const seed = await (await decodeStaticAsset(await fetch(seedURL), seedURL, {}, snapshotSizeLimit)).arrayBuffer();
+    dolly.getPreloadedPackage = () => seed;
     await loadSeed(dolly);
   }
   bootstrapStage("Dolly runtime loaded");
@@ -263,6 +273,7 @@ try {
       if (!bootConfig.buildOnly) {
         const artifact = await describeImageArtifact(copy.buffer, recipeSha256, inputs);
         host.require(artifact.hostRequirements);
+        host.admit(artifact.hostRequirements);
         const cacheSlot = configuredImage === "custom"
           ? `custom:${inspectDollyfile(bootConfig.customSource).image}` : `/${definition.dollyfile}`;
         const saved = await saveImageArtifact(artifact, cacheSlot);
@@ -333,6 +344,7 @@ try {
 
   await host.imageRestored({ dolly, supervisor: processSupervisor, stage: bootstrapStage,
     writeFile: replaceFile, image: configuredImage });
+  if (dolly._dolly_bootstrap_environment() !== 0) throw new Error("Dolly image environment is invalid");
 
   await host.start("image", { dolly, memory, kernelExports });
 
@@ -359,18 +371,9 @@ try {
   const status = await runImageEntry(dolly, processSupervisor);
   self.postMessage({ type: "exited", status });
 } catch (error) {
-  let compilerTrace = "";
-  try {
-    compilerTrace = dolly === null
-      ? ""
-      : decoder.decode(readBoundedFile(dolly, "/tmp/dolly-cc-trace.log", 64 * 1024)).trim();
-  } catch {
-    // Compiler tracing is opt-in and absent in normal sessions.
-  }
-  const message = error instanceof Error ? error.message : String(error);
   self.postMessage({
     type: "error",
-    message: compilerTrace === "" ? message : `${message}\n${compilerTrace}`,
+    message: error instanceof Error ? error.message : String(error),
     stack: error instanceof Error ? error.stack ?? "" : "",
   });
 } finally {

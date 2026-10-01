@@ -1,25 +1,19 @@
-DOLLY 5
-IMAGE javascript
+DOLLY 6
+PACKAGE javascript
+REQUIRES HOST download@0
+REQUIRES HOST http@0
 
-FROM https://daugasauron.com/Dollyfile-system f09301e9c3a830993070865b0b5ba75aa88959c586bf3c4fe98a98877177cdfd
+# QuickJS, Janis and TypeScript, built by typescript-build; the package keeps
+# only the exports below.
+FROM https://daugasauron.com/demos/javascript/Dollyfile-typescript-build c8c8cc4df3a2770a59e67ea3df850252f50ed2482a4981ae3fe08c5ce74f34ec
 
-COPY FROM https://daugasauron.com/demos/javascript/Dollyfile-typescript-build 695bd27bd9d0265d7cb8a1f12b5399ebe27e5cdd30b4b158144214f4dd55f06f /usr/bin/qjs /usr/bin/qjs
-COPY FROM https://daugasauron.com/demos/javascript/Dollyfile-typescript-build 695bd27bd9d0265d7cb8a1f12b5399ebe27e5cdd30b4b158144214f4dd55f06f /usr/bin/janis /usr/bin/janis
-COPY FROM https://daugasauron.com/demos/javascript/Dollyfile-typescript-build 695bd27bd9d0265d7cb8a1f12b5399ebe27e5cdd30b4b158144214f4dd55f06f /usr/bin/tsc /usr/bin/tsc
-COPY FROM https://daugasauron.com/demos/javascript/Dollyfile-typescript-build 695bd27bd9d0265d7cb8a1f12b5399ebe27e5cdd30b4b158144214f4dd55f06f /usr/lib/libdolly-js.a /usr/lib/libdolly-js.a
-COPY FROM https://daugasauron.com/demos/javascript/Dollyfile-typescript-build 695bd27bd9d0265d7cb8a1f12b5399ebe27e5cdd30b4b158144214f4dd55f06f /usr/include/dolly/quickjs-runner.h /usr/include/dolly/quickjs-runner.h
-COPY FROM https://daugasauron.com/demos/javascript/Dollyfile-typescript-build 695bd27bd9d0265d7cb8a1f12b5399ebe27e5cdd30b4b158144214f4dd55f06f /usr/include/quickjs.h /usr/include/quickjs.h
-COPY FROM https://daugasauron.com/demos/javascript/Dollyfile-typescript-build 695bd27bd9d0265d7cb8a1f12b5399ebe27e5cdd30b4b158144214f4dd55f06f /usr/lib/dolly/node.js /usr/lib/dolly/node.js
-COPY FROM https://daugasauron.com/demos/javascript/Dollyfile-typescript-build 695bd27bd9d0265d7cb8a1f12b5399ebe27e5cdd30b4b158144214f4dd55f06f /usr/lib/janis/runtime.js /usr/lib/janis/runtime.js
-COPY FROM https://daugasauron.com/demos/javascript/Dollyfile-typescript-build 695bd27bd9d0265d7cb8a1f12b5399ebe27e5cdd30b4b158144214f4dd55f06f /usr/lib/typescript /usr/lib/typescript
-COPY FROM https://daugasauron.com/demos/javascript/Dollyfile-typescript-build 695bd27bd9d0265d7cb8a1f12b5399ebe27e5cdd30b4b158144214f4dd55f06f /usr/share/licenses/quickjs-ng/LICENSE /usr/share/licenses/quickjs-ng/LICENSE
-
-EXPORTS TOOL qjs
-EXPORTS TOOL janis
-EXPORTS TOOL tsc
-EXPORTS LIB dolly-js /usr/lib/libdolly-js.a
+EXPORTS TOOL   qjs
+EXPORTS TOOL   janis
+EXPORTS TOOL   tsc
+EXPORTS LIB    dolly-js       /usr/lib/libdolly-js.a
 EXPORTS HEADER quickjs-runner /usr/include/dolly/quickjs-runner.h
-EXPORTS HEADER quickjs /usr/include/quickjs.h
-EXPORTS FOLDER typescript /usr/lib/typescript
-
-ENTRY /bin/foreground -i /bin/slop
+EXPORTS HEADER quickjs        /usr/include/quickjs.h
+EXPORTS FOLDER typescript     /usr/lib/typescript
+FILE /usr/lib/dolly/node.js
+FILE /usr/lib/janis/runtime.js
+FILE /usr/share/licenses/quickjs-ng/LICENSE

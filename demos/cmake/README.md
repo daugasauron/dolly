@@ -7,8 +7,8 @@ llama.cpp and OpenAL builds start from this image.
 
 - `cmake-build`: CMake bootstrap and libuv.
 
-Key files: [`cmake.dm`](cmake.dm), [`Dolly.cmake`](Dolly.cmake) (platform file),
-[`libuv.dm`](libuv.dm) and [`libuv-dolly.patch`](libuv-dolly.patch). The libuv
+Key files: [`Dollyfile-cmake-build`](Dollyfile-cmake-build), [`Dolly.cmake`](Dolly.cmake) (platform file),
+[`Dollyfile-cmake-build`](Dollyfile-cmake-build) and [`libuv-dolly.patch`](libuv-dolly.patch). The libuv
 port polls and runs deferred work serially over Dolly's files, processes and
 signals; it adds no browser import.
 

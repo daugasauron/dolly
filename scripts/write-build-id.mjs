@@ -7,7 +7,7 @@ import { dirname, resolve } from "node:path";
 
 export const imageBuildInputs = Object.freeze([
   "dolly.data", "dolly-seed.mjs", "dolly-process-0.wasm", "dolly-process-dso-0.wasm",
-  "dolly-kernel-plugin-0.wasm", "dolly-snapshot-0.wasm",
+  "dolly-kernel-plugin-0.wasm", "dolly-image-0.wasm",
 ]);
 
 export async function buildIdentities(wasmPath, dataPath) {

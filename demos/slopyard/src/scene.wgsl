@@ -182,10 +182,17 @@ fn water_normal(p:vec2f)->vec3f {
                         if(position.y<.7){color=mix(color,vec3f(.19,.30,.25),.38);}
                     }
                 }else if(b.style.x==8){
-                    let strata=.5+.5*sin(position.y*5+noise(floor(position.xz*2)*.11)*5);
-                    color*=.65+.18*noise(floor(face_uv*8)/3)+.17*strata;
-                    let vein=abs(sin(face_uv.x*.35+face_uv.y*.11+noise(face_uv*.3)*3));
-                    color=mix(color,vec3f(.39,.28,.19),.5*(1-smoothstep(.03,.09,vein)));
+                    if(normal.y>.5){
+                        let growth=smoothstep(.62,.84,noise(floor(position.xz*.8)*.23));
+                        color*=.80+.14*noise(floor(face_uv*6)/3);
+                        color=mix(color,vec3f(.27,.37,.19),growth*.7);
+                    }else{
+                        let strata=.5+.5*sin(position.y*5+noise(floor(position.xz*2)*.11)*5);
+                        color*=.65+.18*noise(floor(face_uv*8)/3)+.17*strata;
+                        color=mix(color,vec3f(.50,.37,.24),.28*strata);
+                        let seam=abs(sin(position.y*2.3+noise(face_uv*.25)*2.5));
+                        color=mix(color,vec3f(.10,.10,.11),.55*(1-smoothstep(.02,.07,seam)));
+                    }
                 }else if(b.style.x==9){
                     let vent=abs(fract(face_uv.y*3)-.5);
                     color*=select(.48,.92,vent<.32);

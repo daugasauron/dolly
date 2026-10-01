@@ -246,14 +246,13 @@ static b3ShapeId attach_shape(Physics *p,int index,const b3HullData *hull,b3Tran
     part->center=b3Add(part->center,b3MulSV(mass.mass,center));part->mass+=mass.mass;part->volume+=mass.mass/density;
     p->shapes[p->shape_count++]=(PhysicsShape){id,index,local,half,mass.mass/density,mass.mass};return id;
 }
-static void restore_momentum(Physics *p,const PhysicsPose *poses,int legacy_velocity){
+static void restore_momentum(Physics *p,const PhysicsPose *poses){
     b3Vec3 *momentum=calloc(p->count,sizeof(*momentum)),*angular=calloc(p->count,sizeof(*angular));assert(momentum&&angular);
     for(int i=0;i<p->shape_count;i++){
         PhysicsShape shape=p->shapes[i];PhysicsPart *part=&p->parts[shape.part];int owner=part->owner;
         if(b3Body_GetType(part->body)!=b3_dynamicBody)continue;
         b3MassData mass=b3Shape_ComputeMassData(shape.id);b3WorldTransform body=b3Body_GetTransform(part->body);b3Pos center=b3Body_GetWorldPoint(part->body,mass.center);
         PhysicsPose pose=poses[shape.part];b3Vec3 velocity=pose.velocity;
-        if(legacy_velocity)velocity=b3Sub(velocity,b3Cross(pose.angular,b3RotateVector(pose.transform.q,part->center)));
         velocity=b3Add(velocity,b3Cross(pose.angular,b3SubPos(center,pose.transform.p)));
         b3Vec3 linear=b3MulSV(mass.mass,velocity);momentum[owner]=b3Add(momentum[owner],linear);
         b3Matrix3 rotation=b3MakeMatrixFromQuat(body.q),inertia=b3MulMM(b3MulMM(rotation,mass.inertia),b3Transpose(rotation));
@@ -264,7 +263,7 @@ static void restore_momentum(Physics *p,const PhysicsPose *poses,int legacy_velo
         b3Body_SetAngularVelocity(body,b3MulMV(b3Body_GetWorldInverseRotationalInertia(body),angular[i]));
     }free(momentum);free(angular);
 }
-void physics_attach_poses(Physics *p,const Character *c,b3WorldId world,float x,float z,int landscape,const PhysicsPose *poses,int legacy_velocity){
+void physics_attach_poses(Physics *p,const Character *c,b3WorldId world,float x,float z,int landscape,const PhysicsPose *poses){
     physics_stop(p);p->world=world;p->running=1;p->count=c->count;p->landscape=landscape;
     p->parts=array_resize(NULL,c->count,sizeof(PhysicsPart));if(c->count)memset(p->parts,0,c->count*sizeof(PhysicsPart));
     p->shapes=array_resize(NULL,(size_t)c->count*2,sizeof(PhysicsShape));int *components=array_resize(NULL,c->count,sizeof(int));
@@ -327,10 +326,10 @@ void physics_attach_poses(Physics *p,const Character *c,b3WorldId world,float x,
             j.enableMotor=true;j.maxMotorTorque=b.force;j.enableLimit=b.joint==BLOCK_HINGE;j.lowerAngle=-b.limit*DEG2RAD;j.upperAngle=b.limit*DEG2RAD;p->parts[i].joint=b3CreateRevoluteJoint(world,&j);
         }
     }
-    if(poses&&c->count)restore_momentum(p,poses,legacy_velocity);
+    if(poses&&c->count)restore_momentum(p,poses);
     if(c->count){b3Pos root=physics_position(&p->parts[0]);p->start=(Vector3){root.x,root.y,root.z};}
 }
-void physics_attach(Physics *p,const Character *c,b3WorldId world,float x,float z,int landscape){physics_attach_poses(p,c,world,x,z,landscape,NULL,0);}
+void physics_attach(Physics *p,const Character *c,b3WorldId world,float x,float z,int landscape){physics_attach_poses(p,c,world,x,z,landscape,NULL);}
 void physics_start(Physics *p,const Character *c) {
     physics_stop(p);physics_attach(p,c,physics_world(0),0,0,0);p->owns_world=1;
 }

@@ -160,7 +160,7 @@ __wasi_errno_t __wasi_environ_get(uint8_t **vector, uint8_t *buffer) {
 }
 
 _Noreturn void __wasi_proc_exit(__wasi_exitcode_t status) {
-  const dolly_process_exit_request request = {status, 0};
+  const dolly_process_exit_request request = {status & 255u, 0};
   (void)dolly_process_call(
       DOLLY_PROCESS_EXIT, &request, sizeof(request), NULL, 0);
   __builtin_trap();
@@ -457,8 +457,10 @@ static uint32_t translate_open_flags(int flags) {
   return result;
 }
 
+static int set_status_flags(int descriptor, int flags);
+
+/* The mode is not part of Dolly's ABI: there is no permission model. */
 int __syscall_openat(int directory, const char *path, int flags, ...) {
-  (void)sizeof(va_list); /* The mode is intentionally not part of Dolly's ABI. */
   const uint32_t translated = translate_open_flags(flags);
   if (translated == 0) return -EINVAL;
   dolly_process_path_open_response response = {0};
@@ -466,8 +468,16 @@ int __syscall_openat(int directory, const char *path, int flags, ...) {
       DOLLY_PROCESS_PATH_OPEN, directory, translated, path,
       &response, sizeof(response));
   if (result < 0) return (int)result;
-  return (uint64_t)result == sizeof(response) && response.reserved == 0
-      ? (int)response.descriptor : -EIO;
+  if ((uint64_t)result != sizeof(response) || response.reserved != 0) return -EIO;
+  const int descriptor = (int)response.descriptor;
+  if ((flags & O_NONBLOCK) != 0) {
+    const int error = set_status_flags(descriptor, O_NONBLOCK);
+    if (error != 0) {
+      close(descriptor);
+      return error;
+    }
+  }
+  return descriptor;
 }
 
 static mode_t file_type_mode(uint32_t type) {
@@ -777,18 +787,19 @@ __attribute__((weak)) int sem_init(sem_t *semaphore, int shared, unsigned value)
 __attribute__((weak)) int sem_destroy(sem_t *semaphore) {
   (void)semaphore; errno = ENOSYS; return -1;
 }
-#endif
-
-int sysctlbyname(const char *name, void *old_value, size_t *old_size,
-                 const void *new_value, size_t new_size) {
-  (void)name;
-  (void)old_value;
-  (void)old_size;
-  (void)new_value;
-  (void)new_size;
-  errno = ENOSYS;
-  return -1;
+/* A serial process has one thread, so a cleanup handler runs only when popped. */
+void _pthread_cleanup_push(struct __ptcb *callback,
+                           void (*function)(void *), void *argument) {
+  callback->__f = function;
+  callback->__x = argument;
+  callback->__next = NULL;
 }
+void _pthread_cleanup_pop(struct __ptcb *callback, int execute) {
+  if (execute != 0 && callback != NULL && callback->__f != NULL) {
+    callback->__f(callback->__x);
+  }
+}
+#endif
 
 __wasi_errno_t __wasi_random_get(uint8_t *buffer, __wasi_size_t size) {
   if (buffer == NULL && size != 0) return EFAULT;
@@ -1102,6 +1113,47 @@ static uintptr_t ioctl_argument(uintptr_t arguments) {
   return argument;
 }
 
+/*
+ * The terminal performs no input mapping or flow control, Ctrl+C is its only
+ * signal key, and reads return the bytes available (VMIN 1, VTIME 0).
+ * TCGETS reports exactly that. TCSETS* rejects requests for anything else
+ * and, as POSIX allows, ignores attributes that cannot apply to a terminal
+ * without a line, such as speeds, parity and break handling.
+ */
+static int terminal_mode_from_attributes(const struct termios *attributes) {
+  const tcflag_t unsupported_input =
+      ICRNL | INLCR | IGNCR | IUCLC | IXON | IXOFF | IXANY | ISTRIP;
+  const cc_t *keys = attributes->c_cc;
+  if ((attributes->c_iflag & unsupported_input) != 0 ||
+      (attributes->c_oflag & ~(tcflag_t)(OPOST | ONLCR)) != 0 ||
+      ((attributes->c_lflag & ISIG) != 0 &&
+       (keys[VINTR] != 3 || keys[VQUIT] != 0 || keys[VSUSP] != 0)) ||
+      ((attributes->c_lflag & ICANON) == 0 &&
+       (keys[VMIN] != 1 || keys[VTIME] != 0))) return -EINVAL;
+  uint32_t mode = 0;
+  if ((attributes->c_lflag & ICANON) != 0) mode |= DOLLY_TERMINAL_CANONICAL;
+  if ((attributes->c_lflag & ECHO) != 0) mode |= DOLLY_TERMINAL_ECHO;
+  if ((attributes->c_lflag & ISIG) != 0) mode |= DOLLY_TERMINAL_ISIG;
+  if ((attributes->c_oflag & OPOST) != 0) mode |= DOLLY_TERMINAL_OPOST;
+  if ((attributes->c_oflag & ONLCR) != 0) mode |= DOLLY_TERMINAL_ONLCR;
+  return (int)mode;
+}
+
+/* Output is never queued, so only unread input can be discarded. */
+static int discard_terminal_input(int descriptor) {
+  const dolly_process_terminal_request request = {
+      DOLLY_PROCESS_TERMINAL_READ, (uint32_t)descriptor, 0, 0, 0,
+  };
+  dolly_process_terminal_response response;
+  int64_t result;
+  do {
+    result = dolly_process_call(DOLLY_PROCESS_TERMINAL, &request, sizeof(request),
+                                &response, sizeof(response));
+  } while (result == sizeof(response) && response.value >= 0);
+  if (result < 0) return (int)result;
+  return result == sizeof(response) ? 0 : -EIO;
+}
+
 int __syscall_ioctl(int descriptor, int request, uintptr_t arguments) {
   const uintptr_t argument = ioctl_argument(arguments);
   switch (request) {
@@ -1123,7 +1175,6 @@ int __syscall_ioctl(int descriptor, int request, uintptr_t arguments) {
       if (mode < 0) return mode;
       struct termios attributes;
       memset(&attributes, 0, sizeof(attributes));
-      attributes.c_iflag = ICRNL | IXON;
       if (mode & DOLLY_TERMINAL_OPOST) attributes.c_oflag |= OPOST;
       if (mode & DOLLY_TERMINAL_ONLCR) attributes.c_oflag |= ONLCR;
       attributes.c_cflag = CS8 | CREAD;
@@ -1135,14 +1186,11 @@ int __syscall_ioctl(int descriptor, int request, uintptr_t arguments) {
         attributes.c_lflag |= ECHO | ECHOE | ECHOK;
       }
       attributes.c_cc[VINTR] = 3;
-      attributes.c_cc[VQUIT] = 28;
       attributes.c_cc[VERASE] = 127;
       attributes.c_cc[VKILL] = 21;
       attributes.c_cc[VEOF] = 4;
       attributes.c_cc[VMIN] = 1;
       attributes.c_cc[VTIME] = 0;
-      attributes.c_cc[VSTART] = 17;
-      attributes.c_cc[VSTOP] = 19;
       attributes.__c_ispeed = B38400;
       attributes.__c_ospeed = B38400;
       memcpy((void *)argument, &attributes, sizeof(attributes));
@@ -1154,15 +1202,27 @@ int __syscall_ioctl(int descriptor, int request, uintptr_t arguments) {
       if (argument == 0) return -EFAULT;
       struct termios attributes;
       memcpy(&attributes, (const void *)argument, sizeof(attributes));
-      uint32_t mode = 0;
-      if ((attributes.c_lflag & ICANON) != 0) {
-        mode |= DOLLY_TERMINAL_CANONICAL;
-      }
-      if ((attributes.c_lflag & ECHO) != 0) mode |= DOLLY_TERMINAL_ECHO;
-      if ((attributes.c_lflag & ISIG) != 0) mode |= DOLLY_TERMINAL_ISIG;
-      if (attributes.c_oflag & OPOST) mode |= DOLLY_TERMINAL_OPOST;
-      if (attributes.c_oflag & ONLCR) mode |= DOLLY_TERMINAL_ONLCR;
-      return dolly_terminal_mode_set(descriptor, mode);
+      const int mode = terminal_mode_from_attributes(&attributes);
+      if (mode < 0) return mode;
+      const int result = dolly_terminal_mode_set(descriptor, (uint32_t)mode);
+      if (result < 0 || request != TCSETSF) return result;
+      return discard_terminal_input(descriptor);
+    }
+    /* These pass an int, and only the argument's low half holds it. */
+    case TCFLSH: {
+      const int mode = dolly_terminal_mode_get(descriptor);
+      if (mode < 0) return mode;
+      if ((int)argument == TCOFLUSH) return 0;
+      if ((int)argument != TCIFLUSH && (int)argument != TCIOFLUSH) return -EINVAL;
+      return discard_terminal_input(descriptor);
+    }
+    case TCSBRK:
+    case TCXONC: {
+      /* tcdrain() is TCSBRK with a nonzero argument; break and flow control
+       * have no meaning without a line. */
+      const int mode = dolly_terminal_mode_get(descriptor);
+      if (mode < 0) return mode;
+      return request == TCSBRK && (int)argument != 0 ? 0 : -ENOTSUP;
     }
     case TIOCGWINSZ: {
       if (argument == 0) return -EFAULT;
@@ -1336,6 +1396,14 @@ int __syscall_getcwd(char *buffer, size_t size) {
   if (result < 0) return (int)result;
   if ((uint64_t)result > size || result == 0 || buffer[result - 1] != 0) return -EIO;
   return (int)result;
+}
+
+/* Zig's C output references this BSD query; Dolly has no such table. */
+int sysctlbyname(const char *name, void *old_value, size_t *old_size,
+                 const void *new_value, size_t new_size) {
+  (void)name; (void)old_value; (void)old_size; (void)new_value; (void)new_size;
+  errno = ENOSYS;
+  return -1;
 }
 
 /*

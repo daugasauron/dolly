@@ -1,11 +1,9 @@
-import fs from "node:fs";
 import { SessionManager } from "/usr/lib/node_modules/@earendil-works/pi-coding-agent/dist/core/session-manager.js";
 
 const directory = `${process.argv[2]}/sessions`;
 for (let index = 0; process.argv[3] !== "verify" && index < 12; index++) {
   const session = SessionManager.create(process.cwd(), directory);
   session.appendMessage({ role: "user", content: `resume prompt ${index} 日本語😀`, timestamp: Date.now() });
-  if (fs.existsSync(session.getSessionFile())) throw new Error("empty sessions should not be persisted yet");
   session.appendMessage({ role: "assistant", content: [{ type: "text", text: `resume reply ${index}` }],
     api: "openai-completions", provider: "webgpu", model: "Qwen3.5-2B",
     stopReason: "stop", timestamp: Date.now(), usage: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0,

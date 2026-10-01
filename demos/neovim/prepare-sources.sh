@@ -1,40 +1,40 @@
 # Sourced by scripts/prepare-image-sources.sh.
-if has_module lua; then
+if has_image neovim-build; then
   lua_archive="$(bash scripts/fetch-pinned-archive.sh lua)"
 fi
-if has_module lpeg; then
+if has_image neovim-build; then
   lpeg_dir="$(bash scripts/fetch-pinned-source.sh lpeg)"
 fi
-if has_module neovim || has_module neovim-parsers; then
+if has_image neovim-build; then
   neovim_dir="$(bash demos/neovim/prepare-neovim.sh)"
 fi
-if has_module luv; then
+if has_image neovim-build; then
   luv_dir="$(bash scripts/fetch-pinned-source.sh luv)"
   lua_compat53_dir="$(bash scripts/fetch-pinned-source.sh lua_compat53)"
 fi
-if has_module lua; then
+if has_image neovim-build; then
   copy_static "${lua_archive}" neovim/lua-5.1.5.tar.gz
 fi
-if has_module lpeg; then
+if has_image neovim-build; then
   node scripts/build-source-tar.mjs "${static_dir}/neovim/lpeg.tar" \
     "${lpeg_dir}" /tmp/lpeg/source \
     "${lpeg_dir}/lpeg.html" /usr/share/licenses/lpeg/lpeg.html
 fi
-if has_module luv; then
+if has_image neovim-build; then
   node scripts/build-source-tar.mjs "${static_dir}/neovim/luv.tar" \
     "${luv_dir}" /tmp/luv/source \
     "${lua_compat53_dir}" /tmp/luv/source/deps/lua-compat-5.3 \
     "${luv_dir}/LICENSE.txt" /usr/share/licenses/luv/LICENSE.txt \
     "${lua_compat53_dir}/LICENSE" /usr/share/licenses/lua-compat53/LICENSE
 fi
-if has_module neovim; then
+if has_image neovim-build; then
   node scripts/build-source-tar.mjs "${static_dir}/neovim/neovim.tar.gz" \
     "${neovim_dir}" /tmp/neovim/source \
     "${neovim_dir}/LICENSE.txt" /usr/share/licenses/neovim/LICENSE.txt \
     "${neovim_dir}/src/mpack/LICENSE-MIT" /usr/share/licenses/neovim/mpack \
     "${neovim_dir}/src/nvim/vterm/LICENSE" /usr/share/licenses/neovim/vterm
 fi
-if has_module neovim-parsers; then
+if has_image neovim-build; then
   parser_inputs=()
   for language in c lua vim vimdoc query markdown; do
     parser_dir="$(bash scripts/fetch-pinned-source.sh "treesitter_${language}")"
@@ -57,7 +57,7 @@ if has_module neovim-parsers; then
     "${neovim_dir}/LICENSE.txt" /usr/share/licenses/neovim-parsers/build-recipes
 fi
 for dependency in utf8proc treesitter; do
-  if has_module "${dependency}"; then
+  if has_image neovim-build; then
     dependency_dir="$(bash scripts/fetch-pinned-source.sh "${dependency}")"
     dependency_license=LICENSE
     if [[ "${dependency}" == utf8proc ]]; then dependency_license=LICENSE.md; fi

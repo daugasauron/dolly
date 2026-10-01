@@ -5,7 +5,7 @@ import { lstat, mkdir, readdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, resolve, sep } from "node:path";
 import { pathToFileURL } from "node:url";
 
-const recipePath = /^Dollyfile(?:-[a-z][a-z0-9-]*)?$/;
+const recipePath = /^Dollyfile(?:-[a-z][a-z0-9]*(?:-[a-z0-9]+|\.[0-9]+)*)?$/;
 // Documentation examples are text, not additional images to build and publish.
 const documentPath = path => recipePath.test(path) ? `${path}.txt` : path;
 

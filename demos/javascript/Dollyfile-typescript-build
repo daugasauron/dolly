@@ -1,9 +1,126 @@
-DOLLY 5
-IMAGE typescript-build
+DOLLY 6
+TOOLCHAIN typescript-build
+REQUIRES HOST display@0
+REQUIRES HOST download@0
+REQUIRES HOST http@0
+REQUIRES HOST upload@0
 
-FROM https://daugasauron.com/Dollyfile-system-tools 46d753ab5207fbbbaf3bf2578e70bdbf3ab311a5f30b786311796be52426dbd3
+FROM https://daugasauron.com/Dollyfile-system-tools 6141107accc61e9916908bcbfbbf97d0dd147f697a4ce632dc6a6bb59cd24fdc
 
-USE https://daugasauron.com/demos/javascript/quickjs.dm afd07271b390e463a7d717c90c7df1ad8177d65310b546f433af78544399fc0f
-USE https://daugasauron.com/demos/javascript/typescript.dm 0e9f793930a483d187b248d271adc8bfbf15bd5d5c684491b0870595a16019f8
+REQUIRES TOOL   ar
+REQUIRES TOOL   cc
+REQUIRES TOOL   cp
+REQUIRES TOOL   ln
+REQUIRES TOOL   make
+REQUIRES TOOL   rm
+REQUIRES TOOL   tar
+REQUIRES HEADER libc
+REQUIRES HEADER runtime
+REQUIRES HEADER http
+REQUIRES HEADER download
+
+SOURCE https://daugasauron.com/dist/static/default/quickjs.tar               d23b73610440a642dfb49de7910cbf34550d31b3a9ca375291f9c74444749d8a /tmp/quickjs.tar
+SOURCE https://daugasauron.com/dist/static/default/runtimes/quickjs-main.c   4e2d4f56d911c62f3fb77756ee1d0360eab9faeb425f36eaca91a34ec12dbb65 /usr/src/dolly/runtimes/quickjs-main.c
+SOURCE https://daugasauron.com/dist/static/default/runtimes/quickjs-runner.h dff97c2bbc62d51460e232a9f58550eb6320bd81341bff9ebf136b31a0fc206b /usr/include/dolly/quickjs-runner.h
+SOURCE https://daugasauron.com/dist/static/default/runtimes/dolly-node.js    782a21dca6a90fbffb03ba1f5002561b0a0b4be1f7c9ae198b37906f3f294e9b /usr/lib/dolly/node.js
+SOURCE https://daugasauron.com/dist/static/default/runtimes/janis.js         ba26f45d2d9c8ad80c3cc86169325b91b0e425e048d048af2972408a1b654cf5 /usr/lib/janis/runtime.js
+SOURCE https://daugasauron.com/dist/static/default/commands/janis.c          08c40227d11f06e851a6406fe5ed8f8d7e5f7cdd28a3dad2609c04650a7afe1b /usr/src/dolly/commands/janis.c
+SLOP tar \
+  -xf /tmp/quickjs.tar \
+  -C /
+
+FILE /tmp/quickjs/Makefile
+    .RECIPEPREFIX := >
+    NAMES := dtoa libregexp libunicode quickjs
+    OBJECTS := /tmp/quickjs/main.o $(addprefix /tmp/quickjs/,$(addsuffix .o,$(NAMES)))
+    CPPFLAGS := \
+      -O2 \
+      -std=gnu11 \
+      -I /usr/src/quickjs \
+      -I /usr/include/dolly \
+      -DEMSCRIPTEN=1 \
+      -D_GNU_SOURCE \
+      -DQUICKJS_NG_BUILD \
+      -DNDEBUG \
+      -funsigned-char
+    all: /usr/bin/janis
+    /tmp/quickjs/main.o: /usr/src/dolly/runtimes/quickjs-main.c
+    >cc $(CPPFLAGS) -c $< -o $@
+    /tmp/quickjs/%.o: /usr/src/quickjs/%.c
+    >cc $(CPPFLAGS) -c $< -o $@
+    /usr/lib/libdolly-js.a: $(OBJECTS)
+    >ar rcs $@ $^
+    /usr/bin/janis: /usr/src/dolly/commands/janis.c /usr/lib/libdolly-js.a
+    >cc $(CPPFLAGS) $< -ldolly-js -o $@
+SLOP CWD / make \
+  -f /tmp/quickjs/Makefile
+# qjs is the same program as janis.
+SLOP ln -s janis /usr/bin/qjs
+
+EXPORTS TOOL qjs
+EXPORTS TOOL janis
+
+SLOP qjs \
+  --version
+SLOP janis \
+  --version
+
+FILE /usr/lib/dolly/node.js
+FILE /usr/lib/janis/runtime.js
+EXPORTS LIB    dolly-js       /usr/lib/libdolly-js.a
+EXPORTS HEADER quickjs-runner /usr/include/dolly/quickjs-runner.h
+SLOP cp /usr/src/quickjs/quickjs.h /usr/include/quickjs.h
+EXPORTS HEADER quickjs /usr/include/quickjs.h
+FILE /usr/share/licenses/quickjs-ng/LICENSE
+
+SLOP rm \
+  -rf \
+  /tmp/quickjs \
+  /tmp/quickjs.tar \
+  /usr/src/dolly/commands/janis.c \
+  /usr/src/dolly/runtimes \
+  /usr/src/quickjs
+# The unchanged npm TypeScript distribution runs under Janis. Its launcher is
+# compiled as an ordinary Dolly executable and the compiler is exercised in
+# the sandbox before this reusable layer is published.
+REQUIRES HEADER quickjs-runner
+REQUIRES LIB    dolly-js
+REQUIRES TOOL   gzip
+REQUIRES TOOL   mkdir
+REQUIRES TOOL   qjs
+
+SOURCE https://daugasauron.com/dist/static/default/typescript-5.9.3.tgz   10e108c9cf7d5f2879053dff18515fb405abf2ccef63eaaf017d9c571687a1d3 /tmp/typescript/typescript.tgz
+SOURCE https://daugasauron.com/dist/static/default/runtimes/tsc-dolly.mjs c81fe4905c8a1aeb83fd8dca09f7ad05242d2975efa91c1c7f004acc23eac80d /usr/lib/typescript/tsc-dolly.mjs
+SOURCE https://daugasauron.com/dist/static/default/commands/tsc.c         eed8eb879762896740cec873c5ff227bc819e82b422bb2a35d32d420c0aee5eb /tmp/typescript/tsc.c
+
+SLOP gzip \
+  -dc \
+  /tmp/typescript/typescript.tgz \
+  > /tmp/typescript/typescript.tar
+SLOP mkdir \
+  -p \
+  /usr/lib/typescript
+SLOP tar \
+  -xf /tmp/typescript/typescript.tar \
+  -C /usr/lib/typescript
+
+FILE /tmp/typescript/Makefile
+    .RECIPEPREFIX := >
+    CPPFLAGS := -std=gnu11 -I /usr/include/dolly -DEMSCRIPTEN=1 -D_GNU_SOURCE -DQUICKJS_NG_BUILD -DNDEBUG -funsigned-char
+    all: /usr/bin/tsc
+    /usr/bin/tsc: /tmp/typescript/tsc.c /usr/lib/typescript/tsc-dolly.mjs /usr/lib/typescript/package/lib/_tsc.js
+    >cc $(CPPFLAGS) $< -ldolly-js -o $@
+SLOP make \
+  -f /tmp/typescript/Makefile
+
+EXPORTS TOOL   tsc
+EXPORTS FOLDER typescript /usr/lib/typescript
+
+SLOP tsc \
+  --version
+
+SLOP rm \
+  -rf \
+  /tmp/typescript
 
 ENTRY /bin/foreground -i /bin/slop

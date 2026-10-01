@@ -1,3 +1,9 @@
 // Generated from host/download/dolly-download-0.wat, host/download/download.h.
+export const DOLLY_DOWNLOAD_OPEN = 1;
+export const DOLLY_DOWNLOAD_WRITE = 2;
+export const DOLLY_DOWNLOAD_CLOSE = 3;
+export const DOLLY_DOWNLOAD_ABORT = 4;
+export const DOLLY_DOWNLOAD_CHUNK_CAPACITY = 1048576;
+export const DOLLY_DOWNLOAD_MAX_SIZE = 1073741824;
 export const DOLLY_DOWNLOAD_FILE = 51;
-export const DOLLY_DOWNLOAD_ABI_DIGEST = "829990dc15dbf846d77593b08858a7ef16f6d5f48e84b2afe38a0e2b84c179c5";
+export const DOLLY_DOWNLOAD_ABI_DIGEST = "f5c6e4ad11e3859791578d73cce40946eb3528da93dc6971c17951faac642b4f";

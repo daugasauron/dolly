@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 import { readFile, stat, writeFile } from "node:fs/promises";
 import { basename, resolve } from "node:path";
 
-import { inspectDollyfile } from "../src/dollyfile-view.mjs";
+import { inspectDollyfile, imageFileName, validName } from "../src/dollyfile-view.mjs";
 import {
   createDollyfileGraphLoader,
   recipeRecords,
@@ -15,12 +15,10 @@ import { CANONICAL_ORIGIN, canonicalPath } from "../src/static-asset.mjs";
 export async function discoverImageDefinitions(projectDir) {
   const definitions = [];
   for (const filename of (await recipeFiles(projectDir)).values()) {
-    if (filename.endsWith(".dm")) continue;
     const source = await readFile(resolve(projectDir, filename), "utf8");
     const parsed = inspectDollyfile(source, filename);
-    const expected = parsed.image === "default" ? "Dollyfile" : `Dollyfile-${parsed.image}`;
-    if (basename(filename) !== expected) {
-      throw new Error(`${filename}: IMAGE ${parsed.image} must use filename ${expected}`);
+    if (parsed.kind !== "image" || imageFileName(basename(filename)) !== parsed.image) {
+      throw new Error(`${filename}: must declare the image ${imageFileName(basename(filename))}`);
     }
     definitions.push({
       projectDir,
@@ -44,8 +42,7 @@ export async function selectImageDefinitions(definitions, selection = process.en
     return definitions;
   }
   const requested = selection.split(",").map((name) => name.trim());
-  if (requested.some((name) => !/^[a-z][a-z0-9-]{0,31}$/.test(name)) ||
-      new Set(requested).size !== requested.length) {
+  if (!requested.every(validName) || new Set(requested).size !== requested.length) {
     throw new Error("DOLLY_BUILD_IMAGES must be a comma-separated list of unique image names");
   }
   const byName = new Map(definitions.map((definition) => [definition.image, definition]));
@@ -76,17 +73,17 @@ export async function inspectStaticSources(projectDir, definitions) {
   const loadGraph = createDollyfileGraphLoader(projectDir);
   for (const definition of definitions) {
     const graph = await loadGraph(definition.filename);
-    for (const module of graph.records) {
-      const path = canonicalPath(module.location);
+    for (const record of graph.records) {
+      const path = canonicalPath(record.location);
       const previous = sources.get(path);
-      if (previous && previous.sha256 !== module.sha256) {
-        throw new Error(`${definition.filename}: conflicting module ${path}`);
+      if (previous && previous.sha256 !== record.sha256) {
+        throw new Error(`${definition.filename}: conflicting recipe ${path}`);
       }
       if (!previous) {
         sources.set(path, Object.freeze({
           path,
-          sha256: module.sha256,
-          byteLength: Buffer.byteLength(module.source),
+          sha256: record.sha256,
+          byteLength: Buffer.byteLength(record.source),
         }));
       }
     }
@@ -122,16 +119,6 @@ export async function inspectStaticSources(projectDir, definitions) {
       }));
     }
   }
-  // Publishing module text does not execute it or select its build inputs.
-  for (const [url, file] of await recipeFiles(projectDir)) {
-    const path = canonicalPath(url);
-    if (!path.endsWith(".dm") || sources.has(path)) continue;
-    const bytes = await readFile(resolve(projectDir, file));
-    if (bytes.length === 0) continue;
-    sources.set(path, Object.freeze({
-      path, sha256: createHash("sha256").update(bytes).digest("hex"), byteLength: bytes.length,
-    }));
-  }
   return [...sources.values()].sort((left, right) =>
     left.path < right.path ? -1 : left.path > right.path ? 1 : 0);
 }
@@ -139,12 +126,11 @@ export async function inspectStaticSources(projectDir, definitions) {
 export function registrySource(definitions, staticSources = []) {
   const records = definitions.map(({ image, filename, source, parsed }) => ({
     image,
+    role: parsed.role,
+    entry: parsed.entry,
     dollyfile: filename,
     byteLength: Buffer.byteLength(source),
     sha256: createHash("sha256").update(source).digest("hex"),
-    modules: parsed.uses.map(
-      ({ location, sha256 }) => ({ location, sha256 }),
-    ),
     recipes: parsed.recipes ?? [],
     artifacts: parsed.artifacts ?? [],
     hostRequirements: parsed.hostRequirements ?? [],

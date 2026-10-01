@@ -1,9 +1,15 @@
-DOLLY 5
-IMAGE zero-ad-engine
+DOLLY 6
+TOOLCHAIN zero-ad-engine
+REQUIRES HOST audio@0
+REQUIRES HOST display@0
+REQUIRES HOST download@0
+REQUIRES HOST gpu@0
+REQUIRES HOST http@0
+REQUIRES HOST upload@0
 
 # Build-only: premake and the 0 A.D. engine (pyrogenesis), built by upstream's
 # premake Makefiles with Dolly's c++.
-FROM https://daugasauron.com/demos/zero-ad/Dollyfile-zero-ad-deps c28b9e24f9a7f692c1fe9d3e1a6bfd694e81a7637e028ba2de1687e85a98970e
+FROM https://daugasauron.com/demos/zero-ad/Dollyfile-zero-ad-deps 8c9d4b1fb0bd574b2de98aa19e5f6a596878a3fa4459e86af6f64d5fc84e5f3a
 REQUIRES TOOL cc
 REQUIRES TOOL c++
 REQUIRES TOOL ar

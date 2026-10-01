@@ -1,7 +1,41 @@
-DOLLY 5
-IMAGE pi
+DOLLY 6
+APPLICATION pi
+REQUIRES HOST display@0
+REQUIRES HOST download@0
+REQUIRES HOST http@0
+REQUIRES HOST snapshot@0
+REQUIRES HOST threads@0
+REQUIRES HOST upload@0
 
-FROM https://daugasauron.com/demos/pi/Dollyfile-pi-runtime f9ff68d4d0e72b71128e82b12665bfa9c4ffb974d7cddf5f7f491c3ba4f85d40
-USE https://daugasauron.com/demos/pi/startup-pi.dm 58548ae7f8226f2eae2cbad6d90bcebfa984a07e6dbc1c455b4508d897928890
+FROM https://daugasauron.com/demos/pi/Dollyfile-pi-runtime ce0da32bc64b0a687ec2f539f054e9397bcf729985f045a08be750df33ea19d2
+REQUIRES TOOL foreground
+REQUIRES TOOL test
+REQUIRES TOOL printf
+REQUIRES TOOL pi
+
+FILE /etc/dolly/init.slop
+    if test -f "$HOME/.dollyrc"; then
+      /bin/foreground /bin/slop -e "$HOME/.dollyrc"
+      status=$?
+      case "$status" in
+        0|130) ;;
+        *) printf 'Dolly: %s exited with status %s; continuing.\n' "$HOME/.dollyrc" "$status" >&2 ;;
+      esac
+    fi
+    for attempt in 1 2 3; do
+      /bin/foreground -i /usr/bin/pi
+      status=$?
+      case "$status" in 0|130) break ;; esac
+      if test "$attempt" -lt 3; then
+        printf '\nDolly: restarting Pi after unexpected status %s (%s/2).\n' "$status" "$attempt"
+      fi
+    done
+    printf '\nDolly: image entry exited; entering the recovery Slop shell.\n'
+    /bin/foreground -i /bin/slop
+
+FILE /home/dolly/.dollyrc
+    printf '\033[33mDOLLY / PI\033[0m\n'
+    printf 'Pi and every command run inside the browser Wasm sandbox.\n'
+    printf 'Try: ask Pi about /workspace | ! ls | ! git status | /help\n\n'
 
 ENTRY /bin/foreground -i /bin/slop /etc/dolly/init.slop

@@ -19,10 +19,8 @@ DOLLY_QUICKJS_VERSION=0.15.0
 DOLLY_QUICKJS_COMMIT=433941b99fb3c5e7f98b7ebd78727972bcf467ee
 DOLLY_QUICKJS_URL='https://github.com/quickjs-ng/quickjs.git'
 
-DOLLY_PI_VERSION=0.84.4
-DOLLY_PI_URL='https://registry.npmjs.org/@earendil-works/pi-coding-agent/-/pi-coding-agent-0.84.4.tgz'
-DOLLY_PI_SHA256=5bce766d19c3ceba18f3fbaad91c449c9f9d73981f9e3400ecef932006f06968
-DOLLY_PI_SOURCE_COMMIT=b79e4cc834970cca69daebffab7df1da7d1e52c4
+# Pi v0.99.2; package-lock.json pins the matching published npm packages.
+DOLLY_PI_SOURCE_COMMIT=005af57d88ee23b33778f343a9595b32e67ff788
 DOLLY_PI_SOURCE_URL='https://github.com/earendil-works/pi.git'
 
 DOLLY_TYPESCRIPT_VERSION=5.9.3
@@ -179,3 +177,7 @@ DOLLY_LUA55_SHA256=1c4b4068d67061f2a2231ad2b5422e77acea1487ea9890f6320af614f4373
 # Native shader translator used by the 0 A.D. asset preparation step.
 DOLLY_0AD_NAGA_VERSION=30.0.1
 DOLLY_0AD_NAGA_SHA256=45283c11b8b1da1936214eefc9caf9c1bc74ae5c090023eaea84ba317a194c8c
+
+DOLLY_EMACS_VERSION=31.1
+DOLLY_EMACS_URL='https://ftp.gnu.org/gnu/emacs/emacs-31.1.tar.gz'
+DOLLY_EMACS_SHA256=3cad7fd1466c0e24867df8d2609da3ac75abc90d7c4c0175e410e9be46d4092a

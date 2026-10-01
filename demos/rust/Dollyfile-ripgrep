@@ -1,7 +1,27 @@
-DOLLY 5
-IMAGE ripgrep
+DOLLY 6
+PACKAGE ripgrep
+REQUIRES HOST http@0
+REQUIRES HOST threads@0
 
-FROM https://daugasauron.com/demos/rust/Dollyfile-rust-build 662bbb9cb92a5b80451b370d66ed6a4042044bc8ad5e39997d699d30cbd96a73
-USE https://daugasauron.com/demos/rust/ripgrep.dm c383f6ef7914ed06fc50f36b07aa2530f3bfd92d8d7d76f84b3cb07b8a41449e
+FROM https://daugasauron.com/demos/rust/Dollyfile-rust-build fd297734cc7d949bece569a79a19df3da34cf0b37b1ed85623b75b033de9d753
+REQUIRES TOOL patti
+REQUIRES TOOL tar
+REQUIRES TOOL cp
+REQUIRES TOOL mkdir
+REQUIRES TOOL rm
 
-ENTRY /bin/foreground -i /bin/slop
+# Archives contain upstream source and checksum-verified locked crate archives.
+SOURCE https://daugasauron.com/dist/static/rust/ripgrep.tar a836e0f7415d53cc6e99f1b9ef5112bd70d3acd4f0cd5cbff3c8bde46dc6daa7 /tmp/ripgrep.tar
+SLOP tar -xf /tmp/ripgrep.tar -C /
+SLOP patti build -j 4 --offline --manifest-path /tmp/ripgrep/source/Cargo.toml --bin rg --patch libc=/opt/rust-sdk/src/libc --cache /tmp/ripgrep/cache --target-dir /tmp/ripgrep/build
+SLOP cp /tmp/ripgrep/build/rg /usr/bin/rg
+SLOP mkdir -p /usr/share/licenses/ripgrep /usr/share/dolly/builds
+SLOP cp /tmp/ripgrep/source/LICENSE-MIT /usr/share/licenses/ripgrep/LICENSE-MIT
+SLOP cp /tmp/ripgrep/source/UNLICENSE /usr/share/licenses/ripgrep/UNLICENSE
+SLOP cp /tmp/ripgrep/build/patti-build.json /usr/share/dolly/builds/ripgrep.json
+SLOP rm -rf /tmp/ripgrep /tmp/ripgrep.tar
+
+EXPORTS TOOL rg
+EXPORTS FOLDER ripgrep-licenses /usr/share/licenses/ripgrep
+FILE /usr/share/dolly/builds/ripgrep.json
+SLOP rg --version

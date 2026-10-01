@@ -32,6 +32,7 @@ flowchart TB
   http --> policy["HTTP policy"]
   policy --> fetch(("Fetch"))
   policy --> build["build@0: local build service"]
+  policy --> packages["packages@0: local package service"]
   dl --> save["user clicks Save"]
   up --> picker["user picks a file"]
 ```
@@ -49,23 +50,34 @@ select no JavaScript or Worker URL.
 | --- | --- | --- | --- |
 | `runtime@0` | memory, clocks, entropy, environment, seed preload, text output, terminal mailbox | Kernel memory and boot inputs; process Workers; report foreground and results, receive Ctrl+C | [`host/runtime/`](../host/runtime/module.json) ([`process-supervisor.mjs`](../src/process-supervisor.mjs)) |
 | `http@0` | `env.dolly_http_dispatch`, 16-slot pool | The only agent-selected network edge, under the page's policy | [`host/http/`](../host/http/module.json) |
-| `download@0` | `env.dolly_download_dispatch` | Offer one copied file (64 MiB) under a checked basename; saved only by a user click; at most 4 waiting | [`host/download/`](../host/download/module.json) |
-| `upload@0` | mailbox | Ask for a file; the user picks it; 64 MiB of bytes, no name or path; refused for 2 s after a cancel | [`host/upload/`](../host/upload/module.json) |
+| `download@0` | `env.dolly_download_dispatch` | Stream one file (1 MiB chunks, 1 GiB) into a Blob under a checked basename; saved only by a user click; at most 4 waiting | [`host/download/`](../host/download/module.json) |
+| `upload@0` | mailbox | Ask for a file; the user picks it; 1 GiB of bytes in 1 MiB chunks, no name or path; refused for 2 s after a cancel | [`host/upload/`](../host/upload/module.json) |
 | `snapshot@0` | mailbox | Save and restore opaque session deltas (512 MiB) on user action | [`host/snapshot/`](../host/snapshot/module.json) |
 | `display@0` | mailbox | Publish checked RGBA frames; receive bounded input records; load the display plugin from WasmFS | [`host/display/`](../host/display/module.json) ([`kernel-plugin.mjs`](../src/kernel-plugin.mjs)) |
 | `gpu@0` | `env.dolly_gpu_dispatch` | Bounded WebGPU packets, 8 scopes, 4,096 objects each, 4 GiB total, one canvas | [`host/gpu/`](../host/gpu/module.json) |
 | `audio@0` | `env.dolly_audio_dispatch` | Stereo PCM output, 4 streams of 1 s; no capture | [`host/audio/`](../host/audio/module.json) |
 | `threads@0` | supervisor | Worker per thread of an admitted executable: 16 per process, 64 total | [`host/threads/`](../host/threads/module.json) |
 | `build@0` | reserved URL via `http@0` | Start a disposable image build that writes the image cache | [`host/build/`](../host/build/module.json) |
+| `packages@0` | reserved URL via `http@0` | Serve the package index and the verified snapshot of a published package, one at a time, 64 per page | [`host/packages/`](../host/packages/module.json) |
 
 - `REQUIRES HOST` lines and executable `dolly.host` records
   ([`dolly-host-0.wat`](../abi/dolly-host-0.wat)) are compatibility demands, not
-  grants; a missing provider fails before ENTRY. An embedding can restrict the
-  set with `globalThis.DOLLY_HOST_MODULES`.
+  grants; a missing provider fails before ENTRY. An image's own recipe is its
+  complete list: nothing is inherited from `FROM`, `INSTALL` or `COPY` images,
+  sealing refuses a retained executable stamped with an undeclared module, and
+  the loader refuses one at run time. An embedding can restrict the set with
+  `globalThis.DOLLY_HOST_MODULES`.
 - The page enables `runtime@0` plus the image's requirements; rebuild routes add
   `http@0` and `threads@0` for building. Only Dollyfile Studio declares
   `build@0`, and the page admits it only after ENTRY starts
-  ([Studio builds](image-build-service.md)).
+  ([Studio builds](image-build-service.md)). An image declaring `packages@0`
+  (`default`) may GET `https://packages.dolly.invalid/v1/index` and
+  `/v1/packages/SHA256` after ENTRY starts: the page serves its own
+  `dist/dolly-packages.txt` and a published package's snapshot, rebuilt and
+  verified from the release's packs exactly as a build input
+  ([`service.mjs`](../host/packages/service.mjs)). A pin outside the release is
+  404, a second concurrent snapshot 409, the 65th per page 429; the bytes are
+  ordinary sandbox data and grant nothing ([amy](dollyfile.md#packages-and-amy)).
 - Builders ([`image-builder.mjs`](../src/image-builder.mjs)) inherit the page's
   HTTP policy but get no display, file picker or local service, and never run
   ENTRY. One build runs per page; cancellation holds that lease until the
@@ -119,6 +131,7 @@ select no JavaScript or Worker URL.
 | Keyboard, pointer, focus, resize, paste | Bounded records; interpretation stays in Wasm. Pointer lock only after a trusted canvas press |
 | Clipboard copy | Bounded selection text after a user Ctrl+Shift+C |
 | RGBA frames, bootstrap text | Visible output only; the browser parses no terminal or HTML content |
+| GPU indicator | Page text over the display naming the browser's adapter, or why there is none; no guest input ([`gpu.mjs`](../host/gpu/gpu.mjs)) |
 | Image cache | Verified artifacts in IndexedDB, 32 images and 8 GiB ([`image-artifact.mjs`](../src/image-artifact.mjs)) |
 | Boot and code loading | Fixed kernel artifacts only ([`runtime-worker.mjs`](../src/runtime-worker.mjs)); one bundled process Worker; the plugin loader links an explicit kernel export map and fetches nothing |
 | Clocks, entropy, exit, CPU and memory use | Inputs and availability effects only |
@@ -130,8 +143,8 @@ select no JavaScript or Worker URL.
 - Sessions and exports may contain credentials; they are neither encrypted nor
   signed. Browser storage is per origin: every site on one `github.io` account
   can read Dolly's sessions and image cache.
-- Images never retain `/tmp`, `/workspace` or Pi's `auth.json` and sessions. This
-  is not a secret scanner. A hash proves byte identity, not that an image is benign.
+- Images never retain `/tmp` or `/workspace`, and otherwise only the paths their
+  recipes name. A hash proves byte identity, not that an image is benign.
 
 ## Required checks
 

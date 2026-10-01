@@ -1,11 +1,33 @@
-DOLLY 5
-IMAGE pi-local
+DOLLY 6
+APPLICATION pi-local
+REQUIRES HOST display@0
+REQUIRES HOST download@0
+REQUIRES HOST gpu@0
+REQUIRES HOST http@0
+REQUIRES HOST snapshot@0
+REQUIRES HOST threads@0
+REQUIRES HOST upload@0
 
-FROM https://daugasauron.com/demos/pi/Dollyfile-pi 237d797bffe9c2fec931cca1593e64e289006dc698f84ce24727978f5d1d79d9
-COPY FROM https://daugasauron.com/demos/local-llm/Dollyfile-local-llm-build 3b1eb09194f50bcf7b4294aa09cb5c7c3c786c8f490a595588df2a509df394d6 /usr/bin/dolly-llama /usr/bin/dolly-llama
-COPY FROM https://daugasauron.com/demos/local-llm/Dollyfile-llama-build 6350c963920587b9a4f786b43e832f35d1cd1871b269c74c37e951f78a7c04e4 /usr/share/licenses/dolly-llm /usr/share/licenses/dolly-llm
+FROM https://daugasauron.com/demos/pi/Dollyfile-pi f107370d7ef0f0d56c9f2b886f7784b0768dbfbd22fbf2a79614aef90e7cfa0b
+COPY https://daugasauron.com/demos/local-llm/Dollyfile-local-llm-build 97cd9871b66b17aa2f633e18028252633d636d0c44bcca3e403ab176a644a9a6 /usr/bin/dolly-llama /usr/bin/dolly-llama
+COPY https://daugasauron.com/demos/local-llm/Dollyfile-llama-build dd09121e7ef51e8b76834df3c7af091e9896c6e355dae95daf2574456f1507c1 /usr/share/licenses/dolly-llm /usr/share/licenses/dolly-llm
 EXPORTS TOOL dolly-llama
-USE https://daugasauron.com/demos/local-llm/local-llm-weights.dm 7afb113389c8653324ee676794d89aaa0e2d40afaadaffa6892cd0b307927f45
-USE https://daugasauron.com/demos/local-llm/local-llm.dm 885b41f6f486418bda4e9c66f943eb50d3b7d2e7c9ebd1cb80caab9f9f28ff64
+INSTALL https://daugasauron.com/demos/local-llm/Dollyfile-qwen3.5-2b 330559072fe585648baa50be794fe8edb285b7e59a6942cadc5c3691b6fc0074
+
+REQUIRES TOOL janis
+REQUIRES TOOL tar
+REQUIRES TOOL sha256sum
+REQUIRES TOOL curl
+REQUIRES TOOL dolly-llama
+
+SOURCE https://daugasauron.com/dist/static/llama/provider.tar e826b8584ef125b087871918fdda6ff87b4da70b9d6e870a00cb8304fea34125 /tmp/llm-provider.tar
+SLOP tar -xf /tmp/llm-provider.tar -C /
+
+FILE /home/dolly/.pi/agent/settings.json
+    {"enableInstallTelemetry":false,"images":{"autoResize":false},"shellPath":"/bin/slop","theme":"dolly","defaultProvider":"webgpu","defaultModel":"qwen3.5-2b","compaction":{"reserveTokens":4096,"keepRecentTokens":6144}}
+
+EXPORTS FOLDER local-llm /usr/lib/dolly-llm
+EXPORTS FOLDER local-llm-models /usr/share/dolly/llm
+EXPORTS FILE local-model-provider /home/dolly/.pi/agent/extensions/local-model-provider.js
 
 ENTRY /bin/foreground -i /bin/slop /etc/dolly/init.slop

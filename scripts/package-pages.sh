@@ -2,23 +2,18 @@
 set -euo pipefail
 
 project_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
-output="${1:-${project_dir}/build/dolly-pages.tar.gz}"
-releases="${2:-${project_dir}/build/releases}"
-site="${3:-}"
+releases="${1:-${project_dir}/build/releases}"
+site="${2:-}"
 if [[ -n "${site}" && "${site}" != "daugasauron.com" && "${site}" != "github-pages" ]]; then
   echo "dolly: unknown site: ${site}" >&2
   exit 1
 fi
 staging=""
-temporary_output=""
-cleanup() {
-  [[ -z "${staging}" ]] || rm -rf -- "${staging}"
-  [[ -z "${temporary_output}" ]] || rm -f -- "${temporary_output}"
-}
+cleanup() { [[ -z "${staging}" ]] || rm -rf -- "${staging}"; }
 trap cleanup EXIT
-staging="$(mktemp -d)"
-mkdir -p "$(dirname -- "${output}")"
-temporary_output="$(mktemp "$(dirname -- "${output}")/.dolly-pages.XXXXXX")"
+# Staged beside the releases so publication is a rename, not a copy.
+mkdir -p "${releases}"
+staging="$(mktemp -d "${releases}/.staging-XXXXXX")"
 
 node "${project_dir}/scripts/generate-routes.mjs"
 
@@ -69,6 +64,7 @@ cp \
   "${project_dir}/dist/dolly-build-id.mjs" \
   "${project_dir}/dist/dolly-image-build-id.mjs" \
   "${project_dir}/dist/dolly-images.mjs" \
+  "${project_dir}/dist/dolly-packages.txt" \
   "${project_dir}/dist/dolly.data" \
   "${project_dir}/dist/dolly.mjs" \
   "${project_dir}/dist/dolly-seed.mjs" \
@@ -89,8 +85,4 @@ touch "${staging}/site/.nojekyll"
 site_bytes="$(du -sb "${staging}/site" | cut -f1)"
 echo "dolly: Pages site is ${site_bytes} bytes"
 node "${project_dir}/scripts/site-release.mjs" accept "${staging}/site" "${project_dir}"
-tar -C "${staging}/site" -czf "${temporary_output}" .
-mv -- "${temporary_output}" "${output}"
 node "${project_dir}/scripts/site-release.mjs" publish "${staging}/site" "${releases}"
-echo "dolly: wrote $(du -h "${output}" | cut -f1) Pages artifact to ${output}"
-sha256sum -- "${output}"

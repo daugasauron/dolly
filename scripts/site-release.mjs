@@ -3,12 +3,13 @@
 import { spawn, execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { createReadStream } from "node:fs";
-import { cp, lstat, mkdir, mkdtemp, readdir, readFile, rename, rm, symlink, writeFile } from "node:fs/promises";
+import { lstat, mkdir, mkdtemp, readdir, readFile, rename, rm, symlink, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { gunzipSync } from "node:zlib";
 import { mergeSnapshotRecords, validateSnapshotPacks, MAX_SNAPSHOT_BYTES } from "../src/snapshot-records.mjs";
 import { imageInputsMatch } from "../src/image-inputs.mjs";
+import { validName } from "../src/dollyfile-view.mjs";
 import { contractDigest, validateBrowserImports } from "./dolly-abi.mjs";
 import { createDollyfileGraphLoader, recipeRecords } from "./dollyfile-graph.mjs";
 import { discoverImageDefinitions, imageRegistrySource, inspectStaticSources, selectImageDefinitions } from "./image-definitions.mjs";
@@ -136,13 +137,13 @@ export async function verifySite(site) {
     const entry = verifySnapshotIdentity(definition, graph, parsed, processContract, processDigest);
     for (const [key, expected] of Object.entries({
       recipes: recipeRecords(graph),
-      modules: graph.root.uses.map(({ location, sha256 }) => ({ location, sha256 })),
       entry, manifest: parsed.manifest,
     })) {
       if (JSON.stringify(metadata[key]) !== JSON.stringify(expected)) throw new Error(`${image}: release ${key} mismatch`);
     }
   }
-  return definitions.map(({ image }) => image);
+  // Acceptance builds FROM each image; packages are checked by the images that INSTALL them.
+  return definitions.filter(({ parsed }) => parsed.role !== "package").map(({ image }) => image);
 }
 
 async function verifyReleaseFiles(site) {
@@ -166,9 +167,9 @@ export async function verifyRetainedRelease(site) {
   const source = await readFile(resolve(site, "dist/dolly-images.mjs"), "utf8");
   const registry = parseGeneratedConstant(source.split("\nexport const DOLLY_STATIC_SOURCES =", 1)[0], "DOLLY_IMAGES");
   if (!Array.isArray(registry) || !registry.length || registry.length > 256 ||
-      registry.some(item => !/^[a-z][a-z0-9-]{0,31}$/.test(item?.image)) ||
+      registry.some(item => !validName(item?.image)) ||
       new Set(registry.map(item => item.image)).size !== registry.length) throw new Error("invalid retained image registry");
-  await verifyAcceptance(site, manifest, registry.map(item => item.image));
+  await verifyAcceptance(site, manifest, registry.filter(item => item.role !== "package").map(item => item.image));
   return sha256(manifest);
 }
 
@@ -186,17 +187,15 @@ export async function verifyRelease(site, sourceRoot) {
   return sha256(manifest);
 }
 
+// Moves the verified site into RELEASES, so it must be staged on the same filesystem.
 export async function publishRelease(site, releases) {
   const digest = await verifyRelease(site);
   await mkdir(releases, { recursive: true });
   const temporary = await mkdtemp(resolve(releases, ".publish-"));
   try {
-    const candidate = resolve(temporary, "site");
-    await cp(site, candidate, { recursive: true, force: false, errorOnExist: true });
-    if (await verifyRelease(candidate) !== digest) throw new Error("release changed while staging publication");
     const destination = resolve(releases, digest);
     try {
-      await rename(candidate, destination);
+      await rename(site, destination);
     } catch (error) {
       if (!["EEXIST", "ENOTEMPTY"].includes(error.code) || await verifyRelease(destination) !== digest) throw error;
     }

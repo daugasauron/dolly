@@ -34,8 +34,8 @@ Open `/slopyard/`; build with `npm run image -- slopyard`. Slopyard needs
   draws the editor panels in software.
 - Controllers run at 20 Hz by default in separate Lua 5.5 states with no I/O.
 - Buoyancy samples each block's volume; it is not a fluid simulation.
-- Key files: [`slopyard.dm`](slopyard.dm), [`gamedev-sdk.dm`](gamedev-sdk.dm),
-  [`lua55.dm`](lua55.dm), [`src/main.c`](src/main.c),
+- Key files: [`Dollyfile-slopyard`](Dollyfile-slopyard), [`Dollyfile-gamedev-sdk`](Dollyfile-gamedev-sdk),
+  [`Dollyfile-slopyard`](Dollyfile-slopyard), [`src/main.c`](src/main.c),
   [`src/pi.mjs`](src/pi.mjs), catalog programs in [`src/programs/`](src/programs/);
   tests in [`test/`](test/).
 
@@ -45,4 +45,5 @@ Open `/slopyard/`; build with `npm run image -- slopyard`. Slopyard needs
 - Winch cables do not collide with terrain.
 - Walking after rescue and repeated combat rounds are incomplete.
 
-Test: `npm run test:demos -- slopyard` ([`test/`](test/)).
+Test: `node demos/slopyard/test/slopyard-browser.mjs` with `DISPLAY` set; it needs a GPU
+window, so `npm run test:demos` skips it ([`test/`](test/)).

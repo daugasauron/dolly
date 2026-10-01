@@ -6,11 +6,13 @@
 # inside Dolly and therefore must not appear here.
 @anthropic-ai/sdk
 @google/genai
+@stablelib/base64
 balanced-match
 brace-expansion
 chalk
 cross-spawn
 diff
+fast-sha256
 get-east-asian-width
 graceful-fs
 grok-mermaid
@@ -32,6 +34,7 @@ semver
 shebang-command
 shebang-regex
 signal-exit
+standardwebhooks
 typebox
 which
 yaml

@@ -9,36 +9,40 @@ import { createDollyfileGraphLoader } from "../scripts/dollyfile-graph.mjs";
 import { discoverImageDefinitions } from "../scripts/image-definitions.mjs";
 
 const digest = value => createHash("sha256").update(value).digest("hex");
-test("retained images declare only their runtime providers", async () => {
+test("every image declares its complete host set itself", async () => {
   const root = new URL("../", import.meta.url).pathname;
   const load = createDollyfileGraphLoader(root);
   const interactive = ["display@0", "download@0", "http@0", "snapshot@0", "upload@0"];
+  // The engine retained for FROM builds uses http@0; download and upload
+  // tools arrive with system-tools; the terminal needs display@0; default
+  // installs packages with amy and runs the threaded tools they bring.
   const core = {
-    default: interactive, system: interactive, "gpu-sdk": [...interactive, "gpu@0"],
-    "audio-sdk": [...interactive, "audio@0"], "system-build": [], "system-tools": ["display@0"], "zig-build": [],
-    "ghostty-build": ["display@0"],
+    default: [...interactive, "packages@0", "threads@0"], system: interactive, "gpu-sdk": [...interactive, "gpu@0"],
+    "audio-sdk": [...interactive, "audio@0"], "system-build": ["http@0"], "zig-build": ["http@0"],
+    "ghostty-build": ["display@0", "http@0"], "system-tools": ["display@0", "download@0", "http@0", "upload@0"],
+    zlib: [], gzip: [], curl: ["http@0"], display: ["display@0"],
   };
-  const optional = new Set(["audio@0", "build@0", "gpu@0", "threads@0"]);
   for (const image of await discoverImageDefinitions(root)) {
-    const requirements = (await load(image.filename)).root.hostRequirements;
-    if (core[image.image]) assert.deepEqual(requirements, core[image.image].toSorted(), image.image);
-    const base = requirements.filter(name => !optional.has(name));
-    assert.ok([[], ["display@0"], interactive].some(allowed => base.join() === allowed.join()), image.image);
-    assert.equal(base.includes("display@0"), !["system-build", "zig-build"].includes(image.image), image.image);
+    const graph = await load(image.filename);
+    assert.deepEqual(graph.root.hostRequirements, image.parsed.hostRequirements, `${image.image}: nothing inherited`);
+    if (core[image.image]) assert.deepEqual(graph.root.hostRequirements, core[image.image].toSorted(), image.image);
+    if (image.parsed.entry) assert.ok(graph.root.hostRequirements.includes("display@0"), `${image.image} opens a terminal`);
   }
 });
-test("build graph and artifact requirements inherit FROM and USE, not COPY", async () => {
+test("FROM, INSTALL and COPY carry no host requirements; a package's must be declared", async () => {
   const dir = await mkdtemp(join(tmpdir(), "dolly-host-modules-"));
   try {
-    await mkdir(join(dir, "modules"));
-    const base = "DOLLY 5\nIMAGE base\nREQUIRES HOST display@0\nENTRY /bin/slop\n";
-    const donor = "DOLLY 5\nIMAGE donor\nREQUIRES HOST threads@0\nENTRY /bin/slop\n";
-    const child = "DOLLY 5\nMODULE child\nREQUIRES HOST gpu@0\n";
-    const root = `DOLLY 5\nIMAGE default\nFROM https://daugasauron.com/Dollyfile-base ${digest(base)}\nCOPY FROM https://daugasauron.com/Dollyfile-donor ${digest(donor)} /usr /usr\nUSE https://daugasauron.com/modules/child.dm ${digest(child)}\nREQUIRES HOST http@0\nENTRY /bin/slop\n`;
-    const sources = new Map([["/Dollyfile", root], ["/Dollyfile-base", base], ["/Dollyfile-donor", donor], ["/modules/child.dm", child]]);
-    for (const [path, source] of sources) await writeFile(join(dir, path.slice(1)), source);
-    const graph = await createDollyfileGraphLoader(dir)();
-    assert.deepEqual(graph.root.hostRequirements, ["display@0", "gpu@0", "http@0"]);
+    const base = "DOLLY 6\nAPPLICATION base\nREQUIRES HOST display@0\nENTRY /bin/slop\n";
+    const donor = "DOLLY 6\nAPPLICATION donor\nREQUIRES HOST threads@0\nENTRY /bin/slop\n";
+    const pkg = "DOLLY 6\nPACKAGE pkg\nREQUIRES HOST gpu@0\nFILE /usr/share/pkg\n";
+    const recipe = hosts => `DOLLY 6\nAPPLICATION default\n${hosts.map(host => `REQUIRES HOST ${host}\n`).join("")}FROM https://daugasauron.com/Dollyfile-base ${digest(base)}\nCOPY https://daugasauron.com/Dollyfile-donor ${digest(donor)} /usr /usr\nINSTALL https://daugasauron.com/Dollyfile-pkg ${digest(pkg)}\nENTRY /bin/slop\n`;
+    for (const [path, source] of [["Dollyfile-base", base], ["Dollyfile-donor", donor], ["Dollyfile-pkg", pkg]]) {
+      await writeFile(join(dir, path), source);
+    }
+    await writeFile(join(dir, "Dollyfile"), recipe(["http@0", "gpu@0"]));
+    assert.deepEqual((await createDollyfileGraphLoader(dir)()).root.hostRequirements, ["gpu@0", "http@0"]);
+    await writeFile(join(dir, "Dollyfile"), recipe(["http@0"]));
+    await assert.rejects(createDollyfileGraphLoader(dir)(), /pkg needs REQUIRES HOST gpu@0/);
   } finally { await rm(dir, { recursive: true, force: true }); }
 });
 

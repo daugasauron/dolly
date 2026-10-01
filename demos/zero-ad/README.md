@@ -37,7 +37,7 @@ directories (they have only autotools), pkgconf for premake; SDL2 is copied from
 ([`premake-dolly.patch`](premake-dolly.patch)), generates upstream's Makefiles
 and builds `pyrogenesis` with `make -j4`; `zero-ad` copies it. Other pins live in
 `config/source-pins.sh`; [`prepare-distribution.mjs`](toolchain/prepare-distribution.mjs)
-pins the content as published `SOURCE` inputs of [`zero-ad.dm`](zero-ad.dm). The
+pins the content as published `SOURCE` inputs of [`Dollyfile-zero-ad`](Dollyfile-zero-ad). The
 image is about 2 GB.
 
 ## How it works

@@ -1,7 +1,37 @@
-DOLLY 5
-IMAGE sdl2-build
+DOLLY 6
+TOOLCHAIN sdl2-build
+REQUIRES HOST display@0
+REQUIRES HOST download@0
+REQUIRES HOST http@0
+REQUIRES HOST upload@0
 
-FROM https://daugasauron.com/demos/cmake/Dollyfile-cmake-build 5eabb808e446c53805c45665b86ab843ec09a3f91d1a668bfd0a4e27f2f4ba5a
-USE https://daugasauron.com/demos/sdl2/sdl2.dm a19f36e57dd255ecbc1b4f06015ed33d5bb2bd97db393f726edaa542e7bd540c
+FROM https://daugasauron.com/demos/cmake/Dollyfile-cmake-build 00e003430d7fd6aa7916b3ad08639cdb6251eb352fb0a686ff5c567780d82340
+REQUIRES HEADER libc
+REQUIRES HEADER display
+REQUIRES TOOL cc
+REQUIRES TOOL cmake
+REQUIRES TOOL make
+REQUIRES TOOL tar
+REQUIRES TOOL rm
+
+SOURCE https://daugasauron.com/dist/static/sdl2/source.tar ea695509dce4679cb7ae381d9072995ea6f5f43fb6831f1c26e7703bea12629f /tmp/sdl2/source.tar
+SLOP tar -xf /tmp/sdl2/source.tar -C /
+SLOP cmake -S /tmp/sdl2/source -B /tmp/sdl2/build \
+  -DCMAKE_SYSTEM_NAME=Dolly -DCMAKE_SYSTEM_PROCESSOR=wasm64 \
+  -DCMAKE_INSTALL_PREFIX=/usr -DCMAKE_INSTALL_LIBDIR=lib \
+  -DCMAKE_BUILD_TYPE=Release '-DCMAKE_C_FLAGS=-DDOLLY -U__EMSCRIPTEN__' -DCMAKE_C_FLAGS_RELEASE=-O1 \
+  -DSDL_SHARED=OFF -DSDL_STATIC=ON -DSDL_TEST=OFF -DSDL_TESTS=OFF \
+  -DSDL_AUDIO=OFF -DSDL_JOYSTICK=OFF -DSDL_HAPTIC=OFF -DSDL_SENSOR=OFF \
+  -DSDL_THREADS=OFF -DSDL_LOADSO=OFF -DSDL_POWER=OFF -DSDL_HIDAPI=OFF \
+  -DSDL_ASSEMBLY=OFF -DSDL_GCC_ATOMICS=ON -DSDL_SYSTEM_ICONV=OFF \
+  -DSDL_OPENGL=OFF -DSDL_OPENGLES=OFF -DSDL_VULKAN=OFF -DSDL_RENDER_METAL=OFF
+SLOP cmake --build /tmp/sdl2/build
+SLOP cmake --install /tmp/sdl2/build
+
+EXPORTS HEADER sdl2 /usr/include/SDL2
+EXPORTS LIB SDL2 /usr/lib/libSDL2.a
+EXPORTS FOLDER sdl2-cmake /usr/lib/cmake/SDL2
+FILE /usr/share/licenses/SDL2/LICENSE.txt
+SLOP rm -rf /tmp/sdl2
 
 ENTRY /bin/foreground -i /bin/slop

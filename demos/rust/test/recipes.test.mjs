@@ -10,7 +10,7 @@ const loadGraph = createDollyfileGraphLoader(project);
 test("only Rust build images carry the Rust SDK, and they carry no display stack", async () => {
   for (const definition of await discoverImageDefinitions(project)) {
     const graph = await loadGraph(definition.filename);
-    if (graph.root.hostRequirements.includes("display@0")) continue;
+    if (graph.root.hostRequirements.includes("display@0") || definition.parsed.role === "package") continue;
     const names = recipeRecords(graph).map(record => record.name);
     const rust = /^demos\/(rust|codex)\//.test(definition.filename);
     assert.equal(names.includes("rust-sdk"), rust, definition.image);

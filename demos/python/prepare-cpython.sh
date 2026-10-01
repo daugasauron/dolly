@@ -86,7 +86,7 @@ fi
   ac_cv_func_wait4=no ac_cv_func_waitid=no ac_cv_func_getsid=no \
   ac_cv_func_setpgid=no ac_cv_func_tcsetpgrp=no ac_cv_func_dup3=no \
   ac_cv_func_lockf=no ac_cv_func_truncate=no \
-  ac_cv_func_ttyname_r=no ac_cv_func_fchownat=no ac_cv_func_chown=no \
+  ac_cv_func_ttyname_r=no \
   ac_cv_func_chroot=no ac_cv_func_ctermid=no ac_cv_func_fdopendir=no \
   ac_cv_func_rewinddir=no ac_cv_func_getpriority=no ac_cv_func_times=no \
   ac_cv_func_execv=no ac_cv_func_fexecve=no ac_cv_func_posix_openpt=no \
@@ -155,6 +155,14 @@ sed -i \
 sed -i 's/^#define HAVE_LOGIN_TTY 1$/\/\* #undef HAVE_LOGIN_TTY \*\//' \
   "${temporary}/pyconfig.h"
 
+# Emscripten's site file disables alarm and setitimer, which its runtime never
+# delivers; Dolly's kernel raises SIGALRM. Environment results cannot override
+# a site file, so restore them here.
+sed -i \
+  -e 's/^\/\* #undef HAVE_ALARM \*\/$/#define HAVE_ALARM 1/' \
+  -e 's/^\/\* #undef HAVE_SETITIMER \*\/$/#define HAVE_SETITIMER 1/' \
+  "${temporary}/pyconfig.h"
+
 # A non-threaded Emscripten libc still advertises pthread.h and supplies its
 # own compatibility symbols. Dolly deliberately uses CPython's smaller,
 # explicit single-thread implementation instead: pthread_create() returns
@@ -164,7 +172,6 @@ sed -i 's/^#define HAVE_LOGIN_TTY 1$/\/\* #undef HAVE_LOGIN_TTY \*\//' \
 # makes CPython's private _PyRuntimeState layout depend on whether a translation
 # unit happened to include <time.h> before pycore_pythread.h.
 sed -i \
-  -e 's/^#define HAVE_PAUSE 1$/\/\* #undef HAVE_PAUSE \*\//' \
   -e 's/^#define HAVE_PTHREAD_H 1$/\/\* #undef HAVE_PTHREAD_H \*\//' \
   -e 's/^\/\* #undef HAVE_PTHREAD_STUBS \*\//#define HAVE_PTHREAD_STUBS 1/' \
   -e 's/^#define HAVE_PTHREAD_CONDATTR_SETCLOCK 1$/\/\* #undef HAVE_PTHREAD_CONDATTR_SETCLOCK \*\//' \

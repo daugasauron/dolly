@@ -7,7 +7,7 @@ import test from "node:test";
 import { inspectDollyfile } from "../../../src/dollyfile-view.mjs";
 
 test("Airtime preserves air-strafe projection, landing momentum and swept hull collision", async () => {
-  const recipe = inspectDollyfile(await readFile(new URL("../bhop.dm", import.meta.url), "utf8"));
+  const recipe = inspectDollyfile(await readFile(new URL("../Dollyfile-bhop", import.meta.url), "utf8"));
   const source = name => recipe.files.find(file => file.path.endsWith(`/${name}`)).body;
   const directory = await mkdtemp(join(tmpdir(), "dolly-bhop-check-"));
   try {

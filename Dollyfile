@@ -1,7 +1,34 @@
-DOLLY 5
-IMAGE default
+DOLLY 6
+APPLICATION default
+REQUIRES HOST display@0
+REQUIRES HOST download@0
+REQUIRES HOST http@0
+REQUIRES HOST packages@0
+REQUIRES HOST snapshot@0
+REQUIRES HOST threads@0
+REQUIRES HOST upload@0
 
-FROM https://daugasauron.com/Dollyfile-system f09301e9c3a830993070865b0b5ba75aa88959c586bf3c4fe98a98877177cdfd
-USE https://daugasauron.com/modules/startup-default.dm 8e41a3e201907b5dace2debf89501382cc425f4bb5d06222423842b165b72688
+FROM https://daugasauron.com/Dollyfile-system 68fc9812c2c6dc3f459eb04ad59683a04c9953e81eb8970db702e5fd43cb51f8
+REQUIRES TOOL foreground
+REQUIRES TOOL test
+REQUIRES TOOL printf
+
+FILE /etc/dolly/init.slop
+    if test -f "$HOME/.dollyrc"; then
+      /bin/foreground /bin/slop -e "$HOME/.dollyrc"
+      status=$?
+      case "$status" in
+        0|130) ;;
+        *) printf 'Dolly: %s exited with status %s; continuing.\n' "$HOME/.dollyrc" "$status" >&2 ;;
+      esac
+    fi
+    /bin/foreground -i /bin/slop
+    printf '\nDolly: image entry exited; entering the recovery Slop shell.\n'
+    /bin/foreground -i /bin/slop
+
+FILE /home/dolly/.dollyrc
+    printf '\033[33mDOLLY / DEFAULT\033[0m\n'
+    printf 'Browser-contained wasm64 userspace; files and processes stay inside Dolly.\n'
+    printf 'Try: help | ls /bin | git --version | cc --version\n\n'
 
 ENTRY /bin/foreground -i /bin/slop /etc/dolly/init.slop

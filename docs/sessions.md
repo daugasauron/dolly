@@ -16,12 +16,15 @@ flowchart LR
 - **Save** or `Ctrl+Shift+S` stores a checkpoint named with 1–64 of
   `A-Z a-z 0-9 . _ -` (not `.` or `..`). `/sessions/` lists saves with Export,
   Import, Delete and Recover files; `/session/?name=NAME` loads one.
-- A save holds files, directories, symlinks and deletions, including credentials
-  and Pi conversations (`~/.pi/agent/sessions`). It does not hold processes,
-  descriptors, scrollback, environment, cwd, hard links, timestamps or modes.
+- A save holds files, directories, symlinks and deletions, including credentials,
+  Pi conversations (`~/.pi/agent/sessions`) and packages installed with `amy`
+  ([Dollyfile](dollyfile.md#packages-and-amy)). It does not hold processes,
+  descriptors, scrollback, environment, cwd, hard links, timestamps or modes;
+  `/etc/dolly/environment` is a file, loaded after the replay, so installed
+  variables apply when the session loads.
 - `/run`, `/dev` and `/seed` are excluded ([`session-records.h`](../src/session-records.h));
   the uncompressed delta is at most 512 MiB, and exceeding it fails the save
-  visibly. A failed save leaves the previous record intact.
+  visibly, naming the limit. A failed save leaves the previous record intact.
 - Hashing, encoding and restoring stay in Wasm: sessions add no Wasm import or
   path-level browser filesystem API. The kernel serves a save even while the
   foreground program sleeps or waits for input. IndexedDB stores the encoded
@@ -53,12 +56,14 @@ Code: kernel [`host/snapshot/kernel.c`](../host/snapshot/kernel.c); page
 ## Upload and download
 
 - `upload DESTINATION` opens the browser's file picker. The chosen file's bytes
-  (at most 64 MiB) land at a new path; existing files are never overwritten and
-  no host name or path enters Wasm ([`host/upload/kernel.c`](../host/upload/kernel.c),
-  [`upload.dm`](../modules/upload.dm)).
-- `download FILE` copies one regular file of at most 64 MiB. The page shows
-  **Save NAME (SIZE)** and **Dismiss**; nothing reaches the download manager until
-  the user clicks Save. At most four offers wait; more fail with `EBUSY`
-  ([`host/download/download.mjs`](../host/download/download.mjs), [`download.dm`](../modules/download.dm)).
+  (at most 1 GiB) stream in 1 MiB chunks to a new path while the dialog shows
+  progress; Cancel or Ctrl+C leaves nothing behind. Existing files are never
+  overwritten and no host name or path enters Wasm
+  ([`host/upload/kernel.c`](../host/upload/kernel.c), [`Dollyfile-system-tools`](../Dollyfile-system-tools)).
+- `download FILE` streams one regular file of at most 1 GiB in 1 MiB chunks into
+  a browser Blob; Ctrl+C discards it. The page then shows **Save NAME (SIZE)**
+  and **Dismiss**; nothing reaches the download manager until the user clicks
+  Save. At most four offers wait; more fail with `EBUSY`
+  ([`host/download/download.mjs`](../host/download/download.mjs), [`Dollyfile-system-tools`](../Dollyfile-system-tools)).
 - Neither is a network path, but uploaded bytes are ordinary sandbox data that
   allowed HTTP can send elsewhere.

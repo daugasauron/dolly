@@ -35,16 +35,61 @@ def check(name, operation):
         print("PYTHON-PROCESS FAIL:", name, type(error).__name__, str(error), flush=True)
 
 
+def rejected(operation, number):
+    try:
+        operation()
+    except termios.error as error:
+        assert error.args[0] == number, error
+    else:
+        raise AssertionError("unsupported terminal request accepted")
+
+
 def terminal_modes():
     assert os.isatty(0)
     before = termios.tcgetattr(0)
     try:
         assert len(termios.tcgetwinsize(0)) == 2
+        assert before[0] & (termios.ICRNL | termios.IXON) == 0, "reported input mapping"
+        for index, flag in ((1, termios.OPOST), (1, termios.ONLCR), (3, termios.ICANON),
+                            (3, termios.ECHO), (3, termios.ISIG)):
+            mode = termios.tcgetattr(0)
+            mode[index] ^= flag
+            termios.tcsetattr(0, termios.TCSANOW, mode)
+            assert termios.tcgetattr(0)[index] & flag == mode[index] & flag, flag
+            termios.tcsetattr(0, termios.TCSANOW, before)
         tty.setraw(0)
-        assert termios.tcgetattr(0)[3] & termios.ICANON == 0
+        raw = termios.tcgetattr(0)
+        assert raw[3] & termios.ICANON == 0
+        for flag in (termios.IXON, termios.ICRNL):
+            mode = list(raw)
+            mode[0] |= flag
+            rejected(lambda: termios.tcsetattr(0, termios.TCSANOW, mode), errno.EINVAL)
+        for key, value in ((termios.VMIN, 0), (termios.VTIME, 5)):
+            mode = list(raw)
+            mode[6] = list(raw[6])
+            mode[6][key] = value
+            rejected(lambda: termios.tcsetattr(0, termios.TCSANOW, mode), errno.EINVAL)
+        assert termios.tcgetattr(0) == raw, "a rejected request changed the terminal"
+        termios.tcflush(0, termios.TCIOFLUSH)
+        termios.tcdrain(0)
+        rejected(lambda: termios.tcsendbreak(0, 0), errno.ENOTSUP)
+        rejected(lambda: termios.tcflow(0, termios.TCOOFF), errno.ENOTSUP)
     finally:
         termios.tcsetattr(0, termios.TCSANOW, before)
     assert termios.tcgetattr(0) == before
+
+
+def pause_until_alarm():
+    received = []
+    previous = signal.signal(signal.SIGALRM, lambda number, frame: received.append(number))
+    try:
+        started = time.monotonic()
+        signal.alarm(1)
+        signal.pause()
+        assert received == [signal.SIGALRM], received
+        assert time.monotonic() - started >= .9, "pause returned before the alarm"
+    finally:
+        signal.signal(signal.SIGALRM, previous)
 
 
 def starts_before_wait():
@@ -289,7 +334,8 @@ def status_and_options():
 
 
 for name, operation in (
-    ("interactive stdin terminal mode round-trip", terminal_modes),
+    ("termios round trips and unsupported requests", terminal_modes),
+    ("signal.pause until SIGALRM", pause_until_alarm),
     ("observable start, PID, nonblocking poll and terminate", starts_before_wait),
     ("creation-time cwd/environment and explicit environment", creation_state),
     ("streaming, non-destructive wait timeout and kill", streaming_and_timeout),

@@ -128,9 +128,6 @@ _Noreturn void dolly_assert_fail(const char *condition, const char *file,
   abort();
 }
 
-int dolly_fclose(FILE *stream) {
-  return fclose(stream);
-}
 int dolly_write_file(const char *path, const void *bytes, size_t length) {
   if (path == NULL || (bytes == NULL && length != 0)) return -EINVAL;
   int fd = open(path, O_WRONLY | O_CREAT | O_TRUNC, 0666);
@@ -282,6 +279,12 @@ static int initialize_boot_environment(void) {
             strerror(errno));
     return 1;
   }
+  // Emscripten's defaults name a user no passwd lookup knows ("web_user").
+  // Dolly has no user database, so programs find HOME instead.
+  if (unsetenv("USER") != 0 || unsetenv("LOGNAME") != 0 || unsetenv("_") != 0) {
+    fprintf(stderr, "dolly: user environment initialization failed: %s\n", strerror(errno));
+    return 1;
+  }
   return 0;
 }
 
@@ -322,22 +325,23 @@ int dolly_bootstrap_snapshot(uintptr_t size) {
     fprintf(stderr, "dolly: invalid system snapshot: %s\n", strerror(errno));
     return 1;
   }
-  if (load_image_environment() != 0) {
-    fprintf(stderr, "dolly: invalid image environment: %s\n", strerror(errno));
-    return 1;
-  }
   puts("dolly: precompiled system restored");
   fflush(stdout);
   return dolly_snapshot_prune() != 0;
 }
 
 int dolly_bootstrap_finish(void) {
+  return dolly_snapshot_prune() != 0;
+}
+
+// Once the filesystem is final: after the image is restored and a saved
+// session has replayed its files, so an installed environment survives a reload.
+int dolly_bootstrap_environment(void) {
   if (load_image_environment() != 0) {
-    fprintf(stderr, "dolly: invalid built image environment: %s\n",
-            strerror(errno));
+    fprintf(stderr, "dolly: invalid image environment: %s\n", strerror(errno));
     return 1;
   }
-  return dolly_snapshot_prune() != 0;
+  return 0;
 }
 
 int dolly_bootstrap_snapshot_end(void) {
@@ -403,9 +407,5 @@ static int load_image_environment(void) {
     errno = error;
     return -1;
   }
-  return 0;
-}
-
-int main(void) {
   return 0;
 }

@@ -8,13 +8,51 @@ const output=process.argv[2]??resolve(root,"dist/static/slopyard/source.tar");
 execFileSync(process.execPath,[resolve(root,"scripts/build-source-tar.mjs"),output,
   "demos/slopyard/src","/usr/src/dolly/slopyard"],{cwd:root,stdio:"inherit"});
 const hash=bytes=>createHash("sha256").update(bytes).digest("hex");
-const module=`DOLLY 5
-MODULE slopyard
+const pin=async path=>hash(await readFile(resolve(root,path)));
+// The Lua archive pin is refreshed by update-recipe-pins --sources.
+const luaPin=(/lua-5\.5\.1\.tar\.gz ([0-9a-f]{64})/.exec(await readFile(resolve(root,"demos/slopyard/Dollyfile-slopyard"),"utf8").catch(()=>""))??[,"0".repeat(64)])[1];
+await writeFile(resolve(root,"demos/slopyard/Dollyfile-slopyard"),`DOLLY 6
+APPLICATION slopyard
+REQUIRES HOST display@0
+REQUIRES HOST download@0
+REQUIRES HOST gpu@0
+REQUIRES HOST http@0
+REQUIRES HOST snapshot@0
+REQUIRES HOST threads@0
+REQUIRES HOST upload@0
 
+FROM https://daugasauron.com/demos/slopyard/Dollyfile-gamedev-sdk ${await pin("demos/slopyard/Dollyfile-gamedev-sdk")}
+INSTALL https://daugasauron.com/demos/javascript/Dollyfile-javascript ${await pin("demos/javascript/Dollyfile-javascript")}
+INSTALL https://daugasauron.com/demos/pi/Dollyfile-pi-coding-agent ${await pin("demos/pi/Dollyfile-pi-coding-agent")}
 REQUIRES TOOL cc
-REQUIRES TOOL tar
-REQUIRES TOOL make
 REQUIRES TOOL ar
+REQUIRES TOOL make
+REQUIRES TOOL gzip
+REQUIRES TOOL tar
+REQUIRES TOOL cp
+REQUIRES TOOL mkdir
+REQUIRES TOOL rm
+REQUIRES HEADER libc
+
+SOURCE https://daugasauron.com/dist/static/slopyard/lua-5.5.1.tar.gz ${luaPin} /tmp/lua55/source.tar.gz
+SLOP gzip -dc /tmp/lua55/source.tar.gz > /tmp/lua55/source.tar
+SLOP tar -xf /tmp/lua55/source.tar -C /tmp/lua55
+FILE /tmp/lua55/Makefile
+    SOURCE := /tmp/lua55/lua-5.5.1/src
+    FILES := $(filter-out $(SOURCE)/lua.c,$(wildcard $(SOURCE)/*.c))
+    OBJECTS := $(patsubst $(SOURCE)/%.c,/tmp/lua55/%.o,$(FILES))
+    /usr/lib/liblua5.5.a: $(OBJECTS)
+    	ar rcs $@ $^
+    /tmp/lua55/%.o: $(SOURCE)/%.c
+    	cc -std=c17 -O2 -U__SIZEOF_INT128__ -DLUA_USE_C89 -I $(SOURCE) -c $< -o $@
+SLOP make -f /tmp/lua55/Makefile
+SLOP mkdir -p /usr/include/lua5.5 /usr/share/licenses/lua5.5
+SLOP cp /tmp/lua55/lua-5.5.1/src/lua.h /tmp/lua55/lua-5.5.1/src/luaconf.h /tmp/lua55/lua-5.5.1/src/lauxlib.h /tmp/lua55/lua-5.5.1/src/lualib.h /usr/include/lua5.5
+SLOP cp /tmp/lua55/lua-5.5.1/doc/readme.html /usr/share/licenses/lua5.5/readme.html
+SLOP rm -rf /tmp/lua55
+EXPORTS LIB lua55 /usr/lib/liblua5.5.a
+EXPORTS HEADER lua55 /usr/include/lua5.5
+FILE /usr/share/licenses/lua5.5/readme.html
 REQUIRES LIB raylib
 REQUIRES LIB box3d
 REQUIRES LIB dolly-raylib
@@ -22,9 +60,6 @@ REQUIRES LIB dolly-js
 REQUIRES LIB lua55
 REQUIRES HEADER lua55
 REQUIRES HEADER gpu
-REQUIRES HOST gpu@0
-REQUIRES HOST display@0
-REQUIRES HOST threads@0
 REQUIRES HEADER quickjs
 REQUIRES HEADER quickjs-runner
 
@@ -37,23 +72,6 @@ SLOP rm -rf /tmp/slopyard-box3d
 EXPORTS TOOL slopyard
 EXPORTS LIB slopyard-box3d /usr/lib/libslopyard-box3d.a
 EXPORTS FOLDER slopyard-source /usr/src/dolly/slopyard
-`;
-await writeFile(resolve(root,"demos/slopyard/slopyard.dm"),module);
-await writeFile(resolve(root,"demos/slopyard/Dollyfile-slopyard"),`DOLLY 5
-IMAGE slopyard
-
-FROM https://daugasauron.com/demos/slopyard/Dollyfile-gamedev-sdk ${hash(await readFile(resolve(root,"demos/slopyard/Dollyfile-gamedev-sdk")))}
-COPY FROM https://daugasauron.com/demos/javascript/Dollyfile-javascript ${hash(await readFile(resolve(root,"demos/javascript/Dollyfile-javascript")))} /usr/lib/libdolly-js.a /usr/lib/libdolly-js.a
-COPY FROM https://daugasauron.com/demos/javascript/Dollyfile-javascript ${hash(await readFile(resolve(root,"demos/javascript/Dollyfile-javascript")))} /usr/include/quickjs.h /usr/include/quickjs.h
-COPY FROM https://daugasauron.com/demos/javascript/Dollyfile-javascript ${hash(await readFile(resolve(root,"demos/javascript/Dollyfile-javascript")))} /usr/include/dolly/quickjs-runner.h /usr/include/dolly/quickjs-runner.h
-COPY FROM https://daugasauron.com/demos/javascript/Dollyfile-javascript ${hash(await readFile(resolve(root,"demos/javascript/Dollyfile-javascript")))} /usr/lib/dolly/node.js /usr/lib/dolly/node.js
-COPY FROM https://daugasauron.com/demos/javascript/Dollyfile-javascript ${hash(await readFile(resolve(root,"demos/javascript/Dollyfile-javascript")))} /usr/lib/janis/runtime.js /usr/lib/janis/runtime.js
-EXPORTS LIB dolly-js /usr/lib/libdolly-js.a
-EXPORTS HEADER quickjs /usr/include/quickjs.h
-EXPORTS HEADER quickjs-runner /usr/include/dolly/quickjs-runner.h
-USE https://daugasauron.com/demos/pi/pi.dm ${hash(await readFile(resolve(root,"demos/pi/pi.dm")))}
-USE https://daugasauron.com/demos/slopyard/lua55.dm ${hash(await readFile(resolve(root,"demos/slopyard/lua55.dm")))}
-USE https://daugasauron.com/demos/slopyard/slopyard.dm ${hash(module)}
 
 FILE /etc/dolly/slopyard.slop
     /bin/foreground /usr/bin/slopyard

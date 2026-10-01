@@ -1,6 +1,6 @@
 # Move Slop and other bootstrap programs out of the seed into recipes
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 290
 - TAGS: core,bootstrap,dollyfile,design
 
@@ -217,3 +217,11 @@ skipped by the runner).
 - Keep headers in both places for now: the engine needs them before any recipe,
   and `bootstrap.dm` pins them for images.
 - `COMPILEC` stays C-only, single-source, `-O1`; widen it only for a real need.
+
+## Closed (2026-10-01)
+
+`COMPILEC` shipped in the release candidate: Slop and the compiler front ends
+are built by recipe, the seed compiles only the Dollyfile engine, and every
+suite passes on the candidate. The open questions are decided above; folding
+sbase into system-build continues in `20260930-100000-audit-36`, and the
+language itself in `20261001-214000-dollyfile-v6`.

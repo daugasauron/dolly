@@ -48,7 +48,7 @@ int main(int argc, char **argv) {
         .clock_id = 1, .deadline_nanoseconds = (uint64_t)now.tv_sec * 1000000000u + now.tv_nsec + 2000000000u};
     CHECK(raw_process_call(DOLLY_PROCESS_CLOCK_SLEEP, &sleep, sizeof(sleep), NULL, 0) == -EINTR);
     /* Leave the kernel notification pending: it must not change normal exit. */
-    dolly_exit(23);
+    _exit(23);
   }
   CHECK(argc == 1);
   int status, pid = spawn_child(argv[0], "quiet");

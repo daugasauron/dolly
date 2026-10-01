@@ -9,6 +9,7 @@
 #include <dirent.h>
 #include <fcntl.h>
 #include <limits.h>
+#include <malloc.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -522,6 +523,15 @@ static int standard_stream(int kernel_fd) {
   return -1;
 }
 
+/* /dev/tty names the one terminal every Dolly process shares; there are no
+ * sessions, so it is every process's controlling terminal. */
+static int controlling_terminal(int kernel_fd) {
+  struct stat opened, terminal;
+  return fstat(kernel_fd, &opened) == 0 && stat("/dev/tty", &terminal) == 0 &&
+      terminal.st_dev == opened.st_dev &&
+      terminal.st_ino == opened.st_ino;
+}
+
 static int configure_descriptors(dolly_kernel_process *process,
                                  const dolly_kernel_process *parent,
                                  const dolly_process_spawn_request *request,
@@ -878,21 +888,18 @@ static void encode_stat(const struct stat *metadata,
   response->file_type = stable_file_type(metadata->st_mode);
 }
 
-static void encode_filesystem_stat(uint64_t files,
-                                   dolly_process_filesystem_stat_response *response) {
-  /*
-   * WasmFS is memory-backed and has no host block device or mount quota.
-   * These are the same conservative virtual-capacity values WasmFS itself
-   * exposes, encoded here so a process never imports its implementation.
-   */
+/* Files live in kernel memory: its maximum is the capacity, and memory below
+ * the break that malloc has not handed out, or above it, is free. Like btrfs,
+ * report the absent inode limit as zero files. */
+static void encode_filesystem_stat(dolly_process_filesystem_stat_response *response) {
+  const uint64_t block = 4096, capacity = DOLLY_KERNEL_MEMORY_MAXIMUM;
+  const uint64_t used = (uintptr_t)sbrk(0) - mallinfo().fordblks;
   memset(response, 0, sizeof(*response));
-  response->block_size = 4096;
-  response->fragment_size = 4096;
-  response->blocks = 1000000;
-  response->blocks_free = 500000;
-  response->blocks_available = 500000;
-  response->files = files;
-  response->files_free = 1000000;
+  response->block_size = block;
+  response->fragment_size = block;
+  response->blocks = capacity / block;
+  response->blocks_free = used < capacity ? (capacity - used) / block : 0;
+  response->blocks_available = response->blocks_free;
   response->maximum_name_length = 255;
 #ifdef ST_NOSUID
   response->flags = ST_NOSUID;
@@ -1167,7 +1174,6 @@ static int64_t fd_write_packet(dolly_kernel_process *process,
 
 static double deferred_milliseconds = -1;
 
-
 static int64_t terminal_packet(dolly_kernel_process *process,
                                uintptr_t request_size,
                                uintptr_t response_capacity) {
@@ -1440,7 +1446,7 @@ static int64_t process_dispatch(int pid, int tid, uint32_t operation,
       struct stat metadata;
       if (fstat(descriptor, &metadata) != 0) return -errno;
       dolly_process_filesystem_stat_response response;
-      encode_filesystem_stat(metadata.st_ino, &response);
+      encode_filesystem_stat(&response);
       return respond(&response, sizeof(response));
     }
     case DOLLY_PROCESS_FD_SET_TIMES: {
@@ -1635,6 +1641,7 @@ static int64_t process_dispatch(int pid, int tid, uint32_t operation,
         if (result != 0) return result;
       } else {
         process->descriptors[guest_fd] = kernel_fd;
+        process->terminal_descriptors[guest_fd] = controlling_terminal(kernel_fd);
       }
       process->descriptor_flags[guest_fd] = (request.flags & DOLLY_PROCESS_OPEN_CLOEXEC)
           ? DOLLY_PROCESS_FD_CLOEXEC : 0;
@@ -1798,7 +1805,7 @@ static int64_t process_dispatch(int pid, int tid, uint32_t operation,
       free(path);
       if (result != 0) return result;
       dolly_process_filesystem_stat_response response;
-      encode_filesystem_stat(metadata.st_ino, &response);
+      encode_filesystem_stat(&response);
       return respond(&response, sizeof(response));
     }
     case DOLLY_PROCESS_PATH_SET_TIMES: {

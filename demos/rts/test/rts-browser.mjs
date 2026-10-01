@@ -223,16 +223,20 @@ try {
       apiKey: "rts-fixture-only", models: ["rts-test-fast", "rts-test-slow"].map(id => ({ id, name: id,
         reasoning: true, input: ["text", "image"], contextWindow: 128000, maxTokens: 4096,
         cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 } })) } } };
-    await run(`mkdir /tmp/rts-pi-agent && printf %s ${shellQuote(JSON.stringify(config))} > /tmp/rts-pi-agent/models.json`);
+    // As in the image's ~/.pi/agent: without Photon, Pi omits prompt images it would resize.
+    await run(`mkdir /tmp/rts-pi-agent && printf %s ${shellQuote(JSON.stringify(config))} > /tmp/rts-pi-agent/models.json && ` +
+      `printf %s '{"images":{"autoResize":false}}' > /tmp/rts-pi-agent/settings.json`);
     const players = "PI_CODING_AGENT_DIR=/tmp/rts-pi-agent rts-arena rts-test-fast rts-test-slow 25";
     game = start(players);
     await graphics(true);
     assert.equal(await game.done, 0);
     provider.verify();
     await run("janis -m /tmp/rts-history.mjs");
+    const slowServed = provider.served("rts-test-slow");
     game = start(players);
     await graphics(true);
-    await delay(8000);
+    // The slow player's second request carries its first tool screenshot.
+    await until(() => provider.served("rts-test-slow") >= slowServed + 2, "the slow player never returned a tool result");
     assert.equal(game.status, null);
     await page.keyboard.press("Escape");
     assert.equal(await game.done, 0);
@@ -274,9 +278,11 @@ try {
 async function liveMatch({ page, run, start, text, submit, prompt }, origin) {
   await page.keyboard.press("Escape");
   await prompt(shellPrompt);
-  await run(`mkdir /tmp/rts-live-agent && curl -fsS ${origin}/fixture/rts-live.mjs -o /tmp/rts-live.mjs`);
+  const settings = { ...relay ? { transport: "sse" } : {}, images: { autoResize: false } };
+  await run(`mkdir /tmp/rts-live-agent && printf %s ${shellQuote(JSON.stringify(settings))} > /tmp/rts-live-agent/settings.json && ` +
+    `curl -fsS ${origin}/fixture/rts-live.mjs -o /tmp/rts-live.mjs`);
   assert.equal(await submit(`printf %s ${shellQuote(JSON.stringify(relay ? {} : { openrouter: { type: "api_key", key: secret } }))} > /tmp/rts-live-agent/auth.json`), 0);
-  if (relay) await run(`printf %s ${shellQuote(JSON.stringify(relay))} > /tmp/rts-live-agent/models.json && printf %s '{"transport":"sse"}' > /tmp/rts-live-agent/settings.json`);
+  if (relay) await run(`printf %s ${shellQuote(JSON.stringify(relay))} > /tmp/rts-live-agent/models.json`);
   else await run(`janis -m /tmp/rts-live.mjs prepare ${models.map(model => shellQuote(model.replace(/:[a-z]+$/, ""))).join(" ")}`);
   await run("clear");
   const match = start(`PI_CODING_AGENT_DIR=/tmp/rts-live-agent rts-arena ${models.map(shellQuote).join(" ")} ${seconds} ${dollars}`);

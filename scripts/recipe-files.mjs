@@ -1,29 +1,25 @@
 import { readdir } from "node:fs/promises";
 import { resolve } from "node:path";
 import { CANONICAL_ORIGIN } from "../src/static-asset.mjs";
-
-const imageName = /^Dollyfile(?:-[a-z][a-z0-9-]*)?$/;
-const moduleName = /^[a-z][a-z0-9-]{0,63}\.dm$/;
+import { imageFileName, validName } from "../src/dollyfile-view.mjs";
 
 // Recipes are published at their checkout path on the canonical origin: core
-// images at the top level, core modules in modules/, each demo's images and
-// modules in demos/DEMO/. Returns canonical URL -> project-relative file.
-// Image and module names are unique.
+// images at the top level, each demo's in demos/DEMO/. Returns canonical
+// URL -> project-relative file. Image names are unique.
 export async function recipeFiles(projectDir) {
   const files = new Map(), names = new Map();
-  async function scan(directory, images, modules) {
+  async function scan(directory) {
     for (const entry of await entries(resolve(projectDir, directory))) {
-      if (!entry.isFile() || !(images && imageName.test(entry.name) || modules && moduleName.test(entry.name))) continue;
+      if (!entry.isFile() || !validName(imageFileName(entry.name))) continue;
       const path = directory === "." ? entry.name : `${directory}/${entry.name}`;
       if (names.has(entry.name)) throw new Error(`${path}: ${entry.name} is already ${names.get(entry.name)}`);
       names.set(entry.name, path);
       files.set(`${CANONICAL_ORIGIN}/${path}`, path);
     }
   }
-  await scan(".", true, false);
-  await scan("modules", false, true);
+  await scan(".");
   for (const demo of await entries(resolve(projectDir, "demos"))) {
-    if (demo.isDirectory()) await scan(`demos/${demo.name}`, true, true);
+    if (demo.isDirectory()) await scan(`demos/${demo.name}`);
   }
   return files;
 }

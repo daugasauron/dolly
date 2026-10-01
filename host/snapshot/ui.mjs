@@ -133,8 +133,7 @@ export function mountSessionSave({ keyboard, showStatus, applicationBase }, tran
         dataset.sessionStatus = "compressing";
         return result;
       };
-      const encoded = typeof CompressionStream === "function"
-        ? await encodeSessionStream(capture) : { encoding: "identity", bytes: await capture() };
+      const encoded = await encodeSessionStream(capture);
       dataset.sessionStatus = "storing";
       const encodedSize = encoded.bytes.byteLength;
       try {

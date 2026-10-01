@@ -1,7 +1,7 @@
 #include "world.c"
 #include <assert.h>
 static int courier(Data*ctx,Value catalog){
- Value item=value_at(ctx,catalog,30),blocks=value_get(ctx,item,"blueprint"),code=value_get(ctx,item,"source");Character design={0};assert(read_character(ctx,blocks,&design,0));const char*source=value_text(ctx,code);
+ Value item=value_at(ctx,catalog,30),blocks=value_get(ctx,item,"blueprint"),code=value_get(ctx,item,"source");Character design={0};assert(read_character(ctx,blocks,&design));const char*source=value_text(ctx,code);
  Creature*c=spawn(&design,source,"Blue depot compatibility",1,20,0,0);assert(c);set_spawn_height(c,8);c->team=2;int id=c->id;
  character_clear(&design);value_text_free(ctx,source);value_free(ctx,code);value_free(ctx,blocks);value_free(ctx,item);return id;
 }

@@ -1,6 +1,6 @@
 import {spawn} from 'node:child_process';
 import {appendFileSync,mkdirSync} from 'node:fs';
-import {modelFile} from './model.mjs';
+import {modelFile,models} from './model.mjs';
 
 export class LocalLlama {
   constructor(progress=()=>{}) {this.progress=progress;this.process=null;this.busy=false;}
@@ -29,7 +29,7 @@ export class LocalLlama {
         });
         const file=await modelFile(id,{signal,progress:this.progress});
         signal?.throwIfAborted();this.progress(`Loading ${id} on the GPU…`);
-        const child=spawn('/usr/bin/dolly-llama',[file,'8192'],{stdio:['pipe','pipe','pipe']});
+        const child=spawn('/usr/bin/dolly-llama',[file,String(models.find(model=>model.id===id).context)],{stdio:['pipe','pipe','pipe']});
         this.process=child;this.model=id;
         mkdirSync('/home/dolly/.cache/dolly-llm',{recursive:true});
         let pending='',failure,ended=false,wake;

@@ -19,7 +19,7 @@ not installed. No native host processes or sockets are available.
    hash are already correct. Do not recreate it from memory. For other bases or
    external sources, read `/usr/share/dollyfile-studio/dollyfile.md` first and
    inspect the published recipes in `/etc/dolly/recipes`.
-2. Edit the copy's IMAGE name, FILE contents, compiler command, exports and SLOP
+2. Edit the copy's APPLICATION name, FILE contents, compiler command, exports and SLOP
    tests to implement the request. Replace example arguments/tests that no longer
    apply. Put input/output checks **inside the recipe as SLOP lines**, after
    compilation and before scratch cleanup. New commands belong to the built
@@ -41,7 +41,10 @@ policy; protocol details are in `/usr/share/dollyfile-studio/build-service.md`.
 
 ## Important language details
 
-- `DOLLY 5`, then `IMAGE name`; FROM is the first image operation.
+- `DOLLY 6`, then `APPLICATION name`, then the image's complete `REQUIRES HOST`
+  list (nothing is inherited; an image FROM system repeats system's display@0,
+  download@0, http@0, snapshot@0 and upload@0). FROM is the first image operation.
+  `INSTALL URL SHA` adds a published package with its exports.
 - FILE body lines start with **four spaces**, including blank content lines.
   The example shows this indentation. FILE is not a shell heredoc: no `<<EOF`.
 - Compile with `cc`; write executables to `/usr/bin`. `EXPORTS TOOL name`
@@ -52,21 +55,21 @@ policy; protocol details are in `/usr/share/dollyfile-studio/build-service.md`.
   For stdin tests, pipe text: `printf 'input\n' | tool`. `< PATH` reads a file;
   it does not supply inline text. Check results with `test "$(COMMAND)" = EXPECTED`.
 - Own and remove build scratch under `/tmp`. Do not retain credentials or agent
-  history. A local `.dm` is not a published dependency; inline its steps.
+  history. Reuse comes from published packages (`INSTALL`); inline other steps.
 - ENTRY is mandatory and final. The tool example enters a Slop prompt.
-  COPY FROM copies files, not environment or named exports.
+  COPY copies files, not environment or named exports; INSTALL takes a package.
 
 ## Porting upstream programs
 
-Recipes and `SOURCE` files of **other modules and images** can be inspected
+Recipes and `SOURCE` files of **other images and packages** can be inspected
 with `curl`; they are published web assets, not access to the PC's filesystem.
 Recipes name them at `https://daugasauron.com`, and the page serves its own
-copy of each. Read the module recipe under `/etc/dolly/recipes` for the exact
+copy of each. Read the recipes under `/etc/dolly/recipes` for the exact
 URL and pin. For example, inspect QuickJS's recipe and C source without
-installing that module:
+installing anything:
 
 ```sh
-curl -f https://daugasauron.com/demos/javascript/quickjs.dm
+curl -f https://daugasauron.com/demos/javascript/Dollyfile-typescript-build
 curl -f https://daugasauron.com/dist/static/default/runtimes/quickjs-main.c
 ```
 
@@ -99,8 +102,8 @@ For interactive Neovim, syntax highlighting, linting and headless editing, read
 [neovim.md](neovim.md). Interactive nvim needs the shell, not Pi's captured tool.
 
 Pi's `/model` picker selects a local or remote provider. Studio defaults to
-Qwen3.5-0.8B, compiled inside Dolly using the GPU ABI. Its verified weights
-are included in the image. Optional larger models download into volatile
+Qwen3.5-2B, run inside Dolly by llama.cpp over the GPU ABI. Its verified weights
+are included in the image. Other local models download into volatile
 `/run/dolly-llm` files and need downloading again after refresh. `/local-unload` releases
 the GPU model. `/login` supports remote providers. `/dolly-hello`, `/dolly-tool`
 and `/dolly-fix` are small starting prompts.

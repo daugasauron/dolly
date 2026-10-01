@@ -10,8 +10,6 @@
     "build:runtime": "./scripts/build.sh",
     "routes": "node scripts/generate-routes.mjs",
     "image": "node scripts/build-image.mjs",
-    "snapshot": "node scripts/build-image.mjs",
-    "snapshot:reproducible": "node scripts/build-image.mjs --reproducible",
     "build": "npm run build:runtime && npm run snapshot",
     "test": "npm run test:source && node test/core-browser.mjs",
     "test:source": "node --test 'test/*.test.mjs' 'demos/**/*.test.mjs'",
@@ -21,15 +19,14 @@
     "serve": "node scripts/serve.mjs",
     "test:core": "node test/core-browser.mjs",
     "test:browser": "node test/browser-tests.mjs",
-    "test:custom-sessions": "node test/custom-session-browser.mjs",
     "test:demos": "node demos/run-browser-tests.mjs",
     "test:artifacts": "node --test 'test/*.artifacts.mjs' 'demos/**/*.artifacts.mjs'",
     "test:full": "npm run build && npm run test:artifacts && npm run test:source && npm run test:browser && npm run test:demos"
   },
   "dependencies": {
-    "@earendil-works/pi-agent-core": "0.84.4",
-    "@earendil-works/pi-ai": "0.84.4",
-    "@earendil-works/pi-coding-agent": "0.84.4"
+    "@earendil-works/pi-agent-core": "0.99.2",
+    "@earendil-works/pi-ai": "0.99.2",
+    "@earendil-works/pi-coding-agent": "0.99.2"
   },
   "devDependencies": {
     "esbuild": "0.25.12",

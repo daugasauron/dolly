@@ -9,7 +9,7 @@
  *
  * Wasm cannot revoke access to a subrange of linear memory. Version 0 therefore
  * supports whole-mapping munmap(), which is the only operation for which it can
- * provide honest lifetime semantics. Advice is accepted as a validated no-op.
+ * provide honest lifetime semantics.
  */
 
 #include <errno.h>
@@ -109,7 +109,8 @@ static int write_mapping(const dolly_mapping *mapping,
 static intptr_t mmap2(void *requested_address, size_t length,
                          int protection, int flags, int descriptor,
                          off_t page_offset) {
-  if (requested_address != NULL || length == 0) return -EINVAL;
+  (void)requested_address; /* A hint; MAP_FIXED is refused below. */
+  if (length == 0) return -EINVAL;
   if ((protection & ~(PROT_READ | PROT_WRITE | PROT_EXEC)) != 0) return -EINVAL;
   if ((protection & PROT_EXEC) != 0) return -EPERM;
   const int mapping_type = flags & MAP_TYPE;
@@ -206,17 +207,29 @@ static int unmap(void *address, size_t length) {
 }
 
 static int advise(void *address, size_t length, int advice) {
-  if (length == 0 || find_mapping(address, length) == NULL) return -ENOMEM;
+  const dolly_mapping *mapping = find_mapping(address, length);
+  if (length == 0 || mapping == NULL) return -ENOMEM;
   switch (advice) {
     case MADV_NORMAL:
     case MADV_RANDOM:
     case MADV_SEQUENTIAL:
     case MADV_WILLNEED:
-    case MADV_DONTNEED:
 #ifdef MADV_FREE
     case MADV_FREE:
 #endif
       return 0;
+    case MADV_DONTNEED:
+      /* The range reads as freshly mapped afterwards: zero when anonymous,
+       * the file's bytes when shared. A private file mapping keeps no
+       * descriptor to read from. */
+      if ((mapping->flags & MAP_ANONYMOUS) != 0) {
+        memset(address, 0, length);
+        return 0;
+      }
+      if (mapping->descriptor < 0) return -ENOTSUP;
+      return read_mapping(mapping->descriptor, address, length,
+                          mapping->file_offset +
+                              ((uintptr_t)address - (uintptr_t)mapping->address));
     default:
       return -EINVAL;
   }

@@ -20,7 +20,7 @@ function build(name, source = `src/commands/${name}.c`) {
 }
 
 async function buildInline(name) {
-  const recipe = inspectDollyfile(await readFile(join(project, "modules/core-tools.dm"), "utf8"));
+  const recipe = inspectDollyfile(await readFile(join(project, "Dollyfile-system-build"), "utf8"));
   const source = join(scratch, `${name}.c`);
   await writeFile(source, recipe.files.find(({ path }) => path.endsWith(`/${name}.c`)).body);
   return build(name, source);

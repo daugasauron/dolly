@@ -1,6 +1,6 @@
 # Clear loaded cargo vehicles waiting indefinitely for a handoff bay
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 40
 - TAGS: game,controllers,cargo
 
@@ -28,3 +28,11 @@ set-down and downstream transfer, followed by another pickup/handoff. Use the
 same generic visible program and ordinary actuators, preserve all original
 actors, 20 Hz controllers and execution budgets. Verify a populated continuation,
 no new controller errors/losses, save/reload and normal browser rendering.
+
+## Closed (2026-10-01)
+
+Not reproduced. The reproduction (build/living-world-20260926/long-fresh/) is
+gone. In a fresh 2,400 s audit of the current catalog (`20261001-223000-slopyard-living-world`) no bay loader
+waited indefinitely while loaded: longest loaded stationary interval Tonbi East
+57 s (2 jobs), Tonbi West 67 s (1 job), Nekote 40 s (8 jobs), Hayate tenders
+426 s and 57 s. The loaded stalls that do remain are listed in `20261001-223000-slopyard-living-world`.

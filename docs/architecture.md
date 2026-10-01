@@ -32,7 +32,7 @@ flowchart LR
 | Page | [`browser.mjs`](../src/browser.mjs), [`terminal.html`](../terminal.html) | Boots one route; gives host modules its canvas, keyboard and status line |
 | Host modules | [`host/`](../host/README.md) | One directory and manifest per bridge: JavaScript provider, WAT contract, C header, kernel C, process client; see [browser boundary](browser-boundary.md) |
 | Runtime Worker | [`runtime-worker.mjs`](../src/runtime-worker.mjs) | Loads the kernel, restores or builds the image, runs its ENTRY |
-| Kernel | [`dolly.c`](../src/dolly.c), [`process-kernel.c`](../src/process-kernel.c), [`system-snapshot.c`](../src/system-snapshot.c) | WasmFS, open files, pipes, processes, signals, terminal modes, image snapshots; module operations go to each module's `kernel.c` ([build](../toolchain/CMakeLists.txt)) |
+| Kernel | [`dolly.c`](../src/dolly.c), [`process-kernel.c`](../src/process-kernel.c), [`system-snapshot.c`](../src/system-snapshot.c), [`file-blocks.cpp`](../src/file-blocks.cpp) | WasmFS, open files, pipes, processes, signals, terminal modes, image snapshots; module operations go to each module's `kernel.c` ([build](../toolchain/CMakeLists.txt)) |
 | Supervisor | [`process-supervisor.mjs`](../src/process-supervisor.mjs) | Compiles executables, gives each process a fresh memory, gate and Worker (one per thread), forwards syscalls, enforces deadlines |
 | Process Worker | [`process-worker.mjs`](../src/process-worker.mjs), [`process-ffi.mjs`](../src/process-ffi.mjs) | Instantiates the executable; loads process-local DSOs and FFI |
 | Process libc | [`libc-adapter.c`](../src/process/libc-adapter.c), [`signal.c`](../src/process/signal.c) | Maps Emscripten musl's low-level calls to process operations |
@@ -114,20 +114,22 @@ flowchart TD
   [`Dollyfile-ghostty-build`](../Dollyfile-ghostty-build),
   [`Dollyfile-system`](../Dollyfile-system), [`Dollyfile`](../Dollyfile) (default),
   [`Dollyfile-gpu-sdk`](../Dollyfile-gpu-sdk), [`Dollyfile-audio-sdk`](../Dollyfile-audio-sdk);
-  their modules live in `modules/`.
 - The graph is split so an edit rebuilds only its descendants: each builder
   starts from the smallest image with its tools. Neither Git nor display
   packaging is an input to the Rust producers (`rust-sdk` starts from
   `system-build`); CMake, Neovim and SDL build from `system-tools` without
   display or Rust.
-- Toolchains stay in build-only images; shipped images copy their exact outputs,
-  as `system` copies Ghostty's plugin and font without the Zig SDK
+- Toolchains stay in images that are only built; applications and packages keep
+  exact outputs, as `system` copies Ghostty's plugin and font without the Zig
+  SDK and `pi-runtime` installs the `javascript` package
   ([Dollyfile](dollyfile.md#building)).
 - Prebuilt boot restores a sealed snapshot without downloading the compiler seed
   or compiling anything.
 - Demos build `FROM` core images; the core never uses a demo.
 - The kernel's WasmFS is the only filesystem. Browser storage holds only opaque
   image snapshots and [sessions](sessions.md); nothing is mounted.
+- File bytes live in kernel memory in 1 MiB blocks. A write that memory cannot
+  hold fails with `ENOSPC` and leaves 128 MiB for the kernel to keep working.
 
 ## Filesystem layout
 

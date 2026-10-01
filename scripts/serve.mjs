@@ -19,7 +19,6 @@ const mimeTypes = new Map([
   [".py", "text/plain; charset=utf-8"],
   [".json", "application/json; charset=utf-8"],
   [".sh", "text/plain; charset=utf-8"],
-  [".dm", "text/plain; charset=utf-8"],
   [".js", "text/javascript; charset=utf-8"],
   [".mjs", "text/javascript; charset=utf-8"],
   [".wasm", "application/wasm"],

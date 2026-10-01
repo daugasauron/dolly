@@ -1,7 +1,33 @@
-DOLLY 5
-IMAGE rts-build
+DOLLY 6
+TOOLCHAIN rts-build
+REQUIRES HOST display@0
+REQUIRES HOST download@0
+REQUIRES HOST http@0
+REQUIRES HOST upload@0
 
-FROM https://daugasauron.com/demos/sdl2/Dollyfile-sdl2-build 79da111eeac9e71e3ae6a8b64cf831a910f486121a5070e2eeab323f382e57f0
-USE https://daugasauron.com/demos/rts/seven-kingdoms.dm fc96593bc19092d6e0380d90919bd7e0d3cc36d9f736969c788c8e4afd4b905e
+FROM https://daugasauron.com/demos/sdl2/Dollyfile-sdl2-build 26770142bdc124051cc5afbb91e3f83de0a0ba9d2b1b749d0c419e3c13c1cb0e
+REQUIRES HEADER cpp
+REQUIRES HEADER sdl2
+REQUIRES HEADER zlib
+REQUIRES HEADER zconf
+REQUIRES LIB SDL2
+REQUIRES LIB z
+REQUIRES TOOL c++
+REQUIRES TOOL make
+REQUIRES TOOL mkdir
+REQUIRES TOOL tar
+REQUIRES TOOL gzip
+REQUIRES TOOL rm
+
+SOURCE https://daugasauron.com/dist/static/rts/seven-kingdoms.tar.gz 3aad67177fca52d82c53b9a1e4d80665e3b11457480ca434cb9c9294195b04d6 /tmp/seven-kingdoms/source.tar.gz
+SLOP gzip -dc /tmp/seven-kingdoms/source.tar.gz | tar -xf - -C /
+SLOP make -f /usr/src/dolly/rts/Makefile
+
+EXPORTS TOOL seven-kingdoms
+EXPORTS FOLDER seven-kingdoms-data /usr/share/7kaa
+EXPORTS FOLDER seven-kingdoms-source /usr/src/7kaa
+EXPORTS FOLDER seven-kingdoms-port /usr/src/dolly/rts
+FILE /usr/share/licenses/7kaa/COPYING
+SLOP rm -rf /tmp/seven-kingdoms
 
 ENTRY /bin/foreground -i /bin/slop

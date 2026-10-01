@@ -1,8 +1,58 @@
-DOLLY 5
-IMAGE dollyfile-studio
+DOLLY 6
+APPLICATION dollyfile-studio
+REQUIRES HOST build@0
+REQUIRES HOST display@0
+REQUIRES HOST download@0
+REQUIRES HOST gpu@0
+REQUIRES HOST http@0
+REQUIRES HOST snapshot@0
+REQUIRES HOST threads@0
+REQUIRES HOST upload@0
 
-FROM https://daugasauron.com/demos/local-llm/Dollyfile-pi-local f39b1beb146e11b034713b05ca6960e53af21a32455f2b2d78c14a63c5d10de0
-USE https://daugasauron.com/demos/neovim/neovim-runtime.dm b6c9652dd34c04e0cc30250d3e9908d9cfcd0d12c966c4d040b0068c1d8a128b
-USE https://daugasauron.com/demos/studio/dollyfile-studio.dm b8b3cba17e6112bf2988166dadde8afcfb04fe8334b465ab6b2ead73d3a06900
+FROM https://daugasauron.com/demos/local-llm/Dollyfile-pi-local 5685077f49433de577c8a0bc3698321b27c4377f1daa50c345cb541387b5b5f9
+INSTALL https://daugasauron.com/demos/neovim/Dollyfile-nvim 6c2ba5ba419a21d9948ce09a8b6400458044540f804a727a4a5aa5a14182233e
+REQUIRES TOOL pi
+REQUIRES TOOL nvim
+REQUIRES TOOL janis
+REQUIRES TOOL tar
+REQUIRES TOOL sha256sum
+REQUIRES TOOL sed
+# dollyfile-build starts disposable image builds through the page.
+
+SOURCE https://daugasauron.com/dist/static/studio/studio.tar ba6c63de1138c24417d301d4ca1c649e3b965ab82ba5af172f35208b3d1064f5 /tmp/dollyfile-studio/source.tar
+SLOP tar -xf /tmp/dollyfile-studio/source.tar -C /
+SLOP slop -e /usr/share/dollyfile-studio/install.slop
+SLOP dollyfile-lint /usr/share/dollyfile-studio/examples/Dollyfile-hello
+SLOP dollyfile-lint /usr/share/dollyfile-studio/examples/Dollyfile-tool
+SLOP rm -rf /tmp/dollyfile-studio
+
+EXPORTS TOOL dollyfile-lint
+EXPORTS TOOL dollyfile-build
+FOLDER /usr/share/dollyfile-studio
+FOLDER /home/dolly/.pi/agent/skills/dollyfiles
+FOLDER /home/dolly/.pi/agent/prompts
+FILE /home/dolly/.pi/agent/extensions/dollyfile-studio.js
+FOLDER /home/dolly/.config/nvim
+
+FILE /home/dolly/.pi/agent/settings.json
+    {
+      "enableInstallTelemetry": false,
+      "images": {"autoResize": false},
+      "shellPath": "/bin/slop",
+      "theme": "dolly",
+      "defaultProvider": "webgpu",
+      "defaultModel": "qwen3.5-2b",
+      "compaction": {"reserveTokens": 4096, "keepRecentTokens": 6144}
+    }
+
+FILE /home/dolly/.dollyrc
+    if test ! -f /workspace/Dollyfile; then
+      cp /usr/share/dollyfile-studio/examples/Dollyfile-hello /workspace/Dollyfile
+    fi
+    printf '\033[33mDOLLY / DOLLYFILE STUDIO\033[0m\n'
+    printf 'Start with /dolly-hello, /dolly-tool or /dolly-fix in Pi.\n'
+    printf '/model: select local Qwen or a remote provider. The first prompt loads local weights.\n'
+    printf 'Leave Pi with Ctrl+D on an empty prompt, then: nvim /workspace/Dollyfile\n'
+    printf 'dollyfile-build streams a test build; click Open image when finished.\n\n'
 
 ENTRY /bin/foreground -i /bin/slop /etc/dolly/init.slop

@@ -16,12 +16,17 @@ if(NOT DOLLY_KERNEL_SOURCES)
   message(FATAL_ERROR "DOLLY_KERNEL_SOURCES must list the host modules' kernel sources")
 endif()
 add_executable(dolly ${DOLLY_KERNEL_SOURCES})
+# statvfs reports the kernel's maximum memory as the filesystem's capacity.
+set(DOLLY_KERNEL_MEMORY_MAXIMUM 8589934592)
+target_compile_definitions(dolly PRIVATE DOLLY_KERNEL_MEMORY_MAXIMUM=${DOLLY_KERNEL_MEMORY_MAXIMUM})
 
 target_include_directories(dolly PRIVATE
   ../build/include
   ../build/generated
   ../src
   ../host
+  # src/file-blocks.cpp implements a WasmFS backend.
+  ${EMSCRIPTEN_ROOT_PATH}/system/lib/wasmfs
 )
 target_compile_options(dolly PRIVATE
   -m64
@@ -30,6 +35,8 @@ target_compile_options(dolly PRIVATE
   -fvisibility=default
   -matomics
   -mbulk-memory
+  # Like WasmFS itself; a throw would import __cxa_throw from JavaScript.
+  $<$<COMPILE_LANGUAGE:CXX>:-fno-exceptions>
 )
 set(DOLLY_LLVM_LIBRARIES
   lldWasm
@@ -50,7 +57,7 @@ target_link_options(dolly PRIVATE
   -matomics
   -mbulk-memory
   "SHELL:-Wl,--shared-memory,--no-check-features"
-  "SHELL:-Wl,--export=getTempRet0,--export=setTempRet0,--export=__stack_pointer,--export=__stack_high,--export=__stack_low"
+  "SHELL:-Wl,--export=__stack_pointer"
   # Resident Wasm bytes are instantiated by the small boot loader. The kernel
   # has no general dlopen/dlsym JavaScript capability or dynamic JS evaluation.
   "SHELL:-Wl,--export-table,--growable-table"
@@ -60,13 +67,13 @@ target_link_options(dolly PRIVATE
   -sALLOW_MEMORY_GROWTH=1
   -sIMPORTED_MEMORY=1
   -sINITIAL_MEMORY=67108864
-  -sMAXIMUM_MEMORY=8589934592
+  -sMAXIMUM_MEMORY=${DOLLY_KERNEL_MEMORY_MAXIMUM}
   -sSTACK_SIZE=16777216
   -sMODULARIZE=1
   -sEXPORT_ES6=1
   -sEXPORT_NAME=createDolly
   -sENVIRONMENT=worker
-  -sINVOKE_RUN=0
+  --no-entry
   --profiling-funcs
   "SHELL:-sEXPORTED_RUNTIME_METHODS=FS,FS_createPath,FS_createDataFile,addRunDependency,removeRunDependency"
   "SHELL:-sEXPORTED_FUNCTIONS=@/src/build/runtime-exports.json"
@@ -84,8 +91,6 @@ add_custom_target(dolly-seed
     /src/src/sha256.h@/seed/usr/src/dolly/sha256.h
     /src/src/fs-record.h@/seed/usr/src/dolly/fs-record.h
     /src/build/dolly-kernel-plugin-0.wasm@/seed/usr/lib/dolly/dolly-kernel-plugin-0.wasm
-    /src/build/dolly-process-0.wasm@/seed/usr/lib/dolly/dolly-process-0.wasm
-    /src/build/dolly-threads-0.wasm@/seed/usr/lib/dolly/dolly-threads-0.wasm
     ${DOLLY_PROCESS_SYSROOT_DIR}@/seed/usr/lib/dolly/process
     /src/build/process-bin/bootstrap@/seed/usr/libexec/dolly/process-bin/bootstrap
     /src/build/process-bin/compiler@/seed/usr/libexec/dolly/process-bin/compiler

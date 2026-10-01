@@ -162,31 +162,31 @@ return function(t, s, m, r)
     if t-m.at>10 and retreat<3.5 then lift=0 end
   end
   if ((m).phase == "carry") then
-    local route = {{(-37), 52}, {(-37), 75}, {(-43), 75}, {(-43), 106.1}};
+    local route = {{(-36.5), 52}, {(-36.5), 75}, {(-50), 76}, {(-50), 90}, {(-43), 93}, {(-43), 106.1}};
     local occupied = some((s).nearby, function(p)
       return (function() local value = (function() local value = (p).cargo; if active(value) then return ((p).id ~= (m).job) else return value end end)(); if active(value) then return (hypot(((p).x - ((m).depot).x), ((p).z - ((m).depot).z)) < 3.5) else return value end end)()
     end);
     lift = height;
     (out)[index(ON)] = 1;
-    if (((m).route == 3) and active(occupied)) then
-      (route)[index(3)] = {(-43), 98};
+    if (((m).route == #route - 1) and active(occupied)) then
+      route[#route] = {(-43), 98};
     end
     goal = follow(route, (m).route);
     speedLimit = 0.6;
     avoid = false;
     m.stuck=hypot(s.vx,s.vz)<.03 and math.abs(s.gyroscope[2])<.03 and hypot(s.x-goal[1],s.z-goal[2])>.3 and (m.stuck+s.dt) or 0
-    if m.stuck>5 then m.route=0;m.recoveries=(m.recoveries or 0)+1;go("clear") end
-    if (((m).route == 3) and (hypot(((s).x - at(at(route, 3), 0)), ((s).z - at(at(route, 3), 1))) < 1)) then
+    if m.stuck>5 then m.recoveries=(m.recoveries or 0)+1;go("clear") end
+    if (((m).route == #route - 1) and (hypot(((s).x - route[#route][1]), ((s).z - route[#route][2])) < 1)) then
       wantHeading = 0;
     end
     if (not active((magnet).attached)) then
       (m).wait = (t + 1);
       go("search");
     else
-      if (((m).route < 3) and (hypot(((s).x - at(goal, 0)), ((s).z - at(goal, 1))) < 0.3)) then
+      if (((m).route < #route - 1) and (hypot(((s).x - at(route, (m).route)[1]), ((s).z - at(route, (m).route)[2])) < 1)) then
         (m).route = (m).route + 1;
       else
-        if ((((((m).route == 3) and (not active(occupied))) and active(carried)) and (hypot(((carried).x - ((m).depot).x), ((carried).z - ((m).depot).z)) < (((m).depot).radius - 1.2))) and (hypot((s).vx, (s).vz) < 0.2)) then
+        if ((((((m).route == #route - 1) and (not active(occupied))) and active(carried)) and (hypot(((carried).x - ((m).depot).x), ((carried).z - ((m).depot).z)) < (((m).depot).radius - 1.2))) and (hypot((s).vx, (s).vz) < 0.2)) then
           go("lower");
         end
       end
@@ -220,15 +220,16 @@ return function(t, s, m, r)
   end
   if ((m).phase == "return") then
     lift = height;
-    local route = {{(-43), 75}, {(-37), 75}, {(-37), 52}, (m).home};
+    local route = {{(-43), 93}, {(-50), 90}, {(-50), 76}, {(-36.5), 75}, {(-36.5), 52}, (m).home};
     goal = follow(route, (m).route);
     speedLimit = 0.9;
     avoid = false;
     (out)[index(OFF)] = 1;
     m.stuck=hypot(s.vx,s.vz)<.03 and math.abs(s.gyroscope[2])<.03 and hypot(s.x-goal[1],s.z-goal[2])>.3 and (m.stuck+s.dt) or 0
     if m.stuck>5 then m.recoveries=(m.recoveries or 0)+1;go("back") end
-    if (hypot(((s).x - at(goal, 0)), ((s).z - at(goal, 1))) < 0.3) then
-      if ((m).route < 3) then
+    local waypoint = at(route, (m).route)
+    if (hypot(((s).x - waypoint[1]), ((s).z - waypoint[2])) < ((m).route < #route - 1 and 1 or 0.3)) then
+      if ((m).route < #route - 1) then
         (m).route = (m).route + 1;
       else
         (m).wait = (t + 1);

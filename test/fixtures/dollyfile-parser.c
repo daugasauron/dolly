@@ -50,7 +50,7 @@ int dolly_wait(int pid, int *status) {
 int main(int argc, char **argv) {
   if (argc < 3) return 2;
   int result = 2;
-  Scope tools = {0}, exports = {0};
+  Scope tools = {0}, exports = {0}, own = {0};
   Engine engine = {0};
 
   if (strcmp(argv[1], "check") == 0) {
@@ -59,7 +59,7 @@ int main(int argc, char **argv) {
     char root[PATH_MAX];
     snprintf(root, sizeof(root), "FILE:%s/Dollyfile", argv[2]);
     unsetenv("DOLLY_TEST_VALUE");
-    result = execute_recipe(&engine, root, NULL, 0, &tools, 1, 0, &exports);
+    result = execute_recipe(&engine, root, 0, &exports);
     const char *value = getenv("DOLLY_TEST_VALUE");
     if (value != NULL) printf("ENV-VALUE:%s\n", value);
     const Object *exported = scope_find(&engine.exports, "ENV", "DOLLY_TEST_VALUE");
@@ -88,12 +88,12 @@ int main(int argc, char **argv) {
     char *kind = NULL, *name = NULL;
     int header = 0;
     size_t operations = 0;
-    char blank[] = "  ", declaration[] = "DOLLY 5";
-    if (result == 0) result = process_line(&engine, "probe", 0, 1, blank,
-        NULL, 0, &tools, &exports, &kind, &name, &header, &operations, 0);
+    char blank[] = "  ", declaration[] = "DOLLY 6";
+    if (result == 0) result = process_line(&engine, "probe", 1, blank,
+        NULL, 0, &tools, &exports, &own, &kind, &name, &header, &operations, 0);
     if (engine.artifact.stream == NULL) result = 2;
-    if (result == 0) result = process_line(&engine, "probe", 0, 2, declaration,
-        NULL, 0, &tools, &exports, &kind, &name, &header, &operations, 0);
+    if (result == 0) result = process_line(&engine, "probe", 2, declaration,
+        NULL, 0, &tools, &exports, &own, &kind, &name, &header, &operations, 0);
     if (engine.artifact.stream != NULL || engine.artifact.recipe_sha256[0]) result = 2;
     engine.artifact.stream = tmpfile();
     strcpy(engine.artifact.recipe_sha256, pin);
@@ -111,15 +111,16 @@ int main(int argc, char **argv) {
   } else if (strcmp(argv[1], "recipe-names") == 0 && argc == 4) {
     // Retained recipe paths derive from kind and name, so two locators cannot share them.
     const char *digest = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
-    result = append_recipe(&engine, "IMAGE", "base", "https://daugasauron.com/Dollyfile-base", digest, "base");
-    if (result == 0) result = append_recipe(&engine, "IMAGE", argv[2], argv[3], digest, "root");
+    result = append_recipe(&engine, "TOOLCHAIN", "base", "https://daugasauron.com/Dollyfile-base", digest, "base");
+    if (result == 0) result = append_recipe(&engine, "APPLICATION", argv[2], argv[3], digest, "root");
   } else if (strcmp(argv[1], "image-url") == 0) {
     result = valid_image_url(argv[2]) ? 0 : 2;
   } else if (strcmp(argv[1], "kind") == 0 && argc == 4) {
-    result = validate_export(argv[2], "probe", argv[3], NULL, 0);
+    result = validate_export(argv[2], "probe", argv[3]);
   }
   dispose_scope(&tools);
   dispose_scope(&exports);
+  dispose_scope(&own);
   dispose_engine(&engine);
   return result == 0 ? 0 : 1;
 }

@@ -1,5 +1,5 @@
 # Sourced by scripts/prepare-image-sources.sh.
-if has_module libffi; then
+if has_image python; then
   libffi_dir="$(demos/python/prepare-libffi.sh)"
   copy_static demos/python/libffi-dolly.c python/runtimes/libffi-dolly.c
   node scripts/build-source-tar.mjs "${static_dir}/python/libffi.tar" \
@@ -8,11 +8,11 @@ if has_module libffi; then
     "${libffi_dir}/include/ffitarget.h" /usr/include/ffitarget.h \
     "${libffi_dir}/LICENSE" /usr/share/licenses/libffi/LICENSE
 fi
-if has_module cpython; then
+if has_image python; then
   cpython_dir="$(demos/python/prepare-cpython.sh)"
   for source in \
     cpython-platform.c cpython-extension-check.c \
-    cpython-socket-stubs.c cpython-termios.c \
+    cpython-socket-stubs.c \
     cpython-process.c cpython-http.c cpython-subprocess.py \
     cpython-transport.py; do
     copy_static "demos/python/${source}" "python/runtimes/${source}"

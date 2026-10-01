@@ -121,35 +121,15 @@ function dylinkRequirements(module) {
   return { ...requirements, needed, weakImports };
 }
 
-function tableLength() {
-  const length = processTable.length;
-  return typeof length === "bigint" ? length : BigInt(length);
-}
-
+// The process table is 64-bit addressed: its length and indices are BigInts.
 function growTable(delta) {
-  if (delta === 0n) return tableLength();
+  if (delta === 0n) return processTable.length;
   if (delta > 0xffffffffn) throw new RangeError("shared object table is too large");
-  try {
-    return BigInt(processTable.grow(Number(delta)));
-  } catch (numberError) {
-    try {
-      return BigInt(processTable.grow(delta));
-    } catch {
-      throw numberError;
-    }
-  }
+  return processTable.grow(delta);
 }
 
 function setTable(index, value) {
-  try {
-    processTable.set(Number(index), value);
-  } catch (numberError) {
-    try {
-      processTable.set(index, value);
-    } catch {
-      throw numberError;
-    }
-  }
+  processTable.set(index, value);
 }
 
 function functionIndex(value) {
@@ -211,7 +191,7 @@ function instantiateDso(bytes, flags) {
       `shared object has unloaded dependencies: ${requirements.needed.join(", ")}`,
     );
   }
-  const currentTable = tableLength();
+  const currentTable = processTable.length;
   const tableBase = aligned(currentTable, requirements.tableAlignment);
   const infrastructure = new Map(contract.imports.filter(entry => entry.module === "env")
     .map(entry => [entry.name, entry.type]));

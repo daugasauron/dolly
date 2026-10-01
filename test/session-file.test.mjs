@@ -83,7 +83,7 @@ test("reject corrupt, truncated, oversized and unsupported session envelopes", a
 });
 
 test("custom session files retain the exact recipe, artifact and inherited restrictions", async () => {
-  const source = `DOLLY 5\nIMAGE custom-proof\nFILE /usr/share/note\n    ${"note".repeat(2500)}\nENTRY /bin/slop\n`;
+  const source = `DOLLY 6\nAPPLICATION custom-proof\nFILE /usr/share/note\n    ${"note".repeat(2500)}\nENTRY /bin/slop\n`;
   const customImage = { source, artifact: { buildId: "image-build",
     recipeSha256: createHash("sha256").update(source).digest("hex"), sha256: "a".repeat(64),
     byteLength: 1234, inputs: [{ recipeSha256: "b".repeat(64), sha256: "c".repeat(64) }] },

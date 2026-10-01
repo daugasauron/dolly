@@ -25,6 +25,10 @@ flowchart LR
   Policy can lower these caps, never raise them. Metadata is literal UTF-8
   without NUL.
 - URLs must be absolute `http:` or `https:`; nothing resolves against the page.
+- Reserved `*.dolly.invalid` origins never reach Fetch: an enabled `build@0` or
+  `packages@0` admits its own requests there
+  ([`local-services.mjs`](../host/http/local-services.mjs)); any other fails
+  with `EACCES`.
 - A private host acknowledgement admits one request at a time; transfers then run
   concurrently in 16 fixed slots. A handle encodes slot and generation, so stale
   handles never touch a successor. `EBUSY` means the slot is occupied.
@@ -105,7 +109,7 @@ Fetch, so a generic transport failure alone does not identify its cause.
   return `CURLE_UNKNOWN_OPTION`. A relative URL fails with `CURLE_URL_MALFORMAT`
   and a disallowed redirect with `CURLE_COULDNT_CONNECT`.
 - Git: upstream `git` and `git-remote-http(s)` link that libcurl
-  ([`git.dm`](../modules/git.dm)): clone, fetch and push over HTTP. Clean/smudge
+  ([`Dollyfile-system-tools`](../Dollyfile-system-tools)): clone, fetch and push over HTTP. Clean/smudge
   filters are not ported. Cancelling an exchange does not undo a ref update the
   remote already accepted.
 - Janis `fetch()` polls slots cooperatively so timers and promises keep running.

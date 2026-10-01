@@ -4,7 +4,7 @@
 static int catalog_spawn(Data *ctx,Value list,const char *program,float x,float z){
     for(int i=0;i<value_length(ctx,list);i++){
         Value item=value_at(ctx,list,i),path=value_get(ctx,item,"program");const char *file=value_text(ctx,path);int matches=file&&!strcmp(file,program);value_text_free(ctx,file);value_free(ctx,path);
-        if(matches){Character design={0};Value blocks=value_get(ctx,item,"blueprint"),code=value_get(ctx,item,"source"),anchor=value_get(ctx,item,"anchored");assert(read_character(ctx,blocks,&design,0));design.anchored=value_truth(ctx,anchor);const char *source=value_text(ctx,code);Creature *c=spawn(&design,source,program,1,20,x,z);assert(c);int id=c->id;c->team=1;character_clear(&design);value_text_free(ctx,source);value_free(ctx,code);value_free(ctx,blocks);value_free(ctx,anchor);value_free(ctx,item);return id;}
+        if(matches){Character design={0};Value blocks=value_get(ctx,item,"blueprint"),code=value_get(ctx,item,"source"),anchor=value_get(ctx,item,"anchored");assert(read_character(ctx,blocks,&design));design.anchored=value_truth(ctx,anchor);const char *source=value_text(ctx,code);Creature *c=spawn(&design,source,program,1,20,x,z);assert(c);int id=c->id;c->team=1;character_clear(&design);value_text_free(ctx,source);value_free(ctx,code);value_free(ctx,blocks);value_free(ctx,anchor);value_free(ctx,item);return id;}
         value_free(ctx,item);
     }assert(0);return 0;
 }

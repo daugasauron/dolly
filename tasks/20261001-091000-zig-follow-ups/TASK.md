@@ -16,6 +16,10 @@ From merging `work/zig-self-host` (2026-10-01):
 - `modules/ghostty.dm` carries `strlen`/`memcmp`/`bcmp` because C-output
   compiler_rt leaves them to libc and the kernel-plugin contract lacks them;
   decide whether the contract should offer them (a contract change).
+- Generate `src/ghostty/generated/` (uucode and Ghostty's Unicode tables,
+  5.4 MB committed) with their upstream Zig generators inside the sandbox and
+  drop the checked-in output; `src/ghostty/generated/README.md` predates
+  self-hosted Zig (from `20260930-100000-audit-64`).
 - Carry over the Zig SDK browser check from the closed
   `20261001-014500-zig-sdk-browser`: the in-sandbox Zig compiles a small Zig
   program and a C interop case (via its C output and `cc`).
@@ -36,3 +40,11 @@ detection lie toward the program, but it is dead configuration. The smallest
 honest form would make non-raw native calls fail explicitly instead of
 compiling a marshalling path for a CPU Dolly is not. That needs a WAMR source
 change, or an upstream generic target.
+
+## Progress (2026-10-01, branch `work/core-polish`)
+
+The kernel-plugin contract now imports `strlen`, `memcmp` and `bcmp` from the
+kernel's libc, and `modules/ghostty.dm` no longer carries `string.c`. WAMR's
+`BUILD_TARGET_X86_64`: as recorded above, the guest never observes it and an
+honest target needs a WAMR source change; left. The `libdisplay.so` size
+measurement and the Zig SDK browser check are still open.

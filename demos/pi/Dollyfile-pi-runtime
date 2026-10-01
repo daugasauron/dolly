@@ -1,7 +1,14 @@
-DOLLY 5
-IMAGE pi-runtime
+DOLLY 6
+TOOLCHAIN pi-runtime
+REQUIRES HOST display@0
+REQUIRES HOST download@0
+REQUIRES HOST http@0
+REQUIRES HOST snapshot@0
+REQUIRES HOST threads@0
+REQUIRES HOST upload@0
 
-FROM https://daugasauron.com/demos/javascript/Dollyfile-javascript 3761e24a1168638191a92f2d82b79f881b7c43a0ed3716ef4dbd0c103cff4190
-USE https://daugasauron.com/demos/pi/pi.dm db3092bdb1e28acaf34b58a9f8dcd3cd1a8b13388150677a14e5a7a8493b0a37
+FROM https://daugasauron.com/Dollyfile-system 68fc9812c2c6dc3f459eb04ad59683a04c9953e81eb8970db702e5fd43cb51f8
+INSTALL https://daugasauron.com/demos/javascript/Dollyfile-javascript 8f5cebe2eff639c22977f970ce72d135c3395594f30c8dc4416c3a3c4ba8a7ff
+INSTALL https://daugasauron.com/demos/pi/Dollyfile-pi-coding-agent 759b42770bed7e31507a48116c815794d7eb50c712d7bd85c418a3eb128be10f
 
 ENTRY /bin/foreground -i /bin/slop

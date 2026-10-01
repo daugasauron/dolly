@@ -195,6 +195,11 @@ int sigprocmask(int how, const sigset_t *restrict set, sigset_t *restrict previo
   return -1;
 }
 
+/* Only a delivered handler interrupts an empty poll. */
+int pause(void) {
+  return poll(NULL, 0, -1);
+}
+
 int sigpending(sigset_t *set) {
   if (!set) { errno = EFAULT; return -1; }
   *set = pending;

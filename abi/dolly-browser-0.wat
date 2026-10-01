@@ -18,7 +18,7 @@
   ;; Visible local-user output, not network access or host filesystem handles.
   (import "env" "dolly_bootstrap_write_bytes" (func (param i64 i64)))
   (import "env" "dolly_download_dispatch"
-    (func (param i64 i64 i64 i64) (result i32)))
+    (func (param i32 i64 i64) (result i32)))
   (import "env" "emscripten_out" (func (param i64)))
   (import "env" "emscripten_err" (func (param i64)))
 
@@ -49,7 +49,7 @@
   (import "env" "_wasmfs_get_preloaded_file_mode" (func (param i32) (result i32)))
 
   ;; WasmFS device callbacks. The embedding installs only local byte-output
-  ;; devices (runtime-worker.mjs: installOutputDevice), with EOF for reads.
+  ;; devices (host/runtime/runtime.mjs: installOutputDevices), with EOF for reads.
   ;; Filesystem contents, metadata, paths, and descriptors remain in Wasm.
   (import "env" "_wasmfs_jsimpl_alloc_file" (func (param i64 i64)))
   (import "env" "_wasmfs_jsimpl_free_file" (func (param i64 i64)))

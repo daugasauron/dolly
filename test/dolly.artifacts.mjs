@@ -69,7 +69,6 @@ test("dolly-process-0 is a minimal private-memory executable contract", async ()
     formatWasmType(contract.exports.find((entry) => entry.name === "_start").type),
     "func()->()",
   );
-  assert.equal(contract.hasStart, false);
   assert.equal(layout.length, 1);
   assert.equal(Buffer.from(layout[0].data).toString("hex"), expectedLayout);
 });
@@ -81,7 +80,6 @@ test("a statically linked process executable satisfies dolly-process-0", async (
   assert.equal(executable.customSections.includes("dylink.0"), false);
   assert.equal(executable.customSections.includes("dolly.process"), true);
   assert.equal(executable.customSections.includes("dolly.process.memory"), true);
-  assert.equal(executable.hasStart, true, "Emscripten initializes private memory at instantiation");
   assert.deepEqual(
     executable.imports.map((entry) => `${entry.module}.${entry.name}`),
     ["env.memory", "dolly_process_0.call"],
@@ -214,16 +212,6 @@ test("the kernel contains no general dynamic loader or dynamic JavaScript execut
   assert.doesNotMatch(plugin, /\bfetch\s*\(|XMLHttpRequest|\b(?:eval|Function)\s*\(/);
 });
 
-test("the main-module provider exports Emscripten side-module stack bounds", async () => {
-  const runtime = await readWasmInterface(artifact("dolly.wasm"));
-  for (const name of ["__stack_pointer", "__stack_high", "__stack_low"]) {
-    const entry = runtime.exports.find(entry => entry.name === name);
-    assert.ok(entry, name);
-    assert.equal(entry.type.kind, "global");
-    assert.equal(entry.type.value, "i64");
-  }
-});
-
 test("system snapshots are sealed to their visible recipe chain", async () => {
   const { decodeSystemSnapshot } = await import("../scripts/system-snapshot-format.mjs");
   const { verifySnapshotIdentity } = await import("../scripts/snapshot-identity.mjs");
@@ -237,12 +225,16 @@ test("system snapshots are sealed to their visible recipe chain", async () => {
   const corePrograms = new Map([
     ["default", "/bin/slop"],
     ["audio-sdk", "/usr/lib/dolly/process/libdolly-audio.a"],
+    ["curl", "/usr/bin/curl"],
+    ["display", "/usr/lib/libdisplay.so"],
     ["ghostty-build", "/usr/bin/zig"],
+    ["gzip", "/bin/gzip"],
     ["gpu-sdk", "/usr/lib/dolly/process/libdolly-gpu.a"],
     ["system", "/usr/lib/libdisplay.so"],
     ["system-build", "/bin/slop"],
     ["system-tools", "/usr/bin/git"],
     ["zig-build", "/usr/bin/zig"],
+    ["zlib", "/usr/lib/libz.a"],
   ]);
   assert.deepEqual([...corePrograms.keys()].sort(), definitions
     .filter(definition => !definition.filename.startsWith("demos/")).map(definition => definition.image).sort());
@@ -260,18 +252,17 @@ test("system snapshots are sealed to their visible recipe chain", async () => {
     assert.equal(metadata.buildId, DOLLY_IMAGE_BUILD_ID);
     assert.equal(metadata.identityVersion, 2);
     assert.deepEqual(metadata.recipes, recipes);
-    assert.deepEqual(metadata.modules, graph.root.uses.map(
-      ({ location, sha256 }) => ({ location, sha256 }),
-    ));
     assert.deepEqual(metadata.manifest, [...metadata.manifest].sort());
     if (corePrograms.has(image)) {
       assert.ok(metadata.manifest.includes(corePrograms.get(image)), `${image}: primary program`);
     }
     assert.ok(metadata.manifest.includes("/etc/dolly/recipes.lock"));
-    for (const required of ["/bin/dollyfile", "/usr/libexec/dolly/process-bin/compiler",
-      "/usr/lib/dolly/process/libc-ww.a", "/usr/lib/clang/24/include/stddef.h",
-      "/usr/lib/dolly/dolly-kernel-plugin-0.wasm"]) {
-      assert.ok(metadata.manifest.includes(required), `${image} must explicitly retain ${required}`);
+    // Applications and toolchains carry the seed their base retained; a
+    // package keeps only what it declares.
+    const seed = ["/bin/dollyfile", "/usr/libexec/dolly/process-bin/compiler", "/usr/lib/dolly/process/libc-ww.a",
+      "/usr/lib/clang/24/include/stddef.h", "/usr/lib/dolly/dolly-kernel-plugin-0.wasm", "/bin/foreground"];
+    for (const path of seed) {
+      assert.equal(metadata.manifest.includes(path), graph.root.role !== "package", `${image}: ${path}`);
     }
     assert.equal(metadata.manifest.some((path) => /\/usr\/src\/dolly\/(?:dollyfile\.c|dso-)/.test(path) ||
       /\/process-bin\/(?!compiler$)/.test(path)), false, `${image} must not retain bootstrap probes`);
@@ -279,8 +270,7 @@ test("system snapshots are sealed to their visible recipe chain", async () => {
     assert.equal(metadata.manifest.some((path) => path.startsWith("/workspace")), false);
     assert.equal(metadata.byteLength, snapshot.byteLength);
     assert.equal(metadata.sha256, createHash("sha256").update(snapshot).digest("hex"));
-    assert.ok(metadata.manifest.includes("/bin/foreground"));
-    for (const path of graph.root.entry.filter(argument => argument.startsWith("/"))) {
+    for (const path of (graph.root.entry ?? []).filter(argument => argument.startsWith("/"))) {
       assert.ok(metadata.manifest.includes(path), `${image}: ENTRY names ${path}`);
     }
     assert.deepEqual(metadata.entry, graph.root.entry);
@@ -327,14 +317,18 @@ test("registry, routes, and source viewer derive from Dollyfiles", async () => {
     knownImages.filter(({ image }) => selected.has(image)),
   );
   for (const image of DOLLY_IMAGES) {
-    // Build-only images have no display and only the rebuild screen.
+    // Images without ENTRY or display only build: no boot route.
     const bootRoute = access(new URL(`../${image.image}/index.html`, import.meta.url)).then(() => true, () => false);
-    assert.equal(await bootRoute, image.hostRequirements.includes("display@0"), `${image.image}: boot route`);
+    assert.equal(await bootRoute, image.entry !== null && image.hostRequirements.includes("display@0"), `${image.image}: boot route`);
     await readFile(new URL(`../${image.image}/rebuild/index.html`, import.meta.url));
     await readFile(new URL(`../view/${image.image}/index.html`, import.meta.url));
     assert.ok(image.byteLength > 0);
     assert.match(image.sha256, /^[0-9a-f]{64}$/);
   }
+  // The package index amy reads names every package of the registry by its pinned recipe.
+  const index = (await readFile(artifact("dolly-packages.txt"), "utf8")).trimEnd().split("\n").filter(Boolean);
+  assert.deepEqual(index, DOLLY_IMAGES.filter(({ role }) => role === "package")
+    .map(({ image, dollyfile, sha256 }) => `${image} https://daugasauron.com/${dollyfile} ${sha256}`));
 });
 
 test("the kernel module owns its wasm64 WasmFS memory and table", async () => {

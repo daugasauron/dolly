@@ -6,9 +6,9 @@
 /* Host mailbox layout; dolly-upload-0.wat owns its version and semantics. */
 typedef struct {
   _Atomic uint32_t request, cancelled, completed, chunk, consumed;
-  _Atomic uint32_t length, error, eof, enabled;
-  unsigned char reserved[28];
-  unsigned char data[65536];
+  _Atomic uint32_t length, error, eof, enabled, size;
+  unsigned char reserved[24];
+  unsigned char data[DOLLY_UPLOAD_CHUNK_CAPACITY];
 } dolly_upload_mailbox;
 
 #ifdef __cplusplus

@@ -8,7 +8,7 @@ await browserTest("core", { image }, async ({ server, open }) => {
     rules: [{ origin: server.origin, pathPrefix: "/fixture/", methods: ["GET"] }] } });
   if (image === "default") assert.deepEqual(
     await page.evaluate(() => [...__dolly.hostModules].sort()),
-    ["display@0", "download@0", "http@0", "runtime@0", "snapshot@0", "upload@0"]);
+    ["display@0", "download@0", "http@0", "packages@0", "runtime@0", "snapshot@0", "threads@0", "upload@0"]);
   const starts = [];
   const recordRequest = request => { if (/^https?:/.test(request.url())) starts.push(request.url()); };
   page.context().on("request", recordRequest);
@@ -75,7 +75,7 @@ await browserTest("core", { image }, async ({ server, open }) => {
   assert.notEqual(await submit(`curl -fsS ${server.origin}/denied`), 0);
   assert.equal(server.requests.has("/denied"), false, "denied userspace HTTP reached the host server");
   // Only images declaring build@0 reach the page's build service.
-  assert.notEqual(await submit("curl -fsS -d 'DOLLY 5' https://build.dolly.invalid/v1/builds"), 0);
+  assert.notEqual(await submit("curl -fsS -d 'DOLLY 6' https://build.dolly.invalid/v1/builds"), 0);
   assert.equal(await page.locator("#image-build").count(), 0);
   // Wasm only offers downloads: each needs a click, and the queue is bounded.
   const automatic = page.waitForEvent("download", { timeout: 1000 }).then(() => true, () => false);

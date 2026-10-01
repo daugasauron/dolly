@@ -14,7 +14,6 @@ import { CANONICAL_ORIGIN, canonicalPath } from "../src/static-asset.mjs";
 export const mimeTypes = new Map([
   [".html", "text/html; charset=utf-8"],
   [".md", "text/markdown; charset=utf-8"],
-  [".dm", "text/plain; charset=utf-8"],
   [".h", "text/plain; charset=utf-8"],
   [".json", "application/json"],
   [".js", "text/javascript; charset=utf-8"],
@@ -101,6 +100,7 @@ export async function startBrowserServer(projectDir, image = "default",
     files.add(`dist/dolly-${definition.image}-system-snapshot.mjs`);
   }
   for (const source of DOLLY_STATIC_SOURCES) files.add(source.path.slice(1));
+  files.add("dist/dolly-packages.txt");
   for (const name of await readdir(resolve(projectDir, "dist"))) {
     if (/^dolly(?:-[a-z0-9-]+)?\.(?:wasm|mjs|data)$/.test(name) || name === "IosevkaTerm-SemiBold.woff2") {
       files.add(`dist/${name}`);

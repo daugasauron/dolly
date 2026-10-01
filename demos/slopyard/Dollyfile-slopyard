@@ -1,18 +1,64 @@
-DOLLY 5
-IMAGE slopyard
+DOLLY 6
+APPLICATION slopyard
+REQUIRES HOST display@0
+REQUIRES HOST download@0
+REQUIRES HOST gpu@0
+REQUIRES HOST http@0
+REQUIRES HOST snapshot@0
+REQUIRES HOST threads@0
+REQUIRES HOST upload@0
 
-FROM https://daugasauron.com/demos/slopyard/Dollyfile-gamedev-sdk e6a670368656cef6064ae480cdfa4d66de14d3d02a9250da808430b92cfb714d
-COPY FROM https://daugasauron.com/demos/javascript/Dollyfile-javascript 3761e24a1168638191a92f2d82b79f881b7c43a0ed3716ef4dbd0c103cff4190 /usr/lib/libdolly-js.a /usr/lib/libdolly-js.a
-COPY FROM https://daugasauron.com/demos/javascript/Dollyfile-javascript 3761e24a1168638191a92f2d82b79f881b7c43a0ed3716ef4dbd0c103cff4190 /usr/include/quickjs.h /usr/include/quickjs.h
-COPY FROM https://daugasauron.com/demos/javascript/Dollyfile-javascript 3761e24a1168638191a92f2d82b79f881b7c43a0ed3716ef4dbd0c103cff4190 /usr/include/dolly/quickjs-runner.h /usr/include/dolly/quickjs-runner.h
-COPY FROM https://daugasauron.com/demos/javascript/Dollyfile-javascript 3761e24a1168638191a92f2d82b79f881b7c43a0ed3716ef4dbd0c103cff4190 /usr/lib/dolly/node.js /usr/lib/dolly/node.js
-COPY FROM https://daugasauron.com/demos/javascript/Dollyfile-javascript 3761e24a1168638191a92f2d82b79f881b7c43a0ed3716ef4dbd0c103cff4190 /usr/lib/janis/runtime.js /usr/lib/janis/runtime.js
-EXPORTS LIB dolly-js /usr/lib/libdolly-js.a
-EXPORTS HEADER quickjs /usr/include/quickjs.h
-EXPORTS HEADER quickjs-runner /usr/include/dolly/quickjs-runner.h
-USE https://daugasauron.com/demos/pi/pi.dm db3092bdb1e28acaf34b58a9f8dcd3cd1a8b13388150677a14e5a7a8493b0a37
-USE https://daugasauron.com/demos/slopyard/lua55.dm 9ff415b53d7a4d5566d1ec248339442136dc78a0a3ba4962d15d8c502d9df44e
-USE https://daugasauron.com/demos/slopyard/slopyard.dm 515def3b188b51a001ad648e18ab221d1250d21058698dc74765886cf6818668
+FROM https://daugasauron.com/demos/slopyard/Dollyfile-gamedev-sdk 70017b8991b606fa19a1a74cae7bd508958ebdcd721dc2bdca102418f6fd2d86
+INSTALL https://daugasauron.com/demos/javascript/Dollyfile-javascript 8f5cebe2eff639c22977f970ce72d135c3395594f30c8dc4416c3a3c4ba8a7ff
+INSTALL https://daugasauron.com/demos/pi/Dollyfile-pi-coding-agent 759b42770bed7e31507a48116c815794d7eb50c712d7bd85c418a3eb128be10f
+REQUIRES TOOL cc
+REQUIRES TOOL ar
+REQUIRES TOOL make
+REQUIRES TOOL gzip
+REQUIRES TOOL tar
+REQUIRES TOOL cp
+REQUIRES TOOL mkdir
+REQUIRES TOOL rm
+REQUIRES HEADER libc
+
+SOURCE https://daugasauron.com/dist/static/slopyard/lua-5.5.1.tar.gz 1c4b4068d67061f2a2231ad2b5422e77acea1487ea9890f6320af614f4373dce /tmp/lua55/source.tar.gz
+SLOP gzip -dc /tmp/lua55/source.tar.gz > /tmp/lua55/source.tar
+SLOP tar -xf /tmp/lua55/source.tar -C /tmp/lua55
+FILE /tmp/lua55/Makefile
+    SOURCE := /tmp/lua55/lua-5.5.1/src
+    FILES := $(filter-out $(SOURCE)/lua.c,$(wildcard $(SOURCE)/*.c))
+    OBJECTS := $(patsubst $(SOURCE)/%.c,/tmp/lua55/%.o,$(FILES))
+    /usr/lib/liblua5.5.a: $(OBJECTS)
+    	ar rcs $@ $^
+    /tmp/lua55/%.o: $(SOURCE)/%.c
+    	cc -std=c17 -O2 -U__SIZEOF_INT128__ -DLUA_USE_C89 -I $(SOURCE) -c $< -o $@
+SLOP make -f /tmp/lua55/Makefile
+SLOP mkdir -p /usr/include/lua5.5 /usr/share/licenses/lua5.5
+SLOP cp /tmp/lua55/lua-5.5.1/src/lua.h /tmp/lua55/lua-5.5.1/src/luaconf.h /tmp/lua55/lua-5.5.1/src/lauxlib.h /tmp/lua55/lua-5.5.1/src/lualib.h /usr/include/lua5.5
+SLOP cp /tmp/lua55/lua-5.5.1/doc/readme.html /usr/share/licenses/lua5.5/readme.html
+SLOP rm -rf /tmp/lua55
+EXPORTS LIB lua55 /usr/lib/liblua5.5.a
+EXPORTS HEADER lua55 /usr/include/lua5.5
+FILE /usr/share/licenses/lua5.5/readme.html
+REQUIRES LIB raylib
+REQUIRES LIB box3d
+REQUIRES LIB dolly-raylib
+REQUIRES LIB dolly-js
+REQUIRES LIB lua55
+REQUIRES HEADER lua55
+REQUIRES HEADER gpu
+REQUIRES HEADER quickjs
+REQUIRES HEADER quickjs-runner
+
+SOURCE https://daugasauron.com/dist/static/slopyard/source.tar a335218d84895bfe66e91d03645d46accb701dd70e51428c35f84143b348f79b /tmp/slopyard.tar
+SLOP tar -xf /tmp/slopyard.tar -C / && rm /tmp/slopyard.tar
+SLOP make -f /usr/src/dolly/slopyard/box3d.mk
+SLOP cc -std=c17 -O2 -pthread -U__SIZEOF_INT128__ -I/usr/include/lua5.5 /usr/src/dolly/slopyard/main.c /usr/src/dolly/slopyard/data.c /usr/src/dolly/slopyard/pi.c /usr/src/dolly/slopyard/character.c /usr/src/dolly/slopyard/render.c /usr/src/dolly/slopyard/world.c /usr/src/dolly/slopyard/terrain.c /usr/src/dolly/slopyard/magnet.c -ldolly-gpu -llua5.5 -ldolly-js -ldolly-raylib -lraylib -lslopyard-box3d -lm -o /usr/bin/slopyard
+SLOP /usr/bin/slopyard --check
+SLOP rm -rf /tmp/slopyard-box3d
+EXPORTS TOOL slopyard
+EXPORTS LIB slopyard-box3d /usr/lib/libslopyard-box3d.a
+EXPORTS FOLDER slopyard-source /usr/src/dolly/slopyard
 
 FILE /etc/dolly/slopyard.slop
     /bin/foreground /usr/bin/slopyard

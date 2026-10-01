@@ -1,16 +1,10 @@
-import { DOLLY_KERNEL_PLUGIN_ABI_DIGEST } from "../dist/dolly-kernel-plugin-abi.mjs";
+import { DOLLY_KERNEL_PLUGIN_ABI_DIGEST, DOLLY_KERNEL_PLUGIN_IMPORTS } from "../dist/dolly-kernel-plugin-abi.mjs";
 import { hex } from "./static-asset.mjs";
 import { Reader } from "./wasm-interface.mjs";
 
 // Boot-only Wasm linking, not a browser capability imported by the guest.
 // Inputs are bytes and real kernel Wasm exports. No paths, URLs, JavaScript
 // callbacks, dependency loading, or ambient symbol lookup enter this module.
-const functions = [
-  "fopen", "fseek", "dolly_fclose", "ftell", "malloc", "fread", "free",
-  "dolly_assert_fail", "realloc", "strcmp", "strncmp", "write",
-  "__errno_location", "lseek", "preadv", "close", "fstat", "unlinkat",
-  "openat", "realpath", "readv",
-];
 const maximumBytes = 64 * 1024 * 1024;
 
 function allocationRequirements(module) {
@@ -53,7 +47,7 @@ export function instantiateKernelPlugin(bytes, kernel, memory) {
     __stack_pointer: kernel.__stack_pointer,
     __memory_base: undefined,
     __table_base: undefined,
-    ...Object.fromEntries(functions.map(name => [name, kernel[name]])),
+    ...Object.fromEntries(DOLLY_KERNEL_PLUGIN_IMPORTS.map(name => [name, kernel[name]])),
   };
   for (const imported of WebAssembly.Module.imports(module)) {
     if (imported.module !== "env" || !Object.hasOwn(env, imported.name)) {

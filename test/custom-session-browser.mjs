@@ -35,8 +35,14 @@ async function customImageSessions(context, server, fixtures) {
   await page.goto(server.origin + "/custom/");
   const original = await page.locator("#source").inputValue();
   const pin = original.match(/FROM https:\/\/daugasauron\.com\/Dollyfile-system ([0-9a-f]{64})/)[1];
-  const source = `DOLLY 5
-IMAGE custom-session
+  // system retains the engine and the transfer tools: the recipe declares their modules.
+  const source = `DOLLY 6
+APPLICATION custom-session
+REQUIRES HOST display@0
+REQUIRES HOST download@0
+REQUIRES HOST http@0
+REQUIRES HOST snapshot@0
+REQUIRES HOST upload@0
 FROM https://daugasauron.com/Dollyfile-system ${pin}
 FILE /tmp/session-hello.c
     #include <stdio.h>

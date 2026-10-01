@@ -6,7 +6,7 @@ Escape returns to normal; `:w` saves, `:q` quits, `:wq` does both. Run `pi` at
 the shell to return. Pi's captured shell tool does not own an interactive
 terminal, so do not launch interactive nvim through it.
 
-The installed plugin recognizes Dollyfile, Dollyfile-* and *.dm. It highlights
+The installed plugin recognizes Dollyfile and Dollyfile-*. It highlights
 directives in yellow, sets four-space indentation and shows inline lint errors
 on open, save and after edits (leaving insert mode). `:DollyLint` checks the
 current buffer immediately without saving it. `:lua vim.diagnostic.open_float()` explains

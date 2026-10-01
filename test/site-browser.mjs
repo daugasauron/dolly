@@ -39,7 +39,8 @@ await browserTest("site", { server: { handle } }, async ({ browser, server }) =>
     links: [...row.querySelectorAll(".image-links a")].map(link => new URL(link.href).pathname) })));
   assert.deepEqual(images.map(row => row.image).sort(), DOLLY_IMAGES.map(definition => definition.image).sort());
   for (const { image, links } of images) {
-    const displayed = DOLLY_IMAGES.find(definition => definition.image === image).hostRequirements.includes("display@0");
+    const definition = DOLLY_IMAGES.find(definition => definition.image === image);
+    const displayed = definition.entry !== null && definition.hostRequirements.includes("display@0");
     assert.deepEqual(links.sort(), [...displayed ? [`${prefix}/${image}/`] : [], `${prefix}/${image}/rebuild/`,
       `${prefix}/view/${image}/`].sort(), image);
     for (const link of links) assert.ok(existsSync(`${root}${link.slice(prefix.length + 1)}index.html`), link);
@@ -49,7 +50,7 @@ await browserTest("site", { server: { handle } }, async ({ browser, server }) =>
   await page.locator("#shortcuts").waitFor();
 
   // A large source link is a verified scripted download of the exact bytes.
-  await page.goto(`${origin}${prefix}/view/zig-build/modules/zig/`);
+  await page.goto(`${origin}${prefix}/view/zig-build/`);
   assert.ok(await page.locator("pre .line").count() > 2);
   const link = page.locator('a.source[href$="/dist/static/default/zig.tar"]');
   const saved = page.waitForEvent("download", { timeout: 120000 });

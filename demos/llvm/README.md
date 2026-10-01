@@ -10,7 +10,7 @@ LLVM 24, Clang and LLD built inside Dolly from the seed's pinned sources
   TableGen targets the seed compiler's libraries need. It keeps the three tools
   and `/usr/share/llvm-tablegen` (configured headers and TableGen outputs).
 
-Key files: [`llvm-tablegen.dm`](llvm-tablegen.dm),
+Key files: [`Dollyfile-llvm-tablegen`](Dollyfile-llvm-tablegen),
 [`prepare-sources.sh`](prepare-sources.sh) (stages the seed's verified checkout
 without tests or docs) and [`llvm-host-triple.patch`](llvm-host-triple.patch)
 (LLVM runs `config.guess` even when given `LLVM_HOST_TRIPLE`). CMake comes from

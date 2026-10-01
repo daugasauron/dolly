@@ -1,6 +1,6 @@
 # Abandon an airborne pickup that stays blocked by traffic
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 40
 - TAGS: game,content,bug
 
@@ -57,3 +57,17 @@ controller errors/deaths. This supports continued investigation, but the combine
 defense fixture is unfinished and these programs remain unbundled. Image41 is the
 served checkpoint. Evidence: `build/slopyard-compound-regressions-chrome-`
 `payload-couriers/salvage/progress-payload-1200.json`.
+
+## Closed (2026-10-01)
+
+Superseded and fixed where it still occurred. The September reproduction and the
+JavaScript candidate predate the Lua controllers, and the current air couriers
+already yield and resume: in a fresh 2,400 s audit of the catalog they delivered
+36 parcels with no loaded hover longer than 15 s
+(`20261001-223000-slopyard-living-world`). The same traffic-clearance trap did
+remain at a drop-off: Kawasemi hovered 2,175 s over the East receiving yard
+because its whole-body clearance kept the magnet above the idle receiving
+crane's arm and the parked forklift, and its floor estimate stopped it short of
+support. `3cd1709` parks idle receiving cranes away from their pad, clears
+traffic per part, and keeps lowering until the load is supported; replaying the
+stalled save, the courier delivers its three parcels within 300 s.

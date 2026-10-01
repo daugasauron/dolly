@@ -4,12 +4,14 @@ bhop
 classicube
 codex
 dollyfile-studio
+gnu-emacs
 gpu-fluid
 javascript
 neovim
 openal-build
 pi
 pi-local
+minicpm5-2b
 python
 rts-arena
 rust-tools

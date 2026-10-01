@@ -1,5 +1,5 @@
 # Sourced by scripts/prepare-image-sources.sh.
-if has_module libuv; then
+if has_image cmake-build; then
   libuv_dir="$(bash demos/cmake/prepare-libuv.sh)"
   node scripts/build-source-tar.mjs "${static_dir}/neovim/libuv.tar" \
     "${libuv_dir}/include" /tmp/libuv/source/include \
@@ -8,7 +8,7 @@ if has_module libuv; then
     demos/cmake/libuv /tmp/libuv/dolly \
     demos/cmake/libuv-dolly.mk /tmp/libuv/Makefile
 fi
-if has_module cmake; then
+if has_image cmake-build; then
   cmake_dir="$(bash scripts/fetch-pinned-source.sh cmake)"
   node scripts/build-source-tar.mjs "${static_dir}/neovim/cmake.tar.gz" \
     "${cmake_dir}" /tmp/cmake/source \

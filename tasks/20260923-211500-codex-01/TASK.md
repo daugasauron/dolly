@@ -1,6 +1,6 @@
 # Replace Slopyard JavaScript controllers and JSON game data with Lua
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 10
 - TAGS: game,architecture,scripting
 
@@ -130,3 +130,18 @@ referenced. Legacy-program translations and preserved user saves remain intact.
 The old slopyard-browser harness still refers to a nonexistent archived Lua
 catalog; this belongs to the remaining harness reconciliation, not a runtime
 requirement to ship the obsolete catalogs.
+
+## Closed (2026-10-01)
+
+Done. Every controller runs in Lua 5.5 (`demos/slopyard/src/world.c`), catalogs
+and saves are Lua data tables, and JavaScript remains only in Pi's integration
+and the `--integration-check` script. The read-only JSON importer kept on
+September 26 was removed in `95e1c42` under the repository-weight decision in
+`20260930-100000-audit-64`: no shipped save or fixture used it, and old sessions
+cannot load into newer images anyway; that commit's parent can still import a
+JSON world and save it as Lua. The open "old harness reconciliation" was the
+JavaScript-era browser scripts, removed in `8aeec3f`; `slopyard-browser.mjs` now
+runs all 17 maintained fixtures, including `slopyard-controllers.c` (139,000 Lua
+calls across the catalog plus loop, recursion, heap and capability limits), and
+its driver part saves and restores an edited Lua program in Chrome. The 60 FPS
+target was met in the thread checkpoint recorded above.

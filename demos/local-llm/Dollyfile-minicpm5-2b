@@ -1,0 +1,14 @@
+DOLLY 6
+PACKAGE minicpm5-2b
+
+# MiniCPM5-2B Q4_K_M, the exact upstream GGUF assembled from parts SOURCE accepts, and its license.
+FROM https://daugasauron.com/Dollyfile-system 68fc9812c2c6dc3f459eb04ad59683a04c9953e81eb8970db702e5fd43cb51f8
+
+SOURCE https://daugasauron.com/dist/static/llm/minicpm5-2b/0.part 6ee2aeab86dc9edef05f3b57e14b3f6bc1ebeb604469159a74c1e5fef2cf4abb /tmp/llm/0.part
+SOURCE https://daugasauron.com/dist/static/llm/minicpm5-2b/1.part f831d74c66f8265b8881083611202850b653ffcb1d1e7a55f2ca3bb21e15e327 /tmp/llm/1.part
+SOURCE https://daugasauron.com/dist/static/llm/minicpm5-2b/LICENSE 202d02b14796563546e1a1d1e761410fa9e399bf7e1b85d8b43c972658341202 /usr/share/licenses/minicpm5-2b/LICENSE
+SLOP mkdir -p /usr/share/dolly/llm
+SLOP cat /tmp/llm/0.part /tmp/llm/1.part > /usr/share/dolly/llm/minicpm5-2b.gguf
+SLOP test "$(sha256sum /usr/share/dolly/llm/minicpm5-2b.gguf | cut -d ' ' -f 1)" = ec2d5801640099e97d8d7e8003ad4d81f336e757811f03a26173dddf386602fd
+EXPORTS FILE minicpm5-2b /usr/share/dolly/llm/minicpm5-2b.gguf
+FOLDER /usr/share/licenses/minicpm5-2b
