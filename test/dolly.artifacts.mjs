@@ -268,10 +268,12 @@ test("system snapshots are sealed to their visible recipe chain", async () => {
       assert.ok(metadata.manifest.includes(corePrograms.get(image)), `${image}: primary program`);
     }
     assert.ok(metadata.manifest.includes("/etc/dolly/recipes.lock"));
-    for (const required of ["/bin/dollyfile", "/usr/libexec/dolly/process-bin/compiler",
-      "/usr/lib/dolly/process/libc-ww.a", "/usr/lib/clang/24/include/stddef.h",
-      "/usr/lib/dolly/dolly-kernel-plugin-0.wasm"]) {
-      assert.ok(metadata.manifest.includes(required), `${image} must explicitly retain ${required}`);
+    // Applications and toolchains carry the seed their base retained; a
+    // package keeps only what it declares.
+    const seed = ["/bin/dollyfile", "/usr/libexec/dolly/process-bin/compiler", "/usr/lib/dolly/process/libc-ww.a",
+      "/usr/lib/clang/24/include/stddef.h", "/usr/lib/dolly/dolly-kernel-plugin-0.wasm", "/bin/foreground"];
+    for (const path of seed) {
+      assert.equal(metadata.manifest.includes(path), graph.root.role !== "package", `${image}: ${path}`);
     }
     assert.equal(metadata.manifest.some((path) => /\/usr\/src\/dolly\/(?:dollyfile\.c|dso-)/.test(path) ||
       /\/process-bin\/(?!compiler$)/.test(path)), false, `${image} must not retain bootstrap probes`);
@@ -279,8 +281,7 @@ test("system snapshots are sealed to their visible recipe chain", async () => {
     assert.equal(metadata.manifest.some((path) => path.startsWith("/workspace")), false);
     assert.equal(metadata.byteLength, snapshot.byteLength);
     assert.equal(metadata.sha256, createHash("sha256").update(snapshot).digest("hex"));
-    assert.ok(metadata.manifest.includes("/bin/foreground"));
-    for (const path of graph.root.entry.filter(argument => argument.startsWith("/"))) {
+    for (const path of (graph.root.entry ?? []).filter(argument => argument.startsWith("/"))) {
       assert.ok(metadata.manifest.includes(path), `${image}: ENTRY names ${path}`);
     }
     assert.deepEqual(metadata.entry, graph.root.entry);
