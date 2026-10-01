@@ -48,7 +48,7 @@ SpiderMonkey. Measured in a scratch shell (headless Chrome on the
 agents.
 
 - Dependencies build inside Dolly with `cc`, CMake and Make
-  (`zero-ad-deps.dm`): libpng, FreeType, libogg, libvorbis, fmt and libxml2
+  (`Dollyfile-zero-ad-deps`): libpng, FreeType, libogg, libvorbis, fmt and libxml2
   with their CMake (18 s, then about 70 s for the last four together); ICU 68.2
   common/i18n/stubdata, libsodium and ENet compile every source of their
   directories as Emscripten's ports and libsodium's `build.zig` do (about 120 s

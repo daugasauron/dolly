@@ -29,10 +29,11 @@ npm run image -- zero-ad
 ```
 
 `zero-ad-deps` builds the engine's libraries from
-[`build-sources.tsv`](build-sources.tsv) ([`zero-ad-deps.dm`](zero-ad-deps.dm)):
+[`build-sources.tsv`](build-sources.tsv) ([`Dollyfile-zero-ad-deps`](Dollyfile-zero-ad-deps)):
 CMake projects with CMake, ICU, libsodium and ENet by compiling their source
-directories (they have only autotools), pkgconf for premake.
-`zero-ad-engine` ([`zero-ad-engine.dm`](zero-ad-engine.dm)) bootstraps premake
+directories (they have only autotools), pkgconf for premake; SDL2 is copied from
+`sdl2-build`.
+`zero-ad-engine` ([`Dollyfile-zero-ad-engine`](Dollyfile-zero-ad-engine)) bootstraps premake
 ([`premake-dolly.patch`](premake-dolly.patch)), generates upstream's Makefiles
 and builds `pyrogenesis` with `make -j4`; `zero-ad` copies it. Other pins live in
 `config/source-pins.sh`; [`prepare-distribution.mjs`](toolchain/prepare-distribution.mjs)
