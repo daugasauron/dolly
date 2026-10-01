@@ -1,7 +1,7 @@
 DOLLY 5
 IMAGE ghostty-build
 
-FROM https://daugasauron.com/Dollyfile-zig-build f3c2770ea5ae580698326ac820869f91ea1a37b3950f70ec478dc9fe112d4ca6
+FROM https://daugasauron.com/Dollyfile-zig-build b8c9c44601163b063ff257ca97680281061ba100f7966aa82fccf3b0a55c9d6c
 
 USE https://daugasauron.com/modules/ghostty.dm 4ad786637aa944334c59574272bdc665de3c9417068ed7ff36703cfa5f3244fc
 

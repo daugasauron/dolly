@@ -1,7 +1,7 @@
 DOLLY 5
 IMAGE system
 
-FROM https://daugasauron.com/Dollyfile-system-tools 3e528cd1582180ebbef2bacca8df66caa5f46cb354101c50a6d41521f5ae789c
+FROM https://daugasauron.com/Dollyfile-system-tools c1853f58d192564897cb49c3b663043d9d7fb92cff16ac96d83e9fe25dac855b
 
 REQUIRES HOST http@0
 REQUIRES HOST download@0
