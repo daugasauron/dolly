@@ -91,13 +91,9 @@ export async function loadRecipeGraph(read, rootLocation, recipes = new Map()) {
           published.set(name, provider);
         }
       } else if (operation.operation === "export") {
-        // A bare TOOL name may resolve against a child, an inherited base, or runtime state.
-        const provider = visible.get(key(operation));
-        const exported = record.exports.find(item => item.line === operation.line);
-        const resolved = exported.details.length === 0 && provider && provider.module !== record
-          ? { ...exported, details: provider.exported.details } : exported;
-        if (exported.details.length !== 0 || !provider) visible.set(key(operation), { module: record, exported: resolved });
-        published.set(key(operation), { module: record, exported: resolved });
+        if (operation.details.length !== 0 || !visible.has(key(operation))) {
+          visible.set(key(operation), { module: record, exported: operation });
+        }
       } else if (operation.operation === "requirement") {
         const requirement = record.requirements.find(item => item.line === operation.line);
         const provider = visible.get(key(operation));
@@ -108,6 +104,15 @@ export async function loadRecipeGraph(read, rootLocation, recipes = new Map()) {
           record.imports.set(key(operation), provider);
         }
       }
+    }
+    // A recipe's own exports describe its completed state and win over imported
+    // ones. Bare TOOL and ENV names resolve against the last provider seen: a
+    // child, a package, an inherited base, or runtime state.
+    for (const exported of record.exports) {
+      const provider = visible.get(key(exported));
+      const resolved = (exported.details.length === 0 || exported.type === "ENV") && provider && provider.module !== record
+        ? { ...exported, details: provider.exported.details } : exported;
+      published.set(key(exported), { module: record, exported: resolved });
     }
     try { record.hostRequirements = hostRequirements(requiredHost); }
     catch (error) { throw new Error(`${location}: ${error.message}`); }

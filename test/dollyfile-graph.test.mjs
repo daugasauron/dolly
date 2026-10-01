@@ -201,7 +201,8 @@ test("roles decide what FROM, INSTALL and COPY import, and exports are transitiv
     const tool = "DOLLY 6\nMODULE tool\nREQUIRES HOST threads@0\nEXPORTS TOOL rg\nEXPORTS ENV RG 1\n";
     const base = "DOLLY 6\nTOOLCHAIN base\nREQUIRES HOST display@0\nEXPORTS ENV DISPLAY /usr/lib/libdisplay.so\nEXPORTS TOOL cc\nENTRY /bin/slop\n";
     const pkg = `DOLLY 6\nPACKAGE pkg\nFROM ${url("Dollyfile-base")} ${digest(base)}\nUSE ${url("modules/tool.dm")} ${digest(tool)}\n`;
-    const addon = `DOLLY 6\nMODULE addon\nINSTALL ${url("Dollyfile-pkg")} ${digest(pkg)}\nEXPORTS TOOL rg\n`;
+    // addon's own declaration precedes the install and still wins.
+    const addon = `DOLLY 6\nMODULE addon\nEXPORTS TOOL rg\nINSTALL ${url("Dollyfile-pkg")} ${digest(pkg)}\n`;
     const files = {
       "modules/tool.dm": tool, "Dollyfile-base": base, "Dollyfile-pkg": pkg, "modules/addon.dm": addon,
       "Dollyfile": `DOLLY 6\nAPPLICATION default\nFROM ${url("Dollyfile-base")} ${digest(base)}\nUSE ${url("modules/addon.dm")} ${digest(addon)}\nENTRY /bin/slop\n`,

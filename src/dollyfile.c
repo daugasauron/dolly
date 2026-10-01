@@ -681,6 +681,18 @@ static int scope_copy(Scope *destination, const Scope *source) {
   return 0;
 }
 
+// Imported objects never replace a recipe's own declarations, which describe
+// its completed state wherever they appear.
+static int scope_import(Scope *exports, const Scope *imported, const Scope *own) {
+  for (size_t index = 0; index < imported->count; ++index) {
+    const Object *object = &imported->items[index];
+    if (scope_find(own, object->type, object->name) != NULL) continue;
+    const int result = scope_add_object(exports, object);
+    if (result != 0) return result;
+  }
+  return 0;
+}
+
 static void dispose_scope(Scope *scope) {
   for (size_t index = 0; index < scope->count; ++index) dispose_object(&scope->items[index]);
   free(scope->items);
@@ -1175,7 +1187,7 @@ typedef enum { IMPORT_FROM, IMPORT_INSTALL, IMPORT_COPY } ImportMode;
 // files, environment and exports serve only the build.
 static int load_artifact(Engine *engine, const char *locator, const char *expected,
                          ImportMode mode, int package_recipe, const char *source,
-                         const char *destination, Scope *visible, Scope *exports) {
+                         const char *destination, Scope *visible, Scope *exports, const Scope *own) {
   Artifact *artifact = &engine->artifact;
   char artifact_path[128];
   snprintf(artifact_path, sizeof(artifact_path), "/etc/dolly/artifacts/%s.snapshot", expected);
@@ -1234,7 +1246,7 @@ static int load_artifact(Engine *engine, const char *locator, const char *expect
   }
   if (result == 0 && mode != IMPORT_COPY) result = scope_copy(visible, &imported);
   if (result == 0 && mode != IMPORT_COPY && keep) {
-    result = scope_copy(mode == IMPORT_FROM ? &engine->exports : exports, &imported);
+    result = mode == IMPORT_FROM ? scope_copy(&engine->exports, &imported) : scope_import(exports, &imported, own);
   }
   if (result == 0) {
     printf("dollyfile: %s %s (%zu paths)\n",
@@ -1290,7 +1302,7 @@ static int require_host(Engine *engine, const char *value) {
 static int process_line(Engine *engine, const char *locator, size_t depth,
                         size_t line_number, char *line,
                         const unsigned char *body, size_t body_length,
-                        Scope *visible, Scope *exports, char **kind, char **name,
+                        Scope *visible, Scope *exports, Scope *own, char **kind, char **name,
                         int *header_seen, size_t *operations, int execute) {
   char *text = trim(line);
   if (*text == '\0') return 0;
@@ -1341,7 +1353,7 @@ static int process_line(Engine *engine, const char *locator, size_t depth,
                                                &child_available, 0, execute, &child);
       dispose_scope(&child_available);
       if (result == 0) result = scope_copy(visible, &child);
-      if (result == 0) result = scope_copy(exports, &child);
+      if (result == 0) result = scope_import(exports, &child, own);
       dispose_scope(&child);
     }
   } else if (strcmp(text, "FROM") == 0 || strcmp(text, "INSTALL") == 0) {
@@ -1350,14 +1362,14 @@ static int process_line(Engine *engine, const char *locator, size_t depth,
     if (result == 0 && (count != 2 || (mode == IMPORT_FROM && (!image || *operations != 0)) ||
         !valid_image_url(words[0]) || !valid_sha256(words[1]))) result = 2;
     if (result == 0 && execute) result = load_artifact(engine, words[0], words[1], mode, package,
-                                                       NULL, NULL, visible, exports);
+                                                       NULL, NULL, visible, exports, own);
   } else if (strcmp(text, "COPY") == 0) {
     result = split_words(arguments, &words, &count);
     if (result == 0 && (count != 4 || !valid_image_url(words[0]) || !valid_sha256(words[1]) ||
         (strcmp(words[2], "/") != 0 && !valid_absolute_path(words[2])) ||
         (strcmp(words[3], "/") != 0 && !valid_absolute_path(words[3])))) result = 2;
     if (result == 0 && execute) result = load_artifact(engine, words[0], words[1], IMPORT_COPY, package,
-                                                       words[2], words[3], visible, exports);
+                                                       words[2], words[3], visible, exports, own);
   } else if (strcmp(text, "REQUIRES") == 0) {
     result = split_words(arguments, &words, &count);
     const int host = result == 0 && count == 2 && strcmp(words[0], "HOST") == 0;
@@ -1405,6 +1417,7 @@ static int process_line(Engine *engine, const char *locator, size_t depth,
                                                &engine->environment_name_capacity, words[1]);
       detail = getenv(words[1]);
     }
+    if (result == 0) result = scope_add(own, words[0], words[1], detail);
     if (result == 0) result = scope_add(exports, words[0], words[1], detail);
   } else if (strcmp(text, "SOURCE") == 0) {
     result = split_words(arguments, &words, &count);
@@ -1552,7 +1565,7 @@ static int execute_recipe(Engine *engine, const char *locator,
   char *name = NULL;
   int header_seen = 0;
   size_t operations = 0;
-  Scope visible = {0};
+  Scope visible = {0}, own = {0};
   result = scope_copy(&visible, available);
   size_t physical_line = 1;
   size_t cursor = 0;
@@ -1612,7 +1625,7 @@ static int execute_recipe(Engine *engine, const char *locator,
     if (result == 0) {
       result = process_line(engine, locator, depth, logical_line,
                             (char *)logical.data,
-                            body.data, body.length, &visible, exports_out,
+                            body.data, body.length, &visible, exports_out, &own,
                             &kind, &name, &header_seen, &operations, execute);
     }
     free(body.data);
@@ -1656,6 +1669,7 @@ static int execute_recipe(Engine *engine, const char *locator,
   }
   free(kind);
   free(name);
+  dispose_scope(&own);
   dispose_scope(&visible);
   free(recipe.data);
   free(engine->stack[--engine->stack_count]);

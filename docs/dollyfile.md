@@ -164,7 +164,8 @@ and `/host/MODULE/`, prepared sources in `/dist/static/`.
   files; a repeated export of the same type and name replaces the earlier one.
 - Exports are transitive: a recipe's exports are its own plus those of the
   modules it uses and the packages it installs, and are visible to its caller's
-  later steps. An image retains every object it exports.
+  later steps. Its own declarations win over imported ones wherever they
+  appear. An image retains every object it exports.
 - `REQUIRES TOOL` checks `PATH`, `REQUIRES ENV` the environment, other types an
   earlier visible export of that kind.
 - The image keeps only `FILE` and `FOLDER` paths, exported objects, `FROM`,

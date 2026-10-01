@@ -50,7 +50,7 @@ int dolly_wait(int pid, int *status) {
 int main(int argc, char **argv) {
   if (argc < 3) return 2;
   int result = 2;
-  Scope tools = {0}, exports = {0};
+  Scope tools = {0}, exports = {0}, own = {0};
   Engine engine = {0};
 
   if (strcmp(argv[1], "check") == 0) {
@@ -90,10 +90,10 @@ int main(int argc, char **argv) {
     size_t operations = 0;
     char blank[] = "  ", declaration[] = "DOLLY 6";
     if (result == 0) result = process_line(&engine, "probe", 0, 1, blank,
-        NULL, 0, &tools, &exports, &kind, &name, &header, &operations, 0);
+        NULL, 0, &tools, &exports, &own, &kind, &name, &header, &operations, 0);
     if (engine.artifact.stream == NULL) result = 2;
     if (result == 0) result = process_line(&engine, "probe", 0, 2, declaration,
-        NULL, 0, &tools, &exports, &kind, &name, &header, &operations, 0);
+        NULL, 0, &tools, &exports, &own, &kind, &name, &header, &operations, 0);
     if (engine.artifact.stream != NULL || engine.artifact.recipe_sha256[0]) result = 2;
     engine.artifact.stream = tmpfile();
     strcpy(engine.artifact.recipe_sha256, pin);
@@ -120,6 +120,7 @@ int main(int argc, char **argv) {
   }
   dispose_scope(&tools);
   dispose_scope(&exports);
+  dispose_scope(&own);
   dispose_engine(&engine);
   return result == 0 ? 0 : 1;
 }
