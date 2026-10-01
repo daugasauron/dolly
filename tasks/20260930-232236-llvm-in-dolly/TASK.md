@@ -214,12 +214,20 @@ Found for the next stage:
   sources get new times. Either build the whole compiler in one image or let
   each stage re-configure (90 s) with `LLVM_TABLEGEN`/`CLANG_TABLEGEN` pointing
   at the tools kept here, as the seed uses native ones.
-- The process cap bounds `make -j` near 6 for CMake projects (each job is at
-  least three processes); `20260930-231102-parallel-rust` proposes a memory
-  budget instead.
+- The process cap bounds `make -j` for CMake projects (each job is at least
+  three processes): `-j6` passed the tools once, but on the libraries
+  (`make -k -j6 LLVMAnalysis`, scratch image) it failed within seconds with
+  `slop: /usr/bin/cmake: spawn failed` in `intrinsics_gen`'s depend step and
+  `VCSRevision.h`. `20260930-231102-parallel-rust` proposes a memory budget
+  instead of the count.
 
-Next: the compiler stage. Configure as above plus `LLVM_TABLEGEN`,
-`CLANG_TABLEGEN` and the forced VCS revision, build `clangFrontendTool
-clangCodeGen lldWasm LLVMWebAssemblyCodeGen` (2,559 TUs; about 1 h at `-j6`,
-the measured 3.6x over `-j1`, if the process cap allows it), keep the 103
-archives, then link the compiler and compare it with the seed's link.
+Library stage, probed in a scratch image `FROM llvm-tablegen`: configured as
+above plus `LLVM_TABLEGEN`/`CLANG_TABLEGEN` set to the kept tools and
+`LLVM_FORCE_VC_REVISION`/`LLVM_FORCE_VC_REPOSITORY` (83 s),
+`make -k -j4 LLVMAnalysis` compiled its whole closure, 807 TUs from Support
+to Analysis, without an error in 470 s (4.4 GiB peak, host load 6-8).
+
+Next: the compiler stage, the same way for `clangFrontendTool clangCodeGen
+lldWasm LLVMWebAssemblyCodeGen` (2,559 TUs; Clang's are the heavy ones) at
+`-j4`, keeping the 103 archives, then link the compiler and compare it with
+the seed's link.
