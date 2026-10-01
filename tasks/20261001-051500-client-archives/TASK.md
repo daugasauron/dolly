@@ -1,6 +1,6 @@
 # Client archives keep members of earlier builds, so the seed depends on build history
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 305
 - TAGS: bug,build,reproducibility,core
 
@@ -47,3 +47,11 @@ image inputs.
 - The Rust seed had the same bug: `demos/rust/toolchain/link.sh` appended to an
   existing `libdolly-rust.a`, so a deleted `posix-spawn.o` stayed in the SDK and
   broke every Rust link (`1b3b657` creates it fresh).
+
+## Verified (2026-10-01, 15:48)
+
+A detached worktree of `checkpoint-2026-10-01-pm` with an empty `build/`
+(sharing only the pinned toolchain caches in `.cache`) ran `npm run
+build:runtime` in 50 s and printed runtime `sha256:9ca3302f…` and image inputs
+`sha256:74246d78…`, exactly the release's: the seed no longer depends on
+earlier builds' archive members.
