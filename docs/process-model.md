@@ -74,6 +74,8 @@ sequenceDiagram
 - There is one user and no permission bits: `chmod`, `chown` and `access` only
   check that the file exists, and nothing changes a file's mode
   ([why](architecture.md#decisions)).
+- `statvfs` reports kernel memory: its maximum as capacity, unallocated memory
+  as free, and no inode limit (zero files).
 - The cwd is an open directory handle: it follows renames, `getcwd` fails with
   `ENOENT` after unlink, `fchdir` works.
 - `mmap` makes private copies; `MAP_SHARED` writes back on `msync` and whole
