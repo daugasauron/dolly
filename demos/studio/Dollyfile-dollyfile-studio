@@ -9,7 +9,7 @@ REQUIRES HOST snapshot@0
 REQUIRES HOST threads@0
 REQUIRES HOST upload@0
 
-FROM https://daugasauron.com/demos/local-llm/Dollyfile-pi-local 43a5a97a233e705359d6ad09facb98a9de3fabfc3b97d0ca39147e926359d3c4
+FROM https://daugasauron.com/demos/local-llm/Dollyfile-pi-local 4d8658cdfb67f1411f257f2c8194d163605d736a35f8547a2de26f0b4203e0bc
 INSTALL https://daugasauron.com/demos/neovim/Dollyfile-nvim 0d39ca709140ea6c66f205fe96e94f5dfe8e85ef08f328112dff0aa710189028
 REQUIRES TOOL pi
 REQUIRES TOOL nvim
@@ -42,7 +42,8 @@ FILE /home/dolly/.pi/agent/settings.json
       "shellPath": "/bin/slop",
       "theme": "dolly",
       "defaultProvider": "webgpu",
-      "defaultModel": "Qwen3.5-0.8B"
+      "defaultModel": "qwen3.5-2b",
+      "compaction": {"reserveTokens": 4096, "keepRecentTokens": 6144}
     }
 
 FILE /home/dolly/.dollyrc

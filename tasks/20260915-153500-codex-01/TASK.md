@@ -1,6 +1,6 @@
 # Tighten the biped patrol and reduce leg collisions
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 10
 - TAGS: game,agent,physics
 
@@ -94,3 +94,12 @@ build/slopyard-relieved-library-{68,69}.json; full returned practice result:
 build/slopyard-relieved-practice-result.json. Keep both as experiments.
 The next creative task adds arms to verified#62 (20260915-160000-codex-01),
 preserving this unfinished bounds/contact work separately.
+
+## Closed (2026-10-01)
+
+Stale. This was a Pi-driven experiment on library entries #62–#65 of the
+September live world (`slopyard-forces` session); that world, its seeds and the
+build/ analyses are gone. The current catalog's Sidelight passes
+`slopyard-biped.c` (6/4 supported steps, 8 alternations in 180 s) and stayed
+upright through a 2,400 s populated audit (minimum up 0.981, two
+self-recoveries; `20261001-223000-slopyard-living-world`). A tighter patrol would be a new task.

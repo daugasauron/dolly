@@ -1,7 +1,7 @@
 #include "world.c"
 #include <assert.h>
 static int model(Data*ctx,Value catalog,int index,float x,float y,float z,int team){
- Value item=value_at(ctx,catalog,index),blocks=value_get(ctx,item,"blueprint"),code=value_get(ctx,item,"source");Character design={0};assert(read_character(ctx,blocks,&design,0));const char*source=value_text(ctx,code);
+ Value item=value_at(ctx,catalog,index),blocks=value_get(ctx,item,"blueprint"),code=value_get(ctx,item,"source");Character design={0};assert(read_character(ctx,blocks,&design));const char*source=value_text(ctx,code);
  Creature*c=spawn(&design,source,"Biped survey mission",index+1,20,x,z);assert(c);set_spawn_height(c,y);c->team=team;int id=c->id;
  character_clear(&design);value_text_free(ctx,source);value_free(ctx,code);value_free(ctx,blocks);value_free(ctx,item);return id;
 }

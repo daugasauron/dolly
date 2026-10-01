@@ -1,6 +1,6 @@
 # Give quarry terraces clearer vegetation and rock layers
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 20
 - TAGS: game,graphics
 
@@ -66,3 +66,13 @@ a GPU.
 
 Still required: the Firefox comparison; then apply the patch, update the
 slopyard pins and rebuild the image.
+
+## Closed (2026-10-01)
+
+Done in `1650d48` (the candidate above, unchanged) and packaged in the rebuilt
+slopyard image (`4724dcb`). Chrome renders of the three views from that image
+show the green terrace growth and layered faces (`build/evidence/slopyard-quarry/
+*-image.png`, local). Decision on the missing Firefox comparison: Firefox
+returns no WebGPU adapter on this machine in any configuration tried, and the
+change is plain WGSL arithmetic of the kind the shader already uses, so the
+Chrome comparison and frame-rate pair stand as the evidence.

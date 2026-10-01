@@ -1,6 +1,6 @@
 # Investigate the Chrome crowded-world frame-rate drop
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 10
 - TAGS: game,performance,bug
 
@@ -38,3 +38,27 @@ The user reports 300+ FPS in Firefox during ordinary play and considers that
 performance satisfactory. This issue records a separate Chrome stress-test
 observation, not a demonstrated problem in the user’s current Firefox session.
 Do not prioritize further performance work over the requested gameplay changes.
+
+## Closed (2026-10-01)
+
+Explained; no change made, following the owner's note above (Firefox runs at
+300+ FPS and performance is not to displace gameplay work). The original
+inputs are gone, so the drop was reproduced on the current image in Chrome
+(Xvfb, RTX 5070) with a 178-actor world saved after 2,400 s of the
+living-world audit (`20261001-223000-slopyard-living-world`):
+
+- Fresh world 750 s, then Import world: 26–60 FPS fresh, then 45, 40, 16.5,
+  27.5, 19.7, 21.7, 14.4, 8.5 FPS in 15 s samples after the import, while other
+  builds raised the host load from 6 to 14.
+- Started directly on the same save under load 14–16: 3.6–16.4 FPS, against
+  7.1–16.4 FPS for a fresh world in the same session. Switching is not the
+  cause; world size and host load are.
+- Cause: `game_frame` (`demos/slopyard/src/main.c`) runs fixed 60 Hz physics
+  and, when behind, up to six catch-up steps per frame. Without rendering the
+  audit's step cost grows from 10.6 ms (139 actors) to 13.3–15.2 ms (176–183
+  actors), close to the 16.7 ms real-time budget, so a crowded world on a busy
+  host falls behind and each frame then carries several steps.
+
+A fix means making `world_step` (controllers, sensors, solver) cheaper; dropping
+steps or shrinking the world is ruled out above. Open a new task with a target
+if this becomes a priority.

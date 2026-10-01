@@ -1,0 +1,124 @@
+{
+ "source": "llama.cpp 093a2f86 /apply-template, MiniCPM5-2B GGUF chat template, enable_thinking=false",
+ "messages": [
+  {
+   "role": "system",
+   "content": "You are Pi, running inside Dolly.\nWork in /workspace.\n"
+  },
+  {
+   "role": "user",
+   "content": "What is in this directory?"
+  },
+  {
+   "role": "assistant",
+   "content": "Let me look.",
+   "tool_calls": [
+    {
+     "id": "bash",
+     "type": "function",
+     "function": {
+      "name": "bash",
+      "arguments": "{\"command\":\"ls -la\"}"
+     }
+    }
+   ]
+  },
+  {
+   "role": "tool",
+   "content": "total 1\nstats.c\n",
+   "tool_call_id": "bash"
+  },
+  {
+   "role": "assistant",
+   "content": "There is one file, stats.c."
+  },
+  {
+   "role": "user",
+   "content": "  Fix the loop bound in stats.c and build it.  "
+  },
+  {
+   "role": "assistant",
+   "content": "",
+   "tool_calls": [
+    {
+     "id": "edit",
+     "type": "function",
+     "function": {
+      "name": "edit",
+      "arguments": "{\"path\":\"stats.c\",\"oldText\":\"i <= count\",\"newText\":\"i < count\"}"
+     }
+    },
+    {
+     "id": "bash",
+     "type": "function",
+     "function": {
+      "name": "bash",
+      "arguments": "{\"command\":\"cc -o stats stats.c && ./stats 1 2\",\"timeout\":30}"
+     }
+    }
+   ]
+  },
+  {
+   "role": "tool",
+   "content": "Successfully replaced 1 block(s) in stats.c.",
+   "tool_call_id": "edit"
+  },
+  {
+   "role": "tool",
+   "content": "1.5\n",
+   "tool_call_id": "bash"
+  }
+ ],
+ "tools": [
+  {
+   "type": "function",
+   "function": {
+    "name": "bash",
+    "description": "Execute a command. Output is truncated to 2000 lines or 50KB.",
+    "parameters": {
+     "type": "object",
+     "properties": {
+      "command": {
+       "type": "string",
+       "description": "Command to run"
+      },
+      "timeout": {
+       "type": "number",
+       "description": "Seconds"
+      }
+     },
+     "required": [
+      "command"
+     ]
+    }
+   }
+  },
+  {
+   "type": "function",
+   "function": {
+    "name": "edit",
+    "description": "Replace exact text in a file; \"oldText\" must match uniquely.",
+    "parameters": {
+     "type": "object",
+     "properties": {
+      "path": {
+       "type": "string"
+      },
+      "oldText": {
+       "type": "string"
+      },
+      "newText": {
+       "type": "string"
+      }
+     },
+     "required": [
+      "path",
+      "oldText",
+      "newText"
+     ]
+    }
+   }
+  }
+ ],
+ "prompt": "<s><|im_start|>system\nYou are Pi, running inside Dolly.\nWork in /workspace.\n\n\n# Tools\n\nYou are provided with function signatures within <tools></tools> XML tags:\n<tools>\n{\"type\": \"function\", \"function\": {\"name\": \"bash\", \"description\": \"Execute a command. Output is truncated to 2000 lines or 50KB.\", \"parameters\": {\"type\": \"object\", \"properties\": {\"command\": {\"type\": \"string\", \"description\": \"Command to run\"}, \"timeout\": {\"type\": \"number\", \"description\": \"Seconds\"}}, \"required\": [\"command\"]}}}\n{\"type\": \"function\", \"function\": {\"name\": \"edit\", \"description\": \"Replace exact text in a file; \\\"oldText\\\" must match uniquely.\", \"parameters\": {\"type\": \"object\", \"properties\": {\"path\": {\"type\": \"string\"}, \"oldText\": {\"type\": \"string\"}, \"newText\": {\"type\": \"string\"}}, \"required\": [\"path\", \"oldText\", \"newText\"]}}}\n</tools>\n\nTool usage guidelines:\n- You may call zero or more functions. If no function calls are needed, just answer normally and do not include any <function ... </function>.\n- When calling a function, return an XML object within <function ... </function> using:\n<function name=\"function-name\"><param name=\"param-name\">param-value</param></function>\n- param-value may be multi-line. If it contains <, & or newline characters, wrap it in a CDATA block: <param name=\"param-name\"><![CDATA[...multi-line value...]]></param><|im_end|>\n<|im_start|>user\nWhat is in this directory?<|im_end|>\n<|im_start|>assistant\n<think>\n\n</think>\n\nLet me look.\n<function name=\"bash\"><param name=\"command\">ls -la</param></function><|im_end|>\n<|im_start|>user\n<tool_response>\ntotal 1\nstats.c\n\n</tool_response><|im_end|>\n<|im_start|>assistant\n<think>\n\n</think>\n\nThere is one file, stats.c.<|im_end|>\n<|im_start|>user\n  Fix the loop bound in stats.c and build it.  <|im_end|>\n<|im_start|>assistant\n<think>\n\n</think>\n\n<function name=\"edit\"><param name=\"path\">stats.c</param><param name=\"oldText\"><![CDATA[i <= count]]></param><param name=\"newText\"><![CDATA[i < count]]></param></function>\n<function name=\"bash\"><param name=\"command\"><![CDATA[cc -o stats stats.c && ./stats 1 2]]></param><param name=\"timeout\">30</param></function><|im_end|>\n<|im_start|>user\n<tool_response>\nSuccessfully replaced 1 block(s) in stats.c.\n</tool_response>\n<tool_response>\n1.5\n\n</tool_response><|im_end|>\n<|im_start|>assistant\n<think>\n\n</think>\n\n"
+}

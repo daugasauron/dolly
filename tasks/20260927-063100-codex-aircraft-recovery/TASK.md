@@ -1,6 +1,6 @@
 # Recover aircraft after a tether capture leaves them grounded
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 50
 - TAGS: game,controllers,physics
 
@@ -54,3 +54,11 @@ at2178.400,2220.717 and2264.367s, with releases after the first two. The third
 capture persists. This is a real return to flight and further opposition, not a
 new delivery or a complete independent ground-recovery fix. The ceiling program
 is promoted; the broader grounded-recovery task remains open.
+
+## Closed (2026-10-01)
+
+Not reproduced. The incident saves (checkpoint-0960/2160.lua) are gone and the
+ceiling-departure program was promoted. In a fresh 2,400 s audit of the current
+catalog (`20261001-223000-slopyard-living-world`) all six cargo aircraft stayed upright (minimum up 0.948 or more)
+and delivered 36 parcels. Open a new task with a save if a grounded aircraft is
+measured again.

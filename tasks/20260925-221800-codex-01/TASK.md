@@ -1,6 +1,6 @@
 # Make the cargo world more varied and competitive
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 80
 - TAGS: game,content,visuals
 
@@ -295,3 +295,10 @@ Upright loaded-bay incidents for Tonbi East and Nekote are now reproduced in
 `20260927-074100-codex-loaded-bays`. Ground aircraft recovery and the withheld
 ridge crawler have their own open tasks. The final catalog adds only the tested
 interceptor, preserving all 81 starting objects; keep this broader task open.
+
+## Closed (2026-10-01)
+
+Closed as an umbrella. Its concrete threads have their own tasks, all closed
+today, and the material passes it records are in `scene.wgsl`. The measured
+state of the cargo competition on the current catalog — which roles deliver,
+which stall and why — is now one list in `20261001-223000-slopyard-living-world`.

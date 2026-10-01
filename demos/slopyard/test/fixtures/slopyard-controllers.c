@@ -43,7 +43,7 @@ static void environment(Data *ctx){
 int main(void){
     Data *ctx=data_new(256*1024*1024);Value list=read_catalog(ctx);assert(value_is_array(list));int calls=0;
     for(int i=0;i<value_length(ctx,list);i++){
-        Value item=value_at(ctx,list,i),code=value_get(ctx,item,"source"),blueprint=value_get(ctx,item,"blueprint"),label=value_get(ctx,item,"name");const char *source=value_text(ctx,code),*name=value_text(ctx,label);Character d={0};assert(read_character(ctx,blueprint,&d,0));Controller *c=controller_new(source,1,60);assert(c);Physics p={0};physics_start(&p,&d);float keys[128];
+        Value item=value_at(ctx,list,i),code=value_get(ctx,item,"source"),blueprint=value_get(ctx,item,"blueprint"),label=value_get(ctx,item,"name");const char *source=value_text(ctx,code),*name=value_text(ctx,label);Character d={0};assert(read_character(ctx,blueprint,&d));Controller *c=controller_new(source,1,60);assert(c);Physics p={0};physics_start(&p,&d);float keys[128];
         for(int step=0;step<1000;step++){if(!controller_step(c,&p,&d,keys)){fprintf(stderr,"%s: %s\n",name,c->error);assert(0);}p.steps++;calls++;}
         physics_stop(&p);controller_free(c);character_clear(&d);value_text_free(ctx,source);value_text_free(ctx,name);value_free(ctx,item);value_free(ctx,code);value_free(ctx,blueprint);value_free(ctx,label);
     }value_free(ctx,list);Character box={0};character_add(&box,-1,0,0,0,BLOCK_BOX,0);memory_and_limits(ctx,&box);environment(ctx);character_clear(&box);data_close(ctx);printf("LUA CONTROLLERS: %d finite calls passed\n",calls);return 0;
