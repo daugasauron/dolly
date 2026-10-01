@@ -140,7 +140,8 @@ sequenceDiagram
 - `threads@0` ([`host/threads/dolly-threads-0.wat`](../host/threads/dolly-threads-0.wat),
   [`host/threads/threads.mjs`](../host/threads/threads.mjs)): statically linked `-pthread`
   programs, one Worker per thread sharing the process memory, at most 16 per
-  process and 64 in total. No DSOs, FFI, cancellation or directed signals.
+  process and 64 in total; `sysconf` reports 4 processors. No DSOs, FFI,
+  cancellation or directed signals.
 - Process-local DSOs share their owner's memory, table and allocator. The loader
   checks exact import types before instantiation
   ([`dolly-process-dso-0.wat`](../abi/dolly-process-dso-0.wat)); missing

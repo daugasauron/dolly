@@ -256,3 +256,6 @@ int _emscripten_thread_is_valid(pthread_t thread) { return thread && thread->sel
 bool emscripten_has_threading_support(void) { return true; }
 /* Every Dolly process thread is a Worker, so blocking never runs on the DOM thread. */
 void emscripten_check_blocking_allowed(void) {}
+/* sysconf's processor count. threads@0 does not report host cores and allows 16
+ * Workers per process; four leaves headroom for helper and blocking threads. */
+int emscripten_num_logical_cores(void) { return 4; }
