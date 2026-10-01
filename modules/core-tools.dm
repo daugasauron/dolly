@@ -70,9 +70,6 @@ FILE /tmp/core-tools/help.c
       fputs("make runs recipes with SHELL=/bin/slop; make -jN runs N at once\n", stdout);
       if (access("/usr/bin/tsc", F_OK) == 0)
         fputs("TypeScript: tsc FILE.ts --target ES2023 --module ES2022\n", stdout);
-      if (access("/usr/bin/bonnie", F_OK) == 0) {
-        fputs("Python packages: bonnie install PACKAGE; bonnie list|freeze|show|check\n", stdout);
-      }
       return 0;
     }
 FILE /tmp/core-tools/pwd.c

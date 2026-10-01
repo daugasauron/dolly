@@ -1,13 +1,13 @@
 DOLLY 5
 MODULE pi
 
-USE https://daugasauron.com/modules/search-tools.dm eb45c3f91107c0fb61f9864856754da1bff5bad8e1348b691e12f8543c4aad2d
+USE https://daugasauron.com/modules/search-tools.dm 80a92e009b20ba406926579e83e18bba2df6436900c185ddb509d0ead57a28cb
 EXPORTS TOOL rg
 EXPORTS TOOL fd
-COPY FROM https://daugasauron.com/Dollyfile-pi-build e3b944aa2061c8a449ee28735efc807d23faa0ce934340a9d330354b42b5aea1 /usr/bin/pi /usr/bin/pi
-COPY FROM https://daugasauron.com/Dollyfile-pi-build e3b944aa2061c8a449ee28735efc807d23faa0ce934340a9d330354b42b5aea1 /usr/lib/node_modules /usr/lib/node_modules
-COPY FROM https://daugasauron.com/Dollyfile-pi-build e3b944aa2061c8a449ee28735efc807d23faa0ce934340a9d330354b42b5aea1 /usr/src/pi-source /usr/src/pi-source
-COPY FROM https://daugasauron.com/Dollyfile-pi-build e3b944aa2061c8a449ee28735efc807d23faa0ce934340a9d330354b42b5aea1 /usr/share/licenses/pi-source/LICENSE /usr/share/licenses/pi-source/LICENSE
+COPY FROM https://daugasauron.com/Dollyfile-pi-build 9027702c7be7a6ae52b5b2e9604de0a4d7cc4cc6c587dc8283f8001d1bcd105c /usr/bin/pi /usr/bin/pi
+COPY FROM https://daugasauron.com/Dollyfile-pi-build 9027702c7be7a6ae52b5b2e9604de0a4d7cc4cc6c587dc8283f8001d1bcd105c /usr/lib/node_modules /usr/lib/node_modules
+COPY FROM https://daugasauron.com/Dollyfile-pi-build 9027702c7be7a6ae52b5b2e9604de0a4d7cc4cc6c587dc8283f8001d1bcd105c /usr/src/pi-source /usr/src/pi-source
+COPY FROM https://daugasauron.com/Dollyfile-pi-build 9027702c7be7a6ae52b5b2e9604de0a4d7cc4cc6c587dc8283f8001d1bcd105c /usr/share/licenses/pi-source/LICENSE /usr/share/licenses/pi-source/LICENSE
 
 SOURCE https://daugasauron.com/static/default/pi/dolly-tools.js                    edd123743a5a8fcc7ddb80d4c8dd57ba7f6159705eaac8cc07340034bd9b9a29 /home/dolly/.pi/agent/extensions/dolly-tools.js
 SOURCE https://daugasauron.com/static/default/pi/SYSTEM.md                         bfd8505b6f40533d9d5a19101a4bd62c9447d55e707f50aabbd22f1f2dbbe92e /home/dolly/.pi/agent/SYSTEM.md

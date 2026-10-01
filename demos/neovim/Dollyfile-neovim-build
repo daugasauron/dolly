@@ -2,7 +2,7 @@ DOLLY 5
 IMAGE neovim-build
 
 # Reusable Neovim build artifacts.
-FROM https://daugasauron.com/Dollyfile-cmake-build f3c771a18b32321385791f3e4a69d20ab55a3d241a459e86056bfad50b7c9190
+FROM https://daugasauron.com/Dollyfile-cmake-build 7469a2d93e3ff3e0b473e172aab09b00d8924fe9b33b3a3b75736fa73b4490ae
 USE https://daugasauron.com/modules/lua.dm d35cdf9a07b1f7e94956e8f61f84bf879b465c3af0bd3257d3ce183ac662db5c
 USE https://daugasauron.com/modules/lpeg.dm 28cbf12607e6786a2d152c66eec93448c12003192054146bd7cf1a6f9a686d81
 USE https://daugasauron.com/modules/luv.dm 22604626e229fb43778d1b1ce4268e34187c5bb6af5c23e276570470ffaaef31
