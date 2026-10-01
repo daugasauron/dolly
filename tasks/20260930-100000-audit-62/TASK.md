@@ -1,6 +1,6 @@
 # Stale project documentation
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 100
 - TAGS: doc
 
@@ -28,3 +28,13 @@ Docs describe the current system; dated handoffs live in tasks or are deleted.
 ## Done when
 
 - Each listed statement corrected or removed.
+
+## Resolution (2026-10-01)
+
+Rechecked on `next`: `docs/` holds only the 13 current references
+(architecture … sources); roadmap, port-status, rts-arena, rts-handoff,
+crash-handoff and the Slopyard audit are gone; `docs/sources.md` is 75 lines
+and names 0 A.D. only as a demo exception; `docs/deployment.md` no longer
+mentions Slopyard; no README under `demos/` repeats the listed claims; and
+`modules/posix-shell.dm` says `/bin/sh` is a conventional path whose
+implementation is Slop, consistent with `docs/slop.md`.
