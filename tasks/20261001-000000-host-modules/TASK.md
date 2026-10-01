@@ -273,3 +273,17 @@ One seed change, so every image rebuilds once:
   (`20260930-231200-self-host-zero-ad`). The HTTP client's 10 ms `usleep`
   between polls stays: a deferred POLL would change the packet semantics
   for an unmeasured gain, and the sleep only runs while no chunk is ready.
+
+### Batch evidence (2026-10-02)
+
+- `npm run build:runtime`: image inputs `9f7a44a7…` -> `2cc92c2b…`.
+- Rust compiler seed rebuilt from the complete `rustc-port` (`demos/rust/build-rust-toolchain.sh`:
+  "built and validated the complete Rust compiler seed").
+- 0 A.D. engine relinked against process sysroot `c57850d7…` with the root
+  checkout's `.cache/0ad` mounted read-only (`build/0ad/pyrogenesis.wasm`
+  `e5129d82…`, stamped and validated; script in the evidence directory).
+- `scripts/build-snapshot-browser.mjs` was the one `buildImage` caller the
+  page-shell change had missed (`65d9589e`).
+- Default chain (10 images) rebuilt in 843 s; on it: core, host-modules,
+  boundary, terminal, upload and custom-session pass in Chrome and Firefox;
+  threads, host-compute and snapshot-stream in Chrome.
