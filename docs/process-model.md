@@ -63,6 +63,8 @@ sequenceDiagram
   `EPIPE` without raising `SIGPIPE`.
 - Opening `/dev/stdin`, `/dev/stdout` or `/dev/stderr` duplicates the caller's
   descriptor 0, 1 or 2.
+- `/dev/tty` opens the terminal for reading and writing. There are no sessions,
+  so it is every process's controlling terminal.
 - `poll` covers files, pipes and the terminal; signals wake it with `EINTR`.
 - Terminal reads return raw input bytes. `ICANON`/`ECHO` round-trip through termios
   without a line discipline; `OPOST`/`ONLCR` map LF to CRLF on output. While

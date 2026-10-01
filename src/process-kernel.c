@@ -522,6 +522,15 @@ static int standard_stream(int kernel_fd) {
   return -1;
 }
 
+/* /dev/tty names the one terminal every Dolly process shares; there are no
+ * sessions, so it is every process's controlling terminal. */
+static int controlling_terminal(int kernel_fd) {
+  struct stat opened, terminal;
+  return fstat(kernel_fd, &opened) == 0 && stat("/dev/tty", &terminal) == 0 &&
+      terminal.st_dev == opened.st_dev &&
+      terminal.st_ino == opened.st_ino;
+}
+
 static int configure_descriptors(dolly_kernel_process *process,
                                  const dolly_kernel_process *parent,
                                  const dolly_process_spawn_request *request,
@@ -1635,6 +1644,7 @@ static int64_t process_dispatch(int pid, int tid, uint32_t operation,
         if (result != 0) return result;
       } else {
         process->descriptors[guest_fd] = kernel_fd;
+        process->terminal_descriptors[guest_fd] = controlling_terminal(kernel_fd);
       }
       process->descriptor_flags[guest_fd] = (request.flags & DOLLY_PROCESS_OPEN_CLOEXEC)
           ? DOLLY_PROCESS_FD_CLOEXEC : 0;
