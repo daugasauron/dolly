@@ -1,7 +1,7 @@
 # Add an Emacs image
 
 - STATUS: OPEN
-- PRIORITY: 130
+- PRIORITY: 310
 - TAGS: demo,editor,image
 
 Owner request (2026-10-01): an Emacs image, built inside Dolly from pinned
@@ -29,3 +29,11 @@ runtime module, image that enters the editor, browser test).
   the `emacs` image opens into Emacs; a browser test in Chrome and Firefox
   edits and saves a file, runs `M-!` and a shell command, and exits back to
   Slop; the image builds from a fresh `npm run image -- emacs`.
+
+## Owner priority (2026-10-01, 23:10)
+
+Raised: "I want to make it higher priority to have an emacs image (or
+package?)". Decision: Emacs is a Dollyfile 6 `PACKAGE` named `emacs`, so
+recipes `INSTALL` it and `amy install emacs` works in any session, plus an
+`emacs` application that opens into it, like Neovim. Agent branch `work/emacs`
+from the Dollyfile 6 checkpoint `2e0d3cd`.
