@@ -13,7 +13,7 @@ REQUIRES TOOL   make
 REQUIRES TOOL   rm
 REQUIRES TOOL   tar
 
-SOURCE https://daugasauron.com/dist/static/default/samurai.tar                   c3bb0fcfad238dcf4e4fb9edc119563570772e09fe1cc85384868964ef2f939a /tmp/ninja/samurai.tar
+SOURCE https://daugasauron.com/dist/static/default/samurai.tar                   ba48e1c8a1140dc624fc6c81da149cdeb7c7b9b95d7addd56a79048c748a4b6b /tmp/ninja/samurai.tar
 SOURCE https://daugasauron.com/dist/static/default/runtimes/samurai-unit-dolly.c 4412175ad18939c580d6a31ca89a1284d313026674d5ac4faa0841aab379a4f7 /tmp/ninja/samurai-unit-dolly.c
 
 FILE /tmp/ninja/Makefile

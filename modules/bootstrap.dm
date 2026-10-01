@@ -5,8 +5,8 @@ MODULE bootstrap
 # and C headers are the externally supplied bootstrap seed. How those headers
 # eventually map to the lower-level machine contract is deliberately open.
 SOURCE https://daugasauron.com/include/dolly/toolchain.h 6f9da3258e970e356c31034e1f109a04ac8bd5ab57dc82c19aebf293289fb415 /usr/include/dolly/toolchain.h
-SOURCE https://daugasauron.com/include/dolly/runtime.h   d89e494ac6096063e6f2852112b107e1f8c104a96c45286146584cab9bcab971 /usr/include/dolly/runtime.h
-SOURCE https://daugasauron.com/include/dolly/process.h   ec6c6fb502b5aa018b963e0112686400b97cb18c4dd873fbcb6aed0b7e12e4ec /usr/include/dolly/process.h
+SOURCE https://daugasauron.com/include/dolly/runtime.h   8960409cb41932a357c568724e285544c9fd04d8b65205f61efb398873eb63c6 /usr/include/dolly/runtime.h
+SOURCE https://daugasauron.com/include/dolly/process.h   b3aebe8a559080600347c2102a9d2e632d8358508e1f99c9c4d9b980365d6749 /usr/include/dolly/process.h
 SOURCE https://daugasauron.com/host/http/http.h      9788f40609302200f05b08538c65e940c2e3fb62cc7efe17329eaac1b5eba824 /usr/include/dolly/http.h
 SOURCE https://daugasauron.com/host/http/http-abi.h 4fd5bce3b48734ace1c451a2f7eda7382ea96ffbe0713db085cd69b8b601ce83 /usr/include/dolly/http-abi.h
 SOURCE https://daugasauron.com/host/display/display.h   e7906832c8b80672882692eaf3ec303c7b2159b6b60161e7e5f8fea0841b9af6 /usr/include/dolly/display.h
