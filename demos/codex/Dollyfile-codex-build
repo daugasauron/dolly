@@ -1,10 +1,9 @@
-DOLLY 5
-IMAGE codex-build
+DOLLY 6
+TOOLCHAIN codex-build
 
-FROM https://daugasauron.com/demos/rust/Dollyfile-rust-build 662bbb9cb92a5b80451b370d66ed6a4042044bc8ad5e39997d699d30cbd96a73
-COPY FROM https://daugasauron.com/demos/rust/Dollyfile-protox-build f7c42a66fdddd7a8f3588a6462e2c8a7eb8dc558cc56378cc75e0c10a6e3f01f /usr/bin/protox /usr/bin/protox
-EXPORTS TOOL protox
-USE https://daugasauron.com/demos/codex/codex-build.dm 22c67c50aaeb674fa83fa8d90d3cc382fdb8d8fde2ee2079bdb2482c65744e69
+FROM https://daugasauron.com/demos/rust/Dollyfile-rust-build 61e63caf4e3e33b1d5ca9b3f950082f76d565cca3a92922ee62a72fc7ba182c6
+INSTALL https://daugasauron.com/demos/rust/Dollyfile-protox 6ab229ab58c23c89162e6306a57098360c478a68d1ef26894782a67a6a957673
+USE https://daugasauron.com/demos/codex/codex-build.dm f1bbbea006de5c6501080205a546155d55f18b662475fe08f988b5403d590608
 
 # Retain the completed tool; the reusable compiler remains in rust-build.
 SLOP rm -rf /opt/rust-sdk /usr/bin/patti

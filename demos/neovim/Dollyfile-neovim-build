@@ -1,14 +1,14 @@
-DOLLY 5
-IMAGE neovim-build
+DOLLY 6
+TOOLCHAIN neovim-build
 
 # Reusable Neovim build artifacts.
-FROM https://daugasauron.com/demos/cmake/Dollyfile-cmake-build 5eabb808e446c53805c45665b86ab843ec09a3f91d1a668bfd0a4e27f2f4ba5a
-USE https://daugasauron.com/demos/neovim/lua.dm 720a9e8589f35741ccb87add0f585bb291d8e1be601abb2a98634557b2411c68
-USE https://daugasauron.com/demos/neovim/lpeg.dm a7eacdeb8ff59ab13c8ff1b74f175324f38c4fa6a04f4b50430aa7e176ee5487
-USE https://daugasauron.com/demos/neovim/luv.dm 5429fdd6be457185660f06031ee0799e4ab0eedb90137720c8f79723d70ec84a
-USE https://daugasauron.com/demos/neovim/utf8proc.dm a8217d635de5cda29d47b96e32e35f35828d81041b46197d78f88f17f80280c6
-USE https://daugasauron.com/demos/neovim/treesitter.dm 7fa4618d138ac7f57c74b782d7162692a4a7e05879b337c40f19eb9fba9caae2
-USE https://daugasauron.com/demos/neovim/neovim.dm 15164e46192c35b510308d2a3e14ceb787e69f7a8093aaef80bb46ee165fc5cf
-USE https://daugasauron.com/demos/neovim/neovim-parsers.dm 02df688c47b019f6d5506df91aa1e6ec234b06761bd78085fb21451ecb51ae8b
+FROM https://daugasauron.com/demos/cmake/Dollyfile-cmake-build a5335f433b5d573f03e6821f912e684cd75fa4defdba24f984b92f0bdbc92724
+USE https://daugasauron.com/demos/neovim/lua.dm 118cbbdecb17b2738aea41e4d346ceb592434ce928f5c528cb6cdf7c8e19e24c
+USE https://daugasauron.com/demos/neovim/lpeg.dm a29ffea3ecd1bc878a6c533de41ed8fd373c118f301bb8bf0c7b89ae5768da9a
+USE https://daugasauron.com/demos/neovim/luv.dm 072769a07f585300546e2aedc889365aa2828d7ccfbbd2cfde5a7aa3286602bc
+USE https://daugasauron.com/demos/neovim/utf8proc.dm ff9e70838089910e7b95826d5d165640340b67e089c8b8db177e40af5d04ff9c
+USE https://daugasauron.com/demos/neovim/treesitter.dm 65194e64f48a9d3286c45d17d09c83410258dfea77da75165725128537066a9d
+USE https://daugasauron.com/demos/neovim/neovim.dm 37a3dd14e40a1ffa640342bcdbc15ca2cd2aa85d8059948e9d4f1bfece6fd599
+USE https://daugasauron.com/demos/neovim/neovim-parsers.dm db62f67d6f5442124fa560106cd03f5b720dc830fa28af2e463fb5b1065e61f1
 
 ENTRY /bin/foreground -i /bin/slop

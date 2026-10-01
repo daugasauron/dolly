@@ -25,7 +25,7 @@ test("documentation packaging publishes linked tracked text files outside demos"
   const site = resolve(root, "site");
   const project = await checkout(root, {
     "docs/a.md": "[b](b.md#heading) [ABI](../abi/README.md) [unselected image](../Dollyfile-extra)",
-    "Dollyfile-extra": "DOLLY 5\nIMAGE extra\n",
+    "Dollyfile-extra": "DOLLY 6\nTOOLCHAIN extra\n",
     "docs/b.md": "[a](a.md) [source](../src/dolly.c) [issues](../tasks/README.md)",
     "abi/README.md": "[a](../docs/a.md)",
     "src/dolly.c": "public source\n",
@@ -53,14 +53,14 @@ test("partial releases include recipe examples without selecting their images or
   const root = await mkdtemp(resolve(tmpdir(), "dolly-docs-images-"));
   t.after(() => rm(root, { recursive: true, force: true }));
   const site = resolve(root, "site");
-  const example = "DOLLY 5\nIMAGE example\nENTRY /bin/slop\n";
+  const example = "DOLLY 6\nAPPLICATION example\nENTRY /bin/slop\n";
   const project = await checkout(root, {
     "Dollyfile-example": example,
     "abi/README.md": "ABI",
     "docs/a.md": "[example](../Dollyfile-example#part) [ABI](../abi/README.md)\n```\n[unchanged](../Dollyfile-example)\n```\n",
   });
   await mkdir(site);
-  await writeFile(resolve(site, "Dollyfile-selected"), "DOLLY 5\nIMAGE selected\nENTRY /bin/slop\n");
+  await writeFile(resolve(site, "Dollyfile-selected"), "DOLLY 6\nAPPLICATION selected\nENTRY /bin/slop\n");
   await packageDocumentation(project, site, ["docs/a.md"]);
   await verifyDocumentationLinks(site);
   assert.equal(await readFile(resolve(site, "Dollyfile-example.txt"), "utf8"), example);

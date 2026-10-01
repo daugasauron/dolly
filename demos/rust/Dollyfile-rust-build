@@ -1,8 +1,8 @@
-DOLLY 5
-IMAGE rust-build
+DOLLY 6
+TOOLCHAIN rust-build
 
-FROM https://daugasauron.com/demos/rust/Dollyfile-rust-sdk 5e466830c48322d8e7fa1d40a08cab2c8b435c6186037d91c716a986c2aa33f2
-USE https://daugasauron.com/modules/curl.dm cbbd8961693265d08eb456e898adf69fbdd1208212412a86819b688f65b68414
-USE https://daugasauron.com/demos/rust/patti.dm a454fad3bc366f72ae87bd6523f19ce92005dec6928380936f2b781c46e99f73
+FROM https://daugasauron.com/demos/rust/Dollyfile-rust-sdk 4c596fe0cccfa624b6b688394eac78e3ae5b8d9849a8a7ea9e0f78b5dd3512b6
+USE https://daugasauron.com/modules/curl.dm 3c691252b45ff0d5410934670ebfe2d3b4d929bd8c51b70f99beae06504e36bc
+USE https://daugasauron.com/demos/rust/patti.dm f172c4e1338ac273ed76b106620a7daf6748e1d07f03f8c7368a93600238aef3
 
 ENTRY /bin/foreground -i /bin/slop

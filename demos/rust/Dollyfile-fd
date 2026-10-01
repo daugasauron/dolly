@@ -1,5 +1,5 @@
 DOLLY 6
-PACKAGE ripgrep
+PACKAGE fd
 
 FROM https://daugasauron.com/demos/rust/Dollyfile-rust-build 61e63caf4e3e33b1d5ca9b3f950082f76d565cca3a92922ee62a72fc7ba182c6
-USE https://daugasauron.com/demos/rust/ripgrep.dm af1fca5f8f606bec9924e4af8bf703a2645d7269fe7e83e136c90d2403ed4ee2
+USE https://daugasauron.com/demos/rust/fd.dm f1e275e434babec7b8e0f51e60ed39988a2b6bdd8aabaa7d39090efccfa9a4d8

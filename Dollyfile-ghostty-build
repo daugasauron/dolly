@@ -1,9 +1,9 @@
-DOLLY 5
-IMAGE ghostty-build
+DOLLY 6
+TOOLCHAIN ghostty-build
 
-FROM https://daugasauron.com/Dollyfile-zig-build 72014f13baef26b802f91426ff8101067206be5f0f02039cb42036eaf7c1e65f
+FROM https://daugasauron.com/Dollyfile-zig-build 9f868cd1a0035c5e3dc7b12c5c2f19eddae0d0a7487745b3ddcbf3e2ca48377e
 
-USE https://daugasauron.com/modules/ghostty.dm 34720cc4f4d7351e16ca57a452518ccd2fba21828513c4a51dc9c88723e22287
+USE https://daugasauron.com/modules/ghostty.dm 158d2b54885149b27e4302a8da78495c87eb804cbdd43c5493bfd94038f80b67
 
 # Opened, the image runs the display library it just built.
 REQUIRES HOST display@0

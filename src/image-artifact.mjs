@@ -88,7 +88,6 @@ export async function loadPackagedSnapshotMetadata(image, checked = new Map(), a
   }
   for (const required of [
     "/etc/dolly/Dollyfile",
-    "/etc/dolly/entry",
     "/etc/dolly/environment",
     "/etc/dolly/image",
     "/etc/dolly/recipes.lock",
@@ -187,12 +186,10 @@ export async function describeImageArtifact(bytes, recipeSha256, inputs = []) {
   const source = records.get("/etc/dolly/Dollyfile");
   if (source?.kind !== 2 || await sha256(source.data) !== recipeSha256 ||
       records.get("/etc/dolly/artifact")?.kind !== 2) throw new Error("artifact recipe identity mismatch");
-  // The artifact retains every recipe it was built from, named by kind and name.
+  // The artifact retains every recipe it was built from, by file name.
   const graph = await loadRecipeGraph(url => {
     if (url === "Dollyfile") return source.data;
-    const name = recipeFileName(url);
-    const path = name.endsWith(".dm") ? `/etc/dolly/recipes/modules/${name}`
-      : `/etc/dolly/recipes/${name === "Dollyfile" ? "default" : name.slice("Dollyfile-".length)}.Dollyfile`;
+    const path = `/etc/dolly/recipes/${recipeFileName(url)}`;
     const record = records.get(path);
     if (record?.kind !== 2) throw new Error(`artifact does not retain recipe ${url}`);
     return record.data;

@@ -1,7 +1,7 @@
-DOLLY 5
-IMAGE llama-build
+DOLLY 6
+TOOLCHAIN llama-build
 
-FROM https://daugasauron.com/demos/cmake/Dollyfile-cmake-build 5eabb808e446c53805c45665b86ab843ec09a3f91d1a668bfd0a4e27f2f4ba5a
-USE https://daugasauron.com/demos/local-llm/llama-core.dm 2b5865b889c8f7847080932bc0900c4ac16df769686c2a9169b85531603c56c6
+FROM https://daugasauron.com/demos/cmake/Dollyfile-cmake-build a5335f433b5d573f03e6821f912e684cd75fa4defdba24f984b92f0bdbc92724
+USE https://daugasauron.com/demos/local-llm/llama-core.dm 04d58531c714f2b17ccf3c7dce3d71407e0ae4466cd9cb4b8c66cfc6542fa985
 
 ENTRY /bin/foreground -i /bin/slop

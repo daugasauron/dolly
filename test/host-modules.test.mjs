@@ -24,17 +24,18 @@ test("retained images declare only their runtime providers", async () => {
     if (core[image.image]) assert.deepEqual(requirements, core[image.image].toSorted(), image.image);
     const base = requirements.filter(name => !optional.has(name));
     assert.ok([[], ["display@0"], interactive].some(allowed => base.join() === allowed.join()), image.image);
-    assert.equal(base.includes("display@0"), !["system-build", "zig-build"].includes(image.image), image.image);
+    const headless = ["system-build", "zig-build"].includes(image.image) || image.parsed.role === "package";
+    assert.equal(base.includes("display@0"), !headless, image.image);
   }
 });
 test("build graph and artifact requirements inherit FROM and USE, not COPY", async () => {
   const dir = await mkdtemp(join(tmpdir(), "dolly-host-modules-"));
   try {
     await mkdir(join(dir, "modules"));
-    const base = "DOLLY 5\nIMAGE base\nREQUIRES HOST display@0\nENTRY /bin/slop\n";
-    const donor = "DOLLY 5\nIMAGE donor\nREQUIRES HOST threads@0\nENTRY /bin/slop\n";
-    const child = "DOLLY 5\nMODULE child\nREQUIRES HOST gpu@0\n";
-    const root = `DOLLY 5\nIMAGE default\nFROM https://daugasauron.com/Dollyfile-base ${digest(base)}\nCOPY FROM https://daugasauron.com/Dollyfile-donor ${digest(donor)} /usr /usr\nUSE https://daugasauron.com/modules/child.dm ${digest(child)}\nREQUIRES HOST http@0\nENTRY /bin/slop\n`;
+    const base = "DOLLY 6\nAPPLICATION base\nREQUIRES HOST display@0\nENTRY /bin/slop\n";
+    const donor = "DOLLY 6\nAPPLICATION donor\nREQUIRES HOST threads@0\nENTRY /bin/slop\n";
+    const child = "DOLLY 6\nMODULE child\nREQUIRES HOST gpu@0\n";
+    const root = `DOLLY 6\nAPPLICATION default\nFROM https://daugasauron.com/Dollyfile-base ${digest(base)}\nCOPY https://daugasauron.com/Dollyfile-donor ${digest(donor)} /usr /usr\nUSE https://daugasauron.com/modules/child.dm ${digest(child)}\nREQUIRES HOST http@0\nENTRY /bin/slop\n`;
     const sources = new Map([["/Dollyfile", root], ["/Dollyfile-base", base], ["/Dollyfile-donor", donor], ["/modules/child.dm", child]]);
     for (const [path, source] of sources) await writeFile(join(dir, path.slice(1)), source);
     const graph = await createDollyfileGraphLoader(dir)();

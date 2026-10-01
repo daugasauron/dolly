@@ -1,8 +1,6 @@
-DOLLY 5
-IMAGE python
+DOLLY 6
+PACKAGE python
 
-FROM https://daugasauron.com/demos/python/Dollyfile-python-runtime 93c829b4144a966a27d98c422a2110fcd10f907875f0cda9c5f4fdce48e616c8
-USE https://daugasauron.com/demos/python/pip.dm d912d3aa35c5cc7f02f9f7cc1081ab4b74ae6cacb85244da685b53d896dc2a7a
-USE https://daugasauron.com/demos/python/startup-python.dm 5a6c62966b92fc497bf8b004ea2e33de412166a2aedafa04ce4eae9e2d729537
-
-ENTRY /bin/foreground -i /bin/slop /etc/dolly/init.slop
+FROM https://daugasauron.com/Dollyfile-system 8b3a1039331222b3886ba7369bbebbe363104bef03506f7cfa3fa6a7a3471268
+USE https://daugasauron.com/demos/python/python.dm b67bb1025971ae919d54f21ec0259c2b91601118b07e0bf5313d1e6f1af59bdf
+USE https://daugasauron.com/demos/python/pip.dm 6476fed2cd54dc5349efe2bd7ad4b9179819bf87d89f78fb6dd584b14358dcb1

@@ -5,10 +5,10 @@ builds, plus stock pip over Dolly's HTTP broker.
 
 ## Images
 
-- `python`: CPython, pip and native-extension tools.
-- `python-runtime`: CPython and its native-extension SDK.
+- `python`: CPython, pip and the native-extension SDK, as a package.
 
-Open `/python/`; build with `npm run image -- python`.
+Install it with `INSTALL` or `amy install python`; build with
+`npm run image -- python`.
 
 ## Use
 

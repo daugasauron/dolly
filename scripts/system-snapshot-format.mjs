@@ -54,7 +54,9 @@ export function resolveSnapshotFile(snapshot, path) {
   return record.data;
 }
 
+// The ENTRY record, or null for an image that only builds.
 export function validateSnapshotEntry(snapshot, contract, digest) {
+  if (!snapshot.files.has("/etc/dolly/entry")) return null;
   const entry = decodeSnapshotEntry(snapshot.files.get("/etc/dolly/entry"));
   validateProcessInterface(contract,
     parseWasmInterface(resolveSnapshotFile(snapshot, entry[0]), entry[0]), digest);

@@ -1,7 +1,7 @@
-DOLLY 5
-IMAGE openal-build
+DOLLY 6
+TOOLCHAIN openal-build
 
-FROM https://daugasauron.com/demos/cmake/Dollyfile-cmake-build 5eabb808e446c53805c45665b86ab843ec09a3f91d1a668bfd0a4e27f2f4ba5a
-USE https://daugasauron.com/demos/zero-ad/openal.dm a3e2f1041d957f7ab35162610e424170a2dd075f88d34ad7922af3f570068902
+FROM https://daugasauron.com/demos/cmake/Dollyfile-cmake-build a5335f433b5d573f03e6821f912e684cd75fa4defdba24f984b92f0bdbc92724
+USE https://daugasauron.com/demos/zero-ad/openal.dm e969a9289a9d2c6afa7030ddb5dcf4759733b1747365aac9610b0484ea274dd5
 
 ENTRY /bin/foreground -i /bin/slop

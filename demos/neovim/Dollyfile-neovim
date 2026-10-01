@@ -1,8 +1,8 @@
-DOLLY 5
-IMAGE neovim
+DOLLY 6
+APPLICATION neovim
 
-FROM https://daugasauron.com/Dollyfile-system f09301e9c3a830993070865b0b5ba75aa88959c586bf3c4fe98a98877177cdfd
-USE https://daugasauron.com/demos/neovim/neovim-runtime.dm b6c9652dd34c04e0cc30250d3e9908d9cfcd0d12c966c4d040b0068c1d8a128b
+FROM https://daugasauron.com/Dollyfile-system 8b3a1039331222b3886ba7369bbebbe363104bef03506f7cfa3fa6a7a3471268
+USE https://daugasauron.com/demos/neovim/neovim-runtime.dm bf8b57cff4b66334b8a4b01a984e1ba4f2cc2c459f36b69ff4827b637d777a52
 
 FILE /home/dolly/.config/nvim/init.lua
     vim.opt.shell = "/bin/slop"

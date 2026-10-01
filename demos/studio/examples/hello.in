@@ -1,5 +1,5 @@
-DOLLY 5
-IMAGE hello
+DOLLY 6
+APPLICATION hello
 
 FROM https://daugasauron.com/Dollyfile-system @SYSTEM_SHA256@
 

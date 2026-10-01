@@ -1,4 +1,4 @@
-DOLLY 5
+DOLLY 6
 MODULE bootstrap
 
 # This is the first step. It has no requirements: its exact compiler commands

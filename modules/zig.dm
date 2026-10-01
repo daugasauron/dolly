@@ -1,4 +1,4 @@
-DOLLY 5
+DOLLY 6
 MODULE zig
 
 # Zig from its source archive with only Dolly's cc, following upstream

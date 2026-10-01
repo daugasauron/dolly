@@ -1,11 +1,9 @@
-DOLLY 5
-IMAGE system-build
+DOLLY 6
+TOOLCHAIN system-build
 
-USE https://daugasauron.com/modules/bootstrap.dm 97618552daaca10cbe3e48b56cdaa4557309bb0979d667af71139042827546fa
-USE https://daugasauron.com/modules/slop.dm 6650fa74073f3fc499dce10f9a4d5cee4866a49cfbe92242511f976926fb3161
-USE https://daugasauron.com/modules/core-tools.dm ed24cb576bcbdfd0efb6a97e5b13d9ac70edc708b2498afed5e7df9c9e9acc9a
-USE https://daugasauron.com/modules/tar.dm 4fc79063fddfcd0ed821d9dbe8a914afa725f9fb3c9c4377c0ef3cffcdeab160
-USE https://daugasauron.com/modules/make.dm f3cf0c75d0787586600e9077cc8cc7929cb7f59fbcc5caf75f42eacc258c831d
-USE https://daugasauron.com/modules/cpp.dm 0aa0b961181dd26e1db6497a4542318a45c68ba1782125eff3c1413f4f9dc8f0
-
-ENTRY /bin/slop
+USE https://daugasauron.com/modules/bootstrap.dm b0de22c75d93e421d0f1d83a032882886619df98038ff3cfc97e24877d35a134
+USE https://daugasauron.com/modules/slop.dm 26feaaa124c6080aea9439b47ce9ff066691151d3ba75327fd58a57b3b807876
+USE https://daugasauron.com/modules/core-tools.dm 3c0548e139d09595728d7a99f83b84dcef5d20df57e0312423fa03fce9817a0b
+USE https://daugasauron.com/modules/tar.dm aef5a8af7650918f55d61039b5999c3837730d6c5584f986aa19cf75a4dfc246
+USE https://daugasauron.com/modules/make.dm e1a42f9b32cf0ac3419d14f9769880978bce97919a0f1ba2c448a9e7223de98a
+USE https://daugasauron.com/modules/cpp.dm 1b9c62d06bc7a004a86b852b4fa46bd787e2a42c7320971d08b2e6bcf981fa13

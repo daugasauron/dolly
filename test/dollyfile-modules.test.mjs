@@ -64,28 +64,20 @@ test("the linked viewer preserves table alignment whitespace", async () => {
     const after = sourceLine.slice(sourceLine.indexOf(source.location) + source.location.length);
     assert.ok(bootstrapPage.includes(`>${source.location}</a>${after}`), source.location);
   }
-  for (const exported of bootstrap.exports.filter(({ sha256 }) => sha256)) {
-    const sourceLine = bootstrap.source.split("\n")[exported.line - 1];
-    const gap = sourceLine.slice(
-      sourceLine.indexOf(exported.name) + exported.name.length,
-      sourceLine.indexOf(exported.sha256),
-    );
-    assert.ok(bootstrapPage.includes(`</span>${gap}${exported.sha256}`), exported.name);
-  }
 });
 
 test("an aggregate imports its requirements into its child scope", async () => {
   const fixture = await mkdtemp(resolve(tmpdir(), "dolly-imported-requirement-"));
   try {
     await mkdir(resolve(fixture, "modules"));
-    const seed = "DOLLY 5\nMODULE seed\n\nEXPORTS TOOL cc\n";
-    const child = `DOLLY 5
+    const seed = "DOLLY 6\nMODULE seed\n\nEXPORTS TOOL cc\n";
+    const child = `DOLLY 6
 MODULE child
 
 REQUIRES TOOL cc
 EXPORTS TOOL result
 `;
-    const aggregate = `DOLLY 5
+    const aggregate = `DOLLY 6
 MODULE aggregate
 
 REQUIRES TOOL cc
@@ -98,8 +90,8 @@ EXPORTS TOOL result
       writeFile(resolve(fixture, "modules/child.dm"), child),
       writeFile(resolve(fixture, "modules/aggregate.dm"), aggregate),
     ]);
-    await writeFile(resolve(fixture, "Dollyfile"), `DOLLY 5
-IMAGE default
+    await writeFile(resolve(fixture, "Dollyfile"), `DOLLY 6
+APPLICATION default
 
 USE https://daugasauron.com/modules/seed.dm      ${digest(seed)}
 USE https://daugasauron.com/modules/aggregate.dm ${digest(aggregate)}
@@ -119,8 +111,8 @@ test("aggregate filesystem exports use their declared paths without provider che
   const fixture = await mkdtemp(resolve(tmpdir(), "dolly-explicit-export-"));
   try {
     await mkdir(resolve(fixture, "modules"));
-    const child = "DOLLY 5\nMODULE child\n\nEXPORTS LIB z /usr/lib/libz.a\n";
-    const aggregate = `DOLLY 5
+    const child = "DOLLY 6\nMODULE child\n\nEXPORTS LIB z /usr/lib/libz.a\n";
+    const aggregate = `DOLLY 6
 MODULE aggregate
 
 USE https://daugasauron.com/modules/child.dm ${digest(child)}
@@ -130,8 +122,8 @@ EXPORTS LIB z /usr/lib/replacement.a
       writeFile(resolve(fixture, "modules/child.dm"), child),
       writeFile(resolve(fixture, "modules/aggregate.dm"), aggregate),
     ]);
-    await writeFile(resolve(fixture, "Dollyfile"), `DOLLY 5
-IMAGE default
+    await writeFile(resolve(fixture, "Dollyfile"), `DOLLY 6
+APPLICATION default
 
 USE https://daugasauron.com/modules/aggregate.dm ${digest(aggregate)}
 ENTRY /bin/result
@@ -144,7 +136,7 @@ ENTRY /bin/result
 });
 
 test("FILE consumes four-space-indented content and stops at the first other line", () => {
-  const parsed = inspectDollyfile(`DOLLY 5
+  const parsed = inspectDollyfile(`DOLLY 6
 MODULE inline
 REQUIRES TOOL printf
 
@@ -175,11 +167,6 @@ test("bootstrap exports exact compiler tools and first-class headers", async () 
   assert.deepEqual(
     tools.map(({ name }) => name),
     ["cc", "c++", "ld", "ar", "dollyfile"],
-  );
-  assert.equal(
-    tools.some(({ sha256 }) => sha256),
-    false,
-    "bootstrap tools are process-image outputs identified by the runtime build, not fetched blobs",
   );
   assert.deepEqual(
     bootstrap.exports.filter(({ type }) => type === "ENV").map(({ name }) => name),

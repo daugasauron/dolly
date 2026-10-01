@@ -19,7 +19,7 @@ not installed. No native host processes or sockets are available.
    hash are already correct. Do not recreate it from memory. For other bases or
    external sources, read `/usr/share/dollyfile-studio/dollyfile.md` first and
    inspect the published recipes in `/etc/dolly/recipes`.
-2. Edit the copy's IMAGE name, FILE contents, compiler command, exports and SLOP
+2. Edit the copy's APPLICATION name, FILE contents, compiler command, exports and SLOP
    tests to implement the request. Replace example arguments/tests that no longer
    apply. Put input/output checks **inside the recipe as SLOP lines**, after
    compilation and before scratch cleanup. New commands belong to the built
@@ -41,7 +41,8 @@ policy; protocol details are in `/usr/share/dollyfile-studio/build-service.md`.
 
 ## Important language details
 
-- `DOLLY 5`, then `IMAGE name`; FROM is the first image operation.
+- `DOLLY 6`, then `APPLICATION name`; FROM is the first image operation.
+  `INSTALL URL SHA` adds a published package with its exports.
 - FILE body lines start with **four spaces**, including blank content lines.
   The example shows this indentation. FILE is not a shell heredoc: no `<<EOF`.
 - Compile with `cc`; write executables to `/usr/bin`. `EXPORTS TOOL name`
@@ -54,7 +55,7 @@ policy; protocol details are in `/usr/share/dollyfile-studio/build-service.md`.
 - Own and remove build scratch under `/tmp`. Do not retain credentials or agent
   history. A local `.dm` is not a published dependency; inline its steps.
 - ENTRY is mandatory and final. The tool example enters a Slop prompt.
-  COPY FROM copies files, not environment or named exports.
+  COPY copies files, not environment or named exports; INSTALL takes a package.
 
 ## Porting upstream programs
 

@@ -1,9 +1,9 @@
-DOLLY 5
-IMAGE typescript-build
+DOLLY 6
+TOOLCHAIN typescript-build
 
-FROM https://daugasauron.com/Dollyfile-system-tools 46d753ab5207fbbbaf3bf2578e70bdbf3ab311a5f30b786311796be52426dbd3
+FROM https://daugasauron.com/Dollyfile-system-tools eac7e02f26bd41f6c9f03da8b33146269318488433fc011c1e523bd34e6ed6ad
 
-USE https://daugasauron.com/demos/javascript/quickjs.dm afd07271b390e463a7d717c90c7df1ad8177d65310b546f433af78544399fc0f
-USE https://daugasauron.com/demos/javascript/typescript.dm 0e9f793930a483d187b248d271adc8bfbf15bd5d5c684491b0870595a16019f8
+USE https://daugasauron.com/demos/javascript/quickjs.dm c647b37c8111afff435628704ed4655618b9e72750dda8ed942a77ed3aaae694
+USE https://daugasauron.com/demos/javascript/typescript.dm 67dc47ca4d15aea36c99285aef170874f3c3c37b27b9065f053bcb954a77889e
 
 ENTRY /bin/foreground -i /bin/slop

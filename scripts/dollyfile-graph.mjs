@@ -1,6 +1,7 @@
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { loadRecipeGraph } from "../src/dollyfile-graph.mjs";
+import { recipeFileName } from "../src/dollyfile-view.mjs";
 import { recipeFiles } from "./recipe-files.mjs";
 import { CANONICAL_ORIGIN } from "../src/static-asset.mjs";
 
@@ -35,9 +36,7 @@ export function recipeRecords(graph) {
     records.push({
       kind: record.kind, name: record.name, locator: record.location,
       sourcePath: record.location,
-      retainedPath: record.kind === "image"
-        ? `/etc/dolly/recipes/${record.name}.Dollyfile`
-        : `/etc/dolly/recipes/modules/${record.name}.dm`,
+      retainedPath: `/etc/dolly/recipes/${recipeFileName(record.location)}`,
       sha256: record.sha256, byteLength: Buffer.byteLength(record.source),
     });
   }

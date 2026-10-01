@@ -120,8 +120,9 @@ flowchart TD
   packaging is an input to the Rust producers (`rust-sdk` starts from
   `system-build`); CMake, Neovim and SDL build from `system-tools` without
   display or Rust.
-- Toolchains stay in build-only images; shipped images copy their exact outputs,
-  as `system` copies Ghostty's plugin and font without the Zig SDK
+- Toolchains stay in images that are only built; applications and packages keep
+  exact outputs, as `system` copies Ghostty's plugin and font without the Zig
+  SDK and `pi-runtime` installs the `javascript` package
   ([Dollyfile](dollyfile.md#building)).
 - Prebuilt boot restores a sealed snapshot without downloading the compiler seed
   or compiling anything.

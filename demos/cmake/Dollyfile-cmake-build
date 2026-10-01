@@ -1,9 +1,9 @@
-DOLLY 5
-IMAGE cmake-build
+DOLLY 6
+TOOLCHAIN cmake-build
 
 # Keep the expensive bootstrap reusable across source-build workspaces.
-FROM https://daugasauron.com/Dollyfile-system-tools 46d753ab5207fbbbaf3bf2578e70bdbf3ab311a5f30b786311796be52426dbd3
-USE https://daugasauron.com/demos/cmake/libuv.dm 8446d31f07c7a69d86430a148260f9129ca889d31b82fa221278efcfc2d22a5c
-USE https://daugasauron.com/demos/cmake/cmake.dm b19c0b2b2658b9512a24a7d594faa6aab3a3c327bb2247898e3c328bb2d117e5
+FROM https://daugasauron.com/Dollyfile-system-tools eac7e02f26bd41f6c9f03da8b33146269318488433fc011c1e523bd34e6ed6ad
+USE https://daugasauron.com/demos/cmake/libuv.dm 4b64f4cd6518ab0e476a652f37179cf36a53cc2bbf43621205c1219bca3e03db
+USE https://daugasauron.com/demos/cmake/cmake.dm 2f8af62f07a88e3ad5b8b641abf41ca8a4eec6e96ece9f9f0e39aa2beee2b167
 
 ENTRY /bin/foreground -i /bin/slop

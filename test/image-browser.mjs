@@ -23,8 +23,8 @@ function handle(request, response, path, headers) {
 
 // A derived image built in the tab from a published base: shell, exports,
 // deletions, and an ENTRY argument that must keep its U+FEFF.
-const iterationRecipe = (base, marker) => `DOLLY 5
-IMAGE iteration
+const iterationRecipe = (base, marker) => `DOLLY 6
+APPLICATION iteration
 FROM https://daugasauron.com/${base.dollyfile} ${base.sha256}
 SLOP mkdir -p /opt/iteration/bin; cp /bin/echo /opt/iteration/bin/echo
 EXPORTS ENV PATH /opt/iteration/bin:/bin:/usr/bin
@@ -87,7 +87,7 @@ await browserTest("image", { server: { fixtures, handle }, timeout: 600_000 }, a
     await run(`cc -O0 -I. ${source} -o ${name} && ./${name} /tmp/retention`);
   }
   // Sealing fails when ENTRY names an executable the image does not retain.
-  await run("cc -O0 dollyfile.c -o dollyfile && printf 'DOLLY 5\\nIMAGE entry-missing\\nENTRY /bin/slop\\n' > Dollyfile");
+  await run("cc -O0 dollyfile.c -o dollyfile && printf 'DOLLY 6\\nAPPLICATION entry-missing\\nENTRY /bin/slop\\n' > Dollyfile");
   assert.equal(await submit("./dollyfile FILE:/tmp/retention/Dollyfile 2> error"), 1);
   await run("grep -q 'must be retained' error && cd / && rm -rf /tmp/retention");
   await parser.run(submit);
@@ -151,7 +151,7 @@ await browserTest("image", { server: { fixtures, handle }, timeout: 600_000 }, a
       const staleHit = await loadImageArtifactDescriptor(child.sha256, [{ recipeSha256: system.sha256, sha256: changed.sha256 }]);
       let requested, failure;
       try {
-        await prepareImageArtifacts("custom", `DOLLY 5\nIMAGE grandchild\nFROM https://daugasauron.com/${child.dollyfile} ${child.sha256}\nENTRY /bin/slop\n`,
+        await prepareImageArtifacts("custom", `DOLLY 6\nAPPLICATION grandchild\nFROM https://daugasauron.com/${child.dollyfile} ${child.sha256}\nENTRY /bin/slop\n`,
           async image => { requested = image; throw new Error("EXPECTED_REBUILD"); }, () => {});
       } catch (error) { failure = error.message; }
       return { changedBytes: changed.sha256 !== original.sha256, staleHit: !!staleHit, requested, failure };
@@ -171,7 +171,7 @@ await browserTest("image", { server: { fixtures, handle }, timeout: 600_000 }, a
     const { saveStoredSession, loadStoredSession } = await import("/src/session-store.mjs");
     const { DOLLY_SYSTEM_SNAPSHOT: metadata } = await import("/dist/dolly-system-system-snapshot.mjs");
     const make = async (name, value) => {
-      const source = new TextEncoder().encode(`DOLLY 5\nIMAGE ${name}\nENTRY /bin/slop\n`);
+      const source = new TextEncoder().encode(`DOLLY 6\nAPPLICATION ${name}\nENTRY /bin/slop\n`);
       return describeImageArtifact(encodeSnapshotRecords(new Map([
         ["/etc/dolly/Dollyfile", { kind: 2, data: source }],
         ["/etc/dolly/artifact", { kind: 2, data: new TextEncoder().encode(value) }],
@@ -213,7 +213,7 @@ await browserTest("image", { server: { fixtures, handle }, timeout: 600_000 }, a
         throw new Error("corrupt base write failed");
       }
       const [artifact] = await prepareImageArtifacts("custom",
-        `DOLLY 5\nIMAGE cache-consumer\nFROM https://daugasauron.com/${system.dollyfile} ${system.sha256}\nENTRY /bin/slop\n`,
+        `DOLLY 6\nAPPLICATION cache-consumer\nFROM https://daugasauron.com/${system.dollyfile} ${system.sha256}\nENTRY /bin/slop\n`,
         async () => { throw new Error("corruption must recover the exact published bytes, not rebuild"); }, () => {});
       recovered = artifact.sha256 === base.sha256 && artifact.bytes.byteLength === base.bytes.byteLength;
     } finally { await saveImageArtifact(base, `/${system.dollyfile}`); }

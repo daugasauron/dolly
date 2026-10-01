@@ -198,15 +198,19 @@ async function boot() {
   const buildDependency = (name, inputs) => buildImage(name, inputs, buildNetwork, appendBootstrap);
   const prepareArtifacts = () => prepareImageArtifacts(image, customSource, buildDependency,
     text => appendBootstrap(`${text}\n`));
-  if (bootMode === "rebuild" && !requiredHost.includes("display@0")) {
-    // Build images have no terminal: keep the complete log and report the result.
+  const recipe = customSource === undefined ? DOLLY_IMAGES.find(definition => definition.image === image)
+    : inspectDollyfile(customSource);
+  const runnable = recipe.entry !== null && requiredHost.includes("display@0");
+  if (bootMode === "rebuild" && !runnable) {
+    // An image without ENTRY or display has no terminal: keep the complete log and report the result.
     const artifacts = await prepareArtifacts();
     const built = await buildImage(image, artifacts, buildNetwork, appendBootstrap, { customSource });
-    const name = customSource === undefined ? image : inspectDollyfile(customSource).image;
+    const name = customSource === undefined ? image : recipe.image;
     appendBootstrap(`\nBUILT ${name} · ${(built.byteLength / 1024 / 1024).toFixed(1)} MiB · sha256 ${built.sha256}\n`);
     document.documentElement.dataset.dollyStatus = "built";
     return;
   }
+  if (!runnable) throw new Error(`${image} has no ENTRY or display; it only builds`);
   host = await createHost("browser", globalThis.DOLLY_HOST_MODULES ??
     [...requiredHost, ...(bootMode === "rebuild" ? buildHost : [])], {
     send: (message, transfers = []) => runtimeWorker.postMessage(message, transfers),

@@ -1,4 +1,4 @@
-DOLLY 5
+DOLLY 6
 MODULE llvm-tablegen
 
 # Configure the pinned LLVM 24 tree as the seed is configured

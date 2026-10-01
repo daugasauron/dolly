@@ -8,7 +8,7 @@ import { execFileSync } from "node:child_process";
 import { createReadStream } from "node:fs";
 import { basename } from "node:path";
 import { gzipSync } from "node:zlib";
-import { delay, demoTest } from "../../browser.mjs";
+import { delay, demoTest, installProbe } from "../../browser.mjs";
 
 const packages = process.env.DOLLY_PYTHON_PACKAGES === "1";
 const projectDir = new URL("../../..", import.meta.url).pathname;
@@ -60,7 +60,7 @@ const fixtures = {
   "terminal-ui.c": "test/fixtures/terminal-ui.c",
 };
 await demoTest("python", { image: "python", timeout: packages ? 7_200_000 : 600_000, server: { fixtures, handle } }, async ({ server, open }) => {
-  const { page, submit, run, start, waitText, input } = await open({ policy: { maxRequests: 1024, rules: [
+  const { page, submit, run, start, waitText, input } = await open({ ...await installProbe("python"), policy: { maxRequests: 1024, rules: [
     { origin: server.origin, pathPrefix: "/fixture/", methods: ["GET", "POST"] },
     { origin: server.origin.replace("127.0.0.1", "localhost"), path: "/fixture/gzip" },
   ] } });

@@ -1,10 +1,10 @@
-DOLLY 5
-IMAGE rust-sdk
+DOLLY 6
+TOOLCHAIN rust-sdk
 
-FROM https://daugasauron.com/Dollyfile-system-build 4fb82f8c0cb8de4d7afabc9d8f2ae7313ab9f53d8004f9295810bfbe107b1a78
-USE https://daugasauron.com/modules/zlib.dm c9cb89bda622f88b41fb06e8fbff251610fd8390109ad1f6096dbe98c77d17f7
-USE https://daugasauron.com/modules/gzip.dm 3e7742b68f84731a5995929e0199a14bf52d9e8ac39321950b6729bec158bbde
-USE https://daugasauron.com/demos/rust/rust-sdk.dm d7cabf068f42006e242ed42aad7a0cbee4cecc168e80afc8093f91814b2f2ec0
-USE https://daugasauron.com/modules/display.dm b6a68f9fb4a5c6df413074ddcc61dd8163fc935940ae825333e120fa669bff16
+FROM https://daugasauron.com/Dollyfile-system-build cf6a9560686977569349e30567fc701c36301227ae9e712e090261f51260298b
+USE https://daugasauron.com/modules/zlib.dm 09b26217a01066a2ba12f5ef25e4b804e8cddcfdf2196f3cf9c2dc1bd51f9227
+USE https://daugasauron.com/modules/gzip.dm 9db8dcee3d41678bee5840cccc760a35ccf54a04fb62b77b3712dfb476463014
+USE https://daugasauron.com/demos/rust/rust-sdk.dm bf21571e8815f6a7c04a5ca4cd65670c3aae6088e2792ec44520f60b562730e3
+USE https://daugasauron.com/modules/display.dm 93f2d6e6fad1108c6bff196988220a0d6e3fc1c1048dc35d48055a691ef0832f
 
 ENTRY /bin/foreground -i /bin/slop

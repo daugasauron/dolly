@@ -123,11 +123,25 @@ export async function displayProbe(image) {
     const { dollyfile, sha256 } = DOLLY_IMAGES.find(definition => definition.image === name);
     return `${CANONICAL_ORIGIN}/${dollyfile} ${sha256}`;
   };
-  const recipe = ["DOLLY 5", "IMAGE display-probe", `FROM ${pin(image)}`, "REQUIRES HOST display@0", "REQUIRES HOST http@0",
+  const recipe = ["DOLLY 6", "APPLICATION display-probe", `FROM ${pin(image)}`, "REQUIRES HOST display@0", "REQUIRES HOST http@0",
     ...["/usr/lib/libdisplay.so", "/usr/share/fonts/IosevkaTerm-SemiBold.ttf"]
-      .map(path => `COPY FROM ${pin("ghostty-build")} ${path} ${path}`),
+      .map(path => `COPY ${pin("ghostty-build")} ${path} ${path}`),
     "EXPORTS LIB display /usr/lib/libdisplay.so", "EXPORTS ENV DISPLAY /usr/lib/libdisplay.so",
     "ENTRY /bin/foreground -i /bin/slop", ""].join("\n");
+  return { path: "/custom/rebuild/",
+    setup: page => page.addInitScript(recipe => sessionStorage.setItem("dolly-custom-source", recipe), recipe) };
+}
+
+// open() options for an application built in the page from `system` plus the
+// named packages, as `amy install` composes a session.
+export async function installProbe(...packages) {
+  const { DOLLY_IMAGES } = await import("../dist/dolly-images.mjs");
+  const pin = name => {
+    const { dollyfile, sha256 } = DOLLY_IMAGES.find(definition => definition.image === name);
+    return `${CANONICAL_ORIGIN}/${dollyfile} ${sha256}`;
+  };
+  const recipe = ["DOLLY 6", "APPLICATION install-probe", `FROM ${pin("system")}`,
+    ...packages.map(name => `INSTALL ${pin(name)}`), "ENTRY /bin/foreground -i /bin/slop", ""].join("\n");
   return { path: "/custom/rebuild/",
     setup: page => page.addInitScript(recipe => sessionStorage.setItem("dolly-custom-source", recipe), recipe) };
 }

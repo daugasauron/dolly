@@ -1,7 +1,7 @@
-DOLLY 5
+DOLLY 6
 MODULE python
 
-# Build the Python runtime and native extension SDK; pip is a later image step.
+# Build the Python runtime and native extension SDK; pip.dm adds pip.
 REQUIRES HEADER curl
 REQUIRES HEADER libc
 REQUIRES HEADER runtime
@@ -21,16 +21,5 @@ REQUIRES TOOL   tar
 REQUIRES TOOL   test
 REQUIRES TOOL   touch
 
-USE https://daugasauron.com/demos/python/libffi.dm  d85a99b9c4eb1ef9d1284bf43eba3eb5a7db60e26502cdb1d851b4ee7c21fc36
-USE https://daugasauron.com/demos/python/cpython.dm cc952000ca92c367aa434c327e55f67b48832188c8c197b6da124f67097a6a60
-
-EXPORTS TOOL   python
-EXPORTS TOOL   python3
-EXPORTS ENV    PYTHONDONTWRITEBYTECODE
-EXPORTS ENV    PYTHONUTF8
-EXPORTS FOLDER python-stdlib /usr/lib/python3.14
-EXPORTS HEADER python        /usr/include/python3.14
-EXPORTS HEADER ffi           /usr/include/ffi.h
-EXPORTS HEADER ffitarget     /usr/include/ffitarget.h
-EXPORTS LIB    ffi           /usr/lib/libffi.a
-EXPORTS LIB    python        /usr/lib/libpython3.14.a
+USE https://daugasauron.com/demos/python/libffi.dm  7674a8a3544cda269d6a9b037b4a2f88001e7f0e3e39c9a71030f006c931f7ca
+USE https://daugasauron.com/demos/python/cpython.dm a736313a57a414a83d21d7740bb18f6d546a85f987ee9111783f8f0426c0d7e3

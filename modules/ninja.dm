@@ -1,4 +1,4 @@
-DOLLY 5
+DOLLY 6
 MODULE ninja
 
 # Samurai is a compact Ninja-compatible executor. Its upstream parser, graph,

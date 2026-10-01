@@ -1,8 +1,6 @@
-DOLLY 5
-IMAGE zig-build
+DOLLY 6
+TOOLCHAIN zig-build
 
-FROM https://daugasauron.com/Dollyfile-system-build 4fb82f8c0cb8de4d7afabc9d8f2ae7313ab9f53d8004f9295810bfbe107b1a78
+FROM https://daugasauron.com/Dollyfile-system-build cf6a9560686977569349e30567fc701c36301227ae9e712e090261f51260298b
 
-USE https://daugasauron.com/modules/zig.dm 05a7591329b04eaff2cbafb2f48b77925e30d047d6faec0bee5b4e01e68e1568
-
-ENTRY /bin/slop
+USE https://daugasauron.com/modules/zig.dm 337480f81a24d4e85e07c64df8dc18cf864d087195f92299d64929db8de3f17f

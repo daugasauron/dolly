@@ -35,8 +35,8 @@ async function customImageSessions(context, server, fixtures) {
   await page.goto(server.origin + "/custom/");
   const original = await page.locator("#source").inputValue();
   const pin = original.match(/FROM https:\/\/daugasauron\.com\/Dollyfile-system ([0-9a-f]{64})/)[1];
-  const source = `DOLLY 5
-IMAGE custom-session
+  const source = `DOLLY 6
+APPLICATION custom-session
 FROM https://daugasauron.com/Dollyfile-system ${pin}
 FILE /tmp/session-hello.c
     #include <stdio.h>

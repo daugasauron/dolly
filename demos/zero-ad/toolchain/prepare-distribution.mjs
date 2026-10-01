@@ -25,7 +25,7 @@ for (const [input, name, destination] of [
   sources.push(`SOURCE https://daugasauron.com/dist/static/zero-ad/${name} ${await digest(resolve(output, name))} ${destination}`);
 }
 await rm(resolve(output, "data.tar"), { force: true });
-const module = `DOLLY 5
+const module = `DOLLY 6
 MODULE zero-ad
 
 REQUIRES HOST audio@0
@@ -47,8 +47,8 @@ EXPORTS TOOL zero-ad
 EXPORTS FOLDER zero-ad /opt/0ad
 `;
 await writeFile(resolve(root, "demos/zero-ad/zero-ad.dm"), module);
-await writeFile(resolve(root, "demos/zero-ad/Dollyfile-zero-ad"), `DOLLY 5
-IMAGE zero-ad
+await writeFile(resolve(root, "demos/zero-ad/Dollyfile-zero-ad"), `DOLLY 6
+APPLICATION zero-ad
 
 FROM https://daugasauron.com/Dollyfile ${hash(await readFile(resolve(root, "Dollyfile")))}
 USE https://daugasauron.com/demos/zero-ad/zero-ad.dm ${hash(module)}

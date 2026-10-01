@@ -43,7 +43,7 @@ await browserTest("host compute", { image: "system-build" }, async ({ browser, s
       const sources = [...DOLLY_IMAGES.map(d => ({ path: `/${d.dollyfile}`, byteLength: d.byteLength })), ...DOLLY_STATIC_SOURCES];
       const network = localServicesTransport(consumeDollyHttpPolicy(globalThis, sources, new URL("/", location.href)));
       const base = DOLLY_IMAGES.find(d => d.image === "system-build");
-      const recipe = `DOLLY 5\nIMAGE ${name}\nFROM https://daugasauron.com/Dollyfile-system-build ${base.sha256}\n${rows}`;
+      const recipe = `DOLLY 6\nAPPLICATION ${name}\nFROM https://daugasauron.com/Dollyfile-system-build ${base.sha256}\n${rows}`;
       const report = () => {};
       const artifacts = await prepareImageArtifacts("custom", recipe, (name, inputs) => buildImage(name, inputs, network, report), report);
       const built = await buildImage("custom", artifacts, network, report, { customSource: recipe });

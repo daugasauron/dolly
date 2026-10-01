@@ -13,6 +13,10 @@ trusted browser code) plus a minimal POSIX userspace. Everything else is a
 
 ## Core images
 
+Every image declares its role: an `APPLICATION` people open, a `TOOLCHAIN`
+recipes build on, or a `PACKAGE` recipes and sessions install
+([Dollyfile](docs/dollyfile.md#roles-and-names)).
+
 - `default`: Shell, Git, Make and C/C++.
 - `system`: `system-tools` with HTTP, file transfer and snapshots.
 - `system-tools`: Shell, display, Git, curl, Make and POSIX tools.

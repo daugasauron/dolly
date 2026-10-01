@@ -1,45 +1,13 @@
-DOLLY 5
+DOLLY 6
 MODULE default
 
 # Shared C/C++ build and system utilities, without a display or Rust tools.
-USE https://daugasauron.com/modules/download.dm       7ea1997de26f55dcbcdebf135c5a6807c6de82b361710c28b029ddc4d9f3f0dd
-USE https://daugasauron.com/modules/upload.dm         7c135b1f7b7f525b10e045c92572eebf3d09c279bc39a1a8a0a25ae607393b70
-USE https://daugasauron.com/modules/ninja.dm          b1ea3b61812b11799f6b75120304ba7c3e8458207930427867809da6bdced174
-USE https://daugasauron.com/modules/zlib.dm           c9cb89bda622f88b41fb06e8fbff251610fd8390109ad1f6096dbe98c77d17f7
-USE https://daugasauron.com/modules/gzip.dm 3e7742b68f84731a5995929e0199a14bf52d9e8ac39321950b6729bec158bbde
-USE https://daugasauron.com/modules/curl.dm           cbbd8961693265d08eb456e898adf69fbdd1208212412a86819b688f65b68414
-USE https://daugasauron.com/modules/git.dm            9759cf314839e76932540612eaccb6a7424ede8b32477e4ec9d2946e97d1a7bf
-USE https://daugasauron.com/modules/awk.dm            f19d896eb674f78365275b90e47dd7f6db4a8d0c6f9f4e5959b1eb3c63e59aed
-USE https://daugasauron.com/modules/agent-tools.dm    aae10d14a6157433e613a8f1828d536a54334321cb8e2300bfe9e6a002e375b7
-
-# Retain the runtime and SDK at these paths when the module finishes.
-EXPORTS HEADER zlib       /usr/include/zlib.h
-EXPORTS HEADER zconf      /usr/include/zconf.h
-EXPORTS HEADER curl       /usr/include/curl
-
-EXPORTS LIB z           /usr/lib/libz.a
-EXPORTS LIB curl        /usr/lib/libcurl.a
-
-EXPORTS TOOL download
-EXPORTS TOOL upload
-EXPORTS TOOL ninja
-EXPORTS TOOL curl
-EXPORTS TOOL git
-EXPORTS TOOL awk
-EXPORTS TOOL install
-EXPORTS TOOL tail
-EXPORTS TOOL du
-EXPORTS TOOL rev
-EXPORTS TOOL command
-EXPORTS TOOL xargs
-EXPORTS TOOL find
-EXPORTS TOOL env
-EXPORTS TOOL timeout
-EXPORTS TOOL time
-EXPORTS TOOL hostname
-EXPORTS TOOL realpath
-EXPORTS TOOL diff
-EXPORTS TOOL patch
-EXPORTS TOOL tty
-EXPORTS TOOL gzip
-
+USE https://daugasauron.com/modules/download.dm       e310dd781c1528733d5a86978a48ea3114a05b3e15d1d08e260990651e4d0a99
+USE https://daugasauron.com/modules/upload.dm         c4ce40ce5c9afc30b8edd75e9046c56ea0d7e055aae8070f4d15f3063faae449
+USE https://daugasauron.com/modules/ninja.dm          87d47200ae41b2945083596c03685c8f17eea3ee63ec0cea63146e3f02943118
+USE https://daugasauron.com/modules/zlib.dm           09b26217a01066a2ba12f5ef25e4b804e8cddcfdf2196f3cf9c2dc1bd51f9227
+USE https://daugasauron.com/modules/gzip.dm 9db8dcee3d41678bee5840cccc760a35ccf54a04fb62b77b3712dfb476463014
+USE https://daugasauron.com/modules/curl.dm           3c691252b45ff0d5410934670ebfe2d3b4d929bd8c51b70f99beae06504e36bc
+USE https://daugasauron.com/modules/git.dm            0d552ff1f38990045fd4adafc41fe5b67a7316d7eedd523c664efc6be34ae1e6
+USE https://daugasauron.com/modules/awk.dm            b8a2de8d13f0e105e872597a5f4fd3b347dd892713163f593109ab00d58dffe2
+USE https://daugasauron.com/modules/agent-tools.dm    d915093dd29033418525c15b672d4931ef6b5af7d1cbb5b7bf6b1462cbdcc615

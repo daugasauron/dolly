@@ -11,12 +11,13 @@ cancellation tests.
 
 ## Images
 
-- `javascript`: QuickJS, Janis and TypeScript.
+- `javascript`: QuickJS, Janis and TypeScript, as a package.
 - `typescript-build`: QuickJS, Janis and the TypeScript compiler build.
 
-Open `/javascript/`. `janis`, `tsc` and `qjs` (a link to `janis`) are ordinary
-programs; `typescript-build` compiles them headless on `system-tools` and
-`javascript` copies them into `system`.
+`janis`, `tsc` and `qjs` (a link to `janis`) are ordinary programs;
+`typescript-build` compiles them headless on `system-tools` and the `javascript`
+package keeps them for `INSTALL` (`pi-runtime`, `bhop`, `slopyard`) and
+`amy install javascript`.
 
 ## Supported
 

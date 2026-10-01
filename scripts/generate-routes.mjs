@@ -1,8 +1,9 @@
 #!/usr/bin/env node
 // Writes the generated pages at their served paths in this checkout: the menu
-// index.html (from menu.html), a terminal.html page per route and the
-// Dollyfile views. Any static file server can then serve the checkout.
+// index.html (from menu.html), a terminal.html page per route, the Dollyfile
+// views and the package index. Any static file server can then serve the checkout.
 
+import { createHash } from "node:crypto";
 import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 
@@ -16,6 +17,7 @@ import { createDollyfileGraphLoader } from "./dollyfile-graph.mjs";
 import { renderDollyfilePage } from "./render-dollyfile-view.mjs";
 import { imageDescriptions, menuRow } from "./image-menu.mjs";
 import { bundleProcessWorker } from "./bundle-process-worker.mjs";
+import { CANONICAL_ORIGIN } from "../src/static-asset.mjs";
 
 const projectDir = resolve(import.meta.dirname, "..");
 await bundleProcessWorker(projectDir);
@@ -29,28 +31,38 @@ const graphs = await Promise.all(definitions.map(async (definition) => ({
   definition,
   graph: await loadGraph(definition.filename),
 })));
-const headless = new Set(graphs.filter(({ graph }) => !graph.root.hostRequirements.includes("display@0"))
-  .map(({ definition }) => definition.image));
+// An image opens when it has ENTRY and a display; otherwise it only builds.
+const openable = new Set(graphs.filter(({ definition, graph }) =>
+  definition.parsed.entry && graph.root.hostRequirements.includes("display@0")).map(({ definition }) => definition.image));
 await writeImageRegistry(projectDir, definitions, staticSources);
 const descriptions = await imageDescriptions(projectDir);
-// Runnable images first (default leading), then one build image section.
-const isBuild = image => /-(build|sdk|runtime|tools)$/.test(image) || image === "system";
-const ordered = [...definitions].sort((a, b) =>
-  Number(b.image === "default") - Number(a.image === "default") ||
-  Number(isBuild(a.image)) - Number(isBuild(b.image)) || a.image.localeCompare(b.image, "en"));
-const firstBuild = ordered.find(({ image }) => isBuild(image))?.image;
-const rows = ordered.map(definition => {
+// Applications (default first), then toolchains by directory, then packages.
+const roles = [["application", "Applications"], ["toolchain", "Toolchains"], ["package", "Packages"]];
+const rank = ({ image, parsed, filename }) =>
+  [roles.findIndex(([role]) => role === parsed.role), image === "default" ? "" : dirname(filename), image];
+const ordered = [...definitions].sort((a, b) => {
+  const [left, right] = [rank(a), rank(b)];
+  return left[0] - right[0] || left[1].localeCompare(right[1], "en") || left[2].localeCompare(right[2], "en");
+});
+const rows = ordered.map((definition, index) => {
   const description = descriptions.get(definition.image);
   if (!description) throw new Error(`${definition.image}: describe it as "- \`${definition.image}\`: …" in its README`);
-  const heading = definition.image === firstBuild ? '<tr class="group"><th colspan="3">Build images</th></tr>\n' : "";
-  return heading + menuRow(definition.image, description, !headless.has(definition.image));
+  const heading = ordered[index - 1]?.parsed.role === definition.parsed.role ? "" :
+    `<tr class="group"><th colspan="3">${roles.find(([role]) => role === definition.parsed.role)[1]}</th></tr>\n`;
+  return heading + menuRow(definition.image, description, openable.has(definition.image));
 });
 const menu = await readFile(resolve(projectDir, "menu.html"), "utf8");
 await writeFile(resolve(projectDir, "index.html"),
   menu.replace(/<tbody>[\s\S]*?<\/tbody>/, () => `<tbody>\n${rows.join("\n")}\n</tbody>`));
+// The package index amy reads: one "NAME URL SHA256" line per package.
+await writeFile(resolve(projectDir, "dist/dolly-packages.txt"), definitions
+  .filter(({ parsed }) => parsed.role === "package")
+  .map(({ image, filename, source }) =>
+    `${image} ${CANONICAL_ORIGIN}/${filename} ${createHash("sha256").update(source).digest("hex")}\n`)
+  .join(""));
 const routes = [
   ...definitions.flatMap(({ image }) => [
-    ...(headless.has(image) ? [] : [{ path: `${image}/index.html`, image, mode: "snapshot" }]),
+    ...(openable.has(image) ? [{ path: `${image}/index.html`, image, mode: "snapshot" }] : []),
     { path: `${image}/rebuild/index.html`, image, mode: "rebuild" },
   ]),
   { path: "custom/rebuild/index.html", image: "custom", mode: "rebuild" },

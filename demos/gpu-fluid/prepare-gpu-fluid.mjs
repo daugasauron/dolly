@@ -6,15 +6,15 @@ const hash=bytes=>createHash("sha256").update(bytes).digest("hex");
 const entries=[
  ...(await readdir(new URL("demos/gpu-fluid/src/",root))).sort().map(file=>[`demos/gpu-fluid/src/${file}`,`/usr/src/dolly/fluid/${file}`]),
 ];
-let module="DOLLY 5\nMODULE gpu-fluid\n\nREQUIRES TOOL cc\nREQUIRES HEADER gpu\nREQUIRES LIB dolly-gpu\nREQUIRES HOST gpu@0\nREQUIRES HOST display@0\n\n";
+let module="DOLLY 6\nMODULE gpu-fluid\n\nREQUIRES TOOL cc\nREQUIRES HEADER gpu\nREQUIRES LIB dolly-gpu\nREQUIRES HOST gpu@0\nREQUIRES HOST display@0\n\n";
 for(const [source,path] of entries){const content=await readFile(new URL(source,root),"utf8");module+=`FILE ${path}\n${content.trimEnd().split("\n").map(line=>`    ${line}`).join("\n")}\n\n`;}
 for(const [path,include] of [["cglm/cglm.h","../platform.h"],["webgpu/wgpu_common.h","../platform.h"],["webgpu/imgui_overlay.h","../without-imgui.h"],["cimgui.h","without-imgui.h"],["sokol_time.h","platform.h"]])module+=`FILE /usr/src/dolly/fluid/${path}\n    #include "${include}"\n\n`;
 await writeFile(new URL("demos/gpu-fluid/gpu-fluid.dm",root),module);
 const headers=JSON.parse(await readFile(new URL("demos/gpu-fluid/fluid-cglm-headers.json",root),"utf8"));
 const cglm=headers.map(({path,sha256})=>`SOURCE https://raw.githubusercontent.com/recp/cglm/144d1e7c29b3b0c6dede7917a0476cc95248559c/include/${path} ${sha256} /usr/src/dolly/fluid/${path}`).join("\n");
 const parent=hash(await readFile(new URL("Dollyfile-gpu-sdk",root)));
-await writeFile(new URL("demos/gpu-fluid/Dollyfile-gpu-fluid",root),`DOLLY 5
-IMAGE gpu-fluid
+await writeFile(new URL("demos/gpu-fluid/Dollyfile-gpu-fluid",root),`DOLLY 6
+APPLICATION gpu-fluid
 
 FROM https://daugasauron.com/Dollyfile-gpu-sdk ${parent}
 USE https://daugasauron.com/demos/gpu-fluid/gpu-fluid.dm ${hash(module)}

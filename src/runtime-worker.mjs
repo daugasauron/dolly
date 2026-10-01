@@ -125,7 +125,7 @@ try {
   const recipeSha256 = configuredImage === "custom"
     ? await sha256(encoder.encode(bootConfig.customSource)) : definition.sha256;
   const baseReference = configuredImage === "custom"
-    ? inspectDollyfile(bootConfig.customSource).from : definition.artifacts.find(reference => !reference.copy);
+    ? inspectDollyfile(bootConfig.customSource).from : definition.artifacts.find(reference => reference.operation === "from");
   const artifacts = new Map();
   if (bootConfig.artifacts !== undefined && (!Array.isArray(bootConfig.artifacts) || bootConfig.artifacts.length > 256)) {
     throw new Error("invalid build artifacts");

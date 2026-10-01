@@ -1,5 +1,5 @@
-DOLLY 5
-IMAGE hello-tool
+DOLLY 6
+APPLICATION hello-tool
 
 FROM https://daugasauron.com/Dollyfile-system @SYSTEM_SHA256@
 

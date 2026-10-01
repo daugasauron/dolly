@@ -124,7 +124,7 @@ function renderSource(record, graph) {
       if (match) {
         const [, prefix, directive, spacing, rest] = match;
         if (directive === "USE") body = renderUse(record, row, prefix, spacing, rest, graph);
-        else if (directive === "FROM" || directive === "COPY") body = renderArtifact(record, row, prefix, spacing, rest);
+        else if (["FROM", "INSTALL", "COPY"].includes(directive)) body = renderArtifact(record, row, prefix, spacing, rest);
         else if (directive === "REQUIRES") body = renderRequirement(record, row, prefix, spacing, rest);
         else if (directive === "EXPORTS") body = renderExport(record, row, prefix, spacing, rest);
         else if (directive === "SOURCE") body = renderSourceReference(record, row, prefix, spacing, rest);

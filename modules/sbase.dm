@@ -1,4 +1,4 @@
-DOLLY 5
+DOLLY 6
 MODULE sbase
 
 # Unchanged upstream sbase commands, built by sbase's own Makefile.

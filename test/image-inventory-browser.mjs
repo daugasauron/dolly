@@ -58,7 +58,7 @@ await browserTest("image inventory", { image: site ? null : "default", server: {
         return { definition, manifestHash: [...new Uint8Array(digest)].map(byte => byte.toString(16).padStart(2, "0")).join("") };
       }, image);
       const artifact = `/etc/dolly/artifacts/${definition.sha256}.snapshot`;
-      const recipe = `DOLLY 5\nIMAGE inventory\nFROM https://daugasauron.com/${definition.dollyfile} ${definition.sha256}\n` +
+      const recipe = `DOLLY 6\nAPPLICATION inventory\nFROM https://daugasauron.com/${definition.dollyfile} ${definition.sha256}\n` +
         `FILE /tmp/inventory.c\n${inventory.trimEnd().split("\n").map(line => `    ${line}`).join("\n")}\n` +
         "SLOP cc -O1 /tmp/inventory.c -o /tmp/inventory\nSLOP help > /tmp/help\n" +
         `SLOP if /tmp/inventory /tmp/help ${"0".repeat(64)} ${artifact}; then exit 1; fi\n` +

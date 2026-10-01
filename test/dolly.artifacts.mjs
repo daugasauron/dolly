@@ -327,14 +327,18 @@ test("registry, routes, and source viewer derive from Dollyfiles", async () => {
     knownImages.filter(({ image }) => selected.has(image)),
   );
   for (const image of DOLLY_IMAGES) {
-    // Build-only images have no display and only the rebuild screen.
+    // Images without ENTRY or display only build: no boot route.
     const bootRoute = access(new URL(`../${image.image}/index.html`, import.meta.url)).then(() => true, () => false);
-    assert.equal(await bootRoute, image.hostRequirements.includes("display@0"), `${image.image}: boot route`);
+    assert.equal(await bootRoute, image.entry !== null && image.hostRequirements.includes("display@0"), `${image.image}: boot route`);
     await readFile(new URL(`../${image.image}/rebuild/index.html`, import.meta.url));
     await readFile(new URL(`../view/${image.image}/index.html`, import.meta.url));
     assert.ok(image.byteLength > 0);
     assert.match(image.sha256, /^[0-9a-f]{64}$/);
   }
+  // The package index amy reads names every package of the registry by its pinned recipe.
+  const index = (await readFile(artifact("dolly-packages.txt"), "utf8")).trimEnd().split("\n").filter(Boolean);
+  assert.deepEqual(index, DOLLY_IMAGES.filter(({ role }) => role === "package")
+    .map(({ image, dollyfile, sha256 }) => `${image} https://daugasauron.com/${dollyfile} ${sha256}`));
 });
 
 test("the kernel module owns its wasm64 WasmFS memory and table", async () => {

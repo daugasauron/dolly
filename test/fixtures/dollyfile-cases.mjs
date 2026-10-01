@@ -11,7 +11,7 @@ const digest = value => createHash("sha256").update(value).digest("hex");
 export function dollyfileCases(origin) {
   const recipes = new Map();
   function module(name, rows) {
-    const source = `DOLLY 5\nMODULE ${name}\n${rows}\n`;
+    const source = `DOLLY 6\nMODULE ${name}\n${rows}\n`;
     inspectDollyfile(source);
     const path = `/modules/${name}.dm`;
     recipes.set(path, source);
@@ -76,7 +76,7 @@ SLOP rm ${outputs}/deleted`);
     { name: "bare-file", uses: bareFile, error: "FILE failed" },
   ];
   for (const item of cases) {
-    const source = `DOLLY 5\nIMAGE parser-test\n${seed}${item.uses}ENTRY /bin/slop ""\n`;
+    const source = `DOLLY 6\nAPPLICATION parser-test\n${seed}${item.uses}ENTRY /bin/slop ""\n`;
     inspectDollyfile(source);
     recipes.set(`/fixture/parser-${item.name}.Dollyfile`, source);
   }
@@ -84,7 +84,7 @@ SLOP rm ${outputs}/deleted`);
   recipes.set("/fixture/parser-after.txt", "after");
   cases.push({ name: "nul", error: "could not load recipe", check: `test ! -e ${outputs}/nul` });
   recipes.set("/fixture/parser-nul.Dollyfile",
-    `DOLLY 5\nIMAGE parser-test\nSLOP printf changed > ${outputs}/nul\n# comment\0ignored\nENTRY /bin/slop\n`);
+    `DOLLY 6\nAPPLICATION parser-test\nSLOP printf changed > ${outputs}/nul\n# comment\0ignored\nENTRY /bin/slop\n`);
   return { recipes, run: submit => runDollyfileCases(submit, origin, cases) };
 }
 

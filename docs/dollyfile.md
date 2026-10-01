@@ -56,7 +56,8 @@ and `/host/MODULE/`, prepared sources in `/dist/static/`.
 | `PACKAGE name` | nobody | `INSTALL`, `COPY` | none | only what it declares |
 | `MODULE name` | nobody | `USE` | none | runs inside its caller |
 
-- Names match `[a-z][a-z0-9]*([.-][a-z0-9]+)*` and are at most 32 bytes.
+- Names match `[a-z][a-z0-9]*(-[a-z0-9]+|.[0-9]+)*` and are at most 32 bytes: a
+  dot separates version digits.
   Image names are unique in a catalog and so are module names; an image and a
   module may share one (`pi`, `pi.dm`).
 - An image recipe is the file `Dollyfile-NAME` (`Dollyfile` for `default`), a

@@ -1,4 +1,4 @@
-DOLLY 5
+DOLLY 6
 MODULE rust-sdk
 
 REQUIRES HOST threads@0

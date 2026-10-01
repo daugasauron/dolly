@@ -1,7 +1,7 @@
-DOLLY 5
-IMAGE classicube-build
+DOLLY 6
+TOOLCHAIN classicube-build
 
-FROM https://daugasauron.com/demos/sdl2/Dollyfile-sdl2-build 79da111eeac9e71e3ae6a8b64cf831a910f486121a5070e2eeab323f382e57f0
-USE https://daugasauron.com/demos/classicube/classicube.dm 3098b2d7698f883eb096b25c19b10a265f1a0fff53e00acfeda221e51558c4b4
+FROM https://daugasauron.com/demos/sdl2/Dollyfile-sdl2-build d07865b47a9e54c5ff935c6f75e9d89c757376557e0f73607c16196e9cafc925
+USE https://daugasauron.com/demos/classicube/classicube.dm ba7d1a6684aa776f1d66e3f77b880e4fe41517d4f3fa204b8e87febb7a101e70
 
 ENTRY /bin/foreground -i /bin/slop

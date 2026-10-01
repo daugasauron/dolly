@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 import { readFile, stat, writeFile } from "node:fs/promises";
 import { basename, resolve } from "node:path";
 
-import { inspectDollyfile } from "../src/dollyfile-view.mjs";
+import { inspectDollyfile, imageFileName, validName } from "../src/dollyfile-view.mjs";
 import {
   createDollyfileGraphLoader,
   recipeRecords,
@@ -18,9 +18,8 @@ export async function discoverImageDefinitions(projectDir) {
     if (filename.endsWith(".dm")) continue;
     const source = await readFile(resolve(projectDir, filename), "utf8");
     const parsed = inspectDollyfile(source, filename);
-    const expected = parsed.image === "default" ? "Dollyfile" : `Dollyfile-${parsed.image}`;
-    if (basename(filename) !== expected) {
-      throw new Error(`${filename}: IMAGE ${parsed.image} must use filename ${expected}`);
+    if (parsed.kind !== "image" || imageFileName(basename(filename)) !== parsed.image) {
+      throw new Error(`${filename}: must declare the image ${imageFileName(basename(filename))}`);
     }
     definitions.push({
       projectDir,
@@ -44,8 +43,7 @@ export async function selectImageDefinitions(definitions, selection = process.en
     return definitions;
   }
   const requested = selection.split(",").map((name) => name.trim());
-  if (requested.some((name) => !/^[a-z][a-z0-9-]{0,31}$/.test(name)) ||
-      new Set(requested).size !== requested.length) {
+  if (!requested.every(validName) || new Set(requested).size !== requested.length) {
     throw new Error("DOLLY_BUILD_IMAGES must be a comma-separated list of unique image names");
   }
   const byName = new Map(definitions.map((definition) => [definition.image, definition]));
@@ -139,6 +137,8 @@ export async function inspectStaticSources(projectDir, definitions) {
 export function registrySource(definitions, staticSources = []) {
   const records = definitions.map(({ image, filename, source, parsed }) => ({
     image,
+    role: parsed.role,
+    entry: parsed.entry,
     dollyfile: filename,
     byteLength: Buffer.byteLength(source),
     sha256: createHash("sha256").update(source).digest("hex"),

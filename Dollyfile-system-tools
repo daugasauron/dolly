@@ -1,10 +1,10 @@
-DOLLY 5
-IMAGE system-tools
+DOLLY 6
+TOOLCHAIN system-tools
 
-FROM https://daugasauron.com/Dollyfile-system-build 4fb82f8c0cb8de4d7afabc9d8f2ae7313ab9f53d8004f9295810bfbe107b1a78
-USE https://daugasauron.com/modules/sbase.dm cb8502b84efb685245699a1d02b73aad091d6942c403995ea686b3dc940767b8
-USE https://daugasauron.com/modules/default.dm e8710938123011c23b1ecf1a492b46d12da4e5652244a4d289911b7bf9d20b97
-USE https://daugasauron.com/modules/posix-shell.dm 9a96f2330b6c8dccdf80ba1b92fac22ee823e81ab4ceb26fa91e5909ea290bb5
-USE https://daugasauron.com/modules/display.dm b6a68f9fb4a5c6df413074ddcc61dd8163fc935940ae825333e120fa669bff16
+FROM https://daugasauron.com/Dollyfile-system-build cf6a9560686977569349e30567fc701c36301227ae9e712e090261f51260298b
+USE https://daugasauron.com/modules/sbase.dm 0a9a6255c50847874cdcd40b649a915db1fb89677e0fc401ddcaf8de82e86d33
+USE https://daugasauron.com/modules/default.dm 8b1c2c4d6494a6e9dfd77c8b8f7c8ae434380ad3c04ddcd17f717723d39fbac7
+USE https://daugasauron.com/modules/posix-shell.dm c5fb7ab35d7ee614d5fd124a848cf1a79b1017b80106814ba0224bf2e915278f
+USE https://daugasauron.com/modules/display.dm 93f2d6e6fad1108c6bff196988220a0d6e3fc1c1048dc35d48055a691ef0832f
 
 ENTRY /bin/foreground -i /bin/slop

@@ -1,5 +1,5 @@
 DOLLY 6
-PACKAGE ripgrep
+PACKAGE protox
 
 FROM https://daugasauron.com/demos/rust/Dollyfile-rust-build 61e63caf4e3e33b1d5ca9b3f950082f76d565cca3a92922ee62a72fc7ba182c6
-USE https://daugasauron.com/demos/rust/ripgrep.dm af1fca5f8f606bec9924e4af8bf703a2645d7269fe7e83e136c90d2403ed4ee2
+USE https://daugasauron.com/demos/rust/protox.dm 28861854eab407f9e5a6297356f6f53a436edfd738da0134c6abb49fdeb31930

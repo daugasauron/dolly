@@ -1,4 +1,4 @@
-DOLLY 5
+DOLLY 6
 MODULE cpp
 
 # The frontend and genuine Emscripten libc++/libc++abi archives belong to the

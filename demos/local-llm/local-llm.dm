@@ -1,4 +1,4 @@
-DOLLY 5
+DOLLY 6
 MODULE local-llm
 REQUIRES HOST gpu@0
 

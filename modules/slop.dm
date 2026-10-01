@@ -1,4 +1,4 @@
-DOLLY 5
+DOLLY 6
 MODULE slop
 
 # Slop runs every SLOP step, so it is built before any shell exists: COMPILEC
