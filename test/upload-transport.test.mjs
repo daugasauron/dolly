@@ -27,6 +27,7 @@ async function consume(transport) {
     error = Atomics.load(words, 6);
     const eof = Atomics.load(words, 7);
     Atomics.store(words, 4, sequence);
+    Atomics.notify(words, 4);
     if (!eof) continue;
     const bytes = Buffer.concat(chunks);
     // The kernel accepts EOF only at the size announced with every chunk.
@@ -107,6 +108,7 @@ test("process cancellation retires the chooser before a new request", async () =
   const pending = transport.poll();
   await until(() => signal);
   Atomics.store(words, 1, 1);
+  transport.retire();
   await pending;
   assert.equal(signal.aborted, true);
   assert.equal(Atomics.load(words, 2), 1);
@@ -129,6 +131,7 @@ test("cancellation during a file read cannot leak a late chunk into the next req
   const pending = transport.poll();
   await until(() => finishRead);
   Atomics.store(words, 1, 1);
+  transport.retire();
   assert.equal(Atomics.load(words, 2), 0, "slot remains owned until the pending read is retired");
   finishRead();
   await pending;

@@ -28,16 +28,18 @@ export class UploadTransport {
     const sequence = Atomics.load(words, 0);
     if (this.active || sequence === Atomics.load(words, 2)) return;
     const controller = new AbortController();
-    this.active = controller;
-    // The kernel retired this request: its process ended or a new one began.
-    const retired = () => Atomics.load(words, 0) !== sequence || Atomics.load(words, 1) === sequence;
-    const timer = setInterval(() => { if (retired()) controller.abort(); }, 25);
+    // The kernel retired this request (its process ended or a new one began):
+    // the Worker reports it through retire(), which ends any chunk wait.
+    let retire;
+    const retirement = new Promise(resolve => { retire = resolve; });
+    this.active = { sequence, controller, retire };
+    const retired = () => this.retired(sequence);
     let size = 0;
     const publish = async (bytes, eof, error = 0) => {
       // The kernel notifies the consumed word after writing each chunk.
       for (let consumed; (consumed = Atomics.load(words, 4)) !== Atomics.load(words, 3);) {
         if (retired()) return;
-        await Atomics.waitAsync(words, 4, consumed, 25).value;
+        await Promise.race([Atomics.waitAsync(words, 4, consumed).value, retirement]);
       }
       if (retired()) return;
       this.bytes.set(bytes);
@@ -89,13 +91,21 @@ export class UploadTransport {
       await publish(new Uint8Array(), true, errno.EIO);
     } finally {
       controller.abort();
-      clearInterval(timer);
       Atomics.store(words, 2, sequence);
       this.active = null;
     }
   }
 
-  close() { Atomics.store(this.words, 8, 0); this.active?.abort(); }
+  retired(sequence) {
+    return Atomics.load(this.words, 0) !== sequence || Atomics.load(this.words, 1) === sequence;
+  }
+  retire() {
+    const active = this.active;
+    if (!active || !this.retired(active.sequence)) return;
+    active.retire();
+    active.controller.abort();
+  }
+  close() { Atomics.store(this.words, 8, 0); this.active?.controller.abort(); }
 }
 
 // One modal dialog per request: the picker, then progress until the transfer ends.
