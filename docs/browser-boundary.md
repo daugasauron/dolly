@@ -78,12 +78,14 @@ select no JavaScript or Worker URL.
   ([`service.mjs`](../host/packages/service.mjs)). A pin outside the release is
   404, a second concurrent snapshot 409, the 65th per page 429; the bytes are
   ordinary sandbox data and grant nothing ([amy](dollyfile.md#packages-and-amy)).
-- Builders ([`image-builder.mjs`](../src/image-builder.mjs)) inherit the page's
-  HTTP policy but get no display, file picker or local service, and never run
+- Builders ([`image-builder.mjs`](../src/image-builder.mjs)) run the build
+  host's modules as the page's modules configure them (`host.builder`): the
+  page's HTTP policy without local services, no display, file picker or
   ENTRY. One build runs per page; cancellation holds that lease until the
   builder stops.
 - Build and custom-session policy comes from trusted browser state, never from
-  recipe or snapshot contents. A result tab intersects the saved parent policy
+  recipe or snapshot contents. [`http.mjs`](../host/http/http.mjs) consumes the
+  embedding's policy once and intersects a result tab's saved parent policy
   with its own; missing inheritance fails closed, so reopening a build cannot
   silently restore unrestricted HTTP. Build results are opaque retained files,
   not permission to execute host code.

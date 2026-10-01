@@ -3,15 +3,15 @@ import { DOLLY_IMAGES } from "../dist/dolly-images.mjs";
 import { describeImageArtifact, saveImageArtifact, sha256 } from "./image-artifact.mjs";
 import { inspectDollyfile } from "./dollyfile-view.mjs";
 
-// Disposable Wasm userspace, with the caller's browser policy and no display,
-// file picker, local service or ENTRY. Used for dependencies and Studio builds.
-export async function buildImage(image, artifacts, networkPolicy, report, { customSource, signal } = {}) {
+// Disposable Wasm userspace with the build host's modules, configured as the
+// caller's host says (host.builder): the caller's browser policy and no
+// display, file picker, local service or ENTRY. Used for dependencies and
+// Studio builds.
+export async function buildImage(image, artifacts, configuration, report, { customSource, signal } = {}) {
   signal?.throwIfAborted();
   const inputs = new Map(artifacts.map(artifact => [artifact.recipeSha256, artifact]));
   let worker;
-  const host = await createHost("browser", buildHost, {
-    send: message => worker.postMessage(message), configuration: { http: { network: networkPolicy } },
-  });
+  const host = await createHost("browser", buildHost, { send: message => worker.postMessage(message), configuration });
   let abort, result;
   const decoder = new TextDecoder("utf-8", { ignoreBOM: true });
   try {

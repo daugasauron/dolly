@@ -417,12 +417,80 @@ export class FramebufferPresenter {
 }
 
 export function browser(page) {
-  const { canvas, fatal } = page;
+  const { canvas, fatal, get } = page;
   const input = displayInput(page);
+  const terminal = () => get("runtime").terminal;
   let transport, presenter;
+  // Submitted commands awaiting their shell result; disposal ends the wait.
+  const waiting = new Set();
+
+  async function waitFor(predicate, description, attempts = 500) {
+    for (let attempt = 0; attempt < attempts; attempt++) {
+      if (await predicate()) return;
+      await new Promise(resolve => setTimeout(resolve, 10));
+    }
+    throw new Error(`timed out waiting for ${description}`);
+  }
+
+  async function submit(command, text = `${command}\r`) {
+    const sequence = terminal().currentResultSequence();
+    if (!transport.pushText(text)) throw new Error("Dolly input mailbox is full");
+    let stop;
+    const stopped = new Promise((_resolve, reject) => { stop = reject; waiting.add(stop); });
+    return Promise.race([terminal().waitForResult(sequence), stopped]).finally(() => waiting.delete(stop));
+  }
+
+  // Selects the whole screen, reads the published selection, then clears it.
+  async function visibleTerminalText() {
+    const geometry = transport.geometry();
+    const dimensions = transport.dimensions();
+    if (!geometry.cellWidth || !geometry.cellHeight || !dimensions.cols || !dimensions.rows) return "";
+    const x = geometry.paddingX + Math.floor(geometry.cellWidth / 4);
+    const y = geometry.paddingY + Math.floor(geometry.cellHeight / 2);
+    const sequence = Atomics.load(transport.words, transport.word + DisplayTransport.copySequence);
+    const endX = x + (dimensions.cols - 1) * geometry.cellWidth, endY = y + (dimensions.rows - 1) * geometry.cellHeight;
+    transport.pushPointer(x, y, 1, {});
+    transport.pushPointer(endX, endY, 2, {});
+    transport.pushPointer(endX, endY, 0, {});
+    await waitFor(() => Atomics.load(transport.words, transport.word + DisplayTransport.copySequence) !== sequence,
+      "terminal selection publication");
+    return transport.copySelection() ?? "";
+  }
+
+  // Resolves to the PID of a new foreground program in raw mode showing text
+  // that matches pattern.
+  async function waitForInteractiveTerminal(pattern, description, previousPid = 0) {
+    let pid;
+    await waitFor(async () => {
+      pid = terminal().foregroundPid();
+      if (pid <= 0 || pid === previousPid || terminal().foregroundInterruptible() ||
+          transport.graphicsActive() || !transport.inputIdle()) return false;
+      const text = await visibleTerminalText();
+      return terminal().foregroundPid() === pid && !terminal().foregroundInterruptible() && pattern.test(text);
+    }, description, 6000);
+    const geometry = transport.geometry();
+    const x = geometry.paddingX + Math.floor(geometry.cellWidth / 2);
+    const y = geometry.paddingY + Math.floor(geometry.cellHeight / 2);
+    transport.pushPointer(x, y, 1, {});
+    transport.pushPointer(x, y, 0, {});
+    await waitFor(() => transport.inputIdle(), "terminal selection cleanup");
+    return pid;
+  }
+
   return {
     get transport() { return transport; },
     get presenter() { return presenter; },
+    page: {
+      get transport() { return transport; },
+      get display() { return presenter; },
+      get graphicsActive() { return transport.graphicsActive(); },
+      get fontSize() { return transport.fontSize(); },
+      submit, visibleTerminalText, waitForInteractiveTerminal,
+      input: data => transport.pushText(data),
+      paste: data => transport.pushPaste(data),
+      copySelection: () => transport.copySelection(),
+      key: (key, code, modifiers = 0) => transport.pushSyntheticKey(key, code, modifiers),
+    },
     start(message) {
       transport = new DisplayTransport(message.memory, message.address, message.eventSize,
         message.eventCapacity, message.pasteAddress, message.copyAddress, message.clipboardCapacity);
@@ -440,8 +508,14 @@ export function browser(page) {
     entryStarted() {
       input.followSize();
       canvas.hidden = false;
+      document.documentElement.dataset.terminal = "ghostty-rgba-wasm";
     },
-    dispose() { presenter?.stop(); input.dispose(); },
+    dispose() {
+      for (const stop of waiting) stop(new Error("Dolly stopped"));
+      waiting.clear();
+      presenter?.stop();
+      input.dispose();
+    },
   };
 }
 

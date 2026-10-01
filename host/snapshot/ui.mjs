@@ -1,13 +1,16 @@
 import { DOLLY_BUILD_ID } from "../../dist/dolly-build-id.mjs";
 import { DOLLY_IMAGE_BUILD_ID } from "../../dist/dolly-image-build-id.mjs";
+import { DOLLY_IMAGES } from "../../dist/dolly-images.mjs";
 import { loadCustomImage } from "../../src/custom-image.mjs";
 import { sha256 } from "../../src/image-artifact.mjs";
 import { publicURL } from "../../src/static-asset.mjs";
 import {
   DOLLY_SESSION_FORMAT_VERSION,
+  customSessionIdentity,
   encodeSessionStream,
   loadStoredSession,
   saveStoredSession,
+  sessionImageIdentity,
   sessionLoadUrl,
   validSessionName,
 } from "../../src/session-store.mjs";
@@ -51,8 +54,9 @@ const markup = `<style>
 
 // The Save button, its dialog and Ctrl+Shift+S. A save captures the session
 // delta through the snapshot mailbox and keeps it in this browser. The page
-// describes the running image once its ENTRY starts.
-export function mountSessionSave({ keyboard, showStatus, applicationBase }, transport) {
+// describes the running image once its ENTRY starts; restored names the
+// session this page booted from, if any.
+export function mountSessionSave({ keyboard, showStatus, applicationBase }, transport, restored) {
   document.body.insertAdjacentHTML("beforeend", markup);
   const button = document.querySelector("#session-open");
   const dialog = document.querySelector("#session-dialog");
@@ -188,10 +192,12 @@ export function mountSessionSave({ keyboard, showStatus, applicationBase }, tran
       }
       return true;
     },
-    // identity names the image a session restores onto; custom is its custom
-    // image record; systemSnapshot is the rebuilt base, or null when packaged.
-    entryStarted({ image, identity, custom, systemSnapshot, restored }) {
-      base = { image, identity, custom, systemSnapshot };
+    // custom is the running custom image record (Dollyfile, artifact and
+    // what the tab inherited); systemSnapshot is the rebuilt base, or null
+    // when packaged. The identity names the base a session restores onto.
+    entryStarted({ image, custom, systemSnapshot }) {
+      base = { image, custom, systemSnapshot,
+        identity: custom ? customSessionIdentity(custom) : sessionImageIdentity(DOLLY_IMAGES, image) };
       if (restored?.recovering) {
         dataset.sessionStatus = "recovered";
         showStatus(`Recovered files in /workspace/recovered-${restored.name}. Ctrl+Shift+S saves this as a new session.`, true);

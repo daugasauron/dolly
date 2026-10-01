@@ -8,6 +8,22 @@ const definitions = await Promise.all(hostManifests.map(async manifest =>
   ({ ...await import(new URL(manifest.host, manifest.url).href), contract: manifest })));
 export const hostContracts = Object.freeze(definitions.map(module => module.contract));
 export const buildHost = Object.freeze(["runtime@0", "http@0", "threads@0"]);
+
+// A module may select what a route boots, as a saved session names its image:
+// at most one does, and the page then requires it. The selection carries the
+// image, a bootstrap label, the custom image record it restores and the
+// module's configuration, keyed for createHost.
+export async function selectBoot(route) {
+  let selection = null;
+  for (const module of definitions) {
+    const selected = await module.boot?.(route);
+    if (!selected) continue;
+    if (selection) throw new Error("two host modules selected the boot");
+    const { name, version } = module.contract;
+    selection = { ...selected, module: `${name}@${version}`, configuration: { [name]: selected.configuration } };
+  }
+  return selection;
+}
 const byName = new Map(definitions.map(module => [module.contract.name, module]));
 const owners = new Map();
 for (const module of definitions) for (const name of module.contract.imports) {
@@ -19,6 +35,10 @@ export async function createHost(side, enabled, { send, resources = {}, configur
   if (!["browser", "worker"].includes(side)) throw new TypeError("invalid host side");
   const selected = hostRequirements(enabled), instances = new Map(), reasons = new Map(), messages = new Map();
   const started = new Set(), pending = new Map(), options = {}, transfers = [], config = {};
+  // The page API (window.__dolly) by property descriptor, so module getters
+  // stay live; a child build host's configuration; what an opened result tab
+  // or restored session inherits from this page.
+  const page = {}, builder = {}, inherited = {};
   // What executables may require: name@version -> the ABI digest its provider
   // implements, for exactly the modules the image declares (see admit).
   const admittedAbi = new Map();
@@ -81,6 +101,15 @@ export async function createHost(side, enabled, { send, resources = {}, configur
     }
     config[name] = instance.configuration ?? {};
     transfers.push(...instance.transfers ?? []);
+    for (const [key, descriptor] of Object.entries(Object.getOwnPropertyDescriptors(instance.page ?? {}))) {
+      if (key in page) throw new Error(`duplicate page API member: ${key}`);
+      Object.defineProperty(page, key, descriptor);
+    }
+    if (instance.builder) builder[name] = instance.builder;
+    for (const [key, value] of Object.entries(instance.inherited ?? {})) {
+      if (key in inherited) throw new Error(`duplicate inherited record: ${key}`);
+      inherited[key] = value;
+    }
   }
   function dispose() {
     if (disposed) return;
@@ -95,7 +124,7 @@ export async function createHost(side, enabled, { send, resources = {}, configur
     requireModules(["runtime@0"]);
   } catch (error) { dispose(); throw error; }
   return {
-    get, options, transfers, configuration: config,
+    get, options, transfers, configuration: config, page, builder, inherited,
     enabled: [...instances.keys()].map(name => `${name}@${byName.get(name).contract.version}`),
     require: requireModules, dispose,
     // Executables may use only the modules the image declares. A declared module

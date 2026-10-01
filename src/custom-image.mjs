@@ -27,17 +27,26 @@ export async function checkedCustomArtifact(source, candidate) {
 
 // Call only from the user's Open image gesture after a build completes.
 // Only a fixed app route is navigable; the recipe never supplies a host URL.
-export function openCustomImage(result) {
+// With the Dollyfile, the tab inherits the completed artifact and what the
+// host modules of the building page hand down (their restrictions).
+export function openCustomImage({ source, ...inherited }) {
   const target = window.open("about:blank", "_blank");
   if (!target) throw new Error("Popup blocked. Choose Open image to retry.");
   try {
-    target.sessionStorage.setItem("dolly-custom-source", result.source);
-    target.sessionStorage.setItem("dolly-custom-artifact", JSON.stringify(result.artifact));
-    target.sessionStorage.setItem("dolly-custom-policy", JSON.stringify(result.policies));
+    target.sessionStorage.setItem("dolly-custom-source", source);
+    target.sessionStorage.setItem("dolly-custom-inherited", JSON.stringify(inherited));
     target.opener = null;
     target.location.replace(publicURL("custom/run/"));
   } catch (error) {
     target.close();
     throw error;
   }
+}
+
+// The custom image this tab was opened with: its Dollyfile and, after a build,
+// what it inherits; undefined when the tab has none.
+export function storedCustomImage() {
+  const source = sessionStorage.getItem("dolly-custom-source");
+  if (!source) return undefined;
+  return { source, ...JSON.parse(sessionStorage.getItem("dolly-custom-inherited") ?? "{}") };
 }

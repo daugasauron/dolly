@@ -26,13 +26,21 @@ packaging and ABI tests read only these manifests.
 | `client` | Process C linked as `libdolly-NAME.a`; it records `DOLLY_HOST_REQUIRE(NAME, VERSION, DOLLY_NAME_ABI_DIGEST)` |
 
 A provider's `browser()` and `worker()` receive the page's shared resources
-(`mount`, `canvas`, `keyboard`, `applicationBase`, `showStatus`, `fatal`), `send`
-to the other side, `get(dependency)` and its `configuration`. They return an
-instance whose optional members the registry calls: `start` (Worker/page
-handshake), `messages`, `bindings` (kernel imports), `service` (periodic work),
-`imageRestored(context)` (after the system image is restored, before image-phase
-starts), `claimsKey(event)` (take a key from the display), `surfaceSize`,
-`entryStarted(context)` (the image ENTRY may now run) and `dispose`.
+(`mount`, `canvas`, `keyboard`, `applicationBase`, `showStatus`, `fatal`,
+`bootstrapSources`, and `inherited`: the custom image record a result tab was
+opened with), `send` to the other side, `get(dependency)` and its
+`configuration`. They return an instance whose optional members the registry
+calls: `start` (Worker/page handshake), `messages`, `bindings` (kernel
+imports), `service` (periodic work), `imageRestored(context)` (after the system
+image is restored, before image-phase starts), `claimsKey(event)` (take a key
+from the display), `surfaceSize`, `entryStarted(context)` (the image ENTRY may
+now run) and `dispose`; and whose optional records the registry assembles:
+`page` (members of `window.__dolly`, by descriptor), `builder` (the module's
+configuration for a child build host, `host.builder`) and `inherited` (what an
+opened result tab or restored session inherits, `host.inherited`). A module may
+also export `boot(route)`: at most one selects what a route boots, returning the
+image, a bootstrap label, the custom image record it restores and its own
+configuration, as the snapshot module does for `/session/`.
 
 A module's operations and packets are its own: op numbers are globals in its WAT
 contract, packets are in its header. `DOLLY_NAME_ABI_DIGEST` is the SHA-256 of

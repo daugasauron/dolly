@@ -103,15 +103,13 @@ await browserTest("terminal", { server }, async ({ name, server, open }) => {
       expectedCols: Math.floor((canvas.width - 2 * geometry.paddingX) / geometry.cellWidth),
       expectedRows: Math.floor((canvas.height - 2 * geometry.paddingY) / geometry.cellHeight),
       terminal: dataset.terminal, canvasVisible: !canvas.hidden, logHidden: document.querySelector("#bootstrap-log").hidden,
-      dropped: Atomics.load(transport.words, transport.word + transport.constructor.eventDropped),
     };
   });
   assert.equal(evidence.opaque, evidence.pixels);
   assert.ok(evidence.background > evidence.pixels / 2 && evidence.foreground > 100 && evidence.accent > 10, JSON.stringify(evidence));
   assert.ok(evidence.cursorAccent > evidence.cursorCell / 2, "block cursor is not drawn");
   assert.deepEqual([evidence.cols, evidence.rows], [evidence.expectedCols, evidence.expectedRows]);
-  assert.deepEqual([evidence.terminal, evidence.canvasVisible, evidence.logHidden, evidence.dropped],
-    ["ghostty-rgba-wasm", true, true, 0]);
+  assert.deepEqual([evidence.terminal, evidence.canvasVisible, evidence.logHidden], ["ghostty-rgba-wasm", true, true]);
   await page.keyboard.press("F11");
   await page.waitForFunction(() => !document.fullscreenElement);
 

@@ -1,24 +1,10 @@
 import { buildLog } from "./build-log.mjs";
-import { createHost, buildHost } from "../host/modules.mjs";
-import { DisplayTransport } from "../host/display/display.mjs";
+import { createHost, buildHost, selectBoot } from "../host/modules.mjs";
 import { prepareImageArtifacts, loadImageHostRequirements } from "./image-build.mjs";
 import { buildImage } from "./image-builder.mjs";
-import { loadCustomImage } from "./custom-image.mjs";
+import { loadCustomImage, storedCustomImage } from "./custom-image.mjs";
 import { describeImageArtifact, sha256 } from "./image-artifact.mjs";
 import { inspectDollyfile } from "./dollyfile-view.mjs";
-import { consumeDollyHttpPolicy, httpPolicyConfigurations, restrictDollyHttpPolicy } from "../host/http/policy.mjs";
-import { localServicesTransport } from "../host/http/local-services.mjs";
-import {
-  DOLLY_SESSION_FORMAT_VERSION,
-  decodeSessionSnapshot,
-  loadStoredSession,
-  sessionImageIdentity,
-  customSessionIdentity,
-  sessionCompatible,
-  validSessionName,
-} from "./session-store.mjs";
-import { DOLLY_BUILD_ID } from "../dist/dolly-build-id.mjs";
-import { DOLLY_IMAGE_BUILD_ID } from "../dist/dolly-image-build-id.mjs";
 import { DOLLY_IMAGES, DOLLY_STATIC_SOURCES } from "../dist/dolly-images.mjs";
 
 const mount = document.querySelector("#terminal");
@@ -31,25 +17,21 @@ const appendBootstrap = text => bootstrapOutput.append(text);
 
 const encoder = new TextEncoder();
 const bootstrapDecoder = new TextDecoder();
-const runtimeFailureRejectors = new Set();
 
 let runtimeWorker;
 let host;
-let terminal;
-let transport;
-let networkTransport;
+let rejectReady = null;
 let runtimeReady = false;
 let builtSystemSnapshot = null;
 let builtSystemInputs = null;
 let statusTimer;
 
-function displayFatal(message) {
-  for (const reject of runtimeFailureRejectors) reject(new Error(message));
-  runtimeFailureRejectors.clear();
+// The runtime stopped: its host modules let go of the page, and the bootstrap
+// log shows the reason over whatever a module drew.
+function fatal(message) {
+  rejectReady?.(new Error(message));
   host?.dispose();
   runtimeWorker?.terminate();
-  if (document.pointerLockElement === canvas) document.exitPointerLock();
-  canvas.hidden = true;
   bootstrapLog.hidden = false;
   appendBootstrap(`\nFATAL\n${message}\n`);
   document.documentElement.dataset.dollyStatus = "failed";
@@ -63,68 +45,6 @@ function showStatus(message, persistent = false) {
   if (!persistent) statusTimer = setTimeout(() => { status.hidden = true; }, 6000);
 }
 
-async function submitInput(command, input = `${command}\r`) {
-  const sequence = terminal.currentResultSequence();
-  if (!transport.pushText(input)) throw new Error("Dolly input mailbox is full");
-  let rejectRuntimeFailure;
-  const runtimeFailure = new Promise((_resolve, reject) => {
-    rejectRuntimeFailure = reject;
-    runtimeFailureRejectors.add(reject);
-  });
-  const commandStatus = await Promise.race([
-    terminal.waitForResult(sequence),
-    runtimeFailure,
-  ]).finally(() => runtimeFailureRejectors.delete(rejectRuntimeFailure));
-  return commandStatus;
-}
-
-async function waitFor(predicate, description, attempts = 500) {
-  for (let attempt = 0; attempt < attempts; attempt++) {
-    if (await predicate()) return;
-    await new Promise((resolve) => setTimeout(resolve, 10));
-  }
-  throw new Error(`timed out waiting for ${description}`);
-}
-
-async function visibleTerminalText() {
-  const geometry = transport.geometry();
-  const dimensions = transport.dimensions();
-  if (!geometry.cellWidth || !geometry.cellHeight ||
-      !dimensions.cols || !dimensions.rows) return "";
-  const x = geometry.paddingX + Math.floor(geometry.cellWidth / 4);
-  const y = geometry.paddingY + Math.floor(geometry.cellHeight / 2);
-  const sequence = Atomics.load(transport.words,
-    transport.word + DisplayTransport.copySequence);
-  transport.pushPointer(x, y, 1, {});
-  transport.pushPointer(x + (dimensions.cols - 1) * geometry.cellWidth,
-    y + (dimensions.rows - 1) * geometry.cellHeight, 2, {});
-  transport.pushPointer(x + (dimensions.cols - 1) * geometry.cellWidth,
-    y + (dimensions.rows - 1) * geometry.cellHeight, 0, {});
-  await waitFor(() => Atomics.load(transport.words,
-    transport.word + DisplayTransport.copySequence) !== sequence,
-  "terminal selection publication");
-  return transport.copySelection() ?? "";
-}
-
-async function waitForInteractiveTerminal(pattern, description, previousPid = 0) {
-  let pid;
-  await waitFor(async () => {
-    pid = terminal.foregroundPid();
-    if (pid <= 0 || pid === previousPid || terminal.foregroundInterruptible() ||
-        transport.graphicsActive() || !transport.inputIdle()) return false;
-    const text = await visibleTerminalText();
-    return terminal.foregroundPid() === pid &&
-      !terminal.foregroundInterruptible() && pattern.test(text);
-  }, description, 6000);
-  const geometry = transport.geometry();
-  const x = geometry.paddingX + Math.floor(geometry.cellWidth / 2);
-  const y = geometry.paddingY + Math.floor(geometry.cellHeight / 2);
-  transport.pushPointer(x, y, 1, {});
-  transport.pushPointer(x, y, 0, {});
-  await waitFor(() => transport.inputIdle(), "terminal selection cleanup");
-  return pid;
-}
-
 async function boot() {
   document.documentElement.dataset.dollyStatus = "loading";
   const configured = globalThis.DOLLY_BOOT;
@@ -132,102 +52,60 @@ async function boot() {
   if (configured === null || typeof configured !== "object" ||
       !(packagedImages.has(configured.image) || configured.image === "custom") ||
       !["snapshot", "rebuild"].includes(configured.mode) ||
-      typeof configured.loadSession !== "boolean" ||
-      (configured.loadSession && configured.mode !== "snapshot")) {
+      typeof configured.loadSession !== "boolean") {
     throw new Error("invalid Dolly route configuration");
   }
   const bootMode = configured.mode;
-  let image = configured.image;
-  const query = new URL(location.href).searchParams;
-  const recovering = configured.loadSession && query.get("recover") === "1";
-  let restoredSession = null;
-  let sessionSnapshot;
-  if (configured.loadSession) {
-    const name = query.get("name");
-    if (!validSessionName(name)) throw new Error("The Dolly session URL has an invalid name. Open /sessions to see saved sessions.");
-    restoredSession = await loadStoredSession(name);
-    if (restoredSession === null) throw new Error(`Session '${name}' was not found in this browser. Open /sessions to see saved sessions.`);
-    if (restoredSession.name !== name) throw new Error("Stored session name does not match its key");
-    if (recovering) {
-      if (restoredSession.formatVersion !== DOLLY_SESSION_FORMAT_VERSION) throw new Error("This save uses an unsupported recovery format");
-      if (!packagedImages.has("system")) throw new Error("File recovery needs the system image in this distribution");
-      image = "system";
-    } else if (!sessionCompatible(restoredSession, DOLLY_IMAGES, DOLLY_BUILD_ID, DOLLY_IMAGE_BUILD_ID)) {
-      throw new Error("This save belongs to an older runtime or image recipe. It has not been deleted or overwritten. Open /sessions to see saved sessions.");
-    }
-    if (!recovering) image = restoredSession.image;
-    sessionSnapshot = await decodeSessionSnapshot(restoredSession);
-    restoredSession.bytes.transfer(0);
-    restoredSession.bytes = undefined;
+  // A module may select what boots: a saved session names its image, its
+  // module and the custom image record it was saved from.
+  const selected = await selectBoot(configured);
+  const image = selected?.image ?? configured.image;
+  // The custom image this tab runs: its Dollyfile and, in snapshot mode, the
+  // completed artifact and what the tab inherits from the page that built it.
+  const custom = image === "custom" ? selected?.custom ?? storedCustomImage() : undefined;
+  if (image === "custom" && !custom) {
+    throw new Error("No uploaded Dollyfile is available in this tab. Return to the Dolly menu.");
   }
+  const customSource = custom?.source;
   const applicationBase = new URL("../", import.meta.url);
-  const trustedBootstrapSources = [
+  const bootstrapSources = [
     ...DOLLY_IMAGES.map((definition) => ({
       path: `/${definition.dollyfile}`,
       byteLength: definition.byteLength,
     })),
     ...DOLLY_STATIC_SOURCES,
   ];
-  let httpPolicy = consumeDollyHttpPolicy(
-    window,
-    trustedBootstrapSources,
-    applicationBase,
-  );
-  if (image === "custom" && bootMode === "snapshot") {
-    httpPolicy = restrictDollyHttpPolicy(httpPolicy, restoredSession?.customImage.policies ??
-      JSON.parse(sessionStorage.getItem("dolly-custom-policy")),
-      trustedBootstrapSources, applicationBase);
-  }
-  // Builders and the page's own rebuild never reach local services. An enabled
-  // build@0 adds the build service to localServices once the image ENTRY starts.
-  const buildNetwork = localServicesTransport(httpPolicy);
-  const localServices = {};
-  const customSource = image === "custom"
-    ? restoredSession?.customImage.source ?? sessionStorage.getItem("dolly-custom-source")
-    : undefined;
-  if (image === "custom" && !customSource) {
-    throw new Error("No uploaded Dollyfile is available in this tab. Return to the Dolly menu.");
-  }
-  const requiredHost = [...await loadImageHostRequirements(image, customSource)];
-  if (sessionSnapshot !== undefined) requiredHost.push("snapshot@0");
-  appendBootstrap(`DOLLY / ${image.toUpperCase()} / ${restoredSession
-    ? `${recovering ? "RECOVER FILES FROM" : "RESTORE SESSION"} ${restoredSession.name}`
-    : bootMode === "rebuild"
-    ? "REBUILD FROM SOURCE"
-    : "PRECOMPILED SYSTEM"}\n\n`);
-  const buildDependency = (name, inputs) => buildImage(name, inputs, buildNetwork, appendBootstrap);
-  const prepareArtifacts = () => prepareImageArtifacts(image, customSource, buildDependency,
-    text => appendBootstrap(`${text}\n`));
+  const requiredHost = [...await loadImageHostRequirements(image, customSource), ...selected ? [selected.module] : []];
+  appendBootstrap(`DOLLY / ${image.toUpperCase()} / ${selected?.label ?? (bootMode === "rebuild"
+    ? "REBUILD FROM SOURCE" : "PRECOMPILED SYSTEM")}\n\n`);
   const recipe = customSource === undefined ? DOLLY_IMAGES.find(definition => definition.image === image)
     : inspectDollyfile(customSource);
-  const runnable = recipe.entry !== null && requiredHost.includes("display@0");
+  const runnable = recipe.entry !== null;
+  host = await createHost("browser", !runnable ? buildHost : globalThis.DOLLY_HOST_MODULES ??
+    [...requiredHost, ...(bootMode === "rebuild" ? buildHost : [])], {
+    send: (message, transfers = []) => runtimeWorker.postMessage(message, transfers),
+    resources: { mount, canvas, keyboard, applicationBase, showStatus, fatal, bootstrapSources,
+      inherited: bootMode === "snapshot" ? custom : undefined },
+    configuration: selected?.configuration ?? {},
+  });
+  delete globalThis.DOLLY_HOST_MODULES;
+  const buildDependency = (name, inputs) => buildImage(name, inputs, host.builder, appendBootstrap);
+  const prepareArtifacts = () => prepareImageArtifacts(image, customSource, buildDependency,
+    text => appendBootstrap(`${text}\n`));
   if (bootMode === "rebuild" && !runnable) {
-    // An image without ENTRY or display has no terminal: keep the complete log and report the result.
+    // An image without ENTRY has no program to run: keep the complete log and report the result.
     const artifacts = await prepareArtifacts();
-    const built = await buildImage(image, artifacts, buildNetwork, appendBootstrap, { customSource });
+    const built = await buildImage(image, artifacts, host.builder, appendBootstrap, { customSource });
     const name = customSource === undefined ? image : recipe.image;
     appendBootstrap(`\nBUILT ${name} · ${(built.byteLength / 1024 / 1024).toFixed(1)} MiB · sha256 ${built.sha256}\n`);
     document.documentElement.dataset.dollyStatus = "built";
+    host.dispose();
     return;
   }
-  if (!runnable) throw new Error(`${image} has no ENTRY or display; it only builds`);
-  host = await createHost("browser", globalThis.DOLLY_HOST_MODULES ??
-    [...requiredHost, ...(bootMode === "rebuild" ? buildHost : [])], {
-    send: (message, transfers = []) => runtimeWorker.postMessage(message, transfers),
-    resources: { mount, canvas, keyboard, applicationBase, showStatus, fatal: displayFatal },
-    configuration: {
-      http: { network: localServicesTransport(httpPolicy, localServices) },
-      build: { network: buildNetwork, policies: httpPolicyConfigurations(httpPolicy), services: localServices },
-      packages: { services: localServices },
-      snapshot: sessionSnapshot === undefined ? {}
-        : { bytes: sessionSnapshot, ...(recovering ? { recover: restoredSession.name } : {}) },
-    },
-  });
-  delete globalThis.DOLLY_HOST_MODULES;
+  if (!runnable) throw new Error(`${image} has no ENTRY; it only builds`);
   host.require(requiredHost);
   const customArtifact = image === "custom" && bootMode === "snapshot"
-    ? await loadCustomImage(customSource, restoredSession?.customImage.artifact ??
-      JSON.parse(sessionStorage.getItem("dolly-custom-artifact"))) : undefined;
+    ? await loadCustomImage(customSource, custom.artifact) : undefined;
   const artifacts = bootMode === "rebuild" ? await prepareArtifacts() : [];
 
   const workerUrl = new URL("./runtime-worker.mjs", import.meta.url);
@@ -238,7 +116,7 @@ async function boot() {
   runtimeWorker.addEventListener("error", () => host.dispose());
   runtimeWorker.addEventListener("message", (event) => {
     const message = event.data;
-    void host.handle(message).catch(error => displayFatal(error.message));
+    void host.handle(message).catch(error => fatal(error.message));
     if (message.type === "bootstrap") {
       appendBootstrap(message.text);
     } else if (message.type === "bootstrap-bytes") {
@@ -251,7 +129,7 @@ async function boot() {
       runtimeWorker.terminate();
       document.documentElement.dataset.dollyStatus = "exited";
     } else if (message.type === "error" && runtimeReady) {
-      displayFatal(message.stack ? `${message.message}\n${message.stack}` : message.message);
+      fatal(message.stack ? `${message.message}\n${message.stack}` : message.message);
     }
   });
   const workerConfiguration = {
@@ -271,14 +149,12 @@ async function boot() {
   );
 
   const ready = await new Promise((resolve, reject) => {
-    runtimeFailureRejectors.add(reject);
+    rejectReady = reject;
     runtimeWorker.addEventListener("message", function onMessage(event) {
       if (event.data.type === "ready") {
-        runtimeFailureRejectors.delete(reject);
         runtimeWorker.removeEventListener("message", onMessage);
         resolve(event.data);
       } else if (event.data.type === "error") {
-        runtimeFailureRejectors.delete(reject);
         runtimeWorker.removeEventListener("message", onMessage);
         const error = new Error(event.data.message);
         if (event.data.stack) error.stack = event.data.stack;
@@ -286,7 +162,7 @@ async function boot() {
       }
     });
     runtimeWorker.addEventListener("error", reject, { once: true });
-  });
+  }).finally(() => { rejectReady = null; });
   appendBootstrap(bootstrapDecoder.decode());
   runtimeReady = true;
   if (ready.bootMode !== bootMode) throw new Error("runtime boot mode mismatch");
@@ -296,90 +172,33 @@ async function boot() {
   document.documentElement.dataset.image = ready.image;
   document.documentElement.dataset.bootMode = ready.bootMode;
   document.documentElement.dataset.snapshotBytes = String(ready.snapshotBytes);
-  terminal = host.get("runtime").terminal;
-  transport = host.get("display")?.transport;
-  networkTransport = host.get("http")?.transport;
-  let custom;
+  let running;
   if (image === "custom") {
     const artifact = customArtifact ?? await describeImageArtifact(builtSystemSnapshot,
       await sha256(encoder.encode(customSource)), builtSystemInputs);
     const { buildId, recipeSha256, sha256: digest, byteLength, inputs } = artifact;
-    custom = { source: customSource,
-      artifact: { buildId, recipeSha256, sha256: digest, byteLength, inputs },
-      policies: httpPolicyConfigurations(httpPolicy) };
+    running = { source: customSource, artifact: { buildId, recipeSha256, sha256: digest, byteLength, inputs },
+      ...host.inherited };
   }
-  await host.entryStarted({ image, custom, systemSnapshot: builtSystemSnapshot,
-    identity: custom ? customSessionIdentity(custom) : sessionImageIdentity(DOLLY_IMAGES, image),
-    restored: restoredSession && { name: restoredSession.name, recovering } });
+  await host.entryStarted({ image, custom: running, systemSnapshot: builtSystemSnapshot });
   runtimeWorker.postMessage({ type: "entry-ready-ack" });
   // A module that shows the canvas replaces the bootstrap log.
   bootstrapLog.hidden = !canvas.hidden;
-  document.documentElement.dataset.terminal = "ghostty-rgba-wasm";
 
   keyboard.focus({ preventScroll: true });
   document.documentElement.dataset.dollyStatus = "ready";
 
-  window.__dolly = {
-    get gpu() { return host.get("gpu")?.status ?? {}; },
-    get audio() { return host.get("audio")?.status; },
+  window.__dolly = Object.create(host.page, Object.getOwnPropertyDescriptors({
     hostModules: host.enabled,
-    display: host.get("display")?.presenter,
-    terminal,
-    transport,
-    get foregroundPid() {
-      return terminal.foregroundPid();
-    },
-    get graphicsActive() {
-      return transport.graphicsActive();
-    },
-    get httpActive() {
-      return networkTransport?.active ?? false;
-    },
-    get httpRequestCount() {
-      return networkTransport?.requestCount ?? 0;
-    },
-    get httpCompletedRequestCount() {
-      return networkTransport?.completedRequestCount ?? 0;
-    },
-    get systemSnapshot() {
-      return builtSystemSnapshot;
-    },
-    get systemInputs() {
-      return builtSystemInputs;
-    },
-    get sessionName() {
-      return host.get("snapshot")?.name ?? null;
-    },
-    saveSession(name) {
-      return host.get("snapshot")?.save(name) ?? Promise.reject(new Error("Dolly is not ready to save a session"));
-    },
-    submit(command) {
-      return submitInput(command);
-    },
-    input(data) {
-      return transport.pushText(data);
-    },
-    paste(data) {
-      return transport.pushPaste(data);
-    },
-    copySelection() {
-      return transport.copySelection();
-    },
-    visibleTerminalText,
-    waitForInteractiveTerminal,
-    key(key, code, modifiers = 0) {
-      return transport.pushSyntheticKey(key, code, modifiers);
-    },
-    get fontSize() {
-      return transport.fontSize();
-    },
-  };
+    get systemSnapshot() { return builtSystemSnapshot; },
+    get systemInputs() { return builtSystemInputs; },
+  }));
 }
 
 boot().catch((error) => {
   console.error(error);
   runtimeReady = false;
-  displayFatal(error instanceof Error ? error.message : String(error));
+  fatal(error instanceof Error ? error.message : String(error));
 });
 
 window.addEventListener("pagehide", () => { host?.dispose(); runtimeWorker?.terminate(); });

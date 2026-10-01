@@ -6,6 +6,6 @@
 // bytes. A request grants no network or other authority.
 import { PackageService } from "./service.mjs";
 
-export function browser({ applicationBase, configuration: { services } }) {
-  return { entryStarted() { services.packages = new PackageService(applicationBase); } };
+export function browser({ applicationBase, get }) {
+  return { entryStarted() { get("http").services.packages = new PackageService(applicationBase); } };
 }

@@ -64,6 +64,7 @@ export function browser() {
   let terminal;
   return {
     get terminal() { return terminal; },
+    page: { get terminal() { return terminal; }, get foregroundPid() { return terminal.foregroundPid(); } },
     start(message) { terminal = new TerminalMailbox(message.memory, message.address); },
   };
 }

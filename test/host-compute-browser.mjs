@@ -48,13 +48,13 @@ await browserTest("host compute", { image: "system-build" }, async ({ browser, s
       const { buildImage } = await import("/src/image-builder.mjs");
       const { prepareImageArtifacts } = await import("/src/image-build.mjs");
       const { describeImageArtifact, sha256 } = await import("/src/image-artifact.mjs");
-      const network = await headlessNetwork();
+      const builders = { http: { network: await headlessNetwork() } };
       const base = DOLLY_IMAGES.find(d => d.image === "system-build");
       const hosts = rows.match(/^(?:REQUIRES HOST [^\n]*\n)*/)[0];
       const recipe = `DOLLY 6\nAPPLICATION ${name}\n${hosts}FROM https://daugasauron.com/Dollyfile-system-build ${base.sha256}\n${rows.slice(hosts.length)}`;
       const report = () => {};
-      const artifacts = await prepareImageArtifacts("custom", recipe, (name, inputs) => buildImage(name, inputs, network, report), report);
-      const built = await buildImage("custom", artifacts, network, report, { customSource: recipe });
+      const artifacts = await prepareImageArtifacts("custom", recipe, (name, inputs) => buildImage(name, inputs, builders, report), report);
+      const built = await buildImage("custom", artifacts, builders, report, { customSource: recipe });
       const artifact = await describeImageArtifact(built.bytes, await sha256(new TextEncoder().encode(recipe)), built.inputs);
       return { artifact, configuration: { image: "custom", customSource: recipe, customArtifact: artifact } };
     };

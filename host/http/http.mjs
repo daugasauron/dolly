@@ -1,11 +1,23 @@
 import { createHttpAdmission, NetworkTransport } from "./broker.mjs";
 import { DOLLY_HTTP_MAILBOX_VERSION, DOLLY_HTTP_SLOT_COUNT } from "./abi.mjs";
+import { consumeDollyHttpPolicy, httpPolicyConfigurations, restrictDollyHttpPolicy } from "./policy.mjs";
+import { localServicesTransport } from "./local-services.mjs";
 export { DOLLY_HTTP_ABI_DIGEST as digest } from "./abi.mjs";
 
-export function browser({ send, configuration: { network } }) {
-  let transport, admission;
-  return {
+// The page consumes the embedding's policy once; a builder or headless host is
+// given its network in configuration. Modules depending on http@0 add their
+// local services to `services`.
+export function browser({ applicationBase, bootstrapSources, inherited, configuration }) {
+  let transport, admission, network = configuration.network;
+  const services = {};
+  const instance = {
+    services,
     get transport() { return transport; },
+    page: {
+      get httpActive() { return transport?.active ?? false; },
+      get httpRequestCount() { return transport?.requestCount ?? 0; },
+      get httpCompletedRequestCount() { return transport?.completedRequestCount ?? 0; },
+    },
     start(message) {
       if (transport || message.version !== DOLLY_HTTP_MAILBOX_VERSION || message.slots !== DOLLY_HTTP_SLOT_COUNT ||
           !(message.admission instanceof SharedArrayBuffer) || message.admission.byteLength !== 8) {
@@ -26,6 +38,18 @@ export function browser({ send, configuration: { network } }) {
     },
     dispose() { transport?.close(); },
   };
+  if (!network) {
+    // A custom tab intersects the policy of the page that built it with its
+    // own; a missing inheritance fails closed.
+    let policy = consumeDollyHttpPolicy(window, bootstrapSources, applicationBase);
+    if (inherited) policy = restrictDollyHttpPolicy(policy, inherited.policies, bootstrapSources, applicationBase);
+    network = localServicesTransport(policy, services);
+    // Builders inherit the policy and no local service; an opened result tab
+    // or restored session inherits the policy configurations.
+    instance.builder = { network: localServicesTransport(policy) };
+    instance.inherited = { policies: httpPolicyConfigurations(policy) };
+  }
+  return instance;
 }
 
 export function worker({ send, get }) {

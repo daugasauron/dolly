@@ -29,7 +29,7 @@ export async function buildBufferReuse() {
   const sources = [...registry.DOLLY_IMAGES.map(image => ({ path: `/${image.dollyfile}`, byteLength: image.byteLength })),
     ...registry.DOLLY_STATIC_SOURCES];
   const network = transport.localServicesTransport(policy.consumeDollyHttpPolicy({}, sources, base));
-  const build = (image, inputs, customSource) => builder.buildImage(image, inputs, network, () => {}, { customSource });
+  const build = (image, inputs, customSource) => builder.buildImage(image, inputs, { http: { network } }, () => {}, { customSource });
   const inputs = await graph.prepareImageArtifacts("custom", source, build, () => {});
   let digest;
   for (const text of [source, source.replace("ENTRY", "SLOP false\nENTRY"), source]) {

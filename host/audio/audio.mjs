@@ -14,6 +14,7 @@ export function browser({ send }) {
   window.addEventListener("pointerdown", resume, { capture: true });
   return {
     get status() { return provider.status(); },
+    page: { get audio() { return provider.status(); } },
     messages: {
       "audio-request"(message) {
         const result = provider.dispatch(message.packet);

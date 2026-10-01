@@ -5,13 +5,14 @@ import { loadImageArtifactDescriptor } from "../../src/image-artifact.mjs";
 import { openCustomImage } from "../../src/custom-image.mjs";
 import { buildLog } from "../../src/build-log.mjs";
 
-export function mountImageBuild(network, policies, keyboard) {
+export function mountImageBuild(http, keyboard) {
+  const builders = { http: http.builder };
   const service = new ImageBuildService(async (source, report, signal) => {
     const artifacts = await prepareImageArtifacts("custom", source,
-      (image, artifacts) => buildImage(image, artifacts, network, report, { signal }),
+      (image, artifacts) => buildImage(image, artifacts, builders, report, { signal }),
       text => report(text + "\n"), signal);
     signal.throwIfAborted();
-    const artifact = await buildImage("custom", artifacts, network, report, { signal, customSource: source });
+    const artifact = await buildImage("custom", artifacts, builders, report, { signal, customSource: source });
     signal.throwIfAborted();
     const descriptor = await loadImageArtifactDescriptor(artifact.recipeSha256, artifact.inputs);
     if (!descriptor || descriptor.sha256 !== artifact.sha256) {
@@ -46,7 +47,7 @@ export function mountImageBuild(network, policies, keyboard) {
     const action = event.target.dataset.action;
     if (action === "cancel") service.cancel();
     else if (action === "open" && service.state === "ready") {
-      try { openCustomImage({ ...service.result, policies }); }
+      try { openCustomImage({ ...service.result, ...http.inherited }); }
       catch (error) { panel.querySelector('[role="status"]').textContent = error.message; }
     } else if (action === "close") panel.hidden = true;
     if (action) keyboard?.focus({ preventScroll: true });

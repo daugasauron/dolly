@@ -15,7 +15,7 @@ export async function buildSnapshot(applicationBase, image, customSource) {
     ];
     const network = transport.localServicesTransport(
       policy.consumeDollyHttpPolicy(globalThis, sources, new URL(applicationBase)));
-    const build = (name, artifacts) => builder.buildImage(name, artifacts, network, report,
+    const build = (name, artifacts) => builder.buildImage(name, artifacts, { http: { network } }, report,
       { customSource: name === "custom" ? customSource : undefined });
     const artifacts = await graph.prepareImageArtifacts(image, customSource, build,
       text => report(`${text}\n`));

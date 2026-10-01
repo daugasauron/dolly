@@ -58,6 +58,7 @@ export function browser({ mount }) {
   return {
     configuration: { canvas: surface }, transfers: surface ? [surface] : [],
     get status() { return status; },
+    page: { get gpu() { return status; } },
     get surfaceSize() { return status.active ? { width: status.width, height: status.height } : undefined; },
     // The provider reports the adapter of each device it creates, or why it has none.
     messages: { "gpu-status"({ info, unavailable, ...message }) {

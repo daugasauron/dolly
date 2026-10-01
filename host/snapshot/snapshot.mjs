@@ -1,18 +1,46 @@
 import { SessionTransport } from "./transport.mjs";
 import { mountSessionSave } from "./ui.mjs";
+import { DOLLY_BUILD_ID } from "../../dist/dolly-build-id.mjs";
+import { DOLLY_IMAGE_BUILD_ID } from "../../dist/dolly-image-build-id.mjs";
+import { DOLLY_IMAGES } from "../../dist/dolly-images.mjs";
+import { DOLLY_SESSION_FORMAT_VERSION, decodeSessionSnapshot, loadStoredSession, sessionCompatible,
+  validSessionName, DOLLY_SESSION_MAX_BYTES } from "../../src/session-store.mjs";
 
-import { validSessionName, DOLLY_SESSION_MAX_BYTES } from "../../src/session-store.mjs";
+// A session route (/session/?name=NAME) boots the saved session's image and
+// restores its delta; with recover=1 it unpacks the files into a fresh system
+// image instead.
+export async function boot(route) {
+  if (!route.loadSession) return undefined;
+  if (route.mode !== "snapshot") throw new Error("invalid Dolly route configuration");
+  const query = new URL(location.href).searchParams;
+  const name = query.get("name"), recovering = query.get("recover") === "1";
+  if (!validSessionName(name)) throw new Error("The Dolly session URL has an invalid name. Open /sessions to see saved sessions.");
+  const record = await loadStoredSession(name);
+  if (record === null) throw new Error(`Session '${name}' was not found in this browser. Open /sessions to see saved sessions.`);
+  if (record.name !== name) throw new Error("Stored session name does not match its key");
+  let image = record.image;
+  if (recovering) {
+    if (record.formatVersion !== DOLLY_SESSION_FORMAT_VERSION) throw new Error("This save uses an unsupported recovery format");
+    if (!DOLLY_IMAGES.some(definition => definition.image === "system")) throw new Error("File recovery needs the system image in this distribution");
+    image = "system";
+  } else if (!sessionCompatible(record, DOLLY_IMAGES, DOLLY_BUILD_ID, DOLLY_IMAGE_BUILD_ID)) {
+    throw new Error("This save belongs to an older runtime or image recipe. It has not been deleted or overwritten. Open /sessions to see saved sessions.");
+  }
+  const bytes = await decodeSessionSnapshot(record);
+  record.bytes.transfer(0);
+  record.bytes = undefined;
+  return { image, label: `${recovering ? "RECOVER FILES FROM" : "RESTORE SESSION"} ${name}`,
+    custom: image === "custom" ? record.customImage : undefined, configuration: { bytes, name, recovering } };
+}
 
-// configuration: { bytes, recover } restores a saved session, or with recover
-// unpacks its files into /workspace/recovered-NAME of a fresh system image.
 export function browser(page) {
   let transport;
-  const session = mountSessionSave(page, () => transport);
-  const saved = page.configuration;
+  const { bytes, name, recovering } = page.configuration;
+  const session = mountSessionSave(page, () => transport, name === undefined ? null : { name, recovering });
   return {
-    configuration: saved, transfers: saved.bytes ? [saved.bytes] : [],
-    get name() { return session.name; },
-    save: session.save,
+    configuration: bytes === undefined ? {} : { bytes, ...(recovering ? { recover: name } : {}) },
+    transfers: bytes ? [bytes] : [],
+    page: { get sessionName() { return session.name; }, saveSession: session.save },
     claimsKey: session.claimsKey,
     entryStarted: session.entryStarted,
     dispose() { session.abort(); transport?.close(); },
