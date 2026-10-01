@@ -1,7 +1,7 @@
 DOLLY 6
 PACKAGE zlib
 
-FROM https://daugasauron.com/Dollyfile-system-build 5470d2513bc1ddce9cab048a83fb07e945719c707f5fcaad85f6f5746df42597
+FROM https://daugasauron.com/Dollyfile-system-build c5425bfbbab703d3e433655a8d908cd50d205f82b33215a5e94fec7e0d0e2c00
 
 REQUIRES HEADER libc
 REQUIRES TOOL   ar

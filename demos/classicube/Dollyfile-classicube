@@ -7,14 +7,14 @@ REQUIRES HOST snapshot@0
 REQUIRES HOST threads@0
 REQUIRES HOST upload@0
 
-FROM https://daugasauron.com/demos/pi/Dollyfile-pi-runtime d2e3a731c574eaad6abdb07f9a8d825062447f78b7b1ee4fff81dcf359da8361
-COPY https://daugasauron.com/demos/classicube/Dollyfile-classicube-build a31d6bcdcdff713bc2aa8911dc9e92fa130afa21e0fa746f545ccf292c66136e /usr/bin/classicube /usr/bin/classicube
-COPY https://daugasauron.com/demos/classicube/Dollyfile-classicube-build a31d6bcdcdff713bc2aa8911dc9e92fa130afa21e0fa746f545ccf292c66136e /usr/share/classicube /home/dolly/classicube
-COPY https://daugasauron.com/demos/classicube/Dollyfile-classicube-build a31d6bcdcdff713bc2aa8911dc9e92fa130afa21e0fa746f545ccf292c66136e /usr/share/licenses/classicube /usr/share/licenses/classicube
-COPY https://daugasauron.com/demos/sdl2/Dollyfile-sdl2-build da6256909eea888bacc1ccc1ef17c98d8dd23aba7929acc9dbed5d745adb1e5f /usr/share/licenses/SDL2 /usr/share/licenses/SDL2
+FROM https://daugasauron.com/demos/pi/Dollyfile-pi-runtime cb6738c02cc11235f8737630f778dbc4514a83d9107278fb3dd4d42e6201d7df
+COPY https://daugasauron.com/demos/classicube/Dollyfile-classicube-build 3293444050ebd429d022dea284dcd109db5581ec05efd0d91896f569de4fc552 /usr/bin/classicube /usr/bin/classicube
+COPY https://daugasauron.com/demos/classicube/Dollyfile-classicube-build 3293444050ebd429d022dea284dcd109db5581ec05efd0d91896f569de4fc552 /usr/share/classicube /home/dolly/classicube
+COPY https://daugasauron.com/demos/classicube/Dollyfile-classicube-build 3293444050ebd429d022dea284dcd109db5581ec05efd0d91896f569de4fc552 /usr/share/licenses/classicube /usr/share/licenses/classicube
+COPY https://daugasauron.com/demos/sdl2/Dollyfile-sdl2-build 3be9ca69c02d0db2feda93ccc04d24bae8af492584ed629cd696f31406b9ee34 /usr/share/licenses/SDL2 /usr/share/licenses/SDL2
 
-COPY https://daugasauron.com/demos/sdl2/Dollyfile-sdl2-build da6256909eea888bacc1ccc1ef17c98d8dd23aba7929acc9dbed5d745adb1e5f /usr/include/SDL2 /usr/include/SDL2
-COPY https://daugasauron.com/demos/sdl2/Dollyfile-sdl2-build da6256909eea888bacc1ccc1ef17c98d8dd23aba7929acc9dbed5d745adb1e5f /usr/lib/libSDL2.a /usr/lib/libSDL2.a
+COPY https://daugasauron.com/demos/sdl2/Dollyfile-sdl2-build 3be9ca69c02d0db2feda93ccc04d24bae8af492584ed629cd696f31406b9ee34 /usr/include/SDL2 /usr/include/SDL2
+COPY https://daugasauron.com/demos/sdl2/Dollyfile-sdl2-build 3be9ca69c02d0db2feda93ccc04d24bae8af492584ed629cd696f31406b9ee34 /usr/lib/libSDL2.a /usr/lib/libSDL2.a
 EXPORTS TOOL classicube
 EXPORTS HEADER sdl2 /usr/include/SDL2
 EXPORTS LIB SDL2 /usr/lib/libSDL2.a

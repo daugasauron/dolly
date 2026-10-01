@@ -7,12 +7,12 @@ REQUIRES HOST snapshot@0
 REQUIRES HOST threads@0
 REQUIRES HOST upload@0
 
-FROM https://daugasauron.com/Dollyfile-system 9bf4eb3d35f149966d4a4a1dc9d719ca1e7dbd41f4d30227bb818e4309fdad2b
-COPY https://daugasauron.com/demos/codex/Dollyfile-codex-build e2660d7a07906905eeb0297594af89e4f7d5337aac95314ba586a96bf28518ed /usr/bin/codex /usr/libexec/codex
-COPY https://daugasauron.com/demos/codex/Dollyfile-codex-build e2660d7a07906905eeb0297594af89e4f7d5337aac95314ba586a96bf28518ed /usr/share/licenses/codex /usr/share/licenses/codex
-COPY https://daugasauron.com/demos/codex/Dollyfile-codex-build e2660d7a07906905eeb0297594af89e4f7d5337aac95314ba586a96bf28518ed /usr/share/dolly/builds/codex.json /usr/share/dolly/builds/codex.json
-INSTALL https://daugasauron.com/demos/rust/Dollyfile-ripgrep 66e44569f64d0a772449e026edfaf28ba7fc792dfe9279b4b75796a96d151371
-INSTALL https://daugasauron.com/demos/rust/Dollyfile-fd e9a462b4849b56e4e3100147cc9774f591df0151d20eed9bd845d0f7d55e343e
+FROM https://daugasauron.com/Dollyfile-system 2e4222b7ea1b82f108aed0a9830a86efa96f48927e3040061e3d4d3289962762
+COPY https://daugasauron.com/demos/codex/Dollyfile-codex-build bbf080b9b22c4a2e4039aaaea03b664e80b273a9505257786c9c2d54aee03be2 /usr/bin/codex /usr/libexec/codex
+COPY https://daugasauron.com/demos/codex/Dollyfile-codex-build bbf080b9b22c4a2e4039aaaea03b664e80b273a9505257786c9c2d54aee03be2 /usr/share/licenses/codex /usr/share/licenses/codex
+COPY https://daugasauron.com/demos/codex/Dollyfile-codex-build bbf080b9b22c4a2e4039aaaea03b664e80b273a9505257786c9c2d54aee03be2 /usr/share/dolly/builds/codex.json /usr/share/dolly/builds/codex.json
+INSTALL https://daugasauron.com/demos/rust/Dollyfile-ripgrep 8a7ad9af856c75737fefb15be321c3797871ab52fe083bb90d312f207db6a330
+INSTALL https://daugasauron.com/demos/rust/Dollyfile-fd 9094c562d7e20f8131f9c3eab6229e0e60d99fb3b07b9bbd67b1ddb937de9caa
 REQUIRES HEADER libc
 REQUIRES HEADER runtime
 REQUIRES TOOL cc

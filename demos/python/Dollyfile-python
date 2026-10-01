@@ -2,7 +2,7 @@ DOLLY 6
 PACKAGE python
 REQUIRES HOST http@0
 
-FROM https://daugasauron.com/Dollyfile-system 9bf4eb3d35f149966d4a4a1dc9d719ca1e7dbd41f4d30227bb818e4309fdad2b
+FROM https://daugasauron.com/Dollyfile-system 2e4222b7ea1b82f108aed0a9830a86efa96f48927e3040061e3d4d3289962762
 # Build the Python runtime and native extension SDK; pip.dm adds pip.
 REQUIRES HEADER curl
 REQUIRES HEADER libc
@@ -113,11 +113,11 @@ EXPORTS ENV PYTHONDONTWRITEBYTECODE 1
 # The target is configured outside the browser, but every target object and
 # executable is compiled here. Dolly-owned adapters remain independent pinned
 # inputs instead of being hidden inside the upstream archive.
-SOURCE https://daugasauron.com/dist/static/python/cpython.tar.gz 6b9c3928b880e374b1fe36b81ef52319c57c184fdf8d1777269ba6ec795d8f1f /tmp/cpython.tar.gz
+SOURCE https://daugasauron.com/dist/static/python/cpython.tar.gz 414b0c0e5de8eda23f6c80cb691f2e641fc5c3f5aa695fb502c1c23461c8e961 /tmp/cpython.tar.gz
 
 SLOP gzip -dc /tmp/cpython.tar.gz | tar -xf - -C /
 
-SOURCE https://daugasauron.com/dist/static/python/runtimes/cpython-platform.c        9a58412f3ecfebfef6bbd67dfc5fa43959314568b6add06c7c0d548ddc7eb5b6 /usr/src/python/Python/dolly_platform.c
+SOURCE https://daugasauron.com/dist/static/python/runtimes/cpython-platform.c        e77704d893c4c1a18ec9b28926bfeb5315f57c983271c5e4c6b77c661f6f978a /usr/src/python/Python/dolly_platform.c
 SOURCE https://daugasauron.com/dist/static/python/runtimes/cpython-extension-check.c 1763ec04e582beee6066af81c93fe20e8cf0d83ae7d41d935b395c5cb3cdf071 /usr/src/python/Modules/dolly_extension_check.c
 SOURCE https://daugasauron.com/dist/static/python/runtimes/cpython-socket-stubs.c    d54e0a1d299c128d483e7edc9dc089693e8ca53a7de54509e687a87a6368a4ce /usr/src/python/Modules/dolly_socket_stubs.c
 SOURCE https://daugasauron.com/dist/static/python/runtimes/cpython-http.c 13610f3322a4d09aa558e5d31523a082303835bf7c5981557c09443562cdc2da /usr/src/python/Modules/dolly_http.c

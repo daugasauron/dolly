@@ -3,7 +3,7 @@ TOOLCHAIN ghostty-build
 REQUIRES HOST display@0
 REQUIRES HOST http@0
 
-FROM https://daugasauron.com/Dollyfile-zig-build 503d1bf0ebf088278afd135126b6b16468fb1c342d9f1d9d4d840668bcc30c44
+FROM https://daugasauron.com/Dollyfile-zig-build 732781b6929a9155f1f9d92386b0de1e6e4f22a5a02bfdd1ccd845d7d7eb1ef0
 
 REQUIRES HEADER libc
 REQUIRES HEADER display
