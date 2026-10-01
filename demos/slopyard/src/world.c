@@ -97,7 +97,7 @@ Value character_data(Data *ctx,const Character *c){
         for(int j=0;j<17;j++)put_number(ctx,part,names[j],values[j]);value_set_at(ctx,list,i,part);
     }return list;
 }
-static int read_character(Data *ctx,Value list,Character *c,int legacy){
+static int read_character(Data *ctx,Value list,Character *c){
     double length=get_number(ctx,list,"length",0);if(!isfinite(length)||length<1||length>INT32_MAX/sizeof(Block))return 0;
     Character next={.count=(int)length,.capacity=(int)length};next.blocks=array_resize(NULL,next.count,sizeof(Block));
     for(int i=0;i<next.count;i++){
@@ -109,9 +109,9 @@ static int read_character(Data *ctx,Value list,Character *c,int legacy){
         value_free(ctx,v);if(!valid){character_clear(&next);return 0;}
         *b=(Block){.x=n[0],.y=n[1],.z=n[2],.parent=n[3],.joint=n[4],.color=n[5],.axis=n[6],.negative=n[7],.positive=n[8],.speed=n[9],.limit=n[10],.travel=n[11],.force=n[12],.direction=n[13],.material=n[14],.finish=n[15],.size=n[16]};
     }
-    if(!(legacy?character_upgrade_thrusters(&next):character_validate(&next))){character_clear(&next);return 0;}character_clear(c);*c=next;return 1;
+    if(!character_validate(&next)){character_clear(&next);return 0;}character_clear(c);*c=next;return 1;
 }
-int character_from_data(Data *ctx,Value list,Character *c){return read_character(ctx,list,c,0);}
+int character_from_data(Data *ctx,Value list,Character *c){return read_character(ctx,list,c);}
 static Value vector(Data *ctx,Vector3 v){
     Value a=value_sequence(ctx,4);value_set_at(ctx,a,0,value_number(ctx,v.x));value_set_at(ctx,a,1,value_number(ctx,v.y));value_set_at(ctx,a,2,value_number(ctx,v.z));return a;
 }
@@ -612,7 +612,7 @@ static Creature *spawn_poses(const Character *design,const char *source,const ch
     Creature *c=&world.creatures[world.count++];memset(c,0,sizeof(*c));c->id=world.next_id++;snprintf(c->name,sizeof(c->name),"%s",name);c->controller=controller;
     c->cargo=!design->anchored;
     for(int i=0;i<design->count;i++)if(design->blocks[i].joint!=BLOCK_BOX)c->cargo=0;
-    character_copy(&c->design,design);physics_attach_poses(&c->physics,&c->design,world.physics,x,z,1,poses,0);c->physics.time=world.age;
+    character_copy(&c->design,design);physics_attach_poses(&c->physics,&c->design,world.physics,x,z,1,poses);c->physics.time=world.age;
     Vector3 p;Quaternion q;physics_pose(&c->physics,&c->design,0,&p,&q);c->root_height=p.y-fmaxf(terrain_height(x,z),WATER_LEVEL);return c;
 }
 static Creature *spawn(const Character *design,const char *source,const char *name,uint32_t seed,int hz,float x,float z){return spawn_poses(design,source,name,seed,hz,x,z,NULL);}
@@ -999,7 +999,7 @@ static void empty_sequence(Data *ctx,Value object,const char *field){
     Value v=value_get(ctx,object,field);if(v.type==DATA_TABLE){value_push(ctx,v);lua_pushnil(ctx->lua);int nonempty=lua_next(ctx->lua,-2);lua_pop(ctx->lua,nonempty?3:1);if(!nonempty)value_set(ctx,object,field,value_array(ctx));}value_free(ctx,v);
 }
 static Value read_data(Data *ctx,const char *path){
-    Value data=data_read(ctx,path);if(value_is_error(data)){value_free(ctx,data);return legacy_read(ctx,path);}
+    Value data=data_read(ctx,path);
     if(value_is_table(data)){
         const char *lists[]={"creatures","designs","removals","recentRemovals","deliveries","radio"};for(int i=0;i<6;i++)empty_sequence(ctx,data,lists[i]);
         Value list=value_get(ctx,data,"creatures");for(int i=0;i<value_length(ctx,list);i++){Value item=value_at(ctx,list,i);empty_sequence(ctx,item,"magnets");empty_sequence(ctx,item,"winches");value_free(ctx,item);}value_free(ctx,list);
@@ -1021,43 +1021,10 @@ static Value read_catalog(Data *ctx){
     int valid=name&&!strcmp(name,"slopyard-catalog")&&get_number(ctx,catalog,"version",0)==1;value_text_free(ctx,name);value_free(ctx,format);
     Value list=valid?value_get(ctx,catalog,"designs"):VALUE_ERROR;value_free(ctx,catalog);if(value_is_array(list))catalog_programs(ctx,list);return list;
 }
-static void migrate_memory_keys(Data *ctx,Value memory){
-    if(!value_is_table(memory))return;lua_State *L=ctx->lua;value_push(ctx,memory);int table=lua_gettop(L);lua_newtable(L);int moves=lua_gettop(L);lua_pushnil(L);
-    while(lua_next(L,table)){
-        lua_pushvalue(L,-1);Value child=value_take(ctx);migrate_memory_keys(ctx,child);value_free(ctx,child);
-        if(lua_type(L,-2)==LUA_TSTRING){const char *s=lua_tostring(L,-2);char *end;long n=strtol(s,&end,10);
-            if(*s&&!*end&&n>=0&&n<INT32_MAX){lua_pushvalue(L,-2);lua_pushinteger(L,n+1);lua_rawset(L,moves);}}
-        lua_pop(L,1);
-    }
-    lua_pushnil(L);while(lua_next(L,moves)){
-        lua_pushvalue(L,-2);lua_rawget(L,table);lua_pushvalue(L,-2);lua_pushvalue(L,-2);lua_rawset(L,table);lua_pop(L,1);
-        lua_pushvalue(L,-2);lua_pushnil(L);lua_rawset(L,table);lua_pop(L,1);
-    }lua_pop(L,2);
-}
-static int migrate_program(Data *ctx,Value item,const char *key,Value translations){
-    Value code=value_get(ctx,item,key);if(!value_is_string(code)){value_free(ctx,code);return 1;}const char *source=value_text(ctx,code);
-    Value converted=value_get(ctx,translations,source);value_text_free(ctx,source);value_free(ctx,code);
-    if(!value_is_string(converted)){value_free(ctx,converted);return 0;}value_set(ctx,item,key,converted);return 1;
-}
-static int migrate_data(Data *ctx,Value save){
-    Value format=value_get(ctx,save,"format");const char *kind=value_text(ctx,format);int design=kind&&!strcmp(kind,"slopyard-design");value_text_free(ctx,kind);value_free(ctx,format);
-    int version=get_number(ctx,save,"version",0);if(version>=(design?5:6))return 1;
-    Value translations=data_read(ctx,"/usr/src/dolly/slopyard/legacy-programs.lua");int good=1;
-    if(design){good=migrate_program(ctx,save,"source",translations);put_number(ctx,save,"hz",CONTROLLER_DEFAULT_HZ);}
-    else{
-        const char *fields[]={"creatures","designs"};good=migrate_program(ctx,save,"installed",translations);put_number(ctx,save,"installedHz",CONTROLLER_DEFAULT_HZ);
-        for(int group=0;group<2;group++){
-            Value list=value_get(ctx,save,fields[group]);for(int i=0;i<value_length(ctx,list);i++){
-                Value item=value_at(ctx,list,i);put_number(ctx,item,"hz",CONTROLLER_DEFAULT_HZ);if(!migrate_program(ctx,item,"source",translations)){Value label=value_get(ctx,item,"name");const char *name=value_text(ctx,label);value_error(ctx,"No verified Lua translation for %s. Original world kept.",name?name:"unnamed program");value_text_free(ctx,name);value_free(ctx,label);good=0;}
-                if(group==0){Value memory=value_get(ctx,item,"memory");const char *text=value_text(ctx,memory);if(text){Value parsed=legacy_parse(ctx,text,strlen(text),"legacy controller memory");if(value_is_error(parsed))good=0;else {migrate_memory_keys(ctx,parsed);value_set(ctx,item,"memory",parsed);}}value_text_free(ctx,text);value_free(ctx,memory);}value_free(ctx,item);
-            }value_free(ctx,list);
-        }
-    }value_free(ctx,translations);return good;
-}
-static int read_design(Data *ctx,Value item,Character *design,int require_program,int legacy){
+static int read_design(Data *ctx,Value item,Character *design,int require_program){
     Value blueprint=value_get(ctx,item,"blueprint"),code=value_get(ctx,item,"source"),name=value_get(ctx,item,"name"),anchored=value_get(ctx,item,"anchored");
     int empty=!require_program&&value_is_array(blueprint)&&get_number(ctx,blueprint,"length",-1)==0;
-    int valid=value_is_array(blueprint)&&(empty||read_character(ctx,blueprint,design,legacy))&&value_is_string(name)&&value_is_bool(anchored);
+    int valid=value_is_array(blueprint)&&(empty||read_character(ctx,blueprint,design))&&value_is_string(name)&&value_is_bool(anchored);
     if(valid)design->anchored=value_truth(ctx,anchored);
     double hz=get_number(ctx,item,"hz",0);valid=valid&&valid_controller_hz(hz);
     size_t bytes=0;const char *label=value_is_string(name)?value_text_n(ctx,&bytes,name):NULL;
@@ -1077,11 +1044,10 @@ int world_export_design(Data *ctx,const Character *design,int sea,const char *pa
 }
 Value world_import_design(Data *ctx,Character *design,int *sea,const char *path){
     Value item=read_data(ctx,path),result=VALUE_NIL;Character next={0};int water=0,valid=0;
-    if(value_is_table(item)&&!migrate_data(ctx,item)){value_free(ctx,item);return value_error(ctx,"This legacy program has no verified Lua conversion. Original design kept.");}
     if(value_is_nil(item)||value_is_error(item))valid=character_load(&next,path);
     else{
         Value format=value_get(ctx,item,"format"),surface=value_get(ctx,item,"sea");const char *kind=value_text(ctx,format);
-        valid=kind&&!strcmp(kind,"slopyard-design")&&(get_number(ctx,item,"version",0)>=1&&get_number(ctx,item,"version",0)<=5&&floor(get_number(ctx,item,"version",0))==get_number(ctx,item,"version",0))&&value_is_bool(surface)&&read_design(ctx,item,&next,0,get_number(ctx,item,"version",0)==1);
+        valid=kind&&!strcmp(kind,"slopyard-design")&&get_number(ctx,item,"version",0)==5&&value_is_bool(surface)&&read_design(ctx,item,&next,0);
         water=value_truth(ctx,surface);value_text_free(ctx,kind);value_free(ctx,format);value_free(ctx,surface);
     }
     if(!valid)result=value_error(ctx,"Invalid design file. Import an exported design or a legacy .character blueprint.");
@@ -1094,11 +1060,11 @@ Value world_import_design(Data *ctx,Character *design,int *sea,const char *path)
     }
     character_clear(&next);value_free(ctx,item);return result;
 }
-static void load_designs_version(Data *ctx,Value list,int populate,int legacy){
+static void load_designs(Data *ctx,Value list,int populate){
     if(!value_is_array(list))return;
     for(int i=0;i<get_number(ctx,list,"length",0);i++){
         Value item=value_at(ctx,list,i),blueprint=value_get(ctx,item,"blueprint"),code=value_get(ctx,item,"source"),label=value_get(ctx,item,"name");Character c={0};
-        if((value_is_string(code)||(!populate&&value_is_null(code)))&&value_is_string(label)&&read_character(ctx,blueprint,&c,legacy)){
+        if((value_is_string(code)||(!populate&&value_is_null(code)))&&value_is_string(label)&&read_character(ctx,blueprint,&c)){
             Value anchored=value_get(ctx,item,"anchored");c.anchored=value_truth(ctx,anchored);value_free(ctx,anchored);
             const char *source=value_is_string(code)?value_text(ctx,code):NULL,*name=value_text(ctx,label);int hz=get_number(ctx,item,"hz",CONTROLLER_DEFAULT_HZ);float x=get_number(ctx,item,"x",0),z=get_number(ctx,item,"z",0);
             Value height=value_get(ctx,item,"y");int elevated=!value_is_nil(height);float y=get_number(ctx,item,"y",NAN);value_free(ctx,height);
@@ -1110,7 +1076,6 @@ static void load_designs_version(Data *ctx,Value list,int populate,int legacy){
         }character_clear(&c);value_free(ctx,item);value_free(ctx,blueprint);value_free(ctx,code);value_free(ctx,label);
     }
 }
-static void load_designs(Data *ctx,Value list,int populate){load_designs_version(ctx,list,populate,0);}
 static void load_removals(Data *ctx,Value list){
     if(!value_is_array(list))return;
     for(int i=0;i<get_number(ctx,list,"length",0);i++){
@@ -1128,14 +1093,13 @@ static void load_removals(Data *ctx,Value list){
     }
 }
 static void restore_world(Data *ctx,Value save,int fresh){
-    int legacy=value_is_table(save)&&get_number(ctx,save,"version",0)==1;
     terrain_select(value_is_table(save)?get_number(ctx,save,"terrainVersion",0):fresh?8:0);
-    if(value_is_table(save)){Value designs=value_get(ctx,save,"designs");load_designs_version(ctx,designs,0,legacy);value_free(ctx,designs);}
+    if(value_is_table(save)){Value designs=value_get(ctx,save,"designs");load_designs(ctx,designs,0);value_free(ctx,designs);}
     Value examples=read_catalog(ctx);load_designs(ctx,examples,fresh);value_free(ctx,examples);
     if(fresh){world.supply_seed=0x243f6a88;world.next_parcel=45;world.next_ore=5;world.next_mine=10;}
     if(fresh)world_save(ctx);
     if(!value_is_table(save)){value_free(ctx,save);return;}
-    if(!legacy&&get_number(ctx,save,"version",0)!=2&&get_number(ctx,save,"version",0)!=3&&get_number(ctx,save,"version",0)!=4&&get_number(ctx,save,"version",0)!=5&&get_number(ctx,save,"version",0)!=6){value_free(ctx,save);return;}
+    if(get_number(ctx,save,"version",0)!=6){value_free(ctx,save);return;}
     Value removals=value_get(ctx,save,"removals");load_removals(ctx,removals);value_free(ctx,removals);
     Value deliveries=value_get(ctx,save,"deliveries");
     for(int i=0;value_is_array(deliveries)&&i<get_number(ctx,deliveries,"length",0);i++){
@@ -1152,7 +1116,7 @@ static void restore_world(Data *ctx,Value save,int fresh){
     value_free(ctx,code);value_free(ctx,label);Value list=value_get(ctx,save,"creatures");int count=get_number(ctx,list,"length",0);
     for(int i=0;i<count;i++){
         Value item=value_at(ctx,list,i),blueprint=value_get(ctx,item,"blueprint");Character c={0};
-        if(read_character(ctx,blueprint,&c,legacy)){
+        if(read_character(ctx,blueprint,&c)){
             Value anchored=value_get(ctx,item,"anchored");c.anchored=value_truth(ctx,anchored);value_free(ctx,anchored);
             Value code=value_get(ctx,item,"source"),label=value_get(ctx,item,"name");const char *s=value_text(ctx,code),*name=value_text(ctx,label);
             int hz=get_number(ctx,item,"hz",CONTROLLER_DEFAULT_HZ);if(!valid_controller_hz(hz))hz=CONTROLLER_DEFAULT_HZ;
@@ -1173,20 +1137,16 @@ static void restore_world(Data *ctx,Value save,int fresh){
                 for(int j=0;j<world.delivery_count;j++)if(world.deliveries[j].cargo==creature->id){creature->delivered=1;for(int k=0;k<creature->design.count;k++)creature->design.blocks[k].color=0;}
                 Value memory=value_get(ctx,item,"memory");
                 if(value_is_table(memory)){Value value=data_clone(creature->controller->ctx,ctx,memory);if(!value_is_error(value)){value_free(creature->controller->ctx,creature->controller->memory);creature->controller->memory=value;}}value_free(ctx,memory);
-                Value poses=value_get(ctx,item,"poses");int saved_count=legacy?get_number(ctx,blueprint,"length",0):c.count;
+                Value poses=value_get(ctx,item,"poses");
                 PhysicsPose *restored=array_resize(NULL,c.count,sizeof(*restored));
                 for(int j=0;j<c.count;j++)restored[j]=(PhysicsPose){.transform=physics_transform(&creature->physics.parts[j])};
-                for(int j=0;j<saved_count;j++){
+                for(int j=0;j<c.count;j++){
                     Value pose=value_at(ctx,poses,j);double p[13]={0};p[6]=1;int valid=1;
                     for(int k=0;k<13;k++){Value v=value_at(ctx,pose,k);if(value_double(ctx,&p[k],v)<0||!isfinite(p[k]))valid=0;value_free(ctx,v);}value_free(ctx,pose);
                     if(valid)restored[j]=(PhysicsPose){.transform={{p[0],p[1],p[2]},{{p[3],p[4],p[5]},p[6]}},.velocity={p[7],p[8],p[9]},.angular={p[10],p[11],p[12]}};
                 }
-                if(legacy)for(int j=saved_count;j<c.count;j++){
-                    Block block=c.blocks[j],parent=c.blocks[block.parent];PhysicsPose a=restored[block.parent];b3Vec3 offset={block.x-parent.x,block.y-parent.y,block.z-parent.z};
-                    restored[j]=a;restored[j].transform.p=b3TransformWorldPoint(a.transform,offset);restored[j].velocity=b3Add(a.velocity,b3Cross(a.angular,b3RotateVector(a.transform.q,offset)));
-                }
                 int steps=creature->physics.steps;Vector3 start=creature->physics.start;
-                physics_attach_poses(&creature->physics,&creature->design,world.physics,0,0,1,restored,get_number(ctx,save,"version",0)<4);
+                physics_attach_poses(&creature->physics,&creature->design,world.physics,0,0,1,restored);
                 Value winches=value_get(ctx,item,"winches");
                 for(int j=0;j<c.count;j++)if(c.blocks[j].joint==BLOCK_WINCH){
                     Value state=value_at(ctx,winches,j);PhysicsPart *part=&creature->physics.parts[j];
@@ -1248,14 +1208,10 @@ static void restore_world(Data *ctx,Value save,int fresh){
 }
 void world_load(Data *ctx){
     const char *path="/workspace/slopyard-world.lua";int fresh=access(path,F_OK)<0&&errno==ENOENT;
-    if(fresh&&access("/workspace/slopyard-world.json",F_OK)==0){path="/workspace/slopyard-world.json";fresh=0;}
-    Value save=read_data(ctx,path);if(!fresh&&(!value_is_table(save)||!migrate_data(ctx,save))){fprintf(stderr,"World could not be converted: %s. Original file kept at %s.\n",ctx->error,path);exit(1);}
+    Value save=read_data(ctx,path);if(!fresh&&!value_is_table(save)){fprintf(stderr,"World could not be read: %s. File kept at %s.\n",ctx->error,path);exit(1);}
     Value creatures=value_get(ctx,save,"creatures");int count=value_length(ctx,creatures);value_free(ctx,creatures);
     restore_world(ctx,save,fresh);
     if(!fresh&&world.count!=count){fprintf(stderr,"Could not restore every character; original world kept at %s.\n",path);exit(1);}
-    if(!fresh&&!strcmp(path,"/workspace/slopyard-world.json")){
-        if(!world_save(ctx)){fprintf(stderr,"Could not save converted world; original kept at %s.\n",path);exit(1);}printf("Converted world to Lua. Original kept at %s.\n",path);
-    }
 }
 
 enum {IMPORT_INTEGER=1,IMPORT_OPTIONAL=2,IMPORT_NULLABLE=4};
@@ -1279,14 +1235,13 @@ static int import_world_valid(Data *ctx,Value save){
     if(!value_is_table(save)||value_is_array(save))return 0;
     Value list=value_get(ctx,save,"creatures"),designs=value_get(ctx,save,"designs"),removals=value_get(ctx,save,"removals"),deliveries=value_get(ctx,save,"deliveries"),ids=value_table(ctx),delivered=value_table(ctx),format=value_get(ctx,save,"format");
     const char *kind=value_is_string(format)?value_text(ctx,format):NULL;
-    int legacy=get_number(ctx,save,"version",0)==1;
-    int valid=value_is_table(save)&&import_number(ctx,save,"version",1,6,IMPORT_INTEGER)&&import_number(ctx,save,"terrainVersion",0,8,IMPORT_INTEGER|IMPORT_OPTIONAL)&&
+    int valid=value_is_table(save)&&import_number(ctx,save,"version",6,6,IMPORT_INTEGER)&&import_number(ctx,save,"terrainVersion",0,8,IMPORT_INTEGER|IMPORT_OPTIONAL)&&
         (value_is_nil(format)||(kind&&!strcmp(kind,"slopyard-world")))&&value_is_array(list)&&value_is_array(designs)&&value_is_array(removals)&&(value_is_nil(deliveries)||value_is_array(deliveries))&&
         import_number(ctx,save,"seconds",0,INT32_MAX/60.,0)&&import_number(ctx,save,"deaths",0,INT32_MAX,IMPORT_INTEGER)&&import_number(ctx,save,"nextId",0,INT32_MAX,IMPORT_INTEGER)&&import_number(ctx,save,"playerId",0,INT32_MAX,IMPORT_INTEGER|IMPORT_OPTIONAL);
     value_text_free(ctx,kind);value_free(ctx,format);int greatest=0,count=get_number(ctx,list,"length",0);
     for(int i=0;valid&&i<count;i++){
         Value item=value_at(ctx,list,i);Character c={0};
-        valid=read_design(ctx,item,&c,1,legacy)&&import_number(ctx,item,"id",1,INT32_MAX-1,IMPORT_INTEGER)&&import_number(ctx,item,"seconds",0,(INT32_MAX-1)/60.,0)&&import_number(ctx,item,"seed",0,UINT32_MAX,IMPORT_INTEGER);
+        valid=read_design(ctx,item,&c,1)&&import_number(ctx,item,"id",1,INT32_MAX-1,IMPORT_INTEGER)&&import_number(ctx,item,"seconds",0,(INT32_MAX-1)/60.,0)&&import_number(ctx,item,"seed",0,UINT32_MAX,IMPORT_INTEGER);
         int id=valid?get_number(ctx,item,"id",0):0;Value previous=value_at(ctx,ids,id);valid=valid&&value_is_nil(previous);value_free(ctx,previous);
         if(valid){value_set_at(ctx,ids,id,value_number(ctx,c.count));if(id>greatest)greatest=id;}
         const char *fields[]={"rootHeight","fallenSeconds","startX","startY","startZ","settled"};
@@ -1297,15 +1252,14 @@ static int import_world_valid(Data *ctx,Value save){
         valid=valid&&(value_is_nil(cargo)||value_is_bool(cargo))&&import_number(ctx,item,"team",0,2,IMPORT_INTEGER|IMPORT_OPTIONAL)&&import_number(ctx,item,"supply",0,3,IMPORT_INTEGER|IMPORT_OPTIONAL);
         Value parachute=value_get(ctx,item,"parachute");valid=valid&&(value_is_nil(parachute)||value_is_bool(parachute));
         if(get_number(ctx,item,"supply",0)||value_truth(ctx,parachute))valid=valid&&value_truth(ctx,cargo);value_free(ctx,parachute);value_free(ctx,cargo);
-        Value blueprint=value_get(ctx,item,"blueprint");int pose_count=legacy?get_number(ctx,blueprint,"length",0):c.count;value_free(ctx,blueprint);
-        valid=valid&&value_is_array(poses)&&get_number(ctx,poses,"length",0)==pose_count&&value_is_table(memory)&&(value_is_nil(controls)||value_is_table(controls))&&(value_is_nil(pickup)||import_vector(ctx,pickup,3,0));
-        for(int k=0;valid&&k<pose_count;k++){Value p=value_at(ctx,poses,k);valid=import_vector(ctx,p,13,1);value_free(ctx,p);}
-        Value winches=value_get(ctx,item,"winches");int version=get_number(ctx,save,"version",0);
-        valid=valid&&(version<5?value_is_nil(winches):value_is_array(winches)&&get_number(ctx,winches,"length",0)<=c.count);
+        valid=valid&&value_is_array(poses)&&get_number(ctx,poses,"length",0)==c.count&&value_is_table(memory)&&(value_is_nil(controls)||value_is_table(controls))&&(value_is_nil(pickup)||import_vector(ctx,pickup,3,0));
+        for(int k=0;valid&&k<c.count;k++){Value p=value_at(ctx,poses,k);valid=import_vector(ctx,p,13,1);value_free(ctx,p);}
+        Value winches=value_get(ctx,item,"winches");
+        valid=valid&&value_is_array(winches)&&get_number(ctx,winches,"length",0)<=c.count;
         for(int k=0;valid&&k<c.count;k++){
             if(c.blocks[k].joint==BLOCK_WINCH){
                 Value state=value_at(ctx,winches,k);
-                valid=version>=5&&value_is_table(state)&&import_number(ctx,state,"paidOut",1,c.blocks[k].travel,0);
+                valid=value_is_table(state)&&import_number(ctx,state,"paidOut",1,c.blocks[k].travel,0);
                 value_free(ctx,state);
             }else if(value_is_array(winches)){
                 Value state=value_at(ctx,winches,k);valid=value_is_nil(state)||value_is_null(state);value_free(ctx,state);
@@ -1327,7 +1281,7 @@ static int import_world_valid(Data *ctx,Value save){
         }value_free(ctx,item);value_free(ctx,magnets);value_free(ctx,blueprint);
     }
     for(int i=0;valid&&i<get_number(ctx,designs,"length",0);i++){
-        Value item=value_at(ctx,designs,i);Character c={0};valid=read_design(ctx,item,&c,0,legacy)&&c.count>0&&import_number(ctx,item,"x",-248,248,0)&&import_number(ctx,item,"z",-248,248,0);character_clear(&c);value_free(ctx,item);
+        Value item=value_at(ctx,designs,i);Character c={0};valid=read_design(ctx,item,&c,0)&&c.count>0&&import_number(ctx,item,"x",-248,248,0)&&import_number(ctx,item,"z",-248,248,0);character_clear(&c);value_free(ctx,item);
     }
     for(int i=0;valid&&i<get_number(ctx,removals,"length",0);i++){
         Value item=value_at(ctx,removals,i),cause=value_get(ctx,item,"cause");const char *kind=value_is_string(cause)?value_text(ctx,cause):NULL;int known=0;for(int k=0;kind&&k<REMOVAL_CAUSES;k++)known|=!strcmp(kind,removal_causes[k]);
@@ -1354,7 +1308,6 @@ static int import_world_valid(Data *ctx,Value save){
 }
 Value world_import(Data *ctx,const char *path){
     Value save=read_data(ctx,path);
-    if(!migrate_data(ctx,save)){value_free(ctx,save);return VALUE_ERROR;}
     if(!import_world_valid(ctx,save)){value_free(ctx,save);return value_error(ctx,"Invalid world file; current world kept.");}
     if(!save_world(ctx,"/workspace/slopyard-world.previous.lua")){value_free(ctx,save);return value_error(ctx,"Could not back up the current world; import cancelled.");}
     Value list=value_get(ctx,save,"creatures");int count=get_number(ctx,list,"length",0);value_free(ctx,list);

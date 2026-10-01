@@ -86,7 +86,7 @@ static void check_walker_recovery(Data *ctx){
     }
     load_designs(ctx,selected,1);value_free(ctx,selected);value_free(ctx,catalog);assert(world.count==1);
     Creature *c=&world.creatures[0];assert(c->design.count==sizeof(poses)/sizeof(*poses));int id=c->id;
-    PhysicsPose *restored=array_resize(NULL,c->design.count,sizeof(*restored));for(int i=0;i<c->design.count;i++){const float *p=poses[i];restored[i]=(PhysicsPose){.transform={{p[0],p[1],p[2]},{{p[3],p[4],p[5]},p[6]}},.velocity={p[7],p[8],p[9]},.angular={p[10],p[11],p[12]}};}physics_attach_poses(&c->physics,&c->design,world.physics,0,0,1,restored,1);free(restored);
+    PhysicsPose *restored=array_resize(NULL,c->design.count,sizeof(*restored));for(int i=0;i<c->design.count;i++){const float *p=poses[i];restored[i]=(PhysicsPose){.transform={{p[0],p[1],p[2]},{{p[3],p[4],p[5]},p[6]}},.velocity={p[7],p[8],p[9]},.angular={p[10],p[11],p[12]}};}physics_attach_poses(&c->physics,&c->design,world.physics,0,0,1,restored);free(restored);
     physics_refresh(&c->physics,&c->design);world.age=c->physics.time=1200;c->physics.steps=72000;c->controller->last_step=71999;
     c->controls['D']=0.00000229876673f;c->controls['H']=0.00000728595069f;c->controls['L']=0.00000563381627f;c->controls['O']=0.00000312659586f;c->controls['R']=0.00000867479321f;c->controls['W']=6.18295317e-8f;
     Controller *controller=c->controller;const char *state="return {[\"p\"]=0,[\"a\"]=1,[\"t\"]=830.0666666666667,[\"hit\"]=0,[\"st\"]=array{-0.23466332992500433,0.17115926170718462,0.32450784143164163,-0.2696625503237696},[\"x\"]=-75,[\"z\"]=35,[\"d\"]=1,[\"turn\"]=827.7833333333333,[\"reach\"]=0.28004066032939595}";

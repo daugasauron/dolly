@@ -5,7 +5,7 @@ static int model(Data *ctx,Value catalog,const char *name,float x,float y,float 
     for(int i=0;i<get_number(ctx,catalog,"length",0);i++){
         Value item=value_at(ctx,catalog,i),label=value_get(ctx,item,"name");const char *text=value_text(ctx,label);int match=text&&!strcmp(text,name);value_text_free(ctx,text);value_free(ctx,label);
         if(match){
-            Character design={0};Value blocks=value_get(ctx,item,"blueprint"),code=value_get(ctx,item,"source");assert(read_character(ctx,blocks,&design,0));const char *source=value_text(ctx,code);
+            Character design={0};Value blocks=value_get(ctx,item,"blueprint"),code=value_get(ctx,item,"source");assert(read_character(ctx,blocks,&design));const char *source=value_text(ctx,code);
             Creature *c=spawn(&design,source,name,world.count+1,20,x,z);assert(c);set_spawn_height(c,y);c->team=team;int id=c->id;
             character_clear(&design);value_text_free(ctx,source);value_free(ctx,code);value_free(ctx,blocks);value_free(ctx,item);return id;
         }value_free(ctx,item);

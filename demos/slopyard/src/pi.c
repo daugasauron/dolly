@@ -67,12 +67,3 @@ int pi_run(int argc,char **argv,int integration,int (*init)(Data *),GameOperatio
     int result=dolly_quickjs_embed(argc,argv,integration?"/usr/src/dolly/slopyard/check.mjs":"/usr/src/dolly/slopyard/pi.mjs",initialize);
     data_close(game);game=NULL;return result;
 }
-Value legacy_read(Data *d,const char *path){
-    FILE *f=fopen(path,"rb");if(!f)return VALUE_NIL;fseek(f,0,SEEK_END);long n=ftell(f);rewind(f);if(n<0||n>128*1024*1024){fclose(f);return VALUE_ERROR;}
-    char *s=malloc(n+1);if(!s){fclose(f);return VALUE_ERROR;}size_t size=fread(s,1,n,f);s[size]=0;fclose(f);
-    Value out=legacy_parse(d,s,size,path);free(s);return out;
-}
-Value legacy_parse(Data *d,const char *s,size_t size,const char *name){
-    JSRuntime *rt=JS_NewRuntime();JS_SetMemoryLimit(rt,256*1024*1024);JSContext *ctx=JS_NewContext(rt);JSValue parsed=JS_ParseJSON(ctx,s,size,name);
-    Value out=JS_IsException(parsed)?VALUE_ERROR:from_js(d,ctx,parsed,0);JS_FreeValue(ctx,parsed);JS_FreeContext(ctx);JS_FreeRuntime(rt);return out;
-}
