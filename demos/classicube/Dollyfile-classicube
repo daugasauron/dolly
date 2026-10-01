@@ -1,7 +1,7 @@
 DOLLY 5
 IMAGE classicube
 
-FROM https://daugasauron.com/Dollyfile-pi-runtime e3a4904704b2385bc240d5df9ebc1f88724cc1c27fc010cae8ab7e110710d23a
+FROM https://daugasauron.com/Dollyfile-pi-runtime aabd47b4c90ecce4284d9cd7259bf3809b9fff5b899ead832240e144a5aa2393
 COPY FROM https://daugasauron.com/Dollyfile-classicube-build 6b5db69aab68efec9095c018bbf4ab429ed93541ab9eb41c8a870c23c7d1edd9 /usr/bin/classicube /usr/bin/classicube
 COPY FROM https://daugasauron.com/Dollyfile-classicube-build 6b5db69aab68efec9095c018bbf4ab429ed93541ab9eb41c8a870c23c7d1edd9 /usr/share/classicube /home/dolly/classicube
 COPY FROM https://daugasauron.com/Dollyfile-classicube-build 6b5db69aab68efec9095c018bbf4ab429ed93541ab9eb41c8a870c23c7d1edd9 /usr/share/licenses/classicube /usr/share/licenses/classicube

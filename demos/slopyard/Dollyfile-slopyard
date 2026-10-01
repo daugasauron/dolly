@@ -10,7 +10,7 @@ COPY FROM https://daugasauron.com/Dollyfile-javascript c33e1acd12130e6d76391c6e0
 EXPORTS LIB dolly-js /usr/lib/libdolly-js.a
 EXPORTS HEADER quickjs /usr/include/quickjs.h
 EXPORTS HEADER quickjs-runner /usr/include/dolly/quickjs-runner.h
-USE https://daugasauron.com/modules/pi.dm ce354b921fbfd730d8e730b3c485a606c7e63d1f565121383a08e7490df196ce
+USE https://daugasauron.com/modules/pi.dm 2ad520d61de1548d35d08c201ad53be5bc949a700ab764287438014473f54e6d
 USE https://daugasauron.com/modules/lua55.dm 74a2dd75e56a17267447143733a8e5f3afe3743208cc500b1118b3baae4b0251
 USE https://daugasauron.com/modules/slopyard.dm 53ce310a74f4e544102aa7fa3d7f4b6186a7ca1b9d75409a421e79cede1dd216
 
