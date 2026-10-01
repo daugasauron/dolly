@@ -8,7 +8,7 @@ REQUIRES HOST http@0
 REQUIRES HOST snapshot@0
 REQUIRES HOST upload@0
 
-FROM https://daugasauron.com/Dollyfile 9a34b9443a989567d06561840ecf5e80f4c3006425ecd1eaf61eeb6c64396215
+FROM https://daugasauron.com/Dollyfile b1d814e39ed17c97588d27a2f4897b6451df6f38b6f2e8ef666fc10cda46814a
 # External wasm64 bootstrap; pinned sources and port instructions: demos/zero-ad/README.md.
 SOURCE https://daugasauron.com/dist/static/zero-ad/pyrogenesis.wasm 9bf417de9d861b76f38ff782cd9a34216901426054152de8a9745c80914deb78 /opt/0ad/system/pyrogenesis
 SOURCE https://daugasauron.com/dist/static/zero-ad/data/config/default.cfg 96fe2f626983f3a9b2392095c11f04b3a8a318531408ce9aea0f4bd5c2a60f5a /opt/0ad/data/config/default.cfg

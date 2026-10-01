@@ -8,9 +8,9 @@ REQUIRES HOST snapshot@0
 REQUIRES HOST threads@0
 REQUIRES HOST upload@0
 
-FROM https://daugasauron.com/demos/pi/Dollyfile-pi e4171575d5196abca88fdb468ad34f1377c93c204177064bd93b65c0cf701a99
-COPY https://daugasauron.com/demos/local-llm/Dollyfile-local-llm-build 370b9322570e1a2255afd4df293532e988e8daea2a45254fb076c4fb919a1bad /usr/bin/dolly-llama /usr/bin/dolly-llama
-COPY https://daugasauron.com/demos/local-llm/Dollyfile-llama-build c18bba80b91e2cac6a1a14814ede02767fa4656ff9943e2f8fa48641bdb35ee7 /usr/share/licenses/dolly-llm /usr/share/licenses/dolly-llm
+FROM https://daugasauron.com/demos/pi/Dollyfile-pi 6079272f1ab05f4e1b37c39d6e555ddf81ec2aace4420fcba9762ab0e0a2bba3
+COPY https://daugasauron.com/demos/local-llm/Dollyfile-local-llm-build 5187e8b4dbd70db0b1b76fefd2a0fecd7833047329736beeff312bfa7d685406 /usr/bin/dolly-llama /usr/bin/dolly-llama
+COPY https://daugasauron.com/demos/local-llm/Dollyfile-llama-build 144c48051d4cda6bbf2d5a2aa84767bda6a606efd066e68ab50645e8dceb2980 /usr/share/licenses/dolly-llm /usr/share/licenses/dolly-llm
 EXPORTS TOOL dolly-llama
 REQUIRES TOOL cat
 REQUIRES TOOL sha256sum

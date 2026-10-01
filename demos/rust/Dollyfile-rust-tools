@@ -7,12 +7,12 @@ REQUIRES HOST snapshot@0
 REQUIRES HOST threads@0
 REQUIRES HOST upload@0
 
-FROM https://daugasauron.com/Dollyfile-system cc494d639dba7e4eb5fe691d2f21a50dea47394ce01e5eb59d3466c11b3de41b
+FROM https://daugasauron.com/Dollyfile-system 351799dd4f5b03d056253485ed3a947a6d9eca80a7c6cbd52521ef197978f096
 
-COPY https://daugasauron.com/demos/rust/Dollyfile-rust-build 09d5a6f6d6c24c5e56a5b433187fe1323f37002d1415ea4d527f0186c120bc7d /opt/rust-sdk /opt/rust-sdk
-COPY https://daugasauron.com/demos/rust/Dollyfile-rust-build 09d5a6f6d6c24c5e56a5b433187fe1323f37002d1415ea4d527f0186c120bc7d /usr/bin/patti /usr/bin/patti
-COPY https://daugasauron.com/demos/rust/Dollyfile-rust-build 09d5a6f6d6c24c5e56a5b433187fe1323f37002d1415ea4d527f0186c120bc7d /usr/share/licenses/rust /usr/share/licenses/rust
-COPY https://daugasauron.com/demos/rust/Dollyfile-rust-build 09d5a6f6d6c24c5e56a5b433187fe1323f37002d1415ea4d527f0186c120bc7d /usr/share/licenses/patti /usr/share/licenses/patti
+COPY https://daugasauron.com/demos/rust/Dollyfile-rust-build cdc9f187c8fd90637ffe0bcd9c824b6039ef811c36c169191f35ab378b7ba4ff /opt/rust-sdk /opt/rust-sdk
+COPY https://daugasauron.com/demos/rust/Dollyfile-rust-build cdc9f187c8fd90637ffe0bcd9c824b6039ef811c36c169191f35ab378b7ba4ff /usr/bin/patti /usr/bin/patti
+COPY https://daugasauron.com/demos/rust/Dollyfile-rust-build cdc9f187c8fd90637ffe0bcd9c824b6039ef811c36c169191f35ab378b7ba4ff /usr/share/licenses/rust /usr/share/licenses/rust
+COPY https://daugasauron.com/demos/rust/Dollyfile-rust-build cdc9f187c8fd90637ffe0bcd9c824b6039ef811c36c169191f35ab378b7ba4ff /usr/share/licenses/patti /usr/share/licenses/patti
 EXPORTS ENV PATH APPEND /opt/rust-sdk/bin
 EXPORTS TOOL rustc
 EXPORTS TOOL patti

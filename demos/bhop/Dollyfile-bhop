@@ -7,12 +7,12 @@ REQUIRES HOST snapshot@0
 REQUIRES HOST threads@0
 REQUIRES HOST upload@0
 
-FROM https://daugasauron.com/demos/slopyard/Dollyfile-gamedev-sdk 55b01fc9ca717c4c3e7e152c50d03fd047f3dcaba4ed90dc739bc55014ff7c8c
-INSTALL https://daugasauron.com/demos/javascript/Dollyfile-javascript c135d0154dfa12a1018732fd8c6e049c87ec195860688367db25814dfd9242dd
-INSTALL https://daugasauron.com/demos/pi/Dollyfile-pi-coding-agent 19c4ed1a6e1f26d8f2801bfa2c3bd7817af70dd70d1fd34a62d63d770a79918c
-COPY https://daugasauron.com/demos/sdl2/Dollyfile-sdl2-build 74c3a36c7b4565a36dbc148e9b0283e1270afc36026b113b4c03f070e5f9149c /usr/include/SDL2 /usr/include/SDL2
-COPY https://daugasauron.com/demos/sdl2/Dollyfile-sdl2-build 74c3a36c7b4565a36dbc148e9b0283e1270afc36026b113b4c03f070e5f9149c /usr/lib/libSDL2.a /usr/lib/libSDL2.a
-COPY https://daugasauron.com/demos/sdl2/Dollyfile-sdl2-build 74c3a36c7b4565a36dbc148e9b0283e1270afc36026b113b4c03f070e5f9149c /usr/share/licenses/SDL2 /usr/share/licenses/SDL2
+FROM https://daugasauron.com/demos/slopyard/Dollyfile-gamedev-sdk 8ca8b22e9620d3b1bbc969f3c9d681242feed489f565e4ad772a7e3a5ec52bcf
+INSTALL https://daugasauron.com/demos/javascript/Dollyfile-javascript c309ec807ec342380a38dd062142a2cce5d802347a660f6a730016d2fc8e40b9
+INSTALL https://daugasauron.com/demos/pi/Dollyfile-pi-coding-agent 0ba0afee1077bb6130917d00fe210faea5f1588a963622a29876cb4b97b509f7
+COPY https://daugasauron.com/demos/sdl2/Dollyfile-sdl2-build 10e6ec00b41d5ca171209b833152d76cfee75e4aa849fb7cc0775356658a9a0e /usr/include/SDL2 /usr/include/SDL2
+COPY https://daugasauron.com/demos/sdl2/Dollyfile-sdl2-build 10e6ec00b41d5ca171209b833152d76cfee75e4aa849fb7cc0775356658a9a0e /usr/lib/libSDL2.a /usr/lib/libSDL2.a
+COPY https://daugasauron.com/demos/sdl2/Dollyfile-sdl2-build 10e6ec00b41d5ca171209b833152d76cfee75e4aa849fb7cc0775356658a9a0e /usr/share/licenses/SDL2 /usr/share/licenses/SDL2
 EXPORTS HEADER sdl2 /usr/include/SDL2
 EXPORTS LIB SDL2 /usr/lib/libSDL2.a
 REQUIRES TOOL cc

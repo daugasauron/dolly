@@ -1,6 +1,6 @@
 # Stream large selected file imports and exports
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 150
 - TAGS: filesystem,browser,workflow
 
@@ -42,3 +42,38 @@ therefore failed before the next trace could export. A small local diagnostic
 compressor using the existing zlib is now compiled inside Dolly and verifies its
 output against the original bytes. This remains a test-workflow workaround, not
 the requested streaming file interface. Core64MiB bounds remain unchanged.
+
+## Resolution
+
+Commit `e7d60b8` (pins in `b024699`) streams both directions with bounded
+memory; the bound is now 1 GiB per file (`DOLLY_UPLOAD_MAX_SIZE`,
+`DOLLY_DOWNLOAD_MAX_SIZE` in the WAT contracts), still checked by both sides.
+
+- Upload (mailbox v1): 1 MiB chunks; the page reads the file through one
+  reused BYOB buffer and waits on the kernel's notified `consumed` word. The
+  first chunk announces the size, so the kernel sizes its temporary file once
+  and publishes it only when EOF arrives at exactly that size. The dialog stays
+  open with progress and Cancel (ECANCELED); Ctrl+C still interrupts.
+- Download: `dolly_download_dispatch(op, span)` with OPEN/WRITE/CLOSE/ABORT.
+  The kernel sends one 1 MiB chunk per deferred retry; the Worker copies it into
+  a Blob part and the page offers the Blob for a Save click only after CLOSE.
+  Ctrl+C or process exit aborts the stream; at most 4 offers wait.
+
+Measured with a random file, picker upload, `sha256sum` in Dolly, download,
+Save and host comparison (summed browser RSS):
+
+| | Chrome | Firefox |
+| --- | --- | --- |
+| 60 MiB upload, before | 25.6 s, +196 MiB | 22.5 s, +167 MiB |
+| 60 MiB upload, after | 1.0 s, +65 MiB | 1.0 s, +84 MiB |
+| 200 MiB upload | 3.3 s, +219 MiB | 3.3 s, +212 MiB |
+| 200 MiB download into the Blob | 3.2 s, +184 MiB | 3.3 s, +189 MiB |
+| 200 MiB Save | +7 MiB | +212 MiB (download manager) |
+
+Both 200 MiB round trips were byte-identical. Growing the temporary file by
+appends cost +499/+659 MiB for 200 MiB, hence the announced size.
+`test/upload-browser.mjs` uploads a 72 MiB file, interrupts a download and
+saves a complete one byte for byte, cancels an upload from the dialog and with
+Ctrl+C mid-transfer, and checks that no destination or scratch file remains,
+in Chrome and Firefox. Evidence: `build/transfer-evidence/` in
+`work/transfer-streaming`.

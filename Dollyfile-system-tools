@@ -5,7 +5,7 @@ REQUIRES HOST download@0
 REQUIRES HOST http@0
 REQUIRES HOST upload@0
 
-FROM https://daugasauron.com/Dollyfile-system-build 5c2fc6e696d87f4762de4bf3c8707e81bb10c2cb7a327aecc7921de01abca9c5
+FROM https://daugasauron.com/Dollyfile-system-build 41f0e703348d280ec0f6608a26981f48fcbb614df2efc95901516f25ae649597
 # Unchanged upstream sbase commands, built by sbase's own Makefile.
 REQUIRES HEADER libc
 REQUIRES TOOL   ar
@@ -132,7 +132,8 @@ FILE /tmp/upload/upload.c
     #include <string.h>
     int main(int argc, char **argv) {
       if (argc != 2 || strcmp(argv[1], "--help") == 0) {
-        fprintf(argc == 2 ? stdout : stderr, "usage: upload DESTINATION\nChoose a file in the browser (up to 64 MiB). Existing files are never replaced.\n");
+        fprintf(argc == 2 ? stdout : stderr, "usage: upload DESTINATION\nChoose a file in the browser (up to %u MiB). Existing files are never replaced.\n",
+                DOLLY_UPLOAD_MAX_SIZE >> 20);
         return argc == 2 ? 0 : 2;
       }
       puts("upload: choose a file in the browser, or cancel");
@@ -203,9 +204,9 @@ FILE /usr/share/licenses/samurai/LICENSE
 SLOP rm \
   -rf \
   /tmp/ninja
-INSTALL https://daugasauron.com/Dollyfile-zlib 760f804a7eeaf8ba5dd2d36e4a09d535c1f8aad1422f417fa7e493a59c356703
-INSTALL https://daugasauron.com/Dollyfile-gzip 500a255b34ec6d7d9469d3e553e799a5d83aa98287d32cbcf4bc6f9312aa5d7b
-INSTALL https://daugasauron.com/Dollyfile-curl b250f32b990ab3e533aa7322a2c13145282000af6f068878f54422001c668b98
+INSTALL https://daugasauron.com/Dollyfile-zlib 7e26520ac08d5324130303bf6760e6c395547820f5f3f53772243bc31418bfb4
+INSTALL https://daugasauron.com/Dollyfile-gzip 4ce1022e154a865ee46d03c075d0f4ed0c52d4fa8645045e16f2ee781f068cae
+INSTALL https://daugasauron.com/Dollyfile-curl ace1aaa4d15159c88987789a4a0af444753cb9ad552ac1839142e95d2970c7c1
 REQUIRES TOOL   mkdir
 REQUIRES LIB    curl
 REQUIRES LIB    z
@@ -425,6 +426,6 @@ SLOP rm \
 REQUIRES TOOL ln
 SLOP ln -s slop /bin/sh
 EXPORTS TOOL sh
-INSTALL https://daugasauron.com/Dollyfile-display 81781deadddf7efb4a2f175052ead505bc28f2e56a2fd3fba354137e2f2f36e4
+INSTALL https://daugasauron.com/Dollyfile-display e7b3108f414e9899648572c7b42de4979ee985ca23080b862b2f0a255b8c60f7
 
 ENTRY /bin/foreground -i /bin/slop

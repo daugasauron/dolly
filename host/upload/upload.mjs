@@ -1,4 +1,4 @@
-import { UploadTransport, chooseUploadFile } from "./transport.mjs";
+import { UploadTransport, chooseUploadFile, showUploadProgress } from "./transport.mjs";
 export { DOLLY_UPLOAD_ABI_DIGEST as digest } from "./abi.mjs";
 
 // The kernel worker reports each new request; the page does not poll while idle.
@@ -6,11 +6,11 @@ export function browser() {
   let transport;
   return {
     start(message) {
-      if (message.version !== 0) throw new Error(`unsupported upload mailbox ${message.version}`);
-      transport = new UploadTransport(message.memory, message.address, chooseUploadFile);
+      if (message.version !== 1) throw new Error(`unsupported upload mailbox ${message.version}`);
+      transport = new UploadTransport(message.memory, message.address, chooseUploadFile, showUploadProgress);
     },
     messages: { "upload-request"() { void transport?.poll(); } },
-    // The open picker takes every key; Ctrl+C still interrupts the program that asked.
+    // The open dialog takes every key; Ctrl+C still interrupts the program that asked.
     claimsKey: () => document.querySelector("#file-upload[open]") ? "interrupt" : false,
     dispose() { transport?.close(); },
   };
