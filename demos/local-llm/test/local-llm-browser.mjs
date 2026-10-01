@@ -7,6 +7,9 @@ import {acceptDownload} from '../../browser.mjs';
 if(!process.env.DISPLAY){console.log('local-llm: skipped, it needs a GPU window on DISPLAY');process.exit(0);}
 
 const root=new URL('../../../',import.meta.url).pathname;
+// pi-local's default model, installed from its model package.
+const model='qwen3.5-2b',weights=`/usr/share/dolly/llm/${model}.gguf`;
+const piShowsModel=label=>page=>page.evaluate(([model,label])=>__dolly.waitForInteractiveTerminal(new RegExp(model.replaceAll('.','\\.'),'i'),label),[model,label]);
 const output=new URL('../../../build/llm-proof/',import.meta.url);
 await mkdir(output,{recursive:true});
 const site=await startBrowserServer(root,'pi-local',{responseHeaders:{'content-security-policy':"connect-src 'self'"}});
@@ -37,7 +40,7 @@ try {
       const imageDownloads=snapshotDownloads()-previousDownloads;
       assert.ok(imageDownloads>0,'Initial boot did not fetch snapshot bytes');
       console.log(name,'image booted');
-      await page.evaluate(()=>__dolly.waitForInteractiveTerminal(/Qwen3.5-0.8B/,'Pi local model'));
+      await piShowsModel('Pi local model')(page);
       await page.screenshot({path:new URL(`${name}-pi.png`,output).pathname});
       await page.locator('#keyboard').focus();await page.keyboard.press('Control+d');
       await page.evaluate(()=>__dolly.waitForInteractiveTerminal(/dolly:[^\n]*\$\s*$/,'recovery shell'));
@@ -47,7 +50,7 @@ try {
       await page.waitForSelector('#file-upload[open]');
       await page.locator('#file-upload input').setInputFiles(new URL('./fixtures/local-llm.mjs',import.meta.url).pathname);
       assert.equal(await upload,0);await page.waitForTimeout(200);
-      const running=submit('janis /workspace/local-llm-proof.mjs');
+      const running=submit(`janis /workspace/local-llm-proof.mjs ${model}`);
       const progress=setInterval(()=>{void text().then(value=>console.log(name,value.slice(-360)));},30000);
       let status;try{status=await running;}finally{clearInterval(progress);}
       assert.equal(status,0,await text());
@@ -61,25 +64,25 @@ try {
       assert.equal(await page.evaluate(()=>__dolly.saveSession('llm-proof')),'llm-proof');
       const savedBytes=await page.evaluate(()=>Number(document.documentElement.dataset.sessionUncompressedBytes));
       assert.ok(savedBytes<10*1024*1024,`Base model was copied into the session (${savedBytes} bytes)`);
-      assert.equal(await submit(`janis -e 'const fs=process.getBuiltinModule("node:fs");const fd=fs.openSync("/usr/share/dolly/llm/Qwen3.5-0.8B.gguf","r+");fs.writeSync(fd,new Uint8Array([0]),0,1,0);fs.closeSync(fd);'`),0);
+      assert.equal(await submit(`janis -e 'const fs=process.getBuiltinModule("node:fs");const fd=fs.openSync("${weights}","r+");fs.writeSync(fd,new Uint8Array([0]),0,1,0);fs.closeSync(fd);'`),0);
       await assert.rejects(page.evaluate(()=>__dolly.saveSession('llm-proof')),/session|snapshot|large|save/i);
       await page.reload();
       await ready();
-      await page.evaluate(()=>__dolly.waitForInteractiveTerminal(/Qwen3.5-0.8B/,'Pi local model'));
+      await piShowsModel('restored Pi')(page);
       await page.locator('#keyboard').focus();await page.keyboard.press('Control+d');
       await page.evaluate(()=>__dolly.waitForInteractiveTerminal(/dolly:[^\n]*\$\s*$/,'restored recovery shell'));
       await page.waitForTimeout(300);
-      assert.equal(await submit('test -f /usr/share/dolly/llm/Qwen3.5-0.8B.gguf && cat /workspace/session-proof.txt'),0);
+      assert.equal(await submit(`test -f ${weights} && cat /workspace/session-proof.txt`),0);
       assert.match(await text(),/saved/);
-      assert.equal(await submit('janis /workspace/local-llm-proof.mjs'),0,await text());
+      assert.equal(await submit(`janis /workspace/local-llm-proof.mjs ${model}`),0,await text());
       // Open the original image, without the saved session or its workspace.
       await page.goto(site.origin+'/pi-local/');
       await ready();
-      await page.evaluate(()=>__dolly.waitForInteractiveTerminal(/Qwen3.5-0.8B/,'fresh Pi'));
+      await piShowsModel('fresh Pi')(page);
       await page.locator('#keyboard').focus();await page.keyboard.press('Control+d');
       await page.evaluate(()=>__dolly.waitForInteractiveTerminal(/dolly:[^\n]*\$\s*$/,'fresh shell'));
       await page.waitForTimeout(300);
-      assert.equal(await submit('test ! -f /workspace/session-proof.txt && test -f /usr/share/dolly/llm/Qwen3.5-0.8B.gguf'),0);
+      assert.equal(await submit(`test ! -f /workspace/session-proof.txt && test -f ${weights}`),0);
       const external=requests.filter(url=>new URL(url).origin!==site.origin);
       assert.deepEqual(external,[],'Bundled inference attempted external network access');
       // Streaming boots use the HTTP cache; browsers may evict large packs.
