@@ -10,7 +10,6 @@
 import { createHash } from "node:crypto";
 import { open, rm, writeFile } from "node:fs/promises";
 import { resolve, sep } from "node:path";
-import { pipeline } from "node:stream/promises";
 import { parseArgs } from "node:util";
 import { chromium } from "playwright-core";
 
@@ -38,7 +37,7 @@ const graph = await createDollyfileGraphLoader(projectDir)(definition.dollyfile)
 const rules = graph.records.flatMap(record => record.sources.filter(source => canonicalPath(source.location) === null))
   .map(source => ({ origin: new URL(source.location).origin, path: new URL(source.location).pathname, methods: ["GET"] }));
 
-let uploaded = 0;
+let uploaded = 0, file;
 async function handle(request, response, path, headers) {
   if (path === "/__dolly_build_page") {
     response.writeHead(200, { ...headers, "content-type": "text/html; charset=utf-8" });
@@ -46,21 +45,23 @@ async function handle(request, response, path, headers) {
   } else if (unpackaged && /^\/dist\/(?:packs\/|dolly-.+-system(?:\.snapshot|-snapshot\.mjs)$)/.test(path)) {
     response.writeHead(404, headers).end();
   } else if (path === "/__dolly_build_snapshot" && request.method === "POST") {
-    const length = Number(request.headers["content-length"]);
-    let file;
+    // The page sends the snapshot in order, in chunks small enough for Chrome's blob storage.
+    const query = new URL(request.url, "http://upload").searchParams;
+    const offset = Number(query.get("offset")), length = Number(query.get("length"));
     try {
       if (!Number.isSafeInteger(length) || length <= 0 || length > MAX_SNAPSHOT_BYTES) throw new Error("invalid snapshot size");
-      file = await open(output, "wx");
-      await pipeline(request, async function* (chunks) {
-        for await (const chunk of chunks) {
-          if ((uploaded += chunk.length) > length) throw new Error("snapshot exceeds its declared size");
-          yield chunk;
-        }
-        if (uploaded !== length) throw new Error("incomplete snapshot upload");
-      }, file.createWriteStream());
+      if (offset !== uploaded) throw new Error("snapshot chunk out of order");
+      if (offset === 0) file = await open(output, "wx");
+      for await (const chunk of request) {
+        if (uploaded + chunk.length > length) throw new Error("snapshot exceeds its declared size");
+        await file.write(chunk, 0, chunk.length, uploaded);
+        uploaded += chunk.length;
+      }
+      if (uploaded === length) await file.close();
       response.writeHead(204, headers).end();
     } catch (error) {
-      if (file) await rm(output, { force: true });
+      await file?.close().catch(() => {});
+      await rm(output, { force: true });
       response.writeHead(500, headers).end(error.message);
     }
   } else return false;
@@ -83,8 +84,12 @@ async function buildInPage(image) {
   const build = (name, artifacts) => builder.buildImage(name, artifacts, network, log);
   const { bytes, inputs } = await build(image,
     await graph.prepareImageArtifacts(image, undefined, build, text => log(`${text}\n`)));
-  const response = await fetch("/__dolly_build_snapshot", { method: "POST", body: new Blob([bytes]) });
-  if (response.status !== 204) throw new Error(`snapshot upload failed: ${await response.text()}`);
+  const snapshot = new Uint8Array(bytes), chunk = 64 * 1024 * 1024;
+  for (let offset = 0; offset < snapshot.length; offset += chunk) {
+    const response = await fetch(`/__dolly_build_snapshot?offset=${offset}&length=${snapshot.length}`,
+      { method: "POST", body: snapshot.subarray(offset, offset + chunk) });
+    if (response.status !== 204) throw new Error(`snapshot upload failed: ${await response.text()}`);
+  }
   return inputs;
 }
 
