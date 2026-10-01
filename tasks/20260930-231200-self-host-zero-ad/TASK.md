@@ -19,3 +19,14 @@ bash demos/zero-ad/toolchain/link-engine.sh`) now needs the Emscripten port
 libraries again, and `dependencies.sh` fails at CMake configure
 (`.cache/0ad/dependencies.log`); the link also needs `-ldolly-http` for its
 `libcurl`. Building the engine inside Dolly removes this whole host path.
+
+Relinked on `rebuild-batch` (process sysroot `1d4fab67…`): the link now takes
+the host module clients (`-ldolly-runtime -ldolly-http -ldolly-display
+-ldolly-gpu -ldolly-audio`) from the process sysroot instead of the stale
+`libdollygpu`/`libdollyaudio`, and `libcurl.a` is rebuilt from the current
+`src/libcurl-fetch.c`; `dependencies.sh` was not needed. The `zero-ad` image
+(snapshot `25b3f8f5…` for image inputs `74246d78…`) passes
+`0ad-engine-browser.mjs` and `0ad-graphics-browser.mjs zero-ad hardware`.
+
+- Released in the local checkpoint `35b11b69…` (2026-10-01, 15:21). The engine
+  is still host-built; building it inside Dolly remains this task.
