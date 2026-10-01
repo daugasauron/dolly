@@ -27,6 +27,8 @@ source = arguments[arguments.index("--crate-name") + 2]  # Patti passes the sour
 output = value("-o")
 with open(source) as stream:
     text = stream.read()
+if "compile_error!" in text:
+    sys.exit(f"error: compile_error! in {source}")
 inputs = [source] + [os.path.normpath(os.path.join(os.path.dirname(source), path))
                      for path in re.findall(r'include_(?:str|bytes)!\("([^"]+)"\)', text)]
 with open(output, "w") as stream:

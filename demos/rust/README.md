@@ -30,7 +30,7 @@ only stages a verified seed ([`rust-sdk.dm`](rust-sdk.dm)); it never builds one.
 
 ```sh
 patti fetch --manifest-path project/Cargo.toml
-patti build --offline --manifest-path project/Cargo.toml --bin program
+patti build -j 4 --offline --manifest-path project/Cargo.toml --bin program
 ```
 
 - Needs an existing `Cargo.lock`; downloads exact crates from
@@ -39,11 +39,14 @@ patti build --offline --manifest-path project/Cargo.toml --bin program
 - Supports workspaces, path and registry dependencies, features, target cfgs,
   build scripts and procedural macros run in Dolly, `--patch`, `--config` and a
   fingerprinted `--resume`. Output and a build record go to `target/patti`.
+- `-j N` runs up to N compiler or build-script processes at once; a crate starts
+  once everything it depends on is built. Each command's messages print as one
+  block when it exits, and outputs and the record match a serial build.
 - Source: [`patti.c`](patti.c); tests in [`test/`](test/).
 
 ## Limits
 
-- Serial, panic-abort compilation; no Cargo, incremental builds, file locks,
+- Panic-abort compilation; no Cargo, incremental builds, file locks,
   application threads, dynamic Rust libraries, tests or benchmarks.
 - Git dependencies need an explicit `--patch`. Target patches live in
   [`config/patches/`](config/patches/).

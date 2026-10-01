@@ -34,6 +34,7 @@ static _Noreturn void fail(const char *format, ...) {
   fprintf(stderr, "patti: ");
   va_start(args, format); vfprintf(stderr, format, args); va_end(args);
   fputc('\n', stderr);
+  while (wait(NULL) > 0 || errno == EINTR) {} /* Running commands finish before Patti exits. */
   exit(1);
 }
 
@@ -262,7 +263,13 @@ static char *digest(const char *path) {
 
 extern char **environ;
 static const char *find_compiler(const char *name);
-static int run(Value *args, const char *cwd, Value *env, const char *output) {
+static int create(const char *path) {
+  int fd = open(path, O_WRONLY | O_CREAT | O_TRUNC | O_CLOEXEC, 0644);
+  if (fd < 0) fail("%s: %s", path, strerror(errno));
+  return fd;
+}
+/* Starts ARGS with stdout to OUTPUT, else LOG, and stderr to LOG; NULL inherits. */
+static int spawn(Value *args, const char *cwd, Value *env, const char *output, const char *log) {
   char **argv = allocate((args->size + 1) * sizeof(*argv));
   for (size_t i = 0; i < args->size; ++i) argv[i] = (char *)str(args->items[i]);
   char **envp = environ;
@@ -270,37 +277,36 @@ static int run(Value *args, const char *cwd, Value *env, const char *output) {
     envp = allocate((env->size + 1) * sizeof(*envp));
     for (size_t i = 0; i < env->size; ++i) envp[i] = format("%s=%s", env->keys[i], str(env->items[i]));
   }
+  int err = log ? create(log) : STDERR_FILENO, out = output ? create(output) : log ? err : STDOUT_FILENO;
 #ifdef __EMSCRIPTEN__
-  int fd = STDOUT_FILENO;
-  if (output) {
-    fd = open(output, O_WRONLY | O_CREAT | O_TRUNC, 0644);
-    if (fd < 0) fail("%s: %s", output, strerror(errno));
-  }
   int pid = dolly_spawn_env_cwd(find_compiler(argv[0]), (int)args->size, argv, envp,
-                            cwd, STDIN_FILENO, fd, STDERR_FILENO, -1);
-  if (output) close(fd);
-  if (pid < 0) fail("spawn %s: %s", argv[0], strerror(-pid));
-  int status, waited = dolly_wait(pid, &status);
-  if (waited < 0) fail("wait %s: %s", argv[0], strerror(-waited));
-  return status;
+                                cwd, STDIN_FILENO, out, err, -1);
+  int error = pid < 0 ? -pid : 0;
 #else
   posix_spawn_file_actions_t actions;
-  int error = posix_spawn_file_actions_init(&actions), fd = -1;
+  int error = posix_spawn_file_actions_init(&actions);
   if (!error && cwd) error = posix_spawn_file_actions_addchdir_np(&actions, cwd);
-  if (!error && output) {
-    fd = open(output, O_WRONLY | O_CREAT | O_TRUNC | O_CLOEXEC, 0644);
-    if (fd < 0) fail("%s: %s", output, strerror(errno));
-    error = posix_spawn_file_actions_adddup2(&actions, fd, STDOUT_FILENO);
-  }
+  if (!error && out != STDOUT_FILENO) error = posix_spawn_file_actions_adddup2(&actions, out, STDOUT_FILENO);
+  if (!error && err != STDERR_FILENO) error = posix_spawn_file_actions_adddup2(&actions, err, STDERR_FILENO);
   pid_t pid;
   if (!error) error = posix_spawnp(&pid, argv[0], &actions, NULL, argv, envp);
   posix_spawn_file_actions_destroy(&actions);
-  if (fd >= 0) close(fd);
-  if (error) fail("spawn %s: %s", argv[0], strerror(error));
-  int status;
-  while (waitpid(pid, &status, 0) < 0) if (errno != EINTR) fail("wait %s: %s", argv[0], strerror(errno));
-  return WIFEXITED(status) ? WEXITSTATUS(status) : 128 + WTERMSIG(status);
 #endif
+  if (output) close(out);
+  if (log) close(err);
+  if (error) fail("spawn %s: %s", argv[0], strerror(error));
+  return pid;
+}
+/* Waits for *PID, or any child when it is -1, and returns the shell status. */
+static int wait_child(int *pid) {
+  int status, waited;
+  while ((waited = waitpid(*pid, &status, 0)) < 0) if (errno != EINTR) fail("wait: %s", strerror(errno));
+  *pid = waited;
+  return WIFEXITED(status) ? WEXITSTATUS(status) : 128 + WTERMSIG(status);
+}
+static int run(Value *args, const char *output) {
+  int pid = spawn(args, NULL, NULL, output, NULL);
+  return wait_child(&pid);
 }
 static Value *arguments(const char *first, ...) {
   Value *args = value(ARRAY); va_list more; va_start(more, first);
@@ -605,7 +611,7 @@ typedef struct {
   const char *command, *manifest, *binary, *features, *cache, *registry, *rustc, *target;
   const char *config, *package, *only, *only_output;
   bool offline, no_default, resume;
-  int opt;
+  int opt, jobs;
   Value *patches;
 } Options;
 static Options options;
@@ -633,7 +639,7 @@ static char *source_get(Value *record) {
     char *url = format("%s/%s/%s.crate", options.registry, name, prefix);
     char *temporary = format("%s/archives/%s.partial", options.cache, prefix);
     printf("patti: fetch %s\n", url); fflush(stdout);
-    int status = run(arguments("curl", "--fail", "--silent", "--show-error", url, "-o", temporary, NULL), NULL, NULL, NULL);
+    int status = run(arguments("curl", "--fail", "--silent", "--show-error", url, "-o", temporary, NULL), NULL);
     if (status) { unlink(temporary); fail("curl exited %d: %s", status, url); }
     char *actual = digest(temporary);
     if (!equal(actual, checksum)) { unlink(temporary); fail("SHA-256 mismatch: %s: expected %s, got %s", prefix, checksum, actual); }
@@ -712,6 +718,8 @@ typedef struct Package Package;
 typedef struct Node Node;
 typedef struct { char *alias; Node *node; } Edge;
 typedef struct { size_t size, capacity; Edge *items; } Edges;
+/* A running command; artifact is set when it earns a --resume fingerprint. */
+typedef struct { int pid; Value *record, *args, *env; const char *output, *log; char *artifact; } Job;
 struct Package {
   Package *next;
   Value *record, *manifest, *info, *lib;
@@ -719,16 +727,19 @@ struct Package {
   const char *name, *version, *build;
 };
 struct Node {
-  Node *next;
+  Node *next, *after; /* after: serial build order */
   Package *package;
   const char *context;
   Value *features, *metadata, *search; /* search: native -L paths, inherited by dependents */
+  Value *commands, *env, *extra;
   Edges normal, build;
   char *artifact;
-  int state;
+  int state, step;
+  Arena arena; /* step temporaries, released once the node is built */
+  Job job;
 };
 static Package *packages;
-static Node *nodes, *last_node;
+static Node *nodes, *last_node, *queue, **queue_end = &queue;
 static Value *records, *cfg, *report, *build_config;
 static const char *compiler, *triple, *deps;
 static char *toolchain_hash;
@@ -764,7 +775,7 @@ static Node *node_get(Package *p, const char *context) {
   for (Node *n = nodes; n; n = n->next) if (n->package == p && equal(n->context, context)) return n;
   Arena *previous = memory; memory = &permanent;
   Node *n = allocate(sizeof(*n)); n->package = p; n->context = context;
-  n->features = value(ARRAY); n->metadata = value(TABLE); n->search = value(ARRAY);
+  n->features = value(ARRAY); n->metadata = value(TABLE); n->search = value(ARRAY); n->commands = value(ARRAY);
   if (last_node) last_node->next = n; else nodes = n;
   last_node = n; ++changes; memory = previous; return n;
 }
@@ -932,7 +943,12 @@ static Node *resolve(void) {
   return root;
 }
 
+/* Commands are recorded in serial build order, however many ran at once. */
 static void write_report(void) {
+  Arena *previous = memory; memory = &permanent;
+  Value *commands = get(report, "commands"); commands->size = 0;
+  for (Node *n = queue; n; n = n->after) for (size_t i = 0; i < n->commands->size; ++i) append(commands, n->commands->items[i]);
+  memory = previous;
   mkdirs(options.target);
   FILE *file = open_file(path_join(options.target, "patti-build.json"), "w");
   json(file, report); fputc('\n', file); close_file(file);
@@ -1051,15 +1067,20 @@ static void prepare_cache(void) {
   for (size_t i = 0; i < inputs->size; ++i) hash_tree(&hash, absolute(str(inputs->items[i])));
   char *hex = hash_finish(&hash); memory = &permanent; toolchain_hash = copy(hex); release(&temporary);
 }
-static void execute(Value *args, Package *p, Value *env, const char *output) {
+static char *node_directory(Node *node) {
+  return format("%s/build/%s-%s", options.target, node->package->id, node->context);
+}
+/* Records ARGS and starts it as the node's job, unless --resume reuses its artifact. */
+static void execute(Value *args, Node *node, Value *env, const char *output) {
+  Package *p = node->package;
   Arena *previous = memory; memory = &permanent;
   Value *record = value(TABLE); put(record, "argv", value_copy(args)); setstr(record, "cwd", p->root);
-  append(get(report, "commands"), record); memory = previous;
-  char *artifact = NULL, *stamp = NULL;
+  append(node->commands, record); memory = previous;
+  char *artifact = NULL;
   if (equal(str(args->items[0]), compiler) && options.resume && !repairing()) {
     for (size_t i = 0; i + 1 < args->size; ++i) if (equal(str(args->items[i]), "-o")) artifact = (char *)str(args->items[i + 1]);
     if (artifact) {
-      stamp = format("%s.fingerprint", artifact);
+      char *stamp = format("%s.fingerprint", artifact);
       if (exists(artifact) && exists(stamp) &&
           equal(read_text(stamp), format("%s %s\n", fingerprint(args, p, env, artifact), digest(artifact)))) {
         printf("patti: reuse %s\n", artifact); fflush(stdout);
@@ -1070,17 +1091,26 @@ static void execute(Value *args, Package *p, Value *env, const char *output) {
       if (unlink(stamp) && errno != ENOENT) fail("unlink %s: %s", stamp, strerror(errno));
     }
   }
-  int status = run(args, p->root, env, output);
-  memory = &permanent; put(record, "status", number(status)); memory = previous;
-  write_report();
+  node->job = (Job){.record = record, .args = args, .env = env, .output = output,
+                    .log = path_join(node_directory(node), "log"), .artifact = artifact};
+  node->job.pid = spawn(args, p->root, env, output, node->job.log);
+}
+/* Records an exited job and shows its messages as one block; a failure stops the build. */
+static void finish(Node *node, int status) {
+  Job job = node->job; node->job.pid = 0;
+  memory = &permanent; put(job.record, "status", number(status));
+  memory = &node->arena; write_report();
+  char *messages = read_text(job.log);
+  if (*messages) fprintf(stderr, "patti: %s (%s) output:\n%s", node->package->id, node->context, messages);
   if (status) {
-    if (output) fputs(read_text(output), stderr);
-    fail("%s: command exited %d: %s", p->id, status, str(args->items[0]));
+    if (job.output) fputs(read_text(job.output), stderr);
+    fail("%s: command exited %d: %s", node->package->id, status, str(job.args->items[0]));
   }
-  if (stamp) {
-    FILE *file = open_file(stamp, "w");
-    fprintf(file, "%s %s\n", fingerprint(args, p, env, artifact), digest(artifact)); close_file(file);
+  if (job.artifact) {
+    FILE *file = open_file(format("%s.fingerprint", job.artifact), "w");
+    fprintf(file, "%s %s\n", fingerprint(job.args, node->package, job.env, job.artifact), digest(job.artifact)); close_file(file);
   }
+  memory = &permanent;
 }
 static void compile(Node *node, const char *name, const char *source, const char *kind,
                     const char *output, Edges dependencies, Value *env, Value *extra) {
@@ -1130,7 +1160,7 @@ static void compile(Node *node, const char *name, const char *source, const char
     if (!exists(output)) fail("--only requires an existing artifact: %s", output);
     return;
   }
-  execute(args, p, env, NULL);
+  execute(args, node, env, NULL);
   if (repairing()) only_compiled = true;
 }
 static void build_instructions(Node *node, const char *log, Value *env, Value *extra) {
@@ -1172,76 +1202,119 @@ static char *bin_source(Package *p, Value *bin) {
     if (candidates[i] && exists(path_join(p->root, candidates[i]))) return path_join(p->root, candidates[i]);
   fail("%s: cannot infer the source of binary %s", p->id, name);
 }
-static void build(Node *node, bool root) {
-  if (node->state == 2) return;
-  if (node->state == 1) fail("dependency cycle at %s", node->package->id);
-  node->state = 1;
-  for (size_t i = 0; i < node->normal.size; ++i) build(node->normal.items[i].node, false);
-  for (size_t i = 0; i < node->build.size; ++i) build(node->build.items[i].node, false);
-  Arena temporary = {0}; memory = &temporary;
-  Package *p = node->package; Value *types = get(p->lib, "crate-type");
-  if (types->type != NIL && (types->type != ARRAY || types->size != 1 ||
-      (!equal(str(types->items[0]), "rlib") && !equal(str(types->items[0]), "lib"))))
-    fail("%s: dynamic Rust libraries are not supported", p->id);
-  printf("patti: compile %s (%s)\n", p->id, node->context); fflush(stdout);
-  char *directory = format("%s/build/%s-%s", options.target, p->id, node->context);
-  char *out = path_join(directory, "out"); mkdirs(out);
-  Value *env = environment(node, out), *extra = value(ARRAY);
-  if (p->build) {
-    char *script = path_join(directory, "build-script"), *log = path_join(directory, "output");
-    compile(node, "build_script_build", path_join(p->root, p->build), "bin", script, node->build, env, NULL);
-    if (only_compiled) goto done;
-    if (!repairing()) execute(arguments(script, NULL), p, env, log);
-    build_instructions(node, log, env, extra);
+/* The root's selected [[bin]], or its implicit src/main.rs binary. */
+static Value *root_binary(Package *p) {
+  Value *bins = get(p->manifest, "bin");
+  if (!bins->size && getbool(p->info, "autobins", true) && exists(path_join(p->root, "src/main.rs"))) {
+    bins = value(ARRAY); Value *entry = value(TABLE); setstr(entry, "name", p->name); setstr(entry, "path", "src/main.rs"); append(bins, entry);
   }
-  /* Like Cargo, native search paths also reach every dependent's link. */
-  memory = &permanent;
-  for (size_t i = 0; i < node->normal.size; ++i) {
-    Value *inherited = node->normal.items[i].node->search;
-    for (size_t j = 0; j < inherited->size; ++j) add(node->search, str(inherited->items[j]));
+  Value *selected = NULL;
+  for (size_t i = 0; i < bins->size; ++i) if (!options.binary || equal(options.binary, str(get(bins->items[i], "name")))) {
+    if (selected) fail("select exactly one binary with --bin");
+    selected = bins->items[i];
   }
-  memory = &temporary;
-  for (size_t i = 0; i < node->search->size; ++i) { append(extra, string("-L")); append(extra, node->search->items[i]); }
+  if (!selected) fail("select exactly one binary with --bin");
+  return selected;
+}
+/* A node's steps run in order; each may start one job, and the next step runs
+ * once that job exits. */
+enum { SCRIPT, RUN, LIBRARY, BINARY, BUILT, DONE };
+static void advance(Node *node, Node *root) {
+  Package *p = node->package; memory = &node->arena;
+  char *directory = node_directory(node), *script = path_join(directory, "build-script");
+  char *output = path_join(directory, "output");
   const char *lib_source = path_join(p->root, getstr(p->lib, "path", "src/lib.rs"));
-  if (exists(lib_source)) {
-    const char *name = getstr(p->lib, "name", identifier(p->name, false));
-    bool macro = getbool(p->lib, "proc-macro", false);
-    char *artifact = format("%s/%s%s-%s-%s.%s", deps, macro ? "" : "lib", name, p->version, node->context, macro ? "wasm" : "rlib");
-    compile(node, name, lib_source, macro ? "proc-macro" : "rlib", artifact, node->normal, env, extra);
-    memory = &permanent; node->artifact = copy(artifact); memory = &temporary;
-    if (only_compiled) goto done;
-  } else if (!root) fail("%s: dependency has no library", p->id);
-  if (root && !options.only) {
-    Value *bins = get(p->manifest, "bin");
-    if (!bins->size && getbool(p->info, "autobins", true) && exists(path_join(p->root, "src/main.rs"))) {
-      bins = value(ARRAY); Value *entry = value(TABLE); setstr(entry, "name", p->name); setstr(entry, "path", "src/main.rs"); append(bins, entry);
+  while (!node->job.pid && node->step != DONE) switch (node->step++) {
+  case SCRIPT: {
+    Value *types = get(p->lib, "crate-type");
+    if (types->type != NIL && (types->type != ARRAY || types->size != 1 ||
+        (!equal(str(types->items[0]), "rlib") && !equal(str(types->items[0]), "lib"))))
+      fail("%s: dynamic Rust libraries are not supported", p->id);
+    printf("patti: compile %s (%s)\n", p->id, node->context); fflush(stdout);
+    char *out = path_join(directory, "out"); mkdirs(out);
+    node->env = environment(node, out); node->extra = value(ARRAY);
+    if (p->build) compile(node, "build_script_build", path_join(p->root, p->build), "bin", script, node->build, node->env, NULL);
+    break;
+  }
+  case RUN:
+    if (only_compiled) node->step = DONE;
+    else if (p->build && !repairing()) execute(arguments(script, NULL), node, node->env, output);
+    break;
+  case LIBRARY:
+    if (p->build) build_instructions(node, output, node->env, node->extra);
+    /* Like Cargo, native search paths also reach every dependent's link. */
+    memory = &permanent;
+    for (size_t i = 0; i < node->normal.size; ++i) {
+      Value *inherited = node->normal.items[i].node->search;
+      for (size_t j = 0; j < inherited->size; ++j) add(node->search, str(inherited->items[j]));
     }
-    Value *selected = NULL;
-    for (size_t i = 0; i < bins->size; ++i) if (!options.binary || equal(options.binary, str(get(bins->items[i], "name")))) {
-      if (selected) fail("select exactly one binary with --bin");
-      selected = bins->items[i];
-    }
-    if (!selected) fail("select exactly one binary with --bin");
-    Value *required = get(selected, "required-features");
+    memory = &node->arena;
+    for (size_t i = 0; i < node->search->size; ++i) { append(node->extra, string("-L")); append(node->extra, node->search->items[i]); }
+    if (exists(lib_source)) {
+      const char *name = getstr(p->lib, "name", identifier(p->name, false));
+      bool macro = getbool(p->lib, "proc-macro", false);
+      char *artifact = format("%s/%s%s-%s-%s.%s", deps, macro ? "" : "lib", name, p->version, node->context, macro ? "wasm" : "rlib");
+      compile(node, name, lib_source, macro ? "proc-macro" : "rlib", artifact, node->normal, node->env, node->extra);
+      memory = &permanent; node->artifact = copy(artifact); memory = &node->arena;
+    } else if (node != root) fail("%s: dependency has no library", p->id);
+    break;
+  case BINARY: {
+    if (only_compiled || node != root || options.only) { node->step = DONE; break; }
+    Value *selected = root_binary(p), *required = get(selected, "required-features");
     for (size_t i = 0; i < required->size; ++i) if (!contains(node->features, str(required->items[i]))) fail("%s: missing required features", str(get(selected, "name")));
     Edges dependencies = {0};
     for (size_t i = 0; i < node->normal.size; ++i) edge_put(&dependencies, node->normal.items[i].alias, node->normal.items[i].node);
     if (node->artifact) edge_put(&dependencies, getstr(p->lib, "name", identifier(p->name, false)), node);
     const char *name = str(get(selected, "name"));
-    char *destination = path_join(options.target, name);
-    compile(node, identifier(name, false), bin_source(p, selected), "bin", destination, dependencies, env, extra);
-    memory = &permanent; setstr(report, "binary", destination); memory = &temporary;
-    printf("patti: built %s\n", destination); fflush(stdout);
+    compile(node, identifier(name, false), bin_source(p, selected), "bin", path_join(options.target, name), dependencies, node->env, node->extra);
+    break;
   }
-done:
-  node->state = 2; memory = &permanent; release(&temporary);
+  case BUILT: {
+    char *destination = path_join(options.target, str(get(root_binary(p), "name")));
+    memory = &permanent; setstr(report, "binary", destination); memory = &node->arena;
+    printf("patti: built %s\n", destination); fflush(stdout);
+    break;
+  }
+  }
+  memory = &permanent;
+  if (node->step == DONE) release(&node->arena);
+}
+/* The serial build order: a node follows everything it depends on. */
+static void plan(Node *node) {
+  if (node->state == 2) return;
+  if (node->state == 1) fail("dependency cycle at %s", node->package->id);
+  node->state = 1;
+  for (size_t i = 0; i < node->normal.size; ++i) plan(node->normal.items[i].node);
+  for (size_t i = 0; i < node->build.size; ++i) plan(node->build.items[i].node);
+  node->state = 2; *queue_end = node; queue_end = &node->after;
+}
+static bool ready(Node *node) {
+  for (size_t i = 0; i < node->normal.size; ++i) if (node->normal.items[i].node->step != DONE) return false;
+  for (size_t i = 0; i < node->build.size; ++i) if (node->build.items[i].node->step != DONE) return false;
+  return true;
+}
+/* Starts nodes in serial order once their dependencies are built, with up to
+ * --jobs commands running; -j 1 is the serial build. */
+static void build(Node *root) {
+  plan(root);
+  for (int running = 0;;) {
+    for (Node *n = queue; n && running < options.jobs; n = n->after)
+      if (n->step == SCRIPT && ready(n)) { advance(n, root); running += n->job.pid != 0; }
+    if (!running) break;
+    int pid = -1, status = wait_child(&pid);
+    Node *n = queue;
+    while (n && n->job.pid != pid) n = n->after;
+    if (!n) fail("unexpected child process %d", pid);
+    finish(n, status); advance(n, root);
+    running -= !n->job.pid;
+  }
 }
 
 static Node *output_node(const char *output) {
   Node *found = NULL;
   for (Node *node = nodes; node; node = node->next) {
     Package *p = node->package;
-    bool matches = p->build && equal(output, format("%s/build/%s-%s/build-script", options.target, p->id, node->context));
+    bool matches = p->build && equal(output, path_join(node_directory(node), "build-script"));
     const char *name = getstr(p->lib, "name", identifier(p->name, false));
     bool macro = getbool(p->lib, "proc-macro", false);
     if (exists(path_join(p->root, getstr(p->lib, "path", "src/lib.rs"))))
@@ -1277,7 +1350,7 @@ static const char *find_compiler(const char *name) {
 static char *capture(Value *args) {
   char *path = format("%s/.patti-capture-XXXXXX", options.target);
   int fd = mkstemp(path); if (fd < 0) fail("temporary output: %s", strerror(errno)); close(fd);
-  int status = run(args, NULL, NULL, path);
+  int status = run(args, path);
   char *text = read_text(path); unlink(path);
   if (status) fail("command exited %d: %s", status, str(args->items[0]));
   return text;
@@ -1326,6 +1399,7 @@ static void usage(void) {
        "  --features A,B             Enable features\n"
        "  --no-default-features      Disable root default features\n"
        "  --offline                  Use only verified cached archives\n"
+       "  -j, --jobs N               Run up to N crate commands at once (default: 1)\n"
        "  --cache PATH               Archive/source cache (default: ~/.cache/patti)\n"
        "  --registry URL             Direct archive mirror (default: static.crates.io/crates)\n"
        "  --patch NAME[@VERSION]=PATH Override pinned dependency source\n"
@@ -1340,7 +1414,7 @@ static void usage(void) {
 }
 int main(int argc, char **argv) {
   options = (Options){.manifest = "Cargo.toml", .features = "", .cache = path_join(getenv("HOME") ? getenv("HOME") : "/", ".cache/patti"),
-    .registry = "https://static.crates.io/crates", .rustc = "rustc", .target = "target/patti", .opt = 1, .patches = value(TABLE)};
+    .registry = "https://static.crates.io/crates", .rustc = "rustc", .target = "target/patti", .opt = 1, .jobs = 1, .patches = value(TABLE)};
   for (int i = 1; i < argc; ++i) {
     const char *arg = argv[i];
     if (equal(arg, "--help") || equal(arg, "-h")) { usage(); release(&permanent); return 0; }
@@ -1365,7 +1439,11 @@ int main(int argc, char **argv) {
     else if (equal(arg, "--package")) options.package = v;
     else if (equal(arg, "--only")) options.only = v;
     else if (equal(arg, "--only-output")) options.only_output = absolute(v);
-    else if (equal(arg, "--opt-level")) {
+    else if (equal(arg, "--jobs") || equal(arg, "-j")) {
+      char *end; long jobs = strtol(v, &end, 10);
+      if (*end || jobs < 1 || jobs > INT_MAX) fail("--jobs requires a positive number");
+      options.jobs = (int)jobs;
+    } else if (equal(arg, "--opt-level")) {
       if (strlen(v) != 1 || *v < '0' || *v > '3') fail("--opt-level requires 0, 1, 2 or 3");
       options.opt = *v - '0';
     } else if (equal(arg, "--patch")) {
@@ -1405,7 +1483,7 @@ int main(int argc, char **argv) {
     mkdirs(deps);
     memory = &permanent; release(&temporary);
     if (options.resume && !repairing()) prepare_cache();
-    build(root, true);
+    build(root);
     if (repairing() && !only_compiled) fail("selected compiler output was not built");
     write_report();
   }
