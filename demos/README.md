@@ -14,7 +14,7 @@ README. Demos may use each other; the core never uses a demo.
 - [local-llm](local-llm/README.md): llama.cpp and a bundled Qwen model for Pi.
 - [neovim](neovim/README.md): Neovim with Lua and Tree-sitter parsers.
 - [pi](pi/README.md): the Pi coding agent.
-- [python](python/README.md): CPython and the Bonnie package installer.
+- [python](python/README.md): CPython and stock pip over the HTTP broker.
 - [rts](rts/README.md): Seven Kingdoms matches between two Pi players.
 - [rust](rust/README.md): the Rust compiler seed, Patti, ripgrep and fd.
 - [sdl2](sdl2/README.md): SDL2 over the Dolly framebuffer.

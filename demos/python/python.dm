@@ -1,7 +1,7 @@
 DOLLY 5
 MODULE python
 
-# Build the Python runtime and native extension SDK; Bonnie is a later image step.
+# Build the Python runtime and native extension SDK; pip is a later image step.
 REQUIRES HEADER curl
 REQUIRES HEADER libc
 REQUIRES HEADER runtime

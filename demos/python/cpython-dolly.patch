@@ -48,6 +48,19 @@
 +if sys.platform == "dolly":
 +    from _dolly_subprocess import Popen
 +    _can_fork_exec = True
+--- a/Lib/site.py
++++ b/Lib/site.py
+@@ -710,6 +710,10 @@
+     setquit()
+     setcopyright()
+     sethelper()
++    # HTTP over Dolly's browser broker for urllib.request and requests,
++    # including venvs and pip's isolated build environments.
++    if sys.platform == "dolly":
++        import _dolly_transport
+     if not sys.flags.isolated:
+         enablerlcompleter()
+     execsitecustomize()
 --- a/Lib/threading.py
 +++ b/Lib/threading.py
 @@ -988,6 +988,30 @@

@@ -21,7 +21,8 @@ recipe_hash="$({
     "${BASH_SOURCE[0]}" \
     "${project_dir}/demos/python/cpython-Setup.local" \
     "${project_dir}/demos/python/cpython-dolly.patch" \
-    "${project_dir}/demos/python/cpython-process.c" | awk '{print $1}'
+    "${project_dir}/demos/python/cpython-process.c" \
+    "${project_dir}/demos/python/cpython-http.c" | awk '{print $1}'
 } | sha256sum | awk '{print $1}')"
 configuration="${DOLLY_CPYTHON_COMMIT}:dolly-process-0-wasm64-mmap-v33:${recipe_hash}"
 output_dir="${project_dir}/build/generated/cpython-source-${DOLLY_CPYTHON_COMMIT}-${recipe_hash:0:16}"
@@ -48,6 +49,8 @@ cp -- "${project_dir}/demos/python/cpython-Setup.local" \
   "${temporary}/Modules/Setup.local"
 cp -- "${project_dir}/demos/python/cpython-process.c" \
   "${temporary}/Modules/dolly_process.c"
+cp -- "${project_dir}/demos/python/cpython-http.c" \
+  "${temporary}/Modules/dolly_http.c"
 patch --batch --fuzz=0 --no-backup-if-mismatch -d "${temporary}" -p1 \
   < "${project_dir}/demos/python/cpython-dolly.patch" >/dev/null
 
