@@ -1,6 +1,6 @@
 # Reduce Dolly to a clean core: modular runtime plus minimal POSIX userspace
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 300
 - TAGS: core,cleanup,boundary,build
 
@@ -63,3 +63,10 @@ describe the code as it is.
   plain static files at repository paths, Bonnie is replaced by stock pip, and
   demo names left `generate-routes.mjs`. `next` needs a full catalog rebuild
   before its release.
+
+## Closed (2026-10-01)
+
+The core/demo split, host modules and minimal-core goals shipped in the release
+candidate; what remains of the direction is tracked by
+`20261001-214000-core-polish` (no workarounds in the core) and
+`20261001-214000-dollyfile-v6` (the language).

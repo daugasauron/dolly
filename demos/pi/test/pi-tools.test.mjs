@@ -26,7 +26,9 @@ test("Pi's Slop tool keeps upstream truncation and its full-output file", async 
 });
 
 test("Pi's Slop tool reports exit status, cancellation and timeout after partial output", async () => {
-  await assert.rejects(run("bash", { command: "printf partial; exit 7" }), /^Error: partial\n\nCommand exited with code 7$/);
+  const failed = await run("bash", { command: "printf partial; exit 7" });
+  assert.equal(failed.isError, true);
+  assert.equal(failed.content[0].text, "partial\n\nCommand exited with code 7");
   await assert.rejects(run("bash", { command: "printf partial; exec sleep 5" }, AbortSignal.timeout(300)),
     /^Error: partial\n\nCommand aborted$/);
   await assert.rejects(run("bash", { command: "printf partial; exec sleep 5", timeout: 0.3 }),
@@ -41,11 +43,16 @@ test("Slop output decodes interleaved stdout and stderr scalars independently", 
   assert.deepEqual([...output].sort(), ["あ", "😀"]);
 });
 
-test("Pi's edit refuses non-UTF-8 files and follows the session cwd", async () => {
-  const latin1 = Buffer.from("café old\n", "latin1");
-  await writeFile(join(root, "latin1.txt"), latin1);
-  await assert.rejects(run("edit", { path: "latin1.txt", edits: [{ oldText: "old", newText: "new" }] }), /utf-8/i);
-  assert.deepEqual(await readFile(join(root, "latin1.txt")), latin1);
+test("Pi's edit keeps bytes that are not UTF-8 and follows the session cwd", async () => {
+  const mixed = (word) => Buffer.concat([Buffer.from("\uFEFFcafé ", "utf8"), Buffer.from("café \xff\xed\xa0\x80 ", "latin1"),
+    Buffer.from(`${word}\r\n😀\r\n`)]);
+  await writeFile(join(root, "mixed.txt"), mixed("old"));
+  await run("edit", { path: "mixed.txt", edits: [{ oldText: "old", newText: "new" }] });
+  assert.deepEqual(await readFile(join(root, "mixed.txt")), mixed("new"));
+  const reserved = "old \u{10FF80}\n";
+  await writeFile(join(root, "reserved.txt"), reserved);
+  await assert.rejects(run("edit", { path: "reserved.txt", edits: [{ oldText: "old", newText: "new" }] }), /U\+10FF80/);
+  assert.equal(await readFile(join(root, "reserved.txt"), "utf8"), reserved);
   await writeFile(join(root, "text.txt"), "\uFEFFα\r\nold\r\n😀\r\n");
   await run("edit", { path: "text.txt", edits: [{ oldText: "old", newText: "$& new" }] });
   assert.equal(await readFile(join(root, "text.txt"), "utf8"), "\uFEFFα\r\n$& new\r\n😀\r\n");

@@ -8,7 +8,7 @@ on:
         required: true
         default: pages-latest
       artifact_sha256:
-        description: SHA-256 printed by package-pages.sh for the audited artifact
+        description: SHA-256 of the audited artifact
         required: true
       source_commit:
         description: Committed source revision recorded in the audited artifact

@@ -1,7 +1,7 @@
 DOLLY 6
 APPLICATION dollyfile-studio
 
-FROM https://daugasauron.com/demos/local-llm/Dollyfile-pi-local 7c4feabad54f7ae1cca3d69fc4faeb5642048df0249430b6fb4ddde948b44238
+FROM https://daugasauron.com/demos/local-llm/Dollyfile-pi-local 5642416f339b2a6b273aa12033c7a0f00450cba616bc8a43d9f27aade85535e4
 USE https://daugasauron.com/demos/neovim/neovim-runtime.dm bf8b57cff4b66334b8a4b01a984e1ba4f2cc2c459f36b69ff4827b637d777a52
 USE https://daugasauron.com/demos/studio/dollyfile-studio.dm 12f27fb4ec8addb4e092416e035a7bea4c961554d545dc195489736da3924008
 

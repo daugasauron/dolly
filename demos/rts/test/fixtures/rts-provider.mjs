@@ -73,5 +73,6 @@ export function rtsProvider() {
     }
     return { fast: fast.length, slow: slow.length, overlappingPlayers: firstModels.size };
   }
-  return { handle, verify };
+  const served = model => requests.filter(request => request.model === model).length;
+  return { handle, verify, served };
 }

@@ -1,6 +1,6 @@
 # Pi tool replacement loses truncation and corrupts binary edits
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 120
 - TAGS: bug,pi,demo
 
@@ -32,3 +32,16 @@ Pi runs upstream's bash and edit tools over Dolly operations, restoring
 truncation and streaming (`4e92b84`, tested in `demos/pi/test/pi-tools.test.mjs`).
 Edit refuses non-UTF-8 files instead of corrupting them; the byte-exact round
 trip in "Done when" is not implemented.
+
+## Resolution (2026-10-01)
+
+`demos/pi/dolly-tools.js` now gives Pi's upstream edit tool byte-preserving
+operations: each byte that is not UTF-8 crosses the edit as one code point of
+U+10FF80..U+10FFFF and is written back unchanged; a file that already holds
+those code points is refused. Upstream Pi on Node would write U+FFFD instead.
+With Pi 0.99.2, `demos/pi/test/pi-tools.test.mjs` edits a file mixing a BOM,
+Latin-1, a surrogate encoding and CRLF/emoji text byte-exactly, and refuses
+the reserved range; in Chrome, `npm run test:demos -- pi` edits `old\377` to
+`new\377` through the scripted model and `cmp` confirms the bytes (fixture
+`demos/pi/test/fixtures/pi-tools.mjs` checks the same inside Dolly). Truncation
+and streaming were restored earlier (`4e92b84`) and remain covered.

@@ -1,6 +1,6 @@
 # Deployment path is manual, duplicated and partly undocumented
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 120
 - TAGS: build,doc
 
@@ -37,3 +37,14 @@ workflow dispatch are described. `package-pages.sh` is 122 lines with one list
 of `dist` files (the duplicated lists are gone). Left: every publish also writes
 the Pages tarball (5.4 GB for the local checkpoint), and the site is hashed by
 both `site-release.mjs accept` and `publish`.
+
+## Closed (2026-10-01, `fix/publish-path`)
+
+`package-pages.sh RELEASES SITE` no longer writes a tarball: it stages the site
+beside the releases and `site-release.mjs publish` verifies it once and moves it
+into place, without the 5.9 GB copy and second verification. Only the GitHub
+path tars `RELEASES/current`; `docs/deployment.md` lists that step, the release
+and the workflow dispatch, and that the seed ships as Pages parts. Checked with
+`DOLLY_BUILD_IMAGES=default bash scripts/package-pages.sh build/test-releases`
+(release `fcefcc2c…`, no staging left behind) and `site-release.mjs verify`
+against the checkout; source suite 259/259.

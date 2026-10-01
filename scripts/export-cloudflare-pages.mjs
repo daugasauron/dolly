@@ -22,7 +22,9 @@ export async function pagesAsset(bytes, path) {
   if (!snapshot) {
     const encoded = await compress(bytes, { params: { [constants.BROTLI_PARAM_QUALITY]: 9 } });
     if (encoded.length <= fileLimit) return { bytes: encoded, compressed: true };
-    if (!path.includes("/static/")) throw new Error(`asset exceeds Pages' 25 MiB limit after Brotli: ${path}`);
+    if (!path.includes("/static/") && !path.endsWith("/dist/dolly.data")) {
+      throw new Error(`asset exceeds Pages' 25 MiB limit after Brotli: ${path}`);
+    }
   }
   const parts = [];
   for (let offset = 0; offset < bytes.length; offset += 20 * 1024 * 1024) parts.push(bytes.subarray(offset, offset + 20 * 1024 * 1024));
@@ -45,7 +47,7 @@ export function pagesHeaders(compressed, multipart = []) {
         (path.includes("/static/") ? "\n  Content-Type: application/octet-stream" : "");
     }),
     ...[...multipart].sort().map(path => {
-      if (!/^(_dolly\/[a-f0-9]{64}\/dist\/static\/[a-zA-Z0-9_./-]+|dist\/packs\/[a-f0-9]{64}\.snapshot\.gz)$/.test(path)) throw new Error(`invalid Pages multipart path: ${path}`);
+      if (!/^(_dolly\/[a-f0-9]{64}\/dist\/(static\/[a-zA-Z0-9_./-]+|dolly\.data)|dist\/packs\/[a-f0-9]{64}\.snapshot\.gz)$/.test(path)) throw new Error(`invalid Pages multipart path: ${path}`);
       return `/${path}\n  X-Dolly-Parts: 1\n  Content-Type: application/octet-stream`;
     }),
   ];

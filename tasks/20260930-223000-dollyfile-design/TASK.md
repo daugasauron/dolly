@@ -1,6 +1,6 @@
 # Dollyfile: design as executed, and gaps against it
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 280
 - TAGS: dollyfile,design,replicability
 
@@ -88,3 +88,8 @@ Candidate directions, for the owner to choose:
    environment; does not help bulk copies, where directory `COPY` is already one row.
 3. A pinned build context for Studio and custom recipes (files from the author's
    workspace, hashed in the recipe), if multi-file projects matter.
+
+## Closed (2026-10-01)
+
+Superseded by `20261001-214000-dollyfile-v6`, which redesigns the language from
+first principles with this record as input.

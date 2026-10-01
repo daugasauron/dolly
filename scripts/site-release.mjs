@@ -3,7 +3,7 @@
 import { spawn, execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { createReadStream } from "node:fs";
-import { cp, lstat, mkdir, mkdtemp, readdir, readFile, rename, rm, symlink, writeFile } from "node:fs/promises";
+import { lstat, mkdir, mkdtemp, readdir, readFile, rename, rm, symlink, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { gunzipSync } from "node:zlib";
@@ -186,17 +186,15 @@ export async function verifyRelease(site, sourceRoot) {
   return sha256(manifest);
 }
 
+// Moves the verified site into RELEASES, so it must be staged on the same filesystem.
 export async function publishRelease(site, releases) {
   const digest = await verifyRelease(site);
   await mkdir(releases, { recursive: true });
   const temporary = await mkdtemp(resolve(releases, ".publish-"));
   try {
-    const candidate = resolve(temporary, "site");
-    await cp(site, candidate, { recursive: true, force: false, errorOnExist: true });
-    if (await verifyRelease(candidate) !== digest) throw new Error("release changed while staging publication");
     const destination = resolve(releases, digest);
     try {
-      await rename(candidate, destination);
+      await rename(site, destination);
     } catch (error) {
       if (!["EEXIST", "ENOTEMPTY"].includes(error.code) || await verifyRelease(destination) !== digest) throw error;
     }

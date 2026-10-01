@@ -1,6 +1,6 @@
 # Replace HOST with full URLs for every Dollyfile resource
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 250
 - TAGS: dollyfile,design,syntax
 
@@ -84,3 +84,10 @@ Evidence (image inputs `cb36b970…`):
 
 Remaining: the same check against the deployed daugasauron.com once a DOLLY 5
 release is published; the Studio browser test (a 20-image closure) was not run.
+
+## Closed (2026-10-01)
+
+DOLLY 5 is live: daugasauron.com serves release `38b08a88…`, sealed from the
+same snapshots the local candidate (`d1459402…`, 127.0.0.1:9001) serves, and
+`site-release.mjs` verified each image's identity against its recipes when both
+were sealed.

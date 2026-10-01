@@ -1,6 +1,6 @@
 # Investigate the local LLM performance gap in Firefox
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 60
 - TAGS: gpu,llm,performance
 
@@ -21,3 +21,8 @@ and CPU/GPU graph placement. Compare foreground browsers using identical
 prompts and isolate the dominant cost before changing the ABI or adding queues.
 Preserve exact capability validation and cancellation. Finish with a measured
 improvement or a demonstrated external implementation blocker.
+
+## Closed (2026-10-01)
+
+Merged into `20261001-214000-pi-local-model`, which measures each candidate
+model in Chrome and Firefox.

@@ -1,6 +1,6 @@
 # Release candidate from `next` for local review
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 340
 - TAGS: release,review
 
@@ -48,3 +48,15 @@ passes every suite.
 - Source 341/341, artifacts 25/25, core browser suites all pass in Chrome and
   Firefox, all 12 demo tests pass (Chrome), and the publish browser-checked all
   42 images. `default`, Codex and Python boot from :9001.
+
+## Approved and deployed (2026-10-01)
+
+The owner reviewed the candidate and asked to push and deploy. `main` moved to
+the candidate (`5574fb8`, then the Pages fixes `f35c0d9`, `bbcb089`: the seed
+now ships as verified parts because it exceeds Cloudflare's 25 MiB file limit
+after Brotli). daugasauron.com serves release `38b08a88…` (Cloudflare
+deployment `e46311f0`); `default`, Codex and Python boot from it in headless
+Chrome. GitHub Pages: release `pages-bbcb089-r1` (artifact SHA-256
+`b9be67c0…`) and workflow run 36869300866.
+GitHub Pages workflow run 36869300866 succeeded; daugasauron.github.io/dolly
+serves release `539678a6…`, and `default` and Python boot from it.

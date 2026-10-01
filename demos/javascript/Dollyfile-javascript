@@ -3,7 +3,7 @@ PACKAGE javascript
 
 # QuickJS, Janis and TypeScript, built by typescript-build; the package keeps
 # only the exports below.
-FROM https://daugasauron.com/demos/javascript/Dollyfile-typescript-build b9025261b9c555ecd81a0545507deffa0d90fdf3a775cb7cb7f0f7b61bdb2b61
+FROM https://daugasauron.com/demos/javascript/Dollyfile-typescript-build d2017ad3aa84d617d519d986641914cd17250c2675edf6a130bcc597cbda3373
 
 EXPORTS TOOL   qjs
 EXPORTS TOOL   janis

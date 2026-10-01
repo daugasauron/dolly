@@ -10,7 +10,7 @@ import { imageInputs } from "./image-inputs.mjs";
 import { inspectDollyfile, MAX_DOLLYFILE_BYTES } from "./dollyfile-view.mjs";
 import { decodeImageEntry } from "./image-entry.mjs";
 import { checkedCustomArtifact } from "./custom-image.mjs";
-import { CANONICAL_ORIGIN, hex } from "./static-asset.mjs";
+import { CANONICAL_ORIGIN, decodeStaticAsset, hex } from "./static-asset.mjs";
 
 const encoder = new TextEncoder();
 const decoder = new TextDecoder("utf-8", { ignoreBOM: true });
@@ -168,6 +168,10 @@ try {
   if (bootMode === "rebuild" && !baseArtifact) {
     bootstrapStage("loading root compiler seed...");
     const { default: loadSeed } = await import("../dist/dolly-seed.mjs");
+    // Static hosts may serve the seed as verified parts; the packager takes the joined bytes.
+    const seedURL = locateArtifact("dolly.data");
+    const seed = await (await decodeStaticAsset(await fetch(seedURL), seedURL, {}, snapshotSizeLimit)).arrayBuffer();
+    dolly.getPreloadedPackage = () => seed;
     await loadSeed(dolly);
   }
   bootstrapStage("Dolly runtime loaded");

@@ -1,11 +1,11 @@
 DOLLY 6
 APPLICATION pi-local
 
-FROM https://daugasauron.com/demos/pi/Dollyfile-pi af990e6de960fdfade08cc8812e0768db17a3d311e8de76d816357cef1f6c5a7
+FROM https://daugasauron.com/demos/pi/Dollyfile-pi 3e88edbe653de3547a6c0829e043f125ea870c893bb2d1852e88600663b2eac6
 COPY https://daugasauron.com/demos/local-llm/Dollyfile-local-llm-build 1529d61c5922fde098471e6fdb6e945620b8baf19426a84db004ca7ee0774606 /usr/bin/dolly-llama /usr/bin/dolly-llama
 COPY https://daugasauron.com/demos/local-llm/Dollyfile-llama-build bf099ef30b1b2009d87a96b207abc0450ebea5d66de9e9db5e36db72ac1c7b23 /usr/share/licenses/dolly-llm /usr/share/licenses/dolly-llm
 EXPORTS TOOL dolly-llama
 USE https://daugasauron.com/demos/local-llm/local-llm-weights.dm 42efad0c87ddb868c63fb9b82675a69fc53bc86d9bd63c331eccb3921af0fc45
-USE https://daugasauron.com/demos/local-llm/local-llm.dm 9e8878c9fa3d4ff880827d4640372085109e19a060aacff2696176be2a97587c
+USE https://daugasauron.com/demos/local-llm/local-llm.dm 368dd36e098e4a2f9b6466b51a6e77eabedbec358df204fcebd24f35ec2c695e
 
 ENTRY /bin/foreground -i /bin/slop /etc/dolly/init.slop

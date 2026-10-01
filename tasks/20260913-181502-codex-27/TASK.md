@@ -1,6 +1,6 @@
 # Measure independent Studio task correctness beyond successful builds
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 40
 - TAGS: audit,local-model,testing
 
@@ -34,3 +34,9 @@ actual bad edit: `while ((line = fgets(0, 0, stdin)) != NULL)` followed by addin
 the requested stdin/output tests. This is incorrect generated C and incomplete
 validation, not evidence that Dolly lost pipe input. A fresh independent model
 run is still needed to classify the current configuration.
+
+## Closed (2026-10-01)
+
+Stale: Studio's agent quality depends on the Pi and model upgrades now tracked
+by `20261001-214000-pi-upgrade` and `20261001-214000-pi-local-model`; measure
+there.

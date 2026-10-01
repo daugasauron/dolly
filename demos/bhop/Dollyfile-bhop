@@ -2,8 +2,8 @@ DOLLY 6
 APPLICATION bhop
 
 FROM https://daugasauron.com/demos/slopyard/Dollyfile-gamedev-sdk 61a83a30f75910000cb2890e3e7d57bf165d8bdbd3f935a856be2515123c448e
-INSTALL https://daugasauron.com/demos/javascript/Dollyfile-javascript 8cd3991393fbe6664963f683acd425ace5131f053e80a38f6ab7fcc68ab1b9de
-USE https://daugasauron.com/demos/pi/pi.dm b745456fc991639b029e737fdcc99f08fb51ed8a19c5a7a7e36d3fd7b62e10ec
+INSTALL https://daugasauron.com/demos/javascript/Dollyfile-javascript 3267642e23fd4fe701cf0d48c70ffa2110a6e64db85b4fdb8d7bd92e7d179bb2
+USE https://daugasauron.com/demos/pi/pi.dm 17fa6390334674b2a6dc099d6691f3f768e698603b1a0917cd778f6bd1c0c3b7
 COPY https://daugasauron.com/demos/sdl2/Dollyfile-sdl2-build d07865b47a9e54c5ff935c6f75e9d89c757376557e0f73607c16196e9cafc925 /usr/include/SDL2 /usr/include/SDL2
 COPY https://daugasauron.com/demos/sdl2/Dollyfile-sdl2-build d07865b47a9e54c5ff935c6f75e9d89c757376557e0f73607c16196e9cafc925 /usr/lib/libSDL2.a /usr/lib/libSDL2.a
 COPY https://daugasauron.com/demos/sdl2/Dollyfile-sdl2-build d07865b47a9e54c5ff935c6f75e9d89c757376557e0f73607c16196e9cafc925 /usr/share/licenses/SDL2 /usr/share/licenses/SDL2

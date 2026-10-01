@@ -3,7 +3,7 @@ TOOLCHAIN typescript-build
 
 FROM https://daugasauron.com/Dollyfile-system-tools eac7e02f26bd41f6c9f03da8b33146269318488433fc011c1e523bd34e6ed6ad
 
-USE https://daugasauron.com/demos/javascript/quickjs.dm c647b37c8111afff435628704ed4655618b9e72750dda8ed942a77ed3aaae694
+USE https://daugasauron.com/demos/javascript/quickjs.dm 4caac6e14a8f072c6b480d84ed5fa4e05652c61bc8e9033038b417d492197eb9
 USE https://daugasauron.com/demos/javascript/typescript.dm 67dc47ca4d15aea36c99285aef170874f3c3c37b27b9065f053bcb954a77889e
 
 ENTRY /bin/foreground -i /bin/slop

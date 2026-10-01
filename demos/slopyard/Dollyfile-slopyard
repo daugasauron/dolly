@@ -2,8 +2,8 @@ DOLLY 6
 APPLICATION slopyard
 
 FROM https://daugasauron.com/demos/slopyard/Dollyfile-gamedev-sdk 61a83a30f75910000cb2890e3e7d57bf165d8bdbd3f935a856be2515123c448e
-INSTALL https://daugasauron.com/demos/javascript/Dollyfile-javascript 8cd3991393fbe6664963f683acd425ace5131f053e80a38f6ab7fcc68ab1b9de
-USE https://daugasauron.com/demos/pi/pi.dm b745456fc991639b029e737fdcc99f08fb51ed8a19c5a7a7e36d3fd7b62e10ec
+INSTALL https://daugasauron.com/demos/javascript/Dollyfile-javascript 3267642e23fd4fe701cf0d48c70ffa2110a6e64db85b4fdb8d7bd92e7d179bb2
+USE https://daugasauron.com/demos/pi/pi.dm 17fa6390334674b2a6dc099d6691f3f768e698603b1a0917cd778f6bd1c0c3b7
 USE https://daugasauron.com/demos/slopyard/lua55.dm af7ed0c29905efe5d0a4a1c538331095dbf060f18ec098690d6d9d3705f56b03
 USE https://daugasauron.com/demos/slopyard/slopyard.dm 91dfacde5e126ed733c479d674223a3faa5f2c26c1f959fb38b47b9b280a0e57
 

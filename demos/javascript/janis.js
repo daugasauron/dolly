@@ -1605,6 +1605,8 @@ const janisOs = {
   totalmem: unsupported("os.totalmem"),
   freemem: unsupported("os.freemem"),
   endianness: () => "LE",
+  // Only the signals a Dolly child can report.
+  constants: { signals: { ...childSignals } },
 };
 
 function formatValue(value) {
@@ -2334,7 +2336,7 @@ const janisBuiltinModules = {
   module: {
     Module: JanisModule,
     createRequire: (filename) => createJanisRequire(
-      filename instanceof URL ? fileURLToPath(filename) : String(filename),
+      filename instanceof URL || String(filename).startsWith("file:") ? fileURLToPath(filename) : String(filename),
     ),
     builtinModules: [...janisBuiltinModuleNames, ...janisBuiltinModuleNames.map((name) => `node:${name}`)],
     isBuiltin: (name) => Boolean(janisBuiltinModules[String(name).replace(/^node:/, "")]),
@@ -2442,7 +2444,9 @@ janisBuiltinModules.zlib = {
   gzipSync: unavailableZlib,
   gunzipSync: unavailableZlib,
   deflateSync: unavailableZlib,
+  deflateRawSync: unavailableZlib,
   inflateSync: unavailableZlib,
+  crc32: unavailableZlib,
   createGunzip: unavailableZlib,
   createGzip: unavailableZlib,
   createInflate: unavailableZlib,
