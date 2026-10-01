@@ -1,6 +1,6 @@
 # Make ordinary artillery affect cargo missions through physics
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 70
 - TAGS: game,physics,controllers
 
@@ -32,3 +32,10 @@ Complete only after actual air, ground and hoist supply/reloading passes for all
 six Tengu-program and two Hosen stations, with physical friendly/terrain checks
 retained and no weakening of the opponent. Otherwise preserve this measured
 finding and leave the existing production guns unchanged.
+
+## Closed (2026-10-01)
+
+Closed as an unadopted experiment. The only useful private result, a three-box
+round delaying a courier by 21 s, never reached the catalog, and its evidence
+(build/overnight-20260928/) is gone. Artillery effects on cargo are one line in
+`20261001-223000-slopyard-living-world`.

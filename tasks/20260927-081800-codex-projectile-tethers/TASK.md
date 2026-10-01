@@ -1,6 +1,6 @@
 # Launch, ground and recover independent magnetic tether rounds
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 90
 - TAGS: game,combat,physics
 
@@ -97,3 +97,11 @@ second shot. Finally verify repeated populated-world encounters and save/restore
 The earlier four-part supported shot is retained in
 `build/combat-20260927/tether-offset14`; ordinary projectile effects have their
 separate task `20260928-013500-codex-artillery-effects`.
+
+## Closed (2026-10-01)
+
+Closed. The catalog keeps the four-part Kusari round; `slopyard-tether-lifecycle.c`
+runs in `slopyard-browser.mjs` and passes (capture 0.017 s, ground handle held,
+supported release 18.9 s, retrieval-ready return 31.2 s). Reuse of a returned
+round was never established, and the five-part/terrain-9 experiments and their
+evidence are gone. Repeated tether rounds are one line in `20261001-223000-slopyard-living-world`.

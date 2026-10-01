@@ -1,6 +1,6 @@
 # Steer wheeled vehicles through articulated servo axles
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 70
 - TAGS: game,controls,physics
 
@@ -62,3 +62,13 @@ upright and seeking more cargo. East's truck is overturned and Nekote still
 has zero placements. Both cable tugs are upright with their real handle grips.
 The full run has 15 world deliveries and no faults/deaths; these outcomes keep
 the broader traffic/docking task OPEN.
+
+## Closed (2026-10-01)
+
+Done. The starter car, Tonbi trucks, Nekote and the Kanagu tugs steer through
+servo axles. `slopyard-pilot.c`, updated in `bcaed6e` for the axle, checks
+forward/right/left driving, remapped wheel keys and a rotated car, and the driver
+part of `slopyard-browser.mjs` steers with D/A, re-centres and turns the Eyes
+camera in Chrome. In a 2,400 s audit the trucks complete jobs without long
+loaded stalls (Tonbi East 2, West 1, Nekote 8); remaining congestion is in
+`20261001-223000-slopyard-living-world`.

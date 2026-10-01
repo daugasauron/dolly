@@ -1,6 +1,6 @@
 # Make catapult hits interrupt cargo flights
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 60
 - TAGS: game,combat,cargo,controllers
 
@@ -163,3 +163,12 @@ still reaches100N. No errors/losses/deaths. Full trace:
 `...-chrome-payload-beam-spin/salvage/`. The C fixture exits1; the Xvfb wrapper
 exits5 after exporting all artifacts. Its sole leftover Xvfb process was stopped.
 Beam ammunition and these gun programs remain experimental and unbundled.
+
+## Closed (2026-10-01)
+
+Closed as an unadopted experiment. Across every recorded trial, payload and
+carrier hits never broke a powered magnet grip, and the closest candidates were
+unsafe (friendly impacts) or wider-tolerance misses. Their inputs (JSON saves,
+JavaScript programs, build/slopyard-payload-defense/) are gone and the catalog's
+guns never changed. Cargo denial by artillery is one line in `20261001-223000-slopyard-living-world`, whose fresh
+2,400 s audit counts 14 shots from four of the eight guns.

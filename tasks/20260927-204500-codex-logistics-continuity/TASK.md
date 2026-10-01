@@ -1,6 +1,6 @@
 # Restore inactive cargo links and share artillery resupply
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 30
 - TAGS: game,physics,controllers,performance
 
@@ -129,3 +129,12 @@ All four runs retain every actor with zero faults/removals. None is promoted.
   relocation is needed, not cargo23's earlier proposed move.
 - Run the combined populated map, confirm no controller faults/removals and
   retain FPS headroom. `station-coverage.md` tracks exact per-route coverage.
+
+## Closed (2026-10-01)
+
+Closed in favour of `20261001-223000-slopyard-living-world`. The committed foundry and Shio fixes are in the
+catalog; the shared-fleet terrain-9 work stayed private and its evidence is gone.
+A fresh 2,400 s audit of the current catalog shows which links still carry
+cargo: the West sea chain (Oreki → Kishi → Shio → Aoba → West receiving crane)
+scored 3 heavy pallets, while the foundry chain stalled once its hauler overturned,
+and the East crane boat, quay crane, barges and East forklift moved nothing.

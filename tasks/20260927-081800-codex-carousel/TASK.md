@@ -1,6 +1,6 @@
 # Make the cargo carousel visibly useful and reliable
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 60
 - TAGS: game,controllers,cargo
 
@@ -60,3 +60,12 @@ an ungripped job after 120 s with a 300 s retry delay changes its target from 73
 to 74 to 72 over 300 s, but produces no pickup. No faults/deaths. A deadline alone
 is insufficient; routing/approach geometry remains the next problem to solve.
 The experimental source is in `pickup-timeout-before.lua`; it is not canonical.
+
+## Closed (2026-10-01)
+
+Done. In a fresh 2,400 s audit of the current catalog (`20261001-223000-slopyard-living-world`) the chain repeats
+on its own: Nekote completes 8 shed→carousel jobs, Kaiten records 11 pickups and
+10 handoffs, and Mochi makes 6 trips from the carousel, with no controller faults
+or falls (minimum up 0.983 / 0.997). `slopyard-carousel-feeder.c` (pickup
+78.7 s, supported placement 238.6 s, carousel receipt 249.3 s) runs in
+`slopyard-browser.mjs`. The stalled September saves no longer exist.

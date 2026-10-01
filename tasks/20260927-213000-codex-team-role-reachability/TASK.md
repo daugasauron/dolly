@@ -1,6 +1,6 @@
 # Give scouts and recovery patrols reachable useful work
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 90
 - TAGS: game,controllers,physics
 
@@ -103,3 +103,13 @@ canonical terrain 8. The new scenarios capture the map's initial version rather
 than hard-coding a future map; the older biped case stays on terrain 8. All
 three physical dispatch/delivery missions pass without controller changes, with
 the same 211.167/368.667 s surveyor delivery times as the staged terrain 9 proof.
+
+## Closed (2026-10-01)
+
+Closed. The verified controller changes are in the catalog and their fixtures
+(`slopyard-role-chains.c`, `slopyard-biped-scout.c`, `slopyard-team-strategy.c`)
+pass in `slopyard-browser.mjs`. The remaining step, integrating the terrain-9
+staging, was never adopted. In a fresh 2,400 s audit (`20261001-223000-slopyard-living-world`) the scouts and
+surveyors report continuously (221–743 radio reports each), while the cable
+tugs, rescuers and scrap collectors patrol with nothing to grip; that idle
+capacity is listed there.
