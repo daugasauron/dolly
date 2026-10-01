@@ -7,6 +7,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/time.h>
 #include <sys/wait.h>
 #include <time.h>
 #include <unistd.h>
@@ -17,6 +18,7 @@ static char lock_path[4096], exit_path[4096];
 static const char *mode;
 static volatile sig_atomic_t received;
 static volatile sig_atomic_t depth, maximum_depth;
+static volatile sig_atomic_t alarms;
 
 static void normal_exit(void) {
   int fd = open(exit_path, O_WRONLY | O_CREAT, 0666);
@@ -45,6 +47,10 @@ static void information_handler(int number, siginfo_t *information, void *contex
   received = number == SIGTERM && information->si_signo == number && context == NULL;
 }
 
+static void count_alarm(int number) {
+  alarms += number == SIGALRM;
+}
+
 static void resize_handler(int number) {
   usleep(650000); /* Resize must not inherit the interrupt termination deadline. */
   received = number == SIGWINCH;
@@ -62,6 +68,79 @@ static void wait_for_file(const char *path) {
   CHECK(access(path, F_OK) == 0);
 }
 
+/* Without system calls no handler can run; only the kernel can end the loop. */
+static void spin(uint64_t rounds) {
+  for (volatile uint64_t round = 0; round < rounds; ++round) {}
+}
+
+static void alarm_child(const char *mode) {
+  if (!strcmp(mode, "alarm-sleep")) {
+    CHECK(alarm(1) == 0);
+    sleep(10);
+    exit(1);
+  }
+  if (!strcmp(mode, "alarm-spin")) {
+    CHECK(alarm(1) == 0);
+    for (;;) spin(1);
+  }
+  /* A handled alarm never forces termination, even while it stays pending. */
+  uint64_t rounds = 0;
+  const double started = now();
+  while (now() - started < 0.1) { spin(100000); rounds += 100000; }
+  CHECK(signal(SIGALRM, count_alarm) != SIG_ERR);
+  const struct itimerval every = {{0, 50000}, {0, 50000}};
+  CHECK(setitimer(ITIMER_REAL, &every, NULL) == 0);
+  spin(rounds * 15); /* About 1.5 s: well past the 500 ms interrupt grace. */
+  CHECK(alarms == 0);
+  dolly_exit(0);
+}
+
+static void check_alarms(char *self, char *directory) {
+  const char *modes[] = {"alarm-sleep", "alarm-spin", "alarm-handled-spin"};
+  int pids[3];
+  const double started = now();
+  for (int index = 0; index < 3; ++index) {
+    char *arguments[] = {self, directory, (char *)modes[index], NULL};
+    pids[index] = dolly_spawn(self, 3, arguments, 0, 1, 2);
+    CHECK(pids[index] > 0);
+  }
+  for (int index = 0; index < 3; ++index) {
+    int status;
+    CHECK(waitpid(pids[index], &status, 0) == pids[index]);
+    if (index < 2) CHECK(WIFSIGNALED(status) && WTERMSIG(status) == SIGALRM);
+    else CHECK(WIFEXITED(status) && WEXITSTATUS(status) == 0);
+  }
+  CHECK(now() - started < 4);
+
+  struct itimerval timer = {0};
+  CHECK(setitimer(ITIMER_VIRTUAL, &timer, NULL) == -1 && errno == EINVAL);
+  CHECK(getitimer(ITIMER_PROF, &timer) == -1 && errno == EINVAL);
+  CHECK(alarm(5) == 0 && getitimer(ITIMER_REAL, &timer) == 0);
+  const long left = timer.it_value.tv_sec * 1000000L + timer.it_value.tv_usec;
+  CHECK(left > 4000000 && left <= 5000000 && timer.it_interval.tv_usec == 0);
+  CHECK(alarm(0) == 5 && getitimer(ITIMER_REAL, &timer) == 0);
+  CHECK(timer.it_value.tv_sec == 0 && timer.it_value.tv_usec == 0);
+
+  const struct sigaction interrupting = {.sa_handler = count_alarm};
+  CHECK(sigaction(SIGALRM, &interrupting, NULL) == 0);
+  int idle[2];
+  char byte;
+  CHECK(pipe(idle) == 0);
+  const struct itimerval once = {{0, 0}, {0, 100000}};
+  CHECK(setitimer(ITIMER_REAL, &once, NULL) == 0);
+  CHECK(read(idle[0], &byte, 1) == -1 && errno == EINTR && alarms == 1);
+  CHECK(alarm(1) == 0 && sleep(3) == 2 && alarms == 2);
+
+  alarms = 0;
+  const struct itimerval every = {{0, 50000}, {0, 50000}}, disarm = {0};
+  CHECK(setitimer(ITIMER_REAL, &every, NULL) == 0);
+  const double deadline = now() + 2;
+  while (alarms < 3 && now() < deadline) usleep(10000);
+  CHECK(setitimer(ITIMER_REAL, &disarm, &timer) == 0 && alarms >= 3);
+  CHECK(timer.it_interval.tv_sec == 0 && timer.it_interval.tv_usec == 50000);
+  CHECK(signal(SIGALRM, SIG_DFL) == count_alarm && close(idle[0]) == 0 && close(idle[1]) == 0);
+}
+
 int main(int argc, char **argv) {
   CHECK(argc >= 2);
   CHECK(snprintf(lock_path, sizeof(lock_path), "%s/signal.lock", argv[1]) < sizeof(lock_path));
@@ -76,6 +155,7 @@ int main(int argc, char **argv) {
     }
     dolly_exit(23);
   }
+  if (argc == 3 && !strncmp(argv[2], "alarm-", 6)) alarm_child(argv[2]);
   if (argc == 3) {
     mode = argv[2];
     if (!strcmp(mode, "leaf")) snprintf(lock_path, sizeof(lock_path), "%s/leaf.lock", argv[1]);
@@ -212,6 +292,7 @@ int main(int argc, char **argv) {
   int32_t number = SIGINT, waiting_signal;
   CHECK(dolly_process_call(DOLLY_PROCESS_SIGNAL_ACKNOWLEDGE, &number, sizeof(number),
       &waiting_signal, sizeof(waiting_signal)) == -EINVAL);
+  check_alarms(argv[0], argv[1]);
 
   char repository[4096], index_lock[4096];
   snprintf(repository, sizeof(repository), "%s/repo", argv[1]);

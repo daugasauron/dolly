@@ -105,7 +105,7 @@ sequenceDiagram
 ## Signals
 
 - Supported: `SIGHUP`, `SIGINT`, `SIGQUIT`, `SIGABRT`, `SIGKILL`, `SIGPIPE`,
-  `SIGTERM`, `SIGCHLD`, `SIGWINCH`; others are rejected.
+  `SIGALRM`, `SIGTERM`, `SIGCHLD`, `SIGWINCH`; others are rejected.
 - Handlers run in Wasm at syscall boundaries ([`signal.c`](../src/process/signal.c))
   with masks, `SA_RESTART`, `SA_RESETHAND`, `SA_NODEFER` and `SA_SIGINFO`.
   Alternate stacks, `sigwait`, asynchronous preemption and `SA_NOCLDWAIT` are
@@ -122,6 +122,11 @@ sequenceDiagram
   unblocks interrupts it before the wait. `select` is unsupported.
 - `SIGCHLD` is queued once a child is waitable. `SIGWINCH` follows terminal
   resizes and never forces termination.
+- `alarm`, `setitimer` and `getitimer` support only `ITIMER_REAL` (others fail
+  with `EINVAL`); the supervisor raises due timers on its 16 ms tick. A
+  default-action SIGALRM is delivered like `kill`, ending even a CPU loop. libc
+  tells the kernel while SIGALRM is handled or ignored; it then only becomes
+  pending and never forces termination.
 - Clock reads use the Worker's clock aligned to the kernel's origin, but enter the
   kernel at least once per millisecond so signals arrive in clock-only loops.
 

@@ -52,6 +52,8 @@ export const DOLLY_PROCESS_INTERRUPT_POLL = 66;
 export const DOLLY_PROCESS_INFO = 67;
 export const DOLLY_PROCESS_SIGNAL = 68;
 export const DOLLY_PROCESS_SIGNAL_ACKNOWLEDGE = 69;
+export const DOLLY_PROCESS_ALARM = 70;
+export const DOLLY_PROCESS_ALARM_HANDLED = 71;
 export const DOLLY_PROCESS_HTTP_START = 80;
 export const DOLLY_PROCESS_HTTP_POLL = 81;
 export const DOLLY_PROCESS_HTTP_CANCEL = 82;
@@ -86,10 +88,11 @@ export const DOLLY_PROCESS_SIGQUIT = 3;
 export const DOLLY_PROCESS_SIGABRT = 6;
 export const DOLLY_PROCESS_SIGKILL = 9;
 export const DOLLY_PROCESS_SIGPIPE = 13;
+export const DOLLY_PROCESS_SIGALRM = 14;
 export const DOLLY_PROCESS_SIGTERM = 15;
 export const DOLLY_PROCESS_SIGCHLD = 17;
 export const DOLLY_PROCESS_SIGWINCH = 28;
-export const DOLLY_PROCESS_SIGNAL_MASK = 268477006;
+export const DOLLY_PROCESS_SIGNAL_MASK = 268493390;
 export const DOLLY_PROCESS_FD_DUP_MINIMUM = 1;
 export const DOLLY_PROCESS_FD_DUP_CLOEXEC = 2;
 export const DOLLY_PROCESS_FD_STATUS_READ = 1;
@@ -189,6 +192,7 @@ export const DOLLY_PROCESS_SIZEOF = Object.freeze({
   dolly_process_wait_request: 8,
   dolly_process_wait_response: 16,
   dolly_process_signal_request: 8,
+  dolly_process_alarm: 16,
   dolly_process_fd_seek_request: 16,
   dolly_process_clock_request: 16,
   dolly_process_path_request: 16,

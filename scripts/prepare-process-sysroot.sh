@@ -64,10 +64,10 @@ for library in libstandalonewasm-mt-memgrow.a libdlmalloc-mt.a \
   cp -- "${emscripten_lib}/${library}" "${staging}/threads/"
 done
 
-# Dolly owns signal state. Keeping the replaced objects lets -rdynamic root
-# Emscripten's action_abort/action_terminate helpers and pull in a second owner.
+# Dolly owns signal and timer state. Keeping the replaced objects lets -rdynamic
+# root Emscripten's action_abort/action_terminate helpers and pull in a second owner.
 emar d "${staging}/libc-ww.a" \
-  raise.o sigaction.o pthread_sigmask.o sigtimedwait.o
+  raise.o sigaction.o pthread_sigmask.o sigtimedwait.o setitimer.o getitimer.o
 
 "${llvm_nm}" -j --defined-only --extern-only \
   "${staging}/libc-ww.a" \

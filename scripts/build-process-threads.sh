@@ -28,4 +28,5 @@ cp /emsdk/upstream/emscripten/cache/sysroot/lib/wasm64-emscripten/libc-mt.a "$ta
 # actual mutex/condition/semaphore/once/TSD/stdio algorithms unchanged.
 emar d "$target/libc-mt.a" pthread_create.o pthread_join.o pthread_detach.o \
   pthread_cancel.o pthread_setcanceltype.o library_pthread.o emscripten_futex_wait.o \
-  emscripten_futex_wake.o pthread_kill.o raise.o sigaction.o pthread_sigmask.o sigtimedwait.o sched_yield.o
+  emscripten_futex_wake.o pthread_kill.o raise.o sigaction.o pthread_sigmask.o sigtimedwait.o sched_yield.o \
+  setitimer.o getitimer.o

@@ -87,6 +87,12 @@ enum dolly_process_operation {
   DOLLY_PROCESS_SIGNAL = 68,
   /* Complete delivery after the userspace handler returns. i32 signal -> i32 pending. */
   DOLLY_PROCESS_SIGNAL_ACKNOWLEDGE = 69,
+  /* dolly_process_alarm -> the previous dolly_process_alarm; an empty request
+   * only reads the timer. */
+  DOLLY_PROCESS_ALARM = 70,
+  /* i32 1 while userspace handles or ignores SIGALRM, else 0 -> no response.
+   * A due SIGALRM's default action ends even a process making no system call. */
+  DOLLY_PROCESS_ALARM_HANDLED = 71,
 
   DOLLY_PROCESS_HTTP_START = 80,
   DOLLY_PROCESS_HTTP_POLL = 81,
@@ -148,6 +154,7 @@ enum dolly_process_signal {
   DOLLY_PROCESS_SIGABRT = 6,
   DOLLY_PROCESS_SIGKILL = 9,
   DOLLY_PROCESS_SIGPIPE = 13,
+  DOLLY_PROCESS_SIGALRM = 14,
   DOLLY_PROCESS_SIGTERM = 15,
   DOLLY_PROCESS_SIGCHLD = 17,
   DOLLY_PROCESS_SIGWINCH = 28,
@@ -156,7 +163,8 @@ enum dolly_process_signal {
   (1u << DOLLY_PROCESS_SIGHUP | 1u << DOLLY_PROCESS_SIGINT |              \
    1u << DOLLY_PROCESS_SIGQUIT | 1u << DOLLY_PROCESS_SIGABRT |            \
    1u << DOLLY_PROCESS_SIGKILL | 1u << DOLLY_PROCESS_SIGPIPE |            \
-   1u << DOLLY_PROCESS_SIGTERM | 1u << DOLLY_PROCESS_SIGWINCH)
+   1u << DOLLY_PROCESS_SIGALRM | 1u << DOLLY_PROCESS_SIGTERM |            \
+   1u << DOLLY_PROCESS_SIGWINCH)
 
 enum dolly_process_fd_dup_flags {
   /* target_descriptor is an inclusive lower bound instead of an exact fd. */
@@ -457,6 +465,13 @@ typedef struct {
   uint32_t pid;
   uint32_t signal_number;
 } dolly_process_signal_request;
+
+/* The ITIMER_REAL timer: SIGALRM after value_nanoseconds of monotonic time
+ * (zero disarms), then every interval_nanoseconds unless that is zero. */
+typedef struct {
+  uint64_t value_nanoseconds;
+  uint64_t interval_nanoseconds;
+} dolly_process_alarm;
 
 typedef struct {
   uint32_t operation;
@@ -781,6 +796,7 @@ DOLLY_PROCESS_LAYOUT(dolly_process_exit_request, 8);
 DOLLY_PROCESS_LAYOUT(dolly_process_wait_request, 8);
 DOLLY_PROCESS_LAYOUT(dolly_process_wait_response, 16);
 DOLLY_PROCESS_LAYOUT(dolly_process_signal_request, 8);
+DOLLY_PROCESS_LAYOUT(dolly_process_alarm, 16);
 DOLLY_PROCESS_LAYOUT(dolly_process_fd_seek_request, 16);
 DOLLY_PROCESS_LAYOUT(dolly_process_clock_request, 16);
 DOLLY_PROCESS_LAYOUT(dolly_process_path_request, 16);

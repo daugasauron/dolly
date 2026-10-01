@@ -1,19 +1,19 @@
 DOLLY 5
 IMAGE bhop
 
-FROM https://daugasauron.com/Dollyfile-gamedev-sdk 55515b869b0febe282ba149970b4aa38b6276486b50662b7a0d2f4e03049c67d
-COPY FROM https://daugasauron.com/Dollyfile-javascript 5aaf41cfb903bdd3d83764e62fe95095b8c4e78f2202e97f10ed37e41ebb670b /usr/lib/libdolly-js.a /usr/lib/libdolly-js.a
-COPY FROM https://daugasauron.com/Dollyfile-javascript 5aaf41cfb903bdd3d83764e62fe95095b8c4e78f2202e97f10ed37e41ebb670b /usr/include/quickjs.h /usr/include/quickjs.h
-COPY FROM https://daugasauron.com/Dollyfile-javascript 5aaf41cfb903bdd3d83764e62fe95095b8c4e78f2202e97f10ed37e41ebb670b /usr/include/dolly/quickjs-runner.h /usr/include/dolly/quickjs-runner.h
-COPY FROM https://daugasauron.com/Dollyfile-javascript 5aaf41cfb903bdd3d83764e62fe95095b8c4e78f2202e97f10ed37e41ebb670b /usr/lib/dolly/node.js /usr/lib/dolly/node.js
-COPY FROM https://daugasauron.com/Dollyfile-javascript 5aaf41cfb903bdd3d83764e62fe95095b8c4e78f2202e97f10ed37e41ebb670b /usr/lib/janis/runtime.js /usr/lib/janis/runtime.js
+FROM https://daugasauron.com/Dollyfile-gamedev-sdk 3723ee336009034a9ebe0f978327c1b39e2ae6ed82fe0b69c8d59e09503000dc
+COPY FROM https://daugasauron.com/Dollyfile-javascript 4fe4c881a8019509148273f17d08ca080c62eb52398137668b55c78cb4921475 /usr/lib/libdolly-js.a /usr/lib/libdolly-js.a
+COPY FROM https://daugasauron.com/Dollyfile-javascript 4fe4c881a8019509148273f17d08ca080c62eb52398137668b55c78cb4921475 /usr/include/quickjs.h /usr/include/quickjs.h
+COPY FROM https://daugasauron.com/Dollyfile-javascript 4fe4c881a8019509148273f17d08ca080c62eb52398137668b55c78cb4921475 /usr/include/dolly/quickjs-runner.h /usr/include/dolly/quickjs-runner.h
+COPY FROM https://daugasauron.com/Dollyfile-javascript 4fe4c881a8019509148273f17d08ca080c62eb52398137668b55c78cb4921475 /usr/lib/dolly/node.js /usr/lib/dolly/node.js
+COPY FROM https://daugasauron.com/Dollyfile-javascript 4fe4c881a8019509148273f17d08ca080c62eb52398137668b55c78cb4921475 /usr/lib/janis/runtime.js /usr/lib/janis/runtime.js
 EXPORTS LIB dolly-js /usr/lib/libdolly-js.a
 EXPORTS HEADER quickjs /usr/include/quickjs.h
 EXPORTS HEADER quickjs-runner /usr/include/dolly/quickjs-runner.h
-USE https://daugasauron.com/modules/pi.dm 1aef832c31db0c754d9df1d107fddc3af3e4413e6662a14764267b373cdcc250
-COPY FROM https://daugasauron.com/Dollyfile-sdl2-build f526ad11f6a22e35205d667379de208d9fc7fb6788b87759d6c4d24903cae3e8 /usr/include/SDL2 /usr/include/SDL2
-COPY FROM https://daugasauron.com/Dollyfile-sdl2-build f526ad11f6a22e35205d667379de208d9fc7fb6788b87759d6c4d24903cae3e8 /usr/lib/libSDL2.a /usr/lib/libSDL2.a
-COPY FROM https://daugasauron.com/Dollyfile-sdl2-build f526ad11f6a22e35205d667379de208d9fc7fb6788b87759d6c4d24903cae3e8 /usr/share/licenses/SDL2 /usr/share/licenses/SDL2
+USE https://daugasauron.com/modules/pi.dm 4aaea30f80cfd09ea2bce30fba99eee64a6f0bf343b7d541c15e00e0cea74c54
+COPY FROM https://daugasauron.com/Dollyfile-sdl2-build a3784d005f88419332e164959236eb655dcdaca19519f4dd7bef34f46ddacacc /usr/include/SDL2 /usr/include/SDL2
+COPY FROM https://daugasauron.com/Dollyfile-sdl2-build a3784d005f88419332e164959236eb655dcdaca19519f4dd7bef34f46ddacacc /usr/lib/libSDL2.a /usr/lib/libSDL2.a
+COPY FROM https://daugasauron.com/Dollyfile-sdl2-build a3784d005f88419332e164959236eb655dcdaca19519f4dd7bef34f46ddacacc /usr/share/licenses/SDL2 /usr/share/licenses/SDL2
 EXPORTS HEADER sdl2 /usr/include/SDL2
 EXPORTS LIB SDL2 /usr/lib/libSDL2.a
 USE https://daugasauron.com/modules/bhop.dm 661743b8642aad4abca8e02fa782a4e1e4ca1d345f07a9de3d6a910b0fccebad

@@ -16,6 +16,7 @@ int64_t raw_process_call(uint32_t operation, const void *request,
 _Static_assert(SIGHUP == DOLLY_PROCESS_SIGHUP && SIGINT == DOLLY_PROCESS_SIGINT &&
                SIGQUIT == DOLLY_PROCESS_SIGQUIT && SIGABRT == DOLLY_PROCESS_SIGABRT &&
                SIGKILL == DOLLY_PROCESS_SIGKILL && SIGPIPE == DOLLY_PROCESS_SIGPIPE &&
+               SIGALRM == DOLLY_PROCESS_SIGALRM &&
                SIGTERM == DOLLY_PROCESS_SIGTERM && SIGCHLD == DOLLY_PROCESS_SIGCHLD &&
                SIGWINCH == DOLLY_PROCESS_SIGWINCH, "process signal numbers");
 
@@ -25,6 +26,12 @@ static dolly_lock action_lock;
 
 static int valid_signal(int signal_number) {
   return signal_number > 0 && signal_number < _NSIG;
+}
+
+/* The kernel forces SIGALRM's default action, even on a process that makes no
+ * system call, unless userspace handles or ignores the signal. */
+static int64_t report_alarm_handled(int32_t handled) {
+  return dolly_process_call(DOLLY_PROCESS_ALARM_HANDLED, &handled, sizeof(handled), NULL, 0);
 }
 
 int __sigaction(int signal_number, const struct sigaction *restrict action,
@@ -37,6 +44,10 @@ int __sigaction(int signal_number, const struct sigaction *restrict action,
   if (action && (action->sa_flags & ~(SA_RESTART | SA_RESETHAND | SA_NODEFER | SA_SIGINFO | SA_ONSTACK))) {
     errno = ENOTSUP;
     return -1;
+  }
+  if (action && signal_number == SIGALRM) {
+    const int64_t result = report_alarm_handled(action->sa_handler != SIG_DFL);
+    if (result < 0) { errno = (int)-result; return -1; }
   }
   dolly_lock_acquire(&action_lock);
   if (previous) *previous = actions[signal_number];
@@ -63,6 +74,7 @@ static int deliver_pending(void) {
       actions[number].sa_flags &= ~SA_SIGINFO;
     }
     dolly_lock_release(&action_lock);
+    if (number == SIGALRM && (action.sa_flags & SA_RESETHAND)) report_alarm_handled(0);
     if (action.sa_handler == SIG_IGN) continue;
     if (action.sa_handler == SIG_DFL) {
       if (number == SIGCHLD || number == SIGURG || number == SIGWINCH) continue;

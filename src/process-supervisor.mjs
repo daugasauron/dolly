@@ -6,7 +6,7 @@ import { validateThreadProfile } from "../host/threads/threads.mjs";
 import { DOLLY_THREAD_SPAWN } from "../host/threads/abi.mjs";
 import { executableHostRequirements, checkHostAbi } from "../host/requirements.mjs";
 import {
-  DOLLY_PROCESS_EXIT, DOLLY_PROCESS_PACKET_LIMIT as packetLimit, DOLLY_PROCESS_SIGINT,
+  DOLLY_PROCESS_EXIT, DOLLY_PROCESS_PACKET_LIMIT as packetLimit, DOLLY_PROCESS_SIGALRM, DOLLY_PROCESS_SIGINT,
   DOLLY_PROCESS_SIGKILL, DOLLY_PROCESS_SIGNAL, DOLLY_PROCESS_SIGNAL_ACKNOWLEDGE,
   DOLLY_PROCESS_SIGWINCH, DOLLY_PROCESS_SIZEOF, DOLLY_PROCESS_SPAWN,
   DOLLY_PROCESS_SPAWN_FOREGROUND, DOLLY_PROCESS_SPAWN_INHERIT_ENVIRONMENT,
@@ -211,6 +211,9 @@ export class DollyProcessSupervisor {
     this.serviceHost();
     const interrupted = this.dolly._dolly_process_take_interrupt();
     if (interrupted > 0) this.#interruptForeground(interrupted);
+    for (let pid; (pid = this.dolly._dolly_process_take_alarm()) > 0;) {
+      this.#deliverSignal(this.processes.get(pid), DOLLY_PROCESS_SIGALRM);
+    }
     this.serviceDeferred();
   }
 
