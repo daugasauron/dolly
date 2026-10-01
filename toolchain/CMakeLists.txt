@@ -25,6 +25,8 @@ target_include_directories(dolly PRIVATE
   ../build/generated
   ../src
   ../host
+  # src/file-blocks.cpp implements a WasmFS backend.
+  ${EMSCRIPTEN_ROOT_PATH}/system/lib/wasmfs
 )
 target_compile_options(dolly PRIVATE
   -m64
@@ -33,6 +35,8 @@ target_compile_options(dolly PRIVATE
   -fvisibility=default
   -matomics
   -mbulk-memory
+  # Like WasmFS itself; a throw would import __cxa_throw from JavaScript.
+  $<$<COMPILE_LANGUAGE:CXX>:-fno-exceptions>
 )
 set(DOLLY_LLVM_LIBRARIES
   lldWasm
