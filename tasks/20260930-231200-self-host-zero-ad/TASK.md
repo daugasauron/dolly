@@ -188,3 +188,12 @@ wasm-host patch and Slop's `trap` are needed in every case.
 2. Content: build Naga with Patti and run `convert-shaders.py` and the
    packaging in Dolly's CPython; stage the release data as `.tar.gz` (Dolly
    has no `xz`).
+
+## Decision (2026-10-02, integrator)
+
+SpiderMonkey's Cargo steps: build upstream Cargo inside Dolly over its libcurl
+(`20260930-231102-cargo-native`) instead of teaching Patti Cargo subcommands or
+patching Cargo out of mozjs. Unchanged upstream tools over a deliberate
+substrate is the porting rule; a Patti that grows Cargo's metadata and library
+commands becomes a second Cargo. The configure patch for a wasm host and Slop's
+`trap`/`umask` are independent and come first.
