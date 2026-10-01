@@ -210,3 +210,66 @@ of the touched module; steps 1-4 keep the image inputs hash `9f7a44a7…`):
    declares and the runtime's supervisor reads once.
 5. One contract batch (seed and every image rebuild, Rust seed, 0 A.D.
    relink), decided per item below after steps 1-4 are verified.
+
+## Progress (2026-10-02, branch `core/host-modules-2`)
+
+Kernel-only, page JS and transport steps (image inputs stayed `9f7a44a7…`):
+
+- `host/display/input-ring.c` holds the input-ring handling; `host/threads/kernel.c`
+  owns the thread table and the `dolly_threads_*` exports; the process kernel
+  offers `dolly_kernel_dispatch(pid, tid, takes_signals, ...)`, a
+  launching/running query and `dolly_kernel_thread_released`
+  (`9cd887b`, `d953592`).
+- The page shell is module-agnostic (`3bda5a60`): the registry assembles
+  `window.__dolly` from `page` records, `host.builder` from `builder` records
+  and `host.inherited` from `inherited` records, and a static `boot(route)`
+  lets the snapshot module select a `/session/` route's image and
+  configuration; the http module consumes the embedding's policy and owns
+  the local-services map; `src/browser.mjs` is 204 lines and names no host
+  module. `grep -rn "display\|http\|gpu\|audio\|download\|upload\|snapshot\|threads"`
+  over the four core files now finds the canvas element id, the route modes
+  and the runtime's image vocabulary only.
+- Session saves no longer block the kernel thread (`664de355`): measured in
+  Chrome, a 300-write shell loop took 2.68 s idle and 3.16 s while a 30.9 MB
+  session saved in 3.16 s.
+- Upload retirement is reported by the Worker instead of polled every 25 ms
+  (`0ef54514`).
+- `setThreadProvider` stays: the supervisor's thread model (Workers per
+  thread, `thread-finished`, the signal receiver) is the core process model
+  (`docs/process-model.md`), threads@0 depends on runtime@0 and `get` only
+  reaches declared dependencies, so the dependent installs its provider on
+  the runtime once; inverting the dependency or a generic extension registry
+  would add more than the one guarded setter it replaces.
+
+Verification per step: source suite (251), `core-browser`, `host-modules-browser`,
+`boundary-browser`, `threads-browser`, `terminal-browser`, `upload-browser`,
+`custom-session-browser` in Chrome and Firefox, `image-browser`,
+`snapshot-stream-browser`, `host-compute-browser`, `gpu-indicator-browser`,
+`amy-browser` in Chrome; the full Chrome suite after the page shell
+(`browser tests: all passed in 364s`). Logs in `build/host-modules-evidence/`.
+
+## Contract batch (2026-10-02)
+
+One seed change, so every image rebuilds once:
+
+- Display driver ABI v4: `initialize` takes no font path; the plugin
+  (`src/ghostty/display.c`) names its own font, the kernel names no image file.
+- Mailbox word indices are WAT globals (`DOLLY_DISPLAY_WORD_*`,
+  `DOLLY_UPLOAD_WORD_*`, `DOLLY_SESSION_WORD_*`, `DOLLY_TERMINAL_WORD_*`)
+  with the sizes beside them; the page transports import them, and the
+  display and upload kernels assert their struct offsets against them (the
+  session and terminal structs are kernel-private and keep their comment).
+- The version and capacity handshake exports are gone
+  (`dolly_display_mailbox_version/event_size/event_capacity/framebuffer_capacity/clipboard_capacity`,
+  `dolly_http_mailbox_version/slot_count/chunk_capacity`,
+  `dolly_upload_mailbox_version`,
+  `dolly_session_mailbox_version/name_capacity/transfer_capacity`,
+  `dolly_process_supervisor_version/mailbox_capacity`): the page JS and the
+  kernel come from one build, and executables are checked by digest.
+- Not changed: the four always-set GPU feature bits are required by the
+  externally built 0 A.D. engine (`demos/zero-ad/toolchain/engine.patch`
+  tests `TEXTURE_RENDER`, `LARGE_BATCH` and `VERTEX_F16`), so removing them
+  means recompiling that engine; they go when it builds inside Dolly
+  (`20260930-231200-self-host-zero-ad`). The HTTP client's 10 ms `usleep`
+  between polls stays: a deferred POLL would change the packet semantics
+  for an unmeasured gain, and the sleep only runs while no chunk is ready.
