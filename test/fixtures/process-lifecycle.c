@@ -220,6 +220,10 @@ int main(int argc, char **argv) {
   const int exited = child(argv[0], "exit130");
   CHECK(waitpid(exited, &status, 0) == exited);
   CHECK(WIFEXITED(status) && WEXITSTATUS(status) == 130);
+  const int any = child(argv[0], "exit130");
+  CHECK(waitpid(-1, &status, 0) == any && WEXITSTATUS(status) == 130);
+  status = system("exit 3");
+  CHECK(WIFEXITED(status) && WEXITSTATUS(status) == 3);
   const int spinning = child(argv[0], "spin");
   CHECK(kill(spinning, SIGKILL) == 0);
   CHECK(waitpid(spinning, &status, 0) == spinning);
