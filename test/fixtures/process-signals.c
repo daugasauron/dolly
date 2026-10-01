@@ -130,6 +130,7 @@ static void check_alarms(char *self, char *directory) {
   CHECK(setitimer(ITIMER_REAL, &once, NULL) == 0);
   CHECK(read(idle[0], &byte, 1) == -1 && errno == EINTR && alarms == 1);
   CHECK(alarm(1) == 0 && sleep(3) == 2 && alarms == 2);
+  CHECK(alarm(1) == 0 && pause() == -1 && errno == EINTR && alarms == 3);
 
   alarms = 0;
   const struct itimerval every = {{0, 50000}, {0, 50000}}, disarm = {0};

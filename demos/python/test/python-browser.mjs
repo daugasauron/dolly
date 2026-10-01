@@ -1,5 +1,5 @@
-// CPython in the python image: its REPL, output streaming, children,
-// cancellation, ctypes, termios, and pip, urllib.request and requests over the
+// CPython in the python image: its REPL, output streaming, children, signals,
+// termios, shutil, ctypes, and pip, urllib.request and requests over the
 // HTTP broker against pinned PyPI files served from the test server.
 // Usage: node demos/python/test/python-browser.mjs
 // DOLLY_PYTHON_PACKAGES=1 also source-builds NumPy and Pandas with pip (long).
@@ -56,8 +56,7 @@ function handle(request, response, path, headers) {
 const fixtures = {
   "python-process.py": "demos/python/test/fixtures/python-process.py",
   "python-http.py": "demos/python/test/fixtures/python-http.py",
-  "python-termios.c": "demos/python/cpython-termios.c",
-  "terminal-ui.c": "test/fixtures/terminal-ui.c",
+  "python-shutil.py": "demos/python/test/fixtures/python-shutil.py",
 };
 await demoTest("python", { image: "python", timeout: packages ? 7_200_000 : 600_000, server: { fixtures, handle } }, async ({ server, open }) => {
   const { page, submit, run, start, waitText, input } = await open({ ...await installProbe("python"), policy: { maxRequests: 1024, rules: [
@@ -67,7 +66,7 @@ await demoTest("python", { image: "python", timeout: packages ? 7_200_000 : 600_
   const scratch = "/tmp/dolly-python-test";
   await run(`mkdir ${scratch} && cd ${scratch} && for name in ${Object.keys(fixtures).join(" ")}; do curl -fsS ${server.origin}/fixture/$name -o $name || exit 1; done`);
   await run(`python python-process.py ${scratch}`);
-  await run("cc -Dtcgetattr=dolly_py_tcgetattr -Dtcsetattr=dolly_py_tcsetattr -Dioctl=dolly_py_ioctl terminal-ui.c python-termios.c -o termios-probe && ./termios-probe discipline");
+  await run(`python python-shutil.py ${scratch}`);
 
   const repl = start("python");
   await waitText(/>>>/);
@@ -76,6 +75,15 @@ await demoTest("python", { image: "python", timeout: packages ? 7_200_000 : 600_
   assert.equal(repl.status, null, "Python exited instead of prompting again");
   await input("\x04");
   assert.equal(await repl.done, 0);
+
+  // Ctrl+C's SIGINT ends signal.pause() with KeyboardInterrupt.
+  const paused = start("python -c 'import signal; print(\"PYTHON-\" + \"PAUSED\", flush=True); signal.pause()'");
+  await waitText(/PYTHON-PAUSED/);
+  await page.waitForFunction(() => __dolly.terminal.foregroundInterruptible());
+  await page.locator("#keyboard").focus();
+  await page.keyboard.press("Control+c");
+  assert.equal(await paused.done, 130);
+  await waitText(/KeyboardInterrupt/);
 
   const streaming = start("python -c 'import time; time.sleep(1); print(\"PYTHON-STREAM-\" + \"ONE\", flush=True); time.sleep(2); print(\"PYTHON-STREAM-\" + \"TWO\", flush=True)'");
   await waitText(/PYTHON-STREAM-ONE/);

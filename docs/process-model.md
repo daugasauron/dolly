@@ -68,10 +68,15 @@ sequenceDiagram
 - Terminal reads return raw input bytes. `ICANON`/`ECHO` round-trip through termios
   without a line discipline; `OPOST`/`ONLCR` map LF to CRLF on output. While
   `ISIG` is set (the default), Ctrl+C sends SIGINT to the foreground; a program
-  that clears it (raw mode) reads Ctrl+C as the byte 0x03.
+  that clears it (raw mode) reads Ctrl+C as the byte 0x03. termios reports no
+  input mapping, flow control or other signal keys, and `VMIN` 1, `VTIME` 0;
+  `tcsetattr` rejects anything else with `EINVAL`. `TCSAFLUSH` and `tcflush`
+  discard unread input; break and flow control fail with `ENOTSUP`.
 - There is one user and no permission bits: `chmod`, `chown` and `access` only
   check that the file exists, and nothing changes a file's mode
   ([why](architecture.md#decisions)).
+- `statvfs` reports kernel memory: its maximum as capacity, unallocated memory
+  as free, and no inode limit (zero files).
 - The cwd is an open directory handle: it follows renames, `getcwd` fails with
   `ENOENT` after unlink, `fchdir` works.
 - `mmap` makes private copies; `MAP_SHARED` writes back on `msync` and whole
@@ -121,8 +126,8 @@ sequenceDiagram
   this guarantee.
 - Normal exit runs `atexit` handlers; default signal termination and forced
   termination do not, so named temporary files may remain.
-- Delivered handlers interrupt sleep and `poll`; `SA_RESTART` restarts read,
-  write and wait. Ignored or blocked signals do not shorten sleeps.
+- Delivered handlers interrupt sleep, `poll` and `pause`; `SA_RESTART` restarts
+  read, write and wait. Ignored or blocked signals do not shorten sleeps.
 - Because handlers run only when a syscall starts, `pselect` is the race-free
   way to wait for a descriptor or a blocked signal: a pending signal its mask
   unblocks interrupts it before the wait. `select` is unsupported.

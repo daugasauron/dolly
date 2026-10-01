@@ -6,7 +6,6 @@
  * disabled and do not enlarge the browser import contract.
  */
 
-#include <errno.h>
 #include <stddef.h>
 
 #include <dolly/runtime.h>
@@ -23,9 +22,4 @@ void _Py_CheckEmscriptenSignalsPeriodically(void) {}
 int getentropy(void *buffer, size_t length) {
     ssize_t count = getrandom(buffer, length, 0);
     return count == (ssize_t)length ? 0 : -1;
-}
-
-int pause(void) {
-    errno = EINTR;
-    return -1;
 }

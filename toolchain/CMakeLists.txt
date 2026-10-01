@@ -16,6 +16,9 @@ if(NOT DOLLY_KERNEL_SOURCES)
   message(FATAL_ERROR "DOLLY_KERNEL_SOURCES must list the host modules' kernel sources")
 endif()
 add_executable(dolly ${DOLLY_KERNEL_SOURCES})
+# statvfs reports the kernel's maximum memory as the filesystem's capacity.
+set(DOLLY_KERNEL_MEMORY_MAXIMUM 8589934592)
+target_compile_definitions(dolly PRIVATE DOLLY_KERNEL_MEMORY_MAXIMUM=${DOLLY_KERNEL_MEMORY_MAXIMUM})
 
 target_include_directories(dolly PRIVATE
   ../build/include
@@ -60,7 +63,7 @@ target_link_options(dolly PRIVATE
   -sALLOW_MEMORY_GROWTH=1
   -sIMPORTED_MEMORY=1
   -sINITIAL_MEMORY=67108864
-  -sMAXIMUM_MEMORY=8589934592
+  -sMAXIMUM_MEMORY=${DOLLY_KERNEL_MEMORY_MAXIMUM}
   -sSTACK_SIZE=16777216
   -sMODULARIZE=1
   -sEXPORT_ES6=1
