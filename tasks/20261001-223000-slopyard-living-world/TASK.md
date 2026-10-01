@@ -85,8 +85,11 @@ loaded hover over 1 s, and Oreki's longest loaded wait drops to 348 s. Still
 open from this run:
 
 - The foundry hauler again stalls in `clear`, upright, straddling the shaft
-  post at (-41.1, 57.7) for 2,152 s: `clear` reverses with no exit when the
-  retreat is blocked, and `carry` ignores terrain obstacles (`avoid = false`).
+  post at (-41.1, 57.7) for 2,152 s. A per-second trace of the same fresh run
+  shows it reach the first corner at 135 s, turn in place near (-37.5, 57)
+  for about a minute with the raised pallet, drift west onto the post by
+  210 s and stop; `clear` then reverses with no exit when the retreat is
+  blocked, and `carry` ignores terrain obstacles (`avoid = false`).
 - Tonbi East waits 604 s in `lower` at (65.0, -25.3) and Tonbi West 493 s in
   `wait_bay`; Kaiten 153 s holding in `lower`.
 - Both Yagura roof batteries and the Blue Hosen still never fire (15 shots
