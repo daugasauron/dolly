@@ -186,7 +186,9 @@ and `/host/MODULE/`, prepared sources in `/dist/static/`.
   installing recipe declares them too.
 - Sealing checks every retained executable: a `dolly.host` record naming a
   module the recipe does not declare fails the build, naming the file and the
-  `REQUIRES HOST` line to add. Builds themselves get the build host's modules.
+  `REQUIRES HOST` line to add. Builds themselves get the build host's modules:
+  a build step may run a program stamped with a module the recipe declares but
+  the build host does not enable, and its calls to that module return `ENOSYS`.
 - At run time the image may use only its declared modules: boot fails if the
   embedding lacks one, and the loader refuses an executable whose stamped
   module is not declared. Requirements grant nothing: the embedding enables
