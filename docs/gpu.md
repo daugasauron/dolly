@@ -36,3 +36,18 @@ flowchart LR
 - No packet names a URL, DOM node, host pointer or native process. Shader time and
   driver memory are not bounded; device loss depends on the browser. A failed
   GPU Worker wakes pending calls with `EIO`.
+
+## Enabling WebGPU
+
+Without a WebGPU adapter, `gpu@0` calls fail with `ENOSYS`. Measured on Linux
+with an NVIDIA GPU (Chrome 151, Firefox 156, 2026-10-01): neither browser
+offers WebGPU by default.
+
+- Chrome: enable `chrome://flags/#enable-unsafe-webgpu` and
+  `chrome://flags/#enable-vulkan`, set `chrome://flags/#use-angle` to Vulkan,
+  and relaunch; or start it with
+  `--enable-unsafe-webgpu --enable-features=Vulkan --use-angle=vulkan`. Each
+  flag alone, and the first two together, still gave no adapter.
+  `chrome://gpu` shows the result.
+- Firefox: set `dom.webgpu.enabled` to `true` in `about:config` and restart.
+  The browser tests' Playwright Firefox build returns no adapter even then.
