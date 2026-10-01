@@ -1,7 +1,48 @@
 DOLLY 6
 TOOLCHAIN openal-build
+REQUIRES HOST display@0
+REQUIRES HOST download@0
+REQUIRES HOST http@0
+REQUIRES HOST upload@0
 
-FROM https://daugasauron.com/demos/cmake/Dollyfile-cmake-build a5335f433b5d573f03e6821f912e684cd75fa4defdba24f984b92f0bdbc92724
-USE https://daugasauron.com/demos/zero-ad/openal.dm e969a9289a9d2c6afa7030ddb5dcf4759733b1747365aac9610b0484ea274dd5
+FROM https://daugasauron.com/demos/cmake/Dollyfile-cmake-build 1985d8043e641d0e22d846578524692396929a4e203361bd8730d3572fd61354
+REQUIRES HEADER libc
+REQUIRES HEADER cpp
+REQUIRES LIB c++
+REQUIRES LIB c++abi
+REQUIRES TOOL cc
+REQUIRES TOOL c++
+REQUIRES TOOL cmake
+REQUIRES TOOL make
+REQUIRES TOOL ar
+REQUIRES TOOL tar
+REQUIRES TOOL rm
+
+SOURCE https://daugasauron.com/dist/static/openal/source.tar 716be269a99ccde5220f790e281cd1a4660152d7952eb09ba9619eab1f8c7bec /tmp/openal/source.tar
+SLOP tar -xf /tmp/openal/source.tar -C /
+SLOP cmake -S /tmp/openal/source -B /tmp/openal/build \
+  -DCMAKE_SYSTEM_NAME=Dolly -DCMAKE_SYSTEM_PROCESSOR=wasm64 \
+  -DCMAKE_INSTALL_PREFIX=/usr -DCMAKE_INSTALL_LIBDIR=lib -DCMAKE_BUILD_TYPE=Release \
+  -DCMAKE_C_FLAGS_RELEASE=-O1 '-DCMAKE_CXX_FLAGS_RELEASE=-O1 -DDOLLY -D__STDC_NO_THREADS__=1 -include cstdlib' \
+  -DLIBTYPE=STATIC -DALSOFT_UTILS=OFF -DALSOFT_EXAMPLES=OFF -DALSOFT_TESTS=OFF \
+  -DALSOFT_DLOPEN=OFF -DALSOFT_EAX=OFF -DALSOFT_BACKEND_PIPEWIRE=OFF \
+  -DALSOFT_BACKEND_PULSEAUDIO=OFF -DALSOFT_BACKEND_ALSA=OFF -DALSOFT_BACKEND_OSS=OFF \
+  -DALSOFT_BACKEND_SOLARIS=OFF -DALSOFT_BACKEND_SNDIO=OFF -DALSOFT_BACKEND_JACK=OFF \
+  -DALSOFT_BACKEND_PORTAUDIO=OFF -DALSOFT_BACKEND_SDL2=OFF -DALSOFT_BACKEND_SDL3=OFF \
+  -DALSOFT_BACKEND_WAVE=OFF -DALSOFT_INSTALL_HRTF_DATA=OFF -DALSOFT_INSTALL_AMBDEC_PRESETS=OFF \
+  -DALSOFT_INSTALL_CONFIG=OFF -DALSOFT_UPDATE_BUILD_VERSION=OFF
+SLOP cmake --build /tmp/openal/build
+# Replace bootstrap headers even when normalized source timestamps match.
+SLOP rm -rf /usr/include/AL
+SLOP cmake --install /tmp/openal/build
+SLOP c++ -std=c++17 -O1 /tmp/openal/check.cpp -lopenal -lm -o /tmp/openal/check
+SLOP /tmp/openal/check
+SLOP rm -rf /tmp/openal
+
+EXPORTS HEADER openal /usr/include/AL
+EXPORTS LIB openal /usr/lib/libopenal.a
+EXPORTS FOLDER openal-cmake /usr/lib/cmake/OpenAL
+EXPORTS FILE openal-pkgconfig /usr/lib/pkgconfig/openal.pc
+EXPORTS FOLDER openal-license /usr/share/licenses/OpenAL
 
 ENTRY /bin/foreground -i /bin/slop

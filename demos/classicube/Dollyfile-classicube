@@ -1,18 +1,55 @@
 DOLLY 6
 APPLICATION classicube
+REQUIRES HOST display@0
+REQUIRES HOST download@0
+REQUIRES HOST http@0
+REQUIRES HOST snapshot@0
+REQUIRES HOST threads@0
+REQUIRES HOST upload@0
 
-FROM https://daugasauron.com/demos/pi/Dollyfile-pi-runtime 9abdf8289a7edd094999cbe8fde45066d5cc1219dd6b1784d83f78e86c6c6389
-COPY https://daugasauron.com/demos/classicube/Dollyfile-classicube-build 7411dbd4a6cc9f18cd8b3fc579ffe349a0686eb26e350e75a3a957ce243e8307 /usr/bin/classicube /usr/bin/classicube
-COPY https://daugasauron.com/demos/classicube/Dollyfile-classicube-build 7411dbd4a6cc9f18cd8b3fc579ffe349a0686eb26e350e75a3a957ce243e8307 /usr/share/classicube /home/dolly/classicube
-COPY https://daugasauron.com/demos/classicube/Dollyfile-classicube-build 7411dbd4a6cc9f18cd8b3fc579ffe349a0686eb26e350e75a3a957ce243e8307 /usr/share/licenses/classicube /usr/share/licenses/classicube
-COPY https://daugasauron.com/demos/sdl2/Dollyfile-sdl2-build d07865b47a9e54c5ff935c6f75e9d89c757376557e0f73607c16196e9cafc925 /usr/share/licenses/SDL2 /usr/share/licenses/SDL2
+FROM https://daugasauron.com/demos/pi/Dollyfile-pi-runtime 1183fdc9cfe1810edb405866e38523b28451ca634e1b6b4aac44b8775ca5ff4b
+COPY https://daugasauron.com/demos/classicube/Dollyfile-classicube-build 64933536e35fc5a50106429a2c439b47d08a3b5eb9bb3167fdde81382b6dc6d9 /usr/bin/classicube /usr/bin/classicube
+COPY https://daugasauron.com/demos/classicube/Dollyfile-classicube-build 64933536e35fc5a50106429a2c439b47d08a3b5eb9bb3167fdde81382b6dc6d9 /usr/share/classicube /home/dolly/classicube
+COPY https://daugasauron.com/demos/classicube/Dollyfile-classicube-build 64933536e35fc5a50106429a2c439b47d08a3b5eb9bb3167fdde81382b6dc6d9 /usr/share/licenses/classicube /usr/share/licenses/classicube
+COPY https://daugasauron.com/demos/sdl2/Dollyfile-sdl2-build 74c3a36c7b4565a36dbc148e9b0283e1270afc36026b113b4c03f070e5f9149c /usr/share/licenses/SDL2 /usr/share/licenses/SDL2
 
-COPY https://daugasauron.com/demos/sdl2/Dollyfile-sdl2-build d07865b47a9e54c5ff935c6f75e9d89c757376557e0f73607c16196e9cafc925 /usr/include/SDL2 /usr/include/SDL2
-COPY https://daugasauron.com/demos/sdl2/Dollyfile-sdl2-build d07865b47a9e54c5ff935c6f75e9d89c757376557e0f73607c16196e9cafc925 /usr/lib/libSDL2.a /usr/lib/libSDL2.a
+COPY https://daugasauron.com/demos/sdl2/Dollyfile-sdl2-build 74c3a36c7b4565a36dbc148e9b0283e1270afc36026b113b4c03f070e5f9149c /usr/include/SDL2 /usr/include/SDL2
+COPY https://daugasauron.com/demos/sdl2/Dollyfile-sdl2-build 74c3a36c7b4565a36dbc148e9b0283e1270afc36026b113b4c03f070e5f9149c /usr/lib/libSDL2.a /usr/lib/libSDL2.a
 EXPORTS TOOL classicube
 EXPORTS HEADER sdl2 /usr/include/SDL2
 EXPORTS LIB SDL2 /usr/lib/libSDL2.a
-USE https://daugasauron.com/demos/classicube/classicube-agent.dm 4cd2fb1a91e86f42d8005879820c1202d33f7987317c7c3abedd9fd0b050a604
+REQUIRES HEADER cpp
+REQUIRES HEADER quickjs-runner
+REQUIRES HEADER sdl2
+REQUIRES LIB dolly-js
+REQUIRES LIB SDL2
+REQUIRES LIB z
+REQUIRES HEADER zlib
+REQUIRES TOOL cc
+REQUIRES TOOL c++
+REQUIRES TOOL pi
+REQUIRES TOOL classicube
+REQUIRES TOOL tar
+REQUIRES TOOL rm
+
+SOURCE https://daugasauron.com/dist/static/classicube/agent.tar f93aeae2f94b6e492775dfab2545c472c9bcee023c022218942b659fc50a4e31 /tmp/classicube-agent/source.tar
+SOURCE https://daugasauron.com/dist/static/default/stb_truetype.h ecd30b05e0dd4fea3a13c26810dd9e1992dc379049482c393d5a19e6b5090aab /tmp/classicube-agent/stb_truetype.h
+SLOP tar -xf /tmp/classicube-agent/source.tar -C /
+SLOP c++ -O1 -std=c++11 -I/usr/include/SDL2 -I/tmp/classicube-agent \
+  /usr/src/dolly/classicube/agent/viewer.cpp -o /usr/bin/classicube-viewer -lSDL2 -lm
+SLOP cc -O2 /usr/src/dolly/classicube/agent/pack.c -o /usr/bin/classicube-pack -lz
+SLOP cc -std=gnu11 -I/usr/include/dolly -DEMSCRIPTEN=1 -D_GNU_SOURCE \
+  -DQUICKJS_NG_BUILD -DNDEBUG -funsigned-char -fdolly-runtime-interrupt-handler \
+  /usr/src/dolly/classicube/agent/launch.c -ldolly-js -o /usr/bin/classicube-agent
+
+EXPORTS TOOL classicube-agent
+EXPORTS TOOL classicube-viewer
+EXPORTS TOOL classicube-pack
+EXPORTS FOLDER classicube-agent-source /usr/src/dolly/classicube/agent
+EXPORTS FOLDER game-agent-source /usr/src/dolly/game-agent
+EXPORTS FOLDER game-input-source /usr/src/dolly/rts
+FILE /usr/src/dolly/classicube/agent/COPYING
+SLOP rm -rf /tmp/classicube-agent
 
 FILE /home/dolly/classicube/options.txt
     window-width=640

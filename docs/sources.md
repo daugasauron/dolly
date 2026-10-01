@@ -20,7 +20,7 @@ flowchart TD
 | --- | --- | --- |
 | Emscripten 6.0.8 | Digest-pinned container links the kernel, process sysroot, gate and seed ([`CMakeLists.txt`](../toolchain/CMakeLists.txt), [`build.sh`](../scripts/build.sh)) | Kernel plus process libc; the seed holds headers and the Dollyfile engine source, which [`bootstrap.c`](../src/process/bootstrap.c) compiles before the first recipe |
 | LLVM/Clang/LLD 24 | Wasm64 libraries linked into one stamped compiler executable ([`build-toolchain.sh`](../scripts/build-toolchain.sh)) | `cc`, `c++`, `ld`, `ar` spawn it as a private process |
-| libc++/libc++abi | Pinned Emscripten archives; headers archived separately | Installed by [`cpp.dm`](../modules/cpp.dm); no handwritten substitutes |
+| libc++/libc++abi | Pinned Emscripten archives; headers archived separately | Installed by [`Dollyfile-system-build`](../Dollyfile-system-build); no handwritten substitutes |
 
 Demo exceptions (the Rust compiler seed, the 0 A.D. engine) are recorded in their
 demo READMEs. Every externally built program (compiler, Rust seed, 0 A.D.)
@@ -42,7 +42,7 @@ compile the programs an image claims to build.
   trusted build inputs; adding one means referencing it from a recipe.
 - [`build-source-tar.mjs`](../scripts/build-source-tar.mjs) writes deterministic
   ustar archives (regular files only, fixed metadata, no host paths). The in-Dolly
-  `/bin/tar` ([`tar.dm`](../modules/tar.dm)) extracts only regular files and
+  `/bin/tar` ([`Dollyfile-system-build`](../Dollyfile-system-build)) extracts only regular files and
   directories inside WasmFS.
 - [`write-build-id.mjs`](../scripts/write-build-id.mjs) derives two identities.
   The image build ID covers the seed, its loader and the process, DSO,

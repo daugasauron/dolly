@@ -2,7 +2,7 @@
 
 Slop ([`slop.c`](../src/slop.c)) is Dolly's finite shell: enough to run agent
 tools, scripts and GNU Make recipes. It is an ordinary process at `/bin/slop`,
-compiled by [`slop.dm`](../modules/slop.dm) with `COMPILEC` in `system-build`
+compiled by [`Dollyfile-system-build`](../Dollyfile-system-build) with `COMPILEC` in `system-build`
 (`/bin/sh` links to it from `system-tools`). It is not POSIX `sh` or Bash; the
 `help` command lists what it supports.
 
@@ -69,13 +69,13 @@ threads, host processes or a scheduler.
 
 ## Commands
 
-- Core tools are Dolly's own ([`core-tools.dm`](../modules/core-tools.dm)),
+- Core tools are Dolly's own ([`Dollyfile-system-build`](../Dollyfile-system-build)),
   compiled with plain `cc` in `system-build` before Make, whose recipes need `cp`:
   `cat [-n]`, `cp`, `mv`, `ls [--color]`, `echo`, `touch`, `pwd`, `test`/`[` with
   `!`, `-a`, `-o` and parentheses, `foreground`, `help`, `clear`, `stat`, `file`.
   There are no permission bits: `test -x` means a regular file, `-r`/`-w` that
   the path exists. `/bin/cd` is a compatibility command; plain `cd` is the builtin.
-- [`agent-tools.dm`](../modules/agent-tools.dm) (sources in `src/commands/`) adds
+- [`Dollyfile-system-tools`](../Dollyfile-system-tools) (sources in `src/commands/`) adds
   `command`, `env`, `find`, `time`, `timeout`, `xargs`, `diff` and `patch` (over
   Git), which run programs with Slop's descriptors; `install`, whose mode, owner
   and group options are syntax only and create no metadata; `tail`, which rejects
@@ -83,15 +83,15 @@ threads, host processes or a scheduler.
   `realpath`, `hostname`, `tty`. Each prints its supported subset with `--help`;
   other options fail.
 - The other file and text utilities are unchanged upstream sbase, built by its
-  own Makefile in `system-tools` ([`sbase.dm`](../modules/sbase.dm)). They follow
+  own Makefile in `system-tools` ([`Dollyfile-system-tools`](../Dollyfile-system-tools)). They follow
   POSIX, not GNU. `ln -s` works; hard links fail in WasmFS.
 - `uname` and `hostname` report the fixed Dolly/wasm64 identity, never the
   browser's.
-- GNU Make 4.4.1 ([`make.dm`](../modules/make.dm)) defaults to
+- GNU Make 4.4.1 ([`Dollyfile-system-build`](../Dollyfile-system-build)) defaults to
   `SHELL=/bin/slop` and starts recipes with `posix_spawn`. `-jN` runs N jobs at
   once and shares a pipe jobserver with recursive Makes. `-O` still groups each
   target's output but warns that it has no lock (`F_SETLKW` is `ENOTSUP`).
-  `ninja` is Samurai, which still runs one job ([`ninja.dm`](../modules/ninja.dm)).
+  `ninja` is Samurai, which still runs one job ([`Dollyfile-system-tools`](../Dollyfile-system-tools)).
 - `cc`, `c++`, `ld` and `ar` are the private compiler
   ([process model](process-model.md#executables)); `git`, `curl` and `gzip` are
   source-built.

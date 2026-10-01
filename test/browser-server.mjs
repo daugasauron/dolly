@@ -14,7 +14,6 @@ import { CANONICAL_ORIGIN, canonicalPath } from "../src/static-asset.mjs";
 export const mimeTypes = new Map([
   [".html", "text/html; charset=utf-8"],
   [".md", "text/markdown; charset=utf-8"],
-  [".dm", "text/plain; charset=utf-8"],
   [".h", "text/plain; charset=utf-8"],
   [".json", "application/json"],
   [".js", "text/javascript; charset=utf-8"],

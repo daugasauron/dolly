@@ -1,14 +1,252 @@
 DOLLY 6
 TOOLCHAIN neovim-build
+REQUIRES HOST display@0
+REQUIRES HOST download@0
+REQUIRES HOST http@0
+REQUIRES HOST upload@0
 
 # Reusable Neovim build artifacts.
-FROM https://daugasauron.com/demos/cmake/Dollyfile-cmake-build a5335f433b5d573f03e6821f912e684cd75fa4defdba24f984b92f0bdbc92724
-USE https://daugasauron.com/demos/neovim/lua.dm 118cbbdecb17b2738aea41e4d346ceb592434ce928f5c528cb6cdf7c8e19e24c
-USE https://daugasauron.com/demos/neovim/lpeg.dm a29ffea3ecd1bc878a6c533de41ed8fd373c118f301bb8bf0c7b89ae5768da9a
-USE https://daugasauron.com/demos/neovim/luv.dm 072769a07f585300546e2aedc889365aa2828d7ccfbbd2cfde5a7aa3286602bc
-USE https://daugasauron.com/demos/neovim/utf8proc.dm ff9e70838089910e7b95826d5d165640340b67e089c8b8db177e40af5d04ff9c
-USE https://daugasauron.com/demos/neovim/treesitter.dm 65194e64f48a9d3286c45d17d09c83410258dfea77da75165725128537066a9d
-USE https://daugasauron.com/demos/neovim/neovim.dm 37a3dd14e40a1ffa640342bcdbc15ca2cd2aa85d8059948e9d4f1bfece6fd599
-USE https://daugasauron.com/demos/neovim/neovim-parsers.dm db62f67d6f5442124fa560106cd03f5b720dc830fa28af2e463fb5b1065e61f1
+FROM https://daugasauron.com/demos/cmake/Dollyfile-cmake-build 1985d8043e641d0e22d846578524692396929a4e203361bd8730d3572fd61354
+# Neovim supports PUC Lua 5.1. Build the upstream interpreter and C library;
+# -rdynamic lets source-built Lua C modules share that interpreter's API.
+REQUIRES HEADER libc
+REQUIRES TOOL cc
+REQUIRES TOOL ar
+REQUIRES TOOL make
+REQUIRES TOOL gzip
+REQUIRES TOOL tar
+REQUIRES TOOL mkdir
+REQUIRES TOOL cp
+REQUIRES TOOL rm
+REQUIRES TOOL sed
+
+SOURCE https://daugasauron.com/dist/static/neovim/lua-5.1.5.tar.gz 2640fc56a795f29d28ef15e13c34a47e223960b0240e8cb0a82d9b0738695333 /tmp/lua/source.tar.gz
+SLOP gzip -dc /tmp/lua/source.tar.gz > /tmp/lua/source.tar
+SLOP tar -xf /tmp/lua/source.tar -C /tmp/lua
+SLOP sed 's@"/usr/local/"@"/usr/"@' /tmp/lua/lua-5.1.5/src/luaconf.h > /tmp/lua/luaconf.h
+SLOP cp /tmp/lua/luaconf.h /tmp/lua/lua-5.1.5/src/luaconf.h
+SLOP make -C /tmp/lua/lua-5.1.5/src \
+  CC=cc \
+  'CFLAGS=-O0 -std=gnu99 -DLUA_USE_POSIX -DLUA_USE_DLOPEN' \
+  MYLDFLAGS=-rdynamic \
+  'AR=ar rcs' \
+  RANLIB=: \
+  lua
+SLOP cp /tmp/lua/lua-5.1.5/src/lua /usr/bin/lua
+SLOP cp /tmp/lua/lua-5.1.5/src/liblua.a /usr/lib/liblua.a
+SLOP mkdir -p /usr/include/lua5.1 /usr/share/licenses/lua
+SLOP cp /tmp/lua/lua-5.1.5/src/lua.h /tmp/lua/lua-5.1.5/src/luaconf.h \
+  /tmp/lua/lua-5.1.5/src/lauxlib.h /tmp/lua/lua-5.1.5/src/lualib.h /usr/include/lua5.1
+SLOP cp /tmp/lua/lua-5.1.5/COPYRIGHT /usr/share/licenses/lua/COPYRIGHT
+
+FILE /tmp/lua/extension.c
+    #include <lua.h>
+    #include <lauxlib.h>
+    int luaopen_dolly_lua_check(lua_State* state) { lua_pushinteger(state, 42); return 1; }
+SLOP cc -O0 -shared -I/usr/include/lua5.1 /tmp/lua/extension.c -o /tmp/lua/extension.so
+SLOP lua -e 'assert(_VERSION == "Lua 5.1"); assert(assert(package.loadlib("/tmp/lua/extension.so", "luaopen_dolly_lua_check"))() == 42); local f = assert(io.open("/tmp/lua/data", "w")); f:write("shared files"); f:close(); assert(os.execute("test -s /tmp/lua/data") == 0)'
+
+EXPORTS TOOL lua
+EXPORTS HEADER lua /usr/include/lua5.1
+EXPORTS LIB lua /usr/lib/liblua.a
+FILE /usr/share/licenses/lua/COPYRIGHT
+
+SLOP rm -rf /tmp/lua
+REQUIRES HEADER lua
+REQUIRES TOOL lua
+
+SOURCE https://daugasauron.com/dist/static/neovim/lpeg.tar e8a9fd286cf0ba6b9eff1ac12680eca887e409236b34a556a5cf6e55957f83f6 /tmp/lpeg/source.tar
+SLOP tar -xf /tmp/lpeg/source.tar -C /
+SLOP make -C /tmp/lpeg/source CC=cc LUADIR=/usr/include/lua5.1 \
+  COPT=-O0 DLLFLAGS=-shared lpeg.so
+SLOP ar rcs /usr/lib/liblpeg.a /tmp/lpeg/source/lpvm.o /tmp/lpeg/source/lpcap.o \
+  /tmp/lpeg/source/lptree.o /tmp/lpeg/source/lpcode.o /tmp/lpeg/source/lpprint.o /tmp/lpeg/source/lpcset.o
+SLOP mkdir -p /usr/lib/lua/5.1 /usr/share/lua/5.1
+SLOP cp /tmp/lpeg/source/lpeg.so /usr/lib/lua/5.1/lpeg.so
+SLOP cp /tmp/lpeg/source/re.lua /usr/share/lua/5.1/re.lua
+SLOP lua -e 'local lpeg = require("lpeg"); assert(lpeg.match(lpeg.P("Dolly"), "Dolly") == 6); assert(require("re").match("hello", "%a+") == 6)'
+
+EXPORTS LIB lpeg /usr/lib/liblpeg.a
+EXPORTS LIB lua-lpeg /usr/lib/lua/5.1/lpeg.so
+EXPORTS FOLDER lua-re /usr/share/lua/5.1
+FILE /usr/share/licenses/lpeg/lpeg.html
+
+SLOP rm -rf /tmp/lpeg
+REQUIRES HEADER uv
+REQUIRES LIB uv
+REQUIRES LIB lua
+REQUIRES TOOL cmake
+
+SOURCE https://daugasauron.com/dist/static/neovim/luv.tar 576f4f861cabfd1d7313d56124e1473f724f3da09060df4dc93d59936d3b4004 /tmp/luv/source.tar
+SLOP tar -xf /tmp/luv/source.tar -C /
+SLOP cmake -S /tmp/luv/source -B /tmp/luv/build \
+  -DCMAKE_INSTALL_PREFIX=/usr -DCMAKE_C_FLAGS=-O0 \
+  -DWITH_LUA_ENGINE=Lua -DLUA_BUILD_TYPE=System \
+  -DLUA_INCLUDE_DIR=/usr/include/lua5.1 -DLUA_LIBRARY=/usr/lib/liblua.a -DLUA_MATH_LIBRARY:STRING=m \
+  -DWITH_SHARED_LIBUV=ON -DBUILD_STATIC_LIBS=ON -DBUILD_MODULE=ON -DBUILD_SHARED_LIBS=OFF
+SLOP cmake --build /tmp/luv/build
+SLOP cmake --install /tmp/luv/build
+
+FILE /tmp/luv/check.lua
+    local uv = require("luv")
+    local fired = false
+    local timer = assert(uv.new_timer())
+    timer:start(1, 0, function() fired = true; timer:close() end)
+    uv.run()
+    assert(fired)
+    local fd = assert(uv.fs_open("/tmp/luv/check.txt", "w", 438))
+    assert(uv.fs_write(fd, "Dolly", 0) == 5)
+    assert(uv.fs_close(fd))
+    assert(uv.fs_stat("/tmp/luv/check.txt").size == 5)
+SLOP lua /tmp/luv/check.lua
+
+EXPORTS HEADER luv /usr/include/luv
+EXPORTS LIB luv /usr/lib/libluv.a
+EXPORTS LIB lua-luv /usr/lib/lua/5.1/luv.so
+FILE /usr/share/licenses/luv/LICENSE.txt
+FILE /usr/share/licenses/lua-compat53/LICENSE
+SLOP rm -rf /tmp/luv
+REQUIRES TOOL uname
+
+SOURCE https://daugasauron.com/dist/static/neovim/utf8proc.tar c9fdc1bf18b4d5ceb006b2847f6ead4642bfd82a7f102652cac4c13105b0e12a /tmp/utf8proc/source.tar
+SLOP tar -xf /tmp/utf8proc/source.tar -C /
+SLOP make -C /tmp/utf8proc/source CC=cc CFLAGS=-O0 libutf8proc.a
+SLOP cp /tmp/utf8proc/source/libutf8proc.a /usr/lib/libutf8proc.a
+SLOP cp /tmp/utf8proc/source/utf8proc.h /usr/include/utf8proc.h
+
+FILE /tmp/utf8proc/check.c
+    #include <utf8proc.h>
+    #include <assert.h>
+    #include <stdlib.h>
+    #include <string.h>
+    int main(void) {
+      assert(utf8proc_charwidth(0x65e5) == 2);
+      unsigned char *text = utf8proc_NFC((const unsigned char *)"e\xcc\x81");
+      assert(text && strcmp((const char *)text, "\xc3\xa9") == 0);
+      free(text);
+      return 0;
+    }
+SLOP cc -O0 /tmp/utf8proc/check.c -lutf8proc -o /tmp/utf8proc/check
+SLOP /tmp/utf8proc/check
+
+EXPORTS HEADER utf8proc /usr/include/utf8proc.h
+EXPORTS LIB utf8proc /usr/lib/libutf8proc.a
+FILE /usr/share/licenses/utf8proc/LICENSE
+SLOP rm -rf /tmp/utf8proc
+SOURCE https://daugasauron.com/dist/static/neovim/treesitter.tar c31944873f3cd13235f2e9148b474f329b6bf183823baea50eacdb125fc46f9c /tmp/treesitter/source.tar
+SLOP tar -xf /tmp/treesitter/source.tar -C /
+SLOP make -C /tmp/treesitter/source CC=cc CFLAGS=-O0 MACHINE=wasm64-unknown-emscripten libtree-sitter.a
+SLOP cp /tmp/treesitter/source/libtree-sitter.a /usr/lib/libtree-sitter.a
+SLOP cp -R /tmp/treesitter/source/lib/include/tree_sitter /usr/include
+SLOP cp /tmp/treesitter/source/lib/src/unicode/LICENSE /usr/share/licenses/treesitter/Unicode-LICENSE
+
+FILE /tmp/treesitter/check.c
+    #include <tree_sitter/api.h>
+    #include <assert.h>
+    int main(void) {
+      TSParser *parser = ts_parser_new();
+      assert(parser && ts_parser_language(parser) == 0);
+      ts_parser_reset(parser);
+      ts_parser_delete(parser);
+      return 0;
+    }
+SLOP cc -O0 /tmp/treesitter/check.c -ltree-sitter -o /tmp/treesitter/check
+SLOP /tmp/treesitter/check
+
+EXPORTS HEADER treesitter /usr/include/tree_sitter
+EXPORTS LIB treesitter /usr/lib/libtree-sitter.a
+FILE /usr/share/licenses/treesitter/LICENSE
+FILE /usr/share/licenses/treesitter/Unicode-LICENSE
+SLOP rm -rf /tmp/treesitter
+# Upstream generators and the editor itself execute inside Dolly.
+REQUIRES HEADER luv
+REQUIRES HEADER treesitter
+REQUIRES HEADER utf8proc
+REQUIRES LIB luv
+REQUIRES LIB lpeg
+REQUIRES LIB lua-lpeg
+REQUIRES LIB lua-luv
+REQUIRES LIB treesitter
+REQUIRES LIB utf8proc
+REQUIRES TOOL sh
+REQUIRES TOOL sleep
+REQUIRES TOOL timeout
+
+SOURCE https://daugasauron.com/dist/static/neovim/neovim.tar.gz 33277d465eebd937357c59a83378d6faef72dd47e1a20a140f16660eec598b0e /tmp/neovim/source.tar.gz
+SLOP gzip -dc /tmp/neovim/source.tar.gz | tar -xf - -C /
+SLOP cmake -S /tmp/neovim/source -B /tmp/neovim/build \
+  -DCMAKE_INSTALL_PREFIX=/usr -DCMAKE_INSTALL_LIBDIR=lib \
+  -DCMAKE_BUILD_TYPE=Debug -DCMAKE_C_FLAGS=-DDOLLY -DCMAKE_C_FLAGS_DEBUG=-O0 \
+  -DPREFER_LUA=ON -DENABLE_LTO=OFF -DENABLE_LIBINTL=OFF \
+  -DENABLE_UNIBILIUM=OFF -DENABLE_WASMTIME=OFF \
+  -DLUA_INCLUDE_DIR=/usr/include/lua5.1 -DLUA_LIBRARY=/usr/lib/liblua.a -DLUA_MATH_LIBRARY:STRING=m
+SLOP cmake --build /tmp/neovim/build --target nvim
+SLOP cmake --install /tmp/neovim/build
+
+FILE /tmp/neovim/check.lua
+    vim.api.nvim_buf_set_lines(0, 0, -1, false, {"Dolly", "日本語"})
+    vim.cmd("write /tmp/neovim/check.txt")
+    vim.cmd("bdelete!")
+    vim.cmd("edit /tmp/neovim/check.txt")
+    assert(vim.deep_equal(vim.api.nvim_buf_get_lines(0, 0, -1, false), {"Dolly", "日本語"}))
+    local result = vim.fn.system({"/bin/slop", "-c", "printf SLOP-CHILD"})
+    assert(result == "SLOP-CHILD" and vim.v.shell_error == 0,
+      "Slop child status " .. vim.v.shell_error .. ": " .. vim.inspect(result))
+    local stopped, output = false, ""
+    local job = vim.fn.jobstart({"/bin/slop", "-c", "printf FIRST; read answer; printf SECOND; sleep 30"}, {
+      on_stdout = function(_, data) output = output .. table.concat(data, "\n") end,
+      on_exit = function() stopped = true end,
+    })
+    assert(job > 0)
+    assert(vim.wait(3000, function() return output:find("FIRST", 1, true) end))
+    assert(vim.fn.chansend(job, "go\n") > 0)
+    assert(vim.wait(3000, function() return output:find("SECOND", 1, true) end))
+    assert(vim.fn.jobstop(job) == 1)
+    assert(vim.wait(3000, function() return stopped end))
+    vim.cmd("quit!")
+SLOP timeout 60 nvim --clean --headless -l /tmp/neovim/check.lua
+
+EXPORTS TOOL nvim
+EXPORTS FOLDER nvim-runtime /usr/share/nvim
+EXPORTS FOLDER nvim-libraries /usr/lib/nvim
+FILE /usr/share/licenses/neovim/LICENSE.txt
+FILE /usr/share/licenses/neovim/mpack
+FILE /usr/share/licenses/neovim/vterm
+SLOP rm -rf /tmp/neovim
+REQUIRES TOOL nvim
+
+# Neovim's pinned grammars and its own CMake build recipes, all built in Dolly.
+SOURCE https://daugasauron.com/dist/static/neovim/parsers.tar 18656076f67f0cb39a68cbe1c6f628c35faf23e2ec207f914e97874a9cf323f7 /tmp/neovim-parsers/source.tar
+SLOP tar -xf /tmp/neovim-parsers/source.tar -C /
+FILE /tmp/neovim-parsers/build.slop
+    set -ex
+    for language in c lua vim vimdoc query markdown; do
+      cmake -S /tmp/neovim-parsers/$language -B /tmp/neovim-parsers/$language/build \
+        -DCMAKE_INSTALL_PREFIX=/usr -DCMAKE_C_FLAGS=-O0 -DPARSERLANG=$language
+      cmake --build /tmp/neovim-parsers/$language/build
+      cmake --install /tmp/neovim-parsers/$language/build
+    done
+SLOP slop /tmp/neovim-parsers/build.slop
+
+FILE /tmp/neovim-parsers/check.lua
+    for language, source in pairs({
+      c = "int main(void) { return 0; }",
+      lua = "return 42",
+      vim = "echo 'Dolly'\n",
+      vimdoc = "Dolly\n\n",
+      query = "(identifier) @name",
+      markdown = "# Dolly\n",
+      markdown_inline = "**Dolly**",
+    }) do
+      local parser = vim.treesitter.get_string_parser(source, language)
+      local tree = assert(parser:parse()[1])
+      assert(not tree:root():has_error(), language .. ": " .. tree:root():sexpr())
+    end
+    vim.cmd("quit!")
+SLOP timeout 30 nvim --clean --headless -l /tmp/neovim-parsers/check.lua
+
+EXPORTS FOLDER nvim-parsers /usr/lib/nvim/parser
+EXPORTS FOLDER nvim-parser-licenses /usr/share/licenses/neovim-parsers
+SLOP rm -rf /tmp/neovim-parsers
 
 ENTRY /bin/foreground -i /bin/slop

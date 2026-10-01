@@ -1,12 +1,32 @@
 DOLLY 6
 APPLICATION codex
+REQUIRES HOST display@0
+REQUIRES HOST download@0
+REQUIRES HOST http@0
+REQUIRES HOST snapshot@0
+REQUIRES HOST threads@0
+REQUIRES HOST upload@0
 
-FROM https://daugasauron.com/Dollyfile-system 9458aeb8551ae915f623a7dd849bdc2f1bd55c3eabac10c8eed3de297c6f2344
-COPY https://daugasauron.com/demos/codex/Dollyfile-codex-build e9b07458c15bcda880c72dad2778df86e68d7ae40aa4cee1e0906bfd1f63ffc7 /usr/bin/codex /usr/libexec/codex
-COPY https://daugasauron.com/demos/codex/Dollyfile-codex-build e9b07458c15bcda880c72dad2778df86e68d7ae40aa4cee1e0906bfd1f63ffc7 /usr/share/licenses/codex /usr/share/licenses/codex
-COPY https://daugasauron.com/demos/codex/Dollyfile-codex-build e9b07458c15bcda880c72dad2778df86e68d7ae40aa4cee1e0906bfd1f63ffc7 /usr/share/dolly/builds/codex.json /usr/share/dolly/builds/codex.json
-USE https://daugasauron.com/demos/rust/search-tools.dm 5d23b1dfda0e91cc48a6f5f2a7a1dd6a484871417fd328362f4d151e1404ad51
-USE https://daugasauron.com/demos/codex/codex.dm 0e04685dc8d8fb4299ae9817e44621c5deb45d4509d6f343f6d30c1c9f5b90fb
+FROM https://daugasauron.com/Dollyfile-system cc494d639dba7e4eb5fe691d2f21a50dea47394ce01e5eb59d3466c11b3de41b
+COPY https://daugasauron.com/demos/codex/Dollyfile-codex-build 9086d2be6dc5b8c69420da3cafecf9e4998e01f1ba516d134e0f0af14a102f95 /usr/bin/codex /usr/libexec/codex
+COPY https://daugasauron.com/demos/codex/Dollyfile-codex-build 9086d2be6dc5b8c69420da3cafecf9e4998e01f1ba516d134e0f0af14a102f95 /usr/share/licenses/codex /usr/share/licenses/codex
+COPY https://daugasauron.com/demos/codex/Dollyfile-codex-build 9086d2be6dc5b8c69420da3cafecf9e4998e01f1ba516d134e0f0af14a102f95 /usr/share/dolly/builds/codex.json /usr/share/dolly/builds/codex.json
+INSTALL https://daugasauron.com/demos/rust/Dollyfile-ripgrep d1dc7f003b92aa06f1248dcfd836a50207972084a8e99cc8a227772d4a81b97e
+INSTALL https://daugasauron.com/demos/rust/Dollyfile-fd 210598ca1059a815fcf64255bd44ca48de110e57c8b112f85fc139e192b0312d
+REQUIRES HEADER libc
+REQUIRES HEADER runtime
+REQUIRES TOOL cc
+REQUIRES TOOL rm
+REQUIRES TOOL sh
+
+SOURCE https://daugasauron.com/dist/static/codex/launch.c 976af0443f20a29fb54d0e9b04d21138ba6d2fde269d2d6fd4a88b413ac9b04c /tmp/codex-launch.c
+SOURCE https://daugasauron.com/dist/static/codex/config.toml 41195a65f4ae7b2502f30cf0ed938d0746954ed5434af4a2ef99ce0e05683c97 /usr/share/codex/config.toml
+SLOP cc -O1 /tmp/codex-launch.c -o /usr/bin/codex
+SLOP rm /tmp/codex-launch.c
+
+EXPORTS TOOL codex
+FILE /usr/libexec/codex
+FILE /usr/share/codex/config.toml
 
 FILE /etc/dolly/init.slop
     /bin/foreground -i /usr/bin/codex

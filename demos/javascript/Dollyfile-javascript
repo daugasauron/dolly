@@ -1,9 +1,11 @@
 DOLLY 6
 PACKAGE javascript
+REQUIRES HOST download@0
+REQUIRES HOST http@0
 
 # QuickJS, Janis and TypeScript, built by typescript-build; the package keeps
 # only the exports below.
-FROM https://daugasauron.com/demos/javascript/Dollyfile-typescript-build d2017ad3aa84d617d519d986641914cd17250c2675edf6a130bcc597cbda3373
+FROM https://daugasauron.com/demos/javascript/Dollyfile-typescript-build df523341ccafea66e82a25bdbe38f446a68005d8fe629fb4d7d7b7c9ca462fbb
 
 EXPORTS TOOL   qjs
 EXPORTS TOOL   janis

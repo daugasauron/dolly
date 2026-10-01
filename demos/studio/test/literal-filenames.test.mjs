@@ -15,6 +15,6 @@ test("Studio lint diagnostics preserve filenames when adding the first line numb
       Dolly: { readFile: () => "DOLLY 6\n", exit: code => { status = code; } },
       console: { error: text => { message = text; } } });
     assert.equal(status, 1);
-    assert.equal(message, `${label}:1: missing APPLICATION, TOOLCHAIN, PACKAGE or MODULE`);
+    assert.equal(message, `${label}:1: missing APPLICATION, TOOLCHAIN or PACKAGE`);
   }
 });

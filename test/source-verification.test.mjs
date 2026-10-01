@@ -6,7 +6,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
 import { gunzipSync } from "node:zlib";
-import { updateRecipePins } from "../scripts/update-module-pins.mjs";
+import { updateRecipePins } from "../scripts/update-recipe-pins.mjs";
 
 for (const extension of ["tar", "tar.gz"]) test(`${extension} source archives are deterministic, complete under short writes, and own their staging`, async t => {
   const scratch = await mkdtemp(join(tmpdir(), "dolly-source-tar-"));
@@ -74,15 +74,14 @@ test("prepared published bytes update module and image pins without changing ext
   const digest = bytes => createHash("sha256").update(bytes).digest("hex");
   const pin = "0".repeat(64);
   try {
-    await mkdir(join(scratch, "modules"));
     await mkdir(join(scratch, "dist/static"), { recursive: true });
-    await writeFile(join(scratch, "Dollyfile"), `DOLLY 6\nAPPLICATION default\nUSE https://daugasauron.com/modules/tool.dm ${pin}\nENTRY /bin/slop\n`);
+    await writeFile(join(scratch, "Dollyfile"), `DOLLY 6\nAPPLICATION default\nINSTALL https://daugasauron.com/Dollyfile-tool ${pin}\nENTRY /bin/slop\n`);
     await writeFile(join(scratch, "Dollyfile-addon"), `DOLLY 6\nAPPLICATION addon\nFROM https://daugasauron.com/Dollyfile ${pin}\nENTRY /bin/slop\n`);
-    await writeFile(join(scratch, "modules/tool.dm"), `DOLLY 6\nMODULE tool\nSOURCE https://daugasauron.com/dist/static/tool.c ${pin} /tmp/tool.c\nSOURCE https://example.invalid/source ${pin} /tmp/upstream\n`);
+    await writeFile(join(scratch, "Dollyfile-tool"), `DOLLY 6\nPACKAGE tool\nSOURCE https://daugasauron.com/dist/static/tool.c ${pin} /tmp/tool.c\nSOURCE https://example.invalid/source ${pin} /tmp/upstream\n`);
     for (const bytes of ["first source", "edited source"]) {
       await writeFile(join(scratch, "dist/static/tool.c"), bytes);
       await updateRecipePins(scratch, true);
-      const module = await readFile(join(scratch, "modules/tool.dm"), "utf8");
+      const module = await readFile(join(scratch, "Dollyfile-tool"), "utf8");
       const base = await readFile(join(scratch, "Dollyfile"), "utf8");
       const addon = await readFile(join(scratch, "Dollyfile-addon"), "utf8");
       assert.ok(module.includes(`/static/tool.c ${digest(bytes)} /tmp/tool.c`));

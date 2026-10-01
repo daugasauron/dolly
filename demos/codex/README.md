@@ -24,9 +24,9 @@ the TUI returns to Slop; `codex` starts it again.
 
 ## Key files
 
-- [`codex-build.dm`](codex-build.dm): the complete offline Patti build; its
+- [`Dollyfile-codex-build`](Dollyfile-codex-build): the complete offline Patti build; its
   record is kept at `/usr/share/dolly/builds/codex.json`.
-- [`codex.dm`](codex.dm), [`launch.c`](launch.c): runtime image and launcher.
+- [`Dollyfile-codex`](Dollyfile-codex), [`launch.c`](launch.c): runtime image and launcher.
 - [`config/`](config/): source pins ([`codex-git.json`](config/codex-git.json)),
   Patti settings ([`patti.toml`](config/patti.toml)) and target patches.
 - [`prepare-codex-sources.py`](prepare-codex-sources.py): verifies and packages

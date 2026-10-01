@@ -53,21 +53,21 @@ policy; protocol details are in `/usr/share/dollyfile-studio/build-service.md`.
   For stdin tests, pipe text: `printf 'input\n' | tool`. `< PATH` reads a file;
   it does not supply inline text. Check results with `test "$(COMMAND)" = EXPECTED`.
 - Own and remove build scratch under `/tmp`. Do not retain credentials or agent
-  history. A local `.dm` is not a published dependency; inline its steps.
+  history. Reuse comes from published packages (`INSTALL`); inline other steps.
 - ENTRY is mandatory and final. The tool example enters a Slop prompt.
   COPY copies files, not environment or named exports; INSTALL takes a package.
 
 ## Porting upstream programs
 
-Recipes and `SOURCE` files of **other modules and images** can be inspected
+Recipes and `SOURCE` files of **other images and packages** can be inspected
 with `curl`; they are published web assets, not access to the PC's filesystem.
 Recipes name them at `https://daugasauron.com`, and the page serves its own
-copy of each. Read the module recipe under `/etc/dolly/recipes` for the exact
+copy of each. Read the recipes under `/etc/dolly/recipes` for the exact
 URL and pin. For example, inspect QuickJS's recipe and C source without
-installing that module:
+installing anything:
 
 ```sh
-curl -f https://daugasauron.com/demos/javascript/quickjs.dm
+curl -f https://daugasauron.com/demos/javascript/Dollyfile-typescript-build
 curl -f https://daugasauron.com/dist/static/default/runtimes/quickjs-main.c
 ```
 

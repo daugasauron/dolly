@@ -1,7 +1,34 @@
 DOLLY 6
 TOOLCHAIN llama-build
+REQUIRES HOST display@0
+REQUIRES HOST download@0
+REQUIRES HOST http@0
+REQUIRES HOST upload@0
 
-FROM https://daugasauron.com/demos/cmake/Dollyfile-cmake-build a5335f433b5d573f03e6821f912e684cd75fa4defdba24f984b92f0bdbc92724
-USE https://daugasauron.com/demos/local-llm/llama-core.dm 04d58531c714f2b17ccf3c7dce3d71407e0ae4466cd9cb4b8c66cfc6542fa985
+FROM https://daugasauron.com/demos/cmake/Dollyfile-cmake-build 1985d8043e641d0e22d846578524692396929a4e203361bd8730d3572fd61354
+REQUIRES TOOL cc
+REQUIRES TOOL c++
+REQUIRES TOOL cmake
+REQUIRES TOOL make
+REQUIRES TOOL tar
+REQUIRES TOOL rm
+
+SOURCE https://daugasauron.com/dist/static/llama/source.tar 5f3ad5d6f0579842ed9911468b521e73f430b3cd1545986a9e849fe3afa49afd /tmp/llama-source.tar
+SLOP tar -xf /tmp/llama-source.tar -C /
+SLOP cmake -S /tmp/llama -B /tmp/llama/build \
+  -DCMAKE_SYSTEM_NAME=Dolly -DCMAKE_SYSTEM_PROCESSOR=wasm64 \
+  -DCMAKE_BUILD_TYPE=Release -DCMAKE_C_FLAGS_RELEASE=-O1 -DCMAKE_CXX_FLAGS_RELEASE=-O1 \
+  -DCMAKE_C_COMPILER=cc -DCMAKE_CXX_COMPILER=c++ -DCMAKE_INSTALL_PREFIX=/usr
+SLOP cmake --build /tmp/llama/build --target llama ggml-webgpu
+SLOP cmake --install /tmp/llama/build
+SLOP rm -rf /tmp/llama /tmp/llama-source.tar
+
+EXPORTS LIB llama /usr/lib/dolly-llm/libllama.a
+EXPORTS LIB ggml /usr/lib/dolly-llm/libggml.a
+EXPORTS LIB ggml-base /usr/lib/dolly-llm/libggml-base.a
+EXPORTS LIB ggml-cpu /usr/lib/dolly-llm/libggml-cpu.a
+EXPORTS LIB ggml-webgpu /usr/lib/dolly-llm/libggml-webgpu.a
+EXPORTS HEADER llama /usr/include/dolly-llm
+EXPORTS FOLDER llama-licenses /usr/share/licenses/dolly-llm
 
 ENTRY /bin/foreground -i /bin/slop

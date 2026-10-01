@@ -114,7 +114,6 @@ flowchart TD
   [`Dollyfile-ghostty-build`](../Dollyfile-ghostty-build),
   [`Dollyfile-system`](../Dollyfile-system), [`Dollyfile`](../Dollyfile) (default),
   [`Dollyfile-gpu-sdk`](../Dollyfile-gpu-sdk), [`Dollyfile-audio-sdk`](../Dollyfile-audio-sdk);
-  their modules live in `modules/`.
 - The graph is split so an edit rebuilds only its descendants: each builder
   starts from the smallest image with its tools. Neither Git nor display
   packaging is an input to the Rust producers (`rust-sdk` starts from

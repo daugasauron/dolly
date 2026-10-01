@@ -29,7 +29,7 @@ export async function updateRecipePins(projectDir, refreshSources = false) {
             lines[index].slice(offset + reference.sha256.length);
           // Let the parser distinguish a pin from identical path/comment text.
           const parsed = inspectDollyfile(candidate.join("\n"), location);
-          const updated = [...parsed.sources, ...parsed.uses, ...parsed.artifacts]
+          const updated = [...parsed.sources, ...parsed.artifacts]
             .find(item => item.line === reference.line);
           if (updated?.sha256 === sha256 && Object.entries(reference)
             .every(([key, value]) => key === "sha256" || updated[key] === value)) {
@@ -56,7 +56,7 @@ export async function updateRecipePins(projectDir, refreshSources = false) {
       }
       replacePin(source, createHash("sha256").update(bytes).digest("hex"));
     }
-    for (const reference of [...recipe.uses, ...recipe.artifacts]) {
+    for (const reference of recipe.artifacts) {
       const sha256 = await pin(reference.location);
       replacePin(reference, sha256);
     }
@@ -67,14 +67,14 @@ export async function updateRecipePins(projectDir, refreshSources = false) {
     pinned.set(location, sha256);
     return sha256;
   }
-  const images = [...files.keys()].filter(url => !url.endsWith(".dm")).sort();
+  const images = [...files.keys()].sort();
   for (const image of images) await pin(image);
   return { recipes: pinned.size, images: images.length };
 }
 
 if (process.argv[1] === import.meta.filename) {
   const refreshSources = process.argv[2] === "--sources";
-  if (process.argv.length > (refreshSources ? 3 : 2)) throw new Error("usage: update-module-pins.mjs [--sources]");
+  if (process.argv.length > (refreshSources ? 3 : 2)) throw new Error("usage: update-recipe-pins.mjs [--sources]");
   const result = await updateRecipePins(resolve(import.meta.dirname, ".."), refreshSources);
   console.log(`dolly: pinned ${result.recipes} recipes across ${result.images} images`);
 }

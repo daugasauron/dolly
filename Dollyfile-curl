@@ -1,5 +1,8 @@
 DOLLY 6
-MODULE curl
+PACKAGE curl
+REQUIRES HOST http@0
+
+FROM https://daugasauron.com/Dollyfile-system-build 5c2fc6e696d87f4762de4bf3c8707e81bb10c2cb7a327aecc7921de01abca9c5
 
 REQUIRES HEADER libc
 REQUIRES HEADER http

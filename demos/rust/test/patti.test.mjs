@@ -36,7 +36,7 @@ test("Patti's parsers, source cache and compiler commands behave like Cargo", as
 });
 
 test("Patti pins its C implementation and parser without a Python runtime dependency", async () => {
-  const module = inspectDollyfile(await readFile(resolve(projectDir, "demos/rust/patti.dm"), "utf8"), "patti.dm");
+  const module = inspectDollyfile(await readFile(resolve(projectDir, "demos/rust/Dollyfile-rust-build"), "utf8"), "Dollyfile-rust-build");
   assert.ok(!module.requirements.some(requirement => requirement.name.startsWith("python")));
   const sources = new Map([
     ["patti.c", "demos/rust/patti.c"], ["sha256.h", "src/sha256.h"],

@@ -1,10 +1,35 @@
 DOLLY 6
 TOOLCHAIN rust-sdk
+REQUIRES HOST display@0
+REQUIRES HOST http@0
+REQUIRES HOST threads@0
 
-FROM https://daugasauron.com/Dollyfile-system-build cf6a9560686977569349e30567fc701c36301227ae9e712e090261f51260298b
-USE https://daugasauron.com/modules/zlib.dm 09b26217a01066a2ba12f5ef25e4b804e8cddcfdf2196f3cf9c2dc1bd51f9227
-USE https://daugasauron.com/modules/gzip.dm 9db8dcee3d41678bee5840cccc760a35ccf54a04fb62b77b3712dfb476463014
-USE https://daugasauron.com/demos/rust/rust-sdk.dm bf21571e8815f6a7c04a5ca4cd65670c3aae6088e2792ec44520f60b562730e3
-USE https://daugasauron.com/modules/display.dm 93f2d6e6fad1108c6bff196988220a0d6e3fc1c1048dc35d48055a691ef0832f
+FROM https://daugasauron.com/Dollyfile-system-build 5c2fc6e696d87f4762de4bf3c8707e81bb10c2cb7a327aecc7921de01abca9c5
+INSTALL https://daugasauron.com/Dollyfile-zlib 760f804a7eeaf8ba5dd2d36e4a09d535c1f8aad1422f417fa7e493a59c356703
+INSTALL https://daugasauron.com/Dollyfile-gzip 500a255b34ec6d7d9469d3e553e799a5d83aa98287d32cbcf4bc6f9312aa5d7b
+REQUIRES TOOL cc
+REQUIRES TOOL tar
+REQUIRES TOOL gzip
+REQUIRES TOOL cp
+REQUIRES TOOL rm
+REQUIRES TOOL mkdir
+
+# External compiler/std seed; the linker adapter is compiled inside Dolly.
+SOURCE https://daugasauron.com/dist/static/rust/rust-sdk.tar.gz 439c4ed88976294152f0d26b6204b0bc6a983d60c5d397f19d73004fdae4d44c /tmp/rust-sdk.tar.gz
+SLOP mkdir -p /opt
+SLOP gzip -dc /tmp/rust-sdk.tar.gz | tar -xf - -C /opt
+SOURCE https://daugasauron.com/dist/static/rust/rustc.sh 966c3a6e1863196ca1d44b47552c46bc0e7caa8f096ef385252b3216f2f658d1 /opt/rust-sdk/bin/rustc
+SOURCE https://daugasauron.com/dist/static/rust/rust-linker.c 455c8b6df47d3e8ff0d9eb70bd355a2b6bb2feb4615d5ed3ed58f69429ca46ee /tmp/rust-linker.c
+SLOP cc -O1 /tmp/rust-linker.c -o /opt/rust-sdk/bin/dolly-rust-link
+SLOP mkdir -p /usr/share/licenses/rust
+SLOP cp -R /opt/rust-sdk/licenses/. /usr/share/licenses/rust
+SLOP rm /tmp/rust-sdk.tar.gz /tmp/rust-linker.c
+
+EXPORTS ENV PATH APPEND /opt/rust-sdk/bin
+EXPORTS TOOL rustc
+EXPORTS FOLDER rust-sdk /opt/rust-sdk
+EXPORTS FOLDER rust-licenses /usr/share/licenses/rust
+SLOP rustc --version --verbose
+INSTALL https://daugasauron.com/Dollyfile-display 81781deadddf7efb4a2f175052ead505bc28f2e56a2fd3fba354137e2f2f36e4
 
 ENTRY /bin/foreground -i /bin/slop

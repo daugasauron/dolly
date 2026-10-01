@@ -25,6 +25,10 @@ recipes build on, or a `PACKAGE` recipes and sessions install
 - `ghostty-build`: Ghostty terminal build with Zig and its SDK.
 - `gpu-sdk`: `system` with the WebGPU host module (`gpu@0`).
 - `audio-sdk`: `system` with the PCM playback host module (`audio@0`).
+- `zlib`: zlib, as a package.
+- `curl`: curl and libcurl over the HTTP broker, as a package.
+- `gzip`: gzip over zlib, as a package.
+- `display`: the Ghostty display plugin and its font, as a package.
 
 ## Try it
 
@@ -70,7 +74,7 @@ npm run test:artifacts                # exact contracts of the built artifacts
 npm run test:full                     # rebuilds every image first: hours
 ```
 
-Image builds rewrite SHA-256 pins in `Dollyfile*` and `modules/*.dm`.
+Image builds rewrite SHA-256 pins in `Dollyfile*`.
 
 ## Docs
 

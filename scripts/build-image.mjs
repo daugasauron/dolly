@@ -38,7 +38,7 @@ if (option === "--plan") {
   await run("plan", process.execPath, ["scripts/build-system-snapshot.mjs", "--plan"]);
   process.exit(0);
 }
-await run("recipe pinning", process.execPath, ["scripts/update-module-pins.mjs"]);
+await run("recipe pinning", process.execPath, ["scripts/update-recipe-pins.mjs"]);
 await run("source preparation and pinning", "bash", ["scripts/prepare-image-sources.sh"]);
 await run("source inspection and routes", process.execPath, ["scripts/generate-routes.mjs"]);
 await run("snapshots", process.execPath, [option === "--reproducible"

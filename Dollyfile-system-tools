@@ -1,10 +1,430 @@
 DOLLY 6
 TOOLCHAIN system-tools
+REQUIRES HOST display@0
+REQUIRES HOST download@0
+REQUIRES HOST http@0
+REQUIRES HOST upload@0
 
-FROM https://daugasauron.com/Dollyfile-system-build cf6a9560686977569349e30567fc701c36301227ae9e712e090261f51260298b
-USE https://daugasauron.com/modules/sbase.dm 0a9a6255c50847874cdcd40b649a915db1fb89677e0fc401ddcaf8de82e86d33
-USE https://daugasauron.com/modules/default.dm 8b1c2c4d6494a6e9dfd77c8b8f7c8ae434380ad3c04ddcd17f717723d39fbac7
-USE https://daugasauron.com/modules/posix-shell.dm c5fb7ab35d7ee614d5fd124a848cf1a79b1017b80106814ba0224bf2e915278f
-USE https://daugasauron.com/modules/display.dm 93f2d6e6fad1108c6bff196988220a0d6e3fc1c1048dc35d48055a691ef0832f
+FROM https://daugasauron.com/Dollyfile-system-build 5c2fc6e696d87f4762de4bf3c8707e81bb10c2cb7a327aecc7921de01abca9c5
+# Unchanged upstream sbase commands, built by sbase's own Makefile.
+REQUIRES HEADER libc
+REQUIRES TOOL   ar
+REQUIRES TOOL   cc
+REQUIRES TOOL   make
+REQUIRES TOOL   mv
+REQUIRES TOOL   rm
+REQUIRES TOOL   tar
+
+SOURCE https://daugasauron.com/dist/static/default/sbase.tar a01a6a52283b100e302da15ab69cad0d228f1dd054fbbd5ce0ead6920e372e9e /tmp/sbase.tar
+SLOP tar \
+  -xf /tmp/sbase.tar \
+  -C /
+
+FILE /tmp/sbase/dolly.mk
+    TOOLS = basename cksum cmp comm cut date dd dirname expand expr false fold \
+            grep head join ln md5sum mktemp nl od paste pathchk printenv printf \
+            readlink rmdir sed seq sha256sum sleep sort split strings tee tr true \
+            tsort uname unexpand uniq wc which
+    .RECIPEPREFIX := >
+    dolly-bin: $(TOOLS)
+    >mv $(TOOLS) /bin
+    .RECIPEPREFIX :=
+    include Makefile
+SLOP make \
+  -C /tmp/sbase \
+  -f dolly.mk \
+  CFLAGS=-O2 \
+  ARFLAGS=rc \
+  RANLIB=:
+
+EXPORTS TOOL basename
+EXPORTS TOOL cksum
+EXPORTS TOOL cmp
+EXPORTS TOOL comm
+EXPORTS TOOL cut
+EXPORTS TOOL date
+EXPORTS TOOL dd
+EXPORTS TOOL dirname
+EXPORTS TOOL expand
+EXPORTS TOOL expr
+EXPORTS TOOL false
+EXPORTS TOOL fold
+EXPORTS TOOL grep
+EXPORTS TOOL head
+EXPORTS TOOL join
+EXPORTS TOOL ln
+EXPORTS TOOL md5sum
+EXPORTS TOOL mktemp
+EXPORTS TOOL nl
+EXPORTS TOOL od
+EXPORTS TOOL paste
+EXPORTS TOOL pathchk
+EXPORTS TOOL printenv
+EXPORTS TOOL printf
+EXPORTS TOOL readlink
+EXPORTS TOOL rmdir
+EXPORTS TOOL sed
+EXPORTS TOOL seq
+EXPORTS TOOL sha256sum
+EXPORTS TOOL sleep
+EXPORTS TOOL sort
+EXPORTS TOOL split
+EXPORTS TOOL strings
+EXPORTS TOOL tee
+EXPORTS TOOL tr
+EXPORTS TOOL true
+EXPORTS TOOL tsort
+EXPORTS TOOL uname
+EXPORTS TOOL unexpand
+EXPORTS TOOL uniq
+EXPORTS TOOL wc
+EXPORTS TOOL which
+
+FILE /usr/share/licenses/sbase/LICENSE
+
+SLOP rm \
+  -rf \
+  /tmp/sbase \
+  /tmp/sbase.tar
+# Shared C/C++ build and system utilities, without a display or Rust tools.
+REQUIRES HEADER download
+
+# This command is Dolly-specific rather than part of the POSIX-like core set.
+FILE /tmp/download/download.c
+    #include <stdio.h>
+    #include <string.h>
+    
+    #include <dolly/download.h>
+    
+    int main(int argc, char **argv) {
+      if (argc == 2 && strcmp(argv[1], "--help") == 0) {
+        fputs("usage: download FILE\n", stdout);
+        return 0;
+      }
+      if (argc != 2) {
+        fputs("download: expected one file\n", stderr);
+        return 2;
+      }
+      const int status = dolly_download_file(argv[1]);
+      if (status != 0) {
+        fprintf(stderr, "download: %s failed (%d)\n", argv[1], status);
+        return 1;
+      }
+      printf("download: requested %s\n", argv[1]);
+      return 0;
+    }
+
+SLOP cc \
+  /tmp/download/download.c \
+  -o /bin/download
+
+EXPORTS TOOL download
+
+SLOP rm \
+  -rf \
+  /tmp/download
+REQUIRES HEADER upload
+
+FILE /tmp/upload/upload.c
+    #include <dolly/upload.h>
+    #include <stdio.h>
+    #include <stdlib.h>
+    #include <string.h>
+    int main(int argc, char **argv) {
+      if (argc != 2 || strcmp(argv[1], "--help") == 0) {
+        fprintf(argc == 2 ? stdout : stderr, "usage: upload DESTINATION\nChoose a file in the browser (up to 64 MiB). Existing files are never replaced.\n");
+        return argc == 2 ? 0 : 2;
+      }
+      puts("upload: choose a file in the browser, or cancel");
+      fflush(stdout);
+      const int result = dolly_upload_file(argv[1]);
+      if (result < 0) { fprintf(stderr, "upload: %s\n", strerror((int)-result)); return 1; }
+      printf("upload: saved %s\n", argv[1]);
+      return 0;
+    }
+SLOP cc -std=c17 -O1 /tmp/upload/upload.c -o /bin/upload
+EXPORTS TOOL upload
+SLOP rm -rf /tmp/upload
+# Samurai is a compact Ninja-compatible executor. Its upstream parser, graph,
+# depfile handling, and build log stay as separate ordinary C translation
+# units. The Dolly patch replaces only native process scheduling with the
+# in-Wasm command lifecycle. `util.c` has two explicit loop checkpoints and is
+# compiled without generic edge coverage, which otherwise causes a severe
+# bootstrap-compiler blowup for that one file.
+REQUIRES HEADER runtime
+
+SOURCE https://daugasauron.com/dist/static/default/samurai.tar                   c3bb0fcfad238dcf4e4fb9edc119563570772e09fe1cc85384868964ef2f939a /tmp/ninja/samurai.tar
+SOURCE https://daugasauron.com/dist/static/default/runtimes/samurai-unit-dolly.c 4412175ad18939c580d6a31ca89a1284d313026674d5ac4faa0841aab379a4f7 /tmp/ninja/samurai-unit-dolly.c
+
+FILE /tmp/ninja/Makefile
+    .RECIPEPREFIX := >
+    SOURCE_ROOT := /tmp/ninja/source
+    NAMES := build deps env graph htab log parse samu scan tool tree util os-posix
+    SOURCES := $(addprefix $(SOURCE_ROOT)/,$(addsuffix .c,$(NAMES)))
+    PARTS := 1 2 3 4 5 6 7 8 9 10 11 12 13
+    UNIT := /tmp/ninja/samurai-unit-dolly.c
+    OBJECTS := $(addprefix /tmp/ninja/part-,$(addsuffix .o,$(PARTS)))
+    CFLAGS := -O1 -std=c99 -D_POSIX_C_SOURCE=200809L -DDOLLY -I $(SOURCE_ROOT)
+    
+    all: /usr/bin/ninja
+    
+    /tmp/ninja/part-12.o: $(UNIT) $(SOURCES)
+    >cc \
+    >  $(CFLAGS) \
+    >  -O0 \
+    >  -fdolly-runtime-interrupt-handler \
+    >  -DDOLLY_SAMURAI_PART=12 \
+    >  -c $(UNIT) \
+    >  -o $@
+    
+    /tmp/ninja/part-%.o: $(UNIT) $(SOURCES)
+    >cc \
+    >  $(CFLAGS) \
+    >  -DDOLLY_SAMURAI_PART=$* \
+    >  -c $(UNIT) \
+    >  -o $@
+    
+    /usr/bin/ninja: $(OBJECTS)
+    >cc $(OBJECTS) -o $@
+
+SLOP tar \
+  -xf /tmp/ninja/samurai.tar \
+  -C /
+SLOP make \
+  -f /tmp/ninja/Makefile
+
+EXPORTS TOOL ninja
+
+SLOP ninja \
+  --version
+
+FILE /usr/share/licenses/samurai/LICENSE
+
+SLOP rm \
+  -rf \
+  /tmp/ninja
+INSTALL https://daugasauron.com/Dollyfile-zlib 760f804a7eeaf8ba5dd2d36e4a09d535c1f8aad1422f417fa7e493a59c356703
+INSTALL https://daugasauron.com/Dollyfile-gzip 500a255b34ec6d7d9469d3e553e799a5d83aa98287d32cbcf4bc6f9312aa5d7b
+INSTALL https://daugasauron.com/Dollyfile-curl b250f32b990ab3e533aa7322a2c13145282000af6f068878f54422001c668b98
+REQUIRES TOOL   mkdir
+REQUIRES LIB    curl
+REQUIRES LIB    z
+REQUIRES HEADER curl
+REQUIRES HEADER zlib
+
+SOURCE https://daugasauron.com/dist/static/default/git.tar 3c4cbd0b978b5e3d067aa63faa2db16a7e1e047e6710db744e012161138ebb67 /tmp/git.tar
+SLOP tar \
+  -xf /tmp/git.tar \
+  -C /
+
+FILE /etc/gitconfig
+    [maintenance]
+        auto = false
+FILE /home/dolly/.gitconfig
+    [user]
+        name = Dolly
+        email = dolly@example.invalid
+FILE /tmp/git/Makefile
+    .RECIPEPREFIX := >
+    SOURCES := $(file </usr/src/git/dolly-sources.txt)
+    OBJECTS := $(addprefix /tmp/git/objects/,$(SOURCES:.c=.o))
+    # Keep the bootstrap build unoptimized: Git has hundreds of translation
+    # units and this layer is optimized for deterministic browser cold-build
+    # latency rather than execution throughput.
+    CPPFLAGS := \
+      -O0 \
+      -std=gnu99 \
+      -Wno-ignored-attributes \
+      -D_DEFAULT_SOURCE \
+      -DDOLLY \
+      -DNO_GETTEXT \
+      -DNO_ICONV \
+      -DNO_EXPAT \
+      -DNO_PTHREADS \
+      -DNO_UNIX_SOCKETS \
+      -DNO_OPENSSL \
+      -DNO_PERL \
+      -DNO_PYTHON \
+      -DNO_IPV6 \
+      -DNO_MMAP \
+      -DNO_REGEX \
+      -DGAWK \
+      -DNO_MBSUPPORT \
+      -DNO_MEMMEM \
+      -DNO_PREAD \
+      -DNO_SETENV \
+      -DNO_STRCASESTR \
+      -DNO_STRLCPY \
+      -DNO_STRTOUMAX \
+      -Dprintf=iprintf \
+      -Dfprintf=fiprintf \
+      -DSHA1_BLK \
+      -DSHA256_BLK \
+      -DHAVE_ALLOCA_H \
+      -DHAVE_STRINGS_H \
+      -DHAVE_CLOCK_GETTIME \
+      -DHAVE_GETRANDOM \
+      '-DGIT_VERSION_H="version-def.h"' \
+      '-DBINDIR="/usr/bin"' \
+      '-DGIT_EXEC_PATH="/usr/libexec/dolly"' \
+      '-DDEFAULT_GIT_TEMPLATE_DIR="/usr/share/git-core/templates"' \
+      '-DFALLBACK_RUNTIME_PREFIX="/usr"' \
+      '-DGIT_HOST_CPU="wasm64"' \
+      '-DGIT_LOCALE_PATH="/usr/share/locale"' \
+      '-DSHELL_PATH="/bin/slop"' \
+      '-DPAGER_ENV="LESS=FRX LV=-c"' \
+      '-DETC_GITCONFIG="/etc/gitconfig"' \
+      '-DETC_GITATTRIBUTES="/etc/gitattributes"' \
+      '-DGIT_HTML_PATH="/usr/share/doc/git/html"' \
+      '-DGIT_MAN_PATH="/usr/share/man"' \
+      '-DGIT_INFO_PATH="/usr/share/info"' \
+      -I /usr/src/git/compat/regex \
+      -I /usr/src/git \
+      -include dolly/runtime.h
+    all: /usr/bin/git /usr/libexec/dolly/git-remote-http /usr/libexec/dolly/git-remote-https
+    /tmp/git/objects/%.o: /usr/src/git/%.c
+    >mkdir -p $(dir $@)
+    >cc \
+    >  $(CPPFLAGS) \
+    >  -c $< \
+    >  -o $@
+    /usr/lib/libgit.a: $(OBJECTS)
+    >ar rcs $@ $^
+    /usr/bin/git: /usr/src/git/common-main.c /usr/src/git/git.c /usr/lib/libgit.a
+    >cc \
+    >  $(CPPFLAGS) \
+    >  /usr/src/git/common-main.c \
+    >  /usr/src/git/git.c \
+    >  -lgit \
+    >  -lz \
+    >  -o $@
+    /usr/libexec/dolly:
+    >mkdir -p $@
+    /usr/libexec/dolly/git-remote-http: /usr/src/git/common-main.c /usr/src/git/remote-curl.c /usr/src/git/http.c /usr/src/git/http-walker.c /usr/lib/libgit.a | /usr/libexec/dolly
+    >cc \
+    >  $(CPPFLAGS) \
+    >  /usr/src/git/common-main.c \
+    >  /usr/src/git/remote-curl.c \
+    >  /usr/src/git/http.c \
+    >  /usr/src/git/http-walker.c \
+    >  -lgit \
+    >  -lcurl \
+    >  -lz \
+    >  -o $@
+    /usr/libexec/dolly/git-remote-https: /usr/libexec/dolly/git-remote-http
+    >cc \
+    >  $(CPPFLAGS) \
+    >  /usr/src/git/common-main.c \
+    >  /usr/src/git/remote-curl.c \
+    >  /usr/src/git/http.c \
+    >  /usr/src/git/http-walker.c \
+    >  -lgit \
+    >  -lcurl \
+    >  -lz \
+    >  -o $@
+SLOP CWD /usr/src/git make \
+  -f /tmp/git/Makefile
+
+EXPORTS TOOL git
+
+SLOP git \
+  --version
+
+FILE /usr/libexec/dolly/git-remote-http
+FILE /usr/libexec/dolly/git-remote-https
+FOLDER /usr/share/git-core/templates
+FILE /usr/share/licenses/git/COPYING
+
+SLOP rm \
+  -rf \
+  /tmp/git \
+  /tmp/git.tar \
+  /usr/src/git
+SOURCE https://daugasauron.com/dist/static/default/awk.tar d45ffb29145610a28424f4cab15c26d1ebc34840262342ee6b23cfbd4cae936b /tmp/awk.tar
+SLOP tar \
+  -xf /tmp/awk.tar \
+  -C /
+
+FILE /tmp/awk/Makefile
+    .RECIPEPREFIX := >
+    SOURCES := /usr/src/awk/awkgram.tab.c /usr/src/awk/b.c /usr/src/awk/main.c /usr/src/awk/parse.c /usr/src/awk/proctab.c /usr/src/awk/tran.c /usr/src/awk/lib.c /usr/src/awk/run.c /usr/src/awk/lex.c
+    all: /bin/awk
+    /usr/libexec/dolly/awk-maketab: /usr/src/awk/maketab.c
+    >cc -std=gnu99 -I /usr/src/awk -DNDEBUG $< -o $@
+    /usr/src/awk/proctab.c: /usr/libexec/dolly/awk-maketab /usr/src/awk/awkgram.tab.h
+    >/usr/libexec/dolly/awk-maketab /usr/src/awk/awkgram.tab.h > $@
+    /bin/awk: $(SOURCES)
+    >cc -std=gnu99 -fno-builtin -I /usr/src/awk -D_DEFAULT_SOURCE -DNDEBUG $^ -o $@
+SLOP CWD /usr/src/awk make \
+  -f /tmp/awk/Makefile
+
+EXPORTS TOOL awk
+FILE /usr/share/licenses/awk/LICENSE
+
+SLOP awk \
+  --version
+
+SLOP rm \
+  -rf \
+  /tmp/awk \
+  /tmp/awk.tar \
+  /usr/libexec/dolly/awk-maketab \
+  /usr/src/awk
+# Focused compatibility commands used by build systems and coding agents.
+# Each remains a separate Wasm executable; wrappers which launch another tool
+# do so through Dolly's in-userspace spawn/wait contract.
+REQUIRES TOOL   git
+
+SOURCE https://daugasauron.com/dist/static/default/commands/run-program.h 677cab1ebff7f32b87f8566939d8cd0bffa9a0b94307f0cdc81ea6d05e76243e /tmp/agent-tools/run-program.h
+SOURCE https://daugasauron.com/dist/static/default/commands/install.c     0aa8729ff8f6d8ecc454757226275b946b28c2e6783afd571f4c33a616cb4ba3 /tmp/agent-tools/install.c
+SOURCE https://daugasauron.com/dist/static/default/commands/tail.c        f0a892066f2e6fe42667bf1765496f8347c8bfe53094ce22e0922e4ffc87c36b /tmp/agent-tools/tail.c
+SOURCE https://daugasauron.com/dist/static/default/commands/du.c          55b6a61ea8dc2a4355aaafc9a80d2218f397fa4d1e170b78462863fc9cb2ed63 /tmp/agent-tools/du.c
+SOURCE https://daugasauron.com/dist/static/default/commands/rev.c         3539529d49f26629a6518437dc76631f113bcc5822ff5dbc8aa26481933f3d05 /tmp/agent-tools/rev.c
+SOURCE https://daugasauron.com/dist/static/default/commands/command.c     93610e7ec64b99dd6a128d66e5a49b453464fa317434167251b492d4913e44da /tmp/agent-tools/command.c
+SOURCE https://daugasauron.com/dist/static/default/commands/xargs.c       48b9860d4954b71a067fed59a892d04194e95471ca0067c81f60f9eb83a09c84 /tmp/agent-tools/xargs.c
+SOURCE https://daugasauron.com/dist/static/default/commands/find.c        342ba6df849456d47646b7531718ca9682d27b3215c355ebb156eae7e8b16813 /tmp/agent-tools/find.c
+SOURCE https://daugasauron.com/dist/static/default/commands/env.c         9a04ef03ad00956c2a27b3759b84872f118115ebbe1e399621a5c43a59900228 /tmp/agent-tools/env.c
+SOURCE https://daugasauron.com/dist/static/default/commands/time.c        bb49a29e708e9e32716e2d5bf4b4b4e662b07093d0e3731588ef7d41a53ad733 /tmp/agent-tools/time.c
+SOURCE https://daugasauron.com/dist/static/default/commands/timeout.c     4864285ae0b36f853376e6e77855f4d1f8159b96d716bd9466606b9bef1c5f16 /tmp/agent-tools/timeout.c
+SOURCE https://daugasauron.com/dist/static/default/commands/realpath.c    6ec82439ecf3ab1d21a40293ab7e585972c523d8c8e4573a60a7cef86af08250 /tmp/agent-tools/realpath.c
+SOURCE https://daugasauron.com/dist/static/default/commands/diff.c        e1e71b3947fac230f221715577fbbfbd6ba3cf82c6c3cd027905f10ace8cf11e /tmp/agent-tools/diff.c
+SOURCE https://daugasauron.com/dist/static/default/commands/patch.c       a3103333d316c939faef9b8b9cba6b2c8d5705631f8cc0be083709a013a58c2d /tmp/agent-tools/patch.c
+SOURCE https://daugasauron.com/dist/static/default/commands/hostname.c    14a20a493c8559d8b28f221a6edd9b6f89f893f3e3067093b44d7235b4ae060f /tmp/agent-tools/hostname.c
+SOURCE https://daugasauron.com/dist/static/default/commands/tty.c         c51c9598e8245d5f651ade70995f2b03fb936c42a0e99c4c81c83749c5714c7e /tmp/agent-tools/tty.c
+
+FILE /tmp/agent-tools/Makefile
+    .RECIPEPREFIX := >
+    NAMES := install tail du rev command xargs find env time timeout realpath diff patch hostname tty
+    TOOLS := $(addprefix /bin/,$(NAMES))
+    all: $(TOOLS)
+    /bin/%: /tmp/agent-tools/%.c /tmp/agent-tools/run-program.h
+    >cc -std=c17 -O2 $< -o $@
+SLOP make \
+  -f /tmp/agent-tools/Makefile
+
+EXPORTS TOOL install
+EXPORTS TOOL tail
+EXPORTS TOOL du
+EXPORTS TOOL rev
+EXPORTS TOOL command
+EXPORTS TOOL xargs
+EXPORTS TOOL find
+EXPORTS TOOL env
+EXPORTS TOOL time
+EXPORTS TOOL timeout
+EXPORTS TOOL realpath
+EXPORTS TOOL diff
+EXPORTS TOOL patch
+EXPORTS TOOL hostname
+EXPORTS TOOL tty
+
+SLOP rm \
+  -rf \
+  /tmp/agent-tools
+# Conventional pathname for upstream scripts; the implementation is Slop.
+REQUIRES TOOL ln
+SLOP ln -s slop /bin/sh
+EXPORTS TOOL sh
+INSTALL https://daugasauron.com/Dollyfile-display 81781deadddf7efb4a2f175052ead505bc28f2e56a2fd3fba354137e2f2f36e4
 
 ENTRY /bin/foreground -i /bin/slop

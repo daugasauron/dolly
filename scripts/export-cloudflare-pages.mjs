@@ -38,7 +38,6 @@ export function pagesHeaders(compressed, multipart = []) {
     "/*\n  Cross-Origin-Opener-Policy: same-origin\n  Cross-Origin-Embedder-Policy: require-corp\n  Cross-Origin-Resource-Policy: same-origin\n  Cache-Control: no-store",
     ...["/_dolly/*", "/dist/packs/*"].map(path => `${path}\n  ! Cache-Control\n  Cache-Control: public, max-age=31536000, immutable, no-transform`),
     "/_dolly/:release/Dollyfile*\n  Content-Type: text/plain; charset=utf-8",
-    "/_dolly/:release/modules/*\n  Content-Type: text/plain; charset=utf-8",
     "/_dolly/:release/demos/*\n  Content-Type: text/plain; charset=utf-8",
     ...[...compressed].sort().map(path => {
       if (!/^_dolly\/[a-f0-9]{64}\/[a-zA-Z0-9_./-]+$/.test(path)) throw new Error(`invalid Pages header path: ${path}`);

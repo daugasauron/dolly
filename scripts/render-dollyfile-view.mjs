@@ -14,17 +14,13 @@ function objectId(type, name) {
 }
 
 function moduleHref(current, target, fragment = "") {
-  if (target.kind === "image") return `${current.kind === "image" ? "../../" : "../../../../"}view/${target.image}/${fragment}`;
-  if (current.kind === "image") return `modules/${target.name}/${fragment}`;
-  if (current === target) return fragment || "./";
-  return `../${target.name}/${fragment}`;
+  return current === target ? fragment || "./" : `../../view/${target.image}/${fragment}`;
 }
 
 // Canonical sources link to this release's copy, others to their origin.
 function rawHref(record, location) {
-  const appBase = record.kind === "image" ? "../../" : "../../../../";
   const path = canonicalPath(location);
-  return path === null ? location : `${appBase}${path.slice(1)}`;
+  return path === null ? location : `../../${path.slice(1)}`;
 }
 
 function link(label, href, className = "") {
@@ -62,22 +58,6 @@ function renderExport(record, row, prefix, spacing, rest) {
     `${escapeHtml(rest.slice(typePosition + exported.type.length, namePosition))}` +
     `<span id="${objectId(exported.type, exported.name)}">${escapeHtml(exported.name)}</span>` +
     `${escapeHtml(rest.slice(namePosition + exported.name.length))}`;
-}
-
-function renderUse(record, row, prefix, spacing, rest, graph) {
-  const use = record.uses.find((item) => item.line === row.line);
-  const selected = graph.modules.find((module) => module.location === use?.location);
-  if (!use || !selected) return escapeHtml(`${prefix}${row.directive}${spacing}${rest}`);
-  const locationPosition = rest.indexOf(use.location);
-  const hashPosition = rest.lastIndexOf(use.sha256);
-  if (locationPosition < 0 || hashPosition < locationPosition + use.location.length) {
-    return escapeHtml(`${prefix}${row.directive}${spacing}${rest}`);
-  }
-  return `${escapeHtml(prefix)}<b>${row.directive}</b>${escapeHtml(spacing)}` +
-    `${escapeHtml(rest.slice(0, locationPosition))}` +
-    `${link(use.location, moduleHref(record, selected))}` +
-    `${escapeHtml(rest.slice(locationPosition + use.location.length, hashPosition))}` +
-    `${escapeHtml(use.sha256 + rest.slice(hashPosition + use.sha256.length))}`;
 }
 
 function renderArtifact(record, row, prefix, spacing, rest) {
@@ -123,8 +103,7 @@ function renderSource(record, graph) {
       const match = /^(\s*)([A-Z][A-Z-]*)(\s+|$)(.*)$/.exec(value);
       if (match) {
         const [, prefix, directive, spacing, rest] = match;
-        if (directive === "USE") body = renderUse(record, row, prefix, spacing, rest, graph);
-        else if (["FROM", "INSTALL", "COPY"].includes(directive)) body = renderArtifact(record, row, prefix, spacing, rest);
+        if (["FROM", "INSTALL", "COPY"].includes(directive)) body = renderArtifact(record, row, prefix, spacing, rest);
         else if (directive === "REQUIRES") body = renderRequirement(record, row, prefix, spacing, rest);
         else if (directive === "EXPORTS") body = renderExport(record, row, prefix, spacing, rest);
         else if (directive === "SOURCE") body = renderSourceReference(record, row, prefix, spacing, rest);
@@ -139,8 +118,8 @@ function renderSource(record, graph) {
 }
 
 export function renderDollyfilePage(record, graph) {
-  const appBase = record.kind === "image" ? "../../" : "../../../../";
-  const title = record.kind === "image" ? record.image : record.name;
+  const appBase = "../../";
+  const title = record.image;
   return `<!doctype html>
 <html lang="en">
 <head>

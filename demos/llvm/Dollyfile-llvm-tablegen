@@ -1,10 +1,78 @@
 DOLLY 6
 TOOLCHAIN llvm-tablegen
+REQUIRES HOST display@0
+REQUIRES HOST download@0
+REQUIRES HOST http@0
+REQUIRES HOST upload@0
 
 # Build-only: LLVM 24 configured by CMake inside Dolly, its TableGen tools and outputs.
-FROM https://daugasauron.com/demos/cmake/Dollyfile-cmake-build a5335f433b5d573f03e6821f912e684cd75fa4defdba24f984b92f0bdbc92724
+FROM https://daugasauron.com/demos/cmake/Dollyfile-cmake-build 1985d8043e641d0e22d846578524692396929a4e203361bd8730d3572fd61354
 # LLVM's CMake requires a Python 3 interpreter.
-INSTALL https://daugasauron.com/demos/python/Dollyfile-python 2aaa0767ebf3c8b0a401c19e7d5d0ac17c83fa5a0dcd77ddeaad29cb0dc2793f
-USE https://daugasauron.com/demos/llvm/llvm-tablegen.dm ec928b56f166c105161d5796ec8ec1ea8e06957193cbb97e161614e2482d7fc0
+INSTALL https://daugasauron.com/demos/python/Dollyfile-python c18514bd31377df465c5ba7c410aec76f2dea3097a550dc7d8c35303fd0d334f
+# Configure the pinned LLVM 24 tree as the seed is configured
+# (scripts/build-toolchain.sh), then build and run its TableGen tools.
+REQUIRES TOOL cmake
+REQUIRES TOOL make
+REQUIRES TOOL python
+REQUIRES TOOL cc
+REQUIRES TOOL c++
+REQUIRES TOOL gzip
+REQUIRES TOOL tar
+REQUIRES TOOL patch
+REQUIRES TOOL time
+REQUIRES TOOL find
+REQUIRES TOOL cp
+REQUIRES TOOL mkdir
+REQUIRES TOOL rm
+
+SOURCE https://daugasauron.com/dist/static/llvm/llvm-project.tar.gz 033390c4520e51f261eb7572f0a1b4a1592121a1c8c1fc0c3db4845b079a8882 /tmp/llvm-project.tar.gz
+SLOP time slop -c 'gzip -dc /tmp/llvm-project.tar.gz | tar -xf - -C /'
+SLOP rm /tmp/llvm-project.tar.gz
+# LLVM runs config.guess even when LLVM_HOST_TRIPLE is given; it knows no Dolly host.
+SOURCE https://daugasauron.com/dist/static/llvm/llvm-host-triple.patch c0a17877a44f49f3e090ee0c409d789885ef021c9f426f728115b203317ffc79 /tmp/llvm-host-triple.patch
+SLOP patch -p1 -d /tmp/llvm-project -i /tmp/llvm-host-triple.patch
+
+# C probes and sources get Clang's default gnu17 as in the seed; Dolly's cc
+# defaults to strict c17 (tasks/20260930-100000-audit-41).
+SLOP time cmake -S /tmp/llvm-project/llvm -B /tmp/llvm-build \
+  -DCMAKE_BUILD_TYPE=Release \
+  -DCMAKE_C_FLAGS=-std=gnu17 \
+  -DCMAKE_DISABLE_PRECOMPILE_HEADERS=ON \
+  -DCMAKE_RULE_MESSAGES=OFF \
+  -DLLVM_ENABLE_PROJECTS='clang;lld' \
+  -DLLVM_TARGETS_TO_BUILD=WebAssembly \
+  -DLLVM_HOST_TRIPLE=wasm64-unknown-emscripten \
+  -DLLVM_DEFAULT_TARGET_TRIPLE=wasm64-unknown-emscripten \
+  -DLLVM_ENABLE_THREADS=OFF \
+  -DLLVM_INCLUDE_TESTS=OFF \
+  -DLLVM_INCLUDE_EXAMPLES=OFF \
+  -DLLVM_INCLUDE_BENCHMARKS=OFF \
+  -DLLVM_INCLUDE_DOCS=OFF \
+  -DLLVM_ENABLE_TERMINFO=OFF \
+  -DLLVM_ENABLE_LIBEDIT=OFF \
+  -DLLVM_ENABLE_LIBPFM=OFF \
+  -DLLVM_ENABLE_ZLIB=OFF \
+  -DLLVM_ENABLE_ZSTD=OFF \
+  -DLLVM_ENABLE_LIBXML2=OFF \
+  -DLLVM_ENABLE_CURL=OFF \
+  -DLLVM_ENABLE_BINDINGS=OFF \
+  -DLLVM_BUILD_LLVM_DYLIB=OFF \
+  -DLLVM_LINK_LLVM_DYLIB=OFF
+
+# Each job is three processes (Slop, c++, compiler); -j8 exceeds the 32-process cap.
+SLOP CWD /tmp/llvm-build time make -j4 llvm-min-tblgen llvm-tblgen clang-tblgen
+# The TableGen targets the seed compiler's libraries depend on.
+SLOP CWD /tmp/llvm-build time make -j4 clang-tablegen-targets intrinsics_gen omp_gen acc_gen vt_gen \
+  target_parser_gen analysis_gen WebAssemblyCommonTableGen WasmOptionsTableGen ClangAttrDocTable \
+  ClangOpenCLBuiltinsImpl Opcodes hlsl-resource-headers
+SLOP CWD /tmp/llvm-build cp bin/llvm-min-tblgen bin/llvm-tblgen bin/clang-tblgen /usr/bin
+# Configured headers and TableGen outputs, by build-tree path.
+SLOP CWD /tmp/llvm-build slop -c 'for f in $(find . -name CMakeFiles -prune -o -type f \( -name "*.inc" -o -name "*.def" -o -name "*.h" \) -print); do mkdir -p "/usr/share/llvm-tablegen/${f%/*}"; cp "$f" "/usr/share/llvm-tablegen/$f"; done'
+
+EXPORTS TOOL llvm-min-tblgen
+EXPORTS TOOL llvm-tblgen
+EXPORTS TOOL clang-tblgen
+FOLDER /usr/share/llvm-tablegen
+SLOP llvm-tblgen --version
 
 ENTRY /bin/foreground -i /bin/slop

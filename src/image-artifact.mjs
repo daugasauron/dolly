@@ -33,10 +33,6 @@ async function verifyVisibleRecipes(recipes) {
   }
 }
 
-function expectedModules(image) {
-  return imageDefinitions.get(image).modules;
-}
-
 export async function loadPackagedSnapshotMetadata(image, checked = new Map(), active = new Set()) {
   if (checked.has(image)) return checked.get(image);
   if (active.has(image)) throw new Error("packaged image cycle");
@@ -51,12 +47,10 @@ export async function loadPackagedSnapshotMetadata(image, checked = new Map(), a
     throw new Error("The packaged system snapshot is missing. Run npm run snapshot first.");
   }
   const recipes = expectedRecipes(image);
-  const modules = expectedModules(image);
   if (metadata === null || typeof metadata !== "object" ||
       metadata.image !== image || metadata.buildId !== DOLLY_IMAGE_BUILD_ID ||
       metadata.formatVersion !== 2 || metadata.identityVersion !== 2 ||
       JSON.stringify(metadata.recipes) !== JSON.stringify(recipes) ||
-      JSON.stringify(metadata.modules) !== JSON.stringify(modules) ||
       JSON.stringify(hostRequirements(metadata.hostRequirements)) !== JSON.stringify(imageDefinitions.get(image).hostRequirements ?? []) ||
       !Number.isSafeInteger(metadata.byteLength) || metadata.byteLength <= 0 ||
       metadata.byteLength > snapshotSizeLimit ||

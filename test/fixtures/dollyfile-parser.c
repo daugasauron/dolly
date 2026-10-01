@@ -59,7 +59,7 @@ int main(int argc, char **argv) {
     char root[PATH_MAX];
     snprintf(root, sizeof(root), "FILE:%s/Dollyfile", argv[2]);
     unsetenv("DOLLY_TEST_VALUE");
-    result = execute_recipe(&engine, root, NULL, 0, &tools, 1, 0, &exports);
+    result = execute_recipe(&engine, root, 0, &exports);
     const char *value = getenv("DOLLY_TEST_VALUE");
     if (value != NULL) printf("ENV-VALUE:%s\n", value);
     const Object *exported = scope_find(&engine.exports, "ENV", "DOLLY_TEST_VALUE");
@@ -89,10 +89,10 @@ int main(int argc, char **argv) {
     int header = 0;
     size_t operations = 0;
     char blank[] = "  ", declaration[] = "DOLLY 6";
-    if (result == 0) result = process_line(&engine, "probe", 0, 1, blank,
+    if (result == 0) result = process_line(&engine, "probe", 1, blank,
         NULL, 0, &tools, &exports, &own, &kind, &name, &header, &operations, 0);
     if (engine.artifact.stream == NULL) result = 2;
-    if (result == 0) result = process_line(&engine, "probe", 0, 2, declaration,
+    if (result == 0) result = process_line(&engine, "probe", 2, declaration,
         NULL, 0, &tools, &exports, &own, &kind, &name, &header, &operations, 0);
     if (engine.artifact.stream != NULL || engine.artifact.recipe_sha256[0]) result = 2;
     engine.artifact.stream = tmpfile();

@@ -1,9 +1,98 @@
 DOLLY 6
 TOOLCHAIN cmake-build
+REQUIRES HOST display@0
+REQUIRES HOST download@0
+REQUIRES HOST http@0
+REQUIRES HOST upload@0
 
 # Keep the expensive bootstrap reusable across source-build workspaces.
-FROM https://daugasauron.com/Dollyfile-system-tools eac7e02f26bd41f6c9f03da8b33146269318488433fc011c1e523bd34e6ed6ad
-USE https://daugasauron.com/demos/cmake/libuv.dm 4b64f4cd6518ab0e476a652f37179cf36a53cc2bbf43621205c1219bca3e03db
-USE https://daugasauron.com/demos/cmake/cmake.dm 2f8af62f07a88e3ad5b8b641abf41ca8a4eec6e96ece9f9f0e39aa2beee2b167
+FROM https://daugasauron.com/Dollyfile-system-tools 9e134254e1292bcb464a4e90f1abdd28f212ddb1f90f2b996ff84811282019a3
+REQUIRES HEADER libc
+REQUIRES HEADER runtime
+REQUIRES TOOL cc
+REQUIRES TOOL ar
+REQUIRES TOOL make
+REQUIRES TOOL cp
+REQUIRES TOOL tar
+REQUIRES TOOL rm
+
+SOURCE https://daugasauron.com/dist/static/neovim/libuv.tar d28d193a41b305f389d8e3a2dbe186ba0c5762c2b9aab24febfc32b8fb026920 /tmp/libuv/source.tar
+SLOP tar -xf /tmp/libuv/source.tar -C /
+SLOP make -C /tmp/libuv
+SLOP cp /tmp/libuv/libuv.a /usr/lib/libuv.a
+SLOP cp -R /tmp/libuv/source/include/. /usr/include
+
+FILE /tmp/libuv/check.c
+    #include <uv.h>
+    #include <assert.h>
+    static int completed;
+    static void done(uv_timer_t* timer) { completed = 1; uv_close((uv_handle_t*)timer, 0); }
+    int main(void) {
+      uv_loop_t loop; uv_timer_t timer;
+      assert(uv_get_total_memory() == 0);
+      assert(uv_loop_init(&loop) == 0 && uv_timer_init(&loop, &timer) == 0);
+      assert(uv_timer_start(&timer, done, 1, 0) == 0);
+      assert(uv_run(&loop, UV_RUN_DEFAULT) == 0 && completed);
+      return uv_loop_close(&loop);
+    }
+SLOP cc -O0 /tmp/libuv/check.c -luv -o /tmp/libuv/check
+SLOP /tmp/libuv/check
+
+EXPORTS LIB uv /usr/lib/libuv.a
+EXPORTS HEADER uv /usr/include/uv.h
+EXPORTS HEADER uv-platform /usr/include/uv
+FILE /usr/share/licenses/libuv/LICENSE
+
+SLOP rm -rf /tmp/libuv
+# Bootstrap CMake from upstream source using the already source-built libuv.
+REQUIRES HEADER cpp
+REQUIRES LIB c++
+REQUIRES LIB c++abi
+REQUIRES HEADER uv
+REQUIRES LIB uv
+REQUIRES LIB curl
+REQUIRES LIB z
+REQUIRES TOOL c++
+REQUIRES TOOL sh
+REQUIRES TOOL gzip
+REQUIRES TOOL mkdir
+REQUIRES TOOL cat
+REQUIRES TOOL dirname
+REQUIRES TOOL diff
+REQUIRES TOOL echo
+REQUIRES TOOL false
+REQUIRES TOOL grep
+REQUIRES TOOL printf
+REQUIRES TOOL pwd
+REQUIRES TOOL sed
+REQUIRES TOOL test
+REQUIRES TOOL tr
+REQUIRES TOOL true
+REQUIRES TOOL uname
+REQUIRES TOOL which
+
+SOURCE https://daugasauron.com/dist/static/neovim/cmake.tar.gz e49a4a2cd7ed5ff7fb2b8a7bf3a0ce1a61b7dd444b20604075e2152f158c4a41 /tmp/cmake/source.tar.gz
+SLOP gzip -dc /tmp/cmake/source.tar.gz | tar -xf - -C /
+
+FILE /tmp/cmake/build.slop
+    set -ex
+    cd /tmp/cmake/source
+    CC=cc CXX=c++ CFLAGS=-O0 CXXFLAGS='-O0 -std=c++17' slop bootstrap \
+      --prefix=/usr --parallel=1 --bootstrap-system-libuv \
+      --system-libuv --system-curl --system-zlib --no-qt-gui --no-debugger \
+      -- -DBUILD_TESTING=OFF -DBUILD_CursesDialog=OFF -DCMAKE_USE_OPENSSL=OFF \
+      -DCMake_INSTALL_COMPONENTS=ON \
+      -DCMAKE_BUILD_TYPE=Debug -DCMAKE_C_FLAGS_DEBUG=-O0 -DCMAKE_CXX_FLAGS_DEBUG=-O0
+    make cmake
+    ./bin/cmake --install . --component cmake
+    ./bin/cmake --install . --component Unspecified
+    cmake --version
+SLOP slop -e /tmp/cmake/build.slop
+
+EXPORTS TOOL cmake
+EXPORTS FOLDER cmake-data /usr/share/cmake-4.4
+FILE /usr/share/licenses/cmake/LICENSE.rst
+
+SLOP rm -rf /tmp/cmake
 
 ENTRY /bin/foreground -i /bin/slop

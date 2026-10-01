@@ -28,11 +28,7 @@ export function recipeRecords(graph) {
   function visit(record) {
     if (seen.has(record.location)) return;
     seen.add(record.location);
-    const children = [
-      ...record.children.map(target => ({ line: target.selectedAt, target })),
-      ...record.artifactTargets.map(({ reference, target }) => ({ line: reference.line, target })),
-    ].sort((a, b) => a.line - b.line);
-    for (const { target } of children) visit(target);
+    for (const { target } of record.artifactTargets) visit(target);
     records.push({
       kind: record.kind, name: record.name, locator: record.location,
       sourcePath: record.location,

@@ -32,7 +32,7 @@ Open `/rts-arena/`; build with `npm run image -- rts-arena`.
   each provider exposes.
 - Matches, histories, replays and traces are saved under `/workspace/rts-matches/`.
 - Other key files: [`arena.cpp`](arena.cpp), [`input.cpp`](input.cpp),
-  [`rts-arena.dm`](rts-arena.dm); tests in [`test/`](test/).
+  [`Dollyfile-rts-arena`](Dollyfile-rts-arena); tests in [`test/`](test/).
 
 ## Limits
 

@@ -81,14 +81,8 @@ for (const route of routes) {
     .replaceAll("{{DOLLY_LOAD_SESSION}}", String(route.loadSession ?? false)));
 }
 
-const graphPages = graphs.flatMap(({ definition, graph }) => [
-  { path: `view/${definition.image}/index.html`, record: graph.root, graph },
-  ...graph.modules.map((record) => ({
-    path: `view/${definition.image}/modules/${record.name}/index.html`,
-    record,
-    graph,
-  })),
-]);
+const graphPages = graphs.map(({ definition, graph }) =>
+  ({ path: `view/${definition.image}/index.html`, record: graph.root, graph }));
 await rm(resolve(projectDir, "view"), { recursive: true, force: true });
 for (const page of graphPages) {
   const output = resolve(projectDir, page.path);

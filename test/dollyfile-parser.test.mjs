@@ -54,7 +54,7 @@ test("the C executor and the JavaScript recipe graph accept exactly the same rec
 
 test("the C and JavaScript parsers decode the same words and values", async () => {
   await withParser(async (scratch, run) => {
-    const prefix = "DOLLY 6\nMODULE probe\n";
+    const prefix = "DOLLY 6\nPACKAGE probe\n";
     for (const raw of ['cc "" "a b" c\\ d', "'cc' 'a\\b' \"東京\"", "cc input name.c",
       '"a\\$b" "a\\xb" "a\\\\b" "a\\"b"', "a\\#b 'a#b' \"#\""]) {
       const expected = inspectDollyfile(prefix + "SLOP " + raw + "\n").slops[0].command;
@@ -75,10 +75,8 @@ test("the C and JavaScript parsers decode the same words and values", async () =
     assert.match(await values({ "/Dollyfile": image('EXPORTS ENV DOLLY_TEST_VALUE "APPEND literal"\n') }),
       /ENV-VALUE:APPEND literal\n/);
     assert.match(await values({ "/Dollyfile": image('EXPORTS ENV DOLLY_TEST_VALUE "a\\nb"\n') }), /ENV-VALUE:a\\nb\n/);
-    const child = "DOLLY 6\nMODULE child\nEXPORTS ENV DOLLY_TEST_VALUE new\n";
     assert.equal(await values({
-      "/Dollyfile": image("EXPORTS ENV DOLLY_TEST_VALUE old\nUSE https://daugasauron.com/modules/child.dm PIN(/modules/child.dm)\n"),
-      "/modules/child.dm": child,
+      "/Dollyfile": image("EXPORTS ENV DOLLY_TEST_VALUE old\nEXPORTS ENV DOLLY_TEST_VALUE new\n"),
     }), "ENV-VALUE:new\nENV-EXPORT:new\n");
     const nul = await checkBoth(scratch, run, { "/Dollyfile": image("EXPORTS ENV DOLLY_TEST_VALUE changed\n# \0\n") });
     assert.equal(nul.native.stdout, "", "NUL bytes are rejected before executing any declaration");

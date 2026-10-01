@@ -15,7 +15,7 @@ are built from source with it.
 
 Build the seed once with `./demos/rust/build-rust-toolchain.sh` (Linux x86_64, Podman, Python
 3.12+, curl, patch), then `npm run image -- rust-tools`. `rust-sdk` starts from
-`system-build`; [`search-tools.dm`](search-tools.dm) installs the `ripgrep` and
+`system-build`; [`Dollyfile-pi-coding-agent`](Dollyfile-pi-coding-agent) installs the `ripgrep` and
 `fd` packages into Pi and Codex images.
 
 ## Compiler seed
@@ -24,7 +24,7 @@ Rust 1.98.1 with LLVM 22.1.8 is a bootstrap exception: built outside Dolly by
 [`build-rust-toolchain.sh`](build-rust-toolchain.sh) from
 [`toolchain/bootstrap-sources.json`](toolchain/bootstrap-sources.json) and the
 patches beside it, then validated against `dolly-process-0`. Image preparation
-only stages a verified seed ([`rust-sdk.dm`](rust-sdk.dm)); it never builds one.
+only stages a verified seed ([`Dollyfile-rust-sdk`](Dollyfile-rust-sdk)); it never builds one.
 
 ## Patti
 

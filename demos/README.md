@@ -1,7 +1,7 @@
 # Demos
 
 Applications built on the core runtime and userspace. Each directory keeps its
-`Dollyfile-*` images, `*.dm` modules, sources, `prepare-sources.sh` hook, tests and
+`Dollyfile-*` recipes, sources, `prepare-sources.sh` hook, tests and
 README. Demos may use each other; the core never uses a demo.
 
 - [bhop](bhop/README.md): Airtime's Foundry strafe course with an optional agent.

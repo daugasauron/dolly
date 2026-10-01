@@ -136,7 +136,6 @@ export async function verifySite(site) {
     const entry = verifySnapshotIdentity(definition, graph, parsed, processContract, processDigest);
     for (const [key, expected] of Object.entries({
       recipes: recipeRecords(graph),
-      modules: graph.root.uses.map(({ location, sha256 }) => ({ location, sha256 })),
       entry, manifest: parsed.manifest,
     })) {
       if (JSON.stringify(metadata[key]) !== JSON.stringify(expected)) throw new Error(`${image}: release ${key} mismatch`);

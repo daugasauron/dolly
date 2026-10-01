@@ -17,15 +17,6 @@ if (process.argv[2] === "--sources") {
   for (const { path } of await inspectStaticSources(projectDir, definitions)) console.log(path.slice(1));
   process.exit(0);
 }
-if (process.argv[2] === "--modules") {
-  const names = new Set();
-  for (const definition of definitions) {
-    const graph = await loadGraph(definition.filename);
-    for (const module of graph.modules) names.add(module.name);
-  }
-  for (const name of [...names].sort()) console.log(name);
-  process.exit(0);
-}
 for (const definition of definitions) {
   console.log(`${definition.image}\t${definition.filename}`);
 }

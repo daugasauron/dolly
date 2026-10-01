@@ -25,16 +25,17 @@ for (const [input, name, destination] of [
   sources.push(`SOURCE https://daugasauron.com/dist/static/zero-ad/${name} ${await digest(resolve(output, name))} ${destination}`);
 }
 await rm(resolve(output, "data.tar"), { force: true });
-const module = `DOLLY 6
-MODULE zero-ad
-
+await writeFile(resolve(root, "demos/zero-ad/Dollyfile-zero-ad"), `DOLLY 6
+APPLICATION zero-ad
 REQUIRES HOST audio@0
-REQUIRES HOST gpu@0
 REQUIRES HOST display@0
+REQUIRES HOST download@0
+REQUIRES HOST gpu@0
 REQUIRES HOST http@0
+REQUIRES HOST snapshot@0
+REQUIRES HOST upload@0
 
-REQUIRES TOOL slop
-
+FROM https://daugasauron.com/Dollyfile ${hash(await readFile(resolve(root, "Dollyfile")))}
 # External wasm64 bootstrap; pinned sources and port instructions: demos/zero-ad/README.md.
 ${sources.join("\n")}
 
@@ -45,13 +46,6 @@ FILE /usr/bin/zero-ad
 SLOP /usr/bin/zero-ad -version
 EXPORTS TOOL zero-ad
 EXPORTS FOLDER zero-ad /opt/0ad
-`;
-await writeFile(resolve(root, "demos/zero-ad/zero-ad.dm"), module);
-await writeFile(resolve(root, "demos/zero-ad/Dollyfile-zero-ad"), `DOLLY 6
-APPLICATION zero-ad
-
-FROM https://daugasauron.com/Dollyfile ${hash(await readFile(resolve(root, "Dollyfile")))}
-USE https://daugasauron.com/demos/zero-ad/zero-ad.dm ${hash(module)}
 
 FILE /etc/dolly/zero-ad.slop
     /bin/foreground /usr/bin/zero-ad

@@ -1,5 +1,33 @@
 DOLLY 6
 PACKAGE protox
+REQUIRES HOST http@0
+REQUIRES HOST threads@0
 
-FROM https://daugasauron.com/demos/rust/Dollyfile-rust-build 61e63caf4e3e33b1d5ca9b3f950082f76d565cca3a92922ee62a72fc7ba182c6
-USE https://daugasauron.com/demos/rust/protox.dm 28861854eab407f9e5a6297356f6f53a436edfd738da0134c6abb49fdeb31930
+FROM https://daugasauron.com/demos/rust/Dollyfile-rust-build 09d5a6f6d6c24c5e56a5b433187fe1323f37002d1415ea4d527f0186c120bc7d
+REQUIRES TOOL patti
+REQUIRES TOOL tar
+REQUIRES TOOL cp
+REQUIRES TOOL mkdir
+REQUIRES TOOL rm
+REQUIRES TOOL test
+
+# Archives contain upstream source and checksum-verified locked crate archives.
+SOURCE https://daugasauron.com/dist/static/rust/protox.tar 501305f0e373d0509dbd133368c7944dffa6f710a44ee514c06bdf357fa33bf6 /tmp/protox.tar
+SLOP tar -xf /tmp/protox.tar -C /
+SLOP patti build -j 4 --offline --manifest-path /tmp/protox/source/Cargo.toml --bin protox --features bin --cache /tmp/protox/cache --target-dir /tmp/protox/build
+SLOP cp /tmp/protox/build/protox /usr/bin/protox
+SLOP mkdir -p /usr/share/licenses/protox /usr/share/dolly/builds
+SLOP cp /tmp/protox/source/LICENSE-APACHE /usr/share/licenses/protox/LICENSE-APACHE
+SLOP cp /tmp/protox/source/LICENSE-MIT /usr/share/licenses/protox/LICENSE-MIT
+SLOP cp /tmp/protox/build/patti-build.json /usr/share/dolly/builds/protox.json
+SLOP rm -rf /tmp/protox /tmp/protox.tar
+
+EXPORTS TOOL protox
+EXPORTS FOLDER protox-licenses /usr/share/licenses/protox
+FILE /usr/share/dolly/builds/protox.json
+FILE /tmp/protox-check.proto
+    syntax = "proto3";
+    message DollyCheck { string value = 1; }
+SLOP protox -I /tmp -o /tmp/protox-check.pb /tmp/protox-check.proto
+SLOP test -s /tmp/protox-check.pb
+SLOP rm /tmp/protox-check.proto /tmp/protox-check.pb

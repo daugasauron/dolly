@@ -119,9 +119,8 @@ function validAbsolutePath(value) {
     !value.split("/").some((part) => part === "." || part === "..");
 }
 
-// SOURCE takes an absolute http(s) URL without a fragment. FROM, INSTALL, COPY
-// and USE URLs also have a path and no query; their file is Dollyfile[-NAME]
-// or NAME.dm.
+// SOURCE takes an absolute http(s) URL without a fragment. FROM, INSTALL and
+// COPY URLs also have a path and no query; their file is Dollyfile[-NAME].
 const sourceURL = /^https?:\/\/[^/?#\\ \t\r\n\v\f]+(?:[/?][^#\\ \t\r\n\v\f]*)?$/;
 const recipeURL = /^https?:\/\/[^/?#\\ \t\r\n\v\f]+\/[^?#\\ \t\r\n\v\f]*$/;
 // A URL parser resolves empty, "." and ".." path segments (also spelled with
@@ -132,14 +131,13 @@ function normalizedPath(url) {
 }
 // The file a recipe URL names, or "" when the value is not a recipe URL.
 export const recipeFileName = url => recipeURL.test(url) && normalizedPath(url) ? url.slice(url.lastIndexOf("/") + 1) : "";
-// Image and module names: [a-z][a-z0-9]*(-[a-z0-9]+|\.[0-9]+)*, at most 32
-// bytes. A dot starts a run of version digits, so a documentation copy such as
+// Image names: [a-z][a-z0-9]*(-[a-z0-9]+|\.[0-9]+)*, at most 32 bytes. A dot
+// starts a run of version digits, so a documentation copy such as
 // Dollyfile-example.txt is never a recipe.
 export const validName = name => /^[a-z][a-z0-9]*(?:-[a-z0-9]+|\.[0-9]+)*$/.test(name) && name.length <= 32;
 // The image name a file "Dollyfile" or "Dollyfile-NAME" declares, or "".
 export const imageFileName = file => file === "Dollyfile" ? "default" : file.startsWith("Dollyfile-") ? file.slice(10) : "";
-export const moduleFileName = file => file.endsWith(".dm") ? file.slice(0, -3) : "";
-const roles = { APPLICATION: "application", TOOLCHAIN: "toolchain", PACKAGE: "package", MODULE: "module" };
+const roles = { APPLICATION: "application", TOOLCHAIN: "toolchain", PACKAGE: "package" };
 
 // No image retains scratch space.
 export function unretainedPath(value) {
@@ -158,40 +156,45 @@ function assertObject(tokens, label, item, directive) {
   }
 }
 
+// RUN and ENTRY share one argument vector grammar and its record limits.
+function programWords(tokens, label, item) {
+  if (tokens.length === 0 || !validAbsolutePath(tokens[0])) fail(label, item.line, `invalid ${item.directive}`);
+  if (tokens.length > 256 || tokens.some(word => byteLength(word) > 4096) ||
+      tokens.reduce((size, word) => size + 4 + byteLength(word), 16) > 64 * 1024) {
+    fail(label, item.line, `${item.directive} exceeds its record limits`);
+  }
+  return tokens;
+}
+
 function inspectRecipe(source, label, rows) {
   let role = null;
   let name = null;
   let entry = null;
-  const uses = [];
   const requirements = [];
   const exports = [];
   const sources = [];
+  const runs = [];
   const slops = [];
   const files = [];
   const folders = [];
   const artifacts = [];
   let from = null;
-  const image = () => role !== null && role !== "module";
+  // REQUIRES HOST lines are the image's manifest and may precede FROM.
+  let operations = 0;
 
   for (const item of rows.slice(1)) {
     const tokens = words(item.args, label, item.line);
     if (role === null && !(item.directive in roles)) {
-      fail(label, item.line, "expected APPLICATION, TOOLCHAIN, PACKAGE or MODULE");
+      fail(label, item.line, "expected APPLICATION, TOOLCHAIN or PACKAGE");
     }
     if (entry) fail(label, item.line, "ENTRY must be the final declaration");
     switch (item.directive) {
       case "APPLICATION":
       case "TOOLCHAIN":
       case "PACKAGE":
-      case "MODULE":
         if (role || tokens.length !== 1 || !validName(tokens[0])) fail(label, item.line, `invalid ${item.directive}`);
         role = roles[item.directive];
         name = tokens[0];
-        break;
-      case "USE":
-        if (tokens.length !== 2 || !validName(moduleFileName(recipeFileName(tokens[0]))) ||
-            !sha256Pattern.test(tokens[1])) fail(label, item.line, "invalid USE");
-        uses.push({ location: tokens[0], sha256: tokens[1], line: item.line });
         break;
       case "FROM":
       case "INSTALL":
@@ -202,9 +205,10 @@ function inspectRecipe(source, label, rows) {
             tokens.slice(2).some(path => path !== "/" && !validAbsolutePath(path))) {
           fail(label, item.line, `invalid ${item.directive}`);
         }
-        if (operation === "from" && (!image() || from || rows[2] !== item)) {
-          fail(label, item.line, "FROM must be the first image operation");
+        if (operation === "from" && operations !== 0) {
+          fail(label, item.line, "FROM must be the first operation");
         }
+        operations += 1;
         const artifact = { location: tokens[0], sha256: tokens[1], line: item.line,
           source: tokens[2] ?? "/", destination: tokens[3] ?? "/", operation };
         artifacts.push(artifact);
@@ -212,6 +216,7 @@ function inspectRecipe(source, label, rows) {
         break;
       }
       case "SOURCE":
+        operations += 1;
         if (tokens.length !== 3 || !sourceURL.test(tokens[0]) || !normalizedPath(tokens[0]) ||
             !sha256Pattern.test(tokens[1]) || !validAbsolutePath(tokens[2])) fail(label, item.line, "invalid SOURCE");
         sources.push({ location: tokens[0], sha256: tokens[1], destination: tokens[2], line: item.line });
@@ -220,11 +225,16 @@ function inspectRecipe(source, label, rows) {
         if (tokens[0] === "HOST") {
           if (tokens.length !== 2) fail(label, item.line, "invalid REQUIRES HOST; expected REQUIRES HOST NAME@ABI");
           try { hostRequirement(tokens[1]); } catch (error) { fail(label, item.line, error.message); }
-        } else assertObject(tokens, label, item, "REQUIRES");
+        } else {
+          assertObject(tokens, label, item, "REQUIRES");
+          operations += 1;
+        }
         if (tokens.length !== 2) fail(label, item.line, "invalid REQUIRES");
+        if (tokens[0] === "TOOL" && tokens[1] === "slop") fail(label, item.line, "SLOP depends on /bin/slop by definition");
         requirements.push({ type: tokens[0], name: tokens[1], line: item.line });
         break;
       case "EXPORTS": {
+        operations += 1;
         assertObject(tokens, label, item, "EXPORTS");
         const [type, object, ...details] = tokens;
         if (type === "TOOL") {
@@ -240,6 +250,7 @@ function inspectRecipe(source, label, rows) {
         break;
       }
       case "FILE":
+        operations += 1;
         if (tokens.length !== 1 || !validAbsolutePath(tokens[0])) fail(label, item.line, "invalid FILE");
         if (unretainedPath(tokens[0]) && !tokens[0].startsWith("/tmp/")) {
           fail(label, item.line, "FILE cannot retain mutable session state");
@@ -247,39 +258,33 @@ function inspectRecipe(source, label, rows) {
         files.push({ path: tokens[0], body: item.body, line: item.line, endLine: item.endLine });
         break;
       case "FOLDER":
+        operations += 1;
         if (tokens.length !== 1 || !validAbsolutePath(tokens[0]) ||
             unretainedPath(tokens[0])) fail(label, item.line, "invalid FOLDER");
         folders.push({ path: tokens[0], line: item.line });
         break;
+      case "RUN":
       case "SLOP": {
+        operations += 1;
         let cwd = "/";
         let command = tokens;
         if (tokens[0] === "CWD") {
-          if (tokens.length < 3 ||
-              (tokens[1] !== "/" && !validAbsolutePath(tokens[1]))) {
-            fail(label, item.line, "invalid SLOP CWD");
+          if (tokens.length < 3 || (tokens[1] !== "/" && !validAbsolutePath(tokens[1]))) {
+            fail(label, item.line, `invalid ${item.directive} CWD`);
           }
           cwd = tokens[1];
           command = tokens.slice(2);
         }
-        if (!command[0]) fail(label, item.line, "empty SLOP");
-        slops.push({ cwd, command, line: item.line });
+        if (item.directive === "RUN") runs.push({ cwd, command: programWords(command, label, item), line: item.line });
+        else {
+          if (!command[0]) fail(label, item.line, "empty SLOP");
+          slops.push({ cwd, command, line: item.line });
+        }
         break;
       }
-      case "COMPILEC":
-        if (tokens.length !== 2 || !tokens.every(path => validAbsolutePath(path))) {
-          fail(label, item.line, "invalid COMPILEC");
-        }
-        break;
       case "ENTRY":
-        if (!["application", "toolchain"].includes(role) || tokens.length === 0 || !validAbsolutePath(tokens[0])) {
-          fail(label, item.line, "invalid ENTRY");
-        }
-        if (tokens.length > 256 || tokens.some(word => byteLength(word) > 4096) ||
-            tokens.reduce((size, word) => size + 4 + byteLength(word), 16) > 64 * 1024) {
-          fail(label, item.line, "ENTRY exceeds its record limits");
-        }
-        entry = tokens;
+        if (!["application", "toolchain"].includes(role)) fail(label, item.line, "invalid ENTRY");
+        entry = programWords(tokens, label, item);
         break;
       case "DOLLY":
         fail(label, item.line, "DOLLY may only appear on the first line");
@@ -288,15 +293,14 @@ function inspectRecipe(source, label, rows) {
         fail(label, item.line, `unknown directive ${item.directive}`);
     }
   }
-  if (role === null) throw new Error(`${label}: missing APPLICATION, TOOLCHAIN, PACKAGE or MODULE`);
+  if (role === null) throw new Error(`${label}: missing APPLICATION, TOOLCHAIN or PACKAGE`);
   if (role === "application" && !entry) throw new Error(`${label}: APPLICATION is missing ENTRY`);
   let required;
   try { required = hostRequirements(requirements.filter(item => item.type === "HOST").map(item => item.name)); }
   catch (error) { throw new Error(`${label}: ${error.message}`); }
   return {
-    hostRequirements: required, role, kind: image() ? "image" : "module", name,
-    image: image() ? name : null, entry, uses, requirements, exports, artifacts, from,
-    sources, slops, files, folders, rows, source,
+    hostRequirements: required, role, kind: "image", name, image: name, entry,
+    requirements, exports, artifacts, from, sources, runs, slops, files, folders, rows, source,
   };
 }
 

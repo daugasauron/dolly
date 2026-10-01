@@ -26,7 +26,7 @@ npm run image -- zero-ad
 
 Pins live in `config/source-pins.sh` and [`dependencies.tsv`](toolchain/dependencies.tsv);
 [`prepare-distribution.mjs`](toolchain/prepare-distribution.mjs) pins the engine
-and content as published `SOURCE` inputs of [`zero-ad.dm`](zero-ad.dm). The
+and content as published `SOURCE` inputs of [`Dollyfile-zero-ad`](Dollyfile-zero-ad). The
 image is about 2 GB.
 
 ## How it works

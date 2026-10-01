@@ -26,7 +26,7 @@ Open `/bhop/`; build with `npm run image -- bhop`.
 
 ## Key files
 
-- [`bhop.dm`](bhop.dm): the game, SDL viewer and input adapter, compiled in Dolly.
+- [`Dollyfile-bhop`](Dollyfile-bhop): the game, SDL viewer and input adapter, compiled in Dolly.
 - [`agent/`](agent/): mission loop, input codec and replay export.
 - Tests: [`test/`](test/).
 

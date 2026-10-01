@@ -58,12 +58,6 @@ function expectedRecipes(image) {
   return recipeRecords(graphs.get(image));
 }
 
-function expectedModules(image) {
-  return graphs.get(image).root.uses.map(({ location, sha256 }) => ({
-    location,
-    sha256,
-  }));
-}
 
 // Each concurrent builder needs its own Chrome profile; the port follows it.
 function runSnapshotBuild(image, output, builder) {
@@ -110,7 +104,6 @@ async function inspectSnapshot(image, inputs) {
         old.sourcePath === recipe.sourcePath && old.sha256 === recipe.sha256));
       return stale(changed ? `recipe changed: ${changed.sourcePath}` : "recipe graph changed");
     }
-    if (JSON.stringify(metadata.modules) !== JSON.stringify(expectedModules(image))) return stale("module list changed");
     if (JSON.stringify(metadata.hostRequirements ?? []) !== JSON.stringify(graphs.get(image).root.hostRequirements)) return stale("host requirements changed");
     if (inputs === null) return { action: "check", reason: "dependency output pending" };
     if (!imageInputsMatch(metadata.inputs, inputs)) {
@@ -164,7 +157,6 @@ async function buildImage(image, inputs, builder) {
         identityVersion: 2,
         inputs,
         recipes,
-        modules: expectedModules(image),
         hostRequirements: graphs.get(image).root.hostRequirements,
         entry,
         manifest: parsed.manifest,

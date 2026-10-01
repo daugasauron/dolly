@@ -105,7 +105,7 @@ Fetch, so a generic transport failure alone does not identify its cause.
   return `CURLE_UNKNOWN_OPTION`. A relative URL fails with `CURLE_URL_MALFORMAT`
   and a disallowed redirect with `CURLE_COULDNT_CONNECT`.
 - Git: upstream `git` and `git-remote-http(s)` link that libcurl
-  ([`git.dm`](../modules/git.dm)): clone, fetch and push over HTTP. Clean/smudge
+  ([`Dollyfile-system-tools`](../Dollyfile-system-tools)): clone, fetch and push over HTTP. Clean/smudge
   filters are not ported. Cancelling an exchange does not undo a ref update the
   remote already accepted.
 - Janis `fetch()` polls slots cooperatively so timers and promises keep running.

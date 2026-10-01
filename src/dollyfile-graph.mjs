@@ -1,20 +1,18 @@
-import { inspectDollyfile, recipeFileName, imageFileName, moduleFileName } from "./dollyfile-view.mjs";
-import { hostRequirements } from "../host/requirements.mjs";
+import { inspectDollyfile, recipeFileName, imageFileName } from "./dollyfile-view.mjs";
 import { sha256 } from "./static-asset.mjs";
 
-const MAX_USE_DEPTH = 16;
-const decoder = new TextDecoder("utf-8", { fatal: true, ignoreBOM: true });
 const key = object => `${object.type}:${object.name}`;
+const decoder = new TextDecoder("utf-8", { fatal: true, ignoreBOM: true });
 
-// The recipe graph of one image, as /bin/dollyfile reads it: the root and its
-// USE modules, plus the FROM/INSTALL/COPY images it imports. `read(url)`
+// The recipe graph of one image, as /bin/dollyfile reads it: the root and the
+// FROM/INSTALL/COPY images it imports, each with its own imports. `read(url)`
 // returns a recipe's bytes; this checks every pin. It is an inspection graph,
 // not a dependency solver: runtime assertions may resolve against files and
 // environment that recipes do not declare. Pass the same `recipes` cache to
 // reuse parsed recipes across graphs.
 export async function loadRecipeGraph(read, rootLocation, recipes = new Map()) {
-  const modules = [], records = [], edges = [], artifacts = [];
-  const active = new Set(), seen = new Set(), images = new Map(), imageNames = new Map();
+  const records = [], edges = [], artifacts = [];
+  const active = new Set(), images = new Map(), imageNames = new Map();
 
   function parse(location) {
     if (!recipes.has(location)) {
@@ -26,69 +24,54 @@ export async function loadRecipeGraph(read, rootLocation, recipes = new Map()) {
     return recipes.get(location);
   }
 
-  // USE depth counts nested modules within one image. A FROM, INSTALL or COPY
-  // target is a separately built image with its own depth.
-  async function load(location, expected, available, image, stage, depth) {
+  async function load(location, expected, root) {
     if (active.has(location)) throw new Error(`${location}: recipe cycle`);
-    if (depth >= MAX_USE_DEPTH) throw new Error(`${location}: USE nesting exceeds ${MAX_USE_DEPTH} recipes`);
     const parsed = await parse(location);
     if (expected && parsed.sha256 !== expected) throw new Error(`${location}: stale recipe pin`);
-    if ((parsed.kind === "image") !== image) {
-      throw new Error(`${location}: expected ${image ? "an image role" : "MODULE"}`);
-    }
     // An uploaded root is labeled "Dollyfile"; every URL names its recipe's file.
     const file = recipeFileName(location);
-    if (file !== "" && (image ? imageFileName(file) : moduleFileName(file)) !== parsed.name) {
+    if (file !== "" && imageFileName(file) !== parsed.name) {
       throw new Error(`${location}: ${parsed.role.toUpperCase()} ${parsed.name} must match its file name`);
     }
-    if (image && (imageNames.get(parsed.name) ?? location) !== location) {
+    if ((imageNames.get(parsed.name) ?? location) !== location) {
       throw new Error(`${location}: image ${parsed.name} is already ${imageNames.get(parsed.name)}`);
     }
-    if (image) imageNames.set(parsed.name, location);
-    if (image && !stage && images.has(location)) return images.get(location);
+    imageNames.set(parsed.name, location);
+    if (!root && images.has(location)) return images.get(location);
     active.add(location);
-    const record = { ...parsed, location, children: [], dependencies: [], imports: new Map(), artifactTargets: [] };
-    if (!seen.has(location)) {
-      seen.add(location);
-      records.push(record);
-      if (!image) modules.push(record);
-    }
-    const visible = new Map(available);
+    const record = { ...parsed, location, dependencies: [], imports: new Map(), artifactTargets: [] };
+    records.push(record);
+    const visible = new Map();
     const published = new Map();
-    const requiredHost = [...record.hostRequirements];
     const operations = [
-      ...record.uses.map(value => ({ ...value, operation: "use" })),
       ...record.artifacts,
       ...record.requirements.map(value => ({ ...value, operation: "requirement" })),
       ...record.exports.map(value => ({ ...value, operation: "export" })),
     ].sort((a, b) => a.line - b.line);
     for (const operation of operations) {
       if (["from", "install", "copy"].includes(operation.operation)) {
-        const target = await load(operation.location, operation.sha256, new Map(), true, false, 0);
+        const target = await load(operation.location, operation.sha256, false);
         if (operation.operation === "from" ? target.role === "package"
             : operation.operation === "install" && target.role !== "package") {
           throw new Error(`${location}:${operation.line}: ${target.name} is a ${target.role}: ` +
             "FROM takes an application or toolchain, INSTALL a package");
         }
+        // Host requirements are never inherited: a package's must be declared here.
+        if (operation.operation === "install") {
+          const missing = target.hostRequirements.filter(name => !record.hostRequirements.includes(name));
+          if (missing.length) {
+            throw new Error(`${location}:${operation.line}: ${target.name} needs REQUIRES HOST ${missing.join(", ")}`);
+          }
+        }
         record.artifactTargets.push({ reference: operation, target });
-        if (stage) artifacts.push({ ...operation, image: target.image });
+        if (root) artifacts.push({ ...operation, image: target.image });
         // A package keeps nothing of its base; COPY takes files only.
         const imports = operation.operation === "from" ? record.role !== "package" : operation.operation === "install";
-        if (imports) requiredHost.push(...target.hostRequirements);
         if (operation.operation !== "copy") {
           for (const [name, provider] of target.scopeExporters) {
             visible.set(name, provider);
             if (imports) published.set(name, provider);
           }
-        }
-      } else if (operation.operation === "use") {
-        const child = await load(operation.location, operation.sha256, visible, false, stage, depth + 1);
-        requiredHost.push(...child.hostRequirements);
-        child.selectedAt = operation.line;
-        record.children.push(child);
-        for (const [name, provider] of child.scopeExporters) {
-          visible.set(name, provider);
-          published.set(name, provider);
         }
       } else if (operation.operation === "export") {
         if (operation.details.length !== 0 || !visible.has(key(operation))) {
@@ -107,21 +90,19 @@ export async function loadRecipeGraph(read, rootLocation, recipes = new Map()) {
     }
     // A recipe's own exports describe its completed state and win over imported
     // ones. Bare TOOL and ENV names resolve against the last provider seen: a
-    // child, a package, an inherited base, or runtime state.
+    // package, an inherited base, or runtime state.
     for (const exported of record.exports) {
       const provider = visible.get(key(exported));
       const resolved = (exported.details.length === 0 || exported.type === "ENV") && provider && provider.module !== record
         ? { ...exported, details: provider.exported.details } : exported;
       published.set(key(exported), { module: record, exported: resolved });
     }
-    try { record.hostRequirements = hostRequirements(requiredHost); }
-    catch (error) { throw new Error(`${location}: ${error.message}`); }
     record.scopeExporters = published;
-    if (image && !stage) images.set(location, record);
+    if (!root) images.set(location, record);
     active.delete(location);
     return record;
   }
 
-  const root = await load(rootLocation, null, new Map(), true, true, 0);
-  return { root, modules, records, edges, exporters: root.scopeExporters, artifacts };
+  const root = await load(rootLocation, null, true);
+  return { root, records, edges, exporters: root.scopeExporters, artifacts };
 }

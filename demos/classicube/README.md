@@ -29,9 +29,9 @@ Open `/classicube/`; build with `npm run image -- classicube`.
 
 ## How it works
 
-- [`classicube.dm`](classicube.dm) compiles pinned upstream C with
+- [`Dollyfile-classicube-build`](Dollyfile-classicube-build) compiles pinned upstream C with
   [`platform.c`](platform.c), [`window.c`](window.c) and [`input.c`](input.c);
-  [`classicube-agent.dm`](classicube-agent.dm) adds the viewer and supervisor.
+  [`Dollyfile-classicube`](Dollyfile-classicube) adds the viewer and supervisor.
 - A Janis server ([`agent/room.mjs`](agent/room.mjs)) owns the map and exchanges
   Classic protocol packets with the clients through private files in WasmFS. The
   socket wrapper accepts only that room: no host sockets, no browser authority.

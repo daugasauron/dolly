@@ -1,11 +1,47 @@
 DOLLY 6
 APPLICATION pi-local
+REQUIRES HOST display@0
+REQUIRES HOST download@0
+REQUIRES HOST gpu@0
+REQUIRES HOST http@0
+REQUIRES HOST snapshot@0
+REQUIRES HOST threads@0
+REQUIRES HOST upload@0
 
-FROM https://daugasauron.com/demos/pi/Dollyfile-pi 3e88edbe653de3547a6c0829e043f125ea870c893bb2d1852e88600663b2eac6
-COPY https://daugasauron.com/demos/local-llm/Dollyfile-local-llm-build 1529d61c5922fde098471e6fdb6e945620b8baf19426a84db004ca7ee0774606 /usr/bin/dolly-llama /usr/bin/dolly-llama
-COPY https://daugasauron.com/demos/local-llm/Dollyfile-llama-build bf099ef30b1b2009d87a96b207abc0450ebea5d66de9e9db5e36db72ac1c7b23 /usr/share/licenses/dolly-llm /usr/share/licenses/dolly-llm
+FROM https://daugasauron.com/demos/pi/Dollyfile-pi e4171575d5196abca88fdb468ad34f1377c93c204177064bd93b65c0cf701a99
+COPY https://daugasauron.com/demos/local-llm/Dollyfile-local-llm-build 370b9322570e1a2255afd4df293532e988e8daea2a45254fb076c4fb919a1bad /usr/bin/dolly-llama /usr/bin/dolly-llama
+COPY https://daugasauron.com/demos/local-llm/Dollyfile-llama-build c18bba80b91e2cac6a1a14814ede02767fa4656ff9943e2f8fa48641bdb35ee7 /usr/share/licenses/dolly-llm /usr/share/licenses/dolly-llm
 EXPORTS TOOL dolly-llama
-USE https://daugasauron.com/demos/local-llm/local-llm-weights.dm 42efad0c87ddb868c63fb9b82675a69fc53bc86d9bd63c331eccb3921af0fc45
-USE https://daugasauron.com/demos/local-llm/local-llm.dm 368dd36e098e4a2f9b6466b51a6e77eabedbec358df204fcebd24f35ec2c695e
+REQUIRES TOOL cat
+REQUIRES TOOL sha256sum
+REQUIRES TOOL cut
+REQUIRES TOOL test
+REQUIRES TOOL rm
+REQUIRES TOOL mkdir
+
+# Each input also fits builders from the original 512 MiB bootstrap seed.
+SOURCE https://daugasauron.com/dist/static/llama/model-0.part b0bd8d29eaaf8080c157d9f7d291e14ccc1409c940a1a8a6b6640436a27c9fba /tmp/llm-model-0.part
+SOURCE https://daugasauron.com/dist/static/llama/model-1.part c009889f741d967d6ae7d100dc5d5752d25258eaefacd614aad4aa4b44e8b0b3 /tmp/llm-model-1.part
+SOURCE https://daugasauron.com/dist/static/llama/model-2.part cdfbb8d66dceee37dc549d83631693674575a34e24798ad1a56ca41d3702430c /tmp/llm-model-2.part
+SLOP mkdir -p /usr/share/dolly/llm
+SLOP cat /tmp/llm-model-0.part /tmp/llm-model-1.part /tmp/llm-model-2.part > /usr/share/dolly/llm/Qwen3.5-0.8B.gguf
+SLOP test "$(sha256sum /usr/share/dolly/llm/Qwen3.5-0.8B.gguf | cut -d ' ' -f 1)" = fb044e93939a70469c905781334f5de1e6c8b608ced6cbc8c9249bd4127d9526
+SLOP rm /tmp/llm-model-0.part /tmp/llm-model-1.part /tmp/llm-model-2.part
+
+EXPORTS FILE local-model-weights /usr/share/dolly/llm/Qwen3.5-0.8B.gguf
+REQUIRES TOOL janis
+REQUIRES TOOL tar
+REQUIRES TOOL dolly-llama
+
+SOURCE https://daugasauron.com/dist/static/llama/provider.tar 72e16117c8b0cc1b8f1e5ddec6b5d141977e2c2e592d8cd5b5a73a486effb7a5 /tmp/llm-provider.tar
+SLOP tar -xf /tmp/llm-provider.tar -C /
+
+FILE /home/dolly/.pi/agent/settings.json
+    {"enableInstallTelemetry":false,"images":{"autoResize":false},"shellPath":"/bin/slop","theme":"dolly","defaultProvider":"webgpu","defaultModel":"Qwen3.5-0.8B"}
+
+EXPORTS FOLDER local-llm /usr/lib/dolly-llm
+EXPORTS FOLDER local-llm-models /usr/share/dolly/llm
+EXPORTS FILE local-model-provider /home/dolly/.pi/agent/extensions/local-model-provider.js
+EXPORTS FILE local-model-license /usr/share/licenses/dolly-llm/Qwen-LICENSE
 
 ENTRY /bin/foreground -i /bin/slop /etc/dolly/init.slop

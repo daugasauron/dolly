@@ -35,7 +35,7 @@ package keeps them for `INSTALL` (`pi-runtime`, `bhop`, `slopyard`) and
 
 - [`quickjs-main.c`](quickjs-main.c), [`janis.c`](janis.c),
   [`janis.js`](janis.js), [`dolly-node.js`](dolly-node.js): the runtime.
-- [`quickjs.dm`](quickjs.dm), [`typescript.dm`](typescript.dm),
+- [`Dollyfile-typescript-build`](Dollyfile-typescript-build), [`Dollyfile-typescript-build`](Dollyfile-typescript-build),
   [`tsc-dolly.mjs`](tsc-dolly.mjs): builds; QuickJS's ambient
   `quickjs-libc.c` is excluded.
 - Tests: [`test/`](test/).
