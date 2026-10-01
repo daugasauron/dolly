@@ -33,5 +33,7 @@ publish` (`package-pages.sh`, defaults `build/dolly-pages.tar.gz` and
 `build/releases`) seals a release and moves `build/releases/current`, and
 `npm run serve` follows it; the afternoon checkpoint (`35b11b69…`) was deployed
 that way, and `DOLLY_BUILD_IMAGES` limits the catalog. The GitHub release and
-workflow dispatch are described. Left: check `package-pages.sh` for the
-duplicated file lists and the repeated hashing.
+workflow dispatch are described. `package-pages.sh` is 122 lines with one list
+of `dist` files (the duplicated lists are gone). Left: every publish also writes
+the Pages tarball (5.4 GB for the local checkpoint), and the site is hashed by
+both `site-release.mjs accept` and `publish`.
