@@ -244,3 +244,11 @@ Next: measure what bounds the recursion (which compiler phase, the depth per
 an upstream source change for such chains and a compiler process that needs
 less native stack. Then the full closure at `-j4`, keep the 103 archives, link
 the compiler and compare it with the seed's link.
+
+## Decisions (2026-10-01, delegated)
+
+- LLVM-in-Dolly stays a demo (`demos/llvm`): moving CMake and Python into core
+  would grow the core, against the owner's direction.
+- The Worker stack overflow on `MSP430.cpp`/`SemaARM.cpp` is fixed on the
+  compiler side (measure the recursion, reduce frame use or recursion depth),
+  not by patching Clang's sources.

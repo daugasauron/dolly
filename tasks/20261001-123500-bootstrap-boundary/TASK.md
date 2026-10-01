@@ -209,3 +209,11 @@ skipped by the runner).
    recipe graph.
 3. `mkdir` and `rm` sit in `core-tools.dm` for now; audit-36 decides whether
    they survive sbase at all.
+
+## Decisions (2026-10-01, delegated)
+
+- Keep compiling the Dollyfile engine in-sandbox: a precompiled engine would add
+  a host-built bootstrap exception for 95 KB of source.
+- Keep headers in both places for now: the engine needs them before any recipe,
+  and `bootstrap.dm` pins them for images.
+- `COMPILEC` stays C-only, single-source, `-O1`; widen it only for a real need.

@@ -1,6 +1,6 @@
 # No continuous integration runs tests
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 140
 - TAGS: tests,build
 
@@ -51,3 +51,8 @@ Plan:
    Dolly. GPU tests stay local (no GPU on standard runners).
 Independent of CI: build independent images concurrently (each uses one
 core), and let Patti run crate compiles in parallel.
+
+## Decision (owner, 2026-10-01)
+
+No remote deployment or remote CI for now: releases are built and reviewed
+locally. Reopen if the owner asks for hosted CI.

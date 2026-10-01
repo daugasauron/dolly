@@ -46,3 +46,10 @@ and the Codex TUI polls crossterm on a timer instead of using its
   ~1 s), cause not found; the processor count is fixed at 4; `sched_yield`
   returns ENOTSUP; signals reach a main thread parked on a futex only at its
   next system call; the Pi image was not rebuilt.
+
+## Decisions (2026-10-01, delegated)
+
+- Keep the reported processor count fixed at 4: deterministic builds and no new
+  browser-derived value crossing into the guest.
+- `sched_yield` returns 0 in the threaded libc: POSIX lets it return at once when
+  nothing else can run, and Workers cannot cede a core.

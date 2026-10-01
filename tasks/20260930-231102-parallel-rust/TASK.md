@@ -118,3 +118,9 @@ concurrent spawns a supervisor memory budget (the cap is 32 processes,
   and `addopen`. CMake's Makefile generator should now honor
   `cmake --build --parallel N` through the shared jobserver; the cmake demo
   still uses `--parallel 1` and was not rerun.
+
+## Decision (2026-10-01, delegated)
+
+Replace the fixed 32-process cap with a supervisor memory budget (admit a spawn
+while committed Wasm memory stays under a page budget), keeping a hard count
+limit as a backstop. Until then LLVM-sized builds run at `-j4`.

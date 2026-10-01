@@ -112,3 +112,8 @@ then starts and runs uninterrupted (`qjs -e 'for (;;) {}'` hung until the test
 timeout). In Unix the child shares the foreground process group and receives the
 signal. Slop should not start a command when an interrupt arrived after the line
 was submitted, or the kernel should deliver it to the child once spawned.
+
+## Decision (2026-10-01, delegated)
+
+Slop does not start a command after an interrupt reached the shell since the
+line was submitted; the command line ends with 130.

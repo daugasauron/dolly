@@ -218,3 +218,11 @@ Configuring LLVM inside Dolly, five `config.h` checks (`getpagesize`, `sbrk`,
 defaults to strict `-std=c17`; with `-DCMAKE_C_FLAGS=-std=gnu17` they match
 the seed's configure. Upstream CMake probes under-report under the current
 default.
+
+## Decision (2026-10-01, delegated)
+
+Match Clang's dialect defaults: `gnu17` for C and `gnu++17` for C++; keep the
+`-O2` default as the one documented divergence. Reasons: 14 of 20 ordinary
+agent snippets fail under strict `c17`, upstream CMake probes under-report
+(LLVM's `config.h`), no catalog C++ relies on the `c++23` default, and Clang's
+own defaults are what build systems assume.

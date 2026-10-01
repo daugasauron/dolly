@@ -1,6 +1,6 @@
 # Publish state lags main
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 120
 - TAGS: build
 
@@ -30,3 +30,8 @@ images) is served on localhost:9000. `main` is still at
 `checkpoint-2026-10-01` (`0c3cb7e`, equal to `origin/main`), 72 commits behind
 the afternoon checkpoint; pushing and redeploying daugasauron.com and GitHub
 Pages remains the owner's call.
+
+## Decision (owner, 2026-10-01)
+
+Do not deploy remotely; release candidates run locally (localhost:9000) for the
+owner's review.

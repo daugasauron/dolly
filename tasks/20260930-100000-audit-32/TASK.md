@@ -38,3 +38,9 @@ for the unsupported shapes; never an indefinite stall.
   functions, compound commands) still serial, would remove the stall for the
   common agent shapes. `docs/slop.md` records serial pipelines as intentional,
   so this is an owner decision.
+
+## Decision (2026-10-01, delegated)
+
+Run external pipeline stages concurrently over kernel pipes; builtins,
+functions and compound stages stay in-process and serial. Update
+`docs/slop.md` when implemented.
