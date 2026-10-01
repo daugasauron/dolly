@@ -12,13 +12,13 @@ REQUIRES TOOL mkdir
 REQUIRES TOOL rm
 REQUIRES TOOL protox
 
-SOURCE https://daugasauron.com/dist/static/codex/sources-00.part bc7f7954251dfaad3b176308157252c1304fa6e4a9cd17ddbb76ecd93aa96d03 /tmp/codex-sources-00.part
-SOURCE https://daugasauron.com/dist/static/codex/sources-01.part 0ec30b8e31c39d5d75dfc3bac57ccc7cb3386cefc497ec54f184d54ce3080a6a /tmp/codex-sources-01.part
-SOURCE https://daugasauron.com/dist/static/codex/sources-02.part f2c9a1331611014e11ad05f1a50f0d759cbaeabaccd0117b1fb984c9ebadd7e0 /tmp/codex-sources-02.part
-SOURCE https://daugasauron.com/dist/static/codex/sources-03.part 3e6ffe79bf6938e53f287c08d33005d55bfc5baf283726407952a538625fe50e /tmp/codex-sources-03.part
-SOURCE https://daugasauron.com/dist/static/codex/sources-04.part 558e0757c624f8ca8d35258f1506ed6c79cb8393ab830199e4e6dc2048919602 /tmp/codex-sources-04.part
-SOURCE https://daugasauron.com/dist/static/codex/sources-05.part e1bb9db8d87698c18e31dd7d5954baa9b32276e838c59f10dfdabda2efe08521 /tmp/codex-sources-05.part
-SOURCE https://daugasauron.com/dist/static/codex/sources-06.part fe124daa94cb64402b121fa9bb9f5dc6264d5f89d9684762b6d2c99eeeb5d8a5 /tmp/codex-sources-06.part
+SOURCE https://daugasauron.com/dist/static/codex/sources-00.part 94762aeb718a213f4ec1fad5b15d741f56b9bb4e39247657303723d9131b4fd6 /tmp/codex-sources-00.part
+SOURCE https://daugasauron.com/dist/static/codex/sources-01.part 448871170a5c2638cfd191906ba2d643e62bffead0ed301fb2da8a73bcb42fb8 /tmp/codex-sources-01.part
+SOURCE https://daugasauron.com/dist/static/codex/sources-02.part 22e944c6ec67323e26c59a4fad8c2adeb751d8e28b7c36d3d242ecc24c939f25 /tmp/codex-sources-02.part
+SOURCE https://daugasauron.com/dist/static/codex/sources-03.part 27ada4872ace681c6f20bfef01a195687aa2f6a446595be794438c1f4b4fdd94 /tmp/codex-sources-03.part
+SOURCE https://daugasauron.com/dist/static/codex/sources-04.part e5704b1be15e03895cc2253b2c7044df48e4ae990d8f28f4c2215890411faeb2 /tmp/codex-sources-04.part
+SOURCE https://daugasauron.com/dist/static/codex/sources-05.part 2684667b52dd121b13b45ecf8eea17890f8e814ccdd402388b6979b9ddde7599 /tmp/codex-sources-05.part
+SOURCE https://daugasauron.com/dist/static/codex/sources-06.part 49541bbcc581aae099b9aa06be38ccbb526b69673cf67720f1002d66c9b1a3b4 /tmp/codex-sources-06.part
 SOURCE https://daugasauron.com/dist/static/codex/no-js.c 5b2a995a8f36f4917f40f39af9806be9d4646d90850585fbc8bd904ff18c45fd /tmp/codex-no-js.c
 SOURCE https://daugasauron.com/dist/static/codex/patti.toml 104a7e2428fc418b9da14e4da2ac8d14b8e7b9af40eb1d768d89c74034a82dea /tmp/codex-patti.toml
 SLOP cat /tmp/codex-sources-00.part /tmp/codex-sources-01.part /tmp/codex-sources-02.part /tmp/codex-sources-03.part /tmp/codex-sources-04.part /tmp/codex-sources-05.part /tmp/codex-sources-06.part | gzip -dc - | tar -xf - -C /

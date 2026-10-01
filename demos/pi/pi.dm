@@ -1,13 +1,13 @@
 DOLLY 5
 MODULE pi
 
-USE https://daugasauron.com/demos/rust/search-tools.dm eead3a58887c9e51ccccd8fff9f84922c5d4bccfea253c0064a74138ab47460d
+USE https://daugasauron.com/demos/rust/search-tools.dm 8e2e5859313f882be8a0e03ee34c469a009180e85e06b21bfbec660cdf93431b
 EXPORTS TOOL rg
 EXPORTS TOOL fd
-COPY FROM https://daugasauron.com/demos/pi/Dollyfile-pi-build 4e75f8ff6c2af19fbba37abc4abe6f60c5383f326b6ca54dead2f0e764e78995 /usr/bin/pi /usr/bin/pi
-COPY FROM https://daugasauron.com/demos/pi/Dollyfile-pi-build 4e75f8ff6c2af19fbba37abc4abe6f60c5383f326b6ca54dead2f0e764e78995 /usr/lib/node_modules /usr/lib/node_modules
-COPY FROM https://daugasauron.com/demos/pi/Dollyfile-pi-build 4e75f8ff6c2af19fbba37abc4abe6f60c5383f326b6ca54dead2f0e764e78995 /usr/src/pi-source /usr/src/pi-source
-COPY FROM https://daugasauron.com/demos/pi/Dollyfile-pi-build 4e75f8ff6c2af19fbba37abc4abe6f60c5383f326b6ca54dead2f0e764e78995 /usr/share/licenses/pi-source/LICENSE /usr/share/licenses/pi-source/LICENSE
+COPY FROM https://daugasauron.com/demos/pi/Dollyfile-pi-build 7cdc29f64286245b087c1f1bd5d31e7aaa360950ad491bffad4bc9ae18c780ce /usr/bin/pi /usr/bin/pi
+COPY FROM https://daugasauron.com/demos/pi/Dollyfile-pi-build 7cdc29f64286245b087c1f1bd5d31e7aaa360950ad491bffad4bc9ae18c780ce /usr/lib/node_modules /usr/lib/node_modules
+COPY FROM https://daugasauron.com/demos/pi/Dollyfile-pi-build 7cdc29f64286245b087c1f1bd5d31e7aaa360950ad491bffad4bc9ae18c780ce /usr/src/pi-source /usr/src/pi-source
+COPY FROM https://daugasauron.com/demos/pi/Dollyfile-pi-build 7cdc29f64286245b087c1f1bd5d31e7aaa360950ad491bffad4bc9ae18c780ce /usr/share/licenses/pi-source/LICENSE /usr/share/licenses/pi-source/LICENSE
 
 SOURCE https://daugasauron.com/dist/static/default/pi/dolly-tools.js                    edd123743a5a8fcc7ddb80d4c8dd57ba7f6159705eaac8cc07340034bd9b9a29 /home/dolly/.pi/agent/extensions/dolly-tools.js
 SOURCE https://daugasauron.com/dist/static/default/pi/SYSTEM.md                         bfd8505b6f40533d9d5a19101a4bd62c9447d55e707f50aabbd22f1f2dbbe92e /home/dolly/.pi/agent/SYSTEM.md

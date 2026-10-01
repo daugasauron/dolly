@@ -1,7 +1,7 @@
 DOLLY 5
 IMAGE openal-build
 
-FROM https://daugasauron.com/demos/cmake/Dollyfile-cmake-build 80eaa98179f392d29c62b61095b9ffb470e4c4ea4f3db20e9ab62c8a15c7c2c6
+FROM https://daugasauron.com/demos/cmake/Dollyfile-cmake-build e703fc6d405a75cc4161b7778cb95438789f955f41bfb6bb1465369d3e8f0422
 USE https://daugasauron.com/demos/zero-ad/openal.dm a3e2f1041d957f7ab35162610e424170a2dd075f88d34ad7922af3f570068902
 
 ENTRY /bin/foreground -i /bin/slop

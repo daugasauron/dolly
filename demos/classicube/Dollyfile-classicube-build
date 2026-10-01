@@ -1,7 +1,7 @@
 DOLLY 5
 IMAGE classicube-build
 
-FROM https://daugasauron.com/demos/sdl2/Dollyfile-sdl2-build 3adab7eab66d9a700c5189d8703e192bede6c355f84df3fec49b024895e56f34
+FROM https://daugasauron.com/demos/sdl2/Dollyfile-sdl2-build 1402db878dc1228096afd5523dff9a98395d0837885e151efc98fe2bd586e777
 USE https://daugasauron.com/demos/classicube/classicube.dm 3098b2d7698f883eb096b25c19b10a265f1a0fff53e00acfeda221e51558c4b4
 
 ENTRY /bin/foreground -i /bin/slop

@@ -1,16 +1,16 @@
 DOLLY 5
 IMAGE slopyard
 
-FROM https://daugasauron.com/demos/slopyard/Dollyfile-gamedev-sdk 6719b50441f5d5e35dd9f60d70532a43ac7b6e0c194f50419e8ee58dd8d25457
-COPY FROM https://daugasauron.com/demos/javascript/Dollyfile-javascript 8b801bd785457aa4dc425b504b1e91deaf15987853bcaafeac1ba3fe15fd7b89 /usr/lib/libdolly-js.a /usr/lib/libdolly-js.a
-COPY FROM https://daugasauron.com/demos/javascript/Dollyfile-javascript 8b801bd785457aa4dc425b504b1e91deaf15987853bcaafeac1ba3fe15fd7b89 /usr/include/quickjs.h /usr/include/quickjs.h
-COPY FROM https://daugasauron.com/demos/javascript/Dollyfile-javascript 8b801bd785457aa4dc425b504b1e91deaf15987853bcaafeac1ba3fe15fd7b89 /usr/include/dolly/quickjs-runner.h /usr/include/dolly/quickjs-runner.h
-COPY FROM https://daugasauron.com/demos/javascript/Dollyfile-javascript 8b801bd785457aa4dc425b504b1e91deaf15987853bcaafeac1ba3fe15fd7b89 /usr/lib/dolly/node.js /usr/lib/dolly/node.js
-COPY FROM https://daugasauron.com/demos/javascript/Dollyfile-javascript 8b801bd785457aa4dc425b504b1e91deaf15987853bcaafeac1ba3fe15fd7b89 /usr/lib/janis/runtime.js /usr/lib/janis/runtime.js
+FROM https://daugasauron.com/demos/slopyard/Dollyfile-gamedev-sdk 7dc597c4bda60274932cb43b268809d74dd458d23e20a122758b78b0596a5a6d
+COPY FROM https://daugasauron.com/demos/javascript/Dollyfile-javascript 4f903734a5e3f4255ccb4313b57185238f529e77496d6587360c19fd1f40b87e /usr/lib/libdolly-js.a /usr/lib/libdolly-js.a
+COPY FROM https://daugasauron.com/demos/javascript/Dollyfile-javascript 4f903734a5e3f4255ccb4313b57185238f529e77496d6587360c19fd1f40b87e /usr/include/quickjs.h /usr/include/quickjs.h
+COPY FROM https://daugasauron.com/demos/javascript/Dollyfile-javascript 4f903734a5e3f4255ccb4313b57185238f529e77496d6587360c19fd1f40b87e /usr/include/dolly/quickjs-runner.h /usr/include/dolly/quickjs-runner.h
+COPY FROM https://daugasauron.com/demos/javascript/Dollyfile-javascript 4f903734a5e3f4255ccb4313b57185238f529e77496d6587360c19fd1f40b87e /usr/lib/dolly/node.js /usr/lib/dolly/node.js
+COPY FROM https://daugasauron.com/demos/javascript/Dollyfile-javascript 4f903734a5e3f4255ccb4313b57185238f529e77496d6587360c19fd1f40b87e /usr/lib/janis/runtime.js /usr/lib/janis/runtime.js
 EXPORTS LIB dolly-js /usr/lib/libdolly-js.a
 EXPORTS HEADER quickjs /usr/include/quickjs.h
 EXPORTS HEADER quickjs-runner /usr/include/dolly/quickjs-runner.h
-USE https://daugasauron.com/demos/pi/pi.dm 6b1c5fc28ae7312c0a48756d0204f5651d603a99d62a892b50084d8db3738ee2
+USE https://daugasauron.com/demos/pi/pi.dm 605f9907951c6d407f0364ffcc853f887b15b9072fcba14890956fbdcb01b5c2
 USE https://daugasauron.com/demos/slopyard/lua55.dm 9ff415b53d7a4d5566d1ec248339442136dc78a0a3ba4962d15d8c502d9df44e
 USE https://daugasauron.com/demos/slopyard/slopyard.dm 515def3b188b51a001ad648e18ab221d1250d21058698dc74765886cf6818668
 

@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 import { createHash } from "node:crypto";
-import { closeSync, createReadStream, createWriteStream, lstatSync, openSync, readSync, readdirSync, realpathSync, writeFileSync } from "node:fs";
+import { closeSync, createReadStream, createWriteStream, lstatSync, openSync, readSync, readdirSync, writeFileSync } from "node:fs";
 import { mkdir, mkdtemp, rename, rm } from "node:fs/promises";
 import { dirname, join, relative, resolve, sep } from "node:path";
 import { pipeline } from "node:stream/promises";
@@ -65,8 +65,7 @@ function collect(input, destination) {
 }
 
 for (let index = 0; index < mappingArguments.length; index += 2) {
-  // A mapped root may be a symlink (worktrees link the shared .cache); its tree may not.
-  const input = realpathSync(resolve(projectDir, mappingArguments[index]));
+  const input = resolve(projectDir, mappingArguments[index]);
   const destination = mappingArguments[index + 1].replace(/\/+$/, "");
   collect(input, destination);
 }
