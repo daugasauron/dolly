@@ -210,3 +210,11 @@ Match Clang on the dialect: `gnu17` and `gnu++17`. Keep the `-O2` default.
   harmless and portable. "Done when" test: bare `cc` compiles a `fileno`/
   `M_PI`/`clock_gettime` snippet and `cc -x c -E -dM - </dev/null` lacks
   `__STRICT_ANSI__`; `__OPTIMIZE__` in the same output records the `-O` default.
+
+## More evidence (2026-10-01, LLVM stage 1)
+
+Configuring LLVM inside Dolly, five `config.h` checks (`getpagesize`, `sbrk`,
+`setenv`, `sigaltstack`, `strerror_r`) came out missing only because `cc`
+defaults to strict `-std=c17`; with `-DCMAKE_C_FLAGS=-std=gnu17` they match
+the seed's configure. Upstream CMake probes under-report under the current
+default.
