@@ -2,10 +2,10 @@ DOLLY 5
 IMAGE llvm-tablegen
 
 # Build-only: LLVM 24 configured by CMake inside Dolly, its TableGen tools and outputs.
-FROM https://daugasauron.com/demos/cmake/Dollyfile-cmake-build e703fc6d405a75cc4161b7778cb95438789f955f41bfb6bb1465369d3e8f0422
+FROM https://daugasauron.com/demos/cmake/Dollyfile-cmake-build 5eabb808e446c53805c45665b86ab843ec09a3f91d1a668bfd0a4e27f2f4ba5a
 # LLVM's CMake requires a Python 3 interpreter.
-COPY FROM https://daugasauron.com/demos/python/Dollyfile-python-runtime 3532711f4bff2534fbfbe78ca661669360ab3398b0d24f2ebef5623b2ccdf0d0 /usr/bin/python /usr/bin/python
-COPY FROM https://daugasauron.com/demos/python/Dollyfile-python-runtime 3532711f4bff2534fbfbe78ca661669360ab3398b0d24f2ebef5623b2ccdf0d0 /usr/lib/python3.14 /usr/lib/python3.14
+COPY FROM https://daugasauron.com/demos/python/Dollyfile-python-runtime 93c829b4144a966a27d98c422a2110fcd10f907875f0cda9c5f4fdce48e616c8 /usr/bin/python /usr/bin/python
+COPY FROM https://daugasauron.com/demos/python/Dollyfile-python-runtime 93c829b4144a966a27d98c422a2110fcd10f907875f0cda9c5f4fdce48e616c8 /usr/lib/python3.14 /usr/lib/python3.14
 EXPORTS ENV PYTHONDONTWRITEBYTECODE 1
 USE https://daugasauron.com/demos/llvm/llvm-tablegen.dm 0d30a0f9ec5d4c22e35a7604ba32efa392b96844843673e556f545d1872523a2
 

@@ -1,7 +1,7 @@
 DOLLY 5
 IMAGE typescript-build
 
-FROM https://daugasauron.com/Dollyfile-system-tools 3b0ddd275db62a32a2587b0a9644a5b5c8edbe284a860f7312f5f5fc60fd1f46
+FROM https://daugasauron.com/Dollyfile-system-tools 46d753ab5207fbbbaf3bf2578e70bdbf3ab311a5f30b786311796be52426dbd3
 
 USE https://daugasauron.com/demos/javascript/quickjs.dm afd07271b390e463a7d717c90c7df1ad8177d65310b546f433af78544399fc0f
 USE https://daugasauron.com/demos/javascript/typescript.dm 0e9f793930a483d187b248d271adc8bfbf15bd5d5c684491b0870595a16019f8
