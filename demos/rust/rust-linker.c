@@ -9,7 +9,8 @@
 #include <unistd.h>
 
 /* Translate the experimental Rust Emscripten target's linker vocabulary to
- * Dolly cc. Unsupported Emscripten modes remain errors. */
+ * Dolly cc. Executables link threaded, so std::thread works under threads@0.
+ * Unsupported Emscripten modes remain errors. */
 int main(int argc, char **argv) {
   char directory[] = "/tmp/dolly-rust-link.XXXXXX";
   if (!mkdtemp(directory)) { perror("mkdtemp"); return 1; }
@@ -22,7 +23,7 @@ int main(int argc, char **argv) {
   args[count++] = "/bin/cc";
   int shared = 0;
   for (int i = 1; i < argc; i++) if (!strcmp(argv[i], "-sSIDE_MODULE=2")) shared = 1;
-  if (shared) args[count++] = "-Wl,--no-export-dynamic";
+  args[count++] = shared ? "-Wl,--no-export-dynamic" : "-pthread";
   for (int i = 1; i < argc; i++) {
     char *arg = argv[i];
     if (!strcmp(arg, "-s")) {
@@ -53,7 +54,6 @@ int main(int argc, char **argv) {
     if (!strcmp(arg, "-sSIDE_MODULE=2")) arg = "-shared";
     if (!strcmp(arg, "-fwasm-exceptions")) arg = "-fexceptions";
     size_t length = strlen(arg);
-    if (shared && length >= 16 && !strcmp(arg + length - 16, "/libdolly-rust.a")) continue;
     if (length > 5 && !strcmp(arg + length - 5, ".rlib")) {
       char *path;
       if (asprintf(&path, "%s/%d.a", directory, files) < 0) goto done;

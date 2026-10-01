@@ -5,6 +5,7 @@ export const rustToolSources = {
   "macro.rs": "demos/rust/test/fixtures/rust/macro.rs",
   "macro-library.rs": "demos/rust/test/fixtures/rust/macro-library.rs",
   "macro-use.rs": "demos/rust/test/fixtures/rust/macro-use.rs",
+  "threads.rs": "demos/rust/test/fixtures/rust/threads.rs",
 };
 
 export async function runRustTools(submit, origin) {
@@ -20,6 +21,7 @@ export async function runRustTools(submit, origin) {
     await run("rustc macro-library.rs --edition=2021 --crate-name macro_library --crate-type rlib --extern tiny_macro=tiny_macro.wasm -o libmacro_library.rlib");
     await run("rustc macro-use.rs --edition=2021 --extern macro_library=libmacro_library.rlib -L dependency=. -o macro-use");
     await run("./macro-use && ./macro-use");
+    await run("rustc --edition=2021 -C opt-level=1 threads.rs -o threads && ./threads | grep -q RUST-THREADS-OK");
     const files = {
       "Cargo.toml": '[package]\nname="macro-use"\nversion="0.0.0"\nedition="2021"\n[dependencies]\nmacro-library={path="library"}\n',
       "library/Cargo.toml": '[package]\nname="macro-library"\nversion="0.0.0"\nedition="2021"\n[dependencies]\ntiny-macro={path="../macro"}\n',
@@ -97,7 +99,7 @@ export async function runFd(submit) {
     await run("fd --quiet first tree");
     assert.equal(await submit("fd --quiet absent-pattern tree"), 1);
     assert.equal(await submit("fd '[' tree"), 1);
-    assert.equal(await submit("fd --threads 2 first tree"), 1);
+    await run('test "$(fd --color=never --threads 2 first tree)" = tree/first.txt');
     await run('test "$(fd --color=never first tree -x cat {})" = hello');
     await run('test "$(fd --color=never first tree -X cat {})" = hello');
     await run('test "$(fd --color=always first tree | wc -c)" -gt 0');

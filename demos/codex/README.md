@@ -34,9 +34,9 @@ the TUI returns to Slop; `codex` starts it again.
 
 ## Limits
 
-- Tokio runs a current-thread executor; filesystem work is synchronous and
-  children use Dolly spawn/wait.
-- No native sockets, fork hooks, application threads, file locks or clipboard.
+- Threads run on `threads@0` (at most 16 per process); children use Dolly
+  spawn/wait.
+- No native sockets, fork hooks, file locks or clipboard.
   Socket-based clients such as HTTP MCP are unsupported.
 - SQLite uses one connection without WAL. TUI sessions are ephemeral.
 

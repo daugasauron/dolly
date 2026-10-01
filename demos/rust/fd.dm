@@ -10,7 +10,7 @@ REQUIRES TOOL rm
 # Archives contain upstream source and checksum-verified locked crate archives.
 SOURCE https://daugasauron.com/dist/static/rust/fd.tar a1282ebc9d7122f8df6cef3f98b64d949ed086698e14bef7cced4f7c680f8728 /tmp/fd.tar
 SLOP tar -xf /tmp/fd.tar -C /
-SLOP patti build -j 4 --offline --manifest-path /tmp/fd/source/Cargo.toml --bin fd --patch jiff=/tmp/fd/jiff-0.2.29 --patch nix@0.31.3=/tmp/fd/nix-0.31.3 --patch ignore=/tmp/fd/ignore-0.4.31 --patch libc=/opt/rust-sdk/src/libc --cache /tmp/fd/cache --target-dir /tmp/fd/build
+SLOP patti build -j 4 --offline --manifest-path /tmp/fd/source/Cargo.toml --bin fd --patch jiff=/tmp/fd/jiff-0.2.29 --patch nix@0.31.3=/tmp/fd/nix-0.31.3 --patch libc=/opt/rust-sdk/src/libc --cache /tmp/fd/cache --target-dir /tmp/fd/build
 SLOP cp /tmp/fd/build/fd /usr/bin/fd
 SLOP mkdir -p /usr/share/licenses/fd /usr/share/dolly/builds
 SLOP cp /tmp/fd/source/LICENSE-MIT /usr/share/licenses/fd/LICENSE-MIT

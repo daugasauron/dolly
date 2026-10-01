@@ -2103,6 +2103,9 @@ int64_t dolly_threads_dispatch(int pid, int tid, uint32_t operation,
       if (target->waiter && target->waiter != tid) return -EINVAL;
       if (!target->retired) {
         if (request.flags & DOLLY_THREAD_WAIT_NONBLOCK) return -EAGAIN;
+        /* Like other blocking calls, the signal thread's wait yields to its signals. */
+        if (tid == process->signal_tid && process->pending_signals && !process->handling_signal)
+          return -EINTR;
         target->waiter = tid;
         thread->waiting_on = target->tid;
         return DOLLY_PROCESS_DISPATCH_DEFERRED;

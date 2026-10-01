@@ -1,6 +1,8 @@
 DOLLY 5
 MODULE search-tools
 
+REQUIRES HOST threads@0
+
 # ripgrep and fd built from source by the Rust demo images.
 COPY FROM https://daugasauron.com/demos/rust/Dollyfile-ripgrep a8a03e12845d1c64088c4fed3c0a0263740775498985b0ba459291b616ecd0fe /usr/bin/rg /usr/bin/rg
 COPY FROM https://daugasauron.com/demos/rust/Dollyfile-ripgrep a8a03e12845d1c64088c4fed3c0a0263740775498985b0ba459291b616ecd0fe /usr/share/licenses/ripgrep /usr/share/licenses/ripgrep

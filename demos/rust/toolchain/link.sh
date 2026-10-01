@@ -55,10 +55,6 @@ done < "${sysroot}/dynamic-provider.symbols"
 node scripts/dolly-abi.mjs bind-process-layout "${port_dir}/dolly-process-0.wasm" include/dolly/process.h
 node scripts/dolly-abi.mjs stamp-process "${port_dir}/dolly-process-0.wasm" "${port_dir}/rustc.wasm"
 node scripts/dolly-abi.mjs validate-process "${port_dir}/dolly-process-0.wasm" "${port_dir}/rustc.wasm"
-rm -f "${port_dir}/package/rust-sdk/lib/libdolly-rust.a"
-"${container[@]}" /emsdk/upstream/bin/llvm-ar crs \
-  "${port_dir}/package/rust-sdk/lib/libdolly-rust.a" \
-  "${port_dir}"/pthread_attr_*.o
 cp "${port_dir}/rustc.wasm" "${port_dir}/package/rust-sdk/bin/rustc-real"
 gzip -c "${port_dir}/rustc.wasm" > "${port_dir}/rustc.wasm.gz"
 tar --sort=name --mtime=@0 --owner=0 --group=0 --numeric-owner \

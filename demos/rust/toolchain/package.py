@@ -12,12 +12,9 @@ if len(sys.argv) != 3:
 stage = port / "package"
 link = stage / "rust-link"
 sdk = stage / "rust-sdk/lib/rustlib/wasm64-emscripten-probe/lib"
-link.mkdir(parents=True, exist_ok=True)
-sdk.mkdir(parents=True, exist_ok=True)
-for previous in link.glob("*.a"):
-    previous.unlink()
-for previous in sdk.glob("*.rlib"):
-    previous.unlink()
+shutil.rmtree(stage, ignore_errors=True)
+link.mkdir(parents=True)
+sdk.mkdir(parents=True)
 artifacts = {}
 records = pathlib.Path(sys.argv[1])
 for line in records.read_text().splitlines():

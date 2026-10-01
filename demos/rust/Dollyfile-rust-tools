@@ -3,6 +3,8 @@ IMAGE rust-tools
 
 FROM https://daugasauron.com/Dollyfile-system 90163f7dd02a25f8b762355f8ea547aa93ead9c381e3b4d8f03109c3c830f24a
 
+REQUIRES HOST threads@0
+
 COPY FROM https://daugasauron.com/demos/rust/Dollyfile-rust-build f2c7bddc368d0dc6a973f993b37e00865707b02e53958ef85aca1d3dcf5f50bb /opt/rust-sdk /opt/rust-sdk
 COPY FROM https://daugasauron.com/demos/rust/Dollyfile-rust-build f2c7bddc368d0dc6a973f993b37e00865707b02e53958ef85aca1d3dcf5f50bb /usr/bin/patti /usr/bin/patti
 COPY FROM https://daugasauron.com/demos/rust/Dollyfile-rust-build f2c7bddc368d0dc6a973f993b37e00865707b02e53958ef85aca1d3dcf5f50bb /usr/share/licenses/rust /usr/share/licenses/rust

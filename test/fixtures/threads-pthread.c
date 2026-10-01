@@ -15,6 +15,8 @@
 #include <signal.h>
 #include <fcntl.h>
 #include <sys/mman.h>
+#include <sys/wait.h>
+#include <spawn.h>
 
 static pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER;
 static pthread_barrier_t barrier;
@@ -34,8 +36,21 @@ static void *signal_joiner(void *unused) {
   (void)unused;
   usleep(20000);
   assert(dolly_kill(getpid(), SIGTERM) == 0);
-  usleep(20000);
-  return (void *)321;
+  /* The main thread takes the signal while it waits in pthread_join. */
+  for (int i = 0; i < 2000 && !caught_tid; ++i) usleep(1000);
+  return caught_tid ? (void *)321 : NULL;
+}
+static volatile sig_atomic_t child_signals;
+static void child_exited(int number) { assert(number == SIGCHLD); child_signals = 1; }
+static void *spawn_child(void *unused) {
+  (void)unused;
+  pid_t child;
+  char *argv[] = {"true", NULL};
+  assert(posix_spawnp(&child, "true", NULL, NULL, argv, environ) == 0);
+  /* The kernel's SIGCHLD also reaches the main thread inside pthread_join. */
+  for (int i = 0; i < 2000 && !child_signals; ++i) usleep(1000);
+  assert(waitpid(child, NULL, 0) == child);
+  return child_signals ? (void *)1 : NULL;
 }
 static void *leave_locked(void *unused) { (void)unused; assert(pthread_mutex_lock(&robust) == 0); return NULL; }
 static void *busy(void *unused) {
@@ -111,6 +126,7 @@ int main(int argc, char **argv) {
     pthread_join(children[0], NULL);
     abort();
   }
+  assert(sysconf(_SC_NPROCESSORS_ONLN) > 1);
   shared_fd = open("/tmp/thread-shared-fd", O_CREAT | O_TRUNC | O_RDWR, 0600);
   assert(shared_fd >= 0);
   pthread_t workers[4];
@@ -152,6 +168,10 @@ int main(int argc, char **argv) {
   assert(pthread_create(&sender, NULL, signal_joiner, NULL) == 0);
   assert(pthread_join(sender, &joined) == 0 && joined == (void *)321);
   assert(caught_tid == main_tid);
+  struct sigaction on_child = {.sa_handler = child_exited};
+  assert(sigaction(SIGCHLD, &on_child, NULL) == 0);
+  assert(pthread_create(&sender, NULL, spawn_child, NULL) == 0);
+  assert(pthread_join(sender, &joined) == 0 && joined);
   pthread_mutexattr_t mutex_attr;
   assert(pthread_mutexattr_init(&mutex_attr) == 0);
   assert(pthread_mutexattr_setrobust(&mutex_attr, PTHREAD_MUTEX_ROBUST) == 0);

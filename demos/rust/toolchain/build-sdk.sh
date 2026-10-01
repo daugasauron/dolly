@@ -13,6 +13,8 @@ edition = "2024"
 EOF
 touch "${port_dir}/sdk-probe/src/lib.rs"
 cd "${port_dir}/sdk-probe"
+# Like a distributed std, the SDK carries no debug assertions or overflow checks.
 exec "${port_dir}/toolchain/bin/cargo" build -j 4 --lib \
   --message-format=json-render-diagnostics "${rust_target_args[@]}" \
+  --config 'profile.dev.debug-assertions=false' --config 'profile.dev.overflow-checks=false' \
   -Z build-std=std,panic_abort,proc_macro

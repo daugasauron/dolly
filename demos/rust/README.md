@@ -46,8 +46,9 @@ patti build -j 4 --offline --manifest-path project/Cargo.toml --bin program
 
 ## Limits
 
-- Panic-abort compilation; no Cargo, incremental builds, file locks,
-  application threads, dynamic Rust libraries, tests or benchmarks.
+- Panic-abort compilation; no Cargo, incremental builds, file locks, dynamic
+  Rust libraries, tests or benchmarks.
+- Executables link threaded (`cc -pthread`) and need `REQUIRES HOST threads@0`.
 - Git dependencies need an explicit `--patch`. Target patches live in
   [`config/patches/`](config/patches/).
 
