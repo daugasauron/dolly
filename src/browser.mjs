@@ -7,7 +7,7 @@ import { loadCustomImage } from "./custom-image.mjs";
 import { describeImageArtifact, sha256 } from "./image-artifact.mjs";
 import { inspectDollyfile } from "./dollyfile-view.mjs";
 import { consumeDollyHttpPolicy, httpPolicyConfigurations, restrictDollyHttpPolicy } from "../host/http/policy.mjs";
-import { localServicesTransport } from "../host/build/local-services.mjs";
+import { localServicesTransport } from "../host/http/local-services.mjs";
 import {
   DOLLY_SESSION_FORMAT_VERSION,
   decodeSessionSnapshot,
@@ -218,6 +218,7 @@ async function boot() {
     configuration: {
       http: { network: localServicesTransport(httpPolicy, localServices) },
       build: { network: buildNetwork, policies: httpPolicyConfigurations(httpPolicy), services: localServices },
+      packages: { services: localServices },
       snapshot: sessionSnapshot === undefined ? {}
         : { bytes: sessionSnapshot, ...(recovering ? { recover: restoredSession.name } : {}) },
     },

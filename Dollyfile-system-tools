@@ -5,7 +5,7 @@ REQUIRES HOST download@0
 REQUIRES HOST http@0
 REQUIRES HOST upload@0
 
-FROM https://daugasauron.com/Dollyfile-system-build 5470d2513bc1ddce9cab048a83fb07e945719c707f5fcaad85f6f5746df42597
+FROM https://daugasauron.com/Dollyfile-system-build c5425bfbbab703d3e433655a8d908cd50d205f82b33215a5e94fec7e0d0e2c00
 # Unchanged upstream sbase commands, built by sbase's own Makefile.
 REQUIRES HEADER libc
 REQUIRES TOOL   ar
@@ -154,7 +154,7 @@ SLOP rm -rf /tmp/upload
 # bootstrap-compiler blowup for that one file.
 REQUIRES HEADER runtime
 
-SOURCE https://daugasauron.com/dist/static/default/samurai.tar                   c3bb0fcfad238dcf4e4fb9edc119563570772e09fe1cc85384868964ef2f939a /tmp/ninja/samurai.tar
+SOURCE https://daugasauron.com/dist/static/default/samurai.tar                   ba48e1c8a1140dc624fc6c81da149cdeb7c7b9b95d7addd56a79048c748a4b6b /tmp/ninja/samurai.tar
 SOURCE https://daugasauron.com/dist/static/default/runtimes/samurai-unit-dolly.c 4412175ad18939c580d6a31ca89a1284d313026674d5ac4faa0841aab379a4f7 /tmp/ninja/samurai-unit-dolly.c
 
 FILE /tmp/ninja/Makefile
@@ -203,9 +203,9 @@ FILE /usr/share/licenses/samurai/LICENSE
 SLOP rm \
   -rf \
   /tmp/ninja
-INSTALL https://daugasauron.com/Dollyfile-zlib 6023122d98cb50a21d08145eca1e1b9ee3a50a3e7239291dd06077e86563a35a
-INSTALL https://daugasauron.com/Dollyfile-gzip 8b11a1e9a5e1e6286de4a0ac5a4df2849ff7782ddc80694d569ebb58aeb0457a
-INSTALL https://daugasauron.com/Dollyfile-curl 4296ed97aee5204bc4b89fa2fd52b73ed4d3af882961f37aeeb2e712ece8371c
+INSTALL https://daugasauron.com/Dollyfile-zlib ba2d006ae341b7e51d95ab627b68335cacdd2cae1e14ba573eec4dd942997a94
+INSTALL https://daugasauron.com/Dollyfile-gzip 927e7ceb2d90fcf207ff096ad2b7f9e366fd4a9e8716cf699db2cddf77da2806
+INSTALL https://daugasauron.com/Dollyfile-curl 79823c1aa4ea509aa8e2777505f71e84c19e0554e2fea2fc0883b9b265130ca3
 REQUIRES TOOL   mkdir
 REQUIRES LIB    curl
 REQUIRES LIB    z
@@ -391,10 +391,11 @@ SOURCE https://daugasauron.com/dist/static/default/commands/diff.c        e1e71b
 SOURCE https://daugasauron.com/dist/static/default/commands/patch.c       a3103333d316c939faef9b8b9cba6b2c8d5705631f8cc0be083709a013a58c2d /tmp/agent-tools/patch.c
 SOURCE https://daugasauron.com/dist/static/default/commands/hostname.c    14a20a493c8559d8b28f221a6edd9b6f89f893f3e3067093b44d7235b4ae060f /tmp/agent-tools/hostname.c
 SOURCE https://daugasauron.com/dist/static/default/commands/tty.c         c51c9598e8245d5f651ade70995f2b03fb936c42a0e99c4c81c83749c5714c7e /tmp/agent-tools/tty.c
+SOURCE https://daugasauron.com/dist/static/default/commands/amy.c         28710e45b1856d662fd3869afdb035c71f2dd09d5685acbcdf78f8ac01353f93 /tmp/agent-tools/amy.c
 
 FILE /tmp/agent-tools/Makefile
     .RECIPEPREFIX := >
-    NAMES := install tail du rev command xargs find env time timeout realpath diff patch hostname tty
+    NAMES := install tail du rev command xargs find env time timeout realpath diff patch hostname tty amy
     TOOLS := $(addprefix /bin/,$(NAMES))
     all: $(TOOLS)
     /bin/%: /tmp/agent-tools/%.c /tmp/agent-tools/run-program.h
@@ -417,6 +418,7 @@ EXPORTS TOOL diff
 EXPORTS TOOL patch
 EXPORTS TOOL hostname
 EXPORTS TOOL tty
+EXPORTS TOOL amy
 
 SLOP rm \
   -rf \
@@ -425,6 +427,6 @@ SLOP rm \
 REQUIRES TOOL ln
 SLOP ln -s slop /bin/sh
 EXPORTS TOOL sh
-INSTALL https://daugasauron.com/Dollyfile-display 7b2ec5e776c16599072042f30503017f2508ab70fae3006c872dfae09807e91f
+INSTALL https://daugasauron.com/Dollyfile-display 2620a4ca75d581128033826a1e5b2a3901c1f0300679df37889d3017afc192df
 
 ENTRY /bin/foreground -i /bin/slop

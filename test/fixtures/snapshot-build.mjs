@@ -4,7 +4,7 @@ export async function buildSnapshot(applicationBase, image, customSource) {
   const report = text => { log.textContent = (log.textContent + text).slice(-8192); };
   try {
     const [registry, policy, transport, builder, graph] = await Promise.all([
-      "dist/dolly-images.mjs", "host/http/policy.mjs", "host/build/local-services.mjs",
+      "dist/dolly-images.mjs", "host/http/policy.mjs", "host/http/local-services.mjs",
       "src/image-builder.mjs", "src/image-build.mjs",
     ].map(path => import(new URL(path, applicationBase).href)));
     const sources = [

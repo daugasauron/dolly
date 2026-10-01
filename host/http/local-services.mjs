@@ -1,6 +1,5 @@
-import { HttpError } from "../http/policy.mjs";
+import { HttpError } from "./policy.mjs";
 import { DOLLY_ERRNO } from "../../dist/dolly-errno.mjs";
-import { BUILD_ORIGIN, BUILD_LIMITS } from "./service.mjs";
 
 function reservedLocalURL(url) {
   const host = url.hostname.toLowerCase().replace(/\.$/, "");
@@ -9,15 +8,17 @@ function reservedLocalURL(url) {
 
 // Review all local authority here. Remote rules never grant these services;
 // absent services (including in build workers) fail closed, not to Fetch.
-// An enabled build@0 (build.mjs) adds services.build once the image ENTRY starts.
+// A service owns one reserved origin and admits a request by returning its
+// limits from authorize(url, method, bytes). Enabled modules add theirs once
+// the image ENTRY starts: build@0 (host/build/build.mjs) and packages@0
+// (host/packages/packages.mjs).
 export function localServicesTransport(remotePolicy, services = {}, remoteFetch = globalThis.fetch.bind(globalThis)) {
   function localRule(url, method, bytes) {
-    const { build } = services;
-    if (!url.username && !url.password && !url.search && !url.hash) {
-      if (build && url.origin === BUILD_ORIGIN && bytes <= BUILD_LIMITS.maxRequestBytes && method === "POST" &&
-          url.pathname === "/v1/builds") return [build, BUILD_LIMITS];
-    }
-    throw new HttpError(DOLLY_ERRNO.EACCES, "Browser-local service request denied");
+    const service = Object.values(services).find(candidate => candidate.origin === url.origin);
+    const rule = !url.username && !url.password && !url.search && !url.hash
+      ? service?.authorize(url, method, bytes) : undefined;
+    if (!rule) throw new HttpError(DOLLY_ERRNO.EACCES, "Browser-local service request denied");
+    return [service, rule];
   }
   return {
     policy: { authorize(url, method, headers, bytes) {

@@ -86,6 +86,7 @@ Image builds rewrite SHA-256 pins in `Dollyfile*`.
 - [HTTP](docs/http.md): broker, policy, libcurl, Git, CORS.
 - [Dollyfile](docs/dollyfile.md): recipe language and image builds.
 - [Studio builds](docs/image-build-service.md): the `build@0` service.
+- [Packages and amy](docs/dollyfile.md#packages-and-amy): `amy install NAME` in a session.
 - [Slop and commands](docs/slop.md): the shell and core tools.
 - [Sessions and file transfer](docs/sessions.md).
 - [Display](docs/display.md), [GPU](docs/gpu.md), [audio](docs/audio.md).

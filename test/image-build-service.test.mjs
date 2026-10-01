@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { ImageBuildService, BUILD_ORIGIN, BUILD_LIMITS } from "../host/build/service.mjs";
 import { DollyHttpPolicy, httpPolicyConfigurations, restrictDollyHttpPolicy } from "../host/http/policy.mjs";
-import { localServicesTransport } from "../host/build/local-services.mjs";
+import { localServicesTransport } from "../host/http/local-services.mjs";
 import { checkedCustomArtifact } from "../src/custom-image.mjs";
 import { describeImageArtifact, sha256 } from "../src/image-artifact.mjs";
 import { encodeSnapshotRecords } from "../src/snapshot-records.mjs";
@@ -37,7 +37,8 @@ test("opened results intersect parent and embedding HTTP authority, limits and c
 
 test("build authority has exact routes, independent policy, and no ambient credentials or recursive service", async () => {
   let received, remoteCalls = 0;
-  const service = { fetch(url, init) { received = { url, init }; return new Response("local"); } };
+  const service = { origin: BUILD_ORIGIN, authorize: ImageBuildService.prototype.authorize,
+    fetch(url, init) { received = { url, init }; return new Response("local"); } };
   const remote = () => { remoteCalls++; return new Response("remote"); };
   const allowed = localServicesTransport(new DollyHttpPolicy({ rules: [] }), { build: service }, remote);
   const headers = new Headers({ authorization: "sandbox-key", cookie: "browser-cookie" });

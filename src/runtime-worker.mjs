@@ -341,6 +341,7 @@ try {
 
   await host.imageRestored({ dolly, supervisor: processSupervisor, stage: bootstrapStage,
     writeFile: replaceFile, image: configuredImage });
+  if (dolly._dolly_bootstrap_environment() !== 0) throw new Error("Dolly image environment is invalid");
 
   await host.start("image", { dolly, memory, kernelExports });
 

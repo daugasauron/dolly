@@ -22,6 +22,11 @@ export class ImageBuildService extends EventTarget {
     this.state = "idle";
     this.detail = "";
   }
+  get origin() { return BUILD_ORIGIN; }
+  authorize(url, method, bytes) {
+    return method === "POST" && url.pathname === "/v1/builds" && bytes <= BUILD_LIMITS.maxRequestBytes
+      ? BUILD_LIMITS : undefined;
+  }
   status(state, detail) {
     this.state = state;
     this.detail = detail;

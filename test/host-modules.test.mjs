@@ -14,9 +14,10 @@ test("every image declares its complete host set itself", async () => {
   const load = createDollyfileGraphLoader(root);
   const interactive = ["display@0", "download@0", "http@0", "snapshot@0", "upload@0"];
   // The engine retained for FROM builds uses http@0; download and upload
-  // tools arrive with system-tools; the terminal needs display@0.
+  // tools arrive with system-tools; the terminal needs display@0; default
+  // installs packages with amy and runs the threaded tools they bring.
   const core = {
-    default: interactive, system: interactive, "gpu-sdk": [...interactive, "gpu@0"],
+    default: [...interactive, "packages@0", "threads@0"], system: interactive, "gpu-sdk": [...interactive, "gpu@0"],
     "audio-sdk": [...interactive, "audio@0"], "system-build": ["http@0"], "zig-build": ["http@0"],
     "ghostty-build": ["display@0", "http@0"], "system-tools": ["display@0", "download@0", "http@0", "upload@0"],
     zlib: [], gzip: [], curl: ["http@0"], display: ["display@0"],

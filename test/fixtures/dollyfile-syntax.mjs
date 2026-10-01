@@ -179,6 +179,11 @@ export const syntaxCases = [
   [false, probe("REQUIRES HOST gpu@0\nREQUIRES HOST gpu@1")],
   [true, probe(Array.from({ length: 64 }, (_, index) => `REQUIRES HOST p${index}@0`).join("\n"))],
   [false, probe(Array.from({ length: 65 }, (_, index) => `REQUIRES HOST p${index}@0`).join("\n"))],
+  // The manifest follows the role line: nothing precedes a REQUIRES HOST line.
+  [true, probe("REQUIRES HOST gpu@0\nEXPORTS TOOL cc\nREQUIRES TOOL cc")],
+  [false, probe("EXPORTS TOOL cc\nREQUIRES HOST gpu@0")],
+  [false, probe("REQUIRES TOOL cc\nREQUIRES HOST gpu@0")],
+  [false, root("DOLLY 6\nAPPLICATION default\nFROM https://daugasauron.com/Dollyfile-base PIN(/Dollyfile-base)\nREQUIRES HOST gpu@0\nENTRY /bin/slop\n", base)],
 
   // FROM, INSTALL, COPY and SOURCE.
   [true, root("DOLLY 6\nAPPLICATION default\nFROM https://daugasauron.com/Dollyfile-base PIN(/Dollyfile-base)\nENTRY /bin/slop\n", base)],

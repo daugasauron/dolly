@@ -126,10 +126,12 @@ and `/host/MODULE/`, prepared sources in `/dist/static/`.
   built in.
 - `INSTALL` restores a package's retained files, applies and exports its
   environment and exports its objects. It may appear anywhere and names only a
-  package. The package's `REQUIRES HOST` lines must all appear in the
-  installing recipe, or the build fails naming the missing line. A package
-  built from another release of the same recipe fails the install: an image
-  carries one pin per recipe.
+  package. It imports the package's contents, not the files that describe the
+  package image (`/etc/dolly/Dollyfile`, `artifact`, `environment`, `image`,
+  `image.manifest`, `recipes.lock`). The package's `REQUIRES HOST` lines must
+  all be declared by the installing recipe, or the row fails naming the missing
+  line before it changes a file. A package built from another release of the
+  same recipe fails the install: an image carries one pin per recipe.
 - `COPY` merges directories, replaces files and fails on a missing source; it
   imports no environment, exports or host requirements. Imported images are
   earlier builds of at most 2 GiB; an image cannot share a name with one it
@@ -178,8 +180,8 @@ and `/host/MODULE/`, prepared sources in `/dist/static/`.
 
 - `REQUIRES HOST name@abi` describes running the image: a module name of at
   most 31 bytes (`[a-z][a-z0-9-]*`) and a revision 0–65535, at most 64 per
-  image, one revision each. By convention they follow the role line, as the
-  image's manifest.
+  image, one revision each. They follow the role line, before every other
+  declaration, as the image's manifest.
 - They are never inherited: `FROM`, `INSTALL` and `COPY` carry none into the
   consumer and nothing is derived. The image's own recipe is the complete list.
   A package declares the modules its programs need; `INSTALL` checks that the
@@ -192,7 +194,7 @@ and `/host/MODULE/`, prepared sources in `/dist/static/`.
   module is not declared. Requirements grant nothing: the embedding enables
   modules and the HTTP broker decides network access
   ([browser boundary](browser-boundary.md)). `system` declares display, http,
-  download, upload and snapshot.
+  download, upload and snapshot; `default` adds packages and threads.
 - Linked client libraries (`-ldolly-gpu`, `-ldolly-audio`) stamp their module
   and its ABI digest into the executable's `dolly.host` section; loading fails
   for an unknown module or a different layout. Calling a disabled module
@@ -207,7 +209,7 @@ The browser runs the retained ENTRY once, and only an image with ENTRY and
 and then a recovery shell; toolchains that can be opened enter
 `/bin/foreground -i /bin/slop`.
 
-## Packages
+## Packages and amy
 
 A package is the unit of reuse: a lean image that holds only the files,
 exports and environment it declares, built in a toolchain (`FROM`) or from
@@ -230,6 +232,18 @@ EXPORTS TOOL rg
 - The release publishes the package index, `dist/dolly-packages.txt`, one
   `NAME URL SHA256` line per package, so a session can name a package and get
   its `INSTALL` row.
+- `amy install NAME` ([`amy.c`](../src/commands/amy.c)) executes that row in a
+  running session: the index names the package, the page's `packages@0`
+  service ([browser boundary](browser-boundary.md#host-modules)) hands over its
+  verified snapshot, and `dollyfile install URL SHA256` restores the files,
+  merges the exported variables into `/etc/dolly/environment` and appends the
+  row to `/etc/dolly/installed`. `amy list` marks the installed index entries
+  and `amy installed` prints the record. The check is the recipe's: a package
+  whose host modules the booted image does not declare is refused by name.
+  Looking a name up in the index is the only unpinned step.
+- Installed files are session files, within the 512 MiB a save holds. Exported
+  variables apply when the session is next loaded; the current shell keeps its
+  environment ([sessions](sessions.md)).
 
 ## Building
 

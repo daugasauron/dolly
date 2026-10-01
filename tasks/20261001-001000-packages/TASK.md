@@ -116,3 +116,76 @@ declares, `INSTALL URL SHA256` imports it with its exports anywhere (the row
 `protox` are packages. What amy still needs from the engine and runtime is
 listed in that task's design section: a live `apply` mode, artifact placement
 by the page, environment loading after session replay, and the index grant.
+
+## amy (implemented 2026-10-02, branch `work/amy`)
+
+Design, each piece a consequence of DOLLY 6 rather than an addition to it:
+
+- **One INSTALL.** `dollyfile install URL SHA256` ([`dollyfile.c`](../../src/dollyfile.c),
+  `install_live`) runs the engine's `load_artifact(IMPORT_INSTALL)` against the
+  live filesystem: it parses the booted image's own recipe (`/etc/dolly/Dollyfile`,
+  execute = 0) for the declared `REQUIRES HOST` set, reads
+  `/etc/dolly/environment` back into the engine, restores the package, writes
+  the merged environment file and appends the row to `/etc/dolly/installed`.
+  Nothing is sealed. Builds and sessions share every line of INSTALL.
+- **The host check moved to the row.** The engine used to collect a package's
+  host modules and check them at seal; a live install has no seal and must not
+  leave half a package behind, so `read_artifact_receipt` now refuses an
+  undeclared module as it reads the receipt, before any file is written:
+  `dollyfile: URL needs threads@0: add REQUIRES HOST threads@0`. For that to be
+  exact in builds too, `REQUIRES HOST` lines must precede every other
+  declaration (both parsers; the catalog already complied; four syntax vectors).
+  The seal-time list and check are gone.
+- **Control files are not payload.** INSTALL skips the six files that describe
+  the package image (`/etc/dolly/Dollyfile`, `artifact`, `environment`, `image`,
+  `image.manifest`, `recipes.lock`); in a build the seal rewrote them anyway, in
+  a session they must stay the booted image's (`/etc/dolly/image` is checked at
+  boot). `/etc/dolly/recipes/Dollyfile-NAME` is still imported as provenance.
+- **amy** ([`amy.c`](../../src/commands/amy.c), built with the agent tools in
+  `Dollyfile-system-tools`) is a front end: `install NAME…` looks the name up in
+  the index, fetches the snapshot to `/etc/dolly/artifacts/SHA.snapshot`, runs
+  `/bin/dollyfile install URL SHA256` (its log on stderr), removes the artifact
+  and reports; `list` marks installed index entries; `installed` prints the
+  record as `NAME URL SHA256`. An unknown name, a service denial and an engine
+  failure each name the package and the reason. `freeze` is not implemented: it
+  needs the SHA-256 of the booted recipe and the ENTRY words, about 60 more
+  lines; the record already holds the rows it would write.
+- **packages@0** ([`host/packages/`](../../host/packages/module.json)) is a
+  host module without Wasm imports, like `build@0`: once ENTRY starts it owns
+  the reserved origin `https://packages.dolly.invalid` behind the HTTP broker
+  ([`host/http/local-services.mjs`](../../host/http/local-services.mjs), moved
+  from `host/build/` and generalized so each service admits its own requests).
+  `GET /v1/index` returns the release's `dist/dolly-packages.txt`;
+  `GET /v1/packages/SHA256` maps the recipe pin to a published package and
+  returns its snapshot, rebuilt and verified from the packs by the same
+  `loadPackagedSnapshotMetadata` and `loadPackagedSystemSnapshot` a rebuild
+  uses. Bounds: GET without body or query only, 404 outside the release, one
+  snapshot held per page until the guest has read it or the 30-minute deadline
+  cancels it (409 meanwhile), 64 snapshots per page (429), 2 GiB per snapshot,
+  no headers or credentials. The bytes are sandbox data; nothing else is granted.
+  `default` declares `packages@0` and `threads@0` (the Rust tools it installs).
+- **Why not let the guest fetch the packs itself.** The engine already streams
+  and hashes HTTP bodies, but a published image is a pack manifest in a JS
+  module plus gzip packs merged by record order; the guest would need a JSON
+  reader, gunzip (the seed has no zlib) and `mergeSnapshotRecords` in C, a
+  second implementation of `snapshot-records.mjs`, and a grant on
+  `dist/packs/*`. The local service is about 60 lines of page code and reuses
+  the verified path byte for byte; the guest-side cost would be the same bytes
+  plus the decompression it now gets from the page.
+- **Environment after replay.** The kernel loaded `/etc/dolly/environment` inside
+  `dolly_bootstrap_snapshot`, `dolly_bootstrap_finish` and the streamed end,
+  all before the snapshot module replayed a session. The load is now one export,
+  `dolly_bootstrap_environment` ([`dolly.c`](../../src/dolly.c),
+  [`dolly-image-0.wat`](../../abi/dolly-image-0.wat)), that the worker calls
+  after `host.imageRestored`. No amy code is involved.
+- **Sessions and large packages.** Installed files are session files. The save
+  path already refuses a delta above 512 MiB (`Save failed: Dolly session
+  exceeds its size limit`, the previous save intact); that explicit failure is
+  the chosen behavior. Replaying rows on restore would need the page to
+  materialize packages during session load and the delta to exclude their
+  paths, which is the next step for model packages.
+- **Environment in the live shell.** Exported variables land in
+  `/etc/dolly/environment` and apply when the session loads; the running shell
+  keeps its copy, as `/etc/environment` does on Linux. amy says so. A package
+  whose program needs a variable to start (`pi` and `PI_PACKAGE_DIR`) should set
+  it from its own launcher; that is the demo's decision.

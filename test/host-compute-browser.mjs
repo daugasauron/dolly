@@ -39,7 +39,7 @@ await browserTest("host compute", { image: "system-build" }, async ({ browser, s
       const { prepareImageArtifacts } = await import("/src/image-build.mjs");
       const { describeImageArtifact, sha256 } = await import("/src/image-artifact.mjs");
       const { consumeDollyHttpPolicy } = await import("/host/http/policy.mjs");
-      const { localServicesTransport } = await import("/host/build/local-services.mjs");
+      const { localServicesTransport } = await import("/host/http/local-services.mjs");
       const sources = [...DOLLY_IMAGES.map(d => ({ path: `/${d.dollyfile}`, byteLength: d.byteLength })), ...DOLLY_STATIC_SOURCES];
       const network = localServicesTransport(consumeDollyHttpPolicy(globalThis, sources, new URL("/", location.href)));
       const base = DOLLY_IMAGES.find(d => d.image === "system-build");

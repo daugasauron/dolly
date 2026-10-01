@@ -54,7 +54,7 @@ sequenceDiagram
 - Studio's own files, credentials and session stay separate from the build.
 
 Code: [`host/build/build.mjs`](../host/build/build.mjs),
-[`host/build/local-services.mjs`](../host/build/local-services.mjs),
+[`host/http/local-services.mjs`](../host/http/local-services.mjs),
 [`host/build/service.mjs`](../host/build/service.mjs),
 [`image-builder.mjs`](../src/image-builder.mjs); the recipe executor is
 [`dollyfile.c`](../src/dollyfile.c).

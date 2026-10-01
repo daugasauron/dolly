@@ -29,6 +29,10 @@
     i32.const 0)
   (func (export "dolly_bootstrap_finish") (result i32)
     i32.const 0)
+  ;; Loads /etc/dolly/environment once the filesystem is final: after the
+  ;; image is restored and a saved session has replayed its files.
+  (func (export "dolly_bootstrap_environment") (result i32)
+    i32.const 0)
   (func (export "dolly_process_bootstrap_prepare") (result i32)
     i32.const 0)
   ;; Restore only /bin/dollyfile from the staged base. That command's FROM

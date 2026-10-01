@@ -1,0 +1,91 @@
+import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
+import { browserTest } from "./browser.mjs";
+import { encodeSnapshotRecords } from "../src/snapshot-records.mjs";
+import { CANONICAL_ORIGIN } from "../src/static-asset.mjs";
+import { DOLLY_IMAGES } from "../dist/dolly-images.mjs";
+
+const packages = DOLLY_IMAGES.filter(definition => definition.role === "package").map(({ image }) => image).sort();
+const pin = name => {
+  const { dollyfile, sha256 } = DOLLY_IMAGES.find(definition => definition.image === name);
+  return `${CANONICAL_ORIGIN}/${dollyfile} ${sha256}`;
+};
+const sha256 = text => createHash("sha256").update(text).digest("hex");
+
+// A sealed package that needs threads@0, as the engine would build it: the
+// retained recipe plus its receipt (recipe chain, host requirements, exports).
+const encoder = new TextEncoder();
+const u32 = value => { const bytes = new Uint8Array(4); new DataView(bytes.buffer).setUint32(0, value, true); return bytes; };
+const text = value => [u32(encoder.encode(value).length), encoder.encode(value)];
+const threaded = { url: `${CANONICAL_ORIGIN}/Dollyfile-threaded`,
+  source: "DOLLY 6\nPACKAGE threaded\nREQUIRES HOST threads@0\nFILE /usr/share/threaded\n    needs threads\n" };
+threaded.sha256 = sha256(threaded.source);
+const receipt = [encoder.encode("DOLLYART"), u32(5), u32(1),
+  ...["PACKAGE", "threaded", threaded.url, threaded.sha256, threaded.source].flatMap(text),
+  u32(1), ...text("threads@0"), u32(1), ...text("FILE"), ...text("threaded"), ...text("/usr/share/threaded"), u32(1),
+  ...text("/usr/share/threaded")];
+const bytes = parts => { const joined = new Uint8Array(parts.reduce((sum, part) => sum + part.length, 0)); let offset = 0;
+  for (const part of parts) { joined.set(part, offset); offset += part.length; } return joined; };
+const file = data => ({ kind: 2, data: encoder.encode(data) });
+const snapshot = encodeSnapshotRecords(new Map([["/etc/dolly/Dollyfile", file(threaded.source)],
+  ["/etc/dolly/artifact", { kind: 2, data: bytes(receipt) }], ["/usr/share/threaded", file("needs threads\n")]]));
+const fixtures = { "threaded.snapshot": snapshot };
+const artifact = `/etc/dolly/artifacts/${threaded.sha256}.snapshot`;
+const row = `INSTALL ${threaded.url} ${threaded.sha256}`;
+
+// amy in a live default session: an install is the INSTALL row executed by
+// the engine, served by packages@0, recorded, and kept by a saved session.
+await browserTest("amy", { image: "default", timeout: 300_000, server: { fixtures } }, async ({ server, open }) => {
+  const policy = { maxRequests: 256, rules: [{ origin: server.origin, pathPrefix: "/fixture/", methods: ["GET"] }] };
+  const session = await open({ policy });
+  const check = ({ submit, text }) => async command => assert.equal(await submit(command), 0, `${command}\n${await text()}`);
+  const run = check(session);
+  const timed = async command => { const started = performance.now(); await run(command); return Math.round(performance.now() - started); };
+  await run(`test "$(amy list | sed 's/ .*//' | sort | tr '\\n' ' ')" = "${packages.join(" ")} "`);
+  await run("test -z \"$(amy installed)\" && ! amy list | grep -q installed");
+  await run("! amy install nosuch-package 2> /tmp/amy-error && grep -q nosuch-package /tmp/amy-error");
+  await run("! amy 2> /dev/null && ! amy frobnicate 2> /dev/null");
+  const pythonMilliseconds = await timed("amy install python");
+  console.log(`amy install python: ${pythonMilliseconds} ms`);
+  await run("test \"$(python3 -c 'print(6 * 7)')\" = 42");
+  await run(`test "$(amy installed)" = "python ${pin("python")}" && grep -qx 'INSTALL ${pin("python")}' /etc/dolly/installed`);
+  await run("amy list | grep -q '^python *installed$' && test \"$(amy install python)\" = 'amy: python is already installed'");
+  // A package's control files describe the package; the session keeps the image's.
+  await run("test \"$(cat /etc/dolly/image)\" = default && grep -q '^APPLICATION default' /etc/dolly/Dollyfile");
+  // The service answers GET for the index and this release's package pins only.
+  await run(`test "$(curl -fsS https://packages.dolly.invalid/v1/index | sed -n '$=')" = ${packages.length}`);
+  for (const denied of [`https://packages.dolly.invalid/v1/packages/${"0".repeat(64)}`, "https://packages.dolly.invalid/v1/other",
+    "-X POST https://packages.dolly.invalid/v1/index", "'https://packages.dolly.invalid/v1/index?x=1'"]) {
+    assert.notEqual(await session.submit(`curl -fsS ${denied} -o /dev/null`), 0, denied);
+  }
+  // An install is the engine's INSTALL row: a package whose host modules the
+  // image declares installs and is recorded, so amy lists it.
+  await run(`mkdir -p /etc/dolly/artifacts && curl -fsS ${server.origin}/fixture/threaded.snapshot -o ${artifact}`);
+  await run(`dollyfile install ${threaded.url} ${threaded.sha256} && rm ${artifact}`);
+  await run(`test "$(cat /usr/share/threaded)" = 'needs threads' && grep -qx '${row}' /etc/dolly/installed`);
+  await run(`test "$(amy installed | sed -n 2p)" = "threaded ${threaded.url} ${threaded.sha256}"`);
+  // Saved and reloaded, the installed tools and environment are there.
+  assert.equal(await session.page.evaluate(() => __dolly.saveSession("amy-proof")), "amy-proof");
+  const delta = Number(await session.page.evaluate(() => document.documentElement.dataset.sessionUncompressedBytes));
+  const stored = Number(await session.page.evaluate(() => document.documentElement.dataset.sessionBytes));
+  console.log(`amy session: ${delta} bytes of changes, ${stored} bytes stored`);
+  const reloaded = await open({ policy, path: "/session/?name=amy-proof" });
+  const rerun = check(reloaded);
+  await rerun("test \"$(python3 -c 'print(6 * 7)')\" = 42 && test \"$PYTHONUTF8\" = 1 && test \"$PYTHONDONTWRITEBYTECODE\" = 1");
+  await rerun(`test "$(amy installed | sed -n 1p)" = "python ${pin("python")}" && test "$(cat /usr/share/threaded)" = 'needs threads'`);
+});
+
+// An image that does not declare a package's host module refuses it, naming
+// the module, before any file changes; without packages@0 amy has no service.
+await browserTest("amy refusal", { image: "system", server: { fixtures } }, async ({ server, open }) => {
+  const policy = { maxRequests: 256, rules: [{ origin: server.origin, pathPrefix: "/fixture/", methods: ["GET"] }] };
+  const system = await open({ policy });
+  const refuse = async command => assert.equal(await system.submit(command), 0, `${command}\n${await system.text()}`);
+  await refuse(`mkdir -p /etc/dolly/artifacts && curl -fsS ${server.origin}/fixture/threaded.snapshot -o ${artifact}`);
+  assert.equal(await system.submit(`dollyfile install ${threaded.url} ${threaded.sha256} 2> /tmp/refused`), 2);
+  await refuse("grep -q 'Dollyfile-threaded needs threads@0: add REQUIRES HOST threads@0' /tmp/refused");
+  await refuse("test ! -e /usr/share/threaded && test ! -e /etc/dolly/installed");
+  assert.notEqual(await system.submit("amy install python 2> /tmp/refused"), 0);
+  await refuse("grep -q 'REQUIRES HOST packages@0' /tmp/refused");
+  assert.notEqual(await system.submit("curl -fsS https://packages.dolly.invalid/v1/index -o /dev/null"), 0);
+});
