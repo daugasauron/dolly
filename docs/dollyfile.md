@@ -57,6 +57,7 @@ recipes sit at the top level and in `modules/`, demo recipes in `demos/DEMO/`
 | `USE URL SHA256` | Run the module here. |
 | `SOURCE URL SHA256 DESTINATION` | Download a file. |
 | `SLOP [CWD /directory] command…` | Run a Slop command; failure stops the build. |
+| `COMPILEC /source.c /program` | Compile one C file with the seed compiler; failure stops the build. |
 | `FILE /path` | Write the body, if any, and retain the file. |
 | `FOLDER /path` | Retain the directory and its members. |
 | `EXPORTS TYPE name …` | Offer an object when the recipe finishes. |
@@ -86,6 +87,11 @@ recipes sit at the top level and in `modules/`, demo recipes in `demos/DEMO/`
 - `SLOP` runs `/bin/slop -e -c COMMAND` in `/` or `CWD`, stdin `/dev/null`,
   keeping the command's quoting. Each `SLOP` is a new shell: use `SLOP CWD` and
   `EXPORTS ENV` instead of `cd` and assignments.
+- `COMPILEC` runs the seed compiler as `cc -O1 /source.c -o /program` in `/`,
+  stdin `/dev/null`: no shell, flags or expansion. It exists for the programs a
+  root build needs before `/bin/slop` does, Slop itself
+  ([`slop.dm`](../modules/slop.dm)) and the compiler front ends
+  ([`bootstrap.dm`](../modules/bootstrap.dm)); everything else uses `SLOP cc`.
 - `USE` checks the pin and runs the module in the same filesystem and
   environment, again on every use. Failures name the recipe and line. Nesting is
   at most 16 recipes including the image; cycles are errors.
@@ -171,9 +177,10 @@ flowchart TD
   packs --> boot["/IMAGE/: prebuilt boot"]
 ```
 
-- A root build (no `FROM`) loads the compiler seed and compiles Slop and
-  `/bin/dollyfile` first ([`bootstrap.c`](../src/process/bootstrap.c)); other
-  builds restore their base image.
+- A root build (no `FROM`) loads the compiler seed and compiles
+  `/bin/dollyfile` first ([`bootstrap.c`](../src/process/bootstrap.c)); the
+  recipe builds everything else, Slop included. Other builds restore their
+  base image.
 - Images, not modules, are cached. A cache identity is the image build ID, the
   root recipe hash and the snapshot digests of its direct `FROM`/`COPY` images.
   The browser uses a verified local artifact, then a published one, and otherwise

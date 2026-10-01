@@ -80,16 +80,9 @@ add_custom_target(dolly-seed
     /src/build/generated/libclang_rt.dolly.a@/seed/usr/lib/libclang_rt.builtins.a
     /src/.cache/llvm-wasm/lib/clang/24/include@/seed/usr/lib/clang/24/include
     /src/build/include/dolly@/seed/usr/include/dolly
-    /src/src/slop.c@/seed/usr/src/dolly/slop.c
     /src/src/dollyfile.c@/seed/usr/src/dolly/dollyfile.c
     /src/src/sha256.h@/seed/usr/src/dolly/sha256.h
     /src/src/fs-record.h@/seed/usr/src/dolly/fs-record.h
-    /src/src/commands/mkdir.c@/seed/usr/src/dolly/commands/mkdir.c
-    /src/src/commands/rm.c@/seed/usr/src/dolly/commands/rm.c
-    /src/src/process/cc.c@/seed/usr/src/dolly/process-tools/cc.c
-    /src/src/process/cxx.c@/seed/usr/src/dolly/process-tools/cxx.c
-    /src/src/process/ld.c@/seed/usr/src/dolly/process-tools/ld.c
-    /src/src/process/ar.c@/seed/usr/src/dolly/process-tools/ar.c
     /src/build/dolly-kernel-plugin-0.wasm@/seed/usr/lib/dolly/dolly-kernel-plugin-0.wasm
     /src/build/dolly-process-0.wasm@/seed/usr/lib/dolly/dolly-process-0.wasm
     /src/build/dolly-threads-0.wasm@/seed/usr/lib/dolly/dolly-threads-0.wasm

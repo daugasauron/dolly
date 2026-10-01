@@ -32,7 +32,11 @@ static int run_child(const char *path, int argc, char **argv) {
   return status;
 }
 
-static int compile_source(const char *source, const char *output) {
+// The engine is the only program compiled before the root recipe runs; the
+// recipe builds everything else, with COMPILEC until Slop exists.
+static int compile_engine(void) {
+  static const char source[] = "/usr/src/dolly/dollyfile.c";
+  static const char output[] = "/bin/dollyfile";
   printf("dolly: compiling %s to %s as a private process\n", source, output);
   fflush(stdout);
   char *arguments[] = {
@@ -96,30 +100,6 @@ static char *read_boot_text(const char *path) {
   return text;
 }
 
-static int build_core(void) {
-  static const struct {
-    const char *source;
-    const char *output;
-  } programs[] = {
-      {"/usr/src/dolly/slop.c", "/bin/slop"},
-      {"/usr/src/dolly/commands/mkdir.c", "/bin/mkdir"},
-      {"/usr/src/dolly/commands/rm.c", "/bin/rm"},
-      {"/usr/src/dolly/dollyfile.c", "/bin/dollyfile"},
-      {"/usr/src/dolly/process-tools/cc.c", "/bin/cc"},
-      {"/usr/src/dolly/process-tools/cxx.c", "/bin/c++"},
-      {"/usr/src/dolly/process-tools/ld.c", "/bin/ld"},
-      {"/usr/src/dolly/process-tools/ar.c", "/bin/ar"},
-  };
-  for (size_t index = 0; index < sizeof(programs) / sizeof(programs[0]); ++index) {
-    const int status = compile_source(programs[index].source,
-                                      programs[index].output);
-    if (status != 0) return status;
-  }
-  puts("dolly: private compiler, Slop, and Dollyfile engine installed in /bin");
-  fflush(stdout);
-  return 0;
-}
-
 static int run_recipe(void) {
   char *recipe = read_boot_text("/etc/dolly/recipe.locator");
   if (recipe == NULL) {
@@ -136,6 +116,6 @@ static int run_recipe(void) {
 int main(int argc, char **argv) {
   (void)argv;
   if (argc != 1) return 64;
-  const int core_status = build_core();
-  return core_status == 0 ? run_recipe() : core_status;
+  const int status = compile_engine();
+  return status == 0 ? run_recipe() : status;
 }

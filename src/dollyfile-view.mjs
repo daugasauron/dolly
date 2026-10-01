@@ -265,6 +265,11 @@ function inspectRecipe(source, label, rows) {
         slops.push({ cwd, command, line: item.line });
         break;
       }
+      case "COMPILEC":
+        if (tokens.length !== 2 || !tokens.every(path => validAbsolutePath(path))) {
+          fail(label, item.line, "invalid COMPILEC");
+        }
+        break;
       case "ENTRY":
         if (entry || tokens.length === 0 || !validAbsolutePath(tokens[0])) fail(label, item.line, "invalid ENTRY");
         if (tokens.length > 256 || tokens.some(word => byteLength(word) > 4096) ||

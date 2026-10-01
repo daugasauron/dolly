@@ -4,10 +4,221 @@ MODULE core-tools
 REQUIRES HEADER libc
 REQUIRES HEADER runtime
 REQUIRES TOOL   cc
-REQUIRES TOOL   rm
 
 # Small Dolly-owned commands live directly in the module. The root's module
 # hash authenticates their source; each TOOL export names the compiled result.
+FILE /tmp/core-tools/mkdir.c
+    #include <errno.h>
+    #include <stdio.h>
+    #include <string.h>
+    #include <sys/stat.h>
+    
+    static int ensure_directory(const char *path) {
+      if (mkdir(path, 0777) == 0) return 0;
+      if (errno != EEXIST) return -1;
+      struct stat metadata;
+      if (stat(path, &metadata) != 0) return -1;
+      if (S_ISDIR(metadata.st_mode)) return 0;
+      errno = ENOTDIR;
+      return -1;
+    }
+    
+    static int create_parents(const char *path) {
+      char buffer[1024];
+      const size_t length = strlen(path);
+      if (length == 0 || length >= sizeof(buffer)) {
+        errno = length == 0 ? EINVAL : ENAMETOOLONG;
+        return -1;
+      }
+      memcpy(buffer, path, length + 1);
+      for (char *cursor = buffer + 1; *cursor != '\0'; cursor++) {
+        if (*cursor != '/') continue;
+        *cursor = '\0';
+        if (ensure_directory(buffer) != 0) return -1;
+        *cursor = '/';
+      }
+      return ensure_directory(buffer);
+    }
+    
+    int main(int argc, char **argv) {
+      int parents = 0;
+      int first_path = 1;
+      for (; first_path < argc; first_path++) {
+        if (strcmp(argv[first_path], "--") == 0) {
+          first_path++;
+          break;
+        }
+        if (strcmp(argv[first_path], "--help") == 0) {
+          fputs("usage: mkdir [-p] [--] DIRECTORY ...\n", stdout);
+          return 0;
+        }
+        if (strcmp(argv[first_path], "-p") == 0 ||
+            strcmp(argv[first_path], "--parents") == 0) {
+          parents = 1;
+        } else if (argv[first_path][0] == '-') {
+          fprintf(stderr, "mkdir: unsupported option: %s\n", argv[first_path]);
+          return 2;
+        } else {
+          break;
+        }
+      }
+      if (first_path == argc) {
+        fputs("mkdir: missing directory operand\n", stderr);
+        return 2;
+      }
+    
+      int status = 0;
+      for (int index = first_path; index < argc; index++) {
+        const int result = parents ? create_parents(argv[index])
+                                   : mkdir(argv[index], 0777);
+        if (result != 0) {
+          fprintf(stderr, "mkdir: %s: %s\n", argv[index], strerror(errno));
+          status = 1;
+        }
+      }
+      return status;
+    }
+FILE /tmp/core-tools/rm.c
+    #define _POSIX_C_SOURCE 200809L
+    
+    #include <dirent.h>
+    #include <errno.h>
+    #include <stdio.h>
+    #include <stdlib.h>
+    #include <string.h>
+    #include <sys/stat.h>
+    
+    static int remove_path(const char *path, int recursive, int force) {
+      struct stat metadata;
+      if (lstat(path, &metadata) != 0) {
+        if (force && errno == ENOENT) return 0;
+        fprintf(stderr, "rm: %s: %s\n", path, strerror(errno));
+        return 1;
+      }
+      if (!S_ISDIR(metadata.st_mode)) {
+        if (remove(path) == 0) return 0;
+        fprintf(stderr, "rm: %s: %s\n", path, strerror(errno));
+        return 1;
+      }
+      if (!recursive) {
+        fprintf(stderr, "rm: %s: is a directory\n", path);
+        return 1;
+      }
+    
+      DIR *directory = opendir(path);
+      if (directory == NULL) {
+        fprintf(stderr, "rm: %s: %s\n", path, strerror(errno));
+        return 1;
+      }
+    
+      int status = 0;
+      struct dirent *entry;
+      while ((entry = readdir(directory)) != NULL) {
+        if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0) {
+          continue;
+        }
+        char child[1024];
+        const int length = snprintf(child, sizeof(child), "%s/%s", path, entry->d_name);
+        if (length < 0 || (size_t)length >= sizeof(child)) {
+          fprintf(stderr, "rm: %s/%s: path is too long\n", path, entry->d_name);
+          status = 1;
+          continue;
+        }
+        if (remove_path(child, recursive, force) != 0) status = 1;
+      }
+      if (closedir(directory) != 0) status = 1;
+      if (status == 0 && remove(path) != 0) {
+        fprintf(stderr, "rm: %s: %s\n", path, strerror(errno));
+        status = 1;
+      }
+      return status;
+    }
+    
+    static int protected_path(const char *path) {
+      size_t length = strlen(path);
+      while (length > 1 && path[length - 1] == '/') length--;
+      if (length != 0) {
+        size_t base = length;
+        while (base != 0 && path[base - 1] != '/') base--;
+        const size_t base_length = length - base;
+        if ((base_length == 1 && path[base] == '.') ||
+            (base_length == 2 && path[base] == '.' && path[base + 1] == '.')) {
+          return 1;
+        }
+      }
+      for (size_t index = 0; index < length; index++) {
+        if (path[index] != '/') return 0;
+      }
+      return length != 0;
+    }
+    
+    static int trailing_slash_symlink(const char *path) {
+      size_t length = strlen(path);
+      size_t trimmed = length;
+      while (trimmed > 1 && path[trimmed - 1] == '/') trimmed--;
+      if (trimmed == length) return 0;
+      char *without_slashes = strndup(path, trimmed);
+      if (without_slashes == NULL) return -1;
+      struct stat metadata;
+      const int result = lstat(without_slashes, &metadata) == 0 &&
+                         S_ISLNK(metadata.st_mode);
+      free(without_slashes);
+      return result;
+    }
+    
+    int main(int argc, char **argv) {
+      int recursive = 0;
+      int force = 0;
+      int first_path = 1;
+      for (; first_path < argc; first_path++) {
+        const char *argument = argv[first_path];
+        if (strcmp(argument, "--") == 0) {
+          first_path++;
+          break;
+        }
+        if (strcmp(argument, "--help") == 0) {
+          fputs("usage: rm [-f] [-r|-R] [--] PATH ...\n", stdout);
+          return 0;
+        }
+        if (argument[0] != '-' || argument[1] == '\0') break;
+        for (const char *option = argument + 1; *option != '\0'; option++) {
+          if (*option == 'f') force = 1;
+          else if (*option == 'r' || *option == 'R') recursive = 1;
+          else {
+            fprintf(stderr, "rm: unsupported option: -%c\n", *option);
+            return 2;
+          }
+        }
+      }
+      if (first_path == argc) {
+        if (force) return 0;
+        fputs("rm: missing operand\n", stderr);
+        return 2;
+      }
+    
+      int status = 0;
+      for (int index = first_path; index < argc; index++) {
+        if (protected_path(argv[index])) {
+          fprintf(stderr, "rm: refusing to remove protected path %s\n", argv[index]);
+          status = 1;
+          continue;
+        }
+        const int trailing_link = trailing_slash_symlink(argv[index]);
+        if (trailing_link != 0) {
+          if (trailing_link > 0) {
+            fprintf(stderr,
+                    "rm: refusing to follow directory symlink with trailing slash: %s\n",
+                    argv[index]);
+          } else {
+            fprintf(stderr, "rm: %s: out of memory\n", argv[index]);
+          }
+          status = 1;
+          continue;
+        }
+        if (remove_path(argv[index], recursive, force) != 0) status = 1;
+      }
+      return status;
+    }
 FILE /tmp/core-tools/foreground.c
     #include <errno.h>
     #include <stdio.h>
@@ -1240,6 +1451,16 @@ SLOP cc \
   -O2 \
   /tmp/core-tools/cp.c \
   -o /bin/cp
+SLOP cc \
+  -O2 \
+  /tmp/core-tools/mkdir.c \
+  -o /bin/mkdir
+SLOP cc \
+  -O2 \
+  /tmp/core-tools/rm.c \
+  -o /bin/rm
+EXPORTS TOOL mkdir
+EXPORTS TOOL rm
 EXPORTS TOOL foreground
 EXPORTS TOOL help
 EXPORTS TOOL pwd
