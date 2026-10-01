@@ -27,7 +27,7 @@ def apply(directory, patch):
                     "-i", str(patch.resolve())], check=True)
 
 
-for name in ["arg0", "rustls-client", "sqlite-options", "process", "protoc", "clipboard",
+for name in ["rustls-client", "sqlite-options", "process", "protoc", "clipboard",
              "hardening", "installation-id", "filesystem-walk", "tui-events", "device-login"]:
     apply(codex, Path(f"demos/codex/config/{name}.patch"))
 manifest = tomllib.loads((codex / "Cargo.toml").read_text())
