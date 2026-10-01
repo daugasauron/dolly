@@ -1,8 +1,11 @@
 #!/usr/bin/env node
 
 import { spawn } from "node:child_process";
-import { readFile, rename, rm, writeFile } from "node:fs/promises";
+import { createWriteStream } from "node:fs";
+import { mkdir, readFile, rename, rm, writeFile } from "node:fs/promises";
+import { availableParallelism, freemem } from "node:os";
 import { resolve } from "node:path";
+import { createInterface } from "node:readline";
 
 import {
   discoverImageDefinitions,
@@ -22,6 +25,11 @@ const planOnly = process.argv[2] === "--plan";
 if (process.argv.length > 3 || (process.argv[2] !== undefined && !planOnly)) {
   throw new Error("usage: build-system-snapshot.mjs [--plan]");
 }
+// Each image build is one headless Chrome using about one core. Most peak below
+// 5 GB, codex-build at 17 GB (PSS, measured 2026-10-01): budget 10 GiB each.
+const jobs = Number(process.env.DOLLY_IMAGE_JOBS ??
+  Math.max(1, Math.min(availableParallelism(), Math.floor(freemem() / 10 / 2 ** 30))));
+if (!Number.isSafeInteger(jobs) || jobs < 1) throw new Error("DOLLY_IMAGE_JOBS must be a positive integer");
 const started = performance.now();
 const loadGraph = createDollyfileGraphLoader(projectDir);
 const definitions = await selectImageDefinitions(await discoverImageDefinitions(projectDir));
@@ -57,13 +65,22 @@ function expectedModules(image) {
   }));
 }
 
-function runSnapshotBuild(image, output) {
+// Each concurrent builder needs its own Chrome profile; the port follows it.
+function runSnapshotBuild(image, output, builder) {
   return new Promise((resolveBuild, reject) => {
+    const env = builder === 0 ? process.env
+      : { ...process.env, DOLLY_BROWSER_PROFILE: resolve(projectDir, `.cache/snapshot-browser-profile-${builder}`) };
     const child = spawn(process.execPath, [resolve(projectDir, "scripts/build-snapshot-browser.mjs"), image, output], {
-      cwd: projectDir, stdio: "inherit",
+      cwd: projectDir, env, stdio: ["ignore", "pipe", "pipe"],
     });
+    const log = createWriteStream(resolve(projectDir, `build/image-logs/${image}.log`));
+    for (const [stream, terminal] of [[child.stdout, process.stdout], [child.stderr, process.stderr]]) {
+      stream.pipe(log, { end: false });
+      createInterface({ input: stream, crlfDelay: Infinity }).on("line", line => terminal.write(`[${image}] ${line}\n`));
+    }
     child.once("error", reject);
-    child.once("exit", (status, signal) => {
+    child.once("close", (status, signal) => {
+      log.end();
       if (status === 0) resolveBuild();
       else reject(new Error(
         `Dolly ${image} snapshot browser exited with ${signal ? `signal ${signal}` : `status ${status}`}`,
@@ -117,7 +134,7 @@ async function inspectSnapshot(image, inputs) {
   }
 }
 
-async function buildImage(image, inputs) {
+async function buildImage(image, inputs, builder) {
   const snapshotPath = resolve(projectDir, `dist/dolly-${image}-system.snapshot`);
   const temporarySnapshotPath = resolve(
     projectDir, `dist/.dolly-${image}-system.snapshot.${process.pid}.tmp`,
@@ -131,7 +148,7 @@ async function buildImage(image, inputs) {
   ]);
   try {
     const started = performance.now();
-    await runSnapshotBuild(image, temporarySnapshotPath);
+    await runSnapshotBuild(image, temporarySnapshotPath, builder);
     const observedInputs = JSON.parse(await readFile(`${temporarySnapshotPath}.inputs.json`, "utf8"));
     if (!imageInputsMatch(observedInputs, inputs)) throw new Error(`${image}: build used different image inputs`);
     const snapshot = await readFile(temporarySnapshotPath);
@@ -189,15 +206,14 @@ for (const image of images) {
     ? ` (${pending.map(reference => reference.image).join(", ")})` : ""}`);
 }
 console.log(`dolly: inspected image inputs and cached outputs in ${((performance.now() - started) / 1000).toFixed(1)}s`);
-if (!planOnly) for (const image of images) {
-  let result = plan.get(image);
+async function produce(image, builder) {
   const inputs = inputsFor(image);
-  if (inputs === null) throw new Error(`${image}: dependencies did not finish`);
+  let result = plan.get(image);
   if (result.action === "check") {
     result = await inspectSnapshot(image, inputs);
     console.log(`dolly: ${result.action} ${image}: ${result.reason}`);
   }
-  if (result.action !== "reuse") await buildImage(image, inputs);
+  if (result.action !== "reuse") await buildImage(image, inputs, builder);
   const metadata = result.metadata ?? await readMetadata(image);
   const packed = await ensureSnapshotPacks(resolve(projectDir, "dist"), metadata);
   if (packed !== metadata) {
@@ -208,4 +224,36 @@ if (!planOnly) for (const image of images) {
     } finally { await rm(temporary, { force: true }); }
   }
   completed.set(image, packed);
+}
+
+// Start each image once its dependencies are complete, at most `jobs` at a
+// time in plan order; a failure skips only the images that depend on it.
+if (!planOnly) {
+  await mkdir(resolve(projectDir, "build/image-logs"), { recursive: true });
+  console.log(`dolly: building with ${jobs} concurrent browser${jobs === 1 ? "" : "s"}; logs in build/image-logs/`);
+  const waiting = [...images], running = new Set(), idle = [...Array(jobs).keys()], done = new Set(), failed = [];
+  while (waiting.length || running.size) {
+    for (const image of [...waiting]) {
+      const dependencies = graphs.get(image).artifacts.map(reference => reference.image);
+      const blocked = dependencies.find(dependency => failed.includes(dependency));
+      if (!blocked && (!idle.length || !dependencies.every(dependency => done.has(dependency)))) continue;
+      waiting.splice(waiting.indexOf(image), 1);
+      if (blocked) {
+        console.log(`dolly: skipped ${image}: ${blocked} failed`);
+        failed.push(image);
+        continue;
+      }
+      const builder = idle.shift();
+      const task = produce(image, builder).then(() => done.add(image), error => {
+        console.error(`dolly: ${image} failed: ${error.message}`);
+        failed.push(image);
+      }).finally(() => { running.delete(task); idle.push(builder); });
+      running.add(task);
+    }
+    if (running.size) await Promise.race(running);
+  }
+  if (failed.length) {
+    console.error(`dolly: ${failed.length} of ${images.length} images failed or were skipped: ${failed.join(", ")}`);
+    process.exitCode = 1;
+  }
 }
