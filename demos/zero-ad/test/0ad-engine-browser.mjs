@@ -3,12 +3,13 @@ import { mkdir, readFile } from "node:fs/promises";
 import { chromium } from "playwright-core";
 import { startBrowserServer } from "../../../test/browser-server.mjs";
 import { acceptDownload } from "../../browser.mjs";
+import { engineFixture } from "./fixtures/engine.mjs";
 
 const output = new URL("../../../.cache/0ad/browser/", import.meta.url);
 await mkdir(output, { recursive: true });
 const server = await startBrowserServer(new URL("../../../", import.meta.url).pathname,
   "default", { fixtures: {
-    "pyrogenesis.wasm": "build/0ad/pyrogenesis.wasm",
+    "pyrogenesis.wasm": await engineFixture(),
     "0ad-data.tar": "build/0ad/headless-data.tar",
   } });
 let browser, deadline, page;

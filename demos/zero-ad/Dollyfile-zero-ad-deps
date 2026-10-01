@@ -1,0 +1,9 @@
+DOLLY 5
+IMAGE zero-ad-deps
+
+# Build-only: the libraries and tools the 0 A.D. engine build needs.
+FROM https://daugasauron.com/demos/zero-ad/Dollyfile-openal-build 6ac491c20ed8433aa04c360ea0fa5dbb00e7458b2ea5bea54cf20644f84727b6
+USE https://daugasauron.com/demos/sdl2/sdl2.dm a19f36e57dd255ecbc1b4f06015ed33d5bb2bd97db393f726edaa542e7bd540c
+USE https://daugasauron.com/demos/zero-ad/zero-ad-deps.dm 0c0b12dfaedbebd42e25362aaa1f7ab935dad98ae8abbbbfcee235174d94dbc3
+
+ENTRY /bin/foreground -i /bin/slop

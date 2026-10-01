@@ -1,0 +1,166 @@
+DOLLY 5
+MODULE zero-ad-deps
+
+# The libraries the 0 A.D. engine links, and pkgconf for its premake scripts,
+# built from the pinned upstream sources of build-sources.tsv.
+REQUIRES HEADER libc
+REQUIRES HEADER cpp
+REQUIRES HEADER zlib
+REQUIRES LIB z
+REQUIRES TOOL cc
+REQUIRES TOOL c++
+REQUIRES TOOL ar
+REQUIRES TOOL cmake
+REQUIRES TOOL make
+REQUIRES TOOL gzip
+REQUIRES TOOL tar
+REQUIRES TOOL patch
+REQUIRES TOOL find
+REQUIRES TOOL cp
+REQUIRES TOOL ln
+REQUIRES TOOL mkdir
+
+SOURCE https://daugasauron.com/dist/static/zero-ad-build/deps.tar.gz c6eaf6caee794316dad3836d8d347d254e14a7a3017971145fd764361b623004 /tmp/zad/deps.tar.gz
+SLOP gzip -dc /tmp/zad/deps.tar.gz | tar -xf - -C /
+
+# Upstream builds pkgconf with Meson; these are the values its configure step finds here.
+FILE /tmp/zad/pkgconf/libpkgconf/config.h
+    #define HAVE_STRLCAT 1
+    #define HAVE_STRLCPY 1
+    #define HAVE_STRNDUP 1
+    #define HAVE_REALLOCARRAY 1
+    #define HAVE_DECL_STRLCAT 1
+    #define HAVE_DECL_STRLCPY 1
+    #define HAVE_DECL_STRNDUP 1
+    #define HAVE_DECL_REALLOCARRAY 1
+    #define HAVE_DECL_PLEDGE 0
+    #define HAVE_DECL_UNVEIL 0
+    #define PACKAGE_NAME "pkgconf"
+    #define PACKAGE_VERSION "2.5.1"
+    #define PACKAGE_BUGREPORT "https://todo.sr.ht/~kaniini/pkgconf"
+    #define PKG_DEFAULT_PATH "/usr/lib/pkgconfig:/usr/share/pkgconfig"
+    #define SYSTEM_INCLUDEDIR "/usr/include"
+    #define SYSTEM_LIBDIR "/usr/lib"
+    #define PERSONALITY_PATH "/usr/lib/pkgconfig/personality.d:/usr/share/pkgconfig/personality.d"
+
+# Libraries without a build system usable here (autotools; ICU's port list) compile
+# every source of their directories, as Emscripten's ports and libsodium's build.zig do.
+FILE /tmp/zad/objects.mk
+    SOURCES := $(foreach d,$(DIRS),$(wildcard $(d)/*.c $(d)/*.cpp))
+    OBJECTS := $(patsubst /tmp/zad/%,/tmp/zad/objects/%.o,$(SOURCES))
+    $(LIB): $(OBJECTS)
+    	ar rcs $@ $^
+    /tmp/zad/objects/%.c.o: /tmp/zad/%.c
+    	@mkdir -p $(dir $@)
+    	cc $(CFLAGS) -c $< -o $@
+    /tmp/zad/objects/%.cpp.o: /tmp/zad/%.cpp
+    	@mkdir -p $(dir $@)
+    	c++ $(CXXFLAGS) -c $< -o $@
+
+FILE /tmp/zad/build.slop
+    set -ex
+    cd /tmp/zad/pkgconf
+    cc -O2 -std=gnu99 -D_BSD_SOURCE -D_DEFAULT_SOURCE -DPKGCONFIG_IS_STATIC -I. libpkgconf/*.c cli/main.c cli/getopt_long.c cli/renderer-msvc.c -o /usr/bin/pkgconf
+    ln -s pkgconf /usr/bin/pkg-config
+    cmake_build() {
+      name=$1
+      shift
+      cmake -S /tmp/zad/$name -B /tmp/zad/build/$name -DCMAKE_SYSTEM_NAME=Dolly -DCMAKE_SYSTEM_PROCESSOR=wasm64 \
+        -DCMAKE_INSTALL_PREFIX=/usr -DCMAKE_INSTALL_LIBDIR=lib -DCMAKE_BUILD_TYPE=Release \
+        -DBUILD_SHARED_LIBS=OFF -DCMAKE_POLICY_VERSION_MINIMUM=3.5 "$@"
+      cmake --build /tmp/zad/build/$name -j4
+      cmake --install /tmp/zad/build/$name
+    }
+    cmake_build png -DPNG_SHARED=OFF -DPNG_TESTS=OFF -DPNG_TOOLS=OFF -DPNG_EXECUTABLES=OFF
+    cmake_build freetype -DFT_DISABLE_BZIP2=ON -DFT_DISABLE_HARFBUZZ=ON -DFT_DISABLE_BROTLI=ON -DFT_REQUIRE_ZLIB=ON -DFT_REQUIRE_PNG=ON
+    cmake_build ogg -DINSTALL_DOCS=OFF -DBUILD_TESTING=OFF
+    cmake_build vorbis
+    cmake_build fmt -DFMT_TEST=OFF -DFMT_DOC=OFF
+    cmake_build xml2 -DLIBXML2_WITH_PYTHON=OFF -DLIBXML2_WITH_TESTS=OFF -DLIBXML2_WITH_PROGRAMS=OFF \
+      -DLIBXML2_WITH_THREADS=OFF -DLIBXML2_WITH_LZMA=OFF -DLIBXML2_WITH_HTTP=OFF -DLIBXML2_WITH_ICONV=OFF -DLIBXML2_WITH_ZLIB=ON
+    icu=/tmp/zad/icu
+    icu_flags="-O2 -std=c++11 -DU_USING_ICU_NAMESPACE=0 -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DUNISTR_FROM_CHAR_EXPLICIT=explicit -DUNISTR_FROM_STRING_EXPLICIT=explicit -DU_STATIC_IMPLEMENTATION -I$icu/common"
+    make -f /tmp/zad/objects.mk -j4 LIB=/usr/lib/libicuuc.a DIRS=$icu/common "CXXFLAGS=$icu_flags -DU_COMMON_IMPLEMENTATION=1"
+    make -f /tmp/zad/objects.mk -j4 LIB=/usr/lib/libicudata.a DIRS=$icu/stubdata "CXXFLAGS=$icu_flags"
+    make -f /tmp/zad/objects.mk -j4 LIB=/usr/lib/libicui18n.a DIRS=$icu/i18n "CXXFLAGS=$icu_flags -I$icu/i18n -DU_I18N_IMPLEMENTATION=1"
+    mkdir -p /usr/include/unicode
+    cp $icu/common/unicode/* $icu/i18n/unicode/* /usr/include/unicode/
+    sodium=/tmp/zad/sodium/src/libsodium
+    patch -p1 -d /tmp/zad/sodium -i /tmp/zad/sodium.patch
+    cp /tmp/zad/sodium/builds/msvc/version.h $sodium/include/sodium/version.h
+    sodium_dirs=
+    for directory in $(find $sodium -type d); do sodium_dirs="$sodium_dirs $directory"; done
+    make -f /tmp/zad/objects.mk -j4 LIB=/usr/lib/libsodium.a "DIRS=$sodium_dirs" "CFLAGS=-O2 -I$sodium/include/sodium -DCONFIGURED=1 -DDOLLY -D_GNU_SOURCE=1 -DNATIVE_LITTLE_ENDIAN=1 -DHAVE_ATOMIC_OPS=1 -DHAVE_C11_MEMORY_FENCES=1 -DHAVE_GCC_MEMORY_FENCES=1 -DHAVE_INTTYPES_H=1 -DHAVE_STDINT_H=1 -DHAVE_ALLOCA_H=1 -DHAVE_ALLOCA=1 -DHAVE_SYS_MMAN_H=1 -DHAVE_SYS_PARAM_H=1 -DHAVE_SYS_RANDOM_H=1 -DHAVE_MMAP=1 -DHAVE_MLOCK=1 -DHAVE_MADVISE=1 -DHAVE_MPROTECT=1 -DHAVE_RAISE=1 -DHAVE_SYSCONF=1 -DHAVE_GETENTROPY=1 -DHAVE_GETPID=1 -DHAVE_POSIX_MEMALIGN=1 -DHAVE_NANOSLEEP=1 -DHAVE_CLOCK_GETTIME=1 -DHAVE_EXPLICIT_BZERO=1 -DHAVE_LINUX_COMPATIBLE_GETRANDOM -fvisibility=hidden -fno-strict-aliasing -fwrapv"
+    cp -R $sodium/include/sodium $sodium/include/sodium.h /usr/include/
+    # ENet keeps its protocol; dolly.c replaces the unix.c and win32.c socket backends.
+    cp /tmp/zad/enet-dolly.c /tmp/zad/enet/dolly.c
+    rm /tmp/zad/enet/unix.c /tmp/zad/enet/win32.c
+    make -f /tmp/zad/objects.mk -j4 LIB=/usr/lib/libenet.a DIRS=/tmp/zad/enet "CFLAGS=-O2 -I/tmp/zad/enet/include"
+    cp -R /tmp/zad/enet/include/enet /usr/include/
+    cp -R /tmp/zad/boost/boost /usr/include/
+SLOP time slop -e /tmp/zad/build.slop
+
+# pkg-config descriptions of the libraries built without their upstream build system.
+FILE /usr/lib/pkgconfig/zlib.pc
+    Name: zlib
+    Description: zlib compression library
+    Version: 1.3.2
+    Libs: -lz
+FILE /usr/lib/pkgconfig/libcurl.pc
+    Name: libcurl
+    Description: Dolly's libcurl over the HTTP broker
+    Version: 8.21.0
+    Libs: -lcurl
+FILE /usr/lib/pkgconfig/icu-uc.pc
+    Name: icu-uc
+    Description: International Components for Unicode: Common and Data libraries
+    Version: 68.2
+    Cflags: -DU_STATIC_IMPLEMENTATION
+    Libs: -licuuc -licudata
+FILE /usr/lib/pkgconfig/icu-i18n.pc
+    Name: icu-i18n
+    Description: International Components for Unicode: Internationalization library
+    Version: 68.2
+    Requires: icu-uc
+    Libs: -licui18n
+FILE /usr/lib/pkgconfig/libsodium.pc
+    Name: libsodium
+    Description: A modern and easy-to-use crypto library
+    Version: 1.0.20
+    Libs: -lsodium
+FILE /usr/lib/pkgconfig/libenet.pc
+    Name: libenet
+    Description: Low-latency UDP networking library supporting optional reliability
+    Version: 1.3.18
+    Libs: -lenet
+SLOP pkg-config --exists zlib libcurl icu-i18n libsodium libenet libpng freetype2 vorbisfile fmt libxml-2.0 openal sdl2
+
+EXPORTS TOOL pkgconf
+EXPORTS TOOL pkg-config
+EXPORTS FOLDER zero-ad-pkgconfig /usr/lib/pkgconfig
+EXPORTS HEADER png /usr/include/png.h
+EXPORTS HEADER pngconf /usr/include/pngconf.h
+EXPORTS HEADER pnglibconf /usr/include/pnglibconf.h
+EXPORTS HEADER libpng16 /usr/include/libpng16
+EXPORTS HEADER freetype2 /usr/include/freetype2
+EXPORTS HEADER ogg /usr/include/ogg
+EXPORTS HEADER vorbis /usr/include/vorbis
+EXPORTS HEADER fmt /usr/include/fmt
+EXPORTS HEADER libxml2 /usr/include/libxml2
+EXPORTS HEADER unicode /usr/include/unicode
+EXPORTS HEADER sodium /usr/include/sodium
+EXPORTS HEADER sodium.h /usr/include/sodium.h
+EXPORTS HEADER enet /usr/include/enet
+EXPORTS HEADER boost /usr/include/boost
+EXPORTS LIB png16 /usr/lib/libpng16.a
+EXPORTS LIB freetype /usr/lib/libfreetype.a
+EXPORTS LIB ogg /usr/lib/libogg.a
+EXPORTS LIB vorbis /usr/lib/libvorbis.a
+EXPORTS LIB vorbisfile /usr/lib/libvorbisfile.a
+EXPORTS LIB fmt /usr/lib/libfmt.a
+EXPORTS LIB xml2 /usr/lib/libxml2.a
+EXPORTS LIB icuuc /usr/lib/libicuuc.a
+EXPORTS LIB icui18n /usr/lib/libicui18n.a
+EXPORTS LIB icudata /usr/lib/libicudata.a
+EXPORTS LIB sodium /usr/lib/libsodium.a
+EXPORTS LIB enet /usr/lib/libenet.a

@@ -1,13 +1,17 @@
 # 0 A.D.
 
 0 A.D. Release 28 as an ordinary wasm64 Dolly process with WebGPU graphics,
-OpenAL audio, saves, replays and a relayed two-player match. The engine is
-cross-compiled outside Dolly: an explicit bootstrap exception.
+OpenAL audio, saves, replays and a relayed two-player match. The engine and its
+libraries are built inside Dolly; SpiderMonkey is still cross-compiled outside
+Dolly, an explicit bootstrap exception
+([task](../../tasks/20260930-231200-self-host-zero-ad/TASK.md)).
 
 ## Images
 
 - `zero-ad`: 0 A.D. Release 28: Athens economy and combat scenarios, audio and replay. Requires WebGPU.
 - `openal-build`: OpenAL Soft built for the 0 A.D. audio path.
+- `zero-ad-deps`: Build-only: the engine's libraries, pkgconf and SDL2 built from pinned sources.
+- `zero-ad-engine`: Build-only: the 0 A.D. engine built inside Dolly with premake and Make.
 
 Open `/zero-ad/` for the main menu, or run `zero-ad [engine arguments]`, for
 example `zero-ad -autostart=scenarios/combat_demo`. F10 opens the game menu;
@@ -16,7 +20,7 @@ Ctrl-F10 exits cleanly. Saves and replays live in `/opt/0ad/data`.
 ## Build
 
 ```sh
-bash demos/zero-ad/toolchain/build-engine.sh        # external engine bootstrap
+bash demos/zero-ad/toolchain/build-spidermonkey.sh  # external SpiderMonkey bootstrap
 bash demos/zero-ad/toolchain/prepare-headless.sh
 bash demos/zero-ad/toolchain/prepare-shaders.sh     # SPIR-V to WGSL with Naga
 python3 demos/zero-ad/toolchain/package-graphics.py .cache/0ad/0ad-0.28.0
@@ -24,9 +28,15 @@ node demos/zero-ad/toolchain/prepare-distribution.mjs
 npm run image -- zero-ad
 ```
 
-Pins live in `config/source-pins.sh` and [`dependencies.tsv`](toolchain/dependencies.tsv);
-[`prepare-distribution.mjs`](toolchain/prepare-distribution.mjs) pins the engine
-and content as published `SOURCE` inputs of [`zero-ad.dm`](zero-ad.dm). The
+`zero-ad-deps` builds the engine's libraries from
+[`build-sources.tsv`](build-sources.tsv) ([`zero-ad-deps.dm`](zero-ad-deps.dm)):
+CMake projects with CMake, ICU, libsodium and ENet by compiling their source
+directories (they have only autotools), pkgconf for premake.
+`zero-ad-engine` ([`zero-ad-engine.dm`](zero-ad-engine.dm)) bootstraps premake
+([`premake-dolly.patch`](premake-dolly.patch)), generates upstream's Makefiles
+and builds `pyrogenesis` with `make -j4`; `zero-ad` copies it. Other pins live in
+`config/source-pins.sh`; [`prepare-distribution.mjs`](toolchain/prepare-distribution.mjs)
+pins the content as published `SOURCE` inputs of [`zero-ad.dm`](zero-ad.dm). The
 image is about 2 GB.
 
 ## How it works

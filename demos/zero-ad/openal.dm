@@ -15,6 +15,7 @@ REQUIRES TOOL rm
 
 SOURCE https://daugasauron.com/dist/static/openal/source.tar 716be269a99ccde5220f790e281cd1a4660152d7952eb09ba9619eab1f8c7bec /tmp/openal/source.tar
 SLOP tar -xf /tmp/openal/source.tar -C /
+# HAVE_PTHREAD=OFF: the mixer is serial (openal-dolly.patch) and 0 A.D. is not a threaded process.
 SLOP cmake -S /tmp/openal/source -B /tmp/openal/build \
   -DCMAKE_SYSTEM_NAME=Dolly -DCMAKE_SYSTEM_PROCESSOR=wasm64 \
   -DCMAKE_INSTALL_PREFIX=/usr -DCMAKE_INSTALL_LIBDIR=lib -DCMAKE_BUILD_TYPE=Release \
@@ -25,7 +26,7 @@ SLOP cmake -S /tmp/openal/source -B /tmp/openal/build \
   -DALSOFT_BACKEND_SOLARIS=OFF -DALSOFT_BACKEND_SNDIO=OFF -DALSOFT_BACKEND_JACK=OFF \
   -DALSOFT_BACKEND_PORTAUDIO=OFF -DALSOFT_BACKEND_SDL2=OFF -DALSOFT_BACKEND_SDL3=OFF \
   -DALSOFT_BACKEND_WAVE=OFF -DALSOFT_INSTALL_HRTF_DATA=OFF -DALSOFT_INSTALL_AMBDEC_PRESETS=OFF \
-  -DALSOFT_INSTALL_CONFIG=OFF -DALSOFT_UPDATE_BUILD_VERSION=OFF
+  -DALSOFT_INSTALL_CONFIG=OFF -DALSOFT_UPDATE_BUILD_VERSION=OFF -DHAVE_PTHREAD=OFF
 SLOP cmake --build /tmp/openal/build
 # Replace bootstrap headers even when normalized source timestamps match.
 SLOP rm -rf /usr/include/AL

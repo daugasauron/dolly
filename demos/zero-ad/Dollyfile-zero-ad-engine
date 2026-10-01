@@ -1,0 +1,8 @@
+DOLLY 5
+IMAGE zero-ad-engine
+
+# Build-only: the 0 A.D. engine compiled and linked inside Dolly.
+FROM https://daugasauron.com/demos/zero-ad/Dollyfile-zero-ad-deps 2c65f0de74f4623ccb76b8f5d8ccca63ebc8e1b154fbf24ea2020ea9ece6799c
+USE https://daugasauron.com/demos/zero-ad/zero-ad-engine.dm eae9e39539b0888874e9e8711535a0fea70ffaa5ad276296b71824257aa95783
+
+ENTRY /bin/foreground -i /bin/slop
