@@ -2,6 +2,7 @@
 // library, and the framebuffer lease that a foreground graphics program takes
 // over from it.
 #include "fs-record.h"
+#include "input-ring.h"
 #include "process-kernel.h"
 
 #include <dolly/display.h>
@@ -14,12 +15,8 @@
 #include <stdlib.h>
 #include <string.h>
 
-_Static_assert((DOLLY_DISPLAY_EVENT_CAPACITY &
-                (DOLLY_DISPLAY_EVENT_CAPACITY - 1)) == 0,
-               "display event capacity must be a power of two");
-
 _Alignas(64) static dolly_display_mailbox display_mailbox;
-static const dolly_display_driver_v3 *display_driver;
+static dolly_input_ring terminal_input = {&display_mailbox, NULL, dolly_kernel_terminal_resized};
 static unsigned char *display_module_bytes;
 static uintptr_t display_module_length;
 static unsigned char *display_frames[DOLLY_DISPLAY_FRAME_COUNT];
@@ -66,7 +63,7 @@ static void release_display_lease_for_pid(int owner_pid) {
   // Events published while the graphics owner was active belong to that
   // ownership epoch and must not leak into the restored shell.
   dolly_terminal_discard_pending_input();
-  if (display_driver != NULL) display_driver->set_suspended(0);
+  if (terminal_input.driver != NULL) terminal_input.driver->set_suspended(0);
   atomic_store_explicit(&display_mailbox.cursor_style,
                         DOLLY_DISPLAY_CURSOR_TEXT, memory_order_release);
   atomic_fetch_and_explicit(&display_mailbox.flags,
@@ -111,19 +108,6 @@ uint32_t dolly_display_clipboard_capacity(void) {
   return DOLLY_DISPLAY_CLIPBOARD_CAPACITY;
 }
 
-static int handle_terminal_event(const dolly_input_event *event,
-                                  unsigned char *output, size_t capacity,
-                                  size_t *length) {
-  const uint32_t columns = atomic_load(&display_mailbox.terminal_cols);
-  const uint32_t rows = atomic_load(&display_mailbox.terminal_rows);
-  const int result = display_driver->handle_event(event, output, capacity, length);
-  if (result == 0 && event != NULL && event->type == DOLLY_INPUT_EVENT_RESIZE &&
-      (columns != atomic_load(&display_mailbox.terminal_cols) ||
-       rows != atomic_load(&display_mailbox.terminal_rows)))
-    dolly_kernel_terminal_resized();
-  return result;
-}
-
 // Buffers decoded terminal input bytes; returns 1 when some are ready and -1
 // otherwise. The kernel thread never waits for input.
 static int fill_terminal_input(void) {
@@ -136,8 +120,8 @@ static int fill_terminal_input(void) {
     encoded_input_cursor = 0;
     encoded_input_length = 0;
 
-    if (display_driver != NULL &&
-        handle_terminal_event(NULL, encoded_input, sizeof(encoded_input),
+    if (terminal_input.driver != NULL &&
+        dolly_input_ring_handle(&terminal_input, NULL, encoded_input, sizeof(encoded_input),
                               &encoded_input_length) == 0 &&
         encoded_input_length != 0) continue;
 
@@ -150,8 +134,8 @@ static int fill_terminal_input(void) {
         display_mailbox.events[read & (DOLLY_DISPLAY_EVENT_CAPACITY - 1)];
     atomic_store_explicit(&display_mailbox.event_read, read + 1,
                           memory_order_release);
-    if (display_driver == NULL ||
-        handle_terminal_event(&event, encoded_input, sizeof(encoded_input),
+    if (terminal_input.driver == NULL ||
+        dolly_input_ring_handle(&terminal_input, &event, encoded_input, sizeof(encoded_input),
                               &encoded_input_length) != 0) {
       encoded_input_length = 0;
     }
@@ -168,18 +152,18 @@ int dolly_kernel_terminal_read(void) {
 }
 
 static int update_suspended_terminal_layout(const dolly_input_event *event) {
-  if (display_driver == NULL || event->type != DOLLY_INPUT_EVENT_RESIZE) {
+  if (terminal_input.driver == NULL || event->type != DOLLY_INPUT_EVENT_RESIZE) {
     return 0;
   }
   unsigned char ignored[256];
   size_t ignored_length = 0;
   do {
-    if (handle_terminal_event(NULL, ignored, sizeof(ignored),
+    if (dolly_input_ring_handle(&terminal_input, NULL, ignored, sizeof(ignored),
                                      &ignored_length) != 0) {
       return -EIO;
     }
   } while (ignored_length != 0);
-  if (handle_terminal_event(event, ignored, sizeof(ignored),
+  if (dolly_input_ring_handle(&terminal_input, event, ignored, sizeof(ignored),
                                    &ignored_length) != 0) {
     return -EIO;
   }
@@ -249,63 +233,16 @@ void dolly_terminal_discard_pending_input(void) {
 }
 
 int dolly_kernel_terminal_attached(void) {
-  return display_driver != NULL;
+  return terminal_input.driver != NULL;
 }
 
 void dolly_kernel_terminal_render(const unsigned char *bytes, size_t length) {
-  display_driver->write(bytes, length);
+  terminal_input.driver->write(bytes, length);
 }
 
-/*
- * Terminal parsing and rasterization deliberately have different costs.  A
- * write updates Ghostty's in-Wasm terminal state immediately, while this
- * bounded service hook publishes at most one dirty framebuffer per supervisor
- * tick.  Passing zero output capacity is important: handle_event(NULL, ...)
- * may expose a terminal-query response, and a presentation tick must neither
- * consume nor discard those input bytes.
- */
 int dolly_terminal_present_pending(void) {
-  if (display_driver == NULL || display_lease.generation != 0) return 0;
-  unsigned char preserved;
-  size_t output_length = 0;
-  uint32_t read = atomic_load_explicit(&display_mailbox.event_read,
-                                       memory_order_relaxed);
-  const uint32_t write = atomic_load_explicit(&display_mailbox.event_write,
-                                             memory_order_acquire);
-  if (write - read > DOLLY_DISPLAY_EVENT_CAPACITY) return -EPROTO;
-  // UI intent is independent of stdin. Zero marks a consumed UI slot.
-  for (uint32_t cursor = read; cursor != write; ++cursor) {
-    dolly_input_event *event = &display_mailbox.events[
-        cursor & (DOLLY_DISPLAY_EVENT_CAPACITY - 1)];
-    if (event->type == DOLLY_INPUT_EVENT_POINTER_MOTION ||
-        event->type == DOLLY_INPUT_EVENT_POINTER_CAPTURE ||
-        event->type == DOLLY_INPUT_EVENT_POINTER_PRESENCE) {
-      event->type = 0;
-      continue;
-    }
-    if (event->type == DOLLY_INPUT_EVENT_RESIZE ||
-        event->type == DOLLY_INPUT_EVENT_POINTER ||
-        event->type == DOLLY_INPUT_EVENT_SCROLL) {
-      (void)handle_terminal_event(event, &preserved, 0, &output_length);
-      event->type = 0;
-    }
-  }
-  // Compact remaining input toward the published tail, in order, before
-  // releasing slots. The producer cannot overwrite this range until read is
-  // advanced. Thus UI traffic cannot fill the ring behind an unread key/paste.
-  uint32_t retained = write;
-  for (uint32_t cursor = write; cursor != read;) {
-    const dolly_input_event event = display_mailbox.events[
-        --cursor & (DOLLY_DISPLAY_EVENT_CAPACITY - 1)];
-    if (event.type != 0) {
-      --retained;
-      if (retained != cursor) display_mailbox.events[
-          retained & (DOLLY_DISPLAY_EVENT_CAPACITY - 1)] = event;
-    }
-  }
-  atomic_store_explicit(&display_mailbox.event_read, retained, memory_order_release);
-  return handle_terminal_event(
-      NULL, &preserved, 0, &output_length);
+  if (terminal_input.driver == NULL || display_lease.generation != 0) return 0;
+  return dolly_input_ring_service(&terminal_input);
 }
 
 int dolly_display_prepare(void) {
@@ -341,7 +278,7 @@ uintptr_t dolly_display_module_size(void) {
 
 int dolly_display_install(const dolly_display_driver_v3 *candidate) {
   static const char font_path[] = "/usr/share/fonts/IosevkaTerm-SemiBold.ttf";
-  if (display_driver != NULL || candidate == NULL || candidate->abi_version != 3 ||
+  if (terminal_input.driver != NULL || candidate == NULL || candidate->abi_version != 3 ||
       candidate->struct_size < sizeof(*candidate) ||
       candidate->initialize == NULL || candidate->write == NULL ||
       candidate->handle_event == NULL || candidate->set_suspended == NULL) {
@@ -371,7 +308,7 @@ int dolly_display_install(const dolly_display_driver_v3 *candidate) {
                         DOLLY_DISPLAY_CURSOR_TEXT, memory_order_release);
   puts("dolly: sandbox display ready");
   fflush(stdout);
-  display_driver = candidate;
+  terminal_input.driver = candidate;
   return 0;
 }
 
@@ -397,7 +334,7 @@ static int64_t display_acquire_packet(int pid, unsigned char *mailbox,
       response_capacity < sizeof(dolly_display_surface_response)) {
     return -EINVAL;
   }
-  if (display_driver == NULL || display_frames[0] == NULL ||
+  if (terminal_input.driver == NULL || display_frames[0] == NULL ||
       display_frames[1] == NULL) {
     return -ENODEV;
   }
@@ -427,7 +364,7 @@ static int64_t display_acquire_packet(int pid, unsigned char *mailbox,
 
   uint64_t generation = next_display_generation++;
   if (generation == 0) generation = next_display_generation++;
-  display_driver->set_suspended(1);
+  terminal_input.driver->set_suspended(1);
   display_lease.generation = generation;
   display_lease.owner_pid = pid;
   display_lease.width = width;

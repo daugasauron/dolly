@@ -46,3 +46,18 @@ Tests exercise behavior through modules and binaries.
   natively with stubs. Move the input-ring compaction into its own source in
   `host/display/` that the kernel build and the test compile directly, so the
   test needs no text markers.
+
+## Progress (2026-10-02, branch `core/host-modules-2`)
+
+- `test/terminal-ring.test.mjs` no longer cuts C out of the display kernel:
+  the input-ring handling (`dolly_input_ring_handle`,
+  `dolly_input_ring_service`) is `host/display/input-ring.c`, listed in the
+  display manifest's `kernel` sources and compiled directly by the test with
+  a probe driver. `dolly_terminal_present_pending` keeps only its gate.
+- `test/preparation-cache.test.mjs` stays as it is: it checks a behavior (a
+  preparation key ignores the checkout location and tracks the script and
+  patch) and cuts each script at its first statement after the key
+  assignment only to avoid the fetch and compile that follow. The
+  alternatives are a print-key mode in every prepare script, which is a
+  test hook in production scripts, or a Git checkout fixture per script;
+  neither is worth its lines for this one check.

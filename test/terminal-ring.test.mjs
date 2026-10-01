@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { execFile } from "node:child_process";
-import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { promisify } from "node:util";
@@ -56,27 +56,19 @@ test("the presenter refuses a malformed published frame", () => {
 });
 
 test("terminal UI compaction preserves input order across wrap and producer publication", async () => {
-  const project = resolve(import.meta.dirname, "..");
-  const runtime = await readFile(join(project, "host/display/kernel.c"), "utf8");
-  const start = runtime.indexOf("int dolly_terminal_present_pending(void)");
-  const end = runtime.indexOf("\n}\n", start) + 2;
-  assert.ok(start > 0 && end > start);
-  const dispatchStart = runtime.indexOf("static int handle_terminal_event(");
-  const dispatchEnd = runtime.indexOf("\n// Buffers decoded terminal input bytes", dispatchStart);
-  assert.ok(dispatchStart > 0 && dispatchEnd > dispatchStart);
+  const display = resolve(import.meta.dirname, "../host/display");
   const scratch = await mkdtemp(join(tmpdir(), "dolly-terminal-ring-"));
   try {
     await writeFile(join(scratch, "probe.c"), `
-#include <dolly/display.h>
+#include "input-ring.h"
 #include <assert.h>
 #include <errno.h>
 #include <string.h>
 static dolly_display_mailbox display_mailbox;
-static struct { unsigned generation; } display_lease;
 static unsigned seen, append, appended;
 static unsigned resized;
 static int resize_status;
-static void dolly_kernel_terminal_resized(void) { ++resized; }
+static void on_resized(void) { ++resized; }
 static int handle(const dolly_input_event *event, unsigned char *out, size_t capacity, size_t *length) {
   assert(capacity == 0);
   *length = 0;
@@ -96,9 +88,7 @@ static int handle(const dolly_input_event *event, unsigned char *out, size_t cap
   return 0;
 }
 static const dolly_display_driver_v3 driver = {.handle_event = handle};
-static const dolly_display_driver_v3 *display_driver = &driver;
-${runtime.slice(dispatchStart, dispatchEnd)}
-${runtime.slice(start, end)}
+static const dolly_input_ring ring = {&display_mailbox, &driver, on_resized};
 int main(void) {
   for (unsigned wrap = 0; wrap < 2; ++wrap) {
     for (unsigned count = 0; count <= 256; ++count) {
@@ -113,7 +103,7 @@ int main(void) {
             .type = i % 3 ? DOLLY_INPUT_EVENT_TEXT : DOLLY_INPUT_EVENT_SCROLL, .action = i};
         }
         seen = appended = 0;
-        assert(dolly_terminal_present_pending() == 0);
+        assert(dolly_input_ring_service(&ring) == 0);
         assert(seen == (count + 2) / 3);
         assert(display_mailbox.event_read == base + seen);
         assert(display_mailbox.event_write == base + count + appended);
@@ -126,24 +116,22 @@ int main(void) {
       }
     }
   }
-  display_lease.generation = 1;
   display_mailbox.event_read = 0;
-  display_mailbox.event_write = 1;
-  display_mailbox.events[0].type = DOLLY_INPUT_EVENT_POINTER;
-  seen = 0;
-  assert(dolly_terminal_present_pending() == 0 && seen == 0 && display_mailbox.event_read == 0);
+  display_mailbox.event_write = 257;
+  assert(dolly_input_ring_service(&ring) == -EPROTO);
   size_t length;
   dolly_input_event resize = {.type = DOLLY_INPUT_EVENT_RESIZE, .action = 80};
-  assert(handle_terminal_event(&resize, NULL, 0, &length) == 0 && resized == 1);
-  assert(handle_terminal_event(&resize, NULL, 0, &length) == 0 && resized == 1);
+  assert(dolly_input_ring_handle(&ring, &resize, NULL, 0, &length) == 0 && resized == 1);
+  assert(dolly_input_ring_handle(&ring, &resize, NULL, 0, &length) == 0 && resized == 1);
   resize.action = 100;
   resize_status = -EIO;
-  assert(handle_terminal_event(&resize, NULL, 0, &length) == -EIO && resized == 1);
+  assert(dolly_input_ring_handle(&ring, &resize, NULL, 0, &length) == -EIO && resized == 1);
   return 0;
 }
 `);
     const run = promisify(execFile);
-    await run("cc", ["-std=c11", "-I", includeDirectory, join(scratch, "probe.c"), "-o", join(scratch, "probe")]);
+    await run("cc", ["-std=c11", "-I", includeDirectory, "-I", display, join(scratch, "probe.c"),
+      join(display, "input-ring.c"), "-o", join(scratch, "probe")]);
     await run(join(scratch, "probe"), []);
   } finally {
     await rm(scratch, { recursive: true, force: true });
