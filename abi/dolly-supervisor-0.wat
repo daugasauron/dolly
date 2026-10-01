@@ -19,6 +19,9 @@
   ;; Remaining wait from the last dispatch, or -1 for no finite timer.
   ;; This is a wakeup hint; retry dispatch to decide readiness in Wasm.
   (func $deferred_milliseconds (result f64) f64.const -1)
+  ;; 1 when a pipe changed since the last call, so deferred calls may now
+  ;; complete: retry them instead of waiting for the next service tick.
+  (func $take_wakeup (result i32) i32.const 0)
   (func $next_launch (result i32) i32.const 0)
   (func $image_address (param i32) (result i64) i64.const 0)
   (func $image_size (param i32) (result i64) i64.const 0)
@@ -58,6 +61,7 @@
   (export "dolly_process_spawn_serialized" (func $spawn_serialized))
   (export "dolly_process_dispatch" (func $dispatch))
   (export "dolly_process_deferred_milliseconds" (func $deferred_milliseconds))
+  (export "dolly_process_take_wakeup" (func $take_wakeup))
   (export "dolly_process_next_launch" (func $next_launch))
   (export "dolly_process_image_address" (func $image_address))
   (export "dolly_process_image_size" (func $image_size))

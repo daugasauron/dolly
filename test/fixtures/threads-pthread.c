@@ -15,6 +15,8 @@
 #include <dolly/runtime.h>
 #include <signal.h>
 #include <fcntl.h>
+#include <poll.h>
+#include <time.h>
 #include <sys/mman.h>
 #include <sys/wait.h>
 #include <spawn.h>
@@ -52,6 +54,15 @@ static void *spawn_child(void *unused) {
   for (int i = 0; i < 2000 && !child_signals; ++i) usleep(1000);
   assert(waitpid(child, NULL, 0) == child);
   return child_signals ? (void *)1 : NULL;
+}
+static int ping[2], pong[2];
+/* Echoes bytes until a zero, waiting in poll like an async runtime's I/O driver. */
+static void *echo(void *unused) {
+  (void)unused;
+  struct pollfd readable = {ping[0], POLLIN, 0};
+  unsigned char byte = 1;
+  while (byte && poll(&readable, 1, -1) == 1 && read(ping[0], &byte, 1) == 1) assert(write(pong[1], &byte, 1) == 1);
+  return NULL;
 }
 static void *leave_locked(void *unused) { (void)unused; assert(pthread_mutex_lock(&robust) == 0); return NULL; }
 static void *busy(void *unused) {
@@ -182,6 +193,18 @@ int main(int argc, char **argv) {
   assert(pthread_mutex_lock(&robust) == EOWNERDEAD && pthread_mutex_consistent(&robust) == 0);
   assert(pthread_mutex_unlock(&robust) == 0 && pthread_mutex_destroy(&robust) == 0);
   assert(pthread_mutexattr_destroy(&mutex_attr) == 0);
+  /* A pipe write wakes the thread blocked on it at once, not at a scheduler tick. */
+  assert(pipe(ping) == 0 && pipe(pong) == 0);
+  assert(pthread_create(&sender, NULL, echo, NULL) == 0);
+  struct timespec started, finished;
+  assert(clock_gettime(CLOCK_MONOTONIC, &started) == 0);
+  for (unsigned char byte = 100; byte; --byte) {
+    unsigned char echoed;
+    assert(write(ping[1], &byte, 1) == 1 && read(pong[0], &echoed, 1) == 1 && echoed == byte);
+  }
+  assert(clock_gettime(CLOCK_MONOTONIC, &finished) == 0);
+  assert(write(ping[1], "", 1) == 1 && pthread_join(sender, NULL) == 0);
+  assert((finished.tv_sec - started.tv_sec) * 1000 + (finished.tv_nsec - started.tv_nsec) / 1000000 < 500);
   errno = 0;
   assert(dlopen(NULL, RTLD_NOW) == NULL && errno == ENOTSUP);
   assert(dolly_process_call(DOLLY_PROCESS_FFI_CALL, NULL, 0, NULL, 0) == -ENOTSUP);
