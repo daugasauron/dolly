@@ -1,7 +1,7 @@
 DOLLY 5
 IMAGE pi-build
 
-FROM https://daugasauron.com/Dollyfile-typescript-build f3e21eb2aff5cad4143d503c6993895982b96940acaf3fb4237dfd4d38c77496
+FROM https://daugasauron.com/Dollyfile-typescript-build e0d5898b5e70cf656ba1954e414128e9b071dbb680ab1c71cab9c4d40bf5e8db
 USE https://daugasauron.com/modules/pi-build.dm 4f8f54685197663a2f98ee60f2ecdf777c749eb523bf7e453cccc616d8bb58a8
 
 ENTRY /bin/foreground -i /bin/slop

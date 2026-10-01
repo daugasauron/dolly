@@ -1,14 +1,14 @@
 DOLLY 5
 IMAGE classicube
 
-FROM https://daugasauron.com/Dollyfile-pi-runtime e4b703c57870f62f4611840119df75348bff1ac1d15d7f18c91775d85501822c
-COPY FROM https://daugasauron.com/Dollyfile-classicube-build 73adbeca7979bb24751a4b2e68f8eebb5e5a8c6eb1d5b5311fcaf62a3f30426b /usr/bin/classicube /usr/bin/classicube
-COPY FROM https://daugasauron.com/Dollyfile-classicube-build 73adbeca7979bb24751a4b2e68f8eebb5e5a8c6eb1d5b5311fcaf62a3f30426b /usr/share/classicube /home/dolly/classicube
-COPY FROM https://daugasauron.com/Dollyfile-classicube-build 73adbeca7979bb24751a4b2e68f8eebb5e5a8c6eb1d5b5311fcaf62a3f30426b /usr/share/licenses/classicube /usr/share/licenses/classicube
-COPY FROM https://daugasauron.com/Dollyfile-sdl2-build f526ad11f6a22e35205d667379de208d9fc7fb6788b87759d6c4d24903cae3e8 /usr/share/licenses/SDL2 /usr/share/licenses/SDL2
+FROM https://daugasauron.com/Dollyfile-pi-runtime a53979563219f134975390ab89bd1d471979bbbccd1c50afdcebd5101d21902b
+COPY FROM https://daugasauron.com/Dollyfile-classicube-build ecbc2531ce70f4316f46ca92f038262357fbec2643dee0d6e27a4187f5f5b586 /usr/bin/classicube /usr/bin/classicube
+COPY FROM https://daugasauron.com/Dollyfile-classicube-build ecbc2531ce70f4316f46ca92f038262357fbec2643dee0d6e27a4187f5f5b586 /usr/share/classicube /home/dolly/classicube
+COPY FROM https://daugasauron.com/Dollyfile-classicube-build ecbc2531ce70f4316f46ca92f038262357fbec2643dee0d6e27a4187f5f5b586 /usr/share/licenses/classicube /usr/share/licenses/classicube
+COPY FROM https://daugasauron.com/Dollyfile-sdl2-build a3784d005f88419332e164959236eb655dcdaca19519f4dd7bef34f46ddacacc /usr/share/licenses/SDL2 /usr/share/licenses/SDL2
 
-COPY FROM https://daugasauron.com/Dollyfile-sdl2-build f526ad11f6a22e35205d667379de208d9fc7fb6788b87759d6c4d24903cae3e8 /usr/include/SDL2 /usr/include/SDL2
-COPY FROM https://daugasauron.com/Dollyfile-sdl2-build f526ad11f6a22e35205d667379de208d9fc7fb6788b87759d6c4d24903cae3e8 /usr/lib/libSDL2.a /usr/lib/libSDL2.a
+COPY FROM https://daugasauron.com/Dollyfile-sdl2-build a3784d005f88419332e164959236eb655dcdaca19519f4dd7bef34f46ddacacc /usr/include/SDL2 /usr/include/SDL2
+COPY FROM https://daugasauron.com/Dollyfile-sdl2-build a3784d005f88419332e164959236eb655dcdaca19519f4dd7bef34f46ddacacc /usr/lib/libSDL2.a /usr/lib/libSDL2.a
 EXPORTS TOOL classicube
 EXPORTS HEADER sdl2 /usr/include/SDL2
 EXPORTS LIB SDL2 /usr/lib/libSDL2.a

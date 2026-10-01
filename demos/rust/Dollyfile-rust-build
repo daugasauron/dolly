@@ -1,7 +1,7 @@
 DOLLY 5
 IMAGE rust-build
 
-FROM https://daugasauron.com/Dollyfile-rust-sdk 44b91792f5b3b04884911851965c7c40cc1cfa56f10b4e89a0f5446a38d7572c
+FROM https://daugasauron.com/Dollyfile-rust-sdk b3f6900910058b1c58781d9cdf77ef2ee8aae7c42e3cdcaf2b814fb549a8d95c
 USE https://daugasauron.com/modules/curl.dm 1d7d9858555c829ab7c1304dab6c93e0c9d1fb51c3b901ee9172d0083383c717
 USE https://daugasauron.com/modules/patti.dm 5a6dca13cb45b761f88acd9f013bb9ad9bfabffd514d4153fe7de5b0af8435cc
 

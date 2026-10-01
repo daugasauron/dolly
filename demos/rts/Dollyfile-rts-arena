@@ -1,15 +1,15 @@
 DOLLY 5
 IMAGE rts-arena
 
-FROM https://daugasauron.com/Dollyfile-pi-runtime e4b703c57870f62f4611840119df75348bff1ac1d15d7f18c91775d85501822c
-COPY FROM https://daugasauron.com/Dollyfile-rts-build f7f74b942871fa930b2354afeccbd0c3fed0f1f6424e84ae81e5d24599d3c6bc /usr/bin/seven-kingdoms /usr/bin/seven-kingdoms
-COPY FROM https://daugasauron.com/Dollyfile-rts-build f7f74b942871fa930b2354afeccbd0c3fed0f1f6424e84ae81e5d24599d3c6bc /usr/share/7kaa /usr/share/7kaa
-COPY FROM https://daugasauron.com/Dollyfile-rts-build f7f74b942871fa930b2354afeccbd0c3fed0f1f6424e84ae81e5d24599d3c6bc /usr/src/7kaa /usr/src/7kaa
-COPY FROM https://daugasauron.com/Dollyfile-rts-build f7f74b942871fa930b2354afeccbd0c3fed0f1f6424e84ae81e5d24599d3c6bc /usr/src/dolly/rts /usr/src/dolly/rts
-COPY FROM https://daugasauron.com/Dollyfile-rts-build f7f74b942871fa930b2354afeccbd0c3fed0f1f6424e84ae81e5d24599d3c6bc /usr/include/SDL2 /usr/include/SDL2
-COPY FROM https://daugasauron.com/Dollyfile-rts-build f7f74b942871fa930b2354afeccbd0c3fed0f1f6424e84ae81e5d24599d3c6bc /usr/lib/libSDL2.a /usr/lib/libSDL2.a
-COPY FROM https://daugasauron.com/Dollyfile-rts-build f7f74b942871fa930b2354afeccbd0c3fed0f1f6424e84ae81e5d24599d3c6bc /usr/share/licenses/7kaa /usr/share/licenses/7kaa
-COPY FROM https://daugasauron.com/Dollyfile-rts-build f7f74b942871fa930b2354afeccbd0c3fed0f1f6424e84ae81e5d24599d3c6bc /usr/share/licenses/SDL2 /usr/share/licenses/SDL2
+FROM https://daugasauron.com/Dollyfile-pi-runtime a53979563219f134975390ab89bd1d471979bbbccd1c50afdcebd5101d21902b
+COPY FROM https://daugasauron.com/Dollyfile-rts-build a67fe749d3e2b752997007a61b6b19847d309b885b90fc0f259f376bc680b5c6 /usr/bin/seven-kingdoms /usr/bin/seven-kingdoms
+COPY FROM https://daugasauron.com/Dollyfile-rts-build a67fe749d3e2b752997007a61b6b19847d309b885b90fc0f259f376bc680b5c6 /usr/share/7kaa /usr/share/7kaa
+COPY FROM https://daugasauron.com/Dollyfile-rts-build a67fe749d3e2b752997007a61b6b19847d309b885b90fc0f259f376bc680b5c6 /usr/src/7kaa /usr/src/7kaa
+COPY FROM https://daugasauron.com/Dollyfile-rts-build a67fe749d3e2b752997007a61b6b19847d309b885b90fc0f259f376bc680b5c6 /usr/src/dolly/rts /usr/src/dolly/rts
+COPY FROM https://daugasauron.com/Dollyfile-rts-build a67fe749d3e2b752997007a61b6b19847d309b885b90fc0f259f376bc680b5c6 /usr/include/SDL2 /usr/include/SDL2
+COPY FROM https://daugasauron.com/Dollyfile-rts-build a67fe749d3e2b752997007a61b6b19847d309b885b90fc0f259f376bc680b5c6 /usr/lib/libSDL2.a /usr/lib/libSDL2.a
+COPY FROM https://daugasauron.com/Dollyfile-rts-build a67fe749d3e2b752997007a61b6b19847d309b885b90fc0f259f376bc680b5c6 /usr/share/licenses/7kaa /usr/share/licenses/7kaa
+COPY FROM https://daugasauron.com/Dollyfile-rts-build a67fe749d3e2b752997007a61b6b19847d309b885b90fc0f259f376bc680b5c6 /usr/share/licenses/SDL2 /usr/share/licenses/SDL2
 EXPORTS TOOL seven-kingdoms
 EXPORTS HEADER sdl2 /usr/include/SDL2
 EXPORTS LIB SDL2 /usr/lib/libSDL2.a

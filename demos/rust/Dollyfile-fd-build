@@ -1,7 +1,7 @@
 DOLLY 5
 IMAGE fd-build
 
-FROM https://daugasauron.com/Dollyfile-rust-build 1e4b8ecf7d9e89092384763b71c78391d7d388de657250c1ae2b8921d07ccb43
+FROM https://daugasauron.com/Dollyfile-rust-build 609bbba3555c23e85d7ce72c558fd1997f088eed89b23f5d404c988691ef589f
 USE https://daugasauron.com/modules/fd.dm 4a89fb8907657d15d7ef7e6d59a89616b2b51ccde5748273c189318e068f398e
 
 ENTRY /bin/foreground -i /bin/slop
