@@ -20,3 +20,12 @@ listed as applications; they read as build images.
 - A v6 specification with the reasoning for each construct, implemented in the
   engine and tools, every recipe migrated, docs rewritten, and the catalog
   rebuilt with all suites passing.
+
+## Owner additions (2026-10-01, 21:50)
+
+- amy: `amy install <name>` pulls a package (e.g. a model's weights) from its
+  image into a running session; v6 must make that a thin front end over the
+  engine (`20261001-001000-packages`).
+- An organized catalog: explicit image roles (application / build-toolchain /
+  package), a consistent naming scheme for build and package images, grouped
+  presentation, and no role guessing from name suffixes.
