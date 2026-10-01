@@ -13,3 +13,13 @@ Ctrl+C, so it tests the loop, not the startup race.
 
 Done when: an interrupted startup exits through `dolly_exit_signal(SIGINT)` (status
 130), shown by a test that presses Ctrl+C before the context exists.
+
+## Progress (2026-10-01)
+
+`quickjs-main.c` now calls `dolly_exit_signal(SIGINT)` when context setup fails
+after an interrupt (status 130 instead of "could not create context", 1).
+Not yet tested: pressing Ctrl+C right after submitting `qjs` is racy under
+ISIG. While Slop is still launching the command, the interrupt targets the
+shell, not the not-yet-running child, and `__dolly.foregroundPid` stays the
+interactive shell's pid while it runs `qjs`, so the test cannot wait for the
+child. A deterministic test needs a way to observe the running child.

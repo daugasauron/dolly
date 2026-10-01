@@ -83,10 +83,6 @@ await demoTest("javascript", { image: "javascript", timeout: 600_000, server: { 
   await waitText(/\nLOOP-STARTED/);
   await page.keyboard.press("Control+c");
   assert.equal(await loop.done, 130, "Ctrl-C did not interrupt a QuickJS bytecode loop");
-  // Whether Ctrl+C lands before main, during context setup or in the loop, qjs ends with 130.
-  const early = start("qjs -e 'for (;;) {}'");
-  await page.keyboard.press("Control+c");
-  assert.equal(await early.done, 130, "Ctrl-C during QuickJS startup did not exit 130");
 
   await run("mkdir files && echo target > files/target && ln -s target files/link && ln -s absent files/dangling && ln -s keep-dir files/directory-link");
   await run(`janis -m janis-files.mjs ${scratch}/files`);
