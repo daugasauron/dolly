@@ -8,6 +8,7 @@ README. Demos may use each other; the core never uses a demo.
 - [classicube](classicube/README.md): ClassiCube block world with Pi agents.
 - [cmake](cmake/README.md): CMake and libuv, a base for C/C++ ports.
 - [codex](codex/README.md): the Codex CLI built from Rust source inside Dolly.
+- [emacs](emacs/README.md): GNU Emacs for the terminal, as a package and an application.
 - [game-agent](game-agent/README.md): agent code and the Codex relay shared by the games.
 - [gpu-fluid](gpu-fluid/README.md): an upstream WebGPU fluid solver.
 - [javascript](javascript/README.md): QuickJS-ng, Janis and TypeScript.

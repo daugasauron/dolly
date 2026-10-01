@@ -96,8 +96,10 @@ export function worker({ send, applicationBase, abi, service }) {
   };
 }
 
+// /dev/tty is the terminal itself: the kernel reads its input, writes render.
 export function installOutputDevices(dolly) {
-  for (const [path, number] of [["/dev/dolly-stdout", 1], ["/dev/dolly-stderr", 2]]) {
+  for (const [path, number, mode] of [["/dev/dolly-stdout", 1, 0o222], ["/dev/dolly-stderr", 2, 0o222],
+    ["/dev/tty", 3, 0o666]]) {
     const device = dolly.FS.makedev(80, number);
     dolly.FS.registerDevice(device, {
       read() { return 0; },
@@ -109,6 +111,6 @@ export function installOutputDevices(dolly) {
         return length;
       },
     });
-    dolly.FS.mkdev(path, 0o222, device);
+    dolly.FS.mkdev(path, mode, device);
   }
 }

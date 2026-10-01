@@ -279,6 +279,12 @@ static int initialize_boot_environment(void) {
             strerror(errno));
     return 1;
   }
+  // Emscripten's defaults name a user no passwd lookup knows ("web_user").
+  // Dolly has no user database, so programs find HOME instead.
+  if (unsetenv("USER") != 0 || unsetenv("LOGNAME") != 0 || unsetenv("_") != 0) {
+    fprintf(stderr, "dolly: user environment initialization failed: %s\n", strerror(errno));
+    return 1;
+  }
   return 0;
 }
 
