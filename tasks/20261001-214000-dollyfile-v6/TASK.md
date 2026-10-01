@@ -229,6 +229,60 @@ version stays 6.
   image's list, boot fails when the embedding lacks a module, and the loader
   refuses an executable stamped with an undeclared module.
 
+## Phase 3 implementation
+
+- Catalog: 47 images, no modules. Packages: `zlib`, `curl`, `gzip`,
+  `display` (core), `javascript`, `python`, `ripgrep`, `fd`, `protox`,
+  `pi-coding-agent`, `nvim` (demos). `Dollyfile-system-build` holds the
+  bootstrap, Slop, the core tools, tar, Make and libc++ (2,024 lines, mostly
+  the inline C sources it always carried); `Dollyfile-system-tools` holds
+  sbase, download, upload, ninja, git, awk, agent-tools and `/bin/sh` and
+  installs zlib, gzip, curl and display. Nothing in a folded module depended
+  on its caller beyond the toolchain the recipe now names with `FROM`.
+- Pruned: every `REQUIRES TOOL slop` (the language defines it) and, within a
+  recipe, assertions, exports and retention lines repeated by several folded
+  blocks (kept once). Nothing else.
+- Host requirements, explicit per image: each recipe lists today's effective
+  (inherited) set plus what its retained executables stamp. The engine
+  `/bin/dollyfile` stamps `http@0` and every base retains it for FROM builds,
+  so every image declares `http@0`; `download@0`/`upload@0` arrive with
+  `system-tools`. Differences from the inherited sets: `system-build`,
+  `zig-build`, `ghostty-build`, `rust-sdk`, `codex-build` +`http@0`;
+  `system-tools` +`download@0`, `http@0`, `upload@0`; the toolchains built
+  on `system-tools` (`cmake-build`, `classicube-build`, `rts-build`,
+  `sdl2-build`, `llama-build`, `neovim-build`, `openal-build`, `pi-build`,
+  `typescript-build`, `llvm-tablegen`) +`download@0`, `http@0`, `upload@0`;
+  `local-llm-build` also +`gpu@0` (it retains `dolly-llama`); `rust-build`
+  and `llvm-tablegen` +`http@0` for the packages they install. Packages:
+  `curl`, `javascript`, `python`, `ripgrep`, `fd`, `protox`,
+  `pi-coding-agent` declare what their programs stamp; `display` declares
+  `display@0`; `zlib`, `gzip`, `nvim` nothing. No application changed.
+  `snapshot@0` and `display@0` are never stamped (the plugin and the kernel
+  provide them), which is why declaration, not derivation, is the rule.
+- Engine: 1,920 lines before, 2,000 after: the module nesting, scopes and
+  receipt records went, and `RUN`, the package host check and the wasm
+  section walker that checks `dolly.host` records at seal came.
+
+### Migrating a DOLLY 5 or Phase 2 branch to Phase 3
+
+1. `DOLLY 5` to `DOLLY 6`; `IMAGE name` to `APPLICATION`, `TOOLCHAIN` or
+   `PACKAGE name`; `COPY FROM` to `COPY`.
+2. `USE module.dm SHA`: paste the module's rows (after its `MODULE` line) in
+   place, or `INSTALL` the package it became: `curl`, `zlib`, `gzip`,
+   `display`, `pi` (`pi-coding-agent`), `neovim-runtime` (`nvim`);
+   `search-tools` is `INSTALL ripgrep` and `INSTALL fd`. An edit to a `.dm`
+   on the branch applies to the recipe that absorbed it (the task's
+   implementation notes list them).
+3. `COMPILEC SRC OUT` to `RUN /usr/libexec/dolly/process-bin/compiler
+   --dolly-toolchain-mode=c -O1 SRC -o OUT`.
+4. Drop `REQUIRES TOOL slop`; keep other assertions and exports once per recipe.
+5. `REQUIRES HOST` lines move after the role line and list the image's complete
+   set: the old inherited set, what its retained executables stamp (every
+   image: `http@0`; from `system-tools` on: `download@0`, `upload@0`), and
+   every installed package's lines. A `PACKAGE` declares only what its own
+   programs need.
+6. `node scripts/update-recipe-pins.mjs --sources`, then `npm run lint:dollyfiles`.
+
 ## Implementation (Phase 2, branch `work/dollyfile-v6`)
 
 - Engine ([`src/dollyfile.c`](../../src/dollyfile.c)): role kinds, `INSTALL`,
