@@ -18,7 +18,8 @@ export async function runBrowserBoundaryChecks(assetRoot) {
   const asset = path => new URL(path, assetRoot).href;
   const { instantiateKernelPlugin } = await import(asset("src/kernel-plugin.mjs"));
   const { NetworkTransport } = await import(asset("host/http/broker.mjs"));
-  const { DOLLY_HTTP_MAILBOX_VERSION, DOLLY_HTTP_SLOT_COUNT } = await import(asset("host/http/abi.mjs"));
+  const { DOLLY_HTTP_MAILBOX_VERSION, DOLLY_HTTP_SLOT_COUNT, DOLLY_HTTP_WORD_ERROR, DOLLY_HTTP_WORD_KIND, DOLLY_HTTP_WORD_LENGTH, DOLLY_HTTP_WORD_SEQUENCE } =
+    await import(asset("host/http/abi.mjs"));
   const { DollyHttpPolicy, restrictDollyHttpPolicy, httpPolicyConfigurations } = await import(asset("host/http/policy.mjs"));
   const { DOLLY_KERNEL_PLUGIN_ABI_DIGEST } = await import(asset("dist/dolly-kernel-plugin-abi.mjs"));
   const { DOLLY_ERRNO: errno } = await import(asset("dist/dolly-errno.mjs"));
@@ -66,14 +67,14 @@ export async function runBrowserBoundaryChecks(assetRoot) {
   };
   const begin = (generation, path) => {
     const sequence = handle(generation);
-    Atomics.store(words, word + NetworkTransport.sequence, sequence);
+    Atomics.store(words, word + DOLLY_HTTP_WORD_SEQUENCE, sequence);
     Atomics.store(words, word, 1);
     return broker.request({ method: "GET", url: new URL(path, fixtureOrigin).href,
       headers: "", body: null, flags: 0, sequence });
   };
   await begin(1, "/not-allowed");
   check(calls === 0, "denied request reached fetch");
-  check(Atomics.load(words, word + NetworkTransport.error) === errno.EACCES,
+  check(Atomics.load(words, word + DOLLY_HTTP_WORD_ERROR) === errno.EACCES,
     "policy denial lost its errno");
   const waiting = begin(2, "/fixture/http.txt");
   let timer;
@@ -86,22 +87,22 @@ export async function runBrowserBoundaryChecks(assetRoot) {
   check(calls === 1 && signal.aborted, "HTTP timeout did not release its request");
   check(!broker.active, "HTTP slot remains active");
   check(Atomics.load(words, word) === 3, "missing terminal failure state");
-  check(Atomics.load(words, word + NetworkTransport.error) === errno.ETIMEDOUT,
+  check(Atomics.load(words, word + DOLLY_HTTP_WORD_ERROR) === errno.ETIMEDOUT,
     "deadline lost its errno");
   broker.policy.maxRequests = 2;
   await begin(3, "/fixture/http.txt");
-  check(calls === 1 && Atomics.load(words, word + NetworkTransport.error) === errno.EDQUOT,
+  check(calls === 1 && Atomics.load(words, word + DOLLY_HTTP_WORD_ERROR) === errno.EDQUOT,
     "quota exhaustion was not distinguished before Fetch");
   const appBase = "https://app.dolly.invalid/", remote = () => new DollyHttpPolicy(undefined, [], appBase);
   broker.policy = remote();
   await begin(4, "http://127.0.0.1:1/"); // Browsers reject this unsafe port opaquely.
-  check(Atomics.load(words, word + NetworkTransport.error) === errno.EIO,
+  check(Atomics.load(words, word + DOLLY_HTTP_WORD_ERROR) === errno.EIO,
     "native Fetch failure lost its transport errno");
   const cancelled = begin(5, "/fixture/http.txt");
   await broker.dispatch({ sequence: handle(5), method: 0n, methodSize: 0n, url: 0n, urlSize: 0n,
     headers: 0n, headersSize: 0n, body: 0n, bodySize: 0n, flags: 0 });
   await cancelled;
-  check(Atomics.load(words, word + NetworkTransport.error) === errno.ECANCELED,
+  check(Atomics.load(words, word + DOLLY_HTTP_WORD_ERROR) === errno.ECANCELED,
     "interruption lost its cancellation errno");
   await checkAdmissionQueue(broker, errno, asset("host/http/broker.mjs"));
   const observations = [];
@@ -126,12 +127,12 @@ export async function runBrowserBoundaryChecks(assetRoot) {
       request[name] = BigInt(offset); request[`${name}Size`] = BigInt(data.length);
       bytes.set(data, offset); offset += data.length;
     }
-    Atomics.store(words, word + NetworkTransport.sequence, handle(6));
+    Atomics.store(words, word + DOLLY_HTTP_WORD_SEQUENCE, handle(6));
     Atomics.store(words, word, 1);
     check(await broker.dispatch(request) === 0, "literal metadata admission failed");
     await settled();
     check(observations.length === (valid ? 1 : 0), `metadata was rewritten before Fetch: ${JSON.stringify(fields)}`);
-    check(Atomics.load(words, word + NetworkTransport.error) ===
+    check(Atomics.load(words, word + DOLLY_HTTP_WORD_ERROR) ===
       (valid ? errno.EIO : errno.EINVAL), "literal metadata lost its errno");
   }
   check(observations[0] === "\u00A0value\u00A0", "Unicode header whitespace was stripped");
@@ -151,14 +152,14 @@ export async function runBrowserBoundaryChecks(assetRoot) {
   ]) {
     const before = (await observed()).length, chunks = [];
     broker.policy = policy;
-    Atomics.store(words, word + NetworkTransport.sequence, handle(++sequence));
+    Atomics.store(words, word + DOLLY_HTTP_WORD_SEQUENCE, handle(++sequence));
     Atomics.store(words, word, 1);
     const request = broker.request({ method: "POST", url: `${fixtureOrigin}/fixture/http-redirect?status=${status}`,
       headers: "Authorization: Bearer sandbox-fixture\r\nX-API-Key: sandbox-fixture", body: new TextEncoder().encode("sandbox-body"), flags, sequence: handle(sequence) });
     const drain = setInterval(() => {
       if (Atomics.load(words, word) !== 2) return;
-      const length = Atomics.load(words, word + NetworkTransport.length);
-      if (Atomics.load(words, word + NetworkTransport.kind) === 3) {
+      const length = Atomics.load(words, word + DOLLY_HTTP_WORD_LENGTH);
+      if (Atomics.load(words, word + DOLLY_HTTP_WORD_KIND) === 3) {
         chunks.push(new TextDecoder().decode(broker.bytes.slice(broker.address + 64, broker.address + 64 + length)));
       }
       Atomics.compareExchange(words, word, 2, 1);
@@ -174,7 +175,7 @@ export async function runBrowserBoundaryChecks(assetRoot) {
       check(result.body === (status === 302 ? "" : "sandbox-body"), "redirect body changed incorrectly");
       check(result.authorization === null && result.apiKey === "sandbox-fixture", "cross-origin credential handling changed");
       check(result.cookie === null && result.referer === null, "redirect leaked ambient browser state");
-    } else check(Atomics.load(words, word + NetworkTransport.error) === errno.EIO, "redirect rejection lost its error");
+    } else check(Atomics.load(words, word + DOLLY_HTTP_WORD_ERROR) === errno.EIO, "redirect rejection lost its error");
   }
   return { assetRoot, imports: names(kernel).length, pluginRejections: 3, policyDeniedBeforeFetch: true,
     nonConsumingDeadline: true, boundedAdmission: true, typedErrors: true, literalMetadata: true, defaultRedirects: true };
