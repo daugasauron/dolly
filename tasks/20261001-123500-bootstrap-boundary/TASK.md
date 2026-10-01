@@ -37,3 +37,9 @@ else modular.
 
 - A decision memo with measurements, then: Slop (and whatever else need not
   be in the seed) is built by recipes; the seed lists only what must bootstrap.
+
+## Owner proposal (2026-10-01)
+
+A `COMPILEC` step that runs the seed compiler directly, as `bootstrap.c`'s
+`compile_source()` does today, so `modules/slop.dm` can compile Slop before
+any `SLOP` step. Leading design, prototyped against a general argv-only `RUN`.
