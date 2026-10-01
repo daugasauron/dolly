@@ -1,12 +1,13 @@
-import {createAssistantMessageEventStream} from '@earendil-works/pi-ai';
+import {createAssistantMessageEventStream,getCurrentSystemPrompt,getCurrentTools} from '@earendil-works/pi-ai';
 import {LocalLlama} from '/usr/lib/dolly-llm/client.mjs';
 import {models} from '/usr/lib/dolly-llm/model.mjs';
 import {qwenRequest,qwenToolCalls} from '/usr/lib/dolly-llm/qwen.mjs';
 
 function conversation(context) {
-  const messages=[];
-  if(context.systemPrompt)messages.push({role:'system',content:context.systemPrompt});
+  const messages=[],systemPrompt=getCurrentSystemPrompt(context.messages);
+  if(systemPrompt)messages.push({role:'system',content:systemPrompt});
   for(const message of context.messages) {
+    if(message.role==='system')continue;
     const text=typeof message.content==='string'?message.content:message.content.filter(c=>c.type==='text').map(c=>c.text).join('\n');
     if(message.role==='toolResult')messages.push({role:'tool',content:text,tool_call_id:message.toolCallId});
     else {
@@ -32,7 +33,7 @@ export default function(pi) {
         stopReason:'pending',usage:{input:0,output:0,cacheRead:0,cacheWrite:0,totalTokens:0,cost:{input:0,output:0,cacheRead:0,cacheWrite:0,total:0}}};
       void (async()=>{
         try {
-          const tools=(context.tools??[]).map(t=>({type:'function',function:{name:t.name,description:t.description,parameters:t.parameters}}));
+          const tools=getCurrentTools(context.messages).map(t=>({type:'function',function:{name:t.name,description:t.description,parameters:t.parameters}}));
           const request=qwenRequest({model:model.id,messages:conversation(context),tools,max_tokens:options.maxTokens??2048,temperature:options.temperature??0.2});
           const prompt=request.messages.map(m=>`<|im_start|>${m.role}\n${m.content}<|im_end|>\n`).join('')+'<|im_start|>assistant\n<think>\n\n</think>\n\n';
           stream.push({type:'start',partial:output});

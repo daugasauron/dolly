@@ -1,7 +1,7 @@
 DOLLY 5
 MODULE pi-build
 
-# Pi 0.84.4 is compiled from its pinned upstream TypeScript workspace inside
+# Pi 0.99.2 is compiled from its pinned upstream TypeScript workspace inside
 # Dolly. Only generated model data and the finite locked external dependency
 # graph come from the matching published packages.
 REQUIRES HEADER libc
@@ -19,11 +19,11 @@ REQUIRES TOOL   rm
 REQUIRES TOOL   tar
 REQUIRES TOOL   tsc
 
-SOURCE https://daugasauron.com/dist/static/default/pi-source.tar                        c7e82ac2efc5714a7ea229a2ca42f05d584364af9769c0ac33d8a64ee603912f /tmp/pi/pi-source.tar
-SOURCE https://daugasauron.com/dist/static/default/pi-generated-model-data.tar          46d06b81f8ca1396981dc30c709aff2c702d83ca0d89ac0db5ebc95767ed22a6 /tmp/pi/pi-generated-model-data.tar
-SOURCE https://daugasauron.com/dist/static/default/pi-runtime-packages.tar              e395b7d88cbcc3afa020437507b309cc37a6f0b0645e038842a304a6aa6d2998 /tmp/pi/pi-runtime-packages.tar
+SOURCE https://daugasauron.com/dist/static/default/pi-source.tar                        71575a6203096de7481b5f1d15627441a371d80137c7aa798d32d9ed56e63a45 /tmp/pi/pi-source.tar
+SOURCE https://daugasauron.com/dist/static/default/pi-generated-model-data.tar          5a02f96fd0b2df9ae25f6b483015f920822b0534e8cee3db2a6cc3175bb8f64f /tmp/pi/pi-generated-model-data.tar
+SOURCE https://daugasauron.com/dist/static/default/pi-runtime-packages.tar              ba11410776e38184c8ee7397e2a7d16536dec537dacc15a020d579dd05f6a10f /tmp/pi/pi-runtime-packages.tar
 SOURCE https://daugasauron.com/dist/static/default/pi-tsconfig.dolly.json               5b810ca0942889c635e7675a2945578d6d02d1be6dba98bb860269882d2ea825 /tmp/pi/tsconfig.dolly.json
-SOURCE https://daugasauron.com/dist/static/default/pi-quickjs-compat.mjs                c6ec3dbec10ba7bab56b94292292d493bc730d34171d904a4a972a150a991f49 /tmp/pi/quickjs-compat.mjs
+SOURCE https://daugasauron.com/dist/static/default/pi-quickjs-compat.mjs                3b0ebd7fe833e6a8067d84cd55fa8d31dc13f049467d5bd4ae64b4e8f38b0ccb /tmp/pi/quickjs-compat.mjs
 SOURCE https://daugasauron.com/dist/static/default/commands/pi.c                        2296ec09e6b95b0d0dd065f806138e48eaad855d77d6366adfdfc33d720da98e /tmp/pi/pi.c
 
 SLOP tar \
@@ -36,21 +36,23 @@ SLOP tar \
   -xf /tmp/pi/pi-runtime-packages.tar \
   -C /
 
+SLOP cp /tmp/pi/tsconfig.dolly.json /usr/src/pi-source/packages/chord/tsconfig.dolly.json
 SLOP cp /tmp/pi/tsconfig.dolly.json /usr/src/pi-source/packages/telemetry/tsconfig.dolly.json
 SLOP cp /tmp/pi/tsconfig.dolly.json /usr/src/pi-source/packages/ai/tsconfig.dolly.json
 SLOP cp /tmp/pi/tsconfig.dolly.json /usr/src/pi-source/packages/agent/tsconfig.dolly.json
-SLOP cp /tmp/pi/tsconfig.dolly.json /usr/src/pi-source/packages/protocol/tsconfig.dolly.json
-SLOP cp /tmp/pi/tsconfig.dolly.json /usr/src/pi-source/packages/client/tsconfig.dolly.json
+SLOP cp /tmp/pi/tsconfig.dolly.json /usr/src/pi-source/packages/codemode/tsconfig.dolly.json
+SLOP cp /tmp/pi/tsconfig.dolly.json /usr/src/pi-source/packages/mcp/tsconfig.dolly.json
 SLOP cp /tmp/pi/tsconfig.dolly.json /usr/src/pi-source/packages/tui/tsconfig.dolly.json
 SLOP cp /tmp/pi/tsconfig.dolly.json /usr/src/pi-source/packages/coding-agent/tsconfig.dolly.json
 
 # Execution is intentionally sequential: each workspace sees only output from
 # earlier rows and no hidden host-side parallel build exists.
+SLOP CWD /usr/src/pi-source/packages/chord tsc -p tsconfig.dolly.json --pretty false
 SLOP CWD /usr/src/pi-source/packages/telemetry tsc -p tsconfig.dolly.json --pretty false
 SLOP CWD /usr/src/pi-source/packages/ai tsc -p tsconfig.dolly.json --pretty false
 SLOP CWD /usr/src/pi-source/packages/agent tsc -p tsconfig.dolly.json --pretty false
-SLOP CWD /usr/src/pi-source/packages/protocol tsc -p tsconfig.dolly.json --pretty false
-SLOP CWD /usr/src/pi-source/packages/client tsc -p tsconfig.dolly.json --pretty false
+SLOP CWD /usr/src/pi-source/packages/codemode tsc -p tsconfig.dolly.json --pretty false
+SLOP CWD /usr/src/pi-source/packages/mcp tsc -p tsconfig.dolly.json --pretty false
 SLOP CWD /usr/src/pi-source/packages/tui tsc -p tsconfig.dolly.json --pretty false
 SLOP janis -m /tmp/pi/quickjs-compat.mjs /usr/src/pi-source/packages/tui/dist-dolly/utils.js
 SLOP CWD /usr/src/pi-source/packages/coding-agent tsc -p tsconfig.dolly.json --pretty false
@@ -64,17 +66,19 @@ SLOP cp /usr/src/pi-source/packages/coding-agent/src/modes/interactive/assets/cl
 
 # Publish target-emitted workspaces at the conventional Janis package root.
 # Move, not copy: the emitted output ships once, beside its package manifest.
-SLOP mkdir -p /usr/lib/node_modules/@earendil-works/pi-telemetry /usr/lib/node_modules/@earendil-works/pi-ai /usr/lib/node_modules/@earendil-works/pi-agent-core /usr/lib/node_modules/@earendil-works/pi-protocol /usr/lib/node_modules/@earendil-works/pi-client /usr/lib/node_modules/@earendil-works/pi-tui /usr/lib/node_modules/@earendil-works/pi-coding-agent
+SLOP mkdir -p /usr/lib/node_modules/@earendil-works/chord /usr/lib/node_modules/@earendil-works/pi-telemetry /usr/lib/node_modules/@earendil-works/pi-ai /usr/lib/node_modules/@earendil-works/pi-agent-core /usr/lib/node_modules/@earendil-works/pi-codemode /usr/lib/node_modules/@earendil-works/pi-mcp /usr/lib/node_modules/@earendil-works/pi-tui /usr/lib/node_modules/@earendil-works/pi-coding-agent
+SLOP cp /usr/src/pi-source/packages/chord/package.json /usr/lib/node_modules/@earendil-works/chord/package.json
+SLOP mv /usr/src/pi-source/packages/chord/dist-dolly /usr/lib/node_modules/@earendil-works/chord/dist
 SLOP cp /usr/src/pi-source/packages/telemetry/package.json /usr/lib/node_modules/@earendil-works/pi-telemetry/package.json
 SLOP mv /usr/src/pi-source/packages/telemetry/dist-dolly /usr/lib/node_modules/@earendil-works/pi-telemetry/dist
 SLOP cp /usr/src/pi-source/packages/ai/package.json /usr/lib/node_modules/@earendil-works/pi-ai/package.json
 SLOP mv /usr/src/pi-source/packages/ai/dist-dolly /usr/lib/node_modules/@earendil-works/pi-ai/dist
 SLOP cp /usr/src/pi-source/packages/agent/package.json /usr/lib/node_modules/@earendil-works/pi-agent-core/package.json
 SLOP mv /usr/src/pi-source/packages/agent/dist-dolly /usr/lib/node_modules/@earendil-works/pi-agent-core/dist
-SLOP cp /usr/src/pi-source/packages/protocol/package.json /usr/lib/node_modules/@earendil-works/pi-protocol/package.json
-SLOP mv /usr/src/pi-source/packages/protocol/dist-dolly /usr/lib/node_modules/@earendil-works/pi-protocol/dist
-SLOP cp /usr/src/pi-source/packages/client/package.json /usr/lib/node_modules/@earendil-works/pi-client/package.json
-SLOP mv /usr/src/pi-source/packages/client/dist-dolly /usr/lib/node_modules/@earendil-works/pi-client/dist
+SLOP cp /usr/src/pi-source/packages/codemode/package.json /usr/lib/node_modules/@earendil-works/pi-codemode/package.json
+SLOP mv /usr/src/pi-source/packages/codemode/dist-dolly /usr/lib/node_modules/@earendil-works/pi-codemode/dist
+SLOP cp /usr/src/pi-source/packages/mcp/package.json /usr/lib/node_modules/@earendil-works/pi-mcp/package.json
+SLOP mv /usr/src/pi-source/packages/mcp/dist-dolly /usr/lib/node_modules/@earendil-works/pi-mcp/dist
 SLOP cp /usr/src/pi-source/packages/tui/package.json /usr/lib/node_modules/@earendil-works/pi-tui/package.json
 SLOP mv /usr/src/pi-source/packages/tui/dist-dolly /usr/lib/node_modules/@earendil-works/pi-tui/dist
 SLOP cp /usr/src/pi-source/packages/coding-agent/package.json /usr/lib/node_modules/@earendil-works/pi-coding-agent/package.json
@@ -100,7 +104,7 @@ SLOP pi \
 
 FOLDER /usr/lib/node_modules
 FOLDER /usr/src/pi-source
-FILE /usr/share/licenses/pi-source/LICENSE
+FOLDER /usr/share/licenses/pi-source
 
 SLOP rm \
   -rf \

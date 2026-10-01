@@ -3,7 +3,7 @@ IMAGE typescript-build
 
 FROM https://daugasauron.com/Dollyfile-system-tools 46d753ab5207fbbbaf3bf2578e70bdbf3ab311a5f30b786311796be52426dbd3
 
-USE https://daugasauron.com/demos/javascript/quickjs.dm afd07271b390e463a7d717c90c7df1ad8177d65310b546f433af78544399fc0f
+USE https://daugasauron.com/demos/javascript/quickjs.dm 7ba2c63a136b8c37d1981f88d32e5db814d966faaf9672ce2e4a873669477407
 USE https://daugasauron.com/demos/javascript/typescript.dm 0e9f793930a483d187b248d271adc8bfbf15bd5d5c684491b0870595a16019f8
 
 ENTRY /bin/foreground -i /bin/slop

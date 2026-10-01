@@ -42,11 +42,12 @@ test("Pi is compiled from pinned source after an in-sandbox TypeScript layer", a
     pi.slops.filter(({ command }) => command[0] === "tsc")
       .map(({ cwd }) => cwd),
     [
+      "/usr/src/pi-source/packages/chord",
       "/usr/src/pi-source/packages/telemetry",
       "/usr/src/pi-source/packages/ai",
       "/usr/src/pi-source/packages/agent",
-      "/usr/src/pi-source/packages/protocol",
-      "/usr/src/pi-source/packages/client",
+      "/usr/src/pi-source/packages/codemode",
+      "/usr/src/pi-source/packages/mcp",
       "/usr/src/pi-source/packages/tui",
       "/usr/src/pi-source/packages/coding-agent",
     ],
@@ -59,7 +60,7 @@ test("Pi is compiled from pinned source after an in-sandbox TypeScript layer", a
   assert.ok(pi.requirements.some(({ type, name }) => type === "HEADER" && name === "libc"));
   assert.deepEqual(pi.requirements.filter(({ type }) => type === "HEADER").map(({ name }) => name),
     ["libc", "quickjs-runner"]);
-  assert.ok(pi.files.some(({ path }) => path === "/usr/share/licenses/pi-source/LICENSE"));
+  assert.ok(pi.folders.some(({ path }) => path === "/usr/share/licenses/pi-source"));
   const runtime = graph.modules.find(({ name }) => name === "pi");
   assert.ok(runtime.exports.some(({ type, name, details }) =>
     type === "ENV" && name === "PI_SKIP_VERSION_CHECK" && details[0] === "1"));

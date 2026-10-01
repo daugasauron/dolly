@@ -19,10 +19,8 @@ DOLLY_QUICKJS_VERSION=0.15.0
 DOLLY_QUICKJS_COMMIT=433941b99fb3c5e7f98b7ebd78727972bcf467ee
 DOLLY_QUICKJS_URL='https://github.com/quickjs-ng/quickjs.git'
 
-DOLLY_PI_VERSION=0.84.4
-DOLLY_PI_URL='https://registry.npmjs.org/@earendil-works/pi-coding-agent/-/pi-coding-agent-0.84.4.tgz'
-DOLLY_PI_SHA256=5bce766d19c3ceba18f3fbaad91c449c9f9d73981f9e3400ecef932006f06968
-DOLLY_PI_SOURCE_COMMIT=b79e4cc834970cca69daebffab7df1da7d1e52c4
+# Pi v0.99.2; package-lock.json pins the matching published npm packages.
+DOLLY_PI_SOURCE_COMMIT=005af57d88ee23b33778f343a9595b32e67ff788
 DOLLY_PI_SOURCE_URL='https://github.com/earendil-works/pi.git'
 
 DOLLY_TYPESCRIPT_VERSION=5.9.3

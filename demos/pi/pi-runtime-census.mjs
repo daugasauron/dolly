@@ -8,10 +8,6 @@ const manifestPath = resolve(projectDir, "demos/pi/pi-runtime-packages.txt");
 const outputPath = resolve(projectDir, "build/pi-runtime-census.md");
 const lock = JSON.parse(await readFile(resolve(projectDir, "package-lock.json"), "utf8"));
 const lockPrefix = "node_modules/@earendil-works/pi-coding-agent/node_modules/";
-const packageRootPrefix = resolve(
-  projectDir,
-  lockPrefix,
-);
 const names = (await readFile(manifestPath, "utf8"))
   .split(/\r?\n/)
   .map((line) => line.replace(/#.*$/, "").trim())
@@ -92,11 +88,22 @@ function licenseExpression(manifest) {
   return "UNDECLARED";
 }
 
+// Pi's shrinkwrap may nest a package below the workspace that uses it.
+function lockedRoot(name) {
+  const direct = `${lockPrefix}${name}`;
+  if (lock.packages?.[direct]) return direct;
+  const nested = Object.keys(lock.packages ?? {}).filter((path) =>
+    path.startsWith(lockPrefix) && path.endsWith(`/node_modules/${name}`));
+  if (nested.length !== 1) throw new Error(`Pi runtime package is not unique in package-lock.json: ${name}`);
+  return nested[0];
+}
+
 const records = [];
 for (const name of names) {
-  const root = resolve(packageRootPrefix, name);
+  const lockRoot = lockedRoot(name);
+  const root = resolve(projectDir, lockRoot);
   const manifest = JSON.parse(await readFile(resolve(root, "package.json"), "utf8"));
-  const locked = lock.packages?.[`${lockPrefix}${name}`];
+  const locked = lock.packages[lockRoot];
   if (!locked || locked.version !== manifest.version ||
       typeof locked.integrity !== "string") {
     throw new Error(`Pi runtime package is not exact in package-lock.json: ${name}`);
@@ -153,7 +160,7 @@ const report = `# Pi runtime package census
 This report describes the explicit external package profile archived for the
 source-built Pi command. The package names are source-visible in
 \`demos/pi/pi-runtime-packages.txt\`; versions and integrity records come from
-\`package-lock.json\`. Pi's seven workspace packages are compiled inside Dolly
+\`package-lock.json\`. Pi's workspace packages are compiled inside Dolly
 from the separately pinned Git tree and are not part of this archive.
 
 - external packages: ${number(records.length)}

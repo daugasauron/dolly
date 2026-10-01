@@ -46,6 +46,7 @@ await check("file URLs preserve special characters and Unicode", () => {
     equal(fs.readFileSync(fileURLToPath(pathToFileURL(path)), "utf8"), `module.exports = ${JSON.stringify(name)};`);
     equal(require(`./${name}.cjs`), name);
   }
+  equal(createRequire(pathToFileURL(`${root}/entry.cjs`).href)("./a b.cjs"), "a b");
 });
 await check("missing opens fail and exclusive creation does not truncate", () => {
   rejects(() => fs.openSync(`${root}/absent`, "r"), "ENOENT");
