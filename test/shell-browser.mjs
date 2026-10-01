@@ -120,7 +120,7 @@ await browserTest("shell", { server: { handle } }, async ({ server, open }) => {
 
   // Ctrl-C stops an uncooperative CPU loop; the shell and its files survive.
   const looping = submit("./loop");
-  await page.waitForFunction(() => __dolly.transport.foregroundInterruptible());
+  await page.waitForFunction(() => __dolly.terminal.foregroundInterruptible());
   await page.locator("#keyboard").focus();
   await page.keyboard.press("Control+c");
   assert.equal(await looping, 130);

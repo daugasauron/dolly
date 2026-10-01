@@ -47,7 +47,7 @@ select no JavaScript or Worker URL.
 
 | Module | Channel | Authority | Code |
 | --- | --- | --- | --- |
-| `runtime@0` | memory, clocks, entropy, environment, seed preload, text output | Kernel memory and boot inputs; process Workers | [`host/runtime/`](../host/runtime/module.json) ([`process-supervisor.mjs`](../src/process-supervisor.mjs)) |
+| `runtime@0` | memory, clocks, entropy, environment, seed preload, text output, terminal mailbox | Kernel memory and boot inputs; process Workers; report foreground and results, receive Ctrl+C | [`host/runtime/`](../host/runtime/module.json) ([`process-supervisor.mjs`](../src/process-supervisor.mjs)) |
 | `http@0` | `env.dolly_http_dispatch`, 16-slot pool | The only agent-selected network edge, under the page's policy | [`host/http/`](../host/http/module.json) |
 | `download@0` | `env.dolly_download_dispatch` | Offer one copied file (64 MiB) under a checked basename; saved only by a user click; at most 4 waiting | [`host/download/`](../host/download/module.json) |
 | `upload@0` | mailbox | Ask for a file; the user picks it; 64 MiB of bytes, no name or path; refused for 2 s after a cancel | [`host/upload/`](../host/upload/module.json) |

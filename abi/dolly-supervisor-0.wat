@@ -38,8 +38,15 @@
   (func $deadline_remaining (param i32) (result f64) f64.const -1)
   (func $collect (param i32) (result i32) i32.const 0)
   (func $parent (param i32) (result i32) i32.const 0)
-  ;; Consume the browser's terminal interrupt request: the targeted PID when
-  ;; it is still the interruptible foreground owner, otherwise zero.
+  ;; The terminal mailbox, display or not: six atomic little-endian u32 words.
+  ;; Wasm writes result_sequence (incremented and notified after each shell
+  ;; result), result_status, foreground_pid and foreground_interruptible (1
+  ;; while Ctrl-C would interrupt the foreground command rather than reach the
+  ;; interactive shell as input). The page asks for that interrupt by writing
+  ;; interrupt_target_pid, then incrementing interrupt_sequence.
+  (func $terminal_mailbox_address (result i64) i64.const 0)
+  ;; Consume the page's latest interrupt request: the targeted PID when it is
+  ;; still the interruptible foreground owner, otherwise zero.
   (func $take_interrupt (result i32) i32.const 0)
 
   (export "dolly_process_supervisor_version" (func $version))
@@ -61,5 +68,6 @@
   (export "dolly_process_deadline_remaining" (func $deadline_remaining))
   (export "dolly_process_collect" (func $collect))
   (export "dolly_process_parent" (func $parent))
+  (export "dolly_terminal_mailbox_address" (func $terminal_mailbox_address))
   (export "dolly_process_take_interrupt" (func $take_interrupt))
 )

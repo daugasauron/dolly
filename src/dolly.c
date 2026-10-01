@@ -2,6 +2,7 @@
 #include <dirent.h>
 #include <fcntl.h>
 #include <limits.h>
+#include <stdatomic.h>
 #include <stddef.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -10,6 +11,7 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
+#include <emscripten/atomic.h>
 #include <emscripten/emscripten.h>
 
 #include <dolly/runtime.h>
@@ -21,6 +23,64 @@
 static uint32_t terminal_mode_flags =
     DOLLY_TERMINAL_CANONICAL | DOLLY_TERMINAL_ECHO |
     DOLLY_TERMINAL_OPOST | DOLLY_TERMINAL_ONLCR;
+
+// The page's terminal mailbox (abi/dolly-supervisor-0.wat), with or without a
+// display. The process kernel owns foreground policy: the page only reads it
+// and asks to interrupt the foreground command it read.
+typedef struct {
+  _Atomic uint32_t result_sequence;
+  _Atomic uint32_t result_status;
+  _Atomic uint32_t foreground_pid;
+  _Atomic uint32_t foreground_interruptible;
+  _Atomic uint32_t interrupt_sequence;
+  _Atomic uint32_t interrupt_target_pid;
+} dolly_terminal_mailbox;
+
+_Alignas(64) static dolly_terminal_mailbox terminal_mailbox;
+static uint32_t consumed_interrupt_sequence;
+
+uintptr_t dolly_terminal_mailbox_address(void) {
+  return (uintptr_t)&terminal_mailbox;
+}
+
+void dolly_terminal_publish_result(int status) {
+  atomic_store_explicit(&terminal_mailbox.result_status, (uint32_t)status,
+                        memory_order_release);
+  atomic_fetch_add_explicit(&terminal_mailbox.result_sequence, 1,
+                            memory_order_acq_rel);
+  emscripten_atomic_notify((void *)&terminal_mailbox.result_sequence,
+                           EMSCRIPTEN_NOTIFY_ALL_WAITERS);
+}
+
+void dolly_kernel_foreground_publish(int pid, int interruptible) {
+  const uint32_t previous = atomic_load_explicit(
+      &terminal_mailbox.foreground_pid, memory_order_acquire);
+  if (previous != 0 && previous != (uint32_t)pid) {
+    dolly_kernel_terminal_release((int)previous);
+  }
+  atomic_store_explicit(&terminal_mailbox.foreground_pid, (uint32_t)pid,
+                        memory_order_release);
+  atomic_store_explicit(&terminal_mailbox.foreground_interruptible,
+                        interruptible != 0, memory_order_release);
+}
+
+int dolly_kernel_interruptible_foreground(void) {
+  const uint32_t pid = atomic_load_explicit(&terminal_mailbox.foreground_pid,
+                                            memory_order_acquire);
+  return atomic_load_explicit(&terminal_mailbox.foreground_interruptible,
+                              memory_order_acquire) ? (int)pid : 0;
+}
+
+int dolly_process_take_interrupt(void) {
+  const uint32_t sequence = atomic_load_explicit(
+      &terminal_mailbox.interrupt_sequence, memory_order_acquire);
+  if (sequence == consumed_interrupt_sequence) return 0;
+  consumed_interrupt_sequence = sequence;
+  const int target = (int)atomic_load_explicit(
+      &terminal_mailbox.interrupt_target_pid, memory_order_relaxed);
+  return target != 0 && target == dolly_kernel_interruptible_foreground()
+      ? target : 0;
+}
 
 EM_JS(void, dolly_bootstrap_write_bytes,
       (const unsigned char *bytes, uintptr_t length), {

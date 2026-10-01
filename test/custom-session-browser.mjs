@@ -234,7 +234,7 @@ async function namedSessions(context, server, name) {
   ]);
   // Saving does not depend on the foreground program reading its input.
   const sleeping = submit(page, "sleep 20");
-  await page.waitForFunction(() => __dolly.transport.foregroundInterruptible());
+  await page.waitForFunction(() => __dolly.terminal.foregroundInterruptible());
   assert.equal(await page.evaluate(() => __dolly.saveSession("browser-proof")), "browser-proof");
   assert.equal(await Promise.race([sleeping, "sleeping"]), "sleeping", "the save waited for the foreground child");
   const delta = Number(await page.evaluate(() => document.documentElement.dataset.sessionUncompressedBytes));

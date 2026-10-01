@@ -1,22 +1,18 @@
 // display@0 kernel side: the terminal device drawn by the image's display
 // library, and the framebuffer lease that a foreground graphics program takes
-// over from it. The display mailbox also carries the runtime's foreground,
-// interrupt and result state.
+// over from it.
 #include "fs-record.h"
 #include "process-kernel.h"
 
 #include <dolly/display.h>
 #include <dolly/process.h>
 #include <dolly/runtime.h>
-#include <emscripten/atomic.h>
 #include <errno.h>
 #include <stdatomic.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-
-static uint32_t consumed_interrupt_sequence;
 
 _Static_assert((DOLLY_DISPLAY_EVENT_CAPACITY &
                 (DOLLY_DISPLAY_EVENT_CAPACITY - 1)) == 0,
@@ -210,13 +206,9 @@ static int consume_initial_display_resize(void) {
 }
 
 static int process_may_acquire_display(int pid) {
-  const uint32_t foreground = atomic_load_explicit(
-      &display_mailbox.foreground_pid, memory_order_acquire);
-  const uint32_t flags = atomic_load_explicit(
-      &display_mailbox.flags, memory_order_relaxed);
+  const int foreground = dolly_kernel_interruptible_foreground();
   return pid > 0 && foreground > 0 &&
-      (flags & DOLLY_DISPLAY_FOREGROUND_INTERRUPTIBLE) != 0 &&
-      dolly_process_descends_from(pid, (int)foreground);
+      dolly_process_descends_from(pid, foreground);
 }
 
 uint32_t dolly_terminal_columns(void) {
@@ -256,51 +248,8 @@ void dolly_terminal_discard_pending_input(void) {
   encoded_input_length = 0;
 }
 
-void dolly_terminal_publish_result(int status) {
-  atomic_store_explicit(&display_mailbox.result_status, (uint32_t)status,
-                        memory_order_release);
-  atomic_fetch_add_explicit(&display_mailbox.result_sequence, 1,
-                            memory_order_acq_rel);
-  emscripten_atomic_notify((void *)&display_mailbox.result_sequence,
-                           EMSCRIPTEN_NOTIFY_ALL_WAITERS);
-}
-
-/* The process kernel owns foreground policy; the browser only reads this
- * mailbox and publishes interrupts addressed to the displayed owner. */
-void dolly_kernel_foreground_publish(int pid, int interruptible) {
-  const uint32_t previous = atomic_load_explicit(
-      &display_mailbox.foreground_pid, memory_order_acquire);
-  if (previous != 0 && previous != (uint32_t)pid) {
-    release_display_lease_for_pid((int)previous);
-  }
-  atomic_store_explicit(&display_mailbox.foreground_pid, (uint32_t)pid,
-                        memory_order_release);
-  if (interruptible) {
-    atomic_fetch_or_explicit(
-        &display_mailbox.flags, DOLLY_DISPLAY_FOREGROUND_INTERRUPTIBLE,
-        memory_order_release);
-  } else {
-    atomic_fetch_and_explicit(
-        &display_mailbox.flags,
-        ~((uint32_t)DOLLY_DISPLAY_FOREGROUND_INTERRUPTIBLE),
-        memory_order_release);
-  }
-}
-
-int dolly_process_take_interrupt(void) {
-  const uint32_t sequence = atomic_load_explicit(
-      &display_mailbox.interrupt_sequence, memory_order_acquire);
-  if (sequence == consumed_interrupt_sequence) return 0;
-  consumed_interrupt_sequence = sequence;
-  const uint32_t target = atomic_load_explicit(
-      &display_mailbox.interrupt_target_pid, memory_order_relaxed);
-  const uint32_t foreground = atomic_load_explicit(
-      &display_mailbox.foreground_pid, memory_order_acquire);
-  const uint32_t flags = atomic_load_explicit(
-      &display_mailbox.flags, memory_order_relaxed);
-  return target != 0 && target == foreground &&
-      (flags & DOLLY_DISPLAY_FOREGROUND_INTERRUPTIBLE) != 0
-      ? (int)target : 0;
+void dolly_kernel_terminal_release(int pid) {
+  release_display_lease_for_pid(pid);
 }
 
 int dolly_kernel_terminal_attached(void) {

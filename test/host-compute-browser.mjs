@@ -2,15 +2,39 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { browserTest } from "./browser.mjs";
 
-// A display-less embedding that enables only runtime@0 and gpu@0 builds and
-// runs a guest-compiled WebGPU compute program; it offers no surface.
+// Display-less embeddings. One enables only runtime@0 and gpu@0, then builds
+// and runs a guest-compiled WebGPU compute program; it offers no surface. In
+// another, system-build's shell ENTRY still reports the foreground command,
+// which the page interrupts.
 const code = await readFile(new URL("./fixtures/host-compute.c", import.meta.url), "utf8");
 await browserTest("host compute", { image: "system-build" }, async ({ browser, server }) => {
   const page = await browser.newPage();
   await page.goto(server.origin + "/fixture/http.txt");
+  // Boots a snapshot with these host modules and resolves to running(runtime, exited).
+  await page.evaluate(() => {
+    globalThis.runHeadless = async (modules, configuration, transfers, running) => {
+      const { createHost } = await import("/host/modules.mjs");
+      let worker;
+      const host = await createHost("browser", modules, { send: message => worker.postMessage(message) });
+      try {
+        worker = new Worker("/src/runtime-worker.mjs", { type: "module" });
+        const exited = new Promise((resolve, reject) => {
+          worker.onerror = event => reject(Error(event.message));
+          worker.onmessage = ({ data: message }) => {
+            void host.handle(message).catch(reject);
+            if (message.type === "ready") worker.postMessage({ type: "entry-ready-ack" });
+            if (message.type === "exited") resolve(message.status);
+            if (message.type === "error") reject(Error(message.message));
+          };
+        });
+        worker.postMessage({ type: "configure", mode: "snapshot", ...configuration,
+          hostModules: host.enabled, hostConfiguration: host.configuration }, transfers);
+        return await running(host.get("runtime"), exited);
+      } finally { host.dispose(); worker?.terminate(); }
+    };
+  });
   const result = await page.evaluate(async code => {
     const { DOLLY_IMAGES, DOLLY_STATIC_SOURCES } = await import("/dist/dolly-images.mjs");
-    const { createHost } = await import("/host/modules.mjs");
     const { buildImage } = await import("/src/image-builder.mjs");
     const { prepareImageArtifacts } = await import("/src/image-build.mjs");
     const { describeImageArtifact, sha256 } = await import("/src/image-artifact.mjs");
@@ -26,24 +50,15 @@ await browserTest("host compute", { image: "system-build" }, async ({ browser, s
     const artifacts = await prepareImageArtifacts("custom", recipe, (name, inputs) => buildImage(name, inputs, network, report), report);
     const built = await buildImage("custom", artifacts, network, report, { customSource: recipe });
     const artifact = await describeImageArtifact(built.bytes, await sha256(new TextEncoder().encode(recipe)), built.inputs);
-    let worker;
-    const host = await createHost("browser", ["runtime@0", "gpu@0"], { send: message => worker.postMessage(message) });
-    try {
-      host.require(artifact.hostRequirements);
-      worker = new Worker("/src/runtime-worker.mjs", { type: "module" });
-      const status = await new Promise((resolve, reject) => {
-        worker.onerror = event => reject(Error(event.message));
-        worker.onmessage = ({ data: message }) => {
-          void host.handle(message).catch(reject);
-          if (message.type === "ready") worker.postMessage({ type: "entry-ready-ack" });
-          if (message.type === "exited") resolve(message.status);
-          if (message.type === "error") reject(Error(message.message));
-        };
-        worker.postMessage({ type: "configure", image: "custom", mode: "snapshot", customSource: recipe, customArtifact: artifact,
-          hostModules: host.enabled, hostConfiguration: host.configuration }, [artifact.bytes]);
-      });
-      return { status, requirements: artifact.hostRequirements, canvases: document.querySelectorAll("canvas").length };
-    } finally { host.dispose(); worker?.terminate(); }
+    const requirements = artifact.hostRequirements;
+    const status = await runHeadless(["runtime@0", "gpu@0"], { image: "custom", customSource: recipe, customArtifact: artifact },
+      [artifact.bytes], (_runtime, exited) => exited);
+    return { status, requirements, canvases: document.querySelectorAll("canvas").length };
   }, code);
   assert.deepEqual(result, { status: 0, requirements: ["gpu@0"], canvases: 0 });
+  assert.deepEqual(await page.evaluate(() => runHeadless(["runtime@0"], { image: "system-build" }, [],
+    async (runtime, exited) => {
+      while (!runtime.terminal?.foregroundInterruptible()) await new Promise(resolve => setTimeout(resolve, 10));
+      return [runtime.terminal.interruptForeground(), await exited];
+    })), [true, 130]);
 });

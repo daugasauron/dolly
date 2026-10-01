@@ -43,7 +43,7 @@ await browserTest("core", { image }, async ({ server, open }) => {
       globalThis.interruptedStatus = null;
       void __dolly.submit(text).then(status => { globalThis.interruptedStatus = status; });
     }, command);
-    await page.waitForFunction(() => __dolly.transport.foregroundInterruptible());
+    await page.waitForFunction(() => __dolly.terminal.foregroundInterruptible());
     if (command.includes("/fixture/slow")) await page.waitForFunction(() => __dolly.httpActive);
     await page.locator("#keyboard").focus();
     await page.keyboard.press("Control+c");

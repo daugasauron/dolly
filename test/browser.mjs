@@ -37,9 +37,9 @@ async function openImage(browser, origin, image, { policy, prompt = shellPrompt,
     submit: command => page.evaluate(command => __dolly.submit(command), command),
     text: () => page.evaluate(() => __dolly.visibleTerminalText()),
     async result(action) {
-      const sequence = await page.evaluate(() => __dolly.transport.currentResultSequence());
+      const sequence = await page.evaluate(() => __dolly.terminal.currentResultSequence());
       await action();
-      return page.evaluate(sequence => __dolly.transport.waitForResult(sequence), sequence);
+      return page.evaluate(sequence => __dolly.terminal.waitForResult(sequence), sequence);
     },
     // waitForFunction does not await an async predicate, so poll in the page.
     waitForText: ({ source, flags }) => page.evaluate(async ({ source, flags }) => {
