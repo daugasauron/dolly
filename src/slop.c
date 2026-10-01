@@ -395,6 +395,11 @@ static int is_name_byte(char byte) {
   return byte == '_' || isalnum((unsigned char)byte);
 }
 
+/* $! stays unset: Slop runs no background jobs. */
+static int is_special_parameter(char byte) {
+  return byte != '\0' && strchr("?$#@*-!", byte) != NULL;
+}
+
 static int valid_name(const char *text, size_t length) {
   if (length == 0 || !is_name_start(text[0])) return 0;
   for (size_t index = 1; index < length; index++) if (!is_name_byte(text[index])) return 0;
@@ -411,6 +416,10 @@ static const char *parameter_value(Shell *shell, const char *name,
   if (length == 1 && name[0] == '$') {
     snprintf(temporary, 64, "%ld", (long)getpid());
     return temporary;
+  }
+  if (length == 1 && name[0] == '!') {
+    if (is_set) *is_set = 0;
+    return "";
   }
   if (length == 1 && name[0] == '#') {
     snprintf(temporary, 64, "%d", shell->argc > 0 ? shell->argc - 1 : 0);
@@ -451,7 +460,7 @@ static const char *parameter_name_end(const char *name) {
     while (is_name_byte(*end)) end++;
   } else if (isdigit((unsigned char)*end)) {
     while (isdigit((unsigned char)*end)) end++;
-  } else if (*end && strchr("?$#@*-", *end)) {
+  } else if (is_special_parameter(*end)) {
     end++;
   }
   return end;
@@ -1275,7 +1284,7 @@ static int expand_dollar_now(Shell *shell, const char **cursor, Buffer *word) {
       return 1;
     }
     source = closing + 1;
-  } else if (strchr("?$#@*-", *source) != NULL || isdigit((unsigned char)*source)) {
+  } else if (is_special_parameter(*source) || isdigit((unsigned char)*source)) {
     length = 1;
     source++;
   } else if (is_name_start(*source)) {
@@ -1337,8 +1346,7 @@ static int defer_dollar(const char **cursor, Buffer *word) {
       return -1;
     }
     source = closing + 1;
-  } else if (strchr("?$#@*-", *source) != NULL ||
-             isdigit((unsigned char)*source)) {
+  } else if (is_special_parameter(*source) || isdigit((unsigned char)*source)) {
     source++;
   } else if (is_name_start(*source)) {
     while (is_name_byte(*source)) source++;
@@ -1676,6 +1684,8 @@ static int lex(const char *source, TokenList *tokens) {
         protected = 1;
         quoted = touched = 1;
         if (!append_lexed_character(&word, *source++)) goto word_error;
+      } else if (byte == '$' && quote == '\0' && source[1] == '\'') {
+        fputs("slop: $'...' quoting is not supported\n", stderr); goto word_error;
       } else if (byte == '$' && quote != '\'') {
         touched = 1;
         if (quote == '\0') split = 1;

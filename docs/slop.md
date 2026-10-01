@@ -24,7 +24,7 @@ slop [-enux] script [arg ...]
 
 | Area | Supported |
 | --- | --- |
-| Lists | newline, `;`, `&&`, `\|\|`, `!`; `&` is an error (no background jobs) |
+| Lists | newline, `;`, `&&`, `\|\|`, `!`; `&` is an error (no background jobs), so `$!` is never set |
 | Compound | `if`/`elif`/`else`, `for`, `while`, `until`, `case`, `break N`, `continue N`, `NAME () { …; }` with `local` and `return` (depth 64), `{ …; }`, `( … )` |
 | Redirections | descriptors 0–9: `<`, `>`, `>>`, `n>&m`, `n<&m`, `n>&-`, `>&$fd`, `&>`, `&>>`, `>&file`; redirection-only `exec`; up to 32 `<<` here-documents per line; on compound commands too |
 | Parameters | `$VAR`, `${VAR}`, `$?`, `$$`, `$#`, `$-`, `$0`–`$9`, `$@`, `$*`, `"$@"` |
@@ -42,8 +42,8 @@ slop [-enux] script [arg ...]
   still read as 0.
 - `. FILE ARGS` restores the caller's positional parameters afterwards, even
   after `set --`.
-- Not implemented: aliases, job control, `${VAR:off:len}`, `${VAR/pat/rep}`,
-  `<<-`, `"prefix$@"` word forms. Features are added only when a useful source
+- Not implemented: aliases, job control, `$'...'`, `${VAR:off:len}`,
+  `${VAR/pat/rep}`, `<<-`, `"prefix$@"` word forms. Features are added only when a useful source
   build needs them and their semantics stay explicit.
 
 ## Serial pipelines and interrupts

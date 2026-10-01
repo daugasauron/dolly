@@ -94,6 +94,8 @@ export const shellCases = [
   ["heredoc-only substitution status", "<<EOF\n$(exit 5)\nEOF\n", 5],
   ["quoted heredoc does not substitute", "<<'EOF'\n$(exit 5)\nEOF\n", 0],
   ["background jobs are rejected before anything runs", "exit 7; true &", 2, 7],
+  ["dollar-single-quotes are rejected before anything runs", "exit 7; x=$'a'", 2, 7],
+  ["$! stays unset without background jobs", 'case "$!:${!}" in :) :;; *) exit 91;; esac; set -u; : $!; exit 92', 1, 127],
   ["unset parameter error exits the shell", "X=; : ${X:?unset}; exit 91", 1, 127],
   ["arithmetic error exits the shell", ": $((1/0)); exit 91", 1],
   ["quoting affects only quoted case pattern parts", String.raw`p='*'; case ab in "a*"|"$p") exit 91;; "a"*) ;; *) exit 92;; esac; case ab in $p) ;; *) exit 93;; esac`, 0],
