@@ -181,6 +181,54 @@ replace copied package blocks with `INSTALL`; `node scripts/update-module-pins.m
 Recipes on parallel branches (`work/pi-local-model`) migrate the same way at
 merge time.
 
+## Phase 3 design (owner green light, 2026-10-01 23:00)
+
+Owner: "I like the Package thing but I don't want to lose the sha stuff for
+absolute reproducibility"; `COMPILEC`/`SLOP`/`REQUIRES TOOL slop` is
+inconsistent; host requirements are unclear. DOLLY 6 is unreleased, so the
+version stays 6.
+
+- **Packages are the only unit of reuse; `MODULE`, `USE` and `.dm` files go.**
+  61 of 68 modules had one user, so they were recipe fragments, not reuse; the
+  7 shared ones (`curl`, `zlib`, `gzip`, `display`, `pi`, `neovim-runtime`,
+  `search-tools`) are tools and libraries someone would install. A package is
+  pinned, cached, sealed and installed by recipes and amy with the same row,
+  so reuse and reproducibility stop being two mechanisms. Every import keeps
+  its inline SHA-256 and identity still cascades: a package's pin covers its
+  base and sources, an image's pin covers its packages. Single-use modules
+  fold into their recipe; the engine loses nesting, scopes and the module
+  receipt records. Application and package names collide for Pi and Neovim,
+  so those packages take another name the project uses: `pi-coding-agent`
+  (the npm package) and `nvim` (the command).
+- **`RUN` replaces `COMPILEC`; `SLOP` is its shell form.** `RUN [CWD /dir]
+  /program [word…]` executes a retained program with argv words, no shell,
+  no expansion, stdin `/dev/null`: one way to run programs, with `SLOP` defined
+  as `RUN /bin/slop -e -c command`. The seed compiler is a program, so the
+  five bootstrap compiles are `RUN /usr/libexec/dolly/process-bin/compiler
+  --dolly-toolchain-mode=c …`; the driver selects its mode by that flag only,
+  and an argv[0] mode would be a compiler-driver change (core-polish).
+- **`REQUIRES` and typed `EXPORTS` stay; `REQUIRES TOOL slop` goes.** (Owner
+  correction: the assertions are the explicit contract.) `SLOP` is `RUN
+  /bin/slop -e -c`, so a SLOP step depends on `/bin/slop` by definition: the
+  engine rejects `REQUIRES TOOL slop` and a SLOP step before the recipe has
+  `/bin/slop` fails naming the line. Folded modules keep their `REQUIRES`
+  blocks; within one recipe an identical assertion repeated by several folded
+  blocks is kept once.
+- **Host requirements are explicit and never inherited.** (Owner correction.)
+  The image's own recipe is the complete list, written after the role line as
+  its manifest; `FROM`, `INSTALL` and `COPY` carry none and nothing is
+  derived. A package declares the modules its programs need, and `INSTALL`
+  checks that the installing recipe declares them too. Sealing scans every
+  retained executable's `dolly.host` records and fails naming the file and
+  the missing line, so an image cannot retain a program it could not run. The
+  derivation was checked and rejected as a replacement: only audio, display,
+  download, gpu, http, threads and upload have stamping clients; `snapshot@0`
+  and `build@0` have none, and `gpu-sdk`, `audio-sdk` and `system` enable
+  modules for programs compiled after boot, which nothing retained stamps.
+  At run time enabled equals declared: the page creates the host from the
+  image's list, boot fails when the embedding lacks a module, and the loader
+  refuses an executable stamped with an undeclared module.
+
 ## Implementation (Phase 2, branch `work/dollyfile-v6`)
 
 - Engine ([`src/dollyfile.c`](../../src/dollyfile.c)): role kinds, `INSTALL`,

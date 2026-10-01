@@ -60,8 +60,11 @@ select no JavaScript or Worker URL.
 
 - `REQUIRES HOST` lines and executable `dolly.host` records
   ([`dolly-host-0.wat`](../abi/dolly-host-0.wat)) are compatibility demands, not
-  grants; a missing provider fails before ENTRY. An embedding can restrict the
-  set with `globalThis.DOLLY_HOST_MODULES`.
+  grants; a missing provider fails before ENTRY. An image's own recipe is its
+  complete list: nothing is inherited from `FROM`, `INSTALL` or `COPY` images,
+  sealing refuses a retained executable stamped with an undeclared module, and
+  the loader refuses one at run time. An embedding can restrict the set with
+  `globalThis.DOLLY_HOST_MODULES`.
 - The page enables `runtime@0` plus the image's requirements; rebuild routes add
   `http@0` and `threads@0` for building. Only Dollyfile Studio declares
   `build@0`, and the page admits it only after ENTRY starts
