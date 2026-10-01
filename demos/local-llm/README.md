@@ -16,11 +16,15 @@ Open `/pi-local/` (or Dollyfile Studio) and pick a model with Pi's `/model`. The
 first prompt loads it; `/local-unload` frees it. Build with
 `npm run image -- pi-local`.
 
-| Model | Q4_K_M weights | Context / output | Source |
-| --- | ---: | ---: | --- |
-| Qwen3.5-2B (bundled) | 1.40 GB | 16,384 / 2,048 tokens | package `qwen35-2b` |
-| MiniCPM5-2B | 1.56 GB | 16,384 / 2,048 tokens | package `minicpm5-2b`, or download |
-| Qwen3.5-4B | 3.01 GB | 16,384 / 2,048 tokens | download |
+| Model | Q4_K_M weights | Source |
+| --- | ---: | --- |
+| Qwen3.5-2B (bundled) | 1.40 GB | package `qwen35-2b` |
+| MiniCPM5-2B | 1.56 GB | package `minicpm5-2b`, or download |
+| Qwen3.5-4B | 3.01 GB | download |
+
+All use 16,384 tokens of context and at most 2,048 output tokens. Qwen3.5-4B is
+the one that completes most coding tasks; pick it with `/model` for real work.
+Measurements: [the model task](../../tasks/20261001-214000-pi-local-model/TASK.md).
 
 A model package holds one model's exact upstream GGUF at
 `/usr/share/dolly/llm/ID.gguf` and its license, exported as `ID`; an image copies
@@ -51,6 +55,6 @@ gone after a reload. Pins and prompt formats: [`models.json`](models.json).
   `--enable-dawn-features=vulkan_enable_f16_on_nvidia`.
 - Weight sizes are not total memory: each tab holds weights in WasmFS, the
   process and the GPU.
-- An image holds at most 2 GiB, so Qwen3.5-4B has no package. Small models can
+- An image holds at most 2 GiB, so Qwen3.5-4B has no package. The 2B models
   call tools but are not dependable coding agents. Thinking and image input are
   off.
