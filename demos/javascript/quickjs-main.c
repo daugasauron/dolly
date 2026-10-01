@@ -1879,10 +1879,12 @@ int dolly_quickjs_embed(int argc, char **argv, const char *default_module,
       install_dolly_backend(context) != 0 ||
       load_dolly_prelude(context) != 0 ||
       (initialize && initialize(context) != 0)) {
-    fputs("qjs: could not create context\n", stderr);
     if (context != NULL) JS_FreeContext(context);
     JS_FreeRuntime(runtime);
     free(owned_source);
+    // Ctrl+C during startup aborts the setup code it interrupted.
+    if (janis_interrupted) dolly_exit_signal(SIGINT);
+    fputs("qjs: could not create context\n", stderr);
     return 1;
   }
 
