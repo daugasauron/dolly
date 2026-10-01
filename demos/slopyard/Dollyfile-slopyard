@@ -12,7 +12,7 @@ EXPORTS HEADER quickjs /usr/include/quickjs.h
 EXPORTS HEADER quickjs-runner /usr/include/dolly/quickjs-runner.h
 USE https://daugasauron.com/demos/pi/pi.dm db3092bdb1e28acaf34b58a9f8dcd3cd1a8b13388150677a14e5a7a8493b0a37
 USE https://daugasauron.com/demos/slopyard/lua55.dm 9ff415b53d7a4d5566d1ec248339442136dc78a0a3ba4962d15d8c502d9df44e
-USE https://daugasauron.com/demos/slopyard/slopyard.dm 515def3b188b51a001ad648e18ab221d1250d21058698dc74765886cf6818668
+USE https://daugasauron.com/demos/slopyard/slopyard.dm 6dbb0717ef2b84113d73d3270c1411163785378884c2e1d9501ddf7bb4446b44
 
 FILE /etc/dolly/slopyard.slop
     /bin/foreground /usr/bin/slopyard
