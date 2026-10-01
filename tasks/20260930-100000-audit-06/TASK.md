@@ -1,6 +1,6 @@
 # alarm() never delivers SIGALRM
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 200
 - TAGS: bug,core,compatibility
 
@@ -55,3 +55,28 @@ Git's progress display uses) raise SIGALRM at the deadline. The default
 action terminates the process; a handler runs at the next system call, and a
 blocking wait returns `EINTR` unless `SA_RESTART`. `ITIMER_VIRTUAL` and
 `ITIMER_PROF` fail with `EINVAL`.
+
+## Result (2026-10-01, `work/alarm`)
+
+`alarm`, `ualarm`, `setitimer` and `getitimer` drive one per-process
+`ITIMER_REAL` timer in the kernel (process operations `ALARM` and
+`ALARM_HANDLED`); `ITIMER_VIRTUAL` and `ITIMER_PROF` fail with `EINVAL`.
+The supervisor's 16 ms service tick asks the kernel for due timers. A
+default-action SIGALRM is delivered like `kill`: it wakes a blocking call with
+`EINTR` and the 500 ms interrupt grace ends a process that makes no system
+call. libc reports through `sigaction` while SIGALRM is handled or ignored; the
+signal then only becomes pending, never forces termination and does not change
+a normal exit status. `sleep` now returns the unslept seconds.
+
+`test/fixtures/process-signals.c` passes in Chrome and Firefox
+(`test/process-browser.mjs`): `alarm(1)` with
+the default action ends a sleeping child and a spinning child with
+`WIFSIGNALED`/`SIGALRM`; a child that spins about 1.5 s with a handled 50 ms
+interval timer exits 0 (the uninterrupted spin measured 0.72-1.0 s per ten
+calibration periods in both browsers, so it outlasts the grace); a handler
+interrupts a blocking pipe `read` with `EINTR` and `sleep(3)` returns 2 after
+`alarm(1)`; a 50 ms interval fires at least three times; `alarm(0)` after
+`alarm(5)` returns 5 and disarms; `ITIMER_VIRTUAL`/`ITIMER_PROF` give `EINVAL`.
+The core, process, slop, shell, boundary and terminal browser tests pass in
+both browsers on the rebuilt `default` image; `npm run test:source` passes.
+

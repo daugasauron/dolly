@@ -77,6 +77,9 @@ typedef struct {
   int signal_tid;
   uint32_t pending_signals;
   int handling_signal;
+  uint64_t alarm_deadline; /* Monotonic SIGALRM time; zero while disarmed. */
+  uint64_t alarm_interval;
+  int alarm_handled;
 } dolly_kernel_process;
 
 _Alignas(64) static unsigned char
@@ -144,6 +147,10 @@ static uint64_t clock_nanoseconds(clockid_t clock) {
   struct timespec now;
   return clock_gettime(clock, &now) == 0
       ? (uint64_t)now.tv_sec * UINT64_C(1000000000) + (uint64_t)now.tv_nsec : 0;
+}
+
+static uint64_t saturating_add(uint64_t time, uint64_t delay) {
+  return delay > UINT64_MAX - time ? UINT64_MAX : time + delay;
 }
 
 static int process_clock(uint32_t clock_id, clockid_t *clock) {
@@ -276,8 +283,11 @@ static int supported_signal(uint32_t signal_number) {
       (signal_number < 32 && ((DOLLY_PROCESS_SIGNAL_MASK >> signal_number) & 1u));
 }
 
-static const uint32_t notification_signals =
-    (1u << DOLLY_PROCESS_SIGCHLD) | (1u << DOLLY_PROCESS_SIGWINCH);
+/* Signals whose delivery does not end the process. */
+static uint32_t notification_signals(const dolly_kernel_process *process) {
+  return 1u << DOLLY_PROCESS_SIGCHLD | 1u << DOLLY_PROCESS_SIGWINCH |
+      (process->alarm_handled ? 1u << DOLLY_PROCESS_SIGALRM : 0);
+}
 
 void dolly_kernel_terminal_resized(void) {
   if (!foreground_pid) return;
@@ -1898,6 +1908,33 @@ static int64_t process_dispatch(int pid, int tid, uint32_t operation,
       const int32_t remaining = next_signal(process);
       return respond(&remaining, sizeof(remaining));
     }
+    case DOLLY_PROCESS_ALARM: {
+      if ((request_size != 0 && request_size != sizeof(dolly_process_alarm)) ||
+          response_capacity < sizeof(dolly_process_alarm)) return -EINVAL;
+      const uint64_t now = clock_nanoseconds(CLOCK_MONOTONIC);
+      /* A due timer reports time left until the supervisor raises it. */
+      const dolly_process_alarm previous = {
+          process->alarm_deadline == 0 ? 0
+              : process->alarm_deadline > now ? process->alarm_deadline - now : 1,
+          process->alarm_interval,
+      };
+      if (request_size != 0) {
+        dolly_process_alarm request;
+        memcpy(&request, process_mailbox, sizeof(request));
+        const int armed = request.value_nanoseconds != 0;
+        process->alarm_deadline = armed ? saturating_add(now, request.value_nanoseconds) : 0;
+        process->alarm_interval = armed ? request.interval_nanoseconds : 0;
+      }
+      return respond(&previous, sizeof(previous));
+    }
+    case DOLLY_PROCESS_ALARM_HANDLED: {
+      int32_t handled;
+      if (request_size != sizeof(handled) || response_capacity != 0) return -EINVAL;
+      memcpy(&handled, process_mailbox, sizeof(handled));
+      if (handled != 0 && handled != 1) return -EINVAL;
+      process->alarm_handled = handled;
+      return 0;
+    }
     case DOLLY_PROCESS_TERMINAL:
       return terminal_packet(process, request_size, response_capacity);
     case DOLLY_PROCESS_CLOCK_TIME: {
@@ -1960,7 +1997,7 @@ static int64_t process_dispatch(int pid, int tid, uint32_t operation,
        * signal-unaware program turn Ctrl-C into an arbitrary failure status.
        * A runtime that deliberately handles SIGINT acknowledges it through
        * DOLLY_PROCESS_INTERRUPT_POLL. */
-      const uint32_t terminating = process->pending_signals & ~notification_signals;
+      const uint32_t terminating = process->pending_signals & ~notification_signals(process);
       const int signal_number = request.signal_number != 0
           ? (int)request.signal_number : (terminating ? __builtin_ctz(terminating) : 0);
       const int status = signal_number != 0 ? 128 + signal_number : (int)request.status;
@@ -1969,8 +2006,8 @@ static int64_t process_dispatch(int pid, int tid, uint32_t operation,
       for (size_t index = 0; index < DOLLY_KERNEL_PROCESS_LIMIT; ++index) {
         const dolly_kernel_process *child = &process_table[index];
         if (child->parent_pid == process->pid && child->state == DOLLY_KERNEL_PROCESS_RUNNING &&
-            ((child->pending_signals & ~notification_signals) ||
-             (child->handling_signal && !(notification_signals & (1u << child->handling_signal)))))
+            ((child->pending_signals & ~notification_signals(child)) ||
+             (child->handling_signal && !(notification_signals(child) & (1u << child->handling_signal)))))
           return DOLLY_PROCESS_DISPATCH_DEFERRED;
       }
       mark_process_exited(process, status, signal_number);
@@ -2187,6 +2224,22 @@ int dolly_process_signal(int pid, int signal_number) {
   } else {
     /* SIGKILL and signals before command entry cannot run userspace handlers. */
     mark_process_exited(process, 128 + signal_number, signal_number);
+  }
+  return 0;
+}
+
+int dolly_process_take_alarm(void) {
+  const uint64_t now = clock_nanoseconds(CLOCK_MONOTONIC);
+  for (size_t index = 0; index < DOLLY_KERNEL_PROCESS_LIMIT; ++index) {
+    dolly_kernel_process *process = &process_table[index];
+    if (process->state != DOLLY_KERNEL_PROCESS_RUNNING || process->alarm_deadline == 0 ||
+        now < process->alarm_deadline) continue;
+    /* Late or missed periods collapse into one signal; the phase is kept. */
+    const uint64_t interval = process->alarm_interval;
+    process->alarm_deadline = interval == 0 ? 0
+        : saturating_add(now, interval - (now - process->alarm_deadline) % interval);
+    if (!process->alarm_handled) return process->pid;
+    process->pending_signals |= 1u << DOLLY_PROCESS_SIGALRM;
   }
   return 0;
 }

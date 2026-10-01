@@ -36,6 +36,9 @@
   (func $signal (param i32 i32) (result i32) i32.const 0)
   ;; Milliseconds until the spawn deadline, or -1 when none applies.
   (func $deadline_remaining (param i32) (result f64) f64.const -1)
+  ;; Raise due SIGALRM timers: a PID whose default action must be delivered
+  ;; like a kill, or zero. Handled alarms only become pending.
+  (func $take_alarm (result i32) i32.const 0)
   (func $collect (param i32) (result i32) i32.const 0)
   (func $parent (param i32) (result i32) i32.const 0)
   ;; The terminal mailbox, display or not: six atomic little-endian u32 words.
@@ -66,6 +69,7 @@
   (export "dolly_process_spawn_flags" (func $spawn_flags))
   (export "dolly_process_signal" (func $signal))
   (export "dolly_process_deadline_remaining" (func $deadline_remaining))
+  (export "dolly_process_take_alarm" (func $take_alarm))
   (export "dolly_process_collect" (func $collect))
   (export "dolly_process_parent" (func $parent))
   (export "dolly_terminal_mailbox_address" (func $terminal_mailbox_address))
