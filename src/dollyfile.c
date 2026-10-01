@@ -9,6 +9,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <strings.h>
 #include <sys/stat.h>
 #include <unistd.h>
 
@@ -253,6 +254,30 @@ static int valid_object_type(const char *value) {
   return 0;
 }
 
+// ".", "..", or either spelled with %2e, as a URL parser reads them.
+static int dot_segment(const char *segment, size_t size) {
+  size_t dots = 0;
+  for (; size > 0; ++dots) {
+    const size_t step = *segment == '.' ? 1 : size >= 3 && strncasecmp(segment, "%2e", 3) == 0 ? 3 : 0;
+    if (step == 0) return 0;
+    segment += step;
+    size -= step;
+  }
+  return dots == 1 || dots == 2;
+}
+
+// A URL parser resolves empty, "." and ".." path segments to another path, so
+// a recipe names only normalized paths.
+static int normalized_path(const char *path) {
+  const char *end = path + strcspn(path, "?");
+  for (const char *segment = path; segment < end && *segment == '/';) {
+    const size_t size = strcspn(++segment, "/?");
+    if ((size == 0 && segment < end) || dot_segment(segment, size)) return 0;
+    segment += size;
+  }
+  return 1;
+}
+
 // SOURCE takes an absolute http(s) URL without a fragment: this returns its
 // path and query, or NULL.
 static const char *url_path(const char *value) {
@@ -260,7 +285,7 @@ static const char *url_path(const char *value) {
                           : strncmp(value, "http://", 7) == 0 ? value + 7 : NULL;
   if (authority == NULL || strpbrk(value, "#\\ \t\r\n\v\f") != NULL) return NULL;
   const size_t length = strcspn(authority, "/?");
-  return length == 0 ? NULL : authority + length;
+  return length == 0 || !normalized_path(authority + length) ? NULL : authority + length;
 }
 
 // FROM, COPY and USE URLs also have a path and no query. Returns the file they
