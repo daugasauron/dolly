@@ -224,16 +224,10 @@ export class DollyProcessSupervisor {
       (candidate) => !candidate.retiring && candidate.pid !== pid &&
         this.#descendantDepth(candidate, pid) !== 0,
     );
-    const now = performance.now();
     // Like a job-control shell, an interactive owner's running commands take
     // SIGINT in its place; without any it takes SIGINT itself.
     for (const target of process.interactive && descendants.length ? descendants : [process, ...descendants]) {
-      if (now - (target.terminalInterruptAt ?? -Infinity) < 1000) {
-        this.#forceExit(target.pid, 128 + DOLLY_PROCESS_SIGINT, DOLLY_PROCESS_SIGINT);
-      } else {
-        target.terminalInterruptAt = now;
-        this.#deliverSignal(target);
-      }
+      this.#deliverSignal(target);
     }
   }
 

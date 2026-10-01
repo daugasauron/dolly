@@ -84,15 +84,11 @@ await browserTest("process", { server: { fixtures, handle } }, async ({ server, 
   await run(`cc -O0 ${scratch}/process-sigchld.c -o ${scratch}/sigchld && timeout 5 ${scratch}/sigchld`);
   await run(`gzip -dc ${scratch}/input.tgz | tar -xf - -C ${scratch} && test "$(cat ${scratch}/nested/message)" = TAR-STDIN-OK`);
 
-  let ignoring = true;
-  const ignored = submit(`${scratch}/signals ${scratch} ignore-loop`).finally(() => { ignoring = false; });
+  const ignored = submit(`${scratch}/signals ${scratch} ignore-loop`);
   await waitForText(/SIGNAL-IGNORE-READY\s*$/);
   await interrupt();
-  await new Promise(resolve => setTimeout(resolve, 50));
-  assert.equal(ignoring, true, "one Ctrl-C must honor SIG_IGN");
   await interrupt();
-  assert.equal(await ignored, 130, "a second Ctrl-C terminates");
-  await run(`test -f ${scratch}/signal.lock && test ! -e ${scratch}/atexit`);
+  assert.equal(await ignored, 99, "Ctrl-C, even pressed twice, honors SIG_IGN");
   await run(`git config --file ${scratch}/config user.email before && timeout 5 git config --file ${scratch}/config user.email after`);
 
   // The image's startup script runs $HOME/.dollyrc, then the app shell, then
