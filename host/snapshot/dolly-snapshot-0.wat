@@ -11,6 +11,8 @@
     i32.const 2)
   (func (export "dolly_session_base_capture") (result i32)
     i32.const 0)
+  ;; One step of a save: starts a requested capture or publishes the next
+  ;; chunk once the page consumed the previous one; it never waits.
   (func (export "dolly_session_service"))
   (func (export "dolly_session_name_address") (result i64)
     i64.const 0)

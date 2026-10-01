@@ -26,9 +26,10 @@ flowchart LR
   the uncompressed delta is at most 512 MiB, and exceeding it fails the save
   visibly, naming the limit. A failed save leaves the previous record intact.
 - Hashing, encoding and restoring stay in Wasm: sessions add no Wasm import or
-  path-level browser filesystem API. The kernel serves a save even while the
-  foreground program sleeps or waits for input. IndexedDB stores the encoded
-  delta as a Blob, avoiding large serialization copies.
+  path-level browser filesystem API. The kernel serves a save in steps between
+  system calls, one chunk per acknowledgement, so programs keep running while
+  the page compresses it. IndexedDB stores the encoded delta as a Blob,
+  avoiding large serialization copies.
 - Loading needs the same runtime build and image identity. Otherwise **Recover
   files** boots `system` and copies changed regular files from `/workspace` and
   `/home` into `/workspace/recovered-NAME`

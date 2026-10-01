@@ -1,7 +1,9 @@
 import { DOLLY_SESSION_MAX_BYTES, validSessionName } from "../../src/session-store.mjs";
 import { DOLLY_ERRNO } from "../../dist/dolly-errno.mjs";
 
-// Mailbox v2, mirrored by kernel.c. No filesystem paths cross here.
+// Mailbox v2, mirrored by kernel.c. No filesystem paths cross here. wake asks
+// the kernel to serve the mailbox: on a request, after each consumed chunk
+// and on cancellation; the kernel thread never waits for this page.
 export class SessionTransport {
   static requestSequence = 0;
   static completedSequence = 1;
@@ -67,9 +69,10 @@ export class SessionTransport {
     };
     const cancel = () => {
       Atomics.store(words, SessionTransport.cancelledSequence, requested);
-      Atomics.notify(words, SessionTransport.chunkConsumedSequence);
+      // Wake this capture's own waits, and the kernel.
       Atomics.notify(words, SessionTransport.chunkSequence);
       Atomics.notify(words, SessionTransport.completedSequence);
+      this.wake();
     };
     this.cancel = cancel;
     signal?.addEventListener("abort", cancel, { once: true });
@@ -106,7 +109,7 @@ export class SessionTransport {
         else snapshot.set(bytes, offset);
         offset += length;
         Atomics.store(words, SessionTransport.chunkConsumedSequence, chunk);
-        Atomics.notify(words, SessionTransport.chunkConsumedSequence);
+        this.wake();
         chunkSequence = chunk;
         deadline = performance.now() + timeoutMilliseconds;
         if (eof) break;

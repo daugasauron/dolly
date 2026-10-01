@@ -372,63 +372,73 @@ int dolly_session_restore(uintptr_t size) {
 
 static double monotonic_milliseconds(void) {
   struct timespec time;
-  if (clock_gettime(CLOCK_MONOTONIC, &time) != 0) return -1;
+  clock_gettime(CLOCK_MONOTONIC, &time);
   return (double)time.tv_sec * 1000 + (double)time.tv_nsec / 1000000;
 }
 
-static int wait_for_chunk(uint32_t sequence, uint32_t request) {
-  const double start = monotonic_milliseconds();
-  if (start < 0) return -1;
-  const double deadline = start + 30000;
-  for (;;) {
-    // Wait on precisely the value compared, not a second load which could
-    // observe the acknowledgement and then wait forever for its replacement.
-    const uint32_t consumed = atomic_load_explicit(
-        &session_mailbox.chunk_consumed_sequence, memory_order_acquire);
-    if (consumed == sequence) return 0;
-    if (atomic_load_explicit(&session_mailbox.cancelled_sequence,
-                             memory_order_acquire) == request) {
-      errno = ECANCELED;
-      return -1;
-    }
-    const double now = monotonic_milliseconds();
-    if (now < 0) return -1;
-    if (now >= deadline) {
-      errno = ETIMEDOUT;
-      return -1;
-    }
-    emscripten_atomic_wait_u32(
-        (void *)&session_mailbox.chunk_consumed_sequence, consumed, 1000000000);
-  }
+// One save in flight: the page acknowledges each chunk before the next is
+// published, and the kernel thread never waits for it.
+static struct {
+  int active, status;
+  uint32_t request, sequence;
+  uintptr_t offset;
+  double deadline;
+} transfer;
+
+static void publish_chunk(void) {
+  const uintptr_t remaining = capture_size - transfer.offset;
+  const uint32_t length = remaining > DOLLY_SESSION_TRANSFER_CAPACITY
+                              ? DOLLY_SESSION_TRANSFER_CAPACITY : (uint32_t)remaining;
+  if (length != 0) memcpy(session_transfer, capture_bytes + transfer.offset, length);
+  transfer.offset += length;
+  atomic_store_explicit(&session_mailbox.chunk_length, length, memory_order_relaxed);
+  atomic_store_explicit(&session_mailbox.chunk_eof, transfer.offset == capture_size,
+                        memory_order_relaxed);
+  atomic_store_explicit(&session_mailbox.chunk_sequence, ++transfer.sequence,
+                        memory_order_release);
+  emscripten_atomic_notify((void *)&session_mailbox.chunk_sequence,
+                           EMSCRIPTEN_NOTIFY_ALL_WAITERS);
+  transfer.deadline = monotonic_milliseconds() + 30000;
 }
 
-static int publish_capture(uint32_t request) {
-  uint32_t sequence = atomic_load_explicit(
-      &session_mailbox.chunk_sequence, memory_order_relaxed);
-  uintptr_t offset = 0;
-  for (;;) {
-    if (wait_for_chunk(sequence, request) != 0) return -1;
-    const uintptr_t remaining = capture_size - offset;
-    const uint32_t length = remaining > DOLLY_SESSION_TRANSFER_CAPACITY
-                                ? DOLLY_SESSION_TRANSFER_CAPACITY
-                                : (uint32_t)remaining;
-    if (length != 0) memcpy(session_transfer, capture_bytes + offset, length);
-    offset += length;
-    atomic_store_explicit(&session_mailbox.chunk_length, length,
-                          memory_order_relaxed);
-    atomic_store_explicit(&session_mailbox.chunk_eof,
-                          offset == capture_size, memory_order_relaxed);
-    sequence++;
-    atomic_store_explicit(&session_mailbox.chunk_sequence, sequence,
-                          memory_order_release);
-    emscripten_atomic_notify((void *)&session_mailbox.chunk_sequence,
-                             EMSCRIPTEN_NOTIFY_ALL_WAITERS);
-    if (offset == capture_size) break;
-  }
-  return wait_for_chunk(sequence, request);
+// A failed capture keeps its own status over the transfer's outcome.
+static void finish_transfer(int outcome) {
+  const int status = transfer.status != 0 ? transfer.status : outcome;
+  free(capture_bytes);
+  capture_bytes = NULL;
+  capture_size = 0;
+  transfer.active = 0;
+  // A cancelled transfer must not leave an unacknowledged chunk blocking the
+  // next save. The next consumer starts from this published sequence.
+  atomic_store_explicit(&session_mailbox.chunk_consumed_sequence,
+      atomic_load_explicit(&session_mailbox.chunk_sequence, memory_order_relaxed),
+      memory_order_release);
+  atomic_store_explicit(&session_mailbox.status, (uint32_t)status,
+                        memory_order_relaxed);
+  atomic_store_explicit(&session_mailbox.completed_sequence, transfer.request,
+                        memory_order_release);
+  emscripten_atomic_notify((void *)&session_mailbox.completed_sequence,
+                           EMSCRIPTEN_NOTIFY_ALL_WAITERS);
 }
 
+// One step of a save, on the supervisor tick and whenever the page writes the
+// mailbox: starts a requested capture, publishes the next chunk once the page
+// consumed the previous one, and finishes after the last acknowledgement.
 void dolly_session_service(void) {
+  if (transfer.active) {
+    if (atomic_load_explicit(&session_mailbox.cancelled_sequence,
+                             memory_order_acquire) == transfer.request) {
+      finish_transfer(-ECANCELED);
+    } else if (atomic_load_explicit(&session_mailbox.chunk_consumed_sequence,
+                                    memory_order_acquire) != transfer.sequence) {
+      if (monotonic_milliseconds() >= transfer.deadline) finish_transfer(-ETIMEDOUT);
+    } else if (transfer.offset == capture_size) {
+      finish_transfer(0);
+    } else {
+      publish_chunk();
+    }
+    return;
+  }
   const uint32_t request = atomic_load_explicit(
       &session_mailbox.request_sequence, memory_order_acquire);
   if (request == atomic_load_explicit(&session_mailbox.completed_sequence,
@@ -454,21 +464,12 @@ void dolly_session_service(void) {
                         (uint32_t)(size >> 32), memory_order_relaxed);
   atomic_store_explicit(&session_mailbox.status, (uint32_t)status,
                         memory_order_relaxed);
-  if (publish_capture(request) != 0 && status == 0) status = -errno;
-  free(capture_bytes);
-  capture_bytes = NULL;
-  capture_size = 0;
-  // A cancelled transfer must not leave an unacknowledged chunk blocking the
-  // next save. The next consumer starts from this published sequence.
-  atomic_store_explicit(&session_mailbox.chunk_consumed_sequence,
-      atomic_load_explicit(&session_mailbox.chunk_sequence, memory_order_relaxed),
-      memory_order_release);
-  atomic_store_explicit(&session_mailbox.status, (uint32_t)status,
-                        memory_order_relaxed);
-  atomic_store_explicit(&session_mailbox.completed_sequence, request,
-                        memory_order_release);
-  emscripten_atomic_notify((void *)&session_mailbox.completed_sequence,
-                           EMSCRIPTEN_NOTIFY_ALL_WAITERS);
+  transfer.active = 1;
+  transfer.status = status;
+  transfer.request = request;
+  transfer.sequence = atomic_load_explicit(&session_mailbox.chunk_sequence, memory_order_relaxed);
+  transfer.offset = 0;
+  publish_chunk();
 }
 
 // The page drives sessions through the snapshot mailbox; no process operations.

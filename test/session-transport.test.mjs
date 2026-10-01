@@ -3,14 +3,23 @@ import test from "node:test";
 import { SessionTransport as Mailbox } from "../host/snapshot/transport.mjs";
 import { sessionLoadUrl } from "../src/session-store.mjs";
 
+// A kernel-like producer: the transport wakes it on a request, after each
+// acknowledged chunk and on cancellation; it publishes one payload chunk per
+// request once the previous chunk was consumed, and completion releases any
+// chunk left unacknowledged.
 function fixture() {
   const buffer = new SharedArrayBuffer(2 * 1024 * 1024);
   const transport = new Mailbox(buffer, 64, 128, 128, 1024, 1024 * 1024, () => {});
   const words = transport.words;
   const payload = new TextEncoder().encode("DOLLYSES-session-fixture");
+  let served = 0;
   return {
     transport, words, payload,
     publish() {
+      const request = Atomics.load(words, Mailbox.requestSequence);
+      if (served === request ||
+          Atomics.load(words, Mailbox.chunkSequence) !== Atomics.load(words, Mailbox.chunkConsumedSequence)) return;
+      served = request;
       transport.bytes.set(payload, 1024);
       Atomics.store(words, Mailbox.totalSizeLow, payload.length);
       Atomics.store(words, Mailbox.chunkLength, payload.length);
@@ -19,6 +28,7 @@ function fixture() {
       Atomics.notify(words, Mailbox.chunkSequence);
     },
     complete() {
+      Atomics.store(words, Mailbox.chunkConsumedSequence, Atomics.load(words, Mailbox.chunkSequence));
       Atomics.store(words, Mailbox.completedSequence, Atomics.load(words, Mailbox.requestSequence));
       Atomics.notify(words, Mailbox.completedSequence);
     },
