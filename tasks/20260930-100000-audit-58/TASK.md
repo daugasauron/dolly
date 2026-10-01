@@ -35,3 +35,9 @@ Tests exercise behavior through modules and binaries.
 - Removed the source-hash test from `demos/bhop/test/bhop.test.mjs`; the
   compiled Airtime check there covers the physics.
 - Removed the prose assertion from `demos/studio/test/studio.test.mjs`.
+- Pages' digest check moved into `scripts/verify-sha256.sh`, which the workflow
+  runs and the test calls; the process archive is published with
+  `replace_if_changed` like the client archives, and its slicing test is gone.
+- Still slicing: `test/terminal-ring.test.mjs` (C functions cut out of
+  `src/dolly.c`) and `test/preparation-cache.test.mjs` (key prefix of the
+  prepare scripts, which guards cache keys against checkout location).
