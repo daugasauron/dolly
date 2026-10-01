@@ -26,7 +26,7 @@ if (process.argv.length > 3 || (process.argv[2] !== undefined && !planOnly)) {
   throw new Error("usage: build-system-snapshot.mjs [--plan]");
 }
 // Each image build is one headless Chrome using about one core. Most peak below
-// 5 GB, codex-build at 17 GB (PSS, measured 2026-10-01): budget 10 GiB each.
+// 5 GB, the largest catalog image at 17 GB (PSS, measured 2026-10-01): budget 10 GiB each.
 const jobs = Number(process.env.DOLLY_IMAGE_JOBS ??
   Math.max(1, Math.min(availableParallelism(), Math.floor(freemem() / 10 / 2 ** 30))));
 if (!Number.isSafeInteger(jobs) || jobs < 1) throw new Error("DOLLY_IMAGE_JOBS must be a positive integer");

@@ -34,7 +34,7 @@ const headless = new Set(graphs.filter(({ graph }) => !graph.root.hostRequiremen
 await writeImageRegistry(projectDir, definitions, staticSources);
 const descriptions = await imageDescriptions(projectDir);
 // Runnable images first (default leading), then one build image section.
-const isBuild = image => /-(build|sdk|runtime|tools)$/.test(image) || ["system", "ripgrep"].includes(image);
+const isBuild = image => /-(build|sdk|runtime|tools)$/.test(image) || image === "system";
 const ordered = [...definitions].sort((a, b) =>
   Number(b.image === "default") - Number(a.image === "default") ||
   Number(isBuild(a.image)) - Number(isBuild(b.image)) || a.image.localeCompare(b.image, "en"));
