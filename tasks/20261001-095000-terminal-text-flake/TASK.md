@@ -1,7 +1,7 @@
 # Firefox terminal test can read an empty visible text
 
 - STATUS: OPEN
-- PRIORITY: 120
+- PRIORITY: 170
 - TAGS: tests,flaky,display,firefox
 
 `test/terminal-browser.mjs` failed once in Firefox (terminal-mailbox branch,
@@ -14,3 +14,9 @@ selection, reads as "".
 Done when: the cause is reproduced (for example 50 Firefox runs of the test)
 and the helper or the display copy path is fixed, or the race is shown to be
 elsewhere.
+
+## Evidence (2026-10-01, `rebuild-batch` release run)
+
+The full Firefox suite failed `terminal-browser.mjs` with
+`page.waitForFunction: Timeout 30000ms exceeded`; 6 of 7 isolated reruns passed
+(Chrome passed). Same failure rate as the terminal-mailbox branch's report.
