@@ -94,7 +94,9 @@ await demoTest("python", { image: "python", timeout: packages ? 7_200_000 : 600_
   await run(`cd /workspace && rm -rf ${scratch}`);
 
   if (!packages) return;
-  const install = start(`${pip} numpy pandas`);
+  // NumPy comes as Pandas' dependency; naming it too would build it twice
+  // (once more inside Pandas' isolated build environment).
+  const install = start(`${pip} pandas`);
   let frame = 0, frames = 0;
   while (install.status === null) {
     const next = await page.evaluate(() => Number(document.documentElement.dataset.frameSequence));
