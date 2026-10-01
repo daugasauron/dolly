@@ -126,7 +126,9 @@ export async function displayProbe(image) {
     const { dollyfile, sha256 } = DOLLY_IMAGES.find(definition => definition.image === name);
     return `${CANONICAL_ORIGIN}/${dollyfile} ${sha256}`;
   };
-  const recipe = ["DOLLY 6", "APPLICATION display-probe", `FROM ${pin(image)}`, "REQUIRES HOST display@0", "REQUIRES HOST http@0",
+  // Host requirements are never inherited: restate the base's, plus the display.
+  const hosts = [...new Set([...DOLLY_IMAGES.find(definition => definition.image === image).hostRequirements, "display@0"])].sort();
+  const recipe = ["DOLLY 6", "APPLICATION display-probe", ...hosts.map(host => `REQUIRES HOST ${host}`), `FROM ${pin(image)}`,
     ...["/usr/lib/libdisplay.so", "/usr/share/fonts/IosevkaTerm-SemiBold.ttf"]
       .map(path => `COPY ${pin("ghostty-build")} ${path} ${path}`),
     "EXPORTS LIB display /usr/lib/libdisplay.so", "EXPORTS ENV DISPLAY /usr/lib/libdisplay.so",

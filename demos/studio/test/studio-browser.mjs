@@ -18,7 +18,7 @@ await demoTest("studio", { image: "dollyfile-studio", webgpu: true, timeout: 900
   await run("printf 'DOLLY 2\\n' | dollyfile-lint --stdin Draft", 1);
   // Errors name the literal file, even with replacement patterns or Unicode.
   for (const label of ["Dollyfile-$&", "Dollyfile-$$", "Dollyfile-$'", "Dollyfile-$`", "Dollyfile-東京"]) {
-    await run(`message=$(printf 'DOLLY 6\\n' | dollyfile-lint --stdin ${shellQuote(label)} 2>&1); test "$?" = 1 && test "$message" = ${shellQuote(`${label}:1: missing APPLICATION or MODULE`)}`);
+    await run(`message=$(printf 'DOLLY 6\\n' | dollyfile-lint --stdin ${shellQuote(label)} 2>&1); test "$?" = 1 && test "$message" = ${shellQuote(`${label}:1: missing APPLICATION, TOOLCHAIN or PACKAGE`)}`);
   }
   await run("test -f /home/dolly/.pi/agent/skills/dollyfiles/SKILL.md && test -f /home/dolly/.pi/agent/extensions/local-model-provider.js");
   // Recipes name canonical URLs; the page serves its own copies, pinned by hash.
@@ -46,6 +46,11 @@ await demoTest("studio", { image: "dollyfile-studio", webgpu: true, timeout: 900
   const system = DOLLY_IMAGES.find(definition => definition.image === "system").sha256;
   const recipe = `DOLLY 6
 APPLICATION build-proof
+REQUIRES HOST display@0
+REQUIRES HOST download@0
+REQUIRES HOST http@0
+REQUIRES HOST snapshot@0
+REQUIRES HOST upload@0
 FROM https://daugasauron.com/Dollyfile-system ${system}
 FILE /tmp/proof/hello.c
     #include <stdio.h>
