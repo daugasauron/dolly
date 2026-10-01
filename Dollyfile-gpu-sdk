@@ -1,7 +1,7 @@
 DOLLY 6
 TOOLCHAIN gpu-sdk
 
-FROM https://daugasauron.com/Dollyfile-system 8b3a1039331222b3886ba7369bbebbe363104bef03506f7cfa3fa6a7a3471268
+FROM https://daugasauron.com/Dollyfile-system 9458aeb8551ae915f623a7dd849bdc2f1bd55c3eabac10c8eed3de297c6f2344
 REQUIRES HOST gpu@0
 
 ENTRY /bin/foreground -i /bin/slop

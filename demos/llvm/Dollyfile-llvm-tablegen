@@ -4,7 +4,7 @@ TOOLCHAIN llvm-tablegen
 # Build-only: LLVM 24 configured by CMake inside Dolly, its TableGen tools and outputs.
 FROM https://daugasauron.com/demos/cmake/Dollyfile-cmake-build a5335f433b5d573f03e6821f912e684cd75fa4defdba24f984b92f0bdbc92724
 # LLVM's CMake requires a Python 3 interpreter.
-INSTALL https://daugasauron.com/demos/python/Dollyfile-python 1bacad75c201baa573d9df8fe20bfed56383746480acebe3dac3481f675c0c7b
+INSTALL https://daugasauron.com/demos/python/Dollyfile-python 2aaa0767ebf3c8b0a401c19e7d5d0ac17c83fa5a0dcd77ddeaad29cb0dc2793f
 USE https://daugasauron.com/demos/llvm/llvm-tablegen.dm ec928b56f166c105161d5796ec8ec1ea8e06957193cbb97e161614e2482d7fc0
 
 ENTRY /bin/foreground -i /bin/slop

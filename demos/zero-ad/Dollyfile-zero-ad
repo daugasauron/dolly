@@ -1,7 +1,7 @@
 DOLLY 6
 APPLICATION zero-ad
 
-FROM https://daugasauron.com/Dollyfile 6b79282fb6db70667dd5643f3808ac0c3bc8ce11d8dbfb7375565fdb4e1d3932
+FROM https://daugasauron.com/Dollyfile 1b2b39f2f1772a2834a266bbdeae29649007bbf8aeb3b72f09ec5980fa77b57c
 USE https://daugasauron.com/demos/zero-ad/zero-ad.dm 2d88362dfacb554828a5e80e3d711c6572e5cbc3de1931cc5b72244935cc1436
 
 FILE /etc/dolly/zero-ad.slop

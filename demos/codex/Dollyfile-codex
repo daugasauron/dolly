@@ -1,7 +1,7 @@
 DOLLY 6
 APPLICATION codex
 
-FROM https://daugasauron.com/Dollyfile-system 8b3a1039331222b3886ba7369bbebbe363104bef03506f7cfa3fa6a7a3471268
+FROM https://daugasauron.com/Dollyfile-system 9458aeb8551ae915f623a7dd849bdc2f1bd55c3eabac10c8eed3de297c6f2344
 COPY https://daugasauron.com/demos/codex/Dollyfile-codex-build e9b07458c15bcda880c72dad2778df86e68d7ae40aa4cee1e0906bfd1f63ffc7 /usr/bin/codex /usr/libexec/codex
 COPY https://daugasauron.com/demos/codex/Dollyfile-codex-build e9b07458c15bcda880c72dad2778df86e68d7ae40aa4cee1e0906bfd1f63ffc7 /usr/share/licenses/codex /usr/share/licenses/codex
 COPY https://daugasauron.com/demos/codex/Dollyfile-codex-build e9b07458c15bcda880c72dad2778df86e68d7ae40aa4cee1e0906bfd1f63ffc7 /usr/share/dolly/builds/codex.json /usr/share/dolly/builds/codex.json

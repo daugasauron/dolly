@@ -8,6 +8,6 @@ REQUIRES HOST download@0
 REQUIRES HOST upload@0
 REQUIRES HOST snapshot@0
 
-USE https://daugasauron.com/modules/session-recovery.dm 722969f199cddba21cd56cc94a6da1a8417744994c83ded93bbd059e02245745
+USE https://daugasauron.com/modules/session-recovery.dm b792c9a88d646e06fc9315d31e8d38aabb91bdd81fa062f6d81b035cd7a76fdf
 
 ENTRY /bin/foreground -i /bin/slop
