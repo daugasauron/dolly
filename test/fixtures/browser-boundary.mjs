@@ -18,7 +18,7 @@ export async function runBrowserBoundaryChecks(assetRoot) {
   const asset = path => new URL(path, assetRoot).href;
   const { instantiateKernelPlugin } = await import(asset("src/kernel-plugin.mjs"));
   const { NetworkTransport } = await import(asset("host/http/broker.mjs"));
-  const { DOLLY_HTTP_MAILBOX_VERSION, DOLLY_HTTP_SLOT_COUNT, DOLLY_HTTP_WORD_ERROR, DOLLY_HTTP_WORD_KIND, DOLLY_HTTP_WORD_LENGTH, DOLLY_HTTP_WORD_SEQUENCE } =
+  const { DOLLY_HTTP_SLOT_COUNT, DOLLY_HTTP_WORD_ERROR, DOLLY_HTTP_WORD_KIND, DOLLY_HTTP_WORD_LENGTH, DOLLY_HTTP_WORD_SEQUENCE } =
     await import(asset("host/http/abi.mjs"));
   const { DollyHttpPolicy, restrictDollyHttpPolicy, httpPolicyConfigurations } = await import(asset("host/http/policy.mjs"));
   const { DOLLY_KERNEL_PLUGIN_ABI_DIGEST } = await import(asset("dist/dolly-kernel-plugin-abi.mjs"));
@@ -29,13 +29,6 @@ export async function runBrowserBoundaryChecks(assetRoot) {
   const names = module => WebAssembly.Module.imports(module).map(x => `${x.module}.${x.name}`).sort();
   check(JSON.stringify(names(kernel)) === JSON.stringify(names(contract)), "outer import set changed");
   check(!names(kernel).some(x => /dlopen|dlsym/.test(x)), "kernel exposes a general loader");
-  const http = await WebAssembly.instantiateStreaming(fetch(asset("dist/dolly-http-0.wasm")), { env: {
-    memory: new WebAssembly.Memory({ initial: 1024n, maximum: 131072n, shared: true, address: "i64" }),
-    dolly_http_dispatch: () => 0,
-  } });
-  check(http.instance.exports.dolly_http_mailbox_version() === DOLLY_HTTP_MAILBOX_VERSION &&
-    http.instance.exports.dolly_http_slot_count() === DOLLY_HTTP_SLOT_COUNT &&
-    http.instance.exports.dolly_http_chunk_capacity() === 65536, "HTTP transport constants differ from canonical Wasm");
 
   // A normal Dolly process is not a resident plugin. Adding the expected
   // compatibility tag must not grant its syscall import to a kernel plugin.
@@ -51,7 +44,7 @@ export async function runBrowserBoundaryChecks(assetRoot) {
   const policy = new DollyHttpPolicy({ rules: [{ origin: fixtureOrigin,
     path: "/fixture/http.txt", methods: ["GET"], timeoutMilliseconds: 1000 }] });
   let calls = 0, signal, received = false;
-  const broker = new NetworkTransport(new SharedArrayBuffer(64 + DOLLY_HTTP_SLOT_COUNT * (65536 + 64)), 64, 65536, policy);
+  const broker = new NetworkTransport(new SharedArrayBuffer(64 + DOLLY_HTTP_SLOT_COUNT * (65536 + 64)), 64, policy);
   const word = broker.address / 4;
   const words = broker.words;
   const handle = generation => (generation - 1) * DOLLY_HTTP_SLOT_COUNT + 1;

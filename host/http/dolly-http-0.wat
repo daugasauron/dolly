@@ -7,13 +7,12 @@
     (func $dolly_http_dispatch
       (param i64 i64 i64 i64 i64 i64 i64 i64 i32 i32) (result i32)))
 
-  ;; Version 5 admission: pointer/byte-length pairs for method, URL, headers,
-  ;; and body, followed by flags and request sequence. Returns 0 or -errno.
+  ;; Admission: pointer/byte-length pairs for method, URL, headers, and body,
+  ;; followed by flags and request sequence. Returns 0 or -errno.
   ;; The browser validates ALL spans against these byte limits before decoding
   ;; or copying. Metadata is UTF-8, excludes NUL, and need not be
   ;; NUL-terminated. No unbounded string scans. The URL must be absolute
   ;; http(s); the browser resolves nothing against its own location.
-  (global (export "DOLLY_HTTP_MAILBOX_VERSION") i32 (i32.const 5))
   (global (export "DOLLY_HTTP_SLOT_COUNT") i32 (i32.const 16))
   (global (export "DOLLY_HTTP_CHUNK_CAPACITY") i32 (i32.const 65536))
   (global (export "DOLLY_HTTP_MAX_METHOD") i32 (i32.const 32))
@@ -30,7 +29,7 @@
   ;; slot remains occupied until its provider settles; forged guest state cannot
   ;; allocate extra providers. EBUSY means this slot is still occupied.
 
-  ;; Version 5 has 16 contiguous slots, each with seven atomic LE u32 fields in a
+  ;; The pool has 16 contiguous slots, each with seven atomic LE u32 fields in a
   ;; 64-byte header: state, sequence, HTTP status, byte length, EOF, error, and
   ;; chunk kind. Kinds 1, 2, and 3 are the effective URL, one complete response
   ;; header line, and response body data. A 64 KiB chunk follows. State 1 means
@@ -61,12 +60,6 @@
   (global (export "DOLLY_HTTP_KIND_BODY") i32 (i32.const 3))
   (func (export "dolly_http_mailbox_address") (result i64)
     i64.const 0)
-  (func (export "dolly_http_mailbox_version") (result i32)
-    i32.const 5)
-  (func (export "dolly_http_slot_count") (result i32)
-    i32.const 16)
-  (func (export "dolly_http_chunk_capacity") (result i32)
-    i32.const 65536)
 
   ;; Process operations that start, poll and cancel requests in the slot pool;
   ;; their packets are defined in http.h.

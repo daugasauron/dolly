@@ -15,7 +15,19 @@
 #include <dolly/process.h>
 #include <dolly/upload.h>
 
-_Static_assert(offsetof(dolly_upload_mailbox, data) == 64, "upload mailbox layout");
+_Static_assert(
+    offsetof(dolly_upload_mailbox, request) == 4 * DOLLY_UPLOAD_WORD_REQUEST &&
+    offsetof(dolly_upload_mailbox, cancelled) == 4 * DOLLY_UPLOAD_WORD_CANCELLED &&
+    offsetof(dolly_upload_mailbox, completed) == 4 * DOLLY_UPLOAD_WORD_COMPLETED &&
+    offsetof(dolly_upload_mailbox, chunk) == 4 * DOLLY_UPLOAD_WORD_CHUNK &&
+    offsetof(dolly_upload_mailbox, consumed) == 4 * DOLLY_UPLOAD_WORD_CONSUMED &&
+    offsetof(dolly_upload_mailbox, length) == 4 * DOLLY_UPLOAD_WORD_LENGTH &&
+    offsetof(dolly_upload_mailbox, error) == 4 * DOLLY_UPLOAD_WORD_ERROR &&
+    offsetof(dolly_upload_mailbox, eof) == 4 * DOLLY_UPLOAD_WORD_EOF &&
+    offsetof(dolly_upload_mailbox, enabled) == 4 * DOLLY_UPLOAD_WORD_ENABLED &&
+    offsetof(dolly_upload_mailbox, size) == 4 * DOLLY_UPLOAD_WORD_SIZE &&
+    offsetof(dolly_upload_mailbox, data) == DOLLY_UPLOAD_HEADER_SIZE,
+    "upload mailbox layout differs from dolly-upload-0.wat");
 _Alignas(64) static dolly_upload_mailbox mailbox;
 static int owner;
 static int descriptor = -1;
@@ -24,7 +36,6 @@ static char *destination;
 static size_t received;
 
 uintptr_t dolly_upload_mailbox_address(void) { return (uintptr_t)&mailbox; }
-uint32_t dolly_upload_mailbox_version(void) { return 1; }
 
 static void upload_cancel(int pid) {
   if (owner != pid || pid <= 0) return;

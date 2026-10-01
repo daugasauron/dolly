@@ -3,7 +3,8 @@
 #include <stdatomic.h>
 
 /* Opaque session transfer, serviced by the kernel. This is the mailbox C
- * layout, not a process API for invoking kernel functions. */
+ * layout of dolly-snapshot-0.wat (its sizes and word order), not a process
+ * API for invoking kernel functions. */
 enum {
   DOLLY_SESSION_NAME_CAPACITY = 128,
   DOLLY_SESSION_MAILBOX_HEADER_SIZE = 64,

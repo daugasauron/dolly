@@ -319,24 +319,12 @@ uintptr_t dolly_session_mailbox_address(void) {
   return (uintptr_t)&session_mailbox;
 }
 
-uint32_t dolly_session_mailbox_version(void) {
-  return DOLLY_SESSION_VERSION;
-}
-
 uintptr_t dolly_session_name_address(void) {
   return (uintptr_t)session_name;
 }
 
-uint32_t dolly_session_name_capacity(void) {
-  return DOLLY_SESSION_NAME_CAPACITY;
-}
-
 uintptr_t dolly_session_transfer_address(void) {
   return (uintptr_t)session_transfer;
-}
-
-uint32_t dolly_session_transfer_capacity(void) {
-  return DOLLY_SESSION_TRANSFER_CAPACITY;
 }
 
 uintptr_t dolly_session_restore_address(uintptr_t size) {

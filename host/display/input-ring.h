@@ -7,7 +7,7 @@
  * bytes and publishes frames. Kernel-private; programs see display.h. */
 typedef struct {
   dolly_display_mailbox *mailbox;
-  const dolly_display_driver_v3 *driver;
+  const dolly_display_driver_v4 *driver;
   void (*resized)(void); /* The terminal grid changed size. */
 } dolly_input_ring;
 

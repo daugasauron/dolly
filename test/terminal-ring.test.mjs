@@ -11,7 +11,7 @@ const includeDirectory = await stagedIncludeDirectory();
 
 test("display text packets and copied selections preserve literal UTF-8", async () => {
   const buffer = new SharedArrayBuffer(4096);
-  const transport = new Display(buffer, 64, 128, 8, 2048, 3072, 1024);
+  const transport = new Display(buffer, 64, 2048, 3072, { eventCapacity: 8, clipboardCapacity: 1024 });
   const word = field => transport.word + field;
   for (const padding of [0, 1, 84, 85, 86, 87, 88, 89, 175]) {
     transport.words.fill(0);
@@ -34,13 +34,13 @@ test("display text packets and copied selections preserve literal UTF-8", async 
   assert.equal(transport.pushText("x".repeat(88 * 8 + 1)), false, "text larger than the free ring");
   assert.equal(transport.words[word(Display.eventWrite)], 0, "a refused text sends no partial records");
   for (const [address, capacity] of [[64, 0], [64, 12], [0, 8], [64, 64]]) {
-    assert.throws(() => new Display(buffer, address, 128, capacity, 2048, 3072, 1024), /invalid display mailbox/);
+    assert.throws(() => new Display(buffer, address, 2048, 3072, { eventCapacity: capacity, clipboardCapacity: 1024 }), /invalid display mailbox/);
   }
 });
 
 test("the presenter refuses a malformed published frame", () => {
   const buffer = new SharedArrayBuffer(16384);
-  const transport = new Display(buffer, 64, 128, 8, 2048, 3072, 1024);
+  const transport = new Display(buffer, 64, 2048, 3072, { eventCapacity: 8, clipboardCapacity: 1024 });
   const presenter = new FramebufferPresenter({ getContext: () => ({}) }, buffer, [8192, 16350], 1024,
     transport, () => {});
   const word = field => transport.word + field;
@@ -87,7 +87,7 @@ static int handle(const dolly_input_event *event, unsigned char *out, size_t cap
   }
   return 0;
 }
-static const dolly_display_driver_v3 driver = {.handle_event = handle};
+static const dolly_display_driver_v4 driver = {.handle_event = handle};
 static const dolly_input_ring ring = {&display_mailbox, &driver, on_resized};
 int main(void) {
   for (unsigned wrap = 0; wrap < 2; ++wrap) {

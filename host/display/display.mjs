@@ -1,5 +1,6 @@
 import { instantiateKernelPlugin } from "../../src/kernel-plugin.mjs";
 import { displayInput } from "./input.mjs";
+import * as A from "./abi.mjs";
 export { DOLLY_DISPLAY_ABI_DIGEST as digest } from "./abi.mjs";
 
 const encoder = new TextEncoder();
@@ -7,32 +8,32 @@ const textDecoder = new TextDecoder("utf-8", { ignoreBOM: true });
 const defaultFontSizeMilli = 20000;
 
 export class DisplayTransport {
-  static headerSize = 100;
-  static eventRead = 0;
-  static eventWrite = 1;
-  static flags = 2;
-  static frameSequence = 3;
-  static frameIndex = 4;
-  static frameWidth = 5;
-  static frameHeight = 6;
-  static frameStride = 7;
-  static terminalCols = 8;
-  static terminalRows = 9;
-  static fontSizeMilli = 10;
-  static pasteSequence = 11;
-  static pasteConsumedSequence = 12;
-  static pasteLength = 13;
-  static copySequence = 14;
-  static copyLength = 15;
-  static copyFlags = 16;
-  static cursorCol = 17;
-  static cursorRow = 18;
-  static cellWidth = 19;
-  static cellHeight = 20;
-  static paddingX = 21;
-  static paddingY = 22;
-  static animationFrameSequence = 23;
-  static cursorStyle = 24;
+  static headerSize = A.DOLLY_DISPLAY_HEADER_SIZE;
+  static eventRead = A.DOLLY_DISPLAY_WORD_EVENT_READ;
+  static eventWrite = A.DOLLY_DISPLAY_WORD_EVENT_WRITE;
+  static flags = A.DOLLY_DISPLAY_WORD_FLAGS;
+  static frameSequence = A.DOLLY_DISPLAY_WORD_FRAME_SEQUENCE;
+  static frameIndex = A.DOLLY_DISPLAY_WORD_FRAME_INDEX;
+  static frameWidth = A.DOLLY_DISPLAY_WORD_FRAME_WIDTH;
+  static frameHeight = A.DOLLY_DISPLAY_WORD_FRAME_HEIGHT;
+  static frameStride = A.DOLLY_DISPLAY_WORD_FRAME_STRIDE;
+  static terminalCols = A.DOLLY_DISPLAY_WORD_TERMINAL_COLS;
+  static terminalRows = A.DOLLY_DISPLAY_WORD_TERMINAL_ROWS;
+  static fontSizeMilli = A.DOLLY_DISPLAY_WORD_FONT_SIZE_MILLI;
+  static pasteSequence = A.DOLLY_DISPLAY_WORD_PASTE_SEQUENCE;
+  static pasteConsumedSequence = A.DOLLY_DISPLAY_WORD_PASTE_CONSUMED_SEQUENCE;
+  static pasteLength = A.DOLLY_DISPLAY_WORD_PASTE_LENGTH;
+  static copySequence = A.DOLLY_DISPLAY_WORD_COPY_SEQUENCE;
+  static copyLength = A.DOLLY_DISPLAY_WORD_COPY_LENGTH;
+  static copyFlags = A.DOLLY_DISPLAY_WORD_COPY_FLAGS;
+  static cursorCol = A.DOLLY_DISPLAY_WORD_CURSOR_COL;
+  static cursorRow = A.DOLLY_DISPLAY_WORD_CURSOR_ROW;
+  static cellWidth = A.DOLLY_DISPLAY_WORD_CELL_WIDTH;
+  static cellHeight = A.DOLLY_DISPLAY_WORD_CELL_HEIGHT;
+  static paddingX = A.DOLLY_DISPLAY_WORD_PADDING_X;
+  static paddingY = A.DOLLY_DISPLAY_WORD_PADDING_Y;
+  static animationFrameSequence = A.DOLLY_DISPLAY_WORD_ANIMATION_FRAME_SEQUENCE;
+  static cursorStyle = A.DOLLY_DISPLAY_WORD_CURSOR_STYLE;
 
   static keyEvent = 1;
   static textEvent = 2;
@@ -48,16 +49,17 @@ export class DisplayTransport {
   static copyAvailable = 1;
   static copyTruncated = 2;
 
-  constructor(buffer, address, eventSize, eventCapacity,
-              pasteAddress, copyAddress, clipboardCapacity) {
+  // The ring and clipboard sizes are the contract's; a test may shrink them.
+  constructor(buffer, address, pasteAddress, copyAddress,
+              { eventCapacity = A.DOLLY_DISPLAY_EVENT_CAPACITY, clipboardCapacity = A.DOLLY_DISPLAY_CLIPBOARD_CAPACITY } = {}) {
     if (!(buffer instanceof SharedArrayBuffer)) {
       throw new Error("Dolly display transport requires shared Wasm memory");
     }
     const within = (start, length) => Number.isSafeInteger(start) && Number.isSafeInteger(length) &&
       start > 0 && length > 0 && start <= buffer.byteLength - length;
-    if (address % 4 !== 0 || eventSize !== 128 || !Number.isSafeInteger(eventCapacity) ||
+    if (address % 4 !== 0 || !Number.isSafeInteger(eventCapacity) ||
         eventCapacity <= 0 || (eventCapacity & (eventCapacity - 1)) !== 0 ||
-        !within(address, DisplayTransport.headerSize + eventCapacity * eventSize) ||
+        !within(address, DisplayTransport.headerSize + eventCapacity * A.DOLLY_DISPLAY_EVENT_SIZE) ||
         !within(pasteAddress, clipboardCapacity) || !within(copyAddress, clipboardCapacity)) {
       throw new Error("Dolly supplied an invalid display mailbox");
     }
@@ -65,7 +67,7 @@ export class DisplayTransport {
     this.words = new Int32Array(buffer);
     this.address = address;
     this.word = address / 4;
-    this.eventSize = eventSize;
+    this.eventSize = A.DOLLY_DISPLAY_EVENT_SIZE;
     this.eventCapacity = eventCapacity;
     this.pasteAddress = pasteAddress;
     this.copyAddress = copyAddress;
@@ -492,11 +494,9 @@ export function browser(page) {
       key: (key, code, modifiers = 0) => transport.pushSyntheticKey(key, code, modifiers),
     },
     start(message) {
-      transport = new DisplayTransport(message.memory, message.address, message.eventSize,
-        message.eventCapacity, message.pasteAddress, message.copyAddress, message.clipboardCapacity);
-      const capacity = message.frameCapacity, limit = message.memory.byteLength;
-      if (message.version !== 6 || !Array.isArray(message.frameAddresses) ||
-          message.frameAddresses.length !== 2 || !Number.isSafeInteger(capacity) || capacity <= 0 ||
+      transport = new DisplayTransport(message.memory, message.address, message.pasteAddress, message.copyAddress);
+      const capacity = A.DOLLY_DISPLAY_MAX_WIDTH * A.DOLLY_DISPLAY_MAX_HEIGHT * 4, limit = message.memory.byteLength;
+      if (!Array.isArray(message.frameAddresses) || message.frameAddresses.length !== A.DOLLY_DISPLAY_FRAME_COUNT ||
           message.frameAddresses.some(address => !Number.isSafeInteger(address) || address <= 0 || address > limit - capacity)) {
         throw new Error("invalid display provider handshake");
       }
@@ -535,17 +535,14 @@ export function worker() {
         throw new Error("invalid resident display plugin range");
       }
       const display = instantiateKernelPlugin(new Uint8Array(memory.buffer, address, size).slice(), kernelExports, memory);
-      const getDriver = display.exports.dolly_display_driver_get_v3;
+      const getDriver = display.exports.dolly_display_driver_get_v4;
       if (typeof getDriver !== "function" || dolly._dolly_display_install(getDriver()) !== 0) {
         throw new Error("Dolly display installation failed");
       }
       return { memory: memory.buffer, address: Number(dolly._dolly_display_mailbox_address()),
-        eventSize: dolly._dolly_display_event_size(), eventCapacity: dolly._dolly_display_event_capacity(),
-        version: dolly._dolly_display_mailbox_version(),
         frameAddresses: [0, 1].map(index => Number(dolly._dolly_display_framebuffer_address(index))),
-        frameCapacity: Number(dolly._dolly_display_framebuffer_capacity()),
         pasteAddress: Number(dolly._dolly_display_paste_buffer_address()),
-        copyAddress: Number(dolly._dolly_display_copy_buffer_address()), clipboardCapacity: dolly._dolly_display_clipboard_capacity() };
+        copyAddress: Number(dolly._dolly_display_copy_buffer_address()) };
     },
   };
 }

@@ -1,5 +1,8 @@
 import { DOLLY_ERRNO } from "../../dist/dolly-errno.mjs";
 import { DollyProcessSupervisor } from "../../src/process-supervisor.mjs";
+import { DOLLY_TERMINAL_WORD_RESULT_SEQUENCE, DOLLY_TERMINAL_WORD_RESULT_STATUS, DOLLY_TERMINAL_WORD_FOREGROUND_PID,
+  DOLLY_TERMINAL_WORD_FOREGROUND_INTERRUPTIBLE, DOLLY_TERMINAL_WORD_INTERRUPT_SEQUENCE,
+  DOLLY_TERMINAL_WORD_INTERRUPT_TARGET_PID } from "./abi.mjs";
 
 export function check() {
   if (!globalThis.crossOriginIsolated) return "cross-origin isolation is required";
@@ -14,12 +17,12 @@ const maxBootstrapMessage = 1024 * 1024;
 // The terminal mailbox (abi/dolly-supervisor-0.wat): the foreground command,
 // shell results and the page's interrupt request, with or without a display.
 class TerminalMailbox {
-  static resultSequence = 0;
-  static resultStatus = 1;
-  static foregroundPid = 2;
-  static foregroundInterruptible = 3;
-  static interruptSequence = 4;
-  static interruptTargetPid = 5;
+  static resultSequence = DOLLY_TERMINAL_WORD_RESULT_SEQUENCE;
+  static resultStatus = DOLLY_TERMINAL_WORD_RESULT_STATUS;
+  static foregroundPid = DOLLY_TERMINAL_WORD_FOREGROUND_PID;
+  static foregroundInterruptible = DOLLY_TERMINAL_WORD_FOREGROUND_INTERRUPTIBLE;
+  static interruptSequence = DOLLY_TERMINAL_WORD_INTERRUPT_SEQUENCE;
+  static interruptTargetPid = DOLLY_TERMINAL_WORD_INTERRUPT_TARGET_PID;
 
   constructor(buffer, address) {
     if (!(buffer instanceof SharedArrayBuffer) || !Number.isSafeInteger(address) ||

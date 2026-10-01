@@ -1,37 +1,36 @@
 import { DOLLY_SESSION_MAX_BYTES, validSessionName } from "../../src/session-store.mjs";
 import { DOLLY_ERRNO } from "../../dist/dolly-errno.mjs";
+import * as A from "./abi.mjs";
 
-// Mailbox v2, mirrored by kernel.c. No filesystem paths cross here. wake asks
-// the kernel to serve the mailbox: on a request, after each consumed chunk
-// and on cancellation; the kernel thread never waits for this page.
+// The mailbox words as dolly-snapshot-0.wat names them. No filesystem paths
+// cross here. wake asks the kernel to serve the mailbox: on a request, after
+// each consumed chunk and on cancellation; the kernel thread never waits for
+// this page.
 export class SessionTransport {
-  static requestSequence = 0;
-  static completedSequence = 1;
-  static status = 2;
-  static nameLength = 3;
-  static chunkSequence = 4;
-  static chunkConsumedSequence = 5;
-  static chunkLength = 6;
-  static chunkEof = 7;
-  static totalSizeLow = 8;
-  static totalSizeHigh = 9;
-  static cancelledSequence = 10;
+  static requestSequence = A.DOLLY_SESSION_WORD_REQUEST_SEQUENCE;
+  static completedSequence = A.DOLLY_SESSION_WORD_COMPLETED_SEQUENCE;
+  static status = A.DOLLY_SESSION_WORD_STATUS;
+  static nameLength = A.DOLLY_SESSION_WORD_NAME_LENGTH;
+  static chunkSequence = A.DOLLY_SESSION_WORD_CHUNK_SEQUENCE;
+  static chunkConsumedSequence = A.DOLLY_SESSION_WORD_CHUNK_CONSUMED_SEQUENCE;
+  static chunkLength = A.DOLLY_SESSION_WORD_CHUNK_LENGTH;
+  static chunkEof = A.DOLLY_SESSION_WORD_CHUNK_EOF;
+  static totalSizeLow = A.DOLLY_SESSION_WORD_TOTAL_SIZE_LOW;
+  static totalSizeHigh = A.DOLLY_SESSION_WORD_TOTAL_SIZE_HIGH;
+  static cancelledSequence = A.DOLLY_SESSION_WORD_CANCELLED_SEQUENCE;
 
-  constructor(buffer, address, nameAddress, nameCapacity,
-              transferAddress, transferCapacity, wake) {
-    const range = (start, size) => Number.isSafeInteger(start) && start > 0 &&
-      Number.isSafeInteger(size) && size > 0 && start <= buffer.byteLength - size;
-    if (!(buffer instanceof SharedArrayBuffer) || !range(address, 64) || address % 4 ||
-        !range(nameAddress, nameCapacity) || nameCapacity < 65 ||
-        !range(transferAddress, transferCapacity) || transferCapacity !== 1024 * 1024) {
+  constructor(buffer, address, nameAddress, transferAddress, wake) {
+    const range = (start, size) => Number.isSafeInteger(start) && start > 0 && start <= buffer.byteLength - size;
+    if (!(buffer instanceof SharedArrayBuffer) || !range(address, A.DOLLY_SESSION_HEADER_SIZE) || address % 4 ||
+        !range(nameAddress, A.DOLLY_SESSION_NAME_CAPACITY) || !range(transferAddress, A.DOLLY_SESSION_TRANSFER_CAPACITY)) {
       throw new Error("Dolly supplied an invalid session mailbox");
     }
     this.bytes = new Uint8Array(buffer);
-    this.words = new Int32Array(buffer, address, 16);
+    this.words = new Int32Array(buffer, address, A.DOLLY_SESSION_HEADER_SIZE / 4);
     this.nameAddress = nameAddress;
-    this.nameCapacity = nameCapacity;
+    this.nameCapacity = A.DOLLY_SESSION_NAME_CAPACITY;
     this.transferAddress = transferAddress;
-    this.transferCapacity = transferCapacity;
+    this.transferCapacity = A.DOLLY_SESSION_TRANSFER_CAPACITY;
     this.wake = wake;
     this.closed = false;
     this.cancel = null;

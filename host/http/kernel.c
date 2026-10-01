@@ -50,18 +50,6 @@ uintptr_t dolly_http_mailbox_address(void) {
   return (uintptr_t)http_mailboxes;
 }
 
-uint32_t dolly_http_slot_count(void) {
-  return DOLLY_HTTP_SLOT_COUNT;
-}
-
-uint32_t dolly_http_mailbox_version(void) {
-  return DOLLY_HTTP_MAILBOX_VERSION;
-}
-
-uint32_t dolly_http_chunk_capacity(void) {
-  return DOLLY_HTTP_CHUNK_CAPACITY;
-}
-
 static int http_start(const char *method, const char *url, const char *headers,
                       const void *body, size_t body_size, unsigned int flags,
                       unsigned int *sequence_out) {

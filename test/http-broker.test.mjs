@@ -15,7 +15,7 @@ function fixture(configuration = {}, fetchRequest) {
     rules: [{ origin: new URL(target).origin, path: "/allowed", methods: ["GET", "POST"],
       timeoutMilliseconds: 1000, ...configuration }],
   });
-  const broker = new NetworkTransport(new SharedArrayBuffer(64 + DOLLY_HTTP_SLOT_COUNT * (65536 + 64)), 64, 65536,
+  const broker = new NetworkTransport(new SharedArrayBuffer(64 + DOLLY_HTTP_SLOT_COUNT * (65536 + 64)), 64,
     policy, { fetchRequest });
   let currentSequence = 1;
   const address = () => broker.address + ((currentSequence - 1) % DOLLY_HTTP_SLOT_COUNT) * (65536 + 64);

@@ -25,16 +25,16 @@ export function createHttpAdmission(postRequest) {
 }
 
 export class NetworkTransport {
-  constructor(buffer, address, capacity, policy, { fetchRequest = globalThis.fetch.bind(globalThis) } = {}) {
+  constructor(buffer, address, policy, { fetchRequest = globalThis.fetch.bind(globalThis) } = {}) {
     if (!(buffer instanceof SharedArrayBuffer) || !Number.isSafeInteger(address) ||
-        address <= 0 || address % 64 !== 0 || capacity !== DOLLY_HTTP_CHUNK_CAPACITY ||
-        address > buffer.byteLength - DOLLY_HTTP_SLOT_COUNT * (DOLLY_HTTP_HEADER_SIZE + capacity)) {
+        address <= 0 || address % 64 !== 0 ||
+        address > buffer.byteLength - DOLLY_HTTP_SLOT_COUNT * (DOLLY_HTTP_HEADER_SIZE + DOLLY_HTTP_CHUNK_CAPACITY)) {
       throw new TypeError("invalid HTTP mailbox pool bounds");
     }
     this.bytes = new Uint8Array(buffer);
     this.words = new Int32Array(buffer);
     this.address = address;
-    this.capacity = capacity;
+    this.capacity = DOLLY_HTTP_CHUNK_CAPACITY;
     this.policy = policy;
     this.fetchRequest = fetchRequest;
     // Host bookkeeping, never derived from a guest's claimed active count.

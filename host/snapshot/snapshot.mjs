@@ -45,9 +45,8 @@ export function browser(page) {
     entryStarted: session.entryStarted,
     dispose() { session.abort(); transport?.close(); },
     start(message) {
-      if (message.version !== 2) throw new Error(`unsupported session mailbox ${message.version}`);
-      transport = new SessionTransport(message.memory, message.address, message.nameAddress, message.nameCapacity,
-        message.transferAddress, message.transferCapacity, () => page.send({ type: "snapshot-request" }));
+      transport = new SessionTransport(message.memory, message.address, message.nameAddress, message.transferAddress,
+        () => page.send({ type: "snapshot-request" }));
     },
   };
 }
@@ -102,9 +101,8 @@ export function worker({ get, configuration: { bytes, recover } }) {
     start({ dolly, memory }) {
       kernel = dolly;
       return { memory: memory.buffer, address: Number(dolly._dolly_session_mailbox_address()),
-        version: dolly._dolly_session_mailbox_version(), nameAddress: Number(dolly._dolly_session_name_address()),
-        nameCapacity: dolly._dolly_session_name_capacity(), transferAddress: Number(dolly._dolly_session_transfer_address()),
-        transferCapacity: dolly._dolly_session_transfer_capacity() };
+        nameAddress: Number(dolly._dolly_session_name_address()),
+        transferAddress: Number(dolly._dolly_session_transfer_address()) };
     },
   };
 }

@@ -1307,14 +1307,8 @@ static int64_t fd_poll_packet(dolly_kernel_process *process,
   return (int64_t)expected_response;
 }
 
-uint32_t dolly_process_supervisor_version(void) { return 0; }
-
 uintptr_t dolly_process_mailbox_address(void) {
   return (uintptr_t)process_mailbox;
-}
-
-uintptr_t dolly_process_mailbox_capacity(void) {
-  return sizeof(process_mailbox);
 }
 
 double dolly_process_deferred_milliseconds(void) {

@@ -10,10 +10,39 @@
 #include <dolly/runtime.h>
 #include <errno.h>
 #include <stdatomic.h>
+#include <stddef.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+
+_Static_assert(
+    offsetof(dolly_display_mailbox, event_read) == 4 * DOLLY_DISPLAY_WORD_EVENT_READ &&
+    offsetof(dolly_display_mailbox, event_write) == 4 * DOLLY_DISPLAY_WORD_EVENT_WRITE &&
+    offsetof(dolly_display_mailbox, flags) == 4 * DOLLY_DISPLAY_WORD_FLAGS &&
+    offsetof(dolly_display_mailbox, frame_sequence) == 4 * DOLLY_DISPLAY_WORD_FRAME_SEQUENCE &&
+    offsetof(dolly_display_mailbox, frame_index) == 4 * DOLLY_DISPLAY_WORD_FRAME_INDEX &&
+    offsetof(dolly_display_mailbox, frame_width) == 4 * DOLLY_DISPLAY_WORD_FRAME_WIDTH &&
+    offsetof(dolly_display_mailbox, frame_height) == 4 * DOLLY_DISPLAY_WORD_FRAME_HEIGHT &&
+    offsetof(dolly_display_mailbox, frame_stride) == 4 * DOLLY_DISPLAY_WORD_FRAME_STRIDE &&
+    offsetof(dolly_display_mailbox, terminal_cols) == 4 * DOLLY_DISPLAY_WORD_TERMINAL_COLS &&
+    offsetof(dolly_display_mailbox, terminal_rows) == 4 * DOLLY_DISPLAY_WORD_TERMINAL_ROWS &&
+    offsetof(dolly_display_mailbox, font_size_milli) == 4 * DOLLY_DISPLAY_WORD_FONT_SIZE_MILLI &&
+    offsetof(dolly_display_mailbox, paste_sequence) == 4 * DOLLY_DISPLAY_WORD_PASTE_SEQUENCE &&
+    offsetof(dolly_display_mailbox, paste_consumed_sequence) == 4 * DOLLY_DISPLAY_WORD_PASTE_CONSUMED_SEQUENCE &&
+    offsetof(dolly_display_mailbox, paste_length) == 4 * DOLLY_DISPLAY_WORD_PASTE_LENGTH &&
+    offsetof(dolly_display_mailbox, copy_sequence) == 4 * DOLLY_DISPLAY_WORD_COPY_SEQUENCE &&
+    offsetof(dolly_display_mailbox, copy_length) == 4 * DOLLY_DISPLAY_WORD_COPY_LENGTH &&
+    offsetof(dolly_display_mailbox, copy_flags) == 4 * DOLLY_DISPLAY_WORD_COPY_FLAGS &&
+    offsetof(dolly_display_mailbox, cursor_col) == 4 * DOLLY_DISPLAY_WORD_CURSOR_COL &&
+    offsetof(dolly_display_mailbox, cursor_row) == 4 * DOLLY_DISPLAY_WORD_CURSOR_ROW &&
+    offsetof(dolly_display_mailbox, cell_width) == 4 * DOLLY_DISPLAY_WORD_CELL_WIDTH &&
+    offsetof(dolly_display_mailbox, cell_height) == 4 * DOLLY_DISPLAY_WORD_CELL_HEIGHT &&
+    offsetof(dolly_display_mailbox, padding_x) == 4 * DOLLY_DISPLAY_WORD_PADDING_X &&
+    offsetof(dolly_display_mailbox, padding_y) == 4 * DOLLY_DISPLAY_WORD_PADDING_Y &&
+    offsetof(dolly_display_mailbox, animation_frame_sequence) == 4 * DOLLY_DISPLAY_WORD_ANIMATION_FRAME_SEQUENCE &&
+    offsetof(dolly_display_mailbox, cursor_style) == 4 * DOLLY_DISPLAY_WORD_CURSOR_STYLE,
+    "display mailbox words differ from dolly-display-0.wat");
 
 _Alignas(64) static dolly_display_mailbox display_mailbox;
 static dolly_input_ring terminal_input = {&display_mailbox, NULL, dolly_kernel_terminal_resized};
@@ -75,25 +104,9 @@ uintptr_t dolly_display_mailbox_address(void) {
   return (uintptr_t)&display_mailbox;
 }
 
-uint32_t dolly_display_mailbox_version(void) {
-  return DOLLY_DISPLAY_MAILBOX_VERSION;
-}
-
-uint32_t dolly_display_event_size(void) {
-  return DOLLY_DISPLAY_EVENT_SIZE;
-}
-
-uint32_t dolly_display_event_capacity(void) {
-  return DOLLY_DISPLAY_EVENT_CAPACITY;
-}
-
 uintptr_t dolly_display_framebuffer_address(uint32_t index) {
   return index < DOLLY_DISPLAY_FRAME_COUNT
       ? (uintptr_t)display_frames[index] : 0;
-}
-
-uintptr_t dolly_display_framebuffer_capacity(void) {
-  return display_frame_capacity;
 }
 
 uintptr_t dolly_display_paste_buffer_address(void) {
@@ -102,10 +115,6 @@ uintptr_t dolly_display_paste_buffer_address(void) {
 
 uintptr_t dolly_display_copy_buffer_address(void) {
   return (uintptr_t)display_copy_buffer;
-}
-
-uint32_t dolly_display_clipboard_capacity(void) {
-  return DOLLY_DISPLAY_CLIPBOARD_CAPACITY;
 }
 
 // Buffers decoded terminal input bytes; returns 1 when some are ready and -1
@@ -276,9 +285,8 @@ uintptr_t dolly_display_module_size(void) {
   return display_module_length;
 }
 
-int dolly_display_install(const dolly_display_driver_v3 *candidate) {
-  static const char font_path[] = "/usr/share/fonts/IosevkaTerm-SemiBold.ttf";
-  if (terminal_input.driver != NULL || candidate == NULL || candidate->abi_version != 3 ||
+int dolly_display_install(const dolly_display_driver_v4 *candidate) {
+  if (terminal_input.driver != NULL || candidate == NULL || candidate->abi_version != 4 ||
       candidate->struct_size < sizeof(*candidate) ||
       candidate->initialize == NULL || candidate->write == NULL ||
       candidate->handle_event == NULL || candidate->set_suspended == NULL) {
@@ -299,8 +307,7 @@ int dolly_display_install(const dolly_display_driver_v3 *candidate) {
   if (candidate->initialize(&display_mailbox, display_frames[0],
                             display_frames[1], display_frame_capacity,
                             display_paste_buffer, display_copy_buffer,
-                            DOLLY_DISPLAY_CLIPBOARD_CAPACITY,
-                            font_path) != 0) {
+                            DOLLY_DISPLAY_CLIPBOARD_CAPACITY) != 0) {
     fputs("dolly: sandbox display initialization failed\n", stderr);
     return 1;
   }

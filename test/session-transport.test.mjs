@@ -9,7 +9,7 @@ import { sessionLoadUrl } from "../src/session-store.mjs";
 // chunk left unacknowledged.
 function fixture() {
   const buffer = new SharedArrayBuffer(2 * 1024 * 1024);
-  const transport = new Mailbox(buffer, 64, 128, 128, 1024, 1024 * 1024, () => {});
+  const transport = new Mailbox(buffer, 64, 128, 1024, () => {});
   const words = transport.words;
   const payload = new TextEncoder().encode("DOLLYSES-session-fixture");
   let served = 0;

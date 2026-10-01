@@ -1,5 +1,16 @@
 // Generated from host/upload/dolly-upload-0.wat, host/upload/upload.h.
+export const DOLLY_UPLOAD_HEADER_SIZE = 64;
+export const DOLLY_UPLOAD_WORD_REQUEST = 0;
+export const DOLLY_UPLOAD_WORD_CANCELLED = 1;
+export const DOLLY_UPLOAD_WORD_COMPLETED = 2;
+export const DOLLY_UPLOAD_WORD_CHUNK = 3;
+export const DOLLY_UPLOAD_WORD_CONSUMED = 4;
+export const DOLLY_UPLOAD_WORD_LENGTH = 5;
+export const DOLLY_UPLOAD_WORD_ERROR = 6;
+export const DOLLY_UPLOAD_WORD_EOF = 7;
+export const DOLLY_UPLOAD_WORD_ENABLED = 8;
+export const DOLLY_UPLOAD_WORD_SIZE = 9;
 export const DOLLY_UPLOAD_CHUNK_CAPACITY = 1048576;
 export const DOLLY_UPLOAD_MAX_SIZE = 1073741824;
 export const DOLLY_UPLOAD_FILE = 57;
-export const DOLLY_UPLOAD_ABI_DIGEST = "2fc7dccaa9a68eb56ca98435a213f7f4dbc17718dbbc27cf4d44f7d8420b7a44";
+export const DOLLY_UPLOAD_ABI_DIGEST = "31e7e9d53cf59e23fc88b4d3d283cb4d9f1a85498628a9137065a476245029fc";

@@ -122,10 +122,8 @@ export class DollyProcessSupervisor {
     this.compiledModuleBytes = 0;
     this.launchChain = Promise.resolve();
     this.mailboxAddress = Number(dolly._dolly_process_mailbox_address());
-    this.mailboxCapacity = Number(dolly._dolly_process_mailbox_capacity());
-    if (dolly._dolly_process_supervisor_version() !== 0 ||
-        !Number.isSafeInteger(this.mailboxAddress) || this.mailboxAddress <= 0 ||
-        this.mailboxCapacity !== packetLimit ||
+    this.mailboxCapacity = packetLimit;
+    if (!Number.isSafeInteger(this.mailboxAddress) || this.mailboxAddress <= 0 ||
         this.mailboxAddress > kernelMemory.buffer.byteLength - this.mailboxCapacity) {
       throw new Error("Dolly kernel supplied an invalid process mailbox");
     }

@@ -1,5 +1,4 @@
 import { createHttpAdmission, NetworkTransport } from "./broker.mjs";
-import { DOLLY_HTTP_MAILBOX_VERSION, DOLLY_HTTP_SLOT_COUNT } from "./abi.mjs";
 import { consumeDollyHttpPolicy, httpPolicyConfigurations, restrictDollyHttpPolicy } from "./policy.mjs";
 import { localServicesTransport } from "./local-services.mjs";
 export { DOLLY_HTTP_ABI_DIGEST as digest } from "./abi.mjs";
@@ -19,13 +18,11 @@ export function browser({ applicationBase, bootstrapSources, inherited, configur
       get httpCompletedRequestCount() { return transport?.completedRequestCount ?? 0; },
     },
     start(message) {
-      if (transport || message.version !== DOLLY_HTTP_MAILBOX_VERSION || message.slots !== DOLLY_HTTP_SLOT_COUNT ||
-          !(message.admission instanceof SharedArrayBuffer) || message.admission.byteLength !== 8) {
+      if (transport || !(message.admission instanceof SharedArrayBuffer) || message.admission.byteLength !== 8) {
         throw new Error("invalid HTTP provider handshake");
       }
       admission = new Int32Array(message.admission);
-      transport = new NetworkTransport(message.memory, message.address, message.capacity,
-        network.policy, { fetchRequest: network.fetchRequest });
+      transport = new NetworkTransport(message.memory, message.address, network.policy, { fetchRequest: network.fetchRequest });
     },
     messages: {
       async "http-request"(message) {
@@ -60,8 +57,7 @@ export function worker({ send, get }) {
         method, methodSize, url, urlSize, headers, headersSize, body, bodySize, flags, sequence }) },
     start({ dolly, memory }) {
       return { admission: admission.control.buffer, memory: memory.buffer,
-        address: Number(dolly._dolly_http_mailbox_address()), capacity: dolly._dolly_http_chunk_capacity(),
-        slots: dolly._dolly_http_slot_count(), version: dolly._dolly_http_mailbox_version() };
+        address: Number(dolly._dolly_http_mailbox_address()) };
     },
   };
 }

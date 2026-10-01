@@ -10,18 +10,6 @@
 extern "C" {
 #endif
 
-enum {
-  DOLLY_DISPLAY_MAILBOX_VERSION = 6,
-  DOLLY_DISPLAY_MAILBOX_HEADER_SIZE = 100,
-  DOLLY_DISPLAY_EVENT_SIZE = 128,
-  DOLLY_DISPLAY_EVENT_CAPACITY = 256,
-  DOLLY_DISPLAY_EVENT_DATA_SIZE = 88,
-  DOLLY_DISPLAY_MAX_WIDTH = 4096,
-  DOLLY_DISPLAY_MAX_HEIGHT = 2304,
-  DOLLY_DISPLAY_FRAME_COUNT = 2,
-  DOLLY_DISPLAY_CLIPBOARD_CAPACITY = 256 * 1024,
-};
-
 typedef enum {
   // Four consecutive, non-premultiplied bytes per pixel. Alpha must be 255
   // for an opaque pixel. Rows are top-to-bottom and pixels are left-to-right.
@@ -167,12 +155,10 @@ typedef struct {
 } dolly_display_mailbox;
 
 #ifdef __cplusplus
-static_assert(offsetof(dolly_display_mailbox, events) ==
-                  DOLLY_DISPLAY_MAILBOX_HEADER_SIZE,
+static_assert(offsetof(dolly_display_mailbox, events) == DOLLY_DISPLAY_HEADER_SIZE,
               "display mailbox layout changed");
 #else
-_Static_assert(offsetof(dolly_display_mailbox, events) ==
-                   DOLLY_DISPLAY_MAILBOX_HEADER_SIZE,
+_Static_assert(offsetof(dolly_display_mailbox, events) == DOLLY_DISPLAY_HEADER_SIZE,
                "display mailbox layout changed");
 #endif
 
@@ -314,7 +300,7 @@ DOLLY_DISPLAY_LAYOUT(dolly_display_event_response, 136);
 
 // A display driver is a resident shared library, not an executable. DISPLAY
 // names the selected library. It is loaded once and remains in the shared Wasm
-// address space for the lifetime of the runtime.
+// address space for the lifetime of the runtime; it finds its own font.
 typedef struct {
   uint32_t abi_version;
   uint32_t struct_size;
@@ -324,8 +310,7 @@ typedef struct {
                     size_t frame_capacity,
                     unsigned char *paste_buffer,
                     unsigned char *copy_buffer,
-                    size_t clipboard_capacity,
-                    const char *font_path);
+                    size_t clipboard_capacity);
   void (*write)(const unsigned char *bytes, size_t length);
   int (*handle_event)(const dolly_input_event *event,
                       unsigned char *output,
@@ -334,9 +319,9 @@ typedef struct {
   // Pausing preserves terminal parser/grid state while suppressing frame
   // publication. Resuming immediately publishes a complete terminal frame.
   void (*set_suspended)(int suspended);
-} dolly_display_driver_v3;
+} dolly_display_driver_v4;
 
-typedef const dolly_display_driver_v3 *(*dolly_display_driver_getter_v3)(void);
+typedef const dolly_display_driver_v4 *(*dolly_display_driver_getter_v4)(void);
 
 #ifdef __cplusplus
 }

@@ -1,32 +1,36 @@
 import { DOLLY_ERRNO as errno } from "../../dist/dolly-errno.mjs";
-import { DOLLY_UPLOAD_CHUNK_CAPACITY as chunkCapacity, DOLLY_UPLOAD_MAX_SIZE } from "./abi.mjs";
+import { DOLLY_UPLOAD_CHUNK_CAPACITY as chunkCapacity, DOLLY_UPLOAD_MAX_SIZE, DOLLY_UPLOAD_HEADER_SIZE as headerSize,
+  DOLLY_UPLOAD_WORD_REQUEST as REQUEST, DOLLY_UPLOAD_WORD_CANCELLED as CANCELLED, DOLLY_UPLOAD_WORD_COMPLETED as COMPLETED,
+  DOLLY_UPLOAD_WORD_CHUNK as CHUNK, DOLLY_UPLOAD_WORD_CONSUMED as CONSUMED, DOLLY_UPLOAD_WORD_LENGTH as LENGTH,
+  DOLLY_UPLOAD_WORD_ERROR as ERROR, DOLLY_UPLOAD_WORD_EOF as EOF, DOLLY_UPLOAD_WORD_ENABLED as ENABLED,
+  DOLLY_UPLOAD_WORD_SIZE as SIZE } from "./abi.mjs";
 
 // After the user cancels, requests are refused briefly so the page stays usable.
 export const UPLOAD_CANCEL_QUIET_MILLISECONDS = 2000;
 const mebibytes = bytes => (bytes / 1048576).toFixed(1);
 
-// Mailbox v1: user-selected bytes only, one chunk at a time. The browser never
-// receives a path. chooseFile(controller) resolves to the file or null; the
+// Mailbox words as dolly-upload-0.wat names them: user-selected bytes only,
+// one chunk at a time. The browser never receives a path. chooseFile(controller) resolves to the file or null; the
 // user's Cancel aborts the controller, before or during the transfer.
 export class UploadTransport {
   constructor(buffer, address, chooseFile, showProgress = () => {}) {
     if (!(buffer instanceof SharedArrayBuffer) || !Number.isSafeInteger(address) ||
-        address <= 0 || address % 4 || address > buffer.byteLength - 64 - chunkCapacity) {
+        address <= 0 || address % 4 || address > buffer.byteLength - headerSize - chunkCapacity) {
       throw new TypeError("invalid upload mailbox");
     }
     this.words = new Int32Array(buffer, address, 16);
-    this.bytes = new Uint8Array(buffer, address + 64, chunkCapacity);
+    this.bytes = new Uint8Array(buffer, address + headerSize, chunkCapacity);
     this.chooseFile = chooseFile;
     this.showProgress = showProgress;
     this.active = null;
     this.quietUntil = 0;
-    Atomics.store(this.words, 8, 1);
+    Atomics.store(this.words, ENABLED, 1);
   }
 
   async poll() {
     const words = this.words;
-    const sequence = Atomics.load(words, 0);
-    if (this.active || sequence === Atomics.load(words, 2)) return;
+    const sequence = Atomics.load(words, REQUEST);
+    if (this.active || sequence === Atomics.load(words, COMPLETED)) return;
     const controller = new AbortController();
     // The kernel retired this request (its process ended or a new one began):
     // the Worker reports it through retire(), which ends any chunk wait.
@@ -37,17 +41,17 @@ export class UploadTransport {
     let size = 0;
     const publish = async (bytes, eof, error = 0) => {
       // The kernel notifies the consumed word after writing each chunk.
-      for (let consumed; (consumed = Atomics.load(words, 4)) !== Atomics.load(words, 3);) {
+      for (let consumed; (consumed = Atomics.load(words, CONSUMED)) !== Atomics.load(words, CHUNK);) {
         if (retired()) return;
-        await Promise.race([Atomics.waitAsync(words, 4, consumed).value, retirement]);
+        await Promise.race([Atomics.waitAsync(words, CONSUMED, consumed).value, retirement]);
       }
       if (retired()) return;
       this.bytes.set(bytes);
-      Atomics.store(words, 5, bytes.length);
-      Atomics.store(words, 6, error);
-      Atomics.store(words, 7, eof ? 1 : 0);
-      Atomics.store(words, 9, size);
-      Atomics.add(words, 3, 1);
+      Atomics.store(words, LENGTH, bytes.length);
+      Atomics.store(words, ERROR, error);
+      Atomics.store(words, EOF, eof ? 1 : 0);
+      Atomics.store(words, SIZE, size);
+      Atomics.add(words, CHUNK, 1);
     };
     // The user's Cancel, in the picker or during the transfer.
     const cancel = () => {
@@ -91,13 +95,13 @@ export class UploadTransport {
       await publish(new Uint8Array(), true, errno.EIO);
     } finally {
       controller.abort();
-      Atomics.store(words, 2, sequence);
+      Atomics.store(words, COMPLETED, sequence);
       this.active = null;
     }
   }
 
   retired(sequence) {
-    return Atomics.load(this.words, 0) !== sequence || Atomics.load(this.words, 1) === sequence;
+    return Atomics.load(this.words, REQUEST) !== sequence || Atomics.load(this.words, CANCELLED) === sequence;
   }
   retire() {
     const active = this.active;
@@ -105,7 +109,7 @@ export class UploadTransport {
     active.retire();
     active.controller.abort();
   }
-  close() { Atomics.store(this.words, 8, 0); this.active?.controller.abort(); }
+  close() { Atomics.store(this.words, ENABLED, 0); this.active?.controller.abort(); }
 }
 
 // One modal dialog per request: the picker, then progress until the transfer ends.

@@ -11,9 +11,8 @@
   ;; driver is installed they reach the bootstrap sink; after installation the
   ;; resident driver consumes them without host interpretation.
   (func (export "dolly_terminal_write_bytes") (param i64 i64))
-  (func $version (result i32) i32.const 0)
+  ;; The process mailbox holds DOLLY_PROCESS_PACKET_LIMIT bytes (process.h).
   (func $mailbox_address (result i64) i64.const 0)
-  (func $mailbox_capacity (result i64) i64.const 0)
   (func $spawn_serialized (param i64) (result i32) i32.const 0)
   (func $dispatch (param i32 i32 i64 i64) (result i64) i64.const 0)
   ;; Remaining wait from the last dispatch, or -1 for no finite timer.
@@ -41,20 +40,25 @@
   (func $take_alarm (result i32) i32.const 0)
   (func $collect (param i32) (result i32) i32.const 0)
   (func $parent (param i32) (result i32) i32.const 0)
-  ;; The terminal mailbox, display or not: six atomic little-endian u32 words.
-  ;; Wasm writes result_sequence (incremented and notified after each shell
-  ;; result), result_status, foreground_pid and foreground_interruptible (1
-  ;; while the terminal has ISIG set, so Ctrl-C interrupts the foreground rather
-  ;; than reaching it as input). The page asks for that interrupt by writing
-  ;; interrupt_target_pid, then incrementing interrupt_sequence.
+  ;; The terminal mailbox, display or not: six atomic little-endian u32 words
+  ;; (src/dolly.c mirrors them). Wasm writes result_sequence (incremented and
+  ;; notified after each shell result), result_status, foreground_pid and
+  ;; foreground_interruptible (1 while the terminal has ISIG set, so Ctrl-C
+  ;; interrupts the foreground rather than reaching it as input). The page asks
+  ;; for that interrupt by writing interrupt_target_pid, then incrementing
+  ;; interrupt_sequence.
+  (global (export "DOLLY_TERMINAL_WORD_RESULT_SEQUENCE") i32 (i32.const 0))
+  (global (export "DOLLY_TERMINAL_WORD_RESULT_STATUS") i32 (i32.const 1))
+  (global (export "DOLLY_TERMINAL_WORD_FOREGROUND_PID") i32 (i32.const 2))
+  (global (export "DOLLY_TERMINAL_WORD_FOREGROUND_INTERRUPTIBLE") i32 (i32.const 3))
+  (global (export "DOLLY_TERMINAL_WORD_INTERRUPT_SEQUENCE") i32 (i32.const 4))
+  (global (export "DOLLY_TERMINAL_WORD_INTERRUPT_TARGET_PID") i32 (i32.const 5))
   (func $terminal_mailbox_address (result i64) i64.const 0)
   ;; Consume the page's latest interrupt request: the targeted PID when it is
   ;; still the interruptible foreground owner, otherwise zero.
   (func $take_interrupt (result i32) i32.const 0)
 
-  (export "dolly_process_supervisor_version" (func $version))
   (export "dolly_process_mailbox_address" (func $mailbox_address))
-  (export "dolly_process_mailbox_capacity" (func $mailbox_capacity))
   (export "dolly_process_spawn_serialized" (func $spawn_serialized))
   (export "dolly_process_dispatch" (func $dispatch))
   (export "dolly_process_deferred_milliseconds" (func $deferred_milliseconds))

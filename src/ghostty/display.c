@@ -15,7 +15,7 @@
 #include <dolly/display.h>
 
 enum {
-  DRIVER_ABI_VERSION = 3,
+  DRIVER_ABI_VERSION = 4,
   MIN_FONT_MILLI = 8000,
   MAX_FONT_MILLI = 32000,
   DEFAULT_FONT_MILLI = 20000,
@@ -581,12 +581,11 @@ static int initialize(dolly_display_mailbox *shared_mailbox,
                       size_t capacity,
                       unsigned char *shared_paste_buffer,
                       unsigned char *shared_copy_buffer,
-                      size_t shared_clipboard_capacity,
-                      const char *font_path) {
+                      size_t shared_clipboard_capacity) {
+  static const char font_path[] = "/usr/share/fonts/IosevkaTerm-SemiBold.ttf";
   if (shared_mailbox == NULL || frame_a == NULL || frame_b == NULL ||
       capacity < (size_t)160 * 100 * 4 || shared_paste_buffer == NULL ||
-      shared_copy_buffer == NULL || shared_clipboard_capacity == 0 ||
-      font_path == NULL) return -1;
+      shared_copy_buffer == NULL || shared_clipboard_capacity == 0) return -1;
   mailbox = shared_mailbox;
   frames[0] = frame_a;
   frames[1] = frame_b;
@@ -929,16 +928,16 @@ static int handle_event(const dolly_input_event *event,
   return 0;
 }
 
-static const dolly_display_driver_v3 driver = {
+static const dolly_display_driver_v4 driver = {
     .abi_version = DRIVER_ABI_VERSION,
-    .struct_size = sizeof(dolly_display_driver_v3),
+    .struct_size = sizeof(dolly_display_driver_v4),
     .initialize = initialize,
     .write = write_terminal,
     .handle_event = handle_event,
     .set_suspended = set_suspended,
 };
 
-__attribute__((export_name("dolly_display_driver_get_v3")))
-const dolly_display_driver_v3 *dolly_display_driver_export(void) {
+__attribute__((export_name("dolly_display_driver_get_v4")))
+const dolly_display_driver_v4 *dolly_display_driver_export(void) {
   return &driver;
 }
