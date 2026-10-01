@@ -1,12 +1,12 @@
 # Sourced by scripts/prepare-image-sources.sh.
-if has_module pi; then
+if has_image pi-coding-agent; then
   copy_static demos/pi/dolly-tools.js default/pi/dolly-tools.js
   copy_static demos/pi/SYSTEM.md default/pi/SYSTEM.md
   copy_static demos/pi/settings.json default/pi/settings.json
   copy_static demos/pi/dolly-theme.json default/pi/dolly-theme.json
   copy_static demos/pi/skills/dolly/SKILL.md default/pi/dolly-skill.md
 fi
-if has_module pi-build; then
+if has_image pi-build; then
   if [[ ! -f node_modules/@earendil-works/pi-ai/package.json ]]; then
     echo "dolly: run npm ci before building Pi images" >&2
     exit 1

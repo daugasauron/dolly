@@ -1,18 +1,18 @@
 # Sourced by scripts/prepare-image-sources.sh.
-if has_module local-llm-weights; then
+if has_image llama-build; then
   node demos/local-llm/prepare-local-llm-weights.mjs "${static_dir}/llama"
 fi
-if has_module llama-core; then
+if has_image llama-build; then
   bash demos/local-llm/prepare-local-llm.sh "${static_dir}/llama/source.tar"
 fi
-if has_module local-llm-engine; then
+if has_image local-llm-build; then
   node scripts/build-source-tar.mjs "${static_dir}/llama/engine.tar" \
     demos/local-llm/main.cpp /usr/src/dolly-llm/main.cpp \
     demos/local-llm/webgpu.cpp /usr/src/dolly-llm/webgpu.cpp \
     host/gpu/gpu.h /usr/src/dolly-llm/include/dolly/gpu.h \
     host/gpu/gpu-abi.h /usr/src/dolly-llm/include/dolly/gpu-abi.h
 fi
-if has_module local-llm; then
+if has_image pi-local; then
   node scripts/build-source-tar.mjs "${static_dir}/llama/provider.tar" \
     demos/local-llm/client.mjs /usr/lib/dolly-llm/client.mjs \
     demos/local-llm/model.mjs /usr/lib/dolly-llm/model.mjs \

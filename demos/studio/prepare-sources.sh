@@ -1,5 +1,5 @@
 # Sourced by scripts/prepare-image-sources.sh.
-if has_module dollyfile-studio; then
+if has_image dollyfile-studio; then
   node scripts/build-source-tar.mjs "${static_dir}/studio/studio.tar" \
     demos/studio/examples /usr/share/dollyfile-studio/examples \
     demos/studio/install.slop /usr/share/dollyfile-studio/install.slop \

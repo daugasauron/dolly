@@ -1,5 +1,5 @@
 # Sourced by scripts/prepare-image-sources.sh.
-if has_module seven-kingdoms; then
+if has_image rts-build; then
   seven_kingdoms_dir="$(bash demos/rts/prepare-seven-kingdoms.sh)"
   rts_port_inputs=()
   for entry in Makefile config.h OAUDIO.h arena.cpp arena.h input.cpp input.h; do
@@ -13,7 +13,7 @@ if has_module seven-kingdoms; then
     "${seven_kingdoms_dir}/COPYING" /usr/src/7kaa/COPYING \
     "${rts_port_inputs[@]}"
 fi
-if has_module rts-arena; then
+if has_image rts-arena; then
   node scripts/build-source-tar.mjs "${static_dir}/rts/arena.tar" \
     demos/rts/player.js /usr/src/dolly/rts/player.js \
     demos/rts/codec.mjs /usr/src/dolly/rts/codec.mjs \

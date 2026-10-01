@@ -5,13 +5,13 @@ project_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "${project_dir}"
 mkdir -p dist
 
-module_names="$(node "${project_dir}/scripts/list-images.mjs" --modules)"
-declare -A selected_module=()
-while IFS= read -r module_name; do
-  if [[ -n "${module_name}" ]]; then selected_module["${module_name}"]=1; fi
-done <<< "${module_names}"
-has_module() {
-  [[ -n "${selected_module[$1]:-}" ]]
+# Stage only the sources of the selected images and their dependencies.
+declare -A selected_image=()
+while IFS=$'\t' read -r image_name _; do
+  if [[ -n "${image_name}" ]]; then selected_image["${image_name}"]=1; fi
+done < <(node "${project_dir}/scripts/list-images.mjs")
+has_image() {
+  [[ -n "${selected_image[$1]:-}" ]]
 }
 
 staging="$(mktemp -d "${project_dir}/dist/.image-sources.XXXXXX")"
@@ -35,27 +35,27 @@ copy_static() {
   cp --remove-destination -- "${source}" "${static_dir}/${destination}"
 }
 
-# Each demo stages its own inputs in this shell, guarded by has_module.
+# Each demo stages its own inputs in this shell, guarded by has_image.
 for demo_sources in "${project_dir}"/demos/*/prepare-sources.sh; do
   source "${demo_sources}"
 done
 
-has_module sbase && sbase_dir="$("${project_dir}/scripts/fetch-pinned-checkout.sh" sbase)"
-if has_module awk; then
+has_image system-tools && sbase_dir="$("${project_dir}/scripts/fetch-pinned-checkout.sh" sbase)"
+if has_image system-tools; then
   awk_dir="$("${project_dir}/scripts/fetch-pinned-checkout.sh" awk)"
   awk_generated_dir="$("${project_dir}/scripts/generate-awk.sh")"
 fi
-has_module curl && curl_dir="$("${project_dir}/scripts/fetch-pinned-checkout.sh" curl)"
-has_module zlib && zlib_dir="$("${project_dir}/scripts/prepare-zlib.sh")"
-has_module git && git_dir="$("${project_dir}/scripts/prepare-git.sh")"
-has_module make && make_dir="$("${project_dir}/scripts/prepare-make.sh")"
-has_module ninja && samurai_dir="$("${project_dir}/scripts/prepare-samurai.sh")"
-has_module cpp && emscripten_system_dir="$("${project_dir}/scripts/fetch-pinned-checkout.sh" emscripten)"
-if has_module zig; then
+has_image curl && curl_dir="$("${project_dir}/scripts/fetch-pinned-checkout.sh" curl)"
+has_image zlib && zlib_dir="$("${project_dir}/scripts/prepare-zlib.sh")"
+has_image system-tools && git_dir="$("${project_dir}/scripts/prepare-git.sh")"
+has_image system-build && make_dir="$("${project_dir}/scripts/prepare-make.sh")"
+has_image system-tools && samurai_dir="$("${project_dir}/scripts/prepare-samurai.sh")"
+has_image system-build && emscripten_system_dir="$("${project_dir}/scripts/fetch-pinned-checkout.sh" emscripten)"
+if has_image zig-build; then
   zig_dir="$("${project_dir}/scripts/prepare-zig-native.sh")"
   wamr_dir="$("${project_dir}/scripts/fetch-pinned-checkout.sh" wamr)"
 fi
-if has_module ghostty; then
+if has_image ghostty-build; then
   ghostty_checkout="$("${project_dir}/scripts/fetch-pinned-checkout.sh" ghostty)"
   ghostty_dir="$("${project_dir}/scripts/prepare-ghostty-source.sh" "${ghostty_checkout}")"
   uucode_dir="$("${project_dir}/scripts/fetch-uucode.sh")"
@@ -63,73 +63,73 @@ if has_module ghostty; then
   mapfile -t font_paths < <(bash "${project_dir}/scripts/fetch-iosevka.sh")
   runtime_font="${font_paths[1]}"
 fi
-has_module slop && copy_static src/slop.c default/slop.c
-if has_module session-recovery; then
+has_image system-build && copy_static src/slop.c default/slop.c
+if has_image system; then
   copy_static src/commands/session-recover.c session-recovery/session-recover.c
   for header in session-records.h fs-record.h; do
     copy_static "src/${header}" "session-recovery/${header}"
   done
 fi
-if has_module curl; then
+if has_image curl; then
   copy_static "${project_dir}/src/commands/curl.c" default/commands/curl.c
   copy_static "${project_dir}/src/libcurl-fetch.c" default/libcurl-fetch.c
 fi
-if has_module cpp; then
+if has_image system-build; then
   node scripts/build-source-tar.mjs "${static_dir}/default/libcxx-headers.tar" \
     "${project_dir}/.cache/emscripten/sysroot/include/c++/v1" /usr/include/c++/v1
   copy_static "${emscripten_system_dir}/system/lib/libcxx/LICENSE.TXT" default/licenses/libcxx
   copy_static "${emscripten_system_dir}/system/lib/libcxxabi/LICENSE.TXT" default/licenses/libcxxabi
 fi
-if has_module make; then
+if has_image system-build; then
   copy_static "${project_dir}/src/runtimes/make-amalgamation-dolly.c" default/runtimes/make-amalgamation-dolly.c
 fi
-if has_module ninja; then
+if has_image system-tools; then
   copy_static "${project_dir}/src/runtimes/samurai-unit-dolly.c" default/runtimes/samurai-unit-dolly.c
 fi
-if has_module gzip; then
+if has_image gzip; then
   copy_static src/commands/gzip.c default/commands/gzip.c
 fi
-if has_module agent-tools; then
+if has_image system-tools; then
   for source in run-program.h install.c tail.c du.c rev.c command.c xargs.c \
       find.c env.c time.c timeout.c realpath.c diff.c patch.c hostname.c tty.c; do
     copy_static "${project_dir}/src/commands/${source}" "default/commands/${source}"
   done
 fi
-if has_module ghostty; then
+if has_image ghostty-build; then
   copy_static "${project_dir}/src/ghostty/display.c" default/ghostty/display.c
   copy_static "${stb_header}" default/stb_truetype.h
   copy_static "${runtime_font}" default/IosevkaTerm-SemiBold.ttf
 fi
 
-if has_module make; then
+if has_image system-build; then
   node scripts/build-source-tar.mjs "${static_dir}/default/make-4.4.1.tar" \
     "${make_dir}" /usr/src/make \
     "${make_dir}/COPYING" /usr/share/licenses/make/COPYING
 fi
-if has_module ninja; then
+if has_image system-tools; then
   node scripts/build-source-tar.mjs "${static_dir}/default/samurai.tar" \
     "${samurai_dir}" /tmp/ninja/source \
     "${samurai_dir}/LICENSE" /usr/share/licenses/samurai/LICENSE
 fi
-if has_module zlib; then
+if has_image zlib; then
   node scripts/build-source-tar.mjs "${static_dir}/default/zlib.tar" \
     "${zlib_dir}" /usr/src/zlib \
     "${zlib_dir}/zlib.h" /usr/include/zlib.h \
     "${zlib_dir}/zconf.h" /usr/include/zconf.h \
     "${zlib_dir}/LICENSE" /usr/share/licenses/zlib/LICENSE
 fi
-if has_module git; then
+if has_image system-tools; then
   node scripts/build-source-tar.mjs "${static_dir}/default/git.tar" \
     "${git_dir}" /usr/src/git \
     "${git_dir}/templates" /usr/share/git-core/templates \
     "${git_dir}/COPYING" /usr/share/licenses/git/COPYING
 fi
-if has_module curl; then
+if has_image curl; then
   node scripts/build-source-tar.mjs "${static_dir}/default/curl-headers.tar" \
     "${curl_dir}/include/curl" /usr/include/curl \
     "${curl_dir}/COPYING" /usr/share/licenses/curl/COPYING
 fi
-if has_module sbase; then
+if has_image system-tools; then
   sbase_inputs=()
   for path in "${sbase_dir}"/*.[ch] "${sbase_dir}"/{Makefile,config.mk,libutf,libutil}; do
     sbase_inputs+=("${path}" "/tmp/sbase/${path##*/}")
@@ -137,7 +137,7 @@ if has_module sbase; then
   node scripts/build-source-tar.mjs "${static_dir}/default/sbase.tar" "${sbase_inputs[@]}" \
     "${sbase_dir}/LICENSE" /usr/share/licenses/sbase/LICENSE
 fi
-if has_module awk; then
+if has_image system-tools; then
 node scripts/build-source-tar.mjs "${static_dir}/default/awk.tar" \
   "${awk_dir}/awk.h" /usr/src/awk/awk.h \
   "${awk_dir}/awkgram.y" /usr/src/awk/awkgram.y \
@@ -153,7 +153,7 @@ node scripts/build-source-tar.mjs "${static_dir}/default/awk.tar" \
   "${awk_generated_dir}" /usr/src/awk \
   "${awk_dir}/LICENSE" /usr/share/licenses/awk/LICENSE
 fi
-if has_module zig; then
+if has_image zig-build; then
   zig_sdk_inputs=()
   while IFS= read -r entry; do
     [[ -z "${entry}" || "${entry}" == \#* ]] && continue
@@ -173,7 +173,7 @@ if has_module zig; then
     src/zig/wamr-platform.c /tmp/wamr/wamr-platform.c \
     src/zig/platform_internal.h /tmp/wamr/platform_internal.h
 fi
-if has_module ghostty; then
+if has_image ghostty-build; then
 node scripts/build-source-tar.mjs "${static_dir}/default/ghostty.tar" \
   "${ghostty_dir}/src" /usr/src/ghostty/src \
   "${ghostty_dir}/include/ghostty" /usr/include/ghostty \
