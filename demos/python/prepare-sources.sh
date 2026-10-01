@@ -12,7 +12,7 @@ if has_module cpython; then
   cpython_dir="$(demos/python/prepare-cpython.sh)"
   for source in \
     cpython-platform.c cpython-extension-check.c \
-    cpython-socket-stubs.c cpython-termios.c \
+    cpython-socket-stubs.c \
     cpython-process.c cpython-http.c cpython-subprocess.py \
     cpython-transport.py; do
     copy_static "demos/python/${source}" "python/runtimes/${source}"
