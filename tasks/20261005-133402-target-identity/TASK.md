@@ -252,3 +252,46 @@ and belongs with `20260930-231300-lean-game-images`.
 
 Open until the catalog round has made the follow-up edits: the done-when
 line on recipes and patches holds for the core and not yet for the demos.
+
+## Ports carried through (2026-10-06, `core/decisions` after merging `integrate/1005-seed`)
+
+Runtime `sha256:d03dc40b…`, image inputs `sha256:22d006ca…` (unchanged by
+the merge). Each port below was rebuilt on the new seed, one image build at a
+time through the slot, and its test run. Where upstream offers a switch, the
+port uses it instead of a patch.
+
+### python (CPython 3.14, libffi)
+
+- `prepare-cpython.sh`: `pthread_stubs.h` takes libc's types under
+  `__dolly__`; the `_Py_thread_local` hook tests `__dolly__`; the four
+  `!defined(DOLLY)` re-tests in `sysmodule.c` are gone with the `sed` that
+  wrote them. `cpython-dolly.patch` loses its `posixmodule.c` hunk
+  (`os._emscripten_*` no longer exists) and tests `__dolly__` twice.
+  `cpython-platform.c` keeps only `getentropy`; the Emscripten signal stubs
+  had no caller left. Six `-DDOLLY` are gone from `Dollyfile-python`.
+- libffi: the host configure names the toolchain that runs it
+  (`--host=wasm64-unknown-emscripten`, was `wasm64-unknown-linux`; the
+  generated `ffi.h` and `fficonfig.h` are byte-identical). `closures.c`, the
+  generic executable-memory allocator, is no longer copied or compiled:
+  Dolly's backend provides closures, and upstream skipped the file under
+  Emscripten. The staged `ffitarget.h` tests `__dolly__`.
+- Beyond the table: the process FFI dispatcher accepts exactly libffi's ABI
+  tag 2, `FFI_WASM64_EMSCRIPTEN` (`src/process-ffi.mjs:206`), and
+  `ffitarget.h` makes that the default ABI only under Emscripten's macro. The
+  first build trapped in the recipe's own libffi check ("process failed:
+  unreachable"). The tag is libffi's name for the ABI with structures,
+  varargs and closures, so the core is unchanged and the target header tests
+  `__dolly__`, as the libc headers do.
+- The three behaviours, measured in the rebuilt image
+  (`build/core-decisions-evidence/python-probe*.log`):
+
+  | Generic branch | Measured | Settled |
+  | --- | --- | --- |
+  | `socket` exposes `SO_REUSEADDR`, `SO_REUSEPORT`, `IPPROTO_SCTP` | `socket.socket()` raises `OSError: [Errno 52] Function not implemented` before any option is set | kept: the failure is explicit and no patch is needed |
+  | `time.thread_time` is defined | raises `OSError: [Errno 28] Invalid argument`: the kernel refuses `CLOCK_THREAD_CPUTIME_ID`, which libc's `<time.h>` declares | kept, explicit. The attribute now exists and raises where it was absent; hiding it again needs a CPython patch or a libc header without the clock |
+  | `sys.implementation.supports_isolated_interpreters` is `True` | upstream's configure leaves `_interpreters` out; built in as a trial, `interpreters.create()` raises `InterpreterError: sub-interpreter creation failed` | reports `False` again by one `sed` (`defined(__wasi__) \|\| defined(__dolly__)`): upstream has no switch, and a capability report must not be wrong |
+
+- Evidence: `python` built in 116 s including the recipe's libffi call and
+  closure check; `node demos/run-browser-tests.mjs python` passed in 23.9 s;
+  the `amy` case of `test/amy-browser.mjs` (install `python` into `default`,
+  run it, save the session) passed in Chrome (9.4 s) and Firefox (10.9 s).
