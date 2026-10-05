@@ -45,3 +45,7 @@ in the integrator's scratchpad):
   after the last passing run is `d67ec56e` (pipe wakeup). `rts` failed once
   under load ("mouse menu/quit must not stall either player"). Both are with
   the agent on `fix/signal-regression`.
+- `npm run publish` accepted every image (inventory checks pass) and then
+  refused to seal: "release source does not match the selected checkout",
+  because the integrator committed a task note in this tree while it ran. Not
+  rerun: round 2 produces the candidate. Do not commit in the tree being published.
