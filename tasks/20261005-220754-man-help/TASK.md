@@ -8,7 +8,7 @@
 Owner request (2026-10-06): "I want to add the man command, and make sure
 things in general in the shell has good man/help."
 
-## Today (main `18e445e7`)
+## Today (main `4f8a2309`)
 
 - There is no `man`. `help` (a core command in `Dollyfile-system-build`)
   prints one page about Slop: builtins, expansions, options.
@@ -35,6 +35,11 @@ things in general in the shell has good man/help."
 - A package's pages arrive with it: `INSTALL` and `amy install` bring
   `/usr/share/man` entries like any other file
   (`20261005-220754-amy-descriptions`).
+- One story with `20261005-133403-self-description`, which ships the
+  platform documents under `/usr/share/doc/dolly/` and makes `help` point
+  there: `man` covers commands, that directory covers the platform, and
+  neither repeats the other. Git already looks in `/usr/share/man`
+  (`GIT_MAN_PATH` in `Dollyfile-system-tools`) and finds nothing.
 
 ## Done when
 

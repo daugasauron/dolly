@@ -8,7 +8,7 @@ Owner request (2026-10-06): "in amy I want to get some description on what
 files are created when installing a package, and add some description/help
 text to each package."
 
-## Today (main `18e445e7`)
+## Today (main `4f8a2309`)
 
 - `amy list` prints names only. The index `dist/dolly-packages.txt` is
   `NAME URL SHA256` per line; nothing says what a package is.
