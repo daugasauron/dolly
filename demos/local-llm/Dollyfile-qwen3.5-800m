@@ -2,7 +2,7 @@ DOLLY 6
 PACKAGE qwen3.5-800m
 
 # Qwen3.5-0.8B Q4_K_M, the exact upstream GGUF in one part, and its license.
-FROM https://daugasauron.com/Dollyfile-system 55d601d75ba2325582e9b2452b03a827a549e8fa44b804c88393396805deda58
+FROM https://daugasauron.com/Dollyfile-system f67caffd1d6fed6b7e3470b068bb76f99dbf313976102d35335fa02cf4974c2b
 
 SOURCE https://daugasauron.com/dist/static/llm/qwen3.5-800m/0.part fb044e93939a70469c905781334f5de1e6c8b608ced6cbc8c9249bd4127d9526 /usr/share/dolly/llm/qwen3.5-800m.gguf
 SOURCE https://daugasauron.com/dist/static/llm/qwen3.5-800m/LICENSE bbedc3fda3305820b977265f01b8619d87570a6739de3a5582c3464840f1e57a /usr/share/licenses/qwen3.5-800m/LICENSE

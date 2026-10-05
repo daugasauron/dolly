@@ -3,7 +3,7 @@ APPLICATION minimal
 REQUIRES HOST display@0
 
 # The smallest image that opens: no compiler, recipe engine or network.
-INSTALL https://daugasauron.com/Dollyfile-core d32685578cc44a94abf4528c4759a5bff174b90a370940cc0f53be8cee67b915
-INSTALL https://daugasauron.com/Dollyfile-display 520052d6978d7c7cd48b90af96aa1fd00cf680185a99cdf51871b7045cdb5435
+INSTALL https://daugasauron.com/Dollyfile-core 9935068c58daa51f4029053454ac63e5938eaaffda07263bd9c6478bfc794c98
+INSTALL https://daugasauron.com/Dollyfile-display 961c1e128024326ff0146fa1a854d0e70a139186f8d1af2b6bee31c50f04954e
 
 ENTRY /bin/foreground -i /bin/slop
