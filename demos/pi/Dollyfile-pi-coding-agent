@@ -18,7 +18,7 @@ COPY https://daugasauron.com/demos/pi/Dollyfile-pi-build 8e49d8370444008cc447362
 
 SOURCE https://daugasauron.com/dist/static/default/pi/dolly-tools.js                    22d1cd0cd804ef22b7e73683a3c93e98cd99b574a12643bc6b240329da460d9a /home/dolly/.pi/agent/extensions/dolly-tools.js
 SOURCE https://daugasauron.com/dist/static/default/pi/SYSTEM.md                         2474c5984b121056633e25e372ecf73e85e3008db82707bce93a36b2ec83e87c /home/dolly/.pi/agent/SYSTEM.md
-SOURCE https://daugasauron.com/dist/static/default/pi/settings.json                     d63660fd77bc7be4b3958920d14426739c356132f6a2dcc687f43a8803293dc7 /home/dolly/.pi/agent/settings.json
+SOURCE https://daugasauron.com/dist/static/default/pi/settings.json                     852b78af9b490d627858723c8b67f24e55e58d9f621ce4afbc7424b872917c1f /home/dolly/.pi/agent/settings.json
 SOURCE https://daugasauron.com/dist/static/default/pi/dolly-theme.json                  ed4737d4339c7458fa46c6f351c8a619e762189c051206aef1a8840e1f288297 /home/dolly/.pi/agent/themes/dolly.json
 SOURCE https://daugasauron.com/dist/static/default/pi/dolly-skill.md                    01ddd4911723133140429310604e02d9b7adf1b2422640721961e78e817c9dc6 /home/dolly/.pi/agent/skills/dolly/SKILL.md
 
