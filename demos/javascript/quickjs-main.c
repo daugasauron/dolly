@@ -142,101 +142,48 @@ static char *normalize_absolute_path(JSContext *context, const char *path) {
   return normalized;
 }
 
+// Calls a function that the Janis runtime prelude defines on the global object.
+static JSValue call_janis(JSContext *context, const char *hook, int argc,
+                          JSValueConst *argv) {
+  JSValue global = JS_GetGlobalObject(context);
+  JSValue function = JS_GetPropertyStr(context, global, hook);
+  JS_FreeValue(context, global);
+  if (!JS_IsFunction(context, function)) {
+    JS_FreeValue(context, function);
+    return JS_ThrowReferenceError(context, "Janis runtime hook %s is missing", hook);
+  }
+  JSValue result = JS_Call(context, function, JS_UNDEFINED, argc, argv);
+  JS_FreeValue(context, function);
+  return result;
+}
+
+// Bare specifiers resolve to a WasmFS path or to a synthetic node: module.
 static char *resolve_bare_module(JSContext *context, const char *base_name,
                                  const char *module_name) {
-  JSValue global = JS_GetGlobalObject(context);
-  JSValue resolver = JS_GetPropertyStr(context, global, "__janisResolveModule");
-  JS_FreeValue(context, global);
-  if (!JS_IsFunction(context, resolver)) {
-    JS_FreeValue(context, resolver);
-    JS_ThrowReferenceError(context,
-                           "unsupported bare module specifier: %s",
-                           module_name);
-    return NULL;
-  }
-
   JSValue arguments[] = {
       JS_NewString(context, module_name),
       JS_NewString(context, base_name),
   };
-  if (JS_IsException(arguments[0]) || JS_IsException(arguments[1])) {
-    JS_FreeValue(context, arguments[0]);
-    JS_FreeValue(context, arguments[1]);
-    JS_FreeValue(context, resolver);
-    return NULL;
-  }
-  JSValue result = JS_Call(context, resolver, JS_UNDEFINED, 2, arguments);
+  JSValue result = call_janis(context, "__janisResolveModule", 2, arguments);
   JS_FreeValue(context, arguments[0]);
   JS_FreeValue(context, arguments[1]);
-  JS_FreeValue(context, resolver);
   if (JS_IsException(result)) return NULL;
 
   const char *resolved = JS_ToCString(context, result);
   JS_FreeValue(context, result);
   if (resolved == NULL) return NULL;
-  if (resolved[0] != '/') {
-    JS_ThrowReferenceError(context,
-                           "bare module resolver returned a non-absolute path");
-    JS_FreeCString(context, resolved);
-    return NULL;
-  }
-  char *normalized = normalize_absolute_path(context, resolved);
+  char *normalized = NULL;
+  if (strncmp(resolved, "node:", 5) == 0) normalized = js_string_copy(context, resolved);
+  else if (resolved[0] == '/') normalized = normalize_absolute_path(context, resolved);
+  else JS_ThrowReferenceError(context, "module resolver returned '%s'", resolved);
   JS_FreeCString(context, resolved);
   return normalized;
-}
-
-// Janis classifies every normalized filesystem module as ESM or CommonJS.
-// Plain qjs does not install this hook and therefore retains QuickJS's direct
-// file-module behavior.
-static char *classify_file_module(JSContext *context, char *normalized) {
-  if (normalized == NULL) return NULL;
-  JSValue global = JS_GetGlobalObject(context);
-  JSValue classifier = JS_GetPropertyStr(context, global, "__janisResolveFile");
-  JS_FreeValue(context, global);
-  if (!JS_IsFunction(context, classifier)) {
-    JS_FreeValue(context, classifier);
-    return normalized;
-  }
-
-  JSValue argument = JS_NewString(context, normalized);
-  if (JS_IsException(argument)) {
-    JS_FreeValue(context, classifier);
-    free(normalized);
-    return NULL;
-  }
-  JSValue result = JS_Call(context, classifier, JS_UNDEFINED, 1, &argument);
-  JS_FreeValue(context, argument);
-  JS_FreeValue(context, classifier);
-  if (JS_IsException(result)) {
-    free(normalized);
-    return NULL;
-  }
-  const char *classified = JS_ToCString(context, result);
-  JS_FreeValue(context, result);
-  if (classified == NULL) {
-    free(normalized);
-    return NULL;
-  }
-  if (classified[0] != '/') {
-    JS_ThrowReferenceError(context,
-                           "module classifier returned a non-absolute path");
-    JS_FreeCString(context, classified);
-    free(normalized);
-    return NULL;
-  }
-  char *result_path = normalize_absolute_path(context, classified);
-  JS_FreeCString(context, classified);
-  free(normalized);
-  return result_path;
 }
 
 static char *module_normalize(JSContext *context, const char *base_name,
                               const char *module_name, void *opaque) {
   (void)opaque;
-  if (module_name[0] == '/') {
-    return classify_file_module(
-        context, normalize_absolute_path(context, module_name));
-  }
+  if (module_name[0] == '/') return normalize_absolute_path(context, module_name);
   if (module_name[0] != '.' ||
       (module_name[1] != '/' &&
        !(module_name[1] == '.' && module_name[2] == '/'))) {
@@ -265,7 +212,7 @@ static char *module_normalize(JSContext *context, const char *base_name,
   }
   char *normalized = normalize_absolute_path(context, joined);
   free(joined);
-  return classify_file_module(context, normalized);
+  return normalized;
 }
 
 static JSValue js_import_meta_resolve(JSContext *context,
@@ -342,9 +289,40 @@ static int set_import_meta(JSContext *context, JSValueConst module,
   return url_status < 0 || main_status < 0 || resolve_status < 0 ? -1 : 0;
 }
 
+static JSModuleDef *compile_module(JSContext *context, const char *module_name,
+                                   const char *source, size_t length) {
+  JSValue module = JS_Eval(context, source, length, module_name,
+                           JS_EVAL_TYPE_MODULE | JS_EVAL_FLAG_COMPILE_ONLY);
+  if (JS_IsException(module)) return NULL;
+  if (module_name[0] == '/' && set_import_meta(context, module, 0) < 0) {
+    JS_FreeValue(context, module);
+    return NULL;
+  }
+  JSModuleDef *definition = JS_VALUE_GET_PTR(module);
+  JS_FreeValue(context, module);
+  return definition;
+}
+
+// Built-in modules and ESM views of CommonJS files are generated in memory by
+// the runtime; every other module is a WasmFS file.
 static JSModuleDef *module_loader(JSContext *context, const char *module_name,
                                   void *opaque) {
   (void)opaque;
+  JSValue name = JS_NewString(context, module_name);
+  JSValue generated = call_janis(context, "__janisModuleSource", 1, &name);
+  JS_FreeValue(context, name);
+  if (JS_IsException(generated)) return NULL;
+  if (JS_IsString(generated)) {
+    size_t length = 0;
+    const char *source = JS_ToCStringLen(context, &length, generated);
+    JS_FreeValue(context, generated);
+    if (source == NULL) return NULL;
+    JSModuleDef *definition = compile_module(context, module_name, source, length);
+    JS_FreeCString(context, source);
+    return definition;
+  }
+  JS_FreeValue(context, generated);
+
   size_t length = 0;
   char *source = read_file(module_name, &length);
   if (source == NULL) {
@@ -384,21 +362,13 @@ static JSModuleDef *module_loader(JSContext *context, const char *module_name,
     source = wrapped;
     length = wrapped_length;
   }
-  JSValue module = JS_Eval(context, source, length, module_name,
-                           JS_EVAL_TYPE_MODULE | JS_EVAL_FLAG_COMPILE_ONLY);
+  JSModuleDef *definition = compile_module(context, module_name, source, length);
   free(source);
-  if (JS_IsException(module)) return NULL;
-  if (set_import_meta(context, module, 0) < 0) {
-    JS_FreeValue(context, module);
-    return NULL;
-  }
-  JSModuleDef *definition = JS_VALUE_GET_PTR(module);
-  JS_FreeValue(context, module);
   return definition;
 }
 
+// Relative names, including [eval] and [stdin], belong to the cwd.
 static char *absolute_entry_name(JSContext *context, const char *name) {
-  if (name[0] == '<' || strcmp(name, "-") == 0) return js_string_copy(context, name);
   if (name[0] == '/') return normalize_absolute_path(context, name);
 
   char cwd[PATH_MAX];
@@ -613,35 +583,73 @@ static JSValue js_dolly_download(JSContext *context, JSValueConst this_value,
   return JS_UNDEFINED;
 }
 
-static JSValue fs_error(JSContext *context, const char *operation, int number) {
-  const char *code = "UNKNOWN";
+static const char *errno_code(int number, const char **description) {
   switch (number) {
-#define FS_ERRNO(name) case name: code = #name; break
-    FS_ERRNO(EBADF); FS_ERRNO(ENOENT); FS_ERRNO(EEXIST); FS_ERRNO(EINVAL);
-    FS_ERRNO(ENOTDIR); FS_ERRNO(EISDIR); FS_ERRNO(ENOTEMPTY); FS_ERRNO(EIO);
-    FS_ERRNO(ENOMEM); FS_ERRNO(ENOSPC); FS_ERRNO(EOVERFLOW); FS_ERRNO(ESPIPE);
-    FS_ERRNO(ENOSYS); FS_ERRNO(ENOTSUP); FS_ERRNO(ELOOP); FS_ERRNO(EMFILE);
-    FS_ERRNO(EINTR); FS_ERRNO(EAGAIN); FS_ERRNO(ENAMETOOLONG);
-    FS_ERRNO(EPIPE); FS_ERRNO(ESRCH); FS_ERRNO(ECHILD); FS_ERRNO(ESTALE);
-    FS_ERRNO(EBUSY); FS_ERRNO(EACCES); FS_ERRNO(EDQUOT); FS_ERRNO(E2BIG);
-    FS_ERRNO(ETIMEDOUT); FS_ERRNO(ECANCELED); FS_ERRNO(EPROTONOSUPPORT); FS_ERRNO(EFAULT);
+// libuv's descriptions, which Node's error messages use.
+#define FS_ERRNO(name, text) case name: *description = text; return #name
+    FS_ERRNO(EBADF, "bad file descriptor"); FS_ERRNO(ENOENT, "no such file or directory");
+    FS_ERRNO(EEXIST, "file already exists"); FS_ERRNO(EINVAL, "invalid argument");
+    FS_ERRNO(ENOTDIR, "not a directory"); FS_ERRNO(EISDIR, "illegal operation on a directory");
+    FS_ERRNO(ENOTEMPTY, "directory not empty"); FS_ERRNO(EIO, "i/o error");
+    FS_ERRNO(ENOMEM, "not enough memory"); FS_ERRNO(ENOSPC, "no space left on device");
+    FS_ERRNO(EOVERFLOW, "value too large for defined data type"); FS_ERRNO(ESPIPE, "invalid seek");
+    FS_ERRNO(ENOSYS, "function not implemented"); FS_ERRNO(ENOTSUP, "operation not supported on socket");
+    FS_ERRNO(ELOOP, "too many symbolic links encountered"); FS_ERRNO(EMFILE, "too many open files");
+    FS_ERRNO(EINTR, "interrupted system call"); FS_ERRNO(EAGAIN, "resource temporarily unavailable");
+    FS_ERRNO(ENAMETOOLONG, "name too long"); FS_ERRNO(EPIPE, "broken pipe");
+    FS_ERRNO(ESRCH, "no such process"); FS_ERRNO(ECHILD, "no child processes");
+    FS_ERRNO(ESTALE, "stale file handle"); FS_ERRNO(EBUSY, "resource busy or locked");
+    FS_ERRNO(EACCES, "permission denied"); FS_ERRNO(EDQUOT, "disk quota exceeded");
+    FS_ERRNO(E2BIG, "argument list too long"); FS_ERRNO(ETIMEDOUT, "connection timed out");
+    FS_ERRNO(ECANCELED, "operation canceled"); FS_ERRNO(EPROTONOSUPPORT, "protocol not supported");
+    FS_ERRNO(EFAULT, "bad address in system call argument");
 #undef FS_ERRNO
   }
-  JSValue error = JS_NewError(context);
+  *description = strerror(number);
+  return "UNKNOWN";
+}
+
+// Built through the Error constructor so the stack's first line is the message.
+static JSValue throw_errno(JSContext *context, const char *operation, int number,
+                           const char *message, const char *path, const char *destination) {
+  const char *description;
+  const char *code = errno_code(number, &description);
+  char text[2 * PATH_MAX + 256];
+  if (message == NULL) {
+    int used = snprintf(text, sizeof(text), "%s: %s, %s", code, description, operation);
+    if (path != NULL) used += snprintf(text + used, sizeof(text) - (size_t)used, " '%s'", path);
+    if (destination != NULL) snprintf(text + used, sizeof(text) - (size_t)used, " -> '%s'", destination);
+    message = text;
+  }
+  JSValue global = JS_GetGlobalObject(context);
+  JSValue constructor = JS_GetPropertyStr(context, global, "Error");
+  JS_FreeValue(context, global);
+  JSValue argument = JS_NewString(context, message);
+  JSValue error = JS_CallConstructor(context, constructor, 1, &argument);
+  JS_FreeValue(context, argument);
+  JS_FreeValue(context, constructor);
   if (JS_IsException(error)) return error;
-  JS_SetPropertyStr(context, error, "message", JS_NewString(context, strerror(number)));
   JS_SetPropertyStr(context, error, "code", JS_NewString(context, code));
   JS_SetPropertyStr(context, error, "errno", JS_NewInt32(context, -number));
   JS_SetPropertyStr(context, error, "syscall", JS_NewString(context, operation));
+  if (path != NULL) JS_SetPropertyStr(context, error, "path", JS_NewString(context, path));
+  if (destination != NULL) JS_SetPropertyStr(context, error, "dest", JS_NewString(context, destination));
   return JS_Throw(context, error);
+}
+
+static JSValue fs_error(JSContext *context, const char *operation, int number) {
+  return throw_errno(context, operation, number, NULL, NULL, NULL);
+}
+
+static JSValue fs_path_error(JSContext *context, const char *operation, int number,
+                             const char *path, const char *destination) {
+  return throw_errno(context, operation, number, NULL, path, destination);
 }
 
 static JSValue http_error(JSContext *context, const char *operation,
                           int number, uint32_t sequence) {
-  fs_error(context, operation, number);
+  throw_errno(context, operation, number, dolly_http_error_message(number), NULL, NULL);
   JSValue error = JS_GetException(context);
-  JS_SetPropertyStr(context, error, "message",
-      JS_NewString(context, dolly_http_error_message(number)));
   JS_SetPropertyStr(context, error, "requestId", JS_NewUint32(context, sequence));
   return JS_Throw(context, error);
 }
@@ -666,10 +674,10 @@ static JSValue js_dolly_fs_open(JSContext *context, JSValueConst this_value,
   const char *path = JS_ToCString(context, argv[0]);
   if (path == NULL) return JS_EXCEPTION;
   const int descriptor = open(path, flags, 0666);
-  const int saved_errno = errno;
+  JSValue result = descriptor < 0 ? fs_path_error(context, "open", errno, path, NULL)
+                                  : JS_NewInt32(context, descriptor);
   JS_FreeCString(context, path);
-  return descriptor < 0 ? fs_error(context, "open", saved_errno)
-                         : JS_NewInt32(context, descriptor);
+  return result;
 }
 
 static JSValue js_dolly_fs_close(JSContext *context, JSValueConst this_value,
@@ -722,9 +730,9 @@ static JSValue js_dolly_fs_stat(JSContext *context, JSValueConst this_value,
     const char *path = JS_ToCString(context, argv[0]);
     if (path == NULL) return JS_EXCEPTION;
     const int status = kind == 1 ? lstat(path, &metadata) : stat(path, &metadata);
-    const int saved_errno = errno;
+    if (status != 0) fs_path_error(context, kind == 1 ? "lstat" : "stat", errno, path, NULL);
     JS_FreeCString(context, path);
-    if (status != 0) return fs_error(context, kind == 1 ? "lstat" : "stat", saved_errno);
+    if (status != 0) return JS_EXCEPTION;
   }
   JSValue result = JS_NewObject(context);
   JS_SetPropertyStr(context, result, "size",
@@ -758,9 +766,9 @@ static JSValue js_dolly_fs_utimes(JSContext *context, JSValueConst this_value,
   const char *path = JS_ToCString(context, argv[0]);
   if (path == NULL) return JS_EXCEPTION;
   const int status = utimensat(AT_FDCWD, path, times, 0);
-  const int saved_errno = errno;
+  JSValue result = status < 0 ? fs_path_error(context, "utime", errno, path, NULL) : JS_UNDEFINED;
   JS_FreeCString(context, path);
-  return status < 0 ? fs_error(context, "utimes", saved_errno) : JS_UNDEFINED;
+  return result;
 }
 
 static JSValue js_dolly_fs_readdir(JSContext *context,
@@ -771,9 +779,9 @@ static JSValue js_dolly_fs_readdir(JSContext *context,
   const char *path = JS_ToCString(context, argv[0]);
   if (path == NULL) return JS_EXCEPTION;
   DIR *directory = opendir(path);
-  const int saved_errno = errno;
+  if (directory == NULL) fs_path_error(context, "scandir", errno, path, NULL);
   JS_FreeCString(context, path);
-  if (directory == NULL) return fs_error(context, "scandir", saved_errno);
+  if (directory == NULL) return JS_EXCEPTION;
   JSValue result = JS_NewArray(context);
   uint32_t index = 0;
   struct dirent *entry;
@@ -790,7 +798,7 @@ static JSValue js_dolly_fs_operation(JSContext *context,
                                      JSValueConst this_value,
                                      int argc, JSValueConst *argv, int magic) {
   (void)this_value;
-  static const char *const syscalls[] = {"access", "mkdir", "unlink", "rmdir", "rename", "chmod"};
+  static const char *const syscalls[] = {"access", "mkdir", "unlink", "rmdir", "rename", "chmod", "symlink", "link"};
   if (argc < 1) return JS_ThrowTypeError(context, "filesystem operation requires a path");
   int32_t mode = F_OK;
   if ((magic == 0 || magic == 5) && argc > 1 && JS_ToInt32(context, &mode, argv[1]) < 0) return JS_EXCEPTION;
@@ -803,17 +811,54 @@ static JSValue js_dolly_fs_operation(JSContext *context,
   else if (magic == 2) status = unlink(first);
   else if (magic == 3) status = rmdir(first);
   else if (magic == 5) status = chmod(first, (mode_t)mode);
-  else if (magic == 4) {
+  else {
     if (argc < 2 || (second = JS_ToCString(context, argv[1])) == NULL) {
       JS_FreeCString(context, first);
       return JS_ThrowTypeError(context, "filesystem operation requires two paths");
     }
-    status = rename(first, second);
+    status = magic == 4 ? rename(first, second) : magic == 6 ? symlink(first, second) : link(first, second);
   }
-  const int saved_errno = errno;
+  JSValue result = status != 0
+      ? fs_path_error(context, syscalls[magic], errno, first, second) : JS_UNDEFINED;
   if (second != NULL) JS_FreeCString(context, second);
   JS_FreeCString(context, first);
-  return status != 0 ? fs_error(context, syscalls[magic], saved_errno) : JS_UNDEFINED;
+  return result;
+}
+
+static JSValue js_dolly_fs_readlink(JSContext *context, JSValueConst this_value,
+                                    int argc, JSValueConst *argv) {
+  (void)this_value;
+  if (argc < 1) return JS_ThrowTypeError(context, "fsReadlink requires a path");
+  const char *path = JS_ToCString(context, argv[0]);
+  if (path == NULL) return JS_EXCEPTION;
+  char target[PATH_MAX];
+  const ssize_t length = readlink(path, target, sizeof(target));
+  JSValue result = length < 0 ? fs_path_error(context, "readlink", errno, path, NULL)
+                              : JS_NewStringLen(context, target, (size_t)length);
+  JS_FreeCString(context, path);
+  return result;
+}
+
+// Truncates a path (magic 0) or a descriptor (magic 1); fsync takes a descriptor.
+static JSValue js_dolly_fs_resize(JSContext *context, JSValueConst this_value,
+                                  int argc, JSValueConst *argv, int magic) {
+  (void)this_value;
+  int64_t length = 0;
+  if (argc < 1 || (magic != 2 && (argc < 2 || JS_ToInt64(context, &length, argv[1]) < 0)))
+    return JS_ThrowTypeError(context, "file resize requires a file and a length");
+  if (magic != 0) {
+    int descriptor;
+    if (fs_descriptor(context, argv[0], &descriptor) < 0) return JS_EXCEPTION;
+    if ((magic == 1 ? ftruncate(descriptor, (off_t)length) : fsync(descriptor)) != 0)
+      return fs_error(context, magic == 1 ? "ftruncate" : "fsync", errno);
+    return JS_UNDEFINED;
+  }
+  const char *path = JS_ToCString(context, argv[0]);
+  if (path == NULL) return JS_EXCEPTION;
+  JSValue result = truncate(path, (off_t)length) != 0
+      ? fs_path_error(context, "open", errno, path, NULL) : JS_UNDEFINED;
+  JS_FreeCString(context, path);
+  return result;
 }
 
 static JSValue js_dolly_realpath(JSContext *context, JSValueConst this_value,
@@ -824,9 +869,10 @@ static JSValue js_dolly_realpath(JSContext *context, JSValueConst this_value,
   if (path == NULL) return JS_EXCEPTION;
   char resolved[PATH_MAX];
   char *status = realpath(path, resolved);
-  const int saved_errno = errno;
+  JSValue result = status == NULL ? fs_path_error(context, "realpath", errno, path, NULL)
+                                  : JS_NewString(context, resolved);
   JS_FreeCString(context, path);
-  return status == NULL ? fs_error(context, "realpath", saved_errno) : JS_NewString(context, resolved);
+  return result;
 }
 
 static JSValue js_dolly_read_raw(JSContext *context, JSValueConst this_value,
@@ -1358,6 +1404,35 @@ static JSValue js_dolly_clone_value(JSContext *context, JSValueConst this_value,
   return result;
 }
 
+// Node's CommonJS wrapper, kept on the source's first line so stack frames
+// name the module's own file, line and column.
+static JSValue js_dolly_compile_commonjs(JSContext *context, JSValueConst this_value,
+                                         int argc, JSValueConst *argv) {
+  (void)this_value;
+  static const char prefix[] = "(function (exports, require, module, __filename, __dirname) { ";
+  static const char suffix[] = "\n})";
+  if (argc < 2) return JS_ThrowTypeError(context, "compileCommonJs requires source and filename");
+  size_t length = 0;
+  const char *source = JS_ToCStringLen(context, &length, argv[0]);
+  if (source == NULL) return JS_EXCEPTION;
+  const char *filename = JS_ToCString(context, argv[1]);
+  char *wrapped = filename == NULL ? NULL : malloc(sizeof(prefix) + length + sizeof(suffix));
+  JSValue result = JS_EXCEPTION;
+  if (wrapped != NULL) {
+    memcpy(wrapped, prefix, sizeof(prefix) - 1);
+    memcpy(wrapped + sizeof(prefix) - 1, source, length);
+    memcpy(wrapped + sizeof(prefix) - 1 + length, suffix, sizeof(suffix));
+    result = JS_Eval(context, wrapped, sizeof(prefix) - 1 + length + sizeof(suffix) - 1,
+                     filename, JS_EVAL_TYPE_GLOBAL);
+  } else if (filename != NULL) {
+    JS_ThrowOutOfMemory(context);
+  }
+  free(wrapped);
+  JS_FreeCString(context, filename);
+  JS_FreeCString(context, source);
+  return result;
+}
+
 static int install_dolly_backend(JSContext *context) {
   JSValue global = JS_GetGlobalObject(context);
   JSValue dolly = JS_NewObject(context);
@@ -1387,6 +1462,7 @@ static int install_dolly_backend(JSContext *context) {
   DOLLY_JS_FUNCTION("fsUtimes", js_dolly_fs_utimes, 3);
   DOLLY_JS_FUNCTION("fsReaddir", js_dolly_fs_readdir, 1);
   DOLLY_JS_FUNCTION("realpath", js_dolly_realpath, 1);
+  DOLLY_JS_FUNCTION("fsReadlink", js_dolly_fs_readlink, 1);
   DOLLY_JS_FUNCTION("readRaw", js_dolly_read_raw, 1);
   DOLLY_JS_FUNCTION("readStdin", js_dolly_read_stdin, 1);
   DOLLY_JS_FUNCTION("isatty", js_dolly_isatty, 1);
@@ -1407,6 +1483,7 @@ static int install_dolly_backend(JSContext *context) {
   DOLLY_JS_FUNCTION("decode", js_dolly_decode, 1);
   DOLLY_JS_FUNCTION("shell", js_dolly_shell, 3);
   DOLLY_JS_FUNCTION("cloneValue", js_dolly_clone_value, 1);
+  DOLLY_JS_FUNCTION("compileCommonJs", js_dolly_compile_commonjs, 2);
 #undef DOLLY_JS_FUNCTION
   JS_SetPropertyStr(context, dolly, "pid", JS_NewInt32(context, getpid()));
   JS_SetPropertyStr(context, dolly, "ppid", JS_NewInt32(context, getppid()));
@@ -1419,6 +1496,9 @@ static int install_dolly_backend(JSContext *context) {
   DOLLY_FS_MAGIC("fsStat", js_dolly_fs_stat, 1, 0);
   DOLLY_FS_MAGIC("fsLstat", js_dolly_fs_stat, 1, 1);
   DOLLY_FS_MAGIC("fsFstat", js_dolly_fs_stat, 1, 2);
+  DOLLY_FS_MAGIC("fsTruncate", js_dolly_fs_resize, 2, 0);
+  DOLLY_FS_MAGIC("fsFtruncate", js_dolly_fs_resize, 2, 1);
+  DOLLY_FS_MAGIC("fsFsync", js_dolly_fs_resize, 1, 2);
 #undef DOLLY_FS_MAGIC
   JSValue fs_constants = JS_NewObject(context);
 #define DOLLY_FS_CONSTANT(name) JS_SetPropertyStr(context, fs_constants, #name, JS_NewInt32(context, name))
@@ -1433,7 +1513,7 @@ static int install_dolly_backend(JSContext *context) {
 #define DOLLY_FS_FUNCTION(name, magic)                                         \
   JS_SetPropertyStr(context, dolly, name,                                      \
                     JS_NewCFunctionMagic(context, js_dolly_fs_operation, name, \
-                                         magic >= 4 ? 2 : 1,                   \
+                                         magic == 4 || magic >= 6 ? 2 : 1,     \
                                          JS_CFUNC_generic_magic, magic))
   DOLLY_FS_FUNCTION("fsAccess", 0);
   DOLLY_FS_FUNCTION("fsMkdir", 1);
@@ -1441,6 +1521,8 @@ static int install_dolly_backend(JSContext *context) {
   DOLLY_FS_FUNCTION("fsRmdir", 3);
   DOLLY_FS_FUNCTION("fsRename", 4);
   DOLLY_FS_FUNCTION("fsChmod", 5);
+  DOLLY_FS_FUNCTION("fsSymlink", 6);
+  DOLLY_FS_FUNCTION("fsLink", 7);
 #undef DOLLY_FS_FUNCTION
   JS_SetPropertyStr(context, dolly, "stdout",
                     JS_NewCFunctionMagic(context, js_dolly_write, "stdout", 1,
@@ -1535,19 +1617,20 @@ static int install_globals(JSContext *context, const char *executable,
   return 0;
 }
 
+// Frames inside the runtime read as Node's internals, which stack filters skip.
 static int load_dolly_prelude(JSContext *context) {
-  static const char *const paths[] = {
-      "/usr/lib/dolly/node.js",
-      "/usr/lib/janis/runtime.js",
+  static const struct { const char *path, *name; } preludes[] = {
+      {"/usr/lib/dolly/node.js", "node:internal/dolly"},
+      {"/usr/lib/janis/runtime.js", "node:internal/janis"},
   };
-  for (size_t index = 0; index < sizeof(paths) / sizeof(paths[0]); ++index) {
+  for (size_t index = 0; index < sizeof(preludes) / sizeof(preludes[0]); ++index) {
     size_t length = 0;
-    char *source = read_file(paths[index], &length);
+    char *source = read_file(preludes[index].path, &length);
     if (source == NULL) {
-      fprintf(stderr, "janis: %s: %s\n", paths[index], strerror(errno));
+      fprintf(stderr, "janis: %s: %s\n", preludes[index].path, strerror(errno));
       return -1;
     }
-    JSValue result = JS_Eval(context, source, length, paths[index],
+    JSValue result = JS_Eval(context, source, length, preludes[index].name,
                              JS_EVAL_TYPE_GLOBAL);
     free(source);
     if (JS_IsException(result)) {
@@ -1564,21 +1647,49 @@ static void discard_exception(JSContext *context) {
   JS_FreeValue(context, exception);
 }
 
+// As in Node, process 'uncaughtException' listeners receive an error that
+// escaped; without one it is printed and the process fails. Returns 0 when a
+// listener handled it.
+static int report_uncaught(JSContext *context) {
+  JSValue error = JS_GetException(context);
+  JSValue handled = janis_interrupted ? JS_FALSE : call_janis(context, "__janisUncaught", 1, &error);
+  if (JS_IsException(handled)) {
+    JS_FreeValue(context, error);
+    print_exception(context);
+    return -1;
+  }
+  if (JS_ToBool(context, handled)) {
+    JS_FreeValue(context, error);
+    return 0;
+  }
+  JS_Throw(context, error);
+  print_exception(context);
+  return -1;
+}
+
 static int execute_pending_jobs(JSContext *context) {
   JSContext *job_context = NULL;
   int status;
-  while ((status = JS_ExecutePendingJob(JS_GetRuntime(context),
-                                        &job_context)) > 0) {
-  }
-  if (status < 0) {
+  while ((status = JS_ExecutePendingJob(JS_GetRuntime(context), &job_context)) != 0) {
+    if (status > 0) continue;
     if (janis_exit_requested) {
       discard_exception(job_context == NULL ? context : job_context);
       return 1;
     }
-    print_exception(job_context == NULL ? context : job_context);
-    return -1;
+    if (report_uncaught(job_context == NULL ? context : job_context) < 0) return -1;
   }
   return 0;
+}
+
+// QuickJS reports each rejection and any later handler; the runtime decides
+// which remain unhandled once microtasks drain, as Node does.
+static void track_rejection(JSContext *context, JSValueConst promise, JSValueConst reason,
+                            bool is_handled, void *opaque) {
+  (void)opaque;
+  JSValueConst arguments[] = {promise, reason, JS_NewBool(context, is_handled)};
+  JSValue result = call_janis(context, "__janisRejection", 3, arguments);
+  if (JS_IsException(result)) print_exception(context);
+  JS_FreeValue(context, result);
 }
 
 static int pump_janis(JSContext *context) {
@@ -1597,8 +1708,7 @@ static int pump_janis(JSContext *context) {
       discard_exception(context);
       return 0;
     }
-    print_exception(context);
-    return -1;
+    return report_uncaught(context) < 0 ? -1 : 1;
   }
   const int active = JS_ToBool(context, result);
   JS_FreeValue(context, result);
@@ -1649,24 +1759,17 @@ static void print_exception(JSContext *context) {
     return;
   }
   const char *message = JS_ToCString(context, exception);
-  if (message != NULL) {
+  JSValue stack = JS_IsError(exception)
+      ? JS_GetPropertyStr(context, exception, "stack") : JS_UNDEFINED;
+  const char *trace = JS_IsString(stack) ? JS_ToCString(context, stack) : NULL;
+  // A V8-style stack already begins with the message line.
+  if (message == NULL) fputs("qjs: JavaScript exception\n", stderr);
+  else if (trace == NULL || strncmp(trace, message, strlen(message)) != 0)
     fprintf(stderr, "%s\n", message);
-    JS_FreeCString(context, message);
-  } else {
-    fputs("qjs: JavaScript exception\n", stderr);
-  }
-
-  if (JS_IsError(exception)) {
-    JSValue stack = JS_GetPropertyStr(context, exception, "stack");
-    if (!JS_IsUndefined(stack)) {
-      const char *text = JS_ToCString(context, stack);
-      if (text != NULL) {
-        fprintf(stderr, "%s\n", text);
-        JS_FreeCString(context, text);
-      }
-    }
-    JS_FreeValue(context, stack);
-  }
+  if (trace != NULL) fprintf(stderr, "%s\n", trace);
+  JS_FreeCString(context, trace);
+  JS_FreeCString(context, message);
+  JS_FreeValue(context, stack);
   JS_FreeValue(context, exception);
 }
 
@@ -1682,6 +1785,7 @@ static int await_value(JSContext *context, JSValue *value) {
     }
     if (state == JS_PROMISE_REJECTED) {
       JSValue reason = JS_PromiseResult(context, *value);
+      track_rejection(context, *value, reason, true, NULL);  // reported here, not as unhandled
       JS_FreeValue(context, *value);
       *value = JS_EXCEPTION;
       JS_Throw(context, reason);
@@ -1692,13 +1796,16 @@ static int await_value(JSContext *context, JSValue *value) {
     const int status = JS_ExecutePendingJob(JS_GetRuntime(context),
                                             &job_context);
     if (status < 0) {
-      if (job_context != NULL && job_context != context) {
-        print_exception(job_context);
-        JS_ThrowInternalError(context, "asynchronous job failed");
+      if (janis_exit_requested) {
+        discard_exception(job_context == NULL ? context : job_context);
+        JS_FreeValue(context, *value);
+        *value = JS_UNDEFINED;
+        return 0;
       }
+      if (report_uncaught(job_context == NULL ? context : job_context) == 0) continue;
       JS_FreeValue(context, *value);
-      *value = JS_EXCEPTION;
-      return -1;
+      *value = JS_UNDEFINED;
+      return -2;
     }
     if (status == 0) {
       const int active = pump_janis(context);
@@ -1709,9 +1816,8 @@ static int await_value(JSContext *context, JSValue *value) {
       }
       if (active < 0) {
         JS_FreeValue(context, *value);
-        *value = JS_EXCEPTION;
-        JS_ThrowInternalError(context, "Janis event pump failed");
-        return -1;
+        *value = JS_UNDEFINED;
+        return -2;
       }
       /* The last timer or HTTP completion can queue jobs without live handles. */
       if (active > 0 || JS_IsJobPending(JS_GetRuntime(context)) ||
@@ -1727,8 +1833,20 @@ static int await_value(JSContext *context, JSValue *value) {
 
 static int evaluate(JSContext *context, const char *source, size_t length,
                     const char *name, int module_mode) {
-  JSValue result;
+  JSValue result = JS_UNDEFINED;
   char *entry_name = NULL;
+  if (!module_mode) {
+    // The runtime runs CommonJS itself and returns true for an ES module, as
+    // Node decides by extension, package type and then syntax.
+    JSValue arguments[] = {
+        JS_NewStringLen(context, source, length),
+        JS_NewString(context, name),
+    };
+    result = call_janis(context, "__janisMain", 2, arguments);
+    JS_FreeValue(context, arguments[0]);
+    JS_FreeValue(context, arguments[1]);
+    module_mode = JS_IsBool(result) && JS_ToBool(context, result);
+  }
   if (module_mode) {
     entry_name = absolute_entry_name(context, name);
     if (entry_name == NULL) {
@@ -1746,26 +1864,17 @@ static int evaluate(JSContext *context, const char *source, size_t length,
       }
     }
     js_free(context, entry_name);
-  } else {
-    result = JS_Eval(context, source, length, name, JS_EVAL_TYPE_GLOBAL);
   }
-  if (JS_IsException(result)) {
-    if (janis_exit_requested) {
-      discard_exception(context);
-      return janis_exit_status;
-    }
-    print_exception(context);
+  // await_value returns -2 once it has reported the failure itself.
+  const int awaited = JS_IsException(result) ? -1 : await_value(context, &result);
+  if (awaited == 0) {
+    JS_FreeValue(context, result);
+  } else if (janis_exit_requested) {
+    discard_exception(context);
+    return janis_exit_status;
+  } else if (awaited == -2 || report_uncaught(context) < 0) {
     return 1;
   }
-  if (await_value(context, &result) < 0) {
-    if (janis_exit_requested) {
-      discard_exception(context);
-      return janis_exit_status;
-    }
-    print_exception(context);
-    return 1;
-  }
-  JS_FreeValue(context, result);
 
   for (;;) {
     const int jobs = execute_pending_jobs(context);
@@ -1823,7 +1932,7 @@ int dolly_quickjs_embed(int argc, char **argv, const char *default_module,
       }
       source = argv[argument_index++];
       length = strlen(source);
-      name = "<eval>";
+      name = "[eval]";
     } else if (argument_index < argc && argv[argument_index][0] == '-' &&
                strcmp(argv[argument_index], "-") != 0) {
       fprintf(stderr, "qjs: unsupported option: %s\n", argv[argument_index]);
@@ -1862,7 +1971,7 @@ int dolly_quickjs_embed(int argc, char **argv, const char *default_module,
   JS_SetModuleLoaderFunc(runtime, module_normalize, module_loader, NULL);
   JSContext *context = JS_NewContext(runtime);
   if (context == NULL ||
-      install_globals(context, argv[0], strcmp(name, "<eval>") == 0 ? NULL : name,
+      install_globals(context, argv[0], strcmp(name, "[eval]") == 0 ? NULL : name,
                       argc - argument_index, argv + argument_index) != 0 ||
       install_dolly_backend(context) != 0 ||
       load_dolly_prelude(context) != 0 ||
@@ -1876,11 +1985,9 @@ int dolly_quickjs_embed(int argc, char **argv, const char *default_module,
     return 1;
   }
 
-  if (!module_mode && name != NULL) {
-    const size_t name_length = strlen(name);
-    module_mode = name_length >= 4 && strcmp(name + name_length - 4, ".mjs") == 0;
-  }
-  int status = evaluate(context, source, length, name, module_mode);
+  JS_SetHostPromiseRejectionTracker(runtime, track_rejection, NULL);
+  int status = evaluate(context, source, length,
+                        strcmp(name, "-") == 0 ? "[stdin]" : name, module_mode);
   if (janis_interrupted) status = 128 + SIGINT;
   if (cleanup_janis(context) != 0 && status == 0) status = 1;
   JS_FreeContext(context);

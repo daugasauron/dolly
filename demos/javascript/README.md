@@ -23,6 +23,12 @@ package keeps them for `INSTALL` (`pi-runtime`, `bhop`, `slopyard`) and
 
 - ESM, CommonJS and JSON modules, package `imports`/`exports` and conditions,
   `import.meta.resolve`, resolved only inside WasmFS; missing modules fail.
+  As in Node, a file, `-e` or stdin runs as CommonJS unless `.mjs`, package
+  `type` or import syntax makes it ESM. Built-in modules and ESM views of
+  CommonJS are generated in memory.
+- Uncaught errors and unhandled rejections reach `process` listeners or fail
+  the process. Errno errors carry Node's messages, stacks start with the
+  message, and runtime frames read `node:internal/janis`.
 - Descriptor-based `fs` with positioned I/O and promise wrappers; open files
   survive rename and unlink.
 - Buffers, encodings, paths, URLs, events, timers, crypto helpers, tty streams
@@ -42,7 +48,9 @@ package keeps them for `INSTALL` (`pi-runtime`, `bhop`, `slopyard`) and
 
 ## Limits
 
-- No npm client, native addons, worker threads or nested WebAssembly.
+- No npm client, native addons, worker threads (`worker_threads` has no
+  `Worker`) or nested WebAssembly. Requiring an ES module fails with
+  `ERR_REQUIRE_ESM`.
 - Only three stdio descriptors; detached processes and IPC fail.
 - `os.cpus`, `os.totalmem`/`freemem` and `process.memoryUsage` fail with
   `ENOSYS`. `chmod` reaches the kernel, which checks the path and changes nothing.
