@@ -48,12 +48,14 @@ await browserTest("amy", { image: "default", timeout: 300_000, server: { fixture
   const session = await open({ policy });
   const run = check(session);
   await run(`test "$(amy list | sed 's/ .*//' | sort | tr '\\n' ' ')" = "${packages.join(" ")} "`);
-  await run("test -z \"$(amy installed)\" && ! amy list | grep -q installed");
+  // The record lists what the image's recipes installed, before the session adds to it.
+  await run("test \"$(amy list | sed -n 's/ *installed$//p' | tr '\\n' ' ')\" = 'curl display gzip zlib '");
+  await run("test \"$(amy install curl)\" = 'amy: curl is already installed'");
   await run("! amy install nosuch-package 2> /tmp/amy-error && grep -q nosuch-package /tmp/amy-error");
   await run("! amy 2> /dev/null && ! amy frobnicate 2> /dev/null");
   console.log(`amy install python: ${await timed(run, "amy install python")} ms`);
   await run("test \"$(python3 -c 'print(6 * 7)')\" = 42");
-  await run(`test "$(amy installed)" = "python ${pin("python")}" && grep -qx 'INSTALL ${pin("python")}' /etc/dolly/installed`);
+  await run(`test "$(amy installed | tail -n 1)" = "python ${pin("python")}" && grep -qx 'INSTALL ${pin("python")}' /etc/dolly/installed`);
   await run("amy list | grep -q '^python *installed$' && test \"$(amy install python)\" = 'amy: python is already installed'");
   // A package's control files describe the package; the session keeps the image's.
   await run("test \"$(cat /etc/dolly/image)\" = default && grep -q '^APPLICATION default' /etc/dolly/Dollyfile");
@@ -68,7 +70,7 @@ await browserTest("amy", { image: "default", timeout: 300_000, server: { fixture
   await run(`mkdir -p /etc/dolly/artifacts && curl -fsS ${server.origin}/fixture/threaded.snapshot -o ${artifact}`);
   await run(`dollyfile install ${threaded.url} ${threaded.sha256} && rm ${artifact}`);
   await run(`test "$(cat /usr/share/threaded)" = 'needs threads' && grep -qx '${row}' /etc/dolly/installed`);
-  await run(`test "$(amy installed | sed -n 2p)" = "threaded ${threaded.url} ${threaded.sha256}"`);
+  await run(`test "$(amy installed | tail -n 1)" = "threaded ${threaded.url} ${threaded.sha256}"`);
   // Saved and reloaded, the installed tools and environment are there.
   assert.equal(await session.page.evaluate(() => __dolly.saveSession("amy-proof")), "amy-proof");
   const delta = Number(await session.page.evaluate(() => document.documentElement.dataset.sessionUncompressedBytes));
@@ -80,7 +82,7 @@ await browserTest("amy", { image: "default", timeout: 300_000, server: { fixture
     await session.page.locator("#bootstrap-log").textContent());
   await session.page.evaluate(() => __dolly.waitForInteractiveTerminal(/dolly:[^\n]*\$\s*$/, "session shell"));
   await run("test \"$(python3 -c 'print(6 * 7)')\" = 42 && test \"$PYTHONUTF8\" = 1 && test \"$PYTHONDONTWRITEBYTECODE\" = 1");
-  await run(`test "$(amy installed | sed -n 1p)" = "python ${pin("python")}" && test "$(cat /usr/share/threaded)" = 'needs threads'`);
+  await run(`amy installed | grep -qx "python ${pin("python")}" && test "$(cat /usr/share/threaded)" = 'needs threads'`);
 });
 
 // Compilers, a library and an agent: each installs into a running default
@@ -94,7 +96,8 @@ const programs = {
     "printf '%s\\n' 'cmake_minimum_required(VERSION 3.20)' 'project(window C)' 'find_package(SDL2 REQUIRED)' 'add_executable(window window.c)' " +
     "'target_link_libraries(window PRIVATE SDL2::SDL2-static)' > CMakeLists.txt && cmake -B build -DCMAKE_C_FLAGS=-O0 && cmake --build build && build/window",
   rust: "printf 'fn main() { println!(\"{}\", 6 * 7); }\\n' > /tmp/amy.rs && rustc /tmp/amy.rs -o /tmp/amy-rust && test \"$(/tmp/amy-rust)\" = 42 && patti --help > /dev/null",
-  "codex-cli": "codex --version | grep -q '^codex-cli ' && rg --version > /dev/null && fd --version > /dev/null",
+  // codex-cli installs ripgrep and fd: their rows come with it.
+  "codex-cli": "codex --version | grep -q '^codex-cli ' && fd --version > /dev/null && amy list | grep -q '^ripgrep *installed$'",
 };
 await browserTest("amy programs", { image: "default", timeout: 600_000 }, async ({ open }) => {
   const run = check(await open());
@@ -122,7 +125,7 @@ await browserTest("amy refusal", { image: "system", server: { fixtures } }, asyn
   await refuse(`mkdir -p /etc/dolly/artifacts && curl -fsS ${server.origin}/fixture/threaded.snapshot -o ${artifact}`);
   assert.equal(await system.submit(`dollyfile install ${threaded.url} ${threaded.sha256} 2> /tmp/refused`), 2);
   await refuse("grep -q 'Dollyfile-threaded needs threads@0: add REQUIRES HOST threads@0' /tmp/refused");
-  await refuse("test ! -e /usr/share/threaded && test ! -e /etc/dolly/installed");
+  await refuse("test ! -e /usr/share/threaded && ! grep -q threaded /etc/dolly/installed");
   assert.notEqual(await system.submit("amy install python 2> /tmp/refused"), 0);
   await refuse("grep -q 'REQUIRES HOST packages@0' /tmp/refused");
   assert.notEqual(await system.submit("curl -fsS https://packages.dolly.invalid/v1/index -o /dev/null"), 0);

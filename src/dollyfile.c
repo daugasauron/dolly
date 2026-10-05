@@ -1114,6 +1114,44 @@ static int read_artifact_receipt(Engine *engine, const unsigned char *bytes,
   return result == 0 && cursor != end ? -EINVAL : result;
 }
 
+static const char installed_path[] = "/etc/dolly/installed";
+
+// The record of installed packages is "INSTALL URL SHA256" rows.
+static int valid_installed(const unsigned char *text, size_t size) {
+  for (const unsigned char *row = text, *end = text + size, *newline; row < end; row = newline + 1) {
+    newline = memchr(row, '\n', (size_t)(end - row));
+    char *line = newline == NULL ? NULL : strndup((const char *)row, (size_t)(newline - row));
+    char *sha256 = line == NULL ? NULL : strrchr(line, ' ');
+    const int valid = sha256 != NULL && sha256 > line + 8 && strncmp(line, "INSTALL ", 8) == 0 &&
+        valid_sha256(sha256 + 1) && (*sha256 = '\0', valid_image_url(line + 8));
+    free(line);
+    if (!valid) return 0;
+  }
+  return 1;
+}
+
+// /etc/dolly/installed lists the packages a filesystem holds, whether a
+// recipe or a session installed them. Appends the rows of `text` it lacks.
+static int record_installed(Engine *engine, const unsigned char *text, size_t size) {
+  Buffer record = {.limit = MAX_RECIPE_BYTES};
+  int result = read_file_buffer(installed_path, &record);
+  if (result == -ENOENT) result = 0;
+  for (const unsigned char *row = text, *end = text + size; result == 0 && row < end;) {
+    const size_t length = (size_t)((const unsigned char *)memchr(row, '\n', (size_t)(end - row)) - row) + 1;
+    int recorded = 0;
+    for (size_t start = 0; !recorded && start + length <= record.length;) {
+      recorded = memcmp(record.data + start, row, length) == 0;
+      const unsigned char *next = memchr(record.data + start, '\n', record.length - start);
+      start = next == NULL ? record.length : (size_t)(next - record.data) + 1;
+    }
+    if (!recorded && append_buffer(row, length, &record) != length) result = -EFBIG;
+    row += length;
+  }
+  if (result == 0) result = dolly_write_file(installed_path, record.data, record.length);
+  free(record.data);
+  return result != 0 ? result : append_string(&engine->keep, &engine->keep_count, &engine->keep_capacity, installed_path);
+}
+
 static void dispose_artifact(Artifact *artifact) {
   for (uint32_t index = 0; artifact->records != NULL && index < artifact->count; ++index) {
     free(artifact->records[index].path);
@@ -1179,7 +1217,9 @@ static int read_artifact(Artifact *artifact, const char *path, const char *expec
         memchr(record->path, 0, path_length) != NULL ||
         !valid_absolute_path(record->path) || dolly_fs_unretained_path(record->path) ||
         (index != 0 && strcmp(artifact->records[index - 1].path, record->path) >= 0)) return -EINVAL;
-    if (record->kind == DOLLY_FS_SYMLINK ||
+    const int installed = strcmp(record->path, installed_path) == 0;
+    if (installed && (record->kind != DOLLY_FS_FILE || size > MAX_RECIPE_BYTES)) return -EINVAL;
+    if (record->kind == DOLLY_FS_SYMLINK || installed ||
         strcmp(record->path, "/etc/dolly/Dollyfile") == 0 ||
         strcmp(record->path, "/etc/dolly/artifact") == 0) {
       unsigned char *data = malloc(size ? (size_t)size : 1);
@@ -1188,6 +1228,7 @@ static int read_artifact(Artifact *artifact, const char *path, const char *expec
       result = read_stream(artifact->stream, data, (size_t)size);
       if (result != 0) return result;
       if (record->kind == DOLLY_FS_SYMLINK && memchr(data, 0, (size_t)size) != NULL) return -EINVAL;
+      if (installed && !valid_installed(data, (size_t)size)) return -EINVAL;
     } else if (fseeko(artifact->stream, (off_t)size, SEEK_CUR) != 0) return -errno;
   }
   const dolly_fs_record *recipe = artifact_file(artifact, "/etc/dolly/Dollyfile");
@@ -1264,6 +1305,7 @@ static int load_artifact(Engine *engine, const char *locator, const char *expect
     const dolly_fs_record *record = &artifact->records[index];
     const char *suffix = record->path;
     if (mode == IMPORT_INSTALL && image_control_file(record->path)) continue;
+    if (mode != IMPORT_FROM && strcmp(record->path, installed_path) == 0) continue;
     if (source != NULL && strcmp(source, "/") != 0) {
       const size_t length = strlen(source);
       if (strncmp(record->path, source, length) != 0 ||
@@ -1286,6 +1328,20 @@ static int load_artifact(Engine *engine, const char *locator, const char *expect
   for (size_t index = 0; result == 0 && index < count; ++index) {
     if (selected[index].kind == DOLLY_FS_FILE) result = copy_artifact_file(artifact, indices[index], selected[index].path);
     if (result == 0 && keep) result = append_string(&engine->keep, &engine->keep_count, &engine->keep_capacity, selected[index].path);
+  }
+  // A package recipe starts its own record; INSTALL adds the package's rows, then its row.
+  if (result == 0 && !keep && unlink(installed_path) != 0 && errno != ENOENT) result = -errno;
+  const dolly_fs_record *rows = mode == IMPORT_INSTALL ? artifact_file(artifact, installed_path) : NULL;
+  if (result == 0 && rows != NULL) result = record_installed(engine, rows->data, rows->size);
+  if (result == 0 && mode == IMPORT_INSTALL) {
+    const size_t length = strlen(locator) + strlen(expected) + 10;
+    char *row = malloc(length + 1);
+    if (row == NULL) result = -ENOMEM;
+    else {
+      snprintf(row, length + 1, "INSTALL %s %s\n", locator, expected);
+      result = record_installed(engine, (const unsigned char *)row, length);
+      free(row);
+    }
   }
   for (size_t index = 0; result == 0 && mode != IMPORT_COPY && index < imported.count; ++index) {
     const Object *object = &imported.items[index];
@@ -1993,18 +2049,10 @@ static int read_environment_file(Engine *engine) {
   return result;
 }
 
-// Executed rows accumulate in /etc/dolly/installed: with the booted image's
-// recipe they are the session's recipe.
-static int record_installed(const char *locator, const char *expected) {
-  FILE *stream = fopen("/etc/dolly/installed", "a");
-  if (stream == NULL) return -errno;
-  const int result = fprintf(stream, "INSTALL %s %s\n", locator, expected) < 0 ? -EIO : 0;
-  return fclose(stream) != 0 && result == 0 ? -errno : result;
-}
-
 // `dollyfile install URL SHA256`: the INSTALL row against the live filesystem.
-// The booted image's recipe supplies the declared host modules and its
-// environment file receives the package's exported variables; nothing is sealed.
+// The booted image's recipe supplies the declared host modules, its
+// environment file receives the package's exported variables and its record
+// the row; nothing is sealed.
 static int install_live(Engine *engine, const char *locator, const char *expected) {
   Scope exports = {0}, visible = {0}, own = {0};
   int result = execute_recipe(engine, "FILE:/etc/dolly/Dollyfile", 0, &exports);
@@ -2018,7 +2066,6 @@ static int install_live(Engine *engine, const char *locator, const char *expecte
   }
   if (result == 0) result = load_artifact(engine, locator, expected, IMPORT_INSTALL, 0, NULL, NULL, &visible, &exports, &own);
   if (result == 0) result = write_environment_file(engine);
-  if (result == 0) result = record_installed(locator, expected);
   dispose_scope(&exports);
   dispose_scope(&visible);
   dispose_scope(&own);

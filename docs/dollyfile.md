@@ -136,6 +136,9 @@ and `/host/MODULE/`, prepared sources in `/dist/static/`.
   all be declared by the installing recipe, or the row fails naming the missing
   line before it changes a file. A package built from another release of the
   same recipe fails the install: an image carries one pin per recipe.
+- `INSTALL` records its row in `/etc/dolly/installed`, after the rows of the
+  packages the package itself installed: the record lists the packages an
+  image or session holds.
 - `COPY` merges directories, replaces files and fails on a missing source; it
   imports no environment, exports or host requirements. Imported images are
   earlier builds of at most 2 GiB; an image cannot share a name with one it
@@ -260,9 +263,9 @@ EXPORTS TOOL rg
   running session: the index names the package, the page's `packages@0`
   service ([browser boundary](browser-boundary.md#host-modules)) hands over its
   verified snapshot, and `dollyfile install URL SHA256` restores the files,
-  merges the exported variables into `/etc/dolly/environment` and appends the
-  row to `/etc/dolly/installed`. `amy list` marks the installed index entries
-  and `amy installed` prints the record. The check is the recipe's: a package
+  merges the exported variables into `/etc/dolly/environment` and records the
+  row as a build does. `amy list` marks the index entries the record holds,
+  the image's among them, and `amy installed` prints the record. The check is the recipe's: a package
   whose host modules the booted image does not declare is refused by name.
   Looking a name up in the index is the only unpinned step.
 - Installed files are session files, within the 512 MiB a save holds. Exported

@@ -168,15 +168,19 @@ benchmark ran. `python`, for scale: 0.8–1.3 s / 0.9–1.5 s.
 - SDL2's exported CMake package named `libSDL2main.a`, which `sdl2-build` did
   not retain, so `find_package(SDL2)` failed in every image. The `sdl2`
   package exports it; the amy test builds a CMake project against it.
-- `amy list` marks only what the session installed. In `default` it shows
-  `amy`, `cc`, `core`, `curl`, `display`, `gzip` and `zlib` as not installed
-  although the image holds them, and after `amy install codex-cli` it shows
-  `ripgrep` and `fd` the same way; `amy install curl` copies identical files
-  again. The record `/etc/dolly/installed` is written by live installs only.
-  Proper fix, in the engine: `INSTALL` writes the record in builds too and
-  merges a package's own rows (a package recipe starts with an empty
-  record), about 25 lines in `src/dollyfile.c` and no change to `amy.c`. It
-  is a seed change and was not started this round.
+- `amy list` marked only what the session installed. In `default` it showed
+  `curl`, `display`, `gzip` and `zlib` as not installed although the image's
+  recipes installed them, and after `amy install codex-cli` it showed
+  `ripgrep` and `fd` the same way; `amy install curl` copied identical files
+  again. `/etc/dolly/installed` was written by live installs only. Fixed in
+  the engine on `work/more-packages-seed` (a seed change): `INSTALL` records
+  its row in builds as in sessions and merges the rows of the packages a
+  package itself installed; a package recipe starts its own record; `COPY`
+  never imports the record. `src/dollyfile.c` grew 47 lines; `amy.c` is
+  unchanged. One limit remains until the core recipes are compositions
+  (stage 2 of `20260930-231300-lean-game-images`): images built on
+  `system-build` hold the files of `core`, `cc` and `amy` without their
+  rows, because they are the builders those packages are kept from.
 - The shared root `node_modules` holds Pi 0.84.4 while this branch locks
   0.99.2, so staging `pi-build` failed (`Pi runtime package is not exact`);
   this worktree's `node_modules` link points at `work/host-modules`.
