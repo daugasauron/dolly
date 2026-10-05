@@ -48,3 +48,10 @@ kernel's libc, and `modules/ghostty.dm` no longer carries `string.c`. WAMR's
 `BUILD_TARGET_X86_64`: as recorded above, the guest never observes it and an
 honest target needs a WAMR source change; left. The `libdisplay.so` size
 measurement and the Zig SDK browser check are still open.
+
+## Review note (2026-10-05, `20261005-131642-big-picture`)
+
+Measured: `src/ghostty/generated/uucode-tables.zig` is 233,478 lines, 89% of
+every line under `src/` (261,434) and 5.4 MB of the checkout. Generating it
+in the sandbox (the fourth item above) is the largest deletion available in
+the core tree.

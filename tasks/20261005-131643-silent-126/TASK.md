@@ -27,3 +27,16 @@ and exits 126 (`~/Downloads/AUDIT-sandbox-painpoints.md` §6, §7, §11).
 - A program compiled inside an image against a module that image declares runs.
 - Headers for modules an image does not declare: ship or not, decided and
   recorded here.
+
+## Review note (2026-10-05, `20261005-131642-big-picture`)
+
+One cause explains all three "no output" cases: the diagnostic exists but is
+addressed to the person at the page. `#fail` (`src/process-supervisor.mjs:657-670`)
+and the launch refusals (`:377-378`) write `dolly: process N Worker failed ...`
+with `#writeTerminal`, the terminal device, never the failed process's
+descriptor 2. An agent runs commands with captured output, so it sees an
+empty stderr and 126. The rule to state in `docs/process-model.md`: a refusal
+at a boundary is reported to the program that asked (its stderr, or an errno
+its caller prints), because the agent is the user. Related: `cc`, `c++`, `ld`
+and `ar` retry status 126 twice (`src/process/runtime-adapter.c`), so a
+deterministic refusal of the compiler runs three times before it is reported.

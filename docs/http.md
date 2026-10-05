@@ -8,8 +8,8 @@ sets. Authority is summarized in the [browser boundary](browser-boundary.md).
 ```mermaid
 flowchart LR
   prog["Process: libcurl, Janis, Python"] -- "HTTP_BODY_WRITE, HTTP_START, HTTP_POLL" --> kernel["Kernel slot pool<br/>16 x 64 KiB"]
-  kernel -- "env.dolly_http_dispatch spans" --> broker["http-broker.mjs"]
-  broker -- "authorize" --> policy["http-policy.mjs"]
+  kernel -- "env.dolly_http_dispatch spans" --> broker["broker.mjs"]
+  broker -- "authorize" --> policy["policy.mjs"]
   broker -- "reserved *.dolly.invalid" --> local["local-services.mjs"]
   broker -- "other allowed URLs" --> fetch(("Fetch"))
   broker -- "URL, headers, body chunks" --> kernel

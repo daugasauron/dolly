@@ -1,6 +1,6 @@
 # Prepare only changed inputs for a selected image build
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 100
 - TAGS: audit,build
 
@@ -123,3 +123,9 @@ On `next`, `bash scripts/prepare-image-sources.sh` for the whole catalog took
 124 s wall (27 s user) with every input already staged, and `npm run image`
 runs it before any snapshot cache check; with the parallel scheduler a cached
 core rebuild is otherwise ~10 s per image, so preparation dominates small edits.
+
+## Closed (2026-10-05, big-picture review)
+
+Merged into `20260930-100000-audit-53`: the remaining cost (124 s of source
+preparation before any cache check, measured 2026-10-01) is a line of its
+turnaround table and of its done-when.

@@ -72,3 +72,12 @@ not relinked as that batch does.
    (`demos/sdl2/SDL_dollyvideo.c`), Slopyard, 0 A.D. (engine recompile),
    Neovim and Emacs through the terminal; `docs/browser-boundary.md` row and
    `abi/dolly-browser-0.wat` (no new import: a mailbox module).
+
+## Review note (2026-10-05, `20261005-131642-big-picture`)
+
+This is a seed round: every image, the Rust seed and a 0 A.D. engine
+recompile, about 3.5 h of builds. Put the other pending seed changes in the
+same round instead of paying it again: the target identity
+(`20261005-133402-target-identity`, if the owner decides it), steps 3 and 4
+of `20261005-133401-kernel-boundary`, and the seed batches of
+`20261005-131643-silent-126` and `20261005-131650-userspace-gaps`.

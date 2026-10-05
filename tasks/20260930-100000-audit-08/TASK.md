@@ -1,6 +1,6 @@
 # Guest-controlled sizes reach trusted allocations and file reads
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 150
 - TAGS: security,core,kernel,boundary
 
@@ -40,3 +40,9 @@ Missing: tests for the boot-file bounds. Sessions cannot carry an oversized
 65 KiB entry written in a live session came back as the image's 78-byte entry
 after reload (checked 2026-10-01). A test therefore needs a custom image whose
 build leaves an oversized entry.
+
+## Closed (2026-10-05, big-picture review)
+
+The bounds are enforced (recorded above). The missing test for an oversized
+boot file moved to `20261005-133401-kernel-boundary`, where the bounded read
+becomes a kernel export and the test is in the done-when.

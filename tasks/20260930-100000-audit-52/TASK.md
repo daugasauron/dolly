@@ -1,6 +1,6 @@
 # Image builds depend on the test harness; runtime builds are not incremental
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 160
 - TAGS: iteration,build
 
@@ -41,3 +41,9 @@ Still importing the test harness: `scripts/build-snapshot-browser.mjs:17`
 (`startBrowserServer`), and it detects cache reuse by scraping the log for
 "reusing local ". A working-tree dev server shared by tests and the image
 builder (`20260930-100000-audit-53`) would resolve both.
+
+## Closed (2026-10-05, big-picture review)
+
+Merged into `20260930-100000-audit-53`, which now holds every iteration cost.
+Done here: a no-change `build:runtime` went from 88 s to 9 s. The remaining
+harness import (`scripts/build-snapshot-browser.mjs:17`) is listed there.
