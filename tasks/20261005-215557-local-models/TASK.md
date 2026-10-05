@@ -191,3 +191,26 @@ That llama's `common` chat sources compile and link with Dolly's `c++` (and
 whether `log.cpp`'s worker thread needs `threads@0` in the engine), the build
 time added to `llama-build`, and that Pi's adapter reads the engine's stream
 through the pipe `fetch` under Janis.
+
+## The loop's cause, forwarded 2026-10-06, and what it changes here
+
+`fix/pi-local-loop` established that the transcript and the cache are correct
+and the cause is sampling: temperature 0.2, top-p 0.9, no presence penalty and
+the engine's fixed seed 42, so a self-similar context reproduces itself; and
+nothing bounds identical repeated tool calls. Consequences in this design:
+
+- **Sampling is per-model data in the description.** Checked what the files
+  carry (`build/local-models-evidence/gguf-meta.mjs`): the MiniCPM5, Granite
+  4.2 and Gemma 4 GGUFs hold `general.sampling.*` (temperature 1, top-p 0.95;
+  Gemma also top-k 64), which llama's `common_init_from_params` applies, so
+  their descriptions set nothing; the Qwen3.5 and Ministral GGUFs hold none,
+  and their publishers' values exist only in the model cards, so those go in
+  `pi.samplingParams`. The inherited 0.2/0.9 is not carried over.
+- **The seed is llama's default**, a fresh one per request
+  (`std::random_device`): the engine builds a sampler per request and sets a
+  seed only when the request names one. Measured natively: two equal unseeded
+  requests differ, two with `"seed": 7` are identical. A user pins one as
+  `seed` in `modelOverrides`.
+- **The repeat bound's home is a `tool_call` handler in the provider
+  extension** (Pi's hook to block a call with a reason the model reads): with
+  Pi's adapter doing the stream, the provider has no stream code to hold it.
