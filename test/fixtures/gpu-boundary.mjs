@@ -226,23 +226,24 @@ export async function gpuSubmissionProof() {
       const r=record(1,32,id);r.v.setBigUint64(16,16n,true);r.v.setUint32(24,12,true);return r;
     });
     check(await send(batch(buffers))===0,"Submission buffers failed");
+    // A compute scope queues 64 submissions; the next waits for the oldest.
     const copy=record(9,48,1);copy.v.setBigUint64(16,2n,true);copy.v.setBigUint64(40,16n,true);
-    const submit=record(13,8);
-    const completion=send(batch(Array.from({length:4},()=>[copy,submit]).flat()))
+    const submit=record(13,8),bound=64;
+    const completion=send(batch(Array.from({length:bound+1},()=>[copy,submit]).flat()))
       .then(status=>{finished=true;return status;});
     const deadline=performance.now()+10000;
-    while(held<3) {
+    while(held<bound) {
       check(performance.now()<deadline,"GPU submissions never reached the limit");
       await new Promise(resolve=>setTimeout(resolve,1));
     }
-    check(submitted===3&&!finished,"More than three submissions ran without completion");
+    check(submitted===bound&&!finished,"More submissions ran than the scope may queue");
     worker.postMessage({type:"test-completion",count:1});
     check(await completion===0,"The oldest completion did not admit the next submission");
-    while(held<4) {
-      check(performance.now()<deadline,"The fourth completion was never held");
+    while(held<bound+1) {
+      check(performance.now()<deadline,"The last completion was never held");
       await new Promise(resolve=>setTimeout(resolve,1));
     }
-    check(submitted===4,"The fourth submission did not reach the GPU");
+    check(submitted===bound+1,"The last submission did not reach the GPU");
     worker.postMessage({type:"test-completion",hold:false});
     check(await send(packet(5))===0,"Submission scope close failed");
     return {boundedSubmissions:true,oldestCompletionUnblocks:true};
