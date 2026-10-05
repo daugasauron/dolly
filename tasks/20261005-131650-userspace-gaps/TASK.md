@@ -112,8 +112,11 @@ Commands:
   `docs/slop.md` with what does create one: upstream Git, already in the
   image (`git init -q . && git add -A && git archive -o out.tar.gz $(git
   write-tree)` writes `.tar`, `.tar.gz` or `.zip` of any directory; tested in
-  `test/shell-browser.mjs`). sbase's `tar` cannot replace the extractor: it
-  rejects the pax headers of forge archives, which recipes unpack.
+  `test/shell-browser.mjs`); `tar`'s usage and `help` name it. sbase's `tar`
+  cannot replace the extractor: it rejects the pax headers of forge archives,
+  which recipes unpack.
+- `gzip -dc` without a file reads stdin, as everywhere else: fixed (it
+  demanded `-`, which the Pi skill had to teach).
 - `id`, `whoami`, `ps`, `df`: documented as absent (`help`, `docs/slop.md`).
   There is one user and libc has no name database (`getpwuid` fails), no
   process-list operation and no mount table. `nproc`: fixed
@@ -165,12 +168,21 @@ Display:
   because the presenter round owns `host/display` tonight and any edit changes
   the module's digest. The image does not carry `docs/`: `20261005-133403-self-description`.
 
-In-house command lines (audit-36): `src/commands/` 2,936 before, 2,994 after;
-inline in `Dollyfile-system-build` 1,630 before, 1,636 after; Slop 4,789
-before, 4,957 after. Nothing was replaced by sbase in this batch; checked
-with sbase built natively: `tty` needs `ttyname`, `du` needs block counts
-WasmFS does not keep, `xinstall` lacks `-c` and `-p` and needs a user
-database, `rev` reverses bytes and breaks UTF-8, and `tar` rejects pax
-headers. `tail` and `hostname` could be swapped: sbase's `tail` adds `-f` and
-drops `-q`, `-v` and the long options the in-house one accepts; that trade
-was not verified against the catalog's build scripts tonight.
+In-house command lines (audit-36): `src/commands/` 2,936 before, 2,712 after;
+inline in `Dollyfile-system-build` 1,630 before, 1,637 after (`help`); Slop
+4,789 before, 4,957 after.
+
+- Replaced by unchanged sbase: `tail` (265 lines; it gains `-f` and loses
+  `-q`, `-v` and the GNU long options, as sbase's `head` never had them).
+  Added from sbase: `kill`.
+- Kept in-house, checked against sbase: `hostname` (sbase's does not link:
+  libc has no `sethostname`), `tty` (sbase needs `ttyname`), `du` (sbase counts blocks WasmFS does not keep), `install`
+  (`xinstall` lacks `-c` and `-p` and needs a user database), `rev` (sbase
+  reverses bytes and breaks UTF-8), `tar` (sbase rejects the pax headers of
+  forge archives, which recipes unpack; the extractor is also the bootstrap
+  tool before sbase exists), `xargs`, `find`, `env`, `time` (sbase's use
+  `fork`).
+- Not examined tonight: the eight tools inline in `Dollyfile-system-build`
+  (`ls`, `cp`, `mv`, `test`, `cat`, `echo`, `touch`, `pwd`), which exist
+  before Make and sbase's library; replacing them changes the bootstrap order
+  (`20261001-123500-bootstrap-boundary`).

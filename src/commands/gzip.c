@@ -8,7 +8,7 @@
 enum { BUFFER_SIZE = 64 * 1024 };
 
 static void usage(FILE *stream) {
-  fputs("usage: gzip -dc [FILE|-]\n", stream);
+  fputs("usage: gzip -dc [FILE|-]\nWithout FILE, or with -, gzip reads stdin.\n", stream);
 }
 
 static int write_all(const unsigned char *bytes, size_t length) {
@@ -27,7 +27,7 @@ int main(int argc, char **argv) {
     usage(stdout);
     return 0;
   }
-  if (argc != 3 ||
+  if (argc < 2 || argc > 3 ||
       (strcmp(argv[1], "-dc") != 0 && strcmp(argv[1], "-cd") != 0 &&
        strcmp(argv[1], "--decompress-stdout") != 0)) {
     usage(stderr);
@@ -37,15 +37,16 @@ int main(int argc, char **argv) {
   }
 
   gzFile input;
-  if (strcmp(argv[2], "-") == 0) {
+  const char *name = argc == 3 ? argv[2] : "-";
+  if (strcmp(name, "-") == 0) {
     const int descriptor = dup(STDIN_FILENO);
     input = descriptor < 0 ? NULL : gzdopen(descriptor, "rb");
     if (input == NULL && descriptor >= 0) close(descriptor);
   } else {
-    input = gzopen(argv[2], "rb");
+    input = gzopen(name, "rb");
   }
   if (input == NULL) {
-    fprintf(stderr, "gzip: %s: could not open gzip stream\n", argv[2]);
+    fprintf(stderr, "gzip: %s: could not open gzip stream\n", name);
     return 1;
   }
 
@@ -69,7 +70,7 @@ int main(int argc, char **argv) {
     if (count < 0) {
       int code = Z_OK;
       const char *message = gzerror(input, &code);
-      fprintf(stderr, "gzip: %s: %s\n", argv[2],
+      fprintf(stderr, "gzip: %s: %s\n", name,
               message == NULL ? "decompression failed" : message);
       status = 1;
     }
@@ -77,7 +78,7 @@ int main(int argc, char **argv) {
   }
   free(buffer);
   if (gzclose(input) != Z_OK && status == 0) {
-    fprintf(stderr, "gzip: %s: invalid or incomplete gzip stream\n", argv[2]);
+    fprintf(stderr, "gzip: %s: invalid or incomplete gzip stream\n", name);
     status = 1;
   }
   return status;

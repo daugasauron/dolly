@@ -1249,10 +1249,8 @@ bool validate_process_executable(const std::string &path) {
     if (entry.Name == "dolly_thread_start") thread_entry = true;
   }
   if (thread_client && !thread_entry) {
-    std::fprintf(stderr,
-                 "dolly-cc: %s uses <dolly/threads.h> without a thread entry: build with "
-                 "-pthread, or export dolly_thread_start from your own runtime\n",
-                 path.c_str());
+    std::fputs("dolly-cc: this program uses <dolly/threads.h> without a thread entry: build "
+               "with -pthread, or export dolly_thread_start from your own runtime\n", stderr);
     return false;
   }
 

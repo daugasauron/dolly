@@ -95,9 +95,9 @@ threads, host processes or a scheduler.
   at once), `diff` and `patch` (over Git; the patch names its files, a `FILE`
   operand is rejected), which run programs with Slop's descriptors; `nproc`,
   which prints libc's processor count; `install`, whose mode, owner
-  and group options are syntax only and create no metadata; `tail`, which rejects
-  follow mode; `du`, which counts logical in-memory bytes; UTF-8 `rev`;
-  `realpath`, `hostname`, `tty`. Each prints its supported subset with `--help`;
+  and group options are syntax only and create no metadata; `du`, which counts
+  logical in-memory bytes; UTF-8 `rev`; `realpath`, `hostname`, `tty`. Each
+  prints its supported subset with `--help`;
   other options fail.
 - The other file and text utilities are unchanged upstream sbase, built by its
   own Makefile in `system-tools` ([`Dollyfile-system-tools`](../Dollyfile-system-tools)). They follow

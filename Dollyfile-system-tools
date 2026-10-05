@@ -5,7 +5,7 @@ REQUIRES HOST download@0
 REQUIRES HOST http@0
 REQUIRES HOST upload@0
 
-FROM https://daugasauron.com/Dollyfile-system-build eab81b40807a7577df91468f272e35da59a54b613aa46ded6bfb9a621003ba77
+FROM https://daugasauron.com/Dollyfile-system-build d9aaa26f4055330c203755bfa7f671c360618a713318cf2c29fad5f64ff8c2ca
 # Unchanged upstream sbase commands, built by sbase's own Makefile.
 REQUIRES HEADER libc
 REQUIRES TOOL   ar
@@ -22,8 +22,9 @@ SLOP tar \
 
 FILE /tmp/sbase/dolly.mk
     TOOLS = basename cksum cmp comm cut date dd dirname expand expr false fold \
-            grep head join kill ln md5sum mktemp nl od paste pathchk printenv printf \
-            readlink rmdir sed seq sha256sum sleep sort split strings tee tr true \
+            grep head join kill ln md5sum mktemp nl od paste pathchk \
+            printenv printf readlink rmdir sed seq sha256sum sleep sort split \
+            strings tail tee tr true \
             tsort uname unexpand uniq wc which
     .RECIPEPREFIX := >
     dolly-bin: $(TOOLS)
@@ -71,6 +72,7 @@ EXPORTS TOOL sleep
 EXPORTS TOOL sort
 EXPORTS TOOL split
 EXPORTS TOOL strings
+EXPORTS TOOL tail
 EXPORTS TOOL tee
 EXPORTS TOOL tr
 EXPORTS TOOL true
@@ -204,9 +206,9 @@ FILE /usr/share/licenses/samurai/LICENSE
 SLOP rm \
   -rf \
   /tmp/ninja
-INSTALL https://daugasauron.com/Dollyfile-zlib f3700c07265e2c62a82f45a34664f9e49379630f5789cc49d8472e9e98568c4a
-INSTALL https://daugasauron.com/Dollyfile-gzip 3b854f9d7aa569672cb243c6499439d42a4b3ebb80032ec5e6e020aa19eebb7c
-INSTALL https://daugasauron.com/Dollyfile-curl 5dbbde6c09e2d4dd11c32e75995fcb82461ce5c2f595a06b6bf35ded8d9ce46d
+INSTALL https://daugasauron.com/Dollyfile-zlib 130c155e46dab8fa1f5ce21471df802044d444820c7a8a4c5ff5402bee355892
+INSTALL https://daugasauron.com/Dollyfile-gzip 994e7283694c8a63fb39d6b222dffdb6bf707851aaf01800d1fe1bc5956e84c4
+INSTALL https://daugasauron.com/Dollyfile-curl f342d408c457ee90021d23971965bc2341c33642bf14e37d7f6500d5ef73390d
 REQUIRES TOOL   mkdir
 REQUIRES LIB    curl
 REQUIRES LIB    z
@@ -378,7 +380,6 @@ REQUIRES TOOL   git
 
 SOURCE https://daugasauron.com/dist/static/default/commands/run-program.h 8434bb55978a286e546878170e882010e63c1901402156bb8b8b8a96adc37f73 /tmp/agent-tools/run-program.h
 SOURCE https://daugasauron.com/dist/static/default/commands/install.c     0aa8729ff8f6d8ecc454757226275b946b28c2e6783afd571f4c33a616cb4ba3 /tmp/agent-tools/install.c
-SOURCE https://daugasauron.com/dist/static/default/commands/tail.c        f0a892066f2e6fe42667bf1765496f8347c8bfe53094ce22e0922e4ffc87c36b /tmp/agent-tools/tail.c
 SOURCE https://daugasauron.com/dist/static/default/commands/du.c          55b6a61ea8dc2a4355aaafc9a80d2218f397fa4d1e170b78462863fc9cb2ed63 /tmp/agent-tools/du.c
 SOURCE https://daugasauron.com/dist/static/default/commands/rev.c         3539529d49f26629a6518437dc76631f113bcc5822ff5dbc8aa26481933f3d05 /tmp/agent-tools/rev.c
 SOURCE https://daugasauron.com/dist/static/default/commands/command.c     93610e7ec64b99dd6a128d66e5a49b453464fa317434167251b492d4913e44da /tmp/agent-tools/command.c
@@ -397,7 +398,7 @@ SOURCE https://daugasauron.com/dist/static/default/commands/amy.c         28710e
 
 FILE /tmp/agent-tools/Makefile
     .RECIPEPREFIX := >
-    NAMES := install tail du rev command xargs find env time timeout realpath diff patch hostname tty nproc amy
+    NAMES := install du rev command xargs find env time timeout realpath diff patch hostname tty nproc amy
     TOOLS := $(addprefix /bin/,$(NAMES))
     all: $(TOOLS)
     /bin/%: /tmp/agent-tools/%.c /tmp/agent-tools/run-program.h
@@ -406,7 +407,6 @@ SLOP make \
   -f /tmp/agent-tools/Makefile
 
 EXPORTS TOOL install
-EXPORTS TOOL tail
 EXPORTS TOOL du
 EXPORTS TOOL rev
 EXPORTS TOOL command
@@ -430,6 +430,6 @@ SLOP rm \
 REQUIRES TOOL ln
 SLOP ln -s slop /bin/sh
 EXPORTS TOOL sh
-INSTALL https://daugasauron.com/Dollyfile-display 62cbc4324e7576e4d6e6ab522e2d1da20809c886b7ac5a9b6403dce1fe589b97
+INSTALL https://daugasauron.com/Dollyfile-display 1ad7e522899a874b27fef5f5ab5f3c9c68480999d33c20993c87a77b5e5c3873
 
 ENTRY /bin/foreground -i /bin/slop

@@ -381,6 +381,7 @@ FILE /tmp/core-tools/help.c
       fputs("make runs recipes with SHELL=/bin/slop; make -jN and xargs -P N run N at once; nproc prints the processor count\n", stdout);
       fputs("not supported: & and jobs, aliases, umask, ulimit, brace expansion {a,b}, ${VAR/a/b}, ${VAR:1:2}, $'...'; a glob that matches nothing stays as typed\n", stdout);
       fputs("pipelines run one stage at a time: a | b starts b when a has finished, so an endless producer never ends\n", stdout);
+      fputs("archives: tar -xf and gzip -dc read them; git init -q . && git add -A && git archive -o out.tar.gz $(git write-tree) writes one of a directory\n", stdout);
       fputs("one user and no permission bits: chmod, chown and install -m change nothing; there is no id, whoami, ps or df\n", stdout);
       fputs("limits: 256 descriptors and 8 GiB of memory per process, 32 processes, 16 threads per process (64 in all), 64 KiB pipes; getrlimit reports them\n", stdout);
       fputs("a program that exits 126 was refused or failed: its stderr says why; cc --help and curl --help describe linking and network errors\n", stdout);
@@ -1828,7 +1829,7 @@ FILE /tmp/bootstrap/tar.c
     }
     
     static void usage(FILE *stream) {
-      fputs("usage: tar -xf ARCHIVE [-C DIRECTORY]\nUse - as ARCHIVE to read stdin. This tar extracts only; it cannot create an archive.\n", stream);
+      fputs("usage: tar -xf ARCHIVE [-C DIRECTORY]\nUse - as ARCHIVE to read stdin. This tar extracts only; git archive creates archives.\n", stream);
     }
     
     int main(int argc, char **argv) {

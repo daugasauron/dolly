@@ -84,9 +84,6 @@ test("Dolly's own core tools keep their no-permission and finite semantics", asy
   assert.equal(run(await buildInline("cat"), ["-n"], { input: "a\nb\n" }).stdout, "     1\ta\n     2\tb\n");
   assert.equal(run(await buildInline("echo"), ["--"]).stdout, "--\n");
   assert.equal(status(await buildInline("ls"), ["--color=never", "."]), 0);
-  const tail = build("tail");
-  assert.equal(run(tail, ["-n", "1"], { input: "a\nb\n" }).stdout, "b\n");
-  assert.equal(run(tail, ["-f"], { input: "a\n", timeout: 5000 }).status, 2);
   await writeFile(join(scratch, "install-source"), "bytes");
   assert.equal(status(build("install"), ["-m", "755", "-o", "nobody", "-g", "nogroup",
     "install-source", "installed"]), 0);

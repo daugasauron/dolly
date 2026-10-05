@@ -60,7 +60,7 @@ await browserTest("core", { image }, async ({ server, open }) => {
     "test \"$(echo --)\" = -- && ! test -x /tmp && [ \\( -d / -a ! -f / \\) -o -z x ]",
     "printf 'gr\\303\\274\\303\\237e\\n' > utf8 && test \"$(file -b utf8)\" = 'UTF-8 Unicode text'",
     "printf abcdef > dd.txt && printf XY | dd of=dd.txt bs=1 seek=2 conv=notrunc && test \"$(cat dd.txt)\" = abXYef",
-    "printf XY | dd of=dd.txt bs=1 seek=1 && test \"$(cat dd.txt)\" = aXY && ! tail -f dd.txt",
+    "printf XY | dd of=dd.txt bs=1 seek=1 && test \"$(cat dd.txt)\" = aXY && test \"$(tail -c 2 dd.txt)\" = XY && test \"$(hostname)\" = dolly",
     "timeout 0 sleep 1",
     "timeout 60 sh -c 'echo x >&3' 3> fd3 && test \"$(cat fd3)\" = x",
     "printf 'one\\n' > a/file && printf 'two\\n' > b/file && { diff -u a/file b/file > change.patch; test $? -eq 1; }",
