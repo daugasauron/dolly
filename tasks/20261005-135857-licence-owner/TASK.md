@@ -1,6 +1,6 @@
 # Licence decisions for the owner: 0 A.D. source, GPL-marked agents, ClassiCube textures
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 250
 - TAGS: licences,owner
 
@@ -104,3 +104,26 @@ answer that aligns with the goal of the project."
    does not redistribute it. `demos/classicube/textures.mjs` writes Dolly's own
    MIT `default.zip` (procedural `terrain.png` with 4,155 colours and a plain
    `gui.png` hotbar), deterministic, staged in `classicube/source.tar.gz`.
+
+## Verification (2026-10-06)
+
+- `DOLLY_IMAGE_JOBS=1 DOLLY_BUILD_IMAGES=zero-ad work/build-slot.sh npm run
+  image`: zero-ad-deps, zero-ad-engine (verifies `bootstrap.tar`, retains none
+  of it) and zero-ad rebuilt in 1,073 s. The `zero-ad` manifest lists
+  `/usr/share/licenses/{OpenAL,SDL2,enet,fmt,freetype,icu,libogg,libpng,libsodium,libvorbis,libxml2,spidermonkey}`
+  with 51 crate directories under `spidermonkey/crates`.
+- 0 A.D. browser tests on the rebuilt images: `0ad-engine-browser.mjs`
+  (simulation, replay, control, save/load, pipes), `0ad-spidermonkey`,
+  `0ad-openal` and `0ad-enet` passed; `0ad-graphics-browser.mjs zero-ad
+  software` passed on Xvfb `:132` (SwiftShader). Its default hardware mode got
+  no GPU on Xvfb.
+- `DOLLY_BUILD_IMAGES=classicube`: classicube-build and classicube rebuilt;
+  `node demos/classicube/test/classicube-browser.mjs` passed in 332 s with
+  Dolly's textures, including its check for more than 256 distinct colours on
+  screen. The image holds no GPL `COPYING` for the agents.
+- `npm run -s test:source`: 358 of 358 pass, including the licence artifact
+  test and `test/upstreams.test.mjs`.
+- Not rebuilt here: `bhop` and `rts-arena` (agent headers and the removed
+  `COPYING`; no code change). The catalog rebuild covers them.
+
+Closed with the commits on `work/licences-3`.
