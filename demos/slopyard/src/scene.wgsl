@@ -42,15 +42,18 @@ fn hits_bounds(origin:vec3f, inverse:vec3f, node:Node, limit:f32)->bool {
     let a=(node.lo-origin)*inverse;let b=(node.hi-origin)*inverse;let near=min(a,b);let far=max(a,b);
     return max(0,max(near.x,max(near.y,near.z)))<=min(limit,min(far.x,min(far.y,far.z)));
 }
+fn coplanar(t:f32,u:f32)->bool {return abs(t-u)<=.0002+.0001*t;}
 fn trace(origin:vec3f,direction:vec3f,limit:f32,shadow:bool)->vec2f {
     var hit=vec2f(limit,-1);if(scene.eye.w<1){return hit;}
     let inverse=1/select(direction,vec3f(.000001),abs(direction)<vec3f(.000001));
-    var stack:array<u32,32>;var depth=1u;stack[0]=0u;
+    var stack:array<u32,32>;var depth=1u;stack[0]=0u;var volume=1e30;
     while(depth>0u){depth--;let node=nodes[stack[depth]];
-        if(!hits_bounds(origin,inverse,node,hit.x)){continue;}
+        if(!hits_bounds(origin,inverse,node,hit.x+.0002+.0001*hit.x)){continue;}
         if(node.right==0xffffffffu){
             let b=boxes[node.left];if(shadow&&(b.flags.z==2||b.flags.x==100)){continue;}
-            let t=hit_part(origin,direction,b);if(t<hit.x){hit=vec2f(t,f32(node.left));if(shadow){return hit;}}
+            // Faces at one distance (a pad on the ground) resolve to the smaller box, never to traversal order.
+            let t=hit_part(origin,direction,b);let size=b.extent.x*b.extent.y*b.extent.z;
+            if(t<9999&&select(t<hit.x,size<volume,coplanar(t,hit.x))){hit=vec2f(t,f32(node.left));volume=size;if(shadow){return hit;}}
         }else{stack[depth]=node.left;stack[depth+1u]=node.right;depth+=2u;}
     }return hit;
 }
