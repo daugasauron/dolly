@@ -1,6 +1,6 @@
 # Rust seed and Codex configuration hazards
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 120
 - TAGS: demo,rust,build
 
@@ -27,3 +27,8 @@ patch.
 ## Done when
 
 - Codex build still succeeds without `-Ztime-passes`; unused patch removed.
+
+## Closed (2026-10-05, big-picture review)
+
+Demo hygiene of the host-built Rust seed, merged into
+`20260930-231100-self-host-rust`, which replaces or documents that seed.

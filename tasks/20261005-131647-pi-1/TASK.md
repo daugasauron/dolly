@@ -27,3 +27,10 @@ The skills are `20261005-130240-pi-skills`, done by the same agent.
 - A real session over OpenRouter (`stealth/space-bunny-alpha`, the owner's choice,
   key in `~/.openrouter`) completes a tool-using task in `pi` and in
   `dollyfile-studio`, and compaction is shown to trigger.
+
+## Review note (2026-10-05, `20261005-131642-big-picture`)
+
+The root `package.json` lists `@earendil-works/pi-*` as the core's only
+runtime dependencies, so the core manifest pins a demo's inputs ("the core
+never depends on `demos/`"). While bumping them to 1.0, consider moving them
+to a manifest under `demos/pi/`.

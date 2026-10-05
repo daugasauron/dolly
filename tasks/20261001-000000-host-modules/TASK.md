@@ -287,3 +287,13 @@ One seed change, so every image rebuilds once:
 - Default chain (10 images) rebuilt in 843 s; on it: core, host-modules,
   boundary, terminal, upload and custom-session pass in Chrome and Firefox;
   threads, host-compute and snapshot-stream in Chrome.
+
+## Review note (2026-10-05, `20261005-131642-big-picture`)
+
+The pattern holds where it was applied: `src/browser.mjs` is 204 lines and
+names no module, adding a module is its directory plus the two review points,
+and the page shell, registry and digests should not be touched again. Close
+this task once the full-catalog demo and artifact checks of the contract
+batch have run. The module the pattern has not reached is `runtime` itself:
+its manifest owns 26 imports that generated Emscripten code implements; that
+is `20261005-133401-kernel-boundary`, a new task so this one can close.
