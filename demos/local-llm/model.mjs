@@ -1,6 +1,7 @@
 import {readFileSync,mkdirSync,statSync,openSync,writeSync,closeSync,renameSync,unlinkSync} from 'node:fs';
 import {spawn} from 'node:child_process';
-// The catalog: id, name, prompt format, context, pinned upstream URL, bytes and SHA-256.
+// The catalog: id, name, prompt format, context, GPU memory in GB (measured),
+// pinned upstream URL, bytes and SHA-256.
 export const models=JSON.parse(readFileSync('/usr/share/dolly/llm/models.json','utf8'));
 // Volatile in-Wasm files: model weights are not part of saved filesystem sessions.
 const directory='/run/dolly-llm';
@@ -31,7 +32,7 @@ export async function modelFile(id,{signal,progress=()=>{}}={}) {
     // Sizing the file first lets it pass 2 GiB: a growing file reallocates past the kernel's memory.
     // curl writes at native speed through the inherited descriptor.
     const fd=openSync(temporary,'w');
-    try {writeSync(fd,new Uint8Array(1),0,1,model.bytes-1);await run('/usr/bin/curl',['-sSf',model.url],fd,signal);}
+    try {writeSync(fd,new Uint8Array(1),0,1,model.bytes-1);await run('/usr/bin/curl',['-sSfL',model.url],fd,signal);}
     finally {closeSync(fd);}
     clearInterval(timer);progress(`Verifying ${id}…`);
     if((await run('/bin/sha256sum',[temporary],'pipe',signal)).split(/\s/)[0]!==model.sha256)throw Error('Model download SHA-256 mismatch');

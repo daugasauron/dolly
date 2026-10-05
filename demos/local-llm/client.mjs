@@ -46,7 +46,7 @@ export class LocalLlama {
         });
         child.stderr.on('data',bytes=>{
           appendFileSync('/home/dolly/.cache/dolly-llm/engine.log',bytes);
-          reason=String(bytes).match(/^Dolly WebGPU: .*$/m)?.[0]??reason;
+          reason=String(bytes).match(/(?:Dolly WebGPU|ggml_webgpu): .*$/m)?.[0]??reason;
         });
         child.on('error',error=>{failure=error;changed();});
         child.on('close',(code,signal)=>{

@@ -25,11 +25,12 @@ into volatile `/run/dolly-llm`, so it is gone after a reload. Build with
 | Qwen3.5-0.8B | `qwen3.5-800m` | 0.58 GB | 1.5 GB |
 | Qwen3.5-2B | `qwen3.5-2b` (bundled) | 1.40 GB | 2.3 GB |
 | MiniCPM5-2B (2.6B parameters) | `minicpm5-2b` | 1.56 GB | 3.4 GB |
-| Qwen3.5-4B | none: download | 3.01 GB | 3.9 GB |
+| Qwen3.5-4B | none: download | 3.01 GB | 3.9 GB, with `shader-f16` only |
 
-GPU memory is the browser's peak on the NVIDIA card with f32 shaders and a full
-context (f16 needs less), measured by `nvidia-smi`; a model fits a GPU with that
-much free memory. An integrated GPU shares system memory.
+GPU memory is Chrome's peak on the NVIDIA card with a full context, measured by
+`nvidia-smi`; a model fits a GPU with that much free memory, and an integrated
+GPU shares system memory. Without `shader-f16` the KV cache is f32: Qwen3.5-4B's
+then exceeds the 4 GiB `gpu@0` grants, and it fails naming GPU memory.
 
 All use 16,384 tokens of context and at most 2,048 output tokens. Qwen3.5-4B is
 the one that completes most coding tasks; pick it with `/model` for real work.

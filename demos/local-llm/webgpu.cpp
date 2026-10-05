@@ -78,6 +78,7 @@ static std::string widen_f16(std::string code) {
     return out;
 }
 static void checked(int result) {
+    if(result<0 && errno==ENOMEM) {fprintf(stderr,"Dolly WebGPU: out of GPU memory (the device's, or gpu@0's 4 GiB)\n");abort();}
     if(result<0) { fprintf(stderr,"Dolly WebGPU: %s\n",strerror(errno)); abort(); }
 }
 template<class T> static T get(const void *p,size_t at) {T n;memcpy(&n,(const char*)p+at,sizeof n);return n;}
