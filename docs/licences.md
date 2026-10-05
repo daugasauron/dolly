@@ -35,7 +35,7 @@ use, licence, pinned version, what the site serves and which recipes read it.
 | LGPL-2.0+ | OpenAL Soft, static in the 0 A.D. engine | Source, and the means to relink | Source served (`openal/source.tar`); relinking needs the 0 A.D. source (gap 1) |
 | MPL-2.0 | SpiderMonkey in 0 A.D.; MPL crates vendored by Codex | Source of the MPL files available; tell recipients where | Codex sources served; SpiderMonkey is gap 1 |
 | Apache-2.0 | LLVM (with exception), TypeScript, Neovim, luv, Codex, WAMR, crates, npm packages | Licence copy, NOTICE files, modified files marked | Codex `NOTICE` and TypeScript notices shipped. LLVM's text is in every compiler image as `/usr/share/licenses/libcxx`; its exception covers runtime code compiled into programs. **Gap 4** for WAMR's source |
-| MIT, BSD, ISC, curl, Zlib, BSL | Most of the catalog | Copyright and permission notice with copies, binaries included (not for Zlib or BSL binaries) | Shipped in `/usr/share/licenses` except **gaps 2, 3, 5** |
+| MIT, BSD, ISC, curl, Zlib, BSL | Most of the catalog | Copyright and permission notice with copies, binaries included (not for Zlib or BSL binaries) | Shipped in `/usr/share/licenses` except **gaps 2 and 3** |
 | PSF-2.0 | CPython | Licence, and a brief summary of changes in a derivative | Licence shipped; **gap 6** |
 | CC-BY-SA-3.0 | 0 A.D. art and audio | Attribution and licence; share-alike for adaptations | The repacked mod archives keep `art/`, `audio/` and font licence files; repacking adapts nothing |
 | OFL-1.1 | Iosevka; 0 A.D. fonts | Licence with the font; no sale of the font alone | Iosevka's name table carries the notice; fonts are unmodified |
@@ -88,7 +88,7 @@ site under `/dolly/` carries an inert copy.
    protox, codex). Fix: copy each compiled crate's licence files to
    `/usr/share/licenses/PROGRAM/crates/` from the Patti build record.
 4. WAMR's source archive lacks WAMR's own `LICENSE`. Fix: add it to `wamr.tar`.
-5. gpu-fluid lacks webgpu-headers' BSD-3-Clause notice. Fix: the recipe
+5. gpu-fluid lacked webgpu-headers' BSD-3-Clause notice. Fixed: the recipe
    downloads and keeps it.
 6. CPython ships without a summary of Dolly's changes (PSF-2.0 §3). Fix: keep a
    short `DOLLY-CHANGES` beside its licence.
