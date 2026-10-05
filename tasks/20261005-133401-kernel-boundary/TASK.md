@@ -80,6 +80,82 @@ invalidate every image. Put them in the supervisor contract, or take step 2
 with steps 3 and 4, which change the seed loader and belong to the next seed
 round.
 
+## Measurements (2026-10-06, `core/kernel-boundary`, image inputs `2cc92c2b…`)
+
+Evidence is under `build/kernel-boundary-evidence/` in `work/signals`.
+
+- **The kernel links without JavaScript.** The unchanged kernel objects linked
+  with `-sSTANDALONE_WASM=1` to a `.wasm` output give 13 imports and 89
+  exports in 196,562 bytes (the JavaScript link: 30, 129, 211,729). The link
+  needed `-Wl,--allow-multiple-definition`, because `src/dolly.c` and
+  Emscripten's `libstandalonewasm` both define `_wasmfs_stdin_get_char`.
+  - Imports left: the memory, the 5 Dolly-named ones,
+    `emscripten_notify_memory_growth` and six of WASI: `fd_write` (behind
+    `emscripten_out`/`emscripten_err`, WasmFS's own stdout and stderr),
+    `environ_sizes_get`, `environ_get`, `clock_res_get`, `clock_time_get`,
+    `random_get`.
+  - The other 19 exist only because the output is JavaScript:
+    `libstandalonewasm` answers the eight preload queries with zero, grows
+    memory with `memory.grow`, traps on abort and reads `emscripten_date_now`
+    from `clock_time_get`; the six `_wasmfs_jsimpl_*` are not linked at all.
+  - Exports left outside a contract: `_initialize`,
+    `_emscripten_stack_restore`, `emscripten_stack_get_current`.
+- **What the kernel calls** (one snapshot boot of `default` plus
+  `test/core-browser.mjs` in Chrome, every import counted at instantiation):
+  `emscripten_date_now` 741,634; `_wasmfs_jsimpl_get_size` 167,299;
+  `_wasmfs_jsimpl_write` 11,093; `clock_time_get` 2,897; `random_get` 50;
+  `emscripten_resize_heap` 11; `_wasmfs_jsimpl_alloc_file` 3;
+  `environ_sizes_get`, `environ_get`, `_wasmfs_get_num_preloaded_files` and
+  `_wasmfs_get_num_preloaded_dirs` 1 each. Never called: `_abort_js`,
+  `emscripten_out`, `emscripten_err`, `clock_res_get`, the other six preload
+  imports, `_wasmfs_jsimpl_read`, `_free_file` and `_set_size`. A root rebuild
+  was not counted; there the seed loads after WasmFS has started, so the
+  preload counts are zero too (read in `libwasmfs.js`, not measured).
+- Emscripten's glue passes one object as both `env` and
+  `wasi_snapshot_preview1`: every function is reachable under either name.
+- Its startup environment (`getEnvStrings` in `dist/dolly.mjs`) gives the
+  kernel `LANG` from `navigator.language` and `PWD=/`; `src/dolly.c` replaces
+  or unsets the rest. Measured in Chrome: `env` in the `default` shell prints
+  `LANG=en_US.UTF-8` (`PWD` there is Slop's). Headless Chrome and Firefox both
+  report `en-US`, so that is the value every image was built with.
+
+## Plan as changed by the measurement
+
+- The six `_wasmfs_jsimpl_*` imports do not belong to the output devices.
+  Emscripten links them whenever `-sFORCE_FILESYSTEM=1` builds its JavaScript
+  `FS` object (`$FS__deps` in `libwasmfs.js`). Step 1 therefore removes
+  `installOutputDevices` and every call to them, and the imports go with `FS`
+  in step 2.
+- Steps 2 and 4 should keep images valid, like step 1: the kernel is no image
+  build input, and new exports go to the supervisor contract. Each build has
+  to print the same `image inputs` hash to prove it. Only step 3 changes
+  `dolly.data` and `dolly-seed.mjs`. Until then the file packager's generated
+  index runs against five functions of the Worker instead of Emscripten's
+  module (as `test/dolly.artifacts.mjs` already loads it); the seed has no
+  empty directory (56 directories, 822 files, checked).
+- No abort, memory-growth or environment import is needed: abort is a Wasm
+  trap, growth is `memory.grow` on the shared memory, and the kernel sets its
+  own environment. The target is 9 imports: the memory, boot text, the four
+  dispatches, two clocks and entropy.
+
+## Progress
+
+| Step | Imports | Exports | State |
+| --- | --- | --- | --- |
+| Before | 30 | 129 | runtime `81b96f60…` |
+| 1. Output devices in the kernel | 30 | 129 | verified, see below |
+
+Step 1: `TerminalFile` in `src/file-blocks.cpp` is `/dev/dolly-stdout`,
+`/dev/dolly-stderr` and `/dev/tty`, mounted when the root is populated;
+`installOutputDevices` is gone. Like the JSImpl files they replace
+(`js_impl_backend.h`), they are regular files of size zero, seekable, with
+reads at end of file; `test -f /dev/tty` succeeds after the change (the
+baseline was not probed). Counted again in Chrome: all six
+`_wasmfs_jsimpl_*` imports 0 calls. Image inputs unchanged. Passed: `node --test test/*.test.mjs`, `npm run -s test:artifacts`,
+and `core`, `boundary`, `host-modules`, `image`, `snapshot-stream`, `terminal`
+and `process` browser suites in Chrome and Firefox
+(`build/kernel-boundary-evidence/c1/summary.txt`).
+
 ## Done when
 
 - The runtime Worker instantiates `dist/dolly.wasm` with imports that all come

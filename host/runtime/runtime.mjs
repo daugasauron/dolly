@@ -1,4 +1,3 @@
-import { DOLLY_ERRNO } from "../../dist/dolly-errno.mjs";
 import { DollyProcessSupervisor } from "../../src/process-supervisor.mjs";
 import { DOLLY_TERMINAL_WORD_RESULT_SEQUENCE, DOLLY_TERMINAL_WORD_RESULT_STATUS, DOLLY_TERMINAL_WORD_FOREGROUND_PID,
   DOLLY_TERMINAL_WORD_FOREGROUND_INTERRUPTIBLE, DOLLY_TERMINAL_WORD_INTERRUPT_SEQUENCE,
@@ -98,23 +97,4 @@ export function worker({ send, applicationBase, abi, service }) {
     serviceDeferred() { supervisor?.serviceDeferred(); },
     dispose() { supervisor?.dispose(); },
   };
-}
-
-// /dev/tty is the terminal itself: the kernel reads its input, writes render.
-export function installOutputDevices(dolly) {
-  for (const [path, number, mode] of [["/dev/dolly-stdout", 1, 0o222], ["/dev/dolly-stderr", 2, 0o222],
-    ["/dev/tty", 3, 0o666]]) {
-    const device = dolly.FS.makedev(80, number);
-    dolly.FS.registerDevice(device, {
-      read() { return 0; },
-      write(_stream, buffer, offset, length) {
-        if (buffer.length - offset < length) {
-          throw Object.assign(new Error("invalid WasmFS device write range"), { errno: DOLLY_ERRNO.EFAULT });
-        }
-        dolly._dolly_terminal_write_bytes(BigInt(buffer.byteOffset + offset), BigInt(length));
-        return length;
-      },
-    });
-    dolly.FS.mkdev(path, mode, device);
-  }
 }
