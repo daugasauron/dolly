@@ -8,9 +8,9 @@ REQUIRES HOST snapshot@0
 REQUIRES HOST threads@0
 REQUIRES HOST upload@0
 
-FROM https://daugasauron.com/demos/slopyard/Dollyfile-gamedev-sdk 523a5c41ee8f704fa8df28c7b7526fdb58a4f7f9e82012cbcf733db1a6496d75
-INSTALL https://daugasauron.com/demos/javascript/Dollyfile-javascript b5870c12adc5d4448637928cc981d6efa9c982c059d40d7d87db632c5821d264
-INSTALL https://daugasauron.com/demos/pi/Dollyfile-pi-coding-agent 0cb5011cf33de34ff6da42c459e9176918d08098152c24fbcd383c6545090e66
+FROM https://daugasauron.com/demos/slopyard/Dollyfile-gamedev-sdk 29c06322f4a318d557cea9e0fa58e8a2d040796d9bfbb526cb8442d97297e56e
+INSTALL https://daugasauron.com/demos/javascript/Dollyfile-javascript 3ce60b89b29c28175ce0265ee546a74a8e95771d9d67c9397f4ab1cf2f4fe904
+INSTALL https://daugasauron.com/demos/pi/Dollyfile-pi-coding-agent faf3f28ba82d2c7a7c903c58dc753354557465ae565779b93ee62e43bd474d90
 REQUIRES TOOL cc
 REQUIRES TOOL ar
 REQUIRES TOOL make

@@ -3,7 +3,7 @@ PACKAGE protox
 REQUIRES HOST http@0
 REQUIRES HOST threads@0
 
-FROM https://daugasauron.com/demos/rust/Dollyfile-rust-build 62d8b5049eb7bfe5eaefcd07e37e234f70a793101d48d4a7e1f7664a21992019
+FROM https://daugasauron.com/demos/rust/Dollyfile-rust-build bc6a9fa961dab7c53b025888fecd8554597df77037dd097a9d31c8f40333b3bd
 REQUIRES TOOL patti
 REQUIRES TOOL tar
 REQUIRES TOOL cp

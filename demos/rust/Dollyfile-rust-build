@@ -4,8 +4,8 @@ REQUIRES HOST display@0
 REQUIRES HOST http@0
 REQUIRES HOST threads@0
 
-FROM https://daugasauron.com/demos/rust/Dollyfile-rust-sdk 9984960d28b087a2177bdce1d2fb4a34d6545984a796e1e6a090934900527b5d
-INSTALL https://daugasauron.com/Dollyfile-curl 2a2fcca1c44c4fc529ae15569341a48b4ff4031edc941dc0fcd23042af64f9d0
+FROM https://daugasauron.com/demos/rust/Dollyfile-rust-sdk 2ab312361ee10650cfa49ad0af0d0063d334f2d97a005fdaeb5ba53febce2cd9
+INSTALL https://daugasauron.com/Dollyfile-curl 93d7169c1fff780ec71d6fbb5d72ca8617d76795b4b841f3d59b3e9a55542202
 REQUIRES HEADER libc
 REQUIRES HEADER runtime
 REQUIRES HEADER zlib
