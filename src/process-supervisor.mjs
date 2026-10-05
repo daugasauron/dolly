@@ -721,7 +721,11 @@ export class DollyProcessSupervisor {
   }
 
   serviceDeferred() {
-    for (const { process, thread, message } of [...this.deferred.values()]) {
+    for (const deferred of [...this.deferred.values()]) {
+      const { process, thread, message } = deferred;
+      // An earlier retry in this pass may have ended this thread: a completed
+      // EXIT stops the other threads of its process.
+      if (this.deferred.get(thread) !== deferred) continue;
       if (this.processes.get(process.pid) === process && !process.retiring) {
         this.#syscall(process, message, true, thread);
       } else this.#clearDeferred(thread);
