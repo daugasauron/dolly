@@ -219,12 +219,13 @@ class HttpTransfer {
         referrerPolicy: "no-referrer",
         signal: this.controller.signal,
       };
-      const source = rule.bootstrap === true ? new URL(rule.mirror) : target;
+      const source = rule.bootstrap === true ? new URL(rule.mirror) : rule.relay ? new URL(rule.relay) : target;
       let response = await this.broker.fetchRequest(source, init);
       if (rule.bootstrap === true)
         response = await decodeStaticAsset(response, source, init, rule.maxResponseBytes, this.broker.fetchRequest);
       const status = response.status;
-      await this.publish(encoder.encode(response.url), status, false, DOLLY_HTTP_KIND_URL);
+      // A relay is transport: the program is told the URL it asked for.
+      await this.publish(encoder.encode(rule.relay ? target.href : response.url), status, false, DOLLY_HTTP_KIND_URL);
       await this.publish(encoder.encode(`HTTP/1.1 ${status} ${response.statusText}\r\n`), status, false, DOLLY_HTTP_KIND_HEADER);
       for (const [name, value] of response.headers) {
         if (!isDollyCredentialHeader(name))
