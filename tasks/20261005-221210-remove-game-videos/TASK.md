@@ -1,6 +1,6 @@
 # Remove the bhop and ClassiCube demo videos for now
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 200
 - TAGS: site,demo,cleanup
 
@@ -29,3 +29,13 @@ routes alone: only the recordings go. "For now": new recordings are
 - The agents page lists only the Studio and RTS recordings, the four media
   files are gone from the tree, and the source suite passes.
 - The change is live after the next deploy the owner asks for.
+
+## Closed (2026-10-06)
+
+The ClassiCube and Bhop sections, their videos (34.2 MB) and posters (1.0 MB)
+are removed; the agents page keeps the Studio and RTS recordings and
+`node --test test/site-release.test.mjs` passes (8 of 8). The images and their
+routes are untouched. New recordings for the two games belong to
+`20261005-131651-demo-recordings`; the live site changes with the next deploy
+the owner asks for.
+
