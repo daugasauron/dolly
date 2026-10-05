@@ -7,7 +7,7 @@ import { shellQuote } from "./fixtures/slop-cases.mjs";
 import { DOLLY_ERRNO } from "../dist/dolly-errno.mjs";
 
 const scratch = "/tmp/dolly-process-test";
-const fixtures = Object.fromEntries(["process-lifecycle.c", "process-descriptors.c", "process-signals.c", "process-sigchld.c"]
+const fixtures = Object.fromEntries(["process-lifecycle.c", "process-descriptors.c", "process-signals.c", "process-sigchld.c", "process-interrupt.c"]
   .map(name => [name, `test/fixtures/${name}`]));
 for (const name of await readdir(new URL("../build", import.meta.url))) {
   if (/^(?:process|dso)-.+\.wasm$/.test(name)) fixtures[name] = `build/${name}`;
@@ -77,7 +77,7 @@ await browserTest("process", { server: { fixtures, handle } }, async ({ server, 
   await interrupt();
   assert.equal(await cancelled, 0, "an interrupted process sleep returns EINTR after the handler runs");
 
-  for (const name of ["process-lifecycle.c", "process-descriptors.c", "process-signals.c", "process-sigchld.c", "input.tgz"]) await fetchFixture(name);
+  for (const name of ["process-lifecycle.c", "process-descriptors.c", "process-signals.c", "process-sigchld.c", "process-interrupt.c", "input.tgz"]) await fetchFixture(name);
   await run(`cc -O0 ${scratch}/process-lifecycle.c -o ${scratch}/lifecycle && timeout 15 ${scratch}/lifecycle`);
   await run(`cc -O0 ${scratch}/process-descriptors.c -o ${scratch}/descriptors && timeout 60 ${scratch}/descriptors`);
   await run(`cc -O0 -rdynamic ${scratch}/process-signals.c -o ${scratch}/signals && timeout 30 ${scratch}/signals ${scratch}`);
@@ -90,6 +90,26 @@ await browserTest("process", { server: { fixtures, handle } }, async ({ server, 
   await interrupt();
   assert.equal(await ignored, 99, "Ctrl-C, even pressed twice, honors SIG_IGN");
   await run(`git config --file ${scratch}/config user.email before && timeout 5 git config --file ${scratch}/config user.email after`);
+
+  // Ctrl-C wakes each blocking call, and a program that only notes the signal
+  // in its handler still shuts down when the same Ctrl-C ends its parent.
+  await run(`cc -O0 ${scratch}/process-interrupt.c -o ${scratch}/interrupt`);
+  const interrupted = async command => {
+    const stopped = submit(command);
+    await waitForText(/INTERRUPT-READY\s*$/);
+    await settle();
+    await interrupt();
+    return stopped;
+  };
+  for (const wrapper of ["", "timeout 15 "]) {
+    for (const blocked of ["poll", "read", "wait", "sleep"]) {
+      const command = `${wrapper}${scratch}/interrupt ${blocked} ${scratch}/shut-down`;
+      assert.equal(await interrupted(command), wrapper ? 130 : 0, command);
+      await run(`rm ${scratch}/shut-down`);
+    }
+  }
+  assert.equal(await interrupted(`timeout 15 ${scratch}/interrupt linger ${scratch}/shut-down`), 130);
+  assert.equal(await submit(`test -f ${scratch}/shut-down`), 1, "a child still running after its grace ends with its parent");
 
   // The image's startup script runs $HOME/.dollyrc, then the app shell, then
   // a recovery shell, all nested inside this outer shell.

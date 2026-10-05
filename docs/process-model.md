@@ -22,7 +22,7 @@ sequenceDiagram
   Note over K,C: Ctrl+C or kill: SIGINT is pending
   K-->>C: next call returns -EINTR
   C->>K: INTERRUPT_POLL, run handler, SIGNAL_ACKNOWLEDGE
-  Note over S,C: not exited 500 ms later: Worker terminated
+  Note over S,C: handler unfinished 500 ms later: Worker terminated
   C->>K: EXIT status, or signal termination
   S->>K: Worker retired
   K-->>Sh: WAIT returns exit status or signal
@@ -126,6 +126,11 @@ sequenceDiagram
 - A process that does not finish a delivered signal within 500 ms is terminated.
   The filesystem and the shell survive; kernel or supervisor failure is outside
   this guarantee.
+- Exit reclaims the subtree, so an exiting parent first leaves a signalled child
+  running until it exits, at most 500 ms after its signal. An event loop whose
+  handler only notes Ctrl+C (libuv's self-pipe, a flag) still shuts down when
+  the same Ctrl+C ends its parent by default, as under `timeout`; a child that
+  keeps running ends with the parent.
 - Normal exit runs `atexit` handlers; default signal termination and forced
   termination do not, so named temporary files may remain.
 - Delivered handlers interrupt sleep, `poll` and `pause`; `SA_RESTART` restarts
