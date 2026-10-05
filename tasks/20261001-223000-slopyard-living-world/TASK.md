@@ -96,3 +96,43 @@ open from this run:
 - Both Yagura roof batteries and the Blue Hosen still never fire (15 shots
   from the other five guns); the Red roof sling and Blue Tengu hold a round
   for 1,972 s and 1,271 s "Watching combat zone".
+
+## Two edits left uncommitted on 2026-10-02, decided 2026-10-06
+
+That agent's evidence (`work/slopyard-world/build/slopyard-world-evidence/`)
+used the same game sources as today's base; the program files in each run's
+`source.tar` identify what it tested. `fresh0` is the 36-delivery audit above
+(base). `A2` is both edits as saved in the patch, `A1` the patrol edit with an
+earlier hauler draft, `hA2` the hauler edit alone (900 s), and `g1` the patrol
+edit alone (600 s). All start from the fresh world, and none has removals or
+controller errors.
+
+- Foundry hauler (waits for crossing traffic, detects a blocked route by
+  progress, accepts a corner once level with it): dropped. In `A2` it leaves
+  the 2,152 s `clear` stall and its pallet reaches the quay crane, but it
+  overturns (minimum up -0.42, fallen 88 s) until the West guard rights it.
+  In `hA2` it cycles between `carry` and `clear` 19 times without reaching the
+  quay by 900 s (minimum up 0.80). That is a new fall, so the edit fails the
+  acceptance rule. The recorded runs prove it, so no new run was needed. The
+  foundry chain remains the open problem listed above.
+- Team patrol (keeps a patrol point only if it is clear of roofs and walls):
+  not committed. The recorded runs could not isolate it over 2,400 s: `A1`
+  and `A2` pair it with hauler drafts, and `A1` has new falls (Mochi 1,447 s,
+  Komame, Tonbo Blue). New run `P1` on 2026-10-06 used today's base with only
+  this edit, from the fresh world, for 2,400 s. Evidence is in
+  `work/slopyard2/build/slopyard-patrol-audit/`. Its 300 s and 600 s totals
+  equal `g1`'s, so today's toolchain replays the recorded runs. Results against
+  `fresh0`: 45 deliveries (East 23, West 29 points) against 36, no removals or
+  controller errors, and Benkei West moves 255 m instead of 58 m. Two boats
+  capsize, though, and are still capsized at the end: Shio (fallen 192 s) and
+  Aoba (275 s), late and at sea, with no patrol machine near them. That is a
+  new fall, so under the acceptance rule the edit is not accepted. The run
+  diverges from `fresh0` before 600 s, so one run cannot show whether the edit
+  causes the capsizes.
+
+Still open from these runs, in addition to the list above:
+
+- Benkei West (yard guard) moves 58 m in 2,400 s and is stuck by 900 s.
+  Patrol points under roofs or beside walls lead it into buildings.
+- Kitsune West (dock raider) sits at y = 14.3 near (-56, -60), tilted (up
+  0.86), with a 38 m path in every run, base included.
