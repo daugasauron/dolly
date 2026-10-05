@@ -14,7 +14,7 @@ REQUIRES TOOL   cc
 REQUIRES TOOL   tar
 
 SOURCE https://daugasauron.com/dist/static/default/zig.tar  09c1c2b13932a37fa3fded23146a7bbb2b0fb03db6e9e8a00f714a4649fea857 /tmp/zig.tar
-SOURCE https://daugasauron.com/dist/static/default/wamr.tar d5d0e05cf074e3f4167bc0430342a39f69666d3e27ee09c748f2a2a22299dfea /tmp/wamr.tar
+SOURCE https://daugasauron.com/dist/static/default/wamr.tar 84ebb76662fb8a7f013082842150c71e04ee149130e5b15426d630628d6632b3 /tmp/wamr.tar
 SLOP tar \
   -xf /tmp/zig.tar \
   -C /

@@ -7,11 +7,11 @@ REQUIRES HOST snapshot@0
 REQUIRES HOST threads@0
 REQUIRES HOST upload@0
 
-FROM https://daugasauron.com/demos/pi/Dollyfile-pi-runtime 0ecf69e1f3a05815c6e4e169729cb759290ff14b1eb2f95cdfd007a49aaee638
-COPY https://daugasauron.com/demos/classicube/Dollyfile-classicube-build 677ad207eabffef045e4621fd3801b11266058af05b0644c15f88ce60fa8daa6 /usr/bin/classicube /usr/bin/classicube
-COPY https://daugasauron.com/demos/classicube/Dollyfile-classicube-build 677ad207eabffef045e4621fd3801b11266058af05b0644c15f88ce60fa8daa6 /usr/share/classicube /home/dolly/classicube
-COPY https://daugasauron.com/demos/classicube/Dollyfile-classicube-build 677ad207eabffef045e4621fd3801b11266058af05b0644c15f88ce60fa8daa6 /usr/share/licenses/classicube /usr/share/licenses/classicube
-INSTALL https://daugasauron.com/demos/sdl2/Dollyfile-sdl2 0e06cd0800bd55802cb10b9363dc065ac83c94859f80f418351de35a288b6af0
+FROM https://daugasauron.com/demos/pi/Dollyfile-pi-runtime 113a7806c8730321208744fdabc57b45756e618d72d6613cab717579fd6006bb
+COPY https://daugasauron.com/demos/classicube/Dollyfile-classicube-build 6786328e2445ef2382afa375c3bce273cf1d5abb0de60eafc2fb0b2092f32d4c /usr/bin/classicube /usr/bin/classicube
+COPY https://daugasauron.com/demos/classicube/Dollyfile-classicube-build 6786328e2445ef2382afa375c3bce273cf1d5abb0de60eafc2fb0b2092f32d4c /usr/share/classicube /home/dolly/classicube
+COPY https://daugasauron.com/demos/classicube/Dollyfile-classicube-build 6786328e2445ef2382afa375c3bce273cf1d5abb0de60eafc2fb0b2092f32d4c /usr/share/licenses/classicube /usr/share/licenses/classicube
+INSTALL https://daugasauron.com/demos/sdl2/Dollyfile-sdl2 5c917e23ce237103f6619384e21781c552a95054a805d4e02e1a2c9f5cf1bb44
 EXPORTS TOOL classicube
 REQUIRES HEADER cpp
 REQUIRES HEADER quickjs-runner
@@ -27,7 +27,7 @@ REQUIRES TOOL classicube
 REQUIRES TOOL tar
 REQUIRES TOOL rm
 
-SOURCE https://daugasauron.com/dist/static/classicube/agent.tar f93aeae2f94b6e492775dfab2545c472c9bcee023c022218942b659fc50a4e31 /tmp/classicube-agent/source.tar
+SOURCE https://daugasauron.com/dist/static/classicube/agent.tar ddf1bbffa8d05f3c758f0dbeaecacd91ac506011fd5be8438371cbdf92568e0a /tmp/classicube-agent/source.tar
 SOURCE https://daugasauron.com/dist/static/default/stb_truetype.h ecd30b05e0dd4fea3a13c26810dd9e1992dc379049482c393d5a19e6b5090aab /tmp/classicube-agent/stb_truetype.h
 SLOP tar -xf /tmp/classicube-agent/source.tar -C /
 SLOP c++ -O1 -std=c++11 -I/usr/include/SDL2 -I/tmp/classicube-agent \

@@ -2,7 +2,7 @@ DOLLY 6
 PACKAGE minicpm5-2b
 
 # MiniCPM5-2B Q4_K_M, the exact upstream GGUF assembled from parts SOURCE accepts, and its license.
-FROM https://daugasauron.com/Dollyfile-system f67caffd1d6fed6b7e3470b068bb76f99dbf313976102d35335fa02cf4974c2b
+FROM https://daugasauron.com/Dollyfile-system 041c6f482c61b6afba4741e202fdbffb09adb3c6f25fa0be64af02a7f06fafa4
 
 SOURCE https://daugasauron.com/dist/static/llm/minicpm5-2b/0.part 6ee2aeab86dc9edef05f3b57e14b3f6bc1ebeb604469159a74c1e5fef2cf4abb /tmp/llm/0.part
 SOURCE https://daugasauron.com/dist/static/llm/minicpm5-2b/1.part f831d74c66f8265b8881083611202850b653ffcb1d1e7a55f2ca3bb21e15e327 /tmp/llm/1.part

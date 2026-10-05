@@ -5,7 +5,7 @@ REQUIRES HOST download@0
 REQUIRES HOST http@0
 REQUIRES HOST upload@0
 
-FROM https://daugasauron.com/Dollyfile-system-tools e73265bfaa9e4a1dd3d55552088401285ed1c7181a483f7ccb086e3100348d58
+FROM https://daugasauron.com/Dollyfile-system-tools 7f00fccb44f3a90bce23f14b87b50539aaf20c930e4988c773e3e5f7816e7216
 
 REQUIRES TOOL   ar
 REQUIRES TOOL   cc
@@ -20,10 +20,10 @@ REQUIRES HEADER http
 REQUIRES HEADER download
 
 SOURCE https://daugasauron.com/dist/static/default/quickjs.tar               d23b73610440a642dfb49de7910cbf34550d31b3a9ca375291f9c74444749d8a /tmp/quickjs.tar
-SOURCE https://daugasauron.com/dist/static/default/runtimes/quickjs-main.c   4e2d4f56d911c62f3fb77756ee1d0360eab9faeb425f36eaca91a34ec12dbb65 /usr/src/dolly/runtimes/quickjs-main.c
+SOURCE https://daugasauron.com/dist/static/default/runtimes/quickjs-main.c   0ee691480c66f5e02cffe24c3519d2fef8e1c9a91ba1607625e9bbb05bc2c2f1 /usr/src/dolly/runtimes/quickjs-main.c
 SOURCE https://daugasauron.com/dist/static/default/runtimes/quickjs-runner.h dff97c2bbc62d51460e232a9f58550eb6320bd81341bff9ebf136b31a0fc206b /usr/include/dolly/quickjs-runner.h
-SOURCE https://daugasauron.com/dist/static/default/runtimes/dolly-node.js    782a21dca6a90fbffb03ba1f5002561b0a0b4be1f7c9ae198b37906f3f294e9b /usr/lib/dolly/node.js
-SOURCE https://daugasauron.com/dist/static/default/runtimes/janis.js         ba26f45d2d9c8ad80c3cc86169325b91b0e425e048d048af2972408a1b654cf5 /usr/lib/janis/runtime.js
+SOURCE https://daugasauron.com/dist/static/default/runtimes/dolly-node.js    9686dcf525ae24430c70058079e0adc1890b1f349bfb447da64ecf2963a8314d /usr/lib/dolly/node.js
+SOURCE https://daugasauron.com/dist/static/default/runtimes/janis.js         bafc461d267c525712f5d9b6851f3599bb2da846a65a98f4bec1ded1173088b7 /usr/lib/janis/runtime.js
 SOURCE https://daugasauron.com/dist/static/default/commands/janis.c          08c40227d11f06e851a6406fe5ed8f8d7e5f7cdd28a3dad2609c04650a7afe1b /usr/src/dolly/commands/janis.c
 SLOP tar \
   -xf /tmp/quickjs.tar \

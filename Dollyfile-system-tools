@@ -207,8 +207,8 @@ SLOP rm \
   -rf \
   /tmp/ninja
 INSTALL https://daugasauron.com/Dollyfile-zlib 51a19680e5d2b39105bee8c57af5398c02df0d97283cf85b9020214ea03e826f
-INSTALL https://daugasauron.com/Dollyfile-gzip 92028a1c63d29fb5fce2415c6c636eebac55cf5494fab9cb1d00e095c49d1103
-INSTALL https://daugasauron.com/Dollyfile-curl 941e26960e0bde4ae38ed49939b704ad965e4994d01f808d7be5884a8b96a617
+INSTALL https://daugasauron.com/Dollyfile-gzip fc9ef64d53dc9937b3ed6818d52b2d78010debb534fd2d24c9facf18e41cde48
+INSTALL https://daugasauron.com/Dollyfile-curl 8a163facfa2a41a042b084c34043044dd21bec57c94cf5c91a263b1e29b9b915
 REQUIRES TOOL   mkdir
 REQUIRES LIB    curl
 REQUIRES LIB    z
@@ -430,6 +430,6 @@ SLOP rm \
 REQUIRES TOOL ln
 SLOP ln -s slop /bin/sh
 EXPORTS TOOL sh
-INSTALL https://daugasauron.com/Dollyfile-display 961c1e128024326ff0146fa1a854d0e70a139186f8d1af2b6bee31c50f04954e
+INSTALL https://daugasauron.com/Dollyfile-display c7ba6df08c159e5d4fc3364f2b8811ed91c794efce16039deee5f45829fb07bd
 
 ENTRY /bin/foreground -i /bin/slop
