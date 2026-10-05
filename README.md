@@ -95,4 +95,6 @@ Image builds rewrite SHA-256 pins in `Dollyfile*`.
 - [Issues](tasks/README.md).
 
 Dolly is a prototype, not full POSIX, Node or libcurl compatibility.
-[MIT licensed](LICENSE); bundled upstream programs keep their own licenses.
+[MIT licensed](LICENSE), except files marked
+`SPDX-License-Identifier: GPL-2.0-or-later`; bundled upstream programs keep
+their own [licences](docs/licences.md).
