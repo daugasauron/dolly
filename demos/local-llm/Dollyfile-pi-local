@@ -8,7 +8,7 @@ REQUIRES HOST snapshot@0
 REQUIRES HOST threads@0
 REQUIRES HOST upload@0
 
-FROM https://daugasauron.com/demos/pi/Dollyfile-pi 4b47a1ca242ef0283a8caa341c4d8d5bfd7d19e58a7f3f8271f90e9c3643be7d
+FROM https://daugasauron.com/demos/pi/Dollyfile-pi 5a81ce003125eee89a629f6da7636b079a6110a95ebae20609dc18da4f0dc7f6
 COPY https://daugasauron.com/demos/local-llm/Dollyfile-local-llm-build 8e0e77eac46951d9a328ffd01b929ce98947c367312cadb25f0c918129a2a03f /usr/bin/dolly-llama /usr/bin/dolly-llama
 COPY https://daugasauron.com/demos/local-llm/Dollyfile-llama-build 218d2ac7a8203de6d5e99f005893ecac13253e9cd0548f8dad27e80292b5b37b /usr/share/licenses/dolly-llm /usr/share/licenses/dolly-llm
 EXPORTS TOOL dolly-llama
@@ -24,7 +24,7 @@ SOURCE https://daugasauron.com/dist/static/llama/provider.tar e826b8584ef125b087
 SLOP tar -xf /tmp/llm-provider.tar -C /
 
 FILE /home/dolly/.pi/agent/settings.json
-    {"enableInstallTelemetry":false,"images":{"autoResize":false},"shellPath":"/bin/slop","theme":"dolly","defaultProvider":"webgpu","defaultModel":"qwen3.5-2b","compaction":{"reserveTokens":4096,"keepRecentTokens":6144}}
+    {"enableInstallTelemetry":false,"images":{"autoResize":false},"shellPath":"/bin/slop","theme":"dolly","tuiMode":"regular","defaultProvider":"webgpu","defaultModel":"qwen3.5-2b","compaction":{"reserveTokens":4096,"keepRecentTokens":6144}}
 
 EXPORTS FOLDER local-llm /usr/lib/dolly-llm
 EXPORTS FOLDER local-llm-models /usr/share/dolly/llm

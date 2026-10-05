@@ -3,11 +3,12 @@ APPLICATION pi
 REQUIRES HOST display@0
 REQUIRES HOST download@0
 REQUIRES HOST http@0
+REQUIRES HOST packages@0
 REQUIRES HOST snapshot@0
 REQUIRES HOST threads@0
 REQUIRES HOST upload@0
 
-FROM https://daugasauron.com/demos/pi/Dollyfile-pi-runtime 94c3680896d260bcd44bf454cebc52f0b6200252f8af2bc920769eaca29caa9c
+FROM https://daugasauron.com/demos/pi/Dollyfile-pi-runtime 6257c91bd1fa6330a50a8816012036d7f8fb145e72c8096394be973831be6ba6
 REQUIRES TOOL foreground
 REQUIRES TOOL test
 REQUIRES TOOL printf

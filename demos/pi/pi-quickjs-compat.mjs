@@ -1,4 +1,4 @@
-// Pi 0.99.2's TUI uses six ECMAScript Unicode-set (`v`) regular expressions.
+// Pi's TUI (1.0.3) uses six ECMAScript Unicode-set (`v`) regular expressions.
 // QuickJS-ng 0.15.0 rejects the set difference in terminalSpacingMarkRegex and
 // silently mismatches the other five (`/^\p{Mark}$/v` rejects U+0301). Dolly's
 // target-side post-emit step applies this one exact, asserted lowering to the
