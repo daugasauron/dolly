@@ -116,3 +116,28 @@ The open points need the owner: `20261005-135857-licence-owner`.
 
 Closed 2026-10-05: page, test and audit in `a80a37e3`; fixes in `b862c710`,
 `3d19cd1b` and the CPython summary commit.
+
+## Next round (2026-10-06)
+
+Round 2 builds 0 A.D. inside Dolly. `config/upstreams.json` now maps its build
+inputs (`zero-ad-build/deps.tar.gz`, `engine.tar.gz`, `mozjs-host.tar.gz`) and
+Qwen3.5-0.8B; licences read from the trees `prepare-build-sources.sh` extracts
+from `.cache/0ad/` (pkgconf ISC, Premake BSD-3-Clause, CxxTest LGPL-3.0, ICU 68
+Unicode-DFS-2016 with ICU and BSD-3-Clause dictionary sections, FreeType
+FTL OR GPL-2.0-or-later) and the GGUF's `general.license` (apache-2.0).
+Remaining:
+
+1. WIP commit `98803d3f` on `work/licences` (unverified, not in the round-2
+   candidate) puts the licence texts of the libraries statically linked into
+   the engine, and SpiderMonkey's MPL-2.0 text, in the `zero-ad` image under
+   `/usr/share/licenses/`: `deps.tar.gz` and `mozjs-host.tar.gz` map them,
+   `zero-ad-deps` and `zero-ad-engine` retain them and `zero-ad` copies them.
+   Rebase it onto the `Dollyfile-sdl2` rename (its SDL2 licence `COPY` still
+   names `demos/sdl2/Dollyfile-sdl2-build`), then verify with a
+   `zero-ad-deps,zero-ad-engine,zero-ad` chain build that those directories
+   exist in `zero-ad`.
+2. `docs/licences.md` still describes the prebuilt engine: rewrite gap 1 as in
+   `20261005-135857-licence-owner` point 1, and say FreeType is used under its
+   GPL-2.0-or-later option (its `LICENSE.TXT` calls the FTL GPLv2-incompatible).
+3. `libjsrust.a` links Rust crates from SpiderMonkey's `third_party/rust`; their
+   notices are not shipped.
