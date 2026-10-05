@@ -1,6 +1,6 @@
 # Unbounded bootstrap output and trusted-source fetch buffering
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 150
 - TAGS: security,boundary
 
@@ -35,3 +35,11 @@ multipart assets stream per part. The `HEAPU8.slice` in `src/dolly.c`'s
 write (at most `DOLLY_PROCESS_PACKET_LIMIT`, 1 MiB) or a supervisor message.
 Remaining: Emscripten's `print`/`printErr` glue decodes a whole kernel string
 before `runtime.mjs` trims it, and no test sends an oversized write.
+
+## Closed (2026-10-05, big-picture review)
+
+The bounds are in place (recorded above). The remainder is Emscripten's
+`print`/`printErr` glue decoding a whole kernel string before trusted code
+trims it, and the missing oversized-write test: both are part of
+`20261005-133401-kernel-boundary`, which removes that glue and lists the test
+in its done-when.

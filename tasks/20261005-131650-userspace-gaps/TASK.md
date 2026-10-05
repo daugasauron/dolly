@@ -34,3 +34,23 @@ Slop, the commands, libc and cc are seed contents: land this as one batch.
 
 - Every item has a line here: fixed (commit), refused (message) or documented (where).
 - The fixed ones are covered by browser tests.
+
+## Review note (2026-10-05, `20261005-131642-big-picture`)
+
+- `20260930-100000-audit-36` is closed into this task. Most items above are
+  limits of Dolly's own work-alikes, not of the platform: in-house command C
+  is 1,638 lines inline in `Dollyfile-system-build` (22 programs) plus 2,867
+  in `src/commands/` (19), beside the unchanged sbase that `system-tools`
+  already builds. Prefer deleting an in-house command for its upstream over
+  extending it (audit-36 found sbase's `tail`, `du`, `rev`, `tty`, `hostname`
+  and `xinstall` free of `fork`; check `tar`, `find` and `xargs`, which spawn);
+  record the two line counts before and after.
+- `xargs -P`, `&` and `wait` belong to concurrent pipelines
+  (`20260930-100000-audit-32`, decision already recorded there).
+- Slop's rule in `docs/slop.md` is "features are added only when a useful
+  source build needs them". This task adds features because an agent typed
+  them. That changes Slop's scope (4,767 lines today) and is the owner's call:
+  see the decisions in the big-picture task.
+- The limits an agent could not ask for are documented in
+  `docs/process-model.md`; shipping the documents in the image is
+  `20261005-133403-self-description`.

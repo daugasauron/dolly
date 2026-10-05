@@ -1,6 +1,6 @@
 # In-house commands duplicate sbase and shared helpers
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 160
 - TAGS: commands,core,cleanup
 
@@ -46,3 +46,10 @@ after `sbase.dm`, so build order is not why those seven commands are in-house;
 sbase has fork-free `tail`, `du`, `rev`, `xinstall`, `tty` and `hostname`, but
 `test/commands.test.mjs` pins in-house behaviour (`tail -f` exits 2, `du -b`,
 UTF-8 `rev`). Replacing them is a recipe and test change, not done here.
+
+## Closed (2026-10-05, big-picture review)
+
+Merged into `20261005-131650-userspace-gaps`, which fixes the same commands
+this round and already says to use upstream first. The measure moved there:
+in-house command C is 1,638 lines inline in `Dollyfile-system-build` plus
+2,867 lines in `src/commands/`.
