@@ -1,117 +1,74 @@
 ---
 name: dollyfiles
-description: Create, edit, lint and build custom Dollyfile images in Dollyfile Studio, using Pi and Neovim inside the browser sandbox.
+description: Write, lint and build Dollyfile (DOLLY 6) recipes for custom Dolly images and packages in Dollyfile Studio - roles, REQUIRES HOST, FROM, INSTALL, RUN and SLOP steps, finding URLs and pins, dollyfile-lint and dollyfile-build. Use for any task that creates or changes an image recipe.
 ---
 
-# Create a Dolly image
+# Dollyfiles in Studio
 
-Work on recipes in `/workspace` using Pi's read/write/edit tools. This image has
-Neovim, `cc`, C++, Git and Slop. Pi's `bash` tool executes Slop, not Bash.
-Check `command -v TOOL` before assuming other tools exist; Python and Zig are
-not installed. No native host processes or sockets are available.
+`/usr/share/dollyfile-studio/dollyfile.md` is the language reference; read it
+before using a declaration you have not seen in an example. The `dolly` skill
+describes the machine itself (network, shell, compilers).
 
-## Authoring workflow
+## Workflow
 
-1. For a new C command, **copy**
-   `/usr/share/dollyfile-studio/examples/Dollyfile-tool` to the requested recipe
-   path, then read that copy. `Dollyfile-hello` in the same directory is a simpler
-   greeting/shell base. Preserve the example's complete FROM line: its path and
-   hash are already correct. Do not recreate it from memory. For other bases or
-   external sources, read `/usr/share/dollyfile-studio/dollyfile.md` first and
-   inspect the published recipes in `/etc/dolly/recipes`.
-2. Edit the copy's APPLICATION name, FILE contents, compiler command, exports and SLOP
-   tests to implement the request. Replace example arguments/tests that no longer
-   apply. Put input/output checks **inside the recipe as SLOP lines**, after
-   compilation and before scratch cleanup. New commands belong to the built
-   image; building it does not install those commands in Studio.
-3. Run `dollyfile-lint RECIPE`. This checks syntax, not build success.
-4. Run `dollyfile-build RECIPE`. It starts immediately in a fresh sandbox and
-   streams logs back; test builds need no user approval. After success the user
-   may click **Open image** to launch it in a new tab. Do not wait for that click
-   to inspect build results or iterate on the recipe.
-5. On a build error, fix the corresponding FILE body or SLOP command **in the
-   recipe**, lint and retry. Error paths belong to the disposable builder, not
-   this Studio filesystem. A successful lint or local compilation is not a
-   successful image build. Report the actual build/test results.
+1. Start from a copy of an example in `/usr/share/dollyfile-studio/examples/`:
+   `Dollyfile-tool` compiles a C command, `Dollyfile-hello` only adds files.
+   Their `FROM` lines carry correct pins; keep them.
+2. Write the recipe in `/workspace` with Pi's write and edit tools.
+3. `dollyfile-lint RECIPE` checks this one file's syntax; it reads no other
+   recipe and runs nothing.
+4. `dollyfile-build RECIPE` builds it in a fresh, disposable sandbox and
+   streams the log; it needs no approval. A build error names the recipe line:
+   fix the recipe, lint and build again. Report the actual result.
+5. After success the user can click **Open image**; building never changes
+   Studio's own files, and the image does not see them.
 
-Do not invoke `/bin/dollyfile` directly in Studio: it replaces the running image.
-The build does not inherit Studio's files or credentials. Ctrl+C cancels it
-without discarding Studio. The existing HTTP broker mediates build limits and network
-policy; protocol details are in `/usr/share/dollyfile-studio/build-service.md`.
+Never run `/bin/dollyfile` here: it replaces the running image.
 
-## Important language details
+## The rules that cost most retries
 
-- `DOLLY 6`, then `APPLICATION name`, then the image's complete `REQUIRES HOST`
-  list (nothing is inherited; an image FROM system repeats system's display@0,
-  download@0, http@0, snapshot@0 and upload@0). FROM is the first image operation.
-  `INSTALL URL SHA` adds a published package with its exports.
-- FILE body lines start with **four spaces**, including blank content lines.
-  The example shows this indentation. FILE is not a shell heredoc: no `<<EOF`.
-- Compile with `cc`; write executables to `/usr/bin`. `EXPORTS TOOL name`
-  takes only the command's PATH name, not an extra path. No chmod is needed.
-- SLOP executes ordinary shell commands sequentially and fails on errors.
-  Keep each command on one logical line; use `printf 'a\nb\n'` for newlines
-  in test data, or put a multiline script in FILE and run it with Slop.
-  For stdin tests, pipe text: `printf 'input\n' | tool`. `< PATH` reads a file;
-  it does not supply inline text. Check results with `test "$(COMMAND)" = EXPECTED`.
-- Own and remove build scratch under `/tmp`. Do not retain credentials or agent
-  history. Reuse comes from published packages (`INSTALL`); inline other steps.
-- ENTRY is mandatory and final. The tool example enters a Slop prompt.
-  COPY copies files, not environment or named exports; INSTALL takes a package.
+- Line 1 `DOLLY 6`, line 2 the role: `APPLICATION name` (opened by people;
+  needs `ENTRY`), `TOOLCHAIN name` (a base to build on) or `PACKAGE name`
+  (installed with `INSTALL` or `amy`; no `ENTRY`).
+- `REQUIRES HOST name@0` lines come right after the role and list every host
+  module the image uses. Nothing is inherited from `FROM` or `INSTALL`: an
+  application on `system` repeats system's five (display, download, http,
+  snapshot, upload), and installing a package means declaring every module
+  that package declares (ripgrep and fd need `threads@0`). Read the package's
+  recipe first; otherwise the build fails on the `INSTALL` row, naming the
+  missing line.
+- `FROM URL SHA256` is the first operation. `INSTALL URL SHA256` adds a
+  package anywhere after it. `COPY` takes files out of another image.
+- `SLOP command` runs one shell command line in `/`; each is a fresh shell, so
+  use `SLOP CWD /dir ...` instead of `cd`. `RUN /program args` runs a program
+  without a shell. Any failure stops the build.
+- `FILE /path` is followed by body lines indented by exactly four spaces. An
+  empty line ends the body (the next line then fails as a directive), so a
+  blank line inside the file is four spaces. It is not a heredoc. `FILE` and
+  `FOLDER` keep files in the image; build scratch goes in `/tmp`, which is
+  never kept.
+- `EXPORTS TOOL name` names a command on `PATH`; compile to `/usr/bin`.
+- `ENTRY` is the last line. `/bin/foreground -i /bin/slop` gives a shell.
 
-## Porting upstream programs
+## URLs and pins
 
-Recipes and `SOURCE` files of **other images and packages** can be inspected
-with `curl`; they are published web assets, not access to the PC's filesystem.
-Recipes name them at `https://daugasauron.com`, and the page serves its own
-copy of each. Read the recipes under `/etc/dolly/recipes` for the exact
-URL and pin. For example, inspect QuickJS's recipe and C source without
-installing anything:
+Every `FROM`, `INSTALL`, `COPY` and `SOURCE` names a URL and the SHA-256 of
+its exact bytes; never invent either.
 
-```sh
-curl -f https://daugasauron.com/demos/javascript/Dollyfile-typescript-build
-curl -f https://daugasauron.com/dist/static/default/runtimes/quickjs-main.c
-```
+- Packages: `curl -fsS https://packages.dolly.invalid/v1/index` prints
+  `NAME URL SHA256` for each, which is the `INSTALL` row.
+- Recipes this image was built from (system among them):
+  `sha256sum /etc/dolly/recipes/Dollyfile-NAME`, with the URL from the
+  `FROM`/`INSTALL` line that names it in another recipe there.
+- Any published recipe or file: `curl -fsS URL -o /tmp/x && sha256sum /tmp/x`.
+  Recipes live at `https://daugasauron.com/...`; the page serves its own copy.
+- Builds may only use images this release publishes. Upstream sources that
+  send no CORS headers cannot be `SOURCE`d; see the `dolly` skill.
 
-For archives, download with `curl -f URL -o /tmp/NAME.tar`, compare `sha256sum`
-with the recipe pin, then extract with `tar -xf ARCHIVE -C SCRATCH_DIRECTORY`.
-Create and clean your scratch directory; Dolly's small tar does not support `-t`.
-Use the same published URL and pin in the new recipe; do not turn it into
-a localhost URL. Reading an archive does not make its tools available in Studio.
+## Editor and models
 
-Check runtime requirements before writing a large build recipe. PTYs,
-`fork`/`forkpty` and local Unix sockets are not implemented: tmux needs platform
-work, not just ncurses/libevent archives. Do not replace required libraries with
-empty headers or successful no-op functions to claim a working port.
-
-HTTP status 0 means no readable browser response, not proof of an allowlist.
-The default site permits HTTP(S) and caller-requested redirects (`curl -L`),
-with byte/time limits but no lifetime request quota. Fetch still enforces CORS.
-SOURCE downloads require a direct URL. A site operator may
-impose additional policy. Changing curl to Git cannot bypass this. Use a
-published source or an upstream
-CORS-enabled URL; raw.githubusercontent.com can serve binary files too.
-Do not invent URLs or pins: inspect the published recipes, download an
-accessible source once and run `sha256sum` on its bytes. If transport fails,
-report the URL and error separately from missing runtime APIs. Preserve the
-draft rather than repeatedly trying equivalent download endpoints.
-
-## Editor, models and files
-
-For interactive Neovim, syntax highlighting, linting and headless editing, read
-[neovim.md](neovim.md). Interactive nvim needs the shell, not Pi's captured tool.
-
-Pi's `/model` picker selects a local or remote provider. Studio defaults to
-Qwen3.5-2B, run inside Dolly by llama.cpp over the GPU ABI. Its verified weights
-are included in the image. Other local models download into volatile
-`/run/dolly-llm` files and need downloading again after refresh. `/local-unload` releases
-the GPU model. `/login` supports remote providers. `/dolly-hello`, `/dolly-tool`
-and `/dolly-fix` are small starting prompts.
-
-`download RECIPE` exports the draft; the site's **Run a Dollyfile** page accepts
-text/file uploads. `upload /workspace/input` asks the user to choose one PC file,
-without exposing host paths or overwriting existing targets. Ctrl+Shift+S saves
-a named Studio or custom-image session in this browser. Custom sessions retain
-their recipe and depend on the exact base in this browser's image cache; session
-exports do not include that base. Keep recipes too; result URLs are not portable
-images.
+For Neovim (highlighting, inline lint, `:DollyLint`) read
+[neovim.md](neovim.md); interactive nvim needs the shell after leaving Pi with
+Ctrl+D, not Pi's tool. `/model` switches between local and remote models;
+`/dolly-hello`, `/dolly-tool` and `/dolly-fix` are starter prompts. `download
+RECIPE` saves a recipe to the user's device; Ctrl+Shift+S saves the session.
