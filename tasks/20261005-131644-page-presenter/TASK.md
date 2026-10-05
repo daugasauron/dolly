@@ -88,7 +88,7 @@ What the audit had right and wrong:
   publication of the selection, so a frame drawn between its press and its
   drag gave empty text (3 of 16 Firefox runs of the new test once readers woke
   on input). It now waits for the press to clear the selection, then for the
-  selection (12 of 12).
+  selection (13 of 13).
 
 ## Decision: a counted, surfaced drop, no page-side queue
 
@@ -161,10 +161,17 @@ is explained.
   exact sum; with the ring full, received plus reported-dropped key records
   equal the 40 sent and the status is visible. It fails on the old code.
 - `node --test 'test/*.test.mjs'`: 251 pass.
-- Chrome and Firefox: `display`, `terminal`, `core`, `boundary`,
-  `host-modules` browser tests pass. `core` in Firefox failed once in a pass at
-  load average 25 with its output cut off (the tail matches the 120 s limit
-  closing the browser), then passed 5 of 5.
-- `npm run test:demos -- sdl2 bhop`: both pass.
+- `node test/browser-tests.mjs chromium`: all pass. `firefox`: all pass
+  but `host-compute`, which fails the same way on the old code (`gpu@0` has no
+  adapter in this headless Firefox). `core` in Firefox failed once in an
+  earlier pass at load average 25 with its output cut off (the tail matches
+  the 120 s limit closing the browser), then passed 6 of 6. Repeats: `display`
+  13 of 13 in Firefox and 7 of 7 in Chrome, `terminal` 6 of 6 in Firefox.
+- `npm run test:demos -- sdl2 bhop` and `neovim python emacs`: all pass.
+  `slopyard` cannot run on this base: its test reads `demos/slopyard/slopyard.dm`,
+  which no longer exists.
+- `20261001-095000-terminal-text-flake` describes the empty screen text fixed
+  here; its narrowed mouse-drag failure (`terminal-browser.mjs:67`) is a
+  different one and did not occur in these runs.
 - No kernel, seed or contract change: the only C touched is the test fixture
   `test/fixtures/terminal-ui.c`; image inputs stay `2cc92c2b…`.
