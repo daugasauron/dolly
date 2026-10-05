@@ -96,6 +96,10 @@ await demoTest("javascript", { image: "javascript", timeout: 600_000, server: { 
   await run("mkdir files && echo target > files/target && ln -s target files/link && ln -s absent files/dangling && ln -s keep-dir files/directory-link");
   await run(`janis -m janis-files.mjs ${scratch}/files`);
   await run(`janis -m node-oracle.mjs ${scratch}/oracle ${server.origin}`);
+  // Built-in and CommonJS modules imported from ESM leave nothing in /tmp.
+  await run("janis -e \"if (require('node:fs').readdirSync('/tmp').some(name => name.startsWith('janis-'))) process.exit(1)\"");
+  // The heap is bounded by the process's memory, not near 510 MB.
+  await run("janis -e 'const kept = []; for (let i = 0; i < 48; i++) kept.push(new Uint8Array(16 << 20).fill(1))'");
   await run(`timeout 30 janis -m janis-process.mjs ${scratch} ${server.origin}`);
   await delay(100);
   assert.equal(queuedRequestSent, false, "a cancelled queued fetch reached HTTP");

@@ -148,10 +148,6 @@ await check("stat follows symlinks and lstat/Dirent do not", () => {
   fs.rmSync(`${root}/directory-link`, { recursive: true });
   equal(fs.readFileSync(`${root}/keep-dir/keep`, "utf8"), "keep");
 });
-await check("unsupported watches fail explicitly", () => {
-  rejects(() => fs.watch(root, () => {}), "ERR_METHOD_NOT_IMPLEMENTED");
-  rejects(() => fs.watchFile(`${root}/target`, () => {}), "ERR_METHOD_NOT_IMPLEMENTED");
-});
 await check("package exports and imports preserve literal filenames", () => {
   const directory = `${root}/node_modules/literal-files`;
   fs.mkdirSync(`${directory}/src`, { recursive: true });

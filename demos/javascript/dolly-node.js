@@ -52,7 +52,7 @@ globalThis.process = {
   pid: Dolly.pid,
   ppid: Dolly.ppid,
   title: "qjs",
-  exitCode: 0,
+  exitCode: undefined,
   cwd: () => Dolly.cwd(),
   chdir: (path) => Dolly.chdir(String(path)),
   nextTick: (callback, ...args) => queueMicrotask(() => callback(...args)),

@@ -1,11 +1,15 @@
 // Node API cases whose observations must be identical in Node and Janis.
 // The browser test runs observe() in Node and serves the result; Janis runs
 // `janis -m node-oracle.mjs ROOT ORIGIN` and compares its own observations.
-import { execSync } from "node:child_process";
+import { execSync, spawnSync } from "node:child_process";
+import crypto from "node:crypto";
+import EventEmitter from "node:events";
 import fs from "node:fs";
 import fsp from "node:fs/promises";
 import { createRequire } from "node:module";
+import { BlockList } from "node:net";
 import stream from "node:stream";
+import { text } from "node:stream/consumers";
 import streamPromises from "node:stream/promises";
 import util from "node:util";
 
@@ -108,6 +112,124 @@ export async function observe(root) {
   ];
   cases.inspect = [function named() {}, () => {}, async function load() {}, function* walk() {}, class Point {}, class {}]
     .map(value => util.inspect(value));
+
+  // The entry's format: CommonJS by default, ESM by extension, package type or syntax.
+  const scripts = `${root}/scripts`;
+  fs.mkdirSync(`${scripts}/typed`, { recursive: true });
+  fs.writeFileSync(`${scripts}/common.js`, "console.log(typeof require, __filename === require('node:path').resolve('common.js'), " +
+    "process.argv.slice(2).join(), require.main === module, this === module.exports, process.exitCode)");
+  fs.writeFileSync(`${scripts}/syntax.js`, "import path from 'node:path'; console.log(path.sep, typeof require)");
+  fs.writeFileSync(`${scripts}/typed/package.json`, JSON.stringify({ type: "module" }));
+  fs.writeFileSync(`${scripts}/typed/main.js`, "console.log(typeof require, import.meta.url.endsWith('/typed/main.js'))");
+  fs.writeFileSync(`${scripts}/thrower.cjs`, "'use strict';\nfunction fail() {\n  throw new Error('boom');\n}\nmodule.exports = fail;\n");
+  const node = (args, input = "") => {
+    const { status, stdout } = spawnSync(process.execPath, args, { cwd: scripts, input, encoding: "utf8" });
+    return [status, stdout];
+  };
+  cases.entry = [
+    node(["-e", "console.log(typeof require, typeof module, __filename, require('node:path').sep)"]),
+    node(["-e", "import path from 'node:path'; console.log(path.sep, typeof require)"]),
+    node(["-e", "console.log((await import('node:path')).sep)"]),
+    node(["common.js", "a", "b"]), node(["syntax.js"]), node(["typed/main.js"]),
+    node(["-"], "console.log(typeof require)"), node(["-"], "import path from 'node:path'; console.log(path.sep)"),
+  ];
+  cases.stdin = [
+    node(["-e", "process.stdin.setEncoding('utf8'); process.stdin.on('readable', () => { let chunk; " +
+      "while ((chunk = process.stdin.read()) !== null) console.log('read', JSON.stringify(chunk)); }); process.stdin.on('end', () => console.log('end'))"], "typed\n"),
+    node(["-e", "process.stdin.unref(); process.stdin.on('data', () => console.log('data')); console.log('unreferenced')"], ""),
+  ];
+  const watched = `${root}/watched`;
+  fs.mkdirSync(watched);
+  const watchEvents = [], fileChanges = [];
+  const watcher = fs.watch(watched, (type, name) => watchEvents.push(`${type}:${name}`));
+  fs.writeFileSync(`${watched}/file`, "x");
+  fs.watchFile(`${watched}/file`, { interval: 100 }, (current, previous) => fileChanges.push([current.size, previous.size]));
+  const settle = () => new Promise(resolve => setTimeout(resolve, 1300));
+  await settle();
+  fs.writeFileSync(`${watched}/file`, "longer");
+  await settle();
+  fs.unlinkSync(`${watched}/file`);
+  await settle();
+  watcher.close();
+  fs.unwatchFile(`${watched}/file`);
+  cases.watch = [[...new Set(watchEvents)].sort(), fileChanges, await outcome(() => fs.watch(missing))];
+  cases.exit = [
+    node(["-e", "try { process.exit(3); } catch { console.log('caught'); }"]),
+    node(["-e", "process.on('exit', code => { console.log('exit', code); process.exitCode = 9; }); setTimeout(() => process.exit(5), 5)"]),
+    node(["-e", "process.on('exit', code => console.log('exit', code, process.exitCode)); process.exitCode = 4"]),
+  ];
+  cases.uncaught = [
+    node(["-e", "Promise.reject(new Error('lost')); setTimeout(() => console.log('not reached'), 10)"]),
+    node(["-e", "process.on('unhandledRejection', reason => console.log('rejected', reason.message)); Promise.reject(new Error('lost'))"]),
+    node(["-e", "process.on('uncaughtException', (error, origin) => console.log(error.message, origin)); " +
+      "setTimeout(() => { throw new Error('timer'); }, 1); setTimeout(() => console.log('after'), 20)"]),
+  ];
+
+  // Messages name the operation and path; stacks start with the message and
+  // CommonJS frames name their own file and line.
+  const thrown = operation => { try { operation(); } catch (error) { return error; } };
+  const relative = value => String(value).replaceAll(root, "ROOT");
+  const failure = thrown(() => require(`${scripts}/thrower.cjs`)());
+  cases.errors = [
+    ...[() => fs.readFileSync(missing), () => fs.renameSync(missing, `${root}/other`), () => fs.mkdirSync(root)]
+      .map(thrown).map(error => [relative(error.message), relative(error.stack.split("\n")[0]), error.code, error.syscall]),
+    failure.stack.split("\n")[0], /\/scripts\/thrower\.cjs:3:\d+\)$/.test(failure.stack.split("\n")[1]),
+  ];
+
+  fs.symlinkSync("file", `${root}/symbolic`);
+  fs.writeFileSync(`${root}/long`, "0123456789");
+  fs.truncateSync(`${root}/long`, 4);
+  const handle = await fsp.open(`${root}/long`, "r+");
+  await handle.truncate(2);
+  await handle.sync();
+  await handle.close();
+  cases.links = [fs.readlinkSync(`${root}/symbolic`), await fsp.readlink(`${root}/symbolic`), fs.readFileSync(`${root}/long`, "utf8"),
+    await outcome(() => fs.symlinkSync("file", `${root}/symbolic`)), await outcome(() => fs.readlinkSync(file))];
+
+  const blocked = new BlockList();
+  blocked.addSubnet("127.0.0.0", 8, "ipv4");
+  blocked.addAddress("::1", "ipv6");
+  blocked.addRange("10.0.0.1", "10.0.0.9");
+  blocked.addSubnet("fe80::", 10, "ipv6");
+  cases.blockList = [[["127.1.2.3", "ipv4"], ["128.0.0.1", "ipv4"], ["::1", "ipv6"], ["::ffff:127.0.0.1", "ipv6"],
+    ["10.0.0.9", "ipv4"], ["10.0.0.10", "ipv4"], ["febf::1", "ipv6"], ["fec0::1", "ipv6"]].map(([address, type]) => blocked.check(address, type)),
+  blocked.rules, await outcome(() => blocked.addAddress("10.0.0.256"))];
+
+  const deep = { list: [1, { a: new Date(5) }], map: new Map([[{ k: 1 }, new Set([1, 2])]]), bytes: Uint8Array.of(1) };
+  const same = { list: [1, { a: new Date(5) }], map: new Map([[{ k: 1 }, new Set([2, 1])]]), bytes: Uint8Array.of(1) };
+  cases.deepEqual = [util.isDeepStrictEqual(deep, same), util.isDeepStrictEqual([1], ["1"]), util.isDeepStrictEqual({ a: 1 }, { a: 1, b: undefined }),
+    util.isDeepStrictEqual(NaN, NaN), util.isDeepStrictEqual(0, -0), util.isDeepStrictEqual(new Set([{}]), new Set([{ x: 1 }])),
+    await text(stream.Readable.from(["con", "sumed"]))];
+  // Legacy constructors: Base.call(this) and util.inherits, as old packages do.
+  function LegacyStream() { stream.call(this); }
+  util.inherits(LegacyStream, stream);
+  function LegacyEmitter() { EventEmitter.call(this); }
+  util.inherits(LegacyEmitter, EventEmitter);
+  const heard = [], legacyEmitter = new LegacyEmitter(), legacyStream = new LegacyStream();
+  legacyEmitter.on("event", value => heard.push(value));
+  legacyEmitter.emit("event", 1);
+  legacyStream.on("data", value => heard.push(value));
+  legacyStream.emit("data", 2);
+  cases.legacy = [typeof stream, stream.Stream === stream, legacyStream instanceof EventEmitter, new stream.PassThrough() instanceof stream,
+    typeof legacyStream.pipe, heard, typeof stream.promises.pipeline];
+  cases.sha1 = [crypto.createHash("sha1").update("abc").digest("hex"), crypto.createHmac("sha1", "key").update("text").digest("base64")];
+
+  // en-US in UTC, which Janis formats without ICU.
+  const instants = [Date.UTC(2026, 9, 5, 14, 5, 9), Date.UTC(2001, 0, 1), Date.UTC(1999, 11, 31, 23, 59, 59)];
+  const dateOptions = [{}, { hour: "numeric", minute: "2-digit" }, { weekday: "long", hour: "numeric", minute: "2-digit" },
+    { weekday: "long", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }, { month: "short", day: "numeric", hour: "numeric", hour12: true },
+    { weekday: "short", year: "numeric", month: "short", day: "numeric", hour: "numeric", minute: "2-digit", timeZoneName: "short" },
+    { year: "numeric", month: "2-digit", day: "2-digit" }, { month: "long", year: "numeric" }, { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false },
+    { dateStyle: "full" }, { dateStyle: "medium", timeStyle: "short" }, { dateStyle: "short" }, { timeStyle: "medium" }];
+  cases.intl = [
+    ...instants.flatMap(instant => dateOptions.map(options => new Intl.DateTimeFormat("en-US", { ...options, timeZone: "UTC" }).format(instant))),
+    ...instants.map(instant => new Date(instant).toLocaleString("en-US", { timeZone: "UTC" })),
+    ...[undefined, { notation: "compact" }, { notation: "compact", maximumFractionDigits: 1, minimumFractionDigits: 1 }, { style: "percent" }]
+      .flatMap(options => [0, 999, 1234, 99999, 999999, 1250000, -1234.5678, 0.000123, 1.005].map(number => Intl.NumberFormat("en-US", options).format(number))),
+    ...["long", "short", "narrow"].flatMap(style => ["always", "auto"].flatMap(numeric => [[-1, "day"], [0, "second"], [5, "hour"], [-1, "month"], [2, "week"]]
+      .map(([value, unit]) => new Intl.RelativeTimeFormat("en", { style, numeric }).format(value, unit)))),
+    (12345.678).toLocaleString("en-US"), String(new Intl.Locale("en-US")),
+  ];
   return JSON.parse(JSON.stringify(cases));
 }
 

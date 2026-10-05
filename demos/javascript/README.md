@@ -23,8 +23,19 @@ package keeps them for `INSTALL` (`pi-runtime`, `bhop`, `slopyard`) and
 
 - ESM, CommonJS and JSON modules, package `imports`/`exports` and conditions,
   `import.meta.resolve`, resolved only inside WasmFS; missing modules fail.
+  As in Node, a file, `-e` or stdin runs as CommonJS unless `.mjs`, package
+  `type` or import syntax makes it ESM. Built-in modules and ESM views of
+  CommonJS are generated in memory.
+- `Intl`: CLDR en-US date, number (standard, compact, percent) and relative
+  time formatting in the clock's zone, plus `Segmenter` and `Locale`;
+  QuickJS has no ICU, so other locales resolve to en-US and unsupported
+  options throw `RangeError`.
+- `process.exit` cannot be caught. Uncaught errors and unhandled rejections
+  reach `process` listeners or fail the process. Errno errors carry Node's messages, stacks start with the
+  message, and runtime frames read `node:internal/janis`.
 - Descriptor-based `fs` with positioned I/O and promise wrappers; open files
-  survive rename and unlink.
+  survive rename and unlink. Dolly has no change notification, so `fs.watch`
+  polls metadata every second and `fs.watchFile` at its interval.
 - Buffers, encodings, paths, URLs, events, timers, crypto helpers, tty streams
   and stateful UTF-8 decoders ([`dolly-node.js`](dolly-node.js)).
 - `child_process` with pipe-backed stdio, exit codes versus signals, kill and
@@ -42,12 +53,14 @@ package keeps them for `INSTALL` (`pi-runtime`, `bhop`, `slopyard`) and
 
 ## Limits
 
-- No npm client, native addons, worker threads or nested WebAssembly.
+- No npm client, native addons, worker threads (constructing a `Worker` fails
+  with `ENOSYS`) or nested WebAssembly. Requiring an ES module fails with
+  `ERR_REQUIRE_ESM`.
 - Only three stdio descriptors; detached processes and IPC fail.
 - `os.cpus`, `os.totalmem`/`freemem` and `process.memoryUsage` fail with
   `ENOSYS`. `chmod` reaches the kernel, which checks the path and changes nothing.
 - `redirect: "manual"` is rejected; response chunks are buffered eagerly.
-- Readable streams are push-only. `fs.rmdir`'s deprecated `recursive`,
+- Readable streams other than stdin are push-only. `fs.rmdir`'s deprecated `recursive`,
   `createWriteStream`'s `start`, `COPYFILE_FICLONE_FORCE` and `structuredClone`'s
   `transfer` fail explicitly.
 

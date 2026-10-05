@@ -3,10 +3,22 @@
 // browser globals, native host modules, filesystem mounts, or socket fallback.
 
 globalThis.global = globalThis;
-// V8 exposes this helper as a Node global. QuickJS already records stacks when
-// Error objects are constructed; consumers such as Jiti only need the method
-// to exist so their original diagnostics are not masked.
-Error.captureStackTrace ??= () => {};
+
+// V8's error.stack: the error's own line, then one line per frame.
+Error.prepareStackTrace = (error, frames) => {
+  let header;
+  try {
+    const name = error?.name === undefined ? "Error" : String(error.name);
+    const message = error?.message === undefined ? "" : String(error.message);
+    header = !name ? message : !message ? name : `${name}: ${message}`;
+  } catch { header = "Error"; }
+  return header + frames.map((frame) => {
+    const name = frame.getFunctionName();
+    if (frame.isNative()) return `\n    at ${name || "<anonymous>"} (native)`;
+    const location = `${frame.getFileName()}:${frame.getLineNumber()}:${frame.getColumnNumber()}`;
+    return name ? `\n    at ${name} (${location})` : `\n    at ${location}`;
+  }).join("");
+};
 
 // QuickJS intentionally does not ship ICU. Pi only consumes Intl.Segmenter,
 // so Janis supplies that single API in-process instead of importing locale
@@ -156,25 +168,248 @@ class JanisSegmenter {
   }
 }
 
-globalThis.Intl = { Segmenter: JanisSegmenter };
+// The rest of Janis's Intl is CLDR's en-US only, in the zone Date's local time
+// uses, and says so in resolvedOptions(); what it cannot format throws.
+const janisIntlUnsupported = (what) => { throw new RangeError(`Janis Intl does not support ${what}`); };
+const janisLocalZone = () => {
+  const offset = -new Date().getTimezoneOffset();
+  return offset === 0 ? "UTC" : offset % 60 === 0 ? `Etc/GMT${offset > 0 ? "-" : "+"}${Math.abs(offset / 60)}` : janisIntlUnsupported("a fractional-hour local time zone");
+};
+// Etc/GMT-9 is nine hours east of UTC, written GMT+9.
+const janisZoneName = (zone) => zone === "UTC" ? "UTC" : `GMT${zone[7] === "-" ? "+" : "-"}${zone.slice(8)}`;
 
-class JanisEventEmitter {
-  #events = new Map();
+// Rounds |value| × 10^shift half away from zero in its shortest decimal form,
+// as ICU does: the point moves in decimal, so 1.005 as a percent is 100.5.
+function janisRoundDecimal(value, fraction, shift = 0) {
+  const [mantissa, exponentText] = Math.abs(value).toExponential().split("e");
+  const digits = mantissa.replace(".", "");
+  let point = Number(exponentText) + 1 + shift;
+  let kept = digits.slice(0, Math.max(0, point + fraction)).padEnd(Math.max(0, point + fraction), "0");
+  if (point + fraction < 0) kept = "";
+  const next = point + fraction >= 0 ? Number(digits[point + fraction] ?? 0) : 0;
+  let integer = BigInt(kept || "0") + (next >= 5 ? 1n : 0n);
+  let text = integer.toString().padStart(fraction + 1, "0");
+  return fraction ? `${text.slice(0, -fraction)}.${text.slice(-fraction)}` : text;
+}
+function janisGroup(text) {
+  const [integer, fraction] = text.split(".");
+  const grouped = integer.replace(/\B(?=(\d{3})+$)/g, ",");
+  return fraction === undefined ? grouped : `${grouped}.${fraction}`;
+}
+function janisFormatNumber(value, minimum, maximum, shift = 0) {
+  let text = janisRoundDecimal(value, maximum, shift);
+  if (text.includes(".")) {
+    text = text.replace(/0+$/, "");
+    const fraction = text.split(".")[1] ?? "";
+    if (fraction.length < minimum) text += "0".repeat(minimum - fraction.length);
+    text = text.replace(/\.$/, "");
+  }
+  return text;
+}
+function janisSignificant(value, digits, shift = 0) {
+  if (value === 0) return "0";
+  const magnitude = Math.floor(Math.log10(Math.abs(value))) + shift;
+  return janisFormatNumber(value, 0, Math.max(0, digits - 1 - magnitude), shift);
+}
 
+class JanisNumberFormat {
+  #style; #notation; #minimum; #maximum; #grouping; #explicitDigits;
+  constructor(_locales = undefined, options = {}) {
+    options ??= {};
+    for (const key of Object.keys(options)) {
+      if (!["style", "notation", "minimumFractionDigits", "maximumFractionDigits", "useGrouping", "compactDisplay"].includes(key) ||
+          (key === "compactDisplay" && options[key] !== "short")) janisIntlUnsupported(`NumberFormat option ${key}`);
+    }
+    this.#style = options.style ?? "decimal";
+    this.#notation = options.notation ?? "standard";
+    if (!["decimal", "percent"].includes(this.#style)) janisIntlUnsupported(`NumberFormat style ${this.#style}`);
+    if (!["standard", "compact"].includes(this.#notation)) janisIntlUnsupported(`NumberFormat notation ${this.#notation}`);
+    const defaultMaximum = this.#style === "percent" ? 0 : 3;
+    this.#minimum = options.minimumFractionDigits ?? 0;
+    this.#maximum = Math.max(this.#minimum, options.maximumFractionDigits ?? (options.minimumFractionDigits !== undefined ? Math.max(this.#minimum, defaultMaximum) : defaultMaximum));
+    this.#explicitDigits = options.minimumFractionDigits !== undefined || options.maximumFractionDigits !== undefined;
+    this.#grouping = options.useGrouping ?? true;
+  }
+  format(value) {
+    value = Number(value);
+    if (!Number.isFinite(value)) return Number.isNaN(value) ? "NaN" : `${value < 0 ? "-" : ""}∞`;
+    const negative = value < 0 || Object.is(value, -0);
+    const magnitude = Math.abs(value), percent = this.#style === "percent" ? 2 : 0;
+    let text, suffix = "";
+    if (this.#notation === "compact") {
+      const units = ["", "K", "M", "B", "T"];
+      const scale = magnitude * 10 ** percent;
+      let unit = Math.min(units.length - 1, scale >= 1000 ? Math.floor(Math.log10(scale) / 3) : 0);
+      for (;;) {
+        const shift = percent - 3 * unit;
+        // ICU's compact rounding: integers from 10 up, otherwise two significant digits.
+        text = this.#explicitDigits ? janisFormatNumber(magnitude, this.#minimum, this.#maximum, shift)
+          : scale / 1000 ** unit >= 10 ? janisFormatNumber(magnitude, 0, 0, shift) : janisSignificant(magnitude, 2, shift);
+        if (Number(text) < 1000 || unit === units.length - 1) break;
+        unit++;
+      }
+      suffix = units[unit];
+    } else text = janisFormatNumber(magnitude, this.#minimum, this.#maximum, percent);
+    if (this.#grouping) text = janisGroup(text);
+    return `${negative && Number(text.replaceAll(",", "")) !== 0 ? "-" : ""}${text}${suffix}${this.#style === "percent" ? "%" : ""}`;
+  }
+  resolvedOptions() {
+    return { locale: "en-US", numberingSystem: "latn", style: this.#style, notation: this.#notation,
+      minimumFractionDigits: this.#minimum, maximumFractionDigits: this.#maximum, useGrouping: this.#grouping ? "auto" : false };
+  }
+  static supportedLocalesOf() { return ["en-US"]; }
+}
+
+const janisWeekdays = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+const janisMonths = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+const janisDateFields = ["weekday", "year", "month", "day", "hour", "minute", "second"];
+class JanisDateTimeFormat {
+  #options;
+  constructor(_locales = undefined, options = {}, defaults = "date") {
+    options = { ...(options ?? {}) };
+    for (const key of Object.keys(options)) {
+      if (![...janisDateFields, "timeZone", "timeZoneName", "hour12", "hourCycle", "dateStyle", "timeStyle"].includes(key))
+        janisIntlUnsupported(`DateTimeFormat option ${key}`);
+    }
+    const local = janisLocalZone();
+    const zone = options.timeZone === undefined ? local : String(options.timeZone);
+    if (zone !== local && !/^(UTC|Etc\/UTC|GMT|Etc\/GMT)$/i.test(zone)) janisIntlUnsupported(`time zone ${zone}`);
+    const styles = { full: { weekday: "long", month: "long", day: "numeric", year: "numeric" },
+      long: { month: "long", day: "numeric", year: "numeric" }, medium: { month: "short", day: "numeric", year: "numeric" },
+      short: { month: "numeric", day: "numeric", year: "2-digit" } };
+    const times = { full: { timeZoneName: "long" }, long: { timeZoneName: "short" }, medium: {}, short: { second: undefined } };
+    if (options.dateStyle) Object.assign(options, styles[options.dateStyle] ?? janisIntlUnsupported(`dateStyle ${options.dateStyle}`));
+    if (options.timeStyle) Object.assign(options, { hour: "numeric", minute: "2-digit", second: "2-digit" },
+      times[options.timeStyle] ?? janisIntlUnsupported(`timeStyle ${options.timeStyle}`));
+    if (!janisDateFields.some((field) => options[field] !== undefined)) {
+      if (defaults !== "time") Object.assign(options, { year: "numeric", month: "numeric", day: "numeric" });
+      if (defaults !== "date") Object.assign(options, { hour: "numeric", minute: "2-digit", second: "2-digit" });
+    }
+    options.utc = /^(UTC|Etc\/UTC|GMT|Etc\/GMT)$/i.test(zone);
+    options.timeZone = options.utc ? "UTC" : zone;
+    options.hour12 = options.hour12 ?? (options.hourCycle ? options.hourCycle === "h11" || options.hourCycle === "h12" : true);
+    this.#options = options;
+  }
+  format(value = Date.now()) {
+    const o = this.#options, date = new Date(value instanceof Date ? value.getTime() : Number(value));
+    if (Number.isNaN(date.getTime())) throw new RangeError("Invalid time value");
+    const get = (name) => o.utc ? date[`getUTC${name}`]() : date[`get${name}`]();
+    const two = (number) => String(number).padStart(2, "0");
+    const year = o.year === "2-digit" ? two(get("FullYear") % 100) : o.year ? String(get("FullYear")) : "";
+    const month = get("Month"), day = o.day === "2-digit" ? two(get("Date")) : o.day ? String(get("Date")) : "";
+    const weekday = o.weekday ? janisWeekdays[get("Day")].slice(0, o.weekday === "long" ? undefined : o.weekday === "short" ? 3 : 1) : "";
+    let datePart;
+    if (o.month === "numeric" || o.month === "2-digit") {
+      const number = o.month === "2-digit" ? two(month + 1) : String(month + 1);
+      datePart = [number, day, year].filter(Boolean).join("/");
+    } else if (o.month) {
+      const name = janisMonths[month].slice(0, o.month === "long" ? undefined : o.month === "short" ? 3 : 1);
+      datePart = day && year ? `${name} ${day}, ${year}` : day ? `${name} ${day}` : year ? `${name} ${year}` : name;
+    } else if (day || year) {
+      if (day && year) janisIntlUnsupported("a day and year without a month");
+      datePart = day || year;
+    } else datePart = "";
+    if (weekday && datePart) datePart = `${weekday}, ${datePart}`;
+    let timePart = "";
+    if (o.hour || o.minute || o.second) {
+      if (!o.hour) janisIntlUnsupported("minutes or seconds without an hour");
+      const hours = get("Hours");
+      const hour = o.hour12 ? (hours % 12 || 12) : hours;
+      const fields = [o.hour === "2-digit" || !o.hour12 ? two(hour) : String(hour)];
+      if (o.minute) fields.push(two(get("Minutes")));
+      if (o.second) fields.push(two(get("Seconds")));
+      timePart = fields.join(":") + (o.hour12 ? (hours < 12 ? " AM" : " PM") : "");
+      if (o.timeZoneName) timePart += ` ${o.timeZoneName === "long" ? (o.timeZone === "UTC" ? "Coordinated Universal Time" : janisZoneName(o.timeZone)) : janisZoneName(o.timeZone)}`;
+    }
+    if (!datePart) return weekday && timePart ? `${weekday} ${timePart}` : weekday || timePart;
+    if (!timePart) return datePart;
+    return o.dateStyle === "full" || o.dateStyle === "long" ? `${datePart} at ${timePart}` : `${datePart}, ${timePart}`;
+  }
+  resolvedOptions() {
+    const { utc, ...options } = this.#options;
+    return { locale: "en-US", calendar: "gregory", numberingSystem: "latn", ...options };
+  }
+  static supportedLocalesOf() { return ["en-US"]; }
+}
+
+class JanisRelativeTimeFormat {
+  #style; #numeric;
+  constructor(_locales = undefined, options = {}) {
+    this.#style = options?.style ?? "long";
+    this.#numeric = options?.numeric ?? "always";
+    if (!["long", "short", "narrow"].includes(this.#style)) janisIntlUnsupported(`RelativeTimeFormat style ${this.#style}`);
+  }
+  format(value, unit) {
+    value = Number(value);
+    unit = String(unit).replace(/s$/, "");
+    const names = { second: ["second", "sec.", "s"], minute: ["minute", "min.", "m"], hour: ["hour", "hr.", "h"], day: ["day", "day", "d"],
+      week: ["week", "wk.", "w"], month: ["month", "mo.", "mo"], quarter: ["quarter", "qtr.", "q"], year: ["year", "yr.", "y"] };
+    if (!names[unit]) throw new RangeError(`Invalid unit argument for format() '${unit}'`);
+    const style = ["long", "short", "narrow"].indexOf(this.#style);
+    if (this.#numeric === "auto") {
+      const words = { day: ["yesterday", "today", "tomorrow"], second: [null, "now", null] };
+      const named = words[unit]?.[value + 1] ?? (["week", "month", "quarter", "year"].includes(unit) && Math.abs(value) <= 1 && Number.isInteger(value)
+        ? `${["last", "this", "next"][value + 1]} ${style === 0 ? unit : names[unit][1]}` : unit === "minute" || unit === "hour" ? (value === 0 ? `this ${unit}` : null) : null);
+      if (named) return named;
+    }
+    const amount = janisGroup(janisFormatNumber(Math.abs(value), 0, 3));
+    const name = names[unit][style];
+    const plural = Math.abs(value) !== 1 && (style === 0 || (style === 1 && unit === "day")) ? "s" : "";
+    const text = style === 2 ? `${amount}${name}` : `${amount} ${name}${plural}`;
+    return value < 0 || Object.is(value, -0) ? `${text} ago` : `in ${text}`;
+  }
+  resolvedOptions() { return { locale: "en-US", style: this.#style, numeric: this.#numeric, numberingSystem: "latn" }; }
+  static supportedLocalesOf() { return ["en-US"]; }
+}
+
+class JanisLocale {
+  constructor(tag) {
+    const match = /^([a-z]{2,3})(?:-([A-Z][a-z]{3}))?(?:-([A-Z]{2}|\d{3}))?$/i.exec(String(tag));
+    if (!match) throw new RangeError(`Incorrect locale information provided: ${tag}`);
+    this.language = match[1].toLowerCase();
+    this.script = match[2] && match[2][0].toUpperCase() + match[2].slice(1).toLowerCase();
+    this.region = match[3]?.toUpperCase();
+    this.baseName = [this.language, this.script, this.region].filter(Boolean).join("-");
+  }
+  toString() { return this.baseName; }
+}
+
+// ECMA-402 lets DateTimeFormat and NumberFormat be called without new.
+const janisCallable = (Class) => Object.assign(function(...args) { return new Class(...args); },
+  { prototype: Class.prototype, supportedLocalesOf: Class.supportedLocalesOf });
+globalThis.Intl = { Segmenter: JanisSegmenter, NumberFormat: janisCallable(JanisNumberFormat),
+  DateTimeFormat: janisCallable(JanisDateTimeFormat), RelativeTimeFormat: JanisRelativeTimeFormat, Locale: JanisLocale };
+// ECMA-402 defines the locale methods through Intl.
+Date.prototype.toLocaleString = function(locales, options) { return new JanisDateTimeFormat(locales, options, "any").format(this); };
+Date.prototype.toLocaleDateString = function(locales, options) { return new JanisDateTimeFormat(locales, options, "date").format(this); };
+Date.prototype.toLocaleTimeString = function(locales, options) { return new JanisDateTimeFormat(locales, options, "time").format(this); };
+Number.prototype.toLocaleString = function(locales, options) { return new JanisNumberFormat(locales, options).format(this); };
+
+// Node's EventEmitter is a plain constructor that legacy code calls as
+// EventEmitter.call(this). Listeners live beside the object, so neither that
+// call nor a subclass constructor has anything to set up.
+const janisListeners = new WeakMap();
+function janisEvents(emitter) {
+  let events = janisListeners.get(emitter);
+  if (!events) janisListeners.set(emitter, events = new Map());
+  return events;
+}
+function JanisEventEmitter() {}
+Object.assign(JanisEventEmitter.prototype, {
   on(name, listener) {
     if (typeof listener !== "function") throw new TypeError("listener must be a function");
-    const listeners = this.#events.get(name) ?? [];
+    const listeners = janisEvents(this).get(name) ?? [];
     listeners.push(listener);
-    this.#events.set(name, listeners);
+    janisEvents(this).set(name, listeners);
     return this;
-  }
-  addListener(name, listener) { return this.on(name, listener); }
+  },
+  addListener(name, listener) { return this.on(name, listener); },
   prependListener(name, listener) {
-    const listeners = this.#events.get(name) ?? [];
+    const listeners = janisEvents(this).get(name) ?? [];
     listeners.unshift(listener);
-    this.#events.set(name, listeners);
+    janisEvents(this).set(name, listeners);
     return this;
-  }
+  },
   once(name, listener) {
     const wrapped = (...args) => {
       this.removeListener(name, wrapped);
@@ -182,7 +417,7 @@ class JanisEventEmitter {
     };
     wrapped.listener = listener;
     return this.on(name, wrapped);
-  }
+  },
   prependOnceListener(name, listener) {
     const wrapped = (...args) => {
       this.removeListener(name, wrapped);
@@ -190,42 +425,54 @@ class JanisEventEmitter {
     };
     wrapped.listener = listener;
     return this.prependListener(name, wrapped);
-  }
-  off(name, listener) { return this.removeListener(name, listener); }
+  },
+  off(name, listener) { return this.removeListener(name, listener); },
   removeListener(name, listener) {
-    const listeners = this.#events.get(name);
+    const listeners = janisEvents(this).get(name);
     if (!listeners) return this;
     const filtered = listeners.filter((candidate) =>
       candidate !== listener && candidate.listener !== listener);
-    if (filtered.length) this.#events.set(name, filtered);
-    else this.#events.delete(name);
+    if (filtered.length) janisEvents(this).set(name, filtered);
+    else janisEvents(this).delete(name);
     return this;
-  }
+  },
   removeAllListeners(name = undefined) {
-    if (name === undefined) this.#events.clear();
-    else this.#events.delete(name);
+    if (name === undefined) janisEvents(this).clear();
+    else janisEvents(this).delete(name);
     return this;
-  }
+  },
   emit(name, ...args) {
-    const listeners = [...(this.#events.get(name) ?? [])];
+    const listeners = [...(janisEvents(this).get(name) ?? [])];
     if (name === "error" && listeners.length === 0) throw args[0];
     for (const listener of listeners) listener.apply(this, args);
     return listeners.length !== 0;
-  }
-  listeners(name) { return [...(this.#events.get(name) ?? [])]; }
-  rawListeners(name) { return this.listeners(name); }
-  listenerCount(name) { return this.#events.get(name)?.length ?? 0; }
-  eventNames() { return [...this.#events.keys()]; }
-  setMaxListeners() { return this; }
-  getMaxListeners() { return 0; }
-  static listenerCount(emitter, name) { return emitter.listenerCount(name); }
-  static once(emitter, name) {
-    return new Promise((resolve, reject) => {
-      emitter.once(name, (...args) => resolve(args));
-      if (name !== "error") emitter.once("error", reject);
-    });
-  }
-}
+  },
+  listeners(name) { return [...(janisEvents(this).get(name) ?? [])]; },
+  rawListeners(name) { return this.listeners(name); },
+  listenerCount(name) { return janisEvents(this).get(name)?.length ?? 0; },
+  eventNames() { return [...janisEvents(this).keys()]; },
+  setMaxListeners() { return this; },
+  getMaxListeners() { return 0; },
+});
+// Enumerable, as Node assigns them: they are named exports of node:events.
+Object.assign(JanisEventEmitter, {
+  listenerCount: (emitter, name) => emitter.listenerCount(name),
+  once: (emitter, name) => new Promise((resolve, reject) => {
+    emitter.once(name, (...args) => resolve(args));
+    if (name !== "error") emitter.once("error", reject);
+  }),
+});
+
+// node:stream is the legacy Stream constructor, also callable as
+// Stream.call(this), with the stream classes as its properties.
+function JanisStream() {}
+Object.setPrototypeOf(JanisStream, JanisEventEmitter);
+Object.setPrototypeOf(JanisStream.prototype, JanisEventEmitter.prototype);
+JanisStream.prototype.pipe = function(destination) {
+  this.on("data", (chunk) => destination.write(chunk));
+  this.once("end", () => destination.end());
+  return destination;
+};
 
 function unsupported(what, code = "ENOSYS") {
   return () => { throw Object.assign(new Error(`Janis does not support ${what}`), { code }); };
@@ -406,11 +653,27 @@ class JanisStdin extends JanisEventEmitter {
   }
   resume() { this.#resumed = true; return this; }
   pause() { this.#resumed = false; return this; }
-  isActive() { return this.#resumed && this.listenerCount("data") > 0; }
+  // An unreferenced stdin still reads while other work keeps the loop alive.
+  refed = true;
+  ref() { this.refed = true; return this; }
+  unref() { this.refed = false; return this; }
+  isActive() { return this.readable && (this.#resumed && this.listenerCount("data") > 0 || this.listenerCount("readable") > 0); }
+  // Paused mode: 'readable' listeners pull buffered input with read().
+  #queue = [];
+  read() {
+    if (!this.#queue.length) return null;
+    const chunk = typeof this.#queue[0] === "string" ? this.#queue.join("") : Buffer.concat(this.#queue);
+    this.#queue.length = 0;
+    this.emit("data", chunk);
+    return chunk;
+  }
   publish(bytes) {
     if (!bytes.length || !this.isActive()) return;
     const chunk = this.#decoder ? this.#decoder.write(bytes) : Buffer.from(bytes);
-    if (chunk.length) this.emit("data", chunk);
+    if (!chunk.length) return;
+    if (this.listenerCount("readable") === 0) return void this.emit("data", chunk);
+    this.#queue.push(chunk);
+    this.emit("readable");
   }
   finish() {
     if (!this.readable) return;
@@ -467,7 +730,12 @@ Object.assign(process, {
   execPath: "/usr/bin/janis",
   execArgv: [],
   argv0: "janis",
-  exit(code = process.exitCode ?? 0) { Dolly.exit(Number(code)); },
+  // Node's exit: listeners see the code, then the process ends; no catch intercepts it.
+  exit(code) {
+    if (code !== undefined) process.exitCode = code;
+    janisEmitExit();
+    Dolly.exit(Number(process.exitCode ?? 0));
+  },
   kill(pid, signal = "SIGTERM") {
     if (pid === process.pid && signal === "SIGWINCH") janisStdout.emit("resize");
     else Dolly.processKill(pid, childSignal(signal));
@@ -483,6 +751,8 @@ Object.assign(process, {
   resourceUsage: unsupported("process.resourceUsage"),
 });
 process.hrtime.bigint = () => BigInt(Math.round(performance.now() * 1e6));
+// Node's argv[1] is the script's absolute path ("-" for stdin).
+if (globalThis.scriptPath && globalThis.scriptPath !== "-") process.argv[1] = resolvePath(globalThis.scriptPath);
 const janisProcessEvents = new JanisEventEmitter();
 for (const method of [
   "on", "addListener", "prependListener", "once", "prependOnceListener",
@@ -495,6 +765,14 @@ for (const method of [
   };
 }
 process.emit = (name, ...args) => janisProcessEvents.emit(name, ...args);
+let janisExiting = false;
+function janisEmitExit() {
+  if (janisExiting) return;
+  janisExiting = true;
+  process.emit("exit", Number(process.exitCode ?? 0));
+}
+// The native runner calls this when the event loop drains, as Node emits 'exit'.
+globalThis.__janisExiting = janisEmitExit;
 
 // Buffer operations used by Pi, TypeBox, model clients, and extension loaders.
 Buffer.isEncoding = (encoding) => /^(?:utf-?8|utf8|hex|base64|ascii|latin1|binary)$/i.test(encoding);
@@ -913,7 +1191,7 @@ function readSync(descriptor, buffer, offset, length, position = null) {
   return fileIo(false, descriptor, buffer, offset, length, position);
 }
 
-class JanisReadable extends JanisEventEmitter {
+class JanisReadable extends JanisStream {
   readable = true;
   readableEncoding = null;
   #decoder;
@@ -962,7 +1240,7 @@ function streamWrite(stream, chunk, encoding, callback) {
   else done();
   return true;
 }
-class JanisWritable extends JanisEventEmitter {
+class JanisWritable extends JanisStream {
   writable = true;
   writableLength = 0;
   constructor(options = {}) { super(); if (options.write) this._write = options.write; }
@@ -1044,6 +1322,79 @@ function createWriteStream(path, options = {}) {
   return stream;
 }
 
+// Dolly has no change notification, so fs.watch compares metadata every
+// second and fs.watchFile at its interval, both on unreferenced-able timers.
+function janisWatchSnapshot(path, recursive) {
+  const metadata = fsStat(path);
+  if (!metadata.isDirectory()) return new Map([["", `${metadata.mtimeMs}:${metadata.size}`]]);
+  const entries = new Map();
+  const walk = (directory, prefix) => {
+    for (const name of fsReaddir(directory)) {
+      let child;
+      try { child = fsLstat(janisPath.join(directory, name)); } catch { continue; }
+      entries.set(prefix + name, `${child.kind}:${child.mtimeMs}:${child.size}`);
+      if (recursive && child.isDirectory()) walk(janisPath.join(directory, name), `${prefix}${name}/`);
+    }
+  };
+  walk(path, "");
+  return entries;
+}
+class JanisFSWatcher extends JanisEventEmitter {
+  #timer; #snapshot;
+  constructor(path, options, listener) {
+    super();
+    path = String(path);
+    const recursive = Boolean(options.recursive);
+    this.#snapshot = fsNative(path, () => janisWatchSnapshot(path, recursive));
+    if (listener) this.on("change", listener);
+    this.#timer = setInterval(() => {
+      let next;
+      try { next = janisWatchSnapshot(path, recursive); } catch { next = new Map(); }
+      for (const [name, value] of next) {
+        const before = this.#snapshot.get(name);
+        if (before !== value) this.emit("change", before === undefined ? "rename" : "change", name || basename(path));
+      }
+      for (const name of this.#snapshot.keys()) if (!next.has(name)) this.emit("change", "rename", name || basename(path));
+      this.#snapshot = next;
+    }, 1000);
+    if (options.persistent === false) this.#timer.unref();
+  }
+  close() { clearInterval(this.#timer); this.emit("close"); }
+  ref() { this.#timer.ref(); return this; }
+  unref() { this.#timer.unref(); return this; }
+}
+const janisStatWatchers = new Map();
+function janisWatchFile(path, options, listener) {
+  if (typeof options === "function") [options, listener] = [{}, options];
+  path = String(path);
+  const current = () => { try { return fsStat(path); } catch { return new JanisStats({ size: 0, mode: 0, mtimeMs: 0, kind: "other" }); } };
+  let watcher = janisStatWatchers.get(path);
+  if (!watcher) {
+    watcher = new JanisEventEmitter();
+    let previous = current();
+    const timer = setInterval(() => {
+      const next = current();
+      if (next.mtimeMs === previous.mtimeMs && next.size === previous.size && next.kind === previous.kind) return;
+      [previous, next.previous] = [next, previous];
+      watcher.emit("change", next, next.previous);
+    }, options?.interval ?? 5007);
+    if (options?.persistent === false) timer.unref();
+    Object.assign(watcher, { timer, ref() { timer.ref(); return this; }, unref() { timer.unref(); return this; } });
+    janisStatWatchers.set(path, watcher);
+  }
+  watcher.on("change", listener);
+  return watcher;
+}
+function janisUnwatchFile(path, listener) {
+  const watcher = janisStatWatchers.get(String(path));
+  if (!watcher) return;
+  if (listener) watcher.off("change", listener);
+  else watcher.removeAllListeners("change");
+  if (watcher.listenerCount("change")) return;
+  clearInterval(watcher.timer);
+  janisStatWatchers.delete(String(path));
+}
+
 const janisFs = {
   constants: { ...Dolly.fsConstants, F_OK: 0, R_OK: 4, W_OK: 2, X_OK: 1,
     COPYFILE_EXCL: 1, COPYFILE_FICLONE: 2, COPYFILE_FICLONE_FORCE: 4 },
@@ -1077,6 +1428,13 @@ const janisFs = {
     String(path), atime instanceof Date ? atime.getTime() / 1000 : Number(atime),
     mtime instanceof Date ? mtime.getTime() / 1000 : Number(mtime))),
   chmodSync: (path, mode) => fsNative(path, () => Dolly.fsChmod(String(path), fsMode(mode))),
+  symlinkSync: (target, path) => Dolly.fsSymlink(String(target), String(path)),
+  linkSync: (existing, path) => Dolly.fsLink(String(existing), String(path)),
+  readlinkSync: (path) => Dolly.fsReadlink(String(path)),
+  truncateSync: (path, length = 0) => typeof path === "number"
+    ? Dolly.fsFtruncate(fsDescriptor(path), fsIndex(length, "length")) : Dolly.fsTruncate(String(path), fsIndex(length, "length")),
+  ftruncateSync: (descriptor, length = 0) => Dolly.fsFtruncate(fsDescriptor(descriptor), fsIndex(length, "length")),
+  fsyncSync: (descriptor) => Dolly.fsFsync(fsDescriptor(descriptor)),
   openSync,
   closeSync,
   readSync,
@@ -1084,9 +1442,12 @@ const janisFs = {
   createReadStream,
   createWriteStream,
   mkdtempSync: fsMkdtemp,
-  watch: unsupported("filesystem watching", "ERR_METHOD_NOT_IMPLEMENTED"),
-  watchFile: unsupported("filesystem watching", "ERR_METHOD_NOT_IMPLEMENTED"),
-  unwatchFile() {},
+  watch: (path, options, listener) => {
+    if (typeof options === "function") [options, listener] = [{}, options];
+    return new JanisFSWatcher(path, typeof options === "string" ? {} : options ?? {}, listener);
+  },
+  watchFile: janisWatchFile,
+  unwatchFile: janisUnwatchFile,
 };
 
 const janisFsPromises = {
@@ -1102,11 +1463,15 @@ const janisFsPromises = {
       appendFile: async (data, options) => fsAppend(current(), data, options),
       close: async () => { if (fd !== -1) { closeSync(fd); fd = -1; } },
       stat: async () => fsFstat(current()),
+      truncate: async (length) => janisFs.ftruncateSync(current(), length),
+      sync: async () => janisFs.fsyncSync(current()),
+      datasync: async () => janisFs.fsyncSync(current()),
     };
   },
 };
 for (const name of ["access", "stat", "lstat", "fstat", "readFile", "writeFile", "appendFile", "mkdir",
-  "readdir", "unlink", "rmdir", "rm", "rename", "copyFile", "realpath", "utimes", "mkdtemp", "chmod"]) {
+  "readdir", "unlink", "rmdir", "rm", "rename", "copyFile", "realpath", "utimes", "mkdtemp", "chmod",
+  "symlink", "link", "readlink", "truncate"]) {
   const sync = janisFs[`${name}Sync`];
   janisFsPromises[name] = async (...args) => sync(...args);
   janisFs[name] = (...args) => {
@@ -1115,7 +1480,13 @@ for (const name of ["access", "stat", "lstat", "fstat", "readFile", "writeFile",
     callbackResult(() => sync(...args), callback);
   };
 }
+janisFsPromises.constants = janisFs.constants;
 janisFs.promises = janisFsPromises;
+janisFs.fsync = (descriptor, callback) => callbackResult(() => janisFs.fsyncSync(descriptor), callback);
+janisFs.ftruncate = (descriptor, length, callback) => {
+  if (typeof length === "function") [length, callback] = [0, length];
+  callbackResult(() => janisFs.ftruncateSync(descriptor, length), callback);
+};
 
 const janisChildren = new Map();
 const childSignals = { SIGINT: 2, SIGKILL: 9, SIGTERM: 15 };
@@ -1225,6 +1596,7 @@ function childOutput(record, index) {
   };
   return stream;
 }
+class JanisChildProcess extends JanisEventEmitter {}
 function spawn(command, args = [], options = {}) {
   if (!Array.isArray(args)) { options = args ?? {}; args = []; }
   // Invalid arguments throw; unavailable process facilities and executables
@@ -1232,7 +1604,7 @@ function spawn(command, args = [], options = {}) {
   let config, startError;
   try { config = childOptions(command, args, options); }
   catch (error) { if (error.code !== "ENOENT" && error.code !== "ENOTSUP") throw error; startError = error; }
-  const child = new JanisEventEmitter();
+  const child = new JanisChildProcess();
   const record = { child, fds: [null, null, null], paused: [false, false, false], input: [], inputEnded: false, waited: false,
     closed: false, pumping: false, ref: true, timer: null, abort: null, signal: options.signal };
   child.pid = undefined;
@@ -1444,6 +1816,7 @@ function execFile(command, args, options, callback) {
   return execResult(spawn(command, args, options), options, callback);
 }
 const janisChildProcess = {
+  ChildProcess: JanisChildProcess,
   spawn,
   spawnSync,
   exec,
@@ -1513,6 +1886,35 @@ function sha256(input) {
   return output;
 }
 
+function sha1(input) {
+  const bytes = Buffer.from(input);
+  const paddedLength = Math.ceil((bytes.length + 9) / 64) * 64;
+  const padded = Buffer.alloc(paddedLength);
+  padded.set(bytes);
+  padded[bytes.length] = 0x80;
+  const bitLength = BigInt(bytes.length) * 8n;
+  for (let index = 0; index < 8; index++)
+    padded[paddedLength - 1 - index] = Number(bitLength >> BigInt(index * 8) & 0xffn);
+  const state = [0x67452301, 0xefcdab89, 0x98badcfe, 0x10325476, 0xc3d2e1f0];
+  const words = new Uint32Array(80);
+  for (let offset = 0; offset < padded.length; offset += 64) {
+    for (let index = 0; index < 16; index++) words[index] = padded.readUInt32BE(offset + index * 4);
+    for (let index = 16; index < 80; index++)
+      words[index] = rotateRight(words[index - 3] ^ words[index - 8] ^ words[index - 14] ^ words[index - 16], 31);
+    let [a, b, c, d, e] = state;
+    for (let index = 0; index < 80; index++) {
+      const [mix, constant] = index < 20 ? [b & c | ~b & d, 0x5a827999] : index < 40 ? [b ^ c ^ d, 0x6ed9eba1]
+        : index < 60 ? [b & c | b & d | c & d, 0x8f1bbcdc] : [b ^ c ^ d, 0xca62c1d6];
+      const next = (rotateRight(a, 27) + mix + e + constant + words[index]) >>> 0;
+      e = d; d = c; c = rotateRight(b, 2) >>> 0; b = a; a = next;
+    }
+    [a, b, c, d, e].forEach((value, index) => { state[index] = (state[index] + value) >>> 0; });
+  }
+  const output = Buffer.alloc(20);
+  state.forEach((value, index) => output.writeUInt32BE(value, index * 4));
+  return output;
+}
+
 function md5(input) {
   const bytes = Buffer.from(input);
   const paddedLength = Math.ceil((bytes.length + 9) / 64) * 64;
@@ -1563,14 +1965,15 @@ function md5(input) {
 }
 function createHash(algorithm) {
   algorithm = String(algorithm).toLowerCase().replaceAll("-", "");
-  if (algorithm !== "sha256" && algorithm !== "md5")
-    throw new Error(`Janis does not implement hash '${algorithm}'`);
+  const digests = { sha256, sha1, md5 };
+  if (!Object.hasOwn(digests, algorithm))
+    throw Object.assign(new Error(`Janis does not implement hash '${algorithm}'`), { code: "ERR_OSSL_EVP_UNSUPPORTED" });
   const chunks = [];
   return {
     update(value, encoding) { chunks.push(Buffer.from(value, encoding)); return this; },
     digest(encoding) {
       const input = Buffer.concat(chunks);
-      const bytes = algorithm === "sha256" ? sha256(input) : md5(input);
+      const bytes = digests[algorithm](input);
       return encoding ? bytes.toString(encoding) : bytes;
     },
     copy() { const copy = createHash(algorithm); copy.update(Buffer.concat(chunks)); return copy; },
@@ -1610,10 +2013,10 @@ crypto.subtle ??= {
     const name = String(
       typeof algorithm === "string" ? algorithm : algorithm?.name ?? "",
     ).toLowerCase().replaceAll("-", "");
-    if (name !== "sha256") {
-      throw new Error(`Janis Web Crypto does not implement digest '${name}'`);
+    if (name !== "sha256" && name !== "sha1") {
+      throw new DOMException(`Janis Web Crypto does not implement digest '${name}'`, "NotSupportedError");
     }
-    const digest = sha256(Buffer.from(data));
+    const digest = (name === "sha1" ? sha1 : sha256)(Buffer.from(data));
     const output = new Uint8Array(digest.length);
     output.set(digest);
     return output.buffer;
@@ -1635,6 +2038,8 @@ const janisCrypto = {
   },
   webcrypto: crypto,
   subtle: crypto.subtle,
+  createPrivateKey: unsupported("crypto key objects"),
+  createPublicKey: unsupported("crypto key objects"),
   constants: {},
 };
 
@@ -1648,6 +2053,7 @@ const janisOs = {
   type: () => "Dolly",
   release: () => "0",
   hostname: () => "dolly",
+  version: () => "Dolly",
   userInfo: () => ({ username: "dolly", uid: 0, gid: 0, shell: "/bin/slop", homedir: process.env.HOME || "/home/dolly" }),
   cpus: unsupported("os.cpus"),
   totalmem: unsupported("os.totalmem"),
@@ -1666,7 +2072,38 @@ function formatValue(value) {
   }
   try { return JSON.stringify(value) ?? String(value); } catch { return String(value); }
 }
+// Node's strict deep equality: Object.is for primitives, equal prototypes and
+// own enumerable keys, and contents for dates, regular expressions, views,
+// maps and sets (members compared by deep equality).
+function isDeepStrictEqual(left, right, seen = new Map()) {
+  if (Object.is(left, right)) return true;
+  if (typeof left !== "object" || typeof right !== "object" || left === null || right === null ||
+      Object.getPrototypeOf(left) !== Object.getPrototypeOf(right) ||
+      Object.prototype.toString.call(left) !== Object.prototype.toString.call(right)) return false;
+  if (seen.get(left) === right) return true;
+  seen.set(left, right);
+  const equal = (a, b) => isDeepStrictEqual(a, b, seen);
+  if (left instanceof Date && left.getTime() !== right.getTime()) return false;
+  if (left instanceof RegExp && String(left) !== String(right)) return false;
+  if (ArrayBuffer.isView(left) && (left.byteLength !== right.byteLength ||
+      Buffer.compare(new Uint8Array(left.buffer, left.byteOffset, left.byteLength),
+        new Uint8Array(right.buffer, right.byteOffset, right.byteLength)) !== 0)) return false;
+  if (left instanceof Map || left instanceof Set) {
+    if (left.size !== right.size) return false;
+    const unmatched = [...right];
+    for (const entry of left) {
+      const index = unmatched.findIndex((candidate) => left instanceof Map
+        ? equal(entry[0], candidate[0]) && equal(entry[1], candidate[1]) : equal(entry, candidate));
+      if (index < 0) return false;
+      unmatched.splice(index, 1);
+    }
+  }
+  const keys = Object.keys(left);
+  return keys.length === Object.keys(right).length &&
+    keys.every((key) => Object.hasOwn(right, key) && equal(left[key], right[key]));
+}
 const janisUtil = {
+  isDeepStrictEqual: (left, right) => isDeepStrictEqual(left, right),
   inspect: (value) => formatValue(value),
   format: (format, ...args) => {
     if (typeof format !== "string") return [format, ...args].map(formatValue).join(" ");
@@ -1718,8 +2155,8 @@ function streamPipeline(...streams) {
   streamFinished(streams.at(-1), settle);
   return streams.at(-1);
 }
-const janisStream = {
-  Stream: JanisEventEmitter,
+const janisStream = Object.assign(JanisStream, {
+  Stream: JanisStream,
   Readable: JanisReadable,
   Writable: JanisWritable,
   Duplex: JanisDuplex,
@@ -1727,10 +2164,22 @@ const janisStream = {
   PassThrough: JanisPassThrough,
   pipeline: streamPipeline,
   finished: streamFinished,
-};
+});
 const settledBy = operation => (...args) => new Promise((resolve, reject) =>
   operation(...args, error => error ? reject(error) : resolve()));
 const janisStreamPromises = { pipeline: settledBy(streamPipeline), finished: settledBy(streamFinished) };
+janisStream.promises = janisStreamPromises;
+async function streamBuffer(stream) {
+  const chunks = [];
+  for await (const chunk of stream) chunks.push(Buffer.from(chunk));
+  return Buffer.concat(chunks);
+}
+const janisStreamConsumers = {
+  buffer: streamBuffer,
+  text: async (stream) => (await streamBuffer(stream)).toString(),
+  json: async (stream) => JSON.parse((await streamBuffer(stream)).toString()),
+  arrayBuffer: async (stream) => (await streamBuffer(stream)).slice().buffer,
+};
 
 function janisDiagnosticChannel(name) {
   return {
@@ -1967,6 +2416,7 @@ const janisV8 = {
   getCachedDataVersionTag: () => 0,
   getHeapStatistics: () => ({}),
   getHeapSpaceStatistics: () => [],
+  getHeapSnapshot: unsupported("heap snapshots"),
   setFlagsFromString() {},
   serialize: (value) => Buffer.from(JSON.stringify(value)),
   deserialize: (value) => JSON.parse(Buffer.from(value).toString()),
@@ -2011,8 +2461,8 @@ const janisBuiltinModuleNames = [
   "assert", "assert/strict", "async_hooks", "buffer", "child_process",
   "console", "constants", "crypto", "diagnostics_channel", "dns", "events",
   "fs", "fs/promises", "http", "http2", "https", "module", "net", "os",
-  "path", "perf_hooks", "process", "querystring", "readline", "sqlite",
-  "stream", "stream/promises", "stream/web", "string_decoder", "timers",
+  "path", "path/posix", "path/win32", "perf_hooks", "process", "querystring", "readline", "sqlite",
+  "stream", "stream/consumers", "stream/promises", "stream/web", "string_decoder", "timers",
   "timers/promises", "tls", "tty", "url", "util", "util/types", "v8", "vm",
   "worker_threads", "zlib", "undici",
 ];
@@ -2067,7 +2517,7 @@ function janisPackageExport(exportsValue, subpath, conditions) {
   return janisMappedTarget(exportsValue, key, conditions);
 }
 
-function janisPackageImport(specifier, baseName, forRequire = false, raw = false) {
+function janisPackageImport(specifier, baseName, forRequire = false) {
   if (specifier === "#" || specifier.startsWith("#/")) {
     throw Object.assign(new Error(`Invalid package import specifier '${specifier}'`), {
       code: "ERR_INVALID_MODULE_SPECIFIER",
@@ -2093,7 +2543,7 @@ function janisPackageImport(specifier, baseName, forRequire = false, raw = false
         });
       }
       if (!target.startsWith("./"))
-        return janisResolveModule(target, manifestPath, forRequire, raw);
+        return janisResolveModule(target, manifestPath, forRequire);
       const candidate = normalizePath(directory, target);
       if (candidate !== directory && !candidate.startsWith(`${directory}/`)) {
         throw Object.assign(new Error(`Package import '${specifier}' escapes its package root`), {
@@ -2101,8 +2551,7 @@ function janisPackageImport(specifier, baseName, forRequire = false, raw = false
         });
       }
       const resolved = janisModuleFile(candidate);
-      if (resolved !== undefined)
-        return forRequire || raw ? resolved : janisModuleForImport(resolved);
+      if (resolved !== undefined) return resolved;
       throw Object.assign(new Error(`Cannot find package import '${specifier}'`), {
         code: "ERR_MODULE_NOT_FOUND",
       });
@@ -2116,82 +2565,71 @@ function janisPackageImport(specifier, baseName, forRequire = false, raw = false
   });
 }
 
-// Module adapters must exist as files because QuickJS's module loader consumes
-// filesystem paths. Keep them in one invocation-owned scratch tree; the native
-// runner calls __janisCleanup before destroying this JavaScript context.
-const janisTemporaryRoot = `/tmp/janis-${process.pid}-${Math.random().toString(16).slice(2, 14)}`;
-
-function janisEsmBuiltin(specifier) {
-  const name = String(specifier).replace(/^node:/, "");
-  const builtin = globalThis.__janisBuiltin(name);
-  const directory = `${janisTemporaryRoot}/esm-builtins`;
-  const path = `${directory}/${name.replaceAll("/", "__")}.mjs`;
-  const exports = Object.keys(builtin)
-    .filter((key) => key !== "default" && /^[A-Za-z_$][A-Za-z0-9_$]*$/.test(key))
-    .sort();
-  const source = [
-    `const builtin = globalThis.__janisBuiltin(${JSON.stringify(name)});`,
-    "export default builtin;",
-    ...exports.map((key) => `export const ${key} = builtin[${JSON.stringify(key)}];`),
-    "",
-  ].join("\n");
-  fsMkdir(directory, { recursive: true });
-  if (!fsExists(path) || fsRead(path, "utf8") !== source) fsWrite(path, source);
-  return path;
-}
-
-function janisModuleIsEsm(path, fallback = false) {
-  if (path.endsWith(".mjs")) return true;
-  if (path.endsWith(".cjs")) return false;
+// Node's format rules: the extension, then the nearest package.json "type". A
+// file with neither is ambiguous: CommonJS unless it only parses as an ES module.
+function janisModuleFormat(path) {
+  if (path.endsWith(".mjs")) return "module";
+  if (path.endsWith(".cjs")) return "commonjs";
   let directory = dirname(path);
   for (;;) {
     const manifestPath = janisPath.join(directory, "package.json");
     if (fsExists(manifestPath)) {
-      try { return JSON.parse(fsRead(manifestPath, "utf8")).type === "module"; }
+      let type;
+      try { type = JSON.parse(fsRead(manifestPath, "utf8")).type; }
       catch (error) {
         throw Object.assign(new Error(`Invalid package manifest '${manifestPath}': ${error.message}`), {
           code: "ERR_INVALID_PACKAGE_CONFIG",
         });
       }
+      return type === "module" || type === "commonjs" ? type : "ambiguous";
     }
     const parent = dirname(directory);
-    if (parent === directory) return fallback;
+    if (parent === directory) return "ambiguous";
     directory = parent;
   }
 }
 
-function janisEsmCommonJs(modulePath) {
-  const value = globalThis.__janisRequireCjs(modulePath);
-  const directory = `${janisTemporaryRoot}/esm-commonjs`;
-  const digest = createHash("sha256").update(modulePath).digest("hex");
-  const path = `${directory}/${digest}.mjs`;
-  const exports = value !== null && (typeof value === "object" || typeof value === "function")
-    ? Object.keys(value)
-      .filter((key) => key !== "default" && /^[A-Za-z_$][A-Za-z0-9_$]*$/.test(key))
-      .sort()
+// The wrapper detection compiled stays ready for the require that follows.
+const janisDetectedCommonJs = new Map();
+function janisCompileCommonJs(source, filename) {
+  if (source.charCodeAt(0) === 0xfeff) source = source.slice(1);
+  return Dolly.compileCommonJs(source.startsWith("#!") ? `//${source.slice(2)}` : source, filename);
+}
+function janisIsCommonJs(path) {
+  const format = janisModuleFormat(path);
+  if (format !== "ambiguous" || janisDetectedCommonJs.has(path)) return format !== "module";
+  try { janisDetectedCommonJs.set(path, janisCompileCommonJs(Dolly.readFile(path), path)); }
+  catch (error) { if (error instanceof SyntaxError) return false; throw error; }
+  return true;
+}
+
+// An ES module view of a value, its default export plus its identifier keys.
+function janisModuleView(expression, value) {
+  const names = value !== null && (typeof value === "object" || typeof value === "function")
+    ? Object.keys(value).filter((key) => key !== "default" && /^[A-Za-z_$][A-Za-z0-9_$]*$/.test(key)).sort()
     : [];
-  const source = [
-    `const value = globalThis.__janisRequireCjs(${JSON.stringify(modulePath)});`,
-    "export default value;",
-    ...exports.map((key) => `export const ${key} = value[${JSON.stringify(key)}];`),
-    "",
-  ].join("\n");
-  fsMkdir(directory, { recursive: true });
-  if (!fsExists(path) || fsRead(path, "utf8") !== source) fsWrite(path, source);
-  return path;
+  return [`const value = ${expression};`, "export default value;",
+    ...names.map((key) => `export const ${key} = value[${JSON.stringify(key)}];`), ""].join("\n");
 }
 
-function janisModuleForImport(path) {
-  return janisModuleIsEsm(path, true) ? path : janisEsmCommonJs(path);
-}
+// Synthetic module sources for the native loader: node: built-ins, and
+// CommonJS files imported from ESM. Others load from their files.
+globalThis.__janisModuleSource = (name) => {
+  if (name.startsWith("node:")) {
+    const builtin = name.slice("node:".length);
+    return janisModuleView(`globalThis.__janisBuiltin(${JSON.stringify(builtin)})`, globalThis.__janisBuiltin(builtin));
+  }
+  if (name.endsWith(".json") || !janisIsCommonJs(name)) return undefined;
+  return janisModuleView(`globalThis.__janisRequireCjs(${JSON.stringify(name)})`, globalThis.__janisRequireCjs(name));
+};
 
-function janisResolveModule(specifier, baseName, forRequire = false, raw = false) {
+function janisResolveModule(specifier, baseName, forRequire = false) {
   specifier = String(specifier);
   if (specifier.startsWith("#"))
-    return janisPackageImport(specifier, baseName, forRequire, raw);
+    return janisPackageImport(specifier, baseName, forRequire);
   if (specifier.startsWith("node:") ||
       janisBuiltinModuleNames.includes(specifier)) {
-    return janisEsmBuiltin(specifier);
+    return `node:${specifier.replace(/^node:/, "")}`;
   }
   const parts = specifier.split("/");
   const packageParts = specifier.startsWith("@") ? 2 : 1;
@@ -2259,8 +2697,7 @@ function janisResolveModule(specifier, baseName, forRequire = false, raw = false
       });
     }
     const resolved = janisModuleFile(candidate);
-    if (resolved !== undefined)
-      return forRequire || raw ? resolved : janisModuleForImport(resolved);
+    if (resolved !== undefined) return resolved;
     throw Object.assign(new Error(`Cannot find exported module '${specifier}'`), {
       code: "ERR_MODULE_NOT_FOUND",
     });
@@ -2272,6 +2709,12 @@ function janisResolveModule(specifier, baseName, forRequire = false, raw = false
 globalThis.__janisResolveModule = janisResolveModule;
 
 const janisRequireCache = Object.create(null);
+let janisMainModule;
+function janisRunCommonJs(module, compiled, filename) {
+  compiled.call(module.exports, module.exports, module.require, module, filename,
+    filename.startsWith("/") ? dirname(filename) : ".");
+  module.loaded = true;
+}
 function createJanisRequire(filename = "/usr/lib/janis/index.js") {
   const base = dirname(filename);
   const require = (specifier) => {
@@ -2279,30 +2722,23 @@ function createJanisRequire(filename = "/usr/lib/janis/index.js") {
     if (janisBuiltinModuleNames.includes(name)) return globalThis.__janisBuiltin(name);
     const resolved = require.resolve(String(specifier));
     if (resolved.endsWith(".json")) return JSON.parse(fsRead(resolved, "utf8"));
-    if (janisModuleIsEsm(resolved)) {
-      throw Object.assign(new Error(`Cannot require ES module '${resolved}'`), {
+    const cached = janisRequireCache[resolved];
+    if (cached) return cached.exports;
+    if (!janisIsCommonJs(resolved)) {
+      throw Object.assign(new Error(`Janis cannot require ES module '${resolved}'; import it`), {
         code: "ERR_REQUIRE_ESM",
       });
     }
-    const cached = janisRequireCache[resolved];
-    if (cached) return cached.exports;
+    const compiled = janisDetectedCommonJs.get(resolved) ?? janisCompileCommonJs(Dolly.readFile(resolved), resolved);
+    janisDetectedCommonJs.delete(resolved);
     const child = new JanisModule(resolved);
     janisRequireCache[resolved] = child;
-    try {
-      let source = fsRead(resolved, "utf8");
-      if (source.startsWith("#!")) source = source.replace(/^#![^\n]*(?:\n|$)/, "");
-      const wrapper = Function(
-        "exports", "require", "module", "__filename", "__dirname",
-        `${source}\n//# sourceURL=${resolved}`,
-      );
-      wrapper(child.exports, child.require, child, resolved, dirname(resolved));
-      child.loaded = true;
-      return child.exports;
-    }
+    try { janisRunCommonJs(child, compiled, resolved); }
     catch (error) {
       delete janisRequireCache[resolved];
       throw error;
     }
+    return child.exports;
   };
   require.resolve = (specifier) => {
     const value = String(specifier);
@@ -2323,11 +2759,31 @@ function createJanisRequire(filename = "/usr/lib/janis/index.js") {
       : JanisModule._nodeModulePaths(base);
   require.cache = janisRequireCache;
   require.extensions = { ".js": true, ".json": true };
-  require.main = undefined;
+  Object.defineProperty(require, "main", { get: () => janisMainModule, enumerable: true });
   return require;
 }
 globalThis.__janisRequireCjs = (path) => createJanisRequire(String(path))(String(path));
-globalThis.__janisResolveFile = (path) => janisModuleForImport(String(path));
+
+// The entry: CommonJS runs here; true asks the native runner for an ES module.
+// -e and stdin are named [eval] and [stdin] and resolve from the cwd, as in Node.
+globalThis.__janisMain = (source, name) => {
+  const file = name !== "[eval]" && name !== "[stdin]";
+  const filename = file ? resolvePath(name) : name;
+  const format = file ? janisModuleFormat(filename) : "ambiguous";
+  if (format === "module") return true;
+  let compiled;
+  try { compiled = janisCompileCommonJs(source, filename); }
+  catch (error) {
+    if (format === "ambiguous" && error instanceof SyntaxError) return true;
+    throw error;
+  }
+  janisMainModule = new JanisModule(file ? filename : resolvePath(name));
+  janisMainModule.id = ".";
+  if (file) janisRequireCache[filename] = janisMainModule;
+  process.mainModule = janisMainModule;
+  janisRunCommonJs(janisMainModule, compiled, filename);
+  return false;
+};
 globalThis.__janisImportMetaResolve = (specifier, baseName) => {
   specifier = String(specifier);
   if (specifier.startsWith("node:")) return specifier;
@@ -2337,7 +2793,7 @@ globalThis.__janisImportMetaResolve = (specifier, baseName) => {
   if (specifier.startsWith("./") || specifier.startsWith("../")) {
     return `file://${normalizePath(dirname(String(baseName)), specifier)}`;
   }
-  return `file://${janisResolveModule(specifier, baseName, false, true)}`;
+  return `file://${janisResolveModule(specifier, baseName)}`;
 };
 
 const janisTls = {
@@ -2384,7 +2840,8 @@ const janisBuiltinModules = {
   crypto: janisCrypto,
   diagnostics_channel: janisDiagnosticsChannel,
   dns: janisDns,
-  events: Object.assign(JanisEventEmitter, { EventEmitter: JanisEventEmitter, once: JanisEventEmitter.once }),
+  // Janis never warns about listener counts, so there is no limit to set.
+  events: Object.assign(JanisEventEmitter, { EventEmitter: JanisEventEmitter, setMaxListeners() {} }),
   fs: janisFs,
   "fs/promises": janisFsPromises,
   module: {
@@ -2397,6 +2854,8 @@ const janisBuiltinModules = {
   },
   os: janisOs,
   path: janisPath,
+  "path/posix": janisPath,
+  "path/win32": janisPath.win32,
   perf_hooks: { performance },
   process,
   querystring: janisQuerystring,
@@ -2408,6 +2867,7 @@ const janisBuiltinModules = {
     moveCursor: unsupported("readline terminal editing"),
   },
   stream: janisStream,
+  "stream/consumers": janisStreamConsumers,
   "stream/promises": janisStreamPromises,
   "stream/web": janisStreamWeb,
   string_decoder: { StringDecoder: JanisStringDecoder },
@@ -2430,7 +2890,10 @@ const janisBuiltinModules = {
   "util/types": janisUtil.types,
   v8: janisV8,
   vm: janisVm,
-  worker_threads: { isMainThread: true, parentPort: null, threadId: 0, workerData: null, Worker: class { constructor() { throw new Error("Janis has no worker threads"); } } },
+  // One thread. Worker stays a named export, since static imports of it must
+  // link (Pi's codemode imports it); constructing one fails with ENOSYS.
+  worker_threads: { isMainThread: true, parentPort: null, threadId: 0, workerData: null,
+    Worker: class Worker { constructor() { unsupported("worker threads")(); } } },
 };
 
 janisBuiltinModules["assert/strict"] = janisBuiltinModules.assert;
@@ -2491,6 +2954,60 @@ for (const name of ["http", "https", "net"]) {
     STATUS_CODES: {},
   };
 }
+// Addresses as integers; an IPv4 address and its ::ffff: mapping are the same.
+function janisAddressValue(address, type = "ipv4") {
+  address = String(address);
+  if (type === "ipv4") {
+    if (!janisIPv4(address)) throw Object.assign(new Error(`Invalid IPv4 address: ${address}`), { code: "ERR_INVALID_ADDRESS" });
+    return { family: 4, value: address.split(".").reduce((sum, part) => sum << 8n | BigInt(part), 0n) };
+  }
+  if (!janisIPv6(address) || address.includes("%"))
+    throw Object.assign(new Error(`Invalid IPv6 address: ${address}`), { code: "ERR_INVALID_ADDRESS" });
+  let groups = address.split(":");
+  if (groups.at(-1).includes(".")) {
+    const low = janisAddressValue(groups.at(-1)).value;
+    groups.splice(-1, 1, (low >> 16n).toString(16), (low & 0xffffn).toString(16));
+  }
+  const gap = groups.indexOf("");
+  if (gap >= 0) {
+    const parts = groups.filter((group) => group !== "");
+    groups = [...parts.slice(0, gap), ...Array(8 - parts.length).fill("0"), ...parts.slice(gap)];
+    if (groups.length > 8) groups = groups.slice(0, 8);
+  }
+  const value = groups.reduce((sum, group) => sum << 16n | BigInt(`0x${group || 0}`), 0n);
+  return value >> 32n === 0xffffn ? { family: 4, value: value & 0xffffffffn } : { family: 6, value };
+}
+class JanisBlockList {
+  #rules = [];
+  #add(type, start, end, text) {
+    const first = janisAddressValue(start, type), last = janisAddressValue(end, type);
+    if (first.family !== last.family || first.value > last.value)
+      throw Object.assign(new RangeError("The start address must be at or before the end address"), { code: "ERR_INVALID_ARG_VALUE" });
+    this.#rules.unshift({ family: first.family, start: first.value, end: last.value, text });
+  }
+  addAddress(address, type = "ipv4") { this.#add(type, address, address, `Address: ${type === "ipv4" ? "IPv4" : "IPv6"} ${address}`); }
+  addRange(start, end, type = "ipv4") { this.#add(type, start, end, `Range: ${type === "ipv4" ? "IPv4" : "IPv6"} ${start}-${end}`); }
+  addSubnet(network, prefix, type = "ipv4") {
+    const bits = type === "ipv4" ? 32n : 128n;
+    if (!Number.isInteger(prefix) || prefix < 0 || BigInt(prefix) > bits)
+      throw Object.assign(new RangeError(`The prefix must be between 0 and ${bits}`), { code: "ERR_OUT_OF_RANGE" });
+    const { family, value } = janisAddressValue(network, type);
+    const span = (1n << (bits - BigInt(prefix))) - 1n;
+    const [start, end] = family === 4 && type === "ipv6"
+      ? [value & ~span, value | span].map((part) => part & 0xffffffffn) : [value & ~span, value | span];
+    this.#rules.unshift({ family, start, end, text: `Subnet: ${type === "ipv4" ? "IPv4" : "IPv6"} ${network}/${prefix}` });
+  }
+  check(address, type = "ipv4") {
+    const { family, value } = janisAddressValue(address, type);
+    return this.#rules.some((rule) => rule.family === family && rule.start <= value && value <= rule.end);
+  }
+  get rules() { return this.#rules.map((rule) => rule.text); }
+}
+Object.assign(janisBuiltinModules.net, {
+  connect: unsupported("TCP sockets; use fetch"),
+  createConnection: unsupported("TCP sockets; use fetch"),
+  BlockList: JanisBlockList,
+});
 const unavailableZlib = unsupported("zlib", "ERR_METHOD_NOT_IMPLEMENTED");
 janisBuiltinModules.zlib = {
   constants: {},
@@ -2506,6 +3023,9 @@ janisBuiltinModules.zlib = {
   createInflate: unavailableZlib,
   createDeflate: unavailableZlib,
 };
+// The classes exist for modules that subclass them at load; constructing fails.
+for (const name of ["Deflate", "Inflate", "Gzip", "Gunzip", "DeflateRaw", "InflateRaw", "Unzip", "BrotliCompress", "BrotliDecompress"])
+  janisBuiltinModules.zlib[name] = function() { unavailableZlib(); };
 
 globalThis.__janisBuiltin = (name) => {
   name = String(name).replace(/^node:/, "");
@@ -2536,16 +3056,38 @@ function janisStreamPump() {
   return pumpChildren();
 }
 
+// Node's error paths: an escaped error goes to 'uncaughtException' listeners;
+// a rejection still unhandled after microtasks drain goes to
+// 'unhandledRejection' listeners, otherwise it is uncaught.
+globalThis.__janisUncaught = (error, origin = "uncaughtException") => {
+  if (!process.listenerCount("uncaughtException")) return false;
+  process.emit("uncaughtException", error, origin);
+  return true;
+};
+const janisRejections = new Map();
+globalThis.__janisRejection = (promise, reason, handled) => {
+  if (handled) janisRejections.delete(promise);
+  else janisRejections.set(promise, reason);
+};
+function janisReportRejections() {
+  for (const [promise, reason] of janisRejections) {
+    janisRejections.delete(promise);
+    if (process.listenerCount("unhandledRejection")) process.emit("unhandledRejection", reason, promise);
+    else if (!globalThis.__janisUncaught(reason, "unhandledRejection")) throw reason;
+  }
+}
+
 // Called by quickjs-main.c after draining each microtask batch. It blocks only
 // inside the Wasm worker and keeps the runtime alive exactly while referenced
 // timers or resumed stdin listeners exist.
 globalThis.__janisPump = () => {
+  janisReportRejections();
   if (janisStreamPump()) return true;
   const pumpedHttp = Boolean(globalThis.__dollyHttpPump?.());
   const referenced = [...janisTimers.values()].filter((timer) => timer.ref);
   const wantsInput = janisStdin.isActive();
   const activeChildren = [...janisChildren.values()].some(record => record.ref);
-  if (!wantsInput && referenced.length === 0 && !pumpedHttp && !activeChildren) return false;
+  if (!(wantsInput && janisStdin.refed) && referenced.length === 0 && !pumpedHttp && !activeChildren) return false;
   const nextDue = referenced.length
     ? Math.max(0, Math.min(...referenced.map((timer) => timer.due)) - Date.now())
     : 1000;
@@ -2581,5 +3123,4 @@ globalThis.__janisCleanup = () => {
     for (let index = 0; index < 3; ++index) closeChildFd(record, index);
   }
   janisChildren.clear();
-  fsRemove(janisTemporaryRoot, { recursive: true, force: true });
 };

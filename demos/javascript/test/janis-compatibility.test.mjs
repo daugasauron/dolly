@@ -46,6 +46,20 @@ test("raw mode reaches the terminal, so Ctrl+C becomes input, only for a TTY std
   assert.deepEqual(calls, [true, false]);
 });
 
+test("worker_threads describes the one thread and Worker construction fails explicitly", () => {
+  const workers = janisContext().__janisBuiltin("worker_threads");
+  assert.deepEqual([workers.isMainThread, workers.threadId], [true, 0]);
+  assert.throws(() => new workers.Worker("/workspace/worker.js"), { code: "ENOSYS" });
+});
+
+test("zlib classes exist for subclassing and fail when constructed", () => {
+  const zlib = janisContext().__janisBuiltin("zlib");
+  for (const name of ["Inflate", "Deflate", "Gunzip"]) {
+    assert.equal(typeof zlib[name].prototype, "object");
+    assert.throws(() => new zlib[name](), { code: "ERR_METHOD_NOT_IMPLEMENTED" });
+  }
+});
+
 test("unsupported host resource queries fail explicitly", async () => {
   const janis = janisContext();
   const os = janis.__janisBuiltin("os");
