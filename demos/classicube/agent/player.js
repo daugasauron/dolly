@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-2.0-or-later
+// SPDX-License-Identifier: MIT
 import { createInputCodec } from "../../rts/codec.mjs";
 import { connectPlayer, modelContext } from "../../rts/player.js";
 const wire = createInputCodec({ magic: 0x31424343, version: 2, width: 640, height: 480, look: true, text: true });

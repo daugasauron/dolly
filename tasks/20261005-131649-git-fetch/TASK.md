@@ -1,6 +1,6 @@
 # git cannot fetch: github.com is unreachable through the browser broker
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 270
 - TAGS: network,git,design
 
@@ -148,3 +148,119 @@ rc=7
 $ curl -sS -o /dev/null -w %{http_code} https://api.github.com/repos/daugasauron/dolly
 200
 ```
+
+## Decision (2026-10-06, delegated by the owner; `fix/git-fetch`)
+
+**A relay is provider policy: the embedding maps an origin to a relay in the
+browser-side broker (`DOLLY_HTTP_RELAYS`), and Git stays unchanged and
+unconfigured. There is no transport over a forge's REST API. The public sites
+configure no relay: there `git clone` from `github.com` fails within a second
+with the "could not fetch" line, and an agent takes a snapshot of the files
+through the hosts that grant CORS.**
+
+This replaces the earlier recommendation in one point: the mapping lives in
+the provider, not in Git's `insteadOf` inside the guest.
+
+### What was measured
+
+No relay, GitHub's CORS-granting hosts (`build/git-fetch-evidence/`):
+
+- A prototype (`measure-no-relay.mjs`, 75 lines) rebuilt a shallow commit from
+  `api.github.com` (one commit, one recursive tree listing) and
+  `raw.githubusercontent.com` (one request per file), and compared every
+  object id with Git's. For `daugasauron/dolly`: 2 API calls, 1,305 file
+  requests, 73.8 MB, 20.9 s natively; all 431 trees and 1,305 blobs exact.
+- The commit id is the weak point. The API normalises dates to UTC, so the
+  commit object can only be found by trying every UTC offset (about 20,000
+  SHA-1 candidates). That rebuilt the exact id for `daugasauron/dolly` and
+  `git/git`, and failed for `cli/cli` (a signed merge) and `torvalds/linux`:
+  2 of 4.
+- `torvalds/linux`: the listing is truncated (71,638 entries), so a large
+  repository needs a request per directory, against a limit of 60
+  unauthenticated API requests an hour per address.
+- It cannot give history, `fetch`, `push`, private repositories or any other
+  forge. As a Git remote helper it would be about 500 lines of C for one
+  company's REST API (JSON, SHA-1 search, loose objects, the helper protocol).
+- The same requests with ordinary commands in Chrome on the `default` image
+  (`snapshot-in-browser.log`): `curl` twice, `awk`, then `xargs -P 8 … curl`
+  fetched the 1,305 files in 58.7 s; `git init && git add -A && git commit`
+  took 2.2 s and `git status` was clean. The executable bit of 39 files is
+  not represented, so this tree's id differs from upstream's.
+
+A relay (`relayed-clone.log`, `public-site-clone.log`), Chrome, `default`
+image, default policy, unchanged Git:
+
+```
+$ git clone --depth 1 https://github.com/octocat/Hello-World        # no relay: 0.4 s
+fatal: unable to access 'https://github.com/octocat/Hello-World/': Browser could not fetch the URL: blocked (no CORS headers, or a redirect) or unreachable (DNS, TLS, offline)
+$ git clone https://github.com/octocat/Hello-World                  # origin mapped to a relay: 2.1 s
+Receiving objects: 100% (13/13), done.
+$ git log --oneline | head -1; git config remote.origin.url; git fsck --full; git fetch origin
+7fd1a60 Merge pull request #6 from Spaceghost/patch-1
+https://github.com/octocat/Hello-World
+```
+
+The relay in that measurement was isomorphic-git's public `cors-proxy`, used
+once for a 13-object repository to show that an existing implementation of
+the URL shape serves; nothing ships pointing at it.
+
+### Reasons, by `AGENTS.md`
+
+- "Network access crosses one explicit, restrictable browser broker" and
+  "Destination, credential, redirect, quota, and approval policy belongs to
+  its browser-side provider and must remain enforceable after complete Wasm
+  compromise": a destination mapping is destination policy. In the provider
+  the embedding fixes it before Wasm runs; the guest cannot set, read or
+  bend it; rules keep naming the real destination (`github.com`, methods,
+  path prefix), so a relay admits nothing; and the broker withholds every
+  credential header the mapping does not name. As `insteadOf` in the guest
+  the relay would have to be an allowed destination that a compromised guest
+  could address directly, for any upstream the relay serves.
+- "Prefer unchanged upstream source plus target/toolchain configuration over
+  source forks and per-program compatibility patches": with the mapping,
+  upstream Git needs nothing, and curl, Python and Janis get the same host
+  for free.
+- "Report unsupported capabilities accurately … an unimplemented operation
+  cannot return success": a REST helper would let `git clone` succeed with a
+  depth-1 imitation that cannot fetch or push and whose commit id is wrong in
+  half the repositories tried. A snapshot the agent asked for by name is
+  honest; a clone that is not one is not.
+- "Every line of code is a maintenance burden": the mapping is about 50 lines
+  of provider code; the helper is about 500 lines of host-specific C.
+- "Do not broaden browser authority merely to make a port pass … no path
+  around the HTTP broker": the mapping adds no import, no destination and no
+  default. It moves trust to a relay only where an embedding chooses one,
+  and `docs/browser-boundary.md` says so.
+- "No new remote service" (the owner's instruction for the public sites): they
+  are static files, so they get no relay and say so. A user-facing setting
+  for one is a separate decision.
+
+### Implemented
+
+- `host/http/policy.mjs`, `host/http/broker.mjs`: `DOLLY_HTTP_RELAYS`, consumed
+  and deleted with the policy. An admitted request for a mapped origin is
+  fetched from `through` + host + path + query, without redirects, with only
+  the credential headers the mapping names, and the program is told the URL
+  it asked for. Page JavaScript only: image inputs are unchanged (`047fc328…`).
+- `docs/http.md` ("CORS and relays": configuration, guarantees, relay
+  protocol, what the public sites do), `docs/browser-boundary.md` (the trust
+  it moves).
+- `demos/pi/skills/dolly/SKILL.md`: try `git clone` once; without a relay take
+  a snapshot and, if needed, `git init` it; say that it has no upstream.
+- Tests: `test/http-policy.test.mjs` and `test/http-broker.test.mjs` (mapping,
+  credential removal, no redirect, inherited policies, rejected
+  configurations); `test/network-browser.mjs` in Chrome and Firefox: unchanged
+  Git clones, fetches and shallow-clones a forge origin the browser never
+  contacts, through a same-origin fixture relay with an allowlist; the relay
+  receives no `Authorization`; a URL the policy refuses never reaches it;
+  an unmapped host without CORS still fails with status 7.
+
+### Left
+
+- Operating a relay and enabling it for the public sites: not done, by the
+  owner's instruction. It needs a host that runs code, and a decision on
+  whose traffic it carries.
+- A setting by which the person at the page names a relay of their own: not
+  built; it is page UI and a trust prompt, not policy plumbing.
+- Relayed requests follow no redirect, so a renamed repository fails through
+  a relay that passes the forge's redirect on instead of answering itself.

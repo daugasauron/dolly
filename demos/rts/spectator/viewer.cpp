@@ -1,5 +1,5 @@
 // The spectator sees both views; neither Pi process receives this framebuffer.
-// SPDX-License-Identifier: GPL-2.0-or-later
+// SPDX-License-Identifier: MIT
 #include "graphics.h"
 
 int main(int argc, char **argv)

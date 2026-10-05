@@ -4,10 +4,27 @@ import { browserTest } from "./browser.mjs";
 import { createGitTransportFixture, runGitTransport } from "./fixtures/git-transport.mjs";
 
 const fixtures = { "libcurl-contract.c": "test/fixtures/libcurl-contract.c" };
-let contractRequests, cancelledRequests, git;
+let contractRequests, cancelledRequests, git, relayed;
 const overlapping = new Map();
+// A relay as an embedding would run one: same origin as the page, an exact
+// upstream allowlist, the request passed on and the response returned.
+async function relay(request, response, url, headers) {
+  const [, host, rest] = /^\/fixture\/relay\/([^/]+)(\/.*)$/.exec(url.pathname);
+  const self = `http://${request.headers.host}`;
+  if (host !== new URL(self).host.replace("127.0.0.1", "forge.localhost")) return response.writeHead(403, headers).end();
+  const chunks = [];
+  for await (const chunk of request) chunks.push(chunk);
+  relayed.push({ method: request.method, path: rest, authorization: request.headers.authorization ?? null });
+  const forwarded = Object.fromEntries(["accept", "authorization", "content-type", "git-protocol"]
+    .filter(name => request.headers[name] !== undefined).map(name => [name, request.headers[name]]));
+  const upstream = await fetch(`${self}${rest}${url.search}`, { method: request.method, headers: forwarded,
+    body: chunks.length ? Buffer.concat(chunks) : undefined, redirect: "error" });
+  response.writeHead(upstream.status, { ...headers, "content-type": upstream.headers.get("content-type") ?? "application/octet-stream" });
+  response.end(Buffer.from(await upstream.arrayBuffer()));
+}
 async function handle(request, response, path, headers) {
   const url = new URL(request.url, "http://127.0.0.1");
+  if (path.startsWith("/fixture/relay/")) { await relay(request, response, url, headers); return true; }
   if (path === "/fixture/libcurl-contract" && url.searchParams.has("cancel")) {
     // The probe rejects this response in a callback; its connection must close.
     const record = { phase: url.searchParams.get("cancel"), finished: false, closed: false };
@@ -45,11 +62,18 @@ const largeDigest = large.digest("hex");
 await browserTest("network", { server: { fixtures, handle } }, async ({ server, open }) => {
   contractRequests = [];
   cancelledRequests = [];
+  relayed = [];
   git = createGitTransportFixture();
   try {
     // The same server under another origin name sends no CORS headers.
     const blocked = server.origin.replace("127.0.0.1", "localhost");
-    const { submit } = await open({ policy: { rules: [
+    // A third name stands for a forge the embedding relays: the browser never
+    // contacts it, only the relay does.
+    const forge = server.origin.replace("127.0.0.1", "forge.localhost");
+    const relays = [{ origin: forge, through: `${server.origin}/fixture/relay/` }];
+    const { submit } = await open({ setup: page => page.addInitScript(relays => { globalThis.DOLLY_HTTP_RELAYS = relays; }, relays),
+      policy: { rules: [
+      { origin: forge, pathPrefix: "/fixture/", methods: ["GET", "POST"], credentialHeaders: ["authorization"] },
       { origin: blocked, pathPrefix: "/fixture/", methods: ["GET"] },
       { origin: server.origin, path: "/fixture/http.txt", methods: ["GET"], maxResponseBytes: 8 },
       { origin: server.origin, path: "/fixture/libcurl-contract", methods: ["GET", "POST"], credentialHeaders: ["authorization"] },
@@ -92,6 +116,20 @@ await browserTest("network", { server: { fixtures, handle } }, async ({ server, 
     await run(`grep -qF "$(sed 's/^curl: ([0-9]*) //' /tmp/blocked.err)" /tmp/git-blocked.err`);
     await run(`grep -qF "$(sed 's/^curl: ([0-9]*) //' /tmp/refused.err)" /tmp/git-refused.err`);
     await run("! grep -qF \"$(sed 's/^curl: ([0-9]*) //' /tmp/refused.err)\" /tmp/git-blocked.err");
+
+    // Unchanged Git, addressed at the forge's own URL, clones through the
+    // embedding's relay; the policy still judges the forge's URL, the relay
+    // gets no credentials it was not named for, and nothing redirects.
+    const remote = `${forge}/fixture/git-transport/repo`;
+    await run(`timeout 30 git clone ${remote} /tmp/relayed && test "$(git -C /tmp/relayed rev-parse HEAD)" = ${git.second} && git -C /tmp/relayed fsck --full`);
+    await run(`test "$(git -C /tmp/relayed config remote.origin.url)" = ${remote} && timeout 30 git -C /tmp/relayed fetch origin`);
+    await run(`timeout 30 git clone --depth=1 ${remote} /tmp/relayed-shallow && test "$(git -C /tmp/relayed-shallow rev-list --count HEAD)" = 1`);
+    assert.ok(relayed.some(request => request.method === "POST" && request.path.endsWith("/git-upload-pack")), "the pack came through the relay");
+    await run(`test "$(curl -sS -u user:pass -w '%{url_effective}' -o /tmp/relayed.txt ${forge}/fixture/http.txt)" = ${forge}/fixture/http.txt && grep -q FETCHED-THROUGH-BROWSER /tmp/relayed.txt`);
+    assert.deepEqual(relayed.map(request => request.authorization).filter(Boolean), [], "the relay received credentials");
+    assert.equal(await submit(`curl -sS ${forge}/outside-the-policy`), 9, "a relay admits nothing the policy refuses");
+    assert.equal(relayed.some(request => request.path === "/outside-the-policy"), false);
+    await run("rm -rf /tmp/relayed /tmp/relayed-shallow /tmp/relayed.txt");
 
     await runGitTransport({ submit, origin: server.origin, fixture: git });
   } finally {

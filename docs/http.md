@@ -87,16 +87,51 @@ globalThis.DOLLY_HTTP_POLICY = {
   disagree on whether to ignore them or preflight them (Firefox preflights a
   `User-Agent`).
 
-## CORS
+## CORS and relays
 
-Dolly cannot turn CORS off; `no-cors` gives unreadable responses. Prefer
-endpoints that send CORS headers. Otherwise run a reviewed relay on its own
-origin that sends CORS headers, with an exact upstream allowlist and limits; it
-is one more allowed destination and widens authority accordingly. The default
-policy admits the app's own origin, so a same-origin relay needs no rule. Never send
-credentials through a public CORS proxy. Browser flags or extensions that
-disable web security are not a deployable fix. Firefox hides CORS details from
-Fetch, so a generic transport failure alone does not identify its cause.
+Dolly cannot turn CORS off; `no-cors` gives unreadable responses. A page can
+read only hosts that send CORS headers, and Git's smart-HTTP endpoints on
+`github.com`, `gitlab.com` and `codeberg.org` send none. Browser flags or
+extensions that disable web security are not a deployable fix. Firefox hides
+CORS details from Fetch, so a generic transport failure alone does not
+identify its cause.
+
+An embedding that wants such a host maps its origin to a relay it trusts,
+next to the policy and before `browser.mjs` loads; the broker consumes and
+deletes the global:
+
+```js
+globalThis.DOLLY_HTTP_RELAYS = [{
+  origin: "https://github.com",            // exact origin programs ask for
+  through: "https://example.org/relay/",   // URL prefix ending in /
+  credentialHeaders: [],                   // default: the relay sees none
+}];
+```
+
+- Programs keep asking for the real URL (`git clone https://github.com/OWNER/REPO`
+  with unchanged Git and no Git configuration). The policy judges that URL
+  first: a relay admits nothing, and rules, quotas and limits name the real
+  destination. An admitted request is then fetched from `through` + host +
+  path + query, and the program is told the URL it asked for.
+- The relay sees the whole request. Credential headers are removed unless the
+  mapping lists them, whatever the rule allows, so pushing or cloning a private
+  repository through a relay is a decision to trust its operator with the
+  token. A relayed request never follows a redirect.
+- The mapping is page configuration, like the policy: Wasm cannot set, read or
+  change it, and a result tab does not inherit it.
+- Relay protocol: for `METHOD through/HOST/PATH?QUERY` the relay sends the same
+  method, headers and body to `https://HOST/PATH?QUERY` and returns the status,
+  `Content-Type` and body. It answers itself and never with a redirect, which
+  the broker would not follow. This is the URL shape of isomorphic-git's
+  `cors-proxy`. On another origin than the page it must also answer CORS
+  preflights for the methods and request headers it accepts (Git sends
+  `Git-Protocol`, `Pragma` and its own `Content-Type`). Its own allowlist is its
+  operator's duty: exact upstream hosts, for Git only
+  `GET …/info/refs?service=git-upload-pack` and `POST …/git-upload-pack`
+  unless pushes are intended, a response cap and a rate limit.
+- The public sites are static files and configure no relay: there,
+  `git clone` from `github.com` fails at once with the `EIO` message. Never
+  send credentials through someone else's public CORS proxy.
 
 ## In-Wasm clients
 
@@ -118,9 +153,11 @@ Fetch, so a generic transport failure alone does not identify its cause.
   and a disallowed redirect with `CURLE_COULDNT_CONNECT`.
 - Git: upstream `git` and `git-remote-http(s)` link that libcurl
   ([`Dollyfile-system-tools`](../Dollyfile-system-tools)): clone, fetch and push over HTTP, from
-  hosts that send CORS headers or through a relay (see [CORS](#cors)).
+  hosts that send CORS headers or through a relay (see [CORS and relays](#cors-and-relays)).
   `github.com` sends none on its Git endpoints, so cloning from it fails with
-  the `EIO` message until the embedding provides a relay. Clean/smudge
+  the `EIO` message unless the embedding maps it to a relay. There is no
+  transport over a forge's REST API: it could only imitate a clone, without
+  history, fetch or push. Clean/smudge
   filters are not ported. Cancelling an exchange does not undo a ref update the
   remote already accepted.
 - Janis `fetch()` polls slots cooperatively so timers and promises keep running.

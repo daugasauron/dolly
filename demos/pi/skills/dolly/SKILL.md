@@ -32,12 +32,21 @@ All HTTP goes through the browser, so a host answers only if the page's policy
 allows it and it sends CORS headers. Check a host before planning around it:
 `curl -sS -o /dev/null -w '%{http_code}\n' URL`. Usually
 raw.githubusercontent.com, api.github.com, cdn.jsdelivr.net,
-data.jsdelivr.com, registry.npmjs.org and pypi.org work, while github.com and
-codeload.github.com do not: `git clone`, `git fetch` and GitHub archive
-downloads fail. "Browser could not fetch the URL" (curl status 7) means the
-host sends no CORS headers or is unreachable, and another spelling of the same
-host will not help; status 9 means this page's policy refused it. Never send
-credentials through a public CORS proxy.
+data.jsdelivr.com, registry.npmjs.org and pypi.org work, while github.com,
+gitlab.com, codeberg.org and codeload.github.com send no CORS headers.
+"Browser could not fetch the URL" (curl status 7) means the host sends none or
+is unreachable, and another spelling of the same host will not help; status 9
+means this page's policy refused it. Never send credentials through a public
+CORS proxy.
+
+`git clone https://github.com/OWNER/REPO` is real Git and works, with history,
+fetch and push, only where the page was set up with a relay for that host; the
+public Dolly sites have none. Try it once: it answers within a second. If it
+says "Browser could not fetch the URL", there is no relay and no Git option
+will change that; take a snapshot of the files instead (below), and if you
+need version control run `git init -q . && git add -A && git commit -qm snapshot`
+there. That repository has no upstream history and cannot fetch or push; say
+so when it matters to the task.
 
 - One file: `curl -fsSLO https://raw.githubusercontent.com/OWNER/REPO/REF/PATH`
 - A tree: list its files with
