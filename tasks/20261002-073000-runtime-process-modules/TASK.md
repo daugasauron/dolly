@@ -1,6 +1,6 @@
 # Investigate: subprocesses and the runtime as declared host modules
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 315
 - TAGS: core,architecture,host-modules,process,design
 
@@ -124,4 +124,12 @@ the DSO/FFI question can then be its own task or be dropped.
    (`20261005-222057-touch-input`) is a natural first single-program image.
 3. Smaller runtime splits: none, as recommended. The DSO/FFI candidate from
    the review is still unmeasured.
+
+## Closed (2026-10-06)
+
+The investigation's questions are decided or have their own tasks: explicit
+`runtime@0` is `20261005-222057-explicit-runtime`; subprocesses (and the
+review's DSO/FFI candidate) are measured in `20261005-222449-spawn-users` and
+`20261005-222449-single-program-images`, as the owner asked; no smaller
+runtime split.
 
