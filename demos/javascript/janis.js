@@ -385,23 +385,31 @@ Date.prototype.toLocaleDateString = function(locales, options) { return new Jani
 Date.prototype.toLocaleTimeString = function(locales, options) { return new JanisDateTimeFormat(locales, options, "time").format(this); };
 Number.prototype.toLocaleString = function(locales, options) { return new JanisNumberFormat(locales, options).format(this); };
 
-class JanisEventEmitter {
-  #events = new Map();
-
+// Node's EventEmitter is a plain constructor that legacy code calls as
+// EventEmitter.call(this). Listeners live beside the object, so neither that
+// call nor a subclass constructor has anything to set up.
+const janisListeners = new WeakMap();
+function janisEvents(emitter) {
+  let events = janisListeners.get(emitter);
+  if (!events) janisListeners.set(emitter, events = new Map());
+  return events;
+}
+function JanisEventEmitter() {}
+Object.assign(JanisEventEmitter.prototype, {
   on(name, listener) {
     if (typeof listener !== "function") throw new TypeError("listener must be a function");
-    const listeners = this.#events.get(name) ?? [];
+    const listeners = janisEvents(this).get(name) ?? [];
     listeners.push(listener);
-    this.#events.set(name, listeners);
+    janisEvents(this).set(name, listeners);
     return this;
-  }
-  addListener(name, listener) { return this.on(name, listener); }
+  },
+  addListener(name, listener) { return this.on(name, listener); },
   prependListener(name, listener) {
-    const listeners = this.#events.get(name) ?? [];
+    const listeners = janisEvents(this).get(name) ?? [];
     listeners.unshift(listener);
-    this.#events.set(name, listeners);
+    janisEvents(this).set(name, listeners);
     return this;
-  }
+  },
   once(name, listener) {
     const wrapped = (...args) => {
       this.removeListener(name, wrapped);
@@ -409,7 +417,7 @@ class JanisEventEmitter {
     };
     wrapped.listener = listener;
     return this.on(name, wrapped);
-  }
+  },
   prependOnceListener(name, listener) {
     const wrapped = (...args) => {
       this.removeListener(name, wrapped);
@@ -417,35 +425,35 @@ class JanisEventEmitter {
     };
     wrapped.listener = listener;
     return this.prependListener(name, wrapped);
-  }
-  off(name, listener) { return this.removeListener(name, listener); }
+  },
+  off(name, listener) { return this.removeListener(name, listener); },
   removeListener(name, listener) {
-    const listeners = this.#events.get(name);
+    const listeners = janisEvents(this).get(name);
     if (!listeners) return this;
     const filtered = listeners.filter((candidate) =>
       candidate !== listener && candidate.listener !== listener);
-    if (filtered.length) this.#events.set(name, filtered);
-    else this.#events.delete(name);
+    if (filtered.length) janisEvents(this).set(name, filtered);
+    else janisEvents(this).delete(name);
     return this;
-  }
+  },
   removeAllListeners(name = undefined) {
-    if (name === undefined) this.#events.clear();
-    else this.#events.delete(name);
+    if (name === undefined) janisEvents(this).clear();
+    else janisEvents(this).delete(name);
     return this;
-  }
+  },
   emit(name, ...args) {
-    const listeners = [...(this.#events.get(name) ?? [])];
+    const listeners = [...(janisEvents(this).get(name) ?? [])];
     if (name === "error" && listeners.length === 0) throw args[0];
     for (const listener of listeners) listener.apply(this, args);
     return listeners.length !== 0;
-  }
-  listeners(name) { return [...(this.#events.get(name) ?? [])]; }
-  rawListeners(name) { return this.listeners(name); }
-  listenerCount(name) { return this.#events.get(name)?.length ?? 0; }
-  eventNames() { return [...this.#events.keys()]; }
-  setMaxListeners() { return this; }
-  getMaxListeners() { return 0; }
-}
+  },
+  listeners(name) { return [...(janisEvents(this).get(name) ?? [])]; },
+  rawListeners(name) { return this.listeners(name); },
+  listenerCount(name) { return janisEvents(this).get(name)?.length ?? 0; },
+  eventNames() { return [...janisEvents(this).keys()]; },
+  setMaxListeners() { return this; },
+  getMaxListeners() { return 0; },
+});
 // Enumerable, as Node assigns them: they are named exports of node:events.
 Object.assign(JanisEventEmitter, {
   listenerCount: (emitter, name) => emitter.listenerCount(name),
@@ -454,6 +462,17 @@ Object.assign(JanisEventEmitter, {
     if (name !== "error") emitter.once("error", reject);
   }),
 });
+
+// node:stream is the legacy Stream constructor, also callable as
+// Stream.call(this), with the stream classes as its properties.
+function JanisStream() {}
+Object.setPrototypeOf(JanisStream, JanisEventEmitter);
+Object.setPrototypeOf(JanisStream.prototype, JanisEventEmitter.prototype);
+JanisStream.prototype.pipe = function(destination) {
+  this.on("data", (chunk) => destination.write(chunk));
+  this.once("end", () => destination.end());
+  return destination;
+};
 
 function unsupported(what, code = "ENOSYS") {
   return () => { throw Object.assign(new Error(`Janis does not support ${what}`), { code }); };
@@ -1172,7 +1191,7 @@ function readSync(descriptor, buffer, offset, length, position = null) {
   return fileIo(false, descriptor, buffer, offset, length, position);
 }
 
-class JanisReadable extends JanisEventEmitter {
+class JanisReadable extends JanisStream {
   readable = true;
   readableEncoding = null;
   #decoder;
@@ -1221,7 +1240,7 @@ function streamWrite(stream, chunk, encoding, callback) {
   else done();
   return true;
 }
-class JanisWritable extends JanisEventEmitter {
+class JanisWritable extends JanisStream {
   writable = true;
   writableLength = 0;
   constructor(options = {}) { super(); if (options.write) this._write = options.write; }
@@ -2136,8 +2155,8 @@ function streamPipeline(...streams) {
   streamFinished(streams.at(-1), settle);
   return streams.at(-1);
 }
-const janisStream = {
-  Stream: JanisEventEmitter,
+const janisStream = Object.assign(JanisStream, {
+  Stream: JanisStream,
   Readable: JanisReadable,
   Writable: JanisWritable,
   Duplex: JanisDuplex,
@@ -2145,10 +2164,11 @@ const janisStream = {
   PassThrough: JanisPassThrough,
   pipeline: streamPipeline,
   finished: streamFinished,
-};
+});
 const settledBy = operation => (...args) => new Promise((resolve, reject) =>
   operation(...args, error => error ? reject(error) : resolve()));
 const janisStreamPromises = { pipeline: settledBy(streamPipeline), finished: settledBy(streamFinished) };
+janisStream.promises = janisStreamPromises;
 async function streamBuffer(stream) {
   const chunks = [];
   for await (const chunk of stream) chunks.push(Buffer.from(chunk));
@@ -3003,6 +3023,9 @@ janisBuiltinModules.zlib = {
   createInflate: unavailableZlib,
   createDeflate: unavailableZlib,
 };
+// The classes exist for modules that subclass them at load; constructing fails.
+for (const name of ["Deflate", "Inflate", "Gzip", "Gunzip", "DeflateRaw", "InflateRaw", "Unzip", "BrotliCompress", "BrotliDecompress"])
+  janisBuiltinModules.zlib[name] = function() { unavailableZlib(); };
 
 globalThis.__janisBuiltin = (name) => {
   name = String(name).replace(/^node:/, "");

@@ -3,6 +3,7 @@
 // `janis -m node-oracle.mjs ROOT ORIGIN` and compares its own observations.
 import { execSync, spawnSync } from "node:child_process";
 import crypto from "node:crypto";
+import EventEmitter from "node:events";
 import fs from "node:fs";
 import fsp from "node:fs/promises";
 import { createRequire } from "node:module";
@@ -199,6 +200,18 @@ export async function observe(root) {
   cases.deepEqual = [util.isDeepStrictEqual(deep, same), util.isDeepStrictEqual([1], ["1"]), util.isDeepStrictEqual({ a: 1 }, { a: 1, b: undefined }),
     util.isDeepStrictEqual(NaN, NaN), util.isDeepStrictEqual(0, -0), util.isDeepStrictEqual(new Set([{}]), new Set([{ x: 1 }])),
     await text(stream.Readable.from(["con", "sumed"]))];
+  // Legacy constructors: Base.call(this) and util.inherits, as old packages do.
+  function LegacyStream() { stream.call(this); }
+  util.inherits(LegacyStream, stream);
+  function LegacyEmitter() { EventEmitter.call(this); }
+  util.inherits(LegacyEmitter, EventEmitter);
+  const heard = [], legacyEmitter = new LegacyEmitter(), legacyStream = new LegacyStream();
+  legacyEmitter.on("event", value => heard.push(value));
+  legacyEmitter.emit("event", 1);
+  legacyStream.on("data", value => heard.push(value));
+  legacyStream.emit("data", 2);
+  cases.legacy = [typeof stream, stream.Stream === stream, legacyStream instanceof EventEmitter, new stream.PassThrough() instanceof stream,
+    typeof legacyStream.pipe, heard, typeof stream.promises.pipeline];
   cases.sha1 = [crypto.createHash("sha1").update("abc").digest("hex"), crypto.createHmac("sha1", "key").update("text").digest("base64")];
 
   // en-US in UTC, which Janis formats without ICU.

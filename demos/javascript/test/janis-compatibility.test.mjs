@@ -52,6 +52,14 @@ test("worker_threads describes the one thread and Worker construction fails expl
   assert.throws(() => new workers.Worker("/workspace/worker.js"), { code: "ENOSYS" });
 });
 
+test("zlib classes exist for subclassing and fail when constructed", () => {
+  const zlib = janisContext().__janisBuiltin("zlib");
+  for (const name of ["Inflate", "Deflate", "Gunzip"]) {
+    assert.equal(typeof zlib[name].prototype, "object");
+    assert.throws(() => new zlib[name](), { code: "ERR_METHOD_NOT_IMPLEMENTED" });
+  }
+});
+
 test("unsupported host resource queries fail explicitly", async () => {
   const janis = janisContext();
   const os = janis.__janisBuiltin("os");
