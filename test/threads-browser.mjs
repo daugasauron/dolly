@@ -45,6 +45,13 @@ await browserTest("threads", { image: "default", server: { fixtures, sourceOverr
   assert.notEqual(await submit("cc -pthread -shared /tmp/threads-pthread.c -o /tmp/unsupported.so"), 0);
   assert.notEqual(await submit("cc -pthread -rdynamic /tmp/threads-pthread.c -o /tmp/unsupported"), 0);
 
+  // What cc links, the loader runs: the raw thread interface needs a thread
+  // entry, so linking it without one fails instead of producing a refused program.
+  sourceOverrides.set(probe, "#include <dolly/threads.h>\nint main(void) { return dolly_thread_self() <= 0; }\n");
+  await run(`curl -fsS ${server.origin}${probe} -o /tmp/self.c`);
+  assert.notEqual(await submit("cc /tmp/self.c -o /tmp/self-without-entry"), 0, "linked a thread client without an entry");
+  await run("test ! -e /tmp/self-without-entry && cc -pthread /tmp/self.c -o /tmp/self && /tmp/self");
+
   // A thread's process exit or trap ends the whole process; the shell survives.
   sourceOverrides.set(probe, "#include <pthread.h>\n#include <stdlib.h>\n" +
     "static void *body(void *exiting) { if (exiting) exit(37); __builtin_trap(); }\n" +
@@ -73,7 +80,8 @@ await browserTest("threads", { image: "default", server: { fixtures, sourceOverr
   for (const bytes of [incompatible, missingEntry]) {
     sourceOverrides.set(probe, bytes);
     await run(`curl -fsS ${server.origin}${probe} -o /tmp/threads-invalid`);
-    assert.equal(await submit("/tmp/threads-invalid"), 126);
+    assert.equal(await submit("/tmp/threads-invalid 2> /tmp/refused"), 126);
+    await run("test $(wc -l < /tmp/refused) -eq 1 && grep -q 'thread' /tmp/refused");
   }
   assert.deepEqual(errors, []);
 });
@@ -84,6 +92,8 @@ await browserTest("threads refusal", { image: "system", server: { fixtures, sour
   const denied = await open({ policy, setup: enable(modules) });
   sourceOverrides.set(probe, valid);
   assert.equal(await denied.submit(`curl -fsS ${server.origin}${probe} -o /tmp/threads-denied`), 0);
-  assert.equal(await denied.submit("/tmp/threads-denied"), 126);
+  assert.equal(await denied.submit("/tmp/threads-denied 2> /tmp/refused"), 126);
+  assert.equal(await denied.submit("test $(wc -l < /tmp/refused) -eq 1 && grep -q 'threads@0' /tmp/refused"), 0,
+    "the refusal names the module on the program's stderr");
   assert.equal(await denied.submit("printf alive > /tmp/alive && test -f /tmp/alive"), 0);
 });

@@ -344,10 +344,18 @@ __wasi_errno_t __wasi_fd_write(__wasi_fd_t descriptor,
   return 0;
 }
 
+/* Dolly does not account CPU time. clock() and CLOCK_PROCESS_CPUTIME_ID report
+ * the monotonic time since the process started: an upper bound of its CPU
+ * time, exact while it computes without blocking. */
+static __wasi_timestamp_t process_started;
+
 __wasi_errno_t __wasi_clock_time_get(__wasi_clockid_t clock_id,
                                      __wasi_timestamp_t precision,
                                      __wasi_timestamp_t *time) {
-  const dolly_process_clock_request request = {clock_id, 0, precision};
+  const int process_time = clock_id == __WASI_CLOCKID_PROCESS_CPUTIME_ID;
+  const dolly_process_clock_request request = {
+      process_time ? DOLLY_PROCESS_CLOCK_MONOTONIC : clock_id, 0, precision,
+  };
   dolly_process_clock_response response = {0};
   const int64_t result = dolly_process_call(
       DOLLY_PROCESS_CLOCK_TIME, &request, sizeof(request),
@@ -355,8 +363,12 @@ __wasi_errno_t __wasi_clock_time_get(__wasi_clockid_t clock_id,
   const __wasi_errno_t error = call_errno(result);
   if (error != 0) return error;
   if ((uint64_t)result != sizeof(response)) return EIO;
-  *time = response.nanoseconds;
+  *time = response.nanoseconds - (process_time ? process_started : 0);
   return 0;
+}
+
+__attribute__((constructor)) static void record_process_start(void) {
+  (void)__wasi_clock_time_get(__WASI_CLOCKID_MONOTONIC, 1, &process_started);
 }
 
 __wasi_errno_t __wasi_clock_res_get(__wasi_clockid_t clock_id,
@@ -709,6 +721,21 @@ int __syscall_getegid32(void) { return 0; }
 int __syscall_umask(mode_t mask) {
   static mode_t current = 0022;
   return __atomic_exchange_n(&current, mask & 0777, __ATOMIC_SEQ_CST);
+}
+
+/* The limits every process has, which nothing can change: the kernel's
+ * descriptor and process tables, and the linker's memory ceiling and stack. */
+int __syscall_prlimit64(pid_t pid, int resource, const struct rlimit *new_limit,
+                        struct rlimit *old_limit) {
+  (void)pid;
+  if (new_limit) return -EPERM;
+  if (old_limit) {
+    const rlim_t limit = resource == RLIMIT_NOFILE ? 256 : resource == RLIMIT_NPROC ? 32
+        : resource == RLIMIT_AS || resource == RLIMIT_DATA ? (rlim_t)8 << 30
+        : resource == RLIMIT_STACK ? (rlim_t)8 << 20 : RLIM_INFINITY;
+    *old_limit = (struct rlimit){limit, limit};
+  }
+  return 0;
 }
 
 int __syscall_mknodat(int directory, const char *path,
