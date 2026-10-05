@@ -26,8 +26,12 @@ package keeps them for `INSTALL` (`pi-runtime`, `bhop`, `slopyard`) and
   As in Node, a file, `-e` or stdin runs as CommonJS unless `.mjs`, package
   `type` or import syntax makes it ESM. Built-in modules and ESM views of
   CommonJS are generated in memory.
-- Uncaught errors and unhandled rejections reach `process` listeners or fail
-  the process. Errno errors carry Node's messages, stacks start with the
+- `Intl`: CLDR en-US date, number (standard, compact, percent) and relative
+  time formatting in the clock's zone, plus `Segmenter` and `Locale`;
+  QuickJS has no ICU, so other locales resolve to en-US and unsupported
+  options throw `RangeError`.
+- `process.exit` cannot be caught. Uncaught errors and unhandled rejections
+  reach `process` listeners or fail the process. Errno errors carry Node's messages, stacks start with the
   message, and runtime frames read `node:internal/janis`.
 - Descriptor-based `fs` with positioned I/O and promise wrappers; open files
   survive rename and unlink.

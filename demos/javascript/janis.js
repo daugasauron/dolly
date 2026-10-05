@@ -168,7 +168,222 @@ class JanisSegmenter {
   }
 }
 
-globalThis.Intl = { Segmenter: JanisSegmenter };
+// The rest of Janis's Intl is CLDR's en-US only, in the zone Date's local time
+// uses, and says so in resolvedOptions(); what it cannot format throws.
+const janisIntlUnsupported = (what) => { throw new RangeError(`Janis Intl does not support ${what}`); };
+const janisLocalZone = () => {
+  const offset = -new Date().getTimezoneOffset();
+  return offset === 0 ? "UTC" : offset % 60 === 0 ? `Etc/GMT${offset > 0 ? "-" : "+"}${Math.abs(offset / 60)}` : janisIntlUnsupported("a fractional-hour local time zone");
+};
+// Etc/GMT-9 is nine hours east of UTC, written GMT+9.
+const janisZoneName = (zone) => zone === "UTC" ? "UTC" : `GMT${zone[7] === "-" ? "+" : "-"}${zone.slice(8)}`;
+
+// Rounds |value| × 10^shift half away from zero in its shortest decimal form,
+// as ICU does: the point moves in decimal, so 1.005 as a percent is 100.5.
+function janisRoundDecimal(value, fraction, shift = 0) {
+  const [mantissa, exponentText] = Math.abs(value).toExponential().split("e");
+  const digits = mantissa.replace(".", "");
+  let point = Number(exponentText) + 1 + shift;
+  let kept = digits.slice(0, Math.max(0, point + fraction)).padEnd(Math.max(0, point + fraction), "0");
+  if (point + fraction < 0) kept = "";
+  const next = point + fraction >= 0 ? Number(digits[point + fraction] ?? 0) : 0;
+  let integer = BigInt(kept || "0") + (next >= 5 ? 1n : 0n);
+  let text = integer.toString().padStart(fraction + 1, "0");
+  return fraction ? `${text.slice(0, -fraction)}.${text.slice(-fraction)}` : text;
+}
+function janisGroup(text) {
+  const [integer, fraction] = text.split(".");
+  const grouped = integer.replace(/\B(?=(\d{3})+$)/g, ",");
+  return fraction === undefined ? grouped : `${grouped}.${fraction}`;
+}
+function janisFormatNumber(value, minimum, maximum, shift = 0) {
+  let text = janisRoundDecimal(value, maximum, shift);
+  if (text.includes(".")) {
+    text = text.replace(/0+$/, "");
+    const fraction = text.split(".")[1] ?? "";
+    if (fraction.length < minimum) text += "0".repeat(minimum - fraction.length);
+    text = text.replace(/\.$/, "");
+  }
+  return text;
+}
+function janisSignificant(value, digits, shift = 0) {
+  if (value === 0) return "0";
+  const magnitude = Math.floor(Math.log10(Math.abs(value))) + shift;
+  return janisFormatNumber(value, 0, Math.max(0, digits - 1 - magnitude), shift);
+}
+
+class JanisNumberFormat {
+  #style; #notation; #minimum; #maximum; #grouping; #explicitDigits;
+  constructor(_locales = undefined, options = {}) {
+    options ??= {};
+    for (const key of Object.keys(options)) {
+      if (!["style", "notation", "minimumFractionDigits", "maximumFractionDigits", "useGrouping", "compactDisplay"].includes(key) ||
+          (key === "compactDisplay" && options[key] !== "short")) janisIntlUnsupported(`NumberFormat option ${key}`);
+    }
+    this.#style = options.style ?? "decimal";
+    this.#notation = options.notation ?? "standard";
+    if (!["decimal", "percent"].includes(this.#style)) janisIntlUnsupported(`NumberFormat style ${this.#style}`);
+    if (!["standard", "compact"].includes(this.#notation)) janisIntlUnsupported(`NumberFormat notation ${this.#notation}`);
+    const defaultMaximum = this.#style === "percent" ? 0 : 3;
+    this.#minimum = options.minimumFractionDigits ?? 0;
+    this.#maximum = Math.max(this.#minimum, options.maximumFractionDigits ?? (options.minimumFractionDigits !== undefined ? Math.max(this.#minimum, defaultMaximum) : defaultMaximum));
+    this.#explicitDigits = options.minimumFractionDigits !== undefined || options.maximumFractionDigits !== undefined;
+    this.#grouping = options.useGrouping ?? true;
+  }
+  format(value) {
+    value = Number(value);
+    if (!Number.isFinite(value)) return Number.isNaN(value) ? "NaN" : `${value < 0 ? "-" : ""}∞`;
+    const negative = value < 0 || Object.is(value, -0);
+    const magnitude = Math.abs(value), percent = this.#style === "percent" ? 2 : 0;
+    let text, suffix = "";
+    if (this.#notation === "compact") {
+      const units = ["", "K", "M", "B", "T"];
+      const scale = magnitude * 10 ** percent;
+      let unit = Math.min(units.length - 1, scale >= 1000 ? Math.floor(Math.log10(scale) / 3) : 0);
+      for (;;) {
+        const shift = percent - 3 * unit;
+        // ICU's compact rounding: integers from 10 up, otherwise two significant digits.
+        text = this.#explicitDigits ? janisFormatNumber(magnitude, this.#minimum, this.#maximum, shift)
+          : scale / 1000 ** unit >= 10 ? janisFormatNumber(magnitude, 0, 0, shift) : janisSignificant(magnitude, 2, shift);
+        if (Number(text) < 1000 || unit === units.length - 1) break;
+        unit++;
+      }
+      suffix = units[unit];
+    } else text = janisFormatNumber(magnitude, this.#minimum, this.#maximum, percent);
+    if (this.#grouping) text = janisGroup(text);
+    return `${negative && Number(text.replaceAll(",", "")) !== 0 ? "-" : ""}${text}${suffix}${this.#style === "percent" ? "%" : ""}`;
+  }
+  resolvedOptions() {
+    return { locale: "en-US", numberingSystem: "latn", style: this.#style, notation: this.#notation,
+      minimumFractionDigits: this.#minimum, maximumFractionDigits: this.#maximum, useGrouping: this.#grouping ? "auto" : false };
+  }
+  static supportedLocalesOf() { return ["en-US"]; }
+}
+
+const janisWeekdays = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+const janisMonths = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+const janisDateFields = ["weekday", "year", "month", "day", "hour", "minute", "second"];
+class JanisDateTimeFormat {
+  #options;
+  constructor(_locales = undefined, options = {}, defaults = "date") {
+    options = { ...(options ?? {}) };
+    for (const key of Object.keys(options)) {
+      if (![...janisDateFields, "timeZone", "timeZoneName", "hour12", "hourCycle", "dateStyle", "timeStyle"].includes(key))
+        janisIntlUnsupported(`DateTimeFormat option ${key}`);
+    }
+    const local = janisLocalZone();
+    const zone = options.timeZone === undefined ? local : String(options.timeZone);
+    if (zone !== local && !/^(UTC|Etc\/UTC|GMT|Etc\/GMT)$/i.test(zone)) janisIntlUnsupported(`time zone ${zone}`);
+    const styles = { full: { weekday: "long", month: "long", day: "numeric", year: "numeric" },
+      long: { month: "long", day: "numeric", year: "numeric" }, medium: { month: "short", day: "numeric", year: "numeric" },
+      short: { month: "numeric", day: "numeric", year: "2-digit" } };
+    const times = { full: { timeZoneName: "long" }, long: { timeZoneName: "short" }, medium: {}, short: { second: undefined } };
+    if (options.dateStyle) Object.assign(options, styles[options.dateStyle] ?? janisIntlUnsupported(`dateStyle ${options.dateStyle}`));
+    if (options.timeStyle) Object.assign(options, { hour: "numeric", minute: "2-digit", second: "2-digit" },
+      times[options.timeStyle] ?? janisIntlUnsupported(`timeStyle ${options.timeStyle}`));
+    if (!janisDateFields.some((field) => options[field] !== undefined)) {
+      if (defaults !== "time") Object.assign(options, { year: "numeric", month: "numeric", day: "numeric" });
+      if (defaults !== "date") Object.assign(options, { hour: "numeric", minute: "2-digit", second: "2-digit" });
+    }
+    options.utc = /^(UTC|Etc\/UTC|GMT|Etc\/GMT)$/i.test(zone);
+    options.timeZone = options.utc ? "UTC" : zone;
+    options.hour12 = options.hour12 ?? (options.hourCycle ? options.hourCycle === "h11" || options.hourCycle === "h12" : true);
+    this.#options = options;
+  }
+  format(value = Date.now()) {
+    const o = this.#options, date = new Date(value instanceof Date ? value.getTime() : Number(value));
+    if (Number.isNaN(date.getTime())) throw new RangeError("Invalid time value");
+    const get = (name) => o.utc ? date[`getUTC${name}`]() : date[`get${name}`]();
+    const two = (number) => String(number).padStart(2, "0");
+    const year = o.year === "2-digit" ? two(get("FullYear") % 100) : o.year ? String(get("FullYear")) : "";
+    const month = get("Month"), day = o.day === "2-digit" ? two(get("Date")) : o.day ? String(get("Date")) : "";
+    const weekday = o.weekday ? janisWeekdays[get("Day")].slice(0, o.weekday === "long" ? undefined : o.weekday === "short" ? 3 : 1) : "";
+    let datePart;
+    if (o.month === "numeric" || o.month === "2-digit") {
+      const number = o.month === "2-digit" ? two(month + 1) : String(month + 1);
+      datePart = [number, day, year].filter(Boolean).join("/");
+    } else if (o.month) {
+      const name = janisMonths[month].slice(0, o.month === "long" ? undefined : o.month === "short" ? 3 : 1);
+      datePart = day && year ? `${name} ${day}, ${year}` : day ? `${name} ${day}` : year ? `${name} ${year}` : name;
+    } else if (day || year) {
+      if (day && year) janisIntlUnsupported("a day and year without a month");
+      datePart = day || year;
+    } else datePart = "";
+    if (weekday && datePart) datePart = `${weekday}, ${datePart}`;
+    let timePart = "";
+    if (o.hour || o.minute || o.second) {
+      if (!o.hour) janisIntlUnsupported("minutes or seconds without an hour");
+      const hours = get("Hours");
+      const hour = o.hour12 ? (hours % 12 || 12) : hours;
+      const fields = [o.hour === "2-digit" || !o.hour12 ? two(hour) : String(hour)];
+      if (o.minute) fields.push(two(get("Minutes")));
+      if (o.second) fields.push(two(get("Seconds")));
+      timePart = fields.join(":") + (o.hour12 ? (hours < 12 ? " AM" : " PM") : "");
+      if (o.timeZoneName) timePart += ` ${o.timeZoneName === "long" ? (o.timeZone === "UTC" ? "Coordinated Universal Time" : janisZoneName(o.timeZone)) : janisZoneName(o.timeZone)}`;
+    }
+    if (!datePart) return weekday && timePart ? `${weekday} ${timePart}` : weekday || timePart;
+    if (!timePart) return datePart;
+    return o.dateStyle === "full" || o.dateStyle === "long" ? `${datePart} at ${timePart}` : `${datePart}, ${timePart}`;
+  }
+  resolvedOptions() {
+    const { utc, ...options } = this.#options;
+    return { locale: "en-US", calendar: "gregory", numberingSystem: "latn", ...options };
+  }
+  static supportedLocalesOf() { return ["en-US"]; }
+}
+
+class JanisRelativeTimeFormat {
+  #style; #numeric;
+  constructor(_locales = undefined, options = {}) {
+    this.#style = options?.style ?? "long";
+    this.#numeric = options?.numeric ?? "always";
+    if (!["long", "short", "narrow"].includes(this.#style)) janisIntlUnsupported(`RelativeTimeFormat style ${this.#style}`);
+  }
+  format(value, unit) {
+    value = Number(value);
+    unit = String(unit).replace(/s$/, "");
+    const names = { second: ["second", "sec.", "s"], minute: ["minute", "min.", "m"], hour: ["hour", "hr.", "h"], day: ["day", "day", "d"],
+      week: ["week", "wk.", "w"], month: ["month", "mo.", "mo"], quarter: ["quarter", "qtr.", "q"], year: ["year", "yr.", "y"] };
+    if (!names[unit]) throw new RangeError(`Invalid unit argument for format() '${unit}'`);
+    const style = ["long", "short", "narrow"].indexOf(this.#style);
+    if (this.#numeric === "auto") {
+      const words = { day: ["yesterday", "today", "tomorrow"], second: [null, "now", null] };
+      const named = words[unit]?.[value + 1] ?? (["week", "month", "quarter", "year"].includes(unit) && Math.abs(value) <= 1 && Number.isInteger(value)
+        ? `${["last", "this", "next"][value + 1]} ${style === 0 ? unit : names[unit][1]}` : unit === "minute" || unit === "hour" ? (value === 0 ? `this ${unit}` : null) : null);
+      if (named) return named;
+    }
+    const amount = janisGroup(janisFormatNumber(Math.abs(value), 0, 3));
+    const name = names[unit][style];
+    const plural = Math.abs(value) !== 1 && (style === 0 || (style === 1 && unit === "day")) ? "s" : "";
+    const text = style === 2 ? `${amount}${name}` : `${amount} ${name}${plural}`;
+    return value < 0 || Object.is(value, -0) ? `${text} ago` : `in ${text}`;
+  }
+  resolvedOptions() { return { locale: "en-US", style: this.#style, numeric: this.#numeric, numberingSystem: "latn" }; }
+  static supportedLocalesOf() { return ["en-US"]; }
+}
+
+class JanisLocale {
+  constructor(tag) {
+    const match = /^([a-z]{2,3})(?:-([A-Z][a-z]{3}))?(?:-([A-Z]{2}|\d{3}))?$/i.exec(String(tag));
+    if (!match) throw new RangeError(`Incorrect locale information provided: ${tag}`);
+    this.language = match[1].toLowerCase();
+    this.script = match[2] && match[2][0].toUpperCase() + match[2].slice(1).toLowerCase();
+    this.region = match[3]?.toUpperCase();
+    this.baseName = [this.language, this.script, this.region].filter(Boolean).join("-");
+  }
+  toString() { return this.baseName; }
+}
+
+// ECMA-402 lets DateTimeFormat and NumberFormat be called without new.
+const janisCallable = (Class) => Object.assign(function(...args) { return new Class(...args); },
+  { prototype: Class.prototype, supportedLocalesOf: Class.supportedLocalesOf });
+globalThis.Intl = { Segmenter: JanisSegmenter, NumberFormat: janisCallable(JanisNumberFormat),
+  DateTimeFormat: janisCallable(JanisDateTimeFormat), RelativeTimeFormat: JanisRelativeTimeFormat, Locale: JanisLocale };
+// ECMA-402 defines the locale methods through Intl.
+Date.prototype.toLocaleString = function(locales, options) { return new JanisDateTimeFormat(locales, options, "any").format(this); };
+Date.prototype.toLocaleDateString = function(locales, options) { return new JanisDateTimeFormat(locales, options, "date").format(this); };
+Date.prototype.toLocaleTimeString = function(locales, options) { return new JanisDateTimeFormat(locales, options, "time").format(this); };
+Number.prototype.toLocaleString = function(locales, options) { return new JanisNumberFormat(locales, options).format(this); };
 
 class JanisEventEmitter {
   #events = new Map();
@@ -480,7 +695,12 @@ Object.assign(process, {
   execPath: "/usr/bin/janis",
   execArgv: [],
   argv0: "janis",
-  exit(code = process.exitCode ?? 0) { Dolly.exit(Number(code)); },
+  // Node's exit: listeners see the code, then the process ends; no catch intercepts it.
+  exit(code) {
+    if (code !== undefined) process.exitCode = code;
+    janisEmitExit();
+    Dolly.exit(Number(process.exitCode ?? 0));
+  },
   kill(pid, signal = "SIGTERM") {
     if (pid === process.pid && signal === "SIGWINCH") janisStdout.emit("resize");
     else Dolly.processKill(pid, childSignal(signal));
@@ -510,6 +730,14 @@ for (const method of [
   };
 }
 process.emit = (name, ...args) => janisProcessEvents.emit(name, ...args);
+let janisExiting = false;
+function janisEmitExit() {
+  if (janisExiting) return;
+  janisExiting = true;
+  process.emit("exit", Number(process.exitCode ?? 0));
+}
+// The native runner calls this when the event loop drains, as Node emits 'exit'.
+globalThis.__janisExiting = janisEmitExit;
 
 // Buffer operations used by Pi, TypeBox, model clients, and extension loaders.
 Buffer.isEncoding = (encoding) => /^(?:utf-?8|utf8|hex|base64|ascii|latin1|binary)$/i.test(encoding);
@@ -1547,6 +1775,35 @@ function sha256(input) {
   return output;
 }
 
+function sha1(input) {
+  const bytes = Buffer.from(input);
+  const paddedLength = Math.ceil((bytes.length + 9) / 64) * 64;
+  const padded = Buffer.alloc(paddedLength);
+  padded.set(bytes);
+  padded[bytes.length] = 0x80;
+  const bitLength = BigInt(bytes.length) * 8n;
+  for (let index = 0; index < 8; index++)
+    padded[paddedLength - 1 - index] = Number(bitLength >> BigInt(index * 8) & 0xffn);
+  const state = [0x67452301, 0xefcdab89, 0x98badcfe, 0x10325476, 0xc3d2e1f0];
+  const words = new Uint32Array(80);
+  for (let offset = 0; offset < padded.length; offset += 64) {
+    for (let index = 0; index < 16; index++) words[index] = padded.readUInt32BE(offset + index * 4);
+    for (let index = 16; index < 80; index++)
+      words[index] = rotateRight(words[index - 3] ^ words[index - 8] ^ words[index - 14] ^ words[index - 16], 31);
+    let [a, b, c, d, e] = state;
+    for (let index = 0; index < 80; index++) {
+      const [mix, constant] = index < 20 ? [b & c | ~b & d, 0x5a827999] : index < 40 ? [b ^ c ^ d, 0x6ed9eba1]
+        : index < 60 ? [b & c | b & d | c & d, 0x8f1bbcdc] : [b ^ c ^ d, 0xca62c1d6];
+      const next = (rotateRight(a, 27) + mix + e + constant + words[index]) >>> 0;
+      e = d; d = c; c = rotateRight(b, 2) >>> 0; b = a; a = next;
+    }
+    [a, b, c, d, e].forEach((value, index) => { state[index] = (state[index] + value) >>> 0; });
+  }
+  const output = Buffer.alloc(20);
+  state.forEach((value, index) => output.writeUInt32BE(value, index * 4));
+  return output;
+}
+
 function md5(input) {
   const bytes = Buffer.from(input);
   const paddedLength = Math.ceil((bytes.length + 9) / 64) * 64;
@@ -1597,14 +1854,15 @@ function md5(input) {
 }
 function createHash(algorithm) {
   algorithm = String(algorithm).toLowerCase().replaceAll("-", "");
-  if (algorithm !== "sha256" && algorithm !== "md5")
-    throw new Error(`Janis does not implement hash '${algorithm}'`);
+  const digests = { sha256, sha1, md5 };
+  if (!Object.hasOwn(digests, algorithm))
+    throw Object.assign(new Error(`Janis does not implement hash '${algorithm}'`), { code: "ERR_OSSL_EVP_UNSUPPORTED" });
   const chunks = [];
   return {
     update(value, encoding) { chunks.push(Buffer.from(value, encoding)); return this; },
     digest(encoding) {
       const input = Buffer.concat(chunks);
-      const bytes = algorithm === "sha256" ? sha256(input) : md5(input);
+      const bytes = digests[algorithm](input);
       return encoding ? bytes.toString(encoding) : bytes;
     },
     copy() { const copy = createHash(algorithm); copy.update(Buffer.concat(chunks)); return copy; },
@@ -1644,10 +1902,10 @@ crypto.subtle ??= {
     const name = String(
       typeof algorithm === "string" ? algorithm : algorithm?.name ?? "",
     ).toLowerCase().replaceAll("-", "");
-    if (name !== "sha256") {
-      throw new Error(`Janis Web Crypto does not implement digest '${name}'`);
+    if (name !== "sha256" && name !== "sha1") {
+      throw new DOMException(`Janis Web Crypto does not implement digest '${name}'`, "NotSupportedError");
     }
-    const digest = sha256(Buffer.from(data));
+    const digest = (name === "sha1" ? sha1 : sha256)(Buffer.from(data));
     const output = new Uint8Array(digest.length);
     output.set(digest);
     return output.buffer;

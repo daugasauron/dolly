@@ -28,8 +28,6 @@ enum {
   DOLLY_JS_MAX_STACK_BYTES = 8 * 1024 * 1024,
 };
 
-static int janis_exit_requested;
-static int janis_exit_status;
 static int janis_interrupted;
 
 static void print_exception(JSContext *context);
@@ -968,9 +966,9 @@ static JSValue js_dolly_exit(JSContext *context, JSValueConst this_value,
   (void)this_value;
   int32_t status = 0;
   if (argc >= 1 && JS_ToInt32(context, &status, argv[0]) < 0) return JS_EXCEPTION;
-  janis_exit_requested = 1;
-  janis_exit_status = status & 255;
-  return JS_ThrowInternalError(context, "Janis process exited");
+  // As in Node, exit never returns, so no JavaScript catch can intercept it.
+  // The kernel retires this process's children when it exits.
+  exit(status & 255);
 }
 
 static JSValue js_dolly_http_start(JSContext *context,
@@ -1642,11 +1640,6 @@ static int load_dolly_prelude(JSContext *context) {
   return 0;
 }
 
-static void discard_exception(JSContext *context) {
-  JSValue exception = JS_GetException(context);
-  JS_FreeValue(context, exception);
-}
-
 // As in Node, process 'uncaughtException' listeners receive an error that
 // escaped; without one it is printed and the process fails. Returns 0 when a
 // listener handled it.
@@ -1672,10 +1665,6 @@ static int execute_pending_jobs(JSContext *context) {
   int status;
   while ((status = JS_ExecutePendingJob(JS_GetRuntime(context), &job_context)) != 0) {
     if (status > 0) continue;
-    if (janis_exit_requested) {
-      discard_exception(job_context == NULL ? context : job_context);
-      return 1;
-    }
     if (report_uncaught(job_context == NULL ? context : job_context) < 0) return -1;
   }
   return 0;
@@ -1703,13 +1692,7 @@ static int pump_janis(JSContext *context) {
   }
   JSValue result = JS_Call(context, function, JS_UNDEFINED, 0, NULL);
   JS_FreeValue(context, function);
-  if (JS_IsException(result)) {
-    if (janis_exit_requested) {
-      discard_exception(context);
-      return 0;
-    }
-    return report_uncaught(context) < 0 ? -1 : 1;
-  }
+  if (JS_IsException(result)) return report_uncaught(context) < 0 ? -1 : 1;
   const int active = JS_ToBool(context, result);
   JS_FreeValue(context, result);
   return active;
@@ -1796,12 +1779,6 @@ static int await_value(JSContext *context, JSValue *value) {
     const int status = JS_ExecutePendingJob(JS_GetRuntime(context),
                                             &job_context);
     if (status < 0) {
-      if (janis_exit_requested) {
-        discard_exception(job_context == NULL ? context : job_context);
-        JS_FreeValue(context, *value);
-        *value = JS_UNDEFINED;
-        return 0;
-      }
       if (report_uncaught(job_context == NULL ? context : job_context) == 0) continue;
       JS_FreeValue(context, *value);
       *value = JS_UNDEFINED;
@@ -1809,11 +1786,6 @@ static int await_value(JSContext *context, JSValue *value) {
     }
     if (status == 0) {
       const int active = pump_janis(context);
-      if (janis_exit_requested) {
-        JS_FreeValue(context, *value);
-        *value = JS_UNDEFINED;
-        return 0;
-      }
       if (active < 0) {
         JS_FreeValue(context, *value);
         *value = JS_UNDEFINED;
@@ -1867,24 +1839,18 @@ static int evaluate(JSContext *context, const char *source, size_t length,
   }
   // await_value returns -2 once it has reported the failure itself.
   const int awaited = JS_IsException(result) ? -1 : await_value(context, &result);
-  if (awaited == 0) {
-    JS_FreeValue(context, result);
-  } else if (janis_exit_requested) {
-    discard_exception(context);
-    return janis_exit_status;
-  } else if (awaited == -2 || report_uncaught(context) < 0) {
-    return 1;
-  }
+  if (awaited == 0) JS_FreeValue(context, result);
+  else if (awaited == -2 || report_uncaught(context) < 0) return 1;
 
   for (;;) {
-    const int jobs = execute_pending_jobs(context);
-    if (janis_exit_requested) return janis_exit_status;
-    if (jobs < 0) return 1;
+    if (execute_pending_jobs(context) < 0) return 1;
     const int active = pump_janis(context);
-    if (janis_exit_requested) return janis_exit_status;
     if (active < 0) return 1;
     if (active == 0 && !JS_IsJobPending(JS_GetRuntime(context))) break;
   }
+  JSValue exited = call_janis(context, "__janisExiting", 0, NULL);
+  if (JS_IsException(exited)) return report_uncaught(context) < 0 ? 1 : process_exit_code(context);
+  JS_FreeValue(context, exited);
   return process_exit_code(context);
 }
 
@@ -1896,8 +1862,6 @@ int dolly_quickjs_embed(int argc, char **argv, const char *default_module,
   size_t length = 0;
   int argument_index = 1;
   int module_mode = 0;
-  janis_exit_requested = 0;
-  janis_exit_status = 0;
   janis_interrupted = 0;
 
   if (default_module != NULL) {
