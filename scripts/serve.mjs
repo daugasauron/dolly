@@ -7,7 +7,7 @@ import { pathToFileURL } from "node:url";
 import { sha256 } from "./snapshot-identity.mjs";
 import { renderReleasePage, snapshotPackPath } from "./release-layout.mjs";
 
-const mimeTypes = new Map([
+export const mimeTypes = new Map([
   [".html", "text/html; charset=utf-8"],
   [".md", "text/markdown; charset=utf-8"],
   [".txt", "text/plain; charset=utf-8"],
@@ -26,7 +26,7 @@ const mimeTypes = new Map([
   [".png", "image/png"],
   [".mp4", "video/mp4"],
 ]);
-const isolationHeaders = {
+export const isolationHeaders = {
   "cross-origin-opener-policy": "same-origin",
   "cross-origin-embedder-policy": "require-corp",
   "cross-origin-resource-policy": "same-origin",

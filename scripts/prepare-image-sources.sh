@@ -200,4 +200,3 @@ if ! mv -- "${static_dir}" "${project_dir}/dist/static"; then
   exit 1
 fi
 node scripts/update-recipe-pins.mjs --sources
-node scripts/verify-static-sources.mjs

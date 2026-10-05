@@ -3,8 +3,8 @@
 // writes the snapshot to OUTPUT (new, inside dist/) and its dependency inputs
 // to OUTPUT.inputs.json. The persistent profile and a port derived from its
 // path keep one origin, so completed images are reused from the profile's
-// IndexedDB. --unpackaged hides packaged snapshots: dependencies must be rebuilt
-// (cold) or come from that cache (warm).
+// IndexedDB. --unpackaged hides packaged snapshots: every dependency must be
+// rebuilt (cold) or come from that cache (warm).
 // usage: build-snapshot-browser.mjs IMAGE OUTPUT [--unpackaged cold|warm]
 // env: DOLLY_BROWSER_PROFILE (.cache/snapshot-browser-profile)
 import { createHash } from "node:crypto";
@@ -14,7 +14,9 @@ import { parseArgs } from "node:util";
 import { chromium } from "playwright-core";
 
 import { createDollyfileGraphLoader } from "./dollyfile-graph.mjs";
-import { startBrowserServer } from "../test/browser-server.mjs";
+import { discoverImageDefinitions, selectImageDefinitions } from "./image-definitions.mjs";
+import { buildImageInPage } from "./page-image-build.mjs";
+import { startCheckoutServer } from "./serve-checkout.mjs";
 import { MAX_SNAPSHOT_BYTES } from "../src/snapshot-records.mjs";
 import { DOLLY_IMAGES } from "../dist/dolly-images.mjs";
 import { canonicalPath } from "../src/static-asset.mjs";
@@ -38,13 +40,9 @@ const rules = graph.records.flatMap(record => record.sources.filter(source => ca
 
 let uploaded = 0, file;
 async function handle(request, response, path, headers) {
-  if (path === "/__dolly_build_page") {
-    response.writeHead(200, { ...headers, "content-type": "text/html; charset=utf-8" });
-    response.end("<!doctype html><title>Dolly image build</title>");
-  } else if (unpackaged && /^\/dist\/(?:packs\/|dolly-.+-system(?:\.snapshot|-snapshot\.mjs)$)/.test(path)) {
+  if (unpackaged && /^\/dist\/(?:packs\/|dolly-.+-system(?:\.snapshot|-snapshot\.mjs)$)/.test(path)) {
     response.writeHead(404, headers).end();
   } else if (path === "/__dolly_build_snapshot" && request.method === "POST") {
-    // The page sends the snapshot in order, in chunks small enough for Chrome's blob storage.
     const query = new URL(request.url, "http://upload").searchParams;
     const offset = Number(query.get("offset")), length = Number(query.get("length"));
     try {
@@ -67,32 +65,18 @@ async function handle(request, response, path, headers) {
   return true;
 }
 
-// Runs in the page: build the image's missing dependencies, then the image.
-async function buildInPage(image) {
-  const log = text => void globalThis.dollyBuildLog(text);
-  const [registry, policy, transport, builder, graph] = await Promise.all([
-    "/dist/dolly-images.mjs", "/host/http/policy.mjs", "/host/http/local-services.mjs",
-    "/src/image-builder.mjs", "/src/image-build.mjs",
-  ].map(path => import(new URL(path, location.href))));
-  const sources = [
-    ...registry.DOLLY_IMAGES.map(definition => ({ path: `/${definition.dollyfile}`, byteLength: definition.byteLength })),
-    ...registry.DOLLY_STATIC_SOURCES,
-  ];
-  const network = transport.localServicesTransport(
-    policy.consumeDollyHttpPolicy(globalThis, sources, new URL("/", location.href)));
-  const build = (name, artifacts) => builder.buildImage(name, artifacts, { http: { network } }, log);
-  const { bytes, inputs } = await build(image,
-    await graph.prepareImageArtifacts(image, undefined, build, text => log(`${text}\n`)));
-  const snapshot = new Uint8Array(bytes), chunk = 64 * 1024 * 1024;
+// Runs in the page after buildImageInPage: sends the snapshot in order, in
+// chunks small enough for Chrome's blob storage.
+async function uploadSnapshot() {
+  const snapshot = globalThis.dollySnapshot, chunk = 64 * 1024 * 1024;
   for (let offset = 0; offset < snapshot.length; offset += chunk) {
     const response = await fetch(`/__dolly_build_snapshot?offset=${offset}&length=${snapshot.length}`,
       { method: "POST", body: snapshot.subarray(offset, offset + chunk) });
     if (response.status !== 204) throw new Error(`snapshot upload failed: ${await response.text()}`);
   }
-  return inputs;
 }
 
-const server = await startBrowserServer(projectDir, null, { port, handle });
+const server = await startCheckoutServer(projectDir, null, { port, handle });
 let context;
 try {
   console.log(`dolly: building ${image} in Chrome at ${server.origin} with profile ${profile}`);
@@ -100,15 +84,14 @@ try {
     channel: "chrome", headless: true, args: ["--no-sandbox", "--disable-gpu"],
   });
   const page = context.pages()[0] ?? await context.newPage();
-  let reused = false;
-  await page.exposeFunction("dollyBuildLog", text => {
-    reused ||= text.includes("reusing local ");
-    process.stdout.write(text);
-  });
+  await page.exposeFunction("dollyBuildLog", text => void process.stdout.write(text));
   await page.addInitScript(rules => { globalThis.DOLLY_HTTP_POLICY = { maxRequests: 256, rules }; }, rules);
   await page.goto(`${server.origin}/__dolly_build_page`);
-  const inputs = await page.evaluate(buildInPage, image);
-  if (unpackaged && reused !== (graph.artifacts.length !== 0 && unpackaged === "warm")) {
+  const { inputs, dependenciesBuilt } = await page.evaluate(
+    `(${buildImageInPage})(location.origin + "/", ${JSON.stringify(image)})`);
+  await page.evaluate(uploadSnapshot);
+  const dependencies = (await selectImageDefinitions(await discoverImageDefinitions(projectDir), image)).length - 1;
+  if (unpackaged && dependenciesBuilt !== (unpackaged === "cold" ? dependencies : 0)) {
     throw new Error(`${image} did not exercise the ${unpackaged} image cache`);
   }
   await writeFile(`${output}.inputs.json`, JSON.stringify(inputs), { flag: "wx" });
