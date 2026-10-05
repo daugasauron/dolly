@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { worker } from "../host/audio/audio.mjs";
-import { DOLLY_ERRNO as E } from "../dist/dolly-errno.mjs";
+import { DOLLY_ERRNO as E } from "../src/process-constants.mjs";
 import { createDollyfileGraphLoader } from "../scripts/dollyfile-graph.mjs";
 
 test("audio module binds the bridge, acknowledges replies, revokes and disposes", () => {

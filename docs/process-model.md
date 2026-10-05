@@ -39,6 +39,11 @@ sequenceDiagram
 - Found through `PATH`; `#!` lines name an absolute in-Wasm interpreter, nested at most 4 deep.
 - `readlink("/proc/self/exe")` returns the loaded image's canonical path; there is
   no general `/proc`.
+- The target's identity: a program sees `__dolly__`, `__unix__` and
+  `__wasm64__`, and no macro of Emscripten, Linux or WASI; `cc -dumpmachine`
+  prints `wasm64-unknown-dolly` and `uname` `Dolly wasm64`. The libc is a
+  bootstrap whose headers test `__dolly__`; LLVM and Zig still generate
+  code under its Emscripten name, which no program can test.
 - The compiler is itself a private process behind `cc`, `c++`, `ld` and `ar`
   ([`compiler.cpp`](../src/compiler.cpp)). It defaults to Clang's `-std=gnu17` and
   `-std=gnu++17` but to `-O2`, and follows Clang's suffix rules; objects are always position

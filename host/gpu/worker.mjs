@@ -1,5 +1,5 @@
 import * as A from "./abi.mjs";
-import { DOLLY_ERRNO as E } from "../../dist/dolly-errno.mjs";
+import { DOLLY_ERRNO as E } from "../../src/process-constants.mjs";
 
 const decode = new TextDecoder("utf-8", { fatal: true });
 const encode = new TextEncoder();

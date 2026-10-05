@@ -22,7 +22,7 @@ export async function runBrowserBoundaryChecks(assetRoot) {
     await import(asset("host/http/abi.mjs"));
   const { DollyHttpPolicy, restrictDollyHttpPolicy, httpPolicyConfigurations } = await import(asset("host/http/policy.mjs"));
   const { DOLLY_KERNEL_PLUGIN_ABI_DIGEST } = await import(asset("dist/dolly-kernel-plugin-abi.mjs"));
-  const { DOLLY_ERRNO: errno } = await import(asset("dist/dolly-errno.mjs"));
+  const { DOLLY_ERRNO: errno } = await import(asset("src/process-constants.mjs"));
   const fixtureOrigin = new URL(import.meta.url).origin;
   const kernel = await WebAssembly.compileStreaming(fetch(asset("dist/dolly.wasm")));
   const contract = await WebAssembly.compileStreaming(fetch(asset("dist/dolly-browser-0.wasm")));

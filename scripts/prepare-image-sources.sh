@@ -75,8 +75,11 @@ if has_image curl; then
   copy_static "${project_dir}/src/libcurl-fetch.c" default/libcurl-fetch.c
 fi
 if has_image system-build; then
+  # As for the libc headers in scripts/prepare-kernel-seed.sh.
+  cp -r -- "${project_dir}/.cache/emscripten/sysroot/include/c++/v1" "${staging}/libcxx"
+  grep -rlZw __EMSCRIPTEN__ "${staging}/libcxx" | xargs -0 sed -i 's/\b__EMSCRIPTEN__\b/__dolly__/g'
   node scripts/build-source-tar.mjs "${static_dir}/default/libcxx-headers.tar" \
-    "${project_dir}/.cache/emscripten/sysroot/include/c++/v1" /usr/include/c++/v1
+    "${staging}/libcxx" /usr/include/c++/v1
   copy_static "${emscripten_system_dir}/system/lib/libcxx/LICENSE.TXT" default/licenses/libcxx
   copy_static "${emscripten_system_dir}/system/lib/libcxxabi/LICENSE.TXT" default/licenses/libcxxabi
   copy_static "${emscripten_system_dir}/LICENSE" default/licenses/emscripten

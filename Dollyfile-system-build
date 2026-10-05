@@ -7,9 +7,9 @@ REQUIRES HOST http@0
 # eventually map to the lower-level machine contract is deliberately open.
 SOURCE https://daugasauron.com/include/dolly/toolchain.h 6f9da3258e970e356c31034e1f109a04ac8bd5ab57dc82c19aebf293289fb415 /usr/include/dolly/toolchain.h
 SOURCE https://daugasauron.com/include/dolly/runtime.h   8960409cb41932a357c568724e285544c9fd04d8b65205f61efb398873eb63c6 /usr/include/dolly/runtime.h
-SOURCE https://daugasauron.com/include/dolly/process.h   b3aebe8a559080600347c2102a9d2e632d8358508e1f99c9c4d9b980365d6749 /usr/include/dolly/process.h
+SOURCE https://daugasauron.com/include/dolly/process.h   78153700d5d1488bbff1d5fd4e27456391fee1f263ecb075c9af17c2ee8234a5 /usr/include/dolly/process.h
 SOURCE https://daugasauron.com/host/http/http.h      d09f57cda4a6cde89106653f12366ac95554c21d37d05a69c15764d4254b70a5 /usr/include/dolly/http.h
-SOURCE https://daugasauron.com/host/http/http-abi.h 34c4af0608cb0f82e54bb077becec2686d61bae749c70a42ccfce44a5d83e92c /usr/include/dolly/http-abi.h
+SOURCE https://daugasauron.com/host/http/http-abi.h 2f4e1e5c7145730babc91a0ff0a38db8b5e100ae1fab0b722b38ecbd53ad64a0 /usr/include/dolly/http-abi.h
 SOURCE https://daugasauron.com/host/display/display.h   6acc64b125107c1a0ba4b5dea62662e0e73fb3bbda854909941b4a0731b691a2 /usr/include/dolly/display.h
 SOURCE https://daugasauron.com/host/display/display-abi.h 1490e3d68665c333287d78af15b77008c7ffdcf4a8b1fcfe93cd32a176f618c8 /usr/include/dolly/display-abi.h
 SOURCE https://daugasauron.com/host/download/download.h  666bca4fba5da7bf1e998c6486f56dce24cdbc82f1126f9be59067eb03b03bfa /usr/include/dolly/download.h
@@ -1880,7 +1880,7 @@ REQUIRES TOOL   cp
 REQUIRES TOOL   mkdir
 REQUIRES TOOL   tar
 
-SOURCE https://daugasauron.com/dist/static/default/make-4.4.1.tar                     f8055eb2fa9836b1745cb1b16a4c7141fe6446ca45fcac0ca9574734fd2763e0 /tmp/make-4.4.1.tar
+SOURCE https://daugasauron.com/dist/static/default/make-4.4.1.tar                     5dce03b47a90e26891e789b3361481c65765e12bd8dc79ec0cf949336ef94616 /tmp/make-4.4.1.tar
 SOURCE https://daugasauron.com/dist/static/default/runtimes/make-amalgamation-dolly.c c37c85dd20c843b9bface7e12bd190f8d943b18c0b2b5e0341cfdc2cba11b4fd /tmp/make-4.4.1/make-amalgamation-dolly.c
 
 SLOP tar \
@@ -1893,7 +1893,6 @@ SLOP cc \
   -c \
   -O1 \
   -std=gnu11 \
-  -DDOLLY \
   -DHAVE_CONFIG_H \
   -I /usr/src/make \
   -I /usr/src/make/src \
@@ -1907,7 +1906,6 @@ SLOP cc \
   -c \
   -O1 \
   -std=gnu11 \
-  -DDOLLY \
   -DHAVE_CONFIG_H \
   -I /usr/src/make \
   -I /usr/src/make/src \
@@ -1921,7 +1919,6 @@ SLOP cc \
   -c \
   -O1 \
   -std=gnu11 \
-  -DDOLLY \
   -DHAVE_CONFIG_H \
   -I /usr/src/make \
   -I /usr/src/make/src \
@@ -1935,7 +1932,6 @@ SLOP cc \
   -c \
   -O1 \
   -std=gnu11 \
-  -DDOLLY \
   -DHAVE_CONFIG_H \
   -I /usr/src/make \
   -I /usr/src/make/src \
@@ -1949,7 +1945,6 @@ SLOP cc \
   -c \
   -O1 \
   -std=gnu11 \
-  -DDOLLY \
   -DHAVE_CONFIG_H \
   -I /usr/src/make \
   -I /usr/src/make/src \
@@ -1963,7 +1958,6 @@ SLOP cc \
   -c \
   -O1 \
   -std=gnu11 \
-  -DDOLLY \
   -DHAVE_CONFIG_H \
   -I /usr/src/make \
   -I /usr/src/make/src \
@@ -1977,7 +1971,6 @@ SLOP cc \
   -c \
   -O1 \
   -std=gnu11 \
-  -DDOLLY \
   -DHAVE_CONFIG_H \
   -I /usr/src/make \
   -I /usr/src/make/src \
@@ -2015,7 +2008,7 @@ SLOP rm \
 REQUIRES FOLDER process-sdk
 REQUIRES TOOL   c++
 
-SOURCE https://daugasauron.com/dist/static/default/libcxx-headers.tar bf2e001df02242dfe12574daf0eca582d89708a76f794a8983c57abc72dd72c6 /tmp/cpp/libcxx-headers.tar
+SOURCE https://daugasauron.com/dist/static/default/libcxx-headers.tar 5e558f6f862d4a3fb22cc3c5b62c5e2652bf699f176fa349eeecb85d1a946735 /tmp/cpp/libcxx-headers.tar
 SOURCE https://daugasauron.com/dist/static/default/licenses/libcxx    539dd7aed86e8a4f12cbdd0e6c50c189c7d74847e4fecc64ce2c6ee3a01da38b /usr/share/licenses/libcxx/LICENSE
 SOURCE https://daugasauron.com/dist/static/default/licenses/libcxxabi e2b35be49f7284a45b7baca8fc7b3ab7440e7902392b2528a457816b5bb2a15c /usr/share/licenses/libcxxabi/LICENSE
 

@@ -1,4 +1,4 @@
-import { DOLLY_ERRNO as E } from "../../dist/dolly-errno.mjs";
+import { DOLLY_ERRNO as E } from "../../src/process-constants.mjs";
 import { DOLLY_DOWNLOAD_OPEN, DOLLY_DOWNLOAD_WRITE, DOLLY_DOWNLOAD_CLOSE, DOLLY_DOWNLOAD_ABORT,
   DOLLY_DOWNLOAD_CHUNK_CAPACITY, DOLLY_DOWNLOAD_MAX_SIZE } from "./abi.mjs";
 export { DOLLY_DOWNLOAD_ABI_DIGEST as digest } from "./abi.mjs";
