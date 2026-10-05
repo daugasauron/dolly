@@ -7,7 +7,7 @@ import { importRelay } from "../spectator/relay.mjs";
 import fs from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import * as ui from "../../../node_modules/@earendil-works/pi-coding-agent/node_modules/@earendil-works/pi-tui/dist/index.js";
+import * as ui from "@earendil-works/pi-tui";
 
 test("picker filters live with Pi's fuzzy matcher, navigates, edits, pastes and cancels", () => {
   const items = [

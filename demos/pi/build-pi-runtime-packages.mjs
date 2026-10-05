@@ -7,8 +7,6 @@ import { spawnSync } from "node:child_process";
 const projectDir = resolve(import.meta.dirname, "../..");
 const manifestPath = resolve(projectDir, "demos/pi/pi-runtime-packages.txt");
 const lock = JSON.parse(await readFile(resolve(projectDir, "package-lock.json"), "utf8"));
-const packageRootPrefix =
-  "node_modules/@earendil-works/pi-coding-agent/node_modules/";
 
 const names = (await readFile(manifestPath, "utf8"))
   .split(/\r?\n/)
@@ -28,13 +26,14 @@ for (const name of names) {
   }
 }
 
-// Pi's shrinkwrap may nest a package below the workspace that uses it (pi-ai's
-// openai); Dolly installs each listed package once, flat.
+// npm hoists Pi's dependencies to node_modules/NAME and nests a conflicting
+// version below the Pi package that needs it; Dolly installs each listed
+// package once, flat, preferring the hoisted copy.
 function lockedRoot(name) {
-  const direct = `${packageRootPrefix}${name}`;
-  if (lock.packages?.[direct]) return direct;
+  const hoisted = `node_modules/${name}`;
+  if (lock.packages?.[hoisted]) return hoisted;
   const nested = Object.keys(lock.packages ?? {}).filter((path) =>
-    path.startsWith(packageRootPrefix) && path.endsWith(`/node_modules/${name}`));
+    path.startsWith("node_modules/@earendil-works/") && path.endsWith(`/node_modules/${name}`));
   if (nested.length !== 1) throw new Error(`Pi runtime package is not unique in package-lock.json: ${name}`);
   return nested[0];
 }
