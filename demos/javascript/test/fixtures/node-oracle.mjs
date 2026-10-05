@@ -132,6 +132,26 @@ export async function observe(root) {
     node(["common.js", "a", "b"]), node(["syntax.js"]), node(["typed/main.js"]),
     node(["-"], "console.log(typeof require)"), node(["-"], "import path from 'node:path'; console.log(path.sep)"),
   ];
+  cases.stdin = [
+    node(["-e", "process.stdin.setEncoding('utf8'); process.stdin.on('readable', () => { let chunk; " +
+      "while ((chunk = process.stdin.read()) !== null) console.log('read', JSON.stringify(chunk)); }); process.stdin.on('end', () => console.log('end'))"], "typed\n"),
+    node(["-e", "process.stdin.unref(); process.stdin.on('data', () => console.log('data')); console.log('unreferenced')"], ""),
+  ];
+  const watched = `${root}/watched`;
+  fs.mkdirSync(watched);
+  const watchEvents = [], fileChanges = [];
+  const watcher = fs.watch(watched, (type, name) => watchEvents.push(`${type}:${name}`));
+  fs.writeFileSync(`${watched}/file`, "x");
+  fs.watchFile(`${watched}/file`, { interval: 100 }, (current, previous) => fileChanges.push([current.size, previous.size]));
+  const settle = () => new Promise(resolve => setTimeout(resolve, 1300));
+  await settle();
+  fs.writeFileSync(`${watched}/file`, "longer");
+  await settle();
+  fs.unlinkSync(`${watched}/file`);
+  await settle();
+  watcher.close();
+  fs.unwatchFile(`${watched}/file`);
+  cases.watch = [[...new Set(watchEvents)].sort(), fileChanges, await outcome(() => fs.watch(missing))];
   cases.exit = [
     node(["-e", "try { process.exit(3); } catch { console.log('caught'); }"]),
     node(["-e", "process.on('exit', code => { console.log('exit', code); process.exitCode = 9; }); setTimeout(() => process.exit(5), 5)"]),

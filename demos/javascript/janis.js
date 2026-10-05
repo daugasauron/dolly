@@ -634,11 +634,27 @@ class JanisStdin extends JanisEventEmitter {
   }
   resume() { this.#resumed = true; return this; }
   pause() { this.#resumed = false; return this; }
-  isActive() { return this.#resumed && this.listenerCount("data") > 0; }
+  // An unreferenced stdin still reads while other work keeps the loop alive.
+  refed = true;
+  ref() { this.refed = true; return this; }
+  unref() { this.refed = false; return this; }
+  isActive() { return this.readable && (this.#resumed && this.listenerCount("data") > 0 || this.listenerCount("readable") > 0); }
+  // Paused mode: 'readable' listeners pull buffered input with read().
+  #queue = [];
+  read() {
+    if (!this.#queue.length) return null;
+    const chunk = typeof this.#queue[0] === "string" ? this.#queue.join("") : Buffer.concat(this.#queue);
+    this.#queue.length = 0;
+    this.emit("data", chunk);
+    return chunk;
+  }
   publish(bytes) {
     if (!bytes.length || !this.isActive()) return;
     const chunk = this.#decoder ? this.#decoder.write(bytes) : Buffer.from(bytes);
-    if (chunk.length) this.emit("data", chunk);
+    if (!chunk.length) return;
+    if (this.listenerCount("readable") === 0) return void this.emit("data", chunk);
+    this.#queue.push(chunk);
+    this.emit("readable");
   }
   finish() {
     if (!this.readable) return;
@@ -1287,6 +1303,79 @@ function createWriteStream(path, options = {}) {
   return stream;
 }
 
+// Dolly has no change notification, so fs.watch compares metadata every
+// second and fs.watchFile at its interval, both on unreferenced-able timers.
+function janisWatchSnapshot(path, recursive) {
+  const metadata = fsStat(path);
+  if (!metadata.isDirectory()) return new Map([["", `${metadata.mtimeMs}:${metadata.size}`]]);
+  const entries = new Map();
+  const walk = (directory, prefix) => {
+    for (const name of fsReaddir(directory)) {
+      let child;
+      try { child = fsLstat(janisPath.join(directory, name)); } catch { continue; }
+      entries.set(prefix + name, `${child.kind}:${child.mtimeMs}:${child.size}`);
+      if (recursive && child.isDirectory()) walk(janisPath.join(directory, name), `${prefix}${name}/`);
+    }
+  };
+  walk(path, "");
+  return entries;
+}
+class JanisFSWatcher extends JanisEventEmitter {
+  #timer; #snapshot;
+  constructor(path, options, listener) {
+    super();
+    path = String(path);
+    const recursive = Boolean(options.recursive);
+    this.#snapshot = fsNative(path, () => janisWatchSnapshot(path, recursive));
+    if (listener) this.on("change", listener);
+    this.#timer = setInterval(() => {
+      let next;
+      try { next = janisWatchSnapshot(path, recursive); } catch { next = new Map(); }
+      for (const [name, value] of next) {
+        const before = this.#snapshot.get(name);
+        if (before !== value) this.emit("change", before === undefined ? "rename" : "change", name || basename(path));
+      }
+      for (const name of this.#snapshot.keys()) if (!next.has(name)) this.emit("change", "rename", name || basename(path));
+      this.#snapshot = next;
+    }, 1000);
+    if (options.persistent === false) this.#timer.unref();
+  }
+  close() { clearInterval(this.#timer); this.emit("close"); }
+  ref() { this.#timer.ref(); return this; }
+  unref() { this.#timer.unref(); return this; }
+}
+const janisStatWatchers = new Map();
+function janisWatchFile(path, options, listener) {
+  if (typeof options === "function") [options, listener] = [{}, options];
+  path = String(path);
+  const current = () => { try { return fsStat(path); } catch { return new JanisStats({ size: 0, mode: 0, mtimeMs: 0, kind: "other" }); } };
+  let watcher = janisStatWatchers.get(path);
+  if (!watcher) {
+    watcher = new JanisEventEmitter();
+    let previous = current();
+    const timer = setInterval(() => {
+      const next = current();
+      if (next.mtimeMs === previous.mtimeMs && next.size === previous.size && next.kind === previous.kind) return;
+      [previous, next.previous] = [next, previous];
+      watcher.emit("change", next, next.previous);
+    }, options?.interval ?? 5007);
+    if (options?.persistent === false) timer.unref();
+    Object.assign(watcher, { timer, ref() { timer.ref(); return this; }, unref() { timer.unref(); return this; } });
+    janisStatWatchers.set(path, watcher);
+  }
+  watcher.on("change", listener);
+  return watcher;
+}
+function janisUnwatchFile(path, listener) {
+  const watcher = janisStatWatchers.get(String(path));
+  if (!watcher) return;
+  if (listener) watcher.off("change", listener);
+  else watcher.removeAllListeners("change");
+  if (watcher.listenerCount("change")) return;
+  clearInterval(watcher.timer);
+  janisStatWatchers.delete(String(path));
+}
+
 const janisFs = {
   constants: { ...Dolly.fsConstants, F_OK: 0, R_OK: 4, W_OK: 2, X_OK: 1,
     COPYFILE_EXCL: 1, COPYFILE_FICLONE: 2, COPYFILE_FICLONE_FORCE: 4 },
@@ -1334,9 +1423,12 @@ const janisFs = {
   createReadStream,
   createWriteStream,
   mkdtempSync: fsMkdtemp,
-  watch: unsupported("filesystem watching", "ERR_METHOD_NOT_IMPLEMENTED"),
-  watchFile: unsupported("filesystem watching", "ERR_METHOD_NOT_IMPLEMENTED"),
-  unwatchFile() {},
+  watch: (path, options, listener) => {
+    if (typeof options === "function") [options, listener] = [{}, options];
+    return new JanisFSWatcher(path, typeof options === "string" ? {} : options ?? {}, listener);
+  },
+  watchFile: janisWatchFile,
+  unwatchFile: janisUnwatchFile,
 };
 
 const janisFsPromises = {
@@ -2972,7 +3064,7 @@ globalThis.__janisPump = () => {
   const referenced = [...janisTimers.values()].filter((timer) => timer.ref);
   const wantsInput = janisStdin.isActive();
   const activeChildren = [...janisChildren.values()].some(record => record.ref);
-  if (!wantsInput && referenced.length === 0 && !pumpedHttp && !activeChildren) return false;
+  if (!(wantsInput && janisStdin.refed) && referenced.length === 0 && !pumpedHttp && !activeChildren) return false;
   const nextDue = referenced.length
     ? Math.max(0, Math.min(...referenced.map((timer) => timer.due)) - Date.now())
     : 1000;
