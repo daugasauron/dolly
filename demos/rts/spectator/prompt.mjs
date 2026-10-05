@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-2.0-or-later
+// SPDX-License-Identifier: MIT
 import { dialog } from "./picker.mjs";
 
 export function createPrompt(ui, label, { secret = false, fallback = "", note = "", validate } = {}, select, cancel) {

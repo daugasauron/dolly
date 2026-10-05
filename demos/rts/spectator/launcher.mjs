@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-2.0-or-later
+// SPDX-License-Identifier: MIT
 import { pick } from "./picker.mjs";
 import { ask } from "./prompt.mjs";
 import { importRelay } from "./relay.mjs";

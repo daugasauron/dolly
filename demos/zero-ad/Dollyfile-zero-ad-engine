@@ -9,7 +9,7 @@ REQUIRES HOST upload@0
 
 # Build-only: premake and the 0 A.D. engine (pyrogenesis), built by upstream's
 # premake Makefiles with Dolly's c++.
-FROM https://daugasauron.com/demos/zero-ad/Dollyfile-zero-ad-deps 784728c5e5006a0eefa39d62b123bdb7cfeee9095a4b87aed00f61b63ec7f291
+FROM https://daugasauron.com/demos/zero-ad/Dollyfile-zero-ad-deps fd39832d97130deb254e8041e216df05f5ec9fb21ad9c4205e651c33a5141798
 REQUIRES TOOL cc
 REQUIRES TOOL c++
 REQUIRES TOOL ar
@@ -43,8 +43,13 @@ SLOP slop -e /tmp/premake.slop
 
 # Bootstrap exception: SpiderMonkey is still cross-compiled outside Dolly
 # (toolchain/build-spidermonkey.sh).
-SOURCE https://daugasauron.com/dist/static/zero-ad-build/mozjs-host.tar.gz 92826d6f0eede8d1b3fc7a750019de7a7e0f2ac93167740cdf58c9d389fd1f29 /tmp/mozjs.tar.gz
+SOURCE https://daugasauron.com/dist/static/zero-ad-build/mozjs-host.tar.gz 8169238800343f898765a17d5a8cb1f4dc6be28a6bc696ab2aa5871e6d092273 /tmp/mozjs.tar.gz
 SLOP gzip -dc /tmp/mozjs.tar.gz | tar -xf - -C /
+FOLDER /usr/share/licenses/spidermonkey
+# Its corresponding source, and that of the game data's translated shaders:
+# SpiderMonkey's pinned tarball with 0 A.D.'s patches and toolchain/. Published
+# with the release; the build only verifies it.
+SOURCE https://daugasauron.com/dist/static/zero-ad-build/bootstrap.tar a6554ba203deb4c81ea88d5289908f6a671362100a00c4023d5e305b645ccc22 /tmp/zero-ad-bootstrap.tar
 FILE /tmp/pkgconfig/mozjs-128.pc
     Name: SpiderMonkey 128.13.0
     Description: The Mozilla library for JavaScript

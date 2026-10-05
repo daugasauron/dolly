@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-2.0-or-later
+// SPDX-License-Identifier: MIT
 import { connectPlayer, describeScreenshot, playerModel } from "../player.js";
 import { traceText } from "./trace.mjs";
 import { replayMatch } from "./replay.mjs";

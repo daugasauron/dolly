@@ -22,6 +22,8 @@ for (const [input, name, destination] of files.map(path => [resolve(content, pat
   sources.push(`SOURCE https://daugasauron.com/dist/static/zero-ad/${name} ${await digest(resolve(output, name))} ${destination}`);
 }
 await rm(resolve(output, "data.tar"), { force: true });
+const engine = hash(await readFile(resolve(root, "demos/zero-ad/Dollyfile-zero-ad-engine")));
+const linked = ["OpenAL", "SDL2", "enet", "fmt", "freetype", "icu", "libogg", "libpng", "libsodium", "libvorbis", "libxml2", "spidermonkey"];
 await writeFile(resolve(root, "demos/zero-ad/Dollyfile-zero-ad"), `DOLLY 6
 APPLICATION zero-ad
 REQUIRES HOST audio@0
@@ -33,7 +35,9 @@ REQUIRES HOST snapshot@0
 REQUIRES HOST upload@0
 
 FROM https://daugasauron.com/Dollyfile ${hash(await readFile(resolve(root, "Dollyfile")))}
-COPY https://daugasauron.com/demos/zero-ad/Dollyfile-zero-ad-engine ${hash(await readFile(resolve(root, "demos/zero-ad/Dollyfile-zero-ad-engine")))} /opt/0ad/system/pyrogenesis /opt/0ad/system/pyrogenesis
+COPY https://daugasauron.com/demos/zero-ad/Dollyfile-zero-ad-engine ${engine} /opt/0ad/system/pyrogenesis /opt/0ad/system/pyrogenesis
+# Licences of the libraries statically linked into the engine.
+${linked.map(name => `COPY https://daugasauron.com/demos/zero-ad/Dollyfile-zero-ad-engine ${engine} /usr/share/licenses/${name} /usr/share/licenses/${name}`).join("\n")}
 # Game content and configuration; the engine comes from zero-ad-engine.
 ${sources.join("\n")}
 

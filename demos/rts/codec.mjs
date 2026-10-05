@@ -1,4 +1,4 @@
-// Bounded, versioned application input packets. SPDX-License-Identifier: GPL-2.0-or-later
+// Bounded, versioned application input packets. SPDX-License-Identifier: MIT
 export function createInputCodec({ magic, version, width, height, look = false, text = false }) {
   const kinds = { move: 1, click: 2, key: 3, drag: 4, wait: 5, ...(look ? { look: 6 } : {}), ...(text ? { text: 7 } : {}) };
   const stride = text ? 288 : 64;

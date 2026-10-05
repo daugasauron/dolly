@@ -48,3 +48,59 @@ three points that need the owner's decision. Everything mechanical is fixed.
 ## Done when
 
 Each point is decided and either applied or recorded here as accepted.
+
+## Decisions (2026-10-06)
+
+The owner delegated the three points: "research them thoroughly and go with the
+answer that aligns with the goal of the project."
+
+1. **0 A.D.: serve the missing corresponding source.** The project builds from
+   pinned, published upstream source and records bootstrap exceptions, so GPL,
+   LGPL and MPL binaries ship with their source.
+   - `zero-ad-engine` takes `zero-ad-build/bootstrap.tar` (151 MB) as a
+     `SOURCE` it only verifies: `libraries/source/spidermonkey` of the pinned
+     `0ad-0.28.0-unix-build.tar.xz` (SpiderMonkey 128.13's tarball, 0 A.D.'s
+     patches, `build.sh`, `mozconfig`) and `demos/zero-ad/toolchain` (the
+     SpiderMonkey cross-build, `spidermonkey.patch`, and the shader conversion
+     `convert-shaders.py` and `package-graphics.py`). The GLSL shader sources
+     already ship in the served mod archives; only Naga's WGSL replaces the
+     SPIR-V. A `SOURCE` of the build-only `zero-ad-engine` is enough: the domain
+     catalog's closure publishes every input of every image it includes.
+   - Hosting: Cloudflare splits the tar into eight 20 MiB parts and adds one
+     `_headers` rule per release (23 of 100 per release, so still at most three
+     predecessors); GitHub Pages does not ship zero-ad.
+   - `deps.tar.gz` maps each linked library's licence to
+     `/usr/share/licenses/{enet,fmt,freetype,icu,libogg,libpng,libsodium,libvorbis,libxml2,pkgconf}`,
+     `mozjs-host.tar.gz` SpiderMonkey's `LICENSE` and MPL-2.0 text and the
+     licence files of the 51 vendored crates compiled into `libjsrust.a`
+     (`/usr/share/licenses/spidermonkey/crates/`); `zero-ad-deps` (with SDL2's
+     from the SDL2 package) and `zero-ad-engine` retain them and `zero-ad`
+     copies the twelve directories of linked libraries.
+   - FreeType is used under its GPL-2.0-or-later option (its `LICENSE.TXT`:
+     the FTL is incompatible with GPLv2).
+2. **GPL-marked files: GPL only where compiled into a GPL program.** All 33
+   files were added in this repository (first in `4b441962`, `f79bfa7f`,
+   `95f330be`, `bb248f7b`); none copies Seven Kingdoms or 0 A.D. code (no
+   upstream identifiers or includes).
+   - Stay GPL-2.0-or-later (8): `demos/rts/{Makefile,OAUDIO.h,arena.cpp,arena.h,config.h,input.cpp,input.h}`,
+     compiled and linked into the `seven-kingdoms` binary with
+     `-include config.h` (`OAUDIO.h` implements 7kaa's `AudioBase`), and
+     `demos/zero-ad/engine.patch`, a patch to 0 A.D.'s GPL engine.
+   - Now MIT (25): `demos/rts/{codec.mjs,player.js}`, `demos/rts/spectator/*`,
+     `demos/game-agent/{mission.mjs,settings.mjs,viewer.cpp}`,
+     `demos/classicube/agent/{main.mjs,mission.mjs,player.js,settings.mjs,viewer.cpp,world.mjs}`
+     and `demos/bhop/agent/{codec.mjs,main.mjs,player.js,replay.mjs}`. They are
+     Pi extensions and Janis programs, and SDL/stb_truetype viewers, that drive
+     the games from outside over pipes, input packets and screenshots; ClassiCube
+     is BSD-3-Clause and Airtime is Dolly's own. The GPL `COPYING` copies in
+     `demos/game-agent` and `demos/classicube/agent`, and the recipe lines that
+     kept them, are removed. The README names the 8 GPL files.
+3. **ClassiCube's default textures: replaced.** The pack is upstream's
+   `misc/cc_textures.zip` at the pinned commit. `license.txt` (BSD-3-Clause,
+   UnknownShadow200) names no assets; `credits.txt` says Goodlyay "designed all
+   the textures in the web client"; asked for the pack's licence in
+   ClassiCube issue 1430 (2025-09-07), Goodlyay granted "explicit permission
+   ... to be used in ReMinecraftPE" only. No licence names the pack, so Dolly
+   does not redistribute it. `demos/classicube/textures.mjs` writes Dolly's own
+   MIT `default.zip` (procedural `terrain.png` with 4,155 colours and a plain
+   `gui.png` hotbar), deterministic, staged in `classicube/source.tar.gz`.

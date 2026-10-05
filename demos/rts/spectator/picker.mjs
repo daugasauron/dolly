@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-2.0-or-later
+// SPDX-License-Identifier: MIT
 export function createPicker(ui, title, items, select, cancel, note = "", initialValue) {
   const yellow = text => `\x1b[33m${text}\x1b[39m`, plain = text => text;
   const theme = { selectedPrefix: yellow, selectedText: yellow, description: plain,

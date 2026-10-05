@@ -43,7 +43,6 @@ EXPORTS TOOL classicube-pack
 EXPORTS FOLDER classicube-agent-source /usr/src/dolly/classicube/agent
 EXPORTS FOLDER game-agent-source /usr/src/dolly/game-agent
 EXPORTS FOLDER game-input-source /usr/src/dolly/rts
-FILE /usr/src/dolly/classicube/agent/COPYING
 SLOP rm -rf /tmp/classicube-agent
 
 FILE /home/dolly/classicube/options.txt

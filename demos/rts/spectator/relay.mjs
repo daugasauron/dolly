@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-2.0-or-later
+// SPDX-License-Identifier: MIT
 export function relayProvider(config) {
   const provider = config?.providers?.["codex-local"];
   const url = new URL(provider?.baseUrl ?? "invalid:");
