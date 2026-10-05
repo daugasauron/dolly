@@ -50,11 +50,7 @@ digest differs from the provider's, as it refuses a wrong `dolly.process` stamp
 ([`requirements.mjs`](requirements.mjs)).
 
 `runtime` uses the same format; its files are the core in `src/`, `abi/` and
-`include/dolly/`, and its identity is the `dolly.process` stamp. It is the one
-module no recipe declares: every image runs on this kernel, so a
-`REQUIRES HOST runtime@0` line could never be omitted. Spawn, files, clocks and
-entropy stay in it for the same reason; a module is browser authority that some
-image omits. Adding a module
+`include/dolly/`, and its identity is the `dolly.process` stamp. Adding a module
 takes its directory, one name in `manifests.mjs`, its imports in
 `abi/dolly-browser-0.wat` and its row in
 [browser boundary](../docs/browser-boundary.md); the last two are where a human
