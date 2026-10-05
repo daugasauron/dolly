@@ -66,3 +66,189 @@ Each week of new ports raises the price.
   the compiler's own macro.
 - If error numbers move into `process.h`: the kernel and the adapter use those
   constants and a changed number changes the `dolly.process` digest.
+
+## Decision (2026-10-06): the contract
+
+Delegated by the owner ("research them thoroughly and go with the answer that
+aligns with the goal of the project").
+
+| Question | Answer |
+| --- | --- |
+| Macros a program sees | `__dolly__` (1), with the generic `__wasm__`, `__wasm64__` and `__unix__`. Never `__EMSCRIPTEN__`, `__EMSCRIPTEN_PTHREADS__`, `__linux__` or `__wasi__`. `-pthread` adds only `_REENTRANT` |
+| The triple Dolly reports | `wasm64-unknown-dolly`: `cc -dumpmachine`, `cc --version`, libcurl's host string |
+| The triple given to LLVM | still `wasm64-unknown-emscripten`, as a code-generation parameter of the bootstrap libc, named nowhere a program can test |
+| `uname` | `Dolly`, `wasm64`, release `0`, version `dolly-process-0` (unchanged) |
+| `config.guess`, `config.sub` | no claim. `config.guess` inside Dolly reads `uname` and fails as an unknown system; a configure run names `--host` itself. Dolly neither answers Linux nor patches `config.sub` |
+| CMake | `CMAKE_SYSTEM_NAME=Dolly` (already what the ports pass and what `uname` gives CMake's bootstrap) |
+| Error numbers | `enum dolly_process_error` in `process.h`, so the `dolly.process` digest covers them. A libc maps its `errno` to them; the build refuses a bootstrap libc whose numbers differ |
+| Sysroot directory names | kept (`/usr/include/wasm64-emscripten` and the archive names): the driver names them, no program does |
+| Rust and Zig | `target_os = "emscripten"` and `-target wasm64-emscripten` stay: they name the same libc binding and code generation as LLVM's triple |
+
+Rests on `AGENTS.md`:
+
+- "The compile target for programs and runtimes inside the WebAssembly sandbox
+  is the interface. Its Wasm imports, exports, data layout, pointer width,
+  filesystem semantics, and lifecycle rules matter more than a high-level
+  wrapper API": the predefined macro is the first thing of that interface a
+  program reads.
+- "Do not claim Linux or AMD64 to pass detection. Use upstream's portable
+  paths and explicit unsupported results": `__EMSCRIPTEN__` is the same claim.
+  Upstream's Emscripten branches assume a JavaScript host (CPython's
+  `os._emscripten_*` and signal clock, SDL's whole Emscripten backend,
+  libsodium's `<emscripten.h>` paths), and the ports undid them one by one.
+- "The process contract sits below libc. Its current Emscripten musl adapter
+  is a bootstrap implementation, not the stable interface": so the libc's
+  origin may select code generation inside the toolchain, and may not be the
+  name programs compile against, nor own the error numbers of the contract.
+- "The core interface must remain small, typed, inspectable, and versioned":
+  the error numbers are now hashed with the packets they travel in.
+- "no compatibility shims": `__EMSCRIPTEN__` is not kept beside `__dolly__`.
+
+### What the research found
+
+- The sysroot's own headers are ABI-conditional on `__EMSCRIPTEN__`: the
+  layout of `struct stat` (`bits/stat.h:8,17,23`), `__PRI64` (`inttypes.h:25`),
+  `sigsetjmp` (`setjmp.h:29`), `_POSIX_SPAWN` and `_POSIX_THREADS`
+  (`unistd.h:243-264`), C++ `NULL` (eight headers), and in libc++ the thread
+  API, the entropy source and `<xlocale.h>` (`__config:143,634`,
+  `__locale_dir/locale_base_api.h:131`). 36 uses outside Emscripten's own API
+  headers, none of `__EMSCRIPTEN_PTHREADS__`. So a port that passed `-U__EMSCRIPTEN__`
+  (`demos/sdl2/Dollyfile-sdl2:19`) compiled against a `struct stat` the linked
+  libc does not have; `demos/classicube/Makefile:9` records the same trap.
+  Undefining the macro is only correct together with the headers.
+- LLVM has no Dolly OS, and the triple selects three things the prebuilt libc,
+  libc++ and compiler-rt archives were compiled with: the data layout
+  (`f128:64`, `llvm/lib/TargetParser/TargetDataLayout.cpp:525`), `long double`
+  alignment 8 and with it `max_align_t` and `malloc`
+  (`clang/lib/Basic/Targets/OSTargets.h:1051`), and TLS models other than
+  local-exec, which `-fPIC` objects and DSOs use
+  (`WebAssemblyISelLowering.cpp:2078`). An unknown OS in the triple changes
+  all three. The triple therefore changes only with the libc.
+- Error numbers were not neutral: this libc's `ENOTSUP` is 138, not WASI's 58
+  (5 uses in kernel C, 23 in the adapter), and the display module returns
+  `ENODATA` (116). The other 74 are WASI's.
+- Rust's `std` and the `libc` crate bind this libc under
+  `target_os = "emscripten"`; a Dolly `target_os` is a port of both and not
+  part of this decision.
+- No recipe runs `configure`, `config.guess` or `config.sub` inside Dolly.
+  The three host-side configure runs (Make, CPython, Emacs) use emcc with
+  `--host=wasm64-unknown-emscripten`, which is true of that toolchain, and
+  their generated headers hold no `__EMSCRIPTEN__` test.
+
+### Implemented (one seed batch, `core/decisions`)
+
+- `src/compiler.cpp`: cc1 gets `-U__EMSCRIPTEN__ -U__EMSCRIPTEN_PTHREADS__
+  -D__dolly__=1`; `-pthread` no longer defines Emscripten's two macros;
+  `-dumpmachine` and `--version` report `wasm64-unknown-dolly`.
+- `scripts/prepare-kernel-seed.sh`, `scripts/prepare-image-sources.sh`: the
+  staged libc and libc++ headers test `__dolly__` wherever upstream tested
+  `__EMSCRIPTEN__`, so every branch above stays as the archives were built.
+- `include/dolly/process.h`: `enum dolly_process_error`, 76 numbers.
+  `scripts/generate-abi-constants.mjs` derives `DOLLY_ERRNO` in
+  `src/process-constants.mjs` from it and writes
+  `build/process-errno-check.c`, which `scripts/build.sh` compiles against
+  the bootstrap libc's `<errno.h>`: 76 static assertions (a number changed by
+  hand fails with "static assertion failed ... ENOENT"). The kernel and the
+  adapter keep libc's spellings (502 uses in kernel C, 274 in the adapter):
+  with the proof they are the contract's numbers, and a rename adds no check.
+  `dist/dolly-errno.mjs`, `scripts/browser-errno.c` and
+  `scripts/generate-browser-errno.mjs` are gone.
+- Core ports use the compiler's macro: `config/make-dolly.patch`,
+  `config/samurai-dolly.patch` and `config/git-dolly.patch` test `__dolly__`,
+  and the nine `-DDOLLY` in `Dollyfile-system-build` and
+  `Dollyfile-system-tools` are gone.
+- `test/fixtures/target-identity.c` in the core browser suite: compiled by
+  `cc` in the image, it fails to compile under any other platform's macro,
+  and at run time checks `stat` against the linked libc and that a missing
+  file's `errno` is `DOLLY_PROCESS_ENOENT`.
+
+### What changes for agents and ports
+
+- Test `#ifdef __dolly__` for Dolly. `__EMSCRIPTEN__` is undefined; upstream
+  code takes its generic Unix path, which is the porting rule.
+- `-DDOLLY` and `-U__EMSCRIPTEN__` in a recipe are leftovers, and `-U` was an
+  ABI bug.
+- `cc -dumpmachine` prints `wasm64-unknown-dolly`.
+- Error numbers come from `<dolly/process.h>`; `<errno.h>` has the same.
+- `-pthread` code that tested `__EMSCRIPTEN_PTHREADS__` tests `_REENTRANT`.
+- Every executable is restamped: old images, sessions and snapshots are
+  refused by the loader.
+
+### Follow-up for the catalog round, by port
+
+Breaks without `__EMSCRIPTEN__` (found by reading the pinned sources; none
+of these images was rebuilt here):
+
+| Port | Where | Edit |
+| --- | --- | --- |
+| python | `demos/python/prepare-cpython.sh:203` (`Include/cpython/pthread_stubs.h`) | the `sed` writes `defined(__wasi__) \|\| defined(__dolly__)` |
+| python (libffi) | `include/ffitarget.h:62`, `src/closures.c:34` in `demos/python/prepare-libffi.sh` | both test `__dolly__`; otherwise `FFI_BAD_ABI` in ctypes and duplicate `ffi_closure_alloc`. The same script configures with `--host=wasm64-unknown-linux` (`:52,56`), which the porting rule forbids: use the emcc host triple |
+| python | `Modules/socketmodule.h:220`, `Modules/timemodule.c:1548`, `Python/sysmodule.c:3691` | behaviour now follows the generic branch (`SO_REUSEADDR` visible, `time.thread_time` wanted, isolated interpreters reported); keep or patch after the Python suite runs |
+| rust | `demos/rust/patti.c:22,281` | `#ifdef __dolly__` (Dolly's own file) |
+| local-llm | `ggml/include/ggml.h:237` (`GGML_MEM_ALIGN 8`) | add `\|\| defined(__dolly__)` in `demos/local-llm/prepare-local-llm.sh`; otherwise 16-byte alignment is asserted against an 8-byte `malloc` |
+| llvm-tablegen, rust LLVM | `llvm/lib/Support/Unix/Path.inc:522`, `llvm/include/llvm/ADT/bit.h:32` | add `__dolly__` (musl has no `MNT_LOCAL`, the sysroot no `<machine/endian.h>`) |
+| zero-ad | `demos/zero-ad/premake-dolly.patch:7` | `#elif defined(__dolly__)` |
+
+Becomes unnecessary and should go in the same round:
+
+- `demos/sdl2/Dollyfile-sdl2:19`: `-U__EMSCRIPTEN__` (and `-DDOLLY`, with
+  `sdl2-dolly.patch:53` testing `__dolly__`).
+- `demos/python/prepare-cpython.sh:216-221` and the `!defined(DOLLY)` it
+  writes into `sysmodule.c`; the `posixmodule.c` hunk of `cpython-dolly.patch`;
+  the stubs in `demos/python/cpython-platform.c:16-20`.
+- `demos/zero-ad/sodium.patch`: all seven re-tests.
+- `demos/neovim/Dollyfile-neovim-build:138`: `MACHINE=wasm64-unknown-emscripten`
+  stood in for `cc -dumpmachine`, which now answers (not rebuilt here).
+  `demos/emacs/Dollyfile-emacs:54-60` keeps its directory name: it is the
+  `--host` Emacs was configured with on the build host.
+- Every other `-DDOLLY` and `#ifdef DOLLY`, mechanically as done for the core
+  ports (`sed -E '/^\+#\s*(if|ifdef|ifndef|elif)/ s/\bDOLLY\b/__dolly__/g'` on
+  the patch, delete the flag): `demos/python/Dollyfile-python` (6),
+  `demos/neovim` (patch 3, recipe 1), `demos/emacs` (patch 6,
+  `prepare-emacs.sh:66` passes `-D__dolly__=1` to the host emcc instead),
+  `demos/cmake/libuv-dolly.mk:7` and `libuv-dolly.patch` (8),
+  `demos/zero-ad` (`engine.patch` 36, `openal-dolly.patch` 8,
+  `Dollyfile-openal-build:27`, `Dollyfile-zero-ad-deps:101`).
+- Unaffected: QuickJS's bare `-DEMSCRIPTEN=1` (Clang never predefined it; it
+  selects "no threads, no direct dispatch"), and
+  `demos/local-llm/CMakeLists.txt:51`, which defines `__EMSCRIPTEN__` for the
+  one upstream file `ggml-webgpu.cpp`; that is the demo's own choice and now
+  the only place the name is claimed.
+
+Not decided here, noted: the seed still installs Emscripten's JavaScript-host
+headers (`emscripten.h`, `emscripten/`, `SDL/`, `GL/`, `AL/`, `EGL/`, `GLFW/`,
+`X11/`, and `/usr/include/fakesdl` on the search path) with nothing behind
+them. That is the big-picture review's "presence does not imply function"
+and belongs with `20260930-231300-lean-game-images`.
+
+## Verification (2026-10-06, `core/decisions`)
+
+- `npm run build:runtime`: runtime `sha256:d03dc40b…`, image inputs
+  `sha256:22d006cac2c84ef3f6b4fc0358c2386f8df7b207a8d3e13a1da0e8a41fac0b81`
+  (was `047fc328…`); it compiles the 76 assertions, and a copy with one number
+  changed fails ("static assertion failed ... ENOENT").
+- `DOLLY_IMAGE_JOBS=1 work/build-slot.sh npm run image -- default`: the ten
+  images of the chain rebuilt in 1,001 s; then `amy`, `audio-sdk`, `cc`,
+  `core`, `gpu-sdk` and `minimal` in 70 s: all sixteen core images are built
+  by the new compiler against the renamed headers, Make, Samurai and Git
+  without `-DDOLLY`.
+- `node --test test/*.test.mjs`: 275 pass, 0 fail, with the recipes as the
+  image build pinned them. The branch restores the 59 recipes whose only
+  change was a pin, so the catalog tests report stale pins until the
+  integrator re-pins.
+- `node test/browser-tests.mjs chromium`: every suite passes except `amy`;
+  `process` passed after `test/fixtures/process-descriptors.c` took the
+  contract's own medicine (it told Dolly from the native run by
+  `__EMSCRIPTEN__`; now `__dolly__`). `node test/browser-tests.mjs firefox`:
+  every suite passes except `amy` and one `display` run that timed out
+  waiting for the first prompt's selection; `display` alone then passed three
+  times of three. The cause of that one timeout was not established.
+- `amy` stops at `amy install python` in both browsers: the python package
+  is a demo image not rebuilt here, and it needs the edits above first. A
+  core suite depends on a demo package; its later cases (`amy cc` in
+  `minimal`, the refusal in `system`) did not run.
+- The probe `test/fixtures/target-identity.c` runs inside `core` in both
+  browsers, with `cc -dumpmachine` and `uname -sm`.
+
+Open until the catalog round has made the follow-up edits: the done-when
+line on recipes and patches holds for the core and not yet for the demos.
