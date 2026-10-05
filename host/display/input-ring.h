@@ -20,3 +20,9 @@ int dolly_input_ring_handle(const dolly_input_ring *ring, const dolly_input_even
  * in order, then lets the driver publish at most one dirty frame. It never
  * consumes terminal input. Returns zero or a negative errno. */
 int dolly_input_ring_service(const dolly_input_ring *ring);
+
+/* Ends pending input when the foreground program or the display owner
+ * changes: what it had not read was meant for it and is dropped. Resize still
+ * reaches the driver. With terminal_ui, so do the terminal's own pointer and
+ * scroll records: selecting and scrolling were never a program's input. */
+void dolly_input_ring_discard(const dolly_input_ring *ring, int terminal_ui);
