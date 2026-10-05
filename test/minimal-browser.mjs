@@ -27,5 +27,5 @@ await browserTest("composed toolchain", { image: "minimal" }, async ({ open }) =
     "dolly_http_request request = {.method = \"GET\", .url = \"https://example.invalid/\", .headers = \"\"}; " +
     "return dolly_http_perform(&request, &response) != 0; }' >> /tmp/http.c && cc /tmp/http.c -o /tmp/http");
   assert.equal(await session.submit("/tmp/http"), 126);
-  assert.match(await session.text(), /http@0 is unsupported/);
+  assert.match(await session.text(), /host module http@0 is not declared by this image/);
 });
