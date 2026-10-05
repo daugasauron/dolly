@@ -153,7 +153,8 @@ test("the runtime exposes typed bootstrap and process-supervisor boundaries", as
   const runtime = await readWasmInterface(artifact("dolly.wasm"));
   const supervisor = await readWasmInterface(artifact("dolly-supervisor-0.wasm"));
   const threads = await readWasmInterface(artifact("dolly-threads-supervisor-0.wasm"));
-  for (const required of [...supervisor.exports, ...threads.exports]) {
+  // Exported globals are contract constants (mailbox word layouts), not kernel exports.
+  for (const required of [...supervisor.exports, ...threads.exports].filter(entry => entry.type.kind === "func")) {
     const actual = runtime.exports.find(entry => entry.name === required.name);
     assert.ok(actual, `runtime is missing ${required.name}`);
     assert.equal(sameWasmType(actual.type, required.type), true);
