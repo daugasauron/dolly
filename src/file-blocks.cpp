@@ -2,7 +2,7 @@
 // in blocks. WasmFS keeps a file in one std::vector: growing it copies the file
 // into a buffer twice its size, and an allocation failure aborts the kernel.
 // Here growth allocates only the new blocks, and growth that memory cannot
-// hold fails with ENOSPC.
+// hold fails with ENOSPC. The root also holds the terminal's output devices.
 #include <algorithm>
 #include <cerrno>
 #include <cstdlib>
@@ -10,6 +10,8 @@
 
 #include "memory_backend.h"
 #include "wasmfs.h"
+
+extern "C" void dolly_terminal_write_bytes(const unsigned char *bytes, uintptr_t length);
 
 namespace {
 
@@ -132,6 +134,25 @@ public:
   ~BlockFile() override { release(0); }
 };
 
+// Writes render on the terminal (src/dolly.c); reads are at end of file, since
+// the kernel reads terminal input for processes itself (src/process-kernel.c).
+class TerminalFile : public DataFile {
+  int open(oflags_t) override { return 0; }
+  int close() override { return 0; }
+  int flush() override { return 0; }
+  off_t getSize() override { return 0; }
+  int setSize(off_t) override { return 0; }
+  ssize_t read(uint8_t *, size_t, off_t) override { return 0; }
+
+  ssize_t write(const uint8_t *buf, size_t len, off_t) override {
+    dolly_terminal_write_bytes(buf, len);
+    return len;
+  }
+
+public:
+  explicit TerminalFile(mode_t mode) : DataFile(mode, NullBackend) {}
+};
+
 class BlockBackend : public Backend {
   // WasmFS's memory backend only populates the root with /dev and /tmp.
   backend_t memory = createMemoryBackend();
@@ -146,7 +167,13 @@ public:
   std::shared_ptr<Symlink> createSymlink(std::string target) override {
     return std::make_shared<MemorySymlink>(target, this);
   }
-  void populateRoot(Directory::Handle &root) override { memory->populateRoot(root); }
+  void populateRoot(Directory::Handle &root) override {
+    memory->populateRoot(root);
+    auto dev = root.getChild("dev")->cast<Directory>()->locked();
+    dev.mountChild("dolly-stdout", std::make_shared<TerminalFile>(0222));
+    dev.mountChild("dolly-stderr", std::make_shared<TerminalFile>(0222));
+    dev.mountChild("tty", std::make_shared<TerminalFile>(0666));
+  }
 };
 
 } // namespace

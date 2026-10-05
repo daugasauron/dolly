@@ -7,9 +7,9 @@
   ;; while no display driver is resident: boot, rebuilds and headless images.
   ;; The page shows it only as bounded plain text in the bootstrap log.
   (import "env" "dolly_bootstrap_write_bytes" (func (param i64 i64)))
-  ;; WasmFS's output devices pass bytes back into this export. Before a display
-  ;; driver is installed they reach the bootstrap sink; after installation the
-  ;; resident driver consumes them without host interpretation.
+  ;; Supervisor diagnostics for the terminal. Before a display driver is
+  ;; installed they reach the bootstrap sink; after installation the resident
+  ;; driver consumes them without host interpretation.
   (func (export "dolly_terminal_write_bytes") (param i64 i64))
   ;; The process mailbox holds DOLLY_PROCESS_PACKET_LIMIT bytes (process.h).
   (func $mailbox_address (result i64) i64.const 0)
