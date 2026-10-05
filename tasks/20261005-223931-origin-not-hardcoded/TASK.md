@@ -43,6 +43,26 @@ A pin is the SHA-256 of the recipe text, and pins cascade into image identity.
   publishes the same pinned files, and fails by name where one is missing;
   it no longer says where the catalog lives. Record the owner's choice here.
 
+## Owner's direction (2026-10-06)
+
+"Maybe it's better to revert to URL/HOST as before, or better to imply that if
+the domain is omitted in the dollyfile reference it will try to fetch from the
+site it's deployed at? Should work for localhost as well?"
+
+Recommended form, the second: a reference is either an absolute URL (another
+site, through the HTTP policy) or an absolute path, which means the site
+serving this release:
+
+    FROM /Dollyfile-system SHA256
+    INSTALL /demos/python/Dollyfile-python SHA256
+    SOURCE /dist/static/default/slop.c SHA256 /tmp/slop/slop.c
+
+No keyword is needed (DOLLY 4's `USE HOST …` took two words, which Dollyfile 6
+removed), the text and pins are the same on every host, and it works on
+localhost and under GitHub Pages' path prefix because the page already
+resolves its own files that way. The package index and `amy installed` rows
+take the same form.
+
 ## Done when
 
 - The owner's choice is recorded; `git grep daugasauron.com` finds only the
