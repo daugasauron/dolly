@@ -47,7 +47,7 @@ stream_max_retries = 0
     let text;
     for (let i = 0; i < 600; i++) {
       text = await evaluate("window.__dolly.visibleTerminalText()");
-      if (/application panicked|Worker failed/.test(text)) throw Error(`Codex crashed: ${text}`);
+      if (/application panicked|dolly: process \d+ (?:failed|was refused)/.test(text)) throw Error(`Codex crashed: ${text}`);
       if (pattern.test(text)) return text;
       await pause(100);
     }

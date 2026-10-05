@@ -41,29 +41,33 @@ static char *find_program(const char *name, const char *search) {
   return NULL;
 }
 
-// Runs argv with this process's environment and inherited descriptors, as
-// Slop runs a command. A timeout of -1 disables the deadline. Returns the
-// program's status, or reports why it could not run and returns 127 (not
-// found) or 126.
-static int run_program(const char *self, int argc, char **argv,
-                       const char *search, double timeout_milliseconds) {
+// Starts argv with this process's environment and inherited descriptors, as
+// Slop starts a command. A timeout of -1 disables the deadline. Returns the
+// pid, or a negative errno.
+static int start_program(int argc, char **argv, const char *search,
+                         double timeout_milliseconds) {
   char *found = find_program(argv[0], search);
   char *path = found != NULL && found[0] != '/' ? realpath(found, NULL) : found;
   if (path != found) free(found);
-  if (path == NULL) {
-    fprintf(stderr, "%s: %s: %s\n", self, argv[0], strerror(errno));
-    return errno == ENOENT ? 127 : 126;
-  }
+  if (path == NULL) return -errno;
   char *empty[] = {NULL};
   const int pid = dolly_spawn_mapped(path, argc, argv,
                                      environ == NULL ? empty : environ, NULL,
                                      DOLLY_PROCESS_INHERIT_FDS_ALL, NULL, 0,
                                      timeout_milliseconds);
   free(path);
+  return pid;
+}
+
+// Runs argv to completion. Returns the program's status, or reports why it
+// could not run and returns 127 (not found) or 126.
+static inline int run_program(const char *self, int argc, char **argv,
+                              const char *search, double timeout_milliseconds) {
+  const int pid = start_program(argc, argv, search, timeout_milliseconds);
   int status = 126;
   const int result = pid < 0 ? pid : dolly_wait(pid, &status);
   if (result < 0) fprintf(stderr, "%s: %s: %s\n", self, argv[0], strerror(-result));
-  return result < 0 ? 126 : status;
+  return result == -ENOENT ? 127 : result < 0 ? 126 : status;
 }
 
 #endif

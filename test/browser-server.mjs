@@ -122,7 +122,7 @@ export async function startBrowserServer(projectDir, image = "default",
     "session/index.html", "sessions/index.html"]) files.add(page);
   const fixtureFiles = new Map();
   for (const [name, path] of Object.entries({ ...processSmokeSources, ...fixtures })) fixtureFiles.set(`/fixture/${name}`, path);
-  for (const name of ["process-wrong-call", "process-wrong-start", "process-wrong-memory"]) {
+  for (const name of ["process-wrong-call", "process-wrong-start", "process-wrong-memory", "process-wrong-import"]) {
     fixtureFiles.set(`/fixture/${name}.wasm`, `build/${name}.wasm`);
   }
   const requests = new Map();

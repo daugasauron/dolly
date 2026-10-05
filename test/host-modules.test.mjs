@@ -70,7 +70,7 @@ test("executable requirements reject malformed records and incompatible provider
   assert.throws(() => parse(...Array.from({length: 65}, () => record("gpu"))));
   const provided = new Map([["http@0", layout], ["gpu@0", layout]]);
   assert.doesNotThrow(() => checkHostAbi(parse(record("http")), provided));
-  assert.throws(() => checkHostAbi(parse(record("http", 1)), provided), /http@1 is unsupported/);
-  assert.throws(() => checkHostAbi(parse(record("audio")), provided), /audio@0 is unsupported/);
+  assert.throws(() => checkHostAbi(parse(record("http", 1)), provided), /http@1 is not declared/);
+  assert.throws(() => checkHostAbi(parse(record("audio")), provided), /audio@0 is not declared/);
   assert.throws(() => checkHostAbi(parse(record("http", 0, other)), provided), /http@0 has a different layout/);
 });

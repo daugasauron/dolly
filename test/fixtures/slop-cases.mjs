@@ -109,6 +109,21 @@ export const shellCases = [
   ["set -e is ignored in functions on the left of && and ||", "set -e; f() { (exit 1); x=$1; }; f a || exit 91; f b && :; case $x in b) exit 7;; esac; exit 92", 7],
   ["set -e applies in a function ending an and-or list", "set -e; f() { (exit 1); x=ran; }; : && f; exit 91", 1],
   ["subshell state stays outside descriptors 0-9", "exec 3>&-; (: <&3) 2> /dev/null && exit 91; :", 0],
+  ["time reports a subshell's status", "time (exit 7)", 7],
+  ["time runs a group and a conditional", "time { (exit 3); } || time if :; then (exit 4); fi", 4],
+  ["time measures a negated pipeline", "time ! (exit 3) && exit 5", 5],
+  ["EXIT trap runs after exit and may set the status", 'trap "exit 7" EXIT; exit 3', 7],
+  ["EXIT trap keeps the script's status", 'trap ": cleanup" EXIT; (exit 5)', 5],
+  ["EXIT trap sees the exit status", 'trap \'case $? in 3) exit 8;; esac\' EXIT; exit 3', 8],
+  ["a subshell runs its own EXIT trap", 'x=$(trap "exit 9" EXIT; exit 4); exit $?', 9],
+  ["a subshell does not inherit traps", 'trap "exit 9" EXIT; (exit 4); status=$?; trap - EXIT; exit $status', 4],
+  ["trap - and a lone condition restore the default", 'trap "exit 9" EXIT; trap - EXIT; trap "exit 9" 0; trap EXIT; exit 3', 3],
+  ["trap lists what it will run", 'trap ": x" TERM; trap > listed; read -r line < listed; case $line in "trap -- \': x\' "*TERM) exit 3;; esac; exit 91', 3],
+  ["an unknown trap condition is rejected", "trap : NOSUCH", 2, 1],
+  ["a signal cannot be ignored", 'trap "" INT', 2, 0],
+  ["wait without background jobs succeeds", "wait", 0],
+  ["wait rejects a process that is not a job", "wait 1", 127],
+  ["aliases, umask and ulimit are refused", "alias x=y; a=$?; umask 022; b=$?; ulimit -n > /dev/null; exit $((a + b + $?))", 6, 0],
 ];
 
 // These run external commands, so they need Dolly (or Bash) to spawn them.
@@ -139,6 +154,9 @@ if"`, 0],
   ["character classes match in case patterns", 'case abc1 in [[:alpha:]]*[[:digit:]]) :;; *) exit 91;; esac', 0],
   ["functions shadow regular builtins but not special ones", 'cd() { return 7; }; cd /; test $? = 7 || exit 91; exit() { return 8; }; exit 9', 9, 8],
   ["cd without HOME is an error", 'unset HOME; cd', 1],
+  ["a signal trap runs once the command has finished", 'trap "exit 7" TERM; kill -TERM $$; exit 3', 7],
+  ["an INT trap replaces the interrupt", 'trap "n=1" INT; kill -INT $$; test "$n" = 1 || exit 91; exit 3', 3],
+  ["time runs a command the shell spawns", "time true && time -p slop -c 'exit 6'", 6],
 ];
 
 export function shellQuote(value) { return `'${value.replaceAll("'", "'\\''")}'`; }

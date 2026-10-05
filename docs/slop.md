@@ -26,12 +26,12 @@ slop [-enux] script [arg ...]
 
 | Area | Supported |
 | --- | --- |
-| Lists | newline, `;`, `&&`, `\|\|`, `!`; `&` is an error (no background jobs), so `$!` is never set |
+| Lists | newline, `;`, `&&`, `\|\|`, `!`; `time PIPELINE` prints `real SECONDS` for any pipeline, compound commands included; `&` is an error (no background jobs), so `$!` is never set and `wait` returns at once |
 | Compound | `if`/`elif`/`else`, `for`, `while`, `until`, `case`, `break N`, `continue N`, `NAME () { …; }` with `local` and `return` (depth 64), `{ …; }`, `( … )` |
 | Redirections | descriptors 0–9: `<`, `>`, `>>`, `n>&m`, `n<&m`, `n>&-`, `>&$fd`, `&>`, `&>>`, `>&file`; redirection-only `exec`; up to 32 `<<` here-documents per line; on compound commands too |
 | Parameters | `$VAR`, `${VAR}`, `$?`, `$$`, `$#`, `$-`, `$0`–`$9`, `$@`, `$*` (joined with the first `IFS` byte), `"$@"` and `"${@}"` as whole words |
 | Expansions | `${VAR-w}`, `=`, `+`, `?` and their `:` forms; `${#VAR}`; `#`, `##`, `%`, `%%`; `$(…)`; simple backticks; `$((…))` in signed 64-bit; `fnmatch` patterns (`*`, `?`, `[…]`, `[[:class:]]`) in globs, `case` and pattern removal; leading `~`; `IFS` splitting of unquoted expansions |
-| Builtins | `: . source eval exec exit return cd export unset set shift read getopts local type command break continue` |
+| Builtins | `: . source eval exec exit return cd export unset set shift read getopts local type command break continue trap wait` |
 | Options | `set -e -u -x`; `set -o NAME` for errexit, nounset, pipefail and xtrace; combined as in `set -euo pipefail` |
 
 - Expansion happens when a command runs, so `x=1 && echo "$x"` prints `1`.
@@ -48,10 +48,18 @@ slop [-enux] script [arg ...]
   builtins (`:`, `.`, `eval`, `exec`, `exit`, `export`, `return`, `set`,
   `shift`, `unset`, `break`, `continue`) always run.
 - `cd` without an operand needs `HOME`; an empty operand is a no-op.
-- Not implemented, and rejected explicitly: aliases, job control, `$'...'`,
-  `${VAR:off:len}`, `${VAR/pat/rep}`, `<<-`, `"prefix$@"` word forms. Features
-  are added only when a useful source build needs them and their semantics
-  stay explicit.
+- `trap ACTION CONDITION...` handles `EXIT`, `HUP`, `INT`, `QUIT` and `TERM`.
+  A signal's action runs once the current command has finished; `EXIT` runs
+  when the shell or a subshell leaves, also after a signal. A subshell starts
+  without traps. `trap '' SIGNAL` is rejected: commands always start with
+  default signal actions, so an ignored signal could not be inherited.
+- Not implemented, and rejected by name: `alias`, `unalias`, `jobs`, `fg`,
+  `bg`, `umask` (there are no permission bits), `ulimit` (limits are fixed),
+  `$'...'`, `${VAR:off:len}`, `${VAR/pat/rep}`, `"prefix$@"` word forms.
+  As in POSIX `sh`, braces do not expand (`echo {1..3}` prints `{1..3}`) and
+  a glob that matches nothing stays as typed. `help` lists the same limits
+  inside every image. Features are added only when a useful source build
+  needs them and their semantics stay explicit.
 
 ## Serial pipelines and interrupts
 
@@ -83,15 +91,24 @@ threads, host processes or a scheduler.
   There are no permission bits: `test -x` means a regular file, `-r`/`-w` that
   the path exists. `/bin/cd` is a compatibility command; plain `cd` is the builtin.
 - [`Dollyfile-system-tools`](../Dollyfile-system-tools) (sources in `src/commands/`) adds
-  `command`, `env`, `find`, `time`, `timeout`, `xargs`, `diff` and `patch` (over
-  Git), which run programs with Slop's descriptors; `install`, whose mode, owner
-  and group options are syntax only and create no metadata; `tail`, which rejects
-  follow mode; `du`, which counts logical in-memory bytes; UTF-8 `rev`;
-  `realpath`, `hostname`, `tty`. Each prints its supported subset with `--help`;
+  `command`, `env`, `find`, `time`, `timeout`, `xargs` (`-P N` runs N commands
+  at once), `diff` and `patch` (over Git; the patch names its files, a `FILE`
+  operand is rejected), which run programs with Slop's descriptors; `nproc`,
+  which prints 4, the number of jobs Dolly's own recipes give Make (libc's
+  `sysconf` counts threads: 1 without `-pthread`); `install`, whose mode, owner
+  and group options are syntax only and create no metadata; `du`, which counts
+  logical in-memory bytes; UTF-8 `rev`; `realpath`, `hostname`, `tty`. Each
+  prints its supported subset with `--help`;
   other options fail.
 - The other file and text utilities are unchanged upstream sbase, built by its
   own Makefile in `system-tools` ([`Dollyfile-system-tools`](../Dollyfile-system-tools)). They follow
-  POSIX, not GNU. `ln -s` works; hard links fail in WasmFS.
+  POSIX, not GNU: `dd bs=1024k`, not `bs=1M`. `ln -s` works; hard links fail in
+  WasmFS. `kill` signals any process by PID. There is no `/dev/zero`, and no
+  `id`, `whoami`, `ps` or `df`: one user without a name database, and no
+  process or mount list to read. `tar` only extracts and `gzip` only
+  decompresses (`gzip -dc`); Git creates archives of any directory:
+  `git init -q . && git add -A && git archive -o out.tar.gz $(git write-tree)`
+  (`.tar`, `.tar.gz` and `.zip`).
 - `uname` and `hostname` report the fixed Dolly/wasm64 identity, never the
   browser's.
 - GNU Make 4.4.1 ([`Dollyfile-system-build`](../Dollyfile-system-build)) defaults to

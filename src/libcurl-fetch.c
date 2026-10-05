@@ -3,12 +3,14 @@
 
 #include <ctype.h>
 #include <errno.h>
+#include <limits.h>
 #include <stdarg.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <strings.h>
+#include <time.h>
 #include <unistd.h>
 
 #include <dolly/http.h>
@@ -27,6 +29,7 @@ typedef struct {
   char *userpwd;
   unsigned protocols;
   long http_auth;
+  long timeout_milliseconds;
   struct curl_slist *headers;
   const void *post_fields;
   curl_off_t post_size;
@@ -62,6 +65,7 @@ typedef struct {
   unsigned int sequence;
   int prepared;
   int progressed;
+  double deadline;
   dolly_http_response response;
   size_t url_length, url_capacity;
 } DollyTransfer;
@@ -340,6 +344,55 @@ static CURLcode collect_upload(DollyEasy *easy, unsigned char **body,
   return CURLE_OK;
 }
 
+static double monotonic_milliseconds(void) {
+  struct timespec now;
+  clock_gettime(CLOCK_MONOTONIC, &now);
+  return (double)now.tv_sec * 1e3 + (double)now.tv_nsec / 1e6;
+}
+
+/* Percent-decodes [text, end) into a new string. */
+static char *decoded_copy(const char *text, const char *end) {
+  char *copy = malloc((size_t)(end - text) + 1);
+  size_t length = 0;
+  for (; copy != NULL && text < end; text++) {
+    unsigned byte;
+    if (*text == '%' && end - text > 2 && isxdigit((unsigned char)text[1]) &&
+        isxdigit((unsigned char)text[2]) && sscanf(text + 1, "%2x", &byte) == 1) {
+      copy[length++] = (char)byte;
+      text += 2;
+    } else copy[length++] = *text;
+  }
+  if (copy != NULL) copy[length] = '\0';
+  return copy;
+}
+
+/* scheme://user:password@host: Fetch refuses credentials in a URL, so they
+ * become the user name and password, which later options may replace. */
+static int set_url(DollyEasy *easy, const char *url) {
+  const char *authority = url == NULL ? NULL : strstr(url, "://");
+  const char *at = NULL;
+  if (authority != NULL) {
+    authority += 3;
+    for (const char *byte = authority; *byte != '\0' && strchr("/?#", *byte) == NULL; byte++)
+      if (*byte == '@') at = byte;
+  }
+  if (at == NULL) return replace_string(&easy->url, url);
+  const char *colon = memchr(authority, ':', (size_t)(at - authority));
+  char *stripped = malloc(strlen(url) + 1);
+  char *username = decoded_copy(authority, colon != NULL ? colon : at);
+  char *password = colon == NULL ? NULL : decoded_copy(colon + 1, at);
+  if (stripped == NULL || username == NULL || (colon != NULL && password == NULL)) {
+    free(stripped); free(username); free(password);
+    return 0;
+  }
+  sprintf(stripped, "%.*s%s", (int)(authority - url), url, at + 1);
+  free(easy->url); free(easy->username); free(easy->password);
+  easy->url = stripped;
+  easy->username = username;
+  easy->password = password;
+  return 1;
+}
+
 static CURLcode map_http_error(int error) {
   if (error == -ENOMEM || error == -EOVERFLOW) return CURLE_OUT_OF_MEMORY;
   if (error == -EPROTONOSUPPORT) return CURLE_UNSUPPORTED_PROTOCOL;
@@ -452,7 +505,9 @@ CURLcode curl_easy_setopt(CURL *handle, CURLoption option, ...) {
   do { if (!replace_string(&easy->field, va_arg(arguments, const char *))) \
          result = CURLE_OUT_OF_MEMORY; } while (0)
   switch (option) {
-    case CURLOPT_URL: STRING_OPTION(url); break;
+    case CURLOPT_URL:
+      if (!set_url(easy, va_arg(arguments, const char *))) result = CURLE_OUT_OF_MEMORY;
+      break;
     case CURLOPT_CUSTOMREQUEST: STRING_OPTION(custom_method); break;
     case CURLOPT_RANGE: STRING_OPTION(range); break;
     case CURLOPT_USERNAME: STRING_OPTION(username); break;
@@ -487,6 +542,14 @@ CURLcode curl_easy_setopt(CURL *handle, CURLoption option, ...) {
       if (va_arg(arguments, long)) { easy->post = 0; easy->upload = 0; easy->nobody = 0; }
       break;
     case CURLOPT_VERBOSE: easy->verbose = va_arg(arguments, long); break;
+    /* A deadline for the whole transfer, kept here: it cancels the request. */
+    case CURLOPT_TIMEOUT:
+    case CURLOPT_TIMEOUT_MS: {
+      const long value = va_arg(arguments, long);
+      if (value < 0 || value > LONG_MAX / 1000) result = CURLE_BAD_FUNCTION_ARGUMENT;
+      else easy->timeout_milliseconds = option == CURLOPT_TIMEOUT ? value * 1000 : value;
+      break;
+    }
 
     case CURLOPT_SSL_VERIFYPEER: {
       /* Browser TLS verification is mandatory, never relaxed by userspace. */
@@ -517,8 +580,6 @@ CURLcode curl_easy_setopt(CURL *handle, CURLoption option, ...) {
     case CURLOPT_PINNEDPUBLICKEY:
     case CURLOPT_SEEKFUNCTION:
     case CURLOPT_SEEKDATA:
-    case CURLOPT_TIMEOUT:
-    case CURLOPT_TIMEOUT_MS:
     case CURLOPT_CONNECTTIMEOUT:
     case CURLOPT_CONNECTTIMEOUT_MS:
     case CURLOPT_HTTP_VERSION:
@@ -653,6 +714,12 @@ static int poll_transfer(DollyEasy *easy, DollyTransfer *transfer, CURLcode *res
   if (!transfer->prepared) {
     *result = prepare_transfer(easy, transfer);
     if (*result != CURLE_OK) return 1;
+    transfer->deadline = easy->timeout_milliseconds == 0 ? 0
+        : monotonic_milliseconds() + (double)easy->timeout_milliseconds;
+  }
+  if (transfer->deadline != 0 && monotonic_milliseconds() >= transfer->deadline) {
+    status = -ETIMEDOUT;
+    goto finished;
   }
   if (transfer->sequence == 0) {
     status = dolly_http_start(transfer->method, easy->url, transfer->headers,
@@ -897,11 +964,11 @@ const char *curl_easy_strerror(CURLcode error) {
     case CURLE_FAILED_INIT: return "Initialization failed";
     case CURLE_URL_MALFORMAT: return "Malformed URL";
     case CURLE_NOT_BUILT_IN: return "Feature not provided by browser Fetch";
-    case CURLE_COULDNT_CONNECT: return "Browser HTTP broker could not connect";
-    case CURLE_REMOTE_ACCESS_DENIED: return "Browser HTTP policy denied the request";
-    case CURLE_TOO_LARGE: return "Browser HTTP request quota exceeded";
-    case CURLE_FILESIZE_EXCEEDED: return "Browser HTTP byte limit exceeded";
-    case CURLE_OPERATION_TIMEDOUT: return "Browser HTTP deadline exceeded";
+    case CURLE_COULDNT_CONNECT: return dolly_http_error_message(EIO);
+    case CURLE_REMOTE_ACCESS_DENIED: return dolly_http_error_message(EACCES);
+    case CURLE_TOO_LARGE: return dolly_http_error_message(EDQUOT);
+    case CURLE_FILESIZE_EXCEEDED: return dolly_http_error_message(E2BIG);
+    case CURLE_OPERATION_TIMEDOUT: return dolly_http_error_message(ETIMEDOUT);
     case CURLE_HTTP_RETURNED_ERROR: return "HTTP response was an error";
     case CURLE_WRITE_ERROR: return "Response callback rejected data";
     case CURLE_READ_ERROR: return "Request callback failed";

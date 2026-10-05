@@ -41,8 +41,8 @@ int main(int argc, char **argv) {
       fprintf(stderr, "patch: unsupported option: %s\n", option);
       return 2;
     } else {
-      fprintf(stderr, "patch: %s: patching a named FILE is unsupported; "
-              "the patch names its files (use -i PATCHFILE)\n", option);
+      fprintf(stderr, "patch: %s: a FILE operand is unsupported: the patch names its "
+              "files; run patch -pN -i PATCHFILE or patch -pN < PATCHFILE\n", option);
       return 2;
     }
   }

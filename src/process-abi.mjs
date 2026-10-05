@@ -31,6 +31,7 @@ export function validateProcessInterface(contract, process, digest) {
   if (allowed.size !== 2 || !allowed.has("env.memory") || !allowed.has("dolly_process_0.call")) {
     throw new TypeError("process contract must contain only memory and call");
   }
+  for (const name of actual.keys()) if (!allowed.has(name)) fail(`import ${name} is outside dolly-process-0`);
   if (actual.size !== allowed.size) fail("expected exactly the two dolly-process-0 imports");
   let memory;
   for (const [name, expected] of allowed) {

@@ -47,8 +47,10 @@ typedef struct {
   char *effective_url;
 } dolly_http_response;
 
-// Shared by C/libcurl and language adapters. Do not include request data or
-// guess whether a browser transport failure was CORS, DNS, TLS, or a redirect.
+// Shared by C/libcurl and language adapters. Name the class the broker knows:
+// its policy refused, or the browser could not fetch. Fetch does not say
+// whether that was CORS, a redirect, DNS, TLS or the network, so do not guess,
+// and do not include request data.
 static inline const char *dolly_http_error_message(int error) {
   switch (error) {
     case EACCES: return "Browser HTTP policy denied the request";
@@ -60,7 +62,8 @@ static inline const char *dolly_http_error_message(int error) {
     case EINVAL: return "Invalid browser HTTP request";
     case EFAULT: return "HTTP argument is outside Wasm memory";
     case EBUSY: return "Browser HTTP request slot is busy";
-    default: return "Browser HTTP transport failed";
+    default: return "Browser could not fetch the URL: blocked (no CORS headers, or a redirect) "
+                    "or unreachable (DNS, TLS, offline)";
   }
 }
 

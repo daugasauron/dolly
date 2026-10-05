@@ -4,7 +4,27 @@ import { browserTest } from "./browser.mjs";
 
 // Everyday shell and tool behavior of the default image, typed input included.
 const recorded = {};
+// The limits and clock a program can ask for are the ones it has.
+const limitsSource = `#include <fcntl.h>
+#include <sys/resource.h>
+#include <time.h>
+int main(void) {
+  struct rlimit limit;
+  if (getrlimit(RLIMIT_NOFILE, &limit)) return 1;
+  rlim_t descriptors = 3;
+  while (open("/dev/null", O_RDONLY) >= 0) descriptors++;
+  if (descriptors != limit.rlim_cur) return 2;
+  volatile unsigned long sum = 0;
+  for (unsigned long index = 0; index < 20000000; index++) sum += index;
+  const clock_t used = clock();
+  return used == (clock_t)-1 || used <= 0 ? 3 : 0;
+}
+`;
 async function handle(request, response, path, headers) {
+  if (path === "/fixture/limits.c") {
+    response.writeHead(200, { ...headers, "content-type": "text/plain" }).end(limitsSource);
+    return true;
+  }
   if (path === "/fixture/curl-options" && request.method === "POST") {
     let body = "";
     for await (const chunk of request) body += chunk;
@@ -57,9 +77,16 @@ await browserTest("shell", { server: { handle } }, async ({ server, open }) => {
       `-w '%{http_code} %{content_type}\\n' ${server.origin}/fixture/curl-options > meta.txt`],
     ["grep -q '^CURL-CLI-OK$' body.txt && grep -qi '^x-dolly-response: yes' headers.txt && grep -q '^201 text/plain; charset=utf-8$' meta.txt"],
     [`curl -f ${server.origin}/fixture/missing`, 22],
+    // curl exits with curl's own status for each class of failure.
+    [`curl -sS -m 0.3 ${server.origin}/fixture/slow -o slow.txt`, 28],
+    [`curl -sS ${server.origin}/outside-the-policy`, 9],
+    [`curl -sS --retry 2 ${server.origin}/fixture/http.txt`, 2],
     ["git --version && git config --global --get user.name && git config --global user.email asdf && test \"$(git config --global --get user.email)\" = asdf"],
     ["mkdir repo && cd repo && git init && echo tracked > tracked.txt && git add tracked.txt && git commit -m initial && test \"$(git log --format=%s)\" = initial"],
     [`printf 'list\\n\\n' | /usr/libexec/dolly/git-remote-http origin ${server.origin}/fixture/git`],
+    // tar only extracts; Git creates the archive, from an index as well as a commit.
+    ["echo loose > loose.txt && git add loose.txt && git archive -o ../repo.tar.gz $(git write-tree) && mkdir ../unpacked && " +
+      "gzip -dc < ../repo.tar.gz | tar -xf - -C ../unpacked && grep -q tracked ../unpacked/tracked.txt && grep -q loose ../unpacked/loose.txt"],
     ["cd .. && test \"$(pwd)\" = /tmp/shell && test \"$(pwd -P)\" = /tmp/shell"],
     ["mkdir -p flags/deep && mkdir -p flags/deep && touch flags/.hidden && echo visible > flags/visible"],
     ["test \"$(ls flags)\" = \"$(printf 'deep\\nvisible')\" && ls -a flags | grep -q '^.hidden$'"],
@@ -77,6 +104,14 @@ await browserTest("shell", { server: { handle } }, async ({ server, open }) => {
     ["cc --definitely-unsupported", 64],
     ["cat /bin/echo > invalid-module && echo invalid >> invalid-module"],
     ["./invalid-module", 126],
+    ["./invalid-module 2> refused; test $? = 126 && test $(wc -l < refused) -eq 1"],
+    // What an agent reaches for: parallel xargs, nproc, time on a compound
+    // command, an EXIT trap, real limits and a clock() that advances.
+    ["printf 'a b c' | timeout 30 xargs -P 3 -n 1 slop -c ': > started-$1; until test \"$(echo started-*)\" = \"started-a started-b started-c\"; do :; done' slop"],
+    ["test \"$(nproc)\" -gt 1 && { time { sleep 1; (exit 4); }; } 2> timed; test $? = 4 && grep -q '^real [1-9]' timed"],
+    ["slop -c 'trap \"echo cleaned > trap-ran\" EXIT; exit 3'; test $? = 3 && grep -q cleaned trap-ran"],
+    [`curl -fsS ${server.origin}/fixture/limits.c -o limits.c && cc limits.c -o limits && ./limits`],
+    ["alias ll=ls", 2],
     ["echo 'int main(void) { volatile unsigned long n = 0; for (;;) n++; }' > loop.c && cc -O0 loop.c -o loop"],
     ["timeout 0.05 ./loop", 124],
     ["mkdir -p copy/nested && echo FILE > copy/file && echo NESTED > copy/nested/file && cp -R copy copied && grep -q FILE copied/file && grep -q NESTED copied/nested/file"],

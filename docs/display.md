@@ -76,6 +76,28 @@ flowchart LR
 - Pointer capture needs a user click on the canvas; Escape or release undoes it.
   Records carry buttons, hover, relative motion, pointer enter/leave and window
   focus.
+- `dolly_display_wait_frame` waits for the page's next animation frame, a
+  counter the page advances only while a graphics lease is active and the tab
+  is drawn. It is not a clock: the page may advance it faster than the
+  program presents, and not at all in a hidden tab. Pace a simulation with
+  `clock_gettime(CLOCK_MONOTONIC)` and use the frame only to avoid drawing
+  more often than the page shows.
+
+Every input record ([`dolly_input_event`](../host/display/display.h)) has the same
+fields; a type uses the ones listed and leaves the rest zero. `data` holds
+`key`, `code` and `text` back to back as UTF-8 without terminators, with their
+byte lengths in `key_length`, `code_length` and `text_length` (88 bytes in all).
+
+| Type | Fields |
+| --- | --- |
+| `KEY` | `action` release 0, press 1, repeat 2; `modifiers` (`DOLLY_INPUT_MOD_*`); `flags` bit 0 while composing; `key` and `code` as in a browser `KeyboardEvent` |
+| `TEXT` | `text`: typed, composed or pasted text, split at 88 bytes on character boundaries |
+| `RESIZE` | `width_css_px`, `height_css_px`, `device_scale_milli`, `font_size_milli` |
+| `FOCUS` | `action` 1 focused, 0 not |
+| `POINTER` | `action` release 0, press 1, drag 2; `modifiers`; button number (0 to 4) in `flags >> 8`; position in framebuffer pixels in `width_css_px` (x) and `height_css_px` (y) |
+| `POINTER_MOTION` | while captured: signed deltas in thousandths of a CSS pixel in `width_css_px` (x) and `height_css_px` (y), each within ±32,768,000 |
+| `POINTER_CAPTURE`, `POINTER_PRESENCE` | `action` 1 captured or inside, 0 not |
+| `SCROLL` | `action`: signed delta in thousandths of a terminal row |
 - There is no compositor, DOM or WebGL access; GPU programs use
   [`gpu@0`](gpu.md).
 

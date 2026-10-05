@@ -3,6 +3,7 @@
 #include <ctype.h>
 #include <limits.h>
 #include <stdint.h>
+#include <sys/wait.h>
 
 #include "run-program.h"
 
@@ -26,7 +27,7 @@ typedef struct {
 } string_list;
 
 static void usage(void) {
-  fputs("usage: xargs [-0rt] [-n number] [-s size] [-I replace] [-P 1] "
+  fputs("usage: xargs [-0rt] [-n number] [-s size] [-I replace] [-P maxprocs] "
         "[command [argument ...]]\n", stderr);
 }
 
@@ -127,21 +128,49 @@ static void trace_arguments(char **arguments) {
   fputc('\n', stderr);
 }
 
-// Runs one command line and folds its status into xargs' own. Returns
-// nonzero when POSIX requires xargs to stop.
+// Commands started and not yet collected, and how many may run at once (-P).
+static size_t running, parallel = 1;
+
+// Folds one command's status into xargs' own. Returns nonzero when POSIX
+// requires xargs to stop.
+static int fold(int result, int *status) {
+  if (result == 255) *status = 124;
+  else if (result == 126 || result == 127 || result == 130) *status = result;
+  else if (result != 0) *status = 123;
+  return result == 255 || result == 126 || result == 127 || result == 130;
+}
+
+static int collect(int *status) {
+  int child = 0;
+  if (waitpid(-1, &child, 0) < 0) {
+    fprintf(stderr, "xargs: wait: %s\n", strerror(errno));
+    running = 0;
+    return fold(126, status);
+  }
+  running--;
+  return fold(WIFEXITED(child) ? WEXITSTATUS(child) : 128 + WTERMSIG(child), status);
+}
+
+// Starts one command line once fewer than -P commands run, collecting those
+// that finish. Returns nonzero when xargs must stop.
 static int execute(string_list *command, size_t owned_from, int trace, int *status) {
   if (trace) trace_arguments(command->items);
-  const int result = run_program("xargs", (int)command->count, command->items,
-                                 getenv("PATH"), -1);
+  int stop = 0, pid = 0;
+  while (running == parallel) stop |= collect(status);
+  // The kernel's process table may be full of other programs' processes.
+  while (!stop && (pid = start_program((int)command->count, command->items, getenv("PATH"), -1)) == -EAGAIN &&
+         running != 0) stop |= collect(status);
+  if (pid > 0) running++;
+  else if (pid < 0) {
+    fprintf(stderr, "xargs: %s: %s\n", command->items[0], strerror(-pid));
+    stop |= fold(pid == -ENOENT ? 127 : 126, status);
+  }
   for (size_t index = owned_from; index < command->count; ++index) {
     free(command->items[index]);
   }
   command->count = owned_from;
   command->items[owned_from] = NULL;
-  if (result == 255) *status = 124;
-  else if (result == 126 || result == 127 || result == 130) *status = result;
-  else if (result != 0) *status = 123;
-  return result == 255 || result == 126 || result == 127 || result == 130;
+  return stop;
 }
 
 static int parse_count(const char *text, size_t *value) {
@@ -163,7 +192,6 @@ int main(int argc, char **argv) {
     const char *option = argv[index];
     const char *value = option[2] != '\0' ? option + 2 : argv[index + 1];
     const int consumes = strchr("nsIP", option[1]) != NULL && option[2] == '\0';
-    size_t parsed = 0;
     if (strcmp(option, "--") == 0) {
       index++;
       break;
@@ -174,9 +202,8 @@ int main(int argc, char **argv) {
     else if (option[1] == 'n' && parse_count(value, &maximum_items) == 0) {}
     else if (option[1] == 's' && parse_count(value, &maximum_bytes) == 0) {}
     else if (option[1] == 'I' && value != NULL && value[0] != '\0') replace = value;
-    else if (option[1] == 'P' && parse_count(value, &parsed) == 0 && parsed == 1) {}
+    else if (option[1] == 'P' && parse_count(value, &parallel) == 0) {}
     else {
-      if (option[1] == 'P') fputs("xargs: Dolly executes serially; only -P 1 is supported\n", stderr);
       usage();
       return 1;
     }
@@ -226,5 +253,6 @@ int main(int argc, char **argv) {
       (command.count > base_count || (!ran && !no_run_if_empty))) {
     execute(&command, base_count, trace, &status);
   }
+  while (running != 0) collect(&status);
   return status;
 }
