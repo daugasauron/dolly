@@ -706,6 +706,10 @@ static int resolve_tool(const char *name, char **path_out) {
   return result;
 }
 
+static int compare_strings(const void *left, const void *right) {
+  return strcmp(*(const char *const *)left, *(const char *const *)right);
+}
+
 static int collect_paths(char ***paths, size_t *count, size_t *capacity,
                          const char *path) {
   if (dolly_fs_unretained_path(path)) return -EPERM;
@@ -791,7 +795,8 @@ static int validate_export(const char *type, const char *name, const char *detai
   return result;
 }
 
-// An object's members are the paths it had when its recipe finished.
+// An object's members are the paths it had when its recipe finished, in path
+// order as the manifest is: a receipt must not depend on directory order.
 static int capture_export_members(Object *object) {
   if (strcmp(object->type, "ENV") == 0) return 0;
   object->members = calloc(1, sizeof(*object->members));
@@ -802,6 +807,7 @@ static int capture_export_members(Object *object) {
   if (result == 0) {
     result = collect_paths(&object->members->items, &object->members->count,
                            &object->members->capacity, path);
+    if (result == 0) qsort(object->members->items, object->members->count, sizeof(*object->members->items), compare_strings);
     if (result == 0 && strcmp(object->type, "TOOL") == 0) {
       free(object->detail);
       object->detail = path;
@@ -1103,7 +1109,8 @@ static int read_artifact_receipt(Engine *engine, const unsigned char *bytes,
     for (uint32_t member = 0; result == 0 && member < members; ++member) {
       char *path = NULL;
       result = take_text(&cursor, end, &path);
-      if (result == 0 && (!valid_absolute_path(path) || dolly_fs_unretained_path(path))) result = -EINVAL;
+      if (result == 0 && (!valid_absolute_path(path) || dolly_fs_unretained_path(path) ||
+          (member != 0 && strcmp(object.members->items[member - 1], path) >= 0))) result = -EINVAL;
       if (result == 0) result = append_string(&object.members->items, &object.members->count,
                                              &object.members->capacity, path);
       free(path);
@@ -1726,10 +1733,6 @@ static int execute_recipe(Engine *engine, const char *locator, int execute, Scop
   free(recipe.data);
   if (result != 0) dispose_scope(exports_out);
   return result;
-}
-
-static int compare_strings(const void *left, const void *right) {
-  return strcmp(*(const char *const *)left, *(const char *const *)right);
 }
 
 static void put_u32(unsigned char **cursor, uint32_t value) {

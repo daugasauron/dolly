@@ -1,6 +1,6 @@
 # Make more of the catalog installable packages
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 300
 - TAGS: dollyfile,packages,amy
 
@@ -181,6 +181,22 @@ benchmark ran. `python`, for scale: 0.8–1.3 s / 0.9–1.5 s.
   (stage 2 of `20260930-231300-lean-game-images`): images built on
   `system-build` hold the files of `core`, `cc` and `amy` without their
   rows, because they are the builders those packages are kept from.
+- An image's digest depended on the order its directories were created in
+  (measured by the kernel-boundary agent: `system-build` with 2,062 of 2,063
+  records identical and a different digest). `collect_paths` walks in
+  `readdir` order and the receipt (`/etc/dolly/artifact`) stored each
+  export's members in that order, while the manifest is sorted. Fixed on
+  `work/more-packages-seed`: members are sorted when an export is captured,
+  the one place the filesystem's order enters, and the receipt reader rejects
+  a list that is not strictly increasing, as the snapshot reader does for
+  records. The lists stay in the receipt: they are what lets a consumer keep
+  an imported export exactly as it was sealed instead of recapturing a
+  directory from a later filesystem. (They are also a large part of a
+  receipt's 0.2–0.6 MB; that is a size question for the format, not decided
+  here.)
+  `test/image-browser.mjs` runs the engine twice over the same recipe with
+  the exported files created in two orders and compares the receipts; it
+  failed before the fix.
 - The shared root `node_modules` holds Pi 0.84.4 while this branch locks
   0.99.2, so staging `pi-build` failed (`Pi runtime package is not exact`);
   this worktree's `node_modules` link points at `work/host-modules`.
@@ -209,3 +225,33 @@ rewrote only recipes whose content changed.
   5.0 s, `codex` 39.3 s, `rust` 80.3 s, `classicube` 424.5 s, `rts` 278.5 s
   and `bhop` 210.7 s pass in Chrome; `cmake` fails as described above.
 - Image inventory with `minimal` as its image passes in both browsers.
+
+### Evidence for the engine changes (`work/more-packages-seed`)
+
+Two seed changes in `src/dollyfile.c`, each followed by `npm run
+build:runtime` and a rebuild of the chains it could be tested on (image inputs
+`7a0afb0d…` after the record, `23154443…` after the receipt order; the last
+build through `work/build-slot.sh` with one builder).
+
+- Record, on `7a0afb0d…` (`default` chain, `core`, `cc`, `amy`, `minimal`,
+  `python`, `rust`, `rust-tools`, `pi-coding-agent`, `cmake-build`, `cmake`,
+  `sdl2`): `test/amy-browser.mjs` passes in both browsers with `codex-cli`
+  replaced by `pi-coding-agent` in a scratch copy, which shows the rows a
+  package brings (`javascript`, `ripgrep`, `fd` marked installed, `amy
+  install fd` already installed); `minimal`, `image`, `image-inventory`,
+  `custom-session` and `core` pass in both; artifacts 24, source 332.
+- Receipt order, on `23154443…` (`default` chain, `core`, `cc`, `amy`,
+  `minimal`, `python`, `rust`, `rust-tools`): the same suites pass in both
+  browsers, the amy programs reduced to `rust`; artifacts 24, source 332.
+- Not run on the new seeds, by the round's memory rule: the `codex-cli` step
+  of the amy test (needs `codex-build`), and `cmake` and `sdl2` on the last
+  seed. The integrator's catalog rebuild runs them.
+
+## Closed (2026-10-06)
+
+Four demo packages (`cmake`, `sdl2`, `rust`, `codex-cli`) and the packaged
+core (`core`, `cc`, `amy`, with the `minimal` image) are on
+`work/more-packages` (`8bfcd884`, `d4ab4f63`); the installed record and the
+receipt order are on `work/more-packages-seed`. The table, the tests and the
+demo runs above meet the done-when. What is left is the lean base's stages 1
+and 2, in `20260930-231300-lean-game-images`.
