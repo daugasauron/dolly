@@ -12,12 +12,15 @@ const model='qwen3.5-2b',weights=`/usr/share/dolly/llm/${model}.gguf`;
 const piShowsModel=label=>page=>page.evaluate(([model,label])=>__dolly.waitForInteractiveTerminal(new RegExp(model.replaceAll('.','\\.'),'i'),label),[model,label]);
 const output=new URL('../../../build/llm-proof/',import.meta.url);
 await mkdir(output,{recursive:true});
+// Playwright drives the installed Firefox, which on Ubuntu is a snap with a
+// private /tmp: its profile and downloads must live under $HOME.
+process.env.TMPDIR=new URL('tmp/',output).pathname;await mkdir(process.env.TMPDIR,{recursive:true});
 const site=await startBrowserServer(root,'pi-local',{responseHeaders:{'content-security-policy':"connect-src 'self'"}});
 try {
   for(const name of (process.env.DOLLY_LLM_BROWSERS??'chromium,firefox').split(',')) {
     const browser=await ({chromium,firefox})[name].launch(name==='chromium'
-      ? {channel:'chrome',headless:false,args:['--no-sandbox','--ozone-platform=x11','--enable-unsafe-webgpu','--use-angle=vulkan','--enable-features=Vulkan,VulkanFromANGLE','--enable-dawn-features=vulkan_enable_f16_on_nvidia']}
-      : {headless:false,firefoxUserPrefs:{'dom.webgpu.enabled':true,'gfx.webgpu.ignore-blocklist':true}});
+      ? {channel:'chrome',headless:false,args:['--no-sandbox','--ozone-platform=x11','--enable-unsafe-webgpu','--use-angle=vulkan','--enable-features=Vulkan']}
+      : {channel:'moz-firefox',headless:false,firefoxUserPrefs:{'dom.webgpu.enabled':true}});
     try {
       const context=await browser.newContext({acceptDownloads:true,viewport:{width:1280,height:840}});
       const page=await context.newPage(),errors=[],requests=[];

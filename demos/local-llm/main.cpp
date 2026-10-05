@@ -14,6 +14,7 @@ using json=nlohmann::json;
 static volatile sig_atomic_t interrupted;
 static void emit(const json &value) {auto text=value.dump();puts(text.c_str());fflush(stdout);}
 static bool cancelled(void*) {return interrupted;}
+extern "C" bool dolly_webgpu_f16();
 static void check(bool good,const char *message) {if(!good)throw std::runtime_error(message);}
 
 int main(int argc,char **argv) {
@@ -23,19 +24,22 @@ int main(int argc,char **argv) {
     signal(SIGINT,[](int){interrupted=1;});
     llama_backend_init();
     if(!ggml_backend_dev_by_type(GGML_BACKEND_DEVICE_TYPE_GPU)) {
-        emit({{"error","Local inference requires a WebGPU adapter with shader-f16 support"}});
+        emit({{"error","Local inference requires a WebGPU adapter; the page's GPU indicator says why there is none"}});
         llama_backend_free();return 1;
     }
-    if(strcmp(argv[1],"--check")==0) {emit({{"ready",true},{"gpu",true}});llama_backend_free();return 0;}
+    const char *shaders=dolly_webgpu_f16()?"f16":"f32";
+    if(strcmp(argv[1],"--check")==0) {emit({{"ready",true},{"gpu",true},{"shaders",shaders}});llama_backend_free();return 0;}
     auto mp=llama_model_default_params();mp.n_gpu_layers=999;mp.load_mode=LLAMA_LOAD_MODE_NONE;
     llama_model *model=llama_model_load_from_file(argv[1],mp);
     if(!model) {emit({{"error","Unable to load model; see stderr"}});return 1;}
     const auto vocab=llama_model_get_vocab(model);
     auto cp=llama_context_default_params();cp.n_ctx=context;cp.n_batch=512;cp.n_ubatch=512;
     cp.n_threads=1;cp.n_threads_batch=1;cp.no_perf=false;cp.abort_callback=cancelled;
+    // f32 shaders cannot store f16: keep the KV cache and attention mask in f32.
+    if(!dolly_webgpu_f16()) {cp.type_k=cp.type_v=GGML_TYPE_F32;cp.flash_attn_type=LLAMA_FLASH_ATTN_TYPE_DISABLED;}
     auto ctx=llama_init_from_model(model,cp);
     if(!ctx) {llama_model_free(model);emit({{"error","Unable to create inference context"}});return 1;}
-    emit({{"ready",true},{"context",context},{"parameters",llama_model_n_params(model)}});
+    emit({{"ready",true},{"context",context},{"parameters",llama_model_n_params(model)},{"shaders",shaders}});
     char *line=nullptr;size_t capacity=0;
     std::vector<llama_token> cached; // the tokens whose state the context holds, in order
     for(;;) {
