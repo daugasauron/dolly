@@ -34,8 +34,9 @@ allows it and it sends CORS headers. Check a host before planning around it:
 raw.githubusercontent.com, api.github.com, cdn.jsdelivr.net,
 data.jsdelivr.com, registry.npmjs.org and pypi.org work, while github.com and
 codeload.github.com do not: `git clone`, `git fetch` and GitHub archive
-downloads fail. "Browser HTTP broker could not connect" means blocked or
-unreachable; another spelling of the same host will not help. Never send
+downloads fail. "Browser could not fetch the URL" (curl status 7) means the
+host sends no CORS headers or is unreachable, and another spelling of the same
+host will not help; status 9 means this page's policy refused it. Never send
 credentials through a public CORS proxy.
 
 - One file: `curl -fsSLO https://raw.githubusercontent.com/OWNER/REPO/REF/PATH`
@@ -57,8 +58,8 @@ is at the keyboard of the tool's commands: never start interactive programs
 (nvim, pi, python without arguments) there, and bound anything that might wait
 or hang with `timeout 60 COMMAND`.
 
-There are no background jobs (`&`): `make -jN` is the way to run N processes
-at once (`xargs -P` is serial).
+There are no background jobs (`&`): `make -jN` and `xargs -P N` run N
+processes at once.
 To fetch many files, list them in `files.txt` and run `make -j8 -f fetch.mk`:
 
 ```make
@@ -80,15 +81,14 @@ library links automatically, with no `-l`. The program then runs only in images 
 module, and `-pthread` needs `threads@0`. Time code with
 `clock_gettime(CLOCK_MONOTONIC)`.
 
-A program that exits 126 could not run. Usually it uses a host module this
-image does not declare: compare the `dolly/*.h` headers it includes, or what
-`strings PROGRAM | grep dolly.host` prints (`dolly.hostgpu` needs `gpu@0`),
-with the `REQUIRES HOST` lines of `/etc/dolly/Dollyfile`. Nothing inside an
-image adds a module: the program needs an image whose recipe declares it.
+A program that exits 126 was refused or crashed, and one line on its stderr
+says why, usually a host module this image's recipe does not declare
+(`REQUIRES HOST` in `/etc/dolly/Dollyfile`). Nothing inside an image adds a
+module: the program needs an image whose recipe declares it.
 
 ## JavaScript
 
-`janis` (also `qjs`) is QuickJS with Node-style ES modules: write `.mjs` files
-or use `janis -m -e '...'`. `require` and worker threads do not exist;
-`import fs from "node:fs"` and `fetch` work. `tsc` compiles TypeScript. Without
+`janis` (also `qjs`) is QuickJS with Node's module rules: `.mjs` files and code
+using `import` are ES modules, other files and `-e` are CommonJS with
+`require`. `fetch` and the `node:` built-ins work; worker threads do not exist. `tsc` compiles TypeScript. Without
 npm, use dependency-free modules, for example from `https://cdn.jsdelivr.net/npm/`.
