@@ -9,6 +9,6 @@ REQUIRES HOST upload@0
 
 FROM https://daugasauron.com/Dollyfile-system 041c6f482c61b6afba4741e202fdbffb09adb3c6f25fa0be64af02a7f06fafa4
 INSTALL https://daugasauron.com/demos/javascript/Dollyfile-javascript 0cc645585f503bedcd04685e6af6aba21b96f91d1af4e96f9f3efccceb33a52b
-INSTALL https://daugasauron.com/demos/pi/Dollyfile-pi-coding-agent efd7d3f0d1ed2665837b26a1280b25a9d6502d8885d306116efb5c9130582c4c
+INSTALL https://daugasauron.com/demos/pi/Dollyfile-pi-coding-agent b5b48c68dd4e70cd8ce35e774566a6343587f34debbbac0da0df6dcc8a8fe89e
 
 ENTRY /bin/foreground -i /bin/slop
