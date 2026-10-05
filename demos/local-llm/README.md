@@ -52,7 +52,9 @@ names it. With `shader-f16` it runs llama.cpp's WGSL unchanged; without it
 stays f32, at the same speed on the RTX 5070. Pi's status line says
 `GPU, f16 shaders` or `GPU, f32 shaders`; a shader that would need f16 in a
 buffer fails naming `shader-f16`. No browser flag is needed beyond enabling
-WebGPU ([GPU](../../docs/gpu.md#enabling-webgpu)).
+WebGPU ([GPU](../../docs/gpu.md#enabling-webgpu)); optionally, Chrome started
+with `--enable-dawn-features=vulkan_enable_f16_on_nvidia` gets f16 on NVIDIA,
+which saves memory and fits Qwen3.5-4B.
 
 ## Key files
 
@@ -76,7 +78,7 @@ WebGPU ([GPU](../../docs/gpu.md#enabling-webgpu)).
   Firefox settles each GPU wait on a 100 ms timer
   ([bug 1870699](https://bugzilla.mozilla.org/show_bug.cgi?id=1870699)), and a
   token waits twice, so it generates about 5 tokens/s where Chrome generates
-  20-70.
+  25-80.
 - Weight sizes are not total memory: each tab holds weights in WasmFS, the
   process and the GPU. Installed packages are session files: a session holding
   one is larger than a save allows.
