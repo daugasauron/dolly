@@ -159,3 +159,24 @@ and `test/image-inventory-browser.mjs` (its code moved to `scripts/`); the merge
 was aborted and its agent asked to rebase onto `integrate/1005-seed`.
 
 Tag `rc-2026-10-06` marks `5c7457b9`, the commit the release was built from.
+
+## Final candidate (2026-10-06, 05:59 JST)
+
+Release `2de39ded…`, built from `6e29f073` on `integrate/1005-seed`, served on
+http://localhost:9003 from `work/round2`; tag `rc-2026-10-06` marks that commit.
+After the first round-2 release (`e245b123…`) it gained:
+
+- `1253d06c`: the `pi` image names no default model. `67a65263` had made
+  `stealth/space-bunny-alpha` the default; OpenRouter removed that model at
+  01:05 JST. Nine images rebuilt in 8 minutes; source 357, and the `pi`,
+  `studio`, `javascript`, `bhop`, `classicube` and `rts` demo tests pass.
+- `core/iteration` (`81bfee00`), rebased by its agent onto the candidate and
+  verified there; source 358, artifacts 24; the publish ran its new
+  `scripts/accept-release.mjs` over the whole catalog (release `db395aae…`).
+- The Slopyard coplanar-ground fix (`174d9837`); `slopyard` rebuilt, its browser
+  test passes on a private display.
+
+Open at hand-over: kernel-boundary step 2 and later (`core/kernel-boundary`,
+worktree `signals`); the licence texts for 0 A.D.'s linked libraries (`work/licences`,
+WIP `98803d3f`); recordings for RTS, ClassiCube and bhop (no model chosen since
+`stealth/space-bunny-alpha` left OpenRouter); the owner's decisions listed above.
