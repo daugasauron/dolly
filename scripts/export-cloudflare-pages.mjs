@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import { MAX_SNAPSHOT_BYTES } from "../src/snapshot-records.mjs";
+import { STATIC_PART_BYTES, staticMaxParts } from "../src/static-asset.mjs";
 
 import { lstat, mkdir, mkdtemp, readFile, realpath, rename, rm, writeFile } from "node:fs/promises";
 import { basename, dirname, resolve, sep } from "node:path";
@@ -27,8 +28,8 @@ export async function pagesAsset(bytes, path) {
     }
   }
   const parts = [];
-  for (let offset = 0; offset < bytes.length; offset += 20 * 1024 * 1024) parts.push(bytes.subarray(offset, offset + 20 * 1024 * 1024));
-  if (bytes.length > MAX_SNAPSHOT_BYTES || parts.length > 64) throw new Error(`multipart asset exceeds limits: ${path}`);
+  for (let offset = 0; offset < bytes.length; offset += STATIC_PART_BYTES) parts.push(bytes.subarray(offset, offset + STATIC_PART_BYTES));
+  if (bytes.length > MAX_SNAPSHOT_BYTES || parts.length > staticMaxParts()) throw new Error(`multipart asset exceeds limits: ${path}`);
   return { compressed: false, parts, bytes: Buffer.from(JSON.stringify({ byteLength: bytes.length, sha256: sha256(bytes),
     parts: parts.map(part => ({ byteLength: part.length, sha256: sha256(part) })) })) };
 }

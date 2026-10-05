@@ -80,6 +80,8 @@ _Alignas(64) static unsigned char
 static dolly_kernel_process process_table[DOLLY_KERNEL_PROCESS_LIMIT];
 static int next_process_pid = 100;
 static uint32_t live_pipe_count;
+/* A pipe's bytes or ends changed, so a deferred call may now complete. */
+static int pipe_changed;
 static int foreground_pid;
 
 extern char **environ;
@@ -209,6 +211,7 @@ static void release_descriptor(dolly_kernel_process *process,
     }
     process->pipes[descriptor] = NULL;
     process->pipe_directions[descriptor] = 0;
+    pipe_changed = 1;
     if (pipe->readers == 0 && pipe->writers == 0) {
       free(pipe);
       if (live_pipe_count != 0) --live_pipe_count;
@@ -958,6 +961,7 @@ static int64_t fd_read_packet(dolly_kernel_process *process,
     memcpy(process_mailbox + first, pipe->bytes, count - first);
     pipe->offset = (pipe->offset + count) % DOLLY_KERNEL_PIPE_CAPACITY;
     pipe->size -= count;
+    pipe_changed = 1;
     return (int64_t)count;
   }
   int descriptor = descriptor_for(process, request.descriptor);
@@ -1121,6 +1125,7 @@ static int64_t fd_write_packet(dolly_kernel_process *process,
     memcpy(pipe->bytes, process_mailbox + sizeof(request) + first,
            completed - first);
     pipe->size += completed;
+    pipe_changed = 1;
     const dolly_process_io_result response = {completed};
     return respond(&response, sizeof(response));
   }
@@ -1313,6 +1318,12 @@ uintptr_t dolly_process_mailbox_address(void) {
 
 double dolly_process_deferred_milliseconds(void) {
   return deferred_milliseconds;
+}
+
+int dolly_process_take_wakeup(void) {
+  const int changed = pipe_changed;
+  pipe_changed = 0;
+  return changed;
 }
 
 int dolly_process_spawn_serialized(uintptr_t request_size) {
