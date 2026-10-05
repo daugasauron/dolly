@@ -1,6 +1,6 @@
 # Licences and upstream sources: a page on the site and an audit
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 270
 - TAGS: site,licences,audit
 
@@ -79,5 +79,40 @@ site serves the 0 A.D. engine's source.
   attribution opens an existing view.
 - Scratch release `dc66eb0b…` (`DOLLY_BUILD_IMAGES=default`, site
   `daugasauron.com`) served by `serve.mjs` on port 9417 and opened in headless
-  Chrome: `/licences/` renders in the front page's font and colours, 76 rows for
-  the domain catalog when generated with it, links resolve to public paths.
+  Chrome: the front page links `/licences/`, which renders in the front page's
+  font and colours with public links to the views. Generated for the domain
+  catalog the page has 110 rows (34 of them Pi's npm packages), for GitHub
+  Pages 89.
+
+## Fixes (2026-10-05)
+
+- `b862c710`: gpu-fluid keeps webgpu-headers' licence. Rebuilt gpu-fluid
+  (34 s); its manifest lists `/usr/share/licenses/webgpu-headers`. The GPU
+  browser test needs a display and was skipped.
+- `3d19cd1b`: `system-build` keeps musl's `COPYRIGHT` (read from the pinned
+  Emscripten commit; the sparse checkout omits musl) and Emscripten's
+  `LICENSE`; `wamr.tar` carries WAMR's `LICENSE`; the Rust source preparation
+  maps each vendored crate's licence and notice files to
+  `/usr/share/licenses/PROGRAM/crates/`. This changes the root recipe, so every
+  image rebuilds after re-pinning. Rebuilt `system-build` (36 s) and the
+  `default` chain (902 s, Zig and Ghostty included): `default` and `zig-build`
+  list `musl` and `emscripten`; `node test/core-browser.mjs chromium` passed on
+  the new `default` (41 s). Rebuilt ripgrep, fd and protox: 48, 113 and 112
+  crate directories (0.5, 1.2 and 1.2 MB of text). The prepared Codex source
+  adds 1,918 licence files (9.7 MB uncompressed) for 1,218 vendored crates.
+- CPython's `DOLLY-CHANGES` summary is a `FILE` in `Dollyfile-python`
+  (PSF-2.0 §3); `npm run -s test:source` passes with it.
+- Not rebuilt here, on the coordinator's memory rule (the Codex build was
+  stopped after 38 minutes): `codex-build`/`codex` (crate notices) and
+  `python` (`DOLLY-CHANGES`). The 02:30 catalog rebuild proves them; check
+  `/usr/share/licenses/codex/crates/` and
+  `/usr/share/licenses/cpython/DOLLY-CHANGES`.
+- `.cache/sbase-c546c3a…` (a shared checkout) holds a native sbase build and
+  stray files `f`, `g` from 23:06, so `prepare-image-sources.sh` refuses every
+  selection that includes `system-tools` until it is cleaned. Not mine; left
+  untouched.
+
+The open points need the owner: `20261005-135857-licence-owner`.
+
+Closed 2026-10-05: page, test and audit in `a80a37e3`; fixes in `b862c710`,
+`3d19cd1b` and the CPython summary commit.

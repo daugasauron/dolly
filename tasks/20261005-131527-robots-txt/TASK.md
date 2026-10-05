@@ -1,6 +1,6 @@
 # Serve /robots.txt that points to the source repository
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 200
 - TAGS: site,docs
 
@@ -61,3 +61,6 @@ whether an `llms.txt` earns its place and record the decision.
   `node scripts/export-static.mjs build/licences-evidence/releases/current
   build/licences-evidence/export` wrote `robots.txt` at the export root and in
   `deployment.sha256`.
+
+Closed 2026-10-05 with `a80a37e3`: the done-when holds (served by `serve.mjs`,
+written at the export root, fetched by `test/site-browser.mjs`).

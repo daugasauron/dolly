@@ -6,9 +6,11 @@ advice. **Owner** marks points that need the owner's decision.
 [`config/upstreams.json`](../config/upstreams.json) names every upstream the
 catalog builds or bundles. Packaging generates `/licences/` from it
 ([`upstreams.mjs`](../scripts/upstreams.mjs)) for the site's catalog: project,
-use, licence, pinned version, what the site serves and which recipes read it.
-[`upstreams.test.mjs`](../test/upstreams.test.mjs) fails when a recipe
-`SOURCE` or a [`source-pins.sh`](../config/source-pins.sh) pin has no entry.
+use, licence, pinned version, what the site serves and which recipes read it;
+upstreams pinned only in demo files (Rust programs, models, 0 A.D. libraries)
+show no version. [`upstreams.test.mjs`](../test/upstreams.test.mjs) fails when
+a recipe `SOURCE` or a [`source-pins.sh`](../config/source-pins.sh) pin has no
+entry.
 
 ## What the sites distribute
 
@@ -34,9 +36,9 @@ use, licence, pinned version, what the site serves and which recipes read it.
 | GPL-2.0/3.0 | Git, Make, Emacs, Seven Kingdoms, 0 A.D. engine, Dolly's GPL files | Complete corresponding source, including build scripts, or a written offer | Met for programs built in Dolly: the prepared source archives and the recipe that builds them are served beside the images. **Gap 1** for 0 A.D. |
 | LGPL-2.0+ | OpenAL Soft, static in the 0 A.D. engine | Source, and the means to relink | Source served (`openal/source.tar`); relinking needs the 0 A.D. source (gap 1) |
 | MPL-2.0 | SpiderMonkey in 0 A.D.; MPL crates vendored by Codex | Source of the MPL files available; tell recipients where | Codex sources served; SpiderMonkey is gap 1 |
-| Apache-2.0 | LLVM (with exception), TypeScript, Neovim, luv, Codex, WAMR, crates, npm packages | Licence copy, NOTICE files, modified files marked | Codex `NOTICE` and TypeScript notices shipped. LLVM's text is in every compiler image as `/usr/share/licenses/libcxx`; its exception covers runtime code compiled into programs. **Gap 4** for WAMR's source |
-| MIT, BSD, ISC, curl, Zlib, BSL | Most of the catalog | Copyright and permission notice with copies, binaries included (not for Zlib or BSL binaries) | Shipped in `/usr/share/licenses` except **gaps 2 and 3** |
-| PSF-2.0 | CPython | Licence, and a brief summary of changes in a derivative | Licence shipped; **gap 6** |
+| Apache-2.0 | LLVM (with exception), TypeScript, Neovim, luv, Codex, WAMR, crates, npm packages | Licence copy, NOTICE files, modified files marked | Codex `NOTICE`, crates' notices and TypeScript notices shipped. LLVM's text is in every compiler image as `/usr/share/licenses/libcxx`; its exception covers runtime code compiled into programs |
+| MIT, BSD, ISC, curl, Zlib, BSL | Most of the catalog | Copyright and permission notice with copies, binaries included (not for Zlib or BSL binaries) | Shipped in `/usr/share/licenses`, including musl, Emscripten and every vendored crate's own licence files |
+| PSF-2.0 | CPython | Licence, and a brief summary of changes in a derivative | Both shipped (`DOLLY-CHANGES`) |
 | CC-BY-SA-3.0 | 0 A.D. art and audio | Attribution and licence; share-alike for adaptations | The repacked mod archives keep `art/`, `audio/` and font licence files; repacking adapts nothing |
 | OFL-1.1 | Iosevka; 0 A.D. fonts | Licence with the font; no sale of the font alone | Iosevka's name table carries the notice; fonts are unmodified |
 | Apache-2.0 weights | Qwen3.5-2B (GGUF by bartowski), MiniCPM5-2B | Licence copy; no use restrictions | Each model package keeps the licence copied into the demo; nothing checks it against the pinned Hugging Face revision |
@@ -56,9 +58,10 @@ use, licence, pinned version, what the site serves and which recipes read it.
   SDL2, FreeType (FTL), libpng, Ogg/Vorbis, ICU, Boost, {fmt}, libxml2, ENet
   and libsodium: all GPL-compatible. Seven Kingdoms (GPL-2.0-or-later) links
   SDL2 and Dolly's GPL-marked arena code.
-- Codex (Apache-2.0) vendors 1,218 crates for every target: mostly
-  MIT OR Apache-2.0; no crate is GPL-only (`self_cell` offers Apache-2.0, `r-efi`
-  MIT). MPL-2.0 crates (`symphonia*`, `option-ext`) stay file-level copyleft.
+- Codex (Apache-2.0) vendors 1,218 crates for every target and compiles 790
+  into the binary: mostly MIT OR Apache-2.0; no crate is GPL-only (`self_cell`
+  offers Apache-2.0, `r-efi` MIT). The compiled MPL-2.0 crates (`symphonia*`,
+  `option-ext`) stay file-level copyleft; their source is served.
 - Pi runs in QuickJS with npm packages under MIT, ISC, BSD-3-Clause,
   Apache-2.0, BlueOak-1.0.0 and Unlicense.
 
@@ -76,25 +79,20 @@ site under `/dolly/` carries an inert copy.
 
 ## Gaps
 
-1. **Owner**: the 0 A.D. engine's source is not served. Fix: publish the
-   pinned `0ad-0.28.0-unix-build.tar.xz` (158 MB; it contains SpiderMonkey)
-   and a tar of `demos/zero-ad/toolchain` and `openal-dolly.patch` as `SOURCE`
-   inputs of `Dollyfile-zero-ad`, and add the MPL-2.0 text and the linked
-   libraries' notices to `/opt/0ad/licenses`. Rebuilds zero-ad.
-2. musl's and Emscripten's notices are in no image although every program
-   links them. Fix: `system-build` keeps both under `/usr/share/licenses`.
-   Rebuilds every image.
-3. Rust programs ship their own licence but not their crates' notices (rg, fd,
-   protox, codex). Fix: copy each compiled crate's licence files to
-   `/usr/share/licenses/PROGRAM/crates/` from the Patti build record.
-4. WAMR's source archive lacks WAMR's own `LICENSE`. Fix: add it to `wamr.tar`.
-5. gpu-fluid lacked webgpu-headers' BSD-3-Clause notice. Fixed: the recipe
-   downloads and keeps it.
-6. CPython ships without a summary of Dolly's changes (PSF-2.0 §3). Fix: keep a
-   short `DOLLY-CHANGES` beside its licence.
-7. **Owner**: only the arena code compiled into Seven Kingdoms and the engine
-   patch must stay GPL. The other GPL-marked files (agents, spectator, viewers)
-   are Dolly's own code running as separate programs; their licence is the
+Fixed in this audit: musl's and Emscripten's notices (kept by `system-build`,
+so every image is rebuilt), WAMR's licence in its source archive, every
+vendored crate's licence files under `/usr/share/licenses/PROGRAM/crates/` for
+rg, fd, protox and codex (123 of Codex's crates ship none; their `Cargo.toml`
+names the licence), webgpu-headers' notice in gpu-fluid, and CPython's change
+summary. Open, each needing the owner (task `20261005-135857-licence-owner`):
+
+1. The 0 A.D. engine's source is not served. Fix: publish the pinned
+   `0ad-0.28.0-unix-build.tar.xz` (158 MB; it contains SpiderMonkey) and a tar
+   of `demos/zero-ad/toolchain` and `openal-dolly.patch` as `SOURCE` inputs of
+   `Dollyfile-zero-ad`, and add the MPL-2.0 text and the linked libraries'
+   notices to `/opt/0ad/licenses`. Rebuilds zero-ad.
+2. Only the arena code compiled into Seven Kingdoms and the engine patch must
+   stay GPL. The other GPL-marked files (agents, spectator, viewers) are
+   Dolly's own code running as separate programs; their licence is the
    owner's choice.
-8. Versions of upstreams pinned outside `source-pins.sh` (Rust programs,
-   models, 0 A.D. libraries) are blank on the licences page.
+3. ClassiCube's default texture pack states no licence (see the table).
