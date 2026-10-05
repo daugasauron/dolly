@@ -81,3 +81,11 @@ same round instead of paying it again: the target identity
 (`20261005-133402-target-identity`, if the owner decides it), steps 3 and 4
 of `20261005-133401-kernel-boundary`, and the seed batches of
 `20261005-131643-silent-126` and `20261005-131650-userspace-gaps`.
+
+## Note from the presenter work (2026-10-06, `20261005-131644-page-presenter`)
+
+The page now counts a record the ring cannot take (`data-input-dropped`), but a
+program cannot see the count, and a key release dropped at 256 unread records
+leaves that key down until it is pressed again. The `input@0` contract should
+carry a dropped-counter word. All ring logic sits in `DisplayTransport`'s
+producer methods; `input.mjs` was not touched.
