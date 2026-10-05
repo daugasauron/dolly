@@ -91,7 +91,6 @@ int main(int argc, char **argv) {
   UNSUPPORTED(CURLOPT_REDIR_PROTOCOLS_STR, "https");
   UNSUPPORTED(CURLOPT_LOW_SPEED_LIMIT, 1L);
   UNSUPPORTED(CURLOPT_LOW_SPEED_TIME, 1L);
-  UNSUPPORTED(CURLOPT_TIMEOUT, 1L);
   UNSUPPORTED(CURLOPT_CONNECTTIMEOUT_MS, 10L);
   UNSUPPORTED(CURLOPT_TCP_KEEPALIVE, 1L);
   UNSUPPORTED(CURLOPT_IPRESOLVE, (long)CURL_IPRESOLVE_V4);
@@ -168,6 +167,24 @@ int main(int argc, char **argv) {
   EXPECT(curl_easy_setopt(curl, CURLOPT_HTTPGET, 1L), CURLE_OK);
   EXPECT(curl_easy_setopt(curl, CURLOPT_CUSTOMREQUEST, "POST"), CURLE_OK);
   EXPECT(curl_easy_perform(curl), CURLE_OK);
+  {
+    /* Credentials in a URL become Basic credentials; Fetch never sees them. */
+    char url[4096];
+    snprintf(url, sizeof(url), "http://url%%20user:p%%40ss@%s", argv[1] + sizeof("http://") - 1);
+    EXPECT(curl_easy_setopt(curl, CURLOPT_URL, url), CURLE_OK);
+    EXPECT(curl_easy_setopt(curl, CURLOPT_USERPWD, NULL), CURLE_OK);
+    EXPECT(curl_easy_setopt(curl, CURLOPT_HTTPAUTH, CURLAUTH_BASIC), CURLE_OK);
+    EXPECT(curl_easy_perform(curl), CURLE_OK);
+    EXPECT(curl_easy_setopt(curl, CURLOPT_HTTPAUTH, CURLAUTH_NONE), CURLE_OK);
+    /* A deadline cancels the transfer instead of waiting for its response. */
+    snprintf(url, sizeof(url), "%s?cancel=deadline", argv[1]);
+    EXPECT(curl_easy_setopt(curl, CURLOPT_URL, url), CURLE_OK);
+    EXPECT(curl_easy_setopt(curl, CURLOPT_TIMEOUT_MS, 300L), CURLE_OK);
+    const double started = now();
+    EXPECT(curl_easy_perform(curl), CURLE_OPERATION_TIMEDOUT);
+    if (now() - started > 1.5) { fputs("CURL FAIL: the deadline did not end the transfer\n", stderr); ++failures; }
+    EXPECT(curl_easy_setopt(curl, CURLOPT_TIMEOUT_MS, 0L), CURLE_OK);
+  }
   for (int header = 0; header < 2; ++header) {
     char url[4096];
     snprintf(url, sizeof(url), "%s?cancel=%s", argv[1], header ? "header" : "body");

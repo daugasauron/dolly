@@ -25,11 +25,15 @@ static void usage(FILE *stream) {
       "  -A, --user-agent TEXT   set User-Agent\n"
       "  -r, --range RANGE       request a byte range\n"
       "      --compressed        request compressed transfer encoding\n"
+      "  -m, --max-time SECONDS  give up after SECONDS\n"
       "  -o, --output FILE       write body to FILE\n"
       "  -O, --remote-name       derive FILE from the URL\n"
       "  -D, --dump-header FILE  write response headers to FILE\n"
       "  -w, --write-out FORMAT  print response metadata\n"
-      "  -v, --verbose           emit libcurl diagnostics\n",
+      "  -v, --verbose           emit libcurl diagnostics\n"
+      "Requests go through the browser: a URL needs CORS headers unless it is\n"
+      "this page's origin. The exit status is curl's: 7 the browser could not\n"
+      "fetch, 9 refused by policy, 22 HTTP error with -f, 28 timed out.\n",
       stream);
 }
 
@@ -116,7 +120,7 @@ int main(int argc, char **argv) {
   int use_remote_name = 0, compressed = 0;
   const char *output_path = NULL, *header_path = NULL, *url = NULL;
   const char *method = NULL, *user_agent = NULL, *user = NULL, *range = NULL;
-  const char *write_format = NULL;
+  const char *write_format = NULL, *max_time = NULL;
   char *body = NULL, *owned_output_path = NULL;
   size_t body_length = 0;
   struct curl_slist *headers = NULL;
@@ -149,6 +153,7 @@ int main(int argc, char **argv) {
     VALUE_OPTION("-u", "--user", user, "credentials")
     VALUE_OPTION("-r", "--range", range, "a range")
     VALUE_OPTION("-w", "--write-out", write_format, "a format")
+    VALUE_OPTION("-m", "--max-time", max_time, "seconds")
     VALUE_OPTION("", "--url", url, "a URL")
 #undef VALUE_OPTION
 
@@ -197,7 +202,10 @@ int main(int argc, char **argv) {
     else if (strcmp(argument, "--remote-name") == 0) use_remote_name = 1;
     else if (strcmp(argument, "--compressed") == 0) compressed = 1;
     else if (strcmp(argument, "--verbose") == 0) verbose = 1;
-    else if (argument[0] == '-' && argument[1] != '\0') {
+    else if (argument[0] == '-' && argument[1] == '-') {
+      fprintf(stderr, "curl: unsupported option: %s\n", argument);
+      goto usage_error;
+    } else if (argument[0] == '-' && argument[1] != '\0') {
       for (const char *flag = argument + 1; *flag != '\0'; ++flag) {
         if (*flag == 'f') fail_status = 1;
         else if (*flag == 's') silent = 1;
@@ -214,6 +222,16 @@ int main(int argc, char **argv) {
   }
 
   if (url == NULL) { usage(stderr); goto usage_error; }
+  long timeout_milliseconds = 0;
+  if (max_time != NULL) {
+    char *end = NULL;
+    const double seconds = strtod(max_time, &end);
+    if (end == max_time || *end != '\0' || !(seconds >= 0) || seconds > 86400) {
+      fprintf(stderr, "curl: --max-time: %s: expected seconds\n", max_time);
+      goto usage_error;
+    }
+    timeout_milliseconds = (long)(seconds * 1000);
+  }
   if (output_path != NULL && use_remote_name) {
     fputs("curl: --output and --remote-name are mutually exclusive\n", stderr);
     goto usage_error;
@@ -252,6 +270,7 @@ int main(int argc, char **argv) {
   if (user_agent != NULL) SET(CURLOPT_USERAGENT, user_agent);
   if (user != NULL) SET(CURLOPT_USERPWD, user);
   if (range != NULL) SET(CURLOPT_RANGE, range);
+  if (timeout_milliseconds != 0) SET(CURLOPT_TIMEOUT_MS, timeout_milliseconds);
   if (compressed) SET(CURLOPT_ACCEPT_ENCODING, "");
   if (headers != NULL) SET(CURLOPT_HTTPHEADER, headers);
   if (body != NULL) {
@@ -276,8 +295,8 @@ int main(int argc, char **argv) {
   if (output_path != NULL && output != NULL && fclose(output) != 0 && result == CURLE_OK)
     result = CURLE_WRITE_ERROR;
   if (result != CURLE_OK) {
-    if (!silent || show_error) fprintf(stderr, "curl: %s\n", curl_easy_strerror(result));
-    return result == CURLE_HTTP_RETURNED_ERROR ? 22 : 1;
+    if (!silent || show_error) fprintf(stderr, "curl: (%d) %s\n", result, curl_easy_strerror(result));
+    return result;
   }
   if (fail_with_body && response_code >= 400) return 22;
   return 0;

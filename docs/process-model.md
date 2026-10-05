@@ -70,6 +70,9 @@ sequenceDiagram
 
 - 256 descriptors per process. Descriptor flags are per handle; offsets and status
   flags belong to the shared open description. `FD_CLOEXEC` works everywhere.
+  `getrlimit` reports the fixed limits (`RLIMIT_NOFILE` 256, `RLIMIT_NPROC` 32,
+  `RLIMIT_AS` 8 GiB, `RLIMIT_STACK` 8 MiB); `sysconf(_SC_OPEN_MAX)` is still
+  libc's constant 1024.
 - Pipes hold 64 KiB. Empty reads and full writes return `EAGAIN` when
   nonblocking; closing all writers gives EOF; writing with no reader returns
   `EPIPE` without raising `SIGPIPE`.
@@ -153,6 +156,9 @@ sequenceDiagram
   pending and never forces termination.
 - Clock reads use the Worker's clock aligned to the kernel's origin, but enter the
   kernel at least once per millisecond so signals arrive in clock-only loops.
+- CPU time is not accounted: `clock()` and `CLOCK_PROCESS_CPUTIME_ID` report the
+  monotonic time since the process started, an upper bound that is exact while
+  it computes without blocking ([`libc-adapter.c`](../src/process/libc-adapter.c)).
 
 ## Threads, DSOs and FFI
 

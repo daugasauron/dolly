@@ -24,4 +24,4 @@ export const DOLLY_HTTP_START = 80;
 export const DOLLY_HTTP_POLL = 81;
 export const DOLLY_HTTP_CANCEL = 82;
 export const DOLLY_HTTP_BODY_WRITE = 83;
-export const DOLLY_HTTP_ABI_DIGEST = "0557669a1a89dd512188829cd081ee1589ca6d9e3e3b2172e13644aa1b1dbfbf";
+export const DOLLY_HTTP_ABI_DIGEST = "45560e4f1e7d93c6cacf84f6f4d97c65534b8e228aa644b3c6bd33b6f7c002d3";

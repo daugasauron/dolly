@@ -60,6 +60,11 @@ test("xargs streams large input in size- and count-bounded batches", () => {
   assert.equal(run(xargs, ["sh", "-c", "exit 3"], { input: "a" }).status, 123);
   assert.equal(run(xargs, ["missing-command"], { input: "a" }).status, 127);
   assert.equal(run(xargs, ["-I", "{}", "echo", "<{}>"], { input: "a b\nc\n" }).stdout, "<a b>\n<c>\n");
+  // -P runs commands at once: each waits until all three have started.
+  const together = run(xargs, ["-P", "3", "-n", "1", "sh", "-c",
+    ': > "started-$1"; until [ "$(ls started-* | wc -l)" -eq 3 ]; do sleep 0.01; done; test "$1" != b', "sh"],
+    { input: "a b c", timeout: 10000 });
+  assert.equal(together.status, 123, together.stderr);
 });
 
 test("timeout 0 disables the deadline", () => {

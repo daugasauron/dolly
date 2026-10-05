@@ -44,8 +44,8 @@ flowchart LR
   pipeline stages included, so agent tools behave predictably without a
   scheduler, host processes or async callbacks. Build tools use several cores:
   `posix_spawn` returns without waiting, each child runs in its own Worker, and
-  only the kernel's system call dispatch stays serial. Make `-jN` and its
-  jobserver use this; Ninja still runs one job. Every process is a fresh Worker
+  only the kernel's system call dispatch stays serial. Make `-jN` with its
+  jobserver and `xargs -P N` use this; Ninja still runs one job. Every process is a fresh Worker
   and memory, and Worker termination has no completion event, so `N` multiplies
   memory pressure in one tab.
 - **One user, no permission bits.** Every process is the same principal and the

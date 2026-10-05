@@ -47,7 +47,10 @@ await browserTest("network", { server: { fixtures, handle } }, async ({ server, 
   cancelledRequests = [];
   git = createGitTransportFixture();
   try {
+    // The same server under another origin name sends no CORS headers.
+    const blocked = server.origin.replace("127.0.0.1", "localhost");
     const { submit } = await open({ policy: { rules: [
+      { origin: blocked, pathPrefix: "/fixture/", methods: ["GET"] },
       { origin: server.origin, path: "/fixture/http.txt", methods: ["GET"], maxResponseBytes: 8 },
       { origin: server.origin, path: "/fixture/libcurl-contract", methods: ["GET", "POST"], credentialHeaders: ["authorization"] },
       { origin: server.origin, pathPrefix: "/fixture/", methods: ["GET", "POST"] },
@@ -70,12 +73,25 @@ await browserTest("network", { server: { fixtures, handle } }, async ({ server, 
       { authorization: null, body: "ab" },
       { authorization: null, body: "payload" },
       { authorization: null, body: "" },
+      { authorization: "Basic dXJsIHVzZXI6cEBzcw==", body: "" },
     ], "protocol rejection must prevent HTTP, and authentication selection must change the actual request");
     await new Promise(resolve => setTimeout(resolve, 100));
     assert.deepEqual(cancelledRequests, [
+      { phase: "deadline", finished: false, closed: true },
       { phase: "body", finished: false, closed: true },
       { phase: "header", finished: false, closed: true },
-    ], "rejected callbacks must close the actual HTTP connections");
+    ], "a deadline and rejected callbacks must close the actual HTTP connections");
+
+    // curl and git name the class the broker knows: a response the browser
+    // blocked or could not reach (curl status 7), or a policy refusal (9).
+    assert.equal(await submit(`curl -sS ${blocked}/fixture/http.txt 2> /tmp/blocked.err`), 7);
+    assert.ok(server.requests.get("/fixture/http.txt") >= 1, "the blocked host was reached");
+    assert.equal(await submit(`curl -sS ${server.origin}/not-allowed 2> /tmp/refused.err`), 9);
+    assert.notEqual(await submit(`git ls-remote ${blocked}/fixture/blocked.git 2> /tmp/git-blocked.err`), 0);
+    assert.notEqual(await submit(`git ls-remote ${server.origin}/not-allowed.git 2> /tmp/git-refused.err`), 0);
+    await run(`grep -qF "$(sed 's/^curl: ([0-9]*) //' /tmp/blocked.err)" /tmp/git-blocked.err`);
+    await run(`grep -qF "$(sed 's/^curl: ([0-9]*) //' /tmp/refused.err)" /tmp/git-refused.err`);
+    await run("! grep -qF \"$(sed 's/^curl: ([0-9]*) //' /tmp/refused.err)\" /tmp/git-blocked.err");
 
     await runGitTransport({ submit, origin: server.origin, fixture: git });
   } finally {
