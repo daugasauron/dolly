@@ -4,7 +4,7 @@
 // GGUF in 1 GiB parts (the most one SOURCE accepts), and OUTPUT/ID/LICENSE.
 import {execFile} from 'node:child_process';
 import {readFileSync} from 'node:fs';
-import {copyFile,mkdir,open,rename,writeFile} from 'node:fs/promises';
+import {copyFile,mkdir,open,readFile,rename,writeFile} from 'node:fs/promises';
 import {resolve} from 'node:path';
 import {promisify} from 'node:util';
 
@@ -23,6 +23,8 @@ for(const model of JSON.parse(readFileSync(resolve(root,'demos/local-llm/models.
     for(let at=0,index=0;at<model.bytes;at+=part,index++) {
       const bytes=Buffer.alloc(Math.min(part,model.bytes-at)),path=resolve(directory,`${index}.part`);
       await file.read(bytes,0,bytes.length,at);
+      // Writing gigabytes is the slow part: an identical staged part stays.
+      if((await readFile(path).catch(()=>null))?.equals(bytes))continue;
       await writeFile(path+'.tmp',bytes);await rename(path+'.tmp',path);
     }
   } finally {await file.close();}
