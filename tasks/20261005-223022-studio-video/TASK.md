@@ -58,3 +58,22 @@ story:
 - The task records the model id, effort, cost, the prompt, the saved recipe
   and how to rerun.
 - It is live after the next deploy the owner asks for.
+
+## Findings (2026-10-06 08:20 JST)
+
+- Blocker: Pi 1.0.3's API-key login does not mask the key. Reproduce on
+  `http://localhost:9005/dollyfile-studio/`: in Pi type `/login`, choose
+  "Sign in with an API key", type `openrouter`, Enter, then paste any
+  `sk-or-v1-...` string: the full value is shown in clear on the
+  `Enter OpenRouter API key` line until Enter (checked with a fake key; the
+  real key was never pasted). After Enter the dialog closes and only
+  "Saved API key for OpenRouter" remains. Cause: upstream
+  `packages/coding-agent/src/modes/interactive/components/login-dialog.ts`
+  uses a plain `Input` from `pi-tui`, which has no masked mode. A visitor
+  sees their key, so a recording "as a visitor would see it" shows it too;
+  no take was made.
+- Model ids for "deepseek flash v1 xhigh" (OpenRouter catalog, 08:05): no
+  "v1" exists. `deepseek/deepseek-v4-flash` (V4 Flash 0423, text only,
+  $0.03/$1.28 per M tokens) is the only Flash whose efforts include `xhigh`
+  (`xhigh`, `high`); `deepseek/deepseek-v4.1-flash` (V4.1 Flash, text+image,
+  $0.30/$1.20) offers `max`, `high`, `low`.
