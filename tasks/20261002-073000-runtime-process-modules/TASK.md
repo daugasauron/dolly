@@ -1,6 +1,6 @@
 # Investigate: subprocesses and the runtime as declared host modules
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 315
 - TAGS: core,architecture,host-modules,process,design
 
@@ -104,3 +104,30 @@ filesystem. Two additions for the owner's decision:
 
 If the owner accepts "no `runtime@0` line, no `process@0`", this task closes;
 the DSO/FFI question can then be its own task or be dropped.
+
+## Decision (2026-10-06)
+
+Delegated by the owner ("research them thoroughly and go with the answer that
+aligns with the goal of the project") and decided by the integrator on the two
+measured analyses above:
+
+1. `runtime@0` stays implicit, the one documented exception: 51 of 51 images
+   would carry the line and none could omit it. `AGENTS.md`: "Every line in
+   this repo has to earn its right to be there."
+2. No `process@0`: all 37 runnable images spawn, the process table and ENTRY
+   stay in the runtime either way, and spawn adds no browser authority.
+   `AGENTS.md`: "The core interface must remain small, typed, inspectable, and
+   versioned."
+3. No smaller splits: each costs a manifest, a contract, a digest and a
+   boundary row that every image would declare. The split with a real omission
+   case is `input@0` (`20261002-072000-input-host-module`).
+
+The rule that follows: a module is browser authority that some image omits.
+`host/README.md` now states the exception and the rule. The DSO/FFI split the
+review raised has an omission case and is counted under
+`20260930-100000-audit-24`; it is not reopened here.
+
+## Closed (2026-10-06)
+
+Done-when: the recommendation with its measurements is recorded and decided;
+no implementation follows from it.
