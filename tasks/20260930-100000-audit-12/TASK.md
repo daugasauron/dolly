@@ -1,6 +1,6 @@
 # Kernel C duplication and oversized dispatch
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 130
 - TAGS: core,cleanup
 
@@ -51,3 +51,10 @@ Remaining, recorded in `20261001-000000-host-modules`: `process_dispatch` is
 still one switch over the core descriptor and path cases (small functions
 inline), the staging buffer appears in `system-snapshot.c` and
 `host/snapshot/kernel.c`, and `collect_tree` re-implements `dolly_fs_metadata`.
+
+## Closed (2026-10-05, big-picture review)
+
+Every duplicate this audit named is gone (`work/core-polish`, recorded
+above). What remains is not duplication: `process_dispatch`
+(`src/process-kernel.c:1333-1990`, 50 cases) is the system call table, and
+splitting it is file reorganization, which `tasks/README.md` ranks last.

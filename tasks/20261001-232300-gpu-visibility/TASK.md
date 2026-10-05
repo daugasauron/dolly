@@ -1,7 +1,7 @@
 # Make GPU use and CPU fallbacks obvious
 
 - STATUS: OPEN
-- PRIORITY: 290
+- PRIORITY: 200
 - TAGS: gpu,display,ux,demo
 
 Owner request (2026-10-01): "everything that uses GPU should be obvious. The
@@ -114,3 +114,11 @@ the page indicator is the authority.
 - Image page: the run page already shows `#gpu-status` for `gpu@0`. The
   Dollyfile view (`scripts/render-dollyfile-view.mjs:150`, title; body at
   `:163`) has `record.hostRequirements` and can show the same label.
+
+## Review note (2026-10-05, `20261005-131642-big-picture`)
+
+Lowered from 290: the trusted indicator, the part that keeps the user
+informed while a program runs, is shipped and tested
+(`test/gpu-indicator-browser.mjs`). What remains is start-page and
+image-page wording for seven demo images. The adapter shown by the indicator
+is being reworked in `20261005-131646-webgpu-any-gpu`.

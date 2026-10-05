@@ -27,3 +27,11 @@ Owned elsewhere, do not edit: `demos/pi`, `demos/studio`
 - Each new package installs and runs in a running `default` session in a real
   browser, covered by a test.
 - The touched images' demo tests pass.
+
+## Review note (2026-10-05, `20261005-131642-big-picture`)
+
+The largest package candidate by bytes is not on the list: the C/C++
+toolchain, 135 MiB of every application and toolchain (37 of 37). It and the lean base
+are `20260930-231300-lean-game-images`, now a core task; a rule for "what is
+a package" should cover it. Also measured: all 37 declare `http@0` because
+`/bin/dollyfile` is retained in every base.

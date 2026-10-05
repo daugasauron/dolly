@@ -47,3 +47,11 @@ is in. What the agent needed and had to discover: `git clone` cannot work but
 Additional done-when: an agent given only the skill answers those points
 correctly in a real session, and the skill is generated or checked against the
 image it ships in wherever a fact can be read from the image.
+
+## Review note (2026-10-05, `20261005-131642-big-picture`)
+
+The facts the skill lacked are core facts, needed by any agent (Codex too),
+and `docs/` already states them. `20261005-133403-self-description` ships
+those documents in the image as a package; the skill should then point at
+`/usr/share/doc/dolly/` and keep only what is specific to Pi, instead of
+becoming a fourth hand-kept copy.
