@@ -113,3 +113,37 @@ Decisions waiting for the owner: target identity (`20261005-133402`), what Slop
 is for, the runtime/process-modules recommendation (`20261002-073000`), a git
 relay (`20261005-131649`), the licence points (`20261005-135857`), 4B as part
 packages (`20261005-131646`), Claude Code's limits (`20261005-133044`).
+
+## Round 2 result (2026-10-06, 03:18-04:46 JST)
+
+Release candidate `e245b123…`, built from `5c7457b9` on `integrate/1005-seed`
+(image inputs `047fc328…`, 61 images rebuilt in 60 minutes with four
+builders), served on http://localhost:9003 from `work/round2`.
+
+Merged after the interruption: `work/webgpu-any-gpu`, `work/demo-recordings`,
+`work/more-packages-seed` (packages, the packaged core, the receipt order),
+`work/licences-2` (inventory rows). `demos/zero-ad/Dollyfile-zero-ad-deps` was
+pointed at the renamed `Dollyfile-sdl2` package.
+
+Verified on the rebuilt catalog (logs in the integrator's scratchpad, `round2/`):
+- Source suite 357 pass; artifact suite 24 pass.
+- Browser suites in Chrome and Firefox: all pass. `minimal` first failed on a
+  stale expectation of the refusal text and passes since `1723a563`.
+- Release acceptance for every image (part of `npm run publish`).
+- Demo tests: python, javascript, emacs, pi, neovim, rust, cmake, sdl2, studio,
+  codex, bhop, classicube pass. `rts` failed once in the pipeline ("both native
+  games must animate during the slow model's response") and passed alone in
+  256.7 s: the early-frame race of `20261005-151321-rts-early-input-stall`.
+- The Pi skill's updated statements were run in the rebuilt `pi` image:
+  `xargs -P 4`, curl status 9 on a policy refusal, the exit-126 line naming
+  `gpu@0`, `require` and `import` in `janis -e`, `.mjs` modules.
+
+The first catalog attempt failed in preparation: `prepare-emacs.sh` downloads
+from ftp.gnu.org before checking its cache, the host timed out, and this
+worktree's `.cache` lacked the archive (copied from `work/host-modules`, and
+into the root `.cache`).
+
+Not in this candidate: kernel-boundary step 2 and later (`core/kernel-boundary`,
+worktree `signals`), `core/iteration` (worktree `presenter`, to merge next),
+the licence texts of 0 A.D.'s linked libraries (`work/licences`, WIP `98803d3f`),
+new recordings for RTS, ClassiCube and bhop (the model left OpenRouter).
