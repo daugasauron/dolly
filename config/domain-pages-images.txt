@@ -17,3 +17,9 @@ rts-arena
 rust-tools
 zero-ad
 slopyard
+cmake
+sdl2
+rust
+codex-cli
+qwen3.5-800m
+minimal
