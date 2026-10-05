@@ -1,6 +1,6 @@
 # Programs die with a silent exit 126: undeclared host modules and a NULL packet
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 310
 - TAGS: core,kernel,diagnostics
 
@@ -91,6 +91,10 @@ and `probe-threads-{default,pi}-base.log`.
 - `cc` refuses to link a thread client without a thread entry and says to use
   `-pthread` (`src/compiler.cpp`, seed), so what it links the loader runs;
   `threads.h` documents it.
+- An executable with a foreign import is told which one: `dolly: process 117
+  was refused: WebAssembly binary: import env.fetch is outside
+  dolly-process-0` (`src/process-abi.mjs`, fixture
+  `test/fixtures/process-wrong-import.wat`).
 - A malformed call returns an errno from the process Worker for every
   operation: `EFAULT` for a range outside memory (NULL included), `E2BIG` over
   the packet limit, `ENOSYS` for an unknown operation
@@ -112,3 +116,29 @@ Decisions:
 - Left: `cc`, `c++`, `ld` and `ar` still retry status 126 twice, so a refusal
   of the compiler itself would print three lines; that retry exists for
   transient Worker allocation failures and cannot tell them apart by status.
+
+## Evidence (2026-10-06, `fix/audit-core`, image inputs `1c081c54…`)
+
+`npm run build:runtime`; `DOLLY_IMAGE_JOBS=1 DOLLY_BUILD_IMAGES=default,pi
+work/build-slot.sh npm run image`. Then, all passing:
+
+- `npm run -s test:source`: 353 pass, 0 fail (the Slop cases run against Bash
+  natively under ASan in `test/slop.test.mjs`).
+- `node test/NAME-browser.mjs chromium` and `firefox` for `core`, `shell`,
+  `slop`, `cpp`, `threads`, `host-modules`, `boundary`, `process`, `network`.
+- Chrome only: `terminal`, `upload`, `snapshot-stream`, `image-inventory`,
+  `site`, `image`, `custom-session`, `host-compute`, `fs-growth`.
+- `npm run test:demos -- pi javascript`: both pass.
+- Not run: `amy` (needs the `python` package image), `audio`, `gpu-*`.
+
+Logs: `build/audit-core-evidence/final2-*.log`.
+
+In the `pi` image after the fix (`probe-pi-seed1b.log`): `cc /tmp/self.c`
+fails with one line (`dolly-cc: this program uses <dolly/threads.h> without a
+thread entry: build with -pthread, …`), `cc -pthread` builds a program that
+prints `tid 3`, and a GPU client exits 126 with `dolly: process 129 was
+refused: host module gpu@0 is not declared by this image (REQUIRES HOST)` as
+the only line on its stderr.
+
+Commits: `b3cff2ab` (stderr, errnos), `d2bad2db` (cc and the thread client),
+`3115b789` (FFI), and the commit that closes this task (foreign import).

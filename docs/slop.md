@@ -94,7 +94,8 @@ threads, host processes or a scheduler.
   `command`, `env`, `find`, `time`, `timeout`, `xargs` (`-P N` runs N commands
   at once), `diff` and `patch` (over Git; the patch names its files, a `FILE`
   operand is rejected), which run programs with Slop's descriptors; `nproc`,
-  which prints libc's processor count; `install`, whose mode, owner
+  which prints 4, the number of jobs Dolly's own recipes give Make (libc's
+  `sysconf` counts threads: 1 without `-pthread`); `install`, whose mode, owner
   and group options are syntax only and create no metadata; `du`, which counts
   logical in-memory bytes; UTF-8 `rev`; `realpath`, `hostname`, `tty`. Each
   prints its supported subset with `--help`;

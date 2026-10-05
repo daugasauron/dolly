@@ -128,3 +128,23 @@ single files from `raw.githubusercontent.com` and `cdn.jsdelivr.net/gh/`, and
 metadata and trees from `api.github.com`; `git clone`, `fetch` and `ls-remote`
 from `github.com`, `gitlab.com` and `codeberg.org` fail with the "could not
 fetch" line, as do `codeload.github.com` archives.
+
+## Status (2026-10-06)
+
+Open for two things that are not this branch's: the owner's decision on the
+relay, and the Pi skill saying what works (`20261005-130240-pi-skills`). The
+cause, the class messages and the statuses are done and tested (`efa9f7b1`;
+`node test/network-browser.mjs chromium` and `firefox` pass on image inputs
+`1c081c54…`). In Chrome against the real network
+(`build/audit-core-evidence/probe-default-seed1.log`):
+
+```
+$ git ls-remote https://github.com/daugasauron/dolly.git; echo rc=$?
+fatal: unable to access 'https://github.com/daugasauron/dolly.git/': Browser could not fetch the URL: blocked (no CORS headers, or a redirect) or unreachable (DNS, TLS, offline)
+rc=128
+$ curl -sS https://example.com/; echo rc=$?
+curl: (7) Browser could not fetch the URL: blocked (no CORS headers, or a redirect) or unreachable (DNS, TLS, offline)
+rc=7
+$ curl -sS -o /dev/null -w %{http_code} https://api.github.com/repos/daugasauron/dolly
+200
+```

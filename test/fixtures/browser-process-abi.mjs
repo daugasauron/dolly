@@ -97,6 +97,7 @@ export async function runProcessAbiChecks() {
     ["wrong-call", /import dolly_process_0.call must be/],
     ["wrong-start", /incompatible process export _start/],
     ["wrong-memory", /process memory is outside/],
+    ["wrong-import", /import env\.fetch is outside/],
   ]) {
     const bytes = await fetchFixture(name);
     await WebAssembly.compile(bytes); // Valid Wasm; it is the ABI that is wrong.

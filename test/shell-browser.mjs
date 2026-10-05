@@ -108,7 +108,7 @@ await browserTest("shell", { server: { handle } }, async ({ server, open }) => {
     // What an agent reaches for: parallel xargs, nproc, time on a compound
     // command, an EXIT trap, real limits and a clock() that advances.
     ["printf 'a b c' | timeout 30 xargs -P 3 -n 1 slop -c ': > started-$1; until test \"$(echo started-*)\" = \"started-a started-b started-c\"; do :; done' slop"],
-    ["test \"$(nproc)\" -ge 1 && { time { sleep 1; (exit 4); }; } 2> timed; test $? = 4 && grep -q '^real [1-9]' timed"],
+    ["test \"$(nproc)\" -gt 1 && { time { sleep 1; (exit 4); }; } 2> timed; test $? = 4 && grep -q '^real [1-9]' timed"],
     ["slop -c 'trap \"echo cleaned > trap-ran\" EXIT; exit 3'; test $? = 3 && grep -q cleaned trap-ran"],
     [`curl -fsS ${server.origin}/fixture/limits.c -o limits.c && cc limits.c -o limits && ./limits`],
     ["alias ll=ls", 2],

@@ -103,6 +103,13 @@ await browserTest("process", { server: { fixtures, handle } }, async ({ server, 
   await fetchFixture("process-minimal.wasm");
   await run(`${scratch}/process-minimal.wasm | grep -q PROCESS-FREESTANDING-OK`);
 
+  // A refused executable is told on its stderr which import the loader rejected.
+  for (const [name, cause] of [["process-wrong-import", "env.fetch"], ["process-wrong-call", "dolly_process_0.call"]]) {
+    await fetchFixture(`${name}.wasm`);
+    assert.equal(await submit(`${scratch}/${name}.wasm 2> ${scratch}/refused`), 126, name);
+    await run(`test $(wc -l < ${scratch}/refused) -eq 1 && grep -qF ${cause} ${scratch}/refused`);
+  }
+
   await fetchFixture("process-errors.c");
   await run(`cc -O0 ${scratch}/process-errors.c -o ${scratch}/errors && ${scratch}/errors`);
   const cancelled = submit(`${scratch}/errors cancel`);

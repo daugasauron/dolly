@@ -1,6 +1,6 @@
 # Userspace gaps an agent hit: Slop, commands, curl, cc and clock()
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 260
 - TAGS: userspace,slop,commands,toolchain
 
@@ -120,7 +120,12 @@ Commands:
 - `id`, `whoami`, `ps`, `df`: documented as absent (`help`, `docs/slop.md`).
   There is one user and libc has no name database (`getpwuid` fails), no
   process-list operation and no mount table. `nproc`: fixed
-  (`src/commands/nproc.c`, libc's count, which `make -j$(nproc)` needs).
+  (`src/commands/nproc.c`). It prints 4, the job width Dolly's recipes give
+  Make, because `make -j$(nproc)` asks how many processes may run at once.
+  libc's `sysconf` count is about threads and stays 1 in a program built
+  without `-pthread` (4 with it): programs size thread pools from it, and a
+  program without the thread runtime cannot start one. Printing that 1 from
+  `nproc` told agents there was no parallelism (measured, then changed).
 
 curl (`src/commands/curl.c`, `src/libcurl-fetch.c`):
 
@@ -186,3 +191,39 @@ inline in `Dollyfile-system-build` 1,630 before, 1,637 after (`help`); Slop
   (`ls`, `cp`, `mv`, `test`, `cat`, `echo`, `touch`, `pwd`), which exist
   before Make and sbase's library; replacing them changes the bootstrap order
   (`20261001-123500-bootstrap-boundary`).
+
+Left, with where it lives:
+
+- No `/dev/zero`: `20261005-133401-kernel-boundary` (devices are Emscripten
+  JavaScript today).
+- The eight tools inline in `Dollyfile-system-build` against sbase:
+  `20261001-123500-bootstrap-boundary`.
+- `cmd &`, concurrent pipeline stages: `20260930-100000-audit-32` (notes
+  added there).
+- The input record in the image itself, not only `docs/display.md`:
+  `20261005-133403-self-description`.
+- `sysconf(_SC_OPEN_MAX)` answers libc's 1024 where `getrlimit` answers 256;
+  fixing it means patching the pinned libc's table, so it belongs to
+  `20261005-133402-target-identity`.
+- `libdolly-js.a` should become `libquickjs-runner.a` (demo recipes; see
+  above).
+
+## Evidence (2026-10-06, `fix/audit-core`, image inputs `1c081c54…`)
+
+`npm run build:runtime`; `DOLLY_IMAGE_JOBS=1 DOLLY_BUILD_IMAGES=default,pi
+work/build-slot.sh npm run image`. Then, all passing:
+
+- `npm run -s test:source`: 353 pass, 0 fail (the Slop cases run against Bash
+  natively under ASan in `test/slop.test.mjs`).
+- `node test/NAME-browser.mjs chromium` and `firefox` for `core`, `shell`,
+  `slop`, `cpp`, `threads`, `host-modules`, `boundary`, `process`, `network`.
+- Chrome only: `terminal`, `upload`, `snapshot-stream`, `image-inventory`,
+  `site`, `image`, `custom-session`, `host-compute`, `fs-growth`.
+- `npm run test:demos -- pi javascript`: both pass.
+- Not run: `amy` (needs the `python` package image), `audio`, `gpu-*`.
+
+Logs: `build/audit-core-evidence/final2-*.log`.
+
+Commits: `a0f1d9cc` (Slop), `d2bad2db` (cc, clock, limits), `efa9f7b1`
+(xargs, nproc, kill, curl), `e4ed1e88` (git archive), `6f0f03ac` (tail, gzip),
+and the commit that closes this task (nproc's width).

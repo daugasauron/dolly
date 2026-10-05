@@ -393,7 +393,7 @@ SOURCE https://daugasauron.com/dist/static/default/commands/diff.c        e1e71b
 SOURCE https://daugasauron.com/dist/static/default/commands/patch.c       01a81c0b50df26223772e568bdc951db73d0be59b71251a1b023234c10a1b63e /tmp/agent-tools/patch.c
 SOURCE https://daugasauron.com/dist/static/default/commands/hostname.c    14a20a493c8559d8b28f221a6edd9b6f89f893f3e3067093b44d7235b4ae060f /tmp/agent-tools/hostname.c
 SOURCE https://daugasauron.com/dist/static/default/commands/tty.c         c51c9598e8245d5f651ade70995f2b03fb936c42a0e99c4c81c83749c5714c7e /tmp/agent-tools/tty.c
-SOURCE https://daugasauron.com/dist/static/default/commands/nproc.c       e241be3d1e15791c4864f18a11aea52dd85aa08cbf4ce6b35eb27664784d946c /tmp/agent-tools/nproc.c
+SOURCE https://daugasauron.com/dist/static/default/commands/nproc.c       a268d03d610bb79f4e51f937381158c78510e6cf99a33583eaec5ddc8cfce6ce /tmp/agent-tools/nproc.c
 SOURCE https://daugasauron.com/dist/static/default/commands/amy.c         28710e45b1856d662fd3869afdb035c71f2dd09d5685acbcdf78f8ac01353f93 /tmp/agent-tools/amy.c
 
 FILE /tmp/agent-tools/Makefile
