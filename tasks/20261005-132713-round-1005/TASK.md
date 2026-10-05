@@ -74,3 +74,42 @@ Rules learnt tonight: recipe conflicts are merged with
 `update-recipe-pins.mjs`); image builds go through `work/build-slot.sh`; the
 root `node_modules` is stale (Pi 0.84.4) and must be refreshed with `npm ci`
 once no agent is using it.
+
+## Interrupted at 01:20 JST, 2026-10-06: the usage limit was reached
+
+State of `integrate/1005-seed` (worktree `round2`), tip `d612e10f` plus this note:
+merged and repinned: zero-ad-self, integrate/1005, licences, pi-1 (Pi 1.0.3 and
+skills), claude-code (Janis), signal-regression, page-presenter, kernel-boundary
+step 1 (`ff3a5c19`), audit-core (the seed batch), and the integrator's Pi-skill
+update. Source suite 356 pass, 1 fail (licence inventory lacks the 0 A.D. rows).
+
+A preflight is running detached in this tree (runtime built, image inputs
+`1c081c54…`; then the `default` chain and core browser suites; log
+`…/86b87808…/scratchpad/preflight.log`). It rewrote pins in 51 recipes in the
+working tree: discard them (`git checkout -- .`) before merging anything.
+
+Not merged yet:
+- `work/webgpu-any-gpu` (finished, reviewed, accepted; the merge was refused
+  only because the tree was dirty). Resolve recipes with `work/merge-recipes.py`.
+- `work/demo-recordings`: new Studio recording `754330a3`, message fix `c896f223`.
+  `stealth/space-bunny-alpha` left OpenRouter at 01:05 JST (404), so RTS,
+  ClassiCube and bhop are not re-recorded.
+- `work/licences`: follow-up in progress (0 A.D. and `qwen3.5-800m` inventory rows).
+- `work/more-packages`: in progress; asked to sort the receipt's member lists
+  in `src/dollyfile.c` (image digests follow readdir order) and to measure a
+  compiler-free base.
+- `core/kernel-boundary` (worktree `signals`): step 2 in progress; it changes
+  `system-build`'s digest, so it must ride a catalog rebuild.
+- `core/iteration` (worktree `presenter`): `audit-53`, to merge after the candidate.
+
+Next steps: merge the above; `node scripts/update-recipe-pins.mjs`; source suite;
+`npm run build:runtime`; `demos/rust/build-rust-toolchain.sh` (the sysroot
+changed; `build/rustc-port` was being copied from `work/host-modules`);
+`DOLLY_IMAGE_JOBS=4 npm run image`; source, artifact, browser and demo suites
+(plus `zero-ad`); re-verify the Pi skill in the rebuilt `pi` image;
+`npm run publish`; serve on :9003. Do not commit in the tree while publishing.
+
+Decisions waiting for the owner: target identity (`20261005-133402`), what Slop
+is for, the runtime/process-modules recommendation (`20261002-073000`), a git
+relay (`20261005-131649`), the licence points (`20261005-135857`), 4B as part
+packages (`20261005-131646`), Claude Code's limits (`20261005-133044`).
