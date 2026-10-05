@@ -68,7 +68,7 @@ only) and the `typescript-build` image in Chromium.
 Verified 2026-10-06 00:10 on `work/claude-code` (commits `9ca11f65`..`024e246a`),
 `javascript` and `pi` images rebuilt from it: `npm run test:demos -- javascript
 pi` passed (javascript 35.8 s with 26 Node-oracle groups, pi 78.7 s),
-`node test/core-browser.mjs chromium` passed, `npm run test:source` 333/333.
+`node test/core-browser.mjs chromium` passed, `npm run test:source` 334/334.
 Each case above is in `demos/javascript/test/` (oracle groups `entry`,
 `errors`, `uncaught`, `exit`; `Worker` in `janis-compatibility.test.mjs`;
 heap and `/tmp` in `javascript-browser.mjs`).
