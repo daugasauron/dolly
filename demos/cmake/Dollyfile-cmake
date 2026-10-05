@@ -1,0 +1,11 @@
+DOLLY 6
+PACKAGE cmake
+REQUIRES HOST http@0
+
+# CMake as cmake-build bootstraps it; the package keeps only the exports below.
+FROM https://daugasauron.com/demos/cmake/Dollyfile-cmake-build 48316ddda19bab813e020a473ca5e6f2c9d2c98de3c903aad1effe32b958e0cd
+
+EXPORTS TOOL   cmake
+EXPORTS FOLDER cmake-data /usr/share/cmake-4.4
+FILE /usr/share/licenses/cmake/LICENSE.rst
+FILE /usr/share/licenses/libuv/LICENSE

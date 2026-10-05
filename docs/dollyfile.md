@@ -66,7 +66,8 @@ and `/host/MODULE/`, prepared sources in `/dist/static/`.
   (`pi`, `ripgrep`, `python`); toolchains are `family-variant`
   (`rust-sdk`, `cmake-build`, `pi-runtime`); versions go in the family
   (`qwen3.5-4b`). When an application already has the product's name, the
-  package takes another name the project uses (`nvim`, `pi-coding-agent`). The
+  package takes another name the project uses (`nvim`, `pi-coding-agent`,
+  `codex-cli`). The
   start page lists images by role, toolchains grouped by their directory.
 - `/etc/dolly/recipes/` retains every recipe an image was built from, by file
   name; `/etc/dolly/Dollyfile` is the image's own.
@@ -184,8 +185,9 @@ and `/host/MODULE/`, prepared sources in `/dist/static/`.
   declaration, as the image's manifest.
 - They are never inherited: `FROM`, `INSTALL` and `COPY` carry none into the
   consumer and nothing is derived. The image's own recipe is the complete list.
-  A package declares the modules its programs need; `INSTALL` checks that the
-  installing recipe declares them too.
+  A package declares the modules its programs need, a library or compiler
+  those every program built with it needs (`sdl2`: `display@0`, `rust`:
+  `threads@0`); `INSTALL` checks that the installing recipe declares them too.
 - Sealing checks every retained executable: a `dolly.host` record naming a
   module the recipe does not declare fails the build, naming the file and the
   `REQUIRES HOST` line to add. Build steps may use the build host's modules
@@ -217,6 +219,12 @@ A package is the unit of reuse: a lean image that holds only the files,
 exports and environment it declares, built in a toolchain (`FROM`) or from
 nothing, and installed by recipes and sessions with the same row.
 
+Software is a package when a session would install it (`amy install cmake`)
+or more than one image uses it. An application, or a toolchain people open,
+is then a base, `INSTALL` rows and its own entry and configuration
+(`codex`, `neovim`, `rust-tools`); a toolchain remains where software is
+built. The same `COPY` rows in two recipes are a missing package.
+
 ```text
 DOLLY 6
 PACKAGE ripgrep
@@ -228,9 +236,14 @@ EXPORTS TOOL rg
 ```
 
 - A recipe installs it with `INSTALL URL SHA256`, anywhere.
+- A package holds its build (`FROM` a toolchain, then steps: `zlib`,
+  `ripgrep`, `sdl2`) or keeps the outputs of the toolchain that built them,
+  with `FROM` and only `EXPORTS` (`cmake`, `javascript`) or with `COPY` rows
+  (`nvim`, `rust`, `codex-cli`), which leaves an expensive builder as it is.
 - Packages install into standard paths (`/usr/bin`, `/usr/lib`, `/usr/share`)
   and set environment variables only for their own use: an installed value
-  replaces the importer's.
+  replaces the importer's. Installing composes no `PATH`: a command is in
+  `/usr/bin`, as a launcher when its files live elsewhere (`rustc`).
 - The release publishes the package index, `dist/dolly-packages.txt`, one
   `NAME URL SHA256` line per package, so a session can name a package and get
   its `INSTALL` row.

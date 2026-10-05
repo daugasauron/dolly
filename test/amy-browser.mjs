@@ -37,6 +37,8 @@ await writeFile(join(scratch, "threaded.snapshot"), snapshot);
 const fixtures = { "threaded.snapshot": join(scratch, "threaded.snapshot") };
 const artifact = `/etc/dolly/artifacts/${threaded.sha256}.snapshot`;
 const row = `INSTALL ${threaded.url} ${threaded.sha256}`;
+const check = ({ submit, text }) => async command => assert.equal(await submit(command), 0, `${command}\n${await text()}`);
+const timed = async (run, command) => { const started = performance.now(); await run(command); return Math.round(performance.now() - started); };
 
 // amy in a live default session: an install is the INSTALL row executed by
 // the engine, served by packages@0, recorded, and kept by a saved session.
@@ -44,15 +46,12 @@ try {
 await browserTest("amy", { image: "default", timeout: 300_000, server: { fixtures } }, async ({ server, open }) => {
   const policy = { maxRequests: 256, rules: [{ origin: server.origin, pathPrefix: "/fixture/", methods: ["GET"] }] };
   const session = await open({ policy });
-  const check = ({ submit, text }) => async command => assert.equal(await submit(command), 0, `${command}\n${await text()}`);
   const run = check(session);
-  const timed = async command => { const started = performance.now(); await run(command); return Math.round(performance.now() - started); };
   await run(`test "$(amy list | sed 's/ .*//' | sort | tr '\\n' ' ')" = "${packages.join(" ")} "`);
   await run("test -z \"$(amy installed)\" && ! amy list | grep -q installed");
   await run("! amy install nosuch-package 2> /tmp/amy-error && grep -q nosuch-package /tmp/amy-error");
   await run("! amy 2> /dev/null && ! amy frobnicate 2> /dev/null");
-  const pythonMilliseconds = await timed("amy install python");
-  console.log(`amy install python: ${pythonMilliseconds} ms`);
+  console.log(`amy install python: ${await timed(run, "amy install python")} ms`);
   await run("test \"$(python3 -c 'print(6 * 7)')\" = 42");
   await run(`test "$(amy installed)" = "python ${pin("python")}" && grep -qx 'INSTALL ${pin("python")}' /etc/dolly/installed`);
   await run("amy list | grep -q '^python *installed$' && test \"$(amy install python)\" = 'amy: python is already installed'");
@@ -82,6 +81,27 @@ await browserTest("amy", { image: "default", timeout: 300_000, server: { fixture
   await session.page.evaluate(() => __dolly.waitForInteractiveTerminal(/dolly:[^\n]*\$\s*$/, "session shell"));
   await run("test \"$(python3 -c 'print(6 * 7)')\" = 42 && test \"$PYTHONUTF8\" = 1 && test \"$PYTHONDONTWRITEBYTECODE\" = 1");
   await run(`test "$(amy installed | sed -n 1p)" = "python ${pin("python")}" && test "$(cat /usr/share/threaded)" = 'needs threads'`);
+});
+
+// Compilers, a library and an agent: each installs into a running default
+// session and works at once, CMake finding the SDL2 installed beside it.
+const programs = {
+  cmake: "mkdir /tmp/amy-cmake && cd /tmp/amy-cmake && printf 'int main(void) { return 0; }\\n' > main.c && " +
+    "printf '%s\\n' 'cmake_minimum_required(VERSION 3.20)' 'project(probe C)' 'add_executable(probe main.c)' > CMakeLists.txt && " +
+    "cmake -B build -DCMAKE_C_FLAGS=-O0 && cmake --build build && build/probe",
+  sdl2: "mkdir /tmp/amy-sdl2 && cd /tmp/amy-sdl2 && " +
+    "printf '#include <SDL.h>\\nint main(void) { int failed = SDL_Init(SDL_INIT_VIDEO) || !SDL_CreateWindow(\"\", 0, 0, 64, 48, 0); SDL_Quit(); return failed; }\\n' > window.c && " +
+    "printf '%s\\n' 'cmake_minimum_required(VERSION 3.20)' 'project(window C)' 'find_package(SDL2 REQUIRED)' 'add_executable(window window.c)' " +
+    "'target_link_libraries(window PRIVATE SDL2::SDL2-static)' > CMakeLists.txt && cmake -B build -DCMAKE_C_FLAGS=-O0 && cmake --build build && build/window",
+  rust: "printf 'fn main() { println!(\"{}\", 6 * 7); }\\n' > /tmp/amy.rs && rustc /tmp/amy.rs -o /tmp/amy-rust && test \"$(/tmp/amy-rust)\" = 42 && patti --help > /dev/null",
+  "codex-cli": "codex --version | grep -q '^codex-cli ' && rg --version > /dev/null && fd --version > /dev/null",
+};
+await browserTest("amy programs", { image: "default", timeout: 600_000 }, async ({ open }) => {
+  const run = check(await open());
+  for (const [name, program] of Object.entries(programs)) {
+    console.log(`amy install ${name}: ${await timed(run, `amy install ${name}`)} ms`);
+    await run(program);
+  }
 });
 
 // An image that does not declare a package's host module refuses it, naming
