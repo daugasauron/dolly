@@ -32,7 +32,7 @@ export default function(pi) {
   pi.registerCommand('local-unload',{description:'Release the local model and its GPU memory',handler:async(_args,ctx)=>{engine.stop();ctx.ui.setStatus('local-model',undefined);ctx.ui.notify('Local model unloaded','info');}});
   pi.registerProvider('webgpu',{
     baseUrl:'dolly://local',api:'dolly-llama',apiKey:'local',
-    models:models.map(model=>({id:model.id,name:`${model.name} · GPU inside Dolly`,reasoning:false,input:['text'],
+    models:models.map(model=>({id:model.id,name:`${model.name} · GPU inside Dolly, ${model.gpu} GB`,reasoning:false,input:['text'],
       cost:{input:0,output:0,cacheRead:0,cacheWrite:0},contextWindow:model.context,maxTokens:2048})),
     streamSimple(model,context,options={}) {
       const stream=createAssistantMessageEventStream();

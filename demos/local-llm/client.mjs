@@ -32,7 +32,7 @@ export class LocalLlama {
         const child=spawn('/usr/bin/dolly-llama',[file,String(models.find(model=>model.id===id).context)],{stdio:['pipe','pipe','pipe']});
         this.process=child;this.model=id;
         mkdirSync('/home/dolly/.cache/dolly-llm',{recursive:true});
-        let pending='',failure,ended=false,wake;
+        let pending='',failure,ended=false,wake,reason='';
         const queue=[],decoder=new TextDecoder();
         const changed=()=>{wake?.();wake=undefined;};
         child.stdout.on('data',bytes=>{
@@ -44,10 +44,13 @@ export class LocalLlama {
           }
           changed();
         });
-        child.stderr.on('data',bytes=>appendFileSync('/home/dolly/.cache/dolly-llm/engine.log',bytes));
+        child.stderr.on('data',bytes=>{
+          appendFileSync('/home/dolly/.cache/dolly-llm/engine.log',bytes);
+          reason=String(bytes).match(/(?:Dolly WebGPU|ggml_webgpu): .*$/m)?.[0]??reason;
+        });
         child.on('error',error=>{failure=error;changed();});
-        child.on('close',(code,reason)=>{
-          ended=true;failure??=Error(`Local model exited (${reason??code}); see ~/.cache/dolly-llm/engine.log`);
+        child.on('close',(code,signal)=>{
+          ended=true;failure??=Error(`${reason||`Local model exited (${signal??code})`}; see ~/.cache/dolly-llm/engine.log`);
           if(this.process===child){this.process=null;this.model=null;}changed();
         });
         this.next=async()=>{
@@ -56,7 +59,7 @@ export class LocalLlama {
           const value=queue.shift();if(value?.error)throw Error(value.error);return value;
         };
         const ready=await this.next();if(!ready?.ready)throw Error('Local model did not become ready');
-        this.progress(`${id} ready · GPU`);
+        this.progress(`${id} ready · GPU, ${ready.shaders} shaders`);
       }
       this.process.stdin.write(JSON.stringify(request)+'\n');
       for(;;) {

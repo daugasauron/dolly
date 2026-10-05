@@ -14,6 +14,10 @@ const blendFactors = ["zero", "one", "src", "one-minus-src", "dst", "one-minus-d
 const vertexFormats = [null, "float32", "float32x2", "float32x3", "float32x4", "unorm8x4", "snorm8x4", "uint8x4", "sint8x4", "unorm16x2", "unorm16x4", "uint16x2", "uint16x4", "float16x2", "float16x4"];
 const vertexBytes = [0, 4, 8, 12, 16, 4, 4, 4, 4, 4, 8, 4, 8, 4, 8];
 const maxBytes = 4 * 1024 ** 3, bufferCeiling = 1024 ** 3, maxObjects = 4096;
+// Submissions a scope may have queued before its next batch waits: three frames
+// for a surface, more for compute. Firefox settles completions on a 100 ms timer
+// (bug 1870699), and a model token takes about 25 submissions.
+const queuedSubmissions = scope => scope.surface ? 3 : 64;
 const timestampQueries = A.DOLLY_GPU_MAX_COMMANDS * 2;
 let maxBuffer = bufferCeiling, capabilities;
 const slots = Array(A.DOLLY_GPU_SLOTS).fill(null), generations = slots.map(() => 0);
@@ -60,7 +64,7 @@ async function getDevice() {
     v.setUint32(92,adapter.info?.subgroupMaxSize ?? 128,true);
     device = created;
     const { vendor, architecture, description, isFallbackAdapter } = adapter.info;
-    postMessage({ type: "status", info: { vendor, architecture, description, isFallbackAdapter } });
+    postMessage({ type: "status", info: { vendor, architecture, description, isFallbackAdapter, f16: created.features.has("shader-f16") } });
     queueProgress = {queued: 0, completed: 0};
     if (canvas) {
       context = canvas.getContext("webgpu");
@@ -263,7 +267,7 @@ function retire(scope) {
 async function batch(scope, commands) {
   const device = scope.device;
   const progress = queueProgress;
-  if (scope.submissions.length >= 3) await scope.submissions[0];
+  if (scope.submissions.length >= queuedSubmissions(scope)) await scope.submissions[0];
   let encoder, texture, computePass, renderPass, passWidth, passHeight, timer, queries = 0;
   let renderPipeline, renderGroups, renderBuffers, renderIndex;
   const getEncoder = () => encoder ??= device.createCommandEncoder();
@@ -548,7 +552,7 @@ async function batch(scope, commands) {
         getEncoder().copyTextureToBuffer({texture,origin:{x,y}}, {buffer:dst.value,bytesPerRow}, {width,height});
       } else if (op === A.DOLLY_GPU_SUBMIT) {
         ensure(encoder,"No GPU commands to submit");
-        if (scope.submissions.length >= 3) await scope.submissions[0];
+        if (scope.submissions.length >= queuedSubmissions(scope)) await scope.submissions[0];
         const measured = queries ? timer : null, count = queries;
         if (measured) {
           encoder.resolveQuerySet(measured.query,0,count,measured.resolve,0);

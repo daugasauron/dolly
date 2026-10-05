@@ -12,7 +12,8 @@ export async function check() {
     adapter = await navigator.gpu.requestAdapter({ powerPreference: "high-performance" });
     if (!adapter) reason = "the browser did not provide a GPU adapter";
   } catch (error) { reason = `GPU adapter initialization failed: ${error.message}`; }
-  indicate(adapter?.info, reason);
+  const { vendor, architecture, description, isFallbackAdapter } = adapter?.info ?? {};
+  indicate({ vendor, architecture, description, isFallbackAdapter, f16: adapter?.features.has("shader-f16") }, reason);
   return reason;
 }
 
@@ -38,7 +39,7 @@ function indicate(info, unavailable) {
   const adapter = [info.vendor, info.architecture, info.description].filter(Boolean).join(" ") || "unnamed WebGPU adapter";
   // SwiftShader and llvmpipe render on the CPU even where a browser does not flag them.
   const software = info.isFallbackAdapter || /swiftshader|llvmpipe/i.test(adapter);
-  element.textContent = software ? `CPU (software GPU): ${adapter}` : `GPU: ${adapter}`;
+  element.textContent = `${software ? "CPU (software GPU)" : "GPU"}: ${adapter} · ${info.f16 ? "" : "no "}shader-f16`;
   element.dataset.gpu = software ? "software" : "hardware";
   element.style.borderColor = software ? "#f2d45c" : "#77736c";
   return { adapter, isFallbackAdapter: info.isFallbackAdapter };

@@ -54,7 +54,7 @@ select no JavaScript or Worker URL.
 | `upload@0` | mailbox | Ask for a file; the user picks it; 1 GiB of bytes in 1 MiB chunks, no name or path; refused for 2 s after a cancel | [`host/upload/`](../host/upload/module.json) |
 | `snapshot@0` | mailbox | Save and restore opaque session deltas (512 MiB) on user action | [`host/snapshot/`](../host/snapshot/module.json) |
 | `display@0` | mailbox | Publish checked RGBA frames; receive bounded input records; load the display plugin from WasmFS | [`host/display/`](../host/display/module.json) ([`kernel-plugin.mjs`](../src/kernel-plugin.mjs)) |
-| `gpu@0` | `env.dolly_gpu_dispatch` | Bounded WebGPU packets, 8 scopes, 4,096 objects each, 4 GiB total, one canvas | [`host/gpu/`](../host/gpu/module.json) |
+| `gpu@0` | `env.dolly_gpu_dispatch` | Bounded WebGPU packets on the browser's `high-performance` adapter, 8 scopes, 4,096 objects each, 4 GiB total, one canvas | [`host/gpu/`](../host/gpu/module.json) |
 | `audio@0` | `env.dolly_audio_dispatch` | Stereo PCM output, 4 streams of 1 s; no capture | [`host/audio/`](../host/audio/module.json) |
 | `threads@0` | supervisor | Worker per thread of an admitted executable: 16 per process, 64 total | [`host/threads/`](../host/threads/module.json) |
 | `build@0` | reserved URL via `http@0` | Start a disposable image build that writes the image cache | [`host/build/`](../host/build/module.json) |
@@ -134,7 +134,7 @@ select no JavaScript or Worker URL.
 | Clipboard copy | Bounded selection text after a user Ctrl+Shift+C |
 | RGBA frames, bootstrap text | Visible output only; the browser parses no terminal or HTML content |
 | Display wake-ups | The page and the Worker notify each other on display mailbox words (new frame, input record, animation frame); a notify carries no data, and a forged one only costs the guest's own time |
-| GPU indicator | Page text over the display naming the browser's adapter, or why there is none; no guest input ([`gpu.mjs`](../host/gpu/gpu.mjs)) |
+| GPU indicator | Page text over the display naming the browser's adapter and whether it has `shader-f16`, or why there is none; no guest input ([`gpu.mjs`](../host/gpu/gpu.mjs)) |
 | Image cache | Verified artifacts in IndexedDB, 32 images and 8 GiB ([`image-artifact.mjs`](../src/image-artifact.mjs)) |
 | Boot and code loading | Fixed kernel artifacts only ([`runtime-worker.mjs`](../src/runtime-worker.mjs)); one bundled process Worker; the plugin loader links an explicit kernel export map and fetches nothing |
 | Clocks, entropy, exit, CPU and memory use | Inputs and availability effects only |
