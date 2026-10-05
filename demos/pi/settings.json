@@ -5,14 +5,5 @@
   },
   "shellPath": "/bin/slop",
   "theme": "dolly",
-  "tuiMode": "regular",
-  "defaultProvider": "openrouter",
-  "defaultModel": "stealth/space-bunny-alpha",
-  "compaction": {
-    "modelOverrides": {
-      "openrouter/stealth/space-bunny-alpha": {
-        "reserveTokens": 800000
-      }
-    }
-  }
+  "tuiMode": "regular"
 }

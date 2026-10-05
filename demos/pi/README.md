@@ -27,9 +27,7 @@ Open `/pi/`; build with `npm run image -- pi`. Leave Pi with `/exit` or Ctrl+D.
   `~/.pi/agent/auth.json`. Images never retain them; saved sessions do.
 - [`settings.json`](settings.json) keeps Pi's regular TUI: fullscreen mode
   captures the mouse, taking selection and copy from Dolly's terminal. It
-  defaults to OpenRouter's `stealth/space-bunny-alpha` and compacts that
-  1M-token model above 200k tokens, since every turn re-sends the whole
-  context through the browser.
+  names no model: the provider's catalog changes under any default.
 - `pi --offline` skips catalog and update traffic, not model requests.
 
 ## Key files

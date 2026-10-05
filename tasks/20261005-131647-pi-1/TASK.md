@@ -114,3 +114,12 @@ tests pass.
 Round 2 rebuilt every image that carries Pi 1.0.3, the games included; the
 `pi`, `studio`, `javascript`, `bhop`, `classicube` and `rts` demo tests pass on
 release `e245b123…` (`20261005-132713-round-1005`).
+
+## Correction (2026-10-06, integrator)
+
+`demos/pi/settings.json` defaulted to `openrouter` / `stealth/space-bunny-alpha`
+with a compaction override for that model (`67a65263`). OpenRouter removed the
+model at 01:05 JST on 2026-10-06 (`404 No endpoints found`), so the `pi` image's
+first request would have failed. The image names no model again, as before
+`67a65263`, and the override keyed to the removed model is gone; compaction
+follows Pi's own rule for whichever model the user picks.
