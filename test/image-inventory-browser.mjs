@@ -7,8 +7,9 @@ import { mimeTypes } from "./browser-server.mjs";
 import { buildSnapshot } from "./fixtures/snapshot-build.mjs";
 
 // Each image's /bin, /etc and /usr must be exactly its sealed manifest. A build
-// worker checks that for any image (whatever its ENTRY or display); images with
-// a display also boot their prebuilt route without the compiler seed. Release
+// worker checks that for any base (whatever its ENTRY or display), which is an
+// image that retains the engine; images with a display also boot their
+// prebuilt route without the compiler seed. Release
 // acceptance serves a packaged site instead: DOLLY_BROWSER_SITE=DIR DOLLY_IMAGE=IMAGE.
 const site = process.env.DOLLY_BROWSER_SITE && resolve(process.env.DOLLY_BROWSER_SITE);
 if (site && !process.env.DOLLY_IMAGE) throw new Error("DOLLY_BROWSER_SITE requires DOLLY_IMAGE");
@@ -51,11 +52,12 @@ await browserTest("image inventory", { image: site ? null : "default", server: {
       const page = await browser.newPage();
       page.setDefaultTimeout(0);
       await page.goto(`${server.origin}/__dolly_build_page`);
-      const { definition, manifestHash } = await page.evaluate(async image => {
+      const { definition, manifestHash, base } = await page.evaluate(async image => {
         const definition = (await import("/dist/dolly-images.mjs")).DOLLY_IMAGES.find(item => item.image === image);
         const { DOLLY_SYSTEM_SNAPSHOT: { manifest } } = await import(`/dist/dolly-${image}-system-snapshot.mjs`);
         const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(manifest.join("\n") + "\n"));
-        return { definition, manifestHash: [...new Uint8Array(digest)].map(byte => byte.toString(16).padStart(2, "0")).join("") };
+        return { definition, base: manifest.includes("/bin/dollyfile"),
+          manifestHash: [...new Uint8Array(digest)].map(byte => byte.toString(16).padStart(2, "0")).join("") };
       }, image);
       const artifact = `/etc/dolly/artifacts/${definition.sha256}.snapshot`;
       // A build-only toolchain over the image, declaring exactly the image's host modules.
@@ -68,10 +70,12 @@ await browserTest("image inventory", { image: site ? null : "default", server: {
         // An unretained file must fail the same check.
         `SLOP help > /usr/inventory-extra\nSLOP if /tmp/inventory /tmp/help ${manifestHash} ${artifact}; then exit 1; fi\n` +
         "SLOP rm /usr/inventory-extra\n";
-      await page.evaluate(`(${buildSnapshot})(location.origin + "/", "custom", ${JSON.stringify(recipe)})`);
-      assert.equal(await page.evaluate(() => document.documentElement.dataset.dollyStatus), "ready",
-        `${image}: ${await page.locator("#bootstrap-log").textContent()}`);
-      assert.equal(seedRequested(server), false, `${image}: building on a published image fetched the compiler seed`);
+      if (base) {
+        await page.evaluate(`(${buildSnapshot})(location.origin + "/", "custom", ${JSON.stringify(recipe)})`);
+        assert.equal(await page.evaluate(() => document.documentElement.dataset.dollyStatus), "ready",
+          `${image}: ${await page.locator("#bootstrap-log").textContent()}`);
+        assert.equal(seedRequested(server), false, `${image}: building on a published image fetched the compiler seed`);
+      }
       await page.close();
       const { hostRequirements } = definition;
       if (!hostRequirements.includes("display@0") || hostRequirements.includes("gpu@0")) continue;

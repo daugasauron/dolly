@@ -25,6 +25,10 @@ recipes build on, or a `PACKAGE` recipes and sessions install
 - `ghostty-build`: Ghostty terminal build with Zig and its SDK.
 - `gpu-sdk`: `system` with the WebGPU host module (`gpu@0`).
 - `audio-sdk`: `system` with the PCM playback host module (`audio@0`).
+- `minimal`: Slop and its core commands on the display, nothing else.
+- `core`: Slop and its core commands, as a package.
+- `cc`: the C/C++ compiler, headers, libraries and Make, as a package.
+- `amy`: the package installer and the recipe engine it runs, as a package.
 - `zlib`: zlib, as a package.
 - `curl`: curl and libcurl over the HTTP broker, as a package.
 - `gzip`: gzip over zlib, as a package.

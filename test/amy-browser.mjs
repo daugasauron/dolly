@@ -3,7 +3,7 @@ import { createHash } from "node:crypto";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { browserTest } from "./browser.mjs";
+import { browserTest, composed } from "./browser.mjs";
 import { encodeSnapshotRecords } from "../src/snapshot-records.mjs";
 import { CANONICAL_ORIGIN } from "../src/static-asset.mjs";
 import { DOLLY_IMAGES } from "../dist/dolly-images.mjs";
@@ -102,6 +102,15 @@ await browserTest("amy programs", { image: "default", timeout: 600_000 }, async 
     console.log(`amy install ${name}: ${await timed(run, `amy install ${name}`)} ms`);
     await run(program);
   }
+});
+
+// The compiler is a package too: a session composed from the core commands,
+// the display and amy installs cc and compiles.
+await browserTest("amy cc", { image: "minimal", timeout: 300_000 }, async ({ open }) => {
+  const run = check(await open(await composed(["display", "http", "packages"], ["core", "display", "amy"])));
+  await run("! cc --version 2> /dev/null");
+  console.log(`amy install cc: ${await timed(run, "amy install cc")} ms`);
+  await run("echo 'int main(void) { return 42; }' > /tmp/amy-cc.c && cc /tmp/amy-cc.c -o /tmp/amy-cc; /tmp/amy-cc; test $? = 42");
 });
 
 // An image that does not declare a package's host module refuses it, naming
