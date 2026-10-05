@@ -6,9 +6,9 @@ REQUIRES HOST http@0
 REQUIRES HOST upload@0
 
 # Build-only: LLVM 24 configured by CMake inside Dolly, its TableGen tools and outputs.
-FROM https://daugasauron.com/demos/cmake/Dollyfile-cmake-build 44ef74f5f890f22a5af1155bbe962f7335efa00f044bd72251c85edc440b58fa
+FROM https://daugasauron.com/demos/cmake/Dollyfile-cmake-build 988b22ce11a8dc94066460a75a7baa6530bbc6bbaa68ca3e5ea7c03bdb3a2aa4
 # LLVM's CMake requires a Python 3 interpreter.
-INSTALL https://daugasauron.com/demos/python/Dollyfile-python 3d8fa64a1d85d8c8fc0d4bf5773ddd96537fee7d5197b74d2e4e8954c797aa3d
+INSTALL https://daugasauron.com/demos/python/Dollyfile-python 1c4e90493ae76670f3bc8b800164bed7c8c776dcf9df0bbb539716a960c29664
 # Configure the pinned LLVM 24 tree as the seed is configured
 # (scripts/build-toolchain.sh), then build and run its TableGen tools.
 REQUIRES TOOL cmake
@@ -29,14 +29,17 @@ SOURCE https://daugasauron.com/dist/static/llvm/llvm-project.tar.gz 033390c4520e
 SLOP time slop -c 'gzip -dc /tmp/llvm-project.tar.gz | tar -xf - -C /'
 SLOP rm /tmp/llvm-project.tar.gz
 # LLVM runs config.guess even when LLVM_HOST_TRIPLE is given; it knows no Dolly host.
-SOURCE https://daugasauron.com/dist/static/llvm/llvm-host-triple.patch c0a17877a44f49f3e090ee0c409d789885ef021c9f426f728115b203317ffc79 /tmp/llvm-host-triple.patch
+# Its one platform list without a portable branch (is_local) gains Dolly.
+SOURCE https://daugasauron.com/dist/static/llvm/llvm-host-triple.patch ec739fd5932c1040d07344a8511bae4da4157ff2bcafa348f06a555b71a10981 /tmp/llvm-host-triple.patch
 SLOP patch -p1 -d /tmp/llvm-project -i /tmp/llvm-host-triple.patch
 
 # C probes and sources get Clang's default gnu17 as in the seed; Dolly's cc
 # defaults to strict c17 (tasks/20260930-100000-audit-41).
+# ADT/bit.h includes <endian.h> by platform name and otherwise expects BYTE_ORDER.
 SLOP time cmake -S /tmp/llvm-project/llvm -B /tmp/llvm-build \
   -DCMAKE_BUILD_TYPE=Release \
   -DCMAKE_C_FLAGS=-std=gnu17 \
+  '-DCMAKE_CXX_FLAGS=-include endian.h' \
   -DCMAKE_DISABLE_PRECOMPILE_HEADERS=ON \
   -DCMAKE_RULE_MESSAGES=OFF \
   -DLLVM_ENABLE_PROJECTS='clang;lld' \

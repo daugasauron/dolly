@@ -316,7 +316,7 @@ port uses it instead of a patch.
 - `emacs-dolly.patch` tests `__dolly__` (6); the configure run that fixes the
   in-Dolly `CFLAGS` no longer passes `-DDOLLY`.
 - Evidence: `emacs` built in 53 s and `gnu-emacs` in 20 s;
-  `demos/emacs/test/emacs-browser.mjs` passes in Chrome (3 of 3). In Firefox
+  `demos/emacs/test/emacs-browser.mjs` passes in Chrome (2 of 2). In Firefox
   it failed 4 of the first 5 runs while CMake was bootstrapping beside it, so
   the old seed was measured too (a detached tree at `46a5776f` with the
   release tree's images): eight interleaved runs each, old seed 5 of 8, new
@@ -330,3 +330,34 @@ QuickJS's bare `-DEMSCRIPTEN=1` was never the compiler's macro. `javascript`,
 `typescript-build`, `pi-build`, `pi-runtime`, `pi-coding-agent` and `pi`
 rebuilt unchanged; `node demos/run-browser-tests.mjs javascript` passed in
 26.3 s and `pi` in 54.9 s (the agent starts, its tools, `rg` and `fd` run).
+
+### cmake (libuv)
+
+- `demos/cmake/libuv-dolly.patch` tests `__dolly__` (8); `libuv-dolly.mk`
+  passes no `-DDOLLY`. CMake itself detects the platform only through
+  `CMAKE_SYSTEM_NAME`, which its bootstrap takes from `uname` (`Dolly`).
+- Evidence: `cmake-build` bootstrapped and built in 1,627 s, `cmake` in 10 s.
+  `node demos/run-browser-tests.mjs cmake` below.
+
+### llvm-tablegen
+
+- LLVM has one platform list without a portable branch,
+  `is_local_impl` (`llvm/lib/Support/Unix/Path.inc:522`): its generic
+  `MNT_LOCAL` does not exist in musl. The hunk adding `__dolly__` joins
+  `demos/llvm/llvm-host-triple.patch`. `ADT/bit.h` lists platforms for
+  `<endian.h>` and otherwise wants `BYTE_ORDER`, so the recipe passes
+  `-include endian.h` instead of a second hunk. `LLVM_HOST_TRIPLE` stays
+  `wasm64-unknown-emscripten`: LLVM's own vocabulary, as in the seed.
+- Evidence: `llvm-tablegen` configured and built its TableGen tools and
+  targets in 761 s.
+
+### local-llm (one line)
+
+- `demos/local-llm/prepare-local-llm.sh`: one `sed` on the extracted
+  `ggml/include/ggml.h` adds `|| defined(__dolly__)` to the branch that sets
+  `GGML_MEM_ALIGN` to 8 for a `max_align_t` of 8, which Dolly's ABI shares
+  with Emscripten's. Nothing else in `demos/local-llm/` is touched, so the
+  two branches changing it on the old seed rebase on one inserted line.
+- Evidence: `llama-build` (llama, ggml, ggml-webgpu) built in 263 s,
+  `local-llm-build` in 27 s. Not run: the runner needs `pi-local`, which the
+  catalog round rebuilds.
