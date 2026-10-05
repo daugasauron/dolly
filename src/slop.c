@@ -14,6 +14,7 @@
 #include <string.h>
 #include <sys/stat.h>
 #include <sys/wait.h>
+#include <time.h>
 #include <unistd.h>
 
 #include <dolly/runtime.h>
@@ -109,6 +110,8 @@ typedef struct {
   LocalFrame *local_frame;
   // Originals of descriptors changed by `exec`; NULL makes them permanent.
   DescriptorState *descriptors;
+  // `trap` actions by condition: 0 is EXIT, the others are signal numbers.
+  char *traps[SIGTERM + 1];
 } Shell;
 
 enum {
@@ -131,8 +134,17 @@ typedef struct {
 
 extern char **environ;
 
+// Signals that arrived for a `trap` action, one bit each.
+static volatile sig_atomic_t trapped_signals;
+
+// A signal ends this shell unless it has a `trap` action, which then runs
+// once the current command has finished.
 static void interrupt_shell(Shell *shell, int signal_number) {
-  if (signal_number != SIGINT && signal_number != SIGQUIT) return;
+  if (signal_number == 0) return;
+  if (shell->traps[signal_number] != NULL) {
+    trapped_signals |= 1 << signal_number;
+    return;
+  }
   shell->terminating_signal = signal_number;
   shell->active = 0;
   shell->exit_status = 128 + signal_number;
@@ -142,8 +154,8 @@ static void interrupt_shell(Shell *shell, int signal_number) {
 static volatile sig_atomic_t interrupt_requested;
 
 static void request_interrupt(int signal_number) {
-  (void)signal_number;
-  interrupt_requested = 1;
+  if (signal_number == SIGINT) interrupt_requested = 1;
+  else trapped_signals |= 1 << signal_number;
 }
 
 // A loop of builtins may make no system call that would deliver SIGINT, so
@@ -159,6 +171,47 @@ static void poll_interrupt(Shell *shell) {
 
 static int execute_text(Shell *shell, const char *text);
 static int execute_tokens(Shell *shell, TokenList *list);
+
+static void run_trap(Shell *shell, int condition) {
+  char *action = strdup(shell->traps[condition]);
+  if (action == NULL) return;
+  const int status = shell->last_status;
+  (void)execute_text(shell, action);
+  shell->last_status = status;
+  free(action);
+}
+
+// Runs the action of every trapped signal that arrived. A handler stays
+// installed once a trap was set, so without an action the signal ends the shell.
+static void run_traps(Shell *shell) {
+  while (trapped_signals != 0 && shell->active && !shell->returning &&
+         shell->loop_control == LOOP_CONTROL_NONE) {
+    const int number = __builtin_ctz((unsigned)trapped_signals);
+    trapped_signals &= ~(1 << number);
+    if (shell->traps[number] == NULL) interrupt_shell(shell, number);
+    else run_trap(shell, number);
+  }
+}
+
+// Runs the EXIT action as the shell leaves; `exit` inside it sets the status.
+static int leave_shell(Shell *shell, int status) {
+  if (shell->traps[0] != NULL) {
+    shell->active = 1;
+    shell->returning = 0;
+    shell->loop_control = LOOP_CONTROL_NONE;
+    shell->last_status = status;
+    char *action = shell->traps[0];
+    shell->traps[0] = NULL;
+    (void)execute_text(shell, action);
+    free(action);
+    if (!shell->active) status = shell->exit_status;
+  }
+  for (size_t index = 0; index < sizeof(shell->traps) / sizeof(shell->traps[0]); index++) {
+    free(shell->traps[index]);
+    shell->traps[index] = NULL;
+  }
+  return status;
+}
 static char *read_script(const char *path);
 static void print_prompt(void);
 static void restore_environment_changes(EnvironmentChange *changes,
@@ -776,6 +829,7 @@ static int subshell_enter(Shell *shell, Subshell *subshell) {
   nested->returning = 0;
   nested->return_status = 0;
   nested->local_frame = NULL;
+  memset(nested->traps, 0, sizeof(nested->traps));
   nested->functions = &subshell->functions;
   nested->descriptors = &subshell->descriptors;
   if (!shell_argv_clone(nested, shell) ||
@@ -791,6 +845,7 @@ static int subshell_enter(Shell *shell, Subshell *subshell) {
 
 static int subshell_leave(Shell *shell, Subshell *subshell, int status) {
   Shell *nested = &subshell->shell;
+  status = leave_shell(nested, nested->active ? status : nested->exit_status);
   functions_dispose(&subshell->functions);
   shell_argv_dispose(nested);
   descriptor_state_restore(&subshell->descriptors);
@@ -798,7 +853,7 @@ static int subshell_leave(Shell *shell, Subshell *subshell, int status) {
     fputs("slop: could not restore subshell state\n", stderr);
   shell_state_snapshot_dispose(&subshell->state);
   interrupt_shell(shell, nested->terminating_signal);
-  return nested->active ? status : nested->exit_status;
+  return status;
 }
 
 static int capture_command(Shell *shell, const char *command, Buffer *output) {
@@ -2273,7 +2328,7 @@ static int builtin_name(const char *name) {
   static const char *const names[] = {
       ":", ".", "source", "eval", "return", "exit", "break", "continue", "cd",
       "export", "unset", "set", "shift", "read", "getopts", "local",
-      "type", "exec", "command",
+      "type", "exec", "command", "trap", "wait",
   };
   for (size_t index = 0; index < sizeof(names) / sizeof(names[0]); index++) {
     if (strcmp(name, names[index]) == 0) return 1;
@@ -2285,7 +2340,7 @@ static int builtin_name(const char *name) {
 static int special_builtin_name(const char *name) {
   static const char *const names[] = {
       ":", ".", "source", "eval", "exec", "exit", "export", "return", "set",
-      "shift", "unset", "break", "continue",
+      "shift", "unset", "break", "continue", "trap",
   };
   for (size_t index = 0; index < sizeof(names) / sizeof(names[0]); index++) {
     if (strcmp(name, names[index]) == 0) return 1;
@@ -2295,8 +2350,80 @@ static int special_builtin_name(const char *name) {
 
 static int command_builtin(Shell *shell, int argc, char **argv);
 
+static const char *const trap_names[] = {
+    [0] = "EXIT", [SIGHUP] = "HUP", [SIGINT] = "INT", [SIGQUIT] = "QUIT", [SIGTERM] = "TERM",
+};
+
+// A trap condition's index, by name, SIG-prefixed name or number; -1 otherwise.
+static int trap_condition(const char *word) {
+  char *end = NULL;
+  const long number = strtol(word, &end, 10);
+  if (strncmp(word, "SIG", 3) == 0) word += 3;
+  for (size_t index = 0; index < sizeof(trap_names) / sizeof(trap_names[0]); index++) {
+    if (trap_names[index] != NULL &&
+        (strcmp(word, trap_names[index]) == 0 ||
+         (end != word && *end == '\0' && number == (long)index))) return (int)index;
+  }
+  return -1;
+}
+
+// trap [ACTION] CONDITION...: `-` or no action restores the default.
+static int builtin_trap(Shell *shell, int argc, char **argv) {
+  int first = 1;
+  if (first < argc && strcmp(argv[first], "--") == 0) first++;
+  if (first == argc) {
+    for (size_t index = 0; index < sizeof(trap_names) / sizeof(trap_names[0]); index++) {
+      const char *action = shell->traps[index];
+      if (action == NULL) continue;
+      fputs("trap -- '", stdout);
+      for (; *action != '\0'; action++) {
+        if (*action == '\'') fputs("'\\''", stdout);
+        else putchar(*action);
+      }
+      printf("' %s\n", trap_names[index]);
+    }
+    return 0;
+  }
+  const char *action = NULL;
+  if (argc - first > 1 && trap_condition(argv[first]) < 0) {
+    action = argv[first++];
+    if (strcmp(action, "-") == 0) action = NULL;
+  }
+  for (int index = first; index < argc; index++) {
+    const int condition = trap_condition(argv[index]);
+    if (condition < 0) {
+      fprintf(stderr, "slop: trap: %s: only EXIT, HUP, INT, QUIT and TERM can be trapped\n",
+              argv[index]);
+      return 2;
+    }
+    if (condition != 0 && action != NULL && action[0] == '\0') {
+      fprintf(stderr, "slop: trap: %s: a signal cannot be ignored: "
+              "commands always start with default signal actions\n", argv[index]);
+      return 2;
+    }
+    char *copy = action == NULL ? NULL : strdup(action);
+    const struct sigaction handler = {.sa_handler = request_interrupt};
+    if ((action != NULL && copy == NULL) ||
+        (condition != 0 && copy != NULL && sigaction(condition, &handler, NULL) != 0)) {
+      fprintf(stderr, "slop: trap: %s: %s\n", argv[index], strerror(errno));
+      free(copy);
+      return 1;
+    }
+    free(shell->traps[condition]);
+    shell->traps[condition] = copy;
+  }
+  return 0;
+}
+
 static int builtin(Shell *shell, int argc, char **argv) {
   if (strcmp(argv[0], ":") == 0) return 0;
+  if (strcmp(argv[0], "trap") == 0) return builtin_trap(shell, argc, argv);
+  if (strcmp(argv[0], "wait") == 0) {
+    // Slop starts no background jobs, so there is never one to wait for.
+    if (argc == 1) return 0;
+    fprintf(stderr, "slop: wait: %s: not a background job of this shell\n", argv[1]);
+    return 127;
+  }
   if (strcmp(argv[0], "command") == 0) return command_builtin(shell, argc, argv);
   if (strcmp(argv[0], "exec") == 0) {
     fputs("slop: exec: replacing the shell with a command is unsupported\n",
@@ -2688,7 +2815,8 @@ static int wait_command(Shell *shell, pid_t pid) {
   do { waited = waitpid(pid, &status, 0); } while (waited < 0 && errno == EINTR);
   if (waited < 0) { fprintf(stderr, "slop: wait failed: %s\n", strerror(errno)); return 126; }
   if (WIFSIGNALED(status)) {
-    interrupt_shell(shell, WTERMSIG(status));
+    if (WTERMSIG(status) == SIGINT || WTERMSIG(status) == SIGQUIT)
+      interrupt_shell(shell, WTERMSIG(status));
     return 128 + WTERMSIG(status);
   }
   return WIFEXITED(status) ? WEXITSTATUS(status) : 126;
@@ -2716,6 +2844,23 @@ static int spawn_command(Shell *shell, int argc, char **argv, const char *search
   return wait_command(shell, pid);
 }
 
+// Shell features Slop refuses by name rather than as an unknown command.
+static const char *unsupported_builtin(const char *name) {
+  static const char *const reasons[][2] = {
+      {"alias", "aliases are unsupported; define a function"},
+      {"unalias", "aliases are unsupported"},
+      {"bg", "there are no background jobs"},
+      {"fg", "there are no background jobs"},
+      {"jobs", "there are no background jobs"},
+      {"umask", "Dolly has no permission bits"},
+      {"ulimit", "limits are fixed; `help` lists them"},
+  };
+  for (size_t index = 0; index < sizeof(reasons) / sizeof(reasons[0]); index++) {
+    if (strcmp(name, reasons[index][0]) == 0) return reasons[index][1];
+  }
+  return NULL;
+}
+
 static int run_command_words(Shell *shell, int argc, char **argv) {
   if (!shell->active) return shell->exit_status;
   Function *function = function_lookup(shell->functions, argv[0]);
@@ -2723,6 +2868,11 @@ static int run_command_words(Shell *shell, int argc, char **argv) {
     return run_function(shell, function, argc, argv);
   }
   if (builtin_name(argv[0])) return builtin(shell, argc, argv);
+  const char *unsupported = unsupported_builtin(argv[0]);
+  if (unsupported != NULL) {
+    fprintf(stderr, "slop: %s: %s\n", argv[0], unsupported);
+    return 2;
+  }
   return spawn_command(shell, argc, argv, path_variable());
 }
 
@@ -3986,6 +4136,14 @@ static int execute_list(Shell *shell, CommandParser *parser, int execute,
         (previous == TOKEN_SEMI ||
          (previous == TOKEN_AND && status == 0) ||
          (previous == TOKEN_OR && status != 0));
+    // `time` measures the whole pipeline that follows, compound or not.
+    const int timed = command_word(parser, "time");
+    struct timespec started = {0};
+    if (timed) {
+      parser->cursor++;
+      if (command_word(parser, "-p")) parser->cursor++;
+      if (should_run) clock_gettime(CLOCK_MONOTONIC, &started);
+    }
     const int invert = command_word(parser, "!");
     if (invert && ++parser->cursor == parser->end) {
       fputs("slop: expected a command after !\n", stderr);
@@ -4019,9 +4177,16 @@ static int execute_list(Shell *shell, CommandParser *parser, int execute,
     }
 
     if (should_run) {
+      if (timed) {
+        struct timespec finished;
+        clock_gettime(CLOCK_MONOTONIC, &finished);
+        fprintf(stderr, "real %.3f\n", (double)(finished.tv_sec - started.tv_sec) +
+                (double)(finished.tv_nsec - started.tv_nsec) / 1e9);
+      }
       if (invert) status = status == 0;
       shell->last_status = status;
       poll_interrupt(shell);
+      run_traps(shell);
       if (!shell->active) {
         status = shell->exit_status;
         aborted = 1;
@@ -4681,7 +4846,7 @@ static int interactive(Shell *shell) {
   terminal_signals(1);
   history_dispose(&history);
   free(line);
-  return shell->active ? shell->last_status : shell->exit_status;
+  return leave_shell(shell, shell->active ? shell->last_status : shell->exit_status);
 }
 
 static char *read_descriptor(int descriptor) {
@@ -4713,10 +4878,13 @@ static void usage(FILE *stream) {
 
 static int run_script(Shell *shell, const char *source) {
   const int status = execute_text(shell, source);
-  const int result = shell->active ? status : shell->exit_status;
+  const int result = leave_shell(shell, shell->active ? status : shell->exit_status);
   shell_argv_dispose(shell);
   functions_dispose(shell->functions);
-  if (shell->terminating_signal) raise(shell->terminating_signal);
+  if (shell->terminating_signal) {
+    signal(shell->terminating_signal, SIG_DFL);
+    raise(shell->terminating_signal);
+  }
   return result;
 }
 
