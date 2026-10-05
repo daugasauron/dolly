@@ -1,6 +1,6 @@
 # Upgrade Pi to 1.0 everywhere
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 280
 - TAGS: pi,demo,upgrade
 
@@ -108,3 +108,9 @@ rebuilt here; their recipes need no content change (they start Pi in RPC mode
 with `--provider` and `--model`, and the SDK entry points Slopyard imports
 exist in 1.0.3). Close after the integrator's catalog rebuild and their demo
 tests pass.
+
+## Closed (2026-10-06)
+
+Round 2 rebuilt every image that carries Pi 1.0.3, the games included; the
+`pi`, `studio`, `javascript`, `bhop`, `classicube` and `rts` demo tests pass on
+release `e245b123…` (`20261005-132713-round-1005`).

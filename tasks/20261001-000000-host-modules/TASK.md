@@ -1,6 +1,6 @@
 # Host modules: one directory per bridge, a module-agnostic core
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 330
 - TAGS: core,architecture,boundary,abi
 
@@ -297,3 +297,14 @@ this task once the full-catalog demo and artifact checks of the contract
 batch have run. The module the pattern has not reached is `runtime` itself:
 its manifest owns 26 imports that generated Emscripten code implements; that
 is `20261005-133401-kernel-boundary`, a new task so this one can close.
+
+## Closed (2026-10-06)
+
+The contract batch (`0095054c`, `65d9589e`) is on `integrate/1005-seed` and was
+verified on a full catalog twice: round 1 on image inputs `2cc92c2b…` and round
+2 on `047fc328…` (61 images; source 357, artifacts 24, every browser suite in
+Chrome and Firefox, release acceptance, and the demo tests; record in
+`20261005-132713-round-1005`). The four core files name no host module; the
+page shell is 204 lines. What the big-picture review asks next is the kernel's
+own outer boundary (`20261005-133401-kernel-boundary`) and the input split
+(`20261002-072000-input-host-module`).
