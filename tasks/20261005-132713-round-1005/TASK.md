@@ -19,6 +19,7 @@ The integrator's record of the round, so an interrupted session can be resumed.
 | `webgpu` | `work/webgpu-any-gpu` | webgpu-any-gpu |
 | `site` | `work/licences` | licences, robots-txt |
 | `recordings` | `work/demo-recordings` (source only) | demo-recordings |
+| `claude` | `work/claude-code` | claude-code, janis-node-gaps |
 | `review` | `review/big-picture` (source only) | big-picture |
 | `slopyard-world` | `work/slopyard-world` (two unverified Lua edits, uncommitted) | slopyard-living-world |
 
