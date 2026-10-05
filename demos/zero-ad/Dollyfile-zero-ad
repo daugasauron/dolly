@@ -8,8 +8,8 @@ REQUIRES HOST http@0
 REQUIRES HOST snapshot@0
 REQUIRES HOST upload@0
 
-FROM https://daugasauron.com/Dollyfile 1059c0a5abff3c6e9287a3bf18c797ad71b586d827c300f6af26a2eed7c00178
-COPY https://daugasauron.com/demos/zero-ad/Dollyfile-zero-ad-engine 77953140ba5ae963d2da27300f3d043f0c8c49bae64feaf41e1673016b9ea7ee /opt/0ad/system/pyrogenesis /opt/0ad/system/pyrogenesis
+FROM https://daugasauron.com/Dollyfile 3ed161e748ca67184c87c6c8459eef4a419400b50460561320500214bcfe8172
+COPY https://daugasauron.com/demos/zero-ad/Dollyfile-zero-ad-engine da8ad6c3da9423e8303ceed1c5eacfcf717a6aa25853afc760e981c3f692590b /opt/0ad/system/pyrogenesis /opt/0ad/system/pyrogenesis
 # Game content and configuration; the engine comes from zero-ad-engine.
 SOURCE https://daugasauron.com/dist/static/zero-ad/data/config/default.cfg 96fe2f626983f3a9b2392095c11f04b3a8a318531408ce9aea0f4bd5c2a60f5a /opt/0ad/data/config/default.cfg
 SOURCE https://daugasauron.com/dist/static/zero-ad/data/config/keys.txt 469f8fa2807838de81d53dda3a78b1676013e4fd18bd696d53693f09a21b9410 /opt/0ad/data/config/keys.txt

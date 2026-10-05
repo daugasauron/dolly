@@ -2,7 +2,7 @@ DOLLY 6
 PACKAGE python
 REQUIRES HOST http@0
 
-FROM https://daugasauron.com/Dollyfile-system 55d601d75ba2325582e9b2452b03a827a549e8fa44b804c88393396805deda58
+FROM https://daugasauron.com/Dollyfile-system 4384a52bf9676e97fb7a3331cd282b6bb6840597a9742caed04098d8cf53dd96
 # Build the Python runtime and native extension SDK; pip.dm adds pip.
 REQUIRES HEADER curl
 REQUIRES HEADER libc
