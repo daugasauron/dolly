@@ -185,3 +185,42 @@ test("bootstrap sources have a bounded hardened quota separate from agent reques
   assert.throws(fetchSource, /quota/);
   assert.equal(policy.requests, 0);
 });
+
+test("a relay is transport for a destination the policy admits, with no credentials of its own", () => {
+  const relays = [{ origin: "https://forge.example", through: "https://page.example/relay/" }];
+  const policy = new DollyHttpPolicy({ rules: [
+    { origin: "https://forge.example", pathPrefix: "/team", methods: ["GET", "POST"], credentialHeaders: ["authorization"] },
+    { origin: "https://other.example" },
+  ] }, [], "https://page.example/", relays);
+  const headers = new Headers({ authorization: "Bearer sandbox-key" });
+  const rule = policy.authorize(new URL("https://forge.example/team/repo/info/refs?service=git-upload-pack"), "GET", headers, 0);
+  assert.equal(rule.relay, "https://page.example/relay/forge.example/team/repo/info/refs?service=git-upload-pack");
+  assert.equal(rule.followRedirects, false);
+  assert.equal(headers.has("authorization"), false, "the relay was not named as a credential recipient");
+  // The policy judges the real destination: the relay admits nothing by itself.
+  assert.throws(() => policy.authorize(new URL("https://forge.example/elsewhere"), "GET", new Headers(), 0), /policy denied/);
+  assert.equal(policy.authorize(new URL("https://other.example/"), "GET", new Headers(), 0).relay, undefined);
+
+  const trusted = new DollyHttpPolicy(undefined, [], "https://page.example/",
+    [{ ...relays[0], credentialHeaders: ["authorization"] }]);
+  const kept = new Headers({ authorization: "Bearer sandbox-key", cookie: "ambient=no" });
+  assert.ok(trusted.authorize(new URL("https://forge.example:443/x"), "POST", kept, 0).relay.endsWith("/relay/forge.example/x"));
+  assert.equal(kept.get("authorization"), "Bearer sandbox-key");
+  assert.equal(kept.has("cookie"), false);
+  // An inherited policy narrows what is admitted and keeps this page's relay.
+  const narrowed = restrictDollyHttpPolicy(policy, [{ rules: [{ origin: "https://forge.example", pathPrefix: "/team/repo" }] }], [], "https://page.example/");
+  assert.ok(narrowed.authorize(new URL("https://forge.example/team/repo/x"), "GET", new Headers(), 0).relay);
+  assert.throws(() => narrowed.authorize(new URL("https://forge.example/team/other"), "GET", new Headers(), 0), /policy denied/);
+
+  for (const invalid of [{ origin: "https://forge.example/", through: "https://page.example/relay/" },
+    { origin: "https://forge.example", through: "https://page.example/relay" },
+    { origin: "https://forge.example", through: "https://user@page.example/relay/" },
+    { origin: "https://forge.example", through: "https://page.example/relay/?next=" },
+    { origin: "https://forge.example", through: "file:///relay/" },
+    { origin: "https://forge.example", through: "https://page.example/relay/", credentialHeaders: ["x-custom"] }]) {
+    assert.throws(() => new DollyHttpPolicy(undefined, [], "https://page.example/", [invalid]), TypeError);
+  }
+  const page = { DOLLY_HTTP_RELAYS: relays, location: { href: "https://page.example/" } };
+  assert.equal(consumeDollyHttpPolicy(page).relays.size, 1);
+  assert.equal("DOLLY_HTTP_RELAYS" in page, false, "the page must not keep the relay configuration");
+});

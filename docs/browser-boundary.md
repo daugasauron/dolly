@@ -110,6 +110,14 @@ select no JavaScript or Worker URL.
   ([`policy.mjs`](../host/http/policy.mjs)). The guest cannot choose that mirror,
   and the mirror's URLs grant nothing. Other canonical-origin URLs are ordinary
   destinations.
+- A relay ([HTTP](http.md#cors-and-relays)) is embedding configuration consumed
+  with the policy: it maps an exact origin to a URL prefix the page fetches
+  instead. It adds no destination: the policy judges the URL the program
+  asked for before the mapping applies, and the guest can neither set nor see
+  it. It moves trust: the relay's operator sees every relayed request and
+  chooses what is returned, so it receives no credential header the mapping
+  does not name, and its requests follow no redirect. No relay is configured
+  by default or on the public sites.
 - Loopback and LAN hosts are ordinary destinations: responses need CORS, but the
   request itself still reaches them.
 - Reserved `*.dolly.invalid` URLs never reach Fetch; redirects cannot enter them
