@@ -105,9 +105,10 @@ Decisions:
   now tells the program which module the image lacks.
 - Status 126 still covers a refused executable and a Worker that failed while
   running; the line tells them apart ("was refused", "failed").
-- Left: FFI packets carry pointers of the process itself, and a wild one still
-  ends the process (with its line), like a wild pointer in native libffi
-  (`src/process-ffi.mjs`). `cc`, `c++`, `ld` and `ar` still retry status 126
-  twice, so a refusal of the compiler itself would print three lines; that
-  retry exists for transient Worker allocation failures and cannot tell them
-  apart by status.
+- FFI packets carry pointers of the process itself. A wild one (a NULL or
+  out-of-range `ffi_cif`, type or closure) returned through a JavaScript
+  exception and ended the process; it is `EFAULT` or `EINVAL` now. Only what
+  the called function throws passes through (`src/process-ffi.mjs`).
+- Left: `cc`, `c++`, `ld` and `ar` still retry status 126 twice, so a refusal
+  of the compiler itself would print three lines; that retry exists for
+  transient Worker allocation failures and cannot tell them apart by status.

@@ -60,7 +60,8 @@ sequenceDiagram
   a packet outside its memory, `E2BIG` over 1 MiB, `ENOSYS` for an unknown
   operation, `EINVAL` for a wrong layout
   ([`process-worker.mjs`](../src/process-worker.mjs)). FFI packets carry
-  pointers of the process itself; a wild one ends it like a failed Worker.
+  pointers of the process itself; a wild one is `EFAULT` too, while a trap in
+  the function an FFI call reaches ends the process like any other trap.
 - `cc`, `c++`, `ld` and `ar` retry status 126 up to twice
   ([`runtime-adapter.c`](../src/process/runtime-adapter.c)), so long
   source builds survive a transient browser Worker allocation failure without
