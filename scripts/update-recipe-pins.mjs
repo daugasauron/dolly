@@ -6,10 +6,15 @@ import { inspectDollyfile } from "../src/dollyfile-view.mjs";
 import { recipeFiles } from "./recipe-files.mjs";
 import { publishedHeaders } from "./host-modules.mjs";
 import { canonicalPath } from "../src/static-asset.mjs";
+import { discoverImageDefinitions, selectImageDefinitions } from "./image-definitions.mjs";
 
-export async function updateRecipePins(projectDir, refreshSources = false) {
+// SOURCES selects the images whose source pins are refreshed (DOLLY_BUILD_IMAGES
+// syntax, "all" for every image): preparation stages only their closure.
+export async function updateRecipePins(projectDir, sources) {
   const active = new Set(), pinned = new Map();
   const files = await recipeFiles(projectDir);
+  const refreshed = new Set(sources === undefined ? [] : (await selectImageDefinitions(
+    await discoverImageDefinitions(projectDir), sources)).map(({ filename }) => filename));
   async function pin(location) {
     if (active.has(location)) throw new Error(`${location}: recipe cycle`);
     if (pinned.has(location)) return pinned.get(location);
@@ -40,20 +45,13 @@ export async function updateRecipePins(projectDir, refreshSources = false) {
       }
       throw new Error(`${location}:${row.line}: cannot locate recipe pin`);
     }
-    if (refreshSources) for (const source of recipe.sources) {
+    if (refreshed.has(files.get(location))) for (const source of recipe.sources) {
       const path = canonicalPath(source.location);
       if (path === null) continue;
       if (!path.startsWith("/dist/static/") && !publishedHeaders.has(path)) {
         throw new Error(`${location}: ${source.location} is outside trusted build inputs`);
       }
-      let bytes;
-      try { bytes = await readFile(resolve(projectDir, path.slice(1))); }
-      catch (error) {
-        // Other catalog images may not have been staged by this selected build.
-        // verify-static-sources still requires every selected input to exist.
-        if (error.code === "ENOENT") continue;
-        throw error;
-      }
+      const bytes = await readFile(resolve(projectDir, path.slice(1)));
       replacePin(source, createHash("sha256").update(bytes).digest("hex"));
     }
     for (const reference of recipe.artifacts) {
@@ -75,6 +73,7 @@ export async function updateRecipePins(projectDir, refreshSources = false) {
 if (process.argv[1] === import.meta.filename) {
   const refreshSources = process.argv[2] === "--sources";
   if (process.argv.length > (refreshSources ? 3 : 2)) throw new Error("usage: update-recipe-pins.mjs [--sources]");
-  const result = await updateRecipePins(resolve(import.meta.dirname, ".."), refreshSources);
+  const result = await updateRecipePins(resolve(import.meta.dirname, ".."),
+    refreshSources ? process.env.DOLLY_BUILD_IMAGES ?? "all" : undefined);
   console.log(`dolly: pinned ${result.recipes} recipes across ${result.images} images`);
 }

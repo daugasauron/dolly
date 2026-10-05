@@ -32,7 +32,6 @@ for required in "${dollyfiles[@]}"; do
     exit 1
   }
 done
-node "${project_dir}/scripts/verify-static-sources.mjs"
 for image_name in "${image_names[@]}"; do
   for required in \
     "dist/dolly-${image_name}-system.snapshot" \

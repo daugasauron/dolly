@@ -37,7 +37,7 @@ compile the programs an image claims to build.
   upstream.
 - [`prepare-image-sources.sh`](../scripts/prepare-image-sources.sh) stages the
   selected catalog's inputs (each demo adds a `prepare-sources.sh` hook);
-  [`verify-static-sources.mjs`](../scripts/verify-static-sources.mjs) checks every
+  [`generate-routes.mjs`](../scripts/generate-routes.mjs) checks every
   canonical `SOURCE` row against its bytes. Only those rows and module texts are
   trusted build inputs; adding one means referencing it from a recipe.
 - [`build-source-tar.mjs`](../scripts/build-source-tar.mjs) writes deterministic

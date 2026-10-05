@@ -5,7 +5,7 @@ import { mkdir, mkdtemp, readFile, readdir, rm, symlink, writeFile } from "node:
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
-import { gunzipSync } from "node:zlib";
+import { gunzipSync, gzipSync } from "node:zlib";
 import { updateRecipePins } from "../scripts/update-recipe-pins.mjs";
 
 for (const extension of ["tar", "tar.gz"]) test(`${extension} source archives are deterministic, complete under short writes, and own their staging`, async t => {
@@ -30,6 +30,7 @@ for (const extension of ["tar", "tar.gz"]) test(`${extension} source archives ar
   const first = execFileSync(process.execPath, [script, output, input, "/usr/src/fixture"], { encoding: "utf8" });
   const expected = await readFile(output);
   const expectedHash = createHash("sha256").update(expected).digest("hex");
+  await rm(output);
   const second = execFileSync(process.execPath, ["--import", "data:text/javascript," + encodeURIComponent(preload),
     script, output, input, "/usr/src/fixture"], { encoding: "utf8" });
   assert.equal(first, second);
@@ -43,6 +44,23 @@ for (const extension of ["tar", "tar.gz"]) test(`${extension} source archives ar
   for (const offset of [108, 116, 136]) assert.equal(octal(offset, offset === 136 ? 12 : 8), 0);
   assert.ok(raw.subarray(265, 329).every(byte => byte === 0), "archive retained a host owner name");
   assert.deepEqual((await readdir(scratch)).sort(), ["input", `source.${extension}`]);
+});
+
+test("a .tar.gz holding the same tar is kept, and a changed input replaces it", async t => {
+  const scratch = await mkdtemp(join(tmpdir(), "dolly-source-gzip-"));
+  t.after(() => rm(scratch, { recursive: true, force: true }));
+  const input = join(scratch, "a"), output = join(scratch, "source.tar.gz");
+  const script = new URL("../scripts/build-source-tar.mjs", import.meta.url).pathname;
+  const build = () => execFileSync(process.execPath, [script, output, input, "/usr/src/a"]);
+  await writeFile(input, "first\n");
+  build();
+  const recompressed = gzipSync(gunzipSync(await readFile(output)), { level: 9 });
+  await writeFile(output, recompressed);
+  build();
+  assert.deepEqual(await readFile(output), recompressed);
+  await writeFile(input, "second\n");
+  build();
+  assert.equal(execFileSync("tar", ["-xzOf", output, "usr/src/a"], { encoding: "utf8" }), "second\n");
 });
 
 test("source archives reject symlinks and clean failed staging without replacing previous output", async t => {
@@ -80,7 +98,7 @@ test("prepared published bytes update module and image pins without changing ext
     await writeFile(join(scratch, "Dollyfile-tool"), `DOLLY 6\nPACKAGE tool\nSOURCE https://daugasauron.com/dist/static/tool.c ${pin} /tmp/tool.c\nSOURCE https://example.invalid/source ${pin} /tmp/upstream\n`);
     for (const bytes of ["first source", "edited source"]) {
       await writeFile(join(scratch, "dist/static/tool.c"), bytes);
-      await updateRecipePins(scratch, true);
+      await updateRecipePins(scratch, "all");
       const module = await readFile(join(scratch, "Dollyfile-tool"), "utf8");
       const base = await readFile(join(scratch, "Dollyfile"), "utf8");
       const addon = await readFile(join(scratch, "Dollyfile-addon"), "utf8");
@@ -88,7 +106,7 @@ test("prepared published bytes update module and image pins without changing ext
       assert.ok(module.includes(`/source ${pin} /tmp/upstream`));
       assert.ok(base.includes(digest(module)));
       assert.ok(addon.includes(digest(base)));
-      await updateRecipePins(scratch, true);
+      await updateRecipePins(scratch, "all");
       assert.equal(await readFile(join(scratch, "Dollyfile-addon"), "utf8"), addon);
     }
   } finally { await rm(scratch, { recursive: true, force: true }); }

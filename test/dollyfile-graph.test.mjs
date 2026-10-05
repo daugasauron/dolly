@@ -41,10 +41,10 @@ FILE /usr/share/note
 ENTRY /bin/slop
 `;
     await writeFile(resolve(directory, "Dollyfile"), recipe(old, old, old));
-    await updateRecipePins(directory, true);
+    await updateRecipePins(directory, "all");
     const expected = recipe(digest(payload), digest(base), digest(child));
     assert.equal(await readFile(resolve(directory, "Dollyfile"), "utf8"), expected);
-    await updateRecipePins(directory, true);
+    await updateRecipePins(directory, "all");
     assert.equal(await readFile(resolve(directory, "Dollyfile"), "utf8"), expected, "second update is byte-identical");
     await loadDollyfileGraph(directory);
     await writeFile(resolve(directory, "Dollyfile"), expected.replace(

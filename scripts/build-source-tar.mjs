@@ -5,7 +5,7 @@ import { closeSync, createReadStream, createWriteStream, lstatSync, openSync, re
 import { mkdir, mkdtemp, rename, rm } from "node:fs/promises";
 import { dirname, join, relative, resolve, sep } from "node:path";
 import { pipeline } from "node:stream/promises";
-import { createGzip } from "node:zlib";
+import { createGunzip, createGzip } from "node:zlib";
 
 const [, , outputArgument, ...inputArguments] = process.argv;
 const excludeSuffixes = [];
@@ -127,7 +127,7 @@ const staging = await mkdtemp(join(dirname(output), ".source-tar-"));
 let temporary = join(staging, "archive.tar");
 let file = null;
 let digest = createHash("sha256");
-let total = 0;
+let total = 0, sha256;
 function emit(bytes) {
   writeFileSync(file, bytes);
   digest.update(bytes);
@@ -162,28 +162,50 @@ try {
   emit(Buffer.alloc(1024));
   closeSync(file);
   file = null;
+  sha256 = digest.digest("hex");
   if (output.endsWith(".tar.gz")) {
-    const compressed = join(staging, "archive.tar.gz");
-    digest = createHash("sha256");
-    total = 0;
-    await pipeline(createReadStream(temporary), createGzip({ level: 6 }), async function* (chunks) {
-      for await (const bytes of chunks) {
-        digest.update(bytes);
-        total += bytes.length;
-        yield bytes;
-      }
-    }, createWriteStream(compressed, { flags: "wx" }));
-    temporary = compressed;
+    // Compressing is the slow part: keep an existing archive of the same tar.
+    const existing = await gzipped(output).catch(() => null);
+    if (existing?.tar === sha256) {
+      ({ sha256, total } = existing);
+      temporary = null;
+    } else {
+      const compressed = join(staging, "archive.tar.gz");
+      digest = createHash("sha256");
+      total = 0;
+      await pipeline(createReadStream(temporary), createGzip({ level: 6 }), async function* (chunks) {
+        for await (const bytes of chunks) {
+          digest.update(bytes);
+          total += bytes.length;
+          yield bytes;
+        }
+      }, createWriteStream(compressed, { flags: "wx" }));
+      sha256 = digest.digest("hex");
+      temporary = compressed;
+    }
   }
-  await rename(temporary, output);
+  if (temporary) await rename(temporary, output);
 } finally {
   if (file !== null) { try { closeSync(file); } catch {} }
   await rm(staging, { recursive: true, force: true });
 }
 
+async function gzipped(path) {
+  const archive = createHash("sha256"), tar = createHash("sha256");
+  let bytes = 0;
+  await pipeline(createReadStream(path), async function* (chunks) {
+    for await (const chunk of chunks) {
+      archive.update(chunk);
+      bytes += chunk.length;
+      yield chunk;
+    }
+  }, createGunzip(), async chunks => { for await (const chunk of chunks) tar.update(chunk); });
+  return { tar: tar.digest("hex"), sha256: archive.digest("hex"), total: bytes };
+}
+
 console.log(
-  `dolly: wrote ${records.length} files, ${total} bytes, ` +
-  `${digest.digest("hex")} to ${relative(projectDir, output).split(sep).join("/")}` +
+  `dolly: ${temporary ? "wrote" : "kept"} ${records.length} files, ${total} bytes, ` +
+  `${sha256} to ${relative(projectDir, output).split(sep).join("/")}` +
   (excludedFiles === 0
     ? ""
     : `; excluded ${excludedFiles} files / ${excludedBytes} bytes by suffix`),
