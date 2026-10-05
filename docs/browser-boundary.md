@@ -130,9 +130,10 @@ select no JavaScript or Worker URL.
 
 | Channel | Bound |
 | --- | --- |
-| Keyboard, pointer, focus, resize, paste | Bounded records; interpretation stays in Wasm. Pointer lock only after a trusted canvas press |
+| Keyboard, pointer, focus, resize, paste | Bounded records, one motion sample per animation frame; a record the ring has no room for is counted and shown, never queued on the page ([display](display.md#page)). Interpretation stays in Wasm. Pointer lock only after a trusted canvas press |
 | Clipboard copy | Bounded selection text after a user Ctrl+Shift+C |
 | RGBA frames, bootstrap text | Visible output only; the browser parses no terminal or HTML content |
+| Display wake-ups | The page and the Worker notify each other on display mailbox words (new frame, input record, animation frame); a notify carries no data, and a forged one only costs the guest's own time |
 | GPU indicator | Page text over the display naming the browser's adapter, or why there is none; no guest input ([`gpu.mjs`](../host/gpu/gpu.mjs)) |
 | Image cache | Verified artifacts in IndexedDB, 32 images and 8 GiB ([`image-artifact.mjs`](../src/image-artifact.mjs)) |
 | Boot and code loading | Fixed kernel artifacts only ([`runtime-worker.mjs`](../src/runtime-worker.mjs)); one bundled process Worker; the plugin loader links an explicit kernel export map and fetches nothing |

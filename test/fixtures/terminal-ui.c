@@ -107,6 +107,25 @@ int main(int argc, char **argv) {
     if (dolly_display_release(surface.generation) != 0) status = 9;
     return status;
   }
+  if (argc > 1 && strcmp(argv[1], "unread") == 0) {
+    // Holds the display for three seconds without reading input, then reports what the ring kept.
+    dolly_display_surface surface;
+    if (dolly_display_acquire(&surface) != 0) return 7;
+    sleep(3);
+    unsigned keys = 0, motions = 0;
+    long moved = 0;
+    dolly_input_event event;
+    while (dolly_display_next_event(surface.generation, &event, 500) == 1) {
+      if (event.type == DOLLY_INPUT_EVENT_KEY) ++keys;
+      if (event.type == DOLLY_INPUT_EVENT_POINTER_MOTION) {
+        ++motions;
+        moved += (int32_t)event.width_css_px;
+      }
+    }
+    if (dolly_display_release(surface.generation) != 0) return 9;
+    printf("DOLLY-UNREAD keys=%u motions=%u moved=%ld\n", keys, motions, moved);
+    return 0;
+  }
   if (argc > 1 && strcmp(argv[1], "lease-exit") == 0) {
     dolly_display_surface surface;
     return dolly_display_acquire(&surface) == 0 ? 0 : 7;

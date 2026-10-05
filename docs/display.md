@@ -17,6 +17,24 @@ flowchart LR
   fb -- "checked copy" --> canvas["Page canvas"]
 ```
 
+## Page
+
+- The presenter ([`display.mjs`](../host/display/display.mjs)) copies a
+  published frame once, into an image it keeps per frame size, and paints only
+  when the frame sequence changes. An idle terminal requests no animation
+  frames: the Worker notifies the page of a new frame, lease or cursor.
+- The page notifies the Worker of each animation frame and of the input
+  records a reader consumes (all under a lease; keys, text, paste and focus for
+  the terminal), so a program waiting for either resumes then, not at the next
+  16 ms tick.
+- The input ring in Wasm memory is the only queue of input; the page holds no
+  record back. Pointer motion is a sample: relative deltas add up and the
+  newest position wins. It is sent once per animation frame while half the ring
+  is free, so it never takes a key's slot and a program that does not read
+  delays it without losing it. Any other record needs a free slot. One that
+  finds none is lost: the page counts it in `data-input-dropped` on `<html>`
+  and says so in its status line. A program cannot see that count.
+
 ## Terminal
 
 - Ghostty is the only resident kernel plugin, so terminal state survives
