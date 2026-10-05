@@ -1,6 +1,6 @@
 # Investigate: subprocesses and the runtime as declared host modules
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 315
 - TAGS: core,architecture,host-modules,process,design
 
@@ -104,3 +104,32 @@ filesystem. Two additions for the owner's decision:
 
 If the owner accepts "no `runtime@0` line, no `process@0`", this task closes;
 the DSO/FFI question can then be its own task or be dropped.
+
+## Owner decisions (2026-10-06)
+
+1. `runtime@0` becomes explicit in every image, and a runtime should be a
+   module others can name with the same syntax:
+   `20261005-222057-explicit-runtime`.
+2. Subprocesses: undecided, leaning toward a module. The owner's point: the
+   project first worked without subprocesses and many programs never start
+   another process. Dolly has no fork: the module would be starting, waiting
+   for and signalling other processes (SPAWN, WAIT, INFO, SIGNAL; about 500
+   kernel and 150 supervisor lines as measured above). No image can omit it
+   today only because every ENTRY is `/bin/foreground -i /bin/slop …`. Before
+   deciding, measure: (a) how many catalog executables link the spawn client
+   at all, once it is its own archive member stamped the way `-pthread`
+   stamps `threads@0`; (b) what an image whose ENTRY is the program itself
+   loses (the recovery shell, Ctrl+C handling by `foreground`) and how the
+   page should end or restart it. The touch demo
+   (`20261005-222057-touch-input`) is a natural first single-program image.
+3. Smaller runtime splits: none, as recommended. The DSO/FFI candidate from
+   the review is still unmeasured.
+
+## Closed (2026-10-06)
+
+The investigation's questions are decided or have their own tasks: explicit
+`runtime@0` is `20261005-222057-explicit-runtime`; subprocesses (and the
+review's DSO/FFI candidate) are measured in `20261005-222449-spawn-users` and
+`20261005-222449-single-program-images`, as the owner asked; no smaller
+runtime split.
+

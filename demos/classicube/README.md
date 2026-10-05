@@ -41,6 +41,8 @@ Open `/classicube/`; build with `npm run image -- classicube`.
 
 - Classic v7 protocol without extensions: ASCII chat, 50-block palette.
 - Skins, web texture packs and audio are disabled. Unwatched clients run at 15 FPS.
+- Block textures are Dolly's own procedural tiles ([`textures.mjs`](textures.mjs));
+  upstream's default pack names no licence, so it is not shipped.
 - No task time or cost cap; an idle agent resumes its default activity.
 
 Test: `npm run test:demos -- classicube` ([`test/`](test/)).

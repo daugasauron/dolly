@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-2.0-or-later
+// SPDX-License-Identifier: MIT
 import { runAgent } from "../../game-agent/mission.mjs";
 import { connect, describe } from "./player.js";
 const app = {

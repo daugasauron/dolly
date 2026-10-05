@@ -1,7 +1,7 @@
 # Sourced by scripts/prepare-image-sources.sh.
 if has_image bhop; then
   bhop_inputs=()
-  for entry in COPYING auth.mjs control.h mission.mjs settings.mjs viewer.cpp; do
+  for entry in auth.mjs control.h mission.mjs settings.mjs viewer.cpp; do
     bhop_inputs+=("demos/game-agent/${entry}" "/usr/src/dolly/game-agent/${entry}")
   done
   for entry in spectator/relay.mjs spectator/trace.mjs spectator/graphics.h; do

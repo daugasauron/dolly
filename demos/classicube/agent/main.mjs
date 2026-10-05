@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-2.0-or-later
+// SPDX-License-Identifier: MIT
 try {
   if (process.argv.length !== 2) throw Error("usage: classicube-agent");
   const { runWorld } = await import("./world.mjs"); await runWorld();

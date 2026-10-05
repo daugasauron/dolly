@@ -451,3 +451,24 @@ test("runtime teardown aborts every provider and refuses already-queued admissio
   assert.equal(second.load(DOLLY_HTTP_WORD_ERROR), errno.ECANCELED);
   assert.equal(calls, 2);
 });
+
+test("a relayed request is fetched from the relay, without redirects, and answers for the URL asked", async () => {
+  const policy = new DollyHttpPolicy(undefined, [], "https://page.example/",
+    [{ origin: new URL(target).origin, through: "https://page.example/relay/" }]);
+  let fetched, options;
+  const broker = new NetworkTransport(new SharedArrayBuffer(64 + DOLLY_HTTP_SLOT_COUNT * (65536 + 64)), 64, policy, {
+    fetchRequest: async (url, supplied) => { fetched = url.href; options = supplied; return new Response("relayed"); },
+  });
+  const f = { broker, load: field => Atomics.load(broker.words, broker.address / 4 + field), address: broker.address, word: broker.address / 4 };
+  Atomics.store(broker.words, broker.address / 4 + DOLLY_HTTP_WORD_SEQUENCE, 1);
+  Atomics.store(broker.words, broker.address / 4 + DOLLY_HTTP_WORD_STATE, 1);
+  const records = await consume(f, broker.request({ method: "GET", url: `${target}?q=1`, body: null, flags: 2, sequence: 1,
+    headers: "Authorization: Bearer sandbox-key\r\nGit-Protocol: version=2\r\n" }));
+  assert.equal(fetched, "https://page.example/relay/fixture.example/allowed?q=1");
+  assert.equal(options.redirect, "error", "a relay answers; it never redirects the browser");
+  assert.equal(options.headers.has("authorization"), false);
+  assert.equal(options.headers.get("git-protocol"), "version=2");
+  const decoder = new TextDecoder();
+  assert.equal(decoder.decode(records.find(record => record.kind === 1).bytes), `${target}?q=1`);
+  assert.equal(records.filter(record => record.kind === 3).map(record => decoder.decode(record.bytes)).join(""), "relayed");
+});

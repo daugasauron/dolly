@@ -1,4 +1,4 @@
-// Shared in-Wasm spectator text rendering. SPDX-License-Identifier: GPL-2.0-or-later
+// Shared in-Wasm spectator text rendering. SPDX-License-Identifier: MIT
 #pragma once
 #include <SDL.h>
 #include <cstdio>

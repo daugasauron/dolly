@@ -1,4 +1,4 @@
-// A portable replay made only of the recorded framebuffers and input events. SPDX-License-Identifier: GPL-2.0-or-later
+// A portable replay made only of the recorded framebuffers and input events. SPDX-License-Identifier: MIT
 import { recording, framePath, attemptPath } from './player.js';
 export async function exportReplay(fs,run,scratch,command) {
   const attempts=[];

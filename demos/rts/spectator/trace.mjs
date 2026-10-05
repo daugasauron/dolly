@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-2.0-or-later
+// SPDX-License-Identifier: MIT
 export function traceText(event) {
   switch (event.type) {
     case "start": return `Player ${event.player}: ${event.model}\nWaiting for Pi. Thinking is shown only when the provider exposes it.\n\n`;
