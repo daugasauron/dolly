@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-import { spawn, execFileSync } from "node:child_process";
+import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { createReadStream } from "node:fs";
 import { lstat, mkdir, mkdtemp, readdir, readFile, rename, rm, symlink, writeFile } from "node:fs/promises";
@@ -210,15 +210,27 @@ export async function publishRelease(site, releases) {
 async function acceptSite(site, project) {
   const images = await verifySite(site);
   const manifest = await siteManifest(site);
-  for (const image of images) {
-    await new Promise((resolveRun, reject) => {
-      const env = { ...process.env, DOLLY_IMAGE: image, DOLLY_BROWSER_SITE: site };
-      const child = spawn(process.execPath, [resolve(project, "test/image-inventory-browser.mjs"), "chromium"],
-        { cwd: project, env, stdio: "inherit" });
-      child.once("error", reject);
-      child.once("exit", (code, signal) => code === 0 ? resolveRun() :
-        reject(new Error(`${image}: release browser acceptance failed (${signal ?? code})`)));
-    });
+  const [{ acceptImage, startSiteServer }, { chromium }] = await Promise.all([
+    import("./accept-release.mjs"), import("playwright-core")]);
+  const server = await startSiteServer(site);
+  try {
+    for (const image of images) {
+      // A new browser per image: only the release can supply its artifacts.
+      const browser = await chromium.launch({ channel: "chrome", headless: true,
+        args: ["--no-sandbox", "--disable-gpu", "--enable-unsafe-webgpu"] });
+      const deadline = setTimeout(() => void browser.close(), 900_000);
+      try {
+        await acceptImage(browser, server, image);
+      } catch (error) {
+        throw new Error(`${image}: release browser acceptance failed: ${error.message}`, { cause: error });
+      } finally {
+        clearTimeout(deadline);
+        await browser.close();
+      }
+      console.log(`dolly: accepted ${image}`);
+    }
+  } finally {
+    await server.close();
   }
   if (await siteManifest(site) !== manifest) throw new Error("release changed during acceptance");
   await writeFile(resolve(site, "release/files.sha256"), manifest);

@@ -10,18 +10,17 @@
     "build:runtime": "./scripts/build.sh",
     "routes": "node scripts/generate-routes.mjs",
     "image": "node scripts/build-image.mjs",
-    "build": "npm run build:runtime && npm run snapshot",
     "test": "npm run test:source && node test/core-browser.mjs",
     "test:source": "node --test 'test/*.test.mjs' 'demos/**/*.test.mjs'",
     "publish": "./scripts/package-pages.sh",
     "export:static": "node scripts/export-static.mjs",
     "export:pages": "node scripts/export-cloudflare-pages.mjs",
     "serve": "node scripts/serve.mjs",
+    "dev": "node scripts/serve-checkout.mjs",
     "test:core": "node test/core-browser.mjs",
     "test:browser": "node test/browser-tests.mjs",
     "test:demos": "node demos/run-browser-tests.mjs",
-    "test:artifacts": "node --test 'test/*.artifacts.mjs' 'demos/**/*.artifacts.mjs'",
-    "test:full": "npm run build && npm run test:artifacts && npm run test:source && npm run test:browser && npm run test:demos"
+    "test:artifacts": "node --test 'test/*.artifacts.mjs' 'demos/**/*.artifacts.mjs'"
   },
   "dependencies": {
     "@earendil-works/pi-agent-core": "0.99.2",

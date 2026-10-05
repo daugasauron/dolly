@@ -15,7 +15,7 @@ import {
 } from "./image-definitions.mjs";
 import { createDollyfileGraphLoader } from "./dollyfile-graph.mjs";
 import { renderDollyfilePage } from "./render-dollyfile-view.mjs";
-import { imageDescriptions, menuRow } from "./image-menu.mjs";
+import { imageDescriptions, menuRow, pageRoutes } from "./image-menu.mjs";
 import { bundleProcessWorker } from "./bundle-process-worker.mjs";
 import { CANONICAL_ORIGIN } from "../src/static-asset.mjs";
 
@@ -60,17 +60,7 @@ await writeFile(resolve(projectDir, "dist/dolly-packages.txt"), definitions
   .map(({ image, filename, source }) =>
     `${image} ${CANONICAL_ORIGIN}/${filename} ${createHash("sha256").update(source).digest("hex")}\n`)
   .join(""));
-const routes = [
-  ...definitions.flatMap(({ image }) => [
-    ...(openable.has(image) ? [{ path: `${image}/index.html`, image, mode: "snapshot" }] : []),
-    { path: `${image}/rebuild/index.html`, image, mode: "rebuild" },
-  ]),
-  { path: "custom/rebuild/index.html", image: "custom", mode: "rebuild" },
-  { path: "custom/run/index.html", image: "custom", mode: "snapshot" },
-  { path: "rebuild/index.html", image: primaryImage, mode: "rebuild" },
-  // One page opens every saved session: /session/?name=NAME.
-  { path: "session/index.html", image: primaryImage, mode: "snapshot", loadSession: true },
-];
+const routes = pageRoutes(definitions.map(({ image }) => ({ image, openable: openable.has(image) })), primaryImage);
 for (const route of routes) {
   const output = resolve(projectDir, route.path);
   await mkdir(dirname(output), { recursive: true });

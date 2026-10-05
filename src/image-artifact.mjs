@@ -44,7 +44,7 @@ export async function loadPackagedSnapshotMetadata(image, checked = new Map(), a
   try {
     ({ DOLLY_SYSTEM_SNAPSHOT: metadata } = await import(metadataUrl.href));
   } catch {
-    throw new Error("The packaged system snapshot is missing. Run npm run snapshot first.");
+    throw new Error(`The packaged ${image} snapshot is missing. Run npm run image -- ${image} first.`);
   }
   const recipes = expectedRecipes(image);
   if (metadata === null || typeof metadata !== "object" ||

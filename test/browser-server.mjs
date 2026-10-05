@@ -1,204 +1,57 @@
-import { createReadStream } from "node:fs";
-import { access, readdir, readFile } from "node:fs/promises";
-import { createHash } from "node:crypto";
-import { createServer } from "node:http";
-import { extname, resolve } from "node:path";
-import { pathToFileURL } from "node:url";
+import { readdir } from "node:fs/promises";
 import { processSmokeSources } from "./fixtures/process-smoke.mjs";
 import { tarArchive } from "./fixtures/tar.mjs";
-import { buildIdentities } from "../scripts/write-build-id.mjs";
-import { imageInputsMatch } from "../src/image-inputs.mjs";
-import { bundleProcessWorker } from "../scripts/bundle-process-worker.mjs";
-import { CANONICAL_ORIGIN, canonicalPath } from "../src/static-asset.mjs";
+import { startCheckoutServer } from "../scripts/serve-checkout.mjs";
 
-export const mimeTypes = new Map([
-  [".html", "text/html; charset=utf-8"],
-  [".md", "text/markdown; charset=utf-8"],
-  [".h", "text/plain; charset=utf-8"],
-  [".json", "application/json"],
-  [".js", "text/javascript; charset=utf-8"],
-  [".mjs", "text/javascript; charset=utf-8"],
-  [".wasm", "application/wasm"],
-  [".data", "application/octet-stream"],
-  [".snapshot", "application/octet-stream"],
-  [".woff2", "font/woff2"],
-]);
-// Every page and Worker source: src/*.mjs, each host module directory, and the
-// fixtures browser tests import.
-const projectRoot = new URL("..", import.meta.url);
-const listed = async (directory, pattern) => (await readdir(new URL(directory, projectRoot), { recursive: true }))
-  .filter(name => pattern.test(name)).map(name => `${directory}${name}`);
-export const browserSources = new Set([
-  ...await listed("src/", /^[^/]+\.mjs$/),
-  ...await listed("host/", /\.(?:mjs|json)$/),
-  "test/fixtures/browser-boundary.mjs",
-  "test/fixtures/gpu-boundary.mjs",
-  "test/fixtures/gpu-retirement-worker.mjs",
-  "test/fixtures/gpu-surface-observer.mjs",
-  "test/fixtures/gpu-no-bc.mjs",
-  "test/fixtures/gpu-core-limits.mjs",
-  "test/fixtures/audio-boundary.mjs",
-  "test/fixtures/http-admission-worker.mjs",
-  "test/fixtures/browser-process-abi.mjs",
-  "coi-serviceworker.js",
-]);
-
-// Serves this checkout to browser tests and the image builder on 127.0.0.1.
-// IMAGE's route and current snapshot are required; null serves no image route
-// (the builder, whose image is being built). Options: port; sourceOverrides
-// (path -> body, may change while serving); fixtures (name -> file under
-// /fixture/); responseHeaders (added to every response); handle(request,
-// response, path, headers), which returns true when it answered the request.
-export async function startBrowserServer(projectDir, image = "default",
-  { port = 0, sourceOverrides = new Map(), fixtures = {}, responseHeaders = {}, handle } = {}) {
-  await bundleProcessWorker(projectDir);
-  const rebuild = image ? `npm run image -- ${image}` : "npm run image -- IMAGE";
-  await Promise.all(["dolly-images.mjs", "dolly.wasm", "dolly.data", ...image ? [`dolly-${image}-system.snapshot`] : []]
-    .map(path => access(resolve(projectDir, "dist", path)))).catch(error => {
-      throw new Error(`Browser checks need a built runtime and image. Run npm run build:runtime once, then ${rebuild}.`, { cause: error });
-    });
-  const { DOLLY_IMAGES, DOLLY_STATIC_SOURCES } = await import(pathToFileURL(resolve(projectDir, "dist/dolly-images.mjs")));
-  if (image && !DOLLY_IMAGES.some(definition => definition.image === image)) {
-    throw new Error(`Build ${image} once with npm run image -- ${image}, then retry the browser check.`);
+// The checkout server (scripts/serve-checkout.mjs, same arguments) plus test
+// fixtures: the modules in test/fixtures/, sources under /fixture/ (fixtures:
+// name -> checkout path) and the /fixture/ HTTP endpoints below.
+export async function startBrowserServer(projectDir, image = "default", { fixtures = {}, handle, ...options } = {}) {
+  const files = new Map();
+  for (const name of await readdir(new URL("fixtures/", import.meta.url))) {
+    if (name.endsWith(".mjs")) files.set(`/test/fixtures/${name}`, `test/fixtures/${name}`);
   }
-  try {
-    const load = file => import(pathToFileURL(resolve(projectDir, "dist", file)).href);
-    const [{ DOLLY_BUILD_ID }, { DOLLY_IMAGE_BUILD_ID }] = await Promise.all([
-      load("dolly-build-id.mjs"), load("dolly-image-build-id.mjs"),
-    ]);
-    const actual = await buildIdentities(resolve(projectDir, "dist/dolly.wasm"), resolve(projectDir, "dist/dolly.data"));
-    if (actual.buildId !== DOLLY_BUILD_ID || actual.imageBuildId !== DOLLY_IMAGE_BUILD_ID) throw new Error("runtime identity is stale");
-    const checked = new Map();
-    async function check(definition) {
-      if (checked.has(definition.image)) return checked.get(definition.image);
-      const { DOLLY_SYSTEM_SNAPSHOT: metadata } = await load(`dolly-${definition.image}-system-snapshot.mjs`);
-      if (metadata.buildId !== DOLLY_IMAGE_BUILD_ID ||
-          JSON.stringify(metadata.recipes) !== JSON.stringify(definition.recipes)) throw new Error(`${definition.image} inputs are stale`);
-      checked.set(definition.image, metadata);
-      const inputs = [];
-      for (const reference of definition.artifacts) {
-        const parent = DOLLY_IMAGES.find(candidate =>
-          `${CANONICAL_ORIGIN}/${candidate.dollyfile}` === reference.location && candidate.sha256 === reference.sha256);
-        if (!parent) throw new Error(`${reference.location} is missing from the registry`);
-        inputs.push({ recipeSha256: reference.sha256, sha256: (await check(parent)).sha256 });
-      }
-      if (!imageInputsMatch(metadata.inputs, inputs)) throw new Error(`${definition.image} has stale dependency outputs`);
-      return metadata;
-    }
-    if (image) for (const recipe of (await check(DOLLY_IMAGES.find(definition => definition.image === image))).recipes) {
-      const bytes = await readFile(resolve(projectDir, canonicalPath(recipe.sourcePath).slice(1)));
-      if (createHash("sha256").update(bytes).digest("hex") !== recipe.sha256) throw new Error(`${recipe.sourcePath} changed`);
-    }
-  } catch (error) {
-    throw new Error(`Core artifacts are stale or incomplete: ${error.message}. Rebuild changed native code with npm run build:runtime, then run ${rebuild}.`, { cause: error });
-  }
-  // Served paths are checkout paths; a directory URL serves its index.html.
-  const files = new Set(browserSources);
-  for (const definition of DOLLY_IMAGES) {
-    files.add(definition.dollyfile);
-    files.add(`dist/dolly-${definition.image}-system.snapshot`);
-    files.add(`dist/dolly-${definition.image}-system-snapshot.mjs`);
-  }
-  for (const source of DOLLY_STATIC_SOURCES) files.add(source.path.slice(1));
-  files.add("dist/dolly-packages.txt");
-  for (const name of await readdir(resolve(projectDir, "dist"))) {
-    if (/^dolly(?:-[a-z0-9-]+)?\.(?:wasm|mjs|data)$/.test(name) || name === "IosevkaTerm-SemiBold.woff2") {
-      files.add(`dist/${name}`);
-    }
-  }
-  for (const name of await readdir(resolve(projectDir, "dist/packs")).catch(error => {
-    if (error.code === "ENOENT") return [];
-    throw error;
-  })) {
-    if (/^[0-9a-f]{64}\.snapshot\.gz$/.test(name)) files.add(`dist/packs/${name}`);
-  }
-  for (const entry of await readdir(resolve(projectDir, "view"), { recursive: true })) {
-    if (entry.endsWith("index.html")) files.add(`view/${entry}`);
-  }
-  for (const page of ["index.html", ...image ? [`${image}/index.html`, `${image}/rebuild/index.html`] : [],
-    "custom/index.html", "custom/rebuild/index.html", "custom/run/index.html",
-    "session/index.html", "sessions/index.html"]) files.add(page);
-  const fixtureFiles = new Map();
-  for (const [name, path] of Object.entries({ ...processSmokeSources, ...fixtures })) fixtureFiles.set(`/fixture/${name}`, path);
+  for (const [name, path] of Object.entries({ ...processSmokeSources, ...fixtures })) files.set(`/fixture/${name}`, path);
   for (const name of ["process-wrong-call", "process-wrong-start", "process-wrong-memory"]) {
-    fixtureFiles.set(`/fixture/${name}.wasm`, `build/${name}.wasm`);
+    files.set(`/fixture/${name}.wasm`, `build/${name}.wasm`);
   }
-  const requests = new Map();
   let cancelledRequests = 0;
-  const server = createServer(async (request, response) => {
-    const headers = { "cache-control": "no-store", "cross-origin-opener-policy": "same-origin",
-      "cross-origin-embedder-policy": "require-corp", "cross-origin-resource-policy": "same-origin", ...responseHeaders };
-    try {
-      const path = decodeURIComponent(new URL(request.url, "http://localhost").pathname).replace(/\/+$/, "");
-      requests.set(path, (requests.get(path) ?? 0) + 1);
-      if (await handle?.(request, response, path, headers)) return;
-      if (path === "/fixture/echo" && request.method === "POST") {
-        response.writeHead(200, { ...headers, "content-type": "application/octet-stream" });
-        request.pipe(response);
-        return;
-      }
-      if (!["GET", "HEAD"].includes(request.method)) throw new Error("unsupported method");
-      if (path === "/fixture/http.txt") {
-        response.writeHead(200, { ...headers, "content-type": "text/plain" });
-        response.end(request.method === "HEAD" ? undefined : "FETCHED-THROUGH-BROWSER\n");
-        return;
-      }
-      if (path === "/fixture/large") {
-        response.writeHead(200, { ...headers, "content-type": "application/octet-stream" });
-        let remaining = 65 * 1024 * 1024 + 17;
-        const chunk = Buffer.from(Uint8Array.from({ length: 65536 }, (_, i) => i & 255));
-        const send = () => {
-          while (remaining > 0 && !response.destroyed) {
-            const length = Math.min(remaining, chunk.length);
-            remaining -= length;
-            if (!response.write(chunk.subarray(0, length))) { response.once("drain", send); return; }
-          }
-          if (!response.destroyed) response.end();
-        };
-        if (request.method === "HEAD") response.end(); else send();
-        return;
-      }
-      if (path === "/fixture/slow") {
-        response.writeHead(200, { ...headers, "content-type": "text/plain" });
-        response.write("waiting for cancellation\n");
-        response.once("close", () => { cancelledRequests++; });
-        return;
-      }
-      if (path === "/fixture/root.tar") {
-        response.writeHead(200, { ...headers, "content-type": "application/octet-stream" });
-        response.end(request.method === "HEAD" ? undefined : Buffer.concat([
-          tarArchive("./", Buffer.alloc(0), "5").subarray(0, 512),
-          tarArchive("./file", Buffer.from("root preserved")),
-        ]));
-        return;
-      }
-      const index = path ? `${path.slice(1)}/index.html` : "index.html";
-      const relative = fixtureFiles.get(path) ?? (files.has(path.slice(1)) ? path.slice(1) : files.has(index) ? index : null);
-      if (!relative) throw new Error("not a test asset");
-      if (path.startsWith("/dist/packs/")) headers["cache-control"] = "public, max-age=31536000, immutable";
-      if (sourceOverrides.has(path)) {
-        response.writeHead(200, {...headers,"content-type":mimeTypes.get(extname(relative)) ?? "application/octet-stream"});
-        response.end(request.method === "HEAD" ? undefined : sourceOverrides.get(path));
-        return;
-      }
-      const filename = resolve(projectDir, relative);
-      const stream = createReadStream(filename);
-      stream.once("error", () => { if (!response.headersSent) response.writeHead(404, headers); response.end(); });
-      stream.once("open", () => {
-        response.writeHead(200, { ...headers, "content-type": mimeTypes.get(extname(filename)) ?? "application/octet-stream" });
-        if (request.method === "HEAD") { stream.destroy(); response.end(); }
-        else stream.pipe(response);
-      });
-    } catch {
-      if (!response.headersSent) response.writeHead(404, headers);
-      response.end();
-    }
-  });
-  await new Promise((resolveListen, reject) => {
-    server.once("error", reject);
-    server.listen(port, "127.0.0.1", resolveListen);
-  });
-  return { origin: `http://127.0.0.1:${server.address().port}`, requests,
-    get cancelledRequests() { return cancelledRequests; },
-    close: () => new Promise(resolveClose => { server.close(resolveClose); server.closeAllConnections(); }) };
+  async function handleFixture(request, response, path, headers) {
+    if (await handle?.(request, response, path, headers)) return true;
+    if (path === "/fixture/echo" && request.method === "POST") {
+      response.writeHead(200, { ...headers, "content-type": "application/octet-stream" });
+      request.pipe(response);
+    } else if (!["GET", "HEAD"].includes(request.method)) {
+      return false;
+    } else if (path === "/fixture/http.txt") {
+      response.writeHead(200, { ...headers, "content-type": "text/plain" });
+      response.end(request.method === "HEAD" ? undefined : "FETCHED-THROUGH-BROWSER\n");
+    } else if (path === "/fixture/large") {
+      response.writeHead(200, { ...headers, "content-type": "application/octet-stream" });
+      let remaining = 65 * 1024 * 1024 + 17;
+      const chunk = Buffer.from(Uint8Array.from({ length: 65536 }, (_, i) => i & 255));
+      const send = () => {
+        while (remaining > 0 && !response.destroyed) {
+          const length = Math.min(remaining, chunk.length);
+          remaining -= length;
+          if (!response.write(chunk.subarray(0, length))) { response.once("drain", send); return; }
+        }
+        if (!response.destroyed) response.end();
+      };
+      if (request.method === "HEAD") response.end(); else send();
+    } else if (path === "/fixture/slow") {
+      response.writeHead(200, { ...headers, "content-type": "text/plain" });
+      response.write("waiting for cancellation\n");
+      response.once("close", () => { cancelledRequests++; });
+    } else if (path === "/fixture/root.tar") {
+      response.writeHead(200, { ...headers, "content-type": "application/octet-stream" });
+      response.end(request.method === "HEAD" ? undefined : Buffer.concat([
+        tarArchive("./", Buffer.alloc(0), "5").subarray(0, 512),
+        tarArchive("./file", Buffer.from("root preserved")),
+      ]));
+    } else return false;
+    return true;
+  }
+  const server = await startCheckoutServer(projectDir, image, { ...options, files, handle: handleFixture });
+  return { ...server, get cancelledRequests() { return cancelledRequests; } };
 }
