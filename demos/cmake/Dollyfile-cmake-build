@@ -6,7 +6,7 @@ REQUIRES HOST http@0
 REQUIRES HOST upload@0
 
 # Keep the expensive bootstrap reusable across source-build workspaces.
-FROM https://daugasauron.com/Dollyfile-system-tools 1fa2f404e05cec19f2a17e6bd7ce004158854f44c6151d3707e688c3d07bd5f6
+FROM https://daugasauron.com/Dollyfile-system-tools e73265bfaa9e4a1dd3d55552088401285ed1c7181a483f7ccb086e3100348d58
 REQUIRES HEADER libc
 REQUIRES HEADER runtime
 REQUIRES TOOL cc

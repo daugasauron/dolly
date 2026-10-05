@@ -8,9 +8,9 @@ REQUIRES HOST upload@0
 
 # Build-only: the libraries the 0 A.D. engine links, and pkgconf for its premake
 # scripts, built from the pinned upstream sources of build-sources.tsv.
-FROM https://daugasauron.com/demos/zero-ad/Dollyfile-openal-build 773896514cedb474a487cff8b49a841f4edfe09166c01a2e2e32ff7731a2f4d9
-COPY https://daugasauron.com/demos/sdl2/Dollyfile-sdl2-build 3de510378acaee681d9e3d9a42c587a0472c7b6c8c559159bdac997a2eea5b8d /usr/include/SDL2 /usr/include/SDL2
-COPY https://daugasauron.com/demos/sdl2/Dollyfile-sdl2-build 3de510378acaee681d9e3d9a42c587a0472c7b6c8c559159bdac997a2eea5b8d /usr/lib/libSDL2.a /usr/lib/libSDL2.a
+FROM https://daugasauron.com/demos/zero-ad/Dollyfile-openal-build f98e1518b33bbf38fffe5a1d044306bdfb810a25a746b27d0a3b6b7de5aa061b
+COPY https://daugasauron.com/demos/sdl2/Dollyfile-sdl2-build b5424c7a0b7050be1920ac04574ab6ede8b397032713a8cbef888f195bd2402f /usr/include/SDL2 /usr/include/SDL2
+COPY https://daugasauron.com/demos/sdl2/Dollyfile-sdl2-build b5424c7a0b7050be1920ac04574ab6ede8b397032713a8cbef888f195bd2402f /usr/lib/libSDL2.a /usr/lib/libSDL2.a
 REQUIRES HEADER libc
 REQUIRES HEADER cpp
 REQUIRES HEADER zlib

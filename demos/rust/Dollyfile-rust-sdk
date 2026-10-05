@@ -4,9 +4,9 @@ REQUIRES HOST display@0
 REQUIRES HOST http@0
 REQUIRES HOST threads@0
 
-FROM https://daugasauron.com/Dollyfile-system-build cd5f929bd031bf8950a2914a9b3cdad728cb11fced0fc4b122d59c832c2c3276
-INSTALL https://daugasauron.com/Dollyfile-zlib 253506f79f1a51b5896c2777b7eb0c353d5938bde056d0628a161283a8b067a2
-INSTALL https://daugasauron.com/Dollyfile-gzip 92c879292deba1c3b5f2af689edfd4a88c839b318f35510807d4351df05acadb
+FROM https://daugasauron.com/Dollyfile-system-build a06a388c8fee4c830482d85fa92ff3a5d8aef7c89efa4f7d452bb1304232aedd
+INSTALL https://daugasauron.com/Dollyfile-zlib 51a19680e5d2b39105bee8c57af5398c02df0d97283cf85b9020214ea03e826f
+INSTALL https://daugasauron.com/Dollyfile-gzip 92028a1c63d29fb5fce2415c6c636eebac55cf5494fab9cb1d00e095c49d1103
 REQUIRES TOOL cc
 REQUIRES TOOL tar
 REQUIRES TOOL gzip
@@ -30,6 +30,6 @@ EXPORTS TOOL rustc
 EXPORTS FOLDER rust-sdk /opt/rust-sdk
 EXPORTS FOLDER rust-licenses /usr/share/licenses/rust
 SLOP rustc --version --verbose
-INSTALL https://daugasauron.com/Dollyfile-display ff404efec763483ebe033a6c7c001a6ffa7c2caf47020308cbf12ef538ae4de3
+INSTALL https://daugasauron.com/Dollyfile-display 961c1e128024326ff0146fa1a854d0e70a139186f8d1af2b6bee31c50f04954e
 
 ENTRY /bin/foreground -i /bin/slop
