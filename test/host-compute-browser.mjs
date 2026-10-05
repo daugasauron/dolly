@@ -59,14 +59,21 @@ await browserTest("host compute", { image: "system-build" }, async ({ browser, s
       return { artifact, configuration: { image: "custom", customSource: recipe, customArtifact: artifact } };
     };
   });
-  const result = await page.evaluate(async code => {
+  // Firefox's test build offers no adapter without a desktop: the page then
+  // refuses gpu@0 before ENTRY instead of running the program.
+  const adapter = await page.evaluate(async () => Boolean(await navigator.gpu?.requestAdapter({ powerPreference: "high-performance" })));
+  const compute = page.evaluate(async code => {
     const { artifact, configuration } = await buildCustom("compute", "REQUIRES HOST gpu@0\nREQUIRES HOST http@0\n" +
       `FILE /tmp/probe.c\n${code.trimEnd().split("\n").map(line => "    " + line).join("\n")}\n` +
       "SLOP cc -O1 /tmp/probe.c -ldolly-gpu -o /usr/bin/probe\nEXPORTS TOOL probe\nENTRY /usr/bin/probe\n");
     const status = await runHeadless(["runtime@0", "gpu@0", "http@0"], configuration, [artifact.bytes], (_runtime, exited) => exited);
     return { status, requirements: artifact.hostRequirements, canvases: document.querySelectorAll("canvas").length };
   }, code);
-  assert.deepEqual(result, { status: 0, requirements: ["gpu@0", "http@0"], canvases: 0 });
+  if (adapter) {
+    assert.deepEqual(await compute, { status: 0, requirements: ["gpu@0", "http@0"], canvases: 0 });
+  } else {
+    await assert.rejects(compute, /Required host module gpu@0 is unavailable/);
+  }
   assert.deepEqual(await page.evaluate(async () => {
     const { artifact, configuration } = await buildCustom("loop",
       "REQUIRES HOST http@0\nFILE /etc/loop.slop\n    while :; do :; done\nENTRY /bin/slop /etc/loop.slop\n");

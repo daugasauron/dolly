@@ -83,3 +83,24 @@ process Worker 536, FFI 684.
    `abi/dolly-browser-0.wat` already groups the imports by concern for
    review. Recommendation: none now; the split with a real omission case is
    keyboard and mouse (`20261002-072000-input-host-module`).
+
+## Review (2026-10-05, `20261005-131642-big-picture`)
+
+Concur with all three recommendations: a module is browser authority that
+some image omits, and no runnable image can omit spawn, clocks or the
+filesystem. Two additions for the owner's decision:
+
+- One split was not measured and does have an omission case: process-local
+  DSOs and FFI. They are 7 of the 56 operations (112-114, 120-123), the
+  contract `abi/dolly-process-dso-0.wat`, and about 1,000 lines of trusted
+  JavaScript in every process Worker (`src/process-worker.mjs:80-413`,
+  `src/process-ffi.mjs`, 684 lines): 11% of the trusted total. Their users are
+  CPython and Neovim. As a declared module (the way `-pthread` needs
+  `threads@0`) the code would load only for images that name it.
+- The clarity the owner asked about is missing somewhere else in the runtime:
+  24 of its 26 imports are Emscripten's and are implemented by generated code
+  (`20261005-133401-kernel-boundary`). That is where "modular and nice" is
+  worth the work.
+
+If the owner accepts "no `runtime@0` line, no `process@0`", this task closes;
+the DSO/FFI question can then be its own task or be dropped.

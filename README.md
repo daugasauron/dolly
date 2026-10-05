@@ -18,7 +18,7 @@ recipes build on, or a `PACKAGE` recipes and sessions install
 ([Dollyfile](docs/dollyfile.md#roles-and-names)).
 
 - `default`: Shell, Git, Make and C/C++.
-- `system`: `system-tools` with HTTP, file transfer and snapshots.
+- `system`: `system-tools` with saved sessions (`snapshot@0`, `session-recover`).
 - `system-tools`: Shell, display, Git, curl, Make and POSIX tools.
 - `system-build`: C/C++ compiler, headers and basic build tools.
 - `zig-build`: Zig built from source by the C/C++ compiler; emits C.

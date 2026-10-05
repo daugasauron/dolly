@@ -1,6 +1,6 @@
 # Hand-copied ABI constants and duplicated signal sets
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 150
 - TAGS: core,maintainability
 
@@ -50,3 +50,13 @@ indices and sizes by hand from the C structs; `host/http/dolly-http-0.wat` is
 the pattern (WAT globals, static asserts in C, generated JS). The device
 header shared by GPU and audio is copied in about ten places. Converting them
 changes the module digests, so it belongs with the next client rebuild.
+
+## Closed (2026-10-05, big-picture review)
+
+The remaining item is done on `integrate/1005`: commit `0095054c` made the
+display, upload, session and terminal mailbox word indices WAT globals; the
+page transports import them from the generated `abi.mjs`
+(`host/display/display.mjs:11-30`, `host/upload/transport.mjs:2-6`,
+`host/snapshot/transport.mjs:3`, `host/runtime/runtime.mjs:3-5`) and the
+display and upload kernels assert their struct offsets against them. The
+device header is defined once (`src/device-lease.c:12`).

@@ -1,6 +1,6 @@
 # Tests assert on source text, prose and repository contents
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 160
 - TAGS: tests,cleanup
 
@@ -61,3 +61,10 @@ Tests exercise behavior through modules and binaries.
   alternatives are a print-key mode in every prepare script, which is a
   test hook in production scripts, or a Git checkout fixture per script;
   neither is worth its lines for this one check.
+
+## Closed (2026-10-05, big-picture review)
+
+Every offender named above is rewritten, deleted or kept with a recorded
+reason, except two demo tests that still patch the trusted GPU worker's
+source text; that item moved to `20260930-100000-audit-24` (test surface in
+trusted code).
