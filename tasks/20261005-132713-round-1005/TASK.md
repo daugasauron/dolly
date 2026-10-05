@@ -180,3 +180,23 @@ Open at hand-over: kernel-boundary step 2 and later (`core/kernel-boundary`,
 worktree `signals`); the licence texts for 0 A.D.'s linked libraries (`work/licences`,
 WIP `98803d3f`); recordings for RTS, ClassiCube and bhop (no model chosen since
 `stealth/space-bunny-alpha` left OpenRouter); the owner's decisions listed above.
+
+## After the hand-over (2026-10-06, from 06:15 JST)
+
+The owner delegated the open decisions ("research them thoroughly and go with
+the answer that aligns with the goal of the project") and asked for a local
+deployment: :9003 serves the full catalog (`2de39ded…`), :9005 the
+daugasauron.com packaging (`d6a822c9…`, with `/agents/`), both from `work/round2`.
+
+Running, each in its own worktree on the candidate's source:
+
+| Worktree | Branch | Work |
+|---|---|---|
+| `core-decisions` | `core/decisions` | runtime/process (accepted), target identity, what Slop is for, models above the image cap |
+| `licences3` | `work/licences-3` | 0 A.D. source as recipe inputs, the GPL-marked files, ClassiCube's textures (the owner asked whether GPL for the whole tree would settle it: no; MIT stays) |
+| `recordings` | `work/demo-recordings` | a free replacement model, then the remaining recordings |
+| `pi-local` | `fix/pi-local-loop` | high priority: Pi repeats its second tool call forever in `pi-local`, both browsers |
+| `local-models` | `work/local-models` | `20261006-…-local-models` |
+
+Merged since: `fix/git-fetch` (a relay is provider policy, `DOLLY_HTTP_RELAYS`);
+the Pi images need rebuilding for its skill edit.
