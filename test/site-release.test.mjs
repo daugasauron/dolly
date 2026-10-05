@@ -26,12 +26,12 @@ test("domain packaging adds the showcase only to its selected site, with public 
   assert.equal(await readFile(resolve(root, "github/index.html"), "utf8"), source);
   await assert.rejects(readFile(resolve(root, "github/agents/index.html")), { code: "ENOENT" });
   const page = await readFile(resolve(root, "domain/agents/index.html"), "utf8");
-  const files = new Set(["index.html", "agents/index.html", ...["rts-arena", "classicube", "bhop", "dollyfile-studio"].map(name => `${name}/index.html`)]);
+  const files = new Set(["index.html", "agents/index.html", ...["rts-arena", "dollyfile-studio"].map(name => `${name}/index.html`)]);
   const rendered = renderReleasePage(page, "agents/index.html", "a".repeat(64), files);
   assert.match(rendered, /<a href="\/">← Dolly/);
   assert.match(rendered, /<a href="\/rts-arena\/">/);
   assert.match(rendered, /<base href="\/_dolly\/a{64}\/agents\/">/);
-  assert.equal((page.match(/<video /g) ?? []).length, 4);
+  assert.equal((page.match(/<video /g) ?? []).length, 2);
   for (const [, path] of page.matchAll(/(?:src|poster)="([^"]+)"/g)) {
     const bytes = await readFile(resolve(root, "domain/agents", path));
     assert.ok(bytes.length > 0 && bytes.length <= 25 * 1024 * 1024, `${path} must fit a Pages asset`);

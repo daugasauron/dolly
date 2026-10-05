@@ -9,8 +9,8 @@ REQUIRES HOST upload@0
 
 FROM https://daugasauron.com/demos/slopyard/Dollyfile-gamedev-sdk 39c93ee9349387d0b81aa8c1950141cc242c7ff45acfb7084cfe916013942057
 INSTALL https://daugasauron.com/demos/javascript/Dollyfile-javascript efecdddda66eacc8c85ea23c1bccc670b9e3ba64ea5bbbda6a902027a097b13f
-INSTALL https://daugasauron.com/demos/pi/Dollyfile-pi-coding-agent 2b81bfb3675a7209a76d4e38f99d953ecc0c20ef3f561152b21630d6e8cc6fc1
-INSTALL https://daugasauron.com/demos/sdl2/Dollyfile-sdl2 54d8e89205739df786235b27dc9b93122da40f401638ab3137816d2efdef9ab3
+INSTALL https://daugasauron.com/demos/pi/Dollyfile-pi-coding-agent 285fa866c7bbe0b5b6d7fd5bdd02827106b55064aab265a6aa0bcc83b9e89cd2
+INSTALL https://daugasauron.com/demos/sdl2/Dollyfile-sdl2 8795bf52f7d49e2e84fecf0618f5514715df9cb173be776d81d7df4fef2e003d
 REQUIRES TOOL cc
 REQUIRES TOOL make
 REQUIRES TOOL c++
@@ -24,7 +24,7 @@ REQUIRES HEADER sdl2
 REQUIRES LIB dolly-js
 REQUIRES LIB SDL2
 
-SOURCE https://daugasauron.com/dist/static/bhop/source.tar dea45d4b4089f611734b1e8f6458ce9f0ca98e432b55be873cd55e32362fdbc9 /tmp/bhop-source.tar
+SOURCE https://daugasauron.com/dist/static/bhop/source.tar 7217b98b23e13a0a8afe8e36f6e6c05f81e9b8839a9cb7af9ee660cba5c767f7 /tmp/bhop-source.tar
 SOURCE https://daugasauron.com/dist/static/default/stb_truetype.h ecd30b05e0dd4fea3a13c26810dd9e1992dc379049482c393d5a19e6b5090aab /tmp/bhop-stb/stb_truetype.h
 SLOP tar -xf /tmp/bhop-source.tar -C /
 
