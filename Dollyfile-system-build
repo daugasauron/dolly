@@ -9,9 +9,9 @@ SOURCE https://daugasauron.com/include/dolly/toolchain.h 6f9da3258e970e356c31034
 SOURCE https://daugasauron.com/include/dolly/runtime.h   8960409cb41932a357c568724e285544c9fd04d8b65205f61efb398873eb63c6 /usr/include/dolly/runtime.h
 SOURCE https://daugasauron.com/include/dolly/process.h   b3aebe8a559080600347c2102a9d2e632d8358508e1f99c9c4d9b980365d6749 /usr/include/dolly/process.h
 SOURCE https://daugasauron.com/host/http/http.h      9788f40609302200f05b08538c65e940c2e3fb62cc7efe17329eaac1b5eba824 /usr/include/dolly/http.h
-SOURCE https://daugasauron.com/host/http/http-abi.h 4fd5bce3b48734ace1c451a2f7eda7382ea96ffbe0713db085cd69b8b601ce83 /usr/include/dolly/http-abi.h
-SOURCE https://daugasauron.com/host/display/display.h   e7906832c8b80672882692eaf3ec303c7b2159b6b60161e7e5f8fea0841b9af6 /usr/include/dolly/display.h
-SOURCE https://daugasauron.com/host/display/display-abi.h b60bdff2f8c28bf1163d0b975318c34defa6638996e0604383e634fe5db7b97b /usr/include/dolly/display-abi.h
+SOURCE https://daugasauron.com/host/http/http-abi.h a772fbc1a8ba489a4bed3c66527aa4b0ac4665d41c7fc6f2ea170e477c656bed /usr/include/dolly/http-abi.h
+SOURCE https://daugasauron.com/host/display/display.h   6acc64b125107c1a0ba4b5dea62662e0e73fb3bbda854909941b4a0731b691a2 /usr/include/dolly/display.h
+SOURCE https://daugasauron.com/host/display/display-abi.h 1490e3d68665c333287d78af15b77008c7ffdcf4a8b1fcfe93cd32a176f618c8 /usr/include/dolly/display-abi.h
 SOURCE https://daugasauron.com/host/download/download.h  666bca4fba5da7bf1e998c6486f56dce24cdbc82f1126f9be59067eb03b03bfa /usr/include/dolly/download.h
 SOURCE https://daugasauron.com/host/download/download-abi.h 45cfbbc85fd2ea3846db581cc3129ef1ae1304a3f9ede06d5dae3b544bd6c0e0 /usr/include/dolly/download-abi.h
 
@@ -22,7 +22,7 @@ SOURCE https://daugasauron.com/host/gpu/gpu-abi.h 01e97fc225cda01fb5e295819ceb23
 SOURCE https://daugasauron.com/host/audio/audio.h 9d291eeb25345a75bb21dbd4c422beb15f30700a5f96d5f665ca52a5d8948b65 /usr/include/dolly/audio.h
 SOURCE https://daugasauron.com/host/audio/audio-abi.h 4eb1f6e8f948ec1371fd5bb0bf4e904c438504e0cbccc4380cca9c98280eea30 /usr/include/dolly/audio-abi.h
 SOURCE https://daugasauron.com/host/upload/upload.h 8d5b888175631a2f6dba010942f73e53c8514559de13ea336af804aa75f15eff /usr/include/dolly/upload.h
-SOURCE https://daugasauron.com/host/upload/upload-abi.h 314558510cb81fd81f64a2a0dac7936fbcbb1aeecf4b99763f63bd9114ea982f /usr/include/dolly/upload-abi.h
+SOURCE https://daugasauron.com/host/upload/upload-abi.h 006056e6891a4d4399f521bc3b6a52362044dc146efb1bca46184c3cd9afb3e6 /usr/include/dolly/upload-abi.h
 
 SOURCE https://daugasauron.com/host/threads/threads.h d53ba27f4e9b371c3de9482dcc6b11cf86b4563f367ea776889642aa0e52632a /usr/include/dolly/threads.h
 SOURCE https://daugasauron.com/host/threads/threads-abi.h f65d87f501aa77cf5f371d8398681728226ad7357488eff53fc560180bf5c62b /usr/include/dolly/threads-abi.h

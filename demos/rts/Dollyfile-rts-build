@@ -5,7 +5,7 @@ REQUIRES HOST download@0
 REQUIRES HOST http@0
 REQUIRES HOST upload@0
 
-FROM https://daugasauron.com/demos/sdl2/Dollyfile-sdl2-build 26770142bdc124051cc5afbb91e3f83de0a0ba9d2b1b749d0c419e3c13c1cb0e
+FROM https://daugasauron.com/demos/sdl2/Dollyfile-sdl2-build 33f436b902e17929753517ead3677912633e2abd90ded08a6aa1f1e2e7b5a9a0
 REQUIRES HEADER cpp
 REQUIRES HEADER sdl2
 REQUIRES HEADER zlib
