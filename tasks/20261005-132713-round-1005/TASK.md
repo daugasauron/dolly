@@ -147,3 +147,15 @@ Not in this candidate: kernel-boundary step 2 and later (`core/kernel-boundary`,
 worktree `signals`), `core/iteration` (worktree `presenter`, to merge next),
 the licence texts of 0 A.D.'s linked libraries (`work/licences`, WIP `98803d3f`),
 new recordings for RTS, ClassiCube and bhop (the model left OpenRouter).
+
+GPU-dependent tests on the candidate (private Xvfb `:130`, run directly because
+`demos/run-browser-tests.mjs` strips `DISPLAY`), 04:56-05:03 JST, all exit 0:
+`demos/local-llm/test/local-llm-browser.mjs`; 0 A.D. `spidermonkey`, `openal`,
+`enet`, `engine`, `multiplayer` (149 synchronized turns, shared hash
+`f3dd66c3…`) and `graphics zero-ad hardware` (adapter `nvidia blackwell`).
+
+`core/iteration` conflicts with the packages work in `test/browser-server.mjs`
+and `test/image-inventory-browser.mjs` (its code moved to `scripts/`); the merge
+was aborted and its agent asked to rebase onto `integrate/1005-seed`.
+
+Tag `rc-2026-10-06` marks `5c7457b9`, the commit the release was built from.
