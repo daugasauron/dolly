@@ -3,7 +3,7 @@ PACKAGE emacs
 
 # GNU Emacs 31.1 for the terminal. demos/emacs/prepare-emacs.sh patches and
 # configures the release outside; Dolly compiles every object and dumps it.
-FROM https://daugasauron.com/Dollyfile-system 041c6f482c61b6afba4741e202fdbffb09adb3c6f25fa0be64af02a7f06fafa4
+FROM https://daugasauron.com/Dollyfile-system 8ce97e3312ad4770f94a34cdca04660b99bc921e9035e3ce85b6acef51943644
 REQUIRES HEADER libc
 REQUIRES TOOL   cc
 REQUIRES TOOL   ar

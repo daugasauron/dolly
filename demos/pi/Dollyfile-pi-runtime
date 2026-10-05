@@ -7,8 +7,8 @@ REQUIRES HOST snapshot@0
 REQUIRES HOST threads@0
 REQUIRES HOST upload@0
 
-FROM https://daugasauron.com/Dollyfile-system 041c6f482c61b6afba4741e202fdbffb09adb3c6f25fa0be64af02a7f06fafa4
-INSTALL https://daugasauron.com/demos/javascript/Dollyfile-javascript 0cc645585f503bedcd04685e6af6aba21b96f91d1af4e96f9f3efccceb33a52b
-INSTALL https://daugasauron.com/demos/pi/Dollyfile-pi-coding-agent efd7d3f0d1ed2665837b26a1280b25a9d6502d8885d306116efb5c9130582c4c
+FROM https://daugasauron.com/Dollyfile-system 8ce97e3312ad4770f94a34cdca04660b99bc921e9035e3ce85b6acef51943644
+INSTALL https://daugasauron.com/demos/javascript/Dollyfile-javascript efecdddda66eacc8c85ea23c1bccc670b9e3ba64ea5bbbda6a902027a097b13f
+INSTALL https://daugasauron.com/demos/pi/Dollyfile-pi-coding-agent 2b81bfb3675a7209a76d4e38f99d953ecc0c20ef3f561152b21630d6e8cc6fc1
 
 ENTRY /bin/foreground -i /bin/slop

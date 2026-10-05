@@ -3,7 +3,7 @@ PACKAGE cc
 
 # The C/C++ toolchain as system-build bootstraps it: the compiler and its
 # drivers, the C and C++ headers and libraries, the host clients and Make.
-FROM https://daugasauron.com/Dollyfile-system-build a06a388c8fee4c830482d85fa92ff3a5d8aef7c89efa4f7d452bb1304232aedd
+FROM https://daugasauron.com/Dollyfile-system-build 0e81e337f0bfe35449488a1ab898e8bbdcc215f9afc5439e5c75440dcdc4cf2f
 
 EXPORTS FILE   compiler      /usr/libexec/dolly/process-bin/compiler
 EXPORTS FOLDER process-sdk   /usr/lib/dolly/process
