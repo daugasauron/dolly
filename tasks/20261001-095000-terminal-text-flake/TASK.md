@@ -39,3 +39,12 @@ The full Firefox suite failed `terminal-browser.mjs` with
 selection: 3 of 16 Firefox runs of the new display test before, 13 of 13 after
 it waits for its own selection (`fix/page-presenter`). The mouse-drag failure
 recorded here is separate and still open.
+
+## Note (2026-10-06, `core/decisions`)
+
+Under machine load (a CMake bootstrap building beside the test, load average
+6 to 13) `demos/emacs/test/emacs-browser.mjs firefox` fails about every
+second run, on the old seed (`46a5776f`, 5 of 8 passed) and the new one (4 of
+8) alike, with "timed out waiting for terminal selection publication" or text
+that never appears after typing. The core `display` suite showed the first
+message once in four Firefox runs. Chrome did not fail.

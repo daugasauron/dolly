@@ -295,3 +295,38 @@ port uses it instead of a patch.
   closure check; `node demos/run-browser-tests.mjs python` passed in 23.9 s;
   the `amy` case of `test/amy-browser.mjs` (install `python` into `default`,
   run it, save the session) passed in Chrome (9.4 s) and Firefox (10.9 s).
+
+### rust (seed, `patti`, the Rust tools)
+
+- The Rust seed was rebuilt for the new process sysroot
+  (`demos/rust/build-rust-toolchain.sh` on a copy of the release tree's
+  `build/rustc-port`: "built and validated the complete Rust compiler seed").
+  It is compiled on the host by emcc, so its LLVM needs no edit; only the
+  in-Dolly LLVM of `llvm-tablegen` does.
+- `demos/rust/patti.c:22,281`: `#ifdef __dolly__` selects
+  `dolly_spawn_env_cwd`; the native test build keeps `posix_spawn`.
+- Evidence: `rust-sdk`, `rust-build`, `rust`, `rust-tools`, `ripgrep`, `fd`
+  and `protox` built (ripgrep 101 s, fd 69 s, protox 143 s, all through
+  `patti`); `node demos/run-browser-tests.mjs rust` passed in 80.9 s. Its
+  tokio fixture needs `python3 demos/codex/prepare-codex-sources.py` once
+  (host-side sources only; no Codex image was built).
+
+### emacs
+
+- `emacs-dolly.patch` tests `__dolly__` (6); the configure run that fixes the
+  in-Dolly `CFLAGS` no longer passes `-DDOLLY`.
+- Evidence: `emacs` built in 53 s and `gnu-emacs` in 20 s;
+  `demos/emacs/test/emacs-browser.mjs` passes in Chrome (3 of 3). In Firefox
+  it failed 4 of the first 5 runs while CMake was bootstrapping beside it, so
+  the old seed was measured too (a detached tree at `46a5776f` with the
+  release tree's images): eight interleaved runs each, old seed 5 of 8, new
+  seed 4 of 8, with the same two messages on both ("timed out waiting for
+  terminal selection publication", "terminal never showed ..."). The flake
+  is the open `20261001-095000-terminal-text-flake`, not this change.
+
+### javascript and pi (no edit)
+
+QuickJS's bare `-DEMSCRIPTEN=1` was never the compiler's macro. `javascript`,
+`typescript-build`, `pi-build`, `pi-runtime`, `pi-coding-agent` and `pi`
+rebuilt unchanged; `node demos/run-browser-tests.mjs javascript` passed in
+26.3 s and `pi` in 54.9 s (the agent starts, its tools, `rg` and `fd` run).
