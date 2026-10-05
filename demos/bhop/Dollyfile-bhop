@@ -7,14 +7,10 @@ REQUIRES HOST snapshot@0
 REQUIRES HOST threads@0
 REQUIRES HOST upload@0
 
-FROM https://daugasauron.com/demos/slopyard/Dollyfile-gamedev-sdk 299a66ea16dc6464eb4ac4f5583794d12e7d8a21d8028d0ec74987764bb9f816
-INSTALL https://daugasauron.com/demos/javascript/Dollyfile-javascript 35e17a29a93b938af56b8e2614c9ca06ecfe3e317900ad626a8ca6086e457661
-INSTALL https://daugasauron.com/demos/pi/Dollyfile-pi-coding-agent 3fe725c421d0c6932a727bf3fb5e13badfcc39697dc3c09fd5029d0f7daed030
-COPY https://daugasauron.com/demos/sdl2/Dollyfile-sdl2-build b5424c7a0b7050be1920ac04574ab6ede8b397032713a8cbef888f195bd2402f /usr/include/SDL2 /usr/include/SDL2
-COPY https://daugasauron.com/demos/sdl2/Dollyfile-sdl2-build b5424c7a0b7050be1920ac04574ab6ede8b397032713a8cbef888f195bd2402f /usr/lib/libSDL2.a /usr/lib/libSDL2.a
-COPY https://daugasauron.com/demos/sdl2/Dollyfile-sdl2-build b5424c7a0b7050be1920ac04574ab6ede8b397032713a8cbef888f195bd2402f /usr/share/licenses/SDL2 /usr/share/licenses/SDL2
-EXPORTS HEADER sdl2 /usr/include/SDL2
-EXPORTS LIB SDL2 /usr/lib/libSDL2.a
+FROM https://daugasauron.com/demos/slopyard/Dollyfile-gamedev-sdk 0000000000000000000000000000000000000000000000000000000000000000
+INSTALL https://daugasauron.com/demos/javascript/Dollyfile-javascript 0000000000000000000000000000000000000000000000000000000000000000
+INSTALL https://daugasauron.com/demos/pi/Dollyfile-pi-coding-agent 0000000000000000000000000000000000000000000000000000000000000000
+INSTALL https://daugasauron.com/demos/sdl2/Dollyfile-sdl2 0000000000000000000000000000000000000000000000000000000000000000
 REQUIRES TOOL cc
 REQUIRES TOOL make
 REQUIRES TOOL c++

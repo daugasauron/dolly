@@ -7,17 +7,12 @@ REQUIRES HOST snapshot@0
 REQUIRES HOST threads@0
 REQUIRES HOST upload@0
 
-FROM https://daugasauron.com/demos/pi/Dollyfile-pi-runtime 0ecf69e1f3a05815c6e4e169729cb759290ff14b1eb2f95cdfd007a49aaee638
-COPY https://daugasauron.com/demos/classicube/Dollyfile-classicube-build 90aa73c955e1a346f2d1c43c5c64c16c84bea094628eb3c3dfa960f5de8a8e8a /usr/bin/classicube /usr/bin/classicube
-COPY https://daugasauron.com/demos/classicube/Dollyfile-classicube-build 90aa73c955e1a346f2d1c43c5c64c16c84bea094628eb3c3dfa960f5de8a8e8a /usr/share/classicube /home/dolly/classicube
-COPY https://daugasauron.com/demos/classicube/Dollyfile-classicube-build 90aa73c955e1a346f2d1c43c5c64c16c84bea094628eb3c3dfa960f5de8a8e8a /usr/share/licenses/classicube /usr/share/licenses/classicube
-COPY https://daugasauron.com/demos/sdl2/Dollyfile-sdl2-build b5424c7a0b7050be1920ac04574ab6ede8b397032713a8cbef888f195bd2402f /usr/share/licenses/SDL2 /usr/share/licenses/SDL2
-
-COPY https://daugasauron.com/demos/sdl2/Dollyfile-sdl2-build b5424c7a0b7050be1920ac04574ab6ede8b397032713a8cbef888f195bd2402f /usr/include/SDL2 /usr/include/SDL2
-COPY https://daugasauron.com/demos/sdl2/Dollyfile-sdl2-build b5424c7a0b7050be1920ac04574ab6ede8b397032713a8cbef888f195bd2402f /usr/lib/libSDL2.a /usr/lib/libSDL2.a
+FROM https://daugasauron.com/demos/pi/Dollyfile-pi-runtime 0000000000000000000000000000000000000000000000000000000000000000
+COPY https://daugasauron.com/demos/classicube/Dollyfile-classicube-build 0000000000000000000000000000000000000000000000000000000000000000 /usr/bin/classicube /usr/bin/classicube
+COPY https://daugasauron.com/demos/classicube/Dollyfile-classicube-build 0000000000000000000000000000000000000000000000000000000000000000 /usr/share/classicube /home/dolly/classicube
+COPY https://daugasauron.com/demos/classicube/Dollyfile-classicube-build 0000000000000000000000000000000000000000000000000000000000000000 /usr/share/licenses/classicube /usr/share/licenses/classicube
+INSTALL https://daugasauron.com/demos/sdl2/Dollyfile-sdl2 0000000000000000000000000000000000000000000000000000000000000000
 EXPORTS TOOL classicube
-EXPORTS HEADER sdl2 /usr/include/SDL2
-EXPORTS LIB SDL2 /usr/lib/libSDL2.a
 REQUIRES HEADER cpp
 REQUIRES HEADER quickjs-runner
 REQUIRES HEADER sdl2

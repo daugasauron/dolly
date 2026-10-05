@@ -8,15 +8,15 @@ are built from source with it.
 
 - `rust-sdk`: Rust compiler, standard library and procedural macros.
 - `rust-build`: Rust SDK and Patti for compiling tools.
-- `rust-tools`: Interactive Rust compiler and Patti build shell.
+- `rust-tools`: Interactive Rust compiler and Patti build shell: `system` with the `rust` package.
+- `rust`: the Rust SDK and Patti, as a package.
 - `ripgrep`: rg built with Patti, as a package.
 - `fd`: fd built with Patti, as a package.
 - `protox`: the protobuf compiler Codex builds with, as a package.
 
 Build the seed once with `./demos/rust/build-rust-toolchain.sh` (Linux x86_64, Podman, Python
 3.12+, curl, patch), then `npm run image -- rust-tools`. `rust-sdk` starts from
-`system-build`; [`Dollyfile-pi-coding-agent`](Dollyfile-pi-coding-agent) installs the `ripgrep` and
-`fd` packages into Pi and Codex images.
+`system-build`; the `pi-coding-agent` and `codex-cli` packages install `ripgrep` and `fd`.
 
 ## Compiler seed
 

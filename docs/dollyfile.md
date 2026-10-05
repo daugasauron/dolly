@@ -66,7 +66,8 @@ and `/host/MODULE/`, prepared sources in `/dist/static/`.
   (`pi`, `ripgrep`, `python`); toolchains are `family-variant`
   (`rust-sdk`, `cmake-build`, `pi-runtime`); versions go in the family
   (`qwen3.5-4b`). When an application already has the product's name, the
-  package takes another name the project uses (`nvim`, `pi-coding-agent`). The
+  package takes another name the project uses (`nvim`, `pi-coding-agent`,
+  `codex-cli`). The
   start page lists images by role, toolchains grouped by their directory.
 - `/etc/dolly/recipes/` retains every recipe an image was built from, by file
   name; `/etc/dolly/Dollyfile` is the image's own.
@@ -123,7 +124,10 @@ and `/host/MODULE/`, prepared sources in `/dist/static/`.
 - `FROM` restores the image's retained files, environment and exports, not its
   ENTRY or host requirements. An application or toolchain keeps all of it. A
   package keeps none of it: the base is only the environment the package is
-  built in.
+  built in. The build runs the base's `/bin/dollyfile`.
+- A recipe without `FROM` starts from nothing and keeps only what it installs
+  and declares: `minimal` is `core`, `display` and an ENTRY, with no compiler,
+  engine or network. Without the engine it opens but is not a `FROM` base.
 - `INSTALL` restores a package's retained files, applies and exports its
   environment and exports its objects. It may appear anywhere and names only a
   package. It imports the package's contents, not the files that describe the
@@ -132,6 +136,9 @@ and `/host/MODULE/`, prepared sources in `/dist/static/`.
   all be declared by the installing recipe, or the row fails naming the missing
   line before it changes a file. A package built from another release of the
   same recipe fails the install: an image carries one pin per recipe.
+- `INSTALL` records its row in `/etc/dolly/installed`, after the rows of the
+  packages the package itself installed: the record lists the packages an
+  image or session holds.
 - `COPY` merges directories, replaces files and fails on a missing source; it
   imports no environment, exports or host requirements. Imported images are
   earlier builds of at most 2 GiB; an image cannot share a name with one it
@@ -184,8 +191,10 @@ and `/host/MODULE/`, prepared sources in `/dist/static/`.
   declaration, as the image's manifest.
 - They are never inherited: `FROM`, `INSTALL` and `COPY` carry none into the
   consumer and nothing is derived. The image's own recipe is the complete list.
-  A package declares the modules its programs need; `INSTALL` checks that the
-  installing recipe declares them too.
+  A package declares the modules its programs need, a library or compiler
+  those every program built with it needs (`sdl2`: `display@0`, `rust`:
+  `threads@0`, `cc`: none); `INSTALL` checks that the installing recipe
+  declares them too.
 - Sealing checks every retained executable: a `dolly.host` record naming a
   module the recipe does not declare fails the build, naming the file and the
   `REQUIRES HOST` line to add. Build steps may use the build host's modules
@@ -195,8 +204,9 @@ and `/host/MODULE/`, prepared sources in `/dist/static/`.
   embedding lacks one, and the loader refuses an executable whose stamped
   module is not declared. Requirements grant nothing: the embedding enables
   modules and the HTTP broker decides network access
-  ([browser boundary](browser-boundary.md)). `system` declares display, http,
-  download, upload and snapshot; `default` adds packages and threads.
+  ([browser boundary](browser-boundary.md)). `minimal` declares only display;
+  `system` declares display, http, download, upload and snapshot; `default`
+  adds packages and threads.
 - Linked client libraries (`-ldolly-gpu`, `-ldolly-audio`) stamp their module
   and its ABI digest into the executable's `dolly.host` section; loading fails
   for an unknown module or a different layout. Calling a disabled module
@@ -217,6 +227,15 @@ A package is the unit of reuse: a lean image that holds only the files,
 exports and environment it declares, built in a toolchain (`FROM`) or from
 nothing, and installed by recipes and sessions with the same row.
 
+Software is a package when a session would install it (`amy install cmake`)
+or more than one image uses it. An application, or a toolchain people open,
+is then a base, `INSTALL` rows and its own entry and configuration
+(`codex`, `neovim`, `rust-tools`); a toolchain remains where software is
+built. The same `COPY` rows in two recipes are a missing package. The core
+is packaged the same way: `core` (Slop and its commands), `cc` (the C/C++
+toolchain) and `amy` (with the engine it runs) are kept from the toolchains
+that build them.
+
 ```text
 DOLLY 6
 PACKAGE ripgrep
@@ -228,9 +247,15 @@ EXPORTS TOOL rg
 ```
 
 - A recipe installs it with `INSTALL URL SHA256`, anywhere.
+- A package holds its build (`FROM` a toolchain, then steps: `zlib`,
+  `ripgrep`, `sdl2`) or keeps the outputs of the toolchain that built them,
+  with `FROM` and only `EXPORTS` (`cc`, `cmake`, `javascript`) or with `COPY`
+  rows (`nvim`, `rust`, `codex-cli`), which leaves an expensive builder as it
+  is.
 - Packages install into standard paths (`/usr/bin`, `/usr/lib`, `/usr/share`)
   and set environment variables only for their own use: an installed value
-  replaces the importer's.
+  replaces the importer's. Installing composes no `PATH`: a command is in
+  `/usr/bin`, as a launcher when its files live elsewhere (`rustc`).
 - The release publishes the package index, `dist/dolly-packages.txt`, one
   `NAME URL SHA256` line per package, so a session can name a package and get
   its `INSTALL` row.
@@ -238,9 +263,9 @@ EXPORTS TOOL rg
   running session: the index names the package, the page's `packages@0`
   service ([browser boundary](browser-boundary.md#host-modules)) hands over its
   verified snapshot, and `dollyfile install URL SHA256` restores the files,
-  merges the exported variables into `/etc/dolly/environment` and appends the
-  row to `/etc/dolly/installed`. `amy list` marks the installed index entries
-  and `amy installed` prints the record. The check is the recipe's: a package
+  merges the exported variables into `/etc/dolly/environment` and records the
+  row as a build does. `amy list` marks the index entries the record holds,
+  the image's among them, and `amy installed` prints the record. The check is the recipe's: a package
   whose host modules the booted image does not declare is refused by name.
   Looking a name up in the index is the only unpinned step.
 - Installed files are session files, within the 512 MiB a save holds. Exported

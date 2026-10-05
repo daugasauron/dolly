@@ -1,9 +1,6 @@
 DOLLY 6
-TOOLCHAIN sdl2-build
+PACKAGE sdl2
 REQUIRES HOST display@0
-REQUIRES HOST download@0
-REQUIRES HOST http@0
-REQUIRES HOST upload@0
 
 FROM https://daugasauron.com/demos/cmake/Dollyfile-cmake-build 6cff47513690536bdd9c42632eb6ed7c9a1519b983ca85efcd11116a6b6eb312
 REQUIRES HEADER libc
@@ -30,8 +27,8 @@ SLOP cmake --install /tmp/sdl2/build
 
 EXPORTS HEADER sdl2 /usr/include/SDL2
 EXPORTS LIB SDL2 /usr/lib/libSDL2.a
+# SDL2Config.cmake names both libraries.
+EXPORTS LIB SDL2main /usr/lib/libSDL2main.a
 EXPORTS FOLDER sdl2-cmake /usr/lib/cmake/SDL2
 FILE /usr/share/licenses/SDL2/LICENSE.txt
 SLOP rm -rf /tmp/sdl2
-
-ENTRY /bin/foreground -i /bin/slop

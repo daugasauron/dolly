@@ -7,16 +7,7 @@ REQUIRES HOST snapshot@0
 REQUIRES HOST threads@0
 REQUIRES HOST upload@0
 
-FROM https://daugasauron.com/Dollyfile-system f67caffd1d6fed6b7e3470b068bb76f99dbf313976102d35335fa02cf4974c2b
-
-COPY https://daugasauron.com/demos/rust/Dollyfile-rust-build db474f29547da99509a14797c24018343609b04decf196de1e9046010ba5d595 /opt/rust-sdk /opt/rust-sdk
-COPY https://daugasauron.com/demos/rust/Dollyfile-rust-build db474f29547da99509a14797c24018343609b04decf196de1e9046010ba5d595 /usr/bin/patti /usr/bin/patti
-COPY https://daugasauron.com/demos/rust/Dollyfile-rust-build db474f29547da99509a14797c24018343609b04decf196de1e9046010ba5d595 /usr/share/licenses/rust /usr/share/licenses/rust
-COPY https://daugasauron.com/demos/rust/Dollyfile-rust-build db474f29547da99509a14797c24018343609b04decf196de1e9046010ba5d595 /usr/share/licenses/patti /usr/share/licenses/patti
-EXPORTS ENV PATH APPEND /opt/rust-sdk/bin
-EXPORTS TOOL rustc
-EXPORTS TOOL patti
-EXPORTS FOLDER rust-sdk /opt/rust-sdk
-EXPORTS FOLDER rust-licenses /usr/share/licenses/rust
+FROM https://daugasauron.com/Dollyfile-system 0000000000000000000000000000000000000000000000000000000000000000
+INSTALL https://daugasauron.com/demos/rust/Dollyfile-rust 0000000000000000000000000000000000000000000000000000000000000000
 
 ENTRY /bin/foreground -i /bin/slop

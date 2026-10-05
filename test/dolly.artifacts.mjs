@@ -225,12 +225,16 @@ test("system snapshots are sealed to their visible recipe chain", async () => {
   // Demo images prove their programs in their own browser tests.
   const corePrograms = new Map([
     ["default", "/bin/slop"],
+    ["amy", "/bin/amy"],
     ["audio-sdk", "/usr/lib/dolly/process/libdolly-audio.a"],
+    ["cc", "/bin/cc"],
+    ["core", "/bin/slop"],
     ["curl", "/usr/bin/curl"],
     ["display", "/usr/lib/libdisplay.so"],
     ["ghostty-build", "/usr/bin/zig"],
     ["gzip", "/bin/gzip"],
     ["gpu-sdk", "/usr/lib/dolly/process/libdolly-gpu.a"],
+    ["minimal", "/usr/lib/libdisplay.so"],
     ["system", "/usr/lib/libdisplay.so"],
     ["system-build", "/bin/slop"],
     ["system-tools", "/usr/bin/git"],
@@ -258,12 +262,15 @@ test("system snapshots are sealed to their visible recipe chain", async () => {
       assert.ok(metadata.manifest.includes(corePrograms.get(image)), `${image}: primary program`);
     }
     assert.ok(metadata.manifest.includes("/etc/dolly/recipes.lock"));
-    // Applications and toolchains carry the seed their base retained; a
-    // package keeps only what it declares.
-    const seed = ["/bin/dollyfile", "/usr/libexec/dolly/process-bin/compiler", "/usr/lib/dolly/process/libc-ww.a",
-      "/usr/lib/clang/24/include/stddef.h", "/usr/lib/dolly/dolly-kernel-plugin-0.wasm", "/bin/foreground"];
-    for (const path of seed) {
-      assert.equal(metadata.manifest.includes(path), graph.root.role !== "package", `${image}: ${path}`);
+    // An application or toolchain built on a base carries the seed its base
+    // retained. A package, or an image composed from packages, keeps only what
+    // it declares: the engine is in amy, the toolchain in cc, the shell in core.
+    const toolchain = ["/usr/libexec/dolly/process-bin/compiler", "/usr/lib/dolly/process/libc-ww.a",
+      "/usr/lib/clang/24/include/stddef.h", "/usr/lib/dolly/dolly-kernel-plugin-0.wasm"];
+    const based = graph.root.role !== "package" && (graph.root.from !== null || image === "system-build");
+    const declared = { amy: ["/bin/dollyfile"], cc: toolchain, core: ["/bin/foreground"], minimal: ["/bin/foreground"] }[image] ?? [];
+    for (const path of ["/bin/dollyfile", "/bin/foreground", ...toolchain]) {
+      assert.equal(metadata.manifest.includes(path), based || declared.includes(path), `${image}: ${path}`);
     }
     assert.equal(metadata.manifest.some((path) => /\/usr\/src\/dolly\/(?:dollyfile\.c|dso-)/.test(path) ||
       /\/process-bin\/(?!compiler$)/.test(path)), false, `${image} must not retain bootstrap probes`);
