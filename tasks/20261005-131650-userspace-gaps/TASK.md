@@ -109,9 +109,11 @@ Commands:
   changes nothing; refusing it would fail every `make install`.
 - `tar` only extracts, `gzip` only decompresses: refused, in their usage text
   ("This tar extracts only; it cannot create an archive."), and documented in
-  `docs/slop.md`. sbase's `tar` cannot replace the extractor: it rejects the
-  pax headers of forge archives, which recipes unpack. Open: no core tool
-  creates an archive.
+  `docs/slop.md` with what does create one: upstream Git, already in the
+  image (`git init -q . && git add -A && git archive -o out.tar.gz $(git
+  write-tree)` writes `.tar`, `.tar.gz` or `.zip` of any directory; tested in
+  `test/shell-browser.mjs`). sbase's `tar` cannot replace the extractor: it
+  rejects the pax headers of forge archives, which recipes unpack.
 - `id`, `whoami`, `ps`, `df`: documented as absent (`help`, `docs/slop.md`).
   There is one user and libc has no name database (`getpwuid` fails), no
   process-list operation and no mount table. `nproc`: fixed

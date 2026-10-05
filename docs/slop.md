@@ -105,7 +105,9 @@ threads, host processes or a scheduler.
   WasmFS. `kill` signals any process by PID. There is no `/dev/zero`, and no
   `id`, `whoami`, `ps` or `df`: one user without a name database, and no
   process or mount list to read. `tar` only extracts and `gzip` only
-  decompresses (`gzip -dc`); nothing in the core creates an archive.
+  decompresses (`gzip -dc`); Git creates archives of any directory:
+  `git init -q . && git add -A && git archive -o out.tar.gz $(git write-tree)`
+  (`.tar`, `.tar.gz` and `.zip`).
 - `uname` and `hostname` report the fixed Dolly/wasm64 identity, never the
   browser's.
 - GNU Make 4.4.1 ([`Dollyfile-system-build`](../Dollyfile-system-build)) defaults to
