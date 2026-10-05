@@ -154,6 +154,32 @@ Changed inputs still rebuild exactly what they should:
   at load 5-13), `node test/image-inventory-browser.mjs chromium firefox`
   and the release tests pass.
 
+## Merged with `integrate/1005-seed` (2026-10-06)
+
+`7712300f` merges the release candidate (`c1f085ad`, image inputs
+`047fc328…`). Its two conflicts were code this branch moved: the newer
+inventory check (build only on a base whose manifest retains
+`/bin/dollyfile`) is ported to `scripts/accept-release.mjs`, and the new
+`licences/index.html`, `robots.txt` and `process-wrong-import` fixture to the
+checkout server and the test layer.
+
+Verified on round 2's catalog (61 images imported read-only from
+`work/round2/dist`, its Rust seed and `node_modules`): preparation restaged
+every source with round 2's exact pins and the plan reuses all 61 images.
+`npm run -s test:source` 358/358, `npm run -s test:artifacts` 24/24.
+`node test/browser-tests.mjs chromium firefox` passed every test except one
+Firefox pixel wait in `terminal-browser.mjs` (728 s at load 4-5), which then
+passed twice alone. `DOLLY_BUILD_IMAGES=default,minimal,pi npm run publish
+build/iteration-evidence/releases` accepted all 13 non-package images through
+`accept-release.mjs` and published `e3e8a460…` there (2 min 10 s).
+
+Unchanged runs, interleaved with the candidate's scripts at load 3.7:
+
+| Unchanged command | Before (`c1f085ad`) | After |
+| --- | --- | --- |
+| `npm run image -- default` | 6.4-6.6 s (preparation 5.3-5.6 s) | 2.2 s (1.1 s) |
+| `DOLLY_BUILD_IMAGES=default,pi npm run image` | 9.5-10.4 s (7.0-7.9 s) | 5.3-7.0 s (2.7-4.4 s) |
+
 ## Left
 
 Unchanged runs of three demo images with multi-gigabyte inputs stay above
