@@ -53,6 +53,22 @@ target_link_libraries(ggml-webgpu PRIVATE ggml-base)
 target_compile_definitions(ggml PUBLIC GGML_USE_WEBGPU)
 target_link_libraries(ggml PUBLIC ggml-webgpu)
 
-install(TARGETS llama ggml ggml-base ggml-cpu ggml-webgpu ARCHIVE DESTINATION lib/dolly-llm)
+# llama's chat templates, tool-call parsers and samplers: the sources of upstream's common
+# library that an engine without its argument parser, downloads or console links.
+set(common upstream/common)
+set(LLAMA_BUILD_NUMBER 0)
+set(LLAMA_BUILD_COMMIT unknown)
+configure_file(${common}/build-info.cpp.in build-info.cpp)
+file(GLOB chat_sources ${common}/jinja/*.cpp ${common}/parsers/*.cpp)
+add_library(llama-common STATIC ${chat_sources} ${CMAKE_CURRENT_BINARY_DIR}/build-info.cpp)
+foreach(name chat chat-auto-parser-generator chat-auto-parser-helpers chat-diff-analyzer chat-peg-parser common fit json
+    json-schema json-schema-to-grammar log ngram-cache ngram-map ngram-mod peg-parser reasoning-budget sampling speculative trie unicode)
+  target_sources(llama-common PRIVATE ${common}/${name}.cpp)
+endforeach()
+target_include_directories(llama-common PRIVATE ${common} upstream/vendor)
+target_link_libraries(llama-common PRIVATE llama)
+
+install(TARGETS llama ggml ggml-base ggml-cpu ggml-webgpu llama-common ARCHIVE DESTINATION lib/dolly-llm)
 install(DIRECTORY upstream/include/ upstream/ggml/include/ headers/ DESTINATION include/dolly-llm)
+install(DIRECTORY ${common}/ DESTINATION include/dolly-llm FILES_MATCHING PATTERN "*.h" PATTERN "*.hpp")
 install(DIRECTORY upstream/vendor/nlohmann DESTINATION include/dolly-llm)

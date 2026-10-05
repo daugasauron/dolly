@@ -25,7 +25,7 @@ inputs=("${project_dir}/demos/local-llm/CMakeLists.txt" /tmp/llama/CMakeLists.tx
  "$temporary/headers" /tmp/llama/headers
  "$temporary/DAWN-LICENSE" /usr/share/licenses/dolly-llm/dawn-LICENSE
  "$temporary/upstream/LICENSE" /usr/share/licenses/dolly-llm/llama-LICENSE)
-for name in CMakeLists.txt cmake src include ggml vendor; do
+for name in CMakeLists.txt cmake src include ggml vendor common; do
  inputs+=("$temporary/upstream/$name" "/tmp/llama/upstream/$name")
 done
 node "${project_dir}/scripts/build-source-tar.mjs" "${1:-${project_dir}/dist/static/llama/source.tar}" "${inputs[@]}"
