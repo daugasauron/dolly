@@ -1,5 +1,5 @@
 // Pi extension. All game I/O stays in Dolly's in-Wasm filesystem.
-// SPDX-License-Identifier: GPL-2.0-or-later
+// SPDX-License-Identifier: MIT
 import { createInputCodec } from "./codec.mjs";
 export const { parameters, encodeBatch, decodeScreenshot } = createInputCodec({
   magic: 0x31535452, version: 2, width: 800, height: 600,

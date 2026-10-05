@@ -1,5 +1,5 @@
 // Shared world and independent Pi conversations, entirely inside Dolly.
-// SPDX-License-Identifier: GPL-2.0-or-later
+// SPDX-License-Identifier: MIT
 import { runPlayer } from "./mission.mjs";
 import { ClassicRoom, decodeWorld } from "./room.mjs";
 import { settingsDirectory, writeAtomic } from "./settings.mjs";

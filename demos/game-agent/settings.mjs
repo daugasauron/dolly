@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-2.0-or-later
+// SPDX-License-Identifier: MIT
 import { checkKey, signIn, efforts, openRouterJSON, visionModels, validateSelection } from "./auth.mjs";
 import { importRelay } from "../rts/spectator/relay.mjs";
 export const defaultSelection = { provider: "openrouter", model: "", effort: "low" };

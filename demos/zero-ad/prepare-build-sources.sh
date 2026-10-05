@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Prints a directory with the verified upstream archives of build-sources.tsv and
-# the 0 A.D. source (without its bundled SpiderMonkey) and its premake extracted.
+# the 0 A.D. source (its SpiderMonkey still packed) and its premake extracted.
 set -euo pipefail
 project_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "${project_dir}"
@@ -20,7 +20,7 @@ if [[ ! -d "${output}" ]]; then
   source config/source-pins.sh
   archive="$(bash scripts/fetch-verified-file.sh "${DOLLY_0AD_SOURCE_URL}" "${DOLLY_0AD_SOURCE_SHA256}" \
     ".cache/0ad/0ad-${DOLLY_0AD_VERSION}-unix-build.tar.xz")"
-  tar -xf "${archive}" -C "${temporary}" --exclude='*/libraries/source/spidermonkey/*'
+  tar -xf "${archive}" -C "${temporary}"
   # Repacked for Dolly's tar, which rejects the archive's pax global header.
   tar -xf "${temporary}/0ad-${DOLLY_0AD_VERSION}/libraries/source/premake-core/premake-core-5.0.0-beta7.tar.gz" -C "${temporary}"
   mv -T "${temporary}" "${output}"

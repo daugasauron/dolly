@@ -1,4 +1,4 @@
-// Private application protocol, not the machine ABI. SPDX-License-Identifier: GPL-2.0-or-later
+// Private application protocol, not the machine ABI. SPDX-License-Identifier: MIT
 export const keys = { W:1, A:2, S:4, D:8, Space:16, ArrowLeft:32, ArrowRight:64, R:128 };
 const integer = (minimum,maximum) => ({type:'integer',minimum,maximum});
 export const parameters = {type:'object',additionalProperties:false,required:['actions'],properties:{
