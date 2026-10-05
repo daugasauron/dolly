@@ -83,6 +83,7 @@ sequenceDiagram
 - The gate ([`dolly-process-gate-0.wat`](../abi/dolly-process-gate-0.wat)) is a
   policy-free multi-memory copier; bounds failures trap.
 - Errors are negated errno values of the pinned target libc, not Linux numbers.
+  A malformed packet is one of them, never the end of the process.
 - A pending signal turns the next call into `-EINTR`; libc then runs the handler
   ([process model](process-model.md)).
 

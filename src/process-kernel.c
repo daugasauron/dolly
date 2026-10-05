@@ -2060,6 +2060,19 @@ int dolly_process_worker_exited(int pid, int status, int signal_number) {
   return 0;
 }
 
+int dolly_process_worker_failed(int pid, uintptr_t size) {
+  dolly_kernel_process *process = find_process(pid);
+  const dolly_process_fd_io_request request = {STDERR_FILENO, 0, size};
+  if (process == NULL || process->state == DOLLY_KERNEL_PROCESS_EXITED ||
+      size > sizeof(process_mailbox) - sizeof(request)) return -EINVAL;
+  memmove(process_mailbox + sizeof(request), process_mailbox, size);
+  memcpy(process_mailbox, &request, sizeof(request));
+  /* A closed descriptor or a full pipe loses the line, never the status. */
+  (void)fd_write_packet(process, sizeof(request) + size, sizeof(dolly_process_io_result));
+  mark_process_exited(process, 126, 0);
+  return 0;
+}
+
 int dolly_process_exited(int pid) {
   const dolly_kernel_process *process = find_process(pid);
   return process == NULL || process->state == DOLLY_KERNEL_PROCESS_EXITED;

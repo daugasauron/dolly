@@ -48,9 +48,20 @@ sequenceDiagram
   and the exact typed import validation after linking decides.
 - The supervisor caches compiled modules by SHA-256 (64 entries, 256 MiB), never
   instances; at most 32 processes exist at once and further spawns fail `EAGAIN`.
-- An unexpected Worker failure exits the process with status 126 and a one-line
-  diagnostic; it does not affect unrelated processes. `cc`, `c++`, `ld` and `ar`
-  retry that status up to twice
+- A refusal is reported to the program that asked, not to the person at the
+  page. An executable the loader refuses (a wrong stamp or import, a host module
+  the image does not declare or whose layout differs, a thread client without
+  `dolly_thread_start`) and a Worker that fails while running exit with status
+  126 after one line on the process's own descriptor 2 that names the cause
+  ([`process-supervisor.mjs`](../src/process-supervisor.mjs)); unrelated
+  processes are unaffected. `cc` refuses to link a thread client without
+  `-pthread`, so what it links the loader runs.
+- A malformed call returns an errno and the process keeps running: `EFAULT` for
+  a packet outside its memory, `E2BIG` over 1 MiB, `ENOSYS` for an unknown
+  operation, `EINVAL` for a wrong layout
+  ([`process-worker.mjs`](../src/process-worker.mjs)). FFI packets carry
+  pointers of the process itself; a wild one ends it like a failed Worker.
+- `cc`, `c++`, `ld` and `ar` retry status 126 up to twice
   ([`runtime-adapter.c`](../src/process/runtime-adapter.c)), so long
   source builds survive a transient browser Worker allocation failure without
   hiding deterministic source errors.

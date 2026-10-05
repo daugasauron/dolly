@@ -31,6 +31,23 @@ ${Object.entries(DOLLY_ERRNO).map(([name, value]) => `  if (${name} != ${value})
   if (dolly_process_call(DOLLY_PROCESS_DSO_CLOSE, &close_request, sizeof(close_request), &response, sizeof(response)) != sizeof(response) || response.error != EBADF) return 2;
   if (dolly_process_call(DOLLY_PROCESS_DSO_CLOSE, &close_request, sizeof(close_request), &response, 1) != -ENOBUFS) return 3;
   if (dolly_process_call(DOLLY_PROCESS_FFI_CALL, NULL, 0, NULL, 0) != -EINVAL) return 4;
+  // A packet outside the process's memory or over the limit is an errno, on
+  // the hottest operation too; the process keeps running.
+  static char oversized[DOLLY_PROCESS_PACKET_LIMIT + 1];
+  const dolly_process_fd_io_request read_request = {0, 0, 8};
+  char bytes[8];
+  for (uint32_t operation = 0; operation < 256; ++operation) {
+    if (operation == DOLLY_PROCESS_EXIT) continue;
+    if (dolly_process_call(operation, NULL, 8, bytes, sizeof(bytes)) != -EFAULT) return 20;
+    if (dolly_process_call(operation, &read_request, sizeof(read_request), NULL, 8) != -EFAULT) return 21;
+    if (dolly_process_call(operation, (void *)UINT64_MAX, 8, bytes, sizeof(bytes)) != -EFAULT) return 22;
+    if (dolly_process_call(operation, &read_request, UINT64_MAX, bytes, sizeof(bytes)) != -EFAULT) return 23;
+    // DSO and FFI packets stay in the process and have their own bounds.
+    if (operation >= DOLLY_PROCESS_DSO_OPEN && operation <= DOLLY_PROCESS_FFI_CLOSURE_PREP) continue;
+    if (dolly_process_call(operation, oversized, sizeof(oversized), bytes, sizeof(bytes)) != -E2BIG) return 24;
+    if (dolly_process_call(operation, &read_request, sizeof(read_request), oversized, sizeof(oversized)) != -E2BIG) return 25;
+  }
+  if (dolly_process_call(UINT32_MAX, NULL, 0, NULL, 0) != -ENOSYS) return 26;
   if (argc == 1) return 0;
   struct sigaction action = {.sa_handler = on_interrupt};
   if (sigaction(SIGINT, &action, NULL)) return 8;

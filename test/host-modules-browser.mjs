@@ -15,6 +15,11 @@ await browserTest("host modules", { image: "system", server: { sourceOverrides }
   const errors = [];
   page.on("pageerror", error => errors.push(error.message));
   const run = async command => assert.equal(await submit(command), 0, `${command}\n${await text()}`);
+  // A refused program exits 126 with one line on its own stderr that names the cause.
+  async function refused(command, cause) {
+    assert.equal(await submit(`${command} > /tmp/refused.out 2> /tmp/refused.err`), 126, command);
+    await run(`test ! -s /tmp/refused.out && test $(wc -l < /tmp/refused.err) -eq 1 && grep -q '${cause}' /tmp/refused.err`);
+  }
   async function source(code) {
     sourceOverrides.set("/fixture/process-check.c", code);
     await run(`curl -fsS ${server.origin}/fixture/process-check.c -o /tmp/probe.c`);
@@ -50,20 +55,19 @@ await browserTest("host modules", { image: "system", server: { sourceOverrides }
   await source("#include <dolly/gpu.h>\nint main(void){static dolly_gpu g;return dolly_gpu_open(&g,0,0)<0;}");
   await run("cc -O1 /tmp/probe.c -ldolly-gpu -o /tmp/gpu-client");
   assert.ok((await requirements("/tmp/gpu-client")).includes("gpu@0"));
-  assert.equal(await submit("/tmp/gpu-client"), 126, "a disabled provider must deny the executable");
+  await refused("/tmp/gpu-client", "gpu@0");
   // So does a module whose layout differs from its provider's in one digest bit.
   const otherLayout = [...Buffer.from(DOLLY_HTTP_ABI_DIGEST, "hex")].map((byte, index) => index ? byte : byte ^ 1);
-  for (const [required, error] of [
-    ["unknown,0,DOLLY_HTTP_ABI_DIGEST", /unknown@0 is unsupported/],
-    ["http,1,DOLLY_HTTP_ABI_DIGEST", /http@1 is unsupported/],
-    ["http,0,OTHER_LAYOUT", /http@0 has a different layout/],
+  for (const [required, cause] of [
+    ["unknown,0,DOLLY_HTTP_ABI_DIGEST", "unknown@0"],
+    ["http,1,DOLLY_HTTP_ABI_DIGEST", "http@1"],
+    ["http,0,OTHER_LAYOUT", "http@0"],
   ]) {
     await source(`#include <dolly/host.h>\n#include <dolly/http-abi.h>\n#include <stdio.h>\n` +
       `#define OTHER_LAYOUT ${otherLayout.join(",")}\nDOLLY_HOST_REQUIRE(${required});\n` +
       `int main(void){FILE*f=fopen("/tmp/entered","w");if(f)fclose(f);return 0;}`);
     await run("cc -O1 /tmp/probe.c -o /tmp/denied");
-    assert.equal(await submit("/tmp/denied"), 126);
-    assert.match(await text(), error);
+    await refused("/tmp/denied", cause);
     await run("test ! -e /tmp/entered");
   }
   // Without a requirement claim the disabled outer provider still denies the operation.

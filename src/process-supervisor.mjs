@@ -654,17 +654,17 @@ export class DollyProcessSupervisor {
     }
   }
 
+  // A refusal or failure is reported to the program that asked: one line on
+  // the process's own stderr, then status 126.
   #fail(process, error) {
     if (process.retiring || this.processes.get(process.pid) !== process) return;
     const detail = error instanceof Error ? error : new Error(String(error));
-    const stage = process.started ? "while running" : "during startup";
-    this.#writeTerminal(
-      `\r\ndolly: process ${process.pid} Worker failed ${stage}: ` +
-        `${terminalFailureReason(detail)}\r\n`,
-    );
+    const line = encoder.encode(`dolly: process ${process.pid} ` +
+      `${process.started ? "failed" : "was refused"}: ${terminalFailureReason(detail)}\n`);
+    new Uint8Array(this.kernelMemory.buffer, this.mailboxAddress, line.length).set(line);
+    this.dolly._dolly_process_worker_failed(process.pid, BigInt(line.length));
     detail.message = `Dolly process ${process.pid} failed: ${detail.message}`;
     process.failure = detail;
-    this.dolly._dolly_process_worker_exited(process.pid, 126, 0);
     if (!process.reject) console.error(detail.stack ?? detail.message);
     this.#retire(process);
   }

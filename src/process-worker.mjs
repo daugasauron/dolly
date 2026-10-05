@@ -59,16 +59,14 @@ const loadedDsos = new Map();
 const globalDsos = [];
 const functionIndices = new WeakMap();
 
-function checkedRange(addressValue, sizeValue) {
+// A packet range inside the process's memory, or null.
+function packetRange(addressValue, sizeValue) {
   const address = Number(addressValue);
   const size = Number(sizeValue);
   const length = configuration.memory.buffer.byteLength;
-  if (!Number.isSafeInteger(address) || !Number.isSafeInteger(size) ||
+  return !Number.isSafeInteger(address) || !Number.isSafeInteger(size) ||
       address < 0 || size < 0 || address > length - size ||
-      (size !== 0 && address === 0)) {
-    throw new WebAssembly.RuntimeError("Dolly process supplied an invalid syscall range");
-  }
-  return { address, size };
+      (size !== 0 && address === 0) ? null : { address, size };
 }
 
 function decodeResult() {
@@ -422,11 +420,11 @@ function clockResponse(clock, response, now) {
 
 function call(operation, requestAddressValue, requestSizeValue,
               responseAddressValue, responseCapacityValue) {
-  if (!Number.isInteger(operation) || operation < 0) {
-    throw new WebAssembly.RuntimeError("Dolly process supplied an invalid operation");
-  }
-  const request = checkedRange(requestAddressValue, requestSizeValue);
-  const response = checkedRange(responseAddressValue, responseCapacityValue);
+  // A malformed call is the program's error: it gets an errno and keeps running.
+  operation >>>= 0;
+  const request = packetRange(requestAddressValue, requestSizeValue);
+  const response = packetRange(responseAddressValue, responseCapacityValue);
+  if (!request || !response) return -BigInt(DOLLY_ERRNO.EFAULT);
   if (operation >= DOLLY_PROCESS_DSO_OPEN && operation <= DOLLY_PROCESS_DSO_CLOSE) {
     if (configuration.threaded) return writeDsoResponse(response, 0n, DOLLY_ERRNO.ENOTSUP,
       "dynamic linking is not supported by the static thread profile");
@@ -456,6 +454,9 @@ function call(operation, requestAddressValue, requestSizeValue,
       performance.now() - lastSignalCheck < 1) {
     new DataView(configuration.memory.buffer, response.address, 4).setInt32(0, 0, true);
     return 4n;
+  }
+  if (request.size > DOLLY_PROCESS_PACKET_LIMIT || response.size > DOLLY_PROCESS_PACKET_LIMIT) {
+    return -BigInt(DOLLY_ERRNO.E2BIG);
   }
   // Positive 31-bit sequences wrap from 2^31 - 1 back to one.
   const sequence = Atomics.load(control, 0) % 0x7fffffff + 1;

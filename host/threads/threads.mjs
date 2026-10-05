@@ -8,7 +8,7 @@ export function validateThreadProfile(parsed, requirements, schema) {
   const expected = schema.exports.find(entry => entry.name === "dolly_thread_start");
   const actual = parsed.exports.find(entry => entry.name === expected.name);
   if (!actual || !sameWasmType(actual.type, expected.type))
-    throw new TypeError("threaded process needs dolly_thread_start(i32, i64) -> i64");
+    throw new TypeError("a program using threads@0 must export dolly_thread_start(i32, i64) -> i64; build C and C++ with -pthread");
   return true;
 }
 
