@@ -48,8 +48,8 @@ package keeps them for `INSTALL` (`pi-runtime`, `bhop`, `slopyard`) and
 
 ## Limits
 
-- No npm client, native addons, worker threads (`worker_threads` has no
-  `Worker`) or nested WebAssembly. Requiring an ES module fails with
+- No npm client, native addons, worker threads (constructing a `Worker` fails
+  with `ENOSYS`) or nested WebAssembly. Requiring an ES module fails with
   `ERR_REQUIRE_ESM`.
 - Only three stdio descriptors; detached processes and IPC fail.
 - `os.cpus`, `os.totalmem`/`freemem` and `process.memoryUsage` fail with

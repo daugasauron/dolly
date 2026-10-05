@@ -2520,8 +2520,10 @@ const janisBuiltinModules = {
   "util/types": janisUtil.types,
   v8: janisV8,
   vm: janisVm,
-  // Janis has one thread and no Worker; programs that check for it choose their fallback.
-  worker_threads: { isMainThread: true, parentPort: null, threadId: 0, workerData: null },
+  // One thread. Worker stays a named export, since static imports of it must
+  // link (Pi's codemode imports it); constructing one fails with ENOSYS.
+  worker_threads: { isMainThread: true, parentPort: null, threadId: 0, workerData: null,
+    Worker: class Worker { constructor() { unsupported("worker threads")(); } } },
 };
 
 janisBuiltinModules["assert/strict"] = janisBuiltinModules.assert;

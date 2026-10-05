@@ -46,9 +46,10 @@ test("raw mode reaches the terminal, so Ctrl+C becomes input, only for a TTY std
   assert.deepEqual(calls, [true, false]);
 });
 
-test("worker_threads describes the one thread and exports no Worker to construct", () => {
+test("worker_threads describes the one thread and Worker construction fails explicitly", () => {
   const workers = janisContext().__janisBuiltin("worker_threads");
-  assert.deepEqual([workers.isMainThread, workers.threadId, "Worker" in workers], [true, 0, false]);
+  assert.deepEqual([workers.isMainThread, workers.threadId], [true, 0]);
+  assert.throws(() => new workers.Worker("/workspace/worker.js"), { code: "ENOSYS" });
 });
 
 test("unsupported host resource queries fail explicitly", async () => {
