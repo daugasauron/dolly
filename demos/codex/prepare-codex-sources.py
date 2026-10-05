@@ -11,7 +11,7 @@ import tarfile
 import tomllib
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "rust"))
-from rust_sources import download  # noqa: E402
+from rust_sources import crate_licences, download  # noqa: E402
 
 stage = Path("build/codex-sources")
 shutil.rmtree(stage, ignore_errors=True)
@@ -124,7 +124,8 @@ for package in records:
     shutil.copyfile(path, archives / filename)
 
 mappings = [(codex, "/tmp/codex-sources/codex-rs"), (git, "/tmp/codex-sources/git"),
-            (archives, "/tmp/patti-cache/archives")]
+            (archives, "/tmp/patti-cache/archives"),
+            tuple(crate_licences(archives, stage, "/usr/share/licenses/codex/crates"))]
 mappings += [(path, f"/tmp/codex-sources/{path.name}") for path in adapted]
 mappings += [(codex.parent / name, f"/tmp/codex-sources/{name}") for name in ["LICENSE", "NOTICE"]]
 for directory, _ in mappings:

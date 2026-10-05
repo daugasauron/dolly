@@ -60,6 +60,12 @@ EXPORTS FOLDER clang-headers     /usr/lib/clang/24/include
 EXPORTS FILE   compiler          /usr/libexec/dolly/process-bin/compiler
 EXPORTS FILE   kernel-plugin-abi /usr/lib/dolly/dolly-kernel-plugin-0.wasm
 
+# Every program links the process libc: Emscripten's musl.
+SOURCE https://daugasauron.com/dist/static/default/licenses/musl b870108ec5e7790e9f9919064f1b9421d62d5f9b0e6c230c6adf7ea2da62e97b /usr/share/licenses/musl/COPYRIGHT
+SOURCE https://daugasauron.com/dist/static/default/licenses/emscripten 620a78084fc7ca97c0b5dea9abf891f3ffcadfdbf305276f099c9c4e12fc1d86 /usr/share/licenses/emscripten/LICENSE
+FILE /usr/share/licenses/musl/COPYRIGHT
+FILE /usr/share/licenses/emscripten/LICENSE
+
 # cc, c++, ld and ar forward to the seed compiler. Only that compiler exists at
 # this point, so COMPILEC builds them; every later recipe step uses SLOP.
 FILE /tmp/process-tools/cc.c

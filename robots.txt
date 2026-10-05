@@ -1,0 +1,7 @@
+# Dolly: a POSIX-like agent userspace in one browser WebAssembly machine.
+# Source: https://github.com/daugasauron/dolly
+# Licences and upstream sources: https://daugasauron.com/licences/
+# Release assets, source archives and image snapshots are large downloads.
+User-agent: *
+Disallow: /_dolly/
+Disallow: /dist/

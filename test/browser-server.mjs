@@ -14,6 +14,7 @@ import { CANONICAL_ORIGIN, canonicalPath } from "../src/static-asset.mjs";
 export const mimeTypes = new Map([
   [".html", "text/html; charset=utf-8"],
   [".md", "text/markdown; charset=utf-8"],
+  [".txt", "text/plain; charset=utf-8"],
   [".h", "text/plain; charset=utf-8"],
   [".json", "application/json"],
   [".js", "text/javascript; charset=utf-8"],
@@ -115,7 +116,8 @@ export async function startBrowserServer(projectDir, image = "default",
   for (const entry of await readdir(resolve(projectDir, "view"), { recursive: true })) {
     if (entry.endsWith("index.html")) files.add(`view/${entry}`);
   }
-  for (const page of ["index.html", ...image ? [`${image}/index.html`, `${image}/rebuild/index.html`] : [],
+  for (const page of ["index.html", "licences/index.html", "robots.txt",
+    ...image ? [`${image}/index.html`, `${image}/rebuild/index.html`] : [],
     "custom/index.html", "custom/rebuild/index.html", "custom/run/index.html",
     "session/index.html", "sessions/index.html"]) files.add(page);
   const fixtureFiles = new Map();
