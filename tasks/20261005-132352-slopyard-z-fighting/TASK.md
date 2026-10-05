@@ -1,6 +1,6 @@
 # Slopyard: coplanar ground surfaces flicker (z-fighting)
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 40
 - TAGS: game,slopyard,rendering
 
@@ -49,3 +49,8 @@ runs three frames between captures (machines move, so the tree is rebuilt):
 Before, two of five pairs flipped whole pad strips (~870 px); after, the pad
 does not change while machines move, and with a moving camera the pad changes
 only with the view.
+
+Verified on the rebuilt `slopyard` image (only it rebuilt, 75 s; `gamedev-sdk`
+reused): `slopyard-browser.mjs` passes (17 fixtures, driving, world restore, no
+page errors), `npm run -s test:source` 357/357, `npm run -s lint:dollyfiles`.
+Closed by `174d9837`.
