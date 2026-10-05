@@ -9,7 +9,8 @@ import { CANONICAL_ORIGIN, canonicalPath } from "../src/static-asset.mjs";
 // tree. "pins" are config/source-pins.sh keys (DOLLY_GIT_URL and
 // DOLLY_GIT_COMMIT are GIT), which also name the seed's and host-built inputs.
 // "seed" upstreams are compiled into the runtime every page loads; "prebuilt"
-// ones reach recipes as files built outside Dolly, not as source.
+// ones reach recipes as files built outside Dolly, not as source; an "npm" row
+// stands for the packages its published node_modules tree ships.
 export async function sourcePins(projectDir) {
   const pins = new Map();
   for (const [, key, field, value] of (await readFile(resolve(projectDir, "config/source-pins.sh"), "utf8"))
@@ -78,7 +79,6 @@ export async function upstreamInventory(projectDir, definitions) {
     const entry = { name: row.name, use: row.use, licence: row.licence, repository: row.repository,
       images: [...row.images], served };
     if (row.npm) {
-      // Only a catalog that builds Pi publishes its npm tree.
       for (const location of locations) {
         for (const item of npmPackages(await readFile(resolve(projectDir, canonicalPath(location).slice(1))))) {
           inventory.push({ ...entry, ...item });
