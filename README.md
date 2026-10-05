@@ -63,18 +63,22 @@ npx playwright-core install firefox
 ./scripts/build-toolchain.sh          # compiler seed, slow, once
 npm run build:runtime                 # kernel and seed; checks the exact ABI
 npm run image -- default --plan       # show what would rebuild
-npm run image -- default --package    # build an image and a local release
-DOLLY_PORT=9000 npm run serve
-
-npm run test:source                   # Node source tests
-npm run test:core                     # core scenarios in Chrome and Firefox
-npm run test:browser                  # every core browser test (test/*-browser.mjs)
-npm run test:demos                    # demo browser tests (demos/*/test/)
-npm run test:artifacts                # exact contracts of the built artifacts
-npm run test:full                     # rebuilds every image first: hours
+npm run image -- default              # build an image and what it needs
+npm run dev -- default                # serve this checkout and dist/ (DOLLY_PORT)
+npm run image -- default --package    # also seal a local release for npm run serve
 ```
 
-Image builds rewrite SHA-256 pins in `Dollyfile*`.
+Image builds rewrite SHA-256 pins in `Dollyfile*`. Check by what you changed
+(measured 2026-10-06 on 16 shared cores):
+
+| Edit | Check | Turnaround |
+| --- | --- | --- |
+| Scripts, Node-side code | `npm run test:source`, `npm run test:artifacts` | 5 s, 2 s |
+| Page JavaScript | `npm run dev`, reload; `npm run test:core` | 33-36 s Chrome, 44-48 s Firefox |
+| Kernel C | `npm run build:runtime`, then `npm run test:core` | 9-12 s without changes |
+| A recipe or its sources | `npm run image -- IMAGE` | 2 s when nothing changed (`default`); 9 s to rebuild `gzip` |
+| Seed: headers, Slop, commands, libc adapter | every image rebuilds | 843 s for the `default` chain (2026-10-05) |
+| Before merging | `npm run test:browser` (`test/*-browser.mjs`), `npm run test:demos` (`demos/*/test/`) | 11 min for the core tests in both browsers |
 
 ## Docs
 
