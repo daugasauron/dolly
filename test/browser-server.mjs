@@ -12,7 +12,7 @@ export async function startBrowserServer(projectDir, image = "default", { fixtur
     if (name.endsWith(".mjs")) files.set(`/test/fixtures/${name}`, `test/fixtures/${name}`);
   }
   for (const [name, path] of Object.entries({ ...processSmokeSources, ...fixtures })) files.set(`/fixture/${name}`, path);
-  for (const name of ["process-wrong-call", "process-wrong-start", "process-wrong-memory"]) {
+  for (const name of ["process-wrong-call", "process-wrong-start", "process-wrong-memory", "process-wrong-import"]) {
     files.set(`/fixture/${name}.wasm`, `build/${name}.wasm`);
   }
   let cancelledRequests = 0;

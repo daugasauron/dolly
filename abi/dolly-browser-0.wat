@@ -48,9 +48,8 @@
   (import "env" "_wasmfs_get_preloaded_path_name" (func (param i32 i64)))
   (import "env" "_wasmfs_get_preloaded_file_mode" (func (param i32) (result i32)))
 
-  ;; WasmFS device callbacks. The embedding installs only local byte-output
-  ;; devices (host/runtime/runtime.mjs: installOutputDevices), with EOF for reads.
-  ;; Filesystem contents, metadata, paths, and descriptors remain in Wasm.
+  ;; Linked because Emscripten's forced JavaScript FS object names its JSImpl
+  ;; backend. No code creates a JSImpl file, so these are never called.
   (import "env" "_wasmfs_jsimpl_alloc_file" (func (param i64 i64)))
   (import "env" "_wasmfs_jsimpl_free_file" (func (param i64 i64)))
   (import "env" "_wasmfs_jsimpl_get_size" (func (param i64 i64) (result i32)))

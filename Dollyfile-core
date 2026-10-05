@@ -1,0 +1,26 @@
+DOLLY 6
+PACKAGE core
+
+# Slop and the commands system-build compiles beside it: a shell without the
+# compiler or the recipe engine.
+FROM https://daugasauron.com/Dollyfile-system-build a06a388c8fee4c830482d85fa92ff3a5d8aef7c89efa4f7d452bb1304232aedd
+
+EXPORTS TOOL slop
+EXPORTS TOOL foreground
+EXPORTS TOOL help
+EXPORTS TOOL pwd
+EXPORTS TOOL cd
+EXPORTS TOOL cat
+EXPORTS TOOL echo
+EXPORTS TOOL touch
+EXPORTS TOOL clear
+EXPORTS TOOL ls
+EXPORTS TOOL stat
+EXPORTS TOOL file
+EXPORTS TOOL test
+EXPORTS TOOL [
+EXPORTS TOOL mv
+EXPORTS TOOL cp
+EXPORTS TOOL mkdir
+EXPORTS TOOL rm
+EXPORTS TOOL tar

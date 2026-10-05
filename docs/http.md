@@ -34,8 +34,13 @@ flowchart LR
   handles never touch a successor. `EBUSY` means the slot is occupied.
 - Terminal errors are target errnos: `EACCES` policy, `EDQUOT` quota, `E2BIG`
   size, `ETIMEDOUT` deadline (which includes guest backpressure), `ECANCELED`,
-  `EIO` transport. Errors never echo URLs, headers or credentials, and cannot
-  distinguish CORS, DNS, TLS or redirect failures.
+  `EIO` transport. Errors never echo URLs, headers or credentials. `EIO` is one
+  class: the browser could not fetch, because the response was blocked (no
+  CORS headers, a redirect) or the host was unreachable (DNS, TLS, offline).
+  Fetch does not tell these apart, and every client's message says so
+  ([`dolly_http_error_message`](../host/http/http.h)); a policy refusal reads
+  differently. `curl` exits with curl's own status: 7 for `EIO`, 9 for a
+  policy refusal, 28 for a deadline.
 - Process exit, signal termination and forced termination cancel only that
   process's requests.
 - Processes stage request bodies in the kernel with `HTTP_BODY_WRITE` packets of
@@ -103,13 +108,19 @@ Fetch, so a generic transport failure alone does not identify its cause.
   callbacks, `HTTPAUTH` basic and info queries: the subset real ports need, not
   every libcurl behavior. `USERAGENT` and `ACCEPT_ENCODING` are accepted and
   ignored; they are request metadata, and the browser owns those wire headers.
-  Fetch owns TLS, DNS, pooling, compression and redirects, so proxies, cookies,
-  certificates, disabling TLS verification and transfer timeouts return
+  `TIMEOUT` and `TIMEOUT_MS` (`curl -m`) are a deadline kept in the client,
+  which cancels the request. Credentials in a URL (`https://user:token@host/`)
+  become Basic credentials and are removed from the URL, which Fetch would
+  refuse. Fetch owns TLS, DNS, pooling, compression and redirects, so proxies,
+  cookies, certificates, disabling TLS verification and connect timeouts return
   `CURLE_NOT_BUILT_IN` rather than being silently remembered; unknown options
   return `CURLE_UNKNOWN_OPTION`. A relative URL fails with `CURLE_URL_MALFORMAT`
   and a disallowed redirect with `CURLE_COULDNT_CONNECT`.
 - Git: upstream `git` and `git-remote-http(s)` link that libcurl
-  ([`Dollyfile-system-tools`](../Dollyfile-system-tools)): clone, fetch and push over HTTP. Clean/smudge
+  ([`Dollyfile-system-tools`](../Dollyfile-system-tools)): clone, fetch and push over HTTP, from
+  hosts that send CORS headers or through a relay (see [CORS](#cors)).
+  `github.com` sends none on its Git endpoints, so cloning from it fails with
+  the `EIO` message until the embedding provides a relay. Clean/smudge
   filters are not ported. Cancelling an exchange does not undo a ref update the
   remote already accepted.
 - Janis `fetch()` polls slots cooperatively so timers and promises keep running.

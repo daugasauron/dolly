@@ -99,7 +99,7 @@ node scripts/dolly-abi.mjs bind-process-layout \
   build/dolly-process-0.wasm \
   include/dolly/process.h
 
-fixtures=(process-minimal process-no-dso process-wrong-call process-wrong-start process-wrong-memory)
+fixtures=(process-minimal process-no-dso process-wrong-call process-wrong-start process-wrong-memory process-wrong-import)
 for fixture in "${fixtures[@]}"; do
   echo "/emsdk/upstream/bin/wasm-as test/fixtures/${fixture}.wat --enable-memory64 --enable-threads --disable-compact-imports -o build/${fixture}.wasm"
 done | in_container

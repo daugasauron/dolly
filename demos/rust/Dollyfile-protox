@@ -3,7 +3,7 @@ PACKAGE protox
 REQUIRES HOST http@0
 REQUIRES HOST threads@0
 
-FROM https://daugasauron.com/demos/rust/Dollyfile-rust-build 8af86cc42e42fd4ce9d5d5e9437e09877cfbfbdf5dfaf27f950c245b36ca55fb
+FROM https://daugasauron.com/demos/rust/Dollyfile-rust-build d844b76d9560ff6cd690c5dfbd51944b38ab2881c0cf15549c79f08958dd704c
 REQUIRES TOOL patti
 REQUIRES TOOL tar
 REQUIRES TOOL cp
@@ -12,7 +12,7 @@ REQUIRES TOOL rm
 REQUIRES TOOL test
 
 # Archives contain upstream source and checksum-verified locked crate archives.
-SOURCE https://daugasauron.com/dist/static/rust/protox.tar 501305f0e373d0509dbd133368c7944dffa6f710a44ee514c06bdf357fa33bf6 /tmp/protox.tar
+SOURCE https://daugasauron.com/dist/static/rust/protox.tar 35a9a42ee9dc94787ccb78f3263eb8c3f331c89e2b8bc2943d403204863b6582 /tmp/protox.tar
 SLOP tar -xf /tmp/protox.tar -C /
 SLOP patti build -j 4 --offline --manifest-path /tmp/protox/source/Cargo.toml --bin protox --features bin --cache /tmp/protox/cache --target-dir /tmp/protox/build
 SLOP cp /tmp/protox/build/protox /usr/bin/protox

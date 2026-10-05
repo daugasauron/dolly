@@ -16,10 +16,7 @@ const sources = [];
 const content = resolve(root, "build/0ad/graphics");
 const files = (await readdir(content, { recursive: true, withFileTypes: true }))
   .filter(entry => entry.isFile()).map(entry => resolve(entry.parentPath, entry.name).slice(content.length + 1)).sort();
-for (const [input, name, destination] of [
-  [resolve(root, "build/0ad/pyrogenesis.wasm"), "pyrogenesis.wasm", "/opt/0ad/system/pyrogenesis"],
-  ...files.map(path => [resolve(content, path), path, `/opt/0ad/${path}`])
-]) {
+for (const [input, name, destination] of files.map(path => [resolve(content, path), path, `/opt/0ad/${path}`])) {
   await mkdir(dirname(resolve(output, name)), { recursive: true });
   await copyFile(input, resolve(output, name));
   sources.push(`SOURCE https://daugasauron.com/dist/static/zero-ad/${name} ${await digest(resolve(output, name))} ${destination}`);
@@ -36,7 +33,8 @@ REQUIRES HOST snapshot@0
 REQUIRES HOST upload@0
 
 FROM https://daugasauron.com/Dollyfile ${hash(await readFile(resolve(root, "Dollyfile")))}
-# External wasm64 bootstrap; pinned sources and port instructions: demos/zero-ad/README.md.
+COPY https://daugasauron.com/demos/zero-ad/Dollyfile-zero-ad-engine ${hash(await readFile(resolve(root, "demos/zero-ad/Dollyfile-zero-ad-engine")))} /opt/0ad/system/pyrogenesis /opt/0ad/system/pyrogenesis
+# Game content and configuration; the engine comes from zero-ad-engine.
 ${sources.join("\n")}
 
 FILE /usr/bin/zero-ad

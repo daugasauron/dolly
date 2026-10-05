@@ -1,8 +1,6 @@
-import { installOutputDevices } from "../host/runtime/runtime.mjs";
 import { MAX_SNAPSHOT_BYTES as snapshotSizeLimit } from "./snapshot-records.mjs";
 import { DOLLY_BUILD_ID } from "../dist/dolly-build-id.mjs";
 import { DOLLY_IMAGE_BUILD_ID } from "../dist/dolly-image-build-id.mjs";
-import { DOLLY_ERRNO } from "../dist/dolly-errno.mjs";
 import { DOLLY_IMAGES } from "../dist/dolly-images.mjs";
 import { describeImageArtifact, saveImageArtifact, sha256,
   loadPackagedSnapshotMetadata, streamPackagedSystemSnapshot } from "./image-artifact.mjs";
@@ -230,7 +228,6 @@ try {
   if (restoreMetadata) {
     replaceFile("/etc/dolly/image.manifest", `${restoreMetadata.manifest.join("\n")}\n`);
   }
-  installOutputDevices(dolly);
 
   await host.start("kernel", { dolly, memory, kernelExports });
 

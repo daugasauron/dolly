@@ -4,6 +4,7 @@ import { readFile } from "node:fs/promises";
 import { Readable } from "node:stream";
 import { pipeline } from "node:stream/promises";
 import { DOLLY_IMAGES } from "../dist/dolly-images.mjs";
+import { discoverImageDefinitions } from "../scripts/image-definitions.mjs";
 import { browserTest } from "./browser.mjs";
 
 const root = new URL("..", import.meta.url).pathname;
@@ -48,6 +49,25 @@ await browserTest("site", { server: { handle } }, async ({ browser, server }) =>
   await page.click('a[href="#shortcuts"]');
   assert.equal(await page.evaluate(() => location.hash), "#shortcuts");
   await page.locator("#shortcuts").waitFor();
+
+  // The menu links the licences page, which attributes every image that
+  // downloads sources and links each attribution to an existing view.
+  await page.click('a[href="./licences/"]');
+  const attributed = await page.$$eval(".inventory td:last-child a", links => links.map(link => new URL(link.href).pathname));
+  const registered = new Set(DOLLY_IMAGES.map(definition => definition.image));
+  for (const { image, parsed } of await discoverImageDefinitions(root)) {
+    if (registered.has(image) && parsed.sources.length) assert.ok(attributed.includes(`${prefix}/view/${image}/`), image);
+  }
+  for (const link of attributed) assert.ok(existsSync(`${root}${link.slice(prefix.length + 1)}index.html`), link);
+
+  // robots.txt keeps crawlers off release assets and snapshot packs, not pages.
+  const robots = await fetch(`${origin}${prefix}/robots.txt`);
+  assert.match(robots.headers.get("content-type"), /^text\/plain/);
+  const disallowed = [...(await robots.text()).matchAll(/^Disallow: (\S+)$/gm)].map(([, rule]) => rule);
+  const blocked = path => disallowed.some(rule => path.startsWith(rule));
+  for (const path of [`/_dolly/${"a".repeat(64)}/dist/static/default/zig.tar`, `/dist/packs/${"b".repeat(64)}.snapshot.gz`,
+    "/dist/static/default/zig.tar"]) assert.ok(blocked(path), path);
+  for (const path of ["/", "/licences/", "/view/default/", "/default/"]) assert.ok(!blocked(path), path);
 
   // A large source link is a verified scripted download of the exact bytes.
   await page.goto(`${origin}${prefix}/view/zig-build/`);

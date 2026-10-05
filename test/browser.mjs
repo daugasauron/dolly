@@ -17,6 +17,7 @@
 // milliseconds.
 import { chromium, firefox } from "playwright-core";
 import { startBrowserServer } from "./browser-server.mjs";
+import { CANONICAL_ORIGIN } from "../src/static-asset.mjs";
 
 const projectDir = new URL("..", import.meta.url).pathname;
 const shellPrompt = /dolly:[^\n]*\$\s*$/;
@@ -50,6 +51,20 @@ async function openImage(browser, origin, image, { policy, prompt = shellPrompt,
       }
     }, { source, flags }),
   };
+}
+
+// open() options for an image the page builds from packages alone, with the
+// named host modules: a root recipe, as `minimal` is.
+export async function composed(hosts, packages) {
+  const { DOLLY_IMAGES } = await import("../dist/dolly-images.mjs");
+  const install = name => {
+    const { dollyfile, sha256 } = DOLLY_IMAGES.find(definition => definition.image === name);
+    return `INSTALL ${CANONICAL_ORIGIN}/${dollyfile} ${sha256}`;
+  };
+  const recipe = ["DOLLY 6", "APPLICATION composed", ...hosts.map(host => `REQUIRES HOST ${host}@0`),
+    ...packages.map(install), "ENTRY /bin/foreground -i /bin/slop", ""].join("\n");
+  return { path: "/custom/rebuild/",
+    setup: page => page.addInitScript(recipe => sessionStorage.setItem("dolly-custom-source", recipe), recipe) };
 }
 
 export async function browserTest(label, { image = "default", server: serverOptions, timeout = 120_000 } = {}, test) {

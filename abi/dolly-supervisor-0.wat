@@ -7,9 +7,9 @@
   ;; while no display driver is resident: boot, rebuilds and headless images.
   ;; The page shows it only as bounded plain text in the bootstrap log.
   (import "env" "dolly_bootstrap_write_bytes" (func (param i64 i64)))
-  ;; WasmFS's output devices pass bytes back into this export. Before a display
-  ;; driver is installed they reach the bootstrap sink; after installation the
-  ;; resident driver consumes them without host interpretation.
+  ;; Supervisor diagnostics for the terminal. Before a display driver is
+  ;; installed they reach the bootstrap sink; after installation the resident
+  ;; driver consumes them without host interpretation.
   (func (export "dolly_terminal_write_bytes") (param i64 i64))
   ;; The process mailbox holds DOLLY_PROCESS_PACKET_LIMIT bytes (process.h).
   (func $mailbox_address (result i64) i64.const 0)
@@ -29,6 +29,10 @@
   ;; A Worker returned, failed or was stopped: PID, status and termination
   ;; signal (zero for none). A process that already exited keeps its status.
   (func $worker_exited (param i32 i32 i32) (result i32) i32.const 0)
+  ;; A Worker failed or its executable was refused. The mailbox holds one
+  ;; diagnostic line of the given size: the kernel writes it to the process's
+  ;; descriptor 2, so the program that asked is told, and records status 126.
+  (func $worker_failed (param i32 i64) (result i32) i32.const 0)
   ;; 1 once the kernel recorded the process's exit, which an ancestor's EXIT
   ;; can do before the process launches, or when it is unknown; otherwise 0.
   (func $exited (param i32) (result i32) i32.const 0)
@@ -72,6 +76,7 @@
   (export "dolly_process_image_consumed" (func $image_consumed))
   (export "dolly_process_worker_started" (func $worker_started))
   (export "dolly_process_worker_exited" (func $worker_exited))
+  (export "dolly_process_worker_failed" (func $worker_failed))
   (export "dolly_process_exited" (func $exited))
   (export "dolly_process_worker_retired" (func $worker_retired))
   (export "dolly_process_spawn_flags" (func $spawn_flags))

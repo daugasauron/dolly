@@ -42,7 +42,7 @@ async function exportRelease(site, output, base, retained) {
       await write(snapshotPackPath.test(path) ? path : `_dolly/${digest}/${path}`, bytes);
       if (!retained && path.endsWith(".html")) {
         await write(path, renderReleasePage(bytes.toString("utf8"), path, digest, files, base));
-      } else if (!retained && (path === "coi-serviceworker.js" || path === ".nojekyll")) {
+      } else if (!retained && ["coi-serviceworker.js", ".nojekyll", "robots.txt"].includes(path)) {
         await write(path, bytes);
       }
     }

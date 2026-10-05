@@ -12,7 +12,7 @@ import tomllib
 project = Path(__file__).resolve().parents[2]
 name, = sys.argv[1:]
 pin = json.loads((project / "demos/rust/config/sources.json").read_text())[name]
-from rust_sources import download
+from rust_sources import crate_licences, download
 
 
 stage = project / "build/rust-sources" / name
@@ -41,7 +41,8 @@ for package in tomllib.loads(lock.read_text())["package"]:
     filename = f'{package["name"]}-{package["version"]}.crate'
     url = f'https://static.crates.io/crates/{package["name"]}/{filename}'
     shutil.copyfile(download(url, package["checksum"]), archives / filename)
-mappings = [source, f"/tmp/{name}/source", archives, f"/tmp/{name}/cache/archives"]
+mappings = [source, f"/tmp/{name}/source", archives, f"/tmp/{name}/cache/archives",
+            *crate_licences(archives, stage, f"/usr/share/licenses/{name}/crates")]
 if name == "fd":
     def apply(directory, patch):
         subprocess.run(["patch", "--batch", "--fuzz=0", "-p1", "-d", str(directory),

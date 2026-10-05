@@ -38,7 +38,7 @@ export function createInputCodec({ magic, version, width, height, look = false, 
 
   function encodeBatch(actions, id) {
     boundedInteger(id, 1, 0xffffffff, "request id");
-    if (!Array.isArray(actions) || actions.length > 16) throw Error("At most 16 actions per batch");
+    if (!Array.isArray(actions) || actions.length > 16) throw Error("At most 16 actions per batch; no actions were executed");
     const bytes = new Uint8Array(16 + actions.length * stride);
     const view = new DataView(bytes.buffer);
     [magic, version, id, actions.length].forEach((value, index) => view.setUint32(index * 4, value, true));
@@ -52,7 +52,7 @@ export function createInputCodec({ magic, version, width, height, look = false, 
       const type = kinds[action.type];
       const milliseconds = boundedInteger(action.milliseconds ?? (type === 1 ? 16 : type === 4 ? 250 : 100), 16, 2000, "duration");
       duration += milliseconds;
-      if (duration > 2000) throw Error("A batch may occupy at most 2000 milliseconds");
+      if (duration > 2000) throw Error("A batch may occupy at most 2000 milliseconds in total; no actions were executed");
       let x = 0, y = 0, endX = 0, endY = 0, button = 0, modifier = 0;
       if (type === 1 || type === 2 || type === 4) {
         x = boundedInteger(action.x, 0, width - 1, "x coordinate");

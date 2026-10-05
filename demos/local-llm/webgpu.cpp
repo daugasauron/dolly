@@ -3,6 +3,7 @@ extern "C" {
 #include <dolly/gpu.h>
 }
 #include <algorithm>
+#include <cctype>
 #include <cerrno>
 #include <cstdio>
 #include <cstdlib>
@@ -13,6 +14,14 @@ extern "C" {
 // The C API is an in-image adapter. Only dolly-gpu-0 packets cross the process ABI.
 static dolly_gpu gpu;
 static bool opened;
+// Whether a submission may be pending since the last completed wait: ggml
+// synchronizes after every input it writes, and each wait costs Firefox a 100 ms
+// timer tick. Writes need none: they are copied when recorded and ordered
+// before every later command and map.
+static bool queued;
+// The buffer the latest submission last copied into: once a map of it
+// completes, that submission and everything before it has finished.
+static uint64_t copied;
 static uint64_t next_id, next_future;
 static uint32_t features, subgroup_min, subgroup_max;
 static WGPULimits limits = WGPU_LIMITS_INIT;
@@ -20,7 +29,56 @@ static std::string adapter_name;
 static void require(bool value, const char *message) {
     if (!value) { fprintf(stderr,"Dolly WebGPU: %s\n",message); abort(); }
 }
+// Whether the provider granted shader-f16. Without it this adapter runs f16 WGSL as f32.
+extern "C" bool dolly_webgpu_f16() {return features&1;}
+static bool word_at(const std::string &code,size_t at,size_t n) {
+    auto part=[](char c){return isalnum((unsigned char)c) || c=='_';};
+    return (at==0 || !part(code[at-1])) && (at+n>=code.size() || !part(code[at+n]));
+}
+static bool has_word(const std::string &code,const std::string &word) {
+    for(size_t at=code.find(word);at!=std::string::npos;at=code.find(word,at+1))if(word_at(code,at,word.size()))return true;
+    return false;
+}
+// f16 values, vectors, literals and workgroup arrays widen to f32. Buffers keep
+// their bytes, so a binding that stores f16 (directly or in a struct) needs the feature.
+static std::string widen_f16(std::string code) {
+    std::vector<std::string> halves={"f16"};
+    for(size_t at=code.find("struct ");at!=std::string::npos;at=code.find("struct ",at+1)) {
+        size_t open=code.find('{',at),close=code.find('}',open);
+        if(word_at(code,at,6) && close!=std::string::npos && has_word(code.substr(open,close-open),"f16"))
+            halves.push_back(code.substr(at+7,code.find_first_of(" {",at+7)-at-7));
+    }
+    for(const char *space:{"var<storage","var<uniform"})
+        for(size_t at=code.find(space);at!=std::string::npos;at=code.find(space,at+1)) {
+            auto binding=code.substr(at,code.find(';',at)-at);
+            for(auto &half:halves)require(!has_word(binding,half),"this shader stores f16 in a buffer and needs shader-f16, which the adapter lacks");
+        }
+    for(size_t at;(at=code.find("enable f16;"))!=std::string::npos;)code.erase(at,11);
+    for(size_t at;(at=code.find("bitcast<vec2<f16>>("))!=std::string::npos;)code.replace(at,19,"unpack2x16float(");
+    std::string out;out.reserve(code.size());
+    for(size_t at=0;at<code.size();) {
+        char c=code[at];size_t end=at+1;
+        if(isalpha((unsigned char)c) || c=='_') {
+            while(end<code.size() && (isalnum((unsigned char)code[end]) || code[end]=='_'))end++;
+            auto word=code.substr(at,end-at);
+            if(word=="f16")word="f32";
+            else if(word.size()>=5 && word.back()=='h' && (word.starts_with("vec") || word.starts_with("mat")) &&
+              isdigit((unsigned char)word[3]) && word.find_first_not_of("0123456789x",3)==word.size()-1)word.back()='f';
+            out+=word;
+        } else if(isdigit((unsigned char)c) || (c=='.' && at+1<code.size() && isdigit((unsigned char)code[at+1]))) {
+            const bool hex=c=='0' && at+1<code.size() && (code[at+1]=='x' || code[at+1]=='X');
+            while(end<code.size() && (isalnum((unsigned char)code[end]) || code[end]=='.' ||
+              (!hex && (code[end]=='+' || code[end]=='-') && (code[end-1]=='e' || code[end-1]=='E'))))end++;
+            auto literal=code.substr(at,end-at);
+            if(!hex && literal.back()=='h')literal.back()='f';
+            out+=literal;
+        } else out+=c;
+        at=end;
+    }
+    return out;
+}
 static void checked(int result) {
+    if(result<0 && errno==ENOMEM) {fprintf(stderr,"Dolly WebGPU: out of GPU memory (the device's, or gpu@0's 4 GiB)\n");abort();}
     if(result<0) { fprintf(stderr,"Dolly WebGPU: %s\n",strerror(errno)); abort(); }
 }
 template<class T> static T get(const void *p,size_t at) {T n;memcpy(&n,(const char*)p+at,sizeof n);return n;}
@@ -34,9 +92,11 @@ static void *record(unsigned op,size_t bytes) {
     if(gpu.count==256 || aligned(bytes)>sizeof(gpu.packet)-gpu.length)flush();
     return dolly_gpu_record(&gpu,op,bytes);
 }
-static void open_gpu() {
-    if(opened)return;
-    int n=dolly_gpu_open(&gpu,0,0);checked(n);adapter_name.assign((char*)gpu.reply+16,n-16);
+static bool open_gpu() {
+    if(opened)return true;
+    int n=dolly_gpu_open(&gpu,0,0);
+    if(n<0) {fprintf(stderr,"Dolly WebGPU: no GPU adapter: %s\n",strerror(errno));return false;}
+    adapter_name.assign((char*)gpu.reply+16,n-16);
     require(dolly_gpu_capabilities(&gpu)==128,"GPU provider does not implement capabilities");
     features=get<uint32_t>(gpu.reply,0);subgroup_min=get<uint32_t>(gpu.reply,88);subgroup_max=get<uint32_t>(gpu.reply,92);
     limits.maxBufferSize=get<uint64_t>(gpu.reply,8);limits.maxStorageBufferBindingSize=get<uint64_t>(gpu.reply,24);
@@ -46,9 +106,13 @@ static void open_gpu() {
       &limits.maxBindingsPerBindGroup,&limits.maxStorageBuffersPerShaderStage,&limits.maxUniformBuffersPerShaderStage,&limits.maxBindGroups};
     for(unsigned i=0;i<12;i++)*fields[i]=get<uint32_t>(gpu.reply,32+i*4);
     limits.maxUniformBufferBindingSize=get<uint64_t>(gpu.reply,80);
-    fprintf(stderr,"Dolly WebGPU: %s, features=0x%x, max buffer=%llu MiB\n",adapter_name.c_str(),features,(unsigned long long)(limits.maxBufferSize>>20));
+    // Widened shaders keep llama's f16 workgroup arrays, now twice as large.
+    if(!dolly_webgpu_f16())limits.maxComputeWorkgroupStorageSize/=2;
+    fprintf(stderr,"Dolly WebGPU adapter: %s, features=0x%x, max buffer=%llu MiB, %s shaders\n",adapter_name.c_str(),features,
+      (unsigned long long)(limits.maxBufferSize>>20),dolly_webgpu_f16()?"f16":"f32 (no shader-f16)");
     opened=true;dolly_gpu_begin(&gpu);
     atexit([]{if(opened){flush();dolly_gpu_close(&gpu);opened=false;}});
+    return true;
 }
 struct Object {
     unsigned refs=1;
@@ -87,7 +151,7 @@ REFS(ComputePipeline) REFS(BindGroupLayout) REFS(BindGroup) REFS(CommandEncoder)
 WGPUInstance wgpuCreateInstance(const WGPUInstanceDescriptor *d) {
     if(d && d->nextInChain){fprintf(stderr,"Dolly WebGPU: unsupported instance chain\n");return nullptr;}
     if(d)for(size_t i=0;i<d->requiredFeatureCount;i++)if(d->requiredFeatures[i]!=WGPUInstanceFeatureName_TimedWaitAny){fprintf(stderr,"Dolly WebGPU: unsupported instance feature %u\n",unsigned(d->requiredFeatures[i]));return nullptr;}
-    open_gpu();return new WGPUInstanceImpl;
+    return open_gpu()?new WGPUInstanceImpl:nullptr;
 }
 WGPUFuture wgpuInstanceRequestAdapter(WGPUInstance,const WGPURequestAdapterOptions *d,WGPURequestAdapterCallbackInfo cb) {
     const bool valid=!d || (!d->nextInChain && !d->forceFallbackAdapter && !d->compatibleSurface);
@@ -95,11 +159,13 @@ WGPUFuture wgpuInstanceRequestAdapter(WGPUInstance,const WGPURequestAdapterOptio
       valid?new WGPUAdapterImpl:nullptr,view(valid?"":"Unsupported adapter options"),cb.userdata1,cb.userdata2);
     return completed();
 }
+// ShaderF16 is always implemented: natively or by widening. The packed dot
+// product path keeps f16 in a buffer, so widened shaders go without it.
 WGPUBool wgpuAdapterHasFeature(WGPUAdapter,WGPUFeatureName f) {
-    return (f==WGPUFeatureName_ShaderF16 && (features&1)) || (f==WGPUFeatureName_Subgroups && (features&2));
+    return f==WGPUFeatureName_ShaderF16 || (f==WGPUFeatureName_Subgroups && (features&2));
 }
 WGPUBool wgpuInstanceHasWGSLLanguageFeature(WGPUInstance,WGPUWGSLLanguageFeatureName f) {
-    return f==WGPUWGSLLanguageFeatureName_Packed4x8IntegerDotProduct && (features&4);
+    return f==WGPUWGSLLanguageFeatureName_Packed4x8IntegerDotProduct && (features&4) && dolly_webgpu_f16();
 }
 WGPUStatus wgpuAdapterGetLimits(WGPUAdapter,WGPULimits *out) {if(out->nextInChain)return WGPUStatus_Error;*out=limits;return WGPUStatus_Success;}
 WGPUStatus wgpuAdapterGetInfo(WGPUAdapter,WGPUAdapterInfo *out) {
@@ -139,7 +205,8 @@ void wgpuQueueWriteBuffer(WGPUQueue,WGPUBuffer b,uint64_t offset,const void *dat
 }
 WGPUShaderModule wgpuDeviceCreateShaderModule(WGPUDevice,const WGPUShaderModuleDescriptor *d) {
     require(d && d->nextInChain && !d->nextInChain->next && d->nextInChain->sType==WGPUSType_ShaderSourceWGSL,"Only WGSL shader sources are supported");
-    auto source=reinterpret_cast<const WGPUShaderSourceWGSL*>(d->nextInChain);auto code=string(source->code);
+    auto source=reinterpret_cast<const WGPUShaderSourceWGSL*>(d->nextInChain);
+    auto code=dolly_webgpu_f16()?string(source->code):widen_f16(string(source->code));
     auto s=new WGPUShaderModuleImpl;s->id=++next_id;
     auto p=record(DOLLY_GPU_CREATE_SHADER,24+code.size());put(p,8,s->id);put(p,16,uint32_t(code.size()));memcpy((char*)p+24,code.data(),code.size());
     return s;
@@ -197,12 +264,13 @@ WGPUCommandBuffer wgpuCommandEncoderFinish(WGPUCommandEncoder e,const WGPUComman
     auto b=new WGPUCommandBufferImpl;b->commands=std::move(e->commands);b->held=std::move(e->held);return b;
 }
 void wgpuQueueSubmit(WGPUQueue,size_t n,const WGPUCommandBuffer *buffers) {
-    flush();unsigned encoded=0;
-    auto submit=[&]{if(encoded){dolly_gpu_submit(&gpu);flush();encoded=0;}};
+    flush();unsigned encoded=0;copied=0;
+    auto submit=[&]{if(encoded){dolly_gpu_submit(&gpu);flush();encoded=0;queued=true;}};
     for(size_t i=0;i<n;i++) {
         auto b=buffers[i];require(!b->submitted,"Command buffer was already submitted");b->submitted=true;
         for(auto &c:b->commands) {
-            if(encoded==200)submit();
+            if(encoded==200){submit();copied=0;}
+            if(c.op==DOLLY_GPU_COPY_BUFFER)copied=c.b;
             auto p=record(c.op,c.op==DOLLY_GPU_COMPUTE?40:48);put(p,8,c.a);put(p,16,c.b);
             if(c.op==DOLLY_GPU_COMPUTE){put(p,24,uint32_t(c.c));put(p,28,uint32_t(c.d));put(p,32,uint32_t(c.e));}
             else {put(p,24,c.c);put(p,32,c.d);put(p,40,c.e);}encoded++;
@@ -211,7 +279,8 @@ void wgpuQueueSubmit(WGPUQueue,size_t n,const WGPUCommandBuffer *buffers) {
     submit();
 }
 WGPUFuture wgpuQueueOnSubmittedWorkDone(WGPUQueue,WGPUQueueWorkDoneCallbackInfo cb) {
-    flush();int result=dolly_gpu_wait(&gpu);dolly_gpu_begin(&gpu);
+    int result=0;
+    if(queued) {flush();result=dolly_gpu_wait(&gpu);dolly_gpu_begin(&gpu);queued=result<0;}
     cb.callback(result<0?WGPUQueueWorkDoneStatus_Error:WGPUQueueWorkDoneStatus_Success,view(result<0?strerror(errno):""),cb.userdata1,cb.userdata2);return completed();
 }
 WGPUFuture wgpuBufferMapAsync(WGPUBuffer b,WGPUMapMode mode,size_t offset,size_t size,WGPUBufferMapCallbackInfo cb) {
@@ -219,6 +288,7 @@ WGPUFuture wgpuBufferMapAsync(WGPUBuffer b,WGPUMapMode mode,size_t offset,size_t
     auto p=record(DOLLY_GPU_MAP_READ,32);put(p,8,b->id);put(p,16,uint64_t(offset));put(p,24,uint64_t(size));flush();
     b->mapped.resize(size);b->map_offset=offset;
     for(size_t at=0;at<size;){size_t n=std::min(size-at,size_t(DOLLY_GPU_REPLY_BYTES));checked(dolly_gpu_read(&gpu,b->id,at,n));memcpy(b->mapped.data()+at,gpu.reply,n);at+=n;}
+    if(b->id==copied)queued=false;
     dolly_gpu_begin(&gpu);cb.callback(WGPUMapAsyncStatus_Success,view(""),cb.userdata1,cb.userdata2);return completed();
 }
 const void *wgpuBufferGetConstMappedRange(WGPUBuffer b,size_t offset,size_t size) {

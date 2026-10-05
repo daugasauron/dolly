@@ -1,6 +1,6 @@
 # Programs die with a silent exit 126: undeclared host modules and a NULL packet
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 310
 - TAGS: core,kernel,diagnostics
 
@@ -40,3 +40,105 @@ at a boundary is reported to the program that asked (its stderr, or an errno
 its caller prints), because the agent is the user. Related: `cc`, `c++`, `ld`
 and `ar` retry status 126 twice (`src/process/runtime-adapter.c`), so a
 deterministic refusal of the compiler runs three times before it is reported.
+
+## Findings (2026-10-05, `fix/audit-core`)
+
+Reproduced in Chrome on the base (`integrate/1005-seed`, image inputs
+`42d82dcc…`) before any fix; logs in `build/audit-core-evidence/repro-base-*.log`
+and `probe-threads-{default,pi}-base.log`.
+
+- One cause for the silence, as the review note says: `#fail` wrote to the
+  terminal device. `/tmp/gpu-client > out 2> err` in `system` printed
+  `dolly: process 136 Worker failed during startup: Required host ABI gpu@0 is
+  unsupported` on the terminal and left `err` empty.
+- The threads case, in the `pi` image, which declares `threads@0`:
+
+  ```
+  $ cc /tmp/self.c -o /tmp/self; echo cc=$?        # calls dolly_thread_self()
+  cc=0
+  $ /tmp/self > /tmp/out 2> /tmp/err; echo rc=$? err=$(wc -c < /tmp/err)
+  dolly: process 124 Worker failed during startup: threaded process needs dolly_thread_start(i32, i64) -> i64
+  rc=126 err=0
+  $ cc -pthread /tmp/self.c -o /tmp/self-mt && /tmp/self-mt
+  tid 3
+  ```
+
+  The module was provisioned. `cc` links every host client archive it finds,
+  so a program that calls `<dolly/threads.h>` gets the `threads@0` record
+  without `-pthread`; the loader (`validateThreadProfile`,
+  `host/threads/threads.mjs`) treats every program with that record as
+  threaded and requires the `dolly_thread_start` export, which only the
+  `-pthread` runtime (or a language runtime) provides. The compiler and the
+  admission rule disagreed: one linked what the other refuses.
+- `dolly_process_call(DOLLY_PROCESS_FD_READ, NULL, 8, …)`: the process Worker's
+  range check threw (`Dolly process supplied an invalid syscall range`), which
+  ended the process with 126. The same held for every operation, for a range
+  outside memory, and for an operation number above 2^31; a packet over 1 MiB
+  ended it in the supervisor (`sent an invalid syscall`). The kernel's own
+  dispatch already returned errnos.
+
+## Fix
+
+- Refusals and failures go to the program: the supervisor hands one line to
+  the kernel (`dolly_process_worker_failed`, `abi/dolly-supervisor-0.wat`),
+  which writes it to the failed process's descriptor 2 and records 126
+  (`src/process-supervisor.mjs`, `src/process-kernel.c`). The line names the
+  cause: `dolly: process 136 was refused: host module gpu@0 is not declared by
+  this image (REQUIRES HOST)`, `… has a different layout than this program was
+  built for`, `… a program using threads@0 must export dolly_thread_start(i32,
+  i64) -> i64; build C and C++ with -pthread`; a Worker that fails while
+  running prints `dolly: process N failed: REASON`.
+- `cc` refuses to link a thread client without a thread entry and says to use
+  `-pthread` (`src/compiler.cpp`, seed), so what it links the loader runs;
+  `threads.h` documents it.
+- An executable with a foreign import is told which one: `dolly: process 117
+  was refused: WebAssembly binary: import env.fetch is outside
+  dolly-process-0` (`src/process-abi.mjs`, fixture
+  `test/fixtures/process-wrong-import.wat`).
+- A malformed call returns an errno from the process Worker for every
+  operation: `EFAULT` for a range outside memory (NULL included), `E2BIG` over
+  the packet limit, `ENOSYS` for an unknown operation
+  (`src/process-worker.mjs`).
+- `docs/process-model.md` states the rule: a refusal is reported to the
+  program that asked.
+
+Decisions:
+
+- Headers of modules an image does not declare stay in every image: they are
+  the compiler's sysroot and images build for other images. The refusal line
+  now tells the program which module the image lacks.
+- Status 126 still covers a refused executable and a Worker that failed while
+  running; the line tells them apart ("was refused", "failed").
+- FFI packets carry pointers of the process itself. A wild one (a NULL or
+  out-of-range `ffi_cif`, type or closure) returned through a JavaScript
+  exception and ended the process; it is `EFAULT` or `EINVAL` now. Only what
+  the called function throws passes through (`src/process-ffi.mjs`).
+- Left: `cc`, `c++`, `ld` and `ar` still retry status 126 twice, so a refusal
+  of the compiler itself would print three lines; that retry exists for
+  transient Worker allocation failures and cannot tell them apart by status.
+
+## Evidence (2026-10-06, `fix/audit-core`, image inputs `1c081c54…`)
+
+`npm run build:runtime`; `DOLLY_IMAGE_JOBS=1 DOLLY_BUILD_IMAGES=default,pi
+work/build-slot.sh npm run image`. Then, all passing:
+
+- `npm run -s test:source`: 353 pass, 0 fail (the Slop cases run against Bash
+  natively under ASan in `test/slop.test.mjs`).
+- `node test/NAME-browser.mjs chromium` and `firefox` for `core`, `shell`,
+  `slop`, `cpp`, `threads`, `host-modules`, `boundary`, `process`, `network`.
+- Chrome only: `terminal`, `upload`, `snapshot-stream`, `image-inventory`,
+  `site`, `image`, `custom-session`, `host-compute`, `fs-growth`.
+- `npm run test:demos -- pi javascript`: both pass.
+- Not run: `amy` (needs the `python` package image), `audio`, `gpu-*`.
+
+Logs: `build/audit-core-evidence/final2-*.log`.
+
+In the `pi` image after the fix (`probe-pi-seed1b.log`): `cc /tmp/self.c`
+fails with one line (`dolly-cc: this program uses <dolly/threads.h> without a
+thread entry: build with -pthread, …`), `cc -pthread` builds a program that
+prints `tid 3`, and a GPU client exits 126 with `dolly: process 129 was
+refused: host module gpu@0 is not declared by this image (REQUIRES HOST)` as
+the only line on its stderr.
+
+Commits: `b3cff2ab` (stderr, errnos), `d2bad2db` (cc and the thread client),
+`3115b789` (FFI), and the commit that closes this task (foreign import).

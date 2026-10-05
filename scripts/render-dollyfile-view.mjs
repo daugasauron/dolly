@@ -1,7 +1,7 @@
 import { canonicalPath } from "../src/static-asset.mjs";
 import { recipeFileName } from "../src/dollyfile-view.mjs";
 
-function escapeHtml(value) {
+export function escapeHtml(value) {
   return String(value)
     .replaceAll("&", "&amp;")
     .replaceAll("<", "&lt;")

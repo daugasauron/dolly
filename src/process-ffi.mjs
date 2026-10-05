@@ -346,7 +346,8 @@ export function createProcessFfi({
     return function_;
   }
 
-  function performCall(packet) {
+  // entered() marks the end of decoding: what the target throws is its own.
+  function performCall(packet, entered) {
     const cif = cifInfo(packet.getBigUint64(0, true));
     const functionIndex = packet.getBigUint64(8, true);
     const returnValue = packet.getBigUint64(16, true);
@@ -435,7 +436,9 @@ export function createProcessFfi({
     frame.publish();
     let result;
     try {
-      result = tableFunction(functionIndex, "FFI target")(...arguments_);
+      const target = tableFunction(functionIndex, "FFI target");
+      entered();
+      result = target(...arguments_);
     } finally {
       frame.restore();
     }
@@ -668,17 +671,23 @@ export function createProcessFfi({
           !(getInstance()?.exports.__stack_pointer instanceof WebAssembly.Global)) {
         return -BigInt(DOLLY_ERRNO.ENOSYS);
       }
-      if (operation === FFI_CALL) {
-        if (request.size !== 32 || response.size !== 0) return -BigInt(DOLLY_ERRNO.EINVAL);
-        performCall(view(request.address, 32, "FFI call request"));
-        return 0n;
+      // These packets carry pointers of the process. A wild one is the
+      // caller's error and returns an errno; a trap or exit of the called
+      // function is not, and passes through.
+      let decoding = true;
+      try {
+        if (operation === FFI_CALL) {
+          if (request.size !== 32 || response.size !== 0) return -BigInt(DOLLY_ERRNO.EINVAL);
+          performCall(view(request.address, 32, "FFI call request"), () => { decoding = false; });
+          return 0n;
+        }
+        if (operation === FFI_CLOSURE_ALLOC) return allocateClosure(request, response);
+        if (operation === FFI_CLOSURE_FREE) return freeClosure(request);
+        return configureClosure(request);
+      } catch (error) {
+        if (!decoding || !(error instanceof TypeError || error instanceof RangeError)) throw error;
+        return -BigInt(error instanceof RangeError ? DOLLY_ERRNO.EFAULT : DOLLY_ERRNO.EINVAL);
       }
-      if (operation === FFI_CLOSURE_ALLOC) {
-        return allocateClosure(request, response);
-      }
-      if (operation === FFI_CLOSURE_FREE) return freeClosure(request);
-      if (operation === FFI_CLOSURE_PREP) return configureClosure(request);
-      throw new TypeError("unknown process-local FFI operation");
     },
   });
 }

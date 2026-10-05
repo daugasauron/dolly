@@ -39,3 +39,198 @@ image inputs `fda71d69…`) passes `0ad-engine-browser.mjs` and
 `0ad-graphics-browser.mjs zero-ad hardware`. In a worktree, `link-engine.sh`
 needs real copies of its `.cache/0ad` inputs: the container mounts only the
 worktree, so symlinks into the root checkout do not resolve.
+
+## In-sandbox build (2026-10-01/02 night, `work/zero-ad-self`)
+
+### What builds inside Dolly now
+
+Every program in the `zero-ad` image except SpiderMonkey's archives is now
+compiled and linked by Dolly's own `cc`/`c++`, CMake and Make:
+
+| image | builds | final run (`-MP` runtime, load 4-15) | snapshot |
+| --- | --- | --- | --- |
+| `openal-build` | OpenAL Soft, now with `HAVE_PTHREAD=OFF` | rebuilt | 251,826,787 B |
+| `zero-ad-deps` (`FROM openal-build`, SDL2 copied from `sdl2-build`) | pkgconf 2.5.1; libpng, FreeType, Ogg, Vorbis, fmt, libxml2 (CMake); ICU 68.2, libsodium, ENet (source directories); Boost headers; ENet and OpenAL probes | build script 229-461 s | 427,388,076 B |
+| `zero-ad-engine` | premake 5.0.0-beta7 (13 s), 0 A.D.'s Makefiles, 499 engine TUs, `pyrogenesis` link, SpiderMonkey probe | `make -j4 pyrogenesis` 345 s | 458,146,344 B |
+| `zero-ad` | copies the engine; content as before | 286 s | 2,076,040,038 B |
+
+The engine is 23,060,981 bytes (the host-linked one: 22,624,571). Sources are
+the pinned upstream archives of `build-sources.tsv` and the 0 A.D. release
+tarball, staged by `prepare-build-sources.sh`. The host engine build
+(`toolchain/{build-engine,dependencies,engine,link-engine,prepare-engine,enet,openal,link}.sh`,
+`dependencies.tsv`, `wasm64.cmake`) is gone; `toolchain/` keeps only the
+SpiderMonkey bootstrap and the content preparation.
+
+### Evidence
+
+All on the branch's images, engine and probes read from the image snapshots
+(`test/fixtures/image-file.mjs`):
+
+- `0ad-engine-browser.mjs` passes; replay final state
+  `be99497b21b9cb86d3a1478d2e2e09a6` and control save/load hash
+  `ff2fbc7d000708ab8b70ed0eaec257df` are identical to the host-linked engine's
+  in the same run of the test (so the simulation is bit-for-bit the same).
+- `0ad-graphics-browser.mjs zero-ad hardware` (Xvfb, NVIDIA adapter) passes:
+  combat 17 ms per frame at load 4 (46 ms at load 20), economy, audio, quick
+  save/load, fresh processes, shell recovery. One earlier run under load
+  failed once at "Changing GPU skinning during a match must change compute
+  activity" (console typing); every rerun passed.
+- `0ad-multiplayer-browser.mjs` (headless relayed pair) passes: 149
+  synchronized turns, shared hash `f3dd66c38dd8ab65aafdbdfe020a56d9`.
+- `0ad-spidermonkey-browser.mjs`, `0ad-openal-browser.mjs` and
+  `0ad-enet-browser.mjs` pass with probes built in the images.
+
+### What shaped the recipes
+
+- Scratch measurements (headless Chrome shell on `openal-build`, sources
+  fetched with `curl`, load 9-23): libpng 18 s; Ogg, Vorbis, fmt, libxml2 70 s
+  together; ICU, libsodium and ENet about 120 s at `-j4` (ICU and libsodium
+  have only autotools, which Slop cannot run, so their source directories
+  are compiled as Emscripten's ports and libsodium's `build.zig` do); the
+  engine's 499 TUs 410 s at `-j4`, link about 1 s.
+- `premake-dolly.patch`: premake names the host (`__EMSCRIPTEN__` ->
+  `emscripten`, `__wasm64__` -> `wasm64`) instead of `#error Unknown
+  platform`, and `os.getversion` uses `uname`. Bootstrap.mak's two stages run
+  directly (its own `make -j` is unbounded).
+- `engine.patch`: premake's `pkgconfig.lua` closes its `io.popen` handles
+  (each open handle kept a zombie until the kernel's 32 process records ran
+  out: `pkg-config: spawn failed: Resource temporarily unavailable`);
+  emscripten targets take static pkg-config flags (`-logg` comes from Vorbis'
+  `Requires.private`); the build options lost their emcc spellings.
+- OpenAL's CMake adds `-pthread` whenever the compiler accepts it, and
+  `openal.pc` then turned the engine into a threaded process (whose libc lacks
+  `sched_get_priority_min`): `HAVE_PTHREAD=OFF`, the mixer is serial.
+- `pkg-config` descriptions are written for SDL2 (copied without its own)
+  and the libraries built without their build system; premake needs one for
+  every library. `build/build_version` must be staged.
+- Dolly's `tar` rejects pax global headers (`tar: validate path at
+  pax_global_header (errno 138)`), as in premake's GitHub archive; it is
+  repacked on the host like every prepared source.
+
+### Core changes on the branch (separate commits)
+
+- 1d02ab5 `cc`/`c++` accept `-MP` (premake's `ALL_CPPFLAGS`; rejected with
+  exit 64 before). `test/cpp-browser.mjs`, Chrome and Firefox.
+- c0bf8c8 Slop: `unset -v/-f`, `<<-` here-documents, backquoted subshells
+  (`` `(umask 077 && ...)` `` was parsed as `$((`). Cases in
+  `test/fixtures/slop-cases.mjs` against Bash, native under ASan, and
+  `test/slop-browser.mjs` in Chrome and Firefox.
+- 7b24de0 `cc`/`c++` honour `SOURCE_DATE_EPOCH` (Clang's driver maps it to
+  cc1's `-source-date-epoch`; Dolly's builds the cc1 arguments itself). Two
+  `zero-ad-engine` builds from identical inputs had differed in 2,079 bytes:
+  0 A.D. embeds `__DATE__ __TIME__`. `test/cpp-browser.mjs`, Chrome and
+  Firefox. The engine recipe sets `SOURCE_DATE_EPOCH=1771228448` (the
+  release's `build_version.txt` mtime); built on a runtime with this commit
+  (`work/zero-ad-verify`, chain 2,450 s, `make` 280 s) the engine embeds only
+  `Feb 16 2026 07:54:08`. A second build for a byte comparison was not run.
+
+### Merged with Dollyfile 6 Phase 3 (2026-10-02 morning)
+
+`main` (`e30c0b0`) merged into `work/zero-ad-self` (4e28ebc): `zero-ad-deps`
+and `zero-ad-engine` are `DOLLY 6` toolchains with their complete host sets
+(the deps image keeps the OpenAL probe, so it declares `audio@0`; the engine
+image adds `gpu@0`), `openal.dm`'s `HAVE_PTHREAD=OFF` lives in
+`Dollyfile-openal-build`, `zero-ad` takes the engine with `COPY` (the
+template in `prepare-distribution.mjs` writes the same line), staging uses
+`has_image`. `0ad-graphics-browser.mjs` reads `Dollyfile-zero-ad`
+(`zero-ad.dm` is gone). On the merged runtime (`12a4a4d7…`, seed with `-MP`,
+`SOURCE_DATE_EPOCH` and the Slop changes) `test/core-browser.mjs`,
+`cpp-browser.mjs`, `slop-browser.mjs` and `shell-browser.mjs` pass in Chrome
+and Firefox.
+
+`DOLLY_IMAGE_JOBS=4 DOLLY_BUILD_IMAGES=zero-ad npm run image` rebuilt the
+whole chain on that runtime in 3,324 s (load about 6): deps build script
+244 s, `make -j4 pyrogenesis` 380 s, the SpiderMonkey probe passes during the
+build; snapshots: `zero-ad-deps` 427,532,277 B, `zero-ad-engine`
+458,292,833 B, `zero-ad` 2,076,204,879 B. Phase 3 enables only the host
+modules an image declares, and `default` declares neither `audio@0` nor
+`gpu@0`, so the engine (which stamps both) fails there with "Required host ABI
+audio@0 is unsupported". `0ad-engine-browser.mjs` and the headless
+`0ad-multiplayer-browser.mjs` now open the `zero-ad-engine` toolchain, which
+declares both, with Chrome's software WebGPU adapter. All pass:
+`0ad-spidermonkey-browser.mjs`, `0ad-openal-browser.mjs`,
+`0ad-enet-browser.mjs`, `0ad-engine-browser.mjs` (replay state
+`be99497b21b9cb86d3a1478d2e2e09a6` again), `0ad-multiplayer-browser.mjs`
+(149 turns, hash `f3dd66c38dd8ab65aafdbdfe020a56d9`) and
+`0ad-graphics-browser.mjs zero-ad hardware` (Xvfb `:123`, boot 31.6 s, 25 ms
+per frame, economy, quick save/load, shell recovery).
+
+### Still from the host
+
+- SpiderMonkey 128.13.0: `toolchain/build-spidermonkey.sh` cross-compiles
+  `libjs_static.a`, `libjsrust.a` and `dist/include`, staged as
+  `zero-ad-build/mozjs-host.tar.gz`.
+- Content: the WGSL shaders (Naga, a Rust tool, `toolchain/prepare-shaders.sh`)
+  and the packaging of the release data (`package-*.py`).
+
+### SpiderMonkey 128.13.0 inside Dolly: blockers
+
+Probed with the pinned `mozjs-128.13.0.tar.xz` (0 A.D.'s patches, which
+include `FixPython3_14.diff`, plus `spidermonkey.patch`) in the
+`llvm-tablegen` image (CMake with CPython 3.14.7):
+`python configure.py --enable-project=js --disable-jit ... --disable-bootstrap`.
+A native build of `src/slop.c` (four Dolly calls stubbed with `posix_spawn`)
+ran the shell scripts outside the browser for quick checks.
+
+- Python is not the problem: mach creates its virtualenv in Dolly's
+  CPython 3.14 in about a second.
+- mozbuild cannot name a wasm host. Without `--host` it runs config.guess;
+  with `--host=wasm64-unknown-wasi` or `-emscripten`, `split_triplet`
+  (init.configure:472) accepts WASI only for the target (`allow_wasi`):
+  `ERROR: Unknown OS: wasi` / `Unknown OS: emscripten`. A host patch is
+  needed; claiming Linux is not allowed.
+- Slop: config.sub printed `unset: invalid name: -v`; config.guess stopped on
+  `<<-`. After c0bf8c8 config.sub runs cleanly and config.guess stops on the
+  missing `trap` and `umask` builtins. `trap` only prints an error there;
+  `umask` is what fails, because every temporary-directory fallback runs
+  `(umask 077 && mkdir ...)`. A Slop `umask` alone would not be honest: the
+  process libc only stores the mask (`__syscall_umask` in
+  `src/process/libc-adapter.c`), nothing applies it to created files, and
+  spawning does not carry it to the `mkdir` a script starts. `js/src/old-configure` (autoconf 2.13,
+  2,794 lines) parses and prints `--help`; a real run stops on
+  `trap: command not found` before its first check.
+- Rust: configure requires `cargo` (version check); the build runs
+  `cargo rustc` for the `jsrust` static library and `cargo metadata`
+  (`build/RunCbindgen.py generate_metadata`), and needs `cbindgen` (host
+  build: 0.26.0 via `cargo install`). Dolly has rustc 1.98.1 (the seed that
+  compiled `libjsrust.a` for the host build) but no Cargo. Patti builds only
+  binaries as roots (`root_binary`: "select exactly one binary with --bin";
+  `staticlib` fails "dynamic Rust libraries are not supported"); `jsrust` is
+  `crate-type = ["staticlib"]` in a 672-package workspace lockfile with
+  `[patch.crates-io]` path and git overrides.
+- The C++ half compiles in Dolly. With the host build's configure output
+  (generated headers, `Unified_*.cpp`, `js-confdefs.h`) and its compile
+  commands minus emcc-only flags (`-matomics`, `-msimd128`, `-mthread-model`,
+  `-gdwarf-4`, `-fno-sized-deallocation`, `-fno-aligned-new`,
+  `-fno-math-errno`, `-fomit-frame-pointer`, `-ffp-contract=off`,
+  `-ferror-limit=0`, `-fstandalone-debug`; `c++` rejects each today), all 158
+  objects of `libjs_static.a` compile with `c++ -O2 -j3` in 320 s wall, 952 s
+  summed, slowest TU 30 s, no failures and no Worker stack overflow. The
+  engine linked against them (and the host `libjsrust.a`; 22,894,081 bytes)
+  passes `0ad-engine-browser.mjs` with the same replay and save/load hashes:
+  SpiderMonkey compiled by Dolly's `c++` runs the game identically.
+
+Decision needed (owner): how Cargo-driven builds run in Dolly. Options: build
+Cargo itself with Patti (heavy: curl, libgit2 and TLS sys crates); teach
+Patti the Cargo subset mozbuild calls (`--version`, `metadata`,
+`rustc --lib`); or build `jsrust` with Patti (after adding static-library
+roots) and keep Cargo out of mozbuild with a build-system patch. The mozbuild
+wasm-host patch and Slop's `trap` are needed in every case.
+
+### Next
+
+1. SpiderMonkey (Cargo decided below): mozbuild's wasm host and Slop's
+   `trap`/`umask` first, then configure inside a CMake-plus-Python toolchain,
+   then Cargo built in Dolly (`20260930-231102-cargo-native`).
+2. Content: build Naga with Patti and run `convert-shaders.py` and the
+   packaging in Dolly's CPython; stage the release data as `.tar.gz` (Dolly
+   has no `xz`).
+
+## Decision (2026-10-02, integrator)
+
+SpiderMonkey's Cargo steps: build upstream Cargo inside Dolly over its libcurl
+(`20260930-231102-cargo-native`) instead of teaching Patti Cargo subcommands or
+patching Cargo out of mozjs. Unchanged upstream tools over a deliberate
+substrate is the porting rule; a Patti that grows Cargo's metadata and library
+commands becomes a second Cargo. The configure patch for a wasm host and Slop's
+`trap`/`umask` are independent and come first.

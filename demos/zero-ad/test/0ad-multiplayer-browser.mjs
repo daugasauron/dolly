@@ -6,6 +6,7 @@ import {startBrowserServer} from "../../../test/browser-server.mjs";
 import {acceptDownload} from "../../browser.mjs";
 import {createRelayRoom} from "../toolchain/relay.mjs";
 import {hasGameHud} from "./fixtures/0ad-hud.mjs";
+import {engineFixture} from "./fixtures/image-file.mjs";
 
 const output = new URL("../../../.cache/0ad/browser/", import.meta.url);
 const mode=process.argv[2]??"headless", backend=process.argv[3]??"hardware";
@@ -13,13 +14,13 @@ assert.ok(process.argv.length<=4 && ["headless","visual","visual-client"].includ
   ["hardware","software"].includes(backend),
   "usage: node demos/zero-ad/test/0ad-multiplayer-browser.mjs [headless|visual|visual-client] [hardware|software]");
 const visualIndex=mode==="visual"?0:mode==="visual-client"?1:-1;
-const visual = visualIndex!==-1, image=visual?"zero-ad":"default";
+const visual = visualIndex!==-1, image=visual?"zero-ad":"zero-ad-engine";
 const provider = await readFile(new URL("../../../host/gpu/worker.mjs", import.meta.url), "utf8");
 await mkdir(output, {recursive: true});
 const server = await startBrowserServer(new URL("../../../", import.meta.url).pathname, image, { sourceOverrides: new Map(visual && backend==="software" ? [
   ["/host/gpu/worker.mjs", provider.replace('powerPreference: "high-performance"', 'forceFallbackAdapter: true')]
 ] : []), fixtures: {
-  "pyrogenesis.wasm": "build/0ad/pyrogenesis.wasm", "0ad-data.tar": "build/0ad/headless-data.tar"
+  "pyrogenesis.wasm": await engineFixture(), "0ad-data.tar": "build/0ad/headless-data.tar"
 } });
 const room = createRelayRoom();
 const relay = createServer((request, response) => void room.handle(request, response, server.origin));
@@ -33,7 +34,7 @@ try {
     "--no-sandbox", "--mute-audio", "--enable-unsafe-webgpu", "--use-angle=vulkan", ...(backend==="hardware"
       ? ["--ozone-platform=x11", "--enable-features=Vulkan,VulkanFromANGLE"]
       : ["--use-vulkan=swiftshader", "--use-webgpu-adapter=swiftshader", "--enable-features=Vulkan", "--disable-vulkan-surface"])
-  ] : ["--no-sandbox", "--disable-gpu"]});
+  ] : ["--no-sandbox", "--disable-gpu", "--enable-unsafe-webgpu"]});
   deadline = setTimeout(() => void browser.close(), visual?420000:240000);
   for (const endpoint of room.endpoints) {
     const page = await browser.newPage({viewport:{width:1024,height:768}}); pages.push(page);

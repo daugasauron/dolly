@@ -4,23 +4,23 @@ REQUIRES HOST download@0
 REQUIRES HOST http@0
 REQUIRES HOST threads@0
 
-FROM https://daugasauron.com/Dollyfile-system 55d601d75ba2325582e9b2452b03a827a549e8fa44b804c88393396805deda58
-INSTALL https://daugasauron.com/demos/javascript/Dollyfile-javascript e9cc1c32ad00fb347796a6177ffe76d0aaa75d962a30b4b86600a5591365e777
+FROM https://daugasauron.com/Dollyfile-system 041c6f482c61b6afba4741e202fdbffb09adb3c6f25fa0be64af02a7f06fafa4
+INSTALL https://daugasauron.com/demos/javascript/Dollyfile-javascript 0cc645585f503bedcd04685e6af6aba21b96f91d1af4e96f9f3efccceb33a52b
 
-INSTALL https://daugasauron.com/demos/rust/Dollyfile-ripgrep adcdec0d7e2dc91c0b6e088f91174af3b08ab59df9f4a51fefce715f8e621e6b
-INSTALL https://daugasauron.com/demos/rust/Dollyfile-fd fd1c912d028cfce6f772d9f1f1f5b346ece38999837006162937c4efc36bc2ed
+INSTALL https://daugasauron.com/demos/rust/Dollyfile-ripgrep badbe7783c4501c0563cb1a662a323e83846a4018ee21523e47f537d17803903
+INSTALL https://daugasauron.com/demos/rust/Dollyfile-fd a9b561847da29ae208e10d70a3438a2beedf11ac07da5338af39c2473f5e36ec
 EXPORTS TOOL rg
 EXPORTS TOOL fd
-COPY https://daugasauron.com/demos/pi/Dollyfile-pi-build ebd8312e57798d7a352e6986d85ae58328a2975a4b5eaef9469e7a96329dc11a /usr/bin/pi /usr/bin/pi
-COPY https://daugasauron.com/demos/pi/Dollyfile-pi-build ebd8312e57798d7a352e6986d85ae58328a2975a4b5eaef9469e7a96329dc11a /usr/lib/node_modules /usr/lib/node_modules
-COPY https://daugasauron.com/demos/pi/Dollyfile-pi-build ebd8312e57798d7a352e6986d85ae58328a2975a4b5eaef9469e7a96329dc11a /usr/src/pi-source /usr/src/pi-source
-COPY https://daugasauron.com/demos/pi/Dollyfile-pi-build ebd8312e57798d7a352e6986d85ae58328a2975a4b5eaef9469e7a96329dc11a /usr/share/licenses/pi-source /usr/share/licenses/pi-source
+COPY https://daugasauron.com/demos/pi/Dollyfile-pi-build 8e49d8370444008cc447362cb425c32a00a1a1ec902c76d4d59990888f940b35 /usr/bin/pi /usr/bin/pi
+COPY https://daugasauron.com/demos/pi/Dollyfile-pi-build 8e49d8370444008cc447362cb425c32a00a1a1ec902c76d4d59990888f940b35 /usr/lib/node_modules /usr/lib/node_modules
+COPY https://daugasauron.com/demos/pi/Dollyfile-pi-build 8e49d8370444008cc447362cb425c32a00a1a1ec902c76d4d59990888f940b35 /usr/src/pi-source /usr/src/pi-source
+COPY https://daugasauron.com/demos/pi/Dollyfile-pi-build 8e49d8370444008cc447362cb425c32a00a1a1ec902c76d4d59990888f940b35 /usr/share/licenses/pi-source /usr/share/licenses/pi-source
 
 SOURCE https://daugasauron.com/dist/static/default/pi/dolly-tools.js                    22d1cd0cd804ef22b7e73683a3c93e98cd99b574a12643bc6b240329da460d9a /home/dolly/.pi/agent/extensions/dolly-tools.js
-SOURCE https://daugasauron.com/dist/static/default/pi/SYSTEM.md                         bfd8505b6f40533d9d5a19101a4bd62c9447d55e707f50aabbd22f1f2dbbe92e /home/dolly/.pi/agent/SYSTEM.md
-SOURCE https://daugasauron.com/dist/static/default/pi/settings.json                     26df82e404bbee8f70c40b9ac275eb76a577120c96f2e70fa3f4ed41917814b7 /home/dolly/.pi/agent/settings.json
+SOURCE https://daugasauron.com/dist/static/default/pi/SYSTEM.md                         2474c5984b121056633e25e372ecf73e85e3008db82707bce93a36b2ec83e87c /home/dolly/.pi/agent/SYSTEM.md
+SOURCE https://daugasauron.com/dist/static/default/pi/settings.json                     d63660fd77bc7be4b3958920d14426739c356132f6a2dcc687f43a8803293dc7 /home/dolly/.pi/agent/settings.json
 SOURCE https://daugasauron.com/dist/static/default/pi/dolly-theme.json                  ed4737d4339c7458fa46c6f351c8a619e762189c051206aef1a8840e1f288297 /home/dolly/.pi/agent/themes/dolly.json
-SOURCE https://daugasauron.com/dist/static/default/pi/dolly-skill.md                    e62f67c85aa030b6159cf0c3fc6826c0bf65b50e9b2fdddedd04199640ddf18d /home/dolly/.pi/agent/skills/dolly/SKILL.md
+SOURCE https://daugasauron.com/dist/static/default/pi/dolly-skill.md                    01ddd4911723133140429310604e02d9b7adf1b2422640721961e78e817c9dc6 /home/dolly/.pi/agent/skills/dolly/SKILL.md
 
 EXPORTS ENV PI_PACKAGE_DIR /usr/lib/node_modules/@earendil-works/pi-coding-agent
 EXPORTS ENV PI_SKIP_VERSION_CHECK 1

@@ -2,7 +2,7 @@ DOLLY 6
 PACKAGE python
 REQUIRES HOST http@0
 
-FROM https://daugasauron.com/Dollyfile-system 55d601d75ba2325582e9b2452b03a827a549e8fa44b804c88393396805deda58
+FROM https://daugasauron.com/Dollyfile-system 041c6f482c61b6afba4741e202fdbffb09adb3c6f25fa0be64af02a7f06fafa4
 # Build the Python runtime and native extension SDK; pip.dm adds pip.
 REQUIRES HEADER curl
 REQUIRES HEADER libc
@@ -366,6 +366,16 @@ SLOP python \
   -c 'import os, sys, termios, tty; assert not os.isatty(0); assert sys.stdin.buffer.read(1) == b""'
 
 FILE /usr/share/licenses/cpython/LICENSE
+# The PSF License Agreement asks derivatives to summarize their changes.
+FILE /usr/share/licenses/cpython/DOLLY-CHANGES
+    Dolly's changes to CPython: cpython-dolly.patch ports posixmodule, getpath,
+    faulthandler, the thread stubs, subprocess, threading, site, platform,
+    sysconfig, uuid, ctypes.util and the pager to sys.platform "dolly", where
+    processes use Dolly's spawn and wait, there is no fork and thread targets
+    run serially. Built-in modules added by Dolly carry HTTP through the
+    browser's broker (_dolly_http, _dolly_transport), fail sockets and ssl
+    explicitly, and run libffi over process-local calls. The patched source is
+    published beside this image as dist/static/python/cpython.tar.gz.
 EXPORTS FOLDER python-stdlib /usr/lib/python3.14
 
 SLOP rm \

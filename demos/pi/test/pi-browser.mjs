@@ -94,6 +94,20 @@ await demoTest("pi", { image: "pi", timeout: 900_000, server: { handle: provider
   assert.notEqual(await submit("pi install npm:@dolly-test/nonexistent-package@0.0.0"), 0, "Pi pretended npm installed a package");
   assert.equal((await http()).requests, before, "missing npm must fail before network access");
 
+  // What the dolly skill teaches: amy installs, make -j fetches, Dolly's
+  // headers link their clients, and an undeclared module's program exits 126.
+  const skill = "/tmp/dolly-skill-test";
+  await run("amy install zlib && amy installed | grep -q '^zlib '");
+  await run(`mkdir ${skill} && cd ${skill} && printf '%s\\n' pi-tools.mjs utf8-writer.c > files.txt && ` +
+    `printf '.RECIPEPREFIX = >\\nFILES := $(shell cat files.txt)\\nall: $(FILES)\\n$(FILES):\\n>@mkdir -p $(dir $@) && curl -fsS ${server.origin}/fixture/$@ -o $@\\n' > fetch.mk && ` +
+    "make -j8 -f fetch.mk && test -s pi-tools.mjs && test -s utf8-writer.c");
+  await run(`cd ${skill} && printf '#include <dolly/display.h>\\nint main(void) { dolly_display_surface s; return dolly_display_acquire(&s) || dolly_display_release(s.generation); }\\n' > display.c && ` +
+    "cc display.c -o display && strings display | grep -q dolly.hostdisplay && ./display");
+  await run(`cd ${skill} && printf '#include <dolly/gpu.h>\\nint main(void) { dolly_gpu g; return dolly_gpu_open(&g, 64, 64); }\\n' > gpu.c && ` +
+    "cc gpu.c -o gpu && strings gpu | grep -q dolly.hostgpu && ! grep -q 'REQUIRES HOST gpu@0' /etc/dolly/Dollyfile");
+  assert.equal(await submit(`${skill}/gpu`), 126, "a program needing an undeclared module must exit 126");
+  await run(`cd /workspace && rm -rf ${skill}`);
+
   const scratch = "/tmp/dolly-pi-test";
   await run(`mkdir ${scratch} && cd ${scratch} && for name in pi-tools.mjs pi-sessions.mjs utf8-writer.c; do curl -fsS ${server.origin}/fixture/$name -o $name || exit 1; done`);
   await run(`cc utf8-writer.c -o writer && janis -m pi-tools.mjs ${scratch}`);

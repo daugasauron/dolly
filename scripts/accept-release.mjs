@@ -1,6 +1,7 @@
 // Release acceptance (scripts/site-release.mjs accept; test/image-inventory-browser.mjs
 // runs the same check on the checkout): each image's /bin, /etc and /usr must be
-// exactly its sealed manifest. A build in the page checks that for any image;
+// exactly its sealed manifest. A build in the page checks that for any base
+// (whatever its ENTRY or display), which is an image that retains the engine;
 // images with a display also boot their prebuilt route without the compiler seed.
 import assert from "node:assert/strict";
 import { createReadStream } from "node:fs";
@@ -22,11 +23,12 @@ export async function acceptImage(browser, server, image) {
   let log = "";
   await page.exposeFunction("dollyBuildLog", text => { log = (log + text).slice(-8192); });
   await page.goto(`${server.origin}/__dolly_build_page`);
-  const { definition, manifestHash } = await page.evaluate(async image => {
+  const { definition, manifestHash, base } = await page.evaluate(async image => {
     const definition = (await import("/dist/dolly-images.mjs")).DOLLY_IMAGES.find(item => item.image === image);
     const { DOLLY_SYSTEM_SNAPSHOT: { manifest } } = await import(`/dist/dolly-${image}-system-snapshot.mjs`);
     const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(manifest.join("\n") + "\n"));
-    return { definition, manifestHash: [...new Uint8Array(digest)].map(byte => byte.toString(16).padStart(2, "0")).join("") };
+    return { definition, base: manifest.includes("/bin/dollyfile"),
+      manifestHash: [...new Uint8Array(digest)].map(byte => byte.toString(16).padStart(2, "0")).join("") };
   }, image);
   const artifact = `/etc/dolly/artifacts/${definition.sha256}.snapshot`;
   // A build-only toolchain over the image, declaring exactly the image's host modules.
@@ -39,9 +41,11 @@ export async function acceptImage(browser, server, image) {
     // An unretained file must fail the same check.
     `SLOP help > /usr/inventory-extra\nSLOP if /tmp/inventory /tmp/help ${manifestHash} ${artifact}; then exit 1; fi\n` +
     "SLOP rm /usr/inventory-extra\n";
-  await page.evaluate(`(${buildImageInPage})(location.origin + "/", "custom", ${JSON.stringify(recipe)})`)
-    .catch(error => { throw new Error(`${image}: ${error.message}\n${log}`, { cause: error }); });
-  assert.equal(seedRequested(server.requests), false, `${image}: building on a published image fetched the compiler seed`);
+  if (base) {
+    await page.evaluate(`(${buildImageInPage})(location.origin + "/", "custom", ${JSON.stringify(recipe)})`)
+      .catch(error => { throw new Error(`${image}: ${error.message}\n${log}`, { cause: error }); });
+    assert.equal(seedRequested(server.requests), false, `${image}: building on a published image fetched the compiler seed`);
+  }
   await page.close();
   const { hostRequirements } = definition;
   if (!hostRequirements.includes("display@0") || hostRequirements.includes("gpu@0")) return;

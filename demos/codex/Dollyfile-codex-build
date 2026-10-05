@@ -4,8 +4,8 @@ REQUIRES HOST display@0
 REQUIRES HOST http@0
 REQUIRES HOST threads@0
 
-FROM https://daugasauron.com/demos/rust/Dollyfile-rust-build 8af86cc42e42fd4ce9d5d5e9437e09877cfbfbdf5dfaf27f950c245b36ca55fb
-INSTALL https://daugasauron.com/demos/rust/Dollyfile-protox 6b9ca0596b4ec226a06f4125d53b215b440810311b8a0967a828be4a959cefd4
+FROM https://daugasauron.com/demos/rust/Dollyfile-rust-build d844b76d9560ff6cd690c5dfbd51944b38ab2881c0cf15549c79f08958dd704c
+INSTALL https://daugasauron.com/demos/rust/Dollyfile-protox b02e7d11a808acf3fde43a62aba5f26cccb2f510b65732e85b3116877205dc44
 REQUIRES TOOL patti
 REQUIRES TOOL cc
 REQUIRES TOOL cp
@@ -23,7 +23,7 @@ SOURCE https://daugasauron.com/dist/static/codex/sources-02.part 22e944c6ec67323
 SOURCE https://daugasauron.com/dist/static/codex/sources-03.part 27ada4872ace681c6f20bfef01a195687aa2f6a446595be794438c1f4b4fdd94 /tmp/codex-sources-03.part
 SOURCE https://daugasauron.com/dist/static/codex/sources-04.part e5704b1be15e03895cc2253b2c7044df48e4ae990d8f28f4c2215890411faeb2 /tmp/codex-sources-04.part
 SOURCE https://daugasauron.com/dist/static/codex/sources-05.part 2684667b52dd121b13b45ecf8eea17890f8e814ccdd402388b6979b9ddde7599 /tmp/codex-sources-05.part
-SOURCE https://daugasauron.com/dist/static/codex/sources-06.part 49541bbcc581aae099b9aa06be38ccbb526b69673cf67720f1002d66c9b1a3b4 /tmp/codex-sources-06.part
+SOURCE https://daugasauron.com/dist/static/codex/sources-06.part b76987a1ccfc5b787fecde83743fd00bb82a881062e6dc54157f143b81fd4cea /tmp/codex-sources-06.part
 SOURCE https://daugasauron.com/dist/static/codex/no-js.c 5b2a995a8f36f4917f40f39af9806be9d4646d90850585fbc8bd904ff18c45fd /tmp/codex-no-js.c
 SOURCE https://daugasauron.com/dist/static/codex/patti.toml 104a7e2428fc418b9da14e4da2ac8d14b8e7b9af40eb1d768d89c74034a82dea /tmp/codex-patti.toml
 SLOP cat /tmp/codex-sources-00.part /tmp/codex-sources-01.part /tmp/codex-sources-02.part /tmp/codex-sources-03.part /tmp/codex-sources-04.part /tmp/codex-sources-05.part /tmp/codex-sources-06.part | gzip -dc - | tar -xf - -C /

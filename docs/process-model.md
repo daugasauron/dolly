@@ -22,7 +22,7 @@ sequenceDiagram
   Note over K,C: Ctrl+C or kill: SIGINT is pending
   K-->>C: next call returns -EINTR
   C->>K: INTERRUPT_POLL, run handler, SIGNAL_ACKNOWLEDGE
-  Note over S,C: not exited 500 ms later: Worker terminated
+  Note over S,C: handler unfinished 500 ms later: Worker terminated
   C->>K: EXIT status, or signal termination
   S->>K: Worker retired
   K-->>Sh: WAIT returns exit status or signal
@@ -48,9 +48,21 @@ sequenceDiagram
   and the exact typed import validation after linking decides.
 - The supervisor caches compiled modules by SHA-256 (64 entries, 256 MiB), never
   instances; at most 32 processes exist at once and further spawns fail `EAGAIN`.
-- An unexpected Worker failure exits the process with status 126 and a one-line
-  diagnostic; it does not affect unrelated processes. `cc`, `c++`, `ld` and `ar`
-  retry that status up to twice
+- A refusal is reported to the program that asked, not to the person at the
+  page. An executable the loader refuses (a wrong stamp or import, a host module
+  the image does not declare or whose layout differs, a thread client without
+  `dolly_thread_start`) and a Worker that fails while running exit with status
+  126 after one line on the process's own descriptor 2 that names the cause
+  ([`process-supervisor.mjs`](../src/process-supervisor.mjs)); unrelated
+  processes are unaffected. `cc` refuses to link a thread client without
+  `-pthread`, so what it links the loader runs.
+- A malformed call returns an errno and the process keeps running: `EFAULT` for
+  a packet outside its memory, `E2BIG` over 1 MiB, `ENOSYS` for an unknown
+  operation, `EINVAL` for a wrong layout
+  ([`process-worker.mjs`](../src/process-worker.mjs)). FFI packets carry
+  pointers of the process itself; a wild one is `EFAULT` too, while a trap in
+  the function an FFI call reaches ends the process like any other trap.
+- `cc`, `c++`, `ld` and `ar` retry status 126 up to twice
   ([`runtime-adapter.c`](../src/process/runtime-adapter.c)), so long
   source builds survive a transient browser Worker allocation failure without
   hiding deterministic source errors.
@@ -59,6 +71,9 @@ sequenceDiagram
 
 - 256 descriptors per process. Descriptor flags are per handle; offsets and status
   flags belong to the shared open description. `FD_CLOEXEC` works everywhere.
+  `getrlimit` reports the fixed limits (`RLIMIT_NOFILE` 256, `RLIMIT_NPROC` 32,
+  `RLIMIT_AS` 8 GiB, `RLIMIT_STACK` 8 MiB); `sysconf(_SC_OPEN_MAX)` is still
+  libc's constant 1024.
 - Pipes hold 64 KiB. Empty reads and full writes return `EAGAIN` when
   nonblocking; closing all writers gives EOF; writing with no reader returns
   `EPIPE` without raising `SIGPIPE`.
@@ -126,6 +141,11 @@ sequenceDiagram
 - A process that does not finish a delivered signal within 500 ms is terminated.
   The filesystem and the shell survive; kernel or supervisor failure is outside
   this guarantee.
+- Exit reclaims the subtree, so an exiting parent first leaves a signalled child
+  running until it exits, at most 500 ms after its signal. An event loop whose
+  handler only notes Ctrl+C (libuv's self-pipe, a flag) still shuts down when
+  the same Ctrl+C ends its parent by default, as under `timeout`; a child that
+  keeps running ends with the parent.
 - Normal exit runs `atexit` handlers; default signal termination and forced
   termination do not, so named temporary files may remain.
 - Delivered handlers interrupt sleep, `poll` and `pause`; `SA_RESTART` restarts
@@ -142,6 +162,9 @@ sequenceDiagram
   pending and never forces termination.
 - Clock reads use the Worker's clock aligned to the kernel's origin, but enter the
   kernel at least once per millisecond so signals arrive in clock-only loops.
+- CPU time is not accounted: `clock()` and `CLOCK_PROCESS_CPUTIME_ID` report the
+  monotonic time since the process started, an upper bound that is exact while
+  it computes without blocking ([`libc-adapter.c`](../src/process/libc-adapter.c)).
 
 ## Threads, DSOs and FFI
 

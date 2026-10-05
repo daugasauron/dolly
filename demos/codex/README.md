@@ -6,6 +6,7 @@ the Rust compiler seed comes from outside ([Rust demo](../rust/README.md)).
 ## Images
 
 - `codex`: Codex TUI with shell tools, ripgrep and fd.
+- `codex-cli`: Codex, its launcher, ripgrep and fd, as a package.
 - `codex-build`: Source-built Codex and its build record.
 
 Open `/codex/`; build with `npm run image -- codex` (about 70 minutes). Quitting
@@ -26,7 +27,8 @@ the TUI returns to Slop; `codex` starts it again.
 
 - [`Dollyfile-codex-build`](Dollyfile-codex-build): the complete offline Patti build; its
   record is kept at `/usr/share/dolly/builds/codex.json`.
-- [`Dollyfile-codex`](Dollyfile-codex), [`launch.c`](launch.c): runtime image and launcher.
+- [`Dollyfile-codex-cli`](Dollyfile-codex-cli), [`launch.c`](launch.c): the package and its launcher;
+  [`Dollyfile-codex`](Dollyfile-codex) installs it and starts the TUI.
 - [`config/`](config/): source pins ([`codex-git.json`](config/codex-git.json)),
   Patti settings ([`patti.toml`](config/patti.toml)) and target patches.
 - [`prepare-codex-sources.py`](prepare-codex-sources.py): verifies and packages

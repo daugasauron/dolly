@@ -27,6 +27,3 @@ cd obj-dolly
   --disable-js-shell --disable-jemalloc --disable-debug '--enable-optimize=-O2 -msimd128' \
   --disable-bootstrap --disable-warnings-as-errors
 make -j2
-em++ -m64 -matomics -mbulk-memory -fwasm-exceptions -sWASM_LEGACY_EXCEPTIONS=0 \
-  -O1 -std=c++20 -isystem dist/include -c /src/demos/zero-ad/test/fixtures/0ad-spidermonkey.cpp \
-  -o /src/.cache/0ad/spidermonkey-check.o

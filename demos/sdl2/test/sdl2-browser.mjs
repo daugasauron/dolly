@@ -1,12 +1,11 @@
-// SDL2 in the sdl2-build image, opened with the terminal display: a source
-// build, RGB565 presentation, text and key input, clicks, pointer presence and
-// blur. Usage: node demos/sdl2/test/sdl2-browser.mjs
+// The sdl2 package installed on `system`: a source build, RGB565 presentation,
+// text and key input, clicks, pointer presence and blur. Usage: node demos/sdl2/test/sdl2-browser.mjs
 import assert from "node:assert/strict";
-import { demoTest, displayProbe } from "../../browser.mjs";
+import { demoTest, installProbe } from "../../browser.mjs";
 
-await demoTest("sdl2", { image: "sdl2-build", timeout: 600_000,
+await demoTest("sdl2", { image: "sdl2", timeout: 600_000,
   server: { fixtures: { "sdl2-probe.c": "demos/sdl2/test/fixtures/sdl2-probe.c" } } }, async ({ server, open }) => {
-  const { page, run, start } = await open({ ...await displayProbe("sdl2-build"),
+  const { page, run, start } = await open({ ...await installProbe("sdl2"),
     policy: { rules: [{ origin: server.origin, pathPrefix: "/fixture/", methods: ["GET"] }] } });
   // Keys with layout-specific text and repeats need Chrome's own key events.
   const cdp = await page.context().newCDPSession(page);

@@ -32,3 +32,10 @@ The full Firefox suite failed `terminal-browser.mjs` with
   (`Ctrl+Shift+=`, `Ctrl+-`, waiting only for `__dolly.fontSize`) and the
   clipboard paste. Next: log `transport.geometry()` and the selection on
   failure; suspect cell metrics that lag `fontSize` after zoom.
+
+## Note (2026-10-06, `20261005-131644-page-presenter`)
+
+`visibleTerminalText()` returned on any publication and so could read an empty
+selection: 3 of 16 Firefox runs of the new display test before, 13 of 13 after
+it waits for its own selection (`fix/page-presenter`). The mouse-drag failure
+recorded here is separate and still open.

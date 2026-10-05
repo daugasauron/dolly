@@ -1,6 +1,6 @@
 # Userspace gaps an agent hit: Slop, commands, curl, cc and clock()
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 260
 - TAGS: userspace,slop,commands,toolchain
 
@@ -54,3 +54,176 @@ Slop, the commands, libc and cc are seed contents: land this as one batch.
 - The limits an agent could not ask for are documented in
   `docs/process-model.md`; shipping the documents in the image is
   `20261005-133403-self-description`.
+
+## Decisions (2026-10-05, `fix/audit-core`)
+
+One line per item: fixed, refused (the message) or documented (where).
+`help` now carries the same list inside every image.
+
+Slop (`src/slop.c`; cases in `test/fixtures/slop-cases.mjs`, run against Bash
+natively under ASan and in the browser):
+
+- `time` with a compound command: fixed. `time` is a reserved word that times
+  the pipeline after it (`time (…)`, `time { …; }`, `time if …`) and returns its
+  status; `/bin/time` stays for `env time` and `xargs time`.
+- `trap`: fixed for `EXIT`, `HUP`, `INT`, `QUIT`, `TERM`. A signal's action
+  runs when the current command has finished, `EXIT` when the shell or a
+  subshell leaves. Refused: `trap '' SIGNAL` ("a signal cannot be ignored:
+  commands always start with default signal actions"), because the process
+  model cannot pass an ignored signal to children; other conditions ("only
+  EXIT, HUP, INT, QUIT and TERM can be trapped").
+- `wait`: fixed, honestly: Slop starts no background jobs, so `wait` returns 0
+  and `wait PID` returns 127 ("not a background job of this shell"). `cmd &`
+  stays an error; both move with `20260930-100000-audit-32`.
+- `kill`: fixed with sbase's `kill` (`Dollyfile-system-tools`); any process may
+  signal any PID.
+- `alias`, `unalias`, `jobs`, `fg`, `bg`, `umask`, `ulimit`: refused by name
+  with the reason ("aliases are unsupported; define a function", "there are
+  no background jobs", "Dolly has no permission bits", "limits are fixed;
+  `help` lists them"), status 2.
+- `${VAR/pat/rep}`, `${VAR:off:len}`, `$'…'`: refused, as before ("unsupported
+  parameter expansion: …", "$'...' quoting is not supported").
+- Brace expansion and unmatched globs: documented (`help`, `docs/slop.md`).
+  They behave as in POSIX `sh`, where `{a,b}` is a literal word, so there is
+  nothing to refuse.
+- Scope: `trap`, `wait` and the `time` word are POSIX `sh` or named by this
+  task. `docs/slop.md` keeps its rule; whether Slop becomes the shell agents
+  write in is the owner's decision in `20261005-131642-big-picture`.
+
+Commands:
+
+- `xargs -P N`: fixed. It runs N commands at once over the kernel's spawn and
+  `waitpid(-1)`, as Make does (`src/commands/xargs.c`); the "executes
+  serially" message is gone. Slop's own pipelines stay serial (audit-32).
+- `patch FILE PATCHFILE`: refused, with the working form ("a FILE operand is
+  unsupported: the patch names its files; run patch -pN -i PATCHFILE or patch
+  -pN < PATCHFILE"). `patch` is `git apply`; no small upstream `patch` builds
+  unchanged here.
+- `dd bs=1M`: documented (`docs/slop.md`): sbase's POSIX `dd` takes `bs=1024k`.
+- `/dev/zero`: documented as absent (`docs/slop.md`). Devices are registered
+  through Emscripten's JavaScript `FS` in `host/runtime/runtime.mjs`, which
+  `20261005-133401-kernel-boundary` removes; a device added now would be
+  written twice.
+- `install -m`: documented (`help`, `docs/architecture.md` "one user, no
+  permission bits", `install --help`). It accepts a mode as `chmod` does and
+  changes nothing; refusing it would fail every `make install`.
+- `tar` only extracts, `gzip` only decompresses: refused, in their usage text
+  ("This tar extracts only; it cannot create an archive."), and documented in
+  `docs/slop.md` with what does create one: upstream Git, already in the
+  image (`git init -q . && git add -A && git archive -o out.tar.gz $(git
+  write-tree)` writes `.tar`, `.tar.gz` or `.zip` of any directory; tested in
+  `test/shell-browser.mjs`); `tar`'s usage and `help` name it. sbase's `tar`
+  cannot replace the extractor: it rejects the pax headers of forge archives,
+  which recipes unpack.
+- `gzip -dc` without a file reads stdin, as everywhere else: fixed (it
+  demanded `-`, which the Pi skill had to teach).
+- `id`, `whoami`, `ps`, `df`: documented as absent (`help`, `docs/slop.md`).
+  There is one user and libc has no name database (`getpwuid` fails), no
+  process-list operation and no mount table. `nproc`: fixed
+  (`src/commands/nproc.c`). It prints 4, the job width Dolly's recipes give
+  Make, because `make -j$(nproc)` asks how many processes may run at once.
+  libc's `sysconf` count is about threads and stays 1 in a program built
+  without `-pthread` (4 with it): programs size thread pools from it, and a
+  program without the thread runtime cannot start one. Printing that 1 from
+  `nproc` told agents there was no parallelism (measured, then changed).
+
+curl (`src/commands/curl.c`, `src/libcurl-fetch.c`):
+
+- `-m`/`--max-time`: fixed. libcurl's `TIMEOUT`/`TIMEOUT_MS` is a deadline in
+  the client that cancels the request through the broker.
+- URLs with userinfo: fixed in libcurl, so Git gets it too: the credentials
+  become Basic credentials and leave the URL, which Fetch would refuse.
+- `--retry`, `-C`: refused by name ("curl: unsupported option: --retry").
+- Upstream curl's own tool was not adopted: it needs far more of libcurl than
+  the 948-line adapter provides.
+
+cc (`src/compiler.cpp`):
+
+- `-L`/`-l`: on this base `cc` searches `/usr/lib` and takes `-L DIR -l NAME`;
+  host clients are `/usr/lib/dolly/process/libdolly-NAME.a` and are linked
+  without `-l` when a program calls `<dolly/NAME.h>`. `cc --help` now says so
+  and lists `-pthread`. `-ldisplay` still finds `/usr/lib/libdisplay.so`, the
+  resident terminal plugin, and the linker says it is a dynamic object.
+- `libdolly-js.a`: it is the JavaScript demo's QuickJS embedding
+  (`demos/javascript`, `EXPORTS LIB dolly-js`), not a host client; the audit's
+  agent took it for one because `libdolly-NAME.a` is the name `cc` gives host
+  clients. It should be named for what it is, after its header:
+  `libquickjs-runner.a`. Not renamed in this batch: it is demo content in six
+  recipes that other agents are changing tonight.
+- Headers of modules an image does not declare: shipped, decided. Headers and
+  client archives are the compiler's sysroot, the same in every image, and an
+  image builds programs for other images. What was missing was the reason at
+  the point of failure: the refusal now names the module on the program's
+  stderr (`20261005-131643-silent-126`), and `threads.h` says what it needs.
+
+libc (`src/process/libc-adapter.c`):
+
+- `clock()`: fixed. `clock()` and `CLOCK_PROCESS_CPUTIME_ID` report monotonic
+  time since the process started; CPU time is not accounted
+  (`docs/process-model.md`).
+- Limits: fixed for `getrlimit` (256 descriptors, 32 processes, 8 GiB, 8 MiB
+  stack) and documented in `help` and `docs/process-model.md`. Open:
+  `sysconf(_SC_OPEN_MAX)` is libc's constant 1024, so `getconf` is not shipped.
+
+Display:
+
+- Input record payload and `wait_frame`: documented in `docs/display.md` (a
+  table of the fields each record type uses; the frame wait is not a clock).
+  `display.h` already documents pointer motion on this base; it was not edited
+  because the presenter round owns `host/display` tonight and any edit changes
+  the module's digest. The image does not carry `docs/`: `20261005-133403-self-description`.
+
+In-house command lines (audit-36): `src/commands/` 2,936 before, 2,712 after;
+inline in `Dollyfile-system-build` 1,630 before, 1,637 after (`help`); Slop
+4,789 before, 4,957 after.
+
+- Replaced by unchanged sbase: `tail` (265 lines; it gains `-f` and loses
+  `-q`, `-v` and the GNU long options, as sbase's `head` never had them).
+  Added from sbase: `kill`.
+- Kept in-house, checked against sbase: `hostname` (sbase's does not link:
+  libc has no `sethostname`), `tty` (sbase needs `ttyname`), `du` (sbase counts blocks WasmFS does not keep), `install`
+  (`xinstall` lacks `-c` and `-p` and needs a user database), `rev` (sbase
+  reverses bytes and breaks UTF-8), `tar` (sbase rejects the pax headers of
+  forge archives, which recipes unpack; the extractor is also the bootstrap
+  tool before sbase exists), `xargs`, `find`, `env`, `time` (sbase's use
+  `fork`).
+- Not examined tonight: the eight tools inline in `Dollyfile-system-build`
+  (`ls`, `cp`, `mv`, `test`, `cat`, `echo`, `touch`, `pwd`), which exist
+  before Make and sbase's library; replacing them changes the bootstrap order
+  (`20261001-123500-bootstrap-boundary`).
+
+Left, with where it lives:
+
+- No `/dev/zero`: `20261005-133401-kernel-boundary` (devices are Emscripten
+  JavaScript today).
+- The eight tools inline in `Dollyfile-system-build` against sbase:
+  `20261001-123500-bootstrap-boundary`.
+- `cmd &`, concurrent pipeline stages: `20260930-100000-audit-32` (notes
+  added there).
+- The input record in the image itself, not only `docs/display.md`:
+  `20261005-133403-self-description`.
+- `sysconf(_SC_OPEN_MAX)` answers libc's 1024 where `getrlimit` answers 256;
+  fixing it means patching the pinned libc's table, so it belongs to
+  `20261005-133402-target-identity`.
+- `libdolly-js.a` should become `libquickjs-runner.a` (demo recipes; see
+  above).
+
+## Evidence (2026-10-06, `fix/audit-core`, image inputs `1c081c54…`)
+
+`npm run build:runtime`; `DOLLY_IMAGE_JOBS=1 DOLLY_BUILD_IMAGES=default,pi
+work/build-slot.sh npm run image`. Then, all passing:
+
+- `npm run -s test:source`: 353 pass, 0 fail (the Slop cases run against Bash
+  natively under ASan in `test/slop.test.mjs`).
+- `node test/NAME-browser.mjs chromium` and `firefox` for `core`, `shell`,
+  `slop`, `cpp`, `threads`, `host-modules`, `boundary`, `process`, `network`.
+- Chrome only: `terminal`, `upload`, `snapshot-stream`, `image-inventory`,
+  `site`, `image`, `custom-session`, `host-compute`, `fs-growth`.
+- `npm run test:demos -- pi javascript`: both pass.
+- Not run: `amy` (needs the `python` package image), `audio`, `gpu-*`.
+
+Logs: `build/audit-core-evidence/final2-*.log`.
+
+Commits: `a0f1d9cc` (Slop), `d2bad2db` (cc, clock, limits), `efa9f7b1`
+(xargs, nproc, kill, curl), `e4ed1e88` (git archive), `6f0f03ac` (tail, gzip),
+and the commit that closes this task (nproc's width).

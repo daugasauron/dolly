@@ -1,0 +1,24 @@
+DOLLY 6
+PACKAGE cc
+
+# The C/C++ toolchain as system-build bootstraps it: the compiler and its
+# drivers, the C and C++ headers and libraries, the host clients and Make.
+FROM https://daugasauron.com/Dollyfile-system-build a06a388c8fee4c830482d85fa92ff3a5d8aef7c89efa4f7d452bb1304232aedd
+
+EXPORTS FILE   compiler      /usr/libexec/dolly/process-bin/compiler
+EXPORTS FOLDER process-sdk   /usr/lib/dolly/process
+EXPORTS FOLDER clang-headers /usr/lib/clang/24/include
+EXPORTS HEADER libc          /usr/include
+EXPORTS LIB    compiler-rt   /usr/lib/libclang_rt.builtins.a
+EXPORTS FILE   kernel-plugin-abi /usr/lib/dolly/dolly-kernel-plugin-0.wasm
+EXPORTS TOOL cc
+EXPORTS TOOL c++
+EXPORTS TOOL ld
+EXPORTS TOOL ar
+EXPORTS TOOL make
+EXPORTS ENV CC  cc
+EXPORTS ENV CXX c++
+EXPORTS ENV AR  ar
+FILE /usr/share/licenses/make/COPYING
+FILE /usr/share/licenses/libcxx/LICENSE
+FILE /usr/share/licenses/libcxxabi/LICENSE

@@ -150,7 +150,7 @@ export async function runCodexLogin(page, fixture) {
     let text;
     for (let i = 0; i < 900; i++) {
       text = await evaluate("window.__dolly.visibleTerminalText()");
-      if (/application panicked|Worker failed/.test(text)) throw Error(`Codex crashed: ${text}`);
+      if (/application panicked|dolly: process \d+ (?:failed|was refused)/.test(text)) throw Error(`Codex crashed: ${text}`);
       if (pattern.test(text)) return text;
       await pause(100);
     }

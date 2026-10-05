@@ -1,0 +1,17 @@
+DOLLY 6
+PACKAGE rust
+REQUIRES HOST threads@0
+
+# The Rust SDK and Patti as rust-build holds them. The SDK's rustc finds its
+# sysroot beside itself, so /usr/bin/rustc starts it by its own path.
+COPY https://daugasauron.com/demos/rust/Dollyfile-rust-build d844b76d9560ff6cd690c5dfbd51944b38ab2881c0cf15549c79f08958dd704c /opt/rust-sdk /opt/rust-sdk
+COPY https://daugasauron.com/demos/rust/Dollyfile-rust-build d844b76d9560ff6cd690c5dfbd51944b38ab2881c0cf15549c79f08958dd704c /usr/bin/patti /usr/bin/patti
+COPY https://daugasauron.com/demos/rust/Dollyfile-rust-build d844b76d9560ff6cd690c5dfbd51944b38ab2881c0cf15549c79f08958dd704c /usr/share/licenses/rust /usr/share/licenses/rust
+COPY https://daugasauron.com/demos/rust/Dollyfile-rust-build d844b76d9560ff6cd690c5dfbd51944b38ab2881c0cf15549c79f08958dd704c /usr/share/licenses/patti /usr/share/licenses/patti
+FILE /usr/bin/rustc
+    #!/bin/slop
+    /opt/rust-sdk/bin/rustc "$@"
+EXPORTS TOOL rustc
+EXPORTS TOOL patti
+EXPORTS FOLDER rust-sdk /opt/rust-sdk
+EXPORTS FOLDER rust-licenses /usr/share/licenses/rust

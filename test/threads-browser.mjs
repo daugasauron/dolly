@@ -45,6 +45,13 @@ await browserTest("threads", { image: "default", server: { fixtures, sourceOverr
   assert.notEqual(await submit("cc -pthread -shared /tmp/threads-pthread.c -o /tmp/unsupported.so"), 0);
   assert.notEqual(await submit("cc -pthread -rdynamic /tmp/threads-pthread.c -o /tmp/unsupported"), 0);
 
+  // What cc links, the loader runs: the raw thread interface needs a thread
+  // entry, so linking it without one fails instead of producing a refused program.
+  sourceOverrides.set(probe, "#include <dolly/threads.h>\nint main(void) { return dolly_thread_self() <= 0; }\n");
+  await run(`curl -fsS ${server.origin}${probe} -o /tmp/self.c`);
+  assert.notEqual(await submit("cc /tmp/self.c -o /tmp/self-without-entry"), 0, "linked a thread client without an entry");
+  await run("test ! -e /tmp/self-without-entry && cc -pthread /tmp/self.c -o /tmp/self && /tmp/self");
+
   // A thread's process exit or trap ends the whole process; the shell survives.
   sourceOverrides.set(probe, "#include <pthread.h>\n#include <stdlib.h>\n" +
     "static void *body(void *exiting) { if (exiting) exit(37); __builtin_trap(); }\n" +
@@ -61,6 +68,20 @@ await browserTest("threads", { image: "default", server: { fixtures, sourceOverr
   await run(`curl -fsS ${server.origin}${probe} -o /tmp/racing.c && cc -O1 -pthread /tmp/racing.c -o /tmp/racing`);
   for (let round = 0; round < 10; ++round) assert.equal(await submit("/tmp/racing"), 37, `round ${round}`);
 
+  // An exit that waits for a signalled child still ends a thread that parks meanwhile.
+  sourceOverrides.set(probe, "#include <pthread.h>\n#include <signal.h>\n#include <stdlib.h>\n#include <unistd.h>\n#include <dolly/runtime.h>\n" +
+    "static void handled(int number) { (void)number; }\n" +
+    "static void *park(void *unused) { for (;;) usleep(1000); return unused; }\n" +
+    "int main(int argc, char **argv) {\n" +
+    "  if (argc > 1) { signal(SIGTERM, handled); if (write(1, \"R\", 1) != 1) return 1; pause(); usleep(50000); return 0; }\n" +
+    "  int ready[2]; char byte; pthread_t thread; char *child[] = {argv[0], \"child\", 0};\n" +
+    "  if (pipe(ready)) return 1;\n" +
+    "  const int pid = dolly_spawn(argv[0], 2, child, 0, ready[1], 2);\n" +
+    "  if (pid < 0 || read(ready[0], &byte, 1) != 1 || pthread_create(&thread, 0, park, 0) || kill(pid, SIGTERM)) return 2;\n" +
+    "  exit(37);\n}\n");
+  await run(`curl -fsS ${server.origin}${probe} -o /tmp/leaving.c && cc -O1 -pthread /tmp/leaving.c -o /tmp/leaving`);
+  for (let round = 0; round < 5; ++round) assert.equal(await submit("/tmp/leaving"), 37, `round ${round}`);
+
   // Thread executables must record the threads layout and export the child entry.
   const saved = page.waitForEvent("download");
   await run(`download ${threaded}`);
@@ -73,7 +94,8 @@ await browserTest("threads", { image: "default", server: { fixtures, sourceOverr
   for (const bytes of [incompatible, missingEntry]) {
     sourceOverrides.set(probe, bytes);
     await run(`curl -fsS ${server.origin}${probe} -o /tmp/threads-invalid`);
-    assert.equal(await submit("/tmp/threads-invalid"), 126);
+    assert.equal(await submit("/tmp/threads-invalid 2> /tmp/refused"), 126);
+    await run("test $(wc -l < /tmp/refused) -eq 1 && grep -q 'thread' /tmp/refused");
   }
   assert.deepEqual(errors, []);
 });
@@ -84,6 +106,8 @@ await browserTest("threads refusal", { image: "system", server: { fixtures, sour
   const denied = await open({ policy, setup: enable(modules) });
   sourceOverrides.set(probe, valid);
   assert.equal(await denied.submit(`curl -fsS ${server.origin}${probe} -o /tmp/threads-denied`), 0);
-  assert.equal(await denied.submit("/tmp/threads-denied"), 126);
+  assert.equal(await denied.submit("/tmp/threads-denied 2> /tmp/refused"), 126);
+  assert.equal(await denied.submit("test $(wc -l < /tmp/refused) -eq 1 && grep -q 'threads@0' /tmp/refused"), 0,
+    "the refusal names the module on the program's stderr");
   assert.equal(await denied.submit("printf alive > /tmp/alive && test -f /tmp/alive"), 0);
 });

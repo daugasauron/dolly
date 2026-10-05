@@ -53,7 +53,7 @@ export function executableHostRequirements(module) {
 // available: name@version -> the ABI digest its provider implements.
 export function checkHostAbi(required, available) {
   for (const [requirement, digest] of required) {
-    if (!available.has(requirement)) throw new Error(`Required host ABI ${requirement} is unsupported`);
-    if (available.get(requirement) !== digest) throw new Error(`Required host ABI ${requirement} has a different layout`);
+    if (!available.has(requirement)) throw new Error(`host module ${requirement} is not declared by this image (REQUIRES HOST)`);
+    if (available.get(requirement) !== digest) throw new Error(`host module ${requirement} has a different layout than this program was built for`);
   }
 }

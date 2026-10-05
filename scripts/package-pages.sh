@@ -47,7 +47,7 @@ done
 mkdir -p "${staging}/site/dist"
 node "${project_dir}/scripts/site-release.mjs" source "${staging}/site" "${project_dir}"
 mapfile -t sources < <(node "${project_dir}/scripts/list-images.mjs" --sources)
-(cd "${project_dir}" && cp --parents -R index.html 404.html terminal.html coi-serviceworker.js LICENSE \
+(cd "${project_dir}" && cp --parents -R index.html 404.html terminal.html coi-serviceworker.js LICENSE robots.txt licences \
   host src/*.mjs abi/*.wat "${sources[@]}" "${image_names[@]}" view rebuild \
   custom/index.html custom/rebuild custom/run session sessions "${staging}/site/")
 if [[ "${site}" == "daugasauron.com" ]]; then

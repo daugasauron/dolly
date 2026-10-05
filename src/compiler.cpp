@@ -40,6 +40,7 @@
 #include <llvm/Support/VirtualFileSystem.h>
 #include <llvm/Support/raw_ostream.h>
 
+#include <dolly/host-abi.h>
 #include <dolly/toolchain.h>
 
 #include "dolly-kernel-plugin-abi-digest.h"
@@ -71,6 +72,7 @@ struct DriverOptions {
   bool print_search_dirs = false;
   bool dependency_output = false;
   bool include_system_dependencies = false;
+  bool phony_dependencies = false;
   bool end_options = false;
   bool exceptions_disabled = false;
   bool optimization_selected = false;
@@ -201,6 +203,10 @@ void print_help(const char *program, int driver_mode) {
       "                     build the explicitly privileged display plugin\n"
       "  -rdynamic          export command symbols for later shared objects\n"
       "  -o FILE            write the object or executable to FILE\n"
+      "  -L DIR, -l NAME    link libNAME.a from DIR; /usr/lib is always searched.\n"
+      "                     <dolly/NAME.h> host clients (libdolly-NAME.a in\n"
+      "                     /usr/lib/dolly/process) and libc are linked without -l\n"
+      "  -pthread           link the thread runtime (pthreads, C++ threads)\n"
       "  -x c|c++           override source language\n"
       "  -std=STANDARD      select a C or C++ language standard\n"
       "  -O0|-O1|-O2|-O3|-Os|-Oz\n"
@@ -258,6 +264,8 @@ int parse_driver_options(int argc, const char *const *argv, DriverOptions &optio
     } else if (argument == "-MD" || argument == "-MMD") {
       options.dependency_output = true;
       options.include_system_dependencies = argument == "-MD";
+    } else if (argument == "-MP") {
+      options.phony_dependencies = true;
     } else if (argument == "-MF") {
       if (!take_option_value(argc, argv, index, "-MF",
                              options.dependency_file)) return -1;
@@ -508,6 +516,10 @@ bool run_clang(const std::string &source, const std::string &language,
   arguments.insert(arguments.end(), {
       "-resource-dir", "/usr/lib/clang/24",
   });
+  // As Clang's driver does: reproducible __DATE__, __TIME__ and __TIMESTAMP__.
+  if (const char *epoch = std::getenv("SOURCE_DATE_EPOCH")) {
+    arguments.insert(arguments.end(), {"-source-date-epoch", epoch});
+  }
   // A kernel plugin is the sole resident dynamic object. The kernel implements
   // __assert_fail in JavaScript, so a plugin's assertions reach the kernel's C
   // reporter instead; ordinary output targets the private process runtime and
@@ -594,6 +606,7 @@ bool run_clang(const std::string &source, const std::string &language,
     if (options.include_system_dependencies) {
       arguments.push_back("-sys-header-deps");
     }
+    if (options.phony_dependencies) arguments.push_back("-MP");
   }
   if (!output.empty()) arguments.insert(arguments.end(), {"-o", output});
   arguments.insert(arguments.end(), {"-x", language, source});
@@ -1216,6 +1229,28 @@ bool validate_process_executable(const std::string &path) {
     std::fprintf(stderr,
                  "dolly-cc: process executable %s does not import exactly memory and call\n",
                  path.c_str());
+    return false;
+  }
+
+  // The loader starts every thread of a program that links the threads client
+  // at dolly_thread_start, so refuse here what it would refuse to run.
+  bool thread_client = false, thread_entry = false;
+  for (const llvm::object::SectionRef &section : executable.object->sections()) {
+    const llvm::object::WasmSection &wasm =
+        executable.object->getWasmSection(section);
+    if (wasm.Type != llvm::wasm::WASM_SEC_CUSTOM || wasm.Name != "dolly.host") continue;
+    for (size_t offset = 0; offset + DOLLY_HOST_RECORD_BYTES <= wasm.Content.size();
+         offset += DOLLY_HOST_RECORD_BYTES) {
+      if (std::strncmp(reinterpret_cast<const char *>(wasm.Content.data() + offset),
+                       "threads", DOLLY_HOST_NAME_BYTES) == 0) thread_client = true;
+    }
+  }
+  for (const llvm::wasm::WasmExport &entry : executable.object->exports()) {
+    if (entry.Name == "dolly_thread_start") thread_entry = true;
+  }
+  if (thread_client && !thread_entry) {
+    std::fputs("dolly-cc: this program uses <dolly/threads.h> without a thread entry: build "
+               "with -pthread, or export dolly_thread_start from your own runtime\n", stderr);
     return false;
   }
 

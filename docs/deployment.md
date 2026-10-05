@@ -63,7 +63,7 @@ gh workflow run pages.yml -f release_tag="$tag" -f artifact_sha256="$sha" -f sou
 | --- | --- |
 | `_dolly/RELEASE/` code, recipes, sources | Immutable |
 | `dist/packs/HASH.snapshot.gz` | Immutable |
-| HTML and `coi-serviceworker.js` | No-store |
+| HTML, `coi-serviceworker.js` and `robots.txt` | No-store |
 
 - Every URL is a file at its checkout path (directories serve `index.html`;
   [`generate-routes.mjs`](../scripts/generate-routes.mjs) writes the menu, image

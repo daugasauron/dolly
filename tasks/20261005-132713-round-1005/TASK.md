@@ -49,3 +49,101 @@ in the integrator's scratchpad):
   refused to seal: "release source does not match the selected checkout",
   because the integrator committed a task note in this tree while it ran. Not
   rerun: round 2 produces the candidate. Do not commit in the tree being published.
+
+## Round 2 (`integrate/1005-seed`, worktree `round2`) — state at 00:30 JST, 2026-10-06
+
+Merged and repinned so far, source suite green except the licence inventory
+(waiting for the 0 A.D. rows on `work/licences`): `work/zero-ad-self`,
+`integrate/1005`, `work/licences`, `work/pi-1` (own `node_modules`, `npm ci`),
+`work/claude-code`, `fix/signal-regression`, `fix/page-presenter`, and the
+Slopyard test fix `a32f69b1`.
+
+Still out, due 02:30: `fix/audit-core` (the seed batch), `work/more-packages`,
+`work/webgpu-any-gpu`, the `work/licences` follow-up, `work/demo-recordings`.
+Not for this candidate unless verified early: `core/kernel-boundary`
+(worktree `signals`; step 1 keeps images valid), `core/iteration` (worktree
+`presenter`; `20260930-100000-audit-53`). Slopyard is deferred.
+
+Then: `npm run build:runtime`; the Rust seed if `process.h` changed;
+`DOLLY_IMAGE_JOBS=4 npm run image`; source, artifact, browser and demo suites;
+`npm run publish`; serve on :9003. A preview with Pi 1.0 (`default`, `pi`,
+`dollyfile-studio`; release `24e7c6d0…`) is served on :9004 from `work/pi`.
+
+Rules learnt tonight: recipe conflicts are merged with
+`merge-recipes.py` (integrator's scratchpad: recipe pins zeroed, then
+`update-recipe-pins.mjs`); image builds go through `work/build-slot.sh`; the
+root `node_modules` is stale (Pi 0.84.4) and must be refreshed with `npm ci`
+once no agent is using it.
+
+## Interrupted at 01:20 JST, 2026-10-06: the usage limit was reached
+
+State of `integrate/1005-seed` (worktree `round2`), tip `d612e10f` plus this note:
+merged and repinned: zero-ad-self, integrate/1005, licences, pi-1 (Pi 1.0.3 and
+skills), claude-code (Janis), signal-regression, page-presenter, kernel-boundary
+step 1 (`ff3a5c19`), audit-core (the seed batch), and the integrator's Pi-skill
+update. Source suite 356 pass, 1 fail (licence inventory lacks the 0 A.D. rows).
+
+A preflight is running detached in this tree (runtime built, image inputs
+`1c081c54…`; then the `default` chain and core browser suites; log
+`…/86b87808…/scratchpad/preflight.log`). It rewrote pins in 51 recipes in the
+working tree: discard them (`git checkout -- .`) before merging anything.
+
+Not merged yet:
+- `work/webgpu-any-gpu` (finished, reviewed, accepted; the merge was refused
+  only because the tree was dirty). Resolve recipes with `work/merge-recipes.py`.
+- `work/demo-recordings`: new Studio recording `754330a3`, message fix `c896f223`.
+  `stealth/space-bunny-alpha` left OpenRouter at 01:05 JST (404), so RTS,
+  ClassiCube and bhop are not re-recorded.
+- `work/licences`: follow-up in progress (0 A.D. and `qwen3.5-800m` inventory rows).
+- `work/more-packages`: in progress; asked to sort the receipt's member lists
+  in `src/dollyfile.c` (image digests follow readdir order) and to measure a
+  compiler-free base.
+- `core/kernel-boundary` (worktree `signals`): step 2 in progress; it changes
+  `system-build`'s digest, so it must ride a catalog rebuild.
+- `core/iteration` (worktree `presenter`): `audit-53`, to merge after the candidate.
+
+Next steps: merge the above; `node scripts/update-recipe-pins.mjs`; source suite;
+`npm run build:runtime`; `demos/rust/build-rust-toolchain.sh` (the sysroot
+changed; `build/rustc-port` was being copied from `work/host-modules`);
+`DOLLY_IMAGE_JOBS=4 npm run image`; source, artifact, browser and demo suites
+(plus `zero-ad`); re-verify the Pi skill in the rebuilt `pi` image;
+`npm run publish`; serve on :9003. Do not commit in the tree while publishing.
+
+Decisions waiting for the owner: target identity (`20261005-133402`), what Slop
+is for, the runtime/process-modules recommendation (`20261002-073000`), a git
+relay (`20261005-131649`), the licence points (`20261005-135857`), 4B as part
+packages (`20261005-131646`), Claude Code's limits (`20261005-133044`).
+
+## Round 2 result (2026-10-06, 03:18-04:46 JST)
+
+Release candidate `e245b123…`, built from `5c7457b9` on `integrate/1005-seed`
+(image inputs `047fc328…`, 61 images rebuilt in 60 minutes with four
+builders), served on http://localhost:9003 from `work/round2`.
+
+Merged after the interruption: `work/webgpu-any-gpu`, `work/demo-recordings`,
+`work/more-packages-seed` (packages, the packaged core, the receipt order),
+`work/licences-2` (inventory rows). `demos/zero-ad/Dollyfile-zero-ad-deps` was
+pointed at the renamed `Dollyfile-sdl2` package.
+
+Verified on the rebuilt catalog (logs in the integrator's scratchpad, `round2/`):
+- Source suite 357 pass; artifact suite 24 pass.
+- Browser suites in Chrome and Firefox: all pass. `minimal` first failed on a
+  stale expectation of the refusal text and passes since `1723a563`.
+- Release acceptance for every image (part of `npm run publish`).
+- Demo tests: python, javascript, emacs, pi, neovim, rust, cmake, sdl2, studio,
+  codex, bhop, classicube pass. `rts` failed once in the pipeline ("both native
+  games must animate during the slow model's response") and passed alone in
+  256.7 s: the early-frame race of `20261005-151321-rts-early-input-stall`.
+- The Pi skill's updated statements were run in the rebuilt `pi` image:
+  `xargs -P 4`, curl status 9 on a policy refusal, the exit-126 line naming
+  `gpu@0`, `require` and `import` in `janis -e`, `.mjs` modules.
+
+The first catalog attempt failed in preparation: `prepare-emacs.sh` downloads
+from ftp.gnu.org before checking its cache, the host timed out, and this
+worktree's `.cache` lacked the archive (copied from `work/host-modules`, and
+into the root `.cache`).
+
+Not in this candidate: kernel-boundary step 2 and later (`core/kernel-boundary`,
+worktree `signals`), `core/iteration` (worktree `presenter`, to merge next),
+the licence texts of 0 A.D.'s linked libraries (`work/licences`, WIP `98803d3f`),
+new recordings for RTS, ClassiCube and bhop (the model left OpenRouter).

@@ -1,65 +1,94 @@
 ---
 name: dolly
-description: Understand, inspect, test, and improve the Dolly browser WebAssembly userspace.
+description: How to work on this Dolly machine, a Unix-like userspace inside a browser's WebAssembly sandbox - finding what is installed, amy packages, what the network reaches and how to get source without git clone, Slop shell idioms, parallel make, cc and Dolly's headers, Janis JavaScript, exit status 126. Read before installing software, fetching source, compiling, or explaining a command that failed.
 ---
 
 # Dolly
 
-Dolly is a minimal POSIX-like userspace for coding agents, contained in a
-browser WebAssembly sandbox. Its source is
-<https://github.com/daugasauron/dolly>.
+Everything here (shell, processes, files) runs in WebAssembly inside one
+browser tab. Files live in memory: reloading the tab loses them unless the user
+saves a session (Ctrl+Shift+S). There is no host filesystem, no sockets, no
+root, no PTY and no `apt`, `npm` or `pip install`.
 
-Use this skill when a task concerns Dolly itself, its ABI, browser boundary,
-Dollyfiles, toolchain, commands, Pi integration, terminal, or tests.
+## What this machine has
 
-## Non-negotiable model
+- `cat /etc/dolly/Dollyfile`: the recipe this image was built from. Its
+  `REQUIRES HOST` lines are the host modules (display, http, threads, gpu...)
+  that programs here may use. `/etc/dolly/recipes/` holds the recipes it came from.
+- `ls /bin /usr/bin`: every command. Read a command's usage before assuming
+  GNU options; options go before operands (`ls -a /etc`).
+- `amy list` shows the packages this release publishes; `amy install NAME`
+  installs one (python, nvim, emacs, ripgrep, local models...) and its commands
+  work at once. If amy says the image must declare `packages@0`, this image
+  cannot install packages.
+- Dolly's C interfaces: the headers in `/usr/include/dolly/`, whose comments
+  are the documentation. Licences: `/usr/share/licenses/`.
+- Dolly's own source and docs are not in the image; read them at
+  `https://raw.githubusercontent.com/daugasauron/dolly/main/` (`README.md`, `docs/`).
 
-- The complete in-Wasm userspace is one trust domain. Ordinary commands have
-  private memory and runtime state, with a shared kernel-owned WasmFS filesystem.
-- Mutable files, descriptors, working directories, environments, and command
-  bookkeeping live in WebAssembly memory. No command may reach a host file or
-  native process.
-- `env.dolly_http_dispatch` is the sole intentional agent-selected network
-  edge. Browser policy owns destinations, credentials, redirects, quotas, and
-  approval. Never add an ambient `fetch`, socket, Node, or native-host escape.
-- The target is memory64/table64. The canonical machine contract is WAT/Wasm;
-  generated JavaScript metadata is not the ABI source.
-- Prefer unchanged upstream programs plus target configuration. Add substrate
-  operations only when a real program demonstrates a reusable requirement.
+## Network
 
-## Repository map
+All HTTP goes through the browser, so a host answers only if the page's policy
+allows it and it sends CORS headers. Check a host before planning around it:
+`curl -sS -o /dev/null -w '%{http_code}\n' URL`. Usually
+raw.githubusercontent.com, api.github.com, cdn.jsdelivr.net,
+data.jsdelivr.com, registry.npmjs.org and pypi.org work, while github.com and
+codeload.github.com do not: `git clone`, `git fetch` and GitHub archive
+downloads fail. "Browser could not fetch the URL" (curl status 7) means the
+host sends no CORS headers or is unreachable, and another spelling of the same
+host will not help; status 9 means this page's policy refused it. Never send
+credentials through a public CORS proxy.
 
-- `abi/`: typed Wasm machine contracts.
-- `include/dolly/`: C-facing platform and HTTP interfaces.
-- `src/dolly.c`: kernel integration and boot; `src/process-kernel.c`: process
-  records, descriptors, signals and filesystem operations.
-- `src/runtime-worker.mjs`: runtime Worker boot, image build and restore.
-- `src/browser.mjs`: trusted page; `host/NAME/`: one browser host module each.
-- `host/http/policy.mjs`, `host/http/broker.mjs`: network authorization and transport.
-- `src/slop.c`, `src/commands/`: the shell and Dolly's own commands.
-- `src/libcurl-fetch.c`: libcurl compatibility over Dolly HTTP, never sockets.
-- `Dollyfile*`, `modules/`: core image recipes. `demos/DEMO/`: everything else
-  (JavaScript, Python, Pi, games) with its own recipes, sources and tests.
-- `scripts/build.sh`: kernel and compiler seed; `npm run image -- IMAGE` builds
-  an image inside Wasm in a headless browser.
-- `test/`, `demos/*/test/`: source and real-browser tests.
-- `README.md`, `abi/README.md` and `docs/`: architecture, process model, browser
-  boundary, Dollyfile and other focused references.
+- One file: `curl -fsSLO https://raw.githubusercontent.com/OWNER/REPO/REF/PATH`
+- A tree: list its files with
+  `janis -m -e 'const r = await fetch("https://data.jsdelivr.com/v1/packages/gh/OWNER/REPO@REF?structure=flat"); for (const f of (await r.json()).files) console.log(f.name.slice(1))'`,
+  then fetch each from `https://cdn.jsdelivr.net/gh/OWNER/REPO@REF/PATH`.
+- An npm tarball: `curl -fsSL URL | gzip -dc - | tar -xf - -C DIR` (tar only
+  extracts and has no `-z`).
+- `curl --help` lists the options it has.
 
-## Working method
+## Shell
 
-1. Read `AGENTS.md` and the relevant focused document before changing code.
-2. Trace behavior across all four layers: machine ABI, platform substrate,
-   libc/runtime, then command or agent behavior.
-3. Keep Dollyfile operations sequential and every external byte pinned by
-   SHA-256. Update the recipe hash whenever a staged source changes.
-4. Build with `npm run build:runtime` and `npm run image -- IMAGE`. Run
-   `npm run test:source`; for UI, broker, persistence or lifecycle changes, also
-   run `npm run test:core` or the relevant browser suite.
-5. Inspect the main module's exact imports after ABI changes. A browser test
-   must prove denied host access and the intended capability allowlist.
+The `bash` tool, `!`, `sh` and `make` all run Slop, not Bash. `help` prints
+exactly the syntax it supports; anything else is an error, so check it before
+reaching for Bash features. Pipeline stages run one after another, so
+`make | tail` shows nothing until make ends.
+Put longer scripts in a file with the write tool and run `slop FILE`. Nobody
+is at the keyboard of the tool's commands: never start interactive programs
+(nvim, pi, python without arguments) there, and bound anything that might wait
+or hang with `timeout 60 COMMAND`.
 
-In compiler-equipped images, `/usr/include/dolly/` contains public headers.
-Retained build inputs are not the whole Git repository; `/seed` exists only
-during root rebuilds. Clone into `/workspace` when the task needs full source
-history and network policy permits it.
+There are no background jobs (`&`): `make -jN` and `xargs -P N` run N
+processes at once.
+To fetch many files, list them in `files.txt` and run `make -j8 -f fetch.mk`:
+
+```make
+.RECIPEPREFIX = >
+FILES := $(shell cat files.txt)
+all: $(FILES)
+$(FILES):
+>@mkdir -p $(dir $@) && curl -fsS https://cdn.jsdelivr.net/gh/OWNER/REPO@REF/$@ -o $@
+```
+
+## C and C++
+
+`cc` and `c++` are Clang for wasm64, with `make`, `ninja` and `ar`; `cc -c`
+takes one source file. Upstream `./configure` scripts usually need more shell
+than Slop has: compile the sources directly or write a small Makefile. `-lm`, `-lz` and `-lcurl` (libcurl over the browser)
+link from `/usr/lib`. To use a Dolly interface (`display.h` draws on the
+terminal's canvas), include its header from `/usr/include/dolly/`: its client
+library links automatically, with no `-l`. The program then runs only in images whose recipe declares that
+module, and `-pthread` needs `threads@0`. Time code with
+`clock_gettime(CLOCK_MONOTONIC)`.
+
+A program that exits 126 was refused or crashed, and one line on its stderr
+says why, usually a host module this image's recipe does not declare
+(`REQUIRES HOST` in `/etc/dolly/Dollyfile`). Nothing inside an image adds a
+module: the program needs an image whose recipe declares it.
+
+## JavaScript
+
+`janis` (also `qjs`) is QuickJS with Node's module rules: `.mjs` files and code
+using `import` are ES modules, other files and `-e` are CommonJS with
+`require`. `fetch` and the `node:` built-ins work; worker threads do not exist. `tsc` compiles TypeScript. Without
+npm, use dependency-free modules, for example from `https://cdn.jsdelivr.net/npm/`.

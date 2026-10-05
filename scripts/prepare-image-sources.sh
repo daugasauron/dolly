@@ -79,6 +79,10 @@ if has_image system-build; then
     "${project_dir}/.cache/emscripten/sysroot/include/c++/v1" /usr/include/c++/v1
   copy_static "${emscripten_system_dir}/system/lib/libcxx/LICENSE.TXT" default/licenses/libcxx
   copy_static "${emscripten_system_dir}/system/lib/libcxxabi/LICENSE.TXT" default/licenses/libcxxabi
+  copy_static "${emscripten_system_dir}/LICENSE" default/licenses/emscripten
+  # The sparse checkout omits musl's tree; its notice is in the pinned commit.
+  git -C "${emscripten_system_dir}" show HEAD:system/lib/libc/musl/COPYRIGHT > "${staging}/musl-COPYRIGHT"
+  copy_static "${staging}/musl-COPYRIGHT" default/licenses/musl
 fi
 if has_image system-build; then
   copy_static "${project_dir}/src/runtimes/make-amalgamation-dolly.c" default/runtimes/make-amalgamation-dolly.c
@@ -90,8 +94,8 @@ if has_image gzip; then
   copy_static src/commands/gzip.c default/commands/gzip.c
 fi
 if has_image system-tools; then
-  for source in run-program.h install.c tail.c du.c rev.c command.c xargs.c amy.c \
-      find.c env.c time.c timeout.c realpath.c diff.c patch.c hostname.c tty.c; do
+  for source in run-program.h install.c du.c rev.c command.c xargs.c amy.c \
+      find.c env.c time.c timeout.c realpath.c diff.c patch.c hostname.c tty.c nproc.c; do
     copy_static "${project_dir}/src/commands/${source}" "default/commands/${source}"
   done
 fi
@@ -169,6 +173,7 @@ if has_image zig-build; then
     "${zig_dir}/LICENSE" /usr/share/licenses/zig/LICENSE
   node scripts/build-source-tar.mjs "${static_dir}/default/wamr.tar" \
     "${wamr_dir}/core" /tmp/wamr/core \
+    "${wamr_dir}/LICENSE" /tmp/wamr/LICENSE \
     src/zig/zig1.c /tmp/wamr/zig1.c \
     src/zig/wamr-platform.c /tmp/wamr/wamr-platform.c \
     src/zig/platform_internal.h /tmp/wamr/platform_internal.h

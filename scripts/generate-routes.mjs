@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 // Writes the generated pages at their served paths in this checkout: the menu
-// index.html (from menu.html), a terminal.html page per route, the Dollyfile
-// views and the package index. Any static file server can then serve the checkout.
+// index.html (from menu.html), the licences page, a terminal.html page per
+// route, the Dollyfile views and the package index. Any static file server can
+// then serve the checkout.
 
 import { createHash } from "node:crypto";
 import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
@@ -17,6 +18,7 @@ import { createDollyfileGraphLoader } from "./dollyfile-graph.mjs";
 import { renderDollyfilePage } from "./render-dollyfile-view.mjs";
 import { imageDescriptions, menuRow, pageRoutes } from "./image-menu.mjs";
 import { bundleProcessWorker } from "./bundle-process-worker.mjs";
+import { renderLicencesPage, upstreamInventory } from "./upstreams.mjs";
 import { CANONICAL_ORIGIN } from "../src/static-asset.mjs";
 
 const projectDir = resolve(import.meta.dirname, "..");
@@ -54,6 +56,9 @@ const rows = ordered.map((definition, index) => {
 const menu = await readFile(resolve(projectDir, "menu.html"), "utf8");
 await writeFile(resolve(projectDir, "index.html"),
   menu.replace(/<tbody>[\s\S]*?<\/tbody>/, () => `<tbody>\n${rows.join("\n")}\n</tbody>`));
+await mkdir(resolve(projectDir, "licences"), { recursive: true });
+await writeFile(resolve(projectDir, "licences/index.html"),
+  renderLicencesPage(menu, await upstreamInventory(projectDir, definitions)));
 // The package index amy reads: one "NAME URL SHA256" line per package.
 await writeFile(resolve(projectDir, "dist/dolly-packages.txt"), definitions
   .filter(({ parsed }) => parsed.role === "package")
