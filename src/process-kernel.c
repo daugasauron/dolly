@@ -35,6 +35,9 @@ enum {
 
 static const uint64_t DOLLY_KERNEL_SPAWN_DEADLINE_LIMIT =
     UINT64_C(24) * 60 * 60 * 1000000000;
+/* How long an exiting parent leaves a signalled child running. The supervisor
+ * allows a handler the same time (interruptGraceMilliseconds). */
+static const uint64_t DOLLY_KERNEL_INTERRUPT_GRACE = UINT64_C(500) * 1000000;
 
 typedef struct {
   size_t offset;
@@ -70,6 +73,7 @@ typedef struct {
   uint64_t deadline_nanoseconds;
   uint32_t pending_signals;
   int handling_signal;
+  uint64_t interrupt_deadline; /* Monotonic end of the grace after a terminating signal. */
   uint64_t alarm_deadline; /* Monotonic SIGALRM time; zero while disarmed. */
   uint64_t alarm_interval;
   int alarm_handled;
@@ -1971,13 +1975,13 @@ static int64_t process_dispatch(int pid, int tid, int takes_signals, uint32_t op
       const int signal_number = request.signal_number != 0
           ? (int)request.signal_number : (terminating ? __builtin_ctz(terminating) : 0);
       const int status = signal_number != 0 ? 128 + signal_number : (int)request.status;
-      /* A foreground-tree interrupt must let children finish their own
-       * handlers before a parent's exit reclaims the subtree. */
+      /* Exit reclaims the subtree, so a signalled child gets its grace to shut
+       * down first: an event loop only notes the signal in its handler and
+       * acts on it after the handler has returned. */
       for (size_t index = 0; index < DOLLY_KERNEL_PROCESS_LIMIT; ++index) {
         const dolly_kernel_process *child = &process_table[index];
         if (child->parent_pid == process->pid && child->state == DOLLY_KERNEL_PROCESS_RUNNING &&
-            ((child->pending_signals & ~notification_signals(child)) ||
-             (child->handling_signal && !(notification_signals(child) & (1u << child->handling_signal)))))
+            dolly_kernel_deadline_pending(child->interrupt_deadline))
           return DOLLY_PROCESS_DISPATCH_DEFERRED;
       }
       mark_process_exited(process, status, signal_number);
@@ -2107,6 +2111,8 @@ int dolly_process_signal(int pid, int signal_number) {
     return 0;
   if (signal_number != DOLLY_PROCESS_SIGKILL && process->state == DOLLY_KERNEL_PROCESS_RUNNING) {
     process->pending_signals |= 1u << signal_number;
+    if (!(notification_signals(process) & (1u << signal_number)))
+      process->interrupt_deadline = clock_nanoseconds(CLOCK_MONOTONIC) + DOLLY_KERNEL_INTERRUPT_GRACE;
   } else {
     /* SIGKILL and signals before command entry cannot run userspace handlers. */
     mark_process_exited(process, 128 + signal_number, signal_number);
