@@ -49,3 +49,28 @@ in the integrator's scratchpad):
   refused to seal: "release source does not match the selected checkout",
   because the integrator committed a task note in this tree while it ran. Not
   rerun: round 2 produces the candidate. Do not commit in the tree being published.
+
+## Round 2 (`integrate/1005-seed`, worktree `round2`) — state at 00:30 JST, 2026-10-06
+
+Merged and repinned so far, source suite green except the licence inventory
+(waiting for the 0 A.D. rows on `work/licences`): `work/zero-ad-self`,
+`integrate/1005`, `work/licences`, `work/pi-1` (own `node_modules`, `npm ci`),
+`work/claude-code`, `fix/signal-regression`, `fix/page-presenter`, and the
+Slopyard test fix `a32f69b1`.
+
+Still out, due 02:30: `fix/audit-core` (the seed batch), `work/more-packages`,
+`work/webgpu-any-gpu`, the `work/licences` follow-up, `work/demo-recordings`.
+Not for this candidate unless verified early: `core/kernel-boundary`
+(worktree `signals`; step 1 keeps images valid), `core/iteration` (worktree
+`presenter`; `20260930-100000-audit-53`). Slopyard is deferred.
+
+Then: `npm run build:runtime`; the Rust seed if `process.h` changed;
+`DOLLY_IMAGE_JOBS=4 npm run image`; source, artifact, browser and demo suites;
+`npm run publish`; serve on :9003. A preview with Pi 1.0 (`default`, `pi`,
+`dollyfile-studio`; release `24e7c6d0…`) is served on :9004 from `work/pi`.
+
+Rules learnt tonight: recipe conflicts are merged with
+`merge-recipes.py` (integrator's scratchpad: recipe pins zeroed, then
+`update-recipe-pins.mjs`); image builds go through `work/build-slot.sh`; the
+root `node_modules` is stale (Pi 0.84.4) and must be refreshed with `npm ci`
+once no agent is using it.
