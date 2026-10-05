@@ -71,6 +71,7 @@ struct DriverOptions {
   bool print_search_dirs = false;
   bool dependency_output = false;
   bool include_system_dependencies = false;
+  bool phony_dependencies = false;
   bool end_options = false;
   bool exceptions_disabled = false;
   bool optimization_selected = false;
@@ -258,6 +259,8 @@ int parse_driver_options(int argc, const char *const *argv, DriverOptions &optio
     } else if (argument == "-MD" || argument == "-MMD") {
       options.dependency_output = true;
       options.include_system_dependencies = argument == "-MD";
+    } else if (argument == "-MP") {
+      options.phony_dependencies = true;
     } else if (argument == "-MF") {
       if (!take_option_value(argc, argv, index, "-MF",
                              options.dependency_file)) return -1;
@@ -508,6 +511,10 @@ bool run_clang(const std::string &source, const std::string &language,
   arguments.insert(arguments.end(), {
       "-resource-dir", "/usr/lib/clang/24",
   });
+  // As Clang's driver does: reproducible __DATE__, __TIME__ and __TIMESTAMP__.
+  if (const char *epoch = std::getenv("SOURCE_DATE_EPOCH")) {
+    arguments.insert(arguments.end(), {"-source-date-epoch", epoch});
+  }
   // A kernel plugin is the sole resident dynamic object. The kernel implements
   // __assert_fail in JavaScript, so a plugin's assertions reach the kernel's C
   // reporter instead; ordinary output targets the private process runtime and
@@ -594,6 +601,7 @@ bool run_clang(const std::string &source, const std::string &language,
     if (options.include_system_dependencies) {
       arguments.push_back("-sys-header-deps");
     }
+    if (options.phony_dependencies) arguments.push_back("-MP");
   }
   if (!output.empty()) arguments.insert(arguments.end(), {"-o", output});
   arguments.insert(arguments.end(), {"-x", language, source});

@@ -1316,6 +1316,33 @@
 -}
 +#endif
 +}
+--- a/build/premake/extern_libs5.lua
++++ b/build/premake/extern_libs5.lua
+@@ -67,6 +67,10 @@
+ 	pkgconfig.add_pkg_config_path(libraries_dir .. "pkgconfig/")
+ 	pkgconfig.set_static_link_libs(true)
+ end
++-- Emscripten targets link static archives only.
++if os.istarget("emscripten") then
++	pkgconfig.set_static_link_libs(true)
++end
+ 
+ local function add_delayload(name, suffix, def)
+ 
+--- a/build/premake/pkgconfig/pkgconfig.lua
++++ b/build/premake/pkgconfig/pkgconfig.lua
+@@ -12,7 +12,10 @@
+ 
+ 
+ local function os_capture(cmd)
+-	return io.popen(cmd, 'r'):read('*a'):gsub("\n", " ")
++	local handle = io.popen(cmd, 'r')
++	local output = handle:read('*a')
++	handle:close()
++	return output:gsub("\n", " ")
+ end
+ 
+ local function parse_pkg_config_includes(lib, alternative_cmd, alternative_flags)
 --- a/build/premake/premake5.lua
 +++ b/build/premake/premake5.lua
 @@ -90,7 +90,9 @@
@@ -1345,7 +1372,7 @@
 +if os.istarget("emscripten") then
 +	architecture "wasm64"
 +	defines { "DOLLY", "CONFIG2_FILE_ENABLE_AIO=0", "CONFIG2_TIMER_ALLOW_RDTSC=0" }
-+	buildoptions { "-m64", "-matomics", "-mbulk-memory", "-fwasm-exceptions", "-sWASM_LEGACY_EXCEPTIONS=0", "-sSUPPORT_LONGJMP=wasm", "-O2", "-msimd128" }
++	buildoptions { "-O2" }
 +end
  
  source_root = rootdir.."/source/" -- default for most projects - overridden by local in others

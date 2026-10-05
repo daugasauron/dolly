@@ -3,9 +3,10 @@ import {createServer} from "node:http";
 import {chromium} from "playwright-core";
 import {startBrowserServer} from "../../../test/browser-server.mjs";
 import {createRelayRoom} from "../toolchain/relay.mjs";
+import {imageFile} from "./fixtures/image-file.mjs";
 
 const server = await startBrowserServer(new URL("../../../", import.meta.url).pathname,
-  "default", { fixtures: {"enet.wasm": "build/0ad/enet-check.wasm"} });
+  "default", { fixtures: {"enet.wasm": await imageFile("zero-ad-deps", "/usr/libexec/zero-ad/enet-check", "enet-check.wasm")} });
 const room = createRelayRoom();
 const relay = createServer((request, response) => void room.handle(request, response, server.origin));
 relay.maxConnections = 32; relay.requestTimeout = 10000;

@@ -3,18 +3,19 @@ import { mkdir, readFile } from "node:fs/promises";
 import { chromium } from "playwright-core";
 import { startBrowserServer } from "../../../test/browser-server.mjs";
 import { acceptDownload } from "../../browser.mjs";
+import { engineFixture } from "./fixtures/image-file.mjs";
 
 const output = new URL("../../../.cache/0ad/browser/", import.meta.url);
 await mkdir(output, { recursive: true });
 const server = await startBrowserServer(new URL("../../../", import.meta.url).pathname,
-  "default", { fixtures: {
-    "pyrogenesis.wasm": "build/0ad/pyrogenesis.wasm",
+  "zero-ad-engine", { fixtures: {
+    "pyrogenesis.wasm": await engineFixture(),
     "0ad-data.tar": "build/0ad/headless-data.tar",
   } });
 let browser, deadline, page;
 try {
   browser = await chromium.launch({ channel: "chrome", headless: true,
-    args: ["--no-sandbox", "--disable-gpu"] });
+    args: ["--no-sandbox", "--disable-gpu", "--enable-unsafe-webgpu"] });
   deadline = setTimeout(() => void browser.close(), 180000);
   page = await browser.newPage();
   page.on("pageerror", error => console.error(error.message));
@@ -22,7 +23,7 @@ try {
     globalThis.DOLLY_HTTP_POLICY = { maxRequests: 2,
       rules: [{ origin, pathPrefix: "/fixture/", methods: ["GET"] }] };
   }, server.origin);
-  await page.goto(`${server.origin}/default/`);
+  await page.goto(`${server.origin}/zero-ad-engine/`);
   await page.waitForFunction(() => ["ready", "failed"].includes(document.documentElement.dataset.dollyStatus));
   assert.equal(await page.evaluate(() => document.documentElement.dataset.dollyStatus), "ready",
     await page.locator("#bootstrap-log").textContent());

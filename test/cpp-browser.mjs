@@ -41,6 +41,10 @@ await browserTest("cpp", {}, async ({ open }) => {
       "clock_gettime(CLOCK_MONOTONIC, &t); }\\n' > posix.c && cc posix.c -o posix && ./posix",
     "echo 'int main(void) { return 0; }' > cmake-flags.c && cc -fno-common -fPIE -ffunction-sections " +
       "-fdata-sections -funwind-tables -ftrapping-math -Xclang -fno-pch-timestamp cmake-flags.c -o cmake-flags && ./cmake-flags",
+    "echo '__DATE__ __TIME__' > date.c && SOURCE_DATE_EPOCH=0 cc -E -P date.c | grep -q '\"Jan  1 1970\" \"00:00:00\"'",
+    // -MP adds a phony target per header, so Make survives a deleted header.
+    "echo 'int dep;' > dep.h && echo '#include \"dep.h\"' > dep.c && cc -MD -MP -MF dep.d -c dep.c -o dep.o && " +
+      "grep -q '^dep.h:' dep.d",
     "echo 'int main(int argc, char **argv) { return argc == 0; }' > sanity.cpp && " +
       "c++ -D_FILE_OFFSET_BITS=64 -o sanity sanity.cpp -D_FILE_OFFSET_BITS=64 && ./sanity",
     "echo 'extern int host(void); int extension(void) { return host(); }' > extension.c && " +

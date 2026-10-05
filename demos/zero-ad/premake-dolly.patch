@@ -1,0 +1,41 @@
+--- a/src/host/premake.h
++++ b/src/host/premake.h
+@@ -49,6 +49,9 @@
+ #elif defined (__COSMOPOLITAN__)
+ #define PLATFORM_COSMO  (1)
+ #define PLATFORM_OS  "cosmopolitan"
++#elif defined(__EMSCRIPTEN__)
++#define PLATFORM_EMSCRIPTEN  (1)
++#define PLATFORM_OS  "emscripten"
+ #elif defined(_WIN32) || defined(_WIN64)
+ #define PLATFORM_WINDOWS  (1)
+ #define PLATFORM_OS   "windows"
+@@ -56,7 +59,7 @@
+ #error Unknown platform detected
+ #endif
+ 
+-#define PLATFORM_POSIX  (PLATFORM_LINUX || PLATFORM_BSD || PLATFORM_MACOSX || PLATFORM_SOLARIS || PLATFORM_HAIKU || PLATFORM_COSMO)
++#define PLATFORM_POSIX  (PLATFORM_LINUX || PLATFORM_BSD || PLATFORM_MACOSX || PLATFORM_SOLARIS || PLATFORM_HAIKU || PLATFORM_COSMO || PLATFORM_EMSCRIPTEN)
+ 
+ #if defined(__x86_64__) || defined(__x86_64) || defined(__amd64__) || defined(__amd64) || \
+     defined(_M_X64) || defined(_M_AMD64)
+@@ -79,6 +82,8 @@
+ #define PLATFORM_ARCHITECTURE "ppc64"
+ #elif defined(__ppc__) || defined(__powerpc__)
+ #define PLATFORM_ARCHITECTURE "ppc"
++#elif defined(__wasm64__)
++#define PLATFORM_ARCHITECTURE "wasm64"
+ #elif !defined(RC_INVOKED)
+ #error Unknown architecture detected
+ #endif
+--- a/src/host/os_getversion.c
++++ b/src/host/os_getversion.c
+@@ -272,7 +272,7 @@
+ 
+ /*************************************************************/
+ 
+-#elif defined(PLATFORM_BSD) || defined(PLATFORM_LINUX) || defined(PLATFORM_SOLARIS) || defined(PLATFORM_HURD) || defined(PLATFORM_HAIKU) || defined(PLATFORM_COSMO)
++#elif defined(PLATFORM_BSD) || defined(PLATFORM_LINUX) || defined(PLATFORM_SOLARIS) || defined(PLATFORM_HURD) || defined(PLATFORM_HAIKU) || defined(PLATFORM_COSMO) || defined(PLATFORM_EMSCRIPTEN)
+ 
+ #include <string.h>
+ #include <sys/utsname.h>

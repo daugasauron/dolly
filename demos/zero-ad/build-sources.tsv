@@ -1,0 +1,11 @@
+libpng-1.6.58.tar.gz	https://storage.googleapis.com/webassembly/emscripten-ports/libpng-1.6.58.tar.gz	8c9b05b675ca7301a458df2c2e46f26e1d41ff36b8863f8c33530bc58c2e6225
+freetype-VER-2-14-3.tar.gz	https://github.com/freetype/freetype/archive/VER-2-14-3.tar.gz	dc49de6b01a266eef4876a4dd34d9842c475d3e28ff2eff63bd2fb760ab56261
+libogg-1.3.5.tar.gz	https://downloads.xiph.org/releases/ogg/libogg-1.3.5.tar.gz	0eb4b4b9420a0f51db142ba3f9c64b333f826532dc0f48c6410ae51f4799b664
+libvorbis-1.3.7.tar.gz	https://downloads.xiph.org/releases/vorbis/libvorbis-1.3.7.tar.gz	0e982409a9c3fc82ee06e08205b1355e5c6aa4c36bca58146ef399621b0ce5ab
+icu4c-68_2-src.tgz	https://github.com/unicode-org/icu/releases/download/release-68-2/icu4c-68_2-src.tgz	c79193dee3907a2199b8296a93b52c5cb74332c26f3d167269487680d479d625
+boost-headers-1.83.0.zip	https://github.com/emscripten-ports/boost/releases/download/boost-1.83.0/boost-headers-1.83.0.zip	66cc701002c558afb5baf7e1a163ca7f8c3d4c80e7ec4ffb7c66dfcb32ac9358
+fmt-7.1.3.tar.gz	https://github.com/fmtlib/fmt/archive/7.1.3.tar.gz	5cae7072042b3043e12d53d50ef404bbb76949dad1de368d7f993a15c8c05ecc
+libxml2-2.13.5.tar.xz	https://download.gnome.org/sources/libxml2/2.13/libxml2-2.13.5.tar.xz	74fc163217a3964257d3be39af943e08861263c4231f9ef5b496b6f6d4c7b2b6
+enet-1.3.18.tar.gz	https://github.com/lsalzman/enet/archive/refs/tags/v1.3.18.tar.gz	28603c895f9ed24a846478180ee72c7376b39b4bb1287b73877e5eae7d96b0dd
+libsodium-1.0.20.tar.gz	https://download.libsodium.org/libsodium/releases/libsodium-1.0.20.tar.gz	ebb65ef6ca439333c2bb41a0c1990587288da07f6c7fd07cb3a18cc18d30ce19
+pkgconf-2.5.1.tar.xz	https://distfiles.ariadne.space/pkgconf/pkgconf-2.5.1.tar.xz	cd05c9589b9f86ecf044c10a2269822bc9eb001eced2582cfffd658b0a50c243
