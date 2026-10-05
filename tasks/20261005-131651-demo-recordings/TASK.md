@@ -25,14 +25,65 @@ committed, or sent anywhere but openrouter.ai. If the model stops being free, st
 - The local release candidate's demo page shows the new recordings.
 - Costs and the before and after are recorded here.
 
-## Status (2026-10-06 01:15 JST)
+## Status (2026-10-06 07:15 JST)
 
 `stealth/space-bunny-alpha` disappeared from OpenRouter at about 16:05 UTC on
 2026-10-05: the catalog no longer lists it and every request returns
 `404 No endpoints found for stealth/space-bunny-alpha` (still so at 16:15).
 Per the owner's rule no paid model was substituted. Only the Studio video is
-new; RTS Arena, ClassiCube and bhop keep their previous recordings and must be
-redone when a free model is available again.
+new; RTS Arena, ClassiCube and bhop keep their previous recordings (see the
+candidate takes below for why) and remain to be redone.
+
+## Model decision (2026-10-06 06:40 JST)
+
+The owner delegated the choice: free models only, same key handling.
+`stealth/space-bunny-alpha` is still gone. OpenRouter listed 20 zero-price
+models at 06:22 (`build/recordings-evidence/free-models.tsv`); the key has
+1,000 free-model requests a day. Screened on two direct API steps (a compile
+error to fix with tools; a ClassiCube screenshot with a `game_input` tool),
+then on a real Pi build step inside Studio on :9003 (write, compile and run a
+C program):
+
+| Model | Image | API steps | Pi step in Dolly |
+| --- | --- | --- | --- |
+| thinkingmachines/inkling(-small):free | yes | 403 "only available on agentic harnesses" | same 403 |
+| dots-studio/dots-3-note-preview:free | yes | both valid; scene described correctly; 15-28 s per screenshot step | ok, 11 s, 3 requests |
+| nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free | yes | valid but junk fields, 23-63 s per screenshot step; "ResourceExhausted" once | not run |
+| google/gemma-4-31b-it:free, gemma-4-26b-a4b-it:free | yes | 429 on every attempt | 429 |
+| nvidia/nemotron-3-ultra-550b-a55b:free | no | valid fix, 5 s | ok, 30 s, 5 requests |
+| nvidia/nemotron-3-super-120b-a12b:free | no | valid fix, 1 s | ok, 7 s, 4 requests |
+| cohere/north-mini-code:free | no | valid fix, 4 s | ok, 8 s, 4 requests |
+| poolside/laguna-s-2.1:free | no | 429 twice | not run |
+
+Decision: the game agents use `dots-studio/dots-3-note-preview:free`, the
+only free vision model that answered reliably. The Studio take stays: the
+free models passed a 10-line step, which says nothing about a 1,000-line
+game, and one full take would use a third of the remaining time. Inkling is
+gated to registered agent apps; Dolly's Pi sends no attribution and the rig
+does not fake one.
+
+## Takes on the candidate (:9003, dots-3-note-preview, 2026-10-06)
+
+- ClassiCube `t4-dots` (task `rig/tasks/classicube-tower4.txt`, effort low,
+  17 min, 112 requests, $0, no provider errors): the agent flew out of the
+  forest, found open grass, calibrated moves and placed about eight stone
+  blocks from above, but never closed a ring or stacked a layer. The new
+  "no actions were executed" message worked: after one rejection it split its
+  batches. Not better than the old video, so the old one stays.
+- RTS `t1-dots` (low vs medium, 540 s, 55 requests, $0): player 1 trained one
+  unit and then browsed report screens; player 2 fell into a loop repeating
+  the same button coordinates in its thinking and never acted. No building or
+  fighting, worse than the old Codex match, so the old one stays. The
+  early-input stall did not occur (first input after about 20 s).
+- bhop `t1-dots` (effort low, 9 min, 34 requests, $0): four attempts, none
+  past the first pads; the agent misread the HUD and repeated near-identical
+  inputs. A stream error ("JSON error injected into SSE stream") stopped it
+  after 8 minutes. Not better than the old video, so the old one stays.
+- Conclusion: no free model available tonight plays these games visibly
+  better than the old Codex/GPT-5 Nano recordings, so per the owner's rule
+  (free only, stop rather than spend) RTS Arena, ClassiCube and bhop keep
+  their old videos. Redo them when a free vision model with reliable tool use
+  appears (rerun commands below; `RIG_MODEL` selects the model).
 
 ## Studio take (final for now)
 
@@ -80,6 +131,7 @@ redone when a free model is available again.
 Rig: `build/recordings-evidence/rig/` (kept out of the repository). Start
 `Xvfb :129 -screen 0 1920x1080x24 -nolisten tcp`, then with `DISPLAY=:129`:
 
+- All scripts take `RIG_ORIGIN` (default :9002) and `RIG_MODEL`.
 - Studio: `RIG_SCALE=1.25 RIG_ORIGIN=http://localhost:9002 node studio.mjs TAKE prompts/neon-drift.txt medium prompts/neon-drift-play.json`
   (`BUILTIN_MODEL=1` on Pi 1.0 images, `AUTOPILOT=SECONDS` steers Neon Drift
   from the canvas pixels).
