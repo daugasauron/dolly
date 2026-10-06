@@ -95,3 +95,97 @@ but not reviewable", is `20261005-133401-kernel-boundary`.
 
 Done when, made measurable: the total above is recorded at each release and
 does not grow without a line here saying which authority was added.
+
+## Measured (2026-10-06 night, `integrate/next` at `80595976`, runtime `f678b99a…`)
+
+Scripts are in `build/trusted-evidence/` of `work/kboundary` (not committed):
+`graph.mjs` follows imports and Worker URLs from the page, the runtime Worker
+and the process Worker; `loaded.mjs` records what Chrome requests while a page
+boots and runs one command; `hooks.mjs` counts the users of each `__dolly`
+member.
+
+**What a page can load: 62 files, 9,319 lines, 430,337 bytes** (`src/` 22
+files and 4,841 lines, `host/` 39 and 4,450, the service worker 28). On the
+branch with the seed as a snapshot (`core/kernel-boundary-2`) it is 9,310. The
+kernel's generated loader, 48 KB that this audit called unreviewable, is gone
+(`20261005-133401-kernel-boundary`).
+
+| Part | Files | Lines | Bytes |
+| --- | --- | --- | --- |
+| Process Worker: `process-worker`, `process-ffi`, `process-abi`, `wasm-interface`, `process-constants` | 5 | 1,991 | 75,768 |
+| Runtime Worker and boot: `runtime-worker`, `image-artifact`, `custom-image`, `image-entry`, `image-inputs`, `static-asset`, `snapshot-records`, `kernel-plugin` | 8 | 1,002 | 49,689 |
+| `host/display` | 3 | 974 | 41,049 |
+| `host/gpu` | 4 | 893 | 53,952 |
+| Recipes and builds in the page: `dollyfile-view`, `dollyfile-graph`, `image-build`, `image-builder`, `session-store` | 5 | 788 | 37,115 |
+| Supervisor | 1 | 767 | 34,358 |
+| `host/http` | 5 | 711 | 32,527 |
+| `host/snapshot` | 4 | 476 | 24,057 |
+| Page shell: `browser`, `page-indicators`, `build-log`, service worker | 4 | 321 | 15,092 |
+| Registry: `host/modules`, `manifests`, `requirements`, `abi` | 4 | 297 | 15,636 |
+| `host/audio`, `upload`, `build`, `runtime`, `download`, `packages`, `threads` | 19 | 1,099 | 51,094 |
+
+**What a page does load** (Chrome, boot and one command): 71 scripts for
+`system`, 74 for `default`. The same 56 from the checkout either way, 7,180
+lines and 326,806 bytes: every provider is imported whatever the image
+declares, so a `default` page loads the GPU, audio, build and upload
+providers it does not use. The other 15 to 18 are generated: the process
+Worker bundle (65 KB), the image registry (50 KB), and one metadata module per
+image of the chain, 790 KB for `system` (`ghostty-build` 174 KB, `zig-build`
+172 KB), which is data, not code.
+
+**The test surface.** `window.__dolly` has 23 members. No trusted code uses
+one: 43 test files do, with `demos/browser.mjs` (the demo harness) and
+`scripts/accept-release.mjs` (the release's acceptance, 2 members).
+
+- Used by nobody: `display`, `systemInputs`; and two page attributes,
+  `data-boot-mode` and `data-snapshot-bytes`, the second with a variable, three
+  assignments and a message field in the runtime Worker that exist for it.
+- Logic that only tests run, in the display provider: `waitFor`, `submit`,
+  `visibleTerminalText`, `waitForInteractiveTerminal` (55 lines) and
+  `pushSyntheticKey`, `inputIdle`, `fontSize` of its transport; they need
+  only `transport` and `terminal`, which are members too. Used in 30 files.
+- Plain accessors: `transport`, `terminal`, `foregroundPid`, `graphicsActive`,
+  `input`, `paste`, `key`, `copySelection`, `httpActive`, `httpRequestCount`,
+  `httpCompletedRequestCount`, `gpu`, `audio`, `sessionName`, `saveSession`,
+  `hostModules`, `systemSnapshot`.
+- 42 writes of 22 `data-*` attributes: 4 are read by trusted code or the
+  page's HTML (`indicators`, `gpu`, `downloading`, `session-status`), 16 only
+  by tests, demos or scripts, 2 by nobody.
+- 17 files launch a browser: the two harnesses (`test/browser.mjs`,
+  `demos/browser.mjs`), 2 core GPU tests, 11 demo tests and 2 scripts.
+
+**The review map.** `docs/browser-boundary.md` names, directly or through a
+module's manifest, 44 of the 62 files (6,265 lines). The other 18 (3,054
+lines) are named nowhere in it: `process-ffi` 693, `process-worker` 537,
+`wasm-interface` 391, `dollyfile-view` 314, `process-constants` 246,
+`session-store` 197, `process-abi` 124, `snapshot-records` 109,
+`dollyfile-graph` 108, `image-build` 96, `host/requirements` 59,
+`custom-image` 52, `build-log` 30, `image-entry` 29, the service worker 28,
+`image-inputs` 20, `host/manifests` 16, `host/abi` 5. It mentions "one bundled
+process Worker" without a link.
+
+## Order proposed
+
+1. **Remove what nobody reads** (done, below): runtime-only, the core suites
+   cover it.
+2. **Move the test logic out of the display provider** into one harness file
+   that every launch point injects (`addInitScript`); `__dolly.submit` and the
+   two text helpers keep their names for the 30 files that call them, defined
+   by the harness instead of the provider. About 75 lines leave trusted code.
+   It touches all 17 launch points, so it needs every demo suite and the GPU
+   tests: a round with the whole catalog, not one tree with the core chain.
+3. **Decide what the remaining accessors are.** The release's acceptance
+   drives pages through them, so they are in effect the embedding API: either
+   documented beside `DOLLY_HTTP_POLICY` and `DOLLY_HOST_MODULES`, or handed
+   to an embedder's callback instead of every page's `window`. The 21
+   attributes get the same decision; `data-dolly-status` is the page's
+   status, the others are probes.
+4. **Load a provider only when the image declares its module.** A `default`
+   page would stop loading `host/gpu`, `audio`, `build`, `upload`, `download`
+   and `snapshot`'s UI: what a reviewer of that page reads shrinks by more
+   than any deletion here. Runtime-only; changes `host/modules.mjs`.
+5. **Make the review map complete**: name the 18 files or remove them. The
+   bulk is the process Worker's DSO loader and FFI
+   (`20261002-073000-runtime-process-modules`, `dso@0` in progress).
+
+The total is recorded here at each step, as the review of 2026-10-05 asked.
