@@ -146,7 +146,7 @@ Evidence is under `build/kernel-boundary-evidence/` in `work/signals`.
 | Before, on `bef23f6b` | 30 | 130 | runtime `8ce10189…`, 214,314 bytes |
 | 2. Kernel exports instead of `FS` | 24 | 93 | verified (below), runtime `970172ca…`, 203,121 bytes |
 | 4. Dolly-named imports, no generated JavaScript | 9 | 90 | verified (below), runtime `b97cb65a…`, 198,739 bytes |
-| 3. Seed as a snapshot | | | on `core/kernel-boundary-2` |
+| 3. Seed as a snapshot | 9 | 90 | verified (below), runtime `bfd733a4…`, 197,867 bytes, image inputs `cc0d47e5…` |
 
 Step 1: `TerminalFile` in `src/file-blocks.cpp` is `/dev/dolly-stdout`,
 `/dev/dolly-stderr` and `/dev/tty`, mounted when the root is populated;
@@ -335,6 +335,42 @@ function of Emscripten's JavaScript library no longer links into an allowed
 import; `npm run build:runtime` then fails at the exact import check. Such a
 call becomes a typed import declared with `DOLLY_BROWSER_IMPORT`, owned by a
 manifest and listed in `abi/dolly-browser-0.wat`.
+
+## Step 3, verified (2026-10-06 night, `core/kernel-boundary-2`)
+
+`a1a50e19` on `core/kernel-boundary-step4` (`c28cb1ee`). The seed `dist/dolly.data` is a
+Dolly snapshot (`abi/dolly-image-0.wat`, the format of every image), written
+by `scripts/pack-seed.mjs` from the same staged files: 822 files under `/usr`,
+126,817,748 bytes. The Worker stages it like a base image and
+`dolly_process_bootstrap_prepare(size)` restores it in full, against the list
+of its paths. Gone: Emscripten's file packager, its generated index
+`dist/dolly-seed.mjs` (85 KB, the last generated JavaScript a page loaded),
+the `/seed` staging tree and the kernel's copy of it into `/usr`
+(`install_seed_tree`, 85 lines), and `/seed` in the session exclusions.
+
+- Runtime `bfd733a4…`, 9 imports, 90 exports, 197,867 bytes. **Image inputs
+  change** (`cc0d47e5…`; was `e8e495dc…`): the seed's bytes and the type of
+  `dolly_process_bootstrap_prepare` in `abi/dolly-image-0.wat`. Every image
+  is rebuilt.
+- **Image bytes do not change.** The `default` chain built from the root
+  with the snapshot seed, fresh browser profiles: all 12 snapshots are the
+  bytes they were (`system-build` `e5a4ac80…` again). `system` differs in 5
+  of 2,299 records, as it must: its recipe's pin and `/usr/bin/session-recover`,
+  which compiles `src/session-records.h` (`chain-step3.sh`, `chain-step3.log`).
+  The root rebuild of `system-build` the done-when asks for is this one.
+- Seed files are now created with the mode every restored file has (0777; the
+  copy made them 0666). No image records it.
+- **What repins**: `Dollyfile-dolly-docs` (`abi/dolly-image-0.wat`,
+  `docs/architecture.md`, `docs/browser-boundary.md`, `docs/sessions.md`) and
+  `Dollyfile-system` (`src/session-records.h`), and with them every recipe
+  built on `system` or installing the docs package (26 recipe files,
+  `2950027d`).
+- **Suites** at `2950027d`: source 399 of 399; artifacts 22 passed, 1 skipped
+  (CPython's), 0 failed; `core`, `boundary`, `host-modules`, `image`,
+  `snapshot-stream`, `terminal`, `process` and `custom-session` 8 of 8 in
+  Chrome and 8 of 8 in Firefox (`step3/summary.txt`; its source line failed on
+  one docs pin that an edit made during the run had left stale,
+  `step3/source-repinned.log` is the run after the repin).
 
 ## Merging kernel code onto this kernel (from `fb6c3463` on)
 
