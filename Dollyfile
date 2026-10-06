@@ -12,7 +12,7 @@ REQUIRES HOST upload@0
 # The image people open: a shell, its text tools, the terminal, curl and amy.
 # It holds no compiler; amy installs what a session needs. The host modules
 # are those packages may need, since an image's list is fixed.
-INSTALL https://daugasauron.com/Dollyfile-core 30540d7d277e928a262b91a77a53ac595c62c4104e50323d3dde842e7a7effe0
+INSTALL https://daugasauron.com/Dollyfile-core 97fc84e9c71adaea20afab025114516e9d5f5daa1db1a1ce988483431f112e49
 INSTALL https://daugasauron.com/Dollyfile-posix d76a68ca707093f91dbeb2866acffdac455b586ae5d6ee724d00848586c90cc5
 INSTALL https://daugasauron.com/Dollyfile-display ec7a81e7a96eefcceef0cc4756f5a265e583809749401051bb6f71dad689b9bb
 INSTALL https://daugasauron.com/Dollyfile-curl a2895def611a81405dcd19b6449feef0d3ccfa0239166dadca2eb3842f39e3d0

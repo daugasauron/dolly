@@ -27,11 +27,39 @@ A program that runs `$SHELL` gets `ENOENT` where it could have seen that there
 is no shell. libc's `system()` is not affected by the variable: it names
 `/bin/slop` itself and fails with `ENOENT` (`src/process/runtime-adapter.c:888`).
 
-## Fix
+## What reads it
 
-The kernel stops setting `SHELL`; `core` exports it (`EXPORTS ENV SHELL
-/bin/slop`), as `system-build` already does: a kernel change and one recipe
-line.
+Nothing of Dolly's: Slop, `system()` and `popen()` name `/bin/slop`
+themselves, and Make gets its shell from its port (`docs/slop.md`). Upstream
+programs do at run time (editors' shell commands, Git's helpers, CPython's
+`os.environ`), and `demos/codex/launch.c:73` substitutes `/bin/sh` only when
+the variable is absent.
+
+## Fix (2026-10-06, `fix/shell-env`; not yet built or run in a browser)
+
+The variable is the image's to declare. `system-build` already exports it on
+the line after it compiles Slop (`Dollyfile-system-build:110-111`), and every
+application and toolchain inherits that through `FROM`. So:
+
+- the kernel sets no `SHELL` (`src/dolly.c`, `initialize_boot_environment`);
+- `core`, the one package that offers Slop, exports it
+  (`Dollyfile-core:10`); `minimal`, its one installer, was repinned.
+
+The other way, a kernel check for `/bin/slop` after the image is restored,
+needs no recipe line but keeps a program's name in the kernel and a second
+source for a value recipes already declare.
+
+Checked without a build: `node scripts/lint-dollyfiles.mjs` (61 recipes) and
+`test/dollyfile-catalog.test.mjs`, which now fails a recipe that exports the
+tool `slop` without `EXPORTS ENV SHELL /bin/slop`. To build and run:
+
+    npm run build:runtime        # kernel only: the image inputs hash should not move
+    DOLLY_IMAGE_JOBS=1 DOLLY_BUILD_IMAGES=core,minimal work/build-slot.sh npm run image
+    node test/shell-env-browser.mjs chromium firefox
+    node test/minimal-browser.mjs chromium firefox
+
+Until `minimal` is rebuilt on the new `core`, an old `minimal` on the new
+kernel has no `SHELL`.
 
 ## Done when
 

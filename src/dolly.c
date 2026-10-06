@@ -269,10 +269,6 @@ static int initialize_boot_environment(void) {
     fprintf(stderr, "dolly: PATH initialization failed: %s\n", strerror(errno));
     return 1;
   }
-  if (setenv("SHELL", "/bin/slop", 1) != 0) {
-    fprintf(stderr, "dolly: SHELL initialization failed: %s\n", strerror(errno));
-    return 1;
-  }
   if (setenv("TERM", "xterm-256color", 1) != 0 ||
       setenv("COLORTERM", "truecolor", 1) != 0) {
     fprintf(stderr, "dolly: terminal environment initialization failed: %s\n",
