@@ -4,8 +4,8 @@ import { browserTest } from "./browser.mjs";
 // The page's presenter and input ring: an idle terminal requests no animation
 // frames and output wakes it; pointer motion is one record per frame, waits
 // for a program that does not read and never takes a key's slot; a record the
-// ring has no room for is counted and shown; the terminal keeps its pointer
-// records when a foreground program ends.
+// ring has no room for is counted, shown and marked in the ring where it was
+// lost; the terminal keeps its pointer records when a foreground program ends.
 const server = { fixtures: { "terminal-ui.c": "test/fixtures/terminal-ui.c" } };
 await browserTest("display", { server }, async ({ server, open }) => {
   const { page, submit, text } = await open({
@@ -29,23 +29,25 @@ await browserTest("display", { server }, async ({ server, open }) => {
 
   const probe = "/tmp/display-ui";
   assert.equal(await submit(`curl -fsS ${server.origin}/fixture/terminal-ui.c -o ${probe}.c && cc ${probe}.c -o ${probe}`), 0);
-  // The probe holds the display for three seconds without reading input, then
-  // reports the key and motion records it finds and the distance they add up to.
+  // The probe holds the input lease for three seconds without reading, then
+  // reports the key and motion records it finds, the distance they add up to,
+  // after how many keys the page marked a loss and how many records it said
+  // were lost.
   async function unread(burst) {
     const running = submit(`${probe} unread`);
-    await page.waitForFunction(() => __dolly.graphicsActive);
+    await page.waitForFunction(() => __dolly.inputTransport.leased());
     await burst();
     assert.equal(await running, 0);
-    const [keys, motions, moved] = [...(await text()).matchAll(/DOLLY-UNREAD keys=(\d+) motions=(\d+) moved=(-?\d+)/g)]
-      .at(-1).slice(1).map(Number);
-    return { keys, motions, moved };
+    const [keys, motions, moved, marked, lost] = [...(await text())
+      .matchAll(/DOLLY-UNREAD keys=(\d+) motions=(\d+) moved=(-?\d+) marked=(\d+) lost=(\d+)/g)].at(-1).slice(1).map(Number);
+    return { keys, motions, moved, marked, lost };
   }
   const motion = count => page.evaluate(async count => {
-    for (let sample = 0; sample < count; sample++) __dolly.transport.pushPointerMotion({ movementX: 1.5, movementY: 0 });
+    for (let sample = 0; sample < count; sample++) __dolly.inputTransport.pushPointerMotion({ movementX: 1.5, movementY: 0 });
     await new Promise(painted => requestAnimationFrame(() => requestAnimationFrame(painted)));
   }, count);
   const scrolls = count => page.evaluate(count => {
-    for (let record = 0; record < count; record++) if (!__dolly.transport.pushScroll(1)) return false;
+    for (let record = 0; record < count; record++) if (!__dolly.inputTransport.pushScroll(1, 1)) return false;
     return true;
   }, count);
   const press = async count => { for (let key = 0; key < count; key++) await page.keyboard.press("k"); };
@@ -58,17 +60,20 @@ await browserTest("display", { server }, async ({ server, open }) => {
     assert.equal(await scrolls(130), true);
     await motion(40);
     await press(5);
-  }), { keys: 10, motions: 2, moved: 120000 });
+  }), { keys: 10, motions: 2, moved: 120000, marked: 0, lost: 0 });
   assert.equal((await dataset()).inputDropped, undefined);
 
-  // A full ring loses the key records it cannot take: each one is counted and the page says so.
-  const { keys } = await unread(async () => {
+  // A full ring loses the key records it cannot take: each one is counted and
+  // the page says so. The program reads one loss mark, after the last key
+  // that arrived: there it lets go of the keys it holds.
+  const { keys, marked, lost } = await unread(async () => {
     assert.equal(await scrolls(236), true);
     await press(20);
     assert.equal(await page.locator("#session-status").isVisible(), true);
   });
   const dropped = Number((await dataset()).inputDropped);
   assert.ok(dropped > 0 && keys + dropped === 40, `${keys} key records arrived and ${dropped} were reported dropped`);
+  assert.deepEqual([marked, lost], [keys, 1], "one mark, where the first record was lost");
 
   // A large interactive program's Worker retires half a second after it exits.
   // Until then no foreground program is published, and the pointer is the
@@ -76,15 +81,15 @@ await browserTest("display", { server }, async ({ server, open }) => {
   // with the program's unread input when the Worker retires.
   const retiring = submit(`foreground -i ${probe} retire`);
   const dragged = await page.evaluate(async () => {
-    const { transport, terminal } = __dolly, turn = () => new Promise(resolve => setTimeout(resolve, 4));
+    const { inputTransport, terminal } = __dolly, turn = () => new Promise(resolve => setTimeout(resolve, 4));
     while (terminal.foregroundPid() !== 0) await turn();
-    const { paddingX, paddingY, cellWidth, cellHeight } = transport.geometry(), y = Math.round(paddingY + cellHeight / 2);
-    transport.pushPointer(paddingX + cellWidth / 4, y, 1, {});
+    const { paddingX, paddingY, cellWidth, cellHeight } = __dolly.transport.geometry(), y = Math.round(paddingY + cellHeight / 2);
+    inputTransport.pushPointer(paddingX + cellWidth / 4, y, 1, {});
     let column = 0;
     do {
       column = column % 100 + 1;
-      transport.writeRecord({ type: transport.constructor.pointerEvent, action: 2,
-        width: Math.round(paddingX + (column + 0.75) * cellWidth), height: y });
+      inputTransport.writeRecord({ type: inputTransport.constructor.pointerEvent, action: 2,
+        x: Math.round(paddingX + (column + 0.75) * cellWidth), y });
       await turn();
     } while (terminal.foregroundPid() === 0);
     return column;

@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { browserTest } from "./browser.mjs";
 
 // The in-Wasm Ghostty terminal: keyboard, clipboard, selection, scrollback,
-// zoom, fullscreen, rendering, termios and display leases.
+// zoom, fullscreen, rendering, termios and the display and input leases.
 const server = { fixtures: { "terminal-ui.c": "test/fixtures/terminal-ui.c" } };
 await browserTest("terminal", { server }, async ({ name, server, open }) => {
   const { page, submit, text, result, waitForText } = await open({ policy: {
@@ -13,10 +13,10 @@ await browserTest("terminal", { server }, async ({ name, server, open }) => {
   // Reading the visible text selects it; a click on the first cell clears that.
   const clearSelection = async () => {
     await page.evaluate(() => {
-      const transport = __dolly.transport, { paddingX, paddingY, cellWidth, cellHeight } = transport.geometry();
+      const { paddingX, paddingY, cellWidth, cellHeight } = __dolly.transport.geometry();
       const x = paddingX + Math.floor(cellWidth / 2), y = paddingY + Math.floor(cellHeight / 2);
-      transport.pushPointer(x, y, 1, {});
-      transport.pushPointer(x, y, 0, {});
+      __dolly.inputTransport.pushPointer(x, y, 1, {});
+      __dolly.inputTransport.pushPointer(x, y, 0, {});
     });
     await page.waitForFunction(() => __dolly.copySelection() === null);
     await page.evaluate(() => new Promise(painted => requestAnimationFrame(() => requestAnimationFrame(painted))));
@@ -76,7 +76,7 @@ await browserTest("terminal", { server }, async ({ name, server, open }) => {
   await page.mouse.move(400, 300);
   await page.mouse.wheel(0, -cellHeight * 20);
   await waitForText(new RegExp(`DOLLY-SCROLL-${String(top - 1).padStart(3, "0")}`));
-  await page.evaluate(() => __dolly.transport.pushScroll(100000));
+  await page.evaluate(() => __dolly.inputTransport.pushScroll(100000, 1));
   await clearSelection();
 
   const evidence = await page.evaluate(() => {
@@ -159,7 +159,7 @@ await browserTest("terminal", { server }, async ({ name, server, open }) => {
       // More than a ring of UI events recycles slots behind unread input.
       for (let batch = 0; batch < 24; batch++) {
         assert.equal(await page.evaluate(() => {
-          for (let i = 0; i < 32; i++) if (!__dolly.transport.pushScroll(i % 2 ? 0.001 : -0.001)) return false;
+          for (let i = 0; i < 32; i++) if (!__dolly.inputTransport.pushScroll(i % 2 ? 0.001 : -0.001, 1)) return false;
           return true;
         }), true, "UI events accumulated behind unread input");
         await page.waitForTimeout(30);
@@ -172,18 +172,34 @@ await browserTest("terminal", { server }, async ({ name, server, open }) => {
     assert.equal(await sleeping, 0, `probe ${argument}`);
   }
 
-  // A graphics lease owner receives every pointer and scroll event.
+  // The owner of the input lease receives every pointer and scroll record.
+  const leased = () => page.evaluate(() => [__dolly.graphicsActive, __dolly.inputTransport.leased()]);
   const lease = start(`${probe} lease`);
-  await page.waitForFunction(() => __dolly.graphicsActive);
+  await page.waitForFunction(() => __dolly.graphicsActive && __dolly.inputTransport.leased());
   assert.equal(await page.evaluate(() => {
-    const transport = __dolly.transport;
+    const transport = __dolly.inputTransport;
     return transport.pushPointer(20, 20, 1, {}) && transport.pushPointer(40, 20, 2, {}) &&
-      transport.pushPointer(40, 20, 0, {}) && transport.pushScroll(1);
+      transport.pushPointer(40, 20, 0, {}) && transport.pushScroll(1, 1);
   }), true);
   assert.equal(await lease, 0);
-  assert.equal(await page.evaluate(() => __dolly.graphicsActive), false);
-  // Exit ends a lease its owner never released.
+  assert.deepEqual(await leased(), [false, false]);
+  // Exit ends the leases their owner never released.
   assert.equal(await submit(`${probe} lease-exit`), 0);
-  assert.equal(await page.evaluate(() => __dolly.graphicsActive), false);
+  assert.deepEqual(await leased(), [false, false]);
+  // A program that only draws reads its keys from the terminal, whose
+  // selection the pointer cannot change under the program's frame.
+  const drawing = start(`${probe} draw`);
+  await page.waitForFunction(() => __dolly.graphicsActive);
+  assert.deepEqual(await leased(), [true, false]);
+  await page.evaluate(() => {
+    __dolly.inputTransport.pushPointer(20, 20, 1, {});
+    __dolly.inputTransport.pushPointer(400, 200, 2, {});
+    __dolly.inputTransport.pushPointer(400, 200, 0, {});
+  });
+  await page.waitForFunction(() => __dolly.inputTransport.inputIdle());
+  assert.equal(await page.evaluate(() => __dolly.copySelection()), null);
+  await keyboard.focus();
+  await page.keyboard.press("q");
+  assert.equal(await drawing, 0);
   assert.equal(await submit(`rm ${probe} ${probe}.c`), 0);
 });

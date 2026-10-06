@@ -23,7 +23,7 @@ await browserTest("default", {}, async ({ open }) => {
   assert.equal((await session.text()).split("amy list").length, 2, "the start-up text is on the first screen once");
   await run("test \"$(slop -c 'echo nested')\" = nested");
   assert.deepEqual(await session.page.evaluate(() => [...__dolly.hostModules].sort()),
-    ["display@0", "download@0", "http@0", "packages@0", "runtime@0", "snapshot@0", "threads@0", "upload@0"]);
+    ["display@0", "download@0", "http@0", "input@0", "packages@0", "runtime@0", "snapshot@0", "threads@0", "upload@0"]);
   await run("mkdir /tmp/made && echo kept > /tmp/made/file && test \"$(grep -c kept /tmp/made/file | sed 's/1/one/')\" = one");
   await run("curl --version > /dev/null && amy list | grep -q '^cc '");
   for (const absent of ["cc --version", "make --version", "git --version"]) assert.equal(await session.submit(absent), 127, absent);
@@ -32,7 +32,7 @@ await browserTest("default", {}, async ({ open }) => {
 // INSTALL cc on the base: C and C++ compile and run. The image declares no
 // http@0, so a program linked with the HTTP client is refused before it runs.
 await browserTest("composed toolchain", {}, async ({ open }) => {
-  const session = await open(await composed(["runtime", "display"], ["core", "display", "cc"]));
+  const session = await open(await composed(["runtime", "display", "input"], ["core", "display", "cc"]));
   const run = check(session);
   await run(`${hello} && cc /tmp/hello.c -o /tmp/hello && test "$(/tmp/hello)" = HELLO`);
   await run("echo '#include <iostream>' > /tmp/hello.cpp && echo 'int main() { std::cout << 6 * 7; }' >> /tmp/hello.cpp && " +

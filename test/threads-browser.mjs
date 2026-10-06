@@ -3,7 +3,7 @@ import { readFile } from "node:fs/promises";
 import { browserTest } from "./browser.mjs";
 import { DOLLY_THREADS_ABI_DIGEST } from "../host/threads/abi.mjs";
 
-const modules = ["runtime@0", "display@0", "http@0", "download@0", "upload@0", "snapshot@0"];
+const modules = ["runtime@0", "display@0", "input@0", "http@0", "download@0", "upload@0", "snapshot@0"];
 // default declares threads@0 (and packages@0); system declares neither.
 const enable = modules => page => page.addInitScript(modules => { globalThis.DOLLY_HOST_MODULES = modules; }, modules);
 const fixtures = Object.fromEntries(["threads-pthread.c", "threads-cpp.cpp", "threads-quota.c"]
