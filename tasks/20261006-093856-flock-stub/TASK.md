@@ -63,7 +63,8 @@ It does not ride the seed round of 2026-10-06: the change needs `process.h`,
 so two passes of runtime, Rust seed and image chain before it is verified.
 Until it ships, **`flock` is a known false success**: it returns 0 without
 locking anything, also for a bad descriptor or operation (measured below).
-The work is on branch `fix/flock`.
+To be implemented with the next process-ABI round, together with
+`tasks/20261002-072000-input-host-module`.
 
 ## Design
 
