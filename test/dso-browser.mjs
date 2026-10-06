@@ -103,7 +103,7 @@ await browserTest("dso", { image: "system", timeout: 300_000, server: { fixtures
   // FFI needs no host: a program that links its client is served.
   await run("cc -O1 ffi.c -o ffi && ./ffi");
   // A host keeps one owner of signal state although -rdynamic roots all of libc.
-  await run("cc -O0 -rdynamic process-signals.c -o signals && timeout 30 ./signals /tmp/dso");
+  await run("cc -O0 -rdynamic process-signals.c -o signals && timeout 30 /tmp/dso/signals /tmp/dso");
   // A program that records nothing is served nothing, in this image too.
   await run("cc -O1 caller.c -o caller && ./caller");
   // The loader holds one Worker's function table: no program has it and threads.
