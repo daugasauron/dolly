@@ -52,7 +52,7 @@ patti build -j 4 --offline --manifest-path project/Cargo.toml --bin program
 
 Upstream Cargo 0.99.0, the Cargo of Rust 1.98.1, built by Patti from Cargo's
 own lock ([`Dollyfile-cargo`](Dollyfile-cargo)). `amy install cargo` brings it
-with the compiler.
+with the compiler and the C toolchain rustc links with.
 
 - `cargo build`, `cargo rustc` and `cargo metadata` work with path and
   vendored dependencies, build scripts and procedural macros.
@@ -63,8 +63,10 @@ with the compiler.
 - A crate that uses `libc` needs the SDK's copy, because crates.io's has
   wasm32 layouts for this target: `[patch.crates-io] libc = { path =
   "/opt/rust-sdk/src/libc" }` in the project's `.cargo/config.toml`.
-- No incremental builds (the package sets `CARGO_INCREMENTAL=0`) until Dolly
-  has file locks; no `cargo search`, `publish` or `login`; no git dependencies.
+- No incremental builds until Dolly has file locks: the package sets
+  `CARGO_INCREMENTAL=0`, which a session that installs it with amy sees from
+  its next load. No `cargo test` (the SDK has no `test` crate), `cargo
+  search`, `publish` or `login`, and no git dependencies.
 - Its sources are upstream's with target patches only: Cargo's manifest
   without TLS, SSH and HTTP/2 features (`cargo-features`, `git2-curl`), and
   `is_executable`, `jobserver-in-process`, `socket2`, `zlib-rs` and
