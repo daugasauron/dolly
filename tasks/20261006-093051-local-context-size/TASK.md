@@ -4,6 +4,19 @@
 - PRIORITY: 70
 - TAGS: local-llm,pi,configuration
 
+## Test (2026-10-07, `fix/visible` 87fdfe07)
+
+`demos/local-llm/test/local-llm-browser.mjs`, beside the temperature
+change, on the model chosen with `/local`: `contextWindow` set to
+1,048,576, then a prompt, which must end in the engine's refusal as the
+turn's error with Pi alive (`asked for`, `Unable to create inference
+context` or `Local model exited`); then 12,288, after which Pi's footer
+shows `/12k` before any prompt, the task runs again, and the shell checks
+`"contextWindow": 12288` in `~/.pi/agent/models.json` and llama.cpp's
+`n_ctx = 12288` in `~/.cache/dolly-llm/engine.log`. The refusal is the
+engine's, after the weights are loaded: a refusal before loading that
+names the need is still not built. Results below when the images exist.
+
 ## Remaining (2026-10-07)
 
 Done with `20261005-215557-local-models` (closed; its "Context size"

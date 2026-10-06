@@ -32,6 +32,26 @@ A person opening `/pi-local/` or `/dollyfile-studio/` reads, without typing
 anything, that `/local` exists and what it is for; the local-model browser
 test asserts the line.
 
+## Decision (2026-10-07, `fix/visible` 87fdfe07)
+
+Where the start screen comes from, seen on :9007 (`build/visible-evidence/
+pi-local-start-9007-chromium.png` in `work/visible`): the image's
+`.dollyrc` banner printed by Slop before Pi ("DOLLY / PI … Try: …"), then
+Pi's header replaced by `demos/pi/dolly-tools.js` (`ctx.ui.setHeader`),
+Pi's resource lists, dolly-tools' own start line (`ctx.ui.notify` at
+`session_start`), the editor and Pi's footer with the model and context.
+Dollyfile Studio's `.dollyrc` already named `/local`; `pi-local` inherits
+`Dollyfile-pi`'s banner, which does not.
+
+The line is the extension's: `local-model-provider.js` notifies at
+`session_start`, the mechanism dolly-tools.js uses, so the command and its
+hint live in one file and both images show it on every session start
+without a recipe edit; the Studio banner drops its copy. Not Pi's header
+(dolly-tools owns it) and not a widget (the footer already carries the
+model). Pi's header already says `/ commands`, so the line says nothing
+about help or leaving. The local-model browser test waits for `/local` on
+the screen at every boot, in both images and both browsers.
+
 ## Related
 
 `20261006-093051-local-context-size` (the setting lives behind `/local`),

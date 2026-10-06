@@ -17,7 +17,7 @@ REQUIRES TOOL tar
 REQUIRES TOOL gzip
 REQUIRES TOOL rm
 
-SOURCE https://daugasauron.com/dist/static/classicube/source.tar.gz 3899b26bc2501143ec8438ccab1cc2935c03c5d3e05b07a03c8d4c437131916b /tmp/classicube/source.tar.gz
+SOURCE https://daugasauron.com/dist/static/classicube/source.tar.gz 20ebb3e4c9fa4fe103c57153585365974ce90f788eec7589a0cc7fbd635cc8fe /tmp/classicube/source.tar.gz
 SLOP gzip -dc /tmp/classicube/source.tar.gz | tar -xf - -C /
 SLOP make -f /usr/src/dolly/classicube/Makefile
 
