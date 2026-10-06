@@ -18,31 +18,33 @@ entry.
   and musl, LLVM's compiler, compiler-rt and headers, the Ghostty kernel plugin,
   and the Iosevka font.
 - **Images**: snapshots of programs compiled in Dolly from pinned sources, plus
-  files built outside Dolly: the 0 A.D. engine, the Rust seed, model weights,
-  fonts and game data.
+  files built outside Dolly: SpiderMonkey for 0 A.D., the Rust seed, model
+  weights, fonts and game data.
 - **Sources**: every canonical `SOURCE` of the catalog under `dist/static/`,
   the recipes and headers, at the same release path as the images. The gpu-fluid
   sources come from raw.githubusercontent.com instead.
-- **Dolly's code**: MIT ([`LICENSE`](../LICENSE), `package.json`), except 33
-  files marked `SPDX-License-Identifier: GPL-2.0-or-later`: the Seven Kingdoms
-  arena port and spectator, the shared game-agent code and agents built on it,
-  and the 0 A.D. engine patch. The MIT grant covers Dolly's own files only; it
-  does not relicense the upstream code an image contains.
+- **Dolly's code**: MIT ([`LICENSE`](../LICENSE), `package.json`), except 8
+  files marked `SPDX-License-Identifier: GPL-2.0-or-later` because they are
+  compiled into GPL programs: the Seven Kingdoms port in `demos/rts`
+  (`Makefile`, `OAUDIO.h`, `arena.*`, `config.h`, `input.*`, built with the game)
+  and the 0 A.D. `engine.patch`. The agents, spectators and viewers are separate
+  programs that drive the games over pipes and screenshots; they are Dolly's own
+  and MIT. The MIT grant covers Dolly's own files only; it does not relicense
+  the upstream code an image contains.
 
 ## Obligations and status
 
 | Family | Shipped as binaries | Obligation | Status |
 | --- | --- | --- | --- |
-| GPL-2.0/3.0 | Git, Make, Emacs, Seven Kingdoms, 0 A.D. engine, Dolly's GPL files | Complete corresponding source, including build scripts, or a written offer | Met for programs built in Dolly: the prepared source archives and the recipe that builds them are served beside the images. **Gap 1** for 0 A.D. |
-| LGPL-2.0+ | OpenAL Soft, static in the 0 A.D. engine | Source, and the means to relink | Source served (`openal/source.tar`); relinking needs the 0 A.D. source (gap 1) |
-| MPL-2.0 | SpiderMonkey in 0 A.D.; MPL crates vendored by Codex | Source of the MPL files available; tell recipients where | Codex sources served; SpiderMonkey is gap 1 |
+| GPL-2.0/3.0 | Git, Make, Emacs, Seven Kingdoms, 0 A.D. engine, Dolly's GPL files | Complete corresponding source, including build scripts, or a written offer | Met: the prepared source archives and the recipe that builds them are served beside the images, for 0 A.D. too (below) |
+| LGPL-2.0+ | OpenAL Soft, static in the 0 A.D. engine | Source, and the means to relink | Source served (`openal/source.tar`), and the engine's (below), so it can be relinked |
+| MPL-2.0 | SpiderMonkey in 0 A.D.; MPL crates vendored by Codex | Source of the MPL files available; tell recipients where | Codex sources served; SpiderMonkey's pinned tarball is served (below); its MPL text is in `zero-ad` |
 | Apache-2.0 | LLVM (with exception), TypeScript, Neovim, luv, Codex, WAMR, crates, npm packages | Licence copy, NOTICE files, modified files marked | Codex `NOTICE`, crates' notices and TypeScript notices shipped. LLVM's text is in every compiler image as `/usr/share/licenses/libcxx`; its exception covers runtime code compiled into programs |
 | MIT, BSD, ISC, curl, Zlib, BSL | Most of the catalog | Copyright and permission notice with copies, binaries included (not for Zlib or BSL binaries) | Shipped in `/usr/share/licenses`, including musl, Emscripten and every vendored crate's own licence files |
 | PSF-2.0 | CPython | Licence, and a brief summary of changes in a derivative | Both shipped (`DOLLY-CHANGES`) |
 | CC-BY-SA-3.0 | 0 A.D. art and audio | Attribution and licence; share-alike for adaptations | The repacked mod archives keep `art/`, `audio/` and font licence files; repacking adapts nothing |
 | OFL-1.1 | Iosevka; 0 A.D. fonts | Licence with the font; no sale of the font alone | Iosevka's name table carries the notice; fonts are unmodified |
 | Apache-2.0 weights | Qwen3.5-0.8B, 2B and 4B (GGUF by bartowski), MiniCPM5-2B | Licence copy; no use restrictions | Each model package keeps the licence copied into the demo; nothing checks it against the pinned Hugging Face revision |
-| Unclear | ClassiCube's default texture pack | None stated | Shipped with ClassiCube's BSD-3-Clause `license.txt`, which names no assets. **Owner**: accept that reading or drop the pack |
 
 ## Combined binaries
 
@@ -55,8 +57,10 @@ entry.
   program links GNU readline or ncurses.
 - The 0 A.D. engine (GPL-2.0-or-later) links SpiderMonkey (MPL-2.0, whose
   secondary-licence clause allows the GPL combination), OpenAL Soft (LGPL),
-  SDL2, FreeType (FTL), libpng, Ogg/Vorbis, ICU, Boost, {fmt}, libxml2, ENet
-  and libsodium: all GPL-compatible. Seven Kingdoms (GPL-2.0-or-later) links
+  SDL2, FreeType, libpng, Ogg/Vorbis, ICU, Boost, {fmt}, libxml2, ENet and
+  libsodium: all GPL-compatible. FreeType is dual-licensed and is used here
+  under its GPL-2.0-or-later option: its own `LICENSE.TXT` calls the FTL
+  incompatible with GPLv2. Seven Kingdoms (GPL-2.0-or-later) links
   SDL2 and Dolly's GPL-marked arena code.
 - Codex (Apache-2.0) vendors 1,218 crates for every target and compiles 790
   into the binary: mostly MIT OR Apache-2.0; no crate is GPL-only (`self_cell`
@@ -77,22 +81,40 @@ prepared source are in that commit on GitHub. Neither host's terms change a
 licence. `robots.txt` works only at a host root, so the GitHub Pages project
 site under `/dolly/` carries an inert copy.
 
-## Gaps
+## 0 A.D.
 
-Fixed in this audit: musl's and Emscripten's notices (kept by `system-build`,
-so every image is rebuilt), WAMR's licence in its source archive, every
-vendored crate's licence files under `/usr/share/licenses/PROGRAM/crates/` for
-rg, fd, protox and codex (123 of Codex's crates ship none; their `Cargo.toml`
-names the licence), webgpu-headers' notice in gpu-fluid, and CPython's change
-summary. Open, each needing the owner (task `20261005-135857-licence-owner`):
+0 A.D. is built in Dolly: `zero-ad-deps` and `zero-ad-engine` compile the
+engine and the libraries it links from `zero-ad-build/deps.tar.gz` and
+`engine.tar.gz`, which the site serves as recipe inputs. SpiderMonkey is still
+cross-built outside Dolly (`zero-ad-build/mozjs-host.tar.gz`: headers and
+static libraries), so `zero-ad-engine` also takes `zero-ad-build/bootstrap.tar`
+(151 MB): SpiderMonkey 128.13's pinned tarball with 0 A.D.'s patches, and
+`demos/zero-ad/toolchain`, which cross-builds it and translates the game data's
+SPIR-V shaders to WGSL (the GLSL sources stay in the served mod archives). On
+Cloudflare it becomes eight 20 MiB parts and one more `_headers` rule per
+release: 23 of the 100 rules per release, so a deployment still carries at most
+three predecessors. The `zero-ad` image keeps the licences of every statically
+linked library under `/usr/share/licenses/`, SpiderMonkey's MPL-2.0 text and
+the licence files of the 51 vendored Rust crates compiled into its
+`libjsrust.a` (Mozilla's own crates are MPL-2.0).
 
-1. The 0 A.D. engine's source is not served. Fix: publish the pinned
-   `0ad-0.28.0-unix-build.tar.xz` (158 MB; it contains SpiderMonkey) and a tar
-   of `demos/zero-ad/toolchain` and `openal-dolly.patch` as `SOURCE` inputs of
-   `Dollyfile-zero-ad`, and add the MPL-2.0 text and the linked libraries'
-   notices to `/opt/0ad/licenses`. Rebuilds zero-ad.
-2. Only the arena code compiled into Seven Kingdoms and the engine patch must
-   stay GPL. The other GPL-marked files (agents, spectator, viewers) are
-   Dolly's own code running as separate programs; their licence is the
-   owner's choice.
-3. ClassiCube's default texture pack states no licence (see the table).
+## Fixed gaps
+
+musl's and Emscripten's notices (kept by `system-build`), WAMR's licence in its
+source archive, every vendored crate's licence files under
+`/usr/share/licenses/PROGRAM/crates/` for rg, fd, protox and codex (123 of
+Codex's crates ship none; their `Cargo.toml` names the licence), webgpu-headers'
+notice in gpu-fluid, and CPython's change summary.
+
+## Decisions
+
+The owner delegated three decisions (task `20261005-135857-licence-owner`):
+
+1. 0 A.D.'s missing corresponding source is now served (above).
+2. Dolly's agents, spectators and viewers are MIT; only the 8 files compiled
+   into Seven Kingdoms or 0 A.D. stay GPL-2.0-or-later.
+3. ClassiCube's default texture pack names no licence: upstream's
+   `license.txt` covers its code, `credits.txt` names Goodlyay as the artist,
+   and when asked for the pack's licence (ClassiCube issue 1430, 2025-09-07) he
+   granted permission to one named project only. Dolly ships its own MIT
+   procedural textures instead (`demos/classicube/textures.mjs`).

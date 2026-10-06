@@ -141,3 +141,6 @@ Remaining:
    GPL-2.0-or-later option (its `LICENSE.TXT` calls the FTL GPLv2-incompatible).
 3. `libjsrust.a` links Rust crates from SpiderMonkey's `third_party/rust`; their
    notices are not shipped.
+
+Done 2026-10-06 on `work/licences-3` (task `20261005-135857-licence-owner`):
+items 1–3 above, verified by a zero-ad chain build and the 0 A.D. browser tests.

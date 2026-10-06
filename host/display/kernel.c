@@ -84,14 +84,29 @@ static int validate_display_lease(int owner_pid, uint64_t generation) {
   return 0;
 }
 
+// An application may return immediately on a key-down event while the
+// matching key-up record is already queued. That record belongs to the old
+// foreground command or display owner and must not become input to its
+// successor.
+static void discard_pending_input(int terminal_ui) {
+  dolly_input_ring_discard(&terminal_input, terminal_ui);
+  const uint32_t paste_sequence = atomic_load_explicit(
+      &display_mailbox.paste_sequence, memory_order_acquire);
+  atomic_store_explicit(&display_mailbox.paste_consumed_sequence,
+                        paste_sequence, memory_order_release);
+  encoded_input_cursor = 0;
+  encoded_input_length = 0;
+}
+
 static void release_display_lease_for_pid(int owner_pid) {
   if (display_lease.generation == 0 || display_lease.owner_pid != owner_pid) {
     return;
   }
   memset(&display_lease, 0, sizeof(display_lease));
   // Events published while the graphics owner was active belong to that
-  // ownership epoch and must not leak into the restored shell.
-  dolly_terminal_discard_pending_input();
+  // ownership epoch and must not leak into the restored shell: its pointer
+  // and scroll records are not the terminal's.
+  discard_pending_input(0);
   if (terminal_input.driver != NULL) terminal_input.driver->set_suspended(0);
   atomic_store_explicit(&display_mailbox.cursor_style,
                         DOLLY_DISPLAY_CURSOR_TEXT, memory_order_release);
@@ -215,30 +230,7 @@ uint32_t dolly_terminal_rows(void) {
 }
 
 void dolly_terminal_discard_pending_input(void) {
-  // An application may return immediately on a key-down event while the
-  // matching key-up record is already queued. That record belongs to the old
-  // foreground command or display owner and must not become input to its
-  // successor. Preserve resize records so Ghostty adopts the current geometry.
-  uint32_t read = atomic_load_explicit(&display_mailbox.event_read,
-                                       memory_order_relaxed);
-  const uint32_t write = atomic_load_explicit(&display_mailbox.event_write,
-                                               memory_order_acquire);
-  while (read != write) {
-    const dolly_input_event event =
-        display_mailbox.events[read & (DOLLY_DISPLAY_EVENT_CAPACITY - 1)];
-    ++read;
-    atomic_store_explicit(&display_mailbox.event_read, read,
-                          memory_order_release);
-    if (event.type == DOLLY_INPUT_EVENT_RESIZE) {
-      (void)update_suspended_terminal_layout(&event);
-    }
-  }
-  const uint32_t paste_sequence = atomic_load_explicit(
-      &display_mailbox.paste_sequence, memory_order_acquire);
-  atomic_store_explicit(&display_mailbox.paste_consumed_sequence,
-                        paste_sequence, memory_order_release);
-  encoded_input_cursor = 0;
-  encoded_input_length = 0;
+  discard_pending_input(display_lease.generation == 0);
 }
 
 int dolly_kernel_terminal_attached(void) {

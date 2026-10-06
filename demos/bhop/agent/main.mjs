@@ -1,4 +1,4 @@
-// Shared Pi supervision, settings and viewer; bhop supplies only its input adapter. SPDX-License-Identifier: GPL-2.0-or-later
+// Shared Pi supervision, settings and viewer; bhop supplies only its input adapter. SPDX-License-Identifier: MIT
 import { runAgent } from '../../game-agent/mission.mjs';
 import { writeAtomic } from '../../game-agent/settings.mjs';
 import { connect, describe, toolText } from './player.js';

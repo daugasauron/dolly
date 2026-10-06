@@ -103,6 +103,8 @@ Image builds rewrite SHA-256 pins in `Dollyfile*`. Check by what you changed
 - [Issues](tasks/README.md).
 
 Dolly is a prototype, not full POSIX, Node or libcurl compatibility.
-[MIT licensed](LICENSE), except files marked
-`SPDX-License-Identifier: GPL-2.0-or-later`; bundled upstream programs keep
+[MIT licensed](LICENSE), except the files marked
+`SPDX-License-Identifier: GPL-2.0-or-later`: the Seven Kingdoms port compiled
+into the game (`demos/rts`: `Makefile`, `OAUDIO.h`, `arena.*`, `config.h`,
+`input.*`) and `demos/zero-ad/engine.patch`. Bundled upstream programs keep
 their own [licences](docs/licences.md).

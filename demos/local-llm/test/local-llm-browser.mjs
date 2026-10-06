@@ -80,6 +80,22 @@ for(const image of (process.env.DOLLY_LLM_IMAGES??'pi-local,dollyfile-studio').s
           await file.saveAs(resultPath);assert.equal(await downloading,0);await page.waitForTimeout(200);
           const result=JSON.parse(await readFile(resultPath,'utf8'));
           assert.equal(result.cancel,true);assert.equal(result.restart,true);assert.equal(result.reuse,true);
+          // Pi's own agent loop on the local model: several distinct tool calls and a final answer.
+          const checker=submit('upload /tmp/agent-proof.mjs');
+          await page.waitForSelector('#file-upload[open]');
+          await page.locator('#file-upload input').setInputFiles(new URL('./fixtures/agent-proof.mjs',import.meta.url).pathname);
+          assert.equal(await checker,0);await page.waitForTimeout(200);
+          const task='List the files in /workspace, write hello.c that prints the numbers 1 to 5, compile it with cc -o hello hello.c, run ./hello and tell me its output.';
+          // A 2B model sometimes errs on its own; a harness fault fails every attempt.
+          for(let attempt=1;;attempt++) {
+            const agent=Date.now();
+            assert.equal(await submit(`timeout 600 pi --mode json -p '${task}' > /tmp/agent.jsonl`),0,await text());
+            const status=await submit('janis /tmp/agent-proof.mjs /tmp/agent.jsonl');
+            console.log(name,'agent task attempt',attempt,(Date.now()-agent)/1000,'s:',(await text()).match(/AGENT-PROOF-\S+.*/)?.[0]);
+            assert.equal(await submit('rm -f /workspace/hello /workspace/hello.c /workspace/a.out'),0);
+            if(status===0)break;
+            assert.ok(attempt<3,await text());
+          }
           assert.equal(await submit('printf saved > /workspace/session-proof.txt'),0);
           assert.equal(await page.evaluate(()=>__dolly.saveSession('llm-proof')),'llm-proof');
           const savedBytes=await page.evaluate(()=>Number(document.documentElement.dataset.sessionUncompressedBytes));

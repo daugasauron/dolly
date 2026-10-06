@@ -2,6 +2,7 @@
 #include <dolly/display.h>
 #include <errno.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <fcntl.h>
 #include <string.h>
 #include <sys/ioctl.h>
@@ -106,6 +107,16 @@ int main(int argc, char **argv) {
     }
     if (dolly_display_release(surface.generation) != 0) status = 9;
     return status;
+  }
+  if (argc > 1 && strcmp(argv[1], "retire") == 0) {
+    // Prints a ruler and exits holding enough memory that its Worker retires late.
+    char *volatile memory = malloc((size_t)160 << 20);
+    if (memory == NULL) return 23;
+    memory[0] = 1;
+    fputs("\033[2J\033[H", stdout);
+    for (int column = 0; column < 130; ++column) putchar('a' + column % 26);
+    putchar('\n');
+    return 0;
   }
   if (argc > 1 && strcmp(argv[1], "unread") == 0) {
     // Holds the display for three seconds without reading input, then reports what the ring kept.

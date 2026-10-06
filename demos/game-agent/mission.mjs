@@ -1,4 +1,4 @@
-// Pi supervision and all application state stay inside Dolly. SPDX-License-Identifier: GPL-2.0-or-later
+// Pi supervision and all application state stay inside Dolly. SPDX-License-Identifier: MIT
 import { createSettings, writeAtomic } from "./settings.mjs";
 import { traceText } from "../rts/spectator/trace.mjs";
 const wait = ms => new Promise(resolve => setTimeout(resolve, ms));

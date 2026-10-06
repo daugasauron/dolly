@@ -18,6 +18,10 @@ Open `/pi/`; build with `npm run image -- pi`. Leave Pi with `/exit` or Ctrl+D.
 - `pi-build` runs the official TypeScript compiler inside Dolly and emits Pi's
   workspace packages to `/usr/lib/node_modules` (`noCheck` emit, no type
   checking). `pi-runtime` adds the prompt, settings, theme and extension.
+- Bootstrap exception: [`pi-secret-input.patch`](pi-secret-input.patch) makes
+  the login dialog show `*` for prompts pi-ai marks `secret` (API keys);
+  upstream 1.0.4 shows them in clear. Drop it when upstream masks them
+  ([task](../../tasks/20261005-231730-pi-key-mask/TASK.md)).
 - External packages are listed in [`pi-runtime-packages.txt`](pi-runtime-packages.txt)
   and verified against `package-lock.json`; `node demos/pi/pi-runtime-census.mjs` reports pins and
   licenses. They load from WasmFS, never from the network.

@@ -7,7 +7,7 @@ REQUIRES HOST snapshot@0
 REQUIRES HOST threads@0
 REQUIRES HOST upload@0
 
-FROM https://daugasauron.com/demos/pi/Dollyfile-pi-runtime 848c70f10179c57a22ad4d0fe1e53255c373ff5ee0b381ea9731e71a079d0e51
+FROM https://daugasauron.com/demos/pi/Dollyfile-pi-runtime 8feabd28f168247c7c480ce852fb102816b5f3523fcdba5de11a8c9352e1bc07
 INSTALL https://daugasauron.com/demos/sdl2/Dollyfile-sdl2 5c917e23ce237103f6619384e21781c552a95054a805d4e02e1a2c9f5cf1bb44
 COPY https://daugasauron.com/demos/rts/Dollyfile-rts-build e769f8e1a625da01936adf7cc0d58fc7427c60ba4baef80259bb1239291b8dce /usr/bin/seven-kingdoms /usr/bin/seven-kingdoms
 COPY https://daugasauron.com/demos/rts/Dollyfile-rts-build e769f8e1a625da01936adf7cc0d58fc7427c60ba4baef80259bb1239291b8dce /usr/share/7kaa /usr/share/7kaa
@@ -33,7 +33,7 @@ REQUIRES TOOL gzip
 REQUIRES TOOL upload
 REQUIRES TOOL mkdir
 
-SOURCE https://daugasauron.com/dist/static/rts/arena.tar eeac8b6132097181e8dbf26f3f7cabfa58bae3d4573ad6a2c9d3f15dccf70ede /tmp/rts-arena/source.tar
+SOURCE https://daugasauron.com/dist/static/rts/arena.tar ff3401a83bc206169f03458fd124e9b8871fd536f655b690456d4c4ae7df1be3 /tmp/rts-arena/source.tar
 SOURCE https://daugasauron.com/dist/static/default/stb_truetype.h ecd30b05e0dd4fea3a13c26810dd9e1992dc379049482c393d5a19e6b5090aab /tmp/rts-arena/stb_truetype.h
 SLOP tar -xf /tmp/rts-arena/source.tar -C /
 SLOP mkdir -p /usr/share/dolly/rts

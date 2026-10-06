@@ -140,8 +140,43 @@ function normalizeTrustedSource(source, applicationBase) {
   });
 }
 
+// A relay is the embedding's transport for an origin whose responses the
+// browser will not let a page read (no CORS headers). The policy still judges
+// the real destination; an admitted request is then fetched from
+// `through` + host + path + query. The relay sees the whole request, so it gets
+// no credential header the embedding did not name for it.
+function normalizeRelay(relay) {
+  if (relay === null || typeof relay !== "object") throw new TypeError("invalid Dolly HTTP relay");
+  const origin = new URL(relay.origin).origin;
+  const through = new URL(relay.through);
+  if (origin !== relay.origin || !/^https?:$/.test(new URL(origin).protocol) ||
+      through.href !== relay.through || !/^https?:$/.test(through.protocol) ||
+      !through.pathname.endsWith("/") || through.search || through.hash ||
+      through.username || through.password) {
+    throw new TypeError("a Dolly HTTP relay maps an exact origin to an HTTP(S) URL prefix ending in /");
+  }
+  const credentialHeaders = new Set((relay.credentialHeaders ?? []).map((value) => {
+    const name = String(value).toLowerCase();
+    if (!credentialHeaderNames.has(name)) throw new TypeError(`invalid Dolly HTTP credential header: ${name}`);
+    return name;
+  }));
+  return [origin, Object.freeze({ through: through.href, credentialHeaders })];
+}
+
+// Where an admitted request for a relayed origin is fetched from.
+function relayUrl(relays, target, headers) {
+  const relay = relays.get(target.origin);
+  if (!relay) return undefined;
+  for (const name of credentialHeaderNames) {
+    if (!relay.credentialHeaders.has(name)) headers.delete(name);
+  }
+  return `${relay.through}${target.host}${target.pathname}${target.search}`;
+}
+
 export class DollyHttpPolicy {
-  constructor(configuration, trustedSources = [], applicationBase = globalThis.location?.href) {
+  constructor(configuration, trustedSources = [], applicationBase = globalThis.location?.href, relays = []) {
+    if (!Array.isArray(relays) || relays.length > 64) throw new TypeError("invalid Dolly HTTP relays");
+    this.relays = new Map(relays.map(normalizeRelay));
     this.hardened = configuration !== undefined;
     this.rules = this.hardened
       ? Object.freeze((configuration.rules ?? []).map(normalizeRule))
@@ -212,7 +247,8 @@ export class DollyHttpPolicy {
         if (!rule.credentialHeaders.has(name)) headers.delete(name);
       }
     }
-    return rule;
+    const relay = rule.bootstrap ? undefined : relayUrl(this.relays, target, headers);
+    return relay ? { ...rule, followRedirects: false, relay } : rule;
   }
 }
 
@@ -221,9 +257,10 @@ export function consumeDollyHttpPolicy(
   trustedSources = [],
   applicationBase = globalObject.location?.href,
 ) {
-  const configuration = globalObject.DOLLY_HTTP_POLICY;
+  const configuration = globalObject.DOLLY_HTTP_POLICY, relays = globalObject.DOLLY_HTTP_RELAYS;
   Reflect.deleteProperty(globalObject, "DOLLY_HTTP_POLICY");
-  return new DollyHttpPolicy(configuration, trustedSources, applicationBase);
+  Reflect.deleteProperty(globalObject, "DOLLY_HTTP_RELAYS");
+  return new DollyHttpPolicy(configuration, trustedSources, applicationBase, relays);
 }
 
 // Trusted browser state for an explicitly opened result tab, never Wasm data.
@@ -247,16 +284,20 @@ export function restrictDollyHttpPolicy(policy, inherited, trustedSources, appli
   const policies = configurations.map(configuration => new DollyHttpPolicy(configuration ?? undefined, trustedSources, applicationBase));
   return {
     configurations,
+    // Relays are this page's transport, not inherited authority.
+    relays: policy.relays,
     authorize(target, method, headers, bytes) {
       // Every policy must allow it. Sequential header stripping intersects
       // credentials too; neither the parent nor the new embedding can widen it.
       const rules = policies.map(policy => policy.authorize(target, method, headers, bytes));
       // Every policy maps the same trusted sources to the same mirror.
       const bootstrap = rules.every(rule => rule.bootstrap === true);
+      const relay = bootstrap ? undefined : relayUrl(policy.relays, target, headers);
       return {
         bootstrap,
         ...(bootstrap && { mirror: rules[0].mirror }),
-        followRedirects: rules.every(rule => rule.followRedirects === true),
+        ...(relay && { relay }),
+        followRedirects: !relay && rules.every(rule => rule.followRedirects === true),
         maxRequestBytes: Math.min(...rules.map(rule => rule.maxRequestBytes)),
         maxResponseBytes: Math.min(...rules.map(rule => rule.maxResponseBytes)),
         timeoutMilliseconds: Math.min(...rules.map(rule => rule.timeoutMilliseconds)),

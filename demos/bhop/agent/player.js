@@ -1,4 +1,4 @@
-// Vision and input tools only. All recordings stay in Dolly's filesystem. SPDX-License-Identifier: GPL-2.0-or-later
+// Vision and input tools only. All recordings stay in Dolly's filesystem. SPDX-License-Identifier: MIT
 import { parameters, encodeBatch } from './codec.mjs';
 export const describe = image => `Bhop framebuffer at frame ${image.frame}, ${image.milliseconds} ms since launch (960×540). The course keeps running while you think. No game-state telemetry is available.${image.recording_failures ? ` Recording warning: ${image.recording_failures} snapshots could not be saved in this attempt; its archive has gaps. This is the current live view. Details are in game.log.` : ''}`;
 export const toolText = (name,args) => name==='game_input' ? args.actions.map(a=>`${a.ticks*10} ms [${a.keys.join('+')||'release'}] mouse (${a.mouse_dx||0}, ${a.mouse_dy||0})${a.wheel?' wheel '+a.wheel:''}`).join('; ') || 'observe' : JSON.stringify(args);

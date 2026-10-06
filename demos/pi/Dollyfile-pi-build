@@ -19,6 +19,7 @@ REQUIRES TOOL   janis
 REQUIRES TOOL   make
 REQUIRES TOOL   mkdir
 REQUIRES TOOL   mv
+REQUIRES TOOL   patch
 REQUIRES TOOL   qjs
 REQUIRES TOOL   rm
 REQUIRES TOOL   tar
@@ -29,11 +30,15 @@ SOURCE https://daugasauron.com/dist/static/default/pi-generated-model-data.tar  
 SOURCE https://daugasauron.com/dist/static/default/pi-runtime-packages.tar              493fdaaf40089049f3cb7bf2074640c3a6b19f43a6b0ca196ced161ad2c1c523 /tmp/pi/pi-runtime-packages.tar
 SOURCE https://daugasauron.com/dist/static/default/pi-tsconfig.dolly.json               5b810ca0942889c635e7675a2945578d6d02d1be6dba98bb860269882d2ea825 /tmp/pi/tsconfig.dolly.json
 SOURCE https://daugasauron.com/dist/static/default/pi-quickjs-compat.mjs                ee2f334201f4fbfea2d69a7969a4129be535cf252589aa9b5ecdd01b49e0dacb /tmp/pi/quickjs-compat.mjs
+SOURCE https://daugasauron.com/dist/static/default/pi-secret-input.patch              1d85ce2016b81125ee3c11f59eba32d9c2d2d767d23991c6d345cf1cc18bb504 /tmp/pi/secret-input.patch
 SOURCE https://daugasauron.com/dist/static/default/commands/pi.c                        2296ec09e6b95b0d0dd065f806138e48eaad855d77d6366adfdfc33d720da98e /tmp/pi/pi.c
 
 SLOP tar \
   -xf /tmp/pi/pi-source.tar \
   -C /
+# Pi's login prompt shows API keys in clear (pi-tui's Input has no mask);
+# the patch masks prompts pi-ai marks secret, as proposed upstream.
+SLOP patch -p1 -d /usr/src/pi-source -i /tmp/pi/secret-input.patch
 SLOP tar \
   -xf /tmp/pi/pi-generated-model-data.tar \
   -C /

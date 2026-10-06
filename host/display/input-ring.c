@@ -66,3 +66,18 @@ int dolly_input_ring_service(const dolly_input_ring *ring) {
   atomic_store_explicit(&ring->mailbox->event_read, retained, memory_order_release);
   return dolly_input_ring_handle(ring, NULL, &preserved, 0, &output_length);
 }
+
+void dolly_input_ring_discard(const dolly_input_ring *ring, int terminal_ui) {
+  unsigned char preserved;
+  size_t output_length = 0;
+  uint32_t read = atomic_load_explicit(&ring->mailbox->event_read, memory_order_relaxed);
+  const uint32_t write = atomic_load_explicit(&ring->mailbox->event_write, memory_order_acquire);
+  while (read != write) {
+    const dolly_input_event event = *slot(ring, read++);
+    atomic_store_explicit(&ring->mailbox->event_read, read, memory_order_release);
+    if (ring->driver != NULL && (event.type == DOLLY_INPUT_EVENT_RESIZE ||
+        (terminal_ui && (event.type == DOLLY_INPUT_EVENT_POINTER ||
+                         event.type == DOLLY_INPUT_EVENT_SCROLL))))
+      (void)dolly_input_ring_handle(ring, &event, &preserved, 0, &output_length);
+  }
+}

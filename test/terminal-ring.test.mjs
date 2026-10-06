@@ -116,6 +116,24 @@ int main(void) {
       }
     }
   }
+  // A discard drops what a program had not read. Resize still reaches the
+  // driver, and so do the terminal's own pointer and scroll records unless a
+  // graphics owner's lease ended.
+  for (int terminal_ui = 0; terminal_ui < 2; ++terminal_ui) {
+    memset(&display_mailbox, 0, sizeof(display_mailbox));
+    display_mailbox.event_read = UINT32_MAX - 1;
+    display_mailbox.event_write = UINT32_MAX + 4u;
+    const dolly_input_event pending[] = {
+      {.type = DOLLY_INPUT_EVENT_KEY, .action = 9}, {.type = DOLLY_INPUT_EVENT_POINTER, .action = 0},
+      {.type = DOLLY_INPUT_EVENT_RESIZE, .action = 120}, {.type = DOLLY_INPUT_EVENT_SCROLL, .action = 3},
+      {.type = DOLLY_INPUT_EVENT_TEXT, .action = 9}};
+    for (unsigned i = 0; i < 5; ++i) display_mailbox.events[(UINT32_MAX - 1 + i) & 255] = pending[i];
+    seen = append = 0;
+    dolly_input_ring_discard(&ring, terminal_ui);
+    assert(display_mailbox.event_read == display_mailbox.event_write);
+    assert(display_mailbox.terminal_cols == 120 && seen == (terminal_ui ? 2 : 0));
+  }
+  resized = 0;
   display_mailbox.event_read = 0;
   display_mailbox.event_write = 257;
   assert(dolly_input_ring_service(&ring) == -EPROTO);
