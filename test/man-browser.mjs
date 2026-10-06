@@ -7,9 +7,11 @@ import { browserTest } from "./browser.mjs";
 const everyCommandHasAPage = "rm -f /tmp/pageless; for file in /bin/* /usr/bin/*; do name=${file##*/}; " +
   "man \"$name\" > /tmp/page && test -s /tmp/page || echo \"$name\" >> /tmp/pageless; done; ! cat /tmp/pageless 2> /dev/null";
 // Dolly's own pages are the plain ones; test and [ take --help as an expression.
-const everyOwnCommandAnswersHelp = "rm -f /tmp/helpless; for page in /usr/share/man/cat1/*.1; do name=${page##*/}; " +
-  "name=${name%.1}; if test \"$name\" != test && test \"$name\" != \"[\"; then \"$name\" --help > /tmp/help && " +
-  "test -s /tmp/help || echo \"$name\" >> /tmp/helpless; fi; done; ! cat /tmp/helpless 2> /dev/null";
+// The program is run by its path: cd, command and time are also Slop's own.
+const everyOwnCommandAnswersHelp = "rm -f /tmp/helpless; for file in /bin/* /usr/bin/*; do name=${file##*/}; " +
+  "if test -e \"/usr/share/man/cat1/$name.1\" && test \"$name\" != test && test \"$name\" != \"[\"; then " +
+  "\"$file\" --help > /tmp/help && test -s /tmp/help || echo \"$name\" >> /tmp/helpless; fi; done; " +
+  "! cat /tmp/helpless 2> /dev/null";
 
 await browserTest("man and --help", { timeout: 300_000 }, async ({ open }) => {
   const { submit, text } = await open();
@@ -25,8 +27,8 @@ await browserTest("man and --help", { timeout: 300_000 }, async ({ open }) => {
     assert.equal(await submit(`${wrong} > /tmp/out 2> /tmp/err`), 2, wrong);
     await run("test -s /tmp/err && test ! -s /tmp/out");
   }
-  assert.equal(await submit("man rg > /dev/null 2>&1"), 1);
-  await run("amy install ripgrep && man rg > /tmp/page && rg --help > /tmp/help && cmp /tmp/page /tmp/help");
+  assert.equal(await submit("man git > /dev/null 2>&1"), 1);
+  await run("amy install git && man git > /tmp/page && git --help > /tmp/help && cmp /tmp/page /tmp/help");
   await run(everyCommandHasAPage);
   await run(everyOwnCommandAnswersHelp);
 });

@@ -8,7 +8,7 @@ REQUIRES HOST http@0
 REQUIRES HOST snapshot@0
 REQUIRES HOST upload@0
 
-FROM https://daugasauron.com/Dollyfile-gpu-sdk ad72cc399e55201b841af67810e0df87836f6683cd30f543e5afb453de691297
+FROM https://daugasauron.com/Dollyfile-gpu-sdk 73041e9d7ac42a6ad9b423ef03689538594ac9e0788d8d9022f87665d320cb41
 REQUIRES TOOL cc
 REQUIRES HEADER gpu
 REQUIRES LIB dolly-gpu

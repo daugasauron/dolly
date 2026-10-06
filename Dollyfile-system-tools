@@ -6,7 +6,7 @@ REQUIRES HOST download@0
 REQUIRES HOST http@0
 REQUIRES HOST upload@0
 
-FROM https://daugasauron.com/Dollyfile-system-build 699f0707eafb2b18d03444cb93316899f38c510bc19b99ed21625a132718e500
+FROM https://daugasauron.com/Dollyfile-system-build e7a5f388e42aa0aba991a7ff669b2dba24a217ca739779edbcac0bcec91ba3f4
 # Unchanged upstream sbase commands, built by sbase's own Makefile.
 REQUIRES HEADER libc
 REQUIRES TOOL   ar
@@ -211,9 +211,9 @@ FILE /usr/share/licenses/samurai/LICENSE
 SLOP rm \
   -rf \
   /tmp/ninja
-INSTALL https://daugasauron.com/Dollyfile-zlib 7c605f8f61943f68a2555e0e0398500db5ca05164f75b2b544b9c289bea4e1dc
-INSTALL https://daugasauron.com/Dollyfile-gzip 06a7864fce330007e4742f49b74f16352c86192492eb2e570c3dc5652e7e76bd
-INSTALL https://daugasauron.com/Dollyfile-curl 23b518210ed2312992f4439eede65433d8062adcba37b64517c53d519da48934
+INSTALL https://daugasauron.com/Dollyfile-zlib 5f9f89c1c0db36cbd636e8e550f35c48a836104e536aa0f48bab3fe848da82a2
+INSTALL https://daugasauron.com/Dollyfile-gzip a45b23459c3b3ac85d819b0fe480c6ccecf3b4b8ff49374301989770c4412f1d
+INSTALL https://daugasauron.com/Dollyfile-curl 24a4e42ffc6e74315de61e12357fc445d7c15c72e20dc669f6a2518e53577bc2
 REQUIRES TOOL   mkdir
 REQUIRES LIB    curl
 REQUIRES LIB    z
@@ -348,7 +348,7 @@ SLOP rm \
   /tmp/git \
   /tmp/git.tar \
   /usr/src/git
-SOURCE https://daugasauron.com/dist/static/default/awk.tar d45ffb29145610a28424f4cab15c26d1ebc34840262342ee6b23cfbd4cae936b /tmp/awk.tar
+SOURCE https://daugasauron.com/dist/static/default/awk.tar f28cae177fa60793a70066d10667e8d06775d979f2262be1c48f8eb941090015 /tmp/awk.tar
 SLOP tar \
   -xf /tmp/awk.tar \
   -C /
@@ -439,6 +439,6 @@ SLOP ln -s slop /bin/sh
 EXPORTS TOOL sh
 SLOP cp /usr/share/man/cat1/slop.1 /usr/share/man/cat1/sh.1
 FOLDER /usr/share/man
-INSTALL https://daugasauron.com/Dollyfile-display 7afa972833e1d95c0a0d114901c80a6c24691078408cb131ec3e4e3320b714dd
+INSTALL https://daugasauron.com/Dollyfile-display 055f6a82fa41bc53e9ee7b6923f1d00be8ae9122446dc9ad29d5fb9490d3b5a6
 
 ENTRY /bin/foreground -i /bin/slop
