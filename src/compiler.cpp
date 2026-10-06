@@ -83,6 +83,7 @@ struct DriverOptions {
   bool standard_selected = false;
   bool unsigned_char = false;
   bool pthread = false;
+  std::string thread_model;
   DebugInfoKind debug_info = DebugInfoKind::None;
   std::string output;
   std::string forced_language;
@@ -346,6 +347,18 @@ int parse_driver_options(int argc, const char *const *argv, DriverOptions &optio
       // Dolly has one fixed wasm64 target; Clang accepts the flag for it.
     } else if (argument == "-pthread") {
       options.pthread = true;
+    } else if (argument == "-mthread-model") {
+      std::string value;
+      if (!take_option_value(argc, argv, index, "-mthread-model", value)) return -1;
+      options.thread_model = value;
+    } else if (argument == "-fno-math-errno") {
+      // Clang's WebAssembly driver compiles without math errno by default,
+      // so the flag states the default and cc1 gets nothing.
+    } else if (argument == "-fomit-frame-pointer") {
+      // cc1 already gets -mframe-pointer=none: WebAssembly has no frame pointer.
+    } else if (starts_with(argument, "-ffp-contract=")) {
+      // Follows the default -ffp-contract=on in cc1's arguments, so it wins.
+      options.frontend_options.push_back(argument);
     } else if (argument == "-fPIC" || argument == "-fpic" || argument == "-fPIE" ||
                argument == "-fpie" || argument == "-pipe") {
       // Dolly objects are always PIC.
@@ -455,6 +468,11 @@ int parse_driver_options(int argc, const char *const *argv, DriverOptions &optio
       options.inputs.push_back(argument);
     }
   }
+  if (options.pthread && options.thread_model == "single") {
+    std::fprintf(stderr, "%s: -pthread is not allowed with -mthread-model single\n",
+                 argv[0]);
+    return -1;
+  }
   return 0;
 }
 
@@ -505,6 +523,10 @@ bool run_clang(const std::string &source, const std::string &language,
     });
   }
   if (options.pthread) arguments.push_back("-pthread");
+  if (!options.thread_model.empty()) {
+    arguments.push_back("-mthread-model");
+    arguments.push_back(options.thread_model);
+  }
   arguments.insert(arguments.end(), {
       "-target-cpu", "generic",
       "-target-feature", "+mutable-globals",
