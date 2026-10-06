@@ -608,6 +608,19 @@ static const char *parameter_closing_brace(const char *source) {
 
 static int expand_dollar_now(Shell *shell, const char **cursor, Buffer *word);
 
+// While expand_dollars expands a word, the text it is building and the mask
+// beside it: a quoted part of ${NAME-word} stays quoted in the result.
+static Buffer *expanding_text, *expanding_mask;
+static char expanding_protection;
+
+// Marks what `output` gained since the mask was last filled.
+static int mark_expanded(const Buffer *output, char protection) {
+  if (output != expanding_text) return 1;
+  while (expanding_mask->length < output->length)
+    if (!buffer_character(expanding_mask, protection)) return 0;
+  return 1;
+}
+
 static int expand_parameter_word(Shell *shell, const char *source,
                                  size_t length, Buffer *output) {
   const char *end = source + length;
@@ -620,10 +633,12 @@ static int expand_parameter_word(Shell *shell, const char *source,
     }
     if (*source == '\'' || *source == '"') {
       if (quote == '\0') {
+        if (!mark_expanded(output, expanding_protection)) return 0;
         quote = *source++;
         continue;
       }
       if (quote == *source) {
+        if (!mark_expanded(output, 'q')) return 0;
         quote = '\0';
         source++;
         continue;
@@ -3291,7 +3306,19 @@ static int expand_dollars(Shell *shell, Token *token) {
       char *expression = strndup(cursor, length);
       if (expression == NULL) goto memory_error;
       const char *expression_cursor = expression;
+      Buffer *const outer_text = expanding_text, *const outer_mask = expanding_mask;
+      const char outer_protection = expanding_protection;
+      if (token->quote_mask) {
+        while (expanded_mask.length < expanded.length)
+          if (!buffer_character(&expanded_mask, protection)) goto memory_error;
+        expanding_text = &expanded;
+        expanding_mask = &expanded_mask;
+        expanding_protection = protection == 'u' ? 'e' : protection;
+      }
       const int result = expand_dollar_now(shell, &expression_cursor, &expanded);
+      expanding_text = outer_text;
+      expanding_mask = outer_mask;
+      expanding_protection = outer_protection;
       const int complete = result >= 0 && *expression_cursor == '\0';
       free(expression);
       if (!complete) goto expansion_failed;
