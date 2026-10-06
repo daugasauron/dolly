@@ -1,6 +1,7 @@
 import { createGpuBridge } from "./bridge.mjs";
 import { DOLLY_ERRNO as E } from "../../dist/dolly-errno.mjs";
 import { publicURL } from "../../src/static-asset.mjs";
+import { holdIndicators, showIndicators } from "../../src/page-indicators.mjs";
 export { DOLLY_GPU_ABI_DIGEST as digest } from "./abi.mjs";
 
 // The page names the adapter gpu@0 programs get before any of them runs. A
@@ -17,31 +18,41 @@ export async function check() {
   return reason;
 }
 
-// Trusted page DOM over the display: guest frames cannot draw, cover or remove it.
+// A new adapter state shows the indicators again; no adapter holds them shown.
+function announce(element, state, borderColor) {
+  if (element.dataset.gpu !== state) {
+    holdIndicators("gpu", state === "unavailable");
+    showIndicators();
+  }
+  element.dataset.gpu = state;
+  element.style.borderColor = borderColor;
+}
+
+// Trusted page DOM over the display: guest frames cannot draw, cover or remove
+// it, and only its link takes clicks.
 function indicate(info, unavailable) {
   let element = document.querySelector("#gpu-status");
   if (!element) {
     element = document.body.appendChild(document.createElement("div"));
     element.id = "gpu-status";
+    element.className = "page-indicator";
     element.setAttribute("role", "status");
     element.style.cssText = "position:fixed;right:0.5rem;bottom:2rem;z-index:8;max-width:calc(100vw - 1rem);" +
-      "padding:0.15rem 0.45rem;background:#262626;border:1px solid;font-size:13px";
+      "padding:0.15rem 0.45rem;background:#262626;border:1px solid;font-size:13px;pointer-events:none";
   }
   if (unavailable) {
     const link = Object.assign(document.createElement("a"), { textContent: "How to enable WebGPU ↗",
       href: publicURL("docs/gpu.md#enabling-webgpu").href, target: "_blank", rel: "noopener" });
-    link.style.color = "#f2d45c";
+    link.style.cssText = "color:#f2d45c;pointer-events:auto";
     element.replaceChildren(`No GPU: ${unavailable} · `, link);
-    element.dataset.gpu = "unavailable";
-    element.style.borderColor = "#e98773";
+    announce(element, "unavailable", "#e98773");
     return {};
   }
   const adapter = [info.vendor, info.architecture, info.description].filter(Boolean).join(" ") || "unnamed WebGPU adapter";
   // SwiftShader and llvmpipe render on the CPU even where a browser does not flag them.
   const software = info.isFallbackAdapter || /swiftshader|llvmpipe/i.test(adapter);
   element.textContent = `${software ? "CPU (software GPU)" : "GPU"}: ${adapter} · ${info.f16 ? "" : "no "}shader-f16`;
-  element.dataset.gpu = software ? "software" : "hardware";
-  element.style.borderColor = software ? "#f2d45c" : "#77736c";
+  announce(element, software ? "software" : "hardware", software ? "#f2d45c" : "#77736c");
   return { adapter, isFallbackAdapter: info.isFallbackAdapter };
 }
 

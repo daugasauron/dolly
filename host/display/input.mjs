@@ -1,3 +1,5 @@
+import { toggleIndicators } from "../../src/page-indicators.mjs";
+
 // The display's page input: keys, pointer, wheel, focus, IME text, paste and
 // size become bounded mailbox records; interpretation stays in Wasm. Listeners
 // exist from host creation so F11 works while booting; records flow once the
@@ -35,11 +37,22 @@ export function displayInput({ mount, canvas, keyboard, showStatus, claimsKey, s
   const interruptChord = event => event.type === "keydown" && event.ctrlKey &&
     !event.shiftKey && !event.altKey && !event.metaKey && event.code === "KeyC";
 
+  // Ctrl+Shift+F, and the release of an F the page took.
+  let indicatorsKeyDown = false;
+  function indicatorsChord(event) {
+    if (event.code !== "KeyF") return false;
+    const taken = event.type === "keyup" ? indicatorsKeyDown
+      : event.ctrlKey && event.shiftKey && !event.altKey && !event.metaKey;
+    indicatorsKeyDown = taken && event.type === "keydown";
+    return taken;
+  }
+
   function handleKeyboardEvent(event) {
-    if (event.key === "F11") {
+    const fullscreen = event.key === "F11";
+    if (fullscreen || indicatorsChord(event)) {
       event.preventDefault();
       event.stopImmediatePropagation();
-      if (event.type === "keydown" && !event.repeat) void toggleFullscreen();
+      if (event.type === "keydown" && !event.repeat) fullscreen ? void toggleFullscreen() : toggleIndicators();
       return;
     }
     // Module UIs claim their keys first and the terminal lets go of held keys.

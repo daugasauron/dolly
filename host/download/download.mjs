@@ -1,4 +1,5 @@
 import { DOLLY_ERRNO as E } from "../../dist/dolly-errno.mjs";
+import { holdIndicators } from "../../src/page-indicators.mjs";
 import { DOLLY_DOWNLOAD_OPEN, DOLLY_DOWNLOAD_WRITE, DOLLY_DOWNLOAD_CLOSE, DOLLY_DOWNLOAD_ABORT,
   DOLLY_DOWNLOAD_CHUNK_CAPACITY, DOLLY_DOWNLOAD_MAX_SIZE } from "./abi.mjs";
 export { DOLLY_DOWNLOAD_ABI_DIGEST as digest } from "./abi.mjs";
@@ -21,6 +22,7 @@ export function browser({ keyboard }) {
   const pending = new Int32Array(new SharedArrayBuffer(4));
   const panel = document.createElement("ul");
   panel.id = "downloads";
+  panel.className = "page-indicator";
   panel.setAttribute("aria-label", "Files Dolly offers to save");
   panel.hidden = true;
   document.body.append(panel);
@@ -41,9 +43,16 @@ export function browser({ keyboard }) {
     link.href = url; link.download = name;
     link.click();
   }
+  // An offer waiting for the user's click holds the page's indicators shown.
+  function offer(item) {
+    panel.append(item);
+    panel.hidden = false;
+    holdIndicators("download", true);
+  }
   function remove(item) {
     item.remove();
     panel.hidden = panel.childElementCount === 0;
+    holdIndicators("download", !panel.hidden);
   }
   return {
     configuration: { pending: pending.buffer },
@@ -53,8 +62,7 @@ export function browser({ keyboard }) {
         if (!preparing) {
           preparing = document.createElement("li");
           preparing.dataset.name = name;
-          panel.append(preparing);
-          panel.hidden = false;
+          offer(preparing);
         }
         preparing.textContent = `Preparing ${name} (${sizeLabel(size)})`;
       },
@@ -83,8 +91,7 @@ export function browser({ keyboard }) {
         };
         item.replaceChildren(button(`Save ${name} (${sizeLabel(file.size)})`, () => save(name, file)),
           button("Dismiss", () => {}));
-        panel.append(item);
-        panel.hidden = false;
+        offer(item);
         document.documentElement.dataset.downloadName = name;
       },
     },
