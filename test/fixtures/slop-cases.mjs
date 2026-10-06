@@ -104,6 +104,7 @@ export const shellCases = [
   ["redirection-only substitution status", "> $(exit 7)result", 7],
   ["heredoc-only substitution status", "<<EOF\n$(exit 5)\nEOF\n", 5],
   ["quoted heredoc does not substitute", "<<'EOF'\n$(exit 5)\nEOF\n", 0],
+  ["a list continues after a here-document's body", "read -r a <<EOF ||\none\nEOF\n  exit 91\n: <<EOF &&\nx\nEOF\n  n=7\nread -r b <<EOF |\ntwo\nEOF\n  read -r c\ncase $a:$b:$c in one::) exit $n;; esac; exit 92", 7],
   ["tab-stripping heredoc", "{ IFS= read -r a; IFS= read -r b; } <<-EOF\n\tone\n\t\ttwo\n\tEOF\ncase $a:$b in one:two) :;; *) exit 91;; esac", 0],
   ["unset options select variables or functions", "f() { :; }; x=1; unset -v x; unset -f f; case ${x-unset} in unset) :;; *) exit 91;; esac; command -v f && exit 92; exit 0", 0],
   ["dollar-single-quotes are rejected before anything runs", "exit 7; x=$'a'", 2, 7],

@@ -1730,7 +1730,10 @@ static int lex(const char *source, TokenList *tokens) {
         }
       }
       pending_count = 0;
-      if (!token_push(tokens, TOKEN_SEMI, NULL, 0)) return 0;
+      // `cmd <<EOF ||` continues after the here-document's body.
+      const TokenKind previous = tokens->items[tokens->count - 1].kind;
+      if (previous != TOKEN_AND && previous != TOKEN_OR && previous != TOKEN_PIPE &&
+          !token_push(tokens, TOKEN_SEMI, NULL, 0)) return 0;
       continue;
     }
     if (source[0] == '&' && source[1] != '&' && source[1] != '>') {
