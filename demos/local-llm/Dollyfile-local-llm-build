@@ -17,7 +17,7 @@ REQUIRES LIB ggml-base
 REQUIRES LIB ggml-cpu
 REQUIRES LIB ggml-webgpu
 
-SOURCE https://daugasauron.com/dist/static/llama/engine.tar 2785ccbda77779b73f1f095292de2209233d0a72aed7573fda9dcf362af1361f /tmp/llm-engine.tar
+SOURCE https://daugasauron.com/dist/static/llama/engine.tar 9430120dc7fae61738dbe32b2fec824318ec98f3e40dd21e42267bcc0a32f58a /tmp/llm-engine.tar
 SLOP tar -xf /tmp/llm-engine.tar -C /
 SLOP c++ -std=c++20 -O1 -I/usr/include/dolly-llm -I/usr/src/dolly-llm/include \
   /usr/src/dolly-llm/main.cpp /usr/src/dolly-llm/webgpu.cpp \
