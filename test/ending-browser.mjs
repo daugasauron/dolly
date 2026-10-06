@@ -44,6 +44,14 @@ await browserTest("ending", { image: "system", timeout: 300_000 }, async ({ brow
   assert.match(end.notice, /SIGINT/);
   await loop.close();
 
+  // SIGKILL never reaches the program: the kernel ends the process itself, as
+  // it ends one that Ctrl+C finds before its program has entered.
+  const killed = await custom(["FILE /etc/dolly/kill.slop", "    kill -9 $$", "ENTRY /bin/slop /etc/dolly/kill.slop"]);
+  end = await ended(killed);
+  assert.deepEqual([end.status, end.visible, end.log], ["exited", true, ""], end.notice);
+  assert.match(end.notice, /SIGKILL/);
+  await killed.close();
+
   const trap = await custom(["FILE /tmp/trap.c", "    int main(void) { __builtin_trap(); }",
     "SLOP cc /tmp/trap.c -o /usr/bin/trap", "EXPORTS TOOL trap", "ENTRY /usr/bin/trap"]);
   end = await ended(trap);

@@ -2159,13 +2159,14 @@ double dolly_process_deadline_remaining(int pid) {
       ? 0 : (double)(process->deadline_nanoseconds - now) / 1000000.0;
 }
 
+/* The exit status and, above its byte, the signal that ended the process. */
 int dolly_process_collect(int pid) {
   dolly_kernel_process *process = find_process(pid);
   if (process == NULL) return -ESRCH;
   if (process->state != DOLLY_KERNEL_PROCESS_EXITED || !process->worker_retired) return -EAGAIN;
-  const int status = process->status;
+  const int ending = process->status | process->exit_signal << 8;
   dispose_process(process);
-  return status;
+  return ending;
 }
 
 int dolly_process_parent(int pid) {
