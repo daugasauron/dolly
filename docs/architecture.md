@@ -40,9 +40,11 @@ flowchart LR
 
 ## Decisions
 
-- **Slop is serial; builds run in parallel.** Slop runs one command at a time,
-  pipeline stages included, so agent tools behave predictably without a
-  scheduler, host processes or async callbacks. Build tools use several cores:
+- **Slop is serial; programs run in parallel.** Slop is one process without
+  threads or a scheduler: what it runs itself (builtins, functions, compound
+  commands, substitutions) runs one at a time. Programs are separate
+  processes: those of a [pipeline](slop.md#pipelines-and-interrupts) and those
+  started with `&` run at the same time. Build tools use several cores:
   `posix_spawn` returns without waiting, each child runs in its own Worker, and
   only the kernel's system call dispatch stays serial. Make `-jN` with its
   jobserver and `xargs -P N` use this; Ninja still runs one job. Every process is a fresh Worker

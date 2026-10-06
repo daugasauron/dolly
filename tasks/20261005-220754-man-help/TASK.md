@@ -162,7 +162,58 @@ the `cp` of `/tmp/ninja/source/samu.1`.
   `nproc`, `session-recover` and `test` follow it); a wrong invocation still
   prints a message instead of the usage line in most (`download`, `pwd`, `cd`, …).
 - `help` listing the commands with summaries.
-- With `work/small-default`: `FILE` rows for the pages in `Dollyfile-posix`
-  and `Dollyfile-git`; the start-up text can name `man`.
 - Pages for the other packages (`fd`, `python`, `nvim`, …); image growth
   measured in a built image.
+
+## Merged branch `integrate/userspace-next` (2026-10-06, not built)
+
+`work/man-help`, then `work/small-default` (with `work/amy-index`),
+`core/self-description` and `core/concurrent-pipelines`, which merged
+without a conflict outside recipe pins. Resolved by hand: `Dollyfile-minimal`
+(removed, as small-default does), the `nproc.c` and `amy.c` pins of
+`Dollyfile-system-tools`, and the package paragraph of `docs/dollyfile.md`.
+Added for the merge:
+
+- Page rows: 59 in `Dollyfile-posix` (45 upstream pages in `man1`, 14 in
+  `cat1`), 3 in `Dollyfile-git`. `sh`'s page is a copy of Slop's, not a link:
+  `posix` cannot rely on a file of `core`. The start-up text names `man`.
+- `help` is one text of nine lines: commands and `man`, the documents
+  directory (`amy install dolly-docs` where it is absent), what Slop lacks,
+  pipelines and `&` as `20260930-100000-audit-32` words them, no permission
+  bits or `chmod`, the limits, status 126. The language table is gone from it:
+  `docs/slop.md` is the one description (`20261005-133403-self-description`).
+  The Pi skill and `docs/slop.md` no longer say `help` prints the syntax.
+- Six document pins of `Dollyfile-dolly-docs` refreshed: the merge changed
+  the documents it ships.
+
+Checked, each in a 2G scope: `npm run -s lint:dollyfiles` (63 recipes, each
+with `REQUIRES HOST runtime@0`); `node --test 'test/*.test.mjs'` 272 of 276,
+failing only for the missing `dist/` modules (`image-build-service`,
+`process-abi`, `system-snapshot-format`, `terminal-ring`); demo source tests
+83 of 83; the task files of the merged branches are byte for byte theirs.
+
+To verify, in order, in a full worktree of this branch, one capped scope at a
+time (this replaces the list above):
+
+    npm run build:runtime          # seed: slop.c, the libc adapter, amy.c, system-build; runs pipe-driver
+    node --test 'test/*.test.mjs' 'demos/**/*.test.mjs'      # now with dist/: all pass
+    DOLLY_IMAGE_JOBS=1 DOLLY_BUILD_IMAGES=default,system,cc,git,ripgrep,dolly-docs,pi work/build-slot.sh npm run image
+    unset DISPLAY
+    for suite in man default amy docs core shell slop; do node test/$suite-browser.mjs chromium && node test/$suite-browser.mjs firefox; done
+    npm run test:demos -- pi
+    npm run image -- pi --plan     # after a one-word edit of docs/slop.md (self-description's done-when)
+
+Likeliest failures, first to last:
+
+1. `system-build`: the `--help` capture loop (`ld`, `make` and the compiler
+   drivers were read, never run) stops the build at the command that fails.
+2. `system-tools`: `mv $(TOOLS:=.1)` when `sbase.tar` is staged without pages
+   (its pin was computed here, not by staging); `git --help`; the copy of
+   `samu.1`; the `awk.tar` pin, stale until staging refreshes it.
+3. `posix`, `git`, `core`, `cc`, `amy`: a `FILE` row naming a page its
+   toolchain did not write fails by name.
+4. `pi-coding-agent`: the skill's pin, refreshed by staging.
+5. `test/man-browser.mjs` has never run; it assumes every file in `/bin` and
+   `/usr/bin` of `default` is a command with a page.
+6. Recipes that pipe (`gzip -dc A | tar -xf -`) now run both programs at once
+   (`20260930-100000-audit-32`, "Recipes").

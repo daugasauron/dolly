@@ -5,7 +5,8 @@ language for scripts and `-c` commands, as far as upstream build scripts and
 agents use it. It is an ordinary process at `/bin/slop`,
 compiled by [`Dollyfile-system-build`](../Dollyfile-system-build) with `COMPILEC` in `system-build`
 (`/bin/sh` links to it from `system-tools`). It is not Bash and not yet all of
-POSIX `sh`; the `help` command lists what it supports.
+POSIX `sh`: this page is what it supports, `help` says what it lacks in every
+image, and `man NAME` describes a command.
 
 ## Target and boundary
 
@@ -26,8 +27,9 @@ POSIX `sh`; the `help` command lists what it supports.
      the first corpus cannot run without it: that source cannot be changed, an
      agent's command can.
   2. POSIX, but Dolly's process model gives it no meaning (`umask`, `ulimit`,
-     an ignored signal, `exec` replacing the shell, a compound command after
-     `&`): refused by name with the reason.
+     an ignored signal, `exec` replacing the shell, a compound command, builtin,
+     function or `&&` list after `&`, which would need a copy of the shell):
+     refused by name with the reason.
   3. POSIX and needed by either corpus: a defect to fix.
   4. POSIX and not yet needed: not implemented ahead of need, and it fails
      explicitly instead of being read as something else.
@@ -56,7 +58,7 @@ slop [-enux] script [arg ...]
 
 | Area | Supported |
 | --- | --- |
-| Lists | newline, `;`, `&&`, `\|\|`, `!`; `time PIPELINE` prints `real SECONDS` for any pipeline, compound commands included; `&` is an error (no background jobs), so `$!` is never set and `wait` returns at once |
+| Lists | newline, `;`, `&&`, `\|\|`, `!`; `time PIPELINE` prints `real SECONDS` for any pipeline, compound commands included; `PROGRAM &` and `a \| b &` start programs without waiting, `$!` is the last one's PID, `wait` and `wait PID...` collect them |
 | Compound | `if`/`elif`/`else`, `for`, `while`, `until`, `case`, `break N`, `continue N`, `NAME () { …; }` with `local` and `return` (depth 64), `{ …; }`, `( … )` |
 | Redirections | descriptors 0–9: `<`, `>`, `>>`, `n>&m`, `n<&m`, `n>&-`, `>&$fd`, `&>`, `&>>`, `>&file`; redirection-only `exec`; up to 32 `<<` here-documents per line; on compound commands too |
 | Parameters | `$VAR`, `${VAR}`, `$?`, `$$`, `$#`, `$-`, `$0`–`$9`, `$@`, `$*` (joined with the first `IFS` byte), `"$@"` and `"${@}"` as whole words |
@@ -84,7 +86,7 @@ slop [-enux] script [arg ...]
   without traps. `trap '' SIGNAL` is rejected: commands always start with
   default signal actions, so an ignored signal could not be inherited.
 - Not implemented, and rejected by name: `alias`, `unalias`, `jobs`, `fg`,
-  `bg`, `umask` (there are no permission bits), `ulimit` (limits are fixed),
+  `bg` (no job control), `umask` (there are no permission bits), `ulimit` (limits are fixed),
   `$'...'`, `${VAR:off:len}`, `${VAR/pat/rep}`, `"prefix$@"` word forms.
   As in POSIX `sh`, braces do not expand (`echo {1..3}` prints `{1..3}`) and
   a glob that matches nothing stays as typed. `help` lists the same limits
@@ -92,20 +94,37 @@ slop [-enux] script [arg ...]
 
 ## Pipelines and interrupts
 
-Decided: the programs of a pipeline, and a program started with `&`, run at
-the same time over kernel pipes, the mechanism Make's jobs and `xargs -P`
-already use; stages that run inside the shell stay serial. Not implemented yet
-(`tasks/20260930-100000-audit-32`): today every stage is serial.
+The programs of a pipeline, and a program started with `&`, run at the same
+time over kernel pipes, the mechanism Make's jobs and `xargs -P` use. Stages
+that run inside the shell stay serial.
 
-- Every pipeline stage is a subshell, whatever it runs: an external command, a
-  builtin, a function or a compound command. A stage runs to completion before
-  the next one starts and reads its output from an unlinked spool file. Command
+- Every pipeline stage is a subshell. A stage is a **program** when it is a
+  simple command whose expanded name is no function or builtin and is found on
+  `PATH`; a builtin, a function or a compound command runs **in the shell**.
+- A program is started and not waited for; its output is a 64 KiB kernel
+  pipe. `make | tee log` shows output while Make runs, and a consumer that
+  stops ends its producer: in `seq 1 999999999 | head -n1`, `seq` dies of
+  `SIGPIPE` at its next write.
+- A stage in the shell reads a program's pipe while that program runs
+  (`make | while read -r line; do ...; done` streams, and leaving the loop
+  stops Make), but its own output collects in an unlinked spool file that the
+  next stage reads once the stage has finished: nothing would drain a pipe
+  while the shell itself writes. So `while :; do echo y; done | head -n1`
+  never ends; put the loop in a program, `slop -c '...' | head -n1`. Command
   substitutions and here-documents use the same spool.
-- Unlike concurrent Unix pipes, `make | tee log` shows output only once Make
-  finishes, and a consumer such as `head` cannot stop an unbounded producer:
-  `seq 1 999999999 | head` runs until `seq` finishes or Ctrl+C stops it.
-- The pipeline's status is the last stage's, or with `pipefail` the rightmost
-  failing one.
+- The shell waits for every program of the pipeline. The status is the last
+  stage's, or with `pipefail` the rightmost failing one; a producer stopped by
+  its consumer counts as failing with 141, as in Bash.
+- Stages that write to the terminal interleave in the order their writes reach
+  the kernel; each `write` is whole.
+- `PROGRAM &` and `a | b &` start programs and continue with status 0; standard
+  input is `/dev/null` unless redirected. `$!` is the PID of the last one,
+  `wait` collects all of them and `wait PID...` returns the status of the last
+  PID named. At most 32 processes exist, and a background program ends when
+  its shell exits. There is no job control: `jobs`, `fg` and `bg` are refused,
+  and so is `&` after anything the shell would run itself (a compound
+  command, a builtin, a function, a `!`, `&&` or `||` list): use
+  `slop -c '...' &`.
 - Ctrl+C interrupts the foreground command (status 130) and stops the rest of the
   list, pipeline or substitution; an ordinary `exit 130` does not. A loop of
   builtins stops too: the shell asks the kernel for SIGINT every 64 commands.

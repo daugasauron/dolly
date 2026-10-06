@@ -1,7 +1,8 @@
 // Native diagnostic only. Never linked into Dolly or used by browser tests.
 #include <errno.h>
 #include <dolly/runtime.h>
-int dolly_spawn_mapped(const char *path, int argc, char **argv,
+// Weak, so a test that links native-spawn.c spawns instead.
+__attribute__((weak)) int dolly_spawn_mapped(const char *path, int argc, char **argv,
                        char *const envp[], const char *cwd,
                        uint32_t descriptor_inheritance,
                        const dolly_process_fd_mapping *mappings,

@@ -327,6 +327,9 @@ __wasi_errno_t __wasi_fd_write(__wasi_fd_t descriptor,
     const int64_t result = dolly_process_call(
         DOLLY_PROCESS_FD_WRITE, packet, packet_size, &response, sizeof(response));
     free(packet);
+    /* POSIX: a write to a pipe nobody reads raises SIGPIPE in the writer, which
+     * ends it unless the signal is ignored, handled or blocked. */
+    if (result == -EPIPE) raise(SIGPIPE);
     const __wasi_errno_t error = call_errno(result);
     if (error != 0) return *completed != 0 ? 0 : error;
     if ((uint64_t)result != sizeof(response) || response.size > size) return EIO;

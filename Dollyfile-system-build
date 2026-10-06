@@ -363,32 +363,21 @@ FILE /tmp/core-tools/foreground.c
 FILE /tmp/core-tools/help.c
     #include <stdio.h>
     #include <string.h>
-    #include <unistd.h>
     
     int main(int argc, char **argv) {
       if (argc > 2 || (argc == 2 && strcmp(argv[1], "--help") != 0)) {
         fputs("usage: help\n", stderr);
         return 2;
       }
-      fputs("Dolly Slop: minimal agent-tool compatibility inside Wasm\n", stdout);
-      fputs("stateful builtins: : . source eval exec exit return cd export unset set shift read getopts local break continue type command trap wait\n", stdout);
-      fputs("commands are files on PATH (echo $PATH): ls /bin /usr/bin lists them and man NAME prints a command's page (ls /usr/share/man/cat1 /usr/share/man/man1 lists the pages)\n", stdout);
-      fputs("exec supports permanent redirections, not replacing the shell\n", stdout);
-      fputs("operators: ; newline backslash-newline && || ! | < > >> 2> 2>> 2>&1\n", stdout);
-      fputs("conditionals: if COMMANDS; then COMMANDS; [elif ...; then ...;] [else ...;] fi\n", stdout);
-      fputs("loops: for NAME [in WORD ...]; do COMMANDS; done; while|until COMMANDS; do COMMANDS; done; break|continue [N]\n", stdout);
-      fputs("selection: case WORD in PATTERN[|PATTERN]...) COMMANDS ;; ... esac\n", stdout);
-      fputs("functions/groups: NAME () { COMMANDS; }; return [STATUS]; { COMMANDS; }; (COMMANDS)\n", stdout);
-      fputs("expansion: $VAR ${VAR} ${VAR:-WORD} ${VAR:=WORD} ${VAR:+WORD} ${VAR:?WORD} ${#VAR} ${VAR#PATTERN} ${VAR##PATTERN} ${VAR%PATTERN} ${VAR%%PATTERN} $? $$ $# $0..9 $@ $* $(command) `command` $((integer expression)) and globs; set [--] ARG...; shift [N]\n", stdout);
-      fputs("options: set -e/+e -u/+u -x/+x -o/+o pipefail; set -o lists finite options\n", stdout);
-      fputs("time PIPELINE reports real seconds, compound commands included; trap ACTION EXIT|HUP|INT|QUIT|TERM\n", stdout);
-      fputs("make runs recipes with SHELL=/bin/slop; make -jN and xargs -P N run N at once; nproc prints the processor count\n", stdout);
-      fputs("not supported: & and jobs, aliases, umask, ulimit, brace expansion {a,b}, ${VAR/a/b}, ${VAR:1:2}, $'...'; a glob that matches nothing stays as typed\n", stdout);
-      fputs("pipelines run one stage at a time: a | b starts b when a has finished, so an endless producer never ends\n", stdout);
-      fputs("archives: tar -xf and gzip -dc read them; git init -q . && git add -A && git archive -o out.tar.gz $(git write-tree) writes one of a directory\n", stdout);
+      fputs("Slop is Dolly's shell: POSIX-like, not Bash\n", stdout);
+      fputs("commands are files on PATH (echo $PATH): ls /bin /usr/bin lists them; man NAME prints a command's page and NAME --help its usage (ls /usr/share/man/cat1 /usr/share/man/man1 lists the pages)\n", stdout);
+      fputs("the platform is described in /usr/share/doc/dolly/docs: slop.md is the shell language, process-model.md processes and their limits; amy install dolly-docs brings the directory to an image without it\n", stdout);
+      fputs("not supported: job control (jobs, fg, bg), aliases, umask, ulimit, brace expansion {a,b}, ${VAR/a/b}, ${VAR:1:2}, $'...'; a glob that matches nothing stays as typed\n", stdout);
+      fputs("pipelines: programs run at the same time, so seq 1 999999999 | head -n1 ends at once; a builtin, function or compound stage finishes before the next stage reads its output\n", stdout);
+      fputs("background: PROGRAM & and a | b & start programs; $! is the last PID; wait [PID...] collects them; wrap anything else as slop -c '...' &\n", stdout);
       fputs("one user and no permission bits: the modes ls -l prints are fixed and nothing checks them; there is no chmod, chown, id, whoami, ps or df, and install -m changes nothing\n", stdout);
       fputs("limits: 256 descriptors and 8 GiB of memory per process, 32 processes, 16 threads per process (64 in all), 64 KiB pipes; getrlimit reports them\n", stdout);
-      fputs("a program that exits 126 was refused or failed: its stderr says why; cc --help and curl --help describe linking and network errors\n", stdout);
+      fputs("a program that exits 126 was refused or failed: its stderr says why\n", stdout);
       return 0;
     }
 FILE /tmp/core-tools/man.c

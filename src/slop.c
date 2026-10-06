@@ -52,6 +52,7 @@ typedef struct {
   int split;
   int positional_fields;
   int newline;
+  int background; // A `;` written as `&`.
   int descriptor;
   int target_descriptor;
   int strip_tabs;
@@ -77,6 +78,18 @@ typedef struct {
   DescriptorBackup items[10];
   size_t count;
 } DescriptorState;
+
+// How a pipeline or `&` wants its simple command run. A program is started
+// and not waited for, and writes to a kernel pipe. Anything else runs in the
+// shell: it writes to a spool file, and `&` refuses it.
+typedef struct {
+  int piped;      // In: a later stage reads this stage's output.
+  int background; // In: started with `&`.
+  int first;      // In: no earlier stage feeds its input.
+  int output;     // Out: where the next stage reads, or -1.
+  int spooled;    // Out: `output` is a spool file to rewind.
+  pid_t pid;      // Out: the program that was started and not waited for.
+} Stage;
 
 typedef struct {
   int interactive;
@@ -112,6 +125,9 @@ typedef struct {
   DescriptorState *descriptors;
   // `trap` actions by condition: 0 is EXIT, the others are signal numbers.
   char *traps[SIGTERM + 1];
+  // Set only while a stage's simple command starts its program.
+  Stage *stage;
+  pid_t last_background; // `$!`; 0 while unset.
 } Shell;
 
 enum {
@@ -133,6 +149,11 @@ typedef struct {
 } ShellStateSnapshot;
 
 extern char **environ;
+
+// Programs started with `&` that `wait` has not collected. The kernel runs
+// at most 32 processes.
+static pid_t background_programs[32];
+static size_t background_count;
 
 // Signals that arrived for a `trap` action, one bit each.
 static volatile sig_atomic_t trapped_signals;
@@ -298,6 +319,7 @@ static int tokens_clone_range(const Token *tokens, size_t start, size_t end,
       }
     }
     copy->items[copy->count - 1].newline = tokens[index].newline;
+    copy->items[copy->count - 1].background = tokens[index].background;
     copy->items[copy->count - 1].positional_fields =
         tokens[index].positional_fields;
     copy->items[copy->count - 1].descriptor = tokens[index].descriptor;
@@ -468,7 +490,6 @@ static int is_name_byte(char byte) {
   return byte == '_' || isalnum((unsigned char)byte);
 }
 
-/* $! stays unset: Slop runs no background jobs. */
 static int is_special_parameter(char byte) {
   return byte != '\0' && strchr("?$#@*-!", byte) != NULL;
 }
@@ -491,8 +512,10 @@ static const char *parameter_value(Shell *shell, const char *name,
     return temporary;
   }
   if (length == 1 && name[0] == '!') {
-    if (is_set) *is_set = 0;
-    return "";
+    if (is_set) *is_set = shell->last_background != 0;
+    if (shell->last_background == 0) return "";
+    snprintf(temporary, 64, "%ld", (long)shell->last_background);
+    return temporary;
   }
   if (length == 1 && name[0] == '#') {
     snprintf(temporary, 64, "%d", shell->argc > 0 ? shell->argc - 1 : 0);
@@ -1697,8 +1720,10 @@ static int lex(const char *source, TokenList *tokens) {
       continue;
     }
     if (source[0] == '&' && source[1] != '&' && source[1] != '>') {
-      fputs("slop: background jobs (&) are not supported\n", stderr);
-      return 0;
+      if (!token_push(tokens, TOKEN_SEMI, NULL, 0)) return 0;
+      tokens->items[tokens->count - 1].background = 1;
+      source++;
+      continue;
     }
     if (invalid_descriptor_redirection(source)) {
       fputs("slop: invalid file descriptor redirection; descriptors are 0 through 9\n",
@@ -2415,15 +2440,46 @@ static int builtin_trap(Shell *shell, int argc, char **argv) {
   return 0;
 }
 
+// What ended a program the shell started: its status, and its signal or 0.
+static int wait_program(pid_t pid, int *signal_number) {
+  int status;
+  pid_t waited;
+  *signal_number = 0;
+  do { waited = waitpid(pid, &status, 0); } while (waited < 0 && errno == EINTR);
+  if (waited < 0) { fprintf(stderr, "slop: wait failed: %s\n", strerror(errno)); return 126; }
+  if (WIFSIGNALED(status)) *signal_number = WTERMSIG(status);
+  return WIFSIGNALED(status) ? 128 + WTERMSIG(status) : WIFEXITED(status) ? WEXITSTATUS(status) : 126;
+}
+
+// `wait` collects every program started with `&`; `wait PID...` collects
+// those and returns the status of the last one.
+static int builtin_wait(int argc, char **argv) {
+  int status = 0, signal_number;
+  if (argc == 1) {
+    while (background_count != 0)
+      (void)wait_program(background_programs[--background_count], &signal_number);
+    return 0;
+  }
+  for (int argument = 1; argument < argc; argument++) {
+    char *end;
+    const long pid = strtol(argv[argument], &end, 10);
+    size_t index = 0;
+    while (index < background_count && background_programs[index] != pid) index++;
+    if (end == argv[argument] || *end != '\0' || index == background_count) {
+      fprintf(stderr, "slop: wait: %s: not a background program of this shell\n", argv[argument]);
+      status = 127;
+      continue;
+    }
+    background_programs[index] = background_programs[--background_count];
+    status = wait_program((pid_t)pid, &signal_number);
+  }
+  return status;
+}
+
 static int builtin(Shell *shell, int argc, char **argv) {
   if (strcmp(argv[0], ":") == 0) return 0;
   if (strcmp(argv[0], "trap") == 0) return builtin_trap(shell, argc, argv);
-  if (strcmp(argv[0], "wait") == 0) {
-    // Slop starts no background jobs, so there is never one to wait for.
-    if (argc == 1) return 0;
-    fprintf(stderr, "slop: wait: %s: not a background job of this shell\n", argv[1]);
-    return 127;
-  }
+  if (strcmp(argv[0], "wait") == 0) return builtin_wait(argc, argv);
   if (strcmp(argv[0], "command") == 0) return command_builtin(shell, argc, argv);
   if (strcmp(argv[0], "exec") == 0) {
     fputs("slop: exec: replacing the shell with a command is unsupported\n",
@@ -2810,20 +2866,16 @@ static int run_function(Shell *shell, const Function *function,
 }
 
 static int wait_command(Shell *shell, pid_t pid) {
-  int status;
-  pid_t waited;
-  do { waited = waitpid(pid, &status, 0); } while (waited < 0 && errno == EINTR);
-  if (waited < 0) { fprintf(stderr, "slop: wait failed: %s\n", strerror(errno)); return 126; }
-  if (WIFSIGNALED(status)) {
-    if (WTERMSIG(status) == SIGINT || WTERMSIG(status) == SIGQUIT)
-      interrupt_shell(shell, WTERMSIG(status));
-    return 128 + WTERMSIG(status);
-  }
-  return WIFEXITED(status) ? WEXITSTATUS(status) : 126;
+  int signal_number;
+  const int status = wait_program(pid, &signal_number);
+  if (signal_number == SIGINT || signal_number == SIGQUIT) interrupt_shell(shell, signal_number);
+  return status;
 }
 
 // The child inherits the shell's descriptors 0-9 and its exported variables.
 static int spawn_command(Shell *shell, int argc, char **argv, const char *search) {
+  Stage *stage = shell->stage;
+  shell->stage = NULL;
   char path[PATH_MAX];
   enum command_resolution resolution = resolve_command(argv[0], search, path, sizeof(path));
   if (resolution == COMMAND_PATH_TOO_LONG) { fprintf(stderr, "slop: %s: path is too long\n", argv[0]); return 126; }
@@ -2848,7 +2900,9 @@ static int spawn_command(Shell *shell, int argc, char **argv, const char *search
                                      DOLLY_PROCESS_INHERIT_FDS_ALL, NULL, 0, -1);
   free(environment);
   if (pid < 0) { fprintf(stderr, "slop: %s: spawn failed: %s\n", argv[0], strerror(-pid)); return 126; }
-  return wait_command(shell, pid);
+  if (stage == NULL) return wait_command(shell, pid);
+  stage->pid = pid;
+  return 0;
 }
 
 // Shell features Slop refuses by name rather than as an unknown command.
@@ -2856,9 +2910,9 @@ static const char *unsupported_builtin(const char *name) {
   static const char *const reasons[][2] = {
       {"alias", "aliases are unsupported; define a function"},
       {"unalias", "aliases are unsupported"},
-      {"bg", "there are no background jobs"},
-      {"fg", "there are no background jobs"},
-      {"jobs", "there are no background jobs"},
+        {"bg", "there is no job control; `wait` collects programs started with &"},
+      {"fg", "there is no job control; `wait` collects programs started with &"},
+      {"jobs", "there is no job control; `wait` collects programs started with &"},
       {"umask", "Dolly has no permission bits"},
       {"ulimit", "limits are fixed; `help` lists them"},
   };
@@ -3307,10 +3361,54 @@ static int assignment_word(const Token *token, size_t *name_length) {
           memchr(token->quote_mask, 'q', *name_length + 1) == NULL);
 }
 
+// Decides how a stage runs once its command name is known, and routes its
+// output before the command's own redirections apply. Returns 0 on refusal.
+static int stage_open(Shell *shell, Stage *stage, DescriptorState *descriptors,
+                      const char *name) {
+  char path[PATH_MAX];
+  const int program = name != NULL && function_lookup(shell->functions, name) == NULL &&
+      !builtin_name(name) && unsupported_builtin(name) == NULL &&
+      resolve_command(name, path_variable(), path, sizeof(path)) == COMMAND_FOUND;
+  if (stage->background && !program) {
+    fprintf(stderr, "slop: %s: only a program can run in the background; use slop -c '...' &\n",
+            name == NULL ? "&" : name);
+    return 0;
+  }
+  if (stage->background && background_count == sizeof(background_programs) / sizeof(background_programs[0])) {
+    fputs("slop: too many background programs; `wait` collects them\n", stderr);
+    return 0;
+  }
+  // Without job control a background program does not read the terminal.
+  const int null = stage->background && stage->first
+      ? high_descriptor(open("/dev/null", O_RDONLY)) : -1;
+  if (null >= 0) {
+    (void)descriptor_state_duplicate(descriptors, STDIN_FILENO, null);
+    close(null);
+  }
+  if (!stage->piped) return 1;
+  int ends[2] = {-1, -1};
+  if (!program) {
+    stage->spooled = 1;
+    ends[0] = ends[1] = spool_file();
+  } else if (pipe(ends) == 0) {
+    // Close-on-exec, so a stage holds no end of a pipe but its own 0 and 1.
+    ends[0] = high_descriptor(ends[0]);
+    ends[1] = high_descriptor(ends[1]);
+  }
+  stage->output = ends[0];
+  const int routed = ends[0] >= 0 && ends[1] >= 0 &&
+      descriptor_state_duplicate(descriptors, STDOUT_FILENO, ends[1]);
+  if (!routed) fprintf(stderr, "slop: pipeline: %s\n", strerror(errno));
+  if (program && ends[1] >= 0) close(ends[1]);
+  return routed;
+}
+
 // POSIX order: command words, then redirection words, then assignments from
 // left to right, each visible to the next. Redirections apply after tracing.
 static int run_simple_mutable(Shell *shell, Token *tokens, size_t start,
                               size_t end) {
+  Stage *stage = shell->stage;
+  shell->stage = NULL;
   Arguments assignments = {0}, arguments = {0};
   DescriptorState descriptors = {0};
   EnvironmentChange *changes = NULL;
@@ -3374,6 +3472,11 @@ static int run_simple_mutable(Shell *shell, Token *tokens, size_t start,
     changed++;
   }
   trace_simple(shell, &assignments, &arguments, tokens, start, end);
+  if (stage != NULL && !stage_open(shell, stage, &descriptors,
+                                   arguments.count == 0 ? NULL : arguments.items[0])) {
+    status = 2;
+    goto done;
+  }
   if (!apply_redirections(shell, &descriptors, tokens, start, end)) goto done;
   if (arguments.count == 0) {
     status = shell->substitution_status;
@@ -3381,7 +3484,11 @@ static int run_simple_mutable(Shell *shell, Token *tokens, size_t start,
     descriptor_state_commit(&descriptors, shell->descriptors);
     status = 0;
   } else {
+    // stage_open found a program, so these words reach spawn_command.
+    if (stage != NULL && (stage->piped || stage->background) && !stage->spooled)
+      shell->stage = stage;
     status = run_command_words(shell, (int)arguments.count, arguments.items);
+    shell->stage = NULL;
   }
   goto done;
 
@@ -4040,51 +4147,79 @@ static int pipe_follows(const CommandParser *parser) {
          parser->tokens[parser->cursor].kind == TOKEN_PIPE;
 }
 
-// Serial execution is intentional: each stage is a subshell that runs to
-// completion, then the next stage reads its spooled output.
+typedef struct { pid_t pid; int status; } StageResult;
+
+// Every stage is a subshell. The programs of a pipeline run at the same time
+// over kernel pipes: one is started, not waited for, and collected at the
+// end. A stage that runs in the shell (a builtin, a function, a compound
+// command) is serial: it reads a program's pipe while that program runs, but
+// its own output collects in a spool file that the next stage reads once it
+// has finished, because nothing would drain a pipe while the shell writes.
 static int run_pipeline(Shell *shell, CommandParser *parser, size_t end,
-                        int suppress_errexit, unsigned stops) {
+                        int suppress_errexit, unsigned stops, int background) {
+  StageResult *results = NULL;
+  size_t count = 0, capacity = 0;
   int input = -1, status = 1, failure = 0;
   for (;;) {
     CommandParser probe = *parser;
     const size_t body_end = skip_command(shell, &probe, stops);
     const int last = !pipe_follows(&probe);
-    const int output = last ? -1 : spool_file();
-    if (!last && output < 0) {
-      fprintf(stderr, "slop: pipeline: %s\n", strerror(errno));
-      status = 1;
+    const int compound = compound_start(parser);
+    Stage stage = {.piped = !last, .background = background, .first = input < 0, .output = -1};
+    if (!grow((void **)&results, &capacity, count + 1, sizeof(*results))) {
+      fputs("slop: pipeline: out of memory\n", stderr);
       break;
     }
     Subshell subshell;
     status = 1;
-    if (subshell_enter(shell, &subshell)) {
+    if (compound && background) {
+      fputs("slop: only a program can run in the background; use slop -c '...' &\n", stderr);
+      status = 2;
+    } else if (compound && !last && (stage.spooled = 1, stage.output = spool_file()) < 0) {
+      fprintf(stderr, "slop: pipeline: %s\n", strerror(errno));
+    } else if (subshell_enter(shell, &subshell)) {
       if ((input < 0 || descriptor_state_duplicate(&subshell.descriptors,
                                                    STDIN_FILENO, input)) &&
-          (last || descriptor_state_duplicate(&subshell.descriptors,
-                                              STDOUT_FILENO, output))) {
+          (!compound || last || descriptor_state_duplicate(&subshell.descriptors,
+                                                           STDOUT_FILENO, stage.output))) {
         CommandParser command = *parser;
+        if (!compound && (!last || background)) subshell.shell.stage = &stage;
         status = run_command(&subshell.shell, &command, body_end, probe.cursor,
                              suppress_errexit);
       }
       status = subshell_leave(shell, &subshell, status);
     }
+    // `wait` collects a background program; the pipeline collects the others.
+    if (background && stage.pid != 0)
+      background_programs[background_count++] = shell->last_background = stage.pid;
+    results[count++] = (StageResult){background ? 0 : stage.pid, status};
+    // Closing a pipe's read end is what stops a producer nobody reads.
     if (input >= 0) close(input);
-    input = last ? -1 : spool_rewind(output);
-    if (status != 0) failure = status;
+    input = stage.spooled && stage.output >= 0 ? spool_rewind(stage.output) : stage.output;
     parser->cursor = probe.cursor + 1;
-    if (last || !shell->active) break;
-    if (input < 0) {
+    // A refused or failed background stage starts nothing after it.
+    if (last || !shell->active || (background && stage.pid == 0)) break;
+    // A stage that failed before it had an output leaves an empty one.
+    if (input < 0 && (input = spool_file()) < 0) {
       fprintf(stderr, "slop: pipeline: %s\n", strerror(errno));
       break;
     }
   }
   if (input >= 0) close(input);
+  for (size_t index = 0; index < count; index++) {
+    StageResult *result = &results[index];
+    if (result->pid != 0) result->status = wait_command(shell, result->pid);
+    if (result->status != 0) failure = result->status;
+    status = result->status;
+  }
+  free(results);
   parser->cursor = end;
   return shell->pipefail && failure != 0 ? failure : status;
 }
 
+// `listed` says the pipeline follows `!`, `&&` or `||`.
 static int execute_pipeline(Shell *shell, CommandParser *parser, int execute,
-                            int suppress_errexit, unsigned stops) {
+                            int suppress_errexit, unsigned stops, int listed) {
   CommandParser probe = *parser;
   const size_t body_end = skip_command(shell, &probe, stops);
   const int single = !pipe_follows(&probe);
@@ -4096,18 +4231,24 @@ static int execute_pipeline(Shell *shell, CommandParser *parser, int execute,
     parser->error = 1;
     return 2;
   }
+  const TokenKind separator = probe.cursor < probe.end
+      ? probe.tokens[probe.cursor].kind : TOKEN_END;
+  const int background = separator == TOKEN_SEMI && probe.tokens[probe.cursor].background;
+  if (background && listed) {
+    fputs("slop: & runs one program or pipeline, not a !, && or || list; use slop -c '...' &\n", stderr);
+    parser->error = 1;
+    return 2;
+  }
   if (!execute) {
     parser->cursor = probe.cursor;
     return 0;
   }
-  const TokenKind separator = probe.cursor < probe.end
-      ? probe.tokens[probe.cursor].kind : TOKEN_END;
   const int ignored = shell->errexit_ignored;
   shell->errexit_ignored = suppress_errexit || separator == TOKEN_AND ||
                            separator == TOKEN_OR;
-  const int status = single
+  const int status = single && !background
       ? run_command(shell, parser, body_end, probe.cursor, shell->errexit_ignored)
-      : run_pipeline(shell, parser, probe.cursor, shell->errexit_ignored, stops);
+      : run_pipeline(shell, parser, probe.cursor, shell->errexit_ignored, stops, background);
   shell->errexit_ignored = ignored;
   return status;
 }
@@ -4178,7 +4319,8 @@ static int execute_list(Shell *shell, CommandParser *parser, int execute,
       if (should_run) status = result;
     } else {
       const int result = execute_pipeline(shell, parser, should_run,
-                                          suppress_command_errexit, stops);
+                                          suppress_command_errexit, stops,
+                                          invert || previous == TOKEN_AND || previous == TOKEN_OR);
       if (parser->error) return 2;
       if (should_run) status = result;
     }

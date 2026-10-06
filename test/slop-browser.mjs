@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { browserTest } from "./browser.mjs";
-import { commandCases, shellCases, shellQuote, sourceFiles } from "./fixtures/slop-cases.mjs";
+import { commandCases, pipelineCases, shellCases, shellQuote, sourceFiles } from "./fixtures/slop-cases.mjs";
 
 // The shipped /bin/slop against the cases test/slop.test.mjs runs on src/slop.c natively.
 await browserTest("slop", {}, async ({ open }) => {
@@ -19,7 +19,7 @@ await browserTest("slop", {}, async ({ open }) => {
   assert.equal(await submit(`mkdir ${scratch}`), 0);
   for (const [name, source] of Object.entries(sourceFiles)) assert.equal(await submit(write(name, source)), 0, name);
   const failures = [];
-  for (const [name, source, expected] of [...shellCases, ...commandCases]) {
+  for (const [name, source, expected] of [...shellCases, ...commandCases, ...pipelineCases]) {
     const actual = await submit(`cd ${scratch}; ${write("fixture-zero", source)}; /bin/slop fixture-zero`);
     if (actual !== expected) failures.push({ name, expected, actual });
   }

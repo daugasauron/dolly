@@ -7,7 +7,7 @@ REQUIRES HOST http@0
 REQUIRES HOST snapshot@0
 REQUIRES HOST upload@0
 
-FROM https://daugasauron.com/Dollyfile-system-tools c97728fd04a940a529b6d2894715e51d605e41634d1889133b10d24c48000dc2
+FROM https://daugasauron.com/Dollyfile-system-tools f72747dc0ffb6a3b633fcbff6308a155995e243f9e644ff435784882f99b5da6
 
 REQUIRES HEADER libc
 REQUIRES TOOL cc
