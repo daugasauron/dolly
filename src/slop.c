@@ -621,14 +621,37 @@ static int mark_expanded(const Buffer *output, char protection) {
   return 1;
 }
 
+// Set by a caller whose word is a pattern (${NAME%word}): what the word
+// quotes must then match itself, so it is escaped for fnmatch.
+static int expanding_pattern;
+
+// Escapes the pattern characters `output` gained since `from`.
+static int pattern_literal(Buffer *output, size_t from) {
+  char *tail = strndup(output->data == NULL ? "" : output->data + from, output->length - from);
+  if (tail == NULL) return 0;
+  output->length = from;
+  int ok = 1;
+  for (const char *byte = tail; ok && *byte != '\0'; byte++) {
+    if (strchr("\\*?[", *byte) != NULL) ok = buffer_character(output, '\\');
+    if (ok) ok = buffer_character(output, *byte);
+  }
+  free(tail);
+  return ok;
+}
+
 static int expand_parameter_word(Shell *shell, const char *source,
                                  size_t length, Buffer *output) {
   const char *end = source + length;
   char quote = '\0';
+  // Only this word is the pattern, not the words of what it expands.
+  const int pattern = expanding_pattern;
+  expanding_pattern = 0;
   while (source < end) {
+    const size_t before = output->length;
     if (*source == '\\' && quote != '\'' && source + 1 < end) {
       source++;
-      if (!buffer_character(output, *source++)) return 0;
+      if (!buffer_character(output, *source++) ||
+          (pattern && !pattern_literal(output, before))) return 0;
       continue;
     }
     if (*source == '\'' || *source == '"') {
@@ -646,11 +669,13 @@ static int expand_parameter_word(Shell *shell, const char *source,
     }
     if (*source == '$' && quote != '\'') {
       const char *cursor = source;
-      if (expand_dollar_now(shell, &cursor, output) < 0 || cursor > end) return 0;
+      if (expand_dollar_now(shell, &cursor, output) < 0 || cursor > end ||
+          (pattern && quote != '\0' && !pattern_literal(output, before))) return 0;
       source = cursor;
       continue;
     }
-    if (!buffer_character(output, *source++)) return 0;
+    if (!buffer_character(output, *source++) ||
+        (pattern && quote != '\0' && !pattern_literal(output, before))) return 0;
   }
   return quote == '\0';
 }
@@ -1436,6 +1461,7 @@ static int expand_dollar_now(Shell *shell, const char **cursor, Buffer *word) {
       int ok = 1;
       if (pattern_operation) {
         Buffer expanded_pattern = {0};
+        expanding_pattern = 1;
         ok = expand_parameter_word(shell, replacement, replacement_length,
                                    &expanded_pattern);
         char *pattern = ok ? buffer_release(&expanded_pattern) : NULL;

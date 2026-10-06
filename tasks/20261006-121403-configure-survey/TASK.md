@@ -87,12 +87,11 @@ Slop differed from both shells in twelve. Fixed, each with cases against Bash:
 - A tilde after each colon of an assignment: `PATH=$PATH:~/bin` (`464cc3a7`).
 - `f() ( ... )` and any other compound command as a function body (`71d0d6b7`).
 - `${x:+"$x"}`: the quoted part split and globbed (`bef602ba`).
+- `${x%"$suffix"}` and `${x%\*}`: what a pattern quotes was still a
+  pattern (libtool's `func_stripname`).
 
 Open, found by the probes:
 
-- `"${x%"$suffix"}"`: a quoted pattern is still read as a pattern (libtool's
-  `func_stripname` writes it three times). Wrong only when the value holds
-  `*`, `?` or `[`.
 - `readonly`, `hash` and `times` are not builtins ("command not found").
   None of the scripts measured here uses them (0 uses in four `configure`
   scripts, `ltmain.sh`, `config.guess`, `install-sh` and CMake's `bootstrap`),
@@ -140,6 +139,16 @@ no further research.
 - A shell-level stand-in (spawn, pass on HUP and TERM, exit with the status,
   no traps) was written tonight and discarded uncommitted when the owner chose
   the contract operation.
+
+## libtool under Slop (2026-10-06 night, native)
+
+libffi 3.5.2 built with `make -j4` in the two configured directories: the 41
+`libtool` compile and link runs under Slop print the same log as under Bash
+(sorted, paths normalised) and leave the same files, `libffi.la` and the same
+exported symbols in `libffi.a` (59) and `libffi.so` (29).
+`make install DESTDIR=...` installs the same 12 files. Not exercised: the
+wrapper of an uninstalled program and `--mode=install`'s `--finish`, which
+need `exec` (above).
 
 ## Evidence
 
