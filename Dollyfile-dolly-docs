@@ -9,13 +9,13 @@ SOURCE https://daugasauron.com/docs/process-model.md 96b5eeadc8935e592bfacb9c1e9
 SOURCE https://daugasauron.com/docs/slop.md 3fe717304d8b8c0c78de317a4c3706c29b62720281a0da3dcf6f91bb7a66b6de /usr/share/doc/dolly/docs/slop.md
 SOURCE https://daugasauron.com/docs/input.md cd4241485c417d5e0863cf05ccab5dee1d3fabfac128bb3440fe374dd8e1c47f /usr/share/doc/dolly/docs/input.md
 SOURCE https://daugasauron.com/docs/display.md 32601ae0ab7977ac5008709344cf3bc4a140bf7dbb45f20da6b36ec6ee71f820 /usr/share/doc/dolly/docs/display.md
-SOURCE https://daugasauron.com/docs/gpu.md 0cbe1b30dc7df1e26b3c2af42e0fe71085dc28325972a0e78fc3880b10c06de7 /usr/share/doc/dolly/docs/gpu.md
+SOURCE https://daugasauron.com/docs/gpu.md f57940e72153898014baa7882a70a0d5d5fcd24508d5d22c70bcf323e3f5bef4 /usr/share/doc/dolly/docs/gpu.md
 SOURCE https://daugasauron.com/docs/audio.md ebea715a5708fdea8824ee0370f3c8549d81bd7cf66128c0e6f91c42f683e73d /usr/share/doc/dolly/docs/audio.md
 SOURCE https://daugasauron.com/docs/http.md 4902567cd41485620385b319ab2cdf333db6ae3d7c1fcabf35a904aeec3532cb /usr/share/doc/dolly/docs/http.md
-SOURCE https://daugasauron.com/docs/sessions.md c615c80ccc7aaaff7a1234233b8504eb94cbd221649ae1af53835ed9f2729d9f /usr/share/doc/dolly/docs/sessions.md
+SOURCE https://daugasauron.com/docs/sessions.md 80b809f6b6cba414b7e56b1b3c1550ce61568b778876eafcab0def4ce6b44576 /usr/share/doc/dolly/docs/sessions.md
 SOURCE https://daugasauron.com/docs/dollyfile.md 75dbfb8a6a63acf22638888768d0cc4b2fb09223ad76a061f8f0e85cc30d0085 /usr/share/doc/dolly/docs/dollyfile.md
 SOURCE https://daugasauron.com/docs/architecture.md 48443105c026893788bfb84f9c514ed26d97218664ab8a0cbacec5f0c46a8260 /usr/share/doc/dolly/docs/architecture.md
-SOURCE https://daugasauron.com/docs/browser-boundary.md fb6d79fa1a42039e68690edb6db2a60e3837ea83fcaf05b20d9fbe9344b4f2d3 /usr/share/doc/dolly/docs/browser-boundary.md
+SOURCE https://daugasauron.com/docs/browser-boundary.md 6e36fcc1b009a03d5b0dbca9e210773f2cb2666345bf14f1b88b3e2c3b88b3c8 /usr/share/doc/dolly/docs/browser-boundary.md
 SOURCE https://daugasauron.com/docs/image-build-service.md 43bbcfcf7c5e7c8ce83f91c55b3c4bc0682651b2905ba35089b2b85b3b13efa9 /usr/share/doc/dolly/docs/image-build-service.md
 SOURCE https://daugasauron.com/abi/README.md 301705e1fd5ce599709e1cff6d573d7b4563e7d4154462ed5228faa3b1fd1f3c /usr/share/doc/dolly/abi/README.md
 SOURCE https://daugasauron.com/host/README.md f0ba6851adb4fc0bd41bc4c54e1f046e7a2b28110560e54f81859bbab061b436 /usr/share/doc/dolly/host/README.md

@@ -152,10 +152,11 @@ select no JavaScript or Worker URL.
 | Keyboard, pointer, wheel, focus, paste (`input@0`) | Bounded records, one motion sample per animation frame; a record the ring has no room for is counted, shown and marked in the ring, never queued on the page ([input](input.md#the-ring)). Interpretation stays in Wasm. Nothing is read from the clipboard but a paste the user makes. Pointer lock only after a trusted canvas press while the program holding the lease asks; Escape ends it. Without `input@0` no listener writes a record |
 | Surface size (`display@0`) | Three numbers the page writes: width, height, device scale |
 | Clipboard copy (`display@0`) | Bounded selection text after a user Ctrl+Shift+C |
-| Page keys | F11 (fullscreen) is the page's own and is taken before any module or the guest reads it ([`page-chords.mjs`](../src/page-chords.mjs)); the guest cannot request fullscreen |
+| Page keys | F11 (fullscreen) and Ctrl+Shift+F (indicators) are the page's own and are taken before any module or the guest reads them ([`page-chords.mjs`](../src/page-chords.mjs)); the guest cannot request fullscreen |
 | RGBA frames, bootstrap text | Visible output only; the browser parses no terminal or HTML content |
 | Mailbox wake-ups | The page and the Worker notify each other on display and input mailbox words (new frame, animation frame, input record, lease); a notify carries no data, and a forged one only costs the guest's own time |
 | GPU indicator | Page text over the display naming the browser's adapter and whether it has `shader-f16`, or why there is none; no guest input ([`gpu.mjs`](../host/gpu/gpu.mjs)) |
+| Indicator visibility | The GPU indicator, Save button and download offers hide ten seconds after the page is ready and on the user's `Ctrl+Shift+F`, which is not delivered as input. Page state shows them again (a new adapter state, a save, an offer); the one guest request among these is the bounded download offer, which shows them and can hide nothing ([`page-indicators.mjs`](../src/page-indicators.mjs)) |
 | Image cache | Verified artifacts in IndexedDB, 32 images and 8 GiB ([`image-artifact.mjs`](../src/image-artifact.mjs)) |
 | Boot and code loading | Fixed kernel artifacts only ([`runtime-worker.mjs`](../src/runtime-worker.mjs)); one bundled process Worker; the plugin loader links an explicit kernel export map and fetches nothing |
 | Clocks, entropy, exit, CPU and memory use | Inputs and availability effects only |

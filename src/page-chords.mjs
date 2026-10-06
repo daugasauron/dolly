@@ -1,6 +1,8 @@
+import { toggleIndicators } from "./page-indicators.mjs";
+
 // The page's own keys, taken before any host module or the guest reads them:
-// F11 toggles fullscreen. Listening starts with the page, so it works while
-// an image boots.
+// F11 toggles fullscreen and Ctrl+Shift+F the page's indicators. Listening
+// starts with the page, so they work while an image boots.
 export function pageChords(keyboard) {
   async function toggleFullscreen() {
     try {
@@ -14,11 +16,22 @@ export function pageChords(keyboard) {
     }
   }
 
+  // Ctrl+Shift+F, and the release of an F the page took.
+  let indicatorsKeyDown = false;
+  function indicatorsChord(event) {
+    if (event.code !== "KeyF") return false;
+    const taken = event.type === "keyup" ? indicatorsKeyDown
+      : event.ctrlKey && event.shiftKey && !event.altKey && !event.metaKey;
+    indicatorsKeyDown = taken && event.type === "keydown";
+    return taken;
+  }
+
   function take(event) {
-    if (event.key !== "F11") return;
+    const fullscreen = event.key === "F11";
+    if (!fullscreen && !indicatorsChord(event)) return;
     event.preventDefault();
     event.stopImmediatePropagation();
-    if (event.type === "keydown" && !event.repeat) void toggleFullscreen();
+    if (event.type === "keydown" && !event.repeat) fullscreen ? void toggleFullscreen() : toggleIndicators();
   }
   window.addEventListener("keydown", take, { capture: true });
   window.addEventListener("keyup", take, { capture: true });
