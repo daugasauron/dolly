@@ -126,13 +126,12 @@ Evidence is under `build/kernel-boundary-evidence/` in `work/signals`.
   `FS` object (`$FS__deps` in `libwasmfs.js`). Step 1 therefore removes
   `installOutputDevices` and every call to them, and the imports go with `FS`
   in step 2.
-- Step 2 keeps the `image inputs` hash. On the old base it changed the root
-  image (see "Findings"); whether it still does after the receipt fix is not
-  measured. Step 4 is expected to keep images valid; that is not measured
-  either. Until step 3 the file
-  packager's generated index runs against five functions of the Worker
-  instead of Emscripten's module (as `test/dolly.artifacts.mjs` already loads
-  it); the seed has no empty directory (56 directories, 822 files, checked).
+- Step 2 keeps the `image inputs` hash and, since the receipt fix, the bytes
+  of every image measured (below). Step 4 is expected to keep images valid;
+  that is not measured. Until step 3 the file packager's generated index
+  runs against five functions of the Worker instead of Emscripten's module
+  (as `test/dolly.artifacts.mjs` already loads it); the seed has no empty
+  directory (56 directories, 822 files, checked).
 - No abort, memory-growth or environment import is needed: abort is a Wasm
   trap, growth is `memory.grow` on the shared memory, and the kernel sets its
   own environment. The target is 9 imports: the memory, boot text, the four
@@ -144,8 +143,9 @@ Evidence is under `build/kernel-boundary-evidence/` in `work/signals`.
 | --- | --- | --- | --- |
 | Before | 30 | 129 | runtime `81b96f60…` |
 | 1. Output devices in the kernel | 30 | 129 | verified, merged (`ff3a5c19`) |
-| 2. Kernel exports instead of `FS` | 24 | 92 | old base only; **not built on `61f4edb5`** |
-| 4, 3 | | | not started |
+| Before, on `bef23f6b` | 30 | 130 | runtime `8ce10189…`, 214,314 bytes |
+| 2. Kernel exports instead of `FS` | 24 | 93 | verified (below), runtime `970172ca…`, 203,121 bytes |
+| 4, 3 | | | on `core/kernel-boundary-2` |
 
 Step 1: `TerminalFile` in `src/file-blocks.cpp` is `/dev/dolly-stdout`,
 `/dev/dolly-stderr` and `/dev/tty`, mounted when the root is populated;
@@ -158,67 +158,66 @@ and `core`, `boundary`, `host-modules`, `image`, `snapshot-stream`, `terminal`
 and `process` browser suites in Chrome and Firefox
 (`build/kernel-boundary-evidence/c1/summary.txt`).
 
-## State at the checkpoint (2026-10-06, 06:15 JST): step 2 is unverified
+## Step 2, verified (2026-10-06 night, `core/kernel-boundary-step2`)
 
-The branch tip is `integrate/1005-seed` at `61f4edb5` plus one commit holding
-step 2. **That commit has never been built or tested on this base.**
+`3a509e05` on `integrate/next` at `bef23f6b`: the earlier commit `a9a6ec42`,
+cherry-picked without conflicts. The automatic merge left one break:
+`src/runtime-worker.mjs` imported `../dist/dolly-errno.mjs`, which this base
+no longer generates; the error numbers are in `src/process-constants.mjs`.
+(The branch started on `7976b8ea`, which cannot build `system-build` from the
+root: `Dollyfile-system-build:1659` ran `cd --help`; `fbfc278b` fixed that.)
 
-What step 2 is: `dolly_write_file` makes parent directories;
-`dolly_read_file` (bounded, `-EFBIG` when larger) and `dolly_remove_file` are
-new exports in `abi/dolly-supervisor-0.wat`; `/home/dolly` is made by the
-kernel; `src/runtime-worker.mjs` and `host/snapshot/snapshot.mjs` use them
+What it is: `dolly_write_file` makes parent directories; `dolly_read_file`
+(bounded, `-EFBIG` when larger) and `dolly_remove_file` are new exports in
+`abi/dolly-supervisor-0.wat`; `/home/dolly` is made by the kernel;
+`src/runtime-worker.mjs` and `host/snapshot/snapshot.mjs` use them
 (`bootFiles`) and no longer touch `FS`; the seed's generated index runs
 against five functions of the Worker; `-sFORCE_FILESYSTEM=1` and
 `EXPORTED_RUNTIME_METHODS` are gone, and with them the six
-`_wasmfs_jsimpl_*` imports from `abi/dolly-browser-0.wat` and
-`host/runtime/module.json`.
+`_wasmfs_jsimpl_*` imports.
 
-Measured on the old base (`ff3a5c19`, image inputs `2cc92c2b…`), before the
-move:
+Measured in `work/kboundary` (`build/kboundary-evidence/`):
 
-- Runtime `5fc0e837…`, image inputs unchanged; 24 imports, 92 exports (the 38
-  WasmFS exports and `emscripten_builtin_memalign` gone, two added);
-  `dist/dolly.mjs` 26,262 bytes (48,429 before).
-- `node --test test/*.test.mjs`, `npm run -s test:artifacts` and the seven
-  browser suites in Chrome and Firefox: 16 of 16 passed, on the catalog built
-  before step 2 (`build/kernel-boundary-evidence/c2/summary.txt`).
-- A cold root rebuild of `system-build` succeeded; its digest differed from
-  the packaged one in the receipt only (below).
+- **Image inputs unchanged**: `e8e495dc…` before and after. 24 imports,
+  93 exports (the 38 WasmFS exports and `emscripten_builtin_memalign` gone,
+  two added).
+- **Image bytes unchanged.** `system-build` from the root, fresh browser
+  profile: digest A at `bef23f6b` with the base kernel and digest B with
+  step 2 are both
+  `e5a4ac8017581dcd45b005969f80a8cb5b8785b9975b3bebbfc5ed2d2f745a03`,
+  137,050,593 bytes (`measure-ab.sh`, `measure-ab.log`). The `default` chain
+  built cold with step 2 (12 images) and `system` have the digests of
+  `work/next/dist`, built with the base kernel (`compare-next.sh`). So finding
+  1 below is closed: with the sorted receipt the order in which seed
+  directories are made no longer reaches an image.
+- **It still costs four images.** `Dollyfile-dolly-docs` ships
+  `abi/dolly-browser-0.wat` and `abi/dolly-supervisor-0.wat` by pin, so any
+  change to the kernel's contracts repins it and the recipes that install it:
+  `dolly-docs`, `pi`, `pi-local` and `dollyfile-studio` rebuild (`0183c6ee`).
+  Steps 3 and 4 cost the same again, so they land together.
+- **Suites**, on the merge of this branch with `integrate/next` at `38d3edf4`
+  (`261a1fac`, runtime `970172ca…`, image inputs `e8e495dc…`, all 13 images
+  reused): source 399 of 399; artifacts 23 passed, 1 skipped (CPython's, a
+  demo image not built here), 0 failed; `core`, `boundary`, `host-modules`,
+  `image`, `snapshot-stream`, `terminal`, `process` and `custom-session`
+  8 of 8 in Chrome and 8 of 8 in Firefox (`step2-merged/summary.txt`).
+- At `bef23f6b` itself `core`, `image`, `terminal`, `process` and the artifact
+  suite fail with or without step 2, for reasons of that base (`cc` left
+  `default`; `dolly-docs` missing from the artifact test's list; the
+  interrupted-pipeline assertion). `integrate/next` fixed them in `40cb89ee`,
+  `a34f0d38`, `1c0ae0e3`, `1dea294e` and `5f01cf1f`; `step2/summary.txt` and
+  `work/next/build/next-evidence/browser-a/core-chromium.log` show the same
+  failures.
+- The merge with `integrate/next` conflicts in `src/runtime-worker.mjs`
+  (`fix/page-ending` catches a failed ENTRY start) and in the pin lines.
+  `core/kernel-boundary-step2-merged` holds the resolution that was tested:
+  `runImageEntry` stays an async function over the kernel's bounded read, so
+  an oversized `/etc/dolly/entry` is the image's ending with that message.
 
-On the new base:
+Not done in step 2: the two done-when tests and the exact-export test
+(with step 4), steps 3 and 4.
 
-- Rebased without conflicts; git merged `abi/dolly-supervisor-0.wat` and
-  `test/dolly.artifacts.mjs` automatically. Read, not built.
-- `61f4edb5` without step 2, built in this tree: runtime `2efcbfd6…`, image
-  inputs `047fc328f23999fc18c347a02f77870d31601f9988dda0c172cf3f1ca9313a9e`
-  (the prefix the integrator reported for round 2), 30 imports, 130 exports.
-- **Digest A**, `system-build` from the root at `61f4edb5` without step 2:
-  `ed249180e513e4cc1fa5d5e6234feca7e60b9bc4b50ee020dd271dfe2b8a7574`,
-  136,980,675 bytes
-  (`build/kernel-boundary-evidence/image-system-build-base.log`).
-- **Digest B**, the same with step 2: **not measured.**
-- Not done: the `default` chain rebuilt with step 2, any suite on this base,
-  the two done-when tests, steps 3 and 4.
-- `dist/` in `work/signals` holds the runtime of `61f4edb5`, not of the branch
-  tip; only `system-build`'s snapshot there is for seed `047fc328…`, the rest
-  are from `2cc92c2b…`.
-
-### What the next round must do with it
-
-1. `npm run build:runtime` at the tip. Expected, none of it measured: image
-   inputs `047fc328…`, 24 imports, 93 exports (130 less 39 plus 2).
-2. Measure digest B (`node scripts/build-snapshot-browser.mjs system-build
-   OUT --unpackaged cold` with a fresh profile, as in
-   `root-system-build-c2.log`). Equal to A: step 2 leaves image bytes alone
-   and round 2's catalog is valid for it. Different: every dependent image
-   must be rebuilt (`src/image-artifact.mjs` rejects stale `inputs`), and the
-   difference needs explaining first.
-3. The bar, unmet: the `default` chain rebuilt through the build slot with
-   step 2, then source, artifact and the seven browser suites in both
-   browsers.
-4. Only then replace the commit's "unverified" label.
-
-### Step 4, measured so far (trial links only, nothing in the tree)
+## Step 4, measured before this round (trial links only, nothing in the tree)
 
 - Emscripten's `standalone.o` cannot be kept out of a standalone link: with
   every other hook defined by the kernel, libc's `dup.o` still extracts it for
@@ -255,23 +254,14 @@ length (220,459), 27,463 bytes different inside its path lists.
    `extensions` after the `X*.h` files instead of before them. That the two
    receipts hold the same members is inferred from their equal length and
    equal count of path strings (3,598); the receipt was not parsed.
-   Check for a fix that sorts the members: a root rebuild of `system-build`
-   with and without step 2 must then give one digest. The fix is `bac21512`
-   (in `61f4edb5`); the check is half done: digest A above, B missing.
+   The fix is `bac21512`, which sorts the members; a root rebuild of
+   `system-build` with and without step 2 now gives one digest (above).
 2. **Seed loading is not an image build input.** `src/runtime-worker.mjs`
    changed image bytes while `image inputs` stayed `2cc92c2b…`
    (`scripts/write-build-id.mjs:8-11` hashes the seed and four contracts).
 
 Step 1 was not rebuilt from the root on its own; it leaves seed loading
 alone, so no change is expected there, but that is not measured.
-
-## Round of 2026-10-06 night (`core/kernel-boundary-2`, base `7976b8ea`)
-
-Step 2 (`a9a6ec42`) cherry-picked onto `integrate/userspace-next` without
-conflicts. The automatic merge left one break: `src/runtime-worker.mjs`
-imported `../dist/dolly-errno.mjs`, which this base no longer generates; the
-error numbers are in `src/process-constants.mjs`. **Not yet built on this
-base**; the measurements follow in the next commit.
 
 ## Done when
 
