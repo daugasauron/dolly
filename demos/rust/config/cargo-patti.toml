@@ -12,3 +12,14 @@ rustc-link-lib = ["curl"]
 
 [target.wasm64-emscripten-probe.z]
 rustc-link-lib = ["z"]
+
+# SQLite's dot-file locks: its default locks are fcntl byte ranges, which Dolly
+# does not have, and Cargo's cache tracker then fails on every run.
+[package.libsqlite3-sys.env]
+LIBSQLITE3_FLAGS = '-DSQLITE_DEFAULT_UNIX_VFS="unix-dotfile"'
+
+# rustc holds more than 6 GB for the cargo crate as one codegen unit.
+[[rustc]]
+package = "cargo"
+crate-type = "rlib"
+args = ["-C", "codegen-units=16"]
