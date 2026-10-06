@@ -952,13 +952,13 @@ static int arithmetic_take(Arithmetic *parser, const char *operator) {
   return 1;
 }
 
-static long arithmetic_or(Arithmetic *parser);
+static long arithmetic_assignment(Arithmetic *parser);
 
 static long arithmetic_primary(Arithmetic *parser) {
   arithmetic_space(parser);
   if (*parser->cursor == '(') {
     parser->cursor++;
-    const long value = arithmetic_or(parser);
+    const long value = arithmetic_assignment(parser);
     if (!arithmetic_take(parser, ")")) parser->error = 1;
     return value;
   }
@@ -1156,6 +1156,67 @@ static long arithmetic_or(Arithmetic *parser) {
   return value;
 }
 
+// condition ? value : value, right to left; only the chosen side is evaluated.
+static long arithmetic_conditional(Arithmetic *parser) {
+  const long condition = arithmetic_or(parser);
+  if (!arithmetic_take(parser, "?")) return condition;
+  const int evaluate = parser->evaluate;
+  parser->evaluate = evaluate && condition != 0;
+  const long first = arithmetic_assignment(parser);
+  if (!arithmetic_take(parser, ":")) parser->error = 1;
+  parser->evaluate = evaluate && condition == 0;
+  const long second = arithmetic_conditional(parser);
+  parser->evaluate = evaluate;
+  return condition != 0 ? first : second;
+}
+
+// NAME = value and NAME op= value, right to left; the variable is set.
+static long arithmetic_assignment(Arithmetic *parser) {
+  static const char *const operators[] = {"<<=", ">>=", "+=", "-=", "*=", "/=", "%=", "&=", "^=", "|=", "="};
+  arithmetic_space(parser);
+  const char *start = parser->cursor, *end = start;
+  while (end == start ? is_name_start(*end) : is_name_byte(*end)) end++;
+  const char *operator = NULL;
+  parser->cursor = end;
+  for (size_t index = 0; end != start && operator == NULL &&
+       index < sizeof(operators) / sizeof(operators[0]); index++) {
+    if (arithmetic_take(parser, operators[index])) operator = operators[index];
+  }
+  if (operator == NULL || (operator[0] == '=' && *parser->cursor == '=')) {
+    parser->cursor = start;
+    return arithmetic_conditional(parser);
+  }
+  parser->cursor = start;
+  long value = arithmetic_primary(parser);
+  arithmetic_take(parser, operator);
+  const long right = arithmetic_assignment(parser);
+  if (!parser->evaluate || parser->error) return 0;
+  const unsigned long a = (unsigned long)value, b = (unsigned long)right;
+  switch (operator[0]) {
+    case '=': value = right; break;
+    case '+': value = (long)(a + b); break;
+    case '-': value = (long)(a - b); break;
+    case '*': value = (long)(a * b); break;
+    case '&': value &= right; break;
+    case '^': value ^= right; break;
+    case '|': value |= right; break;
+    case '/': case '%':
+      if (right == 0 || (value == LONG_MIN && right == -1)) { parser->error = 1; return 0; }
+      value = operator[0] == '/' ? value / right : value % right;
+      break;
+    default:
+      if (right < 0 || right >= (long)(sizeof(long) * 8)) { parser->error = 1; return 0; }
+      value = operator[0] == '<' ? (long)(a << right) : value >> right;
+  }
+  char name[256], text[32];
+  if ((size_t)(end - start) >= sizeof(name)) { parser->error = 1; return 0; }
+  memcpy(name, start, (size_t)(end - start));
+  name[end - start] = '\0';
+  snprintf(text, sizeof(text), "%ld", value);
+  if (setenv(name, text, 1) != 0) parser->error = 1;
+  return value;
+}
+
 static int expand_arithmetic(Shell *shell, const char *source, size_t length,
                              Buffer *word) {
   Buffer expanded = {0};
@@ -1166,7 +1227,7 @@ static int expand_arithmetic(Shell *shell, const char *source, size_t length,
   char *expression = buffer_release(&expanded);
   if (expression == NULL) return 0;
   Arithmetic parser = {.cursor = expression, .evaluate = 1};
-  const long value = arithmetic_or(&parser);
+  const long value = arithmetic_assignment(&parser);
   arithmetic_space(&parser);
   const int valid = !parser.error && *parser.cursor == '\0';
   if (!valid) {
