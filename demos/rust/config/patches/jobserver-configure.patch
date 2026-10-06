@@ -1,0 +1,22 @@
+--- a/src/lib.rs
++++ b/src/lib.rs
+@@ -381,6 +381,9 @@
+     ///
+     /// On platforms other than Unix and Windows this panics.
+     pub fn configure(&self, cmd: &mut Command) {
++        if cfg!(all(target_arch = "wasm64", target_os = "emscripten")) {
++            return; // No jobserver crosses a process here: the child gets none.
++        }
+         cmd.env("CARGO_MAKEFLAGS", &self.mflags_env());
+         self.inner.configure(cmd);
+     }
+@@ -404,6 +407,9 @@
+     ///
+     /// On platforms other than Unix and Windows this panics.
+     pub fn configure_make(&self, cmd: &mut Command) {
++        if cfg!(all(target_arch = "wasm64", target_os = "emscripten")) {
++            return;
++        }
+         let value = self.mflags_env();
+         cmd.env("CARGO_MAKEFLAGS", &value);
+         cmd.env("MAKEFLAGS", &value);
