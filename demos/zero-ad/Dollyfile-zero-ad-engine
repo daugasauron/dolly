@@ -9,7 +9,7 @@ REQUIRES HOST upload@0
 
 # Build-only: premake and the 0 A.D. engine (pyrogenesis), built by upstream's
 # premake Makefiles with Dolly's c++.
-FROM https://daugasauron.com/demos/zero-ad/Dollyfile-zero-ad-deps 73072e28187610ade6da69b65c7c012a72cd962b47e9504833ae5a6c9540ee8d
+FROM https://daugasauron.com/demos/zero-ad/Dollyfile-zero-ad-deps b943f2ab724c9654e827e2cf882e5e397e0e549b92d16b5f0f278fb1f8263cf7
 REQUIRES TOOL cc
 REQUIRES TOOL c++
 REQUIRES TOOL ar
@@ -21,7 +21,7 @@ REQUIRES TOOL patch
 REQUIRES TOOL cp
 REQUIRES TOOL mkdir
 
-SOURCE https://daugasauron.com/dist/static/zero-ad-build/engine.tar.gz 0f135d999d53d7451fd3da44999cc4d993ccaa4aa55781c14eab65d7e1fc3c3b /tmp/0ad.tar.gz
+SOURCE https://daugasauron.com/dist/static/zero-ad-build/engine.tar.gz 3850376bf2e8258fb32afdd548d0fa55e0b66d16ad5d086ca01a25cde95c4669 /tmp/0ad.tar.gz
 SLOP gzip -dc /tmp/0ad.tar.gz | tar -xf - -C /
 SLOP patch -p1 -d /tmp/0ad -i /tmp/0ad-patches/engine.patch
 

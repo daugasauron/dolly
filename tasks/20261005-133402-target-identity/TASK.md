@@ -381,3 +381,41 @@ rebuilt unchanged; `node demos/run-browser-tests.mjs javascript` passed in
   parsers, Neovim), `nvim` and `neovim` after it;
   `node demos/run-browser-tests.mjs neovim` passed twice after one failure
   on the selection-publication timeout at a load average above 100.
+
+### zero-ad (deps and engine; `zero-ad` itself is the catalog round's)
+
+- `premake-dolly.patch` detects the host by `__dolly__`; the premake system
+  name stays `emscripten` (`--os=emscripten`, `os.istarget("emscripten")` in
+  `engine.patch`): premake has no `dolly` system and adding one is a larger
+  patch, so 0 A.D. keeps naming premake's nearest system. `engine.patch` (36)
+  and `openal-dolly.patch` (8) test `__dolly__`, and premake no longer
+  defines `DOLLY`. `sodium.patch` is deleted (its deletion was staged into
+  the python commit by mistake): libsodium's `randombytes.c` takes its
+  generic path and `core.c` its atomic lock. `-DDOLLY` is gone from the
+  libsodium and OpenAL flags.
+- Beyond the table: ICU. Its bundled double-conversion lists architectures
+  and knows `__wasm32__` but not `__wasm64__` ("Target architecture was not
+  detected"): the recipe adds `__wasm64__` to that line. `unicode/platform.h`
+  falls to `U_PF_UNKNOWN`, whose one consequence is the charset default,
+  and the header's own hook `U_CHARSET_IS_UTF8` is now passed as 1.
+- Evidence: `openal-build` 154 s, `zero-ad-deps` 268 s, `zero-ad-engine`
+  381 s (premake, pyrogenesis with SpiderMonkey). `0ad-spidermonkey-browser`,
+  `0ad-openal-browser` and `0ad-enet-browser` passed.
+
+### amy
+
+`test/amy-browser.mjs`: `amy` passes in Chrome and Firefox; `amy programs`
+installs `cmake`, `sdl2` (CMake finds it) and `rust` and runs each, then
+stops at `codex-cli`, a Codex image this round does not build. A copy of the
+suite without that row (`build/core-decisions-evidence/amy-no-codex.mjs`)
+passes all four cases in both browsers.
+
+### Not built here, for the catalog round to watch
+
+- `codex-build`, `codex`, `codex-cli` (70 minutes; the Rust seed and `patti`
+  are proven by the Rust tools), `dollyfile-studio`, `pi-local` and the model
+  packages (`qwen3.5-800m`, `qwen3.5-2b`, `minicpm5-2b`), `zero-ad` (the
+  engine and its dependencies built and their three tests passed).
+- `classicube`, `classicube-build`, `bhop`, `rts-arena`, `rts-build`,
+  `slopyard`, `gamedev-sdk`, `gpu-fluid`: no identity edit; they build on
+  QuickJS's bare `-DEMSCRIPTEN=1`, SDL2 and the game SDKs rebuilt here.
