@@ -1,6 +1,6 @@
 # Declare runtime@0 in every image; make a runtime a module anyone can name
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 322
 - TAGS: core,architecture,host-modules,dollyfile
 
@@ -135,3 +135,15 @@ each with `REQUIRES HOST runtime@0` first. Logs: `build/runtime-evidence/`.
 
 Open: the full catalog rebuild and its suites (the integrator's seed round,
 `integrate/seed-1006`).
+
+## Closed 2026-10-07
+
+In the release candidate (`integrate/next`, `ab412d94` on `main`): all 66
+recipes declare `REQUIRES HOST runtime@0` first; `grep -n '"runtime'
+host/modules.mjs src/*.mjs` finds no special case; the `host-modules` suite
+holds the two refusals (no runtime line; `other@0`). Catalog rounds that
+rebuilt every image on it: the seed round (61 images, `9077dda1`) and the
+main round (67 images, pins `b07a89ee`), with source 400/400, artifacts
+23/23 (`finish2-artifacts.log`), core browser suites green in Chromium and
+Firefox and the demo suites passed (`20261005-132713-round-1005`, "06:30,
+2026-10-07"; logs `work/next/build/next-evidence/`).

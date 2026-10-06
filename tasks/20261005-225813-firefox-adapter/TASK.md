@@ -1,6 +1,6 @@
 # Firefox: show which GPU WebGPU uses, and whether it can be switched
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 55
 - TAGS: gpu,firefox,investigation
 
@@ -60,3 +60,13 @@ variables that restrict Vulkan to the NVIDIA driver
 (`__VK_LAYER_NV_optimus=NVIDIA_only`) work inside the snap. Still open: say in
 the indicator when a second, unused adapter exists, and whether a page can
 offer the choice.
+
+## Closed 2026-10-07 (folded into `20261001-232300-gpu-visibility`)
+
+The owner's question is answered above with its evidence: on this machine
+Firefox's WebGPU runs on the RTX 5070 without any setting (`nvidia-smi`
+lists both Firefox processes as `C+G` on it), and the page asks for the
+discrete adapter (`powerPreference: "high-performance"`). What is left is
+indicator wording when Firefox hides the adapter's name, and `docs/gpu.md`
+saying how to tell and switch: one line of the remaining list in
+`20261001-232300-gpu-visibility`, the task that owns the indicator.

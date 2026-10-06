@@ -1,6 +1,6 @@
 # Investigate: which executables start other processes
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 300
 - TAGS: core,process,host-modules,investigation
 
@@ -276,3 +276,15 @@ the process DSO loader nor FFI.
    measured. FFI as a module of its own would be declared by 2 images and
    costs a second manifest for 693 lines; one module is recommended because
    its only caller needs both.
+
+## Closed 2026-10-07
+
+The done-when is the table and the recommendation, recorded above with the
+branch (`investigate/spawn`, `5e756e06`, merged into the candidate through
+`fix/page-ending`). What followed: the owner took recommendation 2 ("I like
+the dso thing"), implemented as `20261006-111835-dso-module` on
+`core/dso-module`; recommendation 1 (no `spawn@0`) is listed for the owner
+in the triage of 2026-10-07 (`20261005-132713-round-1005`) and is reopened
+when single-program images exist in number
+(`20261005-222449-single-program-images`). The Zig finding is
+`20261006-103306-zig-child`, folded into `20261001-091000-zig-follow-ups`.

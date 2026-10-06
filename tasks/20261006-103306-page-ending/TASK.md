@@ -1,6 +1,6 @@
 # The page says nothing when an image's last process ends
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 300
 - TAGS: core,page,ux
 
@@ -176,3 +176,16 @@ it read "exited with status 137" on the old runtime, every time.
 To merge: `git merge fix/ending-flake` (it shares no file with
 `core/kernel-boundary-step2`), then `npm run build:runtime`; the image inputs
 do not move, so no image is rebuilt.
+
+## Closed 2026-10-07
+
+`fix/page-ending` (`245efbec`) is in the candidate; the signal fix of
+`fix/ending-flake` went in as the cherry-pick `f82289ea` (the kernel's record
+is read; the supervisor's copy is gone). `test/ending-browser.mjs` (exit
+status, a trapping ENTRY, Ctrl+C as `SIGINT`, the self-`SIGKILL` case) passed
+in Chromium and Firefox in every run after that commit
+(`work/next/build/next-evidence/browser-f`, `-g`, `-h` summaries) and in the
+main round's full browser pass (`round-3.log`, 826 s). The missing-ENTRY
+case reads `failed: cannot start …` through the same notice
+(`20261006-103256-entry-missing`). `docs/browser-boundary.md` has the
+"Image ending" row.

@@ -43,6 +43,13 @@ pages from `system-tools` (`0f211db3` on `integrate/next`), which makes
 `core`) that owns the page's file exchange, so that `default` stays composed
 from packages only and any image can `amy install` it.
 
+## From `20261005-222449-small-default` (closed 2026-10-07)
+
+Two tools of the old `default` are not one install away: Ninja (`samu`, built
+in `system-tools` only; the `cc` package brings Make) and `session-recover`
+(built in `system`). With `download`/`upload` above, these are what a
+package, or `core`, still has to own for "everything stays one install away".
+
 ## Done when
 
 Every package's ordinary use works after `amy install NAME` on `default`, or
