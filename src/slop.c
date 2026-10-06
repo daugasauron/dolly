@@ -3256,6 +3256,7 @@ static int expand_dollars(Shell *shell, Token *token) {
   while (*cursor != '\0') {
     const char protection = token->quote_mask
         ? token->quote_mask[cursor - token->text] : 'u';
+    const char *cursor_before = cursor;
     if (*cursor != SLOP_DEFERRED_DOLLAR) {
       if (!buffer_character(&expanded, *cursor++)) goto memory_error;
     } else if (cursor[1] == SLOP_DEFERRED_DOLLAR) {
@@ -3297,8 +3298,11 @@ static int expand_dollars(Shell *shell, Token *token) {
       cursor += length;
     }
     if (token->quote_mask) {
+      // 'e': what an unquoted expansion produced; only that splits into fields.
+      const char produced = *cursor_before == SLOP_DEFERRED_DOLLAR && protection == 'u'
+          ? 'e' : protection;
       while (expanded_mask.length < expanded.length)
-        if (!buffer_character(&expanded_mask, protection)) goto memory_error;
+        if (!buffer_character(&expanded_mask, produced)) goto memory_error;
     }
   }
   free(token->text);
@@ -3453,6 +3457,12 @@ static int open_heredoc(Shell *shell, const Token *token) {
   return descriptor;
 }
 
+// An IFS byte splits only where an unquoted expansion produced it.
+static int splits_field(const Token *token, const char *ifs, const char *byte) {
+  return ifs_byte(ifs, *byte) &&
+         (token->quote_mask == NULL || token->quote_mask[byte - token->text] == 'e');
+}
+
 static int expand_word_arguments(Shell *shell, Arguments *arguments,
                                  const Token *token) {
   if (token->positional_fields) {
@@ -3481,24 +3491,28 @@ static int expand_word_arguments(Shell *shell, Arguments *arguments,
   const char *ifs = getenv("IFS");
   if (ifs == NULL) ifs = " \t\n";
   if (ifs[0] == '\0') return expand_glob(arguments, token);
+  // POSIX 2.6.5: IFS white space around a field is dropped; every other IFS
+  // byte ends a field, so two of them in a row hold an empty one.
   const char *cursor = token->text;
+  while (splits_field(token, ifs, cursor) && isspace((unsigned char)*cursor)) cursor++;
   while (*cursor != '\0') {
-    while (*cursor != '\0' && ifs_byte(ifs, *cursor) &&
-           (!token->quote_mask || token->quote_mask[cursor - token->text] != 'q')) cursor++;
-    if (*cursor == '\0') break;
     const char *start = cursor;
-    while (*cursor != '\0' && (!ifs_byte(ifs, *cursor) ||
-           (token->quote_mask && token->quote_mask[cursor - token->text] == 'q'))) cursor++;
+    while (*cursor != '\0' && !splits_field(token, ifs, cursor)) cursor++;
+    const char *end = cursor;
+    while (splits_field(token, ifs, cursor) && isspace((unsigned char)*cursor)) cursor++;
+    if (splits_field(token, ifs, cursor)) {
+      cursor++;
+      while (splits_field(token, ifs, cursor) && isspace((unsigned char)*cursor)) cursor++;
+    }
     Token field = {
         .kind = TOKEN_WORD,
-        .text = strndup(start, (size_t)(cursor - start)),
+        .text = strndup(start, (size_t)(end - start)),
         .quote_mask = token->quote_mask ? token->quote_mask + (start - token->text) : NULL,
     };
-    if (field.text == NULL || !expand_glob(arguments, &field)) {
-      free(field.text);
-      return 0;
-    }
+    const int ok = field.text != NULL &&
+        (end == start ? argument_push(arguments, "") : expand_glob(arguments, &field));
     free(field.text);
+    if (!ok) return 0;
   }
   return 1;
 }
