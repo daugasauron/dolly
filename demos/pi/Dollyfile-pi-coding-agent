@@ -7,8 +7,8 @@ REQUIRES HOST threads@0
 FROM https://daugasauron.com/Dollyfile-system 8ce97e3312ad4770f94a34cdca04660b99bc921e9035e3ce85b6acef51943644
 INSTALL https://daugasauron.com/demos/javascript/Dollyfile-javascript efecdddda66eacc8c85ea23c1bccc670b9e3ba64ea5bbbda6a902027a097b13f
 
-INSTALL https://daugasauron.com/demos/rust/Dollyfile-ripgrep ee9bec2187594a4647175f9aa9d3c04c787dd1fc4b3d9504181250fc5fda6387
-INSTALL https://daugasauron.com/demos/rust/Dollyfile-fd 4e9c607e9792038416b9a7db4b0c193a21be00ac524df3c8ea573c682385a421
+INSTALL https://daugasauron.com/demos/rust/Dollyfile-ripgrep 42ad081bc601354fbea9f452828fd34b5eb36172e0e167ae081746c0d7389970
+INSTALL https://daugasauron.com/demos/rust/Dollyfile-fd b5fa4480d116fa7ec63d5e6222c51498a5f72e8f73dff545a8c4204e8da1c4cd
 EXPORTS TOOL rg
 EXPORTS TOOL fd
 COPY https://daugasauron.com/demos/pi/Dollyfile-pi-build 98595c3a8b5795c3cc833091dd18fb5a654bbdd4e6297896ba833926f7efddfa /usr/bin/pi /usr/bin/pi

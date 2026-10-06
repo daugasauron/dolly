@@ -3,7 +3,7 @@ PACKAGE fd
 REQUIRES HOST http@0
 REQUIRES HOST threads@0
 
-FROM https://daugasauron.com/demos/rust/Dollyfile-rust-build f493f856b2827bb8944f30abad0b460dbb1141be27129436df3f9c8a5c81fa93
+FROM https://daugasauron.com/demos/rust/Dollyfile-rust-build 4b90d613f3a96cd7d5602c7ca0c726b557cc55fc95f2267ad3bcf775c4d86b0f
 REQUIRES TOOL patti
 REQUIRES TOOL tar
 REQUIRES TOOL cp
