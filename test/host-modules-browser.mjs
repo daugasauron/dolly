@@ -95,7 +95,7 @@ await browserTest("host modules", { image: "system", server: { sourceOverrides }
   // A runtime is declared like any module: a recipe without one is refused
   // naming the line to add, one naming a runtime this page lacks by its name.
   for (const [hosts, cause] of [[["display"], /add REQUIRES HOST runtime@0/], [["display", "other"], /other@0/]]) {
-    await open({ prompt: null, ...await composed(hosts, ["core", "display"]) })
+    await open({ prompt: null, ...await composed(hosts, []) })
       .then(() => assert.fail("built without a runtime"), error => assert.match(error.message, cause));
   }
 });
