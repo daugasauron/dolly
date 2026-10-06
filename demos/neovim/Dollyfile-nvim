@@ -1,6 +1,7 @@
 DOLLY 6
 PACKAGE nvim
 REQUIRES HOST runtime@0
+REQUIRES HOST dso@0
 
 COPY https://daugasauron.com/demos/neovim/Dollyfile-neovim-build e1d4c4dd6a2ffc7581c8ecf08536e2146224bbefa27da86e69d1b85f658b0192 /usr/bin/nvim /usr/bin/nvim
 COPY https://daugasauron.com/demos/neovim/Dollyfile-neovim-build e1d4c4dd6a2ffc7581c8ecf08536e2146224bbefa27da86e69d1b85f658b0192 /usr/share/nvim /usr/share/nvim

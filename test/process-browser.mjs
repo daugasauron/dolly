@@ -24,14 +24,8 @@ const errorsSource = `#define _POSIX_C_SOURCE 200809L
 #include <dolly/runtime.h>
 static volatile sig_atomic_t received;
 static void on_interrupt(int number) { received = number; }
-static int ffi_sum(int left, int right) { return left + right; }
 int main(int argc, char **argv) {
 ${Object.entries(DOLLY_ERRNO).map(([name, value]) => `  if (${name} != ${value}) return 1;`).join("\n")}
-  dolly_process_dso_close_request close_request = {123456};
-  dolly_process_dso_response response;
-  if (dolly_process_call(DOLLY_PROCESS_DSO_CLOSE, &close_request, sizeof(close_request), &response, sizeof(response)) != sizeof(response) || response.error != EBADF) return 2;
-  if (dolly_process_call(DOLLY_PROCESS_DSO_CLOSE, &close_request, sizeof(close_request), &response, 1) != -ENOBUFS) return 3;
-  if (dolly_process_call(DOLLY_PROCESS_FFI_CALL, NULL, 0, NULL, 0) != -EINVAL) return 4;
   // A packet outside the process's memory or over the limit is an errno, on
   // the hottest operation too; the process keeps running.
   static char oversized[DOLLY_PROCESS_PACKET_LIMIT + 1];
@@ -43,28 +37,10 @@ ${Object.entries(DOLLY_ERRNO).map(([name, value]) => `  if (${name} != ${value})
     if (dolly_process_call(operation, &read_request, sizeof(read_request), NULL, 8) != -EFAULT) return 21;
     if (dolly_process_call(operation, (void *)UINT64_MAX, 8, bytes, sizeof(bytes)) != -EFAULT) return 22;
     if (dolly_process_call(operation, &read_request, UINT64_MAX, bytes, sizeof(bytes)) != -EFAULT) return 23;
-    // DSO and FFI packets stay in the process and have their own bounds.
-    if (operation >= DOLLY_PROCESS_DSO_OPEN && operation <= DOLLY_PROCESS_FFI_CLOSURE_PREP) continue;
     if (dolly_process_call(operation, oversized, sizeof(oversized), bytes, sizeof(bytes)) != -E2BIG) return 24;
     if (dolly_process_call(operation, &read_request, sizeof(read_request), oversized, sizeof(oversized)) != -E2BIG) return 25;
   }
   if (dolly_process_call(UINT32_MAX, NULL, 0, NULL, 0) != -ENOSYS) return 26;
-  // FFI packets carry pointers of the process: a wild one is an errno too.
-  uint64_t wild_call[4] = {0};
-  if (dolly_process_call(DOLLY_PROCESS_FFI_CALL, wild_call, sizeof(wild_call), NULL, 0) != -EFAULT) return 27;
-  wild_call[0] = UINT64_MAX;
-  if (dolly_process_call(DOLLY_PROCESS_FFI_CALL, wild_call, sizeof(wild_call), NULL, 0) != -EFAULT) return 28;
-  uint64_t wild_closure[5] = {8, UINT64_MAX};
-  if (dolly_process_call(DOLLY_PROCESS_FFI_CLOSURE_PREP, wild_closure, sizeof(wild_closure), NULL, 0) != -EINVAL) return 29;
-  // A well-formed call (libffi's wasm64 cif of two ints) reaches its target.
-  struct { uint64_t size; uint16_t alignment, type; uint64_t elements; } ffi_int = {4, 4, 1, 0};
-  uint64_t argument_types[2] = {(uint64_t)&ffi_int, (uint64_t)&ffi_int};
-  struct { uint32_t abi, nargs; uint64_t argument_types, return_type; uint32_t bytes, flags, fixed; } cif =
-      {2, 2, (uint64_t)argument_types, (uint64_t)&ffi_int, 0, 0, 2};
-  int left = 30, right = 12;
-  uint64_t values[2] = {(uint64_t)&left, (uint64_t)&right}, sum = 0;
-  uint64_t ffi_call[4] = {(uint64_t)&cif, (uint64_t)(uintptr_t)ffi_sum, (uint64_t)&sum, (uint64_t)values};
-  if (dolly_process_call(DOLLY_PROCESS_FFI_CALL, ffi_call, sizeof(ffi_call), NULL, 0) != 0 || (int)sum != 42) return 30;
   if (argc == 1) return 0;
   struct sigaction action = {.sa_handler = on_interrupt};
   if (sigaction(SIGINT, &action, NULL)) return 8;
@@ -95,8 +71,8 @@ await browserTest("process", { server: { fixtures, handle } }, async ({ server, 
   // Let a probe that just printed its marker enter its sleep: a signal handled
   // before the sleep starts cannot interrupt it.
   const settle = () => new Promise(resolve => setTimeout(resolve, 200));
-  // Admission rejects malformed processes and DSOs before they run; missing
-  // optional DSO/FFI facilities return ENOSYS.
+  // Admission rejects malformed processes and DSOs before they run; an
+  // executable without a table has no namespace for dso@0 to load into.
   await page.evaluate(() => import("/test/fixtures/browser-process-abi.mjs").then(module => module.runProcessAbiChecks()));
   await page.locator("#keyboard").focus();
   await run(`mkdir -p ${scratch}`);
@@ -121,7 +97,7 @@ await browserTest("process", { server: { fixtures, handle } }, async ({ server, 
   for (const name of ["process-lifecycle.c", "process-descriptors.c", "process-signals.c", "process-sigchld.c", "process-interrupt.c", "input.tgz"]) await fetchFixture(name);
   await run(`cc -O0 ${scratch}/process-lifecycle.c -o ${scratch}/lifecycle && timeout 15 ${scratch}/lifecycle`);
   await run(`cc -O0 ${scratch}/process-descriptors.c -o ${scratch}/descriptors && timeout 60 ${scratch}/descriptors`);
-  await run(`cc -O0 -rdynamic ${scratch}/process-signals.c -o ${scratch}/signals && timeout 30 ${scratch}/signals ${scratch}`);
+  await run(`cc -O0 ${scratch}/process-signals.c -o ${scratch}/signals && timeout 30 ${scratch}/signals ${scratch}`);
   await run(`cc -O0 ${scratch}/process-sigchld.c -o ${scratch}/sigchld && timeout 5 ${scratch}/sigchld`);
   await run(`gzip -dc ${scratch}/input.tgz | tar -xf - -C ${scratch} && test "$(cat ${scratch}/nested/message)" = TAR-STDIN-OK`);
 

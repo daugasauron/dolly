@@ -1436,6 +1436,20 @@ int sysctlbyname(const char *name, void *old_value, size_t *old_size,
   return -1;
 }
 
+/* dlopen and its companions (cc maps them to dolly_dl*) in a program that is
+ * no host of loadable modules. cc -rdynamic links the dso@0 client
+ * (host/dso/client.c), whose definitions replace these. */
+static _Thread_local int dl_refused;
+static void *dl_refuse(void) { dl_refused = 1; errno = ENOSYS; return NULL; }
+__attribute__((__weak__)) void *dolly_dlopen(const char *path, int flags) { (void)path; (void)flags; return dl_refuse(); }
+__attribute__((__weak__)) void *dolly_dlsym(void *handle, const char *name) { (void)handle; (void)name; return dl_refuse(); }
+__attribute__((__weak__)) int dolly_dlclose(void *handle) { (void)handle; dl_refuse(); return -1; }
+__attribute__((__weak__)) char *dolly_dlerror(void) {
+  if (!dl_refused) return NULL;
+  dl_refused = 0;
+  return "dynamic loading needs a program linked with -rdynamic and host module dso@0";
+}
+
 /*
  * Emscripten's shared-memory libc normally obtains these from its worker JS.
  * Dolly has one execution thread per process; the pinned pthread_self_stub.c

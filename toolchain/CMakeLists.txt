@@ -153,7 +153,7 @@ target_link_options(dolly-process-compiler PRIVATE
   -matomics
   -mbulk-memory
   "SHELL:-Wl,--shared-memory,--no-check-features"
-  "SHELL:-Wl,--export=__dolly_dso_allocate,--export=__stack_pointer,--export-table,--growable-table"
+  "SHELL:-Wl,--export=__stack_pointer,--export-table,--growable-table"
   -sSTANDALONE_WASM=1
   -sIMPORTED_MEMORY=1
   -sSHARED_MEMORY=1

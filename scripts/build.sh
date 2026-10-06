@@ -138,7 +138,7 @@ process_link_flags=(
   -sINITIAL_MEMORY=16777216
   -sMAXIMUM_MEMORY=8589934592
   -sSTACK_SIZE=8388608
-  -Wl,--export=__dolly_dso_allocate,--export=__stack_pointer,--export-table,--growable-table
+  -Wl,--export=__stack_pointer,--export-table,--growable-table
 )
 
 (
@@ -187,11 +187,11 @@ mapfile -t clients < <(node scripts/host-modules.mjs client)
 for client in "${clients[@]}"; do
   read -r module source <<<"${client}"
   rm -f -- "build/libdolly-${module}.a.new"
-  echo "${emcc} -c ${source} -o build/process-${module}-client.o"
-  echo "/emsdk/upstream/emscripten/emar rcsD build/libdolly-${module}.a.new build/process-${module}-client.o"
+  object="build/process-${module}-$(basename "${source}" .c).o"
+  echo "${emcc} -c ${source} -o ${object}"
+  echo "/emsdk/upstream/emscripten/emar rcsD build/libdolly-${module}.a.new ${object}"
 done | in_container
-for client in "${clients[@]}"; do
-  read -r module _ <<<"${client}"
+for module in $(printf '%s\n' "${clients[@]%% *}" | uniq); do
   replace_if_changed "build/libdolly-${module}.a.new" "build/libdolly-${module}.a"
 done
 mapfile -t client_links < <(node scripts/host-modules.mjs client | awk '{ print "-ldolly-" $1 }' | uniq)
@@ -249,7 +249,7 @@ node test/build-dso-fixtures.mjs "${container[@]}"
 node scripts/dolly-abi.mjs stamp-process build/dolly-process-0.wasm \
   build/process-dso-host.wasm build/process-dso-bad-host.wasm
 node scripts/dolly-abi.mjs validate-process-dso \
-  build/dolly-process-0.wasm build/dolly-process-dso-0.wasm build/dso-types.wasm
+  build/dolly-process-0.wasm build/dolly-dso-0.wasm build/dso-types.wasm
 
 node scripts/host-modules.mjs kernel-modules > build/generated/dolly-kernel-modules.h.new
 replace_if_changed build/generated/dolly-kernel-modules.h.new build/generated/dolly-kernel-modules.h

@@ -1,4 +1,4 @@
-#include <dolly/runtime.h>
+#include <dolly/dso.h>
 
 void *__wrap_dlopen(const char *path, int flags) {
   return dolly_dlopen(path, flags);

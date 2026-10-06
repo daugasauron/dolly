@@ -201,7 +201,8 @@ void print_help(const char *program, int driver_mode) {
       "  -shared            build a process-local shared object\n"
       "  --dolly-kernel-plugin\n"
       "                     build the explicitly privileged display plugin\n"
-      "  -rdynamic          export command symbols for later shared objects\n"
+      "  -rdynamic          host shared objects: export the program's symbols and\n"
+      "                     load them with dlopen (needs REQUIRES HOST dso@0)\n"
       "  -o FILE            write the object or executable to FILE\n"
       "  -L DIR, -l NAME    link libNAME.a from DIR; /usr/lib is always searched.\n"
       "                     <dolly/NAME.h> host clients (libdolly-NAME.a in\n"
@@ -766,7 +767,6 @@ bool link_process_executable(const std::string &output,
       "--shared-memory",
       "--export=__trap",
       "--export=__stack_pointer",
-      "--export=__dolly_dso_allocate",
       "--export-table",
       "--growable-table",
       // Match the conventional Linux soft stack limit. Real build systems and
@@ -786,6 +786,9 @@ bool link_process_executable(const std::string &output,
   if (pthread) arguments.push_back("--export=dolly_thread_start");
   if (strip_debug) arguments.push_back("--strip-debug");
   if (export_dynamic) {
+    // A host of loadable modules: this export selects the dso@0 client and
+    // its record from libdolly-dso.a. Without it dlopen is libc's refusal.
+    arguments.push_back("--export=__dolly_dso_allocate");
     auto symbols = llvm::MemoryBuffer::getFile(
         kProcessDynamicProviderSymbols, false, false);
     if (!symbols) {

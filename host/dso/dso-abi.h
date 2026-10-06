@@ -1,0 +1,13 @@
+/* Generated from host/dso/dolly-dso-0.wat, host/dso/dso.h. */
+#pragma once
+#define DOLLY_DSO_OPEN 112u
+#define DOLLY_DSO_SYMBOL 113u
+#define DOLLY_DSO_CLOSE 114u
+#define DOLLY_DSO_GLOBAL 1u
+#define DOLLY_DSO_LIMIT 536870912u
+#define DOLLY_DSO_ERROR_CAPACITY 240u
+#define DOLLY_FFI_CALL 120u
+#define DOLLY_FFI_CLOSURE_ALLOC 121u
+#define DOLLY_FFI_CLOSURE_FREE 122u
+#define DOLLY_FFI_CLOSURE_PREP 123u
+#define DOLLY_DSO_ABI_DIGEST 0xf6, 0x20, 0x97, 0x0c, 0xf6, 0x09, 0x72, 0xfe, 0x67, 0xe4, 0xd1, 0x4d, 0xd3, 0x44, 0x1e, 0xdb, 0x96, 0x52, 0x09, 0x2e, 0xd2, 0xeb, 0xc2, 0x7a, 0x51, 0x1c, 0x24, 0xd2, 0x93, 0x1f, 0xb8, 0x00

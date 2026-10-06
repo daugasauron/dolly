@@ -4,7 +4,7 @@ import { browserTest } from "./browser.mjs";
 import { DOLLY_THREADS_ABI_DIGEST } from "../host/threads/abi.mjs";
 
 const modules = ["runtime@0", "display@0", "http@0", "download@0", "upload@0", "snapshot@0"];
-// default declares threads@0 (and packages@0); system declares neither.
+// default declares threads@0 (and packages@0, dso@0); system declares none.
 const enable = modules => page => page.addInitScript(modules => { globalThis.DOLLY_HOST_MODULES = modules; }, modules);
 const fixtures = Object.fromEntries(["threads-pthread.c", "threads-cpp.cpp", "threads-quota.c"]
   .map(name => [name, `test/fixtures/${name}`]));
@@ -13,7 +13,7 @@ const probe = "/fixture/process-wrong-call.wasm";
 let valid;
 await browserTest("threads", { image: "default", server: { fixtures, sourceOverrides } }, async ({ server, open }) => {
   const policy = { rules: [{ origin: server.origin, pathPrefix: "/fixture/", methods: ["GET"] }] };
-  const { page, submit, text, waitForText } = await open({ policy, setup: enable([...modules, "packages@0", "threads@0"]) });
+  const { page, submit, text, waitForText } = await open({ policy, setup: enable([...modules, "packages@0", "threads@0", "dso@0"]) });
   const run = async command => assert.equal(await submit(command), 0, `${command}\n${await text()}`);
   const errors = [];
   page.on("pageerror", error => errors.push(error.message));

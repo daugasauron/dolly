@@ -12,7 +12,8 @@ import {
   readWasmInterface,
   sameWasmType,
 } from "./wasm-interface.mjs";
-import { validateProcessInterface, validateDsoInterface } from "../src/process-abi.mjs";
+import { validateProcessInterface } from "../src/process-abi.mjs";
+import { validateDsoInterface } from "../host/dso/interface.mjs";
 
 const relocationGlobals = new Set(["__memory_base", "__table_base"]);
 function importKey(entry) {
@@ -194,7 +195,7 @@ export async function validateProcessDso(processContractPath, dsoContractPath, p
   const contract = await readWasmInterface(dsoContractPath);
   for (const path of paths) {
     validateDsoInterface(contract, await readWasmInterface(path), digest);
-    console.log(`dolly-abi: ${path} satisfies dolly-process-dso-0 (provider symbols checked at load)`);
+    console.log(`dolly-abi: ${path} satisfies dolly-dso-0 (provider symbols checked at load)`);
   }
 }
 

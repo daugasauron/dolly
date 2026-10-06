@@ -74,12 +74,19 @@ export function browser() {
 export function worker({ send, applicationBase, abi, service }) {
   const memory = new WebAssembly.Memory({ initial: 1024n, maximum: 131072n, shared: true, address: "i64" });
   let supervisor, threadProvider;
+  // Modules served inside the process Worker of the executables that record
+  // them, by requirement: the bundle that Worker imports and what it is given.
+  const processModules = new Map();
   const text = value => `${String(value).slice(-maxBootstrapMessage)}\n`;
   return {
     memory,
     setThreadProvider(provider) {
       if (supervisor || threadProvider) throw new Error("thread provider already initialized");
       threadProvider = provider;
+    },
+    serveInProcess(requirement, module) {
+      if (supervisor) throw new Error("process modules are fixed once the supervisor starts");
+      processModules.set(requirement, module);
     },
     options: {
       wasmMemory: memory,
@@ -89,7 +96,7 @@ export function worker({ send, applicationBase, abi, service }) {
       printErr: value => send({ type: "bootstrap", text: text(value), error: true }),
     },
     async supervisor(dolly) {
-      return supervisor ??= await DollyProcessSupervisor.create(dolly, memory, applicationBase, abi, service, threadProvider);
+      return supervisor ??= await DollyProcessSupervisor.create(dolly, memory, applicationBase, abi, service, threadProvider, processModules);
     },
     start({ dolly }) {
       return { memory: memory.buffer, address: Number(dolly._dolly_terminal_mailbox_address()) };
