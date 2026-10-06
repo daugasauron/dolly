@@ -176,8 +176,8 @@ record, `build/cargo-evidence/drive-3.log` (commands, statuses, times) and
   …,"resolve":{…,"root":"path+file:///tmp/hello#0.1.0"},"target_directory":
   "/tmp/hello/target",…}`.
 
-These are the two commands SpiderMonkey's configure runs first. Nothing
-further of its Cargo steps has been tried.
+These are the two commands SpiderMonkey's configure runs first. Its build
+then needs build scripts, which do not run yet (below).
 
 ### To rebuild it
 
@@ -198,67 +198,124 @@ Both browser suites passed on that seed in Chromium and Firefox:
 `node test/core-browser.mjs` (`ar`) and `node test/network-browser.mjs`
 (libcurl); logs in `build/cargo-evidence/`.
 
-### Two failures seen at run time
+### Memory of the build (2026-10-06, scope cgroup of one browser session)
 
-- Every Cargo command printed, before its result:
+- Everything before the last crate peaks at 4.9 GB with `-j 4` (5.5 minutes
+  on an idle machine, 2.7 GB 40 s in).
+- rustc for the `cargo` crate as one codegen unit needs more than 8 GB on top
+  of about 2 GB of files: the caps killed two builds in it, at 6 GB (20:22)
+  and at 8 GB (20:32, last sample 7.61 GB). The uncapped 19:26 build therefore
+  held that much in one renderer shortly before the machine ran out of memory.
+- With `-C codegen-units=16` for that crate (`cargo-patti.toml`, as Codex does
+  for its largest crates) the whole build peaks at 5.05 GB and takes 544 s
+  with `-j 4`, upload of the binary included; the binary is 30,439,442 bytes
+  against 29,480,563 (3 % larger). Speed was not compared: the one-unit
+  binary did not survive. Logs: `build/cargo-evidence/memory-{5,6,7}.log`.
+- The binary is saved outside the session:
+  `build/cargo-evidence/cargo-0.99.0-dolly.wasm` (SHA-256 `3c48e121…5d1c`),
+  posted in 4 MiB parts by `serve/upload.c`; a new session loads it in a
+  second and runs it.
 
-      warning: failed to save last-use data
-      This may prevent cargo from accurately tracking what is being used in its global cache. This information is used for automatically removing unused data in the cache.
+## Milestones 2 and 3, reached 2026-10-06 20:43–21:03 JST
 
-      disk I/O error
+Headless Chrome, `rust-build` image, the binary above (built with
+`jobserver-configure.patch`, the SQLite setting and 16 codegen units), one
+session inside the 6 GB slot.
 
+- `cargo --version`: `cargo 1.98.1 (797e8a9bc 2026-08-05)`; `cargo metadata
+  --format-version 1 > /tmp/metadata.json`: status 0, 985 bytes, no warning.
+- No dependencies, offline (`/tmp/hello`):
+
+      $ CARGO_INCREMENTAL=0 cargo build --offline
+         Compiling hello v0.1.0 (/tmp/hello)
+          Finished `dev` profile [unoptimized + debuginfo] target(s) in 2.16s
+      $ target/debug/hello.js
+      hello from cargo 0.1.0
+
+  The program is named `hello.js`: the Rust target's `exe-suffix`.
+- Two vendored crates (`cargo vendor` of `itoa` 1.0.18 and `semver` 1.0.28,
+  a directory source in `.cargo/config.toml`):
+  `CARGO_INCREMENTAL=0 cargo build --offline` compiles three crates in 4.8 s;
+  `target/debug/vend.js` prints `CARGO-VENDORED-OK 98 1.98.1`.
+- A local procedural macro (`tiny-macro`, `proc-macro = true`): builds and
+  `target/debug/bs.js` prints `CARGO-PROC-MACRO-OK 42`. rustc warns that a
+  procedural macro built with `panic=abort` may crash the compiler.
+- crates.io through the HTTP broker (`/tmp/net`, `itoa = "1"`, `semver =
+  "1"`, no lock file, the page without a policy, `index.crates.io` mapped to a
+  relay on the test server's origin with `DOLLY_HTTP_RELAYS`):
+
+      $ CARGO_INCREMENTAL=0 cargo build
+          Updating crates.io index
+         1.066914922s ERROR cargo::util::network::http_async: failed to set max host connections in curl: Unsupported libcurl multi option
+         1.067384922s ERROR cargo::util::network::http_async: failed to enable multiplexing/pipelining in curl: Unsupported libcurl multi option
+           Locking 2 packages to latest compatible versions
+        Downloaded itoa v1.0.18
+        Downloaded semver v1.0.28
+        Downloaded 2 crates (47.9KiB) in 1.21s
+         Compiling itoa v1.0.18
+         Compiling semver v1.0.28
+         Compiling net v0.1.0 (/tmp/net)
+          Finished `dev` profile [unoptimized + debuginfo] target(s) in 6.83s
+      $ target/debug/net.js
+      CARGO-CRATES-IO-OK 98 1.98.1
+
+  The relay served `config.json`, `it/oa/itoa` and `se/mv/semver`; the two
+  crate archives came straight from `static.crates.io`, which sends CORS
+  headers. This is Cargo's worker thread, its `Multi`, `curl_multi_wait`,
+  `PRIVATE` and the progress callback over Dolly's libcurl.
+
+### What these runs showed
+
+- SQLite: the warning "failed to save last-use data … Error code 3850: disk
+  I/O error" (`SQLITE_IOERR_LOCK`: the cache tracker's database takes `fcntl`
+  byte-range locks, `ENOTSUP`; whole-file `flock` would not satisfy it) is
+  gone with SQLite's dot-file locks as the default VFS, set through the
+  crate's own `LIBSQLITE3_FLAGS` in `cargo-patti.toml`;
+  `~/.cargo/.global-cache` is written (57,344 bytes). Cargo has no key or
+  variable that skips the tracker.
+- `jobserver-configure.patch` works: before it, `cargo build` exited 126 with
+  "thread '<unnamed>' panicked at jobserver-0.1.34/src/wasm.rs:67:9: On this
+  platform there is no cross process jobserver support, so Client::configure
+  is not supported."
+- `-j1` does not avoid the jobserver: it hangs. After "Finished", `cargo
+  build -j1` of the three-crate project never exits (interrupted after 40 s,
+  status 130; a one-crate build with `-j1` exits). The in-process back end's
+  helper thread waits in `Client::acquire` for a token that `-j1` never has,
+  and `Helper::join` waits for that thread (`wasm.rs`: "TODO: this is not
+  correct if the thread is blocked in `client.acquire()`"). The same can
+  happen with any `-j` when more tokens were requested than exist at the end.
+- Incremental compilation needs locks rustc does not get. Without
+  `CARGO_INCREMENTAL=0`:
+
+      error: incremental compilation: could not create session directory lock file: Not supported (os error 138)
+
+  and exit 101. Kernel `fcntl` locks, or `[build] incremental = false` in a
+  configuration file the package ships.
+- Build scripts cannot run. Cargo compiles `build_script_build-HASH.js`,
+  links it as `build-script-build.js` and executes `build-script-build`:
+
+      error: failed to run custom build command for `bs v0.1.0 (/tmp/bs)`
       Caused by:
-        Error code 3850: disk I/O error
+        could not execute process `/tmp/bs/target/debug/build/bs-dacd8f8769e79316/build-script-build` (never executed)
+      Caused by:
+        No such file or directory (os error 44)
 
-  3850 is `SQLITE_IOERR_LOCK`: the global cache tracker opens
-  `$CARGO_HOME/.global-cache` (`global_cache_tracker.rs:357`) and SQLite's
-  default VFS takes `fcntl` byte-range locks, which answer `ENOTSUP`.
-  Whole-file `flock` will not satisfy it. By reading: Cargo has no key or
-  variable that skips the tracker (`cache.auto-clean-frequency = "never"`
-  only stops the cleaning; only "cannot open" and "read-only" errors are
-  silent). A supported way without a patch, not built yet: SQLite's
-  dot-file locks as the default VFS, through the build script's
-  `LIBSQLITE3_FLAGS` (`libsqlite3-sys` `build.rs:294`, `sqlite3.c:48722`):
-
-      [package.libsqlite3-sys.env]
-      LIBSQLITE3_FLAGS = '-DSQLITE_DEFAULT_UNIX_VFS="unix-dotfile"'
-
-  in `demos/rust/config/cargo-patti.toml`. Codex already selects that VFS
-  (`demos/codex/config/sqlite-options.patch`).
-- `cargo build --offline` in `/tmp/hello` exited 126 before its first rustc:
-
-      Compiling hello v0.1.0 (/tmp/hello)
-      thread '<unnamed>' (4) panicked at /tmp/cargo/jobserver-0.1.34/src/wasm.rs:67:9:
-      On this platform there is no cross process jobserver support,
-                   so Client::configure is not supported.
-      dolly: process 14673 failed: unreachable
-
-  Cargo calls `Client::configure` for every rustc and build script
-  (`compiler/mod.rs:805`, `custom_build.rs:386`) and has no switch for it.
-  `jobserver-configure.patch` (commit `ff412ee0`, six lines) makes it return
-  at once on this target. It applies and type-checks on the host; the rebuild
-  that would have run it was interrupted, so it is unverified. It goes away
-  when the crate's fallback back end makes `configure` a no-op.
-
-### Not shown yet
-
-- `curl_multi_setopt`: Cargo only logs the refusal and continues
-  (`http_async.rs:232-237`, by reading). No Cargo network request has run in
-  Dolly, so nothing of the new libcurl is proved by Cargo itself yet.
-- `demos/rust/Dollyfile-cargo` and `demos/rust/test/fixtures/cargo.mjs`
-  (commit `3540fe1d`) have not run. The fixture's registry was checked with
-  the host Cargo only.
+  Cargo assumes a host's executable suffix is empty or one the system adds
+  (`.exe`). The suffix comes from the Rust target file
+  (`demos/rust/toolchain/wasm64-emscripten-probe.json`, `"exe-suffix":
+  ".js"`), an Emscripten habit that means nothing in Dolly, whose programs
+  are plain Wasm files. The fix is `"exe-suffix": ""` there, but rustc ties
+  every compiled library to the target file's contents, so the SDK's standard
+  library, and with it the Rust seed, must be rebuilt.
+- `curl_multi_setopt`: Cargo logs each refusal at ERROR level, visibly, and
+  carries on (the two lines above).
 
 ### Next steps
 
-1. Rebuild as above with `ff412ee0`, add the SQLite setting, and run
-   `CARGO_INCREMENTAL=0 cargo build --offline` in `/tmp/hello` (sources in
-   `build/cargo-evidence/serve/hello`). Expect: rustc's incremental sessions
-   want `fcntl` locks unless `CARGO_INCREMENTAL=0` or `[build] incremental =
-   false`; Cargo reads rustc's output with `poll` on two non-blocking pipes;
-   the binary is named `hello.js`, the target's `exe-suffix`.
-2. Milestone 3 with `fixtures/cargo.mjs`, then crates.io itself. Rows to try,
-   unverified, with the index through a relay because of its cache (above):
+1. Jobserver: make the in-process helper give up when its owner is gone
+   (poll `try_acquire` and check `producer_done`, as the Unix back end does),
+   rebuild, and prove `-j1` exits.
+2. The same crates.io build under an explicit policy, to state the rows:
 
        globalThis.DOLLY_HTTP_POLICY = { maxRequests: 1024, rules: [
          { origin: "https://index.crates.io", pathPrefix: "/", methods: ["GET"] },
@@ -267,9 +324,12 @@ Both browser suites passed on that seed in Chromium and Firefox:
        globalThis.DOLLY_HTTP_RELAYS = [{ origin: "https://index.crates.io", through: "https://RELAY/" }];
 
    Cargo asks to follow redirects; under explicit rules a redirect fails.
-   Crates that depend on `libc` need the SDK's patched copy, which Cargo can
+3. `exe-suffix`: prove with a standard library built for the changed target
+   file that build scripts then run, and hand the one-line seed change over.
+4. Crates that depend on `libc` need the SDK's patched copy, which Cargo can
    take from a `[patch.crates-io]` table in a configuration file.
-3. Milestone 4: build the recipe once, then wire the fixture into a browser
+5. Milestone 4: build the recipe once (it must fit the 10 GB build slot; the
+   Patti build fits 6 GB now), then wire `fixtures/cargo.mjs` into a browser
    test on an image with both `cargo` and `rust`.
 
 ### What would retire Patti
