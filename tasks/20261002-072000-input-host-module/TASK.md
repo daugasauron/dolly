@@ -242,3 +242,31 @@ Decisions made while implementing:
   (SDL2, Slopyard); the terminal uses its own cell height and rows.
 - Airtime's recorded input log keeps its format: a wheel delta is still
   logged as the record's action.
+
+## Verification
+
+Run so far (2026-10-06, branch at `5753b391`; logs under
+`build/input-evidence/`, not committed):
+
+- `npm run build:runtime`: passes. The kernel implements the kernel-plugin
+  contract with the new import, exports exactly what its contracts declare and
+  has exactly the outer imports of `abi/dolly-browser-0.wat` (unchanged).
+  Runtime `023ff5a8…`, image inputs `fa06044c…`.
+- `DOLLY_PROCESS_ABI_DIGEST` is `db75b7ca…`, the same as in the integration
+  trees (`work/next`, `work/round2`): `dolly.process` did not change.
+  New digests: `display@0` `0a004910…`, `input@0` `88451810…`, kernel plugin
+  `fdd2fac4…`.
+- `node --test test/*.test.mjs 'demos/**/*.test.mjs'`: 404 pass, 0 fail.
+  New there: `test/input-ring.test.mjs` (records and the loss mark in JS; the
+  ring's service and discard rules and the kernel's reader, lease, paste
+  handshake and `ENOSYS` in C, compiled natively from `host/input/ring.c` and
+  `kernel.c`), `test/display-transport.test.mjs`.
+- `node --test test/dolly.artifacts.mjs`: the eleven kernel and contract
+  tests pass; the three that read image snapshots wait for rebuilt images.
+- `npm run lint:dollyfiles`: 63 recipes.
+- Native syntax checks with the pinned upstream headers: `src/ghostty/display.c`
+  (Ghostty, stb), `demos/sdl2/SDL_dollyvideo.c` (SDL2 2.32.10), the raylib glue
+  and Airtime from their recipes (raylib), Slopyard's `main.c` (raylib, Box3D,
+  Lua). None of these has been compiled for Dolly yet.
+
+Not run yet: every image build and every browser suite.
