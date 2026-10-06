@@ -270,7 +270,8 @@ session inside the 6 GB slot.
   I/O error" (`SQLITE_IOERR_LOCK`: the cache tracker's database takes `fcntl`
   byte-range locks, `ENOTSUP`; whole-file `flock` would not satisfy it) is
   gone with SQLite's dot-file locks as the default VFS, set through the
-  crate's own `LIBSQLITE3_FLAGS` in `cargo-patti.toml`;
+  crate's own `LIBSQLITE3_FLAGS` in `cargo-patti.toml` (a stopgap until the
+  kernel has `fcntl` locks);
   `~/.cargo/.global-cache` is written (57,344 bytes). Cargo has no key or
   variable that skips the tracker.
 - `jobserver-configure.patch` works: before it, `cargo build` exited 126 with
@@ -291,7 +292,7 @@ session inside the 6 GB slot.
 
   and exit 101. Kernel `fcntl` locks, or `[build] incremental = false` in a
   configuration file the package ships.
-- Build scripts cannot run. Cargo compiles `build_script_build-HASH.js`,
+- Build scripts could not run (fixed by `14da533a`, below). Cargo compiles `build_script_build-HASH.js`,
   links it as `build-script-build.js` and executes `build-script-build`:
 
       error: failed to run custom build command for `bs v0.1.0 (/tmp/bs)`
@@ -310,12 +311,83 @@ session inside the 6 GB slot.
 - `curl_multi_setopt`: Cargo logs each refusal at ERROR level, visibly, and
   carries on (the two lines above).
 
+## Build scripts, `-j1` and SpiderMonkey, 2026-10-06 21:10–21:45 JST
+
+All in headless Chrome inside the 6 GB browser slot, on `rust-build`.
+
+- `-j1` exits: the in-process jobserver's helper now leaves with its owner
+  (`jobserver-in-process.patch`, commit `cab675f9`). Cargo rebuilt by Patti
+  with it in 578 s, peak 4.7 GB; `CARGO_INCREMENTAL=0 cargo build --offline
+  -j1` of the vendored project exits 0. It was the crate's defect (a wait on
+  a condition variable), not a pipe or thread defect in Dolly.
+- Executable suffix: commit `14da533a` empties `exe-suffix` in the Rust target
+  file. The seed must be rebuilt (rustc ties libraries to the file's
+  contents): `demos/rust/build-rust-toolchain.sh` recompiled the 277 compiler
+  crates in 3 m 20 s and the SDK, about 4 minutes in all with the LLVM build
+  in place (`rust-sdk.tar.gz` `071f754d…`). With that seed unpacked over
+  `/opt/rust-sdk` in a session: `rustc s.rs` writes `s` and it runs; Patti
+  builds ripgrep 15.1.0 with the recipe's command in 130 s; Cargo builds a
+  crate with a build script and a procedural macro, and `target/debug/bs`
+  prints `CARGO-BUILD-SCRIPT-OK wasm64-emscripten-probe 42`.
+- `curl_multi_setopt`: `PIPELINING` and `MAX_HOST_CONNECTIONS` only steer
+  connections, which the browser owns, so they are now accepted (working
+  tree; its contract test waits for an image build). With that libcurl linked
+  into Cargo in a session, the crates.io build prints no ERROR line.
+- crates.io `libc` is wrong for this target and Cargo cannot fix it for
+  everyone. Unpatched `libc` 0.2.190 compiles, and `libc::stat` of a 30 MB
+  file then reports `size=0`: its Emscripten layouts are wasm32's. With
+  `[patch.crates-io] libc = { path = "/opt/rust-sdk/src/libc" }` in the
+  project's `.cargo/config.toml` the same program prints `size=30439516`.
+  That table cannot be shipped system-wide (`/.cargo/config.toml`): every
+  project that does not use `libc` then gets a warning and a
+  `[[patch.unused]]` entry in its lock file, and `--frozen` builds fail. The
+  real fix is upstream `libc` knowing this target.
+
+### What SpiderMonkey asks of Cargo
+
+mozjs-128.13.0 from `.cache/0ad`, its Rust workspace staged with the whole
+`third_party/rust` (337 MB) and, from the host build's `obj-dolly`, only what
+the build scripts read (`config.status`, `buildconfig.rs`, `js-confdefs.h`,
+324 headers); the seed with the empty suffix; the Cargo binary above.
+
+- configure: `cargo +stable` exits 101 ("no such command"), which is how it
+  recognises a plain Cargo; `cargo --version --verbose` has the line it
+  parses.
+- `cargo metadata --format-version 1 --manifest-path js/src/rust/Cargo.toml`
+  returns the same 70 packages as the 1.98.1 host Cargo.
+- The library:
+
+      $ cd /tmp/mozjs && CXX=c++ CC=cc AR=ar CRATE_CC_NO_DEFAULTS=1 \
+          MOZ_TOPOBJDIR=/tmp/mozjs/obj-dolly CARGO_TARGET_DIR=/tmp/mozjs/obj-dolly/rust-target \
+          CARGO_INCREMENTAL=0 cargo rustc --release --offline \
+          --manifest-path js/src/rust/Cargo.toml --lib --target wasm64-emscripten-probe
+          …
+          Finished `release` profile [optimized] target(s) in 2m 41s
+      $ ls -la obj-dolly/rust-target/wasm64-emscripten-probe/release/libjsrust.a
+      -   12414266 …
+
+  59 units, eight build scripts (one compiles C++ through the `cc` crate) and
+  six procedural macros; no crate in it depends on `libc`. mozbuild's own
+  flags (`-C codegen-units=1`, `-Cembed-bitcode=yes`, features, the linker
+  wrapper) were not passed; the host-built library is 24.1 MB.
+- `--frozen`, which mozbuild passes, fails about half the runs, on the host
+  with the same Cargo as in Dolly (host: 0, 101, 101, 0, 0, 101, 101, 101;
+  Dolly: 101, 101, 101, 0): "cannot update the lock file … because --frozen
+  was passed". Cargo 1.98 writes the two groups of `[[patch.unused]]` entries
+  (`crates-io` and `mozilla/neqo`) in hash-map order. A SpiderMonkey build
+  needs that removed from its inputs, or a retry.
+- Not tried: `cbindgen` (a Rust program mozbuild runs; its dependencies
+  include `libc`), and mozbuild driving these commands itself.
+
 ### Next steps
 
-1. Jobserver: make the in-process helper give up when its owner is gone
-   (poll `try_acquire` and check `producer_done`, as the Unix back end does),
-   rebuild, and prove `-j1` exits.
-2. The same crates.io build under an explicit policy, to state the rows:
+1. The `cargo` package: its image build is the first run of
+   `demos/rust/Dollyfile-cargo`; then `rust-tools` with it and
+   `demos/rust/test/rust-browser.mjs`, which now builds against a one-crate
+   sparse registry on the test server.
+2. The libcurl follow-up's contract test (`node test/network-browser.mjs` on a
+   rebuilt `default`), then its commit.
+3. crates.io under an explicit policy, to state the rows:
 
        globalThis.DOLLY_HTTP_POLICY = { maxRequests: 1024, rules: [
          { origin: "https://index.crates.io", pathPrefix: "/", methods: ["GET"] },
@@ -323,14 +395,13 @@ session inside the 6 GB slot.
        ] };
        globalThis.DOLLY_HTTP_RELAYS = [{ origin: "https://index.crates.io", through: "https://RELAY/" }];
 
-   Cargo asks to follow redirects; under explicit rules a redirect fails.
-3. `exe-suffix`: prove with a standard library built for the changed target
-   file that build scripts then run, and hand the one-line seed change over.
-4. Crates that depend on `libc` need the SDK's patched copy, which Cargo can
-   take from a `[patch.crates-io]` table in a configuration file.
-5. Milestone 4: build the recipe once (it must fit the 10 GB build slot; the
-   Patti build fits 6 GB now), then wire `fixtures/cargo.mjs` into a browser
-   test on an image with both `cargo` and `rust`.
+   Cargo asks to follow redirects; under explicit rules a redirect fails. The
+   public sites configure no relay, so there `cargo build` with crates.io
+   dependencies fails at "Updating crates.io index" unless the index file
+   happens to be uncached; a vendored directory or a mirror works.
+4. When kernel file locks land (`core/file-locks`): drop the SQLite dot-file
+   setting from `cargo-patti.toml` and `CARGO_INCREMENTAL=0` from the
+   package. Both are stopgaps.
 
 ### What would retire Patti
 
