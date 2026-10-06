@@ -43,18 +43,42 @@ for package in tomllib.loads(lock.read_text())["package"]:
     shutil.copyfile(download(url, package["checksum"]), archives / filename)
 mappings = [source, f"/tmp/{name}/source", archives, f"/tmp/{name}/cache/archives",
             *crate_licences(archives, stage, f"/usr/share/licenses/{name}/crates")]
-if name == "fd":
-    def apply(directory, patch):
-        subprocess.run(["patch", "--batch", "--fuzz=0", "-p1", "-d", str(directory),
-                        "-i", str(project / "demos/rust/config/patches" / patch)], check=True)
 
-    for crate, patch in [("nix-0.31.3", "nix-hostname.patch"),
-                         ("jiff-0.2.29", "jiff-timezone.patch")]:
+
+def apply(directory, patch):
+    subprocess.run(["patch", "--batch", "--fuzz=0", "-p1", "-d", str(directory),
+                    "-i", str(project / "demos/rust" / patch)], check=True)
+
+
+if name == "cargo":
+    # No TLS, SSH or HTTP/2 library in Wasm: the browser carries HTTPS.
+    apply(source, "config/patches/cargo-features.patch")
+    # What a Rust source tarball carries for `cargo --version`: the pinned
+    # commit, its short form and its date, as the 1.98.1 release prints them.
+    commit = pin["directory"].removeprefix("cargo-")
+    (source / "git-commit-info").write_text(f"{commit}\n{commit[:9]}\n2026-08-05\n")
+    for unused in ["tests", "benches"]:
+        shutil.rmtree(source / unused)
+    for link in [path for path in source.rglob("*") if path.is_symlink()]:
+        data = link.read_bytes()
+        link.unlink()
+        link.write_bytes(data)
+adapted = {
+    "fd": [("nix-0.31.3", "config/patches/nix-hostname.patch"),
+           ("jiff-0.2.29", "config/patches/jiff-timezone.patch")],
+    "cargo": [("socket2-0.6.4", "config/patches/socket2.patch"),
+              ("zlib-rs-0.6.4", "config/patches/zlib-rs.patch"),
+              ("is_executable-1.0.6", "config/patches/is_executable.patch"),
+              ("git2-curl-0.22.0", "config/patches/git2-curl.patch"),
+              ("jiff-0.2.31", "config/patches/jiff-timezone.patch"),
+              ("jobserver-0.1.34", "toolchain/jobserver.patch")],
+}
+for crate, patch in adapted.get(name, []):
+    if not (stage / crate).exists():
         with tarfile.open(archives / f"{crate}.crate") as archive:
             archive.extractall(stage, filter="data")
-        directory = stage / crate
-        apply(directory, patch)
-        mappings += [directory, f"/tmp/fd/{crate}"]
+        mappings += [stage / crate, f"/tmp/{name}/{crate}"]
+    apply(stage / crate, patch)
 
 output = project / "build/rust-sources" / f"{name}.tar"
 subprocess.run(["node", str(project / "scripts/build-source-tar.mjs"), str(output),

@@ -1,0 +1,14 @@
+[build-script.env]
+CRATE_CC_NO_DEFAULTS = "1"
+CFLAGS = "-O1"
+
+# The release this Cargo commit shipped in, as Rust's own build passes it.
+[package.cargo.env]
+CFG_RELEASE = "1.98.1"
+
+# The image's libcurl (over the HTTP broker) and zlib, not the crates' bundled sources.
+[target.wasm64-emscripten-probe.curl]
+rustc-link-lib = ["curl"]
+
+[target.wasm64-emscripten-probe.z]
+rustc-link-lib = ["z"]
