@@ -80,9 +80,9 @@ thereby declared. A runtime provides:
   `bindings` like any module's;
 - a Worker instance with `memory` and `supervisor(dolly)`, which the registry
   hands out as `host.kernel`;
-- the seed (`dist/dolly.data`: the compiler, libc adapter and bootstrap
-  commands built for its process ABI), which a build boots when a recipe has
-  no `FROM`.
+- the seed (`dist/dolly.data`, a snapshot in the image format: the compiler,
+  libc adapter and bootstrap commands built for its process ABI), which a
+  build restores when a recipe has no `FROM`.
 
 Images and packages record their runtime as they record any module: the line
 goes into the artifact and its receipt. The page refuses an image whose

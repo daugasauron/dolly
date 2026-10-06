@@ -146,5 +146,4 @@ flowchart TD
 | `/etc/dolly` | Image identity, ENTRY record, startup scripts |
 | `/home/dolly` | `HOME` |
 | `/workspace`, `/tmp` | Scratch; never retained in images |
-| `/seed` | Compiler seed, root rebuilds only |
 | `/run` | Volatile files, excluded from sessions |
