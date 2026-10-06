@@ -249,7 +249,7 @@ export class FramebufferPresenter {
   }
 }
 
-export function browser({ mount, canvas, fatal, showStatus }) {
+export function browser({ mount, canvas, keyboard, fatal, showStatus }) {
   let transport, presenter, resizeObserver;
   const publishSurface = () => transport.publishSurface(mount.clientWidth, mount.clientHeight, devicePixelRatio);
 
@@ -281,10 +281,11 @@ export function browser({ mount, canvas, fatal, showStatus }) {
       get fontSize() { return transport.fontSize(); },
       copySelection: () => transport.copySelection(),
     },
-    // The copy chord is the page's: the guest reads neither its press nor its release.
+    // The copy chord is the page's: the guest reads neither its press nor its
+    // release. A key typed into a module's own UI is that module's to claim.
     claimsKey(event) {
       if (!transport || !event.ctrlKey || !event.shiftKey || event.altKey || event.metaKey ||
-          event.code !== "KeyC") return false;
+          event.code !== "KeyC" || ![keyboard, document.body].includes(event.target)) return false;
       event.preventDefault();
       event.stopImmediatePropagation();
       if (event.type === "keydown") copySelection();

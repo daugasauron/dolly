@@ -196,3 +196,47 @@ New record types in `input.h` (contact down, move, up, cancel) using `x`, `y`
 and the two reserved words for the contact id; page listeners; the decoder's
 mapping to scroll and selection; SDL2's to its touch events. No mailbox or
 operation change, but the digest changes, so it is a seed round.
+
+## Implementation (2026-10-06, `core/input-module`)
+
+Branch `core/input-module`, on `integrate/next` (`bef23f6b`) with
+`fix/corner-indicators` merged (its chord moved to the page shell).
+
+- `host/input/`: `dolly-input-0.wat`, `input.h`, `ring.c` (the ring: take,
+  the terminal's service, discard), `kernel.c` (lease, the terminal's reader,
+  decoder registration), `client.c`, `input.mjs` (the one keyboard listener,
+  the ring's producer with the loss mark, pointer lock).
+- `host/display/`: no ring, records, paste buffer or `NEXT_EVENT`; four
+  surface words; driver v5; the page publishes the surface and claims the copy
+  chord (only for keys typed at the terminal, not into a module's dialog).
+- `abi/dolly-kernel-plugin-0.wat`: one import, `dolly_input_decoder_install`.
+- `src/process-kernel.h`: the terminal hooks are split by owner (output and
+  replies: display; read, ready, input service, discard: input). No other
+  shared core file changed; `process.h` is untouched.
+- `src/ghostty/display.c`: driver v5 and the decoder; pointer and scroll are
+  ignored while a graphics program covers the terminal; the dead F11 case is
+  gone.
+- `src/page-chords.mjs`: F11 and Ctrl+Shift+F. `src/terminal-text.mjs`: the
+  screen-text helpers tests use, over both modules' page APIs
+  (`__dolly.transport` is the display's, `__dolly.inputTransport` the input's).
+- Ports: `demos/sdl2/SDL_dollyvideo.c`, the raylib glue in `gamedev-sdk`,
+  Slopyard, the fluid demo, Airtime and its agent, the test fixtures.
+  `demos/zero-ad/engine.patch` does not call the display API (0 A.D. reads
+  input through SDL2), so it is unchanged; its chain only needs rebuilding.
+- Recipes: every recipe that declared `display@0` except the `display`
+  package now declares `input@0` (38); `system-build` installs the header.
+
+Decisions made while implementing:
+
+- The presenter no longer wakes on input (it did so to have its frame loop
+  running before the echo). A new frame wakes it through the Worker's notify;
+  the difference is at most the first echo after 250 ms of silence. Not
+  measured: measure key-to-paint before and after if it matters.
+- SIGWINCH is raised from the display's tick when the published grid differs
+  from the last one told, instead of from resize records.
+- A module claims one key with `"key"` (the display's copy chord); the guest
+  keeps its held keys, which a UI's claim releases.
+- `SCROLL` consumers convert at 26 CSS pixels a line and 30 lines a page
+  (SDL2, Slopyard); the terminal uses its own cell height and rows.
+- Airtime's recorded input log keeps its format: a wheel delta is still
+  logged as the record's action.
