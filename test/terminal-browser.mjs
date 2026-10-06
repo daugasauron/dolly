@@ -36,6 +36,7 @@ await browserTest("terminal", { image: "system", server }, async ({ name, server
   await page.keyboard.press("Control+Minus");
   await page.waitForFunction(size => __dolly.fontSize === size, initialFontSize);
 
+  const windowed = await page.evaluate(() => __dolly.transport.dimensions());
   await page.keyboard.press("F11");
   await page.waitForFunction(() => document.documentElement.dataset.fullscreen === "on");
   await page.waitForFunction(() => {
@@ -112,6 +113,13 @@ await browserTest("terminal", { image: "system", server }, async ({ name, server
   assert.deepEqual([evidence.terminal, evidence.canvasVisible, evidence.logHidden], ["ghostty-rgba-wasm", true, true]);
   await page.keyboard.press("F11");
   await page.waitForFunction(() => !document.fullscreenElement);
+  // The terminal takes the window's grid a frame or more after the page has
+  // left fullscreen, and that resize reflows what is on the screen: cells
+  // that hold only a background are content to Ghostty and wrap.
+  await page.waitForFunction(({ cols, rows }) => {
+    const now = __dolly.transport.dimensions();
+    return now.cols === cols && now.rows === rows;
+  }, windowed);
 
   // Text, spaces and erased cells share their RGB or palette background.
   assert.equal(await submit("printf '\\033[48;2;20;22;27m\\033[2J\\033[HXX  XX\\033[K\\033[3;1H\\033[48;5;24mXX  XX\\033[K\\033[0m\\033[5;1H'"), 0);
