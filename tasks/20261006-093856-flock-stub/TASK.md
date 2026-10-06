@@ -172,7 +172,7 @@ executable is restamped and the Rust seed rebuilt.
 - libc (`src/process/libc-adapter.c`): a strong `flock` over Emscripten's weak
   stub, and the three `fcntl` commands.
 
-## Implemented (2026-10-06 night, `core/file-locks`), not yet run in a browser
+## Implemented (2026-10-06 night, `core/file-locks`)
 
 - `include/dolly/process.h`: `DOLLY_PROCESS_FD_LOCK = 59` and its packets.
   The first number, 57, is the upload module's `DOLLY_UPLOAD_FILE`
@@ -260,6 +260,47 @@ Not observed on Linux, so my reading or Dolly's own choice:
   and `docs/slop.md`, re-pinned in this branch once the text is final.
 - Kernel, libc adapter and the fixture pass `emcc -fsyntax-only` in the pinned
   toolchain image, the fixture with `-D__dolly__`.
+
+## Verified in browsers, first base (2026-10-06, 22:13 to 22:50 JST)
+
+Base: `integrate/next` at `a34f0d38` plus `1c0ae0e3` (the interrupt
+fixture). Runtime `f5ab554c…`, image inputs `64baac8c…`. Logs under
+`build/locks-evidence/` (not committed).
+
+- `DOLLY_IMAGE_JOBS=1 DOLLY_BUILD_IMAGES=default,system npm run image`: all 13
+  images built in 877.7 s (`image-chain-1.log`), `zig-build` (523.7 s) and
+  `ghostty-build` (96.2 s) among them: Zig's cache now takes real locks.
+- `test/process-browser.mjs` with `test/fixtures/process-locks.c`: passes in
+  Chromium and Firefox (`process-chromium-1.log`, `process-firefox-1.log`).
+- `core`, `shell`: pass in both browsers (`core-*-2.log`, `shell-*-1.log`).
+  `core` failed before `1c0ae0e3` was merged, in the interrupt fixture's
+  pipeline case that commit corrects; the lock change is not involved.
+- `threads`: fails on this base in both browsers at `cc: command not found`
+  (`default` holds no compiler). With the test-only commit `9195571f` of
+  `integrate/next` applied to the working tree it passes in both
+  (`threads-*-2.log`).
+- The rotation, with its time printed (`rotation-*-1.log`, three runs each):
+  100 rounds take 2 to 4 ms (`flock`) and 4 to 10 ms (`fcntl`) in Chromium, 6
+  to 12 ms and 5 to 9 ms in Firefox. One kernel round trip costs 15 to 25 µs
+  there (`syscall-cost-*.log`), and a round is two hand-overs, so the waiter
+  is woken by the release; on the 16 ms tick 200 hand-overs would take over a
+  second. The control (the supervisor ignoring the wakeup flag, to see the
+  assertion fail) was queued and cancelled for lack of a browser slot: not
+  run.
+- Real callers in `system`, Chromium (`callers-chromium-1.log`,
+  `callers-browser.mjs`):
+  - SQLite 3.53.2, the amalgamation of `libsqlite3-sys` 0.38.1, compiled in
+    the image by `cc` in 5.6 s and run from two processes through its default
+    `unix` VFS (`sqlite/probe.c`, which also passes on Linux): a second writer
+    gets `SQLITE_BUSY`, a reader reads, a commit under another process's read
+    is `SQLITE_BUSY`, a writer with a busy timeout waits for a reader and
+    commits, `integrity_check` passes. `SQLITE-LOCKS-OK 3.53.2 unix`.
+  - GNU Make `-O -j3` with three sub-makes: no warning, 30 lines in three
+    whole groups.
+
+Not run: the Rust seed (`demos/rust/build-rust-toolchain.sh`; the integrator's
+catalog round rebuilds it), Cargo itself, and Python (`python-locks.py` is
+ready and passes on Linux; the `python` image was not built here).
 
 ## Measured (2026-10-06, Chrome, `default`, runtime `5439ebe7…`)
 
