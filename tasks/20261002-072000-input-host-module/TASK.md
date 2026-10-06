@@ -294,11 +294,18 @@ be merged onto `fb6c3463` and rebuilt once.
   demo tests, `test:artifacts` on rebuilt images, the echo-latency
   measurement.
 
-Paused at 23:10 for `fix/selection-after-exit` at the integrator's request.
-To resume: merge `fb6c3463`, read "Merging kernel code onto this kernel" in
-the kernel-boundary task (this module adds no kernel import; check that
-`emscripten_atomic_notify` in `host/input/kernel.c` and the plugin import
-`dolly_input_decoder_install` pass `validate-browser` and the exact-exports
-test), `npm run build:runtime`, then
-`DOLLY_BUILD_IMAGES=default,system,cc,sdl2`, the suites above in both
-browsers, `node demos/run-browser-tests.mjs sdl2`, then `bhop`.
+Paused from 23:10 to 00:05 for `fix/selection-after-exit` (the neovim demo
+failure; `tasks/20261001-095000-terminal-text-flake`). Its two fixes are on
+this branch too: the repeated screen-reading gesture lives in
+`src/terminal-text.mjs` here, the discard at the owner's exit is unchanged in
+`src/process-kernel.c` and reaches `host/input/kernel.c`.
+
+### On the nine-import kernel (`fb6c3463`), 2026-10-07
+
+- Merged `fb6c3463`. This module adds no kernel import: `npm run
+  build:runtime` passes `validate-browser` ("exactly the typed imports"), and
+  the exact-exports artifact test accepts `dolly_input_decoder_install` as the
+  kernel-plugin contract's import. Runtime `a6b03265…`, image inputs
+  `4305d230…`.
+- `node --test test/*.test.mjs 'demos/**/*.test.mjs'`: 405 pass, 0 fail.
+- Image chain and browser suites on this base: see below.
