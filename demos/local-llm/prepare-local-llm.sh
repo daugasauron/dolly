@@ -9,7 +9,10 @@ temporary="$(mktemp -d "${project_dir}/build/.llama-source.XXXXXX")"
 trap 'rm -rf -- "${temporary}"' EXIT
 mkdir -p "$temporary/upstream" "$temporary/headers/emscripten"
 tar -xzf "$archive" --strip-components=1 -C "$temporary/upstream"
-sed -i 's/^#elif defined(__EMSCRIPTEN__)$/#elif defined(__EMSCRIPTEN__) || defined(__dolly__)/' "$temporary/upstream/ggml/include/ggml.h" && grep -q __dolly__ "$temporary/upstream/ggml/include/ggml.h" # GGML_MEM_ALIGN 8: Dolly's malloc alignment
+# Where upstream names Emscripten, Dolly takes the same branch: GGML_MEM_ALIGN 8 (its malloc alignment), no cache or config directory.
+for file in ggml/include/ggml.h common/common.cpp; do
+  sed -i 's/^#elif defined(__EMSCRIPTEN__)$/#elif defined(__EMSCRIPTEN__) || defined(__dolly__)/' "$temporary/upstream/$file" && grep -q __dolly__ "$temporary/upstream/$file"
+done
 python3 - "$headers" "$temporary" <<'PY'
 import sys,zipfile,pathlib
 with zipfile.ZipFile(sys.argv[1]) as archive:
