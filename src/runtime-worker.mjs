@@ -9,6 +9,7 @@ import { inspectDollyfile, MAX_DOLLYFILE_BYTES } from "./dollyfile-view.mjs";
 import { decodeImageEntry } from "./image-entry.mjs";
 import { checkedCustomArtifact } from "./custom-image.mjs";
 import { CANONICAL_ORIGIN, decodeStaticAsset, hex } from "./static-asset.mjs";
+import { terminalFailureReason } from "./process-supervisor.mjs";
 
 const encoder = new TextEncoder();
 const decoder = new TextDecoder("utf-8", { ignoreBOM: true });
@@ -251,7 +252,7 @@ try {
       const arguments_ = baseArtifact
         ? ["/bin/dollyfile", recipeLocator]
         : ["/usr/libexec/dolly/process-bin/bootstrap"];
-      bootstrapStatus = await processSupervisor.spawn(arguments_);
+      bootstrapStatus = (await processSupervisor.spawn(arguments_)).status;
     }
     for (const artifact of artifacts.values()) dolly.FS.unlink(`/etc/dolly/artifacts/${artifact.recipeSha256}.snapshot`);
     artifacts.clear();
@@ -365,8 +366,13 @@ try {
   });
   await entryReady;
 
-  const status = await runImageEntry(dolly, processSupervisor);
-  self.postMessage({ type: "exited", status });
+  // The image ends with its ENTRY process, however that ended: a program that
+  // failed or could not start is the image's ending, not the runtime's failure.
+  const ending = await runImageEntry(dolly, processSupervisor).catch(error => {
+    console.error(error);
+    return { status: 126, signal: 0, failure: error.reason ?? terminalFailureReason(error) };
+  });
+  self.postMessage({ type: "exited", ...ending });
 } catch (error) {
   self.postMessage({
     type: "error",

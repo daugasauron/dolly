@@ -159,6 +159,9 @@ export async function createHost(side, enabled, { send, resources = {}, configur
     entryStarted(context) {
       return Promise.all([...instances.values()].map(instance => instance.entryStarted?.(context)));
     },
+    // The page asks this when the image has ended, before it lets go of the
+    // modules: the links ({ text, href }) each one offers beside "start again".
+    ended: () => [...instances.values()].flatMap(instance => instance.ended?.() ?? []),
     bindImports(module, imports) {
       for (const entry of WebAssembly.Module.imports(module)) {
         const name = `${entry.module}.${entry.name}`, owner = owners.get(name);

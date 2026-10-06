@@ -622,6 +622,8 @@ export function browser(page) {
     dispose() {
       for (const stop of waiting) stop(new Error("Dolly stopped"));
       waiting.clear();
+      // What the image published last stays on screen once it has ended.
+      try { presenter?.paint(); } catch {}
       presenter?.stop();
       input.dispose();
     },

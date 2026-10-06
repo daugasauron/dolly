@@ -7,6 +7,7 @@ import { loadCustomImage, storedCustomImage } from "./custom-image.mjs";
 import { describeImageArtifact, sha256 } from "./image-artifact.mjs";
 import { inspectDollyfile } from "./dollyfile-view.mjs";
 import { DOLLY_IMAGES, DOLLY_STATIC_SOURCES } from "../dist/dolly-images.mjs";
+import * as processConstants from "./process-constants.mjs";
 
 const mount = document.querySelector("#terminal");
 const canvas = document.querySelector("#display");
@@ -36,6 +37,33 @@ function fatal(message) {
   bootstrapLog.hidden = false;
   appendBootstrap(`\nFATAL\n${message}\n`);
   document.documentElement.dataset.dollyStatus = "failed";
+}
+
+// The image is over when its ENTRY process is. The page says how in its own
+// text below the display, which keeps the last frame and gives up that strip:
+// a program can draw a lookalike while it runs, but nothing of the guest can
+// cover, change or remove this notice. A module may offer a link beside
+// "start again".
+function ended({ status, signal, failure }) {
+  const offers = host.ended();
+  host.dispose();
+  runtimeWorker.terminate();
+  const signalName = Object.keys(processConstants).find(name =>
+    /^DOLLY_PROCESS_SIG(?!NAL)/.test(name) && processConstants[name] === signal)?.slice("DOLLY_PROCESS_".length);
+  const how = failure ? `failed: ${failure}` : signal ? `was ended by ${signalName ?? `signal ${signal}`}`
+    : `exited with status ${status}`;
+  const notice = document.body.appendChild(document.createElement("div"));
+  notice.id = "image-ended";
+  notice.setAttribute("role", "alert");
+  notice.style.cssText = "position:fixed;left:0;right:0;bottom:0;z-index:9;padding:0.6rem 1rem;" +
+    "background:#262626;border-top:1px solid #f2d45c;font-size:16px";
+  const links = [{ text: "Reload to start again", href: location.href }, ...offers].map(({ text, href }) =>
+    Object.assign(document.createElement("a"), { textContent: text, href, style: "color:#f2d45c;margin-left:1.5ch" }));
+  notice.append(`This image has ended: its program ${how}.`, ...links);
+  mount.style.height = `calc(100% - ${notice.offsetHeight}px)`;
+  Object.assign(canvas.style, { objectFit: "contain", objectPosition: "left top" });
+  links[0].focus();
+  document.documentElement.dataset.dollyStatus = "exited";
 }
 
 function showStatus(message, persistent = false) {
@@ -126,9 +154,7 @@ async function boot() {
       builtSystemSnapshot = message.bytes;
       builtSystemInputs = message.inputs;
     } else if (message.type === "exited") {
-      host.dispose();
-      runtimeWorker.terminate();
-      document.documentElement.dataset.dollyStatus = "exited";
+      ended(message);
     } else if (message.type === "error" && runtimeReady) {
       fatal(message.stack ? `${message.message}\n${message.stack}` : message.message);
     }
