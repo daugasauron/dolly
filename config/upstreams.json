@@ -48,6 +48,7 @@
 {"name": "fd", "use": "fd", "licence": "MIT OR Apache-2.0", "repository": "https://github.com/sharkdp/fd", "sources": ["dist/static/rust/fd.tar"]},
 {"name": "protox", "use": "Protobuf compiler for the Codex build", "licence": "MIT OR Apache-2.0", "repository": "https://github.com/andrewhickman/protox", "sources": ["dist/static/rust/protox.tar"]},
 {"name": "Cargo", "use": "cargo", "licence": "MIT OR Apache-2.0", "repository": "https://github.com/rust-lang/cargo", "sources": ["dist/static/rust/cargo.tar"]},
+{"name": "cbindgen", "use": "Header generator SpiderMonkey's configure requires", "licence": "MPL-2.0", "repository": "https://github.com/mozilla/cbindgen", "sources": ["dist/static/rust/cbindgen.tar"]},
 {"name": "libgit2", "use": "Git library in cargo, from the libgit2-sys crate", "licence": "GPL-2.0-only WITH GCC-exception-2.0", "repository": "https://github.com/libgit2/libgit2", "sources": ["dist/static/rust/cargo.tar"]},
 {"name": "SQLite", "use": "Database in cargo, from the libsqlite3-sys crate", "licence": "blessing", "repository": "https://www.sqlite.org/", "sources": ["dist/static/rust/cargo.tar"]},
 {"name": "Codex CLI", "use": "codex", "licence": "Apache-2.0", "repository": "https://github.com/openai/codex", "sources": ["dist/static/codex/sources-*"]},

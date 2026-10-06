@@ -296,3 +296,27 @@ Gaps, by kind:
   mtime of the extracted `old-configure` against `old-configure.in` (Dolly's
   `tar` may give every file the extraction time, which would trigger the m4
   refresh: the recipe then `touch`es `old-configure`).
+
+### Decisions, 07:35
+
+- The four flags (integrator): `cc` learns them. Branch `core/cc-flags`
+  from `integrate/next`, commit `9d21e987` (worktree `work/cc-flags`):
+  `-fno-math-errno` and `-fomit-frame-pointer` are accepted as statements of
+  what cc1 already gets for wasm, `-ffp-contract=` is forwarded after the
+  default, `-mthread-model VALUE` is forwarded and refused (status 64) next
+  to `-pthread`, as Clang's driver refuses it; one case in
+  `test/cpp-browser.mjs`. Not compiled here (no native clang++; the
+  compiler builds only in the container), so it is unverified until round 3's
+  chain build. Today's session runs with a wrapper (`dolly-cc`, `dolly-c++`
+  in `build/spidermonkey-evidence/serve/`) that drops the four flags and adds
+  `-D__wasi__`; the recipe lands with round 3 and assumes the flags.
+- Because mozbuild probes `-pthread` on and `old-configure` adds
+  `-mthread-model single` for every `*-wasi*` target, the pair would be
+  refused; the preparation patch (`sm-dolly-prep.patch`, four hunks, to
+  become part of `spidermonkey.patch`) drops that line from the shipped
+  `js/src/old-configure` (not `.in`, which would need the m4 refresh), with
+  the Wasm-host, `allow_missing` M4 and `subprocess.call` linker edits.
+- cbindgen as a Rust tool package: `demos/rust/Dollyfile-cbindgen`, Patti
+  from `cbindgen.tar` staged by `prepare-rust-sources.py` (tag 0.26.0, 44
+  locked crates, 12.5 MB), the SDK's `libc` as `--patch`; row in
+  `config/upstreams.json`. Untested until the image builds.

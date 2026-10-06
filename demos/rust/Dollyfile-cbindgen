@@ -1,0 +1,28 @@
+DOLLY 6
+PACKAGE cbindgen
+REQUIRES HOST runtime@0
+REQUIRES HOST http@0
+REQUIRES HOST threads@0
+
+FROM https://daugasauron.com/demos/rust/Dollyfile-rust-build e94b2dc0acc1b78bb64f16df50458cc24ddd1baec17e5e2ba8d9930a5a634653
+REQUIRES TOOL patti
+REQUIRES TOOL tar
+REQUIRES TOOL cp
+REQUIRES TOOL mkdir
+REQUIRES TOOL rm
+
+# The tool SpiderMonkey's configure requires. The archive holds cbindgen's
+# source at its pinned tag and checksum-verified locked crate archives.
+SOURCE https://daugasauron.com/dist/static/rust/cbindgen.tar c8a14eca4b0f44171a5a66d95ebdac9001c889d7df1fce17663ffad074861910 /tmp/cbindgen.tar
+SLOP tar -xf /tmp/cbindgen.tar -C /
+SLOP patti build -j 4 --offline --manifest-path /tmp/cbindgen/source/Cargo.toml --bin cbindgen --patch libc=/opt/rust-sdk/src/libc --cache /tmp/cbindgen/cache --target-dir /tmp/cbindgen/build
+SLOP cp /tmp/cbindgen/build/cbindgen /usr/bin/cbindgen
+SLOP mkdir -p /usr/share/licenses/cbindgen /usr/share/dolly/builds
+SLOP cp /tmp/cbindgen/source/LICENSE /usr/share/licenses/cbindgen/LICENSE
+SLOP cp /tmp/cbindgen/build/patti-build.json /usr/share/dolly/builds/cbindgen.json
+SLOP rm -rf /tmp/cbindgen /tmp/cbindgen.tar
+
+EXPORTS TOOL cbindgen
+EXPORTS FOLDER cbindgen-licenses /usr/share/licenses/cbindgen
+FILE /usr/share/dolly/builds/cbindgen.json
+SLOP cbindgen --version

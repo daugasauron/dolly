@@ -11,7 +11,7 @@ if has_image rust-build; then
     copy_static "demos/rust/tomlc17/${name}" "patti/${name}"
   done
 fi
-for program in ripgrep protox fd cargo; do
+for program in ripgrep protox fd cargo cbindgen; do
   if has_image "${program}"; then
     python3 demos/rust/prepare-rust-sources.py "${program}"
     copy_static "build/rust-sources/${program}.tar" "rust/${program}.tar"
