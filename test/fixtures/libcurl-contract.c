@@ -38,6 +38,16 @@ static size_t read_body(char *bytes, size_t size, size_t count, void *context) {
   return length;
 }
 
+static int progress_calls;
+static double progress_received;
+static int stop_after_body(void *context, double download_total, double downloaded,
+                           double upload_total, double uploaded) {
+  (void)context; (void)download_total; (void)upload_total; (void)uploaded;
+  ++progress_calls;
+  progress_received = downloaded;
+  return downloaded > 0;
+}
+
 static size_t reject_data(char *bytes, size_t size, size_t count, void *context) {
   (void)bytes; (void)size; (void)count; (void)context;
   return 0;
@@ -95,7 +105,12 @@ int main(int argc, char **argv) {
   UNSUPPORTED(CURLOPT_TCP_KEEPALIVE, 1L);
   UNSUPPORTED(CURLOPT_IPRESOLVE, (long)CURL_IPRESOLVE_V4);
   UNSUPPORTED(CURLOPT_PORT, 1234L);
-  UNSUPPORTED(CURLOPT_SEEKDATA, (void *)1);
+  /* The browser negotiates the version: a preference is accepted, a version to
+   * enforce is not. Hooks libcurl would never call here are accepted. */
+  EXPECT(curl_easy_setopt(curl, CURLOPT_HTTP_VERSION, (long)CURL_HTTP_VERSION_2_0), CURLE_OK);
+  EXPECT(curl_easy_setopt(curl, CURLOPT_PIPEWAIT, 1L), CURLE_OK);
+  EXPECT(curl_easy_setopt(curl, CURLOPT_SEEKFUNCTION, NULL), CURLE_OK);
+  EXPECT(curl_easy_setopt(curl, CURLOPT_OPENSOCKETFUNCTION, NULL), CURLE_OK);
   EXPECT(curl_easy_setopt(curl, CURLOPT_URL, path), CURLE_OK);
   EXPECT(curl_easy_perform(curl), CURLE_URL_MALFORMAT);
   EXPECT(curl_global_trace("all"), CURLE_NOT_BUILT_IN);
@@ -105,6 +120,7 @@ int main(int argc, char **argv) {
   if (curl == NULL) return 2;
   EXPECT(curl_easy_setopt(curl, CURLOPT_SSL_VERIFYPEER, 1L), CURLE_OK);
   EXPECT(curl_easy_setopt(curl, CURLOPT_SSL_VERIFYHOST, 2L), CURLE_OK);
+  EXPECT(curl_easy_setopt(curl, CURLOPT_PROGRESSFUNCTION, stop_after_body), CURLE_OK);
 
   EXPECT(curl_easy_setopt(curl, CURLOPT_URL, argv[1]), CURLE_OK);
   EXPECT(curl_easy_setopt(curl, CURLOPT_USERAGENT, "fixture/1"), CURLE_OK);
@@ -184,6 +200,18 @@ int main(int argc, char **argv) {
     EXPECT(curl_easy_perform(curl), CURLE_OPERATION_TIMEDOUT);
     if (now() - started > 1.5) { fputs("CURL FAIL: the deadline did not end the transfer\n", stderr); ++failures; }
     EXPECT(curl_easy_setopt(curl, CURLOPT_TIMEOUT_MS, 0L), CURLE_OK);
+    /* Once enabled, the progress callback sees the body arrive and ends the transfer. */
+    snprintf(url, sizeof(url), "%s?cancel=progress", argv[1]);
+    EXPECT(curl_easy_setopt(curl, CURLOPT_URL, url), CURLE_OK);
+    if (progress_calls != 0) { fputs("CURL FAIL: progress reported while NOPROGRESS is set\n", stderr); ++failures; }
+    EXPECT(curl_easy_setopt(curl, CURLOPT_NOPROGRESS, 0L), CURLE_OK);
+    const double progress_started = now();
+    EXPECT(curl_easy_perform(curl), CURLE_ABORTED_BY_CALLBACK);
+    if (progress_received != 6 || now() - progress_started > 0.7) {
+      fprintf(stderr, "CURL FAIL: progress callback saw %.0f bytes\n", progress_received);
+      ++failures;
+    }
+    EXPECT(curl_easy_setopt(curl, CURLOPT_NOPROGRESS, 1L), CURLE_OK);
   }
   for (int header = 0; header < 2; ++header) {
     char url[4096];
@@ -207,6 +235,12 @@ int main(int argc, char **argv) {
   char *effective = NULL;
   EXPECT(curl_easy_getinfo(curl, CURLINFO_EFFECTIVE_URL, &effective), CURLE_OK);
   if (status != 0 || effective != NULL) ++failures;
+  /* A reset handle has no URL, and no protocol restriction once it has one. */
+  curl_easy_reset(curl);
+  EXPECT(curl_easy_perform(curl), CURLE_URL_MALFORMAT);
+  EXPECT(curl_easy_setopt(curl, CURLOPT_URL, argv[1]), CURLE_OK);
+  EXPECT(curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, write_body), CURLE_OK);
+  EXPECT(curl_easy_perform(curl), CURLE_OK);
   curl_easy_cleanup(curl);
   if (failures) { fprintf(stderr, "CURL-CONTRACT: %d failures\n", failures); return 1; }
   CURLM *multi = curl_multi_init();
@@ -217,19 +251,17 @@ int main(int argc, char **argv) {
     EXPECT(curl_easy_setopt(peers[index], CURLOPT_URL, overlap), CURLE_OK);
     EXPECT(curl_easy_setopt(peers[index], CURLOPT_WRITEFUNCTION, write_body), CURLE_OK);
     EXPECT(curl_easy_setopt(peers[index], CURLOPT_WRITEDATA, NULL), CURLE_OK);
+    EXPECT(curl_easy_setopt(peers[index], CURLOPT_PRIVATE, &peers[index]), CURLE_OK);
     EXPECT(curl_multi_add_handle(multi, peers[index]), CURLM_OK);
   }
+  /* The browser pools connections; no multi option claims otherwise. */
+  EXPECT(curl_multi_setopt(multi, CURLMOPT_MAX_HOST_CONNECTIONS, 2L), CURLM_UNKNOWN_OPTION);
   int running = 2, messages = 0, remaining;
   const double started = now();
   do {
     EXPECT(curl_multi_perform(multi, &running), CURLM_OK);
     if (now() - started > 5) { fprintf(stderr, "CURL FAIL: %d concurrent transfers timed out\n", running); ++failures; break; }
-    if (running) {
-      long timeout = 0;
-      EXPECT(curl_multi_timeout(multi, &timeout), CURLM_OK);
-      if (timeout > 0) nanosleep(&(struct timespec){
-          .tv_sec = timeout / 1000, .tv_nsec = timeout % 1000 * 1000000}, NULL);
-    }
+    if (running) EXPECT(curl_multi_wait(multi, NULL, 0, 1000, NULL), CURLM_OK);
   } while (running);
   CURLMsg *message;
   while ((message = curl_multi_info_read(multi, &remaining)) != NULL) {
@@ -237,6 +269,9 @@ int main(int argc, char **argv) {
     EXPECT(message->data.result, CURLE_OK);
     EXPECT(curl_easy_getinfo(message->easy_handle, CURLINFO_RESPONSE_CODE, &status), CURLE_OK);
     if (status != 200) { fprintf(stderr, "CURL FAIL: overlap HTTP status %ld\n", status); ++failures; }
+    CURL **private = NULL;
+    EXPECT(curl_easy_getinfo(message->easy_handle, CURLINFO_PRIVATE, &private), CURLE_OK);
+    if (private == NULL || *private != message->easy_handle) { fputs("CURL FAIL: private pointer lost\n", stderr); ++failures; }
   }
   if (messages != 2) { fprintf(stderr, "CURL FAIL: %d completion messages, expected 2\n", messages); ++failures; }
   for (int index = 0; index < 2; ++index) {
