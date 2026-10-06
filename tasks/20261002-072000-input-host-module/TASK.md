@@ -89,3 +89,110 @@ program cannot see the count, and a key release dropped at 256 unread records
 leaves that key down until it is pressed again. The `input@0` contract should
 carry a dropped-counter word. All ring logic sits in `DisplayTransport`'s
 producer methods; `input.mjs` was not touched.
+
+## Design (2026-10-06, `core/input-module`)
+
+Re-audit of the plan against `integrate/userspace-next` (`7976b8ea`). Where it
+differs from the plan, the reason is given.
+
+### Contract `host/input/dolly-input-0.wat`, `input.h`
+
+- Kernel exports `dolly_input_mailbox_address`, `dolly_input_paste_buffer_address`.
+  No import: a mailbox module, so `abi/dolly-browser-0.wat` is unchanged.
+- Mailbox: seven atomic u32 words, then 256 records of 128 bytes at byte 28.
+  `EVENT_READ` (kernel), `EVENT_WRITE` (page), `FLAGS` (kernel: `LEASED`, a
+  program reads the records; `POINTER_RELATIVE`, it asks for pointer lock),
+  `PASTE_SEQUENCE`, `PASTE_CONSUMED_SEQUENCE`, `PASTE_LENGTH`, and the paste
+  buffer (256 KiB) beside it.
+- Records: `dolly_input_event` keeps its size and type numbers (bhop's
+  recorded timelines hold them). `width_css_px`/`height_css_px` become
+  `int32_t x, y`; the two resize-only fields become reserved zero words.
+  Type 3 (resize) is gone. New type 11 `DROPPED`.
+- `SCROLL` no longer carries terminal rows (the page divided by the terminal's
+  cell height, which input cannot know): `action` is the wheel's own unit
+  (pixel, line, page, as `WheelEvent.deltaMode`), `y` the delta in thousandths.
+  The terminal's decoder converts with its cell height exactly as the page
+  did; SDL2 and the games convert at 26 CSS pixels a line, what a wheel step
+  was worth to them at the default font.
+- **Dropped counter: a record, not a word.** A word in the mailbox tells a
+  program that records were lost but not where: it would let go of its keys
+  on the next read and then read the 255 older presses still queued, leaving
+  them down again. The page instead keeps the ring's last slot for one
+  `DROPPED` record (`action`: records lost since boot), written where the
+  first lost record would have been; a second one follows only after later
+  records. A program lets go of keys and buttons when it reads it.
+- Operations 88–91: `ACQUIRE`, `NEXT_EVENT`, `SET_POINTER` (relative on/off),
+  `RELEASE`. The plan had three; pointer lock was requested through the
+  display's cursor (`DOLLY_DISPLAY_CURSOR_CAPTURED`), which would leave a
+  draw-only image able to ask for it.
+- `dolly_input_decoder`: how the resident terminal turns records and a paste
+  into the bytes its programs read. The display library registers it itself
+  (`dolly_input_decoder_install`, one new import of
+  `abi/dolly-kernel-plugin-0.wat`), so neither `display.h` nor the display
+  kernel names a record. The plan handed records through the display driver's
+  `handle_event`, which keeps the record type in `display.h`.
+
+### Authority
+
+| What | Owner | Why |
+| --- | --- | --- |
+| Keys, IME text, paste, window focus | `input@0` | records |
+| Pointer buttons, position, wheel, presence | `input@0` | records; positions are canvas pixels |
+| Pointer lock and relative motion | `input@0` | granted only on a trusted canvas press while the lessee asks; Escape, release or exit ends it |
+| Surface size and scale | `display@0` | geometry: the page publishes it under a sequence in the display mailbox, the kernel feeds the driver on its tick and raises SIGWINCH when the grid changes (font zoom included, which raised none before) |
+| Clipboard copy of the terminal selection | `display@0` | it reads the driver's copy buffer; the chord reaches it as a claimed key of the one keyboard listener, so a display-only image copies nothing |
+| F11 fullscreen, Ctrl+Shift+F indicators | page shell (`src/page-chords.mjs`) | page chrome: taken before any module sees the key |
+
+### Lease rule
+
+- No lease: the terminal reads the ring. Keys, text and paste go through the
+  decoder to the foreground program's stdin; pointer and scroll records are
+  the terminal's own (selection, scrollback) and are handled ahead of unread
+  keys on the display's tick, before it draws; a terminal a graphics program
+  covers ignores them.
+- `dolly_input_acquire`: the foreground program or a descendant, one at a
+  time. It then reads every record; the terminal reads none (its own replies,
+  such as a cursor report, still reach stdin). The page sends all buttons,
+  presence and pastes as text, and wakes the reader on each record.
+- Release, exit or forced termination: unread records were that program's and
+  are dropped. A foreground program that retires without a lease loses its
+  unread keys while the terminal keeps its pointer and scroll records
+  (`dolly_input_ring_discard(ring, terminal_ui)`, kept).
+- Display and input leases are independent: SDL2 takes both; a program may
+  draw and read stdin, or read records and leave the terminal on screen.
+
+### What `display@0` loses
+
+The event ring and its words, the paste buffer and words, `NEXT_EVENT`,
+`DOLLY_DISPLAY_CURSOR_CAPTURED`, every `dolly_input_*` name, the resize record
+and `input-ring.c`. Driver v5: `initialize` (no paste buffer), `write`, `read`
+(replies), `resize`, `present`, `set_suspended`. It gains four surface words.
+No graphics program read the resize record, so none stays in the ring.
+
+### Images
+
+- A terminal image declares `input@0` beside `display@0`; so does a package
+  whose programs read records (`sdl2`, `gamedev-sdk`). The `display` package
+  does not: installing it grants no input.
+- Display only: no page listener writes a record, the terminal shows output
+  and reads no key, and a program linking the input client is refused before
+  it runs (`host module input@0 is not declared by this image (REQUIRES HOST)`).
+- Input only (headless): keys, text, focus and paste reach a program that
+  takes the lease; without a display library there is no decoder, so stdin
+  gets none and unread records stay queued (256, then counted as dropped).
+  No pointer records: there is no canvas.
+
+### Process contract
+
+`process.h` and `dolly.process` are unchanged: operations are module globals
+and no core packet names the display. Changed identities: the `display@0` and
+`input@0` digests and the kernel-plugin digest. Shared files touched:
+`src/process-kernel.h` (terminal hooks), nothing in `process-kernel.c`.
+The seed changes (header, client archive), so every image rebuilds.
+
+### Touch (`20261005-222057-touch-input`), later
+
+New record types in `input.h` (contact down, move, up, cancel) using `x`, `y`
+and the two reserved words for the contact id; page listeners; the decoder's
+mapping to scroll and selection; SDL2's to its touch events. No mailbox or
+operation change, but the digest changes, so it is a seed round.
