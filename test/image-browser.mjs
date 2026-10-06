@@ -4,18 +4,21 @@ import { dollyfileCases } from "./fixtures/dollyfile-cases.mjs";
 import { buildBufferReuse, buildLogProof } from "./fixtures/image-build-browser.mjs";
 import { DOLLY_IMAGES } from "../dist/dolly-images.mjs";
 import { DOLLY_SYSTEM_SNAPSHOT as systemMetadata } from "../dist/dolly-system-system-snapshot.mjs";
+import { DOLLY_SYSTEM_SNAPSHOT as toolsMetadata } from "../dist/dolly-system-tools-system-snapshot.mjs";
 
-const [system, defaultImage] = ["system", "default"].map(name => DOLLY_IMAGES.find(({ image }) => image === name));
-const systemPacks = systemMetadata.packs.map(({ sha256 }) => `/dist/packs/${sha256}.snapshot.gz`).sort();
+// system is built FROM system-tools: the base and child of the cache checks.
+const [system, tools] = ["system", "system-tools"].map(name => DOLLY_IMAGES.find(({ image }) => image === name));
+const packs = metadata => metadata.packs.map(({ sha256 }) => `/dist/packs/${sha256}.snapshot.gz`).sort();
+const systemPacks = packs(systemMetadata), toolsPacks = packs(toolsMetadata);
 const sources = { "fs-record.h": "src/fs-record.h", "fs-record.c": "test/fixtures/fs-record.c",
   "image-roundtrip.c": "test/fixtures/image-roundtrip.c", "system-snapshot.c": "src/system-snapshot.c",
   "system-snapshot.h": "src/system-snapshot.h", "dollyfile.c": "src/dollyfile.c", "sha256.h": "src/sha256.h" };
 const fixtures = { ...sources, "parser-dollyfile.c": "src/dollyfile.c", "parser-fs-record.h": "src/fs-record.h",
   "parser-sha256.h": "src/sha256.h" };
-let hideDefaultMetadata = false;
+let hideSystemMetadata = false;
 let parserRecipes = new Map();
 function handle(request, response, path, headers) {
-  if (hideDefaultMetadata && path === "/dist/dolly-default-system-snapshot.mjs") response.writeHead(404, headers).end();
+  if (hideSystemMetadata && path === "/dist/dolly-system-system-snapshot.mjs") response.writeHead(404, headers).end();
   else if (parserRecipes.has(path)) response.writeHead(200, { ...headers, "content-type": "text/plain" }).end(parserRecipes.get(path));
   else return false;
   return true;
@@ -70,7 +73,7 @@ function instrument(source) {
   };
 }
 
-await browserTest("image", { server: { fixtures, handle }, timeout: 600_000 }, async ({ browser, server, open }) => {
+await browserTest("image", { image: "system", server: { fixtures, handle }, timeout: 600_000 }, async ({ browser, server, open }) => {
   const parser = dollyfileCases(server.origin);
   parserRecipes = parser.recipes;
   const { page: shell, submit } = await open({ policy: { rules: [
@@ -110,7 +113,7 @@ await browserTest("image", { server: { fixtures, handle }, timeout: 600_000 }, a
   const page = await browser.newPage();
   page.setDefaultTimeout(120_000);
   await page.addInitScript(instrument, iterationRecipe(system, "iteration-one"));
-  const boot = async (target, marker) => {
+  const boot = async (target, marker, ownSources = "/none/") => {
     server.requests.clear();
     await target.goto(`${server.origin}/custom/rebuild/`);
     await target.waitForFunction(() => ["ready", "failed"].includes(document.documentElement.dataset.dollyStatus));
@@ -119,7 +122,8 @@ await browserTest("image", { server: { fixtures, handle }, timeout: 600_000 }, a
     await target.evaluate(() => __dolly.waitForInteractiveTerminal(/dolly:[^\n]*\$\s*$/, "iteration shell"));
     assert.equal(await target.evaluate(command => __dolly.submit(command), `test "$(iteration)" = ${marker} && ` +
       'test "$DOLLY_ITERATION" = first:second && test ! -e /usr/share/iteration-deleted && test "$(which echo)" = /opt/iteration/bin/echo'), 0);
-    assert.deepEqual([...server.requests.keys()].filter(path => path.startsWith("/dist/static/") || path === "/dist/dolly.data"), [],
+    assert.deepEqual([...server.requests.keys()].filter(path =>
+      (path.startsWith("/dist/static/") && !path.startsWith(ownSources)) || path === "/dist/dolly.data"), [],
       "a derived build fetched build sources or the compiler seed");
     return target.evaluate(async () => ({
       digest: [...new Uint8Array(await crypto.subtle.digest("SHA-256", __dolly.systemSnapshot))]
@@ -172,7 +176,7 @@ await browserTest("image", { server: { fixtures, handle }, timeout: 600_000 }, a
     } finally {
       if (!await saveImageArtifact(original, `/${system.dollyfile}`)) throw new Error("cache restoration failed");
     }
-  }, { system, child: defaultImage }), { changedBytes: true, staleHit: false, requested: "default", failure: "EXPECTED_REBUILD" });
+  }, { system: tools, child: system }), { changedBytes: true, staleHit: false, requested: "system", failure: "EXPECTED_REBUILD" });
 
   // IndexedDB rollback under an injected quota failure, stale and corrupt
   // payload rejection, atomic concurrent publication, recovery of the exact
@@ -257,16 +261,17 @@ await browserTest("image", { server: { fixtures, handle }, timeout: 600_000 }, a
     oldPayloadGone: true, concurrent: true, recovered: true, legacyDiscarded: true, upgraded: true, sessionPreserved: true });
   await page.close();
 
-  // Without published default metadata, a fresh tab builds default from the
-  // published system instead of downloading default.
-  hideDefaultMetadata = true;
+  // Without published system metadata, a fresh tab builds system from the
+  // published system-tools instead of downloading system; that build fetches
+  // only the sources system's own recipe names.
+  hideSystemMetadata = true;
   const missing = await browser.newPage();
   missing.setDefaultTimeout(120_000);
-  await missing.addInitScript(instrument, iterationRecipe(defaultImage, "iteration-one"));
+  await missing.addInitScript(instrument, iterationRecipe(system, "iteration-one"));
   try {
-    const built = await boot(missing, "iteration-one");
-    assert.ok(server.requests.has("/dist/dolly-default-system-snapshot.mjs"));
-    assert.equal(server.requests.has("/dist/dolly-default-system.snapshot"), false);
-    assert.deepEqual([built.payloadReads, built.downloads], [[], systemPacks]);
-  } finally { hideDefaultMetadata = false; }
+    const built = await boot(missing, "iteration-one", "/dist/static/session-recovery/");
+    assert.ok(server.requests.has("/dist/dolly-system-system-snapshot.mjs"));
+    assert.equal(server.requests.has("/dist/dolly-system-system.snapshot"), false);
+    assert.deepEqual([built.payloadReads, built.downloads], [[], toolsPacks]);
+  } finally { hideSystemMetadata = false; }
 });
