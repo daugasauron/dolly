@@ -1,6 +1,6 @@
 # Own the kernel's outer boundary: load the kernel without Emscripten's JavaScript runtime
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 325
 - TAGS: core,boundary,abi,architecture
 
@@ -11,6 +11,50 @@ reviewable by a human". Every Dolly process is already a standalone Wasm
 module that Dolly's own JavaScript instantiates with one import. The kernel is
 the one module still instantiated by Emscripten's generated JavaScript, and
 most of the perimeter is that generated code.
+
+## Result (2026-10-06 night)
+
+The kernel is loaded by Dolly's own Worker with nine imports, every one
+Dolly-named, typed in `abi/dolly-browser-0.wat`, owned by a manifest and
+provided by that module's `bindings`. No generated JavaScript is loaded.
+
+| | Imports | Exports | Generated JavaScript loaded |
+| --- | --- | --- | --- |
+| Before (`bef23f6b`) | 30 | 130, 43 named by no contract | `dolly.mjs` 48 KB, `dolly-seed.mjs` 85 KB |
+| After (`core/kernel-boundary-2`) | 9 | 90, all named by a contract | none |
+
+| Ref | Holds | State |
+| --- | --- | --- |
+| `core/kernel-boundary-step2` | step 2 on `bef23f6b` | merged into `integrate/next` |
+| `core/kernel-boundary-step4` | step 4 on step 2's merge (`7e39f6ee`) | merged as `fb6c3463`; tonight's catalog is built by it |
+| `core/kernel-boundary-2` | step 3, rebased onto `integrate/next` (`80595976`) | verified before the rebase; waits for the next seed round, since it changes image inputs |
+
+Each done-when line, and where it is shown:
+
+- Imports from `host/*/` providers, no generated JavaScript, `TextDecoder`
+  untouched: steps 4 and 3 below; the boundary suite instantiates a kernel in
+  the page from the providers alone.
+- Only Dolly-named imports, counted before and after: 30, then 24 (step 2),
+  then 9 (step 4); an artifact test fails on any other name.
+- Every export named by a contract: the artifact test compares the two sets
+  exactly (step 4).
+- The two refusals: in the boundary suite, against a real kernel (step 4).
+- Suites and the root rebuild: at every step, below; `system-build` from the
+  root has the same bytes at each (`e5a4ac80…`).
+
+`core/kernel-boundary-2` after the rebase (2026-10-06, 23:25): runtime
+`4d72d1e1…`, image inputs `08086c58…`, 9 imports, 90 exports, the build's
+exact import check passes; source 399 of 400, the one failure being the docs
+package's pins, which the branch no longer carries (400 of 400 once repinned,
+`rebased/source-repinned.log`). The conflict in `src/dolly.c` took the
+integrator's table without `SHELL`. No browser suite ran on the rebased tree:
+its images do not exist yet.
+
+Raised from here: `20261006-140347-kboundary-01` (file growth in Chrome after
+a refused one) and `20261006-142127-kboundary-02` (trusted code still holds
+the exports as `dolly._NAME`; the rename exists and is held back by an
+unexplained Firefox failure). The catalog round, not this task, loads the
+large images.
 
 ## Evidence (`integrate/1005` at `c5b9e132`; artifacts from `work/host-modules/dist`)
 
@@ -272,10 +316,8 @@ Decisions, with their reasons:
   them the WASI imports return and the build's exact import check fails.
 - **One line of the old naming is left.** Host modules and the supervisor
   call exports as `dolly._NAME`; the Worker builds that object from the
-  instance's exports in one line. Renaming the about 60 call sites to
-  `kernel.NAME` is mechanical (`build/kboundary-evidence/rename-kernel-handle.py`),
-  but touches `src/process-supervisor.mjs` and every provider while three
-  branches edit them; it is not done.
+  instance's exports in one line. The rename is
+  `20261006-142127-kboundary-02`.
 
 Measured in `work/kboundary` (`build/kboundary-evidence/`):
 
@@ -338,7 +380,8 @@ manifest and listed in `abi/dolly-browser-0.wat`.
 
 ## Step 3, verified (2026-10-06 night, `core/kernel-boundary-2`)
 
-`a1a50e19` on `core/kernel-boundary-step4` (`c28cb1ee`). The seed `dist/dolly.data` is a
+`a1a50e19` on `core/kernel-boundary-step4` (`c28cb1ee`), where it was
+verified; rebased since as `97c34d4d`. The seed `dist/dolly.data` is a
 Dolly snapshot (`abi/dolly-image-0.wat`, the format of every image), written
 by `scripts/pack-seed.mjs` from the same staged files: 822 files under `/usr`,
 126,817,748 bytes. The Worker stages it like a base image and
@@ -363,8 +406,8 @@ the `/seed` staging tree and the kernel's copy of it into `/usr`
 - **What repins**: `Dollyfile-dolly-docs` (`abi/dolly-image-0.wat`,
   `docs/architecture.md`, `docs/browser-boundary.md`, `docs/sessions.md`) and
   `Dollyfile-system` (`src/session-records.h`), and with them every recipe
-  built on `system` or installing the docs package (26 recipe files,
-  `2950027d`).
+  built on `system` or installing the docs package (26 recipe files;
+  that commit, `2950027d`, was dropped in the rebase for the integrator's repin).
 - **Suites** at `2950027d`: source 399 of 399; artifacts 22 passed, 1 skipped
   (CPython's), 0 failed; `core`, `boundary`, `host-modules`, `image`,
   `snapshot-stream`, `terminal`, `process` and `custom-session` 8 of 8 in
