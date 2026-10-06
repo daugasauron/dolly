@@ -8,8 +8,8 @@ REQUIRES HOST snapshot@0
 REQUIRES HOST threads@0
 REQUIRES HOST upload@0
 
-FROM https://daugasauron.com/Dollyfile-system e256ffefcef1e0fb81ca7f12d388ba04828c9f506350a9a11d278289280423bf
-INSTALL https://daugasauron.com/demos/codex/Dollyfile-codex-cli 71026090c6414dfb32c4dca761ca958d63b32126cba578d3e1b008b9986d0cf7
+FROM https://daugasauron.com/Dollyfile-system 530ac991b8305a71ab635821bf98cb595e4e8efc62c867187f3264d10a964481
+INSTALL https://daugasauron.com/demos/codex/Dollyfile-codex-cli 7a64fcc81a3d8c6078da849d47ddfb5b1963872b174e1c43374f6ea5f3a8a07a
 REQUIRES TOOL codex
 REQUIRES TOOL sh
 

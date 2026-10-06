@@ -5,10 +5,10 @@ REQUIRES HOST threads@0
 
 # The Rust SDK and Patti as rust-build holds them. The SDK's rustc finds its
 # sysroot beside itself, so /usr/bin/rustc starts it by its own path.
-COPY https://daugasauron.com/demos/rust/Dollyfile-rust-build f0ddcde008fafebe023e54a73c1e803a163057ab1683e16064c659a69bf43906 /opt/rust-sdk /opt/rust-sdk
-COPY https://daugasauron.com/demos/rust/Dollyfile-rust-build f0ddcde008fafebe023e54a73c1e803a163057ab1683e16064c659a69bf43906 /usr/bin/patti /usr/bin/patti
-COPY https://daugasauron.com/demos/rust/Dollyfile-rust-build f0ddcde008fafebe023e54a73c1e803a163057ab1683e16064c659a69bf43906 /usr/share/licenses/rust /usr/share/licenses/rust
-COPY https://daugasauron.com/demos/rust/Dollyfile-rust-build f0ddcde008fafebe023e54a73c1e803a163057ab1683e16064c659a69bf43906 /usr/share/licenses/patti /usr/share/licenses/patti
+COPY https://daugasauron.com/demos/rust/Dollyfile-rust-build b230c83f6c6455b9b5f8f71c6ba05bd8e850a14043a5b5ef69b95e53d7e0fe10 /opt/rust-sdk /opt/rust-sdk
+COPY https://daugasauron.com/demos/rust/Dollyfile-rust-build b230c83f6c6455b9b5f8f71c6ba05bd8e850a14043a5b5ef69b95e53d7e0fe10 /usr/bin/patti /usr/bin/patti
+COPY https://daugasauron.com/demos/rust/Dollyfile-rust-build b230c83f6c6455b9b5f8f71c6ba05bd8e850a14043a5b5ef69b95e53d7e0fe10 /usr/share/licenses/rust /usr/share/licenses/rust
+COPY https://daugasauron.com/demos/rust/Dollyfile-rust-build b230c83f6c6455b9b5f8f71c6ba05bd8e850a14043a5b5ef69b95e53d7e0fe10 /usr/share/licenses/patti /usr/share/licenses/patti
 FILE /usr/bin/rustc
     #!/bin/slop
     /opt/rust-sdk/bin/rustc "$@"
