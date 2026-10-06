@@ -445,3 +445,41 @@ Seed round (`integrate/seed-1006` at `9077dda1`, 61 images, image inputs
   Slop's newer commits, the libcurl follow-up and `cargo` in `rust-tools`,
   `core/trusted-surface` (audit-24, step 1). Not ready: `core/input-module`,
   file modes.
+
+### 06:30, 2026-10-07: the night stopped at 00:40; finishing the round now
+
+- The weekly usage limit ended the session and every agent at about 00:40.
+  Nothing ran between then and 06:20 except what was already detached. The
+  owner reset the usage at 06:20. No release candidate was packaged overnight:
+  at 00:31 I had paused the round script (SIGSTOP) to take one more fix in
+  before packaging, and a paused script waits for a person. Without the pause
+  it would have run its GPU tests and both packagings unattended.
+- Main round at the stop: source 400/400; artifacts 23/23 after the sealing
+  test compared `zero-ad` with its own base (`b2ee464d`; `default` no longer
+  carries a compiler); core browser suites all passed in chromium and firefox
+  (826 s); demos: python, javascript, emacs, neovim, rust, cmake, sdl2,
+  studio, codex, bhop, rts passed, `pi` and `classicube` failed.
+  - `pi`: `amy install` was refused because the test page brings its own HTTP
+    policy and did not admit `/amy-index.txt` (docs/http.md says such a page
+    must). Test fixed (`1e6cc838`), passes. The site's own pages bring no
+    policy object, so amy works there.
+  - `classicube`: one colour level off in one of three pixels of the docked
+    game ("panel does not cover the game edges"); passed on rerun (298 s).
+    Unexplained, so it is a flake to find, not a pass to trust.
+- Taken into the candidate this morning: `7eebbed6` (the `rust` package
+  installs `cc`: on the small `default`, `amy install rust` gave a compiler
+  that could not link) with `c08c4e01` (amy tests on a `default` with no
+  `cc`); `rust`, `cargo` and `rust-tools` are being rebuilt, then the reruns,
+  the GPU tests and both packagings (`work/finish-round.sh`, logs
+  `work/next/build/next-evidence/finish-*.log`).
+- Agents at the stop, all committed: Cargo (`work/cargo-native` `c99dd5dc`,
+  finished), dso (`b527f4de`, finished), kernel boundary (finished; step 3 on
+  `core/kernel-boundary-2`, audit-24 step 1 on `core/trusted-surface`), file
+  locks (finished) and its assembly of `integrate/round3` (`3eadc5c0`: locks,
+  step 3, Slop, the Cargo additions, dso, trusted surface; `default` and
+  `system` chains built and twelve suites green in both browsers at
+  `93e3d0cb`; no catalog round yet), input (`core/input-module` `82fa0cff`,
+  merged onto the new kernel, cut off mid-edit with a clean tree, not
+  verified), file modes (`core/file-modes` `c17b186e`: kernel, formats and
+  tools written, nothing built in Dolly), Slop (`core/concurrent-pipelines`
+  `8a0e841a`).
