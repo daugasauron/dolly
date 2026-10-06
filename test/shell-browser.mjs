@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { browserTest } from "./browser.mjs";
 
-// Everyday shell and tool behavior of the default image, typed input included.
+// Everyday shell and tool behavior with the toolchain's tools, typed input included.
 const recorded = {};
 // The limits and clock a program can ask for are the ones it has.
 const limitsSource = `#include <fcntl.h>
@@ -42,7 +42,7 @@ async function handle(request, response, path, headers) {
   return true;
 }
 
-await browserTest("shell", { server: { handle } }, async ({ server, open }) => {
+await browserTest("shell", { image: "system", server: { handle } }, async ({ server, open }) => {
   const { page, submit, result } = await open({ policy: { maxRequests: 256,
     rules: [{ origin: server.origin, pathPrefix: "/fixture/", methods: ["GET", "POST"] }] } });
   // Input mailbox: ESC [A with empty history, then help with a deleted typo.

@@ -4,7 +4,7 @@ import { browserTest } from "./browser.mjs";
 // The in-Wasm Ghostty terminal: keyboard, clipboard, selection, scrollback,
 // zoom, fullscreen, rendering, termios and display leases.
 const server = { fixtures: { "terminal-ui.c": "test/fixtures/terminal-ui.c" } };
-await browserTest("terminal", { server }, async ({ name, server, open }) => {
+await browserTest("terminal", { image: "system", server }, async ({ name, server, open }) => {
   const { page, submit, text, result, waitForText } = await open({ policy: {
     rules: [{ origin: server.origin, pathPrefix: "/fixture/", methods: ["GET"] }] },
     setup: page => name === "chromium" && page.context().grantPermissions(["clipboard-read", "clipboard-write"]) });

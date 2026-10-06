@@ -29,7 +29,8 @@ await browserTest("core", { image }, async ({ server, open }) => {
   const cancelledBefore = server.cancelledRequests;
   for (const command of [
     "sleep 30; echo bad > /tmp/core-interrupted",
-    "sleep 30 | /bin/slop -c 'echo bad > /tmp/core-interrupted'",
+    // A pipeline's programs start together; what follows the pipeline does not run.
+    "sleep 30 | cat; echo bad > /tmp/core-interrupted",
     "(sleep 30) | /bin/slop -c 'echo bad > /tmp/core-interrupted'",
     'echo "$(sleep 30)" "$(echo bad > /tmp/core-interrupted)"',
     'for item in "$(sleep 30)" "$(echo bad > /tmp/core-interrupted)"; do echo bad > /tmp/core-interrupted; done',
