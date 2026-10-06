@@ -333,3 +333,24 @@ pipelines run alone in a 26 GB scope.
    configure scripts.
 Queued for free slots: `rts-early-input-stall`, `amy-descriptions` (rest),
 `less-pager`, `audit-24`, `local-context-size`.
+
+### 21:15: the seed round's catalog failed twice over; third start
+
+- The 26 GB scope was too small for three builders when `codex-build`
+  (renderer at 14.5 GB), `pi-local` (10.3 GB) and `zero-ad` overlapped: the
+  kernel's cgroup OOM killer took the first two at 20:36:32 (`journalctl -k`,
+  "Memory cgroup out of memory"; the build reports "page.evaluate: Target
+  crashed"). The cap did its job; the scheduling was mine. Large images now
+  build apart: phase A is `pi-local`, `slopyard`, `dollyfile-studio` two at a
+  time; phase B is the Codex chain alone.
+- `slopyard --check` span at full CPU for 71 minutes. Cause: the target
+  identity removed `__EMSCRIPTEN__`, and Box3D then selects its
+  unknown-platform path, whose `b3CreateThread` calls the worker loop inline
+  and never returns. The reading in `20261005-133402-target-identity` missed
+  it. Fixed in Slopyard's own wrapper (`07fa5f0b` on `integrate/seed-1006`);
+  the catalog round is what found it, which is the argument for measuring
+  ports by building them.
+- Restarted at 21:14 as `work/round2/build/seed-evidence/seed3.sh` (log
+  `seed3.log`, builds `catalog-a.log`, `catalog-b.log`); 55 of 61 images were
+  kept. Expect the catalog at about 22:45, verification by 23:45, packaging
+  after.
