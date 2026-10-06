@@ -94,6 +94,17 @@ test("no two contracts claim one process operation number", async () => {
     const abi = await import(new URL("abi.mjs", url));
     claims.push({ name: `${name}@${first}`, first: abi[first], last: abi[last] });
   }
+  // A module served inside the process Worker takes its operations there,
+  // before the kernel sees them (call() in src/process-worker.mjs).
+  for (const { name, url, processWorker } of hostManifests) {
+    if (!processWorker) continue;
+    const { serve } = await import(new URL(processWorker, url));
+    const local = serve({ memory: new WebAssembly.Memory({ initial: 1 }),
+      instance: { exports: {} }, processInterface: { exports: [] } });
+    for (let operation = 0; operation < 256; ++operation) {
+      if (local.handles(operation)) claims.push({ name: `${name}@${operation}`, first: operation, last: operation });
+    }
+  }
   claims.sort((left, right) => left.first - right.first);
   for (const [index, claim] of claims.entries()) {
     assert.ok(Number.isInteger(claim.first) && claim.first <= claim.last, claim.name);
