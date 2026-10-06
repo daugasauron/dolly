@@ -60,15 +60,17 @@ so when it matters to the task.
 
 The `bash` tool, `!`, `sh` and `make` all run Slop, not Bash. `help` prints
 exactly the syntax it supports; anything else is an error, so check it before
-reaching for Bash features. Pipeline stages run one after another, so
-`make | tail` shows nothing until make ends.
+reaching for Bash features. The programs of a pipeline run at the same time
+(`make | tee log` streams, `... | head` stops its producer); a `while` loop or
+function as a stage finishes before the next stage reads its output.
 Put longer scripts in a file with the write tool and run `slop FILE`. Nobody
 is at the keyboard of the tool's commands: never start interactive programs
 (nvim, pi, python without arguments) there, and bound anything that might wait
 or hang with `timeout 60 COMMAND`.
 
-There are no background jobs (`&`): `make -jN` and `xargs -P N` run N
-processes at once.
+`PROGRAM &` starts a program, `$!` is its PID and `wait` collects it; there is
+no job control, and `&` takes only programs (`slop -c '...' &` for the rest).
+`make -jN` and `xargs -P N` run N processes at once.
 To fetch many files, list them in `files.txt` and run `make -j8 -f fetch.mk`:
 
 ```make
