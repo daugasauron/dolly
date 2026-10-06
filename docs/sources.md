@@ -22,6 +22,11 @@ flowchart TD
 | LLVM/Clang/LLD 24 | Wasm64 libraries linked into one stamped compiler executable ([`build-toolchain.sh`](../scripts/build-toolchain.sh)) | `cc`, `c++`, `ld`, `ar` spawn it as a private process |
 | libc++/libc++abi | Pinned Emscripten archives; headers archived separately | Installed by [`Dollyfile-system-build`](../Dollyfile-system-build); no handwritten substitutes |
 
+The libc's and libc++'s headers are staged with their `__EMSCRIPTEN__` tests
+renamed to `__dolly__`, and LLVM generates code under the libc's triple,
+`wasm64-unknown-emscripten`; a program sees neither name
+([process model](process-model.md#executables)).
+
 Demo exceptions (the Rust compiler seed, 0 A.D.'s SpiderMonkey) are recorded in their
 demo READMEs. Every externally built program (compiler, Rust seed, SpiderMonkey)
 validates against `dolly-process-0` exactly and ships without an Emscripten

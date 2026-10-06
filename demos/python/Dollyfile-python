@@ -1,8 +1,9 @@
 DOLLY 6
 PACKAGE python
+REQUIRES HOST runtime@0
 REQUIRES HOST http@0
 
-FROM https://daugasauron.com/Dollyfile-system af363bc6e78e408b3463dbab83e63a067224cc7a287377b50f467c776d7554fe
+FROM https://daugasauron.com/Dollyfile-system a8f772bebe152ea6d33be845707b46c0db70c84a4392f94f7bf8c598c4d9df24
 # Build the Python runtime and native extension SDK; pip.dm adds pip.
 REQUIRES HEADER curl
 REQUIRES HEADER libc
@@ -22,7 +23,7 @@ REQUIRES TOOL   tar
 REQUIRES TOOL   test
 REQUIRES TOOL   touch
 
-SOURCE https://daugasauron.com/dist/static/python/libffi.tar 0b9478e1c8726962026fc4fe97e647b60b00497f52e9709a8206daa5d7f5dc71 /tmp/libffi.tar
+SOURCE https://daugasauron.com/dist/static/python/libffi.tar f1edc3a00490ab6d673adb1202b0d779fdbff33bd28ab8382e39847e64109bce /tmp/libffi.tar
 SLOP tar \
   -xf /tmp/libffi.tar \
   -C /
@@ -34,8 +35,8 @@ FILE /tmp/libffi/Makefile
     CC := cc
     AR := ar
     ROOT := /usr/src/libffi
-    CFLAGS := -O1 -std=c17 -DDOLLY -DHAVE_CONFIG_H -I$(ROOT) -I$(ROOT)/include -I$(ROOT)/src
-    NAMES := prep_cif types raw_api java_raw_api closures tramp dolly
+    CFLAGS := -O1 -std=c17 -DHAVE_CONFIG_H -I$(ROOT) -I$(ROOT)/include -I$(ROOT)/src
+    NAMES := prep_cif types raw_api java_raw_api tramp dolly
     OBJECTS := $(addprefix /tmp/libffi/,$(addsuffix .o,$(NAMES)))
     all: /usr/lib/libffi.a
     /tmp/libffi/%.o: $(ROOT)/src/%.c
@@ -113,11 +114,11 @@ EXPORTS ENV PYTHONDONTWRITEBYTECODE 1
 # The target is configured outside the browser, but every target object and
 # executable is compiled here. Dolly-owned adapters remain independent pinned
 # inputs instead of being hidden inside the upstream archive.
-SOURCE https://daugasauron.com/dist/static/python/cpython.tar.gz 414b0c0e5de8eda23f6c80cb691f2e641fc5c3f5aa695fb502c1c23461c8e961 /tmp/cpython.tar.gz
+SOURCE https://daugasauron.com/dist/static/python/cpython.tar.gz 0dae9286340c4cca01b4408f630638335559c52f5676f042af9ee828c0c605e7 /tmp/cpython.tar.gz
 
 SLOP gzip -dc /tmp/cpython.tar.gz | tar -xf - -C /
 
-SOURCE https://daugasauron.com/dist/static/python/runtimes/cpython-platform.c        e77704d893c4c1a18ec9b28926bfeb5315f57c983271c5e4c6b77c661f6f978a /usr/src/python/Python/dolly_platform.c
+SOURCE https://daugasauron.com/dist/static/python/runtimes/cpython-platform.c        20c5c120f835ce94ceb9be08cc25c4623ae333d844b2d3c3098ffed36f3b41eb /usr/src/python/Python/dolly_platform.c
 SOURCE https://daugasauron.com/dist/static/python/runtimes/cpython-extension-check.c 1763ec04e582beee6066af81c93fe20e8cf0d83ae7d41d935b395c5cb3cdf071 /usr/src/python/Modules/dolly_extension_check.c
 SOURCE https://daugasauron.com/dist/static/python/runtimes/cpython-socket-stubs.c    d54e0a1d299c128d483e7edc9dc089693e8ca53a7de54509e687a87a6368a4ce /usr/src/python/Modules/dolly_socket_stubs.c
 SOURCE https://daugasauron.com/dist/static/python/runtimes/cpython-http.c 13610f3322a4d09aa558e5d31523a082303835bf7c5981557c09443562cdc2da /usr/src/python/Modules/dolly_http.c
@@ -138,7 +139,6 @@ SLOP CWD /usr/src/python cc \
   -std=c11 \
   -fno-builtin \
   -fno-strict-aliasing \
-  -DDOLLY \
   -IInclude/internal \
   -IInclude/internal/mimalloc \
   -IObjects \
@@ -154,7 +154,6 @@ SLOP CWD /usr/src/python cc \
   -std=c11 \
   -fno-builtin \
   -fno-strict-aliasing \
-  -DDOLLY \
   -IInclude/internal \
   -IInclude/internal/mimalloc \
   -IObjects \
@@ -217,7 +216,6 @@ SLOP CWD /usr/src/python cc \
   -IPython \
   -I. \
   -DPy_BUILD_CORE \
-  -DDOLLY \
   -DABIFLAGS='""' \
   -DMULTIARCH='"dolly_0_wasm64"' \
   Python/sysmodule.c \
@@ -248,7 +246,7 @@ SLOP CWD /usr/src/python make \
   BLDSHARED=cc\ -shared \
   INSTSONAME=libpython3.14.a \
   DYNLOADFILE=dynload_shlib.o \
-  PY_CFLAGS=-O2\ -std=c11\ -fno-builtin\ -fno-strict-aliasing\ -DDOLLY \
+  PY_CFLAGS=-O2\ -std=c11\ -fno-builtin\ -fno-strict-aliasing \
   PY_CFLAGS_NODIST= \
   PY_CPPFLAGS=-IInclude/internal\ -IInclude/internal/mimalloc\ -IObjects\ -IInclude\ -IPython\ -I. \
   CFLAGSFORSHARED= \
@@ -260,7 +258,6 @@ SLOP CWD /usr/src/python make \
   MODULE__STATISTICS_LDFLAGS= \
   MODULE__DATETIME_LDFLAGS= \
   MODULE_PYEXPAT_LDFLAGS=Modules/expat/libexpat.a \
-  MODULE_POSIX_CFLAGS=-DDOLLY \
   MODULE__SOCKET_CFLAGS=-Daccept=dolly_py_accept\ -Daccept4=dolly_py_accept4\ -Dbind=dolly_py_bind\ -Dfreeaddrinfo=dolly_py_freeaddrinfo\ -Dgai_strerror=dolly_py_gai_strerror\ -Dgetaddrinfo=dolly_py_getaddrinfo\ -Dgethostbyaddr=dolly_py_gethostbyaddr\ -Dgethostname=dolly_py_gethostname\ -Dgetnameinfo=dolly_py_getnameinfo\ -Dgetpeername=dolly_py_getpeername\ -Dgetprotobyname=dolly_py_getprotobyname\ -Dgetservbyport=dolly_py_getservbyport\ -Dgetsockname=dolly_py_getsockname\ -Dgetsockopt=dolly_py_getsockopt\ -Dhtonl=dolly_py_htonl\ -Dif_freenameindex=dolly_py_if_freenameindex\ -Dif_indextoname=dolly_py_if_indextoname\ -Dif_nameindex=dolly_py_if_nameindex\ -Dif_nametoindex=dolly_py_if_nametoindex\ -Dinet_aton=dolly_py_inet_aton\ -Dinet_ntop=dolly_py_inet_ntop\ -Dinet_pton=dolly_py_inet_pton\ -Dlisten=dolly_py_listen\ -Dntohl=dolly_py_ntohl\ -Dpoll=dolly_py_poll\ -Drecvfrom=dolly_py_recvfrom\ -Drecvmsg=dolly_py_recvmsg\ -Dsend=dolly_py_send\ -Dsendmsg=dolly_py_sendmsg\ -Dsendto=dolly_py_sendto \
   MODULE_BINASCII_CFLAGS=-DUSE_ZLIB_CRC32 \
   MODULE_BINASCII_LDFLAGS=-lz \

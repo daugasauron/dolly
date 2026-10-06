@@ -106,3 +106,12 @@ before it passes, including a Pi agent run. The trials rig for task
 one run in four under load and passed on retry. Not investigated further:
 the helper's press-then-wait-for-null step may not run while the idle
 presenter is parked.
+
+## Note (2026-10-06, `core/decisions`)
+
+Under machine load (a CMake bootstrap building beside the test, load average
+6 to 13) `demos/emacs/test/emacs-browser.mjs firefox` fails about every
+second run, on the old seed (`46a5776f`, 5 of 8 passed) and the new one (4 of
+8) alike, with "timed out waiting for terminal selection publication" or text
+that never appears after typing. The core `display` suite showed the first
+message once in four Firefox runs. Chrome did not fail.

@@ -1,14 +1,15 @@
 DOLLY 6
 TOOLCHAIN llvm-tablegen
+REQUIRES HOST runtime@0
 REQUIRES HOST display@0
 REQUIRES HOST download@0
 REQUIRES HOST http@0
 REQUIRES HOST upload@0
 
 # Build-only: LLVM 24 configured by CMake inside Dolly, its TableGen tools and outputs.
-FROM https://daugasauron.com/demos/cmake/Dollyfile-cmake-build 9539dc72ce6de7520d50ed61a13dc86b388da4679f00036f46416f24609dedd1
+FROM https://daugasauron.com/demos/cmake/Dollyfile-cmake-build 7502314530f1add9b90527dab3a6a77fe239e1cc948f0ac684a2f4507d400d4e
 # LLVM's CMake requires a Python 3 interpreter.
-INSTALL https://daugasauron.com/demos/python/Dollyfile-python 6b1463c72a609d2464f809c2ca610efdd64f246b0bd519de94c867a7c52da9e2
+INSTALL https://daugasauron.com/demos/python/Dollyfile-python 9100d084db5b55016fb9ae953196ef807b6b5b2633fd6554be842df8db6a6070
 # Configure the pinned LLVM 24 tree as the seed is configured
 # (scripts/build-toolchain.sh), then build and run its TableGen tools.
 REQUIRES TOOL cmake
@@ -29,14 +30,17 @@ SOURCE https://daugasauron.com/dist/static/llvm/llvm-project.tar.gz 033390c4520e
 SLOP time slop -c 'gzip -dc /tmp/llvm-project.tar.gz | tar -xf - -C /'
 SLOP rm /tmp/llvm-project.tar.gz
 # LLVM runs config.guess even when LLVM_HOST_TRIPLE is given; it knows no Dolly host.
-SOURCE https://daugasauron.com/dist/static/llvm/llvm-host-triple.patch c0a17877a44f49f3e090ee0c409d789885ef021c9f426f728115b203317ffc79 /tmp/llvm-host-triple.patch
+# Its one platform list without a portable branch (is_local) gains Dolly.
+SOURCE https://daugasauron.com/dist/static/llvm/llvm-host-triple.patch ec739fd5932c1040d07344a8511bae4da4157ff2bcafa348f06a555b71a10981 /tmp/llvm-host-triple.patch
 SLOP patch -p1 -d /tmp/llvm-project -i /tmp/llvm-host-triple.patch
 
 # C probes and sources get Clang's default gnu17 as in the seed; Dolly's cc
 # defaults to strict c17 (tasks/20260930-100000-audit-41).
+# ADT/bit.h includes <endian.h> by platform name and otherwise expects BYTE_ORDER.
 SLOP time cmake -S /tmp/llvm-project/llvm -B /tmp/llvm-build \
   -DCMAKE_BUILD_TYPE=Release \
   -DCMAKE_C_FLAGS=-std=gnu17 \
+  '-DCMAKE_CXX_FLAGS=-include endian.h' \
   -DCMAKE_DISABLE_PRECOMPILE_HEADERS=ON \
   -DCMAKE_RULE_MESSAGES=OFF \
   -DLLVM_ENABLE_PROJECTS='clang;lld' \

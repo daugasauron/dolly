@@ -49,11 +49,11 @@ else
 fi
 
 "${container[@]}" /usr/bin/env \
-  CHOST=wasm64-unknown-linux \
+  CHOST=wasm64-unknown-emscripten \
   CFLAGS='-m64 -O2 -fPIC' \
   CXXFLAGS='-m64 -O2 -fPIC' \
   /emsdk/upstream/emscripten/emconfigure ./configure \
-    --host=wasm64-unknown-linux \
+    --host=wasm64-unknown-emscripten \
     --build=x86_64-pc-linux-gnu \
     --prefix=/usr \
     --enable-static \
@@ -66,9 +66,13 @@ fi
 
 mkdir -p "${staging}/include" "${staging}/src/wasm"
 cp -- "${temporary}/include/ffi.h" "${staging}/include/ffi.h"
-cp -- "${temporary}/src/wasm/ffitarget.h" "${staging}/include/ffitarget.h"
+# libffi's default ABI on wasm is the one with structures, varargs and
+# closures only under Emscripten's macro. It is the ABI Dolly's backend and
+# the process FFI operations implement, so the target header tests __dolly__.
+sed 's/\b__EMSCRIPTEN__\b/__dolly__/' "${temporary}/src/wasm/ffitarget.h" > "${staging}/include/ffitarget.h"
+grep -q __dolly__ "${staging}/include/ffitarget.h"
 cp -- "${temporary}/fficonfig.h" "${staging}/fficonfig.h"
-for source in prep_cif.c types.c raw_api.c java_raw_api.c closures.c tramp.c; do
+for source in prep_cif.c types.c raw_api.c java_raw_api.c tramp.c; do
   cp -- "${temporary}/src/${source}" "${staging}/src/${source}"
 done
 cp -- "${temporary}/include/ffi_common.h" "${staging}/include/ffi_common.h"

@@ -1,5 +1,6 @@
 DOLLY 6
 TOOLCHAIN rust-tools
+REQUIRES HOST runtime@0
 REQUIRES HOST display@0
 REQUIRES HOST download@0
 REQUIRES HOST http@0
@@ -7,7 +8,7 @@ REQUIRES HOST snapshot@0
 REQUIRES HOST threads@0
 REQUIRES HOST upload@0
 
-FROM https://daugasauron.com/Dollyfile-system af363bc6e78e408b3463dbab83e63a067224cc7a287377b50f467c776d7554fe
-INSTALL https://daugasauron.com/demos/rust/Dollyfile-rust aa30ee3506e119ee8b1a5b497ceaf617342f99173247a2f663c1b3d61d477eff
+FROM https://daugasauron.com/Dollyfile-system a8f772bebe152ea6d33be845707b46c0db70c84a4392f94f7bf8c598c4d9df24
+INSTALL https://daugasauron.com/demos/rust/Dollyfile-rust 5cdf08705ac5bf064db99b592d0bae0745dd430f1ef70fff01df54ff056758c2
 
 ENTRY /bin/foreground -i /bin/slop

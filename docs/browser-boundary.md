@@ -67,9 +67,10 @@ select no JavaScript or Worker URL.
   sealing refuses a retained executable stamped with an undeclared module, and
   the loader refuses one at run time. An embedding can restrict the set with
   `globalThis.DOLLY_HOST_MODULES`.
-- The page enables `runtime@0` plus the image's requirements; rebuild routes add
-  `http@0` and `threads@0` for building. Only Dollyfile Studio declares
-  `build@0`, and the page admits it only after ENTRY starts
+- The page enables exactly the image's requirements, its runtime among them;
+  rebuild routes add `http@0` and `threads@0` for building, and a dependency
+  build enables the declared runtime with those two. Only Dollyfile Studio
+  declares `build@0`, and the page admits it only after ENTRY starts
   ([Studio builds](image-build-service.md)). An image declaring `packages@0`
   (`default`) may GET `https://packages.dolly.invalid/v1/packages/SHA256`
   after ENTRY starts: the page serves a published package's snapshot, rebuilt

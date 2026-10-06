@@ -1,23 +1,8 @@
-/* Dolly replacements for CPython's browser-embedding signal globals.
- *
- * CPython's Emscripten implementation imports JavaScript helpers and an
- * embedder-owned SharedArrayBuffer. Dolly instead delivers cancellation at
- * compiler-inserted command safepoints, so these Python-specific hooks stay
- * disabled and do not enlarge the browser import contract.
- */
+/* CPython asks libc for getentropy; Dolly's libc provides getrandom. */
 
 #include <stddef.h>
-
-#include <dolly/runtime.h>
 #include <sys/random.h>
-
-#include "Python.h"
-
-int Py_EMSCRIPTEN_SIGNAL_HANDLING = 0;
-int _Py_emscripten_signal_clock = 50;
-
-void _Py_CheckEmscriptenSignals(void) {}
-void _Py_CheckEmscriptenSignalsPeriodically(void) {}
+#include <sys/types.h>
 
 int getentropy(void *buffer, size_t length) {
     ssize_t count = getrandom(buffer, length, 0);

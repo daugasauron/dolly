@@ -1,5 +1,6 @@
 DOLLY 6
 APPLICATION dollyfile-studio
+REQUIRES HOST runtime@0
 REQUIRES HOST build@0
 REQUIRES HOST display@0
 REQUIRES HOST download@0
@@ -10,8 +11,8 @@ REQUIRES HOST snapshot@0
 REQUIRES HOST threads@0
 REQUIRES HOST upload@0
 
-FROM https://daugasauron.com/demos/local-llm/Dollyfile-pi-local 5b139301a1033d8e59546fd14021f5d0182b692a242c5cddb7df8af3da25ceea
-INSTALL https://daugasauron.com/demos/neovim/Dollyfile-nvim 9ec0f6a93f75488c85cf68e77d23fe61d8a6272de27d8d8600daef2e5bad17fe
+FROM https://daugasauron.com/demos/local-llm/Dollyfile-pi-local 75add01275544d396fae7fa3c5d31e749c8aeae3596b5704d70d60b3777ba6d8
+INSTALL https://daugasauron.com/demos/neovim/Dollyfile-nvim e5a2e7a79f4a65cd6e14edcf48c6b44681a820622383798cc41561fc997836dc
 REQUIRES TOOL pi
 REQUIRES TOOL nvim
 REQUIRES TOOL janis

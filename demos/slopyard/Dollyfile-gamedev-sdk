@@ -1,12 +1,13 @@
 DOLLY 6
 TOOLCHAIN gamedev-sdk
+REQUIRES HOST runtime@0
 REQUIRES HOST display@0
 REQUIRES HOST download@0
 REQUIRES HOST http@0
 REQUIRES HOST snapshot@0
 REQUIRES HOST upload@0
 
-FROM https://daugasauron.com/Dollyfile-system af363bc6e78e408b3463dbab83e63a067224cc7a287377b50f467c776d7554fe
+FROM https://daugasauron.com/Dollyfile-system a8f772bebe152ea6d33be845707b46c0db70c84a4392f94f7bf8c598c4d9df24
 REQUIRES HEADER libc
 REQUIRES HEADER display
 REQUIRES TOOL   ar

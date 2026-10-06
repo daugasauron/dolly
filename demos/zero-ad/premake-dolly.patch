@@ -4,7 +4,7 @@
  #elif defined (__COSMOPOLITAN__)
  #define PLATFORM_COSMO  (1)
  #define PLATFORM_OS  "cosmopolitan"
-+#elif defined(__EMSCRIPTEN__)
++#elif defined(__dolly__)
 +#define PLATFORM_EMSCRIPTEN  (1)
 +#define PLATFORM_OS  "emscripten"
  #elif defined(_WIN32) || defined(_WIN64)

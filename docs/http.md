@@ -35,7 +35,7 @@ flowchart LR
 - A private host acknowledgement admits one request at a time; transfers then run
   concurrently in 16 fixed slots. A handle encodes slot and generation, so stale
   handles never touch a successor. `EBUSY` means the slot is occupied.
-- Terminal errors are target errnos: `EACCES` policy, `EDQUOT` quota, `E2BIG`
+- Terminal errors are `process.h` error numbers: `EACCES` policy, `EDQUOT` quota, `E2BIG`
   size, `ETIMEDOUT` deadline (which includes guest backpressure), `ECANCELED`,
   `EIO` transport. Errors never echo URLs, headers or credentials. `EIO` is one
   class: the browser could not fetch, because the response was blocked (no

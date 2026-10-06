@@ -1,7 +1,7 @@
 import { parseWasmInterface, appendCustomSection } from "../../src/wasm-interface.mjs";
 import { validateProcessInterface } from "../../src/process-abi.mjs";
 import { DOLLY_PROCESS_ABI_DIGEST } from "../../dist/dolly-process-abi.mjs";
-import { DOLLY_ERRNO } from "../../dist/dolly-errno.mjs";
+import { DOLLY_ERRNO } from "../../src/process-constants.mjs";
 
 function check(condition, message) {
   if (!condition) throw new Error(message);

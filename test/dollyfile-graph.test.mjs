@@ -17,6 +17,14 @@ const url = path => `https://daugasauron.com/${path}`;
 
 test("every catalog recipe graph lints", () => lintDollyfiles(project));
 
+test("lint names the runtime line a recipe lacks", async () => {
+  const directory = await mkdtemp(resolve(tmpdir(), "dolly-lint-runtime-"));
+  try {
+    await writeFile(resolve(directory, "Dollyfile"), "DOLLY 6\nAPPLICATION default\nREQUIRES HOST display@0\nENTRY /bin/slop\n");
+    await assert.rejects(lintDollyfiles(directory), /add REQUIRES HOST runtime@0/);
+  } finally { await rm(directory, { recursive: true, force: true }); }
+});
+
 test("pin updates change only digest operands, not matching paths or comments", async () => {
   const directory = await mkdtemp(resolve(tmpdir(), "dolly-pin-operands-"));
   try {

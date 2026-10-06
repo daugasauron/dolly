@@ -1,5 +1,5 @@
 import { HttpError, isDollyCredentialHeader, stripDollyBrowserOwnedHeaders } from "./policy.mjs";
-import { DOLLY_ERRNO as errno } from "../../dist/dolly-errno.mjs";
+import { DOLLY_ERRNO as errno } from "../../src/process-constants.mjs";
 import { decodeStaticAsset } from "../../src/static-asset.mjs";
 import { DOLLY_HTTP_SLOT_COUNT, DOLLY_HTTP_CHUNK_CAPACITY, DOLLY_HTTP_MAX_METHOD, DOLLY_HTTP_MAX_URL,
   DOLLY_HTTP_MAX_HEADERS, DOLLY_HTTP_MAX_BODY, DOLLY_HTTP_HEADER_SIZE, DOLLY_HTTP_WORD_SEQUENCE,

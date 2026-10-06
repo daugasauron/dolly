@@ -1,16 +1,17 @@
 DOLLY 6
 PACKAGE codex-cli
+REQUIRES HOST runtime@0
 REQUIRES HOST http@0
 REQUIRES HOST threads@0
 
 # Codex as codex-build compiles it, the launcher that seeds CODEX_HOME, and
 # the search tools Codex runs.
-FROM https://daugasauron.com/Dollyfile-system af363bc6e78e408b3463dbab83e63a067224cc7a287377b50f467c776d7554fe
-COPY https://daugasauron.com/demos/codex/Dollyfile-codex-build 92adf81859bed06becfade58a8529996b0318b1cb65acb8aa60cc75dffc4f435 /usr/bin/codex /usr/libexec/codex
-COPY https://daugasauron.com/demos/codex/Dollyfile-codex-build 92adf81859bed06becfade58a8529996b0318b1cb65acb8aa60cc75dffc4f435 /usr/share/licenses/codex /usr/share/licenses/codex
-COPY https://daugasauron.com/demos/codex/Dollyfile-codex-build 92adf81859bed06becfade58a8529996b0318b1cb65acb8aa60cc75dffc4f435 /usr/share/dolly/builds/codex.json /usr/share/dolly/builds/codex.json
-INSTALL https://daugasauron.com/demos/rust/Dollyfile-ripgrep 50948ab584f7c01db18175ec7fb99a4407f38e436649a5a49529d8e86187995b
-INSTALL https://daugasauron.com/demos/rust/Dollyfile-fd ab07dc6b1f051a31f44ea2cf86fb90e0a404b1a4deaba6a62ddaca33c1e5c33c
+FROM https://daugasauron.com/Dollyfile-system a8f772bebe152ea6d33be845707b46c0db70c84a4392f94f7bf8c598c4d9df24
+COPY https://daugasauron.com/demos/codex/Dollyfile-codex-build 76ff7635df1cd2c26fd3c84eee49486fd59f1a74162730f36291926bdc4df119 /usr/bin/codex /usr/libexec/codex
+COPY https://daugasauron.com/demos/codex/Dollyfile-codex-build 76ff7635df1cd2c26fd3c84eee49486fd59f1a74162730f36291926bdc4df119 /usr/share/licenses/codex /usr/share/licenses/codex
+COPY https://daugasauron.com/demos/codex/Dollyfile-codex-build 76ff7635df1cd2c26fd3c84eee49486fd59f1a74162730f36291926bdc4df119 /usr/share/dolly/builds/codex.json /usr/share/dolly/builds/codex.json
+INSTALL https://daugasauron.com/demos/rust/Dollyfile-ripgrep 63a93c076f5e7c6865e2fd9d690d023189137da56090b66a4af17cb9fa3c106a
+INSTALL https://daugasauron.com/demos/rust/Dollyfile-fd c53f0d1a9d6e2c771640e44d0bf12cf164c2982c1fb6da7e1b7e084ca3d153e7
 REQUIRES HEADER libc
 REQUIRES HEADER runtime
 REQUIRES TOOL cc

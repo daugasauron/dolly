@@ -1,11 +1,12 @@
 DOLLY 6
 TOOLCHAIN codex-build
+REQUIRES HOST runtime@0
 REQUIRES HOST display@0
 REQUIRES HOST http@0
 REQUIRES HOST threads@0
 
-FROM https://daugasauron.com/demos/rust/Dollyfile-rust-build cc43bedbdcb1ba8abf5915464f7b78163f4b2c42f818d48f268c3aa137c88959
-INSTALL https://daugasauron.com/demos/rust/Dollyfile-protox 7384f10c490b164bdc8803e7da2695a7e56bc0baf8d074d103a53346611385b4
+FROM https://daugasauron.com/demos/rust/Dollyfile-rust-build 478f6b5a47606224484f8cb348d21a18392532b20f62d50363bc0ad465464d53
+INSTALL https://daugasauron.com/demos/rust/Dollyfile-protox afc396c8b64deefa2d91fe62bf0e8b60c7c4e0e25b3883f4b853622749629a41
 REQUIRES TOOL patti
 REQUIRES TOOL cc
 REQUIRES TOOL cp

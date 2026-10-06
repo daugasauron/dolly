@@ -41,7 +41,7 @@ function gpuFixture(workerUrl=new URL("../../host/gpu/worker.mjs",import.meta.ur
 }
 
 export async function gpuBoundaryProof({surface=true}={}) {
-  const {DOLLY_ERRNO:E}=await import("../../dist/dolly-errno.mjs");
+  const {DOLLY_ERRNO:E}=await import("../../src/process-constants.mjs");
   const fixture=gpuFixture(undefined,surface);
   const {worker,mailbox,packet,record,batch,send,setScope}=fixture;
   let {memory,address}=fixture;
@@ -159,7 +159,7 @@ export async function gpuBoundaryProof({surface=true}={}) {
 }
 
 export async function gpuRetirementProof() {
-  const {DOLLY_ERRNO:E}=await import("../../dist/dolly-errno.mjs");
+  const {DOLLY_ERRNO:E}=await import("../../src/process-constants.mjs");
   const {worker,memory,mailbox,packet,record,batch,send,setScope}=gpuFixture(
     new URL("./gpu-retirement-worker.mjs",import.meta.url));
   const create=id=>{

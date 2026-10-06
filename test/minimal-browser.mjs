@@ -18,7 +18,7 @@ await browserTest("minimal", { image: "minimal" }, async ({ open }) => {
 // INSTALL cc on the base: C and C++ compile and run. The image declares no
 // http@0, so a program linked with the HTTP client is refused before it runs.
 await browserTest("composed toolchain", { image: "minimal" }, async ({ open }) => {
-  const session = await open(await composed(["display"], ["core", "display", "cc"]));
+  const session = await open(await composed(["runtime", "display"], ["core", "display", "cc"]));
   const run = check(session);
   await run(`${hello} && cc /tmp/hello.c -o /tmp/hello && test "$(/tmp/hello)" = HELLO`);
   await run("echo '#include <iostream>' > /tmp/hello.cpp && echo 'int main() { std::cout << 6 * 7; }' >> /tmp/hello.cpp && " +

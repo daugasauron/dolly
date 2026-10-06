@@ -31,10 +31,11 @@ Never run `/bin/dollyfile` here: it replaces the running image.
   needs `ENTRY`), `TOOLCHAIN name` (a base to build on) or `PACKAGE name`
   (installed with `INSTALL` or `amy`; no `ENTRY`).
 - `REQUIRES HOST name@0` lines come right after the role and list every host
-  module the image uses. Nothing is inherited from `FROM` or `INSTALL`: an
-  application on `system` repeats system's five (display, download, http,
-  snapshot, upload), and installing a package means declaring every module
-  that package declares (ripgrep and fd need `threads@0`). Read the package's
+  module the image uses, `runtime@0` first: every image and package names the
+  runtime it is built on. Nothing is inherited from `FROM` or `INSTALL`: an
+  application on `system` repeats system's six (runtime, display, download,
+  http, snapshot, upload), and installing a package means declaring every
+  module that package declares (ripgrep and fd need `threads@0`). Read the package's
   recipe first; otherwise the build fails on the `INSTALL` row, naming the
   missing line.
 - `FROM URL SHA256` is the first operation. `INSTALL URL SHA256` adds a

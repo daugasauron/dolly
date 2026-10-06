@@ -11,7 +11,7 @@ const base = DOLLY_IMAGES.find(image => image.image === "system") ?? DOLLY_IMAGE
 try {
   source.value = sessionStorage.getItem(storageKey) ?? `DOLLY 6
 APPLICATION custom
-
+${base.hostRequirements.map(requirement => `REQUIRES HOST ${requirement}\n`).join("")}
 FROM ${CANONICAL_ORIGIN}/${base.dollyfile} ${base.sha256}
 
 FILE /usr/share/hello.txt

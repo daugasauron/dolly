@@ -1,5 +1,5 @@
 import { DOLLY_SESSION_MAX_BYTES, validSessionName } from "../../src/session-store.mjs";
-import { DOLLY_ERRNO } from "../../dist/dolly-errno.mjs";
+import { DOLLY_ERRNO } from "../../src/process-constants.mjs";
 import * as A from "./abi.mjs";
 
 // The mailbox words as dolly-snapshot-0.wat names them. No filesystem paths

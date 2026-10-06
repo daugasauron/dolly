@@ -69,7 +69,7 @@ fi
     --disable-load \
     --disable-nls \
     --without-guile \
-    CFLAGS="-m64 -O2 -DDOLLY" \
+    CFLAGS="-m64 -O2" \
     LDFLAGS="-m64" >/dev/null
 
 # Configure determines the target feature set. These three generated headers

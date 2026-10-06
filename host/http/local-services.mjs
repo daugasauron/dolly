@@ -1,5 +1,5 @@
 import { HttpError } from "./policy.mjs";
-import { DOLLY_ERRNO } from "../../dist/dolly-errno.mjs";
+import { DOLLY_ERRNO } from "../../src/process-constants.mjs";
 
 function reservedLocalURL(url) {
   const host = url.hostname.toLowerCase().replace(/\.$/, "");

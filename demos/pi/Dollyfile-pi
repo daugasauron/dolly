@@ -1,5 +1,6 @@
 DOLLY 6
 APPLICATION pi
+REQUIRES HOST runtime@0
 REQUIRES HOST display@0
 REQUIRES HOST download@0
 REQUIRES HOST http@0
@@ -8,7 +9,7 @@ REQUIRES HOST snapshot@0
 REQUIRES HOST threads@0
 REQUIRES HOST upload@0
 
-FROM https://daugasauron.com/demos/pi/Dollyfile-pi-runtime 5d6552deb43e211154a217f7dde2fad8b5b80852d84bb505f65f9795b7032a53
+FROM https://daugasauron.com/demos/pi/Dollyfile-pi-runtime 2d0fe2cd87cf445a11e24fef4da35075f706d1dc61b353e9631cce6464392084
 REQUIRES TOOL foreground
 REQUIRES TOOL test
 REQUIRES TOOL printf

@@ -1,5 +1,6 @@
 DOLLY 6
 TOOLCHAIN zero-ad-deps
+REQUIRES HOST runtime@0
 REQUIRES HOST audio@0
 REQUIRES HOST display@0
 REQUIRES HOST download@0
@@ -8,9 +9,9 @@ REQUIRES HOST upload@0
 
 # Build-only: the libraries the 0 A.D. engine links, and pkgconf for its premake
 # scripts, built from the pinned upstream sources of build-sources.tsv.
-FROM https://daugasauron.com/demos/zero-ad/Dollyfile-openal-build 2cb96bce00b8a94439c3d31cce4ddeb55a4bf6357d06f66a52f3b0c1342edd01
-COPY https://daugasauron.com/demos/sdl2/Dollyfile-sdl2 3b04d1309452fb91abd5f5479a925db500308e22228150f86c1fea801d251ff8 /usr/include/SDL2 /usr/include/SDL2
-COPY https://daugasauron.com/demos/sdl2/Dollyfile-sdl2 3b04d1309452fb91abd5f5479a925db500308e22228150f86c1fea801d251ff8 /usr/lib/libSDL2.a /usr/lib/libSDL2.a
+FROM https://daugasauron.com/demos/zero-ad/Dollyfile-openal-build a3b8380c779cb7d224089a600db8d8860bfc74c253649f579dab50248dd59a02
+COPY https://daugasauron.com/demos/sdl2/Dollyfile-sdl2 cbad97d4f9f839a340c239e79fde3ebe456fb61d5220e675702df9668ad29baf /usr/include/SDL2 /usr/include/SDL2
+COPY https://daugasauron.com/demos/sdl2/Dollyfile-sdl2 cbad97d4f9f839a340c239e79fde3ebe456fb61d5220e675702df9668ad29baf /usr/lib/libSDL2.a /usr/lib/libSDL2.a
 REQUIRES HEADER libc
 REQUIRES HEADER cpp
 REQUIRES HEADER zlib
@@ -28,10 +29,10 @@ REQUIRES TOOL cp
 REQUIRES TOOL ln
 REQUIRES TOOL mkdir
 
-SOURCE https://daugasauron.com/dist/static/zero-ad-build/deps.tar.gz 17d3f068134291d60b3379507ac58a37da2ceb1e8c86fb2871e806b6b065332f /tmp/zad/deps.tar.gz
+SOURCE https://daugasauron.com/dist/static/zero-ad-build/deps.tar.gz 70cd7adb14d05e83a61b096a3515cf11b93dd95b2d31ef705896998d8712ac77 /tmp/zad/deps.tar.gz
 SLOP gzip -dc /tmp/zad/deps.tar.gz | tar -xf - -C /
 # Licences of the libraries the engine links; zero-ad copies them.
-COPY https://daugasauron.com/demos/sdl2/Dollyfile-sdl2 3b04d1309452fb91abd5f5479a925db500308e22228150f86c1fea801d251ff8 /usr/share/licenses/SDL2 /usr/share/licenses/SDL2
+COPY https://daugasauron.com/demos/sdl2/Dollyfile-sdl2 cbad97d4f9f839a340c239e79fde3ebe456fb61d5220e675702df9668ad29baf /usr/share/licenses/SDL2 /usr/share/licenses/SDL2
 FOLDER /usr/share/licenses
 
 # Upstream builds pkgconf with Meson; these are the values its configure step finds here.
@@ -90,18 +91,21 @@ FILE /tmp/zad/build.slop
     cmake_build xml2 -DLIBXML2_WITH_PYTHON=OFF -DLIBXML2_WITH_TESTS=OFF -DLIBXML2_WITH_PROGRAMS=OFF \
       -DLIBXML2_WITH_THREADS=OFF -DLIBXML2_WITH_LZMA=OFF -DLIBXML2_WITH_HTTP=OFF -DLIBXML2_WITH_ICONV=OFF -DLIBXML2_WITH_ZLIB=ON
     icu=/tmp/zad/icu
-    icu_flags="-O2 -std=c++11 -DU_USING_ICU_NAMESPACE=0 -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DUNISTR_FROM_CHAR_EXPLICIT=explicit -DUNISTR_FROM_STRING_EXPLICIT=explicit -DU_STATIC_IMPLEMENTATION -I$icu/common"
+    # ICU knows no Dolly platform: its charset default is the one hook it offers, and
+    # its bundled double-conversion lists architectures (wasm32 but not wasm64).
+    sed 's/defined(__EMSCRIPTEN__) || defined(__wasm32__)$/defined(__EMSCRIPTEN__) || defined(__wasm32__) || defined(__wasm64__)/' $icu/i18n/double-conversion-utils.h > /tmp/zad/dcu.h
+    grep -q __wasm64__ /tmp/zad/dcu.h && mv /tmp/zad/dcu.h $icu/i18n/double-conversion-utils.h
+    icu_flags="-O2 -std=c++11 -DU_USING_ICU_NAMESPACE=0 -DU_NO_DEFAULT_INCLUDE_UTF_HEADERS=1 -DUNISTR_FROM_CHAR_EXPLICIT=explicit -DUNISTR_FROM_STRING_EXPLICIT=explicit -DU_STATIC_IMPLEMENTATION -DU_CHARSET_IS_UTF8=1 -I$icu/common"
     make -f /tmp/zad/objects.mk -j4 LIB=/usr/lib/libicuuc.a DIRS=$icu/common "CXXFLAGS=$icu_flags -DU_COMMON_IMPLEMENTATION=1"
     make -f /tmp/zad/objects.mk -j4 LIB=/usr/lib/libicudata.a DIRS=$icu/stubdata "CXXFLAGS=$icu_flags"
     make -f /tmp/zad/objects.mk -j4 LIB=/usr/lib/libicui18n.a DIRS=$icu/i18n "CXXFLAGS=$icu_flags -I$icu/i18n -DU_I18N_IMPLEMENTATION=1"
     mkdir -p /usr/include/unicode
     cp $icu/common/unicode/* $icu/i18n/unicode/* /usr/include/unicode/
     sodium=/tmp/zad/sodium/src/libsodium
-    patch -p1 -d /tmp/zad/sodium -i /tmp/zad/sodium.patch
     cp /tmp/zad/sodium/builds/msvc/version.h $sodium/include/sodium/version.h
     sodium_dirs=
     for directory in $(find $sodium -type d); do sodium_dirs="$sodium_dirs $directory"; done
-    make -f /tmp/zad/objects.mk -j4 LIB=/usr/lib/libsodium.a "DIRS=$sodium_dirs" "CFLAGS=-O2 -I$sodium/include/sodium -DCONFIGURED=1 -DDOLLY -D_GNU_SOURCE=1 -DNATIVE_LITTLE_ENDIAN=1 -DHAVE_ATOMIC_OPS=1 -DHAVE_C11_MEMORY_FENCES=1 -DHAVE_GCC_MEMORY_FENCES=1 -DHAVE_INTTYPES_H=1 -DHAVE_STDINT_H=1 -DHAVE_ALLOCA_H=1 -DHAVE_ALLOCA=1 -DHAVE_SYS_MMAN_H=1 -DHAVE_SYS_PARAM_H=1 -DHAVE_SYS_RANDOM_H=1 -DHAVE_MMAP=1 -DHAVE_MLOCK=1 -DHAVE_MADVISE=1 -DHAVE_MPROTECT=1 -DHAVE_RAISE=1 -DHAVE_SYSCONF=1 -DHAVE_GETENTROPY=1 -DHAVE_GETPID=1 -DHAVE_POSIX_MEMALIGN=1 -DHAVE_NANOSLEEP=1 -DHAVE_CLOCK_GETTIME=1 -DHAVE_EXPLICIT_BZERO=1 -DHAVE_LINUX_COMPATIBLE_GETRANDOM -fvisibility=hidden -fno-strict-aliasing -fwrapv"
+    make -f /tmp/zad/objects.mk -j4 LIB=/usr/lib/libsodium.a "DIRS=$sodium_dirs" "CFLAGS=-O2 -I$sodium/include/sodium -DCONFIGURED=1 -D_GNU_SOURCE=1 -DNATIVE_LITTLE_ENDIAN=1 -DHAVE_ATOMIC_OPS=1 -DHAVE_C11_MEMORY_FENCES=1 -DHAVE_GCC_MEMORY_FENCES=1 -DHAVE_INTTYPES_H=1 -DHAVE_STDINT_H=1 -DHAVE_ALLOCA_H=1 -DHAVE_ALLOCA=1 -DHAVE_SYS_MMAN_H=1 -DHAVE_SYS_PARAM_H=1 -DHAVE_SYS_RANDOM_H=1 -DHAVE_MMAP=1 -DHAVE_MLOCK=1 -DHAVE_MADVISE=1 -DHAVE_MPROTECT=1 -DHAVE_RAISE=1 -DHAVE_SYSCONF=1 -DHAVE_GETENTROPY=1 -DHAVE_GETPID=1 -DHAVE_POSIX_MEMALIGN=1 -DHAVE_NANOSLEEP=1 -DHAVE_CLOCK_GETTIME=1 -DHAVE_EXPLICIT_BZERO=1 -DHAVE_LINUX_COMPATIBLE_GETRANDOM -fvisibility=hidden -fno-strict-aliasing -fwrapv"
     cp -R $sodium/include/sodium $sodium/include/sodium.h /usr/include/
     # ENet keeps its protocol; dolly.c replaces the unix.c and win32.c socket backends.
     cp /tmp/zad/enet-dolly.c /tmp/zad/enet/dolly.c

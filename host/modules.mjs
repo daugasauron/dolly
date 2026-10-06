@@ -1,13 +1,16 @@
-import { hostManifests } from "./manifests.mjs";
+import { hostManifests, runtimes } from "./manifests.mjs";
 import { hostRequirement, hostRequirements } from "./requirements.mjs";
-import { DOLLY_ERRNO as E } from "../dist/dolly-errno.mjs";
+import { DOLLY_ERRNO as E } from "../src/process-constants.mjs";
 
 // This fixed registry is trusted embedding code. Images select no JS or Worker URLs:
 // each module's provider is the file its manifest names.
 const definitions = await Promise.all(hostManifests.map(async manifest =>
   ({ ...await import(new URL(manifest.host, manifest.url).href), contract: manifest })));
 export const hostContracts = Object.freeze(definitions.map(module => module.contract));
-export const buildHost = Object.freeze(["runtime@0", "http@0", "threads@0"]);
+// What a build enables beside the runtime its image declares: the broker the
+// engine fetches sources through and the threads its toolchain uses.
+export const buildHost = Object.freeze(["http@0", "threads@0"]);
+export const buildHostFor = declared => [...declared.filter(value => runtimes.includes(value)), ...buildHost];
 
 // A module may select what a route boots, as a saved session names its image:
 // at most one does, and the page then requires it. The selection carries the
@@ -34,6 +37,9 @@ for (const module of definitions) for (const name of module.contract.imports) {
 export async function createHost(side, enabled, { send, resources = {}, configuration = {} } = {}) {
   if (!["browser", "worker"].includes(side)) throw new TypeError("invalid host side");
   const selected = hostRequirements(enabled), instances = new Map(), reasons = new Map(), messages = new Map();
+  // The kernel is the one requested module that provides it; a module others
+  // only depend on does not make it one.
+  const kernels = selected.filter(value => runtimes.includes(value));
   const started = new Set(), pending = new Map(), options = {}, transfers = [], config = {};
   // The page API (window.__dolly) by property descriptor, so module getters
   // stay live; a child build host's configuration; what an opened result tab
@@ -119,12 +125,19 @@ export async function createHost(side, enabled, { send, resources = {}, configur
     for (const instance of [...instances.values()].reverse()) instance.dispose?.();
   }
   try {
-    await attach("runtime@0");
     for (const value of selected) await attach(value);
-    requireModules(["runtime@0"]);
+    if (kernels.length !== 1) {
+      // A requested module this page lacks may be the runtime the image declares.
+      requireModules(selected);
+      throw new Error(kernels.length ? `${kernels.join(" and ")} both provide the kernel`
+        : `no enabled host module provides the kernel: add REQUIRES HOST ${runtimes.join(" or ")}`);
+    }
+    requireModules(kernels);
   } catch (error) { dispose(); throw error; }
+  const kernel = hostRequirement(kernels[0]).name;
   return {
     get, options, transfers, configuration: config, page, builder, inherited,
+    kernel: instances.get(kernel),
     enabled: [...instances.keys()].map(name => `${name}@${byName.get(name).contract.version}`),
     require: requireModules, dispose,
     // Executables may use only the modules the image declares. A declared module
@@ -151,7 +164,7 @@ export async function createHost(side, enabled, { send, resources = {}, configur
         const name = `${entry.module}.${entry.name}`, owner = owners.get(name);
         if (!owner) throw new Error(`unowned browser import: ${name}`);
         if (!instances.has(owner)) imports[entry.module][entry.name] = () => -E.ENOSYS;
-        else if (owner !== "runtime") {
+        else if (owner !== kernel) {
           const binding = instances.get(owner).bindings?.[name];
           if (typeof binding !== "function") throw new Error(`missing host binding: ${name}`);
           imports[entry.module][entry.name] = binding;

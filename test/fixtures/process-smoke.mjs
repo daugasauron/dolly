@@ -17,6 +17,7 @@ export const processSmokeSources = Object.freeze({
   "slop-interrupt.c": "test/fixtures/slop-interrupt.c",
   "terminal-check.c": "src/process/terminal-check.c",
   "self-exe-check.c": "src/process/self-exe-check.c",
+  "target-identity.c": "test/fixtures/target-identity.c",
   "dso-check.c": "src/process/dso-check.c",
   "dso-library.c": "src/process/dso-library.c",
   "dso-cpp-check.cpp": "src/process/dso-cpp-check.cpp",
@@ -59,6 +60,8 @@ export async function runProcessSmoke(submit, origin) {
     await run("cc -O0 -funsigned-char -DEXPECT_SIGNED=0 char.c -o char && ./char");
     await run("cc -O0 -funsigned-char -fsigned-char -DEXPECT_SIGNED=1 char.c -o char && ./char");
     await run("cc -O0 -fno-unsigned-char -fno-signed-char -DEXPECT_SIGNED=0 char.c -o char && ./char");
+    await run("printf 12345 > five && ./target-identity five && cc -pthread -c target-identity.c");
+    await run('test "$(cc -dumpmachine)" = wasm64-unknown-dolly && test "$(uname -sm)" = "Dolly wasm64"');
     await run("printf '#include <pty.h>\\n#include <errno.h>\\nint main(void) { int master, slave; return openpty(&master, &slave, 0, 0, 0) != -1 || errno != ENOENT; }\\n' > pty.c");
     await run("cc -O0 pty.c -lutil -o pty && ./pty");
     await run("printf 'static volatile unsigned char data[20 * 1024 * 1024] = {1};\\nint main(void) { data[sizeof(data)-1]=42; return data[0]!=1 || data[sizeof(data)-1]!=42; }\\n' > memory.c");

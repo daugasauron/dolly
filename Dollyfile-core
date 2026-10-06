@@ -1,9 +1,10 @@
 DOLLY 6
 PACKAGE core
+REQUIRES HOST runtime@0
 
 # Slop and the commands system-build compiles beside it: a shell without the
 # compiler or the recipe engine.
-FROM https://daugasauron.com/Dollyfile-system-build 3391d7309d3464058861bc022208522ba6bf81475366d75106ef7ddd90659d38
+FROM https://daugasauron.com/Dollyfile-system-build 4241eb206630d31a1dd33990b88ebf0476e3e000577f27122bcb4b561d55a430
 
 EXPORTS TOOL slop
 EXPORTS TOOL foreground

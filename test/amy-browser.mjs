@@ -24,7 +24,7 @@ const encoder = new TextEncoder();
 const u32 = value => { const bytes = new Uint8Array(4); new DataView(bytes.buffer).setUint32(0, value, true); return bytes; };
 const text = value => [u32(encoder.encode(value).length), encoder.encode(value)];
 const threaded = { url: `${CANONICAL_ORIGIN}/Dollyfile-threaded`,
-  source: "DOLLY 6\nPACKAGE threaded\nREQUIRES HOST threads@0\nFILE /usr/share/threaded\n    needs threads\n" };
+  source: "DOLLY 6\nPACKAGE threaded\nREQUIRES HOST runtime@0\nREQUIRES HOST threads@0\nFILE /usr/share/threaded\n    needs threads\n" };
 threaded.sha256 = sha256(threaded.source);
 const receipt = [encoder.encode("DOLLYART"), u32(5), u32(1),
   ...["PACKAGE", "threaded", threaded.url, threaded.sha256, threaded.source].flatMap(text),
@@ -140,7 +140,7 @@ await browserTest("amy programs", { image: "default", timeout: 600_000 }, async 
 // The compiler is a package too: a session composed from the core commands,
 // the display and amy installs cc and compiles.
 await browserTest("amy cc", { image: "minimal", timeout: 300_000 }, async ({ open }) => {
-  const run = check(await open(await composed(["display", "http", "packages"], ["core", "display", "amy"])));
+  const run = check(await open(await composed(["runtime", "display", "http", "packages"], ["core", "display", "amy"])));
   await run("! cc --version 2> /dev/null");
   console.log(`amy install cc: ${await timed(run, "amy install cc")} ms`);
   await run("echo 'int main(void) { return 42; }' > /tmp/amy-cc.c && cc /tmp/amy-cc.c -o /tmp/amy-cc; /tmp/amy-cc; test $? = 42");

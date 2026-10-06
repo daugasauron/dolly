@@ -220,3 +220,31 @@ release candidate on localhost. Order of work, agent count kept modest:
    (target identity, explicit runtime, small default, Slop's message for a
    missing path, Cargo's libcurl additions if ready): cut about 13:00, catalog
    rebuild, full verification, publish. A last small round before 18:00.
+
+## Checkpoint at 18:00 JST, 2026-10-06
+
+Release line (image inputs `047fc328…`), built from `db2c9787`, tag
+`rc-2026-10-06-pm`: full catalog `67e4b255…` on http://localhost:9003,
+daugasauron.com packaging `c60a2c6f…` on http://localhost:9005 (with the new
+Studio video). Source suite 360 pass on that commit. Merged and verified
+since the morning candidate: the git relay as provider policy, the licence
+decisions (0 A.D. source as recipe inputs, MIT for Dolly's own game agents,
+own ClassiCube textures), Pi's masked API-key entry, the kernel fix for
+pointer records dropped at a program's retirement, the `pi-local` sampling fix
+and repeat bound (local-model test passes in Chrome and Firefox on the GPU),
+the new Studio video.
+
+Fable credits ran out at about 09:50 and five agents died mid-work; the
+session stalled until 18:00, when the owner switched it and every subagent to
+Opus 5.5. Relaunched on Opus, each on its predecessor's worktree:
+
+| Worktree | Branch | State |
+|---|---|---|
+| `runtime` | `work/explicit-runtime` | reviewing the inherited change; becomes the seed round's base after merging `core/decisions` |
+| `cargo` | `work/cargo-native` | seed commits in verification (libcurl, `flock`, `ar`); Patti building Cargo |
+| `userspace2` | `fix/userspace-2` | Slop's missing-path message, `ls -l`, Pi's cwd: coded, being verified |
+| `local-models` | `work/local-models` | no seed change; end to end in Chrome; Firefox, Studio, table next |
+| `core-decisions` | `core/decisions` | ready (target identity), waits for the seed round |
+
+Seed round, when those report: explicit runtime + target identity + userspace
+batch + Cargo's seed commits, one catalog rebuild, full verification, publish.

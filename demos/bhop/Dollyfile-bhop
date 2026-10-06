@@ -1,5 +1,6 @@
 DOLLY 6
 APPLICATION bhop
+REQUIRES HOST runtime@0
 REQUIRES HOST display@0
 REQUIRES HOST download@0
 REQUIRES HOST http@0
@@ -7,10 +8,10 @@ REQUIRES HOST snapshot@0
 REQUIRES HOST threads@0
 REQUIRES HOST upload@0
 
-FROM https://daugasauron.com/demos/slopyard/Dollyfile-gamedev-sdk 45f2f918297d6b49ed1842e55b357b60c8ad159684050bae7f8f5ebe859eb018
-INSTALL https://daugasauron.com/demos/javascript/Dollyfile-javascript cf1da377fe4dd58f5dcc3dc19289fd32d05de1ce5019bc23266541cb206e7595
-INSTALL https://daugasauron.com/demos/pi/Dollyfile-pi-coding-agent 76567c28b132831f4a31ad4a8643b416ae06104b6ba82fa2f52c2e45a90aa657
-INSTALL https://daugasauron.com/demos/sdl2/Dollyfile-sdl2 3b04d1309452fb91abd5f5479a925db500308e22228150f86c1fea801d251ff8
+FROM https://daugasauron.com/demos/slopyard/Dollyfile-gamedev-sdk 99c80f3fd60bc8c49d541c6d31cba725c6549542a24f6ebe9e986c28c5d3eaf5
+INSTALL https://daugasauron.com/demos/javascript/Dollyfile-javascript d6563f58336a64c186a79f0034ab8c7e89de33900ce11655ba7b09a37c2a2087
+INSTALL https://daugasauron.com/demos/pi/Dollyfile-pi-coding-agent 252e953bc2e2607f6ae1a2b3f5edc9fddef4a31aee65ee6c51588a7080ab4517
+INSTALL https://daugasauron.com/demos/sdl2/Dollyfile-sdl2 cbad97d4f9f839a340c239e79fde3ebe456fb61d5220e675702df9668ad29baf
 REQUIRES TOOL cc
 REQUIRES TOOL make
 REQUIRES TOOL c++

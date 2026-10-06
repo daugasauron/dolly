@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
-import { browserTest } from "./browser.mjs";
+import { browserTest, composed } from "./browser.mjs";
 import { parseWasmInterface } from "../src/wasm-interface.mjs";
 import { executableHostRequirements } from "../host/requirements.mjs";
 import { DOLLY_HTTP_ABI_DIGEST } from "../host/http/abi.mjs";
@@ -91,4 +91,11 @@ await browserTest("host modules", { image: "system", server: { sourceOverrides }
   } }).then(() => assert.fail("booted without a required provider"), error => assert.match(error.message, /http@0/));
   assert.equal(requests.some(path => /\.snapshot(?:\.gz)?$|\/dolly\.wasm$/.test(path)), false,
     "compatibility must fail before large downloads");
+
+  // A runtime is declared like any module: a recipe without one is refused
+  // naming the line to add, one naming a runtime this page lacks by its name.
+  for (const [hosts, cause] of [[["display"], /add REQUIRES HOST runtime@0/], [["display", "other"], /other@0/]]) {
+    await open({ prompt: null, ...await composed(hosts, []) })
+      .then(() => assert.fail("built without a runtime"), error => assert.match(error.message, cause));
+  }
 });

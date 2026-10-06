@@ -16,7 +16,7 @@
  		m_ScriptInterface.SetCallbackData(static_cast<void*>(this));
  
  		// Enable the script to be aborted
-+#if !defined(DOLLY)
++#if !defined(__dolly__)
  		JS_AddInterruptCallback(m_ScriptInterface.GetGeneralJSContext(),
  			&MapGenerationInterruptCallback);
 +#endif
@@ -27,7 +27,7 @@
  
  	~CMapGenerationCallbacks()
  	{
-+#if !defined(DOLLY)
++#if !defined(__dolly__)
  		JS_AddInterruptCallback(m_ScriptInterface.GetGeneralJSContext(), nullptr);
 +#endif
  		m_ScriptInterface.SetCallbackData(nullptr);
@@ -343,7 +343,7 @@
  #else
  # define OS_AMIGA 0
  #endif
-+#if defined(DOLLY)
++#if defined(__dolly__)
 +# define OS_DOLLY 1
 +#else
 +# define OS_DOLLY 0
@@ -470,7 +470,7 @@
  #include "network/NetMessage.h"
  #include "network/NetProtocol.h"
  #include "network/NetSession.h"
-+#ifdef DOLLY
++#ifdef __dolly__
 +#include "network/NetServer.h"
 +#endif
  #include "network/StunClient.h"
@@ -480,7 +480,7 @@
  	CNetClientSession* session = new CNetClientSession(*this);
  	bool ok = session->Connect(m_ServerAddress, m_ServerPort, enetClient);
  	SetAndOwnSession(session);
-+#ifndef DOLLY
++#ifndef __dolly__
  	if (ok)
  		m_PollingThread = std::thread(Threading::HandleExceptions<CNetClientSession::RunNetLoop>::Wrapper, m_Session);
 +#endif
@@ -491,7 +491,7 @@
  	if (m_Session)
  		m_Session->Shutdown();
  
-+#ifdef DOLLY
++#ifdef __dolly__
 +	delete m_Session;
 +#else
  	if (m_PollingThread.joinable())
@@ -506,7 +506,7 @@
  
  void CNetClient::Poll()
  {
-+#ifdef DOLLY
++#ifdef __dolly__
 +	if (g_NetServer)
 +		g_NetServer->Poll();
 +	if (m_Session)
@@ -521,7 +521,7 @@
   * Smaller numbers may hurt performance; larger numbers will
   * hurt latency responding to messages from game thread.
   */
-+#ifdef DOLLY
++#ifdef __dolly__
 +static const int HOST_SERVICE_TIMEOUT = 0;
 +#else
  static const int HOST_SERVICE_TIMEOUT = 50;
@@ -533,7 +533,7 @@
  		}
  
  		// Wait for it to shut down cleanly
-+#ifdef DOLLY
++#ifdef __dolly__
 +		m_SavedCommands.clear();
 +		SAFE_DELETE(m_ScriptInterface);
 +#else
@@ -546,7 +546,7 @@
  	m_State = SERVER_STATE_PREGAME;
  
  	// Launch the worker thread
-+#ifdef DOLLY
++#ifdef __dolly__
 +	auto context = ScriptContext::CreateContext();
 +	m_ScriptInterface = new ScriptInterface("Engine", "Net server", context);
 +	m_InitAttributes.init(m_ScriptInterface->GetGeneralJSContext(), JS::UndefinedValue());
@@ -560,7 +560,7 @@
  bool CNetServerWorker::SendMessage(ENetPeer* peer, const CNetMessage* message)
  {
  	ENSURE(m_Host);
-+#ifdef DOLLY
++#ifdef __dolly__
 +	// ENet can mark a closing peer before its disconnect event is dispatched.
 +	if (peer->state != ENET_PEER_STATE_CONNECTED)
 +		return false;
@@ -572,7 +572,7 @@
  	return ok;
  }
  
-+#ifdef DOLLY
++#ifdef __dolly__
 +void CNetServerWorker::Poll()
 +{
 +	if (m_Shutdown || !m_ScriptInterface)
@@ -620,7 +620,7 @@
  	delete m_Worker;
  }
  
-+#ifdef DOLLY
++#ifdef __dolly__
 +void CNetServer::Poll() { m_Worker->Poll(); }
 +
 +bool CNetServer::HaveAllClientsSimulated(u32 turn) const
@@ -638,7 +638,7 @@
  	 * @return true on success, false on error (e.g. port already in use)
  	 */
  	bool SetupConnection(const u16 port);
-+#ifdef DOLLY
++#ifdef __dolly__
 +	void Poll();
 +	bool HaveAllClientsSimulated(u32 turn) const;
 +#endif
@@ -649,7 +649,7 @@
  	 * @return true on success, false on error (e.g. port already in use)
  	 */
  	bool SetupConnection(const u16 port);
-+#ifdef DOLLY
++#ifdef __dolly__
 +	void Poll();
 +#endif
  
@@ -670,7 +670,7 @@
  	 */
  	u32 GetReadyTurn() { return m_ReadyTurn; }
  
-+#ifdef DOLLY
++#ifdef __dolly__
 +	bool HaveAllClientsSimulated(u32 turn) const
 +	{
 +		for (const auto& [id, client] : m_ClientsData)
@@ -689,7 +689,7 @@
  
  #include <cstddef>
  
-+#ifdef DOLLY
++#ifdef __dolly__
 +constexpr int NETCLIENT_POLL_TIMEOUT = 0;
 +#else
  constexpr int NETCLIENT_POLL_TIMEOUT = 50;
@@ -701,7 +701,7 @@
  	return true;
  }
  
-+#ifdef DOLLY
++#ifdef __dolly__
 +void CNetClientSession::PollOnce()
 +{
 +	m_FileTransferer.Poll();
@@ -747,7 +747,7 @@
  	 * Processes pending messages.
  	 */
  	void ProcessPolledMessages();
-+#ifdef DOLLY
++#ifdef __dolly__
 +	void PollOnce();
 +#endif
  
@@ -797,7 +797,7 @@
  	// system already inits those)
  	curl_global_init(CURL_GLOBAL_ALL & ~CURL_GLOBAL_WIN32);
  
-+#ifndef DOLLY
++#ifndef __dolly__
  	if (!g_Quickstart)
  		g_UserReporter.Initialize(); // after config
 +#endif
@@ -879,7 +879,7 @@
  
  namespace Threading
  {
-+#if defined(DOLLY)
++#if defined(__dolly__)
 +class TaskManager::Impl {};
 +TaskManager::TaskManager() : m{std::make_unique<Impl>()} {}
 +TaskManager::TaskManager(size_t) : TaskManager() {}
@@ -1087,7 +1087,7 @@
  
  std::shared_ptr<ScriptContext> ScriptContext::CreateContext(int contextSize, uint32_t heapGrowthBytesGCTrigger)
  {
-+#if defined(DOLLY)
++#if defined(__dolly__)
 +	// Serial tasks share one context and retain their separate realms.
 +	static std::weak_ptr<ScriptContext> current;
 +	if (std::shared_ptr<ScriptContext> context = current.lock())
@@ -1114,7 +1114,7 @@
  #include "soundmanager/items/ISoundItem.h"
  #include "soundmanager/scripting/SoundGroup.h"
  
-+#ifdef DOLLY
++#ifdef __dolly__
 +#define AL_ALEXT_PROTOTYPES
 +#include <AL/alext.h>
 +#include <cerrno>
@@ -1126,7 +1126,7 @@
  		m_DeadItems = new ItemsList;
  		m_Shutdown = false;
  
-+#ifndef DOLLY
++#ifndef __dolly__
  		m_WorkerThread = std::thread(Threading::HandleExceptions<RunThread>::Wrapper, this);
 +#endif
  	}
@@ -1136,7 +1136,7 @@
  
  		}
  
-+#ifndef DOLLY
++#ifndef __dolly__
  		m_WorkerThread.join();
 +#endif
  
@@ -1147,7 +1147,7 @@
  		m_Items->push_back(anItem);
  	}
 +
-+#ifdef DOLLY
++#ifdef __dolly__
 +	void Poll()
 +	{
 +		for (auto it = m_Items->begin(); it != m_Items->end();)
@@ -1167,7 +1167,7 @@
  	if (g_SoundManager)
  		return;
  
-+#ifdef DOLLY
++#ifdef __dolly__
 +	ALCdevice* device = alcLoopbackOpenDeviceSOFT(nullptr);
 +#else
  	ALCdevice* device = alcOpenDevice(nullptr);
@@ -1179,7 +1179,7 @@
  CSoundManager::~CSoundManager()
  {
  	UnregisterFileReloadFunc(ReloadChangedFileCB, this);
-+#ifdef DOLLY
++#ifdef __dolly__
 +	if (m_Audio.scope)
 +		dolly_audio_close(&m_Audio);
 +#endif
@@ -1190,7 +1190,7 @@
  	Status ret = INFO::OK;
  
  	if(!m_Device)
-+#ifdef DOLLY
++#ifdef __dolly__
 +		m_Device = alcLoopbackOpenDeviceSOFT(nullptr);
 +#else
  		m_Device = alcOpenDevice(nullptr);
@@ -1198,7 +1198,7 @@
  
  	if (m_Device)
  	{
-+#ifdef DOLLY
++#ifdef __dolly__
 +		ALCint attribs[] = {ALC_STEREO_SOURCES, 16, ALC_FORMAT_CHANNELS_SOFT, ALC_STEREO_SOFT,
 +			ALC_FORMAT_TYPE_SOFT, ALC_FLOAT_SOFT, ALC_FREQUENCY, DOLLY_AUDIO_RATE, 0};
 +#else
@@ -1211,7 +1211,7 @@
  #endif // !OS_UNIX
  	}
  
-+#ifdef DOLLY
++#ifdef __dolly__
 +	if (m_Enabled && dolly_audio_open(&m_Audio) < 0)
 +	{
 +		LOGERROR("Dolly PCM device open failed: %d", errno);
@@ -1226,7 +1226,7 @@
  
  		if (m_Worker)
  			m_Worker->CleanupItems();
-+#ifdef DOLLY
++#ifdef __dolly__
 +		if (m_Worker)
 +			m_Worker->Poll();
 +		dolly_audio_status status;
@@ -1264,7 +1264,7 @@
  
  void CSoundManager::RunHardwareDetection()
  {
-+#ifdef DOLLY
++#ifdef __dolly__
 +	m_SoundCardNames = "Dolly stereo PCM";
 +	if (const char* version = alGetString(AL_VERSION))
 +		m_OpenALVersion = version;
@@ -1279,7 +1279,7 @@
  #include "scripting/SoundGroup.h"
  #include "simulation2/system/Entity.h"
  
-+#ifdef DOLLY
++#ifdef __dolly__
 +#include <dolly/audio.h>
 +#endif
  #include <AL/al.h>
@@ -1289,7 +1289,7 @@
  
  protected:
  
-+#ifdef DOLLY
++#ifdef __dolly__
 +	dolly_audio m_Audio{};
 +#endif
  	ALCcontext* m_Context;
@@ -1301,7 +1301,7 @@
  
  struct mg_context *mg_start(mg_callback_t user_callback, void *user_data,
                              const char **options) {
-+#if defined(DOLLY)
++#if defined(__dolly__)
 +  fprintf(stderr, "Dolly does not support listening HTTP servers.\n");
 +  errno = ENOTSUP;
 +  return NULL;
@@ -1371,7 +1371,7 @@
  startproject "pyrogenesis"
 +if os.istarget("emscripten") then
 +	architecture "wasm64"
-+	defines { "DOLLY", "CONFIG2_FILE_ENABLE_AIO=0", "CONFIG2_TIMER_ALLOW_RDTSC=0" }
++	defines { "CONFIG2_FILE_ENABLE_AIO=0", "CONFIG2_TIMER_ALLOW_RDTSC=0" }
 +	buildoptions { "-O2" }
 +end
  

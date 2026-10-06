@@ -38,7 +38,7 @@ await browserTest("host compute", { image: "system-build" }, async ({ browser, s
         });
         worker.postMessage({ type: "configure", mode: "snapshot", ...configuration,
           hostModules: host.enabled, hostConfiguration: host.configuration }, transfers);
-        return await running(host.get("runtime"), exited);
+        return await running(host.kernel, exited);
       } finally { host.dispose(); worker?.terminate(); }
     };
     // Builds APPLICATION name FROM system-build (leading REQUIRES HOST rows go
@@ -63,20 +63,20 @@ await browserTest("host compute", { image: "system-build" }, async ({ browser, s
   // refuses gpu@0 before ENTRY instead of running the program.
   const adapter = await page.evaluate(async () => Boolean(await navigator.gpu?.requestAdapter({ powerPreference: "high-performance" })));
   const compute = page.evaluate(async code => {
-    const { artifact, configuration } = await buildCustom("compute", "REQUIRES HOST gpu@0\nREQUIRES HOST http@0\n" +
+    const { artifact, configuration } = await buildCustom("compute", "REQUIRES HOST runtime@0\nREQUIRES HOST gpu@0\nREQUIRES HOST http@0\n" +
       `FILE /tmp/probe.c\n${code.trimEnd().split("\n").map(line => "    " + line).join("\n")}\n` +
       "SLOP cc -O1 /tmp/probe.c -ldolly-gpu -o /usr/bin/probe\nEXPORTS TOOL probe\nENTRY /usr/bin/probe\n");
     const status = await runHeadless(["runtime@0", "gpu@0", "http@0"], configuration, [artifact.bytes], (_runtime, exited) => exited);
     return { status, requirements: artifact.hostRequirements, canvases: document.querySelectorAll("canvas").length };
   }, code);
   if (adapter) {
-    assert.deepEqual(await compute, { status: 0, requirements: ["gpu@0", "http@0"], canvases: 0 });
+    assert.deepEqual(await compute, { status: 0, requirements: ["gpu@0", "http@0", "runtime@0"], canvases: 0 });
   } else {
     await assert.rejects(compute, /Required host module gpu@0 is unavailable/);
   }
   assert.deepEqual(await page.evaluate(async () => {
     const { artifact, configuration } = await buildCustom("loop",
-      "REQUIRES HOST http@0\nFILE /etc/loop.slop\n    while :; do :; done\nENTRY /bin/slop /etc/loop.slop\n");
+      "REQUIRES HOST runtime@0\nREQUIRES HOST http@0\nFILE /etc/loop.slop\n    while :; do :; done\nENTRY /bin/slop /etc/loop.slop\n");
     return runHeadless(["runtime@0", "http@0"], configuration, [artifact.bytes], async (runtime, exited) => {
       while (!runtime.terminal?.foregroundInterruptible()) await new Promise(resolve => setTimeout(resolve, 10));
       return [runtime.terminal.interruptForeground(), await exited];

@@ -1,12 +1,13 @@
 DOLLY 6
 TOOLCHAIN system
+REQUIRES HOST runtime@0
 REQUIRES HOST display@0
 REQUIRES HOST download@0
 REQUIRES HOST http@0
 REQUIRES HOST snapshot@0
 REQUIRES HOST upload@0
 
-FROM https://daugasauron.com/Dollyfile-system-tools 8397624b7b93b1db3dd87fcd587cf9763c1c2e50d05386365d72d6e9939155e5
+FROM https://daugasauron.com/Dollyfile-system-tools 92adc6c8211f5c1f4aab15e7fc8f0793a8a3ac4f84cbf252fe762daaaeed7751
 
 REQUIRES HEADER libc
 REQUIRES TOOL cc
