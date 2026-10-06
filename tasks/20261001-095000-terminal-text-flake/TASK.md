@@ -39,3 +39,16 @@ The full Firefox suite failed `terminal-browser.mjs` with
 selection: 3 of 16 Firefox runs of the new display test before, 13 of 13 after
 it waits for its own selection (`fix/page-presenter`). The mouse-drag failure
 recorded here is separate and still open.
+
+## Seen again with the parked presenter (2026-10-06, pi-local)
+
+Since `77f18fce` (`host/display/display.mjs:443`, "terminal selection reset")
+`demos/local-llm/test/local-llm-browser.mjs` fails in Chrome at the same
+step in 2 of 2 runs: after the session is saved and the page reloads,
+`waitForInteractiveTerminal(... 'restored Pi')` throws "timed out waiting for
+terminal selection reset" (once "... selection publication"). Every step
+before it passes, including a Pi agent run. The trials rig for task
+`20261005-215204-pi-local-loop` hit the same two messages on first boot about
+one run in four under load and passed on retry. Not investigated further:
+the helper's press-then-wait-for-null step may not run while the idle
+presenter is parked.
