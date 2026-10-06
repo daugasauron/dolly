@@ -294,8 +294,9 @@ export class DollyProcessSupervisor {
       const requirements = executableHostRequirements(parsed);
       checkHostAbi(requirements, this.hostAbi);
       threaded = validateThreadProfile(parsed, requirements, this.threadContract);
+      // The modules served in this executable's own Worker. Each holds one
+      // Worker's state, such as its function table, so none goes with threads.
       local = [...requirements.keys()].filter(requirement => this.processModules.has(requirement));
-      // Such a module keeps one Worker's state, such as its function table.
       if (threaded && local.length) throw new TypeError(`a program using threads@0 cannot use ${local.join(", ")}`);
       module = await WebAssembly.compile(bytes);
       processInterface = { imports: parsed.imports, exports: parsed.exports };
