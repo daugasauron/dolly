@@ -336,6 +336,25 @@ import; `npm run build:runtime` then fails at the exact import check. Such a
 call becomes a typed import declared with `DOLLY_BROWSER_IMPORT`, owned by a
 manifest and listed in `abi/dolly-browser-0.wat`.
 
+## Merging kernel code onto this kernel (from `fb6c3463` on)
+
+No JavaScript is generated for the kernel (`-sSTANDALONE_WASM`). The gate is
+`validate-browser`, at the end of `npm run build:runtime`.
+
+- **A new import**: `DOLLY_BROWSER_IMPORT(dolly_NAME)` before a prototype
+  (`src/process-kernel.h`), its typed line in `abi/dolly-browser-0.wat`, its
+  name in the module's `module.json`, and the function in `bindings` of its
+  `worker()`: addresses arrive as BigInt; return zero or a negative errno.
+- **`EM_JS`, `EM_ASM`, Emscripten's JavaScript library and `setjmp`** link as
+  imports nobody implements, and the gate fails (trial links,
+  `trial2/p-*.wasm`). Trusted JavaScript has no `Module`, `HEAPU8` or `FS`:
+  only the exports (`dolly._NAME`) and `memory.buffer`.
+- **libc**: what it asks of a host is answered in `src/libc-host.c` (two
+  clocks, entropy, no host environment, abort as a trap). Add a hook there,
+  never an import. `emscripten_get_heap_max()` is the current size now.
+- **Exports**: each must be a function of a manifest's contract WAT; the
+  artifact test compares exactly. Boot and terminal writes return a status.
+
 ## Findings outside this task (2026-10-06)
 
 A cold root rebuild of `system-build` with step 2
