@@ -436,12 +436,16 @@ seed with the empty suffix, explicit `runtime@0`, the libcurl follow-up.
   offline build and a build against a one-crate sparse registry on the test
   server, under the test's explicit policy; the registry saw exactly its
   `config.json`, one index file and one download.
-- The `cargo` image builds under the 6 GB build cap (anonymous memory up to
-  5.64 GB in the last crate) and was killed under 5 GB. `-j` is not the
-  lever: with `-j 2` a session build took 1200 s on a loaded machine and
+- The `cargo` image build is marginal under the 6 GB build cap: it passed
+  once (22:57, 5.64 GB anonymous memory in the last crate, built with only
+  `rust-tools` after it), was killed once under 6 GB (23:57, 5.94 GB, built
+  after three other images in one scope) and once under 5 GB. `-j` is not
+  the lever: with `-j 2` a session build took 1200 s on a loaded machine and
   peaked at 4.70 GB against 5.05 GB with `-j 4`; the `cargo` crate's own
-  rustc on top of about 2 GB of files decides. Building Cargo therefore
-  needs about 5 GB in a tab, 6 GB as an image. The recipe keeps `-j 4`.
+  rustc on top of about 2 GB of files decides. The recipe keeps `-j 4`.
+  Building Cargo needs about 5 GB in a session. As an image it needs 1.2 to
+  1.5 GB more because the builder keeps each dependency snapshot twice more
+  than needed (`tasks/20261006-145958-builder-artifact-copies`).
 - The Cargo built from the committed sources prints no ERROR line in the
   crates.io build (its libcurl accepts the two connection options).
 - `cargo install cbindgen --version 0.26.0 --root /tmp/cb`, the tool
@@ -496,8 +500,12 @@ seed with the empty suffix, explicit `runtime@0`, the libcurl follow-up.
    and `login` need `CONNECTTIMEOUT`, `LOW_SPEED_*` and `PUT` in libcurl. Git
    dependencies over HTTPS need a relay and libgit2's curl transport, which
    Cargo registers only with a non-default `[http]` configuration.
-6. Building Cargo needs 5 to 6 GB; a smaller last crate would need Patti to
-   drop files it no longer needs, or Cargo in the externally built seed.
+6. Building Cargo needs 5 to 6 GB; the builder's extra copies are filed, and
+   a smaller last crate would need Patti to drop files it no longer needs,
+   or Cargo in the externally built seed.
+7. `demos/rust/rust-linker.c` (`4d7fb3b9`) is verified by `rust-sdk`,
+   `rust-build` and `rust` rebuilding with it and by `cargo install ripgrep`
+   in a session; `cargo` and `rust-tools` on that pin still have to build.
 
 ### What would retire Patti
 
