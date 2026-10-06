@@ -76,8 +76,8 @@ thereby declared. A runtime provides:
   terminal mailbox, and the snapshot format of every image and package built
   on it;
 - the kernel (`kernel`: its sources link as the kernel itself, not as a
-  `dolly_NAME_kernel` module) and its outer `imports`, bound by the kernel's
-  own glue rather than by `bindings`;
+  `dolly_NAME_kernel` module) and its outer `imports`, bound through
+  `bindings` like any module's;
 - a Worker instance with `memory` and `supervisor(dolly)`, which the registry
   hands out as `host.kernel`;
 - the seed (`dist/dolly.data`: the compiler, libc adapter and bootstrap

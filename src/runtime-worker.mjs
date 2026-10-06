@@ -2,7 +2,6 @@ import { MAX_SNAPSHOT_BYTES as snapshotSizeLimit } from "./snapshot-records.mjs"
 import { DOLLY_BUILD_ID } from "../dist/dolly-build-id.mjs";
 import { DOLLY_IMAGE_BUILD_ID } from "../dist/dolly-image-build-id.mjs";
 import { DOLLY_IMAGES } from "../dist/dolly-images.mjs";
-import { DOLLY_ERRNO } from "./process-constants.mjs";
 import { describeImageArtifact, saveImageArtifact, sha256,
   loadPackagedSnapshotMetadata, streamPackagedSystemSnapshot } from "./image-artifact.mjs";
 import { imageInputs } from "./image-inputs.mjs";
@@ -11,6 +10,7 @@ import { decodeImageEntry } from "./image-entry.mjs";
 import { checkedCustomArtifact } from "./custom-image.mjs";
 import { CANONICAL_ORIGIN, decodeStaticAsset, hex } from "./static-asset.mjs";
 import { terminalFailureReason } from "./process-supervisor.mjs";
+import { bootFiles } from "../host/runtime/boot-files.mjs";
 
 const encoder = new TextEncoder();
 const decoder = new TextDecoder("utf-8", { ignoreBOM: true });
@@ -54,48 +54,6 @@ function locateArtifact(path) {
   return new URL(`dist/${path}`, applicationBase).href;
 }
 
-// Boot files cross between the Worker and the in-Wasm filesystem through three
-// kernel exports, which take paths and bytes copied into kernel memory.
-function bootFiles(dolly, memory) {
-  const allocate = size => {
-    const address = Number(dolly._malloc(BigInt(Math.max(1, size))));
-    if (address === 0) throw new Error("Dolly boot allocation failed");
-    return address;
-  };
-  const withBytes = (bytes, use) => {
-    const address = allocate(bytes.length);
-    try {
-      new Uint8Array(memory.buffer, address, bytes.length).set(bytes);
-      return use(BigInt(address));
-    } finally { dolly._free(BigInt(address)); }
-  };
-  const withPath = (path, use) => withBytes(encoder.encode(`${path}\0`), use);
-  return {
-    write(path, value) {
-      const bytes = typeof value === "string" ? encoder.encode(value) : value;
-      if (!(bytes instanceof Uint8Array)) throw new TypeError("invalid Dolly boot file");
-      const status = withPath(path, pathAddress => withBytes(bytes, address =>
-        dolly._dolly_write_file(pathAddress, address, BigInt(bytes.length))));
-      if (status !== 0) throw new Error(`Dolly could not write ${path}: status ${status}`);
-    },
-    // Guest-writable files are bounded before trusted code copies them.
-    read(path, limit) {
-      const address = allocate(limit);
-      try {
-        const size = withPath(path, pathAddress =>
-          dolly._dolly_read_file(pathAddress, BigInt(address), BigInt(limit)));
-        if (size === -DOLLY_ERRNO.EFBIG) throw new Error(`${path} is larger than ${limit} bytes`);
-        if (size < 0) throw new Error(`Dolly could not read ${path}: status ${size}`);
-        return new Uint8Array(memory.buffer, address, size).slice();
-      } finally { dolly._free(BigInt(address)); }
-    },
-    remove(path) {
-      const status = withPath(path, pathAddress => dolly._dolly_remove_file(pathAddress));
-      if (status !== 0 && status !== -DOLLY_ERRNO.ENOENT) throw new Error(`Dolly could not remove ${path}: status ${status}`);
-    },
-  };
-}
-
 // A rejected promise, not a throw, when the entry cannot be read or decoded.
 async function runImageEntry(files, supervisor) {
   return supervisor.spawn(decodeImageEntry(files.read("/etc/dolly/entry", 64 * 1024)), { foreground: true });
@@ -132,7 +90,6 @@ async function waitForBrowserAcknowledgement(type, failure) {
   });
 }
 
-let dolly = null;
 let processSupervisor = null;
 let host;
 self.addEventListener("message", event => { void host?.handle(event.data).catch(error => {
@@ -175,35 +132,15 @@ try {
   const inputs = imageInputs([...artifacts.values()]);
   const baseArtifact = baseReference ? artifacts.get(baseReference.sha256) : null;
   if (bootMode === "rebuild" && baseReference && !baseArtifact) throw new Error("base image artifact was not provided");
-  bootstrapStage("loading Dolly runtime...");
-  // Emscripten's glue decodes kernel strings with a TextDecoder it creates at
-  // import time, over views of the heap; TextDecoder rejects views of shared
-  // memory (measured in Chrome 151 and Firefox 155) and no link setting of
-  // Emscripten 6.0.8 makes it copy first. Hiding the global while the glue
-  // loads selects its JavaScript decoder instead.
-  const nativeTextDecoder = globalThis.TextDecoder;
-  globalThis.TextDecoder = undefined;
-  const { default: createDolly } = await import("../dist/dolly.mjs");
   bootstrapStage("creating wasm64 userspace kernel...");
   const memory = host.kernel.memory;
   // Fixed deployment input, never a filename or URL supplied by Wasm.
   const kernelModule = await WebAssembly.compileStreaming(fetch(locateArtifact("dolly.wasm")));
-  let kernelExports;
-  const dollyOptions = {
-    ...host.options,
-    locateFile: locateArtifact,
-    instantiateWasm(imports, receive) {
-      host.bindImports(kernelModule, imports);
-      const instance = new WebAssembly.Instance(kernelModule, imports);
-      kernelExports = instance.exports;
-      receive(instance, kernelModule);
-      return instance.exports;
-    },
-
-  };
-  dolly = await createDolly(dollyOptions);
-  globalThis.TextDecoder = nativeTextDecoder;
-  const files = bootFiles(dolly, memory);
+  const kernel = new WebAssembly.Instance(kernelModule, host.imports(kernelModule)).exports;
+  kernel._initialize();
+  // Host modules and the supervisor name kernel exports as Emscripten's glue did.
+  const dolly = Object.fromEntries(Object.entries(kernel).map(([name, value]) => [`_${name}`, value]));
+  const files = bootFiles(kernel, memory);
   if (bootMode === "rebuild" && !baseArtifact) {
     bootstrapStage("loading root compiler seed...");
     const { default: loadSeed } = await import("../dist/dolly-seed.mjs");
@@ -243,7 +180,7 @@ try {
     files.write("/etc/dolly/image.manifest", `${restoreMetadata.manifest.join("\n")}\n`);
   }
 
-  await host.start("kernel", { dolly, memory, kernelExports });
+  await host.start("kernel", { dolly, memory, kernelExports: kernel });
 
   let bootstrapStatus;
   let snapshotBytes;
@@ -252,13 +189,13 @@ try {
     bootstrapStage("building userspace from the Dollyfile...");
     if (baseArtifact) {
       bootstrapStage(`loading builder from ${baseReference.location}...`);
-      const restoreAddress = dolly._dolly_snapshot_restore_address(BigInt(baseArtifact.bytes.byteLength));
+      const restoreAddress = kernel.dolly_snapshot_restore_address(BigInt(baseArtifact.bytes.byteLength));
       const range = checkedMemoryRange(memory, restoreAddress, baseArtifact.bytes.byteLength);
       new Uint8Array(memory.buffer, range.address, range.size).set(new Uint8Array(baseArtifact.bytes));
-      bootstrapStatus = dolly._dolly_process_bootstrap_resume_prepare(BigInt(range.size), 1);
+      bootstrapStatus = kernel.dolly_process_bootstrap_resume_prepare(BigInt(range.size), 1);
       releaseInput(baseArtifact);
     } else {
-      bootstrapStatus = dolly._dolly_process_bootstrap_prepare();
+      bootstrapStatus = kernel.dolly_process_bootstrap_prepare();
     }
     if (bootstrapStatus === 0) {
       processSupervisor = await host.kernel.supervisor(dolly);
@@ -271,11 +208,11 @@ try {
     artifacts.clear();
     if (bootstrapStatus === 0) {
       bootstrapStage("capturing userspace image...");
-      if (dolly._dolly_snapshot_capture() !== 0) {
+      if (kernel.dolly_snapshot_capture() !== 0) {
         throw new Error("Dolly system snapshot capture failed");
       }
       const range = checkedMemoryRange(
-        memory, dolly._dolly_snapshot_address(), dolly._dolly_snapshot_size(),
+        memory, kernel.dolly_snapshot_address(), kernel.dolly_snapshot_size(),
       );
       bootstrapStage("copying completed image...");
       const copy = new Uint8Array(range.size);
@@ -297,29 +234,29 @@ try {
     bootstrapStage("loading precompiled userspace snapshot...");
     if (configuredImage === "custom") {
       const snapshot = snapshotMetadata.bytes;
-      const restoreAddress = dolly._dolly_snapshot_restore_address(BigInt(snapshot.byteLength));
+      const restoreAddress = kernel.dolly_snapshot_restore_address(BigInt(snapshot.byteLength));
       const range = checkedMemoryRange(memory, restoreAddress, snapshot.byteLength);
       new Uint8Array(memory.buffer, range.address, range.size).set(new Uint8Array(snapshot));
-      bootstrapStatus = dolly._dolly_bootstrap_snapshot(BigInt(range.size));
+      bootstrapStatus = kernel.dolly_bootstrap_snapshot(BigInt(range.size));
       snapshotBytes = range.size;
       snapshotMetadata.bytes = undefined;
       bootConfig.customArtifact = undefined;
     } else {
       const capacity = 1024 * 1024;
-      const address = dolly._dolly_snapshot_restore_address(BigInt(capacity));
+      const address = kernel.dolly_snapshot_restore_address(BigInt(capacity));
       const staging = () => {
         const range = checkedMemoryRange(memory, address, capacity);
         return new Uint8Array(memory.buffer, range.address, range.size);
       };
       staging().set(Uint8Array.from(snapshotMetadata.sha256.match(/../g), byte => parseInt(byte, 16)));
-      if (dolly._dolly_bootstrap_snapshot_begin(BigInt(snapshotMetadata.byteLength)) !== 0)
+      if (kernel.dolly_bootstrap_snapshot_begin(BigInt(snapshotMetadata.byteLength)) !== 0)
         throw new Error("Dolly snapshot stream initialization failed");
       let loaded = 0, reported = 0;
       await streamPackagedSystemSnapshot(configuredImage, snapshotMetadata, bytes => {
         for (let offset = 0; offset < bytes.length; offset += capacity) {
           const chunk = bytes.subarray(offset, offset + capacity);
           staging().set(chunk);
-          if (dolly._dolly_snapshot_stream_write(BigInt(chunk.length), 0) !== 0)
+          if (kernel.dolly_snapshot_stream_write(BigInt(chunk.length), 0) !== 0)
             throw new Error("Dolly rejected a snapshot stream record");
         }
         loaded += bytes.length;
@@ -329,11 +266,11 @@ try {
           reported = performance.now();
         }
       }, () => {
-        if (dolly._dolly_snapshot_stream_write(0n, 1) !== 0)
+        if (kernel.dolly_snapshot_stream_write(0n, 1) !== 0)
           throw new Error("Dolly rejected an incomplete snapshot part");
         return hex(staging().subarray(0, 32));
       });
-      bootstrapStatus = dolly._dolly_bootstrap_snapshot_end();
+      bootstrapStatus = kernel.dolly_bootstrap_snapshot_end();
       snapshotBytes = snapshotMetadata.byteLength;
     }
   }
@@ -347,7 +284,7 @@ try {
 
   if (finishRebuiltImage) {
     bootstrapStage("finishing image bootstrap...");
-    bootstrapStatus = dolly._dolly_bootstrap_finish();
+    bootstrapStatus = kernel.dolly_bootstrap_finish();
     if (bootstrapStatus !== 0) {
       throw new Error(`Dolly bootstrap failed with status ${bootstrapStatus}`);
     }
@@ -355,9 +292,9 @@ try {
 
   await host.imageRestored({ dolly, supervisor: processSupervisor, stage: bootstrapStage,
     files, image: configuredImage });
-  if (dolly._dolly_bootstrap_environment() !== 0) throw new Error("Dolly image environment is invalid");
+  if (kernel.dolly_bootstrap_environment() !== 0) throw new Error("Dolly image environment is invalid");
 
-  await host.start("image", { dolly, memory, kernelExports });
+  await host.start("image", { dolly, memory, kernelExports: kernel });
 
   const runtimeImage = decoder.decode(files.read("/etc/dolly/image", 256));
   if (configuredImage !== "custom" && runtimeImage !== configuredImage) {

@@ -145,7 +145,8 @@ Evidence is under `build/kernel-boundary-evidence/` in `work/signals`.
 | 1. Output devices in the kernel | 30 | 129 | verified, merged (`ff3a5c19`) |
 | Before, on `bef23f6b` | 30 | 130 | runtime `8ce10189…`, 214,314 bytes |
 | 2. Kernel exports instead of `FS` | 24 | 93 | verified (below), runtime `970172ca…`, 203,121 bytes |
-| 4, 3 | | | on `core/kernel-boundary-2` |
+| 4. Dolly-named imports, no generated JavaScript | 9 | 90 | verified (below), runtime `b97cb65a…`, 198,739 bytes |
+| 3. Seed as a snapshot | | | on `core/kernel-boundary-2` |
 
 Step 1: `TerminalFile` in `src/file-blocks.cpp` is `/dev/dolly-stdout`,
 `/dev/dolly-stderr` and `/dev/tty`, mounted when the root is populated;
@@ -214,26 +215,126 @@ Measured in `work/kboundary` (`build/kboundary-evidence/`):
   `runImageEntry` stays an async function over the kernel's bounded read, so
   an oversized `/etc/dolly/entry` is the image's ending with that message.
 
-Not done in step 2: the two done-when tests and the exact-export test
-(with step 4), steps 3 and 4.
 
-## Step 4, measured before this round (trial links only, nothing in the tree)
+## Step 4, verified (2026-10-06 night, `core/kernel-boundary-step4`)
 
-- Emscripten's `standalone.o` cannot be kept out of a standalone link: with
-  every other hook defined by the kernel, libc's `dup.o` still extracts it for
-  its weak `__syscall_dup` (`why-extract-hooks.txt`). Its strong definitions
-  then collide with any of the kernel's: `_abort_js`,
-  `emscripten_get_heap_max`, `emscripten_resize_heap`, the eight preload
-  queries and `_wasmfs_stdin_get_char` (`trial-hooks.log`).
-- Untested design that follows: remove `_wasmfs_stdin_get_char` from
-  `src/dolly.c`; define `imported__wasi_fd_read` (end of file) and
-  `imported__wasi_fd_write` (boot text), the two names `standalone.c` imports
-  WASI under; define `__wasi_clock_time_get`, `__wasi_clock_res_get`,
-  `__wasi_random_get`, `__wasi_environ_sizes_get`, `__wasi_environ_get` and
-  an empty `emscripten_notify_memory_growth`, as
-  `src/process/libc-adapter.c` does for processes. If Emscripten renames the
-  two private names, the WASI imports return and the exact import check
-  fails the build.
+`a73a6bb9` on `7e39f6ee` (step 2 merged with `integrate/next` at `38d3edf4`).
+The Worker instantiates `dist/dolly.wasm` itself; `host/modules.mjs` builds the
+whole import object, each import from the provider of the module whose
+manifest owns it. `dist/dolly.mjs` is no longer built, packaged or loaded,
+and `globalThis.TextDecoder` is no longer replaced.
+
+| | Imports | Exports | Bytes | Runtime |
+| --- | --- | --- | --- | --- |
+| Step 2 | 24 | 93 | 203,121 | `970172ca…` |
+| Step 4 | 9 | 90 | 198,739 | `b97cb65a…` |
+
+**The nine imports:** `env.memory`, `env.dolly_bootstrap_write_bytes`,
+`env.dolly_clock_realtime`, `env.dolly_clock_monotonic`, `env.dolly_entropy`
+(`runtime@0`), `env.dolly_http_dispatch`, `env.dolly_download_dispatch`,
+`env.dolly_gpu_dispatch`, `env.dolly_audio_dispatch`. **The 90 exports:**
+64 `dolly_*`, the 23 libc functions, `__stack_pointer` and
+`__indirect_function_table` of `abi/dolly-kernel-plugin-0.wat`, and
+`_initialize`, which `abi/dolly-supervisor-0.wat` now names. The artifact
+test compares the kernel's exports with the contracts' names exactly.
+
+Decisions, with their reasons:
+
+- **No import for abort, memory growth or the environment** (the plan as
+  changed by the measurement). Abort is a Wasm trap. Memory grows inside Wasm
+  (`memory.grow`), by what is asked and no longer by Emscripten's 20 percent;
+  trusted JavaScript already read `memory.buffer` at each use. The kernel sets
+  its whole starting environment, in the order it had: `PATH`, `PWD=/`,
+  `HOME`, `LANG`, `SHELL`, `TERM`, `COLORTERM`.
+- **`LANG` is `en_US.UTF-8` for everyone.** It was the browser's language
+  (`navigator.language`); headless Chrome and Firefox report `en-US`, so that
+  is what every image was built with. A browser in another language now gets
+  the same environment: a behaviour change, and one host datum less in the
+  guest. An image that wants another value sets it with `ENV`.
+- **Boot text returns a status.** `dolly_bootstrap_write_bytes` is
+  `(i64 i64) -> i32`: the provider refuses a write beyond 1 MiB or outside
+  kernel memory with `-EINVAL`, before copying.
+  `dolly_terminal_write_bytes` returns it and the terminal device passes it
+  to the writer, so a refused write is not a silent success. No genuine caller
+  writes more: a process write is one packet (1 MiB).
+- **Clocks are two imports without parameters**, each returning milliseconds
+  as `f64` (`Date.now()`, `performance.now()` of the Worker, what processes
+  already see); **entropy** fills at most 65,536 bytes a call. The kernel
+  answers clock resolution itself and refuses the two CPU-time clocks
+  (`EINVAL`), which Emscripten's glue answered with the monotonic clock; the
+  kernel never asks for them.
+- **`-sSUPPORT_LONGJMP=0`**: without it the link exports
+  `_emscripten_stack_restore` and `emscripten_stack_get_current` for a
+  JavaScript `longjmp` the kernel never uses.
+- **Two private names of Emscripten.** `src/libc-host.c` defines
+  `imported__wasi_fd_write` and `imported__wasi_fd_read`, the names
+  `standalone.c` of Emscripten 6.0.8 imports WASI under. If an update renames
+  them the WASI imports return and the build's exact import check fails.
+- **One line of the old naming is left.** Host modules and the supervisor
+  call exports as `dolly._NAME`; the Worker builds that object from the
+  instance's exports in one line. Renaming the about 60 call sites to
+  `kernel.NAME` is mechanical (`build/kboundary-evidence/rename-kernel-handle.py`),
+  but touches `src/process-supervisor.mjs` and every provider while three
+  branches edit them; it is not done.
+
+Measured in `work/kboundary` (`build/kboundary-evidence/`):
+
+- **Image inputs unchanged** (`e8e495dc…`) and **image bytes unchanged**: the
+  `default` chain and `system`, 13 images, rebuilt cold with the step 4
+  runtime (snapshots, metadata and browser profiles removed first) have the
+  digests they had, `system-build` from the root included (`e5a4ac80…`;
+  `measure-cold.sh`, `measure-cold-step4.log`). No recipe pin of those images
+  moves. The 13 builds took 717 s; the 12 of the chain took 846 s with
+  step 2.
+- **What repins**: the files `Dollyfile-dolly-docs` ships. Step 4 changes
+  `abi/dolly-browser-0.wat`, `abi/dolly-supervisor-0.wat`,
+  `docs/architecture.md`, `docs/browser-boundary.md` and `host/README.md`, so
+  `dolly-docs`, `pi`, `pi-local` and `dollyfile-studio` rebuild (`d12751e9`);
+  nothing else.
+- **Packaging**: nothing names `dist/dolly.mjs` any more
+  (`scripts/package-pages.sh`, `scripts/build.sh`, the tests). The release
+  manifest lists the files a packaged site holds, and
+  `coi-serviceworker.js` has no file list. A stale `dist/dolly.mjs` in an old
+  tree is not packaged. `dist/dolly-seed.mjs` stays until step 3.
+- **Growth and out-of-memory** (`probe-kernel-failures.mjs`, step 4, Chrome):
+  a 2,047 MiB file is appended in 1.5 s; sizing a file to 9,000 MiB, past the
+  kernel's 8 GiB, is refused with `ENOSPC` in about 50 ms, the shell goes on
+  and a further 1 GiB file is written. The full `fs-growth` suite fills 8 GiB
+  and is killed by the 6 GB browser cap with either runtime
+  (`work/next/build/next-evidence/browser-d/`).
+- **What the page reports when the kernel aborts** (the abort injected into
+  the served Worker, the rest real; `step4/probe-failures-*.log`):
+  during boot, the kernel's own line and `FATAL unreachable` in the boot log,
+  status `failed`; inside a process's system call, the supervisor fails that
+  process (`dolly: process N failed: unreachable`) and, when it is the ENTRY,
+  the page's notice says "This image has ended: its program failed:
+  unreachable"; in a Worker timer, outside any system call, the page stayed
+  `ready` with no notice. That last case was silent before step 4 too (the
+  page only disposed its modules on a Worker error); `89e78ca0` makes it a
+  `FATAL` like the others and the boundary suite holds the check. The reason
+  now reads `unreachable` where Emscripten's glue said `Aborted(...)`.
+- **Suites** at `89e78ca0`: source 399 of 399; artifacts 22 passed, 1 skipped (CPython's), 0 failed;
+  the eight browser suites 8 of 8 in Chrome and 8 of 8 in
+  Firefox (`step4-final/summary.txt`). The boundary suite instantiates a
+  kernel in the page from the providers and proves five things on it: a boot
+  file at its bound is read and one byte more is refused
+  (`/etc/dolly/entry is larger than 65536 bytes`); a boot text write of 1 MiB
+  passes and one byte more is refused with `-EINVAL` without reaching the
+  page; an allocation past 8 GiB fails and the kernel goes on; an abort traps
+  after its reason reached the boot text. Each of the two done-when refusals
+  and the Worker-failure check was seen to fail when broken on purpose.
+- **Not measured**: an image larger than 209 MB. `python` and `cmake-build`
+  in this tree were built for another seed (`22d006ca…`) and cannot be
+  loaded by this runtime; `cmake-build` takes 28 minutes of the build slot.
+  The largest loaded here: `system` (161 MB) by the streamed restore at every
+  boot, `zig-build` (198 MB) restored as a base and `ghostty-build` (209 MB)
+  captured during the cold chain. No demo suite and no GPU test ran.
+
+For the merge: a branch whose kernel code uses `EM_JS`, `EM_ASM` or a
+function of Emscripten's JavaScript library no longer links into an allowed
+import; `npm run build:runtime` then fails at the exact import check. Such a
+call becomes a typed import declared with `DOLLY_BROWSER_IMPORT`, owned by a
+manifest and listed in `abi/dolly-browser-0.wat`.
 
 ## Findings outside this task (2026-10-06)
 
@@ -259,6 +360,14 @@ length (220,459), 27,463 bytes different inside its path lists.
 2. **Seed loading is not an image build input.** `src/runtime-worker.mjs`
    changed image bytes while `image inputs` stayed `2cc92c2b…`
    (`scripts/write-build-id.mjs:8-11` hashes the seed and four contracts).
+
+3. **After a refused file growth, Chrome writes files about 15 times
+   slower** (2026-10-06 night, `step4/growth-timing-*.log`). A 1 GiB append
+   takes 0.6 to 0.9 s; after `ftruncate` to 9,000 MiB was refused with
+   `ENOSPC` (the kernel's memory had grown to its 8 GiB maximum), the same
+   append takes 9 to 13 s for the rest of the session. The same with step 2's
+   runtime and Emscripten's glue; Firefox is not affected (1.3 s). Not
+   investigated.
 
 Step 1 was not rebuilt from the root on its own; it leaves seed loading
 alone, so no change is expected there, but that is not measured.

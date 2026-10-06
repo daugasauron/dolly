@@ -6,11 +6,15 @@
   ;; Terminal output. The browser supplies one text sink for output written
   ;; while no display driver is resident: boot, rebuilds and headless images.
   ;; The page shows it only as bounded plain text in the bootstrap log.
-  (import "env" "dolly_bootstrap_write_bytes" (func (param i64 i64)))
+  (import "env" "dolly_bootstrap_write_bytes" (func (param i64 i64) (result i32)))
   ;; Supervisor diagnostics for the terminal. Before a display driver is
   ;; installed they reach the bootstrap sink; after installation the resident
-  ;; driver consumes them without host interpretation.
-  (func (export "dolly_terminal_write_bytes") (param i64 i64))
+  ;; driver consumes them without host interpretation. Zero, or the negative
+  ;; error number of a refused bootstrap write.
+  (func (export "dolly_terminal_write_bytes") (param i64 i64) (result i32) i32.const 0)
+  ;; Runs the kernel's constructors: once, after instantiation, before any
+  ;; other export.
+  (func (export "_initialize"))
   ;; The process mailbox holds DOLLY_PROCESS_PACKET_LIMIT bytes (process.h).
   (func $mailbox_address (result i64) i64.const 0)
   (func $spawn_serialized (param i64) (result i32) i32.const 0)

@@ -142,7 +142,12 @@ async function boot() {
     type: "module",
     name: "dolly-runtime",
   });
-  runtimeWorker.addEventListener("error", () => host.dispose());
+  // An uncaught failure in the Worker, a kernel trap outside a system call
+  // among them, is the runtime's end: the page says so.
+  runtimeWorker.addEventListener("error", event => {
+    const message = event.message || "the runtime Worker failed";
+    if (rejectReady) rejectReady(new Error(message)); else fatal(message);
+  });
   runtimeWorker.addEventListener("message", (event) => {
     const message = event.data;
     void host.handle(message).catch(error => fatal(error.message));
@@ -188,7 +193,6 @@ async function boot() {
         reject(error);
       }
     });
-    runtimeWorker.addEventListener("error", reject, { once: true });
   }).finally(() => { rejectReady = null; });
   appendBootstrap(bootstrapDecoder.decode());
   runtimeReady = true;

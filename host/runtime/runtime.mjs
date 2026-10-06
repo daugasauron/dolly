@@ -1,4 +1,5 @@
 import { DollyProcessSupervisor } from "../../src/process-supervisor.mjs";
+import { DOLLY_ERRNO as E } from "../../src/process-constants.mjs";
 import { DOLLY_TERMINAL_WORD_RESULT_SEQUENCE, DOLLY_TERMINAL_WORD_RESULT_STATUS, DOLLY_TERMINAL_WORD_FOREGROUND_PID,
   DOLLY_TERMINAL_WORD_FOREGROUND_INTERRUPTIBLE, DOLLY_TERMINAL_WORD_INTERRUPT_SEQUENCE,
   DOLLY_TERMINAL_WORD_INTERRUPT_TARGET_PID } from "./abi.mjs";
@@ -10,8 +11,10 @@ export function check() {
   return null;
 }
 
-// Bootstrap text only feeds the page's 1 MiB log; one write never sends more.
+// Bootstrap text only feeds the page's 1 MiB log; a longer write is refused.
 const maxBootstrapMessage = 1024 * 1024;
+// What crypto.getRandomValues fills in one call.
+const maxEntropy = 65536;
 
 // The terminal mailbox (abi/dolly-supervisor-0.wat): the foreground command,
 // shell results and the page's interrupt request, with or without a display.
@@ -74,19 +77,35 @@ export function browser() {
 export function worker({ send, applicationBase, abi, service }) {
   const memory = new WebAssembly.Memory({ initial: 1024n, maximum: 131072n, shared: true, address: "i64" });
   let supervisor, threadProvider;
-  const text = value => `${String(value).slice(-maxBootstrapMessage)}\n`;
+  // The bytes a kernel import names, or null: inside kernel memory, at most `limit`.
+  const span = (address, length, limit) => {
+    const [start, size] = [address, length].map(Number);
+    return start >= 0 && size >= 0 && size <= limit && start <= memory.buffer.byteLength - size
+      ? new Uint8Array(memory.buffer, start, size) : null;
+  };
   return {
     memory,
+    bindings: {
+      "env.memory": memory,
+      "env.dolly_bootstrap_write_bytes": (address, length) => {
+        const bytes = span(address, length, maxBootstrapMessage);
+        if (!bytes) return -E.EINVAL;
+        send({ type: "bootstrap-bytes", bytes: bytes.slice() });
+        return 0;
+      },
+      "env.dolly_clock_realtime": () => Date.now(),
+      "env.dolly_clock_monotonic": () => performance.now(),
+      // Web Crypto rejects views of shared memory: fill a private buffer, then copy.
+      "env.dolly_entropy": (address, length) => {
+        const bytes = span(address, length, maxEntropy);
+        if (!bytes) return -E.EINVAL;
+        bytes.set(crypto.getRandomValues(new Uint8Array(bytes.length)));
+        return 0;
+      },
+    },
     setThreadProvider(provider) {
       if (supervisor || threadProvider) throw new Error("thread provider already initialized");
       threadProvider = provider;
-    },
-    options: {
-      wasmMemory: memory,
-      bootstrapWriteBytes: bytes => send({ type: "bootstrap-bytes",
-        bytes: bytes.length > maxBootstrapMessage ? bytes.slice(-maxBootstrapMessage) : bytes }),
-      print: value => send({ type: "bootstrap", text: text(value) }),
-      printErr: value => send({ type: "bootstrap", text: text(value), error: true }),
     },
     async supervisor(dolly) {
       return supervisor ??= await DollyProcessSupervisor.create(dolly, memory, applicationBase, abi, service, threadProvider);
