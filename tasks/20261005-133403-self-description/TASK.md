@@ -4,6 +4,17 @@
 - PRIORITY: 290
 - TAGS: core,userspace,docs,agent
 
+## Checked against the candidate (2026-10-07, `fix/visible`)
+
+- The plan: in `work/visible` (candidate `e0843789` plus two fixes), one
+  word changed in `docs/slop.md`, `DOLLY_BUILD_IMAGES=dolly-docs
+  node scripts/update-recipe-pins.mjs --sources`, then
+  `node scripts/build-system-snapshot.mjs --plan` over all 67 images
+  (`build/visible-evidence/self-description-plan.log`): exactly four
+  rebuild, each "recipe changed: Dollyfile-dolly-docs": `dolly-docs`,
+  `pi`, `pi-local`, `dollyfile-studio`. The edit and the four re-pinned
+  recipes were then reverted.
+
 ## Remaining (2026-10-07)
 
 In the candidate (`core/self-description` `a4c1bca4`): the `dolly-docs`
