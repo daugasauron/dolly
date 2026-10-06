@@ -11,7 +11,7 @@
   "dynamic-linking": true,
   "eh-frame-header": false,
   "emit-debug-gdb-scripts": false,
-  "exe-suffix": ".js",
+  "exe-suffix": "",
   "generate-arange-section": false,
   "has-thread-local": true,
   "is-like-wasm": true,
