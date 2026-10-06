@@ -3955,6 +3955,14 @@ static int expand_loop_words(Shell *shell, Token *tokens, size_t start,
   return 1;
 }
 
+// POSIX allows line breaks between a `for` name or `case` word and `in`.
+static void linebreak_before_in(CommandParser *parser) {
+  CommandParser probe = *parser;
+  while (probe.cursor < probe.end && probe.tokens[probe.cursor].kind == TOKEN_SEMI &&
+         probe.tokens[probe.cursor].newline) probe.cursor++;
+  if (command_word(&probe, "in")) parser->cursor = probe.cursor;
+}
+
 static int parse_for(Shell *shell, CommandParser *parser, int execute,
                      int suppress_errexit) {
   parser->cursor++;
@@ -3976,6 +3984,7 @@ static int parse_for(Shell *shell, CommandParser *parser, int execute,
 
   Arguments values = {0};
   int failed = 0;
+  linebreak_before_in(parser);
   if (command_word(parser, "in")) {
     parser->cursor++;
     const size_t words_start = parser->cursor;
@@ -4172,6 +4181,7 @@ static int parse_case(Shell *shell, CommandParser *parser, int execute,
   int failed = execute && value == NULL;
   if (failed) execute = 0;
   parser->cursor++;
+  linebreak_before_in(parser);
   if (!command_word(parser, "in")) {
     fputs("slop: case requires in\n", stderr);
     free(value);
