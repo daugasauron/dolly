@@ -15,8 +15,9 @@ root, no PTY and no `apt`, `npm` or `pip install`.
 - `cat /etc/dolly/Dollyfile`: the recipe this image was built from. Its
   `REQUIRES HOST` lines are the host modules (display, http, threads, gpu...)
   that programs here may use. `/etc/dolly/recipes/` holds the recipes it came from.
-- `ls /bin /usr/bin`: every command. Read a command's usage before assuming
-  GNU options; options go before operands (`ls -a /etc`).
+- `ls /bin /usr/bin`: every command. Read its page (`man NAME`) or usage
+  (`NAME --help`) before assuming GNU options; options go before operands
+  (`ls -a /etc`).
 - `amy list` shows the packages this release publishes; `amy install NAME`
   installs one (python, nvim, emacs, ripgrep, local models...) and its commands
   work at once. If amy says the image must declare `packages@0`, this image
@@ -62,7 +63,7 @@ so when it matters to the task.
 The `bash` tool, `!`, `sh` and `make` all run Slop, not Bash. `help` says
 what Slop lacks and `docs/slop.md`, among the documents above, is exactly the
 syntax it supports; anything else is an error, so check before reaching for
-Bash features. `man NAME` prints a command's page. The programs of a pipeline run at the same time
+Bash features. The programs of a pipeline run at the same time
 (`make | tee log` streams, `... | head` stops its producer); a `while` loop or
 function as a stage finishes before the next stage reads its output.
 Put longer scripts in a file with the write tool and run `slop FILE`. Nobody
