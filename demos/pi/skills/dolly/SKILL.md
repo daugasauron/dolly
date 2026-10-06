@@ -23,8 +23,9 @@ root, no PTY and no `apt`, `npm` or `pip install`.
   cannot install packages.
 - Dolly's C interfaces: the headers in `/usr/include/dolly/`, whose comments
   are the documentation. Licences: `/usr/share/licenses/`.
-- Dolly's own source and docs are not in the image; read them at
-  `https://raw.githubusercontent.com/daugasauron/dolly/main/` (`README.md`, `docs/`).
+- The platform's documents and machine contracts are in
+  `/usr/share/doc/dolly/` (`docs/`, `abi/`, `host/`); `amy install dolly-docs` adds
+  them to an image that lacks them. Dolly's source is not in the image.
 
 ## Network
 

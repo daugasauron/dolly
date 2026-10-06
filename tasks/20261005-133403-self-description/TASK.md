@@ -61,3 +61,67 @@ and limits readable through `sysconf`/`getconf`
   point to it.
 - `npm run image -- pi --plan` after a one-word edit of `docs/slop.md` lists
   only the images that install the package; the list is recorded here.
+
+## Decisions (2026-10-06, `core/self-description`; not yet built)
+
+- What ships: 13 documents and the 17 machine contracts they link, 154,430
+  bytes, at their repository paths under `/usr/share/doc/dolly/` so the links
+  between them work. `docs/`: `process-model`, `slop`, `display`, `gpu`,
+  `audio`, `http`, `sessions`, `dollyfile`, `architecture` (the call path the
+  others cite), `browser-boundary` (what the network and the page reach) and
+  `image-build-service` (a service a program inside calls); `abi/README.md`,
+  `host/README.md`; every `abi/*.wat` and `host/*/*.wat`.
+- What does not: `deployment`, `sources`, `licences`, `AGENTS.md` and the
+  Ghostty table notes are about the checkout, its build and its publication.
+  Shipped documents still link to them and to source files; those links name
+  the repository and do not resolve in the image.
+- One source: `Dollyfile-dolly-docs` (`PACKAGE dolly-docs`: no `FROM`,
+  `runtime@0` only; named so that its route is not the `docs/` directory)
+  is 30 `SOURCE` rows on the canonical origin and one `FOLDER`. The site
+  already publishes those files at those paths (`scripts/package-pages.sh`
+  copies `abi/*.wat` and `host/`, `package-documentation.mjs` the documents);
+  `publishedDocument` (`scripts/host-modules.mjs`) admits them as build
+  inputs beside the headers, and the Dolly row of `config/upstreams.json`
+  names `docs/` and `abi/`. No new source and no second copy.
+- Who installs it: `pi` (one `INSTALL` row), so `pi-local` and
+  `dollyfile-studio` get it through `FROM`; their two pins moved. Not
+  `default`: it is a base, so every document edit would rebuild what stands
+  on it, and it is being made smaller (`work/small-default`); `amy install
+  docs` brings the 0.15 MiB into any session with `packages@0`.
+- The Pi skill: the line that sent agents to raw.githubusercontent.com now
+  names `/usr/share/doc/dolly/` and `amy install dolly-docs`. Nothing else in the
+  skill was touched (three branches edited it today). Its pin in
+  `Dollyfile-pi-coding-agent` is a staged file and is refreshed by the next
+  image preparation, not here.
+- `help` is not edited here: `work/man-help` is rewriting it and its recipe
+  is in the seed chain. What both tasks say of each other, in that task's
+  words: `man` covers commands, that directory covers the platform, and
+  neither repeats the other. `help` drops its language table for those two
+  pointers there.
+- Headers. `/usr/include/dolly/display.h:88-105` declares
+  `dolly_input_event.data[]` with three lengths and no layout: which of key,
+  code and text come first, and what pointer, wheel and resize records carry
+  (the audit's §12). The comment is not fixed here: the header is hashed into
+  `display@0`'s ABI digest, so one word would refuse every display program
+  until rebuilt. It belongs to the input round
+  (`20261002-072000-input-host-module`); until then `docs/display.md` is the
+  place, and it is in the package.
+
+## State
+
+Checked without an image build, each inside `systemd-run --user --scope -q -p
+MemoryMax=2G -p MemorySwapMax=0`: `node scripts/lint-dollyfiles.mjs` (62
+recipes), `node scripts/update-recipe-pins.mjs` (no further change) and
+`test/platform-documents.test.mjs`, which checks every row's path, pin and
+destination and fails when a shipped document links to a document or
+contract the package lacks (tried by removing `docs/gpu.md`).
+
+For the integrator, after the seed catalog exists:
+
+    DOLLY_IMAGE_JOBS=1 DOLLY_BUILD_IMAGES=dolly-docs,pi work/build-slot.sh npm run image
+    npm run image -- pi --plan     # after a one-word edit of docs/slop.md
+    node test/docs-browser.mjs chromium firefox
+    npm run test:demos -- pi
+
+Still open from "Done when": the Pi session answering from the files with
+HTTP denied, and the `--plan` list, need the built images.
