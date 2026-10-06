@@ -7,7 +7,7 @@ REQUIRES HOST download@0
 REQUIRES HOST http@0
 REQUIRES HOST upload@0
 
-FROM https://daugasauron.com/demos/cmake/Dollyfile-cmake-build 4c31726e19b48b40db316c31b79a03673a6bef952fd3caac401f1655dc5dfc8b
+FROM https://daugasauron.com/demos/cmake/Dollyfile-cmake-build 9cc0c42ebc252e15b791ea44f9f7b256af6a3bdbf4cc4856a2a0b5ed9241c02b
 REQUIRES HEADER libc
 REQUIRES HEADER cpp
 REQUIRES LIB c++

@@ -4,7 +4,7 @@ REQUIRES HOST runtime@0
 REQUIRES HOST http@0
 
 # Git with its HTTP helpers, and diff and patch, which run it.
-FROM https://daugasauron.com/Dollyfile-system-tools cb303da0605a5e042d81a0b36c56aec5d01fe82f7a21690cac5563f0c2dba46d
+FROM https://daugasauron.com/Dollyfile-system-tools 136dc4e0c5b77edace8a3985f84ec1f3d0321d4e03ec7df63a3dff20c0f82507
 
 EXPORTS TOOL git
 EXPORTS TOOL diff

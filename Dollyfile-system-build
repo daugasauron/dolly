@@ -7,12 +7,12 @@ REQUIRES HOST http@0
 # and C headers are the externally supplied bootstrap seed. How those headers
 # eventually map to the lower-level machine contract is deliberately open.
 SOURCE https://daugasauron.com/include/dolly/toolchain.h 6f9da3258e970e356c31034e1f109a04ac8bd5ab57dc82c19aebf293289fb415 /usr/include/dolly/toolchain.h
-SOURCE https://daugasauron.com/include/dolly/runtime.h   4e9b80f0a61f2e45208fb6f7aadeef09b85aba570039f7bc413dabaa3f06c4c3 /usr/include/dolly/runtime.h
+SOURCE https://daugasauron.com/include/dolly/runtime.h   8960409cb41932a357c568724e285544c9fd04d8b65205f61efb398873eb63c6 /usr/include/dolly/runtime.h
 SOURCE https://daugasauron.com/include/dolly/process.h   78153700d5d1488bbff1d5fd4e27456391fee1f263ecb075c9af17c2ee8234a5 /usr/include/dolly/process.h
 SOURCE https://daugasauron.com/host/http/http.h      d09f57cda4a6cde89106653f12366ac95554c21d37d05a69c15764d4254b70a5 /usr/include/dolly/http.h
 SOURCE https://daugasauron.com/host/http/http-abi.h 2f4e1e5c7145730babc91a0ff0a38db8b5e100ae1fab0b722b38ecbd53ad64a0 /usr/include/dolly/http-abi.h
-SOURCE https://daugasauron.com/host/display/display.h   c63f8dee5e8cc84f34b8325f68798c81c4c161857a945fe3fd617c6fd0b8f38e /usr/include/dolly/display.h
-SOURCE https://daugasauron.com/host/display/display-abi.h 1ac9bf81684dce675d57602f395161f2fbbda34dd7cee9bb731df9724cddad07 /usr/include/dolly/display-abi.h
+SOURCE https://daugasauron.com/host/display/display.h   6acc64b125107c1a0ba4b5dea62662e0e73fb3bbda854909941b4a0731b691a2 /usr/include/dolly/display.h
+SOURCE https://daugasauron.com/host/display/display-abi.h 1490e3d68665c333287d78af15b77008c7ffdcf4a8b1fcfe93cd32a176f618c8 /usr/include/dolly/display-abi.h
 SOURCE https://daugasauron.com/host/input/input.h   50e20fdc6e9949559f2d174f4c4e3708fd5dcc5de8a96af2f06df1c3e405f8f3 /usr/include/dolly/input.h
 SOURCE https://daugasauron.com/host/input/input-abi.h 6d3506ba8384546888499fb3bf9a108096efb3518c0857255607ac707aa15d58 /usr/include/dolly/input-abi.h
 SOURCE https://daugasauron.com/host/download/download.h  666bca4fba5da7bf1e998c6486f56dce24cdbc82f1126f9be59067eb03b03bfa /usr/include/dolly/download.h
