@@ -76,7 +76,7 @@ lock.
 
 ### Contract
 
-One operation, `DOLLY_PROCESS_FD_LOCK = 57`, with a 32-byte request
+One operation, `DOLLY_PROCESS_FD_LOCK = 59`, with a 32-byte request
 (descriptor, flags, type, whence, start, length) and a 24-byte response for
 the test (type, pid, start, length). Types: shared, exclusive, unlock. Flags:
 
@@ -125,7 +125,8 @@ executable is restamped and the Rust seed rebuilt.
   supervisor ends a parked call on a signal without telling it, so a wait
   graph would go stale. A deadlocked wait ends on a signal, like any parked
   call.
-- A pipe has no file to lock: `EINVAL`.
+- A pipe has no file to lock: `ENOTSUP`, the kernel's answer for what a pipe
+  cannot do.
 
 ### Kernel
 
@@ -152,6 +153,58 @@ executable is restamped and the Rust seed rebuilt.
   waiters are not ordered, so a writer can starve behind readers.
 - libc (`src/process/libc-adapter.c`): a strong `flock` over Emscripten's weak
   stub, and the three `fcntl` commands.
+
+## Implemented (2026-10-06 night, `core/file-locks`), not yet run in a browser
+
+- `include/dolly/process.h`: `DOLLY_PROCESS_FD_LOCK = 59` and its packets.
+  The first number, 57, is the upload module's `DOLLY_UPLOAD_FILE`
+  (`host/upload/dolly-upload-0.wat`): operation numbers are one space, and
+  `module_for()` would have handed every lock request to the upload module.
+  `test/host-modules.test.mjs` now fails when two contracts claim a number; it
+  named this collision before the move.
+- `src/process-kernel.c`: the table, `fd_lock_packet`, a description number
+  per guest descriptor, release in `release_descriptor`.
+- `src/process/libc-adapter.c`: `flock`, and `F_GETLK`, `F_SETLK`, `F_SETLKW`.
+  `src/process/signal.c`: a handler without `SA_RESTART` ends a waiting lock
+  request with `EINTR`.
+- `src/process-supervisor.mjs`: `#retire` retries parked calls when the
+  kernel's wakeup flag is set. Before, a release made by a dying process (a
+  kill, a trap, a deadline) was found on the next 16 ms tick; the same held
+  for a pipe reader waiting for a killed writer's end.
+- Every way a process ends goes through `mark_process_exited` and
+  `release_process_resources`: `EXIT`, `dolly_process_worker_exited` (kill,
+  deadline, a Worker terminated by the supervisor), `dolly_process_worker_failed`
+  (trap, Worker error) and a parent's exit, which ends its children first.
+- `test/fixtures/process-locks.c` is the browser test of the process suite
+  and also runs on Linux (`test/process-descriptors.test.mjs`), so what it
+  expects is what Linux does: the refused `flock` conversion that leaves no
+  lock, merged ranges as `F_GETLK` reports them, the close rule, `EINTR` and
+  `SA_RESTART`, inheritance. Dolly-only parts: the 1024 limit, `ENOTSUP` for a
+  pipe, `EINVAL` for `F_OFD_SETLK`, a trap. Its timing assertion: two
+  processes pass three locks around 100 times, each step waiting for the
+  other's release, in under 500 ms for either kind (200 waits on a 16 ms tick
+  would take over a second).
+- `docs/process-model.md` states the semantics and limits. `docs/slop.md` no
+  longer says that `make -O` warns: to be confirmed in the browser.
+
+### Checked without a browser
+
+- The tree has no native harness for the kernel. An ad-hoc one compiles
+  `src/process-kernel.c` for Linux with stubs for the terminal, under ASan and
+  UBSan, and drives `dolly_process_dispatch`
+  (`build/locks-evidence/kernel-native/harness.c`, evidence, not committed):
+  scripted cases for both kinds (ownership, conversion, close, inheritance,
+  exit, kill, failed Worker, parent exit, the limit, range decoding) and
+  800,000 random range requests from three processes on two files against a
+  per-byte model, with the table checked after each (no overlap, touching
+  locks of one type merged, test answers true). `KERNEL-LOCKS-OK`; a lock is
+  48 bytes, the table 48 KiB, a process record 8,072 bytes. Eight deliberate
+  faults in the lock code (merge, split, conflict rule, conversion, last
+  close, close rule, limit, wakeup) each failed it.
+- `node --test test/*.test.mjs`: 273 of 278 pass in the source-only tree.
+  Four need `dist/`; the fifth is the docs package's pin of
+  `docs/process-model.md` and `docs/slop.md`, stale until the integrator
+  re-pins (`node scripts/update-recipe-pins.mjs --sources`).
 
 ## Measured (2026-10-06, Chrome, `default`, runtime `5439ebe7…`)
 

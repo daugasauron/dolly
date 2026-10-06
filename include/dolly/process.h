@@ -156,6 +156,9 @@ enum dolly_process_operation {
   DOLLY_PROCESS_FD_POLL = 54,
   DOLLY_PROCESS_FD_GET_DESCRIPTOR_FLAGS = 55,
   DOLLY_PROCESS_FD_SET_DESCRIPTOR_FLAGS = 56,
+  /* dolly_process_fd_lock_request -> nothing, or with LOCK_TEST a
+   * dolly_process_fd_lock_response. */
+  DOLLY_PROCESS_FD_LOCK = 59,
 
   DOLLY_PROCESS_SPAWN = 64,
   DOLLY_PROCESS_WAIT = 65,
@@ -384,6 +387,48 @@ typedef struct {
   uint32_t descriptor;
   uint32_t flags;
 } dolly_process_fd_flags;
+
+/*
+ * Advisory locks. A DESCRIPTION lock covers the whole file and belongs to the
+ * open file description, so duplicates and inheriting children share it and it
+ * goes with its last descriptor (flock). Any other lock covers a byte range
+ * and belongs to the process, which loses its locks on a file when it closes
+ * any descriptor of that file (fcntl). The two kinds do not conflict.
+ */
+enum dolly_process_lock_type {
+  DOLLY_PROCESS_LOCK_SHARED = 0,
+  DOLLY_PROCESS_LOCK_EXCLUSIVE = 1,
+  DOLLY_PROCESS_LOCK_UNLOCK = 2,
+};
+
+enum dolly_process_lock_flags {
+  DOLLY_PROCESS_LOCK_DESCRIPTION = 1u << 0,
+  /* Wait for conflicting locks to go instead of returning EAGAIN. */
+  DOLLY_PROCESS_LOCK_WAIT = 1u << 1,
+  /* Change nothing: report a lock that refuses the byte-range request. */
+  DOLLY_PROCESS_LOCK_TEST = 1u << 2,
+};
+
+/* The range starts at `start` from `whence` (a dolly_process_seek_whence) and
+ * is `length` bytes long: to the end of the file and beyond when zero, ending
+ * before `start` when negative. A DESCRIPTION lock leaves all three zero. */
+typedef struct {
+  uint32_t descriptor;
+  uint32_t flags;
+  uint32_t type;
+  uint32_t whence;
+  int64_t start;
+  int64_t length;
+} dolly_process_fd_lock_request;
+
+/* LOCK_UNLOCK when nothing refuses the request; otherwise the refusing lock,
+ * its owner and its range from the start of the file (zero length: no end). */
+typedef struct {
+  uint32_t type;
+  uint32_t pid;
+  uint64_t start;
+  uint64_t length;
+} dolly_process_fd_lock_response;
 
 typedef struct {
   uint32_t flags;
@@ -692,6 +737,8 @@ DOLLY_PROCESS_LAYOUT(dolly_process_timestamp, 16);
 DOLLY_PROCESS_LAYOUT(dolly_process_fd_times_request, 40);
 DOLLY_PROCESS_LAYOUT(dolly_process_fd_dup_request, 16);
 DOLLY_PROCESS_LAYOUT(dolly_process_fd_flags, 8);
+DOLLY_PROCESS_LAYOUT(dolly_process_fd_lock_request, 32);
+DOLLY_PROCESS_LAYOUT(dolly_process_fd_lock_response, 24);
 DOLLY_PROCESS_LAYOUT(dolly_process_poll_request, 16);
 DOLLY_PROCESS_LAYOUT(dolly_process_poll_query, 8);
 DOLLY_PROCESS_LAYOUT(dolly_process_poll_response, 16);
