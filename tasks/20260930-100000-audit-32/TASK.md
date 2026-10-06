@@ -320,9 +320,21 @@ arrives, an endless `seq` is cut short within the 5 s timeout), the spool
 boundary, `pipefail` with 141, `$(...)`, `&`, `$!`, `wait`, no leaks. It does
 not prove the kernel's wake-ups, the libc `SIGPIPE`, the 32-process limit,
 Worker start-up order, or that a background program ends with its shell.
-`node --test test/slop.test.mjs`: 147 of 147 pass (evidence in
-`build/pipelines-evidence/`, not committed). The other source tests are
-unchanged; four files need `dist/`, which this checkout does not have.
+`node --test test/slop.test.mjs`: 148 of 148 pass (evidence in
+`build/pipelines-evidence/`, not committed). `node --test test/*.test.mjs`:
+269 of 273; the four failing files import `dist/` modules, which this
+source-only checkout does not have.
+
+Checked once by hand under ASan, not kept as a case because 32 Workers at
+once is not for the browser suite: 40 times `sleep 1 &` holds 32 and refuses
+8 by name, and `wait` collects the 32.
+
+Found, not from this change and not fixed: a `while` loop left by
+`test ... && break` returns 1 where Bash returns 0
+(`i=0; while :; do i=$((i+1)); test $i = 3 && break; done; echo $?`), with or
+without a pipe; the Slop of the commit before this branch does the same. With
+`pipefail`, `producer | while ...; do ... && break; done` therefore reports 1
+where Bash reports the producer's 141.
 
 ### For the integrator, in a browser (nothing below was run)
 
@@ -366,3 +378,11 @@ Bash), so no recipe can fail with 141. What changes for each shape:
   `cmake-build`: its pipelines now run concurrently. Needs: the catalog round.
 - No recipe relies on a stage finishing before the next starts (none writes a
   file in one stage that a later stage of the same pipeline reads).
+
+### Commits
+
+- `fdc6f7aa` libc `SIGPIPE` (unverified), `5401da70` and its follow-up Slop
+  (natively verified), `87643c2b` tests (natively verified), `ef23c428` docs.
+- Process ABI: unchanged (`include/dolly/process.h`, `abi/`, the kernel and
+  the supervisor are untouched). Seed: changed (`src/slop.c`,
+  `src/process/libc-adapter.c`), so every image is invalid after this branch.

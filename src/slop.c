@@ -3379,7 +3379,8 @@ static int stage_open(Shell *shell, Stage *stage, DescriptorState *descriptors,
     return 0;
   }
   // Without job control a background program does not read the terminal.
-  const int null = stage->background && stage->first ? open("/dev/null", O_RDONLY) : -1;
+  const int null = stage->background && stage->first
+      ? high_descriptor(open("/dev/null", O_RDONLY)) : -1;
   if (null >= 0) {
     (void)descriptor_state_duplicate(descriptors, STDIN_FILENO, null);
     close(null);
@@ -4188,7 +4189,10 @@ static int run_pipeline(Shell *shell, CommandParser *parser, size_t end,
       }
       status = subshell_leave(shell, &subshell, status);
     }
-    results[count++] = (StageResult){stage.pid, status};
+    // `wait` collects a background program; the pipeline collects the others.
+    if (background && stage.pid != 0)
+      background_programs[background_count++] = shell->last_background = stage.pid;
+    results[count++] = (StageResult){background ? 0 : stage.pid, status};
     // Closing a pipe's read end is what stops a producer nobody reads.
     if (input >= 0) close(input);
     input = stage.spooled && stage.output >= 0 ? spool_rewind(stage.output) : stage.output;
@@ -4204,11 +4208,7 @@ static int run_pipeline(Shell *shell, CommandParser *parser, size_t end,
   if (input >= 0) close(input);
   for (size_t index = 0; index < count; index++) {
     StageResult *result = &results[index];
-    if (result->pid != 0 && background) {
-      background_programs[background_count++] = shell->last_background = result->pid;
-    } else if (result->pid != 0) {
-      result->status = wait_command(shell, result->pid);
-    }
+    if (result->pid != 0) result->status = wait_command(shell, result->pid);
     if (result->status != 0) failure = result->status;
     status = result->status;
   }

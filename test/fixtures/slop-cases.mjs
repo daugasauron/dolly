@@ -168,7 +168,7 @@ export const pipelineCases = [
   ["a consumer that stops ends an endless producer", 'test "$(seq 1 999999999 | head -n 1)" = 1', 0],
   ["a producer nobody reads dies of SIGPIPE", "set -o pipefail; seq 1 999999999 | head -n 1 > /dev/null", 141],
   ["a stage in the shell stops an endless producer", 'seq 1 999999999 | { read -r a; read -r b; test "$a$b" = 12; }', 0],
-  ["output streams while the producer runs", String.raw`slop -c 'echo first; sleep 2; echo second' | tee log > /dev/null & sleep 1; test "$(cat log)" = first || exit 91; wait; test "$(cat log)" = "first
+  ["output streams while the producer runs", String.raw`rm -f go log; slop -c 'echo first; until test -e go; do sleep 1; done; echo second' | tee log > /dev/null & until test -s log; do sleep 1; done; test "$(cat log)" = first || exit 91; : > go; wait; test "$(cat log)" = "first
 second"`, 0],
   ["three programs", String.raw`test "$(seq 1 5 | sed s/^/x/ | tail -n 2)" = "x4
 x5"`, 0],
@@ -180,6 +180,7 @@ x5"`, 0],
   ["programs start with & and wait collects them", 'slop -c "sleep 1; exit 7" & first=$!; slop -c "exit 3" & wait $!; test $? = 3 || exit 91; wait "$first"; test $? = 7 || exit 92; sleep 1 & wait; test "$first" != "$!"', 0],
   ["a background pipeline is waited for", 'seq 1 3 | tail -n 1 > last & wait; test "$(cat last)" = 3', 0],
   ["a background program does not read the shell's input", "cat & wait $!", 0],
+  ["& ends a word and follows redirections", 'slop -c "echo o; echo e >&2" > both 2>&1& wait; test "$(wc -l < both)" -eq 2', 0],
 ];
 
 export function shellQuote(value) { return `'${value.replaceAll("'", "'\\''")}'`; }
