@@ -9,7 +9,7 @@ REQUIRES HOST http@0
 REQUIRES HOST snapshot@0
 REQUIRES HOST upload@0
 
-FROM https://daugasauron.com/Dollyfile 53ee5ea9a8de3da59a15d7526eb783937cdc51e9df6c54ab4f7bc8cee55bfcd0
+FROM https://daugasauron.com/Dollyfile 74304514d2e0d65fd70965e0d8edc2e71a943e0199f0f8515a2bf619bce7a50d
 COPY https://daugasauron.com/demos/zero-ad/Dollyfile-zero-ad-engine 1d4bab0d155707bef56a815e00afb458db845de67eda3efdfdce75a4999158c0 /opt/0ad/system/pyrogenesis /opt/0ad/system/pyrogenesis
 # Licences of the libraries statically linked into the engine.
 COPY https://daugasauron.com/demos/zero-ad/Dollyfile-zero-ad-engine 1d4bab0d155707bef56a815e00afb458db845de67eda3efdfdce75a4999158c0 /usr/share/licenses/OpenAL /usr/share/licenses/OpenAL
