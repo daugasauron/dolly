@@ -191,6 +191,27 @@ await browserTest("terminal", { image: "system", server }, async ({ name, server
   await page.setViewportSize(viewport);
   await page.waitForFunction(before => { const { cols, rows } = __dolly.transport.dimensions(); return `${cols}x${rows}` === before; }, before);
 
+  // A full-screen program exits between the press and the drag of the gesture
+  // that reads the screen. A drag cannot extend a selection begun on the
+  // screen the program left, so the gesture selects nothing and is made again.
+  const alternate = start(`foreground ${probe} alternate`);
+  await waitForText(/DOLLY-ALTERNATE-SCREEN/);
+  assert.match(await page.evaluate(() => {
+    const { inputTransport: transport, terminal } = __dolly, pushPointer = transport.pushPointer, program = terminal.foregroundPid();
+    // The first drag sends the program its key and is held back, while the
+    // Worker runs, until the program has left its screen and exited.
+    transport.pushPointer = function (x, y, action, event) {
+      if (action === 2) {
+        transport.pushPointer = pushPointer;
+        transport.pushText("q");
+        for (const deadline = performance.now() + 5000; terminal.foregroundPid() === program && performance.now() < deadline;);
+      }
+      return pushPointer.call(this, x, y, action, event);
+    };
+    return __dolly.visibleTerminalText();
+  }), /DOLLY-ALTERNATE-LEFT/);
+  assert.equal(await alternate, 0);
+
   // The owner of the input lease receives every pointer and scroll record.
   const leased = () => page.evaluate(() => [__dolly.graphicsActive, __dolly.inputTransport.leased()]);
   const lease = start(`${probe} lease`);
