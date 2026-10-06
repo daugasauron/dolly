@@ -819,16 +819,20 @@ static Package *dependency(Package *p, const char *alias, Value *spec) {
       entry += len; spaces(&entry);
       if (!*entry) locked = true;
       else {
-        len = strcspn(entry, " \t"); const char *v = str(get(r, "version"));
-        if (strlen(v) == len && !strncmp(entry, v, len)) locked = true;
+        len = strcspn(entry, " \t"); const char *v = str(get(r, "version")), *source = entry + len;
+        spaces(&source);
+        if (strlen(v) == len && !strncmp(entry, v, len) &&
+            (!*source || equal(source, format("(%s)", getstr(r, "source", ""))))) locked = true;
       }
     }
     /* Like Cargo, a path or Git dependency without a requirement accepts any
      * locked version, including a prerelease. */
     const char *requirement = getstr(spec, "version", NULL);
     if (!locked || (requirement && !version_matches(str(get(r, "version")), requirement))) continue;
-    if (selected) fail("%s: ambiguous or missing locked dependency: %s", p->id, alias);
-    selected = r;
+    /* An entry without a source names the local package among several of one version. */
+    bool local = get(r, "source")->type == NIL;
+    if (selected && local == (get(selected, "source")->type == NIL)) fail("%s: ambiguous or missing locked dependency: %s", p->id, alias);
+    if (!selected || local) selected = r;
   }
   if (!selected) fail("%s: ambiguous or missing locked dependency: %s", p->id, alias);
   const char *path = getstr(spec, "path", NULL);
@@ -1192,6 +1196,21 @@ static void build_instructions(Node *node, const char *log, Value *env, Value *e
     } else if (!equal(key, "rerun-if-changed") && !equal(key, "rerun-if-env-changed")) fail("unsupported build instruction: %s=%s", key, v);
   }
 }
+/* Cargo's `[target.TRIPLE.LINKS]` configuration: its values replace the build
+ * script of the package that links LINKS, here a library the system provides. */
+static Value *links_override(Package *p) {
+  const char *links = getstr(p->info, "links", NULL);
+  return links ? get(get(get(build_config, "target"), triple), links) : &nil;
+}
+static void write_links_override(Value *override, const char *output) {
+  FILE *file = open_file(output, "w");
+  for (size_t i = 0; i < override->size; ++i) {
+    Value *item = override->items[i];
+    if (item->type != ARRAY) fprintf(file, "cargo:%s=%s\n", override->keys[i], str(item));
+    else for (size_t j = 0; j < item->size; ++j) fprintf(file, "cargo:%s=%s\n", override->keys[i], str(item->items[j]));
+  }
+  close_file(file);
+}
 /* Cargo's source for a [[bin]] without a path. */
 static char *bin_source(Package *p, Value *bin) {
   const char *name = str(get(bin, "name")), *path = getstr(bin, "path", NULL);
@@ -1233,12 +1252,13 @@ static void advance(Node *node, Node *root) {
     printf("patti: compile %s (%s)\n", p->id, node->context); fflush(stdout);
     char *out = path_join(directory, "out"); mkdirs(out);
     node->env = environment(node, out); node->extra = value(ARRAY);
-    if (p->build) compile(node, "build_script_build", path_join(p->root, p->build), "bin", script, node->build, node->env, NULL);
+    if (links_override(p)->type == TABLE) write_links_override(links_override(p), output);
+    else if (p->build) compile(node, "build_script_build", path_join(p->root, p->build), "bin", script, node->build, node->env, NULL);
     break;
   }
   case RUN:
     if (only_compiled) node->step = DONE;
-    else if (p->build && !repairing()) execute(arguments(script, NULL), node, node->env, output);
+    else if (p->build && !repairing() && links_override(p)->type != TABLE) execute(arguments(script, NULL), node, node->env, output);
     break;
   case LIBRARY:
     if (p->build) build_instructions(node, output, node->env, node->extra);
