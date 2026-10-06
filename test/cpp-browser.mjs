@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { browserTest } from "./browser.mjs";
 import { runCppSdkCases } from "./fixtures/cpp-sdk.mjs";
 
-await browserTest("cpp", {}, async ({ open }) => {
+await browserTest("cpp", { image: "system" }, async ({ open }) => {
   const { submit } = await open();
   const run = async command => assert.equal(await submit(command), 0, command);
   await run("test ! -e /usr/bin/zig && test ! -e /usr/lib/zig");

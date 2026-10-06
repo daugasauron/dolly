@@ -8,13 +8,13 @@ REQUIRES HOST runtime@0
 SOURCE https://daugasauron.com/docs/process-model.md 53b386eec2c62c40043d5af84cf4691b3fc838bfed86c3dfaa3df96bb4653a01 /usr/share/doc/dolly/docs/process-model.md
 SOURCE https://daugasauron.com/docs/slop.md 3fe717304d8b8c0c78de317a4c3706c29b62720281a0da3dcf6f91bb7a66b6de /usr/share/doc/dolly/docs/slop.md
 SOURCE https://daugasauron.com/docs/display.md ab6e17fbe9d7218fb24f95e438824e5dfa834a7ddda50212e0f1061381aa8321 /usr/share/doc/dolly/docs/display.md
-SOURCE https://daugasauron.com/docs/gpu.md 0cbe1b30dc7df1e26b3c2af42e0fe71085dc28325972a0e78fc3880b10c06de7 /usr/share/doc/dolly/docs/gpu.md
+SOURCE https://daugasauron.com/docs/gpu.md f57940e72153898014baa7882a70a0d5d5fcd24508d5d22c70bcf323e3f5bef4 /usr/share/doc/dolly/docs/gpu.md
 SOURCE https://daugasauron.com/docs/audio.md ebea715a5708fdea8824ee0370f3c8549d81bd7cf66128c0e6f91c42f683e73d /usr/share/doc/dolly/docs/audio.md
 SOURCE https://daugasauron.com/docs/http.md 4902567cd41485620385b319ab2cdf333db6ae3d7c1fcabf35a904aeec3532cb /usr/share/doc/dolly/docs/http.md
-SOURCE https://daugasauron.com/docs/sessions.md c615c80ccc7aaaff7a1234233b8504eb94cbd221649ae1af53835ed9f2729d9f /usr/share/doc/dolly/docs/sessions.md
+SOURCE https://daugasauron.com/docs/sessions.md 80b809f6b6cba414b7e56b1b3c1550ce61568b778876eafcab0def4ce6b44576 /usr/share/doc/dolly/docs/sessions.md
 SOURCE https://daugasauron.com/docs/dollyfile.md c7c7c0057f6b523c50ef672d29dda1429bd4240061269fab195375eb9c19b174 /usr/share/doc/dolly/docs/dollyfile.md
 SOURCE https://daugasauron.com/docs/architecture.md 3567b3778db7eafffec6200721df8f5325777bb7b3aa22e0e9b9866d168b65eb /usr/share/doc/dolly/docs/architecture.md
-SOURCE https://daugasauron.com/docs/browser-boundary.md 48d7ff4d2e8e82d722d718a0b70f86e510b07a9c55ed312910b1149d5e227100 /usr/share/doc/dolly/docs/browser-boundary.md
+SOURCE https://daugasauron.com/docs/browser-boundary.md 3f042bc80d70d236a1b12029929e1b76cb576f504443c606ff971f358751922d /usr/share/doc/dolly/docs/browser-boundary.md
 SOURCE https://daugasauron.com/docs/image-build-service.md 43bbcfcf7c5e7c8ce83f91c55b3c4bc0682651b2905ba35089b2b85b3b13efa9 /usr/share/doc/dolly/docs/image-build-service.md
 SOURCE https://daugasauron.com/abi/README.md fb91b76f42f5a1f5c7081de3e1c73c842d06ee68d5e11a9bf9a7c3977dfc933a /usr/share/doc/dolly/abi/README.md
 SOURCE https://daugasauron.com/host/README.md a70d31ba7add7ee173b016e59529fa4ff876f9433927c0cc83ecd23b09a9c649 /usr/share/doc/dolly/host/README.md
