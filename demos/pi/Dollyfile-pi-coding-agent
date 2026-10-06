@@ -5,17 +5,17 @@ REQUIRES HOST download@0
 REQUIRES HOST http@0
 REQUIRES HOST threads@0
 
-FROM https://daugasauron.com/Dollyfile-system e256ffefcef1e0fb81ca7f12d388ba04828c9f506350a9a11d278289280423bf
-INSTALL https://daugasauron.com/demos/javascript/Dollyfile-javascript 577aec3b27a59bbcfef9509a4b8cb948451f3e099302e0c450d68e29e8f5a4af
+FROM https://daugasauron.com/Dollyfile-system 8c65ac21de02b92585bb955f30973f1efd64daa75d0a144022b9198180f74068
+INSTALL https://daugasauron.com/demos/javascript/Dollyfile-javascript 45e6e631ce2f97e5fe625fe87393a465432b8a3e8d955b484633f78ff267899c
 
-INSTALL https://daugasauron.com/demos/rust/Dollyfile-ripgrep 3eebeff84edb811b2dda53686441b141e4abfb6de33e57de3b258f672531564b
-INSTALL https://daugasauron.com/demos/rust/Dollyfile-fd 501469300e6e6b5e9210b0cd8005fd5d14a4264b09af5f1d9690b86498fdea6e
+INSTALL https://daugasauron.com/demos/rust/Dollyfile-ripgrep ec73607261ca714aa3d58db239943520b987a3c7fb31e1ac4f826d2689c93b8d
+INSTALL https://daugasauron.com/demos/rust/Dollyfile-fd a04cdbb173e265d44bec8107393699f5150fb64d8f915cc10f73c016a5d7733c
 EXPORTS TOOL rg
 EXPORTS TOOL fd
-COPY https://daugasauron.com/demos/pi/Dollyfile-pi-build c5d044e018df2450480354986abf239750569a9c4151b529944d09b6efb26cc1 /usr/bin/pi /usr/bin/pi
-COPY https://daugasauron.com/demos/pi/Dollyfile-pi-build c5d044e018df2450480354986abf239750569a9c4151b529944d09b6efb26cc1 /usr/lib/node_modules /usr/lib/node_modules
-COPY https://daugasauron.com/demos/pi/Dollyfile-pi-build c5d044e018df2450480354986abf239750569a9c4151b529944d09b6efb26cc1 /usr/src/pi-source /usr/src/pi-source
-COPY https://daugasauron.com/demos/pi/Dollyfile-pi-build c5d044e018df2450480354986abf239750569a9c4151b529944d09b6efb26cc1 /usr/share/licenses/pi-source /usr/share/licenses/pi-source
+COPY https://daugasauron.com/demos/pi/Dollyfile-pi-build 695d69b671caa7010b1afc99429714616b276584e320c429c51bfb64c02bc7db /usr/bin/pi /usr/bin/pi
+COPY https://daugasauron.com/demos/pi/Dollyfile-pi-build 695d69b671caa7010b1afc99429714616b276584e320c429c51bfb64c02bc7db /usr/lib/node_modules /usr/lib/node_modules
+COPY https://daugasauron.com/demos/pi/Dollyfile-pi-build 695d69b671caa7010b1afc99429714616b276584e320c429c51bfb64c02bc7db /usr/src/pi-source /usr/src/pi-source
+COPY https://daugasauron.com/demos/pi/Dollyfile-pi-build 695d69b671caa7010b1afc99429714616b276584e320c429c51bfb64c02bc7db /usr/share/licenses/pi-source /usr/share/licenses/pi-source
 
 SOURCE https://daugasauron.com/dist/static/default/pi/dolly-tools.js                    22d1cd0cd804ef22b7e73683a3c93e98cd99b574a12643bc6b240329da460d9a /home/dolly/.pi/agent/extensions/dolly-tools.js
 SOURCE https://daugasauron.com/dist/static/default/pi/SYSTEM.md                         2474c5984b121056633e25e372ecf73e85e3008db82707bce93a36b2ec83e87c /home/dolly/.pi/agent/SYSTEM.md

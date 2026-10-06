@@ -15,8 +15,6 @@ if has_image pi-local; then
   node scripts/build-source-tar.mjs "${static_dir}/llama/provider.tar" \
     demos/local-llm/client.mjs /usr/lib/dolly-llm/client.mjs \
     demos/local-llm/model.mjs /usr/lib/dolly-llm/model.mjs \
-    demos/local-llm/qwen.mjs /usr/lib/dolly-llm/qwen.mjs \
-    demos/local-llm/minicpm.mjs /usr/lib/dolly-llm/minicpm.mjs \
-    demos/local-llm/models.json /usr/share/dolly/llm/models.json \
+    demos/local-llm/models /usr/share/dolly/llm \
     demos/local-llm/local-model-provider.js /home/dolly/.pi/agent/extensions/local-model-provider.js
 fi

@@ -6,11 +6,15 @@
   ;; Terminal output. The browser supplies one text sink for output written
   ;; while no display driver is resident: boot, rebuilds and headless images.
   ;; The page shows it only as bounded plain text in the bootstrap log.
-  (import "env" "dolly_bootstrap_write_bytes" (func (param i64 i64)))
+  (import "env" "dolly_bootstrap_write_bytes" (func (param i64 i64) (result i32)))
   ;; Supervisor diagnostics for the terminal. Before a display driver is
   ;; installed they reach the bootstrap sink; after installation the resident
-  ;; driver consumes them without host interpretation.
-  (func (export "dolly_terminal_write_bytes") (param i64 i64))
+  ;; driver consumes them without host interpretation. Zero, or the negative
+  ;; error number of a refused bootstrap write.
+  (func (export "dolly_terminal_write_bytes") (param i64 i64) (result i32) i32.const 0)
+  ;; Runs the kernel's constructors: once, after instantiation, before any
+  ;; other export.
+  (func (export "_initialize"))
   ;; The process mailbox holds DOLLY_PROCESS_PACKET_LIMIT bytes (process.h).
   (func $mailbox_address (result i64) i64.const 0)
   (func $spawn_serialized (param i64) (result i32) i32.const 0)
@@ -64,6 +68,12 @@
   ;; Consume the page's latest interrupt request: the targeted PID when it is
   ;; still the interruptible foreground owner, otherwise zero.
   (func $take_interrupt (result i32) i32.const 0)
+
+  ;; Boot files, beside dolly_write_file (abi/dolly-image-0.wat): the Worker
+  ;; reads a guest-writable file only through this bound. Path, buffer and
+  ;; capacity; the file's size, or -EFBIG when it is larger than the capacity.
+  (func (export "dolly_read_file") (param i64 i64 i64) (result i32) i32.const 0)
+  (func (export "dolly_remove_file") (param i64) (result i32) i32.const 0)
 
   (export "dolly_process_mailbox_address" (func $mailbox_address))
   (export "dolly_process_spawn_serialized" (func $spawn_serialized))

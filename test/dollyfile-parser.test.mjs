@@ -114,3 +114,39 @@ test("the C executor keeps paths, kinds, commands and recipe names exact", async
       "decoded COPY input is reused only until a different input or non-COPY declaration");
   });
 });
+
+test("sealing refuses an ENTRY the image would open without", async () => {
+  await withParser(async (scratch) => {
+    // The fixture tree lives outside /tmp, which the engine treats as scratch.
+    await mkdir(resolve(project, "build"), { recursive: true });
+    const root = await mkdtemp(resolve(project, "build/entry-test-"));
+    try {
+      const [game, link, real, data, start] = ["bin/game", "bin/link", "lib/real", "share/data", "share/start.slop"]
+        .map(path => resolve(root, path));
+      for (const directory of ["bin", "lib", data]) await mkdir(resolve(root, directory), { recursive: true });
+      for (const file of [game, real, start]) await writeFile(file, "");
+      await symlink(real, link);
+      const seal = (kept, ...words) => spawnSync(resolve(scratch, "parser"), ["entry", ...kept, "--", ...words],
+        { encoding: "utf8", env: { PATH: resolve(root, "bin") } });
+      const refused = (kept, words, fix) => {
+        const result = seal(kept, ...words);
+        assert.equal(result.status, 1, words.join(" "));
+        assert.ok(result.stderr.includes(fix), `${words.join(" ")}: ${result.stderr}`);
+      };
+      assert.equal(seal([game], game).status, 0);
+      refused([], [game], `ENTRY needs ${game}, which the image does not retain: add EXPORTS TOOL game\n`);
+      refused([game], [game, start], `add FILE ${start}\n`);
+      refused([game], [game, data], `add FOLDER ${data}\n`);
+      refused([game], [game, resolve(scratch, "parser")], "ENTRY needs ");
+      refused([link], [link], `add FILE ${real}\n`);
+      assert.equal(seal([link, real], link).status, 0);
+      refused([], [resolve(root, "bin/typo")], "is not a file");
+      refused([data], [data], "is not a file");
+      refused([], ["/bin/foreground", "-i"], "absolute path of a program");
+      refused([], ["/bin/foreground", "game"], "absolute path of a program");
+      // Words naming nothing, and the scratch roots every image has, are arguments.
+      const accepted = seal([game, start, data], game, start, data, resolve(root, "absent"), "/tmp", "-c", "/bin/x; y", "");
+      assert.equal(accepted.status, 0, accepted.stderr);
+    } finally { await rm(root, { recursive: true, force: true }); }
+  });
+});

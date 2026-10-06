@@ -1,0 +1,10 @@
+--- a/Cargo.toml
++++ b/Cargo.toml
+@@ -50,6 +50,7 @@
+ 
+ [dependencies.curl]
+ version = "0.4.33"
++default-features = false
+ 
+ [dependencies.git2]
+ version = "0.21"

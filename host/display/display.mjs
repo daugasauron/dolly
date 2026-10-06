@@ -311,6 +311,8 @@ export function browser({ mount, canvas, keyboard, fatal, showStatus }) {
       document.documentElement.dataset.terminal = "ghostty-rgba-wasm";
     },
     dispose() {
+      // What the image published last stays on screen once it has ended.
+      try { presenter?.paint(); } catch {}
       presenter?.stop();
       resizeObserver?.disconnect();
     },

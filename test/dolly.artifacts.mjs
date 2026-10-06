@@ -9,7 +9,6 @@ import { access, readFile } from "node:fs/promises";
 import test from "node:test";
 
 import {
-  emscriptenExports,
   validateBrowserImports,
   validateProcess,
   validateRuntime,
@@ -130,19 +129,17 @@ test("the process gate can only copy between one process and kernel memory", asy
   );
 });
 
-test("the kernel exports exactly the functions its contracts declare", async () => {
-  const kernelContracts = await Promise.all(hostFiles("contracts").map(({ file }) => readWasmInterface(contractArtifact(file))));
-  const expected = emscriptenExports(await readWasmInterface(kernelPluginContractPath), kernelContracts);
-  assert.deepEqual(
-    JSON.parse(await readFile(new URL("../build/runtime-exports.json", import.meta.url), "utf8")),
-    expected,
-  );
+test("the kernel exports exactly what its contracts name", async () => {
+  // A resident plugin imports kernel exports, its memory and the two bases it
+  // is relocated to excepted. A host contract's functions are kernel exports;
+  // its exported globals are constants for generated headers.
+  const plugin = (await readWasmInterface(kernelPluginContractPath)).imports
+    .filter(entry => !["memory", "__memory_base", "__table_base"].includes(entry.name));
+  const contracts = await Promise.all(hostFiles("contracts").map(({ file }) => readWasmInterface(contractArtifact(file))));
+  const named = [...plugin, ...contracts.flatMap(contract => contract.exports.filter(entry => entry.type.kind === "func"))]
+    .map(entry => entry.name);
   const runtime = await readWasmInterface(artifact("dolly.wasm"));
-  assert.deepEqual(
-    runtime.exports.filter(entry => entry.type.kind === "func" && entry.name.startsWith("dolly_"))
-      .map(entry => `_${entry.name}`).sort(),
-    expected.filter(name => name.startsWith("_dolly_")),
-  );
+  assert.deepEqual(runtime.exports.map(entry => entry.name).sort(), [...new Set(named)].sort());
 });
 
 test("the runtime implements the resident kernel plugin contract", async () => {
@@ -196,19 +193,9 @@ test("the runtime implements every host module contract its manifest names", asy
   }
 });
 
-test("the generated loader has no native host or implicit browser fallbacks", async () => {
-  const loader = await readFile(artifact("dolly.mjs"), "utf8");
-  assert.doesNotMatch(loader, /node:fs|readFileSync|NODEFS|NODERAWFS|child_process|spawnSync/);
-  assert.doesNotMatch(loader, /PThread|em-pthread|emscripten_thread/);
-  assert.doesNotMatch(loader, /window\.prompt|FS_stdin_getChar|_wasmfs_stdin_get_char/);
-  assert.doesNotMatch(loader, /__emscripten_system/);
-});
-
 test("the kernel contains no general dynamic loader or dynamic JavaScript execution", async () => {
-  const loader = await readFile(artifact("dolly.mjs"), "utf8");
   const kernel = await readWasmInterface(artifact("dolly.wasm"));
   assert.equal(kernel.customSections.includes("dylink.0"), false);
-  assert.doesNotMatch(loader, /\b(?:eval|Function)\s*\(|loadDynamicLibrary|_dlopen_js|_dlsym_js/);
   const plugin = await readFile(new URL("../src/kernel-plugin.mjs", import.meta.url), "utf8");
   assert.doesNotMatch(plugin, /\bfetch\s*\(|XMLHttpRequest|\b(?:eval|Function)\s*\(/);
 });
@@ -351,28 +338,6 @@ test("the kernel module owns its wasm64 WasmFS memory and table", async () => {
   const table = runtime.exports.find((entry) => entry.name === "__indirect_function_table");
   assert.equal(formatWasmType(memory.type), "memory64(min=1024,max=131072,shared)");
   assert.match(formatWasmType(table.type), /^table64\(min=/);
-  assert.ok(runtime.exports.some((entry) => entry.name === "wasmfs_create_memory_backend"));
-
-  for (const operation of [
-    "_wasmfs_read_file",
-    "_wasmfs_write_file",
-    "_wasmfs_mknod",
-    "_wasmfs_identify",
-    "_wasmfs_get_cwd",
-  ]) {
-    assert.equal(
-      runtime.imports.some((entry) => entry.name === operation),
-      false,
-      `${operation} escaped to the browser host`,
-    );
-    assert.ok(runtime.exports.some((entry) => entry.name === operation));
-  }
-
-  assert.equal(
-    runtime.imports.some((entry) => entry.name === "_wasmfs_stdin_get_char"),
-    false,
-    "stdin escaped to Emscripten's browser fallback",
-  );
 });
 
 test("the main Wasm has an explicit, minimal browser boundary", async () => {
@@ -386,6 +351,8 @@ test("the main Wasm has an explicit, minimal browser boundary", async () => {
   const expected = Object.values(policy).flat().sort();
 
   assert.deepEqual(actual, expected);
+  assert.deepEqual(actual.filter(name => name !== "env.memory" && !name.startsWith("env.dolly_")), [],
+    "an import of the kernel that Dolly does not name");
   assert.deepEqual(policy.http, ["env.dolly_http_dispatch"]);
   assert.deepEqual(policy.download, ["env.dolly_download_dispatch"]);
   assert.deepEqual(policy.gpu, ["env.dolly_gpu_dispatch"]);

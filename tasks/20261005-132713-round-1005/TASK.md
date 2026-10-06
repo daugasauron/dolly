@@ -354,3 +354,119 @@ Queued for free slots: `rts-early-input-stall`, `amy-descriptions` (rest),
   `seed3.log`, builds `catalog-a.log`, `catalog-b.log`); 55 of 61 images were
   kept. Expect the catalog at about 22:45, verification by 23:45, packaging
   after.
+
+## `integrate/next` (worktree `work/next`, from `integrate/userspace-next` `7976b8ea`; 2026-10-06, 20:50 to 23:30 JST)
+
+The branch the next catalog round starts from. Nothing here built a Rust-chain
+image, `pi`, a model or a game: those are the catalog round's.
+
+### Merged, in this order
+
+| What | Tip | How it went in |
+| --- | --- | --- |
+| `work/man-help` | `b35fab2f` | base of the branch |
+| `work/small-default` (holds `work/amy-index`) | `9d9064b3` | page rows added to `posix` and `git` |
+| `core/self-description` | `a4c1bca4` | clean |
+| `core/concurrent-pipelines` | `5ccedb2e` | clean, twice (the second time for `set -e` and loop status) |
+| `07fa5f0b` from `integrate/seed-1006` | | cherry-pick: Box3D under the Dolly target identity |
+| `main` | `9dd772f2` | imports of `src/browser.mjs` and `host/download/download.mjs`: both sides kept |
+| `fix/page-ending` (holds `investigate/spawn`) | `245efbec` | one table row each in `docs/browser-boundary.md`: both kept |
+| `fix/pi-greeting` | `3d196a15` | clean |
+| `fix/session-policies` | `ef994618` | its task file is the branch's |
+| `fix/shell-env` | `68f71983` | `Dollyfile-minimal` stays removed; its task file is the branch's |
+| `fix/entry-missing` | `adce6385` | `scripts/lint-dollyfiles.mjs` keeps the ENTRY check and the description check |
+| `faee3872`, `7d71e824`, `dca3ef58`, `14da533a` from `work/cargo-native` | | cherry-picks; Patti's source pin and the HTTP document's pin refreshed |
+| `work/local-models` | `2579350b` | last, so dropping it is a reset; the four `qwen3.5-4b-N` recipes gained `REQUIRES HOST runtime@0`; `Dollyfile-qwen3.5-800m` removed as on the branch |
+
+Left out: nothing on the list. Not taken, as told: the Cargo staging and the
+`cargo` package (`eeb0d42d`, `ff412ee0`, `3540fe1d`, `cab675f9`).
+
+After each merge: `npm run -s lint:dollyfiles` and the source suite
+(`node --test 'test/*.test.mjs' 'demos/**/*.test.mjs'`), green each time
+after the fixes below. Every recipe declares `REQUIRES HOST runtime@0`
+(66 recipes).
+
+### What the first build and the suites found, and the fix
+
+- `system-build` stopped in the page-capture loop: Slop runs its own `cd` for
+  the word `cd`, which takes `--help` as a directory. The loop runs
+  `/bin/NAME` (`fbfc278b`). `cd --help` typed at a prompt still fails that
+  way: Slop's own `cd`, `command` and `time` have no `--help`.
+- Two tests asserted the serial pipeline: that the consumer of an interrupted
+  producer never started (`test/fixtures/slop-interrupt.c`,
+  `test/core-browser.mjs`). Stages start together, so the consumer runs; what
+  follows the pipeline does not, and the status is 130. The tests now say
+  that (`1c0ae0e3`); Slop is unchanged.
+- `default` holds no compiler, Make, Git, `download` or `upload`. Suites that
+  use them open `system`: shell, slop, terminal, display, process (its
+  start-up script block stays on `default`), cpp, network, upload, image,
+  indicators, fs-growth. `image` checks its cache rules on `system-tools` and
+  `system`, which are base and child as `system` and `default` used to be.
+  `threads` opens a page-built image: `system` plus `REQUIRES HOST threads@0`.
+  `docs`, `shell-env` and `session-offline` named `minimal`, which is gone,
+  and open `default`.
+- `test/dolly.artifacts.mjs` did not know the `dolly-docs` package (`a34f0d38`).
+- `session-offline` opened its saved session in a new page, which is a new
+  browser profile: it reloads in the page that saved it.
+- The lint test of `fix/entry-missing` built a checkout without the README
+  lines the description check of `work/amy-index` wants: the fixture has them.
+- The image pages (`/system/` and the rest) are generated copies of
+  `terminal.html` and bundle the process Worker: after a merge that changes
+  the page, `npm run routes` (with the same `DOLLY_BUILD_IMAGES`) before a
+  browser suite. `indicators` failed until then.
+- `node scripts/update-recipe-pins.mjs --sources` re-pins every prepared
+  source from whatever `dist/static` holds, stale copies included
+  (`rust-sdk.tar.gz`, the Studio and 0 A.D. tars): after a document edit only
+  `Dollyfile-dolly-docs` was kept from it.
+
+### Verified on the final merge
+
+`npm run build:runtime`: runtime `dccf70f93da8…`, image inputs
+`4431ea8002ae84a40d997d58f3a502a03301f53b23bf9030b139cdbffb6fc9a2` (the
+first chain was `e8e495dc…`; the cherry-picked `ar` commit and the engine
+change moved it). `include/dolly/process.h` is unchanged; the process sysroot
+is `31b4bef1…`, changed from the seed round's `819e80da…` by the `SIGPIPE`
+line of `libc-adapter.c`, so the Rust seed is relinked before the catalog
+(`14da533a` changes its inputs too).
+
+Built through the slot in 830 s (`build/next-evidence/image-build-3.log`):
+`system-build`, `core`, `zlib`, `gzip`, `curl`, `zig-build` (464 s),
+`ghostty-build`, `display`, `system-tools`, `posix`, `amy`, `default`
+(14,398,305 bytes), `cc`, `dolly-docs`, `git`, `system`, `python` (106 s, the
+first CPython build with concurrent pipelines).
+
+- Source suite: 400 of 400. Artifact suite: 24 of 24 over the 17 built
+  images; the registry lists only those, so no artifact test fails for an
+  unbuilt image, and none ran for one.
+- Browser, Chromium and Firefox, one slot per suite
+  (`build/next-evidence/browser-final/summary.txt`): core, man, default, docs,
+  shell, slop, process, terminal, display, boundary, host-modules, image,
+  custom-session, indicators, shell-env, session-offline, threads, cpp,
+  network, upload: all pass.
+- `ending`: passed 6 of 8 runs. In one run, in both browsers, Ctrl+C on a
+  script looping over builtins left the page saying "exited with status 130"
+  where the test expects `SIGINT`; four reruns passed. The page names a signal
+  only when the exit request carries one; which path ends the shell without
+  one was not found.
+- `amy`: the first block passes (the index, `amy install python`, a saved
+  session); "amy programs" stops at `amy install cmake`, a package this tree
+  did not build (it also wants `sdl2`, `rust`, `codex-cli`), so its last two
+  blocks did not run.
+- Not run: `fs-growth` (its page is killed by the 6 GB browser cap in both
+  browsers), `test:demos -- pi` and anything on the Rust chain.
+
+Concurrent pipelines, first run in Dolly (`slop` suite, image `system`): the
+thirteen pipeline cases pass in both browsers, among them
+`seq 1 999999999 | head -n 1` (ends at once, 141 under `pipefail`), three
+programs, a program feeding a loop feeding a program, `&` with `wait` and
+`$!`, a background pipeline, and Make's output reaching `tee` while its recipe
+still runs (added here); `set -e` at the prompt stops the failing line and
+leaves the shell running (added here). `yes | head -1` cannot be typed: the
+images have no `yes`. No difference from the native model was seen in the
+kernel's wake-ups or in `SIGPIPE`.
+
+### For the catalog round
+
+- Relink the Rust seed first (sysroot and `exe-suffix` changed).
+- Recipes with unverified page rows: `ripgrep` (`rg --help` captured at build).
+- `core/concurrent-pipelines` after `5ccedb2e` is not merged, as decided.

@@ -49,4 +49,10 @@ await browserTest("boundary", { server: { handle } }, async ({ server, open }) =
   corrupt = true;
   assert.notEqual(await submit(`curl -fsS ${canonical} -o /tmp/boundary-corrupt`), 0);
   assert.equal(await submit("rm -f /tmp/boundary-source.c /tmp/boundary-corrupt"), 0);
+  // An uncaught failure in the runtime Worker, as a kernel trap outside a
+  // system call would be, ends the runtime: the page must not stay "ready".
+  await page.workers().find(worker => worker.url().endsWith("/src/runtime-worker.mjs"))
+    .evaluate(() => { setTimeout(() => { throw new Error("boundary probe"); }); });
+  await page.waitForFunction(() => document.documentElement.dataset.dollyStatus === "failed");
+  assert.match(await page.locator("#bootstrap-log").textContent(), /FATAL\n.*boundary probe/);
 });

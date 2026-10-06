@@ -18,5 +18,10 @@
     "url": "https://codeload.github.com/sharkdp/fd/tar.gz/refs/tags/v10.5.0",
     "sha256": "e6d9e90730bf316101691e49d59cc02565278dc3779d33a77423801569484851",
     "directory": "fd-10.5.0"
+  },
+  "cargo": {
+    "url": "https://codeload.github.com/rust-lang/cargo/tar.gz/797e8a9bca276c1c9f9f738d2a20f484fa4eea9d",
+    "sha256": "572bdd90cfafbb8136f86b53269037a9004dfc8332e9fb15e3e4981f2c69b74e",
+    "directory": "cargo-797e8a9bca276c1c9f9f738d2a20f484fa4eea9d"
   }
 }

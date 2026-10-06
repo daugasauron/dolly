@@ -41,15 +41,17 @@ flowchart TB
 ## Host modules
 
 [`abi/dolly-browser-0.wat`](../abi/dolly-browser-0.wat) is the exact outer import
-allowlist; the build rejects any other import and artifact checks reject
-undeclared `dolly_*` exports.
-[`host/modules.mjs`](../host/modules.mjs) assigns each import to the module whose
-[manifest](../host/README.md) owns it; a disabled module's imports return `ENOSYS`. Images and packets
-select no JavaScript or Worker URL.
+allowlist: every import carries a Dolly name, the build rejects any other, and
+artifact checks reject a kernel export that no contract names. The Worker
+instantiates the kernel itself, with no generated JavaScript:
+[`host/modules.mjs`](../host/modules.mjs) builds the whole import object, each
+import from the module whose [manifest](../host/README.md) owns it; a disabled
+module's imports return `ENOSYS`. Images and packets select no JavaScript or
+Worker URL.
 
 | Module | Channel | Authority | Code |
 | --- | --- | --- | --- |
-| `runtime@0` | memory, clocks, entropy, environment, seed preload, text output, terminal mailbox | Kernel memory and boot inputs; process Workers; report foreground and results, receive Ctrl+C | [`host/runtime/`](../host/runtime/module.json) ([`process-supervisor.mjs`](../src/process-supervisor.mjs)) |
+| `runtime@0` | `env.memory`, `env.dolly_clock_realtime`, `env.dolly_clock_monotonic`, `env.dolly_entropy`, `env.dolly_bootstrap_write_bytes`, terminal mailbox | Kernel memory; the two clocks; 64 KiB of entropy a call; boot text, 1 MiB a write; process Workers; report foreground and results, receive Ctrl+C | [`host/runtime/`](../host/runtime/module.json) ([`process-supervisor.mjs`](../src/process-supervisor.mjs)) |
 | `http@0` | `env.dolly_http_dispatch`, 16-slot pool | The only agent-selected network edge, under the page's policy | [`host/http/`](../host/http/module.json) |
 | `download@0` | `env.dolly_download_dispatch` | Stream one file (1 MiB chunks, 1 GiB) into a Blob under a checked basename; saved only by a user click; at most 4 waiting | [`host/download/`](../host/download/module.json) |
 | `upload@0` | mailbox | Ask for a file; the user picks it; 1 GiB of bytes in 1 MiB chunks, no name or path; refused for 2 s after a cancel | [`host/upload/`](../host/upload/module.json) |
@@ -157,9 +159,10 @@ select no JavaScript or Worker URL.
 | Mailbox wake-ups | The page and the Worker notify each other on display and input mailbox words (new frame, animation frame, input record, lease); a notify carries no data, and a forged one only costs the guest's own time |
 | GPU indicator | Page text over the display naming the browser's adapter and whether it has `shader-f16`, or why there is none; no guest input ([`gpu.mjs`](../host/gpu/gpu.mjs)) |
 | Indicator visibility | The GPU indicator, Save button and download offers hide ten seconds after the page is ready and on the user's `Ctrl+Shift+F`, which is not delivered as input. Page state shows them again (a new adapter state, a save, an offer); the one guest request among these is the bounded download offer, which shows them and can hide nothing ([`page-indicators.mjs`](../src/page-indicators.mjs)) |
+| Image ending | Once the ENTRY process is gone, page text below the last frame says how it ended: its exit status or signal number, or one line of its failure (printable ASCII, 512 bytes; the stack goes to the console). The page sets it as text and parses none of it; a running program can draw a lookalike but cannot cover, change or remove the notice. A module may add a link it builds itself, as `snapshot@0` does for the session the tab saved ([`browser.mjs`](../src/browser.mjs)) |
 | Image cache | Verified artifacts in IndexedDB, 32 images and 8 GiB ([`image-artifact.mjs`](../src/image-artifact.mjs)) |
 | Boot and code loading | Fixed kernel artifacts only ([`runtime-worker.mjs`](../src/runtime-worker.mjs)); one bundled process Worker; the plugin loader links an explicit kernel export map and fetches nothing |
-| Clocks, entropy, exit, CPU and memory use | Inputs and availability effects only |
+| Clocks, entropy, CPU and memory use | Inputs and availability effects only; the kernel grows its own memory up to its declared maximum, and its abort is a Wasm trap |
 
 ## Persistence
 

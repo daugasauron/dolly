@@ -1,0 +1,11 @@
+--- a/src/lib.rs
++++ b/src/lib.rs
+@@ -122,7 +122,7 @@
+ // Since wasm and wasi
+ //  is not supposed to add executables ideologically,
+ // specify them collectively
+-#[cfg(any(target_os = "wasi", target_family = "wasm"))]
++#[cfg(all(any(target_os = "wasi", target_family = "wasm"), not(unix)))]
+ mod wasm {
+     use std::path::Path;
+ 

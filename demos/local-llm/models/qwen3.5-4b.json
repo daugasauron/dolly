@@ -1,0 +1,23 @@
+{
+  "name": "Qwen3.5-4B",
+  "source": {
+    "url": "https://huggingface.co/bartowski/Qwen_Qwen3.5-4B-GGUF/resolve/4168f45a16a1290d65a4ec0fa312ae917a4c15d6/Qwen_Qwen3.5-4B-Q4_K_M.gguf",
+    "sha256": "13c16f426047e2de38cd075bdade4a7bcbc8c774384876f677740cda65f8a983",
+    "license": "Qwen-LICENSE"
+  },
+  "packages": ["qwen3.5-4b-1", "qwen3.5-4b-2", "qwen3.5-4b-3", "qwen3.5-4b-4"],
+  "files": {
+    "qwen3.5-4b-00001-of-00004.gguf": 994700480,
+    "qwen3.5-4b-00002-of-00004.gguf": 996245632,
+    "qwen3.5-4b-00003-of-00004.gguf": 983046752,
+    "qwen3.5-4b-00004-of-00004.gguf": 39035360
+  },
+  "gpu": {"f16": 3.9},
+  "pi": {
+    "contextWindow": 16384,
+    "maxTokens": 2048,
+    "reasoning": true,
+    "samplingParams": {"temperature": 0.7, "top_p": 0.8, "top_k": 20, "min_p": 0, "presence_penalty": 1.5},
+    "samplingParamsByThinkingLevel": {"medium": {"temperature": 0.6, "top_p": 0.95, "presence_penalty": 0}}
+  }
+}
