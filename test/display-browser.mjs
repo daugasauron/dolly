@@ -7,7 +7,7 @@ import { browserTest } from "./browser.mjs";
 // ring has no room for is counted and shown; the terminal keeps its pointer
 // records when a foreground program ends.
 const server = { fixtures: { "terminal-ui.c": "test/fixtures/terminal-ui.c" } };
-await browserTest("display", { server }, async ({ server, open }) => {
+await browserTest("display", { image: "system", server }, async ({ server, open }) => {
   const { page, submit, text } = await open({
     policy: { rules: [{ origin: server.origin, pathPrefix: "/fixture/", methods: ["GET"] }] },
     setup: page => page.addInitScript(() => {

@@ -85,16 +85,17 @@ async function handle(request, response, path, headers) {
   return true;
 }
 const prompt = /dolly:[^\n]*\$\s*$/;
+// Let a probe that just printed its marker enter its sleep: a signal handled
+// before the sleep starts cannot interrupt it.
+const settle = () => new Promise(resolve => setTimeout(resolve, 200));
 
-await browserTest("process", { server: { fixtures, handle } }, async ({ server, open }) => {
+// Lifecycle, descriptors and signals, with programs compiled in the image.
+await browserTest("process", { image: "system", server: { fixtures, handle } }, async ({ server, open }) => {
   const { page, submit, result, waitForText } = await open({
     policy: { rules: [{ origin: server.origin, pathPrefix: "/fixture/", methods: ["GET"] }] } });
   const run = async command => assert.equal(await submit(command), 0, command);
   const fetchFixture = name => run(`curl -fsS ${server.origin}/fixture/${name} -o ${scratch}/${name}`);
   const interrupt = () => page.keyboard.press("Control+c");
-  // Let a probe that just printed its marker enter its sleep: a signal handled
-  // before the sleep starts cannot interrupt it.
-  const settle = () => new Promise(resolve => setTimeout(resolve, 200));
   // Admission rejects malformed processes and DSOs before they run; missing
   // optional DSO/FFI facilities return ENOSYS.
   await page.evaluate(() => import("/test/fixtures/browser-process-abi.mjs").then(module => module.runProcessAbiChecks()));
@@ -151,9 +152,15 @@ await browserTest("process", { server: { fixtures, handle } }, async ({ server, 
   }
   assert.equal(await interrupted(`timeout 15 ${scratch}/interrupt linger ${scratch}/shut-down`), 130);
   assert.equal(await submit(`test -f ${scratch}/shut-down`), 1, "a child still running after its grace ends with its parent");
+});
 
-  // The image's startup script runs $HOME/.dollyrc, then the app shell, then
-  // a recovery shell, all nested inside this outer shell.
+// default's startup script runs $HOME/.dollyrc, then the app shell, then a
+// recovery shell, all nested inside this outer shell.
+await browserTest("startup script", {}, async ({ open }) => {
+  const { page, submit, result, waitForText } = await open();
+  const run = async command => assert.equal(await submit(command), 0, command);
+  const interrupt = () => page.keyboard.press("Control+c");
+  await page.locator("#keyboard").focus();
   const outer = await page.evaluate(() => __dolly.foregroundPid);
   const nextShell = previous => page.evaluate(({ source, previous }) =>
     __dolly.waitForInteractiveTerminal(new RegExp(source), "nested shell", previous), { source: prompt.source, previous });

@@ -3,7 +3,7 @@ import { browserTest } from "./browser.mjs";
 import { commandCases, pipelineCases, shellCases, shellQuote, sourceFiles } from "./fixtures/slop-cases.mjs";
 
 // The shipped /bin/slop against the cases test/slop.test.mjs runs on src/slop.c natively.
-await browserTest("slop", {}, async ({ open }) => {
+await browserTest("slop", { image: "system" }, async ({ open }) => {
   const { page, submit } = await open();
   // Ctrl+C stops a loop of builtins, which makes no system call, and the
   // shell keeps running.
