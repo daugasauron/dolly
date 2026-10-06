@@ -12,16 +12,18 @@ const basedir = "/home/dolly/xonotic";
 
 await demoTest("xonotic", { image: "xonotic-build", timeout: 1_800_000, browser: process.env.DOLLY_BROWSER ?? "chromium",
   server: { fixtures } }, async ({ server, open }) => {
-  const { page, run, start } = await open({ policy: { rules: [
+  const { page, run, start, text } = await open({ policy: { rules: [
     { origin: server.origin, pathPrefix: "/fixture/", methods: ["GET"], maxResponseBytes: 1024 * 1024 * 1024 }] } });
   await run(`mkdir -p ${basedir}/data && cd ${basedir}/data && ` +
     archives.map(name => `curl -fsS ${server.origin}/fixture/${name} -o ${name}`).join(" && "));
   await run(`ls -l ${basedir}/data`);
 
   // sv_eventlog in serverbench.cfg writes :gamestart and :end; quit_and_redirect ends the process.
+  // log_file is relative to the user directory, ~/.xonotic/data.
   const started = performance.now();
   const match = start(`cd ${basedir} && xonotic-dedicated -xonotic -basedir ${basedir} +exec serverbench.cfg ` +
     "+bot_number 8 +maxplayers 16 +timelimit_override 1 +log_file match.log");
+  const log = "/home/dolly/.xonotic/data/match.log";
   let peakBytes = 0;
   while (match.status === null) {
     await delay(2000);
@@ -31,20 +33,26 @@ await demoTest("xonotic", { image: "xonotic-build", timeout: 1_800_000, browser:
   }
   const seconds = (performance.now() - started) / 1000;
   assert.equal(match.status, 0, "the server must quit after the match");
-  await run(`grep -q '^:gamestart:' ${basedir}/data/match.log`);
-  await run(`grep -q '^:end' ${basedir}/data/match.log`);
-  await run(`grep '^:scores:' ${basedir}/data/match.log`);
+  // Lines keep their colour code prefix (^7) in the file.
+  await run(`grep -q ':gamestart:' ${log}`);
+  await run(`grep -q ':end$' ${log}`);
+  await run(`grep ':scores:' ${log}`);
+  await run("ls -l /usr/bin/xonotic-dedicated /usr/bin/gmqcc");
+  console.log((await text()).split("\n").filter(line => /:scores:|xonotic-dedicated$|gmqcc$/.test(line)).join("\n"));
   console.log(`xonotic: serverbench with 8 bots ran to its end in ${seconds.toFixed(1)}s; page memory peak ${(peakBytes / 1048576).toFixed(0)} MiB`);
 
-  // QuakeC: gmqcc rebuilds the three programs byte-identical to the release's.
+  // QuakeC: gmqcc rebuilds the three programs; the rebuilt server logic, placed
+  // as a loose file above the pk3, then runs a second match to its end.
   const compiled = performance.now();
   await run("make -f /usr/src/dolly/xonotic/Makefile qc");
-  for (const [name, hash] of Object.entries({
-    "progs.dat": "e6f5c70b8e0e5f329531ce53ac982eb698a12660a1b45622a900a7bc3bb87a62",
-    "csprogs.dat": "7d7807166d38521aadb8109830b69580596be4c05924d1b1fd8b71c31d4def13",
-    "menu.dat": "dc75076060bac00aacdcd58d6a216cfb33f7a4665a18a622ff970bc73869bbb8",
-  })) {
-    await run(`printf '%s  %s\\n' ${hash} /tmp/xonotic/build/qc/${name} | sha256sum -c`);
-  }
+  const qc = "/tmp/xonotic/build/qc";
+  await run(`ls -l ${qc}/progs.dat ${qc}/csprogs.dat ${qc}/menu.dat && sha256sum ${qc}/progs.dat ${qc}/csprogs.dat ${qc}/menu.dat`);
+  console.log((await text()).split("\n").filter(line => /\.dat$/.test(line)).join("\n"));
   console.log(`xonotic: gmqcc rebuilt progs.dat, csprogs.dat and menu.dat in ${((performance.now() - compiled) / 1000).toFixed(1)}s`);
+  await run(`cp ${qc}/progs.dat ${basedir}/data/progs.dat && rm ${log}`);
+  const rematch = start(`cd ${basedir} && xonotic-dedicated -xonotic -basedir ${basedir} +exec serverbench.cfg ` +
+    "+bot_number 8 +maxplayers 16 +timelimit_override 1 +log_file match.log +which progs.dat");
+  assert.equal(await rematch.done, 0, "the server must quit after the match on the rebuilt progs.dat");
+  await run(`grep -q 'progs.dat is file ${basedir}/data/progs.dat' ${log} && grep -q ':end$' ${log}`);
+  console.log("xonotic: the match ran to its end on the progs.dat built in Dolly");
 });

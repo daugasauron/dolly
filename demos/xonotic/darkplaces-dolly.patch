@@ -78,3 +78,20 @@
  	if(handle >= 0 && dolock)
  	{
  		struct flock l;
+@@ -2937,6 +2940,16 @@
+ 				// works fine.  So no reporting this error.
+ 			}
+ 			nb = FILEDESC_READ (file->handle, &((unsigned char*)buffer)[done], count);
++#ifdef __dolly__
++			// Dolly's read() returns at most 1 MiB of a regular file per call
++			while (nb > 0 && nb < count)
++			{
++				fs_offset_t more = FILEDESC_READ (file->handle, &((unsigned char*)buffer)[done + nb], count - nb);
++				if (more <= 0)
++					break;
++				nb += more;
++			}
++#endif
+ 			if (nb > 0)
+ 			{
+ 				done += nb;

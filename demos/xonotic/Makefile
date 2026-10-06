@@ -46,7 +46,7 @@ $(BUILD)/gmqcc/%.o: $(SOURCE)/gmqcc/%.cpp
 # result. The watermark is the release tag, so the output equals the shipped .dat.
 QCSRC := $(SOURCE)/qcsrc
 QC := $(BUILD)/qc
-QCCDEFS := -DGMQCC -DXONOTIC=1 -DWATERMARK=\"xonotic-v0.8.6\" -DNDEBUG=1 \
+QCCDEFS := -DGMQCC -DXONOTIC=1 -DWATERMARK='"xonotic-v0.8.6"' -DNDEBUG=1 \
   -DENABLE_EFFECTINFO=0 -DENABLE_DEBUGDRAW=0 -DENABLE_DEBUGTRACE=0
 QCCFLAGS := -std=gmqcc -Ooverlap-locals -O3 -Werror -Wall -Wno-field-redeclared -flno -futf8 \
   -fno-bail-on-werror -frelaxed-switch -freturn-assignments
