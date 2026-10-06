@@ -390,11 +390,14 @@ checkpoint at the previous user message; tool turns reuse all but 19-25.
 Already a parameter: `pi.contextWindow` in the description, replaced by
 `modelOverrides.ID.contextWindow`, which `/local` → Parameters writes; the
 engine is started with it and restarts at the next prompt when it changes.
-Measured through the override file as `/local` writes it, 2B in Chrome f32:
-32,768 tokens loads and completes the task (2,718 MiB against 2,235);
-131,072 fails at load with "Dolly WebGPU: out of GPU memory (the device's, or
-gpu@0's 4 GiB)" (the message then named the default context's memory as if it
-were this one's; corrected). Not done for that task: a refusal before loading
+Measured with the 2B in Chrome f32. Through `/local` on the final build
+(`s-ctx.mjs`): the row reads `contextWindow = 32768 (shipped: 16384)`, Pi's
+footer `5.2%/33k (auto)`, so its window and compaction threshold follow, and a
+task completes at 2,730 MiB against 2,245. Through the override file:
+32,768 completes the loop task; 131,072 fails at load with "Dolly WebGPU: out
+of GPU memory (the device's, or gpu@0's 4 GiB)". The message then named the
+default context's memory as if it were this one's; the corrected wording is
+in the final build and was not triggered again. Not done for that task: a refusal before loading
 (needs the memory per context token in the description), a bound at the
 trained context, and Pi's compaction settings (`reserveTokens` 4096,
 `keepRecentTokens` 6144, sized for 16k) following a smaller context; the
@@ -407,4 +410,5 @@ parameter accepts 1,024 and up.
   demo's recipes (new here: `Dollyfile-qwen3.5-4b-1` to `-4`), and the rebuild
   of the model packages, `pi-local` and `dollyfile-studio` there.
 - More models: blocked by `gpu@0`'s 4 GiB, not by packaging.
-- Context size: the three items above.
+- Context size: the three items above, and a restart of Pi with the override
+  (it is a file Pi reads at start; not shown).
