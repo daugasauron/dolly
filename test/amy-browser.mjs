@@ -141,6 +141,23 @@ await browserTest("amy programs", { image: "default", timeout: 600_000 }, async 
   }
 });
 
+// A package brings the programs its own programs start. rustc links through
+// cc, which default lacks: installed alone, rust links a program and cargo
+// builds a crate. (A package's environment applies from the next session
+// load, so the build names what the cargo package exports.)
+const crate = "mkdir -p /tmp/amy-crate/src && cd /tmp/amy-crate && " +
+  "printf '[package]\\nname = \"amy-crate\"\\nversion = \"0.1.0\"\\nedition = \"2021\"\\n' > Cargo.toml && " +
+  "printf 'fn main() { println!(\"{}\", 6 * 7); }\\n' > src/main.rs && " +
+  "CARGO_INCREMENTAL=0 cargo build --offline && test \"$(target/debug/amy-crate)\" = 42";
+for (const [name, program] of [["rust", programs.rust], ["cargo", crate]]) {
+  await browserTest(`amy ${name} alone`, { image: "default", timeout: 300_000 }, async ({ open }) => {
+    const run = check(await open());
+    await run("! cc --version 2> /dev/null");
+    console.log(`amy install ${name} alone: ${await timed(run, `amy install ${name}`)} ms`);
+    await run(program);
+  });
+}
+
 // The compiler is a package: default has none until amy installs it.
 await browserTest("amy cc", { image: "default", timeout: 300_000 }, async ({ open }) => {
   const run = check(await open());
