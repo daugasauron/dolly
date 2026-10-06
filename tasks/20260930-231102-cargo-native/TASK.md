@@ -416,15 +416,23 @@ the build scripts read (`config.status`, `buildconfig.rs`, `js-confdefs.h`,
   `process.h` change only relinks). `rust-tools` does not carry `cargo` in
   that round.
 - This branch then merged `a88e3621` (`f7cd28bf`).
+- libcurl follow-up (`085f7641`, multi options that only steer connections):
+  `node test/network-browser.mjs` passes in Chromium and Firefox on the merged
+  base with a rebuilt `default` (22:33). On `integrate/next` it also needs
+  `Dollyfile-dolly-docs`'s pin of `docs/http.md` refreshed.
+- Under a 5 GB build cap the `cargo` image step was killed about a minute
+  into the Patti build (22:31, `oom_kill 1`): `-j 4` needs 4.9 GB before the
+  last crate and 5.05 GB at the end, and page cache from earlier images in
+  the same chain counts against the cap.
 
 ### Next steps
 
-1. On the merged base: rebuild `default` and `rust-tools` (now with `cargo`),
-   run `node demos/run-browser-tests.mjs rust` with its Cargo check
+1. On the merged base: rebuild `rust-tools` (now with `cargo`) and run
+   `node demos/run-browser-tests.mjs rust` with its Cargo check
    (`fixtures/cargo.mjs`: the two commands SpiderMonkey's configure runs, an
    offline build, a build against a one-crate sparse registry on the test
-   server) and `node test/network-browser.mjs` for the libcurl follow-up
-   (`085f7641`); try `amy install cargo` in `default`.
+   server); try `amy install cargo` in `default`. Measure the Patti build
+   with `-j 2` and lower the recipe's value if that keeps it under 4 GB.
 2. When kernel file locks land (`core/file-locks`): drop the SQLite dot-file
    setting from `cargo-patti.toml` and `CARGO_INCREMENTAL=0` from the
    package. Both are stopgaps.
