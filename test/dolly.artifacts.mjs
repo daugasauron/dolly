@@ -260,11 +260,16 @@ test("system snapshots are sealed to their visible recipe chain", async () => {
       definition => definition.filename === new URL(graph.root.from.location).pathname.slice(1)).image;
     const inherited = base === undefined ? [] : (await import(
       artifact(`dolly-${base}-system-snapshot.mjs`))).DOLLY_SYSTEM_SNAPSHOT.manifest;
-    const declared = { amy: ["/bin/dollyfile"], cc: toolchain, core: ["/bin/foreground"],
-      default: ["/bin/dollyfile", "/bin/foreground"] }[image] ?? [];
+    // A package it installs brings that package's files: rust installs cc, cargo installs rust.
+    const installed = (await Promise.all(definitions.find(definition => definition.image === image).source.split("\n")
+      .map(line => /^INSTALL (\S+)/.exec(line)?.[1]).filter(Boolean)
+      .map(async url => (await import(artifact(`dolly-${definitions.find(
+        definition => definition.filename === new URL(url).pathname.slice(1)).image}-system-snapshot.mjs`)))
+        .DOLLY_SYSTEM_SNAPSHOT.manifest))).flat();
+    const declared = { amy: ["/bin/dollyfile"], cc: toolchain, core: ["/bin/foreground"] }[image] ?? [];
     for (const path of ["/bin/dollyfile", "/bin/foreground", ...toolchain]) {
-      assert.equal(metadata.manifest.includes(path),
-        image === "system-build" || inherited.includes(path) || declared.includes(path), `${image}: ${path}`);
+      assert.equal(metadata.manifest.includes(path), image === "system-build" || inherited.includes(path) ||
+        installed.includes(path) || declared.includes(path), `${image}: ${path}`);
     }
     assert.equal(metadata.manifest.some((path) => /\/usr\/src\/dolly\/(?:dollyfile\.c|dso-)/.test(path) ||
       /\/process-bin\/(?!compiler$)/.test(path)), false, `${image} must not retain bootstrap probes`);
