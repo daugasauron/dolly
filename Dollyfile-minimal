@@ -4,7 +4,7 @@ REQUIRES HOST runtime@0
 REQUIRES HOST display@0
 
 # The smallest image that opens: no compiler, recipe engine or network.
-INSTALL https://daugasauron.com/Dollyfile-core 0000000000000000000000000000000000000000000000000000000000000000
-INSTALL https://daugasauron.com/Dollyfile-display 0000000000000000000000000000000000000000000000000000000000000000
+INSTALL https://daugasauron.com/Dollyfile-core e011f4bcc6321a64eab32f75caf492d9b71aa1b84c9ee539d74311edad6edb09
+INSTALL https://daugasauron.com/Dollyfile-display 9dd45e552b4779215722aa4378770be213135b6c9e8eeb178e11b51e4a47d242
 
 ENTRY /bin/foreground -i /bin/slop

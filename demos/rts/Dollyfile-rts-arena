@@ -8,13 +8,13 @@ REQUIRES HOST snapshot@0
 REQUIRES HOST threads@0
 REQUIRES HOST upload@0
 
-FROM https://daugasauron.com/demos/pi/Dollyfile-pi-runtime 0000000000000000000000000000000000000000000000000000000000000000
-INSTALL https://daugasauron.com/demos/sdl2/Dollyfile-sdl2 0000000000000000000000000000000000000000000000000000000000000000
-COPY https://daugasauron.com/demos/rts/Dollyfile-rts-build 0000000000000000000000000000000000000000000000000000000000000000 /usr/bin/seven-kingdoms /usr/bin/seven-kingdoms
-COPY https://daugasauron.com/demos/rts/Dollyfile-rts-build 0000000000000000000000000000000000000000000000000000000000000000 /usr/share/7kaa /usr/share/7kaa
-COPY https://daugasauron.com/demos/rts/Dollyfile-rts-build 0000000000000000000000000000000000000000000000000000000000000000 /usr/src/7kaa /usr/src/7kaa
-COPY https://daugasauron.com/demos/rts/Dollyfile-rts-build 0000000000000000000000000000000000000000000000000000000000000000 /usr/src/dolly/rts /usr/src/dolly/rts
-COPY https://daugasauron.com/demos/rts/Dollyfile-rts-build 0000000000000000000000000000000000000000000000000000000000000000 /usr/share/licenses/7kaa /usr/share/licenses/7kaa
+FROM https://daugasauron.com/demos/pi/Dollyfile-pi-runtime cf4a41e5d67a5588fb7a65f6e25d72499c449a93c376034b97775c830d3bcb14
+INSTALL https://daugasauron.com/demos/sdl2/Dollyfile-sdl2 7b1c98b54835603e4975f03777fb458cb5532a128c11aff98b5baae9981acc5e
+COPY https://daugasauron.com/demos/rts/Dollyfile-rts-build 4ade4297941b0b1efc9e864e431bf65aa95ce562003cdcb3db91041bcb45cddc /usr/bin/seven-kingdoms /usr/bin/seven-kingdoms
+COPY https://daugasauron.com/demos/rts/Dollyfile-rts-build 4ade4297941b0b1efc9e864e431bf65aa95ce562003cdcb3db91041bcb45cddc /usr/share/7kaa /usr/share/7kaa
+COPY https://daugasauron.com/demos/rts/Dollyfile-rts-build 4ade4297941b0b1efc9e864e431bf65aa95ce562003cdcb3db91041bcb45cddc /usr/src/7kaa /usr/src/7kaa
+COPY https://daugasauron.com/demos/rts/Dollyfile-rts-build 4ade4297941b0b1efc9e864e431bf65aa95ce562003cdcb3db91041bcb45cddc /usr/src/dolly/rts /usr/src/dolly/rts
+COPY https://daugasauron.com/demos/rts/Dollyfile-rts-build 4ade4297941b0b1efc9e864e431bf65aa95ce562003cdcb3db91041bcb45cddc /usr/share/licenses/7kaa /usr/share/licenses/7kaa
 EXPORTS TOOL seven-kingdoms
 REQUIRES HEADER cpp
 REQUIRES HEADER quickjs-runner
