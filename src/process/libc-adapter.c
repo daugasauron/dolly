@@ -168,11 +168,6 @@ _Noreturn void __wasi_proc_exit(__wasi_exitcode_t status) {
 
 static __wasi_errno_t fd_read_one(uint32_t descriptor, void *buffer,
                                   size_t size, size_t *completed) {
-  /* A process gate packet is deliberately bounded. POSIX read() permits a
-   * short successful result, so expose at most one packet and let libc or the
-   * caller request the remainder. This is also the correct behavior for
-   * pipes: eagerly issuing a second call could block after returning all data
-   * that was available for the original read. */
   if (size > DOLLY_PROCESS_PACKET_LIMIT) size = DOLLY_PROCESS_PACKET_LIMIT;
   const dolly_process_fd_io_request request = {descriptor, 0, size};
   const int64_t result = dolly_process_call(
@@ -182,6 +177,43 @@ static __wasi_errno_t fd_read_one(uint32_t descriptor, void *buffer,
   return error;
 }
 
+static int descriptor_is_regular_file(uint32_t descriptor) {
+  const dolly_process_fd_request request = {descriptor, 0};
+  dolly_process_stat_response response;
+  const int64_t result = dolly_process_call(
+      DOLLY_PROCESS_FD_STAT, &request, sizeof(request),
+      &response, sizeof(response));
+  return (uint64_t)result == sizeof(response) &&
+         response.file_type == DOLLY_PROCESS_FILE_REGULAR;
+}
+
+/* A process gate packet is bounded to DOLLY_PROCESS_PACKET_LIMIT. POSIX
+ * read() permits a short result, but Linux fills a read of a regular file up
+ * to end of file and much software assumes so (DarkPlaces loads whole files
+ * with one read); a pipe or terminal keeps returning what is there, since a
+ * second packet could block after the first delivered all available data.
+ * Only a full first packet costs the one DOLLY_PROCESS_FD_STAT call that
+ * tells the two apart. An error or handled signal after some bytes were read
+ * returns those bytes, as Linux does. */
+static __wasi_errno_t fd_read_full(uint32_t descriptor, unsigned char *buffer,
+                                   size_t size, size_t *completed) {
+  *completed = 0;
+  int regular = -1;
+  while (*completed < size) {
+    size_t current = 0;
+    const __wasi_errno_t error = fd_read_one(
+        descriptor, buffer + *completed, size - *completed, &current);
+    if (error != 0) return *completed != 0 ? 0 : error;
+    *completed += current;
+    const size_t packet = size - (*completed - current) > DOLLY_PROCESS_PACKET_LIMIT
+        ? DOLLY_PROCESS_PACKET_LIMIT : size - (*completed - current);
+    if (current != packet) return 0;
+    if (regular < 0) regular = descriptor_is_regular_file(descriptor);
+    if (!regular) return 0;
+  }
+  return 0;
+}
+
 __wasi_errno_t __wasi_fd_read(__wasi_fd_t descriptor,
                               const __wasi_iovec_t *vectors,
                               size_t vector_count,
@@ -189,15 +221,14 @@ __wasi_errno_t __wasi_fd_read(__wasi_fd_t descriptor,
   *completed = 0;
   if (vector_count == 0) return 0;
   if (vector_count == 1)
-    return fd_read_one(descriptor, vectors[0].buf, vectors[0].buf_len, completed);
+    return fd_read_full(descriptor, vectors[0].buf, vectors[0].buf_len, completed);
   size_t size = 0;
-  for (size_t index = 0; index < vector_count && size < DOLLY_PROCESS_PACKET_LIMIT; ++index) {
-    const size_t room = DOLLY_PROCESS_PACKET_LIMIT - size;
-    size += vectors[index].buf_len < room ? vectors[index].buf_len : room;
+  for (size_t index = 0; index < vector_count; ++index) {
+    size += vectors[index].buf_len < SIZE_MAX - size ? vectors[index].buf_len : SIZE_MAX - size;
   }
   unsigned char *bytes = malloc(size != 0 ? size : 1);
   if (bytes == NULL) return ENOMEM;
-  const __wasi_errno_t error = fd_read_one(descriptor, bytes, size, completed);
+  const __wasi_errno_t error = fd_read_full(descriptor, bytes, size, completed);
   size_t offset = 0;
   for (size_t index = 0; index < vector_count && offset < *completed; ++index) {
     const size_t remaining = *completed - offset;
