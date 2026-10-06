@@ -93,6 +93,17 @@ int main(int argc, char **argv) {
     const int status = read(0, &byte, 1) == 1 && byte == 3 ? 0 : 20;
     return tcsetattr(0, TCSANOW, &saved) != 0 ? 21 : status;
   }
+  if (argc > 1 && strcmp(argv[1], "alternate") == 0) {
+    // A full-screen program: at its first key it leaves the alternate screen and exits.
+    const int saved = dolly_terminal_mode_get(0);
+    if (saved < 0 || dolly_terminal_mode_set(0, 0) != 0) return 1;
+    fputs("\033[?1049h\033[HDOLLY-ALTERNATE-SCREEN", stdout);
+    fflush(stdout);
+    const int key = dolly_terminal_read_raw_timeout(20000);
+    fputs("\033[?1049lDOLLY-ALTERNATE-LEFT\r\n", stdout);
+    fflush(stdout);
+    return dolly_terminal_mode_set(0, (unsigned)saved) != 0 || key != 'q';
+  }
   if (argc > 1 && strcmp(argv[1], "lease") == 0) {
     dolly_display_surface surface;
     if (dolly_display_acquire(&surface) != 0) return 7;

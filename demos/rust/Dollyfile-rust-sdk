@@ -6,9 +6,9 @@ REQUIRES HOST dso@0
 REQUIRES HOST http@0
 REQUIRES HOST threads@0
 
-FROM https://daugasauron.com/Dollyfile-system-build 471fe211faf34963df6904f5fc12b1183c7fb85eb6f3bc77f0d61aa8b0568a96
-INSTALL https://daugasauron.com/Dollyfile-zlib 93dd681d3c143492c703d7700a6278bb8d7952b86199b91db829df6555fcebd9
-INSTALL https://daugasauron.com/Dollyfile-gzip 5e870036cccfb398f62219ec51f3df43d5dccf1256b8bc6ed13ccbc894b6e7f2
+FROM https://daugasauron.com/Dollyfile-system-build 152ad41a194be355849022ef8e23329bfe38e18407c4ae287058615469c4d75b
+INSTALL https://daugasauron.com/Dollyfile-zlib 5193a6fc4863607a3fe93598ff02a0883d986ed625195aae446ade24f28834f3
+INSTALL https://daugasauron.com/Dollyfile-gzip 09f3d436ae92eab3d154f22d26d82d87f6007c91f623380e69ccbd8c649a382c
 REQUIRES TOOL cc
 REQUIRES TOOL tar
 REQUIRES TOOL gzip
@@ -17,7 +17,7 @@ REQUIRES TOOL rm
 REQUIRES TOOL mkdir
 
 # External compiler/std seed; the linker adapter is compiled inside Dolly.
-SOURCE https://daugasauron.com/dist/static/rust/rust-sdk.tar.gz eddb6fe8e5f4978ea94d912bb9144fd5d29abbfe30e00ea9e8b0ebaf2942f3da /tmp/rust-sdk.tar.gz
+SOURCE https://daugasauron.com/dist/static/rust/rust-sdk.tar.gz f4393cf6bb9cb388bc156784fb7f796b7a055cdf112929afc5d8062110254d8f /tmp/rust-sdk.tar.gz
 SLOP mkdir -p /opt
 SLOP gzip -dc /tmp/rust-sdk.tar.gz | tar -xf - -C /opt
 SOURCE https://daugasauron.com/dist/static/rust/rustc.sh 966c3a6e1863196ca1d44b47552c46bc0e7caa8f096ef385252b3216f2f658d1 /opt/rust-sdk/bin/rustc
@@ -32,6 +32,6 @@ EXPORTS TOOL rustc
 EXPORTS FOLDER rust-sdk /opt/rust-sdk
 EXPORTS FOLDER rust-licenses /usr/share/licenses/rust
 SLOP rustc --version --verbose
-INSTALL https://daugasauron.com/Dollyfile-display ec7a81e7a96eefcceef0cc4756f5a265e583809749401051bb6f71dad689b9bb
+INSTALL https://daugasauron.com/Dollyfile-display c43fa210c2039c7e82ec89db7e5888098f8085bf98165f2d6ce6b8b51a78f050
 
 ENTRY /bin/foreground -i /bin/slop

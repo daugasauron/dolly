@@ -9,13 +9,13 @@ REQUIRES HOST snapshot@0
 REQUIRES HOST threads@0
 REQUIRES HOST upload@0
 
-FROM https://daugasauron.com/demos/pi/Dollyfile-pi-runtime 867e2e0e67e4f0de4dcf598013edef31268ffe6db9246c9232e15b2e54f85ab9
+FROM https://daugasauron.com/demos/pi/Dollyfile-pi-runtime 307371eda5720bcfcdabe03f4651cab58b6635152a4260046df11c3d798d0b08
 REQUIRES TOOL foreground
 REQUIRES TOOL test
 REQUIRES TOOL printf
 REQUIRES TOOL pi
 # The platform's documents, for the agent: /usr/share/doc/dolly.
-INSTALL https://daugasauron.com/Dollyfile-dolly-docs e93bf732989eb207920598705fdfbd6c0cd41e74180f696b970d0ab437513de6
+INSTALL https://daugasauron.com/Dollyfile-dolly-docs 894d0d9547025de855b3d33a8980f5595248f72dadae61ed78ae7613a8cad152
 
 FILE /etc/dolly/init.slop
     cd /workspace
