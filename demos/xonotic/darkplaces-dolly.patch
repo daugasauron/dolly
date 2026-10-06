@@ -66,3 +66,15 @@
  		{
  			len = read (0, text, sizeof(text) - 1);
  			if (len >= 1)
+--- darkplaces/fs.c
++++ darkplaces/fs.c
+@@ -2277,6 +2277,9 @@
+ #  endif
+ # else
+ 	handle = open (filepath, mod | opt, 0666);
++#ifdef __dolly__
++	dolock = false; // Dolly has no file locks; the session lock stays an ordinary file
++#endif
+ 	if(handle >= 0 && dolock)
+ 	{
+ 		struct flock l;
