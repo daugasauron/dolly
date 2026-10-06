@@ -43,14 +43,22 @@ Pi's resource lists, dolly-tools' own start line (`ctx.ui.notify` at
 Dollyfile Studio's `.dollyrc` already named `/local`; `pi-local` inherits
 `Dollyfile-pi`'s banner, which does not.
 
-The line is the extension's: `local-model-provider.js` notifies at
-`session_start`, the mechanism dolly-tools.js uses, so the command and its
-hint live in one file and both images show it on every session start
-without a recipe edit; the Studio banner drops its copy. Not Pi's header
-(dolly-tools owns it) and not a widget (the footer already carries the
-model). Pi's header already says `/ commands`, so the line says nothing
-about help or leaving. The local-model browser test waits for `/local` on
-the screen at every boot, in both images and both browsers.
+The line is the extension's: `local-model-provider.js` shows it at
+`session_start`, so the command and its hint live in one file and both
+images show it on every session start without a recipe edit; the Studio
+banner drops its copy. Not Pi's header, which dolly-tools owns. Pi's
+header already says `/ commands`, so the line says nothing about help or
+leaving. The local-model browser test waits for `/local` on the screen at
+every boot, in both images and both browsers.
+
+First tried as `ctx.ui.notify(…, 'info')`, like dolly-tools' line: the
+rebuilt `pi-local` showed it (`build/llm-proof/chromium-pi.png`) in place
+of dolly-tools' "Dolly runs entirely in a browser Wasm sandbox … Bash is
+not installed" line, because Pi's info notification is its one status
+line (`showExtensionNotify` → `showStatus`), replaced by the next. So the
+line is a widget above the editor (`ctx.ui.setWidget('local-model', …)`),
+which leaves the status line to dolly-tools, and is removed at the first
+prompt (`agent_start`) or when `/local` runs.
 
 ## Related
 
