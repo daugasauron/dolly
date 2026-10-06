@@ -1833,7 +1833,31 @@ static int lex(const char *source, TokenList *tokens) {
         quoted = touched = 1;
         if (!append_lexed_character(&word, *source++)) goto word_error;
       } else if (byte == '$' && quote == '\0' && source[1] == '\'') {
-        fputs("slop: $'...' quoting is not supported\n", stderr); goto word_error;
+        // POSIX.1-2024 dollar-single-quotes: C escapes in a quoted string.
+        protected = quoted = touched = 1;
+        for (source += 2; *source != '\''; ) {
+          if (*source == '\0') { fputs("slop: unterminated quote\n", stderr); goto word_error; }
+          unsigned value = (unsigned char)*source++;
+          if (value == '\\' && *source != '\0') {
+            static const char names[] = "abeEfnrtv", bytes[] = "\a\b\033\033\f\n\r\t\v";
+            const char escape = *source++;
+            const char *named = strchr(names, escape);
+            int digits = 0;
+            if (named != NULL) value = (unsigned char)bytes[named - names];
+            else if (escape == 'c' && *source != '\0') value = (unsigned char)*source++ & 0x1f;
+            else if (escape == 'x') {
+              for (value = 0; digits < 2 && isxdigit((unsigned char)*source); digits++, source++)
+                value = value * 16 + (unsigned)(isdigit((unsigned char)*source)
+                    ? *source - '0' : (*source | 0x20) - 'a' + 10);
+            } else if (escape >= '0' && escape <= '7') {
+              for (value = (unsigned)(escape - '0'); digits < 2 && *source >= '0' && *source <= '7'; digits++)
+                value = value * 8 + (unsigned)(*source++ - '0');
+            } else value = (unsigned char)escape;
+            if ((value & 0xff) == 0) { fputs("slop: $'...' cannot hold a NUL byte\n", stderr); goto word_error; }
+          }
+          if (!append_lexed_character(&word, (char)value)) goto word_error;
+        }
+        source++;
       } else if (byte == '$' && quote != '\'') {
         touched = 1;
         if (quote == '\0') split = 1;
