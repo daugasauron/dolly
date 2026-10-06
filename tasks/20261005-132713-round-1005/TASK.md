@@ -355,6 +355,135 @@ Queued for free slots: `rts-early-input-stall`, `amy-descriptions` (rest),
   kept. Expect the catalog at about 22:45, verification by 23:45, packaging
   after.
 
+### 22:31: the main round started, an hour early
+
+- Seed round (`work/round2`, `integrate/seed-1006`, pins `9077dda1`): all 61
+  images built at 22:04; source 362/362, artifacts 24/24; core browser suites
+  green in both browsers except `terminal` in Firefox, one 30 s timeout on a
+  pixel wait while the machine's load average was 18 (three chain builds had
+  just started); it passed on rerun (`terminal-firefox-rerun.log`). Demos, GPU
+  tests and packaging into `build/seed-releases` follow unattended.
+- Main round (`work/next`, `integrate/next`): frozen by the integration agent
+  at `a88e3621` (22:17; its record is the "integrate/next" section above), then
+  by me: kernel-boundary step 2 (`82d659d8`), the nine Cargo package commits
+  (`..ba3fb260`), kernel-boundary step 4 (`fb6c3463`; the kernel has nine
+  imports and no Emscripten JavaScript). Runtime `f678b99a…`, image inputs
+  `4431ea80…`, Rust seed `f4393cf6…`. Step 4 is in because it leaves image
+  bytes and the image-inputs hash unchanged: reverting it is `git revert
+  -m 1 fb6c3463`, a runtime build and the four images that ship the contract
+  documents (`dolly-docs`, `pi`, `pi-local`, `dollyfile-studio`), not a
+  catalog. Tag `before-step4` = `ba3fb260`.
+- The round is `work/round-next.sh` (stages seed, light, heavy, pins, suites,
+  gpu, publish; `bash work/round-next.sh STAGE` resumes), run in a 24 GB
+  scope; logs in `work/next/build/next-evidence/` (`round.log`). Releases go
+  to `work/next/build/next-releases` and `next-domain-releases`.
+- Not in this round: Slop after `5ccedb2e` (field splitting and more),
+  `core/file-locks`, `core/input-module`, `core/dso-module`, file modes,
+  `exec` (`20261006-214244-process-exec`, owner: real exec, very low
+  priority), the libcurl follow-up, `cargo` in `rust-tools`.
+- Open from the integration: `ending` passed 6 of 8 runs (Ctrl+C on a builtin
+  loop once reported status 130, not SIGINT); the integration agent is finding
+  the cause in `work/ending` (`fix/ending-flake`).
+
+### 23:05: the seed round's verification, and what it found
+
+Seed round (`integrate/seed-1006` at `9077dda1`, 61 images, image inputs
+`22d006ca…`), logs in `work/round2/build/seed-evidence/`:
+
+- Source 362/362, artifacts 24/24.
+- Core browser suites: all green in chromium and firefox except `terminal` in
+  Firefox (one 30 s timeout under load average 18); 3 of 3 reruns pass.
+- Demos: python, javascript, emacs, pi, cmake, sdl2, codex, bhop, classicube,
+  rts pass. Three failed:
+  - `studio`: the Neovim fixture counted lines of the starter recipe; the
+    `runtime@0` line moved them. Fixed in `integrate/next` (`3c589449`).
+  - `rust`: the Tokio check read the server's count of cancelled streams the
+    instant the program exited: one close instead of two. 2 of 2 reruns pass.
+    The test now waits up to two seconds for the close (`80595976`).
+  - `neovim`: "timed out waiting for terminal selection publication" after
+    Neovim, the image's ENTRY, exits and the recovery shell starts; 1 of 2
+    reruns failed again. A real race (pointer records dropped when the old
+    foreground program is retired); the input agent is on it in `work/selfix`
+    (`fix/selection-after-exit`).
+- GPU tests: `local-llm`, `0ad-spidermonkey`, `0ad-engine`, `0ad-graphics`,
+  `slopyard` (every fixture) pass.
+- Not packaged: I stopped the pipeline before its publish step at 23:02. The
+  publish holds 17 GB and the main round's catalog was at 16 GB; the seed
+  release is superseded if the main round is green, and can still be packaged
+  from `work/round2` (clean at `9077dda1`) if it is not:
+  `bash scripts/package-pages.sh build/seed-releases`.
+
+### 00:11: the main round's catalog is built; suites running
+
+- Catalog: 58 light images in two runs (22:31–23:35, stopped by `llama-build`;
+  resumed 23:38–23:44), 9 heavy images 23:44–00:09. All 67 images were built by
+  the kernel with nine imports and no Emscripten JavaScript; no build failed
+  for a reason of the kernel. Pins `b07a89ee`. Image inputs `4431ea80…`.
+- `llama-build` failed once: the local-models merge compiles llama.cpp's
+  `common.cpp`, which ends in `#error Unknown architecture` without
+  `__EMSCRIPTEN__` (the second port the target-identity reading missed, after
+  Box3D). `prepare-local-llm.sh` now gives it the same edit as `ggml.h`
+  (`45ed3eeb`).
+- Fixes cherry-picked into `integrate/next` between the phases, each
+  runtime-only or test-only (the image-inputs hash did not move):
+  - `f82289ea`: the signal that ended a process is read from the kernel's
+    record; the supervisor's own copy was empty when the kernel ended the
+    process itself (the `ending` flake: 5 of 18 and 10 of 15 under load).
+  - `9b21ab9e`: the terminal suite waits for the grid to return after
+    fullscreen before it prints (the Firefox pixel-wait flake, 2 of 36).
+  - `ac4b4e5d`: the screen-reading test gesture is repeated when a program's
+    exit switched screens under it (the `neovim` flake, 6 of 10).
+  - `9abd08b0`: pending input is discarded when a process is marked exited,
+    not when its Worker retires: keys typed in the 500 ms after a full-screen
+    program exits were dropped, 3 of 3.
+  - `3c589449`, `80595976`: the Studio and Tokio test fixes.
+- Runtime `a578496d…`. Suites, GPU tests and both packagings started at 00:11
+  (`work/next/build/next-evidence/round-3.log`).
+- Ready for the next round, being assembled as `integrate/round3` in
+  `work/locks`: `core/file-locks` (`53177981`), kernel-boundary step 3
+  (`core/kernel-boundary-2`, `663b9a5a`), `core/dso-module` (`e441b537`),
+  Slop's newer commits, the libcurl follow-up and `cargo` in `rust-tools`,
+  `core/trusted-surface` (audit-24, step 1). Not ready: `core/input-module`,
+  file modes.
+
+### 06:30, 2026-10-07: the night stopped at 00:40; finishing the round now
+
+- The weekly usage limit ended the session and every agent at about 00:40.
+  Nothing ran between then and 06:20 except what was already detached. The
+  owner reset the usage at 06:20. No release candidate was packaged overnight:
+  at 00:31 I had paused the round script (SIGSTOP) to take one more fix in
+  before packaging, and a paused script waits for a person. Without the pause
+  it would have run its GPU tests and both packagings unattended.
+- Main round at the stop: source 400/400; artifacts 23/23 after the sealing
+  test compared `zero-ad` with its own base (`b2ee464d`; `default` no longer
+  carries a compiler); core browser suites all passed in chromium and firefox
+  (826 s); demos: python, javascript, emacs, neovim, rust, cmake, sdl2,
+  studio, codex, bhop, rts passed, `pi` and `classicube` failed.
+  - `pi`: `amy install` was refused because the test page brings its own HTTP
+    policy and did not admit `/amy-index.txt` (docs/http.md says such a page
+    must). Test fixed (`1e6cc838`), passes. The site's own pages bring no
+    policy object, so amy works there.
+  - `classicube`: one colour level off in one of three pixels of the docked
+    game ("panel does not cover the game edges"); passed on rerun (298 s).
+    Unexplained, so it is a flake to find, not a pass to trust.
+- Taken into the candidate this morning: `7eebbed6` (the `rust` package
+  installs `cc`: on the small `default`, `amy install rust` gave a compiler
+  that could not link) with `c08c4e01` (amy tests on a `default` with no
+  `cc`); `rust`, `cargo` and `rust-tools` are being rebuilt, then the reruns,
+  the GPU tests and both packagings (`work/finish-round.sh`, logs
+  `work/next/build/next-evidence/finish-*.log`).
+- Agents at the stop, all committed: Cargo (`work/cargo-native` `c99dd5dc`,
+  finished), dso (`b527f4de`, finished), kernel boundary (finished; step 3 on
+  `core/kernel-boundary-2`, audit-24 step 1 on `core/trusted-surface`), file
+  locks (finished) and its assembly of `integrate/round3` (`3eadc5c0`: locks,
+  step 3, Slop, the Cargo additions, dso, trusted surface; `default` and
+  `system` chains built and twelve suites green in both browsers at
+  `93e3d0cb`; no catalog round yet), input (`core/input-module` `82fa0cff`,
+  merged onto the new kernel, cut off mid-edit with a clean tree, not
+  verified), file modes (`core/file-modes` `c17b186e`: kernel, formats and
+  tools written, nothing built in Dolly), Slop (`core/concurrent-pipelines`
+  `8a0e841a`).
+
 ## `integrate/next` (worktree `work/next`, from `integrate/userspace-next` `7976b8ea`; 2026-10-06, 20:50 to 23:30 JST)
 
 The branch the next catalog round starts from. Nothing here built a Rust-chain
