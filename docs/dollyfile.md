@@ -182,8 +182,8 @@ and `/host/MODULE/`, prepared sources in `/dist/static/`.
   base's.
 - The image keeps only `FILE` and `FOLDER` paths, exported objects, `FROM`,
   `INSTALL` and `COPY` results, and its recipes. Scratch needs no cleanup. ENTRY
-  and its target must be retained regular files; ENTRY and RUN have at most 256
-  words of at most 4096 bytes and a record of at most 64 KiB.
+  and RUN have at most 256 words of at most 4096 bytes and a record of at most
+  64 KiB.
 
 ## Host requirements
 
@@ -226,6 +226,13 @@ and then a recovery shell; toolchains that can be opened enter
 `/bin/foreground -i /bin/slop`. The image ends when its ENTRY process does:
 the page keeps the last frame, says how the process ended (status, signal or
 failure) and offers a reload.
+
+Sealing fails unless the image holds what ENTRY names, with the declaration
+to add: ENTRY's program and the program `/bin/foreground [-i]` starts must be
+retained regular files (`EXPORTS TOOL name` for a command on `PATH`), and so
+must every other word naming a file or directory that exists when the recipe
+finishes, link targets included. A word that names nothing then is an
+argument the engine does not judge; `/tmp` and `/workspace` start empty.
 
 ## Packages and amy
 
@@ -340,7 +347,8 @@ flowchart TD
   Each build's log is in `build/image-logs/IMAGE.log`; a failed image skips
   only its dependents and fails the command.
 - `npm run lint:dollyfiles` checks every catalog graph (pins, names, roles,
-  host requirements) without running anything.
+  host requirements, and that a recipe of the chain declares ENTRY's
+  programs) without running anything.
 
 ## Custom images and Studio
 
