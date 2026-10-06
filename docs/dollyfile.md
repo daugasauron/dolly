@@ -12,6 +12,7 @@ DOLLY 6
 APPLICATION example
 REQUIRES HOST runtime@0
 REQUIRES HOST display@0
+REQUIRES HOST input@0
 
 FROM https://daugasauron.com/Dollyfile-system <sha256>
 INSTALL https://daugasauron.com/demos/javascript/Dollyfile-javascript <sha256>
@@ -197,8 +198,8 @@ and `/host/MODULE/`, prepared sources in `/dist/static/`.
   the kernel, the process ABI and the image format,
   [host modules](../host/README.md)). A package also declares the modules its
   programs need, a library or compiler those every program built with it needs
-  (`sdl2`: `display@0`, `rust`: `threads@0`, `cc`: none); `INSTALL` checks
-  that the installing recipe declares them too.
+  (`sdl2`: `display@0` and `input@0`, `rust`: `threads@0`, `cc`: none);
+  `INSTALL` checks that the installing recipe declares them too.
 - Sealing checks every retained executable: a `dolly.host` record naming a
   module the recipe does not declare fails the build, naming the file and the
   `REQUIRES HOST` line to add. Build steps may use the build host's modules
@@ -208,9 +209,11 @@ and `/host/MODULE/`, prepared sources in `/dist/static/`.
   embedding lacks one, and the loader refuses an executable whose stamped
   module is not declared. Requirements grant nothing: the embedding enables
   modules and the HTTP broker decides network access
-  ([browser boundary](browser-boundary.md)). `system` declares the runtime, display, http, download, upload
-  and snapshot; `default` adds packages and threads, because the packages
-  people install into it need them.
+  ([browser boundary](browser-boundary.md)). `system` declares the runtime,
+  display, input, http, download, upload and snapshot; `default` adds packages
+  and threads, because the packages people install into it need them. A
+  terminal draws with `display@0` and reads keys with `input@0`; the `display`
+  package asks only for the first, so an image may show one without reading.
 - Linked client libraries (`-ldolly-gpu`, `-ldolly-audio`) stamp their module
   and its ABI digest into the executable's `dolly.host` section; loading fails
   for an unknown module or a different layout. Calling a disabled module

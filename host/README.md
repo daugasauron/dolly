@@ -34,7 +34,7 @@ opened with), `send` to the other side, `get(dependency)` and its
 calls: `start` (Worker/page handshake), `messages`, `bindings` (kernel
 imports), `service` (periodic work), `imageRestored(context)` (after the system
 image is restored, before image-phase starts), `claimsKey(event)` (take a key
-from the display), `surfaceSize`, `entryStarted(context)` (the image ENTRY may
+from the guest's input), `surfaceSize`, `entryStarted(context)` (the image ENTRY may
 now run) and `dispose`; and whose optional records the registry assembles:
 `page` (members of `window.__dolly`, by descriptor), `builder` (the module's
 configuration for a child build host, `host.builder`) and `inherited` (what an

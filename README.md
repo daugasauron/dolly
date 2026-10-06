@@ -99,7 +99,7 @@ Image builds rewrite SHA-256 pins in `Dollyfile*`. Check by what you changed
 - [Packages and amy](docs/dollyfile.md#packages-and-amy): `amy install NAME` in a session.
 - [Slop and commands](docs/slop.md): the shell and core tools.
 - [Sessions and file transfer](docs/sessions.md).
-- [Display](docs/display.md), [GPU](docs/gpu.md), [audio](docs/audio.md).
+- [Display](docs/display.md), [input](docs/input.md), [GPU](docs/gpu.md), [audio](docs/audio.md).
 - [Sources and bootstrap](docs/sources.md): pins, seed, core ports.
 - [Deployment](docs/deployment.md): static releases.
 - [Issues](tasks/README.md).
