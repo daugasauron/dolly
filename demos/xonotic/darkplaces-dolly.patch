@@ -83,7 +83,7 @@
  			}
  			nb = FILEDESC_READ (file->handle, &((unsigned char*)buffer)[done], count);
 +#ifdef __dolly__
-+			// Dolly's read() returns at most 1 MiB of a regular file per call
++			// Dolly's read() returns at most 1 MiB of a regular file per call; core/full-read fixes that
 +			while (nb > 0 && nb < count)
 +			{
 +				fs_offset_t more = FILEDESC_READ (file->handle, &((unsigned char*)buffer)[done + nb], count - nb);

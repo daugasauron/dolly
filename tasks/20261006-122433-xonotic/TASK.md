@@ -210,6 +210,62 @@ small: 17 modes × 20 permutation bits in the source, 14 pairs in use at
 - `log_file` writes relative to the user directory (`~/.xonotic/data/`), not
   the base directory; the test reads it there.
 
+## Measured in Dolly (2026-10-07, Chromium, `xonotic-build`)
+
+- Image: 83.8 s (`npm run image -- xonotic-build`, one builder, 6 GB cap),
+  of which the make of 90 engine units, 14 gmqcc units and the link; the
+  snapshot is 183.4 MB against system-tools' 160.7 MB.
+  `/usr/bin/xonotic-dedicated` 3,424,516 B (native 3,687,016 B), `gmqcc`
+  653,188 B (native 465,816 B).
+- The browser test (`demos/xonotic/test/xonotic-browser.mjs`) fetches
+  `xonotic-20230620-data.pk3` and `-maps.pk3` (943 MB) with curl into
+  `/home/dolly/xonotic/data`, then runs `serverbench.cfg` with 8 bots on
+  stormkeep, `timelimit_override 1`: the match ran to its end
+  (`:gamestart`, `:scores:dm_stormkeep:196`, `:end`, `quit_and_redirect`
+  quits, status 0) in 62.0 s from start to exit; page memory peak 2,200 MiB
+  (Chrome's `measureUserAgentSpecificMemory`, which counts the 943 MB of
+  pk3 bytes in the shared filesystem). The engine's own log ran from
+  22:59:42 to 22:59:55 (13 s) for the 1-minute match in an earlier run, so
+  the server simulates about 4.6x faster than real time with 8 bots against
+  native's 13x (4.65 s for 3 minutes); the rest of the 62 s is loading the
+  two pk3 archives and the map.
+- QuakeC in Dolly: `make -f /usr/src/dolly/xonotic/Makefile qc` (cc -E,
+  awk, gmqcc) builds `progs.dat` 6,663,682 B, `csprogs.dat` 4,021,229 B
+  and `menu.dat` 1,756,664 B in 23.8 s. They are not byte-identical to the
+  release's (6,663,681 / 4,021,257 / 1,756,668): the header, statement
+  count, definitions, fields and function table are equal, and all
+  differences trace to `__LINE__`-derived strings (`./common/stats.qh:392`
+  vs `:395`, `736` vs `737`: 2,491 strings), whose changed lengths shift
+  string offsets through globals and statements. The line numbers differ
+  because Dolly's clang `-E` places `# N "file"` markers where the
+  release's gcc emitted blank lines, and gmqcc counts the inserted
+  `#pragma` lines; the native gcc pipeline reproduces the release exactly.
+  The Dolly-built `progs.dat`, downloaded and run by the native server as
+  a loose file, plays a full match (`native-loose-dolly.log`), so the
+  compiler output is sound.
+- The same loose `progs.dat` under the Dolly engine first failed with
+  "No classname for" every entity and "QC function StartFrame is missing":
+  a truncated load. Probed in `xonotic-build` (`build/xonotic-evidence/readprobe.log`):
+  one `read()` of 16 MiB on the 3,424,516-byte `xonotic-dedicated` returns
+  1,048,576; a loop reads it whole, and `cp` copies it whole. Linux never
+  short-reads regular files and `FS_Read` does a single `read()` for large
+  plain files (pk3 members inflate in chunks, so the first match passed).
+  The sixth patch hunk loops the read under `__dolly__`; the platform fix is
+  branch `core/full-read` (`f196abfe`, task `20261007-083500-full-read`), and
+  the hunk goes when it lands.
+- With that hunk, the whole test passes in both browsers (`build/xonotic-evidence/browser-test-chromium-9.log`,
+  `browser-test-firefox-1.log`): Chromium 112.8 s in all (match 62.3 s,
+  page peak 2,201 MiB; gmqcc's three programs 31.4 s; the second match on the
+  Dolly-built `progs.dat` to its end), Firefox 83.4 s (match 20.1 s, no
+  memory measurement in Firefox; gmqcc 38.9 s). The final runs with the
+  commented hunk (`browser-test-chromium-10.log`, `browser-test-firefox-2.log`):
+  Chromium 101.6 s (match 62.0 s), Firefox 49.1 s (match 10.0 s). The
+  Chromium match number includes the test's `measureUserAgentSpecificMemory`
+  call every 2 s, which forces garbage collection; the engine's own log of an
+  uninstrumented Chromium run spanned 13 s, so the server simulates the
+  1-minute match in 10 to 13 s in either browser against native's 1.6 s:
+  six to eight times slower, 190 to 250 server frames per second with 8 bots.
+
 ## Decisions for the owner
 
 1. Rendering route. (a) A Dolly render path inside DarkPlaces: a `gpu@0`
@@ -220,9 +276,34 @@ small: 17 modes × 20 permutation bits in the source, 14 pairs in use at
    which other GL ports could share. Recommended: (a), the surface is seven
    files; (b) is its own task once a second GL port wants it.
 2. `gpu@0` additions. More than one colour attachment, a float target or
-   stencil are contract changes, not part of a port. Step 2 below measures
-   what each preset needs; the port ships the best preset the agreed contract
-   supports.
+   stencil are contract changes, not part of a port. What each Xonotic
+   preset needs, from the engine's code paths the preset cvars reach
+   (measured 2026-10-07; the frame rates are the native llvmpipe software
+   baseline at 1024×768, not a hardware figure):
+
+   | Preset | llvmpipe fps | Colour attachments | Float targets | Stencil | 3D textures | Occlusion queries | Other |
+   |---|---|---|---|---|---|---|---|
+   | omg | 416 | 1 (swapchain) | none | none | none | none | no textures (`r_showsurfaces 3`) |
+   | low | 75 | 1 | none | none | none | none | DXT textures (`FEATURE_TEXTURE_BC`) |
+   | med | 63 | 1 | none | none | none | none | dynamic lights: more permutations |
+   | normal | 75 | 1 | none | none | none | none | deluxemapping, gloss, normal maps: more permutations; scene drawn twice (`r_depthfirst 1`) |
+   | high | 57 | 1, plus RGBA8 render targets for bloom and water reflection | none | none | none | wanted (`r_coronas_occlusionquery 1`; engine falls back without) | copy of the presented frame into textures (bloom, motion blur, water refraction) |
+   | ultra | 20 | as high | none | none | none | wanted, fallback | plus depth-only render targets with a 24-bit compare-sampled shadow map |
+   | ultimate | 8 | as high | none | none | none | wanted, fallback | as ultra, more shadow-map passes; relief mapping |
+
+   No preset sets `r_viewfbo` (16/32-bit float colour), `r_shadow_deferred`
+   (four colour attachments), `vid_samples` (multisampling) or stencil shadow
+   volumes (`r_shadow_shadowmapping 1` throughout), and the engine uses no 3D
+   textures on these paths. So `gpu@0` as it is supports `normal`; `high`
+   needs a frame-to-texture copy (render-to-texture of the scene, which the
+   contract may already allow if the scene renders into an RGBA8 texture
+   instead of the swapchain) and gains from occlusion queries; `ultra` and
+   `ultimate` need depth-only render targets with compare sampling. Owner
+   decides which of those three, if any, enter the contract; the port ships
+   the best preset the agreed contract supports (`normal` today). Caveat: the
+   permutation census ran one 45 s demo on stormkeep without water or
+   dynamic lights and without JPEG textures, so it undercounts what `high`
+   and above compile, not what they require.
 3. Sound. DarkPlaces mixes in Wasm and outputs through SDL audio, which the
    `sdl2` package lacks, as it lacks thread creation for SDL's audio callback.
    Either an SDL2 audio backend over `audio@0` in `demos/sdl2`, which serves
@@ -231,20 +312,26 @@ small: 17 modes × 20 permutation bits in the source, 14 pairs in use at
 
 ## Work
 
-In order; each step leaves something that runs.
+In order; each step leaves something that runs. Steps 1 to 4 were done on
+2026-10-07 morning (branch `demo/xonotic`; sections above record them); the
+data is pinned but not yet staged as image sources.
 
 1. Pin Xonotic's current release and the engine commit it ships. Stage the
-   data as `SOURCE` chunks like 0 A.D.'s and record the sizes.
+   data as `SOURCE` chunks like 0 A.D.'s and record the sizes. Done, except
+   the staging, whose shape is decided above.
 2. Native baseline on the host, for measurement only and never a build input:
    for each Xonotic preset, log the shader mode and permutation pairs,
    framebuffer formats and GL features a bot match uses, and its `timedemo`
-   frame rate.
+   frame rate. Done on llvmpipe.
 3. Headless in Dolly: build the dedicated-server configuration (`*_null.c`)
    with `cc` and Make and run a bot match to its end. This proves the
-   filesystem, pk3 loading and the QuakeC VM before any graphics.
+   filesystem, pk3 loading and the QuakeC VM before any graphics. Done:
+   `xonotic-build` and `demos/xonotic/test/xonotic-browser.mjs`, Chromium
+   and Firefox.
 4. QuakeC: the game logic is compiled to `.dat` files. Build it inside Dolly
    with Xonotic's compiler (gmqcc, unverified), or record the prebuilt files
-   as a bootstrap exception in the demo README.
+   as a bootstrap exception in the demo README. Done: gmqcc builds in Dolly
+   and the test plays its second match on the `progs.dat` built there.
 5. Client: rendering by decision 1, SDL2 input with relative mouse and capture
    as `bhop` has, sound by decision 3.
 6. `demos/xonotic/`: recipes, sources, `prepare-sources.sh`, tests, README and
