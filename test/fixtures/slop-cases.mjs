@@ -190,6 +190,8 @@ export const pipelineCases = [
   ["a stage in the shell stops an endless producer", 'seq 1 999999999 | { read -r a; read -r b; test "$a$b" = 12; }', 0],
   ["output streams while the producer runs", String.raw`rm -f go log; slop -c 'echo first; until test -e go; do sleep 1; done; echo second' | tee log > /dev/null & until test -s log; do sleep 1; done; test "$(cat log)" = first || exit 91; : > go; wait; test "$(cat log)" = "first
 second"`, 0],
+  ["Make's output streams through tee while its recipe runs", String.raw`rm -f go log; printf 'all:\n\t@echo first; until test -e go; do sleep 1; done; echo second\n' > stream.mk; make -f stream.mk 2>&1 | tee log > /dev/null & until test -s log; do sleep 1; done; test "$(cat log)" = first || exit 91; : > go; wait; test "$(cat log)" = "first
+second"`, 0],
   ["three programs", String.raw`test "$(seq 1 5 | sed s/^/x/ | tail -n 2)" = "x4
 x5"`, 0],
   ["a pipeline inside a substitution", 'x=$(seq 1 999999999 | head -n 2 | tail -n 1); test "$x" = 2', 0],
