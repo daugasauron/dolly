@@ -10,7 +10,7 @@ REQUIRES HOST snapshot@0
 REQUIRES HOST threads@0
 REQUIRES HOST upload@0
 
-FROM https://daugasauron.com/demos/pi/Dollyfile-pi 39755125a4d8d20b470514147ab3feba1b06c37f41057b6df42e35d60416af5c
+FROM https://daugasauron.com/demos/pi/Dollyfile-pi 601f891ea02910b041490b58f9e84d7c2021a671af19337091592b17dcf01759
 COPY https://daugasauron.com/demos/local-llm/Dollyfile-local-llm-build 87e8eee0ac221d36c812d1926971dd69ef98b0baf9dddd8953c2ca6c77f53f6a /usr/bin/dolly-llama /usr/bin/dolly-llama
 COPY https://daugasauron.com/demos/local-llm/Dollyfile-llama-build 63148ff8942fc748305bcb9f33f1ee9cdfe2d4bc5251732ba003a93af174a2b2 /usr/share/licenses/dolly-llm /usr/share/licenses/dolly-llm
 EXPORTS TOOL dolly-llama

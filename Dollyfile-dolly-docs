@@ -10,7 +10,7 @@ SOURCE https://daugasauron.com/docs/slop.md 3fe717304d8b8c0c78de317a4c3706c29b62
 SOURCE https://daugasauron.com/docs/display.md ab6e17fbe9d7218fb24f95e438824e5dfa834a7ddda50212e0f1061381aa8321 /usr/share/doc/dolly/docs/display.md
 SOURCE https://daugasauron.com/docs/gpu.md f57940e72153898014baa7882a70a0d5d5fcd24508d5d22c70bcf323e3f5bef4 /usr/share/doc/dolly/docs/gpu.md
 SOURCE https://daugasauron.com/docs/audio.md ebea715a5708fdea8824ee0370f3c8549d81bd7cf66128c0e6f91c42f683e73d /usr/share/doc/dolly/docs/audio.md
-SOURCE https://daugasauron.com/docs/http.md 4902567cd41485620385b319ab2cdf333db6ae3d7c1fcabf35a904aeec3532cb /usr/share/doc/dolly/docs/http.md
+SOURCE https://daugasauron.com/docs/http.md c5e73c6edd627c79893d9903686a0800eecdc6ab04c42ee1b8d84f767dafde4a /usr/share/doc/dolly/docs/http.md
 SOURCE https://daugasauron.com/docs/sessions.md 80b809f6b6cba414b7e56b1b3c1550ce61568b778876eafcab0def4ce6b44576 /usr/share/doc/dolly/docs/sessions.md
 SOURCE https://daugasauron.com/docs/dollyfile.md 4f05278355d97b77854aadb5acdb28ae3e1bdba8d0a545900667d31a9f1a32a1 /usr/share/doc/dolly/docs/dollyfile.md
 SOURCE https://daugasauron.com/docs/architecture.md 3701391f3da6452d8b638013aa82375fcd44c09f4c7c7bc2f6c5a79a13667c1b /usr/share/doc/dolly/docs/architecture.md
