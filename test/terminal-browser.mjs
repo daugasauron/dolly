@@ -172,6 +172,25 @@ await browserTest("terminal", { image: "system", server }, async ({ name, server
     assert.equal(await sleeping, 0, `probe ${argument}`);
   }
 
+  // A new surface and a new font size each send SIGWINCH with the terminal's new grid.
+  const grid = () => page.evaluate(() => { const { cols, rows } = __dolly.transport.dimensions(); return `${cols}x${rows}`; });
+  const reported = async change => (await text()).match(new RegExp(`DOLLY-GRID-${change} (\\d+x\\d+)`))[1];
+  const resizing = start(`${probe} resize`), viewport = page.viewportSize(), before = await grid();
+  await waitForText(/DOLLY-RESIZE-READY/);
+  await page.setViewportSize({ width: viewport.width - 200, height: viewport.height - 100 });
+  await waitForText(/DOLLY-GRID-0/);
+  assert.notEqual(await grid(), before);
+  assert.equal(await reported(0), await grid(), "the surface's grid");
+  await keyboard.focus();
+  await page.keyboard.press("Control+Minus");
+  await waitForText(/DOLLY-GRID-1/);
+  assert.equal(await reported(1), await grid(), "the font size's grid");
+  assert.notEqual(await reported(1), await reported(0));
+  assert.equal(await resizing, 0);
+  await page.keyboard.press("Control+Shift+Equal");
+  await page.setViewportSize(viewport);
+  await page.waitForFunction(before => { const { cols, rows } = __dolly.transport.dimensions(); return `${cols}x${rows}` === before; }, before);
+
   // The owner of the input lease receives every pointer and scroll record.
   const leased = () => page.evaluate(() => [__dolly.graphicsActive, __dolly.inputTransport.leased()]);
   const lease = start(`${probe} lease`);

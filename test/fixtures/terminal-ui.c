@@ -5,6 +5,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <fcntl.h>
+#include <signal.h>
 #include <string.h>
 #include <sys/ioctl.h>
 #include <sys/stat.h>
@@ -61,8 +62,34 @@ static int check_discipline(void) {
   return status;
 }
 
+static volatile sig_atomic_t resized;
+static void on_resize(int number) { (void)number; resized = 1; }
+
 int main(int argc, char **argv) {
   if (argc > 1 && strcmp(argv[1], "discipline") == 0) return check_discipline();
+  if (argc > 1 && strcmp(argv[1], "resize") == 0) {
+    // Reports the terminal's grid after each of two SIGWINCH, reading keys meanwhile.
+    const int saved = dolly_terminal_mode_get(0);
+    if (saved < 0 || dolly_terminal_mode_set(0, 0) != 0 || signal(SIGWINCH, on_resize) == SIG_ERR) return 24;
+    puts("DOLLY-RESIZE-READY\r");
+    fflush(stdout);
+    for (int change = 0; change < 2; ++change) {
+      for (int waited = 0; !resized; ++waited) {
+        if (waited == 100) return 25;
+        (void)dolly_terminal_read_raw_timeout(100);
+      }
+      // A burst of size changes is one change: wait until the grid has settled.
+      do {
+        resized = 0;
+        (void)dolly_terminal_read_raw_timeout(300);
+      } while (resized);
+      struct winsize size;
+      if (ioctl(1, TIOCGWINSZ, &size) != 0) return 26;
+      printf("DOLLY-GRID-%d %ux%u\r\n", change, size.ws_col, size.ws_row);
+      fflush(stdout);
+    }
+    return dolly_terminal_mode_set(0, (unsigned)saved) != 0;
+  }
   if (argc > 1 && strcmp(argv[1], "keys") == 0) {
     const int saved = dolly_terminal_mode_get(0);
     if (saved < 0 || dolly_terminal_mode_set(0, 0) != 0) return 1;
