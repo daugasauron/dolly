@@ -188,6 +188,7 @@ of these images was rebuilt here):
 | local-llm | `ggml/include/ggml.h:237` (`GGML_MEM_ALIGN 8`) | add `\|\| defined(__dolly__)` in `demos/local-llm/prepare-local-llm.sh`; otherwise 16-byte alignment is asserted against an 8-byte `malloc` |
 | llvm-tablegen, rust LLVM | `llvm/lib/Support/Unix/Path.inc:522`, `llvm/include/llvm/ADT/bit.h:32` | add `__dolly__` (musl has no `MNT_LOCAL`, the sysroot no `<machine/endian.h>`) |
 | zero-ad | `demos/zero-ad/premake-dolly.patch:7` | `#elif defined(__dolly__)` |
+| slopyard (Box3D) | `src/timer.c:227`, `src/core.h:32,43` | found by the catalog round, not by reading: the unknown-platform path's `b3CreateThread` calls the worker loop inline, so `slopyard --check` span for 71 minutes. Box3D has no generic POSIX path, so Slopyard's own wrapper `demos/slopyard/src/box3d-simd.c` defines `__EMSCRIPTEN__` for Box3D's translation units (the second place the name is claimed, beside `ggml-webgpu.cpp`) |
 
 Becomes unnecessary and should go in the same round:
 

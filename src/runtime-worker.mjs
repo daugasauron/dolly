@@ -10,6 +10,7 @@ import { inspectDollyfile, MAX_DOLLYFILE_BYTES } from "./dollyfile-view.mjs";
 import { decodeImageEntry } from "./image-entry.mjs";
 import { checkedCustomArtifact } from "./custom-image.mjs";
 import { CANONICAL_ORIGIN, decodeStaticAsset, hex } from "./static-asset.mjs";
+import { terminalFailureReason } from "./process-supervisor.mjs";
 
 const encoder = new TextEncoder();
 const decoder = new TextDecoder("utf-8", { ignoreBOM: true });
@@ -93,6 +94,11 @@ function bootFiles(dolly, memory) {
       if (status !== 0 && status !== -DOLLY_ERRNO.ENOENT) throw new Error(`Dolly could not remove ${path}: status ${status}`);
     },
   };
+}
+
+// A rejected promise, not a throw, when the entry cannot be read or decoded.
+async function runImageEntry(files, supervisor) {
+  return supervisor.spawn(decodeImageEntry(files.read("/etc/dolly/entry", 64 * 1024)), { foreground: true });
 }
 
 function checkedMemoryRange(memory, addressValue, sizeValue) {
@@ -259,7 +265,7 @@ try {
       const arguments_ = baseArtifact
         ? ["/bin/dollyfile", recipeLocator]
         : ["/usr/libexec/dolly/process-bin/bootstrap"];
-      bootstrapStatus = await processSupervisor.spawn(arguments_);
+      bootstrapStatus = (await processSupervisor.spawn(arguments_)).status;
     }
     for (const artifact of artifacts.values()) files.remove(`/etc/dolly/artifacts/${artifact.recipeSha256}.snapshot`);
     artifacts.clear();
@@ -373,9 +379,13 @@ try {
   });
   await entryReady;
 
-  const status = await processSupervisor.spawn(
-    decodeImageEntry(files.read("/etc/dolly/entry", 64 * 1024)), { foreground: true });
-  self.postMessage({ type: "exited", status });
+  // The image ends with its ENTRY process, however that ended: a program that
+  // failed or could not start is the image's ending, not the runtime's failure.
+  const ending = await runImageEntry(files, processSupervisor).catch(error => {
+    console.error(error);
+    return { status: 126, signal: 0, failure: error.reason ?? terminalFailureReason(error) };
+  });
+  self.postMessage({ type: "exited", ...ending });
 } catch (error) {
   self.postMessage({
     type: "error",

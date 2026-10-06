@@ -5,7 +5,7 @@ import { browserTest } from "./browser.mjs";
 import { DOLLY_ERRNO } from "../src/process-constants.mjs";
 
 const fixtures = { "fs-growth.c": "test/fixtures/fs-growth.c" };
-await browserTest("fs-growth", { server: { fixtures }, timeout: 300_000 }, async ({ server, open }) => {
+await browserTest("fs-growth", { image: "system", server: { fixtures }, timeout: 300_000 }, async ({ server, open }) => {
   const { page, submit } = await open({
     policy: { rules: [{ origin: server.origin, pathPrefix: "/fixture/", methods: ["GET"] }] } });
   const failures = [];

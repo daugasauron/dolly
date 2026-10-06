@@ -231,6 +231,7 @@ test("system snapshots are sealed to their visible recipe chain", async () => {
     ["core", "/bin/slop"],
     ["curl", "/usr/bin/curl"],
     ["display", "/usr/lib/libdisplay.so"],
+    ["dolly-docs", "/usr/share/doc/dolly/docs/slop.md"],
     ["ghostty-build", "/usr/bin/zig"],
     ["git", "/usr/bin/git"],
     ["gzip", "/bin/gzip"],

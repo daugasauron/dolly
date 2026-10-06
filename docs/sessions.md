@@ -16,6 +16,12 @@ flowchart LR
 - **Save** or `Ctrl+Shift+S` stores a checkpoint named with 1–64 of
   `A-Z a-z 0-9 . _ -` (not `.` or `..`). `/sessions/` lists saves with Export,
   Import, Delete and Recover files; `/session/?name=NAME` loads one.
+- The Save button is one of the page's indicators
+  ([`page-indicators.mjs`](../src/page-indicators.mjs)): it shows for ten
+  seconds once the page is ready and `Ctrl+Shift+F` shows or hides it, so a
+  program's own controls in that corner stay reachable. `Ctrl+Shift+S` saves
+  while it is hidden. A save in progress or a failed one shows it until the
+  save succeeds; a download offer shows it until every offer is answered.
 - A save holds files, directories, symlinks and deletions, including credentials,
   Pi conversations (`~/.pi/agent/sessions`) and packages installed with `amy`
   ([Dollyfile](dollyfile.md#packages-and-amy)). It does not hold processes,
