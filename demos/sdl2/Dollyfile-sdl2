@@ -4,7 +4,7 @@ REQUIRES HOST runtime@0
 REQUIRES HOST display@0
 REQUIRES HOST input@0
 
-FROM https://daugasauron.com/demos/cmake/Dollyfile-cmake-build 9cc0c42ebc252e15b791ea44f9f7b256af6a3bdbf4cc4856a2a0b5ed9241c02b
+FROM https://daugasauron.com/demos/cmake/Dollyfile-cmake-build 914d83b532c623f70b87b2fe3f5dd2cadc1fa900ce862c4c4c6f7e7e91cfd5f6
 REQUIRES HEADER libc
 REQUIRES HEADER display
 REQUIRES HEADER input

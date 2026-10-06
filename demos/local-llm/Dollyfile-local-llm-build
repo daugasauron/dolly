@@ -8,7 +8,7 @@ REQUIRES HOST gpu@0
 REQUIRES HOST http@0
 REQUIRES HOST upload@0
 
-FROM https://daugasauron.com/demos/local-llm/Dollyfile-llama-build 63148ff8942fc748305bcb9f33f1ee9cdfe2d4bc5251732ba003a93af174a2b2
+FROM https://daugasauron.com/demos/local-llm/Dollyfile-llama-build a8e8d854defbe7bf5a3ba70f1047c40fc1b08b38481c2b85c25b36423b4a3c19
 REQUIRES TOOL cc
 REQUIRES TOOL c++
 REQUIRES TOOL tar
