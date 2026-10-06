@@ -50,8 +50,8 @@ flowchart LR
   memory pressure in one tab.
 - **One user, no permission bits.** Every process is the same principal and the
   containment boundary is the browser, so modes would protect nothing. Execute
-  bits never select programs; `chmod` and `chown` check that the path exists
-  and change nothing.
+  bits never select programs; the `chmod` and `chown` calls check that the path
+  exists and change nothing.
 
 ## System calls
 

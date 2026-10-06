@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { execFileSync, spawnSync } from "node:child_process";
-import { chmod, mkdir, mkdtemp, readFile, rm, stat, utimes, writeFile } from "node:fs/promises";
+import { chmod, mkdir, mkdtemp, readFile, rm, stat, symlink, utimes, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import test from "node:test";
@@ -83,7 +83,17 @@ test("Dolly's own core tools keep their no-permission and finite semantics", asy
   assert.equal(status(bracket, ["-n", "a"]), 2);
   assert.equal(run(await buildInline("cat"), ["-n"], { input: "a\nb\n" }).stdout, "     1\ta\n     2\tb\n");
   assert.equal(run(await buildInline("echo"), ["--"]).stdout, "--\n");
-  assert.equal(status(await buildInline("ls"), ["--color=never", "."]), 0);
+  const ls = await buildInline("ls");
+  assert.equal(status(ls, ["--color=never", "."]), 0);
+  // The POSIX long format; a directory starts with its total, an empty one has nothing else.
+  await mkdir(join(scratch, "listing/empty"), { recursive: true });
+  await writeFile(join(scratch, "listing/file"), "twelve bytes");
+  await symlink("file", join(scratch, "listing/link"));
+  const columns = String.raw` +\d+ \d+ \d+ +\d+ [A-Z][a-z]{2} [ \d]\d \d\d:\d\d `;
+  assert.match(run(ls, ["-l", "listing"]).stdout, new RegExp(`^total \\d+\nd[-rwx]{9}${columns}empty\n` +
+    `-[-rwx]{9}${columns}file\nl[-rwx]{9}${columns}link -> file\n$`));
+  assert.equal(run(ls, ["-l", "listing/empty"]).stdout, "total 0\n");
+  assert.equal(run(ls, ["listing/file", "listing/link"]).stdout, "listing/file\nlisting/link\n");
   await writeFile(join(scratch, "install-source"), "bytes");
   assert.equal(status(build("install"), ["-m", "755", "-o", "nobody", "-g", "nogroup",
     "install-source", "installed"]), 0);

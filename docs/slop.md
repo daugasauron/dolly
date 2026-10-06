@@ -89,7 +89,10 @@ threads, host processes or a scheduler.
   `test`/`[` with `!`, `-a`, `-o` and parentheses, `foreground`, `help`, `clear`,
   `stat`, `file`.
   There are no permission bits: `test -x` means a regular file, `-r`/`-w` that
-  the path exists. `/bin/cd` is a compatibility command; plain `cd` is the builtin.
+  the path exists. `ls -l` is the POSIX long format: the fixed modes `stat`
+  reports, numeric owner and group (there is no name database) and a `total`
+  of the listed sizes in KiB (there are no disk blocks).
+  `/bin/cd` is a compatibility command; plain `cd` is the builtin.
 - [`Dollyfile-system-tools`](../Dollyfile-system-tools) (sources in `src/commands/`) adds
   `command`, `env`, `find`, `time`, `timeout`, `xargs` (`-P N` runs N commands
   at once), `diff` and `patch` (over Git; the patch names its files, a `FILE`
@@ -104,8 +107,8 @@ threads, host processes or a scheduler.
   own Makefile in `system-tools` ([`Dollyfile-system-tools`](../Dollyfile-system-tools)). They follow
   POSIX, not GNU: `dd bs=1024k`, not `bs=1M`. `ln -s` works; hard links fail in
   WasmFS. `kill` signals any process by PID. There is no `/dev/zero`, and no
-  `id`, `whoami`, `ps` or `df`: one user without a name database, and no
-  process or mount list to read. `tar` only extracts and `gzip` only
+  `chmod`, `chown`, `id`, `whoami`, `ps` or `df`: one user without modes to
+  change or a name database, and no process or mount list to read. `tar` only extracts and `gzip` only
   decompresses (`gzip -dc`); Git creates archives of any directory:
   `git init -q . && git add -A && git archive -o out.tar.gz $(git write-tree)`
   (`.tar`, `.tar.gz` and `.zip`).
