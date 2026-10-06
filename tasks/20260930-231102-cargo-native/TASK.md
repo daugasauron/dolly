@@ -451,6 +451,22 @@ seed with the empty suffix, explicit `runtime@0`, the libcurl follow-up.
   `cbindgen --version` prints `cbindgen 0.26.0`, and `cbindgen --lang c` on a
   file with a `#[repr(C)]` struct and an `extern "C"` function prints the
   matching header.
+- Programs from crates.io with `cargo install` (rust-tools session with the
+  `cargo` package, 23:23–23:32; the SDK's `libc` through
+  `~/.cargo/config.toml`, the index through the relay):
+  - `cargo install ripgrep --version 15.1.0`: first failed at the link,
+    "/bin/cc: unsupported option: --profiling-funcs", which rustc's
+    Emscripten flavour passes for limited debug info (ripgrep's release
+    profile has `debug = 1`). The linker adapter now passes `-g1`
+    (`4d7fb3b9`; adapter compiled in the session, `rust-sdk` not rebuilt):
+    "Finished `release` profile [optimized + debuginfo] target(s) in 1m 20s",
+    `rg --version` prints `ripgrep 15.1.0` and it searches a file.
+  - `cargo install protox --version 0.9.1 --features bin`: 1 m 59 s, and
+    `protox` compiles a `.proto` to a 54-byte descriptor.
+  - `cargo install fd-find --version 10.5.0` fails in `nix`: "error[E0425]:
+    cannot find function `sethostname` in crate `libc`". That is what
+    `nix-hostname.patch` is for under Patti; under Cargo such crates need a
+    `[patch]` table naming a patched copy (`jiff` likewise).
 - `cargo test` fails: "error[E0463]: can't find crate for `test`". The SDK
   ships no `test` crate (`build-sdk.sh` builds `std,panic_abort,proc_macro`),
   and tests on a panic-abort target need `-Zpanic-abort-tests`.
