@@ -384,3 +384,31 @@ Queued for free slots: `rts-early-input-stall`, `amy-descriptions` (rest),
 - Open from the integration: `ending` passed 6 of 8 runs (Ctrl+C on a builtin
   loop once reported status 130, not SIGINT); the integration agent is finding
   the cause in `work/ending` (`fix/ending-flake`).
+
+### 23:05: the seed round's verification, and what it found
+
+Seed round (`integrate/seed-1006` at `9077dda1`, 61 images, image inputs
+`22d006ca…`), logs in `work/round2/build/seed-evidence/`:
+
+- Source 362/362, artifacts 24/24.
+- Core browser suites: all green in chromium and firefox except `terminal` in
+  Firefox (one 30 s timeout under load average 18); 3 of 3 reruns pass.
+- Demos: python, javascript, emacs, pi, cmake, sdl2, codex, bhop, classicube,
+  rts pass. Three failed:
+  - `studio`: the Neovim fixture counted lines of the starter recipe; the
+    `runtime@0` line moved them. Fixed in `integrate/next` (`3c589449`).
+  - `rust`: the Tokio check read the server's count of cancelled streams the
+    instant the program exited: one close instead of two. 2 of 2 reruns pass.
+    The test now waits up to two seconds for the close (`80595976`).
+  - `neovim`: "timed out waiting for terminal selection publication" after
+    Neovim, the image's ENTRY, exits and the recovery shell starts; 1 of 2
+    reruns failed again. A real race (pointer records dropped when the old
+    foreground program is retired); the input agent is on it in `work/selfix`
+    (`fix/selection-after-exit`).
+- GPU tests: `local-llm`, `0ad-spidermonkey`, `0ad-engine`, `0ad-graphics`,
+  `slopyard` (every fixture) pass.
+- Not packaged: I stopped the pipeline before its publish step at 23:02. The
+  publish holds 17 GB and the main round's catalog was at 16 GB; the seed
+  release is superseded if the main round is green, and can still be packaged
+  from `work/round2` (clean at `9077dda1`) if it is not:
+  `bash scripts/package-pages.sh build/seed-releases`.
