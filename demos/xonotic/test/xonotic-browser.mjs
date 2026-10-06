@@ -8,8 +8,9 @@ import { delay, demoTest } from "../../browser.mjs";
 
 const archives = ["xonotic-20230620-data.pk3", "xonotic-20230620-maps.pk3"];
 const fonts = ["font-xolonium-20230620.pk3", "font-unifont-20230620.pk3"];
-const fixtures = Object.fromEntries([...archives, ...fonts].map(name => [name, `.cache/xonotic/release/Xonotic/data/${name}`]));
+const fixtures = Object.fromEntries([...archives, ...fonts, "short.dem"].map(name => [name, `.cache/xonotic/release/Xonotic/data/${name}`]));
 const basedir = "/home/dolly/xonotic";
+const timedemoLog = "/home/dolly/.xonotic/data/timedemo.log";
 
 await demoTest("xonotic", { image: "xonotic-build", timeout: 1_800_000, browser: process.env.DOLLY_BROWSER ?? "chromium",
   server: { fixtures } }, async ({ server, open }) => {
@@ -57,16 +58,35 @@ await demoTest("xonotic", { image: "xonotic-build", timeout: 1_800_000, browser:
   await run(`grep -q 'progs.dat is file ${basedir}/data/progs.dat' ${log} && grep -q ':end$' ${log}`);
   console.log("xonotic: the match ran to its end on the progs.dat built in Dolly");
 
-  // The SDL client has no render path in Dolly yet (no OpenGL; the software
-  // rasterizer needs SSE2): it loads the data, opens the display through the
-  // sdl2 package, reports the missing video mode and returns to the shell
-  // with the display released. A frame assertion replaces this when one exists.
+  // The SDL client draws its menu through the engine's software rasterizer
+  // (Wasm SIMD) into the sdl2 package's window surface: a frame that is
+  // neither blank nor flat, then it quits back to the shell.
   await run(`cd ${basedir}/data && ` +
     fonts.map(name => `curl -fsS ${server.origin}/fixture/${name} -o ${name}`).join(" && "));
-  const client = start(`cd ${basedir} && xonotic-sdl -xonotic -basedir ${basedir} +vid_fullscreen 0 +vid_width 1024 +vid_height 768`);
+  const client = start(`cd ${basedir} && xonotic-sdl -xonotic -basedir ${basedir} ` +
+    "+vid_soft 1 +vid_soft_threads 1 +vid_fullscreen 0 +vid_width 1024 +vid_height 768 +defer 40 quit");
   await page.waitForFunction(() => __dolly.transport.graphicsActive(), null, { timeout: 120_000 });
-  assert.equal(await client.done, 1, "the client exits with status 1 without a video mode");
+  const painted = await page.waitForFunction(() => {
+    const canvas = document.querySelector("#display");
+    if (canvas.width !== 1024 || canvas.height !== 768) return false;
+    const pixels = canvas.getContext("2d").getImageData(0, 0, canvas.width, canvas.height).data;
+    let lit = 0;
+    for (let i = 0; i < pixels.length; i += 4) if (pixels[i] + pixels[i + 1] + pixels[i + 2] > 48) lit++;
+    const fraction = lit / (canvas.width * canvas.height);
+    return fraction > 0.02 && fraction < 0.98 ? { fraction } : false;
+  }, null, { timeout: 120_000, polling: 500 });
+  console.log(`xonotic: client frame at 1024x768, lit fraction ${(await painted.jsonValue()).fraction.toFixed(3)}`);
+  assert.equal(await client.done, 0, "the client must quit back to the shell");
   assert.equal(await page.evaluate(() => __dolly.transport.graphicsActive()), false, "the display is released");
   await run("echo SHELL-BACK");
-  console.log("xonotic: the client opened the display, found no video mode and returned to the shell");
+  console.log("xonotic: the client drew a frame and quit back to the shell");
+
+  // Frame rate of the software path at the page's size: timedemo of a 22 s
+  // bot-match recording on stormkeep (short.dem, recorded natively).
+  await run(`cd ${basedir}/data && curl -fsS ${server.origin}/fixture/short.dem -o short.dem && rm -f ${timedemoLog}`);
+  const timedemo = start(`cd ${basedir} && xonotic-sdl -xonotic -basedir ${basedir} ` +
+    "+vid_soft 1 +vid_soft_threads 1 +vid_fullscreen 0 +vid_width 1024 +vid_height 768 +log_file timedemo.log -benchmark short");
+  assert.equal(await timedemo.done, 0, "-benchmark quits when the demo ends");
+  await run(`grep ' frames ' ${timedemoLog}`);
+  console.log((await text()).split("\n").filter(line => / frames .* fps/.test(line)).map(line => `xonotic: timedemo ${line.replace(/^\^7/, "")}`).join("\n"));
 });

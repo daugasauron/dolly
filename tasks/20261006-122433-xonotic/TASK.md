@@ -324,11 +324,14 @@ small: 17 modes × 20 permutation bits in the source, 14 pairs in use at
   compiles to a rasterizer that draws nothing. Emscripten's sysroot carries
   `compat/emmintrin.h`, SSE2 over Wasm SIMD, which would run upstream's
   rasterizer unchanged, but Dolly's `cc` (`src/compiler.cpp`) accepts a
-  fixed option list without `-msimd128` or `-msse2`. Whether Wasm SIMD
-  enters the toolchain is the integrator's decision (a seed change like
-  `core/full-read`); it would give a software first frame and the whole
-  menu and game at software speed with no new engine code, and SIMD in the
-  browser costs no new authority.
+  fixed option list without `-msimd128` or `-msse2`. Integrator's decision
+  (08:55): take the software frame through Wasm SIMD the way Slopyard
+  compiles Box3D: `demos/xonotic/simd-unit.c` wraps the two SSE2 units in a
+  per-function `target("simd128")` pragma with `-D__SSE__ -D__SSE2__`, and
+  the client gets `-DSSE_PRESENT -DSSE2_PRESENT` so `quakedef.h` takes the
+  x86 SSE2 paths and `vid_soft` is registered; the software path is the
+  interim renderer and route (a) stays the goal. Separately `core/cc-simd`
+  (`69552b32`, from `integrate/round3`) lets `cc` accept `-msimd128`.
 - Route (a)'s real shape: `gpu@0` owns the display while a surface is open
   (`dolly_gpu_open`), and the sdl2 package's video backend owns it for an
   SDL window, so the GPU path cannot sit behind `vid_sdl.c`. It needs a

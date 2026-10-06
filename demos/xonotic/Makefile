@@ -4,6 +4,7 @@
 CC := cc
 CXX := c++
 SOURCE := /usr/src/xonotic
+PORT := /usr/src/dolly/xonotic
 BUILD := /tmp/xonotic/build
 ENGINE := $(SOURCE)/darkplaces
 
@@ -23,7 +24,11 @@ CLIENT_OBJECTS := $(patsubst %,$(BUILD)/client/%.o,$(CLIENT_UNITS))
 # makefile.inc's CFLAGS_COMMON at -O1 (Dolly's cc takes no -fno-math-errno or
 # -fno-trapping-math), zlib linked statically since there is no dlopen.
 CFLAGS := -O1 -fno-strict-aliasing -D_FILE_OFFSET_BITS=64 -D__KERNEL_STRICT_NAMES -DLINK_TO_ZLIB -I$(SOURCE)
-CLIENT_CFLAGS := $(CFLAGS) -DCONFIG_MENU -DCONFIG_CD -I/usr/include/SDL2
+# SSE_PRESENT and SSE2_PRESENT make quakedef.h take the x86 SSE2 paths
+# (Sys_HaveSSE2 answers yes without cpuid, vid_soft is registered); the two
+# units with intrinsics compile as Wasm SIMD through simd-unit.c.
+CLIENT_CFLAGS := $(CFLAGS) -DCONFIG_MENU -DCONFIG_CD -DSSE_PRESENT -DSSE2_PRESENT -I/usr/include/SDL2
+SIMD_UNITS := dpsoftrast mod_skeletal_animatevertices_sse
 
 GMQCC_UNITS := ast code conout fold ftepp intrin ir lexer main opts parser stat utf8 util
 GMQCC_OBJECTS := $(patsubst %,$(BUILD)/gmqcc/%.o,$(GMQCC_UNITS))
@@ -42,6 +47,10 @@ all: /usr/bin/xonotic-dedicated /usr/bin/xonotic-sdl /usr/bin/gmqcc
 $(BUILD)/engine/%.o: $(ENGINE)/%.c
 	mkdir -p $(@D)
 	$(CC) $(CFLAGS) -c $< -o $@
+
+$(patsubst %,$(BUILD)/client/%.o,$(SIMD_UNITS)): $(BUILD)/client/%.o: $(ENGINE)/%.c $(PORT)/simd-unit.c
+	mkdir -p $(@D)
+	$(CC) $(CLIENT_CFLAGS) -D__SSE__ -D__SSE2__ -DDOLLY_XONOTIC_TRANSLATION_UNIT='"$<"' -c $(PORT)/simd-unit.c -o $@
 
 $(BUILD)/client/%.o: $(ENGINE)/%.c
 	mkdir -p $(@D)

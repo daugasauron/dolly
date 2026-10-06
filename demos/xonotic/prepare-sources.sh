@@ -10,7 +10,8 @@ if has_image xonotic-build; then
     "${xonotic_dir}/GPL-2" /usr/share/licenses/xonotic/GPL-2 \
     "${xonotic_dir}/GPL-3" /usr/share/licenses/xonotic/GPL-3 \
     "${xonotic_dir}/gmqcc/LICENSE" /usr/share/licenses/gmqcc/LICENSE \
-    demos/xonotic/Makefile /usr/src/dolly/xonotic/Makefile
+    demos/xonotic/Makefile /usr/src/dolly/xonotic/Makefile \
+    demos/xonotic/simd-unit.c /usr/src/dolly/xonotic/simd-unit.c
 fi
 if has_image xonotic; then
   xonotic_data="$(bash demos/xonotic/prepare-xonotic-data.sh)"

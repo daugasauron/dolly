@@ -2,11 +2,11 @@
 
 Xonotic 0.8.6 (DarkPlaces engine), being ported to Dolly. State: the dedicated
 server, the SDL client and gmqcc build inside Dolly, a bot match runs to its
-end headless, gmqcc rebuilds the game logic there, and the client starts but
-has no render path yet (no OpenGL in the browser, and the engine's software
-rasterizer needs SSE2): it reports the missing video mode and returns to the
-shell. No rendering or sound yet. The task is
-`tasks/20261006-122433-xonotic/TASK.md`.
+end headless, gmqcc rebuilds the game logic there, and the client draws
+through the engine's own software rasterizer (its SSE2 code compiled as Wasm
+SIMD) into the `sdl2` package's window. That software path is the interim
+renderer; the goal stays a `gpu@0` render path inside the engine (the plan is
+in the task). No sound yet. The task is `tasks/20261006-122433-xonotic/TASK.md`.
 
 ## Images
 
@@ -18,7 +18,7 @@ shell. No rendering or sound yet. The task is
   `csprogs.dat` and `menu.dat` into `/tmp/xonotic/build/qc`.
 - `xonotic`: the client with the release's data, maps and font archives
   (946 MB) under `/usr/share/xonotic/data`; `/xonotic/` starts `xonotic`,
-  which today prints the video failure and leaves the shell.
+  the client in software at 1024×768, and leaves the shell when it quits.
 
 Build with `npm run image -- xonotic-build` or `npm run image -- xonotic`.
 
@@ -39,9 +39,15 @@ Build with `npm run image -- xonotic-build` or `npm run image -- xonotic`.
 - Dolly's libc answers the engine's socket calls with failures, so the INET
   ports are reported unavailable; only the loopback address type carries
   packets.
+- [`simd-unit.c`](simd-unit.c) compiles the two SSE2 units (`dpsoftrast.c`,
+  `mod_skeletal_animatevertices_sse.c`) as Wasm SIMD through a per-function
+  target pragma over Emscripten's compat `<emmintrin.h>`, until `cc` accepts
+  `-msimd128` (`core/cc-simd`); the client is built with `-DSSE_PRESENT
+  -DSSE2_PRESENT` so the engine takes its SSE2 paths and registers `vid_soft`.
 - [`Makefile`](Makefile) builds DarkPlaces' `OBJ_SV` unit list (the `*_null.c`
   video, thread and sound units) at `-O1` with 64 MiB of initial memory for
-  the engine's static data, gmqcc with `-std=c++11`, and the QuakeC programs
+  the engine's static data, the SDL client from `OBJ_SDL` with the null
+  thread, sound and CD units, gmqcc with `-std=c++11`, and the QuakeC programs
   the way `qcsrc/Makefile` and `tools/qcc.sh` do: `cc -xc -E`, the line
   markers turned into gmqcc pragmas, then gmqcc. The results differ from the
   release's `.dat` files only in `__LINE__`-derived strings, because clang

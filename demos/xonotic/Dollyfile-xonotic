@@ -8,8 +8,8 @@ REQUIRES HOST snapshot@0
 REQUIRES HOST upload@0
 
 FROM https://daugasauron.com/Dollyfile-system 530ac991b8305a71ab635821bf98cb595e4e8efc62c867187f3264d10a964481
-COPY https://daugasauron.com/demos/xonotic/Dollyfile-xonotic-build 789c43e16e3b6c3b222dedadc0faf271d0e27d3bdf4566522ccfe17a90e7f1a4 /usr/bin/xonotic-sdl /usr/bin/xonotic-sdl
-COPY https://daugasauron.com/demos/xonotic/Dollyfile-xonotic-build 789c43e16e3b6c3b222dedadc0faf271d0e27d3bdf4566522ccfe17a90e7f1a4 /usr/share/licenses/xonotic /usr/share/licenses/xonotic
+COPY https://daugasauron.com/demos/xonotic/Dollyfile-xonotic-build 3e865181b9c4573ad5c2ace67611dc743d75d7f600032d5dbad054fbb6f396eb /usr/bin/xonotic-sdl /usr/bin/xonotic-sdl
+COPY https://daugasauron.com/demos/xonotic/Dollyfile-xonotic-build 3e865181b9c4573ad5c2ace67611dc743d75d7f600032d5dbad054fbb6f396eb /usr/share/licenses/xonotic /usr/share/licenses/xonotic
 COPY https://daugasauron.com/demos/sdl2/Dollyfile-sdl2 9c9950fb0d6201094c4db127f1f96aabc26761bdc34db3d50b197f06bf63680d /usr/share/licenses/SDL2 /usr/share/licenses/SDL2
 # The release's game content, one archive each; music and the Nexuiz
 # compatibility packs are not in the image yet.

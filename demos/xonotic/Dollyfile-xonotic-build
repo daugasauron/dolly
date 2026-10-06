@@ -22,7 +22,7 @@ REQUIRES TOOL tar
 REQUIRES TOOL gzip
 REQUIRES TOOL rm
 
-SOURCE https://daugasauron.com/dist/static/xonotic/source.tar.gz 4de9c3f936794d2cd6037876ea71432eb34ab657604a75998da0789b60ff84b2 /tmp/xonotic/source.tar.gz
+SOURCE https://daugasauron.com/dist/static/xonotic/source.tar.gz 9f5f8f230fd3c84d2a15e10ddf776d2375a7e5e112759eae667d5b76763f9102 /tmp/xonotic/source.tar.gz
 SLOP gzip -dc /tmp/xonotic/source.tar.gz | tar -xf - -C /
 SLOP make -f /usr/src/dolly/xonotic/Makefile
 
