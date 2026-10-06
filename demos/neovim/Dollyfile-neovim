@@ -7,8 +7,8 @@ REQUIRES HOST http@0
 REQUIRES HOST snapshot@0
 REQUIRES HOST upload@0
 
-FROM https://daugasauron.com/Dollyfile-system 7f6562b7005c373f9f73eab4f185a34ddbe8d73671be48b2f194dc75ce57da23
-INSTALL https://daugasauron.com/demos/neovim/Dollyfile-nvim 1dc53795c9d58475935b244faeaaa6c2ce0e78f6b388fc3c690e8254cd02ca51
+FROM https://daugasauron.com/Dollyfile-system e256ffefcef1e0fb81ca7f12d388ba04828c9f506350a9a11d278289280423bf
+INSTALL https://daugasauron.com/demos/neovim/Dollyfile-nvim b62bca3b6825fb4c0ac6be799517fd0332ae0ccff5c6b61931142d2282d75f88
 
 FILE /home/dolly/.config/nvim/init.lua
     vim.opt.shell = "/bin/slop"
