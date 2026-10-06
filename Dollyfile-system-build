@@ -104,7 +104,7 @@ EXPORTS TOOL dollyfile
 REQUIRES HEADER libc
 REQUIRES HEADER runtime
 
-SOURCE https://daugasauron.com/dist/static/default/slop.c b1d6aa04dd8f412e83bc3f40240e7cc2219e9497eb8f5bd9ac62456240a6f88a /tmp/slop/slop.c
+SOURCE https://daugasauron.com/dist/static/default/slop.c 92c6db71510632fa5a07cda4b2cdaa3193aa41f5562f93be8f435469b004ccc1 /tmp/slop/slop.c
 RUN /usr/libexec/dolly/process-bin/compiler --dolly-toolchain-mode=c -O1 /tmp/slop/slop.c -o /bin/slop
 
 EXPORTS TOOL slop
