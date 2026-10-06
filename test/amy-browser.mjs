@@ -3,12 +3,15 @@ import { createHash } from "node:crypto";
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { browserTest, composed } from "./browser.mjs";
+import { browserTest } from "./browser.mjs";
 import { encodeSnapshotRecords } from "../src/snapshot-records.mjs";
 import { CANONICAL_ORIGIN } from "../src/static-asset.mjs";
 import { DOLLY_IMAGES } from "../dist/dolly-images.mjs";
 
 const packages = DOLLY_IMAGES.filter(definition => definition.role === "package").map(({ image }) => image).sort();
+// The packages default's recipe installs.
+const preinstalled = [...(await readFile(new URL("../Dollyfile", import.meta.url), "utf8")).matchAll(/^INSTALL \S+Dollyfile-(\S+) /gm)]
+  .map(([, name]) => name).sort();
 // The site's index, as generated: NAME URL SHA256 DESCRIPTION.
 const index = await readFile(new URL("../amy-index.txt", import.meta.url), "utf8");
 const indexed = name => index.split("\n").find(row => row.startsWith(`${name} `)).split(" ");
@@ -63,14 +66,14 @@ await browserTest("amy", { image: "default", timeout: 300_000, server: { fixture
   const run = check(session);
   await run(`test "$(amy list | sed 's/ .*//' | sort | tr '\\n' ' ')" = "${packages.join(" ")} "`);
   // The record lists what the image's recipes installed, before the session adds to it.
-  await run("test \"$(amy list | awk '$2 == \"installed\" { print $1 }' | tr '\\n' ' ')\" = 'curl display gzip zlib '");
+  await run(`test "$(amy list | awk '$2 == "installed" { print $1 }' | tr '\\n' ' ')" = '${preinstalled.join(" ")} '`);
   // Each row carries the index's description and the INSTALL row a recipe writes.
-  const [, zlibUrl, zlibPin, ...description] = indexed("zlib");
-  await run(`test "$(amy info zlib)" = "$(printf '%s\\n' 'zlib: ${description.join(" ")}' 'INSTALL ${zlibUrl} ${zlibPin}' installed)"`);
-  await run(`amy list | grep -q '^zlib  *installed  *${description.join(" ")}$'`);
+  const [, curlUrl, curlPin, ...description] = indexed("curl");
+  await run(`test "$(amy info curl)" = "$(printf '%s\\n' 'curl: ${description.join(" ")}' 'INSTALL ${curlUrl} ${curlPin}' installed)"`);
+  await run(`amy list | grep -q '^curl  *installed  *${description.join(" ")}$'`);
   // The files of a package the image installed come from the release's snapshot, sizes included.
-  await run("amy files zlib > /tmp/zlib-files && grep -q ' /usr/lib/libz.a$' /tmp/zlib-files && ! grep -q ' /etc/dolly/' /tmp/zlib-files");
-  await run("while read size path; do test \"$(stat -c %s \"$path\")\" = \"$size\" || exit 1; done < /tmp/zlib-files");
+  await run("amy files curl > /tmp/curl-files && grep -q ' /usr/bin/curl$' /tmp/curl-files && ! grep -q ' /etc/dolly/' /tmp/curl-files");
+  await run("while read size path; do test \"$(stat -c %s \"$path\")\" = \"$size\" || exit 1; done < /tmp/curl-files");
   await run("test \"$(amy install curl)\" = 'amy: curl is already installed'");
   await run("! amy install nosuch-package 2> /tmp/amy-error && grep -q nosuch-package /tmp/amy-error");
   await run("! amy 2> /dev/null && ! amy frobnicate 2> /dev/null");
@@ -86,14 +89,14 @@ await browserTest("amy", { image: "default", timeout: 300_000, server: { fixture
   await run("test \"$(cat /etc/dolly/image)\" = default && grep -q '^APPLICATION default' /etc/dolly/Dollyfile");
   // The service answers GET for this release's package pins only.
   for (const denied of [`https://packages.dolly.invalid/v1/packages/${"0".repeat(64)}`, "https://packages.dolly.invalid/v1/index",
-    `-X POST https://packages.dolly.invalid/v1/packages/${zlibPin}`, `'https://packages.dolly.invalid/v1/packages/${zlibPin}?x=1'`]) {
+    `-X POST https://packages.dolly.invalid/v1/packages/${curlPin}`, `'https://packages.dolly.invalid/v1/packages/${curlPin}?x=1'`]) {
     assert.notEqual(await session.submit(`curl -fsS ${denied} -o /dev/null`), 0, denied);
   }
   // The site's index describes its newest release. A row this tab's release
   // does not publish fails by name and installs nothing.
   site.index = `gzip ${indexed("gzip")[1]} ${"0".repeat(64)} from a newer release\n`;
   assert.notEqual(await session.submit("amy install gzip 2> /tmp/amy-stale"), 0);
-  await run("grep -q '^amy: gzip: ' /tmp/amy-stale && test \"$(amy installed | grep -c '^gzip ')\" = 1");
+  await run("grep -q '^amy: gzip: ' /tmp/amy-stale && ! amy installed | grep -q '^gzip '");
   site.index = null;
   // An install is the engine's INSTALL row: a package whose host modules the
   // image declares installs and is recorded, so amy lists it.
@@ -118,6 +121,7 @@ await browserTest("amy", { image: "default", timeout: 300_000, server: { fixture
 // Compilers, a library and an agent: each installs into a running default
 // session and works at once, CMake finding the SDL2 installed beside it.
 const programs = {
+  cc: "cc --version > /dev/null && make --version > /dev/null",
   cmake: "mkdir /tmp/amy-cmake && cd /tmp/amy-cmake && printf 'int main(void) { return 0; }\\n' > main.c && " +
     "printf '%s\\n' 'cmake_minimum_required(VERSION 3.20)' 'project(probe C)' 'add_executable(probe main.c)' > CMakeLists.txt && " +
     "cmake -B build -DCMAKE_C_FLAGS=-O0 && cmake --build build && build/probe",
@@ -137,10 +141,9 @@ await browserTest("amy programs", { image: "default", timeout: 600_000 }, async 
   }
 });
 
-// The compiler is a package too: a session composed from the core commands,
-// the display and amy installs cc and compiles.
-await browserTest("amy cc", { image: "minimal", timeout: 300_000 }, async ({ open }) => {
-  const run = check(await open(await composed(["runtime", "display", "http", "packages"], ["core", "display", "amy"])));
+// The compiler is a package: default has none until amy installs it.
+await browserTest("amy cc", { image: "default", timeout: 300_000 }, async ({ open }) => {
+  const run = check(await open());
   await run("! cc --version 2> /dev/null");
   console.log(`amy install cc: ${await timed(run, "amy install cc")} ms`);
   await run("echo 'int main(void) { return 42; }' > /tmp/amy-cc.c && cc /tmp/amy-cc.c -o /tmp/amy-cc; /tmp/amy-cc; test $? = 42");

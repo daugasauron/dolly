@@ -127,8 +127,9 @@ and `/host/MODULE/`, prepared sources in `/dist/static/`.
   package keeps none of it: the base is only the environment the package is
   built in. The build runs the base's `/bin/dollyfile`.
 - A recipe without `FROM` starts from nothing and keeps only what it installs
-  and declares: `minimal` is `core`, `display` and an ENTRY, with no compiler,
-  engine or network. Without the engine it opens but is not a `FROM` base.
+  and declares: `default` is `core`, `posix`, `display`, `curl`, `amy`, its
+  start-up script and an ENTRY, with no compiler. It opens, and `amy` installs
+  into it, but it is not a base to compile on: `FROM` a toolchain for that.
 - `INSTALL` restores a package's retained files, applies and exports its
   environment and exports its objects. It may appear anywhere and names only a
   package. It imports the package's contents, not the files that describe the
@@ -207,9 +208,9 @@ and `/host/MODULE/`, prepared sources in `/dist/static/`.
   embedding lacks one, and the loader refuses an executable whose stamped
   module is not declared. Requirements grant nothing: the embedding enables
   modules and the HTTP broker decides network access
-  ([browser boundary](browser-boundary.md)). `minimal` declares the runtime
-  and display; `system` declares the runtime, display, http, download, upload
-  and snapshot; `default` adds packages and threads.
+  ([browser boundary](browser-boundary.md)). `system` declares the runtime, display, http, download, upload
+  and snapshot; `default` adds packages and threads, because the packages
+  people install into it need them.
 - Linked client libraries (`-ldolly-gpu`, `-ldolly-audio`) stamp their module
   and its ABI digest into the executable's `dolly.host` section; loading fails
   for an unknown module or a different layout. Calling a disabled module

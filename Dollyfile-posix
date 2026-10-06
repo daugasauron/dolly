@@ -1,0 +1,69 @@
+DOLLY 6
+PACKAGE posix
+REQUIRES HOST runtime@0
+
+# The text and file tools a shell session works with, kept from the toolchain
+# that builds them: sbase, awk, Dolly's find, xargs and the like, and sh.
+FROM https://daugasauron.com/Dollyfile-system-tools 92adc6c8211f5c1f4aab15e7fc8f0793a8a3ac4f84cbf252fe762daaaeed7751
+
+EXPORTS TOOL basename
+EXPORTS TOOL cksum
+EXPORTS TOOL cmp
+EXPORTS TOOL comm
+EXPORTS TOOL cut
+EXPORTS TOOL date
+EXPORTS TOOL dd
+EXPORTS TOOL dirname
+EXPORTS TOOL expand
+EXPORTS TOOL expr
+EXPORTS TOOL false
+EXPORTS TOOL fold
+EXPORTS TOOL grep
+EXPORTS TOOL head
+EXPORTS TOOL join
+EXPORTS TOOL kill
+EXPORTS TOOL ln
+EXPORTS TOOL md5sum
+EXPORTS TOOL mktemp
+EXPORTS TOOL nl
+EXPORTS TOOL od
+EXPORTS TOOL paste
+EXPORTS TOOL pathchk
+EXPORTS TOOL printenv
+EXPORTS TOOL printf
+EXPORTS TOOL readlink
+EXPORTS TOOL rmdir
+EXPORTS TOOL sed
+EXPORTS TOOL seq
+EXPORTS TOOL sha256sum
+EXPORTS TOOL sleep
+EXPORTS TOOL sort
+EXPORTS TOOL split
+EXPORTS TOOL strings
+EXPORTS TOOL tail
+EXPORTS TOOL tee
+EXPORTS TOOL tr
+EXPORTS TOOL true
+EXPORTS TOOL tsort
+EXPORTS TOOL uname
+EXPORTS TOOL unexpand
+EXPORTS TOOL uniq
+EXPORTS TOOL wc
+EXPORTS TOOL which
+FILE /usr/share/licenses/sbase/LICENSE
+EXPORTS TOOL awk
+FILE /usr/share/licenses/awk/LICENSE
+EXPORTS TOOL install
+EXPORTS TOOL du
+EXPORTS TOOL rev
+EXPORTS TOOL command
+EXPORTS TOOL xargs
+EXPORTS TOOL find
+EXPORTS TOOL env
+EXPORTS TOOL time
+EXPORTS TOOL timeout
+EXPORTS TOOL realpath
+EXPORTS TOOL hostname
+EXPORTS TOOL tty
+EXPORTS TOOL nproc
+EXPORTS TOOL sh

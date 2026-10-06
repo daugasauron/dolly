@@ -9,10 +9,17 @@ REQUIRES HOST snapshot@0
 REQUIRES HOST threads@0
 REQUIRES HOST upload@0
 
-FROM https://daugasauron.com/Dollyfile-system a8f772bebe152ea6d33be845707b46c0db70c84a4392f94f7bf8c598c4d9df24
+# The image people open: a shell, its text tools, the terminal, curl and amy.
+# It holds no compiler; amy installs what a session needs. The host modules
+# are those packages may need, since an image's list is fixed.
+INSTALL https://daugasauron.com/Dollyfile-core e011f4bcc6321a64eab32f75caf492d9b71aa1b84c9ee539d74311edad6edb09
+INSTALL https://daugasauron.com/Dollyfile-posix 23e3e7f82e2499fcff0664b1936e80b74f665c8960aaeda3f31cd860ec0c1115
+INSTALL https://daugasauron.com/Dollyfile-display 9dd45e552b4779215722aa4378770be213135b6c9e8eeb178e11b51e4a47d242
+INSTALL https://daugasauron.com/Dollyfile-curl 57f2b92c724369d0fa879fdc4d4518864e3120848904ade91abcf78f8468b1ce
+INSTALL https://daugasauron.com/Dollyfile-amy 601039bb9eb4d4e6002634e1e67ea36a4f09154d289e7bea7b35960fe8c60225
 REQUIRES TOOL foreground
 REQUIRES TOOL test
-REQUIRES TOOL printf
+REQUIRES TOOL echo
 
 FILE /etc/dolly/init.slop
     if test -f "$HOME/.dollyrc"; then
@@ -20,16 +27,22 @@ FILE /etc/dolly/init.slop
       status=$?
       case "$status" in
         0|130) ;;
-        *) printf 'Dolly: %s exited with status %s; continuing.\n' "$HOME/.dollyrc" "$status" >&2 ;;
+        *) echo "Dolly: $HOME/.dollyrc exited with status $status; continuing." >&2 ;;
       esac
     fi
     /bin/foreground -i /bin/slop
-    printf '\nDolly: image entry exited; entering the recovery Slop shell.\n'
+    echo
+    echo 'Dolly: image entry exited; entering the recovery Slop shell.'
     /bin/foreground -i /bin/slop
 
 FILE /home/dolly/.dollyrc
-    printf '\033[33mDOLLY / DEFAULT\033[0m\n'
-    printf 'Browser-contained wasm64 userspace; files and processes stay inside Dolly.\n'
-    printf 'Try: help | ls /bin | git --version | cc --version\n\n'
+    echo 'DOLLY: a small Unix-like machine inside this browser tab.'
+    echo 'Files and programs stay in the tab; Ctrl+Shift+S saves the session.'
+    echo 'This image is small. amy list shows what it can install, for example:'
+    echo '  amy install cc       the C and C++ compiler and Make'
+    echo '  amy install git      Git'
+    echo '  amy install python   CPython and pip'
+    echo 'help describes the shell.'
+    echo
 
 ENTRY /bin/foreground -i /bin/slop /etc/dolly/init.slop

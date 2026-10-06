@@ -66,7 +66,7 @@ test("images separate reusable toolchains and packages from applications", async
     "system-build": [], zlib: ["system-build"], curl: ["system-build"], gzip: ["system-build", "zlib"],
     "zig-build": ["system-build"], "ghostty-build": ["zig-build"], display: ["ghostty-build"],
     "system-tools": ["system-build", "zlib", "gzip", "curl", "display"], system: ["system-tools"],
-    default: ["system"], "gpu-sdk": ["system"], "audio-sdk": ["system"],
+    default: ["core", "posix", "display", "curl", "amy"], "gpu-sdk": ["system"], "audio-sdk": ["system"],
   };
   const files = await recipeFiles(project);
   const definitions = await discoverImageDefinitions(project);
@@ -95,8 +95,11 @@ test("images separate reusable toolchains and packages from applications", async
   }
   assert.deepEqual((await selectImageDefinitions(definitions, "all")).map(item => item.image),
     definitions.map(item => item.image));
+  // Each site publishes the packages default's start-up text suggests.
+  const suggested = [...(await readFile(resolve(project, "Dollyfile"), "utf8")).matchAll(/amy install (\S+)/g)].map(([, name]) => name);
   for (const list of ["config/github-pages-images.txt", "config/domain-pages-images.txt"]) {
-    await selectImageDefinitions(definitions, (await readFile(resolve(project, list), "utf8")).trim().split("\n").join(","));
+    const published = await selectImageDefinitions(definitions, (await readFile(resolve(project, list), "utf8")).trim().split("\n").join(","));
+    assert.deepEqual(suggested.filter(name => !published.some(item => item.image === name)), [], list);
   }
 });
 

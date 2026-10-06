@@ -1,0 +1,15 @@
+DOLLY 6
+PACKAGE git
+REQUIRES HOST runtime@0
+REQUIRES HOST http@0
+
+# Git with its HTTP helpers, and diff and patch, which run it.
+FROM https://daugasauron.com/Dollyfile-system-tools 92adc6c8211f5c1f4aab15e7fc8f0793a8a3ac4f84cbf252fe762daaaeed7751
+
+EXPORTS TOOL git
+EXPORTS TOOL diff
+EXPORTS TOOL patch
+FILE /usr/libexec/dolly/git-remote-http
+FILE /usr/libexec/dolly/git-remote-https
+FOLDER /usr/share/git-core/templates
+FILE /usr/share/licenses/git/COPYING
