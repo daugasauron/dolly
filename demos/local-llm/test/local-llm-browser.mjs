@@ -1,7 +1,7 @@
 // A new user's path through the local models, in Chrome and the installed Firefox on a
 // hardware GPU: pi-local's engine, sessions and offline boot, then in pi-local and in
 // Dollyfile Studio a task with the bundled model, a second model installed and chosen
-// with /local, a parameter changed there, and the task again.
+// with /local, its temperature and context size changed there, and the task again.
 import assert from 'node:assert/strict';
 import {mkdir,readFile,writeFile} from 'node:fs/promises';
 import {chromium,firefox} from 'playwright-core';
@@ -52,6 +52,7 @@ for(const image of (process.env.DOLLY_LLM_IMAGES??'pi-local,dollyfile-studio').s
           await page.waitForFunction(()=>['ready','failed'].includes(document.documentElement.dataset.dollyStatus),null,{timeout:240000});
           assert.equal(await page.evaluate(()=>document.documentElement.dataset.dollyStatus),'ready',await page.locator('#bootstrap-log').textContent());
           await until(new RegExp(model.replaceAll('.','\\.')),label);
+          await until(/\/local/,`${label} naming /local`);
           // Pi draws its footer before it reads keys.
           await page.waitForTimeout(2000);
         };
@@ -148,23 +149,36 @@ for(const image of (process.env.DOLLY_LLM_IMAGES??'pi-local,dollyfile-studio').s
         await until(new RegExp(`amy install ${next.packages.join('[\\s\\S]*')}`),'install question');
         await key('Enter');
         await until(/Using /,'installed model',900000);
-        await type('/local');await until(/Local models/,'/local');
-        await choose('Parameters of');await until(/temperature =/,'parameters');
-        await choose('temperature =');await until(/temperature for/,'temperature question');
-        await type('0.35');await until(/temperature = 0\.35/,'changed temperature');
+        // Sets one parameter of the model in use through /local and leaves the list open.
+        const parameter=async(name,value)=>{
+          await type('/local');await until(/Local models/,'/local');
+          await choose('Parameters of');await until(new RegExp(`${name} =`),'parameters');
+          await choose(`${name} =`);await until(new RegExp(`${name} for`),`${name} question`);
+          await type(value);await until(new RegExp(`${name} = ${value}`),`changed ${name}`);
+        };
+        await parameter('temperature','0.35');
         await page.screenshot({path:new URL(`${name}-${image}-parameters.png`,output).pathname});
         await key('Escape');await page.waitForTimeout(500);
+        // A context the adapter cannot hold is refused at the next prompt and Pi goes on; a
+        // context that fits reloads the model with it and Pi's window follows.
+        await parameter('contextWindow','1048576');await key('Escape');await page.waitForTimeout(500);
+        await type('Say hi.');
+        await until(/asked for|Unable to create inference context|Local model exited/,'refused context',300000);
+        await page.screenshot({path:new URL(`${name}-${image}-refused-context.png`,output).pathname});
+        await parameter('contextWindow','12288');await key('Escape');await page.waitForTimeout(500);
+        await until(/\/12k/,'context in the footer');
         await task('second.txt');
         await until(new RegExp(`${next.id.replaceAll('.','\\.')} · [\\d.]+ tokens/s`),'rate of the second model');
         await page.screenshot({path:new URL(`${name}-${image}-second.png`,output).pathname});
         await shell('shell after Pi');
         for(const name of next.packages)assert.equal(await submit(`amy installed | grep -q "^${name} "`),0,`${name} is not installed`);
-        // The user's value is Pi's override, and the engine sampled with it.
+        // The user's values are Pi's overrides; the engine sampled with one and was loaded with the other.
         assert.equal(await submit(`grep -q '"temperature": 0.35' /home/dolly/.pi/agent/models.json && grep -q 'temperature 0.35' /home/dolly/.cache/dolly-llm/engine.log`),0,await text());
+        assert.equal(await submit(`grep -q '"contextWindow": 12288' /home/dolly/.pi/agent/models.json && grep -q 'n_ctx *= 12288' /home/dolly/.cache/dolly-llm/engine.log`),0,await text());
         const external=requests.filter(url=>new URL(url).origin!==site.origin);
         assert.deepEqual(external,[],'Local models attempted external network access');
         assert.deepEqual(errors,[]);
-        console.log(image,name,`task with ${model}, ${next.id} installed and chosen with /local, temperature changed, task again: passed with external requests denied`);
+        console.log(image,name,`task with ${model}, ${next.id} installed and chosen with /local, temperature and context size changed, task again: passed with external requests denied`);
       } finally {await browser.close();}
     }
   } finally {await site.close();}

@@ -42,7 +42,7 @@ FILE /home/dolly/.dollyrc
     fi
     printf '\033[33mDOLLY / DOLLYFILE STUDIO\033[0m\n'
     printf 'Start with /dolly-hello, /dolly-tool or /dolly-fix in Pi.\n'
-    printf '/local: install and switch local models and set their parameters. /model: any provider.\n'
+    printf '/model: any provider.\n'
     printf 'Leave Pi with Ctrl+D on an empty prompt, then: nvim /workspace/Dollyfile\n'
     printf 'dollyfile-build streams a test build; click Open image when finished.\n\n'
 

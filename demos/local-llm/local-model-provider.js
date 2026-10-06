@@ -23,7 +23,10 @@ const limits=new Set(['contextWindow','maxTokens']);
 export default function(pi) {
   let ui;
   const engine=new LocalLlama(text=>ui?.setStatus('local-model',text));
-  pi.on('session_start',(_event,ctx)=>{ui=ctx.ui;});
+  pi.on('session_start',(_event,ctx)=>{
+    ui=ctx.ui;
+    ui.notify('/local chooses and configures the local model: install, switch, context size, sampling, unload.','info');
+  });
   pi.on('session_shutdown',()=>engine.stop());
   pi.on('provider_stream_event',event=>{
     const timings=event.provider===provider && event.data?.timings;
