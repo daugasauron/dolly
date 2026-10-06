@@ -470,3 +470,51 @@ kernel's wake-ups or in `SIGPIPE`.
 - Relink the Rust seed first (sysroot and `exe-suffix` changed).
 - Recipes with unverified page rows: `ripgrep` (`rg --help` captured at build).
 - `core/concurrent-pipelines` after `5ccedb2e` is not merged, as decided.
+
+## `integrate/round3` (worktree `work/locks`, from `integrate/next` `80595976`; 2026-10-06 23:30 to 2026-10-07 JST)
+
+Assembled by the file-locks agent for the second catalog round. Nothing here
+built the Rust seed, a Rust-chain image, `pi`, a model or a game. Evidence:
+`build/round3-evidence/` in `work/locks` (not committed).
+
+### Merged, in this order
+
+| What | Tip | How it went in |
+| --- | --- | --- |
+| `core/file-locks` | `53177981` | clean |
+| `core/kernel-boundary-2` (step 3) | `663b9a5a` | clean |
+| `core/concurrent-pipelines` | `7974c5c9`, its head at 23:33 | clean; `docs/slop.md` and `test/fixtures/slop-cases.mjs` merged automatically |
+| `085f7641`, `bf957bd8`, `3b8df4f3`, `84170484`, `de325315`, `04f9a6a3`, `4d7fb3b9`, `25941e9c`, `e5f0b949` from `work/cargo-native` | | cherry-picks (`-x`): everything on the branch at 23:52 that `integrate/next` lacked. One conflict, in `bf957bd8`: the pins of `demos/rust/Dollyfile-rust-tools`; the base's two pins kept, the `INSTALL` of `Dollyfile-cargo` added |
+| `integrate/next` | `0104e48c` | clean; kernel and supervisor merged automatically |
+| `core/dso-module` | `e441b537` | three conflicts: `scripts/write-build-id.mjs` (the image build inputs: no `dolly-seed.mjs`, and `dolly-dso-0.wasm`), `test/process-browser.mjs` (the lock fixture stays, the signals probe loses `-rdynamic`), `Dollyfile-dolly-docs` (document pins recomputed). `process.h`, `host/runtime/runtime.mjs` and the Worker merged automatically |
+| `integrate/next` | `9abd08b0` | the catalog repin: three recipes conflicted in recipe pins, merged by `work/merge-recipes.py`; `node scripts/update-recipe-pins.mjs` then rewrote 25 recipes' recipe pins |
+| `core/trusted-surface` | `e5ae6730` | clean; nothing reads the removed page surface |
+
+Not merged, as told: `core/input-module`, `core/file-modes`.
+
+Added here: `ccb67dd2`. `test/host-modules.test.mjs` did not see the seven
+operations `dso@0` serves in the process Worker (it has no kernel part), so
+the operation-number check now asks every module with a `processWorker` which
+numbers it handles. Document pins: `b08fdd6d` and the dso merge.
+
+Pins: document pins and, since the catalog repin, the recipe pins the pinner
+derives are committed. `SOURCE` pins are the catalog's and stale where the
+round changes a pinned source (Slop, `process.h`, the dso headers, libcurl,
+the Rust linker adapter); staging refreshes them at each image build, and the
+rewrites were restored after each build here.
+
+### Verified with items 1 to 5 (`93e3d0cb`, runtime `dbdbde8c…`, image inputs `1711e3b8…`)
+
+- `npm run build:runtime`: the import check passes ("exactly the typed
+  imports in build/dolly-browser-0.wasm").
+- Source suite, with the pinner applied to the working tree:
+  `node --test test/*.test.mjs` 334 of 334, `demos/**/*.test.mjs` 81 of 81;
+  `npm run -s lint:dollyfiles` lints 67 recipes.
+- `default` and `system` chains: 13 images in 834.7 s (`image-chain-2.log`),
+  `zig-build` 508.5 s. **No recipe line needed a change for the new Slop**:
+  every recipe of the two chains ran as committed. The same holds for the
+  chain built before dso and the later `integrate/next` were merged
+  (`b08fdd6d`, 774.9 s, `image-chain-1.log`); no suite ran on that one.
+- Suites, each in Chromium and in Firefox, all passing (`full-summary.txt`):
+  core, process, shell, slop, terminal, display, boundary, host-modules,
+  image, custom-session, and beyond the list dso and threads.
