@@ -222,7 +222,9 @@ The browser runs the retained ENTRY once, and only an image with ENTRY and
 `display@0` can be opened. Applications enter
 `/bin/foreground -i /bin/slop /etc/dolly/init.slop`, which starts the program
 and then a recovery shell; toolchains that can be opened enter
-`/bin/foreground -i /bin/slop`.
+`/bin/foreground -i /bin/slop`. The image ends when its ENTRY process does:
+the page keeps the last frame, says how the process ended (status, signal or
+failure) and offers a reload.
 
 ## Packages and amy
 

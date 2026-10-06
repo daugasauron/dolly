@@ -35,7 +35,9 @@ calls: `start` (Worker/page handshake), `messages`, `bindings` (kernel
 imports), `service` (periodic work), `imageRestored(context)` (after the system
 image is restored, before image-phase starts), `claimsKey(event)` (take a key
 from the display), `surfaceSize`, `entryStarted(context)` (the image ENTRY may
-now run) and `dispose`; and whose optional records the registry assembles:
+now run), `ended()` (the links, `{ text, href }`, it offers on the page's
+notice once the image has ended) and `dispose`; and whose optional records
+the registry assembles:
 `page` (members of `window.__dolly`, by descriptor), `builder` (the module's
 configuration for a child build host, `host.builder`) and `inherited` (what an
 opened result tab or restored session inherits, `host.inherited`). A module may

@@ -4,7 +4,7 @@ import { DOLLY_BUILD_ID } from "../../dist/dolly-build-id.mjs";
 import { DOLLY_IMAGE_BUILD_ID } from "../../dist/dolly-image-build-id.mjs";
 import { DOLLY_IMAGES } from "../../dist/dolly-images.mjs";
 import { DOLLY_SESSION_FORMAT_VERSION, decodeSessionSnapshot, loadStoredSession, sessionCompatible,
-  validSessionName, DOLLY_SESSION_MAX_BYTES } from "../../src/session-store.mjs";
+  sessionLoadUrl, validSessionName, DOLLY_SESSION_MAX_BYTES } from "../../src/session-store.mjs";
 
 // A session route (/session/?name=NAME) boots the saved session's image and
 // restores its delta; with recover=1 it unpacks the files into a fresh system
@@ -43,6 +43,9 @@ export function browser(page) {
     page: { get sessionName() { return session.name; }, saveSession: session.save },
     claimsKey: session.claimsKey,
     entryStarted: session.entryStarted,
+    // An ended image leaves the session this tab saved or restored to open again.
+    ended: () => session.name ? [{ text: `Open saved session ${session.name}`,
+      href: sessionLoadUrl(session.name, page.applicationBase).href }] : [],
     dispose() { session.abort(); transport?.close(); },
     start(message) {
       transport = new SessionTransport(message.memory, message.address, message.nameAddress, message.transferAddress,
@@ -75,7 +78,7 @@ export function worker({ get, configuration: { bytes, recover } }) {
     writeFile(path, new Uint8Array(bytes));
     try {
       const program = "/usr/bin/session-recover";
-      if (await supervisor.spawn([program, path, destination]) !== 0) {
+      if ((await supervisor.spawn([program, path, destination])).status !== 0) {
         throw new Error("File recovery failed; the original saved session is unchanged");
       }
     } finally { dolly.FS.unlink(path); }
