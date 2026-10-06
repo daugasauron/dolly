@@ -123,7 +123,7 @@ export async function runClassiCubeAgentProof({ send, evaluate, wait, key, input
   await fullscreen(); await fullscreen();
   await tab(); await state(s=>s.ui.includes('interface=0') && s.control===1,'Tab hides all controls');
   await gamePixels(false); await snapshot('game-only');
-  await wait('__dolly.transport.relativePointerRequested()',Boolean,'manual capture requested');
+  await wait('__dolly.inputTransport.relativePointerRequested()',Boolean,'manual capture requested');
   await click(640,480); await wait("document.pointerLockElement?.id",value=>value==='display','human mouse capture');
   await send("Input.dispatchKeyEvent",{type:'keyDown',key:'w',code:'KeyW',windowsVirtualKeyCode:87}); await delay(500);
   await send("Input.dispatchKeyEvent",{type:'keyUp',key:'w',code:'KeyW',windowsVirtualKeyCode:87});
@@ -290,7 +290,7 @@ export async function runClassiCubeAgentProof({ send, evaluate, wait, key, input
   await evaluate("__dolly.saveSession('classicube-world-proof')");
   await send('Page.navigate',{url:await evaluate("new URL('/session/?name=classicube-world-proof',location.href).href")});
   await wait("document.documentElement?.dataset.dollyStatus",v=>v==='ready','restored session boot');
-  await wait('__dolly.graphicsActive',Boolean,'restored world display'); await wait('__dolly.transport.relativePointerRequested()',Boolean,'restored playable world');
+  await wait('__dolly.graphicsActive',Boolean,'restored world display'); await wait('__dolly.inputTransport.relativePointerRequested()',Boolean,'restored playable world');
   const restored=await probe();
   const blocks = bytes => {
     const data = gunzipSync(Buffer.from(bytes)), tag = Buffer.from([7,0,10,...Buffer.from('BlockArray')]);

@@ -43,7 +43,7 @@ try {
   assert.equal(await page.evaluate(()=>__dolly.gpu.isFallbackAdapter),false);
   const click=async(x,y)=>{
     await page.mouse.click(x,y);
-    await page.waitForFunction(()=>__dolly.transport.inputIdle());
+    await page.waitForFunction(()=>__dolly.inputTransport.inputIdle());
     const target=await page.evaluate(()=>__dolly.gpu.stats.frames+3);
     await page.waitForFunction(target=>__dolly.gpu.stats.frames>=target,target);
     await page.waitForTimeout(200);
