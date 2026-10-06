@@ -1,10 +1,11 @@
 # exec: replace a process's program in the process contract
 
 - STATUS: OPEN
-- PRIORITY: 300
+- PRIORITY: 40
 - TAGS: core,process,abi,slop,design
 
-Owner (2026-10-06, 21:45): "I think real execve sounds better?" Asked while
+Owner (2026-10-06, 21:45): "I think real execve sounds better?", then: "keep
+the real execve path but its very low priority for now." Asked while
 Slop was being run against real `configure` scripts: libtool's generated
 wrappers use `exec PROGRAM` 18 times, and Dolly has no exec
 (`docs/process-model.md`: "There is no `fork` or `exec`"). The alternative, a
