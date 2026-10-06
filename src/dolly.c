@@ -12,7 +12,6 @@
 #include <unistd.h>
 
 #include <emscripten/atomic.h>
-#include <emscripten/emscripten.h>
 
 #include <dolly/runtime.h>
 
@@ -76,12 +75,6 @@ int dolly_process_take_interrupt(void) {
                            memory_order_acquire) ? target : 0;
 }
 
-EM_JS(void, dolly_bootstrap_write_bytes,
-      (const unsigned char *bytes, uintptr_t length), {
-  const start = Number(bytes);
-  Module["bootstrapWriteBytes"]?.(HEAPU8.slice(start, start + Number(length)));
-});
-
 uint32_t dolly_kernel_terminal_mode(void) {
   return terminal_mode_flags;
 }
@@ -94,12 +87,9 @@ int dolly_kernel_terminal_set_mode(uint32_t flags) {
   return 0;
 }
 
-void dolly_terminal_write_bytes(const unsigned char *bytes, uintptr_t length) {
-  if (bytes == NULL || length == 0) return;
-  if (!dolly_kernel_terminal_attached()) {
-    dolly_bootstrap_write_bytes(bytes, length);
-    return;
-  }
+int dolly_terminal_write_bytes(const unsigned char *bytes, uintptr_t length) {
+  if (bytes == NULL || length == 0) return 0;
+  if (!dolly_kernel_terminal_attached()) return dolly_bootstrap_write_bytes(bytes, length);
   const uint32_t newline = DOLLY_TERMINAL_OPOST | DOLLY_TERMINAL_ONLCR;
   if ((terminal_mode_flags & newline) == newline) {
     uintptr_t start = 0;
@@ -113,13 +103,8 @@ void dolly_terminal_write_bytes(const unsigned char *bytes, uintptr_t length) {
     length -= start;
   }
   dolly_kernel_terminal_render(bytes, (size_t)length);
+  return 0;
 }
-
-// Processes reach the terminal through their own descriptors, and /dev/stdin
-// resolves to descriptor 0, so the kernel never reads WasmFS stdin. Defining
-// this device callback keeps Emscripten's JavaScript fallback out of the
-// kernel's imports.
-int _wasmfs_stdin_get_char(void) { return -1; }
 
 _Noreturn void dolly_assert_fail(const char *condition, const char *file,
                                  unsigned line, const char *function) {
@@ -274,29 +259,18 @@ static int initialize_boot_environment(void) {
       return 1;
     }
   }
-  if (setenv("HOME", "/home/dolly", 1) != 0) {
-    fprintf(stderr, "dolly: HOME initialization failed: %s\n", strerror(errno));
-    return 1;
-  }
-  if (setenv("PATH", "/bin:/usr/bin", 1) != 0) {
-    fprintf(stderr, "dolly: PATH initialization failed: %s\n", strerror(errno));
-    return 1;
-  }
-  if (setenv("SHELL", "/bin/slop", 1) != 0) {
-    fprintf(stderr, "dolly: SHELL initialization failed: %s\n", strerror(errno));
-    return 1;
-  }
-  if (setenv("TERM", "xterm-256color", 1) != 0 ||
-      setenv("COLORTERM", "truecolor", 1) != 0) {
-    fprintf(stderr, "dolly: terminal environment initialization failed: %s\n",
-            strerror(errno));
-    return 1;
-  }
-  // Emscripten's defaults name a user no passwd lookup knows ("web_user").
-  // Dolly has no user database, so programs find HOME instead.
-  if (unsetenv("USER") != 0 || unsetenv("LOGNAME") != 0 || unsetenv("_") != 0) {
-    fprintf(stderr, "dolly: user environment initialization failed: %s\n", strerror(errno));
-    return 1;
+  // What every process starts from, before the image's own environment
+  // (load_image_environment). The browser supplies none of it: LANG is the
+  // value every image was built with, whatever language the browser reports.
+  static const char *const environment[][2] = {
+      {"PATH", "/bin:/usr/bin"}, {"PWD", "/"}, {"HOME", "/home/dolly"},
+      {"LANG", "en_US.UTF-8"}, {"SHELL", "/bin/slop"},
+      {"TERM", "xterm-256color"}, {"COLORTERM", "truecolor"}};
+  for (size_t index = 0; index < sizeof(environment) / sizeof(*environment); ++index) {
+    if (setenv(environment[index][0], environment[index][1], 1) != 0) {
+      fprintf(stderr, "dolly: %s initialization failed: %s\n", environment[index][0], strerror(errno));
+      return 1;
+    }
   }
   return 0;
 }

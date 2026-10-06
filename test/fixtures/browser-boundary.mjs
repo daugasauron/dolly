@@ -29,6 +29,7 @@ export async function runBrowserBoundaryChecks(assetRoot) {
   const names = module => WebAssembly.Module.imports(module).map(x => `${x.module}.${x.name}`).sort();
   check(JSON.stringify(names(kernel)) === JSON.stringify(names(contract)), "outer import set changed");
   check(!names(kernel).some(x => /dlopen|dlsym/.test(x)), "kernel exposes a general loader");
+  await checkKernelBounds(asset, kernel, errno);
 
   // A normal Dolly process is not a resident plugin. Adding the expected
   // compatibility tag must not grant its syscall import to a kernel plugin.
@@ -172,6 +173,32 @@ export async function runBrowserBoundaryChecks(assetRoot) {
   }
   return { assetRoot, imports: names(kernel).length, pluginRejections: 3, policyDeniedBeforeFetch: true,
     nonConsumingDeadline: true, boundedAdmission: true, typedErrors: true, literalMetadata: true, defaultRedirects: true };
+}
+
+// A kernel of its own, instantiated as the Worker does it: every import is a
+// host module's binding. Trusted code copies no more than its bounds from it.
+async function checkKernelBounds(asset, module, errno) {
+  const { createHost } = await import(asset("host/modules.mjs"));
+  const { bootFiles } = await import(asset("host/runtime/boot-files.mjs"));
+  const sent = [];
+  const host = await createHost("worker", ["runtime@0"], { send: message => sent.push(message) });
+  try {
+    const kernel = (await WebAssembly.instantiate(module, host.imports(module))).exports;
+    kernel._initialize();
+    const files = bootFiles(kernel, host.kernel.memory), entryLimit = 64 * 1024;
+    files.write("/etc/dolly/entry", new Uint8Array(entryLimit));
+    check(files.read("/etc/dolly/entry", entryLimit).length === entryLimit, "a boot file at its bound was refused");
+    files.write("/etc/dolly/entry", new Uint8Array(entryLimit + 1));
+    rejects(() => files.read("/etc/dolly/entry", entryLimit), /\/etc\/dolly\/entry is larger than 65536 bytes/);
+
+    // No display driver is resident, so the kernel's terminal write is boot text.
+    const textLimit = 1024 * 1024, address = kernel.malloc(BigInt(textLimit + 1));
+    check(kernel.dolly_terminal_write_bytes(address, BigInt(textLimit)) === 0 &&
+      sent.at(-1).bytes.length === textLimit, "a boot text write at its bound was refused");
+    const messages = sent.length;
+    check(kernel.dolly_terminal_write_bytes(address, BigInt(textLimit + 1)) === -errno.EINVAL &&
+      sent.length === messages, "an oversized boot text write reached the page");
+  } finally { host.dispose(); }
 }
 
 async function checkAdmissionQueue(broker, errno, brokerUrl) {

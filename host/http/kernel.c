@@ -38,14 +38,12 @@ _Static_assert(offsetof(dolly_http_mailbox, state) == 4 * DOLLY_HTTP_WORD_STATE 
 _Alignas(64) static dolly_http_mailbox http_mailboxes[DOLLY_HTTP_SLOT_COUNT];
 static uint32_t next_http_slot;
 
-// The trusted host registry supplies this typed import. The generated
-// Emscripten binding fails closed if a host omits that step.
-DOLLY_EM_JS(int, dolly_http_dispatch,
-      (const char *method, uintptr_t method_size,
-       const char *url, uintptr_t url_size,
-       const char *headers, uintptr_t headers_size,
-       const void *body, uintptr_t body_size, uint32_t flags,
-       uint32_t sequence), { return -ENOSYS; });
+DOLLY_BROWSER_IMPORT(dolly_http_dispatch)
+int dolly_http_dispatch(const char *method, uintptr_t method_size,
+                        const char *url, uintptr_t url_size,
+                        const char *headers, uintptr_t headers_size,
+                        const void *body, uintptr_t body_size, uint32_t flags,
+                        uint32_t sequence);
 uintptr_t dolly_http_mailbox_address(void) {
   return (uintptr_t)http_mailboxes;
 }

@@ -31,11 +31,12 @@ flowchart LR
 | --- | --- | --- |
 | Page | [`browser.mjs`](../src/browser.mjs), [`terminal.html`](../terminal.html) | Boots one route; gives host modules its canvas, keyboard and status line |
 | Host modules | [`host/`](../host/README.md) | One directory and manifest per bridge: JavaScript provider, WAT contract, C header, kernel C, process client; see [browser boundary](browser-boundary.md) |
-| Runtime Worker | [`runtime-worker.mjs`](../src/runtime-worker.mjs) | Loads the kernel, restores or builds the image, runs its ENTRY |
+| Runtime Worker | [`runtime-worker.mjs`](../src/runtime-worker.mjs) | Instantiates the kernel with the host modules' imports, restores or builds the image, runs its ENTRY |
 | Kernel | [`dolly.c`](../src/dolly.c), [`process-kernel.c`](../src/process-kernel.c), [`system-snapshot.c`](../src/system-snapshot.c), [`file-blocks.cpp`](../src/file-blocks.cpp) | WasmFS, open files, pipes, processes, signals, terminal modes, image snapshots; module operations go to each module's `kernel.c` ([build](../toolchain/CMakeLists.txt)) |
 | Supervisor | [`process-supervisor.mjs`](../src/process-supervisor.mjs) | Compiles executables, gives each process a fresh memory, gate and Worker (one per thread), forwards syscalls, enforces deadlines |
 | Process Worker | [`process-worker.mjs`](../src/process-worker.mjs), [`process-ffi.mjs`](../src/process-ffi.mjs) | Instantiates the executable; loads process-local DSOs and FFI |
 | Process libc | [`libc-adapter.c`](../src/process/libc-adapter.c), [`signal.c`](../src/process/signal.c) | Maps Emscripten musl's low-level calls to process operations |
+| Kernel libc | [`libc-host.c`](../src/libc-host.c) | Answers what Emscripten musl and WasmFS ask of a host from the kernel's own imports |
 | Display | [`host/display/kernel.c`](../host/display/kernel.c), [`ghostty/display.c`](../src/ghostty/display.c), [`kernel-plugin.mjs`](../src/kernel-plugin.mjs) | Terminal device and framebuffer lease; resident terminal emulator and rasterizer; see [display](display.md) |
 
 ## Decisions
