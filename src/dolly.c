@@ -128,8 +128,11 @@ _Noreturn void dolly_assert_fail(const char *condition, const char *file,
   abort();
 }
 
+// The Worker's boot files (abi/dolly-image-0.wat, abi/dolly-supervisor-0.wat).
 int dolly_write_file(const char *path, const void *bytes, size_t length) {
-  if (path == NULL || (bytes == NULL && length != 0)) return -EINVAL;
+  if (path == NULL || !dolly_fs_valid_path(path) ||
+      (bytes == NULL && length != 0)) return -EINVAL;
+  if (dolly_fs_parents(path, 1) != 0) return -errno;
   int fd = open(path, O_WRONLY | O_CREAT | O_TRUNC, 0666);
   if (fd < 0) return -errno;
 
@@ -151,6 +154,21 @@ int dolly_write_file(const char *path, const void *bytes, size_t length) {
   }
   if (close(fd) != 0 && status == 0) status = -errno;
   return status;
+}
+
+int dolly_read_file(const char *path, void *bytes, size_t capacity) {
+  if (path == NULL || bytes == NULL || capacity > INT_MAX) return -EINVAL;
+  unsigned char *contents;
+  uintptr_t size;
+  if (dolly_fs_read_file(path, capacity, &contents, &size) != 0) return -errno;
+  memcpy(bytes, contents, size);
+  free(contents);
+  return (int)size;
+}
+
+int dolly_remove_file(const char *path) {
+  if (path == NULL) return -EINVAL;
+  return unlink(path) == 0 ? 0 : -errno;
 }
 
 static int copy_seed_file(const char *source, const char *destination) {
@@ -249,17 +267,12 @@ static int initialize_boot_environment(void) {
   close(output);
   close(error);
 
-  if (mkdir("/bin", 0755) != 0 && errno != EEXIST) {
-    fprintf(stderr, "dolly: mkdir /bin failed: %s\n", strerror(errno));
-    return 1;
-  }
-  if (mkdir("/tmp", 0755) != 0 && errno != EEXIST) {
-    fprintf(stderr, "dolly: mkdir /tmp failed: %s\n", strerror(errno));
-    return 1;
-  }
-  if (mkdir("/workspace", 0755) != 0 && errno != EEXIST) {
-    fprintf(stderr, "dolly: mkdir /workspace failed: %s\n", strerror(errno));
-    return 1;
+  static const char *const directories[] = {"/bin", "/tmp", "/workspace", "/home", "/home/dolly"};
+  for (size_t index = 0; index < sizeof(directories) / sizeof(*directories); ++index) {
+    if (mkdir(directories[index], 0755) != 0 && errno != EEXIST) {
+      fprintf(stderr, "dolly: mkdir %s failed: %s\n", directories[index], strerror(errno));
+      return 1;
+    }
   }
   if (setenv("HOME", "/home/dolly", 1) != 0) {
     fprintf(stderr, "dolly: HOME initialization failed: %s\n", strerror(errno));

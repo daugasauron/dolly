@@ -15,7 +15,7 @@ REQUIRES TOOL test
 REQUIRES TOOL printf
 REQUIRES TOOL pi
 # The platform's documents, for the agent: /usr/share/doc/dolly.
-INSTALL https://daugasauron.com/Dollyfile-dolly-docs def10c3617524c1f86e638cb83e99b738059b40e95a5771e18604d74128f2f8c
+INSTALL https://daugasauron.com/Dollyfile-dolly-docs 5febd6f546d35634790e228c1eae07fc8c4de9d0d6ecfbafcff86da2442ce925
 
 FILE /etc/dolly/init.slop
     cd /workspace

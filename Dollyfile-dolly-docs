@@ -18,14 +18,14 @@ SOURCE https://daugasauron.com/docs/browser-boundary.md d9f91285765df5b5a3713a06
 SOURCE https://daugasauron.com/docs/image-build-service.md 43bbcfcf7c5e7c8ce83f91c55b3c4bc0682651b2905ba35089b2b85b3b13efa9 /usr/share/doc/dolly/docs/image-build-service.md
 SOURCE https://daugasauron.com/abi/README.md 7c73860a123d4b8a12f86aeb1f4cce8f37680ea7bb58f32f532a803d7b12ef87 /usr/share/doc/dolly/abi/README.md
 SOURCE https://daugasauron.com/host/README.md 6b424aafe4dcf0128893dad7f45125b69dd4f24b254c79e6d1b5aefdb2e66798 /usr/share/doc/dolly/host/README.md
-SOURCE https://daugasauron.com/abi/dolly-browser-0.wat 75ffd722bfc1abf986f35756b424d2aa5155ab251dcb25cdc3fdbfd76c508925 /usr/share/doc/dolly/abi/dolly-browser-0.wat
+SOURCE https://daugasauron.com/abi/dolly-browser-0.wat 54494d9435843348b8a6788a6692627fd68f8ef4677cae575ea7748e684d2533 /usr/share/doc/dolly/abi/dolly-browser-0.wat
 SOURCE https://daugasauron.com/abi/dolly-host-0.wat 7d1a02e3317086c06ca022e917d6d8537d9a005e9804e5ffdf256dc7d70c8671 /usr/share/doc/dolly/abi/dolly-host-0.wat
 SOURCE https://daugasauron.com/abi/dolly-image-0.wat 10a6270ad4a2f6d3a248f75ee20c97cf5d64fbd0c9955a3106778588ddee8424 /usr/share/doc/dolly/abi/dolly-image-0.wat
 SOURCE https://daugasauron.com/abi/dolly-kernel-plugin-0.wat a42d2f52fab6984712d4ded56145c7f28462dd905b3fdb612bb8de301c9eb20d /usr/share/doc/dolly/abi/dolly-kernel-plugin-0.wat
 SOURCE https://daugasauron.com/abi/dolly-process-0.wat ecbeb8baf2f2ead274da643bde8bd325e250b9a46549ad4155f4451b06d1657d /usr/share/doc/dolly/abi/dolly-process-0.wat
 SOURCE https://daugasauron.com/abi/dolly-process-dso-0.wat 9c6e7ec58ac1a4601385dfb39b686466fc384e97bfacc490d69f286912b1c617 /usr/share/doc/dolly/abi/dolly-process-dso-0.wat
 SOURCE https://daugasauron.com/abi/dolly-process-gate-0.wat 04763b281b286061ccae2c91cb18207fc5e820e9368ea004306047561e3cf269 /usr/share/doc/dolly/abi/dolly-process-gate-0.wat
-SOURCE https://daugasauron.com/abi/dolly-supervisor-0.wat dd7a190ad799b336e9686e785b9eaf7439bbd94b166715ecadacdfe5da686f37 /usr/share/doc/dolly/abi/dolly-supervisor-0.wat
+SOURCE https://daugasauron.com/abi/dolly-supervisor-0.wat e7829c53b2271a7020939260ce7d0de3e720e0dc87550731816d4c2abb8fe137 /usr/share/doc/dolly/abi/dolly-supervisor-0.wat
 SOURCE https://daugasauron.com/host/audio/dolly-audio-0.wat f216dedd6a02c35f51e5b6222cadf9af584f41cdd3d9587c42ebba586ea8e778 /usr/share/doc/dolly/host/audio/dolly-audio-0.wat
 SOURCE https://daugasauron.com/host/display/dolly-display-0.wat bf61ce421d4b822a5adf7f3a74dd60976474de8fa3fb7679d8f5b0c60c53750c /usr/share/doc/dolly/host/display/dolly-display-0.wat
 SOURCE https://daugasauron.com/host/download/dolly-download-0.wat 6aacfaf743af4bc16ce3099e0068369370d5924c3783bd297039eec458498943 /usr/share/doc/dolly/host/download/dolly-download-0.wat

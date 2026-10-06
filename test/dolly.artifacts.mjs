@@ -351,23 +351,6 @@ test("the kernel module owns its wasm64 WasmFS memory and table", async () => {
   const table = runtime.exports.find((entry) => entry.name === "__indirect_function_table");
   assert.equal(formatWasmType(memory.type), "memory64(min=1024,max=131072,shared)");
   assert.match(formatWasmType(table.type), /^table64\(min=/);
-  assert.ok(runtime.exports.some((entry) => entry.name === "wasmfs_create_memory_backend"));
-
-  for (const operation of [
-    "_wasmfs_read_file",
-    "_wasmfs_write_file",
-    "_wasmfs_mknod",
-    "_wasmfs_identify",
-    "_wasmfs_get_cwd",
-  ]) {
-    assert.equal(
-      runtime.imports.some((entry) => entry.name === operation),
-      false,
-      `${operation} escaped to the browser host`,
-    );
-    assert.ok(runtime.exports.some((entry) => entry.name === operation));
-  }
-
   assert.equal(
     runtime.imports.some((entry) => entry.name === "_wasmfs_stdin_get_char"),
     false,

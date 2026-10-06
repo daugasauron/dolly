@@ -126,13 +126,12 @@ Evidence is under `build/kernel-boundary-evidence/` in `work/signals`.
   `FS` object (`$FS__deps` in `libwasmfs.js`). Step 1 therefore removes
   `installOutputDevices` and every call to them, and the imports go with `FS`
   in step 2.
-- Steps 2 and 4 should keep images valid, like step 1: the kernel is no image
-  build input, and new exports go to the supervisor contract. Each build has
-  to print the same `image inputs` hash to prove it. Only step 3 changes
-  `dolly.data` and `dolly-seed.mjs`. Until then the file packager's generated
-  index runs against five functions of the Worker instead of Emscripten's
-  module (as `test/dolly.artifacts.mjs` already loads it); the seed has no
-  empty directory (56 directories, 822 files, checked).
+- Step 2 keeps the `image inputs` hash and, since the receipt fix, the bytes
+  of every image measured (below). Step 4 is expected to keep images valid;
+  that is not measured. Until step 3 the file packager's generated index
+  runs against five functions of the Worker instead of Emscripten's module
+  (as `test/dolly.artifacts.mjs` already loads it); the seed has no empty
+  directory (56 directories, 822 files, checked).
 - No abort, memory-growth or environment import is needed: abort is a Wasm
   trap, growth is `memory.grow` on the shared memory, and the kernel sets its
   own environment. The target is 9 imports: the memory, boot text, the four
@@ -143,7 +142,10 @@ Evidence is under `build/kernel-boundary-evidence/` in `work/signals`.
 | Step | Imports | Exports | State |
 | --- | --- | --- | --- |
 | Before | 30 | 129 | runtime `81b96f60…` |
-| 1. Output devices in the kernel | 30 | 129 | verified, see below |
+| 1. Output devices in the kernel | 30 | 129 | verified, merged (`ff3a5c19`) |
+| Before, on `bef23f6b` | 30 | 130 | runtime `8ce10189…`, 214,314 bytes |
+| 2. Kernel exports instead of `FS` | 24 | 93 | verified (below), runtime `970172ca…`, 203,121 bytes |
+| 4, 3 | | | on `core/kernel-boundary-2` |
 
 Step 1: `TerminalFile` in `src/file-blocks.cpp` is `/dev/dolly-stdout`,
 `/dev/dolly-stderr` and `/dev/tty`, mounted when the root is populated;
@@ -155,6 +157,111 @@ baseline was not probed). Counted again in Chrome: all six
 and `core`, `boundary`, `host-modules`, `image`, `snapshot-stream`, `terminal`
 and `process` browser suites in Chrome and Firefox
 (`build/kernel-boundary-evidence/c1/summary.txt`).
+
+## Step 2, verified (2026-10-06 night, `core/kernel-boundary-step2`)
+
+`3a509e05` on `integrate/next` at `bef23f6b`: the earlier commit `a9a6ec42`,
+cherry-picked without conflicts. The automatic merge left one break:
+`src/runtime-worker.mjs` imported `../dist/dolly-errno.mjs`, which this base
+no longer generates; the error numbers are in `src/process-constants.mjs`.
+(The branch started on `7976b8ea`, which cannot build `system-build` from the
+root: `Dollyfile-system-build:1659` ran `cd --help`; `fbfc278b` fixed that.)
+
+What it is: `dolly_write_file` makes parent directories; `dolly_read_file`
+(bounded, `-EFBIG` when larger) and `dolly_remove_file` are new exports in
+`abi/dolly-supervisor-0.wat`; `/home/dolly` is made by the kernel;
+`src/runtime-worker.mjs` and `host/snapshot/snapshot.mjs` use them
+(`bootFiles`) and no longer touch `FS`; the seed's generated index runs
+against five functions of the Worker; `-sFORCE_FILESYSTEM=1` and
+`EXPORTED_RUNTIME_METHODS` are gone, and with them the six
+`_wasmfs_jsimpl_*` imports.
+
+Measured in `work/kboundary` (`build/kboundary-evidence/`):
+
+- **Image inputs unchanged**: `e8e495dc…` before and after. 24 imports,
+  93 exports (the 38 WasmFS exports and `emscripten_builtin_memalign` gone,
+  two added).
+- **Image bytes unchanged.** `system-build` from the root, fresh browser
+  profile: digest A at `bef23f6b` with the base kernel and digest B with
+  step 2 are both
+  `e5a4ac8017581dcd45b005969f80a8cb5b8785b9975b3bebbfc5ed2d2f745a03`,
+  137,050,593 bytes (`measure-ab.sh`, `measure-ab.log`). The `default` chain
+  built cold with step 2 (12 images) and `system` have the digests of
+  `work/next/dist`, built with the base kernel (`compare-next.sh`). So finding
+  1 below is closed: with the sorted receipt the order in which seed
+  directories are made no longer reaches an image.
+- **It still costs four images.** `Dollyfile-dolly-docs` ships
+  `abi/dolly-browser-0.wat` and `abi/dolly-supervisor-0.wat` by pin, so any
+  change to the kernel's contracts repins it and the recipes that install it:
+  `dolly-docs`, `pi`, `pi-local` and `dollyfile-studio` rebuild (`0183c6ee`).
+  Steps 3 and 4 cost the same again, so they land together.
+- **Suites**, on the merge of this branch with `integrate/next` at `38d3edf4`
+  (`261a1fac`, runtime `970172ca…`, image inputs `e8e495dc…`, all 13 images
+  reused): source 399 of 399; artifacts 23 passed, 1 skipped (CPython's, a
+  demo image not built here), 0 failed; `core`, `boundary`, `host-modules`,
+  `image`, `snapshot-stream`, `terminal`, `process` and `custom-session`
+  8 of 8 in Chrome and 8 of 8 in Firefox (`step2-merged/summary.txt`).
+- At `bef23f6b` itself `core`, `image`, `terminal`, `process` and the artifact
+  suite fail with or without step 2, for reasons of that base (`cc` left
+  `default`; `dolly-docs` missing from the artifact test's list; the
+  interrupted-pipeline assertion). `integrate/next` fixed them in `40cb89ee`,
+  `a34f0d38`, `1c0ae0e3`, `1dea294e` and `5f01cf1f`; `step2/summary.txt` and
+  `work/next/build/next-evidence/browser-a/core-chromium.log` show the same
+  failures.
+- The merge with `integrate/next` conflicts in `src/runtime-worker.mjs`
+  (`fix/page-ending` catches a failed ENTRY start) and in the pin lines.
+  `core/kernel-boundary-step2-merged` holds the resolution that was tested:
+  `runImageEntry` stays an async function over the kernel's bounded read, so
+  an oversized `/etc/dolly/entry` is the image's ending with that message.
+
+Not done in step 2: the two done-when tests and the exact-export test
+(with step 4), steps 3 and 4.
+
+## Step 4, measured before this round (trial links only, nothing in the tree)
+
+- Emscripten's `standalone.o` cannot be kept out of a standalone link: with
+  every other hook defined by the kernel, libc's `dup.o` still extracts it for
+  its weak `__syscall_dup` (`why-extract-hooks.txt`). Its strong definitions
+  then collide with any of the kernel's: `_abort_js`,
+  `emscripten_get_heap_max`, `emscripten_resize_heap`, the eight preload
+  queries and `_wasmfs_stdin_get_char` (`trial-hooks.log`).
+- Untested design that follows: remove `_wasmfs_stdin_get_char` from
+  `src/dolly.c`; define `imported__wasi_fd_read` (end of file) and
+  `imported__wasi_fd_write` (boot text), the two names `standalone.c` imports
+  WASI under; define `__wasi_clock_time_get`, `__wasi_clock_res_get`,
+  `__wasi_random_get`, `__wasi_environ_sizes_get`, `__wasi_environ_get` and
+  an empty `emscripten_notify_memory_growth`, as
+  `src/process/libc-adapter.c` does for processes. If Emscripten renames the
+  two private names, the WASI imports return and the exact import check
+  fails the build.
+
+## Findings outside this task (2026-10-06)
+
+A cold root rebuild of `system-build` with step 2
+(`build/kernel-boundary-evidence/root-system-build-c2.log`) gave snapshot
+`5adcf47c…`; the packaged one is `5ec9c0a8…`. Both have 136,948,619 bytes and
+2,063 records, 2,062 of them identical. `/etc/dolly/artifact` differs: same
+length (220,459), 27,463 bytes different inside its path lists.
+
+1. **The image receipt follows `readdir` order.** `collect_paths`
+   (`src/dollyfile.c:709-737`) appends a tree in enumeration order;
+   `capture_export_members` (`src/dollyfile.c:795`, the call at line 803)
+   fills an export's members with it, and `write_artifact_receipt` writes
+   them as collected (`src/dollyfile.c:1018-1025`). Only the manifest is
+   sorted (`src/dollyfile.c:1897,1922`). WasmFS enumerates a directory in creation
+   order. Emscripten's seed loader made all 56 directories first; the Worker
+   now makes one when its first file is written, so `/usr/include/X11` lists
+   `extensions` after the `X*.h` files instead of before them. That the two
+   receipts hold the same members is inferred from their equal length and
+   equal count of path strings (3,598); the receipt was not parsed.
+   The fix is `bac21512`, which sorts the members; a root rebuild of
+   `system-build` with and without step 2 now gives one digest (above).
+2. **Seed loading is not an image build input.** `src/runtime-worker.mjs`
+   changed image bytes while `image inputs` stayed `2cc92c2b…`
+   (`scripts/write-build-id.mjs:8-11` hashes the seed and four contracts).
+
+Step 1 was not rebuilt from the root on its own; it leaves seed loading
+alone, so no change is expected there, but that is not measured.
 
 ## Done when
 

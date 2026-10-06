@@ -65,6 +65,12 @@
   ;; still the interruptible foreground owner, otherwise zero.
   (func $take_interrupt (result i32) i32.const 0)
 
+  ;; Boot files, beside dolly_write_file (abi/dolly-image-0.wat): the Worker
+  ;; reads a guest-writable file only through this bound. Path, buffer and
+  ;; capacity; the file's size, or -EFBIG when it is larger than the capacity.
+  (func (export "dolly_read_file") (param i64 i64 i64) (result i32) i32.const 0)
+  (func (export "dolly_remove_file") (param i64) (result i32) i32.const 0)
+
   (export "dolly_process_mailbox_address" (func $mailbox_address))
   (export "dolly_process_spawn_serialized" (func $spawn_serialized))
   (export "dolly_process_dispatch" (func $dispatch))
