@@ -2386,7 +2386,8 @@ static int special_builtin_name(const char *name) {
 static int command_builtin(Shell *shell, int argc, char **argv);
 
 static const char *const trap_names[] = {
-    [0] = "EXIT", [SIGHUP] = "HUP", [SIGINT] = "INT", [SIGQUIT] = "QUIT", [SIGTERM] = "TERM",
+    [0] = "EXIT", [SIGHUP] = "HUP", [SIGINT] = "INT", [SIGQUIT] = "QUIT",
+    [SIGPIPE] = "PIPE", [SIGTERM] = "TERM",
 };
 
 // A trap condition's index, by name, SIG-prefixed name or number; -1 otherwise.
@@ -2427,7 +2428,7 @@ static int builtin_trap(Shell *shell, int argc, char **argv) {
   for (int index = first; index < argc; index++) {
     const int condition = trap_condition(argv[index]);
     if (condition < 0) {
-      fprintf(stderr, "slop: trap: %s: only EXIT, HUP, INT, QUIT and TERM can be trapped\n",
+      fprintf(stderr, "slop: trap: %s: only EXIT, HUP, INT, QUIT, PIPE and TERM can be trapped\n",
               argv[index]);
       return 2;
     }
@@ -4210,7 +4211,17 @@ static int run_pipeline(Shell *shell, CommandParser *parser, size_t end,
     CommandParser probe = *parser;
     const size_t body_end = skip_command(shell, &probe, stops);
     const int last = !pipe_follows(&probe);
-    const int compound = compound_start(parser);
+    int compound = compound_start(parser);
+    size_t start = parser->cursor, stop = probe.cursor;
+    // `( PROGRAM ARG... ) &` is `PROGRAM ARG... &`: a stage is a subshell already.
+    CommandParser inner = {.tokens = parser->tokens, .cursor = start + 1, .end = body_end - 1};
+    if (background && compound && body_end == stop && body_end - start > 2 &&
+        parser->tokens[start].kind == TOKEN_LPAREN && !compound_start(&inner)) {
+      size_t word = inner.cursor;
+      while (word < inner.end && (parser->tokens[word].kind == TOKEN_WORD ||
+                                  token_is_redirection(parser->tokens[word].kind))) word++;
+      if (word == inner.end) { start = inner.cursor; stop = inner.end; compound = 0; }
+    }
     Stage stage = {.piped = !last, .background = background, .first = input < 0, .output = -1};
     if (!grow((void **)&results, &capacity, count + 1, sizeof(*results))) {
       fputs("slop: pipeline: out of memory\n", stderr);
@@ -4229,9 +4240,10 @@ static int run_pipeline(Shell *shell, CommandParser *parser, size_t end,
           (!compound || last || descriptor_state_duplicate(&subshell.descriptors,
                                                            STDOUT_FILENO, stage.output))) {
         CommandParser command = *parser;
+        command.cursor = start;
         if (!compound && (!last || background)) subshell.shell.stage = &stage;
-        status = run_command(&subshell.shell, &command, body_end, probe.cursor,
-                             suppress_errexit);
+        status = run_command(&subshell.shell, &command, compound ? body_end : stop,
+                             stop, suppress_errexit);
       }
       status = subshell_leave(shell, &subshell, status);
     }

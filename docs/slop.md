@@ -79,7 +79,7 @@ slop [-enux] script [arg ...]
   builtins (`:`, `.`, `eval`, `exec`, `exit`, `export`, `return`, `set`,
   `shift`, `unset`, `break`, `continue`) always run.
 - `cd` without an operand needs `HOME`; an empty operand is a no-op.
-- `trap ACTION CONDITION...` handles `EXIT`, `HUP`, `INT`, `QUIT` and `TERM`.
+- `trap ACTION CONDITION...` handles `EXIT`, `HUP`, `INT`, `QUIT`, `PIPE` and `TERM`.
   A signal's action runs once the current command has finished; `EXIT` runs
   when the shell or a subshell leaves, also after a signal. A subshell starts
   without traps. `trap '' SIGNAL` is rejected: commands always start with
@@ -123,7 +123,8 @@ that run inside the shell stay serial.
   its shell exits. There is no job control: `jobs`, `fg` and `bg` are refused,
   and so is `&` after anything the shell would run itself (a compound
   command, a builtin, a function, a `!`, `&&` or `||` list): use
-  `slop -c '...' &`.
+  `slop -c '...' &`. `( PROGRAM ARG... ) &` is the one compound form that
+  runs, as `PROGRAM ARG... &`.
 - Ctrl+C interrupts the foreground command (status 130) and stops the rest of the
   list, pipeline or substitution; an ordinary `exit 130` does not. A loop of
   builtins stops too: the shell asks the kernel for SIGINT every 64 commands.
