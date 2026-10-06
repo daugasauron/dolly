@@ -425,23 +425,53 @@ the build scripts read (`config.status`, `buildconfig.rs`, `js-confdefs.h`,
   last crate and 5.05 GB at the end, and page cache from earlier images in
   the same chain counts against the cap.
 
+## On the merged base, 2026-10-06 22:26–23:10 JST
+
+Branch `work/cargo-native` after merging `integrate/next` (`a88e3621`): the
+seed with the empty suffix, explicit `runtime@0`, the libcurl follow-up.
+
+- `node demos/run-browser-tests.mjs rust` passes with the Cargo check in it
+  (`rust: chromium passed in 76.2s`), on `rust-tools` carrying the `cargo`
+  package (commit `bf957bd8`): `cargo --version`, `cargo metadata`, an
+  offline build and a build against a one-crate sparse registry on the test
+  server, under the test's explicit policy; the registry saw exactly its
+  `config.json`, one index file and one download.
+- The `cargo` image builds under the 6 GB build cap (anonymous memory up to
+  5.64 GB in the last crate) and was killed under 5 GB. `-j` is not the
+  lever: with `-j 2` a session build took 1200 s on a loaded machine and
+  peaked at 4.70 GB against 5.05 GB with `-j 4`; the `cargo` crate's own
+  rustc on top of about 2 GB of files decides. Building Cargo therefore
+  needs about 5 GB in a tab, 6 GB as an image. The recipe keeps `-j 4`.
+- The Cargo built from the committed sources prints no ERROR line in the
+  crates.io build (its libcurl accepts the two connection options).
+- `cargo install cbindgen --version 0.26.0 --root /tmp/cb`, the tool
+  SpiderMonkey's build runs, with `[patch.crates-io] libc = { path =
+  "/opt/rust-sdk/src/libc" }` in `~/.cargo/config.toml`: 36 crates from
+  crates.io, "Finished `release` profile [optimized] target(s) in 2m 51s";
+  `cbindgen --version` prints `cbindgen 0.26.0`, and `cbindgen --lang c` on a
+  file with a `#[repr(C)]` struct and an `extern "C"` function prints the
+  matching header.
+- `cargo test` fails: "error[E0463]: can't find crate for `test`". The SDK
+  ships no `test` crate (`build-sdk.sh` builds `std,panic_abort,proc_macro`),
+  and tests on a panic-abort target need `-Zpanic-abort-tests`.
+
 ### Next steps
 
-1. On the merged base: rebuild `rust-tools` (now with `cargo`) and run
-   `node demos/run-browser-tests.mjs rust` with its Cargo check
-   (`fixtures/cargo.mjs`: the two commands SpiderMonkey's configure runs, an
-   offline build, a build against a one-crate sparse registry on the test
-   server); try `amy install cargo` in `default`. Measure the Patti build
-   with `-j 2` and lower the recipe's value if that keeps it under 4 GB.
+1. `amy install cargo` in `default` (the index entry and the package exist;
+   not yet run).
 2. When kernel file locks land (`core/file-locks`): drop the SQLite dot-file
    setting from `cargo-patti.toml` and `CARGO_INCREMENTAL=0` from the
    package. Both are stopgaps.
-3. `libc` under Cargo (above) has no good answer yet; `cbindgen` for
-   SpiderMonkey needs it.
-4. `cargo search`, `publish` and `login` need `CONNECTTIMEOUT`, `LOW_SPEED_*`
-   and `PUT` in libcurl; git dependencies over HTTPS need a relay and
-   libgit2's curl transport, which Cargo registers only with a non-default
-   `[http]` configuration.
+3. `libc` under Cargo has no good answer yet (above): a project-level or
+   user-level `[patch]` works, a system-wide one harms every other project.
+4. SpiderMonkey: mozbuild itself driving Cargo (its linker wrapper, flags and
+   `--frozen`, which is unstable with this Cargo and that lock).
+5. `cargo test` needs the `test` crate in the SDK. `cargo search`, `publish`
+   and `login` need `CONNECTTIMEOUT`, `LOW_SPEED_*` and `PUT` in libcurl. Git
+   dependencies over HTTPS need a relay and libgit2's curl transport, which
+   Cargo registers only with a non-default `[http]` configuration.
+6. Building Cargo needs 5 to 6 GB; a smaller last crate would need Patti to
+   drop files it no longer needs, or Cargo in the externally built seed.
 
 ### What would retire Patti
 
