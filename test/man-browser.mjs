@@ -21,7 +21,7 @@ await browserTest("man and --help", { timeout: 300_000 }, async ({ open }) => {
   await run("man grep > /tmp/page && cmp /tmp/page /usr/share/man/man1/grep.1");
   assert.equal(await submit("man no-such-command > /tmp/out 2> /tmp/err"), 1);
   await run("grep -q no-such-command /tmp/err && test ! -s /tmp/out");
-  for (const wrong of ["man", "man grep sed", "help grep", "foreground", "amy", "upload", "dollyfile", "session-recover"]) {
+  for (const wrong of ["man", "man grep sed", "help grep", "foreground", "amy", "dollyfile", "xargs --no-such-option"]) {
     assert.equal(await submit(`${wrong} > /tmp/out 2> /tmp/err`), 2, wrong);
     await run("test -s /tmp/err && test ! -s /tmp/out");
   }

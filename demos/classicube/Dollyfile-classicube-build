@@ -6,8 +6,8 @@ REQUIRES HOST download@0
 REQUIRES HOST http@0
 REQUIRES HOST upload@0
 
-FROM https://daugasauron.com/Dollyfile-system-tools 50ea6fe922797cb7457a105367ef551b25a2eb8d409af50f30a271bbe396e087
-INSTALL https://daugasauron.com/demos/sdl2/Dollyfile-sdl2 8c7fd0f110fd77558957a0bf3a39721ad5ae1e1ca24dba9e0a0a385ccd900b33
+FROM https://daugasauron.com/Dollyfile-system-tools c97728fd04a940a529b6d2894715e51d605e41634d1889133b10d24c48000dc2
+INSTALL https://daugasauron.com/demos/sdl2/Dollyfile-sdl2 716ef7c77f6f5bb5a59f5141d59f8b361f4cf9e5b43ba178caa4468dcbdf242c
 REQUIRES HEADER sdl2
 REQUIRES LIB SDL2
 REQUIRES TOOL cc

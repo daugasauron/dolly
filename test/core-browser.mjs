@@ -2,13 +2,11 @@ import assert from "node:assert/strict";
 import { browserTest } from "./browser.mjs";
 import { runProcessSmoke } from "./fixtures/process-smoke.mjs";
 
-const image = process.env.DOLLY_IMAGE ?? "default";
+// Git, download and the rest of the toolchain image's tools are used below.
+const image = process.env.DOLLY_IMAGE ?? "system";
 await browserTest("core", { image }, async ({ server, open }) => {
   const { page, submit } = await open({ policy: { maxRequests: 256,
     rules: [{ origin: server.origin, pathPrefix: "/fixture/", methods: ["GET"] }] } });
-  if (image === "default") assert.deepEqual(
-    await page.evaluate(() => [...__dolly.hostModules].sort()),
-    ["display@0", "download@0", "http@0", "packages@0", "runtime@0", "snapshot@0", "threads@0", "upload@0"]);
   const starts = [];
   const recordRequest = request => { if (/^https?:/.test(request.url())) starts.push(request.url()); };
   page.context().on("request", recordRequest);
@@ -103,5 +101,5 @@ await browserTest("core", { image }, async ({ server, open }) => {
   // the page's own origin included.
   const defaults = await open();
   assert.equal(await defaults.submit(`curl -fsS ${server.origin}/fixture/http.txt -o /dev/null`), 0);
-  assert.equal(await defaults.submit(`curl -fsS ${server.origin}/Dollyfile -o /tmp/source && cmp /tmp/source /etc/dolly/Dollyfile`), 0);
+  assert.equal(await defaults.submit(`curl -fsS ${server.origin}/Dollyfile${image === "default" ? "" : `-${image}`} -o /tmp/source && cmp /tmp/source /etc/dolly/Dollyfile`), 0);
 });

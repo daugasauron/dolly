@@ -127,8 +127,9 @@ and `/host/MODULE/`, prepared sources in `/dist/static/`.
   package keeps none of it: the base is only the environment the package is
   built in. The build runs the base's `/bin/dollyfile`.
 - A recipe without `FROM` starts from nothing and keeps only what it installs
-  and declares: `minimal` is `core`, `display` and an ENTRY, with no compiler,
-  engine or network. Without the engine it opens but is not a `FROM` base.
+  and declares: `default` is `core`, `posix`, `display`, `curl`, `amy`, its
+  start-up script and an ENTRY, with no compiler. It opens, and `amy` installs
+  into it, but it is not a base to compile on: `FROM` a toolchain for that.
 - `INSTALL` restores a package's retained files, applies and exports its
   environment and exports its objects. It may appear anywhere and names only a
   package. It imports the package's contents, not the files that describe the
@@ -207,9 +208,9 @@ and `/host/MODULE/`, prepared sources in `/dist/static/`.
   embedding lacks one, and the loader refuses an executable whose stamped
   module is not declared. Requirements grant nothing: the embedding enables
   modules and the HTTP broker decides network access
-  ([browser boundary](browser-boundary.md)). `minimal` declares the runtime
-  and display; `system` declares the runtime, display, http, download, upload
-  and snapshot; `default` adds packages and threads.
+  ([browser boundary](browser-boundary.md)). `system` declares the runtime, display, http, download, upload
+  and snapshot; `default` adds packages and threads, because the packages
+  people install into it need them.
 - Linked client libraries (`-ldolly-gpu`, `-ldolly-audio`) stamp their module
   and its ABI digest into the executable's `dolly.host` section; loading fails
   for an unknown module or a different layout. Calling a disabled module
@@ -264,18 +265,36 @@ EXPORTS TOOL rg
   `FILE /usr/share/man/cat1/NAME.1` for plain text (Dolly's own commands
   capture `NAME --help` there when they are built) or `man1/NAME.1` for a
   page as upstream ships it.
-- The release publishes the package index, `dist/dolly-packages.txt`, one
-  `NAME URL SHA256` line per package, so a session can name a package and get
-  its `INSTALL` row.
-- `amy install NAME` ([`amy.c`](../src/commands/amy.c)) executes that row in a
-  running session: the index names the package, the page's `packages@0`
-  service ([browser boundary](browser-boundary.md#host-modules)) hands over its
-  verified snapshot, and `dollyfile install URL SHA256` restores the files,
-  merges the exported variables into `/etc/dolly/environment` and records the
-  row as a build does. `amy list` marks the index entries the record holds,
-  the image's among them, and `amy installed` prints the record. The check is the recipe's: a package
-  whose host modules the booted image does not declare is refused by name.
-  Looking a name up in the index is the only unpinned step.
+- The site publishes the package index at its root, `amy-index.txt`, which
+  the start page links: one `NAME URL SHA256 DESCRIPTION` line per package,
+  the `INSTALL` row's operands and the sentence the start page shows.
+  `scripts/generate-routes.mjs` writes it from the recipes and from the
+  `` - `NAME`: … `` line of each README, the one description an image has
+  (a recipe directive would put prose under the pin: editing a sentence would
+  change the image's identity and rebuild what depends on it).
+- `amy` ([`amy.c`](../src/commands/amy.c)) reads the index as the path
+  `/amy-index.txt`, the site serving the release, through the
+  [HTTP broker](http.md#transport) and keeps no copy: the site's cache headers
+  decide (Dolly's servers send `no-store`), and without the site `amy list`,
+  `info` and `install` fail naming the index. `amy list` prints each name,
+  whether the record holds it (the image's packages among them) and the
+  description; `amy info NAME` adds the `INSTALL` row.
+- `amy install NAME` executes that row in a running session: the page's
+  `packages@0` service ([browser boundary](browser-boundary.md#host-modules))
+  hands over the verified snapshot of that pin, and `dollyfile install URL
+  SHA256` restores the files, merges the exported variables into
+  `/etc/dolly/environment` and records the row as a build does; `amy
+  installed` prints the record. The check is the recipe's: a package whose
+  host modules the booted image does not declare is refused by name. Looking
+  a name up in the index is the only unpinned step. The index describes the
+  site's newest release and the service serves the release the tab runs: a
+  pin that release does not publish fails by name, asking for a reload, and
+  installs nothing.
+- `amy install` then says what it added (files, bytes and the commands now in
+  `/bin` or `/usr/bin`) and keeps the list in `/etc/dolly/files/NAME`, one
+  `SIZE PATH` line per file or link the snapshot holds outside `/etc/dolly`,
+  Dolly's own record of an image. `amy files NAME` prints that list, or, for a
+  package no session installed, reads it from the release's snapshot.
 - Installed files are session files, within the 512 MiB a save holds. Exported
   variables apply when the session is next loaded; the current shell keeps its
   environment ([sessions](sessions.md)).

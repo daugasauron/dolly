@@ -25,7 +25,8 @@ export function createHttpAdmission(postRequest) {
 }
 
 export class NetworkTransport {
-  constructor(buffer, address, policy, { fetchRequest = globalThis.fetch.bind(globalThis) } = {}) {
+  // `site` is the URL of the root of the site serving this release, if any.
+  constructor(buffer, address, policy, { fetchRequest = globalThis.fetch.bind(globalThis), site } = {}) {
     if (!(buffer instanceof SharedArrayBuffer) || !Number.isSafeInteger(address) ||
         address <= 0 || address % 64 !== 0 ||
         address > buffer.byteLength - DOLLY_HTTP_SLOT_COUNT * (DOLLY_HTTP_HEADER_SIZE + DOLLY_HTTP_CHUNK_CAPACITY)) {
@@ -37,6 +38,7 @@ export class NetworkTransport {
     this.capacity = DOLLY_HTTP_CHUNK_CAPACITY;
     this.policy = policy;
     this.fetchRequest = fetchRequest;
+    this.site = site;
     // Host bookkeeping, never derived from a guest's claimed active count.
     this.slots = Array(DOLLY_HTTP_SLOT_COUNT).fill(null);
     this.closed = false;
@@ -45,6 +47,15 @@ export class NetworkTransport {
   }
 
   get active() { return this.slots.some(slot => slot !== null); }
+
+  // A URL is absolute, or a path: a file of the site serving this release,
+  // never above its root. The policy then judges it like any other URL.
+  target(url) {
+    const absolute = URL.parse(url);
+    if (absolute || !this.site || !url.startsWith("/")) return absolute;
+    const file = URL.parse(url.slice(1), this.site);
+    return file?.href.startsWith(this.site) ? file : null;
+  }
 
   slotIndex(sequence) {
     if (!Number.isInteger(sequence) || sequence <= 0 || sequence > 0xffffffff)
@@ -186,9 +197,8 @@ class HttpTransfer {
     let timeout, failure = errno.EINVAL;
     try {
       this.check();
-      // Absolute only: the page URL is no implicit base for Wasm requests.
-      const target = URL.parse(url);
-      if (target === null) throw new HttpError(errno.EINVAL, "HTTP requires an absolute URL");
+      const target = this.broker.target(url);
+      if (target === null) throw new HttpError(errno.EINVAL, "HTTP requires an absolute URL or a path of this site");
       if (target.protocol !== "http:" && target.protocol !== "https:")
         throw new HttpError(errno.EPROTONOSUPPORT, "HTTP requires HTTP(S)");
       if (target.username !== "" || target.password !== "")
@@ -224,8 +234,10 @@ class HttpTransfer {
       if (rule.bootstrap === true)
         response = await decodeStaticAsset(response, source, init, rule.maxResponseBytes, this.broker.fetchRequest);
       const status = response.status;
-      // A relay is transport: the program is told the URL it asked for.
-      await this.publish(encoder.encode(rule.relay ? target.href : response.url), status, false, DOLLY_HTTP_KIND_URL);
+      // A relay is transport, and where the site is served is the page's
+      // business: the program is told the URL it asked for.
+      await this.publish(encoder.encode(rule.relay ? target.href : url.startsWith("/") ? url : response.url),
+        status, false, DOLLY_HTTP_KIND_URL);
       await this.publish(encoder.encode(`HTTP/1.1 ${status} ${response.statusText}\r\n`), status, false, DOLLY_HTTP_KIND_HEADER);
       for (const [name, value] of response.headers) {
         if (!isDollyCredentialHeader(name))

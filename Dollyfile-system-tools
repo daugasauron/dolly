@@ -399,7 +399,7 @@ SOURCE https://daugasauron.com/dist/static/default/commands/patch.c       01a81c
 SOURCE https://daugasauron.com/dist/static/default/commands/hostname.c    14a20a493c8559d8b28f221a6edd9b6f89f893f3e3067093b44d7235b4ae060f /tmp/agent-tools/hostname.c
 SOURCE https://daugasauron.com/dist/static/default/commands/tty.c         c51c9598e8245d5f651ade70995f2b03fb936c42a0e99c4c81c83749c5714c7e /tmp/agent-tools/tty.c
 SOURCE https://daugasauron.com/dist/static/default/commands/nproc.c       96ce7b8d1b1cee59d12193c2fa6fab5210bb7f0c9a0d0cc9bde7e0fd8d87c7ac /tmp/agent-tools/nproc.c
-SOURCE https://daugasauron.com/dist/static/default/commands/amy.c         28710e45b1856d662fd3869afdb035c71f2dd09d5685acbcdf78f8ac01353f93 /tmp/agent-tools/amy.c
+SOURCE https://daugasauron.com/dist/static/default/commands/amy.c         ba2d94f913245124f4dad08207f585c03ad044f6dc65a3bf82ea8e58884beb14 /tmp/agent-tools/amy.c
 
 FILE /tmp/agent-tools/Makefile
     .RECIPEPREFIX := >
@@ -437,7 +437,7 @@ SLOP rm \
 REQUIRES TOOL ln
 SLOP ln -s slop /bin/sh
 EXPORTS TOOL sh
-SLOP ln -s slop.1 /usr/share/man/cat1/sh.1
+SLOP cp /usr/share/man/cat1/slop.1 /usr/share/man/cat1/sh.1
 FOLDER /usr/share/man
 INSTALL https://daugasauron.com/Dollyfile-display 1be0dc001f0cb00aa2997bdaf90b9f3854243416e6dd6b58a883d55f49a6aec2
 

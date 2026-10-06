@@ -56,8 +56,8 @@ Never run `/bin/dollyfile` here: it replaces the running image.
 Every `FROM`, `INSTALL`, `COPY` and `SOURCE` names a URL and the SHA-256 of
 its exact bytes; never invent either.
 
-- Packages: `curl -fsS https://packages.dolly.invalid/v1/index` prints
-  `NAME URL SHA256` for each, which is the `INSTALL` row.
+- Packages: `amy list` names and describes them; `amy info NAME` prints the
+  `INSTALL URL SHA256` row.
 - Recipes this image was built from (system among them):
   `sha256sum /etc/dolly/recipes/Dollyfile-NAME`, with the URL from the
   `FROM`/`INSTALL` line that names it in another recipe there.

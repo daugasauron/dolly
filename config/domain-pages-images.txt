@@ -22,4 +22,5 @@ sdl2
 rust
 codex-cli
 qwen3.5-800m
-minimal
+cc
+git

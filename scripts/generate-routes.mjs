@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 // Writes the generated pages at their served paths in this checkout: the menu
 // index.html (from menu.html), the licences page, a terminal.html page per
-// route, the Dollyfile views and the package index. Any static file server can
-// then serve the checkout.
+// route, the Dollyfile views and the package index amy-index.txt. Any static
+// file server can then serve the checkout.
 
 import { createHash } from "node:crypto";
 import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
@@ -59,11 +59,12 @@ await writeFile(resolve(projectDir, "index.html"),
 await mkdir(resolve(projectDir, "licences"), { recursive: true });
 await writeFile(resolve(projectDir, "licences/index.html"),
   renderLicencesPage(menu, await upstreamInventory(projectDir, definitions)));
-// The package index amy reads: one "NAME URL SHA256" line per package.
-await writeFile(resolve(projectDir, "dist/dolly-packages.txt"), definitions
+// The package index people and amy read: "NAME URL SHA256 DESCRIPTION" per
+// package, the INSTALL row's operands and the description the menu shows.
+await writeFile(resolve(projectDir, "amy-index.txt"), definitions
   .filter(({ parsed }) => parsed.role === "package")
-  .map(({ image, filename, source }) =>
-    `${image} ${CANONICAL_ORIGIN}/${filename} ${createHash("sha256").update(source).digest("hex")}\n`)
+  .map(({ image, filename, source }) => `${image} ${CANONICAL_ORIGIN}/${filename} ` +
+    `${createHash("sha256").update(source).digest("hex")} ${descriptions.get(image)}\n`)
   .join(""));
 const routes = pageRoutes(definitions.map(({ image }) => ({ image, openable: openable.has(image) })), primaryImage);
 for (const route of routes) {

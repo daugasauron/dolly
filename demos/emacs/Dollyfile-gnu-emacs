@@ -7,8 +7,8 @@ REQUIRES HOST http@0
 REQUIRES HOST snapshot@0
 REQUIRES HOST upload@0
 
-FROM https://daugasauron.com/Dollyfile-system d47daf66fbbe0001f6e1d6488d592bcf0f14bfb367da272a287740a213f7aa83
-INSTALL https://daugasauron.com/demos/emacs/Dollyfile-emacs 81718bc0de87a4f92de94d61e44a08bfea45bce33e32d6f5f14a3ba4b0a509f5
+FROM https://daugasauron.com/Dollyfile-system 8e2925a6ed4bd270f708a8c576db38b846caa7f876bf1c020d2e76797b47036c
+INSTALL https://daugasauron.com/demos/emacs/Dollyfile-emacs 0915c510f83d4697daf5c7d609a36c351707673c9cbc0689d74ccb56dd9da5f2
 
 FILE /usr/share/emacs/welcome.txt
     GNU Emacs inside Dolly

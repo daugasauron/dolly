@@ -54,7 +54,7 @@ async function openImage(browser, origin, image, { policy, prompt = shellPrompt,
 }
 
 // open() options for an image the page builds from packages alone, with the
-// named host modules: a root recipe, as `minimal` is.
+// named host modules: a root recipe, as `default` is.
 export async function composed(hosts, packages) {
   const { DOLLY_IMAGES } = await import("../dist/dolly-images.mjs");
   const install = name => {

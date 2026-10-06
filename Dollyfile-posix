@@ -1,0 +1,128 @@
+DOLLY 6
+PACKAGE posix
+REQUIRES HOST runtime@0
+
+# The text and file tools a shell session works with, kept from the toolchain
+# that builds them: sbase, awk, Dolly's find, xargs and the like, and sh.
+FROM https://daugasauron.com/Dollyfile-system-tools c97728fd04a940a529b6d2894715e51d605e41634d1889133b10d24c48000dc2
+
+EXPORTS TOOL basename
+EXPORTS TOOL cksum
+EXPORTS TOOL cmp
+EXPORTS TOOL comm
+EXPORTS TOOL cut
+EXPORTS TOOL date
+EXPORTS TOOL dd
+EXPORTS TOOL dirname
+EXPORTS TOOL expand
+EXPORTS TOOL expr
+EXPORTS TOOL false
+EXPORTS TOOL fold
+EXPORTS TOOL grep
+EXPORTS TOOL head
+EXPORTS TOOL join
+EXPORTS TOOL kill
+EXPORTS TOOL ln
+EXPORTS TOOL md5sum
+EXPORTS TOOL mktemp
+EXPORTS TOOL nl
+EXPORTS TOOL od
+EXPORTS TOOL paste
+EXPORTS TOOL pathchk
+EXPORTS TOOL printenv
+EXPORTS TOOL printf
+EXPORTS TOOL readlink
+EXPORTS TOOL rmdir
+EXPORTS TOOL sed
+EXPORTS TOOL seq
+EXPORTS TOOL sha256sum
+EXPORTS TOOL sleep
+EXPORTS TOOL sort
+EXPORTS TOOL split
+EXPORTS TOOL strings
+EXPORTS TOOL tail
+EXPORTS TOOL tee
+EXPORTS TOOL tr
+EXPORTS TOOL true
+EXPORTS TOOL tsort
+EXPORTS TOOL uname
+EXPORTS TOOL unexpand
+EXPORTS TOOL uniq
+EXPORTS TOOL wc
+EXPORTS TOOL which
+FILE /usr/share/licenses/sbase/LICENSE
+EXPORTS TOOL awk
+FILE /usr/share/licenses/awk/LICENSE
+EXPORTS TOOL install
+EXPORTS TOOL du
+EXPORTS TOOL rev
+EXPORTS TOOL command
+EXPORTS TOOL xargs
+EXPORTS TOOL find
+EXPORTS TOOL env
+EXPORTS TOOL time
+EXPORTS TOOL timeout
+EXPORTS TOOL realpath
+EXPORTS TOOL hostname
+EXPORTS TOOL tty
+EXPORTS TOOL nproc
+EXPORTS TOOL sh
+FILE /usr/share/man/man1/basename.1
+FILE /usr/share/man/man1/cksum.1
+FILE /usr/share/man/man1/cmp.1
+FILE /usr/share/man/man1/comm.1
+FILE /usr/share/man/man1/cut.1
+FILE /usr/share/man/man1/date.1
+FILE /usr/share/man/man1/dd.1
+FILE /usr/share/man/man1/dirname.1
+FILE /usr/share/man/man1/expand.1
+FILE /usr/share/man/man1/expr.1
+FILE /usr/share/man/man1/false.1
+FILE /usr/share/man/man1/fold.1
+FILE /usr/share/man/man1/grep.1
+FILE /usr/share/man/man1/head.1
+FILE /usr/share/man/man1/join.1
+FILE /usr/share/man/man1/kill.1
+FILE /usr/share/man/man1/ln.1
+FILE /usr/share/man/man1/md5sum.1
+FILE /usr/share/man/man1/mktemp.1
+FILE /usr/share/man/man1/nl.1
+FILE /usr/share/man/man1/od.1
+FILE /usr/share/man/man1/paste.1
+FILE /usr/share/man/man1/pathchk.1
+FILE /usr/share/man/man1/printenv.1
+FILE /usr/share/man/man1/printf.1
+FILE /usr/share/man/man1/readlink.1
+FILE /usr/share/man/man1/rmdir.1
+FILE /usr/share/man/man1/sed.1
+FILE /usr/share/man/man1/seq.1
+FILE /usr/share/man/man1/sha256sum.1
+FILE /usr/share/man/man1/sleep.1
+FILE /usr/share/man/man1/sort.1
+FILE /usr/share/man/man1/split.1
+FILE /usr/share/man/man1/strings.1
+FILE /usr/share/man/man1/tail.1
+FILE /usr/share/man/man1/tee.1
+FILE /usr/share/man/man1/tr.1
+FILE /usr/share/man/man1/true.1
+FILE /usr/share/man/man1/tsort.1
+FILE /usr/share/man/man1/uname.1
+FILE /usr/share/man/man1/unexpand.1
+FILE /usr/share/man/man1/uniq.1
+FILE /usr/share/man/man1/wc.1
+FILE /usr/share/man/man1/which.1
+FILE /usr/share/man/man1/awk.1
+FILE /usr/share/man/cat1/install.1
+FILE /usr/share/man/cat1/du.1
+FILE /usr/share/man/cat1/rev.1
+FILE /usr/share/man/cat1/command.1
+FILE /usr/share/man/cat1/xargs.1
+FILE /usr/share/man/cat1/find.1
+FILE /usr/share/man/cat1/env.1
+FILE /usr/share/man/cat1/time.1
+FILE /usr/share/man/cat1/timeout.1
+FILE /usr/share/man/cat1/realpath.1
+FILE /usr/share/man/cat1/hostname.1
+FILE /usr/share/man/cat1/tty.1
+FILE /usr/share/man/cat1/nproc.1
+FILE /usr/share/man/cat1/sh.1

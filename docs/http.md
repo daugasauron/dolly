@@ -24,7 +24,10 @@ flowchart LR
   caps before copying: method 32 B, URL 8 KiB, headers 64 KiB, body 8 MiB.
   Policy can lower these caps, never raise them. Metadata is literal UTF-8
   without NUL.
-- URLs must be absolute `http:` or `https:`; nothing resolves against the page.
+- A URL is absolute `http:` or `https:`, or a path: `/amy-index.txt` names a
+  file of the site serving this release, resolved against that site's root
+  (also under a path prefix, never above it). The policy judges the resulting
+  URL like any other; an image builder has no site and refuses a path.
 - Reserved `*.dolly.invalid` origins never reach Fetch: an enabled `build@0` or
   `packages@0` admits its own requests there
   ([`local-services.mjs`](../host/http/local-services.mjs)); any other fails
@@ -71,6 +74,11 @@ globalThis.DOLLY_HTTP_POLICY = {
 };
 ```
 
+- The site's own files have no rule of their own. Without a policy object
+  the default admits them, so `amy` reads `/amy-index.txt`; an embedding with
+  a policy that wants `amy list` adds
+  `{ origin: location.origin, path: "/amy-index.txt" }`, with the site's
+  prefix in the path. Package snapshots come from `packages@0`, not from here.
 - Credential headers not listed for the matched rule are removed. The broker
   never stores, injects or rewrites credentials; they are ordinary sandbox state.
 - Explicit rules and bootstrap sources reject redirects: Fetch hides intermediate
@@ -149,7 +157,7 @@ globalThis.DOLLY_HTTP_RELAYS = [{
   refuse. Fetch owns TLS, DNS, pooling, compression and redirects, so proxies,
   cookies, certificates, disabling TLS verification and connect timeouts return
   `CURLE_NOT_BUILT_IN` rather than being silently remembered; unknown options
-  return `CURLE_UNKNOWN_OPTION`. A relative URL fails with `CURLE_URL_MALFORMAT`
+  return `CURLE_UNKNOWN_OPTION`. A relative URL, a site path included, fails with `CURLE_URL_MALFORMAT`
   and a disallowed redirect with `CURLE_COULDNT_CONNECT`.
 - Git: upstream `git` and `git-remote-http(s)` link that libcurl
   ([`Dollyfile-system-tools`](../Dollyfile-system-tools)): clone, fetch and push over HTTP, from

@@ -46,6 +46,11 @@ await browserTest("site", { server: { handle } }, async ({ browser, server }) =>
       `${prefix}/view/${image}/`].sort(), image);
     for (const link of links) assert.ok(existsSync(`${root}${link.slice(prefix.length + 1)}index.html`), link);
   }
+  // The menu links the package index, a plain file with a row per package.
+  const index = await fetch(await page.locator('a[href="./amy-index.txt"]').evaluate(link => link.href));
+  assert.match(index.headers.get("content-type"), /^text\/plain/);
+  assert.deepEqual((await index.text()).trimEnd().split("\n").map(row => row.split(" ")[0]),
+    DOLLY_IMAGES.filter(definition => definition.role === "package").map(definition => definition.image));
   await page.click('a[href="#shortcuts"]');
   assert.equal(await page.evaluate(() => location.hash), "#shortcuts");
   await page.locator("#shortcuts").waitFor();
@@ -89,6 +94,9 @@ await browserTest("site", { server: { handle } }, async ({ browser, server }) =>
   assert.deepEqual(await page.evaluate(() => [crossOriginIsolated, !!navigator.serviceWorker.controller]), [true, true]);
   await page.evaluate(() => __dolly.waitForInteractiveTerminal(/dolly:[^\n]*\$\s*$/, "shell"));
   assert.equal(await page.evaluate(() => __dolly.submit("test -f /etc/dolly/Dollyfile")), 0);
+  // amy's index is a path of the site, so it is read under the prefix.
+  assert.equal(await page.evaluate(() => __dolly.submit("amy list | grep -q '^curl  *installed '")), 0);
+  assert.ok(prefixed.includes(`${prefix}/amy-index.txt`), "amy did not read the site's index");
   assert.ok(prefixed.some(path => path.startsWith(`${prefix}/dist/packs/`)), "image did not load snapshot packs");
   assert.deepEqual(prefixed.filter(path => path.includes("/static/")), [], "prebuilt route fetched rebuild-only sources");
   assert.deepEqual(unprefixed, [], "prefixed deployment requested unprefixed paths");

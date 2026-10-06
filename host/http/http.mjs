@@ -1,6 +1,7 @@
 import { createHttpAdmission, NetworkTransport } from "./broker.mjs";
 import { consumeDollyHttpPolicy, httpPolicyConfigurations, restrictDollyHttpPolicy } from "./policy.mjs";
 import { localServicesTransport } from "./local-services.mjs";
+import { publicURL } from "../../src/static-asset.mjs";
 export { DOLLY_HTTP_ABI_DIGEST as digest } from "./abi.mjs";
 
 // The page consumes the embedding's policy once; a builder or headless host is
@@ -22,7 +23,8 @@ export function browser({ applicationBase, bootstrapSources, inherited, configur
         throw new Error("invalid HTTP provider handshake");
       }
       admission = new Int32Array(message.admission);
-      transport = new NetworkTransport(message.memory, message.address, network.policy, { fetchRequest: network.fetchRequest });
+      transport = new NetworkTransport(message.memory, message.address, network.policy,
+        { fetchRequest: network.fetchRequest, site: network.site });
     },
     messages: {
       async "http-request"(message) {
@@ -40,7 +42,8 @@ export function browser({ applicationBase, bootstrapSources, inherited, configur
     // own; a missing inheritance fails closed.
     let policy = consumeDollyHttpPolicy(window, bootstrapSources, applicationBase);
     if (inherited) policy = restrictDollyHttpPolicy(policy, inherited.policies, bootstrapSources, applicationBase);
-    network = localServicesTransport(policy, services);
+    // A path names a file of this page's site; a builder has no site.
+    network = { ...localServicesTransport(policy, services), site: publicURL("", applicationBase).href };
     // Builders inherit the policy and no local service; an opened result tab
     // or restored session inherits the policy configurations.
     instance.builder = { network: localServicesTransport(policy) };
