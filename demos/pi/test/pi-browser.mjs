@@ -75,6 +75,10 @@ await demoTest("pi", { image: "pi", timeout: 900_000, server: { handle: provider
   const { page, submit, run, start, prompt, waitText, text, input } = terminal;
   const http = () => page.evaluate(() => ({ active: __dolly.httpActive, requests: __dolly.httpRequestCount,
     completed: __dolly.httpCompletedRequestCount, frame: Number(document.documentElement.dataset.frameSequence ?? 0) }));
+  // The image's entry starts Pi in /workspace, where its tools and ! commands run.
+  await page.keyboard.type("! printf 'DOLLY-ENTRY-CWD=%s\\n' \"$(pwd)\"");
+  await page.keyboard.press("Enter");
+  await waitText(/DOLLY-ENTRY-CWD=\/workspace\s/);
   await page.keyboard.press("Control+d");
   await prompt(recoveryPrompt, terminal.pid);
 
@@ -103,6 +107,7 @@ await demoTest("pi", { image: "pi", timeout: 900_000, server: { handle: provider
     "make -j8 -f fetch.mk && test -s pi-tools.mjs && test -s utf8-writer.c");
   await run(`cd ${skill} && printf '#include <dolly/display.h>\\nint main(void) { dolly_display_surface s; return dolly_display_acquire(&s) || dolly_display_release(s.generation); }\\n' > display.c && ` +
     "cc display.c -o display && strings display | grep -q dolly.hostdisplay && ./display");
+  await run(`cd ${skill} && cc display.c && ./a.out && file a.out /bin/cc | grep -c WebAssembly | grep -q '^2$'`);
   await run(`cd ${skill} && printf '#include <dolly/gpu.h>\\nint main(void) { dolly_gpu g; return dolly_gpu_open(&g, 64, 64); }\\n' > gpu.c && ` +
     "cc gpu.c -o gpu && strings gpu | grep -q dolly.hostgpu && ! grep -q 'REQUIRES HOST gpu@0' /etc/dolly/Dollyfile");
   assert.equal(await submit(`${skill}/gpu`), 126, "a program needing an undeclared module must exit 126");
