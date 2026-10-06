@@ -3329,10 +3329,12 @@ memory_error:
 // `~` starts a fully unquoted word or the value of an assignment.
 static int expand_tilde(Token *token, size_t offset) {
   const char *home = getenv("HOME");
-  if (home == NULL || home[0] == '\0' || token->quoted || token->text == NULL)
-    return 1;
+  if (home == NULL || home[0] == '\0' || token->text == NULL) return 1;
   const char *tilde = token->text + offset;
-  if (tilde[0] != '~' || (tilde[1] != '\0' && tilde[1] != '/')) return 1;
+  // An unquoted `~` up to an unquoted `/`, or `:` in an assignment's value.
+  if (tilde[0] != '~' || (tilde[1] != '\0' && tilde[1] != '/' && (offset == 0 || tilde[1] != ':')) ||
+      (token->quote_mask != NULL && (token->quote_mask[offset] != 'u' ||
+          (tilde[1] != '\0' && token->quote_mask[offset + 1] != 'u')))) return 1;
   const size_t home_length = strlen(home);
   const size_t suffix_length = strlen(tilde + 1);
   if (offset > SIZE_MAX - home_length - suffix_length - 1) return 0;
@@ -3360,6 +3362,19 @@ static int expand_tilde(Token *token, size_t offset) {
 // Returns 1 on success, 0 when out of memory and -1 after an expansion error.
 static int expand_word(Shell *shell, Token *token, size_t tilde_offset) {
   if (!expand_tilde(token, tilde_offset)) return 0;
+  // In an assignment a `~` also expands after each unquoted `:` (PATH=a:~/bin).
+  for (size_t index = tilde_offset; tilde_offset != 0 && token->text[index] != '\0'; index++) {
+    if (token->text[index] == SLOP_DEFERRED_DOLLAR) {
+      // Skip a deferred expansion: its length, a colon, then its text.
+      char *payload;
+      const size_t length = strtoul(token->text + index + 1, &payload, 10);
+      if (*payload == ':') index = (size_t)(payload - token->text) + length;
+    } else if (token->text[index] == ':' &&
+               (token->quote_mask == NULL || token->quote_mask[index] == 'u') &&
+               !expand_tilde(token, index + 1)) {
+      return 0;
+    }
+  }
   return expand_dollars(shell, token);
 }
 
