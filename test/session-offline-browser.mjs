@@ -5,7 +5,7 @@ import { browserTest, composed } from "./browser.mjs";
 
 await browserTest("session without http", { timeout: 240_000 }, async ({ open }) => {
   const name = `offline-${Date.now()}`;
-  const built = await open(await composed(["runtime", "display", "snapshot"], ["core", "display"]));
+  const built = await open(await composed(["runtime", "display", "input", "snapshot"], ["core", "display"]));
   assert.equal(await built.submit("echo kept > $HOME/kept"), 0, await built.text());
   await built.page.evaluate(name => __dolly.saveSession(name), name);
   assert.equal(await built.page.evaluate(() => document.documentElement.dataset.sessionStatus), "saved");
