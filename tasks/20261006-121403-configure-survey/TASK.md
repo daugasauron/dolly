@@ -76,6 +76,34 @@ and `umask`, which is not committed (see 8).
   (`slop -x`); the time inside Dolly is not measured. Builtin `test`, `[`,
   `printf` and `echo` would remove about three quarters of them.
 
+## POSIX probes (60 one-liners in dash, Bash and Slop; 2026-10-06 night)
+
+Slop differed from both shells in twelve. Fixed, each with cases against Bash:
+
+- `$'...'` with its C escapes (POSIX.1-2024) (`2807b144`).
+- `$((x=7))`, `$((x+=2))` and the other assignments, and `?:` (`3902de9e`).
+- Field splitting: literal text was split (`IFS=:; set -- a:b$x` gave two
+  words) and `a::b` lost its empty field (`1e1af65c`).
+- A tilde after each colon of an assignment: `PATH=$PATH:~/bin` (`464cc3a7`).
+- `f() ( ... )` and any other compound command as a function body (`71d0d6b7`).
+- `${x:+"$x"}`: the quoted part split and globbed (`bef602ba`).
+
+Open, found by the probes:
+
+- `"${x%"$suffix"}"`: a quoted pattern is still read as a pattern (libtool's
+  `func_stripname` writes it three times). Wrong only when the value holds
+  `*`, `?` or `[`.
+- `readonly`, `hash` and `times` are not builtins ("command not found").
+  None of the scripts measured here uses them (0 uses in four `configure`
+  scripts, `ltmain.sh`, `config.guess`, `install-sh` and CMake's `bootstrap`),
+  so by `docs/slop.md` they wait for a need.
+- `exec PROGRAM` is in those scripts 18 times: libtool's wrapper for an
+  uninstalled program ends in `exec "$progdir/$program" ${1+"$@"}`, so a
+  libtool package cannot run its own test programs under Slop. Spawning the
+  program, waiting and exiting with its status would serve every one of the
+  18; it is refused by the boundary in `docs/slop.md` and needs the owner.
+- The same scripts call `printf` 9,963 times and `eval` 1,165 times.
+
 ## Evidence
 
 `build/pipelines-evidence/` (not committed): `run-configure.sh NAME` runs
