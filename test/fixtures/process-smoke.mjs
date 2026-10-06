@@ -49,6 +49,9 @@ export async function runProcessSmoke(submit, origin) {
     assert.notEqual(await submit("ar rcs invalid.a first.o"), 0, "invalid existing archive");
     await run("cmp invalid.a saved.a");
     await run("mkdir duplicate; cp second.o duplicate/first.o; ar rcs duplicate.a first.o duplicate/first.o third.o; cc archive.c duplicate.a -o archive && ./archive");
+    // The Rust cc crate's sequence: quick appends, then the index.
+    await run("rm library.a; ar cqD library.a first.o second.o && ar cq library.a third.o && ar sD library.a && cc archive.c library.a -o archive && ./archive");
+    assert.notEqual(await submit("ar s missing.a"), 0, "an index for a missing archive");
     await run("printf '%s\\n' '@cycle.rsp' > cycle.rsp");
     assert.equal(await submit("cc @cycle.rsp"), 64, "recursive compiler response file");
     assert.notEqual(await submit("cc @missing.rsp"), 0, "missing compiler response file");
