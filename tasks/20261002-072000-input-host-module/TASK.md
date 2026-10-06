@@ -308,4 +308,27 @@ this branch too: the repeated screen-reading gesture lives in
   kernel-plugin contract's import. Runtime `a6b03265…`, image inputs
   `4305d230…`.
 - `node --test test/*.test.mjs 'demos/**/*.test.mjs'`: 405 pass, 0 fail.
-- Image chain and browser suites on this base: see below.
+- `DOLLY_BUILD_IMAGES=default,system,cc,sdl2`: built in 2086 s (00:54,
+  `image-chain-2.log`); no browser suite ran on them before the session ended.
+
+## State on 2026-10-07 (morning, `82fa0cff`, before the round3 merge)
+
+- Implemented and committed: everything the implementation section lists.
+  `display.h` holds driver v5 and the four surface words and names no record:
+  the session ended at "Now display.h" with the tree clean, and the header is
+  consistent with the design, so nothing was left half-edited there.
+- Verified on the nine-import kernel (`fb6c3463`): `build:runtime`
+  (`validate-browser` passes), the source suite, four images built.
+- Verified only on the older base (`607dc7b1`), Chrome only: core, terminal,
+  display, boundary, process, shell, indicators.
+- Never ran anywhere: any browser suite on `fb6c3463` or later; any suite in
+  Firefox; host-modules' two new cases (`cc` package); the `sdl2`, `bhop` and
+  neovim demo tests, which are the programs that read input through the
+  module; `test:artifacts` on rebuilt images; the echo-latency measurement.
+- Not yet on `integrate/round3` (`40418a7b`): expected merge conflicts in
+  `host/display/display.mjs` (main's repeated gesture, `ac4b4e5d`, lives in
+  `src/terminal-text.mjs` here), `src/process-kernel.c` (main's `0ebf7356`
+  and this branch's `0f37f0bf` make the same discard at exit),
+  `test/{terminal,display,host-modules}-browser.mjs`, `host/manifests.mjs`
+  and `test/host-modules.test.mjs` (`dso@0`, the operation-number test),
+  `docs/browser-boundary.md`, and the pins of 59 recipes.
