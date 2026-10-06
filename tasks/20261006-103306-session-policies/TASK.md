@@ -46,9 +46,33 @@ than the tab that saved it. An image without `http@0` has no network edge and
 nothing to bind. A dependency would make every image that saves sessions
 declare the network; a lint message would turn the accident into a rule.
 
-Fix: require `policies` exactly when the recipe declares `http@0`
-(`customSessionIdentity` already inspects `custom.source`) and hash an empty
-list otherwise.
+## Fix (2026-10-06, `fix/session-policies`; not yet run in a browser)
+
+A bug in how the session base is checked, not a dependency.
+`customSessionIdentity` repeated, for every custom image, a check that
+belongs to `http@0` and that `http@0` already makes: a tab opened from
+another must carry valid policies or the module refuses it, failing closed
+(`restrictDollyHttpPolicy`, `host/http/policy.mjs:278`, called at
+`host/http/http.mjs:42`). The identity string itself never included them
+(`custom:RECIPE:ARTIFACT`).
+
+`src/session-store.mjs` now checks `policies` only when the record has them
+(1 to 16, 64 KiB, as before). An image without `http@0` has none and its
+session is valid; an image with `http@0` whose record lacks them is still
+stopped before ENTRY, by `http@0`, with `Invalid inherited image HTTP
+policy`. Nothing has to be added to the recipe, so no message names a line;
+the manifest of `snapshot@0` stays `runtime@0` only and the core file names
+no module.
+
+Checked without a browser: `node --test test/session-file.test.mjs` (a
+record without policies round-trips and is compatible; an empty or oversized
+list is still refused). To run:
+
+    node test/session-offline-browser.mjs chromium firefox
+    node test/custom-session-browser.mjs chromium firefox
+
+`test/session-offline-browser.mjs` builds `core` and `display` with
+`runtime@0`, `display@0` and `snapshot@0`, saves a session and restores it.
 
 ## Done when
 
