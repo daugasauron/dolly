@@ -2,7 +2,7 @@ DOLLY 6
 PACKAGE qwen3.5-2b
 
 # Qwen3.5-2B Q4_K_M, the exact upstream GGUF assembled from parts SOURCE accepts, and its license.
-FROM https://daugasauron.com/Dollyfile-system cf897140a04144f2d4d420ae7f01b7cd38920ac16d81feadd7368a85eec10b74
+FROM https://daugasauron.com/Dollyfile-system af363bc6e78e408b3463dbab83e63a067224cc7a287377b50f467c776d7554fe
 
 SOURCE https://daugasauron.com/dist/static/llm/qwen3.5-2b/0.part d49c138cdbb01620bd5912d636e952e8525e7616e36442281ee60bc7d647b560 /tmp/llm/0.part
 SOURCE https://daugasauron.com/dist/static/llm/qwen3.5-2b/1.part 1ed4f36687871e49f58433733848d1786f75021124e9ce94a81c5d106e39bbad /tmp/llm/1.part

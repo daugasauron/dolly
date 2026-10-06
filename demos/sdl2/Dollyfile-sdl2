@@ -2,7 +2,7 @@ DOLLY 6
 PACKAGE sdl2
 REQUIRES HOST display@0
 
-FROM https://daugasauron.com/demos/cmake/Dollyfile-cmake-build 67f1e7ea89dfdd2c54d01d9757d544366c48b728392cf4c56b428952635ddc65
+FROM https://daugasauron.com/demos/cmake/Dollyfile-cmake-build 9539dc72ce6de7520d50ed61a13dc86b388da4679f00036f46416f24609dedd1
 REQUIRES HEADER libc
 REQUIRES HEADER display
 REQUIRES TOOL cc

@@ -5,7 +5,7 @@ REQUIRES HOST threads@0
 
 # Codex as codex-build compiles it, the launcher that seeds CODEX_HOME, and
 # the search tools Codex runs.
-FROM https://daugasauron.com/Dollyfile-system cf897140a04144f2d4d420ae7f01b7cd38920ac16d81feadd7368a85eec10b74
+FROM https://daugasauron.com/Dollyfile-system af363bc6e78e408b3463dbab83e63a067224cc7a287377b50f467c776d7554fe
 COPY https://daugasauron.com/demos/codex/Dollyfile-codex-build 92adf81859bed06becfade58a8529996b0318b1cb65acb8aa60cc75dffc4f435 /usr/bin/codex /usr/libexec/codex
 COPY https://daugasauron.com/demos/codex/Dollyfile-codex-build 92adf81859bed06becfade58a8529996b0318b1cb65acb8aa60cc75dffc4f435 /usr/share/licenses/codex /usr/share/licenses/codex
 COPY https://daugasauron.com/demos/codex/Dollyfile-codex-build 92adf81859bed06becfade58a8529996b0318b1cb65acb8aa60cc75dffc4f435 /usr/share/dolly/builds/codex.json /usr/share/dolly/builds/codex.json
