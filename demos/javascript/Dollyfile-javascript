@@ -6,7 +6,7 @@ REQUIRES HOST http@0
 
 # QuickJS, Janis and TypeScript, built by typescript-build; the package keeps
 # only the exports below.
-FROM https://daugasauron.com/demos/javascript/Dollyfile-typescript-build 637611cb055db4ebea983c5528b4356568855456cd55940bfa4b9aadfdc4fa49
+FROM https://daugasauron.com/demos/javascript/Dollyfile-typescript-build ec43d37559e0ce66a4a659123c75fc3cbc44c6ad3b0c6ce3077336c771855be5
 
 EXPORTS TOOL   qjs
 EXPORTS TOOL   janis

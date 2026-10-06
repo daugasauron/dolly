@@ -20,7 +20,7 @@ SOURCE https://daugasauron.com/dist/static/rust/rust-sdk.tar.gz eddb6fe8e5f4978e
 SLOP mkdir -p /opt
 SLOP gzip -dc /tmp/rust-sdk.tar.gz | tar -xf - -C /opt
 SOURCE https://daugasauron.com/dist/static/rust/rustc.sh 966c3a6e1863196ca1d44b47552c46bc0e7caa8f096ef385252b3216f2f658d1 /opt/rust-sdk/bin/rustc
-SOURCE https://daugasauron.com/dist/static/rust/rust-linker.c 455c8b6df47d3e8ff0d9eb70bd355a2b6bb2feb4615d5ed3ed58f69429ca46ee /tmp/rust-linker.c
+SOURCE https://daugasauron.com/dist/static/rust/rust-linker.c e787e7165770432bff73f646e494a6d1fdcf43a2255a91cdac46e789738e2f2b /tmp/rust-linker.c
 SLOP cc -O1 /tmp/rust-linker.c -o /opt/rust-sdk/bin/dolly-rust-link
 SLOP mkdir -p /usr/share/licenses/rust
 SLOP cp -R /opt/rust-sdk/licenses/. /usr/share/licenses/rust

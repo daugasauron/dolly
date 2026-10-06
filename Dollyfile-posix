@@ -4,7 +4,7 @@ REQUIRES HOST runtime@0
 
 # The text and file tools a shell session works with, kept from the toolchain
 # that builds them: sbase, awk, Dolly's find, xargs and the like, and sh.
-FROM https://daugasauron.com/Dollyfile-system-tools be801256424d59c450ed8b9bc046d76769ab91ba273af2408ed26fc1e7ed1e38
+FROM https://daugasauron.com/Dollyfile-system-tools aba580735311751d353abe5d78408634a26f9d8de370fc65c0afb128010a89a5
 
 EXPORTS TOOL basename
 EXPORTS TOOL cksum

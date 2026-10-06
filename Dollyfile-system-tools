@@ -213,7 +213,7 @@ SLOP rm \
   /tmp/ninja
 INSTALL https://daugasauron.com/Dollyfile-zlib 93dd681d3c143492c703d7700a6278bb8d7952b86199b91db829df6555fcebd9
 INSTALL https://daugasauron.com/Dollyfile-gzip 5e870036cccfb398f62219ec51f3df43d5dccf1256b8bc6ed13ccbc894b6e7f2
-INSTALL https://daugasauron.com/Dollyfile-curl 488d467b566cd5da48e62324c04aa7f39b0d6e430637ff0d1290bd1ec1f0ed3c
+INSTALL https://daugasauron.com/Dollyfile-curl 4496fbbfecf1fb9e66f4b8969d6270bdb89e586f3ad671ad0d4ef919d20d2b0e
 REQUIRES TOOL   mkdir
 REQUIRES LIB    curl
 REQUIRES LIB    z

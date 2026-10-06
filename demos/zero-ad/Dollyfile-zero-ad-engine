@@ -10,7 +10,7 @@ REQUIRES HOST upload@0
 
 # Build-only: premake and the 0 A.D. engine (pyrogenesis), built by upstream's
 # premake Makefiles with Dolly's c++.
-FROM https://daugasauron.com/demos/zero-ad/Dollyfile-zero-ad-deps 0a6d80e29f2b9f971c0dd3f748dc63086d8c4ad3d8e286d408b3f45ce83d5ad1
+FROM https://daugasauron.com/demos/zero-ad/Dollyfile-zero-ad-deps 395d19f9416170bab9b2094a36fdda4683941926a681f8f624b1ccccf94a8079
 REQUIRES TOOL cc
 REQUIRES TOOL c++
 REQUIRES TOOL ar
