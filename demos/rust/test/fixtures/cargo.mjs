@@ -51,11 +51,11 @@ export async function runCargo(submit, origin, registry) {
     await run(writeCommand("src/main.rs", 'fn main() { println!("CARGO-LOCAL-OK"); }\n'));
     await run("cargo --version | grep -q '^cargo 1.98.1 (797e8a9bc 2026-08-05)$'");
     await run(`cargo metadata --format-version 1 | grep -q '"manifest_path":"${root}/Cargo.toml"'`);
-    await run('cargo build --offline && test "$(target/debug/cargo-check.js)" = CARGO-LOCAL-OK');
+    await run('cargo build --offline && test "$(target/debug/cargo-check)" = CARGO-LOCAL-OK');
     await run(writeCommand(".cargo/config.toml", `[source.crates-io]\nreplace-with = "fixture"\n[source.fixture]\nregistry = "sparse+${origin}/fixture/cargo/index/"\n`));
     await run(writeCommand("Cargo.toml", '[package]\nname = "cargo-check"\nversion = "0.1.0"\nedition = "2021"\n[dependencies]\ndolly-greeting = "1"\n'));
     await run(writeCommand("src/main.rs", 'fn main() { println!("{}", dolly_greeting::greeting()); }\n'));
-    await run('cargo build && test "$(target/debug/cargo-check.js)" = CARGO-REGISTRY-OK');
+    await run('cargo build && test "$(target/debug/cargo-check)" = CARGO-REGISTRY-OK');
     assert.deepEqual(registry.requests.sort(), ["GET /fixture/cargo/crates/dolly-greeting/1.0.0/download",
       "GET /fixture/cargo/index/config.json", "GET /fixture/cargo/index/do/ll/dolly-greeting"]);
   } finally {
