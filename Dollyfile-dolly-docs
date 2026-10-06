@@ -6,21 +6,21 @@ REQUIRES HOST runtime@0
 # this release at their repository paths, so their links to each other work.
 # The rows are checked against the documents' links (test/platform-documents.test.mjs).
 SOURCE https://daugasauron.com/docs/process-model.md acf11420baf2c14138014bcc9b705a82980c5498dcc4d6860c2ada26f9bcba74 /usr/share/doc/dolly/docs/process-model.md
-SOURCE https://daugasauron.com/docs/slop.md dca23beff6a28a83f4c66c3887a404e53fc93a20bbc0987402cb6e5b7b50056e /usr/share/doc/dolly/docs/slop.md
+SOURCE https://daugasauron.com/docs/slop.md c1c3a9e0e5584a2120079fcce6562b272edee890aadd106bfd10b65110ac01f1 /usr/share/doc/dolly/docs/slop.md
 SOURCE https://daugasauron.com/docs/display.md ab6e17fbe9d7218fb24f95e438824e5dfa834a7ddda50212e0f1061381aa8321 /usr/share/doc/dolly/docs/display.md
 SOURCE https://daugasauron.com/docs/gpu.md f57940e72153898014baa7882a70a0d5d5fcd24508d5d22c70bcf323e3f5bef4 /usr/share/doc/dolly/docs/gpu.md
 SOURCE https://daugasauron.com/docs/audio.md ebea715a5708fdea8824ee0370f3c8549d81bd7cf66128c0e6f91c42f683e73d /usr/share/doc/dolly/docs/audio.md
-SOURCE https://daugasauron.com/docs/http.md c5e73c6edd627c79893d9903686a0800eecdc6ab04c42ee1b8d84f767dafde4a /usr/share/doc/dolly/docs/http.md
-SOURCE https://daugasauron.com/docs/sessions.md 80b809f6b6cba414b7e56b1b3c1550ce61568b778876eafcab0def4ce6b44576 /usr/share/doc/dolly/docs/sessions.md
+SOURCE https://daugasauron.com/docs/http.md 73a4c12a0f5bce6e71651f0415a211a02e97b6d70597237addf977ef93b66ca8 /usr/share/doc/dolly/docs/http.md
+SOURCE https://daugasauron.com/docs/sessions.md 0cb99863a6accef672b64d8a5a4856c67ca95fdab82c353965bfaf22f6759245 /usr/share/doc/dolly/docs/sessions.md
 SOURCE https://daugasauron.com/docs/dollyfile.md 4f05278355d97b77854aadb5acdb28ae3e1bdba8d0a545900667d31a9f1a32a1 /usr/share/doc/dolly/docs/dollyfile.md
-SOURCE https://daugasauron.com/docs/architecture.md 28d340ac429c21dbcdee0a9f3153c0e81b2cbec086244e0c29a11806fe12e31d /usr/share/doc/dolly/docs/architecture.md
-SOURCE https://daugasauron.com/docs/browser-boundary.md e1e312214a80015fc61423f209aa42b8ac5dfe8e234bad25adf0820a72a4d722 /usr/share/doc/dolly/docs/browser-boundary.md
+SOURCE https://daugasauron.com/docs/architecture.md f919eddefc0453dbd369297c13511c82c439d58e67be51935693d028a4010362 /usr/share/doc/dolly/docs/architecture.md
+SOURCE https://daugasauron.com/docs/browser-boundary.md 19e5748d0fa0fcf6327b6872be8004a0d885f018d3c6ec9662f16c07c6403275 /usr/share/doc/dolly/docs/browser-boundary.md
 SOURCE https://daugasauron.com/docs/image-build-service.md 43bbcfcf7c5e7c8ce83f91c55b3c4bc0682651b2905ba35089b2b85b3b13efa9 /usr/share/doc/dolly/docs/image-build-service.md
 SOURCE https://daugasauron.com/abi/README.md 7c73860a123d4b8a12f86aeb1f4cce8f37680ea7bb58f32f532a803d7b12ef87 /usr/share/doc/dolly/abi/README.md
-SOURCE https://daugasauron.com/host/README.md 655a9958b1241b649ded30142ea9628701b85236f1106ddeaf86f4891185e52b /usr/share/doc/dolly/host/README.md
+SOURCE https://daugasauron.com/host/README.md f61ae26d93a3165c7224d1ef2c753e0534430bc31cc70c2e7db5b29349ac69da /usr/share/doc/dolly/host/README.md
 SOURCE https://daugasauron.com/abi/dolly-browser-0.wat fd7137b44e4a2b54ba1150fc4b8d1214b578e721871075ca4ff4144ef660faaf /usr/share/doc/dolly/abi/dolly-browser-0.wat
 SOURCE https://daugasauron.com/abi/dolly-host-0.wat 7d1a02e3317086c06ca022e917d6d8537d9a005e9804e5ffdf256dc7d70c8671 /usr/share/doc/dolly/abi/dolly-host-0.wat
-SOURCE https://daugasauron.com/abi/dolly-image-0.wat 10a6270ad4a2f6d3a248f75ee20c97cf5d64fbd0c9955a3106778588ddee8424 /usr/share/doc/dolly/abi/dolly-image-0.wat
+SOURCE https://daugasauron.com/abi/dolly-image-0.wat 9a16a6472d26ee6ca5d7a67a474a1723745b3eefaf585bd292d115725bf44d6a /usr/share/doc/dolly/abi/dolly-image-0.wat
 SOURCE https://daugasauron.com/abi/dolly-kernel-plugin-0.wat a42d2f52fab6984712d4ded56145c7f28462dd905b3fdb612bb8de301c9eb20d /usr/share/doc/dolly/abi/dolly-kernel-plugin-0.wat
 SOURCE https://daugasauron.com/abi/dolly-process-0.wat ecbeb8baf2f2ead274da643bde8bd325e250b9a46549ad4155f4451b06d1657d /usr/share/doc/dolly/abi/dolly-process-0.wat
 SOURCE https://daugasauron.com/abi/dolly-process-dso-0.wat 9c6e7ec58ac1a4601385dfb39b686466fc384e97bfacc490d69f286912b1c617 /usr/share/doc/dolly/abi/dolly-process-dso-0.wat
