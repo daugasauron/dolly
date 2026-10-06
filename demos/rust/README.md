@@ -39,6 +39,9 @@ patti build -j 4 --offline --manifest-path project/Cargo.toml --bin program
 - Supports workspaces, path and registry dependencies, features, target cfgs,
   build scripts and procedural macros run in Dolly, `--patch`, `--config` and a
   fingerprinted `--resume`. Output and a build record go to `target/patti`.
+- `--config` takes Cargo's `[target.TRIPLE.LINKS]` table too: its values stand
+  in for the build script of the package that links `LINKS`, so a `-sys` crate
+  uses a library the image provides.
 - `-j N` runs up to N compiler or build-script processes at once; a crate starts
   once everything it depends on is built. Each command's messages print as one
   block when it exits, and outputs and the record match a serial build.
