@@ -14,6 +14,7 @@ if has_image pi-build; then
   copy_static demos/pi/pi.c default/commands/pi.c
   copy_static demos/pi/pi-tsconfig.dolly.json default/pi-tsconfig.dolly.json
   copy_static demos/pi/pi-quickjs-compat.mjs default/pi-quickjs-compat.mjs
+  copy_static demos/pi/pi-secret-input.patch default/pi-secret-input.patch
   pi_source_dir="$(scripts/fetch-pinned-checkout.sh pi-source)"
   node scripts/build-source-tar.mjs "${static_dir}/default/pi-source.tar" \
     "${pi_source_dir}/tsconfig.base.json" /usr/src/pi-source/tsconfig.base.json \

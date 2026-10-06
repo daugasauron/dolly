@@ -129,12 +129,27 @@ await demoTest("pi", { image: "pi", timeout: 900_000, server: { handle: provider
   await waitText(/Select authentication method for OpenRouter/);
   await input("\x1b[B\r");
   await waitText(/Enter OpenRouter API key/);
-  assert.equal(await page.evaluate(() => __dolly.paste("sandbox-login-key")), true);
+  // A typed and a bracketed-pasted part of the key; no screen may show either.
+  const loginKey = "sk-or-v1-QZXJ7KWV2PLM9RTB4HNC";
+  const screens = [];
+  const watch = async pattern => {
+    for (const deadline = Date.now() + 60_000; !pattern.test(screens.at(-1) ?? ""); screens.push(await text())) {
+      assert.ok(Date.now() < deadline, `terminal never showed ${pattern}:\n${screens.at(-1)}`);
+    }
+  };
+  await input(loginKey.slice(0, 13));
+  await watch(/> \*{13}\s/);
+  assert.equal(await page.evaluate(key => __dolly.paste(key), loginKey.slice(13)), true);
+  await watch(new RegExp(`> \\*{${loginKey.length}}\\s`));
   await input("\r");
+  await watch(/Saved API key for OpenRouter/);
   await waitText(/Saved API key for OpenRouter/);
+  const secret = loginKey.slice(9), fragments = Array.from({ length: secret.length - 3 }, (_, index) => secret.slice(index, index + 4));
+  const leaked = screens.find(screen => fragments.some(fragment => screen.includes(fragment)));
+  assert.equal(leaked, undefined, `Pi showed the API key:\n${leaked}`);
   await input("\x04");
   assert.equal(await pi.done, 0);
-  await run("grep -q sandbox-login-key /home/dolly/.pi/agent/auth.json && pi --list-models openrouter | grep -q openrouter && clear");
+  await run(`grep -q ${loginKey} /home/dolly/.pi/agent/auth.json && pi --list-models openrouter | grep -q openrouter && clear`);
   pi = start("pi --offline --no-session");
   await waitText(piStarted);
   await input("/login openai-codex\r");
@@ -142,6 +157,7 @@ await demoTest("pi", { image: "pi", timeout: 900_000, server: { handle: provider
   await input("\r");
   assert.match(await waitText(/paste the authorization code/), /auth\.openai\.com\/oauth\/authorize/);
   assert.equal(await page.evaluate(() => __dolly.paste("dolly-browser-authorization-code")), true);
+  await waitText(/> dolly-browser-authorization-code/); // Not a secret prompt: shown as typed.
   await input("\r");
   await waitText(/Logged in to OpenAI Codex/);
   await input("\x04");
