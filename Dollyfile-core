@@ -4,11 +4,12 @@ REQUIRES HOST runtime@0
 
 # Slop and the commands system-build compiles beside it: a shell without the
 # compiler or the recipe engine.
-FROM https://daugasauron.com/Dollyfile-system-build 4241eb206630d31a1dd33990b88ebf0476e3e000577f27122bcb4b561d55a430
+FROM https://daugasauron.com/Dollyfile-system-build f9f1fdd567a4c29b7cccc4e0b4c292d6e7e80e5bc0afe8252d768214f1c9a3f6
 
 EXPORTS TOOL slop
 EXPORTS TOOL foreground
 EXPORTS TOOL help
+EXPORTS TOOL man
 EXPORTS TOOL pwd
 EXPORTS TOOL cd
 EXPORTS TOOL cat
@@ -25,3 +26,23 @@ EXPORTS TOOL cp
 EXPORTS TOOL mkdir
 EXPORTS TOOL rm
 EXPORTS TOOL tar
+FILE /usr/share/man/cat1/[.1
+FILE /usr/share/man/cat1/cat.1
+FILE /usr/share/man/cat1/cd.1
+FILE /usr/share/man/cat1/clear.1
+FILE /usr/share/man/cat1/cp.1
+FILE /usr/share/man/cat1/echo.1
+FILE /usr/share/man/cat1/file.1
+FILE /usr/share/man/cat1/foreground.1
+FILE /usr/share/man/cat1/help.1
+FILE /usr/share/man/cat1/ls.1
+FILE /usr/share/man/cat1/man.1
+FILE /usr/share/man/cat1/mkdir.1
+FILE /usr/share/man/cat1/mv.1
+FILE /usr/share/man/cat1/pwd.1
+FILE /usr/share/man/cat1/rm.1
+FILE /usr/share/man/cat1/slop.1
+FILE /usr/share/man/cat1/stat.1
+FILE /usr/share/man/cat1/tar.1
+FILE /usr/share/man/cat1/test.1
+FILE /usr/share/man/cat1/touch.1

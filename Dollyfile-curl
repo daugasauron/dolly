@@ -3,7 +3,7 @@ PACKAGE curl
 REQUIRES HOST runtime@0
 REQUIRES HOST http@0
 
-FROM https://daugasauron.com/Dollyfile-system-build 4241eb206630d31a1dd33990b88ebf0476e3e000577f27122bcb4b561d55a430
+FROM https://daugasauron.com/Dollyfile-system-build f9f1fdd567a4c29b7cccc4e0b4c292d6e7e80e5bc0afe8252d768214f1c9a3f6
 
 REQUIRES HEADER libc
 REQUIRES HEADER http
@@ -42,6 +42,8 @@ EXPORTS TOOL curl
 
 SLOP curl \
   --version
+SLOP curl --help > /usr/share/man/cat1/curl.1
+FILE /usr/share/man/cat1/curl.1
 
 EXPORTS LIB    curl /usr/lib/libcurl.a
 EXPORTS HEADER curl /usr/include/curl

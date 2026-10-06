@@ -3,7 +3,7 @@ PACKAGE qwen3.5-2b
 REQUIRES HOST runtime@0
 
 # Qwen3.5-2B Q4_K_M, the exact upstream GGUF assembled from parts SOURCE accepts, and its license.
-FROM https://daugasauron.com/Dollyfile-system fd39c0beb8012596def5040092ff28aeccbe4eb19ebf5e31289b50c7a7f64e62
+FROM https://daugasauron.com/Dollyfile-system db6f9e6bf87c5aa0baa787b5a7cfc943e0e19aa7d7292b278da99b029c2e375c
 
 SOURCE https://daugasauron.com/dist/static/llm/qwen3.5-2b/0.part d49c138cdbb01620bd5912d636e952e8525e7616e36442281ee60bc7d647b560 /tmp/llm/0.part
 SOURCE https://daugasauron.com/dist/static/llm/qwen3.5-2b/1.part 1ed4f36687871e49f58433733848d1786f75021124e9ce94a81c5d106e39bbad /tmp/llm/1.part

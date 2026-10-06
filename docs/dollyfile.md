@@ -260,6 +260,10 @@ EXPORTS TOOL rg
   and set environment variables only for their own use: an installed value
   replaces the importer's. Installing composes no `PATH`: a command is in
   `/usr/bin`, as a launcher when its files live elsewhere (`rustc`).
+- A command's manual page is one more retained file, which `man NAME` prints:
+  `FILE /usr/share/man/cat1/NAME.1` for plain text (Dolly's own commands
+  capture `NAME --help` there when they are built) or `man1/NAME.1` for a
+  page as upstream ships it.
 - The release publishes the package index, `dist/dolly-packages.txt`, one
   `NAME URL SHA256` line per package, so a session can name a package and get
   its `INSTALL` row.

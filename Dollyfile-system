@@ -7,18 +7,20 @@ REQUIRES HOST http@0
 REQUIRES HOST snapshot@0
 REQUIRES HOST upload@0
 
-FROM https://daugasauron.com/Dollyfile-system-tools 8573a73144c8b5335b47fbe63bce3e34e198e73330d70216e8d46c117db80fad
+FROM https://daugasauron.com/Dollyfile-system-tools 44d3e59af0ed2bbb1ddb31fdba45163c243faa53c6636ccff955cbf9fcfe08fa
 
 REQUIRES HEADER libc
 REQUIRES TOOL cc
 REQUIRES TOOL rm
 
-SOURCE https://daugasauron.com/dist/static/session-recovery/session-recover.c a7aab830678897e4766a5c873308caf7eb5e95f74a03c0b696e13d7afe1b14c4 /tmp/session-recovery/session-recover.c
+SOURCE https://daugasauron.com/dist/static/session-recovery/session-recover.c 5f1c6511cc7e23b6714da04b5e52734460a584d530df4585ee0625ecf07c0ffb /tmp/session-recovery/session-recover.c
 SOURCE https://daugasauron.com/dist/static/session-recovery/session-records.h 292acf93331576388471b273f690515871f3a76833a7ad1c6545945292e613d1 /tmp/session-recovery/session-records.h
 SOURCE https://daugasauron.com/dist/static/session-recovery/fs-record.h 585989ac06fab7f4ba0325aa1faefa414b45f96d72b3525838cea7cdffe80e3c /tmp/session-recovery/fs-record.h
 
 SLOP cc -O1 -I/tmp/session-recovery /tmp/session-recovery/session-recover.c -o /usr/bin/session-recover
 EXPORTS TOOL session-recover
+SLOP session-recover --help > /usr/share/man/cat1/session-recover.1
+FILE /usr/share/man/cat1/session-recover.1
 SLOP rm -rf /tmp/session-recovery
 
 ENTRY /bin/foreground -i /bin/slop

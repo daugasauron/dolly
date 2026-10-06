@@ -166,3 +166,27 @@ test("file recognizes UTF-8 text and stat reports modes or rejects unknown forma
   assert.equal(unknown.status, 2);
   assert.equal(unknown.stdout, "");
 });
+
+test("Dolly's own commands answer --help with their usage and status 0; man reports a missing page", async () => {
+  const inline = ["cat", "cd", "clear", "cp", "echo", "file", "help", "ls", "man", "mkdir", "mv", "pwd", "rm", "stat", "touch"];
+  const sources = ["command", "diff", "du", "env", "find", "hostname", "install", "nproc", "patch", "realpath", "rev",
+    "time", "timeout", "tty", "xargs"];
+  const programs = [...await Promise.all(inline.map(buildInline)), ...sources.map(name => build(name))];
+  for (const program of programs) {
+    const help = run(program, ["--help"]);
+    assert.equal(help.status, 0, program);
+    assert.notEqual(help.stdout, "", program);
+    assert.equal(help.stderr, "", program);
+  }
+  const man = programs[inline.indexOf("man")];
+  for (const wrong of [[], ["a", "b"], ["-k"], ["../etc/passwd"]]) {
+    const result = run(man, wrong);
+    assert.equal(result.status, 2, wrong.join(" "));
+    assert.equal(result.stdout, "");
+    assert.notEqual(result.stderr, "");
+  }
+  const missing = run(man, ["no-such-command"]);
+  assert.equal(missing.status, 1);
+  assert.match(missing.stderr, /no-such-command/);
+  assert.equal(run(programs.at(-1), ["--no-such-option"]).status, 2);
+});

@@ -4,7 +4,7 @@ REQUIRES HOST runtime@0
 REQUIRES HOST http@0
 REQUIRES HOST threads@0
 
-FROM https://daugasauron.com/demos/rust/Dollyfile-rust-build 478f6b5a47606224484f8cb348d21a18392532b20f62d50363bc0ad465464d53
+FROM https://daugasauron.com/demos/rust/Dollyfile-rust-build 6fbe9639705fc37606692ee728e32f4c8b6012e8557eaa5a0c0c1446f9712d89
 REQUIRES TOOL patti
 REQUIRES TOOL tar
 REQUIRES TOOL cp

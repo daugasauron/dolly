@@ -2,8 +2,8 @@ DOLLY 6
 PACKAGE gzip
 REQUIRES HOST runtime@0
 
-FROM https://daugasauron.com/Dollyfile-system-build 4241eb206630d31a1dd33990b88ebf0476e3e000577f27122bcb4b561d55a430
-INSTALL https://daugasauron.com/Dollyfile-zlib a9cde919ab280940ecded3af0229dd938bffa64271a7a14acc6b51da99efb4fc
+FROM https://daugasauron.com/Dollyfile-system-build f9f1fdd567a4c29b7cccc4e0b4c292d6e7e80e5bc0afe8252d768214f1c9a3f6
+INSTALL https://daugasauron.com/Dollyfile-zlib 695463cc0f2d87456b4eded69db3c83a3c43206732b7e443e57b387cefb19468
 
 REQUIRES HEADER libc
 REQUIRES HEADER zlib
@@ -15,3 +15,5 @@ SOURCE https://daugasauron.com/dist/static/default/commands/gzip.c f3a3d11cbb2ef
 SLOP cc /tmp/gzip.c -lz -o /bin/gzip
 SLOP rm /tmp/gzip.c
 EXPORTS TOOL gzip
+SLOP gzip --help > /usr/share/man/cat1/gzip.1
+FILE /usr/share/man/cat1/gzip.1

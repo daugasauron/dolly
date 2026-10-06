@@ -362,20 +362,17 @@ FILE /tmp/core-tools/foreground.c
     }
 FILE /tmp/core-tools/help.c
     #include <stdio.h>
-    #include <stdlib.h>
     #include <string.h>
     #include <unistd.h>
     
     int main(int argc, char **argv) {
       if (argc > 2 || (argc == 2 && strcmp(argv[1], "--help") != 0)) {
-        fprintf(stderr, "help: unsupported argument: %s\n", argv[1]);
+        fputs("usage: help\n", stderr);
         return 2;
       }
-      const char *path = getenv("PATH");
       fputs("Dolly Slop: minimal agent-tool compatibility inside Wasm\n", stdout);
       fputs("stateful builtins: : . source eval exec exit return cd export unset set shift read getopts local break continue type command trap wait\n", stdout);
-      printf("PATH=%s\n", path == NULL ? "" : path);
-      fputs("commands are files on PATH; inspect this image with ls /bin /usr/bin\n", stdout);
+      fputs("commands are files on PATH (echo $PATH): ls /bin /usr/bin lists them and man NAME prints a command's page (ls /usr/share/man/cat1 /usr/share/man/man1 lists the pages)\n", stdout);
       fputs("exec supports permanent redirections, not replacing the shell\n", stdout);
       fputs("operators: ; newline backslash-newline && || ! | < > >> 2> 2>> 2>&1\n", stdout);
       fputs("conditionals: if COMMANDS; then COMMANDS; [elif ...; then ...;] [else ...;] fi\n", stdout);
@@ -393,6 +390,41 @@ FILE /tmp/core-tools/help.c
       fputs("limits: 256 descriptors and 8 GiB of memory per process, 32 processes, 16 threads per process (64 in all), 64 KiB pipes; getrlimit reports them\n", stdout);
       fputs("a program that exits 126 was refused or failed: its stderr says why; cc --help and curl --help describe linking and network errors\n", stdout);
       return 0;
+    }
+FILE /tmp/core-tools/man.c
+    #include <stdio.h>
+    #include <string.h>
+    
+    int main(int argc, char **argv) {
+      if (argc == 2 && strcmp(argv[1], "--help") == 0) {
+        fputs("usage: man NAME\n"
+              "Print the manual page of the command NAME and exit: /usr/share/man/cat1/NAME.1,\n"
+              "a page as plain text, or else /usr/share/man/man1/NAME.1, a page as upstream\n"
+              "ships it (mdoc or man source, printed unformatted).\n"
+              "Output that is not a terminal is never paged, so nothing waits for a key.\n"
+              "No image holds a pager yet: a terminal gets the whole page too, until man\n"
+              "runs $PAGER there.\n"
+              "example: man grep\n", stdout);
+        return 0;
+      }
+      if (argc != 2 || argv[1][0] == '-' || strchr(argv[1], '/') != NULL) {
+        fputs("usage: man NAME\n", stderr);
+        return 2;
+      }
+      static const char *const sections[] = {"cat1", "man1"};
+      for (int section = 0; section < 2; section++) {
+        char path[4096];
+        if (snprintf(path, sizeof(path), "/usr/share/man/%s/%s.1", sections[section], argv[1]) >= (int)sizeof(path)) break;
+        FILE *page = fopen(path, "r");
+        if (page == NULL) continue;
+        char buffer[4096];
+        size_t count;
+        while ((count = fread(buffer, 1, sizeof(buffer), page)) > 0) fwrite(buffer, 1, count, stdout);
+        fclose(page);
+        return 0;
+      }
+      fprintf(stderr, "man: no manual entry for %s\n", argv[1]);
+      return 1;
     }
 FILE /tmp/core-tools/pwd.c
     #include <errno.h>
@@ -1547,6 +1579,10 @@ SLOP cc \
   -o /bin/help
 SLOP cc \
   -O2 \
+  /tmp/core-tools/man.c \
+  -o /bin/man
+SLOP cc \
+  -O2 \
   /tmp/core-tools/pwd.c \
   -o /bin/pwd
 SLOP cc \
@@ -1610,6 +1646,7 @@ EXPORTS TOOL mkdir
 EXPORTS TOOL rm
 EXPORTS TOOL foreground
 EXPORTS TOOL help
+EXPORTS TOOL man
 EXPORTS TOOL pwd
 EXPORTS TOOL cd
 EXPORTS TOOL cat
@@ -1623,6 +1660,34 @@ EXPORTS TOOL test
 EXPORTS TOOL [
 EXPORTS TOOL mv
 EXPORTS TOOL cp
+
+# A page is a file under /usr/share/man. One of Dolly's own commands has a
+# single text: the page is what NAME --help prints, captured when it is built.
+SLOP mkdir \
+  -p \
+  /usr/share/man/cat1 \
+  /usr/share/man/man1
+SLOP for name in ar c++ cat cc cd clear cp dollyfile echo file foreground help ld ls man mkdir mv pwd rm slop stat touch; do \
+  "$name" --help > "/usr/share/man/cat1/$name.1"; \
+  done
+SLOP help >> /usr/share/man/cat1/slop.1
+FILE /usr/share/man/cat1/test.1
+    usage: test EXPRESSION
+           [ EXPRESSION ]
+    Exit 0 when EXPRESSION is true, 1 when it is false or missing, 2 when it is malformed.
+      -e FILE          FILE exists (-r and -w are the same: there are no permission bits)
+      -f FILE, -x FILE FILE is a regular file
+      -d FILE          FILE is a directory
+      -h FILE, -L FILE FILE is a symbolic link
+      -s FILE          FILE is not empty
+      -n STRING        STRING is not empty (so is a lone STRING)
+      -z STRING        STRING is empty
+      A = B, A != B    the strings are equal (== is the same), differ
+      M -eq N          the integers are equal; also -ne -lt -le -gt -ge
+      ! E, E -a E, E -o E, ( E )   not, and, or, grouping
+    example: test -d /tmp && [ "$HOME" != / ]
+SLOP cp /usr/share/man/cat1/test.1 '/usr/share/man/cat1/[.1'
+FOLDER /usr/share/man
 
 SLOP rm \
   -rf \
@@ -1902,8 +1967,7 @@ SLOP cc \
 
 EXPORTS TOOL tar
 
-SLOP tar \
-  --help
+SLOP tar --help > /usr/share/man/cat1/tar.1
 
 SLOP rm \
   -rf \
@@ -2030,6 +2094,7 @@ EXPORTS TOOL make
 
 SLOP make \
   --version
+SLOP cp /usr/src/make/doc/make.1 /usr/share/man/man1/make.1
 
 FILE /usr/share/licenses/make/COPYING
 

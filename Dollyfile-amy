@@ -5,7 +5,9 @@ REQUIRES HOST http@0
 REQUIRES HOST packages@0
 
 # amy and the recipe engine it runs: what a session needs to install packages.
-FROM https://daugasauron.com/Dollyfile-system-tools 8573a73144c8b5335b47fbe63bce3e34e198e73330d70216e8d46c117db80fad
+FROM https://daugasauron.com/Dollyfile-system-tools 44d3e59af0ed2bbb1ddb31fdba45163c243faa53c6636ccff955cbf9fcfe08fa
 
 EXPORTS TOOL amy
 EXPORTS TOOL dollyfile
+FILE /usr/share/man/cat1/amy.1
+FILE /usr/share/man/cat1/dollyfile.1

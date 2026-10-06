@@ -6,7 +6,7 @@ REQUIRES HOST download@0
 REQUIRES HOST http@0
 REQUIRES HOST upload@0
 
-FROM https://daugasauron.com/Dollyfile-system-build 4241eb206630d31a1dd33990b88ebf0476e3e000577f27122bcb4b561d55a430
+FROM https://daugasauron.com/Dollyfile-system-build f9f1fdd567a4c29b7cccc4e0b4c292d6e7e80e5bc0afe8252d768214f1c9a3f6
 # Unchanged upstream sbase commands, built by sbase's own Makefile.
 REQUIRES HEADER libc
 REQUIRES TOOL   ar
@@ -30,6 +30,7 @@ FILE /tmp/sbase/dolly.mk
     .RECIPEPREFIX := >
     dolly-bin: $(TOOLS)
     >mv $(TOOLS) /bin
+    >mv $(TOOLS:=.1) /usr/share/man/man1
     .RECIPEPREFIX :=
     include Makefile
 SLOP make \
@@ -85,6 +86,7 @@ EXPORTS TOOL wc
 EXPORTS TOOL which
 
 FILE /usr/share/licenses/sbase/LICENSE
+FOLDER /usr/share/man
 
 SLOP rm \
   -rf \
@@ -123,6 +125,7 @@ SLOP cc \
   -o /bin/download
 
 EXPORTS TOOL download
+SLOP download --help > /usr/share/man/cat1/download.1
 
 SLOP rm \
   -rf \
@@ -149,6 +152,7 @@ FILE /tmp/upload/upload.c
     }
 SLOP cc -O1 /tmp/upload/upload.c -o /bin/upload
 EXPORTS TOOL upload
+SLOP upload --help > /usr/share/man/cat1/upload.1
 SLOP rm -rf /tmp/upload
 # Samurai is a compact Ninja-compatible executor. Its upstream parser, graph,
 # depfile handling, and build log stay as separate ordinary C translation
@@ -201,15 +205,16 @@ EXPORTS TOOL ninja
 
 SLOP ninja \
   --version
+SLOP cp /tmp/ninja/source/samu.1 /usr/share/man/man1/ninja.1
 
 FILE /usr/share/licenses/samurai/LICENSE
 
 SLOP rm \
   -rf \
   /tmp/ninja
-INSTALL https://daugasauron.com/Dollyfile-zlib a9cde919ab280940ecded3af0229dd938bffa64271a7a14acc6b51da99efb4fc
-INSTALL https://daugasauron.com/Dollyfile-gzip 866f4f7f0a80069db78bab222e7c7f5e41a5749bfadc9940f79b577d5c3d58d7
-INSTALL https://daugasauron.com/Dollyfile-curl 57f2b92c724369d0fa879fdc4d4518864e3120848904ade91abcf78f8468b1ce
+INSTALL https://daugasauron.com/Dollyfile-zlib 695463cc0f2d87456b4eded69db3c83a3c43206732b7e443e57b387cefb19468
+INSTALL https://daugasauron.com/Dollyfile-gzip 1f85ceb56fb11629268da066c26901cc1a3ea89e10c88cc2ae9413644d8ba684
+INSTALL https://daugasauron.com/Dollyfile-curl a94f3447318dabb846ba8da52c745e624b8821490b37fea4b2c6fcf35c5f0adc
 REQUIRES TOOL   mkdir
 REQUIRES LIB    curl
 REQUIRES LIB    z
@@ -332,6 +337,7 @@ EXPORTS TOOL git
 
 SLOP git \
   --version
+SLOP git --help > /usr/share/man/cat1/git.1
 
 FILE /usr/libexec/dolly/git-remote-http
 FILE /usr/libexec/dolly/git-remote-https
@@ -383,7 +389,7 @@ SOURCE https://daugasauron.com/dist/static/default/commands/install.c     0aa872
 SOURCE https://daugasauron.com/dist/static/default/commands/du.c          55b6a61ea8dc2a4355aaafc9a80d2218f397fa4d1e170b78462863fc9cb2ed63 /tmp/agent-tools/du.c
 SOURCE https://daugasauron.com/dist/static/default/commands/rev.c         3539529d49f26629a6518437dc76631f113bcc5822ff5dbc8aa26481933f3d05 /tmp/agent-tools/rev.c
 SOURCE https://daugasauron.com/dist/static/default/commands/command.c     93610e7ec64b99dd6a128d66e5a49b453464fa317434167251b492d4913e44da /tmp/agent-tools/command.c
-SOURCE https://daugasauron.com/dist/static/default/commands/xargs.c       2b7943b509d0023b3dee178a9b58d0e42c983ceb7635e156f40eb0ebdaf2d747 /tmp/agent-tools/xargs.c
+SOURCE https://daugasauron.com/dist/static/default/commands/xargs.c       4b94714fb29a296df4b71d648dbd222763ca11738b7c651d1de3f5ee5c84e9f3 /tmp/agent-tools/xargs.c
 SOURCE https://daugasauron.com/dist/static/default/commands/find.c        342ba6df849456d47646b7531718ca9682d27b3215c355ebb156eae7e8b16813 /tmp/agent-tools/find.c
 SOURCE https://daugasauron.com/dist/static/default/commands/env.c         9a04ef03ad00956c2a27b3759b84872f118115ebbe1e399621a5c43a59900228 /tmp/agent-tools/env.c
 SOURCE https://daugasauron.com/dist/static/default/commands/time.c        bb49a29e708e9e32716e2d5bf4b4b4e662b07093d0e3731588ef7d41a53ad733 /tmp/agent-tools/time.c
@@ -393,16 +399,18 @@ SOURCE https://daugasauron.com/dist/static/default/commands/diff.c        e1e71b
 SOURCE https://daugasauron.com/dist/static/default/commands/patch.c       01a81c0b50df26223772e568bdc951db73d0be59b71251a1b023234c10a1b63e /tmp/agent-tools/patch.c
 SOURCE https://daugasauron.com/dist/static/default/commands/hostname.c    14a20a493c8559d8b28f221a6edd9b6f89f893f3e3067093b44d7235b4ae060f /tmp/agent-tools/hostname.c
 SOURCE https://daugasauron.com/dist/static/default/commands/tty.c         c51c9598e8245d5f651ade70995f2b03fb936c42a0e99c4c81c83749c5714c7e /tmp/agent-tools/tty.c
-SOURCE https://daugasauron.com/dist/static/default/commands/nproc.c       a268d03d610bb79f4e51f937381158c78510e6cf99a33583eaec5ddc8cfce6ce /tmp/agent-tools/nproc.c
+SOURCE https://daugasauron.com/dist/static/default/commands/nproc.c       96ce7b8d1b1cee59d12193c2fa6fab5210bb7f0c9a0d0cc9bde7e0fd8d87c7ac /tmp/agent-tools/nproc.c
 SOURCE https://daugasauron.com/dist/static/default/commands/amy.c         28710e45b1856d662fd3869afdb035c71f2dd09d5685acbcdf78f8ac01353f93 /tmp/agent-tools/amy.c
 
 FILE /tmp/agent-tools/Makefile
     .RECIPEPREFIX := >
     NAMES := install du rev command xargs find env time timeout realpath diff patch hostname tty nproc amy
     TOOLS := $(addprefix /bin/,$(NAMES))
-    all: $(TOOLS)
+    all: $(TOOLS) $(NAMES:%=/usr/share/man/cat1/%.1)
     /bin/%: /tmp/agent-tools/%.c /tmp/agent-tools/run-program.h
     >cc -O2 $< -o $@
+    /usr/share/man/cat1/%.1: /bin/%
+    >$< --help > $@
 SLOP make \
   -f /tmp/agent-tools/Makefile
 
@@ -430,6 +438,7 @@ SLOP rm \
 REQUIRES TOOL ln
 SLOP ln -s slop /bin/sh
 EXPORTS TOOL sh
-INSTALL https://daugasauron.com/Dollyfile-display 9dd45e552b4779215722aa4378770be213135b6c9e8eeb178e11b51e4a47d242
+SLOP ln -s slop.1 /usr/share/man/cat1/sh.1
+INSTALL https://daugasauron.com/Dollyfile-display 2d805c5e6430710761ee641794db6b1bba532e4b5b1ace27ee16fbb00f7806ac
 
 ENTRY /bin/foreground -i /bin/slop
