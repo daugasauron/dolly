@@ -130,6 +130,86 @@ release's `progs.dat` (6,663,681 B, SHA-256 `e6f5c70b…`), `csprogs.dat`
 `xonotic-20230620-data.pk3` (`build/xonotic-evidence/released-dat.sha256`),
 so the in-Dolly build can be checked by hash.
 
+Client, under a private `Xvfb :141` with Mesa llvmpipe (GL 4.5 compatibility,
+GLSL 450): the SDL client starts, loads stormkeep and runs a bot match
+(`native-client-probe.log`). JPEG textures do not decode on this host (the
+engine dlopens `libjpeg.so.62`; the host has only libjpeg 8), so texture-driven
+permutation bits (gloss, normal maps from `.jpg`) are undercounted here; PNG,
+FreeType and Vorbis load. The release's seven presets (`effects-*.cfg` in
+`data.pk3`, saved in `.cache/xonotic/presets/`) never set `r_viewfbo`,
+`r_shadow_deferred`, `vid_samples` or `r_hdr`, so by the engine's code
+(`gl_rmain.c` 6213–6378, `r_shadow.c` 2196–2204, 6067–6079):
+
+| Preset | Beyond `low` | Render targets and GL features |
+|---|---|---|
+| omg, low | none | swapchain RGBA8 + depth24; DXT textures (`gl_texturecompression_2d 1`); no lightmaps (omg) |
+| med | `r_shadow_realtime_dlight 1` | as low; dynamic lights are extra shader permutations, no new targets |
+| normal | `r_glsl_deluxemapping 1`, `r_shadow_gloss 1`, `r_shadow_usenormalmap 1`, `r_depthfirst 1` | as low; depth-first pass draws the scene twice |
+| high | `r_bloom 1`, `r_motionblur 0.4`, `r_water 1` (0.25 res), `r_coronas_occlusionquery 1`, `r_depthfirst 2` | screen copied into RGBA8 textures (`R_Mesh_CopyToTexture`: bloom chain, motion-blur ghost, water refraction); water reflection rendered to an RGBA8+depth FBO (`r_water_fbo`); `GL_ARB_occlusion_query` samples-passed queries for coronas, with the engine's own fallback when unsupported |
+| ultra | `r_shadow_shadowmapping 1` with `r_shadow_realtime_world 1`, `r_shadow_realtime_dlight_shadows 1`, `r_glsl_offsetmapping 1`, water at 0.5 res | plus a depth-only FBO with a 24-bit compare-sampled shadow-map texture (`TEXTYPE_SHADOWMAP24_COMP`), no stencil (shadow maps replace stencil volumes) |
+| ultimate | `r_shadow_realtime_world_shadows 1`, relief mapping, water at full res, model decals | as ultra, more shadow-map renders per frame |
+
+So no preset needs more than one colour attachment, a float colour target or
+stencil; those appear only with `r_viewfbo 2/3` (`TEXTYPE_COLORBUFFER16F/32F`,
+`DEPTHBUFFER24STENCIL8`) and `r_shadow_deferred`, which the presets leave off.
+What `gpu@0` lacks for `high` and above is occlusion queries (fallback exists)
+and a way to copy the presented frame into a texture; `ultra` adds depth-only
+render targets with compare sampling.
+
+`timedemo` per preset, native llvmpipe at 1024×768 on 16 cores
+(`build/xonotic-evidence/native-presets.sh`; `bench.dem` is a 4.1 MB recording
+of a 45 s bot match on stormkeep, 2,440 frames; logs `native-timedemo-*.log`,
+`developer 1` prints each `Compiling shader mode M permutation P`):
+
+| Preset | fps | Shader mode:permutation pairs compiled |
+|---|---|---|
+| omg | 416.2 | 3: generic 0:12 0:13, postprocess 1:16384 |
+| low | 75.1 | 10: generic 0:12 0:13; vertexcolor 4:0 4:2048 4:4194304; lightdirection 11:1 11:2048 11:2049 11:8390657 11:8390665 |
+| med | 63.0 | the same 10 |
+| normal | 75.4 | 11: as low plus depth/shadow 2:0, lightdirection with specular and normal maps (11:8193 11:10241 11:8398849 11:8398857) |
+| high | 56.6 | 14: plus postprocess bloom 1:4096 1:20480 and generic 0:8388621 (reflectcube) |
+| ultra | 19.6 | 14: plus offsetmapping bits (4:65536 4:67584 4:4259840, 11:75777) |
+| ultimate | 8.4 | 14: plus reliefmapping bits (4:196608 4:198656 4:4390912, 11:206849) |
+
+Modes by number (`dpsoftrast.h`): 0 generic, 1 postprocess, 2 depth/shadow,
+4 vertexcolor, 11 lightdirection; the demo never compiled 12 lightsource
+(realtime dynamic lights), 13 refraction or 14 water, so the counts above
+miss the dlight and water permutations a map with water and rockets would
+add; JPEG textures (the host's libjpeg is 8, the engine wants 62) also
+decoded as missing, so texture-driven bits are undercounted. The totals are
+small: 17 modes × 20 permutation bits in the source, 14 pairs in use at
+`ultra` on this demo.
+
+## Dolly build findings (2026-10-07, `xonotic-build` on `system-tools`)
+
+- All 90 `OBJ_SV` units and gmqcc's 14 C++ units compile with Dolly's `cc`
+  and `c++` at `-O1` unchanged, with the four-hunk patch
+  (`demos/xonotic/darkplaces-dolly.patch`): dedicated server listens on the
+  loopback address type (upstream opens it only for listen servers), no
+  `SUPPORTDLL` (no `dlopen`; `Sys_LoadLibrary` reports every library
+  unavailable), `Sys_Sleep` falls back to `usleep` instead of `select`, and
+  `Sys_ConsoleInput` polls stdin with `poll`. `__linux__` is never defined and
+  never needed.
+- Dolly's `cc` rejects `-fno-math-errno` and `-fno-trapping-math`
+  (upstream's `OPTIM_RELEASE`) and `-fno-exceptions`/`-fno-rtti` are not in
+  its list either; the Makefile passes none of them.
+- Dolly's libc (`libdolly-process.a`, `runtime-adapter.c`) already defines
+  `socket`, `bind`, `sendto`, `recvfrom`, `setsockopt`, `getsockname`,
+  `getaddrinfo`, `freeaddrinfo` and `gethostbyname` as failing calls, so
+  `lhnet.c` links unchanged; the INET ports fail at run time and only the
+  loopback socket carries packets. A first `sockets.c` with the same stubs was
+  a duplicate-symbol error and was removed.
+- The server's static data needs 37,888,768 bytes of initial memory (the
+  driver's default is 16 MiB): the link passes `-Wl,--initial-memory=67108864`,
+  as the LLVM-in-Dolly build does with 32 MiB.
+- The first run in Dolly reached the game start and then died on the session
+  lock: `FS_SysOpenFiledesc` takes an `fcntl(F_SETLK)` write lock on
+  `~/.xonotic/lock`, which fails without file locks (they are in
+  `integrate/round3`). The fifth patch hunk keeps the lock file an ordinary
+  file under `__dolly__`; the hunk can go when round 3 lands.
+- `log_file` writes relative to the user directory (`~/.xonotic/data/`), not
+  the base directory; the test reads it there.
+
 ## Decisions for the owner
 
 1. Rendering route. (a) A Dolly render path inside DarkPlaces: a `gpu@0`
