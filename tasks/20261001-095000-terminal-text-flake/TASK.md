@@ -4,6 +4,22 @@
 - PRIORITY: 170
 - TAGS: tests,flaky,display,firefox
 
+## Remaining (2026-10-07)
+
+Fixed and in the candidate: the empty selection at retirement
+(`fix/firefox-selection`), the pixel wait after fullscreen (`9b21ab9e`, test
+only), the gesture repeated across a program's exit (`ac4b4e5d`) and the
+input discard at exit (`9abd08b0`, restored in `0ebf7356`); the main round's
+core suites passed in both browsers and `demos/neovim` passed. Left:
+
+- The mouse-drag failure at `test/terminal-browser.mjs:67` after font zoom
+  and paste (not seen in the recent runs; "Narrowed" below).
+- `demos/local-llm/test/local-llm-browser.mjs` stopped once in Firefox on
+  the candidate with "timed out waiting for terminal selection reset" after
+  the model had loaded (`work/next/build/next-evidence/gpu-local-llm.log`,
+  the first run; the rerun passed), the sequence noted under "Seen again
+  with the parked presenter".
+
 `test/terminal-browser.mjs` failed once in Firefox (terminal-mailbox branch,
 2026-10-01) because `__dolly.visibleTerminalText()` returned an empty
 selection; three reruns passed. The helper (`src/browser.mjs`) reads the

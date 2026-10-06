@@ -4,6 +4,22 @@
 - PRIORITY: 70
 - TAGS: local-llm,pi,configuration
 
+## Remaining (2026-10-07)
+
+Done with `20261005-215557-local-models` (closed; its "Context size"
+section): `/local` → Parameters writes `modelOverrides.ID.contextWindow`,
+the engine restarts with it at the next prompt, Pi's window and compaction
+threshold follow (footer `5.2%/33k (auto)` at 32,768); measured with the 2B
+in Chrome: 32,768 completes a task at 2,730 MiB against 2,245 at 16,384;
+131,072 fails at load with the out-of-memory line. Left:
+
+- A refusal before loading, naming what the size needs (memory per context
+  token in the model's description), and a bound at the trained context.
+- Pi's compaction settings (`reserveTokens` 4096, `keepRecentTokens` 6144,
+  sized for 16k) following a smaller context.
+- The browser test on a hardware adapter for the refusal, and the override
+  shown to survive a restart of Pi (it is a file Pi reads at start).
+
 Owner (2026-10-06): "For the pi-local webgpu models, I want to be able to
 change the context size. Create a low prio task for this."
 

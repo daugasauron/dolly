@@ -4,6 +4,16 @@
 - PRIORITY: 250
 - TAGS: demo,site,openrouter
 
+## Remaining (2026-10-07)
+
+The Studio recording is done elsewhere (`20261006-094507-studio-video-game`,
+closed; the g1 take is on the agents page). Left here: RTS Arena, ClassiCube
+and bhop keep their old recordings, because no free model played them
+visibly better (takes below) and the owner's rule was free models only. It
+waits on one owner decision: which model and budget, if any, for those three
+(the round record lists "a model for re-recording RTS Arena" as open for
+him). The rig and commands are under "Rerun".
+
 Owner (2026-10-05): "Use the openrouter API key in ~/.openrouter to regenerate
 some demos, the current ones are nice regarding format but the results in the
 videos are very underwhelming."

@@ -4,6 +4,15 @@
 - PRIORITY: 265
 - TAGS: toolchain,bootstrap,llvm,core
 
+## Remaining (2026-10-07)
+
+In the catalog: `llvm-tablegen` (configure, the three TableGen tools and
+their outputs byte-identical to the seed's; `demos/llvm`), rebuilt in every
+round since. Left, from "Next" below: the Worker stack overflow on
+`MSP430.cpp` and `SemaARM.cpp` (fix on the compiler side, decided), then the
+whole 2,559-TU closure at `-j4`, the 103 archives kept, the compiler linked
+and compared with the seed's link; stage 2 against stage 3.
+
 The keystone for the bootstrap goals: a self-hosted rustc
 (`20260930-231100-self-host-rust`), an LLVM-enabled Zig, and a compiler seed
 reproducible from inside Dolly all need LLVM built by Dolly's own `cc`. Today

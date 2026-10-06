@@ -4,6 +4,14 @@
 - PRIORITY: 318
 - TAGS: core,architecture,host-modules,abi,boundary
 
+## Remaining (2026-10-07)
+
+Finished on `core/dso-module` at `b527f4de` (the module, twelve recipes, the
+`dso` suite, 25 images and the Rust seed verified on the nine-import kernel,
+below); in `integrate/round3` (`3eadc5c0`). Not in the candidate (`main` at
+`ab412d94`). Closes when round 3's catalog round has built every image and
+the full `amy` and demo suites have passed: the third done-when line.
+
 Owner decision (2026-10-06 evening), on the recommendation in
 `20261005-222449-spawn-users` (branch `investigate/spawn`): "I like the dso
 thing." So the loader that lets a running program load another compiled module

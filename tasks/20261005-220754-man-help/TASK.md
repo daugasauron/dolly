@@ -4,6 +4,25 @@
 - PRIORITY: 235
 - TAGS: core,commands,docs,agent-experience
 
+## Remaining (2026-10-07)
+
+The done-when holds in the candidate (`work/man-help` `b35fab2f` merged;
+`test/man-browser.mjs` in Chromium and Firefox, every command of `default`
+with a page, `amy install git` bringing pages; 108,058 bytes of pages,
+0.75% of the image: "Built and run" below). The task stays open for what
+"Expected" asks beyond it:
+
+- Upstream pages rendered at build time (mandoc in `system-tools`); today
+  45 pages print as mdoc or man source.
+- One line per option and an example in every in-house `--help`; a wrong
+  invocation printing the usage line and exiting 2 (most still print a
+  message).
+- `help` listing the commands with one-line summaries.
+- Pages for the other packages (`fd`, `python`, `nvim`, …); `ripgrep`'s page
+  rows unverified.
+- `cd --help`, `command --help` and `time --help` reach Slop's own builtins,
+  which have no `--help`.
+- Paging through `$PAGER` once a pager exists (`20261006-111926-less-pager`).
 
 Owner request (2026-10-06): "I want to add the man command, and make sure
 things in general in the shell has good man/help."

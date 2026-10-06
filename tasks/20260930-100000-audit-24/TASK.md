@@ -4,6 +4,20 @@
 - PRIORITY: 250
 - TAGS: core,boundary,cleanup
 
+## Remaining (2026-10-07)
+
+Measured on the candidate's line: 62 files, 9,319 lines of trusted
+JavaScript, the kernel's generated loader gone (below). Step 1 (five lines
+nobody read) is on `core/trusted-surface` in `integrate/round3`, not in the
+candidate. Left, in the order proposed below: 2, the test logic out of the
+display provider into one injected harness (needs a catalog round); 3, what
+the 21 `__dolly` accessors and the page attributes are (embedding API or
+test probes: an owner decision); 4, load a provider only when the image
+declares its module; 5, the review map naming or removing the 18 unnamed
+files, most of them the process Worker's DSO loader and FFI, which
+`20261006-111835-dso-module` moves out of every Worker (bundle 65,304 to
+9,112 bytes).
+
 About 7,600 lines / 341 KB of trusted-perimeter JS across ~33 files (`browser.mjs` 792,
 `process-supervisor.mjs` 773, `process-ffi.mjs` 693, `gpu-worker.mjs` 690 with 56 lines over 120
 columns). The production page exposes `window.__dolly` (`src/browser.mjs:723-778`),

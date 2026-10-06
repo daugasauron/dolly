@@ -4,6 +4,19 @@
 - PRIORITY: 320
 - TAGS: core,architecture,host-modules,display,input
 
+## Remaining (2026-10-07)
+
+Written on `core/input-module` (`82fa0cff`, merged onto the nine-import
+kernel, source tests 405 of 405, cut off mid-edit with a clean tree): the
+module, the display's driver v5, the ports and 38 recipe lines, below. Not
+verified on that base and not in `integrate/round3`. Left: the `default` and
+`system` chains built on `fb6c3463` and the core suites in Chromium and
+Firefox; `cc`, `sdl2`, `bhop`, Slopyard, 0 A.D., Neovim and Emacs rebuilt
+and their demo tests; the two new `host-modules` cases; the echo-latency
+measurement the presenter change asks for; then a catalog round of its own
+(every image rebuilds: the seed changes). Touch records
+(`20261005-222057-touch-input`) come after.
+
 Owner direction (2026-10-02): "I feel like mouse/keyboard should be a host
 module."
 

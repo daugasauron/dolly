@@ -1,8 +1,22 @@
 # Own the kernel's outer boundary: load the kernel without Emscripten's JavaScript runtime
 
-- STATUS: CLOSED
+- STATUS: OPEN
 - PRIORITY: 325
 - TAGS: core,boundary,abi,architecture
+
+## Remaining (2026-10-07)
+
+Reopened by the triage: the branch closed it, but the candidate (`main` at
+`ab412d94`) holds steps 1, 2 and 4 only (`ff3a5c19`, `82d659d8`, `fb6c3463`:
+nine Dolly-named imports, 90 exports named by contracts, no `dist/dolly.mjs`,
+`TextDecoder` untouched; the catalog of 67 images was built by that kernel).
+One generated file is still loaded there: `dist/dolly-seed.mjs`, the file
+packager's index (`src/runtime-worker.mjs:146`), so the first done-when line
+does not yet hold on `main`. Step 3 (the seed as a Dolly snapshot) removes
+it: finished on `core/kernel-boundary-2` at `663b9a5a`, verified before its
+rebase (below), rides `integrate/round3`; closes when round 3 merges. The two
+tasks it raised (`20261006-140347-kboundary-01`, `20261006-142127-kboundary-02`)
+arrive with that branch (`e5ae6730`).
 
 From the big-picture review (`20261005-131642-big-picture`). `AGENTS.md` names
 the kernel's outer imports and their trusted implementations as the security
