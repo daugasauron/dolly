@@ -1,6 +1,6 @@
 ---
 name: dolly
-description: How to work on this Dolly machine, a Unix-like userspace inside a browser's WebAssembly sandbox - finding what is installed, amy packages, what the network reaches and how to get source without git clone, Slop shell idioms, parallel make, cc and Dolly's headers, Janis JavaScript, exit status 126. Read before installing software, fetching source, compiling, or explaining a command that failed.
+description: Reference for doing a task on this Dolly machine (a Unix-like userspace in a browser's WebAssembly sandbox). Read it only when a task needs you to install software, fetch source code, compile, or diagnose a command that failed here; not for conversation. Covers amy packages, what the network reaches without git clone, Slop shell idioms, parallel make, cc and Dolly's headers, Janis JavaScript and exit status 126.
 ---
 
 # Dolly
