@@ -1325,7 +1325,8 @@ static int expand_dollar_now(Shell *shell, const char **cursor, Buffer *word) {
       }
       char *variable = strndup(name, length);
       if (variable == NULL) return -1;
-      if (length == 1 && strchr("@*", *name)) {
+      const int positional = length == 1 && strchr("@*", *name) != NULL;
+      if (positional && pattern_operation) {
         fprintf(stderr, "slop: unsupported parameter operation: %s\n", variable);
         free(variable);
         return -1;
@@ -1333,6 +1334,21 @@ static int expand_dollar_now(Shell *shell, const char **cursor, Buffer *word) {
       char temporary[64];
       int set;
       const char *value = parameter_value(shell, name, length, temporary, &set);
+      if (positional) {
+        // ${*-word} and ${@+word}: no positional parameters count as unset,
+        // as in Bash; otherwise the value is the parameters joined by spaces.
+        free(variable);
+        Buffer joined = {0};
+        set = shell->argc > 1;
+        for (int index = 1; index < shell->argc; index++) {
+          if ((index > 1 && !buffer_character(&joined, ' ')) ||
+              !buffer_append(&joined, shell->argv[index], strlen(shell->argv[index]))) {
+            free(joined.data);
+            return -1;
+          }
+        }
+        value = variable = joined.data == NULL ? strdup("") : joined.data;
+      }
       if (!value || (pattern_operation &&
                      unset_parameter_error(shell, name, length, set))) {
         free(variable);
