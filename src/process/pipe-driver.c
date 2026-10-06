@@ -1,6 +1,7 @@
 #include <dolly/runtime.h>
 
 #include <errno.h>
+#include <signal.h>
 #include <stdio.h>
 #include <sys/wait.h>
 #include <unistd.h>
@@ -39,5 +40,11 @@ int main(int argc, char **argv) {
     if ((pid != first && pid != second) || !WIFEXITED(status) || WEXITSTATUS(status) != 0) return 47;
   }
   if (waitpid(-1, NULL, WNOHANG) != -1 || errno != ECHILD) return 48;
+
+  char *sigpipe_arguments[] = {(char *)checker, "sigpipe", NULL};
+  const int killed = dolly_spawn(checker, 2, sigpipe_arguments, 0, 1, 2);
+  int status;
+  if (killed < 0 || waitpid(killed, &status, 0) != killed) return 49;
+  if (!WIFSIGNALED(status) || WTERMSIG(status) != SIGPIPE) return 50;
   return 0;
 }

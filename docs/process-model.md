@@ -80,8 +80,12 @@ sequenceDiagram
   `RLIMIT_AS` 8 GiB, `RLIMIT_STACK` 8 MiB); `sysconf(_SC_OPEN_MAX)` is still
   libc's constant 1024.
 - Pipes hold 64 KiB. Empty reads and full writes return `EAGAIN` when
-  nonblocking; closing all writers gives EOF; writing with no reader returns
-  `EPIPE` without raising `SIGPIPE`.
+  nonblocking; closing all writers gives EOF, also to a reader that was
+  waiting. Writing with no reader, or waiting to write when the last reader
+  closes, returns `EPIPE`, and libc raises `SIGPIPE` in the writer before
+  `write` returns ([`libc-adapter.c`](../src/process/libc-adapter.c)): the
+  process ends with that signal unless it ignores, handles or blocks it. A
+  process's descriptors close when it exits, before it is waitable.
 - Opening `/dev/stdin`, `/dev/stdout` or `/dev/stderr` duplicates the caller's
   descriptor 0, 1 or 2.
 - `/dev/tty` opens the terminal for reading and writing. There are no sessions,
@@ -132,7 +136,7 @@ sequenceDiagram
   Parent exit retires descendants first. Worker termination has no completion
   event, so a large interactive process gets 500 ms of reclamation before its
   exit is acknowledged, sparing the recovery shell. Nothing guarantees against
-  browser memory pressure; this is one reason Slop is
+  browser memory pressure; this is one reason Slop itself is
   [serial](architecture.md#decisions) and parallel builds need a modest `-jN`.
 
 ## Signals
