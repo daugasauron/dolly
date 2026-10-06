@@ -584,10 +584,8 @@ export function browser(page) {
 
   return {
     get transport() { return transport; },
-    get presenter() { return presenter; },
     page: {
       get transport() { return transport; },
-      get display() { return presenter; },
       get graphicsActive() { return transport.graphicsActive(); },
       get fontSize() { return transport.fontSize(); },
       submit, visibleTerminalText, waitForInteractiveTerminal,

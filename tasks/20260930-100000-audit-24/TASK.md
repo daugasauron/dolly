@@ -189,3 +189,28 @@ process Worker" without a link.
    (`20261002-073000-runtime-process-modules`, `dso@0` in progress).
 
 The total is recorded here at each step, as the review of 2026-10-05 asked.
+
+## Step 1 (2026-10-07, `core/trusted-surface` on `80595976`)
+
+Removed, each with no reader in trusted code, tests, demos or scripts:
+`__dolly.display`, the display provider's `presenter` getter,
+`__dolly.systemInputs`, and the page attributes `data-boot-mode` and
+`data-snapshot-bytes`. Five lines; the total is 62 files, 9,314 lines,
+430,055 bytes. `__dolly` has 21 members.
+
+Left on purpose: the runtime Worker still computes `snapshotBytes` and sends
+it in its `ready` message, now read by nobody. Those lines are rewritten by
+the seed branch (`core/kernel-boundary-2`), so removing them here would
+conflict; they go once that branch is merged.
+
+Runtime-only: runtime `f678b99a…` and image inputs `4431ea80…` are the
+base's. Verified with the images of `work/next` (19 imported, same image
+inputs): source 400 of 400; artifacts 22 passed, 1 skipped; 27 core browser
+suites in Chrome and in Firefox, 26 passed in each
+(`build/trusted-evidence/step1/summary.txt`, `step1-more/summary.txt`).
+`amy` fails in both at `amy install cmake`, as it does on the base
+(`work/next/build/next-evidence/browser-final/amy-chromium.log`): the
+`cmake` package is not built in either tree. Not run: `fs-growth` (the 6 GB
+cap kills it on any runtime), `gpu-render` (needs a hardware adapter),
+`site`, and every demo suite.
+
