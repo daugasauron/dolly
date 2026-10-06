@@ -354,3 +354,33 @@ Queued for free slots: `rts-early-input-stall`, `amy-descriptions` (rest),
   `seed3.log`, builds `catalog-a.log`, `catalog-b.log`); 55 of 61 images were
   kept. Expect the catalog at about 22:45, verification by 23:45, packaging
   after.
+
+### 22:31: the main round started, an hour early
+
+- Seed round (`work/round2`, `integrate/seed-1006`, pins `9077dda1`): all 61
+  images built at 22:04; source 362/362, artifacts 24/24; core browser suites
+  green in both browsers except `terminal` in Firefox, one 30 s timeout on a
+  pixel wait while the machine's load average was 18 (three chain builds had
+  just started); it passed on rerun (`terminal-firefox-rerun.log`). Demos, GPU
+  tests and packaging into `build/seed-releases` follow unattended.
+- Main round (`work/next`, `integrate/next`): frozen by the integration agent
+  at `a88e3621` (22:17; its record is the "integrate/next" section above), then
+  by me: kernel-boundary step 2 (`82d659d8`), the nine Cargo package commits
+  (`..ba3fb260`), kernel-boundary step 4 (`fb6c3463`; the kernel has nine
+  imports and no Emscripten JavaScript). Runtime `f678b99a…`, image inputs
+  `4431ea80…`, Rust seed `f4393cf6…`. Step 4 is in because it leaves image
+  bytes and the image-inputs hash unchanged: reverting it is `git revert
+  -m 1 fb6c3463`, a runtime build and the four images that ship the contract
+  documents (`dolly-docs`, `pi`, `pi-local`, `dollyfile-studio`), not a
+  catalog. Tag `before-step4` = `ba3fb260`.
+- The round is `work/round-next.sh` (stages seed, light, heavy, pins, suites,
+  gpu, publish; `bash work/round-next.sh STAGE` resumes), run in a 24 GB
+  scope; logs in `work/next/build/next-evidence/` (`round.log`). Releases go
+  to `work/next/build/next-releases` and `next-domain-releases`.
+- Not in this round: Slop after `5ccedb2e` (field splitting and more),
+  `core/file-locks`, `core/input-module`, `core/dso-module`, file modes,
+  `exec` (`20261006-214244-process-exec`, owner: real exec, very low
+  priority), the libcurl follow-up, `cargo` in `rust-tools`.
+- Open from the integration: `ending` passed 6 of 8 runs (Ctrl+C on a builtin
+  loop once reported status 130, not SIGINT); the integration agent is finding
+  the cause in `work/ending` (`fix/ending-flake`).
