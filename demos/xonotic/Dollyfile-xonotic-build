@@ -1,0 +1,36 @@
+DOLLY 6
+TOOLCHAIN xonotic-build
+REQUIRES HOST runtime@0
+REQUIRES HOST display@0
+REQUIRES HOST download@0
+REQUIRES HOST http@0
+REQUIRES HOST upload@0
+
+FROM https://daugasauron.com/Dollyfile-system-tools be801256424d59c450ed8b9bc046d76769ab91ba273af2408ed26fc1e7ed1e38
+REQUIRES HEADER cpp
+REQUIRES HEADER zlib
+REQUIRES HEADER zconf
+REQUIRES LIB z
+REQUIRES TOOL cc
+REQUIRES TOOL c++
+REQUIRES TOOL make
+REQUIRES TOOL mkdir
+REQUIRES TOOL tar
+REQUIRES TOOL gzip
+REQUIRES TOOL rm
+
+SOURCE https://daugasauron.com/dist/static/xonotic/source.tar.gz 0000000000000000000000000000000000000000000000000000000000000000 /tmp/xonotic/source.tar.gz
+SLOP gzip -dc /tmp/xonotic/source.tar.gz | tar -xf - -C /
+SLOP make -f /usr/src/dolly/xonotic/Makefile
+
+EXPORTS TOOL xonotic-dedicated
+EXPORTS TOOL gmqcc
+EXPORTS FOLDER xonotic-source /usr/src/xonotic
+EXPORTS FOLDER xonotic-port /usr/src/dolly/xonotic
+FILE /usr/share/licenses/xonotic/COPYING
+FILE /usr/share/licenses/xonotic/GPL-2
+FILE /usr/share/licenses/xonotic/GPL-3
+FILE /usr/share/licenses/gmqcc/LICENSE
+SLOP rm -rf /tmp/xonotic
+
+ENTRY /bin/foreground -i /bin/slop
