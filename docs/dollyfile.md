@@ -87,7 +87,7 @@ and `/host/MODULE/`, prepared sources in `/dist/static/`.
 | `RUN [CWD /directory] /program [word…]` | Run a program; failure stops the build. |
 | `SLOP [CWD /directory] command…` | `RUN /bin/slop -e -c command`. |
 | `FILE /path` | Write the body, if any, and retain the file. |
-| `FOLDER /path` | Retain the directory and its members. |
+| `FOLDER /path` | Retain the directory and the members it has at this row. |
 | `EXPORTS TYPE name …` | Offer an object when the recipe finishes. |
 | `REQUIRES TYPE name` | Assert that an object is available here. |
 | `ENTRY /program [word…]` | Last declaration: the program the image runs when opened. |

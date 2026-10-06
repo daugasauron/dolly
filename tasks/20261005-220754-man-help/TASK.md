@@ -65,7 +65,7 @@ Inventory: 94 commands on `PATH` in `default` (`EXPORTS TOOL` rows of
 | `src/commands/` (16 in `system-tools`, `gzip`, `curl`, `session-recover`) | 19 | `--help` in 16; none in `xargs`, `nproc`, `session-recover` |
 | `slop`, `sh` (a link), `dollyfile`, `cc` `c++` `ld` `ar` | 7 | `--help` in all |
 | sbase | 44 | usage on a wrong invocation only; 44 mdoc pages upstream, 42,379 bytes, none staged |
-| Make, awk, Samurai (`ninja`) | 3 | `make.1` 11,853 and `awk.1` 13,062 bytes (man), `samu.1` 5,491 (mdoc), none retained |
+| Make, awk, Samurai (`ninja`) | 3 | `make.1` 11,853 and `awk.1` 13,062 bytes (man), `samu.1` 5,491 (mdoc), none retained; the prepared Make source holds only the compiled files, so `man make` is `make --help` |
 | Git | 1 | `git --help`; its pinned source has AsciiDoc only, no roff page |
 
 `dollyfile-lint` is not in `default`: it belongs to the Studio image.
@@ -103,6 +103,9 @@ Inventory: 94 commands on `PATH` in `default` (`EXPORTS TOOL` rows of
   `man --help` says what holds today.
 - **Packages**: a page is a `FILE /usr/share/man/…` row beside the command's
   export; no new mechanism (`core`, `cc`, `amy`, `curl`, `gzip`, `ripgrep`).
+  Toolchains keep the directory with one `FOLDER /usr/share/man` row placed
+  after their last page: the engine lists a folder's members when the row
+  runs (`collect_paths` in `dollyfile.c`), not when the recipe finishes.
 - **Summaries**: a package's sentence is its README line (amy,
   `20261005-220754-amy-descriptions`); a command's is its page. `help` does
   not list commands with summaries yet: Dolly's `--help` texts start with the
@@ -115,7 +118,8 @@ Inventory: 94 commands on `PATH` in `default` (`EXPORTS TOOL` rows of
   line for a wrong invocation.
 - Page capture in `system-build`, `system-tools`, `system`, `curl`, `gzip`,
   `ripgrep`; sbase's pages staged (`prepare-image-sources.sh`) and moved by
-  the same `TOOLS` list that builds the commands; `make.1`, `awk.1`, `samu.1`.
+  the same `TOOLS` list that builds the commands; `awk.1`, `samu.1`; Make's
+  page is `make --help`.
 - `--help` added to `xargs`, `nproc`, `session-recover`; `xargs` and `help`
   exit 2 with the usage line on a wrong invocation; `help` names `man` and
   no longer prints `PATH`, so its page is the same text wherever it is read.
@@ -143,9 +147,9 @@ Inventory: 94 commands on `PATH` in `default` (`EXPORTS TOOL` rows of
     node --test 'test/*.test.mjs'
     for suite in core shell slop; do node test/$suite-browser.mjs chromium && node test/$suite-browser.mjs firefox; done
 
-Steps most likely to fail, each a one-line recipe row: `ld --help` and
-`git --help` (status read from the source, never run), `cp` of
-`/usr/src/make/doc/make.1` and `/tmp/ninja/source/samu.1`.
+Steps most likely to fail, each a one-line recipe row: `ld --help`,
+`make --help` and `git --help` (status read from the source, never run) and
+the `cp` of `/tmp/ninja/source/samu.1`.
 
 ## Left
 

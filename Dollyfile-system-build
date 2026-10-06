@@ -1687,7 +1687,6 @@ FILE /usr/share/man/cat1/test.1
       ! E, E -a E, E -o E, ( E )   not, and, or, grouping
     example: test -d /tmp && [ "$HOME" != / ]
 SLOP cp /usr/share/man/cat1/test.1 '/usr/share/man/cat1/[.1'
-FOLDER /usr/share/man
 
 SLOP rm \
   -rf \
@@ -2094,7 +2093,9 @@ EXPORTS TOOL make
 
 SLOP make \
   --version
-SLOP cp /usr/src/make/doc/make.1 /usr/share/man/man1/make.1
+SLOP make --help > /usr/share/man/cat1/make.1
+# FOLDER keeps the members a directory has at this row: the last page is written.
+FOLDER /usr/share/man
 
 FILE /usr/share/licenses/make/COPYING
 
