@@ -8,8 +8,9 @@ local function syntax(line, column)
   return vim.fn.synIDattr(vim.fn.synID(line, column, 1), "name")
 end
 assert(syntax(1, 1) == "dollyDirective", "DOLLY directive is not highlighted")
-assert(syntax(11, 1) == "dollyDirective", "FILE region swallowed its directive")
-assert(syntax(12, 5) == "dollyBody", "FILE body is not plain text")
+local file = vim.fn.search("^FILE ", "nw")
+assert(file > 1 and syntax(file, 1) == "dollyDirective", "FILE region swallowed its directive")
+assert(syntax(file + 1, 5) == "dollyBody", "FILE body is not plain text")
 assert(vim.api.nvim_get_hl(0, { name = "dollyDirective", link = false }).fg == 0xf2d45c,
   "directives need visible contrast, not the default white syntax groups")
 vim.cmd("DollyLint")
