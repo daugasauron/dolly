@@ -64,7 +64,7 @@ as `build` and `packages` do: its service admits each request itself.
 process's instance and function table, not the kernel, so its operations are
 answered in that process's own Worker. Its Worker side fetches the bundle
 once at boot and registers it with the runtime (`serveInProcess`); the
-supervisor names it in the start message of exactly the executables that
+supervisor puts it in the start message of exactly the executables that
 record the module, and their Worker imports it before `_start`
 ([`process-worker.mjs`](../src/process-worker.mjs)). Every other Worker loads
 none of it, in an image that declares the module too, so declaring it costs a

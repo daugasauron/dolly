@@ -75,7 +75,8 @@ export function worker({ send, applicationBase, abi, service }) {
   const memory = new WebAssembly.Memory({ initial: 1024n, maximum: 131072n, shared: true, address: "i64" });
   let supervisor, threadProvider;
   // Modules served inside the process Worker of the executables that record
-  // them, by requirement: the bundle that Worker imports and what it is given.
+  // them, by requirement: the bundle (a Blob) that Worker imports and the
+  // configuration its serve() receives.
   const processModules = new Map();
   const text = value => `${String(value).slice(-maxBootstrapMessage)}\n`;
   return {

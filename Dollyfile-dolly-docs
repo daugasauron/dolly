@@ -17,7 +17,7 @@ SOURCE https://daugasauron.com/docs/architecture.md 3567b3778db7eafffec6200721df
 SOURCE https://daugasauron.com/docs/browser-boundary.md 48d7ff4d2e8e82d722d718a0b70f86e510b07a9c55ed312910b1149d5e227100 /usr/share/doc/dolly/docs/browser-boundary.md
 SOURCE https://daugasauron.com/docs/image-build-service.md 43bbcfcf7c5e7c8ce83f91c55b3c4bc0682651b2905ba35089b2b85b3b13efa9 /usr/share/doc/dolly/docs/image-build-service.md
 SOURCE https://daugasauron.com/abi/README.md fb91b76f42f5a1f5c7081de3e1c73c842d06ee68d5e11a9bf9a7c3977dfc933a /usr/share/doc/dolly/abi/README.md
-SOURCE https://daugasauron.com/host/README.md 1ff7c12c9f6aac5fb02642a97b9c718b800b505e0fd558cdca13c967a0efc6d6 /usr/share/doc/dolly/host/README.md
+SOURCE https://daugasauron.com/host/README.md a70d31ba7add7ee173b016e59529fa4ff876f9433927c0cc83ecd23b09a9c649 /usr/share/doc/dolly/host/README.md
 SOURCE https://daugasauron.com/abi/dolly-browser-0.wat 75ffd722bfc1abf986f35756b424d2aa5155ab251dcb25cdc3fdbfd76c508925 /usr/share/doc/dolly/abi/dolly-browser-0.wat
 SOURCE https://daugasauron.com/abi/dolly-host-0.wat 7d1a02e3317086c06ca022e917d6d8537d9a005e9804e5ffdf256dc7d70c8671 /usr/share/doc/dolly/abi/dolly-host-0.wat
 SOURCE https://daugasauron.com/abi/dolly-image-0.wat 10a6270ad4a2f6d3a248f75ee20c97cf5d64fbd0c9955a3106778588ddee8424 /usr/share/doc/dolly/abi/dolly-image-0.wat

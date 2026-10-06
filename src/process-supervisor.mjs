@@ -399,7 +399,7 @@ export class DollyProcessSupervisor {
     worker.addEventListener("error", thread.errorHandler, { once: true });
     worker.addEventListener("messageerror", thread.messageErrorHandler, { once: true });
     // local: the modules this executable records that are served in its own
-    // Worker (host/dso), each as the bundle to import and its configuration.
+    // Worker (host/dso), each as the bundle it imports and its configuration.
     worker.postMessage({ type: "configure", pid, tid: thread.tid, argument, threaded, module, memory, control,
       clockOrigin: performance.timeOrigin, processInterface, local: local.map(requirement => this.processModules.get(requirement)) });
   }

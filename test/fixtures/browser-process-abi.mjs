@@ -25,9 +25,9 @@ async function runWorker(configuration) {
 }
 
 // What the supervisor hands the Worker of an executable that records dso@0.
-const dsoModule = async () => [{ url: new URL("../../host/dso/process.mjs", import.meta.url).href,
-  configuration: { hostAbi: new Map(), contract: parseWasmInterface(
-    await (await fetch(new URL("../../dist/dolly-dso-0.wasm", import.meta.url))).arrayBuffer()) } }];
+const dist = async name => (await fetch(new URL(`../../dist/${name}`, import.meta.url))).arrayBuffer();
+const dsoModule = async () => [{ bundle: new Blob([await dist("dolly-process-dso.mjs")], { type: "text/javascript" }),
+  configuration: { hostAbi: new Map(), contract: parseWasmInterface(await dist("dolly-dso-0.wasm")) } }];
 
 async function runDsoChecks() {
   const fetchBytes = async path => new Uint8Array(await (await fetch(path)).arrayBuffer());

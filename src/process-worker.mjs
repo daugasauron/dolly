@@ -144,9 +144,13 @@ try {
   if (typeof instance.exports._start !== "function") {
     throw new TypeError("Dolly process does not export _start");
   }
-  localModules = await Promise.all(configuration.local.map(async ({ url, configuration: options }) =>
-    (await import(url)).serve({ ...options, instance, memory: configuration.memory,
-      processInterface: configuration.processInterface })));
+  localModules = await Promise.all(configuration.local.map(async ({ bundle, configuration: options }) => {
+    const url = URL.createObjectURL(bundle);
+    try {
+      return (await import(url)).serve({ ...options, instance, memory: configuration.memory,
+        processInterface: configuration.processInterface });
+    } finally { URL.revokeObjectURL(url); }
+  }));
   self.postMessage({ type: "started", pid: configuration.pid, tid: configuration.tid });
   if (configuration.argument !== undefined) {
     threadResult = instance.exports.dolly_thread_start(configuration.tid, configuration.argument);

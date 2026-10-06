@@ -6,7 +6,6 @@ export { DOLLY_DSO_ABI_DIGEST as digest } from "./abi.mjs";
 // side-module contract once, as the supervisor fetches the process Worker:
 // starting a program makes no request.
 export function worker({ get, abi, applicationBase }) {
-  let url;
   return {
     async start() {
       const [contract, bundle] = await Promise.all(["dolly-dso-0.wasm", "dolly-process-dso.mjs"].map(async name => {
@@ -16,11 +15,10 @@ export function worker({ get, abi, applicationBase }) {
         if (!response.ok) throw new Error(`Dolly ${name} returned HTTP ${response.status}`);
         return response.arrayBuffer();
       }));
-      url = URL.createObjectURL(new Blob([bundle], { type: "text/javascript" }));
       // abi is the live set of modules the image admits; a loaded library's
       // own records are checked against it.
-      get("runtime").serveInProcess("dso@0", { url, configuration: { contract: parseWasmInterface(contract, "dolly-dso-0"), hostAbi: abi } });
+      get("runtime").serveInProcess("dso@0", { bundle: new Blob([bundle], { type: "text/javascript" }),
+        configuration: { contract: parseWasmInterface(contract, "dolly-dso-0"), hostAbi: abi } });
     },
-    dispose() { if (url) URL.revokeObjectURL(url); },
   };
 }
