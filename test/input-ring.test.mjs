@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { execFile } from "node:child_process";
-import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { promisify } from "node:util";
@@ -70,11 +70,26 @@ test("a wheel delta keeps its unit; a paste goes to the buffer or, under a lease
   assert.equal(records(transport).at(-1).text.toString(), "leased");
 });
 
-test("the terminal's own records are handled ahead of unread input, in order, across wrap and producer publication", async () => {
-  const input = resolve(import.meta.dirname, "../host/input");
+// Compiles source with the input kernel's files natively and runs it. The
+// kernel's one Emscripten call, the notify of its flags, is the probe's to define.
+async function probe(source, ...files) {
+  const input = resolve(import.meta.dirname, "../host/input"), run = promisify(execFile);
   const scratch = await mkdtemp(join(tmpdir(), "dolly-input-ring-"));
   try {
-    await writeFile(join(scratch, "probe.c"), `
+    await mkdir(join(scratch, "emscripten"));
+    await writeFile(join(scratch, "emscripten/atomic.h"),
+      "#define EMSCRIPTEN_NOTIFY_ALL_WAITERS (-1)\nlong long emscripten_atomic_notify(void *address, long long count);\n");
+    await writeFile(join(scratch, "probe.c"), source);
+    await run("cc", ["-std=c11", "-I", await stagedIncludeDirectory(), "-I", input, "-I", resolve(input, "../../src"),
+      "-I", scratch, join(scratch, "probe.c"), ...files.map(file => join(input, file)), "-o", join(scratch, "probe")]);
+    await run(join(scratch, "probe"), []);
+  } finally {
+    await rm(scratch, { recursive: true, force: true });
+  }
+}
+
+test("the terminal's own records are handled ahead of unread input, in order, across wrap and producer publication", async () => {
+  await probe(`
 #include "ring.h"
 #include <assert.h>
 #include <errno.h>
@@ -159,12 +174,119 @@ int main(void) {
   assert(dolly_input_ring_service(&ring) == -EPROTO);
   return 0;
 }
-`);
-    const run = promisify(execFile);
-    await run("cc", ["-std=c11", "-I", await stagedIncludeDirectory(), "-I", input, join(scratch, "probe.c"),
-      join(input, "ring.c"), "-o", join(scratch, "probe")]);
-    await run(join(scratch, "probe"), []);
-  } finally {
-    await rm(scratch, { recursive: true, force: true });
-  }
+`, "ring.c");
+});
+
+test("the terminal reads its replies, then records; a lease takes the ring and its end drops what was unread", async () => {
+  await probe(`
+#include "process-kernel.h"
+#include <dolly/input.h>
+#include <assert.h>
+#include <errno.h>
+#include <string.h>
+extern const dolly_kernel_module dolly_input_kernel;
+uintptr_t dolly_input_mailbox_address(void);
+uintptr_t dolly_input_paste_buffer_address(void);
+// The process kernel and the display, as this module sees them: pid 100 owns
+// the terminal, 101 is its child; the terminal owes its program replies.
+int dolly_kernel_foreground(void) { return 100; }
+int dolly_process_descends_from(int pid, int ancestor) { return pid == ancestor || pid == ancestor + 1; }
+int dolly_kernel_deadline_pending(uint64_t deadline) { return deadline != 0; }
+static char replies[8];
+static size_t reply_length;
+size_t dolly_kernel_terminal_replies(unsigned char *output, size_t capacity) {
+  const size_t length = reply_length < capacity ? reply_length : capacity;
+  memcpy(output, replies, length);
+  reply_length -= length;
+  return length;
+}
+static unsigned notified;
+long long emscripten_atomic_notify(void *address, long long count) { ++notified; return 0; }
+// A decoder whose key records are their action byte and which counts pointer records.
+static unsigned pointers;
+static int record(const dolly_input_event *event, unsigned char *output, size_t capacity, size_t *length) {
+  *length = 0;
+  if (event->type == DOLLY_INPUT_EVENT_POINTER) ++pointers;
+  if (event->type == DOLLY_INPUT_EVENT_KEY) output[(*length)++] = (unsigned char)event->action;
+  return 0;
+}
+static int paste(const unsigned char *bytes, size_t size, unsigned char *output, size_t capacity, size_t *length) {
+  memcpy(output, bytes, *length = size);
+  return 0;
+}
+static const dolly_input_decoder decoder = {record, paste};
+static dolly_input_mailbox *mailbox;
+static void push(uint32_t type, uint32_t action) {
+  mailbox->events[mailbox->event_write++ & 255] = (dolly_input_event){.type = type, .action = action};
+}
+static unsigned unread(void) { return mailbox->event_write - mailbox->event_read; }
+static unsigned char box[256];
+static int64_t call(int pid, uint32_t operation, const void *request, size_t size, size_t capacity) {
+  memcpy(box, request, size);
+  return dolly_input_kernel.call(pid, 0, operation, box, size, capacity);
+}
+int main(void) {
+  mailbox = (dolly_input_mailbox *)dolly_input_mailbox_address();
+  // Without a decoder the terminal reads no key and the record waits.
+  push(DOLLY_INPUT_EVENT_KEY, 'a');
+  assert(dolly_kernel_terminal_read() == -1 && unread() == 1);
+  assert(dolly_input_decoder_install(&decoder) == 0 && dolly_input_decoder_install(&decoder) == -EBUSY);
+  memcpy(replies, "R", reply_length = 1);
+  assert(dolly_kernel_terminal_ready() && dolly_kernel_terminal_read() == 'R');
+  assert(dolly_kernel_terminal_read() == 'a' && dolly_kernel_terminal_read() == -1);
+  // A paste is read from its buffer and acknowledged.
+  memcpy((void *)dolly_input_paste_buffer_address(), "pq", mailbox->paste_length = 2);
+  mailbox->paste_sequence = 1;
+  push(DOLLY_INPUT_EVENT_PASTE, 0);
+  assert(dolly_kernel_terminal_read() == 'p' && dolly_kernel_terminal_read() == 'q' && mailbox->paste_consumed_sequence == 1);
+
+  dolly_input_generation lease = {0};
+  assert(call(100, DOLLY_INPUT_ACQUIRE, NULL, 0, sizeof(lease)) == -ENOSYS);
+  mailbox->enabled = 1;
+  assert(call(7, DOLLY_INPUT_ACQUIRE, NULL, 0, sizeof(lease)) == -EPERM);
+  assert(call(101, DOLLY_INPUT_ACQUIRE, NULL, 0, sizeof(lease)) == sizeof(lease));
+  memcpy(&lease, box, sizeof(lease));
+  assert(lease.generation != 0 && mailbox->flags == DOLLY_INPUT_LEASED && notified == 1);
+  assert(call(100, DOLLY_INPUT_ACQUIRE, NULL, 0, sizeof(lease)) == -EBUSY);
+  // The lessee reads the records; the terminal reads only its own replies.
+  push(DOLLY_INPUT_EVENT_KEY, 'b');
+  assert(dolly_kernel_terminal_read() == -1 && dolly_kernel_terminal_input_service() == 0 && unread() == 1);
+  memcpy(replies, "R", reply_length = 1);
+  assert(dolly_kernel_terminal_read() == 'R');
+  dolly_input_event_request next = {lease.generation, 0};
+  dolly_input_event_response got;
+  assert(call(100, DOLLY_INPUT_NEXT_EVENT, &next, sizeof(next), sizeof(got)) == -EPERM);
+  assert(call(101, DOLLY_INPUT_NEXT_EVENT, &next, sizeof(next), sizeof(got)) == sizeof(got));
+  memcpy(&got, box, sizeof(got));
+  assert(got.result == 1 && got.event.type == DOLLY_INPUT_EVENT_KEY && got.event.action == 'b');
+  assert(call(101, DOLLY_INPUT_NEXT_EVENT, &next, sizeof(next), sizeof(got)) == sizeof(got));
+  memcpy(&got, box, sizeof(got));
+  assert(got.result == 0);
+  next.deadline_nanoseconds = 1;
+  assert(call(101, DOLLY_INPUT_NEXT_EVENT, &next, sizeof(next), sizeof(got)) == DOLLY_PROCESS_DISPATCH_DEFERRED);
+  next.generation += 1;
+  assert(call(101, DOLLY_INPUT_NEXT_EVENT, &next, sizeof(next), sizeof(got)) == -ESTALE);
+  dolly_input_pointer_request pointer = {lease.generation, 1, 0};
+  assert(call(101, DOLLY_INPUT_SET_POINTER, &pointer, sizeof(pointer), 0) == 0);
+  assert(mailbox->flags == (DOLLY_INPUT_LEASED | DOLLY_INPUT_POINTER_RELATIVE));
+  pointer.relative = 2;
+  assert(call(101, DOLLY_INPUT_SET_POINTER, &pointer, sizeof(pointer), 0) == -EINVAL);
+  // Its exit ends the lease: what it had not read was its own, the pointer too.
+  push(DOLLY_INPUT_EVENT_KEY, 'c');
+  push(DOLLY_INPUT_EVENT_POINTER, 0);
+  mailbox->paste_sequence = 2;
+  dolly_input_kernel.release(101, 1);
+  assert(mailbox->flags != 0 && unread() == 2);
+  dolly_input_kernel.release(101, 0);
+  assert(mailbox->flags == 0 && unread() == 0 && pointers == 0 && mailbox->paste_consumed_sequence == 2);
+  assert(call(101, DOLLY_INPUT_RELEASE, &lease, sizeof(lease), 0) == -ESTALE);
+  // A foreground program that retires without a lease loses its unread keys;
+  // the terminal keeps its pointer records.
+  push(DOLLY_INPUT_EVENT_KEY, 'd');
+  push(DOLLY_INPUT_EVENT_POINTER, 0);
+  dolly_terminal_discard_pending_input();
+  assert(unread() == 0 && pointers == 1 && dolly_kernel_terminal_read() == -1);
+  return 0;
+}
+`, "kernel.c", "ring.c");
 });

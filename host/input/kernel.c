@@ -4,7 +4,6 @@
 #include "ring.h"
 
 #include <dolly/input.h>
-#include <dolly/process.h>
 #include <emscripten/atomic.h>
 #include <errno.h>
 #include <stdatomic.h>
