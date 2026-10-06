@@ -40,6 +40,11 @@ libc's `execve` family calls it. There is still no `fork`.
   (`abi/dolly-supervisor-0.wat`) or reuses the start and retire edges. No new
   browser authority is expected; confirm it.
 - Slop's `exec PROGRAM` and `exec` with only redirections.
+- A subshell is not a process in Slop, so `( ... && exec prog )` (it is in
+  `install-sh`) cannot be served by replacing the process: inside a subshell
+  `exec PROGRAM` has to run the program and end the subshell with its status.
+  The uses seen in real scripts are listed in
+  `20261006-121403-configure-survey` (branch `core/concurrent-pipelines`).
 
 ## Tests that decide it
 
