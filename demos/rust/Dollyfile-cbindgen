@@ -13,7 +13,7 @@ REQUIRES TOOL rm
 
 # The tool SpiderMonkey's configure requires. The archive holds cbindgen's
 # source at its pinned tag and checksum-verified locked crate archives.
-SOURCE https://daugasauron.com/dist/static/rust/cbindgen.tar c8a14eca4b0f44171a5a66d95ebdac9001c889d7df1fce17663ffad074861910 /tmp/cbindgen.tar
+SOURCE https://daugasauron.com/dist/static/rust/cbindgen.tar bbecf1fc3acff2829b92c66a7179ce518e967d15aae4060c0715233aa792deef /tmp/cbindgen.tar
 SLOP tar -xf /tmp/cbindgen.tar -C /
 SLOP patti build -j 4 --offline --manifest-path /tmp/cbindgen/source/Cargo.toml --bin cbindgen --patch libc=/opt/rust-sdk/src/libc --cache /tmp/cbindgen/cache --target-dir /tmp/cbindgen/build
 SLOP cp /tmp/cbindgen/build/cbindgen /usr/bin/cbindgen

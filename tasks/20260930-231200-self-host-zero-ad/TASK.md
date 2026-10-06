@@ -320,3 +320,41 @@ Gaps, by kind:
   from `cbindgen.tar` staged by `prepare-rust-sources.py` (tag 0.26.0, 44
   locked crates, 12.5 MB), the SDK's `libc` as `--patch`; row in
   `config/upstreams.json`. Untested until the image builds.
+
+### Session 1 (headless Chrome, `default` + `amy install python rust curl`, 07:58-08:10)
+
+The `cargo` image could not be rebuilt under the 6 GB build cap (two OOM
+kills in its last crate, 07:34 at 5.95 GB RSS and 07:45 at the cap; its pin
+had moved with the Rust linker adapter), so the session is `default` with
+the packages amy installs; the integrator opened a 9 GB `bigbuild` slot for
+`cargo` once release packaging is done (about 08:20). Driver:
+`build/spidermonkey-evidence/drive.mjs` (control port 38811); the scope's
+memory sampled every 2 s into `memory-4.log`; stage logs `stage-*.log`.
+
+- Staging: the tree must be packed by `scripts/build-source-tar.mjs`.
+  GNU tar's default format writes `././@LongLink` entries, which Dolly's
+  `tar` rejects ("validate path ... errno 138"); the script's archive paths
+  are limited to 255 bytes anyway (longest here: 149). 537 MB, 29,594 files,
+  packed in 1.5 s on the host, unpacked in 34 s in the session, 2.7 GB of
+  scope memory afterwards. Every file gets the archive's fixed mtime, so
+  `old-configure` is as new as `old-configure.in` and mozbuild does not
+  refresh it (the m4 question is moot for a staged tree).
+- `patch` is not in `default`, `posix` or `rust` (it comes with
+  `system-tools` and `git`); the preparation patch was applied on the host
+  before packing for this session; `zero-ad-deps`'s base has it.
+- pkgconf from the deps sources, one `cc` line, 2 s; `zlib.pc` written;
+  `pkg-config --modversion zlib` answers 1.3.2.
+- configure (`stage-2-configure-1.full.log`, 3.2 s): mach's state directory
+  and virtualenv created; "checking for a shell... /bin/sh" (Slop);
+  `config.sub` under Slop canonicalises `wasm64-unknown-wasi` for host and
+  target (the Wasm-host edit works); `rustc` found, version 1.98.1;
+  "checking for cargo... not found" and then the bootstrap fallback for a
+  missing tool imports `mozboot.util`, whose module-level `import ssl` has
+  no `_ssl` in Dolly's CPython (TLS stays in the browser), so the traceback
+  hides mozbuild's own "Cannot find cargo" message. Not a blocker once
+  cargo is present; worth one lazy-import line if it ever is.
+- cbindgen 0.26.0 by Patti from the staged archive, `-j 4`: 171 s, scope
+  peak 3.93 GB, `cbindgen --version` prints 0.26.0. Patti first refused the
+  libc override ("manifest/lock mismatch") because cbindgen's lock pins
+  libc 0.2.144 while the SDK's crate is 0.2.186; the staging script now
+  rewrites that lock line for cbindgen as it does for ripgrep and fd.
