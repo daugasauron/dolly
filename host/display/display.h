@@ -22,56 +22,7 @@ typedef enum {
   DOLLY_DISPLAY_CURSOR_CROSSHAIR = 2,
   DOLLY_DISPLAY_CURSOR_POINTER = 3,
   DOLLY_DISPLAY_CURSOR_HIDDEN = 4,
-  // Request relative mouse input. The host may capture only after a user click;
-  // Escape releases capture. POINTER_CAPTURE reports actual acquisition/loss.
-  DOLLY_DISPLAY_CURSOR_CAPTURED = 5,
 } dolly_display_cursor;
-
-typedef enum {
-  DOLLY_INPUT_EVENT_KEY = 1,
-  DOLLY_INPUT_EVENT_TEXT = 2,
-  DOLLY_INPUT_EVENT_RESIZE = 3,
-  DOLLY_INPUT_EVENT_FOCUS = 4,
-  DOLLY_INPUT_EVENT_PASTE = 5,
-  DOLLY_INPUT_EVENT_POINTER = 6,
-  // action is a signed, two's-complement delta in thousandths of a terminal
-  // row. Negative scrolls toward older output and positive toward the active
-  // screen. The browser forwards intent; the in-Wasm display driver owns the
-  // viewport and all scrollback state.
-  DOLLY_INPUT_EVENT_SCROLL = 7,
-  // width_css_px/height_css_px contain signed int32 deltas in thousandths of
-  // a CSS pixel, independent of framebuffer resolution and device scale.
-  DOLLY_INPUT_EVENT_POINTER_MOTION = 8,
-  // action is 1 while captured, 0 after capture is lost.
-  DOLLY_INPUT_EVENT_POINTER_CAPTURE = 9,
-  // action is 1 while the pointer is over the surface, 0 after it leaves.
-  DOLLY_INPUT_EVENT_POINTER_PRESENCE = 10,
-} dolly_input_event_type;
-
-typedef enum {
-  DOLLY_POINTER_ACTION_RELEASE = 0,
-  DOLLY_POINTER_ACTION_PRESS = 1,
-  DOLLY_POINTER_ACTION_DRAG = 2,
-} dolly_pointer_action;
-
-typedef enum {
-  DOLLY_KEY_ACTION_RELEASE = 0,
-  DOLLY_KEY_ACTION_PRESS = 1,
-  DOLLY_KEY_ACTION_REPEAT = 2,
-} dolly_key_action;
-
-enum {
-  DOLLY_INPUT_MOD_SHIFT = 1u << 0,
-  DOLLY_INPUT_MOD_CONTROL = 1u << 1,
-  DOLLY_INPUT_MOD_ALT = 1u << 2,
-  DOLLY_INPUT_MOD_META = 1u << 3,
-  DOLLY_INPUT_MOD_CAPS_LOCK = 1u << 4,
-  DOLLY_INPUT_MOD_NUM_LOCK = 1u << 5,
-};
-
-enum {
-  DOLLY_INPUT_FLAG_COMPOSING = 1u << 0,
-};
 
 enum {
   DOLLY_DISPLAY_COPY_AVAILABLE = 1u << 0,
@@ -85,40 +36,10 @@ enum {
   DOLLY_DISPLAY_GRAPHICS_ACTIVE = 1u << 0,
 };
 
-// Browser input is deliberately semantic-but-unencoded. The browser copies
-// KeyboardEvent strings and modifier state into this fixed record; Ghostty
-// inside Dolly decides which bytes, if any, reach the foreground program.
+// Every field is a little-endian atomic u32. Frame pixels live in two
+// separately allocated, fixed-address buffers returned by the runtime
+// exports; frame_index selects the complete buffer.
 typedef struct {
-  uint32_t type;
-  uint32_t action;
-  uint32_t modifiers;
-  uint32_t flags;
-  uint32_t width_css_px;
-  uint32_t height_css_px;
-  uint32_t device_scale_milli;
-  uint32_t font_size_milli;
-  uint16_t key_length;
-  uint16_t code_length;
-  uint16_t text_length;
-  uint16_t reserved;
-  unsigned char data[DOLLY_DISPLAY_EVENT_DATA_SIZE];
-} dolly_input_event;
-
-#ifdef __cplusplus
-static_assert(sizeof(dolly_input_event) == DOLLY_DISPLAY_EVENT_SIZE,
-              "display event layout changed");
-#else
-_Static_assert(sizeof(dolly_input_event) == DOLLY_DISPLAY_EVENT_SIZE,
-               "display event layout changed");
-#endif
-
-// All fields before events are little-endian atomic u32 values. The browser
-// is the single event producer and Dolly is the single consumer. Frame pixels
-// live in two separately allocated, fixed-address buffers returned by the
-// runtime exports; frame_index selects the complete buffer.
-typedef struct {
-  _Atomic uint32_t event_read;
-  _Atomic uint32_t event_write;
   _Atomic uint32_t flags;
   _Atomic uint32_t frame_sequence;
   _Atomic uint32_t frame_index;
@@ -128,12 +49,6 @@ typedef struct {
   _Atomic uint32_t terminal_cols;
   _Atomic uint32_t terminal_rows;
   _Atomic uint32_t font_size_milli;
-  // The browser writes paste bytes, then publishes length and sequence. Dolly
-  // acknowledges the exact sequence only after the resident terminal driver
-  // has consumed it. At most one paste can therefore be in flight.
-  _Atomic uint32_t paste_sequence;
-  _Atomic uint32_t paste_consumed_sequence;
-  _Atomic uint32_t paste_length;
   // Dolly writes selection text, then publishes length, flags, and sequence.
   // The browser snapshots it around copy_sequence to avoid torn reads.
   _Atomic uint32_t copy_sequence;
@@ -145,20 +60,26 @@ typedef struct {
   _Atomic uint32_t cell_height;
   _Atomic uint32_t padding_x;
   _Atomic uint32_t padding_y;
-  // The browser increments this once per animation frame while a graphics
-  // lease is active. Dolly owns waiting and interruption semantics.
-  _Atomic uint32_t animation_frame_sequence;
   // A closed semantic enum written by Dolly and mapped to CSS by the trusted
   // presenter. Commands never supply a browser string or DOM handle.
   _Atomic uint32_t cursor_style;
-  dolly_input_event events[DOLLY_DISPLAY_EVENT_CAPACITY];
+  // The browser increments this once per animation frame while a graphics
+  // lease is active. Dolly owns waiting and interruption semantics.
+  _Atomic uint32_t animation_frame_sequence;
+  // The browser writes the surface it shows frames on (CSS pixels and the
+  // device scale in thousandths) between two steps of the sequence, which is
+  // odd while they change.
+  _Atomic uint32_t surface_sequence;
+  _Atomic uint32_t surface_width;
+  _Atomic uint32_t surface_height;
+  _Atomic uint32_t surface_scale_milli;
 } dolly_display_mailbox;
 
 #ifdef __cplusplus
-static_assert(offsetof(dolly_display_mailbox, events) == DOLLY_DISPLAY_HEADER_SIZE,
+static_assert(sizeof(dolly_display_mailbox) == DOLLY_DISPLAY_MAILBOX_SIZE,
               "display mailbox layout changed");
 #else
-_Static_assert(offsetof(dolly_display_mailbox, events) == DOLLY_DISPLAY_HEADER_SIZE,
+_Static_assert(sizeof(dolly_display_mailbox) == DOLLY_DISPLAY_MAILBOX_SIZE,
                "display mailbox layout changed");
 #endif
 
@@ -189,9 +110,8 @@ typedef struct {
   uint32_t pixel_format;
 } dolly_display_frame;
 
-// Only the active foreground command may hold a lease. All operations return
-// zero on success except next_event, which returns one event, zero on timeout,
-// or a negative errno value. A negative timeout waits indefinitely.
+// Only the active foreground command may hold a lease. Operations return zero
+// on success or a negative errno value.
 int dolly_display_acquire(dolly_display_surface *surface);
 // Select logical framebuffer dimensions for this lease. The browser scales
 // the complete RGBA frame to the canvas; no browser object or capability is
@@ -201,12 +121,11 @@ int dolly_display_set_size(uint64_t generation, uint32_t width,
 int dolly_display_begin_frame(uint64_t generation, dolly_display_frame *frame);
 int dolly_display_present(uint64_t generation, uint32_t buffer_index);
 // sequence is both the last observed animation frame and the newly observed
-// value. Returns one for a new frame, zero on timeout, or a negative errno.
+// value. Returns one for a new frame, zero on timeout, or a negative errno. A
+// negative timeout waits indefinitely.
 int dolly_display_wait_frame(uint64_t generation, uint32_t *sequence,
                              double timeout_milliseconds);
 int dolly_display_set_cursor(uint64_t generation, uint32_t cursor);
-int dolly_display_next_event(uint64_t generation, dolly_input_event *event,
-                             double timeout_milliseconds);
 int dolly_display_release(uint64_t generation);
 
 // Process packets of the DOLLY_DISPLAY_* operations. A process never receives
@@ -270,17 +189,6 @@ typedef struct {
   uint32_t reserved;
 } dolly_display_cursor_request;
 
-typedef struct {
-  uint64_t generation;
-  uint64_t deadline_nanoseconds;
-} dolly_display_event_request;
-
-typedef struct {
-  int32_t result;
-  uint32_t reserved;
-  dolly_input_event event;
-} dolly_display_event_response;
-
 #ifdef __cplusplus
 #define DOLLY_DISPLAY_LAYOUT(type, size) static_assert(sizeof(type) == size, #type)
 #else
@@ -294,8 +202,6 @@ DOLLY_DISPLAY_LAYOUT(dolly_display_present_request, 16);
 DOLLY_DISPLAY_LAYOUT(dolly_display_wait_request, 24);
 DOLLY_DISPLAY_LAYOUT(dolly_display_wait_response, 8);
 DOLLY_DISPLAY_LAYOUT(dolly_display_cursor_request, 16);
-DOLLY_DISPLAY_LAYOUT(dolly_display_event_request, 16);
-DOLLY_DISPLAY_LAYOUT(dolly_display_event_response, 136);
 #undef DOLLY_DISPLAY_LAYOUT
 
 // A display driver is a resident shared library, not an executable. DISPLAY
@@ -308,20 +214,22 @@ typedef struct {
                     unsigned char *frame_a,
                     unsigned char *frame_b,
                     size_t frame_capacity,
-                    unsigned char *paste_buffer,
                     unsigned char *copy_buffer,
-                    size_t clipboard_capacity);
+                    size_t copy_capacity);
+  // Terminal output. What the terminal answers its program (a cursor report)
+  // waits for read, which copies at most capacity bytes and returns their count.
   void (*write)(const unsigned char *bytes, size_t length);
-  int (*handle_event)(const dolly_input_event *event,
-                      unsigned char *output,
-                      size_t output_capacity,
-                      size_t *output_length);
+  size_t (*read)(unsigned char *output, size_t capacity);
+  // The surface the page shows: CSS pixels and the device scale in thousandths.
+  int (*resize)(uint32_t width, uint32_t height, uint32_t scale_milli);
+  // Publishes at most one dirty frame.
+  void (*present)(void);
   // Pausing preserves terminal parser/grid state while suppressing frame
   // publication. Resuming immediately publishes a complete terminal frame.
   void (*set_suspended)(int suspended);
-} dolly_display_driver_v4;
+} dolly_display_driver_v5;
 
-typedef const dolly_display_driver_v4 *(*dolly_display_driver_getter_v4)(void);
+typedef const dolly_display_driver_v5 *(*dolly_display_driver_getter_v5)(void);
 
 #ifdef __cplusplus
 }

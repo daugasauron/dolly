@@ -2,7 +2,6 @@
 // library, and the framebuffer lease that a foreground graphics program takes
 // over from it.
 #include "fs-record.h"
-#include "input-ring.h"
 #include "process-kernel.h"
 
 #include <dolly/display.h>
@@ -17,8 +16,6 @@
 #include <string.h>
 
 _Static_assert(
-    offsetof(dolly_display_mailbox, event_read) == 4 * DOLLY_DISPLAY_WORD_EVENT_READ &&
-    offsetof(dolly_display_mailbox, event_write) == 4 * DOLLY_DISPLAY_WORD_EVENT_WRITE &&
     offsetof(dolly_display_mailbox, flags) == 4 * DOLLY_DISPLAY_WORD_FLAGS &&
     offsetof(dolly_display_mailbox, frame_sequence) == 4 * DOLLY_DISPLAY_WORD_FRAME_SEQUENCE &&
     offsetof(dolly_display_mailbox, frame_index) == 4 * DOLLY_DISPLAY_WORD_FRAME_INDEX &&
@@ -28,9 +25,6 @@ _Static_assert(
     offsetof(dolly_display_mailbox, terminal_cols) == 4 * DOLLY_DISPLAY_WORD_TERMINAL_COLS &&
     offsetof(dolly_display_mailbox, terminal_rows) == 4 * DOLLY_DISPLAY_WORD_TERMINAL_ROWS &&
     offsetof(dolly_display_mailbox, font_size_milli) == 4 * DOLLY_DISPLAY_WORD_FONT_SIZE_MILLI &&
-    offsetof(dolly_display_mailbox, paste_sequence) == 4 * DOLLY_DISPLAY_WORD_PASTE_SEQUENCE &&
-    offsetof(dolly_display_mailbox, paste_consumed_sequence) == 4 * DOLLY_DISPLAY_WORD_PASTE_CONSUMED_SEQUENCE &&
-    offsetof(dolly_display_mailbox, paste_length) == 4 * DOLLY_DISPLAY_WORD_PASTE_LENGTH &&
     offsetof(dolly_display_mailbox, copy_sequence) == 4 * DOLLY_DISPLAY_WORD_COPY_SEQUENCE &&
     offsetof(dolly_display_mailbox, copy_length) == 4 * DOLLY_DISPLAY_WORD_COPY_LENGTH &&
     offsetof(dolly_display_mailbox, copy_flags) == 4 * DOLLY_DISPLAY_WORD_COPY_FLAGS &&
@@ -40,19 +34,21 @@ _Static_assert(
     offsetof(dolly_display_mailbox, cell_height) == 4 * DOLLY_DISPLAY_WORD_CELL_HEIGHT &&
     offsetof(dolly_display_mailbox, padding_x) == 4 * DOLLY_DISPLAY_WORD_PADDING_X &&
     offsetof(dolly_display_mailbox, padding_y) == 4 * DOLLY_DISPLAY_WORD_PADDING_Y &&
+    offsetof(dolly_display_mailbox, cursor_style) == 4 * DOLLY_DISPLAY_WORD_CURSOR_STYLE &&
     offsetof(dolly_display_mailbox, animation_frame_sequence) == 4 * DOLLY_DISPLAY_WORD_ANIMATION_FRAME_SEQUENCE &&
-    offsetof(dolly_display_mailbox, cursor_style) == 4 * DOLLY_DISPLAY_WORD_CURSOR_STYLE,
+    offsetof(dolly_display_mailbox, surface_sequence) == 4 * DOLLY_DISPLAY_WORD_SURFACE_SEQUENCE &&
+    offsetof(dolly_display_mailbox, surface_width) == 4 * DOLLY_DISPLAY_WORD_SURFACE_WIDTH &&
+    offsetof(dolly_display_mailbox, surface_height) == 4 * DOLLY_DISPLAY_WORD_SURFACE_HEIGHT &&
+    offsetof(dolly_display_mailbox, surface_scale_milli) == 4 * DOLLY_DISPLAY_WORD_SURFACE_SCALE_MILLI,
     "display mailbox words differ from dolly-display-0.wat");
 
 _Alignas(64) static dolly_display_mailbox display_mailbox;
-static dolly_input_ring terminal_input = {&display_mailbox, NULL, dolly_kernel_terminal_resized};
+static const dolly_display_driver_v5 *driver;
 static unsigned char *display_module_bytes;
 static uintptr_t display_module_length;
 static unsigned char *display_frames[DOLLY_DISPLAY_FRAME_COUNT];
 _Alignas(64) static unsigned char
-    display_paste_buffer[DOLLY_DISPLAY_CLIPBOARD_CAPACITY];
-_Alignas(64) static unsigned char
-    display_copy_buffer[DOLLY_DISPLAY_CLIPBOARD_CAPACITY];
+    display_copy_buffer[DOLLY_DISPLAY_COPY_CAPACITY];
 static const size_t display_frame_capacity =
     (size_t)DOLLY_DISPLAY_MAX_WIDTH * DOLLY_DISPLAY_MAX_HEIGHT * 4;
 
@@ -70,9 +66,10 @@ typedef struct {
 static dolly_display_lease display_lease;
 static uint64_t next_display_generation = 1;
 
-static unsigned char encoded_input[256];
-static size_t encoded_input_length;
-static size_t encoded_input_cursor;
+// The surface sequence the driver was last resized for, and the terminal grid
+// its programs were last told of.
+static uint32_t applied_surface;
+static uint32_t notified_cols, notified_rows;
 
 static int validate_display_lease(int owner_pid, uint64_t generation) {
   if (generation == 0 || display_lease.generation != generation) {
@@ -84,30 +81,12 @@ static int validate_display_lease(int owner_pid, uint64_t generation) {
   return 0;
 }
 
-// An application may return immediately on a key-down event while the
-// matching key-up record is already queued. That record belongs to the old
-// foreground command or display owner and must not become input to its
-// successor.
-static void discard_pending_input(int terminal_ui) {
-  dolly_input_ring_discard(&terminal_input, terminal_ui);
-  const uint32_t paste_sequence = atomic_load_explicit(
-      &display_mailbox.paste_sequence, memory_order_acquire);
-  atomic_store_explicit(&display_mailbox.paste_consumed_sequence,
-                        paste_sequence, memory_order_release);
-  encoded_input_cursor = 0;
-  encoded_input_length = 0;
-}
-
 static void release_display_lease_for_pid(int owner_pid) {
   if (display_lease.generation == 0 || display_lease.owner_pid != owner_pid) {
     return;
   }
   memset(&display_lease, 0, sizeof(display_lease));
-  // Events published while the graphics owner was active belong to that
-  // ownership epoch and must not leak into the restored shell: its pointer
-  // and scroll records are not the terminal's.
-  discard_pending_input(0);
-  if (terminal_input.driver != NULL) terminal_input.driver->set_suspended(0);
+  if (driver != NULL) driver->set_suspended(0);
   atomic_store_explicit(&display_mailbox.cursor_style,
                         DOLLY_DISPLAY_CURSOR_TEXT, memory_order_release);
   atomic_fetch_and_explicit(&display_mailbox.flags,
@@ -124,93 +103,30 @@ uintptr_t dolly_display_framebuffer_address(uint32_t index) {
       ? (uintptr_t)display_frames[index] : 0;
 }
 
-uintptr_t dolly_display_paste_buffer_address(void) {
-  return (uintptr_t)display_paste_buffer;
-}
-
 uintptr_t dolly_display_copy_buffer_address(void) {
   return (uintptr_t)display_copy_buffer;
 }
 
-// Buffers decoded terminal input bytes; returns 1 when some are ready and -1
-// otherwise. The kernel thread never waits for input.
-static int fill_terminal_input(void) {
-  for (;;) {
-    // A graphics owner consumes semantic records through
-    // dolly_display_next_event. No terminal reader may race it for the shared
-    // single-consumer event ring.
-    if (display_lease.generation != 0) return -1;
-    if (encoded_input_cursor < encoded_input_length) return 1;
-    encoded_input_cursor = 0;
-    encoded_input_length = 0;
-
-    if (terminal_input.driver != NULL &&
-        dolly_input_ring_handle(&terminal_input, NULL, encoded_input, sizeof(encoded_input),
-                              &encoded_input_length) == 0 &&
-        encoded_input_length != 0) continue;
-
-    uint32_t read = atomic_load_explicit(&display_mailbox.event_read,
-                                         memory_order_relaxed);
-    uint32_t write = atomic_load_explicit(&display_mailbox.event_write,
-                                          memory_order_acquire);
-    if (read == write) return -1;
-    dolly_input_event event =
-        display_mailbox.events[read & (DOLLY_DISPLAY_EVENT_CAPACITY - 1)];
-    atomic_store_explicit(&display_mailbox.event_read, read + 1,
-                          memory_order_release);
-    if (terminal_input.driver == NULL ||
-        dolly_input_ring_handle(&terminal_input, &event, encoded_input, sizeof(encoded_input),
-                              &encoded_input_length) != 0) {
-      encoded_input_length = 0;
-    }
-  }
+// Feeds the driver the surface the page last published. The sequence is odd
+// while the page writes; such a surface is applied on a later tick.
+static void apply_surface(void) {
+  const uint32_t sequence = atomic_load_explicit(&display_mailbox.surface_sequence, memory_order_acquire);
+  if (sequence == applied_surface || (sequence & 1u) != 0) return;
+  const uint32_t width = atomic_load_explicit(&display_mailbox.surface_width, memory_order_relaxed);
+  const uint32_t height = atomic_load_explicit(&display_mailbox.surface_height, memory_order_relaxed);
+  const uint32_t scale = atomic_load_explicit(&display_mailbox.surface_scale_milli, memory_order_relaxed);
+  if (sequence != atomic_load_explicit(&display_mailbox.surface_sequence, memory_order_acquire)) return;
+  applied_surface = sequence;
+  (void)driver->resize(width, height, scale);
 }
 
-int dolly_kernel_terminal_ready(void) {
-  return fill_terminal_input() > 0;
-}
-
-int dolly_kernel_terminal_read(void) {
-  if (fill_terminal_input() <= 0) return -1;
-  return encoded_input[encoded_input_cursor++];
-}
-
-static int update_suspended_terminal_layout(const dolly_input_event *event) {
-  if (terminal_input.driver == NULL || event->type != DOLLY_INPUT_EVENT_RESIZE) {
-    return 0;
-  }
-  unsigned char ignored[256];
-  size_t ignored_length = 0;
-  do {
-    if (dolly_input_ring_handle(&terminal_input, NULL, ignored, sizeof(ignored),
-                                     &ignored_length) != 0) {
-      return -EIO;
-    }
-  } while (ignored_length != 0);
-  if (dolly_input_ring_handle(&terminal_input, event, ignored, sizeof(ignored),
-                                   &ignored_length) != 0) {
-    return -EIO;
-  }
-  return 0;
-}
-
-static int consume_initial_display_resize(void) {
-  const uint32_t read = atomic_load_explicit(&display_mailbox.event_read,
-                                              memory_order_relaxed);
-  const uint32_t write = atomic_load_explicit(&display_mailbox.event_write,
-                                               memory_order_acquire);
-  if (read == write) return -EIO;
-  const dolly_input_event event =
-      display_mailbox.events[read & (DOLLY_DISPLAY_EVENT_CAPACITY - 1)];
-  const size_t data_length =
-      (size_t)event.key_length + event.code_length + event.text_length;
-  if (event.type != DOLLY_INPUT_EVENT_RESIZE ||
-      data_length > sizeof(event.data)) {
-    return -EPROTO;
-  }
-  atomic_store_explicit(&display_mailbox.event_read, read + 1,
-                        memory_order_release);
-  return update_suspended_terminal_layout(&event);
+// Tells the terminal's programs of a grid a new surface or font size made.
+static void notify_grid(void) {
+  const uint32_t cols = dolly_terminal_columns(), rows = dolly_terminal_rows();
+  if (cols == notified_cols && rows == notified_rows) return;
+  notified_cols = cols;
+  notified_rows = rows;
+  dolly_kernel_terminal_resized();
 }
 
 static int process_may_acquire_display(int pid) {
@@ -229,21 +145,31 @@ uint32_t dolly_terminal_rows(void) {
                               memory_order_acquire);
 }
 
-void dolly_terminal_discard_pending_input(void) {
-  discard_pending_input(display_lease.generation == 0);
-}
-
 int dolly_kernel_terminal_attached(void) {
-  return terminal_input.driver != NULL;
+  return driver != NULL;
 }
 
 void dolly_kernel_terminal_render(const unsigned char *bytes, size_t length) {
-  terminal_input.driver->write(bytes, length);
+  driver->write(bytes, length);
 }
 
+size_t dolly_kernel_terminal_replies(unsigned char *output, size_t capacity) {
+  return driver != NULL ? driver->read(output, capacity) : 0;
+}
+
+/*
+ * Terminal parsing and rasterization deliberately have different costs. A
+ * write updates the driver's in-Wasm terminal state immediately, while this
+ * bounded tick publishes at most one dirty framebuffer. A driver a graphics
+ * lease suspended keeps its layout current and publishes nothing.
+ */
 int dolly_terminal_present_pending(void) {
-  if (terminal_input.driver == NULL || display_lease.generation != 0) return 0;
-  return dolly_input_ring_service(&terminal_input);
+  if (driver == NULL) return 0;
+  apply_surface();
+  const int status = dolly_kernel_terminal_input_service();
+  driver->present();
+  notify_grid();
+  return status;
 }
 
 int dolly_display_prepare(void) {
@@ -277,11 +203,12 @@ uintptr_t dolly_display_module_size(void) {
   return display_module_length;
 }
 
-int dolly_display_install(const dolly_display_driver_v4 *candidate) {
-  if (terminal_input.driver != NULL || candidate == NULL || candidate->abi_version != 4 ||
+int dolly_display_install(const dolly_display_driver_v5 *candidate) {
+  if (driver != NULL || candidate == NULL || candidate->abi_version != 5 ||
       candidate->struct_size < sizeof(*candidate) ||
       candidate->initialize == NULL || candidate->write == NULL ||
-      candidate->handle_event == NULL || candidate->set_suspended == NULL) {
+      candidate->read == NULL || candidate->resize == NULL ||
+      candidate->present == NULL || candidate->set_suspended == NULL) {
     fputs("dolly: incompatible sandbox display driver\n", stderr);
     return 1;
   }
@@ -298,8 +225,8 @@ int dolly_display_install(const dolly_display_driver_v4 *candidate) {
 
   if (candidate->initialize(&display_mailbox, display_frames[0],
                             display_frames[1], display_frame_capacity,
-                            display_paste_buffer, display_copy_buffer,
-                            DOLLY_DISPLAY_CLIPBOARD_CAPACITY) != 0) {
+                            display_copy_buffer,
+                            DOLLY_DISPLAY_COPY_CAPACITY) != 0) {
     fputs("dolly: sandbox display initialization failed\n", stderr);
     return 1;
   }
@@ -307,7 +234,9 @@ int dolly_display_install(const dolly_display_driver_v4 *candidate) {
                         DOLLY_DISPLAY_CURSOR_TEXT, memory_order_release);
   puts("dolly: sandbox display ready");
   fflush(stdout);
-  terminal_input.driver = candidate;
+  driver = candidate;
+  notified_cols = dolly_terminal_columns();
+  notified_rows = dolly_terminal_rows();
   return 0;
 }
 
@@ -333,29 +262,21 @@ static int64_t display_acquire_packet(int pid, unsigned char *mailbox,
       response_capacity < sizeof(dolly_display_surface_response)) {
     return -EINVAL;
   }
-  if (terminal_input.driver == NULL || display_frames[0] == NULL ||
+  if (driver == NULL || display_frames[0] == NULL ||
       display_frames[1] == NULL) {
     return -ENODEV;
   }
   if (!process_may_acquire_display(pid)) return -EPERM;
   if (display_lease.generation != 0) return -EBUSY;
 
-  uint32_t width = atomic_load_explicit(&display_mailbox.frame_width,
-                                         memory_order_acquire);
-  uint32_t height = atomic_load_explicit(&display_mailbox.frame_height,
-                                          memory_order_relaxed);
-  uint32_t stride = atomic_load_explicit(&display_mailbox.frame_stride,
-                                          memory_order_relaxed);
-  if (width == 0 || height == 0 || stride != width * 4u) {
-    const int status = consume_initial_display_resize();
-    if (status != 0) return status;
-    width = atomic_load_explicit(&display_mailbox.frame_width,
-                                 memory_order_acquire);
-    height = atomic_load_explicit(&display_mailbox.frame_height,
-                                  memory_order_relaxed);
-    stride = atomic_load_explicit(&display_mailbox.frame_stride,
-                                  memory_order_relaxed);
-  }
+  // The lease starts at the size of the surface the page shows now.
+  apply_surface();
+  const uint32_t width = atomic_load_explicit(&display_mailbox.frame_width,
+                                               memory_order_acquire);
+  const uint32_t height = atomic_load_explicit(&display_mailbox.frame_height,
+                                                memory_order_relaxed);
+  const uint32_t stride = atomic_load_explicit(&display_mailbox.frame_stride,
+                                                memory_order_relaxed);
   if (width == 0 || height == 0 || stride != width * 4u ||
       (uint64_t)stride * height > display_frame_capacity) {
     return -EIO;
@@ -363,14 +284,12 @@ static int64_t display_acquire_packet(int pid, unsigned char *mailbox,
 
   uint64_t generation = next_display_generation++;
   if (generation == 0) generation = next_display_generation++;
-  terminal_input.driver->set_suspended(1);
+  driver->set_suspended(1);
   display_lease.generation = generation;
   display_lease.owner_pid = pid;
   display_lease.width = width;
   display_lease.height = height;
   display_lease.stride = stride;
-  encoded_input_cursor = 0;
-  encoded_input_length = 0;
   atomic_store_explicit(&display_mailbox.copy_length, 0, memory_order_relaxed);
   atomic_store_explicit(&display_mailbox.copy_flags, 0, memory_order_relaxed);
   atomic_fetch_add_explicit(&display_mailbox.copy_sequence, 1,
@@ -534,46 +453,10 @@ static int64_t display_set_cursor_packet(int pid, unsigned char *mailbox,
   if (request.reserved != 0) return -EINVAL;
   const int status = validate_display_lease(pid, request.generation);
   if (status != 0) return status;
-  if (request.cursor > DOLLY_DISPLAY_CURSOR_CAPTURED) return -EINVAL;
+  if (request.cursor > DOLLY_DISPLAY_CURSOR_HIDDEN) return -EINVAL;
   atomic_store_explicit(&display_mailbox.cursor_style, request.cursor,
                         memory_order_release);
   return 0;
-}
-
-static int64_t display_next_event_packet(int pid, unsigned char *mailbox,
-                                         uintptr_t request_size,
-                                         uintptr_t response_capacity) {
-  if (request_size != sizeof(dolly_display_event_request) ||
-      response_capacity < sizeof(dolly_display_event_response)) {
-    return -EINVAL;
-  }
-  dolly_display_event_request request;
-  memcpy(&request, mailbox, sizeof(request));
-  int status = validate_display_lease(pid, request.generation);
-  if (status != 0) return status;
-  dolly_display_event_response response = {0};
-  const uint32_t read = atomic_load_explicit(&display_mailbox.event_read,
-                                              memory_order_relaxed);
-  const uint32_t write = atomic_load_explicit(&display_mailbox.event_write,
-                                               memory_order_acquire);
-  if (read == write) {
-    if (dolly_kernel_deadline_pending(request.deadline_nanoseconds)) {
-      return DOLLY_PROCESS_DISPATCH_DEFERRED;
-    }
-    return dolly_kernel_respond(mailbox, &response, sizeof(response));
-  }
-  const dolly_input_event event =
-      display_mailbox.events[read & (DOLLY_DISPLAY_EVENT_CAPACITY - 1)];
-  atomic_store_explicit(&display_mailbox.event_read, read + 1,
-                        memory_order_release);
-  const size_t data_length = (size_t)event.key_length +
-                             event.code_length + event.text_length;
-  if (data_length > sizeof(event.data)) return -EPROTO;
-  status = update_suspended_terminal_layout(&event);
-  if (status != 0) return status;
-  response.result = 1;
-  response.event = event;
-  return dolly_kernel_respond(mailbox, &response, sizeof(response));
 }
 
 static int64_t display_release_packet(int pid, unsigned char *mailbox,
@@ -606,8 +489,6 @@ static int64_t display_call(int pid, int tid, uint32_t operation, unsigned char 
       return display_wait_frame_packet(pid, mailbox, request_size, response_capacity);
     case DOLLY_DISPLAY_SET_CURSOR:
       return display_set_cursor_packet(pid, mailbox, request_size, response_capacity);
-    case DOLLY_DISPLAY_NEXT_EVENT:
-      return display_next_event_packet(pid, mailbox, request_size, response_capacity);
     case DOLLY_DISPLAY_RELEASE:
       return display_release_packet(pid, mailbox, request_size, response_capacity);
   }
