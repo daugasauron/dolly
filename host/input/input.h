@@ -104,6 +104,7 @@ typedef struct {
   _Atomic uint32_t paste_sequence;
   _Atomic uint32_t paste_consumed_sequence;
   _Atomic uint32_t paste_length;
+  _Atomic uint32_t enabled;
   dolly_input_event events[DOLLY_INPUT_EVENT_CAPACITY];
 } dolly_input_mailbox;
 
@@ -118,9 +119,10 @@ DOLLY_INPUT_LAYOUT(offsetof(dolly_input_mailbox, events) == DOLLY_INPUT_HEADER_S
 
 // Only the foreground command or a descendant may hold the lease, one at a
 // time. While it does, it reads every record and the terminal reads none.
-// Operations return zero on success or a negative errno value; next_event
-// returns one with a record, zero on timeout. A negative timeout waits
-// indefinitely. Exit releases the lease; unread records are dropped.
+// Operations return zero on success or a negative errno value (acquire:
+// ENOSYS where no page listens for input); next_event returns one with a
+// record, zero on timeout. A negative timeout waits indefinitely. Exit
+// releases the lease; unread records are dropped.
 int dolly_input_acquire(uint64_t *generation);
 int dolly_input_next_event(uint64_t generation, dolly_input_event *event,
                            double timeout_milliseconds);

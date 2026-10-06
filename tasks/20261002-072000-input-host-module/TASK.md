@@ -99,11 +99,13 @@ differs from the plan, the reason is given.
 
 - Kernel exports `dolly_input_mailbox_address`, `dolly_input_paste_buffer_address`.
   No import: a mailbox module, so `abi/dolly-browser-0.wat` is unchanged.
-- Mailbox: six atomic u32 words, then 256 records of 128 bytes at byte 24.
+- Mailbox: seven atomic u32 words, then 256 records of 128 bytes at byte 28.
   `EVENT_READ` (kernel), `EVENT_WRITE` (page), `FLAGS` (kernel: `LEASED`, a
   program reads the records; `POINTER_RELATIVE`, it asks for pointer lock),
-  `PASTE_SEQUENCE`, `PASTE_CONSUMED_SEQUENCE`, `PASTE_LENGTH`, and the paste
-  buffer (256 KiB) beside it.
+  `PASTE_SEQUENCE`, `PASTE_CONSUMED_SEQUENCE`, `PASTE_LENGTH`, `ENABLED` (page:
+  1 while it listens; without it `ACQUIRE` is `ENOSYS`, as in a build or for a
+  program that calls the operation without the client), and the paste buffer
+  (256 KiB) beside it.
 - Records: `dolly_input_event` keeps its size and type numbers (bhop's
   recorded timelines hold them). `width_css_px`/`height_css_px` become
   `int32_t x, y`; the two resize-only fields become reserved zero words.

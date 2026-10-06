@@ -109,29 +109,34 @@ await browserTest("host modules", { image: "system", server: { sourceOverrides, 
 
   // An image that draws and declares no input@0: the page has no input
   // provider, a program linking the input client is refused with one line
-  // before it runs, and the terminal reads no key however many are pressed.
+  // before it runs, the operation itself is ENOSYS to a program that links no
+  // client, and the terminal reads no key however many are pressed.
   const policy = { rules: [{ origin: server.origin, pathPrefix: "/fixture/report/", methods: ["GET"] }] };
   const report = new Promise(resolve => { reported = resolve; });
   const drawing = await open({ prompt: null, policy, ...await composed(["runtime", "display", "http"], ["core", "display", "cc", "curl"], {
     entry: "/bin/slop /usr/share/probe/entry",
     files: {
       "/usr/share/probe/leases.c": "#include <dolly/input.h>\nint main(void) { uint64_t lease; return dolly_input_acquire(&lease) != 0; }",
+      "/usr/share/probe/forged.c": "#include <dolly/process.h>\n#include <dolly/input-abi.h>\n#include <errno.h>\n" +
+        "int main(void) { char lease[8]; return dolly_process_call(DOLLY_INPUT_ACQUIRE, 0, 0, lease, sizeof lease) != -ENOSYS; }",
       "/usr/share/probe/reads.c": "#include <dolly/runtime.h>\n" +
         "int main(void) { return dolly_terminal_mode_set(0, 0) != 0 || dolly_terminal_read_raw_timeout(3000) >= 0; }",
       "/usr/share/probe/entry": `
-cc /usr/share/probe/leases.c -o /tmp/leases && cc /usr/share/probe/reads.c -o /tmp/reads || exit
+cc /usr/share/probe/leases.c -o /tmp/leases && cc /usr/share/probe/forged.c -o /tmp/forged && cc /usr/share/probe/reads.c -o /tmp/reads || exit
 /tmp/leases > /tmp/out 2> /tmp/err
 test $? -eq 126 && test ! -s /tmp/out && test $(wc -l < /tmp/err) -eq 1 && grep -q 'host module input@0 is not declared by this image (REQUIRES HOST)' /tmp/err
 refused=$?
+/tmp/forged
+forged=$?
 /tmp/reads
-curl -fsS ${server.origin}/fixture/report/refused-$refused/read-$?
+curl -fsS ${server.origin}/fixture/report/refused-$refused/forged-$forged/read-$?
 sleep 60`,
     },
   }) });
   assert.deepEqual(await drawing.page.evaluate(() => [[...__dolly.hostModules].sort(), "inputTransport" in __dolly, "transport" in __dolly]),
     [["display@0", "http@0", "runtime@0"], false, true]);
   const typing = setInterval(() => void drawing.page.keyboard.press("k").catch(() => {}), 100);
-  try { assert.equal(await report, "refused-0/read-0"); } finally { clearInterval(typing); }
+  try { assert.equal(await report, "refused-0/forged-0/read-0"); } finally { clearInterval(typing); }
   await drawing.page.close();
 
   // An image with input@0 and no display: a program that takes the input

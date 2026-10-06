@@ -1,5 +1,5 @@
 // Generated from host/input/dolly-input-0.wat, host/input/input.h.
-export const DOLLY_INPUT_HEADER_SIZE = 24;
+export const DOLLY_INPUT_HEADER_SIZE = 28;
 export const DOLLY_INPUT_EVENT_SIZE = 128;
 export const DOLLY_INPUT_EVENT_DATA_SIZE = 88;
 export const DOLLY_INPUT_EVENT_CAPACITY = 256;
@@ -9,9 +9,10 @@ export const DOLLY_INPUT_WORD_FLAGS = 2;
 export const DOLLY_INPUT_WORD_PASTE_SEQUENCE = 3;
 export const DOLLY_INPUT_WORD_PASTE_CONSUMED_SEQUENCE = 4;
 export const DOLLY_INPUT_WORD_PASTE_LENGTH = 5;
+export const DOLLY_INPUT_WORD_ENABLED = 6;
 export const DOLLY_INPUT_PASTE_CAPACITY = 262144;
 export const DOLLY_INPUT_ACQUIRE = 88;
 export const DOLLY_INPUT_NEXT_EVENT = 89;
 export const DOLLY_INPUT_SET_POINTER = 90;
 export const DOLLY_INPUT_RELEASE = 91;
-export const DOLLY_INPUT_ABI_DIGEST = "facb1a0b413343959c80ce6dabde84a33fa846bd03e7f944911f67999575ab59";
+export const DOLLY_INPUT_ABI_DIGEST = "88451810f71882aea3aedfed747a037a878079f5bf48dd2e8f91891c6a7ccadf";

@@ -18,7 +18,8 @@ _Static_assert(
     offsetof(dolly_input_mailbox, flags) == 4 * DOLLY_INPUT_WORD_FLAGS &&
     offsetof(dolly_input_mailbox, paste_sequence) == 4 * DOLLY_INPUT_WORD_PASTE_SEQUENCE &&
     offsetof(dolly_input_mailbox, paste_consumed_sequence) == 4 * DOLLY_INPUT_WORD_PASTE_CONSUMED_SEQUENCE &&
-    offsetof(dolly_input_mailbox, paste_length) == 4 * DOLLY_INPUT_WORD_PASTE_LENGTH,
+    offsetof(dolly_input_mailbox, paste_length) == 4 * DOLLY_INPUT_WORD_PASTE_LENGTH &&
+    offsetof(dolly_input_mailbox, enabled) == 4 * DOLLY_INPUT_WORD_ENABLED,
     "input mailbox words differ from dolly-input-0.wat");
 
 _Alignas(64) static dolly_input_mailbox input_mailbox;
@@ -131,6 +132,7 @@ static void release_lease(int pid) {
 static int64_t acquire_packet(int pid, unsigned char *mailbox, uintptr_t request_size,
                               uintptr_t response_capacity) {
   if (request_size != 0 || response_capacity < sizeof(dolly_input_generation)) return -EINVAL;
+  if (!atomic_load_explicit(&input_mailbox.enabled, memory_order_acquire)) return -ENOSYS;
   const int foreground = dolly_kernel_foreground();
   if (pid <= 0 || foreground <= 0 || !dolly_process_descends_from(pid, foreground)) return -EPERM;
   if (lease_generation != 0) return -EBUSY;

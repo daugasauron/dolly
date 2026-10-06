@@ -53,7 +53,8 @@ flowchart LR
 ## Images without one of the two
 
 - `display@0` without `input@0`: the terminal shows output and reads no key,
-  and a program that links the input client is refused before it runs.
+  a program that links the input client is refused before it runs, and the
+  lease itself is `ENOSYS` wherever no page listens, a build included.
 - `input@0` without `display@0`: a program that takes the lease reads keys,
   text, focus and paste. There is no canvas, so no pointer records, and no
   decoder, so a terminal read returns nothing and unread records stay queued.

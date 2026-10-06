@@ -30,6 +30,7 @@ export class InputTransport {
   static pasteSequence = A.DOLLY_INPUT_WORD_PASTE_SEQUENCE;
   static pasteConsumedSequence = A.DOLLY_INPUT_WORD_PASTE_CONSUMED_SEQUENCE;
   static pasteLength = A.DOLLY_INPUT_WORD_PASTE_LENGTH;
+  static enabled = A.DOLLY_INPUT_WORD_ENABLED;
 
   static keyEvent = 1;
   static textEvent = 2;
@@ -260,6 +261,11 @@ export class InputTransport {
   relativePointerRequested() {
     return (Atomics.load(this.words, this.word + InputTransport.flags) & 3) === 3;
   }
+
+  // Tells the kernel whether this page listens: without it no lease is given.
+  enable(enabled) {
+    Atomics.store(this.words, this.word + InputTransport.enabled, enabled ? 1 : 0);
+  }
 }
 
 // The page's input: keys, pointer, wheel, focus, IME text and paste become
@@ -456,6 +462,7 @@ export function browser({ canvas, keyboard, showStatus, claimsKey, surfaceSize, 
           showStatus("Input dropped: the program is not reading it");
         },
       });
+      started.enable(true);
       // The kernel notifies the flags word when the lease or its pointer request changes.
       const index = started.word + InputTransport.flags;
       const follow = () => {
@@ -469,6 +476,7 @@ export function browser({ canvas, keyboard, showStatus, claimsKey, surfaceSize, 
     dispose() {
       for (const stop of waiting) stop(new Error("Dolly stopped"));
       waiting.clear();
+      transport?.enable(false);
       transport = undefined;
       endStaleCapture();
     },
