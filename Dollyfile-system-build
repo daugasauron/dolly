@@ -7,8 +7,8 @@ REQUIRES HOST http@0
 # and C headers are the externally supplied bootstrap seed. How those headers
 # eventually map to the lower-level machine contract is deliberately open.
 SOURCE https://daugasauron.com/include/dolly/toolchain.h 6f9da3258e970e356c31034e1f109a04ac8bd5ab57dc82c19aebf293289fb415 /usr/include/dolly/toolchain.h
-SOURCE https://daugasauron.com/include/dolly/runtime.h   4df1f8e3f204dbe200ef493d42ab313749d6a98366a5c50518250c3f55ef6cde /usr/include/dolly/runtime.h
-SOURCE https://daugasauron.com/include/dolly/process.h   46d059214a8c3a89986a5efe798a476a7d38584a2454b91ccf74368426c82d6b /usr/include/dolly/process.h
+SOURCE https://daugasauron.com/include/dolly/runtime.h   6768fbace3430463e64706356bce945a5c6bd147b4db87ea93717b3ad3ffbf91 /usr/include/dolly/runtime.h
+SOURCE https://daugasauron.com/include/dolly/process.h   5f20c11c294311d68d931a198a0e82de5022f7e080f39611aa59c48334065818 /usr/include/dolly/process.h
 SOURCE https://daugasauron.com/host/http/http.h      d09f57cda4a6cde89106653f12366ac95554c21d37d05a69c15764d4254b70a5 /usr/include/dolly/http.h
 SOURCE https://daugasauron.com/host/http/http-abi.h 2f4e1e5c7145730babc91a0ff0a38db8b5e100ae1fab0b722b38ecbd53ad64a0 /usr/include/dolly/http-abi.h
 SOURCE https://daugasauron.com/host/display/display.h   c63f8dee5e8cc84f34b8325f68798c81c4c161857a945fe3fd617c6fd0b8f38e /usr/include/dolly/display.h

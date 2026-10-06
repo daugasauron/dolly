@@ -4,7 +4,7 @@ REQUIRES HOST runtime@0
 REQUIRES HOST dso@0
 REQUIRES HOST http@0
 
-FROM https://daugasauron.com/Dollyfile-system 5e54b334b1df286cf1e19138ee18a1a0ae768fc9f15efdda22a011220e6e0f9a
+FROM https://daugasauron.com/Dollyfile-system ece9b6b8b44822d32546b4f9b814ef398c8ab62f88468fd5cee011e1deb2266a
 # Build the Python runtime and native extension SDK; pip.dm adds pip.
 REQUIRES HEADER curl
 REQUIRES HEADER dso
