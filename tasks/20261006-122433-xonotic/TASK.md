@@ -341,7 +341,16 @@ small: 17 modes × 20 permutation bits in the source, 14 pairs in use at
   the loop. `gpu@0` has what the 2D path and `normal` need: `CREATE_TEXTURE`,
   `WRITE_TEXTURE`, `CREATE_SAMPLER`, `GRAPHICS_PIPELINE`, `RESOURCE_GROUP`,
   `DRAW_MESH` (`host/gpu/gpu-abi.h`), `FEATURE_TEXTURE_RENDER` and
-  `FEATURE_TEXTURE_BC`. Not started: this is where the client stopped.
+  `FEATURE_TEXTURE_BC`. Not started: the software path below is the interim
+  renderer.
+- First frame (09:00, commit `53c3ca34`): with the SIMD wrapper the client
+  registers `vid_soft`, opens its 1024×768 window through the sdl2 package
+  and draws the menu; the test's capture of `#display` at 1024×768 has 55%
+  of its pixels lit (neither blank nor flat), `+defer 40 quit` returns to
+  the shell with the display released. Chromium passed the whole test
+  (match, QuakeC rebuild, rematch, frame) in 144.9 s
+  (`browser-test-chromium-13.log`). The image with the client builds in
+  98.7 s.
 
 ## Decisions for the owner
 
