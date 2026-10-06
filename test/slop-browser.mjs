@@ -28,6 +28,10 @@ await browserTest("slop", {}, async ({ open }) => {
   assert.equal(await submit(`${make} all`), 0, "Make sourcing and .SHELLSTATUS");
   assert.equal(await submit(`${make} fail`), 2, "a failing assignment substitution fails the recipe");
   assert.equal(await submit(`grep -q SLOP-MAKE-OK make-success && test ! -e make-failed`), 0);
+  // set -e at the prompt: a failing line stops there and the shell keeps running.
+  assert.equal(await submit("set -e"), 0);
+  assert.equal(await submit("false; echo reached > /tmp/after-failure"), 1);
+  assert.equal(await submit("test ! -e /tmp/after-failure && set +e"), 0);
   // Blank input and comments keep the previous status.
   assert.equal(await submit("/bin/slop -c 'exit 173'"), 173);
   assert.equal(await submit(""), 173);

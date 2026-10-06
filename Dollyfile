@@ -13,11 +13,11 @@ REQUIRES HOST upload@0
 # The image people open: a shell, its text tools, the terminal, curl and amy.
 # It holds no compiler; amy installs what a session needs. The host modules
 # are those packages may need, since an image's list is fixed.
-INSTALL https://daugasauron.com/Dollyfile-core 53d853c7df8f4847b173e2dfc446ddc52d87a4a1018fa6f325314ce7650355c4
-INSTALL https://daugasauron.com/Dollyfile-posix 131880e379ab28247d8b178915f5113ac2edc1d2879dc6d09b20d287168fdf0a
-INSTALL https://daugasauron.com/Dollyfile-display 7afa972833e1d95c0a0d114901c80a6c24691078408cb131ec3e4e3320b714dd
-INSTALL https://daugasauron.com/Dollyfile-curl 23b518210ed2312992f4439eede65433d8062adcba37b64517c53d519da48934
-INSTALL https://daugasauron.com/Dollyfile-amy ca57a9a0d662e19c9ff5d7bd9d06b558320b4fa1f0dadb77e783578d7e8aee95
+INSTALL https://daugasauron.com/Dollyfile-core 92a00b820767d095d3a45ca6312da337a8e3755722debf74132d6bab97d8cf95
+INSTALL https://daugasauron.com/Dollyfile-posix 47b1e657197dd3acf50261dcccbdeebfb1d89c5a903576dbe660b9acb0e2d0ba
+INSTALL https://daugasauron.com/Dollyfile-display 6c819e8cd880ea2aa3be2f4e55e119e3caeab252771b8ecc08ead728750a285e
+INSTALL https://daugasauron.com/Dollyfile-curl 3ce7f998e1b94c1cd5fcddcd02c226379016f934f5390761b046171cee1a31fc
+INSTALL https://daugasauron.com/Dollyfile-amy d9691617fe444fbfd56c56ade5a255f111f2c631e8b071539df8042f4e7f5843
 REQUIRES TOOL foreground
 REQUIRES TOOL test
 REQUIRES TOOL echo

@@ -3,7 +3,7 @@ PACKAGE qwen3.5-800m
 REQUIRES HOST runtime@0
 
 # Qwen3.5-0.8B Q4_K_M, the exact upstream GGUF in one part, and its license.
-FROM https://daugasauron.com/Dollyfile-system 7f6562b7005c373f9f73eab4f185a34ddbe8d73671be48b2f194dc75ce57da23
+FROM https://daugasauron.com/Dollyfile-system 3b53781e60a9f970dfb70130526d185ba2355516e7edd56a0a8585a5cd395b61
 
 SOURCE https://daugasauron.com/dist/static/llm/qwen3.5-800m/0.part fb044e93939a70469c905781334f5de1e6c8b608ced6cbc8c9249bd4127d9526 /usr/share/dolly/llm/qwen3.5-800m.gguf
 SOURCE https://daugasauron.com/dist/static/llm/qwen3.5-800m/LICENSE bbedc3fda3305820b977265f01b8619d87570a6739de3a5582c3464840f1e57a /usr/share/licenses/qwen3.5-800m/LICENSE

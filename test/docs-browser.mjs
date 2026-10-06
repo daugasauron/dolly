@@ -6,7 +6,7 @@ import { browserTest, composed } from "./browser.mjs";
 import { inspectDollyfile } from "../src/dollyfile-view.mjs";
 
 const { sources } = inspectDollyfile(await readFile(new URL("../Dollyfile-dolly-docs", import.meta.url), "utf8"), "Dollyfile-dolly-docs");
-await browserTest("docs", { image: "minimal" }, async ({ open }) => {
+await browserTest("docs", {}, async ({ open }) => {
   const { submit, text } = await open(await composed(["runtime", "display", "input"], ["core", "display", "dolly-docs"]));
   const files = sources.map(({ destination }) => destination);
   assert.equal(await submit(`(for file in ${files.join(" ")}; do test -s "$file" || exit 1; done)`), 0, await text());

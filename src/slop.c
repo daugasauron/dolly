@@ -102,6 +102,10 @@ typedef struct {
   // Set while running a condition, a `!` pipeline or a command of an AND-OR
   // list other than the last, including the functions such a command calls.
   int errexit_ignored;
+  // The last pipeline ran while `set -e` was ignored: a compound command that
+  // ends with its status is exempt too (POSIX `set -e`, third exception).
+  int errexit_exempt;
+  int errexit_fired; // `set -e` ended this shell; the prompt survives it.
   int xtrace;
   int nounset;
   int noexec;
@@ -3817,8 +3821,7 @@ static int parse_for(Shell *shell, CommandParser *parser, int execute,
       if (control == LOOP_CONTROL_BREAK) break;
       continue;
     }
-    if (!shell->active || (run && shell->errexit && !suppress_errexit &&
-                           status != 0)) break;
+    if (!shell->active) break;
   }
   if (execute) shell->loop_depth--;
   parser->cursor = body_end + 1;
@@ -3865,9 +3868,14 @@ static int parse_while(Shell *shell, CommandParser *parser, int execute,
         .cursor = body_start,
         .end = parser->end,
     };
+    // The loop's status is that of the last body it ran, also when `break`
+    // or `continue` (status 0) ended that body; a `break` in the condition
+    // runs no body.
+    const int ran = selected && shell->loop_control == LOOP_CONTROL_NONE;
     const int iteration_status = execute_list(shell, &body, selected,
                                               suppress_errexit,
                                               STOP_DONE, &stopped);
+    if (ran) body_status = iteration_status;
     if (body.error || stopped != STOP_DONE) {
       fprintf(stderr, "slop: %s requires done\n", until ? "until" : "while");
       if (execute) shell->loop_depth--;
@@ -3887,9 +3895,7 @@ static int parse_while(Shell *shell, CommandParser *parser, int execute,
       continue;
     }
     if (!selected) break;
-    body_status = iteration_status;
-    if (!shell->active || (shell->errexit && !suppress_errexit &&
-                           body_status != 0)) break;
+    if (!shell->active) break;
   }
   if (execute) shell->loop_depth--;
   parser->cursor = body_end + 1;
@@ -4246,9 +4252,23 @@ static int execute_pipeline(Shell *shell, CommandParser *parser, int execute,
   const int ignored = shell->errexit_ignored;
   shell->errexit_ignored = suppress_errexit || separator == TOKEN_AND ||
                            separator == TOKEN_OR;
+  // A compound command other than a subshell has the status of a command in it.
+  const int derived = single && compound_start(parser) &&
+                      parser->tokens[parser->cursor].kind != TOKEN_LPAREN;
+  if (derived) shell->errexit_exempt = 0;
   const int status = single && !background
       ? run_command(shell, parser, body_end, probe.cursor, shell->errexit_ignored)
       : run_pipeline(shell, parser, probe.cursor, shell->errexit_ignored, stops, background);
+  // `set -e` ends the shell where a command fails, not where the status of
+  // that failure arrives: a failure that was ignored stays ignored when it
+  // becomes the status of the loop, group or conditional around it.
+  if (shell->errexit_ignored) shell->errexit_exempt = 1;
+  else if (!derived) shell->errexit_exempt = 0;
+  if (status != 0 && shell->active && shell->errexit && !shell->errexit_exempt) {
+    shell->active = 0;
+    shell->exit_status = status;
+    shell->errexit_fired = 1;
+  }
   shell->errexit_ignored = ignored;
   return status;
 }
@@ -4350,9 +4370,6 @@ static int execute_list(Shell *shell, CommandParser *parser, int execute,
       if ((stops & STOP_CASE_CLAUSE) != 0 &&
           separator == TOKEN_CASE_END) {
         *stopped = STOP_CASE_CLAUSE;
-        if (should_run && shell->errexit && !suppress_command_errexit && status != 0) {
-          aborted = 1;
-        }
         break;
       }
       if (separator == TOKEN_AND || separator == TOKEN_OR ||
@@ -4366,10 +4383,6 @@ static int execute_list(Shell *shell, CommandParser *parser, int execute,
           return 2;
         }
       }
-    }
-    if (should_run && shell->errexit && !suppress_command_errexit && status != 0 &&
-        separator != TOKEN_AND && separator != TOKEN_OR) {
-      aborted = 1;
     }
     previous = separator;
   }
@@ -4981,10 +4994,10 @@ static int interactive(Shell *shell) {
         terminal_signals(0);
       }
     }
-    if (shell->terminating_signal) {
+    if (shell->terminating_signal || shell->errexit_fired) {
       shell->last_status = shell->exit_status;
       shell->active = 1;
-      shell->terminating_signal = 0;
+      shell->terminating_signal = shell->errexit_fired = 0;
       shell->exit_status = 0;
     }
     if (report_status && shell->last_status != 0 &&
