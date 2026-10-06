@@ -1,5 +1,6 @@
 // Every case runs in Bash as the reference and in Dolly. Builtin-only shellCases
-// also run natively under ASan with all external spawning denied.
+// also run natively under ASan with all external spawning denied; pipelineCases
+// run natively under ASan with the host's processes and pipes.
 // Dolly always pops explicit dot arguments, including after set --. Bash can
 // retain replacements at top level; those three cases record its different status.
 export const sourceFiles = {
@@ -96,9 +97,8 @@ export const shellCases = [
   ["quoted heredoc does not substitute", "<<'EOF'\n$(exit 5)\nEOF\n", 0],
   ["tab-stripping heredoc", "{ IFS= read -r a; IFS= read -r b; } <<-EOF\n\tone\n\t\ttwo\n\tEOF\ncase $a:$b in one:two) :;; *) exit 91;; esac", 0],
   ["unset options select variables or functions", "f() { :; }; x=1; unset -v x; unset -f f; case ${x-unset} in unset) :;; *) exit 91;; esac; command -v f && exit 92; exit 0", 0],
-  ["background jobs are rejected before anything runs", "exit 7; true &", 2, 7],
   ["dollar-single-quotes are rejected before anything runs", "exit 7; x=$'a'", 2, 7],
-  ["$! stays unset without background jobs", 'case "$!:${!}" in :) :;; *) exit 91;; esac; set -u; : $!; exit 92', 1, 127],
+  ["$! is unset until a program runs in the background", 'case "$!:${!}" in :) :;; *) exit 91;; esac; set -u; : $!; exit 92', 1, 127],
   ["unset parameter error exits the shell", "X=; : ${X:?unset}; exit 91", 1, 127],
   ["arithmetic error exits the shell", ": $((1/0)); exit 91", 1],
   ["quoting affects only quoted case pattern parts", String.raw`p='*'; case ab in "a*"|"$p") exit 91;; "a"*) ;; *) exit 92;; esac; case ab in $p) ;; *) exit 93;; esac`, 0],
@@ -121,8 +121,10 @@ export const shellCases = [
   ["trap lists what it will run", 'trap ": x" TERM; trap > listed; read -r line < listed; case $line in "trap -- \': x\' "*TERM) exit 3;; esac; exit 91', 3],
   ["an unknown trap condition is rejected", "trap : NOSUCH", 2, 1],
   ["a signal cannot be ignored", 'trap "" INT', 2, 0],
-  ["wait without background jobs succeeds", "wait", 0],
-  ["wait rejects a process that is not a job", "wait 1", 127],
+  ["wait without background programs succeeds", "wait", 0],
+  ["wait rejects a process the shell did not start", "wait 1", 127],
+  ["only a program runs in the background", "(exit 3) & exit 7", 7],
+  ["& does not take a && list", ": && : & exit 7", 2, 7],
   ["a path that names nothing is not a missing command", "./no-such-program; a=$?; no-such-program; b=$?; ./; c=$?; exit $((a + b + c))", 380 & 255],
   ["aliases, umask and ulimit are refused", "alias x=y; a=$?; umask 022; b=$?; ulimit -n > /dev/null; exit $((a + b + $?))", 6, 0],
 ];
@@ -158,6 +160,26 @@ if"`, 0],
   ["a signal trap runs once the command has finished", 'trap "exit 7" TERM; kill -TERM $$; exit 3', 7],
   ["an INT trap replaces the interrupt", 'trap "n=1" INT; kill -INT $$; test "$n" = 1 || exit 91; exit 3', 3],
   ["time runs a command the shell spawns", "time true && time -p slop -c 'exit 6'", 6],
+];
+
+// Programs of a pipeline run at the same time. An endless producer makes a
+// serial pipeline run until the test's timeout, and `sleep` orders the output.
+export const pipelineCases = [
+  ["a consumer that stops ends an endless producer", 'test "$(seq 1 999999999 | head -n 1)" = 1', 0],
+  ["a producer nobody reads dies of SIGPIPE", "set -o pipefail; seq 1 999999999 | head -n 1 > /dev/null", 141],
+  ["a stage in the shell stops an endless producer", 'seq 1 999999999 | { read -r a; read -r b; test "$a$b" = 12; }', 0],
+  ["output streams while the producer runs", String.raw`slop -c 'echo first; sleep 2; echo second' | tee log > /dev/null & sleep 1; test "$(cat log)" = first || exit 91; wait; test "$(cat log)" = "first
+second"`, 0],
+  ["three programs", String.raw`test "$(seq 1 5 | sed s/^/x/ | tail -n 2)" = "x4
+x5"`, 0],
+  ["a pipeline inside a substitution", 'x=$(seq 1 999999999 | head -n 2 | tail -n 1); test "$x" = 2', 0],
+  ["status is the last stage's, or the rightmost failure with pipefail", 'false | true || exit 91; set -o pipefail; false | true; test $? = 1 || exit 92; slop -c "exit 5" | slop -c "exit 6" | cat; exit $?', 6],
+  ["a program stage feeds a loop that feeds a program", String.raw`test "$(seq 1 3 | while read -r x; do echo "<$x>"; done | cat)" = "<1>
+<2>
+<3>"`, 0],
+  ["programs start with & and wait collects them", 'slop -c "sleep 1; exit 7" & first=$!; slop -c "exit 3" & wait $!; test $? = 3 || exit 91; wait "$first"; test $? = 7 || exit 92; sleep 1 & wait; test "$first" != "$!"', 0],
+  ["a background pipeline is waited for", 'seq 1 3 | tail -n 1 > last & wait; test "$(cat last)" = 3', 0],
+  ["a background program does not read the shell's input", "cat & wait $!", 0],
 ];
 
 export function shellQuote(value) { return `'${value.replaceAll("'", "'\\''")}'`; }
