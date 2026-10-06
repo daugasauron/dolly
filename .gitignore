@@ -2,6 +2,7 @@
 /dist
 # Pages scripts/generate-routes.mjs writes at their served paths.
 /index.html
+/amy-index.txt
 /*/index.html
 /*/rebuild/
 /custom/run/

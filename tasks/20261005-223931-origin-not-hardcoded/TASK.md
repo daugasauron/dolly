@@ -72,3 +72,10 @@ take the same form.
 
 Changes every recipe (a new Dollyfile revision if the form changes): its own
 rebuild round.
+
+## First use (2026-10-06, `work/amy-index`)
+
+The HTTP broker now takes the recommended form for a request: a URL that is
+a path names a file of the site serving the release (`host/http/broker.mjs`,
+`docs/http.md`), and `amy` asks for `/amy-index.txt` with no domain. Recipes,
+the index rows and `amy installed` still carry `https://daugasauron.com/…`.

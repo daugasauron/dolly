@@ -333,10 +333,11 @@ test("registry, routes, and source viewer derive from Dollyfiles", async () => {
     assert.ok(image.byteLength > 0);
     assert.match(image.sha256, /^[0-9a-f]{64}$/);
   }
-  // The package index amy reads names every package of the registry by its pinned recipe.
-  const index = (await readFile(artifact("dolly-packages.txt"), "utf8")).trimEnd().split("\n").filter(Boolean);
-  assert.deepEqual(index, DOLLY_IMAGES.filter(({ role }) => role === "package")
+  // The package index names every package of the registry by its pinned recipe, then describes it.
+  const index = (await readFile(new URL("../amy-index.txt", import.meta.url), "utf8")).trimEnd().split("\n").filter(Boolean);
+  assert.deepEqual(index.map(row => row.split(" ").slice(0, 3).join(" ")), DOLLY_IMAGES.filter(({ role }) => role === "package")
     .map(({ image, dollyfile, sha256 }) => `${image} https://daugasauron.com/${dollyfile} ${sha256}`));
+  assert.ok(index.every(row => row.split(" ").length > 3), "a package without a description");
 });
 
 test("the kernel module owns its wasm64 WasmFS memory and table", async () => {
