@@ -11,7 +11,7 @@ REQUIRES HOST snapshot@0
 REQUIRES HOST threads@0
 REQUIRES HOST upload@0
 
-FROM https://daugasauron.com/demos/local-llm/Dollyfile-pi-local 3221aa79e6915240942ef14a7953fdb1837b3ff1682ac342094643f8d2800492
+FROM https://daugasauron.com/demos/local-llm/Dollyfile-pi-local 368cedad9378f1f9e05920fb01caf1632b8fafa02f3fe2448cca5f03f01ce998
 INSTALL https://daugasauron.com/demos/neovim/Dollyfile-nvim 8e140c912fef47de81a3078800dd212c25a48eea0db707ac6ea3690b66690391
 REQUIRES TOOL pi
 REQUIRES TOOL nvim
@@ -21,7 +21,7 @@ REQUIRES TOOL sha256sum
 REQUIRES TOOL sed
 # dollyfile-build starts disposable image builds through the page.
 
-SOURCE https://daugasauron.com/dist/static/studio/studio.tar 007fedab1cc9a7b596338b73466d26df1eef002e7319d4d3e894062da475f0b4 /tmp/dollyfile-studio/source.tar
+SOURCE https://daugasauron.com/dist/static/studio/studio.tar 6a343ff548a612c3514b39ba374d0fc6ac6f6f7ed475b576c68d10278665a5e7 /tmp/dollyfile-studio/source.tar
 SLOP tar -xf /tmp/dollyfile-studio/source.tar -C /
 SLOP slop -e /usr/share/dollyfile-studio/install.slop
 SLOP dollyfile-lint /usr/share/dollyfile-studio/examples/Dollyfile-hello

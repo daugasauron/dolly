@@ -16,7 +16,7 @@ REQUIRES TOOL rm
 REQUIRES TOOL mkdir
 
 # External compiler/std seed; the linker adapter is compiled inside Dolly.
-SOURCE https://daugasauron.com/dist/static/rust/rust-sdk.tar.gz eddb6fe8e5f4978ea94d912bb9144fd5d29abbfe30e00ea9e8b0ebaf2942f3da /tmp/rust-sdk.tar.gz
+SOURCE https://daugasauron.com/dist/static/rust/rust-sdk.tar.gz f4393cf6bb9cb388bc156784fb7f796b7a055cdf112929afc5d8062110254d8f /tmp/rust-sdk.tar.gz
 SLOP mkdir -p /opt
 SLOP gzip -dc /tmp/rust-sdk.tar.gz | tar -xf - -C /opt
 SOURCE https://daugasauron.com/dist/static/rust/rustc.sh 966c3a6e1863196ca1d44b47552c46bc0e7caa8f096ef385252b3216f2f658d1 /opt/rust-sdk/bin/rustc
