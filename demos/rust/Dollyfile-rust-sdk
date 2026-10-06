@@ -32,6 +32,6 @@ EXPORTS TOOL rustc
 EXPORTS FOLDER rust-sdk /opt/rust-sdk
 EXPORTS FOLDER rust-licenses /usr/share/licenses/rust
 SLOP rustc --version --verbose
-INSTALL https://daugasauron.com/Dollyfile-display c56877eeaa17f1665d92f0bb4b30f41b586543aa566c055261eff5027be8dfcb
+INSTALL https://daugasauron.com/Dollyfile-display eb294adbe1481b1edf9a7d5e10f16f57b6119355fc54624fda9183165593fbc9
 
 ENTRY /bin/foreground -i /bin/slop

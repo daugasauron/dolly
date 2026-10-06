@@ -270,3 +270,35 @@ Run so far (2026-10-06, branch at `5753b391`; logs under
   Lua). None of these has been compiled for Dolly yet.
 
 Not run yet: every image build and every browser suite.
+
+### Browser results on the base before the nine-import kernel
+
+Base `607dc7b1` (`integrate/next` before kernel-boundary steps 2 and 4),
+branch at `5753b391` plus the pins this build wrote; runtime `023ff5a8…`,
+image inputs `fa06044c…`. These do not count for the merge: the branch has to
+be merged onto `fb6c3463` and rebuilt once.
+
+- `DOLLY_IMAGE_JOBS=1 DOLLY_BUILD_IMAGES=default,system work/slot.sh build npm
+  run image`: 13 images in 1015 s, `ghostty-build` among them, so the display
+  library compiled against driver v5 and linked the new plugin import.
+- Chrome 151, through `work/slot.sh browser`: `core` 46.9 s, `terminal` 35.3 s
+  (with the new SIGWINCH, draw-only and both-lease cases), `display` 15.8 s
+  (with the loss mark and the ruler drag across a retiring program),
+  `boundary`, `process`, `shell`, and `indicators` 7.8 s on the `system` image
+  (the suite needs `cc`; `fb6c3463` names that image).
+- `host-modules` in Chrome: its existing cases pass; the two new ones (an
+  image without `input@0`, an image with only `input@0`) did not run: they
+  install the `cc` package, which was not built.
+- Not run on this base: every suite in Firefox (the run was queued behind
+  other agents' browser slots and stopped), `cc`, `sdl2`, `bhop` and their
+  demo tests, `test:artifacts` on rebuilt images, the echo-latency
+  measurement.
+
+Paused at 23:10 for `fix/selection-after-exit` at the integrator's request.
+To resume: merge `fb6c3463`, read "Merging kernel code onto this kernel" in
+the kernel-boundary task (this module adds no kernel import; check that
+`emscripten_atomic_notify` in `host/input/kernel.c` and the plugin import
+`dolly_input_decoder_install` pass `validate-browser` and the exact-exports
+test), `npm run build:runtime`, then
+`DOLLY_BUILD_IMAGES=default,system,cc,sdl2`, the suites above in both
+browsers, `node demos/run-browser-tests.mjs sdl2`, then `bhop`.

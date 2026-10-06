@@ -14,10 +14,10 @@ REQUIRES HOST upload@0
 # It holds no compiler; amy installs what a session needs. The host modules
 # are those packages may need, since an image's list is fixed.
 INSTALL https://daugasauron.com/Dollyfile-core 2d1dd345f53befd901c8cce70193953abf45dd6f31eb3820b52b0079edce1c58
-INSTALL https://daugasauron.com/Dollyfile-posix 26b8da8f81c8e469cfdf603c544e5bb33a2e2a37d3d661d90ec2ed1fb4e444c1
-INSTALL https://daugasauron.com/Dollyfile-display c56877eeaa17f1665d92f0bb4b30f41b586543aa566c055261eff5027be8dfcb
+INSTALL https://daugasauron.com/Dollyfile-posix 939f1ffcccaa6e1d9c81c564e38c837032c497c88693cc396919dc80b75d20de
+INSTALL https://daugasauron.com/Dollyfile-display eb294adbe1481b1edf9a7d5e10f16f57b6119355fc54624fda9183165593fbc9
 INSTALL https://daugasauron.com/Dollyfile-curl cb1ed7a2b5a5b49a14e8ece3c453e7d4fcd8342efc81ccd97491c98bdcb64be0
-INSTALL https://daugasauron.com/Dollyfile-amy bd787be62e89955cfc78b948392e687449ff4cc5452241bfec3d538867a93980
+INSTALL https://daugasauron.com/Dollyfile-amy 42da430e4638ea9b7cf323d0c45b36040dca9808f0555114613bfe6e0852d8c6
 REQUIRES TOOL foreground
 REQUIRES TOOL test
 REQUIRES TOOL echo

@@ -9,11 +9,11 @@ REQUIRES HOST snapshot@0
 REQUIRES HOST threads@0
 REQUIRES HOST upload@0
 
-FROM https://daugasauron.com/demos/pi/Dollyfile-pi-runtime 3909617910cc1d1d9400978660f57099e6e0cbaae99b5a729b3ae23f7554f86a
-COPY https://daugasauron.com/demos/classicube/Dollyfile-classicube-build 0b4b5c3084f521a481d4b180f5dd062852a6178daa2f5b831a5a8c3212140f7c /usr/bin/classicube /usr/bin/classicube
-COPY https://daugasauron.com/demos/classicube/Dollyfile-classicube-build 0b4b5c3084f521a481d4b180f5dd062852a6178daa2f5b831a5a8c3212140f7c /usr/share/classicube /home/dolly/classicube
-COPY https://daugasauron.com/demos/classicube/Dollyfile-classicube-build 0b4b5c3084f521a481d4b180f5dd062852a6178daa2f5b831a5a8c3212140f7c /usr/share/licenses/classicube /usr/share/licenses/classicube
-INSTALL https://daugasauron.com/demos/sdl2/Dollyfile-sdl2 6559827f121b5148a43879198d147eeb3ee4466a22eeb2e7ac70f6344598097b
+FROM https://daugasauron.com/demos/pi/Dollyfile-pi-runtime 8f2846da5aadaa16dff70f917655ca911a7ed3fe2efe2229d0829815fd45adb8
+COPY https://daugasauron.com/demos/classicube/Dollyfile-classicube-build 23ae4ac565682f3c3e56259f49a0af088340622b931564d9e95381ccd57892d0 /usr/bin/classicube /usr/bin/classicube
+COPY https://daugasauron.com/demos/classicube/Dollyfile-classicube-build 23ae4ac565682f3c3e56259f49a0af088340622b931564d9e95381ccd57892d0 /usr/share/classicube /home/dolly/classicube
+COPY https://daugasauron.com/demos/classicube/Dollyfile-classicube-build 23ae4ac565682f3c3e56259f49a0af088340622b931564d9e95381ccd57892d0 /usr/share/licenses/classicube /usr/share/licenses/classicube
+INSTALL https://daugasauron.com/demos/sdl2/Dollyfile-sdl2 f3a32df6521e7d2d2a878844f1a1dc18249814650736309452e05c26f8a7cb46
 EXPORTS TOOL classicube
 REQUIRES HEADER cpp
 REQUIRES HEADER quickjs-runner

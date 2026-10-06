@@ -7,7 +7,7 @@ import { browserTest } from "./browser.mjs";
 // program's own controls; shown, the Save button takes its click; a download
 // offer and a failed save hold them shown until answered.
 const server = { fixtures: { "corner-control.c": "test/fixtures/corner-control.c" } };
-await browserTest("indicators", { server }, async ({ server, open }) => {
+await browserTest("indicators", { image: "system", server }, async ({ server, open }) => {
   const { page, submit, text } = await open({
     policy: { rules: [{ origin: server.origin, pathPrefix: "/fixture/", methods: ["GET"] }] },
     setup: page => page.clock.install() });

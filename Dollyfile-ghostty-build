@@ -19,7 +19,7 @@ REQUIRES TOOL   zig
 
 SOURCE https://daugasauron.com/dist/static/default/ghostty.tar              945865657d183d1b97124e383af4c455da577f42215d58cdd29ee4a942136664 /tmp/ghostty.tar
 SOURCE https://daugasauron.com/dist/static/default/uucode.tar               27d4103c73b68b20c21adaee05c4cd2c01fc418e083f5961148e1f872951453e /tmp/uucode.tar
-SOURCE https://daugasauron.com/dist/static/default/ghostty/display.c        e1b46d0d9ec3c52cda155a55f70487f3ae06573b5d4aee79d6f829d5e61f3f60 /usr/src/dolly/ghostty/display.c
+SOURCE https://daugasauron.com/dist/static/default/ghostty/display.c        82ea249af6a269753dc55c7573ddf8f6ca2d5bac25a8bf78ddd5f6c62a847adb /usr/src/dolly/ghostty/display.c
 SOURCE https://daugasauron.com/dist/static/default/stb_truetype.h           ecd30b05e0dd4fea3a13c26810dd9e1992dc379049482c393d5a19e6b5090aab /tmp/ghostty/stb_truetype.h
 SOURCE https://daugasauron.com/dist/static/default/IosevkaTerm-SemiBold.ttf 754545a4f6250efdd3d2cc916bb344c59f0c59830405307dfd44d183f919a654 /usr/share/fonts/IosevkaTerm-SemiBold.ttf
 SLOP tar \
