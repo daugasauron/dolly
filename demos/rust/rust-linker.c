@@ -53,6 +53,8 @@ int main(int argc, char **argv) {
     if (!strcmp(arg, "-sABORTING_MALLOC=0") || !strcmp(arg, "-sWASM_BIGINT")) continue;
     if (!strcmp(arg, "-sSIDE_MODULE=2")) arg = "-shared";
     if (!strcmp(arg, "-fwasm-exceptions")) arg = "-fexceptions";
+    /* What rustc passes for limited debug info (Cargo's `debug = 1`), in emcc's spelling. */
+    if (!strcmp(arg, "--profiling-funcs")) arg = "-g1";
     size_t length = strlen(arg);
     if (length > 5 && !strcmp(arg + length - 5, ".rlib")) {
       char *path;
