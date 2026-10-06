@@ -10,6 +10,5 @@ if has_image xonotic-build; then
     "${xonotic_dir}/GPL-2" /usr/share/licenses/xonotic/GPL-2 \
     "${xonotic_dir}/GPL-3" /usr/share/licenses/xonotic/GPL-3 \
     "${xonotic_dir}/gmqcc/LICENSE" /usr/share/licenses/gmqcc/LICENSE \
-    demos/xonotic/Makefile /usr/src/dolly/xonotic/Makefile \
-    demos/xonotic/sockets.c /usr/src/dolly/xonotic/sockets.c
+    demos/xonotic/Makefile /usr/src/dolly/xonotic/Makefile
 fi

@@ -24,9 +24,9 @@ Build with `npm run image -- xonotic-build`.
   `select`, and loads no dynamic libraries (zlib is linked; JPEG, PNG, curl,
   ODE and d0_blind_id report themselves unavailable). Everything else is
   unchanged upstream; the engine sees `__dolly__`, never `__linux__`.
-- [`sockets.c`](sockets.c) fails every socket call with `ENOSYS`, so the
-  engine's INET ports are reported unavailable; only the loopback address type
-  carries packets.
+- Dolly's libc answers the engine's socket calls with failures, so the INET
+  ports are reported unavailable; only the loopback address type carries
+  packets.
 - [`Makefile`](Makefile) builds DarkPlaces' `OBJ_SV` unit list (the `*_null.c`
   video, thread and sound units) at `-O1`, and gmqcc with `-std=c++11`.
 

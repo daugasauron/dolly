@@ -35,4 +35,16 @@ await demoTest("xonotic", { image: "xonotic-build", timeout: 1_800_000, browser:
   await run(`grep -q '^:end' ${basedir}/data/match.log`);
   await run(`grep '^:scores:' ${basedir}/data/match.log`);
   console.log(`xonotic: serverbench with 8 bots ran to its end in ${seconds.toFixed(1)}s; page memory peak ${(peakBytes / 1048576).toFixed(0)} MiB`);
+
+  // QuakeC: gmqcc rebuilds the three programs byte-identical to the release's.
+  const compiled = performance.now();
+  await run("make -f /usr/src/dolly/xonotic/Makefile qc");
+  for (const [name, hash] of Object.entries({
+    "progs.dat": "e6f5c70b8e0e5f329531ce53ac982eb698a12660a1b45622a900a7bc3bb87a62",
+    "csprogs.dat": "7d7807166d38521aadb8109830b69580596be4c05924d1b1fd8b71c31d4def13",
+    "menu.dat": "dc75076060bac00aacdcd58d6a216cfb33f7a4665a18a622ff970bc73869bbb8",
+  })) {
+    await run(`printf '%s  %s\\n' ${hash} /tmp/xonotic/build/qc/${name} | sha256sum -c`);
+  }
+  console.log(`xonotic: gmqcc rebuilt progs.dat, csprogs.dat and menu.dat in ${((performance.now() - compiled) / 1000).toFixed(1)}s`);
 });

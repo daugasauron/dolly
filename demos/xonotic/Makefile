@@ -4,7 +4,6 @@
 CC := cc
 CXX := c++
 SOURCE := /usr/src/xonotic
-PORT := /usr/src/dolly/xonotic
 BUILD := /tmp/xonotic/build
 ENGINE := $(SOURCE)/darkplaces
 
@@ -16,10 +15,10 @@ SERVER_UNITS := sys_linux vid_null thread_null snd_null \
   mod_skeletal_animatevertices_generic model_alias model_brush model_shared model_sprite netconn palette polygon \
   portals protocol prvm_cmds prvm_edict prvm_exec r_explosion r_lerpanim r_lightning r_modules r_shadow r_sky \
   r_sprites sbar sv_demo sv_main sv_move sv_phys sv_user svbsp svvm_cmds sys_shared vid_shared view wad world zone
-SERVER_OBJECTS := $(patsubst %,$(BUILD)/engine/%.o,$(SERVER_UNITS)) $(BUILD)/port/sockets.o
-# makefile.inc's CFLAGS_COMMON and OPTIM_RELEASE at -O1, zlib linked statically (no dlopen).
-CFLAGS := -O1 -fno-strict-aliasing -fno-math-errno -fno-trapping-math \
-  -D_FILE_OFFSET_BITS=64 -D__KERNEL_STRICT_NAMES -DLINK_TO_ZLIB -I$(SOURCE)
+SERVER_OBJECTS := $(patsubst %,$(BUILD)/engine/%.o,$(SERVER_UNITS))
+# makefile.inc's CFLAGS_COMMON at -O1 (Dolly's cc takes no -fno-math-errno or
+# -fno-trapping-math), zlib linked statically since there is no dlopen.
+CFLAGS := -O1 -fno-strict-aliasing -D_FILE_OFFSET_BITS=64 -D__KERNEL_STRICT_NAMES -DLINK_TO_ZLIB -I$(SOURCE)
 
 GMQCC_UNITS := ast code conout fold ftepp intrin ir lexer main opts parser stat utf8 util
 GMQCC_OBJECTS := $(patsubst %,$(BUILD)/gmqcc/%.o,$(GMQCC_UNITS))
@@ -34,16 +33,12 @@ $(BUILD)/engine/%.o: $(ENGINE)/%.c
 	mkdir -p $(@D)
 	$(CC) $(CFLAGS) -c $< -o $@
 
-$(BUILD)/port/%.o: $(PORT)/%.c
-	mkdir -p $(@D)
-	$(CC) $(CFLAGS) -c $< -o $@
-
 /usr/bin/gmqcc: $(GMQCC_OBJECTS)
 	$(CXX) $(GMQCC_OBJECTS) -o $@
 
 $(BUILD)/gmqcc/%.o: $(SOURCE)/gmqcc/%.cpp
 	mkdir -p $(@D)
-	$(CXX) -O1 -std=c++11 -fno-exceptions -fno-rtti -c $< -o $@
+	$(CXX) -O1 -std=c++11 -c $< -o $@
 
 # The game logic as qcsrc/Makefile and tools/qcc.sh build it: cc preprocesses
 # each progs.inc, the line markers become gmqcc pragmas, gmqcc compiles the
