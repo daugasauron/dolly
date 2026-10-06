@@ -1,6 +1,6 @@
 # pi-local repeats its second tool call forever
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 345
 - TAGS: pi-local,local-llm,bug,agent
 
@@ -100,3 +100,50 @@ starts there (`<cwd>/</cwd>` in the system prompt); `ls -la` printing
 directory does not look empty; `cat a.out` putting a 28 KB WebAssembly binary
 into the context, after which Pi's compaction cannot recover ("The request
 exceeds the available context size").
+
+## Self-audits (2026-10-06)
+
+The agent in the fixed `pi-local` audited its machine (`pi -p` with a
+six-step prompt: list directories, compile C, run JavaScript, curl
+example.com, a Git commit, try `chmod`/`python3`/`make`, then write
+`/workspace/AUDIT.md`). Copies: `build/pi-local-evidence/audits/`
+(`qwen3.5-4b-AUDIT.md`: Chrome with the optional Dawn f16 flag, 470 s,
+15 tool calls; `qwen3.5-2b-AUDIT.md`: Chrome default, 47 s, 13 calls).
+
+Read against the logged turns:
+
+- Qwen3.5-4B did all six steps; its report matches its tool results.
+  Findings: `curl https://example.com/` fails ("Browser could not fetch the
+  URL: blocked (no CORS headers, or a redirect) or unreachable"), which it
+  calls "network blocked by the sandbox": the message is right (example.com
+  sends no CORS headers; `docs/http.md`), the reading is the model's.
+  `chmod` is missing: an environment defect, because `help` says chmod
+  "changes nothing" (task `20261006-005303-ls-long-format`).
+- Qwen3.5-2B ran five commands and then wrote results it never obtained
+  (janis and curl "worked", make "not found", chmod "permission issues").
+  What it did see: `cc hello.c && ./hello` gave `slop: ./hello: command not
+  found` (task `20261005-225439-slop-path-not-found`), then `file /bin/cc`
+  said "WebAssembly binary module", from which it concluded "cc is not a C
+  compiler". Model limit, prompted by two environment facts.
+
+Environment defects filed: Slop's message for a missing path
+(`20261005-225439-slop-path-not-found`), Pi's working directory
+(`20261006-005303-pi-cwd`), `ls -l` format and the missing `chmod`
+(`20261006-005303-ls-long-format`). Model limits: fabricated audit results
+(2B), ignoring the skill's location and the "Not run" notice (0.8B), reading
+a binary into the context (`cat a.out`, after which Pi's compaction keeps the
+blob and the request still exceeds the context).
+
+Where one sentence in the `dolly` skill or `SYSTEM.md` would have saved the
+small models: "`cc file.c` writes `a.out`; use `cc -o NAME file.c` and run
+`./NAME` in the same command, since each bash call starts in Pi's working
+directory"; "every program here, `cc` included, is a WebAssembly module, so
+`file` says so"; and "do not `cat` a compiled program".
+
+Closed: the loop's cause is fixed and bounded (commit `3ccbdd9d`), the browser
+test proves a multi-turn agent run in Chrome and Firefox (`29843156`), and
+the environment findings are filed. Sizes: 2B 8/8 (Chrome) and 4/4
+(Firefox); MiniCPM5 3/4; 4B completes the six-step audit in Chrome with the
+f16 flag but needs f16 (its f32 KV cache exceeds `gpu@0`'s 4 GiB), and its
+Firefox run stalled under the machine's memory pressure; 0.8B never
+completes and is stopped by the bound every time.
