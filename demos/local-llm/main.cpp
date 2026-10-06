@@ -18,7 +18,7 @@ extern "C" bool dolly_webgpu_f16();
 static void check(bool good,const char *message) {if(!good)throw std::runtime_error(message);}
 
 int main(int argc,char **argv) {
-    if(argc<2 || argc>3) {fprintf(stderr,"usage: dolly-llama MODEL.gguf [CONTEXT_TOKENS]\nJSON requests on stdin: prompt, max_tokens, temperature, top_p, seed\n");return 2;}
+    if(argc<2 || argc>3) {fprintf(stderr,"usage: dolly-llama MODEL.gguf [CONTEXT_TOKENS]\nJSON requests on stdin: prompt, max_tokens, temperature, top_k, top_p, presence_penalty, seed\n");return 2;}
     const unsigned context=argc==3?strtoul(argv[2],nullptr,10):8192;
     if(context<128 || context>16384) {fprintf(stderr,"context must be 128..16384 tokens\n");return 2;}
     signal(SIGINT,[](int){interrupted=1;});
@@ -49,8 +49,11 @@ int main(int argc,char **argv) {
         try {
             check(strlen(line)<=1024*1024,"Request exceeds 1 MiB");
             const auto request=json::parse(line);const auto prompt=request.at("prompt").get<std::string>();
-            const int maximum=request.value("max_tokens",1024);const float temperature=request.value("temperature",0.6f);
-            check(maximum>0 && maximum<=4096 && temperature>=0 && temperature<=2,"Invalid generation limits");
+            const int maximum=request.value("max_tokens",1024),top_k=request.value("top_k",0);
+            const float temperature=request.value("temperature",0.6f),top_p=request.value("top_p",1.0f),
+              presence=request.value("presence_penalty",0.0f);
+            check(maximum>0 && maximum<=4096 && temperature>=0 && temperature<=2 && top_k>=0 && top_p>0 && top_p<=1 &&
+              presence>=-2 && presence<=2,"Invalid generation limits");
             int n=-llama_tokenize(vocab,prompt.data(),prompt.size(),nullptr,0,true,true);
             check(n>0 && n+maximum<=int(context),"The request exceeds the available context size");
             std::vector<llama_token> tokens(n);
@@ -67,10 +70,13 @@ int main(int argc,char **argv) {
             sampler=llama_sampler_chain_init(llama_sampler_chain_default_params());
             if(temperature==0)llama_sampler_chain_add(sampler,llama_sampler_init_greedy());
             else {
-                llama_sampler_chain_add(sampler,llama_sampler_init_top_k(20));
-                llama_sampler_chain_add(sampler,llama_sampler_init_top_p(request.value("top_p",0.95f),1));
+                // The presence penalty covers this response. Without a seed every request draws
+                // afresh: a fixed one replays the same draws when an agent turn repeats its context.
+                llama_sampler_chain_add(sampler,llama_sampler_init_penalties(llama_vocab_n_tokens(vocab),maximum,1,0,presence));
+                if(top_k)llama_sampler_chain_add(sampler,llama_sampler_init_top_k(top_k));
+                llama_sampler_chain_add(sampler,llama_sampler_init_top_p(top_p,1));
                 llama_sampler_chain_add(sampler,llama_sampler_init_temp(temperature));
-                llama_sampler_chain_add(sampler,llama_sampler_init_dist(request.value("seed",uint32_t(42))));
+                llama_sampler_chain_add(sampler,llama_sampler_init_dist(request.value("seed",uint32_t(LLAMA_DEFAULT_SEED))));
             }
             const auto start=ggml_time_us();
             for(int at=reused;at<n && !interrupted;at+=cp.n_batch) {

@@ -29,6 +29,29 @@ export default function(pi) {
   const engine=new LocalLlama(text=>ui?.setStatus('local-model',text));
   pi.on('session_start',(_event,ctx)=>{ui=ctx.ui;});
   pi.on('session_shutdown',()=>engine.stop());
+  // Pi's loop has no bound on a model repeating itself: a small one can call the
+  // same tool with the same input forever while the result stays the same. A third
+  // identical call after two identical results is not run, and the model reads
+  // why; if it insists, the run ends and the user is told.
+  const key=event=>JSON.stringify([event.toolName,event.input]);
+  let last,repeats=0,warned;
+  pi.on('agent_start',()=>{last=undefined;repeats=0;warned=undefined;});
+  pi.on('tool_result',event=>{
+    if(event.parentToolCallId || key(event)===warned)return;
+    const call=key(event),result=JSON.stringify(event.content);
+    repeats=last?.call===call && last.result===result?repeats+1:1;last={call,result};
+  });
+  pi.on('tool_call',(event,ctx)=>{
+    if(event.parentToolCallId)return;
+    if(key(event)===warned) {
+      const reason=`Stopped: the model repeated the same ${event.toolName} call ${repeats+2} times with the same result.`;
+      ctx.ui.notify(reason,'warning');return {block:true,reason,terminate:true};
+    }
+    warned=undefined;
+    if(repeats<2 || last.call!==key(event))return;
+    warned=key(event);
+    return {block:true,reason:`Not run: this ${event.toolName} call already returned the same result twice. Use that result or do something else.`};
+  });
   pi.registerCommand('local-unload',{description:'Release the local model and its GPU memory',handler:async(_args,ctx)=>{engine.stop();ctx.ui.setStatus('local-model',undefined);ctx.ui.notify('Local model unloaded','info');}});
   pi.registerProvider('webgpu',{
     baseUrl:'dolly://local',api:'dolly-llama',apiKey:'local',
@@ -41,12 +64,12 @@ export default function(pi) {
       void (async()=>{
         try {
           const tools=getCurrentTools(context.messages).map(t=>({type:'function',function:{name:t.name,description:t.description,parameters:t.parameters}}));
-          const format=formats[models.find(entry=>entry.id===model.id).format];
+          const entry=models.find(entry=>entry.id===model.id),format=formats[entry.format];
           const prompt=format.prompt(conversation(context),tools);
           stream.push({type:'start',partial:output});
           output.content.push({type:'text',text:''});stream.push({type:'text_start',contentIndex:0,partial:output});
           const decoder=new TextDecoder();let result,text='',shown=0;
-          for await(const event of engine.generate(model.id,{prompt,max_tokens:options.maxTokens??2048,temperature:options.temperature??0.2,top_p:0.9},options.signal)) {
+          for await(const event of engine.generate(model.id,{prompt,max_tokens:options.maxTokens??2048,...entry.sampling,...options.temperature===undefined?{}:{temperature:options.temperature}},options.signal)) {
             if(event.token) {
               text+=decoder.decode(new Uint8Array(event.token),{stream:true});
               // Hold tag prefixes until a complete tool envelope can be validated.
