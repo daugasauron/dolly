@@ -44,3 +44,28 @@ $(BUILD)/port/%.o: $(PORT)/%.c
 $(BUILD)/gmqcc/%.o: $(SOURCE)/gmqcc/%.cpp
 	mkdir -p $(@D)
 	$(CXX) -O1 -std=c++11 -fno-exceptions -fno-rtti -c $< -o $@
+
+# The game logic as qcsrc/Makefile and tools/qcc.sh build it: cc preprocesses
+# each progs.inc, the line markers become gmqcc pragmas, gmqcc compiles the
+# result. The watermark is the release tag, so the output equals the shipped .dat.
+QCSRC := $(SOURCE)/qcsrc
+QC := $(BUILD)/qc
+QCCDEFS := -DGMQCC -DXONOTIC=1 -DWATERMARK=\"xonotic-v0.8.6\" -DNDEBUG=1 \
+  -DENABLE_EFFECTINFO=0 -DENABLE_DEBUGDRAW=0 -DENABLE_DEBUGTRACE=0
+QCCFLAGS := -std=gmqcc -Ooverlap-locals -O3 -Werror -Wall -Wno-field-redeclared -flno -futf8 \
+  -fno-bail-on-werror -frelaxed-switch -freturn-assignments
+QC_PROGRAMS := $(QC)/progs.dat $(QC)/csprogs.dat $(QC)/menu.dat
+$(QC)/progs.dat: QCMODE := server
+$(QC)/progs.dat: QCDEFS := -DGAMEQC -DSVQC
+$(QC)/csprogs.dat: QCMODE := client
+$(QC)/csprogs.dat: QCDEFS := -DGAMEQC -DCSQC
+$(QC)/menu.dat: QCMODE := menu
+$(QC)/menu.dat: QCDEFS := -DMENUQC
+
+qc: $(QC_PROGRAMS)
+
+$(QC_PROGRAMS): /usr/bin/gmqcc
+	mkdir -p $(QC)
+	cd $(QCSRC) && $(CC) -xc -E -I. $(QCCDEFS) $(QCDEFS) -Wall -Wundef -Werror $(QCMODE)/progs.inc -o $(QC)/$(QCMODE).txt
+	awk '{ if (match($$0, /^#(line)? [0-9]+ "[^"]*"/)) { split($$0, a, /[ "]+/); print ""; print "#pragma file(" a[3] ")"; print "#pragma line(" a[2] ")" } else print }' $(QC)/$(QCMODE).txt > $(QC)/$(QCMODE).qc
+	cd $(QCSRC) && gmqcc $(QCCFLAGS) -o $@ $(QC)/$(QCMODE).qc

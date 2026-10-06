@@ -60,6 +60,76 @@ not inspected.
 Xonotic 0.8.6 (xonotic.org/download): `xonotic-0.8.6.zip`, 1182 MiB, source
 included; it lists OpenGL 2.1 as the requirement.
 
+## Pinned (2026-10-07)
+
+Xonotic's current release is 0.8.6 (dl.xonotic.org lists nothing newer).
+`config/source-pins.sh` carries both archives; the sizes and SHA-256 were
+measured on the downloads, and `xonotic-0.8.6.zip` also matched the SHA-512 in
+the published `xonotic-0.8.6.sha512`.
+
+| Archive | Bytes | SHA-256 |
+|---|---|---|
+| `xonotic-0.8.6.zip` (data pk3s, binaries, source) | 1,238,439,495 | `50850f8d800e7499722f6ea61e478e96464a375494b5a24da93aa0598cbe964d` |
+| `xonotic-0.8.6-source.zip` (engine, gmqcc, d0_blind_id, qcsrc) | 6,580,743 | `8b92ac781cff4ae89c121a23eacd7dec05a2aabedaccc23a19d1a0958b4012a8` |
+
+The source zip's trees were diffed against shallow clones of the tags:
+`darkplaces` = `xonotic-v0.8.6` = `f244ef2525c9c018f1b077d49959df3c77ebc7b1`
+(no differences), `gmqcc` = `2fe0af00e78d55edecd7ca7ee1808c4ea946b05f` (no
+differences), `qcsrc` = xonotic-data.pk3dir `xonotic-v0.8.6` =
+`45df581bba67832b61e5041f4b7d87cf59c80657` (no differences, from GitLab's
+`?path=qcsrc` archive), `d0_blind_id` = `c32ee93edd10288ca40e1eb81263f0a37309b32c`
+(the zip adds autotools output). The xonotic.git tag is `0100f2c8d794…`.
+The release engine (2023) is older than the master measured on 2026-10-06: it
+has no Emscripten target and no `__EMSCRIPTEN__`; `__linux__` gates only the
+OS name string, `/proc/self/exe` and `setpriority`.
+
+Data in the release zip, `Xonotic/data/`: `xonotic-20230620-data.pk3`
+317,540,306 B (configs, `progs.dat`, models, textures),
+`xonotic-20230620-maps.pk3` 626,168,138 B, `-music.pk3` 110,697,275 B,
+`-nexcompat.pk3` 125,433,473 B, `-xoncompat.pk3` 2,308,299 B,
+`font-unifont-20230620.pk3` 2,839,911 B, `font-xolonium-20230620.pk3`
+171,388 B; SHA-256 of each in `build/xonotic-evidence/` (`pk3.sha256`).
+Staging decision: 0 A.D. serves each data file as its own `SOURCE` (its mod
+zips split into `public-NNN.zip` parts), the local models as one package image
+per GGUF shard. Every Xonotic pk3 is below 2 GiB, so each pk3 becomes one
+`SOURCE` of a `xonotic-data` package (943 MB for a bot match: data and maps;
+music and the Nexuiz compatibility packs can stay out of the first image). No
+splitting is needed; the packaging layer already cuts large static files into
+20 MiB parts. Not staged yet: the browser test fetches two pk3s through its
+fixture server instead, which the README says is the test's arrangement.
+
+## Measured native (2026-10-07, host gcc 11, SDL2 2.0.20, 16 cores)
+
+Build: `make -j16 sv-release sdl-release` with `DP_LINK_JPEG=dlopen
+DP_LINK_ZLIB=shared`: 9.2 s wall, 91.5 s user; `darkplaces-dedicated`
+3,687,016 B, `darkplaces-sdl` 4,088,296 B (`build/xonotic-evidence/native-build.log`).
+
+Dedicated server, upstream's own `serverbench.cfg` (bots only, skill 100,
+`timelimit_override 3`, `sys_usenoclockbutbenchmark 1`, quits at the end):
+`+exec serverbench.cfg +bot_number 8 +maxplayers 16` on stormkeep ran the
+whole match (eventlog `:gamestart` to `:end`, 196 s of game time at
+`sys_ticrate 0.0333333`, about 5,900 server frames) in 4.65 s wall, 4.38 s
+user: about 1,270 server frames per second, 489 MB maximum RSS. With the
+config's 32 bots: 13.2 s wall, 12.86 s user, 532 MB RSS. Logs:
+`native-serverbench-8bots.log`, `-32bots.log`. A plain `+map dance` did not
+spawn a server (dance is CTF-only; the fallback printed and nothing followed),
+so the test uses `serverbench.cfg`.
+
+QuakeC, natively: gmqcc built with `make CXX=g++` (9.1 s user, 465,816 B).
+`qcsrc/Makefile` plus `tools/qcc.sh` reduce to three steps per program, which
+`demos/xonotic/Makefile`'s `qc` target repeats: `cc -xc -E` over
+`server|client|menu/progs.inc` (the server's output is 135,089 lines,
+10.5 MB), the `# N "file"` markers rewritten to `#pragma file`/`#pragma line`
+(gmqcc only accepts them when a blank line precedes each pair, as upstream's
+sed produces), then gmqcc `-std=gmqcc -Ooverlap-locals -O3 …` with
+`-DWATERMARK="xonotic-v0.8.6"` (upstream's `git describe --tags`). gmqcc
+takes 1.52 s and 439 MB for the server, 0.68 s / 246 MB for the client,
+0.25 s / 110 MB for the menu. The three outputs are byte-identical to the
+release's `progs.dat` (6,663,681 B, SHA-256 `e6f5c70b…`), `csprogs.dat`
+(4,021,257 B, `7d780716…`) and `menu.dat` (1,756,668 B, `dc750760…`) in
+`xonotic-20230620-data.pk3` (`build/xonotic-evidence/released-dat.sha256`),
+so the in-Dolly build can be checked by hash.
+
 ## Decisions for the owner
 
 1. Rendering route. (a) A Dolly render path inside DarkPlaces: a `gpu@0`
