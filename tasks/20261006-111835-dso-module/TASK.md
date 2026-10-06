@@ -113,9 +113,9 @@ FFI packets moved out of `process.h`, the `dolly_dl*` declarations moved out of
 - No round trip: the module's Worker side fetches its bundle and contract once
   at boot (starting a program stays free of requests, as `core` asserts) and
   registers them with the runtime; the supervisor, which already reads each
-  executable's records for admission, puts the bundle's blob URL into the
-  `configure` message of exactly the executables that carry `dso@0`; that
-  Worker imports it before `_start`. `src/` names no module: the hook is a
+  executable's records for admission, puts the bundle into the `configure`
+  message of exactly the executables that carry `dso@0`; that Worker imports
+  it before `_start`. `src/` names no module: the hook is a
   list of process modules by requirement.
 
 ### Without the module
@@ -135,10 +135,15 @@ FFI packets moved out of `process.h`, the `dolly_dl*` declarations moved out of
 - `default`: `amy install python` (its start-up text), `nvim` and `rust` need
   it, by the rule that gave it `threads@0`. This postdates the measurement,
   which counted `default` among the 51.
-- `system` and `cmake-build`: their suites build hosts with `cc -rdynamic` and
-  run them there (`core`'s smoke builds every probe that way; `cmake`'s libuv
-  probe). A toolchain whose compiler builds hosts declares the module to run
-  them. Flip this by removing one line and moving those cases to a composed
-  image if `system` should stay without it.
+- Not `system` or `cmake-build` (integrator's ruling, 21:20): an image
+  declares a module because a program it keeps needs it or because it is
+  meant to hold such programs, not for a test. A test that builds and runs a
+  `-rdynamic` program states the module in its own recipe on top of the base:
+  `test/dso-browser.mjs` (`system` plus `dso@0`), `displayProbe("cmake-build",
+  "dso@0")` for the libuv probe. The smoke that `core` runs builds its probes
+  without `-rdynamic`; before, every probe was a host.
 - A build host enables `dso@0` beside `http@0` and `threads@0`: `ripgrep`,
   `fd` and `codex` build with `rustc-real` without keeping it.
+- The hand-off changed after the design was sent: the supervisor posts the
+  bundle as a `Blob` and the process Worker makes and revokes its own URL, so
+  no URL of the runtime Worker has to be reachable from the Workers it starts.
