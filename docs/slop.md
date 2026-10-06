@@ -166,8 +166,8 @@ that run inside the shell stay serial.
   browser's.
 - GNU Make 4.4.1 ([`Dollyfile-system-build`](../Dollyfile-system-build)) defaults to
   `SHELL=/bin/slop` and starts recipes with `posix_spawn`. `-jN` runs N jobs at
-  once and shares a pipe jobserver with recursive Makes. `-O` still groups each
-  target's output but warns that it has no lock (`F_SETLKW` is `ENOTSUP`).
+  once and shares a pipe jobserver with recursive Makes; `-O` groups each
+  target's output.
   `ninja` is Samurai, which still runs one job ([`Dollyfile-system-tools`](../Dollyfile-system-tools)).
 - `cc`, `c++`, `ld` and `ar` are the private compiler
   ([process model](process-model.md#executables)); `git`, `curl` and `gzip` are

@@ -7,7 +7,7 @@ import { shellQuote } from "./fixtures/slop-cases.mjs";
 import { DOLLY_ERRNO } from "../src/process-constants.mjs";
 
 const scratch = "/tmp/dolly-process-test";
-const fixtures = Object.fromEntries(["process-lifecycle.c", "process-descriptors.c", "process-signals.c", "process-sigchld.c", "process-interrupt.c"]
+const fixtures = Object.fromEntries(["process-lifecycle.c", "process-descriptors.c", "process-locks.c", "process-signals.c", "process-sigchld.c", "process-interrupt.c"]
   .map(name => [name, `test/fixtures/${name}`]));
 for (const name of await readdir(new URL("../build", import.meta.url))) {
   if (/^(?:process|dso)-.+\.wasm$/.test(name)) fixtures[name] = `build/${name}`;
@@ -119,9 +119,11 @@ await browserTest("process", { image: "system", server: { fixtures, handle } }, 
   await interrupt();
   assert.equal(await cancelled, 0, "an interrupted process sleep returns EINTR after the handler runs");
 
-  for (const name of ["process-lifecycle.c", "process-descriptors.c", "process-signals.c", "process-sigchld.c", "process-interrupt.c", "input.tgz"]) await fetchFixture(name);
+  for (const name of ["process-lifecycle.c", "process-descriptors.c", "process-locks.c", "process-signals.c", "process-sigchld.c", "process-interrupt.c", "input.tgz"]) await fetchFixture(name);
   await run(`cc -O0 ${scratch}/process-lifecycle.c -o ${scratch}/lifecycle && timeout 15 ${scratch}/lifecycle`);
   await run(`cc -O0 ${scratch}/process-descriptors.c -o ${scratch}/descriptors && timeout 60 ${scratch}/descriptors`);
+  // Two processes contend for flock and fcntl locks; a release wakes its waiter at once.
+  await run(`cc -O0 ${scratch}/process-locks.c -o ${scratch}/locks && timeout 60 ${scratch}/locks`);
   await run(`cc -O0 -rdynamic ${scratch}/process-signals.c -o ${scratch}/signals && timeout 30 ${scratch}/signals ${scratch}`);
   await run(`cc -O0 ${scratch}/process-sigchld.c -o ${scratch}/sigchld && timeout 5 ${scratch}/sigchld`);
   await run(`gzip -dc ${scratch}/input.tgz | tar -xf - -C ${scratch} && test "$(cat ${scratch}/nested/message)" = TAR-STDIN-OK`);

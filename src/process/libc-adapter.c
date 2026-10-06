@@ -18,6 +18,7 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/file.h>
 #include <sys/ioctl.h>
 #include <sys/resource.h>
 #include <sys/stat.h>
@@ -33,9 +34,18 @@
 _Static_assert(__WASI_WHENCE_SET == DOLLY_PROCESS_SEEK_SET &&
                __WASI_WHENCE_CUR == DOLLY_PROCESS_SEEK_CURRENT &&
                __WASI_WHENCE_END == DOLLY_PROCESS_SEEK_END, "seek whence encoding");
+_Static_assert(SEEK_SET == DOLLY_PROCESS_SEEK_SET && SEEK_CUR == DOLLY_PROCESS_SEEK_CURRENT &&
+               SEEK_END == DOLLY_PROCESS_SEEK_END && F_RDLCK == DOLLY_PROCESS_LOCK_SHARED &&
+               F_WRLCK == DOLLY_PROCESS_LOCK_EXCLUSIVE && F_UNLCK == DOLLY_PROCESS_LOCK_UNLOCK,
+               "struct flock encoding");
 _Static_assert(__WASI_CLOCKID_REALTIME == DOLLY_PROCESS_CLOCK_REALTIME &&
                __WASI_CLOCKID_MONOTONIC == DOLLY_PROCESS_CLOCK_MONOTONIC,
                "clock encoding");
+
+/* Marks a descriptor the libc opened for itself, here or for a shared mapping
+ * (mmap.c): closing it is not the program closing the file, which would drop
+ * the process's record locks on it. */
+int __dolly_keep_locks(int descriptor);
 
 int isatty(int descriptor) { return dolly_isatty(descriptor); }
 
@@ -606,7 +616,8 @@ int __syscall_truncate64(const char *path, int64_t size) {
   if (size < 0) return -EINVAL;
   const int descriptor = __syscall_openat(AT_FDCWD, path, O_WRONLY);
   if (descriptor < 0) return descriptor;
-  const int result = __syscall_ftruncate64(descriptor, size);
+  int result = __dolly_keep_locks(descriptor);
+  if (result == 0) result = __syscall_ftruncate64(descriptor, size);
   const __wasi_errno_t close_error = __wasi_fd_close(descriptor);
   return result != 0 ? result : close_error == 0 ? 0 : -(int)close_error;
 }
@@ -1105,6 +1116,11 @@ static int fd_flags_set(uint32_t operation, int descriptor, uint32_t flags) {
   return result < 0 ? (int)result : result == 0 ? 0 : -EIO;
 }
 
+int __dolly_keep_locks(int descriptor) {
+  return fd_flags_set(DOLLY_PROCESS_FD_SET_DESCRIPTOR_FLAGS, descriptor,
+      DOLLY_PROCESS_FD_CLOEXEC | DOLLY_PROCESS_FD_KEEP_LOCKS);
+}
+
 static int get_status_flags(int descriptor) {
   const int status = fd_flags_get(DOLLY_PROCESS_FD_GET_FLAGS, descriptor);
   if (status < 0) return status;
@@ -1135,7 +1151,7 @@ static int set_status_flags(int descriptor, int flags) {
  * carries semantic descriptor flags and its terminal-discipline bits; this
  * adapter translates the target libc's ioctl numbers and layouts.
  */
-static uintptr_t ioctl_argument(uintptr_t arguments) {
+static uintptr_t variadic_argument(uintptr_t arguments) {
   uintptr_t argument = 0;
   if (arguments != 0) {
     memcpy(&argument, (const void *)arguments, sizeof(argument));
@@ -1185,7 +1201,7 @@ static int discard_terminal_input(int descriptor) {
 }
 
 int __syscall_ioctl(int descriptor, int request, uintptr_t arguments) {
-  const uintptr_t argument = ioctl_argument(arguments);
+  const uintptr_t argument = variadic_argument(arguments);
   switch (request) {
     case FIOCLEX:
     case FIONCLEX:
@@ -1282,6 +1298,60 @@ int __syscall_ioctl(int descriptor, int request, uintptr_t arguments) {
   }
 }
 
+/* Only a request that waits is interrupted by a signal handler. */
+static int lock_call(int descriptor, uint32_t flags, uint32_t type, const struct flock *range,
+                     dolly_process_fd_lock_response *holder) {
+  if (descriptor < 0) return -EBADF;
+  const dolly_process_fd_lock_request request = {
+      (uint32_t)descriptor, flags, type, range ? (uint32_t)range->l_whence : 0,
+      range ? range->l_start : 0, range ? range->l_len : 0,
+  };
+  int64_t result;
+  do {
+    result = dolly_process_call(DOLLY_PROCESS_FD_LOCK, &request, sizeof(request),
+                                holder, holder ? sizeof(*holder) : 0);
+  } while (result == -EINTR && !(flags & DOLLY_PROCESS_LOCK_WAIT));
+  if (result < 0) return (int)result;
+  return (uint64_t)result == (holder ? sizeof(*holder) : 0) ? 0 : -EIO;
+}
+
+/* Emscripten's flock is a stub that reports success without locking. */
+int flock(int descriptor, int operation) {
+  const int kind = operation & ~LOCK_NB;
+  int result = -EINVAL;
+  if (kind == LOCK_UN) {
+    result = lock_call(descriptor, DOLLY_PROCESS_LOCK_DESCRIPTION, DOLLY_PROCESS_LOCK_UNLOCK, NULL, NULL);
+  } else if (kind == LOCK_SH || kind == LOCK_EX) {
+    result = lock_call(descriptor,
+        DOLLY_PROCESS_LOCK_DESCRIPTION | (operation & LOCK_NB ? 0 : DOLLY_PROCESS_LOCK_WAIT),
+        kind == LOCK_EX ? DOLLY_PROCESS_LOCK_EXCLUSIVE : DOLLY_PROCESS_LOCK_SHARED, NULL, NULL);
+  }
+  if (result == 0) return 0;
+  errno = -result;
+  return -1;
+}
+
+/* POSIX record locks: F_GETLK, F_SETLK and F_SETLKW. */
+static int record_lock(int descriptor, int command, struct flock *lock) {
+  if (lock == NULL) return -EFAULT;
+  if (command != F_GETLK) {
+    return lock_call(descriptor,
+        command == F_SETLKW && lock->l_type != F_UNLCK ? DOLLY_PROCESS_LOCK_WAIT : 0,
+        (uint32_t)lock->l_type, lock, NULL);
+  }
+  dolly_process_fd_lock_response holder;
+  const int result = lock_call(descriptor, DOLLY_PROCESS_LOCK_TEST, (uint32_t)lock->l_type, lock, &holder);
+  if (result != 0) return result;
+  lock->l_type = (short)holder.type;
+  if (holder.type != DOLLY_PROCESS_LOCK_UNLOCK) {
+    lock->l_whence = SEEK_SET;
+    lock->l_start = (off_t)holder.start;
+    lock->l_len = (off_t)holder.length;
+    lock->l_pid = (pid_t)holder.pid;
+  }
+  return 0;
+}
+
 /*
  * Emscripten's musl syscall veneer passes a pointer to its packed variadic
  * arguments. Descriptor and open-file flags are distinct kernel state.
@@ -1300,7 +1370,7 @@ int __syscall_fcntl64(int descriptor, int command, uintptr_t arguments) {
       const int flags = fd_flags_get(
           DOLLY_PROCESS_FD_GET_DESCRIPTOR_FLAGS, descriptor);
       if (flags < 0) return flags;
-      if ((flags & ~DOLLY_PROCESS_FD_CLOEXEC) != 0) return -EIO;
+      if ((flags & ~(DOLLY_PROCESS_FD_CLOEXEC | DOLLY_PROCESS_FD_KEEP_LOCKS)) != 0) return -EIO;
       return (flags & DOLLY_PROCESS_FD_CLOEXEC) != 0 ? FD_CLOEXEC : 0;
     }
     case F_SETFD:
@@ -1313,11 +1383,8 @@ int __syscall_fcntl64(int descriptor, int command, uintptr_t arguments) {
       return arguments == 0 ? -EINVAL : set_status_flags(descriptor, integer);
     case F_GETLK:
     case F_SETLK:
-    case F_SETLKW: {
-      const int flags = fd_flags_get(
-          DOLLY_PROCESS_FD_GET_DESCRIPTOR_FLAGS, descriptor);
-      return flags < 0 ? flags : -ENOTSUP;
-    }
+    case F_SETLKW:
+      return record_lock(descriptor, command, (struct flock *)variadic_argument(arguments));
     default:
       return -EINVAL;
   }

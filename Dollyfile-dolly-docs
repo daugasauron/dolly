@@ -5,8 +5,8 @@ REQUIRES HOST runtime@0
 # The platform as a program sees it: the documents and machine contracts of
 # this release at their repository paths, so their links to each other work.
 # The rows are checked against the documents' links (test/platform-documents.test.mjs).
-SOURCE https://daugasauron.com/docs/process-model.md 96b5eeadc8935e592bfacb9c1e916221d5efab74dac2c4bde0a398be61fd340c /usr/share/doc/dolly/docs/process-model.md
-SOURCE https://daugasauron.com/docs/slop.md 3fe717304d8b8c0c78de317a4c3706c29b62720281a0da3dcf6f91bb7a66b6de /usr/share/doc/dolly/docs/slop.md
+SOURCE https://daugasauron.com/docs/process-model.md acf11420baf2c14138014bcc9b705a82980c5498dcc4d6860c2ada26f9bcba74 /usr/share/doc/dolly/docs/process-model.md
+SOURCE https://daugasauron.com/docs/slop.md dca23beff6a28a83f4c66c3887a404e53fc93a20bbc0987402cb6e5b7b50056e /usr/share/doc/dolly/docs/slop.md
 SOURCE https://daugasauron.com/docs/display.md ab6e17fbe9d7218fb24f95e438824e5dfa834a7ddda50212e0f1061381aa8321 /usr/share/doc/dolly/docs/display.md
 SOURCE https://daugasauron.com/docs/gpu.md f57940e72153898014baa7882a70a0d5d5fcd24508d5d22c70bcf323e3f5bef4 /usr/share/doc/dolly/docs/gpu.md
 SOURCE https://daugasauron.com/docs/audio.md ebea715a5708fdea8824ee0370f3c8549d81bd7cf66128c0e6f91c42f683e73d /usr/share/doc/dolly/docs/audio.md

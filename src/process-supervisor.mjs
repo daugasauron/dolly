@@ -624,6 +624,9 @@ export class DollyProcessSupervisor {
       this.#reclamationDeadline(process), reclamationDeadline,
     );
     this.#stop(process);
+    // The kernel has closed the process's descriptors: a reader of its pipe or
+    // a waiter for its lock proceeds now, not at the next tick.
+    if (this.dolly._dolly_process_take_wakeup()) this.serviceDeferred();
     const retired = () => {
       process.retirementTimer = null;
       if (this.processes.get(process.pid) !== process) return;

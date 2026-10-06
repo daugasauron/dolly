@@ -31,6 +31,7 @@ enum {
   DOLLY_KERNEL_PIPE_WRITE = 2,
   DOLLY_KERNEL_SHEBANG_LIMIT = 4096,
   DOLLY_KERNEL_SHEBANG_DEPTH = 4,
+  DOLLY_KERNEL_LOCK_LIMIT = 1024,
 };
 
 static const uint64_t DOLLY_KERNEL_SPAWN_DEADLINE_LIMIT =
@@ -57,6 +58,9 @@ typedef struct {
   uint32_t spawn_flags;
   int worker_retired;
   int descriptors[DOLLY_KERNEL_DESCRIPTOR_LIMIT];
+  /* The open file description of each file descriptor: duplicates and
+   * inherited descriptors share its number. Zero for a pipe or none. */
+  uint64_t descriptions[DOLLY_KERNEL_DESCRIPTOR_LIMIT];
   unsigned char descriptor_flags[DOLLY_KERNEL_DESCRIPTOR_LIMIT];
   dolly_kernel_pipe *pipes[DOLLY_KERNEL_DESCRIPTOR_LIMIT];
   unsigned char pipe_directions[DOLLY_KERNEL_DESCRIPTOR_LIMIT];
@@ -84,9 +88,28 @@ _Alignas(64) static unsigned char
 static dolly_kernel_process process_table[DOLLY_KERNEL_PROCESS_LIMIT];
 static int next_process_pid = 100;
 static uint32_t live_pipe_count;
-/* A pipe's bytes or ends changed, so a deferred call may now complete. */
-static int pipe_changed;
+/* A pipe's bytes or ends changed or a lock went, so a deferred call may now
+ * complete. */
+static int wakeup_pending;
 static int foreground_pid;
+
+/* An advisory lock on bytes [start, end) of a file. A process owns the ranges
+ * it locks (fcntl); a whole-file lock belongs to an open file description
+ * instead (flock) and has no pid. The two kinds do not conflict. */
+typedef struct {
+  dev_t device;
+  ino_t inode;
+  uint64_t description;
+  int pid;
+  int exclusive;
+  uint64_t start, end;
+} dolly_kernel_lock;
+
+/* One past the last byte a lock can cover; a lock that ends here has no end. */
+static const uint64_t DOLLY_KERNEL_LOCK_END = (uint64_t)INT64_MAX + 1;
+static dolly_kernel_lock lock_table[DOLLY_KERNEL_LOCK_LIMIT];
+static size_t lock_count;
+static uint64_t last_description;
 
 extern char **environ;
 int dolly_process_signal(int pid, int signal_number);
@@ -197,6 +220,49 @@ static void retain_pipe(dolly_kernel_pipe *pipe, unsigned direction) {
   else if (direction == DOLLY_KERNEL_PIPE_WRITE) ++pipe->writers;
 }
 
+static int description_is_open(uint64_t description) {
+  for (size_t index = 0; index < DOLLY_KERNEL_PROCESS_LIMIT; ++index) {
+    for (size_t descriptor = 0; descriptor < DOLLY_KERNEL_DESCRIPTOR_LIMIT; ++descriptor) {
+      if (process_table[index].descriptions[descriptor] == description) return 1;
+    }
+  }
+  return 0;
+}
+
+static int has_other_descriptor(const dolly_kernel_process *process, uint32_t closing,
+                                const struct stat *file) {
+  for (uint32_t descriptor = 0; descriptor < DOLLY_KERNEL_DESCRIPTOR_LIMIT; ++descriptor) {
+    struct stat other;
+    if (descriptor != closing && process->descriptors[descriptor] >= 0 &&
+        fstat(process->descriptors[descriptor], &other) == 0 &&
+        other.st_dev == file->st_dev && other.st_ino == file->st_ino) return 1;
+  }
+  return 0;
+}
+
+/* POSIX: closing any descriptor of a file drops every byte-range lock the
+ * process holds on that file. A descriptor a libc keeps for itself is not the
+ * program's to close, so it leaves them while the process has another. A
+ * description's lock goes with its last descriptor, in whichever process. */
+static void release_descriptor_locks(dolly_kernel_process *process, uint32_t descriptor) {
+  const uint64_t description = process->descriptions[descriptor];
+  process->descriptions[descriptor] = 0;
+  struct stat file;
+  if (lock_count == 0 || fstat(process->descriptors[descriptor], &file) != 0) return;
+  const int description_closed = !description_is_open(description);
+  const int keeps_ranges =
+      (process->descriptor_flags[descriptor] & DOLLY_PROCESS_FD_KEEP_LOCKS) != 0 &&
+      has_other_descriptor(process, descriptor, &file);
+  for (size_t index = lock_count; index-- > 0;) {
+    const dolly_kernel_lock *held = &lock_table[index];
+    if (held->pid == process->pid
+            ? keeps_ranges || held->device != file.st_dev || held->inode != file.st_ino
+            : held->description != description || !description_closed) continue;
+    lock_table[index] = lock_table[--lock_count];
+    wakeup_pending = 1;
+  }
+}
+
 static void release_descriptor(dolly_kernel_process *process,
                                uint32_t descriptor) {
   if (descriptor >= DOLLY_KERNEL_DESCRIPTOR_LIMIT) return;
@@ -205,6 +271,7 @@ static void release_descriptor(dolly_kernel_process *process,
     process->directories[descriptor] = NULL;
   }
   if (process->descriptors[descriptor] >= 0) {
+    release_descriptor_locks(process, descriptor);
     close(process->descriptors[descriptor]);
     process->descriptors[descriptor] = -1;
   }
@@ -217,7 +284,7 @@ static void release_descriptor(dolly_kernel_process *process,
     }
     process->pipes[descriptor] = NULL;
     process->pipe_directions[descriptor] = 0;
-    pipe_changed = 1;
+    wakeup_pending = 1;
     if (pipe->readers == 0 && pipe->writers == 0) {
       free(pipe);
       if (live_pipe_count != 0) --live_pipe_count;
@@ -483,6 +550,8 @@ static int copy_descriptor(dolly_kernel_process *process,
     if (duplicate < 0) return -errno;
     release_descriptor(process, target);
     process->descriptors[target] = duplicate;
+    process->descriptions[target] = parent != NULL
+        ? parent->descriptions[source] : ++last_description;
     process->terminal_descriptors[target] = parent != NULL
         ? parent->terminal_descriptors[source]
         : (source <= STDERR_FILENO);
@@ -967,7 +1036,7 @@ static int64_t fd_read_packet(dolly_kernel_process *process,
     memcpy(process_mailbox + first, pipe->bytes, count - first);
     pipe->offset = (pipe->offset + count) % DOLLY_KERNEL_PIPE_CAPACITY;
     pipe->size -= count;
-    pipe_changed = 1;
+    wakeup_pending = 1;
     return (int64_t)count;
   }
   int descriptor = descriptor_for(process, request.descriptor);
@@ -1131,7 +1200,7 @@ static int64_t fd_write_packet(dolly_kernel_process *process,
     memcpy(pipe->bytes, process_mailbox + sizeof(request) + first,
            completed - first);
     pipe->size += completed;
-    pipe_changed = 1;
+    wakeup_pending = 1;
     const dolly_process_io_result response = {completed};
     return respond(&response, sizeof(response));
   }
@@ -1153,6 +1222,147 @@ static int64_t fd_write_packet(dolly_kernel_process *process,
   }
   dolly_process_io_result response = {completed};
   return respond(&response, sizeof(response));
+}
+
+static const dolly_kernel_lock *conflicting_lock(const dolly_kernel_lock *wanted) {
+  for (size_t index = 0; index < lock_count; ++index) {
+    const dolly_kernel_lock *held = &lock_table[index];
+    if (held->device == wanted->device && held->inode == wanted->inode &&
+        (held->description != 0) == (wanted->description != 0) &&
+        (held->description != wanted->description || held->pid != wanted->pid) &&
+        held->start < wanted->end && wanted->start < held->end &&
+        (held->exclusive || wanted->exclusive)) return held;
+  }
+  return NULL;
+}
+
+/* Gives the range of `wanted` one type for its owner, or none: the owner's
+ * locks there are split, shortened, removed or, when they have the type and
+ * touch the range, merged with it. Returns how many locks that adds to the
+ * table and changes nothing unless `commit`. */
+static int retype_lock_range(const dolly_kernel_lock *wanted, uint32_t type, int commit) {
+  dolly_kernel_lock merged = *wanted;
+  int added = type != DOLLY_PROCESS_LOCK_UNLOCK;
+  for (size_t index = lock_count; index-- > 0;) {
+    dolly_kernel_lock *held = &lock_table[index];
+    if (held->device != wanted->device || held->inode != wanted->inode ||
+        held->description != wanted->description || held->pid != wanted->pid) continue;
+    const int merges = type != DOLLY_PROCESS_LOCK_UNLOCK && held->exclusive == wanted->exclusive;
+    if (merges ? held->end < wanted->start || wanted->end < held->start
+               : held->end <= wanted->start || wanted->end <= held->start) continue;
+    const int before = held->start < wanted->start, after = held->end > wanted->end;
+    if (commit) wakeup_pending = 1;
+    if (merges) {
+      if (before) merged.start = held->start;
+      if (after) merged.end = held->end;
+    } else if (before && after) {
+      ++added;
+      if (commit) {
+        lock_table[lock_count] = *held;
+        lock_table[lock_count++].start = wanted->end;
+        held->end = wanted->start;
+      }
+      continue;
+    } else if (before || after) {
+      if (commit && before) held->end = wanted->start;
+      if (commit && after) held->start = wanted->end;
+      continue;
+    }
+    --added;
+    if (commit) *held = lock_table[--lock_count];
+  }
+  if (commit && type != DOLLY_PROCESS_LOCK_UNLOCK) lock_table[lock_count++] = merged;
+  return added;
+}
+
+/* Resolves a byte-range request against the descriptor's offset or the
+ * file's size. */
+static int lock_range(int descriptor, const struct stat *file,
+                      const dolly_process_fd_lock_request *request,
+                      dolly_kernel_lock *lock) {
+  int64_t start = 0;
+  if (request->whence == DOLLY_PROCESS_SEEK_CURRENT) {
+    start = lseek(descriptor, 0, SEEK_CUR);
+    if (start < 0) return -errno;
+  } else if (request->whence == DOLLY_PROCESS_SEEK_END) {
+    start = file->st_size;
+  } else if (request->whence != DOLLY_PROCESS_SEEK_SET) {
+    return -EINVAL;
+  }
+  if (__builtin_add_overflow(start, request->start, &start)) return -EOVERFLOW;
+  /* A negative length ends the range before `start`. */
+  if (request->length < 0 &&
+      __builtin_add_overflow(start, request->length, &start)) return -EINVAL;
+  if (start < 0) return -EINVAL;
+  const uint64_t length = request->length < 0
+      ? 0 - (uint64_t)request->length : (uint64_t)request->length;
+  lock->start = (uint64_t)start;
+  lock->end = length == 0 ? DOLLY_KERNEL_LOCK_END : lock->start + length;
+  return lock->end > DOLLY_KERNEL_LOCK_END ? -EOVERFLOW : 0;
+}
+
+static int64_t fd_lock_packet(dolly_kernel_process *process, uintptr_t request_size,
+                              uintptr_t response_capacity) {
+  dolly_process_fd_lock_request request;
+  if (request_size != sizeof(request)) return -EINVAL;
+  memcpy(&request, process_mailbox, sizeof(request));
+  const int unlock = request.type == DOLLY_PROCESS_LOCK_UNLOCK;
+  const int by_description = (request.flags & DOLLY_PROCESS_LOCK_DESCRIPTION) != 0;
+  const int test = (request.flags & DOLLY_PROCESS_LOCK_TEST) != 0;
+  if ((request.flags & ~(DOLLY_PROCESS_LOCK_DESCRIPTION | DOLLY_PROCESS_LOCK_WAIT |
+                         DOLLY_PROCESS_LOCK_TEST)) != 0 ||
+      request.type > DOLLY_PROCESS_LOCK_UNLOCK ||
+      (test && (unlock || request.flags != DOLLY_PROCESS_LOCK_TEST ||
+                response_capacity < sizeof(dolly_process_fd_lock_response))) ||
+      (by_description && (request.whence != 0 || request.start != 0 || request.length != 0))) {
+    return -EINVAL;
+  }
+  if (!descriptor_is_open(process, request.descriptor)) return -EBADF;
+  if (process->pipes[request.descriptor] != NULL) return -ENOTSUP;
+  const int descriptor = process->descriptors[request.descriptor];
+  struct stat file;
+  if (fstat(descriptor, &file) != 0) return -errno;
+  dolly_kernel_lock wanted = {
+      .device = file.st_dev, .inode = file.st_ino, .end = DOLLY_KERNEL_LOCK_END,
+      .exclusive = request.type == DOLLY_PROCESS_LOCK_EXCLUSIVE,
+  };
+  if (by_description) {
+    wanted.description = process->descriptions[request.descriptor];
+  } else {
+    wanted.pid = process->pid;
+    const int invalid = lock_range(descriptor, &file, &request, &wanted);
+    if (invalid != 0) return invalid;
+    /* POSIX: a shared lock needs a descriptor open for reading, an exclusive
+     * one a descriptor open for writing. */
+    const int access = unlock || test ? O_RDWR : fcntl(descriptor, F_GETFL);
+    if (access < 0) return -errno;
+    if ((access & O_ACCMODE) == (wanted.exclusive ? O_RDONLY : O_WRONLY)) return -EBADF;
+  }
+  const dolly_kernel_lock *conflict = unlock ? NULL : conflicting_lock(&wanted);
+  if (test) {
+    dolly_process_fd_lock_response response = {.type = DOLLY_PROCESS_LOCK_UNLOCK};
+    if (conflict != NULL) {
+      response = (dolly_process_fd_lock_response){
+          conflict->exclusive ? DOLLY_PROCESS_LOCK_EXCLUSIVE : DOLLY_PROCESS_LOCK_SHARED,
+          (uint32_t)conflict->pid, conflict->start,
+          conflict->end == DOLLY_KERNEL_LOCK_END ? 0 : conflict->end - conflict->start,
+      };
+    }
+    return respond(&response, sizeof(response));
+  }
+  if (conflict != NULL) {
+    /* As on Linux, a description gives up the lock it converts before it
+     * waits, so two shared holders that both ask for exclusive cannot deadlock.
+     * A process keeps its range as it was. */
+    if (by_description) retype_lock_range(&wanted, DOLLY_PROCESS_LOCK_UNLOCK, 1);
+    return (request.flags & DOLLY_PROCESS_LOCK_WAIT) != 0
+        ? DOLLY_PROCESS_DISPATCH_DEFERRED : -EAGAIN;
+  }
+  if ((int)lock_count + retype_lock_range(&wanted, request.type, 0) > DOLLY_KERNEL_LOCK_LIMIT) {
+    return -ENOLCK;
+  }
+  retype_lock_range(&wanted, request.type, 1);
+  return 0;
 }
 
 static double deferred_milliseconds = -1;
@@ -1327,9 +1537,9 @@ double dolly_process_deferred_milliseconds(void) {
 }
 
 int dolly_process_take_wakeup(void) {
-  const int changed = pipe_changed;
-  pipe_changed = 0;
-  return changed;
+  const int pending = wakeup_pending;
+  wakeup_pending = 0;
+  return pending;
 }
 
 int dolly_process_spawn_serialized(uintptr_t request_size) {
@@ -1492,7 +1702,7 @@ static int64_t process_dispatch(int pid, int tid, int takes_signals, uint32_t op
       dolly_process_fd_flags request;
       memcpy(&request, process_mailbox, sizeof(request));
       if (!descriptor_is_open(process, request.descriptor)) return -EBADF;
-      if (request.flags & ~DOLLY_PROCESS_FD_CLOEXEC) return -EINVAL;
+      if (request.flags & ~(DOLLY_PROCESS_FD_CLOEXEC | DOLLY_PROCESS_FD_KEEP_LOCKS)) return -EINVAL;
       process->descriptor_flags[request.descriptor] = (unsigned char)request.flags;
       return 0;
     }
@@ -1621,6 +1831,7 @@ static int64_t process_dispatch(int pid, int tid, int takes_signals, uint32_t op
         if (result != 0) return result;
       } else {
         process->descriptors[guest_fd] = kernel_fd;
+        process->descriptions[guest_fd] = ++last_description;
         process->terminal_descriptors[guest_fd] = controlling_terminal(kernel_fd);
       }
       process->descriptor_flags[guest_fd] = (request.flags & DOLLY_PROCESS_OPEN_CLOEXEC)
@@ -1952,6 +2163,8 @@ static int64_t process_dispatch(int pid, int tid, int takes_signals, uint32_t op
     }
     case DOLLY_PROCESS_FD_POLL:
       return fd_poll_packet(process, request_size, response_capacity);
+    case DOLLY_PROCESS_FD_LOCK:
+      return fd_lock_packet(process, request_size, response_capacity);
     case DOLLY_PROCESS_RANDOM: {
       if (request_size != 0) return -EINVAL;
       size_t offset = 0;

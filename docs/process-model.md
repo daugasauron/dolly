@@ -109,7 +109,21 @@ sequenceDiagram
   `munmap` ([`mmap.c`](../src/process/mmap.c)). Mappings are not coherent with
   other writers, do not extend the file past EOF, and cannot trap there: Wasm
   cannot protect or revoke part of linear memory.
-- Advisory locks (`F_GETLK`, `F_SETLK`, `F_SETLKW`) return `ENOTSUP`.
+- Advisory locks live in one kernel table of 1024 for all processes; a request
+  that needs one more fails with `ENOLCK`. `flock` locks the whole file for an
+  open file description: descriptors made by `dup` or inherited by a spawned
+  child share the lock, and it goes with the last of them. Converting gives
+  the held lock up first, as on Linux, so a refused `LOCK_NB` conversion leaves
+  none. `fcntl` `F_SETLK`, `F_SETLKW` and `F_GETLK` (and `lockf`) lock byte
+  ranges for the process, splitting and merging what it holds; as POSIX says,
+  closing **any** descriptor of a file drops all the process's locks on that
+  file. Not the descriptors libc keeps for itself, for a shared mapping or
+  inside `truncate`: those are marked `DOLLY_PROCESS_FD_KEEP_LOCKS`. The two
+  kinds do not see each other, and neither stops `read` or `write`. A waiting request is parked like a pipe read: a release wakes it at
+  once and a signal interrupts it. Waiters are not ordered and deadlocks are
+  not detected (no `EDEADLK`). Exit, a kill and a failed Worker release every
+  lock of the process. `F_OFD_*` is `EINVAL`; a pipe cannot be locked
+  (`ENOTSUP`).
 
 ## Spawn and wait
 
