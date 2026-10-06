@@ -10,11 +10,11 @@ REQUIRES HOST snapshot@0
 REQUIRES HOST threads@0
 REQUIRES HOST upload@0
 
-FROM https://daugasauron.com/demos/pi/Dollyfile-pi f5d9eab68ca1a28704c7ec8e5d863b35d75e635a9fa555aa590589d5d8b82d48
-COPY https://daugasauron.com/demos/local-llm/Dollyfile-local-llm-build aca3050821d0f39ea33c328b8a259612d343c183c91956ac0b6c624757303e61 /usr/bin/dolly-llama /usr/bin/dolly-llama
-COPY https://daugasauron.com/demos/local-llm/Dollyfile-llama-build 2106abe391cb1435297b5e7e45fccb028894d8d44bbbfc9c4e18b3b279cd304c /usr/share/licenses/dolly-llm /usr/share/licenses/dolly-llm
+FROM https://daugasauron.com/demos/pi/Dollyfile-pi 333edfdc367ee4eb4fc9180ed88bd1551070c60e1142cde3e0d7ebabaf468ff2
+COPY https://daugasauron.com/demos/local-llm/Dollyfile-local-llm-build f12c0f880baeb1cdcb1a9aaec885a909f7fa529989a451c18e0c5fe6a3626b43 /usr/bin/dolly-llama /usr/bin/dolly-llama
+COPY https://daugasauron.com/demos/local-llm/Dollyfile-llama-build 61880f6111e72f9d09b5852c1a2355b0737ad6d436dd117c3747d58ecba73067 /usr/share/licenses/dolly-llm /usr/share/licenses/dolly-llm
 EXPORTS TOOL dolly-llama
-INSTALL https://daugasauron.com/demos/local-llm/Dollyfile-qwen3.5-2b a8207b249b262e6fd549f97b1aa8cbcde0444391d1fdfe852f896af0f21172d8
+INSTALL https://daugasauron.com/demos/local-llm/Dollyfile-qwen3.5-2b dfd47254c9adceed859f04c3bed36c5555581b349dcbdf0066a2d32e6e6f520d
 
 REQUIRES TOOL janis
 REQUIRES TOOL tar

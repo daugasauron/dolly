@@ -4,7 +4,7 @@ REQUIRES HOST runtime@0
 REQUIRES HOST http@0
 
 # CMake as cmake-build bootstraps it; the package keeps only the exports below.
-FROM https://daugasauron.com/demos/cmake/Dollyfile-cmake-build 96b023c35bdb71e3eb33fb672808d5d6859d01261782c6d7176ce512e4fcc55e
+FROM https://daugasauron.com/demos/cmake/Dollyfile-cmake-build f30c87fc0042aa6a6702368410eb4e38dd5964e8600e126c6b364fef546f62b0
 
 EXPORTS TOOL   cmake
 EXPORTS FOLDER cmake-data /usr/share/cmake-4.4

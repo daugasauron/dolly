@@ -7,7 +7,7 @@ REQUIRES HOST http@0
 REQUIRES HOST upload@0
 
 # Reusable Neovim build artifacts.
-FROM https://daugasauron.com/demos/cmake/Dollyfile-cmake-build 96b023c35bdb71e3eb33fb672808d5d6859d01261782c6d7176ce512e4fcc55e
+FROM https://daugasauron.com/demos/cmake/Dollyfile-cmake-build f30c87fc0042aa6a6702368410eb4e38dd5964e8600e126c6b364fef546f62b0
 # Neovim supports PUC Lua 5.1. Build the upstream interpreter and C library;
 # -rdynamic lets source-built Lua C modules share that interpreter's API.
 REQUIRES HEADER libc

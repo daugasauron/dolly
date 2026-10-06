@@ -9,21 +9,21 @@ REQUIRES HOST http@0
 REQUIRES HOST snapshot@0
 REQUIRES HOST upload@0
 
-FROM https://daugasauron.com/Dollyfile 28bba93a2754c2b9013017f89758491c04eb0b75b8d205c9bd16458e6e02a69b
-COPY https://daugasauron.com/demos/zero-ad/Dollyfile-zero-ad-engine a1ec176e9dbc6f946bb03beac3921ccb2c3060d8f86b88b898f5b3d2a21b2411 /opt/0ad/system/pyrogenesis /opt/0ad/system/pyrogenesis
+FROM https://daugasauron.com/Dollyfile edfe5d943b66231e566a61f060f6673ef250d7d8fdadc4dc25e177027563c8e7
+COPY https://daugasauron.com/demos/zero-ad/Dollyfile-zero-ad-engine dd77cede5fabea648d96c1fdadb32abba67275b129d3457410a2054da0e9288e /opt/0ad/system/pyrogenesis /opt/0ad/system/pyrogenesis
 # Licences of the libraries statically linked into the engine.
-COPY https://daugasauron.com/demos/zero-ad/Dollyfile-zero-ad-engine a1ec176e9dbc6f946bb03beac3921ccb2c3060d8f86b88b898f5b3d2a21b2411 /usr/share/licenses/OpenAL /usr/share/licenses/OpenAL
-COPY https://daugasauron.com/demos/zero-ad/Dollyfile-zero-ad-engine a1ec176e9dbc6f946bb03beac3921ccb2c3060d8f86b88b898f5b3d2a21b2411 /usr/share/licenses/SDL2 /usr/share/licenses/SDL2
-COPY https://daugasauron.com/demos/zero-ad/Dollyfile-zero-ad-engine a1ec176e9dbc6f946bb03beac3921ccb2c3060d8f86b88b898f5b3d2a21b2411 /usr/share/licenses/enet /usr/share/licenses/enet
-COPY https://daugasauron.com/demos/zero-ad/Dollyfile-zero-ad-engine a1ec176e9dbc6f946bb03beac3921ccb2c3060d8f86b88b898f5b3d2a21b2411 /usr/share/licenses/fmt /usr/share/licenses/fmt
-COPY https://daugasauron.com/demos/zero-ad/Dollyfile-zero-ad-engine a1ec176e9dbc6f946bb03beac3921ccb2c3060d8f86b88b898f5b3d2a21b2411 /usr/share/licenses/freetype /usr/share/licenses/freetype
-COPY https://daugasauron.com/demos/zero-ad/Dollyfile-zero-ad-engine a1ec176e9dbc6f946bb03beac3921ccb2c3060d8f86b88b898f5b3d2a21b2411 /usr/share/licenses/icu /usr/share/licenses/icu
-COPY https://daugasauron.com/demos/zero-ad/Dollyfile-zero-ad-engine a1ec176e9dbc6f946bb03beac3921ccb2c3060d8f86b88b898f5b3d2a21b2411 /usr/share/licenses/libogg /usr/share/licenses/libogg
-COPY https://daugasauron.com/demos/zero-ad/Dollyfile-zero-ad-engine a1ec176e9dbc6f946bb03beac3921ccb2c3060d8f86b88b898f5b3d2a21b2411 /usr/share/licenses/libpng /usr/share/licenses/libpng
-COPY https://daugasauron.com/demos/zero-ad/Dollyfile-zero-ad-engine a1ec176e9dbc6f946bb03beac3921ccb2c3060d8f86b88b898f5b3d2a21b2411 /usr/share/licenses/libsodium /usr/share/licenses/libsodium
-COPY https://daugasauron.com/demos/zero-ad/Dollyfile-zero-ad-engine a1ec176e9dbc6f946bb03beac3921ccb2c3060d8f86b88b898f5b3d2a21b2411 /usr/share/licenses/libvorbis /usr/share/licenses/libvorbis
-COPY https://daugasauron.com/demos/zero-ad/Dollyfile-zero-ad-engine a1ec176e9dbc6f946bb03beac3921ccb2c3060d8f86b88b898f5b3d2a21b2411 /usr/share/licenses/libxml2 /usr/share/licenses/libxml2
-COPY https://daugasauron.com/demos/zero-ad/Dollyfile-zero-ad-engine a1ec176e9dbc6f946bb03beac3921ccb2c3060d8f86b88b898f5b3d2a21b2411 /usr/share/licenses/spidermonkey /usr/share/licenses/spidermonkey
+COPY https://daugasauron.com/demos/zero-ad/Dollyfile-zero-ad-engine dd77cede5fabea648d96c1fdadb32abba67275b129d3457410a2054da0e9288e /usr/share/licenses/OpenAL /usr/share/licenses/OpenAL
+COPY https://daugasauron.com/demos/zero-ad/Dollyfile-zero-ad-engine dd77cede5fabea648d96c1fdadb32abba67275b129d3457410a2054da0e9288e /usr/share/licenses/SDL2 /usr/share/licenses/SDL2
+COPY https://daugasauron.com/demos/zero-ad/Dollyfile-zero-ad-engine dd77cede5fabea648d96c1fdadb32abba67275b129d3457410a2054da0e9288e /usr/share/licenses/enet /usr/share/licenses/enet
+COPY https://daugasauron.com/demos/zero-ad/Dollyfile-zero-ad-engine dd77cede5fabea648d96c1fdadb32abba67275b129d3457410a2054da0e9288e /usr/share/licenses/fmt /usr/share/licenses/fmt
+COPY https://daugasauron.com/demos/zero-ad/Dollyfile-zero-ad-engine dd77cede5fabea648d96c1fdadb32abba67275b129d3457410a2054da0e9288e /usr/share/licenses/freetype /usr/share/licenses/freetype
+COPY https://daugasauron.com/demos/zero-ad/Dollyfile-zero-ad-engine dd77cede5fabea648d96c1fdadb32abba67275b129d3457410a2054da0e9288e /usr/share/licenses/icu /usr/share/licenses/icu
+COPY https://daugasauron.com/demos/zero-ad/Dollyfile-zero-ad-engine dd77cede5fabea648d96c1fdadb32abba67275b129d3457410a2054da0e9288e /usr/share/licenses/libogg /usr/share/licenses/libogg
+COPY https://daugasauron.com/demos/zero-ad/Dollyfile-zero-ad-engine dd77cede5fabea648d96c1fdadb32abba67275b129d3457410a2054da0e9288e /usr/share/licenses/libpng /usr/share/licenses/libpng
+COPY https://daugasauron.com/demos/zero-ad/Dollyfile-zero-ad-engine dd77cede5fabea648d96c1fdadb32abba67275b129d3457410a2054da0e9288e /usr/share/licenses/libsodium /usr/share/licenses/libsodium
+COPY https://daugasauron.com/demos/zero-ad/Dollyfile-zero-ad-engine dd77cede5fabea648d96c1fdadb32abba67275b129d3457410a2054da0e9288e /usr/share/licenses/libvorbis /usr/share/licenses/libvorbis
+COPY https://daugasauron.com/demos/zero-ad/Dollyfile-zero-ad-engine dd77cede5fabea648d96c1fdadb32abba67275b129d3457410a2054da0e9288e /usr/share/licenses/libxml2 /usr/share/licenses/libxml2
+COPY https://daugasauron.com/demos/zero-ad/Dollyfile-zero-ad-engine dd77cede5fabea648d96c1fdadb32abba67275b129d3457410a2054da0e9288e /usr/share/licenses/spidermonkey /usr/share/licenses/spidermonkey
 # Game content and configuration; the engine comes from zero-ad-engine.
 SOURCE https://daugasauron.com/dist/static/zero-ad/data/config/default.cfg 96fe2f626983f3a9b2392095c11f04b3a8a318531408ce9aea0f4bd5c2a60f5a /opt/0ad/data/config/default.cfg
 SOURCE https://daugasauron.com/dist/static/zero-ad/data/config/keys.txt 469f8fa2807838de81d53dda3a78b1676013e4fd18bd696d53693f09a21b9410 /opt/0ad/data/config/keys.txt

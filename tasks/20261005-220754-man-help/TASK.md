@@ -127,8 +127,11 @@ Inventory: 94 commands on `PATH` in `default` (`EXPORTS TOOL` rows of
   `npm run lint:dollyfiles` passes for 61 recipes; the source suite passes
   257 of 261, the four failures being `dist/*.mjs` modules this source-only
   checkout does not have.
-- `SOURCE` pins of `sbase.tar` and `awk.tar` are stale until staging runs
-  (`npm run image` refreshes them).
+- `sbase.tar` is re-pinned from a tar built in `build/man-evidence/` (the
+  old glob reproduces the old pin, so the builder is deterministic; the new
+  tar holds sbase's 99 pages, of which the 44 built tools' are kept). The
+  `SOURCE` pin of `awk.tar` is stale until staging runs (`npm run image`
+  refreshes it). The loops' shell syntax was run in a native Slop.
 
 ## To run when the catalog is built (integrator)
 
