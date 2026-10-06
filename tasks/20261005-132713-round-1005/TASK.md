@@ -653,3 +653,61 @@ the checkout server on :9007 (started 06:35) answers 404 for the packs the
 `work/triage/build/triage-evidence/probe-diag.log`), so it needs a restart
 before the owner opens it. No done-when was checked on :9007 for that
 reason; the closures rest on the round's logs.
+
+### 08:20, 2026-10-07: the candidate is sealed, served and merged
+
+- Release candidate `rc-2026-10-07` = `8f4900c6` (`integrate/next`); `main` =
+  `786694a4` (that commit merged with the task triage and the records made
+  on `main` overnight). Not pushed, not deployed.
+- Served on localhost: :9003 full site, release
+  `568c0ab3578788726f6f92c55d80742f614c6b1304b4defeed60f3fe603d35bf` (67
+  images); :9005 the daugasauron.com packaging, release
+  `baf21326b54e3c422b1ea3645df0b352d8a0fd1793a4e6c5df751c6277d3fd1a`. Both from
+  `work/next` (`build/next-releases`, `build/next-domain-releases`). The
+  :9006 and :9007 working-tree servers are stopped.
+- Verified on the final tree (runtime `a578496d…`, image inputs `4431ea80…`):
+  source 400/400, artifacts 23/23, core browser suites in chromium and
+  firefox (779 s), GPU tests `0ad-graphics`, `0ad-spidermonkey`,
+  `0ad-engine`, `local-llm` (both browsers), and packaging's own acceptance,
+  which loads every image. The demo suites ran at 00:26 on the same runtime,
+  before `default`, `zero-ad`, `rust`, `cargo` and `rust-tools` were rebuilt;
+  of those, `rust` (demo), the amy suite and the 0 A.D. tests were rerun,
+  the other demo suites were not.
+- Found and fixed while finishing, each a consequence of `default` becoming an
+  image composed from packages or of a first-time packaging:
+  - `rust` installs `cc` (`7eebbed6`), with amy cases on a `default` that has
+    none (`c08c4e01`): `amy install rust` had given a compiler that could not
+    link.
+  - `default` has `download` and `upload` again (`0f211db3`): no package held
+    them; `zero-ad`, built on `default`, failed its graphics test at the first
+    `download`. I first blamed and reverted the input-discard change
+    (`4e7096b9`), wrongly; restored in `0ebf7356`.
+  - The sealing test counts what a base and installed packages bring
+    (`b2ee464d`, `795030df`); the graph test names `system-tools` among
+    default's sources (`19dad713`).
+  - Packaging keeps a document's bytes when the site publishes the recipes it
+    links (`8f4900c6`): the docs package pins the documents, and the rewritten
+    links failed the release's own check on its first packaging.
+  - Test-only: the Pi demo's policy admits the package index (`1e6cc838`);
+    the local-model test's progress line cannot end the test (`d3a7ea29`).
+- Packaging's `share-pages-snapshots.mjs` held 25 GB and was killed by a 24 GB
+  cap once; it passed under 38 GB. Task `20261007-065624-publish-memory`.
+- Unexplained and recorded, not fixed: `classicube` failed one docked pixel by
+  one colour level once and passed on rerun
+  (`20261007-064313-classicube-bottom-bar`).
+- Housekeeping: `work/round2` and five finished worktrees are removed; the
+  seed round's logs are in `work/evidence-2026-10-06/seed-evidence/`. The
+  18:00 releases of 2026-10-06 are gone with `work/round2` (tag
+  `rc-2026-10-06-pm` keeps the source).
+
+### Morning tracks, 2026-10-07 (owner: plan until 13:00)
+
+- SpiderMonkey built inside Dolly: `work/spidermonkey` in `work/cargo`; the
+  map of the host build is in `20260930-231200-self-host-zero-ad`.
+- Xonotic: `demo/xonotic` in `work/xonotic`; the dedicated server plays an
+  eight-bot match headless in Dolly; gmqcc builds in Dolly.
+- Visible fixes: `fix/visible` in `work/visible` (`/local` on Pi's start
+  screen, ClassiCube's untextured hotbar, the context-size test).
+- For round 3, beside `integrate/round3`: `core/cc-flags` (`9d21e987`, four
+  Clang flags `cc` refused; unbuilt) and `core/full-read` (a `read` of a
+  regular file returned at most 1 MiB per call; being written).
