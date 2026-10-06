@@ -151,7 +151,7 @@ int main(void) {
   uint64_t lease;
   dolly_input_event event;
   if (dolly_input_acquire(&lease) != 0) return 1;
-  puts("INPUT-LEASED");
+  printf("INPUT-%s\\n", "LEASED");
   fflush(stdout);
   do {
     if (dolly_input_next_event(lease, &event, 20000) != 1) return 2;
@@ -162,6 +162,7 @@ int main(void) {
       "/usr/share/probe/entry": "cc /usr/share/probe/keys.c -o /tmp/keys && /tmp/keys\necho INPUT-STATUS $?",
     },
   }) });
+  // The log also holds the recipe: each awaited line differs from its source.
   const logged = text => headless.page.waitForFunction(text => document.querySelector("#bootstrap-log").textContent.includes(text), text);
   assert.deepEqual(await headless.page.evaluate(() => [[...__dolly.hostModules].sort(), "transport" in __dolly,
     document.querySelector("#display").hidden]), [["input@0", "runtime@0"], false, true]);
