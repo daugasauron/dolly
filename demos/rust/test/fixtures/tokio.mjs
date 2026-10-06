@@ -39,6 +39,8 @@ export function createTokioFixture() {
         for (let i = 0; i < 2; i++) {
           await run(`TOKIO_HTTP_ORIGIN=${origin}/tokio TOKIO_HTTP_RUN=${i} /tmp/tokio/build/dolly-tokio-probe`);
         }
+        // The server sees a cancelled stream close when the browser drops the connection, which may follow the program's exit.
+        for (let attempt = 0; attempt < 200 && cancelled < 2; attempt++) await new Promise(resolve => setTimeout(resolve, 10));
         assert.deepEqual({ streams, cancelled, denied }, { streams: 4, cancelled: 2, denied: 0 });
       } finally {
         await submit("rm -rf /tmp/tokio /tmp/tokio.tar /tmp/tokio-files");
