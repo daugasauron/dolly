@@ -248,3 +248,64 @@ Opus 5.5. Relaunched on Opus, each on its predecessor's worktree:
 
 Seed round, when those report: explicit runtime + target identity + userspace
 batch + Cargo's seed commits, one catalog rebuild, full verification, publish.
+
+## State at 21:00 JST, 2026-10-06 (resume here)
+
+Release candidate, unchanged since 18:00: tag `rc-2026-10-06-pm` (`db2c9787`),
+full catalog `67e4b255…` on :9003 and the daugasauron.com packaging
+`c60a2c6f…` on :9005, both served from `work/round2/build/` (restart with
+`DOLLY_PORT=9003 node scripts/serve.mjs` and
+`DOLLY_PORT=9005 node scripts/serve.mjs build/domain-releases` in `work/round2`).
+`main` has moved past it with page-only and content changes that are not
+published: the new Studio video (`a8b5198e`), the corner indicators
+(`7ecc1466`, also served from its working tree on :9006 by `npm run dev`),
+and tasks.
+
+The machine was rebooted at 19:54 after running out of memory (a catalog
+build, a publish and six agents' browser sessions at once). Since then every
+heavy command runs in `systemd-run --user --scope -p MemoryMax=…`, and logs
+live under worktrees, not `/tmp`.
+
+### Seed round in progress (`integrate/seed-1006`, worktree `round2`)
+
+Explicit `runtime@0` + target identity (`__dolly__`) + the userspace batch
+(`ls -l`, Slop's missing-path message, Pi's cwd). Image inputs `22d006ca…`.
+The pipeline `build/seed-evidence/seed2.sh` was restarted at 19:58 inside a
+26 GB scope and runs unattended: catalog, pins commit, source, artifact,
+browser and demo suites, GPU tests, then a publish into `build/seed-releases`
+(not the served directories). Read `build/seed-evidence/seed2.log`; if every
+suite passed, serve it with
+`DOLLY_PORT=9007 node scripts/serve.mjs build/seed-releases`, merge
+`integrate/seed-1006` into main and close `explicit-runtime`, `target-identity`,
+`slop-path-not-found`, `ls-long-format` and `pi-cwd`.
+
+### Written and committed, not yet built or run in a browser
+
+All on the new seed unless noted. Build order and likeliest failures for the
+first group are in `20261005-220754-man-help` ("Merged branch").
+
+| Branch | What | Verify with |
+|---|---|---|
+| `integrate/userspace-next` (`7976b8ea`) | `man` and retained pages, small `default` (minimal removed), `amy-index.txt` and amy descriptions, the `dolly-docs` package, concurrent pipelines with `&` and `wait` | full catalog rebuild (it changes the seed), then all suites, `test/man-browser.mjs`, `test/docs-browser.mjs` |
+| `fix/page-ending` (`245efbec`) | the page states how an image ended | `test/ending-browser.mjs`; look at the last frame by eye |
+| `fix/entry-missing` (`adce6385`) | the engine refuses an image whose ENTRY is not retained (seed) | `test/image-browser.mjs`, `test/custom-session-browser.mjs` |
+| `fix/session-policies` (`ef994618`), `fix/shell-env` (`68f71983`) | two small fixes from the spawn measurement | their browser tests, named in the tasks |
+| `fix/pi-greeting` (`3d196a15`, old line) | Pi answers conversation without tools | rebuild the Pi chain; one "hi" batch on `pi-local` |
+| `work/local-models` (`2579350b`, old line, verified there) | `/local`, model packages, the 4B as four packages | add `REQUIRES HOST runtime@0` to its four new recipes; rebuild the model images, `pi-local`, Studio on the new seed |
+| `work/cargo-native` (`efbcb756`+, old line) | `ar q/s` (seed), libcurl additions (curl package), Patti fixes, Cargo staging | next seed round; Cargo itself: see `20260930-231102-cargo-native` |
+| `core/kernel-boundary` (`a9a6ec42`) | step 2, unverified | rebase onto the seed line, rebuild `default`, suites |
+| `work/licences` (`98803d3f`) | licence texts for 0 A.D.'s linked libraries, WIP | superseded by `work/licences-3`, already merged: delete after checking |
+
+### Decided by the owner today
+
+Explicit `runtime@0`; `dso@0` (`20261006-111835-dso-module`); corner indicators
+hide after ten seconds; `less` wanted (`20261006-111926-less-pager`). Still
+open for him: no `spawn@0` module and direct-ENTRY images as a supported shape
+(`20261005-222449-*`), a git or crates.io relay for the public sites, a model
+for re-recording RTS Arena.
+
+### Next process-contract round (one rebuild)
+
+`input@0` (`20261002-072000`), kernel advisory locks (`20261006-093856`,
+which must also cover SQLite's byte-range locks), `dso@0`, kernel-boundary
+steps 2 to 4, Cargo's `ar` commit, `fix/entry-missing`.
