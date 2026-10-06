@@ -13,6 +13,9 @@ are built from source with it.
 - `ripgrep`: rg built with Patti, as a package.
 - `fd`: fd built with Patti, as a package.
 - `protox`: the protobuf compiler Codex builds with, as a package.
+- `cargo`: upstream Cargo 0.99.0 built with Patti, as a package. Work in
+  progress: `cargo --version` and `cargo metadata` run, `cargo build` does not
+  yet ([task](../../tasks/20260930-231102-cargo-native/TASK.md)).
 
 Build the seed once with `./demos/rust/build-rust-toolchain.sh` (Linux x86_64, Podman, Python
 3.12+, curl, patch), then `npm run image -- rust-tools`. `rust-sdk` starts from
