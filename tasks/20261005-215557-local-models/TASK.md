@@ -214,3 +214,74 @@ nothing bounds identical repeated tool calls. Consequences in this design:
 - **The repeat bound's home is a `tool_call` handler in the provider
   extension** (Pi's hook to block a call with a reason the model reads): with
   Pi's adapter doing the stream, the provider has no stream code to hold it.
+
+## Implementation (2026-10-06)
+
+Measured while building, all on the RTX 5070 under `Xvfb :134`:
+
+- llama's `common` chat and sampling sources compile and link with Dolly's
+  `c++` without changes (`llama-build` 294 s instead of ~190 s; the engine
+  links without `-pthread`: common's logger is silenced with
+  `common_log_set_verbosity_thold(-1)` so its worker thread never starts,
+  and llama and ggml keep logging to stderr). The engine in the image: an
+  agent turn costs 0.3 ms of sampling and 0.2 ms of parsing per token.
+- Pi 1.0.3's `openai-completions` adapter runs over the pipe `fetch` under
+  Janis: tool calls, tool results, `reasoning_content` thinking blocks
+  (replayed into the next request), per-level sampling and usage all arrive
+  as for a llama.cpp server. The real `pi-local` in Chrome on NVIDIA
+  completed a five-call task with the bundled 2B on the first try.
+- `gguf-split --split --split-max-size 1G` on the 4B is byte-identical across
+  runs and gives four shards of 994.7, 996.2, 983.0 and 39.0 MB, each one
+  `SOURCE` of a package `qwen3.5-4b-1` to `-4`; curl brings a 1 GB shard
+  into a session in 6.6 s, and llama loads the model from the first.
+- A selective `npm run image` regenerates `dist/dolly-packages.txt` for the
+  selected images only, so `amy install` in a test needs every package in
+  one `DOLLY_BUILD_IMAGES` selection; a recipe edit after a build makes the
+  checkout server refuse to start until the rebuild.
+- GPU memory of a model just unloaded is released lazily: the peak of a page
+  that starts the 2B engine eight times in a row is 4.3-5.5 GB, not 2.2, and
+  two browsers on one card made the 4B fail with "out of GPU memory" (the
+  message now names the model's need and context).
+- Qwen3.5's recurrent state: a checkpoint (`common_prompt_checkpoint`,
+  `LLAMA_STATE_SEQ_FLAGS_PARTIAL_ONLY`, 19 MiB for the 0.8B) taken where
+  each user message's prompt ends lets the next user message reuse
+  everything before it; greedy output after the restore equals a fresh
+  context (native). The engine keeps two.
+
+### Candidates
+
+All Apache-2.0 with publisher or ggml-org GGUFs, judged under `gpu@0`'s
+4 GiB of buffers and 1 GiB per buffer at 16,384 tokens of context (Pi's
+Dolly prompt is 2.2k tokens and `pi-local` compacts at 4,096 reserved, so a
+smaller context is not usable):
+
+| Candidate | Weights | KV cache at 16k, f16 / f32 | Verdict |
+| --- | ---: | ---: | --- |
+| Gemma 4 E2B (ggml-org Q4_0) | 2.84 GB | small (sliding window) | out: `per_layer_token_embd.weight` is 1,260 MiB, over the 1 GiB a buffer and a `SOURCE` hold |
+| Granite 4.2 3B (IBM Q4_K_M) | 2.24 GB | 1.3 / 2.7 GB | runs with f16 only (3.57 GB peak); 4 of 12 tasks; prefill 165-200 tokens/s |
+| Ministral 3 3B (Mistral Q4_K_M) | 2.15 GB | 1.7 / 3.5 GB | runs with f16 only; 2 of 4 tasks (second round pending); prefill 160-180 tokens/s |
+| Qwen3.5-4B (bartowski Q4_K_M) | 3.01 GB | 0.4 / 1.0 GB | f16 only; 3 of 4 valid tasks; packaged as four shards |
+| Phi-4-mini (MIT), MiniCPM5-1B | 2.49, 0.69 GB | 2.1 / 4.2 GB; small | not measured: Phi's KV cache does not fit at 16k; the 1B adds nothing over the 0.8B |
+| LFM2.5-2.6B, Qwen3.5-9B, Granite 4.2 8B, Gemma 4 E4B | | | out: `lfm1.0` licence; 5.0-5.5 GB weights |
+
+Four tasks, each checked by a script in the image (fix a C division by zero
+and rebuild; find a definition as path:line; write and build FizzBuzz; edit
+a JSON config), run by `pi -p` with Dolly's prompt and tools, thinking off.
+The 3B candidates pass no more than the bundled 2B (which passed 8 of 13 at
+the old sampling and 7 of 14 at the publisher's), need f16 (not Chrome on
+NVIDIA under Linux) and prefill three to four times slower, so they are
+measured, not packaged: by this evidence a user gains nothing over the 2B
+except on an f16 adapter, where the 4B is the one to install.
+
+### Departures from the design, with reasons
+
+- `/local` names the shader kind, not the adapter: `gpu@0`'s open reply gives
+  the guest the label `WebGPU`, never the adapter's name; the page's GPU
+  indicator shows it. `dolly-llama --check` prints `{"ready":true,"shaders":…}`.
+- The repeat bound (loop findings above) is a `tool_call` handler: the third
+  identical consecutive call is blocked with a reason the model reads, the
+  fourth also ends the turn (`terminate`), Pi's own mechanism.
+- The engine keeps two recurrent-state checkpoints so that a new user message
+  does not re-evaluate the whole conversation on Qwen3.5 (above).
+- `pi-local` sets `defaultThinkingLevel` to `off`: the descriptions declare
+  reasoning, and Pi's default level is `medium`.
