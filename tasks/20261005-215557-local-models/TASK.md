@@ -285,3 +285,126 @@ except on an f16 adapter, where the 4B is the one to install.
   does not re-evaluate the whole conversation on Qwen3.5 (above).
 - `pi-local` sets `defaultThinkingLevel` to `off`: the descriptions declare
   reasoning, and Pi's default level is `medium`.
+
+## Merge and verification (2026-10-06, second agent)
+
+The merge of `integrate/1005-seed` (`b6008122`, the loop fix) is `cc9ba278`.
+The fix edited code this branch had replaced; its intent now lives here: the
+repeat bound is the provider's `tool_call` handler, unchanged; the multi-turn
+`pi -p` proof is in the `pi-local` part of the browser test; sampling is in
+each description (Qwen3.5) or GGUF (MiniCPM5: the engine logs `temperature
+1.00`); the seed is llama's fresh one unless the request names one (the engine
+proof asserts two unseeded requests differ). One difference, measured: the fix
+penalised presence over the whole response, llama's sampler over its last 64
+tokens. On the fix's own task (list, write `hello.c`, compile, run, report;
+`pi -p`, fresh session per trial) the bundled 2B completes 8 of 8 in Chrome in
+11-13 s with llama's window and no run is stopped by the bound, as with the
+fix (8 of 8), so llama's default stays.
+
+Verified on the release line's seed: image inputs `047fc328…`, runtime
+`5439ebe7…` after `npm run build:runtime` on the merged kernel. The branch
+changes nothing outside `demos/local-llm/`, `demos/studio/`, `config/` (two
+lists), `docs/licences.md` and `demos/README.md`.
+
+### Models offered
+
+Qwen3.5-0.8B is no longer a package: it completed 0 of 4 runs of the loop
+task and ignored the repeat notice (`20261005-215204-pi-local-loop`) and 1 of
+4 of the four tasks here, so `/local` must not offer it as an agent, and
+nothing else used it.
+
+NVIDIA RTX 5070, driver 580, Chrome 151 and Firefox 156 under `Xvfb :135`, one
+browser on the card at a time, thinking off, 16,384 tokens of context. "Task"
+is the loop task above; "four tasks" are the previous section's, two rounds.
+GPU memory is the browser's peak in `nvidia-smi` after one run from a fresh
+page (later runs in the same page read higher: memory of an engine that
+exited is released lazily).
+
+| Model | Shaders | Browser | Task | Seconds a run | Tokens/s | Prefill tokens/s | GPU MiB | Four tasks |
+| --- | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| Qwen3.5-2B | f32 | Chrome | 8 of 8 | 11-13 | 63 | 610 | 2,235 | 4 of 8 |
+| Qwen3.5-2B | f16 | Chrome + flag | 2 of 2 | 13-16 | 65 | 585 | 2,037 | |
+| Qwen3.5-2B | f16 | Firefox | 4 of 4 | 99-115 | 5.0 | 120 | 2,057 | |
+| MiniCPM5-2B | f32 | Chrome | 8 of 8 | 14-26 | 61 | 240 | 3,324 | 6 of 8 |
+| MiniCPM5-2B | f16 | Chrome + flag | 1 of 2 | 16-23 | 59 | 320 | 2,357 | |
+| MiniCPM5-2B | f16 | Firefox | 4 of 4 | 74-99 | 5.0 | 77 | 2,650 | |
+| Qwen3.5-4B | f16 | Chrome + flag | 8 of 8 | 18-31 | 49 | 250 | 3,873 | 3 of 4 |
+| Qwen3.5-4B | f16 | Firefox | not run (below) | | 4.8 | | | |
+| Qwen3.5-4B | f32 | Chrome | refused before loading: "Qwen3.5-4B needs shader-f16 to fit the 4 GiB of GPU buffers Dolly grants, and this GPU adapter runs f32 shaders" | | | | | |
+
+"Chrome + flag" is `--enable-dawn-features=vulkan_enable_f16_on_nvidia`.
+Firefox generates 5 tokens/s whatever the model (its 100 ms GPU timer). The
+descriptions' `gpu` values are Chrome's, in GB rounded up: 2B 2.1 / 2.3,
+MiniCPM5 2.4 / 3.4 (its f16 figure was a copy of the f32 one), 4B 3.9.
+`amy install` from the local server: MiniCPM5 10-12 s, the 4B's four packages
+17 s.
+
+More models: under 4 GiB of buffers at 16k of context nothing measured beats
+these three (Candidates above); a larger model needs a larger `gpu@0` quota,
+which is the core's.
+
+### The user's path, by Playwright
+
+`demos/local-llm/test/local-llm-browser.mjs`, keyboard only once Pi is up:
+boot, a two-tool task with the bundled model, `/local` (rows asserted: the
+bundled model in use, the second not installed), choose the second model,
+confirm `amy install`, wait for "Using …", `/local`, Parameters, temperature
+0.35, the task again on the second model, then in the shell: the packages are
+in `amy installed`, the override is in `~/.pi/agent/models.json` and the
+engine's log shows `temperature 0.35`; no request leaves the origin. The
+second model is the most capable the adapter loads: MiniCPM5-2B on f32
+(Chrome), Qwen3.5-4B on f16 (Firefox). In `pi-local` it first runs the
+engine proof (reuse, cancel, restart, refused field, unseeded requests
+differ), the multi-turn `pi -p` proof and a session save, restore and fresh
+boot.
+
+| Image | Browser, second model | Build | Result |
+| --- | --- | --- | --- |
+| `pi-local` | Chrome f32, MiniCPM5-2B | final | passed 19:23; `pi -p` proof on the first attempt, 26 s, 5 tool calls |
+| `pi-local` | Firefox f16, Qwen3.5-4B (four packages) | before the last `/local` edit | passed 18:28; `pi -p` proof on the first attempt, 114 s, 6 tool calls |
+| `dollyfile-studio` | Chrome f32, MiniCPM5-2B | final | passed 19:14 |
+| `dollyfile-studio` | Firefox f16, Qwen3.5-4B | final | passed 19:18 |
+
+"Final" is the build of 19:09 (rows without the redundant name, one `amy
+install` per package with its number in the status line, f16 memory figures,
+the corrected memory message); before it `pi-local` also passed in Chrome
+(18:20) and Studio in Chrome (18:54). Logs and screenshots:
+`build/local-models-evidence/final-*.log`, `llm-browser-*-2.log`,
+`build/llm-proof/*.png`. Also on the final build: `npm run -s test:source`
+358 of 358, `npm run -s lint:dollyfiles` 64 recipes,
+`node test/core-browser.mjs chromium firefox` passed (40 s, 49 s).
+
+Skipped when the machine ran short of memory during the seed round's catalog
+build (integrator's instruction, 19:19): the Firefox runs of the loop task on
+the 4B (so no "of 4" figure; it completed the test's two-tool task in Firefox
+in both images at 4.8 tokens/s) and `pi-local` in Firefox on the final build
+(Studio, which is `FROM pi-local`, ran the same provider there).
+
+Prompt reuse across user messages, Qwen3.5-2B in Chrome, three messages in one
+Pi session (`s-two.mjs`): the first request of the second message reuses
+1,555 of 1,714 prompt tokens and of the third 1,707 of 1,861, from the
+checkpoint at the previous user message; tool turns reuse all but 19-25.
+
+### Context size (`20261006-093051-local-context-size`)
+
+Already a parameter: `pi.contextWindow` in the description, replaced by
+`modelOverrides.ID.contextWindow`, which `/local` → Parameters writes; the
+engine is started with it and restarts at the next prompt when it changes.
+Measured through the override file as `/local` writes it, 2B in Chrome f32:
+32,768 tokens loads and completes the task (2,718 MiB against 2,235);
+131,072 fails at load with "Dolly WebGPU: out of GPU memory (the device's, or
+gpu@0's 4 GiB)" (the message then named the default context's memory as if it
+were this one's; corrected). Not done for that task: a refusal before loading
+(needs the memory per context token in the description), a bound at the
+trained context, and Pi's compaction settings (`reserveTokens` 4096,
+`keepRecentTokens` 6144, sized for 16k) following a smaller context; the
+parameter accepts 1,024 and up.
+
+### Left
+
+- Firefox: the loop task on the 4B, and `pi-local`'s flow on the final build.
+- The seed round (`integrate/seed-1006`): `REQUIRES HOST runtime@0` in this
+  demo's recipes (new here: `Dollyfile-qwen3.5-4b-1` to `-4`), and the rebuild
+  of the model packages, `pi-local` and `dollyfile-studio` there.
+- More models: blocked by `gpu@0`'s 4 GiB, not by packaging.
+- Context size: the three items above.

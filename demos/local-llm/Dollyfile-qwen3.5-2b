@@ -6,7 +6,7 @@ FROM https://daugasauron.com/Dollyfile-system 041c6f482c61b6afba4741e202fdbffb09
 
 SOURCE https://daugasauron.com/dist/static/llm/qwen3.5-2b/0.part d49c138cdbb01620bd5912d636e952e8525e7616e36442281ee60bc7d647b560 /tmp/llm/0.part
 SOURCE https://daugasauron.com/dist/static/llm/qwen3.5-2b/1.part 1ed4f36687871e49f58433733848d1786f75021124e9ce94a81c5d106e39bbad /tmp/llm/1.part
-SOURCE https://daugasauron.com/dist/static/llm/qwen3.5-2b/qwen3.5-2b.json 57cab7398ed6dde1a7e2c8032e07cd8740911725c0acea23e3aa525c4f2488cd /usr/share/dolly/llm/qwen3.5-2b.json
+SOURCE https://daugasauron.com/dist/static/llm/qwen3.5-2b/qwen3.5-2b.json abe15045f24cda3af8633d97dea841a798b93e3f120bce3270bb3394b87fbfe2 /usr/share/dolly/llm/qwen3.5-2b.json
 SOURCE https://daugasauron.com/dist/static/llm/qwen3.5-2b/LICENSE bbedc3fda3305820b977265f01b8619d87570a6739de3a5582c3464840f1e57a /usr/share/licenses/qwen3.5-2b/LICENSE
 SLOP mkdir -p /usr/share/dolly/llm
 SLOP cat /tmp/llm/0.part /tmp/llm/1.part > /usr/share/dolly/llm/qwen3.5-2b.gguf

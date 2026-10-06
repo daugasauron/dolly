@@ -141,8 +141,8 @@ for(const image of (process.env.DOLLY_LLM_IMAGES??'pi-local,dollyfile-studio').s
         await type('/local');
         const shaders=/this GPU adapter runs (f16|f32) shaders/.exec(await until(/Local models · this GPU adapter runs/,'/local'))[1];
         const next=second[shaders];
-        assert.match(await text(),new RegExp(`${model} · .* GB · [\\d.]+ GB GPU memory · in use`));
-        assert.match(await text(),new RegExp(`${next.id} · .* GB · [\\d.]+ GB GPU memory · not installed`));
+        assert.match(await text(),new RegExp(`${model} · [\\d.]+ GB GPU memory · in use`));
+        assert.match(await text(),new RegExp(`${next.id} · [\\d.]+ GB GPU memory · not installed`));
         await page.screenshot({path:new URL(`${name}-${image}-local.png`,output).pathname});
         await choose(`${next.id} ·`);
         await until(new RegExp(`amy install ${next.packages.join('[\\s\\S]*')}`),'install question');

@@ -13,13 +13,13 @@ FROM https://daugasauron.com/demos/pi/Dollyfile-pi cb07949f8267d1d34b5bb64fa4a5c
 COPY https://daugasauron.com/demos/local-llm/Dollyfile-local-llm-build fe1a00da73b2fd3b00db40af5141ce6c54f7a369d69890004be7ccd198ab3aad /usr/bin/dolly-llama /usr/bin/dolly-llama
 COPY https://daugasauron.com/demos/local-llm/Dollyfile-llama-build e5eaa1409e8e727a23238b6c85b39edcf55f57e4b5ae25e60887b0a0ed0bfce8 /usr/share/licenses/dolly-llm /usr/share/licenses/dolly-llm
 EXPORTS TOOL dolly-llama
-INSTALL https://daugasauron.com/demos/local-llm/Dollyfile-qwen3.5-2b c6244cfce3ad7f159fa30251144198581d6ce822a8204681205db48081aa2753
+INSTALL https://daugasauron.com/demos/local-llm/Dollyfile-qwen3.5-2b 0997e9c6301e2243d1c18332a8022a96174187bec6ba8b3165226403aab1a056
 
 REQUIRES TOOL janis
 REQUIRES TOOL tar
 REQUIRES TOOL dolly-llama
 
-SOURCE https://daugasauron.com/dist/static/llama/provider.tar 417895321775a9d65e527d4636941da84e8c5612f7d42473f4bc36c93bf0227b /tmp/llm-provider.tar
+SOURCE https://daugasauron.com/dist/static/llama/provider.tar aa79c7ff17a2a2a157cfe02b4e61444863a21eddbb6d5343301e89a14563e326 /tmp/llm-provider.tar
 SLOP tar -xf /tmp/llm-provider.tar -C /
 
 FILE /home/dolly/.pi/agent/settings.json

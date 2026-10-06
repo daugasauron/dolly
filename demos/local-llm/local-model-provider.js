@@ -99,8 +99,9 @@ export default function(pi) {
     const active=ctx.model?.provider===provider?ctx.model.id:undefined,all=models();
     const rows=all.map(model=>{
       const missing=gpu.error??unmet(model,gpu.shaders);
-      const state=missing?`cannot run: ${missing}`:`${model.gpu[gpu.shaders]} GB GPU memory · ${model.id===active?'in use':model.installed?'installed':'not installed'}`;
-      return `${model.id} · ${model.name} · ${gigabytes(model.bytes)} · ${state}`;
+      if(missing)return `${model.id} · cannot run: ${missing}`;
+      const state=model.id===active?'in use':model.installed?'installed':`not installed, ${gigabytes(model.bytes)} to download`;
+      return `${model.id} · ${model.gpu[gpu.shaders]} GB GPU memory · ${state}`;
     });
     const edit=active && `Parameters of ${active}…`,unload=engine.process && `Unload ${engine.loaded.split(' ')[0]} and free its GPU memory`;
     const title=gpu.error?`Local models · ${gpu.error}`:`Local models · this GPU adapter runs ${gpu.shaders} shaders`;
@@ -108,15 +109,18 @@ export default function(pi) {
     if(!choice)return;
     if(choice===edit)return editParameters(ctx,active);
     if(choice===unload) {engine.stop();ctx.ui.setStatus('local-model',undefined);return ctx.ui.notify('Local model unloaded','info');}
-    const model=all[rows.indexOf(choice)],missing=gpu.error??unmet(model,gpu.shaders);
-    if(missing)return ctx.ui.notify(missing,'error');
+    const model=all[rows.indexOf(choice)];
+    if(gpu.error || unmet(model,gpu.shaders))return ctx.ui.notify(choice,'error');
     if(!model.installed) {
-      const command=`amy install ${model.packages.join(' ')}`;
-      if(!await ctx.ui.confirm(`Install ${model.name}?`,`${command} fetches ${gigabytes(model.bytes)} from this site into the session. A session holding it is too large to save.`))return;
-      ctx.ui.setStatus('local-model',`Installing ${model.id} (${gigabytes(model.bytes)})…`);
-      const result=await pi.exec('amy',['install',...model.packages]);
+      if(!await ctx.ui.confirm(`Install ${model.name}?`,`amy install ${model.packages.join(' ')} fetches ${gigabytes(model.bytes)} from this site into the session. A session holding it is too large to save.`))return;
+      for(const [index,name] of model.packages.entries()) {
+        ctx.ui.setStatus('local-model',`Installing ${model.id}: package ${index+1} of ${model.packages.length}, ${gigabytes(model.bytes)} in all…`);
+        const result=await pi.exec('amy',['install',name]);
+        if(result.code===0)continue;
+        ctx.ui.setStatus('local-model',undefined);
+        return ctx.ui.notify(`amy install ${name} failed: ${result.stderr.trim().split('\n').pop()}`,'error');
+      }
       ctx.ui.setStatus('local-model',undefined);
-      if(result.code!==0)return ctx.ui.notify(`${command} failed: ${result.stderr.trim().split('\n').pop()}`,'error');
     }
     engine.stop();
     ctx.ui.notify(await reload(ctx,model.id)?`Using ${model.name}; the first prompt loads it on the GPU`:`${model.id} did not register; see /model`,'info');

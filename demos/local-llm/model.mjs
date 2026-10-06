@@ -13,9 +13,9 @@ export function models() {
     return model;
   }).sort((a,b)=>a.bytes-b.bytes);
 }
-// Why this adapter cannot run the model, or nothing. A description lists the GPU memory
+// What this adapter lacks to run the model, or nothing. A description lists the GPU memory
 // measured for each shader kind; a kind it omits does not fit gpu@0's 4 GiB of buffers.
 export function unmet(model,shaders) {
   if(model.gpu[shaders]!==undefined)return;
-  return `${model.name} needs shader-f16 to fit the 4 GiB of GPU buffers Dolly grants, and this GPU adapter runs ${shaders} shaders`;
+  return `needs shader-f16 to fit the 4 GiB of GPU buffers Dolly grants, and this GPU adapter runs ${shaders} shaders`;
 }

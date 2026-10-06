@@ -7,7 +7,7 @@
   },
   "packages": ["qwen3.5-2b"],
   "files": {"qwen3.5-2b.gguf": 1396198496},
-  "gpu": {"f16": 2.3, "f32": 2.3},
+  "gpu": {"f16": 2.1, "f32": 2.3},
   "pi": {
     "contextWindow": 16384,
     "maxTokens": 2048,

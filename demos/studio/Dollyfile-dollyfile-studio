@@ -10,7 +10,7 @@ REQUIRES HOST snapshot@0
 REQUIRES HOST threads@0
 REQUIRES HOST upload@0
 
-FROM https://daugasauron.com/demos/local-llm/Dollyfile-pi-local 4fbb4ca2134f1601fd25e514b9174146e8557316f7df7ccebcb817085c722794
+FROM https://daugasauron.com/demos/local-llm/Dollyfile-pi-local 447e1b6be943587780acf09bca817d4258f84d162afaa11b51ea54d43f5db7a3
 INSTALL https://daugasauron.com/demos/neovim/Dollyfile-nvim b34d96c50d572b3ef6ffce74edc1b97cd86eca0b0275590c3736be399fa673c6
 REQUIRES TOOL pi
 REQUIRES TOOL nvim

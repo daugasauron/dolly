@@ -6,7 +6,7 @@ FROM https://daugasauron.com/Dollyfile-system 041c6f482c61b6afba4741e202fdbffb09
 
 SOURCE https://daugasauron.com/dist/static/llm/minicpm5-2b/0.part 6ee2aeab86dc9edef05f3b57e14b3f6bc1ebeb604469159a74c1e5fef2cf4abb /tmp/llm/0.part
 SOURCE https://daugasauron.com/dist/static/llm/minicpm5-2b/1.part f831d74c66f8265b8881083611202850b653ffcb1d1e7a55f2ca3bb21e15e327 /tmp/llm/1.part
-SOURCE https://daugasauron.com/dist/static/llm/minicpm5-2b/minicpm5-2b.json 66b86a9c64335799cebd2e30bbe8835cdce5f875440d93111511ecda59ebf38e /usr/share/dolly/llm/minicpm5-2b.json
+SOURCE https://daugasauron.com/dist/static/llm/minicpm5-2b/minicpm5-2b.json 4edc42681f472168d8c90fafd2bd6368e911189e1852c89d671881c6bb8f893e /usr/share/dolly/llm/minicpm5-2b.json
 SOURCE https://daugasauron.com/dist/static/llm/minicpm5-2b/LICENSE 202d02b14796563546e1a1d1e761410fa9e399bf7e1b85d8b43c972658341202 /usr/share/licenses/minicpm5-2b/LICENSE
 SLOP mkdir -p /usr/share/dolly/llm
 SLOP cat /tmp/llm/0.part /tmp/llm/1.part > /usr/share/dolly/llm/minicpm5-2b.gguf

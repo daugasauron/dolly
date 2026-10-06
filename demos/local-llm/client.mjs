@@ -28,7 +28,7 @@ export class LocalLlama {
     this.progress('Checking WebGPU…');
     const gpu=this.gpu??=await checkGpu();
     if(!model.installed)throw Error(`${model.name} is not installed; run /local, or: amy install ${model.packages.join(' ')}`);
-    const missing=unmet(model,gpu.shaders);if(missing)throw Error(missing);
+    const missing=unmet(model,gpu.shaders);if(missing)throw Error(`${model.name} ${missing}`);
     this.progress(`Loading ${model.id} on the GPU…`);
     const child=spawn(command,[model.path,String(context)],{stdio:['pipe','pipe','pipe']});
     this.process=child;this.loaded=loaded;
@@ -48,7 +48,7 @@ export class LocalLlama {
     });
     child.on('error',error=>{failure=error;changed();});
     child.on('close',(code,signal)=>{
-      ended=true;failure??=Error(reason?`${reason}; ${model.name} needs ${model.gpu[gpu.shaders]} GB of GPU memory with ${context} tokens of context`
+      ended=true;failure??=Error(reason?`${reason}; ${model.name} needs ${model.gpu[gpu.shaders]} GB of GPU memory with ${model.pi.contextWindow} tokens of context${context===model.pi.contextWindow?'':`, and more with the ${context} asked for`}`
         :`Local model exited (${signal??code}); see ~/.cache/dolly-llm/engine.log`);
       if(this.process===child){this.process=null;this.loaded=null;}changed();
     });
