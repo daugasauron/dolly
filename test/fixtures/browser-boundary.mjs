@@ -198,6 +198,15 @@ async function checkKernelBounds(asset, module, errno) {
     const messages = sent.length;
     check(kernel.dolly_terminal_write_bytes(address, BigInt(textLimit + 1)) === -errno.EINVAL &&
       sent.length === messages, "an oversized boot text write reached the page");
+
+    // Memory grows inside the kernel: an allocation past its 8 GiB maximum
+    // fails there and the kernel goes on. Its abort is a trap the caller sees,
+    // after the reason reached the boot text.
+    check(kernel.malloc(2n ** 33n) === 0n && kernel.malloc(16n) !== 0n,
+      "the kernel did not refuse an allocation past its maximum");
+    rejects(() => kernel.dolly_assert_fail(0n, 0n, 0, 0n), /RuntimeError/);
+    check(sent.slice(messages).map(message => new TextDecoder().decode(message.bytes)).join("")
+      .includes("assertion failed"), "a kernel abort left no boot text");
   } finally { host.dispose(); }
 }
 
