@@ -235,6 +235,47 @@ Not done in step 2: the two done-when tests and the exact-export test
   two private names, the WASI imports return and the exact import check
   fails the build.
 
+## Step 4 as a trial link (2026-10-06, 21:10 JST; outside the tree, no browser run yet)
+
+The sources are in `build/kboundary-evidence/trial2/tree` of `work/kboundary`
+(the verified merge of step 2 plus the changes below), linked by
+`trial2/trial.sh`; result `trial2/k-tree.wasm`, 198,696 bytes.
+
+**9 imports, all Dolly-named:** `env.memory`,
+`env.dolly_bootstrap_write_bytes`, `env.dolly_http_dispatch`,
+`env.dolly_gpu_dispatch`, `env.dolly_audio_dispatch`,
+`env.dolly_download_dispatch`, `env.dolly_clock_realtime`,
+`env.dolly_clock_monotonic`, `env.dolly_entropy`.
+
+**90 exports:** 64 `dolly_*`, the 23 libc functions, `__stack_pointer` and
+`__indirect_function_table` of `abi/dolly-kernel-plugin-0.wat`, and
+`_initialize` (the reactor's constructor call, to be named by
+`abi/dolly-supervisor-0.wat`).
+
+How:
+
+- Link: `-sSTANDALONE_WASM=1 -sSUPPORT_LONGJMP=0`, output `dist/dolly.wasm`;
+  no `MODULARIZE`, `EXPORT_ES6`, `EXPORT_NAME`, `ENVIRONMENT`,
+  `DYNAMIC_EXECUTION` or `--js-library`. Without `SUPPORT_LONGJMP=0` the link
+  also exports `_emscripten_stack_restore` and `emscripten_stack_get_current`
+  (92 exports); the kernel never calls `setjmp`.
+- The four dispatch imports and boot text are plain typed imports
+  (`DOLLY_BROWSER_IMPORT` in `src/process-kernel.h`) instead of `EM_JS`.
+- A new `src/libc-host.c` defines what Emscripten's libc and standalone
+  runtime would import: `__wasi_clock_time_get`, `__wasi_clock_res_get`,
+  `__wasi_random_get`, `__wasi_environ_sizes_get`, `__wasi_environ_get`,
+  `emscripten_notify_memory_growth`, and `imported__wasi_fd_write` and
+  `imported__wasi_fd_read`, the two names `standalone.c` imports WASI under.
+  `_wasmfs_stdin_get_char` leaves `src/dolly.c` (the standalone runtime
+  defines it over `imported__wasi_fd_read`), so no
+  `--allow-multiple-definition` is needed.
+- No import for abort (a Wasm trap), memory growth (`memory.grow` in Wasm;
+  trusted JavaScript reads `memory.buffer` at each use) or the environment
+  (the kernel sets its own). The eight preload imports are gone too:
+  the standalone runtime answers them with zero.
+- `dolly_bootstrap_write_bytes` returns a status so that a refused write is
+  an error, not a silent success; `dolly_terminal_write_bytes` passes it on.
+
 ## Findings outside this task (2026-10-06)
 
 A cold root rebuild of `system-build` with step 2
