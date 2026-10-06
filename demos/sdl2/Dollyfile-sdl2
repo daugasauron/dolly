@@ -3,7 +3,7 @@ PACKAGE sdl2
 REQUIRES HOST runtime@0
 REQUIRES HOST display@0
 
-FROM https://daugasauron.com/demos/cmake/Dollyfile-cmake-build a6bd7aac3cc82f24c56a33cb26e487cdacecdbb49c3618d625fceb22df0c3981
+FROM https://daugasauron.com/demos/cmake/Dollyfile-cmake-build 9cc0c42ebc252e15b791ea44f9f7b256af6a3bdbf4cc4856a2a0b5ed9241c02b
 REQUIRES HEADER libc
 REQUIRES HEADER display
 REQUIRES TOOL cc

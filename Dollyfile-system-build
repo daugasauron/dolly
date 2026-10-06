@@ -108,7 +108,7 @@ EXPORTS TOOL dollyfile
 REQUIRES HEADER libc
 REQUIRES HEADER runtime
 
-SOURCE https://daugasauron.com/dist/static/default/slop.c 38ad3ffc499b9bc4c250c78075bea21954b1b949afdc54bd7f88d0946d43e650 /tmp/slop/slop.c
+SOURCE https://daugasauron.com/dist/static/default/slop.c 92c6db71510632fa5a07cda4b2cdaa3193aa41f5562f93be8f435469b004ccc1 /tmp/slop/slop.c
 RUN /usr/libexec/dolly/process-bin/compiler --dolly-toolchain-mode=c -O1 /tmp/slop/slop.c -o /bin/slop
 
 EXPORTS TOOL slop
@@ -1661,7 +1661,7 @@ SLOP mkdir \
   /usr/share/man/cat1 \
   /usr/share/man/man1
 SLOP for name in ar c++ cat cc cd clear cp dollyfile echo file foreground help ld ls man mkdir mv pwd rm slop stat touch; do \
-  "$name" --help > "/usr/share/man/cat1/$name.1"; \
+  "/bin/$name" --help > "/usr/share/man/cat1/$name.1"; \
   done
 SLOP help >> /usr/share/man/cat1/slop.1
 FILE /usr/share/man/cat1/test.1
