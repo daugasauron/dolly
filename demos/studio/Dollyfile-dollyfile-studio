@@ -10,7 +10,7 @@ REQUIRES HOST snapshot@0
 REQUIRES HOST threads@0
 REQUIRES HOST upload@0
 
-FROM https://daugasauron.com/demos/local-llm/Dollyfile-pi-local 7cd78ca12a1b1fabeeed4206e2571949bc0918070ce70362a1b391cdfbcf3940
+FROM https://daugasauron.com/demos/local-llm/Dollyfile-pi-local 310515c7912568eb920f28d7590bf95d72845002468eb0feaaf1ad960eff0ed3
 INSTALL https://daugasauron.com/demos/neovim/Dollyfile-nvim b34d96c50d572b3ef6ffce74edc1b97cd86eca0b0275590c3736be399fa673c6
 REQUIRES TOOL pi
 REQUIRES TOOL nvim
@@ -20,7 +20,7 @@ REQUIRES TOOL sha256sum
 REQUIRES TOOL sed
 # dollyfile-build starts disposable image builds through the page.
 
-SOURCE https://daugasauron.com/dist/static/studio/studio.tar 20b29dabfadc226e4e0cf8c13af4bc1d57566e449c0733a020a00298b6b51d7e /tmp/dollyfile-studio/source.tar
+SOURCE https://daugasauron.com/dist/static/studio/studio.tar 007fedab1cc9a7b596338b73466d26df1eef002e7319d4d3e894062da475f0b4 /tmp/dollyfile-studio/source.tar
 SLOP tar -xf /tmp/dollyfile-studio/source.tar -C /
 SLOP slop -e /usr/share/dollyfile-studio/install.slop
 SLOP dollyfile-lint /usr/share/dollyfile-studio/examples/Dollyfile-hello
@@ -35,25 +35,13 @@ FOLDER /home/dolly/.pi/agent/prompts
 FILE /home/dolly/.pi/agent/extensions/dollyfile-studio.js
 FOLDER /home/dolly/.config/nvim
 
-FILE /home/dolly/.pi/agent/settings.json
-    {
-      "enableInstallTelemetry": false,
-      "images": {"autoResize": false},
-      "shellPath": "/bin/slop",
-      "theme": "dolly",
-      "tuiMode": "regular",
-      "defaultProvider": "webgpu",
-      "defaultModel": "qwen3.5-2b",
-      "compaction": {"reserveTokens": 4096, "keepRecentTokens": 6144}
-    }
-
 FILE /home/dolly/.dollyrc
     if test ! -f /workspace/Dollyfile; then
       cp /usr/share/dollyfile-studio/examples/Dollyfile-hello /workspace/Dollyfile
     fi
     printf '\033[33mDOLLY / DOLLYFILE STUDIO\033[0m\n'
     printf 'Start with /dolly-hello, /dolly-tool or /dolly-fix in Pi.\n'
-    printf '/model: select local Qwen or a remote provider. The first prompt loads local weights.\n'
+    printf '/local: install and switch local models and set their parameters. /model: any provider.\n'
     printf 'Leave Pi with Ctrl+D on an empty prompt, then: nvim /workspace/Dollyfile\n'
     printf 'dollyfile-build streams a test build; click Open image when finished.\n\n'
 

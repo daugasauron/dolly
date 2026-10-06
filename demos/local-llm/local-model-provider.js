@@ -1,89 +1,124 @@
-import {createAssistantMessageEventStream,getCurrentSystemPrompt,getCurrentTools} from '@earendil-works/pi-ai';
-import {LocalLlama} from '/usr/lib/dolly-llm/client.mjs';
-import {models} from '/usr/lib/dolly-llm/model.mjs';
-import {qwenPrompt,qwenToolCalls} from '/usr/lib/dolly-llm/qwen.mjs';
-import {minicpmPrompt,minicpmToolCalls} from '/usr/lib/dolly-llm/minicpm.mjs';
+// Pi's local provider and its /local command. A model is a description under
+// /usr/share/dolly/llm; requests go through Pi's own OpenAI chat-completions adapter to
+// dolly-llama, which answers in llama-server's dialect over its pipes. A user's changes
+// are Pi's modelOverrides in ~/.pi/agent/models.json.
+import {readFileSync,writeFileSync} from 'node:fs';
+import {streamSimple} from '@earendil-works/pi-ai';
+import {getAgentDir} from '@earendil-works/pi-coding-agent';
+import {LocalLlama,checkGpu} from '/usr/lib/dolly-llm/client.mjs';
+import {models,unmet} from '/usr/lib/dolly-llm/model.mjs';
 
-// Each model family's chat template, tool-call parser and the text that opens a call.
-const formats={
-  'qwen3.5':{prompt:qwenPrompt,toolCalls:qwenToolCalls,toolStart:'<tool_call>'},
-  'minicpm5':{prompt:minicpmPrompt,toolCalls:minicpmToolCalls,toolStart:'<function name='},
-};
+const provider='webgpu';
+const gigabytes=bytes=>`${(bytes/1e9).toFixed(1)} GB`;
+// llama-server's dialect, as Pi's llama.cpp provider declares it.
+const dialect={supportsStore:false,supportsDeveloperRole:false,supportsReasoningEffort:false,supportsUsageInStreaming:true,
+  supportsStrictMode:false,maxTokensField:'max_tokens',thinkingFormat:'qwen-chat-template'};
+const onOrOff={off:'off',minimal:null,low:null,medium:'medium',high:null,xhigh:null};
+const piModels=()=>models().filter(model=>model.installed).map(model=>({id:model.id,name:`${model.name} · local GPU`,input:['text'],
+  cost:{input:0,output:0,cacheRead:0,cacheWrite:0},compat:dialect,...(model.pi.reasoning && {thinkingLevelMap:onOrOff}),...model.pi}));
+// What /local can change: the request fields dolly-llama implements, and Pi's two limits.
+const parameters=['temperature','top_p','top_k','min_p','repeat_penalty','presence_penalty','frequency_penalty','seed','contextWindow','maxTokens'];
+const limits=new Set(['contextWindow','maxTokens']);
 
-function conversation(context) {
-  const messages=[],systemPrompt=getCurrentSystemPrompt(context.messages);
-  if(systemPrompt)messages.push({role:'system',content:systemPrompt});
-  for(const message of context.messages) {
-    if(message.role==='system')continue;
-    const text=typeof message.content==='string'?message.content:message.content.filter(c=>c.type==='text').map(c=>c.text).join('\n');
-    if(message.role==='toolResult')messages.push({role:'tool',content:text,tool_call_id:message.toolCallId});
-    else {
-      const tools=Array.isArray(message.content)?message.content.filter(c=>c.type==='toolCall'):[];
-      messages.push({role:message.role,content:text,...(tools.length?{tool_calls:tools.map(c=>({id:c.id,type:'function',function:{name:c.name,arguments:JSON.stringify(c.arguments)}}))}:{})});
-    }
-  }
-  return messages;
-}
 export default function(pi) {
   let ui;
   const engine=new LocalLlama(text=>ui?.setStatus('local-model',text));
   pi.on('session_start',(_event,ctx)=>{ui=ctx.ui;});
   pi.on('session_shutdown',()=>engine.stop());
-  pi.registerCommand('local-unload',{description:'Release the local model and its GPU memory',handler:async(_args,ctx)=>{engine.stop();ctx.ui.setStatus('local-model',undefined);ctx.ui.notify('Local model unloaded','info');}});
-  pi.registerProvider('webgpu',{
-    baseUrl:'dolly://local',api:'dolly-llama',apiKey:'local',
-    models:models.map(model=>({id:model.id,name:`${model.name} · GPU inside Dolly, ${model.gpu} GB`,reasoning:false,input:['text'],
-      cost:{input:0,output:0,cacheRead:0,cacheWrite:0},contextWindow:model.context,maxTokens:2048})),
-    streamSimple(model,context,options={}) {
-      const stream=createAssistantMessageEventStream();
-      const output={role:'assistant',content:[],api:model.api,provider:model.provider,model:model.id,timestamp:Date.now(),
-        stopReason:'pending',usage:{input:0,output:0,cacheRead:0,cacheWrite:0,totalTokens:0,cost:{input:0,output:0,cacheRead:0,cacheWrite:0,total:0}}};
-      void (async()=>{
-        try {
-          const tools=getCurrentTools(context.messages).map(t=>({type:'function',function:{name:t.name,description:t.description,parameters:t.parameters}}));
-          const format=formats[models.find(entry=>entry.id===model.id).format];
-          const prompt=format.prompt(conversation(context),tools);
-          stream.push({type:'start',partial:output});
-          output.content.push({type:'text',text:''});stream.push({type:'text_start',contentIndex:0,partial:output});
-          const decoder=new TextDecoder();let result,text='',shown=0;
-          for await(const event of engine.generate(model.id,{prompt,max_tokens:options.maxTokens??2048,temperature:options.temperature??0.2,top_p:0.9},options.signal)) {
-            if(event.token) {
-              text+=decoder.decode(new Uint8Array(event.token),{stream:true});
-              // Hold tag prefixes until a complete tool envelope can be validated.
-              const at=text.indexOf(format.toolStart);const safe=at<0?Math.max(shown,text.length-format.toolStart.length):at;
-              if(safe>shown) {const delta=text.slice(shown,safe);shown=safe;output.content[0].text+=delta;stream.push({type:'text_delta',contentIndex:0,delta,partial:output});}
-            }
-            if(event.done)result=event;
-          }
-          if(!result)throw Error('Local model stream ended without completion');
-          text+=decoder.decode();const at=text.indexOf(format.toolStart);
-          if(at>=0) {
-            if(result.reason!=='stop')throw Error('Model stopped before finishing its tool call');
-            const calls=format.toolCalls(text.slice(at),tools);
-            output.content[0].text=text.slice(0,at).trimEnd();
-            stream.push({type:'text_end',contentIndex:0,content:output.content[0].text,partial:output});
-            for(const call of calls) {
-              const index=output.content.length;
-              const toolCall={type:'toolCall',id:call.id,name:call.function.name,arguments:JSON.parse(call.function.arguments)};
-              output.content.push(toolCall);stream.push({type:'toolcall_start',contentIndex:index,partial:output});stream.push({type:'toolcall_end',contentIndex:index,toolCall,partial:output});
-            }
-            output.stopReason='toolUse';
-          } else {
-            const delta=text.slice(shown);output.content[0].text+=delta;
-            if(delta)stream.push({type:'text_delta',contentIndex:0,delta,partial:output});
-            stream.push({type:'text_end',contentIndex:0,content:output.content[0].text,partial:output});output.stopReason=result.reason==='length'?'length':'stop';
-          }
-          // The engine reuses the previous request's matching prefix.
-          output.usage.input=result.input_tokens-result.cached_tokens;output.usage.cacheRead=result.cached_tokens;
-          output.usage.output=result.output_tokens;output.usage.totalTokens=result.input_tokens+result.output_tokens;
-          ui?.setStatus('local-model',`${model.id} · ${result.tokens_per_second.toFixed(1)} tokens/s · GPU`);
-          stream.push({type:'done',reason:output.stopReason,message:output});stream.end();
-        } catch(error) {
-          output.stopReason=options.signal?.aborted?'aborted':'error';output.errorMessage=String(error.message??error);
-          ui?.setStatus('local-model',undefined);stream.push({type:'error',reason:output.stopReason,error:output});stream.end();
-        }
-      })();
-      return stream;
-    },
+  pi.on('provider_stream_event',event=>{
+    const timings=event.provider===provider && event.data?.timings;
+    if(timings)ui?.setStatus('local-model',`${event.model} · ${timings.predicted_per_second.toFixed(1)} tokens/s · ${timings.cache_n} of ${timings.cache_n+timings.prompt_n} prompt tokens reused`);
   });
+  // Pi's loop has no bound on a model repeating itself: a small one can call the
+  // same tool with the same input forever while the result stays the same. A third
+  // identical call after two identical results is not run, and the model reads
+  // why; if it insists, the run ends and the user is told.
+  const key=event=>JSON.stringify([event.toolName,event.input]);
+  let last,repeats=0,warned;
+  pi.on('agent_start',()=>{last=undefined;repeats=0;warned=undefined;});
+  pi.on('tool_result',event=>{
+    if(event.parentToolCallId || key(event)===warned)return;
+    const call=key(event),result=JSON.stringify(event.content);
+    repeats=last?.call===call && last.result===result?repeats+1:1;last={call,result};
+  });
+  pi.on('tool_call',(event,ctx)=>{
+    if(event.parentToolCallId)return;
+    if(key(event)===warned) {
+      const reason=`Stopped: the model repeated the same ${event.toolName} call ${repeats+2} times with the same result.`;
+      ctx.ui.notify(reason,'warning');return {block:true,reason,terminate:true};
+    }
+    warned=undefined;
+    if(repeats<2 || last.call!==key(event))return;
+    warned=key(event);
+    return {block:true,reason:`Not run: this ${event.toolName} call already returned the same result twice. Use that result or do something else.`};
+  });
+  pi.registerProvider(provider,{
+    baseUrl:'dolly://local',api:'dolly-llama',apiKey:'local',models:piModels(),refreshModels:async()=>piModels(),
+    streamSimple:(model,context,options)=>streamSimple({...model,api:'openai-completions'},context,{...options,
+      fetch:(_url,request)=>engine.respond(models().find(entry=>entry.id===model.id),model.contextWindow,request)}),
+  });
+
+  const overridesPath=`${getAgentDir()}/models.json`;
+  const readOverrides=()=>{try{return JSON.parse(readFileSync(overridesPath,'utf8'));}catch{return {};}};
+  // The registry rereads the descriptions and models.json; the session takes the changed model.
+  async function reload(ctx,id) {
+    await ctx.modelRegistry.refresh({providers:[provider],allowNetwork:false});
+    const model=ctx.modelRegistry.find(provider,id);
+    if(model)await pi.setModel(model);
+    return model;
+  }
+  async function editParameters(ctx,id) {
+    for(;;) {
+      const model=ctx.modelRegistry.find(provider,id),shipped=piModels().find(entry=>entry.id===id);
+      const level=pi.getThinkingLevel();
+      const value=(from,name)=>limits.has(name)?from[name]:from.samplingParamsByThinkingLevel?.[level]?.[name]??from.samplingParams?.[name];
+      const rows=parameters.map(name=>{
+        const now=value(model,name),original=value(shipped,name);
+        return `${name} = ${now??"the model file's default"}${now===original?'':` (shipped: ${original??"the model file's default"})`}`;
+      });
+      const choice=await ctx.ui.select(`Parameters of ${id}${model.reasoning?`, thinking ${level}`:''} · Esc closes`,rows);
+      if(!choice)return;
+      const name=parameters[rows.indexOf(choice)];
+      const text=await ctx.ui.input(`${name} for ${id} (empty restores the shipped value)`,String(value(model,name)??''));
+      if(text===undefined)continue;
+      const number=Number(text);
+      if(text.trim() && !(Number.isFinite(number) && number>=0 && (!limits.has(name) || Number.isInteger(number) && number>=1024))) {
+        ctx.ui.notify(`${name} takes a number${limits.has(name)?' of tokens, at least 1024':', zero or more'}; "${text}" is not one`,'error');continue;
+      }
+      const file=readOverrides();
+      const override=((file.providers??={})[provider]??={modelOverrides:{}}).modelOverrides[id]??={};
+      const perLevel=!limits.has(name) && shipped.samplingParamsByThinkingLevel?.[level]?.[name]!==undefined;
+      const target=limits.has(name)?override:perLevel?((override.samplingParamsByThinkingLevel??={})[level]??={}):(override.samplingParams??={});
+      if(text.trim())target[name]=number;else delete target[name];
+      writeFileSync(overridesPath,JSON.stringify(file,null,2)+'\n');
+      await reload(ctx,id);
+    }
+  }
+  pi.registerCommand('local',{description:'Local models: install, switch, parameters, GPU',handler:async(_args,ctx)=>{
+    const gpu=await checkGpu().catch(error=>({error:error.message}));
+    const active=ctx.model?.provider===provider?ctx.model.id:undefined,all=models();
+    const rows=all.map(model=>{
+      const missing=gpu.error??unmet(model,gpu.shaders);
+      const state=missing?`cannot run: ${missing}`:`${model.gpu[gpu.shaders]} GB GPU memory · ${model.id===active?'in use':model.installed?'installed':'not installed'}`;
+      return `${model.id} · ${model.name} · ${gigabytes(model.bytes)} · ${state}`;
+    });
+    const edit=active && `Parameters of ${active}…`,unload=engine.process && `Unload ${engine.loaded.split(' ')[0]} and free its GPU memory`;
+    const title=gpu.error?`Local models · ${gpu.error}`:`Local models · this GPU adapter runs ${gpu.shaders} shaders`;
+    const choice=await ctx.ui.select(title,[...rows,edit,unload].filter(Boolean));
+    if(!choice)return;
+    if(choice===edit)return editParameters(ctx,active);
+    if(choice===unload) {engine.stop();ctx.ui.setStatus('local-model',undefined);return ctx.ui.notify('Local model unloaded','info');}
+    const model=all[rows.indexOf(choice)],missing=gpu.error??unmet(model,gpu.shaders);
+    if(missing)return ctx.ui.notify(missing,'error');
+    if(!model.installed) {
+      const command=`amy install ${model.packages.join(' ')}`;
+      if(!await ctx.ui.confirm(`Install ${model.name}?`,`${command} fetches ${gigabytes(model.bytes)} from this site into the session. A session holding it is too large to save.`))return;
+      ctx.ui.setStatus('local-model',`Installing ${model.id} (${gigabytes(model.bytes)})…`);
+      const result=await pi.exec('amy',['install',...model.packages]);
+      ctx.ui.setStatus('local-model',undefined);
+      if(result.code!==0)return ctx.ui.notify(`${command} failed: ${result.stderr.trim().split('\n').pop()}`,'error');
+    }
+    engine.stop();
+    ctx.ui.notify(await reload(ctx,model.id)?`Using ${model.name}; the first prompt loads it on the GPU`:`${model.id} did not register; see /model`,'info');
+  }});
 }

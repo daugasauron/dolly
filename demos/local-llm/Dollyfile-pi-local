@@ -10,22 +10,20 @@ REQUIRES HOST threads@0
 REQUIRES HOST upload@0
 
 FROM https://daugasauron.com/demos/pi/Dollyfile-pi d1fa428c73dc66c4440d2381e3dc6efff29b041cf662d8c333f9a58516924e0c
-COPY https://daugasauron.com/demos/local-llm/Dollyfile-local-llm-build 1212b8d6d811017d291793068d47d44c04336bc09c0825cf1ce4fbe81c5aeee3 /usr/bin/dolly-llama /usr/bin/dolly-llama
-COPY https://daugasauron.com/demos/local-llm/Dollyfile-llama-build c3e2379cf044cf821a2e62649b55b2b3ecbbc1c13b6262576671fa7f475b8358 /usr/share/licenses/dolly-llm /usr/share/licenses/dolly-llm
+COPY https://daugasauron.com/demos/local-llm/Dollyfile-local-llm-build fe1a00da73b2fd3b00db40af5141ce6c54f7a369d69890004be7ccd198ab3aad /usr/bin/dolly-llama /usr/bin/dolly-llama
+COPY https://daugasauron.com/demos/local-llm/Dollyfile-llama-build e5eaa1409e8e727a23238b6c85b39edcf55f57e4b5ae25e60887b0a0ed0bfce8 /usr/share/licenses/dolly-llm /usr/share/licenses/dolly-llm
 EXPORTS TOOL dolly-llama
-INSTALL https://daugasauron.com/demos/local-llm/Dollyfile-qwen3.5-2b 62debc54f20c600a2d1d49f6680fbec5911ad56d061e922e7c051860dbdf3ea3
+INSTALL https://daugasauron.com/demos/local-llm/Dollyfile-qwen3.5-2b c6244cfce3ad7f159fa30251144198581d6ce822a8204681205db48081aa2753
 
 REQUIRES TOOL janis
 REQUIRES TOOL tar
-REQUIRES TOOL sha256sum
-REQUIRES TOOL curl
 REQUIRES TOOL dolly-llama
 
-SOURCE https://daugasauron.com/dist/static/llama/provider.tar 78f4e34be85537c7c10a96d5b914446ea66acccd58fec2e0c10b0e6b2ab9465c /tmp/llm-provider.tar
+SOURCE https://daugasauron.com/dist/static/llama/provider.tar 417895321775a9d65e527d4636941da84e8c5612f7d42473f4bc36c93bf0227b /tmp/llm-provider.tar
 SLOP tar -xf /tmp/llm-provider.tar -C /
 
 FILE /home/dolly/.pi/agent/settings.json
-    {"enableInstallTelemetry":false,"images":{"autoResize":false},"shellPath":"/bin/slop","theme":"dolly","tuiMode":"regular","defaultProvider":"webgpu","defaultModel":"qwen3.5-2b","compaction":{"reserveTokens":4096,"keepRecentTokens":6144}}
+    {"enableInstallTelemetry":false,"images":{"autoResize":false},"shellPath":"/bin/slop","theme":"dolly","tuiMode":"regular","defaultProvider":"webgpu","defaultModel":"qwen3.5-2b","defaultThinkingLevel":"off","compaction":{"reserveTokens":4096,"keepRecentTokens":6144}}
 
 EXPORTS FOLDER local-llm /usr/lib/dolly-llm
 EXPORTS FOLDER local-llm-models /usr/share/dolly/llm
