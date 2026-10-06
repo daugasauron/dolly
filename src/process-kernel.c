@@ -229,19 +229,34 @@ static int description_is_open(uint64_t description) {
   return 0;
 }
 
+static int has_other_descriptor(const dolly_kernel_process *process, uint32_t closing,
+                                const struct stat *file) {
+  for (uint32_t descriptor = 0; descriptor < DOLLY_KERNEL_DESCRIPTOR_LIMIT; ++descriptor) {
+    struct stat other;
+    if (descriptor != closing && process->descriptors[descriptor] >= 0 &&
+        fstat(process->descriptors[descriptor], &other) == 0 &&
+        other.st_dev == file->st_dev && other.st_ino == file->st_ino) return 1;
+  }
+  return 0;
+}
+
 /* POSIX: closing any descriptor of a file drops every byte-range lock the
- * process holds on that file. A description's lock goes with its last
- * descriptor, in whichever process that is. */
+ * process holds on that file. A descriptor a libc keeps for itself is not the
+ * program's to close, so it leaves them while the process has another. A
+ * description's lock goes with its last descriptor, in whichever process. */
 static void release_descriptor_locks(dolly_kernel_process *process, uint32_t descriptor) {
   const uint64_t description = process->descriptions[descriptor];
   process->descriptions[descriptor] = 0;
   struct stat file;
   if (lock_count == 0 || fstat(process->descriptors[descriptor], &file) != 0) return;
   const int description_closed = !description_is_open(description);
+  const int keeps_ranges =
+      (process->descriptor_flags[descriptor] & DOLLY_PROCESS_FD_KEEP_LOCKS) != 0 &&
+      has_other_descriptor(process, descriptor, &file);
   for (size_t index = lock_count; index-- > 0;) {
     const dolly_kernel_lock *held = &lock_table[index];
     if (held->pid == process->pid
-            ? held->device != file.st_dev || held->inode != file.st_ino
+            ? keeps_ranges || held->device != file.st_dev || held->inode != file.st_ino
             : held->description != description || !description_closed) continue;
     lock_table[index] = lock_table[--lock_count];
     wakeup_pending = 1;
@@ -1687,7 +1702,7 @@ static int64_t process_dispatch(int pid, int tid, int takes_signals, uint32_t op
       dolly_process_fd_flags request;
       memcpy(&request, process_mailbox, sizeof(request));
       if (!descriptor_is_open(process, request.descriptor)) return -EBADF;
-      if (request.flags & ~DOLLY_PROCESS_FD_CLOEXEC) return -EINVAL;
+      if (request.flags & ~(DOLLY_PROCESS_FD_CLOEXEC | DOLLY_PROCESS_FD_KEEP_LOCKS)) return -EINVAL;
       process->descriptor_flags[request.descriptor] = (unsigned char)request.flags;
       return 0;
     }

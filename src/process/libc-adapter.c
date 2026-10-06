@@ -42,6 +42,11 @@ _Static_assert(__WASI_CLOCKID_REALTIME == DOLLY_PROCESS_CLOCK_REALTIME &&
                __WASI_CLOCKID_MONOTONIC == DOLLY_PROCESS_CLOCK_MONOTONIC,
                "clock encoding");
 
+/* Marks a descriptor the libc opened for itself, here or for a shared mapping
+ * (mmap.c): closing it is not the program closing the file, which would drop
+ * the process's record locks on it. */
+int __dolly_keep_locks(int descriptor);
+
 int isatty(int descriptor) { return dolly_isatty(descriptor); }
 
 int uname(struct utsname *information) {
@@ -611,7 +616,8 @@ int __syscall_truncate64(const char *path, int64_t size) {
   if (size < 0) return -EINVAL;
   const int descriptor = __syscall_openat(AT_FDCWD, path, O_WRONLY);
   if (descriptor < 0) return descriptor;
-  const int result = __syscall_ftruncate64(descriptor, size);
+  int result = __dolly_keep_locks(descriptor);
+  if (result == 0) result = __syscall_ftruncate64(descriptor, size);
   const __wasi_errno_t close_error = __wasi_fd_close(descriptor);
   return result != 0 ? result : close_error == 0 ? 0 : -(int)close_error;
 }
@@ -1110,6 +1116,11 @@ static int fd_flags_set(uint32_t operation, int descriptor, uint32_t flags) {
   return result < 0 ? (int)result : result == 0 ? 0 : -EIO;
 }
 
+int __dolly_keep_locks(int descriptor) {
+  return fd_flags_set(DOLLY_PROCESS_FD_SET_DESCRIPTOR_FLAGS, descriptor,
+      DOLLY_PROCESS_FD_CLOEXEC | DOLLY_PROCESS_FD_KEEP_LOCKS);
+}
+
 static int get_status_flags(int descriptor) {
   const int status = fd_flags_get(DOLLY_PROCESS_FD_GET_FLAGS, descriptor);
   if (status < 0) return status;
@@ -1359,7 +1370,7 @@ int __syscall_fcntl64(int descriptor, int command, uintptr_t arguments) {
       const int flags = fd_flags_get(
           DOLLY_PROCESS_FD_GET_DESCRIPTOR_FLAGS, descriptor);
       if (flags < 0) return flags;
-      if ((flags & ~DOLLY_PROCESS_FD_CLOEXEC) != 0) return -EIO;
+      if ((flags & ~(DOLLY_PROCESS_FD_CLOEXEC | DOLLY_PROCESS_FD_KEEP_LOCKS)) != 0) return -EIO;
       return (flags & DOLLY_PROCESS_FD_CLOEXEC) != 0 ? FD_CLOEXEC : 0;
     }
     case F_SETFD:

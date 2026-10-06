@@ -88,8 +88,11 @@ the test (type, pid, start, length). Types: shared, exclusive, unlock. Flags:
 - `TEST`: change nothing and report a lock that would refuse the byte-range
   request (`F_GETLK`).
 
-`process.h` gains the operation number, two enums, two packets and their two
-layout checks; `abi/` does not change. It is a process ABI change: every
+A descriptor flag, `DOLLY_PROCESS_FD_KEEP_LOCKS`, marks a descriptor a libc
+keeps for itself (below).
+
+`process.h` gains the operation number, two enums, two packets, their two
+layout checks and the descriptor flag; `abi/` does not change. It is a process ABI change: every
 executable is restamped and the Rust seed rebuilt.
 
 ### Semantics
@@ -113,6 +116,21 @@ executable is restamped and the Rust seed rebuilt.
   **any** descriptor of a file drops every lock the process holds on that
   file, also one taken through another descriptor. A spawned child inherits
   none.
+- Found by reading the libc after the first implementation: it closes
+  descriptors the program never opened. A `MAP_SHARED` mapping keeps a `dup`
+  of the file for write-back and closes it in `munmap`, and `truncate(path)`
+  opens and closes the file. Under the close rule both would silently drop
+  the process's locks on that file, which Linux does not do (a mapping holds
+  the file, not a descriptor). So libc marks such a descriptor
+  `DOLLY_PROCESS_FD_KEEP_LOCKS` (`__dolly_keep_locks`, also close-on-exec, so
+  a spawned child no longer inherits a mapping's descriptor), and the kernel
+  leaves the process's locks when one is closed while the process has another
+  descriptor of the file. That condition keeps the rule that a lock never
+  outlives the process's descriptors of the file, which is what makes the
+  inode a safe key. Not chosen: documenting the loss (a lock that goes at
+  `munmap` is the kind of silent difference this task exists to remove), or
+  dropping locks only at the last descriptor (not what POSIX says). Like
+  Linux, a mapping still keeps a `flock` alive: it holds the description.
 - The two kinds do not see each other, as on Linux. Both are advisory:
   `read` and `write` never look at them.
 - `lockf` is musl's, over `fcntl`. `F_OFD_*` stays `EINVAL`: nothing in the
@@ -204,7 +222,8 @@ Dolly is expected to do the same:
   ranges from `SEEK_CUR` and `SEEK_END` and with a negative length; `lockf`;
   `EBADF` by access mode; `EINVAL` for a negative start, a bad type or whence
   and `F_GETLK` with `F_UNLCK`; a refused request is `EAGAIN` and changes
-  nothing; closing another descriptor of the file drops every lock; a child
+  nothing; closing another descriptor of the file drops every lock, while
+  `munmap` of a shared mapping of it and `truncate(path)` drop none; a child
   inherits none and its `close` does not touch its parent's.
 - Both: release on unlock, `close`, exit and `SIGKILL` of a holder that makes
   no system call; a waiting request is `EINTR` under a handler and continues

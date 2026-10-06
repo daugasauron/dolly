@@ -202,6 +202,9 @@ enum dolly_process_descriptor_inheritance {
 
 enum dolly_process_descriptor_flags {
   DOLLY_PROCESS_FD_CLOEXEC = 1u << 0,
+  /* A descriptor a libc keeps for itself, as for a shared mapping: closing it
+   * leaves the process's byte-range locks to its other descriptors of the file. */
+  DOLLY_PROCESS_FD_KEEP_LOCKS = 1u << 1,
 };
 
 enum dolly_process_wait_flags {

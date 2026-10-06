@@ -117,8 +117,9 @@ sequenceDiagram
   none. `fcntl` `F_SETLK`, `F_SETLKW` and `F_GETLK` (and `lockf`) lock byte
   ranges for the process, splitting and merging what it holds; as POSIX says,
   closing **any** descriptor of a file drops all the process's locks on that
-  file. The two kinds do not see each other, and neither stops `read` or
-  `write`. A waiting request is parked like a pipe read: a release wakes it at
+  file. Not the descriptors libc keeps for itself, for a shared mapping or
+  inside `truncate`: those are marked `DOLLY_PROCESS_FD_KEEP_LOCKS`. The two
+  kinds do not see each other, and neither stops `read` or `write`. A waiting request is parked like a pipe read: a release wakes it at
   once and a signal interrupts it. Waiters are not ordered and deadlocks are
   not detected (no `EDEADLK`). Exit, a kill and a failed Worker release every
   lock of the process. `F_OFD_*` is `EINVAL`; a pipe cannot be locked

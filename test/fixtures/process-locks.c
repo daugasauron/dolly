@@ -8,6 +8,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/file.h>
+#include <sys/mman.h>
 #include <sys/time.h>
 #include <sys/wait.h>
 #include <time.h>
@@ -280,6 +281,10 @@ static void ranges(void) {
   CHECK(lockf(fd, F_ULOCK, -2) == 0);
   expect("W..WRRWW..WW..RR", 3, 3, 1);
 
+  /* Unmapping the file and truncating it by name close no descriptor. */
+  void *mapped = mmap(NULL, 8, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
+  CHECK(mapped != MAP_FAILED && munmap(mapped, 8) == 0 && truncate(path, 8) == 0);
+  expect("W..WRRWW..WW..RR", 3, 3, 1);
   /* POSIX: closing any descriptor of the file drops the process's locks on it. */
   int again = open(path, O_RDONLY);
   CHECK(again >= 0 && close(again) == 0);

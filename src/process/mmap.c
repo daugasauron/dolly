@@ -38,6 +38,7 @@ typedef struct dolly_mapping {
 
 static dolly_mapping *mappings;
 static dolly_lock mapping_lock;
+int __dolly_keep_locks(int descriptor); /* libc-adapter.c */
 
 static dolly_mapping *find_mapping(const void *address, size_t length) {
   const uintptr_t start = (uintptr_t)address;
@@ -149,8 +150,9 @@ static intptr_t mmap2(void *requested_address, size_t length,
     }
     if (mapping_type == MAP_SHARED) {
       retained_descriptor = dup(descriptor);
-      if (retained_descriptor < 0) {
-        const int error = errno;
+      const int error = retained_descriptor < 0 ? errno : -__dolly_keep_locks(retained_descriptor);
+      if (error != 0) {
+        if (retained_descriptor >= 0) close(retained_descriptor);
         free(address);
         free(mapping);
         return -error;
