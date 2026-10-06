@@ -412,3 +412,36 @@ Seed round (`integrate/seed-1006` at `9077dda1`, 61 images, image inputs
   release is superseded if the main round is green, and can still be packaged
   from `work/round2` (clean at `9077dda1`) if it is not:
   `bash scripts/package-pages.sh build/seed-releases`.
+
+### 00:11: the main round's catalog is built; suites running
+
+- Catalog: 58 light images in two runs (22:31–23:35, stopped by `llama-build`;
+  resumed 23:38–23:44), 9 heavy images 23:44–00:09. All 67 images were built by
+  the kernel with nine imports and no Emscripten JavaScript; no build failed
+  for a reason of the kernel. Pins `b07a89ee`. Image inputs `4431ea80…`.
+- `llama-build` failed once: the local-models merge compiles llama.cpp's
+  `common.cpp`, which ends in `#error Unknown architecture` without
+  `__EMSCRIPTEN__` (the second port the target-identity reading missed, after
+  Box3D). `prepare-local-llm.sh` now gives it the same edit as `ggml.h`
+  (`45ed3eeb`).
+- Fixes cherry-picked into `integrate/next` between the phases, each
+  runtime-only or test-only (the image-inputs hash did not move):
+  - `f82289ea`: the signal that ended a process is read from the kernel's
+    record; the supervisor's own copy was empty when the kernel ended the
+    process itself (the `ending` flake: 5 of 18 and 10 of 15 under load).
+  - `9b21ab9e`: the terminal suite waits for the grid to return after
+    fullscreen before it prints (the Firefox pixel-wait flake, 2 of 36).
+  - `ac4b4e5d`: the screen-reading test gesture is repeated when a program's
+    exit switched screens under it (the `neovim` flake, 6 of 10).
+  - `9abd08b0`: pending input is discarded when a process is marked exited,
+    not when its Worker retires: keys typed in the 500 ms after a full-screen
+    program exits were dropped, 3 of 3.
+  - `3c589449`, `80595976`: the Studio and Tokio test fixes.
+- Runtime `a578496d…`. Suites, GPU tests and both packagings started at 00:11
+  (`work/next/build/next-evidence/round-3.log`).
+- Ready for the next round, being assembled as `integrate/round3` in
+  `work/locks`: `core/file-locks` (`53177981`), kernel-boundary step 3
+  (`core/kernel-boundary-2`, `663b9a5a`), `core/dso-module` (`e441b537`),
+  Slop's newer commits, the libcurl follow-up and `cargo` in `rust-tools`,
+  `core/trusted-surface` (audit-24, step 1). Not ready: `core/input-module`,
+  file modes.
