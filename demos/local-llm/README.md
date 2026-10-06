@@ -32,10 +32,15 @@ GPU memory is Chrome's peak on the NVIDIA card with a full context, measured by
 GPU shares system memory. Without `shader-f16` the KV cache is f32: Qwen3.5-4B's
 then exceeds the 4 GiB `gpu@0` grants, and it fails naming GPU memory.
 
-All use 16,384 tokens of context and at most 2,048 output tokens. Qwen3.5-4B is
-the one that completes most coding tasks; pick it with `/model` for real work.
-Measurements: [the model task](../../tasks/20261001-214000-pi-local-model/TASK.md)
-and [the adapter matrix](../../tasks/20261005-131646-webgpu-any-gpu/TASK.md).
+All use 16,384 tokens of context and at most 2,048 output tokens, and sample
+as their publishers recommend (`sampling` in [`models.json`](models.json)) with
+a fresh seed per request. A small model can still repeat itself: the provider
+does not run a third identical tool call after two identical results and tells
+the model why; if it insists, the run stops and Pi says so. Qwen3.5-4B is the one that completes most coding tasks; pick
+it with `/model` for real work.
+Measurements: [the model task](../../tasks/20261001-214000-pi-local-model/TASK.md),
+[the adapter matrix](../../tasks/20261005-131646-webgpu-any-gpu/TASK.md) and
+[the repetition loop](../../tasks/20261005-215204-pi-local-loop/TASK.md).
 
 A model package holds one model's exact upstream GGUF at
 `/usr/share/dolly/llm/ID.gguf` and its license, exported as `ID`; an image
