@@ -52,6 +52,7 @@ typedef struct {
   int split;
   int positional_fields;
   int newline;
+  int line; // Where the token starts in its text, from 1.
   int background; // A `;` written as `&`.
   int descriptor;
   int target_descriptor;
@@ -132,6 +133,11 @@ typedef struct {
   // Set only while a stage's simple command starts its program.
   Stage *stage;
   pid_t last_background; // `$!`; 0 while unset.
+  // `$LINENO`: the line of the command being run, and the line before the
+  // first one of the text being run (an `eval` or substitution continues the
+  // numbering of its command).
+  int lineno;
+  int line_base;
 } Shell;
 
 enum {
@@ -289,6 +295,9 @@ static void tokens_dispose(TokenList *tokens) {
   memset(tokens, 0, sizeof(*tokens));
 }
 
+// The line the lexer is on; token_push records it.
+static int lex_line;
+
 static int token_push(TokenList *tokens, TokenKind kind, char *text, int quoted) {
   if (!grow((void **)&tokens->items, &tokens->capacity,
             tokens->count + 1, sizeof(*tokens->items))) {
@@ -299,6 +308,7 @@ static int token_push(TokenList *tokens, TokenKind kind, char *text, int quoted)
       .kind = kind,
       .text = text,
       .quoted = quoted,
+      .line = lex_line,
       .descriptor = -1,
       .target_descriptor = -1,
   };
@@ -323,6 +333,7 @@ static int tokens_clone_range(const Token *tokens, size_t start, size_t end,
       }
     }
     copy->items[copy->count - 1].newline = tokens[index].newline;
+    copy->items[copy->count - 1].line = tokens[index].line;
     copy->items[copy->count - 1].background = tokens[index].background;
     copy->items[copy->count - 1].positional_fields =
         tokens[index].positional_fields;
@@ -523,6 +534,10 @@ static const char *parameter_value(Shell *shell, const char *name,
   }
   if (length == 1 && name[0] == '#') {
     snprintf(temporary, 64, "%d", shell->argc > 0 ? shell->argc - 1 : 0);
+    return temporary;
+  }
+  if (length == 6 && memcmp(name, "LINENO", 6) == 0) {
+    snprintf(temporary, 64, "%d", shell->lineno);
     return temporary;
   }
   if (length == 1 && name[0] == '-') {
@@ -1650,7 +1665,10 @@ static int lex(const char *source, TokenList *tokens) {
   size_t pending_heredocs[SLOP_MAX_HEREDOCS];
   size_t pending_count = 0;
   int both_outputs = 0;
+  const char *counted = source;
+  lex_line = 1;
   while (*source != '\0') {
+    for (; counted < source; counted++) lex_line += *counted == '\n';
     while (*source == ' ' || *source == '\t' || *source == '\r') source++;
     /* A backslash-newline is removed before token recognition. In
        particular, it must not manufacture an empty word when it appears
@@ -2514,7 +2532,11 @@ static int builtin(Shell *shell, int argc, char **argv) {
       }
     }
     shell->source_depth++;
+    // A sourced file numbers its own lines.
+    const int line = shell->lineno;
+    shell->lineno = 0;
     int status = execute_text(shell, source);
+    shell->lineno = line;
     shell->source_depth--;
     if (shell->returning) {
       status = shell->return_status;
@@ -4322,6 +4344,7 @@ static int execute_list(Shell *shell, CommandParser *parser, int execute,
         (previous == TOKEN_SEMI ||
          (previous == TOKEN_AND && status == 0) ||
          (previous == TOKEN_OR && status != 0));
+    if (should_run) shell->lineno = shell->line_base + parser->tokens[parser->cursor].line;
     // `time` measures the whole pipeline that follows, compound or not.
     const int timed = command_word(parser, "time");
     struct timespec started = {0};
@@ -4427,7 +4450,10 @@ static int execute_tokens(Shell *shell, TokenList *list) {
 static int execute_text(Shell *shell, const char *text) {
   TokenList tokens = {0};
   if (!lex(text, &tokens)) { tokens_dispose(&tokens); return 2; }
+  const int base = shell->line_base;
+  shell->line_base = shell->lineno == 0 ? 0 : shell->lineno - 1;
   int status = execute_tokens(shell, &tokens);
+  shell->line_base = base;
   tokens_dispose(&tokens);
   shell->last_status = status;
   return status;
