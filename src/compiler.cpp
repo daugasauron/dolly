@@ -247,7 +247,10 @@ int parse_driver_options(int argc, const char *const *argv, DriverOptions &optio
       print_help(argv[0], driver_mode);
       return 1;
     } else if (argument == "--version") {
-      std::puts("dolly toolchain: Clang/LLD 24, wasm64-dolly-process");
+      std::puts("dolly toolchain: Clang/LLD 24, wasm64-unknown-dolly");
+      return 1;
+    } else if (argument == "-dumpmachine") {
+      std::puts("wasm64-unknown-dolly");
       return 1;
     } else if (argument == "--print-search-dirs") {
       options.print_search_dirs = true;
@@ -478,7 +481,12 @@ bool run_clang(const std::string &source, const std::string &language,
   }
 
   std::vector<std::string> arguments = {
+      // LLVM has no Dolly OS. This triple selects the code-generation ABI of
+      // the bootstrap libc archives (data layout, long double alignment, TLS);
+      // it is not the platform's name. Programs see __dolly__ and no
+      // Emscripten macro, and the sysroot headers test __dolly__.
       "-triple", "wasm64-unknown-emscripten",
+      "-U", "__EMSCRIPTEN__", "-U", "__EMSCRIPTEN_PTHREADS__", "-D", "__dolly__=1",
   };
   if (options.preprocess_only) {
     arguments.push_back("-E");
@@ -496,9 +504,7 @@ bool run_clang(const std::string &source, const std::string &language,
         "-mconstructor-aliases",
     });
   }
-  if (options.pthread) arguments.insert(arguments.end(), {
-      "-pthread", "-D__EMSCRIPTEN_PTHREADS__=1", "-D__EMSCRIPTEN_SHARED_MEMORY__=1",
-  });
+  if (options.pthread) arguments.push_back("-pthread");
   arguments.insert(arguments.end(), {
       "-target-cpu", "generic",
       "-target-feature", "+mutable-globals",

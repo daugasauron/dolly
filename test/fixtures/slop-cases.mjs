@@ -1,5 +1,6 @@
 // Every case runs in Bash as the reference and in Dolly. Builtin-only shellCases
-// also run natively under ASan with all external spawning denied.
+// also run natively under ASan with all external spawning denied; pipelineCases
+// run natively under ASan with the host's processes and pipes.
 // Dolly always pops explicit dot arguments, including after set --. Bash can
 // retain replacements at top level; those three cases record its different status.
 export const sourceFiles = {
@@ -49,6 +50,13 @@ export const shellCases = [
   ["negation suppresses errexit", "set -e; ! :; exit 19", 19],
   ["negated group suppresses errexit", "set -e; ! { (exit 7); :; }; exit 19", 19],
   ["bang within an argument is literal", "set -- ! foo! !foo; case $1:$2:$3 in '!':foo!:'!foo') :;; *) exit 91;; esac", 0],
+  ["a while loop left by break has break's status", "i=0; while :; do i=$((i+1)); case $i in 3) break;; esac; (exit 1); done", 0],
+  ["an until loop left by break after a failing test", "i=0; until (exit 1); do i=$((i+1)); (exit $((i != 3))) && break; done", 0],
+  ["continue ends a while body with status 0", "i=0; while case $i in 2) (exit 1);; esac; do i=$((i+1)); case $i in 2) continue;; esac; (exit 1); done", 0],
+  ["a completed failing body is the loop's status", "i=0; while case $i in 2) (exit 1);; esac; do i=$((i+1)); (exit 5); done", 5],
+  ["break 2 from a while inside a for", "for a in 1 2; do i=0; while :; do i=$((i+1)); (exit $((i != 2))) && break 2; done; done; case $?:$a$i in 0:12) :;; *) exit 91;; esac", 0],
+  ["break beyond the outermost loop leaves it with status 0", "i=0; while :; do i=$((i+1)); for b in 1; do (exit 1); done; (exit $((i != 2))) && break 5; done", 0],
+  ["for loops keep the status of break and continue", "for i in 1 2; do (exit 1); continue; done || exit 91; for i in 1 2; do (exit 1) || break; done || exit 92; for i in 1 2; do (exit 1) && break; done", 1],
   ["sourcing shares replacement arguments", "set -- old; . ./replace.slop; case $#:$1:$2 in 2:new:tail) :;; *) exit 91;; esac", 0],
   ["sourcing shares shifted arguments", "set -- old kept; . ./shift.slop; case $1 in kept) :;; *) exit 91;; esac", 0],
   ["explicit source arguments are temporary", "set -- old kept; . ./replace.slop temporary; case $1:$2 in old:kept) :;; *) exit 91;; esac", 0, 91],
@@ -96,9 +104,8 @@ export const shellCases = [
   ["quoted heredoc does not substitute", "<<'EOF'\n$(exit 5)\nEOF\n", 0],
   ["tab-stripping heredoc", "{ IFS= read -r a; IFS= read -r b; } <<-EOF\n\tone\n\t\ttwo\n\tEOF\ncase $a:$b in one:two) :;; *) exit 91;; esac", 0],
   ["unset options select variables or functions", "f() { :; }; x=1; unset -v x; unset -f f; case ${x-unset} in unset) :;; *) exit 91;; esac; command -v f && exit 92; exit 0", 0],
-  ["background jobs are rejected before anything runs", "exit 7; true &", 2, 7],
   ["dollar-single-quotes are rejected before anything runs", "exit 7; x=$'a'", 2, 7],
-  ["$! stays unset without background jobs", 'case "$!:${!}" in :) :;; *) exit 91;; esac; set -u; : $!; exit 92', 1, 127],
+  ["$! is unset until a program runs in the background", 'case "$!:${!}" in :) :;; *) exit 91;; esac; set -u; : $!; exit 92', 1, 127],
   ["unset parameter error exits the shell", "X=; : ${X:?unset}; exit 91", 1, 127],
   ["arithmetic error exits the shell", ": $((1/0)); exit 91", 1],
   ["quoting affects only quoted case pattern parts", String.raw`p='*'; case ab in "a*"|"$p") exit 91;; "a"*) ;; *) exit 92;; esac; case ab in $p) ;; *) exit 93;; esac`, 0],
@@ -108,6 +115,19 @@ export const shellCases = [
   ["set +u restores unset expansion", "set -eu; set +u; : $x; set -o nounset; set +o nounset; : $x", 0],
   ["set -e is ignored in functions on the left of && and ||", "set -e; f() { (exit 1); x=$1; }; f a || exit 91; f b && :; case $x in b) exit 7;; esac; exit 92", 7],
   ["set -e applies in a function ending an and-or list", "set -e; f() { (exit 1); x=ran; }; : && f; exit 91", 1],
+  ["set -e ignores the left of && in a for body", "set -e; for i in 1 2 3; do (exit $((i != 2))) && break; done; exit $((i + 5))", 7],
+  ["set -e ignores the left of && in a while body", "set -e; i=0; while :; do i=$((i+1)); (exit $((i != 2))) && break; done; exit $((i + 5))", 7],
+  ["set -e spares a loop whose status is an ignored failure", "set -e; for i in 1; do (exit 1) && :; done; i=0; until case $i in 1) :;; *) (exit 1);; esac; do i=1; (exit 1) && :; done; exit 7", 7],
+  ["set -e spares a group, a conditional and a case likewise", "set -e; { (exit 1) && :; }; if :; then (exit 1) && :; fi; case x in x) (exit 1) && :;; esac; { ! :; }; exit 7", 7],
+  ["set -e spares nested loops left by break 2", "set -e; for a in 1 2; do for b in 1 2; do (exit $((b != 2))) && break 2; done; done; exit $((a * 10 + b - 5))", 7],
+  ["set -e ends the shell inside a for body", "set -e; for i in 1 2; do (exit 4); exit 91; done; exit 92", 4],
+  ["set -e ends the shell inside a while body", "set -e; while :; do (exit 4); exit 91; done; exit 92", 4],
+  ["set -e runs the EXIT trap from inside a loop", "set -e; trap 'exit 9' EXIT; for i in 1; do (exit 4); done; exit 91", 9],
+  ["set -e applies to a function's status", "set -e; f() { (exit 3) && :; }; f; exit 7", 3],
+  ["set -e applies to a subshell's status", "set -e; ( (exit 1) && : ); exit 7", 1],
+  ["set -e is ignored in a loop that is a condition", "set -e; if for i in 1 2; do (exit 1); n=$i; done; then exit $((n + 5)); fi; exit 91", 7],
+  ["set -e ignores a function called left of && in a loop", "set -e; f() { return 3; }; for i in 1; do f && :; done; exit 7", 7],
+  ["set -e applies to a failed redirection of a loop", "set -e; (exit 1) && :; for i in 1; do :; done > missing-directory/result; exit 7", 1],
   ["subshell state stays outside descriptors 0-9", "exec 3>&-; (: <&3) 2> /dev/null && exit 91; :", 0],
   ["time reports a subshell's status", "time (exit 7)", 7],
   ["time runs a group and a conditional", "time { (exit 3); } || time if :; then (exit 4); fi", 4],
@@ -121,8 +141,11 @@ export const shellCases = [
   ["trap lists what it will run", 'trap ": x" TERM; trap > listed; read -r line < listed; case $line in "trap -- \': x\' "*TERM) exit 3;; esac; exit 91', 3],
   ["an unknown trap condition is rejected", "trap : NOSUCH", 2, 1],
   ["a signal cannot be ignored", 'trap "" INT', 2, 0],
-  ["wait without background jobs succeeds", "wait", 0],
-  ["wait rejects a process that is not a job", "wait 1", 127],
+  ["wait without background programs succeeds", "wait", 0],
+  ["wait rejects a process the shell did not start", "wait 1", 127],
+  ["only a program runs in the background", "(exit 3) & exit 7", 7],
+  ["& does not take a && list", ": && : & exit 7", 2, 7],
+  ["a path that names nothing is not a missing command", "./no-such-program; a=$?; no-such-program; b=$?; ./; c=$?; exit $((a + b + c))", 380 & 255],
   ["aliases, umask and ulimit are refused", "alias x=y; a=$?; umask 022; b=$?; ulimit -n > /dev/null; exit $((a + b + $?))", 6, 0],
 ];
 
@@ -157,6 +180,29 @@ if"`, 0],
   ["a signal trap runs once the command has finished", 'trap "exit 7" TERM; kill -TERM $$; exit 3', 7],
   ["an INT trap replaces the interrupt", 'trap "n=1" INT; kill -INT $$; test "$n" = 1 || exit 91; exit 3', 3],
   ["time runs a command the shell spawns", "time true && time -p slop -c 'exit 6'", 6],
+];
+
+// Programs of a pipeline run at the same time. An endless producer makes a
+// serial pipeline run until the test's timeout, and `sleep` orders the output.
+export const pipelineCases = [
+  ["a consumer that stops ends an endless producer", 'test "$(seq 1 999999999 | head -n 1)" = 1', 0],
+  ["a producer nobody reads dies of SIGPIPE", "set -o pipefail; seq 1 999999999 | head -n 1 > /dev/null", 141],
+  ["a stage in the shell stops an endless producer", 'seq 1 999999999 | { read -r a; read -r b; test "$a$b" = 12; }', 0],
+  ["output streams while the producer runs", String.raw`rm -f go log; slop -c 'echo first; until test -e go; do sleep 1; done; echo second' | tee log > /dev/null & until test -s log; do sleep 1; done; test "$(cat log)" = first || exit 91; : > go; wait; test "$(cat log)" = "first
+second"`, 0],
+  ["Make's output streams through tee while its recipe runs", String.raw`rm -f go log; printf 'all:\n\t@echo first; until test -e go; do sleep 1; done; echo second\n' > stream.mk; make -f stream.mk 2>&1 | tee log > /dev/null & until test -s log; do sleep 1; done; test "$(cat log)" = first || exit 91; : > go; wait; test "$(cat log)" = "first
+second"`, 0],
+  ["three programs", String.raw`test "$(seq 1 5 | sed s/^/x/ | tail -n 2)" = "x4
+x5"`, 0],
+  ["a pipeline inside a substitution", 'x=$(seq 1 999999999 | head -n 2 | tail -n 1); test "$x" = 2', 0],
+  ["status is the last stage's, or the rightmost failure with pipefail", 'false | true || exit 91; set -o pipefail; false | true; test $? = 1 || exit 92; slop -c "exit 5" | slop -c "exit 6" | cat; exit $?', 6],
+  ["a program stage feeds a loop that feeds a program", String.raw`test "$(seq 1 3 | while read -r x; do echo "<$x>"; done | cat)" = "<1>
+<2>
+<3>"`, 0],
+  ["programs start with & and wait collects them", 'slop -c "sleep 1; exit 7" & first=$!; slop -c "exit 3" & wait $!; test $? = 3 || exit 91; wait "$first"; test $? = 7 || exit 92; sleep 1 & wait; test "$first" != "$!"', 0],
+  ["a background pipeline is waited for", 'seq 1 3 | tail -n 1 > last & wait; test "$(cat last)" = 3', 0],
+  ["a background program does not read the shell's input", "cat & wait $!", 0],
+  ["& ends a word and follows redirections", 'slop -c "echo o; echo e >&2" > both 2>&1& wait; test "$(wc -l < both)" -eq 2', 0],
 ];
 
 export function shellQuote(value) { return `'${value.replaceAll("'", "'\\''")}'`; }

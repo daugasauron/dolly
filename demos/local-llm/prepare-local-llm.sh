@@ -9,6 +9,7 @@ temporary="$(mktemp -d "${project_dir}/build/.llama-source.XXXXXX")"
 trap 'rm -rf -- "${temporary}"' EXIT
 mkdir -p "$temporary/upstream" "$temporary/headers/emscripten"
 tar -xzf "$archive" --strip-components=1 -C "$temporary/upstream"
+sed -i 's/^#elif defined(__EMSCRIPTEN__)$/#elif defined(__EMSCRIPTEN__) || defined(__dolly__)/' "$temporary/upstream/ggml/include/ggml.h" && grep -q __dolly__ "$temporary/upstream/ggml/include/ggml.h" # GGML_MEM_ALIGN 8: Dolly's malloc alignment
 python3 - "$headers" "$temporary" <<'PY'
 import sys,zipfile,pathlib
 with zipfile.ZipFile(sys.argv[1]) as archive:
@@ -25,7 +26,7 @@ inputs=("${project_dir}/demos/local-llm/CMakeLists.txt" /tmp/llama/CMakeLists.tx
  "$temporary/headers" /tmp/llama/headers
  "$temporary/DAWN-LICENSE" /usr/share/licenses/dolly-llm/dawn-LICENSE
  "$temporary/upstream/LICENSE" /usr/share/licenses/dolly-llm/llama-LICENSE)
-for name in CMakeLists.txt cmake src include ggml vendor; do
+for name in CMakeLists.txt cmake src include ggml vendor common; do
  inputs+=("$temporary/upstream/$name" "/tmp/llama/upstream/$name")
 done
 node "${project_dir}/scripts/build-source-tar.mjs" "${1:-${project_dir}/dist/static/llama/source.tar}" "${inputs[@]}"

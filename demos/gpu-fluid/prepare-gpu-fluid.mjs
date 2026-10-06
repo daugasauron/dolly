@@ -14,6 +14,7 @@ const cglm=headers.map(({path,sha256})=>`SOURCE https://raw.githubusercontent.co
 const parent=hash(await readFile(new URL("Dollyfile-gpu-sdk",root)));
 await writeFile(new URL("demos/gpu-fluid/Dollyfile-gpu-fluid",root),`DOLLY 6
 APPLICATION gpu-fluid
+REQUIRES HOST runtime@0
 REQUIRES HOST display@0
 REQUIRES HOST download@0
 REQUIRES HOST gpu@0

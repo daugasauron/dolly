@@ -1,5 +1,6 @@
 DOLLY 6
 APPLICATION pi
+REQUIRES HOST runtime@0
 REQUIRES HOST display@0
 REQUIRES HOST download@0
 REQUIRES HOST http@0
@@ -8,13 +9,16 @@ REQUIRES HOST snapshot@0
 REQUIRES HOST threads@0
 REQUIRES HOST upload@0
 
-FROM https://daugasauron.com/demos/pi/Dollyfile-pi-runtime 8feabd28f168247c7c480ce852fb102816b5f3523fcdba5de11a8c9352e1bc07
+FROM https://daugasauron.com/demos/pi/Dollyfile-pi-runtime 867e2e0e67e4f0de4dcf598013edef31268ffe6db9246c9232e15b2e54f85ab9
 REQUIRES TOOL foreground
 REQUIRES TOOL test
 REQUIRES TOOL printf
 REQUIRES TOOL pi
+# The platform's documents, for the agent: /usr/share/doc/dolly.
+INSTALL https://daugasauron.com/Dollyfile-dolly-docs 5e5a1bbbb50c3a924088250e1a347a659c65ae0633aed54a330f94deb84a4b14
 
 FILE /etc/dolly/init.slop
+    cd /workspace
     if test -f "$HOME/.dollyrc"; then
       /bin/foreground /bin/slop -e "$HOME/.dollyrc"
       status=$?

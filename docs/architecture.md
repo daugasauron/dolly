@@ -40,9 +40,11 @@ flowchart LR
 
 ## Decisions
 
-- **Slop is serial; builds run in parallel.** Slop runs one command at a time,
-  pipeline stages included, so agent tools behave predictably without a
-  scheduler, host processes or async callbacks. Build tools use several cores:
+- **Slop is serial; programs run in parallel.** Slop is one process without
+  threads or a scheduler: what it runs itself (builtins, functions, compound
+  commands, substitutions) runs one at a time. Programs are separate
+  processes: those of a [pipeline](slop.md#pipelines-and-interrupts) and those
+  started with `&` run at the same time. Build tools use several cores:
   `posix_spawn` returns without waiting, each child runs in its own Worker, and
   only the kernel's system call dispatch stays serial. Make `-jN` with its
   jobserver and `xargs -P N` use this; Ninja still runs one job. Every process is a fresh Worker
@@ -50,8 +52,8 @@ flowchart LR
   memory pressure in one tab.
 - **One user, no permission bits.** Every process is the same principal and the
   containment boundary is the browser, so modes would protect nothing. Execute
-  bits never select programs; `chmod` and `chown` check that the path exists
-  and change nothing.
+  bits never select programs; the `chmod` and `chown` calls check that the path
+  exists and change nothing.
 
 ## System calls
 
@@ -82,7 +84,8 @@ sequenceDiagram
   ranges, never pointers ([`process.h`](../include/dolly/process.h)).
 - The gate ([`dolly-process-gate-0.wat`](../abi/dolly-process-gate-0.wat)) is a
   policy-free multi-memory copier; bounds failures trap.
-- Errors are negated errno values of the pinned target libc, not Linux numbers.
+- Errors are negated `dolly_process_error` numbers of `process.h`, part of the
+  hashed contract; a libc maps its `errno` to them.
   A malformed packet is one of them, never the end of the process.
 - A pending signal turns the next call into `-EINTR`; libc then runs the handler
   ([process model](process-model.md)).

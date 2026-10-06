@@ -14,6 +14,12 @@ export const hostFiles = field => hostManifests.flatMap(manifest => [manifest[fi
 // /usr/include/dolly/NAME.h.
 export const publishedHeaders = new Set(hostFiles("headers").map(({ file }) => `/${file}`));
 
+// The platform's documents and machine contracts are published at their
+// checkout path as well (package-documentation.mjs) and installed under
+// /usr/share/doc/dolly/ by the docs package (Dollyfile-dolly-docs).
+export const publishedDocument = path =>
+  /^\/(?:docs\/[a-z-]+\.md|(?:abi|host)\/README\.md|abi\/[a-z0-9-]+\.wat|host\/[a-z]+\/[a-z0-9-]+\.wat)$/.test(path);
+
 // A temporary include directory holding every module header as dolly/NAME.h,
 // the layout programs compile against (build.sh stages build/include alike).
 let staged;
@@ -27,9 +33,9 @@ export function stagedIncludeDirectory() {
   })();
 }
 
-// The kernel's module table: every module with kernel sources except the
-// runtime, whose sources are the kernel itself, defines dolly_NAME_kernel.
-export const kernelModuleList = () => hostManifests.filter(({ name, kernel }) => name !== "runtime" && kernel.length)
+// The kernel's module table: every module with kernel sources defines
+// dolly_NAME_kernel, except the runtime, whose sources are the kernel itself.
+export const kernelModuleList = () => hostManifests.filter(({ provides, kernel }) => provides !== "kernel" && kernel.length)
   .map(({ name }) => `DOLLY_KERNEL_MODULE(${name})\n`).join("");
 
 if (process.argv[1] === fileURLToPath(import.meta.url) && process.argv[2] === "kernel-modules") {

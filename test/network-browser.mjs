@@ -59,7 +59,7 @@ for (let index = 0; index < 1040; index++) large.update(pattern);
 large.update(pattern.subarray(0, 17));
 const largeDigest = large.digest("hex");
 
-await browserTest("network", { server: { fixtures, handle } }, async ({ server, open }) => {
+await browserTest("network", { image: "system", server: { fixtures, handle } }, async ({ server, open }) => {
   contractRequests = [];
   cancelledRequests = [];
   relayed = [];

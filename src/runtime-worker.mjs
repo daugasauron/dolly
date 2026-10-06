@@ -9,6 +9,7 @@ import { inspectDollyfile, MAX_DOLLYFILE_BYTES } from "./dollyfile-view.mjs";
 import { decodeImageEntry } from "./image-entry.mjs";
 import { checkedCustomArtifact } from "./custom-image.mjs";
 import { CANONICAL_ORIGIN, decodeStaticAsset, hex } from "./static-asset.mjs";
+import { terminalFailureReason } from "./process-supervisor.mjs";
 
 const encoder = new TextEncoder();
 const decoder = new TextDecoder("utf-8", { ignoreBOM: true });
@@ -151,7 +152,7 @@ try {
   globalThis.TextDecoder = undefined;
   const { default: createDolly } = await import("../dist/dolly.mjs");
   bootstrapStage("creating wasm64 userspace kernel...");
-  const memory = host.get("runtime").memory;
+  const memory = host.kernel.memory;
   // Fixed deployment input, never a filename or URL supplied by Wasm.
   const kernelModule = await WebAssembly.compileStreaming(fetch(locateArtifact("dolly.wasm")));
   let kernelExports;
@@ -247,11 +248,11 @@ try {
       bootstrapStatus = dolly._dolly_process_bootstrap_prepare();
     }
     if (bootstrapStatus === 0) {
-      processSupervisor = await host.get("runtime").supervisor(dolly);
+      processSupervisor = await host.kernel.supervisor(dolly);
       const arguments_ = baseArtifact
         ? ["/bin/dollyfile", recipeLocator]
         : ["/usr/libexec/dolly/process-bin/bootstrap"];
-      bootstrapStatus = await processSupervisor.spawn(arguments_);
+      bootstrapStatus = (await processSupervisor.spawn(arguments_)).status;
     }
     for (const artifact of artifacts.values()) dolly.FS.unlink(`/etc/dolly/artifacts/${artifact.recipeSha256}.snapshot`);
     artifacts.clear();
@@ -329,7 +330,7 @@ try {
     self.close();
     return;
   }
-  processSupervisor ??= await host.get("runtime").supervisor(dolly);
+  processSupervisor ??= await host.kernel.supervisor(dolly);
 
   if (finishRebuiltImage) {
     bootstrapStage("finishing image bootstrap...");
@@ -365,8 +366,13 @@ try {
   });
   await entryReady;
 
-  const status = await runImageEntry(dolly, processSupervisor);
-  self.postMessage({ type: "exited", status });
+  // The image ends with its ENTRY process, however that ended: a program that
+  // failed or could not start is the image's ending, not the runtime's failure.
+  const ending = await runImageEntry(dolly, processSupervisor).catch(error => {
+    console.error(error);
+    return { status: 126, signal: 0, failure: error.reason ?? terminalFailureReason(error) };
+  });
+  self.postMessage({ type: "exited", ...ending });
 } catch (error) {
   self.postMessage({
     type: "error",

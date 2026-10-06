@@ -146,7 +146,7 @@ export async function installProbe(...packages) {
     return `${CANONICAL_ORIGIN}/${dollyfile} ${sha256}`;
   };
   const recipe = ["DOLLY 6", "APPLICATION install-probe",
-    ...["display", "download", "http", "snapshot", "upload"].map(name => `REQUIRES HOST ${name}@0`), `FROM ${pin("system")}`,
+    ...["runtime", "display", "download", "http", "snapshot", "upload"].map(name => `REQUIRES HOST ${name}@0`), `FROM ${pin("system")}`,
     ...packages.map(name => `INSTALL ${pin(name)}`), "ENTRY /bin/foreground -i /bin/slop", ""].join("\n");
   return { path: "/custom/rebuild/",
     setup: page => page.addInitScript(recipe => sessionStorage.setItem("dolly-custom-source", recipe), recipe) };

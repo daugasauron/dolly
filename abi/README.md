@@ -50,8 +50,10 @@ Architecture and authority: [architecture](../docs/architecture.md),
   as `DOLLY_NAME_ABI_DIGEST` ([host modules](../host/README.md)). A record whose
   digest differs from the provider's is refused like a wrong `dolly.process` stamp.
 - [`generate-abi-constants.mjs`](../scripts/generate-abi-constants.mjs) derives
-  JavaScript constants from `process.h` and from the WAT exported globals;
-  `dist/dolly-errno.mjs` comes from the pinned target's `<errno.h>`.
+  JavaScript constants from `process.h` and from the WAT exported globals.
+- `process.h` also holds the error numbers of every operation
+  (`dolly_process_error`), so the digest covers them. A libc maps its `errno`
+  to them; the build proves the bootstrap libc's numbers equal.
 
 ## Enforcement
 

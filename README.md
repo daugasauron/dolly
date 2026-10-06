@@ -17,7 +17,7 @@ Every image declares its role: an `APPLICATION` people open, a `TOOLCHAIN`
 recipes build on, or a `PACKAGE` recipes and sessions install
 ([Dollyfile](docs/dollyfile.md#roles-and-names)).
 
-- `default`: Shell, Git, Make and C/C++.
+- `default`: A shell, its text tools, curl and amy, which installs the rest.
 - `system`: `system-tools` with saved sessions (`snapshot@0`, `session-recover`).
 - `system-tools`: Shell, display, Git, curl, Make and POSIX tools.
 - `system-build`: C/C++ compiler, headers and basic build tools.
@@ -25,14 +25,16 @@ recipes build on, or a `PACKAGE` recipes and sessions install
 - `ghostty-build`: Ghostty terminal build with Zig and its SDK.
 - `gpu-sdk`: `system` with the WebGPU host module (`gpu@0`).
 - `audio-sdk`: `system` with the PCM playback host module (`audio@0`).
-- `minimal`: Slop and its core commands on the display, nothing else.
 - `core`: Slop and its core commands, as a package.
 - `cc`: the C/C++ compiler, headers, libraries and Make, as a package.
 - `amy`: the package installer and the recipe engine it runs, as a package.
+- `posix`: grep, sed, sort, find, xargs, awk, sh and the other text and file tools, as a package.
+- `git`: Git over the HTTP broker, with diff and patch, as a package.
 - `zlib`: zlib, as a package.
 - `curl`: curl and libcurl over the HTTP broker, as a package.
 - `gzip`: gzip over zlib, as a package.
 - `display`: the Ghostty display plugin and its font, as a package.
+- `dolly-docs`: the platform's documents and contracts in `/usr/share/doc/dolly`, as a package.
 
 ## Try it
 
@@ -44,7 +46,9 @@ Open [daugasauron.com](https://daugasauron.com/) or
 - `/custom/` builds your own [Dollyfile](docs/dollyfile.md); `/sessions/` lists
   [saved sessions](docs/sessions.md) and `/session/?name=NAME` opens one.
 - `Ctrl+Shift+C`/`V` copy and paste, `Ctrl+Shift+S` saves, `F11` toggles
-  fullscreen. `upload PATH` and `download FILE` move single files.
+  fullscreen. `Ctrl+Shift+F` shows or hides the page's own indicators (GPU
+  adapter, Save, download offers), which leave the corners ten seconds after
+  the page is ready. `upload PATH` and `download FILE` move single files.
 - Needs cross-origin isolation and shared WebAssembly memory64/table64; there is
   no wasm32 fallback.
 

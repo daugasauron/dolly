@@ -58,7 +58,7 @@ select no JavaScript or Worker URL.
 | `audio@0` | `env.dolly_audio_dispatch` | Stereo PCM output, 4 streams of 1 s; no capture | [`host/audio/`](../host/audio/module.json) |
 | `threads@0` | supervisor | Worker per thread of an admitted executable: 16 per process, 64 total | [`host/threads/`](../host/threads/module.json) |
 | `build@0` | reserved URL via `http@0` | Start a disposable image build that writes the image cache | [`host/build/`](../host/build/module.json) |
-| `packages@0` | reserved URL via `http@0` | Serve the package index and the verified snapshot of a published package, one at a time, 64 per page | [`host/packages/`](../host/packages/module.json) |
+| `packages@0` | reserved URL via `http@0` | Serve the verified snapshot of a published package, one at a time, 64 per page | [`host/packages/`](../host/packages/module.json) |
 
 - `REQUIRES HOST` lines and executable `dolly.host` records
   ([`dolly-host-0.wat`](../abi/dolly-host-0.wat)) are compatibility demands, not
@@ -67,17 +67,19 @@ select no JavaScript or Worker URL.
   sealing refuses a retained executable stamped with an undeclared module, and
   the loader refuses one at run time. An embedding can restrict the set with
   `globalThis.DOLLY_HOST_MODULES`.
-- The page enables `runtime@0` plus the image's requirements; rebuild routes add
-  `http@0` and `threads@0` for building. Only Dollyfile Studio declares
-  `build@0`, and the page admits it only after ENTRY starts
+- The page enables exactly the image's requirements, its runtime among them;
+  rebuild routes add `http@0` and `threads@0` for building, and a dependency
+  build enables the declared runtime with those two. Only Dollyfile Studio
+  declares `build@0`, and the page admits it only after ENTRY starts
   ([Studio builds](image-build-service.md)). An image declaring `packages@0`
-  (`default`) may GET `https://packages.dolly.invalid/v1/index` and
-  `/v1/packages/SHA256` after ENTRY starts: the page serves its own
-  `dist/dolly-packages.txt` and a published package's snapshot, rebuilt and
-  verified from the release's packs exactly as a build input
+  (`default`) may GET `https://packages.dolly.invalid/v1/packages/SHA256`
+  after ENTRY starts: the page serves a published package's snapshot, rebuilt
+  and verified from the release's packs exactly as a build input
   ([`service.mjs`](../host/packages/service.mjs)). A pin outside the release is
   404, a second concurrent snapshot 409, the 65th per page 429; the bytes are
   ordinary sandbox data and grant nothing ([amy](dollyfile.md#packages-and-amy)).
+  The index of package names is not the service's: it is the site's public
+  `amy-index.txt`, an ordinary request under the HTTP policy.
 - Builders ([`image-builder.mjs`](../src/image-builder.mjs)) run the build
   host's modules as the page's modules configure them (`host.builder`): the
   page's HTTP policy without local services, no display, file picker or
@@ -120,6 +122,13 @@ select no JavaScript or Worker URL.
   by default or on the public sites.
 - Loopback and LAN hosts are ordinary destinations: responses need CORS, but the
   request itself still reaches them.
+- A request URL that is a path (`/amy-index.txt`) is resolved against the root
+  of the site serving the release, never above it, and then judged by the
+  policy like any absolute URL ([`broker.mjs`](../host/http/broker.mjs)). It
+  grants nothing: the default policy already admits the page's own origin, an
+  explicit policy admits the file only by a rule for it, and the request
+  carries no cookies. The program is told the path it asked for, not where
+  the site is served.
 - Reserved `*.dolly.invalid` URLs never reach Fetch; redirects cannot enter them
   and remote rules cannot grant them.
 - The broker owns a fixed 16-slot provider table, independent of the guest's
@@ -143,6 +152,8 @@ select no JavaScript or Worker URL.
 | RGBA frames, bootstrap text | Visible output only; the browser parses no terminal or HTML content |
 | Display wake-ups | The page and the Worker notify each other on display mailbox words (new frame, input record, animation frame); a notify carries no data, and a forged one only costs the guest's own time |
 | GPU indicator | Page text over the display naming the browser's adapter and whether it has `shader-f16`, or why there is none; no guest input ([`gpu.mjs`](../host/gpu/gpu.mjs)) |
+| Indicator visibility | The GPU indicator, Save button and download offers hide ten seconds after the page is ready and on the user's `Ctrl+Shift+F`, which is not delivered as input. Page state shows them again (a new adapter state, a save, an offer); the one guest request among these is the bounded download offer, which shows them and can hide nothing ([`page-indicators.mjs`](../src/page-indicators.mjs)) |
+| Image ending | Once the ENTRY process is gone, page text below the last frame says how it ended: its exit status or signal number, or one line of its failure (printable ASCII, 512 bytes; the stack goes to the console). The page sets it as text and parses none of it; a running program can draw a lookalike but cannot cover, change or remove the notice. A module may add a link it builds itself, as `snapshot@0` does for the session the tab saved ([`browser.mjs`](../src/browser.mjs)) |
 | Image cache | Verified artifacts in IndexedDB, 32 images and 8 GiB ([`image-artifact.mjs`](../src/image-artifact.mjs)) |
 | Boot and code loading | Fixed kernel artifacts only ([`runtime-worker.mjs`](../src/runtime-worker.mjs)); one bundled process Worker; the plugin loader links an explicit kernel export map and fetches nothing |
 | Clocks, entropy, exit, CPU and memory use | Inputs and availability effects only |

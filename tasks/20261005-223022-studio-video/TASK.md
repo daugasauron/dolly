@@ -164,3 +164,9 @@ then `PLAY=16 FRESH=18 node plan2.mjs TAKE "description" > plan.json`,
 `CRF=18 node cut.mjs plan.json hq.mp4 1920` and
 `CRF=33 ./deglitch.sh hq.mp4 final.mp4`; check the paste frames with the
 crop in `framecheck.sh`.
+
+## Owner's verdict (2026-10-06 evening)
+
+The structure is what he wants; the game is not. Continued in
+`20261006-*-studio-video-game` (same seven steps, a game whose graphics work,
+a larger budget).

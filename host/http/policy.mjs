@@ -1,4 +1,4 @@
-import { DOLLY_ERRNO } from "../../dist/dolly-errno.mjs";
+import { DOLLY_ERRNO } from "../../src/process-constants.mjs";
 import { CANONICAL_ORIGIN } from "../../src/static-asset.mjs";
 
 export class HttpError extends Error {

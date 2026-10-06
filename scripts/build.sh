@@ -110,12 +110,8 @@ for fixture in "${fixtures[@]}"; do
   fi
 done
 
-(
-  trap 'rm -f build/browser-errno.i' EXIT
-  "${container[@]}" /emsdk/upstream/emscripten/emcc -m64 -E -P \
-    scripts/browser-errno.c > build/browser-errno.i
-  node scripts/generate-browser-errno.mjs build/browser-errno.i dist/dolly-errno.mjs
-)
+"${container[@]}" /emsdk/upstream/emscripten/emcc -m64 -fsyntax-only -I/src/build/include \
+  build/process-errno-check.c
 
 process_compile_flags=(
   -m64 -O1 -matomics -mbulk-memory -fwasm-exceptions

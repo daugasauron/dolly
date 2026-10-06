@@ -1,6 +1,6 @@
 ---
 name: dolly
-description: How to work on this Dolly machine, a Unix-like userspace inside a browser's WebAssembly sandbox - finding what is installed, amy packages, what the network reaches and how to get source without git clone, Slop shell idioms, parallel make, cc and Dolly's headers, Janis JavaScript, exit status 126. Read before installing software, fetching source, compiling, or explaining a command that failed.
+description: Reference for tasks on this Dolly machine (a Unix-like userspace in a browser's WebAssembly sandbox) - installing software with amy, fetching source without git clone, Slop shell idioms, parallel make, compiling with cc and Dolly's headers, Janis JavaScript, exit status 126. Useful only while carrying out such a task or diagnosing a failed command, not for conversation.
 ---
 
 # Dolly
@@ -15,16 +15,18 @@ root, no PTY and no `apt`, `npm` or `pip install`.
 - `cat /etc/dolly/Dollyfile`: the recipe this image was built from. Its
   `REQUIRES HOST` lines are the host modules (display, http, threads, gpu...)
   that programs here may use. `/etc/dolly/recipes/` holds the recipes it came from.
-- `ls /bin /usr/bin`: every command. Read a command's usage before assuming
-  GNU options; options go before operands (`ls -a /etc`).
+- `ls /bin /usr/bin`: every command. Read its page (`man NAME`) or usage
+  (`NAME --help`) before assuming GNU options; options go before operands
+  (`ls -a /etc`).
 - `amy list` shows the packages this release publishes; `amy install NAME`
   installs one (python, nvim, emacs, ripgrep, local models...) and its commands
   work at once. If amy says the image must declare `packages@0`, this image
   cannot install packages.
 - Dolly's C interfaces: the headers in `/usr/include/dolly/`, whose comments
   are the documentation. Licences: `/usr/share/licenses/`.
-- Dolly's own source and docs are not in the image; read them at
-  `https://raw.githubusercontent.com/daugasauron/dolly/main/` (`README.md`, `docs/`).
+- The platform's documents and machine contracts are in
+  `/usr/share/doc/dolly/` (`docs/`, `abi/`, `host/`); `amy install dolly-docs` adds
+  them to an image that lacks them. Dolly's source is not in the image.
 
 ## Network
 
@@ -58,17 +60,20 @@ so when it matters to the task.
 
 ## Shell
 
-The `bash` tool, `!`, `sh` and `make` all run Slop, not Bash. `help` prints
-exactly the syntax it supports; anything else is an error, so check it before
-reaching for Bash features. Pipeline stages run one after another, so
-`make | tail` shows nothing until make ends.
+The `bash` tool, `!`, `sh` and `make` all run Slop, not Bash. `help` says
+what Slop lacks and `docs/slop.md`, among the documents above, is exactly the
+syntax it supports; anything else is an error, so check before reaching for
+Bash features. The programs of a pipeline run at the same time
+(`make | tee log` streams, `... | head` stops its producer); a `while` loop or
+function as a stage finishes before the next stage reads its output.
 Put longer scripts in a file with the write tool and run `slop FILE`. Nobody
 is at the keyboard of the tool's commands: never start interactive programs
 (nvim, pi, python without arguments) there, and bound anything that might wait
 or hang with `timeout 60 COMMAND`.
 
-There are no background jobs (`&`): `make -jN` and `xargs -P N` run N
-processes at once.
+`PROGRAM &` starts a program, `$!` is its PID and `wait` collects it; there is
+no job control, and `&` takes only programs (`slop -c '...' &` for the rest).
+`make -jN` and `xargs -P N` run N processes at once.
 To fetch many files, list them in `files.txt` and run `make -j8 -f fetch.mk`:
 
 ```make
@@ -82,7 +87,11 @@ $(FILES):
 ## C and C++
 
 `cc` and `c++` are Clang for wasm64, with `make`, `ninja` and `ar`; `cc -c`
-takes one source file. Upstream `./configure` scripts usually need more shell
+takes one source file. `cc file.c` writes `a.out`: name the program and run it
+in the same command, `cc -o NAME file.c && ./NAME`, because every `bash` call
+starts in Pi's working directory again. It runs whatever mode `ls -l` shows:
+there is no `chmod`. Every program here, `cc` included, is a WebAssembly
+module, as `file` says: never `cat` one. Upstream `./configure` scripts usually need more shell
 than Slop has: compile the sources directly or write a small Makefile. `-lm`, `-lz` and `-lcurl` (libcurl over the browser)
 link from `/usr/lib`. To use a Dolly interface (`display.h` draws on the
 terminal's canvas), include its header from `/usr/include/dolly/`: its client

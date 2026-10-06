@@ -35,7 +35,8 @@ int main(int argc, char **argv) {
   assert(setenv("SLOP_TEST_DIR", scratch, 1) == 0);
   const char *commands[] = {
     "$SELF signal; echo fail > marker",
-    "$SELF signal | echo fail > marker",
+    // A pipeline's programs start together; what follows the pipeline does not run.
+    "$SELF signal | cat; echo fail > marker",
     "($SELF signal) | echo fail > marker",
     "($SELF signal; echo fail > marker); echo fail > marker",
     "if $SELF signal; then echo fail > marker; else echo fail > marker; fi",

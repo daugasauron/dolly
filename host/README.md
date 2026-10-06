@@ -15,6 +15,7 @@ packaging and ABI tests read only these manifests.
 | Field | Meaning |
 | --- | --- |
 | `name`, `version` | The requirement `name@version` that images (`REQUIRES HOST`) and executables (`dolly.host` records) name |
+| `provides` | `"kernel"` on a runtime (below); absent otherwise |
 | `dependencies` | Modules this one uses through `get(name)` |
 | `phase` | When the Worker side starts: after the kernel loads (`kernel`) or after the image is restored (`image`) |
 | `imports` | Kernel Wasm imports this module provides; `abi/dolly-browser-0.wat` is their reviewed allowlist |
@@ -34,7 +35,9 @@ calls: `start` (Worker/page handshake), `messages`, `bindings` (kernel
 imports), `service` (periodic work), `imageRestored(context)` (after the system
 image is restored, before image-phase starts), `claimsKey(event)` (take a key
 from the display), `surfaceSize`, `entryStarted(context)` (the image ENTRY may
-now run) and `dispose`; and whose optional records the registry assembles:
+now run), `ended()` (the links, `{ text, href }`, it offers on the page's
+notice once the image has ended) and `dispose`; and whose optional records
+the registry assembles:
 `page` (members of `window.__dolly`, by descriptor), `builder` (the module's
 configuration for a child build host, `host.builder`) and `inherited` (what an
 opened result tab or restored session inherits, `host.inherited`). A module may
@@ -49,11 +52,52 @@ changes the identity its client stamps. The loader refuses an executable whose
 digest differs from the provider's, as it refuses a wrong `dolly.process` stamp
 ([`requirements.mjs`](requirements.mjs)).
 
-`runtime` uses the same format; its files are the core in `src/`, `abi/` and
-`include/dolly/`, and its identity is the `dolly.process` stamp. Adding a module
-takes its directory, one name in `manifests.mjs`, its imports in
-`abi/dolly-browser-0.wat` and its row in
+Adding a module takes its directory, one name in `manifests.mjs`, its imports
+in `abi/dolly-browser-0.wat` and its row in
 [browser boundary](../docs/browser-boundary.md); the last two are where a human
 reviews the authority it adds. A module without imports may instead own a
 reserved origin of the HTTP broker ([`http/local-services.mjs`](http/local-services.mjs)),
 as `build` and `packages` do: its service admits each request itself.
+
+## Runtimes
+
+A runtime is a module whose manifest says `"provides": "kernel"`; `runtime@0`
+is the one this checkout ships, and nothing else about it is special. Every
+image declares exactly one with the line of any module (`REQUIRES HOST
+runtime@0`). The lint, the page and a build host find it through that field,
+never through its name, and a module that others merely depend on is not
+thereby declared. A runtime provides:
+
+- the process ABI (`process`: [`dolly-process-0.wat`](../abi/dolly-process-0.wat),
+  the gate and DSO contracts, `process.h`) that its executables compile against;
+- the supervisor and image contracts (`contracts`:
+  [`dolly-supervisor-0.wat`](../abi/dolly-supervisor-0.wat),
+  [`dolly-image-0.wat`](../abi/dolly-image-0.wat)): spawn, wait, signals, the
+  terminal mailbox, and the snapshot format of every image and package built
+  on it;
+- the kernel (`kernel`: its sources link as the kernel itself, not as a
+  `dolly_NAME_kernel` module) and its outer `imports`, bound by the kernel's
+  own glue rather than by `bindings`;
+- a Worker instance with `memory` and `supervisor(dolly)`, which the registry
+  hands out as `host.kernel`;
+- the seed (`dist/dolly.data`: the compiler, libc adapter and bootstrap
+  commands built for its process ABI), which a build boots when a recipe has
+  no `FROM`.
+
+Images and packages record their runtime as they record any module: the line
+goes into the artifact and its receipt. The page refuses an image whose
+runtime it does not provide before ENTRY, naming it; a build refuses a recipe
+without one, naming the line to add; `INSTALL` and `amy` refuse a package
+whose runtime the installing image does not declare.
+
+Executables carry no `dolly.host` record for their runtime. What an executable
+speaks to a runtime is the process contract, and its `dolly.process` stamp is
+the identity of exactly that: the typed interface and the bytes of
+`process.h`, checked on every executable before instantiation, with or without
+a libc ([machine contracts](../abi/README.md)). An executable built for a
+runtime with another process contract is refused by that check; runtimes that
+implement the same contract run the same executables.
+
+[`runtime-worker.mjs`](../src/runtime-worker.mjs) and the process loader still
+load this runtime's kernel, seed and process contract by fixed path; a second
+runtime needs its provider to name them.

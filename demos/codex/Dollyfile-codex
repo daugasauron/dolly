@@ -1,5 +1,6 @@
 DOLLY 6
 APPLICATION codex
+REQUIRES HOST runtime@0
 REQUIRES HOST display@0
 REQUIRES HOST download@0
 REQUIRES HOST http@0
@@ -7,8 +8,8 @@ REQUIRES HOST snapshot@0
 REQUIRES HOST threads@0
 REQUIRES HOST upload@0
 
-FROM https://daugasauron.com/Dollyfile-system 041c6f482c61b6afba4741e202fdbffb09adb3c6f25fa0be64af02a7f06fafa4
-INSTALL https://daugasauron.com/demos/codex/Dollyfile-codex-cli 0b5f3e073690e0622765ed18223544126b622b75c7151681958625183031b31c
+FROM https://daugasauron.com/Dollyfile-system 530ac991b8305a71ab635821bf98cb595e4e8efc62c867187f3264d10a964481
+INSTALL https://daugasauron.com/demos/codex/Dollyfile-codex-cli 7a64fcc81a3d8c6078da849d47ddfb5b1963872b174e1c43374f6ea5f3a8a07a
 REQUIRES TOOL codex
 REQUIRES TOOL sh
 

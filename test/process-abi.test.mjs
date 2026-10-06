@@ -7,7 +7,7 @@ import { parseWasmInterface, appendCustomSection } from "../src/wasm-interface.m
 import { validateProcessInterface, validateDsoInterface, validateDsoHost, requireDsoType } from "../src/process-abi.mjs";
 import { validateProcess, validateProcessDso } from "../scripts/dolly-abi.mjs";
 import { DOLLY_PROCESS_ABI_DIGEST } from "../dist/dolly-process-abi.mjs";
-import { DOLLY_ERRNO } from "../dist/dolly-errno.mjs";
+import { DOLLY_ERRNO } from "../src/process-constants.mjs";
 
 const fixture = name => new URL(`../build/process-${name}.wasm`, import.meta.url);
 const contractPath = new URL("../dist/dolly-process-0.wasm", import.meta.url);

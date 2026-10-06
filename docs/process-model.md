@@ -39,6 +39,11 @@ sequenceDiagram
 - Found through `PATH`; `#!` lines name an absolute in-Wasm interpreter, nested at most 4 deep.
 - `readlink("/proc/self/exe")` returns the loaded image's canonical path; there is
   no general `/proc`.
+- The target's identity: a program sees `__dolly__`, `__unix__` and
+  `__wasm64__`, and no macro of Emscripten, Linux or WASI; `cc -dumpmachine`
+  prints `wasm64-unknown-dolly` and `uname` `Dolly wasm64`. The libc is a
+  bootstrap whose headers test `__dolly__`; LLVM and Zig still generate
+  code under its Emscripten name, which no program can test.
 - The compiler is itself a private process behind `cc`, `c++`, `ld` and `ar`
   ([`compiler.cpp`](../src/compiler.cpp)). It defaults to Clang's `-std=gnu17` and
   `-std=gnu++17` but to `-O2`, and follows Clang's suffix rules; objects are always position
@@ -75,8 +80,12 @@ sequenceDiagram
   `RLIMIT_AS` 8 GiB, `RLIMIT_STACK` 8 MiB); `sysconf(_SC_OPEN_MAX)` is still
   libc's constant 1024.
 - Pipes hold 64 KiB. Empty reads and full writes return `EAGAIN` when
-  nonblocking; closing all writers gives EOF; writing with no reader returns
-  `EPIPE` without raising `SIGPIPE`.
+  nonblocking; closing all writers gives EOF, also to a reader that was
+  waiting. Writing with no reader, or waiting to write when the last reader
+  closes, returns `EPIPE`, and libc raises `SIGPIPE` in the writer before
+  `write` returns ([`libc-adapter.c`](../src/process/libc-adapter.c)): the
+  process ends with that signal unless it ignores, handles or blocks it. A
+  process's descriptors close when it exits, before it is waitable.
 - Opening `/dev/stdin`, `/dev/stdout` or `/dev/stderr` duplicates the caller's
   descriptor 0, 1 or 2.
 - `/dev/tty` opens the terminal for reading and writing. There are no sessions,
@@ -127,7 +136,7 @@ sequenceDiagram
   Parent exit retires descendants first. Worker termination has no completion
   event, so a large interactive process gets 500 ms of reclamation before its
   exit is acknowledged, sparing the recovery shell. Nothing guarantees against
-  browser memory pressure; this is one reason Slop is
+  browser memory pressure; this is one reason Slop itself is
   [serial](architecture.md#decisions) and parallel builds need a modest `-jN`.
 
 ## Signals

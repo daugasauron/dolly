@@ -31,10 +31,11 @@ Never run `/bin/dollyfile` here: it replaces the running image.
   needs `ENTRY`), `TOOLCHAIN name` (a base to build on) or `PACKAGE name`
   (installed with `INSTALL` or `amy`; no `ENTRY`).
 - `REQUIRES HOST name@0` lines come right after the role and list every host
-  module the image uses. Nothing is inherited from `FROM` or `INSTALL`: an
-  application on `system` repeats system's five (display, download, http,
-  snapshot, upload), and installing a package means declaring every module
-  that package declares (ripgrep and fd need `threads@0`). Read the package's
+  module the image uses, `runtime@0` first: every image and package names the
+  runtime it is built on. Nothing is inherited from `FROM` or `INSTALL`: an
+  application on `system` repeats system's six (runtime, display, download,
+  http, snapshot, upload), and installing a package means declaring every
+  module that package declares (ripgrep and fd need `threads@0`). Read the package's
   recipe first; otherwise the build fails on the `INSTALL` row, naming the
   missing line.
 - `FROM URL SHA256` is the first operation. `INSTALL URL SHA256` adds a
@@ -47,16 +48,19 @@ Never run `/bin/dollyfile` here: it replaces the running image.
   blank line inside the file is four spaces. It is not a heredoc. `FILE` and
   `FOLDER` keep files in the image; build scratch goes in `/tmp`, which is
   never kept.
-- `EXPORTS TOOL name` names a command on `PATH`; compile to `/usr/bin`.
-- `ENTRY` is the last line. `/bin/foreground -i /bin/slop` gives a shell.
+- The image keeps a compiled program only when the recipe exports it:
+  compile to `/usr/bin` and add `EXPORTS TOOL name` (a command on `PATH`).
+- `ENTRY` is the last line. `/bin/foreground -i /bin/slop` gives a shell;
+  `/bin/foreground -i /usr/bin/name` runs a program, which must be exported
+  or the build fails naming the line to add.
 
 ## URLs and pins
 
 Every `FROM`, `INSTALL`, `COPY` and `SOURCE` names a URL and the SHA-256 of
 its exact bytes; never invent either.
 
-- Packages: `curl -fsS https://packages.dolly.invalid/v1/index` prints
-  `NAME URL SHA256` for each, which is the `INSTALL` row.
+- Packages: `amy list` names and describes them; `amy info NAME` prints the
+  `INSTALL URL SHA256` row.
 - Recipes this image was built from (system among them):
   `sha256sum /etc/dolly/recipes/Dollyfile-NAME`, with the URL from the
   `FROM`/`INSTALL` line that names it in another recipe there.

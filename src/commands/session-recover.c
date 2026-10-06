@@ -8,6 +8,13 @@ static int recoverable(const dolly_fs_record *record) {
 }
 
 int main(int argc, char **argv) {
+  if (argc == 2 && strcmp(argv[1], "--help") == 0) {
+    puts("usage: session-recover DELTA /absolute/new-directory\n"
+         "Copy the files and directories a saved session file holds under /home and\n"
+         "/workspace into a new directory, leaving the running session as it is.\n"
+         "example: session-recover /tmp/saved-session /workspace/recovered");
+    return 0;
+  }
   if (argc != 3 || !dolly_fs_valid_path(argv[2])) {
     fputs("usage: session-recover DELTA /absolute/new-directory\n", stderr);
     return 2;

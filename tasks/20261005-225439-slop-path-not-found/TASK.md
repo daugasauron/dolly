@@ -1,6 +1,6 @@
 # Slop says 'command not found' for a path that does not exist
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 300
 - TAGS: slop,seed,agent
 
@@ -24,3 +24,28 @@ directory" the next step (`ls`, finding `a.out`) is the usual one.
   non-regular file reports why (126). A bare name keeps `command not found`.
 - A Slop test covers the three cases. Slop is seed content: batch with the
   next seed round.
+
+## Result (2026-10-06, `fix/userspace-2`)
+
+`spawn_command` (`src/slop.c`) keeps `command not found` (127) for a bare
+name. For a word with a `/` it reports the path: `stat`'s error (127), or
+`Is a directory` / `not a regular file` (126). `run-program.h` (`env`,
+`timeout`, `xargs`, `command`, `time`) already reported `strerror` like this.
+
+Measured in the rebuilt `default` image (Chrome):
+
+```
+$ ./hello      slop: ./hello: No such file or directory   127
+$ ./           slop: ./: Is a directory                   126
+$ /dev/null    slop: /dev/null: not a regular file        126
+$ nosuch       slop: nosuch: command not found            127
+$ hello.c/x    slop: hello.c/x: Not a directory           127
+```
+
+The last is 127 as in dash; Bash answers 126. Decision: any path `stat`
+cannot reach is "not found", one rule instead of an errno table.
+
+Tests: the Slop case "a path that names nothing is not a missing command"
+(statuses against Bash, natively under ASan and in Chrome and Firefox) and
+the messages in `test/shell-browser.mjs`; the latter fails when the message
+is `command not found` (checked by mutation).

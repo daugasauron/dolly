@@ -1,8 +1,9 @@
 // Release acceptance (scripts/site-release.mjs accept; test/image-inventory-browser.mjs
 // runs the same check on the checkout): each image's /bin, /etc and /usr must be
 // exactly its sealed manifest. A build in the page checks that for any base
-// (whatever its ENTRY or display), which is an image that retains the engine;
-// images with a display also boot their prebuilt route without the compiler seed.
+// that can build (whatever its ENTRY or display): an image that retains the
+// engine and the compiler. Images with a display also boot their prebuilt
+// route without the compiler seed.
 import assert from "node:assert/strict";
 import { createReadStream } from "node:fs";
 import { readFile, stat } from "node:fs/promises";
@@ -27,7 +28,7 @@ export async function acceptImage(browser, server, image) {
     const definition = (await import("/dist/dolly-images.mjs")).DOLLY_IMAGES.find(item => item.image === image);
     const { DOLLY_SYSTEM_SNAPSHOT: { manifest } } = await import(`/dist/dolly-${image}-system-snapshot.mjs`);
     const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(manifest.join("\n") + "\n"));
-    return { definition, base: manifest.includes("/bin/dollyfile"),
+    return { definition, base: manifest.includes("/bin/dollyfile") && manifest.includes("/bin/cc"),
       manifestHash: [...new Uint8Array(digest)].map(byte => byte.toString(16).padStart(2, "0")).join("") };
   }, image);
   const artifact = `/etc/dolly/artifacts/${definition.sha256}.snapshot`;

@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { UploadTransport, UPLOAD_CANCEL_QUIET_MILLISECONDS } from "../host/upload/transport.mjs";
 import { DOLLY_UPLOAD_CHUNK_CAPACITY as capacity, DOLLY_UPLOAD_MAX_SIZE } from "../host/upload/abi.mjs";
-import { DOLLY_ERRNO as errno } from "../dist/dolly-errno.mjs";
+import { DOLLY_ERRNO as errno } from "../src/process-constants.mjs";
 
 const pause = () => new Promise(resolve => setTimeout(resolve, 5));
 async function until(predicate) {

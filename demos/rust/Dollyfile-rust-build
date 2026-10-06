@@ -1,11 +1,12 @@
 DOLLY 6
 TOOLCHAIN rust-build
+REQUIRES HOST runtime@0
 REQUIRES HOST display@0
 REQUIRES HOST http@0
 REQUIRES HOST threads@0
 
-FROM https://daugasauron.com/demos/rust/Dollyfile-rust-sdk 68a95e98f51ae7d52ae5bdb65f16e2e460cd8e782f9f3ef6b56cb9e43aad48a3
-INSTALL https://daugasauron.com/Dollyfile-curl 8a163facfa2a41a042b084c34043044dd21bec57c94cf5c91a263b1e29b9b915
+FROM https://daugasauron.com/demos/rust/Dollyfile-rust-sdk 8aa74a2cb12167b146afab7fcf37a22975a9efeb595b5e5c79b4dc4bbc8ced46
+INSTALL https://daugasauron.com/Dollyfile-curl 488d467b566cd5da48e62324c04aa7f39b0d6e430637ff0d1290bd1ec1f0ed3c
 REQUIRES HEADER libc
 REQUIRES HEADER runtime
 REQUIRES HEADER zlib
@@ -15,7 +16,7 @@ REQUIRES TOOL curl
 REQUIRES TOOL rustc
 REQUIRES TOOL rm
 
-SOURCE https://daugasauron.com/dist/static/patti/patti.c b77f6328301f3e6006f0bf3b2e8676f854f07fe9322252daf85c2c67d0f15bc7 /tmp/patti/patti.c
+SOURCE https://daugasauron.com/dist/static/patti/patti.c 455cf2eccc63cc35c9a32e159d1e78e8bd8b847b4916986a6847776b900352f8 /tmp/patti/patti.c
 SOURCE https://daugasauron.com/dist/static/patti/sha256.h 4487133c310d06add786d59fc8baab82f9b26a28cf53f3a2afd972f2f10bd123 /tmp/patti/sha256.h
 SOURCE https://daugasauron.com/dist/static/patti/tomlc17.c 89d3fe5ffe387360993c8b9df8f03eb13cd6df379b4482bcd039399f690a770f /tmp/patti/tomlc17.c
 SOURCE https://daugasauron.com/dist/static/patti/tomlc17.h 281708fa05b805c32c117fc6033b0f4248257fce3440b1ac3391853bfc8f8bb5 /tmp/patti/tomlc17.h

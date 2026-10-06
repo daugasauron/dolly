@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { execFileSync, spawnSync } from "node:child_process";
-import { chmod, mkdir, mkdtemp, readFile, rm, stat, utimes, writeFile } from "node:fs/promises";
+import { chmod, mkdir, mkdtemp, readFile, rm, stat, symlink, utimes, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import test from "node:test";
@@ -83,7 +83,17 @@ test("Dolly's own core tools keep their no-permission and finite semantics", asy
   assert.equal(status(bracket, ["-n", "a"]), 2);
   assert.equal(run(await buildInline("cat"), ["-n"], { input: "a\nb\n" }).stdout, "     1\ta\n     2\tb\n");
   assert.equal(run(await buildInline("echo"), ["--"]).stdout, "--\n");
-  assert.equal(status(await buildInline("ls"), ["--color=never", "."]), 0);
+  const ls = await buildInline("ls");
+  assert.equal(status(ls, ["--color=never", "."]), 0);
+  // The POSIX long format; a directory starts with its total, an empty one has nothing else.
+  await mkdir(join(scratch, "listing/empty"), { recursive: true });
+  await writeFile(join(scratch, "listing/file"), "twelve bytes");
+  await symlink("file", join(scratch, "listing/link"));
+  const columns = String.raw` +\d+ \d+ \d+ +\d+ [A-Z][a-z]{2} [ \d]\d \d\d:\d\d `;
+  assert.match(run(ls, ["-l", "listing"]).stdout, new RegExp(`^total \\d+\nd[-rwx]{9}${columns}empty\n` +
+    `-[-rwx]{9}${columns}file\nl[-rwx]{9}${columns}link -> file\n$`));
+  assert.equal(run(ls, ["-l", "listing/empty"]).stdout, "total 0\n");
+  assert.equal(run(ls, ["listing/file", "listing/link"]).stdout, "listing/file\nlisting/link\n");
   await writeFile(join(scratch, "install-source"), "bytes");
   assert.equal(status(build("install"), ["-m", "755", "-o", "nobody", "-g", "nogroup",
     "install-source", "installed"]), 0);
@@ -155,4 +165,28 @@ test("file recognizes UTF-8 text and stat reports modes or rejects unknown forma
   const unknown = run(stat, ["-c", "%a %Q", "ascii.txt"]);
   assert.equal(unknown.status, 2);
   assert.equal(unknown.stdout, "");
+});
+
+test("Dolly's own commands answer --help with their usage and status 0; man reports a missing page", async () => {
+  const inline = ["cat", "cd", "clear", "cp", "echo", "file", "help", "ls", "man", "mkdir", "mv", "pwd", "rm", "stat", "touch"];
+  const sources = ["command", "diff", "du", "env", "find", "hostname", "install", "nproc", "patch", "realpath", "rev",
+    "time", "timeout", "tty", "xargs"];
+  const programs = [...await Promise.all(inline.map(buildInline)), ...sources.map(name => build(name))];
+  for (const program of programs) {
+    const help = run(program, ["--help"]);
+    assert.equal(help.status, 0, program);
+    assert.notEqual(help.stdout, "", program);
+    assert.equal(help.stderr, "", program);
+  }
+  const man = programs[inline.indexOf("man")];
+  for (const wrong of [[], ["a", "b"], ["-k"], ["../etc/passwd"]]) {
+    const result = run(man, wrong);
+    assert.equal(result.status, 2, wrong.join(" "));
+    assert.equal(result.stdout, "");
+    assert.notEqual(result.stderr, "");
+  }
+  const missing = run(man, ["no-such-command"]);
+  assert.equal(missing.status, 1);
+  assert.match(missing.stderr, /no-such-command/);
+  assert.equal(run(programs.at(-1), ["--no-such-option"]).status, 2);
 });

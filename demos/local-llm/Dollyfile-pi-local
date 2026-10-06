@@ -1,5 +1,6 @@
 DOLLY 6
 APPLICATION pi-local
+REQUIRES HOST runtime@0
 REQUIRES HOST display@0
 REQUIRES HOST download@0
 REQUIRES HOST gpu@0
@@ -9,23 +10,21 @@ REQUIRES HOST snapshot@0
 REQUIRES HOST threads@0
 REQUIRES HOST upload@0
 
-FROM https://daugasauron.com/demos/pi/Dollyfile-pi cb07949f8267d1d34b5bb64fa4a5c3c2397962cb034c5de86ee2f89ccd48b8a4
-COPY https://daugasauron.com/demos/local-llm/Dollyfile-local-llm-build 6e8742edae324874f97cfcb4bf9942676a70b7a55197abbc6b3a178ce31fa06e /usr/bin/dolly-llama /usr/bin/dolly-llama
-COPY https://daugasauron.com/demos/local-llm/Dollyfile-llama-build c3e2379cf044cf821a2e62649b55b2b3ecbbc1c13b6262576671fa7f475b8358 /usr/share/licenses/dolly-llm /usr/share/licenses/dolly-llm
+FROM https://daugasauron.com/demos/pi/Dollyfile-pi 6100a1439dccaff472ad389698c3754138b3047053953a148d94066331db43f5
+COPY https://daugasauron.com/demos/local-llm/Dollyfile-local-llm-build d5449759c61e2609aed31f899f95a185935e2c4f023e6ae75a7c6785e33747b1 /usr/bin/dolly-llama /usr/bin/dolly-llama
+COPY https://daugasauron.com/demos/local-llm/Dollyfile-llama-build 82565b9eef17358045eb0385f16cce3fad44f1c95b167138cbd358c7db3d0b7a /usr/share/licenses/dolly-llm /usr/share/licenses/dolly-llm
 EXPORTS TOOL dolly-llama
-INSTALL https://daugasauron.com/demos/local-llm/Dollyfile-qwen3.5-2b 62debc54f20c600a2d1d49f6680fbec5911ad56d061e922e7c051860dbdf3ea3
+INSTALL https://daugasauron.com/demos/local-llm/Dollyfile-qwen3.5-2b 9ded96281fb98b618634a5f7b1f86e211a9ea8e040535438ae43d6cee40b8d26
 
 REQUIRES TOOL janis
 REQUIRES TOOL tar
-REQUIRES TOOL sha256sum
-REQUIRES TOOL curl
 REQUIRES TOOL dolly-llama
 
-SOURCE https://daugasauron.com/dist/static/llama/provider.tar 6afb4b3e2df6ff745fc0ce8520b43f32e68b585776f2d65607e5dc476336a4dc /tmp/llm-provider.tar
+SOURCE https://daugasauron.com/dist/static/llama/provider.tar aa79c7ff17a2a2a157cfe02b4e61444863a21eddbb6d5343301e89a14563e326 /tmp/llm-provider.tar
 SLOP tar -xf /tmp/llm-provider.tar -C /
 
 FILE /home/dolly/.pi/agent/settings.json
-    {"enableInstallTelemetry":false,"images":{"autoResize":false},"shellPath":"/bin/slop","theme":"dolly","tuiMode":"regular","defaultProvider":"webgpu","defaultModel":"qwen3.5-2b","compaction":{"reserveTokens":4096,"keepRecentTokens":6144}}
+    {"enableInstallTelemetry":false,"images":{"autoResize":false},"shellPath":"/bin/slop","theme":"dolly","tuiMode":"regular","defaultProvider":"webgpu","defaultModel":"qwen3.5-2b","defaultThinkingLevel":"off","compaction":{"reserveTokens":4096,"keepRecentTokens":6144}}
 
 EXPORTS FOLDER local-llm /usr/lib/dolly-llm
 EXPORTS FOLDER local-llm-models /usr/share/dolly/llm

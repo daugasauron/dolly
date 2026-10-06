@@ -26,9 +26,9 @@ typedef struct {
   size_t capacity;
 } string_list;
 
-static void usage(void) {
+static void usage(FILE *stream) {
   fputs("usage: xargs [-0rt] [-n number] [-s size] [-I replace] [-P maxprocs] "
-        "[command [argument ...]]\n", stderr);
+        "[command [argument ...]]\n", stream);
 }
 
 static int push_byte(buffer *item, int byte) {
@@ -203,9 +203,21 @@ int main(int argc, char **argv) {
     else if (option[1] == 's' && parse_count(value, &maximum_bytes) == 0) {}
     else if (option[1] == 'I' && value != NULL && value[0] != '\0') replace = value;
     else if (option[1] == 'P' && parse_count(value, &parallel) == 0) {}
-    else {
-      usage();
-      return 1;
+    else if (strcmp(option, "--help") == 0) {
+      usage(stdout);
+      fputs("Run command (echo when none is given) with arguments read from standard input.\n"
+            "  -0          items end at NUL instead of blanks and newlines\n"
+            "  -r          do not run the command when there are no items\n"
+            "  -t          print each command to standard error before it runs\n"
+            "  -n number   at most number items per command\n"
+            "  -s size     at most size bytes per command line\n"
+            "  -I replace  one command per line, replace standing for the line\n"
+            "  -P maxprocs run up to maxprocs commands at once\n"
+            "example: find . -name '*.c' | xargs grep -l main\n", stdout);
+      return 0;
+    } else {
+      usage(stderr);
+      return 2;
     }
     index += consumes;
   }

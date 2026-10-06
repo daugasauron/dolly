@@ -19,7 +19,7 @@
 #include <zlib.h>
 #include "sha256.h"
 #include "tomlc17.h"
-#ifdef __EMSCRIPTEN__
+#ifdef __dolly__
 #include <dolly/runtime.h>
 #endif
 
@@ -278,7 +278,7 @@ static int spawn(Value *args, const char *cwd, Value *env, const char *output, c
     for (size_t i = 0; i < env->size; ++i) envp[i] = format("%s=%s", env->keys[i], str(env->items[i]));
   }
   int err = log ? create(log) : STDERR_FILENO, out = output ? create(output) : log ? err : STDOUT_FILENO;
-#ifdef __EMSCRIPTEN__
+#ifdef __dolly__
   int pid = dolly_spawn_env_cwd(find_compiler(argv[0]), (int)args->size, argv, envp,
                                 cwd, STDIN_FILENO, out, err, -1);
   int error = pid < 0 ? -pid : 0;

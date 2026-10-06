@@ -5,7 +5,7 @@ import { NetworkTransport, DOLLY_HTTP_LIMITS } from "../host/http/broker.mjs";
 import { DOLLY_HTTP_SLOT_COUNT, DOLLY_HTTP_HEADER_SIZE, DOLLY_HTTP_WORD_EOF, DOLLY_HTTP_WORD_ERROR, DOLLY_HTTP_WORD_KIND, DOLLY_HTTP_WORD_LENGTH, DOLLY_HTTP_WORD_SEQUENCE, DOLLY_HTTP_WORD_STATE } from "../host/http/abi.mjs";
 import { DollyHttpPolicy, httpPolicyConfigurations, restrictDollyHttpPolicy } from "../host/http/policy.mjs";
 import { localServicesTransport } from "../host/http/local-services.mjs";
-import { DOLLY_ERRNO as errno } from "../dist/dolly-errno.mjs";
+import { DOLLY_ERRNO as errno } from "../src/process-constants.mjs";
 
 const target = "https://fixture.example/allowed";
 // The same file named on the canonical origin, which embeddings serve themselves.
@@ -450,6 +450,30 @@ test("runtime teardown aborts every provider and refuses already-queued admissio
   assert.equal(first.load(DOLLY_HTTP_WORD_ERROR), errno.ECANCELED);
   assert.equal(second.load(DOLLY_HTTP_WORD_ERROR), errno.ECANCELED);
   assert.equal(calls, 2);
+});
+
+test("a path names a file of the site, under its root, and the policy judges the resulting URL", async () => {
+  const fetched = [];
+  const site = "https://fixture.example/dolly/";
+  const policy = new DollyHttpPolicy({ rules: [{ origin: "https://fixture.example", path: "/dolly/amy-index.txt" }] });
+  const f = fixture({}, async url => { fetched.push(String(url)); return new Response("index"); });
+  Object.assign(f.broker, { policy, site });
+  const records = await consume(f, f.request({ url: "/amy-index.txt" }));
+  assert.deepEqual(fetched, [`${site}amy-index.txt`]);
+  // The program gets the bytes and the path it asked for, not the site's URL.
+  assert.deepEqual([records[0], records.at(-2)].map(record => new TextDecoder().decode(record.bytes)), ["/amy-index.txt", "index"]);
+  // Not above the site's root, not another host, not what the policy leaves out.
+  for (const [sequence, url] of ["/../amy-index.txt", "/\\\\other.example/amy-index.txt", "//other.example/x", "amy-index.txt"].entries()) {
+    await bounded(f.request({ url }, sequence + 2));
+    assert.equal(f.load(DOLLY_HTTP_WORD_ERROR), errno.EINVAL, url);
+  }
+  await bounded(f.request({ url: "/other.txt" }, 7));
+  assert.equal(f.load(DOLLY_HTTP_WORD_ERROR), errno.EACCES);
+  // Without a site (a builder) a path names nothing.
+  f.broker.site = undefined;
+  await bounded(f.request({ url: "/amy-index.txt" }, 8));
+  assert.equal(f.load(DOLLY_HTTP_WORD_ERROR), errno.EINVAL);
+  assert.equal(fetched.length, 1);
 });
 
 test("a relayed request is fetched from the relay, without redirects, and answers for the URL asked", async () => {

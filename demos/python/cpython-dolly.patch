@@ -1,32 +1,3 @@
---- a/Modules/posixmodule.c
-+++ b/Modules/posixmodule.c
-@@ -17091,4 +17091,10 @@
- {
-+#ifdef DOLLY
-+    PyErr_SetString(PyExc_NotImplementedError,
-+                    "Dolly does not expose a browser debugger");
-+    return NULL;
-+#else
-     emscripten_debugger();
-     Py_RETURN_NONE;
-+#endif
- }
-@@ -17096,3 +17102,5 @@
-+#ifndef DOLLY
- EM_JS(void, emscripten_log_impl_js, (const char* arg), {
-     console.warn(UTF8ToString(arg));
- });
-+#endif
-@@ -17110,4 +17118,9 @@
- {
-+#ifdef DOLLY
-+    fprintf(stderr, "%s\n", arg);
-+    fflush(stderr);
-+#else
-     emscripten_log_impl_js(arg);
-+#endif
-     Py_RETURN_NONE;
- }
 --- a/Lib/subprocess.py
 +++ b/Lib/subprocess.py
 @@ -76,6 +76,6 @@
@@ -177,7 +148,7 @@
  #endif
  
 -#ifdef HAVE_SYS_RESOURCE_H
-+#if defined(HAVE_SYS_RESOURCE_H) && !defined(DOLLY)
++#if defined(HAVE_SYS_RESOURCE_H) && !defined(__dolly__)
      struct rlimit rl;
  
      /* Disable creation of core dump */
@@ -245,7 +216,7 @@
              ? Py_True : Py_False;
  #else
          struct stat st;
-+#ifdef DOLLY
++#ifdef __dolly__
 +        /* Dolly executes regular files by ABI stamp, not Unix mode bits. */
 +        r = (_Py_wstat(path, &st) == 0) && S_ISREG(st.st_mode)
 +            ? Py_True : Py_False;

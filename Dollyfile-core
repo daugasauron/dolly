@@ -1,13 +1,16 @@
 DOLLY 6
 PACKAGE core
+REQUIRES HOST runtime@0
 
 # Slop and the commands system-build compiles beside it: a shell without the
 # compiler or the recipe engine.
-FROM https://daugasauron.com/Dollyfile-system-build a06a388c8fee4c830482d85fa92ff3a5d8aef7c89efa4f7d452bb1304232aedd
+FROM https://daugasauron.com/Dollyfile-system-build 471fe211faf34963df6904f5fc12b1183c7fb85eb6f3bc77f0d61aa8b0568a96
 
 EXPORTS TOOL slop
+EXPORTS ENV SHELL /bin/slop
 EXPORTS TOOL foreground
 EXPORTS TOOL help
+EXPORTS TOOL man
 EXPORTS TOOL pwd
 EXPORTS TOOL cd
 EXPORTS TOOL cat
@@ -24,3 +27,23 @@ EXPORTS TOOL cp
 EXPORTS TOOL mkdir
 EXPORTS TOOL rm
 EXPORTS TOOL tar
+FILE /usr/share/man/cat1/[.1
+FILE /usr/share/man/cat1/cat.1
+FILE /usr/share/man/cat1/cd.1
+FILE /usr/share/man/cat1/clear.1
+FILE /usr/share/man/cat1/cp.1
+FILE /usr/share/man/cat1/echo.1
+FILE /usr/share/man/cat1/file.1
+FILE /usr/share/man/cat1/foreground.1
+FILE /usr/share/man/cat1/help.1
+FILE /usr/share/man/cat1/ls.1
+FILE /usr/share/man/cat1/man.1
+FILE /usr/share/man/cat1/mkdir.1
+FILE /usr/share/man/cat1/mv.1
+FILE /usr/share/man/cat1/pwd.1
+FILE /usr/share/man/cat1/rm.1
+FILE /usr/share/man/cat1/slop.1
+FILE /usr/share/man/cat1/stat.1
+FILE /usr/share/man/cat1/tar.1
+FILE /usr/share/man/cat1/test.1
+FILE /usr/share/man/cat1/touch.1

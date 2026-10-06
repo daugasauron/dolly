@@ -4,7 +4,7 @@
          auto evt_data = ring->getReadVector()[0];
          if(evt_data.len == 0)
          {
-+#ifdef DOLLY
++#ifdef __dolly__
 +            while(context->mEventSem.try_wait()) { }
 +            return 0;
 +#endif
@@ -15,7 +15,7 @@
  
  void StartEventThrd(ALCcontext *ctx)
  {
-+#ifdef DOLLY
++#ifdef __dolly__
 +    return;
 +#endif
      try {
@@ -25,7 +25,7 @@
  
  void StopEventThrd(ALCcontext *ctx)
  {
-+#ifdef DOLLY
++#ifdef __dolly__
 +    EventThread(ctx);
 +    return;
 +#endif
@@ -37,7 +37,7 @@
      ERR("Caught exception: {}", e.what());
  }
 +
-+#ifdef DOLLY
++#ifdef __dolly__
 +void ProcessEvents(ALCcontext *ctx) { EventThread(ctx); }
 +#endif
 --- a/al/event.h
@@ -46,7 +46,7 @@
  
  void StartEventThrd(ALCcontext *ctx);
  void StopEventThrd(ALCcontext *ctx);
-+#ifdef DOLLY
++#ifdef __dolly__
 +void ProcessEvents(ALCcontext *ctx);
 +#endif
  
@@ -67,7 +67,7 @@
      else
 +    {
          aldev->renderSamples(buffer, static_cast<uint>(samples), aldev->channelsFromFmt());
-+#ifdef DOLLY
++#ifdef __dolly__
 +        for(ContextBase *ctx : *aldev->mContexts.load())
 +            ProcessEvents(static_cast<ALCcontext*>(ctx));
 +#endif
@@ -86,7 +86,7 @@
  
  
 -#ifdef _WIN32
-+#ifdef DOLLY
++#ifdef __dolly__
 +namespace al {
 +semaphore::semaphore(unsigned int initial) : mSem{initial} { }
 +semaphore::~semaphore() = default;
@@ -115,7 +115,7 @@
  
  class semaphore {
 -#ifdef _WIN32
-+#ifdef DOLLY
++#ifdef __dolly__
 +    using native_type = unsigned;
 +#elif defined(_WIN32)
      using native_type = void*;

@@ -113,6 +113,14 @@ int main(int argc, char **argv) {
     const char *digest = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
     result = append_recipe(&engine, "TOOLCHAIN", "base", "https://daugasauron.com/Dollyfile-base", digest, "base");
     if (result == 0) result = append_recipe(&engine, "APPLICATION", argv[2], argv[3], digest, "root");
+  } else if (strcmp(argv[1], "entry") == 0) {
+    // Arguments before "--" are the retained paths, those after it the ENTRY words.
+    int index = 2;
+    for (result = 0; result == 0 && index < argc && strcmp(argv[index], "--") != 0; ++index) {
+      result = append_string(&engine.keep, &engine.keep_count, &engine.keep_capacity, argv[index]);
+    }
+    if (result == 0) result = index < argc ? set_entry(&engine, argv + index + 1, (size_t)(argc - index - 1)) : 2;
+    if (result == 0) result = entry_retained(&engine) ? 0 : 2;
   } else if (strcmp(argv[1], "image-url") == 0) {
     result = valid_image_url(argv[2]) ? 0 : 2;
   } else if (strcmp(argv[1], "kind") == 0 && argc == 4) {

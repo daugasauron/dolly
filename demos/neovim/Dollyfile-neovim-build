@@ -1,12 +1,13 @@
 DOLLY 6
 TOOLCHAIN neovim-build
+REQUIRES HOST runtime@0
 REQUIRES HOST display@0
 REQUIRES HOST download@0
 REQUIRES HOST http@0
 REQUIRES HOST upload@0
 
 # Reusable Neovim build artifacts.
-FROM https://daugasauron.com/demos/cmake/Dollyfile-cmake-build 89eec5db5a41a56e9dfe0a6ff1f4f88c9ed2bc2fb29035343b996f070d7f480a
+FROM https://daugasauron.com/demos/cmake/Dollyfile-cmake-build 1fcce1a8c79475fb59c175a4f7ce341aceb3597d43ab8b0392be4ce9c87bba31
 # Neovim supports PUC Lua 5.1. Build the upstream interpreter and C library;
 # -rdynamic lets source-built Lua C modules share that interpreter's API.
 REQUIRES HEADER libc
@@ -135,7 +136,7 @@ FILE /usr/share/licenses/utf8proc/LICENSE
 SLOP rm -rf /tmp/utf8proc
 SOURCE https://daugasauron.com/dist/static/neovim/treesitter.tar c31944873f3cd13235f2e9148b474f329b6bf183823baea50eacdb125fc46f9c /tmp/treesitter/source.tar
 SLOP tar -xf /tmp/treesitter/source.tar -C /
-SLOP make -C /tmp/treesitter/source CC=cc CFLAGS=-O0 MACHINE=wasm64-unknown-emscripten libtree-sitter.a
+SLOP make -C /tmp/treesitter/source CC=cc CFLAGS=-O0 libtree-sitter.a
 SLOP cp /tmp/treesitter/source/libtree-sitter.a /usr/lib/libtree-sitter.a
 SLOP cp -R /tmp/treesitter/source/lib/include/tree_sitter /usr/include
 SLOP cp /tmp/treesitter/source/lib/src/unicode/LICENSE /usr/share/licenses/treesitter/Unicode-LICENSE
@@ -172,11 +173,11 @@ REQUIRES TOOL sh
 REQUIRES TOOL sleep
 REQUIRES TOOL timeout
 
-SOURCE https://daugasauron.com/dist/static/neovim/neovim.tar.gz 33277d465eebd937357c59a83378d6faef72dd47e1a20a140f16660eec598b0e /tmp/neovim/source.tar.gz
+SOURCE https://daugasauron.com/dist/static/neovim/neovim.tar.gz 037fc672b70c6bc962e9ecf08b847f5d4f4d2e526678c00dd8382aa156db3c82 /tmp/neovim/source.tar.gz
 SLOP gzip -dc /tmp/neovim/source.tar.gz | tar -xf - -C /
 SLOP cmake -S /tmp/neovim/source -B /tmp/neovim/build \
   -DCMAKE_INSTALL_PREFIX=/usr -DCMAKE_INSTALL_LIBDIR=lib \
-  -DCMAKE_BUILD_TYPE=Debug -DCMAKE_C_FLAGS=-DDOLLY -DCMAKE_C_FLAGS_DEBUG=-O0 \
+  -DCMAKE_BUILD_TYPE=Debug -DCMAKE_C_FLAGS_DEBUG=-O0 \
   -DPREFER_LUA=ON -DENABLE_LTO=OFF -DENABLE_LIBINTL=OFF \
   -DENABLE_UNIBILIUM=OFF -DENABLE_WASMTIME=OFF \
   -DLUA_INCLUDE_DIR=/usr/include/lua5.1 -DLUA_LIBRARY=/usr/lib/liblua.a -DLUA_MATH_LIBRARY:STRING=m

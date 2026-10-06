@@ -231,10 +231,12 @@ test("system snapshots are sealed to their visible recipe chain", async () => {
     ["core", "/bin/slop"],
     ["curl", "/usr/bin/curl"],
     ["display", "/usr/lib/libdisplay.so"],
+    ["dolly-docs", "/usr/share/doc/dolly/docs/slop.md"],
     ["ghostty-build", "/usr/bin/zig"],
+    ["git", "/usr/bin/git"],
     ["gzip", "/bin/gzip"],
     ["gpu-sdk", "/usr/lib/dolly/process/libdolly-gpu.a"],
-    ["minimal", "/usr/lib/libdisplay.so"],
+    ["posix", "/bin/grep"],
     ["system", "/usr/lib/libdisplay.so"],
     ["system-build", "/bin/slop"],
     ["system-tools", "/usr/bin/git"],
@@ -268,7 +270,8 @@ test("system snapshots are sealed to their visible recipe chain", async () => {
     const toolchain = ["/usr/libexec/dolly/process-bin/compiler", "/usr/lib/dolly/process/libc-ww.a",
       "/usr/lib/clang/24/include/stddef.h", "/usr/lib/dolly/dolly-kernel-plugin-0.wasm"];
     const based = graph.root.role !== "package" && (graph.root.from !== null || image === "system-build");
-    const declared = { amy: ["/bin/dollyfile"], cc: toolchain, core: ["/bin/foreground"], minimal: ["/bin/foreground"] }[image] ?? [];
+    const declared = { amy: ["/bin/dollyfile"], cc: toolchain, core: ["/bin/foreground"],
+      default: ["/bin/dollyfile", "/bin/foreground"] }[image] ?? [];
     for (const path of ["/bin/dollyfile", "/bin/foreground", ...toolchain]) {
       assert.equal(metadata.manifest.includes(path), based || declared.includes(path), `${image}: ${path}`);
     }
@@ -307,7 +310,7 @@ test("published inputs are independent exact pinned files", async () => {
   const sources = await inspectStaticSources(projectDir, definitions);
   assert.deepEqual(DOLLY_STATIC_SOURCES, sources);
   assert.ok(sources.every((item) =>
-    ["/Dollyfile", "/modules/", "/demos/", "/include/dolly/", "/host/", "/dist/static/"].some((prefix) =>
+    ["/Dollyfile", "/modules/", "/demos/", "/include/dolly/", "/host/", "/docs/", "/abi/", "/dist/static/"].some((prefix) =>
       item.path.startsWith(prefix)) &&
     /^[0-9a-f]{64}$/.test(item.sha256) && item.byteLength > 0));
   assert.equal(sources.some((item) => item.path.endsWith(".assets")), false);
@@ -333,10 +336,11 @@ test("registry, routes, and source viewer derive from Dollyfiles", async () => {
     assert.ok(image.byteLength > 0);
     assert.match(image.sha256, /^[0-9a-f]{64}$/);
   }
-  // The package index amy reads names every package of the registry by its pinned recipe.
-  const index = (await readFile(artifact("dolly-packages.txt"), "utf8")).trimEnd().split("\n").filter(Boolean);
-  assert.deepEqual(index, DOLLY_IMAGES.filter(({ role }) => role === "package")
+  // The package index names every package of the registry by its pinned recipe, then describes it.
+  const index = (await readFile(new URL("../amy-index.txt", import.meta.url), "utf8")).trimEnd().split("\n").filter(Boolean);
+  assert.deepEqual(index.map(row => row.split(" ").slice(0, 3).join(" ")), DOLLY_IMAGES.filter(({ role }) => role === "package")
     .map(({ image, dollyfile, sha256 }) => `${image} https://daugasauron.com/${dollyfile} ${sha256}`));
+  assert.ok(index.every(row => row.split(" ").length > 3), "a package without a description");
 });
 
 test("the kernel module owns its wasm64 WasmFS memory and table", async () => {

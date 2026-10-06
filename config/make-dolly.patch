@@ -6,7 +6,7 @@ index acb5317..a3896cf 100644
  
  #else
  
-+#ifdef DOLLY
++#ifdef __dolly__
 +const char *default_shell = "/bin/slop";
 +#else
  const char *default_shell = "/bin/sh";
@@ -17,7 +17,7 @@ index acb5317..a3896cf 100644
 @@ -2057,6 +2061,8 @@ load_too_high (void)
  {
 -#if defined(__MSDOS__) || defined(VMS) || defined(_AMIGA) || defined(__riscos__)
-+#ifdef DOLLY
++#ifdef __dolly__
 +  return 0;
 +#elif defined(__MSDOS__) || defined(VMS) || defined(_AMIGA) || defined(__riscos__)
    return 1;
@@ -33,7 +33,7 @@ index 3aa975b..ad83f12 100644
  #endif
  
 -#if defined(_AMIGA) || defined(MK_OS_ZOS)
-+#if defined(_AMIGA) || defined(MK_OS_ZOS) || defined(DOLLY)
++#if defined(_AMIGA) || defined(MK_OS_ZOS) || defined(__dolly__)
  int
  main (int argc, char **argv)
  #else
@@ -41,7 +41,7 @@ index 3aa975b..ad83f12 100644
  main (int argc, char **argv, char **envp)
  #endif
  {
-+#ifdef DOLLY
++#ifdef __dolly__
 +  char **envp = environ;
 +#endif
    int makefile_status = MAKE_SUCCESS;

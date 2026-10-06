@@ -17,6 +17,55 @@ const url = path => `https://daugasauron.com/${path}`;
 
 test("every catalog recipe graph lints", () => lintDollyfiles(project));
 
+test("lint names the runtime line a recipe lacks", async () => {
+  const directory = await mkdtemp(resolve(tmpdir(), "dolly-lint-runtime-"));
+  try {
+    await writeFile(resolve(directory, "Dollyfile"), "DOLLY 6\nAPPLICATION default\nREQUIRES HOST display@0\nENTRY /bin/slop\n");
+    await assert.rejects(lintDollyfiles(directory), /add REQUIRES HOST runtime@0/);
+  } finally { await rm(directory, { recursive: true, force: true }); }
+});
+
+test("lint refuses an ENTRY program that no recipe of the image declares", async () => {
+  const directory = await mkdtemp(resolve(tmpdir(), "dolly-lint-entry-"));
+  try {
+    const hosts = "REQUIRES HOST runtime@0\nREQUIRES HOST display@0\n";
+    const core = "DOLLY 6\nPACKAGE core\nREQUIRES HOST runtime@0\nEXPORTS TOOL slop\nEXPORTS TOOL foreground\n";
+    const install = `INSTALL ${url("Dollyfile-core")} ${digest(core)}\n`;
+    const base = `DOLLY 6\nTOOLCHAIN base\n${hosts}${install}FILE /etc/dolly/init.slop\n    true\nFOLDER /usr/share/base\n`;
+    const from = `FROM ${url("Dollyfile-base")} ${digest(base)}\n`;
+    // A package keeps nothing of the base it is built in.
+    const pkg = `DOLLY 6\nPACKAGE pkg\n${hosts}${from}EXPORTS TOOL rg\n`;
+    for (const [name, text] of [["-core", core], ["-base", base], ["-pkg", pkg]]) {
+      await writeFile(resolve(directory, `Dollyfile${name}`), text);
+    }
+    // Lint also wants each image described, in the checkout's README.
+    await mkdir(resolve(directory, "demos"));
+    await writeFile(resolve(directory, "README.md"), ["default", "core", "base", "pkg"].map(name => `- \`${name}\`: a fixture\n`).join(""));
+    const lint = async rows => {
+      await writeFile(resolve(directory, "Dollyfile"), `DOLLY 6\nAPPLICATION default\n${hosts}${rows}`);
+      return lintDollyfiles(directory);
+    };
+    const game = "SLOP cc /tmp/game.c -o /usr/bin/game\n";
+    for (const rows of [
+      `${from}ENTRY /bin/foreground -i /bin/slop /etc/dolly/init.slop\n`,
+      `${from}${game}EXPORTS TOOL game\nENTRY /bin/foreground -i /usr/bin/game --level 2\n`,
+      `${from}${game}FILE /usr/bin/game\nENTRY /usr/bin/game\n`,
+      `${from}ENTRY /usr/share/base/start\n`,
+      `${install}INSTALL ${url("Dollyfile-pkg")} ${digest(pkg)}\nENTRY /bin/foreground /usr/bin/rg\n`,
+      // Only the build knows which arguments name files.
+      `${from}ENTRY /bin/slop /usr/share/unknown /workspace/notes\n`,
+    ]) await lint(rows);
+    await assert.rejects(lint(`${from}${game}ENTRY /bin/foreground -i /usr/bin/game\n`),
+      /Dollyfile: ENTRY program \/usr\/bin\/game .*add EXPORTS TOOL game or FILE \/usr\/bin\/game$/);
+    await assert.rejects(lint(`${from}${game}ENTRY /usr/bin/game\n`), /add EXPORTS TOOL game/);
+    await assert.rejects(lint(`INSTALL ${url("Dollyfile-pkg")} ${digest(pkg)}\nENTRY /bin/foreground /usr/bin/rg\n`),
+      /ENTRY program \/bin\/foreground /);
+    await assert.rejects(lint(`${from}ENTRY /bin/foreground -i /workspace/game\n`), /\/workspace\/game is in scratch/);
+    await assert.rejects(lint(`${from}ENTRY /bin/foreground -i game\n`), /absolute path of a program/);
+    await assert.rejects(lint(`${from}ENTRY /bin/foreground -i\n`), /absolute path of a program/);
+  } finally { await rm(directory, { recursive: true, force: true }); }
+});
+
 test("pin updates change only digest operands, not matching paths or comments", async () => {
   const directory = await mkdtemp(resolve(tmpdir(), "dolly-pin-operands-"));
   try {
@@ -58,7 +107,7 @@ test("images separate reusable toolchains and packages from applications", async
     "system-build": [], zlib: ["system-build"], curl: ["system-build"], gzip: ["system-build", "zlib"],
     "zig-build": ["system-build"], "ghostty-build": ["zig-build"], display: ["ghostty-build"],
     "system-tools": ["system-build", "zlib", "gzip", "curl", "display"], system: ["system-tools"],
-    default: ["system"], "gpu-sdk": ["system"], "audio-sdk": ["system"],
+    default: ["core", "posix", "display", "curl", "amy"], "gpu-sdk": ["system"], "audio-sdk": ["system"],
   };
   const files = await recipeFiles(project);
   const definitions = await discoverImageDefinitions(project);
@@ -87,8 +136,11 @@ test("images separate reusable toolchains and packages from applications", async
   }
   assert.deepEqual((await selectImageDefinitions(definitions, "all")).map(item => item.image),
     definitions.map(item => item.image));
+  // Each site publishes the packages default's start-up text suggests.
+  const suggested = [...(await readFile(resolve(project, "Dollyfile"), "utf8")).matchAll(/amy install (\S+)/g)].map(([, name]) => name);
   for (const list of ["config/github-pages-images.txt", "config/domain-pages-images.txt"]) {
-    await selectImageDefinitions(definitions, (await readFile(resolve(project, list), "utf8")).trim().split("\n").join(","));
+    const published = await selectImageDefinitions(definitions, (await readFile(resolve(project, list), "utf8")).trim().split("\n").join(","));
+    assert.deepEqual(suggested.filter(name => !published.some(item => item.image === name)), [], list);
   }
 });
 

@@ -47,3 +47,53 @@ text to each package."
 
 This changes the seed (`/bin/amy`, the engine's install record): batch it with
 the next rebuild round.
+
+## Decisions and state (2026-10-06, `work/amy-index`)
+
+Decided:
+
+- The description is the README line (`` - `NAME`: … ``), carried by the
+  index (`20261005-223931-public-package-index`), not a recipe directive.
+  It is the one sentence each image already has and the start page shows, so
+  nothing is written twice. A directive would put prose under the pin: a
+  recipe's SHA-256 is the image's identity, so correcting a sentence would
+  re-pin and rebuild everything that depends on the image. It is explicit:
+  `npm run lint:dollyfiles` and the source suite fail an image without one,
+  by name.
+- What an install adds comes from the snapshot `amy` installs, not from the
+  engine: `/bin/dollyfile` is seed content and its record would be a seed
+  change. `amy` reads the snapshot's records (path and size) after the
+  engine has accepted it.
+
+Done, in `default`, Chrome and Firefox (`test/amy-browser.mjs`):
+
+- `amy list`: name, `installed` or `-`, description.
+- `amy info NAME`: description, the `INSTALL URL SHA256` row, installed or
+  not.
+- `amy install NAME` ends with what it added, for `python`:
+  `amy: python installed: 1551 files, 46832411 bytes, commands: pip pip3
+  python python3; amy files python lists them`.
+- `amy files NAME`: `SIZE PATH` per file or link outside `/etc/dolly`, from
+  the record the install kept (`/etc/dolly/files/NAME`, no network), or for
+  a package no session installed (the image's `zlib`) from the release's
+  snapshot. The test compares every listed size with the file.
+- All 22 packages have a description.
+
+Model packages need no second mechanism for these two things: a model's row
+in the index is its description, and after `amy install` its weights are
+lines of `/etc/dolly/files/NAME` with their sizes. What the model
+description of `20261005-215557-local-models` (`/usr/share/dolly/llm/ID.json`)
+shares with this: the package names, one sentence per package and the files
+with sizes. What stays its own: GPU memory, the Pi model definition, the
+weights' source and licence, and sizes before install (the index has none).
+
+Left, so the task stays open:
+
+- `amy info` does not print the download size, host modules or exports, and
+  the install summary does not name variables. The recipe has the last three
+  (`REQUIRES HOST`, `EXPORTS` lines; `amy info` could print them from the
+  recipe URL, which every page serves as a bootstrap source); the size is
+  only in the snapshot metadata.
+- Not run here: a model (`qwen3.5-2b`) and `ripgrep` by name; their
+  packages were not built on this tree. The `amy programs` block installs
+  `ripgrep` with `codex-cli` in the catalog round.
