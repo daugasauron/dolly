@@ -361,3 +361,23 @@ rebuilt unchanged; `node demos/run-browser-tests.mjs javascript` passed in
 - Evidence: `llama-build` (llama, ggml, ggml-webgpu) built in 263 s,
   `local-llm-build` in 27 s. Not run: the runner needs `pi-local`, which the
   catalog round rebuilds.
+
+### sdl2
+
+- `Dollyfile-sdl2` passes no `-DDOLLY -U__EMSCRIPTEN__`: SDL is now built
+  against the same `struct stat` it links. `SDL_dynapi.h` refuses
+  `SDL_DYNAMIC_API` from the command line ("Nope, you have to edit this file to
+  force this off"), so the hunk stays and tests `__dolly__`. The stale
+  comment about the stat trap in `demos/classicube/Makefile` is gone.
+- Evidence: `sdl2` built in 858 s; `node demos/run-browser-tests.mjs sdl2`
+  passed in 6.3 s.
+
+### neovim
+
+- `neovim-dolly.patch` tests `__dolly__` (3); `Dollyfile-neovim-build` passes
+  no `-DDOLLY` and no longer overrides tree-sitter's `MACHINE`, whose
+  Makefile asks `$(CC) -dumpmachine`.
+- Evidence: `neovim-build` built in 514 s (tree-sitter, Lua, luv, utf8proc,
+  parsers, Neovim), `nvim` and `neovim` after it;
+  `node demos/run-browser-tests.mjs neovim` passed twice after one failure
+  on the selection-publication timeout at a load average above 100.
