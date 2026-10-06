@@ -1,0 +1,58 @@
+# A custom image with snapshot@0 and no http@0 fails with invalid custom session base
+
+- STATUS: OPEN
+- PRIORITY: 220
+- TAGS: bug,sessions,host-modules
+
+Found while measuring direct-ENTRY images
+(`20261005-222449-single-program-images`; release build `5439ebe7`, headless
+Chrome, 2026-10-06).
+
+## Reproduce
+
+On `/custom/`, build this recipe and open the result (pins as in
+`Dollyfile-minimal`):
+
+    DOLLY 6
+    APPLICATION no-network
+    REQUIRES HOST runtime@0
+    REQUIRES HOST display@0
+    REQUIRES HOST snapshot@0
+
+    INSTALL https://daugasauron.com/Dollyfile-core PIN
+    INSTALL https://daugasauron.com/Dollyfile-display PIN
+    ENTRY /bin/foreground -i /bin/slop
+
+The build succeeds. The result tab stops before ENTRY with `FATAL invalid
+custom session base`. With `REQUIRES HOST http@0` added the same recipe runs,
+saves and restores. Catalog images are not affected: only a custom image's
+identity goes through this check, and all 19 images that declare `snapshot@0`
+also declare `http@0`.
+
+## Cause
+
+`host/snapshot/ui.mjs:200` computes the session identity of a custom image
+when ENTRY starts. `customSessionIdentity` (`src/session-store.mjs:23-34`)
+demands 1 to 16 `policies`. That record is what `http@0` hands a result tab
+(`host/http/http.mjs:47`, merged at `src/browser.mjs:180`), so without
+`http@0` there is none.
+
+## Neither a lint rule nor a manifest dependency
+
+`snapshot@0` uses nothing of `http@0`: its manifest depends on `runtime@0`
+only and its code never asks for the module. The policies are part of the
+identity so that a restored session cannot run under a wider network policy
+than the tab that saved it. An image without `http@0` has no network edge and
+nothing to bind. A dependency would make every image that saves sessions
+declare the network; a lint message would turn the accident into a rule.
+
+Fix: require `policies` exactly when the recipe declares `http@0`
+(`customSessionIdentity` already inspects `custom.source`) and hash an empty
+list otherwise.
+
+## Done when
+
+- The recipe above saves and restores a session in Chrome and Firefox
+  (`test/custom-session-browser.mjs`).
+- A custom image that declares `http@0` and carries no policies is still
+  refused.

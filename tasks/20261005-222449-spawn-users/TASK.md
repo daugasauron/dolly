@@ -49,19 +49,24 @@ Related: `20261005-222449-single-program-images` (what omitting it needs),
 Measured on the sealed release `work/round2/build/releases/current` (build
 `5439ebe7`, 61 images, the line before the seed round). Nothing was built, so
 the scratch-branch archive member this task proposed was replaced by reading
-the linked executables. The static part takes 8 s
-([`scan-release.mjs`](scan/scan-release.mjs), [`wasm-ops.mjs`](scan/wasm-ops.mjs),
-[`report.mjs`](scan/report.mjs)):
-`node scan/scan-release.mjs RELEASE/dist OUT && node scan/report.mjs OUT`.
+the linked executables. The scripts (400 lines of Node for the static part,
+which takes 8 s, and 230 for the dynamic one) and the raw results are kept
+outside the tree in `work/spawn/build/spawn-evidence/`; the method below is
+enough to write them again.
 
 ### Method and its limits
 
-- Static. Every Wasm file in every image's snapshot packs is decoded (151
-  distinct files, 136 of them executables). For each call of the
-  `dolly_process_0.call` import the scanner walks the operand stack back to the
-  instruction that produced the operation number, following wrapper functions.
+- Static. For each image, the packs its `dist/dolly-IMAGE-system-snapshot.mjs`
+  lists are gunzipped (`DOLLYSNP` records) and every file that starts with
+  `\0asm` is decoded: 151 distinct files, 136 of them executables (they
+  import `dolly_process_0.call` and export `_start`). For each `call` of that
+  import the scanner walks back over the function's instructions, by each
+  opcode's stack effect, past the four `i64` arguments to the instruction that
+  produced the operation number. An `i32.const` is recorded; a `local.get` of
+  an `i32` parameter makes the function a wrapper whose own callers are
+  resolved the same way, to a fixed point; anything else counts as unresolved.
   Every call site in all 136 executables resolved to a constant, and the import
-  is in no function table, so "operation 64 is in this executable" is exact.
+  is in no element segment, so "operation 64 is in this executable" is exact.
   135 of them carry a name section (the compiler does not), which names the
   function that keeps each client.
 - What that signal is: the operation is reachable after the linker's garbage
@@ -108,8 +113,8 @@ runnable image has 97 executables, 24 with spawn and 73 without.
   TableGen tools, `dolly-llama`, and every display program except `slopyard`
   (`fluid`, `bhop`, `bhop-viewer`, `classicube`, `classicube-viewer`,
   `rts-viewer`, `seven-kingdoms`, 0 A.D.'s `pyrogenesis`).
-- `zig` reaches WAIT and SIGNAL but not SPAWN: Zig's standard library forks,
-  so it cannot start a child here.
+- `zig` reaches WAIT and SIGNAL but not SPAWN, and keeps neither `fork` nor
+  `posix_spawn`: it cannot start a child here (`20261006-103306-zig-child`).
 - INFO (67) is not a spawn operation: it is `getpid`, reached by 133 of 136.
   SIGNAL (68) to another pid is reached by 21, of which 19 also spawn; the two
   others are `kill` and `zig`. `raise` and `kill(getpid())` never enter the
@@ -174,10 +179,13 @@ with no executable at all.
 
 ### At run time (34 of the 37 runnable images)
 
-[`scan/measure.mjs`](scan/measure.mjs) puts a proxy in front of the release
-that changes one file: the process Worker's `call()` reports each process
-start, its argv, every SPAWN and the counts of operations 64, 65, 67, 68,
-112-114 and 120-123. Headless Chrome boots one image at a time and stops when
+A proxy in front of the release changes one file: in
+`/dist/dolly-process-worker.mjs` the function given to the executable as
+`dolly_process_0.call` is wrapped, and the wrapper reports to the proxy by
+synchronous XHR each process start, its argv (from the ARGUMENTS response),
+every SPAWN (path and argv from the request packet, the child pid from the
+response) and the counts of operations 64, 65, 67, 68, 112-114 and 120-123.
+Headless Chrome boots one image at a time and stops when
 no process has started for 8 s after the page is ready. `fluid` and `slopyard`
 ran on SwiftShader WebGPU (they stop after one frame with `--disable-gpu`).
 Not run: `dollyfile-studio`, `pi-local` and `zero-ad` (1.4-1.8 GB each, with

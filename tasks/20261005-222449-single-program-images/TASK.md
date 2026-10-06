@@ -48,10 +48,29 @@ Related: `20261005-222449-spawn-users`.
 
 Tried on the sealed release `work/round2/build/releases/current` (build
 `5439ebe7`, the line before the seed round, so its recipes carry no
-`runtime@0` line) through the custom route, which builds a recipe in the
-page. `run/` holds the probe ([`probe.c`](run/probe.c)) and the scripts:
-[`run.mjs`](run/run.mjs) `direct|wrapped|root|rootwrapped [scenario…]`,
-[`timing.mjs`](run/timing.mjs) `A B` and [`fluid.mjs`](run/fluid.mjs).
+`runtime@0` line) through the custom route: the recipe goes into
+`sessionStorage["dolly-custom-source"]`, `/custom/rebuild/` builds it in the
+page, and `openCustomImage` (`src/custom-image.mjs`) opens the result, whose
+`data-dolly-status` and `__dolly.visibleTerminalText()` are read. The scripts
+(500 lines) and their output, screenshots included, are kept outside the tree
+in `work/spawn/build/spawn-evidence/`.
+
+- The probe is a C program compiled in the recipe. It prints its pid and
+  parent, `isatty` 0-2, `TIOCGWINSZ`, the cwd, the termios flags and `environ`,
+  then reads keys: `q` exits 0, `x` exits 3, `a` calls `abort()`, `t` traps,
+  `h` installs a SIGINT handler, `c` spins.
+- `direct`: `FROM system`, `SLOP cc -O1 /tmp/probe.c -o /usr/bin/probe`,
+  `ENTRY /usr/bin/probe`. `wrapped`: the same with a script that runs
+  `/bin/foreground /usr/bin/probe` and then `/bin/foreground -i /bin/slop`,
+  and `ENTRY /bin/foreground -i /bin/slop` of that script.
+- Lean: no `FROM`, `INSTALL` of `display`, the probe compiled by `RUN
+  /usr/libexec/dolly/process-bin/compiler --dolly-toolchain-mode=c`, `ENTRY
+  /bin/probe`; its wrapped form adds `INSTALL` of `core` and the script.
+  `fluid` the same way: `INSTALL` of `display` and two `COPY` lines from
+  `gpu-fluid` (`/usr/bin/fluid`, `/usr/src/dolly/fluid/overlay.wgsl`).
+- Timing: both forms built once, then opened in turn, 6 to 10 times each;
+  the page stamps when it reaches `ready` and when the probe's last line (or
+  the first GPU frame) is there.
 
 Limits: headless Chrome for everything, headless Firefox for the timing only;
 the GPU runs used a software adapter that stops after one frame, so `fluid`
@@ -89,7 +108,7 @@ the 34 measured images start, 86 are `foreground` or `slop`
 
 ### What the runtime gives the ENTRY process itself
 
-A probe that prints what it sees (`run/probe.c`) as `ENTRY /usr/bin/probe`,
+The probe as `ENTRY /usr/bin/probe`,
 against the same probe behind `/bin/foreground -i /bin/slop probe.slop`:
 
 | | Wrapped | Direct |
@@ -156,9 +175,12 @@ The wrapped images end the same way once their last shell exits: `exit` in
 ### Also found
 
 - A custom image that declares `snapshot@0` without `http@0` fails in its
-  result tab with `invalid custom session base`: `src/session-store.mjs:23-34`
-  needs `policies`, which only `host/http/http.mjs:47` supplies.
-- An image without Slop still exports `SHELL=/bin/slop`.
+  result tab with `invalid custom session base`
+  (`20261006-103306-session-policies`).
+- An image without Slop still exports `SHELL=/bin/slop`
+  (`20261006-103306-shell-env`).
+- The page says nothing when the last process ends, in either shape
+  (`20261006-103306-page-ending`).
 
 ## Recommendation
 
