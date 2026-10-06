@@ -147,3 +147,42 @@ FFI packets moved out of `process.h`, the `dolly_dl*` declarations moved out of
 - The hand-off changed after the design was sent: the supervisor posts the
   bundle as a `Blob` and the process Worker makes and revokes its own URL, so
   no URL of the runtime Worker has to be reachable from the Workers it starts.
+
+## Evidence (`core/dso-module`, on `integrate/next` `1dea294e`)
+
+Runtime built in `work/dso`: `npm run build:runtime`, 3 min 9 s, runtime
+`eb3ce6f7…`, image inputs `afca54ce…` (base `e8e495dc…`). Logs and scratch
+files are in `build/dso-evidence/` (ignored).
+
+### What every process Worker loads
+
+`node scripts/bundle-process-worker.mjs` (esbuild 0.25.12, unminified, as
+shipped), `wc -c` on the outputs; "before" is the same script and sources at
+`7976b8ea` in a scratch copy.
+
+| Bundle | Before | After | gzip -9 after |
+| --- | --- | --- | --- |
+| `dist/dolly-process-worker.mjs`, every process Worker | 65,304 | 9,112 | 2,935 |
+| `dist/dolly-process-dso.mjs`, only a recording executable's Worker | | 58,557 | 13,716 |
+
+- The task's estimate (36 KB of 65 KB) counted the loader and the FFI
+  dispatcher. The Wasm parser, the record reader and the DSO checks were in
+  the bundle only for them and left with them: 86% of what a Worker loaded.
+- The bundler refuses a process Worker bundle with any input under a
+  `processWorker` module's directory, so the split cannot silently close.
+
+### The stamp, with the built sysroot
+
+`build/dso-evidence/real-link/`: the pinned `wasm-ld` with the arguments
+`cc` passes, on objects compiled from C sources against the published
+sysroot (`--why-extract`, `-Map`).
+
+| Program | `dolly.host` records | From `libdolly-dso.a` | `dolly_dlopen` is |
+| --- | --- | --- | --- |
+| calls `dlopen`, as `cc` links it | 0 | nothing | `libdolly-process.a(process-libc-adapter.o)` |
+| the same, as `cc -rdynamic` | 1 | `process-dso-client.o`, by `--export (__dolly_dso_allocate)` | `libdolly-dso.a(process-dso-client.o)` |
+| calls `dolly_ffi_call`, as `cc` | 1 | `process-dso-ffi.o`, by the reference | not linked |
+
+### Suites
+
+- Source: `node --test 'test/*.test.mjs' 'demos/**/*.test.mjs'`, 399 of 399.
