@@ -26,9 +26,11 @@ flowchart TB
     snap["snapshot@0"]
   end
   th["threads@0: Worker budget"]
+  dso["dso@0: loader and FFI in the process's own Worker"]
   guest --> imports
   guest --> mailboxes
   guest --> th
+  guest --> dso
   http --> policy["HTTP policy"]
   policy --> fetch(("Fetch"))
   policy --> build["build@0: local build service"]
@@ -59,6 +61,7 @@ Worker URL.
 | `gpu@0` | `env.dolly_gpu_dispatch` | Bounded WebGPU packets on the browser's `high-performance` adapter, 8 scopes, 4,096 objects each, 4 GiB total, one canvas | [`host/gpu/`](../host/gpu/module.json) |
 | `audio@0` | `env.dolly_audio_dispatch` | Stereo PCM output, 4 streams of 1 s; no capture | [`host/audio/`](../host/audio/module.json) |
 | `threads@0` | supervisor | Worker per thread of an admitted executable: 16 per process, 64 total | [`host/threads/`](../host/threads/module.json) |
+| `dso@0` | process Worker of an executable that records it | Instantiate Wasm the process supplies into its own memory and function table, and call its table entries with signatures chosen at run time; no import, no kernel entry, nothing outside that process | [`host/dso/`](../host/dso/module.json) ([`process.mjs`](../host/dso/process.mjs)) |
 | `build@0` | reserved URL via `http@0` | Start a disposable image build that writes the image cache | [`host/build/`](../host/build/module.json) |
 | `packages@0` | reserved URL via `http@0` | Serve the verified snapshot of a published package, one at a time, 64 per page | [`host/packages/`](../host/packages/module.json) |
 
@@ -70,8 +73,10 @@ Worker URL.
   the loader refuses one at run time. An embedding can restrict the set with
   `globalThis.DOLLY_HOST_MODULES`.
 - The page enables exactly the image's requirements, its runtime among them;
-  rebuild routes add `http@0` and `threads@0` for building, and a dependency
-  build enables the declared runtime with those two. Only Dollyfile Studio
+  rebuild routes add `http@0`, `threads@0` and `dso@0` for building (sources
+  are fetched, and toolchains run threaded tools and compilers and
+  interpreters that load modules), and a dependency build enables the
+  declared runtime with those three. Only Dollyfile Studio
   declares `build@0`, and the page admits it only after ENTRY starts
   ([Studio builds](image-build-service.md)). An image declaring `packages@0`
   (`default`) may GET `https://packages.dolly.invalid/v1/packages/SHA256`

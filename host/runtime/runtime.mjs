@@ -77,6 +77,10 @@ export function browser() {
 export function worker({ send, applicationBase, abi, service }) {
   const memory = new WebAssembly.Memory({ initial: 1024n, maximum: 131072n, shared: true, address: "i64" });
   let supervisor, threadProvider;
+  // Modules served inside the process Worker of the executables that record
+  // them, by requirement: the bundle (a Blob) that Worker imports and the
+  // configuration its serve() receives.
+  const processModules = new Map();
   // The bytes a kernel import names, or null: inside kernel memory, at most `limit`.
   const span = (address, length, limit) => {
     const [start, size] = [address, length].map(Number);
@@ -107,8 +111,12 @@ export function worker({ send, applicationBase, abi, service }) {
       if (supervisor || threadProvider) throw new Error("thread provider already initialized");
       threadProvider = provider;
     },
+    serveInProcess(requirement, module) {
+      if (supervisor) throw new Error("process modules are fixed once the supervisor starts");
+      processModules.set(requirement, module);
+    },
     async supervisor(dolly) {
-      return supervisor ??= await DollyProcessSupervisor.create(dolly, memory, applicationBase, abi, service, threadProvider);
+      return supervisor ??= await DollyProcessSupervisor.create(dolly, memory, applicationBase, abi, service, threadProvider, processModules);
     },
     start({ dolly }) {
       return { memory: memory.buffer, address: Number(dolly._dolly_terminal_mailbox_address()) };

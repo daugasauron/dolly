@@ -1,0 +1,14 @@
+{
+  "name": "dso",
+  "version": 0,
+  "dependencies": ["runtime@0"],
+  "phase": "kernel",
+  "imports": [],
+  "host": "dso.mjs",
+  "processWorker": "process.mjs",
+  "contracts": [],
+  "process": ["dolly-dso-0.wat"],
+  "headers": ["dso.h", "dso-abi.h"],
+  "kernel": [],
+  "client": ["client.c", "ffi.c"]
+}

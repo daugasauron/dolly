@@ -77,6 +77,8 @@ with the compiler.
 - Patti: panic-abort compilation; no incremental builds, file locks, dynamic
   Rust libraries, tests or benchmarks.
 - Executables link threaded (`cc -pthread`) and need `REQUIRES HOST threads@0`.
+  The compiler loads proc macros and needs `dso@0`, which a build host enables
+  and an image that keeps `rustc` declares.
 - Git dependencies need an explicit `--patch`. Target patches live in
   [`config/patches/`](config/patches/).
 

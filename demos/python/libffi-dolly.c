@@ -3,11 +3,11 @@
  *
  * WebAssembly indirect calls require an exact static function type. The
  * process Worker owns the private function table and performs this final typed
- * dispatch through process-local operations on dolly-process-0. No JavaScript
+ * dispatch through the FFI operations of host module dso@0. No JavaScript
  * library, browser object, or new Wasm import is exposed to the program.
  */
 
-#include <dolly/process.h>
+#include <dolly/dso.h>
 
 #include <ffi.h>
 #include <ffi_common.h>
@@ -46,16 +46,13 @@ ffi_status FFI_HIDDEN ffi_prep_cif_machdep_var(
 
 void ffi_call(ffi_cif *cif, void (*function)(void),
               void *return_value, void **argument_values) {
-  const dolly_process_ffi_call_request request = {
+  const dolly_ffi_call_request request = {
       .cif = (uintptr_t)cif,
       .function = (uintptr_t)function,
       .return_value = (uintptr_t)return_value,
       .argument_values = (uintptr_t)argument_values,
   };
-  if (dolly_process_call(DOLLY_PROCESS_FFI_CALL,
-                         &request, sizeof(request), NULL, 0) != 0) {
-    abort();
-  }
+  if (dolly_ffi_call(&request) != 0) abort();
 }
 
 void *ffi_closure_alloc(size_t size, void **code) {
@@ -68,29 +65,19 @@ void *ffi_closure_alloc(size_t size, void **code) {
       size < sizeof(ffi_closure) ? sizeof(ffi_closure) : size;
   ffi_closure *closure = malloc(allocation_size);
   if (closure == NULL) return NULL;
-  const dolly_process_ffi_closure_request request = {
-      .closure = (uintptr_t)closure,
-  };
-  dolly_process_ffi_closure_response response = {0};
-  const int64_t result = dolly_process_call(
-      DOLLY_PROCESS_FFI_CLOSURE_ALLOC,
-      &request, sizeof(request), &response, sizeof(response));
-  if (result != (int64_t)sizeof(response) || response.code == 0) {
+  uint64_t index = 0;
+  if (dolly_ffi_closure_alloc((uintptr_t)closure, &index) != 0 || index == 0) {
     free(closure);
     return NULL;
   }
-  closure->ftramp = (void *)(uintptr_t)response.code;
+  closure->ftramp = (void *)(uintptr_t)index;
   *code = closure->ftramp;
   return closure;
 }
 
 void ffi_closure_free(void *pointer) {
   if (pointer == NULL) return;
-  const dolly_process_ffi_closure_request request = {
-      .closure = (uintptr_t)pointer,
-  };
-  (void)dolly_process_call(
-      DOLLY_PROCESS_FFI_CLOSURE_FREE, &request, sizeof(request), NULL, 0);
+  (void)dolly_ffi_closure_free((uintptr_t)pointer);
   free(pointer);
 }
 
@@ -102,15 +89,12 @@ ffi_status ffi_prep_closure_loc(
       cif->abi != FFI_WASM64_EMSCRIPTEN) {
     return FFI_BAD_ABI;
   }
-  const dolly_process_ffi_closure_prep_request request = {
+  const dolly_ffi_closure_prep_request request = {
       .closure = (uintptr_t)closure,
       .cif = (uintptr_t)cif,
       .function = (uintptr_t)function,
       .user_data = (uintptr_t)user_data,
       .code = (uintptr_t)code,
   };
-  return dolly_process_call(
-      DOLLY_PROCESS_FFI_CLOSURE_PREP,
-      &request, sizeof(request), NULL, 0) == 0
-      ? FFI_OK : FFI_BAD_TYPEDEF;
+  return dolly_ffi_closure_prep(&request) == 0 ? FFI_OK : FFI_BAD_TYPEDEF;
 }

@@ -1,6 +1,7 @@
 DOLLY 6
 PACKAGE rust
 REQUIRES HOST runtime@0
+REQUIRES HOST dso@0
 REQUIRES HOST threads@0
 
 # The Rust SDK and Patti as rust-build holds them. The SDK's rustc finds its

@@ -17,9 +17,10 @@ test("every image declares its complete host set itself", async () => {
   // Every image declares the runtime it is built on; the engine retained for
   // FROM builds uses http@0; download and upload
   // tools arrive with system-tools; the terminal needs display@0; default
-  // installs packages with amy and runs the threaded tools they bring.
+  // installs packages with amy and runs what they bring: threaded tools and
+  // programs that load modules.
   const core = {
-    default: [...interactive, "packages@0", "threads@0"], system: interactive, "gpu-sdk": [...interactive, "gpu@0"],
+    default: [...interactive, "packages@0", "threads@0", "dso@0"], system: interactive, "gpu-sdk": [...interactive, "gpu@0"],
     "audio-sdk": [...interactive, "audio@0"], "system-build": ["runtime@0", "http@0"], "zig-build": ["runtime@0", "http@0"],
     "ghostty-build": ["runtime@0", "display@0", "http@0"],
     "system-tools": ["runtime@0", "display@0", "download@0", "http@0", "upload@0"],

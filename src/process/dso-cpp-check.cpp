@@ -1,4 +1,4 @@
-#include <dolly/runtime.h>
+#include <dolly/dso.h>
 
 #include <dlfcn.h>
 #include <stdio.h>

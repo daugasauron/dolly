@@ -6,7 +6,7 @@ await browserTest("cpp", { image: "system" }, async ({ open }) => {
   const { submit } = await open();
   const run = async command => assert.equal(await submit(command), 0, command);
   await run("test ! -e /usr/bin/zig && test ! -e /usr/lib/zig");
-  await runCppSdkCases(submit, false);
+  await runCppSdkCases(submit);
   // GNU Make builds in parallel and then reports the target up to date.
   await run("mkdir /tmp/make && cd /tmp/make && echo 'int value(void) { return 42; }' > value.c && " +
     "echo 'int value(void); int main(void) { return value() != 42; }' > main.c");

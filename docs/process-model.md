@@ -56,7 +56,7 @@ sequenceDiagram
 - A refusal is reported to the program that asked, not to the person at the
   page. An executable the loader refuses (a wrong stamp or import, a host module
   the image does not declare or whose layout differs, a thread client without
-  `dolly_thread_start`) and a Worker that fails while running exit with status
+  `dolly_thread_start` or with `dso@0`) and a Worker that fails while running exit with status
   126 after one line on the process's own descriptor 2 that names the cause
   ([`process-supervisor.mjs`](../src/process-supervisor.mjs)); unrelated
   processes are unaffected. `cc` refuses to link a thread client without
@@ -64,7 +64,7 @@ sequenceDiagram
 - A malformed call returns an errno and the process keeps running: `EFAULT` for
   a packet outside its memory, `E2BIG` over 1 MiB, `ENOSYS` for an unknown
   operation, `EINVAL` for a wrong layout
-  ([`process-worker.mjs`](../src/process-worker.mjs)). FFI packets carry
+  ([`process-worker.mjs`](../src/process-worker.mjs)). FFI packets (`dso@0`) carry
   pointers of the process itself; a wild one is `EFAULT` too, while a trap in
   the function an FFI call reaches ends the process like any other trap.
 - `cc`, `c++`, `ld` and `ar` retry status 126 up to twice
@@ -197,12 +197,20 @@ sequenceDiagram
   process and 64 in total; `sysconf` reports 4 processors. Handlers run on the
   main thread, also while it waits in `pthread_join`. No DSOs, FFI,
   cancellation or directed signals.
-- Process-local DSOs share their owner's memory, table and allocator. The loader
-  checks exact import types before instantiation
-  ([`dolly-process-dso-0.wat`](../abi/dolly-process-dso-0.wat)); missing
-  infrastructure returns `ENOSYS`.
-- FFI calls and closures stay in the process Worker; libffi supports CPython
-  `_ctypes`.
+- `dso@0` ([`host/dso/dolly-dso-0.wat`](../host/dso/dolly-dso-0.wat),
+  [`host/dso/process.mjs`](../host/dso/process.mjs)): process-local DSOs and
+  FFI, served in the Worker of an executable that records the module
+  ([host modules](../host/README.md#modules-served-in-the-process-worker)).
+  - `cc -rdynamic` builds a host: it exports the program's symbols and links
+    the loader behind `dlopen`. A DSO (`cc -shared`) shares its owner's
+    memory, table and allocator; the loader checks exact import types before
+    instantiation.
+  - FFI calls and closures (`dolly_ffi_*`, `<dolly/dso.h>`) stay in the process
+    Worker; libffi supports CPython `_ctypes`.
+  - Without the record a program loads nothing: `dlopen` returns `NULL` with
+    `ENOSYS` and a `dlerror()` naming `-rdynamic` and `dso@0`, and the raw
+    operations are unknown ones. With it, the image must declare
+    `REQUIRES HOST dso@0` or the program is refused before it starts.
 
 ## Unsupported
 
