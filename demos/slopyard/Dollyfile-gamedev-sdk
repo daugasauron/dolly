@@ -2,14 +2,16 @@ DOLLY 6
 TOOLCHAIN gamedev-sdk
 REQUIRES HOST runtime@0
 REQUIRES HOST display@0
+REQUIRES HOST input@0
 REQUIRES HOST download@0
 REQUIRES HOST http@0
 REQUIRES HOST snapshot@0
 REQUIRES HOST upload@0
 
-FROM https://daugasauron.com/Dollyfile-system 7f6562b7005c373f9f73eab4f185a34ddbe8d73671be48b2f194dc75ce57da23
+FROM https://daugasauron.com/Dollyfile-system 922b7c34867c2f5d309c67e28d2da1f81157dd5b3ae50677b3e48d0a51dfd156
 REQUIRES HEADER libc
 REQUIRES HEADER display
+REQUIRES HEADER input
 REQUIRES TOOL   ar
 REQUIRES TOOL   cc
 REQUIRES TOOL   make
@@ -235,7 +237,7 @@ FILE /usr/src/dolly/gamedev/dolly-raylib.c
     #include <termios.h>
     
     // Upstream PLATFORM_MEMORY polls a Unix tty. Dolly supplies input through
-    // dolly_display_next_event(), so satisfy those unreachable backend hooks
+    // dolly_input_next_event(), so satisfy those unreachable backend hooks
     // locally instead of growing the command ABI with a second input path.
     int tcgetattr(int descriptor, struct termios *attributes) {
       (void)descriptor;
@@ -260,6 +262,12 @@ FILE /usr/src/dolly/gamedev/dolly-raylib.c
       memset(context, 0, sizeof(*context));
       int status = dolly_display_acquire(&context->surface);
       if (status != 0) return status;
+      status = dolly_input_acquire(&context->input);
+      if (status != 0) {
+        dolly_display_release(context->surface.generation);
+        memset(context, 0, sizeof(*context));
+        return status;
+      }
     
       uint32_t width = context->surface.width;
       uint32_t height = context->surface.height;
@@ -276,6 +284,7 @@ FILE /usr/src/dolly/gamedev/dolly-raylib.c
         status = dolly_display_set_size(context->surface.generation, width, height,
                                         &context->surface);
         if (status != 0) {
+          dolly_input_release(context->input);
           dolly_display_release(context->surface.generation);
           memset(context, 0, sizeof(*context));
           return status;
@@ -284,6 +293,7 @@ FILE /usr/src/dolly/gamedev/dolly-raylib.c
     
       InitWindow((int)context->surface.width, (int)context->surface.height, title);
       if (!IsWindowReady()) {
+        dolly_input_release(context->input);
         dolly_display_release(context->surface.generation);
         memset(context, 0, sizeof(*context));
         return -EIO;
@@ -336,13 +346,13 @@ FILE /usr/src/dolly/gamedev/dolly-raylib.c
     int dolly_raylib_next_event(dolly_raylib *context, dolly_input_event *event,
                                 double timeout_milliseconds) {
       if (context == NULL || !context->open) return -EINVAL;
-      return dolly_display_next_event(context->surface.generation, event,
-                                      timeout_milliseconds);
+      return dolly_input_next_event(context->input, event, timeout_milliseconds);
     }
     
     int dolly_raylib_close(dolly_raylib *context) {
       if (context == NULL || !context->open) return -EINVAL;
       CloseWindow();
+      dolly_input_release(context->input);
       int status = dolly_display_release(context->surface.generation);
       memset(context, 0, sizeof(*context));
       return status;
@@ -360,10 +370,12 @@ FILE /usr/src/dolly/gamedev/dolly-raylib.h
     #define DOLLY_RAYLIB_H
     
     #include <dolly/display.h>
+    #include <dolly/input.h>
     #include <raylib.h>
     
     typedef struct {
       dolly_display_surface surface;
+      uint64_t input;
       uint32_t animation_frame_sequence;
       int open;
     } dolly_raylib;

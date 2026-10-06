@@ -2,16 +2,17 @@ DOLLY 6
 APPLICATION bhop
 REQUIRES HOST runtime@0
 REQUIRES HOST display@0
+REQUIRES HOST input@0
 REQUIRES HOST download@0
 REQUIRES HOST http@0
 REQUIRES HOST snapshot@0
 REQUIRES HOST threads@0
 REQUIRES HOST upload@0
 
-FROM https://daugasauron.com/demos/slopyard/Dollyfile-gamedev-sdk f9ecd09441f6ef1d8f7615f18d1ea238a347bca344322504365854d231469281
-INSTALL https://daugasauron.com/demos/javascript/Dollyfile-javascript 87432a51f47a91b286400c29d32dccdcc2050cb9d7a4f1c69811445fb92b269c
-INSTALL https://daugasauron.com/demos/pi/Dollyfile-pi-coding-agent 7cccf3c85c38166c23bb95815b7a09b69f0854f08734727b4e69c6f5f740c025
-INSTALL https://daugasauron.com/demos/sdl2/Dollyfile-sdl2 67c940c16a3a6bb4002df52ff0d30d8242cc2dfe13f887def6f47ceb0bca9e8f
+FROM https://daugasauron.com/demos/slopyard/Dollyfile-gamedev-sdk 1a8424d1e331f627452a478d810c366c4ca150d8499bbf1cb4cc790f7cdd076c
+INSTALL https://daugasauron.com/demos/javascript/Dollyfile-javascript 43f3bdcb2db06e047ea61551bdd6fadb814f380153aeb5b2018c52b2a6dc0aac
+INSTALL https://daugasauron.com/demos/pi/Dollyfile-pi-coding-agent b79004257af8b365523c51e7bdc34e6402518b2392b3e6ac35d89401407220f7
+INSTALL https://daugasauron.com/demos/sdl2/Dollyfile-sdl2 7c5dd30e28d79431c6f3ab83d55a9a56dc27b25d2746ab3d8a28b2c0217b71d4
 REQUIRES TOOL cc
 REQUIRES TOOL make
 REQUIRES TOOL c++
@@ -423,12 +424,14 @@ FILE /usr/src/dolly/bhop/bhop.c
         state->looking = event->action != 0;
         clear_keys(state);
       } else if (event->type == DOLLY_INPUT_EVENT_POINTER_MOTION && state->looking) {
-        state->yaw += (int32_t)event->width_css_px * 0.0000011f;
-        state->pitch = Clamp(state->pitch - (int32_t)event->height_css_px * 0.0000011f, -1.48f, 1.48f);
+        state->yaw += event->x * 0.0000011f;
+        state->pitch = Clamp(state->pitch - event->y * 0.0000011f, -1.48f, 1.48f);
       } else if (event->type == DOLLY_INPUT_EVENT_FOCUS && !event->action) {
         state->looking = 0;
         clear_keys(state);
-      } else if (event->type == DOLLY_INPUT_EVENT_SCROLL && state->looking && (int32_t)event->action != 0) {
+      } else if (event->type == DOLLY_INPUT_EVENT_DROPPED) {
+        clear_keys(state);
+      } else if (event->type == DOLLY_INPUT_EVENT_SCROLL && state->looking && event->y != 0) {
         state->player.jump_queue = 2;
       } else if (event->type == DOLLY_INPUT_EVENT_KEY) {
         int down = event->action != DOLLY_KEY_ACTION_RELEASE;
@@ -665,7 +668,7 @@ FILE /usr/src/dolly/bhop/bhop.c
         if (!IsWindowReady()) return 1;
         SetTraceLogLevel(LOG_WARNING);
       } else if (dolly_raylib_open_sized(&graphics, "Dolly Airtime", 960, 540) != 0) return 1;
-      if (!agent && dolly_raylib_set_cursor(&graphics, DOLLY_DISPLAY_CURSOR_CAPTURED) != 0) {
+      if (!agent && dolly_input_set_pointer_relative(graphics.input, 1) != 0) {
         dolly_raylib_close(&graphics);
         fputs("bhop: this runtime does not support captured mouse input\n", stderr);
         return 1;

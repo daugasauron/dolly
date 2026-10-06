@@ -2,11 +2,12 @@ DOLLY 6
 TOOLCHAIN typescript-build
 REQUIRES HOST runtime@0
 REQUIRES HOST display@0
+REQUIRES HOST input@0
 REQUIRES HOST download@0
 REQUIRES HOST http@0
 REQUIRES HOST upload@0
 
-FROM https://daugasauron.com/Dollyfile-system-tools f72747dc0ffb6a3b633fcbff6308a155995e243f9e644ff435784882f99b5da6
+FROM https://daugasauron.com/Dollyfile-system-tools 6ccaed318e9b43ffcf093f59e9b4630a1537e5d39eb44f36b8b0032135afb260
 
 REQUIRES TOOL   ar
 REQUIRES TOOL   cc

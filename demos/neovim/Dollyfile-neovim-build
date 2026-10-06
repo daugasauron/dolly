@@ -2,12 +2,13 @@ DOLLY 6
 TOOLCHAIN neovim-build
 REQUIRES HOST runtime@0
 REQUIRES HOST display@0
+REQUIRES HOST input@0
 REQUIRES HOST download@0
 REQUIRES HOST http@0
 REQUIRES HOST upload@0
 
 # Reusable Neovim build artifacts.
-FROM https://daugasauron.com/demos/cmake/Dollyfile-cmake-build a6bd7aac3cc82f24c56a33cb26e487cdacecdbb49c3618d625fceb22df0c3981
+FROM https://daugasauron.com/demos/cmake/Dollyfile-cmake-build d6fe2e4340d973d3b378fd7c0faee0e80e650abb745ce034abb5b48598efc7fd
 # Neovim supports PUC Lua 5.1. Build the upstream interpreter and C library;
 # -rdynamic lets source-built Lua C modules share that interpreter's API.
 REQUIRES HEADER libc

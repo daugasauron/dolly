@@ -2,7 +2,7 @@ DOLLY 6
 PACKAGE zlib
 REQUIRES HOST runtime@0
 
-FROM https://daugasauron.com/Dollyfile-system-build 699f0707eafb2b18d03444cb93316899f38c510bc19b99ed21625a132718e500
+FROM https://daugasauron.com/Dollyfile-system-build 7eff0916befad64f23ee9394a596beb5a1eed500f1badfe949d5136d33bbabed
 
 REQUIRES HEADER libc
 REQUIRES TOOL   ar

@@ -2,12 +2,13 @@ DOLLY 6
 TOOLCHAIN rts-build
 REQUIRES HOST runtime@0
 REQUIRES HOST display@0
+REQUIRES HOST input@0
 REQUIRES HOST download@0
 REQUIRES HOST http@0
 REQUIRES HOST upload@0
 
-FROM https://daugasauron.com/Dollyfile-system-tools f72747dc0ffb6a3b633fcbff6308a155995e243f9e644ff435784882f99b5da6
-INSTALL https://daugasauron.com/demos/sdl2/Dollyfile-sdl2 67c940c16a3a6bb4002df52ff0d30d8242cc2dfe13f887def6f47ceb0bca9e8f
+FROM https://daugasauron.com/Dollyfile-system-tools 6ccaed318e9b43ffcf093f59e9b4630a1537e5d39eb44f36b8b0032135afb260
+INSTALL https://daugasauron.com/demos/sdl2/Dollyfile-sdl2 7c5dd30e28d79431c6f3ab83d55a9a56dc27b25d2746ab3d8a28b2c0217b71d4
 REQUIRES HEADER cpp
 REQUIRES HEADER sdl2
 REQUIRES HEADER zlib
