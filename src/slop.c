@@ -2827,7 +2827,14 @@ static int spawn_command(Shell *shell, int argc, char **argv, const char *search
   char path[PATH_MAX];
   enum command_resolution resolution = resolve_command(argv[0], search, path, sizeof(path));
   if (resolution == COMMAND_PATH_TOO_LONG) { fprintf(stderr, "slop: %s: path is too long\n", argv[0]); return 126; }
-  if (resolution != COMMAND_FOUND) { fprintf(stderr, "slop: %s: command not found\n", argv[0]); return 127; }
+  if (resolution != COMMAND_FOUND) {
+    // A word with a slash is a path: say what is wrong with it, as sh does.
+    struct stat metadata;
+    if (strchr(argv[0], '/') == NULL) { fprintf(stderr, "slop: %s: command not found\n", argv[0]); return 127; }
+    if (stat(argv[0], &metadata) != 0) { fprintf(stderr, "slop: %s: %s\n", argv[0], strerror(errno)); return 127; }
+    fprintf(stderr, "slop: %s: %s\n", argv[0], S_ISDIR(metadata.st_mode) ? strerror(EISDIR) : "not a regular file");
+    return 126;
+  }
   // Ctrl+C that reached the shell while it prepared this command cancels it.
   if (interrupt_requested) {
     interrupt_requested = 0;

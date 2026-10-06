@@ -92,6 +92,8 @@ await browserTest("shell", { server: { handle } }, async ({ server, open }) => {
     ["test \"$(ls flags)\" = \"$(printf 'deep\\nvisible')\" && ls -a flags | grep -q '^.hidden$'"],
     ["echo file > not-a-directory && mkdir -p not-a-directory", 1],
     ["rm -f flags/missing && rm -rf flags && ls -la"],
+    // A path that names nothing is reported as a path, not as a missing command.
+    ["./no-such-program 2> missing; test $? = 127 && grep -q 'No such file' missing && ./ 2> dir; test $? = 126 && grep -q 'directory' dir"],
     ["ls flags", 1],
     ["echo shell-created > shell.txt && test \"$(stat -c '%F %s' shell.txt)\" = 'regular file 14' && file shell.txt"],
     ["[ -f shell.txt ] && [ ! -d shell.txt ]"],
