@@ -1,7 +1,7 @@
 import {readFileSync,mkdirSync,statSync,openSync,writeSync,closeSync,renameSync,unlinkSync} from 'node:fs';
 import {spawn} from 'node:child_process';
-// The catalog: id, name, prompt format, context, GPU memory in GB (measured),
-// pinned upstream URL, bytes and SHA-256.
+// The catalog: id, name, prompt format, context, the publisher's recommended
+// sampling, GPU memory in GB (measured), pinned upstream URL, bytes and SHA-256.
 export const models=JSON.parse(readFileSync('/usr/share/dolly/llm/models.json','utf8'));
 // Volatile in-Wasm files: model weights are not part of saved filesystem sessions.
 const directory='/run/dolly-llm';
