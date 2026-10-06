@@ -1,6 +1,6 @@
 # Firefox: show which GPU WebGPU uses, and whether it can be switched
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 55
 - TAGS: gpu,firefox,investigation
 
@@ -36,3 +36,37 @@ Xvfb), and whether anything the page can read tells the adapters apart.
 - The answer for this machine is recorded with its evidence, the indicator and
   `docs/gpu.md` say how to tell and how to switch, and no new browser authority
   was added to find out.
+
+## Measured, 2026-10-07 06:40 (owner asked how to make Firefox use the NVIDIA card)
+
+Read-only, on the owner's machine: RTX 5070 (driver 580.178.04) and an AMD
+integrated GPU; X11 session with Xorg on the NVIDIA card; Firefox 156.0.1
+from the snap.
+
+- The page asks for the discrete GPU: `host/gpu/gpu.mjs:13` and
+  `host/gpu/worker.mjs:34` call `requestAdapter({ powerPreference:
+  "high-performance" })`.
+- `nvidia-smi` lists Firefox on the NVIDIA card as `C+G`: the owner's own
+  Firefox with 2,212 MiB, and the Firefox the local-model GPU test had just
+  started (`--profile …/build/llm-p…`) with 2,057 MiB while it ran a model. So
+  on this machine Firefox's WebGPU is on the RTX 5070 without any setting.
+- The page already says which adapter it got: the corner indicator reads
+  "GPU: VENDOR ARCHITECTURE DESCRIPTION · shader-f16" or "no shader-f16"
+  (`host/gpu/gpu.mjs:51-54`; Ctrl+Shift+F shows it again).
+
+Not measured: the adapter list in Vulkan loader order (`vulkaninfo` is not
+installed); `about:support` in the owner's Firefox; whether the launch
+variables that restrict Vulkan to the NVIDIA driver
+(`__VK_LAYER_NV_optimus=NVIDIA_only`) work inside the snap. Still open: say in
+the indicator when a second, unused adapter exists, and whether a page can
+offer the choice.
+
+## Closed 2026-10-07 (folded into `20261001-232300-gpu-visibility`)
+
+The owner's question is answered above with its evidence: on this machine
+Firefox's WebGPU runs on the RTX 5070 without any setting (`nvidia-smi`
+lists both Firefox processes as `C+G` on it), and the page asks for the
+discrete adapter (`powerPreference: "high-performance"`). What is left is
+indicator wording when Firefox hides the adapter's name, and `docs/gpu.md`
+saying how to tell and switch: one line of the remaining list in
+`20261001-232300-gpu-visibility`, the task that owns the indicator.

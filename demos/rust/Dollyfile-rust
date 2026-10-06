@@ -10,6 +10,8 @@ COPY https://daugasauron.com/demos/rust/Dollyfile-rust-build effbf7ee4a234422386
 COPY https://daugasauron.com/demos/rust/Dollyfile-rust-build effbf7ee4a2344223866a1b2b84f6112a5fa7b40f2b6f87689af3186fd0a4472 /usr/bin/patti /usr/bin/patti
 COPY https://daugasauron.com/demos/rust/Dollyfile-rust-build effbf7ee4a2344223866a1b2b84f6112a5fa7b40f2b6f87689af3186fd0a4472 /usr/share/licenses/rust /usr/share/licenses/rust
 COPY https://daugasauron.com/demos/rust/Dollyfile-rust-build effbf7ee4a2344223866a1b2b84f6112a5fa7b40f2b6f87689af3186fd0a4472 /usr/share/licenses/patti /usr/share/licenses/patti
+# rustc links what it compiles with the C toolchain.
+INSTALL https://daugasauron.com/Dollyfile-cc 4f80bbb83d7bc2b21e433896badd55571d3f8efaa4b6116e7befec72b4dbe648
 FILE /usr/bin/rustc
     #!/bin/slop
     /opt/rust-sdk/bin/rustc "$@"

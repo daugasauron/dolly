@@ -4,6 +4,16 @@
 - PRIORITY: 270
 - TAGS: demo,zero-ad,bootstrap
 
+## Remaining (2026-10-07)
+
+Everything in the `zero-ad` image except SpiderMonkey's archives is built by
+Dolly's own tools (since 2026-10-02, below); the chain rebuilt in every
+round since. Left: SpiderMonkey 128.13.0 inside Dolly, which needs mozbuild
+to accept a wasm host, Slop's `trap` and `umask` in `config.guess`, and
+Cargo driven by mozbuild (`20260930-231102-cargo-native`: its `libjsrust.a`
+already builds with the packaged Cargo, 3 m 42 s); and the content (Naga for
+the shaders, the data packaging) run in Dolly's CPython and Patti or Cargo.
+
 Owner goal: the 0 A.D. engine, SpiderMonkey and its dependencies must be compiled inside Dolly instead of by demos/zero-ad/toolchain on the host.
 
 Needs in-sandbox CPython (SpiderMonkey configure), rustc (SpiderMonkey Rust parts), the C/C++ compiler and Make/Ninja; depends on 20260930-231100-self-host-rust for a self-hosted rustc.

@@ -4,6 +4,14 @@
 - PRIORITY: 318
 - TAGS: core,architecture,host-modules,abi,boundary
 
+## Remaining (2026-10-07)
+
+Finished on `core/dso-module` at `b527f4de` (the module, twelve recipes, the
+`dso` suite, 25 images and the Rust seed verified on the nine-import kernel,
+below); in `integrate/round3` (`3eadc5c0`). Not in the candidate (`main` at
+`ab412d94`). Closes when round 3's catalog round has built every image and
+the full `amy` and demo suites have passed: the third done-when line.
+
 Owner decision (2026-10-06 evening), on the recommendation in
 `20261005-222449-spawn-users` (branch `investigate/spawn`): "I like the dso
 thing." So the loader that lets a running program load another compiled module
@@ -253,3 +261,66 @@ What each suite shows of this task:
 | Under threads `dlopen` is the libc refusal; `cc -pthread -rdynamic` does not link | `threads` |
 | `default` declares the module and `amy install python` works there | `default`, `amy` |
 | CPython: an extension module at build time, `ctypes` with a callback at run time | the `python` build, its demo test |
+
+### The Rust seed and what else the catalog depends on (second base)
+
+- `demos/rust/build-rust-toolchain.sh` on the build tree the integrator
+  copied in (inside `systemd-run … MemoryMax=8G`): 5 min 8 s, exit 0, "built
+  and validated the complete Rust compiler seed". `link.sh` links
+  `-ldolly-dso` and compiles `dlopen.c` against `build/include`.
+- The relinked `rustc.wasm` (`rustc-real`) carries one record, `dso@0` with the
+  current digest, and exports `__dolly_dso_allocate` and `dolly_dlopen` among
+  5,227 symbols: what the sealing rule expects of the Rust images.
+- Images, with the integrator's leave, through the build slot
+  (`DOLLY_IMAGE_JOBS=1`): `cmake-build` (24 min 17 s), `neovim-build`
+  (3 min 38 s), `nvim`, `neovim`, `rust-sdk`, `rust-build`, `ripgrep` (60 s),
+  then `rust` and `rust-tools`: 25 images in the tree, every build exit 0.
+  - `neovim-build` builds `lua` with `-rdynamic`, loads a C module with
+    `package.loadlib` and `lpeg` with `require`, and runs Neovim's parser
+    check, all in the build host.
+  - `cmake` (one of the four that only reach an operation) built itself and
+    ran its installs with libc's refusal behind `dlsym`; `cmake-build` was
+    sealed without declaring the module.
+- By the stamp, all 25 snapshots (`build/dso-evidence/scan-records-4.txt`):
+
+  | Executable | Images that keep it, all declaring `dso@0` |
+  | --- | --- |
+  | `/usr/bin/nvim` | `nvim`, `neovim`, `neovim-build` |
+  | `/usr/bin/lua` | `neovim-build` |
+  | `/usr/bin/python` (with `http@0`) | `python` |
+  | `/opt/rust-sdk/bin/rustc-real` | `rust`, `rust-sdk`, `rust-build`, `rust-tools` |
+
+  No other Wasm file carries the record: not `cmake`, not `rg`. `default`
+  declares the module and keeps no carrier. No image keeps a carrier without
+  declaring, which sealing enforces.
+- `node --test test/dolly.artifacts.mjs` on the 25 images: 16 of 16.
+- `npm run test:demos -- cmake`: passed in Chrome (18.7 s). Its recipe adds
+  `dso@0` to `cmake-build` for the libuv host it builds and runs.
+- `npm run test:demos -- neovim`: passed in Chrome (6.9 s), first run.
+- `rg` (`build/dso-evidence/rg-once.mjs`): `amy install ripgrep` into
+  `default`, `rg --version` prints `ripgrep 15.1.0`, a search finds its file:
+  Chrome and Firefox.
+- The Rust demo test's compiler half on `rust-tools`
+  (`build/dso-evidence/rust-macro.mjs` running `runRustTools`): `rustc`
+  builds a proc macro, `rustc-real` loads it, the macro starts `/bin/slop`
+  while it expands; threads; a Patti build and its resume: Chrome (14.1 s)
+  and Firefox (17.6 s). Its Tokio half was not run (it needs the Codex
+  sources).
+
+### Not run
+
+- `llvm-tablegen`, `dollyfile-studio`, `cargo` and every other image of the
+  catalog; the full `amy` suite (its second block installs `cmake`, `sdl2`,
+  `rust`, `codex-cli`); the Tokio half of the Rust demo test; the release
+  acceptance and packaging.
+- Recipe pins are not committed: `node scripts/update-recipe-pins.mjs` makes
+  a checkout of this branch lint, as the integrator's re-pin does.
+
+## State (2026-10-07 00:35, `core/dso-module`)
+
+Done and verified on `fb6c3463`: the module, its tests and documents, twelve
+recipes. The first two done-when criteria hold as measured above. The third
+is the catalog round's: build every image (sealing names any recipe that
+keeps `nvim`, `lua`, `python` or `rustc-real` without the line), then the
+full `amy` and demo suites. The task stays open until that round has run;
+the branch joins `integrate/round3`.

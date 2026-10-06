@@ -1,6 +1,6 @@
 # Studio video: same structure, a game whose graphics work and look good
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 338
 - TAGS: site,demo,studio,recording
 
@@ -127,3 +127,15 @@ then `PLAY=22 FRESH=20 node plan2.mjs TAKE "description" > plan.json`,
 `CRF=18 node cut.mjs plan.json hq.mp4 1920`, `CRF=33 ./deglitch.sh hq.mp4
 final.mp4` and `./pastecheck.sh final.mp4 24.5 30.5 OUT_DIR`. To inspect a
 saved recipe's frames: `drive.mjs` with `custom-run.js` and `grab.js`.
+
+## Closed 2026-10-07
+
+The done-when holds: `a8b5198e` (in the candidate, `ab412d94`) replaced the
+video and poster with the g1 take,
+`sites/daugasauron.com/agents/videos/dollyfile-studio.mp4` at sha256
+`5825f111…` as checked above; the cause of the first result, the model,
+prompt, cost and rerun are recorded; the page test ran in the main round's
+suites. The owner's verdict on the g1 take is still to come: it is listed
+for him in the triage of 2026-10-07 (`20261005-132713-round-1005`). A new
+take, if he wants one, is a new request; the rig and prompts are described
+under "Rerun". `20261005-223022-studio-video` is closed into this task.

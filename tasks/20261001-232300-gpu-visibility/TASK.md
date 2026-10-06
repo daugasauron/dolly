@@ -4,6 +4,23 @@
 - PRIORITY: 200
 - TAGS: gpu,display,ux,demo
 
+## Remaining (2026-10-07)
+
+Done and in the candidate: the trusted `#gpu-status` indicator with its three
+states and `test/gpu-indicator-browser.mjs`; since `7ecc1466` the corner
+indicators hide after ten seconds and return on Ctrl+Shift+F (owner's
+decision, `20261006-105730-corner-indicators`), so "persistent" in the
+done-when now means that. Left:
+
+- Start-page and image-page labels (GPU, software adapter, CPU) for the
+  seven demo images, derived from `REQUIRES HOST gpu@0` and the README line
+  (section "Start page and image page labels").
+- From `20261005-225813-firefox-adapter` (closed into this task): when
+  Firefox hides the adapter's name, say what the indicator can truthfully
+  say and whether a second, unused adapter exists; `docs/gpu.md` says how to
+  tell which card is in use and how to switch (on the owner's machine
+  Firefox is already on the RTX 5070, measured there).
+
 Owner request (2026-10-01): "everything that uses GPU should be obvious. The
 user should always know if GPU is used or if there's some CPU fallback in
 place."

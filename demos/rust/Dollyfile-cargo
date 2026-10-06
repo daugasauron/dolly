@@ -34,7 +34,7 @@ SLOP cp /tmp/cargo/build/patti-build.json /usr/share/dolly/builds/cargo.json
 SLOP rm -rf /tmp/cargo /tmp/cargo.tar /tmp/cargo-patti.toml
 
 # Cargo runs rustc: the package brings the compiler it was built for.
-INSTALL https://daugasauron.com/demos/rust/Dollyfile-rust 083c6489f05a0253ea6f2a039c5e7f91a25d8b01f49bcffb1f465cc97bc886b4
+INSTALL https://daugasauron.com/demos/rust/Dollyfile-rust 4028fc18658ec8d34af8dafbce816747bef2b8546bb2605985e6c36e5f8f382a
 # Until Dolly has file locks: rustc's incremental sessions need them.
 EXPORTS ENV CARGO_INCREMENTAL 0
 EXPORTS TOOL cargo

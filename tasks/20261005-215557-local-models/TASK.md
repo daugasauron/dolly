@@ -1,6 +1,6 @@
 # Local models as packages: more models, per-model setup, configuration from Pi
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 335
 - TAGS: local-llm,packages,pi,studio,design
 
@@ -412,3 +412,33 @@ parameter accepts 1,024 and up.
 - More models: blocked by `gpu@0`'s 4 GiB, not by packaging.
 - Context size: the three items above, and a restart of Pi with the override
   (it is a file Pi reads at start; not shown).
+
+## Closed 2026-10-07
+
+`work/local-models` (`2579350b`) is in the candidate; the four shard recipes
+carry `REQUIRES HOST runtime@0`; the model packages, `pi-local` and
+`dollyfile-studio` were rebuilt in the main round's catalog (67 images). The
+done-when against the evidence:
+
+- The user's path by Playwright: on the branch, `pi-local` and
+  `dollyfile-studio` in Chrome (f32, MiniCPM5-2B) and Firefox (f16, the 4B
+  as four packages), table above. On the candidate, `pi-local` passed in
+  both browsers on the RTX 5070 (`work/next/build/next-evidence/gpu-local-llm-rerun.log`:
+  engine proof, the agent task, session save and restore, `/local`, the
+  second model installed with `amy`, temperature 0.35, the task again, no
+  request leaving the origin). The `dollyfile-studio` half of that test did
+  not run on the candidate: the run was cut by the 06:58 runtime rebuild
+  ("runtime identity is stale") and the first run stopped earlier in Firefox
+  on a terminal-selection timeout (`20261001-095000-terminal-text-flake`).
+  Studio is `FROM pi-local` and ships the same provider; its demo suite
+  passed on the candidate (`finish.log`).
+- Adding a model is a recipe and `/usr/share/dolly/llm/ID.json`; the
+  provider lists that directory and names no model.
+- Each packaged model's numbers are in the table ("Models offered").
+
+Context size items are `20261006-093051-local-context-size`. From
+`20261005-214159-large-packages` (closed into this task): the bullet "during
+the install the kernel holds the installed shards plus one shard's artifact
+at most" was not measured; `amy` fetches, installs and unlinks one package's
+artifact before the next (`src/commands/amy.c`, `unlink(path)` after each
+`dollyfile install`), which is what it rests on.

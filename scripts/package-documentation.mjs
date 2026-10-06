@@ -58,6 +58,9 @@ export async function packageDocumentation(project, site, roots) {
       const target = resolve(dirname(source), decodeURIComponent(link));
       if (!target.startsWith(project + sep)) throw new Error(`documentation link escapes the site: ${link}`);
       const relative = target.slice(project.length + 1);
+      // A recipe the site publishes is linked as itself: the docs package pins
+      // these documents, so their bytes change only for a recipe the site lacks.
+      if (recipePath.test(relative) && await lstat(resolve(site, relative)).then(file => file.isFile(), () => false)) continue;
       pending.push(relative);
       if (recipePath.test(relative)) replacements.set(link, `${link}.txt`);
     }

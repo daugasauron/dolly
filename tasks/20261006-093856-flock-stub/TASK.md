@@ -4,6 +4,17 @@
 - PRIORITY: 230
 - TAGS: bug,libc,kernel,locks
 
+## Remaining (2026-10-07)
+
+Reopened by the triage: the branch closed it, but nothing of it is in the
+candidate (`main` at `ab412d94`), where `flock` is still the false success
+measured below. Finished on `core/file-locks` at `53177981` (kernel locks,
+libc `flock` and `fcntl`, the process fixture, SQLite and Make `-O` checked
+in both browsers on the nine-import kernel, below); it is in
+`integrate/round3` (`3eadc5c0`), whose `default` and `system` chains built
+and twelve suites passed at `93e3d0cb`. Closes when round 3 merges and its
+catalog round has rebuilt the Rust seed (the one thing not run here).
+
 Found on the Cargo track (2026-10-06, `tasks/20260930-231102-cargo-native`).
 
 ## Measured (Chrome, `rust-build` image)

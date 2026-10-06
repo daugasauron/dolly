@@ -4,6 +4,20 @@
 - PRIORITY: 300
 - TAGS: core,iteration,build
 
+## Remaining (2026-10-07)
+
+In the candidate (`core/iteration`, `f56fd246`, `db825da2`, `c5537f53`):
+`npm run dev` serves the checkout and the tests and image builder use it,
+nothing under `scripts/` imports from `test/`; `build` and `test:full` are
+deleted; an unchanged `npm run image -- default` takes 2 s (was 6.5 s) and
+`README.md` carries the turnaround table with measured numbers. Left, the
+third done-when line for three demo images: unchanged runs of `codex`
+(13 s, its Python preparer re-extracts), `zero-ad` (10 s, the 1.8 GB copy)
+and `pi-local` (10-15 s, the snapshot re-hash) stay above 10 s; the fixes
+named under "Left" below belong with each demo's next change
+(`prepare-codex-sources.py`, `prepare-distribution.mjs`,
+`prepare-emacs.sh`'s fetch).
+
 `npm run serve` reads only sealed releases (`README.md:62`), so seeing a JS change in a browser
 requires `npm run publish` (a browser check per image). The only source-tree server is
 `scripts/serve-gpu.mjs`, documented only in `docs/gpu.md:107`; `test/browser-server.mjs:26-49`

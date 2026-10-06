@@ -4,6 +4,23 @@
 - PRIORITY: 210
 - TAGS: rust,cargo,toolchain,network
 
+## Remaining (2026-10-07)
+
+In the candidate (`main` at `ab412d94`): the `cargo` package built in the
+catalog round, the `rust` package installing `cc` (`7eebbed6`), the empty
+`exe-suffix` and the Rust seed relinked for it, the libcurl multi options;
+`amy cargo alone` and `amy rust alone` pass in Chromium and Firefox and the
+`rust` demo test passes (`work/next/build/next-evidence/finish.log`,
+`finish-rust-demo.log`). On `integrate/round3`: `cargo` in `rust-tools`, the
+libcurl follow-up and the linker's `-g1` (`work/cargo-native` `c99dd5dc`).
+Left, from "Next steps" and the done-when: drop the SQLite dot-file setting
+and `CARGO_INCREMENTAL=0` once `core/file-locks` lands; `libc` under Cargo
+(a `[patch]` that does not harm other projects); SpiderMonkey's mozbuild
+driving Cargo (`--frozen` is unstable with this Cargo); the `test` crate in
+the SDK for `cargo test`; `PUT`, `CONNECTTIMEOUT` and `LOW_SPEED_*` in
+libcurl and a relay for git dependencies; the 5 to 6 GB the `cargo` image
+build needs; then Patti, its recipes and tests deleted.
+
 Owner question (2026-10-01): can real Cargo run inside Dolly by patching
 sockets or HTTP, instead of the Patti wrapper?
 
@@ -436,12 +453,16 @@ seed with the empty suffix, explicit `runtime@0`, the libcurl follow-up.
   offline build and a build against a one-crate sparse registry on the test
   server, under the test's explicit policy; the registry saw exactly its
   `config.json`, one index file and one download.
-- The `cargo` image builds under the 6 GB build cap (anonymous memory up to
-  5.64 GB in the last crate) and was killed under 5 GB. `-j` is not the
-  lever: with `-j 2` a session build took 1200 s on a loaded machine and
+- The `cargo` image build is marginal under the 6 GB build cap: it passed
+  twice (22:57 and 00:18, 5.64 and 5.67 GB anonymous memory in the last
+  crate) and was killed twice (23:57 in the last crate at 5.94 GB, 00:35
+  four minutes in), and once under 5 GB. `-j` is not
+  the lever: with `-j 2` a session build took 1200 s on a loaded machine and
   peaked at 4.70 GB against 5.05 GB with `-j 4`; the `cargo` crate's own
-  rustc on top of about 2 GB of files decides. Building Cargo therefore
-  needs about 5 GB in a tab, 6 GB as an image. The recipe keeps `-j 4`.
+  rustc on top of about 2 GB of files decides. The recipe keeps `-j 4`.
+  Building Cargo needs about 5 GB in a session. As an image it needs 1.2 to
+  1.5 GB more because the builder keeps each dependency snapshot twice more
+  than needed (`tasks/20261006-145958-builder-artifact-copies`).
 - The Cargo built from the committed sources prints no ERROR line in the
   crates.io build (its libcurl accepts the two connection options).
 - `cargo install cbindgen --version 0.26.0 --root /tmp/cb`, the tool
@@ -477,14 +498,28 @@ seed with the empty suffix, explicit `runtime@0`, the libcurl follow-up.
   order), the second finished in 3 m 42 s and left a 37.7 MB
   `obj-dolly/wasm64-emscripten-probe/release/libjsrust.a`, where mozbuild
   looks for it.
+- `amy install cargo` in `default` (00:21): "amy: cargo installed: 1344
+  files, 286079739 bytes, commands: cargo patti rustc"; `amy installed` lists
+  `rust`, then `cargo`; `cargo --version` and `cargo metadata` run at once.
+  `cargo build` then failed at the link: "dolly-rust-link: spawn cc: No such
+  file or directory". On this base `default` has no C toolchain, and the
+  `rust` package did not install one (`amy install rust` had the same gap;
+  the amy suite installed `rust` only after `cc`). Fixed: the `rust` package
+  installs `cc` (`69e09fe3`); in `default`, `amy install rust` then reports
+  "commands: ar c++ cc ld make patti rustc" and `rustc s.rs && ./s` runs.
+  `test/amy-browser.mjs` gained two cases on a fresh `default` without `cc`
+  (`9dfd07b9`): "amy rust alone" passes in Chromium and Firefox; the cargo
+  case has not run, because the `cargo` image did not rebuild under the cap
+  afterwards. The package's `CARGO_INCREMENTAL=0` applies from the next
+  session load, as amy says; until then the first build needs it set.
 - `cargo test` fails: "error[E0463]: can't find crate for `test`". The SDK
   ships no `test` crate (`build-sdk.sh` builds `std,panic_abort,proc_macro`),
   and tests on a panic-abort target need `-Zpanic-abort-tests`.
 
 ### Next steps
 
-1. `amy install cargo` in `default` (the index entry and the package exist;
-   not yet run).
+1. Rebuild `cargo` and `rust-tools` on the `rust` package that installs
+   `cc`, and run the cargo case of `test/amy-browser.mjs`.
 2. When kernel file locks land (`core/file-locks`): drop the SQLite dot-file
    setting from `cargo-patti.toml` and `CARGO_INCREMENTAL=0` from the
    package. Both are stopgaps.
@@ -496,8 +531,12 @@ seed with the empty suffix, explicit `runtime@0`, the libcurl follow-up.
    and `login` need `CONNECTTIMEOUT`, `LOW_SPEED_*` and `PUT` in libcurl. Git
    dependencies over HTTPS need a relay and libgit2's curl transport, which
    Cargo registers only with a non-default `[http]` configuration.
-6. Building Cargo needs 5 to 6 GB; a smaller last crate would need Patti to
-   drop files it no longer needs, or Cargo in the externally built seed.
+6. Building Cargo needs 5 to 6 GB; the builder's extra copies are filed, and
+   a smaller last crate would need Patti to drop files it no longer needs,
+   or Cargo in the externally built seed.
+7. `demos/rust/rust-linker.c` (`4d7fb3b9`) is verified by `rust-sdk`,
+   `rust-build` and `rust` rebuilding with it and by `cargo install ripgrep`
+   in a session; `cargo` and `rust-tools` on that pin still have to build.
 
 ### What would retire Patti
 

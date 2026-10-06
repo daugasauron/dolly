@@ -4,6 +4,19 @@
 - PRIORITY: 230
 - TAGS: rust,build,iteration
 
+## Remaining (2026-10-07)
+
+Done and in the candidate: Patti `-j N` (ripgrep, fd, protox byte-identical
+at `-j 1` and `-j 4`, times below), GNU Make `-jN` over its upstream
+jobserver, Slop's concurrent program stages, `xargs -P`. Left:
+
+- `codex-build` at `-j 4`: the full wall time and a byte comparison with a
+  serial build on the same seed (the run was cut off at 30 minutes).
+- Ninja (Samurai) still spawns serially (`config/samurai-dolly.patch`); its
+  `jobstart` needs `posix_spawn` `addclose`/`addopen`.
+- The decision of 2026-10-01: a supervisor memory budget in place of the
+  fixed 32-process cap, which bounds CMake builds at `-j4`.
+
 Owner decision (2026-10-01): use multi-core builds for Rust.
 
 `codex-build` takes 3,980 s because Patti compiles its crates one at a time,

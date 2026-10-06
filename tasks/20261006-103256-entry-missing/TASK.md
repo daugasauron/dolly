@@ -1,6 +1,6 @@
 # A built image whose ENTRY program was not retained builds green and opens to a blank terminal
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 280
 - TAGS: bug,dollyfile,studio
 
@@ -102,3 +102,14 @@ is seed content: the `image inputs` hash changes):
 
 Not done: the second done-when item (an entry that exits at once shows why)
 is the page's, `20261006-103306-page-ending`.
+
+## Closed 2026-10-07
+
+`fix/entry-missing` (`adce6385`) is in the candidate, which rebuilt every
+image on the seed that carries `entry_retained` (`src/dollyfile.c`). The
+`image` and `custom-session` suites passed in Chromium and Firefox in the
+main round (`work/next/build/next-evidence/browser-final/summary.txt`,
+`round-3.log`); `npm run lint:dollyfiles` holds the ENTRY check for the 66
+catalog recipes. The second done-when item is also met now, by
+`20261006-103306-page-ending` (closed): an entry that exits at once is named
+in the page's notice.
