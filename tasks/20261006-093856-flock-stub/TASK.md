@@ -187,6 +187,41 @@ executable is restamped and the Rust seed rebuilt.
 - `docs/process-model.md` states the semantics and limits. `docs/slop.md` no
   longer says that `make -O` warns: to be confirmed in the browser.
 
+### Where each behaviour comes from
+
+The fixture ran on Linux 6.8 (glibc), so these are Linux's by observation;
+Dolly is expected to do the same:
+
+- `flock`: exclusive refuses exclusive and shared, from another description
+  of the same process and from another process; shared joins shared; a `dup`
+  locks and unlocks for its original; a refused `LOCK_NB` conversion leaves the
+  description without a lock; the lock goes with the description's last
+  descriptor; a spawned child relocks and unlocks its parent's lock, a lock
+  the child took stays after its exit while the parent has the descriptor, and
+  the parent's lock stays after the parent's `close` while a child has it.
+- `fcntl`: the extents `F_GETLK` reports after splitting, unlocking, abutting
+  and overlapping (`l_whence` `SEEK_SET`, `l_len` 0 for no end, `l_pid`);
+  ranges from `SEEK_CUR` and `SEEK_END` and with a negative length; `lockf`;
+  `EBADF` by access mode; `EINVAL` for a negative start, a bad type or whence
+  and `F_GETLK` with `F_UNLCK`; a refused request is `EAGAIN` and changes
+  nothing; closing another descriptor of the file drops every lock; a child
+  inherits none and its `close` does not touch its parent's.
+- Both: release on unlock, `close`, exit and `SIGKILL` of a holder that makes
+  no system call; a waiting request is `EINTR` under a handler and continues
+  under `SA_RESTART`; the two kinds do not see each other.
+
+Not observed on Linux, so my reading or Dolly's own choice:
+
+- POSIX, by reading: `ENOLCK` when a request, an unlock that splits included,
+  would exceed the system's limit; `EOVERFLOW` for a range past the largest
+  offset; `EDEADLK` under "may fail" (Linux does detect some deadlocks; Dolly
+  none). The harness checks the first two against the kernel code only.
+- Linux source, by reading: a range through the largest offset has no end
+  (`OFFSET_MAX`); the conversion order in `flock_lock_inode`.
+- Dolly's own: the limit of 1024; `ENOTSUP` for a pipe (Linux locks pipes);
+  `EINVAL` for `F_OFD_*` (Linux has them); status 126 for a trapped holder;
+  unordered waiters (Linux wakes in order).
+
 ### Checked without a browser
 
 - The tree has no native harness for the kernel. An ad-hoc one compiles
@@ -201,10 +236,11 @@ executable is restamped and the Rust seed rebuilt.
   48 bytes, the table 48 KiB, a process record 8,072 bytes. Eight deliberate
   faults in the lock code (merge, split, conflict rule, conversion, last
   close, close rule, limit, wakeup) each failed it.
-- `node --test test/*.test.mjs`: 273 of 278 pass in the source-only tree.
-  Four need `dist/`; the fifth is the docs package's pin of
-  `docs/process-model.md` and `docs/slop.md`, stale until the integrator
-  re-pins (`node scripts/update-recipe-pins.mjs --sources`).
+- `node --test test/*.test.mjs` after `npm run build:runtime`: 317 of 318
+  pass; the one failure is the docs package's pin of `docs/process-model.md`
+  and `docs/slop.md`, re-pinned in this branch once the text is final.
+- Kernel, libc adapter and the fixture pass `emcc -fsyntax-only` in the pinned
+  toolchain image, the fixture with `-D__dolly__`.
 
 ## Measured (2026-10-06, Chrome, `default`, runtime `5439ebe7…`)
 
