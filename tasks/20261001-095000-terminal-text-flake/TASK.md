@@ -172,3 +172,40 @@ already waits for the canvas after entering.
 A person sees the same reflow when a window shrinks under a screen painted
 with a background colour; it is Ghostty's, and no Dolly code decides it.
 The mouse-drag failure at line 67 recorded above is not examined here.
+
+## The neovim demo failure and keys typed after an exit (2026-10-07, `fix/selection-after-exit`)
+
+Seed round (`9077dda1`, image inputs `22d006ca…`): `demos/neovim` failed 6 of
+10 runs in Chrome with `timed out waiting for terminal selection publication`
+at `prompt(recoveryPrompt)`, right after `:q`.
+
+Mechanism, from a timeline of the terminal and display mailbox words in the
+failing runs (`build/selfix-evidence/repro-wait-1.log`): no record is lost.
+`waitForInteractiveTerminal` starts reading the screen while Neovim, still the
+foreground program in raw mode, is about to exit. `visibleTerminalText()`
+(`host/display/display.mjs`) presses, waits a frame for the old selection to
+go, then drags. Neovim leaves the alternate screen in between, and a drag
+cannot extend a selection whose press was on the other screen
+(`handle_pointer` in `src/ghostty/display.c`: the gesture yields none). The
+helper then waited its five seconds and threw through the outer wait.
+Confirmed without any program exiting: press, `printf '\033[?1049l'`, drag
+selects nothing; output or a clear in between does not break it
+(`altscreen.log`). The discard at retirement is not involved: Neovim has no
+reclamation delay here and the records were consumed by the driver.
+
+Fix 1 (`521ef85f`, page only): the helper makes the gesture again when it
+yields no selection, with waits of 0.25, 0.5, 1 and 3.25 s.
+`test/terminal-browser.mjs` makes a full-screen program's exit fall between
+the press and the drag; it fails with the same timeout without the fix.
+
+Fix 2 (kernel only, image inputs unchanged): keys are a different matter.
+Measured with the 160 MiB interactive fixture: a command typed in the 500 ms
+between the program's exit and its Worker's retirement was dropped, 3 of 3
+(`keys-after-exit.log`), because `dolly_process_worker_retired` discarded
+pending input. The discard now happens when the terminal's owner exits
+(`mark_process_exited`): what it left unread is dropped, what is typed
+afterwards reaches the shell. `test/display-browser.mjs` types a command in
+that window.
+
+Evidence on both fixes: `demos/neovim` 10 of 10; `terminal`, `display` and
+`process` in Chrome and Firefox; `core`, `shell` and `boundary` in Chrome.
