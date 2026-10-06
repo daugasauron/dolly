@@ -1,5 +1,5 @@
 import { buildLog } from "./build-log.mjs";
-import { createHost, buildHost, selectBoot } from "../host/modules.mjs";
+import { createHost, buildHost, buildHostFor, selectBoot } from "../host/modules.mjs";
 import { prepareImageArtifacts, loadImageHostRequirements } from "./image-build.mjs";
 import { buildImage } from "./image-builder.mjs";
 import { loadCustomImage, storedCustomImage } from "./custom-image.mjs";
@@ -81,7 +81,7 @@ async function boot() {
   const recipe = customSource === undefined ? DOLLY_IMAGES.find(definition => definition.image === image)
     : inspectDollyfile(customSource);
   const runnable = recipe.entry !== null;
-  host = await createHost("browser", !runnable ? buildHost : globalThis.DOLLY_HOST_MODULES ??
+  host = await createHost("browser", !runnable ? buildHostFor(requiredHost) : globalThis.DOLLY_HOST_MODULES ??
     [...requiredHost, ...(bootMode === "rebuild" ? buildHost : [])], {
     send: (message, transfers = []) => runtimeWorker.postMessage(message, transfers),
     resources: { mount, canvas, keyboard, applicationBase, showStatus, fatal, bootstrapSources,

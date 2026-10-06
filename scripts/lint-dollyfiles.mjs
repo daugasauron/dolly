@@ -2,6 +2,7 @@
 import { resolve } from "node:path";
 import { createDollyfileGraphLoader } from "./dollyfile-graph.mjs";
 import { discoverImageDefinitions } from "./image-definitions.mjs";
+import { runtimes } from "../host/manifests.mjs";
 
 // Checks the syntax, pins, roles and recipe graph of every catalog image.
 export async function lintDollyfiles(projectDir) {
@@ -9,6 +10,9 @@ export async function lintDollyfiles(projectDir) {
   const definitions = await discoverImageDefinitions(projectDir);
   for (const definition of definitions) {
     const graph = await loadGraph(definition.filename);
+    if (!graph.root.hostRequirements.some(requirement => runtimes.includes(requirement))) {
+      throw new Error(`${definition.filename}: declares no runtime; add REQUIRES HOST ${runtimes.join(" or ")}`);
+    }
     if (definition.parsed.role === "application" && !graph.root.hostRequirements.includes("display@0")) {
       throw new Error(`${definition.filename}: an APPLICATION needs display@0 to be opened`);
     }
