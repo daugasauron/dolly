@@ -189,7 +189,7 @@ void print_help(const char *program, int driver_mode) {
     return;
   }
   if (driver_mode == DOLLY_TOOLCHAIN_AR) {
-    std::printf("usage: %s rcs ARCHIVE MEMBER.o...\n", program);
+    std::printf("usage: %s rcs|cq ARCHIVE MEMBER.o...\n       %s s ARCHIVE\n", program, program);
     return;
   }
   std::printf(
@@ -1640,10 +1640,13 @@ int run_archive(int argc, const char *const *argv) {
   }
   std::string operation = argv[1];
   if (!operation.empty() && operation[0] == '-') operation.erase(0, 1);
-  if (operation.find('r') == std::string::npos ||
-      operation.find_first_not_of("rcsD") != std::string::npos) {
+  // r replaces members of the same name, q appends, s alone rewrites the index.
+  const bool replace = operation.find('r') != std::string::npos;
+  const bool append = operation.find('q') != std::string::npos;
+  if (operation.find_first_not_of("rqcsD") != std::string::npos || (replace && append) ||
+      (!replace && !append && operation.find('s') == std::string::npos)) {
     std::fprintf(stderr,
-                 "%s: only deterministic archive updates with r[c][s][D] are supported\n",
+                 "%s: only deterministic archive updates with r, q or s and [c][s][D] are supported\n",
                  argv[0]);
     return 64;
   }
@@ -1675,7 +1678,7 @@ int run_archive(int argc, const char *const *argv) {
                    error_text(std::move(error)).c_str());
       return 1;
     }
-  } else if (archive_bytes.getError() != std::errc::no_such_file_or_directory) {
+  } else if (archive_bytes.getError() != std::errc::no_such_file_or_directory || (!replace && !append)) {
     std::fprintf(stderr, "%s: %s: %s\n", argv[0], argv[2],
                  archive_bytes.getError().message().c_str());
     return 1;
@@ -1690,7 +1693,7 @@ int run_archive(int argc, const char *const *argv) {
       return 1;
     }
     member->MemberName = llvm::sys::path::filename(member->MemberName);
-    size_t existing = 0;
+    size_t existing = append ? replaced.size() : 0;
     while (existing < replaced.size() &&
            (replaced[existing] || members[existing].MemberName != member->MemberName)) ++existing;
     if (existing == replaced.size()) members.push_back(std::move(*member));

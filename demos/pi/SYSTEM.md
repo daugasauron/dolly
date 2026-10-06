@@ -4,9 +4,12 @@ compilers and JavaScript all live in the tab's in-memory filesystem; there is
 no host filesystem, native process, socket or Node escape. Work in
 `/workspace` unless the user asks otherwise.
 
-Read the `dolly` skill before you install software, fetch source, compile,
-draw on the display or explain a failing command: it says what this machine
-has and how to find out more.
+When the user greets you, thanks you or asks a general question, just reply
+in plain text. Call tools only to carry out a task the user has given you.
+
+The `dolly` skill explains how to install software, fetch source, compile,
+draw on the display and diagnose failing commands on this machine, and how to
+find out what it has; read it when a task involves one of those.
 
 Use Pi's `read`, `write`, `edit` and `bash` tools. The `bash` tool and `!` run
 Slop, a small POSIX-like shell, not Bash. Write multi-line files with the

@@ -20,15 +20,18 @@ export function sessionImageIdentity(definitions, selectedImage) {
   return `${definition.image}:${definition.sha256}`;
 }
 
+// The policies are what http@0 hands a tab opened from another. An image
+// without a network edge inherits none; http@0 itself refuses a tab whose
+// inheritance lacks them (host/http/http.mjs).
 export function customSessionIdentity(custom) {
-  const artifact = custom?.artifact;
+  const artifact = custom?.artifact, policies = custom?.policies;
   if (!artifact || typeof artifact.buildId !== "string" || !artifact.buildId.length || artifact.buildId.length > 128 ||
       typeof artifact.recipeSha256 !== "string" || typeof artifact.sha256 !== "string" ||
       !/^[0-9a-f]{64}$/.test(artifact.recipeSha256) || !/^[0-9a-f]{64}$/.test(artifact.sha256) ||
       !Number.isSafeInteger(artifact.byteLength) || artifact.byteLength <= 0 ||
       artifact.byteLength > DOLLY_SESSION_MAX_BYTES ||
-      !Array.isArray(custom.policies) || custom.policies.length === 0 || custom.policies.length > 16 ||
-      new TextEncoder().encode(JSON.stringify(custom.policies)).byteLength > 65536 ||
+      (policies !== undefined && (!Array.isArray(policies) || policies.length === 0 || policies.length > 16 ||
+        new TextEncoder().encode(JSON.stringify(policies)).byteLength > 65536)) ||
       inspectDollyfile(custom.source).kind !== "image") {
     throw new TypeError("invalid custom session base");
   }

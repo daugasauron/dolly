@@ -58,26 +58,24 @@ target_link_options(dolly PRIVATE
   -mbulk-memory
   "SHELL:-Wl,--shared-memory,--no-check-features"
   "SHELL:-Wl,--export=__stack_pointer"
-  # Resident Wasm bytes are instantiated by the small boot loader. The kernel
-  # has no general dlopen/dlsym JavaScript capability or dynamic JS evaluation.
+  # Resident Wasm bytes are instantiated by the small boot loader; the kernel
+  # has no dlopen or dlsym.
   "SHELL:-Wl,--export-table,--growable-table"
-  -sDYNAMIC_EXECUTION=0
   -sWASMFS
-  -sFORCE_FILESYSTEM=1
+  # The kernel is one Wasm module and no generated JavaScript: every import is
+  # one it declares (abi/dolly-browser-0.wat, src/libc-host.c).
+  -sSTANDALONE_WASM=1
+  # The kernel never calls setjmp; Emscripten's JavaScript longjmp would
+  # export two stack helpers no contract names.
+  -sSUPPORT_LONGJMP=0
   -sALLOW_MEMORY_GROWTH=1
   -sIMPORTED_MEMORY=1
   -sINITIAL_MEMORY=67108864
   -sMAXIMUM_MEMORY=${DOLLY_KERNEL_MEMORY_MAXIMUM}
   -sSTACK_SIZE=16777216
-  -sMODULARIZE=1
-  -sEXPORT_ES6=1
-  -sEXPORT_NAME=createDolly
-  -sENVIRONMENT=worker
   --no-entry
   --profiling-funcs
-  "SHELL:-sEXPORTED_RUNTIME_METHODS=FS,FS_createPath,FS_createDataFile,addRunDependency,removeRunDependency"
   "SHELL:-sEXPORTED_FUNCTIONS=@/src/build/runtime-exports.json"
-  "SHELL:--js-library /src/src/browser-broker.js"
 )
 
 # Only a root rebuild needs this bundle. Restored images already contain their
@@ -100,7 +98,7 @@ add_dependencies(dolly dolly-seed)
 
 set_target_properties(dolly PROPERTIES
   OUTPUT_NAME dolly
-  SUFFIX .mjs
+  SUFFIX .wasm
   RUNTIME_OUTPUT_DIRECTORY /src/dist
 )
 

@@ -64,7 +64,6 @@ cp \
   "${project_dir}/dist/dolly-image-build-id.mjs" \
   "${project_dir}/dist/dolly-images.mjs" \
   "${project_dir}/dist/dolly.data" \
-  "${project_dir}/dist/dolly.mjs" \
   "${project_dir}/dist/dolly-seed.mjs" \
   "${project_dir}/dist/dolly.wasm" \
   "${project_dir}/dist/dolly-process-abi.mjs" \

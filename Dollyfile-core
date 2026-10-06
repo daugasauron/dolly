@@ -7,6 +7,7 @@ REQUIRES HOST runtime@0
 FROM https://daugasauron.com/Dollyfile-system-build 471fe211faf34963df6904f5fc12b1183c7fb85eb6f3bc77f0d61aa8b0568a96
 
 EXPORTS TOOL slop
+EXPORTS ENV SHELL /bin/slop
 EXPORTS TOOL foreground
 EXPORTS TOOL help
 EXPORTS TOOL man

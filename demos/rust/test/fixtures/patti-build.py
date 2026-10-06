@@ -17,7 +17,8 @@ files = {
                       '[[bin]]\nname="tool"\n',
     "app/src/main.rs": "",
     "app/src/bin/tool.rs": 'const SHARED: &str = include_str!("../../../shared.txt");',
-    "native/Cargo.toml": '[package]\nname="native"\nversion="1.0.0"\n',
+    "native/Cargo.toml": '[package]\nname="native"\nversion="1.0.0"\nlinks="ext"\n',
+    "system.toml": '[target.wasm64-unknown-emscripten.ext]\nrustc-link-lib=["ext"]\nrustc-link-search=["/opt/system-libs"]\n',
     "native/build.rs": "echo cargo:rustc-link-search=native=/opt/native-libs",
     "native/src/lib.rs": "",
     "pre/Cargo.toml": '[package]\nname="pre"\nversion="0.1.0-alpha.1"\n',
@@ -34,8 +35,10 @@ with tarfile.open(archive, "w:gz") as output:
         entry.size = len(text)
         output.addfile(entry, io.BytesIO(text.encode()))
 (root / "Cargo.lock").write_text(
-    'version=4\n[[package]]\nname="app"\nversion="1.0.0"\ndependencies=["crate","native","pre"]\n'
+    'version=4\n[[package]]\nname="app"\nversion="1.0.0"\ndependencies=["crate","native","pre 0.1.0-alpha.1"]\n'
     '[[package]]\nname="native"\nversion="1.0.0"\n[[package]]\nname="pre"\nversion="0.1.0-alpha.1"\n'
+    '[[package]]\nname="pre"\nversion="0.1.0-alpha.1"\n'
+    f'source="registry+https://github.com/rust-lang/crates.io-index"\nchecksum="{"0" * 64}"\n'
     '[[package]]\nname="crate"\nversion="1.0.0"\n'
     'source="registry+https://github.com/rust-lang/crates.io-index"\n'
     f'checksum="{hashlib.sha256(archive.read_bytes()).hexdigest()}"\n')
@@ -69,6 +72,10 @@ for name in ["native", "tool"]:
     search = [commands[name][i + 1] for i, argument in enumerate(commands[name]) if argument == "-L"]
     assert "native=/opt/native-libs" in search, (name, search)
 assert build() == {}, "an unchanged resumed build recompiled"
+# Cargo's [target.TRIPLE.LINKS] table replaces the build script of the package that links LINKS.
+system = build("--config", str(root / "system.toml"), "--target-dir", str(root / "system"))
+assert "build_script_build" not in system and system["native"][-2:] == ["-L", "/opt/system-libs"], system["native"]
+assert system["native"][system["native"].index("-l") + 1] == "ext", system["native"]
 (root / "shared.txt").write_text("two")
 assert list(build()) == ["tool"], "a changed include_str! input outside the package was reused"
 (root / "pre/src/lib.rs").write_text("compile_error!")

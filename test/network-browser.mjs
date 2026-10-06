@@ -98,13 +98,15 @@ await browserTest("network", { image: "system", server: { fixtures, handle } }, 
       { authorization: null, body: "payload" },
       { authorization: null, body: "" },
       { authorization: "Basic dXJsIHVzZXI6cEBzcw==", body: "" },
-    ], "protocol rejection must prevent HTTP, and authentication selection must change the actual request");
+      { authorization: null, body: "" },
+    ], "protocol rejection must prevent HTTP, and authentication selection and a reset must change the actual request");
     await new Promise(resolve => setTimeout(resolve, 100));
     assert.deepEqual(cancelledRequests, [
       { phase: "deadline", finished: false, closed: true },
+      { phase: "progress", finished: false, closed: true },
       { phase: "body", finished: false, closed: true },
       { phase: "header", finished: false, closed: true },
-    ], "a deadline and rejected callbacks must close the actual HTTP connections");
+    ], "a deadline, a progress callback and rejected callbacks must close the actual HTTP connections");
 
     // curl and git name the class the broker knows: a response the browser
     // blocked or could not reach (curl status 7), or a policy refusal (9).

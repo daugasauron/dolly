@@ -1,0 +1,53 @@
+DOLLY 6
+PACKAGE cargo
+REQUIRES HOST runtime@0
+REQUIRES HOST http@0
+REQUIRES HOST threads@0
+
+FROM https://daugasauron.com/demos/rust/Dollyfile-rust-build b230c83f6c6455b9b5f8f71c6ba05bd8e850a14043a5b5ef69b95e53d7e0fe10
+REQUIRES TOOL patti
+REQUIRES TOOL tar
+REQUIRES TOOL cp
+REQUIRES TOOL mkdir
+REQUIRES TOOL rm
+
+# The archive holds Cargo's source at its pinned commit and checksum-verified locked crate archives.
+SOURCE https://daugasauron.com/dist/static/rust/cargo.tar d06ef2136b278fa2eb43833cfcd093f607e7b1c0f56ab3b589b7e4e7590fa748 /tmp/cargo.tar
+SOURCE https://daugasauron.com/dist/static/rust/cargo-patti.toml e60d474133d7e01a8e69f4670eb97499abf9720fbb66a6eb7062931870548095 /tmp/cargo-patti.toml
+SLOP tar -xf /tmp/cargo.tar -C /
+SLOP patti build -j 4 --offline --manifest-path /tmp/cargo/source/Cargo.toml --bin cargo --config /tmp/cargo-patti.toml --cache /tmp/cargo/cache --target-dir /tmp/cargo/build \
+  --patch libc=/opt/rust-sdk/src/libc \
+  --patch socket2=/tmp/cargo/socket2-0.6.4 \
+  --patch zlib-rs=/tmp/cargo/zlib-rs-0.6.4 \
+  --patch jiff=/tmp/cargo/jiff-0.2.31 \
+  --patch jobserver=/tmp/cargo/jobserver-0.1.34 \
+  --patch is_executable=/tmp/cargo/is_executable-1.0.6 \
+  --patch git2-curl=/tmp/cargo/git2-curl-0.22.0
+SLOP cp /tmp/cargo/build/cargo /usr/bin/cargo
+SLOP mkdir -p /usr/share/licenses/cargo /usr/share/dolly/builds
+SLOP cp /tmp/cargo/source/LICENSE-MIT /usr/share/licenses/cargo/LICENSE-MIT
+SLOP cp /tmp/cargo/source/LICENSE-APACHE /usr/share/licenses/cargo/LICENSE-APACHE
+SLOP cp /tmp/cargo/source/LICENSE-THIRD-PARTY /usr/share/licenses/cargo/LICENSE-THIRD-PARTY
+SLOP cp /tmp/cargo/cache/sources/libgit2-sys-0.18.5+1.9.4/libgit2/COPYING /usr/share/licenses/cargo/libgit2-COPYING
+SLOP cp /tmp/cargo/build/patti-build.json /usr/share/dolly/builds/cargo.json
+SLOP rm -rf /tmp/cargo /tmp/cargo.tar /tmp/cargo-patti.toml
+
+# Cargo runs rustc: the package brings the compiler it was built for.
+INSTALL https://daugasauron.com/demos/rust/Dollyfile-rust fa0ec46dfd35329a4cbdd9de36dc29de0dddb61bad08dde9b606483ee7e9af04
+# Until Dolly has file locks: rustc's incremental sessions need them.
+EXPORTS ENV CARGO_INCREMENTAL 0
+EXPORTS TOOL cargo
+EXPORTS FOLDER cargo-licenses /usr/share/licenses/cargo
+FILE /usr/share/dolly/builds/cargo.json
+
+FILE /tmp/cargo-check/Cargo.toml
+    [package]
+    name = "cargo-check"
+    version = "0.1.0"
+    edition = "2021"
+FILE /tmp/cargo-check/src/main.rs
+    fn main() { println!("built by cargo"); }
+SLOP cargo --version
+SLOP CWD /tmp/cargo-check cargo build --offline
+SLOP /tmp/cargo-check/target/debug/cargo-check
+SLOP rm -rf /tmp/cargo-check

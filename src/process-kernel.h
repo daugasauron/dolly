@@ -5,6 +5,11 @@
 #include <stdint.h>
 #include <string.h>
 
+/* A kernel import (abi/dolly-browser-0.wat). The host module whose manifest
+ * owns the name provides it; a module the page did not enable answers ENOSYS. */
+#define DOLLY_BROWSER_IMPORT(name) \
+  __attribute__((import_module("env"), import_name(#name)))
+
 /* A host module's kernel side (host/NAME/kernel.c defines dolly_NAME_kernel).
  * Process operations in [first_operation, last_operation] reach call() with
  * the request in the process mailbox, where call() also writes its response.
@@ -48,7 +53,12 @@ void dolly_terminal_discard_pending_input(void);
 /* The terminal line discipline and the page's terminal mailbox, src/dolly.c. */
 uint32_t dolly_kernel_terminal_mode(void);
 int dolly_kernel_terminal_set_mode(uint32_t flags);
-void dolly_terminal_write_bytes(const unsigned char *bytes, uintptr_t length);
+/* Boot text while no display driver is resident: the page's log. One write
+ * holds at most DOLLY_PROCESS_PACKET_LIMIT bytes; the page refuses more. */
+DOLLY_BROWSER_IMPORT(dolly_bootstrap_write_bytes)
+int dolly_bootstrap_write_bytes(const unsigned char *bytes, uintptr_t length);
+/* Zero, or the negative errno of a refused boot text write. */
+int dolly_terminal_write_bytes(const unsigned char *bytes, uintptr_t length);
 void dolly_terminal_publish_result(int status);
 void dolly_kernel_foreground_publish(int pid, int interruptible);
 /* The terminal's foreground owner, or zero. */
@@ -58,10 +68,5 @@ int dolly_process_descends_from(int pid, int ancestor_pid);
 void dolly_kernel_terminal_resized(void);
 
 #define DOLLY_PROCESS_DISPATCH_DEFERRED INT64_MIN
-
-/* Browser imports that return target errno values. EM_JS stringifies its
- * JavaScript body; this extra expansion first replaces C macros such as ENOSYS
- * with their numbers. */
-#define DOLLY_EM_JS(...) EM_JS(__VA_ARGS__)
 
 #endif

@@ -40,6 +40,8 @@ typedef struct {
   long post;
   long upload;
   long verbose;
+  long progress;
+  void *private_data;
   curl_write_callback write_function;
   void *write_data;
   curl_write_callback header_function;
@@ -48,7 +50,10 @@ typedef struct {
   void *read_data;
   curl_debug_callback debug_function;
   void *debug_data;
+  curl_progress_callback progress_function;
+  void *progress_data;
   char *error_buffer;
+  double received;
   long response_code;
   long connect_code;
   long auth_available;
@@ -107,6 +112,7 @@ static int replace_string(char **target, const char *value) {
 }
 
 static void reset_result(DollyEasy *easy) {
+  easy->received = 0;
   easy->response_code = 0;
   easy->connect_code = 0;
   easy->auth_available = 0;
@@ -118,8 +124,12 @@ static void reset_result(DollyEasy *easy) {
   if (easy->error_buffer != NULL) easy->error_buffer[0] = '\0';
 }
 
-static void destroy_easy(DollyEasy *easy) {
-  if (!valid_easy(easy)) return;
+static const DollyEasy easy_defaults = {
+    .magic = DOLLY_EASY_MAGIC, .post_size = -1, .input_size = -1,
+    .protocols = PROTOCOL_ALL, .http_auth = CURLAUTH_BASIC,
+};
+
+static void free_strings(DollyEasy *easy) {
   free(easy->url);
   free(easy->custom_method);
   free(easy->range);
@@ -128,8 +138,6 @@ static void destroy_easy(DollyEasy *easy) {
   free(easy->userpwd);
   free(easy->effective_url);
   free(easy->content_type);
-  easy->magic = 0;
-  free(easy);
 }
 
 static size_t default_write(char *bytes, size_t size, size_t count,
@@ -425,19 +433,29 @@ CURLsslset curl_global_sslset(curl_sslbackend id, const char *name,
 }
 
 CURL *curl_easy_init(void) {
-  DollyEasy *easy = calloc(1, sizeof(*easy));
-  if (easy == NULL) return NULL;
-  easy->magic = DOLLY_EASY_MAGIC;
-  easy->post_size = -1;
-  easy->input_size = -1;
-  easy->protocols = PROTOCOL_ALL;
-  easy->http_auth = CURLAUTH_BASIC;
+  DollyEasy *easy = malloc(sizeof(*easy));
+  if (easy != NULL) *easy = easy_defaults;
   return (CURL *)easy;
 }
 
-void curl_easy_cleanup(CURL *handle) {
-  destroy_easy((DollyEasy *)handle);
+void curl_easy_reset(CURL *handle) {
+  DollyEasy *easy = (DollyEasy *)handle;
+  if (!valid_easy(easy)) return;
+  free_strings(easy);
+  *easy = easy_defaults;
 }
+
+void curl_easy_cleanup(CURL *handle) {
+  DollyEasy *easy = (DollyEasy *)handle;
+  if (!valid_easy(easy)) return;
+  free_strings(easy);
+  easy->magic = 0;
+  free(easy);
+}
+
+/* curl_formadd is not provided, so there is never a form to free; the Rust
+ * curl crate links this for the form its handles may own. */
+void curl_formfree(struct curl_httppost *form) { (void)form; }
 
 CURL *curl_easy_duphandle(CURL *handle) {
   DollyEasy *source = (DollyEasy *)handle;
@@ -461,7 +479,7 @@ CURL *curl_easy_duphandle(CURL *handle) {
       !replace_string(&copy->username, source->username) ||
       !replace_string(&copy->password, source->password) ||
       !replace_string(&copy->userpwd, source->userpwd)) {
-    destroy_easy(copy);
+    curl_easy_cleanup(copy);
     return NULL;
   }
   reset_result(copy);
@@ -518,6 +536,8 @@ CURLcode curl_easy_setopt(CURL *handle, CURLoption option, ...) {
     case CURLOPT_HEADERDATA: easy->header_data = va_arg(arguments, void *); break;
     case CURLOPT_READDATA: easy->read_data = va_arg(arguments, void *); break;
     case CURLOPT_DEBUGDATA: easy->debug_data = va_arg(arguments, void *); break;
+    case CURLOPT_PROGRESSDATA: easy->progress_data = va_arg(arguments, void *); break;
+    case CURLOPT_PRIVATE: easy->private_data = va_arg(arguments, void *); break;
     case CURLOPT_ERRORBUFFER: easy->error_buffer = va_arg(arguments, char *); break;
     case CURLOPT_POSTFIELDS: easy->post_fields = va_arg(arguments, const void *); easy->post = 1; easy->upload = 0; break;
     case CURLOPT_HTTPHEADER: easy->headers = va_arg(arguments, struct curl_slist *); break;
@@ -525,6 +545,8 @@ CURLcode curl_easy_setopt(CURL *handle, CURLoption option, ...) {
     case CURLOPT_HEADERFUNCTION: easy->header_function = va_arg(arguments, curl_write_callback); break;
     case CURLOPT_READFUNCTION: easy->read_function = va_arg(arguments, curl_read_callback); break;
     case CURLOPT_DEBUGFUNCTION: easy->debug_function = va_arg(arguments, curl_debug_callback); break;
+    case CURLOPT_PROGRESSFUNCTION: easy->progress_function = va_arg(arguments, curl_progress_callback); break;
+    case CURLOPT_NOPROGRESS: easy->progress = !va_arg(arguments, long); break;
     case CURLOPT_POSTFIELDSIZE: result = set_transfer_size(&easy->post_size, va_arg(arguments, long)); break;
     case CURLOPT_POSTFIELDSIZE_LARGE: result = set_transfer_size(&easy->post_size, va_arg(arguments, curl_off_t)); break;
     case CURLOPT_INFILESIZE_LARGE: result = set_transfer_size(&easy->input_size, va_arg(arguments, curl_off_t)); break;
@@ -573,16 +595,36 @@ CURLcode curl_easy_setopt(CURL *handle, CURLoption option, ...) {
        * broker strips both, which also avoids engine-specific CORS preflights. */
       (void)va_arg(arguments, const char *);
       break;
+    case CURLOPT_HTTP_VERSION: {
+      /* The browser negotiates the version. A preference libcurl itself may
+       * fall back from is accepted; a version to enforce is refused. */
+      const long value = va_arg(arguments, long);
+      if (value != CURL_HTTP_VERSION_NONE && value != CURL_HTTP_VERSION_2_0 &&
+          value != CURL_HTTP_VERSION_2TLS && value != CURL_HTTP_VERSION_3)
+        result = CURLE_NOT_BUILT_IN;
+      break;
+    }
+    case CURLOPT_PIPEWAIT:
+      /* A hint to wait for a connection that multiplexes rather than open
+       * another. It changes no response; the browser pools connections. */
+      break;
+    case CURLOPT_SEEKFUNCTION:
+    case CURLOPT_SEEKDATA:
+      /* libcurl seeks only to send a body again. Here the body is read once,
+       * whole, before the request starts, and the browser resends it. */
+      break;
+    case CURLOPT_OPENSOCKETFUNCTION:
+    case CURLOPT_OPENSOCKETDATA:
+      /* libcurl calls it to open a connection, which it never does here: the
+       * browser owns every connection. */
+      break;
 
     /* These controls need facilities this adapter does not implement. Do not
      * acknowledge them merely because upstream headers define the options. */
     case CURLOPT_REDIR_PROTOCOLS_STR:
     case CURLOPT_PINNEDPUBLICKEY:
-    case CURLOPT_SEEKFUNCTION:
-    case CURLOPT_SEEKDATA:
     case CURLOPT_CONNECTTIMEOUT:
     case CURLOPT_CONNECTTIMEOUT_MS:
-    case CURLOPT_HTTP_VERSION:
     case CURLOPT_NETRC:
     case CURLOPT_PROXYAUTH:
     case CURLOPT_LOW_SPEED_LIMIT:
@@ -708,7 +750,7 @@ static void dispose_transfer(DollyTransfer *transfer) {
 }
 
 // At most one record per call. Easy and multi use the same transfer engine.
-static int poll_transfer(DollyEasy *easy, DollyTransfer *transfer, CURLcode *result) {
+static int advance_transfer(DollyEasy *easy, DollyTransfer *transfer, CURLcode *result) {
   int status = 0;
   transfer->progressed = 0;
   if (!transfer->prepared) {
@@ -745,6 +787,7 @@ static int poll_transfer(DollyEasy *easy, DollyTransfer *transfer, CURLcode *res
   } else if (status == 0 && chunk.kind == DOLLY_HTTP_KIND_HEADER) {
     if (perform_header(bytes, chunk.length, &callback) != chunk.length) status = -ECANCELED;
   } else if (status == 0 && chunk.kind == DOLLY_HTTP_KIND_BODY && !easy->nobody) {
+    easy->received += (double)chunk.length;
     if (perform_write(bytes, chunk.length, &callback) != chunk.length) status = -ECANCELED;
   }
   if (chunk.eof) transfer->sequence = 0;
@@ -759,6 +802,20 @@ finished:
   if (*result != CURLE_OK && easy->error_buffer != NULL)
     snprintf(easy->error_buffer, CURL_ERROR_SIZE, "%s",
         status < 0 && status != -ECANCELED ? dolly_http_error_message(-status) : curl_easy_strerror(*result));
+  return 1;
+}
+
+/* Advances a transfer, then reports to the progress callback, which may end
+ * it. Both totals are 0, unknown: Fetch delivers decoded bytes and may hide
+ * Content-Encoding, so Content-Length does not count them. */
+static int poll_transfer(DollyEasy *easy, DollyTransfer *transfer, CURLcode *result) {
+  const int finished = advance_transfer(easy, transfer, result);
+  if ((finished && *result != CURLE_OK) || !easy->progress || easy->progress_function == NULL ||
+      easy->progress_function(easy->progress_data, 0, easy->received, 0, 0) == 0) return finished;
+  dispose_transfer(transfer);
+  *result = CURLE_ABORTED_BY_CALLBACK;
+  if (easy->error_buffer != NULL)
+    snprintf(easy->error_buffer, CURL_ERROR_SIZE, "%s", curl_easy_strerror(*result));
   return 1;
 }
 
@@ -784,6 +841,7 @@ CURLcode curl_easy_getinfo(CURL *handle, CURLINFO info, ...) {
     case CURLINFO_HTTP_CONNECTCODE: *va_arg(arguments, long *) = easy->connect_code; break;
     case CURLINFO_HTTPAUTH_AVAIL: *va_arg(arguments, long *) = easy->auth_available; break;
     case CURLINFO_RETRY_AFTER: *va_arg(arguments, curl_off_t *) = easy->retry_after; break;
+    case CURLINFO_PRIVATE: *va_arg(arguments, void **) = easy->private_data; break;
     default: result = CURLE_UNKNOWN_OPTION; break;
   }
   va_end(arguments);
@@ -942,6 +1000,28 @@ CURLMcode curl_multi_timeout(CURLM *multi_handle, long *milliseconds) {
   return CURLM_OK;
 }
 
+/* Transfers have no descriptor to wait on: sleeps until the next poll is due.
+ * Waiting on a caller's descriptors as well is refused. */
+CURLMcode curl_multi_wait(CURLM *multi_handle, struct curl_waitfd extra_fds[],
+                          unsigned int extra_nfds, int timeout_ms, int *numfds) {
+  (void)extra_fds;
+  long due;
+  const CURLMcode result = curl_multi_timeout(multi_handle, &due);
+  if (result != CURLM_OK) return result;
+  if (extra_nfds != 0 || timeout_ms < 0) return CURLM_BAD_FUNCTION_ARGUMENT;
+  if (due > timeout_ms) due = timeout_ms;
+  if (due > 0) usleep((useconds_t)due * 1000);
+  if (numfds != NULL) *numfds = 0;
+  return CURLM_OK;
+}
+
+/* No multi option is implemented: they select libcurl's socket-driven
+ * interface or tune connection pooling and multiplexing, the browser's. */
+CURLMcode curl_multi_setopt(CURLM *multi_handle, CURLMoption option, ...) {
+  (void)option;
+  return valid_multi((DollyMulti *)multi_handle) ? CURLM_UNKNOWN_OPTION : CURLM_BAD_HANDLE;
+}
+
 CURLMcode curl_multi_cleanup(CURLM *multi_handle) {
   DollyMulti *multi = (DollyMulti *)multi_handle;
   if (!valid_multi(multi)) return CURLM_BAD_HANDLE;
@@ -988,6 +1068,7 @@ const char *curl_multi_strerror(CURLMcode error) {
     case CURLM_OUT_OF_MEMORY: return "Out of memory";
     case CURLM_ADDED_ALREADY: return "Easy handle already added";
     case CURLM_BAD_FUNCTION_ARGUMENT: return "Bad function argument";
+    case CURLM_UNKNOWN_OPTION: return "Unsupported libcurl multi option";
     default: return "libcurl Fetch multi error";
   }
 }

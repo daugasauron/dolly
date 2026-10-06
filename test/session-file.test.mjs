@@ -94,6 +94,11 @@ test("custom session files retain the exact recipe, artifact and inherited restr
   assert.equal(sessionCompatible(imported, [], record.buildId, "image-build"), true);
   assert.equal(sessionCompatible(imported, [], "another-runtime", "image-build"), false);
   assert.equal(sessionCompatible(imported, [], record.buildId, "another-image-build"), false);
+  // An image without http@0 inherits no policies: its session is as valid.
+  const { policies: _none, ...offline } = customImage;
+  const quiet = { ...saved, customImage: offline };
+  assert.deepEqual(await importSessionFile(await exportSessionFile(quiet)), quiet);
+  assert.equal(sessionCompatible(quiet, [], record.buildId, "image-build"), true);
   for (const mutate of [
     meta => { delete meta.customImage; },
     meta => { meta.image = "default"; },
