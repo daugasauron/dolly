@@ -256,11 +256,15 @@ test("system snapshots are sealed to their visible recipe chain", async () => {
     // it declares: the engine is in amy, the toolchain in cc, the shell in core.
     const toolchain = ["/usr/libexec/dolly/process-bin/compiler", "/usr/lib/dolly/process/libc-ww.a",
       "/usr/lib/clang/24/include/stddef.h", "/usr/lib/dolly/dolly-kernel-plugin-0.wasm"];
-    const based = graph.root.role !== "package" && (graph.root.from !== null || image === "system-build");
+    const base = graph.root.role === "package" || graph.root.from === null ? undefined : definitions.find(
+      definition => definition.filename === new URL(graph.root.from.location).pathname.slice(1)).image;
+    const inherited = base === undefined ? [] : (await import(
+      artifact(`dolly-${base}-system-snapshot.mjs`))).DOLLY_SYSTEM_SNAPSHOT.manifest;
     const declared = { amy: ["/bin/dollyfile"], cc: toolchain, core: ["/bin/foreground"],
       default: ["/bin/dollyfile", "/bin/foreground"] }[image] ?? [];
     for (const path of ["/bin/dollyfile", "/bin/foreground", ...toolchain]) {
-      assert.equal(metadata.manifest.includes(path), based || declared.includes(path), `${image}: ${path}`);
+      assert.equal(metadata.manifest.includes(path),
+        image === "system-build" || inherited.includes(path) || declared.includes(path), `${image}: ${path}`);
     }
     assert.equal(metadata.manifest.some((path) => /\/usr\/src\/dolly\/(?:dollyfile\.c|dso-)/.test(path) ||
       /\/process-bin\/(?!compiler$)/.test(path)), false, `${image} must not retain bootstrap probes`);
