@@ -148,11 +148,10 @@ FFI packets moved out of `process.h`, the `dolly_dl*` declarations moved out of
   bundle as a `Blob` and the process Worker makes and revokes its own URL, so
   no URL of the runtime Worker has to be reachable from the Workers it starts.
 
-## Evidence (`core/dso-module`, on `integrate/next` `1dea294e`)
+## Evidence (`core/dso-module`)
 
-Runtime built in `work/dso`: `npm run build:runtime`, 3 min 9 s, runtime
-`eb3ce6f7…`, image inputs `afca54ce…` (base `e8e495dc…`). Logs and scratch
-files are in `build/dso-evidence/` (ignored).
+Two bases, each with its own runtime and images; the second is the one that
+counts. Logs and scratch files are in `build/dso-evidence/` (ignored).
 
 ### What every process Worker loads
 
@@ -211,3 +210,18 @@ Superseded by the second base below, kept because it is what ran first.
   `git` package, so the generated index lacked it. Not rerun on this base.
 - Not run on this base: `amy`, the artifact suite, the Rust seed, `nvim`, Lua,
   the Rust images.
+
+### Second base: `integrate/next` `fb6c3463` (image inputs `b03fae70…`)
+
+The kernel without Emscripten's JavaScript runtime. The merge needed no
+adaptation of the module: it adds no kernel code and no import. One conflict
+in code, `host/runtime/runtime.mjs` (the process modules beside the new kernel
+bindings). The recipe graph lint then named `cargo`, new on this base, which
+installs `rust`: it declares `dso@0` (twelve recipes with `default`).
+
+- `npm run build:runtime`: 1 min 37 s, exit 0, runtime `122fa1fb…`, image
+  inputs `b03fae70…`; `validate-browser` passes with the nine imports.
+- Source: 400 of 400. Lint: 67 recipes.
+- Worker harness on a blank page: Chrome and Firefox, as on the first base.
+- `node --test test/dolly.artifacts.mjs` before any image of this base: 14 of
+  16; the two that read snapshots wait for the chain.
