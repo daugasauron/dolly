@@ -33,6 +33,7 @@ recipes build on, or a `PACKAGE` recipes and sessions install
 - `curl`: curl and libcurl over the HTTP broker, as a package.
 - `gzip`: gzip over zlib, as a package.
 - `display`: the Ghostty display plugin and its font, as a package.
+- `dolly-docs`: the platform's documents and contracts in `/usr/share/doc/dolly`, as a package.
 
 ## Try it
 

@@ -307,7 +307,7 @@ test("published inputs are independent exact pinned files", async () => {
   const sources = await inspectStaticSources(projectDir, definitions);
   assert.deepEqual(DOLLY_STATIC_SOURCES, sources);
   assert.ok(sources.every((item) =>
-    ["/Dollyfile", "/modules/", "/demos/", "/include/dolly/", "/host/", "/dist/static/"].some((prefix) =>
+    ["/Dollyfile", "/modules/", "/demos/", "/include/dolly/", "/host/", "/docs/", "/abi/", "/dist/static/"].some((prefix) =>
       item.path.startsWith(prefix)) &&
     /^[0-9a-f]{64}$/.test(item.sha256) && item.byteLength > 0));
   assert.equal(sources.some((item) => item.path.endsWith(".assets")), false);
