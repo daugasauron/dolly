@@ -25,5 +25,5 @@ test("the python package builds CPython, libffi and pip with their licenses and 
   for (const key of ["TOOL:python", "TOOL:pip", "LIB:python", "HEADER:python", "HEADER:ffi", "FOLDER:python-stdlib"]) {
     assert.ok(graph.exporters.has(key), key);
   }
-  assert.deepEqual(recipe.hostRequirements, ["http@0", "runtime@0"]);
+  assert.deepEqual(recipe.hostRequirements, ["dso@0", "http@0", "runtime@0"]);
 });
