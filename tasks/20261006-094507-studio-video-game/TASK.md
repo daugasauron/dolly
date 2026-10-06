@@ -35,3 +35,49 @@ with "Run a Dollyfile".
 - The agents page shows the new video with the same seven steps, the game's
   graphics are correct, and the task records the cause of the first result,
   the model, prompt, cost and how to rerun.
+
+## Why "Neon Drift" looked wrong (2026-10-06 18:50 JST)
+
+The model's code, not the SDK. Reproduced by rebuilding the saved recipe on
+:9005 `/custom/` (release `c60a2c6f`) and reading the display canvas:
+
+- The game never calls `ClearBackground`. raylib's `BeginDrawing` does not
+  clear, so the software renderer's depth buffer keeps every earlier frame's
+  nearest depth: the scene is right for the first seconds, then the ship's
+  cubes show striped holes and the road lines break into dashes (visible
+  with the ship still centred, 20 s in). Adding the one line
+  `ClearBackground(C_BLACK);` after `BeginDrawing()` and rebuilding gives a
+  solid ship and complete lines after 25 s and while steering
+  (`build/recordings-evidence/diag/nd-quad.png` before, `fix-pair.png` after).
+- The block fade is inverted (`fade = 1` at z=-200 falling to 0 at z=-100,
+  and blocks under 0.05 are not drawn or collided with), so blocks vanish
+  long before they reach the ship: nothing to dodge, no crashes.
+- The road's cross lines never draw (the loop adds to z and breaks at once),
+  so nothing on the road shows the motion.
+- Steering moves only on frames that carry a key event (no held-key state).
+
+raylib's 3D primitives in the published `gamedev-sdk` (software renderer,
+`DrawCube`, `DrawCubeWires`, `DrawLine3D`, `DrawSphere`, depth test) draw
+correctly once the frame is cleared; no Dolly defect found. The next prompt
+states the frame order with `ClearBackground`, block brightness, scrolling
+cross lines and held-key input explicitly.
+
+## Takes (cap 50 USD in total, 15 USD per take)
+
+All on :9005 release `c60a2c6f`, `deepseek/deepseek-v4-flash`, `/thinking xhigh`.
+
+- g1 (18:50, prompt `rig/prompts/neon-drift-6.txt`): 14 minutes, 26
+  requests, 0.09 USD. One build error fixed; a network error
+  (`ERR_NETWORK_CHANGED`) stopped Pi once and the rig typed "Continue.".
+  The game is right: solid blocks with wire edges, neon towers, scrolling
+  grid, sun and stars, rings; the rig's pixel autopilot dodges blocks and
+  collects rings for 30 s with all shields. Save and fresh rebuild worked.
+  Usable; kept as the fallback. Running total 0.09 USD.
+- g2 (19:06, `neon-drift-7.txt`: the same rules plus polish: banking ship
+  model, rails, ring bursts): void. The recipe built green but had no
+  `EXPORTS TOOL neon-drift`, so the image kept no game binary and Open image
+  showed a blank terminal: raised as `20261006-103256-entry-missing`. With
+  the export added by hand the game runs but looks worse than g1 (a small
+  odd ship, an early game over). Stopped after the build, about 0.06 USD.
+- g3 (19:32, `neon-drift-8.txt`): g1's prompt plus the EXPORTS rule and a
+  score that ticks with distance.
