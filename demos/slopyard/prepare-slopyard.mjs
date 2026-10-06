@@ -13,6 +13,7 @@ const pin=async path=>hash(await readFile(resolve(root,path)));
 const luaPin=(/lua-5\.5\.1\.tar\.gz ([0-9a-f]{64})/.exec(await readFile(resolve(root,"demos/slopyard/Dollyfile-slopyard"),"utf8").catch(()=>""))??[,"0".repeat(64)])[1];
 await writeFile(resolve(root,"demos/slopyard/Dollyfile-slopyard"),`DOLLY 6
 APPLICATION slopyard
+REQUIRES HOST runtime@0
 REQUIRES HOST display@0
 REQUIRES HOST download@0
 REQUIRES HOST gpu@0

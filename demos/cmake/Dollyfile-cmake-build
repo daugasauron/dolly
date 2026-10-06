@@ -1,12 +1,13 @@
 DOLLY 6
 TOOLCHAIN cmake-build
+REQUIRES HOST runtime@0
 REQUIRES HOST display@0
 REQUIRES HOST download@0
 REQUIRES HOST http@0
 REQUIRES HOST upload@0
 
 # Keep the expensive bootstrap reusable across source-build workspaces.
-FROM https://daugasauron.com/Dollyfile-system-tools 7f00fccb44f3a90bce23f14b87b50539aaf20c930e4988c773e3e5f7816e7216
+FROM https://daugasauron.com/Dollyfile-system-tools 1a5ee52e17d322eb5daf71a13f72bd36934e5c38e4bfbe4039fc6a05cc766903
 REQUIRES HEADER libc
 REQUIRES HEADER runtime
 REQUIRES TOOL cc

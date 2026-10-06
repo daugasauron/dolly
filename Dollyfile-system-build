@@ -1,5 +1,6 @@
 DOLLY 6
 TOOLCHAIN system-build
+REQUIRES HOST runtime@0
 REQUIRES HOST http@0
 
 # This is the first step. It has no requirements: its exact compiler commands

@@ -38,6 +38,7 @@ async function customImageSessions(context, server, fixtures) {
   // system retains the engine and the transfer tools: the recipe declares their modules.
   const source = `DOLLY 6
 APPLICATION custom-session
+REQUIRES HOST runtime@0
 REQUIRES HOST display@0
 REQUIRES HOST download@0
 REQUIRES HOST http@0

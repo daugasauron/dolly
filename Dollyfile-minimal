@@ -1,9 +1,10 @@
 DOLLY 6
 APPLICATION minimal
+REQUIRES HOST runtime@0
 REQUIRES HOST display@0
 
 # The smallest image that opens: no compiler, recipe engine or network.
-INSTALL https://daugasauron.com/Dollyfile-core 9935068c58daa51f4029053454ac63e5938eaaffda07263bd9c6478bfc794c98
-INSTALL https://daugasauron.com/Dollyfile-display c7ba6df08c159e5d4fc3364f2b8811ed91c794efce16039deee5f45829fb07bd
+INSTALL https://daugasauron.com/Dollyfile-core 2a5d3bd39c9bff93a40205926f96398e9b51a58a392f3551335d849207cc26e1
+INSTALL https://daugasauron.com/Dollyfile-display 3781733657be14900e1acfcbbc96417a4ce1b6e8acb6ebbbc6d20168a2a4878a
 
 ENTRY /bin/foreground -i /bin/slop

@@ -18,5 +18,5 @@ test("QuickJS and TypeScript declare their tools, headers and license; the packa
   for (const key of ["TOOL:qjs", "TOOL:janis", "TOOL:tsc", "LIB:dolly-js", "HEADER:quickjs-runner", "HEADER:quickjs"]) {
     assert.ok(javascript.exporters.has(key), key);
   }
-  assert.deepEqual(javascript.root.hostRequirements, ["download@0", "http@0"]);
+  assert.deepEqual(javascript.root.hostRequirements, ["download@0", "http@0", "runtime@0"]);
 });

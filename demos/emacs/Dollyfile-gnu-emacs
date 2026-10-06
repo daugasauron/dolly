@@ -1,13 +1,14 @@
 DOLLY 6
 APPLICATION gnu-emacs
+REQUIRES HOST runtime@0
 REQUIRES HOST display@0
 REQUIRES HOST download@0
 REQUIRES HOST http@0
 REQUIRES HOST snapshot@0
 REQUIRES HOST upload@0
 
-FROM https://daugasauron.com/Dollyfile-system 041c6f482c61b6afba4741e202fdbffb09adb3c6f25fa0be64af02a7f06fafa4
-INSTALL https://daugasauron.com/demos/emacs/Dollyfile-emacs b42410141eca17edee4452ba1fce36633f4e8456b5dbb8d273a6659ac3f6e3d5
+FROM https://daugasauron.com/Dollyfile-system 6bff53da9646489e416e974eb9418b6390cec707dd292d98445b78be72e43d48
+INSTALL https://daugasauron.com/demos/emacs/Dollyfile-emacs 2d5399bcef3dfafcc567026dee53ece0032c4feb17c3edc475ba84f956b08024
 
 FILE /usr/share/emacs/welcome.txt
     GNU Emacs inside Dolly
