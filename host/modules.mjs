@@ -1,6 +1,6 @@
 import { hostManifests, runtimes } from "./manifests.mjs";
 import { hostRequirement, hostRequirements } from "./requirements.mjs";
-import { DOLLY_ERRNO as E } from "../dist/dolly-errno.mjs";
+import { DOLLY_ERRNO as E } from "../src/process-constants.mjs";
 
 // This fixed registry is trusted embedding code. Images select no JS or Worker URLs:
 // each module's provider is the file its manifest names.

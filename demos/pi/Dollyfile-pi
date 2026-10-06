@@ -9,7 +9,7 @@ REQUIRES HOST snapshot@0
 REQUIRES HOST threads@0
 REQUIRES HOST upload@0
 
-FROM https://daugasauron.com/demos/pi/Dollyfile-pi-runtime 89a08304b87fb77a998d116c650847c189119e44a5e1f0b08e18d07bda6aabe6
+FROM https://daugasauron.com/demos/pi/Dollyfile-pi-runtime 08aef5e79c646554d821ae59fa2e94e48090590772da9da831caaeaa4176f470
 REQUIRES TOOL foreground
 REQUIRES TOOL test
 REQUIRES TOOL printf

@@ -25,7 +25,7 @@ index 2a129a5..ec425fc 100644
 +  abort();
 +}
 +
-+#ifndef DOLLY
++#ifndef __dolly__
  static uv_once_t once = UV_ONCE_INIT;
  static uv_cond_t cond;
  static uv_mutex_t mutex;
@@ -54,13 +54,13 @@ index 2a129a5..ec425fc 100644
                       enum uv__work_kind kind,
                       void (*work)(struct uv__work* w),
                       void (*done)(struct uv__work* w, int status)) {
-+#ifndef DOLLY
++#ifndef __dolly__
    uv_once(&once, init_once);
 +#endif
    w->loop = loop;
    w->work = work;
    w->done = done;
-+#ifdef DOLLY
++#ifdef __dolly__
 +  uv__queue_insert_tail(&loop->wq, &w->wq);
 +  uv_async_send(&loop->wq_async);
 +#else
@@ -73,7 +73,7 @@ index 2a129a5..ec425fc 100644
   * that go through io_uring instead of the thread pool.
   */
  static int uv__work_cancel(uv_loop_t* loop, uv_req_t* req, struct uv__work* w) {
-+#ifdef DOLLY
++#ifdef __dolly__
 +  if (uv__queue_empty(&w->wq) || w->work == NULL || w->work == uv__cancelled)
 +    return UV_EBUSY;
 +  w->work = uv__cancelled;
@@ -94,7 +94,7 @@ index 2a129a5..ec425fc 100644
  
      w = container_of(q, struct uv__work, wq);
      err = (w->work == uv__cancelled) ? UV_ECANCELED : 0;
-+#ifdef DOLLY
++#ifdef __dolly__
 +    uv__queue_init(q);
 +    if (err == 0)
 +      w->work(w);
@@ -111,7 +111,7 @@ index 5b7d75c..4293f25 100644
  }
  
  void uv__platform_loop_delete(uv_loop_t* loop) {
-+#ifdef DOLLY
++#ifdef __dolly__
 +  uv__dolly_process_cleanup(loop);
 +#endif
    uv__free(loop->poll_fds);
@@ -120,7 +120,7 @@ index 5b7d75c..4293f25 100644
 @@ -49,6 +52,10 @@ void uv__platform_loop_delete(uv_loop_t* loop) {
  
  int uv__io_fork(uv_loop_t* loop) {
-+#ifdef DOLLY
++#ifdef __dolly__
 +  return UV_ENOSYS;
 +#else
    uv__platform_loop_delete(loop);
@@ -135,7 +135,7 @@ diff --git a/src/unix/thread.c b/src/unix/thread.c
                          const uv_thread_options_t* params,
                          void (*entry)(void *arg),
                          void *arg) {
-+#ifdef DOLLY
++#ifdef __dolly__
 +  return UV_ENOSYS;
 +#else
    int err;

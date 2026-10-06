@@ -41,7 +41,6 @@ if has_image zero-ad-deps; then
     "${zad_dir}/icu/source/stubdata" /tmp/zad/icu/stubdata \
     "${zad_dir}/libsodium-1.0.20/src/libsodium" /tmp/zad/sodium/src/libsodium \
     "${zad_dir}/libsodium-1.0.20/builds/msvc/version.h" /tmp/zad/sodium/builds/msvc/version.h \
-    demos/zero-ad/sodium.patch /tmp/zad/sodium.patch \
     "${zad_dir}/enet-1.3.18" /tmp/zad/enet \
     demos/zero-ad/enet-dolly.c /tmp/zad/enet-dolly.c \
     "${zad_dir}/boost" /tmp/zad/boost/boost \

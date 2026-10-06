@@ -1,5 +1,5 @@
 import { DOLLY_PROCESS_ABI_DIGEST } from "../dist/dolly-process-abi.mjs";
-import { DOLLY_ERRNO } from "../dist/dolly-errno.mjs";
+import { DOLLY_ERRNO } from "./process-constants.mjs";
 import { createProcessFfi } from "./process-ffi.mjs";
 import { parseWasmInterface, Reader } from "./wasm-interface.mjs";
 import { requireDsoType, validateDsoHost, validateDsoInterface } from "./process-abi.mjs";

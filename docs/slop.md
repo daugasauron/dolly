@@ -1,10 +1,40 @@
 # Slop and commands
 
-Slop ([`slop.c`](../src/slop.c)) is Dolly's finite shell: enough to run agent
-tools, scripts and GNU Make recipes. It is an ordinary process at `/bin/slop`,
+Slop ([`slop.c`](../src/slop.c)) is Dolly's shell: the POSIX shell command
+language for scripts and `-c` commands, as far as upstream build scripts and
+agents use it. It is an ordinary process at `/bin/slop`,
 compiled by [`Dollyfile-system-build`](../Dollyfile-system-build) with `COMPILEC` in `system-build`
-(`/bin/sh` links to it from `system-tools`). It is not POSIX `sh` or Bash; the
-`help` command lists what it supports.
+(`/bin/sh` links to it from `system-tools`). It is not Bash and not yet all of
+POSIX `sh`; the `help` command lists what it supports.
+
+## Target and boundary
+
+- **Target:** the Shell Command Language of POSIX.1-2024 (XCU chapter 2) as
+  scripts and `-c` commands use it. A script written for `sh` should run
+  unchanged. POSIX's interactive extras (job control, aliases, `fc`) and every
+  Bash, Ksh or Zsh extension are outside it.
+- **Corpus:** Slop is measured against two bodies of shell text, and an
+  addition comes with a test taken from one of them:
+  1. what the catalog runs inside images: recipe `SLOP` lines and scripts, the
+     recipes of upstream and generated Makefiles, and upstream build scripts
+     such as CMake's `bootstrap`;
+  2. what agents type inside Dolly, as recorded in transcripts and audits.
+- **A missing feature** is judged in this order:
+  1. Not POSIX (`[[ ]]`, arrays, `<( )`, `${VAR/pat/rep}`, `${VAR:off:len}`,
+     brace expansion, `function`, `let`): refused, by name where agents are
+     known to type it. It is admitted only when an unchanged upstream script of
+     the first corpus cannot run without it: that source cannot be changed, an
+     agent's command can.
+  2. POSIX, but Dolly's process model gives it no meaning (`umask`, `ulimit`,
+     an ignored signal, `exec` replacing the shell, a compound command after
+     `&`): refused by name with the reason.
+  3. POSIX and needed by either corpus: a defect to fix.
+  4. POSIX and not yet needed: not implemented ahead of need, and it fails
+     explicitly instead of being read as something else.
+- **Never:** Slop is one process, without threads or a scheduler, and it never
+  copies itself. Subshells, substitutions, functions and compound commands run
+  inside it, one after another. Only programs, which are separate processes,
+  run at the same time.
 
 ## Invocation
 
@@ -58,13 +88,14 @@ slop [-enux] script [arg ...]
   `$'...'`, `${VAR:off:len}`, `${VAR/pat/rep}`, `"prefix$@"` word forms.
   As in POSIX `sh`, braces do not expand (`echo {1..3}` prints `{1..3}`) and
   a glob that matches nothing stays as typed. `help` lists the same limits
-  inside every image. Features are added only when a useful source build
-  needs them and their semantics stay explicit.
+  inside every image.
 
-## Serial pipelines and interrupts
+## Pipelines and interrupts
 
-Serial execution is intentional: Slop runs one command at a time, without
-threads, host processes or a scheduler.
+Decided: the programs of a pipeline, and a program started with `&`, run at
+the same time over kernel pipes, the mechanism Make's jobs and `xargs -P`
+already use; stages that run inside the shell stay serial. Not implemented yet
+(`tasks/20260930-100000-audit-32`): today every stage is serial.
 
 - Every pipeline stage is a subshell, whatever it runs: an external command, a
   builtin, a function or a compound command. A stage runs to completion before

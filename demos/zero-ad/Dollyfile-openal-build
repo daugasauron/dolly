@@ -6,7 +6,7 @@ REQUIRES HOST download@0
 REQUIRES HOST http@0
 REQUIRES HOST upload@0
 
-FROM https://daugasauron.com/demos/cmake/Dollyfile-cmake-build e0811c52b63a516249d52699a82cea617cfff4a7cb61a613aff75d7c458e941b
+FROM https://daugasauron.com/demos/cmake/Dollyfile-cmake-build 35abe82798d14bf8372e1d918ab30c6e92bcbf2f1a71bd9b0fb19d2a476501fc
 REQUIRES HEADER libc
 REQUIRES HEADER cpp
 REQUIRES LIB c++
@@ -19,13 +19,13 @@ REQUIRES TOOL ar
 REQUIRES TOOL tar
 REQUIRES TOOL rm
 
-SOURCE https://daugasauron.com/dist/static/openal/source.tar 716be269a99ccde5220f790e281cd1a4660152d7952eb09ba9619eab1f8c7bec /tmp/openal/source.tar
+SOURCE https://daugasauron.com/dist/static/openal/source.tar e11cc1b7572297fa95d400c886831cf88740f2fb934edd16f1d2572d5974bba6 /tmp/openal/source.tar
 SLOP tar -xf /tmp/openal/source.tar -C /
 # HAVE_PTHREAD=OFF: the mixer is serial (openal-dolly.patch) and 0 A.D. is not a threaded process.
 SLOP cmake -S /tmp/openal/source -B /tmp/openal/build \
   -DCMAKE_SYSTEM_NAME=Dolly -DCMAKE_SYSTEM_PROCESSOR=wasm64 \
   -DCMAKE_INSTALL_PREFIX=/usr -DCMAKE_INSTALL_LIBDIR=lib -DCMAKE_BUILD_TYPE=Release \
-  -DCMAKE_C_FLAGS_RELEASE=-O1 '-DCMAKE_CXX_FLAGS_RELEASE=-O1 -DDOLLY -D__STDC_NO_THREADS__=1 -include cstdlib' \
+  -DCMAKE_C_FLAGS_RELEASE=-O1 '-DCMAKE_CXX_FLAGS_RELEASE=-O1 -D__STDC_NO_THREADS__=1 -include cstdlib' \
   -DLIBTYPE=STATIC -DALSOFT_UTILS=OFF -DALSOFT_EXAMPLES=OFF -DALSOFT_TESTS=OFF \
   -DALSOFT_DLOPEN=OFF -DALSOFT_EAX=OFF -DALSOFT_BACKEND_PIPEWIRE=OFF \
   -DALSOFT_BACKEND_PULSEAUDIO=OFF -DALSOFT_BACKEND_ALSA=OFF -DALSOFT_BACKEND_OSS=OFF \

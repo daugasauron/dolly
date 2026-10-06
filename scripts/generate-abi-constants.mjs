@@ -50,8 +50,15 @@ for (const { name } of hostManifests) {
 
 // The process packet contract is C. Its enumerators and defines are integer
 // expressions over earlier constants; packet sizes come from its layout checks.
+let errorNumbers;
 const header = (await read("include/dolly/process.h"))
-  .replace(/\/\*[\s\S]*?\*\/|\/\/.*$/gm, "").replace(/\\\n/g, " ");
+  .replace(/\/\*[\s\S]*?\*\/|\/\/.*$/gm, "").replace(/\\\n/g, " ")
+  .replace(/enum dolly_process_error \{([^}]*)\};/, (_, numbers) => (errorNumbers = numbers, ""));
+const errors = [...errorNumbers.matchAll(/DOLLY_PROCESS_(E[A-Z0-9]+) = (\d+)/g)];
+// The kernel and the libc adapter are compiled against the bootstrap libc:
+// scripts/build.sh compiles this proof that its errno numbers are the contract's.
+await write("build/process-errno-check.c", "#include <errno.h>\n#include <dolly/process.h>\n" +
+  errors.map(([, name]) => `_Static_assert(${name} == DOLLY_PROCESS_${name}, "${name}");\n`).join(""));
 const constants = new Map([["UINT32_MAX", 0xffffffff]]);
 for (const [, name, expression] of header.matchAll(
   /^[ \t]*(?:#define[ \t]+)?(DOLLY_PROCESS_[A-Z0-9_]+)[ \t]*(?:=|[ \t])[ \t]*([^,\n]+?)[ \t]*,?[ \t]*$/gm)) {
@@ -71,5 +78,7 @@ if (!constants.has("DOLLY_PROCESS_PACKET_LIMIT") || !sizes.length) {
 }
 await write("src/process-constants.mjs", "// Generated from include/dolly/process.h.\n" +
   [...constants].map(([name, value]) => `export const ${name} = ${value};\n`).join("") +
+  "export const DOLLY_ERRNO = Object.freeze({\n" +
+  errors.map(([, name, value]) => `  ${name}: ${value},\n`).join("") + "});\n" +
   "export const DOLLY_PROCESS_SIZEOF = Object.freeze({\n" +
   sizes.map(([, type, size]) => `  ${type}: ${size},\n`).join("") + "});\n");

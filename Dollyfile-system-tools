@@ -6,7 +6,7 @@ REQUIRES HOST download@0
 REQUIRES HOST http@0
 REQUIRES HOST upload@0
 
-FROM https://daugasauron.com/Dollyfile-system-build ce6d906b13b2aeee6bfcec37e8b8d6d92c49905fcbb3bfebb5ad15bb4ba575c0
+FROM https://daugasauron.com/Dollyfile-system-build 5be619bbcdf4bbe804058d0b38ac971423e4a59cd8aa8a7cab6c861b7bd3b0f2
 # Unchanged upstream sbase commands, built by sbase's own Makefile.
 REQUIRES HEADER libc
 REQUIRES TOOL   ar
@@ -158,7 +158,7 @@ SLOP rm -rf /tmp/upload
 # bootstrap-compiler blowup for that one file.
 REQUIRES HEADER runtime
 
-SOURCE https://daugasauron.com/dist/static/default/samurai.tar                   ba48e1c8a1140dc624fc6c81da149cdeb7c7b9b95d7addd56a79048c748a4b6b /tmp/ninja/samurai.tar
+SOURCE https://daugasauron.com/dist/static/default/samurai.tar                   3edf36a672e9c70962e0f1fb6fdf92bbfd96d759fff162b821ee5947536f6899 /tmp/ninja/samurai.tar
 SOURCE https://daugasauron.com/dist/static/default/runtimes/samurai-unit-dolly.c 4412175ad18939c580d6a31ca89a1284d313026674d5ac4faa0841aab379a4f7 /tmp/ninja/samurai-unit-dolly.c
 
 FILE /tmp/ninja/Makefile
@@ -169,7 +169,7 @@ FILE /tmp/ninja/Makefile
     PARTS := 1 2 3 4 5 6 7 8 9 10 11 12 13
     UNIT := /tmp/ninja/samurai-unit-dolly.c
     OBJECTS := $(addprefix /tmp/ninja/part-,$(addsuffix .o,$(PARTS)))
-    CFLAGS := -O1 -std=c99 -D_POSIX_C_SOURCE=200809L -DDOLLY -I $(SOURCE_ROOT)
+    CFLAGS := -O1 -std=c99 -D_POSIX_C_SOURCE=200809L -I $(SOURCE_ROOT)
     
     all: /usr/bin/ninja
     
@@ -207,16 +207,16 @@ FILE /usr/share/licenses/samurai/LICENSE
 SLOP rm \
   -rf \
   /tmp/ninja
-INSTALL https://daugasauron.com/Dollyfile-zlib 219cadf93ed3ffbbda14326ed10213c30d5834c17918f61f3fdfdae10e5ef375
-INSTALL https://daugasauron.com/Dollyfile-gzip ab950bdcc248ef2b77f2513d179a88449eee207a6cb815edc1528faeabb38449
-INSTALL https://daugasauron.com/Dollyfile-curl 66e03f235494397ac75904ec5d50a1c96442310e68ecb5450d615162cdb3fb33
+INSTALL https://daugasauron.com/Dollyfile-zlib 8c7cecec184bf2807c0d52af660ed05184b33921e1975848bfe0935fff01028d
+INSTALL https://daugasauron.com/Dollyfile-gzip 8d9f82f5631d6e0f035d05f9c7d6cac855ef136509d712143ff9b42d32fc9cc1
+INSTALL https://daugasauron.com/Dollyfile-curl 66b1831b73b57667d7fa93b31114a446e45f8109162ea19d84d083038dac9fe2
 REQUIRES TOOL   mkdir
 REQUIRES LIB    curl
 REQUIRES LIB    z
 REQUIRES HEADER curl
 REQUIRES HEADER zlib
 
-SOURCE https://daugasauron.com/dist/static/default/git.tar 3c4cbd0b978b5e3d067aa63faa2db16a7e1e047e6710db744e012161138ebb67 /tmp/git.tar
+SOURCE https://daugasauron.com/dist/static/default/git.tar c4c2f0e7c0fe241b81331b9fd8e10d9847e996c82a0c7249844b692023295648 /tmp/git.tar
 SLOP tar \
   -xf /tmp/git.tar \
   -C /
@@ -240,7 +240,6 @@ FILE /tmp/git/Makefile
       -std=gnu99 \
       -Wno-ignored-attributes \
       -D_DEFAULT_SOURCE \
-      -DDOLLY \
       -DNO_GETTEXT \
       -DNO_ICONV \
       -DNO_EXPAT \
@@ -431,6 +430,6 @@ SLOP rm \
 REQUIRES TOOL ln
 SLOP ln -s slop /bin/sh
 EXPORTS TOOL sh
-INSTALL https://daugasauron.com/Dollyfile-display 3781733657be14900e1acfcbbc96417a4ce1b6e8acb6ebbbc6d20168a2a4878a
+INSTALL https://daugasauron.com/Dollyfile-display fe2bd9624bd46a203b26c996e09550ab2c079de2db4b940cb45e82d178132340
 
 ENTRY /bin/foreground -i /bin/slop

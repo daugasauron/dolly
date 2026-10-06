@@ -2,8 +2,8 @@ DOLLY 6
 PACKAGE gzip
 REQUIRES HOST runtime@0
 
-FROM https://daugasauron.com/Dollyfile-system-build ce6d906b13b2aeee6bfcec37e8b8d6d92c49905fcbb3bfebb5ad15bb4ba575c0
-INSTALL https://daugasauron.com/Dollyfile-zlib 219cadf93ed3ffbbda14326ed10213c30d5834c17918f61f3fdfdae10e5ef375
+FROM https://daugasauron.com/Dollyfile-system-build 5be619bbcdf4bbe804058d0b38ac971423e4a59cd8aa8a7cab6c861b7bd3b0f2
+INSTALL https://daugasauron.com/Dollyfile-zlib 8c7cecec184bf2807c0d52af660ed05184b33921e1975848bfe0935fff01028d
 
 REQUIRES HEADER libc
 REQUIRES HEADER zlib

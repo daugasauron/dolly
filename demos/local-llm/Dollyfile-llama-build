@@ -6,7 +6,7 @@ REQUIRES HOST download@0
 REQUIRES HOST http@0
 REQUIRES HOST upload@0
 
-FROM https://daugasauron.com/demos/cmake/Dollyfile-cmake-build e0811c52b63a516249d52699a82cea617cfff4a7cb61a613aff75d7c458e941b
+FROM https://daugasauron.com/demos/cmake/Dollyfile-cmake-build 35abe82798d14bf8372e1d918ab30c6e92bcbf2f1a71bd9b0fb19d2a476501fc
 REQUIRES TOOL cc
 REQUIRES TOOL c++
 REQUIRES TOOL cmake
@@ -14,7 +14,7 @@ REQUIRES TOOL make
 REQUIRES TOOL tar
 REQUIRES TOOL rm
 
-SOURCE https://daugasauron.com/dist/static/llama/source.tar 5f3ad5d6f0579842ed9911468b521e73f430b3cd1545986a9e849fe3afa49afd /tmp/llama-source.tar
+SOURCE https://daugasauron.com/dist/static/llama/source.tar b212a304313f3f85626eff576ff3ecd9e606655ddc80deb87c3777f8c67d2460 /tmp/llama-source.tar
 SLOP tar -xf /tmp/llama-source.tar -C /
 SLOP cmake -S /tmp/llama -B /tmp/llama/build \
   -DCMAKE_SYSTEM_NAME=Dolly -DCMAKE_SYSTEM_PROCESSOR=wasm64 \

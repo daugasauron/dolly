@@ -98,7 +98,7 @@
    error = posix_spawnattr_setflags (attributes,
 -				    POSIX_SPAWN_SETSID
 -				    | POSIX_SPAWN_SETSIGDEF
-+#ifndef DOLLY /* Dolly has no sessions; children stay with Emacs.  */
++#ifndef __dolly__ /* Dolly has no sessions; children stay with Emacs.  */
 +				    POSIX_SPAWN_SETSID |
 +#endif
 +				    POSIX_SPAWN_SETSIGDEF
@@ -111,7 +111,7 @@
  
    /* If we are controlling the terminal, reset terminal modes.  */
  #if !defined DOS_NT && !(defined HAVE_ANDROID && !defined ANDROID_STUBIFY)
-+#ifdef DOLLY /* No process groups: Emacs controls the one terminal.  */
++#ifdef __dolly__ /* No process groups: Emacs controls the one terminal.  */
 +  if (true)
 +#else
    pid_t tpgrp = tcgetpgrp (STDIN_FILENO);
@@ -127,7 +127,7 @@
    if (n_to_read > sizeof cbuf)
      n_to_read = sizeof cbuf;
 -#elif defined USG || defined CYGWIN
-+#elif defined USG || defined CYGWIN || defined DOLLY
++#elif defined USG || defined CYGWIN || defined __dolly__
    /* Read some input if available, but don't wait.  */
    n_to_read = sizeof cbuf;
    fcntl (fileno (tty->input), F_SETFL, O_NONBLOCK);
@@ -136,7 +136,7 @@
  
  #ifndef USABLE_FIONREAD
 -#if defined (USG) || defined (CYGWIN)
-+#if defined (USG) || defined (CYGWIN) || defined DOLLY
++#if defined (USG) || defined (CYGWIN) || defined __dolly__
    fcntl (fileno (tty->input), F_SETFL, 0);
  #endif /* USG or CYGWIN */
  #endif /* no FIONREAD */
@@ -148,7 +148,7 @@
        if (p->alive
 -	  && child_status_changed (p->pid, &status, WUNTRACED | WCONTINUED))
 +	  && child_status_changed (p->pid, &status,
-+#ifdef DOLLY /* No job control: Dolly's children never stop.  */
++#ifdef __dolly__ /* No job control: Dolly's children never stop.  */
 +				   0
 +#else
 +				   WUNTRACED | WCONTINUED
@@ -163,7 +163,7 @@
  #ifdef IEXTEN
    tty.main.c_lflag &= ~IEXTEN;	/* Disable other editing characters.  */
  #endif
-+#ifdef DOLLY /* The terminal ignores c_cc: its interrupt key is C-c.  Read C-g.  */
++#ifdef __dolly__ /* The terminal ignores c_cc: its interrupt key is C-c.  Read C-g.  */
 +  tty.main.c_lflag &= ~ISIG;
 +#else
    tty.main.c_lflag |= ISIG;	/* Enable signals */

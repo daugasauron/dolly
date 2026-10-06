@@ -1,4 +1,4 @@
-import { DOLLY_ERRNO as E } from "../../dist/dolly-errno.mjs";
+import { DOLLY_ERRNO as E } from "../../src/process-constants.mjs";
 import { DOLLY_GPU_SLOTS, DOLLY_GPU_REPLY_BYTES } from "./abi.mjs";
 
 export async function createGpuBridge(memory, mailbox, canvas, complete, status) {

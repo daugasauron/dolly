@@ -7,7 +7,7 @@ REQUIRES HOST http@0
 REQUIRES HOST upload@0
 
 # Keep the expensive bootstrap reusable across source-build workspaces.
-FROM https://daugasauron.com/Dollyfile-system-tools 1a5ee52e17d322eb5daf71a13f72bd36934e5c38e4bfbe4039fc6a05cc766903
+FROM https://daugasauron.com/Dollyfile-system-tools fa6f906c94e161f07c4c757ef0366c1d40e6e76731d190024e159ed05c353863
 REQUIRES HEADER libc
 REQUIRES HEADER runtime
 REQUIRES TOOL cc
@@ -17,7 +17,7 @@ REQUIRES TOOL cp
 REQUIRES TOOL tar
 REQUIRES TOOL rm
 
-SOURCE https://daugasauron.com/dist/static/neovim/libuv.tar d28d193a41b305f389d8e3a2dbe186ba0c5762c2b9aab24febfc32b8fb026920 /tmp/libuv/source.tar
+SOURCE https://daugasauron.com/dist/static/neovim/libuv.tar 461040408746e35ebd16d2e1db43e6e6ebd368cacffe240e26bac474ca956437 /tmp/libuv/source.tar
 SLOP tar -xf /tmp/libuv/source.tar -C /
 SLOP make -C /tmp/libuv
 SLOP cp /tmp/libuv/libuv.a /usr/lib/libuv.a
