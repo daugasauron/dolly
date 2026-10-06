@@ -91,7 +91,12 @@ await browserTest("shell", { server: { handle } }, async ({ server, open }) => {
     ["mkdir -p flags/deep && mkdir -p flags/deep && touch flags/.hidden && echo visible > flags/visible"],
     ["test \"$(ls flags)\" = \"$(printf 'deep\\nvisible')\" && ls -a flags | grep -q '^.hidden$'"],
     ["echo file > not-a-directory && mkdir -p not-a-directory", 1],
-    ["rm -f flags/missing && rm -rf flags && ls -la"],
+    // The POSIX long format with the modes stat reports; an empty directory is only its total.
+    ["rm -f flags/missing && rm -rf flags && ls -la > listed && grep -q '^total [0-9]' listed && grep -q '^d.* \\.$' listed && " +
+      "grep -q \"^$(stat -c %A corpus.txt) \"' *1 [0-9][0-9]* [0-9][0-9]* *11 [A-Z][a-z][a-z] [ 0-9][0-9] [0-9][0-9]:[0-9][0-9] corpus.txt$' listed"],
+    ["mkdir empty && test \"$(ls -l empty)\" = 'total 0' && ln -s corpus.txt link && ls -l link | grep -q '^l.* link -> corpus.txt$'"],
+    // A path that names nothing is reported as a path, not as a missing command.
+    ["./no-such-program 2> missing; test $? = 127 && grep -q 'No such file' missing && ./ 2> dir; test $? = 126 && grep -q 'directory' dir"],
     ["ls flags", 1],
     ["echo shell-created > shell.txt && test \"$(stat -c '%F %s' shell.txt)\" = 'regular file 14' && file shell.txt"],
     ["[ -f shell.txt ] && [ ! -d shell.txt ]"],

@@ -104,7 +104,7 @@ EXPORTS TOOL dollyfile
 REQUIRES HEADER libc
 REQUIRES HEADER runtime
 
-SOURCE https://daugasauron.com/dist/static/default/slop.c db983fd7de0b0e1b4029cb3898c18e7333935315afd09461fb84d79fcd7e0acb /tmp/slop/slop.c
+SOURCE https://daugasauron.com/dist/static/default/slop.c 38ad3ffc499b9bc4c250c78075bea21954b1b949afdc54bd7f88d0946d43e650 /tmp/slop/slop.c
 RUN /usr/libexec/dolly/process-bin/compiler --dolly-toolchain-mode=c -O1 /tmp/slop/slop.c -o /bin/slop
 
 EXPORTS TOOL slop
@@ -389,7 +389,7 @@ FILE /tmp/core-tools/help.c
       fputs("not supported: & and jobs, aliases, umask, ulimit, brace expansion {a,b}, ${VAR/a/b}, ${VAR:1:2}, $'...'; a glob that matches nothing stays as typed\n", stdout);
       fputs("pipelines run one stage at a time: a | b starts b when a has finished, so an endless producer never ends\n", stdout);
       fputs("archives: tar -xf and gzip -dc read them; git init -q . && git add -A && git archive -o out.tar.gz $(git write-tree) writes one of a directory\n", stdout);
-      fputs("one user and no permission bits: chmod, chown and install -m change nothing; there is no id, whoami, ps or df\n", stdout);
+      fputs("one user and no permission bits: the modes ls -l prints are fixed and nothing checks them; there is no chmod, chown, id, whoami, ps or df, and install -m changes nothing\n", stdout);
       fputs("limits: 256 descriptors and 8 GiB of memory per process, 32 processes, 16 threads per process (64 in all), 64 KiB pipes; getrlimit reports them\n", stdout);
       fputs("a program that exits 126 was refused or failed: its stderr says why; cc --help and curl --help describe linking and network errors\n", stdout);
       return 0;
@@ -640,6 +640,7 @@ FILE /tmp/core-tools/ls.c
     #include <string.h>
     #include <sys/stat.h>
     #include <time.h>
+    #include <unistd.h>
     
     typedef struct { char **items; size_t length; size_t capacity; } name_list;
     typedef struct {
@@ -708,13 +709,30 @@ FILE /tmp/core-tools/ls.c
         fputc('\n', stdout);
         return 0;
       }
-      char size[32], timestamp[32] = "?";
+      // The POSIX long format: the bits are what stat reports, no more; the
+      // owner and group are the one user's numeric ids, which have no names;
+      // the date carries the time of day for six months, then the year.
+      char size[32], timestamp[32] = "?", mode[] = "----------";
       format_size(size, metadata.st_size, option->human);
+      const time_t age = time(NULL) - metadata.st_mtime;
       struct tm *broken = localtime(&metadata.st_mtime);
-      if (broken != NULL) strftime(timestamp, sizeof(timestamp), "%Y-%m-%d %H:%M", broken);
-      const char kind = S_ISDIR(metadata.st_mode) ? 'd' : S_ISLNK(metadata.st_mode) ? 'l' : '-';
-      printf("%c %10s %s %s", kind, size, timestamp, name);
+      if (broken != NULL) {
+        strftime(timestamp, sizeof(timestamp), age >= 0 && age < 182 * 86400 ? "%b %e %H:%M" : "%b %e  %Y", broken);
+      }
+      mode[0] = S_ISDIR(metadata.st_mode) ? 'd' : S_ISLNK(metadata.st_mode) ? 'l'
+          : S_ISCHR(metadata.st_mode) ? 'c' : S_ISBLK(metadata.st_mode) ? 'b'
+          : S_ISFIFO(metadata.st_mode) ? 'p' : S_ISSOCK(metadata.st_mode) ? 's' : '-';
+      for (int bit = 0; bit < 9; bit++) {
+        if (metadata.st_mode & (0400u >> bit)) mode[1 + bit] = "rwx"[bit % 3];
+      }
+      printf("%s %3lu %u %u %10s %s %s", mode, (unsigned long)metadata.st_nlink,
+             (unsigned)metadata.st_uid, (unsigned)metadata.st_gid, size, timestamp, name);
       if (suffix != '\0') fputc(suffix, stdout);
+      if (S_ISLNK(metadata.st_mode)) {
+        char target[4096];
+        const ssize_t length = readlink(path, target, sizeof(target) - 1);
+        if (length >= 0) printf(" -> %.*s", (int)length, target);
+      }
       fputc('\n', stdout);
       return 0;
     }
@@ -746,6 +764,19 @@ FILE /tmp/core-tools/ls.c
         qsort(names.items, names.length, sizeof(*names.items), compare_names);
       }
       if (print_heading) printf("%s:\n", path);
+      if (option->long_format) {
+        // Files occupy memory, not blocks: the total counts their sizes in KiB.
+        unsigned long long total = 0;
+        for (size_t index = 0; index < names.length; index++) {
+          char *entry_path = join_path(path, names.items[index]);
+          struct stat entry_metadata;
+          if (entry_path != NULL && lstat(entry_path, &entry_metadata) == 0) {
+            total += ((unsigned long long)entry_metadata.st_size + 1023) / 1024;
+          }
+          free(entry_path);
+        }
+        printf("total %llu\n", total);
+      }
       for (size_t offset = 0; offset < names.length; offset++) {
         const size_t index = option->reverse ? names.length - offset - 1 : offset;
         char *entry_path = join_path(path, names.items[index]);
@@ -791,7 +822,9 @@ FILE /tmp/core-tools/ls.c
         const char *argument = argv[first_path];
         if (strcmp(argument, "--") == 0) { first_path++; break; }
         if (strcmp(argument, "--help") == 0) {
-          fputs("usage: ls [-1aAdFhlpRr] [--color[=WHEN]] [--] [PATH ...]\n", stdout);
+          fputs("usage: ls [-1aAdFhlpRr] [--color[=WHEN]] [--] [PATH ...]\n"
+                "-l prints mode, links, numeric owner and group, size, date and name; its total is the\n"
+                "listed sizes in KiB, each rounded up, because disk blocks do not exist.\n", stdout);
           return 0;
         }
         if (strncmp(argument, "--color", 7) == 0 || strcmp(argument, "--group-directories-first") == 0) continue;
@@ -807,7 +840,9 @@ FILE /tmp/core-tools/ls.c
       const int multiple = argc - first_path > 1;
       int status = 0;
       for (int index = first_path; index < argc; index++) {
-        if (index != first_path) fputc('\n', stdout);
+        struct stat metadata;
+        const int listing = !option.directory && lstat(argv[index], &metadata) == 0 && S_ISDIR(metadata.st_mode);
+        if (index != first_path && listing) fputc('\n', stdout);
         if (list_path(argv[index], &option, multiple) != 0) status = 1;
       }
       return status;

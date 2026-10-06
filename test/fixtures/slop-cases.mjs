@@ -123,6 +123,7 @@ export const shellCases = [
   ["a signal cannot be ignored", 'trap "" INT', 2, 0],
   ["wait without background jobs succeeds", "wait", 0],
   ["wait rejects a process that is not a job", "wait 1", 127],
+  ["a path that names nothing is not a missing command", "./no-such-program; a=$?; no-such-program; b=$?; ./; c=$?; exit $((a + b + c))", 380 & 255],
   ["aliases, umask and ulimit are refused", "alias x=y; a=$?; umask 022; b=$?; ulimit -n > /dev/null; exit $((a + b + $?))", 6, 0],
 ];
 

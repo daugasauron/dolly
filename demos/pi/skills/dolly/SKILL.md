@@ -82,7 +82,11 @@ $(FILES):
 ## C and C++
 
 `cc` and `c++` are Clang for wasm64, with `make`, `ninja` and `ar`; `cc -c`
-takes one source file. Upstream `./configure` scripts usually need more shell
+takes one source file. `cc file.c` writes `a.out`: name the program and run it
+in the same command, `cc -o NAME file.c && ./NAME`, because every `bash` call
+starts in Pi's working directory again. It runs whatever mode `ls -l` shows:
+there is no `chmod`. Every program here, `cc` included, is a WebAssembly
+module, as `file` says: never `cat` one. Upstream `./configure` scripts usually need more shell
 than Slop has: compile the sources directly or write a small Makefile. `-lm`, `-lz` and `-lcurl` (libcurl over the browser)
 link from `/usr/lib`. To use a Dolly interface (`display.h` draws on the
 terminal's canvas), include its header from `/usr/include/dolly/`: its client

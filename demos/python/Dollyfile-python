@@ -3,7 +3,7 @@ PACKAGE python
 REQUIRES HOST runtime@0
 REQUIRES HOST http@0
 
-FROM https://daugasauron.com/Dollyfile-system 600e07eff6905f15f1971af8d8e88925cf6eeef85d0516bc7b6eb95fd7de840e
+FROM https://daugasauron.com/Dollyfile-system 0000000000000000000000000000000000000000000000000000000000000000
 # Build the Python runtime and native extension SDK; pip.dm adds pip.
 REQUIRES HEADER curl
 REQUIRES HEADER libc
