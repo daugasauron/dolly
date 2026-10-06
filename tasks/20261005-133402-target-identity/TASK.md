@@ -419,3 +419,14 @@ passes all four cases in both browsers.
 - `classicube`, `classicube-build`, `bhop`, `rts-arena`, `rts-build`,
   `slopyard`, `gamedev-sdk`, `gpu-fluid`: no identity edit; they build on
   QuickJS's bare `-DEMSCRIPTEN=1`, SDL2 and the game SDKs rebuilt here.
+
+### State of the branch (2026-10-06, 09:45 JST)
+
+44 of 61 images built on the new seed and pinned (`b84c0594`); source tests
+277 and 83 of 83 pass. No recipe or patch passes `-DDOLLY` or
+`-U__EMSCRIPTEN__` or tests `DOLLY`; the four remaining mentions of
+`__EMSCRIPTEN__` keep upstream's name beside `__dolly__` in a condition
+(LLVM, ggml, ICU), rename it in a staged header (libffi, as the libc headers
+do), or belong to the host-built SpiderMonkey and to `ggml-webgpu.cpp`'s one
+file. The done-when holds for the tree; the task closes when the catalog
+round has rebuilt the other 17 images.
