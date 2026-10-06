@@ -42,6 +42,7 @@ export const shellCases = [
   ["positional default shell pattern", 'f() { value=${2-[^=]*=}; case $value in "[^=]*=") :;; *) exit 91;; esac; }; f first', 0],
   ["positional assignment is rejected", 'set --; : ${1:=value}', 1],
   ["set positional assignment fallback is unused", 'set -- kept; case ${1:=value} in kept) :;; *) exit 91;; esac', 0],
+  ["a function body is any compound command", 'x=1; s() ( x=2; exit 4 ); s; a=$?; i() if :; then return 3; fi; i; b=$?; w()\nfor n in 1 2; do last=$n; done; w; c() case $1 in q) return 5;; esac; c q; exit $((a * 1000 + b * 100 + $? * 10 + last + x))', (4352 + 1) & 255],
   ["function body on the following line", "f()\n{ return 7; }\nf", 7],
   ["function body after comments and blank lines", "f ()\n# body follows\n\n{ return 8; }\nf", 8],
   ["multiline definition does not execute its body", "f()\n{ exit 93; }\nexit 19", 19],

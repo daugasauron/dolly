@@ -63,7 +63,7 @@ slop [-enux] script [arg ...]
 | Area | Supported |
 | --- | --- |
 | Lists | newline, `;`, `&&`, `\|\|`, `!`; `time PIPELINE` prints `real SECONDS` for any pipeline, compound commands included; `PROGRAM &` and `a \| b &` start programs without waiting, `$!` is the last one's PID, `wait` and `wait PID...` collect them |
-| Compound | `if`/`elif`/`else`, `for`, `while`, `until`, `case`, `break N`, `continue N`, `NAME () { …; }` with `local` and `return` (depth 64), `{ …; }`, `( … )` |
+| Compound | `if`/`elif`/`else`, `for`, `while`, `until`, `case`, `break N`, `continue N`, `NAME () { …; }` or any other compound command as the body, with `local` and `return` (depth 64), `{ …; }`, `( … )` |
 | Redirections | descriptors 0–9: `<`, `>`, `>>`, `n>&m`, `n<&m`, `n>&-`, `>&$fd`, `&>`, `&>>`, `>&file`; redirection-only `exec`; up to 32 `<<` here-documents per line; on compound commands too |
 | Parameters | `$VAR`, `${VAR}`, `$?`, `$$`, `$!`, `$#`, `$-`, `$LINENO`, `$0`–`$9`, `$@`, `$*` (joined with the first `IFS` byte), `"$@"` and `"${@}"` as one field per parameter, also inside a word (`"x$@"`) and as `${1+"$@"}` |
 | Quoting | `'…'`, `"…"`, backslash, and `$'…'` with the C escapes `\a \b \e \f \n \r \t \v \\ \' \" \cX \xHH \NNN` |

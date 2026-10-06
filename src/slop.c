@@ -3742,6 +3742,10 @@ static int execute_list(Shell *shell, CommandParser *parser, int execute,
                         int suppress_errexit, unsigned stops,
                         unsigned *stopped);
 
+static int compound_start(const CommandParser *parser);
+static int parse_compound(Shell *shell, CommandParser *parser, int execute,
+                          int suppress_errexit);
+
 static int function_header(const CommandParser *parser, char **name,
                            size_t *body_start) {
   *name = NULL;
@@ -3773,13 +3777,13 @@ static int function_header(const CommandParser *parser, char **name,
   while (brace_index < parser->end &&
          parser->tokens[brace_index].kind == TOKEN_SEMI &&
          parser->tokens[brace_index].newline) brace_index++;
-  if (brace_index >= parser->end ||
-      parser->tokens[brace_index].kind != TOKEN_WORD ||
-      parser->tokens[brace_index].quoted ||
-      strcmp(parser->tokens[brace_index].text, "{") != 0) return -2;
+  // POSIX: the body is any compound command; `{` is only the common one.
+  CommandParser body = *parser;
+  body.cursor = brace_index;
+  if (!compound_start(&body)) return -2;
   *name = strndup(first, name_length);
   if (*name == NULL) return -1;
-  *body_start = brace_index + 1;
+  *body_start = brace_index + (command_word(&body, "{") ? 1 : 0);
   return 1;
 }
 
@@ -3860,9 +3864,14 @@ static int parse_function_definition(Shell *shell, CommandParser *parser,
       .end = parser->end,
   };
   unsigned stopped = 0;
-  (void)execute_list(shell, &body, 0, 1, STOP_RBRACE, &stopped);
-  if (body.error || stopped != STOP_RBRACE) {
-    fprintf(stderr, "slop: function %s requires }\n", name);
+  // A `{` body is kept as its list; any other compound command as itself.
+  const int braced = body_start != 0 && parser->tokens[body_start - 1].kind == TOKEN_WORD &&
+      !parser->tokens[body_start - 1].quoted &&
+      strcmp(parser->tokens[body_start - 1].text, "{") == 0;
+  if (braced) (void)execute_list(shell, &body, 0, 1, STOP_RBRACE, &stopped);
+  else (void)parse_compound(shell, &body, 0, 1);
+  if (body.error || (braced && stopped != STOP_RBRACE)) {
+    fprintf(stderr, "slop: function %s requires a complete body\n", name);
     parser->error = 1;
     return 2;
   }
@@ -3872,7 +3881,7 @@ static int parse_function_definition(Shell *shell, CommandParser *parser,
     parser->error = 1;
     return 2;
   }
-  parser->cursor = body.cursor + 1;
+  parser->cursor = body.cursor + (braced ? 1 : 0);
   return 0;
 }
 
@@ -4511,7 +4520,7 @@ static int execute_list(Shell *shell, CommandParser *parser, int execute,
     const int definition = function_header(parser, &function_name,
                                            &function_body_start);
     if (definition < 0) {
-      fputs(definition == -2 ? "slop: function definition requires {\n"
+      fputs(definition == -2 ? "slop: a function body is a compound command: { ...; } or ( ... )\n"
                             : "slop: function definition: out of memory\n", stderr);
       parser->error = 1;
       return 2;
