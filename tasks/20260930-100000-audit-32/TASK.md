@@ -207,3 +207,162 @@ round (with `input@0`). The steps, each checked by the done-when above:
 6. `docs/slop.md` ("Pipelines and interrupts"), `docs/architecture.md:43-50`,
    the `help` text (`Dollyfile-system-build:388-389`) and the Pi skill
    (`SKILL.md:52-62`) lose their serial-pipeline warnings in the same commit.
+
+## Implemented on `core/concurrent-pipelines` (2026-10-06 evening)
+
+No browser ran and no image was built: a catalog rebuild held the machine.
+Slop is verified natively; the libc part and everything inside Dolly is not.
+The task stays open until the integrator has run the browser list below.
+
+### Semantics
+
+- **Kinds of stage.** Every stage is a subshell, as before. A stage is a
+  *program* when it is a simple command whose expanded command name is no
+  function, no builtin (special or regular, so `command ls`, `eval` and `exec`
+  are not), no name refused by `unsupported_builtin`, and resolves on `PATH`.
+  It is decided when the stage starts, after its words are expanded and before
+  its redirections apply, so `"$CC" -E x.c | grep y` is a program stage. Every
+  other stage runs *in the shell*: builtins, functions, compound commands
+  (`{ }`, `( )`, `if`, `for`, `while`, `until`, `case`), assignments alone.
+- **The connection is chosen by the producer.** A program writes to a kernel
+  pipe, is not waited for, and the next stage starts at once. A stage in the
+  shell writes to an unlinked spool file and finishes before the next stage
+  starts, because Slop has no second thread to drain 64 KiB of pipe while it
+  writes. The consumer may be either kind: a stage in the shell reads a
+  program's pipe while that program runs.
+- **Mixed pipeline** `producer | while read ...; do ...; done | consumer`:
+  `producer` starts; the loop runs in the shell and reads the pipe as the
+  producer writes; the loop's output spools; when the loop ends the shell
+  closes the pipe (a producer still writing gets `SIGPIPE`), then `consumer`
+  starts on the rewound spool; then the shell waits for `producer`. Streaming
+  from the program into the loop, serial from the loop into the consumer.
+  Not solved, by decision: an endless producer *in the shell*
+  (`while :; do echo y; done | head -n1`) still never ends; `docs/slop.md` and
+  the Pi skill say to write `slop -c '...' | head -n1`.
+- **Waiting and status.** After the last stage the shell waits for every
+  program it started, left to right (the last stage, if a program, was waited
+  for when it ran). Status: the last stage's; with `pipefail` the rightmost
+  non-zero one. A stage that died of a signal counts as `128 + signal`, so a
+  producer cut short is 141 and `set -o pipefail; seq 1 9999999 | head -n1`
+  is 141, as in Bash. `SIGINT`/`SIGQUIT` deaths stop the shell as before.
+- **Early exit of a consumer.** When the last read end closes (the consumer
+  exits, or the shell closes its copy after a stage in the shell), a producer
+  waiting on a full pipe is woken with `EPIPE` and any later write returns
+  `EPIPE`; libc raises `SIGPIPE` before `write` returns, which ends the
+  producer unless it ignores, handles or blocks the signal.
+- **EOF.** A reader sees EOF when every write end is closed. The shell's ends
+  are close-on-exec above descriptor 9 (`high_descriptor`); the write end is
+  on the shell's descriptor 1 only while the producer is spawned and is
+  closed before the next stage starts, so a stage holds no end of a pipe but
+  its own 0 and 1, and no later stage or background program inherits one. A
+  program a producer starts itself inherits its 1 and delays EOF, as on Unix.
+- **`&`.** `PROGRAM [ARG...] [REDIRECTIONS] &` and `a | b &` (every stage a
+  program) start without waiting; the list continues with status 0. Standard
+  input of the first stage is `/dev/null` unless redirected (POSIX without job
+  control). `$!` is the PID of the last stage; it is unset before the first
+  `&` and a subshell's `$!` does not leave it. `wait` collects every
+  background program and returns 0; `wait PID...` collects those and returns
+  the last one's status, 127 for a PID the shell does not hold (also one
+  `wait` already collected: Bash remembers such a status, dash does not).
+  At most 32 are held. A background program ends with the Slop process that
+  started it (the kernel reclaims the subtree at exit); a subshell is the same
+  process, so `wait` there sees the same programs.
+- **Refused by name:** `jobs`, `fg`, `bg` (no job control); `&` after a
+  compound command, a builtin, a function, or a `!`, `&&` or `||` list, each
+  of which would need a copy of the shell: "only a program can run in the
+  background; use slop -c '...' &". The `&&` refusal stops the script with
+  status 2 but is found when its last pipeline is reached, after the earlier
+  ones ran.
+- **Terminal output** of concurrent stages interleaves in the order the
+  writes reach the kernel; each `write` call is whole (the kernel dispatches
+  one call at a time).
+- **Ctrl+C** reaches the whole foreground tree, so every stage gets `SIGINT`;
+  the shell still waits for all of them. Step 3 of the plan (the shell sending
+  the signal itself) was not needed for that and is not implemented: after
+  `kill -INT` of the shell alone, its stages run on until their pipes close.
+
+### SIGPIPE: decided in libc, not in the kernel (differs from plan step 1)
+
+Read in `src/process-kernel.c`: the kernel already does everything but the
+signal. `release_descriptor` runs at close and at exit (`mark_process_exited`,
+before the Worker retires) and sets `pipe_changed`; the supervisor then
+retries parked calls (`dolly_process_take_wakeup`), so a parked read returns 0
+when `writers == 0` and a parked write returns `-EPIPE` when `readers == 0`.
+No kernel change and no `process.h` change is needed.
+
+Options for the signal:
+
+1. Kernel marks `SIGPIPE` pending in `fd_write_packet` (the recorded plan; no
+   seed change). The kernel does not know dispositions: delivery waits for the
+   writer's next call, and `DOLLY_PROCESS_EXIT` reports any pending
+   terminating signal as the cause of death, so a program that *ignores*
+   `SIGPIPE` and exits straight after the failed write would be recorded as
+   killed by it (`pipe-check broken` is exactly that program).
+2. libc raises it: `if (result == -EPIPE) raise(SIGPIPE)` in `__wasi_fd_write`
+   (`src/process/libc-adapter.c`), the only caller of `FD_WRITE`. Delivery is
+   synchronous, in the writing thread, and honours `SIG_IGN`, handlers and the
+   mask through the existing `deliver_pending`. One line; a seed change, which
+   the Slop change is anyway.
+
+Taken: 2. A runtime that does not use this libc must do the same; none exists.
+`pipe-check` now checks both dispositions (`broken` ignores and sees `EPIPE`;
+`sigpipe` is killed, and `pipe-driver` requires `WTERMSIG == SIGPIPE`).
+UNVERIFIED: these run only in the process smoke of `npm run build:runtime`.
+
+### What the native tests prove
+
+`test/slop.test.mjs` now builds a second ASan/UBSan binary that links
+`test/fixtures/native-spawn.c` (`posix_spawn` with the same inheritance rule
+as `INHERIT_FDS_ALL`) and runs `pipelineCases` in it and in Bash: Linux
+processes, pipes and `SIGPIPE` stand in for the kernel's. It proves the
+shell's part: stages start without waiting, pipe ends do not leak (EOF
+arrives, an endless `seq` is cut short within the 5 s timeout), the spool
+boundary, `pipefail` with 141, `$(...)`, `&`, `$!`, `wait`, no leaks. It does
+not prove the kernel's wake-ups, the libc `SIGPIPE`, the 32-process limit,
+Worker start-up order, or that a background program ends with its shell.
+`node --test test/slop.test.mjs`: 147 of 147 pass (evidence in
+`build/pipelines-evidence/`, not committed). The other source tests are
+unchanged; four files need `dist/`, which this checkout does not have.
+
+### For the integrator, in a browser (nothing below was run)
+
+    npm run build:runtime          # seed change: libc adapter, slop; runs pipe-driver
+    DOLLY_IMAGE_JOBS=1 DOLLY_BUILD_IMAGES=default /home/daug/dev/dolly/work/build-slot.sh npm run image
+    node test/core-browser.mjs chromium     # runs test/slop-browser.mjs: all pipelineCases
+    node test/core-browser.mjs firefox
+
+Done-when by hand in the `default` image: `seq 1 999999999 | head -n1`
+returns at once; `make 2>&1 | tee log` shows output while Make runs;
+`sleep 5 & echo $!; wait` ; `yes` is still not installed (sbase's is not in
+the tool list), so `yes | head -1` is covered natively only.
+
+Not done, because recipes were frozen tonight and an edit makes the pin of
+`Dollyfile-system-build` stale (six source tests fail on it): the `help` text
+(`Dollyfile-system-build:388-389`) still says pipelines are serial and `&` is
+unsupported. Replace those two lines with:
+
+    not supported: job control (jobs, fg, bg), aliases, umask, ulimit, brace expansion {a,b}, ${VAR/a/b}, ${VAR:1:2}, $'...'; a glob that matches nothing stays as typed
+    pipelines: programs run at the same time, so seq 1 999999999 | head -n1 ends at once; a builtin, function or compound stage finishes before the next stage reads its output
+    background: PROGRAM & and a | b & start programs; $! is the last PID; wait [PID...] collects them; wrap anything else as slop -c '...' &
+
+### Recipes (read, not edited)
+
+`SLOP` lines run `slop -e -c` without `pipefail` (`src/dollyfile.c:886`), and
+no in-image recipe sets it (the `set -euo pipefail` scripts are host-side
+Bash), so no recipe can fail with 141. What changes for each shape:
+
+- `gzip -dc A | tar -xf - -C D` (twelve recipes: rust-sdk, zero-ad-engine
+  twice, zero-ad-deps, neovim-build, llvm-tablegen, classicube-build,
+  rts-arena, rts-build, cmake-build, emacs, python) and the Codex
+  `cat parts | ...` line: two Workers at once and no spool of the
+  decompressed archive in kernel memory. If `tar` stops at the end-of-archive
+  marker before `gzip` has written its last block, `gzip` dies of `SIGPIPE`;
+  the status is still `tar`'s. Needs: nothing, but watch peak memory on the
+  largest archives (LLVM, 0 A.D.).
+- `sha256sum F | cut -d ' ' -f 1` (qwen3.5-2b, minicpm5-2b) and
+  `find ... | sed ... | xargs rm -f` (emacs): consumers read to the end.
+  Needs: nothing.
+- CMake's `bootstrap` (33 lines with `|`, backticks) runs under Slop in
+  `cmake-build`: its pipelines now run concurrently. Needs: the catalog round.
+- No recipe relies on a stage finishing before the next starts (none writes a
+  file in one stage that a later stage of the same pipeline reads).
