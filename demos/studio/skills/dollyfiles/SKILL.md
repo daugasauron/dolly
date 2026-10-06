@@ -48,8 +48,11 @@ Never run `/bin/dollyfile` here: it replaces the running image.
   blank line inside the file is four spaces. It is not a heredoc. `FILE` and
   `FOLDER` keep files in the image; build scratch goes in `/tmp`, which is
   never kept.
-- `EXPORTS TOOL name` names a command on `PATH`; compile to `/usr/bin`.
-- `ENTRY` is the last line. `/bin/foreground -i /bin/slop` gives a shell.
+- The image keeps a compiled program only when the recipe exports it:
+  compile to `/usr/bin` and add `EXPORTS TOOL name` (a command on `PATH`).
+- `ENTRY` is the last line. `/bin/foreground -i /bin/slop` gives a shell;
+  `/bin/foreground -i /usr/bin/name` runs a program, which must be exported
+  or the build fails naming the line to add.
 
 ## URLs and pins
 

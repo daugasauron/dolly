@@ -95,7 +95,7 @@ await browserTest("image", { server: { fixtures, handle }, timeout: 600_000 }, a
   // Sealing fails when ENTRY names an executable the image does not retain.
   await run("cc -O0 dollyfile.c -o dollyfile && printf 'DOLLY 6\\nAPPLICATION entry-missing\\nENTRY /bin/slop\\n' > Dollyfile");
   assert.equal(await submit("./dollyfile FILE:/tmp/retention/Dollyfile 2> error"), 1);
-  await run("grep -q 'must be retained' error && cp dollyfile /tmp/dollyfile && cd / && rm -rf /tmp/retention");
+  await run("grep -q 'ENTRY needs /bin/slop' error && cp dollyfile /tmp/dollyfile && cd / && rm -rf /tmp/retention");
   await parser.run(submit);
   // A receipt lists an export's members in path order, whatever order created them.
   await run("printf 'DOLLY 6\\nPACKAGE order\\nEXPORTS FOLDER order /usr/share/order\\n' > /tmp/Dollyfile-order");

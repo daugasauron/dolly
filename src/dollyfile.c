@@ -1947,21 +1947,61 @@ static int check_executable_hosts(Engine *engine, const char *path) {
   return result;
 }
 
+static int kept(Engine *engine, const char *path) {
+  return bsearch(&path, engine->keep, engine->keep_count, sizeof(*engine->keep), compare_strings) != NULL;
+}
+
+// Names the declaration that retains an ENTRY path the image would open without.
+static void report_unretained_entry(const char *path, int directory) {
+  const char *name = strrchr(path, '/') + 1;
+  char *tool = NULL;
+  if (dolly_fs_unretained_path(path)) {
+    fprintf(stderr, "dollyfile: ENTRY needs %s, which no image retains: /tmp and /workspace start empty\n", path);
+  } else if (directory) {
+    fprintf(stderr, "dollyfile: ENTRY needs %s, which the image does not retain: add FOLDER %s\n", path, path);
+  } else if (valid_object_name(name) && resolve_tool(name, &tool) == 0 && strcmp(tool, path) == 0) {
+    fprintf(stderr, "dollyfile: ENTRY needs %s, which the image does not retain: add EXPORTS TOOL %s\n", path, name);
+  } else {
+    fprintf(stderr, "dollyfile: ENTRY needs %s, which the image does not retain: add FILE %s\n", path, path);
+  }
+  free(tool);
+}
+
+// The image runs ENTRY when it opens, so what the line names must be in it.
+// Its program, and the program /bin/foreground [-i] starts, are retained
+// regular files. Any other word naming a file or directory that exists when
+// the recipe finishes is retained too, link targets included. /tmp and
+// /workspace exist in every image; a word naming nothing here is an argument
+// the engine cannot judge.
 static int entry_retained(Engine *engine) {
-  struct stat entry_metadata;
-  if (stat(engine->entry[0], &entry_metadata) != 0 || !S_ISREG(entry_metadata.st_mode)) {
-    fprintf(stderr, "dollyfile: ENTRY is missing or not a file: %s\n", engine->entry[0]);
-    return 0;
+  size_t program = 0;
+  if (strcmp(engine->entry[0], "/bin/foreground") == 0) {
+    program = engine->entry_count > 1 && strcmp(engine->entry[1], "-i") == 0 ? 2 : 1;
+    if (program == engine->entry_count || !valid_absolute_path(engine->entry[program])) {
+      fprintf(stderr, "dollyfile: ENTRY /bin/foreground [-i] takes the absolute path of a program\n");
+      return 0;
+    }
   }
   qsort(engine->keep, engine->keep_count, sizeof(*engine->keep), compare_strings);
-  const char *entry = engine->entry[0];
-  char *resolved_entry = realpath(entry, NULL);
-  const int retained = resolved_entry != NULL &&
-      bsearch(&entry, engine->keep, engine->keep_count, sizeof(*engine->keep), compare_strings) != NULL &&
-      bsearch(&resolved_entry, engine->keep, engine->keep_count, sizeof(*engine->keep), compare_strings) != NULL;
-  free(resolved_entry);
-  if (!retained) fprintf(stderr, "dollyfile: ENTRY and its target must be retained: %s\n", entry);
-  return retained;
+  for (size_t index = 0; index < engine->entry_count; ++index) {
+    const char *word = engine->entry[index];
+    struct stat metadata;
+    const int exists = valid_absolute_path(word) && stat(word, &metadata) == 0 &&
+        (S_ISREG(metadata.st_mode) || S_ISDIR(metadata.st_mode));
+    if (index == 0 || index == program) {
+      if (!exists || !S_ISREG(metadata.st_mode)) {
+        fprintf(stderr, "dollyfile: ENTRY program %s is not a file when the recipe finishes\n", word);
+        return 0;
+      }
+    } else if (!exists || strcmp(word, "/tmp") == 0 || strcmp(word, "/workspace") == 0) continue;
+    char *target = realpath(word, NULL);
+    const char *lost = target == NULL || !kept(engine, word) ? word : !kept(engine, target) ? target : NULL;
+    const int retained = lost == NULL;
+    if (!retained) report_unretained_entry(lost, S_ISDIR(metadata.st_mode));
+    free(target);
+    if (!retained) return 0;
+  }
+  return 1;
 }
 
 static int seal_manifest(Engine *engine) {
