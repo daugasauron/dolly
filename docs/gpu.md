@@ -43,7 +43,11 @@ flowchart LR
 While `gpu@0` is enabled, the page shows the adapter its programs get: `GPU`
 with the name the browser gives, `CPU (software GPU)` for a fallback adapter,
 SwiftShader or llvmpipe, or `No GPU` with the reason and a link here, followed
-by whether the adapter has `shader-f16`. Guest frames cannot cover it. An image
+by whether the adapter has `shader-f16`. Guest frames cannot cover it, and it
+takes no clicks except on that link. Like the page's other indicators
+([`page-indicators.mjs`](../src/page-indicators.mjs)) it shows for ten seconds
+once the page is ready and again when the adapter state changes, `No GPU`
+stays, and `Ctrl+Shift+F` shows or hides it; no program can. An image
 that requires `gpu@0` stops before ENTRY when the page gets no adapter; when the
 GPU Worker gets none, `OPEN` fails with `ENODEV` (`ENOSYS` without
 `navigator.gpu`); in an image without `gpu@0`, calls fail with `ENOSYS`.

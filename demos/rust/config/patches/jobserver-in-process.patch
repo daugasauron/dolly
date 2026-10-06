@@ -1,0 +1,41 @@
+--- a/src/lib.rs
++++ b/src/lib.rs
+@@ -381,6 +381,9 @@
+     ///
+     /// On platforms other than Unix and Windows this panics.
+     pub fn configure(&self, cmd: &mut Command) {
++        if cfg!(all(target_arch = "wasm64", target_os = "emscripten")) {
++            return; // No jobserver crosses a process here: the child gets none.
++        }
+         cmd.env("CARGO_MAKEFLAGS", &self.mflags_env());
+         self.inner.configure(cmd);
+     }
+@@ -404,6 +407,9 @@
+     ///
+     /// On platforms other than Unix and Windows this panics.
+     pub fn configure_make(&self, cmd: &mut Command) {
++        if cfg!(all(target_arch = "wasm64", target_os = "emscripten")) {
++            return;
++        }
+         let value = self.mflags_env();
+         cmd.env("CARGO_MAKEFLAGS", &value);
+         cmd.env("MAKEFLAGS", &value);
+--- a/src/wasm.rs
++++ b/src/wasm.rs
+@@ -91,7 +91,15 @@
+     mut f: Box<dyn FnMut(io::Result<crate::Acquired>) + Send>,
+ ) -> io::Result<Helper> {
+     let thread = Builder::new().spawn(move || {
+-        state.for_each_request(|_| f(client.acquire()));
++        state.for_each_request(|helper| loop {
++            // Polls, so that a helper waiting for a token sees its owner leave.
++            match client.try_acquire() {
++                Ok(Some(token)) => break f(Ok(token)),
++                Err(error) => break f(Err(error)),
++                Ok(None) if helper.lock().producer_done => break,
++                Ok(None) => std::thread::sleep(std::time::Duration::from_millis(10)),
++            }
++        });
+     })?;
+ 
+     Ok(Helper { thread })

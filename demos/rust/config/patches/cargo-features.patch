@@ -1,0 +1,28 @@
+--- a/Cargo.toml
++++ b/Cargo.toml
+@@ -45,13 +45,13 @@
+ core-foundation = { version = "0.10.1", features = ["mac_os_10_7_support"] }
+ crates-io = { version = "0.41.1", path = "crates/crates-io" }
+ criterion = { version = "0.8.2", features = ["html_reports"] }
+-curl = "0.4.49"
+-curl-sys = "0.4.88"
++curl = { version = "0.4.49", default-features = false }
++curl-sys = { version = "0.4.88", default-features = false }
+ filetime = "0.2.27"
+ flate2 = { version = "1.1.9", default-features = false, features = ["zlib-rs"] }
+ futures = { version = "0.3.32", default-features = false, features = ["std", "executor", "async-await"]}
+ futures-timer = "3.0.3"
+-git2 = { version = "0.21.0", features = ["https", "ssh"] }
++git2 = { version = "0.21.0", features = ["cred"] }
+ git2-curl = "0.22.0"
+ # When updating this, also see if `gix-transport` further down needs updating or some auth-related tests will fail.
+ gix = { version = "0.85.0", default-features = false, features = ["sha1", "progress-tree", "parallel", "dirwalk", "status"] }
+@@ -178,7 +178,7 @@
+ clap_complete.workspace = true
+ color-print.workspace = true
+ crates-io.workspace = true
+-curl = { workspace = true, features = ["http2"] }
++curl.workspace = true
+ curl-sys.workspace = true
+ filetime.workspace = true
+ flate2.workspace = true

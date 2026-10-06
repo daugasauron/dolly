@@ -217,3 +217,30 @@ Likeliest failures, first to last:
    `/usr/bin` of `default` is a command with a page.
 6. Recipes that pipe (`gzip -dc A | tar -xf -`) now run both programs at once
    (`20260930-100000-audit-32`, "Recipes").
+
+## Built and run (2026-10-06 night, `integrate/next`, worktree `work/next`)
+
+On the final merge (runtime `dccf70f9…`, image inputs `4431ea80…`), and
+before it on the first chain (`e8e495dc…`):
+
+- `test/man-browser.mjs` passes in Chromium and Firefox: every file in `/bin`
+  and `/usr/bin` of `default` has a page, every one of Dolly's own answers
+  `--help`, a missing page is status 1 with the name on stderr, a wrong
+  invocation is status 2 with the usage line, and the same two walks pass
+  after `amy install git`. (`git`, not `ripgrep`: ripgrep needs the Rust
+  chain, which the catalog round builds; its page rows are unverified.)
+- Measured in the built `default` (14,398,305 bytes): 82 commands and 82
+  pages, 37 plain (10,299 bytes) and 45 upstream (55,441 bytes: sbase's 44
+  and `awk.1`), and a 42,318-byte `/bin/man`: 108,058 bytes, 0.75% of the
+  image. `core` went from 1,057,526 to 1,110,126 bytes, Slop's own growth
+  from the pipelines work included.
+- The first build failed in the capture loop: Slop runs its own `cd` for the
+  word `cd`, which takes `--help` as a directory. The loop names `/bin/NAME`
+  (`fbfc278b`). None of the steps listed as likely to fail did.
+- `sbase.tar`'s pin, computed natively, is the one staging produced.
+
+The done-when holds. The task stays open for what "Expected" asks beyond it,
+listed under "Left" above (pages rendered at build time, one line per option
+and an example in every `--help`, `help` listing commands with summaries),
+and one more: `cd --help`, `command --help` and `time --help` typed at a
+prompt reach Slop's own `cd`, `command` and `time`, which have no `--help`.

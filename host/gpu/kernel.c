@@ -9,9 +9,8 @@
 static _Alignas(64) unsigned char replies[DOLLY_GPU_SLOTS * (64 + DOLLY_GPU_REPLY_BYTES)];
 static dolly_device_lease leases[DOLLY_GPU_SLOTS];
 
-DOLLY_EM_JS(int, dolly_gpu_dispatch, (const void *packet, uintptr_t bytes), {
-  return -ENOSYS;
-});
+DOLLY_BROWSER_IMPORT(dolly_gpu_dispatch)
+int dolly_gpu_dispatch(const void *packet, uintptr_t bytes);
 uintptr_t dolly_gpu_mailbox_address(void) { return (uintptr_t)replies; }
 
 static const dolly_leased_device gpu = {

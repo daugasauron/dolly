@@ -4,6 +4,7 @@ import { DOLLY_IMAGES } from "../../dist/dolly-images.mjs";
 import { loadCustomImage } from "../../src/custom-image.mjs";
 import { sha256 } from "../../src/image-artifact.mjs";
 import { publicURL } from "../../src/static-asset.mjs";
+import { holdIndicators } from "../../src/page-indicators.mjs";
 import {
   DOLLY_SESSION_FORMAT_VERSION,
   customSessionIdentity,
@@ -34,7 +35,7 @@ const markup = `<style>
   #session-dialog nav { display: flex; gap: 0.6rem; align-items: center; margin-top: 1rem; }
   #session-dialog nav a { margin-right: auto; font-size: 14px; }
 </style>
-<button id="session-open" type="button" aria-label="Save session" title="Save session (Ctrl+Shift+S)" hidden>Save</button>
+<button id="session-open" class="page-indicator" type="button" aria-label="Save session" title="Save session (Ctrl+Shift+S)" hidden>Save</button>
 <dialog id="session-dialog" aria-labelledby="session-title">
   <form id="session-form">
     <h2 id="session-title">Save session</h2>
@@ -128,6 +129,7 @@ export function mountSessionSave({ keyboard, showStatus, applicationBase }, tran
           !window.confirm(`Replace the saved session '${name}'?`)) return null;
       showStatus(`Saving ${name}…`, true);
       dataset.sessionStatus = "capturing";
+      holdIndicators("session", true);
       update(`Saving ${name}…`);
       button.disabled = nameField.disabled = saveButton.disabled = true;
       controller = new AbortController();
@@ -160,12 +162,14 @@ export function mountSessionSave({ keyboard, showStatus, applicationBase }, tran
       dataset.sessionStatus = "saved";
       history.replaceState(null, "", sessionLoadUrl(name, applicationBase));
       showStatus(`Saved ${name} locally · /sessions lists your saves`);
+      holdIndicators("session", false);
       update();
       return name;
     })().catch((error) => {
       dataset.sessionStatus = "failed";
       saveError = error instanceof Error ? error.message : String(error);
       showStatus(`Save failed: ${saveError}`, true);
+      holdIndicators("session", true);
       update(`Save failed: ${saveError}`);
       throw error;
     }).finally(() => {

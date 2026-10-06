@@ -44,6 +44,14 @@ SLOP test "$DOLLY_V3_ENV" = first:second` },
     old
 SLOP rm ${outputs}/deleted`,
       check: `test ! -f ${outputs}/deleted && ! grep -q ${outputs}/deleted /etc/dolly/image.manifest` },
+    // Sealing refuses an ENTRY the image would open without: the program
+    // /bin/foreground starts, and an argument naming a file that is not kept.
+    { name: "entry-program", rows: `EXPORTS TOOL foreground\nSLOP cp /bin/echo ${outputs}/greet`,
+      entry: `/bin/foreground -i ${outputs}/greet hello`, error: `add FILE ${outputs}/greet` },
+    { name: "entry-argument", rows: `SLOP printf true > ${outputs}/start.slop`,
+      entry: `/bin/slop ${outputs}/start.slop`, error: `add FILE ${outputs}/start.slop` },
+    { name: "entry-kept", rows: `EXPORTS TOOL foreground\nSLOP cp /bin/echo ${outputs}/greet\nFILE ${outputs}/greet`,
+      entry: `/bin/foreground -i ${outputs}/greet ${outputs}/absent /workspace` },
     { name: "library", rows: `EXPORTS LIB bad ${outputs}/directory`, error: "missing exported LIB" },
     { name: "folder", rows: `EXPORTS FOLDER bad ${outputs}/quoted`, error: "missing exported FOLDER" },
     { name: "bare-folder", rows: `FOLDER ${outputs}/quoted`, error: "FOLDER failed" },
@@ -54,7 +62,7 @@ SLOP rm ${outputs}/deleted`,
       error: "add REQUIRES HOST http@0" },
   ];
   for (const item of cases) {
-    const source = `DOLLY 6\nAPPLICATION parser-test\nEXPORTS TOOL slop\n${item.rows}\nENTRY /bin/slop ""\n`;
+    const source = `DOLLY 6\nAPPLICATION parser-test\nEXPORTS TOOL slop\n${item.rows}\nENTRY ${item.entry ?? '/bin/slop ""'}\n`;
     inspectDollyfile(source);
     recipes.set(`/fixture/parser-${item.name}.Dollyfile`, source);
   }

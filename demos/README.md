@@ -13,7 +13,7 @@ README. Demos may use each other; the core never uses a demo.
 - [gpu-fluid](gpu-fluid/README.md): an upstream WebGPU fluid solver.
 - [javascript](javascript/README.md): QuickJS-ng, Janis and TypeScript.
 - [llvm](llvm/README.md): LLVM, Clang and LLD built inside Dolly (so far TableGen).
-- [local-llm](local-llm/README.md): llama.cpp and a bundled Qwen model for Pi.
+- [local-llm](local-llm/README.md): llama.cpp and model packages for Pi.
 - [neovim](neovim/README.md): Neovim with Lua and Tree-sitter parsers.
 - [pi](pi/README.md): the Pi coding agent.
 - [python](python/README.md): CPython and stock pip over the HTTP broker.

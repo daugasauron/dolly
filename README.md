@@ -46,7 +46,9 @@ Open [daugasauron.com](https://daugasauron.com/) or
 - `/custom/` builds your own [Dollyfile](docs/dollyfile.md); `/sessions/` lists
   [saved sessions](docs/sessions.md) and `/session/?name=NAME` opens one.
 - `Ctrl+Shift+C`/`V` copy and paste, `Ctrl+Shift+S` saves, `F11` toggles
-  fullscreen. `upload PATH` and `download FILE` move single files.
+  fullscreen. `Ctrl+Shift+F` shows or hides the page's own indicators (GPU
+  adapter, Save, download offers), which leave the corners ten seconds after
+  the page is ready. `upload PATH` and `download FILE` move single files.
 - Needs cross-origin isolation and shared WebAssembly memory64/table64; there is
   no wasm32 fallback.
 

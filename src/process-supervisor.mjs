@@ -28,7 +28,7 @@ const compilationNoticeMilliseconds = 250;
 const largeInteractiveProcessBytes = 128 * 1024 * 1024;
 const workerReclamationMilliseconds = 500;
 
-function terminalFailureReason(error) {
+export function terminalFailureReason(error) {
   const message = error instanceof Error ? error.message : String(error);
   const firstLine = message.split(/[\r\n]/, 1)[0]
     .replace(/[^\x20-\x7e]/g, "?")
@@ -168,7 +168,10 @@ export class DollyProcessSupervisor {
       packet.length,
     ).set(packet);
     const pid = this.dolly._dolly_process_spawn_serialized(BigInt(packet.length));
-    if (pid < 0) throw new Error(`Dolly process spawn failed with errno ${-pid}`);
+    if (pid < 0) {
+      const errno = Object.keys(DOLLY_ERRNO).find(name => DOLLY_ERRNO[name] === -pid) ?? `errno ${-pid}`;
+      throw new Error(`cannot start ${arguments_[0]}: ${errno}`);
+    }
     const completion = new Promise((resolve, reject) => {
       this.#registerProcess(pid, 0, resolve, reject);
     });
@@ -189,6 +192,8 @@ export class DollyProcessSupervisor {
       failure: null, interactive: (flags & DOLLY_PROCESS_SPAWN_INTERACTIVE) !== 0, retiring: false,
       interruptTimer: null, deadlineTimer: null, retirementTimer: null,
       reclamationDeadline: 0, tid: 0, threads: new Map(), threaded: false,
+      // The ending the kernel last accepted from the program or from here.
+      asked: null,
     };
     this.processes.set(pid, process);
     this.#armDeadline(process);
@@ -469,6 +474,9 @@ export class DollyProcessSupervisor {
       );
       if (message.operation === DOLLY_THREAD_SPAWN && message.requestSize === 8)
         threadArgument = new DataView(this.kernelMemory.buffer, this.mailboxAddress, 8).getBigUint64(0, true);
+      const exit = message.operation === DOLLY_PROCESS_EXIT && message.requestSize === 8
+        ? new DataView(this.kernelMemory.buffer, this.mailboxAddress, 8) : null;
+      const asked = exit && { status: exit.getUint32(0, true), signal: exit.getUint32(4, true) };
       const args = [process.pid, message.operation, BigInt(message.requestSize), BigInt(message.responseCapacity)];
       if (process.threaded) args.splice(1, 0, thread.tid);
       const exhausted = message.operation === DOLLY_PROCESS_SPAWN
@@ -497,6 +505,7 @@ export class DollyProcessSupervisor {
         return;
       }
       if (message.operation === DOLLY_PROCESS_EXIT && result === 0n) {
+        process.asked = asked;
         // The kernel reclaimed every thread. Stop the others now; the caller
         // unwinds and reports "finished" like a single-threaded process.
         for (const other of [...process.threads.values()]) {
@@ -645,15 +654,22 @@ export class DollyProcessSupervisor {
     this.processes.delete(process.pid);
   }
 
+  // Resolves how a root process ended. The kernel reports only the status; it
+  // records a signal when the accepted request named one, or when one was
+  // pending and replaced the status the program asked for.
   #finish(process) {
     const status = this.dolly._dolly_process_collect(process.pid);
+    // The modules see what the process left, such as its last terminal
+    // output, before anyone learns that it ended.
+    this.serviceHost();
     if (process.failure) {
       process.failure.status = status;
       process.reject(process.failure);
     } else if (!Number.isInteger(status) || status < 0 || status > 255) {
       process.reject(new Error(`kernel returned invalid status for process ${process.pid}`));
     } else {
-      process.resolve(status);
+      const { asked } = process;
+      process.resolve({ status, signal: asked?.signal || (asked && status > 128 && status !== asked.status ? status - 128 : 0) });
     }
   }
 
@@ -662,12 +678,13 @@ export class DollyProcessSupervisor {
   #fail(process, error) {
     if (process.retiring || this.processes.get(process.pid) !== process) return;
     const detail = error instanceof Error ? error : new Error(String(error));
+    const reason = terminalFailureReason(detail);
     const line = encoder.encode(`dolly: process ${process.pid} ` +
-      `${process.started ? "failed" : "was refused"}: ${terminalFailureReason(detail)}\n`);
+      `${process.started ? "failed" : "was refused"}: ${reason}\n`);
     new Uint8Array(this.kernelMemory.buffer, this.mailboxAddress, line.length).set(line);
     this.dolly._dolly_process_worker_failed(process.pid, BigInt(line.length));
     detail.message = `Dolly process ${process.pid} failed: ${detail.message}`;
-    process.failure = detail;
+    process.failure = Object.assign(detail, { reason });
     if (!process.reject) console.error(detail.stack ?? detail.message);
     this.#retire(process);
   }
@@ -676,7 +693,9 @@ export class DollyProcessSupervisor {
     const process = this.processes.get(pid);
     if (!process) return false;
     if (process.retiring) return true;
-    this.dolly._dolly_process_worker_exited(pid, status, signalNumber);
+    if (this.dolly._dolly_process_worker_exited(pid, status, signalNumber) === 0) {
+      process.asked = { status, signal: signalNumber };
+    }
     this.#retire(process);
     return true;
   }

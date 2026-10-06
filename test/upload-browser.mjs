@@ -18,7 +18,7 @@ await writeFile(binary, bytes);
 await writeFile(empty, "");
 await writeFile(largePath, large);
 try {
-  await browserTest("upload", { server: { fixtures: { "upload-race.c": "test/fixtures/upload-race.c" } } }, async ({ server, open }) => {
+  await browserTest("upload", { image: "system", server: { fixtures: { "upload-race.c": "test/fixtures/upload-race.c" } } }, async ({ server, open }) => {
     const { page, submit, waitForText } = await open({ policy: {
       rules: [{ origin: server.origin, pathPrefix: "/fixture/", methods: ["GET"] }] } });
     const picker = page.locator("#file-upload[open]");

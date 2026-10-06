@@ -44,3 +44,12 @@ test("non-temporary SOURCE inputs are retained or explicitly removed by their re
     }
   }
 });
+
+// The kernel names no shell: an image's environment does, where it has one.
+test("a recipe that offers Slop names it as SHELL", async () => {
+  for (const { image, parsed } of await discoverImageDefinitions(projectDir)) {
+    if (!parsed.exports.some(({ type, name }) => type === "TOOL" && name === "slop")) continue;
+    assert.ok(parsed.exports.some(({ type, name, details }) => type === "ENV" && name === "SHELL" && details[0] === "/bin/slop"),
+      `${image} exports the tool slop without EXPORTS ENV SHELL /bin/slop`);
+  }
+});

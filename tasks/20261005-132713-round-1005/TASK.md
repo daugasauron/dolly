@@ -248,3 +248,225 @@ Opus 5.5. Relaunched on Opus, each on its predecessor's worktree:
 
 Seed round, when those report: explicit runtime + target identity + userspace
 batch + Cargo's seed commits, one catalog rebuild, full verification, publish.
+
+## State at 21:00 JST, 2026-10-06 (resume here)
+
+Release candidate, unchanged since 18:00: tag `rc-2026-10-06-pm` (`db2c9787`),
+full catalog `67e4b255…` on :9003 and the daugasauron.com packaging
+`c60a2c6f…` on :9005, both served from `work/round2/build/` (restart with
+`DOLLY_PORT=9003 node scripts/serve.mjs` and
+`DOLLY_PORT=9005 node scripts/serve.mjs build/domain-releases` in `work/round2`).
+`main` has moved past it with page-only and content changes that are not
+published: the new Studio video (`a8b5198e`), the corner indicators
+(`7ecc1466`, also served from its working tree on :9006 by `npm run dev`),
+and tasks.
+
+The machine was rebooted at 19:54 after running out of memory (a catalog
+build, a publish and six agents' browser sessions at once). Since then every
+heavy command runs in `systemd-run --user --scope -p MemoryMax=…`, and logs
+live under worktrees, not `/tmp`.
+
+### Seed round in progress (`integrate/seed-1006`, worktree `round2`)
+
+Explicit `runtime@0` + target identity (`__dolly__`) + the userspace batch
+(`ls -l`, Slop's missing-path message, Pi's cwd). Image inputs `22d006ca…`.
+The pipeline `build/seed-evidence/seed2.sh` was restarted at 19:58 inside a
+26 GB scope and runs unattended: catalog, pins commit, source, artifact,
+browser and demo suites, GPU tests, then a publish into `build/seed-releases`
+(not the served directories). Read `build/seed-evidence/seed2.log`; if every
+suite passed, serve it with
+`DOLLY_PORT=9007 node scripts/serve.mjs build/seed-releases`, merge
+`integrate/seed-1006` into main and close `explicit-runtime`, `target-identity`,
+`slop-path-not-found`, `ls-long-format` and `pi-cwd`.
+
+### Written and committed, not yet built or run in a browser
+
+All on the new seed unless noted. Build order and likeliest failures for the
+first group are in `20261005-220754-man-help` ("Merged branch").
+
+| Branch | What | Verify with |
+|---|---|---|
+| `integrate/userspace-next` (`7976b8ea`) | `man` and retained pages, small `default` (minimal removed), `amy-index.txt` and amy descriptions, the `dolly-docs` package, concurrent pipelines with `&` and `wait` | full catalog rebuild (it changes the seed), then all suites, `test/man-browser.mjs`, `test/docs-browser.mjs` |
+| `fix/page-ending` (`245efbec`) | the page states how an image ended | `test/ending-browser.mjs`; look at the last frame by eye |
+| `fix/entry-missing` (`adce6385`) | the engine refuses an image whose ENTRY is not retained (seed) | `test/image-browser.mjs`, `test/custom-session-browser.mjs` |
+| `fix/session-policies` (`ef994618`), `fix/shell-env` (`68f71983`) | two small fixes from the spawn measurement | their browser tests, named in the tasks |
+| `fix/pi-greeting` (`3d196a15`, old line) | Pi answers conversation without tools | rebuild the Pi chain; one "hi" batch on `pi-local` |
+| `work/local-models` (`2579350b`, old line, verified there) | `/local`, model packages, the 4B as four packages | add `REQUIRES HOST runtime@0` to its four new recipes; rebuild the model images, `pi-local`, Studio on the new seed |
+| `work/cargo-native` (`efbcb756`+, old line) | `ar q/s` (seed), libcurl additions (curl package), Patti fixes, Cargo staging | next seed round; Cargo itself: see `20260930-231102-cargo-native` |
+| `core/kernel-boundary` (`a9a6ec42`) | step 2, unverified | rebase onto the seed line, rebuild `default`, suites |
+| `work/licences` (`98803d3f`) | licence texts for 0 A.D.'s linked libraries, WIP | superseded by `work/licences-3`, already merged: delete after checking |
+
+### Decided by the owner today
+
+Explicit `runtime@0`; `dso@0` (`20261006-111835-dso-module`); corner indicators
+hide after ten seconds; `less` wanted (`20261006-111926-less-pager`). Still
+open for him: no `spawn@0` module and direct-ENTRY images as a supported shape
+(`20261005-222449-*`), a git or crates.io relay for the public sites, a model
+for re-recording RTS Arena.
+
+### Next process-contract round (one rebuild)
+
+`input@0` (`20261002-072000`), kernel advisory locks (`20261006-093856`,
+which must also cover SQLite's byte-range locks), `dso@0`, kernel-boundary
+steps 2 to 4, Cargo's `ar` commit, `fix/entry-missing`.
+
+## Night plan, 21:00 to 06:00 JST (owner: "Continue working until 6am")
+
+Memory is rationed mechanically: `work/slot.sh browser|build COMMAND` (caps
+6 GB and 10 GB; slot counts in `work/.slots/*.count`, one build and two
+browser slots while a catalog pipeline runs, more otherwise). Catalog
+pipelines run alone in a 26 GB scope.
+
+1. Seed round (`integrate/seed-1006`, `work/round2`): finishes unattended;
+   on green, merge to main, package both sites, serve on :9003 and :9005.
+2. `integrate/next` (`work/next`): the userspace merge verified on a rebuilt
+   `default` chain, then every finished branch merged on top (indicators, page
+   ending, missing ENTRY, the two small fixes, greeting wording, local models,
+   Cargo's two core commits, the Slop `set -e` fix). Then one catalog rebuild,
+   full verification, publish.
+3. Process-contract round, code first on light worktrees, each verified on a
+   `default` chain when it asks for a full worktree: `core/dso-module`,
+   `core/file-locks` (flock and fcntl ranges), `core/input-module`,
+   `core/kernel-boundary-2`. A third catalog rebuild only for what is verified
+   by about 03:30.
+4. Alongside: Cargo to `cargo build` and a package; Slop against real
+   configure scripts.
+Queued for free slots: `rts-early-input-stall`, `amy-descriptions` (rest),
+`less-pager`, `audit-24`, `local-context-size`.
+
+### 21:15: the seed round's catalog failed twice over; third start
+
+- The 26 GB scope was too small for three builders when `codex-build`
+  (renderer at 14.5 GB), `pi-local` (10.3 GB) and `zero-ad` overlapped: the
+  kernel's cgroup OOM killer took the first two at 20:36:32 (`journalctl -k`,
+  "Memory cgroup out of memory"; the build reports "page.evaluate: Target
+  crashed"). The cap did its job; the scheduling was mine. Large images now
+  build apart: phase A is `pi-local`, `slopyard`, `dollyfile-studio` two at a
+  time; phase B is the Codex chain alone.
+- `slopyard --check` span at full CPU for 71 minutes. Cause: the target
+  identity removed `__EMSCRIPTEN__`, and Box3D then selects its
+  unknown-platform path, whose `b3CreateThread` calls the worker loop inline
+  and never returns. The reading in `20261005-133402-target-identity` missed
+  it. Fixed in Slopyard's own wrapper (`07fa5f0b` on `integrate/seed-1006`);
+  the catalog round is what found it, which is the argument for measuring
+  ports by building them.
+- Restarted at 21:14 as `work/round2/build/seed-evidence/seed3.sh` (log
+  `seed3.log`, builds `catalog-a.log`, `catalog-b.log`); 55 of 61 images were
+  kept. Expect the catalog at about 22:45, verification by 23:45, packaging
+  after.
+
+## `integrate/next` (worktree `work/next`, from `integrate/userspace-next` `7976b8ea`; 2026-10-06, 20:50 to 23:30 JST)
+
+The branch the next catalog round starts from. Nothing here built a Rust-chain
+image, `pi`, a model or a game: those are the catalog round's.
+
+### Merged, in this order
+
+| What | Tip | How it went in |
+| --- | --- | --- |
+| `work/man-help` | `b35fab2f` | base of the branch |
+| `work/small-default` (holds `work/amy-index`) | `9d9064b3` | page rows added to `posix` and `git` |
+| `core/self-description` | `a4c1bca4` | clean |
+| `core/concurrent-pipelines` | `5ccedb2e` | clean, twice (the second time for `set -e` and loop status) |
+| `07fa5f0b` from `integrate/seed-1006` | | cherry-pick: Box3D under the Dolly target identity |
+| `main` | `9dd772f2` | imports of `src/browser.mjs` and `host/download/download.mjs`: both sides kept |
+| `fix/page-ending` (holds `investigate/spawn`) | `245efbec` | one table row each in `docs/browser-boundary.md`: both kept |
+| `fix/pi-greeting` | `3d196a15` | clean |
+| `fix/session-policies` | `ef994618` | its task file is the branch's |
+| `fix/shell-env` | `68f71983` | `Dollyfile-minimal` stays removed; its task file is the branch's |
+| `fix/entry-missing` | `adce6385` | `scripts/lint-dollyfiles.mjs` keeps the ENTRY check and the description check |
+| `faee3872`, `7d71e824`, `dca3ef58`, `14da533a` from `work/cargo-native` | | cherry-picks; Patti's source pin and the HTTP document's pin refreshed |
+| `work/local-models` | `2579350b` | last, so dropping it is a reset; the four `qwen3.5-4b-N` recipes gained `REQUIRES HOST runtime@0`; `Dollyfile-qwen3.5-800m` removed as on the branch |
+
+Left out: nothing on the list. Not taken, as told: the Cargo staging and the
+`cargo` package (`eeb0d42d`, `ff412ee0`, `3540fe1d`, `cab675f9`).
+
+After each merge: `npm run -s lint:dollyfiles` and the source suite
+(`node --test 'test/*.test.mjs' 'demos/**/*.test.mjs'`), green each time
+after the fixes below. Every recipe declares `REQUIRES HOST runtime@0`
+(66 recipes).
+
+### What the first build and the suites found, and the fix
+
+- `system-build` stopped in the page-capture loop: Slop runs its own `cd` for
+  the word `cd`, which takes `--help` as a directory. The loop runs
+  `/bin/NAME` (`fbfc278b`). `cd --help` typed at a prompt still fails that
+  way: Slop's own `cd`, `command` and `time` have no `--help`.
+- Two tests asserted the serial pipeline: that the consumer of an interrupted
+  producer never started (`test/fixtures/slop-interrupt.c`,
+  `test/core-browser.mjs`). Stages start together, so the consumer runs; what
+  follows the pipeline does not, and the status is 130. The tests now say
+  that (`1c0ae0e3`); Slop is unchanged.
+- `default` holds no compiler, Make, Git, `download` or `upload`. Suites that
+  use them open `system`: shell, slop, terminal, display, process (its
+  start-up script block stays on `default`), cpp, network, upload, image,
+  indicators, fs-growth. `image` checks its cache rules on `system-tools` and
+  `system`, which are base and child as `system` and `default` used to be.
+  `threads` opens a page-built image: `system` plus `REQUIRES HOST threads@0`.
+  `docs`, `shell-env` and `session-offline` named `minimal`, which is gone,
+  and open `default`.
+- `test/dolly.artifacts.mjs` did not know the `dolly-docs` package (`a34f0d38`).
+- `session-offline` opened its saved session in a new page, which is a new
+  browser profile: it reloads in the page that saved it.
+- The lint test of `fix/entry-missing` built a checkout without the README
+  lines the description check of `work/amy-index` wants: the fixture has them.
+- The image pages (`/system/` and the rest) are generated copies of
+  `terminal.html` and bundle the process Worker: after a merge that changes
+  the page, `npm run routes` (with the same `DOLLY_BUILD_IMAGES`) before a
+  browser suite. `indicators` failed until then.
+- `node scripts/update-recipe-pins.mjs --sources` re-pins every prepared
+  source from whatever `dist/static` holds, stale copies included
+  (`rust-sdk.tar.gz`, the Studio and 0 A.D. tars): after a document edit only
+  `Dollyfile-dolly-docs` was kept from it.
+
+### Verified on the final merge
+
+`npm run build:runtime`: runtime `dccf70f93da8…`, image inputs
+`4431ea8002ae84a40d997d58f3a502a03301f53b23bf9030b139cdbffb6fc9a2` (the
+first chain was `e8e495dc…`; the cherry-picked `ar` commit and the engine
+change moved it). `include/dolly/process.h` is unchanged; the process sysroot
+is `31b4bef1…`, changed from the seed round's `819e80da…` by the `SIGPIPE`
+line of `libc-adapter.c`, so the Rust seed is relinked before the catalog
+(`14da533a` changes its inputs too).
+
+Built through the slot in 830 s (`build/next-evidence/image-build-3.log`):
+`system-build`, `core`, `zlib`, `gzip`, `curl`, `zig-build` (464 s),
+`ghostty-build`, `display`, `system-tools`, `posix`, `amy`, `default`
+(14,398,305 bytes), `cc`, `dolly-docs`, `git`, `system`, `python` (106 s, the
+first CPython build with concurrent pipelines).
+
+- Source suite: 400 of 400. Artifact suite: 24 of 24 over the 17 built
+  images; the registry lists only those, so no artifact test fails for an
+  unbuilt image, and none ran for one.
+- Browser, Chromium and Firefox, one slot per suite
+  (`build/next-evidence/browser-final/summary.txt`): core, man, default, docs,
+  shell, slop, process, terminal, display, boundary, host-modules, image,
+  custom-session, indicators, shell-env, session-offline, threads, cpp,
+  network, upload: all pass.
+- `ending`: passed 6 of 8 runs. In one run, in both browsers, Ctrl+C on a
+  script looping over builtins left the page saying "exited with status 130"
+  where the test expects `SIGINT`; four reruns passed. The page names a signal
+  only when the exit request carries one; which path ends the shell without
+  one was not found.
+- `amy`: the first block passes (the index, `amy install python`, a saved
+  session); "amy programs" stops at `amy install cmake`, a package this tree
+  did not build (it also wants `sdl2`, `rust`, `codex-cli`), so its last two
+  blocks did not run.
+- Not run: `fs-growth` (its page is killed by the 6 GB browser cap in both
+  browsers), `test:demos -- pi` and anything on the Rust chain.
+
+Concurrent pipelines, first run in Dolly (`slop` suite, image `system`): the
+thirteen pipeline cases pass in both browsers, among them
+`seq 1 999999999 | head -n 1` (ends at once, 141 under `pipefail`), three
+programs, a program feeding a loop feeding a program, `&` with `wait` and
+`$!`, a background pipeline, and Make's output reaching `tee` while its recipe
+still runs (added here); `set -e` at the prompt stops the failing line and
+leaves the shell running (added here). `yes | head -1` cannot be typed: the
+images have no `yes`. No difference from the native model was seen in the
+kernel's wake-ups or in `SIGPIPE`.
+
+### For the catalog round
+
+- Relink the Rust seed first (sysroot and `exe-suffix` changed).
+- Recipes with unverified page rows: `ripgrep` (`rg --help` captured at build).
+- `core/concurrent-pipelines` after `5ccedb2e` is not merged, as decided.

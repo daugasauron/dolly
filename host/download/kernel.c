@@ -14,10 +14,8 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
-// The trusted host registry supplies this typed import. The generated
-// Emscripten binding fails closed if a host omits that step.
-DOLLY_EM_JS(int, dolly_download_dispatch,
-      (uint32_t operation, const unsigned char *bytes, uintptr_t length), { return -ENOSYS; });
+DOLLY_BROWSER_IMPORT(dolly_download_dispatch)
+int dolly_download_dispatch(uint32_t operation, const unsigned char *bytes, uintptr_t length);
 
 // The one open stream: its process, source path and descriptor.
 static int owner;
