@@ -71,7 +71,7 @@ for(const image of (process.env.DOLLY_LLM_IMAGES??'pi-local,dollyfile-studio').s
           await page.locator('#file-upload input').setInputFiles(new URL('./fixtures/local-llm.mjs',import.meta.url).pathname);
           assert.equal(await upload,0);await page.waitForTimeout(200);
           const running=submit(`janis /workspace/local-llm-proof.mjs ${model}`);
-          const progress=setInterval(()=>{void text().then(value=>console.log(name,value.slice(-360)));},30000);
+          const progress=setInterval(()=>{void text().then(value=>console.log(name,value.slice(-360)),()=>{});},30000); // progress only: the screen may not answer while a model step runs
           let status;try{status=await running;}finally{clearInterval(progress);}
           assert.equal(status,0,await text());
           assert.match(await text(),/LOCAL-LLM-PROOF-OK/);
