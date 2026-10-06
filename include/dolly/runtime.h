@@ -69,7 +69,7 @@ void dolly_terminal_publish_result(int status);
 
 // Runtime event-loop support. A negative timeout waits indefinitely, zero is
 // nonblocking, and a positive timeout is measured in milliseconds. These read
-// Ghostty-encoded bytes and dimensions from the in-Wasm display mailbox.
+// the terminal's decoded input bytes and its dimensions.
 int dolly_terminal_read_raw_timeout(double milliseconds);
 uint32_t dolly_terminal_columns(void);
 uint32_t dolly_terminal_rows(void);

@@ -99,7 +99,7 @@ differs from the plan, the reason is given.
 
 - Kernel exports `dolly_input_mailbox_address`, `dolly_input_paste_buffer_address`.
   No import: a mailbox module, so `abi/dolly-browser-0.wat` is unchanged.
-- Mailbox: seven atomic u32 words, then 256 records of 128 bytes at byte 28.
+- Mailbox: six atomic u32 words, then 256 records of 128 bytes at byte 24.
   `EVENT_READ` (kernel), `EVENT_WRITE` (page), `FLAGS` (kernel: `LEASED`, a
   program reads the records; `POINTER_RELATIVE`, it asks for pointer lock),
   `PASTE_SEQUENCE`, `PASTE_CONSUMED_SEQUENCE`, `PASTE_LENGTH`, and the paste
@@ -172,8 +172,8 @@ No graphics program read the resize record, so none stays in the ring.
 ### Images
 
 - A terminal image declares `input@0` beside `display@0`; so does a package
-  whose programs read records (`sdl2`, `gamedev-sdk`). The `display` package
-  does not: installing it grants no input.
+  whose programs read records (`sdl2`). The `display` package does not:
+  installing it grants no input.
 - Display only: no page listener writes a record, the terminal shows output
   and reads no key, and a program linking the input client is refused before
   it runs (`host module input@0 is not declared by this image (REQUIRES HOST)`).

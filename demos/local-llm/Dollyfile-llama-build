@@ -7,7 +7,7 @@ REQUIRES HOST download@0
 REQUIRES HOST http@0
 REQUIRES HOST upload@0
 
-FROM https://daugasauron.com/demos/cmake/Dollyfile-cmake-build d6fe2e4340d973d3b378fd7c0faee0e80e650abb745ce034abb5b48598efc7fd
+FROM https://daugasauron.com/demos/cmake/Dollyfile-cmake-build cf68881f5cb244fd9d80c7d79b7f1fe610a235b17c9bc704503bf7815ddf3000
 REQUIRES TOOL cc
 REQUIRES TOOL c++
 REQUIRES TOOL cmake
