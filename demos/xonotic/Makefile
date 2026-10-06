@@ -27,7 +27,8 @@ all: /usr/bin/xonotic-dedicated /usr/bin/gmqcc
 
 # builddate.c is compiled at link time, as upstream does, for the version banner.
 /usr/bin/xonotic-dedicated: $(SERVER_OBJECTS) $(ENGINE)/builddate.c
-	$(CC) $(CFLAGS) -DSVNREVISION=xonotic-v0.8.6 -DBUILDTYPE=release $(SERVER_OBJECTS) $(ENGINE)/builddate.c -o $@ -lz -lm
+	$(CC) $(CFLAGS) -DSVNREVISION=xonotic-v0.8.6 -DBUILDTYPE=release $(SERVER_OBJECTS) $(ENGINE)/builddate.c -o $@ -lz -lm \
+	  -Wl,--initial-memory=67108864
 
 $(BUILD)/engine/%.o: $(ENGINE)/%.c
 	mkdir -p $(@D)
