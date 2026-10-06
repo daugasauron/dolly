@@ -599,3 +599,57 @@ kernel's wake-ups or in `SIGPIPE`.
 - Relink the Rust seed first (sysroot and `exe-suffix` changed).
 - Recipes with unverified page rows: `ripgrep` (`rg --help` captured at build).
 - `core/concurrent-pipelines` after `5ccedb2e` is not merged, as decided.
+
+### Task triage, 2026-10-07
+
+Branch `tasks/triage` on `ab412d94` (this candidate merged with `main`), 07:05
+to 07:30 JST. Every open task was read in its newest version across branches
+(the records of `core/kernel-boundary-2`, `work/explicit-runtime`,
+`core/input-module`, `core/dso-module`, `core/file-locks`, `work/cargo-native`
+and `e21a5bd0` were brought in first) and its done-when compared with this
+tree and `work/next/build/next-evidence/`. Open tasks: 54 before, 36 after;
+18 closed, each with its commits and logs in a "Closed 2026-10-07" section;
+every remaining task has a "Remaining (2026-10-07)" section at the top where
+something was done.
+
+| Kind | Closed |
+| --- | --- |
+| Delivered by this round (10) | `20261005-222057-explicit-runtime`, `20261005-133402-target-identity`, `20261006-103306-page-ending`, `20261006-103256-entry-missing`, `20261006-094508-pi-greeting-explores`, `20261006-103306-shell-env`, `20261006-103306-session-policies`, `20261006-114524-slop-break-status`, `20260930-100000-audit-32` (concurrent pipelines), `20261005-215557-local-models` |
+| Folded into another task (5) | `20261005-214159-large-packages` (into local-models), `20261005-222449-small-default` (its two unpackaged tools into `20261007-003116-package-needs`), `20261005-223022-studio-video` (into studio-video-game), `20261005-225813-firefox-adapter` (into `20261001-232300-gpu-visibility`), `20261006-103306-zig-child` (into `20261001-091000-zig-follow-ups`) |
+| Investigations whose findings are recorded (2) | `20261005-222449-spawn-users`, `20261005-222449-single-program-images` |
+| Done, verdict pending (1) | `20261006-094507-studio-video-game` (the g1 take is on the page) |
+
+Reopened (closed on their branches, not in the candidate; close when round 3
+merges): `20261005-133401-kernel-boundary` (step 3; `dist/dolly-seed.mjs` is
+still loaded here), `20261006-093856-flock-stub`.
+
+Owner decisions still needed, one line each:
+
+1. `spawn@0`: the investigation recommends no module now (spawn-users).
+2. Direct-ENTRY images as a supported shape, with the docs wording and the
+   touch demo as the first such image (single-program-images, items 1, 3, 4).
+3. The g1 Studio video: keep, or another take (studio-video-game).
+4. A model and budget for re-recording RTS Arena, ClassiCube and bhop, or
+   keep the old videos (demo-recordings).
+5. The `AGENTS.md` sentence on serial semantics (wording in audit-32).
+6. Xonotic: the rendering route, `gpu@0` additions and sound (xonotic).
+7. `window.__dolly` and the page attributes: embedding API or test-only
+   (audit-24, step 3).
+8. `20260930-100000-audit-53` at 300: its remainder is three demo preparers
+   above 10 s; close or keep.
+
+Closed with one check not run on the candidate: local-models (the
+`dollyfile-studio` half of `demos/local-llm/test/local-llm-browser.mjs` was
+cut by the 06:58 runtime rebuild; `pi-local` passed in both browsers). Not
+closed for want of a built tree: `20261005-133403-self-description` (the Pi
+session with HTTP denied; the `--plan` list) and
+`20261005-220754-amy-descriptions` (a model package through the test).
+
+Found in the evidence, for the integrator: the GPU test `0ad-graphics` failed
+3 of 3 on `page.waitForEvent("download")` (`gpu-0ad-graphics*.log`), before
+`0f211db3` gave `default` its `download` command, so it wants a rerun; and
+the checkout server on :9007 (started 06:35) answers 404 for the packs the
+06:54 rebuild wrote (`/default/` stops at "snapshot returned HTTP 404";
+`work/triage/build/triage-evidence/probe-diag.log`), so it needs a restart
+before the owner opens it. No done-when was checked on :9007 for that
+reason; the closures rest on the round's logs.
