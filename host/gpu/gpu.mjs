@@ -1,5 +1,5 @@
 import { createGpuBridge } from "./bridge.mjs";
-import { DOLLY_ERRNO as E } from "../../dist/dolly-errno.mjs";
+import { DOLLY_ERRNO as E } from "../../src/process-constants.mjs";
 import { publicURL } from "../../src/static-asset.mjs";
 export { DOLLY_GPU_ABI_DIGEST as digest } from "./abi.mjs";
 

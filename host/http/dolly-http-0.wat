@@ -37,8 +37,8 @@
   ;; State 3 is terminal failure. The browser can set it without waiting for
   ;; consumption or overwriting chunk bytes. Wasm acknowledges state 2 using
   ;; compare-exchange, so a concurrent failure cannot be lost.
-  ;; The error word is written BEFORE state 3: positive target errno, as
-  ;; generated from the pinned sysroot (dist/dolly-errno.mjs). EACCES: policy,
+  ;; The error word is written BEFORE state 3: a positive dolly_process_error
+  ;; (include/dolly/process.h). EACCES: policy,
   ;; EDQUOT: request quota, E2BIG: byte cap, ETIMEDOUT: deadline, ECANCELED:
   ;; cancellation, EIO: transport. EINVAL/EFAULT/EPROTONOSUPPORT describe invalid
   ;; requests. No URL, headers, credentials, or inferred CORS cause is returned.

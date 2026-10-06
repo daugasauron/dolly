@@ -1,5 +1,5 @@
 import * as A from "./abi.mjs";
-import { DOLLY_ERRNO as E } from "../../dist/dolly-errno.mjs";
+import { DOLLY_ERRNO as E } from "../../src/process-constants.mjs";
 
 // Reply slots are a 64-byte header and the reply bytes (src/device-lease.h).
 const stride = 64 + A.DOLLY_AUDIO_REPLY_BYTES;

@@ -4,7 +4,7 @@ import { gzipSync } from "node:zlib";
 import { browserTest } from "./browser.mjs";
 import { tarArchive } from "./fixtures/tar.mjs";
 import { shellQuote } from "./fixtures/slop-cases.mjs";
-import { DOLLY_ERRNO } from "../dist/dolly-errno.mjs";
+import { DOLLY_ERRNO } from "../src/process-constants.mjs";
 
 const scratch = "/tmp/dolly-process-test";
 const fixtures = Object.fromEntries(["process-lifecycle.c", "process-descriptors.c", "process-signals.c", "process-sigchld.c", "process-interrupt.c"]

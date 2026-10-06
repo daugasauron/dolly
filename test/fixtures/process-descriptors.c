@@ -11,7 +11,7 @@
 #include <sys/uio.h>
 #include <sys/wait.h>
 #include <unistd.h>
-#ifdef __EMSCRIPTEN__
+#ifdef __dolly__
 #include <dolly/runtime.h>
 #endif
 
@@ -40,7 +40,7 @@ static void record_locks(void) {
     CHECK(fcntl(-1, commands[index], &lock) == -1 && errno == EBADF);
     errno = 0;
     CHECK(fcntl(closed, commands[index], &lock) == -1 && errno == EBADF);
-#ifdef __EMSCRIPTEN__
+#ifdef __dolly__
     unsigned char before[sizeof(lock)];
     memcpy(before, &lock, sizeof(lock));
     errno = 0;
@@ -48,7 +48,7 @@ static void record_locks(void) {
     CHECK(memcmp(before, &lock, sizeof(lock)) == 0);
 #endif
   }
-#ifdef __EMSCRIPTEN__
+#ifdef __dolly__
   lock.l_type = F_UNLCK;
   errno = 0;
   CHECK(fcntl(fd, F_SETLK, &lock) == -1 && errno == ENOTSUP);
@@ -219,7 +219,7 @@ static void completed(int pid) {
   CHECK(WIFEXITED(status) && WEXITSTATUS(status) == 0);
 }
 
-#ifdef __EMSCRIPTEN__
+#ifdef __dolly__
 static void inheritance(const char *path, uint32_t policy, unsigned mask,
                         const dolly_process_fd_mapping *mappings, uint32_t count) {
   char expected[16];
@@ -292,7 +292,7 @@ static void posix_spawning(char *self) {
   CHECK(read(output[0], &byte, 1) == 1 && byte == '!' && read(output[0], &byte, 1) == 0);
   CHECK(posix_spawn(&pid, "/no-such-spawn-fixture", NULL, NULL, arguments, environ) == ENOENT);
   CHECK(posix_spawn_file_actions_destroy(&actions) == 0);
-#ifdef __EMSCRIPTEN__
+#ifdef __dolly__
   /* A fresh Dolly process cannot honor other actions, sessions or a blocked mask. */
   posix_spawnattr_t attributes;
   sigset_t mask;
@@ -312,7 +312,7 @@ static void posix_spawning(char *self) {
   CHECK(close(output[0]) == 0 && close(20) == 0 && close(21) == 0);
 }
 
-#ifdef __EMSCRIPTEN__
+#ifdef __dolly__
 
 static void rejected_packets(const char *path, int writer) {
   const size_t path_size = strlen(path);
@@ -411,7 +411,7 @@ int main(int argc, char **argv) {
   vectored_io();
   record_locks();
   posix_spawning(argv[0]);
-#ifdef __EMSCRIPTEN__
+#ifdef __dolly__
   spawning(argv[0]);
 #endif
   puts("PROCESS-DESCRIPTORS-OK");

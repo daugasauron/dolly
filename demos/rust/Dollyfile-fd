@@ -1,9 +1,10 @@
 DOLLY 6
 PACKAGE fd
+REQUIRES HOST runtime@0
 REQUIRES HOST http@0
 REQUIRES HOST threads@0
 
-FROM https://daugasauron.com/demos/rust/Dollyfile-rust-build d844b76d9560ff6cd690c5dfbd51944b38ab2881c0cf15549c79f08958dd704c
+FROM https://daugasauron.com/demos/rust/Dollyfile-rust-build 2fc7d66cee541cec26563de49d8354560e5f6e92d634cee14085b837e6a5a6f4
 REQUIRES TOOL patti
 REQUIRES TOOL tar
 REQUIRES TOOL cp

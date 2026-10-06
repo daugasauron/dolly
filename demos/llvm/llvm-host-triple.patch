@@ -19,3 +19,17 @@ diff --git a/llvm/cmake/config-ix.cmake b/llvm/cmake/config-ix.cmake
  message(STATUS "LLVM host triple: ${LLVM_HOST_TRIPLE}")
  
  # Determine the native architecture.
+diff --git a/llvm/lib/Support/Unix/Path.inc b/llvm/lib/Support/Unix/Path.inc
+--- a/llvm/lib/Support/Unix/Path.inc
++++ b/llvm/lib/Support/Unix/Path.inc
+@@ -519,8 +519,8 @@
+ #elif defined(__Fuchsia__)
+   // Fuchsia doesn't yet support remote filesystem mounts.
+   return true;
+-#elif defined(__EMSCRIPTEN__)
+-  // Emscripten doesn't currently support remote filesystem mounts.
++#elif defined(__EMSCRIPTEN__) || defined(__dolly__)
++  // Neither Emscripten nor Dolly has remote filesystem mounts.
+   return true;
+ #elif defined(__HAIKU__)
+   // Haiku doesn't expose this information.

@@ -9,3 +9,8 @@ export const hostManifests = Object.freeze(await Promise.all(hostModuleNames.map
   if (manifest.name !== name) throw new Error(`host/${name}/module.json names ${manifest.name}`);
   return Object.freeze({ ...manifest, url: url.href });
 })));
+
+// A runtime is a module that provides the kernel (README.md); an image
+// declares exactly one, by the same line as any module.
+export const runtimes = Object.freeze(hostManifests.filter(manifest => manifest.provides === "kernel")
+  .map(({ name, version }) => `${name}@${version}`));

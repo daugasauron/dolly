@@ -1,5 +1,6 @@
 DOLLY 6
 TOOLCHAIN zero-ad-engine
+REQUIRES HOST runtime@0
 REQUIRES HOST audio@0
 REQUIRES HOST display@0
 REQUIRES HOST download@0
@@ -9,7 +10,7 @@ REQUIRES HOST upload@0
 
 # Build-only: premake and the 0 A.D. engine (pyrogenesis), built by upstream's
 # premake Makefiles with Dolly's c++.
-FROM https://daugasauron.com/demos/zero-ad/Dollyfile-zero-ad-deps fd39832d97130deb254e8041e216df05f5ec9fb21ad9c4205e651c33a5141798
+FROM https://daugasauron.com/demos/zero-ad/Dollyfile-zero-ad-deps 06b240b4357e741f16c32f78621ae033fd95f787cb07c9d707c5cff6615784cc
 REQUIRES TOOL cc
 REQUIRES TOOL c++
 REQUIRES TOOL ar
@@ -21,7 +22,7 @@ REQUIRES TOOL patch
 REQUIRES TOOL cp
 REQUIRES TOOL mkdir
 
-SOURCE https://daugasauron.com/dist/static/zero-ad-build/engine.tar.gz 0f135d999d53d7451fd3da44999cc4d993ccaa4aa55781c14eab65d7e1fc3c3b /tmp/0ad.tar.gz
+SOURCE https://daugasauron.com/dist/static/zero-ad-build/engine.tar.gz 3850376bf2e8258fb32afdd548d0fa55e0b66d16ad5d086ca01a25cde95c4669 /tmp/0ad.tar.gz
 SLOP gzip -dc /tmp/0ad.tar.gz | tar -xf - -C /
 SLOP patch -p1 -d /tmp/0ad -i /tmp/0ad-patches/engine.patch
 

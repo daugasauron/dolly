@@ -25,6 +25,7 @@ function handle(request, response, path, headers) {
 // deletions, and an ENTRY argument that must keep its U+FEFF.
 const iterationRecipe = (base, marker) => `DOLLY 6
 APPLICATION iteration
+REQUIRES HOST runtime@0
 REQUIRES HOST display@0
 REQUIRES HOST download@0
 REQUIRES HOST http@0

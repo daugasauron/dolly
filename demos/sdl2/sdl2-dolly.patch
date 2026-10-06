@@ -50,6 +50,6 @@
 +++ b/src/dynapi/SDL_dynapi.h
 @@ -47,1 +47,3 @@
 -#if defined(TARGET_OS_IPHONE) && TARGET_OS_IPHONE /* probably not useful on iOS. */
-+#if defined(DOLLY)
++#if defined(__dolly__) /* Dolly links statically and loads no SDL at run time. */
 +#define SDL_DYNAMIC_API 0
 +#elif defined(TARGET_OS_IPHONE) && TARGET_OS_IPHONE /* probably not useful on iOS. */

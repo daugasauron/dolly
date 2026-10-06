@@ -1,5 +1,6 @@
 DOLLY 6
 APPLICATION pi-local
+REQUIRES HOST runtime@0
 REQUIRES HOST display@0
 REQUIRES HOST download@0
 REQUIRES HOST gpu@0
@@ -9,11 +10,11 @@ REQUIRES HOST snapshot@0
 REQUIRES HOST threads@0
 REQUIRES HOST upload@0
 
-FROM https://daugasauron.com/demos/pi/Dollyfile-pi cb07949f8267d1d34b5bb64fa4a5c3c2397962cb034c5de86ee2f89ccd48b8a4
-COPY https://daugasauron.com/demos/local-llm/Dollyfile-local-llm-build 6e8742edae324874f97cfcb4bf9942676a70b7a55197abbc6b3a178ce31fa06e /usr/bin/dolly-llama /usr/bin/dolly-llama
-COPY https://daugasauron.com/demos/local-llm/Dollyfile-llama-build c3e2379cf044cf821a2e62649b55b2b3ecbbc1c13b6262576671fa7f475b8358 /usr/share/licenses/dolly-llm /usr/share/licenses/dolly-llm
+FROM https://daugasauron.com/demos/pi/Dollyfile-pi 7e74039b50f439ed886f517783814df59c2542829655e363f3fd2f47b9ee7480
+COPY https://daugasauron.com/demos/local-llm/Dollyfile-local-llm-build 76e2edb6d38bf7e77799569fc0634df8091f6d6383a6c3bb274ad9d7097d8ecc /usr/bin/dolly-llama /usr/bin/dolly-llama
+COPY https://daugasauron.com/demos/local-llm/Dollyfile-llama-build f40313a676aa2115b9795bb4ed7b5fbc2ae41aa32840780c92a41c56c7c9db98 /usr/share/licenses/dolly-llm /usr/share/licenses/dolly-llm
 EXPORTS TOOL dolly-llama
-INSTALL https://daugasauron.com/demos/local-llm/Dollyfile-qwen3.5-2b 62debc54f20c600a2d1d49f6680fbec5911ad56d061e922e7c051860dbdf3ea3
+INSTALL https://daugasauron.com/demos/local-llm/Dollyfile-qwen3.5-2b 1bf408732088534110dae93cff6bcbbaf6a8ed4ffa5ca2120d6f8164eeb76f30
 
 REQUIRES TOOL janis
 REQUIRES TOOL tar

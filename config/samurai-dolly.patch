@@ -6,7 +6,7 @@ index 3d60f81..4400176 100644
  #include <sys/wait.h>
  #include <time.h>
  #include <unistd.h>
-+#ifdef DOLLY
++#ifdef __dolly__
 +#include <dolly/runtime.h>
 +#endif
  #include "build.h"
@@ -16,7 +16,7 @@ index 3d60f81..4400176 100644
  	puts(description->s);
  }
  
-+#ifndef DOLLY
++#ifndef __dolly__
  static int
  jobstart(struct job *j, struct edge *e)
  {
@@ -32,7 +32,7 @@ index 3d60f81..4400176 100644
  	}
  }
  
-+#ifdef DOLLY
++#ifdef __dolly__
 +static bool
 +jobrundolly(struct edge *e)
 +{
@@ -114,7 +114,7 @@ index 3d60f81..4400176 100644
  void
  build(void)
  {
-+#ifdef DOLLY
++#ifdef __dolly__
 +	size_t i;
 +	struct edge *e;
 +	size_t numfail = 0;
@@ -207,7 +207,7 @@ index f6c4e3b..e48ac29 100644
  #include "env.h"
  #include "graph.h"
  #include "util.h"
-+#ifdef DOLLY
++#ifdef __dolly__
 +#undef isblank
 +#define isblank(character) ((character) == ' ' || (character) == '\t')
 +#endif
@@ -222,7 +222,7 @@ index 8ef7b90..8ac4a52 100644
  #include <stdint.h>
  #include <stdio.h>
  #include <string.h>
-+#ifdef DOLLY
++#ifdef __dolly__
 +#include <dolly/runtime.h>
 +#endif
  #include "os.h"
@@ -230,7 +230,7 @@ index 8ef7b90..8ac4a52 100644
  
 @@ -11,4 +14,18 @@
  extern const char *argv0;
-+#ifdef DOLLY
++#ifdef __dolly__
 +static int
 +dolly_samurai_fprintf(FILE *stream, const char *format, ...)
 +{

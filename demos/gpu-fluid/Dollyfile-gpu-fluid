@@ -1,5 +1,6 @@
 DOLLY 6
 APPLICATION gpu-fluid
+REQUIRES HOST runtime@0
 REQUIRES HOST display@0
 REQUIRES HOST download@0
 REQUIRES HOST gpu@0
@@ -7,7 +8,7 @@ REQUIRES HOST http@0
 REQUIRES HOST snapshot@0
 REQUIRES HOST upload@0
 
-FROM https://daugasauron.com/Dollyfile-gpu-sdk 2d85540df542c317dd6837edb59b7f3cd35c4261b0c102155f2ce0ea97663ff7
+FROM https://daugasauron.com/Dollyfile-gpu-sdk d3dd984ced6ac82e18472ea527bcbd87c3c1756dbbce7cc32f0c20e8a11885bc
 REQUIRES TOOL cc
 REQUIRES HEADER gpu
 REQUIRES LIB dolly-gpu

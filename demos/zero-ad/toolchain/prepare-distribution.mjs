@@ -26,6 +26,7 @@ const engine = hash(await readFile(resolve(root, "demos/zero-ad/Dollyfile-zero-a
 const linked = ["OpenAL", "SDL2", "enet", "fmt", "freetype", "icu", "libogg", "libpng", "libsodium", "libvorbis", "libxml2", "spidermonkey"];
 await writeFile(resolve(root, "demos/zero-ad/Dollyfile-zero-ad"), `DOLLY 6
 APPLICATION zero-ad
+REQUIRES HOST runtime@0
 REQUIRES HOST audio@0
 REQUIRES HOST display@0
 REQUIRES HOST download@0

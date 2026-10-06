@@ -16,10 +16,9 @@
 
   ;; A packet contains no pointers: all embedded locations are byte offsets
   ;; within the request or response. The operation number and packet layouts
-  ;; are defined by include/dolly/process.h. A non-negative result is the
-  ;; response byte count; a negative result is -errno.
-  ;; HTTP_BODY_WRITE (83) stages large request bodies through bounded packets
-  ;; in kernel Wasm memory; HTTP_START consumes them before browser admission.
+  ;; and error numbers are defined by include/dolly/process.h. A non-negative
+  ;; result is the response byte count; a negative result is a negated
+  ;; dolly_process_error.
   (import "dolly_process_0" "call"
     (func $dolly_process_call
       (param i32 i64 i64 i64 i64)

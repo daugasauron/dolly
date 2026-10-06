@@ -48,5 +48,5 @@ test("Pi is compiled from pinned source after an in-sandbox TypeScript layer", a
   assert.ok(agent.exports.some(({ type, name, details }) =>
     type === "ENV" && name === "PI_SKIP_VERSION_CHECK" && details[0] === "1"));
   for (const tool of ["rg", "fd", "pi"]) assert.ok(graph.exporters.has(`TOOL:${tool}`), tool);
-  assert.deepEqual(agent.hostRequirements, ["download@0", "http@0", "threads@0"]);
+  assert.deepEqual(agent.hostRequirements, ["download@0", "http@0", "runtime@0", "threads@0"]);
 });

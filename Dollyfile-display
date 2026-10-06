@@ -1,10 +1,11 @@
 DOLLY 6
 PACKAGE display
+REQUIRES HOST runtime@0
 REQUIRES HOST display@0
 
-COPY https://daugasauron.com/Dollyfile-ghostty-build f5e5541347ad593a07e92200f091381529da7c960565c17af78607f3289d5dfd /usr/lib/libdisplay.so /usr/lib/libdisplay.so
-COPY https://daugasauron.com/Dollyfile-ghostty-build f5e5541347ad593a07e92200f091381529da7c960565c17af78607f3289d5dfd /usr/share/fonts/IosevkaTerm-SemiBold.ttf /usr/share/fonts/IosevkaTerm-SemiBold.ttf
-COPY https://daugasauron.com/Dollyfile-ghostty-build f5e5541347ad593a07e92200f091381529da7c960565c17af78607f3289d5dfd /usr/share/licenses/ghostty /usr/share/licenses/ghostty
-COPY https://daugasauron.com/Dollyfile-ghostty-build f5e5541347ad593a07e92200f091381529da7c960565c17af78607f3289d5dfd /usr/share/licenses/uucode /usr/share/licenses/uucode
+COPY https://daugasauron.com/Dollyfile-ghostty-build 080ea84cfe2c6d6406ca7d216d30a207f9b2bbc6ce4a141609945b96f180b272 /usr/lib/libdisplay.so /usr/lib/libdisplay.so
+COPY https://daugasauron.com/Dollyfile-ghostty-build 080ea84cfe2c6d6406ca7d216d30a207f9b2bbc6ce4a141609945b96f180b272 /usr/share/fonts/IosevkaTerm-SemiBold.ttf /usr/share/fonts/IosevkaTerm-SemiBold.ttf
+COPY https://daugasauron.com/Dollyfile-ghostty-build 080ea84cfe2c6d6406ca7d216d30a207f9b2bbc6ce4a141609945b96f180b272 /usr/share/licenses/ghostty /usr/share/licenses/ghostty
+COPY https://daugasauron.com/Dollyfile-ghostty-build 080ea84cfe2c6d6406ca7d216d30a207f9b2bbc6ce4a141609945b96f180b272 /usr/share/licenses/uucode /usr/share/licenses/uucode
 EXPORTS LIB display /usr/lib/libdisplay.so
 EXPORTS ENV DISPLAY /usr/lib/libdisplay.so

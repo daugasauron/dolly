@@ -10,6 +10,7 @@ order.
 ```text
 DOLLY 6
 APPLICATION example
+REQUIRES HOST runtime@0
 REQUIRES HOST display@0
 
 FROM https://daugasauron.com/Dollyfile-system <sha256>
@@ -191,10 +192,12 @@ and `/host/MODULE/`, prepared sources in `/dist/static/`.
   declaration, as the image's manifest.
 - They are never inherited: `FROM`, `INSTALL` and `COPY` carry none into the
   consumer and nothing is derived. The image's own recipe is the complete list.
-  A package declares the modules its programs need, a library or compiler
-  those every program built with it needs (`sdl2`: `display@0`, `rust`:
-  `threads@0`, `cc`: none); `INSTALL` checks that the installing recipe
-  declares them too.
+  Every image and package declares the runtime it is built on (`runtime@0`:
+  the kernel, the process ABI and the image format,
+  [host modules](../host/README.md)). A package also declares the modules its
+  programs need, a library or compiler those every program built with it needs
+  (`sdl2`: `display@0`, `rust`: `threads@0`, `cc`: none); `INSTALL` checks
+  that the installing recipe declares them too.
 - Sealing checks every retained executable: a `dolly.host` record naming a
   module the recipe does not declare fails the build, naming the file and the
   `REQUIRES HOST` line to add. Build steps may use the build host's modules
@@ -204,9 +207,9 @@ and `/host/MODULE/`, prepared sources in `/dist/static/`.
   embedding lacks one, and the loader refuses an executable whose stamped
   module is not declared. Requirements grant nothing: the embedding enables
   modules and the HTTP broker decides network access
-  ([browser boundary](browser-boundary.md)). `minimal` declares only display;
-  `system` declares display, http, download, upload and snapshot; `default`
-  adds packages and threads.
+  ([browser boundary](browser-boundary.md)). `minimal` declares the runtime
+  and display; `system` declares the runtime, display, http, download, upload
+  and snapshot; `default` adds packages and threads.
 - Linked client libraries (`-ldolly-gpu`, `-ldolly-audio`) stamp their module
   and its ABI digest into the executable's `dolly.host` section; loading fails
   for an unknown module or a different layout. Calling a disabled module
@@ -239,6 +242,7 @@ that build them.
 ```text
 DOLLY 6
 PACKAGE ripgrep
+REQUIRES HOST runtime@0
 REQUIRES HOST threads@0
 
 FROM https://daugasauron.com/demos/rust/Dollyfile-rust-build <sha256>

@@ -6,7 +6,7 @@ diff --git a/src/nvim/event/libuv_proc.c b/src/nvim/event/libuv_proc.c
      uvproc->uvopts.flags |= UV_PROCESS_WINDOWS_VERBATIM_ARGUMENTS;
    }
 +#endif
-+#if defined(MSWIN) || defined(DOLLY)
++#if defined(MSWIN) || defined(__dolly__)
    if (proc->detach) {
      uvproc->uvopts.flags |= UV_PROCESS_DETACHED;
    }
@@ -17,7 +17,7 @@ diff --git a/src/nvim/os/proc.c b/src/nvim/os/proc.c
      // Never kill self (pid=0).
      return false;
    }
-+#ifdef DOLLY
++#ifdef __dolly__
 +  // Dolly reclaims descendants when their owning process exits.
 +  return uv_kill(pid, sig) == 0;
 +#else
@@ -34,7 +34,7 @@ diff --git a/src/nvim/ui_client.c b/src/nvim/ui_client.c
    CallbackReader on_err = CALLBACK_READER_INIT;
    on_err.fwd_err = true;
  
-+#ifdef DOLLY
++#ifdef __dolly__
 +  // The embedded editor shares Dolly's TUI lifetime.
 +  bool detach = false;
 +#else

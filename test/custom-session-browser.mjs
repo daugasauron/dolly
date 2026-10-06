@@ -33,18 +33,12 @@ async function newPage(context, rules) {
 async function customImageSessions(context, server, fixtures) {
   let page = await newPage(context, fixtures);
   await page.goto(server.origin + "/custom/");
+  // The page's default recipe names its base and restates the base's host
+  // modules (system retains the engine and the transfer tools).
   const original = await page.locator("#source").inputValue();
-  const pin = original.match(/FROM https:\/\/daugasauron\.com\/Dollyfile-system ([0-9a-f]{64})/)[1];
-  // system retains the engine and the transfer tools: the recipe declares their modules.
-  const source = `DOLLY 6
-APPLICATION custom-session
-REQUIRES HOST display@0
-REQUIRES HOST download@0
-REQUIRES HOST http@0
-REQUIRES HOST snapshot@0
-REQUIRES HOST upload@0
-FROM https://daugasauron.com/Dollyfile-system ${pin}
-FILE /tmp/session-hello.c
+  const base = original.slice(0, original.indexOf("\nFILE ")).replace("APPLICATION custom", "APPLICATION custom-session");
+  assert.match(base, /\nFROM https:\/\/daugasauron\.com\/Dollyfile-system [0-9a-f]{64}\n$/);
+  const source = `${base}FILE /tmp/session-hello.c
     #include <stdio.h>
     int main(void) { puts("CUSTOM-SOURCE-BUILT"); return 0; }
 SLOP cc /tmp/session-hello.c -o /usr/bin/session-hello

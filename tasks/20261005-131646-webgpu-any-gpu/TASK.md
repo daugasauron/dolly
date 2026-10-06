@@ -213,3 +213,10 @@ f32 shaders, Firefox with f16, which was already on NVIDIA), the matrix is
 recorded above, and three sizes install with `amy`. Left as recorded: Firefox's
 timer (bug 1870699), Dawn's NVIDIA f16 gate (crbug.com/42251215), and a
 package for models above 2 GiB, which needs one of the core changes above.
+
+## Decision on the 4B package (2026-10-06)
+
+Neither option above: no core change. The 4B becomes several ordinary
+packages of llama.cpp's own GGUF shards, installed with `amy install A B C`
+and loaded from the first shard. Reasons, evidence and plan:
+`20261005-214159-large-packages`.

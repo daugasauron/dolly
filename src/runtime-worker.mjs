@@ -151,7 +151,7 @@ try {
   globalThis.TextDecoder = undefined;
   const { default: createDolly } = await import("../dist/dolly.mjs");
   bootstrapStage("creating wasm64 userspace kernel...");
-  const memory = host.get("runtime").memory;
+  const memory = host.kernel.memory;
   // Fixed deployment input, never a filename or URL supplied by Wasm.
   const kernelModule = await WebAssembly.compileStreaming(fetch(locateArtifact("dolly.wasm")));
   let kernelExports;
@@ -247,7 +247,7 @@ try {
       bootstrapStatus = dolly._dolly_process_bootstrap_prepare();
     }
     if (bootstrapStatus === 0) {
-      processSupervisor = await host.get("runtime").supervisor(dolly);
+      processSupervisor = await host.kernel.supervisor(dolly);
       const arguments_ = baseArtifact
         ? ["/bin/dollyfile", recipeLocator]
         : ["/usr/libexec/dolly/process-bin/bootstrap"];
@@ -329,7 +329,7 @@ try {
     self.close();
     return;
   }
-  processSupervisor ??= await host.get("runtime").supervisor(dolly);
+  processSupervisor ??= await host.kernel.supervisor(dolly);
 
   if (finishRebuiltImage) {
     bootstrapStage("finishing image bootstrap...");

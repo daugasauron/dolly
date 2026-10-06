@@ -1,12 +1,13 @@
 DOLLY 6
 TOOLCHAIN local-llm-build
+REQUIRES HOST runtime@0
 REQUIRES HOST display@0
 REQUIRES HOST download@0
 REQUIRES HOST gpu@0
 REQUIRES HOST http@0
 REQUIRES HOST upload@0
 
-FROM https://daugasauron.com/demos/local-llm/Dollyfile-llama-build c3e2379cf044cf821a2e62649b55b2b3ecbbc1c13b6262576671fa7f475b8358
+FROM https://daugasauron.com/demos/local-llm/Dollyfile-llama-build f40313a676aa2115b9795bb4ed7b5fbc2ae41aa32840780c92a41c56c7c9db98
 REQUIRES TOOL cc
 REQUIRES TOOL c++
 REQUIRES TOOL tar

@@ -196,11 +196,11 @@ sed -i \
   -e 's|^LIBPL=.*|LIBPL=\t\t$(prefix)/lib/python3.14/config-3.14-dolly_0_wasm64|' \
   "${temporary}/Makefile"
 
-# CPython's stub type declarations already defer to libc on WASI. Emscripten's
+# CPython's stub type declarations already defer to libc on WASI. Dolly's
 # musl-derived alltypes.h has the same __NEED_* mechanism, so use that path
 # instead of redeclaring types that sys/types.h may have exposed first.
 sed -i \
-  's/^#ifdef __wasi__$/#if defined(__wasi__) || defined(__EMSCRIPTEN__)/' \
+  's/^#ifdef __wasi__$/#if defined(__wasi__) || defined(__dolly__)/' \
   "${temporary}/Include/cpython/pthread_stubs.h"
 
 # Dolly's initial process substrate is deliberately single-threaded. A shared
@@ -209,22 +209,17 @@ sed -i \
 # Make CPython's two fast-path thread-local pointers ordinary module globals;
 # command execution is serialized, so they retain the required semantics.
 sed -i \
-  -e '/#    define HAVE_THREAD_LOCAL 1/a\#    ifdef DOLLY\n#      define _Py_thread_local' \
+  -e '/#    define HAVE_THREAD_LOCAL 1/a\#    ifdef __dolly__\n#      define _Py_thread_local' \
   -e 's/^#    ifdef thread_local$/#    elif defined(thread_local)/' \
   "${temporary}/Include/pyport.h"
 
-# sys._emscripten_info asks JavaScript for a browser user-agent or Node version.
-# Dolly has no ambient JavaScript capability, so retain Emscripten target
-# semantics while omitting only those embedding-specific blocks.
+# Isolated interpreters cannot be created in this build (measured with the
+# _interpreters modules built in: "sub-interpreter creation failed"), and
+# upstream has no configuration for the report in sys.implementation.
 sed -i \
-  's/^#ifdef __EMSCRIPTEN__$/#if defined(__EMSCRIPTEN__) \&\& !defined(DOLLY)/' \
+  's/^#if defined(__wasi__) || defined(__EMSCRIPTEN__)$/#if defined(__wasi__) || defined(__dolly__)/' \
   "${temporary}/Python/sysmodule.c"
-
-# Keep CPython's Emscripten-only method names for target compatibility. The
-# patch above implements logging on Dolly stderr and makes the browser debugger
-# fail explicitly, without an EM_JS import or DOM/console capability. It also
-# carries the small set of standard-library safety decisions that Dolly needs
-# after reporting its honest `sys.platform == "dolly"` identity.
+grep -q '^#if defined(__wasi__) || defined(__dolly__)$' "${temporary}/Python/sysmodule.c"
 
 # Configure runs in an atomic staging directory, but its absolute work path is
 # build machinery rather than target identity. Normalize the four generated

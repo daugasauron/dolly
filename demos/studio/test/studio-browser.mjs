@@ -46,6 +46,7 @@ await demoTest("studio", { image: "dollyfile-studio", webgpu: true, timeout: 900
   const system = DOLLY_IMAGES.find(definition => definition.image === "system").sha256;
   const recipe = `DOLLY 6
 APPLICATION build-proof
+REQUIRES HOST runtime@0
 REQUIRES HOST display@0
 REQUIRES HOST download@0
 REQUIRES HOST http@0
