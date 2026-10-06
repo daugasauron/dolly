@@ -16,23 +16,36 @@ SERVER_UNITS := sys_linux vid_null thread_null snd_null \
   portals protocol prvm_cmds prvm_edict prvm_exec r_explosion r_lerpanim r_lightning r_modules r_shadow r_sky \
   r_sprites sbar sv_demo sv_main sv_move sv_phys sv_user svbsp svvm_cmds sys_shared vid_shared view wad world zone
 SERVER_OBJECTS := $(patsubst %,$(BUILD)/engine/%.o,$(SERVER_UNITS))
+# OBJ_SDL with the null thread, sound and CD units: the sdl2 package has no
+# audio or threads. The software rasterizer draws until RENDERPATH_DOLLY exists.
+CLIENT_UNITS := sys_sdl vid_sdl menu mvm_cmds cd_shared cd_null $(filter-out sys_linux vid_null,$(SERVER_UNITS))
+CLIENT_OBJECTS := $(patsubst %,$(BUILD)/client/%.o,$(CLIENT_UNITS))
 # makefile.inc's CFLAGS_COMMON at -O1 (Dolly's cc takes no -fno-math-errno or
 # -fno-trapping-math), zlib linked statically since there is no dlopen.
 CFLAGS := -O1 -fno-strict-aliasing -D_FILE_OFFSET_BITS=64 -D__KERNEL_STRICT_NAMES -DLINK_TO_ZLIB -I$(SOURCE)
+CLIENT_CFLAGS := $(CFLAGS) -DCONFIG_MENU -DCONFIG_CD -I/usr/include/SDL2
 
 GMQCC_UNITS := ast code conout fold ftepp intrin ir lexer main opts parser stat utf8 util
 GMQCC_OBJECTS := $(patsubst %,$(BUILD)/gmqcc/%.o,$(GMQCC_UNITS))
 
-all: /usr/bin/xonotic-dedicated /usr/bin/gmqcc
+all: /usr/bin/xonotic-dedicated /usr/bin/xonotic-sdl /usr/bin/gmqcc
 
 # builddate.c is compiled at link time, as upstream does, for the version banner.
 /usr/bin/xonotic-dedicated: $(SERVER_OBJECTS) $(ENGINE)/builddate.c
 	$(CC) $(CFLAGS) -DSVNREVISION=xonotic-v0.8.6 -DBUILDTYPE=release $(SERVER_OBJECTS) $(ENGINE)/builddate.c -o $@ -lz -lm \
 	  -Wl,--initial-memory=67108864
 
+/usr/bin/xonotic-sdl: $(CLIENT_OBJECTS) $(ENGINE)/builddate.c
+	$(CC) $(CLIENT_CFLAGS) -DSVNREVISION=xonotic-v0.8.6 -DBUILDTYPE=release $(CLIENT_OBJECTS) $(ENGINE)/builddate.c -o $@ -lSDL2 -lz -lm \
+	  -Wl,--initial-memory=134217728
+
 $(BUILD)/engine/%.o: $(ENGINE)/%.c
 	mkdir -p $(@D)
 	$(CC) $(CFLAGS) -c $< -o $@
+
+$(BUILD)/client/%.o: $(ENGINE)/%.c
+	mkdir -p $(@D)
+	$(CC) $(CLIENT_CFLAGS) -c $< -o $@
 
 /usr/bin/gmqcc: $(GMQCC_OBJECTS)
 	$(CXX) $(GMQCC_OBJECTS) -o $@

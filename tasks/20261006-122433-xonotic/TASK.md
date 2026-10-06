@@ -266,6 +266,80 @@ small: 17 modes × 20 permutation bits in the source, 14 pairs in use at
   1-minute match in 10 to 13 s in either browser against native's 1.6 s:
   six to eight times slower, 190 to 250 server frames per second with 8 bots.
 
+## Client plan (2026-10-07, route (a), `normal` preset, no contract change)
+
+- Where the render path attaches. DarkPlaces already runs two backends
+  behind the same call sites: OpenGL through `qgl*`, and its own software
+  rasterizer `dpsoftrast.c` behind `RENDERPATH_SOFT`, 113 switch sites in
+  seven files (`gl_backend.c` 55, `gl_rmain.c` 28, `gl_textures.c` 14,
+  `r_shadow.c` 10, `gl_draw.c` 4, `vid_shared.c` 1, `vid_sdl.c` 1). The
+  DPSOFTRAST surface is 41 functions: init and shutdown, six texture calls,
+  eighteen render-state calls (targets, viewport, clears, masks, depth,
+  blend, cull, scissor, polygon offset), four vertex-pointer calls,
+  `SetShader(mode, permutation)` with four uniform setters,
+  `DrawTriangles`, `CopyRectangleToTexture` and `GetPixelsBGRA`: exactly the
+  state a WebGPU pipeline needs, with the mode and permutation naming the
+  pipeline. So the Dolly path is `RENDERPATH_DOLLY` sharing every
+  `RENDERPATH_SOFT` site, and `dpgpurast.c` implementing those 41 calls over
+  `libdolly-gpu` (`host/gpu/gpu.h`: buffers, WGSL shaders, pipelines, bind
+  groups, draws, copies, submit; textures through `FEATURE_TEXTURE_RENDER`
+  and `FEATURE_TEXTURE_BC`). The 112 `qgl*` functions are never mapped one
+  by one. `slopyard` and `gpu-fluid` show a program opening the device and
+  submitting batches; 0 A.D. shows an engine backend over it.
+- Shaders. `shader_glsl.h` is one source compiled per mode and permutation
+  (33 permutation bits). The `normal` preset's bot match compiles 11 pairs
+  (modes generic, depth/shadow, vertexcolor, lightdirection; measured
+  above), so the preparation step generates those GLSL variants with the
+  engine's own `#define` prelude, runs glslang then naga as
+  `demos/zero-ad/toolchain/prepare-shaders.sh` does, and ships the WGSL
+  beside the source; a pair the game asks for at run time that is missing
+  draws nothing and logs it. Host-side translation is a bootstrap exception.
+- Window and input. The `sdl2` package: `vid_sdl.c` unchanged over its
+  Dolly video backend (framebuffer presentation, relative mouse, warp),
+  `sys_sdl.c` for the loop and clock; `thread_null.c`, `snd_null.c` and
+  `cd_null.c` until the SDL2 audio backend over `audio@0` exists.
+- Milestones, in order: (1) the SDL client built in Dolly and a first frame
+  on the page through the engine's software rasterizer (`vid_soft 1`, which
+  the 0.8.6 engine still carries) with a non-blank-frame test; (2) the data
+  pk3s as `SOURCE`s and an `xonotic` image whose ENTRY starts the client;
+  (3) `RENDERPATH_DOLLY` for the 2D path (`gl_draw.c`: textured quads, the
+  generic mode's two permutations) so the menu draws on the GPU; (4) the
+  `normal` preset's 11 pairs in WGSL, a map, a frame of a bot match. Not
+  started after that: sound, licence rows, `high` and above (owner's
+  decision on a frame-to-texture copy and occlusion queries).
+
+## Client findings (2026-10-07, milestone 1)
+
+- The SDL client links in Dolly (`xonotic-sdl`, built beside the server:
+  96 s for the image with both; all common units compiled a second time with
+  `-DCONFIG_MENU -DCONFIG_CD`). It starts in the browser, loads the pk3s,
+  opens the display through the sdl2 package, then fails at the video mode:
+  "No dynamic OpenGL support in current SDL video driver (dolly)" for every
+  fallback, "Quake Error: Video modes failed", status 1, display released,
+  shell back (`browser-test-chromium-12.log`).
+- The software rasterizer is not a way out: `vid_soft` is registered only
+  under `SSE_POSSIBLE` with SSE2 detected (`vid_shared.c` 1636), and
+  `dpsoftrast.c`'s span and triangle code lives in `#ifdef SSE_POSSIBLE`
+  regions with no scalar twin (lines 1470–1662, 4850–5316). On wasm64 it
+  compiles to a rasterizer that draws nothing. Emscripten's sysroot carries
+  `compat/emmintrin.h`, SSE2 over Wasm SIMD, which would run upstream's
+  rasterizer unchanged, but Dolly's `cc` (`src/compiler.cpp`) accepts a
+  fixed option list without `-msimd128` or `-msse2`. Whether Wasm SIMD
+  enters the toolchain is the integrator's decision (a seed change like
+  `core/full-read`); it would give a software first frame and the whole
+  menu and game at software speed with no new engine code, and SIMD in the
+  browser costs no new authority.
+- Route (a)'s real shape: `gpu@0` owns the display while a surface is open
+  (`dolly_gpu_open`), and the sdl2 package's video backend owns it for an
+  SDL window, so the GPU path cannot sit behind `vid_sdl.c`. It needs a
+  `vid_dolly.c` beside `vid_sdl.c` (display lease, input records as
+  `demos/classicube/window.c` and `input.c` read them, relative mouse) and
+  `dpgpurast.c` behind the `RENDERPATH_SOFT` sites, with `sys_linux.c` for
+  the loop. `gpu@0` has what the 2D path and `normal` need: `CREATE_TEXTURE`,
+  `WRITE_TEXTURE`, `CREATE_SAMPLER`, `GRAPHICS_PIPELINE`, `RESOURCE_GROUP`,
+  `DRAW_MESH` (`host/gpu/gpu-abi.h`), `FEATURE_TEXTURE_RENDER` and
+  `FEATURE_TEXTURE_BC`. Not started: this is where the client stopped.
+
 ## Decisions for the owner
 
 1. Rendering route. (a) A Dolly render path inside DarkPlaces: a `gpu@0`

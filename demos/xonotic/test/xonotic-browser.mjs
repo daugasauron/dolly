@@ -7,7 +7,8 @@ import assert from "node:assert/strict";
 import { delay, demoTest } from "../../browser.mjs";
 
 const archives = ["xonotic-20230620-data.pk3", "xonotic-20230620-maps.pk3"];
-const fixtures = Object.fromEntries(archives.map(name => [name, `.cache/xonotic/release/Xonotic/data/${name}`]));
+const fonts = ["font-xolonium-20230620.pk3", "font-unifont-20230620.pk3"];
+const fixtures = Object.fromEntries([...archives, ...fonts].map(name => [name, `.cache/xonotic/release/Xonotic/data/${name}`]));
 const basedir = "/home/dolly/xonotic";
 
 await demoTest("xonotic", { image: "xonotic-build", timeout: 1_800_000, browser: process.env.DOLLY_BROWSER ?? "chromium",
@@ -55,4 +56,17 @@ await demoTest("xonotic", { image: "xonotic-build", timeout: 1_800_000, browser:
   assert.equal(await rematch.done, 0, "the server must quit after the match on the rebuilt progs.dat");
   await run(`grep -q 'progs.dat is file ${basedir}/data/progs.dat' ${log} && grep -q ':end$' ${log}`);
   console.log("xonotic: the match ran to its end on the progs.dat built in Dolly");
+
+  // The SDL client has no render path in Dolly yet (no OpenGL; the software
+  // rasterizer needs SSE2): it loads the data, opens the display through the
+  // sdl2 package, reports the missing video mode and returns to the shell
+  // with the display released. A frame assertion replaces this when one exists.
+  await run(`cd ${basedir}/data && ` +
+    fonts.map(name => `curl -fsS ${server.origin}/fixture/${name} -o ${name}`).join(" && "));
+  const client = start(`cd ${basedir} && xonotic-sdl -xonotic -basedir ${basedir} +vid_fullscreen 0 +vid_width 1024 +vid_height 768`);
+  await page.waitForFunction(() => __dolly.transport.graphicsActive(), null, { timeout: 120_000 });
+  assert.equal(await client.done, 1, "the client exits with status 1 without a video mode");
+  assert.equal(await page.evaluate(() => __dolly.transport.graphicsActive()), false, "the display is released");
+  await run("echo SHELL-BACK");
+  console.log("xonotic: the client opened the display, found no video mode and returned to the shell");
 });

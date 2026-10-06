@@ -1,19 +1,26 @@
 # Xonotic
 
 Xonotic 0.8.6 (DarkPlaces engine), being ported to Dolly. State: the dedicated
-server and gmqcc build inside Dolly, a bot match runs to its end headless, and
-gmqcc rebuilds the game logic there; no client, rendering or sound yet. The
-task is `tasks/20261006-122433-xonotic/TASK.md`.
+server, the SDL client and gmqcc build inside Dolly, a bot match runs to its
+end headless, gmqcc rebuilds the game logic there, and the client starts but
+has no render path yet (no OpenGL in the browser, and the engine's software
+rasterizer needs SSE2): it reports the missing video mode and returns to the
+shell. No rendering or sound yet. The task is
+`tasks/20261006-122433-xonotic/TASK.md`.
 
 ## Images
 
-- `xonotic-build`: the dedicated server (`xonotic-dedicated`) and the QuakeC
-  compiler (`gmqcc`), compiled from the pinned release source with `cc`, `c++`
-  and Make on `system-tools`; the engine, gmqcc and `qcsrc` stay under
-  `/usr/src/xonotic`, and `make -f /usr/src/dolly/xonotic/Makefile qc`
-  compiles `progs.dat`, `csprogs.dat` and `menu.dat` into `/tmp/xonotic/build/qc`.
+- `xonotic-build`: the dedicated server (`xonotic-dedicated`), the SDL client
+  (`xonotic-sdl`) and the QuakeC compiler (`gmqcc`), compiled from the pinned
+  release source with `cc`, `c++` and Make on `system-tools` with the `sdl2`
+  package; the engine, gmqcc and `qcsrc` stay under `/usr/src/xonotic`, and
+  `make -f /usr/src/dolly/xonotic/Makefile qc` compiles `progs.dat`,
+  `csprogs.dat` and `menu.dat` into `/tmp/xonotic/build/qc`.
+- `xonotic`: the client with the release's data, maps and font archives
+  (946 MB) under `/usr/share/xonotic/data`; `/xonotic/` starts `xonotic`,
+  which today prints the video failure and leaves the shell.
 
-Build with `npm run image -- xonotic-build`.
+Build with `npm run image -- xonotic-build` or `npm run image -- xonotic`.
 
 ## How it works
 
@@ -42,14 +49,23 @@ Build with `npm run image -- xonotic-build`.
 
 ## Data
 
-The release's `data/*.pk3` archives (1.2 GB) are pinned but not yet staged as
-image sources. The browser test fetches `xonotic-20230620-data.pk3` (318 MB)
-and `xonotic-20230620-maps.pk3` (626 MB) through its fixture server into
-`/home/dolly/xonotic/data`; that is the test's arrangement, not how the image
-will ship its data. `bash demos/xonotic/prepare-xonotic-data.sh` extracts them
-from the pinned zip into `.cache/xonotic/release/Xonotic/data`. The compiled
+The release's `data/*.pk3` archives (1.2 GB) are pinned; the `xonotic` image
+takes four of them as one `SOURCE` each (`data`, `maps` and the two font
+archives, staged by [`prepare-sources.sh`](prepare-sources.sh) from
+[`prepare-xonotic-data.sh`](prepare-xonotic-data.sh), which extracts them from
+the pinned zip into `.cache/xonotic/release/Xonotic/data`); the music and the
+Nexuiz compatibility archives are left out. The browser test runs on
+`xonotic-build` and fetches the same archives through its fixture server into
+`/home/dolly/xonotic/data`, which is the test's arrangement. The compiled
 `progs.dat`, `csprogs.dat` and `menu.dat` inside `data.pk3` are the release's;
 the test runs its second match on the `progs.dat` built in Dolly.
+
+## Bootstrap exceptions
+
+None today: everything in the images is built in Dolly from the pinned
+sources, and the data archives are the release's. Planned: the GLSL shader
+permutations translated to WGSL on the host at preparation time, as 0 A.D.'s
+`toolchain/prepare-shaders.sh` does.
 
 ## Native baseline
 

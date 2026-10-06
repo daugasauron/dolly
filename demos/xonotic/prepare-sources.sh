@@ -12,3 +12,9 @@ if has_image xonotic-build; then
     "${xonotic_dir}/gmqcc/LICENSE" /usr/share/licenses/gmqcc/LICENSE \
     demos/xonotic/Makefile /usr/src/dolly/xonotic/Makefile
 fi
+if has_image xonotic; then
+  xonotic_data="$(bash demos/xonotic/prepare-xonotic-data.sh)"
+  for archive in font-unifont-20230620.pk3 font-xolonium-20230620.pk3 xonotic-20230620-data.pk3 xonotic-20230620-maps.pk3; do
+    copy_static "${xonotic_data}/${archive}" "xonotic/data/${archive}"
+  done
+fi
