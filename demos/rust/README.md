@@ -65,6 +65,11 @@ with the compiler.
   "/opt/rust-sdk/src/libc" }` in the project's `.cargo/config.toml`.
 - No incremental builds (the package sets `CARGO_INCREMENTAL=0`) until Dolly
   has file locks; no `cargo search`, `publish` or `login`; no git dependencies.
+- Its sources are upstream's with target patches only: Cargo's manifest
+  without TLS, SSH and HTTP/2 features (`cargo-features`, `git2-curl`), and
+  `is_executable`, `jobserver-in-process`, `socket2`, `zlib-rs` and
+  `jiff-timezone` ([`config/patches/`](config/patches/),
+  [`cargo-patti.toml`](config/cargo-patti.toml)). Building it needs about 6 GB.
 - Findings and measurements: [task](../../tasks/20260930-231102-cargo-native/TASK.md).
 
 ## Limits
