@@ -183,6 +183,31 @@ sysroot (`--why-extract`, `-Map`).
 | the same, as `cc -rdynamic` | 1 | `process-dso-client.o`, by `--export (__dolly_dso_allocate)` | `libdolly-dso.a(process-dso-client.o)` |
 | calls `dolly_ffi_call`, as `cc` | 1 | `process-dso-ffi.o`, by the reference | not linked |
 
-### Suites
+### First base: `integrate/next` `6f118835` (image inputs `afca54ce…`)
 
+Superseded by the second base below, kept because it is what ran first.
+
+- Images: `DOLLY_IMAGE_JOBS=1 DOLLY_BUILD_IMAGES=default,system,cc,python
+  work/slot.sh build npm run image`, 15 images in 17 min 50 s, exit 0. The
+  Python build ran `/tmp/libffi-check` (an FFI caller that is not
+  `-rdynamic`) and imported `dolly_extension_check…so` in the build host.
+- By the stamp (`build/dso-evidence/scan-records.mjs`, every Wasm file of the
+  15 snapshots): one file carries `dso@0`, `/usr/bin/python` (with `http@0`),
+  in `python`. `default` (82 Wasm files) and `system` (101) hold none.
 - Source: `node --test 'test/*.test.mjs' 'demos/**/*.test.mjs'`, 399 of 399.
+- Without an image, the process Worker and the provider on a blank isolated
+  page (`build/dso-evidence/worker-harness.mjs` running
+  `test/fixtures/browser-process-abi.mjs`): Chrome and Firefox, 3 libraries
+  loaded, 14 refused, a table-less executable answered `ENOSYS`.
+- Browser suites, each `work/slot.sh browser node test/NAME-browser.mjs
+  chromium firefox`, all passed in both: `host-modules` (10.7 s, 15.5 s),
+  `dso` (38.4 s, 25.8 s), `core` (33.9 s, 45.5 s), `process` with its
+  start-up block (20.8 s, 21.7 s), `threads` with its refusal (15.7 s,
+  18.9 s), `boundary` (2.2 s, 3.5 s), `cpp` (15.8 s, 17.1 s).
+- `npm run test:demos -- python`: passed in Chrome (36.8 s): `ctypes` with a
+  `CFUNCTYPE` callback, pip, requests.
+- `default` suite: failed at its first check, for a reason outside this
+  change: the start-up text names `git`, and the subset built here had no
+  `git` package, so the generated index lacked it. Not rerun on this base.
+- Not run on this base: `amy`, the artifact suite, the Rust seed, `nvim`, Lua,
+  the Rust images.
