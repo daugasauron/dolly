@@ -146,11 +146,13 @@ globalThis.DOLLY_HTTP_RELAYS = [{
   metadata, and the browser owns those wire headers. The browser also
   negotiates the HTTP version and pools connections: a preferred
   `HTTP_VERSION` (2, 2TLS, 3) and `PIPEWAIT` are accepted, a version to enforce
-  is refused, and `curl_multi_setopt` refuses every option. `SEEKFUNCTION` and
-  `OPENSOCKETFUNCTION` are accepted and never called: a body is read once
-  before its request starts, and no program opens a connection. The progress
-  callback reports received bytes with totals of 0, unknown, because Fetch
-  delivers decoded bytes. `curl_multi_wait` sleeps until the next poll is due.
+  is refused. `curl_multi_setopt` accepts `PIPELINING` and
+  `MAX_HOST_CONNECTIONS`, which only steer connections, and refuses the socket
+  interface. `SEEKFUNCTION` and `OPENSOCKETFUNCTION` are accepted and never
+  called: a body is read once before its request starts, and no program opens
+  a connection. The progress callback reports received bytes with totals of 0,
+  unknown, because Fetch delivers decoded bytes. `curl_multi_wait` sleeps
+  until the next poll is due.
   `TIMEOUT` and `TIMEOUT_MS` (`curl -m`) are a deadline kept in the client,
   which cancels the request. Credentials in a URL (`https://user:token@host/`)
   become Basic credentials and are removed from the URL, which Fetch would
