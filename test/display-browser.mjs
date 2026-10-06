@@ -4,7 +4,8 @@ import { browserTest } from "./browser.mjs";
 // The page's presenter and input ring: an idle terminal requests no animation
 // frames and output wakes it; pointer motion is one record per frame, waits
 // for a program that does not read and never takes a key's slot; a record the
-// ring has no room for is counted and shown.
+// ring has no room for is counted and shown; the terminal keeps its pointer
+// records when a foreground program ends.
 const server = { fixtures: { "terminal-ui.c": "test/fixtures/terminal-ui.c" } };
 await browserTest("display", { server }, async ({ server, open }) => {
   const { page, submit, text } = await open({
@@ -68,5 +69,28 @@ await browserTest("display", { server }, async ({ server, open }) => {
   });
   const dropped = Number((await dataset()).inputDropped);
   assert.ok(dropped > 0 && keys + dropped === 40, `${keys} key records arrived and ${dropped} were reported dropped`);
+
+  // A large interactive program's Worker retires half a second after it exits.
+  // Until then no foreground program is published, and the pointer is the
+  // terminal's: a drag along the ruler the program printed is not dropped
+  // with the program's unread input when the Worker retires.
+  const retiring = submit(`foreground -i ${probe} retire`);
+  const dragged = await page.evaluate(async () => {
+    const { transport, terminal } = __dolly, turn = () => new Promise(resolve => setTimeout(resolve, 4));
+    while (terminal.foregroundPid() !== 0) await turn();
+    const { paddingX, paddingY, cellWidth, cellHeight } = transport.geometry(), y = Math.round(paddingY + cellHeight / 2);
+    transport.pushPointer(paddingX + cellWidth / 4, y, 1, {});
+    let column = 0;
+    do {
+      column = column % 100 + 1;
+      transport.writeRecord({ type: transport.constructor.pointerEvent, action: 2,
+        width: Math.round(paddingX + (column + 0.75) * cellWidth), height: y });
+      await turn();
+    } while (terminal.foregroundPid() === 0);
+    return column;
+  });
+  assert.equal(await retiring, 0);
+  const ruler = "abcdefghijklmnopqrstuvwxyz".repeat(5).slice(0, dragged + 1);
+  await page.waitForFunction(ruler => __dolly.copySelection() === ruler, ruler);
   assert.equal(await submit(`rm ${probe} ${probe}.c`), 0);
 });
