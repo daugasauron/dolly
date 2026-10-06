@@ -130,7 +130,7 @@ Inventory: 94 commands on `PATH` in `default` (`EXPORTS TOOL` rows of
   `test.c`;
   `npm run lint:dollyfiles` passes for 61 recipes; the source suite passes
   257 of 261, the four failures being `dist/*.mjs` modules this source-only
-  checkout does not have.
+  checkout does not have; the demo source tests pass 83 of 83.
 - `sbase.tar` is re-pinned from a tar built in `build/man-evidence/` (the
   old glob reproduces the old pin, so the builder is deterministic; the new
   tar holds sbase's 99 pages, of which the 44 built tools' are kept). The
@@ -138,6 +138,10 @@ Inventory: 94 commands on `PATH` in `default` (`EXPORTS TOOL` rows of
   refreshes it). The loops' shell syntax was run in a native Slop.
 
 ## To run when the catalog is built (integrator)
+
+Each inside the brief's memory-capped scope, one at a time, in a full
+worktree (`work/round2`'s `emacs-*.tar.gz` and `pi-source-d78dc83…`
+hard-linked into its `.cache`):
 
     bash work/setup-worktree.sh man2 work/man-help-verify work/man-help work/round2
     npm run build:runtime            # system-build's recipe changed: every image re-pins and rebuilds
