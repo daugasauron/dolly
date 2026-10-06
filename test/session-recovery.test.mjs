@@ -45,7 +45,7 @@ test("file recovery preserves the source, excludes live configuration, and rejec
     delta([[2, "/workspace/file"], [2, "/workspace/file"]]),
     delta([[2, "/workspace/file"], [2, "/workspace/file/child"]]),
     delta([[3, "/workspace/link", "bad\0target"]]),
-    ...["/workspace/file/", "/workspace//file", "/workspace/./file", "/workspace/a\0b", "/seed/file"]
+    ...["/workspace/file/", "/workspace//file", "/workspace/./file", "/workspace/a\0b"]
       .map(path => delta([[2, path, "invalid path"]]))];
   for (const [index, bytes] of invalid.entries()) {
     await writeFile(input, bytes);

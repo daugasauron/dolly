@@ -4,6 +4,21 @@
 - PRIORITY: 245
 - TAGS: packages,amy,agent-experience
 
+## Remaining (2026-10-07)
+
+In the candidate (`work/amy-index`, through `9d9064b3`): `amy list` with
+descriptions, `amy info NAME`, the install summary, `amy files NAME`, every
+package described and linted; `test/amy-browser.mjs` passed in Chromium and
+Firefox in the main round, its `amy programs` block installing `ripgrep`
+among others (`work/next/build/next-evidence/finish-amy-*.log`). Left:
+
+- `amy info` printing the download size, the host modules and the exports;
+  the install summary naming variables (`python` is the case).
+- A model package (`qwen3.5-2b`) through the test's `info`, summary and
+  `files` checks: the model packages exist only in the catalog round.
+- `docs/dollyfile.md` ("Packages and amy") read once more against what
+  exists.
+
 Owner request (2026-10-06): "in amy I want to get some description on what
 files are created when installing a package, and add some description/help
 text to each package."

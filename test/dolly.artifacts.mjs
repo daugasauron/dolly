@@ -86,32 +86,19 @@ test("a statically linked process executable satisfies dolly-process-0", async (
 });
 
 test("the production seed contains only bootstrap and compiler executables, not acceptance probes", async () => {
-  const { default: loadSeed } = await import("../dist/dolly-seed.mjs");
-  const bytes = await readFile(new URL("../dist/dolly.data", import.meta.url));
-  const files = new Map();
-  let dependencies = 0;
-  await loadSeed({
-    getPreloadedPackage(_name, size) {
-      assert.equal(size, bytes.byteLength);
-      return bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength);
-    },
-    FS_createPath() {},
-    FS_createDataFile(path, _name, contents) { files.set(path, contents); },
-    addRunDependency() { dependencies++; },
-    removeRunDependency() { dependencies--; },
-  });
-  assert.equal(dependencies, 0);
-  const prefix = "/seed/usr/libexec/dolly/process-bin/";
+  const { decodeSnapshotRecords } = await import("../src/snapshot-records.mjs");
+  const files = decodeSnapshotRecords(await readFile(artifact("dolly.data")));
+  const prefix = "/usr/libexec/dolly/process-bin/";
   assert.deepEqual([...files.keys()].filter(path => path.startsWith(prefix))
-    .map(path => path.slice(prefix.length)).sort(), ["bootstrap", "compiler"]);
+    .map(path => path.slice(prefix.length)), ["bootstrap", "compiler"]);
   for (const name of ["bootstrap", "compiler"]) {
-    assert.deepEqual(Buffer.from(files.get(prefix + name)),
+    assert.deepEqual(Buffer.from(files.get(prefix + name).data),
       await readFile(new URL(`../build/process-bin/${name}`, import.meta.url)));
   }
-  assert.ok(files.has("/seed/usr/include/stdio.h"));
+  assert.ok(files.has("/usr/include/stdio.h"));
   assert.ok(![...files.keys()].some(path => path.includes("/c++/v1/")));
   for (const port of ["boost/version.hpp", "png.h", "unicode/utypes.h"])
-    assert.ok(!files.has("/seed/usr/include/" + port), `SDK cache port leaked into the compiler seed: ${port}`);
+    assert.ok(!files.has("/usr/include/" + port), `SDK cache port leaked into the compiler seed: ${port}`);
 });
 
 test("the process gate can only copy between one process and kernel memory", async () => {
@@ -256,11 +243,20 @@ test("system snapshots are sealed to their visible recipe chain", async () => {
     // it declares: the engine is in amy, the toolchain in cc, the shell in core.
     const toolchain = ["/usr/libexec/dolly/process-bin/compiler", "/usr/lib/dolly/process/libc-ww.a",
       "/usr/lib/clang/24/include/stddef.h", "/usr/lib/dolly/dolly-kernel-plugin-0.wasm"];
-    const based = graph.root.role !== "package" && (graph.root.from !== null || image === "system-build");
-    const declared = { amy: ["/bin/dollyfile"], cc: toolchain, core: ["/bin/foreground"],
-      default: ["/bin/dollyfile", "/bin/foreground"] }[image] ?? [];
+    const base = graph.root.role === "package" || graph.root.from === null ? undefined : definitions.find(
+      definition => definition.filename === new URL(graph.root.from.location).pathname.slice(1)).image;
+    const inherited = base === undefined ? [] : (await import(
+      artifact(`dolly-${base}-system-snapshot.mjs`))).DOLLY_SYSTEM_SNAPSHOT.manifest;
+    // A package it installs brings that package's files: rust installs cc, cargo installs rust.
+    const installed = (await Promise.all(definitions.find(definition => definition.image === image).source.split("\n")
+      .map(line => /^INSTALL (\S+)/.exec(line)?.[1]).filter(Boolean)
+      .map(async url => (await import(artifact(`dolly-${definitions.find(
+        definition => definition.filename === new URL(url).pathname.slice(1)).image}-system-snapshot.mjs`)))
+        .DOLLY_SYSTEM_SNAPSHOT.manifest))).flat();
+    const declared = { amy: ["/bin/dollyfile"], cc: toolchain, core: ["/bin/foreground"] }[image] ?? [];
     for (const path of ["/bin/dollyfile", "/bin/foreground", ...toolchain]) {
-      assert.equal(metadata.manifest.includes(path), based || declared.includes(path), `${image}: ${path}`);
+      assert.equal(metadata.manifest.includes(path), image === "system-build" || inherited.includes(path) ||
+        installed.includes(path) || declared.includes(path), `${image}: ${path}`);
     }
     assert.equal(metadata.manifest.some((path) => /\/usr\/src\/dolly\/(?:dollyfile\.c|dso-)/.test(path) ||
       /\/process-bin\/(?!compiler$)/.test(path)), false, `${image} must not retain bootstrap probes`);

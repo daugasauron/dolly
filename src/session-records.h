@@ -19,8 +19,7 @@ static const unsigned char DOLLY_SESSION_MAGIC[8] = {'D', 'O', 'L', 'L', 'Y', 'S
 
 static inline int dolly_session_excluded_path(const char *path) {
   return strcmp(path, "/run") == 0 || strncmp(path, "/run/", 5) == 0 ||
-         strcmp(path, "/dev") == 0 || strncmp(path, "/dev/", 5) == 0 ||
-         strcmp(path, "/seed") == 0 || strncmp(path, "/seed/", 6) == 0;
+         strcmp(path, "/dev") == 0 || strncmp(path, "/dev/", 5) == 0;
 }
 
 static inline void dolly_session_free_records(dolly_fs_record *records, size_t count) {

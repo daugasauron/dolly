@@ -4,6 +4,23 @@
 - PRIORITY: 210
 - TAGS: rust,cargo,toolchain,network
 
+## Remaining (2026-10-07)
+
+In the candidate (`main` at `ab412d94`): the `cargo` package built in the
+catalog round, the `rust` package installing `cc` (`7eebbed6`), the empty
+`exe-suffix` and the Rust seed relinked for it, the libcurl multi options;
+`amy cargo alone` and `amy rust alone` pass in Chromium and Firefox and the
+`rust` demo test passes (`work/next/build/next-evidence/finish.log`,
+`finish-rust-demo.log`). On `integrate/round3`: `cargo` in `rust-tools`, the
+libcurl follow-up and the linker's `-g1` (`work/cargo-native` `c99dd5dc`).
+Left, from "Next steps" and the done-when: drop the SQLite dot-file setting
+and `CARGO_INCREMENTAL=0` once `core/file-locks` lands; `libc` under Cargo
+(a `[patch]` that does not harm other projects); SpiderMonkey's mozbuild
+driving Cargo (`--frozen` is unstable with this Cargo); the `test` crate in
+the SDK for `cargo test`; `PUT`, `CONNECTTIMEOUT` and `LOW_SPEED_*` in
+libcurl and a relay for git dependencies; the 5 to 6 GB the `cargo` image
+build needs; then Patti, its recipes and tests deleted.
+
 Owner question (2026-10-01): can real Cargo run inside Dolly by patching
 sockets or HTTP, instead of the Patti wrapper?
 
@@ -379,29 +396,147 @@ the build scripts read (`config.status`, `buildconfig.rs`, `js-confdefs.h`,
 - Not tried: `cbindgen` (a Rust program mozbuild runs; its dependencies
   include `libc`), and mozbuild driving these commands itself.
 
+## The package and the integration base, 2026-10-06 21:47–22:25 JST
+
+- `demos/rust/Dollyfile-cargo` built green through the build slot at 21:47
+  (`DOLLY_BUILD_IMAGES=cargo`: curl, rust-sdk on the seed with the empty
+  suffix, rust-build, rust, cargo; 963 s, the Cargo step about ten minutes).
+  The package installs the `rust` package (Cargo is of no use without rustc),
+  exports `CARGO_INCREMENTAL=0` and ends its recipe with `cargo build
+  --offline` of a crate and a run of it: the log shows `cargo 1.98.1
+  (797e8a9bc 2026-08-05)`, `Finished` and `built by cargo`. Snapshot:
+  286,547,609 bytes. Licence texts: Cargo's three, libgit2's `COPYING` and
+  each crate's files; rows in `config/upstreams.json`.
+- A package of its own rather than part of `rust`: `rust` is copied from
+  `rust-build`, which every Rust image is built on, and should not carry a
+  ten-minute, 5 GB build that only Cargo's users need.
+- crates.io under an explicit policy (Chrome, 21:50): with
+
+      globalThis.DOLLY_HTTP_POLICY = { maxRequests: 1024, rules: [
+        { origin: "https://index.crates.io", pathPrefix: "/", methods: ["GET"] },
+        { origin: "https://static.crates.io", pathPrefix: "/crates/", methods: ["GET"] },
+      ] };
+      globalThis.DOLLY_HTTP_RELAYS = [{ origin: "https://index.crates.io", through: "https://RELAY/" }];
+
+  (plus the test server's own fixture rule) the two-dependency build works and
+  `curl https://crates.io/api/v1/crates/itoa` is refused with curl's status 9.
+  Cargo asks to follow redirects; none occurs on these two hosts. The public
+  sites configure no relay, so there a build with crates.io dependencies
+  fails at "Updating crates.io index" unless the index file happens to be
+  uncached; a vendored directory, a mirror or an embedding's relay works.
+- For the catalog round of 22:40 the package was handed over as
+  `check/cargo-on-next` (`a88e3621..f66aca87`, nine commits: this branch's
+  Cargo commits and `REQUIRES HOST runtime@0` for that base). On it: 67
+  recipes lint, 400 source tests pass, and `node demos/run-browser-tests.mjs
+  rust` passed (94.8 s) on a `rust-tools` chain built from that base with a
+  Rust seed relinked for it (34 s: with the compiler crates built, a
+  `process.h` change only relinks). `rust-tools` does not carry `cargo` in
+  that round.
+- This branch then merged `a88e3621` (`f7cd28bf`).
+- libcurl follow-up (`085f7641`, multi options that only steer connections):
+  `node test/network-browser.mjs` passes in Chromium and Firefox on the merged
+  base with a rebuilt `default` (22:33). On `integrate/next` it also needs
+  `Dollyfile-dolly-docs`'s pin of `docs/http.md` refreshed.
+- Under a 5 GB build cap the `cargo` image step was killed about a minute
+  into the Patti build (22:31, `oom_kill 1`): `-j 4` needs 4.9 GB before the
+  last crate and 5.05 GB at the end, and page cache from earlier images in
+  the same chain counts against the cap.
+
+## On the merged base, 2026-10-06 22:26–23:10 JST
+
+Branch `work/cargo-native` after merging `integrate/next` (`a88e3621`): the
+seed with the empty suffix, explicit `runtime@0`, the libcurl follow-up.
+
+- `node demos/run-browser-tests.mjs rust` passes with the Cargo check in it
+  (`rust: chromium passed in 76.2s`), on `rust-tools` carrying the `cargo`
+  package (commit `bf957bd8`): `cargo --version`, `cargo metadata`, an
+  offline build and a build against a one-crate sparse registry on the test
+  server, under the test's explicit policy; the registry saw exactly its
+  `config.json`, one index file and one download.
+- The `cargo` image build is marginal under the 6 GB build cap: it passed
+  twice (22:57 and 00:18, 5.64 and 5.67 GB anonymous memory in the last
+  crate) and was killed twice (23:57 in the last crate at 5.94 GB, 00:35
+  four minutes in), and once under 5 GB. `-j` is not
+  the lever: with `-j 2` a session build took 1200 s on a loaded machine and
+  peaked at 4.70 GB against 5.05 GB with `-j 4`; the `cargo` crate's own
+  rustc on top of about 2 GB of files decides. The recipe keeps `-j 4`.
+  Building Cargo needs about 5 GB in a session. As an image it needs 1.2 to
+  1.5 GB more because the builder keeps each dependency snapshot twice more
+  than needed (`tasks/20261006-145958-builder-artifact-copies`).
+- The Cargo built from the committed sources prints no ERROR line in the
+  crates.io build (its libcurl accepts the two connection options).
+- `cargo install cbindgen --version 0.26.0 --root /tmp/cb`, the tool
+  SpiderMonkey's build runs, with `[patch.crates-io] libc = { path =
+  "/opt/rust-sdk/src/libc" }` in `~/.cargo/config.toml`: 36 crates from
+  crates.io, "Finished `release` profile [optimized] target(s) in 2m 51s";
+  `cbindgen --version` prints `cbindgen 0.26.0`, and `cbindgen --lang c` on a
+  file with a `#[repr(C)]` struct and an `extern "C"` function prints the
+  matching header.
+- Programs from crates.io with `cargo install` (rust-tools session with the
+  `cargo` package, 23:23–23:32; the SDK's `libc` through
+  `~/.cargo/config.toml`, the index through the relay):
+  - `cargo install ripgrep --version 15.1.0`: first failed at the link,
+    "/bin/cc: unsupported option: --profiling-funcs", which rustc's
+    Emscripten flavour passes for limited debug info (ripgrep's release
+    profile has `debug = 1`). The linker adapter now passes `-g1`
+    (`4d7fb3b9`; adapter compiled in the session, `rust-sdk` not rebuilt):
+    "Finished `release` profile [optimized + debuginfo] target(s) in 1m 20s",
+    `rg --version` prints `ripgrep 15.1.0` and it searches a file.
+  - `cargo install protox --version 0.9.1 --features bin`: 1 m 59 s, and
+    `protox` compiles a `.proto` to a 54-byte descriptor.
+  - `cargo install fd-find --version 10.5.0` fails in `nix`: "error[E0425]:
+    cannot find function `sethostname` in crate `libc`". That is what
+    `nix-hostname.patch` is for under Patti; under Cargo such crates need a
+    `[patch]` table naming a patched copy (`jiff` likewise).
+- SpiderMonkey's library again, now on the `rust-tools` image with the
+  packaged Cargo and the host build's settings (23:33): `cargo rustc
+  --release --frozen --manifest-path js/src/rust/Cargo.toml --lib --target
+  wasm64-emscripten-probe --features icu4x -j1`, with
+  `RUSTFLAGS="-C debuginfo=2 --cap-lints warn -C codegen-units=1"`,
+  `CARGO_PROFILE_RELEASE_OPT_LEVEL=2` and the object directory as target
+  directory. The first attempt failed on `--frozen` (the unstable lock
+  order), the second finished in 3 m 42 s and left a 37.7 MB
+  `obj-dolly/wasm64-emscripten-probe/release/libjsrust.a`, where mozbuild
+  looks for it.
+- `amy install cargo` in `default` (00:21): "amy: cargo installed: 1344
+  files, 286079739 bytes, commands: cargo patti rustc"; `amy installed` lists
+  `rust`, then `cargo`; `cargo --version` and `cargo metadata` run at once.
+  `cargo build` then failed at the link: "dolly-rust-link: spawn cc: No such
+  file or directory". On this base `default` has no C toolchain, and the
+  `rust` package did not install one (`amy install rust` had the same gap;
+  the amy suite installed `rust` only after `cc`). Fixed: the `rust` package
+  installs `cc` (`69e09fe3`); in `default`, `amy install rust` then reports
+  "commands: ar c++ cc ld make patti rustc" and `rustc s.rs && ./s` runs.
+  `test/amy-browser.mjs` gained two cases on a fresh `default` without `cc`
+  (`9dfd07b9`): "amy rust alone" passes in Chromium and Firefox; the cargo
+  case has not run, because the `cargo` image did not rebuild under the cap
+  afterwards. The package's `CARGO_INCREMENTAL=0` applies from the next
+  session load, as amy says; until then the first build needs it set.
+- `cargo test` fails: "error[E0463]: can't find crate for `test`". The SDK
+  ships no `test` crate (`build-sdk.sh` builds `std,panic_abort,proc_macro`),
+  and tests on a panic-abort target need `-Zpanic-abort-tests`.
+
 ### Next steps
 
-1. The `cargo` package: its image build is the first run of
-   `demos/rust/Dollyfile-cargo`; then `rust-tools` with it and
-   `demos/rust/test/rust-browser.mjs`, which now builds against a one-crate
-   sparse registry on the test server.
-2. The libcurl follow-up's contract test (`node test/network-browser.mjs` on a
-   rebuilt `default`), then its commit.
-3. crates.io under an explicit policy, to state the rows:
-
-       globalThis.DOLLY_HTTP_POLICY = { maxRequests: 1024, rules: [
-         { origin: "https://index.crates.io", pathPrefix: "/", methods: ["GET"] },
-         { origin: "https://static.crates.io", pathPrefix: "/crates/", methods: ["GET"] },
-       ] };
-       globalThis.DOLLY_HTTP_RELAYS = [{ origin: "https://index.crates.io", through: "https://RELAY/" }];
-
-   Cargo asks to follow redirects; under explicit rules a redirect fails. The
-   public sites configure no relay, so there `cargo build` with crates.io
-   dependencies fails at "Updating crates.io index" unless the index file
-   happens to be uncached; a vendored directory or a mirror works.
-4. When kernel file locks land (`core/file-locks`): drop the SQLite dot-file
+1. Rebuild `cargo` and `rust-tools` on the `rust` package that installs
+   `cc`, and run the cargo case of `test/amy-browser.mjs`.
+2. When kernel file locks land (`core/file-locks`): drop the SQLite dot-file
    setting from `cargo-patti.toml` and `CARGO_INCREMENTAL=0` from the
    package. Both are stopgaps.
+3. `libc` under Cargo has no good answer yet (above): a project-level or
+   user-level `[patch]` works, a system-wide one harms every other project.
+4. SpiderMonkey: mozbuild itself driving Cargo (its linker wrapper, flags and
+   `--frozen`, which is unstable with this Cargo and that lock).
+5. `cargo test` needs the `test` crate in the SDK. `cargo search`, `publish`
+   and `login` need `CONNECTTIMEOUT`, `LOW_SPEED_*` and `PUT` in libcurl. Git
+   dependencies over HTTPS need a relay and libgit2's curl transport, which
+   Cargo registers only with a non-default `[http]` configuration.
+6. Building Cargo needs 5 to 6 GB; the builder's extra copies are filed, and
+   a smaller last crate would need Patti to drop files it no longer needs,
+   or Cargo in the externally built seed.
+7. `demos/rust/rust-linker.c` (`4d7fb3b9`) is verified by `rust-sdk`,
+   `rust-build` and `rust` rebuilding with it and by `cargo install ripgrep`
+   in a session; `cargo` and `rust-tools` on that pin still have to build.
 
 ### What would retire Patti
 

@@ -355,6 +355,135 @@ Queued for free slots: `rts-early-input-stall`, `amy-descriptions` (rest),
   kept. Expect the catalog at about 22:45, verification by 23:45, packaging
   after.
 
+### 22:31: the main round started, an hour early
+
+- Seed round (`work/round2`, `integrate/seed-1006`, pins `9077dda1`): all 61
+  images built at 22:04; source 362/362, artifacts 24/24; core browser suites
+  green in both browsers except `terminal` in Firefox, one 30 s timeout on a
+  pixel wait while the machine's load average was 18 (three chain builds had
+  just started); it passed on rerun (`terminal-firefox-rerun.log`). Demos, GPU
+  tests and packaging into `build/seed-releases` follow unattended.
+- Main round (`work/next`, `integrate/next`): frozen by the integration agent
+  at `a88e3621` (22:17; its record is the "integrate/next" section above), then
+  by me: kernel-boundary step 2 (`82d659d8`), the nine Cargo package commits
+  (`..ba3fb260`), kernel-boundary step 4 (`fb6c3463`; the kernel has nine
+  imports and no Emscripten JavaScript). Runtime `f678b99a…`, image inputs
+  `4431ea80…`, Rust seed `f4393cf6…`. Step 4 is in because it leaves image
+  bytes and the image-inputs hash unchanged: reverting it is `git revert
+  -m 1 fb6c3463`, a runtime build and the four images that ship the contract
+  documents (`dolly-docs`, `pi`, `pi-local`, `dollyfile-studio`), not a
+  catalog. Tag `before-step4` = `ba3fb260`.
+- The round is `work/round-next.sh` (stages seed, light, heavy, pins, suites,
+  gpu, publish; `bash work/round-next.sh STAGE` resumes), run in a 24 GB
+  scope; logs in `work/next/build/next-evidence/` (`round.log`). Releases go
+  to `work/next/build/next-releases` and `next-domain-releases`.
+- Not in this round: Slop after `5ccedb2e` (field splitting and more),
+  `core/file-locks`, `core/input-module`, `core/dso-module`, file modes,
+  `exec` (`20261006-214244-process-exec`, owner: real exec, very low
+  priority), the libcurl follow-up, `cargo` in `rust-tools`.
+- Open from the integration: `ending` passed 6 of 8 runs (Ctrl+C on a builtin
+  loop once reported status 130, not SIGINT); the integration agent is finding
+  the cause in `work/ending` (`fix/ending-flake`).
+
+### 23:05: the seed round's verification, and what it found
+
+Seed round (`integrate/seed-1006` at `9077dda1`, 61 images, image inputs
+`22d006ca…`), logs in `work/round2/build/seed-evidence/`:
+
+- Source 362/362, artifacts 24/24.
+- Core browser suites: all green in chromium and firefox except `terminal` in
+  Firefox (one 30 s timeout under load average 18); 3 of 3 reruns pass.
+- Demos: python, javascript, emacs, pi, cmake, sdl2, codex, bhop, classicube,
+  rts pass. Three failed:
+  - `studio`: the Neovim fixture counted lines of the starter recipe; the
+    `runtime@0` line moved them. Fixed in `integrate/next` (`3c589449`).
+  - `rust`: the Tokio check read the server's count of cancelled streams the
+    instant the program exited: one close instead of two. 2 of 2 reruns pass.
+    The test now waits up to two seconds for the close (`80595976`).
+  - `neovim`: "timed out waiting for terminal selection publication" after
+    Neovim, the image's ENTRY, exits and the recovery shell starts; 1 of 2
+    reruns failed again. A real race (pointer records dropped when the old
+    foreground program is retired); the input agent is on it in `work/selfix`
+    (`fix/selection-after-exit`).
+- GPU tests: `local-llm`, `0ad-spidermonkey`, `0ad-engine`, `0ad-graphics`,
+  `slopyard` (every fixture) pass.
+- Not packaged: I stopped the pipeline before its publish step at 23:02. The
+  publish holds 17 GB and the main round's catalog was at 16 GB; the seed
+  release is superseded if the main round is green, and can still be packaged
+  from `work/round2` (clean at `9077dda1`) if it is not:
+  `bash scripts/package-pages.sh build/seed-releases`.
+
+### 00:11: the main round's catalog is built; suites running
+
+- Catalog: 58 light images in two runs (22:31–23:35, stopped by `llama-build`;
+  resumed 23:38–23:44), 9 heavy images 23:44–00:09. All 67 images were built by
+  the kernel with nine imports and no Emscripten JavaScript; no build failed
+  for a reason of the kernel. Pins `b07a89ee`. Image inputs `4431ea80…`.
+- `llama-build` failed once: the local-models merge compiles llama.cpp's
+  `common.cpp`, which ends in `#error Unknown architecture` without
+  `__EMSCRIPTEN__` (the second port the target-identity reading missed, after
+  Box3D). `prepare-local-llm.sh` now gives it the same edit as `ggml.h`
+  (`45ed3eeb`).
+- Fixes cherry-picked into `integrate/next` between the phases, each
+  runtime-only or test-only (the image-inputs hash did not move):
+  - `f82289ea`: the signal that ended a process is read from the kernel's
+    record; the supervisor's own copy was empty when the kernel ended the
+    process itself (the `ending` flake: 5 of 18 and 10 of 15 under load).
+  - `9b21ab9e`: the terminal suite waits for the grid to return after
+    fullscreen before it prints (the Firefox pixel-wait flake, 2 of 36).
+  - `ac4b4e5d`: the screen-reading test gesture is repeated when a program's
+    exit switched screens under it (the `neovim` flake, 6 of 10).
+  - `9abd08b0`: pending input is discarded when a process is marked exited,
+    not when its Worker retires: keys typed in the 500 ms after a full-screen
+    program exits were dropped, 3 of 3.
+  - `3c589449`, `80595976`: the Studio and Tokio test fixes.
+- Runtime `a578496d…`. Suites, GPU tests and both packagings started at 00:11
+  (`work/next/build/next-evidence/round-3.log`).
+- Ready for the next round, being assembled as `integrate/round3` in
+  `work/locks`: `core/file-locks` (`53177981`), kernel-boundary step 3
+  (`core/kernel-boundary-2`, `663b9a5a`), `core/dso-module` (`e441b537`),
+  Slop's newer commits, the libcurl follow-up and `cargo` in `rust-tools`,
+  `core/trusted-surface` (audit-24, step 1). Not ready: `core/input-module`,
+  file modes.
+
+### 06:30, 2026-10-07: the night stopped at 00:40; finishing the round now
+
+- The weekly usage limit ended the session and every agent at about 00:40.
+  Nothing ran between then and 06:20 except what was already detached. The
+  owner reset the usage at 06:20. No release candidate was packaged overnight:
+  at 00:31 I had paused the round script (SIGSTOP) to take one more fix in
+  before packaging, and a paused script waits for a person. Without the pause
+  it would have run its GPU tests and both packagings unattended.
+- Main round at the stop: source 400/400; artifacts 23/23 after the sealing
+  test compared `zero-ad` with its own base (`b2ee464d`; `default` no longer
+  carries a compiler); core browser suites all passed in chromium and firefox
+  (826 s); demos: python, javascript, emacs, neovim, rust, cmake, sdl2,
+  studio, codex, bhop, rts passed, `pi` and `classicube` failed.
+  - `pi`: `amy install` was refused because the test page brings its own HTTP
+    policy and did not admit `/amy-index.txt` (docs/http.md says such a page
+    must). Test fixed (`1e6cc838`), passes. The site's own pages bring no
+    policy object, so amy works there.
+  - `classicube`: one colour level off in one of three pixels of the docked
+    game ("panel does not cover the game edges"); passed on rerun (298 s).
+    Unexplained, so it is a flake to find, not a pass to trust.
+- Taken into the candidate this morning: `7eebbed6` (the `rust` package
+  installs `cc`: on the small `default`, `amy install rust` gave a compiler
+  that could not link) with `c08c4e01` (amy tests on a `default` with no
+  `cc`); `rust`, `cargo` and `rust-tools` are being rebuilt, then the reruns,
+  the GPU tests and both packagings (`work/finish-round.sh`, logs
+  `work/next/build/next-evidence/finish-*.log`).
+- Agents at the stop, all committed: Cargo (`work/cargo-native` `c99dd5dc`,
+  finished), dso (`b527f4de`, finished), kernel boundary (finished; step 3 on
+  `core/kernel-boundary-2`, audit-24 step 1 on `core/trusted-surface`), file
+  locks (finished) and its assembly of `integrate/round3` (`3eadc5c0`: locks,
+  step 3, Slop, the Cargo additions, dso, trusted surface; `default` and
+  `system` chains built and twelve suites green in both browsers at
+  `93e3d0cb`; no catalog round yet), input (`core/input-module` `82fa0cff`,
+  merged onto the new kernel, cut off mid-edit with a clean tree, not
+  verified), file modes (`core/file-modes` `c17b186e`: kernel, formats and
+  tools written, nothing built in Dolly), Slop (`core/concurrent-pipelines`
+  `8a0e841a`).
+
 ## `integrate/next` (worktree `work/next`, from `integrate/userspace-next` `7976b8ea`; 2026-10-06, 20:50 to 23:30 JST)
 
 The branch the next catalog round starts from. Nothing here built a Rust-chain
@@ -470,3 +599,163 @@ kernel's wake-ups or in `SIGPIPE`.
 - Relink the Rust seed first (sysroot and `exe-suffix` changed).
 - Recipes with unverified page rows: `ripgrep` (`rg --help` captured at build).
 - `core/concurrent-pipelines` after `5ccedb2e` is not merged, as decided.
+
+### Task triage, 2026-10-07
+
+Branch `tasks/triage` on `ab412d94` (this candidate merged with `main`), 07:05
+to 07:30 JST. Every open task was read in its newest version across branches
+(the records of `core/kernel-boundary-2`, `work/explicit-runtime`,
+`core/input-module`, `core/dso-module`, `core/file-locks`, `work/cargo-native`
+and `e21a5bd0` were brought in first) and its done-when compared with this
+tree and `work/next/build/next-evidence/`. Open tasks: 54 before, 36 after;
+18 closed, each with its commits and logs in a "Closed 2026-10-07" section;
+every remaining task has a "Remaining (2026-10-07)" section at the top where
+something was done.
+
+| Kind | Closed |
+| --- | --- |
+| Delivered by this round (10) | `20261005-222057-explicit-runtime`, `20261005-133402-target-identity`, `20261006-103306-page-ending`, `20261006-103256-entry-missing`, `20261006-094508-pi-greeting-explores`, `20261006-103306-shell-env`, `20261006-103306-session-policies`, `20261006-114524-slop-break-status`, `20260930-100000-audit-32` (concurrent pipelines), `20261005-215557-local-models` |
+| Folded into another task (5) | `20261005-214159-large-packages` (into local-models), `20261005-222449-small-default` (its two unpackaged tools into `20261007-003116-package-needs`), `20261005-223022-studio-video` (into studio-video-game), `20261005-225813-firefox-adapter` (into `20261001-232300-gpu-visibility`), `20261006-103306-zig-child` (into `20261001-091000-zig-follow-ups`) |
+| Investigations whose findings are recorded (2) | `20261005-222449-spawn-users`, `20261005-222449-single-program-images` |
+| Done, verdict pending (1) | `20261006-094507-studio-video-game` (the g1 take is on the page) |
+
+Reopened (closed on their branches, not in the candidate; close when round 3
+merges): `20261005-133401-kernel-boundary` (step 3; `dist/dolly-seed.mjs` is
+still loaded here), `20261006-093856-flock-stub`.
+
+Owner decisions still needed, one line each:
+
+1. `spawn@0`: the investigation recommends no module now (spawn-users).
+2. Direct-ENTRY images as a supported shape, with the docs wording and the
+   touch demo as the first such image (single-program-images, items 1, 3, 4).
+3. The g1 Studio video: keep, or another take (studio-video-game).
+4. A model and budget for re-recording RTS Arena, ClassiCube and bhop, or
+   keep the old videos (demo-recordings).
+5. The `AGENTS.md` sentence on serial semantics (wording in audit-32).
+6. Xonotic: the rendering route, `gpu@0` additions and sound (xonotic).
+7. `window.__dolly` and the page attributes: embedding API or test-only
+   (audit-24, step 3).
+8. `20260930-100000-audit-53` at 300: its remainder is three demo preparers
+   above 10 s; close or keep.
+
+Closed with one check not run on the candidate: local-models (the
+`dollyfile-studio` half of `demos/local-llm/test/local-llm-browser.mjs` was
+cut by the 06:58 runtime rebuild; `pi-local` passed in both browsers). Not
+closed for want of a built tree: `20261005-133403-self-description` (the Pi
+session with HTTP denied; the `--plan` list) and
+`20261005-220754-amy-descriptions` (a model package through the test).
+
+Found in the evidence, for the integrator: the GPU test `0ad-graphics` failed
+3 of 3 on `page.waitForEvent("download")` (`gpu-0ad-graphics*.log`), before
+`0f211db3` gave `default` its `download` command, so it wants a rerun; and
+the checkout server on :9007 (started 06:35) answers 404 for the packs the
+06:54 rebuild wrote (`/default/` stops at "snapshot returned HTTP 404";
+`work/triage/build/triage-evidence/probe-diag.log`), so it needs a restart
+before the owner opens it. No done-when was checked on :9007 for that
+reason; the closures rest on the round's logs.
+
+### 08:20, 2026-10-07: the candidate is sealed, served and merged
+
+- Release candidate `rc-2026-10-07` = `8f4900c6` (`integrate/next`); `main` =
+  `786694a4` (that commit merged with the task triage and the records made
+  on `main` overnight). Not pushed, not deployed.
+- Served on localhost: :9003 full site, release
+  `568c0ab3578788726f6f92c55d80742f614c6b1304b4defeed60f3fe603d35bf` (67
+  images); :9005 the daugasauron.com packaging, release
+  `baf21326b54e3c422b1ea3645df0b352d8a0fd1793a4e6c5df751c6277d3fd1a`. Both from
+  `work/next` (`build/next-releases`, `build/next-domain-releases`). The
+  :9006 and :9007 working-tree servers are stopped.
+- Verified on the final tree (runtime `a578496d…`, image inputs `4431ea80…`):
+  source 400/400, artifacts 23/23, core browser suites in chromium and
+  firefox (779 s), GPU tests `0ad-graphics`, `0ad-spidermonkey`,
+  `0ad-engine`, `local-llm` (both browsers), and packaging's own acceptance,
+  which loads every image. The demo suites ran at 00:26 on the same runtime,
+  before `default`, `zero-ad`, `rust`, `cargo` and `rust-tools` were rebuilt;
+  of those, `rust` (demo), the amy suite and the 0 A.D. tests were rerun,
+  the other demo suites were not.
+- Found and fixed while finishing, each a consequence of `default` becoming an
+  image composed from packages or of a first-time packaging:
+  - `rust` installs `cc` (`7eebbed6`), with amy cases on a `default` that has
+    none (`c08c4e01`): `amy install rust` had given a compiler that could not
+    link.
+  - `default` has `download` and `upload` again (`0f211db3`): no package held
+    them; `zero-ad`, built on `default`, failed its graphics test at the first
+    `download`. I first blamed and reverted the input-discard change
+    (`4e7096b9`), wrongly; restored in `0ebf7356`.
+  - The sealing test counts what a base and installed packages bring
+    (`b2ee464d`, `795030df`); the graph test names `system-tools` among
+    default's sources (`19dad713`).
+  - Packaging keeps a document's bytes when the site publishes the recipes it
+    links (`8f4900c6`): the docs package pins the documents, and the rewritten
+    links failed the release's own check on its first packaging.
+  - Test-only: the Pi demo's policy admits the package index (`1e6cc838`);
+    the local-model test's progress line cannot end the test (`d3a7ea29`).
+- Packaging's `share-pages-snapshots.mjs` held 25 GB and was killed by a 24 GB
+  cap once; it passed under 38 GB. Task `20261007-065624-publish-memory`.
+- Unexplained and recorded, not fixed: `classicube` failed one docked pixel by
+  one colour level once and passed on rerun
+  (`20261007-064313-classicube-bottom-bar`).
+- Housekeeping: `work/round2` and five finished worktrees are removed; the
+  seed round's logs are in `work/evidence-2026-10-06/seed-evidence/`. The
+  18:00 releases of 2026-10-06 are gone with `work/round2` (tag
+  `rc-2026-10-06-pm` keeps the source).
+
+### Morning tracks, 2026-10-07 (owner: plan until 13:00)
+
+- SpiderMonkey built inside Dolly: `work/spidermonkey` in `work/cargo`; the
+  map of the host build is in `20260930-231200-self-host-zero-ad`.
+- Xonotic: `demo/xonotic` in `work/xonotic`; the dedicated server plays an
+  eight-bot match headless in Dolly; gmqcc builds in Dolly.
+- Visible fixes: `fix/visible` in `work/visible` (`/local` on Pi's start
+  screen, ClassiCube's untextured hotbar, the context-size test).
+- For round 3, beside `integrate/round3`: `core/cc-flags` (`9d21e987`, four
+  Clang flags `cc` refused; unbuilt) and `core/full-read` (a `read` of a
+  regular file returned at most 1 MiB per call; being written).
+
+## `integrate/round3` (worktree `work/locks`, from `integrate/next` `80595976`; 2026-10-06 23:30 to 2026-10-07 JST)
+
+Assembled by the file-locks agent for the second catalog round. Nothing here
+built the Rust seed, a Rust-chain image, `pi`, a model or a game. Evidence:
+`build/round3-evidence/` in `work/locks` (not committed).
+
+### Merged, in this order
+
+| What | Tip | How it went in |
+| --- | --- | --- |
+| `core/file-locks` | `53177981` | clean |
+| `core/kernel-boundary-2` (step 3) | `663b9a5a` | clean |
+| `core/concurrent-pipelines` | `7974c5c9`, its head at 23:33 | clean; `docs/slop.md` and `test/fixtures/slop-cases.mjs` merged automatically |
+| `085f7641`, `bf957bd8`, `3b8df4f3`, `84170484`, `de325315`, `04f9a6a3`, `4d7fb3b9`, `25941e9c`, `e5f0b949` from `work/cargo-native` | | cherry-picks (`-x`): everything on the branch at 23:52 that `integrate/next` lacked. One conflict, in `bf957bd8`: the pins of `demos/rust/Dollyfile-rust-tools`; the base's two pins kept, the `INSTALL` of `Dollyfile-cargo` added |
+| `integrate/next` | `0104e48c` | clean; kernel and supervisor merged automatically |
+| `core/dso-module` | `e441b537` | three conflicts: `scripts/write-build-id.mjs` (the image build inputs: no `dolly-seed.mjs`, and `dolly-dso-0.wasm`), `test/process-browser.mjs` (the lock fixture stays, the signals probe loses `-rdynamic`), `Dollyfile-dolly-docs` (document pins recomputed). `process.h`, `host/runtime/runtime.mjs` and the Worker merged automatically |
+| `integrate/next` | `9abd08b0` | the catalog repin: three recipes conflicted in recipe pins, merged by `work/merge-recipes.py`; `node scripts/update-recipe-pins.mjs` then rewrote 25 recipes' recipe pins |
+| `core/trusted-surface` | `e5ae6730` | clean; nothing reads the removed page surface |
+
+Not merged, as told: `core/input-module`, `core/file-modes`.
+
+Added here: `ccb67dd2`. `test/host-modules.test.mjs` did not see the seven
+operations `dso@0` serves in the process Worker (it has no kernel part), so
+the operation-number check now asks every module with a `processWorker` which
+numbers it handles. Document pins: `b08fdd6d` and the dso merge.
+
+Pins: document pins and, since the catalog repin, the recipe pins the pinner
+derives are committed. `SOURCE` pins are the catalog's and stale where the
+round changes a pinned source (Slop, `process.h`, the dso headers, libcurl,
+the Rust linker adapter); staging refreshes them at each image build, and the
+rewrites were restored after each build here.
+
+### Verified with items 1 to 5 (`93e3d0cb`, runtime `dbdbde8c…`, image inputs `1711e3b8…`)
+
+- `npm run build:runtime`: the import check passes ("exactly the typed
+  imports in build/dolly-browser-0.wasm").
+- Source suite, with the pinner applied to the working tree:
+  `node --test test/*.test.mjs` 334 of 334, `demos/**/*.test.mjs` 81 of 81;
+  `npm run -s lint:dollyfiles` lints 67 recipes.
+- `default` and `system` chains: 13 images in 834.7 s (`image-chain-2.log`),
+  `zig-build` 508.5 s. **No recipe line needed a change for the new Slop**:
+  every recipe of the two chains ran as committed. The same holds for the
+  chain built before dso and the later `integrate/next` were merged
+  (`b08fdd6d`, 774.9 s, `image-chain-1.log`); no suite ran on that one.
+- Suites, each in Chromium and in Firefox, all passing (`full-summary.txt`):
+  core, process, shell, slop, terminal, display, boundary, host-modules,
+  image, custom-session, and beyond the list dso and threads.

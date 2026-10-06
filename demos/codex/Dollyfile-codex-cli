@@ -6,12 +6,12 @@ REQUIRES HOST threads@0
 
 # Codex as codex-build compiles it, the launcher that seeds CODEX_HOME, and
 # the search tools Codex runs.
-FROM https://daugasauron.com/Dollyfile-system d285d7f73ca35d0cd5c2ac7dac6ef3a1192ba08caa3e4b2877c57c94155157f1
-COPY https://daugasauron.com/demos/codex/Dollyfile-codex-build 58208e9004142cdb3aa1ff61573782f8e8886bf9a10c01cc84e07bd0832e8c3b /usr/bin/codex /usr/libexec/codex
-COPY https://daugasauron.com/demos/codex/Dollyfile-codex-build 58208e9004142cdb3aa1ff61573782f8e8886bf9a10c01cc84e07bd0832e8c3b /usr/share/licenses/codex /usr/share/licenses/codex
-COPY https://daugasauron.com/demos/codex/Dollyfile-codex-build 58208e9004142cdb3aa1ff61573782f8e8886bf9a10c01cc84e07bd0832e8c3b /usr/share/dolly/builds/codex.json /usr/share/dolly/builds/codex.json
-INSTALL https://daugasauron.com/demos/rust/Dollyfile-ripgrep b13ed26b9ab1f495159f9f5a32d6ce0a9a1547842b904d2d457b8d698796e04c
-INSTALL https://daugasauron.com/demos/rust/Dollyfile-fd da78a95d651c2e0e83a4ff8db147174b8c1937ebc87626cc6478b949d578bfd9
+FROM https://daugasauron.com/Dollyfile-system 9c28c375cdd62808454d946a416cff63788d944ae15b9fa33cefb37e6f2babcd
+COPY https://daugasauron.com/demos/codex/Dollyfile-codex-build 6866b930ed7f982a7c2fdf6d2037caff83ff1800af588d86a9306d27ecff1e5c /usr/bin/codex /usr/libexec/codex
+COPY https://daugasauron.com/demos/codex/Dollyfile-codex-build 6866b930ed7f982a7c2fdf6d2037caff83ff1800af588d86a9306d27ecff1e5c /usr/share/licenses/codex /usr/share/licenses/codex
+COPY https://daugasauron.com/demos/codex/Dollyfile-codex-build 6866b930ed7f982a7c2fdf6d2037caff83ff1800af588d86a9306d27ecff1e5c /usr/share/dolly/builds/codex.json /usr/share/dolly/builds/codex.json
+INSTALL https://daugasauron.com/demos/rust/Dollyfile-ripgrep 69b48a363dfd76c652d535e54ac461adbd2b426a08efb3a21fc69d3865811345
+INSTALL https://daugasauron.com/demos/rust/Dollyfile-fd bdb4e8995494bbb7cc0a53036afd8af76c929d7b078f19e36f00e6c974d40959
 REQUIRES HEADER libc
 REQUIRES HEADER runtime
 REQUIRES TOOL cc

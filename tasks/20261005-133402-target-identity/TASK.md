@@ -1,6 +1,6 @@
 # Give the compile target its own identity: triple, macro and errno numbers in the contract
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 300
 - TAGS: core,abi,toolchain,design
 
@@ -431,3 +431,18 @@ passes all four cases in both browsers.
 do), or belong to the host-built SpiderMonkey and to `ggml-webgpu.cpp`'s one
 file. The done-when holds for the tree; the task closes when the catalog
 round has rebuilt the other 17 images.
+
+## Closed 2026-10-07
+
+The catalog rounds rebuilt every image on this seed: 61 in the seed round
+(`integrate/seed-1006` `9077dda1`), 67 in the main round (`integrate/next`,
+pins `b07a89ee`, image inputs `4431ea80…`), all suites as recorded in
+`20261005-132713-round-1005`. Two ports the reading had missed were found by
+building and fixed in the rounds: Box3D's unknown-platform thread path
+(Slopyard's wrapper defines `__EMSCRIPTEN__` for Box3D's units, `07fa5f0b`
+cherry-picked) and llama.cpp's `common.cpp` `#error` (`45ed3eeb`). In the
+candidate `grep -rn -- '-DDOLLY\b\|-U__EMSCRIPTEN__\|ifdef DOLLY\b'` over the
+recipes, demos, config and sources finds nothing; `__EMSCRIPTEN__` remains
+only in the places listed above plus those two. The probe
+`test/fixtures/target-identity.c` runs in the process smoke of every runtime
+build.

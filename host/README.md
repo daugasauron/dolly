@@ -20,6 +20,7 @@ packaging and ABI tests read only these manifests.
 | `phase` | When the Worker side starts: after the kernel loads (`kernel`) or after the image is restored (`image`) |
 | `imports` | Kernel Wasm imports this module provides; `abi/dolly-browser-0.wat` is their reviewed allowlist |
 | `host` | Trusted JavaScript: `check()`, `browser()` and `worker()` sides ([`modules.mjs`](modules.mjs)); a module with a client exports the `digest` it implements |
+| `processWorker` | Trusted JavaScript served inside the process Worker, bundled as `dist/dolly-process-NAME.mjs`; only `dso` has one (below) |
 | `contracts` | WAT of the kernel boundary: its exports are kernel exports, its imports the host's |
 | `process` | WAT of process-side ABIs, such as the threads entry point |
 | `headers` | C API and packets, installed as `<dolly/NAME.h>`; `NAME-abi.h` is generated from the WAT constants and carries the module's ABI digest |
@@ -59,6 +60,21 @@ reviews the authority it adds. A module without imports may instead own a
 reserved origin of the HTTP broker ([`http/local-services.mjs`](http/local-services.mjs)),
 as `build` and `packages` do: its service admits each request itself.
 
+## Modules served in the process Worker
+
+`dso@0` (the loader behind `dlopen` and the FFI dispatcher) needs one
+process's instance and function table, not the kernel, so its operations are
+answered in that process's own Worker. Its Worker side fetches the bundle
+once at boot and registers it with the runtime (`serveInProcess`); the
+supervisor puts it in the start message of exactly the executables that
+record the module, and their Worker imports it before `_start`
+([`process-worker.mjs`](../src/process-worker.mjs)). Every other Worker loads
+none of it, in an image that declares the module too, so declaring it costs a
+program that does not record it nothing. An executable records `dso@0` when it
+links a member of `libdolly-dso.a`: `cc -rdynamic` selects the loader's client,
+a call to `dolly_ffi_*` the FFI client. A program that only calls `dlopen`
+gets the process libc's refusal and records nothing.
+
 ## Runtimes
 
 A runtime is a module whose manifest says `"provides": "kernel"`; `runtime@0`
@@ -69,7 +85,7 @@ never through its name, and a module that others merely depend on is not
 thereby declared. A runtime provides:
 
 - the process ABI (`process`: [`dolly-process-0.wat`](../abi/dolly-process-0.wat),
-  the gate and DSO contracts, `process.h`) that its executables compile against;
+  the gate contract, `process.h`) that its executables compile against;
 - the supervisor and image contracts (`contracts`:
   [`dolly-supervisor-0.wat`](../abi/dolly-supervisor-0.wat),
   [`dolly-image-0.wat`](../abi/dolly-image-0.wat)): spawn, wait, signals, the
@@ -80,9 +96,9 @@ thereby declared. A runtime provides:
   `bindings` like any module's;
 - a Worker instance with `memory` and `supervisor(dolly)`, which the registry
   hands out as `host.kernel`;
-- the seed (`dist/dolly.data`: the compiler, libc adapter and bootstrap
-  commands built for its process ABI), which a build boots when a recipe has
-  no `FROM`.
+- the seed (`dist/dolly.data`, a snapshot in the image format: the compiler,
+  libc adapter and bootstrap commands built for its process ABI), which a
+  build restores when a recipe has no `FROM`.
 
 Images and packages record their runtime as they record any module: the line
 goes into the artifact and its receipt. The page refuses an image whose

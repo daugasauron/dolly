@@ -273,10 +273,8 @@ export function browser({ mount, canvas, keyboard, fatal, showStatus }) {
 
   return {
     get transport() { return transport; },
-    get presenter() { return presenter; },
     page: {
       get transport() { return transport; },
-      get display() { return presenter; },
       get graphicsActive() { return transport.graphicsActive(); },
       get fontSize() { return transport.fontSize(); },
       copySelection: () => transport.copySelection(),

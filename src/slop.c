@@ -52,6 +52,7 @@ typedef struct {
   int split;
   int positional_fields;
   int newline;
+  int line; // Where the token starts in its text, from 1.
   int background; // A `;` written as `&`.
   int descriptor;
   int target_descriptor;
@@ -132,6 +133,11 @@ typedef struct {
   // Set only while a stage's simple command starts its program.
   Stage *stage;
   pid_t last_background; // `$!`; 0 while unset.
+  // `$LINENO`: the line of the command being run, and the line before the
+  // first one of the text being run (an `eval` or substitution continues the
+  // numbering of its command).
+  int lineno;
+  int line_base;
 } Shell;
 
 enum {
@@ -289,6 +295,9 @@ static void tokens_dispose(TokenList *tokens) {
   memset(tokens, 0, sizeof(*tokens));
 }
 
+// The line the lexer is on; token_push records it.
+static int lex_line;
+
 static int token_push(TokenList *tokens, TokenKind kind, char *text, int quoted) {
   if (!grow((void **)&tokens->items, &tokens->capacity,
             tokens->count + 1, sizeof(*tokens->items))) {
@@ -299,6 +308,7 @@ static int token_push(TokenList *tokens, TokenKind kind, char *text, int quoted)
       .kind = kind,
       .text = text,
       .quoted = quoted,
+      .line = lex_line,
       .descriptor = -1,
       .target_descriptor = -1,
   };
@@ -323,6 +333,7 @@ static int tokens_clone_range(const Token *tokens, size_t start, size_t end,
       }
     }
     copy->items[copy->count - 1].newline = tokens[index].newline;
+    copy->items[copy->count - 1].line = tokens[index].line;
     copy->items[copy->count - 1].background = tokens[index].background;
     copy->items[copy->count - 1].positional_fields =
         tokens[index].positional_fields;
@@ -525,6 +536,10 @@ static const char *parameter_value(Shell *shell, const char *name,
     snprintf(temporary, 64, "%d", shell->argc > 0 ? shell->argc - 1 : 0);
     return temporary;
   }
+  if (length == 6 && memcmp(name, "LINENO", 6) == 0) {
+    snprintf(temporary, 64, "%d", shell->lineno);
+    return temporary;
+  }
   if (length == 1 && name[0] == '-') {
     size_t index = 0;
     if (shell->errexit) temporary[index++] = 'e';
@@ -593,22 +608,60 @@ static const char *parameter_closing_brace(const char *source) {
 
 static int expand_dollar_now(Shell *shell, const char **cursor, Buffer *word);
 
+// While expand_dollars expands a word, the text it is building and the mask
+// beside it: a quoted part of ${NAME-word} stays quoted in the result.
+static Buffer *expanding_text, *expanding_mask;
+static char expanding_protection;
+
+// Marks what `output` gained since the mask was last filled.
+static int mark_expanded(const Buffer *output, char protection) {
+  if (output != expanding_text) return 1;
+  while (expanding_mask->length < output->length)
+    if (!buffer_character(expanding_mask, protection)) return 0;
+  return 1;
+}
+
+// Set by a caller whose word is a pattern (${NAME%word}): what the word
+// quotes must then match itself, so it is escaped for fnmatch.
+static int expanding_pattern;
+
+// Escapes the pattern characters `output` gained since `from`.
+static int pattern_literal(Buffer *output, size_t from) {
+  char *tail = strndup(output->data == NULL ? "" : output->data + from, output->length - from);
+  if (tail == NULL) return 0;
+  output->length = from;
+  int ok = 1;
+  for (const char *byte = tail; ok && *byte != '\0'; byte++) {
+    if (strchr("\\*?[", *byte) != NULL) ok = buffer_character(output, '\\');
+    if (ok) ok = buffer_character(output, *byte);
+  }
+  free(tail);
+  return ok;
+}
+
 static int expand_parameter_word(Shell *shell, const char *source,
                                  size_t length, Buffer *output) {
   const char *end = source + length;
   char quote = '\0';
+  // Only this word is the pattern, not the words of what it expands.
+  const int pattern = expanding_pattern;
+  expanding_pattern = 0;
   while (source < end) {
+    const size_t before = output->length;
     if (*source == '\\' && quote != '\'' && source + 1 < end) {
       source++;
-      if (!buffer_character(output, *source++)) return 0;
+      if (!buffer_character(output, *source++) ||
+          (pattern && !pattern_literal(output, before))) return 0;
       continue;
     }
     if (*source == '\'' || *source == '"') {
       if (quote == '\0') {
+        if (!mark_expanded(output, expanding_protection)) return 0;
         quote = *source++;
         continue;
       }
       if (quote == *source) {
+        if (!mark_expanded(output, 'q')) return 0;
         quote = '\0';
         source++;
         continue;
@@ -616,11 +669,13 @@ static int expand_parameter_word(Shell *shell, const char *source,
     }
     if (*source == '$' && quote != '\'') {
       const char *cursor = source;
-      if (expand_dollar_now(shell, &cursor, output) < 0 || cursor > end) return 0;
+      if (expand_dollar_now(shell, &cursor, output) < 0 || cursor > end ||
+          (pattern && quote != '\0' && !pattern_literal(output, before))) return 0;
       source = cursor;
       continue;
     }
-    if (!buffer_character(output, *source++)) return 0;
+    if (!buffer_character(output, *source++) ||
+        (pattern && quote != '\0' && !pattern_literal(output, before))) return 0;
   }
   return quote == '\0';
 }
@@ -937,13 +992,13 @@ static int arithmetic_take(Arithmetic *parser, const char *operator) {
   return 1;
 }
 
-static long arithmetic_or(Arithmetic *parser);
+static long arithmetic_assignment(Arithmetic *parser);
 
 static long arithmetic_primary(Arithmetic *parser) {
   arithmetic_space(parser);
   if (*parser->cursor == '(') {
     parser->cursor++;
-    const long value = arithmetic_or(parser);
+    const long value = arithmetic_assignment(parser);
     if (!arithmetic_take(parser, ")")) parser->error = 1;
     return value;
   }
@@ -1141,6 +1196,67 @@ static long arithmetic_or(Arithmetic *parser) {
   return value;
 }
 
+// condition ? value : value, right to left; only the chosen side is evaluated.
+static long arithmetic_conditional(Arithmetic *parser) {
+  const long condition = arithmetic_or(parser);
+  if (!arithmetic_take(parser, "?")) return condition;
+  const int evaluate = parser->evaluate;
+  parser->evaluate = evaluate && condition != 0;
+  const long first = arithmetic_assignment(parser);
+  if (!arithmetic_take(parser, ":")) parser->error = 1;
+  parser->evaluate = evaluate && condition == 0;
+  const long second = arithmetic_conditional(parser);
+  parser->evaluate = evaluate;
+  return condition != 0 ? first : second;
+}
+
+// NAME = value and NAME op= value, right to left; the variable is set.
+static long arithmetic_assignment(Arithmetic *parser) {
+  static const char *const operators[] = {"<<=", ">>=", "+=", "-=", "*=", "/=", "%=", "&=", "^=", "|=", "="};
+  arithmetic_space(parser);
+  const char *start = parser->cursor, *end = start;
+  while (end == start ? is_name_start(*end) : is_name_byte(*end)) end++;
+  const char *operator = NULL;
+  parser->cursor = end;
+  for (size_t index = 0; end != start && operator == NULL &&
+       index < sizeof(operators) / sizeof(operators[0]); index++) {
+    if (arithmetic_take(parser, operators[index])) operator = operators[index];
+  }
+  if (operator == NULL || (operator[0] == '=' && *parser->cursor == '=')) {
+    parser->cursor = start;
+    return arithmetic_conditional(parser);
+  }
+  parser->cursor = start;
+  long value = arithmetic_primary(parser);
+  arithmetic_take(parser, operator);
+  const long right = arithmetic_assignment(parser);
+  if (!parser->evaluate || parser->error) return 0;
+  const unsigned long a = (unsigned long)value, b = (unsigned long)right;
+  switch (operator[0]) {
+    case '=': value = right; break;
+    case '+': value = (long)(a + b); break;
+    case '-': value = (long)(a - b); break;
+    case '*': value = (long)(a * b); break;
+    case '&': value &= right; break;
+    case '^': value ^= right; break;
+    case '|': value |= right; break;
+    case '/': case '%':
+      if (right == 0 || (value == LONG_MIN && right == -1)) { parser->error = 1; return 0; }
+      value = operator[0] == '/' ? value / right : value % right;
+      break;
+    default:
+      if (right < 0 || right >= (long)(sizeof(long) * 8)) { parser->error = 1; return 0; }
+      value = operator[0] == '<' ? (long)(a << right) : value >> right;
+  }
+  char name[256], text[32];
+  if ((size_t)(end - start) >= sizeof(name)) { parser->error = 1; return 0; }
+  memcpy(name, start, (size_t)(end - start));
+  name[end - start] = '\0';
+  snprintf(text, sizeof(text), "%ld", value);
+  if (setenv(name, text, 1) != 0) parser->error = 1;
+  return value;
+}
+
 static int expand_arithmetic(Shell *shell, const char *source, size_t length,
                              Buffer *word) {
   Buffer expanded = {0};
@@ -1151,7 +1267,7 @@ static int expand_arithmetic(Shell *shell, const char *source, size_t length,
   char *expression = buffer_release(&expanded);
   if (expression == NULL) return 0;
   Arithmetic parser = {.cursor = expression, .evaluate = 1};
-  const long value = arithmetic_or(&parser);
+  const long value = arithmetic_assignment(&parser);
   arithmetic_space(&parser);
   const int valid = !parser.error && *parser.cursor == '\0';
   if (!valid) {
@@ -1310,7 +1426,8 @@ static int expand_dollar_now(Shell *shell, const char **cursor, Buffer *word) {
       }
       char *variable = strndup(name, length);
       if (variable == NULL) return -1;
-      if (length == 1 && strchr("@*", *name)) {
+      const int positional = length == 1 && strchr("@*", *name) != NULL;
+      if (positional && pattern_operation) {
         fprintf(stderr, "slop: unsupported parameter operation: %s\n", variable);
         free(variable);
         return -1;
@@ -1318,6 +1435,21 @@ static int expand_dollar_now(Shell *shell, const char **cursor, Buffer *word) {
       char temporary[64];
       int set;
       const char *value = parameter_value(shell, name, length, temporary, &set);
+      if (positional) {
+        // ${*-word} and ${@+word}: no positional parameters count as unset,
+        // as in Bash; otherwise the value is the parameters joined by spaces.
+        free(variable);
+        Buffer joined = {0};
+        set = shell->argc > 1;
+        for (int index = 1; index < shell->argc; index++) {
+          if ((index > 1 && !buffer_character(&joined, ' ')) ||
+              !buffer_append(&joined, shell->argv[index], strlen(shell->argv[index]))) {
+            free(joined.data);
+            return -1;
+          }
+        }
+        value = variable = joined.data == NULL ? strdup("") : joined.data;
+      }
       if (!value || (pattern_operation &&
                      unset_parameter_error(shell, name, length, set))) {
         free(variable);
@@ -1329,6 +1461,7 @@ static int expand_dollar_now(Shell *shell, const char **cursor, Buffer *word) {
       int ok = 1;
       if (pattern_operation) {
         Buffer expanded_pattern = {0};
+        expanding_pattern = 1;
         ok = expand_parameter_word(shell, replacement, replacement_length,
                                    &expanded_pattern);
         char *pattern = ok ? buffer_release(&expanded_pattern) : NULL;
@@ -1535,18 +1668,10 @@ static int deferred_quoted_positional_fields(const char *text) {
          (length == 4 && strcmp(cursor, "${@}") == 0);
 }
 
-// A double-quoted $@ that is not the whole word has no single meaning here.
-static int embeds_quoted_positional(const Token *token) {
-  for (const char *cursor = token->text; (cursor = strchr(cursor, SLOP_DEFERRED_DOLLAR)) != NULL;) {
-    const char *payload = strchr(++cursor, ':');
-    if (payload == NULL) return 0;
-    const size_t length = strtoul(cursor, NULL, 10);
-    if (token->quote_mask[++payload - token->text] == 'q' &&
-        ((length == 2 && strncmp(payload, "$@", 2) == 0) ||
-         (length == 4 && strncmp(payload, "${@}", 4) == 0))) return 1;
-    cursor = payload + length;
-  }
-  return 0;
+// `${1+"$@"}` is how scripts for pre-POSIX shells spell "$@": the same fields.
+static int deferred_guarded_positional_fields(const char *text) {
+  return text != NULL && text[0] == SLOP_DEFERRED_DOLLAR &&
+         strcmp(text + 1, "9:${1+\"$@\"}") == 0;
 }
 
 static TokenKind operator_kind(const char *source, size_t *length,
@@ -1658,7 +1783,10 @@ static int lex(const char *source, TokenList *tokens) {
   size_t pending_heredocs[SLOP_MAX_HEREDOCS];
   size_t pending_count = 0;
   int both_outputs = 0;
+  const char *counted = source;
+  lex_line = 1;
   while (*source != '\0') {
+    for (; counted < source; counted++) lex_line += *counted == '\n';
     while (*source == ' ' || *source == '\t' || *source == '\r') source++;
     /* A backslash-newline is removed before token recognition. In
        particular, it must not manufacture an empty word when it appears
@@ -1720,7 +1848,10 @@ static int lex(const char *source, TokenList *tokens) {
         }
       }
       pending_count = 0;
-      if (!token_push(tokens, TOKEN_SEMI, NULL, 0)) return 0;
+      // `cmd <<EOF ||` continues after the here-document's body.
+      const TokenKind previous = tokens->items[tokens->count - 1].kind;
+      if (previous != TOKEN_AND && previous != TOKEN_OR && previous != TOKEN_PIPE &&
+          !token_push(tokens, TOKEN_SEMI, NULL, 0)) return 0;
       continue;
     }
     if (source[0] == '&' && source[1] != '&' && source[1] != '>') {
@@ -1804,7 +1935,31 @@ static int lex(const char *source, TokenList *tokens) {
         quoted = touched = 1;
         if (!append_lexed_character(&word, *source++)) goto word_error;
       } else if (byte == '$' && quote == '\0' && source[1] == '\'') {
-        fputs("slop: $'...' quoting is not supported\n", stderr); goto word_error;
+        // POSIX.1-2024 dollar-single-quotes: C escapes in a quoted string.
+        protected = quoted = touched = 1;
+        for (source += 2; *source != '\''; ) {
+          if (*source == '\0') { fputs("slop: unterminated quote\n", stderr); goto word_error; }
+          unsigned value = (unsigned char)*source++;
+          if (value == '\\' && *source != '\0') {
+            static const char names[] = "abeEfnrtv", bytes[] = "\a\b\033\033\f\n\r\t\v";
+            const char escape = *source++;
+            const char *named = strchr(names, escape);
+            int digits = 0;
+            if (named != NULL) value = (unsigned char)bytes[named - names];
+            else if (escape == 'c' && *source != '\0') value = (unsigned char)*source++ & 0x1f;
+            else if (escape == 'x') {
+              for (value = 0; digits < 2 && isxdigit((unsigned char)*source); digits++, source++)
+                value = value * 16 + (unsigned)(isdigit((unsigned char)*source)
+                    ? *source - '0' : (*source | 0x20) - 'a' + 10);
+            } else if (escape >= '0' && escape <= '7') {
+              for (value = (unsigned)(escape - '0'); digits < 2 && *source >= '0' && *source <= '7'; digits++)
+                value = value * 8 + (unsigned)(*source++ - '0');
+            } else value = (unsigned char)escape;
+            if ((value & 0xff) == 0) { fputs("slop: $'...' cannot hold a NUL byte\n", stderr); goto word_error; }
+          }
+          if (!append_lexed_character(&word, (char)value)) goto word_error;
+        }
+        source++;
       } else if (byte == '$' && quote != '\'') {
         touched = 1;
         if (quote == '\0') split = 1;
@@ -1845,13 +2000,9 @@ static int lex(const char *source, TokenList *tokens) {
     if (!tokens->items[tokens->count - 1].quote_mask) return 0;
     tokens->items[tokens->count - 1].split = split;
     tokens->items[tokens->count - 1].positional_fields =
-        quoted && deferred_quoted_positional_fields(
-                      tokens->items[tokens->count - 1].text);
-    if (quoted && !tokens->items[tokens->count - 1].positional_fields &&
-        embeds_quoted_positional(&tokens->items[tokens->count - 1])) {
-      fputs("slop: \"$@\" must be a whole word\n", stderr);
-      return 0;
-    }
+        (quoted && deferred_quoted_positional_fields(
+                       tokens->items[tokens->count - 1].text)) ||
+        deferred_guarded_positional_fields(tokens->items[tokens->count - 1].text);
     if (both_outputs) {
       if (!token_push(tokens, TOKEN_DUP_OUTPUT, NULL, 0)) return 0;
       tokens->items[tokens->count - 1].descriptor = STDERR_FILENO;
@@ -2380,7 +2531,8 @@ static int special_builtin_name(const char *name) {
 static int command_builtin(Shell *shell, int argc, char **argv);
 
 static const char *const trap_names[] = {
-    [0] = "EXIT", [SIGHUP] = "HUP", [SIGINT] = "INT", [SIGQUIT] = "QUIT", [SIGTERM] = "TERM",
+    [0] = "EXIT", [SIGHUP] = "HUP", [SIGINT] = "INT", [SIGQUIT] = "QUIT",
+    [SIGPIPE] = "PIPE", [SIGTERM] = "TERM",
 };
 
 // A trap condition's index, by name, SIG-prefixed name or number; -1 otherwise.
@@ -2421,7 +2573,7 @@ static int builtin_trap(Shell *shell, int argc, char **argv) {
   for (int index = first; index < argc; index++) {
     const int condition = trap_condition(argv[index]);
     if (condition < 0) {
-      fprintf(stderr, "slop: trap: %s: only EXIT, HUP, INT, QUIT and TERM can be trapped\n",
+      fprintf(stderr, "slop: trap: %s: only EXIT, HUP, INT, QUIT, PIPE and TERM can be trapped\n",
               argv[index]);
       return 2;
     }
@@ -2526,7 +2678,11 @@ static int builtin(Shell *shell, int argc, char **argv) {
       }
     }
     shell->source_depth++;
+    // A sourced file numbers its own lines.
+    const int line = shell->lineno;
+    shell->lineno = 0;
     int status = execute_text(shell, source);
+    shell->lineno = line;
     shell->source_depth--;
     if (shell->returning) {
       status = shell->return_status;
@@ -3141,6 +3297,7 @@ static int expand_dollars(Shell *shell, Token *token) {
   while (*cursor != '\0') {
     const char protection = token->quote_mask
         ? token->quote_mask[cursor - token->text] : 'u';
+    const char *cursor_before = cursor;
     if (*cursor != SLOP_DEFERRED_DOLLAR) {
       if (!buffer_character(&expanded, *cursor++)) goto memory_error;
     } else if (cursor[1] == SLOP_DEFERRED_DOLLAR) {
@@ -3157,18 +3314,48 @@ static int expand_dollars(Shell *shell, Token *token) {
         cursor++;
       }
       if (*cursor++ != ':' || strlen(cursor) < length) goto malformed;
+      // A quoted $@ inside a word: one field per parameter. The mask marks
+      // each boundary 'f'; where fields do not split it reads as a space.
+      if (protection == 'q' && ((length == 2 && strncmp(cursor, "$@", 2) == 0) ||
+                                (length == 4 && strncmp(cursor, "${@}", 4) == 0))) {
+        for (int index = 1; index < shell->argc; index++) {
+          while (expanded_mask.length < expanded.length)
+            if (!buffer_character(&expanded_mask, protection)) goto memory_error;
+          if (index > 1 && (!buffer_character(&expanded, ' ') ||
+                            !buffer_character(&expanded_mask, 'f'))) goto memory_error;
+          if (!buffer_append(&expanded, shell->argv[index], strlen(shell->argv[index])))
+            goto memory_error;
+        }
+        cursor += length;
+        continue;
+      }
       char *expression = strndup(cursor, length);
       if (expression == NULL) goto memory_error;
       const char *expression_cursor = expression;
+      Buffer *const outer_text = expanding_text, *const outer_mask = expanding_mask;
+      const char outer_protection = expanding_protection;
+      if (token->quote_mask) {
+        while (expanded_mask.length < expanded.length)
+          if (!buffer_character(&expanded_mask, protection)) goto memory_error;
+        expanding_text = &expanded;
+        expanding_mask = &expanded_mask;
+        expanding_protection = protection == 'u' ? 'e' : protection;
+      }
       const int result = expand_dollar_now(shell, &expression_cursor, &expanded);
+      expanding_text = outer_text;
+      expanding_mask = outer_mask;
+      expanding_protection = outer_protection;
       const int complete = result >= 0 && *expression_cursor == '\0';
       free(expression);
       if (!complete) goto expansion_failed;
       cursor += length;
     }
     if (token->quote_mask) {
+      // 'e': what an unquoted expansion produced; only that splits into fields.
+      const char produced = *cursor_before == SLOP_DEFERRED_DOLLAR && protection == 'u'
+          ? 'e' : protection;
       while (expanded_mask.length < expanded.length)
-        if (!buffer_character(&expanded_mask, protection)) goto memory_error;
+        if (!buffer_character(&expanded_mask, produced)) goto memory_error;
     }
   }
   free(token->text);
@@ -3195,10 +3382,12 @@ memory_error:
 // `~` starts a fully unquoted word or the value of an assignment.
 static int expand_tilde(Token *token, size_t offset) {
   const char *home = getenv("HOME");
-  if (home == NULL || home[0] == '\0' || token->quoted || token->text == NULL)
-    return 1;
+  if (home == NULL || home[0] == '\0' || token->text == NULL) return 1;
   const char *tilde = token->text + offset;
-  if (tilde[0] != '~' || (tilde[1] != '\0' && tilde[1] != '/')) return 1;
+  // An unquoted `~` up to an unquoted `/`, or `:` in an assignment's value.
+  if (tilde[0] != '~' || (tilde[1] != '\0' && tilde[1] != '/' && (offset == 0 || tilde[1] != ':')) ||
+      (token->quote_mask != NULL && (token->quote_mask[offset] != 'u' ||
+          (tilde[1] != '\0' && token->quote_mask[offset + 1] != 'u')))) return 1;
   const size_t home_length = strlen(home);
   const size_t suffix_length = strlen(tilde + 1);
   if (offset > SIZE_MAX - home_length - suffix_length - 1) return 0;
@@ -3226,6 +3415,19 @@ static int expand_tilde(Token *token, size_t offset) {
 // Returns 1 on success, 0 when out of memory and -1 after an expansion error.
 static int expand_word(Shell *shell, Token *token, size_t tilde_offset) {
   if (!expand_tilde(token, tilde_offset)) return 0;
+  // In an assignment a `~` also expands after each unquoted `:` (PATH=a:~/bin).
+  for (size_t index = tilde_offset; tilde_offset != 0 && token->text[index] != '\0'; index++) {
+    if (token->text[index] == SLOP_DEFERRED_DOLLAR) {
+      // Skip a deferred expansion: its length, a colon, then its text.
+      char *payload;
+      const size_t length = strtoul(token->text + index + 1, &payload, 10);
+      if (*payload == ':') index = (size_t)(payload - token->text) + length;
+    } else if (token->text[index] == ':' &&
+               (token->quote_mask == NULL || token->quote_mask[index] == 'u') &&
+               !expand_tilde(token, index + 1)) {
+      return 0;
+    }
+  }
   return expand_dollars(shell, token);
 }
 
@@ -3323,6 +3525,12 @@ static int open_heredoc(Shell *shell, const Token *token) {
   return descriptor;
 }
 
+// An IFS byte splits only where an unquoted expansion produced it.
+static int splits_field(const Token *token, const char *ifs, const char *byte) {
+  return ifs_byte(ifs, *byte) &&
+         (token->quote_mask == NULL || token->quote_mask[byte - token->text] == 'e');
+}
+
 static int expand_word_arguments(Shell *shell, Arguments *arguments,
                                  const Token *token) {
   if (token->positional_fields) {
@@ -3331,29 +3539,48 @@ static int expand_word_arguments(Shell *shell, Arguments *arguments,
     }
     return 1;
   }
+  const char *boundary = token->quote_mask ? strchr(token->quote_mask, 'f') : NULL;
+  if (boundary != NULL) {
+    const size_t length = (size_t)(boundary - token->quote_mask);
+    Token head = *token, tail = *token;
+    head.text = strndup(token->text, length);
+    head.quote_mask = strndup(token->quote_mask, length);
+    tail.text = token->text + length + 1;
+    tail.quote_mask = token->quote_mask + length + 1;
+    const int ok = head.text != NULL && head.quote_mask != NULL &&
+        expand_word_arguments(shell, arguments, &head) &&
+        expand_word_arguments(shell, arguments, &tail);
+    free(head.text);
+    free(head.quote_mask);
+    return ok;
+  }
   if (!token->split) return expand_glob(arguments, token);
   if (token->quoted && !token->text[0]) return argument_push(arguments, "");
   const char *ifs = getenv("IFS");
   if (ifs == NULL) ifs = " \t\n";
   if (ifs[0] == '\0') return expand_glob(arguments, token);
+  // POSIX 2.6.5: IFS white space around a field is dropped; every other IFS
+  // byte ends a field, so two of them in a row hold an empty one.
   const char *cursor = token->text;
+  while (splits_field(token, ifs, cursor) && isspace((unsigned char)*cursor)) cursor++;
   while (*cursor != '\0') {
-    while (*cursor != '\0' && ifs_byte(ifs, *cursor) &&
-           (!token->quote_mask || token->quote_mask[cursor - token->text] != 'q')) cursor++;
-    if (*cursor == '\0') break;
     const char *start = cursor;
-    while (*cursor != '\0' && (!ifs_byte(ifs, *cursor) ||
-           (token->quote_mask && token->quote_mask[cursor - token->text] == 'q'))) cursor++;
+    while (*cursor != '\0' && !splits_field(token, ifs, cursor)) cursor++;
+    const char *end = cursor;
+    while (splits_field(token, ifs, cursor) && isspace((unsigned char)*cursor)) cursor++;
+    if (splits_field(token, ifs, cursor)) {
+      cursor++;
+      while (splits_field(token, ifs, cursor) && isspace((unsigned char)*cursor)) cursor++;
+    }
     Token field = {
         .kind = TOKEN_WORD,
-        .text = strndup(start, (size_t)(cursor - start)),
+        .text = strndup(start, (size_t)(end - start)),
         .quote_mask = token->quote_mask ? token->quote_mask + (start - token->text) : NULL,
     };
-    if (field.text == NULL || !expand_glob(arguments, &field)) {
-      free(field.text);
-      return 0;
-    }
+    const int ok = field.text != NULL &&
+        (end == start ? argument_push(arguments, "") : expand_glob(arguments, &field));
     free(field.text);
+    if (!ok) return 0;
   }
   return 1;
 }
@@ -3568,6 +3795,10 @@ static int execute_list(Shell *shell, CommandParser *parser, int execute,
                         int suppress_errexit, unsigned stops,
                         unsigned *stopped);
 
+static int compound_start(const CommandParser *parser);
+static int parse_compound(Shell *shell, CommandParser *parser, int execute,
+                          int suppress_errexit);
+
 static int function_header(const CommandParser *parser, char **name,
                            size_t *body_start) {
   *name = NULL;
@@ -3599,13 +3830,13 @@ static int function_header(const CommandParser *parser, char **name,
   while (brace_index < parser->end &&
          parser->tokens[brace_index].kind == TOKEN_SEMI &&
          parser->tokens[brace_index].newline) brace_index++;
-  if (brace_index >= parser->end ||
-      parser->tokens[brace_index].kind != TOKEN_WORD ||
-      parser->tokens[brace_index].quoted ||
-      strcmp(parser->tokens[brace_index].text, "{") != 0) return -2;
+  // POSIX: the body is any compound command; `{` is only the common one.
+  CommandParser body = *parser;
+  body.cursor = brace_index;
+  if (!compound_start(&body)) return -2;
   *name = strndup(first, name_length);
   if (*name == NULL) return -1;
-  *body_start = brace_index + 1;
+  *body_start = brace_index + (command_word(&body, "{") ? 1 : 0);
   return 1;
 }
 
@@ -3686,9 +3917,14 @@ static int parse_function_definition(Shell *shell, CommandParser *parser,
       .end = parser->end,
   };
   unsigned stopped = 0;
-  (void)execute_list(shell, &body, 0, 1, STOP_RBRACE, &stopped);
-  if (body.error || stopped != STOP_RBRACE) {
-    fprintf(stderr, "slop: function %s requires }\n", name);
+  // A `{` body is kept as its list; any other compound command as itself.
+  const int braced = body_start != 0 && parser->tokens[body_start - 1].kind == TOKEN_WORD &&
+      !parser->tokens[body_start - 1].quoted &&
+      strcmp(parser->tokens[body_start - 1].text, "{") == 0;
+  if (braced) (void)execute_list(shell, &body, 0, 1, STOP_RBRACE, &stopped);
+  else (void)parse_compound(shell, &body, 0, 1);
+  if (body.error || (braced && stopped != STOP_RBRACE)) {
+    fprintf(stderr, "slop: function %s requires a complete body\n", name);
     parser->error = 1;
     return 2;
   }
@@ -3698,7 +3934,7 @@ static int parse_function_definition(Shell *shell, CommandParser *parser,
     parser->error = 1;
     return 2;
   }
-  parser->cursor = body.cursor + 1;
+  parser->cursor = body.cursor + (braced ? 1 : 0);
   return 0;
 }
 
@@ -3717,6 +3953,14 @@ static int expand_loop_words(Shell *shell, Token *tokens, size_t start,
     if (!ok) return 0;
   }
   return 1;
+}
+
+// POSIX allows line breaks between a `for` name or `case` word and `in`.
+static void linebreak_before_in(CommandParser *parser) {
+  CommandParser probe = *parser;
+  while (probe.cursor < probe.end && probe.tokens[probe.cursor].kind == TOKEN_SEMI &&
+         probe.tokens[probe.cursor].newline) probe.cursor++;
+  if (command_word(&probe, "in")) parser->cursor = probe.cursor;
 }
 
 static int parse_for(Shell *shell, CommandParser *parser, int execute,
@@ -3740,6 +3984,7 @@ static int parse_for(Shell *shell, CommandParser *parser, int execute,
 
   Arguments values = {0};
   int failed = 0;
+  linebreak_before_in(parser);
   if (command_word(parser, "in")) {
     parser->cursor++;
     const size_t words_start = parser->cursor;
@@ -3936,6 +4181,7 @@ static int parse_case(Shell *shell, CommandParser *parser, int execute,
   int failed = execute && value == NULL;
   if (failed) execute = 0;
   parser->cursor++;
+  linebreak_before_in(parser);
   if (!command_word(parser, "in")) {
     fputs("slop: case requires in\n", stderr);
     free(value);
@@ -4170,7 +4416,17 @@ static int run_pipeline(Shell *shell, CommandParser *parser, size_t end,
     CommandParser probe = *parser;
     const size_t body_end = skip_command(shell, &probe, stops);
     const int last = !pipe_follows(&probe);
-    const int compound = compound_start(parser);
+    int compound = compound_start(parser);
+    size_t start = parser->cursor, stop = probe.cursor;
+    // `( PROGRAM ARG... ) &` is `PROGRAM ARG... &`: a stage is a subshell already.
+    CommandParser inner = {.tokens = parser->tokens, .cursor = start + 1, .end = body_end - 1};
+    if (background && compound && body_end == stop && body_end - start > 2 &&
+        parser->tokens[start].kind == TOKEN_LPAREN && !compound_start(&inner)) {
+      size_t word = inner.cursor;
+      while (word < inner.end && (parser->tokens[word].kind == TOKEN_WORD ||
+                                  token_is_redirection(parser->tokens[word].kind))) word++;
+      if (word == inner.end) { start = inner.cursor; stop = inner.end; compound = 0; }
+    }
     Stage stage = {.piped = !last, .background = background, .first = input < 0, .output = -1};
     if (!grow((void **)&results, &capacity, count + 1, sizeof(*results))) {
       fputs("slop: pipeline: out of memory\n", stderr);
@@ -4189,9 +4445,10 @@ static int run_pipeline(Shell *shell, CommandParser *parser, size_t end,
           (!compound || last || descriptor_state_duplicate(&subshell.descriptors,
                                                            STDOUT_FILENO, stage.output))) {
         CommandParser command = *parser;
+        command.cursor = start;
         if (!compound && (!last || background)) subshell.shell.stage = &stage;
-        status = run_command(&subshell.shell, &command, body_end, probe.cursor,
-                             suppress_errexit);
+        status = run_command(&subshell.shell, &command, compound ? body_end : stop,
+                             stop, suppress_errexit);
       }
       status = subshell_leave(shell, &subshell, status);
     }
@@ -4304,6 +4561,7 @@ static int execute_list(Shell *shell, CommandParser *parser, int execute,
         (previous == TOKEN_SEMI ||
          (previous == TOKEN_AND && status == 0) ||
          (previous == TOKEN_OR && status != 0));
+    if (should_run) shell->lineno = shell->line_base + parser->tokens[parser->cursor].line;
     // `time` measures the whole pipeline that follows, compound or not.
     const int timed = command_word(parser, "time");
     struct timespec started = {0};
@@ -4325,7 +4583,7 @@ static int execute_list(Shell *shell, CommandParser *parser, int execute,
     const int definition = function_header(parser, &function_name,
                                            &function_body_start);
     if (definition < 0) {
-      fputs(definition == -2 ? "slop: function definition requires {\n"
+      fputs(definition == -2 ? "slop: a function body is a compound command: { ...; } or ( ... )\n"
                             : "slop: function definition: out of memory\n", stderr);
       parser->error = 1;
       return 2;
@@ -4409,7 +4667,10 @@ static int execute_tokens(Shell *shell, TokenList *list) {
 static int execute_text(Shell *shell, const char *text) {
   TokenList tokens = {0};
   if (!lex(text, &tokens)) { tokens_dispose(&tokens); return 2; }
+  const int base = shell->line_base;
+  shell->line_base = shell->lineno == 0 ? 0 : shell->lineno - 1;
   int status = execute_tokens(shell, &tokens);
+  shell->line_base = base;
   tokens_dispose(&tokens);
   shell->last_status = status;
   return status;

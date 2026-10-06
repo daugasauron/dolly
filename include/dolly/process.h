@@ -15,8 +15,6 @@ extern "C" {
  * the same declarations.
  */
 #define DOLLY_PROCESS_PACKET_LIMIT (1024u * 1024u)
-#define DOLLY_PROCESS_DSO_LIMIT (512u * 1024u * 1024u)
-#define DOLLY_PROCESS_DSO_ERROR_CAPACITY 240u
 
 /*
  * The only callable import of a Dolly process. Request and response packets
@@ -156,6 +154,9 @@ enum dolly_process_operation {
   DOLLY_PROCESS_FD_POLL = 54,
   DOLLY_PROCESS_FD_GET_DESCRIPTOR_FLAGS = 55,
   DOLLY_PROCESS_FD_SET_DESCRIPTOR_FLAGS = 56,
+  /* dolly_process_fd_lock_request -> nothing, or with LOCK_TEST a
+   * dolly_process_fd_lock_response. */
+  DOLLY_PROCESS_FD_LOCK = 59,
 
   DOLLY_PROCESS_SPAWN = 64,
   DOLLY_PROCESS_WAIT = 65,
@@ -172,16 +173,6 @@ enum dolly_process_operation {
   /* i32 1 while userspace handles or ignores SIGALRM, else 0 -> no response.
    * A due SIGALRM's default action ends even a process making no system call. */
   DOLLY_PROCESS_ALARM_HANDLED = 71,
-
-  DOLLY_PROCESS_DSO_OPEN = 112,
-  DOLLY_PROCESS_DSO_SYMBOL = 113,
-  DOLLY_PROCESS_DSO_CLOSE = 114,
-
-  /* Typed indirect calls and callbacks stay inside this process Worker. */
-  DOLLY_PROCESS_FFI_CALL = 120,
-  DOLLY_PROCESS_FFI_CLOSURE_ALLOC = 121,
-  DOLLY_PROCESS_FFI_CLOSURE_FREE = 122,
-  DOLLY_PROCESS_FFI_CLOSURE_PREP = 123,
 };
 
 enum dolly_process_spawn_flags {
@@ -199,6 +190,9 @@ enum dolly_process_descriptor_inheritance {
 
 enum dolly_process_descriptor_flags {
   DOLLY_PROCESS_FD_CLOEXEC = 1u << 0,
+  /* A descriptor a libc keeps for itself, as for a shared mapping: closing it
+   * leaves the process's byte-range locks to its other descriptors of the file. */
+  DOLLY_PROCESS_FD_KEEP_LOCKS = 1u << 1,
 };
 
 enum dolly_process_wait_flags {
@@ -277,10 +271,6 @@ enum dolly_process_path_flags {
 enum dolly_process_timestamp_flags {
   DOLLY_PROCESS_TIME_NOW = 1u << 0,
   DOLLY_PROCESS_TIME_OMIT = 1u << 1,
-};
-
-enum dolly_process_dso_flags {
-  DOLLY_PROCESS_DSO_GLOBAL = 1u << 0,
 };
 
 enum dolly_process_file_type {
@@ -384,6 +374,48 @@ typedef struct {
   uint32_t descriptor;
   uint32_t flags;
 } dolly_process_fd_flags;
+
+/*
+ * Advisory locks. A DESCRIPTION lock covers the whole file and belongs to the
+ * open file description, so duplicates and inheriting children share it and it
+ * goes with its last descriptor (flock). Any other lock covers a byte range
+ * and belongs to the process, which loses its locks on a file when it closes
+ * any descriptor of that file (fcntl). The two kinds do not conflict.
+ */
+enum dolly_process_lock_type {
+  DOLLY_PROCESS_LOCK_SHARED = 0,
+  DOLLY_PROCESS_LOCK_EXCLUSIVE = 1,
+  DOLLY_PROCESS_LOCK_UNLOCK = 2,
+};
+
+enum dolly_process_lock_flags {
+  DOLLY_PROCESS_LOCK_DESCRIPTION = 1u << 0,
+  /* Wait for conflicting locks to go instead of returning EAGAIN. */
+  DOLLY_PROCESS_LOCK_WAIT = 1u << 1,
+  /* Change nothing: report a lock that refuses the byte-range request. */
+  DOLLY_PROCESS_LOCK_TEST = 1u << 2,
+};
+
+/* The range starts at `start` from `whence` (a dolly_process_seek_whence) and
+ * is `length` bytes long: to the end of the file and beyond when zero, ending
+ * before `start` when negative. A DESCRIPTION lock leaves all three zero. */
+typedef struct {
+  uint32_t descriptor;
+  uint32_t flags;
+  uint32_t type;
+  uint32_t whence;
+  int64_t start;
+  int64_t length;
+} dolly_process_fd_lock_request;
+
+/* LOCK_UNLOCK when nothing refuses the request; otherwise the refusing lock,
+ * its owner and its range from the start of the file (zero length: no end). */
+typedef struct {
+  uint32_t type;
+  uint32_t pid;
+  uint64_t start;
+  uint64_t length;
+} dolly_process_fd_lock_response;
 
 typedef struct {
   uint32_t flags;
@@ -551,63 +583,6 @@ typedef struct {
   uint32_t rows;
 } dolly_process_terminal_response;
 
-/* For DSO_OPEN, image_size bytes follow this header. A zero-sized image
- * selects the process executable itself. These three operations are serviced
- * inside the process Worker: they add no kernel or browser I/O capability. */
-typedef struct {
-  uint32_t flags;
-  uint32_t reserved;
-  uint64_t image_size;
-} dolly_process_dso_open_request;
-
-/* For DSO_SYMBOL, name_size UTF-8 bytes without a NUL follow this header. */
-typedef struct {
-  uint64_t handle;
-  uint32_t name_size;
-  uint32_t reserved;
-} dolly_process_dso_symbol_request;
-
-typedef struct {
-  uint64_t handle;
-} dolly_process_dso_close_request;
-
-typedef struct {
-  uint64_t value;
-  int32_t error;
-  uint32_t message_size;
-  unsigned char message[DOLLY_PROCESS_DSO_ERROR_CAPACITY];
-} dolly_process_dso_response;
-
-/*
- * These packets contain offsets in the calling process's private memory and
- * function-table indices, not kernel or browser addresses. They are serviced
- * synchronously by the process Worker and never cross the process-memory gate.
- * The layouts follow libffi's wasm64 ABI; other FFI implementations may use
- * the same operations without acquiring an additional machine import.
- */
-typedef struct {
-  uint64_t cif;
-  uint64_t function;
-  uint64_t return_value;
-  uint64_t argument_values;
-} dolly_process_ffi_call_request;
-
-typedef struct {
-  uint64_t closure;
-} dolly_process_ffi_closure_request;
-
-typedef struct {
-  uint64_t code;
-} dolly_process_ffi_closure_response;
-
-typedef struct {
-  uint64_t closure;
-  uint64_t cif;
-  uint64_t function;
-  uint64_t user_data;
-  uint64_t code;
-} dolly_process_ffi_closure_prep_request;
-
 typedef struct {
   uint32_t directory_descriptor;
   uint32_t flags;
@@ -692,6 +667,8 @@ DOLLY_PROCESS_LAYOUT(dolly_process_timestamp, 16);
 DOLLY_PROCESS_LAYOUT(dolly_process_fd_times_request, 40);
 DOLLY_PROCESS_LAYOUT(dolly_process_fd_dup_request, 16);
 DOLLY_PROCESS_LAYOUT(dolly_process_fd_flags, 8);
+DOLLY_PROCESS_LAYOUT(dolly_process_fd_lock_request, 32);
+DOLLY_PROCESS_LAYOUT(dolly_process_fd_lock_response, 24);
 DOLLY_PROCESS_LAYOUT(dolly_process_poll_request, 16);
 DOLLY_PROCESS_LAYOUT(dolly_process_poll_query, 8);
 DOLLY_PROCESS_LAYOUT(dolly_process_poll_response, 16);
@@ -708,14 +685,6 @@ DOLLY_PROCESS_LAYOUT(dolly_process_path_times_request, 48);
 DOLLY_PROCESS_LAYOUT(dolly_process_terminal_request, 24);
 DOLLY_PROCESS_LAYOUT(dolly_process_terminal_response, 16);
 DOLLY_PROCESS_LAYOUT(dolly_process_clock_sleep_request, 16);
-DOLLY_PROCESS_LAYOUT(dolly_process_dso_open_request, 16);
-DOLLY_PROCESS_LAYOUT(dolly_process_dso_symbol_request, 16);
-DOLLY_PROCESS_LAYOUT(dolly_process_dso_close_request, 8);
-DOLLY_PROCESS_LAYOUT(dolly_process_dso_response, 256);
-DOLLY_PROCESS_LAYOUT(dolly_process_ffi_call_request, 32);
-DOLLY_PROCESS_LAYOUT(dolly_process_ffi_closure_request, 8);
-DOLLY_PROCESS_LAYOUT(dolly_process_ffi_closure_response, 8);
-DOLLY_PROCESS_LAYOUT(dolly_process_ffi_closure_prep_request, 40);
 DOLLY_PROCESS_LAYOUT(dolly_process_exit_request, 8);
 DOLLY_PROCESS_LAYOUT(dolly_process_wait_request, 8);
 DOLLY_PROCESS_LAYOUT(dolly_process_wait_response, 16);

@@ -4,6 +4,23 @@
 - PRIORITY: 290
 - TAGS: core,userspace,docs,agent
 
+## Remaining (2026-10-07)
+
+In the candidate (`core/self-description` `a4c1bca4`): the `dolly-docs`
+package (13 documents and 17 contracts, pinned to the release's bytes),
+installed by `pi` and so in `pi-local` and `dollyfile-studio`; `amy install
+dolly-docs` elsewhere (not `default`, by the decision below);
+`test/docs-browser.mjs` passed in Chromium and Firefox in the main round;
+the Slop language is described in `docs/slop.md` alone and `help` and the Pi
+skill point there (`20261005-220754-man-help`, "Merged branch"). Left of the
+done-when:
+
+- A Pi session with HTTP denied answering from the files (the limits, why
+  `seq | head` now stops, status 126, the declared modules): not run.
+- `npm run image -- pi --plan` after a one-word edit of `docs/slop.md`,
+  with the list recorded here (expected: `dolly-docs`, `pi`, `pi-local`,
+  `dollyfile-studio`).
+
 From the big-picture review (`20261005-131642-big-picture`). The secondary
 goal is to "define the API an agent operates against". That API is defined in
 the repository (`abi/`, `include/dolly/`, `docs/`) and enforced by loaders,

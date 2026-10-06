@@ -4,6 +4,22 @@
 - PRIORITY: 170
 - TAGS: tests,flaky,display,firefox
 
+## Remaining (2026-10-07)
+
+Fixed and in the candidate: the empty selection at retirement
+(`fix/firefox-selection`), the pixel wait after fullscreen (`9b21ab9e`, test
+only), the gesture repeated across a program's exit (`ac4b4e5d`) and the
+input discard at exit (`9abd08b0`, restored in `0ebf7356`); the main round's
+core suites passed in both browsers and `demos/neovim` passed. Left:
+
+- The mouse-drag failure at `test/terminal-browser.mjs:67` after font zoom
+  and paste (not seen in the recent runs; "Narrowed" below).
+- `demos/local-llm/test/local-llm-browser.mjs` stopped once in Firefox on
+  the candidate with "timed out waiting for terminal selection reset" after
+  the model had loaded (`work/next/build/next-evidence/gpu-local-llm.log`,
+  the first run; the rerun passed), the sequence noted under "Seen again
+  with the parked presenter".
+
 `test/terminal-browser.mjs` failed once in Firefox (terminal-mailbox branch,
 2026-10-01) because `__dolly.visibleTerminalText()` returned an empty
 selection; three reruns passed. The helper (`src/browser.mjs`) reads the
@@ -115,6 +131,63 @@ second run, on the old seed (`46a5776f`, 5 of 8 passed) and the new one (4 of
 8) alike, with "timed out waiting for terminal selection publication" or text
 that never appears after typing. The core `display` suite showed the first
 message once in four Firefox runs. Chrome did not fail.
+
+## The pixel wait after leaving fullscreen (2026-10-06 night, `fix/terminal-pixels-flake`)
+
+A third failure of the same suite, at `test/terminal-browser.mjs:118` in
+Firefox: after `F11` and the wait for `!document.fullscreenElement`, the seven
+pixels of the RGB and palette backgrounds never match and the wait times out.
+Seen in the seed round's suite and in 2 of 8 runs under
+`20261006-142127-kboundary-02`, which could not explain it.
+
+### Cause: the test printed before the terminal had the window's grid
+
+The suite is right about the pixels and wrong about the moment. Leaving
+fullscreen changes the grid from 167x28 to 157x26, and the terminal takes
+that size a frame or more after `document.fullscreenElement` is cleared: the
+page pushes the resize from `fullscreenchange` through `requestAnimationFrame`
+and from its `ResizeObserver` (`host/display/input.mjs:219-221`, `:245`), and
+the plugin applies it on its next service tick (`src/ghostty/display.c:855`,
+`ghostty_terminal_resize` at `:435`). The test submitted its `printf` as soon
+as the element was gone, so the two raced. When the text is drawn first, the
+resize reflows it: the screen was cleared with a background colour, and to
+Ghostty a cell that holds only a background is content
+(`Cell.isEmpty`, `src/terminal/page.zig:2296` of the pinned source; the reflow
+trims only empty cells, `PageList.zig:1654`), so every 167-cell row wraps into
+157 and 10, the text scrolls out of view and the cursor ends at the top left.
+That is upstream Ghostty's behaviour, unchanged, and nothing stopped
+presenting.
+
+Not the cause: a frame lost or drawn at the old geometry (the canvas and the
+geometry both follow the resize), a frame callback Firefox withholds (the
+timeline polls on `requestAnimationFrame` throughout), or erased cells taking
+their colour another way.
+
+### Measured (Firefox, load average 7 to 10, `build/ending-evidence/`)
+
+- The suite as it was, with a timeline of the page's and the terminal's sizes
+  (`terminal-diag.mjs`): 2 of 36 runs wrong. Both read the same seven pixels,
+  `242,212,92 20,22,27 20,22,27 38,38,38 20,22,27 20,22,27 20,22,27` (the
+  cursor at the top left, a full row, the 10-cell remainder of a wrapped row,
+  no palette row in view), with an empty screen text. In both the test saw
+  the element gone 2 to 5 ms before `fullscreenchange` fired and the grid
+  changed after the text was drawn; in the 34 right runs it changed before.
+- The order forced, with no fullscreen and no race (`order-probe.mjs` pushes
+  both resizes itself): resize then print, 8 of 8 the expected pixels; print
+  then resize, 8 of 8 exactly the seven wrong pixels above. Chromium gives the
+  same 8 of 8 each way.
+- With the wait added: 40 of 40 right in the same harness; the suite itself
+  passes 20 of 20 in Firefox (load average 3 to 20) and 5 of 5 in Chromium.
+
+### Fix (test only: no runtime, kernel or image change)
+
+The suite records the grid before it enters fullscreen and, after leaving,
+waits for the terminal to report that grid again before it prints, as it
+already waits for the canvas after entering.
+
+A person sees the same reflow when a window shrinks under a screen painted
+with a background colour; it is Ghostty's, and no Dolly code decides it.
+The mouse-drag failure at line 67 recorded above is not examined here.
 
 ## The neovim demo failure and keys typed after an exit (2026-10-07, `fix/selection-after-exit`)
 

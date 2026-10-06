@@ -1,6 +1,6 @@
 # A while or until loop left by break or continue reports the previous body's status
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 200
 - TAGS: slop,bug
 
@@ -100,3 +100,14 @@ embedded scripts, four have loops: `/tmp/neovim-parsers/build.slop`
 plain commands without `&&`, `||` or conditionals; Pi's `/etc/dolly/init.slop`
 (`Dollyfile-pi:18`) has `case ... break` and `if` in its loop but runs without
 `-e`. A flat list behaves as before, so nothing that stops today continues.
+
+## Closed 2026-10-07
+
+The two fixes went into the candidate with `core/concurrent-pipelines`
+(`5ccedb2e`, merged into `integrate/next` "the second time for `set -e` and
+loop status"). `test/slop-browser.mjs` runs `shellCases` of
+`test/fixtures/slop-cases.mjs`, which holds the loop-status cases ("a while
+loop left by break has break's status", "break 2 from a while inside a for",
+…) and the `set -e` cases ("set -e ignores the left of && in a while body",
+…); the `slop` suite passed in Chromium and Firefox in the main round
+(`work/next/build/next-evidence/browser-final/summary.txt`, `round-3.log`).

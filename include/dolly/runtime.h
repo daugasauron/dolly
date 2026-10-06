@@ -47,15 +47,6 @@ int dolly_spawn_mapped(const char *path, int argc, char **argv,
                         const dolly_process_fd_mapping *mappings,
                         uint32_t mapping_count, double timeout_milliseconds);
 
-/* Process-local dynamic loading. dolly_dlopen() accepts only a side module
- * carrying the current dolly.process.dso stamp. Its imports resolve from the
- * executable and already-loaded DSOs in the same private Worker; loading never
- * delegates filesystem access to the browser. */
-void *dolly_dlopen(const char *path, int flags);
-void *dolly_dlsym(void *handle, const char *name);
-char *dolly_dlerror(void);
-int dolly_dlclose(void *handle);
-
 // Collects a completed command and releases its bounded process-table slot.
 // Returns zero on success or a negative errno value.
 int dolly_wait(int pid, int *status);

@@ -23,6 +23,15 @@ From merging `work/zig-self-host` (2026-10-01):
 - Carry over the Zig SDK browser check from the closed
   `20261001-014500-zig-sdk-browser`: the in-sandbox Zig compiles a small Zig
   program and a C interop case (via its C output and `cc`).
+- From `20261006-103306-zig-child` (closed into this task, 2026-10-07): `zig`
+  reaches WAIT and SIGNAL but no SPAWN (static scan of the release in
+  `20261005-222449-spawn-users`); its standard library has no way to start a
+  process on this target, so `zig build`, `zig run` and `zig test` cannot
+  work while `zig build-obj` and `zig build-lib -ofmt=c` do. Record what a
+  user sees for each in `ghostty-build`; then either `docs/display.md` names
+  the commands that cannot work and why, or Zig's spawn is ported to
+  `posix_spawn` (a patch beside `patches/zig-0.16.0-dolly-native.patch`) and
+  `zig run` of a hello program passes there.
 
 ## WAMR target (read 2026-10-01)
 

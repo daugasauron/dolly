@@ -119,8 +119,9 @@ export const redirectFetch = (origin, target) => page => page.addInitScript(([or
 }, [origin, target]);
 
 // open() options for a headless build image with the terminal display and
-// HTTP added, built in the page by the custom image route.
-export async function displayProbe(image) {
+// HTTP added, built in the page by the custom image route; more names the
+// modules of programs the test builds there (dso@0 for a -rdynamic host).
+export async function displayProbe(image, ...more) {
   const { DOLLY_IMAGES } = await import("../dist/dolly-images.mjs");
   const pin = name => {
     const { dollyfile, sha256 } = DOLLY_IMAGES.find(definition => definition.image === name);
@@ -128,7 +129,7 @@ export async function displayProbe(image) {
   };
   // Host requirements are never inherited: restate the base's, plus the terminal's.
   const hosts = [...new Set([...DOLLY_IMAGES.find(definition => definition.image === image).hostRequirements,
-    "display@0", "input@0"])].sort();
+    "display@0", "input@0", ...more])].sort();
   const recipe = ["DOLLY 6", "APPLICATION display-probe", ...hosts.map(host => `REQUIRES HOST ${host}`), `FROM ${pin(image)}`,
     ...["/usr/lib/libdisplay.so", "/usr/share/fonts/IosevkaTerm-SemiBold.ttf"]
       .map(path => `COPY ${pin("ghostty-build")} ${path} ${path}`),
@@ -146,8 +147,10 @@ export async function installProbe(...packages) {
     const { dollyfile, sha256 } = DOLLY_IMAGES.find(definition => definition.image === name);
     return `${CANONICAL_ORIGIN}/${dollyfile} ${sha256}`;
   };
-  const recipe = ["DOLLY 6", "APPLICATION install-probe",
-    ...["runtime", "display", "input", "download", "http", "snapshot", "upload"].map(name => `REQUIRES HOST ${name}@0`), `FROM ${pin("system")}`,
+  // system's modules and those the packages need: nothing is inherited.
+  const hosts = [...new Set(["system", ...packages].flatMap(name =>
+    DOLLY_IMAGES.find(definition => definition.image === name).hostRequirements))].sort();
+  const recipe = ["DOLLY 6", "APPLICATION install-probe", ...hosts.map(host => `REQUIRES HOST ${host}`), `FROM ${pin("system")}`,
     ...packages.map(name => `INSTALL ${pin(name)}`), "ENTRY /bin/foreground -i /bin/slop", ""].join("\n");
   return { path: "/custom/rebuild/",
     setup: page => page.addInitScript(recipe => sessionStorage.setItem("dolly-custom-source", recipe), recipe) };

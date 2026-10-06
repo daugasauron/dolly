@@ -1,6 +1,6 @@
 # Zig cannot start a child process
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 180
 - TAGS: zig,process,docs
 
@@ -33,3 +33,10 @@ Not yet run in a browser: what a user sees for each of these commands in
   cannot work and why, or Zig's process spawn is ported to `posix_spawn` for
   this target (a patch beside `patches/zig-0.16.0-dolly-native.patch`) and
   `zig run` of a hello program passes in `ghostty-build`.
+
+## Closed 2026-10-07 (folded into `20261001-091000-zig-follow-ups`)
+
+Nothing was done here; the finding and its done-when are now one item of the
+Zig follow-up list, which already collects what the self-hosted Zig still
+owes (the WAMR target, `libdisplay.so` size, the generated tables, the SDK
+browser check).

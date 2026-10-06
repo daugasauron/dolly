@@ -1,6 +1,6 @@
 # Declare runtime@0 in every image; make a runtime a module anyone can name
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 322
 - TAGS: core,architecture,host-modules,dollyfile
 
@@ -100,3 +100,50 @@ Changes the seed and every recipe: batch with the input round
   stopped being inherited; it now restates its base's list. The generators
   of `gpu-fluid` and `slopyard` and Studio's two examples and skill also
   lacked the line.
+
+## Verification (2026-10-06, `work/explicit-runtime` at `11a30410`)
+
+The branch holds this change, `integrate/1005-seed` (`db2c9787`) and
+`core/decisions` (`567f0c1d`, the target identity seed change); 61 recipes,
+each with `REQUIRES HOST runtime@0` first. Logs: `build/runtime-evidence/`.
+
+- `npm run build:runtime`: runtime `sha256:208422a3…`, image inputs
+  `sha256:22d006cac2c84ef3f6b4fc0358c2386f8df7b207a8d3e13a1da0e8a41fac0b81`,
+  the hash `core/decisions` printed: this change adds nothing to the seed
+  (with the stamp it was `5f2a2ce2…` on the old base). The Rust seed of
+  `core/decisions` therefore verifies unchanged
+  (`demos/rust/build-rust-toolchain.sh`: "verified cached Rust compiler seed").
+- `npm run -s test:source`: 361 pass, 0 fail (lints every recipe; the lint
+  case writes a recipe without the line and expects `add REQUIRES HOST
+  runtime@0`).
+- Images through the slot, one builder: the `default` chain, `minimal`,
+  `amy`, `cc`, `core` and `python` (15 images, 1,078 s), then the `pi` chain
+  (10 more, 408 s). No recipe pin changed during the builds.
+- Browser suites, Chrome and Firefox each: `core`, `host-modules`,
+  `boundary`, `image`, `custom-session`, `minimal` and `host-compute` pass.
+  `host-modules` builds a root recipe without a runtime line (refused with
+  the line to add) and one naming `other@0` (refused by that name), neither
+  starting a build. `custom-session` now extends the custom route's default
+  recipe, so that recipe is proven to seal.
+- `amy`: the cases `amy` (installs `python`, a threaded package, a session),
+  `amy cc` and `amy refusal` pass in both browsers. `amy programs` was not
+  run: it installs `cmake`, `sdl2`, `rust` and `codex-cli`, which are not
+  built here.
+- `npm run -s test:demos -- pi`: passes in Chrome (51 s).
+- `npm run -s test:artifacts`: 24 pass against the 25 images built here; its
+  per-image checks saw only those.
+
+Open: the full catalog rebuild and its suites (the integrator's seed round,
+`integrate/seed-1006`).
+
+## Closed 2026-10-07
+
+In the release candidate (`integrate/next`, `ab412d94` on `main`): all 66
+recipes declare `REQUIRES HOST runtime@0` first; `grep -n '"runtime'
+host/modules.mjs src/*.mjs` finds no special case; the `host-modules` suite
+holds the two refusals (no runtime line; `other@0`). Catalog rounds that
+rebuilt every image on it: the seed round (61 images, `9077dda1`) and the
+main round (67 images, pins `b07a89ee`), with source 400/400, artifacts
+23/23 (`finish2-artifacts.log`), core browser suites green in Chromium and
+Firefox and the demo suites passed (`20261005-132713-round-1005`, "06:30,
+2026-10-07"; logs `work/next/build/next-evidence/`).

@@ -204,8 +204,6 @@ async function boot() {
     throw new Error("runtime image mismatch");
   }
   document.documentElement.dataset.image = ready.image;
-  document.documentElement.dataset.bootMode = ready.bootMode;
-  document.documentElement.dataset.snapshotBytes = String(ready.snapshotBytes);
   let running;
   if (image === "custom") {
     const artifact = customArtifact ?? await describeImageArtifact(builtSystemSnapshot,
@@ -227,7 +225,6 @@ async function boot() {
     ...terminalText(host.page),
     hostModules: host.enabled,
     get systemSnapshot() { return builtSystemSnapshot; },
-    get systemInputs() { return builtSystemInputs; },
   }));
 }
 

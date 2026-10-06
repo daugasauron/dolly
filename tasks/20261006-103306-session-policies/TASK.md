@@ -1,6 +1,6 @@
 # A custom image with snapshot@0 and no http@0 fails with invalid custom session base
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 220
 - TAGS: bug,sessions,host-modules
 
@@ -80,3 +80,15 @@ list is still refused). To run:
   (`test/custom-session-browser.mjs`).
 - A custom image that declares `http@0` and carries no policies is still
   refused.
+
+## Closed 2026-10-07
+
+`fix/session-policies` (`ef994618`) is in the candidate.
+`test/session-offline-browser.mjs` (a page-built image with `runtime@0`,
+`display@0` and `snapshot@0` only, saved and restored) and
+`test/custom-session-browser.mjs` passed in Chromium and Firefox in the main
+round (`work/next/build/next-evidence/browser-final/summary.txt`,
+`round-3.log`). The refusal of an inherited page without valid policies stays
+`http@0`'s (`restrictDollyHttpPolicy`, `host/http/policy.mjs`), exercised by
+`test/fixtures/browser-boundary.mjs` in the `boundary` suite and by
+`test/http-policy.test.mjs`.

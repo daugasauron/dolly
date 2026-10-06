@@ -1015,11 +1015,14 @@ CURLMcode curl_multi_wait(CURLM *multi_handle, struct curl_waitfd extra_fds[],
   return CURLM_OK;
 }
 
-/* No multi option is implemented: they select libcurl's socket-driven
- * interface or tune connection pooling and multiplexing, the browser's. */
+/* PIPELINING and MAX_HOST_CONNECTIONS only steer how libcurl opens and shares
+ * connections. Over Fetch the browser does that by its own rules and no
+ * response differs, so they are accepted. The socket and timer callbacks and
+ * server push change what an application is told, and stay refused. */
 CURLMcode curl_multi_setopt(CURLM *multi_handle, CURLMoption option, ...) {
-  (void)option;
-  return valid_multi((DollyMulti *)multi_handle) ? CURLM_UNKNOWN_OPTION : CURLM_BAD_HANDLE;
+  if (!valid_multi((DollyMulti *)multi_handle)) return CURLM_BAD_HANDLE;
+  return option == CURLMOPT_PIPELINING || option == CURLMOPT_MAX_HOST_CONNECTIONS
+      ? CURLM_OK : CURLM_UNKNOWN_OPTION;
 }
 
 CURLMcode curl_multi_cleanup(CURLM *multi_handle) {

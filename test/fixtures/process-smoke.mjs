@@ -18,10 +18,6 @@ export const processSmokeSources = Object.freeze({
   "terminal-check.c": "src/process/terminal-check.c",
   "self-exe-check.c": "src/process/self-exe-check.c",
   "target-identity.c": "test/fixtures/target-identity.c",
-  "dso-check.c": "src/process/dso-check.c",
-  "dso-library.c": "src/process/dso-library.c",
-  "dso-cpp-check.cpp": "src/process/dso-cpp-check.cpp",
-  "dso-cpp-library.cpp": "src/process/dso-cpp-library.cpp",
 });
 
 export async function runProcessSmoke(submit, origin) {
@@ -31,10 +27,7 @@ export async function runProcessSmoke(submit, origin) {
   try {
     for (const name of Object.keys(processSmokeSources)) {
       await run(`curl -fsS ${origin}/fixture/${name} -o ${scratch}/${name}`);
-      const cxx = name.endsWith(".cpp");
-      const library = name.includes("library");
-      const output = name.replace(/\.c(?:pp)?$/, library ? ".so" : "");
-      await run(`cd ${scratch}; ${cxx ? "c++" : "cc"} -O0 ${library ? "-shared" : "-rdynamic"} ${name} -o ${output}`);
+      await run(`cd ${scratch}; ${name.endsWith(".cpp") ? "c++" : "cc"} -O0 ${name} -o ${name.replace(/\.c(?:pp)?$/, "")}`);
     }
     await run(`printf '%s\\n' '-O0 cpp-check.cpp -o "response program"' > compile.rsp`);
     await run("printf '%s\\n' '@compile.rsp' > nested.rsp");
@@ -86,17 +79,12 @@ export async function runProcessSmoke(submit, origin) {
       "/bin/slop -c 'export DOLLY_PROCESS_CHECK=private-memory; case \"$DOLLY_PROCESS_CHECK\" in private-memory) : ;; *) exit 94 ;; esac; ./process-check fresh'",
       `./pipe-driver ${scratch}/pipe-check`, "./poll-check", "./mmap-check", "./mmap-check", "./mmap-bounds", "./fd-exhaustion", "./cwd-check", "./terminal-check", "cc --version",
       "./slop-interrupt /bin/slop",
-      `./dso-check ${scratch}/dso-library.so`, `./dso-cpp-check ${scratch}/dso-cpp-library.so`,
     ]) await run(command);
-    await run(`./fs-check write ${scratch}/data`);
-    assert.equal(await submit(`./dso-check ${scratch}/dso-library.so 37`), 37,
-      "a DSO exits only its owning process through the shared libc provider");
-    await run(`./fs-check read ${scratch}/data`);
     // The driver follows Clang's output names and input kinds.
     await run("mkdir src && printf 'int main(void) { return 0; }\\n' > src/unit.c && cc -c src/unit.c && test -f unit.o && test ! -e src/unit.o");
     await run("cc -c -MD src/unit.c -o built.o && grep -q '^built.o: src/unit.c' built.d && cc -c -MMD src/unit.c && grep -q '^unit.o: src/unit.c' unit.d");
     await run("cp unit.o unit.lo && cc unit.lo -o linked && ./linked");
-    await run("cc -shared -Wl,-h,libunit.so.1 dso-library.c -o soname.so");
+    await run("printf 'int unit(void) { return 1; }\\n' > library.c && cc -shared -Wl,-h,libunit.so.1 library.c -o soname.so");
     await run("printf 'int missing(void);\\nint use(void) { return missing(); }\\n' > undefined.c && cc -shared undefined.c -o undefined.so");
     // No WebAssembly assembler: guarded foreign assembly is an empty object, real assembly fails.
     await run("printf '#if defined(__x86_64__)\\n  movq %%rax, %%rbx\\n#endif\\n' > guarded.S && cc -c guarded.S -o guarded.o && test -s guarded.o");

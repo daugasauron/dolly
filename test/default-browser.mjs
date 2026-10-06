@@ -23,9 +23,11 @@ await browserTest("default", {}, async ({ open }) => {
   assert.equal((await session.text()).split("amy list").length, 2, "the start-up text is on the first screen once");
   await run("test \"$(slop -c 'echo nested')\" = nested");
   assert.deepEqual(await session.page.evaluate(() => [...__dolly.hostModules].sort()),
-    ["display@0", "download@0", "http@0", "input@0", "packages@0", "runtime@0", "snapshot@0", "threads@0", "upload@0"]);
+    ["display@0", "download@0", "dso@0", "http@0", "input@0", "packages@0", "runtime@0", "snapshot@0", "threads@0", "upload@0"]);
   await run("mkdir /tmp/made && echo kept > /tmp/made/file && test \"$(grep -c kept /tmp/made/file | sed 's/1/one/')\" = one");
   await run("curl --version > /dev/null && amy list | grep -q '^cc '");
+  // The image declares download@0 and upload@0; their commands must be in it.
+  await run("download --help | grep -q '^usage: download' && test -x /bin/upload && man download | grep -qi download");
   for (const absent of ["cc --version", "make --version", "git --version"]) assert.equal(await session.submit(absent), 127, absent);
 });
 

@@ -1,6 +1,6 @@
 # Slop pipeline limits stall common agent commands
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 290
 - TAGS: slop,core,compatibility,agent
 
@@ -386,3 +386,23 @@ Bash), so no recipe can fail with 141. What changes for each shape:
 - Process ABI: unchanged (`include/dolly/process.h`, `abi/`, the kernel and
   the supervisor are untouched). Seed: changed (`src/slop.c`,
   `src/process/libc-adapter.c`), so every image is invalid after this branch.
+
+## Closed 2026-10-07
+
+`core/concurrent-pipelines` up to `5ccedb2e` is in the candidate; every image
+was rebuilt on that seed (`20261005-132713-round-1005`). Run in Dolly, `slop`
+suite on `system`, Chromium and Firefox: the thirteen pipeline cases pass,
+among them `seq 1 999999999 | head -n 1` ending at once (141 under
+`pipefail`), `printf | while read`, three programs, a program feeding a loop
+feeding a program, `&` with `wait` and `$!`, and Make's output reaching `tee`
+while its recipe still runs; `set -e` at the prompt stops the line and leaves
+the shell (round record, "Verified on the final merge"; `browser-final/summary.txt`,
+`round-3.log`). `xargs -P N` landed earlier (`fix/audit-core`). The `help`
+text and `docs/slop.md` say pipelines are concurrent for programs
+(`work/man-help` merge; `ef23c428`). `yes` is still not in any image, so
+`yes | head -n1` is covered natively only. Not in the candidate, by decision:
+the Slop commits after `5ccedb2e` (field splitting and more), which ride
+`integrate/round3`. The loop-status finding is `20261006-114524-slop-break-status`
+(closed). Open for the owner: the `AGENTS.md` sentence "Prefer simple serial
+semantics over multiprocessing" now describes the shell, not the kernel; a
+wording is proposed above ("Decision (2026-10-06)").

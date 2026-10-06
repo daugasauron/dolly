@@ -78,20 +78,20 @@ target_link_options(dolly PRIVATE
   "SHELL:-sEXPORTED_FUNCTIONS=@/src/build/runtime-exports.json"
 )
 
-# Only a root rebuild needs this bundle. Restored images already contain their
-# compiler and tools, so kernel instantiation must not preload the seed.
+# Only a root rebuild restores the seed: images already contain their
+# compiler and tools.
 add_custom_target(dolly-seed
   COMMAND bash /src/scripts/prepare-kernel-seed.sh
-    /src/build/generated/libclang_rt.dolly.a@/seed/usr/lib/libclang_rt.builtins.a
-    /src/.cache/llvm-wasm/lib/clang/24/include@/seed/usr/lib/clang/24/include
-    /src/build/include/dolly@/seed/usr/include/dolly
-    /src/src/dollyfile.c@/seed/usr/src/dolly/dollyfile.c
-    /src/src/sha256.h@/seed/usr/src/dolly/sha256.h
-    /src/src/fs-record.h@/seed/usr/src/dolly/fs-record.h
-    /src/build/dolly-kernel-plugin-0.wasm@/seed/usr/lib/dolly/dolly-kernel-plugin-0.wasm
-    ${DOLLY_PROCESS_SYSROOT_DIR}@/seed/usr/lib/dolly/process
-    /src/build/process-bin/bootstrap@/seed/usr/libexec/dolly/process-bin/bootstrap
-    /src/build/process-bin/compiler@/seed/usr/libexec/dolly/process-bin/compiler
+    /src/build/generated/libclang_rt.dolly.a@/usr/lib/libclang_rt.builtins.a
+    /src/.cache/llvm-wasm/lib/clang/24/include@/usr/lib/clang/24/include
+    /src/build/include/dolly@/usr/include/dolly
+    /src/src/dollyfile.c@/usr/src/dolly/dollyfile.c
+    /src/src/sha256.h@/usr/src/dolly/sha256.h
+    /src/src/fs-record.h@/usr/src/dolly/fs-record.h
+    /src/build/dolly-kernel-plugin-0.wasm@/usr/lib/dolly/dolly-kernel-plugin-0.wasm
+    ${DOLLY_PROCESS_SYSROOT_DIR}@/usr/lib/dolly/process
+    /src/build/process-bin/bootstrap@/usr/libexec/dolly/process-bin/bootstrap
+    /src/build/process-bin/compiler@/usr/libexec/dolly/process-bin/compiler
   VERBATIM
 )
 add_dependencies(dolly dolly-seed)
@@ -151,7 +151,7 @@ target_link_options(dolly-process-compiler PRIVATE
   -matomics
   -mbulk-memory
   "SHELL:-Wl,--shared-memory,--no-check-features"
-  "SHELL:-Wl,--export=__dolly_dso_allocate,--export=__stack_pointer,--export-table,--growable-table"
+  "SHELL:-Wl,--export=__stack_pointer,--export-table,--growable-table"
   -sSTANDALONE_WASM=1
   -sIMPORTED_MEMORY=1
   -sSHARED_MEMORY=1

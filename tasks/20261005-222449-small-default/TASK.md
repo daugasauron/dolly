@@ -1,6 +1,6 @@
 # Merge minimal into default: a small default that explains amy
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 305
 - TAGS: images,packages,amy,core
 
@@ -129,4 +129,24 @@ The compiler is 84% of the image; everything else together is 25 MB.
   that uses the compiler, Git or the POSIX tools, one suite at a time, each
   run in both browsers; `process` also tests `default`'s `init.slop`, so that
   block opens `default`. The harness default stays `default`.
+
+## Closed 2026-10-07 (the rest is `20261007-003116-package-needs`)
+
+`work/small-default` (`9d9064b3`, holding `work/amy-index`) is in the
+candidate. `Dollyfile` (`default`) is `INSTALL core`, `posix`, `display`,
+`curl`, `amy`, the start-up text in `/home/dolly/.dollyrc` and `init.slop`;
+`download`, `upload` and their pages are copied from `system-tools`
+(`0f211db3`); `Dollyfile-minimal` is gone. Measured in the built image:
+14,398,305 bytes against 160,617,901 (`20261005-220754-man-help`, "Built and
+run"). `amy install cc` then compiles and runs a C program: `amy cc` in
+Chromium and Firefox (`work/next/build/next-evidence/finish-amy-*.log`), and
+`amy install git` restores Git with its pages (`man` suite). `zero-ad` is
+`FROM system` (`b2ee464d`); the suites that compile open `system`; the
+catalog rebuilt and the source, artifact, browser and demo suites passed
+(`20261005-132713-round-1005`). The `default` suite checks every package the
+start-up text names against the index.
+
+Not one install away, and carried to `20261007-003116-package-needs` with
+the download/upload shape: Ninja (`samu`, built in `system-tools` only; the
+`cc` package brings Make) and `session-recover` (built in `system`).
 

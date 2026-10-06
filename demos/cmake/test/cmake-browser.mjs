@@ -26,7 +26,7 @@ install(TARGETS probe RUNTIME DESTINATION bin)
 
 await demoTest("cmake", { image: "cmake-build", timeout: 600_000,
   server: { fixtures: { "libuv-source.tar": "build/fixtures/libuv-source.tar" } } }, async ({ server, open }) => {
-  const { page, run, start, waitText } = await open({ ...await displayProbe("cmake-build"),
+  const { page, run, start, waitText } = await open({ ...await displayProbe("cmake-build", "dso@0"),
     policy: { rules: [{ origin: server.origin, pathPrefix: "/fixture/", methods: ["GET"] }] } });
   const scratch = "/tmp/dolly-cmake-test";
   await run(`mkdir ${scratch}`);

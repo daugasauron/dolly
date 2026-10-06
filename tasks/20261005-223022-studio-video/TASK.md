@@ -1,6 +1,6 @@
 # Re-record the Dollyfile Studio video: login, model choice, save the recipe, rebuild it in a fresh tab
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 340
 - TAGS: site,demo,studio,recording
 
@@ -170,3 +170,10 @@ crop in `framecheck.sh`.
 The structure is what he wants; the game is not. Continued in
 `20261006-*-studio-video-game` (same seven steps, a game whose graphics work,
 a larger budget).
+
+## Closed 2026-10-07 (superseded by `20261006-094507-studio-video-game`)
+
+The s6 video was replaced on the agents page by that task's g1 take
+(`a8b5198e`, in the candidate), which keeps the seven steps and records the
+model, effort, cost, prompt, saved recipe and rerun. Nothing of this task's
+done-when remains to be done here.

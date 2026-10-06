@@ -7,8 +7,8 @@ REQUIRES HOST http@0
 # and C headers are the externally supplied bootstrap seed. How those headers
 # eventually map to the lower-level machine contract is deliberately open.
 SOURCE https://daugasauron.com/include/dolly/toolchain.h 6f9da3258e970e356c31034e1f109a04ac8bd5ab57dc82c19aebf293289fb415 /usr/include/dolly/toolchain.h
-SOURCE https://daugasauron.com/include/dolly/runtime.h   4e9b80f0a61f2e45208fb6f7aadeef09b85aba570039f7bc413dabaa3f06c4c3 /usr/include/dolly/runtime.h
-SOURCE https://daugasauron.com/include/dolly/process.h   78153700d5d1488bbff1d5fd4e27456391fee1f263ecb075c9af17c2ee8234a5 /usr/include/dolly/process.h
+SOURCE https://daugasauron.com/include/dolly/runtime.h   4df1f8e3f204dbe200ef493d42ab313749d6a98366a5c50518250c3f55ef6cde /usr/include/dolly/runtime.h
+SOURCE https://daugasauron.com/include/dolly/process.h   46d059214a8c3a89986a5efe798a476a7d38584a2454b91ccf74368426c82d6b /usr/include/dolly/process.h
 SOURCE https://daugasauron.com/host/http/http.h      d09f57cda4a6cde89106653f12366ac95554c21d37d05a69c15764d4254b70a5 /usr/include/dolly/http.h
 SOURCE https://daugasauron.com/host/http/http-abi.h 2f4e1e5c7145730babc91a0ff0a38db8b5e100ae1fab0b722b38ecbd53ad64a0 /usr/include/dolly/http-abi.h
 SOURCE https://daugasauron.com/host/display/display.h   c63f8dee5e8cc84f34b8325f68798c81c4c161857a945fe3fd617c6fd0b8f38e /usr/include/dolly/display.h
@@ -29,6 +29,8 @@ SOURCE https://daugasauron.com/host/upload/upload-abi.h 006056e6891a4d4399f521bc
 
 SOURCE https://daugasauron.com/host/threads/threads.h ec223fbc34ff65f173f4b15e338cb25bf34d8bf01b699418f4598d7fc4626394 /usr/include/dolly/threads.h
 SOURCE https://daugasauron.com/host/threads/threads-abi.h 894528f5f392b8f95e4617035ac799b9ff4d520a246ec1bd89b6d04257c644c1 /usr/include/dolly/threads-abi.h
+SOURCE https://daugasauron.com/host/dso/dso.h 8f58b257826b92a7f903d2a33484d6bc49bcc035dac5de3af288bc906728a67b /usr/include/dolly/dso.h
+SOURCE https://daugasauron.com/host/dso/dso-abi.h 7b2243afa5cf82109b2768264686cb57e4a611a577a74793056b4f7cfc2e68f4 /usr/include/dolly/dso-abi.h
 
 EXPORTS HEADER libc      /usr/include
 EXPORTS HEADER toolchain /usr/include/dolly/toolchain.h
@@ -53,6 +55,8 @@ EXPORTS HEADER upload /usr/include/dolly/upload.h
 EXPORTS HEADER upload-abi /usr/include/dolly/upload-abi.h
 EXPORTS HEADER threads /usr/include/dolly/threads.h
 EXPORTS HEADER threads-abi /usr/include/dolly/threads-abi.h
+EXPORTS HEADER dso /usr/include/dolly/dso.h
+EXPORTS HEADER dso-abi /usr/include/dolly/dso-abi.h
 
 EXPORTS LIB compiler-rt /usr/lib/libclang_rt.builtins.a
 EXPORTS LIB dolly-gpu /usr/lib/dolly/process/libdolly-gpu.a

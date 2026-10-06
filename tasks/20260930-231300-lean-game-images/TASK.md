@@ -4,6 +4,25 @@
 - PRIORITY: 280
 - TAGS: core,dollyfile,images,packages
 
+## Remaining (2026-10-07)
+
+In the candidate: the `core`, `cc`, `amy`, `posix` and `git` packages;
+`default` itself is now a composition without a compiler (14.4 MB;
+`20261005-222449-small-default`, closed), which overtook the earlier "default
+keeps the compiler" line; `minimal` is gone; `zero-ad` is `FROM system`. The
+done-when's four lines hold as "Against the done-when" says, with the limit
+that a composition is not a `FROM` base. Left, the design below:
+
+- Stage 1: the builder supplies the engine, so any image, lean ones
+  included, can be a `FROM` base and `http@0` leaves images whose programs
+  do not use it (a kernel, page and build-script change; a catalog round).
+- Stage 2, the rest: sbase, Ninja, the agent commands, `download`/`upload`
+  and `session-recover` out of `system-tools` into packages
+  (`20261007-003116-package-needs` holds the user-facing gaps); games that
+  never compile at run time as compositions (`gpu-fluid` first).
+- `gpu-sdk` and `audio-sdk` deleted once their tests open a composition
+  built in the page.
+
 Owner decision: games that never compile at runtime may drop the 135 MiB toolchain; developer images keep it (Dollyfile Studio, Neovim, Python, JavaScript, Pi and other build-capable images). rg/fd stay in every Pi image.
 
 Measured on experiment/dollyfile: a compiler-free runtime base built by COPY FROM is 19.7 MB (system: 159.6 MB) and boots about 5x faster locally; builds are byte-reproducible.

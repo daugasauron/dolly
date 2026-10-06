@@ -10,7 +10,7 @@ WAT file document its semantics.
 | --- | --- |
 | [`dolly-process-0.wat`](dolly-process-0.wat) | Ordinary executables: private shared memory64, one import `dolly_process_0.call`, export `_start` |
 | [`dolly-process-gate-0.wat`](dolly-process-gate-0.wat) | Policy-free copier between a process memory and the kernel mailbox |
-| [`dolly-process-dso-0.wat`](dolly-process-dso-0.wat) | Optional process-local shared objects and FFI infrastructure |
+| [`host/dso/dolly-dso-0.wat`](../host/dso/dolly-dso-0.wat) | Optional process-local shared objects and FFI: the side-module profile and the operations of `dso@0` |
 | [`host/threads/dolly-threads-0.wat`](../host/threads/dolly-threads-0.wat), [`host/threads/dolly-threads-supervisor-0.wat`](../host/threads/dolly-threads-supervisor-0.wat) | Optional `-pthread` profile and its supervisor exports |
 | [`dolly-host-0.wat`](dolly-host-0.wat) | `dolly.host` records naming required host modules and their ABI digests; no authority |
 | [`host/gpu/dolly-gpu-0.wat`](../host/gpu/dolly-gpu-0.wat), [`host/audio/dolly-audio-0.wat`](../host/audio/dolly-audio-0.wat) | Additive process operations 128 and 129 and their browser imports |

@@ -53,17 +53,18 @@ async function openImage(browser, origin, image, { policy, prompt = shellPrompt,
   };
 }
 
-// open() options for an image the page builds from packages alone, with the
-// named host modules: a root recipe, as `default` is. files (path -> text) are
-// written into it and entry is its ENTRY.
-export async function composed(hosts, packages, { files = {}, entry = "/bin/foreground -i /bin/slop" } = {}) {
+// open() options for an image the page builds with the named host modules:
+// from packages alone (a root recipe, as `default` is) or on top of a base
+// image, whose modules it restates since nothing is inherited. files (path ->
+// text) are written into it and entry is its ENTRY.
+export async function composed(hosts, packages, { base, files = {}, entry = "/bin/foreground -i /bin/slop" } = {}) {
   const { DOLLY_IMAGES } = await import("../dist/dolly-images.mjs");
-  const install = name => {
+  const pin = name => {
     const { dollyfile, sha256 } = DOLLY_IMAGES.find(definition => definition.image === name);
-    return `INSTALL ${CANONICAL_ORIGIN}/${dollyfile} ${sha256}`;
+    return `${CANONICAL_ORIGIN}/${dollyfile} ${sha256}`;
   };
   const recipe = ["DOLLY 6", "APPLICATION composed", ...hosts.map(host => `REQUIRES HOST ${host}@0`),
-    ...packages.map(install),
+    ...base ? [`FROM ${pin(base)}`] : [], ...packages.map(name => `INSTALL ${pin(name)}`),
     ...Object.entries(files).map(([path, text]) => `FILE ${path}\n${text.trim().split("\n").map(line => `    ${line}`).join("\n")}`),
     `ENTRY ${entry}`, ""].join("\n");
   return { path: "/custom/rebuild/",
