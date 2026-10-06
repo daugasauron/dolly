@@ -3,7 +3,7 @@ PACKAGE cargo
 REQUIRES HOST http@0
 REQUIRES HOST threads@0
 
-FROM https://daugasauron.com/demos/rust/Dollyfile-rust-build d844b76d9560ff6cd690c5dfbd51944b38ab2881c0cf15549c79f08958dd704c
+FROM https://daugasauron.com/demos/rust/Dollyfile-rust-build 764202113a06fe2043b3fb397591859c4f8e04d594f2dfd1cd250ea1df849bfa
 REQUIRES TOOL patti
 REQUIRES TOOL tar
 REQUIRES TOOL cp
@@ -11,8 +11,8 @@ REQUIRES TOOL mkdir
 REQUIRES TOOL rm
 
 # The archive holds Cargo's source at its pinned commit and checksum-verified locked crate archives.
-SOURCE https://daugasauron.com/dist/static/rust/cargo.tar 0000000000000000000000000000000000000000000000000000000000000000 /tmp/cargo.tar
-SOURCE https://daugasauron.com/dist/static/rust/cargo-patti.toml 0000000000000000000000000000000000000000000000000000000000000000 /tmp/cargo-patti.toml
+SOURCE https://daugasauron.com/dist/static/rust/cargo.tar d06ef2136b278fa2eb43833cfcd093f607e7b1c0f56ab3b589b7e4e7590fa748 /tmp/cargo.tar
+SOURCE https://daugasauron.com/dist/static/rust/cargo-patti.toml e60d474133d7e01a8e69f4670eb97499abf9720fbb66a6eb7062931870548095 /tmp/cargo-patti.toml
 SLOP tar -xf /tmp/cargo.tar -C /
 SLOP patti build -j 4 --offline --manifest-path /tmp/cargo/source/Cargo.toml --bin cargo --config /tmp/cargo-patti.toml --cache /tmp/cargo/cache --target-dir /tmp/cargo/build \
   --patch libc=/opt/rust-sdk/src/libc \
@@ -31,7 +31,22 @@ SLOP cp /tmp/cargo/cache/sources/libgit2-sys-0.18.5+1.9.4/libgit2/COPYING /usr/s
 SLOP cp /tmp/cargo/build/patti-build.json /usr/share/dolly/builds/cargo.json
 SLOP rm -rf /tmp/cargo /tmp/cargo.tar /tmp/cargo-patti.toml
 
+# Cargo runs rustc: the package brings the compiler it was built for.
+INSTALL https://daugasauron.com/demos/rust/Dollyfile-rust 7beac37d349afdc08cac6a003f769d695d3696f772a2156f025b391069d868d2
+# Until Dolly has file locks: rustc's incremental sessions need them.
+EXPORTS ENV CARGO_INCREMENTAL 0
 EXPORTS TOOL cargo
 EXPORTS FOLDER cargo-licenses /usr/share/licenses/cargo
 FILE /usr/share/dolly/builds/cargo.json
+
+FILE /tmp/cargo-check/Cargo.toml
+    [package]
+    name = "cargo-check"
+    version = "0.1.0"
+    edition = "2021"
+FILE /tmp/cargo-check/src/main.rs
+    fn main() { println!("built by cargo"); }
 SLOP cargo --version
+SLOP CWD /tmp/cargo-check cargo build --offline
+SLOP /tmp/cargo-check/target/debug/cargo-check
+SLOP rm -rf /tmp/cargo-check
