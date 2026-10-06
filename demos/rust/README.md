@@ -13,9 +13,7 @@ are built from source with it.
 - `ripgrep`: rg built with Patti, as a package.
 - `fd`: fd built with Patti, as a package.
 - `protox`: the protobuf compiler Codex builds with, as a package.
-- `cargo`: upstream Cargo 0.99.0 built with Patti, as a package. Work in
-  progress: `cargo --version` and `cargo metadata` run, `cargo build` does not
-  yet ([task](../../tasks/20260930-231102-cargo-native/TASK.md)).
+- `cargo`: upstream Cargo built with Patti, with the `rust` package, as a package.
 
 Build the seed once with `./demos/rust/build-rust-toolchain.sh` (Linux x86_64, Podman, Python
 3.12+, curl, patch), then `npm run image -- rust-tools`. `rust-sdk` starts from
@@ -50,9 +48,28 @@ patti build -j 4 --offline --manifest-path project/Cargo.toml --bin program
   block when it exits, and outputs and the record match a serial build.
 - Source: [`patti.c`](patti.c); tests in [`test/`](test/).
 
+## Cargo
+
+Upstream Cargo 0.99.0, the Cargo of Rust 1.98.1, built by Patti from Cargo's
+own lock ([`Dollyfile-cargo`](Dollyfile-cargo)). `amy install cargo` brings it
+with the compiler.
+
+- `cargo build`, `cargo rustc` and `cargo metadata` work with path and
+  vendored dependencies, build scripts and procedural macros.
+- crates.io: crate archives come through the HTTP broker. Its index sends CORS
+  headers only for files its cache does not hold, so a page needs a relay for
+  `index.crates.io` ([HTTP](../../docs/http.md#cors-and-relays)) or the
+  project a vendored directory.
+- A crate that uses `libc` needs the SDK's copy, because crates.io's has
+  wasm32 layouts for this target: `[patch.crates-io] libc = { path =
+  "/opt/rust-sdk/src/libc" }` in the project's `.cargo/config.toml`.
+- No incremental builds (the package sets `CARGO_INCREMENTAL=0`) until Dolly
+  has file locks; no `cargo search`, `publish` or `login`; no git dependencies.
+- Findings and measurements: [task](../../tasks/20260930-231102-cargo-native/TASK.md).
+
 ## Limits
 
-- Panic-abort compilation; no Cargo, incremental builds, file locks, dynamic
+- Patti: panic-abort compilation; no incremental builds, file locks, dynamic
   Rust libraries, tests or benchmarks.
 - Executables link threaded (`cc -pthread`) and need `REQUIRES HOST threads@0`.
 - Git dependencies need an explicit `--patch`. Target patches live in
