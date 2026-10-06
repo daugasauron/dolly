@@ -1,6 +1,6 @@
 # flock() reports a lock it never takes; fcntl locks are refused
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 230
 - TAGS: bug,libc,kernel,locks
 
@@ -203,7 +203,7 @@ executable is restamped and the Rust seed rebuilt.
   other's release, in under 500 ms for either kind (200 waits on a 16 ms tick
   would take over a second).
 - `docs/process-model.md` states the semantics and limits. `docs/slop.md` no
-  longer says that `make -O` warns: to be confirmed in the browser.
+  longer says that `make -O` warns (confirmed below).
 
 ### Where each behaviour comes from
 
@@ -256,10 +256,47 @@ Not observed on Linux, so my reading or Dolly's own choice:
   faults in the lock code (merge, split, conflict rule, conversion, last
   close, close rule, limit, wakeup) each failed it.
 - `node --test test/*.test.mjs` after `npm run build:runtime`: 317 of 318
-  pass; the one failure is the docs package's pin of `docs/process-model.md`
-  and `docs/slop.md`, re-pinned in this branch once the text is final.
+  on the first base; the one failure was the docs package's pin of
+  `docs/process-model.md` and `docs/slop.md`, re-pinned since (`6b51f367`).
 - Kernel, libc adapter and the fixture pass `emcc -fsyntax-only` in the pinned
   toolchain image, the fixture with `-D__dolly__`.
+
+## Verified in browsers, the base it merges onto (2026-10-06, 23:04 to 23:30 JST)
+
+Base: `integrate/next` at `fb6c3463` (the kernel without Emscripten's
+JavaScript runtime), merged into `core/file-locks`; suites run at `6b51f367`.
+Runtime `444a130e…`, image inputs `d0a42831…`. This is the result that counts;
+the section below is the same work on the earlier base. Logs:
+`build/locks-evidence/base2-*.log` and `image-chain-2.log` (not committed).
+
+- The merge needed no change: the lock code adds no kernel import, export,
+  `EM_JS` or `setjmp`. `npm run build:runtime` ends with "dist/dolly.wasm has
+  exactly the typed imports in build/dolly-browser-0.wasm".
+- `DOLLY_IMAGE_JOBS=1 DOLLY_BUILD_IMAGES=default,system npm run image`: all 13
+  images in 809.5 s; `zig-build` 480.2 s, `ghostty-build` 77.9 s.
+- `process` (with `test/fixtures/process-locks.c`), `core`, `threads` and
+  `shell`: all pass in Chromium and in Firefox.
+- Real callers, both browsers (`base2-callers-*.log`): SQLite 3.53.2 through
+  its default `unix` VFS from two processes, `SQLITE-LOCKS-OK 3.53.2 unix`;
+  GNU Make `-O -j3` with three sub-makes, no warning and whole groups.
+- The rotation takes 2 to 5 ms for 100 rounds in both browsers, either kind
+  (`base2-rotation-*.log`). Control (`base2-rotation-chromium-tick-only.log`):
+  with the supervisor's two `dolly_process_take_wakeup` checks disabled in the
+  working tree, so that parked calls are retried on the 16 ms tick only, the
+  same 100 rounds take 3,152 ms and the fixture fails at its timing assertion.
+  So each round is two parked hand-overs, the release is what wakes the
+  waiter, and the assertion tells the two apart.
+- `node --test test/*.test.mjs`: 321 of 321, with the documents re-pinned
+  (`6b51f367`). The kernel harness passes against the merged kernel.
+
+Not run, here or on the first base: the Rust seed
+(`demos/rust/build-rust-toolchain.sh`; the catalog round that merges this
+rebuilds it), so no Rust program and not Cargo itself, whose "failed to save
+last-use data" is the SQLite failure checked above with the SQLite it bundles;
+Python (`build/locks-evidence/python-locks.py` passes on Linux; the `python`
+image was not built here); any image outside the `default` and `system`
+chains. The pins the image build rewrote were restored; only the two document
+pins and the three recipe pins that follow from them are committed.
 
 ## Verified in browsers, first base (2026-10-06, 22:13 to 22:50 JST)
 
@@ -283,10 +320,7 @@ fixture). Runtime `f5ab554c…`, image inputs `64baac8c…`. Logs under
   100 rounds take 2 to 4 ms (`flock`) and 4 to 10 ms (`fcntl`) in Chromium, 6
   to 12 ms and 5 to 9 ms in Firefox. One kernel round trip costs 15 to 25 µs
   there (`syscall-cost-*.log`), and a round is two hand-overs, so the waiter
-  is woken by the release; on the 16 ms tick 200 hand-overs would take over a
-  second. The control (the supervisor ignoring the wakeup flag, to see the
-  assertion fail) was queued and cancelled for lack of a browser slot: not
-  run.
+  is woken by the release. The control was run on the second base (above).
 - Real callers in `system`, Chromium (`callers-chromium-1.log`,
   `callers-browser.mjs`):
   - SQLite 3.53.2, the amalgamation of `libsqlite3-sys` 0.38.1, compiled in
@@ -297,10 +331,6 @@ fixture). Runtime `f5ab554c…`, image inputs `64baac8c…`. Logs under
     commits, `integrity_check` passes. `SQLITE-LOCKS-OK 3.53.2 unix`.
   - GNU Make `-O -j3` with three sub-makes: no warning, 30 lines in three
     whole groups.
-
-Not run: the Rust seed (`demos/rust/build-rust-toolchain.sh`; the integrator's
-catalog round rebuilds it), Cargo itself, and Python (`python-locks.py` is
-ready and passes on Linux; the `python` image was not built here).
 
 ## Measured (2026-10-06, Chrome, `default`, runtime `5439ebe7…`)
 
