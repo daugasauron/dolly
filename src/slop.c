@@ -1535,18 +1535,10 @@ static int deferred_quoted_positional_fields(const char *text) {
          (length == 4 && strcmp(cursor, "${@}") == 0);
 }
 
-// A double-quoted $@ that is not the whole word has no single meaning here.
-static int embeds_quoted_positional(const Token *token) {
-  for (const char *cursor = token->text; (cursor = strchr(cursor, SLOP_DEFERRED_DOLLAR)) != NULL;) {
-    const char *payload = strchr(++cursor, ':');
-    if (payload == NULL) return 0;
-    const size_t length = strtoul(cursor, NULL, 10);
-    if (token->quote_mask[++payload - token->text] == 'q' &&
-        ((length == 2 && strncmp(payload, "$@", 2) == 0) ||
-         (length == 4 && strncmp(payload, "${@}", 4) == 0))) return 1;
-    cursor = payload + length;
-  }
-  return 0;
+// `${1+"$@"}` is how scripts for pre-POSIX shells spell "$@": the same fields.
+static int deferred_guarded_positional_fields(const char *text) {
+  return text != NULL && text[0] == SLOP_DEFERRED_DOLLAR &&
+         strcmp(text + 1, "9:${1+\"$@\"}") == 0;
 }
 
 static TokenKind operator_kind(const char *source, size_t *length,
@@ -1845,13 +1837,9 @@ static int lex(const char *source, TokenList *tokens) {
     if (!tokens->items[tokens->count - 1].quote_mask) return 0;
     tokens->items[tokens->count - 1].split = split;
     tokens->items[tokens->count - 1].positional_fields =
-        quoted && deferred_quoted_positional_fields(
-                      tokens->items[tokens->count - 1].text);
-    if (quoted && !tokens->items[tokens->count - 1].positional_fields &&
-        embeds_quoted_positional(&tokens->items[tokens->count - 1])) {
-      fputs("slop: \"$@\" must be a whole word\n", stderr);
-      return 0;
-    }
+        (quoted && deferred_quoted_positional_fields(
+                       tokens->items[tokens->count - 1].text)) ||
+        deferred_guarded_positional_fields(tokens->items[tokens->count - 1].text);
     if (both_outputs) {
       if (!token_push(tokens, TOKEN_DUP_OUTPUT, NULL, 0)) return 0;
       tokens->items[tokens->count - 1].descriptor = STDERR_FILENO;
@@ -3157,6 +3145,21 @@ static int expand_dollars(Shell *shell, Token *token) {
         cursor++;
       }
       if (*cursor++ != ':' || strlen(cursor) < length) goto malformed;
+      // A quoted $@ inside a word: one field per parameter. The mask marks
+      // each boundary 'f'; where fields do not split it reads as a space.
+      if (protection == 'q' && ((length == 2 && strncmp(cursor, "$@", 2) == 0) ||
+                                (length == 4 && strncmp(cursor, "${@}", 4) == 0))) {
+        for (int index = 1; index < shell->argc; index++) {
+          while (expanded_mask.length < expanded.length)
+            if (!buffer_character(&expanded_mask, protection)) goto memory_error;
+          if (index > 1 && (!buffer_character(&expanded, ' ') ||
+                            !buffer_character(&expanded_mask, 'f'))) goto memory_error;
+          if (!buffer_append(&expanded, shell->argv[index], strlen(shell->argv[index])))
+            goto memory_error;
+        }
+        cursor += length;
+        continue;
+      }
       char *expression = strndup(cursor, length);
       if (expression == NULL) goto memory_error;
       const char *expression_cursor = expression;
@@ -3330,6 +3333,21 @@ static int expand_word_arguments(Shell *shell, Arguments *arguments,
       if (!argument_push(arguments, shell->argv[index])) return 0;
     }
     return 1;
+  }
+  const char *boundary = token->quote_mask ? strchr(token->quote_mask, 'f') : NULL;
+  if (boundary != NULL) {
+    const size_t length = (size_t)(boundary - token->quote_mask);
+    Token head = *token, tail = *token;
+    head.text = strndup(token->text, length);
+    head.quote_mask = strndup(token->quote_mask, length);
+    tail.text = token->text + length + 1;
+    tail.quote_mask = token->quote_mask + length + 1;
+    const int ok = head.text != NULL && head.quote_mask != NULL &&
+        expand_word_arguments(shell, arguments, &head) &&
+        expand_word_arguments(shell, arguments, &tail);
+    free(head.text);
+    free(head.quote_mask);
+    return ok;
   }
   if (!token->split) return expand_glob(arguments, token);
   if (token->quoted && !token->text[0]) return argument_push(arguments, "");

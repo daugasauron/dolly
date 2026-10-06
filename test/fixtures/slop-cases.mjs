@@ -30,6 +30,7 @@ export const shellCases = [
   ["unquoted backtick preserves escaped quotes", 'f() { case $1 in \'"word"\') return 7;; *) return 91;; esac; }; x=`f \\"word\\"`', 7],
   ["braced positional arguments", "set -- first second; case ${1}:${2}:${0} in first:second:fixture-zero) :;; *) exit 91;; esac", 0],
   ["braced arguments beyond nine", "set -- a b c d e f g h i ten; case ${10}:$10 in ten:a0) :;; *) exit 91;; esac", 0],
+  ["a quoted $@ inside a word is one field per parameter", 'f() { n=$#; first=$1; last=$2; }; set -- "a b" c; f "x$@y"; case $n:$first:$last in "2:xa b:cy") :;; *) exit 91;; esac; f ${1+"$@"}; case $n:$first:$last in "2:a b:c") :;; *) exit 92;; esac; v="p$@q"; case $v in "pa b cq") :;; *) exit 93;; esac; IFS=:; f "x${@}y"; case $n:$first in "2:xa b") :;; *) exit 94;; esac; set --; f "x$@y" z; case $n:$first in 2:xy) :;; *) exit 95;; esac; f ${1+"$@"}; exit $n', 0],
   ["unset and empty positional defaults", 'set -- ""; case ${1-default}:${1:-fallback}:${2-default}:${999999999999999999999-default} in :fallback:default:default) :;; *) exit 91;; esac', 0],
   ["positional replacement and length", 'set -- abc ""; case ${1+yes}:${2:+yes}:${3+yes}:${#1}:${1#a} in yes:::3:bc) :;; *) exit 91;; esac', 0],
   ["braced count and status", 'set -- a b; (exit 7); case ${?}:${#} in 7:2) :;; *) exit 91;; esac', 0],
