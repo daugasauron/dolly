@@ -234,3 +234,65 @@ patching Cargo out of mozjs. Unchanged upstream tools over a deliberate
 substrate is the porting rule; a Patti that grows Cargo's metadata and library
 commands becomes a second Cargo. The configure patch for a wasm host and Slop's
 `trap`/`umask` are independent and come first.
+
+## Map of the host SpiderMonkey build (2026-10-07 07:30, branch `work/spidermonkey`)
+
+What `toolchain/build-spidermonkey.sh` does (`prepare.sh` on the host, then
+`spidermonkey.sh` in the emsdk container, then the staging in
+`prepare-sources.sh`), and where each step stands inside Dolly. "Verified"
+names who measured it; everything else was established by reading mozjs
+128.13.0's `build/moz.configure/*`, `config/makefiles/rust.mk`,
+`config/rules.mk`, the host object directory (`.cache/0ad/.../obj-dolly`,
+1.1 GB) and `src/compiler.cpp`. No log of the host build survives (the
+container wrote none to the cache).
+
+| # | Host step | Inside Dolly |
+| --- | --- | --- |
+| 1 | Fetch 0 A.D. 0.28.0, unpack `mozjs-128.13.0.tar.xz`, apply 0 A.D.'s seven `patches/*.diff` and `toolchain/spidermonkey.patch` | Staging, as every demo source: Dolly has no `xz`, so the host repacks the pinned tree as `.tar.gz` (`prepare-sources.sh` convention); `patch` and `tar` exist in Dolly (engine.patch is applied in-image today). Untried only in the sense that no recipe does it yet. |
+| 2 | Install the native Rust bootstrap, build the wasm64 `std` with `-Zbuild-std`, patch `libc` | Done: the `rust` package (seed rustc 1.98.1, SDK with the target's `std`), verified by the Cargo agent. |
+| 3 | `cargo install cbindgen 0.26.0` (host-native binary, version checked by `bindgen.configure`) | Verified in Dolly by the Cargo agent (2026-10-06, 2 m 51 s through the crates.io relay; `cbindgen --lang c` output correct). Offline, for an image: untried. Needs a staged source like `Dollyfile-ripgrep` (Patti from locked crate archives) or `cargo install --offline` from a vendored directory. Only `js/src/frontend/smoosh` uses cbindgen at build time, and only with `--enable-smoosh`; configure still refuses to run without it. |
+| 4 | Copy the host's `m4` and `pkg-config` binaries into the container | `m4`: missing in Dolly. `old.configure` runs `check_prog("M4")` unconditionally but uses m4 only to regenerate `js/src/old-configure` from `old-configure.in` when the latter is newer; the release ships `old-configure`. Blocked by one preparation edit (`allow_missing=True`, loud failure if a refresh is ever attempted) or an m4 port. `pkg-config`: pkgconf is built in `zero-ad-deps` (verified in that image's build). |
+| 5 | zlib: `./configure --static; make install` into a sysroot, so `pkg-config zlib` answers | Done: system `libz.a`/`zlib.h`; `zero-ad-deps` writes `zlib.pc`. mozbuild's standalone default is `--with-system-zlib` through pkg-config. Untried through mozbuild. |
+| 6a | `configure.py`: mach virtualenv | Verified 2026-10-02 (self-host agent) in Dolly's CPython 3.14: about a second. |
+| 6b | configure: shell and host. `sh`, then without `--host` `config.guess`; with `--host` `config.sub` then `split_triplet` | `config.guess` is blocked twice: Slop refuses `umask` ("Dolly has no permission bits", every temp-dir fallback is `(umask 077 && mkdir …)`) and it cannot name Dolly. With `--host=wasm64-unknown-wasi`: `config.sub` is a plain script (ran under native Slop in the configure survey); `split_triplet` rejects a WASI host (`allow_wasi` is target-only; verified 2026-10-02: "Unknown OS: wasi"). Blocked by a preparation edit in `init.configure` (a Wasm host for the js project). Host == target then makes mozbuild treat the build as native, so `nsinstall` and the Rust build scripts use the same `cc`/`rustc`. |
+| 6c | configure: compiler identification and flag probes (`toolchain.configure`, `flags.configure`, `old-configure.in`) | Identity: mozbuild preprocesses a probe and compares `__wasi__`/`__wasm64__` with the triple; on a mismatch it appends `--target=…`, which Dolly's `cc` rejects, so `CC='cc -D__wasi__'` stays exactly as the host build spells it (mozbuild knows no Dolly OS; `cc -dumpmachine` says `wasm64-unknown-dolly`). Probed flags that `cc` rejects are simply dropped (`-fno-sized-deallocation`, `-fno-aligned-new`, `-pthread` is accepted). Four flags are added without a probe and `cc` rejects each (`src/compiler.cpp` option table; the 2026-10-02 probe compiled with them removed): `-fno-math-errno` (`flags.configure`), `-fomit-frame-pointer` (`MOZ_FRAMEPTR_FLAGS`, optimized builds), `-ffp-contract=off` (`frontend/context.py`, every compile), `-mthread-model single` (`old-configure.in`, `*-wasi*`). Two more are avoided by options: `-gdwarf-4` (`--disable-debug-symbols`), `-msimd128` (the host passed it in `--enable-optimize`). All four are no-ops for this target (wasm has no frame pointer, clang's wasm toolchain defaults to no math errno and a single thread model, wasm has no FMA to contract) and clang's cc1 accepts each; the honest fix is `cc` accepting them (core, seed change) rather than four one-line edits in mozbuild. Decision for the integrator. Linker: `select_linker` tries `-fuse-ld=lld` (rejected) and then no flag with `-Wl,--version`, which `cc` answers; untried. |
+| 6d | configure: Rust (`rust.configure`) | `cargo --version --verbose` parses, `cargo +stable` exits 101 as expected, `cargo metadata` of `js/src/rust` returns the 70 packages (verified by the Cargo agent). `RUST_TARGET=wasm64-emscripten-probe` override is in `spidermonkey.patch`. `assert_rust_compile` through mozbuild: untried. |
+| 6e | configure: `old-configure` (autoconf 2.13, 2,794 lines, under `sh`) | 2026-10-02 it stopped at `trap: command not found`; Slop has `trap` since `ffef482a` (in this tree's builtin table). Uses `exec 5>./config.log`, `exec 6>&1` (redirection-only exec), `eval`, here-documents, and runs its conftest programs with `cc`, which Dolly can execute (so `cross_compiling=no`, unlike the host build). Untried since. |
+| 6f | configure: `config.status`, the build backends (RecursiveMake, FasterMake, Clangd) reading every `moz.build` | Pure Python plus file writes; untried. |
+| 7a | `make`: export tier. `install_dist_include` symlinks 328 headers into `dist/include` (`mozpack`, hard link or copy fallback), `system_wrappers` (one generated wrapper per header of `config/system-headers.mozbuild`), 15 Python `GeneratedFile`s (`js-confdefs.h`, `js-config.h`, `selfhosted.out.h`, `ReservedWordsGenerated.h`, `jit/*OpsGenerated.h`, …), `buildid.h`, the host program `config/nsinstall` (C, with `HOST_CC`) | Untried. Make is Dolly's GNU Make; mozbuild's recursive Makefiles rely on `MAKEFLAGS`, `$(shell)`, `.SECONDEXPANSION` and the jobserver `+` prefix for cargo. |
+| 7b | `make`: compile tier, C and C++: about 240 objects (157 in `libjs_static_a.list`, fdlibm 57, mozglue 14, mfbt 7, memory 2, config 2, `pure_virtual` 1), unified sources | Verified 2026-10-02 (self-host agent) outside mozbuild: the 158 `libjs_static.a` objects compile with `c++ -O2` in 320 s wall at `-j3` (952 s summed, slowest TU 30 s), the engine linked against them passes `0ad-engine-browser.mjs` with identical replay and save hashes. Memory per compile not measured. Untried: driven by mozbuild's Makefiles with mozbuild's own flags (the four rejected flags above are among them). |
+| 7c | `make`: compile tier, Rust: `cargo rustc --release --manifest-path js/src/rust/Cargo.toml --lib --target wasm64-emscripten-probe` with `RUSTFLAGS='-C debuginfo=2 --cap-lints warn -C codegen-units=1'`, `CARGO_TARGET_DIR=obj/`, the vendored `third_party/rust` (345 MB, `.cargo/config.toml` written by configure), and `build/cargo-linker` as `CARGO_TARGET_*_LINKER` for build scripts and procedural macros | Verified by the Cargo agent outside mozbuild: `libjsrust.a` in 3 m 42 s (37.7 MB with debuginfo; host build's 24.1 MB), 59 units, 8 build scripts, 6 procedural macros. `--frozen`, which failed half the runs, is not passed by mozbuild to a standalone JS build (`rust.mk`: `ifndef JS_STANDALONE`), so that instability does not apply. Blocked by `build/cargo-linker` (and `cargo-host-linker`): a Python script ending in `os.execvp`, and Dolly has no exec; one preparation edit (`subprocess.call` and `sys.exit`). |
+| 7d | `make`: libs tier, `llvm-ar crs libjs_static.a` of the objects, plus `jsrust` and `mozglue` folded in by the patch's `USE_LIBS` (the host archive is 406 MB with DWARF; `libjsrust.a` is also shipped separately) | Dolly's `ar` knows `c r q s`. Untried. |
+| 7e | `make`: `spidermonkey_checks` (three Python style checks), `js-config`, `js.pc` | Untried; nothing links. |
+| 8 | Staging: resolve the 328 `dist/include` symlinks, copy `libjs_static.a` and `libjsrust.a`, collect SpiderMonkey's LICENSE, MPL-2.0 and every vendored crate's notice into `mozjs-host.tar.gz` (115 MB); publish `bootstrap.tar` (150 MB) as corresponding source | Replaced by `cp -RL` into the image and `FOLDER` lines; `bootstrap.tar` disappears with the exception. The engine recipe's `mozjs-128.pc`, `spidermonkey-check` and `--with-system-mozjs` stay as they are. |
+
+Platform facts the map rests on: images here are at build id `4431ea80…`
+(`default`, `cargo`, `rust-tools`); `python` and `zero-ad-deps` were stale
+(`22d006ca…`), so `python` is being rebuilt through the build slot (started
+07:15). The Rust and Python packages are `INSTALL`able; `zero-ad-deps` is a
+toolchain, so pkgconf and `zlib.pc` come either from building `FROM` it or
+from one `cc` line.
+
+Recipe shape, decided now and revisited when the measurements are in: a
+separate build-only toolchain `Dollyfile-zero-ad-spidermonkey` (`FROM
+zero-ad-deps` for pkgconf, zlib.pc and the C++ toolchain; `INSTALL python`,
+`INSTALL cargo`, which brings `rust`; a `cbindgen` package), and
+`zero-ad-engine` takes `/tmp/mozjs` by `COPY` as `zero-ad-deps` takes SDL2.
+Reasons: the engine needs only headers and two archives; the deps image
+(229-461 s, 430 MB) should not carry Python, Rust and Cargo (about 700 MB)
+for every rebuild; SpiderMonkey's patch changes should rebuild SpiderMonkey
+alone; and the slot caps favour one heavy build per image.
+
+Gaps, by kind:
+
+- Missing platform features: `m4` (step 4); `exec` for `cargo-linker`
+  (7c; a preparation edit, since `docs/process-model.md` has no exec);
+  `cc` has no spelling for four cc1 options (6c); no `xz` (1).
+- Upstream detects wrongly: a Wasm host in `init.configure` (6b).
+- Slop: `umask` in `config.guess` (6b), avoided by `--host`; nothing else
+  known before the stages run.
+- Unknown until measured: peak memory of a mozbuild C++ compile at `-j4`
+  under the 6 GB tab, the Cargo step under mozbuild, Make's jobserver, the
+  mtime of the extracted `old-configure` against `old-configure.in` (Dolly's
+  `tar` may give every file the extraction time, which would trigger the m4
+  refresh: the recipe then `touch`es `old-configure`).
