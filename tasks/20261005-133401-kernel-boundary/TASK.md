@@ -1,6 +1,6 @@
 # Own the kernel's outer boundary: load the kernel without Emscripten's JavaScript runtime
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 325
 - TAGS: core,boundary,abi,architecture
 
@@ -11,6 +11,50 @@ reviewable by a human". Every Dolly process is already a standalone Wasm
 module that Dolly's own JavaScript instantiates with one import. The kernel is
 the one module still instantiated by Emscripten's generated JavaScript, and
 most of the perimeter is that generated code.
+
+## Result (2026-10-06 night)
+
+The kernel is loaded by Dolly's own Worker with nine imports, every one
+Dolly-named, typed in `abi/dolly-browser-0.wat`, owned by a manifest and
+provided by that module's `bindings`. No generated JavaScript is loaded.
+
+| | Imports | Exports | Generated JavaScript loaded |
+| --- | --- | --- | --- |
+| Before (`bef23f6b`) | 30 | 130, 43 named by no contract | `dolly.mjs` 48 KB, `dolly-seed.mjs` 85 KB |
+| After (`core/kernel-boundary-2`) | 9 | 90, all named by a contract | none |
+
+| Ref | Holds | State |
+| --- | --- | --- |
+| `core/kernel-boundary-step2` | step 2 on `bef23f6b` | merged into `integrate/next` |
+| `core/kernel-boundary-step4` | step 4 on step 2's merge (`7e39f6ee`) | merged as `fb6c3463`; tonight's catalog is built by it |
+| `core/kernel-boundary-2` | step 3, rebased onto `integrate/next` (`80595976`) | verified before the rebase; waits for the next seed round, since it changes image inputs |
+
+Each done-when line, and where it is shown:
+
+- Imports from `host/*/` providers, no generated JavaScript, `TextDecoder`
+  untouched: steps 4 and 3 below; the boundary suite instantiates a kernel in
+  the page from the providers alone.
+- Only Dolly-named imports, counted before and after: 30, then 24 (step 2),
+  then 9 (step 4); an artifact test fails on any other name.
+- Every export named by a contract: the artifact test compares the two sets
+  exactly (step 4).
+- The two refusals: in the boundary suite, against a real kernel (step 4).
+- Suites and the root rebuild: at every step, below; `system-build` from the
+  root has the same bytes at each (`e5a4ac80…`).
+
+`core/kernel-boundary-2` after the rebase (2026-10-06, 23:25): runtime
+`4d72d1e1…`, image inputs `08086c58…`, 9 imports, 90 exports, the build's
+exact import check passes; source 399 of 400, the one failure being the docs
+package's pins, which the branch no longer carries (400 of 400 once repinned,
+`rebased/source-repinned.log`). The conflict in `src/dolly.c` took the
+integrator's table without `SHELL`. No browser suite ran on the rebased tree:
+its images do not exist yet.
+
+Raised from here: `20261006-140347-kboundary-01` (file growth in Chrome after
+a refused one) and `20261006-142127-kboundary-02` (trusted code still holds
+the exports as `dolly._NAME`; the rename exists and is held back by an
+unexplained Firefox failure). The catalog round, not this task, loads the
+large images.
 
 ## Evidence (`integrate/1005` at `c5b9e132`; artifacts from `work/host-modules/dist`)
 
@@ -146,7 +190,7 @@ Evidence is under `build/kernel-boundary-evidence/` in `work/signals`.
 | Before, on `bef23f6b` | 30 | 130 | runtime `8ce10189…`, 214,314 bytes |
 | 2. Kernel exports instead of `FS` | 24 | 93 | verified (below), runtime `970172ca…`, 203,121 bytes |
 | 4. Dolly-named imports, no generated JavaScript | 9 | 90 | verified (below), runtime `b97cb65a…`, 198,739 bytes |
-| 3. Seed as a snapshot | | | on `core/kernel-boundary-2` |
+| 3. Seed as a snapshot | 9 | 90 | verified (below), runtime `bfd733a4…`, 197,867 bytes, image inputs `cc0d47e5…` |
 
 Step 1: `TerminalFile` in `src/file-blocks.cpp` is `/dev/dolly-stdout`,
 `/dev/dolly-stderr` and `/dev/tty`, mounted when the root is populated;
@@ -272,10 +316,8 @@ Decisions, with their reasons:
   them the WASI imports return and the build's exact import check fails.
 - **One line of the old naming is left.** Host modules and the supervisor
   call exports as `dolly._NAME`; the Worker builds that object from the
-  instance's exports in one line. Renaming the about 60 call sites to
-  `kernel.NAME` is mechanical (`build/kboundary-evidence/rename-kernel-handle.py`),
-  but touches `src/process-supervisor.mjs` and every provider while three
-  branches edit them; it is not done.
+  instance's exports in one line. The rename is
+  `20261006-142127-kboundary-02`.
 
 Measured in `work/kboundary` (`build/kboundary-evidence/`):
 
@@ -335,6 +377,62 @@ function of Emscripten's JavaScript library no longer links into an allowed
 import; `npm run build:runtime` then fails at the exact import check. Such a
 call becomes a typed import declared with `DOLLY_BROWSER_IMPORT`, owned by a
 manifest and listed in `abi/dolly-browser-0.wat`.
+
+## Step 3, verified (2026-10-06 night, `core/kernel-boundary-2`)
+
+`a1a50e19` on `core/kernel-boundary-step4` (`c28cb1ee`), where it was
+verified; rebased since as `97c34d4d`. The seed `dist/dolly.data` is a
+Dolly snapshot (`abi/dolly-image-0.wat`, the format of every image), written
+by `scripts/pack-seed.mjs` from the same staged files: 822 files under `/usr`,
+126,817,748 bytes. The Worker stages it like a base image and
+`dolly_process_bootstrap_prepare(size)` restores it in full, against the list
+of its paths. Gone: Emscripten's file packager, its generated index
+`dist/dolly-seed.mjs` (85 KB, the last generated JavaScript a page loaded),
+the `/seed` staging tree and the kernel's copy of it into `/usr`
+(`install_seed_tree`, 85 lines), and `/seed` in the session exclusions.
+
+- Runtime `bfd733a4…`, 9 imports, 90 exports, 197,867 bytes. **Image inputs
+  change** (`cc0d47e5…`; was `e8e495dc…`): the seed's bytes and the type of
+  `dolly_process_bootstrap_prepare` in `abi/dolly-image-0.wat`. Every image
+  is rebuilt.
+- **Image bytes do not change.** The `default` chain built from the root
+  with the snapshot seed, fresh browser profiles: all 12 snapshots are the
+  bytes they were (`system-build` `e5a4ac80…` again). `system` differs in 5
+  of 2,299 records, as it must: its recipe's pin and `/usr/bin/session-recover`,
+  which compiles `src/session-records.h` (`chain-step3.sh`, `chain-step3.log`).
+  The root rebuild of `system-build` the done-when asks for is this one.
+- Seed files are now created with the mode every restored file has (0777; the
+  copy made them 0666). No image records it.
+- **What repins**: `Dollyfile-dolly-docs` (`abi/dolly-image-0.wat`,
+  `docs/architecture.md`, `docs/browser-boundary.md`, `docs/sessions.md`) and
+  `Dollyfile-system` (`src/session-records.h`), and with them every recipe
+  built on `system` or installing the docs package (26 recipe files;
+  that commit, `2950027d`, was dropped in the rebase for the integrator's repin).
+- **Suites** at `2950027d`: source 399 of 399; artifacts 22 passed, 1 skipped
+  (CPython's), 0 failed; `core`, `boundary`, `host-modules`, `image`,
+  `snapshot-stream`, `terminal`, `process` and `custom-session` 8 of 8 in
+  Chrome and 8 of 8 in Firefox (`step3/summary.txt`; its source line failed on
+  one docs pin that an edit made during the run had left stale,
+  `step3/source-repinned.log` is the run after the repin).
+
+## Merging kernel code onto this kernel (from `fb6c3463` on)
+
+No JavaScript is generated for the kernel (`-sSTANDALONE_WASM`). The gate is
+`validate-browser`, at the end of `npm run build:runtime`.
+
+- **A new import**: `DOLLY_BROWSER_IMPORT(dolly_NAME)` before a prototype
+  (`src/process-kernel.h`), its typed line in `abi/dolly-browser-0.wat`, its
+  name in the module's `module.json`, and the function in `bindings` of its
+  `worker()`: addresses arrive as BigInt; return zero or a negative errno.
+- **`EM_JS`, `EM_ASM`, Emscripten's JavaScript library and `setjmp`** link as
+  imports nobody implements, and the gate fails (trial links,
+  `trial2/p-*.wasm`). Trusted JavaScript has no `Module`, `HEAPU8` or `FS`:
+  only the exports (`dolly._NAME`) and `memory.buffer`.
+- **libc**: what it asks of a host is answered in `src/libc-host.c` (two
+  clocks, entropy, no host environment, abort as a trap). Add a hook there,
+  never an import. `emscripten_get_heap_max()` is the current size now.
+- **Exports**: each must be a function of a manifest's contract WAT; the
+  artifact test compares exactly. Boot and terminal writes return a status.
 
 ## Findings outside this task (2026-10-06)
 

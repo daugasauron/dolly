@@ -1,6 +1,6 @@
-# flock() reports a lock it never takes; Zig's cache depends on it
+# flock() reports a lock it never takes; fcntl locks are refused
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 230
 - TAGS: bug,libc,kernel,locks
 
@@ -66,36 +66,271 @@ locking anything, also for a bad descriptor or operation (measured below).
 To be implemented with the next process-ABI round, together with
 `tasks/20261002-072000-input-host-module`.
 
-## Design
+## Design (2026-10-06 night, `core/file-locks`)
 
-- Semantics of BSD `flock()`: `LOCK_SH`, `LOCK_EX`, `LOCK_UN`; `LOCK_NB`
-  answers `EWOULDBLOCK` instead of waiting. A lock belongs to the open file
-  description, so descriptors made by `dup` or inherited by a spawned child
-  share it. A bad descriptor is `EBADF`, an invalid operation `EINVAL`.
-- Converting a held lock releases it and then requests the new one, as in
-  Linux: the conversion may wait, is not atomic, and a refused `LOCK_NB`
-  conversion leaves the description without a lock. Two shared holders that
-  both ask for exclusive therefore cannot deadlock.
-- One table in the kernel (`src/process-kernel.c`): a record per description
-  that holds a lock, with the file's device and inode as the kernel's `fstat`
-  reports them and whether it is exclusive. The kernel has no description
-  objects: each guest descriptor holds its own kernel descriptor, duplicated
-  in `copy_descriptor` for `dup` and for spawn. So each guest descriptor
-  carries a description number, given at open and copied with it.
-- Release: `LOCK_UN`, or `release_descriptor` closing the last descriptor
-  that carries the number. Process exit and kill close every descriptor
-  through `release_process_resources`, so a dead Worker's locks go with it.
+Scope widened by the integrator: whole-file locks (`flock`) and POSIX
+byte-range locks (`fcntl`, and `lockf` above it) as one design. SQLite takes
+`fcntl` locks, so every Cargo run printed "failed to save last-use data: disk
+I/O error" (`SQLITE_IOERR_LOCK`), and GNU Make's `-O` warned that it had no
+lock.
+
+### Contract
+
+One operation, `DOLLY_PROCESS_FD_LOCK = 59`, with a 32-byte request
+(descriptor, flags, type, whence, start, length) and a 24-byte response for
+the test (type, pid, start, length). Types: shared, exclusive, unlock. Flags:
+
+- `DESCRIPTION`: the lock covers the whole file and belongs to the open file
+  description (`flock`). Without it the lock covers a byte range and belongs
+  to the process (`fcntl`); the kernel resolves `whence` against the
+  descriptor's offset or the file's size, so the request is atomic.
+- `WAIT`: park instead of `EAGAIN` (`flock` without `LOCK_NB`, `F_SETLKW`).
+- `TEST`: change nothing and report a lock that would refuse the byte-range
+  request (`F_GETLK`).
+
+A descriptor flag, `DOLLY_PROCESS_FD_KEEP_LOCKS`, marks a descriptor a libc
+keeps for itself (below).
+
+`process.h` gains the operation number, two enums, two packets, their two
+layout checks and the descriptor flag; `abi/` does not change. It is a process ABI change: every
+executable is restamped and the Rust seed rebuilt.
+
+### Semantics
+
+- `flock`: `LOCK_SH`, `LOCK_EX`, `LOCK_UN`, `LOCK_NB` (`EWOULDBLOCK`). The
+  lock belongs to the description, so descriptors made by `dup` or inherited
+  by a spawned child share it; it goes at `LOCK_UN` or when the last
+  descriptor of the description closes. Converting a held lock gives it up
+  before the new one is requested, as on Linux: the conversion may wait, is
+  not atomic, and a refused `LOCK_NB` conversion leaves no lock. Two shared
+  holders that both ask for exclusive therefore cannot deadlock. A bad
+  descriptor is `EBADF`, an invalid operation `EINVAL`.
+- `fcntl` `F_SETLK`, `F_SETLKW`, `F_GETLK` with `F_RDLCK`, `F_WRLCK`,
+  `F_UNLCK`: ranges from `SEEK_SET`, `SEEK_CUR` or `SEEK_END`, a zero length
+  to the end of the file and beyond, a negative length ending at the start.
+  The process owns the lock. A range it already holds is retyped in place:
+  locks split, shrink and merge, and a refused request changes nothing (SQLite
+  keeps its shared lock when the upgrade is refused). `F_RDLCK` needs a
+  descriptor open for reading and `F_WRLCK` one open for writing (`EBADF`).
+  A conflict is `EAGAIN`. POSIX's rule is implemented as written: closing
+  **any** descriptor of a file drops every lock the process holds on that
+  file, also one taken through another descriptor. A spawned child inherits
+  none.
+- Found by reading the libc after the first implementation: it closes
+  descriptors the program never opened. A `MAP_SHARED` mapping keeps a `dup`
+  of the file for write-back and closes it in `munmap`, and `truncate(path)`
+  opens and closes the file. Under the close rule both would silently drop
+  the process's locks on that file, which Linux does not do (a mapping holds
+  the file, not a descriptor). So libc marks such a descriptor
+  `DOLLY_PROCESS_FD_KEEP_LOCKS` (`__dolly_keep_locks`, also close-on-exec, so
+  a spawned child no longer inherits a mapping's descriptor), and the kernel
+  leaves the process's locks when one is closed while the process has another
+  descriptor of the file. That condition keeps the rule that a lock never
+  outlives the process's descriptors of the file, which is what makes the
+  inode a safe key. Not chosen: documenting the loss (a lock that goes at
+  `munmap` is the kind of silent difference this task exists to remove), or
+  dropping locks only at the last descriptor (not what POSIX says). Like
+  Linux, a mapping still keeps a `flock` alive: it holds the description.
+- The two kinds do not see each other, as on Linux. Both are advisory:
+  `read` and `write` never look at them.
+- `lockf` is musl's, over `fcntl`. `F_OFD_*` stays `EINVAL`: nothing in the
+  catalog asks for it. Read in `libsqlite3-sys` 0.38.1 (SQLite 3.53.2, the
+  copy Cargo bundles; `SQLITE_ENABLE_LOCKING_STYLE` 0 and no
+  `SQLITE_ENABLE_SETLK_TIMEOUT` in its `build.rs`): the unix VFS calls only
+  `fcntl(F_SETLK)` and `fcntl(F_GETLK)` with `SEEK_SET` ranges.
+- No deadlock detection: `F_SETLKW` never answers `EDEADLK` (POSIX lists it
+  under "may fail"). Waiters are not recorded in the kernel, because the
+  supervisor ends a parked call on a signal without telling it, so a wait
+  graph would go stale. A deadlocked wait ends on a signal, like any parked
+  call.
+- A pipe has no file to lock: `ENOTSUP`, the kernel's answer for what a pipe
+  cannot do.
+
+### Kernel
+
+- One static table of 1024 locks for all processes
+  (`DOLLY_KERNEL_LOCK_LIMIT`, 48 KiB); a request that would need a 1025th
+  answers `ENOLCK` and changes nothing, an unlock that splits a range
+  included. Nothing is allocated per request, so no guest size reaches an
+  allocation. An entry is the file (device and inode of the kernel's
+  `fstat`), the owner (description number or pid), the range and whether it
+  is exclusive. A whole-file lock is the range from 0 to the end.
+- The kernel has no description objects: each guest descriptor holds its own
+  kernel descriptor, duplicated in `copy_descriptor` for `dup` and spawn. So
+  each guest descriptor carries a 64-bit description number, given at open
+  and copied with it.
+- `release_descriptor` drops the process's byte-range locks on the closed
+  file, and the description's lock when no descriptor of any process carries
+  its number any more. Exit, kill and Worker death close every descriptor
+  through `release_process_resources`, so a dead process's locks go with it.
 - A request that must wait returns `DOLLY_PROCESS_DISPATCH_DEFERRED`, as a
   blocking pipe read does. The supervisor retries parked calls every 16 ms
   and at once when a system call sets the kernel's wakeup flag
-  (`dolly_process_take_wakeup`), which a release now sets; a signal ends the
-  wait with `EINTR` like any parked call. No queue: waiters are not ordered.
-- Contract: one operation in `include/dolly/process.h` and a strong `flock`
-  in `src/process/libc-adapter.c` over Emscripten's weak stub. A process ABI
-  change: every executable is restamped and the Rust seed rebuilt.
-- Not in this batch: byte-range locks (`fcntl`, `lockf`). They already fail
-  honestly (below) and their callers take the failure: SQLite in Codex and
-  rustc's incremental sessions.
+  (`dolly_process_take_wakeup`), which a release now sets. A signal ends the
+  wait with `EINTR`; a handler with `SA_RESTART` restarts it. No queue:
+  waiters are not ordered, so a writer can starve behind readers.
+- libc (`src/process/libc-adapter.c`): a strong `flock` over Emscripten's weak
+  stub, and the three `fcntl` commands.
+
+## Implemented (2026-10-06 night, `core/file-locks`)
+
+- `include/dolly/process.h`: `DOLLY_PROCESS_FD_LOCK = 59` and its packets.
+  The first number, 57, is the upload module's `DOLLY_UPLOAD_FILE`
+  (`host/upload/dolly-upload-0.wat`): operation numbers are one space, and
+  `module_for()` would have handed every lock request to the upload module.
+  `test/host-modules.test.mjs` now fails when two contracts claim a number; it
+  named this collision before the move.
+- `src/process-kernel.c`: the table, `fd_lock_packet`, a description number
+  per guest descriptor, release in `release_descriptor`.
+- `src/process/libc-adapter.c`: `flock`, and `F_GETLK`, `F_SETLK`, `F_SETLKW`.
+  `src/process/signal.c`: a handler without `SA_RESTART` ends a waiting lock
+  request with `EINTR`.
+- `src/process-supervisor.mjs`: `#retire` retries parked calls when the
+  kernel's wakeup flag is set. Before, a release made by a dying process (a
+  kill, a trap, a deadline) was found on the next 16 ms tick; the same held
+  for a pipe reader waiting for a killed writer's end.
+- Every way a process ends goes through `mark_process_exited` and
+  `release_process_resources`: `EXIT`, `dolly_process_worker_exited` (kill,
+  deadline, a Worker terminated by the supervisor), `dolly_process_worker_failed`
+  (trap, Worker error) and a parent's exit, which ends its children first.
+- `test/fixtures/process-locks.c` is the browser test of the process suite
+  and also runs on Linux (`test/process-descriptors.test.mjs`), so what it
+  expects is what Linux does: the refused `flock` conversion that leaves no
+  lock, merged ranges as `F_GETLK` reports them, the close rule, `EINTR` and
+  `SA_RESTART`, inheritance. Dolly-only parts: the 1024 limit, `ENOTSUP` for a
+  pipe, `EINVAL` for `F_OFD_SETLK`, a trap. Its timing assertion: two
+  processes pass three locks around 100 times, each step waiting for the
+  other's release, in under 500 ms for either kind (200 waits on a 16 ms tick
+  would take over a second).
+- `docs/process-model.md` states the semantics and limits. `docs/slop.md` no
+  longer says that `make -O` warns (confirmed below).
+
+### Where each behaviour comes from
+
+The fixture ran on Linux 6.8 (glibc), so these are Linux's by observation;
+Dolly is expected to do the same:
+
+- `flock`: exclusive refuses exclusive and shared, from another description
+  of the same process and from another process; shared joins shared; a `dup`
+  locks and unlocks for its original; a refused `LOCK_NB` conversion leaves the
+  description without a lock; the lock goes with the description's last
+  descriptor; a spawned child relocks and unlocks its parent's lock, a lock
+  the child took stays after its exit while the parent has the descriptor, and
+  the parent's lock stays after the parent's `close` while a child has it.
+- `fcntl`: the extents `F_GETLK` reports after splitting, unlocking, abutting
+  and overlapping (`l_whence` `SEEK_SET`, `l_len` 0 for no end, `l_pid`);
+  ranges from `SEEK_CUR` and `SEEK_END` and with a negative length; `lockf`;
+  `EBADF` by access mode; `EINVAL` for a negative start, a bad type or whence
+  and `F_GETLK` with `F_UNLCK`; a refused request is `EAGAIN` and changes
+  nothing; closing another descriptor of the file drops every lock, while
+  `munmap` of a shared mapping of it and `truncate(path)` drop none; a child
+  inherits none and its `close` does not touch its parent's.
+- Both: release on unlock, `close`, exit and `SIGKILL` of a holder that makes
+  no system call; a waiting request is `EINTR` under a handler and continues
+  under `SA_RESTART`; the two kinds do not see each other.
+
+Not observed on Linux, so my reading or Dolly's own choice:
+
+- POSIX, by reading: `ENOLCK` when a request, an unlock that splits included,
+  would exceed the system's limit; `EOVERFLOW` for a range past the largest
+  offset; `EDEADLK` under "may fail" (Linux does detect some deadlocks; Dolly
+  none). The harness checks the first two against the kernel code only.
+- Linux source, by reading: a range through the largest offset has no end
+  (`OFFSET_MAX`); the conversion order in `flock_lock_inode`.
+- Dolly's own: the limit of 1024; `ENOTSUP` for a pipe (Linux locks pipes);
+  `EINVAL` for `F_OFD_*` (Linux has them); status 126 for a trapped holder;
+  unordered waiters (Linux wakes in order).
+
+### Checked without a browser
+
+- The tree has no native harness for the kernel. An ad-hoc one compiles
+  `src/process-kernel.c` for Linux with stubs for the terminal, under ASan and
+  UBSan, and drives `dolly_process_dispatch`
+  (`build/locks-evidence/kernel-native/harness.c`, evidence, not committed):
+  scripted cases for both kinds (ownership, conversion, close, inheritance,
+  exit, kill, failed Worker, parent exit, the limit, range decoding) and
+  800,000 random range requests from three processes on two files against a
+  per-byte model, with the table checked after each (no overlap, touching
+  locks of one type merged, test answers true). `KERNEL-LOCKS-OK`; a lock is
+  48 bytes, the table 48 KiB, a process record 8,072 bytes. Eight deliberate
+  faults in the lock code (merge, split, conflict rule, conversion, last
+  close, close rule, limit, wakeup) each failed it.
+- `node --test test/*.test.mjs` after `npm run build:runtime`: 317 of 318
+  on the first base; the one failure was the docs package's pin of
+  `docs/process-model.md` and `docs/slop.md`, re-pinned since (`6b51f367`).
+- Kernel, libc adapter and the fixture pass `emcc -fsyntax-only` in the pinned
+  toolchain image, the fixture with `-D__dolly__`.
+
+## Verified in browsers, the base it merges onto (2026-10-06, 23:04 to 23:30 JST)
+
+Base: `integrate/next` at `fb6c3463` (the kernel without Emscripten's
+JavaScript runtime), merged into `core/file-locks`; suites run at `6b51f367`.
+Runtime `444a130e…`, image inputs `d0a42831…`. This is the result that counts;
+the section below is the same work on the earlier base. Logs:
+`build/locks-evidence/base2-*.log` and `image-chain-2.log` (not committed).
+
+- The merge needed no change: the lock code adds no kernel import, export,
+  `EM_JS` or `setjmp`. `npm run build:runtime` ends with "dist/dolly.wasm has
+  exactly the typed imports in build/dolly-browser-0.wasm".
+- `DOLLY_IMAGE_JOBS=1 DOLLY_BUILD_IMAGES=default,system npm run image`: all 13
+  images in 809.5 s; `zig-build` 480.2 s, `ghostty-build` 77.9 s.
+- `process` (with `test/fixtures/process-locks.c`), `core`, `threads` and
+  `shell`: all pass in Chromium and in Firefox.
+- Real callers, both browsers (`base2-callers-*.log`): SQLite 3.53.2 through
+  its default `unix` VFS from two processes, `SQLITE-LOCKS-OK 3.53.2 unix`;
+  GNU Make `-O -j3` with three sub-makes, no warning and whole groups.
+- The rotation takes 2 to 5 ms for 100 rounds in both browsers, either kind
+  (`base2-rotation-*.log`). Control (`base2-rotation-chromium-tick-only.log`):
+  with the supervisor's two `dolly_process_take_wakeup` checks disabled in the
+  working tree, so that parked calls are retried on the 16 ms tick only, the
+  same 100 rounds take 3,152 ms and the fixture fails at its timing assertion.
+  So each round is two parked hand-overs, the release is what wakes the
+  waiter, and the assertion tells the two apart.
+- `node --test test/*.test.mjs`: 321 of 321, with the documents re-pinned
+  (`6b51f367`). The kernel harness passes against the merged kernel.
+
+Not run, here or on the first base: the Rust seed
+(`demos/rust/build-rust-toolchain.sh`; the catalog round that merges this
+rebuilds it), so no Rust program and not Cargo itself, whose "failed to save
+last-use data" is the SQLite failure checked above with the SQLite it bundles;
+Python (`build/locks-evidence/python-locks.py` passes on Linux; the `python`
+image was not built here); any image outside the `default` and `system`
+chains. The pins the image build rewrote were restored; only the two document
+pins and the three recipe pins that follow from them are committed.
+
+## Verified in browsers, first base (2026-10-06, 22:13 to 22:50 JST)
+
+Base: `integrate/next` at `a34f0d38` plus `1c0ae0e3` (the interrupt
+fixture). Runtime `f5ab554c…`, image inputs `64baac8c…`. Logs under
+`build/locks-evidence/` (not committed).
+
+- `DOLLY_IMAGE_JOBS=1 DOLLY_BUILD_IMAGES=default,system npm run image`: all 13
+  images built in 877.7 s (`image-chain-1.log`), `zig-build` (523.7 s) and
+  `ghostty-build` (96.2 s) among them: Zig's cache now takes real locks.
+- `test/process-browser.mjs` with `test/fixtures/process-locks.c`: passes in
+  Chromium and Firefox (`process-chromium-1.log`, `process-firefox-1.log`).
+- `core`, `shell`: pass in both browsers (`core-*-2.log`, `shell-*-1.log`).
+  `core` failed before `1c0ae0e3` was merged, in the interrupt fixture's
+  pipeline case that commit corrects; the lock change is not involved.
+- `threads`: fails on this base in both browsers at `cc: command not found`
+  (`default` holds no compiler). With the test-only commit `9195571f` of
+  `integrate/next` applied to the working tree it passes in both
+  (`threads-*-2.log`).
+- The rotation, with its time printed (`rotation-*-1.log`, three runs each):
+  100 rounds take 2 to 4 ms (`flock`) and 4 to 10 ms (`fcntl`) in Chromium, 6
+  to 12 ms and 5 to 9 ms in Firefox. One kernel round trip costs 15 to 25 µs
+  there (`syscall-cost-*.log`), and a round is two hand-overs, so the waiter
+  is woken by the release. The control was run on the second base (above).
+- Real callers in `system`, Chromium (`callers-chromium-1.log`,
+  `callers-browser.mjs`):
+  - SQLite 3.53.2, the amalgamation of `libsqlite3-sys` 0.38.1, compiled in
+    the image by `cc` in 5.6 s and run from two processes through its default
+    `unix` VFS (`sqlite/probe.c`, which also passes on Linux): a second writer
+    gets `SQLITE_BUSY`, a reader reads, a commit under another process's read
+    is `SQLITE_BUSY`, a writer with a busy timeout waits for a reader and
+    commits, `integrity_check` passes. `SQLITE-LOCKS-OK 3.53.2 unix`.
+  - GNU Make `-O -j3` with three sub-makes: no warning, 30 lines in three
+    whole groups.
 
 ## Measured (2026-10-06, Chrome, `default`, runtime `5439ebe7…`)
 
@@ -115,8 +350,10 @@ it can exist any more.
 
 ## Done when
 
-- `flock` locks: a browser test in the process suite has two processes
-  contend for one file (exclusive waits for exclusive, shared joins shared,
-  `LOCK_NB` reports `EWOULDBLOCK`, the waiter proceeds on unlock, on close
-  and when the holder is killed) and a spawned child share its parent's lock.
+- A browser test in the process suite has two processes contend for one file
+  with both kinds: exclusive waits for exclusive, shared joins shared, a
+  non-waiting request reports the conflict, the waiter proceeds on unlock, on
+  close and when the holder is killed; a spawned child shares its parent's
+  `flock`; `fcntl` ranges overlap, abut and split; `F_GETLK` names the holder.
 - `zig-build` and `ghostty-build` still build, and the `default` chain.
+- SQLite locks a database from two processes without `SQLITE_IOERR_LOCK`.
