@@ -3865,9 +3865,14 @@ static int parse_while(Shell *shell, CommandParser *parser, int execute,
         .cursor = body_start,
         .end = parser->end,
     };
+    // The loop's status is that of the last body it ran, also when `break`
+    // or `continue` (status 0) ended that body; a `break` in the condition
+    // runs no body.
+    const int ran = selected && shell->loop_control == LOOP_CONTROL_NONE;
     const int iteration_status = execute_list(shell, &body, selected,
                                               suppress_errexit,
                                               STOP_DONE, &stopped);
+    if (ran) body_status = iteration_status;
     if (body.error || stopped != STOP_DONE) {
       fprintf(stderr, "slop: %s requires done\n", until ? "until" : "while");
       if (execute) shell->loop_depth--;
@@ -3887,7 +3892,6 @@ static int parse_while(Shell *shell, CommandParser *parser, int execute,
       continue;
     }
     if (!selected) break;
-    body_status = iteration_status;
     if (!shell->active || (shell->errexit && !suppress_errexit &&
                            body_status != 0)) break;
   }
