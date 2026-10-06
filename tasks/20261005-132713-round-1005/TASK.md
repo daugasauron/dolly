@@ -309,3 +309,27 @@ for re-recording RTS Arena.
 `input@0` (`20261002-072000`), kernel advisory locks (`20261006-093856`,
 which must also cover SQLite's byte-range locks), `dso@0`, kernel-boundary
 steps 2 to 4, Cargo's `ar` commit, `fix/entry-missing`.
+
+## Night plan, 21:00 to 06:00 JST (owner: "Continue working until 6am")
+
+Memory is rationed mechanically: `work/slot.sh browser|build COMMAND` (caps
+6 GB and 10 GB; slot counts in `work/.slots/*.count`, one build and two
+browser slots while a catalog pipeline runs, more otherwise). Catalog
+pipelines run alone in a 26 GB scope.
+
+1. Seed round (`integrate/seed-1006`, `work/round2`): finishes unattended;
+   on green, merge to main, package both sites, serve on :9003 and :9005.
+2. `integrate/next` (`work/next`): the userspace merge verified on a rebuilt
+   `default` chain, then every finished branch merged on top (indicators, page
+   ending, missing ENTRY, the two small fixes, greeting wording, local models,
+   Cargo's two core commits, the Slop `set -e` fix). Then one catalog rebuild,
+   full verification, publish.
+3. Process-contract round, code first on light worktrees, each verified on a
+   `default` chain when it asks for a full worktree: `core/dso-module`,
+   `core/file-locks` (flock and fcntl ranges), `core/input-module`,
+   `core/kernel-boundary-2`. A third catalog rebuild only for what is verified
+   by about 03:30.
+4. Alongside: Cargo to `cargo build` and a package; Slop against real
+   configure scripts.
+Queued for free slots: `rts-early-input-stall`, `amy-descriptions` (rest),
+`less-pager`, `audit-24`, `local-context-size`.
