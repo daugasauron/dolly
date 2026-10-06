@@ -21,7 +21,6 @@ cmake
 sdl2
 rust
 codex-cli
-qwen3.5-800m
 qwen3.5-4b-1
 qwen3.5-4b-2
 qwen3.5-4b-3
