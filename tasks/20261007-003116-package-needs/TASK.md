@@ -32,6 +32,17 @@ happened to hold what it starts.
 - A test per package on `default` with nothing else installed; the amy suite
   is the place.
 
+## Also found 2026-10-07
+
+`default` had neither `download` nor `upload`, though it declares both host
+modules: only `system-tools` builds the two commands and no package holds
+them. `zero-ad`, built on `default`, failed its graphics test at the first
+`download`. For the candidate, `default` copies the commands and their manual
+pages from `system-tools` (`0f211db3` on `integrate/next`), which makes
+`system-tools` one of default's sources. The right shape is a package (or
+`core`) that owns the page's file exchange, so that `default` stays composed
+from packages only and any image can `amy install` it.
+
 ## Done when
 
 Every package's ordinary use works after `amy install NAME` on `default`, or
