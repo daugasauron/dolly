@@ -60,7 +60,9 @@ Bash 5 and dash agree on every case below except one.
   command other than a subshell (`{ }`, `if`, `for`, `while`, `until`,
   `case`) ends the shell on its own status only when that is not so, which is
   a failed redirection of the compound command itself. At the prompt the
-  line stops and the shell stays, as before (`errexit_fired`).
+  line is meant to stop and the shell to stay, as before (`errexit_fired`
+  revives it like Ctrl+C does). UNVERIFIED: the prompt does not run natively;
+  check `set -e; false; echo no` at an interactive prompt in a browser.
 
   Measured with 60 one-liners (`build/pipelines-evidence/e-matrix.txt`, not
   committed): the new Slop matches Bash 5 in all 60, stdout and status; 17
