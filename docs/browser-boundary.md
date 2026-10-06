@@ -143,6 +143,7 @@ select no JavaScript or Worker URL.
 | RGBA frames, bootstrap text | Visible output only; the browser parses no terminal or HTML content |
 | Display wake-ups | The page and the Worker notify each other on display mailbox words (new frame, input record, animation frame); a notify carries no data, and a forged one only costs the guest's own time |
 | GPU indicator | Page text over the display naming the browser's adapter and whether it has `shader-f16`, or why there is none; no guest input ([`gpu.mjs`](../host/gpu/gpu.mjs)) |
+| Indicator visibility | The GPU indicator, Save button and download offers hide ten seconds after the page is ready and on the user's `Ctrl+Shift+F`, which is not delivered as input. Page state shows them again (a new adapter state, a save, an offer); the one guest request among these is the bounded download offer, which shows them and can hide nothing ([`page-indicators.mjs`](../src/page-indicators.mjs)) |
 | Image cache | Verified artifacts in IndexedDB, 32 images and 8 GiB ([`image-artifact.mjs`](../src/image-artifact.mjs)) |
 | Boot and code loading | Fixed kernel artifacts only ([`runtime-worker.mjs`](../src/runtime-worker.mjs)); one bundled process Worker; the plugin loader links an explicit kernel export map and fetches nothing |
 | Clocks, entropy, exit, CPU and memory use | Inputs and availability effects only |

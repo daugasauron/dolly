@@ -1,4 +1,5 @@
 import { buildLog } from "./build-log.mjs";
+import { showIndicators } from "./page-indicators.mjs";
 import { createHost, buildHost, selectBoot } from "../host/modules.mjs";
 import { prepareImageArtifacts, loadImageHostRequirements } from "./image-build.mjs";
 import { buildImage } from "./image-builder.mjs";
@@ -187,6 +188,7 @@ async function boot() {
 
   keyboard.focus({ preventScroll: true });
   document.documentElement.dataset.dollyStatus = "ready";
+  showIndicators();
 
   window.__dolly = Object.create(host.page, Object.getOwnPropertyDescriptors({
     hostModules: host.enabled,
