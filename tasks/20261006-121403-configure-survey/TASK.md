@@ -97,12 +97,49 @@ Open, found by the probes:
   None of the scripts measured here uses them (0 uses in four `configure`
   scripts, `ltmain.sh`, `config.guess`, `install-sh` and CMake's `bootstrap`),
   so by `docs/slop.md` they wait for a need.
-- `exec PROGRAM` is in those scripts 18 times: libtool's wrapper for an
-  uninstalled program ends in `exec "$progdir/$program" ${1+"$@"}`, so a
-  libtool package cannot run its own test programs under Slop. Spawning the
-  program, waiting and exiting with its status would serve every one of the
-  18; it is refused by the boundary in `docs/slop.md` and needs the owner.
+- `exec PROGRAM`: refused, and stays refused until the process contract has
+  an exec (`tasks/20261006-214244-process-exec`); see the list below. libtool's
+  wrappers are blocked on that task.
 - The same scripts call `printf` 9,963 times and `eval` 1,165 times.
+
+## `exec PROGRAM`: the uses seen, for `20261006-214244-process-exec`
+
+Slop refuses it ("replacing the shell with a command is unsupported", status
+2). Every use below relies on the arguments, the exported environment, the
+inherited descriptors 0 to 2 and the program's exit status reaching the
+caller; the last column is what it relies on beyond that. Counted in the four
+`configure` scripts, libffi's libtool and automake helpers and Git's scripts;
+no further research.
+
+| Where | Use | Beyond status, environment and stdio |
+| --- | --- | --- |
+| every `configure`, twice | `exec $CONFIG_SHELL $as_opts "$as_myself" ${1+"$@"}` to restart under a better shell | `_as_can_reexec=no` exported first; not reached inside Dolly, where no other shell exists |
+| every `config.status` | `exec "$@"` for `--recheck` (reruns `configure`) | descriptors 5 and 6 opened earlier by `exec 6>&1` stay open; Make checks the status |
+| libtool's wrapper of an uninstalled program (`ltmain.sh:5737,5747`) | `exec "$progdir/$program" ${1+"$@"}` after exporting the library path | the pid: a test harness signals or waits for the wrapper's pid and means the program; pipes on 0 and 1 |
+| `libtool --mode=execute` and `--mode=install` (`ltmain.sh:11487`) | `eval exec "$exec_cmd"` (a debugger or test, or libtool itself with `--finish`) | the terminal and Ctrl+C for a debugger: one process, not two |
+| automake `compile` (2) and `depcomp` (1) | `exec "$@"`: run the compiler unchanged | Make signals the wrapper's pid on interrupt |
+| `install-sh:353` | `(umask $mkdir_umask && ... && exec $mkdirprog -p -- "$tmpdir/a/b") >/dev/null 2>&1` | the mask set in the subshell; the exec must end only the subshell |
+| Git: `git-merge-one-file.sh` (6), `git-instaweb.sh`, `git-web--browse.sh` | `exec git update-index ...` | nothing more |
+
+- The catalog's recipes and in-image scripts use it zero times;
+  `demos/rust/rustc.sh` runs `rustc-real` as a child where a wrapper would
+  write `exec`.
+- All but the first two are "run this as my last act". Only the libtool
+  wrapper and `compile`/`depcomp` need the pid to stay the same, and only for
+  signals from a parent; none reads the pid.
+- A subshell is not a process in Slop, so `( ...; exec prog )`, `$(exec prog)`
+  and a pipeline stage cannot be replaced by a contract operation: there Slop
+  has to run the program and end the subshell with its status, whatever the
+  contract gains.
+- After a failed `exec` the scripts print a message and exit; POSIX has a
+  non-interactive shell exit at once (127 not found, 126 not executable).
+- Programs, not scripts, that call `execvp` and have no spawn path, in the
+  sbase the catalog builds from: `env`, `nice`, `nohup`, `time`, `xargs`,
+  `find`, `flock`, `chroot`, `setsid` (none is in the tool list today; Dolly
+  has its own `env`, `time`, `xargs` and `find` over spawn).
+- A shell-level stand-in (spawn, pass on HUP and TERM, exit with the status,
+  no traps) was written tonight and discarded uncommitted when the owner chose
+  the contract operation.
 
 ## Evidence
 
