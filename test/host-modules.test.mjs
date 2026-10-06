@@ -1,12 +1,13 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { mkdtemp, mkdir, writeFile, rm } from "node:fs/promises";
+import { mkdtemp, mkdir, readFile, writeFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createHash } from "node:crypto";
 import { executableHostRequirements, checkHostAbi } from "../host/requirements.mjs";
 import { createDollyfileGraphLoader } from "../scripts/dollyfile-graph.mjs";
 import { discoverImageDefinitions } from "../scripts/image-definitions.mjs";
+import { hostManifests } from "../host/manifests.mjs";
 
 const digest = value => createHash("sha256").update(value).digest("hex");
 test("every image declares its complete host set itself", async () => {
@@ -75,4 +76,26 @@ test("executable requirements reject malformed records and incompatible provider
   assert.throws(() => checkHostAbi(parse(record("http", 1)), provided), /http@1 is not declared/);
   assert.throws(() => checkHostAbi(parse(record("audio")), provided), /audio@0 is not declared/);
   assert.throws(() => checkHostAbi(parse(record("http", 0, other)), provided), /http@0 has a different layout/);
+});
+
+// Operation numbers are one space: module_for() in src/process-kernel.c hands a
+// number to the module whose dolly_NAME_kernel range holds it, before the core.
+test("no two contracts claim one process operation number", async () => {
+  const text = (path, base = import.meta.url) => readFile(new URL(path, base), "utf8");
+  const core = (await text("../include/dolly/process.h")).match(/enum dolly_process_operation \{([^}]*)\}/)[1];
+  const claims = [...core.matchAll(/(DOLLY_PROCESS_\w+) = (\d+)/g)]
+    .map(([, name, number]) => ({ name, first: Number(number), last: Number(number) }));
+  for (const { name, url, provides, kernel } of hostManifests) {
+    if (provides === "kernel" || !kernel.length) continue;
+    const sources = (await Promise.all(kernel.map(file => text(file, url)))).join("\n");
+    const [, first, last] = sources.match(new RegExp(`dolly_kernel_module dolly_${name}_kernel = \\{\\s*(\\w+)(?:,\\s*(\\w+),)?`));
+    if (first === "0" && !last) continue; // The module handles no process operation.
+    const abi = await import(new URL("abi.mjs", url));
+    claims.push({ name: `${name}@${first}`, first: abi[first], last: abi[last] });
+  }
+  claims.sort((left, right) => left.first - right.first);
+  for (const [index, claim] of claims.entries()) {
+    assert.ok(Number.isInteger(claim.first) && claim.first <= claim.last, claim.name);
+    if (index) assert.ok(claims[index - 1].last < claim.first, `${claims[index - 1].name} and ${claim.name} both claim ${claim.first}`);
+  }
 });
