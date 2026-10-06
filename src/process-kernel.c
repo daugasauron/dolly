@@ -286,9 +286,6 @@ static void mark_process_exited(dolly_kernel_process *process, int status,
   process->status = status >= 0 && status <= 255 ? status : 126;
   process->exit_signal = signal_number;
   process->state = DOLLY_KERNEL_PROCESS_EXITED;
-  /* What the terminal's owner left unread was typed for it. What is typed
-   * from now on, while its Worker retires, is its successor's. */
-  if (foreground_pid == pid) dolly_terminal_discard_pending_input();
   refresh_foreground();
 }
 
@@ -2108,6 +2105,7 @@ int dolly_process_worker_retired(int pid) {
   dolly_kernel_process *parent = find_process(process->parent_pid);
   if (parent != NULL && parent->state == DOLLY_KERNEL_PROCESS_RUNNING)
     parent->pending_signals |= 1u << DOLLY_PROCESS_SIGCHLD;
+  if (foreground_pid == pid) dolly_terminal_discard_pending_input();
   refresh_foreground();
   return 0;
 }
