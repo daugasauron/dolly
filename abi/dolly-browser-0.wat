@@ -37,8 +37,8 @@
   (import "env" "emscripten_resize_heap" (func (param i64) (result i32)))
   (import "env" "_abort_js" (func))
 
-  ;; Read-only copying from the fixed, already-loaded seed package. Indices
-  ;; select package records; no guest path is resolved against a host resource.
+  ;; WasmFS asks Emscripten's glue for preloaded files when it starts. Nothing
+  ;; is preloaded: both counts are zero and the other six are never called.
   (import "env" "_wasmfs_get_preloaded_file_size" (func (param i32) (result i64)))
   (import "env" "_wasmfs_copy_preloaded_file_data" (func (param i32 i64)))
   (import "env" "_wasmfs_get_num_preloaded_files" (func (result i32)))
@@ -47,13 +47,4 @@
   (import "env" "_wasmfs_get_preloaded_child_path" (func (param i32 i64)))
   (import "env" "_wasmfs_get_preloaded_path_name" (func (param i32 i64)))
   (import "env" "_wasmfs_get_preloaded_file_mode" (func (param i32) (result i32)))
-
-  ;; Linked because Emscripten's forced JavaScript FS object names its JSImpl
-  ;; backend. No code creates a JSImpl file, so these are never called.
-  (import "env" "_wasmfs_jsimpl_alloc_file" (func (param i64 i64)))
-  (import "env" "_wasmfs_jsimpl_free_file" (func (param i64 i64)))
-  (import "env" "_wasmfs_jsimpl_get_size" (func (param i64 i64) (result i32)))
-  (import "env" "_wasmfs_jsimpl_read" (func (param i64 i64 i64 i64 i64) (result i32)))
-  (import "env" "_wasmfs_jsimpl_write" (func (param i64 i64 i64 i64 i64) (result i32)))
-  (import "env" "_wasmfs_jsimpl_set_size" (func (param i64 i64 i64) (result i32)))
 )

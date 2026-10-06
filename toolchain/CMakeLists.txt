@@ -63,7 +63,6 @@ target_link_options(dolly PRIVATE
   "SHELL:-Wl,--export-table,--growable-table"
   -sDYNAMIC_EXECUTION=0
   -sWASMFS
-  -sFORCE_FILESYSTEM=1
   -sALLOW_MEMORY_GROWTH=1
   -sIMPORTED_MEMORY=1
   -sINITIAL_MEMORY=67108864
@@ -75,7 +74,6 @@ target_link_options(dolly PRIVATE
   -sENVIRONMENT=worker
   --no-entry
   --profiling-funcs
-  "SHELL:-sEXPORTED_RUNTIME_METHODS=FS,FS_createPath,FS_createDataFile,addRunDependency,removeRunDependency"
   "SHELL:-sEXPORTED_FUNCTIONS=@/src/build/runtime-exports.json"
   "SHELL:--js-library /src/src/browser-broker.js"
 )
