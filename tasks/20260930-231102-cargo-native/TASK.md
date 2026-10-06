@@ -379,29 +379,61 @@ the build scripts read (`config.status`, `buildconfig.rs`, `js-confdefs.h`,
 - Not tried: `cbindgen` (a Rust program mozbuild runs; its dependencies
   include `libc`), and mozbuild driving these commands itself.
 
+## The package and the integration base, 2026-10-06 21:47–22:25 JST
+
+- `demos/rust/Dollyfile-cargo` built green through the build slot at 21:47
+  (`DOLLY_BUILD_IMAGES=cargo`: curl, rust-sdk on the seed with the empty
+  suffix, rust-build, rust, cargo; 963 s, the Cargo step about ten minutes).
+  The package installs the `rust` package (Cargo is of no use without rustc),
+  exports `CARGO_INCREMENTAL=0` and ends its recipe with `cargo build
+  --offline` of a crate and a run of it: the log shows `cargo 1.98.1
+  (797e8a9bc 2026-08-05)`, `Finished` and `built by cargo`. Snapshot:
+  286,547,609 bytes. Licence texts: Cargo's three, libgit2's `COPYING` and
+  each crate's files; rows in `config/upstreams.json`.
+- A package of its own rather than part of `rust`: `rust` is copied from
+  `rust-build`, which every Rust image is built on, and should not carry a
+  ten-minute, 5 GB build that only Cargo's users need.
+- crates.io under an explicit policy (Chrome, 21:50): with
+
+      globalThis.DOLLY_HTTP_POLICY = { maxRequests: 1024, rules: [
+        { origin: "https://index.crates.io", pathPrefix: "/", methods: ["GET"] },
+        { origin: "https://static.crates.io", pathPrefix: "/crates/", methods: ["GET"] },
+      ] };
+      globalThis.DOLLY_HTTP_RELAYS = [{ origin: "https://index.crates.io", through: "https://RELAY/" }];
+
+  (plus the test server's own fixture rule) the two-dependency build works and
+  `curl https://crates.io/api/v1/crates/itoa` is refused with curl's status 9.
+  Cargo asks to follow redirects; none occurs on these two hosts. The public
+  sites configure no relay, so there a build with crates.io dependencies
+  fails at "Updating crates.io index" unless the index file happens to be
+  uncached; a vendored directory, a mirror or an embedding's relay works.
+- For the catalog round of 22:40 the package was handed over as
+  `check/cargo-on-next` (`a88e3621..f66aca87`, nine commits: this branch's
+  Cargo commits and `REQUIRES HOST runtime@0` for that base). On it: 67
+  recipes lint, 400 source tests pass, and `node demos/run-browser-tests.mjs
+  rust` passed (94.8 s) on a `rust-tools` chain built from that base with a
+  Rust seed relinked for it (34 s: with the compiler crates built, a
+  `process.h` change only relinks). `rust-tools` does not carry `cargo` in
+  that round.
+- This branch then merged `a88e3621` (`f7cd28bf`).
+
 ### Next steps
 
-1. The `cargo` package: its image build is the first run of
-   `demos/rust/Dollyfile-cargo`; then `rust-tools` with it and
-   `demos/rust/test/rust-browser.mjs`, which now builds against a one-crate
-   sparse registry on the test server.
-2. The libcurl follow-up's contract test (`node test/network-browser.mjs` on a
-   rebuilt `default`), then its commit.
-3. crates.io under an explicit policy, to state the rows:
-
-       globalThis.DOLLY_HTTP_POLICY = { maxRequests: 1024, rules: [
-         { origin: "https://index.crates.io", pathPrefix: "/", methods: ["GET"] },
-         { origin: "https://static.crates.io", pathPrefix: "/crates/", methods: ["GET"] },
-       ] };
-       globalThis.DOLLY_HTTP_RELAYS = [{ origin: "https://index.crates.io", through: "https://RELAY/" }];
-
-   Cargo asks to follow redirects; under explicit rules a redirect fails. The
-   public sites configure no relay, so there `cargo build` with crates.io
-   dependencies fails at "Updating crates.io index" unless the index file
-   happens to be uncached; a vendored directory or a mirror works.
-4. When kernel file locks land (`core/file-locks`): drop the SQLite dot-file
+1. On the merged base: rebuild `default` and `rust-tools` (now with `cargo`),
+   run `node demos/run-browser-tests.mjs rust` with its Cargo check
+   (`fixtures/cargo.mjs`: the two commands SpiderMonkey's configure runs, an
+   offline build, a build against a one-crate sparse registry on the test
+   server) and `node test/network-browser.mjs` for the libcurl follow-up
+   (`085f7641`); try `amy install cargo` in `default`.
+2. When kernel file locks land (`core/file-locks`): drop the SQLite dot-file
    setting from `cargo-patti.toml` and `CARGO_INCREMENTAL=0` from the
    package. Both are stopgaps.
+3. `libc` under Cargo (above) has no good answer yet; `cbindgen` for
+   SpiderMonkey needs it.
+4. `cargo search`, `publish` and `login` need `CONNECTTIMEOUT`, `LOW_SPEED_*`
+   and `PUT` in libcurl; git dependencies over HTTPS need a relay and
+   libgit2's curl transport, which Cargo registers only with a non-default
+   `[http]` configuration.
 
 ### What would retire Patti
 
