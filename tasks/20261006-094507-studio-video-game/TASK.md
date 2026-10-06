@@ -79,5 +79,51 @@ All on :9005 release `c60a2c6f`, `deepseek/deepseek-v4-flash`, `/thinking xhigh`
   showed a blank terminal: raised as `20261006-103256-entry-missing`. With
   the export added by hand the game runs but looks worse than g1 (a small
   odd ship, an early game over). Stopped after the build, about 0.06 USD.
-- g3 (19:32, `neon-drift-8.txt`): g1's prompt plus the EXPORTS rule and a
-  score that ticks with distance.
+- g3 (19:32, `neon-drift-8.txt`: g1's prompt plus the EXPORTS rule and a
+  score that ticks with distance): lost two minutes in, when the machine ran
+  out of memory and was rebooted (19:34 to 19:54). Not repeated: g1 already
+  meets the task, and one more variant is not worth load on the owner's
+  desktop right after an out-of-memory reboot.
+- Cost of this task: 0.17 USD (the key's OpenRouter usage went from 1.259 to
+  1.427 USD): g1 0.09, g2 about 0.06, g3 about 0.01. No stronger model was
+  needed.
+
+## Final take: g1 (committed 2026-10-06 20:00 JST)
+
+Left OPEN for the owner's verdict on the result; the done-when items are met
+on `work/demo-recordings`.
+
+- Release `c60a2c6f` on :9005 at the start and the end of the take. Model
+  `deepseek/deepseek-v4-flash`, Pi `/thinking xhigh`; 26 requests, 0.09 USD.
+- Prompt: `build/recordings-evidence/rig/prompts/neon-drift-6.txt`. It keeps
+  the request (a 3D synthwave racer FROM the published gamedev-sdk) and adds
+  the rules the model cannot check without seeing the screen: clear every
+  frame, draw order, a fixed camera and road layout, cross lines that scroll,
+  14 bright blocks spread along the road, held-key input.
+- What the game shows: a starry purple-to-orange sky, a banded sun on the
+  horizon, a dark road with a violet grid scrolling toward the camera, rows
+  of cyan and pink wireframe towers, solid orange, teal and magenta blocks
+  with white edges, golden rings, a cyan ship with a pink cockpit. The rig's
+  pixel autopilot (captioned) steers around blocks and through rings for 22 s
+  with all three shields; the fresh-browser rebuild plays the same way.
+- Known limits of this take: the speed readout stays at 60 and the score
+  only counts rings; Pi stopped once on a network error and the rig typed
+  "Continue." (captioned).
+- The seven steps are unchanged; the paste was checked on the committed
+  file (sha256 `5825f111…`): all 180 frames from 24.5 s to 30.5 s of Pi's
+  input line show the typed `openrouter`, an empty prompt, only `*`, then the
+  closed dialog; the whole video at one frame per 3 s shows no key; the
+  request log and transcript hold neither the key nor `sk-or-v1`.
+- Video 2:47, 8.3 MB (CRF 33, 47 half-painted capture frames dropped);
+  poster from the game. Saved recipe:
+  `build/recordings-evidence/cuts/Dollyfile-neon-drift-g1` (not committed).
+
+## Rerun
+
+As in `20261005-223022-studio-video`, with the prompt above:
+`RIG_ORIGIN=http://localhost:9005 node studio2.mjs TAKE prompts/neon-drift-6.txt deepseek/deepseek-v4-flash xhigh`
+(now inside `systemd-run --user --scope -q -p MemoryMax=8G -p MemorySwapMax=0`),
+then `PLAY=22 FRESH=20 node plan2.mjs TAKE "description" > plan.json`,
+`CRF=18 node cut.mjs plan.json hq.mp4 1920`, `CRF=33 ./deglitch.sh hq.mp4
+final.mp4` and `./pastecheck.sh final.mp4 24.5 30.5 OUT_DIR`. To inspect a
+saved recipe's frames: `drive.mjs` with `custom-run.js` and `grab.js`.
