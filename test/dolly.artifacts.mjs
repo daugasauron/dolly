@@ -86,32 +86,19 @@ test("a statically linked process executable satisfies dolly-process-0", async (
 });
 
 test("the production seed contains only bootstrap and compiler executables, not acceptance probes", async () => {
-  const { default: loadSeed } = await import("../dist/dolly-seed.mjs");
-  const bytes = await readFile(new URL("../dist/dolly.data", import.meta.url));
-  const files = new Map();
-  let dependencies = 0;
-  await loadSeed({
-    getPreloadedPackage(_name, size) {
-      assert.equal(size, bytes.byteLength);
-      return bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength);
-    },
-    FS_createPath() {},
-    FS_createDataFile(path, _name, contents) { files.set(path, contents); },
-    addRunDependency() { dependencies++; },
-    removeRunDependency() { dependencies--; },
-  });
-  assert.equal(dependencies, 0);
-  const prefix = "/seed/usr/libexec/dolly/process-bin/";
+  const { decodeSnapshotRecords } = await import("../src/snapshot-records.mjs");
+  const files = decodeSnapshotRecords(await readFile(artifact("dolly.data")));
+  const prefix = "/usr/libexec/dolly/process-bin/";
   assert.deepEqual([...files.keys()].filter(path => path.startsWith(prefix))
-    .map(path => path.slice(prefix.length)).sort(), ["bootstrap", "compiler"]);
+    .map(path => path.slice(prefix.length)), ["bootstrap", "compiler"]);
   for (const name of ["bootstrap", "compiler"]) {
-    assert.deepEqual(Buffer.from(files.get(prefix + name)),
+    assert.deepEqual(Buffer.from(files.get(prefix + name).data),
       await readFile(new URL(`../build/process-bin/${name}`, import.meta.url)));
   }
-  assert.ok(files.has("/seed/usr/include/stdio.h"));
+  assert.ok(files.has("/usr/include/stdio.h"));
   assert.ok(![...files.keys()].some(path => path.includes("/c++/v1/")));
   for (const port of ["boost/version.hpp", "png.h", "unicode/utypes.h"])
-    assert.ok(!files.has("/seed/usr/include/" + port), `SDK cache port leaked into the compiler seed: ${port}`);
+    assert.ok(!files.has("/usr/include/" + port), `SDK cache port leaked into the compiler seed: ${port}`);
 });
 
 test("the process gate can only copy between one process and kernel memory", async () => {

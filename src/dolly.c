@@ -1,5 +1,4 @@
 #include <errno.h>
-#include <dirent.h>
 #include <fcntl.h>
 #include <limits.h>
 #include <stdatomic.h>
@@ -156,90 +155,6 @@ int dolly_remove_file(const char *path) {
   return unlink(path) == 0 ? 0 : -errno;
 }
 
-static int copy_seed_file(const char *source, const char *destination) {
-  int input = open(source, O_RDONLY);
-  if (input < 0) return -1;
-  int output = open(destination, O_WRONLY | O_CREAT | O_TRUNC, 0666);
-  if (output < 0) {
-    close(input);
-    return -1;
-  }
-  unsigned char bytes[64 * 1024];
-  int status = 0;
-  for (;;) {
-    const ssize_t count = read(input, bytes, sizeof(bytes));
-    if (count <= 0 || dolly_fs_write_exact(output, bytes, (uintptr_t)count) != 0) {
-      status = count == 0 ? 0 : -1;
-      break;
-    }
-  }
-  int saved_error = status == 0 ? 0 : errno;
-  if (close(output) != 0 && status == 0) {
-    status = -1;
-    saved_error = errno;
-  }
-  if (close(input) != 0 && status == 0) {
-    status = -1;
-    saved_error = errno;
-  }
-  if (status != 0) errno = saved_error == 0 ? EIO : saved_error;
-  return status;
-}
-
-static int install_seed_tree(const char *source, const char *destination) {
-  struct stat metadata;
-  if (stat(source, &metadata) != 0) return -1;
-  if (S_ISREG(metadata.st_mode)) return copy_seed_file(source, destination);
-  if (!S_ISDIR(metadata.st_mode)) {
-    errno = ENOTSUP;
-    return -1;
-  }
-
-  struct stat destination_metadata;
-  if (stat(destination, &destination_metadata) != 0) {
-    if (mkdir(destination, 0755) != 0) return -1;
-  } else if (!S_ISDIR(destination_metadata.st_mode)) {
-    errno = ENOTDIR;
-    return -1;
-  }
-
-  DIR *directory = opendir(source);
-  if (directory == NULL) return -1;
-  int status = 0;
-  for (;;) {
-    errno = 0;
-    struct dirent *entry = readdir(directory);
-    if (entry == NULL) {
-      if (errno != 0) status = -1;
-      break;
-    }
-    if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0) {
-      continue;
-    }
-    char child_source[PATH_MAX];
-    char child_destination[PATH_MAX];
-    if (snprintf(child_source, sizeof(child_source), "%s/%s", source,
-                 entry->d_name) >= (int)sizeof(child_source) ||
-        snprintf(child_destination, sizeof(child_destination), "%s/%s",
-                 destination, entry->d_name) >= (int)sizeof(child_destination)) {
-      errno = ENAMETOOLONG;
-      status = -1;
-      break;
-    }
-    if (install_seed_tree(child_source, child_destination) != 0) {
-      status = -1;
-      break;
-    }
-  }
-  int saved_error = status == 0 ? 0 : errno;
-  if (closedir(directory) != 0 && status == 0) {
-    status = -1;
-    saved_error = errno;
-  }
-  if (status != 0) errno = saved_error == 0 ? EIO : saved_error;
-  return status;
-}
-
 static int initialize_boot_environment(void) {
   int output = open("/dev/dolly-stdout", O_WRONLY);
   int error = open("/dev/dolly-stderr", O_WRONLY);
@@ -277,10 +192,10 @@ static int initialize_boot_environment(void) {
 
 static int load_image_environment(void);
 
-int dolly_process_bootstrap_prepare(void) {
+int dolly_process_bootstrap_prepare(uintptr_t size) {
   if (initialize_boot_environment() != 0) return 1;
-  if (install_seed_tree("/seed/usr", "/usr") != 0) {
-    fprintf(stderr, "dolly: could not install compiler seed: %s\n", strerror(errno));
+  if (dolly_snapshot_restore_staged(size, NULL) != 0) {
+    fprintf(stderr, "dolly: invalid compiler seed: %s\n", strerror(errno));
     return 1;
   }
   return 0;
