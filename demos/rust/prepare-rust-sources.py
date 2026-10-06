@@ -71,7 +71,8 @@ adapted = {
               ("is_executable-1.0.6", "config/patches/is_executable.patch"),
               ("git2-curl-0.22.0", "config/patches/git2-curl.patch"),
               ("jiff-0.2.31", "config/patches/jiff-timezone.patch"),
-              ("jobserver-0.1.34", "toolchain/jobserver.patch")],
+              ("jobserver-0.1.34", "toolchain/jobserver.patch"),
+              ("jobserver-0.1.34", "config/patches/jobserver-configure.patch")],
 }
 for crate, patch in adapted.get(name, []):
     if not (stage / crate).exists():
