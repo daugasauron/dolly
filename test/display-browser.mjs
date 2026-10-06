@@ -5,10 +5,11 @@ import { browserTest } from "./browser.mjs";
 // frames and output wakes it; pointer motion is one record per frame, waits
 // for a program that does not read and never takes a key's slot; a record the
 // ring has no room for is counted, shown and marked in the ring where it was
-// lost; the terminal keeps its pointer records when a foreground program ends.
+// lost; when a foreground program ends the terminal keeps its pointer records,
+// and the keys typed while that program's Worker retires reach the shell.
 const server = { fixtures: { "terminal-ui.c": "test/fixtures/terminal-ui.c" } };
 await browserTest("display", { image: "system", server }, async ({ server, open }) => {
-  const { page, submit, text } = await open({
+  const { page, submit, text, waitForText } = await open({
     policy: { rules: [{ origin: server.origin, pathPrefix: "/fixture/", methods: ["GET"] }] },
     setup: page => page.addInitScript(() => {
       const request = requestAnimationFrame.bind(window);
@@ -97,5 +98,14 @@ await browserTest("display", { image: "system", server }, async ({ server, open 
   assert.equal(await retiring, 0);
   const ruler = "abcdefghijklmnopqrstuvwxyz".repeat(5).slice(0, dragged + 1);
   await page.waitForFunction(ruler => __dolly.copySelection() === ruler, ruler);
+  // Keys typed in that half second are the next reader's, not the unread
+  // input of the program that exited: the shell runs the command.
+  const retired = submit(`foreground -i ${probe} retire`);
+  await page.evaluate(async () => {
+    while (__dolly.terminal.foregroundPid() !== 0) await new Promise(resolve => setTimeout(resolve, 4));
+    __dolly.inputTransport.pushText("echo TYPED-$((40 + 2))\r");
+  });
+  assert.equal(await retired, 0);
+  await waitForText(/^TYPED-42$/m);
   assert.equal(await submit(`rm ${probe} ${probe}.c`), 0);
 });
