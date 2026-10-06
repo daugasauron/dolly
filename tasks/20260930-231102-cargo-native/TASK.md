@@ -467,6 +467,16 @@ seed with the empty suffix, explicit `runtime@0`, the libcurl follow-up.
     cannot find function `sethostname` in crate `libc`". That is what
     `nix-hostname.patch` is for under Patti; under Cargo such crates need a
     `[patch]` table naming a patched copy (`jiff` likewise).
+- SpiderMonkey's library again, now on the `rust-tools` image with the
+  packaged Cargo and the host build's settings (23:33): `cargo rustc
+  --release --frozen --manifest-path js/src/rust/Cargo.toml --lib --target
+  wasm64-emscripten-probe --features icu4x -j1`, with
+  `RUSTFLAGS="-C debuginfo=2 --cap-lints warn -C codegen-units=1"`,
+  `CARGO_PROFILE_RELEASE_OPT_LEVEL=2` and the object directory as target
+  directory. The first attempt failed on `--frozen` (the unstable lock
+  order), the second finished in 3 m 42 s and left a 37.7 MB
+  `obj-dolly/wasm64-emscripten-probe/release/libjsrust.a`, where mozbuild
+  looks for it.
 - `cargo test` fails: "error[E0463]: can't find crate for `test`". The SDK
   ships no `test` crate (`build-sdk.sh` builds `std,panic_abort,proc_macro`),
   and tests on a panic-abort target need `-Zpanic-abort-tests`.
