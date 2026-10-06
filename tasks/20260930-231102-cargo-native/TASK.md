@@ -437,9 +437,9 @@ seed with the empty suffix, explicit `runtime@0`, the libcurl follow-up.
   server, under the test's explicit policy; the registry saw exactly its
   `config.json`, one index file and one download.
 - The `cargo` image build is marginal under the 6 GB build cap: it passed
-  once (22:57, 5.64 GB anonymous memory in the last crate, built with only
-  `rust-tools` after it), was killed once under 6 GB (23:57, 5.94 GB, built
-  after three other images in one scope) and once under 5 GB. `-j` is not
+  twice (22:57 and 00:18, 5.64 and 5.67 GB anonymous memory in the last
+  crate) and was killed twice (23:57 in the last crate at 5.94 GB, 00:35
+  four minutes in), and once under 5 GB. `-j` is not
   the lever: with `-j 2` a session build took 1200 s on a loaded machine and
   peaked at 4.70 GB against 5.05 GB with `-j 4`; the `cargo` crate's own
   rustc on top of about 2 GB of files decides. The recipe keeps `-j 4`.
@@ -481,14 +481,28 @@ seed with the empty suffix, explicit `runtime@0`, the libcurl follow-up.
   order), the second finished in 3 m 42 s and left a 37.7 MB
   `obj-dolly/wasm64-emscripten-probe/release/libjsrust.a`, where mozbuild
   looks for it.
+- `amy install cargo` in `default` (00:21): "amy: cargo installed: 1344
+  files, 286079739 bytes, commands: cargo patti rustc"; `amy installed` lists
+  `rust`, then `cargo`; `cargo --version` and `cargo metadata` run at once.
+  `cargo build` then failed at the link: "dolly-rust-link: spawn cc: No such
+  file or directory". On this base `default` has no C toolchain, and the
+  `rust` package did not install one (`amy install rust` had the same gap;
+  the amy suite installed `rust` only after `cc`). Fixed: the `rust` package
+  installs `cc` (`69e09fe3`); in `default`, `amy install rust` then reports
+  "commands: ar c++ cc ld make patti rustc" and `rustc s.rs && ./s` runs.
+  `test/amy-browser.mjs` gained two cases on a fresh `default` without `cc`
+  (`9dfd07b9`): "amy rust alone" passes in Chromium and Firefox; the cargo
+  case has not run, because the `cargo` image did not rebuild under the cap
+  afterwards. The package's `CARGO_INCREMENTAL=0` applies from the next
+  session load, as amy says; until then the first build needs it set.
 - `cargo test` fails: "error[E0463]: can't find crate for `test`". The SDK
   ships no `test` crate (`build-sdk.sh` builds `std,panic_abort,proc_macro`),
   and tests on a panic-abort target need `-Zpanic-abort-tests`.
 
 ### Next steps
 
-1. `amy install cargo` in `default` (the index entry and the package exist;
-   not yet run).
+1. Rebuild `cargo` and `rust-tools` on the `rust` package that installs
+   `cc`, and run the cargo case of `test/amy-browser.mjs`.
 2. When kernel file locks land (`core/file-locks`): drop the SQLite dot-file
    setting from `cargo-patti.toml` and `CARGO_INCREMENTAL=0` from the
    package. Both are stopgaps.
