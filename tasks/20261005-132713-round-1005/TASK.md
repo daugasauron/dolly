@@ -839,3 +839,77 @@ rewrites were restored after each build here.
 - Suites, each in Chromium and in Firefox, all passing (`full-summary.txt`):
   core, process, shell, slop, terminal, display, boundary, host-modules,
   image, custom-session, and beyond the list dso and threads.
+
+### 12:37, 2026-10-07: round 3 sealed; the checkpoint round started
+
+- **Round 3** is packaged and tagged `rc-2026-10-07-r3` (`integrate/round3`
+  at `7992be73`): full site `799a9d41…`, domain site `660b593b…`, in
+  `work/locks/build/round3-releases` and `round3-domain-releases`; not
+  served (the checkpoint replaces it). Its suites: source 414/0, artifacts
+  23/0, core browser suites in both browsers (the compiler suite after the
+  test was narrowed to the five flags that work: `-fstandalone-debug` and
+  `-ferror-limit=` reach cc1 in the driver's spelling and are refused; fix
+  `core/cc-flags` `7dbf0f38`, unbuilt, next seed change), demos (emacs once
+  lost typed text and passed twice on rerun: recorded in
+  `20261001-095000-terminal-text-flake`), GPU tests (the local-model test
+  needs more than 900 s now and passed with a longer limit). It was the first
+  release packaged by the streaming `share-pages-snapshots.mjs` (216 MB
+  instead of 25 GB; task `publish-memory` closed).
+- **Checkpoint** (owner, 12:00: "take the current state ish, include the
+  xonotic game and the zero-ad build … then stop there and get to a stable
+  checkpoint"; goal: "let me know when it's deployed locally for review"):
+  `integrate/checkpoint` at `b036d27e` in `work/locks` = round 3 + `main` +
+  `work/spidermonkey` (`d2eb72a2`: SpiderMonkey built inside Dolly, 0 A.D.'s
+  engine linked against it, three 0 A.D. tests green with the same save/load
+  hash, host bootstrap deleted) + `fix/package-needs` (`6b0a44b3`: `cmake`
+  installs `cc` and `make`) + `demo/xonotic` (`25528317`: server, QuakeC
+  compiler and client built in Dolly, software renderer at 31 fps on the low
+  preset, the `sdl2` cursor fix, pointer capture in a match verified in both
+  browsers, licence rows). 71 recipes. Same seed as round 3 (image inputs
+  `c62b2710…`), so only `sdl2` and what installs it, the 0 A.D. chain,
+  `cmake`, and the four new images rebuild.
+- Left out on purpose, each on its branch: `input@0` (`core/input-module`
+  `fa073dc9`, verified on chains, game demos not), the two compiler flags,
+  file modes, `exec`, Xonotic's sound and `gpu@0` renderer, `less`.
+- The round: `work/checkpoint-run.sh` (stages as before, gated before
+  packaging), log `work/locks/build/checkpoint-evidence/checkpoint.log`,
+  releases to `build/checkpoint-releases` and `checkpoint-domain-releases`.
+  When green: serve on :9003 and :9005, merge to `main`, tag
+  `checkpoint-2026-10-07`, tell the owner.
+
+### 14:40, 2026-10-07: the checkpoint is sealed, served and merged
+
+- **`checkpoint-2026-10-07`** = `b036d27e` (`integrate/checkpoint`); `main` =
+  that tree plus task records (merge `015ee838` and later). Not pushed, not
+  deployed. 71 images; runtime `aebe03b1…`, image inputs `c62b2710…`.
+- **Served on localhost from `work/locks`**: :9003 the full site, release
+  `977a312d3734774c0004b2c83842e24c09f184e8d375623a7985fd39f3b0913d`
+  (`build/checkpoint-releases`); :9005 the daugasauron.com packaging, release
+  `d49846b6f7a11514b4773074d87fe2f1069ca59a5ffbc249604c7f4f62faeb92`
+  (`build/checkpoint-domain-releases`), which now lists `xonotic`. The
+  :9008 and :9009 working-tree servers are stopped. After serving, `default`
+  booted from both in headless Chromium and ran `download`, `upload`,
+  `touch -t`, `amy list` and `man`.
+- **The round** (`work/locks/build/checkpoint-evidence/`, 12:37 to 14:34):
+  catalog 31 minutes (only `sdl2` and what installs it, the 0 A.D. chain on
+  the Dolly-built SpiderMonkey, `cmake`, and the four new images rebuilt);
+  source 415/0; artifacts 23/0; core browser suites in chromium and firefox,
+  all passed (800 s); demos all passed, `xonotic` among them (437 s); GPU
+  tests `local-llm`, `0ad-spidermonkey`, `0ad-engine`, `0ad-graphics`,
+  `slopyard` all exit 0; both packagings and their acceptance exit 0.
+- **Known and recorded, not fixed**: `cc -fstandalone-debug` and
+  `-ferror-limit=` fail (fix on `core/cc-flags` `7dbf0f38`, unbuilt); typed
+  text was cut short in Emacs once in round 3 and did not recur here; the demo
+  runner is Chromium-only, so demos in Firefox rest on the agents' own runs
+  (Xonotic, the local-model test) and nothing else; SpiderMonkey's build was
+  not run in Firefox; Xonotic has no sound and renders in software (31 fps at
+  the low preset); the image builder needs 7 to 18 GB for the largest images.
+- **Not in the checkpoint**, each on its branch: `input@0`
+  (`core/input-module` `fa073dc9`), file modes (`core/file-modes`
+  `c17b186e`, unbuilt), the two compiler flags, `exec`, `less`.
+- Worktrees still present: `work/locks` (serves the checkpoint; do not
+  remove), `work/next` (the morning candidate's releases), `work/cargo`,
+  `work/xonotic`, `work/visible`, `work/input`-less branches are gone,
+  `work/pipelines`, `work/recordings`, `work/cc-flags`, `work/cc-simd`,
+  `work/full-read`, `work/publish-memory`. Evidence of removed trees is in
+  `work/evidence-2026-10-06/` and `work/evidence-2026-10-07/`.

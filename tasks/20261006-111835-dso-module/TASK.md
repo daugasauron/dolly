@@ -1,6 +1,6 @@
 # dso@0: the process's dynamic loader and FFI as a declared host module
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 318
 - TAGS: core,architecture,host-modules,abi,boundary
 
@@ -324,3 +324,14 @@ is the catalog round's: build every image (sealing names any recipe that
 keeps `nvim`, `lua`, `python` or `rustc-real` without the line), then the
 full `amy` and demo suites. The task stays open until that round has run;
 the branch joins `integrate/round3`.
+
+## Closed 2026-10-07
+
+The third done-when, the full catalog, holds: `core/dso-module` (`b527f4de`)
+is in round 3 (`rc-2026-10-07-r3`, 67 images) and in the checkpoint of
+2026-10-07 (`checkpoint-2026-10-07` = `b036d27e`, 71 images). Both rounds
+built every image with the module, relinked the Rust seed with the dso client,
+and passed the source and artifact suites, the core browser suites in
+Chromium and Firefox (the `dso` suite among them), the demo suites (python,
+neovim, cmake, rust, pi and the rest) and the GPU tests; logs in
+`work/locks/build/round3-evidence/` and `build/checkpoint-evidence/`.
