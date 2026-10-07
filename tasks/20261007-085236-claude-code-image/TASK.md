@@ -95,7 +95,13 @@ Open readings:
   The integrator's decision is that offering a choice among Claude Code's own
   published modes restricts no method; the owner may read it otherwise.
 
-**Owner:** confirm that Anthropic's Commercial Terms are accepted (an API
+**Owner (2026-10-07)**, shown the Commercial Terms gate and the open readings
+above (run on Janis, `--bare` as the default key, an old release): "All of
+this is fine." The image joins the domain's catalog
+(`config/domain-pages-images.txt`); it is not in the GitHub Pages subset. The
+agreement with Anthropic itself is the owner's account's, not this file's.
+
+**Owner, earlier:** confirm that Anthropic's Commercial Terms are accepted (an API
 Console account normally has), and supply a funded API key for the one real
 run. The key is never committed, logged or shown in a screenshot.
 

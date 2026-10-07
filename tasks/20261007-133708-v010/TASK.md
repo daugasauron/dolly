@@ -59,6 +59,10 @@ they are proposed now.
 
 ## The owner's gates
 
+Owner (2026-10-07), shown both lists: "All of this is fine." The open
+readings and Xonotic's points are accepted, and `closed-source-agent` is in
+the domain's catalog. Left of the first gate: the run with a real key.
+
 - Anthropic's Commercial Terms confirmed, before `closed-source-agent` is in
   a published catalog; a funded key for its one real run.
 - Xonotic: assets without their own licence statement rest on the release's
