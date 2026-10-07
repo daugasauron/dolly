@@ -514,7 +514,12 @@ that only prove reproducibility must not be recipes.
   so the two cannot drift), then requires every archive, the linked compiler
   and the three TableGen tools to be the first stage's bytes. A third stage
   is the same test again. `Dollyfile-llvm-stage2` is gone. Least code: one
-  test of 40 lines, no change to how the catalog finds recipes.
+  test of 38 lines, no change to how the catalog finds recipes.
+- **The test's first run** (Chrome 151, under the 9 GB slot beside three
+  other suites of mine, mean load 8.0): passed in 3,060.6 s. Peak 6.69 GB of
+  PSS over the processes of its scope (sampled from 15 minutes in; the
+  scope's own peak, file cache included, 7.38 GB), so it needs the 9 GB slot,
+  not the 6 GB one. Not run in Firefox.
 - **Before it went**, `llvm-stage2` was rebuilt once with the TableGen tools
   added (`make -k -j4` 2,569.5 s; tools 91.6 s): the 103 archives identical
   again, the three tools identical to `llvm-tablegen`'s, and then the
@@ -530,7 +535,7 @@ that only prove reproducibility must not be recipes.
 | `llvm-build` | toolchain | 2,623 s, 9 GB slot | 604 MB |
 | `llvm-cc` | toolchain, opens | 236 s | 653 MB |
 | `llvm` | package | 27 s (the command 39.5 s) | 263 MB |
-| second stage | test, on demand | STAGE2_TEST | none |
+| second stage | test, on demand | 3,061 s, 9 GB slot | none |
 
 - **A full round** now has three more recipes than before this task and
   spends 48 more minutes of one builder on them (2,886 s; with the second
@@ -540,8 +545,11 @@ that only prove reproducibility must not be recipes.
   A change to the seed rebuilds all of it; a change elsewhere reuses it.
 
 What a user gets, checked in Chrome 151 and Firefox 155
-(`demos/llvm/test/llvm-browser.mjs`; the image opened directly in a scratch
-run):
+(`demos/llvm/test/llvm-browser.mjs`, whose parts pass on the merged tree: the
+image 13.3 s and 28.7 s, the package 9.3 s and 9.0 s, `core/llvm-runtimes`'
+part 455.5 s and 546.2 s; the image opened directly in a scratch run). On
+that tree the core, process, threads, dso, cpp and amy suites also pass in
+both browsers.
 
 - **A package.** In a session, `amy install llvm` (2.4 s in a `default`
   session: `amy: llvm installed: 1948 files, 262650558 bytes, commands: ar c++
