@@ -88,26 +88,30 @@ zlib), 1 (git) needs a message for its editor and pager, 13 work.
 Decisions:
 - cmake installs cc (a plain dependency: configure runs the compiler, build
   runs make). Done below.
-- sdl2 and zlib are libraries: their only use is through cc (sdl2 also
-  through cmake's `find_package`). Not changed today; the owner decides
-  whether a library package installs the compiler it is consumed by (sdl2
-  would INSTALL cmake, zlib cc) or whether "a library is for a toolchain you
-  already have" stays the rule, as `gzip` INSTALL zlib shows the other side.
-- git: today each message names the missing file (`cannot spawn less`,
-  `cannot spawn vi`). No package provides `less` or `vi`, and `nvim` or
-  `emacs` are too large to pull in for a pager. The right message is the
-  shell's or the kernel's, not git's: a failed spawn of NAME should say
-  `NAME: not installed; amy install PKG provides it` when the index lists a
-  package exporting that TOOL, and plain `not found` otherwise. One place can
-  say it for every program: the spawn failure path in the kernel (ENOENT on
-  `/bin/NAME`, `/usr/bin/NAME`) has the name; the index of TOOL exports per
-  package is in `/amy-index.txt` plus each package's recipe, which the kernel
-  does not read today. The cheapest version is in Slop's "command not found"
-  (`slop: cmake: command not found`), which covers typed commands but not git
-  spawning `less`. A setting pair `core.pager=cat` is not the answer either:
-  git's default without `less` should simply be no pager, which upstream does
-  when `PAGER=cat`; `default` could export `PAGER=cat` and `EDITOR=nvim`
-  only when installed. Design note for the owner, not code today.
+- sdl2 and zlib: by design, needs a compiler, installs none (integrator's
+  ruling 2026-10-07). A library starts nothing, and a package of headers and
+  archives that installed `cc` would drag 2,000 files into every image that
+  only links against it from its own toolchain. Their one-line descriptions
+  (`amy list`, the start page) now say they are libraries for programs the
+  `cc` (and for sdl2 `cmake`) package builds and install no compiler; that is
+  README text read at route generation, no image changes.
+- git: no dependency (same ruling). Today, on the terminal, `git -p log`
+  prints `error: cannot spawn less: No such file or directory` then `fatal:
+  unable to execute pager 'less'` (status 128), and `git commit` without -m
+  prints `error: cannot spawn vi: No such file or directory`, `error: unable
+  to start editor 'vi'`, `Please supply the message using either -m or -F
+  option.` Both name the missing file, not what to do. They should say
+  `less: not installed; no package provides it (git shows the log without a
+  pager when PAGER=cat)` and `vi: not installed; amy install nvim provides
+  an editor (set EDITOR=nvim)`. git itself cannot know the catalog, so the
+  message belongs in one place for every failed spawn: the kernel's spawn
+  failure (ENOENT for a bare NAME on the PATH) has the name, and the catalog
+  of TOOL exports per package is `/amy-index.txt` plus each package's recipe,
+  which the kernel does not read today; the cheapest first step is Slop's
+  `command not found` naming the package, which covers typed commands but
+  not git spawning `less`. Until then `default` could export `PAGER=cat`
+  (upstream's own "no pager" spelling), so git never looks for `less`.
+  Design note for the owner, not code today.
 - `download` and `upload`: they belong in `core`: they are the page's file
   exchange, every image declares the two host modules, and `core` already
   holds the other commands every image needs (slop, cat, ls, tar). A

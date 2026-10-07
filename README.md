@@ -30,7 +30,7 @@ recipes build on, or a `PACKAGE` recipes and sessions install
 - `amy`: the package installer and the recipe engine it runs, as a package.
 - `posix`: grep, sed, sort, find, xargs, awk, sh and the other text and file tools, as a package.
 - `git`: Git over the HTTP broker, with diff and patch, as a package.
-- `zlib`: zlib, as a package.
+- `zlib`: the zlib headers and static library, for programs the `cc` package builds; it installs no compiler, as a package.
 - `curl`: curl and libcurl over the HTTP broker, as a package.
 - `gzip`: gzip over zlib, as a package.
 - `display`: the Ghostty display plugin and its font, as a package.

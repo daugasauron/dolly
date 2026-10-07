@@ -5,7 +5,7 @@ ClassiCube, Seven Kingdoms and Airtime build on it.
 
 ## Images
 
-- `sdl2`: SDL2 software rendering for the Dolly framebuffer, as a package.
+- `sdl2`: SDL2 software rendering for the Dolly framebuffer, a library for programs the `cc` and `cmake` packages build; it installs neither, as a package.
 
 `sdl2` compiles the pinned release inside Dolly ([`Dollyfile-sdl2`](Dollyfile-sdl2)) with
 the backend in [`SDL_dollyvideo.c`](SDL_dollyvideo.c) and
