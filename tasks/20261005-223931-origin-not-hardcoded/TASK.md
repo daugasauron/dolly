@@ -144,8 +144,8 @@ Not run, and why:
 - `amy programs` (the second test of `test/amy-browser.mjs`): needs `cmake`,
   `sdl2`, `rust` and `codex-cli`.
 - `test/fs-growth-browser.mjs`: the 6 GB browser slot kills it in both
-  browsers (`Memory cgroup out of memory` in the kernel log), before and
-  after this change.
+  browsers (`Memory cgroup out of memory` in the kernel log, Chrome at
+  6.0 GB); not measured on `main` under the same cap.
 - `test/gpu-render-browser.mjs` (needs a GPU display) and every demo test
   but the three above; `demos/llvm/test/stage2-browser.mjs` was edited and
   not run (`llvm-cc` is not built here).
