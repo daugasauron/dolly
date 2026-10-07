@@ -225,3 +225,17 @@ that window.
 
 Evidence on both fixes: `demos/neovim` 10 of 10; `terminal`, `display` and
 `process` in Chrome and Firefox; `core`, `shell` and `boundary` in Chrome.
+
+## 2026-10-07, round 3: typed text cut short in Emacs, once
+
+In round 3's demo suite (`work/locks`, `integrate/round3` at `d749b3ad`,
+11:13 to 11:31, the machine also building two images) the `emacs` test in
+Chromium typed `/tmp/dolly-emacs-test.txt` at the "Find file:" prompt and the
+minibuffer received only `/t` (`work/locks/build/round3-evidence/demos.log`
+lines 26 to 40). Two reruns right after passed in Chromium and Firefox. So
+input pushed by the page can be cut short on its way to a program that is
+reading the terminal; not reproduced, cause unknown. Candidates to check, not
+to believe: the discard of pending input when a process is marked exited
+(`9abd08b0`), if Emacs or its start-up runs and reaps a child at that moment;
+the page's text push being split across frames while the ring is serviced.
+The same round moves this code into `input@0` next.

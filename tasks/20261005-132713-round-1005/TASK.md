@@ -735,6 +735,63 @@ exact-import check passes.
   The next catalog round runs on this branch, with `fix/visible` and what the
   SpiderMonkey and Xonotic tracks have ready.
 
+### 09:55, 2026-10-07: usage limit reached again; state to resume from
+
+- **Round 3 is running unattended** in `work/locks` (`integrate/round3` at
+  `35668d93`; runtime `aebe03b1…`, image inputs `c62b2710…`, Rust seed
+  `ba2dfb1d…`): `work/round3-run.sh` runs the catalog, suites and GPU tests in
+  a 26 GB scope and then packages into `build/round3-releases` and
+  `build/round3-domain-releases` in a 38 GB scope. It stops before packaging
+  if a suite fails. Log `work/locks/build/round3-evidence/round3.log`; resume
+  a stage with `bash work/round3-run.sh STAGE`. 24 of 58 light images were
+  built at 09:53, none failed. It carries, beyond the candidate: file locks,
+  kernel-boundary step 3, `dso@0`, newer Slop, Cargo in `rust-tools`,
+  `core/full-read`, `core/cc-flags` (seven flags), `core/cc-simd`,
+  `core/touch-t` (two defects fixed in `35668d93`) and the visible fixes. Not
+  yet done with it: serve it, merge to `main`, tag.
+- **Served now**: :9003 and :9005 the sealed candidate `rc-2026-10-07`
+  (`work/next`); :9008 `work/visible` (the visible fixes, merged into `main`
+  as `3fdb8d40`); :9009 `work/xonotic` (`/xonotic/` opens the game's menu).
+- **SpiderMonkey** (`work/spidermonkey` at `af1554e2` or later, in
+  `work/cargo`): built end to end inside Dolly in a browser session (configure
+  41 s, Rust library 205 s, C++ about 6 min at -j1, peak 4.3 GB; the engine's
+  probe passes). The recipe `Dollyfile-zero-ad-spidermonkey`, a `cbindgen`
+  package and the consolidated patch are committed, unbuilt, merged with round
+  3 (same image inputs). **Next step, not done**: when round 3 has built
+  `python`, `cargo` and `rust-tools`, import its finished images into
+  `work/cargo/dist` by hard link, copy round 3's
+  `build/rustc-port/rust-sdk.tar.gz` and `seed.sha256` and the working-tree
+  recipes of the imported images there, then build
+  `cbindgen,zero-ad-spidermonkey` and `zero-ad-deps`. The Dolly-built library
+  is a drop-in for `zero-ad-engine` (it recompiles against `/opt/mozjs`).
+- **Xonotic** (`demo/xonotic` in `work/xonotic`): server, QuakeC compiler and
+  SDL client build inside Dolly; bot matches pass in both browsers; the client
+  renders through upstream's software rasterizer as Wasm SIMD (13.7 fps in
+  Chromium with real textures); the data image needs an 18 GB builder scope.
+  Open: a live-match test stage, sound, the `gpu@0` render path (plan in the
+  task), licence rows.
+- **`input@0`**: `core/input-module` at `fa073dc9`, merged onto round 3 and
+  verified in both browsers; not in round 3 (it finished after the freeze);
+  `bhop` unverified. Goes into the next round with Xonotic.
+- **Tasks**: 32 open (54 this morning). Owner decisions collected by the
+  triage are in "Task triage, 2026-10-07" above.
+- Not started today: file modes built inside Dolly, `exec`.
+
+### 10:25, 2026-10-07: usage limit again; what is running
+
+- Round 3 (`work/locks`): still building unattended; 37 of 58 light images at
+  10:09, none failed. See the 09:55 entry for how to resume and what to do
+  with its result.
+- SpiderMonkey (`work/cargo`, `work/spidermonkey`): round 3's 37 finished
+  images, 250 packs and its Rust seed tarball were imported at 10:10 (nineteen
+  recipe files there are modified build state, uncommitted on purpose).
+  `cbindgen` built on them in 2.5 minutes (`c73bdc33`); nothing imported was
+  rebuilt. A build of `cmake-build`, `cmake`, `openal-build`, `zero-ad-deps`
+  and then `zero-ad-spidermonkey` is running there in the 9 GB build slot
+  (`work/cargo/build/spidermonkey-evidence/`); it had about 40 to 50 minutes
+  to go at 10:25. Whether the SpiderMonkey image builds is the open result.
+- All other agents are stopped with their work committed.
+
 ## `integrate/round3` (worktree `work/locks`, from `integrate/next` `80595976`; 2026-10-06 23:30 to 2026-10-07 JST)
 
 Assembled by the file-locks agent for the second catalog round. Nothing here

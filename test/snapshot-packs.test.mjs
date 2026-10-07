@@ -1,15 +1,18 @@
 import assert from "node:assert/strict";
+import { execFile as execFileCallback } from "node:child_process";
 import { createHash } from "node:crypto";
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { resolve } from "node:path";
 import { gunzipSync } from "node:zlib";
 import test from "node:test";
+import { promisify } from "node:util";
 import { ensureSnapshotPacks, shareSnapshots, splitSnapshotRecords } from "../scripts/share-pages-snapshots.mjs";
 import { parseGeneratedConstant } from "../scripts/site-release.mjs";
 import { decodeSnapshotRecords, encodeSnapshotRecords, mergeSnapshotRecords, validateSnapshotPacks, MAX_SNAPSHOT_BYTES } from "../src/snapshot-records.mjs";
 
 const digest = value => createHash("sha256").update(value).digest("hex");
+const execFile = promisify(execFileCallback);
 const file = text => ({ kind: 2, data: new TextEncoder().encode(text) });
 test("development images reuse complete packs and repair missing delivery files", async () => {
   const directory = await mkdtemp(resolve(tmpdir(), "dolly-image-packs-"));
@@ -106,6 +109,35 @@ test("shared packs reconstruct every image exactly, including type changes and U
     assert.throws(() => mergeSnapshotRecords([part, part]), /duplicate/);
     assert.throws(() => decodeSnapshotRecords(part.subarray(0, part.length - 1)), /size|truncated/);
     assert.throws(() => validateSnapshotPacks({ byteLength: 20, packs: [{ sha256: "../../oops" }] }), /descriptor/);
+  } finally { await rm(directory, { recursive: true, force: true }); }
+});
+
+// The release catalog is 25 GB; sharing must hold one chunk at a time, not
+// the catalog. Eight 32 MB images of distinct content: a script that reads
+// snapshots whole or keeps every pack peaks above twice the catalog.
+test("sharing a catalog peaks below the catalog's size", async () => {
+  const directory = await mkdtemp(resolve(tmpdir(), "dolly-pack-memory-"));
+  try {
+    const snapshots = resolve(directory, "inputs");
+    await mkdir(snapshots);
+    let catalogBytes = 0;
+    for (let image = 0; image < 8; image += 1) {
+      const records = new Map();
+      for (let index = 0; index < 8; index += 1) {
+        records.set(`/file-${index}`, { kind: 2, data: new Uint8Array(4 * 1024 * 1024).fill(image * 8 + index) });
+      }
+      const bytes = encodeSnapshotRecords(records);
+      catalogBytes += bytes.length;
+      await writeFile(resolve(snapshots, `dolly-image${image}-system.snapshot`), bytes);
+      await writeFile(resolve(directory, `dolly-image${image}-system-snapshot.mjs`),
+        `export const DOLLY_SYSTEM_SNAPSHOT = Object.freeze(${JSON.stringify({ image: `image${image}`, byteLength: bytes.length, sha256: digest(bytes) })});\n`);
+    }
+    const { stdout } = await execFile(process.execPath, ["--input-type=module", "-e", `
+      const { shareSnapshots } = await import(${JSON.stringify(new URL("../scripts/share-pages-snapshots.mjs", import.meta.url).href)});
+      await shareSnapshots(${JSON.stringify(directory)}, ${JSON.stringify(snapshots)});
+      console.log(process.resourceUsage().maxRSS * 1024);`]);
+    const peakBytes = Number(stdout.trim().split("\n").at(-1));
+    assert.ok(peakBytes < catalogBytes, `sharing ${catalogBytes} bytes peaked at ${peakBytes} bytes`);
   } finally { await rm(directory, { recursive: true, force: true }); }
 });
 
