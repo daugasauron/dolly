@@ -387,7 +387,9 @@ small: 17 modes × 20 permutation bits in the source, 14 pairs in use at
   failures; the "Failed to load font-file for 'gfx/conchars'" lines before
   the font configuration loads appear natively too. The rebuilt data image
   was OOM-killed once more in the 9 GB slot (Chrome at 7.1 GB anon RSS,
-  09:18:57); a retry is recorded below.
+  09:18:57) and again on a retry (7.2 GB, 09:21:23): the peak sits at the
+  cap and variance decides; handed to the integrator for a larger scope
+  (commit `9f98e19e`).
 
 ## Decisions for the owner
 
