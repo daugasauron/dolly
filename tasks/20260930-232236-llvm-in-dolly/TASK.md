@@ -1,8 +1,11 @@
 # Build LLVM, Clang and LLD inside Dolly
 
 - STATUS: OPEN
-- PRIORITY: 265
+- PRIORITY: 345
 - TAGS: toolchain,bootstrap,llvm,core
+
+Owner (2026-10-07): "this is very high priority." Worked on branch
+`core/llvm-in-dolly` (worktree `work/llvm`), in parallel with release 0.1.0.
 
 ## Remaining (2026-10-07)
 
