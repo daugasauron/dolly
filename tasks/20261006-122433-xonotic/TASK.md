@@ -468,6 +468,26 @@ small: 17 modes × 20 permutation bits in the source, 14 pairs in use at
   engine's relative request, clicks, and asserts
   `document.pointerLockElement` is the display.
 
+## Software path performance (2026-10-07, `short.dem`, 1,046 frames)
+
+One change at a time from the default (`vid_soft_threads 1`, 1024×768, the
+`normal` preset, client at `-O1`), Chromium unless noted; Firefox runs 15 to
+20% faster on the same settings (16.1 against 13.7 fps earlier today).
+Logs: `bench-chromium-*.log`.
+
+| Change | Chromium fps | Note |
+|---|---|---|
+| none (1024×768, 1 thread) | 13.3 | baseline (13.7 in the test's run) |
+| 800×600 scaled to the page | 19.7 | +49% |
+| 640×480 scaled to the page | 28.1 | +112%, visibly soft |
+| `r_shadow_realtime_dlight 0` | 12.8 | within noise: the demo has few dynamic lights |
+| `cl_particles_quality 0.5` | 12.0 | within noise |
+
+Rebuilding xonotic-build while its recipe was being edited failed the build
+(`image-build-19.log`: the builder's GET of the recipe no longer matched
+its pin); the sdl2 change also rebuilt `zero-ad-deps`, which `xonotic-build`
+copies from, in the same run.
+
 ## Route (a): the map of what remains (2026-10-07 09:35, estimates)
 
 What exists: the client over `vid_sdl.c` and the software rasterizer, the
