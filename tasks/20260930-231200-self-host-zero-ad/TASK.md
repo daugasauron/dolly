@@ -112,6 +112,36 @@ it: 21.4 vs 406 MB, 5.1 vs 24 MB). The host script and the `mozjs-host.tar.gz`
 (115 MB) / `bootstrap.tar` (151 MB) rows stay until the recipe builds once on
 round 3; then `build-spidermonkey.sh` and `spidermonkey.sh` are deleted.
 
+### Is the Dolly-built library a drop-in for the engine? (the integrator's question)
+
+Yes. `zero-ad-engine` recompiles `pyrogenesis` in its own image against
+`/opt/mozjs/include` and links `/opt/mozjs/lib`, so headers and library always
+come from one build; the engine never links pre-built objects against a
+foreign library. The probe (a mini-engine TU: realms, GC, callbacks,
+structured clone) compiled against the Dolly-built headers and linked the
+Dolly-built `libjs_static.a` + `libjsrust.a`, and ran, which is the engine's
+pattern at small scale. The JS API in `dist/include` is generated from the
+same source and the same `--disable-jit --disable-shared-js --without-intl-api
+--disable-jemalloc` options, so `js-config.h`/`js-confdefs.h` carry the same
+feature set and the engine's `-D` set is unchanged.
+
+Two deliberate differences from the host build, neither affecting ABI or
+linkability:
+- No debug info (`--disable-debug-symbols`, no `-C debuginfo=2`): 21.4 vs
+  406 MB, 5.1 vs 24 MB. Smaller, same symbols.
+- No `-msimd128`: the host passed `--enable-optimize='-O2 -msimd128'`, the
+  recipe `-O2`. SpiderMonkey's JS is then compiled without wasm SIMD. This is
+  not a correctness or determinism difference (0 A.D.'s simulation is
+  fixed-point, and the 2026-10-02 C++-only build that dropped `-msimd128`
+  gave bit-identical replay and save hashes); it is at most a JS-execution
+  speed difference for the Petra AI. Round 3's `cc` now accepts `-msimd128`
+  (maps to `+simd128`), so matching the host is a one-token change to
+  `--enable-optimize` once the recipe has built once as verified (`-O2`).
+
+So `zero-ad-engine` can rebuild on the Dolly-built library today without any
+engine source or flag change; the recipe already points `-I`/`-L` at
+`/opt/mozjs`. Whether to rebuild it today is the integrator's call.
+
 ### `-j` above 1
 
 mozbuild's recursive sub-makes print "jobserver unavailable: using -j1" because
