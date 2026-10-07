@@ -766,3 +766,27 @@ features and PIC level under `-E` as under `-c`; `-fno-pic`;
 `-ffile-prefix-map`; `-fno-unroll-loops`; an assembler entry for `.s` and `.S`;
 `-nostdlib++`. With them the recipe needs no `-Xclang`. Or decide that Dolly's libc++ need not be
 Emscripten's bytes: the plain variant above builds today and costs 1-2% of code.
+
+### Merged with `core/llvm-in-dolly` (2026-10-08)
+
+`9e90e8f1` merges `bb2fa2ec`. For a repeat: `demos/llvm/prepare-sources.sh`,
+the README's image list and the upstream rows keep both sides, theirs first;
+`demos/llvm/test/llvm-browser.mjs` is their file unchanged, followed by the
+runtime part.
+
+- The runtime part now opens `llvm-cc` with the package installed, so the
+  compiler built inside Dolly compiles and links against the runtime built
+  inside Dolly; the TableGen tools it rebuilds that way still write the 18
+  kept outputs.
+- Checks on the merged tree: `update-recipe-pins.mjs` changes nothing (76
+  recipes), lint, 416 source tests. Demo test: the compiler part 12.8 s in
+  Chrome and 29.5 s in Firefox, the runtime part 384.9 s and 461.5 s. The
+  runtime part peaks at 5.8 GiB of PSS in Chrome on that 653 MB image, under
+  the browser slot's 6 GiB.
+- `llvm-build`, `llvm-cc` and `llvm-stage2` were imported from `work/llvm/dist`
+  (snapshot and metadata copied, 60 packs hard-linked); the plan reuses them.
+- The image list is whole again (76): pinning, source preparation and routes
+  for every image took 17.5 min. A full `npm run image` would still build four:
+  `dolly-docs`, `pi`, `pi-local` and `dollyfile-studio`, because the merged
+  branch changed `docs/browser-boundary.md`, which `Dollyfile-dolly-docs` pins.
+  They were not built here.
