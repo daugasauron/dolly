@@ -398,6 +398,29 @@ small: 17 modes × 20 permutation bits in the source, 14 pairs in use at
   noted in `tasks/20261007-065624-publish-memory` (the builder-copies task
   is not in this tree).
 
+- Live match in the client (09:40): started with `+map stormkeep
+  +bot_number 4`, the client spawns the server and the bots connect
+  (`SpawnServer: stormkeep` and the bots' `connected` lines in its log), and
+  both browsers pass a stage that samples two differing lit frames and the
+  quit (Chromium 297.9 s, Firefox 230.6 s in all; `browser-test-chromium-16.log`,
+  `browser-test-firefox-5.log`), but those frames were the menu's: a
+  stricter stage that samples after 40 s found the display static at 87.5%
+  lit with one checksum from 50 s to the quit at 200 s
+  (`live-timeline.log`). The client's developer log of a 100 s run
+  (`live-client.log`, 2,927 lines) shows why: `SpawnServer`, the bots
+  connecting, `Client local:2 connected`, `CL_SignonReply: 1` with the CSQC
+  loaded, then the precache of models and sounds (434 "Sound … not found"
+  lines, which the native client with real sound does not print; the null
+  sound unit has no sounds) and `CL_SignonReply: 2` and `3` only at the
+  end, right before the deferred quit: the software client in Dolly takes
+  about 100 s from the map command to entering the game, most of it in the
+  loading plaque, against a few seconds natively; where the time goes is
+  not profiled. The engine also prints 204 `LHNET_OpenSocket_Connectionless`
+  failures as `NetConn_UpdateSockets` keeps retrying the INET client ports.
+  The test's live stage now starts sampling frames after 150 s, requires
+  two differing lit frames below the plaque's 87% and `CL_SignonReply: 3`
+  in the log, and quits at 240 s.
+
 ## Route (a): the map of what remains (2026-10-07 09:35, estimates)
 
 What exists: the client over `vid_sdl.c` and the software rasterizer, the

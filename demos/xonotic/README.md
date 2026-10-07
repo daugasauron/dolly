@@ -27,8 +27,10 @@ the task records the measurements).
 ## What works in `/xonotic/` today
 
 - The menu and a bot match on the stock maps, drawn by the software path at
-  1024×768 at about 14 fps with 4 bots; `xonotic` takes the engine's
-  command line (`xonotic +map stormkeep +bot_number 4`).
+  1024×768 at about 14 fps; `xonotic` takes the engine's command line
+  (`xonotic +map stormkeep +bot_number 4`). Loading a map into the match
+  takes about two minutes in the software client (the task records the
+  measurement); the loading plaque stays up meanwhile.
 - Keyboard and mouse reach the engine through the sdl2 package's video
   backend, which gives keys with text, relative mouse motion and capture;
   playing with them in Xonotic has not been exercised yet, only the test's
