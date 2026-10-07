@@ -449,6 +449,10 @@ Firefox 155:
   and none in the second, which loads as many from `/usr/lib/llvm-runtimes`.
   The two executables of each program are the same bytes (`cmp`; 632,299 and
   78,737 bytes), and the program runs;
+- links `runtime.cpp` again with `-rdynamic`: a host of shared objects exports
+  the whole runtime, so its link loads 96 members of the four archives (53 of
+  libc++'s 57, all 18 of libc++abi, libunwind, 24 builtins). The two
+  executables are the same 2,090,398 bytes, and the host runs;
 - links a kernel plugin (`cc --dolly-kernel-plugin -shared`, one `__int128`
   multiplication) with the seed's builtins archive and with the built one
   named before it: the trace shows `multi3.o` from the one and from the other,
@@ -463,7 +467,7 @@ Firefox 155:
 
 | | Chrome 151 | Firefox 155 |
 | --- | --- | --- |
-| whole test (five runs) | 323.3-346.1 s | 369.1-416.1 s |
+| whole test (six runs) | 323.3-347.1 s | 369.1-417.7 s |
 | its `make -j2` (both tools, then the TableGen runs) | 246.5-248.5 s | 298.5 s |
 | peak PSS of the browser | 4.2-4.3 GiB | 3.9 GiB |
 

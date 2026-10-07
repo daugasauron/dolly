@@ -1,7 +1,7 @@
 // The Dolly-built C++ runtime (llvm-runtimes) in place of the shipped archives,
-// in Chrome and Firefox. Two programs and a kernel plugin are linked both ways:
-// the linker's trace shows which libc++, libc++abi, libunwind and builtins it
-// loaded, and the two results are the same bytes. Then LLVM's TableGen,
+// in Chrome and Firefox. Three executables and a kernel plugin are linked both
+// ways: the linker's trace shows which libc++, libc++abi, libunwind and builtins
+// it loaded, and the two results are the same bytes. Then LLVM's TableGen,
 // configured as the llvm-tablegen recipe configures it, is linked with the
 // built runtime and reproduces the outputs the image kept.
 // Usage: node demos/llvm/test/llvm-browser.mjs [chromium|firefox ...], after
@@ -27,10 +27,12 @@ const built = "-L/usr/lib/llvm-runtimes";
 const shipped = "'/usr/lib/(libclang_rt|dolly/process/.*lib(c\\+\\+|c\\+\\+abi|unwind|clang_rt\\.builtins)-)'";
 // Output, compile command, and what selects the shipped and the built archives.
 // -L/usr/lib changes nothing: both links have as many inputs and one output
-// name. A kernel plugin's builtins are named by path; an archive named first wins.
+// name. A -rdynamic host exports the runtime, so its link takes nearly every
+// member. A kernel plugin's builtins are named by path; an archive named first wins.
 const links = [
   ["runtime", "c++ -O1 -std=c++20 runtime.cpp", "-L/usr/lib", built],
   ["threads", "c++ -O1 -pthread threads.cpp", "-L/usr/lib", built],
+  ["host", "c++ -O1 -std=c++20 -rdynamic runtime.cpp", "-L/usr/lib", built],
   ["plugin.so", "cc -O1 --dolly-kernel-plugin -shared plugin.c", "/usr/lib/libclang_rt.builtins.a", "/usr/lib/llvm-runtimes/libclang_rt.builtins.a"],
 ];
 const tablegen = new URL("../Dollyfile-llvm-tablegen", import.meta.url);
@@ -52,7 +54,7 @@ for (const browser of browsers) {
       await run(`grep -q -E ${shipped} shipped.trace && test "$(grep -c -E ${shipped} built.trace)" = 0`);
       await run(`grep -q 'llvm-runtimes/libclang_rt' built.trace && cmp shipped ${output}`);
     }
-    await run("./runtime | grep -q RUNTIME-OK && ./threads | grep -q STD-THREAD-OK");
+    await run("./runtime | grep -q RUNTIME-OK && ./threads | grep -q STD-THREAD-OK && ./host | grep -q RUNTIME-OK");
     const source = `${server.origin}/dist/static/llvm`;
     await run(`curl -fsS ${source}/llvm-project.tar.gz | gzip -dc | tar -xf - -C / && curl -fsS ${source}/llvm-host-triple.patch -o host-triple.patch`);
     await run(`patch -p1 -d /tmp/llvm-project -i /tmp/probe/host-triple.patch && ${configure} '-DCMAKE_EXE_LINKER_FLAGS=${built} -Wl,--trace'`);
