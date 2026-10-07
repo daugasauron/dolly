@@ -564,3 +564,20 @@ memory sampled every 2 s into `memory-4.log`; stage logs `stage-*.log`.
   `and CONFIG["MOZ_DEBUG_SYMBOLS"]` (the flag only widens debug info, so it
   is inert without `-g`; upstream could take it). The cc translation fix is
   listed under remaining.
+
+### Remaining (as of 11:20)
+
+- `core/cc-flags` `7dbf0f38` (unbuilt, for the next round): `-fstandalone-debug`
+  and `-ferror-limit=N` translated as Clang's driver does (no cc1 argument
+  without `-g`; `limited` for the negative under `-g`; `-ferror-limit N` as
+  two arguments), suite case with all seven flags plus a `-g
+  -fstandalone-debug` compile. Until it lands, the patch's `js/src/moz.build`
+  hunk keeps `-fstandalone-debug` out of a build without debug symbols.
+- `cc -print-search-dirs` (single dash) is refused; only bindgen asks, and
+  such ports need libclang, which Dolly lacks: no seed change requested.
+- `build-spidermonkey.sh`, `spidermonkey.sh` and the bootstrap rows in
+  `demos/zero-ad/README.md` and `docs/sources.md` are deleted once the
+  `zero-ad-spidermonkey` image has built and `zero-ad-engine` has rebuilt
+  against it (the integrator's call).
+- `-msimd128` to match the host's optimize flags: one token in the recipe
+  after the first verified build.
