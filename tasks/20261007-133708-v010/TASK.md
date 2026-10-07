@@ -37,11 +37,11 @@ they are proposed now.
 | Every demo test run once in Firefox | none yet | the demo runner is Chromium-only; a release should know what fails there |
 | Release notes with the known gaps | this task | part of the checklist |
 
-## Parallel, not blocking
+## Parallel, very high priority (owner, 2026-10-07), not blocking
 
 | Item | Task | State |
 | --- | --- | --- |
-| LLVM, Clang and LLD built inside Dolly | `20260930-232236-llvm-in-dolly` | TableGen stage is in the catalog; left: a stack overflow on two files (compiler side, a seed change), then the 2,559 files of the compiler (measured: 3.8 h serial, about an hour at four jobs), the link, the comparison with the seed. In 0.1.0 if a Dolly-built Clang compiles and runs a program by then; stage 2 equal to stage 3 is not awaited |
+| LLVM, Clang and LLD built inside Dolly | `20260930-232236-llvm-in-dolly` | started on `core/llvm-in-dolly`. TableGen stage is in the catalog; left: a stack overflow on two files (compiler side, a seed change), then the 2,559 files of the compiler (measured: 3.8 h serial, about an hour at four jobs), the link, the comparison with the seed. In 0.1.0 if a Dolly-built Clang compiles and runs a program by then; stage 2 equal to stage 3 is not awaited |
 
 ## Out: ships as a documented gap
 
