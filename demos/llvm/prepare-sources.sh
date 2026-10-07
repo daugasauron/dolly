@@ -42,5 +42,7 @@ if has_image llvm-runtimes; then
   # The sanitizers are not built.
   rm -r "${staging}"/llvm-runtimes/system/lib/compiler-rt/{include/sanitizer,lib/{asan,interception,lsan,sanitizer_common,ubsan,ubsan_minimal}}
   grep -rlZw __EMSCRIPTEN__ "${staging}/llvm-runtimes" | xargs -0 sed -i 's/\b__EMSCRIPTEN__\b/__dolly__/g'
-  node scripts/build-source-tar.mjs "${static_dir}/llvm/runtimes.tar" "${staging}/llvm-runtimes" /tmp/llvm-runtimes
+  node scripts/build-source-tar.mjs "${static_dir}/llvm/runtimes.tar" "${staging}/llvm-runtimes" /tmp/llvm-runtimes \
+    "${staging}/llvm-runtimes/system/lib/libunwind/LICENSE.TXT" /usr/share/licenses/libunwind/LICENSE \
+    "${staging}/llvm-runtimes/system/lib/compiler-rt/LICENSE.TXT" /usr/share/licenses/compiler-rt/LICENSE
 fi

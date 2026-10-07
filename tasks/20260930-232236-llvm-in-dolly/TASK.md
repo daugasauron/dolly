@@ -444,7 +444,7 @@ Firefox 155:
 
 | | Chrome 151 | Firefox 155 |
 | --- | --- | --- |
-| whole test (two runs) | 323.3 s, 346.1 s | 369.1 s, 411.0 s |
+| whole test (three runs) | 323.3-346.1 s | 369.1-413.3 s |
 | its `make -j2` (both tools, then the TableGen runs) | 246.5-248.5 s | 298.5 s |
 | peak PSS of the browser | 4.2-4.3 GiB | 3.9 GiB |
 

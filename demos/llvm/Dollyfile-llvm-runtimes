@@ -16,7 +16,7 @@ REQUIRES TOOL ln
 REQUIRES TOOL tar
 REQUIRES TOOL time
 
-SOURCE https://daugasauron.com/dist/static/llvm/runtimes.tar 436306d45c3f319da9afbcdaaa181f6dfb1482ada1d34149752e7294d0c40bcd /tmp/runtimes.tar
+SOURCE https://daugasauron.com/dist/static/llvm/runtimes.tar 605875c4a578ea1b5380fd514ecb53e29f8c25a4fd78eb834a1c8976c30a0b34 /tmp/runtimes.tar
 SLOP tar -xf /tmp/runtimes.tar -C /
 
 # Sources, flags and member order of the -ww-wasmexcept and -wasmsjlj-ww variants
@@ -90,3 +90,9 @@ SLOP mkdir -p /usr/lib/llvm-runtimes /tmp/llvm-runtimes/build/libc++ /tmp/llvm-r
 SLOP CWD /tmp/llvm-runtimes time make -j2
 
 EXPORTS FOLDER llvm-runtimes /usr/lib/llvm-runtimes
+# The base holds the licences of libc++, libc++abi and Emscripten's own files.
+FILE /usr/share/licenses/libcxx/LICENSE
+FILE /usr/share/licenses/libcxxabi/LICENSE
+FILE /usr/share/licenses/libunwind/LICENSE
+FILE /usr/share/licenses/compiler-rt/LICENSE
+FILE /usr/share/licenses/emscripten/LICENSE
