@@ -220,6 +220,103 @@ Tracked here, one round each; no further tasks are created for them.
 5. `robots.txt`.
 6. Release 0.1.0 by the checklist.
 
+### Step 2, sessions per version (branch `core/versioned-hosting`)
+
+- The store is `dolly-sessions-vX.Y.Z` (`src/session-store.mjs`, from
+  `DOLLY_VERSION`). An exported file's metadata carries `version`;
+  `importSessionFile` refuses another version's file with "This session file
+  belongs to Dolly X.Y.Z…". A file without a version (exported before this)
+  is refused as invalid metadata: nothing migrates. The store no longer reads
+  the pre-0.1.0 records that held an `ArrayBuffer` instead of a `Blob`.
+- The image cache, read in `src/image-artifact.mjs`: one database
+  (`dolly-image-artifacts-v3`) for the origin, an entry keyed by
+  `IMAGE_BUILD_ID:RECIPE_SHA256`, its bytes checked against their SHA-256
+  when loaded, no user state. One thing was not as the plan assumed:
+  `saveImageArtifact` deleted every entry of another runtime build, so a
+  build under one version dropped the other version's cached custom images,
+  and that version's saves on them then asked for a rebuild. Changed: a save
+  replaces only this runtime's previous image in its slot; other runtimes'
+  entries share the bound (32 images, 8 GiB, least recently saved first out).
+- Test: `test/site-browser.mjs` serves the checkout under `/vX.Y.Z/` and
+  `/v0.0.0/` (the second with another version constant) on one origin; a save
+  made under the first is not listed under the second, its exported file is
+  refused there with the first's version in the message, and the first
+  restores it. With both paths on one version constant the test fails at
+  "another version lists the save". `test/core-browser.mjs` holds another
+  runtime's cache entry through 33 saves.
+
+### Step 3, exporters
+
+Read on 2026-10-08:
+
+- Cloudflare's documentation: 20,000 files a site (Free plan), 25 MiB a file;
+  `_headers` 100 rules, 2,000 characters a line, one `*` a rule, `:name`
+  matches one path segment and each name is used once in a rule;
+  `_redirects` 2,000 static and 100 dynamic rules, 1,000 characters each,
+  redirects are applied before headers and whether or not a file exists.
+  Its asset server (`workers-sdk`, `rules-engine.ts`) turns each `:name` into
+  its own capture group, so `/:version/_dolly/:release/…` is one valid rule.
+- daugasauron.com as deployed (release `b06b5c8a…`): the rule
+  `/_dolly/:release/Dollyfile*` (placeholder and splat) is in effect; a GET
+  with `Accept-Encoding: identity` returns the stored bytes (a module, the
+  kernel and a page hash to the sealed list); `X/index.html` and `X.html`
+  answer 308 to `X/` and `X`; a missing asset is 404 with the 404 page;
+  `/_headers` is not served, `deployment.sha256` and dotfiles are.
+
+Decided while implementing:
+
+- The version is never an argument: the exporters read it from the sealed
+  release (`src/version.mjs`), so a site cannot be exported under a path its
+  pages do not believe in. `export-static.mjs RELEASE OUT PREFIX/` writes
+  `OUT/vX.Y.Z/` and a redirecting `OUT/index.html`;
+  `export-cloudflare-pages.mjs ARCHIVE OUT [RELEASE]` assembles a deployment.
+- `deploymentBase` refused a dot in a path, so `/v0.1.0/` was not a base; it
+  now takes dots inside a segment and still refuses `.`, `..` and hidden
+  segments.
+- The archive is `published/` in the checkout a release is made from
+  (ignored by git): `published/vX.Y.Z/` exactly as deployed, with
+  `deployment.sha256` (every file) and `deployment.headers` (the headers its
+  compressed and split files need, in `_headers` syntax, paths relative to
+  the version). The exporter checks every archived file against its list and
+  hard-links it into the deployment (no second copy of 18 GB a version);
+  anything in the archive that is not a version, or a release whose version
+  is already there, stops it.
+- Root files: `_redirects` (`/ /vNEWEST/ 302`, one static rule), `_headers`,
+  the newest version's `404.html`, and its `robots.txt` with each `Disallow`
+  rule written once per version. No root list: each version carries its own.
+- `_headers` within 100 rules: five fixed rules cover every version by
+  placeholder (`/*` isolation and no-store; `/:version/_dolly/*` and
+  `/:version/dist/packs/*` immutable; two `text/plain` rules for recipes).
+  A compressed or split file needs a rule of its own. One rule
+  (`/:version/_dolly/:release/PATH` or `/:version/dist/packs/HASH…`) serves
+  it in every version when all versions that hold the file store it the same
+  way; a file stored differently by two versions gets a rule per version.
+  So rules grow with distinct large files, not with versions.
+- The predecessor mechanism is gone: `retained` and
+  `exportRetainedStaticAssets` in the exporters, `verifyRetainedRelease`, the
+  multipart-support check for old releases, their tests, and in `serve.mjs`
+  the lookup of older releases' packs and pinned paths.
+- `npm run serve RELEASES` serves the current release under `/vX.Y.Z/`,
+  redirects `/` there and answers 404 elsewhere; below the version it serves
+  only what an export has there (pages, packs, `coi-serviceworker.js`,
+  `robots.txt`, `amy-index.txt`, and everything under `_dolly/RELEASE/`).
+- `scripts/published-version.mjs`: `mirror SITE vX.Y.Z ARCHIVE` (every file
+  against the list the site serves), `verify SITE OUT vX.Y.Z` (after a
+  deploy: every file of that version, every other version's list) and
+  `boot SITE vX.Y.Z…` (real browsers). `test/pages-host.mjs` stands in for
+  Pages locally: the documented rule syntax and the behaviour measured above.
+
+### Step 4, checklist, workflow, document
+
+- `scripts/release-checklist.sh DOMAIN_RELEASES GITHUB_RELEASES [ARCHIVE]`
+  checks items 1 to 3, assembles the deployment of item 6 and prints the
+  commands of items 4 to 8. It does not package (that is the round's job,
+  under its memory cap): a site not sealed from HEAD stops it.
+- `pages.yml` takes `release_tag` (`vX.Y.Z`) and the tarball's SHA-256,
+  checks out `refs/tags/TAG`, and `site-release.mjs verify` holds the
+  artifact's recorded commit and sources to that checkout; the export must
+  produce `TAG/`. The `source_commit` input is gone.
+
 ## Release checklist
 
 1. Round green on the commit (source, artifacts, browser suites in both

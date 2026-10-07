@@ -4,14 +4,10 @@ on:
   workflow_dispatch:
     inputs:
       release_tag:
-        description: Release containing the audited dolly-pages.tar.gz artifact
+        description: Version tag (vX.Y.Z) whose release carries the audited dolly-pages.tar.gz artifact
         required: true
-        default: pages-latest
       artifact_sha256:
         description: SHA-256 of the audited artifact
-        required: true
-      source_commit:
-        description: Committed source revision recorded in the audited artifact
         required: true
 
 permissions:
@@ -32,7 +28,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ inputs.source_commit }}
+          ref: refs/tags/${{ inputs.release_tag }}
           path: _source
       - uses: actions/setup-node@v4
         with:
@@ -48,14 +44,18 @@ jobs:
         run: bash _source/scripts/verify-sha256.sh "${EXPECTED_SHA256}" dolly-pages.tar.gz
       - name: Extract browser build
         run: mkdir _site && tar -C _site -xzf dolly-pages.tar.gz
+      # The artifact records the commit it was packaged from: the tag's commit.
       - name: Verify complete release and source provenance
         run: node _source/scripts/site-release.mjs verify _site _source
       - uses: actions/configure-pages@v5
         id: pages
-      - name: Export release-pinned static layout
+      - name: Export the version under its path
         env:
           DOLLY_PUBLIC_BASE: ${{ steps.pages.outputs.base_path }}
-        run: node _source/scripts/export-static.mjs _site _static "${DOLLY_PUBLIC_BASE}/"
+          DOLLY_PAGES_RELEASE: ${{ inputs.release_tag }}
+        run: |
+          node _source/scripts/export-static.mjs _site _static "${DOLLY_PUBLIC_BASE}/"
+          test -f "_static/${DOLLY_PAGES_RELEASE}/index.html"
       - name: Check deployment size
         run: |
           site_bytes="$(du -sb _static | cut -f1)"

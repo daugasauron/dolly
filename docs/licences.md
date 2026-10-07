@@ -77,8 +77,8 @@ entry.
 Serving is distribution whatever the host: each site carries the obligations
 for the binaries it serves. Packaging takes sources from the same catalog
 closure as the images, so each site serves its own catalog's sources, and
-Cloudflare keeps a predecessor's sources at its immutable `_dolly/` paths
-while it keeps that release. Each release records the Dolly commit that built
+daugasauron.com keeps every published version's sources under that version's
+path for as long as it serves the version. Each release records the Dolly commit that built
 it (`release/source.commit`); the patches and preparation scripts behind a
 prepared source are in that commit on GitHub. Neither host's terms change a
 licence. `robots.txt` works only at a host root, so the GitHub Pages project
