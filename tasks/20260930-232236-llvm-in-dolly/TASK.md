@@ -714,7 +714,9 @@ and print the same in both browsers; the executables are 1.0% and 1.4% larger.
 
 ### Replacing the shipped archives
 
-The decision is later; this is what it would take.
+The plan as written before the replacement. `core/runtimes-in-seed` then did
+it for libc++, libc++abi and, differently from this plan, libunwind: see "The
+replacement" below.
 
 Today: linking the C++ probe and `scripts/build-process-threads.sh` make the
 container build the archives (`scripts/build.sh:226-232`);
@@ -790,3 +792,114 @@ runtime part.
   `dolly-docs`, `pi`, `pi-local` and `dollyfile-studio`, because the merged
   branch changed `docs/browser-boundary.md`, which `Dollyfile-dolly-docs` pins.
   They were not built here.
+
+### The replacement: `core/runtimes-in-seed` (2026-10-08)
+
+A branch from the merged `core/llvm-runtimes`. `Dollyfile-system-build`
+compiles libc++, libc++abi and libunwind from the pinned source where it
+installs the libc++ headers; the seed no longer carries Emscripten's archives
+of the three or their `-mt` twins.
+
+What changed, in three commits:
+
+- `968a7af9`, the driver (`src/compiler.cpp`), each checked by behaviour in
+  `test/cpp-browser.mjs`: `-fno-pic` (static code: a program links it, a shared
+  object refuses it); `-ffile-prefix-map`, `-fdebug-prefix-map` and
+  `-fmacro-prefix-map`; `-fno-unroll-loops`, `-funroll-loops` and
+  `-fignore-exceptions` passed to cc1; `-nostdlib++`; `-main-file-name` for
+  every compile, so `-g` names the unit; and the relocation model, the target
+  features and the exception model under `-E` as under `-c`.
+- `5cc9db78`, the recipe and the seed: the root recipe's Makefile (76 units,
+  `-Oz -g -fno-pic -fvisibility=hidden -ffile-prefix-map=/tmp/cpp=/emsdk/emscripten`,
+  no `-Xclang`); `scripts/prepare-image-sources.sh` stages
+  `dist/static/default/libcxx.tar` (2,415 files, 9.5 MB) with the headers'
+  rename; `scripts/prepare-process-sysroot.sh` no longer copies the six files
+  and reads the container's three for `dynamic-provider.symbols`;
+  `scripts/build-process-threads.sh` no longer builds the `-mt` three. The
+  driver names one set for threaded links (`-lc++-ww-wasmexcept` resolves in the
+  parent of `threads/`) and names the unwinder only once it exists.
+- An assembler was not added. The builtins, which have the four assembly
+  members, stay in the seed (below), so nothing built here needs one. What I
+  would choose: `cc x.s` writes the text as file-scope `__asm__` into an empty
+  C unit and compiles that, about a dozen lines in `run_frontend`; it gives the
+  code, data and symbols of Clang's own assembler (measured above) without its
+  DWARF. The full way is the MC path of `clang/tools/driver/cc1as_main.cpp`,
+  about sixty lines; the WebAssembly parser is already linked.
+
+The bootstrap order:
+
+- libc++ and libc++abi: nothing before that point of the root recipe is C++.
+- libunwind is on every link line and libc's `standalone.o`, which nearly
+  every program loads, refers to `_Unwind_RaiseException`; but that reference
+  is dead in a C program. Measured: with no unwinder in the SDK a C program
+  using `setjmp` links and runs, and a C++ link fails naming the missing
+  symbols. So the driver leaves `-lunwind-ww-wasmexcept` out while the file
+  does not exist: `bootstrap`'s engine and the root recipe's C programs link
+  before the step, as they must.
+- The builtins stay with libc. The first link (the engine, before any recipe
+  runs) uses them, there are 184 units and four are assembly. The order that
+  would work: `bootstrap` compiling and archiving them itself before the
+  engine, or libc built in Dolly, of which they are part.
+
+Measured (Chrome 151 builders, one at a time; memory as the builder's PSS):
+
+- Seed: 126,823,257 to 107,890,211 bytes (18.9 MB less). Image inputs
+  `c62b2710…` to `ad8973ea…`. `npm run build:runtime`: 58 s.
+- The step in the root recipe: 0.7 s to fetch and extract the sources, then
+  `make -j2` 29.4 s (51.1 s serial), timed by itself in the rebuilt `system`
+  image, where it gives the SDK's three files again (`cmp`). The whole
+  `system-build` image builds in 50.4 s. Its snapshot goes from 137,034,910 to
+  127,455,119 bytes.
+- The archives against the container's, the ones shipped until now: the same
+  76 members in the same order, and every section equal byte for byte except
+  the debug sections, `producers` and `linking`. `llvm-nm` prints the same
+  3,530/444/9 defined and 415/82/3 undefined names; its listings differ only in
+  the names of debug sections (the driver's `-g` is DWARF 5, Emscripten's 4,
+  which is also what differs in `linking`). 8,317,050, 1,023,610 and 4,516
+  bytes against 8,280,018, 1,181,998 and 4,466.
+- The chain `system-build`, `system`, `default`, `cc`, `cmake-build`,
+  `llvm-tablegen` is 17 images with their bases: 41.9 min (`zig-build` 433 s,
+  `cmake-build` 1,224 s, `llvm-tablegen` 445 s, `python` 116 s, `system-tools`
+  104 s), peak 4.1 GiB.
+- Every one of the 17, compared file by file with the image the old seed
+  built: nothing differs but the recipe records under `/etc/dolly`, the SDK's
+  three archives and `SHA256SUMS`, and the compiler; the three `-mt` files are
+  gone. All programs are the same bytes: 2,086 of 2,098 paths in
+  `system-build` (Slop and the tools linked before the unwinder existed
+  among them), 6,501 of 6,522 in `cmake-build` (CMake, a C++ program of
+  hundreds of units), 8,468 of 8,492 in `llvm-tablegen` (the three tools and
+  every TableGen output), 1,695 of 1,708 in `python`.
+- The core browser suite (`node test/browser-tests.mjs`, 30 files) on those
+  images plus `dolly-docs`, `cmake`, `git`, `audio-sdk` and `gpu-sdk` (five
+  re-exports, 75 s together), in Chrome 151 and Firefox 155: 28 files pass in
+  both, `cpp` with the new driver checks, `threads`, `dso` and `image` among
+  them. `amy-browser.mjs` passes until `amy install sdl2`, an image not built
+  here. `fs-growth-browser.mjs` cannot run in the browser slot: it fills most
+  of 8 GiB by design and the slot's 6 GiB cgroup kills the browser (`Memory
+  cgroup out of memory`, kernel log 03:41:19 and 03:48:29); it reports `Target
+  crashed`.
+
+What the full catalog round has to do with this branch:
+
+1. `npm run build:runtime` (the seed above), then rebuild the Rust compiler
+   seed: its inputs include the sysroot, and `demos/rust/toolchain/link.sh`
+   now takes the container's libc++, libc++abi and libunwind by path. That
+   edit was not run: this worktree has no Rust seed build tree.
+2. Build every image: the seed changed. The 22 built here can be imported
+   from `work/llvm-runtimes/dist` if the round's image inputs are
+   `ad8973ea…`. Nothing else is special; the source pins this branch touches
+   (`libcxx.tar`, and `compiler.cpp` for `llvm-cc` and `llvm-stage2`) are
+   committed.
+3. Run the demo test of `demos/llvm` once `llvm-cc` exists on the new seed (it
+   needs `llvm-build`, 44 min). `llvm-runtimes` still builds all five archives
+   with its `-Xclang` flags; three of them now repeat the root recipe and can
+   go, leaving the builtins, and its flags can become the driver's.
+4. `fs-growth-browser.mjs` under a larger cap than the browser slot's.
+
+Left as it was: `Unwind-wasm.c` prints three C23-extension warnings in the
+root build (Emscripten passes `-Wno-c23-extensions`); the builtins and libc
+stay container-built; `dynamic-provider.symbols` is still listed on the host
+from the container's three archives, whose names equal the built ones'.
+
+In this worktree `dist/` now holds the new seed and those 22 images; the other
+snapshots are the old seed's and stale. The old runtime is in `work/llvm/dist`.
