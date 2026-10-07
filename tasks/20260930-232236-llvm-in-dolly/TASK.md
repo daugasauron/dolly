@@ -286,7 +286,7 @@ come from `em++ -v` in the pinned container.
 | `libc++abi-ww-wasmexcept.a` | 1,181,998 | 18 | 83,018 | 31,313 | 905,206 | 444 | 82 |
 | `libunwind-ww-wasmexcept.a` | 4,466 | 1 | 94 | 30 | 2,941 | 9 | 3 |
 | `libclang_rt.builtins-wasmsjlj-ww.a` | 812,986 | 184 | 77,224 | 47,774 | 523,680 | 383 | 172 |
-| `/usr/lib/libclang_rt.builtins.a` (the `pic` variant less `emscripten_setjmp.o`) | 812,590 | 183 | 83,169 | 47,774 | 529,022 | 379 | |
+| `/usr/lib/libclang_rt.builtins.a` (the `pic` variant less `emscripten_setjmp.o`) | 812,590 | 183 | 83,169 | 47,774 | 529,022 | 379 | 172 |
 
 - The `-mt-` twin of each of the first four (`threads/` in the sysroot, linked
   by `-pthread`) is the same file: equal SHA-256. One build serves both.
@@ -326,10 +326,11 @@ system-tools`: the pinned sources (`dist/static/llvm/runtimes.tar`, 2,660 files,
 without its sanitizers and `libc/emscripten_internal.h`, from the pinned
 commit's objects, their `__EMSCRIPTEN__` tests renamed to `__dolly__` as the
 installed headers' are), one Makefile with the source lists and flags above,
-`c++`, `cc`, `ar`. It keeps four archives in `/usr/lib/llvm-runtimes` under
-their shipped names, with `-mt` links to them. A link takes them instead of the
-shipped ones with `-L/usr/lib/llvm-runtimes`: the driver's own `-l` names then
-resolve there, at the same place on the linker's line.
+`c++`, `cc`, `ar`. It keeps five archives in `/usr/lib/llvm-runtimes` under
+their shipped names: the four of the process SDK, with `-mt` links to them, and
+the kernel plugins' `libclang_rt.builtins.a`. A process link takes them instead
+of the shipped ones with `-L/usr/lib/llvm-runtimes`: the driver's own `-l` names
+then resolve there, at the same place on the linker's line.
 
 Method: image builds in headless Chrome 151 on the 16-core host (load 3-6),
 wall time from Dolly's `time` in the image log, memory as the whole browser's
@@ -340,9 +341,10 @@ PSS sampled every 2 s.
   `make -j1` 44.3 s, the 76 compiles summing to 43.7 s (median 0.34 s;
   `algorithm.cpp` 3.9 s, `locale.cpp` 3.4 s, `ios.instantiations.cpp` 1.9 s,
   `cxa_demangle.cpp` 1.8 s).
-- With the builtins: 260 translation units, `make -j2` 45.9-49.1 s (four
-  builds), the whole image build 55-59 s, peak PSS 1.5-1.65 GiB, snapshot
-  10.5 MB.
+- With the process builtins: 260 translation units, `make -j2` 45.9-49.1 s
+  (five builds), the whole image build 55-59 s, peak PSS 1.5-1.65 GiB.
+- With the kernel plugins' builtins too: 443 units, `make -j2` 60.7-62.8 s,
+  peak PSS 1.6 GiB, snapshot 11.4 MB.
 - Reproducible: every build gave the same files, the C++ three at `-j1` and
   `-j2` (SHA-256 `3bc3bbdf…`, `d71be685…`, `5144a5f6…`; builtins `e471d62f…`).
 - The sysroot lacked one file, for the builtins: `emscripten_internal.h`, a
@@ -369,11 +371,12 @@ PSS sampled every 2 s.
 - The driver lacked, for the builtins' four assembly members, an assembler:
   `cc x.S` fails with `WebAssembly assembly is unsupported`, though the
   compiler embeds LLVM's. The recipe gives it the text as file-scope `__asm__`
-  in a C file. On the way: `cc -E` leaves out the `exception-handling`,
-  `multivalue` and `reference-types` features that `cc -c` compiles with, so
-  `__wasm_exception_handling__` is undefined when preprocessing only
-  (`src/compiler.cpp`, `run_clang`) and `__c_longjmp.S` came out empty; the
-  recipe adds the feature to its `cc -E`. `-x assembler-with-cpp` is rejected.
+  in a C file. On the way: `cc -E` leaves out what `cc -c` compiles with
+  (`src/compiler.cpp`, `run_clang`): the `exception-handling`, `multivalue` and
+  `reference-types` features, so `__wasm_exception_handling__` is undefined
+  when preprocessing only and `__c_longjmp.S` came out empty; and the PIC
+  level, so `__PIC__` is undefined and `stack_limits.S` took its static branch.
+  The recipe adds each to its `cc -E`. `-x assembler-with-cpp` is rejected.
 - The driver has no `-nostdlib++`: it names the four archives on every link,
   the builtins and libunwind on C links too. `-L` ahead of the SDK's
   directories is what selects other files.
@@ -409,10 +412,16 @@ archives and walked section by section; `llvm-nm` on both.
   section symbols) and no `producers` or `target_features` section. `llvm-nm`:
   383 defined and 172 undefined names on both sides; the listings differ only in
   those twelve debug section symbols. 812,986 against 812,858 bytes.
-- Not built: `/usr/lib/libclang_rt.builtins.a`, the PIC variant kernel plugins
-  link (183 members). Its cc1 line has `+mutable-globals` only, default
-  visibility and `-mllvm -enable-emscripten-sjlj`; `cc` fixes `+atomics`,
-  `+exception-handling` and `-wasm-enable-sjlj` for every compile.
+- `/usr/lib/libclang_rt.builtins.a`, the variant kernel plugins link (183
+  members: PIC, default visibility, no `atomics` or `exception-handling`
+  feature, taken off through `-Xclang`; `emscripten_setjmp.o` left out as
+  `scripts/prepare-compiler-rt.sh` removes it): 179 C and C++ members equal but
+  for the version string, the four assembly members as above, `llvm-nm` 379
+  defined and 172 undefined names on both sides. Emscripten compiles it with
+  `-mllvm -enable-emscripten-sjlj` where `cc` fixes `-wasm-enable-sjlj`; no
+  member shows it. The seed's file has no archive index (the host `ar` of that
+  script drops it; wasm-ld reads the members themselves): 812,590 against
+  820,834 bytes.
 
 Shipped: the pinned container's Clang (x86-64 build of LLVM `4bfd08c2`, run by
 `embuilder`). Dolly's: the seed compiler (wasm64 build of the same commit, run
@@ -435,6 +444,10 @@ Firefox 155:
   and none in the second, which loads as many from `/usr/lib/llvm-runtimes`.
   The two executables of each program are the same bytes (`cmp`; 632,299 and
   78,737 bytes), and the program runs;
+- links a kernel plugin (`cc --dolly-kernel-plugin -shared`, one `__int128`
+  multiplication) with the seed's builtins archive and with the built one
+  named before it: the trace shows `multi3.o` from the one and from the other,
+  and the two plugins are the same bytes;
 - configures LLVM with the `llvm-tablegen` recipe's own `cmake` line plus
   `-DCMAKE_EXE_LINKER_FLAGS=-L/usr/lib/llvm-runtimes`, builds `llvm-min-tblgen`
   and `llvm-tblgen` (`make -j2 llvm-tblgen WebAssemblyCommonTableGen`), whose
@@ -444,7 +457,7 @@ Firefox 155:
 
 | | Chrome 151 | Firefox 155 |
 | --- | --- | --- |
-| whole test (three runs) | 323.3-346.1 s | 369.1-413.3 s |
+| whole test (five runs) | 323.3-346.1 s | 369.1-413.3 s |
 | its `make -j2` (both tools, then the TableGen runs) | 246.5-248.5 s | 298.5 s |
 | peak PSS of the browser | 4.2-4.3 GiB | 3.9 GiB |
 
@@ -512,12 +525,13 @@ build: the Dollyfile engine, which `bootstrap` compiles before any recipe, shell
 or Make runs. Building them first means `bootstrap` compiling 185 files itself,
 or libc built in Dolly, of which they are part in practice (`libc-ww.a`,
 dlmalloc, `libstandalonewasm` and `libstubs` come from the container too). The
-builtins also want an assembler in `cc`, and the kernel plugin variant code
-generation settings `cc` fixes.
+builtins also want an assembler in `cc`. The kernel plugins' variant is linked
+by path only when a plugin is built, so it could be built in `system-build`
+like libc++, in place of `scripts/prepare-compiler-rt.sh`.
 
 For the driver (`src/compiler.cpp`, not changed here), in order of use:
 `-main-file-name` for every compile (a `-g` bug by itself); the same target
-features under `-E` as under `-c`; `-fno-pic`; `-ffile-prefix-map`;
-`-fno-unroll-loops`; an assembler entry for `.s` and `.S`; `-nostdlib++`. With
-them the recipe needs no `-Xclang`. Or decide that Dolly's libc++ need not be
+features and PIC level under `-E` as under `-c`; `-fno-pic`;
+`-ffile-prefix-map`; `-fno-unroll-loops`; an assembler entry for `.s` and `.S`;
+`-nostdlib++`. With them the recipe needs no `-Xclang`. Or decide that Dolly's libc++ need not be
 Emscripten's bytes: the plain variant above builds today and costs 1-2% of code.

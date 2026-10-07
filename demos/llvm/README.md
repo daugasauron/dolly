@@ -11,8 +11,9 @@ LLVM 24, Clang and LLD built inside Dolly from the seed's pinned sources
   and `/usr/share/llvm-tablegen` (configured headers and TableGen outputs).
 - `llvm-runtimes`: build-only. libc++, libc++abi, libunwind and the compiler-rt
   builtins built by Dolly's `c++` and `cc` from the pinned Emscripten sources,
-  with the flags of the archives the process SDK ships. A link takes them
-  instead of those with `-L/usr/lib/llvm-runtimes`.
+  with the flags of the archives the seed ships. A link takes them instead of
+  those with `-L/usr/lib/llvm-runtimes`; `test/llvm-browser.mjs` compares both
+  links.
 
 Key files: [`Dollyfile-llvm-tablegen`](Dollyfile-llvm-tablegen),
 [`prepare-sources.sh`](prepare-sources.sh) (stages the seed's verified checkout
