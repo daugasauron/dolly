@@ -502,6 +502,61 @@ it because it would repeat `llvm-stage2` row for row with the same inputs.
 closure builds (no `retrying` line in any log), the last two by the compiler
 that has no binaryen pass.
 
+## What the catalog builds and what a user gets (2026-10-08)
+
+Integrator's review, 03:00: a catalog round builds every recipe, so stages
+that only prove reproducibility must not be recipes.
+
+- **Decision**: `llvm-build` and `llvm-cc` stay recipes (the product, a
+  compiler built in Dolly), with a small package `llvm` beside them. The
+  second stage is `demos/llvm/test/stage2-browser.mjs`, run on demand: it
+  opens `llvm-cc`, runs `llvm-build`'s own rows again (read from the recipe,
+  so the two cannot drift), then requires every archive, the linked compiler
+  and the three TableGen tools to be the first stage's bytes. A third stage
+  is the same test again. `Dollyfile-llvm-stage2` is gone. Least code: one
+  test of 40 lines, no change to how the catalog finds recipes.
+- **Before it went**, `llvm-stage2` was rebuilt once with the TableGen tools
+  added (`make -k -j4` 2,569.5 s; tools 91.6 s): the 103 archives identical
+  again, the three tools identical to `llvm-tablegen`'s, and then the
+  compiler `cmp` failed at byte 96,090,163. That byte is the last digit of
+  `dolly-cc-2df6e34eb8269ab1-106.wasm`, the module name wasm-ld takes from
+  `cc`'s scratch output, whose number counts the link's inputs: the tools'
+  build had added archives to `lib/`, which the link globs. Not a compiler
+  difference; the test links the compiler before it builds the tools.
+
+| image | role | build, one builder | snapshot |
+| --- | --- | --- | --- |
+| `llvm-tablegen` (as before) | toolchain | about 7 min (steps 426 s, round of 2026-10-07) | 343 MB |
+| `llvm-build` | toolchain | 2,623 s, 9 GB slot | 604 MB |
+| `llvm-cc` | toolchain, opens | 236 s | 653 MB |
+| `llvm` | package | 27 s (the command 39.5 s) | 263 MB |
+| second stage | test, on demand | STAGE2_TEST | none |
+
+- **A full round** now has three more recipes than before this task and
+  spends 48 more minutes of one builder on them (2,886 s; with the second
+  stage as a recipe it was 94). They form one chain after `cmake-build` and
+  `python`, so a round's wall time grows only if nothing else runs beside it;
+  `llvm-build` needs the 9 GB slot (5.6 GB compiling, 6.5 GB capturing).
+  A change to the seed rebuilds all of it; a change elsewhere reuses it.
+
+What a user gets, checked in Chrome 151 and Firefox 155
+(`demos/llvm/test/llvm-browser.mjs`; the image opened directly in a scratch
+run):
+
+- **A package.** In a session, `amy install llvm` (2.4 s in a `default`
+  session: `amy: llvm installed: 1948 files, 262650558 bytes, commands: ar c++
+  cc ld llvm-c++ llvm-cc make`). `llvm-cc` and `llvm-c++` run the compiler
+  built in Dolly, `/usr/lib/llvm/compiler` (127,138,140 bytes), with the
+  arguments of `cc` and `c++`; the package installs `cc` for the headers and
+  libraries, so the seed's `cc` and `c++` (78,338,796 bytes) are there too.
+  The test compiles an object with each pair and links and runs a C++ program
+  with each: the same bytes for the same output path, from two different
+  compiler executables.
+- **An image.** `/llvm-cc/` opens with a shell (7.4 s, 8.8 s) in which `cc`,
+  `c++`, `ld` and `ar` themselves run that compiler.
+- It is a second compiler beside the seed's, not a replacement: no other
+  image changes, and the seed is still what builds `llvm-build`.
+
 ## Decisions (2026-10-01, delegated)
 
 - LLVM-in-Dolly stays a demo (`demos/llvm`): moving CMake and Python into core
