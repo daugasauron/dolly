@@ -19,10 +19,14 @@ clauses of "Done when" hold. In the catalog: `llvm-tablegen`, `llvm-build`,
 `llvm-cc` and the package `llvm`; the libraries are `core/llvm-runtimes`'
 part, below. Left:
 
-- **Replacing the host-built seed** (the third clause) is a later decision.
-  The compiler here is a second one beside the seed's. Open: its size (127 MB
-  against the seed's 78 MB: Dolly has no binaryen; about 96 MB without the
-  name section) and the libc, which the host still builds.
+- **Replacing the host-built seed** (the third clause) is shown possible and
+  not done: a trial seed carrying the compiler linked in Dolly (96 MB with
+  `--strip-all`, the seed 18 MB larger) built an 18-image chain to the same
+  files as the host-built seed, the compiler aside ("The seed's compiler
+  from inside Dolly: a trial"). What would change, the bootstrap order and
+  the cost (every driver or libc change needs a round through `llvm-cc`)
+  are listed there; the decision is the owner's. In the catalog the compiler
+  stays a second one beside the seed's.
 - **The browser stack** has no general fix. The JSPI entry doubles Chrome's;
   `MSP430.cpp` fits with a margin of 635 in 760 and `SemaARM.cpp` only with
   LLVM's warnings off. A process primitive that continues on a fresh stack
