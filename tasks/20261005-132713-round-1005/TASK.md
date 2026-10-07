@@ -734,3 +734,45 @@ exact-import check passes.
 - Not run: the Rust seed and any Rust image, `python`, the demos, a catalog.
   The next catalog round runs on this branch, with `fix/visible` and what the
   SpiderMonkey and Xonotic tracks have ready.
+
+### 09:55, 2026-10-07: usage limit reached again; state to resume from
+
+- **Round 3 is running unattended** in `work/locks` (`integrate/round3` at
+  `35668d93`; runtime `aebe03b1…`, image inputs `c62b2710…`, Rust seed
+  `ba2dfb1d…`): `work/round3-run.sh` runs the catalog, suites and GPU tests in
+  a 26 GB scope and then packages into `build/round3-releases` and
+  `build/round3-domain-releases` in a 38 GB scope. It stops before packaging
+  if a suite fails. Log `work/locks/build/round3-evidence/round3.log`; resume
+  a stage with `bash work/round3-run.sh STAGE`. 24 of 58 light images were
+  built at 09:53, none failed. It carries, beyond the candidate: file locks,
+  kernel-boundary step 3, `dso@0`, newer Slop, Cargo in `rust-tools`,
+  `core/full-read`, `core/cc-flags` (seven flags), `core/cc-simd`,
+  `core/touch-t` (two defects fixed in `35668d93`) and the visible fixes. Not
+  yet done with it: serve it, merge to `main`, tag.
+- **Served now**: :9003 and :9005 the sealed candidate `rc-2026-10-07`
+  (`work/next`); :9008 `work/visible` (the visible fixes, merged into `main`
+  as `3fdb8d40`); :9009 `work/xonotic` (`/xonotic/` opens the game's menu).
+- **SpiderMonkey** (`work/spidermonkey` at `af1554e2` or later, in
+  `work/cargo`): built end to end inside Dolly in a browser session (configure
+  41 s, Rust library 205 s, C++ about 6 min at -j1, peak 4.3 GB; the engine's
+  probe passes). The recipe `Dollyfile-zero-ad-spidermonkey`, a `cbindgen`
+  package and the consolidated patch are committed, unbuilt, merged with round
+  3 (same image inputs). **Next step, not done**: when round 3 has built
+  `python`, `cargo` and `rust-tools`, import its finished images into
+  `work/cargo/dist` by hard link, copy round 3's
+  `build/rustc-port/rust-sdk.tar.gz` and `seed.sha256` and the working-tree
+  recipes of the imported images there, then build
+  `cbindgen,zero-ad-spidermonkey` and `zero-ad-deps`. The Dolly-built library
+  is a drop-in for `zero-ad-engine` (it recompiles against `/opt/mozjs`).
+- **Xonotic** (`demo/xonotic` in `work/xonotic`): server, QuakeC compiler and
+  SDL client build inside Dolly; bot matches pass in both browsers; the client
+  renders through upstream's software rasterizer as Wasm SIMD (13.7 fps in
+  Chromium with real textures); the data image needs an 18 GB builder scope.
+  Open: a live-match test stage, sound, the `gpu@0` render path (plan in the
+  task), licence rows.
+- **`input@0`**: `core/input-module` at `fa073dc9`, merged onto round 3 and
+  verified in both browsers; not in round 3 (it finished after the freeze);
+  `bhop` unverified. Goes into the next round with Xonotic.
+- **Tasks**: 32 open (54 this morning). Owner decisions collected by the
+  triage are in "Task triage, 2026-10-07" above.
+- Not started today: file modes built inside Dolly, `exec`.
