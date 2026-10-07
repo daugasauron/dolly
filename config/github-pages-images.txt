@@ -11,3 +11,4 @@ rust-tools
 slopyard
 cc
 git
+audio-sdk
