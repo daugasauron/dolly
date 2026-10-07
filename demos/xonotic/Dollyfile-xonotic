@@ -8,13 +8,13 @@ REQUIRES HOST snapshot@0
 REQUIRES HOST upload@0
 
 FROM https://daugasauron.com/Dollyfile-system fcb6783a7cd6771f1d538c6e913180a82d4d93cf3a0f2fed2e2b52bc5f413fd9
-COPY https://daugasauron.com/demos/xonotic/Dollyfile-xonotic-build b6412f74ea8dcc2fc089a7d9e10cf33f8b2f34c5af31876ed32eb5435dadb75e /usr/bin/xonotic-sdl /usr/bin/xonotic-sdl
-COPY https://daugasauron.com/demos/xonotic/Dollyfile-xonotic-build b6412f74ea8dcc2fc089a7d9e10cf33f8b2f34c5af31876ed32eb5435dadb75e /usr/share/licenses/xonotic /usr/share/licenses/xonotic
-COPY https://daugasauron.com/demos/sdl2/Dollyfile-sdl2 00d869eb35eef98817eff21107c290b81106333456139491d3cfabac9d5c0dfa /usr/share/licenses/SDL2 /usr/share/licenses/SDL2
+COPY https://daugasauron.com/demos/xonotic/Dollyfile-xonotic-build 2846ac8702985653d197b084cf8b9db93de5b82f9864655e2065fb859d660c20 /usr/bin/xonotic-sdl /usr/bin/xonotic-sdl
+COPY https://daugasauron.com/demos/xonotic/Dollyfile-xonotic-build 2846ac8702985653d197b084cf8b9db93de5b82f9864655e2065fb859d660c20 /usr/share/licenses/xonotic /usr/share/licenses/xonotic
+COPY https://daugasauron.com/demos/sdl2/Dollyfile-sdl2 7d7217b33e55540f54a521a58ef6a8473cdb00b1a1b20538f26b822098e053ae /usr/share/licenses/SDL2 /usr/share/licenses/SDL2
 # Licences of the libraries linked into the client.
-COPY https://daugasauron.com/demos/xonotic/Dollyfile-xonotic-build b6412f74ea8dcc2fc089a7d9e10cf33f8b2f34c5af31876ed32eb5435dadb75e /usr/share/licenses/libjpeg /usr/share/licenses/libjpeg
-COPY https://daugasauron.com/demos/zero-ad/Dollyfile-zero-ad-deps 68fdf9e443d4ec2f6459e26f107fc75bfee3965b6abeda185d1d92e1ebc4893d /usr/share/licenses/freetype /usr/share/licenses/freetype
-COPY https://daugasauron.com/demos/zero-ad/Dollyfile-zero-ad-deps 68fdf9e443d4ec2f6459e26f107fc75bfee3965b6abeda185d1d92e1ebc4893d /usr/share/licenses/libpng /usr/share/licenses/libpng
+COPY https://daugasauron.com/demos/xonotic/Dollyfile-xonotic-build 2846ac8702985653d197b084cf8b9db93de5b82f9864655e2065fb859d660c20 /usr/share/licenses/libjpeg /usr/share/licenses/libjpeg
+COPY https://daugasauron.com/demos/zero-ad/Dollyfile-zero-ad-deps 6fd46772814bc576e6a850957c884a5492ca95f6c6ff2b4e573699e62988a9e4 /usr/share/licenses/freetype /usr/share/licenses/freetype
+COPY https://daugasauron.com/demos/zero-ad/Dollyfile-zero-ad-deps 6fd46772814bc576e6a850957c884a5492ca95f6c6ff2b4e573699e62988a9e4 /usr/share/licenses/libpng /usr/share/licenses/libpng
 # The release's game content, one archive each; music and the Nexuiz
 # compatibility packs are not in the image yet.
 SOURCE https://daugasauron.com/dist/static/xonotic/data/font-unifont-20230620.pk3 7cc9ca2e4cccaa7533d7e9fe7a6e5b5dd6e4af0c8551c1e9edc40d32b90dba2b /usr/share/xonotic/data/font-unifont-20230620.pk3
