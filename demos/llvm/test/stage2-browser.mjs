@@ -6,6 +6,7 @@
 import { readFile } from "node:fs/promises";
 import { demoTest, displayProbe } from "../../browser.mjs";
 import { inspectDollyfile } from "../../../src/dollyfile-view.mjs";
+import { sitePath } from "../../../src/static-asset.mjs";
 
 const rows = async name => {
   const recipe = new URL(`../Dollyfile-${name}`, import.meta.url);
@@ -21,8 +22,8 @@ await demoTest("llvm stage 2", { image: "llvm-cc", timeout: 7_200_000 }, async (
     policy: { rules: [{ origin: server.origin, pathPrefix: "/dist/static/llvm/", methods: ["GET"] }] } });
   for (const { directive, args } of steps) {
     if (directive === "SOURCE") {
-      const [url, , path] = args.split(" ");
-      await run(`mkdir -p ${path.slice(0, path.lastIndexOf("/"))} && curl -fsS ${server.origin}${new URL(url).pathname} -o ${path}`);
+      const [source, , path] = args.split(" ");
+      await run(`mkdir -p ${path.slice(0, path.lastIndexOf("/"))} && curl -fsS ${server.origin}${sitePath(source)} -o ${path}`);
     } else if (directive === "SLOP") {
       const [, directory = "/", command] = args.match(/^(?:CWD (\S+) )?(.*)$/s);
       await run(`cd ${directory} && ${command}`);

@@ -111,8 +111,9 @@ int main(int argc, char **argv) {
   EXPECT(curl_easy_setopt(curl, CURLOPT_PIPEWAIT, 1L), CURLE_OK);
   EXPECT(curl_easy_setopt(curl, CURLOPT_SEEKFUNCTION, NULL), CURLE_OK);
   EXPECT(curl_easy_setopt(curl, CURLOPT_OPENSOCKETFUNCTION, NULL), CURLE_OK);
+  /* A path goes to the broker, which serves only its site's versioned paths. */
   EXPECT(curl_easy_setopt(curl, CURLOPT_URL, path), CURLE_OK);
-  EXPECT(curl_easy_perform(curl), CURLE_URL_MALFORMAT);
+  EXPECT(curl_easy_perform(curl), CURLE_BAD_FUNCTION_ARGUMENT);
   EXPECT(curl_global_trace("all"), CURLE_NOT_BUILT_IN);
   EXPECT(curl_easy_setopt(curl, (CURLoption)99999, 0L), CURLE_UNKNOWN_OPTION);
   curl_easy_cleanup(curl);
