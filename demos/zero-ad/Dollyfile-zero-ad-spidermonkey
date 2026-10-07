@@ -12,10 +12,10 @@ REQUIRES HOST upload@0
 # Build-only: SpiderMonkey 128.13.0, the engine's JavaScript library, built by
 # upstream's mozbuild (configure.py and Make) with Dolly's CPython, Cargo,
 # cbindgen and c++ from 0 A.D.'s pinned tarball and patches.
-FROM /v0.1.0/demos/zero-ad/Dollyfile-zero-ad-deps eab6c0019dde08708638ff729460f2de719acbfe59edab9c0e71713090742c5c
-INSTALL /v0.1.0/demos/python/Dollyfile-python 9d7dd849a9de25bd75215c4e47d3a35b6c8d567731356b7f4e7e942bf9c4d16b
-INSTALL /v0.1.0/demos/rust/Dollyfile-cargo d2f89e9d910e89d79a3ba11a2fd65ae78bc7b70ec4dc361321418916a2c7bd0c
-INSTALL /v0.1.0/demos/rust/Dollyfile-cbindgen f7a48be4a77f3b5687acd391dfff180338f89e9996d4497ca344dec05671296b
+FROM /v0.1.0/demos/zero-ad/Dollyfile-zero-ad-deps 46fb3eeb77d3d6c8ac263bc94313c4edb11da39e467d77715bd787b87538d973
+INSTALL /v0.1.0/demos/python/Dollyfile-python 446154a68bba94e38b70e65c580fd734c9ed2d15c634f91b47cff1b41c18ac6f
+INSTALL /v0.1.0/demos/rust/Dollyfile-cargo b679a452fc614a19c75f97fc1555d4f826a5ce00f846031d8fb4357232cb1e54
+INSTALL /v0.1.0/demos/rust/Dollyfile-cbindgen 0a85eaadb6b7e43c7484b9698abe929766eee06301637e3ba39b8f4073047e82
 REQUIRES HEADER zlib
 REQUIRES LIB z
 REQUIRES TOOL cc

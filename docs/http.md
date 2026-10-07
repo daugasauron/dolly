@@ -168,8 +168,11 @@ globalThis.DOLLY_HTTP_RELAYS = [{
   refuse. Fetch owns TLS, DNS, pooling, compression and redirects, so proxies,
   cookies, certificates, disabling TLS verification and connect timeouts return
   `CURLE_NOT_BUILT_IN` rather than being silently remembered; unknown options
-  return `CURLE_UNKNOWN_OPTION`. A relative URL, a site path included, fails with `CURLE_URL_MALFORMAT`
-  and a disallowed redirect with `CURLE_COULDNT_CONNECT`.
+  return `CURLE_UNKNOWN_OPTION`. A site path goes to the broker as it is
+  (`curl /vX.Y.Z/Dollyfile-system` reads the recipe other recipes name); one
+  the broker refuses fails with `CURLE_BAD_FUNCTION_ARGUMENT`, any other
+  URL without `http(s)://` with `CURLE_UNSUPPORTED_PROTOCOL` and a disallowed
+  redirect with `CURLE_COULDNT_CONNECT`.
 - Git: upstream `git` and `git-remote-http(s)` link that libcurl
   ([`Dollyfile-system-tools`](../Dollyfile-system-tools)): clone, fetch and push over HTTP, from
   hosts that send CORS headers or through a relay (see [CORS and relays](#cors-and-relays)).

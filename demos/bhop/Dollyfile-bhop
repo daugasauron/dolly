@@ -8,10 +8,10 @@ REQUIRES HOST snapshot@0
 REQUIRES HOST threads@0
 REQUIRES HOST upload@0
 
-FROM /v0.1.0/demos/slopyard/Dollyfile-gamedev-sdk fd2f975a10e2213f1ee0b886aa6424e12d6fe7f746bd943d89bd5cda77b7c6e1
-INSTALL /v0.1.0/demos/javascript/Dollyfile-javascript 599b4f12332ae4e460a96cd1df90a5027a02a6caa0c3663f6f6b2cd432931d8d
-INSTALL /v0.1.0/demos/pi/Dollyfile-pi-coding-agent 5a9f0c369a388e815d74d948983252b3bb100698186288b21983ded4a747e0cc
-INSTALL /v0.1.0/demos/sdl2/Dollyfile-sdl2 99d5ceb53e85cfd374be01850a9e25a54258810392a2eb9c287bcea0c27a65f8
+FROM /v0.1.0/demos/slopyard/Dollyfile-gamedev-sdk 9310215f0fe45d3e950ccb1dcfc9f5ef1bd919a4e7329922413c799ee3e9f8da
+INSTALL /v0.1.0/demos/javascript/Dollyfile-javascript 18e60153c6c8b1aebcf32e3af530294ea18544f4daf28c4d89d33f0d2aa0ccc1
+INSTALL /v0.1.0/demos/pi/Dollyfile-pi-coding-agent 3f55cb274d5192736f4aa07a2d9408a3872b10604cc51467a52ef57282551782
+INSTALL /v0.1.0/demos/sdl2/Dollyfile-sdl2 9e2ae202e8a426d2995ed3d6579d2567f5db68716c0d3df99ad2bbe26572e1c3
 REQUIRES TOOL cc
 REQUIRES TOOL make
 REQUIRES TOOL c++

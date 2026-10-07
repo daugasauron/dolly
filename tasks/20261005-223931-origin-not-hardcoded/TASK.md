@@ -66,6 +66,34 @@ version, no domain. This is Dollyfile 7; the old form is not read.
   go to `PUBLIC_ORIGIN/v<version>/ROUTE/`, since the domain will serve
   nothing outside a version.
 
+- **`curl` takes a site path** (`src/libcurl-fetch.c`): the adapter used to
+  refuse every URL without a scheme, so `curl /v0.1.0/Dollyfile-system`
+  failed as malformed. With no domain left to name the site's files, that
+  was the only way from a shell to read the file a recipe names (Studio's
+  skill and two tests fetched `https://daugasauron.com/…` for it), so the
+  adapter now passes a path to the broker, which judges it. Found on the
+  first chain build; it changes the `curl` package's source, not the seed.
+
+### What remains of `daugasauron.com` (`git grep 'daugasauron\.com' -- ':!tasks'`)
+
+| Where | Why |
+| --- | --- |
+| `src/static-asset.mjs`, `PUBLIC_ORIGIN` | the one setting: the lint's check and GitHub Pages' links to the domain |
+| `README.md` | the link people open |
+| `robots.txt` | cites the licences page; `/licences/` will not exist outside a version (the robots task's) |
+| `docs/deployment.md` | the deployment document (the hosting step's) |
+| `scripts/package-pages.sh`, `scripts/package-domain.mjs`, `sites/daugasauron.com/` | the domain site's name and its own pages |
+
+No recipe, test, demo, generator or page module names the domain.
+
+### Measurements (2026-10-08, one builder, 6 GB build slot)
+
+- `npm run build:runtime`: 62.5 s; image inputs `c62b2710…` to `503e6ffe…`
+  (the engine is in the seed): every image is rebuilt.
+- First chain, 17 images (`default`, `system`, `amy`, `cc`, `git`,
+  `javascript`, `audio-sdk`, `dolly-docs` and what they need): 12 min 41 s.
+  `closed-source-agent` with `rust-sdk`, `rust-build`, `ripgrep`: 3 min 3 s.
+
 Owner request (2026-10-06, low priority): "the HOST should be an environment
 variable or something, never hardcode daugasauron.com. … Dollyfiles always
 contain daugasauron.com, even when a release candidate is deployed locally. On

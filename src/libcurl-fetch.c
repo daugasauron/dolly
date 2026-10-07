@@ -679,9 +679,8 @@ static CURLcode prepare_transfer(DollyEasy *easy, DollyTransfer *transfer) {
   reset_result(easy);
   const unsigned protocol = strncasecmp(easy->url, "http://", 7) == 0 ? PROTOCOL_HTTP :
       strncasecmp(easy->url, "https://", 8) == 0 ? PROTOCOL_HTTPS : 0;
-  /* The broker admits only absolute http: and https: URLs. */
-  if (protocol == 0 && easy->url[0] == '/') return CURLE_URL_MALFORMAT;
-  if (!(easy->protocols & protocol)) return CURLE_UNSUPPORTED_PROTOCOL;
+  /* The broker takes absolute http: and https: URLs and paths of its site. */
+  if (easy->url[0] != '/' && !(easy->protocols & protocol)) return CURLE_UNSUPPORTED_PROTOCOL;
 
   unsigned char *body = NULL;
   size_t body_size = 0;

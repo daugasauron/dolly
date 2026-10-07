@@ -11,7 +11,7 @@ SOURCE /v0.1.0/docs/slop.md c1c3a9e0e5584a2120079fcce6562b272edee890aadd106bfd10
 SOURCE /v0.1.0/docs/display.md ab6e17fbe9d7218fb24f95e438824e5dfa834a7ddda50212e0f1061381aa8321 /usr/share/doc/dolly/docs/display.md
 SOURCE /v0.1.0/docs/gpu.md f57940e72153898014baa7882a70a0d5d5fcd24508d5d22c70bcf323e3f5bef4 /usr/share/doc/dolly/docs/gpu.md
 SOURCE /v0.1.0/docs/audio.md ebea715a5708fdea8824ee0370f3c8549d81bd7cf66128c0e6f91c42f683e73d /usr/share/doc/dolly/docs/audio.md
-SOURCE /v0.1.0/docs/http.md 2913ec3dac310f25062faf4fb3272edda5ff7c48402bd154661532529fc213e4 /usr/share/doc/dolly/docs/http.md
+SOURCE /v0.1.0/docs/http.md 0ba4c40efe8c186e4cb4bf705f71fdab5124f7e5c54b452de0c276e88edaf741 /usr/share/doc/dolly/docs/http.md
 SOURCE /v0.1.0/docs/sessions.md 0cb99863a6accef672b64d8a5a4856c67ca95fdab82c353965bfaf22f6759245 /usr/share/doc/dolly/docs/sessions.md
 SOURCE /v0.1.0/docs/dollyfile.md e291133857e3791612bee6131a1d8c3640fdfe9269bf3dc62975580bb5a9fba2 /usr/share/doc/dolly/docs/dollyfile.md
 SOURCE /v0.1.0/docs/architecture.md c60b0260e2677b15221098af897cd5a41cd10cc1753f007228c5d4bef4207ee4 /usr/share/doc/dolly/docs/architecture.md
