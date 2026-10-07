@@ -581,3 +581,11 @@ memory sampled every 2 s into `memory-4.log`; stage logs `stage-*.log`.
   against it (the integrator's call).
 - `-msimd128` to match the host's optimize flags: one token in the recipe
   after the first verified build.
+- Second image build (11:17-11:30): configure, the Rust library and all C++
+  compiled and `libjs_static.a` was archived (742 s to the archive, scope
+  peak 7.33 GB under the 9 GB bigbuild slot), then the misc tier's
+  `check_spidermonkey_style.py` failed: the staged `mozjs.tar.gz` had no
+  `js/src/tests/style` because `prepare-sources.sh` reused the tree extracted
+  by the first (all-of-`js/src/tests`) pruning. Staging now re-extracts every
+  time (5 s); the fixtures are in the tarball; the recipe lists
+  `/opt/mozjs/lib` so the image log carries the library sizes.

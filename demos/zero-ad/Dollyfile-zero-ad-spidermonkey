@@ -35,7 +35,7 @@ REQUIRES TOOL mkdir
 REQUIRES TOOL sh
 
 # The pinned tree without its test suites, 0 A.D.'s patches and Dolly's.
-SOURCE https://daugasauron.com/dist/static/zero-ad-build/mozjs.tar.gz b38f8c15a9bc9407fda3e1ba8a74635a4243d9282fa6e49e949abf8699d1496d /tmp/mozjs.tar.gz
+SOURCE https://daugasauron.com/dist/static/zero-ad-build/mozjs.tar.gz a0e7bd4549c698ba1c84c437e4191345afde2e24746eb7ac41e7d799f1ba8808 /tmp/mozjs.tar.gz
 SLOP gzip -dc /tmp/mozjs.tar.gz | tar -xf - -C /
 SLOP CWD /tmp/mozjs/mozjs-128.13.0 sh ../patches/patch.sh
 SLOP patch -p1 -d /tmp/mozjs/mozjs-128.13.0 -i /tmp/mozjs/spidermonkey.patch
@@ -70,6 +70,7 @@ FILE /tmp/mozjs/build.slop
     # copytree dereferences them (Dolly's cp has no -L).
     python -c 'import shutil; shutil.copytree("dist/include", "/opt/mozjs/include", symlinks=False)'
     cp js/src/build/libjs_static.a wasm64-emscripten-probe/release/libjsrust.a /opt/mozjs/lib/
+    ls -l /opt/mozjs/lib
     cp ../LICENSE /usr/share/licenses/spidermonkey/LICENSE
     cp ../nsprpub/LICENSE /usr/share/licenses/spidermonkey/MPL-2.0
     # The notices of the crates compiled into libjsrust.a.

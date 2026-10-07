@@ -64,14 +64,14 @@ if has_image zero-ad-spidermonkey; then
   # SpiderMonkey's pinned tarball without the test suites a --disable-tests build
   # never reads (490 MB), 0 A.D.'s patches and Dolly's.
   spidermonkey="${zad_dir}/0ad-$(source config/source-pins.sh && echo "${DOLLY_0AD_VERSION}")/libraries/source/spidermonkey"
+  # Extracted afresh each time (5 s), so a changed exclude list cannot leave a
+  # stale tree behind. Prune the test suites a --disable-tests build never reads
+  # (490 MB); keep js/src/tests/style, which check_spidermonkey_style.py reads.
   mozjs_dir="${zad_dir}/mozjs-128.13.0"
-  if [[ ! -d "${mozjs_dir}" ]]; then
-    # Prune the test suites a --disable-tests build never reads (490 MB). Keep
-    # js/src/tests/style, which check_spidermonkey_style.py reads at build time.
-    tar -xf "${spidermonkey}/mozjs-128.13.0.tar.xz" -C "${zad_dir}" \
-      --exclude='mozjs-128.13.0/js/src/tests/test262' --exclude='mozjs-128.13.0/js/src/tests/non262' \
-      --exclude='mozjs-128.13.0/js/src/jit-test' --exclude='mozjs-128.13.0/testing/web-platform'
-  fi
+  rm -rf "${mozjs_dir}"
+  tar -xf "${spidermonkey}/mozjs-128.13.0.tar.xz" -C "${zad_dir}" \
+    --exclude='mozjs-128.13.0/js/src/tests/test262' --exclude='mozjs-128.13.0/js/src/tests/non262' \
+    --exclude='mozjs-128.13.0/js/src/jit-test' --exclude='mozjs-128.13.0/testing/web-platform'
   node scripts/build-source-tar.mjs "${static_dir}/zero-ad-build/mozjs.tar.gz" \
     "${mozjs_dir}" /tmp/mozjs/mozjs-128.13.0 \
     "${spidermonkey}/patches" /tmp/mozjs/patches \
