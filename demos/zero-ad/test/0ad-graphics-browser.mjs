@@ -6,6 +6,7 @@ import {acceptDownload} from '../../browser.mjs';
 import {hasGameHud} from './fixtures/0ad-hud.mjs';
 import {inspectDollyfile} from '../../../src/dollyfile-view.mjs';
 import {engineFixture} from './fixtures/image-file.mjs';
+import {siteReference} from '../../../src/static-asset.mjs';
 
 const root=new URL('../../../',import.meta.url), output=new URL('../../../.cache/0ad/browser/',import.meta.url);
 const image=process.argv[2]??'default', backend=process.argv[3]??'hardware';
@@ -19,7 +20,7 @@ assert.ok(['auto','uncompressed','core'].includes(compression));
 assert.ok(['gpu','cpu'].includes(animation));
 await mkdir(output,{recursive:true});
 const sources=inspectDollyfile(await readFile(new URL('demos/zero-ad/Dollyfile-zero-ad',root),'utf8')).sources;
-const prefix='https://daugasauron.com/dist/static/zero-ad/';
+const prefix=siteReference('dist/static/zero-ad/');
 const fixtures=Object.fromEntries(sources.map(source=>[source.location.slice(prefix.length),'dist/static/zero-ad/'+source.location.slice(prefix.length)]));
 fixtures['pyrogenesis.wasm']=await engineFixture();
 let provider='import "/test/fixtures/gpu-surface-observer.mjs";\n'+(await readFile(new URL('host/gpu/worker.mjs',root),'utf8'))

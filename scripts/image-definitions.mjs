@@ -9,7 +9,7 @@ import {
 } from "./dollyfile-graph.mjs";
 import { recipeFiles } from "./recipe-files.mjs";
 import { publishedHeaders, publishedDocument } from "./host-modules.mjs";
-import { CANONICAL_ORIGIN, canonicalPath } from "../src/static-asset.mjs";
+import { siteReference, sitePath } from "../src/static-asset.mjs";
 
 // `filename` is the recipe's checkout path, which is also its published path.
 export async function discoverImageDefinitions(projectDir) {
@@ -53,13 +53,13 @@ export async function selectImageDefinitions(definitions, selection = process.en
   }
   const closure = new Map();
   const loadGraph = createDollyfileGraphLoader(selected[0].projectDir);
-  const byURL = new Map(definitions.map(definition => [`${CANONICAL_ORIGIN}/${definition.filename}`, definition]));
+  const byReference = new Map(definitions.map(definition => [siteReference(definition.filename), definition]));
   async function include(definition) {
     if (closure.has(definition.image)) return;
     closure.set(definition.image, definition);
     const graph = await loadGraph(definition.filename);
     for (const reference of graph.artifacts) {
-      const dependency = byURL.get(reference.location);
+      const dependency = byReference.get(reference.location);
       if (!dependency) throw new Error(`missing artifact recipe ${reference.location}`);
       await include(dependency);
     }
@@ -74,7 +74,7 @@ export async function inspectStaticSources(projectDir, definitions) {
   for (const definition of definitions) {
     const graph = await loadGraph(definition.filename);
     for (const record of graph.records) {
-      const path = canonicalPath(record.location);
+      const path = sitePath(record.location);
       const previous = sources.get(path);
       if (previous && previous.sha256 !== record.sha256) {
         throw new Error(`${definition.filename}: conflicting recipe ${path}`);
@@ -88,7 +88,7 @@ export async function inspectStaticSources(projectDir, definitions) {
       }
     }
     for (const record of graph.records) for (const source of record.sources) {
-      const path = canonicalPath(source.location);
+      const path = sitePath(source.location);
       if (path === null) continue;
       if (!(path.startsWith("/dist/static/") || publishedHeaders.has(path) || publishedDocument(path)) || path.includes("..")) {
         throw new Error(

@@ -1,61 +1,62 @@
 import { createHash } from "node:crypto";
+import { siteReference as site } from "../../src/static-asset.mjs";
 
 // Recipes that /bin/dollyfile and the JavaScript recipe graph must both accept
-// or both reject. Each case maps paths on the canonical origin to text;
-// /Dollyfile is the root. PIN(/path) stands for the SHA-256 of that file once
-// its own pins resolve.
+// or both reject. Each case maps paths of the site to text; /Dollyfile is the
+// root. PIN(/path) stands for the SHA-256 of that file once its own pins
+// resolve.
 // C imports FROM/INSTALL/COPY targets as built artifacts and checks their
 // roles then; every target here is valid syntactically.
 const zeros = "0".repeat(64);
-const image = (rows = "") => `DOLLY 6\nAPPLICATION default\n${rows}ENTRY /bin/slop\n`;
+const image = (rows = "") => `DOLLY 7\nAPPLICATION default\n${rows}ENTRY /bin/slop\n`;
 const root = (text, files = {}) => ({ "/Dollyfile": text, ...files });
 // Rows inside a package root: every directive but FROM and ENTRY.
-const probe = rows => root(`DOLLY 6\nPACKAGE default\n${rows}\n`);
-const base = { "/Dollyfile-base": "DOLLY 6\nTOOLCHAIN base\nENTRY /bin/slop\n" };
-const pkg = { "/Dollyfile-pkg": "DOLLY 6\nPACKAGE pkg\nFILE /usr/share/pkg\n" };
+const probe = rows => root(`DOLLY 7\nPACKAGE default\n${rows}\n`);
+const base = { "/Dollyfile-base": "DOLLY 7\nTOOLCHAIN base\nENTRY /bin/slop\n" };
+const pkg = { "/Dollyfile-pkg": "DOLLY 7\nPACKAGE pkg\nFILE /usr/share/pkg\n" };
 const words = (count, size = 1) => Array.from({ length: count }, () => "a".repeat(size)).join(" ");
 
 export const syntaxCases = [
   // Header, roles, names and ENTRY.
   [true, root(image())],
   [false, root("")],
-  [false, root("DOLLY 5\nAPPLICATION default\nENTRY /bin/slop\n")],
-  [false, root("DOLLY 7\nAPPLICATION default\nENTRY /bin/slop\n")],
-  [false, root('DOLLY "6"\nAPPLICATION default\nENTRY /bin/slop\n')],
-  [true, root("# comment\n\nDOLLY  6 # version\nAPPLICATION  default\nENTRY /bin/slop\n")],
-  [false, root("DOLLY 6\nDOLLY 6\nAPPLICATION default\nENTRY /bin/slop\n")],
+  [false, root("DOLLY 6\nAPPLICATION default\nENTRY /bin/slop\n")],
+  [false, root("DOLLY 8\nAPPLICATION default\nENTRY /bin/slop\n")],
+  [false, root('DOLLY "7"\nAPPLICATION default\nENTRY /bin/slop\n')],
+  [true, root("# comment\n\nDOLLY  7 # version\nAPPLICATION  default\nENTRY /bin/slop\n")],
+  [false, root("DOLLY 7\nDOLLY 7\nAPPLICATION default\nENTRY /bin/slop\n")],
   [false, root("APPLICATION default\nENTRY /bin/slop\n")],
-  [false, root("DOLLY 6\nIMAGE default\nENTRY /bin/slop\n")],
-  [false, root("DOLLY 6\nMODULE default\n")],
-  [true, root('DOLLY 6\nAPPLICATION "default"\nENTRY /bin/slop\n')],
-  [false, root("DOLLY 6\nAPPLICATION Default\nENTRY /bin/slop\n")],
-  [true, root(`DOLLY 6\nAPPLICATION ${"a".repeat(32)}\nENTRY /bin/slop\n`)],
-  [false, root(`DOLLY 6\nAPPLICATION ${"a".repeat(33)}\nENTRY /bin/slop\n`)],
+  [false, root("DOLLY 7\nIMAGE default\nENTRY /bin/slop\n")],
+  [false, root("DOLLY 7\nMODULE default\n")],
+  [true, root('DOLLY 7\nAPPLICATION "default"\nENTRY /bin/slop\n')],
+  [false, root("DOLLY 7\nAPPLICATION Default\nENTRY /bin/slop\n")],
+  [true, root(`DOLLY 7\nAPPLICATION ${"a".repeat(32)}\nENTRY /bin/slop\n`)],
+  [false, root(`DOLLY 7\nAPPLICATION ${"a".repeat(33)}\nENTRY /bin/slop\n`)],
   ...["qwen3.5-4b", "lua5.5", "qwen2.5-coder", "llama3.2-3b", "gemma-3n", "python3.14", "lua5.4.6-rc1"]
-    .map(name => [true, root(`DOLLY 6\nAPPLICATION ${name}\nENTRY /bin/slop\n`)]),
+    .map(name => [true, root(`DOLLY 7\nAPPLICATION ${name}\nENTRY /bin/slop\n`)]),
   ...["example.txt", "a.b", "qwen3.5b", "a.5b", "a..5", "a-", "a.", "-a", "a--b", "a-.5", "a.5.", "a_b"]
-    .map(name => [false, root(`DOLLY 6\nAPPLICATION ${name}\nENTRY /bin/slop\n`)]),
-  [false, root("DOLLY 6\nENTRY /bin/slop\nAPPLICATION default\n")],
-  [false, root("DOLLY 6\nAPPLICATION default\nAPPLICATION other\nENTRY /bin/slop\n")],
-  [false, root("DOLLY 6\nAPPLICATION default\nTOOLCHAIN other\nENTRY /bin/slop\n")],
-  [false, root("DOLLY 6\nAPPLICATION default\n")],
-  [true, root("DOLLY 6\nTOOLCHAIN default\nENTRY /bin/slop\n")],
-  [true, root("DOLLY 6\nTOOLCHAIN default\nSLOP true\n")],
-  [true, root("DOLLY 6\nPACKAGE default\nSLOP true\n")],
-  [true, root("DOLLY 6\nPACKAGE default\n")],
-  [false, root("DOLLY 6\nPACKAGE default\nENTRY /bin/slop\n")],
+    .map(name => [false, root(`DOLLY 7\nAPPLICATION ${name}\nENTRY /bin/slop\n`)]),
+  [false, root("DOLLY 7\nENTRY /bin/slop\nAPPLICATION default\n")],
+  [false, root("DOLLY 7\nAPPLICATION default\nAPPLICATION other\nENTRY /bin/slop\n")],
+  [false, root("DOLLY 7\nAPPLICATION default\nTOOLCHAIN other\nENTRY /bin/slop\n")],
+  [false, root("DOLLY 7\nAPPLICATION default\n")],
+  [true, root("DOLLY 7\nTOOLCHAIN default\nENTRY /bin/slop\n")],
+  [true, root("DOLLY 7\nTOOLCHAIN default\nSLOP true\n")],
+  [true, root("DOLLY 7\nPACKAGE default\nSLOP true\n")],
+  [true, root("DOLLY 7\nPACKAGE default\n")],
+  [false, root("DOLLY 7\nPACKAGE default\nENTRY /bin/slop\n")],
   [false, root(image() + "SLOP true\n")],
   [true, root(image() + "\n# done\n")],
   [false, root(image("ENTRY /bin/slop\n"))],
-  [false, root("DOLLY 6\nAPPLICATION default\nENTRY bin/slop\n")],
-  [false, root("DOLLY 6\nAPPLICATION default\nENTRY\n")],
-  [true, root('DOLLY 6\nAPPLICATION default\nENTRY /bin/slop ""\n')],
-  [true, root(`DOLLY 6\nAPPLICATION default\nENTRY /bin/slop ${words(255)}\n`)],
-  [false, root(`DOLLY 6\nAPPLICATION default\nENTRY /bin/slop ${words(256)}\n`)],
-  [true, root(`DOLLY 6\nAPPLICATION default\nENTRY /bin/slop ${words(1, 4096)}\n`)],
-  [false, root(`DOLLY 6\nAPPLICATION default\nENTRY /bin/slop ${words(1, 4097)}\n`)],
-  [true, root(`DOLLY 6\nAPPLICATION default\nENTRY /bin/slop ${words(15, 4096)} ${words(1, 4000)}\n`)],
-  [false, root(`DOLLY 6\nAPPLICATION default\nENTRY /bin/slop ${words(15, 4096)} ${words(1, 4050)}\n`)],
+  [false, root("DOLLY 7\nAPPLICATION default\nENTRY bin/slop\n")],
+  [false, root("DOLLY 7\nAPPLICATION default\nENTRY\n")],
+  [true, root('DOLLY 7\nAPPLICATION default\nENTRY /bin/slop ""\n')],
+  [true, root(`DOLLY 7\nAPPLICATION default\nENTRY /bin/slop ${words(255)}\n`)],
+  [false, root(`DOLLY 7\nAPPLICATION default\nENTRY /bin/slop ${words(256)}\n`)],
+  [true, root(`DOLLY 7\nAPPLICATION default\nENTRY /bin/slop ${words(1, 4096)}\n`)],
+  [false, root(`DOLLY 7\nAPPLICATION default\nENTRY /bin/slop ${words(1, 4097)}\n`)],
+  [true, root(`DOLLY 7\nAPPLICATION default\nENTRY /bin/slop ${words(15, 4096)} ${words(1, 4000)}\n`)],
+  [false, root(`DOLLY 7\nAPPLICATION default\nENTRY /bin/slop ${words(15, 4096)} ${words(1, 4050)}\n`)],
 
   // Physical and logical lines.
   [true, probe("SLOP cc \\\n  input.c")],
@@ -67,8 +68,8 @@ export const syntaxCases = [
   [false, probe('FILE "/usr/share/a \\\nb" # quoted per line')],
   [true, probe("SLOP cc \\\n\nSLOP true")],
   [true, probe("SLOP printf '%s' \\\\ \\\n  done")],
-  [true, root("DOLLY 6\r\nAPPLICATION default\r\nSLOP cc \\\r\n  x\r\nFILE /usr/share/a\r\n    body\r\nENTRY /bin/slop\r\n")],
-  [true, root("DOLLY 6\rAPPLICATION default\rFILE /usr/share/a\r    body\rENTRY /bin/slop")],
+  [true, root("DOLLY 7\r\nAPPLICATION default\r\nSLOP cc \\\r\n  x\r\nFILE /usr/share/a\r\n    body\r\nENTRY /bin/slop\r\n")],
+  [true, root("DOLLY 7\rAPPLICATION default\rFILE /usr/share/a\r    body\rENTRY /bin/slop")],
   [true, probe(`SLOP ${"a".repeat(65531)}`)],
   [false, probe(`SLOP ${"a".repeat(65532)}`)],
   [false, probe(`SLOP ${"a".repeat(32766)} \\\n${"a".repeat(32766)}`)],
@@ -77,7 +78,7 @@ export const syntaxCases = [
   [false, probe("SLOP true\0")],
   [false, probe("# comment\0")],
   [false, root(image("FILE /usr/share/a\n    body\0\n"))],
-  [false, probe("USE https://daugasauron.com/modules/probe.dm " + zeros)],
+  [false, probe(`USE ${site("modules/probe.dm")} ` + zeros)],
   [false, probe("COMPILEC /tmp/slop/slop.c /bin/slop")],
   [false, probe("slop true")],
 
@@ -87,7 +88,7 @@ export const syntaxCases = [
   [false, probe("FILE /usr/share/a\n\talpha")],
   [true, probe("FILE /usr/share/a\n    # literal \\\n    'unbalanced\n    \tindented")],
   [true, probe("FILE /usr/share/a \\\n  # continued path line\n    body")],
-  [true, root("DOLLY 6\nPACKAGE default\nFILE /usr/share/a\n    last line")],
+  [true, root("DOLLY 7\nPACKAGE default\nFILE /usr/share/a\n    last line")],
   [false, probe("FILE\n    body")],
   [false, probe("FILE /usr/share/a /usr/share/b")],
   [true, probe('FILE "/usr/share/a b"')],
@@ -183,37 +184,46 @@ export const syntaxCases = [
   [true, probe("REQUIRES HOST gpu@0\nEXPORTS TOOL cc\nREQUIRES TOOL cc")],
   [false, probe("EXPORTS TOOL cc\nREQUIRES HOST gpu@0")],
   [false, probe("REQUIRES TOOL cc\nREQUIRES HOST gpu@0")],
-  [false, root("DOLLY 6\nAPPLICATION default\nFROM https://daugasauron.com/Dollyfile-base PIN(/Dollyfile-base)\nREQUIRES HOST gpu@0\nENTRY /bin/slop\n", base)],
+  [false, root(`DOLLY 7\nAPPLICATION default\nFROM ${site("Dollyfile-base")} PIN(/Dollyfile-base)\nREQUIRES HOST gpu@0\nENTRY /bin/slop\n`, base)],
 
   // FROM, INSTALL, COPY and SOURCE.
-  [true, root("DOLLY 6\nAPPLICATION default\nFROM https://daugasauron.com/Dollyfile-base PIN(/Dollyfile-base)\nENTRY /bin/slop\n", base)],
-  [true, root("DOLLY 6\nPACKAGE default\nFROM https://daugasauron.com/Dollyfile-base PIN(/Dollyfile-base)\nFILE /usr/share/a\n", base)],
-  [false, root("DOLLY 6\nAPPLICATION default\nSLOP true\nFROM https://daugasauron.com/Dollyfile-base PIN(/Dollyfile-base)\nENTRY /bin/slop\n", base)],
-  [false, root("DOLLY 6\nAPPLICATION default\nFROM https://daugasauron.com/Dollyfile-base PIN(/Dollyfile-base)\nFROM https://daugasauron.com/Dollyfile-base PIN(/Dollyfile-base)\nENTRY /bin/slop\n", base)],
-  [false, root("DOLLY 6\nAPPLICATION default\nFROM HOST /Dollyfile-base PIN(/Dollyfile-base)\nENTRY /bin/slop\n", base)],
-  [false, root(image(`FROM https://daugasauron.com/Dollyfile-/bad ${zeros}\n`))],
-  [false, root(image(`FROM https://daugasauron.com/Dollyfile-${"a".repeat(33)} ${zeros}\n`))],
-  [false, root(image(`FROM https://daugasauron.com/Dollyfile-base?x=1 ${zeros}\n`))],
-  [false, root(image(`FROM https://Dollyfile-base ${zeros}\n`))],
-  [true, root(image("INSTALL https://daugasauron.com/Dollyfile-pkg PIN(/Dollyfile-pkg)\n"), pkg)],
-  [true, root(image("SLOP true\nINSTALL https://daugasauron.com/Dollyfile-pkg PIN(/Dollyfile-pkg)\n".repeat(2)), pkg)],
-  [true, root("DOLLY 6\nPACKAGE default\nINSTALL https://daugasauron.com/Dollyfile-pkg PIN(/Dollyfile-pkg)\n", pkg)],
-  [false, root(image("INSTALL https://daugasauron.com/Dollyfile-pkg\n"), pkg)],
-  [false, root(image("INSTALL https://daugasauron.com/Dollyfile-pkg PIN(/Dollyfile-pkg) / /\n"), pkg)],
-  [false, root(image("INSTALL https://daugasauron.com/pkg.dm PIN(/Dollyfile-pkg)\n"), pkg)],
-  [true, root(image("COPY https://daugasauron.com/Dollyfile-base PIN(/Dollyfile-base) /usr /usr\n"), base)],
-  [true, root(image("COPY https://daugasauron.com/Dollyfile-pkg PIN(/Dollyfile-pkg) /usr/share/pkg /opt/pkg\n"), pkg)],
-  [true, root(image("COPY https://daugasauron.com/Dollyfile-base PIN(/Dollyfile-base) / /opt/base\n"), base)],
-  [true, root("DOLLY 6\nPACKAGE default\nCOPY https://daugasauron.com/Dollyfile-base PIN(/Dollyfile-base) /usr/bin/a '/usr/bin/a b'\n", base)],
-  [false, root(image("COPY https://daugasauron.com/Dollyfile-base PIN(/Dollyfile-base) /usr /usr/../etc\n"), base)],
-  [false, root(image("COPY FROM https://daugasauron.com/Dollyfile-base PIN(/Dollyfile-base) /usr /usr\n"), base)],
-  [false, root(image("COPY https://daugasauron.com/Dollyfile-base PIN(/Dollyfile-base) /usr\n"), base)],
-  // URL paths are normalized: a parser would resolve these segments elsewhere.
-  [false, root("DOLLY 6\nAPPLICATION default\nFROM https://daugasauron.com/./Dollyfile-base PIN(/Dollyfile-base)\nENTRY /bin/slop\n", base)],
-  [false, root(image("COPY https://daugasauron.com//Dollyfile-base PIN(/Dollyfile-base) /usr /usr\n"), base)],
+  [true, root(`DOLLY 7\nAPPLICATION default\nFROM ${site("Dollyfile-base")} PIN(/Dollyfile-base)\nENTRY /bin/slop\n`, base)],
+  [true, root(`DOLLY 7\nPACKAGE default\nFROM ${site("Dollyfile-base")} PIN(/Dollyfile-base)\nFILE /usr/share/a\n`, base)],
+  [false, root(`DOLLY 7\nAPPLICATION default\nSLOP true\nFROM ${site("Dollyfile-base")} PIN(/Dollyfile-base)\nENTRY /bin/slop\n`, base)],
+  [false, root(`DOLLY 7\nAPPLICATION default\nFROM ${site("Dollyfile-base")} PIN(/Dollyfile-base)\nFROM ${site("Dollyfile-base")} PIN(/Dollyfile-base)\nENTRY /bin/slop\n`, base)],
+  [false, root("DOLLY 7\nAPPLICATION default\nFROM HOST /Dollyfile-base PIN(/Dollyfile-base)\nENTRY /bin/slop\n", base)],
+  [false, root(image(`FROM ${site("Dollyfile-/bad")} ${zeros}\n`))],
+  [false, root(image(`FROM ${site(`Dollyfile-${"a".repeat(33)}`)} ${zeros}\n`))],
+  [false, root(image(`FROM ${site("Dollyfile-base")}?x=1 ${zeros}\n`))],
+  // An image is named by a site path with a version, never by URL.
+  [false, root(`DOLLY 7\nAPPLICATION default\nFROM https://example.com/Dollyfile-base PIN(/Dollyfile-base)\nENTRY /bin/slop\n`, base)],
+  [false, root(`DOLLY 7\nAPPLICATION default\nFROM /Dollyfile-base PIN(/Dollyfile-base)\nENTRY /bin/slop\n`, base)],
+  [false, root(`DOLLY 7\nAPPLICATION default\nFROM /v1.0/Dollyfile-base PIN(/Dollyfile-base)\nENTRY /bin/slop\n`, base)],
+  [false, root(`DOLLY 7\nAPPLICATION default\nFROM /v1.0.x/Dollyfile-base PIN(/Dollyfile-base)\nENTRY /bin/slop\n`, base)],
+  [true, root(image(`INSTALL ${site("Dollyfile-pkg")} PIN(/Dollyfile-pkg)\n`), pkg)],
+  [true, root(image(`SLOP true\nINSTALL ${site("Dollyfile-pkg")} PIN(/Dollyfile-pkg)\n`.repeat(2)), pkg)],
+  [true, root(`DOLLY 7\nPACKAGE default\nINSTALL ${site("Dollyfile-pkg")} PIN(/Dollyfile-pkg)\n`, pkg)],
+  [false, root(image(`INSTALL ${site("Dollyfile-pkg")}\n`), pkg)],
+  [false, root(image(`INSTALL ${site("Dollyfile-pkg")} PIN(/Dollyfile-pkg) / /\n`), pkg)],
+  [false, root(image(`INSTALL ${site("pkg.dm")} PIN(/Dollyfile-pkg)\n`), pkg)],
+  [true, root(image(`COPY ${site("Dollyfile-base")} PIN(/Dollyfile-base) /usr /usr\n`), base)],
+  [true, root(image(`COPY ${site("Dollyfile-pkg")} PIN(/Dollyfile-pkg) /usr/share/pkg /opt/pkg\n`), pkg)],
+  [true, root(image(`COPY ${site("Dollyfile-base")} PIN(/Dollyfile-base) / /opt/base\n`), base)],
+  [true, root(`DOLLY 7\nPACKAGE default\nCOPY ${site("Dollyfile-base")} PIN(/Dollyfile-base) /usr/bin/a '/usr/bin/a b'\n`, base)],
+  [false, root(image(`COPY ${site("Dollyfile-base")} PIN(/Dollyfile-base) /usr /usr/../etc\n`), base)],
+  [false, root(image(`COPY FROM ${site("Dollyfile-base")} PIN(/Dollyfile-base) /usr /usr\n`), base)],
+  [false, root(image(`COPY ${site("Dollyfile-base")} PIN(/Dollyfile-base) /usr\n`), base)],
+  // Paths are normalized: a URL parser would resolve these segments elsewhere.
+  [false, root(`DOLLY 7\nAPPLICATION default\nFROM ${site("./Dollyfile-base")} PIN(/Dollyfile-base)\nENTRY /bin/slop\n`, base)],
+  [false, root(image(`COPY ${site("/Dollyfile-base")} PIN(/Dollyfile-base) /usr /usr\n`), base)],
   [false, probe(`SOURCE https://example.com/a/%2E%2e/probe.tar ${zeros} /tmp/probe.tar`)],
   [true, probe(`SOURCE https://example.com/a/.../?x=//.. ${zeros} /tmp/probe.tar`)],
-  [true, probe(`SOURCE https://daugasauron.com/dist/static/probe.tar ${zeros} /tmp/probe.tar`)],
+  [true, probe(`SOURCE ${site("dist/static/probe.tar")} ${zeros} /tmp/probe.tar`)],
+  [false, probe(`SOURCE ${site("dist/static/../probe.tar")} ${zeros} /tmp/probe.tar`)],
+  [false, probe(`SOURCE ${site("dist/static/probe.tar")}?x=1 ${zeros} /tmp/probe.tar`)],
+  [false, probe(`SOURCE ${site("")} ${zeros} /tmp/probe.tar`)],
+  // The engine reads any version's path; the page serves only its own.
+  [true, probe(`SOURCE /v987.0.21/dist/static/probe.tar ${zeros} /tmp/probe.tar`)],
   [true, probe(`SOURCE https://example.com/probe.tar ${zeros} /tmp/probe.tar`)],
   [true, probe(`SOURCE http://example.com:8080/probe.tar?x=1 ${zeros} /tmp/probe.tar`)],
   [true, probe(`SOURCE https://example.com ${zeros} /tmp/probe.tar`)],

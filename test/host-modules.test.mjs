@@ -8,6 +8,7 @@ import { executableHostRequirements, checkHostAbi } from "../host/requirements.m
 import { createDollyfileGraphLoader } from "../scripts/dollyfile-graph.mjs";
 import { discoverImageDefinitions } from "../scripts/image-definitions.mjs";
 import { hostManifests } from "../host/manifests.mjs";
+import { siteReference } from "../src/static-asset.mjs";
 
 const digest = value => createHash("sha256").update(value).digest("hex");
 test("every image declares its complete host set itself", async () => {
@@ -36,10 +37,10 @@ test("every image declares its complete host set itself", async () => {
 test("FROM, INSTALL and COPY carry no host requirements; a package's must be declared", async () => {
   const dir = await mkdtemp(join(tmpdir(), "dolly-host-modules-"));
   try {
-    const base = "DOLLY 6\nAPPLICATION base\nREQUIRES HOST display@0\nENTRY /bin/slop\n";
-    const donor = "DOLLY 6\nAPPLICATION donor\nREQUIRES HOST threads@0\nENTRY /bin/slop\n";
-    const pkg = "DOLLY 6\nPACKAGE pkg\nREQUIRES HOST gpu@0\nFILE /usr/share/pkg\n";
-    const recipe = hosts => `DOLLY 6\nAPPLICATION default\n${hosts.map(host => `REQUIRES HOST ${host}\n`).join("")}FROM https://daugasauron.com/Dollyfile-base ${digest(base)}\nCOPY https://daugasauron.com/Dollyfile-donor ${digest(donor)} /usr /usr\nINSTALL https://daugasauron.com/Dollyfile-pkg ${digest(pkg)}\nENTRY /bin/slop\n`;
+    const base = "DOLLY 7\nAPPLICATION base\nREQUIRES HOST display@0\nENTRY /bin/slop\n";
+    const donor = "DOLLY 7\nAPPLICATION donor\nREQUIRES HOST threads@0\nENTRY /bin/slop\n";
+    const pkg = "DOLLY 7\nPACKAGE pkg\nREQUIRES HOST gpu@0\nFILE /usr/share/pkg\n";
+    const recipe = hosts => `DOLLY 7\nAPPLICATION default\n${hosts.map(host => `REQUIRES HOST ${host}\n`).join("")}FROM ${siteReference("Dollyfile-base")} ${digest(base)}\nCOPY ${siteReference("Dollyfile-donor")} ${digest(donor)} /usr /usr\nINSTALL ${siteReference("Dollyfile-pkg")} ${digest(pkg)}\nENTRY /bin/slop\n`;
     for (const [path, source] of [["Dollyfile-base", base], ["Dollyfile-donor", donor], ["Dollyfile-pkg", pkg]]) {
       await writeFile(join(dir, path), source);
     }

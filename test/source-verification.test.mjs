@@ -7,6 +7,7 @@ import { join } from "node:path";
 import test from "node:test";
 import { gunzipSync, gzipSync } from "node:zlib";
 import { updateRecipePins } from "../scripts/update-recipe-pins.mjs";
+import { siteReference } from "../src/static-asset.mjs";
 
 for (const extension of ["tar", "tar.gz"]) test(`${extension} source archives are deterministic, complete under short writes, and own their staging`, async t => {
   const scratch = await mkdtemp(join(tmpdir(), "dolly-source-tar-"));
@@ -93,9 +94,9 @@ test("prepared published bytes update module and image pins without changing ext
   const pin = "0".repeat(64);
   try {
     await mkdir(join(scratch, "dist/static"), { recursive: true });
-    await writeFile(join(scratch, "Dollyfile"), `DOLLY 6\nAPPLICATION default\nINSTALL https://daugasauron.com/Dollyfile-tool ${pin}\nENTRY /bin/slop\n`);
-    await writeFile(join(scratch, "Dollyfile-addon"), `DOLLY 6\nAPPLICATION addon\nFROM https://daugasauron.com/Dollyfile ${pin}\nENTRY /bin/slop\n`);
-    await writeFile(join(scratch, "Dollyfile-tool"), `DOLLY 6\nPACKAGE tool\nSOURCE https://daugasauron.com/dist/static/tool.c ${pin} /tmp/tool.c\nSOURCE https://example.invalid/source ${pin} /tmp/upstream\n`);
+    await writeFile(join(scratch, "Dollyfile"), `DOLLY 7\nAPPLICATION default\nINSTALL ${siteReference("Dollyfile-tool")} ${pin}\nENTRY /bin/slop\n`);
+    await writeFile(join(scratch, "Dollyfile-addon"), `DOLLY 7\nAPPLICATION addon\nFROM ${siteReference("Dollyfile")} ${pin}\nENTRY /bin/slop\n`);
+    await writeFile(join(scratch, "Dollyfile-tool"), `DOLLY 7\nPACKAGE tool\nSOURCE ${siteReference("dist/static/tool.c")} ${pin} /tmp/tool.c\nSOURCE https://example.invalid/source ${pin} /tmp/upstream\n`);
     for (const bytes of ["first source", "edited source"]) {
       await writeFile(join(scratch, "dist/static/tool.c"), bytes);
       await updateRecipePins(scratch, "all");

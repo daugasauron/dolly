@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { browserTest } from "./browser.mjs";
 import { DOLLY_THREADS_ABI_DIGEST } from "../host/threads/abi.mjs";
-import { CANONICAL_ORIGIN } from "../src/static-asset.mjs";
+import { siteReference } from "../src/static-asset.mjs";
 import { DOLLY_IMAGES } from "../dist/dolly-images.mjs";
 
 const modules = ["runtime@0", "display@0", "http@0", "download@0", "upload@0", "snapshot@0"];
@@ -12,9 +12,9 @@ const enable = modules => page => page.addInitScript(modules => { globalThis.DOL
 const system = DOLLY_IMAGES.find(({ image }) => image === "system");
 const threadsImage = { path: "/custom/rebuild/", setup: async page => {
   await enable([...modules, "threads@0"])(page);
-  await page.addInitScript(recipe => sessionStorage.setItem("dolly-custom-source", recipe), ["DOLLY 6", "APPLICATION threads",
+  await page.addInitScript(recipe => sessionStorage.setItem("dolly-custom-source", recipe), ["DOLLY 7", "APPLICATION threads",
     ...[...modules, "threads@0"].map(module => `REQUIRES HOST ${module}`),
-    `FROM ${CANONICAL_ORIGIN}/${system.dollyfile} ${system.sha256}`, "ENTRY /bin/foreground -i /bin/slop", ""].join("\n"));
+    `FROM ${siteReference(system.dollyfile)} ${system.sha256}`, "ENTRY /bin/foreground -i /bin/slop", ""].join("\n"));
 } };
 const fixtures = Object.fromEntries(["threads-pthread.c", "threads-cpp.cpp", "threads-quota.c"]
   .map(name => [name, `test/fixtures/${name}`]));

@@ -1,4 +1,4 @@
-DOLLY 6
+DOLLY 7
 APPLICATION hello
 REQUIRES HOST runtime@0
 REQUIRES HOST display@0
@@ -7,7 +7,7 @@ REQUIRES HOST http@0
 REQUIRES HOST snapshot@0
 REQUIRES HOST upload@0
 
-FROM https://daugasauron.com/Dollyfile-system @SYSTEM_SHA256@
+FROM @SYSTEM@
 
 FILE /usr/share/hello.txt
     Hello from my custom Dolly image!

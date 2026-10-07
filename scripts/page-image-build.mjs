@@ -1,4 +1,4 @@
-// Runs in a page of the app at BASE (pass its source to page.evaluate): builds
+// Runs in a page of the site at BASE (pass its source to page.evaluate): builds
 // IMAGE, or "custom" from CUSTOM, after its missing dependencies, with the
 // app's own image builder and HTTP broker. Logs through the exposed
 // dollyBuildLog(text), keeps the snapshot in globalThis.dollySnapshot and
@@ -13,7 +13,8 @@ export async function buildImageInPage(base, image, custom) {
     ...registry.DOLLY_IMAGES.map(definition => ({ path: `/${definition.dollyfile}`, byteLength: definition.byteLength })),
     ...registry.DOLLY_STATIC_SOURCES,
   ];
-  const network = transport.localServicesTransport(policy.consumeDollyHttpPolicy(globalThis, sources, new URL(base)));
+  const network = { ...transport.localServicesTransport(policy.consumeDollyHttpPolicy(globalThis, sources, new URL(base))),
+    site: base };
   const build = (name, artifacts) => builder.buildImage(name, artifacts, { http: { network } }, log,
     { customSource: name === "custom" ? custom : undefined });
   let dependenciesBuilt = 0;

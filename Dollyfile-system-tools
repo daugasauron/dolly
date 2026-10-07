@@ -400,6 +400,7 @@ SOURCE https://daugasauron.com/dist/static/default/commands/hostname.c    14a20a
 SOURCE https://daugasauron.com/dist/static/default/commands/tty.c         c51c9598e8245d5f651ade70995f2b03fb936c42a0e99c4c81c83749c5714c7e /tmp/agent-tools/tty.c
 SOURCE https://daugasauron.com/dist/static/default/commands/nproc.c       96ce7b8d1b1cee59d12193c2fa6fab5210bb7f0c9a0d0cc9bde7e0fd8d87c7ac /tmp/agent-tools/nproc.c
 SOURCE https://daugasauron.com/dist/static/default/commands/amy.c         ba2d94f913245124f4dad08207f585c03ad044f6dc65a3bf82ea8e58884beb14 /tmp/agent-tools/amy.c
+SOURCE /v0.1.0/dist/static/default/commands/version.h   0000000000000000000000000000000000000000000000000000000000000000 /tmp/agent-tools/version.h
 
 FILE /tmp/agent-tools/Makefile
     .RECIPEPREFIX := >

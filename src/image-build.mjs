@@ -3,20 +3,22 @@ import { loadRecipeGraph } from "./dollyfile-graph.mjs";
 import { imageInputs, imageInputsMatch } from "./image-inputs.mjs";
 import { describeImageArtifact, loadImageArtifactDescriptor, loadImageArtifact, saveImageArtifact,
   loadPackagedSnapshotMetadata, loadPackagedSystemSnapshot } from "./image-artifact.mjs";
-import { CANONICAL_ORIGIN, canonicalPath } from "./static-asset.mjs";
+import { siteReference, sitePath } from "./static-asset.mjs";
 
 const applicationBase = new URL("../", import.meta.url);
 
-// A custom recipe may reference only this release's published recipes.
-function customRecipeGraph(customSource, signal) {
-  return loadRecipeGraph(async url => {
-    if (url === "Dollyfile") return new TextEncoder().encode(customSource);
-    const path = canonicalPath(url);
-    if (path === null) throw new Error(`${url}: this release publishes only ${CANONICAL_ORIGIN} recipes`);
-    const response = await fetch(new URL(path.slice(1), applicationBase), { credentials: "same-origin", redirect: "error", signal });
-    if (!response.ok) throw new Error(`${url}: HTTP ${response.status}; this release does not publish that recipe`);
+// A custom recipe builds from this release's published recipes and sources.
+async function customRecipeGraph(customSource, signal) {
+  const graph = await loadRecipeGraph(async reference => {
+    if (reference === "Dollyfile") return new TextEncoder().encode(customSource);
+    const response = await fetch(new URL(sitePath(reference).slice(1), applicationBase),
+      { credentials: "same-origin", redirect: "error", signal });
+    if (!response.ok) throw new Error(`${reference}: HTTP ${response.status}; this release does not publish that recipe`);
     return response.arrayBuffer();
   }, "Dollyfile");
+  // The broker would refuse another version's path without saying why.
+  for (const { location } of graph.root.sources) sitePath(location);
+  return graph;
 }
 
 // Only explicit image references schedule builds. Modules still execute in
@@ -50,7 +52,7 @@ export async function prepareImageArtifacts(image, customSource, build, report, 
     signal?.throwIfAborted();
     if (artifacts.has(reference.sha256)) return artifacts.get(reference.sha256);
     const definition = DOLLY_IMAGES.find(candidate =>
-      `${CANONICAL_ORIGIN}/${candidate.dollyfile}` === reference.location && candidate.sha256 === reference.sha256);
+      siteReference(candidate.dollyfile) === reference.location && candidate.sha256 === reference.sha256);
     if (!definition) throw new Error(`${reference.location}: image pin is not present in this release`);
     if (active.has(definition.image)) throw new Error(`image cycle at ${definition.image}`);
     active.add(definition.image);

@@ -1,11 +1,11 @@
 import { readdir } from "node:fs/promises";
 import { resolve } from "node:path";
-import { CANONICAL_ORIGIN } from "../src/static-asset.mjs";
+import { siteReference } from "../src/static-asset.mjs";
 import { imageFileName, validName } from "../src/dollyfile-view.mjs";
 
-// Recipes are published at their checkout path on the canonical origin: core
-// images at the top level, each demo's in demos/DEMO/. Returns canonical
-// URL -> project-relative file. Image names are unique.
+// Recipes are published at their checkout path: core images at the top
+// level, each demo's in demos/DEMO/. Returns site reference ->
+// project-relative file. Image names are unique.
 export async function recipeFiles(projectDir) {
   const files = new Map(), names = new Map();
   async function scan(directory) {
@@ -14,7 +14,7 @@ export async function recipeFiles(projectDir) {
       const path = directory === "." ? entry.name : `${directory}/${entry.name}`;
       if (names.has(entry.name)) throw new Error(`${path}: ${entry.name} is already ${names.get(entry.name)}`);
       names.set(entry.name, path);
-      files.set(`${CANONICAL_ORIGIN}/${path}`, path);
+      files.set(siteReference(path), path);
     }
   }
   await scan(".");

@@ -5,6 +5,7 @@ import { discoverImageDefinitions } from "./image-definitions.mjs";
 import { imageDescriptions } from "./image-menu.mjs";
 import { runtimes } from "../host/manifests.mjs";
 import { unretainedPath } from "../src/dollyfile-view.mjs";
+import { PUBLIC_ORIGIN, siteReference, sitePath } from "../src/static-asset.mjs";
 
 const under = (root, path) => root === "/" || path === root || path.startsWith(`${root}/`);
 
@@ -37,11 +38,27 @@ function entryProblem(root) {
   return null;
 }
 
-// Checks the syntax, pins, roles, recipe graph and ENTRY program of every catalog image,
+// A catalog recipe names the site's files by this version's paths: another
+// version's files are not here, and a URL of the public site would tie the
+// recipe to one host.
+function referenceProblem(location) {
+  try {
+    if (sitePath(location) !== null || new URL(location).origin !== PUBLIC_ORIGIN) return null;
+    return `${location} names the site by URL: write ${siteReference(new URL(location).pathname.slice(1))}`;
+  } catch (error) { return error.message; }
+}
+
+// Checks the syntax, references, pins, roles, recipe graph and ENTRY program of every catalog image,
 // and that each has the description the start page and the package index show.
 export async function lintDollyfiles(projectDir) {
   const loadGraph = createDollyfileGraphLoader(projectDir);
   const definitions = await discoverImageDefinitions(projectDir);
+  for (const { filename, parsed } of definitions) {
+    for (const { location, line } of [...parsed.sources, ...parsed.artifacts]) {
+      const problem = referenceProblem(location);
+      if (problem) throw new Error(`${filename}:${line}: ${problem}`);
+    }
+  }
   for (const definition of definitions) {
     const graph = await loadGraph(definition.filename);
     if (!graph.root.hostRequirements.some(requirement => runtimes.includes(requirement))) {

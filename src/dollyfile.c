@@ -287,21 +287,32 @@ static int normalized_path(const char *path) {
   return 1;
 }
 
-// SOURCE takes an absolute http(s) URL without a fragment: this returns its
-// path and query, or NULL.
-static const char *url_path(const char *value) {
-  const char *authority = strncmp(value, "https://", 8) == 0 ? value + 8
-                          : strncmp(value, "http://", 7) == 0 ? value + 7 : NULL;
-  if (authority == NULL || strpbrk(value, "#\\ \t\r\n\v\f") != NULL) return NULL;
-  const size_t length = strcspn(authority, "/?");
-  return length == 0 || !normalized_path(authority + length) ? NULL : authority + length;
+// A site path names a file one release of the site publishes: /vX.Y.Z/PATH,
+// without a query. The broker resolves it; the engine only reads its form.
+static int site_path(const char *value) {
+  if (value[0] != '/' || value[1] != 'v') return 0;
+  const char *cursor = value + 2;
+  for (int part = 0; part < 3; ++part) {
+    if (*cursor < '0' || *cursor > '9') return 0;
+    while (*cursor >= '0' && *cursor <= '9') ++cursor;
+    if (*cursor++ != (part < 2 ? '.' : '/')) return 0;
+  }
+  return *cursor != '\0' && strpbrk(value, "?#\\ \t\r\n\v\f") == NULL && normalized_path(value);
 }
 
-// FROM, INSTALL, COPY and USE URLs also have a path and no query. Returns the
-// file they name, or NULL.
+// SOURCE takes a site path or an absolute http(s) URL without a fragment.
+static int source_reference(const char *value) {
+  if (site_path(value)) return 1;
+  const char *authority = strncmp(value, "https://", 8) == 0 ? value + 8
+                          : strncmp(value, "http://", 7) == 0 ? value + 7 : NULL;
+  if (authority == NULL || strpbrk(value, "#\\ \t\r\n\v\f") != NULL) return 0;
+  const size_t length = strcspn(authority, "/?");
+  return length != 0 && normalized_path(authority + length);
+}
+
+// FROM, INSTALL and COPY take a site path. Returns the file it names, or NULL.
 static const char *recipe_file_name(const char *value) {
-  const char *path = url_path(value);
-  return path == NULL || *path != '/' || strchr(path, '?') != NULL ? NULL : strrchr(path, '/') + 1;
+  return site_path(value) ? strrchr(value, '/') + 1 : NULL;
 }
 
 // The image name a file "Dollyfile" or "Dollyfile-NAME" declares, or "".
@@ -310,12 +321,12 @@ static const char *image_file_name(const char *file) {
   return strncmp(file, "Dollyfile-", 10) == 0 ? file + 10 : "";
 }
 
-static int valid_image_url(const char *value) {
+static int valid_image_reference(const char *value) {
   const char *file = recipe_file_name(value);
   return file != NULL && valid_name(image_file_name(file));
 }
 
-static int image_url_names(const char *value, const char *name) {
+static int image_reference_names(const char *value, const char *name) {
   const char *file = recipe_file_name(value);
   return file != NULL && strcmp(image_file_name(file), name) == 0;
 }
@@ -414,7 +425,7 @@ static int read_file_buffer(const char *path, Buffer *buffer) {
   return result;
 }
 
-// A recipe locator is a URL or, for an uploaded root, FILE:/path.
+// A recipe locator is a site path or, for an uploaded root, FILE:/path.
 static int fetch_recipe(const char *locator, Buffer *buffer, char digest[65]) {
   int status;
   if (strncmp(locator, "FILE:", 5) == 0) {
@@ -430,7 +441,7 @@ static int fetch_recipe(const char *locator, Buffer *buffer, char digest[65]) {
 }
 
 static int fetch_source(const char *url, const char *expected, const char *destination) {
-  if (url_path(url) == NULL || !valid_absolute_path(destination) || !valid_sha256(expected)) {
+  if (!source_reference(url) || !valid_absolute_path(destination) || !valid_sha256(expected)) {
     return -EINVAL;
   }
   int status = mkdir_parents(destination, 0);
@@ -1123,14 +1134,14 @@ static int read_artifact_receipt(Engine *engine, const unsigned char *bytes,
 
 static const char installed_path[] = "/etc/dolly/installed";
 
-// The record of installed packages is "INSTALL URL SHA256" rows.
+// The record of installed packages is "INSTALL PATH SHA256" rows.
 static int valid_installed(const unsigned char *text, size_t size) {
   for (const unsigned char *row = text, *end = text + size, *newline; row < end; row = newline + 1) {
     newline = memchr(row, '\n', (size_t)(end - row));
     char *line = newline == NULL ? NULL : strndup((const char *)row, (size_t)(newline - row));
     char *sha256 = line == NULL ? NULL : strrchr(line, ' ');
     const int valid = sha256 != NULL && sha256 > line + 8 && strncmp(line, "INSTALL ", 8) == 0 &&
-        valid_sha256(sha256 + 1) && (*sha256 = '\0', valid_image_url(line + 8));
+        valid_sha256(sha256 + 1) && (*sha256 = '\0', valid_image_reference(line + 8));
     free(line);
     if (!valid) return 0;
   }
@@ -1422,8 +1433,8 @@ static int process_line(Engine *engine, const char *locator,
   // operation can mutate files or start a memory-intensive compiler process.
   if (strcmp(text, "COPY") != 0) dispose_artifact(&engine->artifact);
   if (!*header_seen) {
-    if (strcmp(text, "DOLLY") != 0 || strcmp(arguments, "6") != 0) {
-      fprintf(stderr, "dollyfile: %s:%zu: first declaration must be DOLLY 6\n", locator, line_number);
+    if (strcmp(text, "DOLLY") != 0 || strcmp(arguments, "7") != 0) {
+      fprintf(stderr, "dollyfile: %s:%zu: first declaration must be DOLLY 7\n", locator, line_number);
       return 2;
     }
     *header_seen = 1;
@@ -1453,12 +1464,12 @@ static int process_line(Engine *engine, const char *locator,
     const ImportMode mode = strcmp(text, "FROM") == 0 ? IMPORT_FROM : IMPORT_INSTALL;
     result = split_words(arguments, &words, &count);
     if (result == 0 && (count != 2 || (mode == IMPORT_FROM && *operations != 0) ||
-        !valid_image_url(words[0]) || !valid_sha256(words[1]))) result = 2;
+        !valid_image_reference(words[0]) || !valid_sha256(words[1]))) result = 2;
     if (result == 0 && execute) result = load_artifact(engine, words[0], words[1], mode, package,
                                                        NULL, NULL, visible, exports, own);
   } else if (strcmp(text, "COPY") == 0) {
     result = split_words(arguments, &words, &count);
-    if (result == 0 && (count != 4 || !valid_image_url(words[0]) || !valid_sha256(words[1]) ||
+    if (result == 0 && (count != 4 || !valid_image_reference(words[0]) || !valid_sha256(words[1]) ||
         (strcmp(words[2], "/") != 0 && !valid_absolute_path(words[2])) ||
         (strcmp(words[3], "/") != 0 && !valid_absolute_path(words[3])))) result = 2;
     if (result == 0 && execute) result = load_artifact(engine, words[0], words[1], IMPORT_COPY, package,
@@ -1522,7 +1533,7 @@ static int process_line(Engine *engine, const char *locator,
     if (result == 0) result = scope_add(exports, words[0], words[1], detail);
   } else if (strcmp(text, "SOURCE") == 0) {
     result = split_words(arguments, &words, &count);
-    if (result == 0 && (count != 3 || url_path(words[0]) == NULL || !valid_sha256(words[1]) ||
+    if (result == 0 && (count != 3 || !source_reference(words[0]) || !valid_sha256(words[1]) ||
         !valid_absolute_path(words[2]))) result = 2;
     if (result == 0 && execute) result = fetch_source(words[0], words[1], words[2]);
   } else if (strcmp(text, "SLOP") == 0) {
@@ -1701,8 +1712,8 @@ static int execute_recipe(Engine *engine, const char *locator, int execute, Scop
     fprintf(stderr, "dollyfile: %s: missing APPLICATION, TOOLCHAIN or PACKAGE\n", locator);
     result = 2;
   }
-  // An uploaded root is a FILE: locator; every URL names its recipe's file.
-  if (result == 0 && strncmp(locator, "FILE:", 5) != 0 && !image_url_names(locator, name)) {
+  // An uploaded root is a FILE: locator; every site path names its recipe's file.
+  if (result == 0 && strncmp(locator, "FILE:", 5) != 0 && !image_reference_names(locator, name)) {
     fprintf(stderr, "dollyfile: %s: %s %s must match its file name\n", locator, kind, name);
     result = 2;
   }
@@ -2092,7 +2103,7 @@ static int read_environment_file(Engine *engine) {
   return result;
 }
 
-// `dollyfile install URL SHA256`: the INSTALL row against the live filesystem.
+// `dollyfile install PATH SHA256`: the INSTALL row against the live filesystem.
 // The booted image's recipe supplies the declared host modules, its
 // environment file receives the package's exported variables and its record
 // the row; nothing is sealed.
@@ -2103,8 +2114,8 @@ static int install_live(Engine *engine, const char *locator, const char *expecte
   // Parsing applied the recipe's own ENV declarations; the file holds the final values.
   dispose_environment_names(engine);
   if (result == 0) result = read_environment_file(engine);
-  if (result == 0 && (!valid_image_url(locator) || !valid_sha256(expected))) {
-    fprintf(stderr, "dollyfile: install takes a Dollyfile URL and its SHA256\n");
+  if (result == 0 && (!valid_image_reference(locator) || !valid_sha256(expected))) {
+    fprintf(stderr, "dollyfile: install takes a recipe's site path and its SHA256\n");
     result = 2;
   }
   if (result == 0) result = load_artifact(engine, locator, expected, IMPORT_INSTALL, 0, NULL, NULL, &visible, &exports, &own);
@@ -2138,8 +2149,8 @@ static void dispose_engine(Engine *engine) {
 }
 
 static void usage(FILE *stream) {
-  fputs("usage: dollyfile RECIPE-URL|FILE:/path\n"
-        "       dollyfile install URL SHA256\n", stream);
+  fputs("usage: dollyfile /vVERSION/RECIPE|FILE:/path\n"
+        "       dollyfile install /vVERSION/RECIPE SHA256\n", stream);
 }
 
 int main(int argc, char **argv) {

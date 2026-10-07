@@ -1,5 +1,5 @@
-// Isolated diagnostic of the actual C parser. These test-only hooks serve the
-// canonical origin from a fixture directory, as an embedding's mirror does, and
+// Isolated diagnostic of the actual C parser. These test-only hooks serve
+// site paths from a fixture directory, as a page serves its own files, and
 // capture shell arguments; they never run host tools.
 #define main dollyfile_main
 #include "../../src/dollyfile.c"
@@ -11,12 +11,11 @@ static int capture_shell;
 static int captured_input = -1;
 
 int dolly_http_perform(const dolly_http_request *request, dolly_http_response *response) {
-  static const char base[] = "https://daugasauron.com/";
   if (fixture_directory == NULL) abort();
   response->status = 404;
-  if (strncmp(request->url, base, sizeof(base) - 1) != 0) return 0;
+  if (!site_path(request->url)) return 0;
   char path[PATH_MAX];
-  snprintf(path, sizeof(path), "%s/%s", fixture_directory, request->url + sizeof(base) - 1);
+  snprintf(path, sizeof(path), "%s%s", fixture_directory, strchr(request->url + 1, '/'));
   Buffer input = {.limit = 1024 * 1024};
   int status = read_file_buffer(path, &input);
   response->status = status == 0 ? 200 : 404;
@@ -88,7 +87,7 @@ int main(int argc, char **argv) {
     char *kind = NULL, *name = NULL;
     int header = 0;
     size_t operations = 0;
-    char blank[] = "  ", declaration[] = "DOLLY 6";
+    char blank[] = "  ", declaration[] = "DOLLY 7";
     if (result == 0) result = process_line(&engine, "probe", 1, blank,
         NULL, 0, &tools, &exports, &own, &kind, &name, &header, &operations, 0);
     if (engine.artifact.stream == NULL) result = 2;
@@ -111,7 +110,7 @@ int main(int argc, char **argv) {
   } else if (strcmp(argv[1], "recipe-names") == 0 && argc == 4) {
     // Retained recipe paths derive from kind and name, so two locators cannot share them.
     const char *digest = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
-    result = append_recipe(&engine, "TOOLCHAIN", "base", "https://daugasauron.com/Dollyfile-base", digest, "base");
+    result = append_recipe(&engine, "TOOLCHAIN", "base", "/v1.2.3/Dollyfile-base", digest, "base");
     if (result == 0) result = append_recipe(&engine, "APPLICATION", argv[2], argv[3], digest, "root");
   } else if (strcmp(argv[1], "entry") == 0) {
     // Arguments before "--" are the retained paths, those after it the ENTRY words.
@@ -121,8 +120,8 @@ int main(int argc, char **argv) {
     }
     if (result == 0) result = index < argc ? set_entry(&engine, argv + index + 1, (size_t)(argc - index - 1)) : 2;
     if (result == 0) result = entry_retained(&engine) ? 0 : 2;
-  } else if (strcmp(argv[1], "image-url") == 0) {
-    result = valid_image_url(argv[2]) ? 0 : 2;
+  } else if (strcmp(argv[1], "image-reference") == 0) {
+    result = valid_image_reference(argv[2]) ? 0 : 2;
   } else if (strcmp(argv[1], "kind") == 0 && argc == 4) {
     result = validate_export(argv[2], "probe", argv[3]);
   }

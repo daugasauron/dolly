@@ -3,6 +3,7 @@ import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { browserTest } from "./browser.mjs";
+import { siteReference } from "../src/static-asset.mjs";
 
 const scratch = await mkdtemp(join(tmpdir(), "dolly-custom-session-"));
 const status = page => page.evaluate(() => document.documentElement.dataset.dollyStatus);
@@ -37,7 +38,7 @@ async function customImageSessions(context, server, fixtures) {
   // modules (system retains the engine and the transfer tools).
   const original = await page.locator("#source").inputValue();
   const base = original.slice(0, original.indexOf("\nFILE ")).replace("APPLICATION custom", "APPLICATION custom-session");
-  assert.match(base, /\nFROM https:\/\/daugasauron\.com\/Dollyfile-system [0-9a-f]{64}\n$/);
+  assert.ok(base.includes(`\nFROM ${siteReference("Dollyfile-system")} `), base);
   const source = `${base}FILE /tmp/session-hello.c
     #include <stdio.h>
     int main(void) { puts("CUSTOM-SOURCE-BUILT"); return 0; }

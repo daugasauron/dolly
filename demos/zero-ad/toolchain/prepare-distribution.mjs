@@ -2,6 +2,7 @@ import {createHash} from "node:crypto";
 import {createReadStream} from "node:fs";
 import {copyFile, mkdir, readFile, readdir, rm, writeFile} from "node:fs/promises";
 import {dirname, resolve} from "node:path";
+import {siteReference} from "../../../src/static-asset.mjs";
 
 const root = resolve(import.meta.dirname, "../../..");
 const output = resolve(process.argv[2] ?? resolve(root, "dist/static/zero-ad"));
@@ -19,12 +20,12 @@ const files = (await readdir(content, { recursive: true, withFileTypes: true }))
 for (const [input, name, destination] of files.map(path => [resolve(content, path), path, `/opt/0ad/${path}`])) {
   await mkdir(dirname(resolve(output, name)), { recursive: true });
   await copyFile(input, resolve(output, name));
-  sources.push(`SOURCE https://daugasauron.com/dist/static/zero-ad/${name} ${await digest(resolve(output, name))} ${destination}`);
+  sources.push(`SOURCE ${siteReference(`dist/static/zero-ad/${name}`)} ${await digest(resolve(output, name))} ${destination}`);
 }
 await rm(resolve(output, "data.tar"), { force: true });
-const engine = hash(await readFile(resolve(root, "demos/zero-ad/Dollyfile-zero-ad-engine")));
+const engine = `${siteReference("demos/zero-ad/Dollyfile-zero-ad-engine")} ${hash(await readFile(resolve(root, "demos/zero-ad/Dollyfile-zero-ad-engine")))}`;
 const linked = ["OpenAL", "SDL2", "enet", "fmt", "freetype", "icu", "libogg", "libpng", "libsodium", "libvorbis", "libxml2", "spidermonkey"];
-await writeFile(resolve(root, "demos/zero-ad/Dollyfile-zero-ad"), `DOLLY 6
+await writeFile(resolve(root, "demos/zero-ad/Dollyfile-zero-ad"), `DOLLY 7
 APPLICATION zero-ad
 REQUIRES HOST runtime@0
 REQUIRES HOST audio@0
@@ -35,10 +36,10 @@ REQUIRES HOST http@0
 REQUIRES HOST snapshot@0
 REQUIRES HOST upload@0
 
-FROM https://daugasauron.com/Dollyfile ${hash(await readFile(resolve(root, "Dollyfile")))}
-COPY https://daugasauron.com/demos/zero-ad/Dollyfile-zero-ad-engine ${engine} /opt/0ad/system/pyrogenesis /opt/0ad/system/pyrogenesis
+FROM ${siteReference("Dollyfile")} ${hash(await readFile(resolve(root, "Dollyfile")))}
+COPY ${engine} /opt/0ad/system/pyrogenesis /opt/0ad/system/pyrogenesis
 # Licences of the libraries statically linked into the engine.
-${linked.map(name => `COPY https://daugasauron.com/demos/zero-ad/Dollyfile-zero-ad-engine ${engine} /usr/share/licenses/${name} /usr/share/licenses/${name}`).join("\n")}
+${linked.map(name => `COPY ${engine} /usr/share/licenses/${name} /usr/share/licenses/${name}`).join("\n")}
 # Game content and configuration; the engine comes from zero-ad-engine.
 ${sources.join("\n")}
 

@@ -5,6 +5,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
 import { stageRustSeed } from "../prepare-rust-seed.mjs";
+import { siteReference } from "../../../src/static-asset.mjs";
 
 test("seed staging verifies completed or pinned bytes and preserves previous files on failure", async t => {
   const project = await mkdtemp(join(tmpdir(), "dolly-seed-stage-"));
@@ -17,7 +18,7 @@ test("seed staging verifies completed or pinned bytes and preserves previous fil
   const raw = join(project, "build/rustc-port/rust-sdk.tar.gz");
   const manifest = join(project, "build/rustc-port/seed.sha256");
   const output = join(project, "output/rust-sdk.tar.gz");
-  await writeFile(join(project, "demos/rust/Dollyfile-rust-sdk"), `DOLLY 6\nTOOLCHAIN rust-sdk\nSOURCE https://daugasauron.com/dist/static/rust/rust-sdk.tar.gz ${hash(pinned)} /tmp/seed\n`);
+  await writeFile(join(project, "demos/rust/Dollyfile-rust-sdk"), `DOLLY 7\nTOOLCHAIN rust-sdk\nSOURCE ${siteReference("dist/static/rust/rust-sdk.tar.gz")} ${hash(pinned)} /tmp/seed\n`);
   await writeFile(cached, pinned);
   await symlink(cached, output);
   await stageRustSeed(project, output);

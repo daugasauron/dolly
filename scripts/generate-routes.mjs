@@ -19,7 +19,7 @@ import { renderDollyfilePage } from "./render-dollyfile-view.mjs";
 import { imageDescriptions, menuRow, pageRoutes } from "./image-menu.mjs";
 import { bundleProcessWorker } from "./bundle-process-worker.mjs";
 import { renderLicencesPage, upstreamInventory } from "./upstreams.mjs";
-import { CANONICAL_ORIGIN } from "../src/static-asset.mjs";
+import { siteReference } from "../src/static-asset.mjs";
 
 const projectDir = resolve(import.meta.dirname, "..");
 await bundleProcessWorker(projectDir);
@@ -59,11 +59,11 @@ await writeFile(resolve(projectDir, "index.html"),
 await mkdir(resolve(projectDir, "licences"), { recursive: true });
 await writeFile(resolve(projectDir, "licences/index.html"),
   renderLicencesPage(menu, await upstreamInventory(projectDir, definitions)));
-// The package index people and amy read: "NAME URL SHA256 DESCRIPTION" per
+// The package index people and amy read: "NAME PATH SHA256 DESCRIPTION" per
 // package, the INSTALL row's operands and the description the menu shows.
 await writeFile(resolve(projectDir, "amy-index.txt"), definitions
   .filter(({ parsed }) => parsed.role === "package")
-  .map(({ image, filename, source }) => `${image} ${CANONICAL_ORIGIN}/${filename} ` +
+  .map(({ image, filename, source }) => `${image} ${siteReference(filename)} ` +
     `${createHash("sha256").update(source).digest("hex")} ${descriptions.get(image)}\n`)
   .join(""));
 const routes = pageRoutes(definitions.map(({ image }) => ({ image, openable: openable.has(image) })), primaryImage);

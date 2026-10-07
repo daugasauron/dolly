@@ -3,6 +3,7 @@ import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import { browserTest } from "./browser.mjs";
 import { createHttpRedirectFixture } from "./fixtures/http-redirect-server.mjs";
+import { siteReference } from "../src/static-asset.mjs";
 
 // One source served the way the Pages export delivers oversized static assets:
 // a manifest (x-dolly-parts: 1) plus fixed sibling .part-N files.
@@ -38,16 +39,18 @@ await browserTest("boundary", { server: { handle } }, async ({ server, open }) =
     .then(module => module.runBrowserBoundaryChecks(new URL("/", location.href).href)));
   partRequests.length = 0;
   corrupt = false;
-  // Recipes name the canonical URL; the page fetches its own copy.
-  const canonical = `https://daugasauron.com${source}`;
-  assert.equal(await submit(`curl -fsS ${canonical} -o /tmp/boundary-source.c`), 0);
+  // Recipes name the site path; the page fetches its release's copy.
+  const reference = siteReference(source.slice(1));
+  assert.equal(await submit(`curl -fsS ${reference} -o /tmp/boundary-source.c`), 0);
   assert.equal(await submit(`test "$(sha256sum /tmp/boundary-source.c | cut -d ' ' -f 1)" = ${sha256(bytes)}`), 0);
   assert.equal(partRequests.length, 2, "one authorized source fetch reads its two fixed parts");
-  assert.notEqual(await submit(`curl -fsS ${canonical}.part-0 -o /tmp/boundary-denied`), 0);
-  assert.notEqual(await submit(`curl -fsS ${server.origin}${source} -o /tmp/boundary-denied`), 0);
-  assert.equal(partRequests.length, 2, "derived delivery grants no guest access to sibling or mirror URLs");
+  assert.notEqual(await submit(`curl -fsS ${reference}.part-0 -o /tmp/boundary-denied`), 0);
+  assert.notEqual(await submit(`curl -fsS ${server.origin}${source}.part-0 -o /tmp/boundary-denied`), 0);
+  assert.equal(partRequests.length, 2, "derived delivery grants no guest access to sibling URLs");
+  // Another version's path is not this page's file.
+  assert.notEqual(await submit(`curl -fsS /v987.0.21${source} -o /tmp/boundary-denied`), 0);
   corrupt = true;
-  assert.notEqual(await submit(`curl -fsS ${canonical} -o /tmp/boundary-corrupt`), 0);
+  assert.notEqual(await submit(`curl -fsS ${reference} -o /tmp/boundary-corrupt`), 0);
   assert.equal(await submit("rm -f /tmp/boundary-source.c /tmp/boundary-corrupt"), 0);
   // An uncaught failure in the runtime Worker, as a kernel trap outside a
   // system call would be, ends the runtime: the page must not stay "ready".

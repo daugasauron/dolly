@@ -3,6 +3,7 @@ import { createHash } from "node:crypto";
 import { mkdir, mkdtemp, readFile, rename, rm, writeFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import { inspectDollyfile } from "../../src/dollyfile-view.mjs";
+import { siteReference } from "../../src/static-asset.mjs";
 
 export async function stageRustSeed(project, destination) {
   let source = join(project, "build/rustc-port/rust-sdk.tar.gz"), expected, kind = "built";
@@ -17,7 +18,7 @@ export async function stageRustSeed(project, destination) {
     kind = "pinned";
     source = join(project, "dist/static/rust/rust-sdk.tar.gz");
     const recipe = inspectDollyfile(await readFile(join(project, "demos/rust/Dollyfile-rust-sdk"), "utf8"));
-    expected = recipe.sources.find(item => item.location === "https://daugasauron.com/dist/static/rust/rust-sdk.tar.gz")?.sha256;
+    expected = recipe.sources.find(item => item.location === siteReference("dist/static/rust/rust-sdk.tar.gz"))?.sha256;
   }
   const bytes = await readFile(source).catch(error => {
     if (error.code !== "ENOENT") throw error;

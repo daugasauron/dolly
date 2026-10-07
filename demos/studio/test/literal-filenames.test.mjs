@@ -11,7 +11,7 @@ test("Studio lint diagnostics preserve filenames when adding the first line numb
   for (const name of names) {
     const label = `Dollyfile-${name}`;
     let message, status;
-    runInNewContext(source, { inspectDollyfile, readFileSync: () => "DOLLY 6\n",
+    runInNewContext(source, { inspectDollyfile, readFileSync: () => "DOLLY 7\n",
       process: { argv: ["janis", "lint.mjs", "--stdin", label], exit: code => { status = code; } },
       console: { error: text => { message = text; } } });
     assert.equal(status, 1);

@@ -23,6 +23,7 @@ import {
   inspectStaticSources,
 } from "../scripts/image-definitions.mjs";
 import { loadDollyfileGraph, recipeRecords } from "../scripts/dollyfile-graph.mjs";
+import { siteReference } from "../src/static-asset.mjs";
 
 const artifact = (name) => new URL(`../dist/${name}`, import.meta.url);
 const contractArtifact = file => artifact(`${basename(file, ".wat")}.wasm`);
@@ -322,7 +323,7 @@ test("registry, routes, and source viewer derive from Dollyfiles", async () => {
   // The package index names every package of the registry by its pinned recipe, then describes it.
   const index = (await readFile(new URL("../amy-index.txt", import.meta.url), "utf8")).trimEnd().split("\n").filter(Boolean);
   assert.deepEqual(index.map(row => row.split(" ").slice(0, 3).join(" ")), DOLLY_IMAGES.filter(({ role }) => role === "package")
-    .map(({ image, dollyfile, sha256 }) => `${image} https://daugasauron.com/${dollyfile} ${sha256}`));
+    .map(({ image, dollyfile, sha256 }) => `${image} ${siteReference(dollyfile)} ${sha256}`));
   assert.ok(index.every(row => row.split(" ").length > 3), "a package without a description");
 });
 

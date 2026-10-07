@@ -101,6 +101,9 @@ if has_image system-tools; then
       find.c env.c time.c timeout.c realpath.c diff.c patch.c hostname.c tty.c nproc.c; do
     copy_static "${project_dir}/src/commands/${source}" "default/commands/${source}"
   done
+  # amy asks the site for the package index of the version it was built for.
+  node -p '`#define DOLLY_VERSION "${require("./package.json").version}"`' > "${staging}/version.h"
+  copy_static "${staging}/version.h" default/commands/version.h
 fi
 if has_image ghostty-build; then
   copy_static "${project_dir}/src/ghostty/display.c" default/ghostty/display.c

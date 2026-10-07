@@ -4,6 +4,7 @@ import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { imageDescriptions, menuRow } from "./image-menu.mjs";
 import { discoverImageDefinitions } from "./image-definitions.mjs";
+import { PUBLIC_ORIGIN, siteReference } from "../src/static-asset.mjs";
 
 // Applications the domain publishes beyond GitHub Pages' catalog link there.
 export async function domainOnlyApplications(projectDir) {
@@ -18,17 +19,19 @@ export async function packageGithubPages(site) {
   const descriptions = await imageDescriptions(projectDir);
   const index = resolve(site, "index.html");
   const menu = await readFile(index, "utf8");
-  const rows = ['<tr class="group"><th colspan="3">Hosted on daugasauron.com</th></tr>'];
+  // The domain serves each version under its own path and nothing beside it.
+  const domain = new URL(PUBLIC_ORIGIN).host, hosted = PUBLIC_ORIGIN + siteReference("");
+  const rows = [`<tr class="group"><th colspan="3">Hosted on ${domain}</th></tr>`];
   for (const image of await domainOnlyApplications(projectDir)) {
     if (menu.includes(`data-image="${image}"`)) throw Error(`${image} is already packaged locally`);
-    rows.push(menuRow(image, descriptions.get(image), true).replaceAll('href="./', 'href="https://daugasauron.com/'));
+    rows.push(menuRow(image, descriptions.get(image), true).replaceAll('href="./', `href="${hosted}`));
     for (const route of [image, `${image}/rebuild`, `view/${image}`]) {
-      const target = `https://daugasauron.com/${route}/`;
+      const target = `${hosted}${route}/`;
       await mkdir(resolve(site, route), { recursive: true });
       await writeFile(resolve(site, route, "index.html"), `<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><title>${image} · Dolly</title>
 <script>location.replace(${JSON.stringify(target)} + location.search + location.hash);</script></head>
-<body><p><a href="${target}">Open ${image} on daugasauron.com →</a></p></body></html>\n`);
+<body><p><a href="${target}">Open ${image} on ${domain} →</a></p></body></html>\n`);
     }
   }
   if (!menu.includes("</tbody>")) throw Error("index is missing the image table");

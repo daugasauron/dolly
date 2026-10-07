@@ -6,10 +6,9 @@ import { DOLLY_HTTP_SLOT_COUNT, DOLLY_HTTP_HEADER_SIZE, DOLLY_HTTP_WORD_EOF, DOL
 import { DollyHttpPolicy, httpPolicyConfigurations, restrictDollyHttpPolicy } from "../host/http/policy.mjs";
 import { localServicesTransport } from "../host/http/local-services.mjs";
 import { DOLLY_ERRNO as errno } from "../src/process-constants.mjs";
+import { siteReference } from "../src/static-asset.mjs";
 
 const target = "https://fixture.example/allowed";
-// The same file named on the canonical origin, which embeddings serve themselves.
-const canonical = "https://daugasauron.com/allowed";
 function fixture(configuration = {}, fetchRequest) {
   const policy = new DollyHttpPolicy({
     rules: [{ origin: new URL(target).origin, path: "/allowed", methods: ["GET", "POST"],
@@ -93,8 +92,10 @@ test("multipart delivery is restricted to embedding-selected sources, including 
   const manifest = JSON.stringify({ byteLength: bytes.length, sha256: digest(bytes),
     parts: parts.map(part => ({ byteLength: part.length, sha256: digest(part) })) });
   const sources = [{ path: "/allowed", byteLength: bytes.length }];
-  const pinned = new DollyHttpPolicy({ rules: [] }, sources, target);
-  for (const policy of [pinned, restrictDollyHttpPolicy(pinned, [null], sources, target)]) {
+  // The site names the file /allowed; this release's copy is what is fetched.
+  const site = "https://fixture.example/", release = `${site}_dolly/${"a".repeat(64)}/`, copy = `${release}allowed`;
+  const pinned = new DollyHttpPolicy({ rules: [] }, sources, release);
+  for (const policy of [pinned, restrictDollyHttpPolicy(pinned, [null], sources, release)]) {
     const calls = [];
     const f = fixture({}, async (url, init) => {
       calls.push(url.href);
@@ -104,11 +105,11 @@ test("multipart delivery is restricted to embedding-selected sources, including 
       assert.equal(init.headers, undefined);
       return new Response(parts[calls.length - 2]);
     });
-    f.broker.policy = policy;
-    const records = await consume(f, f.request({ url: canonical, headers: "Authorization: Bearer private" }));
-    assert.deepEqual(calls, [target, target + ".part-0", target + ".part-1"], "fetched from the mirror");
+    Object.assign(f.broker, { policy, site });
+    const records = await consume(f, f.request({ url: siteReference("allowed"), headers: "Authorization: Bearer private" }));
+    assert.deepEqual(calls, [copy, copy + ".part-0", copy + ".part-1"], "fetched from this release");
     assert.equal(Buffer.concat(records.filter(record => record.kind === 3).map(record => record.bytes)).toString(), bytes.toString());
-    await bounded(f.request({ url: canonical + ".part-0" }, 2));
+    await bounded(f.request({ url: siteReference("allowed.part-0") }, 2));
     assert.equal(calls.length, 3);
     assert.equal(f.load(DOLLY_HTTP_WORD_ERROR), errno.EACCES);
   }
@@ -160,9 +161,9 @@ test("redirects require both caller intent and unrestricted destination authorit
   const restricted = new DollyHttpPolicy({ rules: [{ origin: new URL(target).origin }] });
   const inherited = parent => restrictDollyHttpPolicy(new DollyHttpPolicy(), httpPolicyConfigurations(parent));
   const pinned = new DollyHttpPolicy(undefined, [{ path: "/allowed", byteLength: 100 }], target);
-  for (const [policy, flags, redirect, url = target] of [
+  for (const [policy, flags, redirect] of [
     [unrestricted, 0, "error"], [unrestricted, 2, "follow"], [unrestricted, 3, "follow"],
-    [restricted, 2, "error"], [pinned, 2, "error", canonical],
+    [restricted, 2, "error"], [pinned, 2, "error"],
     [inherited(unrestricted), 2, "follow"], [inherited(restricted), 2, "error"],
     [restrictDollyHttpPolicy(restricted, [null]), 2, "error"],
   ]) {
@@ -172,7 +173,7 @@ test("redirects require both caller intent and unrestricted destination authorit
     });
     const f = fixture({}, network.fetchRequest);
     f.broker.policy = network.policy;
-    const records = await consume(f, f.request({ url, flags, headers: "Authorization: Bearer sandbox-key" }));
+    const records = await consume(f, f.request({ flags, headers: "Authorization: Bearer sandbox-key" }));
     assert.equal(observed.redirect, redirect);
     assert.equal(observed.credentials, "omit");
     assert.equal(observed.referrerPolicy, "no-referrer");
@@ -452,26 +453,30 @@ test("runtime teardown aborts every provider and refuses already-queued admissio
   assert.equal(calls, 2);
 });
 
-test("a path names a file of the site, under its root, and the policy judges the resulting URL", async () => {
+test("a site path names a file of this version's site, under its root, and the policy judges the resulting URL", async () => {
   const fetched = [];
   const site = "https://fixture.example/dolly/";
   const policy = new DollyHttpPolicy({ rules: [{ origin: "https://fixture.example", path: "/dolly/amy-index.txt" }] });
   const f = fixture({}, async url => { fetched.push(String(url)); return new Response("index"); });
   Object.assign(f.broker, { policy, site });
-  const records = await consume(f, f.request({ url: "/amy-index.txt" }));
+  const index = siteReference("amy-index.txt");
+  const records = await consume(f, f.request({ url: index }));
   assert.deepEqual(fetched, [`${site}amy-index.txt`]);
   // The program gets the bytes and the path it asked for, not the site's URL.
-  assert.deepEqual([records[0], records.at(-2)].map(record => new TextDecoder().decode(record.bytes)), ["/amy-index.txt", "index"]);
-  // Not above the site's root, not another host, not what the policy leaves out.
-  for (const [sequence, url] of ["/../amy-index.txt", "/\\\\other.example/amy-index.txt", "//other.example/x", "amy-index.txt"].entries()) {
+  assert.deepEqual([records[0], records.at(-2)].map(record => new TextDecoder().decode(record.bytes)), [index, "index"]);
+  // Not another version's site or a path without one, not above the site's
+  // root, not another host, not what the policy leaves out.
+  const refused = ["/v987.0.21/amy-index.txt", "/amy-index.txt", siteReference("../amy-index.txt"),
+    siteReference("\\\\other.example/amy-index.txt"), "//other.example/x", "amy-index.txt"];
+  for (const [sequence, url] of refused.entries()) {
     await bounded(f.request({ url }, sequence + 2));
     assert.equal(f.load(DOLLY_HTTP_WORD_ERROR), errno.EINVAL, url);
   }
-  await bounded(f.request({ url: "/other.txt" }, 7));
+  await bounded(f.request({ url: siteReference("other.txt") }, refused.length + 2));
   assert.equal(f.load(DOLLY_HTTP_WORD_ERROR), errno.EACCES);
-  // Without a site (a builder) a path names nothing.
+  // Without a site a path names nothing.
   f.broker.site = undefined;
-  await bounded(f.request({ url: "/amy-index.txt" }, 8));
+  await bounded(f.request({ url: index }, refused.length + 3));
   assert.equal(f.load(DOLLY_HTTP_WORD_ERROR), errno.EINVAL);
   assert.equal(fetched.length, 1);
 });
