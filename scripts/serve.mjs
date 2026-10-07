@@ -5,8 +5,7 @@ import { createServer } from "node:http";
 import { basename, extname, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { sha256 } from "./snapshot-identity.mjs";
-import { publicFiles, renderReleasePage, snapshotPackPath } from "./release-layout.mjs";
-import { releaseVersion } from "./site-release.mjs";
+import { publicFiles, releaseVersion, renderReleasePage, snapshotPackPath } from "./release-layout.mjs";
 
 export const mimeTypes = new Map([
   [".html", "text/html; charset=utf-8"],

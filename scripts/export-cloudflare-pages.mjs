@@ -11,8 +11,8 @@ import { pathToFileURL } from "node:url";
 import { promisify } from "node:util";
 import { brotliCompress, constants } from "node:zlib";
 import { exportStaticSite, refuseExisting } from "./export-static.mjs";
-import { compareVersions, versionName } from "./release-layout.mjs";
-import { fileManifest, releaseVersion } from "./site-release.mjs";
+import { compareVersions, releaseVersion, versionName } from "./release-layout.mjs";
+import { fileManifest } from "./site-release.mjs";
 import { sha256 } from "./snapshot-identity.mjs";
 
 const compress = promisify(brotliCompress);

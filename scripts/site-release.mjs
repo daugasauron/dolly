@@ -17,7 +17,6 @@ import { decodeSystemSnapshot } from "./system-snapshot-format.mjs";
 import { readWasmInterface } from "./wasm-interface.mjs";
 import { verifyDocumentationLinks } from "./package-documentation.mjs";
 import { buildIdentities } from "./write-build-id.mjs";
-import { versionName } from "./release-layout.mjs";
 
 // Generated metadata is data, not executable input to the release verifier.
 export function parseGeneratedConstant(source, name) {
@@ -29,13 +28,6 @@ export function parseGeneratedConstant(source, name) {
   value = value.slice(0, -1);
   if (value.startsWith("Object.freeze(") && value.endsWith(")")) value = value.slice(14, -1);
   return JSON.parse(value);
-}
-
-// The public path of a packaged site is its version: src/version.mjs, as vX.Y.Z.
-export function releaseVersion(source) {
-  const name = `v${parseGeneratedConstant(source, "DOLLY_VERSION")}`;
-  if (!versionName.test(name)) throw new Error("invalid release version");
-  return name;
 }
 
 export function safePath(path) {

@@ -3,8 +3,8 @@
 import { chmod, lstat, mkdir, mkdtemp, readFile, realpath, rename, rm, writeFile } from "node:fs/promises";
 import { basename, dirname, resolve, sep } from "node:path";
 import { pathToFileURL } from "node:url";
-import { fileManifest, releaseVersion, verifyRelease } from "./site-release.mjs";
-import { deploymentBase, publicFiles, renderReleasePage, snapshotPackPath } from "./release-layout.mjs";
+import { fileManifest, verifyRelease } from "./site-release.mjs";
+import { deploymentBase, publicFiles, releaseVersion, renderReleasePage, snapshotPackPath } from "./release-layout.mjs";
 import { sha256 } from "./snapshot-identity.mjs";
 
 export async function refuseExisting(output) {
