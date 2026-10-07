@@ -24,7 +24,7 @@ SOURCE https://daugasauron.com/dist/static/default/quickjs.tar               d23
 SOURCE https://daugasauron.com/dist/static/default/runtimes/quickjs-main.c   0ee691480c66f5e02cffe24c3519d2fef8e1c9a91ba1607625e9bbb05bc2c2f1 /usr/src/dolly/runtimes/quickjs-main.c
 SOURCE https://daugasauron.com/dist/static/default/runtimes/quickjs-runner.h dff97c2bbc62d51460e232a9f58550eb6320bd81341bff9ebf136b31a0fc206b /usr/include/dolly/quickjs-runner.h
 SOURCE https://daugasauron.com/dist/static/default/runtimes/dolly-node.js    9686dcf525ae24430c70058079e0adc1890b1f349bfb447da64ecf2963a8314d /usr/lib/dolly/node.js
-SOURCE https://daugasauron.com/dist/static/default/runtimes/janis.js         bafc461d267c525712f5d9b6851f3599bb2da846a65a98f4bec1ded1173088b7 /usr/lib/janis/runtime.js
+SOURCE https://daugasauron.com/dist/static/default/runtimes/janis.js         d2c1e36b24c6501a81354608154cddc5fe2dc4fb8108a93a4c42ec64823426b2 /usr/lib/janis/runtime.js
 SOURCE https://daugasauron.com/dist/static/default/commands/janis.c          08c40227d11f06e851a6406fe5ed8f8d7e5f7cdd28a3dad2609c04650a7afe1b /usr/src/dolly/commands/janis.c
 SLOP tar \
   -xf /tmp/quickjs.tar \

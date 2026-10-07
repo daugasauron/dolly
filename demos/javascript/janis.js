@@ -2352,35 +2352,63 @@ class JanisReadableStream {
     };
   }
   async cancel(reason) { this.done = true; await this.source.cancel?.(reason); this.#wake(); }
+  // A failed source or sink aborts the other side and rejects, as in Node.
   async pipeTo(destination) {
-    for await (const chunk of this) await destination.getWriter().write(chunk);
-    await destination.getWriter().close();
+    const writer = destination.getWriter();
+    try {
+      for await (const chunk of this) await writer.write(chunk);
+      await writer.close();
+    } catch (error) {
+      await writer.abort(error);
+      throw error;
+    }
+  }
+  pipeThrough({ writable, readable }) {
+    this.pipeTo(writable).catch(() => {});
+    return readable;
   }
   [Symbol.asyncIterator]() {
     const reader = this.getReader();
     return { next: () => reader.read(), return: async () => { await reader.cancel(); return { done: true }; } };
   }
 }
+// Sink calls run one at a time, each after the previous settled.
 class JanisWritableStream {
-  constructor(sink = {}) { this.sink = sink; }
+  constructor(sink = {}) {
+    this.sink = sink;
+    this.queue = Promise.resolve().then(() => sink.start?.());
+  }
   getWriter() {
+    const run = (operation) => {
+      const result = this.queue.then(operation);
+      this.queue = result.catch(() => {});
+      return result;
+    };
     return {
-      write: async (chunk) => this.sink.write?.(chunk),
-      close: async () => this.sink.close?.(),
-      abort: async (reason) => this.sink.abort?.(reason),
+      write: (chunk) => run(() => this.sink.write?.(chunk)),
+      close: () => run(() => this.sink.close?.()),
+      abort: (reason) => run(() => this.sink.abort?.(reason)),
       ready: Promise.resolve(),
       closed: Promise.resolve(),
+      releaseLock() {},
     };
   }
 }
 class JanisTransformStream {
-  constructor() {
-    const chunks = [];
-    this.writable = new JanisWritableStream({ write: (chunk) => chunks.push(chunk) });
-    this.readable = new JanisReadableStream({
-      pull(controller) {
-        if (chunks.length) controller.enqueue(chunks.shift());
-      },
+  constructor(transformer = {}) {
+    let output;
+    this.readable = new JanisReadableStream({ start(controller) { output = controller; } });
+    const controller = {
+      enqueue: (chunk) => output.enqueue(chunk),
+      error: (reason) => output.error(reason),
+      terminate: () => output.close(),
+      desiredSize: 1,
+    };
+    this.writable = new JanisWritableStream({
+      start: () => transformer.start?.(controller),
+      write: (chunk) => transformer.transform ? transformer.transform(chunk, controller) : controller.enqueue(chunk),
+      close: async () => { await transformer.flush?.(controller); output.close(); },
+      abort: (reason) => output.error(reason),
     });
   }
 }

@@ -39,7 +39,8 @@ package keeps them for `INSTALL` (`pi-runtime`, `bhop`, `slopyard`) and
 - Buffers, encodings, paths, URLs, events, timers, crypto helpers, tty streams
   and stateful UTF-8 decoders ([`dolly-node.js`](dolly-node.js)).
 - `child_process` with pipe-backed stdio, exit codes versus signals, kill and
-  timeouts; `fetch()` over the HTTP broker with streaming bodies and abort. One
+  timeouts; `fetch()` over the HTTP broker with streaming bodies and abort;
+  WHATWG streams with `pipeTo`, `pipeThrough` and transformers. One
   cooperative event pump serves promises, timers, HTTP and child pipes.
 
 ## Key files
