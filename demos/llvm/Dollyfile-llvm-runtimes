@@ -2,14 +2,17 @@ DOLLY 6
 PACKAGE llvm-runtimes
 REQUIRES HOST runtime@0
 
-# Build-only: libc++, libc++abi and libunwind as the process SDK ships them from
-# the Emscripten container, built by Dolly's c++ from the same pinned sources
-# (tasks/20260930-232236-llvm-in-dolly). Nothing links them unless it names them.
+# Build-only: libc++, libc++abi, libunwind and the compiler-rt builtins as the
+# process SDK ships them from the Emscripten container, built by Dolly's c++ and
+# cc from the same pinned sources (tasks/20260930-232236-llvm-in-dolly). A link
+# takes them instead only when it names the directory: -L/usr/lib/llvm-runtimes.
 FROM https://daugasauron.com/Dollyfile-system-tools 76204eed7416daabd1c8978f628b45da16f77d27d23d4f1473c508c5c750a309
 REQUIRES TOOL c++
 REQUIRES TOOL cc
 REQUIRES TOOL ar
 REQUIRES TOOL make
+REQUIRES TOOL sed
+REQUIRES TOOL ln
 REQUIRES TOOL tar
 REQUIRES TOOL time
 
@@ -54,8 +57,10 @@ FILE /tmp/llvm-runtimes/Makefile
     $L/libc++abi-ww-wasmexcept.a: $(call objects,libc++abi,$(LIBCXXABI))
     $L/libunwind-ww-wasmexcept.a: $B/libunwind/Unwind-wasm.o
     $L/libclang_rt.builtins-wasmsjlj-ww.a: $(call objects,builtins,$(BUILTINS) $(ASSEMBLY))
+    # -pthread links name the -mt variants: the same bytes, so the same files.
     $L/%.a:
     >ar rc $@ $^
+    >ln -s $(notdir $@) $(subst -ww,-mt,$@)
     define compile
     $B/$1/$(basename $(notdir $2)).o: $2
     >$3 -Xclang -main-file-name -Xclang $(notdir $2) -c $$< -o $$@

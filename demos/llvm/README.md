@@ -9,9 +9,10 @@ LLVM 24, Clang and LLD built inside Dolly from the seed's pinned sources
   builds `llvm-min-tblgen`, `llvm-tblgen` and `clang-tblgen` and runs the
   TableGen targets the seed compiler's libraries need. It keeps the three tools
   and `/usr/share/llvm-tablegen` (configured headers and TableGen outputs).
-- `llvm-runtimes`: build-only. libc++, libc++abi and libunwind built by Dolly's
-  `c++` from the pinned Emscripten sources, with the flags of the archives the
-  process SDK ships; kept in `/usr/lib/llvm-runtimes`, linked only when named.
+- `llvm-runtimes`: build-only. libc++, libc++abi, libunwind and the compiler-rt
+  builtins built by Dolly's `c++` and `cc` from the pinned Emscripten sources,
+  with the flags of the archives the process SDK ships. A link takes them
+  instead of those with `-L/usr/lib/llvm-runtimes`.
 
 Key files: [`Dollyfile-llvm-tablegen`](Dollyfile-llvm-tablegen),
 [`prepare-sources.sh`](prepare-sources.sh) (stages the seed's verified checkout
