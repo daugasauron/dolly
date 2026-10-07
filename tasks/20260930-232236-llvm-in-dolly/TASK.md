@@ -333,9 +333,38 @@ Limits that remain, recorded rather than hidden:
   function on a fresh stack (JSPI gives one per `promising` call) would serve
   Clang, rustc's `stacker` and the zig1 route; that is an ABI decision and was
   not taken here.
-- `cc` therefore cannot compile, in Chrome, about 770 chained member calls in
-  one expression or about 4,000 consecutive `case` labels under
-  `-Wimplicit-fallthrough`. Firefox was not measured on these files.
+- `cc` therefore cannot compile about 770 chained member calls in one
+  expression (Chrome; 700 fit and 760 fail in Firefox 155, where the entry
+  changes nothing) or about 4,000 consecutive `case` labels under
+  `-Wimplicit-fallthrough` (either browser).
+
+Checked after the integrator's review (2026-10-07 night):
+
+- **Whole core suite** with the JSPI entry, `node test/browser-tests.mjs
+  chromium firefox` (988 s): every test passes in both browsers except
+  `fs-growth-browser.mjs` in Chrome, `Target crashed`. That test fills 8 GiB
+  and the browser slot caps the run at 6 GB (journal: `killed by the OOM
+  killer`); it fails at the same line with the entry reverted. Not run: the
+  GPU render test (needs a display).
+- **Cold, N of N**: six fresh Chrome instances, each compiling both files
+  once with the flags `llvm-build`'s CMake emits, three in each order:
+  `MSP430.cpp` 6 of 6 (5.3-5.9 s first, 2.9-3.4 s second), `SemaARM.cpp` 6 of 6
+  (12.1-12.6 s first, 9.8-10.3 s second), and no overflow line in any log, so
+  no retry hid a failure.
+- **Margins**, calls needed against calls that fit: `MSP430.cpp` needs 635;
+  Chrome through JSPI fits 760 cold and at least 800 after V8 tiers up, Chrome
+  directly 400, Firefox 700. `SemaARM.cpp` as the recipe builds it (`-w`) also
+  compiles with the direct entry (6 of 6), so it needs under 500 KB of the
+  950 KB; with `-Wimplicit-fallthrough` it needs 6,020 labels where 4,000 fit.
+- **Firefox 155**: `MSP430.cpp` compiles (2 of 2, 4.5 s and 3.3 s) and
+  `SemaARM.cpp` compiles without `-Wimplicit-fallthrough` and fails with it,
+  as in Chrome. The entry gains Firefox nothing: its Worker stack was never
+  the smaller one.
+- **What a user sees** when the stack runs out, in both browsers: the three
+  attempts of `c++`, each `dolly: process N failed: Maximum call stack size
+  exceeded` (Firefox: `too much recursion`), `dolly: compiler process failed;
+  retrying 2/3`, then status 126 after 12-13 s. The shell prompt returns and
+  the next compile works; no hang, no tab crash.
 
 Found on the way: since `ce294685` (2026-10-06) the target no longer defines
 `__EMSCRIPTEN__`, and `clang/Support/Compiler.h` defines `CLANG_ABI` only for
