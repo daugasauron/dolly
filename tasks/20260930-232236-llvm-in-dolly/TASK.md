@@ -800,7 +800,9 @@ compiles libc++, libc++abi and libunwind from the pinned source where it
 installs the libc++ headers; the seed no longer carries Emscripten's archives
 of the three or their `-mt` twins.
 
-What changed, in three commits:
+What changed (the driver apart from the recipe; `bc2a5af2`, `79a3365f` and
+`a2c47d5a` follow up: the Rust seed's link and the pins of the staged driver,
+the demo package on the new flags, an artifact check):
 
 - `968a7af9`, the driver (`src/compiler.cpp`), each checked by behaviour in
   `test/cpp-browser.mjs`: `-fno-pic` (static code: a program links it, a shared
@@ -871,7 +873,7 @@ Measured (Chrome 151 builders, one at a time; memory as the builder's PSS):
   every TableGen output), 1,695 of 1,708 in `python`.
 - The core browser suite (`node test/browser-tests.mjs`, 30 files) on those
   images plus `dolly-docs`, `cmake`, `git`, `audio-sdk` and `gpu-sdk` (five
-  re-exports, 75 s together), in Chrome 151 and Firefox 155: 28 files pass in
+  small images, 80 s together), in Chrome 151 and Firefox 155: 28 files pass in
   both, `cpp` with the new driver checks, `threads`, `dso` and `image` among
   them. `amy-browser.mjs` passes until `amy install sdl2`, an image not built
   here. `fs-growth-browser.mjs` cannot run in the browser slot: it fills most
