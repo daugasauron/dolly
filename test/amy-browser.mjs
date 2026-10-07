@@ -149,7 +149,9 @@ const crate = "mkdir -p /tmp/amy-crate/src && cd /tmp/amy-crate && " +
   "printf '[package]\\nname = \"amy-crate\"\\nversion = \"0.1.0\"\\nedition = \"2021\"\\n' > Cargo.toml && " +
   "printf 'fn main() { println!(\"{}\", 6 * 7); }\\n' > src/main.rs && " +
   "CARGO_INCREMENTAL=0 cargo build --offline && test \"$(target/debug/amy-crate)\" = 42";
-for (const [name, program] of [["rust", programs.rust], ["cargo", crate]]) {
+// cmake configures with the C compiler and builds with make, which the cmake
+// package installs with cc.
+for (const [name, program] of [["rust", programs.rust], ["cargo", crate], ["cmake", programs.cmake]]) {
   await browserTest(`amy ${name} alone`, { image: "default", timeout: 300_000 }, async ({ open }) => {
     const run = check(await open());
     await run("! cc --version 2> /dev/null");
