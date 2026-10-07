@@ -565,6 +565,125 @@ both browsers.
 - It is a second compiler beside the seed's, not a replacement: no other
   image changes, and the seed is still what builds `llvm-build`.
 
+## The seed's compiler from inside Dolly: a trial (2026-10-08, `core/llvm-seed-trial`, not merged)
+
+Integrator's request, 04:05: show the third clause of "Done when" rather than
+argue it. Measurement only. Branch `core/llvm-seed-trial` holds one commit
+(`a037eb5f`, three lines of `scripts/build.sh`: the seed takes
+`build/llvm-seed-trial/compiler` once `validate-process` accepts it); none of
+it is for merging. The catalog's `dist/` was set aside for the run and put
+back (end of this section).
+
+**The compiler.** In the `llvm-cc` image (Chrome 151) the compiler was linked
+once more as the image links it, giving the installed bytes again (SHA-256
+`99f690ad…`), and once with `-Wl,--strip-all`; that one was saved to the host
+through `download`.
+
+| compiler | bytes |
+| --- | --- |
+| host-built, in the seed today | 78,338,796 (code 70.3 MB, data 7.9 MB) |
+| linked inside Dolly | 127,138,140 |
+| the same with `-Wl,--strip-all` | 96,090,208 (code 87.5 MB, data 8.3 MB) |
+
+`--strip-all` is one linker flag. It drops the `name` section (31.0 MB),
+`producers` and `target_features`; every other section is the unstripped
+compiler's bytes (compared on the host). `--strip-debug` keeps the names. The
+17.8 MB that remain over the host's are what binaryen saves there.
+
+**The seed.** `npm run build:runtime` with the stripped compiler takes 64 s;
+`dolly-abi.mjs validate-process` accepts the compiler as Dolly linked it.
+`dist/dolly.data` goes from 126,823,257 to 144,574,669 bytes (the compilers'
+difference); image inputs `991f5423…` instead of `c62b2710…`.
+
+**The proving chain.** `system-build`, `system`, `default`, `cc`, `git` and
+`llvm-tablegen` need 18 images. One builder in Chrome 151 under the 9 GB
+slot built them in 2,545 s, peak 4.39 GB. Each snapshot was decoded and its
+files compared with the catalog's snapshot of the same recipe, built by the
+host-built seed. The host-seed times are the integrator's catalog round for
+that seed (logs under `work/*/build`, several builders at once), so they
+show the order of magnitude, not a difference.
+
+| image | host-built seed, s | compiler from Dolly, s | files | files that differ |
+| --- | --- | --- | --- | --- |
+| `system-build` | 27.8 | 24.9 | 1,992 | the compiler |
+| `core` | 7.9 | 1.6 | 47 | none: the snapshot is the same bytes |
+| `zlib` | 11.6 | 5.5 | 11 | none: the snapshot is the same bytes |
+| `gzip` | 3.4 | 2.2 | 15 | none: the snapshot is the same bytes |
+| `curl` | 7.9 | 3.0 | 24 | none: the snapshot is the same bytes |
+| `zig-build` | 460.9 | 423.9 | 3,325 | the compiler |
+| `ghostty-build` | 59.2 | 57.2 | 3,366 | the compiler |
+| `display` | 5.9 | 4.0 | 13 | none: the snapshot is the same bytes |
+| `system-tools` | 114.2 | 110.9 | 2,188 | the compiler |
+| `posix` | 2.4 | 1.9 | 133 | none: the snapshot is the same bytes |
+| `amy` | 1.9 | 1.6 | 18 | none: the snapshot is the same bytes |
+| `default` | 6.6 | 4.4 | 209 | none: the snapshot is the same bytes |
+| `cc` | 13.9 | 11.7 | 1,949 | the compiler |
+| `cmake-build` | 1,337-1,462 | 1,276.9 | 6,343 | the compiler |
+| `git` | 3.6 | 2.8 | 44 | none: the snapshot is the same bytes |
+| `system` | 15.2 | 15.7 | 2,191 | the compiler |
+| `python` | 127.4 | 123.0 | 1,565 | none: the snapshot is the same bytes |
+| `llvm-tablegen` | 451.6 | 444.5 | 8,127 | the compiler |
+
+- **In all 18 images every file is the same** except the compiler executable
+  itself in the eight that carry it; no file is missing or new. Ten snapshots
+  are the same bytes as a whole. What the chain compiles (Slop and the
+  commands, Make, the Zig compiler and Ghostty, Git, Awk, curl, zlib, CMake,
+  CPython, LLVM's TableGen tools and all their outputs) comes out the same
+  from either compiler. Nothing else needed explaining.
+- **Times**: the 18 sum to 2,516 s with the compiler from Dolly and to
+  2,659-2,784 s in the round's logs; no slowdown shows at this size. Like
+  for like remains the closure build: 2,492 s by the seed compiler, 2,570 to
+  2,625 s by the one linked in Dolly.
+- **Core browser suite** on these images: SUITE_RESULT
+
+**What would have to change** for the seed's compiler to come from inside
+Dolly. The swap itself needed nothing but the file; nothing in the seed's
+layout prevents it. The bootstrap order becomes:
+
+1. Once, on a host: `scripts/build-toolchain.sh` and `npm run build:runtime`
+   as today give seed 0, with the host-built compiler.
+2. With seed 0, in a browser: the chain to `llvm-cc` (about 90 minutes in one
+   builder: 42 to `llvm-tablegen`, 44 `llvm-build`, 4 `llvm-cc`) yields the
+   compiler and Clang's resource headers.
+3. Seed 1 is seed 0 with that compiler. It builds the same chain to the same
+   compiler bytes (the second-stage test), so the host no longer compiles
+   LLVM.
+
+Still built on the host every time, with the pinned Emscripten container:
+the kernel, the process libc and its adapter, `bootstrap`, and the C++
+runtime archives until `core/runtimes-in-seed` lands.
+
+- `scripts/build-toolchain.sh` today builds native TableGen and `llvm-nm` and
+  cross-compiles the 2,559 units into `.cache/llvm-wasm`. It would instead
+  fetch and verify one pinned archive (digest in `config/source-pins.sh`):
+  the compiler and the 298 resource headers, as `llvm-cc` and `llvm-build`
+  produce them. The cross build stays as the documented way to make seed 0
+  for a new LLVM pin. The native `llvm-nm` is still needed by
+  `scripts/prepare-process-sysroot.sh` (the container has one).
+- `scripts/build.sh` loses the toolchain-key check on `.cache/llvm-wasm`, the
+  `LLVM_DIR`, `Clang_DIR` and `LLD_DIR` configuration and the
+  `dolly-process-compiler` target (with `find_package(LLVM|LLD|Clang)` in
+  `toolchain/CMakeLists.txt`), and takes the fetched compiler through
+  `validate-process` to `build/process-bin/compiler`, as the trial's three
+  lines do. The seed's `/usr/lib/clang/24/include` comes from the archive
+  instead of `.cache/llvm-wasm/lib/clang/24/include`.
+- `docs/sources.md`: the LLVM row of "Bootstrap exceptions" says built
+  outside Dolly once, for seed 0; after that the seed carries the compiler
+  `llvm-cc` links, pinned by digest, and
+  `demos/llvm/test/stage2-browser.mjs` reproduces it. Plus where the pinned
+  archive is published.
+- Beyond those three files: the archive (96 MB) must be published and pinned
+  like the other prebuilt input, the font; `llvm-cc` links with
+  `-Wl,--strip-all`; and the loop for a change. Today a change to
+  `src/compiler.cpp`, the process libc adapter or the sysroot archives is a
+  host relink of 100 s. Then it is: build `llvm-cc` with the current seed
+  (4 minutes while `llvm-build` is current, else 48), pin the new compiler,
+  rebuild the runtime, and rebuild the catalog, whose `llvm-cc` must come
+  out as the pinned bytes again. That loop is the cost of the swap, against
+  "iteration speed is king"; the decision is the owner's.
+
+**The worktree afterwards**: WORKTREE_STATE
+
 ## Decisions (2026-10-01, delegated)
 
 - LLVM-in-Dolly stays a demo (`demos/llvm`): moving CMake and Python into core
