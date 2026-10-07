@@ -15,6 +15,8 @@ FROM https://daugasauron.com/demos/zero-ad/Dollyfile-zero-ad-deps 395d19f9416170
 INSTALL https://daugasauron.com/demos/python/Dollyfile-python 0f2737d95b6087af9f5af64364fe49fea0f1803b30dadb2e9e79617de008ce05
 INSTALL https://daugasauron.com/demos/rust/Dollyfile-cargo 08cfd63c8e34e7b9eeec11adc637cc67d5e585a1165b8023780f746943370d8d
 INSTALL https://daugasauron.com/demos/rust/Dollyfile-cbindgen 6774713a108b5a0077cba86955891ec3cc55948d10cbb77bf4ceb97a0610d337
+REQUIRES HEADER zlib
+REQUIRES LIB z
 REQUIRES TOOL cc
 REQUIRES TOOL c++
 REQUIRES TOOL ar
