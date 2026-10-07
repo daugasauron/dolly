@@ -62,9 +62,16 @@ FILE /tmp/sysroot/Makefile
     $B/$1/$(if $(filter %.S,$2),$(basename $(notdir $2)).s,$(call member,$2)): $S/$2
     >cc $(if $(filter %.S,$2),-E -P,-c) $$(flags-$1) $(if $(filter $2,$(O2)),-O2) $$< -o $$@
     endef
+    # Dolly's own parts define what these members do, so the seed's two libc
+    # archives are Emscripten's without them (scripts/prepare-process-sysroot.sh,
+    # scripts/build-process-threads.sh).
+    removed-libc-ww := raise sigaction pthread_sigmask sigtimedwait setitimer getitimer
+    removed-libc-mt := $(removed-libc-ww) pthread_create pthread_join pthread_detach pthread_cancel \
+      pthread_setcanceltype library_pthread emscripten_futex_wait emscripten_futex_wake pthread_kill sched_yield
+    kept = $(filter-out $(addprefix %/,$(addsuffix .c,$(removed-$1))),$($1))
     define library
-    $(foreach source,$($1),$(eval $(call unit,$1,$(source))))
-    $L/$2$1.a: $(call first,%/vmlock.o,$(sort $(foreach source,$($1),$B/$1/$(call member,$(source)))))
+    $(foreach source,$(call kept,$1),$(eval $(call unit,$1,$(source))))
+    $L/$2$1.a: $(call first,%/vmlock.o,$(sort $(foreach source,$(call kept,$1),$B/$1/$(call member,$(source)))))
     >ar rc $$@ $$^
     endef
     $(foreach name,$(WW),$(eval $(call library,$(name))))

@@ -73,8 +73,9 @@ test("the sysroot image rebuilds the seed's process sysroot to the same code and
     const built = image.get("/usr/lib/sysroot/" + name);
     assert.ok(built, `the image has no ${name}`);
     const rebuilt = members(name, Buffer.from(built.data));
-    for (const [member, object] of members(name, Buffer.from(record.data))) {
-      assert.ok(rebuilt.has(member), `${name} has no ${member}`);
+    const shippedMembers = members(name, Buffer.from(record.data));
+    assert.deepEqual([...rebuilt.keys()], [...shippedMembers.keys()], `the members of ${name}`);
+    for (const [member, object] of shippedMembers) {
       const shipped = sections(object);
       const ours = sections(rebuilt.get(member));
       for (const section of new Set([...shipped.keys(), ...ours.keys()])) {
