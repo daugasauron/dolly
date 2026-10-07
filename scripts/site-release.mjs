@@ -9,7 +9,6 @@ import { pathToFileURL } from "node:url";
 import { gunzipSync } from "node:zlib";
 import { mergeSnapshotRecords, validateSnapshotPacks, MAX_SNAPSHOT_BYTES } from "../src/snapshot-records.mjs";
 import { imageInputsMatch } from "../src/image-inputs.mjs";
-import { validName } from "../src/dollyfile-view.mjs";
 import { contractDigest, validateBrowserImports } from "./dolly-abi.mjs";
 import { createDollyfileGraphLoader, recipeRecords } from "./dollyfile-graph.mjs";
 import { discoverImageDefinitions, imageRegistrySource, inspectStaticSources, selectImageDefinitions } from "./image-definitions.mjs";
@@ -18,6 +17,7 @@ import { decodeSystemSnapshot } from "./system-snapshot-format.mjs";
 import { readWasmInterface } from "./wasm-interface.mjs";
 import { verifyDocumentationLinks } from "./package-documentation.mjs";
 import { buildIdentities } from "./write-build-id.mjs";
+import { versionName } from "./release-layout.mjs";
 
 // Generated metadata is data, not executable input to the release verifier.
 export function parseGeneratedConstant(source, name) {
@@ -31,7 +31,14 @@ export function parseGeneratedConstant(source, name) {
   return JSON.parse(value);
 }
 
-function safePath(path) {
+// The public path of a packaged site is its version: src/version.mjs, as vX.Y.Z.
+export function releaseVersion(source) {
+  const name = `v${parseGeneratedConstant(source, "DOLLY_VERSION")}`;
+  if (!versionName.test(name)) throw new Error("invalid release version");
+  return name;
+}
+
+export function safePath(path) {
   if (!path || /[\\\r\n\0]/.test(path) || path.split("/").some(part => !part || part === "." || part === "..")) {
     throw new Error(`invalid release path: ${path}`);
   }
@@ -158,19 +165,6 @@ async function verifyAcceptance(site, manifest, images) {
   if (await readFile(resolve(site, "release/acceptance.txt"), "utf8") !== expected) {
     throw new Error("release browser acceptance is missing or belongs to different bytes");
   }
-}
-
-// Retention preserves previously accepted immutable bytes, without applying
-// newer source/documentation rules or publishing their HTML as the current app.
-export async function verifyRetainedRelease(site) {
-  const manifest = await verifyReleaseFiles(site);
-  const source = await readFile(resolve(site, "dist/dolly-images.mjs"), "utf8");
-  const registry = parseGeneratedConstant(source.split("\nexport const DOLLY_STATIC_SOURCES =", 1)[0], "DOLLY_IMAGES");
-  if (!Array.isArray(registry) || !registry.length || registry.length > 256 ||
-      registry.some(item => !validName(item?.image)) ||
-      new Set(registry.map(item => item.image)).size !== registry.length) throw new Error("invalid retained image registry");
-  await verifyAcceptance(site, manifest, registry.filter(item => item.role !== "package").map(item => item.image));
-  return sha256(manifest);
 }
 
 export async function verifyRelease(site, sourceRoot) {

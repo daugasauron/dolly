@@ -1,8 +1,20 @@
 export const snapshotPackPath = /^dist\/packs\/[0-9a-f]{64}\.snapshot\.gz$/;
 
+// What a deployment serves at its own path besides pages and snapshot packs;
+// every other file is under _dolly/RELEASE/.
+export const publicFiles = ["coi-serviceworker.js", ".nojekyll", "robots.txt", "amy-index.txt"];
+
+// A published version's directory and public path: /vX.Y.Z/.
+export const versionName = /^v(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/;
+
+export function compareVersions(left, right) {
+  const [a, b] = [left, right].map(name => versionName.exec(name).slice(1).map(Number));
+  return a[0] - b[0] || a[1] - b[1] || a[2] - b[2];
+}
+
 export function deploymentBase(value) {
-  if (!/^\/(?:[A-Za-z0-9_-]+\/)*$/.test(value)) {
-    throw new Error("deployment base must be / or a path such as /dolly/");
+  if (!/^\/(?:[A-Za-z0-9_-][A-Za-z0-9._-]*\/)*$/.test(value)) {
+    throw new Error("deployment base must be / or a path such as /dolly/v0.1.0/");
   }
   return value;
 }

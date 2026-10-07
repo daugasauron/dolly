@@ -1,5 +1,7 @@
 /build
 /dist
+# Every published version as it was deployed (docs/deployment.md).
+/published/
 # Pages scripts/generate-routes.mjs writes at their served paths.
 /index.html
 /amy-index.txt
