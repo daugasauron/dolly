@@ -658,3 +658,33 @@ image 409.1 s, `make config=release -j4 pyrogenesis` 315 s, snapshot
 engine source or flag changed: the library is the drop-in the analysis
 above predicted. `zero-ad` itself is the integrator's build (its builder
 needs more than 9 GB); the three 0 A.D. browser tests follow on it.
+
+### 0 A.D. on the Dolly-built SpiderMonkey: green, and the host bootstrap deleted (12:06)
+
+`zero-ad` built on the rebuilt engine in 279 s (the integrator, 18 GB scope,
+`build/spidermonkey-evidence/zero-ad-on-dolly-mozjs.log`). The three browser
+tests, logs `build/spidermonkey-evidence/test-0ad-*.log`:
+
+- `0ad-spidermonkey` exit 0: "spidermonkey: wasm64 realms, GC, callbacks and
+  clone passed", shell survived.
+- `0ad-engine` exit 0: "Control protocol: 69 entities, save/load hash
+  ff2fbc7d000708ab8b70ed0eaec257df, unit 11 moved" (the hash the host-linked
+  engine gave on 2026-10-01: the simulation is bit-identical), economy, Petra
+  and fresh-process save/load in 17,232 ms.
+- `0ad-graphics` (hardware, `nvidia blackwell`, Chromium 151) exit 0: combat
+  scene ready in 1,849 ms.
+
+Image times on the round-3 base: `cbindgen` 2.5 min, `zero-ad-spidermonkey`
+879 s, `zero-ad-engine` 409 s, `zero-ad` 279 s.
+
+Deleted in one commit: `demos/zero-ad/toolchain/{build-spidermonkey.sh,
+spidermonkey.sh, prepare.sh, rustc.sh, rust-bootstrap.toml}`, the bootstrap
+sentences in `demos/zero-ad/README.md`, `docs/sources.md` and
+`docs/licences.md` (SpiderMonkey is no longer a file built outside Dolly;
+`mozjs-host.tar.gz` and `bootstrap.tar` are no longer described). Repin
+changed no recipe (no recipe pins those documents); lint, the source suite
+(333) and the upstreams test pass. The `.cache/0ad` host caches are outside
+git and untouched. The bootstrap exception named in this task's goal is gone:
+done when the checkpoint carries this branch.
+
+- STATUS: DONE when merged (integrator's checkpoint, 13:15).

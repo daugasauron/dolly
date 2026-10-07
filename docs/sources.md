@@ -27,8 +27,8 @@ renamed to `__dolly__`, and LLVM generates code under the libc's triple,
 `wasm64-unknown-emscripten`; a program sees neither name
 ([process model](process-model.md#executables)).
 
-Demo exceptions (the Rust compiler seed, 0 A.D.'s SpiderMonkey) are recorded in their
-demo READMEs. Every externally built program (compiler, Rust seed, SpiderMonkey)
+Demo exceptions (the Rust compiler seed) are recorded in their demo READMEs.
+Every externally built program (compiler, Rust seed)
 validates against `dolly-process-0` exactly and ships without an Emscripten
 JavaScript loader. Host preparation may
 configure and patch pinned trees deterministically and reviewably, but must not
