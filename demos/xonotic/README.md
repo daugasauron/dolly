@@ -64,7 +64,11 @@ Nexuiz compatibility archives are left out. The browser test runs on
 `xonotic-build` and fetches the same archives through its fixture server into
 `/home/dolly/xonotic/data`, which is the test's arrangement. The compiled
 `progs.dat`, `csprogs.dat` and `menu.dat` inside `data.pk3` are the release's;
-the test runs its second match on the `progs.dat` built in Dolly.
+the test runs its second match on the `progs.dat` built in Dolly. The test's
+`short.dem`, a 22 s bot match on stormkeep recorded with the native build, is
+a measurement fixture and not in any image: the software path plays it at
+1024×768 at about 30 fps in Chromium and 43 fps in Firefox on one thread
+(numbers in the task).
 
 ## Bootstrap exceptions
 

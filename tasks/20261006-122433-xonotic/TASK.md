@@ -351,6 +351,22 @@ small: 17 modes × 20 permutation bits in the source, 14 pairs in use at
   (match, QuakeC rebuild, rematch, frame) in 144.9 s
   (`browser-test-chromium-13.log`). The image with the client builds in
   98.7 s.
+- Frame rate: `short.dem` is a 22 s bot-match recording on stormkeep
+  (1,046 frames, recorded natively at 1024×768, kept in
+  `.cache/xonotic/release/Xonotic/data/`). Native llvmpipe (GL path,
+  `-benchmark short`): 13.81 s, 75.8 fps (`native-benchmark-short.log`).
+  Dolly's software path, same demo and size, one rasterizer thread
+  (`-benchmark short` in the test): Chromium 34.98 s, 29.9 fps; Firefox
+  24.44 s, 42.8 fps (`browser-test-chromium-14.log`,
+  `browser-test-firefox-3.log`; the whole test 183.6 s and 141.3 s). So the
+  interim software renderer plays at 30–43 fps at 1024×768 in the browser
+  against 76 fps for llvmpipe's GL on the host; both are software numbers.
+- Data image (09:01): `xonotic` (system, the client, data, maps and fonts,
+  946 MB of pk3) builds in the 9 GB slot in 107.5 s; under the 6 GB cap
+  Chrome was OOM-killed twice during the snapshot upload at 5.2 GB anon RSS
+  (`image-build-10.log`, `-11.log`), and `/usr/bin/time -v` on the 9 GB
+  build reports a 3.0 GB maximum RSS for its largest process
+  (`image-build-13.log`), so the peak lies between 6 and 9 GB.
 
 ## Decisions for the owner
 
