@@ -583,6 +583,11 @@ but its still a problem in the menus etc before the game starts."
 - Test: before any click or key, the live stage moves the mouse over nine
   points of the menu and asserts `elementFromPoint`'s computed cursor is
   `none`, in Chromium and Firefox.
+- Verified (16:10, commit `2e39bb3c`, `build/pointer-evidence/test-chromium-1.log`,
+  `test-firefox-1.log`): with the rebuilt sdl2 the whole Xonotic test passes
+  in Chromium (438.1 s) and Firefox (377.9 s), the nine points over the menu
+  included, and the match still captures the pointer on a click. The sdl2
+  rebuild (491.9 s with xonotic-build) rebuilt `zero-ad-deps` by dependency.
 
 ## Route (a): the map of what remains (2026-10-07 09:35, estimates)
 
