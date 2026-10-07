@@ -8,11 +8,11 @@ REQUIRES HOST snapshot@0
 REQUIRES HOST upload@0
 
 FROM https://daugasauron.com/Dollyfile-system d54406310fdea1a671b44477fbf376b8e742536b8b2f7afe5f504db060ff0b2d
-COPY https://daugasauron.com/demos/xonotic/Dollyfile-xonotic-build a021462fb31cc6d6c26d94a2307f590a5e704d065a8dc1ead8a630b80577631e /usr/bin/xonotic-sdl /usr/bin/xonotic-sdl
-COPY https://daugasauron.com/demos/xonotic/Dollyfile-xonotic-build a021462fb31cc6d6c26d94a2307f590a5e704d065a8dc1ead8a630b80577631e /usr/share/licenses/xonotic /usr/share/licenses/xonotic
+COPY https://daugasauron.com/demos/xonotic/Dollyfile-xonotic-build ba63017e855fb210222d3d01574df632dc7c605caa5ab203d478c88a70f5aea6 /usr/bin/xonotic-sdl /usr/bin/xonotic-sdl
+COPY https://daugasauron.com/demos/xonotic/Dollyfile-xonotic-build ba63017e855fb210222d3d01574df632dc7c605caa5ab203d478c88a70f5aea6 /usr/share/licenses/xonotic /usr/share/licenses/xonotic
 COPY https://daugasauron.com/demos/sdl2/Dollyfile-sdl2 780aab47227496daec6bbbd8c4f0cad67c60ac58abe2419968204d8b028ebc15 /usr/share/licenses/SDL2 /usr/share/licenses/SDL2
 # Licences of the libraries linked into the client.
-COPY https://daugasauron.com/demos/xonotic/Dollyfile-xonotic-build a021462fb31cc6d6c26d94a2307f590a5e704d065a8dc1ead8a630b80577631e /usr/share/licenses/libjpeg /usr/share/licenses/libjpeg
+COPY https://daugasauron.com/demos/xonotic/Dollyfile-xonotic-build ba63017e855fb210222d3d01574df632dc7c605caa5ab203d478c88a70f5aea6 /usr/share/licenses/libjpeg /usr/share/licenses/libjpeg
 COPY https://daugasauron.com/demos/zero-ad/Dollyfile-zero-ad-deps 8120984128cf0826c6af57816663bbdb5111fcc681ba002de1286d9429977f83 /usr/share/licenses/freetype /usr/share/licenses/freetype
 COPY https://daugasauron.com/demos/zero-ad/Dollyfile-zero-ad-deps 8120984128cf0826c6af57816663bbdb5111fcc681ba002de1286d9429977f83 /usr/share/licenses/libpng /usr/share/licenses/libpng
 # Dolly's notices for this image: the IJG sentence, the fonts' terms and the
