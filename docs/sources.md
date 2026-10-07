@@ -18,19 +18,27 @@ flowchart TD
 
 | Component | Built outside Dolly | Result |
 | --- | --- | --- |
-| Emscripten 6.0.8 | Digest-pinned container links the kernel, process sysroot, gate and seed ([`CMakeLists.txt`](../toolchain/CMakeLists.txt), [`build.sh`](../scripts/build.sh)) | Kernel plus process libc; the seed holds headers and the Dollyfile engine source, which [`bootstrap.c`](../src/process/bootstrap.c) compiles before the first recipe |
+| Emscripten 6.0.8 | Digest-pinned container links the kernel, process sysroot, gate and seed ([`CMakeLists.txt`](../toolchain/CMakeLists.txt), [`build.sh`](../scripts/build.sh)) | Kernel plus process libc with its compiler-rt builtins, which the first link needs; the seed holds headers and the Dollyfile engine source, which [`bootstrap.c`](../src/process/bootstrap.c) compiles before the first recipe |
 | LLVM/Clang/LLD 24 | Wasm64 libraries linked into one stamped compiler executable ([`build-toolchain.sh`](../scripts/build-toolchain.sh)) | `cc`, `c++`, `ld`, `ar` spawn it as a private process |
-| libc++/libc++abi | Pinned Emscripten archives; headers archived separately | Installed by [`Dollyfile-system-build`](../Dollyfile-system-build); no handwritten substitutes |
 
-The libc's and libc++'s headers are staged with their `__EMSCRIPTEN__` tests
-renamed to `__dolly__`, and LLVM generates code under the libc's triple,
-`wasm64-unknown-emscripten`; a program sees neither name
+libc++, libc++abi and libunwind are not among them: [`Dollyfile-system-build`](../Dollyfile-system-build)
+compiles Emscripten's pinned copy with the flags of Emscripten's own build,
+before the first C++ program. The container's build of them remains inside the
+seed compiler and names what an `-rdynamic` host exports
+([`prepare-process-sysroot.sh`](../scripts/prepare-process-sysroot.sh)).
+
+The libc's and libc++'s headers, and libc++'s sources, are staged with their
+`__EMSCRIPTEN__` tests renamed to `__dolly__`, and LLVM generates code under the
+libc's triple, `wasm64-unknown-emscripten`; a program sees neither name
 ([process model](process-model.md#executables)).
 
 Demo exceptions (the Rust compiler seed) are recorded in their demo READMEs.
 The `llvm` demo (`demos/llvm/README.md`) builds the compiler of the second row
 again inside Dolly and gets the seed compiler's output bytes from it; the
-host-built seed is still what every image starts from.
+host-built seed is still what every image starts from. The `sysroot` demo
+(`demos/sysroot/README.md`) does the same for the first row's process libc and
+for Dolly's own parts of the sysroot, to equal code and data; their four
+assembly sources go through file-scope asm, since `cc` has no assembler.
 Every externally built program (compiler, Rust seed)
 validates against `dolly-process-0` exactly and ships without an Emscripten
 JavaScript loader. Host preparation may

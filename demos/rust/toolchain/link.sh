@@ -23,6 +23,9 @@ container=(podman run --rm --userns=keep-id -v "${project_dir}:${project_dir}" -
     /emsdk/upstream/bin/llvm-ar d "$archive" lib.rmeta lib.rmeta-link
   done'
 sysroot="${port_dir}/process-sysroot"
+# The sysroot has no C++ runtime: Dollyfile-system-build compiles it. This
+# host link takes the container's, as the seed compiler does.
+cxx="${project_dir}/.cache/emscripten/sysroot/lib/wasm64-emscripten"
 exports=()
 while IFS= read -r symbol; do
   [[ -z "$symbol" || "$symbol" == \#* ]] || exports+=("--export-if-defined=$symbol")
@@ -45,8 +48,8 @@ done < "${sysroot}/dynamic-provider.symbols"
   "${sysroot}/crt1.o" -L"${sysroot}" \
   -ldolly-runtime -ldolly-http -ldolly-display -ldolly-download -ldolly-upload -ldolly-dso \
   -lstandalonewasm-ww-memgrow -lstubs -lc-ww -ldlmalloc-ww \
-  -lclang_rt.builtins-wasmsjlj-ww -lc++-ww-wasmexcept -lc++abi-ww-wasmexcept \
-  -lunwind-ww-wasmexcept \
+  -lclang_rt.builtins-wasmsjlj-ww "${cxx}/libc++-ww-wasmexcept.a" "${cxx}/libc++abi-ww-wasmexcept.a" \
+  "${cxx}/libunwind-ww-wasmexcept.a" \
   -mllvm -combiner-global-alias-analysis=false -mllvm -wasm-enable-sjlj \
   -mllvm -wasm-use-legacy-eh=0 -mllvm -disable-lsr -mllvm -wasm-enable-eh
 "${container[@]}" /emsdk/upstream/bin/wasm-as abi/dolly-process-0.wat \

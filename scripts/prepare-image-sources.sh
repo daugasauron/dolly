@@ -80,6 +80,13 @@ if has_image system-build; then
   grep -rlZw __EMSCRIPTEN__ "${staging}/libcxx" | xargs -0 sed -i 's/\b__EMSCRIPTEN__\b/__dolly__/g'
   node scripts/build-source-tar.mjs "${static_dir}/default/libcxx-headers.tar" \
     "${staging}/libcxx" /usr/include/c++/v1
+  # The library those headers declare, and its unwinder, which
+  # Dollyfile-system-build compiles: the pinned copy, with the same rename.
+  mkdir "${staging}/libcxx-source"
+  git -C "${emscripten_system_dir}" archive HEAD system/lib/libcxx/src system/lib/libcxxabi \
+    system/lib/libunwind system/lib/llvm-libc | tar -x -C "${staging}/libcxx-source"
+  grep -rlZw __EMSCRIPTEN__ "${staging}/libcxx-source" | xargs -0 sed -i 's/\b__EMSCRIPTEN__\b/__dolly__/g'
+  node scripts/build-source-tar.mjs "${static_dir}/default/libcxx.tar" "${staging}/libcxx-source" /tmp/cpp
   copy_static "${emscripten_system_dir}/system/lib/libcxx/LICENSE.TXT" default/licenses/libcxx
   copy_static "${emscripten_system_dir}/system/lib/libcxxabi/LICENSE.TXT" default/licenses/libcxxabi
   copy_static "${emscripten_system_dir}/LICENSE" default/licenses/emscripten

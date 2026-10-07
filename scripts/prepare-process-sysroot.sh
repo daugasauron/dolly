@@ -14,12 +14,13 @@ libraries=(
   libc-ww.a
   libdlmalloc-ww.a
   libclang_rt.builtins-wasmsjlj-ww.a
-  libunwind-ww-wasmexcept.a
-  libc++-ww-wasmexcept.a
-  libc++abi-ww-wasmexcept.a
 )
+# Dollyfile-system-build builds these three from source. The container's
+# copies, with the same symbols, are inside the seed compiler and name what an
+# -rdynamic host exports.
+cxx_runtime=(libc++-ww-wasmexcept.a libc++abi-ww-wasmexcept.a libunwind-ww-wasmexcept.a)
 
-for library in "${libraries[@]}"; do
+for library in "${libraries[@]}" "${cxx_runtime[@]}"; do
   if [[ ! -f "${emscripten_lib}/${library}" ]]; then
     echo "dolly: missing process runtime archive: ${emscripten_lib}/${library}" >&2
     exit 1
@@ -59,8 +60,7 @@ cp -- "${reserved_libc_symbols}" "${staging}/libc-provider.symbols"
 mkdir "${staging}/threads"
 cp -- "${project_dir}/build/process-threads/"{libdolly-process.a,libdolly-runtime.a,libc-mt.a,crt1.o} "${staging}/threads/"
 for library in libstandalonewasm-mt-memgrow.a libdlmalloc-mt.a \
-    libclang_rt.builtins-wasmsjlj-mt.a libunwind-mt-wasmexcept.a \
-    libc++-mt-wasmexcept.a libc++abi-mt-wasmexcept.a; do
+    libclang_rt.builtins-wasmsjlj-mt.a; do
   cp -- "${emscripten_lib}/${library}" "${staging}/threads/"
 done
 
@@ -114,9 +114,7 @@ done <"${staging}/libc-provider.symbols"
       'NF && $0 !~ /:$/ && $0 !~ /^_/ && $0 !~ /^emscripten_/ { print }'
   awk 'NF && $0 !~ /^#/ { print }' "${staging}/libc-provider.symbols"
   "${llvm_nm}" -j --defined-only --extern-only \
-    "${staging}/libc++-ww-wasmexcept.a" \
-    "${staging}/libc++abi-ww-wasmexcept.a" \
-    "${staging}/libunwind-ww-wasmexcept.a" \
+    "${cxx_runtime[@]/#/${emscripten_lib}/}" \
     2>/dev/null | awk 'NF && $0 !~ /:$/ { print }'
 } | LC_ALL=C sort -u >"${staging}/dynamic-provider.symbols"
 if [[ ! -s "${staging}/dynamic-provider.symbols" ]]; then

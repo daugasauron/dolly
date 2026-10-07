@@ -27,8 +27,7 @@ test("sysroot publication keys startup code and preserves previous versions", as
   for (const name of ["libstandalonewasm-ww-memgrow.a", "libstubs.a", "libc-ww.a",
     "libdlmalloc-ww.a", "libclang_rt.builtins-wasmsjlj-ww.a", "libunwind-ww-wasmexcept.a",
     "libc++-ww-wasmexcept.a", "libc++abi-ww-wasmexcept.a", "libstandalonewasm-mt-memgrow.a",
-    "libdlmalloc-mt.a", "libclang_rt.builtins-wasmsjlj-mt.a", "libunwind-mt-wasmexcept.a",
-    "libc++-mt-wasmexcept.a", "libc++abi-mt-wasmexcept.a"])
+    "libdlmalloc-mt.a", "libclang_rt.builtins-wasmsjlj-mt.a"])
     await copyFile(join(root, "build/libdolly-process.a"), join(libraries, name));
   for (const name of ["libdolly-process.a", "libdolly-runtime.a", "libc-mt.a"])
     await copyFile(join(root, "build/libdolly-process.a"), join(root, "build/process-threads", name));

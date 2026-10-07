@@ -3,11 +3,12 @@ PACKAGE llvm-runtimes
 REQUIRES HOST runtime@0
 
 # Build-only: libc++, libc++abi, libunwind and the compiler-rt builtins as the
-# seed ships them from the Emscripten container, built by Dolly's c++ and cc
-# from the same pinned sources (tasks/20260930-232236-llvm-in-dolly). A process
-# link takes them instead only when it names the directory:
-# -L/usr/lib/llvm-runtimes.
-FROM https://daugasauron.com/Dollyfile-system-tools 76204eed7416daabd1c8978f628b45da16f77d27d23d4f1473c508c5c750a309
+# Emscripten container builds them, built by Dolly's c++ and cc from the same
+# pinned sources down to its DWARF (tasks/20260930-232236-llvm-in-dolly). The
+# seed ships the container's builtins; Dollyfile-system-build compiles the
+# other three itself. A process link takes these instead only when it names
+# the directory: -L/usr/lib/llvm-runtimes.
+FROM https://daugasauron.com/Dollyfile-system-tools 6ea7e8c19a9b6677c919dd1c2a9be21967c3f2e9777a2c4bedf31d748f9354fa
 REQUIRES TOOL c++
 REQUIRES TOOL cc
 REQUIRES TOOL ar
@@ -28,16 +29,14 @@ FILE /tmp/llvm-runtimes/Makefile
     S := /tmp/llvm-runtimes/system/lib
     B := /tmp/llvm-runtimes/build
     L := /usr/lib/llvm-runtimes
-    # What Emscripten's Clang driver gives cc1 and Dolly's does not: -g as DWARF 4,
-    # the container's file names and, for a process, hidden static code.
+    # Emscripten's -g, which is DWARF 4 where Dolly's is 5, and the container's
+    # file names; for a process, hidden static code.
     CC1 := -gkey-instructions -debug-info-kind=constructor -dwarf-version=4 -debugger-tuning=gdb \
-      -fdebug-compilation-dir=/emsdk/emscripten \
-      -fdebug-prefix-map=/tmp/llvm-runtimes=/emsdk/emscripten \
+      -fdebug-compilation-dir=/emsdk/emscripten
+    FLAGS := -Wall -Werror -DNDEBUG $(addprefix -Xclang ,$(CC1)) -ffile-prefix-map=/tmp/llvm-runtimes=/emsdk/emscripten \
       -fdebug-prefix-map=/usr/include=/emsdk/emscripten/cache/sysroot/include \
-      -fdebug-prefix-map=/usr/lib/clang=/emsdk/upstream/lib/clang \
-      -fmacro-prefix-map=/tmp/llvm-runtimes=/emsdk/emscripten
-    FLAGS := -Wall -Werror -DNDEBUG $(addprefix -Xclang ,$(CC1))
-    PROCESS := $(FLAGS) -fvisibility=hidden $(addprefix -Xclang ,-mrelocation-model static -pic-level 0)
+      -fdebug-prefix-map=/usr/lib/clang=/emsdk/upstream/lib/clang
+    PROCESS := $(FLAGS) -fvisibility=hidden -fno-pic
     CXXFLAGS := $(PROCESS) -Oz -std=c++23 -I$S/libcxx/src
     LIBCXX := $(filter-out %/int128_builtins.cpp,$(wildcard $S/libcxx/src/*.cpp $S/libcxx/src/filesystem/*.cpp \
       $S/libcxx/src/ryu/*.cpp)) $(addprefix $S/libcxx/src/experimental/,chrono_exception.cpp keep.cpp log_hardening_failure.cpp)
@@ -52,7 +51,7 @@ FILE /tmp/llvm-runtimes/Makefile
       $(addprefix $S/compiler-rt/,emscripten_setjmp.c emscripten_exception_builtins.c __trap.c)
     ASSEMBLY := $(addprefix $S/compiler-rt/,stack_ops.S stack_limits.S __c_longjmp.S emscripten_tempret.s)
     BUILTINS_FLAGS := -O2 -fno-builtin -DCOMPILER_RT_HAS_ATOMICS=1 -Wno-unused-but-set-variable \
-      -Xclang -fno-unroll-loops -Xclang -fignore-exceptions -I$S/libc -I$S/compiler-rt/include
+      -fno-unroll-loops -fignore-exceptions -I$S/libc -I$S/compiler-rt/include
     # /usr/lib/libclang_rt.builtins.a, for kernel plugins: PIC, without threads,
     # Wasm exceptions or Emscripten's setjmp.
     PLUGIN := $(FLAGS) $(BUILTINS_FLAGS) -DEMSCRIPTEN_DYNAMIC_LINKING \
@@ -71,7 +70,7 @@ FILE /tmp/llvm-runtimes/Makefile
     $(foreach archive,$(WW),$(eval $L/$(subst -ww,-mt,$(archive)): $L/$(archive) ; ln -s $(archive) $$@))
     define compile
     $B/$1/$(basename $(notdir $2)).o: $2
-    >$3 -Xclang -main-file-name -Xclang $(notdir $2) -c $$< -o $$@
+    >$3 -c $$< -o $$@
     endef
     $(foreach source,$(LIBCXX),$(eval $(call compile,libc++,$(source),c++ $(CXXFLAGS) -DLIBCXX_BUILDING_LIBCXXABI=1 \
       -D_LIBCPP_BUILDING_LIBRARY -D_LIBCPP_DISABLE_VISIBILITY_ANNOTATIONS -Wno-unqualified-std-cast-call \
@@ -86,8 +85,7 @@ FILE /tmp/llvm-runtimes/Makefile
       $(BUILTINS_FLAGS) -D__WASM_SJLJ__)))
     $(foreach source,$(BUILTINS),$(eval $(call compile,plugin,$(source),$(call language,$(source)) $(PLUGIN))))
     # cc has no assembler entry. The LLVM assembler it embeds takes the same
-    # text as file-scope asm. cc -E leaves out the exception-handling feature
-    # and the PIC level that cc -c compiles with.
+    # text as file-scope asm.
     define assemble
     $B/$1/%.o: $B/$1/%.s
     >echo '__asm__(""' > $$(@:.o=.c)
@@ -95,12 +93,12 @@ FILE /tmp/llvm-runtimes/Makefile
     >echo ');' >> $$(@:.o=.c)
     >cc $2 -c $$(@:.o=.c) -o $$@
     $B/$1/%.s: $S/compiler-rt/%.S
-    >cc -E -P $2 $3 $$< -o $$@
+    >cc -E -P $2 $$< -o $$@
     $B/$1/%.s: $S/compiler-rt/%.s
     >cp $$< $$@
     endef
-    $(eval $(call assemble,builtins,$(PROCESS) $(BUILTINS_FLAGS),-Xclang -target-feature -Xclang +exception-handling))
-    $(eval $(call assemble,plugin,$(PLUGIN),-Xclang -pic-level -Xclang 2))
+    $(eval $(call assemble,builtins,$(PROCESS) $(BUILTINS_FLAGS)))
+    $(eval $(call assemble,plugin,$(PLUGIN)))
 SLOP mkdir -p /usr/lib/llvm-runtimes /tmp/llvm-runtimes/build/libc++ /tmp/llvm-runtimes/build/libc++abi /tmp/llvm-runtimes/build/libunwind /tmp/llvm-runtimes/build/builtins /tmp/llvm-runtimes/build/plugin
 SLOP CWD /tmp/llvm-runtimes time make -j2
 

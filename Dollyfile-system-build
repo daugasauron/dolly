@@ -2159,19 +2159,62 @@ SLOP rm \
   /tmp/make-4.4.1 \
   /tmp/make-4.4.1.tar \
   /usr/src/make
-# The frontend and genuine Emscripten libc++/libc++abi archives belong to the
-# externally prepared process SDK. Install their matching headers and expose
-# that same runtime to every C++ link, including explicit -lc++/-lc++abi.
+# libc++, libc++abi and libunwind are Emscripten's copy, compiled here from its
+# pinned source with the flags of its own build (tools/system_libs.py,
+# -ww-wasmexcept; its -mt-wasmexcept build is the same bytes) for the headers
+# installed beside them. Every C++ link takes them, including explicit
+# -lc++/-lc++abi; the links above this point are C and need none.
 REQUIRES FOLDER process-sdk
 REQUIRES TOOL   c++
+REQUIRES TOOL   cc
+REQUIRES TOOL   ar
+REQUIRES TOOL   make
 
 SOURCE https://daugasauron.com/dist/static/default/libcxx-headers.tar 5e558f6f862d4a3fb22cc3c5b62c5e2652bf699f176fa349eeecb85d1a946735 /tmp/cpp/libcxx-headers.tar
+SOURCE https://daugasauron.com/dist/static/default/libcxx.tar         729e5a55776e024b76619aca5416bd668f1e05a65873eeb3608efa287b51ccda /tmp/cpp/libcxx.tar
 SOURCE https://daugasauron.com/dist/static/default/licenses/libcxx    539dd7aed86e8a4f12cbdd0e6c50c189c7d74847e4fecc64ce2c6ee3a01da38b /usr/share/licenses/libcxx/LICENSE
 SOURCE https://daugasauron.com/dist/static/default/licenses/libcxxabi e2b35be49f7284a45b7baca8fc7b3ab7440e7902392b2528a457816b5bb2a15c /usr/share/licenses/libcxxabi/LICENSE
 
 SLOP tar \
   -xf /tmp/cpp/libcxx-headers.tar \
   -C /
+SLOP tar \
+  -xf /tmp/cpp/libcxx.tar \
+  -C /
+
+FILE /tmp/cpp/Makefile
+    .RECIPEPREFIX := >
+    S := /tmp/cpp/system/lib
+    L := /usr/lib/dolly/process
+    # Static code with hidden symbols, as for a program. The directory is the one
+    # Emscripten's build names, so the code and data are its archives' bytes.
+    FLAGS := -Oz -g -fno-pic -fvisibility=hidden -ffile-prefix-map=/tmp/cpp=/emsdk/emscripten -DNDEBUG
+    COMPILE := c++ $(FLAGS) -std=c++23 -D_LIBCPP_BUILDING_LIBRARY -I$S/libcxx/src
+    LIBCXX := $(filter-out %/int128_builtins.cpp,$(wildcard $S/libcxx/src/*.cpp $S/libcxx/src/filesystem/*.cpp \
+      $S/libcxx/src/ryu/*.cpp)) $(addprefix $S/libcxx/src/experimental/,chrono_exception.cpp keep.cpp log_hardening_failure.cpp)
+    LIBCXXABI := $(addprefix $S/libcxxabi/src/,abort_message.cpp cxa_aux_runtime.cpp cxa_default_handlers.cpp \
+      cxa_demangle.cpp cxa_guard.cpp cxa_handlers.cpp cxa_virtual.cpp cxa_thread_atexit.cpp fallback_malloc.cpp \
+      stdlib_new_delete.cpp stdlib_exception.cpp stdlib_stdexcept.cpp stdlib_typeinfo.cpp private_typeinfo.cpp \
+      cxa_exception_js_utils.cpp cxa_exception_storage.cpp cxa_exception.cpp cxa_personality.cpp)
+    objects = $(sort $(addprefix /tmp/cpp/$1/,$(addsuffix .o,$(basename $(notdir $2)))))
+    all: $L/libc++-ww-wasmexcept.a $L/libc++abi-ww-wasmexcept.a $L/libunwind-ww-wasmexcept.a
+    $L/libc++-ww-wasmexcept.a: $(call objects,libc++,$(LIBCXX))
+    $L/libc++abi-ww-wasmexcept.a: $(call objects,libc++abi,$(LIBCXXABI))
+    $L/libunwind-ww-wasmexcept.a: /tmp/cpp/libunwind/Unwind-wasm.o
+    $L/%.a:
+    >ar rc $@ $^
+    define compile
+    /tmp/cpp/$1/$(basename $(notdir $2)).o: $2
+    >$3 -c $$< -o $$@
+    endef
+    $(foreach source,$(LIBCXX),$(eval $(call compile,libc++,$(source),$(COMPILE) -DLIBCXX_BUILDING_LIBCXXABI=1 \
+      -D_LIBCPP_DISABLE_VISIBILITY_ANNOTATIONS -DLIBC_NAMESPACE=__llvm_libc -I$S/llvm-libc)))
+    $(foreach source,$(LIBCXXABI),$(eval $(call compile,libc++abi,$(source),$(COMPILE) -D_LIBCXXABI_USE_FUTEX \
+      -D_LIBCXXABI_BUILDING_LIBRARY -DLIBCXXABI_NON_DEMANGLING_TERMINATE -I$S/libunwind/include)))
+    $(eval $(call compile,libunwind,$S/libunwind/src/Unwind-wasm.c,cc $(FLAGS) -D_LIBUNWIND_HIDE_SYMBOLS \
+      -I$S/libunwind/include))
+SLOP mkdir /tmp/cpp/libc++ /tmp/cpp/libc++abi /tmp/cpp/libunwind
+SLOP make -C /tmp/cpp -j2
 
 EXPORTS HEADER cpp    /usr/include/c++/v1
 EXPORTS LIB    c++    /usr/lib/dolly/process/libc++-ww-wasmexcept.a
