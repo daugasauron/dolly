@@ -534,3 +534,13 @@ memory sampled every 2 s into `memory-4.log`; stage logs `stage-*.log`.
   (round 3); this tree's `cc` lacks the four flags, so the session and any
   image build here use the filtering wrappers instead, which is the only
   difference between what is verified today and the committed text.
+
+### Image builds on the round-3 base (2026-10-07, `work/cargo` after the import)
+
+- `cbindgen`: built at 10:12 in about 2.5 min (slot opened 10:09:56; Patti
+  `-j4`, 33 packages), snapshot 4,405,434 bytes; `reusing published rust-build
+  artifact`, nothing imported was rebuilt. Scope peak over cbindgen plus the
+  start of the next image: 6.6 GB (the same Patti build peaked 3.9 GB in a
+  session).
+- `zero-ad-spidermonkey`'s closure then pulls `cmake-build` -> `cmake` ->
+  `openal-build` -> `zero-ad-deps` first (none imported; deps needs cmake).
