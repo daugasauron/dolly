@@ -20,7 +20,21 @@ in the task). No sound yet. The task is `tasks/20261006-122433-xonotic/TASK.md`.
   (946 MB) under `/usr/share/xonotic/data`; `/xonotic/` starts `xonotic`,
   the client in software at 1024×768, and leaves the shell when it quits.
 
-Build with `npm run image -- xonotic-build` or `npm run image -- xonotic`.
+Build with `npm run image -- xonotic-build` or `npm run image -- xonotic`
+(the data image's builder needs more than 9 GB during its snapshot upload;
+the task records the measurements).
+
+## What works in `/xonotic/` today
+
+- The menu and a bot match on the stock maps, drawn by the software path at
+  1024×768 at about 14 fps with 4 bots; `xonotic` takes the engine's
+  command line (`xonotic +map stormkeep +bot_number 4`).
+- Keyboard and mouse reach the engine through the sdl2 package's video
+  backend, which gives keys with text, relative mouse motion and capture;
+  playing with them in Xonotic has not been exercised yet, only the test's
+  scripted runs.
+- No sound (the client has the null sound unit), no network play, and the
+  music and Nexuiz compatibility archives are not in the image.
 
 ## How it works
 
