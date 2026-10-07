@@ -1,0 +1,86 @@
+DOLLY 6
+TOOLCHAIN llvm-build
+REQUIRES HOST runtime@0
+REQUIRES HOST display@0
+REQUIRES HOST download@0
+REQUIRES HOST dso@0
+REQUIRES HOST http@0
+REQUIRES HOST upload@0
+
+# Build-only: the libraries of Clang, LLD and the WebAssembly backend that the
+# seed compiler links, compiled inside Dolly by its own c++.
+FROM https://daugasauron.com/demos/llvm/Dollyfile-llvm-tablegen f17fd99e0fae20cb4ccff93eb0e4ec56c0a6b45cb4718c0f3b7b45a3e0848d64
+REQUIRES TOOL llvm-tblgen
+REQUIRES TOOL clang-tblgen
+REQUIRES TOOL cmake
+REQUIRES TOOL make
+REQUIRES TOOL python
+REQUIRES TOOL cc
+REQUIRES TOOL c++
+REQUIRES TOOL ar
+REQUIRES TOOL gzip
+REQUIRES TOOL tar
+REQUIRES TOOL patch
+REQUIRES TOOL time
+REQUIRES TOOL find
+REQUIRES TOOL cp
+REQUIRES TOOL mkdir
+REQUIRES TOOL rm
+
+SOURCE https://daugasauron.com/dist/static/llvm/llvm-project.tar.gz 033390c4520e51f261eb7572f0a1b4a1592121a1c8c1fc0c3db4845b079a8882 /tmp/llvm-project.tar.gz
+SLOP time slop -c 'gzip -dc /tmp/llvm-project.tar.gz | tar -xf - -C /'
+SLOP rm /tmp/llvm-project.tar.gz
+SOURCE https://daugasauron.com/dist/static/llvm/llvm-host-triple.patch ec739fd5932c1040d07344a8511bae4da4157ff2bcafa348f06a555b71a10981 /tmp/llvm-host-triple.patch
+SLOP patch -p1 -d /tmp/llvm-project -i /tmp/llvm-host-triple.patch
+
+# Configured as llvm-tablegen is, and further:
+# - A snapshot keeps no file times, so its Make tree cannot continue here: the
+#   TableGen tools it kept run again, as the seed's native ones do.
+# - The staged tree has no .git; the seed's revision is given.
+# - Clang's headers define CLANG_ABI for ELF, Mach-O, Windows and Emscripten;
+#   CLANG_BUILD_STATIC is their configuration for archives only.
+# - LLVM's warning set includes -Wimplicit-fallthrough, whose visitor recurses
+#   once per case label: SemaARM.cpp has 6,020 in a row, 1.4 MB of browser
+#   stack where Chrome gives a process 950 KB.
+SLOP time cmake -S /tmp/llvm-project/llvm -B /tmp/llvm-build \
+  -DCMAKE_BUILD_TYPE=Release \
+  -DCMAKE_C_FLAGS=-std=gnu17 \
+  '-DCMAKE_CXX_FLAGS=-include endian.h -DCLANG_BUILD_STATIC' \
+  -DCMAKE_DISABLE_PRECOMPILE_HEADERS=ON \
+  -DCMAKE_RULE_MESSAGES=OFF \
+  -DLLVM_ENABLE_WARNINGS=OFF \
+  -DLLVM_ENABLE_PROJECTS='clang;lld' \
+  -DLLVM_TARGETS_TO_BUILD=WebAssembly \
+  -DLLVM_HOST_TRIPLE=wasm64-unknown-emscripten \
+  -DLLVM_DEFAULT_TARGET_TRIPLE=wasm64-unknown-emscripten \
+  -DLLVM_TABLEGEN=/usr/bin/llvm-tblgen \
+  -DCLANG_TABLEGEN=/usr/bin/clang-tblgen \
+  -DLLVM_FORCE_VC_REVISION=4bfd08c2d769736841ae4f5705d76fa6daa39027 \
+  -DLLVM_FORCE_VC_REPOSITORY=https://github.com/llvm/llvm-project.git \
+  -DLLVM_ENABLE_THREADS=OFF \
+  -DLLVM_INCLUDE_TESTS=OFF \
+  -DLLVM_INCLUDE_EXAMPLES=OFF \
+  -DLLVM_INCLUDE_BENCHMARKS=OFF \
+  -DLLVM_INCLUDE_DOCS=OFF \
+  -DLLVM_ENABLE_TERMINFO=OFF \
+  -DLLVM_ENABLE_LIBEDIT=OFF \
+  -DLLVM_ENABLE_LIBPFM=OFF \
+  -DLLVM_ENABLE_ZLIB=OFF \
+  -DLLVM_ENABLE_ZSTD=OFF \
+  -DLLVM_ENABLE_LIBXML2=OFF \
+  -DLLVM_ENABLE_CURL=OFF \
+  -DLLVM_ENABLE_BINDINGS=OFF \
+  -DLLVM_BUILD_LLVM_DYLIB=OFF \
+  -DLLVM_LINK_LLVM_DYLIB=OFF
+
+# The seed's targets (scripts/build-toolchain.sh). Four jobs fit the 32-process
+# cap; -k reports every failing unit of an hour's build, not only the first.
+SLOP CWD /tmp/llvm-build time make -k -j4 clangFrontendTool clangCodeGen clang-resource-headers lldWasm LLVMWebAssemblyCodeGen
+# The archives, Clang's resource directory, and the configured and generated
+# headers a program including LLVM, Clang or LLD needs, by build-tree path.
+SLOP CWD /tmp/llvm-build slop -c 'mkdir -p /usr/lib/llvm-build/lib && cp lib/*.a /usr/lib/llvm-build/lib && cp -R lib/clang /usr/lib/llvm-build/lib'
+SLOP CWD /tmp/llvm-build slop -c 'for f in $(find include tools/clang/include tools/lld/include -name CMakeFiles -prune -o -type f \( -name "*.inc" -o -name "*.def" -o -name "*.h" \) -print); do mkdir -p "/usr/lib/llvm-build/${f%/*}"; cp "$f" "/usr/lib/llvm-build/$f"; done'
+
+FOLDER /usr/lib/llvm-build
+
+ENTRY /bin/foreground -i /bin/slop
