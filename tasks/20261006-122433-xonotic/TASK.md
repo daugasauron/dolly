@@ -494,14 +494,16 @@ small: 17 modes × 20 permutation bits in the source, 14 pairs in use at
   the click there was a page script's `PointerEvent`, which the browser
   rightly refuses for pointer lock (bhop's test asserts the same refusal),
   so the stage now clicks as a person does (`page.mouse.click`).
-- Verified (12:16, `browser-test-chromium-22.log`): "the match captured the
-  pointer on a click", in Chromium; the stage then failed only its demand
-  for two differing frames, because the scripted observer's view stays
-  still after the capture. The committed stage asserts the hidden menu
-  cursor, the engine's relative request, the capture on a trusted click,
-  one lit frame of the world, the quit, and the log's spawn, signon 3 and
-  four bots; a changing frame is noted when it comes. Gap: nothing about
-  the pointer; a moving view is not asserted.
+- Verified (12:35, `browser-test-chromium-24.log`, `browser-test-firefox-9.log`):
+  the whole test passes in Chromium (434.7 s) and Firefox (379.9 s): the
+  hidden menu cursor, the engine's relative request once the game menu is
+  closed, the capture on a trusted click, two different lit frames of the
+  world after it (lit 0.92 and 0.91 in Chromium, 0.85 twice with different
+  checksums in Firefox; the earlier "still view" was my 80% upper bound,
+  the world is brighter than the loading plaque), the quit, and the log's
+  spawn, signon 3 and four bots. No gap remains on the pointer: one
+  pointer in the menu and the dialogs, capture on the first click in the
+  match, Escape releases it.
 
 ## Software path performance (2026-10-07, `short.dem`, 1,046 frames)
 
