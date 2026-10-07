@@ -544,3 +544,14 @@ memory sampled every 2 s into `memory-4.log`; stage logs `stage-*.log`.
   session).
 - `zero-ad-spidermonkey`'s closure then pulls `cmake-build` -> `cmake` ->
   `openal-build` -> `zero-ad-deps` first (none imported; deps needs cmake).
+- First `zero-ad-spidermonkey` image build (10:59) failed 18 s into configure:
+  `checking for libclang for bindgen...` runs `c++ -print-search-dirs`, which
+  Dolly's cc refuses (it knows `--print-search-dirs` only). The session had
+  passed because the session-only compiler wrapper translated that spelling;
+  that workaround was never a patch hunk. Fix at mozbuild's level: the recipe
+  passes upstream's `--with-libclang-path=/usr/lib`, which skips the probe and
+  globs the directory for libclang; Dolly has none, so "not found", which a
+  standalone JS build tolerates (bindgen is required only for browser/android
+  projects). Gap noted: cc's single-dash `-print-search-dirs` (GNU/Clang
+  spelling) is refused; only bindgen-style tooling asks for it, and such ports
+  would need libclang itself, so no seed change is requested.

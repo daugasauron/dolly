@@ -13,9 +13,9 @@ REQUIRES HOST upload@0
 # upstream's mozbuild (configure.py and Make) with Dolly's CPython, Cargo,
 # cbindgen and c++ from 0 A.D.'s pinned tarball and patches.
 FROM https://daugasauron.com/demos/zero-ad/Dollyfile-zero-ad-deps 2a77ac29c039bcbcddc68d421fc33825ad9f731a03dceabba5cb5a7772ba746b
-INSTALL https://daugasauron.com/demos/python/Dollyfile-python f8c4f78bbcaf124122e1fa0d34ade63210d3dbad4696b903a9d05f16eecd0537
-INSTALL https://daugasauron.com/demos/rust/Dollyfile-cargo ff2ec26d5249be071dc2d0a2868a5131ee76f8e76eb8d7042ebec6b5253fef68
-INSTALL https://daugasauron.com/demos/rust/Dollyfile-cbindgen df93bcdc46936f9844702053c56041369b33956f1cdbcd76882889c687a5880b
+INSTALL https://daugasauron.com/demos/python/Dollyfile-python 63564ea12bb057627a1e3c89b514c01e74895c4a5f2f8cae4793c0dc7dd4dc17
+INSTALL https://daugasauron.com/demos/rust/Dollyfile-cargo aa236f537761c52e49b067432c96b41c7950087be63d8803d9ab0529b8f27d49
+INSTALL https://daugasauron.com/demos/rust/Dollyfile-cbindgen c29d76b4e892379a32d7ccf4a58f1291cd2aa083f3ea3327720581d9d754a3e9
 REQUIRES HEADER zlib
 REQUIRES LIB z
 REQUIRES TOOL cc
@@ -35,7 +35,7 @@ REQUIRES TOOL mkdir
 REQUIRES TOOL sh
 
 # The pinned tree without its test suites, 0 A.D.'s patches and Dolly's.
-SOURCE https://daugasauron.com/dist/static/zero-ad-build/mozjs.tar.gz 901ac720a2a10385df3f66ab6814ef8b2da9d9208313c02f0fcb544f2ca7b014 /tmp/mozjs.tar.gz
+SOURCE https://daugasauron.com/dist/static/zero-ad-build/mozjs.tar.gz 5c9f0e3e1eb198539425a75b5338a92d7a31dcaf9ded5980c1408fd592eb926e /tmp/mozjs.tar.gz
 SLOP gzip -dc /tmp/mozjs.tar.gz | tar -xf - -C /
 SLOP CWD /tmp/mozjs/mozjs-128.13.0 sh ../patches/patch.sh
 SLOP patch -p1 -d /tmp/mozjs/mozjs-128.13.0 -i /tmp/mozjs/spidermonkey.patch
@@ -43,6 +43,10 @@ SLOP patch -p1 -d /tmp/mozjs/mozjs-128.13.0 -i /tmp/mozjs/spidermonkey.patch
 # The host build's configuration: mozbuild knows no Dolly OS, so the compiler
 # names the target as the host build did (-D__wasi__, wasm64-unknown-wasi) and
 # Dolly builds on the same triple. No JIT, no Intl, no tests, no debug symbols.
+# A standalone JS build uses no bindgen, but configure still looks for libclang;
+# naming Dolly's library directory (which holds none) takes mozbuild's own
+# --with-libclang-path route and skips its `c++ -print-search-dirs` probe,
+# a spelling Dolly's cc does not have.
 FILE /tmp/mozjs/build.slop
     set -e
     export MOZCONFIG=/dev/null MOZBUILD_STATE_PATH=/tmp/mozjs/state
@@ -54,7 +58,7 @@ FILE /tmp/mozjs/build.slop
     python ../configure.py --enable-project=js --host=wasm64-unknown-wasi --target=wasm64-unknown-wasi \
       --disable-jit --disable-shared-js --without-intl-api --disable-tests --disable-js-shell \
       --disable-jemalloc --disable-debug --enable-optimize=-O2 --disable-debug-symbols \
-      --disable-bootstrap --disable-warnings-as-errors
+      --disable-bootstrap --disable-warnings-as-errors --with-libclang-path=/usr/lib
     # Cargo links the Rust library and its build scripts through Dolly's rustc
     # linker adapter, which translates the Emscripten target's linker vocabulary
     # to cc; mozbuild would otherwise hand cc the raw -s/EXPORTED_FUNCTIONS flags.
