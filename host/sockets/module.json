@@ -1,0 +1,12 @@
+{
+  "name": "sockets",
+  "version": 0,
+  "dependencies": ["runtime@0"],
+  "imports": [],
+  "host": "sockets.mjs",
+  "contracts": [],
+  "process": ["dolly-sockets-0.wat"],
+  "headers": ["sockets.h", "sockets-abi.h"],
+  "kernel": ["kernel.c"],
+  "client": ["client.c"]
+}

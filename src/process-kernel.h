@@ -4,6 +4,7 @@
 #include <stddef.h>
 #include <stdint.h>
 #include <string.h>
+#include <sys/stat.h>
 
 /* A kernel import (abi/dolly-browser-0.wat). The host module whose manifest
  * owns the name provides it; a module the page did not enable answers ENOSYS. */
@@ -40,6 +41,35 @@ void dolly_kernel_thread_released(int pid, int tid);
 /* Decodes a dolly_process_path_request into a path the kernel can open. */
 int64_t dolly_kernel_request_path(int pid, uintptr_t request_size,
                                   char *path, size_t capacity);
+
+/* A local stream socket, host/sockets/kernel.c: the open description its
+ * descriptors name. The kernel counts them, keeps the description's
+ * O_NONBLOCK, closes the socket with its last descriptor and passes on reads,
+ * writes and polls; `wait` is whether an empty read or a full write may be
+ * deferred. */
+typedef struct {
+  uint32_t descriptors;
+  unsigned char nonblocking;
+} dolly_kernel_socket;
+void dolly_kernel_socket_close(dolly_kernel_socket *socket);
+int64_t dolly_kernel_socket_receive(dolly_kernel_socket *socket, unsigned char *bytes,
+                                    size_t size, int wait);
+int64_t dolly_kernel_socket_send(dolly_kernel_socket *socket, const unsigned char *bytes,
+                                 size_t size, int wait);
+uint16_t dolly_kernel_socket_poll(const dolly_kernel_socket *socket, uint16_t requested);
+/* For that module: the socket a descriptor of `pid` names (EBADF, ENOTSOCK);
+ * `count` new descriptors, all or none (EMFILE); the directory relative
+ * paths of `pid` start from; and that a deferred call may now complete. */
+int dolly_kernel_socket_descriptor(int pid, uint32_t descriptor, dolly_kernel_socket **socket);
+int dolly_kernel_socket_open(int pid, dolly_kernel_socket *const *sockets, uint32_t count,
+                             int close_on_exec, uint32_t *descriptors);
+int dolly_kernel_process_directory(int pid);
+void dolly_kernel_wake(void);
+/* WasmFS has no socket node. A path a socket was bound to is an empty regular
+ * file with the sticky bit, which no process can set: chmod changes nothing. */
+static inline int dolly_kernel_socket_node(mode_t mode) {
+  return S_ISREG(mode) && (mode & S_ISVTX) != 0;
+}
 
 /* The terminal device, host/display/kernel.c. */
 int dolly_kernel_terminal_attached(void);

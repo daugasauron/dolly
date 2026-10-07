@@ -6,14 +6,14 @@ REQUIRES HOST download@0
 REQUIRES HOST http@0
 REQUIRES HOST upload@0
 
-FROM https://daugasauron.com/Dollyfile-system-tools 76204eed7416daabd1c8978f628b45da16f77d27d23d4f1473c508c5c750a309
-INSTALL https://daugasauron.com/demos/sdl2/Dollyfile-sdl2 7d7217b33e55540f54a521a58ef6a8473cdb00b1a1b20538f26b822098e053ae
+FROM https://daugasauron.com/Dollyfile-system-tools 5bddfea881c9ea62e51317c45c69a29d62f2f750d1092537eb9c7f54a203186e
+INSTALL https://daugasauron.com/demos/sdl2/Dollyfile-sdl2 61a0c83a0ed9569380e6a18f76bdf55104bcd1f95e03e58846eb6309d21d456e
 # FreeType (with its libpng) for the client's fonts, as 0 A.D. built them.
-COPY https://daugasauron.com/demos/zero-ad/Dollyfile-zero-ad-deps 6fd46772814bc576e6a850957c884a5492ca95f6c6ff2b4e573699e62988a9e4 /usr/include/freetype2 /usr/include/freetype2
-COPY https://daugasauron.com/demos/zero-ad/Dollyfile-zero-ad-deps 6fd46772814bc576e6a850957c884a5492ca95f6c6ff2b4e573699e62988a9e4 /usr/lib/libfreetype.a /usr/lib/libfreetype.a
-COPY https://daugasauron.com/demos/zero-ad/Dollyfile-zero-ad-deps 6fd46772814bc576e6a850957c884a5492ca95f6c6ff2b4e573699e62988a9e4 /usr/lib/libpng16.a /usr/lib/libpng16.a
-COPY https://daugasauron.com/demos/zero-ad/Dollyfile-zero-ad-deps 6fd46772814bc576e6a850957c884a5492ca95f6c6ff2b4e573699e62988a9e4 /usr/share/licenses/freetype /usr/share/licenses/freetype
-COPY https://daugasauron.com/demos/zero-ad/Dollyfile-zero-ad-deps 6fd46772814bc576e6a850957c884a5492ca95f6c6ff2b4e573699e62988a9e4 /usr/share/licenses/libpng /usr/share/licenses/libpng
+COPY https://daugasauron.com/demos/zero-ad/Dollyfile-zero-ad-deps 1d97f0a0d931f85b8faa3191f925ed181a193f2e69ebc4b598a0bc081a6628ce /usr/include/freetype2 /usr/include/freetype2
+COPY https://daugasauron.com/demos/zero-ad/Dollyfile-zero-ad-deps 1d97f0a0d931f85b8faa3191f925ed181a193f2e69ebc4b598a0bc081a6628ce /usr/lib/libfreetype.a /usr/lib/libfreetype.a
+COPY https://daugasauron.com/demos/zero-ad/Dollyfile-zero-ad-deps 1d97f0a0d931f85b8faa3191f925ed181a193f2e69ebc4b598a0bc081a6628ce /usr/lib/libpng16.a /usr/lib/libpng16.a
+COPY https://daugasauron.com/demos/zero-ad/Dollyfile-zero-ad-deps 1d97f0a0d931f85b8faa3191f925ed181a193f2e69ebc4b598a0bc081a6628ce /usr/share/licenses/freetype /usr/share/licenses/freetype
+COPY https://daugasauron.com/demos/zero-ad/Dollyfile-zero-ad-deps 1d97f0a0d931f85b8faa3191f925ed181a193f2e69ebc4b598a0bc081a6628ce /usr/share/licenses/libpng /usr/share/licenses/libpng
 REQUIRES HEADER cpp
 REQUIRES HEADER sdl2
 REQUIRES HEADER zlib
