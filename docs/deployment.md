@@ -56,6 +56,11 @@ gh workflow run pages.yml -f release_tag="$tag" -f artifact_sha256="$sha" -f sou
 - Pass predecessor releases to `export:pages` so open tabs keep their immutable
   assets; GitHub Pages replaces the whole site on each deploy. Limits fail
   before publication and never silently drop a predecessor.
+- A release build needs disk for the catalog twice (snapshots in `dist/` and
+  their packs) and little memory: sharing the 67-image, 25 GB catalog into
+  packs streams one 4 MB chunk at a time (221 MB peak, 3.5 minutes);
+  `site-release.mjs accept` then holds about twice the largest image while it
+  merges that image's packs.
 
 ## Delivery contract
 
