@@ -241,8 +241,11 @@ static int DollySetRelativeMouseMode(SDL_bool enabled)
 {
     SDL_VideoDevice *device = SDL_GetVideoDevice();
     DollyVideo *video = device->driverdata;
+    // Leaving relative mode keeps a hidden cursor hidden: a game that hid it
+    // before capturing expects it to stay hidden while its own cursor draws.
     int error = dolly_display_set_cursor(video->display.generation,
-        enabled ? DOLLY_DISPLAY_CURSOR_CAPTURED : DOLLY_DISPLAY_CURSOR_DEFAULT);
+        enabled ? DOLLY_DISPLAY_CURSOR_CAPTURED :
+        SDL_GetMouse()->cursor_shown ? DOLLY_DISPLAY_CURSOR_DEFAULT : DOLLY_DISPLAY_CURSOR_HIDDEN);
     if (error) return DollyError("relative mouse", error);
     video->relative = enabled;
     return 0;

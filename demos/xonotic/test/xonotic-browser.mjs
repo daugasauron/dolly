@@ -94,13 +94,21 @@ await demoTest("xonotic", { image: "xonotic-build", timeout: 1_800_000, browser:
   // up, so Escape closes the first-run dialog and the menu as a player would;
   // then the map loads, the game draws frames that change, and the client
   // quits back to the shell.
+  // cl_allow_uid2name 0 answers the first-join statistics dialog in advance.
   const live = start(`cd ${basedir} && xonotic-sdl -xonotic -basedir ${basedir} ` +
     "+vid_soft 1 +vid_soft_threads 1 +vid_fullscreen 0 +vid_width 1024 +vid_height 768 " +
-    "+sv_public 0 +bot_number 4 +minplayers 0 +g_warmup 0 +log_file live.log +map stormkeep +defer 200 quit");
+    "+sv_public 0 +bot_number 4 +minplayers 0 +g_warmup 0 +cl_allow_uid2name 0 +cl_allow_uidtracking 0 " +
+    "+log_file live.log +map stormkeep +defer 200 quit");
   await page.waitForFunction(() => __dolly.transport.graphicsActive(), null, { timeout: 120_000 });
   await delay(20_000);
+  console.log(`xonotic: page cursor style in the menu ${await page.evaluate(() => __dolly.transport.cursorStyle())} (4 is hidden)`);
   for (const press of [1, 2]) { await page.keyboard.press("Escape"); await delay(1000); }
-  await delay(40_000);
+  // In the match the engine asks for relative motion; the capture takes a click, as bhop's does.
+  await page.waitForFunction(() => __dolly.transport.relativePointerRequested(), null, { timeout: 150_000 });
+  await page.evaluate(() => document.querySelector("#display").dispatchEvent(new PointerEvent("pointerdown", { button: 0 })));
+  await page.waitForFunction(() => document.pointerLockElement?.id === "display", null, { timeout: 10_000 });
+  await page.evaluate(() => document.querySelector("#display").dispatchEvent(new PointerEvent("pointerup", { button: 0 })));
+  console.log("xonotic: the match captured the pointer");
   const frames = [];
   for (let attempt = 0; attempt < 60 && frames.length < 2; attempt++, await delay(2000)) {
     const digest = await page.evaluate(() => {

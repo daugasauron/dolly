@@ -439,6 +439,35 @@ small: 17 modes × 20 permutation bits in the source, 14 pairs in use at
   Escape presses, set the two delays from it, then Firefox; then the route
   (a) map above, piece 1.
 
+## The second pointer (2026-10-07 11:30)
+
+- What the owner saw. A run with the page's pointer state sampled every
+  5 s (`pointer-run.log`, screenshot `xonotic-pointer-120s.png`): in the
+  menu the page cursor style stays `default` (1) although the engine draws
+  its own cursor; during the map load the engine asks for capture (style 5
+  for one sample); then, in the game, Xonotic's first-join dialog ("Allow
+  player statistics to use your nickname?") draws the CSQC's own arrow and
+  asks the engine for a hidden system cursor without relative motion, and
+  the page cursor stays `default`: two pointers, exactly "when I play it".
+  After the dialog the engine asks for relative motion, which the display
+  contract turns into pointer capture on the next click.
+- Why. The engine's `VID_SetMouse(fullscreengrab, relative, hidecursor)`
+  (`cl_screen.c` 2946–2954) calls `SDL_SetRelativeMouseMode` and
+  `SDL_ShowCursor`; the sdl2 package's backend maps them onto the display
+  contract's `CAPTURED`, `HIDDEN` and `DEFAULT` cursor styles, which the
+  contract already offers, but `DollySetRelativeMouseMode(false)` set
+  `DEFAULT` unconditionally, so every return from relative mode made the
+  hidden cursor visible again and the engine, having hidden it once, never
+  asked again.
+- Fix: `demos/sdl2/SDL_dollyvideo.c`, leaving relative mode keeps a hidden
+  cursor hidden (`cursor_shown ? DEFAULT : HIDDEN`). A package change; the
+  sdl2 image and xonotic-build rebuild. No contract change needed: capture
+  during play is `CAPTURED` (a click, as bhop), the menu and in-game dialogs
+  are `HIDDEN`. The test's live stage now logs the menu's cursor style,
+  skips the first-join dialog with `cl_allow_uid2name 0`, waits for the
+  engine's relative request, clicks, and asserts
+  `document.pointerLockElement` is the display.
+
 ## Route (a): the map of what remains (2026-10-07 09:35, estimates)
 
 What exists: the client over `vid_sdl.c` and the software rasterizer, the
