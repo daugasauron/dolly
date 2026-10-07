@@ -1,6 +1,6 @@
 # ClassiCube: the bottom bar is plain white
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 200
 - TAGS: demo,classicube,display,ux
 
@@ -92,3 +92,11 @@ The owner has seen a before and after screenshot and the docked ClassiCube
 page has no plain white bar: the area shows the game, a panel that looks
 deliberate, or the page background, in Chromium and Firefox; the demo suite
 asserts whatever was decided.
+
+## Closed (2026-10-07)
+
+Fixed by `f680a766` (the texture pack ships `gui_classic.png`; the hotbar is
+the dark translucent bar), which is in the checkpoint deployed that day
+(`93986c67`). The ClassiCube demo test asserts the hotbar's border pixel and
+passed in the deploy round (304 s) and again in the round of `457f0ef3`. The
+owner noticed the task was left open.

@@ -32,7 +32,6 @@ they are proposed now.
 | `cc -fstandalone-debug` and `-ferror-limit=` work | `core/cc-flags` `7dbf0f38` | both fail in the deployed compiler; a seed change |
 | File modes and `umask` | `20261006-120641-umask`, `core/file-modes` `c17b186e` | every autoconf `config.status` needs it; a seed change; in if its tests pass in the round |
 | `input@0`, keyboard and mouse as their own host module | `20261002-072000-input-host-module`, `core/input-module` `fa073dc9` | verified except bhop; a host interface is better changed before a version is published than after |
-| ClassiCube's white bottom bar | `20261007-064313-classicube-bottom-bar` | reported by the owner; visible on the first screen |
 | Long typed or pasted lines losing characters | `20261001-095000-terminal-text-flake` | a typed line arrived cut at about 150 characters on 2026-10-07; check a paste, fix if it loses text |
 | Every demo test run once in Firefox | none yet | the demo runner is Chromium-only; a release should know what fails there |
 | Release notes with the known gaps | this task | part of the checklist |
