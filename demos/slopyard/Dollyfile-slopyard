@@ -9,9 +9,9 @@ REQUIRES HOST snapshot@0
 REQUIRES HOST threads@0
 REQUIRES HOST upload@0
 
-FROM https://daugasauron.com/demos/slopyard/Dollyfile-gamedev-sdk 8aaa0f6069b307e3d6558379712ce2445c30c5fc3c5489563dfce05a3bcef081
-INSTALL https://daugasauron.com/demos/javascript/Dollyfile-javascript 035fd21a94ec47546b0fcfd55386caf25214ee1bdaa0b28c5a80d26d139dd800
-INSTALL https://daugasauron.com/demos/pi/Dollyfile-pi-coding-agent 04de5318e31b3bc1ceb01a260d7ac19882d033a120f3a1bec5e4e6bc9394ac86
+FROM https://daugasauron.com/demos/slopyard/Dollyfile-gamedev-sdk 05f1403f5dfd9138855e80a0fdea19d96fcc309f95afd8825bdeb8172f5a3e1d
+INSTALL https://daugasauron.com/demos/javascript/Dollyfile-javascript ce7557c56801d190811e4325daf2f83b97f08505aec07c6a01970c2a2306fe3e
+INSTALL https://daugasauron.com/demos/pi/Dollyfile-pi-coding-agent 822b9fdf1506a441484335a4f729361ada1015cc5c1f75a164b13cc95cf2c56b
 REQUIRES TOOL cc
 REQUIRES TOOL ar
 REQUIRES TOOL make
@@ -51,7 +51,7 @@ REQUIRES HEADER gpu
 REQUIRES HEADER quickjs
 REQUIRES HEADER quickjs-runner
 
-SOURCE https://daugasauron.com/dist/static/slopyard/source.tar 978dae9b3006b624c43e4dcaeaef22185b583aa8b385b9fd4208d09dd284c79a /tmp/slopyard.tar
+SOURCE https://daugasauron.com/dist/static/slopyard/source.tar b18b7b44c56a809a94e92ea925b3d8131edd34658cf0940bf9c36fe1e42a41a9 /tmp/slopyard.tar
 SLOP tar -xf /tmp/slopyard.tar -C / && rm /tmp/slopyard.tar
 SLOP make -f /usr/src/dolly/slopyard/box3d.mk
 SLOP cc -std=c17 -O2 -pthread -U__SIZEOF_INT128__ -I/usr/include/lua5.5 /usr/src/dolly/slopyard/main.c /usr/src/dolly/slopyard/data.c /usr/src/dolly/slopyard/pi.c /usr/src/dolly/slopyard/character.c /usr/src/dolly/slopyard/render.c /usr/src/dolly/slopyard/world.c /usr/src/dolly/slopyard/terrain.c /usr/src/dolly/slopyard/magnet.c -ldolly-gpu -llua5.5 -ldolly-js -ldolly-raylib -lraylib -lslopyard-box3d -lm -o /usr/bin/slopyard

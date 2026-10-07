@@ -8,6 +8,6 @@ REQUIRES HOST http@0
 REQUIRES HOST snapshot@0
 REQUIRES HOST upload@0
 
-FROM https://daugasauron.com/Dollyfile-system f96b5e983bf8fe8cbcf771fca334719ceed3e2c57aa7158c3241231da943fd8a
+FROM https://daugasauron.com/Dollyfile-system 1fd0b654197fa9af7dc874d353b25cbd9756f8f989f0bcb4ff7fbf6b79bb95de
 
 ENTRY /bin/foreground -i /bin/slop

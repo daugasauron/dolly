@@ -1,6 +1,6 @@
 # Pi explores the environment unprompted: a plain 'hi' sets off many commands
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 300
 - TAGS: pi,pi-local,skills,agent-experience
 
@@ -126,3 +126,16 @@ the measurement above, repeatable with `build/pi-greeting-evidence/greet.mjs`
 The wording was measured by overwriting the two files in the served images.
 After the Pi images are rebuilt with it, one batch of "hi" on `pi-local`
 confirms the shipped image; close then.
+
+## Closed 2026-10-07
+
+`fix/pi-greeting` (`3d196a15`) is in the candidate and the Pi chain was
+rebuilt on it. The shipped files are the measured ones byte for byte:
+`demos/pi/Dollyfile-pi-coding-agent` pins `SYSTEM.md` at `edfd0f62…` and the
+skill at `a0df62a8…`, the SHA-256 of `demos/pi/SYSTEM.md` and
+`demos/pi/skills/dolly/SKILL.md` in the tree. The rebuilt `pi-local` ran the
+agent proof with the bundled 2B in Chromium (4 tool calls, 11.6 s) and
+Firefox (4 tool calls, 81 s) in the main round
+(`work/next/build/next-evidence/gpu-local-llm-rerun.log`), so the wording did
+not make it passive. The "hi" batch on the rebuilt image was not repeated: the
+table above was measured on the same bytes.

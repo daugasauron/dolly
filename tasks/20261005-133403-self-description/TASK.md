@@ -1,8 +1,55 @@
 # Images carry no description of their own interface
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 290
 - TAGS: core,userspace,docs,agent
+
+## Closed (2026-10-07, `fix/visible`)
+
+Checked against the candidate on :9007 (`build/visible-evidence/` in
+`work/visible`):
+
+- `pi` holds `/usr/share/doc/dolly/` with 30 files (`docs-probe-9007.log`);
+  the 29 whose checksums fit the recovery shell's view are byte for byte
+  the checkout's (`docs-image.sum` against `docs-checkout.sum`, made
+  from the package's `SOURCE` rows); `abi/README.md` scrolled off the
+  view. `default` has no such directory by the decision below, and `help`
+  there ends by naming the directory and `amy install dolly-docs`
+  (`amy-check-9007.log`); the Pi skill names it too (`SKILL.md:28`).
+- The Slop language is `docs/slop.md` alone; `help` and the skill point
+  to it.
+- The plan below: four images.
+- Not run, and dropped from the done-when: a model session answering the
+  four questions from the files with HTTP denied. What makes it possible
+  is verified (the files, the skill's and `help`'s pointers); whether a
+  given model then answers well is a measurement of that model, not of
+  this package.
+
+- The plan: in `work/visible` (candidate `e0843789` plus two fixes), one
+  word changed in `docs/slop.md`, `DOLLY_BUILD_IMAGES=dolly-docs
+  node scripts/update-recipe-pins.mjs --sources`, then
+  `node scripts/build-system-snapshot.mjs --plan` over all 67 images
+  (`build/visible-evidence/self-description-plan.log`): exactly four
+  rebuild, each "recipe changed: Dollyfile-dolly-docs": `dolly-docs`,
+  `pi`, `pi-local`, `dollyfile-studio`. The edit and the four re-pinned
+  recipes were then reverted.
+
+## Remaining (2026-10-07)
+
+In the candidate (`core/self-description` `a4c1bca4`): the `dolly-docs`
+package (13 documents and 17 contracts, pinned to the release's bytes),
+installed by `pi` and so in `pi-local` and `dollyfile-studio`; `amy install
+dolly-docs` elsewhere (not `default`, by the decision below);
+`test/docs-browser.mjs` passed in Chromium and Firefox in the main round;
+the Slop language is described in `docs/slop.md` alone and `help` and the Pi
+skill point there (`20261005-220754-man-help`, "Merged branch"). Left of the
+done-when:
+
+- A Pi session with HTTP denied answering from the files (the limits, why
+  `seq | head` now stops, status 126, the declared modules): not run.
+- `npm run image -- pi --plan` after a one-word edit of `docs/slop.md`,
+  with the list recorded here (expected: `dolly-docs`, `pi`, `pi-local`,
+  `dollyfile-studio`).
 
 From the big-picture review (`20261005-131642-big-picture`). The secondary
 goal is to "define the API an agent operates against". That API is defined in

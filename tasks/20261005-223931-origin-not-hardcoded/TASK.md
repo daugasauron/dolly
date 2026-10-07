@@ -4,6 +4,15 @@
 - PRIORITY: 60
 - TAGS: dollyfile,site,design,cleanup
 
+## Remaining (2026-10-07)
+
+The owner's direction is recorded below and the HTTP broker already takes
+the path form (`amy` asks for `/amy-index.txt`; in the candidate). Left: the
+recipes, the index rows and `amy installed` in the path form
+(`FROM /Dollyfile-system SHA256`), which is a Dollyfile revision and its own
+catalog round; then `git grep daugasauron.com` finds only the one setting
+and the domain site's pages.
+
 Owner request (2026-10-06, low priority): "the HOST should be an environment
 variable or something, never hardcode daugasauron.com. … Dollyfiles always
 contain daugasauron.com, even when a release candidate is deployed locally. On

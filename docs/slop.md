@@ -20,6 +20,11 @@ image, and `man NAME` describes a command.
      recipes of upstream and generated Makefiles, and upstream build scripts
      such as CMake's `bootstrap`;
   2. what agents type inside Dolly, as recorded in transcripts and audits.
+  Measured natively against Bash (2026-10-06,
+  `tasks/20261006-121403-configure-survey`): the `configure` scripts of GNU
+  Make, libffi, CPython and bison print the same checks and write the same
+  files under Slop, once `umask` exists. Inside Dolly they still stop at
+  `chmod` and at `config.sub`, which does not know Dolly.
 - **A missing feature** is judged in this order:
   1. Not POSIX (`[[ ]]`, arrays, `<( )`, `${VAR/pat/rep}`, `${VAR:off:len}`,
      brace expansion, `function`, `let`): refused, by name where agents are
@@ -59,10 +64,11 @@ slop [-enux] script [arg ...]
 | Area | Supported |
 | --- | --- |
 | Lists | newline, `;`, `&&`, `\|\|`, `!`; `time PIPELINE` prints `real SECONDS` for any pipeline, compound commands included; `PROGRAM &` and `a \| b &` start programs without waiting, `$!` is the last one's PID, `wait` and `wait PID...` collect them |
-| Compound | `if`/`elif`/`else`, `for`, `while`, `until`, `case`, `break N`, `continue N`, `NAME () { …; }` with `local` and `return` (depth 64), `{ …; }`, `( … )` |
+| Compound | `if`/`elif`/`else`, `for`, `while`, `until`, `case`, `break N`, `continue N`, `NAME () { …; }` or any other compound command as the body, with `local` and `return` (depth 64), `{ …; }`, `( … )` |
 | Redirections | descriptors 0–9: `<`, `>`, `>>`, `n>&m`, `n<&m`, `n>&-`, `>&$fd`, `&>`, `&>>`, `>&file`; redirection-only `exec`; up to 32 `<<` here-documents per line; on compound commands too |
-| Parameters | `$VAR`, `${VAR}`, `$?`, `$$`, `$#`, `$-`, `$0`–`$9`, `$@`, `$*` (joined with the first `IFS` byte), `"$@"` and `"${@}"` as whole words |
-| Expansions | `${VAR-w}`, `=`, `+`, `?` and their `:` forms; `${#VAR}`; `#`, `##`, `%`, `%%`; `$(…)`; simple backticks; `$((…))` in signed 64-bit; `fnmatch` patterns (`*`, `?`, `[…]`, `[[:class:]]`) in globs, `case` and pattern removal; leading `~`; `IFS` splitting of unquoted expansions |
+| Parameters | `$VAR`, `${VAR}`, `$?`, `$$`, `$!`, `$#`, `$-`, `$LINENO`, `$0`–`$9`, `$@`, `$*` (joined with the first `IFS` byte), `"$@"` and `"${@}"` as one field per parameter, also inside a word (`"x$@"`) and as `${1+"$@"}` |
+| Quoting | `'…'`, `"…"`, backslash, and `$'…'` with the C escapes `\a \b \e \f \n \r \t \v \\ \' \" \cX \xHH \NNN` |
+| Expansions | `${VAR-w}`, `=`, `+`, `?` and their `:` forms; `${#VAR}`; `#`, `##`, `%`, `%%`; `$(…)`; simple backticks; `$((…))` in signed 64-bit with C's operators, assignments (`=`, `+=`, …) and `?:` (no `++`, `--` or comma); `fnmatch` patterns (`*`, `?`, `[…]`, `[[:class:]]`) in globs, `case` and pattern removal; leading `~`; `IFS` splitting of unquoted expansions |
 | Builtins | `: . source eval exec exit return cd export unset set shift read getopts local type command break continue trap wait` |
 | Options | `set -e -u -x`; `set -o NAME` for errexit, nounset, pipefail and xtrace; combined as in `set -euo pipefail` |
 
@@ -80,14 +86,14 @@ slop [-enux] script [arg ...]
   builtins (`:`, `.`, `eval`, `exec`, `exit`, `export`, `return`, `set`,
   `shift`, `unset`, `break`, `continue`) always run.
 - `cd` without an operand needs `HOME`; an empty operand is a no-op.
-- `trap ACTION CONDITION...` handles `EXIT`, `HUP`, `INT`, `QUIT` and `TERM`.
+- `trap ACTION CONDITION...` handles `EXIT`, `HUP`, `INT`, `QUIT`, `PIPE` and `TERM`.
   A signal's action runs once the current command has finished; `EXIT` runs
   when the shell or a subshell leaves, also after a signal. A subshell starts
   without traps. `trap '' SIGNAL` is rejected: commands always start with
   default signal actions, so an ignored signal could not be inherited.
 - Not implemented, and rejected by name: `alias`, `unalias`, `jobs`, `fg`,
   `bg` (no job control), `umask` (there are no permission bits), `ulimit` (limits are fixed),
-  `$'...'`, `${VAR:off:len}`, `${VAR/pat/rep}`, `"prefix$@"` word forms.
+  `${VAR:off:len}`, `${VAR/pat/rep}`.
   As in POSIX `sh`, braces do not expand (`echo {1..3}` prints `{1..3}`) and
   a glob that matches nothing stays as typed. `help` lists the same limits
   inside every image.
@@ -124,7 +130,8 @@ that run inside the shell stay serial.
   its shell exits. There is no job control: `jobs`, `fg` and `bg` are refused,
   and so is `&` after anything the shell would run itself (a compound
   command, a builtin, a function, a `!`, `&&` or `||` list): use
-  `slop -c '...' &`.
+  `slop -c '...' &`. `( PROGRAM ARG... ) &` is the one compound form that
+  runs, as `PROGRAM ARG... &`.
 - Ctrl+C interrupts the foreground command (status 130) and stops the rest of the
   list, pipeline or substitution; an ordinary `exit 130` does not. A loop of
   builtins stops too: the shell asks the kernel for SIGINT every 64 commands.
@@ -166,8 +173,8 @@ that run inside the shell stay serial.
   browser's.
 - GNU Make 4.4.1 ([`Dollyfile-system-build`](../Dollyfile-system-build)) defaults to
   `SHELL=/bin/slop` and starts recipes with `posix_spawn`. `-jN` runs N jobs at
-  once and shares a pipe jobserver with recursive Makes. `-O` still groups each
-  target's output but warns that it has no lock (`F_SETLKW` is `ENOTSUP`).
+  once and shares a pipe jobserver with recursive Makes; `-O` groups each
+  target's output.
   `ninja` is Samurai, which still runs one job ([`Dollyfile-system-tools`](../Dollyfile-system-tools)).
 - `cc`, `c++`, `ld` and `ar` are the private compiler
   ([process model](process-model.md#executables)); `git`, `curl` and `gzip` are

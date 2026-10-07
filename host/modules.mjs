@@ -8,8 +8,9 @@ const definitions = await Promise.all(hostManifests.map(async manifest =>
   ({ ...await import(new URL(manifest.host, manifest.url).href), contract: manifest })));
 export const hostContracts = Object.freeze(definitions.map(module => module.contract));
 // What a build enables beside the runtime its image declares: the broker the
-// engine fetches sources through and the threads its toolchain uses.
-export const buildHost = Object.freeze(["http@0", "threads@0"]);
+// engine fetches sources through, the threads its toolchain uses and the
+// modules its compilers and interpreters load.
+export const buildHost = Object.freeze(["http@0", "threads@0", "dso@0"]);
 export const buildHostFor = declared => [...declared.filter(value => runtimes.includes(value)), ...buildHost];
 
 // A module may select what a route boots, as a saved session names its image:
@@ -40,7 +41,7 @@ export async function createHost(side, enabled, { send, resources = {}, configur
   // The kernel is the one requested module that provides it; a module others
   // only depend on does not make it one.
   const kernels = selected.filter(value => runtimes.includes(value));
-  const started = new Set(), pending = new Map(), options = {}, transfers = [], config = {};
+  const started = new Set(), pending = new Map(), transfers = [], config = {};
   // The page API (window.__dolly) by property descriptor, so module getters
   // stay live; a child build host's configuration; what an opened result tab
   // or restored session inherits from this page.
@@ -97,10 +98,6 @@ export async function createHost(side, enabled, { send, resources = {}, configur
       abi: admittedAbi,
       configuration: configuration[name] ?? {} }) ?? {};
     instances.set(name, instance);
-    for (const [key, value] of Object.entries(instance.options ?? {})) {
-      if (key in options) throw new Error(`duplicate host option: ${key}`);
-      options[key] = value;
-    }
     for (const [type, handler] of Object.entries(instance.messages ?? {})) {
       if (messages.has(type)) throw new Error(`duplicate host message: ${type}`);
       messages.set(type, handler);
@@ -136,7 +133,7 @@ export async function createHost(side, enabled, { send, resources = {}, configur
   } catch (error) { dispose(); throw error; }
   const kernel = hostRequirement(kernels[0]).name;
   return {
-    get, options, transfers, configuration: config, page, builder, inherited,
+    get, transfers, configuration: config, page, builder, inherited,
     kernel: instances.get(kernel),
     enabled: [...instances.keys()].map(name => `${name}@${byName.get(name).contract.version}`),
     require: requireModules, dispose,
@@ -162,17 +159,18 @@ export async function createHost(side, enabled, { send, resources = {}, configur
     // The page asks this when the image has ended, before it lets go of the
     // modules: the links ({ text, href }) each one offers beside "start again".
     ended: () => [...instances.values()].flatMap(instance => instance.ended?.() ?? []),
-    bindImports(module, imports) {
+    // The kernel's whole import object: each import is the binding of the
+    // module whose manifest owns it.
+    imports(module) {
+      const imports = {};
       for (const entry of WebAssembly.Module.imports(module)) {
         const name = `${entry.module}.${entry.name}`, owner = owners.get(name);
         if (!owner) throw new Error(`unowned browser import: ${name}`);
-        if (!instances.has(owner)) imports[entry.module][entry.name] = () => -E.ENOSYS;
-        else if (owner !== kernel) {
-          const binding = instances.get(owner).bindings?.[name];
-          if (typeof binding !== "function") throw new Error(`missing host binding: ${name}`);
-          imports[entry.module][entry.name] = binding;
-        }
+        const binding = instances.has(owner) ? instances.get(owner).bindings?.[name] : () => -E.ENOSYS;
+        if (binding === undefined) throw new Error(`missing host binding: ${name}`);
+        (imports[entry.module] ??= {})[entry.name] = binding;
       }
+      return imports;
     },
     async handle(message) {
       if (disposed) return false;

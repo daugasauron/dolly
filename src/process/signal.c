@@ -238,7 +238,7 @@ int64_t dolly_process_call(uint32_t operation, const void *request,
     if (restart < 0) return -ENOTSUP;
     if (!restart && (operation == DOLLY_PROCESS_FD_READ || operation == DOLLY_PROCESS_FD_WRITE ||
         operation == DOLLY_PROCESS_WAIT || operation == DOLLY_PROCESS_FD_POLL ||
-        operation == DOLLY_PROCESS_CLOCK_SLEEP)) return -EINTR;
+        operation == DOLLY_PROCESS_CLOCK_SLEEP || operation == DOLLY_PROCESS_FD_LOCK)) return -EINTR;
     if (restart == 1 && (operation == DOLLY_PROCESS_FD_POLL ||
         operation == DOLLY_PROCESS_CLOCK_SLEEP)) return -EINTR;
   }

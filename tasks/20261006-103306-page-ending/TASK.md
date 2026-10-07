@@ -1,6 +1,6 @@
 # The page says nothing when an image's last process ends
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 300
 - TAGS: core,page,ux
 
@@ -104,3 +104,88 @@ To verify, once the catalog is built in `work/round2`:
 reload link), Ctrl+C on a looping script as ENTRY (SIGINT), and a trapping C
 program as ENTRY (the engine's reason, no FATAL). Also to look at by eye: the
 last output above the notice, and the notice with a saved session.
+
+## The notice lost the signal some of the time (2026-10-06 night, `fix/ending-flake`)
+
+`test/ending-browser.mjs` passed 6 of 8 runs on `integrate/next`: Ctrl+C on a
+script looping over builtins sometimes read "exited with status 130" where it
+should name `SIGINT`.
+
+### Cause
+
+"The signal without a kernel change" above was the cause. The supervisor
+rebuilt the signal from the exit request it had seen
+(`src/process-supervisor.mjs`, `#finish` and `process.asked`, from
+`245efbec`). Two endings pass no request through it, because the kernel ends
+the process itself (`src/process-kernel.c:2131-2133`, `dolly_process_signal`):
+a signal that arrives before the program has entered (the process is still
+`PENDING`: its Worker has not reported `started`), and `SIGKILL`. The
+supervisor's forced exit that follows (`#deliverSignal`, then `#forceExit`) is
+refused with `EINVAL`, since the process has already exited, so it recorded
+nothing and resolved signal 0 with the kernel's status 130.
+
+The kernel's own record was right all along (`exit_signal`, which `wait`
+reads): what `docs/process-model.md` promises of wait records held. Slop and
+libc always name the signal (`raise` with the default action sends the exit
+request `{130, SIGINT}`); nothing of the concurrent-pipelines work is
+involved. The test is right: the page offers Ctrl+C from the moment the
+foreground is published (`refresh_foreground` publishes a `PENDING` process as
+interruptible), which is before entry.
+
+### Measured (runtime `dccf70f9…`, machine loaded: load average 10 to 19)
+
+One page per round, the looping script as ENTRY
+(`build/ending-evidence/probe-rate.mjs`); wrong means "exited with status":
+
+| When the key arrives | Chromium | Firefox |
+| --- | --- | --- |
+| as the suite presses it (first sight of an interruptible foreground) | 5 of 18 wrong | 10 of 15 wrong |
+| from inside the page, the moment the foreground is published | 4 of 18 wrong | 15 of 15 wrong |
+| 1.5 s later | 0 of 10 wrong | 0 of 15 wrong |
+| no key: the script sends itself `SIGKILL` | 18 of 18 wrong | 15 of 15 wrong |
+
+With the supervisor logging each delivery (16 rounds, Chromium): every wrong
+round was delivered with `started=false` and its forced exit refused (-28,
+`EINVAL`); every right round with `started=true` and no forced exit.
+
+Load matters only through that window: the later the Worker reports
+`started`, the more keys land before it. An idle run was not possible (the
+catalog was building); the 1.5 s row is the same measurement with the window
+closed.
+
+### Fix (`9284c0e5`)
+
+`dolly_process_collect` returns the kernel's record: the status and, above its
+byte, the signal. The supervisor's copy (`asked`) is deleted: 18 lines out, 11
+in. Kernel and page only: the image inputs stay `4431ea80…`, so no image is
+rebuilt (runtime `f6c5622e…`).
+
+The suite gains the deterministic case, a script that sends itself `SIGKILL`:
+it read "exited with status 137" on the old runtime, every time.
+
+### Verified (runtime `f6c5622e…`, load average 7 to 19)
+
+- The same probe, 15 rounds of each row in each browser: 120 of 120 name the
+  signal (`SIGINT`, and `SIGKILL` for the last row).
+- `test/ending-browser.mjs` fails on the old runtime at the new case and
+  passes on the new one; `ending`, `core`, `process`, `terminal`, `shell` and
+  `slop` pass in Chromium and Firefox.
+- Source suite 400 of 400; `test/*.artifacts.mjs` 20 of 20 (the kernel's
+  exports are unchanged).
+
+To merge: `git merge fix/ending-flake` (it shares no file with
+`core/kernel-boundary-step2`), then `npm run build:runtime`; the image inputs
+do not move, so no image is rebuilt.
+
+## Closed 2026-10-07
+
+`fix/page-ending` (`245efbec`) is in the candidate; the signal fix of
+`fix/ending-flake` went in as the cherry-pick `f82289ea` (the kernel's record
+is read; the supervisor's copy is gone). `test/ending-browser.mjs` (exit
+status, a trapping ENTRY, Ctrl+C as `SIGINT`, the self-`SIGKILL` case) passed
+in Chromium and Firefox in every run after that commit
+(`work/next/build/next-evidence/browser-f`, `-g`, `-h` summaries) and in the
+main round's full browser pass (`round-3.log`, 826 s). The missing-ENTRY
+case reads `failed: cannot start …` through the same notice
+(`20261006-103256-entry-missing`). `docs/browser-boundary.md` has the
+"Image ending" row.

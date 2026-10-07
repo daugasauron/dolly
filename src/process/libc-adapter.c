@@ -18,6 +18,7 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/file.h>
 #include <sys/ioctl.h>
 #include <sys/resource.h>
 #include <sys/stat.h>
@@ -33,9 +34,18 @@
 _Static_assert(__WASI_WHENCE_SET == DOLLY_PROCESS_SEEK_SET &&
                __WASI_WHENCE_CUR == DOLLY_PROCESS_SEEK_CURRENT &&
                __WASI_WHENCE_END == DOLLY_PROCESS_SEEK_END, "seek whence encoding");
+_Static_assert(SEEK_SET == DOLLY_PROCESS_SEEK_SET && SEEK_CUR == DOLLY_PROCESS_SEEK_CURRENT &&
+               SEEK_END == DOLLY_PROCESS_SEEK_END && F_RDLCK == DOLLY_PROCESS_LOCK_SHARED &&
+               F_WRLCK == DOLLY_PROCESS_LOCK_EXCLUSIVE && F_UNLCK == DOLLY_PROCESS_LOCK_UNLOCK,
+               "struct flock encoding");
 _Static_assert(__WASI_CLOCKID_REALTIME == DOLLY_PROCESS_CLOCK_REALTIME &&
                __WASI_CLOCKID_MONOTONIC == DOLLY_PROCESS_CLOCK_MONOTONIC,
                "clock encoding");
+
+/* Marks a descriptor the libc opened for itself, here or for a shared mapping
+ * (mmap.c): closing it is not the program closing the file, which would drop
+ * the process's record locks on it. */
+int __dolly_keep_locks(int descriptor);
 
 int isatty(int descriptor) { return dolly_isatty(descriptor); }
 
@@ -168,11 +178,6 @@ _Noreturn void __wasi_proc_exit(__wasi_exitcode_t status) {
 
 static __wasi_errno_t fd_read_one(uint32_t descriptor, void *buffer,
                                   size_t size, size_t *completed) {
-  /* A process gate packet is deliberately bounded. POSIX read() permits a
-   * short successful result, so expose at most one packet and let libc or the
-   * caller request the remainder. This is also the correct behavior for
-   * pipes: eagerly issuing a second call could block after returning all data
-   * that was available for the original read. */
   if (size > DOLLY_PROCESS_PACKET_LIMIT) size = DOLLY_PROCESS_PACKET_LIMIT;
   const dolly_process_fd_io_request request = {descriptor, 0, size};
   const int64_t result = dolly_process_call(
@@ -182,6 +187,43 @@ static __wasi_errno_t fd_read_one(uint32_t descriptor, void *buffer,
   return error;
 }
 
+static int descriptor_is_regular_file(uint32_t descriptor) {
+  const dolly_process_fd_request request = {descriptor, 0};
+  dolly_process_stat_response response;
+  const int64_t result = dolly_process_call(
+      DOLLY_PROCESS_FD_STAT, &request, sizeof(request),
+      &response, sizeof(response));
+  return (uint64_t)result == sizeof(response) &&
+         response.file_type == DOLLY_PROCESS_FILE_REGULAR;
+}
+
+/* A process gate packet is bounded to DOLLY_PROCESS_PACKET_LIMIT. POSIX
+ * read() permits a short result, but Linux fills a read of a regular file up
+ * to end of file and much software assumes so (DarkPlaces loads whole files
+ * with one read); a pipe or terminal keeps returning what is there, since a
+ * second packet could block after the first delivered all available data.
+ * Only a full first packet costs the one DOLLY_PROCESS_FD_STAT call that
+ * tells the two apart. An error or handled signal after some bytes were read
+ * returns those bytes, as Linux does. */
+static __wasi_errno_t fd_read_full(uint32_t descriptor, unsigned char *buffer,
+                                   size_t size, size_t *completed) {
+  *completed = 0;
+  int regular = -1;
+  while (*completed < size) {
+    size_t current = 0;
+    const __wasi_errno_t error = fd_read_one(
+        descriptor, buffer + *completed, size - *completed, &current);
+    if (error != 0) return *completed != 0 ? 0 : error;
+    *completed += current;
+    const size_t packet = size - (*completed - current) > DOLLY_PROCESS_PACKET_LIMIT
+        ? DOLLY_PROCESS_PACKET_LIMIT : size - (*completed - current);
+    if (current != packet) return 0;
+    if (regular < 0) regular = descriptor_is_regular_file(descriptor);
+    if (!regular) return 0;
+  }
+  return 0;
+}
+
 __wasi_errno_t __wasi_fd_read(__wasi_fd_t descriptor,
                               const __wasi_iovec_t *vectors,
                               size_t vector_count,
@@ -189,15 +231,14 @@ __wasi_errno_t __wasi_fd_read(__wasi_fd_t descriptor,
   *completed = 0;
   if (vector_count == 0) return 0;
   if (vector_count == 1)
-    return fd_read_one(descriptor, vectors[0].buf, vectors[0].buf_len, completed);
+    return fd_read_full(descriptor, vectors[0].buf, vectors[0].buf_len, completed);
   size_t size = 0;
-  for (size_t index = 0; index < vector_count && size < DOLLY_PROCESS_PACKET_LIMIT; ++index) {
-    const size_t room = DOLLY_PROCESS_PACKET_LIMIT - size;
-    size += vectors[index].buf_len < room ? vectors[index].buf_len : room;
+  for (size_t index = 0; index < vector_count; ++index) {
+    size += vectors[index].buf_len < SIZE_MAX - size ? vectors[index].buf_len : SIZE_MAX - size;
   }
   unsigned char *bytes = malloc(size != 0 ? size : 1);
   if (bytes == NULL) return ENOMEM;
-  const __wasi_errno_t error = fd_read_one(descriptor, bytes, size, completed);
+  const __wasi_errno_t error = fd_read_full(descriptor, bytes, size, completed);
   size_t offset = 0;
   for (size_t index = 0; index < vector_count && offset < *completed; ++index) {
     const size_t remaining = *completed - offset;
@@ -606,7 +647,8 @@ int __syscall_truncate64(const char *path, int64_t size) {
   if (size < 0) return -EINVAL;
   const int descriptor = __syscall_openat(AT_FDCWD, path, O_WRONLY);
   if (descriptor < 0) return descriptor;
-  const int result = __syscall_ftruncate64(descriptor, size);
+  int result = __dolly_keep_locks(descriptor);
+  if (result == 0) result = __syscall_ftruncate64(descriptor, size);
   const __wasi_errno_t close_error = __wasi_fd_close(descriptor);
   return result != 0 ? result : close_error == 0 ? 0 : -(int)close_error;
 }
@@ -1105,6 +1147,11 @@ static int fd_flags_set(uint32_t operation, int descriptor, uint32_t flags) {
   return result < 0 ? (int)result : result == 0 ? 0 : -EIO;
 }
 
+int __dolly_keep_locks(int descriptor) {
+  return fd_flags_set(DOLLY_PROCESS_FD_SET_DESCRIPTOR_FLAGS, descriptor,
+      DOLLY_PROCESS_FD_CLOEXEC | DOLLY_PROCESS_FD_KEEP_LOCKS);
+}
+
 static int get_status_flags(int descriptor) {
   const int status = fd_flags_get(DOLLY_PROCESS_FD_GET_FLAGS, descriptor);
   if (status < 0) return status;
@@ -1135,7 +1182,7 @@ static int set_status_flags(int descriptor, int flags) {
  * carries semantic descriptor flags and its terminal-discipline bits; this
  * adapter translates the target libc's ioctl numbers and layouts.
  */
-static uintptr_t ioctl_argument(uintptr_t arguments) {
+static uintptr_t variadic_argument(uintptr_t arguments) {
   uintptr_t argument = 0;
   if (arguments != 0) {
     memcpy(&argument, (const void *)arguments, sizeof(argument));
@@ -1185,7 +1232,7 @@ static int discard_terminal_input(int descriptor) {
 }
 
 int __syscall_ioctl(int descriptor, int request, uintptr_t arguments) {
-  const uintptr_t argument = ioctl_argument(arguments);
+  const uintptr_t argument = variadic_argument(arguments);
   switch (request) {
     case FIOCLEX:
     case FIONCLEX:
@@ -1282,6 +1329,60 @@ int __syscall_ioctl(int descriptor, int request, uintptr_t arguments) {
   }
 }
 
+/* Only a request that waits is interrupted by a signal handler. */
+static int lock_call(int descriptor, uint32_t flags, uint32_t type, const struct flock *range,
+                     dolly_process_fd_lock_response *holder) {
+  if (descriptor < 0) return -EBADF;
+  const dolly_process_fd_lock_request request = {
+      (uint32_t)descriptor, flags, type, range ? (uint32_t)range->l_whence : 0,
+      range ? range->l_start : 0, range ? range->l_len : 0,
+  };
+  int64_t result;
+  do {
+    result = dolly_process_call(DOLLY_PROCESS_FD_LOCK, &request, sizeof(request),
+                                holder, holder ? sizeof(*holder) : 0);
+  } while (result == -EINTR && !(flags & DOLLY_PROCESS_LOCK_WAIT));
+  if (result < 0) return (int)result;
+  return (uint64_t)result == (holder ? sizeof(*holder) : 0) ? 0 : -EIO;
+}
+
+/* Emscripten's flock is a stub that reports success without locking. */
+int flock(int descriptor, int operation) {
+  const int kind = operation & ~LOCK_NB;
+  int result = -EINVAL;
+  if (kind == LOCK_UN) {
+    result = lock_call(descriptor, DOLLY_PROCESS_LOCK_DESCRIPTION, DOLLY_PROCESS_LOCK_UNLOCK, NULL, NULL);
+  } else if (kind == LOCK_SH || kind == LOCK_EX) {
+    result = lock_call(descriptor,
+        DOLLY_PROCESS_LOCK_DESCRIPTION | (operation & LOCK_NB ? 0 : DOLLY_PROCESS_LOCK_WAIT),
+        kind == LOCK_EX ? DOLLY_PROCESS_LOCK_EXCLUSIVE : DOLLY_PROCESS_LOCK_SHARED, NULL, NULL);
+  }
+  if (result == 0) return 0;
+  errno = -result;
+  return -1;
+}
+
+/* POSIX record locks: F_GETLK, F_SETLK and F_SETLKW. */
+static int record_lock(int descriptor, int command, struct flock *lock) {
+  if (lock == NULL) return -EFAULT;
+  if (command != F_GETLK) {
+    return lock_call(descriptor,
+        command == F_SETLKW && lock->l_type != F_UNLCK ? DOLLY_PROCESS_LOCK_WAIT : 0,
+        (uint32_t)lock->l_type, lock, NULL);
+  }
+  dolly_process_fd_lock_response holder;
+  const int result = lock_call(descriptor, DOLLY_PROCESS_LOCK_TEST, (uint32_t)lock->l_type, lock, &holder);
+  if (result != 0) return result;
+  lock->l_type = (short)holder.type;
+  if (holder.type != DOLLY_PROCESS_LOCK_UNLOCK) {
+    lock->l_whence = SEEK_SET;
+    lock->l_start = (off_t)holder.start;
+    lock->l_len = (off_t)holder.length;
+    lock->l_pid = (pid_t)holder.pid;
+  }
+  return 0;
+}
+
 /*
  * Emscripten's musl syscall veneer passes a pointer to its packed variadic
  * arguments. Descriptor and open-file flags are distinct kernel state.
@@ -1300,7 +1401,7 @@ int __syscall_fcntl64(int descriptor, int command, uintptr_t arguments) {
       const int flags = fd_flags_get(
           DOLLY_PROCESS_FD_GET_DESCRIPTOR_FLAGS, descriptor);
       if (flags < 0) return flags;
-      if ((flags & ~DOLLY_PROCESS_FD_CLOEXEC) != 0) return -EIO;
+      if ((flags & ~(DOLLY_PROCESS_FD_CLOEXEC | DOLLY_PROCESS_FD_KEEP_LOCKS)) != 0) return -EIO;
       return (flags & DOLLY_PROCESS_FD_CLOEXEC) != 0 ? FD_CLOEXEC : 0;
     }
     case F_SETFD:
@@ -1313,11 +1414,8 @@ int __syscall_fcntl64(int descriptor, int command, uintptr_t arguments) {
       return arguments == 0 ? -EINVAL : set_status_flags(descriptor, integer);
     case F_GETLK:
     case F_SETLK:
-    case F_SETLKW: {
-      const int flags = fd_flags_get(
-          DOLLY_PROCESS_FD_GET_DESCRIPTOR_FLAGS, descriptor);
-      return flags < 0 ? flags : -ENOTSUP;
-    }
+    case F_SETLKW:
+      return record_lock(descriptor, command, (struct flock *)variadic_argument(arguments));
     default:
       return -EINVAL;
   }
@@ -1434,6 +1532,20 @@ int sysctlbyname(const char *name, void *old_value, size_t *old_size,
   (void)name; (void)old_value; (void)old_size; (void)new_value; (void)new_size;
   errno = ENOSYS;
   return -1;
+}
+
+/* dlopen and its companions (cc maps them to dolly_dl*) in a program that is
+ * no host of loadable modules. cc -rdynamic links the dso@0 client
+ * (host/dso/client.c), whose definitions replace these. */
+static _Thread_local int dl_refused;
+static void *dl_refuse(void) { dl_refused = 1; errno = ENOSYS; return NULL; }
+__attribute__((__weak__)) void *dolly_dlopen(const char *path, int flags) { (void)path; (void)flags; return dl_refuse(); }
+__attribute__((__weak__)) void *dolly_dlsym(void *handle, const char *name) { (void)handle; (void)name; return dl_refuse(); }
+__attribute__((__weak__)) int dolly_dlclose(void *handle) { (void)handle; dl_refuse(); return -1; }
+__attribute__((__weak__)) char *dolly_dlerror(void) {
+  if (!dl_refused) return NULL;
+  dl_refused = 0;
+  return "dynamic loading needs a program linked with -rdynamic and host module dso@0";
 }
 
 /*

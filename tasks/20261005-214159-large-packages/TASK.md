@@ -1,6 +1,6 @@
 # A payload larger than the image cap is several ordinary packages, split where its consumer already reads
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 280
 - TAGS: packages,dollyfile,models
 
@@ -118,3 +118,18 @@ All in `demos/local-llm/`; no core file changes.
 - Not implemented on 2026-10-06: it needs a `pi-local` rebuild (excluded
   from that round), a display for a GPU run (none was assigned), the 3 GB
   download, a native tool build and N image builds.
+
+## Closed 2026-10-07 (implemented by `20261005-215557-local-models`)
+
+The plan was carried out there, in `demos/local-llm/` only: `gguf-split` on
+the 4B is byte-identical across runs and gives four shards of 994.7, 996.2,
+983.0 and 39.0 MB, each one `SOURCE` of `Dollyfile-qwen3.5-4b-1` to `-4`;
+llama loads from the first; the first-use download and `/run/dolly-llm` are
+gone. Verified: `amy install` of the four packages (17 s from the local
+server), then the 4B answering on WebGPU with external requests denied, in
+Firefox (f16) on the candidate (`work/next/build/next-evidence/gpu-local-llm-rerun.log`)
+and on the branch; in Chrome with `--enable-dawn-features=vulkan_enable_f16_on_nvidia`
+(8 of 8 tasks), and without f16 refused before loading with the one-line
+reason. Not measured: the kernel's peak during the install; `amy` installs
+one package at a time and unlinks each artifact before the next
+(`src/commands/amy.c`), noted in the local-models task.

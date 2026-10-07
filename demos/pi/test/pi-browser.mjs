@@ -69,6 +69,7 @@ await demoTest("pi", { image: "pi", timeout: 900_000, server: { handle: provider
     { origin: "https://auth.openai.com", path: "/oauth/token", methods: ["POST"] },
     { origin: server.origin, pathPrefix: "/fixture/pi/", methods: ["POST"], credentialHeaders: ["authorization"] },
     { origin: server.origin, pathPrefix: "/fixture/", methods: ["GET"] },
+    { origin: server.origin, path: "/amy-index.txt", methods: ["GET"] }, // a page with its own policy admits the package index itself
   ] };
   const piStarted = /Bash is not installed/;
   const terminal = await open({ policy, prompt: piStarted, viewport: { width: 1280, height: 1120 } });

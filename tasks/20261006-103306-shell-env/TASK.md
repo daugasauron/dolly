@@ -1,6 +1,6 @@
 # An image without Slop still exports SHELL=/bin/slop
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 150
 - TAGS: bug,kernel,environment
 
@@ -65,3 +65,11 @@ kernel has no `SHELL`.
 
 - The lean image above has no `SHELL`; `minimal`, `system` and `default` still
   print `/bin/slop` for `echo $SHELL`.
+
+## Closed 2026-10-07
+
+`fix/shell-env` (`68f71983`) is in the candidate; `minimal` no longer exists
+(`20261005-222449-small-default`), so the suite opens `default`, which is
+composed from `core`. `test/shell-env-browser.mjs` passed in Chromium and
+Firefox in the main round (`work/next/build/next-evidence/browser-final/summary.txt`
+and the full pass in `round-3.log`).

@@ -58,49 +58,47 @@ target_link_options(dolly PRIVATE
   -mbulk-memory
   "SHELL:-Wl,--shared-memory,--no-check-features"
   "SHELL:-Wl,--export=__stack_pointer"
-  # Resident Wasm bytes are instantiated by the small boot loader. The kernel
-  # has no general dlopen/dlsym JavaScript capability or dynamic JS evaluation.
+  # Resident Wasm bytes are instantiated by the small boot loader; the kernel
+  # has no dlopen or dlsym.
   "SHELL:-Wl,--export-table,--growable-table"
-  -sDYNAMIC_EXECUTION=0
   -sWASMFS
-  -sFORCE_FILESYSTEM=1
+  # The kernel is one Wasm module and no generated JavaScript: every import is
+  # one it declares (abi/dolly-browser-0.wat, src/libc-host.c).
+  -sSTANDALONE_WASM=1
+  # The kernel never calls setjmp; Emscripten's JavaScript longjmp would
+  # export two stack helpers no contract names.
+  -sSUPPORT_LONGJMP=0
   -sALLOW_MEMORY_GROWTH=1
   -sIMPORTED_MEMORY=1
   -sINITIAL_MEMORY=67108864
   -sMAXIMUM_MEMORY=${DOLLY_KERNEL_MEMORY_MAXIMUM}
   -sSTACK_SIZE=16777216
-  -sMODULARIZE=1
-  -sEXPORT_ES6=1
-  -sEXPORT_NAME=createDolly
-  -sENVIRONMENT=worker
   --no-entry
   --profiling-funcs
-  "SHELL:-sEXPORTED_RUNTIME_METHODS=FS,FS_createPath,FS_createDataFile,addRunDependency,removeRunDependency"
   "SHELL:-sEXPORTED_FUNCTIONS=@/src/build/runtime-exports.json"
-  "SHELL:--js-library /src/src/browser-broker.js"
 )
 
-# Only a root rebuild needs this bundle. Restored images already contain their
-# compiler and tools, so kernel instantiation must not preload the seed.
+# Only a root rebuild restores the seed: images already contain their
+# compiler and tools.
 add_custom_target(dolly-seed
   COMMAND bash /src/scripts/prepare-kernel-seed.sh
-    /src/build/generated/libclang_rt.dolly.a@/seed/usr/lib/libclang_rt.builtins.a
-    /src/.cache/llvm-wasm/lib/clang/24/include@/seed/usr/lib/clang/24/include
-    /src/build/include/dolly@/seed/usr/include/dolly
-    /src/src/dollyfile.c@/seed/usr/src/dolly/dollyfile.c
-    /src/src/sha256.h@/seed/usr/src/dolly/sha256.h
-    /src/src/fs-record.h@/seed/usr/src/dolly/fs-record.h
-    /src/build/dolly-kernel-plugin-0.wasm@/seed/usr/lib/dolly/dolly-kernel-plugin-0.wasm
-    ${DOLLY_PROCESS_SYSROOT_DIR}@/seed/usr/lib/dolly/process
-    /src/build/process-bin/bootstrap@/seed/usr/libexec/dolly/process-bin/bootstrap
-    /src/build/process-bin/compiler@/seed/usr/libexec/dolly/process-bin/compiler
+    /src/build/generated/libclang_rt.dolly.a@/usr/lib/libclang_rt.builtins.a
+    /src/.cache/llvm-wasm/lib/clang/24/include@/usr/lib/clang/24/include
+    /src/build/include/dolly@/usr/include/dolly
+    /src/src/dollyfile.c@/usr/src/dolly/dollyfile.c
+    /src/src/sha256.h@/usr/src/dolly/sha256.h
+    /src/src/fs-record.h@/usr/src/dolly/fs-record.h
+    /src/build/dolly-kernel-plugin-0.wasm@/usr/lib/dolly/dolly-kernel-plugin-0.wasm
+    ${DOLLY_PROCESS_SYSROOT_DIR}@/usr/lib/dolly/process
+    /src/build/process-bin/bootstrap@/usr/libexec/dolly/process-bin/bootstrap
+    /src/build/process-bin/compiler@/usr/libexec/dolly/process-bin/compiler
   VERBATIM
 )
 add_dependencies(dolly dolly-seed)
 
 set_target_properties(dolly PROPERTIES
   OUTPUT_NAME dolly
-  SUFFIX .mjs
+  SUFFIX .wasm
   RUNTIME_OUTPUT_DIRECTORY /src/dist
 )
 
@@ -153,7 +151,7 @@ target_link_options(dolly-process-compiler PRIVATE
   -matomics
   -mbulk-memory
   "SHELL:-Wl,--shared-memory,--no-check-features"
-  "SHELL:-Wl,--export=__dolly_dso_allocate,--export=__stack_pointer,--export-table,--growable-table"
+  "SHELL:-Wl,--export=__stack_pointer,--export-table,--growable-table"
   -sSTANDALONE_WASM=1
   -sIMPORTED_MEMORY=1
   -sSHARED_MEMORY=1

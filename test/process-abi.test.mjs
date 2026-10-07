@@ -4,7 +4,8 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
 import { parseWasmInterface, appendCustomSection } from "../src/wasm-interface.mjs";
-import { validateProcessInterface, validateDsoInterface, validateDsoHost, requireDsoType } from "../src/process-abi.mjs";
+import { validateProcessInterface } from "../src/process-abi.mjs";
+import { validateDsoInterface, validateDsoHost, requireDsoType } from "../host/dso/interface.mjs";
 import { validateProcess, validateProcessDso } from "../scripts/dolly-abi.mjs";
 import { DOLLY_PROCESS_ABI_DIGEST } from "../dist/dolly-process-abi.mjs";
 import { DOLLY_ERRNO } from "../src/process-constants.mjs";
@@ -82,7 +83,7 @@ test("browser errors use Dolly's target encoding, not Linux numbers", () => {
   assert.equal(DOLLY_ERRNO.ENOSYS, 52);
 });
 
-const dsoContractPath = new URL("../dist/dolly-process-dso-0.wasm", import.meta.url);
+const dsoContractPath = new URL("../dist/dolly-dso-0.wasm", import.meta.url);
 const dsoContract = parseWasmInterface(await readFile(dsoContractPath));
 const dso = async name => parseWasmInterface(await readFile(new URL(`../build/dso-${name}.wasm`, import.meta.url)));
 

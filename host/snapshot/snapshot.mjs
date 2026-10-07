@@ -72,16 +72,16 @@ export function worker({ get, configuration: { bytes, recover } }) {
       throw new Error("Dolly session filesystem restore failed; the saved copy is unchanged");
     }
   }
-  async function recoverFiles({ dolly, supervisor, stage, writeFile }) {
+  async function recoverFiles({ supervisor, stage, files }) {
     const path = "/tmp/dolly-session-recovery.delta", destination = `/workspace/recovered-${recover}`;
     stage(`recovering saved files into ${destination}...`);
-    writeFile(path, new Uint8Array(bytes));
+    files.write(path, new Uint8Array(bytes));
     try {
       const program = "/usr/bin/session-recover";
       if ((await supervisor.spawn([program, path, destination])).status !== 0) {
         throw new Error("File recovery failed; the original saved session is unchanged");
       }
-    } finally { dolly.FS.unlink(path); }
+    } finally { files.remove(path); }
   }
   return {
     async imageRestored(context) {

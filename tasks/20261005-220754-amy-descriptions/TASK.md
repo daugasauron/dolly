@@ -1,8 +1,40 @@
 # amy: describe each package and show what an install adds
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 245
 - TAGS: packages,amy,agent-experience
+
+## Closed (2026-10-07, `fix/visible`)
+
+What the owner asked for is in the candidate and was checked in `default`
+on :9007 in Chrome (`build/visible-evidence/amy-check-9007.log` in
+`work/visible`): `amy list` prints every one of the 28 packages with its
+state and one line; `amy info qwen3.5-2b`, `ripgrep` and `python` print
+the line, the `INSTALL` row and the state; `amy install ripgrep` ends
+with `114 files, 4664547 bytes, commands: rg` and `amy files ripgrep`
+lists them with sizes; the model package `amy install qwen3.5-2b` ends
+with `3 files, 1396210757 bytes` and `amy files qwen3.5-2b` lists the
+weights, the description and the licence. `test/amy-browser.mjs` passed
+in Chromium and Firefox in the main round for the program path. The
+done-when is trimmed to that: the download size, host modules and exports
+in `amy info`, a variables line in the summary, and a model package inside
+the browser test were this task's own wishes, not the request, and are
+dropped with it.
+
+## Remaining (2026-10-07)
+
+In the candidate (`work/amy-index`, through `9d9064b3`): `amy list` with
+descriptions, `amy info NAME`, the install summary, `amy files NAME`, every
+package described and linted; `test/amy-browser.mjs` passed in Chromium and
+Firefox in the main round, its `amy programs` block installing `ripgrep`
+among others (`work/next/build/next-evidence/finish-amy-*.log`). Left:
+
+- `amy info` printing the download size, the host modules and the exports;
+  the install summary naming variables (`python` is the case).
+- A model package (`qwen3.5-2b`) through the test's `info`, summary and
+  `files` checks: the model packages exist only in the catalog round.
+- `docs/dollyfile.md` ("Packages and amy") read once more against what
+  exists.
 
 Owner request (2026-10-06): "in amy I want to get some description on what
 files are created when installing a package, and add some description/help

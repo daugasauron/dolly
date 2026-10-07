@@ -75,13 +75,8 @@ static int read_file(const char *directory) {
       close(descriptor) != 0 || strcmp(buffer, payload) != 0) return 28;
   descriptor = open("large.bin", O_RDONLY);
   if (descriptor < 0) return 35;
-  size_t total = 0;
-  while (total != sizeof(large_buffer)) {
-    const ssize_t current = read(
-        descriptor, large_buffer + total, sizeof(large_buffer) - total);
-    if (current <= 0 || (size_t)current > DOLLY_PROCESS_PACKET_LIMIT) return 36;
-    total += (size_t)current;
-  }
+  /* A regular file fills one read, however many packets that takes. */
+  if (read(descriptor, large_buffer, sizeof(large_buffer)) != (ssize_t)sizeof(large_buffer)) return 36;
   if (close(descriptor) != 0 ||
       memcmp(large_buffer, large_payload, sizeof(large_payload)) != 0) return 36;
   descriptor = open("second.txt", O_RDWR);

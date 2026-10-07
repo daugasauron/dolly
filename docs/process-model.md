@@ -56,7 +56,7 @@ sequenceDiagram
 - A refusal is reported to the program that asked, not to the person at the
   page. An executable the loader refuses (a wrong stamp or import, a host module
   the image does not declare or whose layout differs, a thread client without
-  `dolly_thread_start`) and a Worker that fails while running exit with status
+  `dolly_thread_start` or with `dso@0`) and a Worker that fails while running exit with status
   126 after one line on the process's own descriptor 2 that names the cause
   ([`process-supervisor.mjs`](../src/process-supervisor.mjs)); unrelated
   processes are unaffected. `cc` refuses to link a thread client without
@@ -64,7 +64,7 @@ sequenceDiagram
 - A malformed call returns an errno and the process keeps running: `EFAULT` for
   a packet outside its memory, `E2BIG` over 1 MiB, `ENOSYS` for an unknown
   operation, `EINVAL` for a wrong layout
-  ([`process-worker.mjs`](../src/process-worker.mjs)). FFI packets carry
+  ([`process-worker.mjs`](../src/process-worker.mjs)). FFI packets (`dso@0`) carry
   pointers of the process itself; a wild one is `EFAULT` too, while a trap in
   the function an FFI call reaches ends the process like any other trap.
 - `cc`, `c++`, `ld` and `ar` retry status 126 up to twice
@@ -109,7 +109,21 @@ sequenceDiagram
   `munmap` ([`mmap.c`](../src/process/mmap.c)). Mappings are not coherent with
   other writers, do not extend the file past EOF, and cannot trap there: Wasm
   cannot protect or revoke part of linear memory.
-- Advisory locks (`F_GETLK`, `F_SETLK`, `F_SETLKW`) return `ENOTSUP`.
+- Advisory locks live in one kernel table of 1024 for all processes; a request
+  that needs one more fails with `ENOLCK`. `flock` locks the whole file for an
+  open file description: descriptors made by `dup` or inherited by a spawned
+  child share the lock, and it goes with the last of them. Converting gives
+  the held lock up first, as on Linux, so a refused `LOCK_NB` conversion leaves
+  none. `fcntl` `F_SETLK`, `F_SETLKW` and `F_GETLK` (and `lockf`) lock byte
+  ranges for the process, splitting and merging what it holds; as POSIX says,
+  closing **any** descriptor of a file drops all the process's locks on that
+  file. Not the descriptors libc keeps for itself, for a shared mapping or
+  inside `truncate`: those are marked `DOLLY_PROCESS_FD_KEEP_LOCKS`. The two
+  kinds do not see each other, and neither stops `read` or `write`. A waiting request is parked like a pipe read: a release wakes it at
+  once and a signal interrupts it. Waiters are not ordered and deadlocks are
+  not detected (no `EDEADLK`). Exit, a kill and a failed Worker release every
+  lock of the process. `F_OFD_*` is `EINVAL`; a pipe cannot be locked
+  (`ENOTSUP`).
 
 ## Spawn and wait
 
@@ -183,12 +197,20 @@ sequenceDiagram
   process and 64 in total; `sysconf` reports 4 processors. Handlers run on the
   main thread, also while it waits in `pthread_join`. No DSOs, FFI,
   cancellation or directed signals.
-- Process-local DSOs share their owner's memory, table and allocator. The loader
-  checks exact import types before instantiation
-  ([`dolly-process-dso-0.wat`](../abi/dolly-process-dso-0.wat)); missing
-  infrastructure returns `ENOSYS`.
-- FFI calls and closures stay in the process Worker; libffi supports CPython
-  `_ctypes`.
+- `dso@0` ([`host/dso/dolly-dso-0.wat`](../host/dso/dolly-dso-0.wat),
+  [`host/dso/process.mjs`](../host/dso/process.mjs)): process-local DSOs and
+  FFI, served in the Worker of an executable that records the module
+  ([host modules](../host/README.md#modules-served-in-the-process-worker)).
+  - `cc -rdynamic` builds a host: it exports the program's symbols and links
+    the loader behind `dlopen`. A DSO (`cc -shared`) shares its owner's
+    memory, table and allocator; the loader checks exact import types before
+    instantiation.
+  - FFI calls and closures (`dolly_ffi_*`, `<dolly/dso.h>`) stay in the process
+    Worker; libffi supports CPython `_ctypes`.
+  - Without the record a program loads nothing: `dlopen` returns `NULL` with
+    `ENOSYS` and a `dlerror()` naming `-rdynamic` and `dso@0`, and the raw
+    operations are unknown ones. With it, the image must declare
+    `REQUIRES HOST dso@0` or the program is refused before it starts.
 
 ## Unsupported
 

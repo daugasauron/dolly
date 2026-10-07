@@ -4,6 +4,23 @@
 - PRIORITY: 210
 - TAGS: rust,cargo,toolchain,network
 
+## Remaining (2026-10-07)
+
+In the candidate (`main` at `ab412d94`): the `cargo` package built in the
+catalog round, the `rust` package installing `cc` (`7eebbed6`), the empty
+`exe-suffix` and the Rust seed relinked for it, the libcurl multi options;
+`amy cargo alone` and `amy rust alone` pass in Chromium and Firefox and the
+`rust` demo test passes (`work/next/build/next-evidence/finish.log`,
+`finish-rust-demo.log`). On `integrate/round3`: `cargo` in `rust-tools`, the
+libcurl follow-up and the linker's `-g1` (`work/cargo-native` `c99dd5dc`).
+Left, from "Next steps" and the done-when: drop the SQLite dot-file setting
+and `CARGO_INCREMENTAL=0` once `core/file-locks` lands; `libc` under Cargo
+(a `[patch]` that does not harm other projects); SpiderMonkey's mozbuild
+driving Cargo (`--frozen` is unstable with this Cargo); the `test` crate in
+the SDK for `cargo test`; `PUT`, `CONNECTTIMEOUT` and `LOW_SPEED_*` in
+libcurl and a relay for git dependencies; the 5 to 6 GB the `cargo` image
+build needs; then Patti, its recipes and tests deleted.
+
 Owner question (2026-10-01): can real Cargo run inside Dolly by patching
 sockets or HTTP, instead of the Patti wrapper?
 

@@ -12,8 +12,6 @@ EM_CACHE="${staging}/headers" python3 /emsdk/upstream/emscripten/embuilder.py bu
 # such as the layout of struct stat, under the name programs do see.
 grep -rlZw __EMSCRIPTEN__ headers/sysroot/include |
   xargs -0 sed -i 's/\b__EMSCRIPTEN__\b/__dolly__/g'
-python3 /emsdk/upstream/emscripten/tools/file_packager.py dolly.data \
-  --js-output=dolly-seed.mjs --export-es6 --no-node --quiet \
-  --preload "${staging}/headers/sysroot/include@/seed/usr/include" "$@" \
-  --exclude '*/c++/v1/*'
-mv -- dolly.data dolly-seed.mjs "${project_dir}/dist/"
+node "${project_dir}/scripts/pack-seed.mjs" dolly.data \
+  "${staging}/headers/sysroot/include@/usr/include" "$@"
+mv -- dolly.data "${project_dir}/dist/"

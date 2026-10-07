@@ -1,6 +1,6 @@
 # Investigate: images that enter their program without a shell
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 295
 - TAGS: core,process,images,investigation
 
@@ -210,3 +210,16 @@ The wrapped images end the same way once their last shell exits: `exit` in
    and seven more display programs without a spawn client that a launcher or
    script starts. That is not yet a reason for the module
    (`20261005-222449-spawn-users`).
+
+## Closed 2026-10-07
+
+The done-when is the comparison and the recommendation, recorded above
+(`investigate/spawn`, `5e756e06`). Of the recommendation, item 2 is done and
+in the candidate: the page's ending notice, the last frame painted, a root
+process failure reported as the image's ending (`20261006-103306-page-ending`,
+closed), and the three findings under "Also found" are fixed
+(`20261006-103306-session-policies`, `20261006-103306-shell-env`, both
+closed). Item 1, direct ENTRY as a supported shape with the docs of item 3,
+and item 4 (the touch demo as the first such image,
+`20261005-222057-touch-input`) wait for the owner: listed in the triage of
+2026-10-07 (`20261005-132713-round-1005`).

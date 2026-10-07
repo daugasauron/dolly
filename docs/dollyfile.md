@@ -209,12 +209,14 @@ and `/host/MODULE/`, prepared sources in `/dist/static/`.
   module is not declared. Requirements grant nothing: the embedding enables
   modules and the HTTP broker decides network access
   ([browser boundary](browser-boundary.md)). `system` declares the runtime, display, http, download, upload
-  and snapshot; `default` adds packages and threads, because the packages
-  people install into it need them.
+  and snapshot; `default` adds packages, threads and dso, because the packages
+  people install into it need them (`python` and `nvim` load modules); a
+  declared module costs a program that does not record it nothing.
 - Linked client libraries (`-ldolly-gpu`, `-ldolly-audio`) stamp their module
   and its ABI digest into the executable's `dolly.host` section; loading fails
   for an unknown module or a different layout. Calling a disabled module
-  returns `ENOSYS`. `-pthread` programs need `REQUIRES HOST threads@0`
+  returns `ENOSYS`. `-pthread` programs need `REQUIRES HOST threads@0`,
+  `-rdynamic` programs and FFI callers `dso@0`
   ([process model](process-model.md#threads-dsos-and-ffi)).
 
 ## Entry and startup

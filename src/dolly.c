@@ -1,5 +1,4 @@
 #include <errno.h>
-#include <dirent.h>
 #include <fcntl.h>
 #include <limits.h>
 #include <stdatomic.h>
@@ -12,7 +11,6 @@
 #include <unistd.h>
 
 #include <emscripten/atomic.h>
-#include <emscripten/emscripten.h>
 
 #include <dolly/runtime.h>
 
@@ -76,12 +74,6 @@ int dolly_process_take_interrupt(void) {
                            memory_order_acquire) ? target : 0;
 }
 
-EM_JS(void, dolly_bootstrap_write_bytes,
-      (const unsigned char *bytes, uintptr_t length), {
-  const start = Number(bytes);
-  Module["bootstrapWriteBytes"]?.(HEAPU8.slice(start, start + Number(length)));
-});
-
 uint32_t dolly_kernel_terminal_mode(void) {
   return terminal_mode_flags;
 }
@@ -94,12 +86,9 @@ int dolly_kernel_terminal_set_mode(uint32_t flags) {
   return 0;
 }
 
-void dolly_terminal_write_bytes(const unsigned char *bytes, uintptr_t length) {
-  if (bytes == NULL || length == 0) return;
-  if (!dolly_kernel_terminal_attached()) {
-    dolly_bootstrap_write_bytes(bytes, length);
-    return;
-  }
+int dolly_terminal_write_bytes(const unsigned char *bytes, uintptr_t length) {
+  if (bytes == NULL || length == 0) return 0;
+  if (!dolly_kernel_terminal_attached()) return dolly_bootstrap_write_bytes(bytes, length);
   const uint32_t newline = DOLLY_TERMINAL_OPOST | DOLLY_TERMINAL_ONLCR;
   if ((terminal_mode_flags & newline) == newline) {
     uintptr_t start = 0;
@@ -113,13 +102,8 @@ void dolly_terminal_write_bytes(const unsigned char *bytes, uintptr_t length) {
     length -= start;
   }
   dolly_kernel_terminal_render(bytes, (size_t)length);
+  return 0;
 }
-
-// Processes reach the terminal through their own descriptors, and /dev/stdin
-// resolves to descriptor 0, so the kernel never reads WasmFS stdin. Defining
-// this device callback keeps Emscripten's JavaScript fallback out of the
-// kernel's imports.
-int _wasmfs_stdin_get_char(void) { return -1; }
 
 _Noreturn void dolly_assert_fail(const char *condition, const char *file,
                                  unsigned line, const char *function) {
@@ -128,8 +112,11 @@ _Noreturn void dolly_assert_fail(const char *condition, const char *file,
   abort();
 }
 
+// The Worker's boot files (abi/dolly-image-0.wat, abi/dolly-supervisor-0.wat).
 int dolly_write_file(const char *path, const void *bytes, size_t length) {
-  if (path == NULL || (bytes == NULL && length != 0)) return -EINVAL;
+  if (path == NULL || !dolly_fs_valid_path(path) ||
+      (bytes == NULL && length != 0)) return -EINVAL;
+  if (dolly_fs_parents(path, 1) != 0) return -errno;
   int fd = open(path, O_WRONLY | O_CREAT | O_TRUNC, 0666);
   if (fd < 0) return -errno;
 
@@ -153,88 +140,19 @@ int dolly_write_file(const char *path, const void *bytes, size_t length) {
   return status;
 }
 
-static int copy_seed_file(const char *source, const char *destination) {
-  int input = open(source, O_RDONLY);
-  if (input < 0) return -1;
-  int output = open(destination, O_WRONLY | O_CREAT | O_TRUNC, 0666);
-  if (output < 0) {
-    close(input);
-    return -1;
-  }
-  unsigned char bytes[64 * 1024];
-  int status = 0;
-  for (;;) {
-    const ssize_t count = read(input, bytes, sizeof(bytes));
-    if (count <= 0 || dolly_fs_write_exact(output, bytes, (uintptr_t)count) != 0) {
-      status = count == 0 ? 0 : -1;
-      break;
-    }
-  }
-  int saved_error = status == 0 ? 0 : errno;
-  if (close(output) != 0 && status == 0) {
-    status = -1;
-    saved_error = errno;
-  }
-  if (close(input) != 0 && status == 0) {
-    status = -1;
-    saved_error = errno;
-  }
-  if (status != 0) errno = saved_error == 0 ? EIO : saved_error;
-  return status;
+int dolly_read_file(const char *path, void *bytes, size_t capacity) {
+  if (path == NULL || bytes == NULL || capacity > INT_MAX) return -EINVAL;
+  unsigned char *contents;
+  uintptr_t size;
+  if (dolly_fs_read_file(path, capacity, &contents, &size) != 0) return -errno;
+  memcpy(bytes, contents, size);
+  free(contents);
+  return (int)size;
 }
 
-static int install_seed_tree(const char *source, const char *destination) {
-  struct stat metadata;
-  if (stat(source, &metadata) != 0) return -1;
-  if (S_ISREG(metadata.st_mode)) return copy_seed_file(source, destination);
-  if (!S_ISDIR(metadata.st_mode)) {
-    errno = ENOTSUP;
-    return -1;
-  }
-
-  struct stat destination_metadata;
-  if (stat(destination, &destination_metadata) != 0) {
-    if (mkdir(destination, 0755) != 0) return -1;
-  } else if (!S_ISDIR(destination_metadata.st_mode)) {
-    errno = ENOTDIR;
-    return -1;
-  }
-
-  DIR *directory = opendir(source);
-  if (directory == NULL) return -1;
-  int status = 0;
-  for (;;) {
-    errno = 0;
-    struct dirent *entry = readdir(directory);
-    if (entry == NULL) {
-      if (errno != 0) status = -1;
-      break;
-    }
-    if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0) {
-      continue;
-    }
-    char child_source[PATH_MAX];
-    char child_destination[PATH_MAX];
-    if (snprintf(child_source, sizeof(child_source), "%s/%s", source,
-                 entry->d_name) >= (int)sizeof(child_source) ||
-        snprintf(child_destination, sizeof(child_destination), "%s/%s",
-                 destination, entry->d_name) >= (int)sizeof(child_destination)) {
-      errno = ENAMETOOLONG;
-      status = -1;
-      break;
-    }
-    if (install_seed_tree(child_source, child_destination) != 0) {
-      status = -1;
-      break;
-    }
-  }
-  int saved_error = status == 0 ? 0 : errno;
-  if (closedir(directory) != 0 && status == 0) {
-    status = -1;
-    saved_error = errno;
-  }
-  if (status != 0) errno = saved_error == 0 ? EIO : saved_error;
-  return status;
+int dolly_remove_file(const char *path) {
+  if (path == NULL) return -EINVAL;
+  return unlink(path) == 0 ? 0 : -errno;
 }
 
 static int initialize_boot_environment(void) {
@@ -249,47 +167,35 @@ static int initialize_boot_environment(void) {
   close(output);
   close(error);
 
-  if (mkdir("/bin", 0755) != 0 && errno != EEXIST) {
-    fprintf(stderr, "dolly: mkdir /bin failed: %s\n", strerror(errno));
-    return 1;
+  static const char *const directories[] = {"/bin", "/tmp", "/workspace", "/home", "/home/dolly"};
+  for (size_t index = 0; index < sizeof(directories) / sizeof(*directories); ++index) {
+    if (mkdir(directories[index], 0755) != 0 && errno != EEXIST) {
+      fprintf(stderr, "dolly: mkdir %s failed: %s\n", directories[index], strerror(errno));
+      return 1;
+    }
   }
-  if (mkdir("/tmp", 0755) != 0 && errno != EEXIST) {
-    fprintf(stderr, "dolly: mkdir /tmp failed: %s\n", strerror(errno));
-    return 1;
-  }
-  if (mkdir("/workspace", 0755) != 0 && errno != EEXIST) {
-    fprintf(stderr, "dolly: mkdir /workspace failed: %s\n", strerror(errno));
-    return 1;
-  }
-  if (setenv("HOME", "/home/dolly", 1) != 0) {
-    fprintf(stderr, "dolly: HOME initialization failed: %s\n", strerror(errno));
-    return 1;
-  }
-  if (setenv("PATH", "/bin:/usr/bin", 1) != 0) {
-    fprintf(stderr, "dolly: PATH initialization failed: %s\n", strerror(errno));
-    return 1;
-  }
-  if (setenv("TERM", "xterm-256color", 1) != 0 ||
-      setenv("COLORTERM", "truecolor", 1) != 0) {
-    fprintf(stderr, "dolly: terminal environment initialization failed: %s\n",
-            strerror(errno));
-    return 1;
-  }
-  // Emscripten's defaults name a user no passwd lookup knows ("web_user").
-  // Dolly has no user database, so programs find HOME instead.
-  if (unsetenv("USER") != 0 || unsetenv("LOGNAME") != 0 || unsetenv("_") != 0) {
-    fprintf(stderr, "dolly: user environment initialization failed: %s\n", strerror(errno));
-    return 1;
+  // What every process starts from, before the image's own environment
+  // (load_image_environment). The browser supplies none of it: LANG is the
+  // value every image was built with, whatever language the browser reports.
+  static const char *const environment[][2] = {
+      {"PATH", "/bin:/usr/bin"}, {"PWD", "/"}, {"HOME", "/home/dolly"},
+      {"LANG", "en_US.UTF-8"},
+      {"TERM", "xterm-256color"}, {"COLORTERM", "truecolor"}};
+  for (size_t index = 0; index < sizeof(environment) / sizeof(*environment); ++index) {
+    if (setenv(environment[index][0], environment[index][1], 1) != 0) {
+      fprintf(stderr, "dolly: %s initialization failed: %s\n", environment[index][0], strerror(errno));
+      return 1;
+    }
   }
   return 0;
 }
 
 static int load_image_environment(void);
 
-int dolly_process_bootstrap_prepare(void) {
+int dolly_process_bootstrap_prepare(uintptr_t size) {
   if (initialize_boot_environment() != 0) return 1;
-  if (install_seed_tree("/seed/usr", "/usr") != 0) {
-    fprintf(stderr, "dolly: could not install compiler seed: %s\n", strerror(errno));
+  if (dolly_snapshot_restore_staged(size, NULL) != 0) {
+    fprintf(stderr, "dolly: invalid compiler seed: %s\n", strerror(errno));
     return 1;
   }
   return 0;

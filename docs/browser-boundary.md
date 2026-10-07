@@ -26,9 +26,11 @@ flowchart TB
     snap["snapshot@0"]
   end
   th["threads@0: Worker budget"]
+  dso["dso@0: loader and FFI in the process's own Worker"]
   guest --> imports
   guest --> mailboxes
   guest --> th
+  guest --> dso
   http --> policy["HTTP policy"]
   policy --> fetch(("Fetch"))
   policy --> build["build@0: local build service"]
@@ -40,15 +42,17 @@ flowchart TB
 ## Host modules
 
 [`abi/dolly-browser-0.wat`](../abi/dolly-browser-0.wat) is the exact outer import
-allowlist; the build rejects any other import and artifact checks reject
-undeclared `dolly_*` exports.
-[`host/modules.mjs`](../host/modules.mjs) assigns each import to the module whose
-[manifest](../host/README.md) owns it; a disabled module's imports return `ENOSYS`. Images and packets
-select no JavaScript or Worker URL.
+allowlist: every import carries a Dolly name, the build rejects any other, and
+artifact checks reject a kernel export that no contract names. The Worker
+instantiates the kernel itself, with no generated JavaScript:
+[`host/modules.mjs`](../host/modules.mjs) builds the whole import object, each
+import from the module whose [manifest](../host/README.md) owns it; a disabled
+module's imports return `ENOSYS`. Images and packets select no JavaScript or
+Worker URL.
 
 | Module | Channel | Authority | Code |
 | --- | --- | --- | --- |
-| `runtime@0` | memory, clocks, entropy, environment, seed preload, text output, terminal mailbox | Kernel memory and boot inputs; process Workers; report foreground and results, receive Ctrl+C | [`host/runtime/`](../host/runtime/module.json) ([`process-supervisor.mjs`](../src/process-supervisor.mjs)) |
+| `runtime@0` | `env.memory`, `env.dolly_clock_realtime`, `env.dolly_clock_monotonic`, `env.dolly_entropy`, `env.dolly_bootstrap_write_bytes`, terminal mailbox | Kernel memory; the two clocks; 64 KiB of entropy a call; boot text, 1 MiB a write; process Workers; report foreground and results, receive Ctrl+C | [`host/runtime/`](../host/runtime/module.json) ([`process-supervisor.mjs`](../src/process-supervisor.mjs)) |
 | `http@0` | `env.dolly_http_dispatch`, 16-slot pool | The only agent-selected network edge, under the page's policy | [`host/http/`](../host/http/module.json) |
 | `download@0` | `env.dolly_download_dispatch` | Stream one file (1 MiB chunks, 1 GiB) into a Blob under a checked basename; saved only by a user click; at most 4 waiting | [`host/download/`](../host/download/module.json) |
 | `upload@0` | mailbox | Ask for a file; the user picks it; 1 GiB of bytes in 1 MiB chunks, no name or path; refused for 2 s after a cancel | [`host/upload/`](../host/upload/module.json) |
@@ -57,6 +61,7 @@ select no JavaScript or Worker URL.
 | `gpu@0` | `env.dolly_gpu_dispatch` | Bounded WebGPU packets on the browser's `high-performance` adapter, 8 scopes, 4,096 objects each, 4 GiB total, one canvas | [`host/gpu/`](../host/gpu/module.json) |
 | `audio@0` | `env.dolly_audio_dispatch` | Stereo PCM output, 4 streams of 1 s; no capture | [`host/audio/`](../host/audio/module.json) |
 | `threads@0` | supervisor | Worker per thread of an admitted executable: 16 per process, 64 total | [`host/threads/`](../host/threads/module.json) |
+| `dso@0` | process Worker of an executable that records it | Instantiate Wasm the process supplies into its own memory and function table, and call its table entries with signatures chosen at run time; no import, no kernel entry, nothing outside that process | [`host/dso/`](../host/dso/module.json) ([`process.mjs`](../host/dso/process.mjs)) |
 | `build@0` | reserved URL via `http@0` | Start a disposable image build that writes the image cache | [`host/build/`](../host/build/module.json) |
 | `packages@0` | reserved URL via `http@0` | Serve the verified snapshot of a published package, one at a time, 64 per page | [`host/packages/`](../host/packages/module.json) |
 
@@ -68,8 +73,10 @@ select no JavaScript or Worker URL.
   the loader refuses one at run time. An embedding can restrict the set with
   `globalThis.DOLLY_HOST_MODULES`.
 - The page enables exactly the image's requirements, its runtime among them;
-  rebuild routes add `http@0` and `threads@0` for building, and a dependency
-  build enables the declared runtime with those two. Only Dollyfile Studio
+  rebuild routes add `http@0`, `threads@0` and `dso@0` for building (sources
+  are fetched, and toolchains run threaded tools and compilers and
+  interpreters that load modules), and a dependency build enables the
+  declared runtime with those three. Only Dollyfile Studio
   declares `build@0`, and the page admits it only after ENTRY starts
   ([Studio builds](image-build-service.md)). An image declaring `packages@0`
   (`default`) may GET `https://packages.dolly.invalid/v1/packages/SHA256`
@@ -155,8 +162,8 @@ select no JavaScript or Worker URL.
 | Indicator visibility | The GPU indicator, Save button and download offers hide ten seconds after the page is ready and on the user's `Ctrl+Shift+F`, which is not delivered as input. Page state shows them again (a new adapter state, a save, an offer); the one guest request among these is the bounded download offer, which shows them and can hide nothing ([`page-indicators.mjs`](../src/page-indicators.mjs)) |
 | Image ending | Once the ENTRY process is gone, page text below the last frame says how it ended: its exit status or signal number, or one line of its failure (printable ASCII, 512 bytes; the stack goes to the console). The page sets it as text and parses none of it; a running program can draw a lookalike but cannot cover, change or remove the notice. A module may add a link it builds itself, as `snapshot@0` does for the session the tab saved ([`browser.mjs`](../src/browser.mjs)) |
 | Image cache | Verified artifacts in IndexedDB, 32 images and 8 GiB ([`image-artifact.mjs`](../src/image-artifact.mjs)) |
-| Boot and code loading | Fixed kernel artifacts only ([`runtime-worker.mjs`](../src/runtime-worker.mjs)); one bundled process Worker; the plugin loader links an explicit kernel export map and fetches nothing |
-| Clocks, entropy, exit, CPU and memory use | Inputs and availability effects only |
+| Boot and code loading | Fixed kernel artifacts only ([`runtime-worker.mjs`](../src/runtime-worker.mjs)): the kernel and, for a root build, the compiler seed, a snapshot the kernel restores itself; one bundled process Worker; the plugin loader links an explicit kernel export map and fetches nothing |
+| Clocks, entropy, CPU and memory use | Inputs and availability effects only; the kernel grows its own memory up to its declared maximum, and its abort is a Wasm trap |
 
 ## Persistence
 
