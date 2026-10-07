@@ -92,8 +92,9 @@ export async function bootVersions(site, names, browsers) {
       const page = await browser.newPage(), requested = [];
       page.setDefaultTimeout(120_000);
       page.on("request", request => {
-        const { origin, pathname } = new URL(request.url());
-        if (origin === root.origin && pathname !== "/favicon.ico") requested.push(pathname);
+        // What the page asks the site for: not its own blob: Workers.
+        const { protocol, host, pathname } = new URL(request.url());
+        if (protocol === root.protocol && host === root.host && pathname !== "/favicon.ico") requested.push(pathname);
       });
       await page.goto(root.href);
       await page.waitForURL(url => url.pathname === `${root.pathname}${newest}/`);
