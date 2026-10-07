@@ -28,3 +28,4 @@ qwen3.5-4b-4
 cc
 git
 xonotic
+closed-source-agent

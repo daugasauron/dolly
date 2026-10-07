@@ -21,6 +21,11 @@ seed, built again by Dolly's own `cc`. The seed stays the bootstrap.
 - `llvm-stage2`: build-only. Builds the closure, the compiler and the TableGen
   tools again with that compiler and requires every archive and executable to
   be the first stage's bytes.
+- `llvm-runtimes`: build-only. libc++, libc++abi, libunwind and the compiler-rt
+  builtins built by Dolly's `c++` and `cc` from the pinned Emscripten sources,
+  with the flags of the archives the seed ships. A link takes them instead of
+  those with `-L/usr/lib/llvm-runtimes`; `test/llvm-browser.mjs` compares both
+  links.
 
 Key files: [`Dollyfile-llvm-tablegen`](Dollyfile-llvm-tablegen),
 [`prepare-sources.sh`](prepare-sources.sh) (stages the seed's verified checkout
