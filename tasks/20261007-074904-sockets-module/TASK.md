@@ -80,6 +80,115 @@ connections and connections are a new resource kind with their own quotas.
   `SO_PEERCRED` and `getpeername` are added when one of the programs above
   needs them, not in advance.
 
+## Settled before code (2026-10-08, `core/sockets-module`)
+
+Measured on the 76 images of `work/sockets/dist` (image inputs `c62b2710…`),
+nothing built. The scripts and raw results are in `build/sockets-evidence/`
+(ignored): `scan-socket-references.mjs` gunzips every pack an image lists and,
+for each file that starts with `\0asm`, reads the import and export sections,
+the `name` section and the `dolly.host` records; `report.mjs` tabulates it.
+
+### Stamping: who would carry a `sockets@0` record
+
+- The signal: an executable whose `name` section still holds one of the 18
+  libc socket functions (`socket`, `socketpair`, `connect`, `bind`, `listen`,
+  `accept`, `accept4`, `getsockname`, `getpeername`, `recv`, `send`, `sendto`,
+  `recvfrom`, `sendmsg`, `recvmsg`, `getsockopt`, `setsockopt`, `shutdown`)
+  after the linker's garbage collection. 144 of the 145 distinct executables
+  have a name section; `compiler`, the process behind `cc`, has none and is
+  not counted. A record stamped by reference is carried by these and by any
+  executable whose only reference is in code the linker later drops, so the
+  count is a lower bound; the four `-rdynamic` hosts keep every function by
+  construction.
+- 13 of 145 executables keep a socket function. By the number of images that
+  hold each: `git` 37, `cmake` 12, `rustc-real` 6, `python` 5, `nvim` 4,
+  `cargo` 3, `codex` 3, `emacs` 2, `zig` 2, `xonotic-sdl` 2, `pyrogenesis` 2,
+  `lua` 1, `xonotic-dedicated` 1. `janis`, `curl`, Slop and the 88 commands of
+  `/bin` keep none.
+- 50 of 76 images hold one, and 41 of the 42 runnable ones: every runnable
+  image except `default`. Without `git` it would be 31 and 23. The 26 without:
+  `default`, `amy`, `cbindgen`, `cc`, `core`, `curl`, `display`, `dolly-docs`,
+  `fd`, `gzip`, `javascript`, `llvm`, `llvm-runtimes`, `minicpm5-2b`,
+  `pi-coding-agent`, `posix`, `protox`, the five `qwen3.5-*`, `ripgrep`,
+  `sdl2`, `system-build`, `zlib`.
+- What the 13 reach: `git` only `socket`, `connect`, `setsockopt` and
+  `shutdown` (its `git://` transport); `xonotic` only datagram calls;
+  `pyrogenesis` only `recv` and `send`; `cmake` libuv's `accept`. Four of them
+  create a local socket today or after their port is upgraded (`python`,
+  `nvim`, `codex`, and `emacs` for its server).
+- Sealing refuses a retained executable whose record the recipe does not
+  declare (`src/dollyfile.c`, `check_host_section`). `git` is in `system`, so a
+  record by reference puts `REQUIRES HOST sockets@0` into 51 recipes (the 50
+  and `default`, for `amy install git`) and into every recipe built on
+  `system`: the custom images of `test/threads-browser.mjs`,
+  `test/dso-browser.mjs` and their like, the examples of the Pi and Studio
+  skills, and a user's own Dollyfile, which would stop sealing until the line
+  is added.
+
+Recommendation: no declaration; local sockets as core process operations, as
+`spawn@0` was decided in `20261005-222449-spawn-users` (52 of 61 there). The
+line would be in every runnable image and omitting it sheds no kernel import,
+no trusted JavaScript and no browser authority: the kernel import list does
+not change either way.
+
+What is built, so that the owner's choice costs one commit either way: the
+module `host/sockets/` with its manifest, contract, digest, kernel C and
+client archive, and **no record in the client**. The kernel side is the same
+for both answers.
+
+- Declared module: add `DOLLY_HOST_REQUIRE(sockets, 0,
+  DOLLY_SOCKETS_ABI_DIGEST)` to `host/sockets/client.c` and the line to the 51
+  recipes and the test recipes above. The loader and sealing then enforce it
+  with no further code.
+- Core operations: nothing more is needed to run. Until the contract's bytes
+  are folded into `include/dolly/process.h` (a new `dolly.process` digest), no
+  stamp covers the layout of `sockets.h`; that move belongs in the next
+  process-contract round.
+- A declaration that would mean something needs an opt-in at link time, as
+  `-rdynamic` is for `dso@0`: libc keeps refusals, a `cc` flag selects the
+  client and its record, and each upgraded port passes it (about 15 recipes).
+  It costs the 18 refusals kept beside the client, a driver flag and a link
+  flag per port, Rust's linker included. Not built.
+
+### Which ports match on `ENOSYS`
+
+- Upstream sources of the ports (`.cache`: CPython, Git, Neovim, Zig's
+  `std/posix.zig`, and the 1,645 crate archives Rust builds from, Codex's
+  among them): none matches `ENOSYS` or Rust's `ErrorKind::Unsupported` on the
+  result of a socket call. CPython's `accept4_works = errno != ENOSYS`
+  (`Modules/socketmodule.c:3060`) only selects `accept`, which now exists.
+- Dolly's own: `demos/rust/test/fixtures/rust/tokio/src/main.rs` asserts
+  `ENOSYS` from `TcpStream::connect`; it becomes `EAFNOSUPPORT`.
+  `demos/python/cpython-socket-stubs.c` returns `ENOSYS` itself and
+  `demos/javascript` raises `ENOSYS` from its own JavaScript without calling
+  libc: both are the port's to change when it is upgraded.
+  `demos/rust/config/patches/tokio-target.patch` returns `ENOSYS` from
+  `get_peer_cred`, which is a missing target arm, not a socket call's result.
+- What `ENOSYS` hid: Zig's `std.posix.socket` has no arm for it ("unexpected
+  errno"), and has one for `EAFNOSUPPORT`.
+
+### A bound path
+
+- WasmFS has no socket node and its file type cannot be changed after
+  creation, so a bound path is an empty regular file that `bind` creates
+  (`EADDRINUSE` when the name exists) and marks with the sticky bit. No
+  process can set a mode bit (`chmod` only checks that the file exists), so
+  the mark cannot be forged or cleared. `stat`, `lstat` and `fstat` report
+  such a file as `S_IFSOCK`; `readdir` still says regular file.
+- The listener keeps the file open, which pins its inode (WasmFS numbers
+  inodes by object address), and `connect` finds the listener by the inode the
+  path resolves to: a renamed path still connects, as on Linux.
+- Unlinking the path removes the name only: connections and the listener go
+  on, nobody new can connect, and the name can be bound again.
+- When the listener's last descriptor closes or its process ends, the file
+  stays, still `S_IFSOCK`, and `connect` gives `ECONNREFUSED`, as on Linux; a
+  server removes a stale path before binding (asyncio does so only for a path
+  that is a socket). A path that is no socket file also gives `ECONNREFUSED`,
+  a missing one `ENOENT`.
+- Snapshots record directories, files and links only: a socket file saved in
+  a session or kept by an image comes back as an empty regular file. Images
+  never retain `/tmp`.
+
 ## Upgrading the ports
 
 For each entry under Today: remove the workaround, rebuild the image, run its
