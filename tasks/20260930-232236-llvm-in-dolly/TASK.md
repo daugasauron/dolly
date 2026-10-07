@@ -317,6 +317,10 @@ come from `em++ -v` in the pinned container.
 - Compiler: the container's Clang is `24.0.0git` at `4bfd08c2`, the commit of
   `DOLLY_LLVM_COMMIT`. The shipped archives and Dolly's `c++` are the same
   compiler source, built for x86-64 and for wasm64.
+- The library is older than the compiler: Emscripten's copy is libc++ 22.1.8
+  with its own patches, and the headers the seed installs are that copy.
+  `.cache/llvm-project` holds libc++ 24, another library (58 of the 69 `.cpp`
+  files differ); nothing here is built from it.
 
 ### Built inside Dolly: `llvm-runtimes`
 
@@ -343,10 +347,11 @@ PSS sampled every 2 s.
   `cxa_demangle.cpp` 1.8 s).
 - With the process builtins: 260 translation units, `make -j2` 45.9-49.1 s
   (five builds), the whole image build 55-59 s, peak PSS 1.5-1.65 GiB.
-- With the kernel plugins' builtins too: 443 units, `make -j2` 60.7-62.8 s,
-  peak PSS 1.6 GiB, snapshot 11.4 MB.
+- With the kernel plugins' builtins too: 443 units, `make -j2` 60.7-63.2 s
+  (three builds), peak PSS 1.6 GiB, snapshot 11.4 MB.
 - Reproducible: every build gave the same files, the C++ three at `-j1` and
-  `-j2` (SHA-256 `3bc3bbdf…`, `d71be685…`, `5144a5f6…`; builtins `e471d62f…`).
+  `-j2` (SHA-256 `3bc3bbdf…`, `d71be685…`, `5144a5f6…`; builtins `e471d62f…`
+  and `ef004e64…`).
 - The sysroot lacked one file, for the builtins: `emscripten_internal.h`, a
   libc source header.
 - The driver lacked, for the flags of the shipped variant (each passed through
@@ -447,7 +452,8 @@ Firefox 155:
 - links a kernel plugin (`cc --dolly-kernel-plugin -shared`, one `__int128`
   multiplication) with the seed's builtins archive and with the built one
   named before it: the trace shows `multi3.o` from the one and from the other,
-  and the two plugins are the same bytes;
+  and the two plugins are the same bytes (linked and validated; nothing here
+  loads a plugin);
 - configures LLVM with the `llvm-tablegen` recipe's own `cmake` line plus
   `-DCMAKE_EXE_LINKER_FLAGS=-L/usr/lib/llvm-runtimes`, builds `llvm-min-tblgen`
   and `llvm-tblgen` (`make -j2 llvm-tblgen WebAssemblyCommonTableGen`), whose
@@ -457,7 +463,7 @@ Firefox 155:
 
 | | Chrome 151 | Firefox 155 |
 | --- | --- | --- |
-| whole test (five runs) | 323.3-346.1 s | 369.1-413.3 s |
+| whole test (five runs) | 323.3-346.1 s | 369.1-416.1 s |
 | its `make -j2` (both tools, then the TableGen runs) | 246.5-248.5 s | 298.5 s |
 | peak PSS of the browser | 4.2-4.3 GiB | 3.9 GiB |
 
@@ -474,8 +480,8 @@ executable differs in size by a few bytes.
 
 ### With the driver's own flags only
 
-The same Makefile without any `-Xclang` (PIC, default DWARF off, the two
-rejected flags dropped): 260 units in 42.3 s. Same defined names; the undefined
+The same Makefile without any `-Xclang` (PIC, no DWARF, the two rejected flags
+dropped), before the kernel plugins' variant: 260 units in 42.3 s. Same defined names; the undefined
 ones gain `__memory_base` and `__table_base`. Code grows 1.9% in libc++
 (445,272 bytes), 3.0% in libc++abi and 7.3% in the builtins; without DWARF the
 archives are 1.73 MB, 0.28 MB and 0.27 MB. Both test programs link against it

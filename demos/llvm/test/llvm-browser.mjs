@@ -4,7 +4,8 @@
 // loaded, and the two results are the same bytes. Then LLVM's TableGen,
 // configured as the llvm-tablegen recipe configures it, is linked with the
 // built runtime and reproduces the outputs the image kept.
-// Usage: node demos/llvm/test/llvm-browser.mjs [chromium|firefox ...]
+// Usage: node demos/llvm/test/llvm-browser.mjs [chromium|firefox ...], after
+// DOLLY_BUILD_IMAGES=llvm-tablegen,llvm-runtimes npm run image.
 import { readFile } from "node:fs/promises";
 import { demoTest } from "../../browser.mjs";
 import { inspectDollyfile } from "../../../src/dollyfile-view.mjs";

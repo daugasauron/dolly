@@ -3,9 +3,10 @@ PACKAGE llvm-runtimes
 REQUIRES HOST runtime@0
 
 # Build-only: libc++, libc++abi, libunwind and the compiler-rt builtins as the
-# process SDK ships them from the Emscripten container, built by Dolly's c++ and
-# cc from the same pinned sources (tasks/20260930-232236-llvm-in-dolly). A link
-# takes them instead only when it names the directory: -L/usr/lib/llvm-runtimes.
+# seed ships them from the Emscripten container, built by Dolly's c++ and cc
+# from the same pinned sources (tasks/20260930-232236-llvm-in-dolly). A process
+# link takes them instead only when it names the directory:
+# -L/usr/lib/llvm-runtimes.
 FROM https://daugasauron.com/Dollyfile-system-tools 76204eed7416daabd1c8978f628b45da16f77d27d23d4f1473c508c5c750a309
 REQUIRES TOOL c++
 REQUIRES TOOL cc
@@ -19,8 +20,9 @@ REQUIRES TOOL time
 SOURCE https://daugasauron.com/dist/static/llvm/runtimes.tar 605875c4a578ea1b5380fd514ecb53e29f8c25a4fd78eb834a1c8976c30a0b34 /tmp/runtimes.tar
 SLOP tar -xf /tmp/runtimes.tar -C /
 
-# Sources, flags and member order of the -ww-wasmexcept and -wasmsjlj-ww variants
-# in Emscripten 6.0.8's tools/system_libs.py; the -mt variants are the same bytes.
+# Sources, flags and member order of the -ww-wasmexcept, -wasmsjlj-ww and pic
+# variants in Emscripten 6.0.8's tools/system_libs.py; the -mt variants are the
+# same bytes.
 FILE /tmp/llvm-runtimes/Makefile
     .RECIPEPREFIX := >
     S := /tmp/llvm-runtimes/system/lib
