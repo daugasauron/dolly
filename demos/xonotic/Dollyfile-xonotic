@@ -20,7 +20,7 @@ SOURCE https://daugasauron.com/dist/static/xonotic/data/xonotic-20230620-maps.pk
 
 FILE /usr/bin/xonotic
     #!/bin/slop
-    exec /usr/bin/xonotic-sdl -xonotic -basedir /usr/share/xonotic +vid_soft 1 +vid_fullscreen 0 +vid_width 1024 +vid_height 768 "$@"
+    /usr/bin/xonotic-sdl -xonotic -basedir /usr/share/xonotic +vid_soft 1 +vid_fullscreen 0 +vid_width 1024 +vid_height 768 "$@"
 EXPORTS TOOL xonotic
 EXPORTS FOLDER xonotic-data /usr/share/xonotic
 
