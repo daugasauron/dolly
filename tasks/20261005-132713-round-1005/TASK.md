@@ -791,3 +791,40 @@ exact-import check passes.
   (`work/cargo/build/spidermonkey-evidence/`); it had about 40 to 50 minutes
   to go at 10:25. Whether the SpiderMonkey image builds is the open result.
 - All other agents are stopped with their work committed.
+
+### 12:37, 2026-10-07: round 3 sealed; the checkpoint round started
+
+- **Round 3** is packaged and tagged `rc-2026-10-07-r3` (`integrate/round3`
+  at `7992be73`): full site `799a9d41…`, domain site `660b593b…`, in
+  `work/locks/build/round3-releases` and `round3-domain-releases`; not
+  served (the checkpoint replaces it). Its suites: source 414/0, artifacts
+  23/0, core browser suites in both browsers (the compiler suite after the
+  test was narrowed to the five flags that work: `-fstandalone-debug` and
+  `-ferror-limit=` reach cc1 in the driver's spelling and are refused; fix
+  `core/cc-flags` `7dbf0f38`, unbuilt, next seed change), demos (emacs once
+  lost typed text and passed twice on rerun: recorded in
+  `20261001-095000-terminal-text-flake`), GPU tests (the local-model test
+  needs more than 900 s now and passed with a longer limit). It was the first
+  release packaged by the streaming `share-pages-snapshots.mjs` (216 MB
+  instead of 25 GB; task `publish-memory` closed).
+- **Checkpoint** (owner, 12:00: "take the current state ish, include the
+  xonotic game and the zero-ad build … then stop there and get to a stable
+  checkpoint"; goal: "let me know when it's deployed locally for review"):
+  `integrate/checkpoint` at `b036d27e` in `work/locks` = round 3 + `main` +
+  `work/spidermonkey` (`d2eb72a2`: SpiderMonkey built inside Dolly, 0 A.D.'s
+  engine linked against it, three 0 A.D. tests green with the same save/load
+  hash, host bootstrap deleted) + `fix/package-needs` (`6b0a44b3`: `cmake`
+  installs `cc` and `make`) + `demo/xonotic` (`25528317`: server, QuakeC
+  compiler and client built in Dolly, software renderer at 31 fps on the low
+  preset, the `sdl2` cursor fix, pointer capture in a match verified in both
+  browsers, licence rows). 71 recipes. Same seed as round 3 (image inputs
+  `c62b2710…`), so only `sdl2` and what installs it, the 0 A.D. chain,
+  `cmake`, and the four new images rebuild.
+- Left out on purpose, each on its branch: `input@0` (`core/input-module`
+  `fa073dc9`, verified on chains, game demos not), the two compiler flags,
+  file modes, `exec`, Xonotic's sound and `gpu@0` renderer, `less`.
+- The round: `work/checkpoint-run.sh` (stages as before, gated before
+  packaging), log `work/locks/build/checkpoint-evidence/checkpoint.log`,
+  releases to `build/checkpoint-releases` and `checkpoint-domain-releases`.
+  When green: serve on :9003 and :9005, merge to `main`, tag
+  `checkpoint-2026-10-07`, tell the owner.
