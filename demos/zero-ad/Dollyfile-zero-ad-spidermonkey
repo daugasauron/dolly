@@ -12,7 +12,7 @@ REQUIRES HOST upload@0
 # Build-only: SpiderMonkey 128.13.0, the engine's JavaScript library, built by
 # upstream's mozbuild (configure.py and Make) with Dolly's CPython, Cargo,
 # cbindgen and c++ from 0 A.D.'s pinned tarball and patches.
-FROM https://daugasauron.com/demos/zero-ad/Dollyfile-zero-ad-deps 2a77ac29c039bcbcddc68d421fc33825ad9f731a03dceabba5cb5a7772ba746b
+FROM https://daugasauron.com/demos/zero-ad/Dollyfile-zero-ad-deps 68fdf9e443d4ec2f6459e26f107fc75bfee3965b6abeda185d1d92e1ebc4893d
 INSTALL https://daugasauron.com/demos/python/Dollyfile-python 63564ea12bb057627a1e3c89b514c01e74895c4a5f2f8cae4793c0dc7dd4dc17
 INSTALL https://daugasauron.com/demos/rust/Dollyfile-cargo aa236f537761c52e49b067432c96b41c7950087be63d8803d9ab0529b8f27d49
 INSTALL https://daugasauron.com/demos/rust/Dollyfile-cbindgen c29d76b4e892379a32d7ccf4a58f1291cd2aa083f3ea3327720581d9d754a3e9

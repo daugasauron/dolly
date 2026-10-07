@@ -93,6 +93,29 @@ licences of every statically linked library under `/usr/share/licenses/`,
 SpiderMonkey's MPL-2.0 text and the licence files of the vendored Rust crates
 compiled into its `libjsrust.a` (Mozilla's own crates are MPL-2.0).
 
+## Xonotic
+
+Xonotic 0.8.6 is built in Dolly: `xonotic-build` compiles DarkPlaces
+(GPL-2.0-or-later), gmqcc (MIT), IJG libjpeg 9f (its own licence, the
+`README` kept as `/usr/share/licenses/libjpeg/README`) and Dolly's files for
+the port from `xonotic/source.tar.gz`, the release's source zip plus
+libjpeg's tarball, which the site serves as a recipe input together with the
+QuakeC game logic (`qcsrc`, GPL-3.0-or-later) that gmqcc compiles there.
+Dolly's own files compiled into the engine, `demos/xonotic/Makefile` and
+`simd-unit.c`, carry `SPDX-License-Identifier: GPL-2.0-or-later`; the six
+hunks of `darkplaces-dolly.patch` change engine files and take the engine's
+licence. FreeType and libpng come as static libraries copied from
+`zero-ad-deps` with their licence files. The `xonotic` image takes the
+release's `data`, `maps` and font archives as prebuilt files
+(`xonotic/data/`, GPL-3.0-or-later by Xonotic's `COPYING`; the compiled
+`progs.dat`, `csprogs.dat` and `menu.dat` inside `data.pk3` are the
+release's) and keeps Xonotic's `COPYING`, `GPL-2` and `GPL-3`, gmqcc's
+`LICENSE`, libjpeg's, FreeType's, libpng's and SDL2's under
+`/usr/share/licenses/`. Not done: a pass over the data archives for single
+assets under other terms (Xonotic's `COPYING` says some `qcsrc/` files carry
+other licences in their own `COPYING` files); the owner decides on anything
+it finds.
+
 ## Fixed gaps
 
 musl's and Emscripten's notices (kept by `system-build`), WAMR's licence in its
