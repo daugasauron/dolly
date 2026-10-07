@@ -600,3 +600,49 @@ memory sampled every 2 s into `memory-4.log`; stage logs `stage-*.log`.
   export stage; the same build in a session peaked at 4.3 GB. The
   bootstrap exception is replaced in the recipe graph; `build-spidermonkey.sh`
   and the doc rows go once `zero-ad-engine` has rebuilt against `/opt/mozjs`.
+
+### Image build stages, sizes, and what the engine rebuild unlocks (11:52)
+
+Stage times and scope peaks of the `zero-ad-spidermonkey` image build on the
+round-3 base (bigbuild slot, 9 GB cap, cgroup v2 peaks with file cache):
+unpack + patches, configure (with the three backends) and the Rust library in
+the first ~4 min, C++ to the `libjs_static.a` archive at 742-756 s, misc tier
+(style check, `js-config`, `js.pc`) and the copy into `/opt/mozjs`, then the
+796 MB snapshot export to 879 s. Peaks: 7.33 GB through the archive (build 2),
+the 9 GB cap during the export (build 3, cache reclaimed, no kill); the same
+work in a session peaked at 4.3 GB. `cbindgen`: 2.5 min, 4.4 MB.
+
+Library sizes, Dolly-built against host-built: `libjs_static.a` 21,428,434 B
+against 406,352,974 B, `libjsrust.a` 5,140,674 B against 24,145,424 B. The
+difference is DWARF: the host build compiled with `-gdwarf-4` and
+`-C debuginfo=2`, the recipe with `--disable-debug-symbols` and no Rust
+debuginfo; the code and exported symbols are the same build options
+otherwise (minus `-msimd128`, above).
+
+To delete once `zero-ad-engine` has rebuilt against `/opt/mozjs` and
+`0ad-spidermonkey`, `0ad-engine` and `0ad-graphics` pass on it (nothing is
+deleted yet):
+
+- `demos/zero-ad/toolchain/build-spidermonkey.sh` (the host driver),
+  `toolchain/spidermonkey.sh` (the container build), `toolchain/prepare.sh`
+  (the host staging: 0 A.D. tarball unpack, native Rust bootstrap, cbindgen,
+  m4/pkg-config copies, the wasm64 std build, zlib; used only by
+  `build-spidermonkey.sh`), `toolchain/rustc.sh` (used only by
+  `spidermonkey.sh`) and `toolchain/rust-bootstrap.toml` (used only by
+  `prepare.sh`). `toolchain/spidermonkey.patch` stays: the recipe applies it.
+- `demos/zero-ad/README.md`: the "SpiderMonkey is still cross-compiled
+  outside Dolly, an explicit bootstrap exception" sentence (lines 5-7) and
+  the `bash demos/zero-ad/toolchain/build-spidermonkey.sh` line of the Build
+  section (line 24).
+- `docs/sources.md` lines 30-31: "0 A.D.'s SpiderMonkey" among the demo
+  exceptions and "SpiderMonkey" among the externally built programs.
+- `docs/licences.md` lines 21 and 88-91: SpiderMonkey as a file built
+  outside Dolly and the `mozjs-host.tar.gz` / `bootstrap.tar` description
+  (the licence texts now come from the image's `/usr/share/licenses/spidermonkey`).
+- `dist/static/zero-ad-build/mozjs-host.tar.gz` (115 MB) and `bootstrap.tar`
+  (151 MB): no recipe reads them and staging no longer writes them.
+- The host caches under `.cache/0ad/`: `…/mozjs-128.13.0/obj-dolly` (1.1 GB),
+  `toolchain` (1.4 GB, the native Rust bootstrap), `rust-target` (291 MB),
+  `cargo-home` (86 MB), `host-tools`, `sysroot`, `zlib`, `mozbuild-state`.
+  `DOLLY_EMSDK_IMAGE` in `config/source-pins.sh` stays if anything else uses
+  the emsdk container; check before removing.
