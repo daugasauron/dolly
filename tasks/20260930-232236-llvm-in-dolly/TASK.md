@@ -1105,8 +1105,9 @@ Dolly's own parts are compiled by `emcc -m64 -O1 -matomics -mbulk-memory
 
 `demos/sysroot/Dollyfile-sysroot` (`FROM system-tools`, build-only, keeps
 `/usr/lib/sysroot`): the seven Emscripten archives from a 4.8 MB tar of
-`system/lib/{libc,pthread,standalone,dlmalloc.c}` at the pin, and Dolly's own
-parts from `src/process` and the host clients. `units.mk` lists the sources;
+`system/lib/{libc,pthread,standalone,dlmalloc.c}` at the pin, the two libc
+archives without the members Dolly removes, and Dolly's own parts from
+`src/process` and the host clients. `units.mk` lists the sources;
 `list-units.py` generates it from `tools/system_libs.py` in the pinned
 container, so the list is Emscripten's and not a second copy of its rules. A
 new demo and not `demos/llvm`: the C library is not LLVM's. When this is
@@ -1114,7 +1115,7 @@ adopted the compiler-rt builtins of `llvm-runtimes` belong here too, and that
 image can go (the root recipe builds its other three archives on this branch).
 
 Built in headless Chrome in a build slot, `make -j2`
-(`build/runtimes-evidence/sysroot/try1` to `try5`: image and build logs, PSS
+(`build/runtimes-evidence/sysroot/try1` to `try6`: image and build logs, PSS
 samples of the browser every 2 s, the extracted files, the reports):
 
 | Build | Holds | `cc` runs | `make -j2` | Peak PSS | Snapshot bytes |
@@ -1123,26 +1124,27 @@ samples of the browser every 2 s, the extracted files, the reports):
 | `try2` | the same, archived | 2,197 | 198.9 s | 1,448 MiB | 7,841,267 |
 | `try3` | and Dolly's own parts, client archives empty by a slip in the Makefile | 2,219 | 197.1 s | 1,444 MiB | 7,969,867 |
 | `try4` | all 21 files | 2,229 | 208.4 s | 1,407 MiB | 8,011,118 |
-| `try5` | the committed recipe: those and the two licence files | 2,229 | 216.6 s | 1,500 MiB | 8,022,961 |
+| `try5` | those and the two licence files | 2,229 | 216.6 s | 1,500 MiB | 8,022,961 |
+| `try6` | the committed recipe: libc without the 6 and 16 members Dolly removes | 2,207 | 203.7 s | 1,550 MiB | 7,891,483 |
 
-The 2,229 runs are 2,215 C units and seven assembly units, each preprocessed
-and then compiled as file-scope asm, for 2,222 objects. The machine was
-shared (`try4` also ran beside two runs of the source tests), so the time is
-193 to 217 s; a serial build was not measured. The image takes 219.9 s in
-all. The build repeats: the 21 files of `try5` have the SHA-256 of `try4`'s
-(`try5/sha256.txt`), and `units.mk` comes out of the container byte for byte
-again.
+The 2,207 runs of `try6` are 2,193 C units and seven assembly units, each
+preprocessed and then compiled as file-scope asm, for 2,200 objects. The
+machine was shared (`try4` also ran beside two runs of the source tests), so
+the time is 193 to 217 s; a serial build was not measured. The image takes
+206.6 s in all. The build repeats: the 21 files of `try5` have the SHA-256 of
+`try4`'s (`try5/sha256.txt`), and `units.mk` comes out of the container byte
+for byte again.
 
 ### Compared with what the seed ships
 
-Section by section (`build/runtimes-evidence/sysroot/compare.sh`, `wasmar.py`;
-the seven Emscripten archives against the container's full archives, Dolly's
-parts against this branch's process sysroot), and `llvm-nm` line by line:
+Section by section (`build/runtimes-evidence/sysroot/compare.sh`, `wasmar.py`),
+each file of `try6` against the file of that name in this branch's process
+sysroot, and `llvm-nm` line by line:
 
 | File | Members | Shipped bytes | Built bytes | Sections that differ (members) |
 | --- | ---: | ---: | ---: | --- |
 | `crt1.o` | 1 | 602 | 607 | `producers` 1 |
-| `libc-ww.a` | 1,016 | 3,358,676 | 3,367,052 | `producers` 1016, DWARF 1014, `linking` 3, `target_features` 3 |
+| `libc-ww.a` | 1,010 | 3,329,684 | 3,338,000 | `producers` 1010, DWARF 1008, `linking` 3, `target_features` 3 |
 | `libdlmalloc-ww.a` | 2 | 97,754 | 97,774 | DWARF 2, `producers` 2 |
 | `libdolly-audio.a` | 1 | 1,912 | 1,916 | `producers` 1 |
 | `libdolly-display.a` | 1 | 4,958 | 4,962 | `producers` 1 |
@@ -1157,25 +1159,29 @@ parts against this branch's process sysroot), and `llvm-nm` line by line:
 | `libstandalonewasm-ww-memgrow.a` | 15 | 91,230 | 91,380 | DWARF 15, `producers` 15 |
 | `libstubs.a` | 2 | 23,564 | 23,584 | DWARF 2, `producers` 2 |
 | `threads/crt1.o` | 1 | 573 | 578 | `producers` 1 |
-| `threads/libc-mt.a` | 1,139 | 3,826,578 | 3,836,206 | `producers` 1139, DWARF 1137, `linking` 3, `target_features` 3 |
+| `threads/libc-mt.a` | 1,123 | 3,722,512 | 3,731,980 | `producers` 1123, DWARF 1121, `linking` 3, `target_features` 3 |
 | `threads/libdlmalloc-mt.a` | 2 | 89,924 | 89,944 | DWARF 2, `producers` 2 |
 | `threads/libdolly-process.a` | 7 | 49,578 | 49,932 | `producers` 7, `target_features` 1 |
 | `threads/libdolly-runtime.a` | 1 | 16,608 | 16,612 | `producers` 1 |
 | `threads/libstandalonewasm-mt-memgrow.a` | 15 | 91,230 | 91,380 | DWARF 15, `producers` 15 |
 
-2,222 members in 21 files.
+2,200 members in 21 files.
 
-`llvm-nm` prints the same lines for 19 of the 21 (`try5-nm.out`); for the two
-libc archives it prints ten fewer, the DWARF section symbols of the three
-assembly members.
+Member names and their order are the shipped ones in all 21. `llvm-nm`
+prints the same lines for 19 of them (`try6-nm.out`); for the two libc
+archives it prints ten fewer, the DWARF section symbols of the three assembly
+members. `try2` to `try5` built Emscripten's full libc archives, 1,016 and
+1,139 members, and held them against the container's: the 22 members Dolly
+removes differ from the container's in the same two ways only
+(`try5-compare.out`).
 
 `demos/sysroot/test/sysroot.artifacts.mjs` (`npm run test:artifacts`) keeps
-this comparison: it holds the 2,200 members the seed ships in
+this comparison: it holds every file the seed ships in
 `/usr/lib/dolly/process` (all but the builtins, which `llvm-runtimes` has)
-against the image, section by section, allowing `producers` and DWARF, and
-for the assembly members `target_features` and `linking`. It passes on `try4`
-and `try5` and fails on `try3` ("libdolly-audio.a has no
-process-audio-client.o").
+against the image: the same members in the same order, 2,200 of them, and
+each equal section by section, allowing `producers` and DWARF, and for the
+assembly members `target_features` and `linking`. It passes on `try6` and
+fails on `try5` (the member lists) and on `try3` (empty client archives).
 
 Every member has the name, order, code, data, types, imports, relocations and
 symbols of the shipped one. What differs, and why:
@@ -1187,7 +1193,7 @@ symbols of the shipped one. What differs, and why:
 - `.debug_info`, `reloc..debug_info`, `.debug_str`, in the members built with
   `-g`: the same string again, as `DW_AT_producer`. It is the first string, so
   every later string offset moves by five. `dwarf-check.py` proves it for each
-  of the 2,181 (`try4/dwarf-check.txt`, the same files): the relocations agree in type, place
+  of the 2,159 (`try6/dwarf-check.txt`): the relocations agree in type, place
   and symbol, each differing addend names the same string on both sides,
   `.debug_info` is equal outside those four-byte fields and the string lists
   are equal without the producer.
@@ -1260,11 +1266,28 @@ six and sixteen members it removes, and `dynamic-provider.symbols`, which
 `prepare-process-sysroot.sh` lists from the container's archives (`llvm-nm`
 prints the same names for the rebuilt ones).
 
+### In Chromium and Firefox
+
+`demos/sysroot/test/sysroot-browser.mjs`: a session of `system` with the
+`sysroot` package installed links a C program (stdio, `malloc`, `sqrt`,
+`timegm`) and a `-pthread` one twice, as usual and with `-L/usr/lib/sysroot`
+(`-L/usr/lib/sysroot/threads` first for the threaded one), so that every `-l`
+name of the driver finds the rebuilt archive. The linker's trace shows the
+usual link loading members of the seed's archives and the other loading none
+of them, and the two executables are the same bytes; the serial one runs.
+`crt1.o` and `libdolly-process.a` are linked by path and stay the seed's in
+both. Chromium 5.0 s, Firefox 10.0 s (`browser/run2.log`).
+
+With Emscripten's full `libc-mt.a` the threaded link failed, seven duplicate
+symbols between its `pthread_create.o` and Dolly's `threads.o`
+(`browser/run1.log`): that is why the recipe now leaves out the members the
+seed's archives lack, a second copy of the two lists in
+`scripts/prepare-process-sysroot.sh` and `scripts/build-process-threads.sh`
+which the artifact test holds to the seed's.
+
 ### Not done
 
-No link uses the rebuilt archives: the rebuilt libc has the members Dolly
-removes from the shipped one, so `-L/usr/lib/sysroot` would not be the shipped
-link, and equal sections already decide the result. Not run in Firefox (the
-image builds in Chrome; the test reads files). The assembler is not added. The
-comparison reads this worktree's `dist` and `.cache`; the artifact test needs
-the `sysroot` image beside the seed it was built on.
+The assembler is not added. The threaded program is linked, not run (the probe
+session has no `threads@0`). The image builds in Chrome only, as every image
+does. The artifact test needs the `sysroot` image beside the seed it was built
+on; the scratch comparison reads this worktree's `dist` and `.cache`.
