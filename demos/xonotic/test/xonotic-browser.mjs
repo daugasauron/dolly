@@ -116,8 +116,9 @@ await demoTest("xonotic", { image: "xonotic-build", timeout: 1_800_000, browser:
   await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
   await page.waitForFunction(() => document.pointerLockElement?.id === "display", null, { timeout: 10_000 });
   console.log("xonotic: the match captured the pointer on a click");
-  // A lit frame of the world below the loading plaque's 80%; a second,
-  // different one is noted when it comes (the scripted observer's view can stay still).
+  // A lit frame after the capture (the world is often brighter than the
+  // loading plaque's 87%, so no upper bound); a second, different one is
+  // noted when it comes (the scripted observer's view can stay still).
   const frames = [];
   for (let attempt = 0; attempt < 20 && frames.length < 2; attempt++, await delay(2000)) {
     const digest = await page.evaluate(() => {
@@ -128,7 +129,7 @@ await demoTest("xonotic", { image: "xonotic-build", timeout: 1_800_000, browser:
       for (let i = 0; i < pixels.length; i += 4) { if (pixels[i] + pixels[i + 1] + pixels[i + 2] > 48) lit++; sum = (sum * 31 + pixels[i]) >>> 0; }
       return { lit: lit / (canvas.width * canvas.height), sum };
     });
-    if (digest && digest.lit > 0.02 && digest.lit < 0.8 && frames.every(frame => frame.sum !== digest.sum)) frames.push(digest);
+    if (digest && digest.lit > 0.02 && frames.every(frame => frame.sum !== digest.sum)) frames.push(digest);
   }
   assert.ok(frames.length >= 1, "a lit frame of the match");
   assert.equal(await live.done, 0, "the client must quit back to the shell after the match");
