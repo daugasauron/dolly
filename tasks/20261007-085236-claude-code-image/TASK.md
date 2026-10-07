@@ -179,6 +179,10 @@ carry `anthropic-dangerous-direct-browser-access: true`, and only with that
 header does Anthropic's preflight answer `access-control-allow-origin: *`
 (measured with curl and an `Origin` header, 2026-10-07 11:05 UTC).
 
+Step 1, Firefox (same session, 2026-10-07 11:58 UTC): download from the real
+registry 2.5 s, unpack 2.8 s, `--version` 3.3 s, `--help` 3.3 s; the hello
+endpoints fail through the broker exactly as in Chromium (curl 7, EIO).
+
 Step 3, the onboarding (measured 2026-10-07, Chromium; Firefox below): an
 interactive start without `~/.claude.json` shows the welcome screen and then
 Claude Code's own connectivity check, `GET api.anthropic.com/api/hello`
@@ -213,6 +217,31 @@ Chromium (`build/claude-code-evidence/chromium-walk-*`):
   error: Failed to start OAuth callback server: Janis has no listening
   socket API. Press Enter to retry." before any URL is shown; its manual
   code path (`platform.claude.com/oauth/code/callback`) is never reached.
+- Firefox (12:01 UTC, `firefox-walk-*`): the key path reaches the REPL and
+  the same Read turn answers "The file says: DOLLY-FIXTURE-CONTENT"; methods
+  1 and 2 both end on the same "OAuth error: Failed to start OAuth callback
+  server" screen, where Escape, Ctrl+C (twice), Ctrl+D and `q` leave Claude
+  Code running (a user reloads the tab); method 3 behaves as in Chromium.
+  A made-up key in `-p` against the real `api.anthropic.com` drew the same
+  401 from Firefox (5.9 s with one retry, `--debug-to-stderr`); one earlier
+  run of it exited 0 after 33.5 s with empty output and did not recur.
+- Method 3 opens the "Set up AWS Bedrock" wizard (AWS profile, Bedrock API
+  key, access key, or credentials in the environment), then Foundry and
+  Vertex: third-party providers outside this task, not followed further.
+  On its text prompts Escape, Ctrl+C, Ctrl+D and `q` did not leave Claude
+  Code (Chromium); a user closes the tab or reloads.
+
+- Chromium, method 2 selected with the arrow key (12:10 UTC): the same
+  OAuth callback server error as method 1.
+
+Sign-in methods per browser, on the public site (no fixture): none of
+Claude Code's interactive methods can start in Chromium or Firefox, because
+its connectivity check exits first; `ANTHROPIC_API_KEY` in the environment
+with `code-agent -p …` works in both (the 401 from the real API proves the
+request path). Behind the check (fixture): the key is accepted by the
+onboarding and the REPL works in both; Claude account and Console account
+both stop at the callback-server error in both; 3rd-party platforms are out
+of scope.
 
 The notice therefore says that the interactive start stops at Claude Code's
 "Unable to connect to Anthropic services" and that print mode with the
@@ -238,6 +267,43 @@ browser; `/exit` does); the session now holds the package and
 no path names Claude or Anthropic, and no retained file has the SHA-256 of
 a tarball member (its vendored ripgrep crate licences excepted: ripgrep's own
 build retains the same texts).
+
+Results (2026-10-07, image built from commit `98e6a934`'s pins, tarball
+served from the cache): `code-agent: chromium passed in 25.2s`,
+`code-agent: firefox passed in 26.6s`; the artifacts test passes (2635
+snapshot entries); `npm run lint:dollyfiles` and the source suite (415)
+pass. The image build (typescript-build, javascript, code-agent) took about
+five minutes in one build slot.
+
+Licence conditions, evidence:
+
+1. Unmodified, run as published: the launcher's `curl` of the registry URL,
+   `sha256sum` against the pin and `tar -xf` are the only steps; the test
+   asserts one GET of the tarball and the artifacts test that the image holds
+   none of it. Gaps are fixed in Janis only (`141b7cdb`).
+2. No sign-in method removed: the image writes no `~/.claude.json` (asserted
+   at the recovery shell) and sets only `USE_BUILTIN_RIPGREP=0`; the test
+   drives Claude Code's own onboarding; the methods that cannot work fail
+   with Claude Code's own messages (above).
+3. No intermediation: no relay, no key anywhere in the tree (the test's
+   key is a made-up string and the fixture stands for the model); the
+   broker policy on the public site is the default (no relay).
+4. Names: the image, directory and route are `code-agent`; the README and
+   the catalog line say in plain text that it runs Claude Code; no logo.
+5. Credentials stay in the session (`/home/dolly/.claude*`); the notice and
+   README say that a saved or exported session contains them.
+
+Left for the owner and the integrator: step 5 (a real-model turn with a
+funded key, in print mode: `export ANTHROPIC_API_KEY=…; code-agent -p
+'Read /workspace/hello.txt'` after a file is written; the interactive REPL
+needs a `~/.claude.json` the user brings, since the check fails in
+browsers); the Commercial Terms confirmation; whether `code-agent` joins
+`config/github-pages-images.txt` and `config/domain-pages-images.txt` (it is
+in neither, so no packaged release holds it yet); the name; and the images
+that install `javascript` (`pi-*`, `bhop`, `slopyard`, `classicube`,
+`rts-arena`, `dollyfile-studio`), which the Janis change re-pins and which
+were not rebuilt here. The scratch drivers and screenshots are under
+`build/claude-code-evidence/` (not committed).
 
 ## Related
 
