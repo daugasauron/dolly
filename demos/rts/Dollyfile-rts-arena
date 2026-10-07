@@ -8,7 +8,7 @@ REQUIRES HOST snapshot@0
 REQUIRES HOST threads@0
 REQUIRES HOST upload@0
 
-FROM https://daugasauron.com/demos/pi/Dollyfile-pi-runtime 82884a46fdf41f5facccccefd4e025bb1fcdff494b80079637d632e3d488873a
+FROM https://daugasauron.com/demos/pi/Dollyfile-pi-runtime 624e0ad25cecb4074cbfcae747e96a7ae85ef5d3180fb022d24b6056824e3989
 INSTALL https://daugasauron.com/demos/sdl2/Dollyfile-sdl2 943cb058889ad2e21b911719502237b60ee760a2e4e800085085862196c55a4a
 COPY https://daugasauron.com/demos/rts/Dollyfile-rts-build 3f4c2c6319b911871ed355ffc7f9f63c8275da9bd5f4f06d5652e57d5b7ae4c5 /usr/bin/seven-kingdoms /usr/bin/seven-kingdoms
 COPY https://daugasauron.com/demos/rts/Dollyfile-rts-build 3f4c2c6319b911871ed355ffc7f9f63c8275da9bd5f4f06d5652e57d5b7ae4c5 /usr/share/7kaa /usr/share/7kaa

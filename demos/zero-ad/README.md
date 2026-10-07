@@ -11,6 +11,7 @@ Dolly, an explicit bootstrap exception
 - `zero-ad`: 0 A.D. Release 28: Athens economy and combat scenarios, audio and replay. Requires WebGPU.
 - `openal-build`: OpenAL Soft built for the 0 A.D. audio path.
 - `zero-ad-deps`: Build-only: the engine's libraries, pkgconf and SDL2 built from pinned sources.
+- `zero-ad-spidermonkey`: Build-only: SpiderMonkey 128.13.0 built inside Dolly with mozbuild, Cargo and cbindgen.
 - `zero-ad-engine`: Build-only: the 0 A.D. engine built inside Dolly with premake and Make.
 
 Open `/zero-ad/` for the main menu, or run `zero-ad [engine arguments]`, for

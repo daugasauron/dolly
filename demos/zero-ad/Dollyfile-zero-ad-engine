@@ -42,26 +42,21 @@ FILE /tmp/premake.slop
     cc -O2 -o /usr/bin/premake5 $flags src/host/*.c src/scripts.c $lua -lm
 SLOP slop -e /tmp/premake.slop
 
-# Bootstrap exception: SpiderMonkey is still cross-compiled outside Dolly
-# (toolchain/build-spidermonkey.sh).
-SOURCE https://daugasauron.com/dist/static/zero-ad-build/mozjs-host.tar.gz 8169238800343f898765a17d5a8cb1f4dc6be28a6bc696ab2aa5871e6d092273 /tmp/mozjs.tar.gz
-SLOP gzip -dc /tmp/mozjs.tar.gz | tar -xf - -C /
-FOLDER /usr/share/licenses/spidermonkey
-# Its corresponding source, and that of the game data's translated shaders:
-# SpiderMonkey's pinned tarball with 0 A.D.'s patches and toolchain/. Published
-# with the release; the build only verifies it.
-SOURCE https://daugasauron.com/dist/static/zero-ad-build/bootstrap.tar a6554ba203deb4c81ea88d5289908f6a671362100a00c4023d5e305b645ccc22 /tmp/zero-ad-bootstrap.tar
+# SpiderMonkey, built inside Dolly by zero-ad-spidermonkey: its headers, the
+# two archives and its licences.
+COPY https://daugasauron.com/demos/zero-ad/Dollyfile-zero-ad-spidermonkey 0606cccbb818faa5b3b5a0f80fa22aa794be3c7bf2dbd4a2737d8ffdd36f5521 /opt/mozjs /opt/mozjs
+COPY https://daugasauron.com/demos/zero-ad/Dollyfile-zero-ad-spidermonkey 0606cccbb818faa5b3b5a0f80fa22aa794be3c7bf2dbd4a2737d8ffdd36f5521 /usr/share/licenses/spidermonkey /usr/share/licenses/spidermonkey
 FILE /tmp/pkgconfig/mozjs-128.pc
     Name: SpiderMonkey 128.13.0
     Description: The Mozilla library for JavaScript
     Version: 128.13.0
-    Cflags: -I/tmp/mozjs/include
-    Libs: -L/tmp/mozjs/lib -ljs_static -ljsrust
+    Cflags: -I/opt/mozjs/include
+    Libs: -L/opt/mozjs/lib -ljs_static -ljsrust
 
 # Probe for test/0ad-spidermonkey-browser.mjs.
 SLOP mkdir -p /usr/libexec/zero-ad
-SLOP c++ -std=c++20 -O1 -I/tmp/mozjs/include /tmp/0ad-patches/spidermonkey-check.cpp \
-  -L/tmp/mozjs/lib -ljs_static -ljsrust -lz -o /usr/libexec/zero-ad/spidermonkey-check
+SLOP c++ -std=c++20 -O1 -I/opt/mozjs/include /tmp/0ad-patches/spidermonkey-check.cpp \
+  -L/opt/mozjs/lib -ljs_static -ljsrust -lz -o /usr/libexec/zero-ad/spidermonkey-check
 SLOP /usr/libexec/zero-ad/spidermonkey-check
 FOLDER /usr/libexec/zero-ad
 

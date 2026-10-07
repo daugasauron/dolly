@@ -14,6 +14,7 @@ are built from source with it.
 - `fd`: fd built with Patti, as a package.
 - `protox`: the protobuf compiler Codex builds with, as a package.
 - `cargo`: upstream Cargo built with Patti, with the `rust` package, as a package.
+- `cbindgen`: the cbindgen header generator built with Patti, as a package (SpiderMonkey's configure requires it).
 
 Build the seed once with `./demos/rust/build-rust-toolchain.sh` (Linux x86_64, Podman, Python
 3.12+, curl, patch), then `npm run image -- rust-tools`. `rust-sdk` starts from

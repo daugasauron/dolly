@@ -358,3 +358,33 @@ memory sampled every 2 s into `memory-4.log`; stage logs `stage-*.log`.
   libc override ("manifest/lock mismatch") because cbindgen's lock pins
   libc 0.2.144 while the SDK's crate is 0.2.186; the staging script now
   rewrites that lock line for cbindgen as it does for ripgrep and fd.
+
+### The recipe's inputs, decided 08:20-08:27 (uncommitted until the chain builds)
+
+- `demos/zero-ad/Dollyfile-zero-ad-spidermonkey`: build-only toolchain
+  `FROM zero-ad-deps` (pkgconf, `zlib.pc`, the C++ toolchain, `patch`),
+  `INSTALL python`, `INSTALL cargo` (brings `rust`), `INSTALL cbindgen`;
+  one `build.slop` (patches, configure, `make -j4`, the copy into
+  `/opt/mozjs/{include,lib}` and the licences into
+  `/usr/share/licenses/spidermonkey`, crate notices included);
+  `FOLDER /opt/mozjs`. `zero-ad-engine` takes both trees by `COPY` and its
+  `mozjs-128.pc` and probe point at `/opt/mozjs`; `zero-ad` already copies
+  the licence directory from the engine. The two `SOURCE`s of the exception
+  (`mozjs-host.tar.gz` 115 MB, `bootstrap.tar` 151 MB) go away.
+- Source staging in `demos/zero-ad/prepare-sources.sh`: the pristine
+  `mozjs-128.13.0.tar.xz` from the already-staged 0 A.D. tree, extracted
+  without `js/src/tests`, `js/src/jit-test` and `testing/web-platform`
+  (490 MB that `--disable-tests` never reads; 625 MB stay, of which
+  `third_party/rust` 398 MB: Cargo resolves the whole vendored workspace, so
+  it cannot be pruned), 0 A.D.'s `patches/` and `spidermonkey.patch`, packed
+  by `build-source-tar.mjs` into `zero-ad-build/mozjs.tar.gz` (161 MB).
+  Both patch sets are applied in the image by `sh ../patches/patch.sh` and
+  `patch -p1`, verified in order on the host.
+- `spidermonkey.patch` carries the four preparation hunks (Wasm host,
+  `allow_missing` M4 plus a loud `die` if a refresh is ever attempted, the
+  linker wrapper's `subprocess.call`, the `*-wasi*` `-mthread-model single`
+  line dropped from the shipped `old-configure`).
+- The recipe writes `CC='cc -D__wasi__'` and assumes `core/cc-flags`
+  (round 3); this tree's `cc` lacks the four flags, so the session and any
+  image build here use the filtering wrappers instead, which is the only
+  difference between what is verified today and the committed text.
