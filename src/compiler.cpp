@@ -87,6 +87,7 @@ struct DriverOptions {
   bool pthread = false;
   std::string thread_model;
   DebugInfoKind debug_info = DebugInfoKind::None;
+  bool limited_debug_info = false;
   std::string output;
   std::string forced_language;
   std::string dependency_file;
@@ -371,14 +372,17 @@ int parse_driver_options(int argc, const char *const *argv, DriverOptions &optio
     } else if (argument == "-fno-lto") {
       // Dolly links no LTO bitcode; -flto is never enabled, so the negative
       // states the default and cc1, which has no such driver flag, gets nothing.
-    } else if (argument == "-fstandalone-debug" ||
-               argument == "-fno-standalone-debug") {
-      // cc1 accepts both; they select how much debug info types carry and are
-      // inert without -g, exactly as Clang's driver forwards them.
-      options.frontend_options.push_back(argument);
+    } else if (argument == "-fstandalone-debug") {
+      // Clang's driver turns this into -debug-info-kind=standalone only with
+      // -g, which is already the kind cc emits for -g; cc1 gets nothing here.
+      options.limited_debug_info = false;
+    } else if (argument == "-fno-standalone-debug") {
+      // With -g, Clang's driver then emits -debug-info-kind=limited.
+      options.limited_debug_info = true;
     } else if (starts_with(argument, "-ferror-limit=")) {
-      // cc1 accepts the joined spelling, like -std=.
-      options.frontend_options.push_back(argument);
+      // cc1 takes the limit as a separate argument.
+      options.frontend_options.push_back("-ferror-limit");
+      options.frontend_options.push_back(argument.substr(sizeof("-ferror-limit=") - 1));
     } else if (argument == "-fPIC" || argument == "-fpic" || argument == "-fPIE" ||
                argument == "-fpie") {
       options.pic = true;
@@ -660,9 +664,10 @@ bool run_clang(const std::string &source, const std::string &language,
     }
   }
   if (!options.preprocess_only && options.debug_info != DebugInfoKind::None) {
-    arguments.push_back(options.debug_info == DebugInfoKind::Full
-                            ? "-debug-info-kind=standalone"
-                            : "-debug-info-kind=line-tables-only");
+    arguments.push_back(options.debug_info != DebugInfoKind::Full
+                            ? "-debug-info-kind=line-tables-only"
+                        : options.limited_debug_info ? "-debug-info-kind=limited"
+                                                     : "-debug-info-kind=standalone");
     arguments.push_back("-dwarf-version=5");
   }
   arguments.insert(arguments.end(), options.frontend_options.begin(),
