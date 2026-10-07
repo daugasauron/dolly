@@ -1,0 +1,24 @@
+DOLLY 6
+PACKAGE llvm
+REQUIRES HOST runtime@0
+
+# The compiler llvm-cc built inside Dolly, beside the seed's: llvm-cc and
+# llvm-c++ run it as cc and c++ run the seed compiler, on the same headers
+# and libraries.
+COPY https://daugasauron.com/demos/llvm/Dollyfile-llvm-cc 6cf8fdbfde496ba71202dbd74396dba5ed800a8e23d704f61c46263bd5b58a89 /usr/libexec/dolly/process-bin/compiler /usr/lib/llvm/compiler
+INSTALL https://daugasauron.com/Dollyfile-cc ddb74ea1ea3bc19a366f10064efdafd172e4256d25de1d4d60cc2a1bdef17b9a
+FILE /usr/bin/llvm-cc
+    #!/bin/slop
+    /usr/lib/llvm/compiler --dolly-toolchain-mode=c "$@"
+FILE /usr/bin/llvm-c++
+    #!/bin/slop
+    /usr/lib/llvm/compiler --dolly-toolchain-mode=c++ "$@"
+EXPORTS TOOL llvm-cc
+EXPORTS TOOL llvm-c++
+EXPORTS FILE llvm-compiler /usr/lib/llvm/compiler
+SOURCE https://daugasauron.com/dist/static/llvm/licenses/llvm 8d85c1057d742e597985c7d4e6320b015a9139385cff4cbae06ffc0ebe89afee /usr/share/licenses/llvm/LICENSE.TXT
+SOURCE https://daugasauron.com/dist/static/llvm/licenses/clang ebcd9bbf783a73d05c53ba4d586b8d5813dcdf3bbec50265860ccc885e606f47 /usr/share/licenses/clang/LICENSE.TXT
+SOURCE https://daugasauron.com/dist/static/llvm/licenses/lld f7891568956e34643eb6a0db1462db30820d40d7266e2a78063f2fe233ece5a0 /usr/share/licenses/lld/LICENSE.TXT
+FILE /usr/share/licenses/llvm/LICENSE.TXT
+FILE /usr/share/licenses/clang/LICENSE.TXT
+FILE /usr/share/licenses/lld/LICENSE.TXT

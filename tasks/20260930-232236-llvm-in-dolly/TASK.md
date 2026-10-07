@@ -9,28 +9,29 @@ Owner (2026-10-07): "this is very high priority." Worked on branch
 
 ## Remaining (2026-10-08)
 
-Built inside Dolly, on `core/llvm-in-dolly` (four images in `demos/llvm`,
-sections below): the TableGen tools; the compiler's whole closure, 2,559
-units in 103 archives, at four jobs in 42 minutes; the compiler linked from
-them, whose output is the seed compiler's byte for byte on a sample; and a
-second stage built by that compiler, identical to the first in every archive
-and in the compiler. The first two clauses of "Done when" hold. Left:
+Built inside Dolly, on `core/llvm-in-dolly` (`demos/llvm`, sections below):
+the TableGen tools; the compiler's whole closure, 2,559 units in 103
+archives, at four jobs in 42 minutes; the compiler linked from them, whose
+output is the seed compiler's byte for byte on a sample; and, on demand, a
+second stage built by that compiler, identical to the first in every archive,
+the compiler and the TableGen tools (a third was run once). The first two
+clauses of "Done when" hold. In the catalog: `llvm-tablegen`, `llvm-build`,
+`llvm-cc` and the package `llvm`; the libraries are `core/llvm-runtimes`'
+part, below. Left:
 
 - **Replacing the host-built seed** (the third clause) is a later decision.
-  It needs the runtime libraries built here too (libc++, libc++abi,
-  compiler-rt: `core/llvm-runtimes`), an answer for size (127 MB against the
-  seed's 78 MB: Dolly has no binaryen; 96 MB without the name section), and
-  the TableGen tools rebuilt by the Dolly-built compiler (their outputs are
-  already the seed's bytes).
+  The compiler here is a second one beside the seed's. Open: its size (127 MB
+  against the seed's 78 MB: Dolly has no binaryen; about 96 MB without the
+  name section) and the libc, which the host still builds.
 - **The browser stack** has no general fix. The JSPI entry doubles Chrome's;
   `MSP430.cpp` fits with a margin of 635 in 760 and `SemaARM.cpp` only with
   LLVM's warnings off. A process primitive that continues on a fresh stack
-  is an ABI decision for the owner (see "The two stack overflows").
+  is an ABI decision for the owner; both browsers can provide one without a
+  suspending import (measured, see "The two stack overflows").
 - **Jobs**: four, because a CMake job is three processes and the supervisor
   admits 32 (`20260930-231102-parallel-rust` decided a memory budget instead).
-- **Cost in the catalog**: `llvm-build` 44 min, `llvm-cc` 4 min, `llvm-stage2`
-  46 min at `-j4`; snapshots of 604, 653 and 653 MB. Each stage extracts the
-  sources and runs TableGen again, because snapshots keep no file times.
+- **Each stage extracts the sources and runs TableGen again**, because
+  snapshots keep no file times (about 4 of `llvm-build`'s 44 minutes).
 - The closure was built in Chrome only; Firefox compiles the two deepest
   units but was not given the whole build.
 
@@ -352,6 +353,17 @@ Limits that remain, recorded rather than hidden:
   function on a fresh stack (JSPI gives one per `promising` call) would serve
   Clang, rustc's `stacker` and the zig1 route; that is an ABI decision and was
   not taken here.
+- Measured for that decision (2026-10-08, a 125-byte module in a Worker, not
+  Dolly code): an import that enters Wasm again through
+  `WebAssembly.promising` gets a fresh stack and the callee has finished when
+  the call returns, in both browsers, so nothing has to suspend and no
+  `Suspending` import is needed. A recursion that hops every 2,048 frames
+  reached 1,593,343 frames in Chrome 151 (777 nested hops; 8,191 without
+  fresh stacks) and 262,144 in Firefox 155 (128 hops; 512 failed). 400 hops
+  with 819,200 calls took 9.0 ms. After an overflow inside such a call
+  Firefox failed every later one in that Worker; a Dolly process ends there
+  anyway. Not solved by this: when to hop, since Wasm cannot read the
+  browser stack's depth.
 - `cc` therefore cannot compile about 770 chained member calls in one
   expression (Chrome; 700 fit and 760 fail in Firefox 155, where the entry
   changes nothing) or 3,300 to 4,000 consecutive `case` labels under
@@ -456,9 +468,10 @@ unit, no retried compiler process, no warning.
   staged as a fixture: Dolly's `c++` linking host-built objects gives a
   compiler with the same outputs too.
 
-**`llvm-stage2`** (`FROM llvm-cc`): the closure and the compiler again, built
-by the compiler `llvm-cc` installed; same sources, cache file, paths, targets
-and job count. First run, no failed unit and no retry.
+**The second stage**, first as an image `llvm-stage2` (`FROM llvm-cc`; since
+replaced by a test, below): the closure and the compiler again, built by the
+compiler `llvm-cc` installed; same sources, cache file, paths, targets and job
+count. First run, no failed unit and no retry.
 
 | step | wall |
 | --- | --- |
@@ -477,6 +490,80 @@ and job count. First run, no failed unit and no retry.
   two builds an hour apart, by different compiler executables, were
   deterministic. The TableGen tools are still `llvm-tablegen`'s, built by the
   seed; their outputs are the seed's bytes (above), so they were not rebuilt.
+
+**A third stage**, run once and not kept as a recipe: `llvm-stage2`'s rows
+`FROM llvm-stage2`, so built by a compiler with the second stage's bytes.
+`cmake -C` 70.3 s, `make -k -j4` 2,580.8 s, driver and link 6.8 s, image
+2,738.6 s, peak 7.37 GB at the snapshot. All 103 archives and the compiler are
+again identical: stage 3 equals stage 2 equals stage 1. No recipe is kept for
+it because it would repeat `llvm-stage2` row for row with the same inputs.
+
+`MSP430.cpp` and `SemaARM.cpp` compiled on the first attempt in all three
+closure builds (no `retrying` line in any log), the last two by the compiler
+that has no binaryen pass.
+
+## What the catalog builds and what a user gets (2026-10-08)
+
+Integrator's review, 03:00: a catalog round builds every recipe, so stages
+that only prove reproducibility must not be recipes.
+
+- **Decision**: `llvm-build` and `llvm-cc` stay recipes (the product, a
+  compiler built in Dolly), with a small package `llvm` beside them. The
+  second stage is `demos/llvm/test/stage2-browser.mjs`, run on demand: it
+  opens `llvm-cc`, runs `llvm-build`'s own rows again (read from the recipe,
+  so the two cannot drift), then requires every archive, the linked compiler
+  and the three TableGen tools to be the first stage's bytes. A third stage
+  is the same test again. `Dollyfile-llvm-stage2` is gone. Least code: one
+  test of 38 lines, no change to how the catalog finds recipes.
+- **The test's first run** (Chrome 151, under the 9 GB slot beside three
+  other suites of mine, mean load 8.0): passed in 3,060.6 s. Peak 6.69 GB of
+  PSS over the processes of its scope (sampled from 15 minutes in; the
+  scope's own peak, file cache included, 7.38 GB), so it needs the 9 GB slot,
+  not the 6 GB one. Not run in Firefox.
+- **Before it went**, `llvm-stage2` was rebuilt once with the TableGen tools
+  added (`make -k -j4` 2,569.5 s; tools 91.6 s): the 103 archives identical
+  again, the three tools identical to `llvm-tablegen`'s, and then the
+  compiler `cmp` failed at byte 96,090,163. That byte is the last digit of
+  `dolly-cc-2df6e34eb8269ab1-106.wasm`, the module name wasm-ld takes from
+  `cc`'s scratch output, whose number counts the link's inputs: the tools'
+  build had added archives to `lib/`, which the link globs. Not a compiler
+  difference; the test links the compiler before it builds the tools.
+
+| image | role | build, one builder | snapshot |
+| --- | --- | --- | --- |
+| `llvm-tablegen` (as before) | toolchain | about 7 min (steps 426 s, round of 2026-10-07) | 343 MB |
+| `llvm-build` | toolchain | 2,623 s, 9 GB slot | 604 MB |
+| `llvm-cc` | toolchain, opens | 236 s | 653 MB |
+| `llvm` | package | 27 s (the command 39.5 s) | 263 MB |
+| second stage | test, on demand | 3,061 s, 9 GB slot | none |
+
+- **A full round** now has three more recipes than before this task and
+  spends 48 more minutes of one builder on them (2,886 s; with the second
+  stage as a recipe it was 94). They form one chain after `cmake-build` and
+  `python`, so a round's wall time grows only if nothing else runs beside it;
+  `llvm-build` needs the 9 GB slot (5.6 GB compiling, 6.5 GB capturing).
+  A change to the seed rebuilds all of it; a change elsewhere reuses it.
+
+What a user gets, checked in Chrome 151 and Firefox 155
+(`demos/llvm/test/llvm-browser.mjs`, whose parts pass on the merged tree: the
+image 13.3 s and 28.7 s, the package 9.3 s and 9.0 s, `core/llvm-runtimes`'
+part 455.5 s and 546.2 s; the image opened directly in a scratch run). On
+that tree the core, process, threads, dso, cpp and amy suites also pass in
+both browsers.
+
+- **A package.** In a session, `amy install llvm` (2.4 s in a `default`
+  session: `amy: llvm installed: 1948 files, 262650558 bytes, commands: ar c++
+  cc ld llvm-c++ llvm-cc make`). `llvm-cc` and `llvm-c++` run the compiler
+  built in Dolly, `/usr/lib/llvm/compiler` (127,138,140 bytes), with the
+  arguments of `cc` and `c++`; the package installs `cc` for the headers and
+  libraries, so the seed's `cc` and `c++` (78,338,796 bytes) are there too.
+  The test compiles an object with each pair and links and runs a C++ program
+  with each: the same bytes for the same output path, from two different
+  compiler executables.
+- **An image.** `/llvm-cc/` opens with a shell (7.4 s, 8.8 s) in which `cc`,
+  `c++`, `ld` and `ar` themselves run that compiler.
+- It is a second compiler beside the seed's, not a replacement: no other
+  image changes, and the seed is still what builds `llvm-build`.
 
 ## Decisions (2026-10-01, delegated)
 

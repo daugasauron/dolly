@@ -5,7 +5,7 @@ REQUIRES HOST runtime@0
 # The platform as a program sees it: the documents and machine contracts of
 # this release at their repository paths, so their links to each other work.
 # The rows are checked against the documents' links (test/platform-documents.test.mjs).
-SOURCE https://daugasauron.com/docs/process-model.md 8f9a11a75a09e890b4f5b68f7cd47fda120cfd06fc63f82446c0e9814f2aef8d /usr/share/doc/dolly/docs/process-model.md
+SOURCE https://daugasauron.com/docs/process-model.md 4da8cc2e4030dbc8fa400903a25c56f05ad5a061f3df120ccc21dda43a89289d /usr/share/doc/dolly/docs/process-model.md
 SOURCE https://daugasauron.com/docs/slop.md c1c3a9e0e5584a2120079fcce6562b272edee890aadd106bfd10b65110ac01f1 /usr/share/doc/dolly/docs/slop.md
 SOURCE https://daugasauron.com/docs/display.md ab6e17fbe9d7218fb24f95e438824e5dfa834a7ddda50212e0f1061381aa8321 /usr/share/doc/dolly/docs/display.md
 SOURCE https://daugasauron.com/docs/gpu.md f57940e72153898014baa7882a70a0d5d5fcd24508d5d22c70bcf323e3f5bef4 /usr/share/doc/dolly/docs/gpu.md
