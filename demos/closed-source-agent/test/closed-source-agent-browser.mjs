@@ -1,7 +1,7 @@
-// The code-agent image: the notice sends nothing; Ctrl+C leaves without a
+// The closed-source-agent image: the notice sends nothing; Ctrl+C leaves without a
 // download; after a key the pinned tarball is fetched and checked, Claude
 // Code's own onboarding runs, and a file-tool turn completes in its REPL
-// against a scripted Messages endpoint. Usage: node demos/code-agent/test/code-agent-browser.mjs
+// against a scripted Messages endpoint. Usage: node demos/closed-source-agent/test/closed-source-agent-browser.mjs
 // (DOLLY_BROWSER=firefox runs it in Firefox).
 import assert from "node:assert/strict";
 import { createReadStream } from "node:fs";
@@ -65,7 +65,7 @@ async function handle(request, response, path, headers) {
   return true;
 }
 
-await demoTest("code-agent", { image: "code-agent", timeout: 600_000, browser: process.env.DOLLY_BROWSER ?? "chromium",
+await demoTest("closed-source-agent", { image: "closed-source-agent", timeout: 600_000, browser: process.env.DOLLY_BROWSER ?? "chromium",
   server: { handle } }, async ({ server, open }) => {
   const policy = { maxRequests: 64, rules: [
     { origin: registry, path: tarballPath, methods: ["GET"], maxResponseBytes: 32 << 20 },
@@ -95,7 +95,7 @@ await demoTest("code-agent", { image: "code-agent", timeout: 600_000, browser: p
   // Started again by hand, with a key in the environment as a user sets it.
   await run(`printf '${content}\\n' > /workspace/hello.txt && export ANTHROPIC_API_KEY=${key} && clear`);
   // The first run downloads, and its own arguments still reach Claude Code.
-  const version = start("code-agent --version");
+  const version = start("closed-source-agent --version");
   await waitText(notice);
   await delay(1000);
   assert.equal((await http()).requests, 0, "a request left before any key was pressed");
@@ -104,7 +104,7 @@ await demoTest("code-agent", { image: "code-agent", timeout: 600_000, browser: p
   assert.match(await text(), /2\.1\.112/, "the first run's argument did not reach Claude Code");
   assert.deepEqual(tarballRequests().map(({ method }) => method), ["GET"]);
   await run("clear");
-  const claude = start("code-agent");
+  const claude = start("closed-source-agent");
   await waitText(notice);
   await page.keyboard.press("Space");
 

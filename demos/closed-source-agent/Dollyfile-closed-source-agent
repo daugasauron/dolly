@@ -1,5 +1,5 @@
 DOLLY 6
-APPLICATION code-agent
+APPLICATION closed-source-agent
 REQUIRES HOST runtime@0
 REQUIRES HOST display@0
 REQUIRES HOST download@0
@@ -44,7 +44,7 @@ FILE /tmp/anykey.c
 SLOP cc -O1 /tmp/anykey.c -o /usr/bin/anykey
 EXPORTS TOOL anykey
 
-FILE /usr/share/doc/code-agent/NOTICE
+FILE /usr/share/doc/closed-source-agent/NOTICE
     CLAUDE CODE IN THIS BROWSER SESSION
     -----------------------------------
     This image runs Claude Code, Anthropic's command-line coding agent. Claude
@@ -64,15 +64,15 @@ FILE /usr/share/doc/code-agent/NOTICE
       refuse browser requests), so signing in there, with a Claude account or
       a Console account, cannot be reached. What works is print mode with
       your key: press Ctrl+C now, then  export ANTHROPIC_API_KEY=...  and
-      code-agent -p 'your request'.
+      closed-source-agent -p 'your request'.
     Press any key to download and start Claude Code, or Ctrl+C to leave.
 
 # Shows the notice, then downloads Claude Code into the session (once),
 # checks the pinned digest of the tarball and runs it unchanged.
-FILE /usr/bin/code-agent
+FILE /usr/bin/closed-source-agent
     #!/bin/slop
     clear
-    cat /usr/share/doc/code-agent/NOTICE
+    cat /usr/share/doc/closed-source-agent/NOTICE
     printf '\n'
     anykey || exit $?
     package=/opt/claude-code/package
@@ -80,7 +80,7 @@ FILE /usr/bin/code-agent
       printf '\nDownloading Claude Code 2.1.112 from registry.npmjs.org ...\n'
       curl -fsS https://registry.npmjs.org/@anthropic-ai/claude-code/-/claude-code-2.1.112.tgz -o /tmp/claude-code.tgz || exit 1
       if test "$(sha256sum /tmp/claude-code.tgz | cut -d ' ' -f 1)" != 84379969ea53a0e5fd231a8f77debe4c7cb17dd971f4809d10d33f9aeca5de09; then
-        printf 'code-agent: the download does not match the pinned SHA-256; nothing was unpacked.\n' >&2
+        printf 'closed-source-agent: the download does not match the pinned SHA-256; nothing was unpacked.\n' >&2
         rm -f /tmp/claude-code.tgz
         exit 1
       fi
@@ -88,12 +88,12 @@ FILE /usr/bin/code-agent
       rm -f /tmp/claude-code.tgz /tmp/claude-code.tar
     fi
     env USE_BUILTIN_RIPGREP=0 janis $package/cli.js "$@"
-EXPORTS TOOL code-agent
+EXPORTS TOOL closed-source-agent
 
 FILE /etc/dolly/init.slop
     cd /workspace
-    /bin/foreground -i /usr/bin/code-agent
-    printf '\nDolly: image entry exited; entering the recovery Slop shell. code-agent starts it again.\n'
+    /bin/foreground -i /usr/bin/closed-source-agent
+    printf '\nDolly: image entry exited; entering the recovery Slop shell. closed-source-agent starts it again.\n'
     /bin/foreground -i /bin/slop
 
 ENTRY /bin/foreground -i /bin/slop /etc/dolly/init.slop
