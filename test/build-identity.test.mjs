@@ -5,7 +5,7 @@ import { resolve } from "node:path";
 import test from "node:test";
 import { buildIdentities, imageBuildInputs } from "../scripts/write-build-id.mjs";
 
-test("kernel edits preserve image compatibility; seed, loader and ABI edits invalidate it", async t => {
+test("kernel edits preserve image compatibility; seed and ABI edits invalidate it", async t => {
   const directory = await mkdtemp(resolve(tmpdir(), "dolly-build-identity-"));
   t.after(() => rm(directory, { recursive: true, force: true }));
   for (const name of ["dolly.wasm", ...imageBuildInputs]) await writeFile(resolve(directory, name), name);
@@ -24,6 +24,6 @@ test("kernel edits preserve image compatibility; seed, loader and ABI edits inva
     await writeFile(resolve(directory, name), name);
     assert.deepEqual(await identify(), kernel);
   }
-  await rm(resolve(directory, "dolly-seed.mjs"));
+  await rm(resolve(directory, "dolly-kernel-plugin-0.wasm"));
   await assert.rejects(identify(), { code: "ENOENT" });
 });

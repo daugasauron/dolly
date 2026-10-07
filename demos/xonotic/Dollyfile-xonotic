@@ -1,0 +1,47 @@
+DOLLY 6
+APPLICATION xonotic
+REQUIRES HOST runtime@0
+REQUIRES HOST display@0
+REQUIRES HOST download@0
+REQUIRES HOST http@0
+REQUIRES HOST snapshot@0
+REQUIRES HOST upload@0
+
+FROM https://daugasauron.com/Dollyfile-system fcb6783a7cd6771f1d538c6e913180a82d4d93cf3a0f2fed2e2b52bc5f413fd9
+COPY https://daugasauron.com/demos/xonotic/Dollyfile-xonotic-build b6412f74ea8dcc2fc089a7d9e10cf33f8b2f34c5af31876ed32eb5435dadb75e /usr/bin/xonotic-sdl /usr/bin/xonotic-sdl
+COPY https://daugasauron.com/demos/xonotic/Dollyfile-xonotic-build b6412f74ea8dcc2fc089a7d9e10cf33f8b2f34c5af31876ed32eb5435dadb75e /usr/share/licenses/xonotic /usr/share/licenses/xonotic
+COPY https://daugasauron.com/demos/sdl2/Dollyfile-sdl2 00d869eb35eef98817eff21107c290b81106333456139491d3cfabac9d5c0dfa /usr/share/licenses/SDL2 /usr/share/licenses/SDL2
+# Licences of the libraries linked into the client.
+COPY https://daugasauron.com/demos/xonotic/Dollyfile-xonotic-build b6412f74ea8dcc2fc089a7d9e10cf33f8b2f34c5af31876ed32eb5435dadb75e /usr/share/licenses/libjpeg /usr/share/licenses/libjpeg
+COPY https://daugasauron.com/demos/zero-ad/Dollyfile-zero-ad-deps 68fdf9e443d4ec2f6459e26f107fc75bfee3965b6abeda185d1d92e1ebc4893d /usr/share/licenses/freetype /usr/share/licenses/freetype
+COPY https://daugasauron.com/demos/zero-ad/Dollyfile-zero-ad-deps 68fdf9e443d4ec2f6459e26f107fc75bfee3965b6abeda185d1d92e1ebc4893d /usr/share/licenses/libpng /usr/share/licenses/libpng
+# The release's game content, one archive each; music and the Nexuiz
+# compatibility packs are not in the image yet.
+SOURCE https://daugasauron.com/dist/static/xonotic/data/font-unifont-20230620.pk3 7cc9ca2e4cccaa7533d7e9fe7a6e5b5dd6e4af0c8551c1e9edc40d32b90dba2b /usr/share/xonotic/data/font-unifont-20230620.pk3
+SOURCE https://daugasauron.com/dist/static/xonotic/data/font-xolonium-20230620.pk3 d6404f31eea4b90d7fe4951b41b692261ef26e6b512b5c7de7a9e99d5d57b586 /usr/share/xonotic/data/font-xolonium-20230620.pk3
+SOURCE https://daugasauron.com/dist/static/xonotic/data/xonotic-20230620-data.pk3 7602be0d44a4f1ce4f0918c54ceb215c9bc963a103623d6c7874f081330c8505 /usr/share/xonotic/data/xonotic-20230620-data.pk3
+SOURCE https://daugasauron.com/dist/static/xonotic/data/xonotic-20230620-maps.pk3 d10e5a8eac468a4a5b6d80f9603d95949971c6b10f86bec65a79e19f0d424f54 /usr/share/xonotic/data/xonotic-20230620-maps.pk3
+
+# The player's starting settings: the low effects preset, measured at 31 fps
+# against 13 for the normal preset in the software rasterizer. The engine
+# rewrites this file with the player's own settings on exit.
+FILE /home/dolly/.xonotic/data/config.cfg
+    exec effects-low.cfg
+    seta vid_soft 1
+    seta vid_soft_threads 1
+    seta vid_fullscreen 0
+    seta vid_width 1024
+    seta vid_height 768
+    seta cl_allow_uid2name 0
+    seta cl_allow_uidtracking 0
+FILE /usr/bin/xonotic
+    #!/bin/slop
+    /usr/bin/xonotic-sdl -xonotic -basedir /usr/share/xonotic +vid_soft 1 "$@"
+EXPORTS TOOL xonotic
+EXPORTS FOLDER xonotic-data /usr/share/xonotic
+
+FILE /etc/dolly/xonotic.slop
+    /bin/foreground /usr/bin/xonotic
+    /bin/foreground -i /bin/slop
+
+ENTRY /bin/foreground -i /bin/slop /etc/dolly/xonotic.slop

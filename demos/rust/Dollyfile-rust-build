@@ -2,11 +2,12 @@ DOLLY 6
 TOOLCHAIN rust-build
 REQUIRES HOST runtime@0
 REQUIRES HOST display@0
+REQUIRES HOST dso@0
 REQUIRES HOST http@0
 REQUIRES HOST threads@0
 
-FROM https://daugasauron.com/demos/rust/Dollyfile-rust-sdk 90b3b83380b670060f0280bf0452141f746ca7cd759aeb9f9a7340e480e86143
-INSTALL https://daugasauron.com/Dollyfile-curl 488d467b566cd5da48e62324c04aa7f39b0d6e430637ff0d1290bd1ec1f0ed3c
+FROM https://daugasauron.com/demos/rust/Dollyfile-rust-sdk 7dd80ce9bc53ff44a6c788aee5145168826b6caf17054d506c981c23d42d8214
+INSTALL https://daugasauron.com/Dollyfile-curl 6357a015073974760f60f741bb76459db6bb6be5a1bb1379cb3c87d739f5ac24
 REQUIRES HEADER libc
 REQUIRES HEADER runtime
 REQUIRES HEADER zlib

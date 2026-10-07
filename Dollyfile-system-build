@@ -7,8 +7,8 @@ REQUIRES HOST http@0
 # and C headers are the externally supplied bootstrap seed. How those headers
 # eventually map to the lower-level machine contract is deliberately open.
 SOURCE https://daugasauron.com/include/dolly/toolchain.h 6f9da3258e970e356c31034e1f109a04ac8bd5ab57dc82c19aebf293289fb415 /usr/include/dolly/toolchain.h
-SOURCE https://daugasauron.com/include/dolly/runtime.h   8960409cb41932a357c568724e285544c9fd04d8b65205f61efb398873eb63c6 /usr/include/dolly/runtime.h
-SOURCE https://daugasauron.com/include/dolly/process.h   78153700d5d1488bbff1d5fd4e27456391fee1f263ecb075c9af17c2ee8234a5 /usr/include/dolly/process.h
+SOURCE https://daugasauron.com/include/dolly/runtime.h   4df1f8e3f204dbe200ef493d42ab313749d6a98366a5c50518250c3f55ef6cde /usr/include/dolly/runtime.h
+SOURCE https://daugasauron.com/include/dolly/process.h   5f20c11c294311d68d931a198a0e82de5022f7e080f39611aa59c48334065818 /usr/include/dolly/process.h
 SOURCE https://daugasauron.com/host/http/http.h      d09f57cda4a6cde89106653f12366ac95554c21d37d05a69c15764d4254b70a5 /usr/include/dolly/http.h
 SOURCE https://daugasauron.com/host/http/http-abi.h 2f4e1e5c7145730babc91a0ff0a38db8b5e100ae1fab0b722b38ecbd53ad64a0 /usr/include/dolly/http-abi.h
 SOURCE https://daugasauron.com/host/display/display.h   6acc64b125107c1a0ba4b5dea62662e0e73fb3bbda854909941b4a0731b691a2 /usr/include/dolly/display.h
@@ -27,6 +27,8 @@ SOURCE https://daugasauron.com/host/upload/upload-abi.h 006056e6891a4d4399f521bc
 
 SOURCE https://daugasauron.com/host/threads/threads.h ec223fbc34ff65f173f4b15e338cb25bf34d8bf01b699418f4598d7fc4626394 /usr/include/dolly/threads.h
 SOURCE https://daugasauron.com/host/threads/threads-abi.h 894528f5f392b8f95e4617035ac799b9ff4d520a246ec1bd89b6d04257c644c1 /usr/include/dolly/threads-abi.h
+SOURCE https://daugasauron.com/host/dso/dso.h 8f58b257826b92a7f903d2a33484d6bc49bcc035dac5de3af288bc906728a67b /usr/include/dolly/dso.h
+SOURCE https://daugasauron.com/host/dso/dso-abi.h 7b2243afa5cf82109b2768264686cb57e4a611a577a74793056b4f7cfc2e68f4 /usr/include/dolly/dso-abi.h
 
 EXPORTS HEADER libc      /usr/include
 EXPORTS HEADER toolchain /usr/include/dolly/toolchain.h
@@ -49,6 +51,8 @@ EXPORTS HEADER upload /usr/include/dolly/upload.h
 EXPORTS HEADER upload-abi /usr/include/dolly/upload-abi.h
 EXPORTS HEADER threads /usr/include/dolly/threads.h
 EXPORTS HEADER threads-abi /usr/include/dolly/threads-abi.h
+EXPORTS HEADER dso /usr/include/dolly/dso.h
+EXPORTS HEADER dso-abi /usr/include/dolly/dso-abi.h
 
 EXPORTS LIB compiler-rt /usr/lib/libclang_rt.builtins.a
 EXPORTS LIB dolly-gpu /usr/lib/dolly/process/libdolly-gpu.a
@@ -104,7 +108,7 @@ EXPORTS TOOL dollyfile
 REQUIRES HEADER libc
 REQUIRES HEADER runtime
 
-SOURCE https://daugasauron.com/dist/static/default/slop.c 92c6db71510632fa5a07cda4b2cdaa3193aa41f5562f93be8f435469b004ccc1 /tmp/slop/slop.c
+SOURCE https://daugasauron.com/dist/static/default/slop.c c6b07d98c65f81f626c90568a2286887e50e2a5be4b85a7879663487ab06d3bf /tmp/slop/slop.c
 RUN /usr/libexec/dolly/process-bin/compiler --dolly-toolchain-mode=c -O1 /tmp/slop/slop.c -o /bin/slop
 
 EXPORTS TOOL slop
@@ -579,13 +583,60 @@ FILE /tmp/core-tools/echo.c
       return ferror(stdout) ? 1 : 0;
     }
 FILE /tmp/core-tools/touch.c
+    #define _POSIX_C_SOURCE 200809L
+    #include <ctype.h>
     #include <errno.h>
     #include <stdio.h>
     #include <string.h>
+    #include <time.h>
     #include <utime.h>
+    
+    static int field(const char *p) { return (p[0] - '0') * 10 + (p[1] - '0'); }
+    
+    /* POSIX -t [[CC]YY]MMDDhhmm[.ss] in local time. */
+    static int parse_stamp(const char *stamp, time_t *out) {
+      size_t len = strcspn(stamp, ".");
+      const char *seconds = stamp[len] == '.' ? stamp + len + 1 : NULL;
+      for (size_t i = 0; i < len; i++) {
+        if (!isdigit((unsigned char)stamp[i])) return -1;
+      }
+      struct tm tm;
+      time_t now = time(NULL);
+      localtime_r(&now, &tm);
+      const char *p = stamp;
+      if (len == 12) {
+        tm.tm_year = (field(p) * 100 + field(p + 2)) - 1900;
+        p += 4;
+      } else if (len == 10) {
+        int yy = field(p);
+        tm.tm_year = yy < 69 ? 2000 + yy - 1900 : yy;
+        p += 2;
+      } else if (len != 8) {
+        return -1;
+      }
+      tm.tm_mon = field(p) - 1;
+      tm.tm_mday = field(p + 2);
+      tm.tm_hour = field(p + 4);
+      tm.tm_min = field(p + 6);
+      tm.tm_sec = 0;
+      if (seconds) {
+        if (strlen(seconds) != 2 || !isdigit((unsigned char)seconds[0]) ||
+            !isdigit((unsigned char)seconds[1])) {
+          return -1;
+        }
+        tm.tm_sec = field(seconds);
+      }
+      tm.tm_isdst = -1;
+      time_t when = mktime(&tm);
+      if (when == (time_t)-1) return -1;
+      *out = when;
+      return 0;
+    }
     
     int main(int argc, char **argv) {
       int no_create = 0;
+      struct utimbuf stamp;
+      int have_stamp = 0;
       int first_file = 1;
       for (; first_file < argc; first_file++) {
         if (strcmp(argv[first_file], "--") == 0) {
@@ -593,12 +644,24 @@ FILE /tmp/core-tools/touch.c
           break;
         }
         if (strcmp(argv[first_file], "--help") == 0) {
-          fputs("usage: touch [-c] [--] FILE ...\n", stdout);
+          fputs("usage: touch [-c] [-t [[CC]YY]MMDDhhmm[.ss]] [--] FILE ...\n", stdout);
           return 0;
         }
         if (strcmp(argv[first_file], "-c") == 0 ||
             strcmp(argv[first_file], "--no-create") == 0) {
           no_create = 1;
+        } else if (strcmp(argv[first_file], "-t") == 0) {
+          if (++first_file == argc) {
+            fputs("touch: -t requires a timestamp\n", stderr);
+            return 2;
+          }
+          time_t when;
+          if (parse_stamp(argv[first_file], &when) != 0) {
+            fprintf(stderr, "touch: invalid timestamp: %s\n", argv[first_file]);
+            return 2;
+          }
+          stamp.actime = stamp.modtime = when;
+          have_stamp = 1;
         } else if (argv[first_file][0] == '-') {
           fprintf(stderr, "touch: unsupported option: %s\n", argv[first_file]);
           return 2;
@@ -613,7 +676,7 @@ FILE /tmp/core-tools/touch.c
     
       int status = 0;
       for (int index = first_file; index < argc; index++) {
-        if (utime(argv[index], NULL) == 0) {
+        if (utime(argv[index], have_stamp ? &stamp : NULL) == 0) {
           continue;
         }
         if (errno != ENOENT) {
@@ -627,6 +690,9 @@ FILE /tmp/core-tools/touch.c
           fprintf(stderr, "touch: %s: %s\n", argv[index], strerror(errno));
           status = 1;
         } else if (fclose(file) != 0) {
+          fprintf(stderr, "touch: %s: %s\n", argv[index], strerror(errno));
+          status = 1;
+        } else if (have_stamp && utime(argv[index], &stamp) != 0) {
           fprintf(stderr, "touch: %s: %s\n", argv[index], strerror(errno));
           status = 1;
         }

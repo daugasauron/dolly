@@ -254,8 +254,11 @@ int main(int argc, char **argv) {
     EXPECT(curl_easy_setopt(peers[index], CURLOPT_PRIVATE, &peers[index]), CURLE_OK);
     EXPECT(curl_multi_add_handle(multi, peers[index]), CURLM_OK);
   }
-  /* The browser pools connections; no multi option claims otherwise. */
-  EXPECT(curl_multi_setopt(multi, CURLMOPT_MAX_HOST_CONNECTIONS, 2L), CURLM_UNKNOWN_OPTION);
+  /* The browser pools and multiplexes connections: hints about that are
+   * accepted, the socket interface is not there. */
+  EXPECT(curl_multi_setopt(multi, CURLMOPT_MAX_HOST_CONNECTIONS, 2L), CURLM_OK);
+  EXPECT(curl_multi_setopt(multi, CURLMOPT_PIPELINING, (long)CURLPIPE_MULTIPLEX), CURLM_OK);
+  EXPECT(curl_multi_setopt(multi, CURLMOPT_SOCKETFUNCTION, NULL), CURLM_UNKNOWN_OPTION);
   int running = 2, messages = 0, remaining;
   const double started = now();
   do {

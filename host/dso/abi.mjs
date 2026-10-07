@@ -1,0 +1,12 @@
+// Generated from host/dso/dolly-dso-0.wat, host/dso/dso.h.
+export const DOLLY_DSO_OPEN = 112;
+export const DOLLY_DSO_SYMBOL = 113;
+export const DOLLY_DSO_CLOSE = 114;
+export const DOLLY_DSO_GLOBAL = 1;
+export const DOLLY_DSO_LIMIT = 536870912;
+export const DOLLY_DSO_ERROR_CAPACITY = 240;
+export const DOLLY_FFI_CALL = 120;
+export const DOLLY_FFI_CLOSURE_ALLOC = 121;
+export const DOLLY_FFI_CLOSURE_FREE = 122;
+export const DOLLY_FFI_CLOSURE_PREP = 123;
+export const DOLLY_DSO_ABI_DIGEST = "f620970cf60972fe67e4d14dd3441edb9652092ed2ebc27a511c24d2931fb800";

@@ -19,14 +19,19 @@ async function runWorker(configuration) {
         else if (data.type !== "started") reject(new Error(data.message ?? `unexpected process message: ${data.type}`));
       };
       worker.postMessage({ type: "configure", pid: 1, control: new SharedArrayBuffer(16),
-        clockOrigin: performance.timeOrigin, ...configuration });
+        clockOrigin: performance.timeOrigin, local: [], ...configuration });
     });
   } finally { clearTimeout(timer); worker.terminate(); }
 }
 
+// What the supervisor hands the Worker of an executable that records dso@0.
+const dist = async name => (await fetch(new URL(`../../dist/${name}`, import.meta.url))).arrayBuffer();
+const dsoModule = async () => [{ bundle: new Blob([await dist("dolly-process-dso.mjs")], { type: "text/javascript" }),
+  configuration: { hostAbi: new Map(), contract: parseWasmInterface(await dist("dolly-dso-0.wasm")) } }];
+
 async function runDsoChecks() {
   const fetchBytes = async path => new Uint8Array(await (await fetch(path)).arrayBuffer());
-  const dsoContract = parseWasmInterface(await fetchBytes(new URL("../../dist/dolly-process-dso-0.wasm", import.meta.url)));
+  const local = await dsoModule();
   const hostBytes = await fetchBytes("/fixture/process-dso-host.wasm");
   const processInterface = parseWasmInterface(hostBytes);
   const module = await WebAssembly.compile(hostBytes);
@@ -53,7 +58,7 @@ async function runDsoChecks() {
     data.setBigUint64(80, BigInt(16 + bytes.length), true);
     data.setBigUint64(1032, BigInt(bytes.length), true);
     new Uint8Array(memory.buffer, 1040, bytes.length).set(bytes);
-    let configuration = { module, processInterface, memory, dsoContract };
+    let configuration = { module, processInterface, memory, local };
     if (name === "bad-host") {
       const host = await fetchBytes("/fixture/process-dso-bad-host.wasm");
       configuration = { ...configuration, module: await WebAssembly.compile(host), processInterface: parseWasmInterface(host) };
@@ -113,7 +118,8 @@ export async function runProcessAbiChecks() {
 
   const memory = new WebAssembly.Memory({ ...validate(bytes), shared: true, address: "i64" });
   const module = await WebAssembly.compile(bytes);
-  await runWorker({ module, memory, processInterface: parseWasmInterface(bytes) });
+  // An executable without a table or stack pointer has no namespace to load into.
+  await runWorker({ module, memory, processInterface: parseWasmInterface(bytes), local: await dsoModule() });
   const data = new DataView(memory.buffer);
   check(data.getInt32(136, true) === DOLLY_ERRNO.ENOSYS, "missing DSO support did not return target ENOSYS");
   check(data.getBigInt64(400, true) === -BigInt(DOLLY_ERRNO.ENOSYS), "missing FFI support did not return target ENOSYS");

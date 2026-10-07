@@ -1,4 +1,4 @@
-import { MAX_SNAPSHOT_BYTES as snapshotSizeLimit } from "./snapshot-records.mjs";
+import { decodeSnapshotRecords, MAX_SNAPSHOT_BYTES as snapshotSizeLimit } from "./snapshot-records.mjs";
 import { DOLLY_BUILD_ID } from "../dist/dolly-build-id.mjs";
 import { DOLLY_IMAGE_BUILD_ID } from "../dist/dolly-image-build-id.mjs";
 import { DOLLY_IMAGES } from "../dist/dolly-images.mjs";
@@ -141,23 +141,21 @@ try {
   // Host modules and the supervisor name kernel exports as Emscripten's glue did.
   const dolly = Object.fromEntries(Object.entries(kernel).map(([name, value]) => [`_${name}`, value]));
   const files = bootFiles(kernel, memory);
+  // A root build starts from the compiler seed, a snapshot like any image.
+  let seed = null;
   if (bootMode === "rebuild" && !baseArtifact) {
     bootstrapStage("loading root compiler seed...");
-    const { default: loadSeed } = await import("../dist/dolly-seed.mjs");
-    // Static hosts may serve the seed as verified parts; the packager takes the joined bytes.
+    // Static hosts may serve the seed as verified parts.
     const seedURL = locateArtifact("dolly.data");
-    const seed = await (await decodeStaticAsset(await fetch(seedURL), seedURL, {}, snapshotSizeLimit)).arrayBuffer();
-    // The file packager's generated index asks for these five functions; it
-    // names each file's range in the seed, and writing a file makes its parents.
-    await loadSeed({
-      getPreloadedPackage: () => seed,
-      FS_createPath() {},
-      FS_createDataFile: (path, _name, bytes) => files.write(path, bytes),
-      addRunDependency() {},
-      removeRunDependency() {},
-    });
+    seed = await (await decodeStaticAsset(await fetch(seedURL), seedURL, {}, snapshotSizeLimit)).arrayBuffer();
   }
   bootstrapStage("Dolly runtime loaded");
+  // Copies a whole snapshot into the kernel's checked staging range; its size.
+  const stageSnapshot = bytes => {
+    const range = checkedMemoryRange(memory, kernel.dolly_snapshot_restore_address(BigInt(bytes.byteLength)), bytes.byteLength);
+    new Uint8Array(memory.buffer, range.address, range.size).set(new Uint8Array(bytes));
+    return range.size;
+  };
 
   const recipeLocator = configuredImage === "custom"
     ? "FILE:/etc/dolly/upload.Dollyfile" : `${CANONICAL_ORIGIN}/${definition.dollyfile}`;
@@ -175,10 +173,9 @@ try {
     files.write(`/etc/dolly/artifacts/${artifact.recipeSha256}.snapshot`, new Uint8Array(artifact.bytes));
     if (artifact !== baseArtifact) releaseInput(artifact);
   }
-  const restoreMetadata = snapshotMetadata ?? baseArtifact;
-  if (restoreMetadata) {
-    files.write("/etc/dolly/image.manifest", `${restoreMetadata.manifest.join("\n")}\n`);
-  }
+  // The kernel restores a snapshot against the list of its paths.
+  const manifest = (snapshotMetadata ?? baseArtifact)?.manifest ?? [...decodeSnapshotRecords(seed).keys()];
+  files.write("/etc/dolly/image.manifest", `${manifest.join("\n")}\n`);
 
   await host.start("kernel", { dolly, memory, kernelExports: kernel });
 
@@ -189,13 +186,11 @@ try {
     bootstrapStage("building userspace from the Dollyfile...");
     if (baseArtifact) {
       bootstrapStage(`loading builder from ${baseReference.location}...`);
-      const restoreAddress = kernel.dolly_snapshot_restore_address(BigInt(baseArtifact.bytes.byteLength));
-      const range = checkedMemoryRange(memory, restoreAddress, baseArtifact.bytes.byteLength);
-      new Uint8Array(memory.buffer, range.address, range.size).set(new Uint8Array(baseArtifact.bytes));
-      bootstrapStatus = kernel.dolly_process_bootstrap_resume_prepare(BigInt(range.size), 1);
+      bootstrapStatus = kernel.dolly_process_bootstrap_resume_prepare(BigInt(stageSnapshot(baseArtifact.bytes)), 1);
       releaseInput(baseArtifact);
     } else {
-      bootstrapStatus = kernel.dolly_process_bootstrap_prepare();
+      bootstrapStatus = kernel.dolly_process_bootstrap_prepare(BigInt(stageSnapshot(seed)));
+      seed = null;
     }
     if (bootstrapStatus === 0) {
       processSupervisor = await host.kernel.supervisor(dolly);
@@ -233,12 +228,8 @@ try {
   } else {
     bootstrapStage("loading precompiled userspace snapshot...");
     if (configuredImage === "custom") {
-      const snapshot = snapshotMetadata.bytes;
-      const restoreAddress = kernel.dolly_snapshot_restore_address(BigInt(snapshot.byteLength));
-      const range = checkedMemoryRange(memory, restoreAddress, snapshot.byteLength);
-      new Uint8Array(memory.buffer, range.address, range.size).set(new Uint8Array(snapshot));
-      bootstrapStatus = kernel.dolly_bootstrap_snapshot(BigInt(range.size));
-      snapshotBytes = range.size;
+      snapshotBytes = stageSnapshot(snapshotMetadata.bytes);
+      bootstrapStatus = kernel.dolly_bootstrap_snapshot(BigInt(snapshotBytes));
       snapshotMetadata.bytes = undefined;
       bootConfig.customArtifact = undefined;
     } else {

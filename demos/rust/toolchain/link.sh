@@ -17,7 +17,7 @@ container=(podman run --rm --userns=keep-id -v "${project_dir}:${project_dir}" -
       -I/emsdk/upstream/emscripten/system/lib/pthread \
       -c $includes/src/thread/$name.c -o build/rustc-port/$name.o
   done
-  emcc -m64 -O2 -fPIC -matomics -mbulk-memory -Iinclude \
+  emcc -m64 -O2 -fPIC -matomics -mbulk-memory -Ibuild/include \
     -c demos/rust/toolchain/dlopen.c -o build/rustc-port/dlopen.o
   for archive in build/rustc-port/package/rust-link/*.a; do
     /emsdk/upstream/bin/llvm-ar d "$archive" lib.rmeta lib.rmeta-link
@@ -43,7 +43,7 @@ done < "${sysroot}/dynamic-provider.symbols"
   "${port_dir}"/package/rust-link/*.a \
   --whole-archive "${sysroot}/libdolly-process.a" --no-whole-archive \
   "${sysroot}/crt1.o" -L"${sysroot}" \
-  -ldolly-runtime -ldolly-http -ldolly-display -ldolly-download -ldolly-upload \
+  -ldolly-runtime -ldolly-http -ldolly-display -ldolly-download -ldolly-upload -ldolly-dso \
   -lstandalonewasm-ww-memgrow -lstubs -lc-ww -ldlmalloc-ww \
   -lclang_rt.builtins-wasmsjlj-ww -lc++-ww-wasmexcept -lc++abi-ww-wasmexcept \
   -lunwind-ww-wasmexcept \

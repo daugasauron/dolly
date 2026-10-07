@@ -1,6 +1,6 @@
 # flock() reports a lock it never takes; fcntl locks are refused
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 230
 - TAGS: bug,libc,kernel,locks
 

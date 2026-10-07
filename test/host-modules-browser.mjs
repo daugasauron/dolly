@@ -8,6 +8,8 @@ import { DOLLY_HTTP_ABI_DIGEST } from "../host/http/abi.mjs";
 const hostModules = modules => page => page.addInitScript(modules => { globalThis.DOLLY_HOST_MODULES = modules; }, modules);
 const sourceOverrides = new Map();
 await browserTest("host modules", { image: "system", server: { sourceOverrides } }, async ({ server, open }) => {
+  const loaderFetches = () => server.requests.get("/dist/dolly-process-dso.mjs") ?? 0;
+  const loaderFetchesBefore = loaderFetches();
   const { page, submit, text } = await open({
     policy: { maxRequests: 200, rules: [{ origin: server.origin, pathPrefix: "/fixture/", methods: ["GET"] }] },
     setup: hostModules(["runtime@0", "display@0", "http@0", "download@0", "upload@0", "snapshot@0"]),
@@ -74,11 +76,24 @@ await browserTest("host modules", { image: "system", server: { sourceOverrides }
   await source("#include <dolly/process.h>\n#include <dolly/gpu-abi.h>\n#include <stdint.h>\n#include <errno.h>\nint main(void){uint64_t p[5]={DOLLY_GPU_OPEN*(1ull<<32),0,1,8,0};char reply[64];return dolly_process_call(DOLLY_GPU_PROCESS_OP,p,sizeof p,reply,sizeof reply)!=-ENOSYS;}");
   await run("cc -O1 /tmp/probe.c -o /tmp/forged && /tmp/forged");
   assert.ok(!(await requirements("/tmp/forged")).includes("gpu@0"));
-  await source('#include <dolly/host.h>\n#include <dolly/gpu-abi.h>\n#include <stdio.h>\nDOLLY_HOST_REQUIRE(gpu,1,DOLLY_GPU_ABI_DIGEST);\n__attribute__((constructor)) static void init(void){FILE*f=fopen("/tmp/dso-entered","w");if(f)fclose(f);}\nint probe(void){return 37;}');
-  await run("cc -shared -O1 /tmp/probe.c -o /tmp/denied.so");
-  assert.deepEqual(await requirements("/tmp/denied.so"), ["gpu@1"]);
-  await source('#include <dlfcn.h>\n#include <string.h>\nint main(void){void*h=dlopen("/tmp/denied.so",RTLD_NOW);const char*e=dlerror();return h!=0||!e||!strstr(e,"gpu@1");}');
-  await run("cc -rdynamic -O1 /tmp/probe.c -o /tmp/dso-host && /tmp/dso-host && test ! -e /tmp/dso-entered");
+  // dso@0, which this image does not declare, is recorded by a host of modules
+  // (cc -rdynamic) and by a caller of the FFI client, and both are refused. A
+  // program that only calls dlopen records nothing: libc refuses at the call,
+  // naming the module, and the raw operations are unknown ones.
+  await source('#include <dlfcn.h>\n#include <errno.h>\n#include <stdio.h>\n#include <dolly/process.h>\n#include <dolly/dso-abi.h>\n' +
+    'int main(void){char p[16]={0},r[256];errno=0;if(dlopen("/tmp/none.so",RTLD_NOW)||errno!=ENOSYS)return 1;' +
+    'const char*e=dlerror();if(!e||dlerror())return 2;puts(e);' +
+    'for(unsigned o=DOLLY_DSO_OPEN;o<=DOLLY_FFI_CLOSURE_PREP;++o)if(dolly_process_call(o,p,sizeof p,r,sizeof r)!=-ENOSYS)return 3;return 0;}');
+  await run("cc -O1 /tmp/probe.c -o /tmp/dl-caller && /tmp/dl-caller > /tmp/dl-refusal && test $(wc -l < /tmp/dl-refusal) -eq 1 && grep -q 'dso@0' /tmp/dl-refusal");
+  await run("cc -O1 -rdynamic /tmp/probe.c -o /tmp/dl-host");
+  await source("#include <dolly/dso.h>\nint main(void){dolly_ffi_call_request r={0};return dolly_ffi_call(&r)==0;}");
+  await run("cc -O1 /tmp/probe.c -o /tmp/ffi-caller");
+  assert.ok(!(await requirements("/tmp/dl-caller")).includes("dso@0"));
+  for (const program of ["/tmp/dl-host", "/tmp/ffi-caller"]) {
+    assert.ok((await requirements(program)).includes("dso@0"), program);
+    await refused(program, "dso@0");
+  }
+  assert.equal(loaderFetches(), loaderFetchesBefore, "an image without dso@0 fetched its loader");
   assert.notEqual(await submit(`curl -fsS ${server.origin}/denied`), 0);
   assert.equal(server.requests.has("/denied"), false, "denied network request escaped the broker");
   assert.deepEqual(errors, []);

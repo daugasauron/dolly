@@ -14,6 +14,7 @@ are built from source with it.
 - `fd`: fd built with Patti, as a package.
 - `protox`: the protobuf compiler Codex builds with, as a package.
 - `cargo`: upstream Cargo built with Patti, with the `rust` package, as a package.
+- `cbindgen`: the cbindgen header generator built with Patti, as a package (SpiderMonkey's configure requires it).
 
 Build the seed once with `./demos/rust/build-rust-toolchain.sh` (Linux x86_64, Podman, Python
 3.12+, curl, patch), then `npm run image -- rust-tools`. `rust-sdk` starts from
@@ -65,6 +66,11 @@ with the compiler.
   "/opt/rust-sdk/src/libc" }` in the project's `.cargo/config.toml`.
 - No incremental builds (the package sets `CARGO_INCREMENTAL=0`) until Dolly
   has file locks; no `cargo search`, `publish` or `login`; no git dependencies.
+- Its sources are upstream's with target patches only: Cargo's manifest
+  without TLS, SSH and HTTP/2 features (`cargo-features`, `git2-curl`), and
+  `is_executable`, `jobserver-in-process`, `socket2`, `zlib-rs` and
+  `jiff-timezone` ([`config/patches/`](config/patches/),
+  [`cargo-patti.toml`](config/cargo-patti.toml)). Building it needs about 6 GB.
 - Findings and measurements: [task](../../tasks/20260930-231102-cargo-native/TASK.md).
 
 ## Limits
@@ -72,6 +78,8 @@ with the compiler.
 - Patti: panic-abort compilation; no incremental builds, file locks, dynamic
   Rust libraries, tests or benchmarks.
 - Executables link threaded (`cc -pthread`) and need `REQUIRES HOST threads@0`.
+  The compiler loads proc macros and needs `dso@0`, which a build host enables
+  and an image that keeps `rustc` declares.
 - Git dependencies need an explicit `--patch`. Target patches live in
   [`config/patches/`](config/patches/).
 

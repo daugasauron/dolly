@@ -3,11 +3,12 @@ TOOLCHAIN neovim-build
 REQUIRES HOST runtime@0
 REQUIRES HOST display@0
 REQUIRES HOST download@0
+REQUIRES HOST dso@0
 REQUIRES HOST http@0
 REQUIRES HOST upload@0
 
 # Reusable Neovim build artifacts.
-FROM https://daugasauron.com/demos/cmake/Dollyfile-cmake-build 1fcce1a8c79475fb59c175a4f7ce341aceb3597d43ab8b0392be4ce9c87bba31
+FROM https://daugasauron.com/demos/cmake/Dollyfile-cmake-build a668d340f595ca0d93c31dd707dbfa8bf18c23ab9f50daad3984c8a070d20472
 # Neovim supports PUC Lua 5.1. Build the upstream interpreter and C library;
 # -rdynamic lets source-built Lua C modules share that interpreter's API.
 REQUIRES HEADER libc

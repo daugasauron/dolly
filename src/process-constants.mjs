@@ -1,7 +1,5 @@
 // Generated from include/dolly/process.h.
 export const DOLLY_PROCESS_PACKET_LIMIT = 1048576;
-export const DOLLY_PROCESS_DSO_LIMIT = 536870912;
-export const DOLLY_PROCESS_DSO_ERROR_CAPACITY = 240;
 export const DOLLY_PROCESS_ARGUMENT_SIZES = 1;
 export const DOLLY_PROCESS_ARGUMENTS = 2;
 export const DOLLY_PROCESS_ENVIRONMENT_SIZES = 3;
@@ -43,6 +41,7 @@ export const DOLLY_PROCESS_CLOCK_SLEEP = 53;
 export const DOLLY_PROCESS_FD_POLL = 54;
 export const DOLLY_PROCESS_FD_GET_DESCRIPTOR_FLAGS = 55;
 export const DOLLY_PROCESS_FD_SET_DESCRIPTOR_FLAGS = 56;
+export const DOLLY_PROCESS_FD_LOCK = 59;
 export const DOLLY_PROCESS_SPAWN = 64;
 export const DOLLY_PROCESS_WAIT = 65;
 export const DOLLY_PROCESS_INTERRUPT_POLL = 66;
@@ -51,13 +50,6 @@ export const DOLLY_PROCESS_SIGNAL = 68;
 export const DOLLY_PROCESS_SIGNAL_ACKNOWLEDGE = 69;
 export const DOLLY_PROCESS_ALARM = 70;
 export const DOLLY_PROCESS_ALARM_HANDLED = 71;
-export const DOLLY_PROCESS_DSO_OPEN = 112;
-export const DOLLY_PROCESS_DSO_SYMBOL = 113;
-export const DOLLY_PROCESS_DSO_CLOSE = 114;
-export const DOLLY_PROCESS_FFI_CALL = 120;
-export const DOLLY_PROCESS_FFI_CLOSURE_ALLOC = 121;
-export const DOLLY_PROCESS_FFI_CLOSURE_FREE = 122;
-export const DOLLY_PROCESS_FFI_CLOSURE_PREP = 123;
 export const DOLLY_PROCESS_SPAWN_INHERIT_ENVIRONMENT = 1;
 export const DOLLY_PROCESS_SPAWN_FOREGROUND = 2;
 export const DOLLY_PROCESS_SPAWN_INTERACTIVE = 4;
@@ -65,6 +57,7 @@ export const DOLLY_PROCESS_INHERIT_FDS_NONE = 0;
 export const DOLLY_PROCESS_INHERIT_FDS_STDIO = 1;
 export const DOLLY_PROCESS_INHERIT_FDS_ALL = 2;
 export const DOLLY_PROCESS_FD_CLOEXEC = 1;
+export const DOLLY_PROCESS_FD_KEEP_LOCKS = 2;
 export const DOLLY_PROCESS_WAIT_NONBLOCK = 1;
 export const DOLLY_PROCESS_SIGHUP = 1;
 export const DOLLY_PROCESS_SIGINT = 2;
@@ -101,7 +94,6 @@ export const DOLLY_PROCESS_PATH_DIRECTORY = 1;
 export const DOLLY_PROCESS_PATH_NOFOLLOW = 2;
 export const DOLLY_PROCESS_TIME_NOW = 1;
 export const DOLLY_PROCESS_TIME_OMIT = 2;
-export const DOLLY_PROCESS_DSO_GLOBAL = 1;
 export const DOLLY_PROCESS_FILE_UNKNOWN = 0;
 export const DOLLY_PROCESS_FILE_REGULAR = 1;
 export const DOLLY_PROCESS_FILE_DIRECTORY = 2;
@@ -123,6 +115,12 @@ export const DOLLY_PROCESS_TERMINAL_MODE_GET = 3;
 export const DOLLY_PROCESS_TERMINAL_MODE_SET = 4;
 export const DOLLY_PROCESS_TERMINAL_SIZE = 5;
 export const DOLLY_PROCESS_TERMINAL_PUBLISH_RESULT = 6;
+export const DOLLY_PROCESS_LOCK_SHARED = 0;
+export const DOLLY_PROCESS_LOCK_EXCLUSIVE = 1;
+export const DOLLY_PROCESS_LOCK_UNLOCK = 2;
+export const DOLLY_PROCESS_LOCK_DESCRIPTION = 1;
+export const DOLLY_PROCESS_LOCK_WAIT = 2;
+export const DOLLY_PROCESS_LOCK_TEST = 4;
 export const DOLLY_ERRNO = Object.freeze({
   E2BIG: 1,
   EACCES: 2,
@@ -211,6 +209,8 @@ export const DOLLY_PROCESS_SIZEOF = Object.freeze({
   dolly_process_fd_times_request: 40,
   dolly_process_fd_dup_request: 16,
   dolly_process_fd_flags: 8,
+  dolly_process_fd_lock_request: 32,
+  dolly_process_fd_lock_response: 24,
   dolly_process_poll_request: 16,
   dolly_process_poll_query: 8,
   dolly_process_poll_response: 16,
@@ -227,14 +227,6 @@ export const DOLLY_PROCESS_SIZEOF = Object.freeze({
   dolly_process_terminal_request: 24,
   dolly_process_terminal_response: 16,
   dolly_process_clock_sleep_request: 16,
-  dolly_process_dso_open_request: 16,
-  dolly_process_dso_symbol_request: 16,
-  dolly_process_dso_close_request: 8,
-  dolly_process_dso_response: 256,
-  dolly_process_ffi_call_request: 32,
-  dolly_process_ffi_closure_request: 8,
-  dolly_process_ffi_closure_response: 8,
-  dolly_process_ffi_closure_prep_request: 40,
   dolly_process_exit_request: 8,
   dolly_process_wait_request: 8,
   dolly_process_wait_response: 16,

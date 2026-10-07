@@ -27,8 +27,8 @@ renamed to `__dolly__`, and LLVM generates code under the libc's triple,
 `wasm64-unknown-emscripten`; a program sees neither name
 ([process model](process-model.md#executables)).
 
-Demo exceptions (the Rust compiler seed, 0 A.D.'s SpiderMonkey) are recorded in their
-demo READMEs. Every externally built program (compiler, Rust seed, SpiderMonkey)
+Demo exceptions (the Rust compiler seed) are recorded in their demo READMEs.
+Every externally built program (compiler, Rust seed)
 validates against `dolly-process-0` exactly and ships without an Emscripten
 JavaScript loader. Host preparation may
 configure and patch pinned trees deterministically and reviewably, but must not
@@ -50,7 +50,7 @@ compile the programs an image claims to build.
   `/bin/tar` ([`Dollyfile-system-build`](../Dollyfile-system-build)) extracts only regular files and
   directories inside WasmFS.
 - [`write-build-id.mjs`](../scripts/write-build-id.mjs) derives two identities.
-  The image build ID covers the seed, its loader and the process, DSO,
+  The image build ID covers the seed, its loader and the process, `dso@0`,
   kernel-plugin and snapshot contracts; images and caches use it, so kernel-only
   changes reuse images. The runtime build ID adds the kernel bytes; sessions
   require it.
@@ -62,7 +62,7 @@ compile the programs an image claims to build.
 | Family | Support | Limits |
 | --- | --- | --- |
 | Slop, sbase, Dolly commands | Shell scripts and POSIX file/text tools ([Slop](slop.md)) | Not Bash; POSIX flags, not GNU |
-| C/C++ | Clang/LLD, archives, libc++, process-local DSOs, `-pthread` with `threads@0` | No native target, `fork` or `exec` |
+| C/C++ | Clang/LLD, archives, libc++, process-local DSOs with `dso@0`, `-pthread` with `threads@0` | No native target, `fork` or `exec` |
 | Make, Ninja | GNU Make 4.4.1 and Samurai 1.3 | Ninja runs one job |
 | Git, curl | Local Git 2.55 and HTTP clone/fetch/push over Fetch-backed libcurl ([HTTP](http.md)) | CORS applies; no sockets; clean/smudge filters unported |
 | Awk, zlib, gzip | One True Awk (Bison output prepared outside), zlib 1.3.2, Dolly `gzip` | |

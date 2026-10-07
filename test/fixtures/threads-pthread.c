@@ -11,7 +11,6 @@
 #include <threads.h>
 #include <string.h>
 #include <dlfcn.h>
-#include <dolly/process.h>
 #include <dolly/runtime.h>
 #include <signal.h>
 #include <fcntl.h>
@@ -206,8 +205,7 @@ int main(int argc, char **argv) {
   assert(write(ping[1], "", 1) == 1 && pthread_join(sender, NULL) == 0);
   assert((finished.tv_sec - started.tv_sec) * 1000 + (finished.tv_nsec - started.tv_nsec) / 1000000 < 500);
   errno = 0;
-  assert(dlopen(NULL, RTLD_NOW) == NULL && errno == ENOTSUP);
-  assert(dolly_process_call(DOLLY_PROCESS_FFI_CALL, NULL, 0, NULL, 0) == -ENOTSUP);
+  assert(dlopen(NULL, RTLD_NOW) == NULL && errno == ENOSYS);
   puts("PTHREAD-OK mutex barrier semaphore once TLS errno TSD allocator detach C11");
   return 0;
 }

@@ -1,6 +1,6 @@
 # Own the kernel's outer boundary: load the kernel without Emscripten's JavaScript runtime
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 325
 - TAGS: core,boundary,abi,architecture
 

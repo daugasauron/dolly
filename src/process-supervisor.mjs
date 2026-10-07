@@ -101,7 +101,7 @@ function createProcessMemory({ initial, maximum }) {
 }
 
 export class DollyProcessSupervisor {
-  constructor(dolly, kernelMemory, gateModule, workerUrl, processContract, dsoContract, hostAbi, serviceHost, threadContract, threadHost) {
+  constructor(dolly, kernelMemory, gateModule, workerUrl, processContract, hostAbi, serviceHost, threadContract, threadHost, processModules) {
     if (!(kernelMemory instanceof WebAssembly.Memory) ||
         !(gateModule instanceof WebAssembly.Module) || !(workerUrl instanceof URL)) {
       throw new TypeError("invalid Dolly process supervisor configuration");
@@ -111,11 +111,11 @@ export class DollyProcessSupervisor {
     this.gateModule = gateModule;
     this.workerUrl = workerUrl;
     this.processContract = processContract;
-    this.dsoContract = dsoContract;
     this.hostAbi = hostAbi;
     this.serviceHost = serviceHost;
     this.threadContract = threadContract;
     this.threadHost = threadHost;
+    this.processModules = processModules;
     this.processes = new Map();
     this.deferred = new Map();
     this.compiledModules = new Map();
@@ -130,9 +130,9 @@ export class DollyProcessSupervisor {
     this.serviceTimer = setInterval(() => this.#serviceTick(), 16);
   }
 
-  static async create(dolly, kernelMemory, applicationBase, hostAbi, serviceHost, threadHost) {
-    const [gateBytes, contractBytes, dsoBytes, threadBytes, workerBytes] = await Promise.all([
-      "dolly-process-gate-0.wasm", "dolly-process-0.wasm", "dolly-process-dso-0.wasm", "dolly-threads-0.wasm",
+  static async create(dolly, kernelMemory, applicationBase, hostAbi, serviceHost, threadHost, processModules) {
+    const [gateBytes, contractBytes, threadBytes, workerBytes] = await Promise.all([
+      "dolly-process-gate-0.wasm", "dolly-process-0.wasm", "dolly-threads-0.wasm",
       "dolly-process-worker.mjs",
     ].map(async name => {
       const response = await fetch(new URL(`dist/${name}`, applicationBase), {
@@ -148,8 +148,7 @@ export class DollyProcessSupervisor {
       const supervisor = new DollyProcessSupervisor(
         dolly, kernelMemory, gateModule, workerUrl,
         parseWasmInterface(contractBytes, "dolly-process-0"),
-        parseWasmInterface(dsoBytes, "dolly-process-dso-0"),
-        hostAbi, serviceHost, parseWasmInterface(threadBytes, "dolly-threads-0"), threadHost,
+        hostAbi, serviceHost, parseWasmInterface(threadBytes, "dolly-threads-0"), threadHost, processModules,
       );
       supervisor.releaseWorkerSource = () => URL.revokeObjectURL(workerUrl.href);
       return supervisor;
@@ -290,6 +289,7 @@ export class DollyProcessSupervisor {
     let memoryRequirements;
     let processInterface;
     let threaded;
+    let local;
     let prepared = false;
     try {
       const parsed = parseWasmInterface(bytes);
@@ -297,6 +297,10 @@ export class DollyProcessSupervisor {
       const requirements = executableHostRequirements(parsed);
       checkHostAbi(requirements, this.hostAbi);
       threaded = validateThreadProfile(parsed, requirements, this.threadContract);
+      // The modules served in this executable's own Worker. Each holds one
+      // Worker's state, such as its function table, so none goes with threads.
+      local = [...requirements.keys()].filter(requirement => this.processModules.has(requirement));
+      if (threaded && local.length) throw new TypeError(`a program using threads@0 cannot use ${local.join(", ")}`);
       module = await WebAssembly.compile(bytes);
       processInterface = { imports: parsed.imports, exports: parsed.exports };
       prepared = true;
@@ -310,7 +314,7 @@ export class DollyProcessSupervisor {
         );
       }
     }
-    const compiled = { module, memoryRequirements, processInterface, threaded, byteLength: bytes.byteLength };
+    const compiled = { module, memoryRequirements, processInterface, threaded, local, byteLength: bytes.byteLength };
     if (bytes.byteLength <= compiledModuleCacheBytes) {
       this.compiledModules.set(key, compiled);
       this.compiledModuleBytes += bytes.byteLength;
@@ -357,7 +361,7 @@ export class DollyProcessSupervisor {
         if (this.dolly._dolly_process_image_consumed(pid) !== 0) {
           throw new Error(`kernel did not release executable ${pid}`);
         }
-        const { module, memoryRequirements, processInterface, threaded } = await this.#compileProcess(bytes);
+        const { module, memoryRequirements, processInterface, threaded, local } = await this.#compileProcess(bytes);
         if (!this.#canLaunch(process)) continue;
         const memory = createProcessMemory(memoryRequirements);
         process.memory = memory;
@@ -365,7 +369,7 @@ export class DollyProcessSupervisor {
           process: { memory },
           kernel: { memory: this.kernelMemory },
         });
-        Object.assign(process, { gate, module, processInterface, threaded });
+        Object.assign(process, { gate, module, processInterface, threaded, local });
         if (threaded) {
           if (!this.threadHost) throw new Error("threads@0 is unavailable");
           const tid = this.dolly._dolly_threads_attach(pid);
@@ -384,7 +388,7 @@ export class DollyProcessSupervisor {
   }
 
   #launchWorker(process, thread, argument = undefined) {
-    const { pid, module, memory, processInterface, threaded } = process;
+    const { pid, module, memory, processInterface, threaded, local } = process;
     const control = new SharedArrayBuffer(16);
     const name = `dolly-process-${pid}-thread-${thread.tid}`;
     const worker = threaded ? this.threadHost.create(pid, this.workerUrl, name)
@@ -398,8 +402,10 @@ export class DollyProcessSupervisor {
     worker.addEventListener("message", thread.messageHandler);
     worker.addEventListener("error", thread.errorHandler, { once: true });
     worker.addEventListener("messageerror", thread.messageErrorHandler, { once: true });
+    // local: the modules this executable records that are served in its own
+    // Worker (host/dso), each as the bundle it imports and its configuration.
     worker.postMessage({ type: "configure", pid, tid: thread.tid, argument, threaded, module, memory, control,
-      clockOrigin: performance.timeOrigin, processInterface, dsoContract: this.dsoContract, hostAbi: this.hostAbi });
+      clockOrigin: performance.timeOrigin, processInterface, local: local.map(requirement => this.processModules.get(requirement)) });
   }
 
   #canLaunch(process) {
@@ -618,6 +624,9 @@ export class DollyProcessSupervisor {
       this.#reclamationDeadline(process), reclamationDeadline,
     );
     this.#stop(process);
+    // The kernel has closed the process's descriptors: a reader of its pipe or
+    // a waiter for its lock proceeds now, not at the next tick.
+    if (this.dolly._dolly_process_take_wakeup()) this.serviceDeferred();
     const retired = () => {
       process.retirementTimer = null;
       if (this.processes.get(process.pid) !== process) return;

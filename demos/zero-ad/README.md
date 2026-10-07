@@ -1,16 +1,15 @@
 # 0 A.D.
 
 0 A.D. Release 28 as an ordinary wasm64 Dolly process with WebGPU graphics,
-OpenAL audio, saves, replays and a relayed two-player match. The engine and its
-libraries are built inside Dolly; SpiderMonkey is still cross-compiled outside
-Dolly, an explicit bootstrap exception
-([task](../../tasks/20260930-231200-self-host-zero-ad/TASK.md)).
+OpenAL audio, saves, replays and a relayed two-player match. The engine, its
+libraries and SpiderMonkey are built inside Dolly from pinned sources.
 
 ## Images
 
 - `zero-ad`: 0 A.D. Release 28: Athens economy and combat scenarios, audio and replay. Requires WebGPU.
 - `openal-build`: OpenAL Soft built for the 0 A.D. audio path.
 - `zero-ad-deps`: Build-only: the engine's libraries, pkgconf and SDL2 built from pinned sources.
+- `zero-ad-spidermonkey`: Build-only: SpiderMonkey 128.13.0 built inside Dolly with mozbuild, Cargo and cbindgen.
 - `zero-ad-engine`: Build-only: the 0 A.D. engine built inside Dolly with premake and Make.
 
 Open `/zero-ad/` for the main menu, or run `zero-ad [engine arguments]`, for
@@ -20,7 +19,6 @@ Ctrl-F10 exits cleanly. Saves and replays live in `/opt/0ad/data`.
 ## Build
 
 ```sh
-bash demos/zero-ad/toolchain/build-spidermonkey.sh  # external SpiderMonkey bootstrap
 bash demos/zero-ad/toolchain/prepare-headless.sh
 bash demos/zero-ad/toolchain/prepare-shaders.sh     # SPIR-V to WGSL with Naga
 python3 demos/zero-ad/toolchain/package-graphics.py .cache/0ad/0ad-0.28.0

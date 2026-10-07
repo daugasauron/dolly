@@ -7,7 +7,7 @@
   "imports": ["env.memory", "env.dolly_bootstrap_write_bytes", "env.dolly_clock_realtime", "env.dolly_clock_monotonic", "env.dolly_entropy"],
   "host": "runtime.mjs",
   "contracts": ["../../abi/dolly-supervisor-0.wat", "../../abi/dolly-image-0.wat"],
-  "process": ["../../abi/dolly-process-0.wat", "../../abi/dolly-process-gate-0.wat", "../../abi/dolly-process-dso-0.wat"],
+  "process": ["../../abi/dolly-process-0.wat", "../../abi/dolly-process-gate-0.wat"],
   "headers": ["../../include/dolly/runtime.h", "../../include/dolly/process.h", "../../include/dolly/host.h", "../../include/dolly/host-abi.h", "../../include/dolly/toolchain.h"],
   "kernel": ["../../src/dolly.c", "../../src/process-kernel.c", "../../src/system-snapshot.c", "../../src/device-lease.c", "../../src/file-blocks.cpp", "../../src/libc-host.c"],
   "client": ["../../src/process/runtime-adapter.c"]

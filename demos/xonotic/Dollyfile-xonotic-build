@@ -1,0 +1,48 @@
+DOLLY 6
+TOOLCHAIN xonotic-build
+REQUIRES HOST runtime@0
+REQUIRES HOST display@0
+REQUIRES HOST download@0
+REQUIRES HOST http@0
+REQUIRES HOST upload@0
+
+FROM https://daugasauron.com/Dollyfile-system-tools 76204eed7416daabd1c8978f628b45da16f77d27d23d4f1473c508c5c750a309
+INSTALL https://daugasauron.com/demos/sdl2/Dollyfile-sdl2 00d869eb35eef98817eff21107c290b81106333456139491d3cfabac9d5c0dfa
+# FreeType (with its libpng) for the client's fonts, as 0 A.D. built them.
+COPY https://daugasauron.com/demos/zero-ad/Dollyfile-zero-ad-deps 68fdf9e443d4ec2f6459e26f107fc75bfee3965b6abeda185d1d92e1ebc4893d /usr/include/freetype2 /usr/include/freetype2
+COPY https://daugasauron.com/demos/zero-ad/Dollyfile-zero-ad-deps 68fdf9e443d4ec2f6459e26f107fc75bfee3965b6abeda185d1d92e1ebc4893d /usr/lib/libfreetype.a /usr/lib/libfreetype.a
+COPY https://daugasauron.com/demos/zero-ad/Dollyfile-zero-ad-deps 68fdf9e443d4ec2f6459e26f107fc75bfee3965b6abeda185d1d92e1ebc4893d /usr/lib/libpng16.a /usr/lib/libpng16.a
+COPY https://daugasauron.com/demos/zero-ad/Dollyfile-zero-ad-deps 68fdf9e443d4ec2f6459e26f107fc75bfee3965b6abeda185d1d92e1ebc4893d /usr/share/licenses/freetype /usr/share/licenses/freetype
+COPY https://daugasauron.com/demos/zero-ad/Dollyfile-zero-ad-deps 68fdf9e443d4ec2f6459e26f107fc75bfee3965b6abeda185d1d92e1ebc4893d /usr/share/licenses/libpng /usr/share/licenses/libpng
+REQUIRES HEADER cpp
+REQUIRES HEADER sdl2
+REQUIRES HEADER zlib
+REQUIRES HEADER zconf
+REQUIRES LIB SDL2
+REQUIRES LIB z
+REQUIRES TOOL ar
+REQUIRES TOOL cc
+REQUIRES TOOL c++
+REQUIRES TOOL make
+REQUIRES TOOL mkdir
+REQUIRES TOOL tar
+REQUIRES TOOL gzip
+REQUIRES TOOL rm
+
+SOURCE https://daugasauron.com/dist/static/xonotic/source.tar.gz eed3b72fe01ad706545490ec38775bd9d685cf9d5f71582f85008e4d101e558b /tmp/xonotic/source.tar.gz
+SLOP gzip -dc /tmp/xonotic/source.tar.gz | tar -xf - -C /
+SLOP make -f /usr/src/dolly/xonotic/Makefile
+
+EXPORTS TOOL xonotic-dedicated
+EXPORTS TOOL xonotic-sdl
+EXPORTS TOOL gmqcc
+EXPORTS FOLDER xonotic-source /usr/src/xonotic
+EXPORTS FOLDER xonotic-port /usr/src/dolly/xonotic
+FILE /usr/share/licenses/xonotic/COPYING
+FILE /usr/share/licenses/xonotic/GPL-2
+FILE /usr/share/licenses/xonotic/GPL-3
+FILE /usr/share/licenses/gmqcc/LICENSE
+FILE /usr/share/licenses/libjpeg/README
+SLOP rm -rf /tmp/xonotic
+
+ENTRY /bin/foreground -i /bin/slop

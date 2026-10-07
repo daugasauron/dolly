@@ -65,6 +65,8 @@ await browserTest("core", { image }, async ({ server, open }) => {
     "printf 'one\\n' > a/file && printf 'two\\n' > b/file && { diff -u a/file b/file > change.patch; test $? -eq 1; }",
     "cd a && ! patch file < ../change.patch && test \"$(cat file)\" = one && patch -p1 < ../change.patch && test \"$(cat file)\" = two && cd ..",
     "cd many && seq 1 600 | xargs touch && cd ..",
+    "touch -t 198001030000 past && touch -t 203012312359 future && touch recent && " +
+      "test \"$(stat -c %Y past)\" -lt \"$(stat -c %Y recent)\" && test \"$(stat -c %Y recent)\" -lt \"$(stat -c %Y future)\"",
     "! find many -type f -exec slop -c 'printf \"%s\\n\" \"$@\" >> exec.log; exit 1' slop {} +",
     "test \"$(sort -u exec.log | sed -n '$=')\" = 600",
     "test \"$(seq 1 100000 | xargs echo | sed -n '$=')\" -gt 1",

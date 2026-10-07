@@ -10,7 +10,7 @@ REQUIRES HOST upload@0
 
 # Build-only: premake and the 0 A.D. engine (pyrogenesis), built by upstream's
 # premake Makefiles with Dolly's c++.
-FROM https://daugasauron.com/demos/zero-ad/Dollyfile-zero-ad-deps 0a6d80e29f2b9f971c0dd3f748dc63086d8c4ad3d8e286d408b3f45ce83d5ad1
+FROM https://daugasauron.com/demos/zero-ad/Dollyfile-zero-ad-deps 68fdf9e443d4ec2f6459e26f107fc75bfee3965b6abeda185d1d92e1ebc4893d
 REQUIRES TOOL cc
 REQUIRES TOOL c++
 REQUIRES TOOL ar
@@ -42,26 +42,21 @@ FILE /tmp/premake.slop
     cc -O2 -o /usr/bin/premake5 $flags src/host/*.c src/scripts.c $lua -lm
 SLOP slop -e /tmp/premake.slop
 
-# Bootstrap exception: SpiderMonkey is still cross-compiled outside Dolly
-# (toolchain/build-spidermonkey.sh).
-SOURCE https://daugasauron.com/dist/static/zero-ad-build/mozjs-host.tar.gz 8169238800343f898765a17d5a8cb1f4dc6be28a6bc696ab2aa5871e6d092273 /tmp/mozjs.tar.gz
-SLOP gzip -dc /tmp/mozjs.tar.gz | tar -xf - -C /
-FOLDER /usr/share/licenses/spidermonkey
-# Its corresponding source, and that of the game data's translated shaders:
-# SpiderMonkey's pinned tarball with 0 A.D.'s patches and toolchain/. Published
-# with the release; the build only verifies it.
-SOURCE https://daugasauron.com/dist/static/zero-ad-build/bootstrap.tar b25ff4e2dc9402b98467c55c445ba6eb14b2cd982424f4d701769819e1db3685 /tmp/zero-ad-bootstrap.tar
+# SpiderMonkey, built inside Dolly by zero-ad-spidermonkey: its headers, the
+# two archives and its licences.
+COPY https://daugasauron.com/demos/zero-ad/Dollyfile-zero-ad-spidermonkey 05988bad8d81438303dcd1636818e05a7430220a7a5ed312e5a70690fd7ff4e8 /opt/mozjs /opt/mozjs
+COPY https://daugasauron.com/demos/zero-ad/Dollyfile-zero-ad-spidermonkey 05988bad8d81438303dcd1636818e05a7430220a7a5ed312e5a70690fd7ff4e8 /usr/share/licenses/spidermonkey /usr/share/licenses/spidermonkey
 FILE /tmp/pkgconfig/mozjs-128.pc
     Name: SpiderMonkey 128.13.0
     Description: The Mozilla library for JavaScript
     Version: 128.13.0
-    Cflags: -I/tmp/mozjs/include
-    Libs: -L/tmp/mozjs/lib -ljs_static -ljsrust
+    Cflags: -I/opt/mozjs/include
+    Libs: -L/opt/mozjs/lib -ljs_static -ljsrust
 
 # Probe for test/0ad-spidermonkey-browser.mjs.
 SLOP mkdir -p /usr/libexec/zero-ad
-SLOP c++ -std=c++20 -O1 -I/tmp/mozjs/include /tmp/0ad-patches/spidermonkey-check.cpp \
-  -L/tmp/mozjs/lib -ljs_static -ljsrust -lz -o /usr/libexec/zero-ad/spidermonkey-check
+SLOP c++ -std=c++20 -O1 -I/opt/mozjs/include /tmp/0ad-patches/spidermonkey-check.cpp \
+  -L/opt/mozjs/lib -ljs_static -ljsrust -lz -o /usr/libexec/zero-ad/spidermonkey-check
 SLOP /usr/libexec/zero-ad/spidermonkey-check
 FOLDER /usr/libexec/zero-ad
 

@@ -8,8 +8,9 @@ const definitions = await Promise.all(hostManifests.map(async manifest =>
   ({ ...await import(new URL(manifest.host, manifest.url).href), contract: manifest })));
 export const hostContracts = Object.freeze(definitions.map(module => module.contract));
 // What a build enables beside the runtime its image declares: the broker the
-// engine fetches sources through and the threads its toolchain uses.
-export const buildHost = Object.freeze(["http@0", "threads@0"]);
+// engine fetches sources through, the threads its toolchain uses and the
+// modules its compilers and interpreters load.
+export const buildHost = Object.freeze(["http@0", "threads@0", "dso@0"]);
 export const buildHostFor = declared => [...declared.filter(value => runtimes.includes(value)), ...buildHost];
 
 // A module may select what a route boots, as a saved session names its image:

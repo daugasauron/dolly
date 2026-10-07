@@ -181,3 +181,16 @@ DOLLY_0AD_NAGA_SHA256=45283c11b8b1da1936214eefc9caf9c1bc74ae5c090023eaea84ba317a
 DOLLY_EMACS_VERSION=31.1
 DOLLY_EMACS_URL='https://ftp.gnu.org/gnu/emacs/emacs-31.1.tar.gz'
 DOLLY_EMACS_SHA256=3cad7fd1466c0e24867df8d2609da3ac75abc90d7c4c0175e410e9be46d4092a
+
+# Xonotic 0.8.6: the release zip (data pk3 archives) and its source zip, whose
+# darkplaces, gmqcc and qcsrc trees equal the repositories' xonotic-v0.8.6 tags.
+DOLLY_XONOTIC_VERSION=0.8.6
+DOLLY_XONOTIC_URL='https://dl.xonotic.org/xonotic-0.8.6.zip'
+DOLLY_XONOTIC_SHA256=50850f8d800e7499722f6ea61e478e96464a375494b5a24da93aa0598cbe964d
+DOLLY_XONOTIC_SOURCE_URL='https://dl.xonotic.org/xonotic-0.8.6-source.zip'
+DOLLY_XONOTIC_SOURCE_SHA256=8b92ac781cff4ae89c121a23eacd7dec05a2aabedaccc23a19d1a0958b4012a8
+
+# IJG libjpeg, linked into Xonotic's client for its JPEG textures.
+DOLLY_JPEG_VERSION=9f
+DOLLY_JPEG_URL='https://www.ijg.org/files/jpegsrc.v9f.tar.gz'
+DOLLY_JPEG_SHA256=04705c110cb2469caa79fb71fba3d7bf834914706e9641a4589485c1f832565b

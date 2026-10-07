@@ -6,7 +6,7 @@ await browserTest("cpp", { image: "system" }, async ({ open }) => {
   const { submit } = await open();
   const run = async command => assert.equal(await submit(command), 0, command);
   await run("test ! -e /usr/bin/zig && test ! -e /usr/lib/zig");
-  await runCppSdkCases(submit, false);
+  await runCppSdkCases(submit);
   // GNU Make builds in parallel and then reports the target up to date.
   await run("mkdir /tmp/make && cd /tmp/make && echo 'int value(void) { return 42; }' > value.c && " +
     "echo 'int value(void); int main(void) { return value() != 42; }' > main.c");
@@ -45,10 +45,20 @@ await browserTest("cpp", { image: "system" }, async ({ open }) => {
     // -MP adds a phony target per header, so Make survives a deleted header.
     "echo 'int dep;' > dep.h && echo '#include \"dep.h\"' > dep.c && cc -MD -MP -MF dep.d -c dep.c -o dep.o && " +
       "grep -q '^dep.h:' dep.d",
+    // Flags Mozilla's build system adds without probing them first.
+    "echo 'int main(void) { return 0; }' > moz-flags.c && cc -fno-math-errno -fomit-frame-pointer " +
+      "-ffp-contract=off -mthread-model single -fno-lto " +
+      "moz-flags.c -o moz-flags && ./moz-flags",
+    // -msimd128 turns the unit's Wasm SIMD on; the intrinsics header needs it.
+    "printf '%s\\n' '#include <wasm_simd128.h>' 'int main(void) { v128_t v = wasm_i32x4_splat(3);' " +
+      "'return wasm_i32x4_extract_lane(wasm_i32x4_add(v, v), 2) == 6 ? 0 : 1; }' > simd.c && " +
+      "cc -msimd128 simd.c -o simd && ./simd",
     "echo 'int main(int argc, char **argv) { return argc == 0; }' > sanity.cpp && " +
       "c++ -D_FILE_OFFSET_BITS=64 -o sanity sanity.cpp -D_FILE_OFFSET_BITS=64 && ./sanity",
     "echo 'extern int host(void); int extension(void) { return host(); }' > extension.c && " +
       "cc -shared -fPIC -Wl,--allow-shlib-undefined extension.c -o extension.so && test -s extension.so",
   ]) await run(command);
+  // Clang's driver refuses a single thread model next to -pthread; so does cc.
+  assert.equal(await submit("cc -pthread -mthread-model single -c moz-flags.c -o moz-flags.o"), 64);
   await run("cd / && rm -rf /tmp/make");
 });
