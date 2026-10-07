@@ -49,6 +49,9 @@ await browserTest("cpp", { image: "system" }, async ({ open }) => {
     "echo 'int main(void) { return 0; }' > moz-flags.c && cc -fno-math-errno -fomit-frame-pointer " +
       "-ffp-contract=off -mthread-model single -fno-lto -fstandalone-debug -ferror-limit=0 " +
       "moz-flags.c -o moz-flags && ./moz-flags",
+    // With -g the standalone kind is what cc1 gets; the limited kind is the explicit negative.
+    "cc -g -fstandalone-debug moz-flags.c -o moz-flags-g && ./moz-flags-g && " +
+      "cc -g -fno-standalone-debug -c moz-flags.c -o moz-flags-limited.o && test -s moz-flags-limited.o",
     "echo 'int main(int argc, char **argv) { return argc == 0; }' > sanity.cpp && " +
       "c++ -D_FILE_OFFSET_BITS=64 -o sanity sanity.cpp -D_FILE_OFFSET_BITS=64 && ./sanity",
     "echo 'extern int host(void); int extension(void) { return host(); }' > extension.c && " +
