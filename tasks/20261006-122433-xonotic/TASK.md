@@ -479,6 +479,16 @@ small: 17 modes × 20 permutation bits in the source, 14 pairs in use at
   the match should capture once the engine asks. The rebuild of sdl2 also
   rebuilt the zero-ad chain and repinned every recipe that installs sdl2
   (commit `c8487297`).
+- Found (12:05, `pointer-run-2.log`, `xonotic-pointer2-100s.png`): with the
+  dialog skipped the match loads into Xonotic's in-game "Game menu"
+  (PAUSE), whose cursor the page hides (style 4 throughout, in Chromium and
+  Firefox: `browser-test-firefox-8.log`), so no second pointer shows; the
+  engine asks for relative motion only once that menu is closed. What a
+  person does today: Escape closes the dialogs and the game menu, the first
+  click in the match captures the pointer (the page's cursor shows as a
+  crosshair until then), Escape releases it. The test's live stage now
+  presses Escape while a menu holds the hidden cursor until the engine asks
+  for relative motion, then clicks and asserts the capture.
 
 ## Software path performance (2026-10-07, `short.dem`, 1,046 frames)
 
@@ -498,6 +508,8 @@ Logs: `bench-chromium-*.log`.
 | `r_viewscale 0.5` | 17.4 | +31%: the path honours it, world at half size, HUD full |
 | `exec effects-low.cfg` | 31.0 | +134%: no lightmap deluxe/gloss/normal maps, no realtime lights, particles 0.4, picmip 1 |
 
+| `exec effects-low.cfg`, Firefox | 32.3 | the default's rate in Firefox (`bench-firefox-1.log`) |
+| 800×600, Firefox | 23.3 | |
 | `vid_soft_threads` 2, 4, 8 | not measured | see below |
 | client at `-O2` | not measured | no time left; a rebuild of about 2 minutes plus one benchmark session |
 

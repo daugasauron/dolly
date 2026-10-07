@@ -37,10 +37,11 @@ the task records the measurements).
   Loading a map takes about two minutes in the software client; the
   loading plaque stays up meanwhile.
 - Keyboard and mouse reach the engine through the sdl2 package's video
-  backend: in a match the engine asks for relative motion and the page
-  captures the pointer on the first click (Escape releases it); in the menu
-  and in the game's own dialogs the page's cursor is hidden and the game
-  draws its own.
+  backend: in the menu, in the game's own dialogs and in the game menu a map
+  opens into, the page's cursor is hidden and the game draws its own; once
+  Escape closes them the engine asks for relative motion and the first click
+  in the match captures the pointer (the page shows a crosshair until then;
+  Escape releases the capture).
 - Not working or not there: sound (the client has the null sound unit),
   network play (single player with bots only), the music and Nexuiz
   compatibility archives, and the `gpu@0` renderer (the software path is the
