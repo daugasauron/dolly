@@ -776,3 +776,18 @@ exact-import check passes.
 - **Tasks**: 32 open (54 this morning). Owner decisions collected by the
   triage are in "Task triage, 2026-10-07" above.
 - Not started today: file modes built inside Dolly, `exec`.
+
+### 10:25, 2026-10-07: usage limit again; what is running
+
+- Round 3 (`work/locks`): still building unattended; 37 of 58 light images at
+  10:09, none failed. See the 09:55 entry for how to resume and what to do
+  with its result.
+- SpiderMonkey (`work/cargo`, `work/spidermonkey`): round 3's 37 finished
+  images, 250 packs and its Rust seed tarball were imported at 10:10 (nineteen
+  recipe files there are modified build state, uncommitted on purpose).
+  `cbindgen` built on them in 2.5 minutes (`c73bdc33`); nothing imported was
+  rebuilt. A build of `cmake-build`, `cmake`, `openal-build`, `zero-ad-deps`
+  and then `zero-ad-spidermonkey` is running there in the 9 GB build slot
+  (`work/cargo/build/spidermonkey-evidence/`); it had about 40 to 50 minutes
+  to go at 10:25. Whether the SpiderMonkey image builds is the open result.
+- All other agents are stopped with their work committed.
