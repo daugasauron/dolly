@@ -295,7 +295,8 @@ and no larger one.
   per label, the smallest frames there are), so it needs 1.44 MB. With LLVM's
   whole warning set except that flag, and with no warning set, the file
   compiles; with only that flag added it fails (4 variants, one run each).
-  It overflowed at label 2,094 directly and at 4,000 through JSPI.
+  It overflowed at label 2,094 directly and, through JSPI, at 3,303 on the
+  first attempt and 3,993-4,002 on later ones.
 
 Fix for the first (commit `528f9883`): the process Worker enters `_start` and
 `dolly_thread_start` through `WebAssembly.promising` where it exists. It is
@@ -335,8 +336,8 @@ Limits that remain, recorded rather than hidden:
   not taken here.
 - `cc` therefore cannot compile about 770 chained member calls in one
   expression (Chrome; 700 fit and 760 fail in Firefox 155, where the entry
-  changes nothing) or about 4,000 consecutive `case` labels under
-  `-Wimplicit-fallthrough` (either browser).
+  changes nothing) or 3,300 to 4,000 consecutive `case` labels under
+  `-Wimplicit-fallthrough` (Chrome; Firefox fails on the 6,020 too).
 
 Checked after the integrator's review (2026-10-07 night):
 
@@ -355,7 +356,8 @@ Checked after the integrator's review (2026-10-07 night):
   Chrome through JSPI fits 760 cold and at least 800 after V8 tiers up, Chrome
   directly 400, Firefox 700. `SemaARM.cpp` as the recipe builds it (`-w`) also
   compiles with the direct entry (6 of 6), so it needs under 500 KB of the
-  950 KB; with `-Wimplicit-fallthrough` it needs 6,020 labels where 4,000 fit.
+  950 KB; with `-Wimplicit-fallthrough` it needs 6,020 labels where 3,300 to
+  4,000 fit.
 - **Firefox 155**: `MSP430.cpp` compiles (2 of 2, 4.5 s and 3.3 s) and
   `SemaARM.cpp` compiles without `-Wimplicit-fallthrough` and fails with it,
   as in Chrome. The entry gains Firefox nothing: its Worker stack was never

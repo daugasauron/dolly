@@ -35,7 +35,7 @@ Clang recurses on the browser's stack, which a page cannot size (Chrome
 gives a process about 950 KB, `src/process-worker.mjs`). Two of LLVM's own
 sources come close. `MSP430.cpp` chains 635 member calls: about 760 fit in
 Chrome and 700 in Firefox 155. `SemaARM.cpp` includes 6,020 consecutive `case`
-labels, which `-Wimplicit-fallthrough` walks recursively: about 4,000 fit, so
+labels, which `-Wimplicit-fallthrough` walks recursively: under 4,000 fit, so
 the build is configured with `LLVM_ENABLE_WARNINGS=OFF`. A program past
 either limit fails explicitly: `dolly: process N failed: Maximum call stack
 size exceeded` (Firefox: `too much recursion`) and status 126, with the shell
