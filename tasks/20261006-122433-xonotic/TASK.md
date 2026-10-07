@@ -488,7 +488,12 @@ small: 17 modes × 20 permutation bits in the source, 14 pairs in use at
   click in the match captures the pointer (the page's cursor shows as a
   crosshair until then), Escape releases it. The test's live stage now
   presses Escape while a menu holds the hidden cursor until the engine asks
-  for relative motion, then clicks and asserts the capture.
+  for relative motion, then clicks and asserts the capture. A run of that
+  stage (`browser-test-chromium-21.log`) reached the engine's relative
+  request, so the match does ask for capture once the game menu is closed;
+  the click there was a page script's `PointerEvent`, which the browser
+  rightly refuses for pointer lock (bhop's test asserts the same refusal),
+  so the stage now clicks as a person does (`page.mouse.click`).
 
 ## Software path performance (2026-10-07, `short.dem`, 1,046 frames)
 
