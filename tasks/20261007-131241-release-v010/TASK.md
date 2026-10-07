@@ -405,7 +405,19 @@ Not settled here:
 - `pages.yml` takes `release_tag` (`vX.Y.Z`) and the tarball's SHA-256,
   checks out `refs/tags/TAG`, and `site-release.mjs verify` holds the
   artifact's recorded commit and sources to that checkout; the export must
-  produce `TAG/`. The `source_commit` input is gone.
+  produce `TAG/`. The `source_commit` input is gone. The workflow itself has
+  not run: its steps are the ones the checklist runs locally.
+- Run end to end on 2026-10-08 with the GitHub catalog release standing in
+  for both sites (the two-artifact disk rule of the session) and an empty
+  archive: items 1 to 3 and 6 pass in 3 min 14 s (the scan reads 87
+  snapshots, 28 GB, in 25 s and finds planted tokens of three kinds in a
+  control), it prints the commands of items 4 to 8, and no tag exists
+  afterwards. It stops at item 1 when the tree has an uncommitted file, when
+  the archive is missing, and when the archive already holds the version.
+  Not run: the same with the domain release (each command it runs was run
+  on the domain release separately, above).
+- The token patterns are a floor, not the owner's key: before a push the
+  owner's own keys are still searched for by value.
 
 ## Release checklist
 
