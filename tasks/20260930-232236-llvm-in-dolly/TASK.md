@@ -7,14 +7,32 @@
 Owner (2026-10-07): "this is very high priority." Worked on branch
 `core/llvm-in-dolly` (worktree `work/llvm`), in parallel with release 0.1.0.
 
-## Remaining (2026-10-07)
+## Remaining (2026-10-08)
 
-In the catalog: `llvm-tablegen` (configure, the three TableGen tools and
-their outputs byte-identical to the seed's; `demos/llvm`), rebuilt in every
-round since. Left, from "Next" below: the Worker stack overflow on
-`MSP430.cpp` and `SemaARM.cpp` (fix on the compiler side, decided), then the
-whole 2,559-TU closure at `-j4`, the 103 archives kept, the compiler linked
-and compared with the seed's link; stage 2 against stage 3.
+Built inside Dolly, on `core/llvm-in-dolly` (four images in `demos/llvm`,
+sections below): the TableGen tools; the compiler's whole closure, 2,559
+units in 103 archives, at four jobs in 42 minutes; the compiler linked from
+them, whose output is the seed compiler's byte for byte on a sample; and a
+second stage built by that compiler, identical to the first in every archive
+and in the compiler. The first two clauses of "Done when" hold. Left:
+
+- **Replacing the host-built seed** (the third clause) is a later decision.
+  It needs the runtime libraries built here too (libc++, libc++abi,
+  compiler-rt: `core/llvm-runtimes`), an answer for size (127 MB against the
+  seed's 78 MB: Dolly has no binaryen; 96 MB without the name section), and
+  the TableGen tools rebuilt by the Dolly-built compiler (their outputs are
+  already the seed's bytes).
+- **The browser stack** has no general fix. The JSPI entry doubles Chrome's;
+  `MSP430.cpp` fits with a margin of 635 in 760 and `SemaARM.cpp` only with
+  LLVM's warnings off. A process primitive that continues on a fresh stack
+  is an ABI decision for the owner (see "The two stack overflows").
+- **Jobs**: four, because a CMake job is three processes and the supervisor
+  admits 32 (`20260930-231102-parallel-rust` decided a memory budget instead).
+- **Cost in the catalog**: `llvm-build` 44 min, `llvm-cc` 4 min, `llvm-stage2`
+  46 min at `-j4`; snapshots of 604, 653 and 653 MB. Each stage extracts the
+  sources and runs TableGen again, because snapshots keep no file times.
+- The closure was built in Chrome only; Firefox compiles the two deepest
+  units but was not given the whole build.
 
 The keystone for the bootstrap goals: a self-hosted rustc
 (`20260930-231100-self-host-rust`), an LLVM-enabled Zig, and a compiler seed
