@@ -597,6 +597,11 @@ measured faster than it.
    permutation census ran one 45 s demo on stormkeep without water or
    dynamic lights and without JPEG textures, so it undercounts what `high`
    and above compile, not what they require.
+2b. The pointer needs no decision: the display contract already has the
+   hidden cursor (`DOLLY_DISPLAY_CURSOR_HIDDEN`) for the menu and in-game
+   dialogs and capture (`CAPTURED`, after a click) for play; the second
+   pointer was the sdl2 package's backend dropping the hidden state on
+   leaving relative mode, fixed in `demos/sdl2/SDL_dollyvideo.c`.
 3. Sound. DarkPlaces mixes in Wasm and outputs through SDL audio, which the
    `sdl2` package lacks, as it lacks thread creation for SDL's audio callback.
    Either an SDL2 audio backend over `audio@0` in `demos/sdl2`, which serves
