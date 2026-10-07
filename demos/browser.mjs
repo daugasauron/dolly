@@ -51,10 +51,10 @@ function terminalHelpers(page) {
   const text = () => page.evaluate(() => __dolly.visibleTerminalText());
   // Clicks the first cell, as a user would, to drop the selection text() leaves.
   const clearSelection = () => page.evaluate(() => {
-    const { transport } = __dolly, { paddingX, paddingY, cellWidth, cellHeight } = transport.geometry();
+    const { paddingX, paddingY, cellWidth, cellHeight } = __dolly.transport.geometry();
     const x = paddingX + Math.floor(cellWidth / 2), y = paddingY + Math.floor(cellHeight / 2);
-    transport.pushPointer(x, y, 1, {});
-    transport.pushPointer(x, y, 0, {});
+    __dolly.inputTransport.pushPointer(x, y, 1, {});
+    __dolly.inputTransport.pushPointer(x, y, 0, {});
   });
   return {
     page, submit, text,
@@ -127,8 +127,9 @@ export async function displayProbe(image, ...more) {
     const { dollyfile, sha256 } = DOLLY_IMAGES.find(definition => definition.image === name);
     return `${CANONICAL_ORIGIN}/${dollyfile} ${sha256}`;
   };
-  // Host requirements are never inherited: restate the base's, plus the display.
-  const hosts = [...new Set([...DOLLY_IMAGES.find(definition => definition.image === image).hostRequirements, "display@0", ...more])].sort();
+  // Host requirements are never inherited: restate the base's, plus the terminal's.
+  const hosts = [...new Set([...DOLLY_IMAGES.find(definition => definition.image === image).hostRequirements,
+    "display@0", "input@0", ...more])].sort();
   const recipe = ["DOLLY 6", "APPLICATION display-probe", ...hosts.map(host => `REQUIRES HOST ${host}`), `FROM ${pin(image)}`,
     ...["/usr/lib/libdisplay.so", "/usr/share/fonts/IosevkaTerm-SemiBold.ttf"]
       .map(path => `COPY ${pin("ghostty-build")} ${path} ${path}`),

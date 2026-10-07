@@ -2,8 +2,8 @@
 // the GPU adapter, the session Save button, download offers). They show when
 // the page is ready and when one changes state, hide ten seconds later unless
 // a state the user must not miss holds them, and Ctrl+Shift+F shows or hides
-// them (host/display/input.mjs). Only page code calls this; a guest reaches
-// none of it.
+// them (page-chords.mjs). Only page code calls this; a guest reaches none of
+// it.
 const holders = new Set();
 let timer;
 const set = shown => { document.documentElement.dataset.indicators = shown ? "shown" : "hidden"; };

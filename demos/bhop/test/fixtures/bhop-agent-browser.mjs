@@ -111,7 +111,7 @@ export async function runBhopAgentProof({page,projectDir,fixture,modelsFile,down
   }
   await key('Escape');await delay(150);await key('Tab');
   await state(s=>s.game.owner===0&&s.profile['ui.conf'].includes('interface=1'),'review controls visible');
-  await page.waitForFunction(()=>!__dolly.transport.relativePointerRequested()&&!document.pointerLockElement);
+  await page.waitForFunction(()=>!__dolly.inputTransport.relativePointerRequested()&&!document.pointerLockElement);
   const download=await acceptDownload(page,()=>click(770,66));
   assert.equal(await download.failure(),null);
   const replayPath=resolve(downloadDirectory,'bhop-attempts.html');await download.saveAs(replayPath);

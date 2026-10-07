@@ -2,6 +2,7 @@ DOLLY 6
 APPLICATION slopyard
 REQUIRES HOST runtime@0
 REQUIRES HOST display@0
+REQUIRES HOST input@0
 REQUIRES HOST download@0
 REQUIRES HOST gpu@0
 REQUIRES HOST http@0
@@ -9,9 +10,9 @@ REQUIRES HOST snapshot@0
 REQUIRES HOST threads@0
 REQUIRES HOST upload@0
 
-FROM https://daugasauron.com/demos/slopyard/Dollyfile-gamedev-sdk 45318d24035c163f9ab2bad9202a27ba79fec2e1980d40818e721dea37264482
-INSTALL https://daugasauron.com/demos/javascript/Dollyfile-javascript 22262a6364c51428e73fc8fc160ed4f6120bda7889354d4c3023d9b07b7958a4
-INSTALL https://daugasauron.com/demos/pi/Dollyfile-pi-coding-agent 7d5aac49d4eebc26030118c2297ca1dbb12cb40e366b0540d4eebc8816d7a113
+FROM https://daugasauron.com/demos/slopyard/Dollyfile-gamedev-sdk 3e175dceb2ad167b92bd4c72b009f2a16675da94c0f48771a9964fb4f2374280
+INSTALL https://daugasauron.com/demos/javascript/Dollyfile-javascript 6b56ba54cb89ccef096f91ce999619328f15e9aedd49f9e881933a21646531ff
+INSTALL https://daugasauron.com/demos/pi/Dollyfile-pi-coding-agent f27f88f18fc63d0edd387bde5549bb2f685a420657722feece6d268decd38b0d
 REQUIRES TOOL cc
 REQUIRES TOOL ar
 REQUIRES TOOL make

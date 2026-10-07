@@ -1,0 +1,13 @@
+{
+  "name": "input",
+  "version": 0,
+  "dependencies": ["runtime@0"],
+  "phase": "image",
+  "imports": [],
+  "host": "input.mjs",
+  "contracts": ["dolly-input-0.wat"],
+  "process": [],
+  "headers": ["input.h", "input-abi.h"],
+  "kernel": ["kernel.c", "ring.c"],
+  "client": ["client.c"]
+}

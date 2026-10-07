@@ -2,11 +2,12 @@ DOLLY 6
 TOOLCHAIN pi-build
 REQUIRES HOST runtime@0
 REQUIRES HOST display@0
+REQUIRES HOST input@0
 REQUIRES HOST download@0
 REQUIRES HOST http@0
 REQUIRES HOST upload@0
 
-FROM https://daugasauron.com/demos/javascript/Dollyfile-typescript-build c7d445d8872c91061bb60c9d9965f43d906622837862dbcd04f28fccebe367bc
+FROM https://daugasauron.com/demos/javascript/Dollyfile-typescript-build 4df7a53d907311c7b30663d142d4b0a4664adf72d1f70dcb9ef1b324d770f24a
 # Pi 1.0.3 is compiled from its pinned upstream TypeScript workspace inside
 # Dolly. Only generated model data and the finite locked external dependency
 # graph come from the matching published packages.

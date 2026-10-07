@@ -41,13 +41,19 @@ void dolly_kernel_thread_released(int pid, int tid);
 int64_t dolly_kernel_request_path(int pid, uintptr_t request_size,
                                   char *path, size_t capacity);
 
-/* The terminal device, host/display/kernel.c. */
+/* The terminal device's output, host/display/kernel.c. replies() copies what
+ * the terminal answers its program (a cursor report) and returns the count. */
 int dolly_kernel_terminal_attached(void);
 void dolly_kernel_terminal_render(const unsigned char *bytes, size_t length);
-int dolly_kernel_terminal_read(void);
-int dolly_kernel_terminal_ready(void);
+size_t dolly_kernel_terminal_replies(unsigned char *output, size_t capacity);
 uint32_t dolly_terminal_columns(void);
 uint32_t dolly_terminal_rows(void);
+
+/* The terminal device's input, host/input/kernel.c. input_service() handles
+ * the pointer and scroll input that is the terminal's own, before it draws. */
+int dolly_kernel_terminal_read(void);
+int dolly_kernel_terminal_ready(void);
+int dolly_kernel_terminal_input_service(void);
 void dolly_terminal_discard_pending_input(void);
 
 /* The terminal line discipline and the page's terminal mailbox, src/dolly.c. */

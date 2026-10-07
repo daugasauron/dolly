@@ -13,9 +13,10 @@
 #include <stb_truetype.h>
 
 #include <dolly/display.h>
+#include <dolly/input.h>
 
 enum {
-  DRIVER_ABI_VERSION = 4,
+  DRIVER_ABI_VERSION = 5,
   MIN_FONT_MILLI = 8000,
   MAX_FONT_MILLI = 32000,
   DEFAULT_FONT_MILLI = 20000,
@@ -127,9 +128,8 @@ static GhosttyKeyEvent key_event;
 static dolly_display_mailbox *mailbox;
 static unsigned char *frames[DOLLY_DISPLAY_FRAME_COUNT];
 static size_t frame_capacity;
-static unsigned char *paste_buffer;
 static unsigned char *copy_buffer;
-static size_t clipboard_capacity;
+static size_t copy_capacity;
 static unsigned char *font_bytes;
 static size_t font_bytes_length;
 static stbtt_fontinfo font;
@@ -252,7 +252,7 @@ static GhosttyColorRgb theme_color(const GhosttyStyleColor *value,
 static void publish_selection(void) {
   uint32_t flags = 0;
   uint32_t length = 0;
-  if (terminal != NULL && copy_buffer != NULL && clipboard_capacity != 0) {
+  if (terminal != NULL && copy_buffer != NULL && copy_capacity != 0) {
     GhosttyTerminalSelectionFormatOptions options =
         GHOSTTY_INIT_SIZED(GhosttyTerminalSelectionFormatOptions);
     options.emit = GHOSTTY_FORMATTER_FORMAT_PLAIN;
@@ -264,12 +264,12 @@ static void publish_selection(void) {
         terminal, options, NULL, 0, &required);
     if (result == GHOSTTY_SUCCESS || result == GHOSTTY_OUT_OF_SPACE) {
       flags = DOLLY_DISPLAY_COPY_AVAILABLE;
-      if (required > clipboard_capacity) {
+      if (required > copy_capacity) {
         flags |= DOLLY_DISPLAY_COPY_TRUNCATED;
       } else if (required != 0) {
         size_t written = 0;
         if (ghostty_terminal_selection_format_buf(
-                terminal, options, copy_buffer, clipboard_capacity,
+                terminal, options, copy_buffer, copy_capacity,
                 &written) == GHOSTTY_SUCCESS) {
           length = (uint32_t)written;
         } else {
@@ -575,24 +575,24 @@ static void render_frame(void) {
   frame_dirty = false;
 }
 
+static const dolly_input_decoder decoder;
+
 static int initialize(dolly_display_mailbox *shared_mailbox,
                       unsigned char *frame_a,
                       unsigned char *frame_b,
                       size_t capacity,
-                      unsigned char *shared_paste_buffer,
                       unsigned char *shared_copy_buffer,
-                      size_t shared_clipboard_capacity) {
+                      size_t shared_copy_capacity) {
   static const char font_path[] = "/usr/share/fonts/IosevkaTerm-SemiBold.ttf";
   if (shared_mailbox == NULL || frame_a == NULL || frame_b == NULL ||
-      capacity < (size_t)160 * 100 * 4 || shared_paste_buffer == NULL ||
-      shared_copy_buffer == NULL || shared_clipboard_capacity == 0) return -1;
+      capacity < (size_t)160 * 100 * 4 ||
+      shared_copy_buffer == NULL || shared_copy_capacity == 0) return -1;
   mailbox = shared_mailbox;
   frames[0] = frame_a;
   frames[1] = frame_b;
   frame_capacity = capacity;
-  paste_buffer = shared_paste_buffer;
   copy_buffer = shared_copy_buffer;
-  clipboard_capacity = shared_clipboard_capacity;
+  copy_capacity = shared_copy_capacity;
   if (load_font(font_path) != 0 ||
       ghostty_terminal_new(NULL, &terminal, 100, 30) != GHOSTTY_SUCCESS ||
       ghostty_key_encoder_new(NULL, &key_encoder) != GHOSTTY_SUCCESS ||
@@ -617,13 +617,36 @@ static int initialize(dolly_display_mailbox *shared_mailbox,
   if (set_layout(viewport_width_css, viewport_height_css,
                  device_scale_milli, font_size_milli) != 0) return -1;
   render_frame();
-  return 0;
+  return dolly_input_decoder_install(&decoder);
 }
 
 static void write_terminal(const unsigned char *bytes, size_t length) {
   if (terminal == NULL || bytes == NULL || length == 0) return;
   ghostty_terminal_vt_write(terminal, bytes, length);
   frame_dirty = true;
+}
+
+// Copies the replies the terminal owes its program.
+static size_t read_replies(unsigned char *output, size_t capacity) {
+  size_t length = pty_response_write - pty_response_read;
+  if (length > capacity) length = capacity;
+  for (size_t index = 0; index < length; ++index) {
+    output[index] = pty_response[pty_response_read++ & (PTY_RESPONSE_CAPACITY - 1)];
+  }
+  if (pty_response_read == pty_response_write) {
+    pty_response_read = 0;
+    pty_response_write = 0;
+  }
+  return length;
+}
+
+static int resize(uint32_t width_css, uint32_t height_css, uint32_t scale_milli) {
+  frame_dirty = true;
+  return set_layout(width_css, height_css, scale_milli, font_size_milli);
+}
+
+static void present(void) {
+  if (frame_dirty) render_frame();
 }
 
 static void set_suspended(int value) {
@@ -681,9 +704,6 @@ typedef struct {
   size_t length;
 } paste_source;
 
-static int drain_pty_response(unsigned char *output, size_t capacity,
-                              size_t *output_length);
-
 static bool read_paste(void *userdata, GhosttyString mime,
                        GhosttyWriter writer) {
   (void)mime;
@@ -692,45 +712,37 @@ static bool read_paste(void *userdata, GhosttyString mime,
          writer.write(writer.userdata, source->bytes, source->length);
 }
 
-static int handle_paste(unsigned char *output, size_t output_capacity,
-                        size_t *output_length) {
-  const uint32_t sequence = __c11_atomic_load(
-      &mailbox->paste_sequence, __ATOMIC_ACQUIRE);
-  const uint32_t consumed = __c11_atomic_load(
-      &mailbox->paste_consumed_sequence, __ATOMIC_RELAXED);
-  if (sequence == consumed) return 0;
-  const uint32_t length = __c11_atomic_load(
-      &mailbox->paste_length, __ATOMIC_RELAXED);
-  GhosttyResult result = GHOSTTY_INVALID_VALUE;
-  if ((size_t)length <= clipboard_capacity) {
-    static const uint8_t mime_bytes[] = "text/plain";
-    const GhosttyString mime = {
-        .ptr = mime_bytes,
-        .len = sizeof(mime_bytes) - 1,
-    };
-    const paste_source source = {
-        .bytes = paste_buffer,
-        .length = length,
-    };
-    const GhosttyPaste paste = {
-        .size = sizeof(GhosttyPaste),
-        .location = GHOSTTY_CLIPBOARD_LOCATION_STANDARD,
-        .source = GHOSTTY_PASTE_SOURCE_CLIPBOARD,
-        .mimes = &mime,
-        .mimes_len = 1,
-        .reader = {.read = read_paste, .userdata = (void *)&source},
-        // The browser only creates this event from an explicit user paste.
-        .allow_unsafe = true,
-    };
-    result = ghostty_terminal_paste(terminal, &paste, NULL);
-  }
-  __c11_atomic_store(&mailbox->paste_consumed_sequence, sequence,
-                     __ATOMIC_RELEASE);
-  if (result != GHOSTTY_SUCCESS) return -1;
-  return drain_pty_response(output, output_capacity, output_length);
+static int decode_paste(const unsigned char *bytes, size_t size,
+                        unsigned char *output, size_t capacity,
+                        size_t *length) {
+  static const uint8_t mime_bytes[] = "text/plain";
+  const GhosttyString mime = {
+      .ptr = mime_bytes,
+      .len = sizeof(mime_bytes) - 1,
+  };
+  const paste_source source = {
+      .bytes = bytes,
+      .length = size,
+  };
+  const GhosttyPaste paste = {
+      .size = sizeof(GhosttyPaste),
+      .location = GHOSTTY_CLIPBOARD_LOCATION_STANDARD,
+      .source = GHOSTTY_PASTE_SOURCE_CLIPBOARD,
+      .mimes = &mime,
+      .mimes_len = 1,
+      .reader = {.read = read_paste, .userdata = (void *)&source},
+      // The browser only creates this event from an explicit user paste.
+      .allow_unsafe = true,
+  };
+  *length = 0;
+  if (ghostty_terminal_paste(terminal, &paste, NULL) != GHOSTTY_SUCCESS) return -1;
+  *length = read_replies(output, capacity);
+  return 0;
 }
 
 static int handle_pointer(const dolly_input_event *event) {
+  const uint32_t x = event->x > 0 ? (uint32_t)event->x : 0;
+  const uint32_t y = event->y > 0 ? (uint32_t)event->y : 0;
   uint16_t cols = 0;
   uint16_t rows = 0;
   if (ghostty_terminal_get(terminal, GHOSTTY_TERMINAL_DATA_COLS, &cols) !=
@@ -739,10 +751,8 @@ static int handle_pointer(const dolly_input_event *event) {
           GHOSTTY_SUCCESS ||
       cols == 0 || rows == 0) return -1;
 
-  uint32_t column = event->width_css_px > padding_x
-      ? (event->width_css_px - padding_x) / cell_width : 0;
-  uint32_t row = event->height_css_px > padding_y
-      ? (event->height_css_px - padding_y) / cell_height : 0;
+  uint32_t column = x > padding_x ? (x - padding_x) / cell_width : 0;
+  uint32_t row = y > padding_y ? (y - padding_y) / cell_height : 0;
   if (column >= cols) column = cols - 1;
   if (row >= rows) row = rows - 1;
   const GhosttyPoint point = {
@@ -753,10 +763,7 @@ static int handle_pointer(const dolly_input_event *event) {
   if (ghostty_terminal_grid_ref(terminal, point, &ref) != GHOSTTY_SUCCESS) {
     return -1;
   }
-  GhosttySurfacePosition position = {
-      .x = event->width_css_px,
-      .y = event->height_css_px,
-  };
+  GhosttySurfacePosition position = {.x = x, .y = y};
   GhosttySelectionGestureEvent gesture_event = NULL;
   if (event->action == DOLLY_POINTER_ACTION_PRESS) {
     (void)ghostty_terminal_set(terminal, GHOSTTY_TERMINAL_OPT_SELECTION, NULL);
@@ -806,8 +813,18 @@ static int handle_pointer(const dolly_input_event *event) {
   return 0;
 }
 
+// A wheel delta in thousandths of its unit becomes thousandths of a row:
+// negative toward older output, positive toward the active screen.
 static int handle_scroll(const dolly_input_event *event) {
-  const int32_t delta_milli = (int32_t)event->action;
+  uint16_t page_rows = 1;
+  (void)ghostty_terminal_get(terminal, GHOSTTY_TERMINAL_DATA_ROWS, &page_rows);
+  int64_t wheel_milli = event->y;
+  if (event->action == DOLLY_SCROLL_UNIT_PIXEL) wheel_milli /= cell_height;
+  else if (event->action == DOLLY_SCROLL_UNIT_PAGE) wheel_milli *= page_rows;
+  else if (event->action != DOLLY_SCROLL_UNIT_LINE) return -1;
+  if (wheel_milli > 2000000000) wheel_milli = 2000000000;
+  if (wheel_milli < -2000000000) wheel_milli = -2000000000;
+  const int32_t delta_milli = (int32_t)wheel_milli;
   if ((delta_milli > 0 && scroll_remainder_milli > INT32_MAX - delta_milli) ||
       (delta_milli < 0 && scroll_remainder_milli < INT32_MIN - delta_milli)) {
     scroll_remainder_milli = 0;
@@ -826,43 +843,20 @@ static int handle_scroll(const dolly_input_event *event) {
   return 0;
 }
 
-static int drain_pty_response(unsigned char *output, size_t capacity,
-                              size_t *output_length) {
-  size_t length = pty_response_write - pty_response_read;
-  if (length > capacity) length = capacity;
-  for (size_t index = 0; index < length; ++index) {
-    output[index] = pty_response[pty_response_read++ & (PTY_RESPONSE_CAPACITY - 1)];
-  }
-  if (pty_response_read == pty_response_write) {
-    pty_response_read = 0;
-    pty_response_write = 0;
-  }
-  *output_length = length;
-  return 0;
-}
-
-static int handle_event(const dolly_input_event *event,
-                        unsigned char *output,
-                        size_t output_capacity,
-                        size_t *output_length) {
-  if (output == NULL || output_length == NULL) return -1;
+static int decode_record(const dolly_input_event *event,
+                         unsigned char *output,
+                         size_t output_capacity,
+                         size_t *output_length) {
   *output_length = 0;
-  if (event == NULL && frame_dirty) render_frame();
-  if (event == NULL) return drain_pty_response(output, output_capacity, output_length);
   const size_t total = (size_t)event->key_length + event->code_length +
                        event->text_length;
   if (total > sizeof(event->data)) return -1;
-  if (event->type == DOLLY_INPUT_EVENT_RESIZE) {
-    if (set_layout(event->width_css_px, event->height_css_px,
-                   event->device_scale_milli, event->font_size_milli) != 0) return -1;
-    frame_dirty = true;
-    return 0;
-  }
-  if (event->type == DOLLY_INPUT_EVENT_POINTER) return handle_pointer(event);
-  if (event->type == DOLLY_INPUT_EVENT_SCROLL) return handle_scroll(event);
-  // UI events must work even with a terminal-query response waiting for stdin.
-  if (pty_response_read != pty_response_write) {
-    return drain_pty_response(output, output_capacity, output_length);
+  if (event->type == DOLLY_INPUT_EVENT_POINTER ||
+      event->type == DOLLY_INPUT_EVENT_SCROLL) {
+    // A terminal that a graphics program covers has no pointer of its own.
+    if (suspended) return 0;
+    return event->type == DOLLY_INPUT_EVENT_POINTER ? handle_pointer(event)
+                                                    : handle_scroll(event);
   }
   if (event->type == DOLLY_INPUT_EVENT_TEXT) {
     if (event->text_length > output_capacity) return -1;
@@ -870,13 +864,10 @@ static int handle_event(const dolly_input_event *event,
     *output_length = event->text_length;
     return 0;
   }
-  if (event->type == DOLLY_INPUT_EVENT_PASTE) {
-    return handle_paste(output, output_capacity, output_length);
-  }
   if (event->type != DOLLY_INPUT_EVENT_KEY) return 0;
 
-  char key[DOLLY_DISPLAY_EVENT_DATA_SIZE + 1];
-  char code[DOLLY_DISPLAY_EVENT_DATA_SIZE + 1];
+  char key[DOLLY_INPUT_EVENT_DATA_SIZE + 1];
+  char code[DOLLY_INPUT_EVENT_DATA_SIZE + 1];
   memcpy(key, event->data, event->key_length);
   key[event->key_length] = '\0';
   memcpy(code, event->data + event->key_length, event->code_length);
@@ -894,7 +885,6 @@ static int handle_event(const dolly_input_event *event,
                    device_scale_milli, next) == 0) render_frame();
     return 0;
   }
-  if (strcmp(code, "F11") == 0) return 0;
 
   ghostty_key_event_set_action(key_event, (GhosttyKeyAction)event->action);
   ghostty_key_event_set_key(key_event, map_key(code));
@@ -928,16 +918,23 @@ static int handle_event(const dolly_input_event *event,
   return 0;
 }
 
-static const dolly_display_driver_v4 driver = {
+static const dolly_input_decoder decoder = {
+    .record = decode_record,
+    .paste = decode_paste,
+};
+
+static const dolly_display_driver_v5 driver = {
     .abi_version = DRIVER_ABI_VERSION,
-    .struct_size = sizeof(dolly_display_driver_v4),
+    .struct_size = sizeof(dolly_display_driver_v5),
     .initialize = initialize,
     .write = write_terminal,
-    .handle_event = handle_event,
+    .read = read_replies,
+    .resize = resize,
+    .present = present,
     .set_suspended = set_suspended,
 };
 
-__attribute__((export_name("dolly_display_driver_get_v4")))
-const dolly_display_driver_v4 *dolly_display_driver_export(void) {
+__attribute__((export_name("dolly_display_driver_get_v5")))
+const dolly_display_driver_v5 *dolly_display_driver_export(void) {
   return &driver;
 }

@@ -48,7 +48,7 @@ try {
     const box = await page.locator("#display").boundingBox();
     const center = { x: box.x + box.width / 2, y: box.y + box.height / 2 };
     const capture = async () => {
-      await page.waitForFunction(() => __dolly.transport.relativePointerRequested());
+      await page.waitForFunction(() => __dolly.inputTransport.relativePointerRequested());
       await page.mouse.click(center.x, center.y);
       await page.waitForFunction(() => document.pointerLockElement?.id === "display");
       const frame = await page.evaluate(() => Number(document.documentElement.dataset.frameSequence));
@@ -64,7 +64,7 @@ try {
     assert.equal(await page.evaluate(() => document.pointerLockElement), null, "synthetic input must not grant capture");
     await capture();
     await page.evaluate(() => {
-      const { transport } = __dolly, original = transport.pushPointerMotion;
+      const { inputTransport: transport } = __dolly, original = transport.pushPointerMotion;
       globalThis.bhopMotion = [];
       transport.pushPointerMotion = function (event) {
         bhopMotion.push([event.movementX, event.movementY, event.buttons]);

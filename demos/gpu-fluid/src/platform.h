@@ -3,6 +3,7 @@
 #include <webgpu/webgpu.h>
 #include <dolly/gpu.h>
 #include <dolly/display.h>
+#include <dolly/input.h>
 #include <cglm/vec2.h>
 #include <cglm/vec4.h>
 #include <assert.h>

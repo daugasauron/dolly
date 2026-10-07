@@ -13,12 +13,12 @@ test("the gamedev SDK declares its tools, headers and licenses", async () => {
     assert.ok(sdk.files.some(file => file.path === path), path);
   }
   for (const tool of ["ar", "cc", "mkdir"]) assert.ok(requirements(sdk, "TOOL").includes(tool), tool);
-  assert.deepEqual(requirements(sdk, "HEADER"), ["libc", "display"]);
+  assert.deepEqual(requirements(sdk, "HEADER"), ["libc", "display", "input"]);
   assert.deepEqual(sdk.exports.filter(({ type }) => type === "HEADER").map(({ name }) => name),
     ["raylib", "box3d", "dolly-raylib"]);
 });
 
 test("Slopyard declares the host modules its game uses", async () => {
   const requirements = (await loadProjectGraph("demos/slopyard/Dollyfile-slopyard")).root.hostRequirements;
-  for (const name of ["display@0", "gpu@0", "threads@0"]) assert.ok(requirements.includes(name), name);
+  for (const name of ["display@0", "input@0", "gpu@0", "threads@0"]) assert.ok(requirements.includes(name), name);
 });

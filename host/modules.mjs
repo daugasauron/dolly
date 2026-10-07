@@ -60,8 +60,8 @@ export async function createHost(side, enabled, { send, resources = {}, configur
   }
   const get = name => instances.get(name);
   // Page UI across modules: the first module that claims a key event takes it
-  // from the display and may act on it; a module drawing over the display
-  // canvas reports the pixel size pointer input maps to.
+  // from the guest's input and may act on it; a module drawing over the
+  // display canvas reports the pixel size pointer input maps to.
   function claimsKey(event) {
     for (const instance of instances.values()) {
       const claim = instance.claimsKey?.(event);

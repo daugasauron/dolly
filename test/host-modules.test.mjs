@@ -13,24 +13,28 @@ const digest = value => createHash("sha256").update(value).digest("hex");
 test("every image declares its complete host set itself", async () => {
   const root = new URL("../", import.meta.url).pathname;
   const load = createDollyfileGraphLoader(root);
-  const interactive = ["runtime@0", "display@0", "download@0", "http@0", "snapshot@0", "upload@0"];
+  const terminal = ["runtime@0", "display@0", "input@0"];
+  const interactive = [...terminal, "download@0", "http@0", "snapshot@0", "upload@0"];
   // Every image declares the runtime it is built on; the engine retained for
-  // FROM builds uses http@0; download and upload
-  // tools arrive with system-tools; the terminal needs display@0; default
+  // FROM builds uses http@0; download and upload tools arrive with
+  // system-tools; a terminal draws with display@0 and reads keys with
+  // input@0, which the display package alone does not ask for; default
   // installs packages with amy and runs what they bring: threaded tools and
   // programs that load modules.
   const core = {
     default: [...interactive, "packages@0", "threads@0", "dso@0"], system: interactive, "gpu-sdk": [...interactive, "gpu@0"],
     "audio-sdk": [...interactive, "audio@0"], "system-build": ["runtime@0", "http@0"], "zig-build": ["runtime@0", "http@0"],
-    "ghostty-build": ["runtime@0", "display@0", "http@0"],
-    "system-tools": ["runtime@0", "display@0", "download@0", "http@0", "upload@0"],
+    "ghostty-build": [...terminal, "http@0"],
+    "system-tools": [...terminal, "download@0", "http@0", "upload@0"],
     zlib: ["runtime@0"], gzip: ["runtime@0"], curl: ["runtime@0", "http@0"], display: ["runtime@0", "display@0"],
   };
   for (const image of await discoverImageDefinitions(root)) {
     const graph = await load(image.filename);
     assert.deepEqual(graph.root.hostRequirements, image.parsed.hostRequirements, `${image.image}: nothing inherited`);
     if (core[image.image]) assert.deepEqual(graph.root.hostRequirements, core[image.image].toSorted(), image.image);
-    if (image.parsed.entry) assert.ok(graph.root.hostRequirements.includes("display@0"), `${image.image} opens a terminal`);
+    for (const module of image.parsed.entry ? ["display@0", "input@0"] : []) {
+      assert.ok(graph.root.hostRequirements.includes(module), `${image.image} opens a terminal: ${module}`);
+    }
   }
 });
 test("FROM, INSTALL and COPY carry no host requirements; a package's must be declared", async () => {

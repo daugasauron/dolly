@@ -5,7 +5,7 @@ import { DOLLY_THREADS_ABI_DIGEST } from "../host/threads/abi.mjs";
 import { CANONICAL_ORIGIN } from "../src/static-asset.mjs";
 import { DOLLY_IMAGES } from "../dist/dolly-images.mjs";
 
-const modules = ["runtime@0", "display@0", "http@0", "download@0", "upload@0", "snapshot@0"];
+const modules = ["runtime@0", "display@0", "input@0", "http@0", "download@0", "upload@0", "snapshot@0"];
 // system holds the compiler and download and declares no threads@0: the
 // suite's image is system with that one line more, built by the page.
 const enable = modules => page => page.addInitScript(modules => { globalThis.DOLLY_HOST_MODULES = modules; }, modules);

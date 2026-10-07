@@ -6,7 +6,7 @@ import { CANONICAL_ORIGIN } from "../src/static-asset.mjs";
 
 const { DOLLY_IMAGES } = await import("../dist/dolly-images.mjs");
 const display = DOLLY_IMAGES.find(({ image }) => image === "display");
-const recipe = ["DOLLY 6", "APPLICATION no-shell", "REQUIRES HOST runtime@0", "REQUIRES HOST display@0",
+const recipe = ["DOLLY 6", "APPLICATION no-shell", "REQUIRES HOST runtime@0", "REQUIRES HOST display@0", "REQUIRES HOST input@0",
   `INSTALL ${CANONICAL_ORIGIN}/${display.dollyfile} ${display.sha256}`,
   "FILE /tmp/shell.c", "    #include <stdio.h>", "    #include <stdlib.h>",
   '    int main(void) { const char *shell = getenv("SHELL"); printf("SHELL=%s.\\n", shell ? shell : "unset"); getchar(); return 0; }',

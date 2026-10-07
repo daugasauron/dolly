@@ -321,4 +321,121 @@ this branch too: the repeated screen-reading gesture lives in
   kernel-plugin contract's import. Runtime `a6b03265…`, image inputs
   `4305d230…`.
 - `node --test test/*.test.mjs 'demos/**/*.test.mjs'`: 405 pass, 0 fail.
-- Image chain and browser suites on this base: see below.
+- `DOLLY_BUILD_IMAGES=default,system,cc,sdl2`: built in 2086 s (00:54,
+  `image-chain-2.log`); no browser suite ran on them before the session ended.
+
+## State on 2026-10-07 (morning, `82fa0cff`, before the round3 merge)
+
+- Implemented and committed: everything the implementation section lists.
+  `display.h` holds driver v5 and the four surface words and names no record:
+  the session ended at "Now display.h" with the tree clean, and the header is
+  consistent with the design, so nothing was left half-edited there.
+- Verified on the nine-import kernel (`fb6c3463`): `build:runtime`
+  (`validate-browser` passes), the source suite, four images built.
+- Verified only on the older base (`607dc7b1`), Chrome only: core, terminal,
+  display, boundary, process, shell, indicators.
+- Never ran anywhere: any browser suite on `fb6c3463` or later; any suite in
+  Firefox; host-modules' two new cases (`cc` package); the `sdl2`, `bhop` and
+  neovim demo tests, which are the programs that read input through the
+  module; `test:artifacts` on rebuilt images; the echo-latency measurement.
+- Not yet on `integrate/round3` (`40418a7b`): expected merge conflicts in
+  `host/display/display.mjs` (main's repeated gesture, `ac4b4e5d`, lives in
+  `src/terminal-text.mjs` here), `src/process-kernel.c` (main's `0ebf7356`
+  and this branch's `0f37f0bf` make the same discard at exit),
+  `test/{terminal,display,host-modules}-browser.mjs`, `host/manifests.mjs`
+  and `test/host-modules.test.mjs` (`dso@0`, the operation-number test),
+  `docs/browser-boundary.md`, and the pins of 59 recipes.
+
+Nothing older than this morning's merge counts as verification of the branch
+handed over (integrator's rule): the results above say what ran on which base.
+
+## On `integrate/round3` (`40418a7b`), 2026-10-07
+
+Merge `9298ef41`. The integrator's two fixes from last night survive the move:
+
+- The exit discard is one call, in `mark_process_exited`
+  (`src/process-kernel.c`), reaching `dolly_terminal_discard_pending_input`
+  in `host/input/kernel.c`; last night's case in `test/display-browser.mjs`
+  (keys typed while the exited program's Worker retires reach the shell) is
+  kept, typing through `__dolly.inputTransport`.
+- The repeated screen-reading gesture (a program leaving the alternate screen
+  between press and drag cancels the selection) lives in
+  `src/terminal-text.mjs`, which both modules' page APIs feed;
+  `host/display/display.mjs` keeps only the copy chord and the presenter.
+  Its case in `test/terminal-browser.mjs` is kept.
+- `composed()` in `test/browser.mjs` takes `{ base, files, entry }`: the
+  round's base image (the `dso` suite, which now also declares `input@0` since
+  it types) and this branch's files and entry (host-modules' two images).
+- `dso@0` joins the module list and `default`'s declared set beside `input@0`;
+  the operation-number test sees locks (59), input (88–91) and dso (112–114,
+  120–123) apart.
+- Recipes: the round's pins plus the `input@0` declarations, then
+  `update-recipe-pins` (the cascade, commit `67779583`: without it the lint
+  and the host-set test fail on stale pins) and `--sources` for `dolly-docs`
+  and `system-build` (the documents and headers this branch changes, commit
+  `672d2b51`). The catalog round repins as built.
+
+Verification on this base (logs under `build/input-evidence/`):
+
+- `npm run build:runtime` (`build-runtime-6.log`): `validate-browser` passes,
+  runtime `a4b21f92…`, image inputs `b5247305…`.
+- `node --test 'test/*.test.mjs' 'demos/**/*.test.mjs'`: 419 pass, 0 fail.
+- `npm run lint:dollyfiles`: 67 recipes.
+- Images (`DOLLY_IMAGE_JOBS=1`, one build slot, `image-chain-3.log`):
+  `default,system,cc,sdl2` in 36 min (09:00–09:36), 16 images for runtime
+  `a4b21f92…`; `ghostty-build` compiled the display library against driver v5
+  and the decoder import, `sdl2` against `input.h`.
+- Browser suites through `work/slot.sh browser`, Chromium 141 and Firefox
+  (`SUITE-BROWSER-r3.log`), all passing in both: boundary, session-offline,
+  shell-env, core, shell, slop, terminal (with the SIGWINCH, alternate-screen,
+  both-lease and draw-only cases), display (the loss mark, the ruler drag
+  across a retiring program, the keys typed while its Worker retires),
+  indicators, dso (its composed image now declares `input@0`).
+- `demos/run-browser-tests.mjs sdl2` (Chromium, `demo-sdl2-chromium.log`):
+  passes: SDL2 built from source against `input.h`, text and key input,
+  repeats, dead keys, IME composition, clicks, pointer presence, blur
+  releasing held keys and buttons.
+- `default` fails in both browsers before its host-set check: the start text
+  names `cc`, `git` and `python`, and this partial build's `amy-index.txt`
+  has no `git` or `python`. Not the branch's: the suite wants the catalog.
+- `process` ("startup script", wants `default`) and `host-modules` (composes
+  `cc`) failed in their first run in both browsers because a second image
+  build (`bhop`) was rewriting `dist/dolly-images.mjs` to its own closure
+  under them. Rerun with the list whole: `process` passes in both.
+- `host-modules`: its two new cases had never run. Two test errors, fixed in
+  `c9a7408d`: a page-built image enables `http@0`,
+  `threads@0` and `dso@0` beside what it declares (`buildHost`, the rebuild
+  route; `docs/browser-boundary.md`), so the exact module sets expected are
+  the declared ones plus those; and the draw-only image's probe script uses
+  `wc` and `grep`, which `posix` brings, not `core`. With these the suite
+  passes in both browsers: in the draw-only image the input client is refused
+  before it runs (126, one line naming `input@0`), the raw operation is
+  `ENOSYS`, the terminal reads no key while keys are pressed for seconds; in
+  the input-only image a program takes the lease and reads the key, with no
+  display and no `transport` on the page.
+- `neovim` chain (`image-chain-5-neovim.log`, 287 s beside the reused
+  images) and `demos/run-browser-tests.mjs neovim` (Chromium,
+  `demo-neovim-chromium.log`): passes: keys typed through the terminal into
+  Neovim, `:w`, `:!`, `:q` recovery. Demo tests run in Chromium only.
+- `test/dolly.artifacts.mjs` with the pins as the image build left them: 15
+  pass; "system snapshots are sealed to their visible recipe chain" compared
+  the image-inputs digest the images carry (`22d006ca…`, the tree after the
+  build refreshed its pins) with the one `build:runtime` had recorded before
+  (`b5247305…`). That run overlapped the `neovim` chain's build. Rerun with
+  no build running, after `build:runtime` on the same tree
+  (`build-runtime-7.log`: runtime `a4b21f92…` and image inputs `b5247305…`
+  again, so the pin rewrites do not enter the digest): 16 pass, 0 fail
+  (`artifacts-r3b.log`).
+
+Not verified on this base: `bhop` (above); every demo test in Firefox (the
+runner is Chromium only); the `default` suite past its catalog check; the
+`docs` suite (`dolly-docs` not built); the echo-latency measurement. The pin
+rewrites the image builds left are restored, not committed: the catalog
+round repins as built.
+- `bhop` cannot be built on this base here: `rust-sdk` fails at
+  `rustc --version` with "wrong dolly.process stamp". The Rust seed in this
+  tree carries the process stamp from before round3's `process.h` (file
+  locks); relinking it is the round's seed step, not this module's (the seed
+  takes the one build slot for an hour with the chain). Pointer lock in a
+  real program (Airtime) is therefore unverified on this base; the page and
+  kernel sides of it are covered by `display` and `terminal`.

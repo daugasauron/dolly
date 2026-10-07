@@ -75,7 +75,7 @@ try {
     const gamePage=pages[visualIndex];
     await gamePage.bringToFront();
     const advance=async count=>{
-      await gamePage.waitForFunction(()=>gameStatus!==null || __dolly.transport.inputIdle());
+      await gamePage.waitForFunction(()=>gameStatus!==null || __dolly.inputTransport.inputIdle());
       const frame=await gamePage.evaluate(()=>__dolly.gpu.stats?.frames??0);
       await gamePage.waitForFunction(target=>gameStatus!==null || __dolly.gpu.stats?.frames>=target,frame+count,{timeout:60000});
       assert.equal(await gamePage.evaluate(()=>gameStatus),null);

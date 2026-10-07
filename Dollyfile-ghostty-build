@@ -2,12 +2,14 @@ DOLLY 6
 TOOLCHAIN ghostty-build
 REQUIRES HOST runtime@0
 REQUIRES HOST display@0
+REQUIRES HOST input@0
 REQUIRES HOST http@0
 
-FROM https://daugasauron.com/Dollyfile-zig-build 06428d1cfa52b1c38885641f3015c37ccf80b6b08271753bb026a4245e16891b
+FROM https://daugasauron.com/Dollyfile-zig-build 405f47901e8a7e76578f59a0ec229c450e2add7ad663c99ed09ef84b492dc8ad
 
 REQUIRES HEADER libc
 REQUIRES HEADER display
+REQUIRES HEADER input
 REQUIRES TOOL   ar
 REQUIRES TOOL   cc
 REQUIRES TOOL   make
@@ -17,7 +19,7 @@ REQUIRES TOOL   zig
 
 SOURCE https://daugasauron.com/dist/static/default/ghostty.tar              945865657d183d1b97124e383af4c455da577f42215d58cdd29ee4a942136664 /tmp/ghostty.tar
 SOURCE https://daugasauron.com/dist/static/default/uucode.tar               27d4103c73b68b20c21adaee05c4cd2c01fc418e083f5961148e1f872951453e /tmp/uucode.tar
-SOURCE https://daugasauron.com/dist/static/default/ghostty/display.c        e1b46d0d9ec3c52cda155a55f70487f3ae06573b5d4aee79d6f829d5e61f3f60 /usr/src/dolly/ghostty/display.c
+SOURCE https://daugasauron.com/dist/static/default/ghostty/display.c        82ea249af6a269753dc55c7573ddf8f6ca2d5bac25a8bf78ddd5f6c62a847adb /usr/src/dolly/ghostty/display.c
 SOURCE https://daugasauron.com/dist/static/default/stb_truetype.h           ecd30b05e0dd4fea3a13c26810dd9e1992dc379049482c393d5a19e6b5090aab /tmp/ghostty/stb_truetype.h
 SOURCE https://daugasauron.com/dist/static/default/IosevkaTerm-SemiBold.ttf 754545a4f6250efdd3d2cc916bb344c59f0c59830405307dfd44d183f919a654 /usr/share/fonts/IosevkaTerm-SemiBold.ttf
 SLOP tar \

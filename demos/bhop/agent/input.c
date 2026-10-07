@@ -54,9 +54,11 @@ static void log_input(const dolly_input_event *event) {
     if (!recording) return;
     char name[1100]; snprintf(name, sizeof(name), "%s/inputs.jsonl", attempt_path);
     FILE *file = fopen(name, "a"); if (!file) return;
+    /* A wheel's delta is logged as its action, as recordings have it. */
+    const int wheel = event->type == DOLLY_INPUT_EVENT_SCROLL;
     fprintf(file, "{\"tick\":%u,\"request\":%u,\"type\":%u,\"action\":%d,\"dx_milli\":%d,\"dy_milli\":%d,\"code\":\"%.*s\"}\n",
-        tick - attempt_tick, pending ? request.id : 0, event->type, (int32_t)event->action,
-        (int32_t)event->width_css_px, (int32_t)event->height_css_px, event->code_length, event->data + event->key_length);
+        tick - attempt_tick, pending ? request.id : 0, event->type, wheel ? event->y : (int32_t)event->action,
+        event->x, wheel ? 0 : event->y, event->code_length, event->data + event->key_length);
     fclose(file);
 }
 static void emit(dolly_input_event event) { log_input(&event); deliver(receiver, &event); }
@@ -126,8 +128,8 @@ int bh_agent_poll(void) {
                 else if (!strcmp(name, "Right")) name = "ArrowRight";
                 key(name, e->b);
             } else if (e->kind == HUMAN_MOTION && e->c) emit((dolly_input_event){.type = DOLLY_INPUT_EVENT_POINTER_MOTION,
-                .width_css_px = e->a * 1000, .height_css_px = e->b * 1000});
-            else if (e->kind == HUMAN_WHEEL) emit((dolly_input_event){.type = DOLLY_INPUT_EVENT_SCROLL, .action = e->b});
+                .x = e->a * 1000, .y = e->b * 1000});
+            else if (e->kind == HUMAN_WHEEL) emit((dolly_input_event){.type = DOLLY_INPUT_EVENT_SCROLL, .action = DOLLY_SCROLL_UNIT_LINE, .y = e->b});
         }
     }
     file = open_file("cancel", "rb");
@@ -150,10 +152,10 @@ void bh_agent_tick(void) {
         if (!action_tick) {
             if ((a->keys & BH_RESTART) && !(held & BH_RESTART)) { new_attempt(); first_sample = 0; }
             set_keys(a->keys);
-            if (a->wheel) emit((dolly_input_event){.type = DOLLY_INPUT_EVENT_SCROLL, .action = a->wheel});
+            if (a->wheel) emit((dolly_input_event){.type = DOLLY_INPUT_EVENT_SCROLL, .action = DOLLY_SCROLL_UNIT_LINE, .y = a->wheel});
         }
         const int32_t x = bh_mouse_step(a->mouse_x, action_tick, a->ticks), y = bh_mouse_step(a->mouse_y, action_tick, a->ticks);
-        if (x || y) emit((dolly_input_event){.type = DOLLY_INPUT_EVENT_POINTER_MOTION, .width_css_px = x, .height_css_px = y});
+        if (x || y) emit((dolly_input_event){.type = DOLLY_INPUT_EVENT_POINTER_MOTION, .x = x, .y = y});
         if (++action_tick == a->ticks) { action_tick = 0; if (++action == request.count) complete = 1; }
     }
     ++tick;

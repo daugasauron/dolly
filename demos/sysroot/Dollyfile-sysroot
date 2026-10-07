@@ -6,7 +6,7 @@ REQUIRES HOST runtime@0
 # the standalone glue, the stubs) and Dolly's own parts of it, as the Emscripten
 # container builds them and the seed ships them, compiled by Dolly's cc from the
 # same sources (tasks/20260930-232236-llvm-in-dolly). Nothing links them.
-FROM https://daugasauron.com/Dollyfile-system-tools 6ea7e8c19a9b6677c919dd1c2a9be21967c3f2e9777a2c4bedf31d748f9354fa
+FROM https://daugasauron.com/Dollyfile-system-tools 90721b2609286ae992dbb6473f68e48bc38b79acef06433a2136868e67f1c513
 REQUIRES TOOL cc
 REQUIRES TOOL ar
 REQUIRES TOOL make

@@ -9,7 +9,7 @@ export async function runClassiCubeProof({ send, evaluate, wait, key, projectDir
   assert.equal(await wait("document.documentElement?.dataset.dollyStatus",
     value => value === "ready" || value === "failed", "ClassiCube boot"), "ready");
   await wait("__dolly.graphicsActive", Boolean, "ClassiCube framebuffer");
-  await wait("__dolly.transport.relativePointerRequested()", Boolean, "generated single-player world");
+  await wait("__dolly.inputTransport.relativePointerRequested()", Boolean, "generated single-player world");
   const screenshot = async name => {
     const result = await send("Page.captureScreenshot", { format: "png" });
     await writeFile(resolve(projectDir, `build/classicube-${name}.png`), result.data, "base64");
@@ -73,7 +73,7 @@ export async function runClassiCubeProof({ send, evaluate, wait, key, projectDir
   };
   await menuClick(480, 190);
   await menuClick(200, 340);
-  await wait("__dolly.transport.relativePointerRequested()", Boolean, "flat world generation");
+  await wait("__dolly.inputTransport.relativePointerRequested()", Boolean, "flat world generation");
   await delay(1300);
   await click();
   await wait("document.pointerLockElement?.id", value => value === "display", "flat world capture");
@@ -139,7 +139,7 @@ export async function runClassiCubeProof({ send, evaluate, wait, key, projectDir
   assert.equal(blockCount('classicube-proof'), 128 * 32 * 128, 'left click removed the placed block');
   await evaluate("window.__classicubeResult = null; void __dolly.submit('classicube maps/classicube-proof.cw').then(status => window.__classicubeResult = status); true");
   await wait("__dolly.graphicsActive", Boolean, "saved map reopens");
-  await wait("__dolly.transport.relativePointerRequested()", Boolean, "saved map is playable");
+  await wait("__dolly.inputTransport.relativePointerRequested()", Boolean, "saved map is playable");
   await delay(500);
   await screenshot("reloaded");
   await key({key: "c", code: "KeyC", modifiers: 2, windowsVirtualKeyCode: 67});

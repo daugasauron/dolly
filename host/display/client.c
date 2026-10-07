@@ -200,24 +200,6 @@ int dolly_display_set_cursor(uint64_t generation, uint32_t cursor) {
   return result < 0 ? (int)result : result == 0 ? 0 : -EIO;
 }
 
-int dolly_display_next_event(uint64_t generation, dolly_input_event *event,
-                             double timeout_milliseconds) {
-  if (generation == 0 || event == NULL) return -EINVAL;
-  uint64_t deadline;
-  int status = display_deadline(timeout_milliseconds, &deadline);
-  if (status != 0) return status;
-  const dolly_display_event_request request = {generation, deadline};
-  dolly_display_event_response response = {0};
-  const int64_t result = dolly_process_call(
-      DOLLY_DISPLAY_NEXT_EVENT, &request, sizeof(request),
-      &response, sizeof(response));
-  if (result < 0) return (int)result;
-  if ((uint64_t)result != sizeof(response) || response.reserved != 0 ||
-      (response.result != 0 && response.result != 1)) return -EIO;
-  if (response.result == 1) *event = response.event;
-  return response.result;
-}
-
 int dolly_display_release(uint64_t generation) {
   const dolly_display_generation_request request = {generation};
   const int64_t result = dolly_process_call(

@@ -37,7 +37,8 @@ flowchart LR
 | Process Worker | [`process-worker.mjs`](../src/process-worker.mjs) | Instantiates the executable and enters the kernel for it; for an executable that records `dso@0`, imports the loader and FFI ([`host/dso/process.mjs`](../host/dso/process.mjs)) |
 | Process libc | [`libc-adapter.c`](../src/process/libc-adapter.c), [`signal.c`](../src/process/signal.c) | Maps Emscripten musl's low-level calls to process operations |
 | Kernel libc | [`libc-host.c`](../src/libc-host.c) | Answers what Emscripten musl and WasmFS ask of a host from the kernel's own imports |
-| Display | [`host/display/kernel.c`](../host/display/kernel.c), [`ghostty/display.c`](../src/ghostty/display.c), [`kernel-plugin.mjs`](../src/kernel-plugin.mjs) | Terminal device and framebuffer lease; resident terminal emulator and rasterizer; see [display](display.md) |
+| Display | [`host/display/kernel.c`](../host/display/kernel.c), [`ghostty/display.c`](../src/ghostty/display.c), [`kernel-plugin.mjs`](../src/kernel-plugin.mjs) | The terminal device's output and the framebuffer lease; resident terminal emulator and rasterizer; see [display](display.md) |
+| Input | [`host/input/kernel.c`](../host/input/kernel.c), [`host/input/input.mjs`](../host/input/input.mjs) | The record ring, the input lease and the terminal's reader; see [input](input.md) |
 
 ## Decisions
 

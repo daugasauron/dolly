@@ -2,10 +2,12 @@ DOLLY 6
 PACKAGE sdl2
 REQUIRES HOST runtime@0
 REQUIRES HOST display@0
+REQUIRES HOST input@0
 
-FROM https://daugasauron.com/demos/cmake/Dollyfile-cmake-build 8c8cead8bd79cb85899c9ad64547e1b042c8ef7090ac8c52f9d3d90cd82cca23
+FROM https://daugasauron.com/demos/cmake/Dollyfile-cmake-build 037744d00f1913d9cf72e3cf80442ae14c062f58155d2584bad90830b96eaed0
 REQUIRES HEADER libc
 REQUIRES HEADER display
+REQUIRES HEADER input
 REQUIRES TOOL cc
 REQUIRES TOOL cmake
 REQUIRES TOOL make

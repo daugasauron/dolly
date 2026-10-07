@@ -113,7 +113,7 @@ try {
   });
   const advance=async count=>{
     // GPU reports can arrive before the game consumes newly posted input.
-    await page.waitForFunction(()=>gameStatus!==null || __dolly.transport.inputIdle());
+    await page.waitForFunction(()=>gameStatus!==null || __dolly.inputTransport.inputIdle());
     const target=await frames()+count;
     await page.waitForFunction(target=>gameStatus!==null || __dolly.gpu.error || __dolly.gpu.stats?.frames>=target,target,{timeout:90000});
     assert.equal(await page.evaluate(()=>gameStatus),null,JSON.stringify(await page.evaluate(()=>__dolly.gpu)));

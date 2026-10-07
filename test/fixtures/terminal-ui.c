@@ -1,9 +1,11 @@
 #include <dolly/runtime.h>
 #include <dolly/display.h>
+#include <dolly/input.h>
 #include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <fcntl.h>
+#include <signal.h>
 #include <string.h>
 #include <sys/ioctl.h>
 #include <sys/stat.h>
@@ -60,8 +62,34 @@ static int check_discipline(void) {
   return status;
 }
 
+static volatile sig_atomic_t resized;
+static void on_resize(int number) { (void)number; resized = 1; }
+
 int main(int argc, char **argv) {
   if (argc > 1 && strcmp(argv[1], "discipline") == 0) return check_discipline();
+  if (argc > 1 && strcmp(argv[1], "resize") == 0) {
+    // Reports the terminal's grid after each of two SIGWINCH, reading keys meanwhile.
+    const int saved = dolly_terminal_mode_get(0);
+    if (saved < 0 || dolly_terminal_mode_set(0, 0) != 0 || signal(SIGWINCH, on_resize) == SIG_ERR) return 24;
+    puts("DOLLY-RESIZE-READY\r");
+    fflush(stdout);
+    for (int change = 0; change < 2; ++change) {
+      for (int waited = 0; !resized; ++waited) {
+        if (waited == 100) return 25;
+        (void)dolly_terminal_read_raw_timeout(100);
+      }
+      // A burst of size changes is one change: wait until the grid has settled.
+      do {
+        resized = 0;
+        (void)dolly_terminal_read_raw_timeout(300);
+      } while (resized);
+      struct winsize size;
+      if (ioctl(1, TIOCGWINSZ, &size) != 0) return 26;
+      printf("DOLLY-GRID-%d %ux%u\r\n", change, size.ws_col, size.ws_row);
+      fflush(stdout);
+    }
+    return dolly_terminal_mode_set(0, (unsigned)saved) != 0;
+  }
   if (argc > 1 && strcmp(argv[1], "keys") == 0) {
     const int saved = dolly_terminal_mode_get(0);
     if (saved < 0 || dolly_terminal_mode_set(0, 0) != 0) return 1;
@@ -105,19 +133,30 @@ int main(int argc, char **argv) {
     return dolly_terminal_mode_set(0, (unsigned)saved) != 0 || key != 'q';
   }
   if (argc > 1 && strcmp(argv[1], "lease") == 0) {
+    // Both leases: every pointer and scroll record is this program's.
     dolly_display_surface surface;
-    if (dolly_display_acquire(&surface) != 0) return 7;
+    uint64_t input;
+    if (dolly_display_acquire(&surface) != 0 || dolly_input_acquire(&input) != 0) return 7;
     sleep(1);
     const unsigned types[] = {DOLLY_INPUT_EVENT_POINTER, DOLLY_INPUT_EVENT_POINTER,
                               DOLLY_INPUT_EVENT_POINTER, DOLLY_INPUT_EVENT_SCROLL};
     int status = 0;
     for (size_t i = 0; i < sizeof(types) / sizeof(types[0]); ++i) {
       dolly_input_event event;
-      if (dolly_display_next_event(surface.generation, &event, 1000) != 1 ||
+      if (dolly_input_next_event(input, &event, 1000) != 1 ||
           event.type != types[i]) { status = 8; break; }
     }
-    if (dolly_display_release(surface.generation) != 0) status = 9;
+    if (dolly_input_release(input) != 0 || dolly_display_release(surface.generation) != 0) status = 9;
     return status;
+  }
+  if (argc > 1 && strcmp(argv[1], "draw") == 0) {
+    // The display alone: the terminal still decodes keys for this program's stdin.
+    dolly_display_surface surface;
+    if (dolly_display_acquire(&surface) != 0) return 7;
+    const int saved = dolly_terminal_mode_get(0);
+    if (saved < 0 || dolly_terminal_mode_set(0, 0) != 0) return 1;
+    const int status = dolly_terminal_read_raw_timeout(5000) == 'q' ? 0 : 2;
+    return dolly_terminal_mode_set(0, (unsigned)saved) != 0 || dolly_display_release(surface.generation) != 0 ? 9 : status;
   }
   if (argc > 1 && strcmp(argv[1], "retire") == 0) {
     // Prints a ruler and exits holding enough memory that its Worker retires late.
@@ -130,27 +169,34 @@ int main(int argc, char **argv) {
     return 0;
   }
   if (argc > 1 && strcmp(argv[1], "unread") == 0) {
-    // Holds the display for three seconds without reading input, then reports what the ring kept.
-    dolly_display_surface surface;
-    if (dolly_display_acquire(&surface) != 0) return 7;
+    // Holds the input for three seconds without reading it, then reports
+    // what the ring kept and where the page marked a loss: after how many
+    // key records, and how many records it said were lost.
+    uint64_t input;
+    if (dolly_input_acquire(&input) != 0) return 7;
     sleep(3);
-    unsigned keys = 0, motions = 0;
+    unsigned keys = 0, motions = 0, marked = 0, lost = 0;
     long moved = 0;
     dolly_input_event event;
-    while (dolly_display_next_event(surface.generation, &event, 500) == 1) {
+    while (dolly_input_next_event(input, &event, 500) == 1) {
       if (event.type == DOLLY_INPUT_EVENT_KEY) ++keys;
       if (event.type == DOLLY_INPUT_EVENT_POINTER_MOTION) {
         ++motions;
-        moved += (int32_t)event.width_css_px;
+        moved += event.x;
+      }
+      if (event.type == DOLLY_INPUT_EVENT_DROPPED) {
+        marked = keys;
+        lost = event.action;
       }
     }
-    if (dolly_display_release(surface.generation) != 0) return 9;
-    printf("DOLLY-UNREAD keys=%u motions=%u moved=%ld\n", keys, motions, moved);
+    if (dolly_input_release(input) != 0) return 9;
+    printf("DOLLY-UNREAD keys=%u motions=%u moved=%ld marked=%u lost=%u\n", keys, motions, moved, marked, lost);
     return 0;
   }
   if (argc > 1 && strcmp(argv[1], "lease-exit") == 0) {
     dolly_display_surface surface;
-    return dolly_display_acquire(&surface) == 0 ? 0 : 7;
+    uint64_t input;
+    return dolly_display_acquire(&surface) == 0 && dolly_input_acquire(&input) == 0 ? 0 : 7;
   }
   const int mode = dolly_terminal_mode_get(STDIN_FILENO);
   if (mode < 0 || dolly_terminal_mode_set(STDIN_FILENO, DOLLY_TERMINAL_ISIG) != 0) return 1;

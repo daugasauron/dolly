@@ -84,7 +84,7 @@ await browserTest("dso", { image: "system", timeout: 300_000, server: { fixtures
   const loaderFetches = () => server.requests.get("/dist/dolly-process-dso.mjs") ?? 0;
   const before = loaderFetches();
   const { submit, text } = await open({ policy: { rules: [{ origin: server.origin, pathPrefix: "/fixture/", methods: ["GET"] }] },
-    ...await composed(["runtime", "display", "download", "http", "snapshot", "upload", "dso", "threads"], [], "system") });
+    ...await composed(["runtime", "display", "input", "download", "http", "snapshot", "upload", "dso", "threads"], [], { base: "system" }) });
   const run = async command => assert.equal(await submit(command), 0, `${command}\n${await text()}`);
   // The loader arrives with the page, as the process Worker does, never with a program.
   const fetched = loaderFetches();

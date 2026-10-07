@@ -49,4 +49,8 @@
     (func $realpath (param i64 i64) (result i64)))
   (import "env" "readv"
     (func $readv (param i32 i64 i32) (result i64)))
+  ;; A display library that draws a terminal registers how input records
+  ;; become the bytes its programs read (host/input/input.h).
+  (import "env" "dolly_input_decoder_install"
+    (func $dolly_input_decoder_install (param i64) (result i32)))
 )

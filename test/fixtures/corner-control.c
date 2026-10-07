@@ -1,4 +1,5 @@
 #include <dolly/display.h>
+#include <dolly/input.h>
 #include <stdio.h>
 #include <string.h>
 
@@ -8,7 +9,8 @@
 int main(void) {
   dolly_display_surface surface;
   dolly_display_frame frame;
-  if (dolly_display_acquire(&surface) != 0) return 1;
+  uint64_t input;
+  if (dolly_input_acquire(&input) != 0 || dolly_display_acquire(&surface) != 0) return 1;
   if (dolly_display_begin_frame(surface.generation, &frame) != 0) return 2;
   memset(frame.pixels, 0x60, (size_t)frame.stride * frame.height);
   if (dolly_display_present(surface.generation, frame.buffer_index) != 0) return 3;
@@ -16,16 +18,16 @@ int main(void) {
   size_t length = 0;
   dolly_input_event event;
   int status = 5;
-  while (length < sizeof(report) - 64 && dolly_display_next_event(surface.generation, &event, 30000) == 1) {
+  while (length < sizeof(report) - 64 && dolly_input_next_event(input, &event, 30000) == 1) {
     const char *code = (const char *)event.data + event.key_length;
-    if (event.type == DOLLY_INPUT_EVENT_POINTER && event.action == 1 && event.height_css_px > surface.height / 2) {
-      length += (size_t)snprintf(report + length, 64, " %s", event.width_css_px < surface.width / 2 ? "left" : "right");
+    if (event.type == DOLLY_INPUT_EVENT_POINTER && event.action == 1 && event.y > (int32_t)surface.height / 2) {
+      length += (size_t)snprintf(report + length, 64, " %s", event.x < (int32_t)surface.width / 2 ? "left" : "right");
     } else if (event.type == DOLLY_INPUT_EVENT_KEY && event.action == DOLLY_KEY_ACTION_PRESS) {
       if (event.code_length == 6 && memcmp(code, "Escape", 6) == 0) { status = 0; break; }
       length += (size_t)snprintf(report + length, 64, " %.*s", (int)(event.code_length < 32 ? event.code_length : 32), code);
     }
   }
-  if (dolly_display_release(surface.generation) != 0) return 4;
+  if (dolly_input_release(input) != 0 || dolly_display_release(surface.generation) != 0) return 4;
   printf("CORNERS%s END\n", report);
   return status;
 }

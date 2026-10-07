@@ -55,8 +55,9 @@ async function openImage(browser, origin, image, { policy, prompt = shellPrompt,
 
 // open() options for an image the page builds with the named host modules:
 // from packages alone (a root recipe, as `default` is) or on top of a base
-// image, whose modules it restates since nothing is inherited.
-export async function composed(hosts, packages, base) {
+// image, whose modules it restates since nothing is inherited. files (path ->
+// text) are written into it and entry is its ENTRY.
+export async function composed(hosts, packages, { base, files = {}, entry = "/bin/foreground -i /bin/slop" } = {}) {
   const { DOLLY_IMAGES } = await import("../dist/dolly-images.mjs");
   const pin = name => {
     const { dollyfile, sha256 } = DOLLY_IMAGES.find(definition => definition.image === name);
@@ -64,7 +65,8 @@ export async function composed(hosts, packages, base) {
   };
   const recipe = ["DOLLY 6", "APPLICATION composed", ...hosts.map(host => `REQUIRES HOST ${host}@0`),
     ...base ? [`FROM ${pin(base)}`] : [], ...packages.map(name => `INSTALL ${pin(name)}`),
-    "ENTRY /bin/foreground -i /bin/slop", ""].join("\n");
+    ...Object.entries(files).map(([path, text]) => `FILE ${path}\n${text.trim().split("\n").map(line => `    ${line}`).join("\n")}`),
+    `ENTRY ${entry}`, ""].join("\n");
   return { path: "/custom/rebuild/",
     setup: page => page.addInitScript(recipe => sessionStorage.setItem("dolly-custom-source", recipe), recipe) };
 }

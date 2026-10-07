@@ -15,6 +15,7 @@ await writeFile(resolve(root,"demos/slopyard/Dollyfile-slopyard"),`DOLLY 6
 APPLICATION slopyard
 REQUIRES HOST runtime@0
 REQUIRES HOST display@0
+REQUIRES HOST input@0
 REQUIRES HOST download@0
 REQUIRES HOST gpu@0
 REQUIRES HOST http@0

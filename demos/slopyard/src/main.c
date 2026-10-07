@@ -38,6 +38,7 @@ static Vector3 follow_position;
 static Orbit orbit={.target={0,2.5f,0},.yaw=.52f,.pitch=.28f,.distance=10};
 static Orbit workshop_orbit,world_orbit={.target={0,3,-8},.yaw=.52f,.pitch=.35f,.distance=30};
 static dolly_display_surface surface;
+static uint64_t input;
 static Data *embedded_context;
 static char message[160]="Click a box face to add. Right-drag to orbit. Scroll to zoom.";
 static const Color ink={216,211,188,255},muted={143,151,140,255},paper={25,31,35,255},line={75,84,83,255},accent={180,144,78,255},panel={45,54,58,255};
@@ -472,15 +473,20 @@ static void append_prompt(const unsigned char *text,size_t n){
     size_t used=strlen(prompt_input);if(n>sizeof(prompt_input)-used-1)n=sizeof(prompt_input)-used-1;
     memcpy(prompt_input+used,text,n);prompt_input[used+n]=0;dirty=1;
 }
+// A wheel delta in thousandths of a line: 26 CSS pixels make a line, 30 lines a page.
+static int wheel_lines(const dolly_input_event *e){
+    return e->action==DOLLY_SCROLL_UNIT_PIXEL?e->y/26:e->action==DOLLY_SCROLL_UNIT_PAGE?e->y*30:e->y;
+}
 static void events(void){
     dolly_input_event e;
-    while(dolly_display_next_event(surface.generation,&e,0)>0){
-        if(e.type==DOLLY_INPUT_EVENT_FOCUS&&e.action==0){memset(keys,0,sizeof(keys));memset(world.pressed,0,sizeof(world.pressed));orbit_drag=camera_fast=0;dirty=1;}
-        if(e.type==DOLLY_INPUT_EVENT_SCROLL&&program_open){program_page((int32_t)e.action>0?3:-3);continue;}
-        if(e.type==DOLLY_INPUT_EVENT_SCROLL&&in_view()){orbit.distance=Clamp(orbit.distance+(int32_t)e.action*.00065f*fmaxf(1,orbit.distance/20),3,512);orbit_update(&orbit);}
-        if(e.type==DOLLY_INPUT_EVENT_SCROLL&&!focus_view&&world_view&&inside(24,world_list_top(),194,594-world_list_top()))world_page((int32_t)e.action>0?3:-3);
+    while(dolly_input_next_event(input,&e,0)>0){
+        // Without focus, or after the page lost records, a held key's release may never come.
+        if((e.type==DOLLY_INPUT_EVENT_FOCUS&&e.action==0)||e.type==DOLLY_INPUT_EVENT_DROPPED){memset(keys,0,sizeof(keys));memset(world.pressed,0,sizeof(world.pressed));orbit_drag=camera_fast=0;dirty=1;}
+        if(e.type==DOLLY_INPUT_EVENT_SCROLL&&program_open){program_page(wheel_lines(&e)>0?3:-3);continue;}
+        if(e.type==DOLLY_INPUT_EVENT_SCROLL&&in_view()){orbit.distance=Clamp(orbit.distance+wheel_lines(&e)*.00065f*fmaxf(1,orbit.distance/20),3,512);orbit_update(&orbit);}
+        if(e.type==DOLLY_INPUT_EVENT_SCROLL&&!focus_view&&world_view&&inside(24,world_list_top(),194,594-world_list_top()))world_page(wheel_lines(&e)>0?3:-3);
         if(e.type==DOLLY_INPUT_EVENT_POINTER){
-            mouse_x=e.width_css_px;mouse_y=e.height_css_px;
+            mouse_x=e.x;mouse_y=e.y;
             if(e.action==DOLLY_POINTER_ACTION_PRESS){
                 if(!program_open&&in_view()&&((e.flags>>8)==2||(e.modifiers&DOLLY_INPUT_MOD_ALT))){orbit_drag=1;last_x=mouse_x;last_y=mouse_y;}
                 else if((e.flags>>8)==0)click();
@@ -903,9 +909,9 @@ int main(int argc,char **argv){
     int integration=argc==2&&!strcmp(argv[1],"--integration-check");
     if(argc!=1&&!integration){fputs("usage: slopyard [--check | --integration-check]\n",stderr);return 1;}
     if(!character_load(&design,"/workspace/slopyard.character"))character_car(&design);
-    selected=design.count?0:-1;home_camera();if(render_open(&surface)<0)return 1;
+    selected=design.count?0:-1;home_camera();if(render_open(&surface)<0||dolly_input_acquire(&input)<0)return 1;
     printf("Slopyard: C game, raylib UI, Box3D physics, WebGPU rendering, embedded Pi.\n");
     last_frame=updated=seconds();
     int result=pi_run(1,argv,integration,game_initialize,game_call,game_frame);
-    if(physics.running)report();character_save(&design,"/workspace/slopyard.character");physics_stop(&physics);world_close();render_close();dolly_display_release(surface.generation);character_clear(&design);for(int i=0;i<undo_count;i++)character_clear(&undo[i]);return result;
+    if(physics.running)report();character_save(&design,"/workspace/slopyard.character");physics_stop(&physics);world_close();render_close();dolly_input_release(input);dolly_display_release(surface.generation);character_clear(&design);for(int i=0;i<undo_count;i++)character_clear(&undo[i]);return result;
 }

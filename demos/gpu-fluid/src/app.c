@@ -5,6 +5,7 @@
 
 static wgpu_context_t context;
 static dolly_display_surface surface;
+static uint64_t input;
 static bool show_panel=true,paused=false,automatic=true,rebuild=false,stopping=false,benchmark_mode=false;
 static unsigned selected_height=720,selected_grid=256,overlay_count;
 static const char *benchmark_style="ink";
@@ -70,12 +71,12 @@ static void click(unsigned x,unsigned y) {
 }
 static void events(void) {
   dolly_input_event e;
-  while(dolly_display_next_event(surface.generation,&e,0)>0) {
+  while(dolly_input_next_event(input,&e,0)>0) {
     if(e.type==DOLLY_INPUT_EVENT_KEY&&e.action==DOLLY_KEY_ACTION_PRESS) {
       if(e.key_length==1){switch(e.data[0]){case 'h':case 'H':show_panel=!show_panel;break;case ' ':paused=!paused;break;case 'r':case 'R':reset();break;case 'a':case 'A':automatic=!automatic;break;case 'q':case 'Q':stopping=true;break;}}
       if(e.key_length==6&&!memcmp(e.data,"Escape",6))stopping=true;
     } else if(e.type==DOLLY_INPUT_EVENT_POINTER) {
-      unsigned x=e.width_css_px,y=e.height_css_px;
+      unsigned x=e.x,y=e.y;
       bool controls=show_panel?(x>=12&&x<416&&y>=12&&y<270):(x>=12&&x<188&&y>=12&&y<42);
       if(controls){if(e.action==DOLLY_POINTER_ACTION_PRESS)click(x,y);}
       else {mouse_pixel_pos.x=x;mouse_pixel_pos.y=y;last_mouse=seconds();}
@@ -110,7 +111,7 @@ int main(int argc,char **argv) {
   if(!strcmp(benchmark_style,"smoke")){settings.render_mode=2;settings.enable_shadows=0;}
   else if(!strcmp(benchmark_style,"shaded")){settings.render_mode=2;settings.enable_shadows=1;}
   else if(strcmp(benchmark_style,"ink")){fputs("style: ink/smoke/shaded\n",stderr);return 1;}
-  gpu_check(dolly_display_acquire(&surface));initialize();
+  gpu_check(dolly_display_acquire(&surface));gpu_check(dolly_input_acquire(&input));initialize();
   if(benchmark_mode) {
     for(unsigned i=0;i<20;i++){fluid_clock+=16666667;autopilot(i/60.);render();}
     gpu_check(dolly_gpu_wait(&fluid_gpu));double before;uint64_t count_before;info(&before,&count_before);double start=seconds();
@@ -125,5 +126,5 @@ int main(int argc,char **argv) {
       render();frames++;if(now-updated>.5){fps=frames/(now-updated);frames=0;updated=now;double t;uint64_t n;info(&t,&n);}
       gpu_check(dolly_display_wait_frame(surface.generation,&sequence,-1));}
   }
-  cleanup();gpu_check(dolly_display_release(surface.generation));return 0;
+  cleanup();gpu_check(dolly_input_release(input));gpu_check(dolly_display_release(surface.generation));return 0;
 }

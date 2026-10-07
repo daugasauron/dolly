@@ -94,7 +94,7 @@ there is no `chmod`. Every program here, `cc` included, is a WebAssembly
 module, as `file` says: never `cat` one. Upstream `./configure` scripts usually need more shell
 than Slop has: compile the sources directly or write a small Makefile. `-lm`, `-lz` and `-lcurl` (libcurl over the browser)
 link from `/usr/lib`. To use a Dolly interface (`display.h` draws on the
-terminal's canvas), include its header from `/usr/include/dolly/`: its client
+terminal's canvas, `input.h` reads keys and the pointer), include its header from `/usr/include/dolly/`: its client
 library links automatically, with no `-l`. The program then runs only in images whose recipe declares that
 module, and `-pthread` needs `threads@0`. Time code with
 `clock_gettime(CLOCK_MONOTONIC)`.

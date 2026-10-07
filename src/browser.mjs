@@ -6,6 +6,8 @@ import { buildImage } from "./image-builder.mjs";
 import { loadCustomImage, storedCustomImage } from "./custom-image.mjs";
 import { describeImageArtifact, sha256 } from "./image-artifact.mjs";
 import { inspectDollyfile } from "./dollyfile-view.mjs";
+import { pageChords } from "./page-chords.mjs";
+import { terminalText } from "./terminal-text.mjs";
 import { DOLLY_IMAGES, DOLLY_STATIC_SOURCES } from "../dist/dolly-images.mjs";
 import * as processConstants from "./process-constants.mjs";
 
@@ -16,6 +18,7 @@ const bootstrapLog = document.querySelector("#bootstrap-log");
 const bootstrapOutput = buildLog(bootstrapLog);
 bootstrapOutput.clear();
 const appendBootstrap = text => bootstrapOutput.append(text);
+pageChords(keyboard);
 
 const encoder = new TextEncoder();
 const bootstrapDecoder = new TextDecoder();
@@ -219,6 +222,7 @@ async function boot() {
   showIndicators();
 
   window.__dolly = Object.create(host.page, Object.getOwnPropertyDescriptors({
+    ...terminalText(host.page),
     hostModules: host.enabled,
     get systemSnapshot() { return builtSystemSnapshot; },
   }));
