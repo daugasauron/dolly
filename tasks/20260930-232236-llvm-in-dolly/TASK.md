@@ -883,8 +883,10 @@ What the full catalog round has to do with this branch:
 
 1. `npm run build:runtime` (the seed above), then rebuild the Rust compiler
    seed: its inputs include the sysroot, and `demos/rust/toolchain/link.sh`
-   now takes the container's libc++, libc++abi and libunwind by path. That
-   edit was not run: this worktree has no Rust seed build tree.
+   now takes the container's libc++, libc++abi and libunwind by path. Run
+   here on a copy of the root checkout's `build/rustc-port/package` with the
+   new sysroot: it links `rustc.wasm` (163.8 MB, 16 s), which satisfies
+   `dolly-process-0`. The whole seed build was not run.
 2. Build every image: the seed changed. The 23 built here can be imported
    from `work/llvm-runtimes/dist` if the round's image inputs are
    `ad8973ea…`. Nothing else is special; the source pins this branch touches
