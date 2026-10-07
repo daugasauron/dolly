@@ -23,9 +23,10 @@ seed, built again by Dolly's own `cc`. The seed stays the bootstrap.
   stage's bytes.
 - `llvm-runtimes`: build-only. libc++, libc++abi, libunwind and the compiler-rt
   builtins built by Dolly's `c++` and `cc` from the pinned Emscripten sources,
-  with the flags of the archives the seed ships. A link takes them instead of
-  those with `-L/usr/lib/llvm-runtimes`; `test/llvm-browser.mjs` compares both
-  links.
+  as Emscripten's container builds them, DWARF included. The seed ships the
+  container's builtins; `system-build` compiles the other three itself. A link
+  takes these instead with `-L/usr/lib/llvm-runtimes`; `test/llvm-browser.mjs`
+  compares both links.
 
 Key files: [`Dollyfile-llvm-tablegen`](Dollyfile-llvm-tablegen),
 [`prepare-sources.sh`](prepare-sources.sh) (stages the seed's verified checkout

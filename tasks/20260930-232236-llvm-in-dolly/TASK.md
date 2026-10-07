@@ -885,21 +885,33 @@ What the full catalog round has to do with this branch:
    seed: its inputs include the sysroot, and `demos/rust/toolchain/link.sh`
    now takes the container's libc++, libc++abi and libunwind by path. That
    edit was not run: this worktree has no Rust seed build tree.
-2. Build every image: the seed changed. The 22 built here can be imported
+2. Build every image: the seed changed. The 23 built here can be imported
    from `work/llvm-runtimes/dist` if the round's image inputs are
    `ad8973ea…`. Nothing else is special; the source pins this branch touches
    (`libcxx.tar`, and `compiler.cpp` for `llvm-cc` and `llvm-stage2`) are
    committed.
 3. Run the demo test of `demos/llvm` once `llvm-cc` exists on the new seed (it
-   needs `llvm-build`, 44 min). `llvm-runtimes` still builds all five archives
-   with its `-Xclang` flags; three of them now repeat the root recipe and can
-   go, leaving the builtins, and its flags can become the driver's.
+   needs `llvm-build`, 44 min). Its runtime part passes on the new seed against
+   `llvm-tablegen` instead (a scratch copy: 373.4 s in Chrome, 392.9 s in
+   Firefox): the link that takes the root-built SDK and the link that takes
+   the package give the same executables. `llvm-runtimes` still builds all
+   five archives; three of them now repeat the root recipe and can go, leaving
+   the builtins.
 4. `fs-growth-browser.mjs` under a larger cap than the browser slot's.
+
+`llvm-runtimes` on this branch uses the driver's new flags in place of their
+`-Xclang` spellings (`-fno-pic`, `-ffile-prefix-map`, `-fdebug-prefix-map`,
+`-fno-unroll-loops`, `-fignore-exceptions`, no `-main-file-name`, nothing
+added to `cc -E`): 443 units, 80.7 s, and the five archives have the SHA-256
+of every earlier build (`3bc3bbdf…`, `d71be685…`, `5144a5f6…`, `e471d62f…`,
+`ef004e64…`), also of the build with the old flags on the new seed. Only
+Emscripten's DWARF dialect and the two feature removals of the kernel plugins'
+builtins still go through `-Xclang`.
 
 Left as it was: `Unwind-wasm.c` prints three C23-extension warnings in the
 root build (Emscripten passes `-Wno-c23-extensions`); the builtins and libc
 stay container-built; `dynamic-provider.symbols` is still listed on the host
 from the container's three archives, whose names equal the built ones'.
 
-In this worktree `dist/` now holds the new seed and those 22 images; the other
+In this worktree `dist/` now holds the new seed and those 23 images; the other
 snapshots are the old seed's and stale. The old runtime is in `work/llvm/dist`.
