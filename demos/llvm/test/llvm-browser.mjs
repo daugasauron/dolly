@@ -5,7 +5,7 @@ import { demoTest, displayProbe, writeCommand } from "../../browser.mjs";
 const cxx = `#include <iostream>
 #include <stdexcept>
 #include <vector>
-int twice(int);
+extern "C" int twice(int);
 int main() {
   std::vector<int> values = {1, 2, 3};
   int total = 0;
