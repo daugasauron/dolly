@@ -634,7 +634,14 @@ show the order of magnitude, not a difference.
   2,659-2,784 s in the round's logs; no slowdown shows at this size. Like
   for like remains the closure build: 2,492 s by the seed compiler, 2,570 to
   2,625 s by the one linked in Dolly.
-- **Core browser suite** on these images: SUITE_RESULT
+- **Core browser suite** on these images, `node test/browser-tests.mjs
+  chromium firefox` (745 s): every test whose images the chain holds passes
+  in both browsers (58 passes). Five files fail, none on the compiler:
+  `audio`, `docs` and `gpu-indicator` need `audio-sdk`, `dolly-docs` and
+  `gpu-sdk`, which the chain does not build; `amy` passes its session part
+  (`amy install python`, `amy install cc`) and stops at `amy install cmake`,
+  a package outside the chain; `fs-growth` is the 6 GB slot again
+  (`Target crashed`), as with the catalog's seed.
 
 **What would have to change** for the seed's compiler to come from inside
 Dolly. The swap itself needed nothing but the file; nothing in the seed's
@@ -682,7 +689,14 @@ runtime archives until `core/runtimes-in-seed` lands.
   out as the pinned bytes again. That loop is the cost of the swap, against
   "iteration speed is king"; the decision is the owner's.
 
-**The worktree afterwards**: WORKTREE_STATE
+**The worktree afterwards**: on `core/llvm-in-dolly`, with the catalog's
+`dist/` back in place (it had been set aside whole: snapshots and packs by
+hard link, everything else copied). `npm run build:runtime` there prints
+runtime `aebe03b1…` and image inputs `c62b2710…` again, the seed and the
+host-built compiler are the bytes they were, the plan reuses every image,
+and lint and the 416 source tests pass. Kept outside `dist/`, in
+`build/llvm-evidence/seed-trial/` (ignored): the trial's seed, its 18
+snapshots (1.9 GB), the stripped compiler and the logs.
 
 ## Decisions (2026-10-01, delegated)
 
