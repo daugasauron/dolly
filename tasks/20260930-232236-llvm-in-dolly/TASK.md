@@ -908,6 +908,12 @@ of every earlier build (`3bc3bbdf…`, `d71be685…`, `5144a5f6…`, `e471d62f�
 Emscripten's DWARF dialect and the two feature removals of the kernel plugins'
 builtins still go through `-Xclang`.
 
+`test/dolly.artifacts.mjs` gained the one coupling this leaves: the host lists
+what an `-rdynamic` host exports from the container's archives, programs link
+the root-built ones, and the test requires the names the built archives define
+(read from their indexes in the `system-build` snapshot) to be the listed ones.
+It passes here; the rest of that file needs the whole catalog.
+
 Left as it was: `Unwind-wasm.c` prints three C23-extension warnings in the
 root build (Emscripten passes `-Wno-c23-extensions`); the builtins and libc
 stay container-built; `dynamic-provider.symbols` is still listed on the host

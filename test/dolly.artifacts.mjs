@@ -101,6 +101,26 @@ test("the production seed contains only bootstrap and compiler executables, not 
     assert.ok(!files.has("/usr/include/" + port), `SDK cache port leaked into the compiler seed: ${port}`);
 });
 
+// The seed lists what an -rdynamic host exports from the container's build of
+// the C++ runtime; programs link the one the root recipe compiles.
+test("the C++ runtime built by system-build defines the names the seed lists for hosts", async () => {
+  const { decodeSnapshotRecords } = await import("../src/snapshot-records.mjs");
+  const files = decodeSnapshotRecords(await readFile(artifact("dolly-system-build-system.snapshot")));
+  const sdk = "/usr/lib/dolly/process/";
+  const listed = new Set(Buffer.from(files.get(sdk + "dynamic-provider.symbols").data).toString().split("\n"));
+  // A GNU archive's index: a count, that many member offsets, then the names.
+  const defined = name => {
+    const archive = Buffer.from(files.get(sdk + name).data);
+    assert.equal(archive.toString("latin1", 8, 10), "/ ", `${name} has no index`);
+    const index = archive.subarray(68, 68 + Number(archive.toString("latin1", 56, 66)));
+    return index.subarray(4 + 4 * index.readUInt32BE(0)).toString().split("\0").filter(Boolean);
+  };
+  const built = ["libc++-ww-wasmexcept.a", "libc++abi-ww-wasmexcept.a", "libunwind-ww-wasmexcept.a"].flatMap(defined);
+  assert.ok(built.length > 3000);
+  assert.deepEqual(built.filter(symbol => !listed.has(symbol)), []);
+  assert.deepEqual([...listed].filter(symbol => symbol.startsWith("_Z") && !built.includes(symbol)), []);
+});
+
 test("the process gate can only copy between one process and kernel memory", async () => {
   const gate = await readWasmInterface(artifact("dolly-process-gate-0.wasm"));
   assert.deepEqual(
