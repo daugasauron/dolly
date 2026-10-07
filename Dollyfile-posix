@@ -1,10 +1,10 @@
-DOLLY 6
+DOLLY 7
 PACKAGE posix
 REQUIRES HOST runtime@0
 
 # The text and file tools a shell session works with, kept from the toolchain
 # that builds them: sbase, awk, Dolly's find, xargs and the like, and sh.
-FROM https://daugasauron.com/Dollyfile-system-tools 76204eed7416daabd1c8978f628b45da16f77d27d23d4f1473c508c5c750a309
+FROM /v0.1.0/Dollyfile-system-tools 76204eed7416daabd1c8978f628b45da16f77d27d23d4f1473c508c5c750a309
 
 EXPORTS TOOL basename
 EXPORTS TOOL cksum

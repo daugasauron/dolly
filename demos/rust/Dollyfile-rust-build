@@ -1,4 +1,4 @@
-DOLLY 6
+DOLLY 7
 TOOLCHAIN rust-build
 REQUIRES HOST runtime@0
 REQUIRES HOST display@0
@@ -6,8 +6,8 @@ REQUIRES HOST dso@0
 REQUIRES HOST http@0
 REQUIRES HOST threads@0
 
-FROM https://daugasauron.com/demos/rust/Dollyfile-rust-sdk 7dd80ce9bc53ff44a6c788aee5145168826b6caf17054d506c981c23d42d8214
-INSTALL https://daugasauron.com/Dollyfile-curl 6357a015073974760f60f741bb76459db6bb6be5a1bb1379cb3c87d739f5ac24
+FROM /v0.1.0/demos/rust/Dollyfile-rust-sdk 7dd80ce9bc53ff44a6c788aee5145168826b6caf17054d506c981c23d42d8214
+INSTALL /v0.1.0/Dollyfile-curl 6357a015073974760f60f741bb76459db6bb6be5a1bb1379cb3c87d739f5ac24
 REQUIRES HEADER libc
 REQUIRES HEADER runtime
 REQUIRES HEADER zlib
@@ -17,11 +17,11 @@ REQUIRES TOOL curl
 REQUIRES TOOL rustc
 REQUIRES TOOL rm
 
-SOURCE https://daugasauron.com/dist/static/patti/patti.c 455cf2eccc63cc35c9a32e159d1e78e8bd8b847b4916986a6847776b900352f8 /tmp/patti/patti.c
-SOURCE https://daugasauron.com/dist/static/patti/sha256.h 4487133c310d06add786d59fc8baab82f9b26a28cf53f3a2afd972f2f10bd123 /tmp/patti/sha256.h
-SOURCE https://daugasauron.com/dist/static/patti/tomlc17.c 89d3fe5ffe387360993c8b9df8f03eb13cd6df379b4482bcd039399f690a770f /tmp/patti/tomlc17.c
-SOURCE https://daugasauron.com/dist/static/patti/tomlc17.h 281708fa05b805c32c117fc6033b0f4248257fce3440b1ac3391853bfc8f8bb5 /tmp/patti/tomlc17.h
-SOURCE https://daugasauron.com/dist/static/patti/LICENSE f949d0976f85076c96fc5122f0632b5a1b806d8b2badbe968c42c97230e6e79e /usr/share/licenses/patti/tomlc17-LICENSE
+SOURCE /v0.1.0/dist/static/patti/patti.c 455cf2eccc63cc35c9a32e159d1e78e8bd8b847b4916986a6847776b900352f8 /tmp/patti/patti.c
+SOURCE /v0.1.0/dist/static/patti/sha256.h 4487133c310d06add786d59fc8baab82f9b26a28cf53f3a2afd972f2f10bd123 /tmp/patti/sha256.h
+SOURCE /v0.1.0/dist/static/patti/tomlc17.c 89d3fe5ffe387360993c8b9df8f03eb13cd6df379b4482bcd039399f690a770f /tmp/patti/tomlc17.c
+SOURCE /v0.1.0/dist/static/patti/tomlc17.h 281708fa05b805c32c117fc6033b0f4248257fce3440b1ac3391853bfc8f8bb5 /tmp/patti/tomlc17.h
+SOURCE /v0.1.0/dist/static/patti/LICENSE f949d0976f85076c96fc5122f0632b5a1b806d8b2badbe968c42c97230e6e79e /usr/share/licenses/patti/tomlc17-LICENSE
 
 SLOP cc -std=c17 -O1 -I /tmp/patti /tmp/patti/patti.c /tmp/patti/tomlc17.c -lz -o /usr/bin/patti
 SLOP rm -rf /tmp/patti

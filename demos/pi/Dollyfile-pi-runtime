@@ -1,4 +1,4 @@
-DOLLY 6
+DOLLY 7
 TOOLCHAIN pi-runtime
 REQUIRES HOST runtime@0
 REQUIRES HOST display@0
@@ -8,8 +8,8 @@ REQUIRES HOST snapshot@0
 REQUIRES HOST threads@0
 REQUIRES HOST upload@0
 
-FROM https://daugasauron.com/Dollyfile-system fcb6783a7cd6771f1d538c6e913180a82d4d93cf3a0f2fed2e2b52bc5f413fd9
-INSTALL https://daugasauron.com/demos/javascript/Dollyfile-javascript 98d05a011bebf82db544617941383e2501950225de14b969583183fd2331c2fa
-INSTALL https://daugasauron.com/demos/pi/Dollyfile-pi-coding-agent 969af6b85d4a56f1eb834906dbd4da60fb965f10933a81ec1d165fcbfccabaf0
+FROM /v0.1.0/Dollyfile-system fcb6783a7cd6771f1d538c6e913180a82d4d93cf3a0f2fed2e2b52bc5f413fd9
+INSTALL /v0.1.0/demos/javascript/Dollyfile-javascript 98d05a011bebf82db544617941383e2501950225de14b969583183fd2331c2fa
+INSTALL /v0.1.0/demos/pi/Dollyfile-pi-coding-agent 969af6b85d4a56f1eb834906dbd4da60fb965f10933a81ec1d165fcbfccabaf0
 
 ENTRY /bin/foreground -i /bin/slop

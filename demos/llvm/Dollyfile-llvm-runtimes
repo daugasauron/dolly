@@ -1,4 +1,4 @@
-DOLLY 6
+DOLLY 7
 PACKAGE llvm-runtimes
 REQUIRES HOST runtime@0
 
@@ -7,7 +7,7 @@ REQUIRES HOST runtime@0
 # from the same pinned sources (tasks/20260930-232236-llvm-in-dolly). A process
 # link takes them instead only when it names the directory:
 # -L/usr/lib/llvm-runtimes.
-FROM https://daugasauron.com/Dollyfile-system-tools 76204eed7416daabd1c8978f628b45da16f77d27d23d4f1473c508c5c750a309
+FROM /v0.1.0/Dollyfile-system-tools 76204eed7416daabd1c8978f628b45da16f77d27d23d4f1473c508c5c750a309
 REQUIRES TOOL c++
 REQUIRES TOOL cc
 REQUIRES TOOL ar
@@ -17,7 +17,7 @@ REQUIRES TOOL ln
 REQUIRES TOOL tar
 REQUIRES TOOL time
 
-SOURCE https://daugasauron.com/dist/static/llvm/runtimes.tar 605875c4a578ea1b5380fd514ecb53e29f8c25a4fd78eb834a1c8976c30a0b34 /tmp/runtimes.tar
+SOURCE /v0.1.0/dist/static/llvm/runtimes.tar 605875c4a578ea1b5380fd514ecb53e29f8c25a4fd78eb834a1c8976c30a0b34 /tmp/runtimes.tar
 SLOP tar -xf /tmp/runtimes.tar -C /
 
 # Sources, flags and member order of the -ww-wasmexcept, -wasmsjlj-ww and pic

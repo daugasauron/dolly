@@ -1,4 +1,4 @@
-DOLLY 6
+DOLLY 7
 TOOLCHAIN llvm-tablegen
 REQUIRES HOST runtime@0
 REQUIRES HOST display@0
@@ -8,9 +8,9 @@ REQUIRES HOST http@0
 REQUIRES HOST upload@0
 
 # Build-only: LLVM 24 configured by CMake inside Dolly, its TableGen tools and outputs.
-FROM https://daugasauron.com/demos/cmake/Dollyfile-cmake-build a668d340f595ca0d93c31dd707dbfa8bf18c23ab9f50daad3984c8a070d20472
+FROM /v0.1.0/demos/cmake/Dollyfile-cmake-build a668d340f595ca0d93c31dd707dbfa8bf18c23ab9f50daad3984c8a070d20472
 # LLVM's CMake requires a Python 3 interpreter.
-INSTALL https://daugasauron.com/demos/python/Dollyfile-python 63564ea12bb057627a1e3c89b514c01e74895c4a5f2f8cae4793c0dc7dd4dc17
+INSTALL /v0.1.0/demos/python/Dollyfile-python 63564ea12bb057627a1e3c89b514c01e74895c4a5f2f8cae4793c0dc7dd4dc17
 # Configure the pinned LLVM 24 tree as the seed is configured
 # (scripts/build-toolchain.sh), then build and run its TableGen tools.
 REQUIRES TOOL cmake
@@ -27,12 +27,12 @@ REQUIRES TOOL cp
 REQUIRES TOOL mkdir
 REQUIRES TOOL rm
 
-SOURCE https://daugasauron.com/dist/static/llvm/llvm-project.tar.gz 033390c4520e51f261eb7572f0a1b4a1592121a1c8c1fc0c3db4845b079a8882 /tmp/llvm-project.tar.gz
+SOURCE /v0.1.0/dist/static/llvm/llvm-project.tar.gz 033390c4520e51f261eb7572f0a1b4a1592121a1c8c1fc0c3db4845b079a8882 /tmp/llvm-project.tar.gz
 SLOP time slop -c 'gzip -dc /tmp/llvm-project.tar.gz | tar -xf - -C /'
 SLOP rm /tmp/llvm-project.tar.gz
 # LLVM runs config.guess even when LLVM_HOST_TRIPLE is given; it knows no Dolly host.
 # Its one platform list without a portable branch (is_local) gains Dolly.
-SOURCE https://daugasauron.com/dist/static/llvm/llvm-host-triple.patch ec739fd5932c1040d07344a8511bae4da4157ff2bcafa348f06a555b71a10981 /tmp/llvm-host-triple.patch
+SOURCE /v0.1.0/dist/static/llvm/llvm-host-triple.patch ec739fd5932c1040d07344a8511bae4da4157ff2bcafa348f06a555b71a10981 /tmp/llvm-host-triple.patch
 SLOP patch -p1 -d /tmp/llvm-project -i /tmp/llvm-host-triple.patch
 
 # C probes and sources get Clang's default gnu17 as in the seed; Dolly's cc

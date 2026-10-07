@@ -1,4 +1,4 @@
-DOLLY 6
+DOLLY 7
 TOOLCHAIN llvm-build
 REQUIRES HOST runtime@0
 REQUIRES HOST display@0
@@ -9,7 +9,7 @@ REQUIRES HOST upload@0
 
 # Build-only: the libraries of Clang, LLD and the WebAssembly backend that the
 # seed compiler links, compiled inside Dolly by its own c++.
-FROM https://daugasauron.com/demos/llvm/Dollyfile-llvm-tablegen f17fd99e0fae20cb4ccff93eb0e4ec56c0a6b45cb4718c0f3b7b45a3e0848d64
+FROM /v0.1.0/demos/llvm/Dollyfile-llvm-tablegen f17fd99e0fae20cb4ccff93eb0e4ec56c0a6b45cb4718c0f3b7b45a3e0848d64
 REQUIRES TOOL llvm-tblgen
 REQUIRES TOOL clang-tblgen
 REQUIRES TOOL cmake
@@ -27,10 +27,10 @@ REQUIRES TOOL cp
 REQUIRES TOOL mkdir
 REQUIRES TOOL rm
 
-SOURCE https://daugasauron.com/dist/static/llvm/llvm-project.tar.gz 033390c4520e51f261eb7572f0a1b4a1592121a1c8c1fc0c3db4845b079a8882 /tmp/llvm-project.tar.gz
+SOURCE /v0.1.0/dist/static/llvm/llvm-project.tar.gz 033390c4520e51f261eb7572f0a1b4a1592121a1c8c1fc0c3db4845b079a8882 /tmp/llvm-project.tar.gz
 SLOP time slop -c 'gzip -dc /tmp/llvm-project.tar.gz | tar -xf - -C /'
 SLOP rm /tmp/llvm-project.tar.gz
-SOURCE https://daugasauron.com/dist/static/llvm/llvm-host-triple.patch ec739fd5932c1040d07344a8511bae4da4157ff2bcafa348f06a555b71a10981 /tmp/llvm-host-triple.patch
+SOURCE /v0.1.0/dist/static/llvm/llvm-host-triple.patch ec739fd5932c1040d07344a8511bae4da4157ff2bcafa348f06a555b71a10981 /tmp/llvm-host-triple.patch
 SLOP patch -p1 -d /tmp/llvm-project -i /tmp/llvm-host-triple.patch
 
 # Configured as llvm-tablegen is, and further:

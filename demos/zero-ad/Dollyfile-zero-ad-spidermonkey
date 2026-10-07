@@ -1,4 +1,4 @@
-DOLLY 6
+DOLLY 7
 TOOLCHAIN zero-ad-spidermonkey
 REQUIRES HOST runtime@0
 REQUIRES HOST dso@0
@@ -12,10 +12,10 @@ REQUIRES HOST upload@0
 # Build-only: SpiderMonkey 128.13.0, the engine's JavaScript library, built by
 # upstream's mozbuild (configure.py and Make) with Dolly's CPython, Cargo,
 # cbindgen and c++ from 0 A.D.'s pinned tarball and patches.
-FROM https://daugasauron.com/demos/zero-ad/Dollyfile-zero-ad-deps 6fd46772814bc576e6a850957c884a5492ca95f6c6ff2b4e573699e62988a9e4
-INSTALL https://daugasauron.com/demos/python/Dollyfile-python 63564ea12bb057627a1e3c89b514c01e74895c4a5f2f8cae4793c0dc7dd4dc17
-INSTALL https://daugasauron.com/demos/rust/Dollyfile-cargo aa236f537761c52e49b067432c96b41c7950087be63d8803d9ab0529b8f27d49
-INSTALL https://daugasauron.com/demos/rust/Dollyfile-cbindgen c29d76b4e892379a32d7ccf4a58f1291cd2aa083f3ea3327720581d9d754a3e9
+FROM /v0.1.0/demos/zero-ad/Dollyfile-zero-ad-deps 6fd46772814bc576e6a850957c884a5492ca95f6c6ff2b4e573699e62988a9e4
+INSTALL /v0.1.0/demos/python/Dollyfile-python 63564ea12bb057627a1e3c89b514c01e74895c4a5f2f8cae4793c0dc7dd4dc17
+INSTALL /v0.1.0/demos/rust/Dollyfile-cargo aa236f537761c52e49b067432c96b41c7950087be63d8803d9ab0529b8f27d49
+INSTALL /v0.1.0/demos/rust/Dollyfile-cbindgen c29d76b4e892379a32d7ccf4a58f1291cd2aa083f3ea3327720581d9d754a3e9
 REQUIRES HEADER zlib
 REQUIRES LIB z
 REQUIRES TOOL cc
@@ -35,7 +35,7 @@ REQUIRES TOOL mkdir
 REQUIRES TOOL sh
 
 # The pinned tree without its test suites, 0 A.D.'s patches and Dolly's.
-SOURCE https://daugasauron.com/dist/static/zero-ad-build/mozjs.tar.gz a0e7bd4549c698ba1c84c437e4191345afde2e24746eb7ac41e7d799f1ba8808 /tmp/mozjs.tar.gz
+SOURCE /v0.1.0/dist/static/zero-ad-build/mozjs.tar.gz a0e7bd4549c698ba1c84c437e4191345afde2e24746eb7ac41e7d799f1ba8808 /tmp/mozjs.tar.gz
 SLOP gzip -dc /tmp/mozjs.tar.gz | tar -xf - -C /
 SLOP CWD /tmp/mozjs/mozjs-128.13.0 sh ../patches/patch.sh
 SLOP patch -p1 -d /tmp/mozjs/mozjs-128.13.0 -i /tmp/mozjs/spidermonkey.patch

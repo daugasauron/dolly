@@ -1,10 +1,10 @@
-DOLLY 6
+DOLLY 7
 PACKAGE fd
 REQUIRES HOST runtime@0
 REQUIRES HOST http@0
 REQUIRES HOST threads@0
 
-FROM https://daugasauron.com/demos/rust/Dollyfile-rust-build 7f25fe18b0cf2434d095ef996ceb0282fdaac29a0d12a62e0389601783aeca1b
+FROM /v0.1.0/demos/rust/Dollyfile-rust-build 7f25fe18b0cf2434d095ef996ceb0282fdaac29a0d12a62e0389601783aeca1b
 REQUIRES TOOL patti
 REQUIRES TOOL tar
 REQUIRES TOOL cp
@@ -12,7 +12,7 @@ REQUIRES TOOL mkdir
 REQUIRES TOOL rm
 
 # Archives contain upstream source and checksum-verified locked crate archives.
-SOURCE https://daugasauron.com/dist/static/rust/fd.tar 49e0dceb2e8fb3e37437308d3e4a1eecdf86c920a956245a3663723ea071be9a /tmp/fd.tar
+SOURCE /v0.1.0/dist/static/rust/fd.tar 49e0dceb2e8fb3e37437308d3e4a1eecdf86c920a956245a3663723ea071be9a /tmp/fd.tar
 SLOP tar -xf /tmp/fd.tar -C /
 SLOP patti build -j 4 --offline --manifest-path /tmp/fd/source/Cargo.toml --bin fd --patch jiff=/tmp/fd/jiff-0.2.29 --patch nix@0.31.3=/tmp/fd/nix-0.31.3 --patch libc=/opt/rust-sdk/src/libc --cache /tmp/fd/cache --target-dir /tmp/fd/build
 SLOP cp /tmp/fd/build/fd /usr/bin/fd

@@ -1,4 +1,4 @@
-DOLLY 6
+DOLLY 7
 APPLICATION rts-arena
 REQUIRES HOST runtime@0
 REQUIRES HOST display@0
@@ -8,13 +8,13 @@ REQUIRES HOST snapshot@0
 REQUIRES HOST threads@0
 REQUIRES HOST upload@0
 
-FROM https://daugasauron.com/demos/pi/Dollyfile-pi-runtime d55c6b2c4835f5764ff0f521fdb3fc5fa53972a460b0c6979836ed027457f486
-INSTALL https://daugasauron.com/demos/sdl2/Dollyfile-sdl2 7d7217b33e55540f54a521a58ef6a8473cdb00b1a1b20538f26b822098e053ae
-COPY https://daugasauron.com/demos/rts/Dollyfile-rts-build e815bff736727aaeed9b65aa5d022e66bb834a8c502989dff5fb67286d723654 /usr/bin/seven-kingdoms /usr/bin/seven-kingdoms
-COPY https://daugasauron.com/demos/rts/Dollyfile-rts-build e815bff736727aaeed9b65aa5d022e66bb834a8c502989dff5fb67286d723654 /usr/share/7kaa /usr/share/7kaa
-COPY https://daugasauron.com/demos/rts/Dollyfile-rts-build e815bff736727aaeed9b65aa5d022e66bb834a8c502989dff5fb67286d723654 /usr/src/7kaa /usr/src/7kaa
-COPY https://daugasauron.com/demos/rts/Dollyfile-rts-build e815bff736727aaeed9b65aa5d022e66bb834a8c502989dff5fb67286d723654 /usr/src/dolly/rts /usr/src/dolly/rts
-COPY https://daugasauron.com/demos/rts/Dollyfile-rts-build e815bff736727aaeed9b65aa5d022e66bb834a8c502989dff5fb67286d723654 /usr/share/licenses/7kaa /usr/share/licenses/7kaa
+FROM /v0.1.0/demos/pi/Dollyfile-pi-runtime d55c6b2c4835f5764ff0f521fdb3fc5fa53972a460b0c6979836ed027457f486
+INSTALL /v0.1.0/demos/sdl2/Dollyfile-sdl2 7d7217b33e55540f54a521a58ef6a8473cdb00b1a1b20538f26b822098e053ae
+COPY /v0.1.0/demos/rts/Dollyfile-rts-build e815bff736727aaeed9b65aa5d022e66bb834a8c502989dff5fb67286d723654 /usr/bin/seven-kingdoms /usr/bin/seven-kingdoms
+COPY /v0.1.0/demos/rts/Dollyfile-rts-build e815bff736727aaeed9b65aa5d022e66bb834a8c502989dff5fb67286d723654 /usr/share/7kaa /usr/share/7kaa
+COPY /v0.1.0/demos/rts/Dollyfile-rts-build e815bff736727aaeed9b65aa5d022e66bb834a8c502989dff5fb67286d723654 /usr/src/7kaa /usr/src/7kaa
+COPY /v0.1.0/demos/rts/Dollyfile-rts-build e815bff736727aaeed9b65aa5d022e66bb834a8c502989dff5fb67286d723654 /usr/src/dolly/rts /usr/src/dolly/rts
+COPY /v0.1.0/demos/rts/Dollyfile-rts-build e815bff736727aaeed9b65aa5d022e66bb834a8c502989dff5fb67286d723654 /usr/share/licenses/7kaa /usr/share/licenses/7kaa
 EXPORTS TOOL seven-kingdoms
 REQUIRES HEADER cpp
 REQUIRES HEADER quickjs-runner
@@ -34,8 +34,8 @@ REQUIRES TOOL gzip
 REQUIRES TOOL upload
 REQUIRES TOOL mkdir
 
-SOURCE https://daugasauron.com/dist/static/rts/arena.tar ff3401a83bc206169f03458fd124e9b8871fd536f655b690456d4c4ae7df1be3 /tmp/rts-arena/source.tar
-SOURCE https://daugasauron.com/dist/static/default/stb_truetype.h ecd30b05e0dd4fea3a13c26810dd9e1992dc379049482c393d5a19e6b5090aab /tmp/rts-arena/stb_truetype.h
+SOURCE /v0.1.0/dist/static/rts/arena.tar ff3401a83bc206169f03458fd124e9b8871fd536f655b690456d4c4ae7df1be3 /tmp/rts-arena/source.tar
+SOURCE /v0.1.0/dist/static/default/stb_truetype.h ecd30b05e0dd4fea3a13c26810dd9e1992dc379049482c393d5a19e6b5090aab /tmp/rts-arena/stb_truetype.h
 SLOP tar -xf /tmp/rts-arena/source.tar -C /
 SLOP mkdir -p /usr/share/dolly/rts
 SLOP gzip -dc /tmp/rts-arena/demo.tar.gz | tar -xf - -C /usr/share/dolly/rts

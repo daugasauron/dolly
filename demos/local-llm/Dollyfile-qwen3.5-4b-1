@@ -1,14 +1,14 @@
-DOLLY 6
+DOLLY 7
 PACKAGE qwen3.5-4b-1
 REQUIRES HOST runtime@0
 
 # Qwen3.5-4B Q4_K_M, shard 1 of 4 as llama.cpp's gguf-split writes them,
 # with the model's description and license. The model needs all four.
-FROM https://daugasauron.com/Dollyfile-system fcb6783a7cd6771f1d538c6e913180a82d4d93cf3a0f2fed2e2b52bc5f413fd9
+FROM /v0.1.0/Dollyfile-system fcb6783a7cd6771f1d538c6e913180a82d4d93cf3a0f2fed2e2b52bc5f413fd9
 
-SOURCE https://daugasauron.com/dist/static/llm/qwen3.5-4b/qwen3.5-4b-00001-of-00004.gguf 03c0c0d2440e96700aeb4d3cf2d2603f5b897adc57d51748824a0417fb2fdffc /usr/share/dolly/llm/qwen3.5-4b-00001-of-00004.gguf
-SOURCE https://daugasauron.com/dist/static/llm/qwen3.5-4b/qwen3.5-4b.json 0c8d7eb324a050dfc147e42b70ef7cd356aad56223466e721061b41cd59eb531 /usr/share/dolly/llm/qwen3.5-4b.json
-SOURCE https://daugasauron.com/dist/static/llm/qwen3.5-4b/LICENSE bbedc3fda3305820b977265f01b8619d87570a6739de3a5582c3464840f1e57a /usr/share/licenses/qwen3.5-4b/LICENSE
+SOURCE /v0.1.0/dist/static/llm/qwen3.5-4b/qwen3.5-4b-00001-of-00004.gguf 03c0c0d2440e96700aeb4d3cf2d2603f5b897adc57d51748824a0417fb2fdffc /usr/share/dolly/llm/qwen3.5-4b-00001-of-00004.gguf
+SOURCE /v0.1.0/dist/static/llm/qwen3.5-4b/qwen3.5-4b.json 0c8d7eb324a050dfc147e42b70ef7cd356aad56223466e721061b41cd59eb531 /usr/share/dolly/llm/qwen3.5-4b.json
+SOURCE /v0.1.0/dist/static/llm/qwen3.5-4b/LICENSE bbedc3fda3305820b977265f01b8619d87570a6739de3a5582c3464840f1e57a /usr/share/licenses/qwen3.5-4b/LICENSE
 EXPORTS FILE qwen3.5-4b-1 /usr/share/dolly/llm/qwen3.5-4b-00001-of-00004.gguf
 FILE /usr/share/dolly/llm/qwen3.5-4b.json
 FOLDER /usr/share/licenses/qwen3.5-4b

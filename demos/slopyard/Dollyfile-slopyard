@@ -1,4 +1,4 @@
-DOLLY 6
+DOLLY 7
 APPLICATION slopyard
 REQUIRES HOST runtime@0
 REQUIRES HOST display@0
@@ -9,9 +9,9 @@ REQUIRES HOST snapshot@0
 REQUIRES HOST threads@0
 REQUIRES HOST upload@0
 
-FROM https://daugasauron.com/demos/slopyard/Dollyfile-gamedev-sdk b55833fcb0c6b36d2b821eaf293bac1bf6b0c549261944436a8e6fffa0ede319
-INSTALL https://daugasauron.com/demos/javascript/Dollyfile-javascript 98d05a011bebf82db544617941383e2501950225de14b969583183fd2331c2fa
-INSTALL https://daugasauron.com/demos/pi/Dollyfile-pi-coding-agent 969af6b85d4a56f1eb834906dbd4da60fb965f10933a81ec1d165fcbfccabaf0
+FROM /v0.1.0/demos/slopyard/Dollyfile-gamedev-sdk b55833fcb0c6b36d2b821eaf293bac1bf6b0c549261944436a8e6fffa0ede319
+INSTALL /v0.1.0/demos/javascript/Dollyfile-javascript 98d05a011bebf82db544617941383e2501950225de14b969583183fd2331c2fa
+INSTALL /v0.1.0/demos/pi/Dollyfile-pi-coding-agent 969af6b85d4a56f1eb834906dbd4da60fb965f10933a81ec1d165fcbfccabaf0
 REQUIRES TOOL cc
 REQUIRES TOOL ar
 REQUIRES TOOL make
@@ -22,7 +22,7 @@ REQUIRES TOOL mkdir
 REQUIRES TOOL rm
 REQUIRES HEADER libc
 
-SOURCE https://daugasauron.com/dist/static/slopyard/lua-5.5.1.tar.gz 1c4b4068d67061f2a2231ad2b5422e77acea1487ea9890f6320af614f4373dce /tmp/lua55/source.tar.gz
+SOURCE /v0.1.0/dist/static/slopyard/lua-5.5.1.tar.gz 1c4b4068d67061f2a2231ad2b5422e77acea1487ea9890f6320af614f4373dce /tmp/lua55/source.tar.gz
 SLOP gzip -dc /tmp/lua55/source.tar.gz > /tmp/lua55/source.tar
 SLOP tar -xf /tmp/lua55/source.tar -C /tmp/lua55
 FILE /tmp/lua55/Makefile
@@ -51,7 +51,7 @@ REQUIRES HEADER gpu
 REQUIRES HEADER quickjs
 REQUIRES HEADER quickjs-runner
 
-SOURCE https://daugasauron.com/dist/static/slopyard/source.tar b18b7b44c56a809a94e92ea925b3d8131edd34658cf0940bf9c36fe1e42a41a9 /tmp/slopyard.tar
+SOURCE /v0.1.0/dist/static/slopyard/source.tar b18b7b44c56a809a94e92ea925b3d8131edd34658cf0940bf9c36fe1e42a41a9 /tmp/slopyard.tar
 SLOP tar -xf /tmp/slopyard.tar -C / && rm /tmp/slopyard.tar
 SLOP make -f /usr/src/dolly/slopyard/box3d.mk
 SLOP cc -std=c17 -O2 -pthread -U__SIZEOF_INT128__ -I/usr/include/lua5.5 /usr/src/dolly/slopyard/main.c /usr/src/dolly/slopyard/data.c /usr/src/dolly/slopyard/pi.c /usr/src/dolly/slopyard/character.c /usr/src/dolly/slopyard/render.c /usr/src/dolly/slopyard/world.c /usr/src/dolly/slopyard/terrain.c /usr/src/dolly/slopyard/magnet.c -ldolly-gpu -llua5.5 -ldolly-js -ldolly-raylib -lraylib -lslopyard-box3d -lm -o /usr/bin/slopyard

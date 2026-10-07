@@ -1,4 +1,4 @@
-DOLLY 6
+DOLLY 7
 TOOLCHAIN llvm-cc
 REQUIRES HOST runtime@0
 REQUIRES HOST display@0
@@ -9,7 +9,7 @@ REQUIRES HOST upload@0
 
 # Clang and LLD linked inside Dolly from llvm-build's archives, checked against
 # the seed compiler and installed in its place: this image's cc is built by Dolly.
-FROM https://daugasauron.com/demos/llvm/Dollyfile-llvm-build 654a5f2679fb467ce9c6d2acc1ef46dee2db03e625ca0ff537f198e716c8795c
+FROM /v0.1.0/demos/llvm/Dollyfile-llvm-build 654a5f2679fb467ce9c6d2acc1ef46dee2db03e625ca0ff537f198e716c8795c
 REQUIRES TOOL cc
 REQUIRES TOOL c++
 REQUIRES TOOL gzip
@@ -24,15 +24,15 @@ REQUIRES TOOL mkdir
 REQUIRES TOOL rm
 
 # LLVM's source headers again; llvm-build kept the configured and generated ones.
-SOURCE https://daugasauron.com/dist/static/llvm/llvm-project.tar.gz 033390c4520e51f261eb7572f0a1b4a1592121a1c8c1fc0c3db4845b079a8882 /tmp/llvm-project.tar.gz
+SOURCE /v0.1.0/dist/static/llvm/llvm-project.tar.gz 033390c4520e51f261eb7572f0a1b4a1592121a1c8c1fc0c3db4845b079a8882 /tmp/llvm-project.tar.gz
 SLOP slop -c 'gzip -dc /tmp/llvm-project.tar.gz | tar -xf - -C /'
 SLOP rm /tmp/llvm-project.tar.gz
 # The driver the seed compiler is (src/compiler.cpp), with the two contract
 # digests the runtime build generates.
-SOURCE https://daugasauron.com/dist/static/llvm/compiler.cpp e76523345b5e177001d158e6552ba304fed09f634155c1ef506f76c0406f7665 /tmp/dolly-compiler/compiler.cpp
-SOURCE https://daugasauron.com/dist/static/llvm/compiler-main.c c006a717fb95b2b99ec91eee392a1b607801ef15f21d684acfa905b5116b8fae /tmp/dolly-compiler/compiler-main.c
-SOURCE https://daugasauron.com/dist/static/llvm/dolly-process-abi-digest.h a9086eddb238582885298ab36c68c8eb7a58c5133e59d1c277f46417205b3720 /tmp/dolly-compiler/dolly-process-abi-digest.h
-SOURCE https://daugasauron.com/dist/static/llvm/dolly-kernel-plugin-abi-digest.h e73a92ed6dbace33c5bf2d3a14905c29e2c114b4e7dba91304b2e6235791b35e /tmp/dolly-compiler/dolly-kernel-plugin-abi-digest.h
+SOURCE /v0.1.0/dist/static/llvm/compiler.cpp e76523345b5e177001d158e6552ba304fed09f634155c1ef506f76c0406f7665 /tmp/dolly-compiler/compiler.cpp
+SOURCE /v0.1.0/dist/static/llvm/compiler-main.c c006a717fb95b2b99ec91eee392a1b607801ef15f21d684acfa905b5116b8fae /tmp/dolly-compiler/compiler-main.c
+SOURCE /v0.1.0/dist/static/llvm/dolly-process-abi-digest.h a9086eddb238582885298ab36c68c8eb7a58c5133e59d1c277f46417205b3720 /tmp/dolly-compiler/dolly-process-abi-digest.h
+SOURCE /v0.1.0/dist/static/llvm/dolly-kernel-plugin-abi-digest.h e73a92ed6dbace33c5bf2d3a14905c29e2c114b4e7dba91304b2e6235791b35e /tmp/dolly-compiler/dolly-kernel-plugin-abi-digest.h
 
 # Compiles the driver as toolchain/CMakeLists.txt does and links ./compiler.
 # ROOT holds lib/*.a and the generated headers by build-tree path. The seed's

@@ -1,8 +1,8 @@
-DOLLY 6
+DOLLY 7
 PACKAGE zlib
 REQUIRES HOST runtime@0
 
-FROM https://daugasauron.com/Dollyfile-system-build de7755e5c779736287ad84569923fd2d97d21788ce68ddc043a8e50c6748065e
+FROM /v0.1.0/Dollyfile-system-build de7755e5c779736287ad84569923fd2d97d21788ce68ddc043a8e50c6748065e
 
 REQUIRES HEADER libc
 REQUIRES TOOL   ar
@@ -11,7 +11,7 @@ REQUIRES TOOL   make
 REQUIRES TOOL   rm
 REQUIRES TOOL   tar
 
-SOURCE https://daugasauron.com/dist/static/default/zlib.tar 3ff2e65dc35be0baa91250384dbe2b0d7c16aa73496dc20eeca86221588ead73 /tmp/zlib.tar
+SOURCE /v0.1.0/dist/static/default/zlib.tar 3ff2e65dc35be0baa91250384dbe2b0d7c16aa73496dc20eeca86221588ead73 /tmp/zlib.tar
 SLOP tar \
   -xf /tmp/zlib.tar \
   -C /
