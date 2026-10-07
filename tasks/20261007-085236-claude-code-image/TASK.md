@@ -171,6 +171,73 @@ ignored its transformer. Fixed as general Node behaviour in `janis.js`
 `enqueue`/`error`/`terminate`); oracle group `webStreams` in
 `node-oracle.mjs` (identical in Node 22 and Janis natively). With it the
 `-p` file-tool turn against the scripted endpoint completed in 2.8 s.
+A made-up key against the real `api.anthropic.com` drew the 401
+`authentication_error: API key is invalid` in 4.3 s (`CLAUDE_CODE_MAX_RETRIES=1`
+typed for the run; the image sets nothing). Claude Code's bundled SDK client
+is constructed with `dangerouslyAllowBrowser: true`, so its Messages requests
+carry `anthropic-dangerous-direct-browser-access: true`, and only with that
+header does Anthropic's preflight answer `access-control-allow-origin: *`
+(measured with curl and an `Origin` header, 2026-10-07 11:05 UTC).
+
+Step 3, the onboarding (measured 2026-10-07, Chromium; Firefox below): an
+interactive start without `~/.claude.json` shows the welcome screen and then
+Claude Code's own connectivity check, `GET api.anthropic.com/api/hello`
+followed by `GET platform.claude.com/v1/oauth/hello` with axios, each
+required to answer 200. Neither endpoint sends
+`access-control-allow-origin` (with or without the browser-access header), so
+in a browser both fetches are blocked and Claude Code exits 1 with "Unable to
+connect to Anthropic services / Failed to connect to api.anthropic.com". The
+sign-in methods (Claude account, Console account) are never offered: the
+check precedes them. The onboarding is skipped only when `~/.claude.json`
+records `theme` and `hasCompletedOnboarding`, which the image never writes.
+What works in a browser without that file is print mode: `code-agent -p …`
+with `ANTHROPIC_API_KEY` exported, which runs no onboarding and no check.
+
+With both hello endpoints answered 200 by a fixture (the test's setting, not
+the real world), the onboarding continues and each screen was walked in
+Chromium (`build/claude-code-evidence/chromium-walk-*`):
+
+- With `ANTHROPIC_API_KEY` exported: theme → "Detected a custom API key …
+  Do you want to use this API key? 1. Yes / 2. No (recommended)" (the
+  default is No) → "Yes" → "Quick safety check … 1. Yes, I trust this
+  folder" → the REPL ("Sonnet 4.6 · API Usage Billing"). A typed "Read
+  /workspace/hello.txt and tell me what it says" showed "Read 1 file" and
+  "The file says: DOLLY-FIXTURE-CONTENT" against the scripted endpoint
+  (three Messages requests: a Haiku topic check without tools, then the two
+  of the turn). The status line reads "Failed to install Anthropic
+  marketplace" (its plugin registry fetch is not on the path).
+- "No" to the key, or no key: "Select login method: 1. Claude account with
+  subscription · 2. Anthropic Console account · 3. 3rd-party platform".
+  Method 1 and 2 start an OAuth flow that first listens on `localhost` for
+  the callback: Janis has no listening socket, so Claude Code shows "OAuth
+  error: Failed to start OAuth callback server: Janis has no listening
+  socket API. Press Enter to retry." before any URL is shown; its manual
+  code path (`platform.claude.com/oauth/code/callback`) is never reached.
+
+The notice therefore says that the interactive start stops at Claude Code's
+"Unable to connect to Anthropic services" and that print mode with the
+user's key works; the README has the reasons.
+
+Step 4, the test (`demos/code-agent/test/code-agent-browser.mjs`, Chromium
+by default, `DOLLY_BROWSER=firefox`): an explicit policy admits only the
+tarball URL, `api.anthropic.com` (`/v1/` POST with the key headers, `/api/`
+GET) and `platform.claude.com/v1/oauth/hello`; the page's fetches of those
+origins go to the test server (`redirectFetch`), which serves the cached
+tarball and the scripted Messages endpoint and answers both hello checks
+200. It asserts: no request while the notice shows and none after Ctrl+C;
+the recovery shell has no `/opt/claude-code` and no `~/.claude.json`; after
+`export ANTHROPIC_API_KEY=…` and `code-agent`, no request until a key, then
+exactly one GET of the tarball; Claude Code's onboarding answered as a user
+would (theme, "Yes" to the detected key, trust the folder); a typed Read
+request completes in the REPL with two Messages requests that carry the key
+and the browser-access header, the second with the file's content as the
+tool result; `/exit` leaves with status 0 (measured: neither Ctrl+C, twice,
+from the keyboard or as raw bytes, nor Ctrl+D leaves this REPL in the
+browser; `/exit` does); the session now holds the package and
+`~/.claude.json`. `code-agent.artifacts.mjs` decodes the sealed snapshot:
+no path names Claude or Anthropic, and no retained file has the SHA-256 of
+a tarball member (its vendored ripgrep crate licences excepted: ripgrep's own
+build retains the same texts).
 
 ## Related
 
