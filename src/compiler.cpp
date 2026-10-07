@@ -80,6 +80,8 @@ struct DriverOptions {
   bool kernel_plugin = false;
   bool shared_library = false;
   bool link_cxx_runtime = false;
+  bool no_standard_cxx_runtime = false;
+  bool pic = true;
   bool standard_selected = false;
   bool unsigned_char = false;
   bool pthread = false;
@@ -378,10 +380,28 @@ int parse_driver_options(int argc, const char *const *argv, DriverOptions &optio
       // cc1 accepts the joined spelling, like -std=.
       options.frontend_options.push_back(argument);
     } else if (argument == "-fPIC" || argument == "-fpic" || argument == "-fPIE" ||
-               argument == "-fpie" || argument == "-pipe") {
-      // Dolly objects are always PIC.
+               argument == "-fpie") {
+      options.pic = true;
+    } else if (argument == "-fno-pic" || argument == "-fno-PIC") {
+      // Static code for a program's own link; it cannot go into a shared object.
+      options.pic = false;
+    } else if (argument == "-pipe") {
+      // The compiler runs in one process.
     } else if (argument == "-fno-common") {
       // Clang's default; LLVM's CMake states it.
+    } else if (argument == "-funroll-loops" || argument == "-fno-unroll-loops" ||
+               argument == "-fignore-exceptions" ||
+               starts_with(argument, "-fdebug-prefix-map=") ||
+               starts_with(argument, "-fmacro-prefix-map=")) {
+      // cc1 spells these as Clang's driver does.
+      options.frontend_options.push_back(argument);
+    } else if (starts_with(argument, "-ffile-prefix-map=")) {
+      const std::string map = argument.substr(std::strlen("-ffile-prefix-map="));
+      options.frontend_options.push_back("-fdebug-prefix-map=" + map);
+      options.frontend_options.push_back("-fmacro-prefix-map=" + map);
+    } else if (argument == "-nostdlib++") {
+      // The link names its own C++ runtime; libc and the unwinder stay.
+      options.no_standard_cxx_runtime = true;
     } else if (argument == "-funwind-tables") {
       // WebAssembly has no unwind tables: C++ exceptions use Wasm EH.
     } else if (argument == "-ffunction-sections" || argument == "-fdata-sections") {
@@ -533,13 +553,20 @@ bool run_clang(const std::string &source, const std::string &language,
         "-clear-ast-before-backend",
         "-disable-llvm-verifier",
         "-discard-value-names",
-        "-mrelocation-model", "pic",
-        "-pic-level", "2",
         "-mframe-pointer=none",
         "-ffp-contract=on",
         "-mconstructor-aliases",
     });
   }
+  // -E sees the macros -c compiles with: the relocation model here, the
+  // target features and the exception model below.
+  if (options.pic) {
+    arguments.insert(arguments.end(), {"-mrelocation-model", "pic", "-pic-level", "2"});
+  } else {
+    arguments.insert(arguments.end(), {"-mrelocation-model", "static"});
+  }
+  // Clang's driver names the unit; without it debug information says <stdin>.
+  arguments.insert(arguments.end(), {"-main-file-name", llvm::sys::path::filename(source).str()});
   if (options.pthread) arguments.push_back("-pthread");
   if (!options.thread_model.empty()) {
     arguments.push_back("-mthread-model");
@@ -550,15 +577,11 @@ bool run_clang(const std::string &source, const std::string &language,
       "-target-feature", "+mutable-globals",
       "-target-feature", "+atomics",
       "-target-feature", "+bulk-memory",
+      "-target-feature", "+exception-handling",
+      "-target-feature", "+multivalue",
+      "-target-feature", "+reference-types",
+      "-exception-model=wasm",
   });
-  if (!options.preprocess_only) {
-    arguments.insert(arguments.end(), {
-        "-target-feature", "+exception-handling",
-        "-target-feature", "+multivalue",
-        "-target-feature", "+reference-types",
-        "-exception-model=wasm",
-    });
-  }
   arguments.insert(arguments.end(), {
       "-resource-dir", "/usr/lib/clang/24",
   });
@@ -1597,7 +1620,8 @@ int compile_and_link(const DriverOptions &options, int default_language) {
   const std::string output = options.output.empty() ? "a.out" : options.output;
   std::vector<std::string> temporary_objects;
   std::vector<std::string> link_inputs;
-  bool needs_cxx_runtime = options.link_cxx_runtime || default_language == DOLLY_TOOLCHAIN_CXX;
+  bool needs_cxx_runtime = options.link_cxx_runtime ||
+      (default_language == DOLLY_TOOLCHAIN_CXX && !options.no_standard_cxx_runtime);
   for (size_t index = 0; index < options.inputs.size(); index++) {
     const std::string &input = options.inputs[index];
     const std::string language = source_language(
@@ -1608,7 +1632,7 @@ int compile_and_link(const DriverOptions &options, int default_language) {
     }
     const std::string object = temporary_path(output, index, ".o");
     std::remove(object.c_str());
-    if (language == "c++") needs_cxx_runtime = true;
+    if (language == "c++" && !options.no_standard_cxx_runtime) needs_cxx_runtime = true;
     if (!run_frontend(input, language, object, options)) {
       std::fprintf(stderr, "dolly-cc: compilation failed: %s\n", input.c_str());
       temporary_objects.push_back(object);
