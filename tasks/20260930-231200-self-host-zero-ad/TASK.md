@@ -589,3 +589,14 @@ memory sampled every 2 s into `memory-4.log`; stage logs `stage-*.log`.
   by the first (all-of-`js/src/tests`) pruning. Staging now re-extracts every
   time (5 s); the fixtures are in the tarball; the recipe lists
   `/opt/mozjs/lib` so the image log carries the library sizes.
+- **`zero-ad-spidermonkey` built** (third image build, 11:34:43-11:49:24,
+  `work/slot.sh bigbuild`, round-3 base, `cbindgen`, `zero-ad-deps`, `python`
+  and `cargo` reused): `build.slop` 756 s, image 879.4 s with the 795,577,904
+  byte snapshot export; `libjs_static.a` 21,428,434 bytes and `libjsrust.a`
+  5,140,674 bytes (the host-built ones: 406,352,974 and 24,145,424 with
+  DWARF). Scope memory reached the 9 GB bigbuild cap (cgroup v2 peak, file
+  cache included: the 537 MB tree and the 796 MB export are in it; no kill,
+  the kernel reclaimed cache); the previous run peaked at 7.33 GB before its
+  export stage; the same build in a session peaked at 4.3 GB. The
+  bootstrap exception is replaced in the recipe graph; `build-spidermonkey.sh`
+  and the doc rows go once `zero-ad-engine` has rebuilt against `/opt/mozjs`.
