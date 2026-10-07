@@ -69,4 +69,6 @@ either limit fails explicitly: `dolly: process N failed: Maximum call stack
 size exceeded` (Firefox: `too much recursion`) and status 126, with the shell
 intact.
 
-The closure has been built in Chrome only, which is what builds images.
+The closure has been built in Chrome only, which is what builds images; the
+built compiler runs in Firefox too. [Browser stack](../../docs/browser-stack.md)
+has the measurements and the reason Firefox is entered differently.

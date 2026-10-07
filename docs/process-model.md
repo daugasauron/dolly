@@ -68,9 +68,10 @@ sequenceDiagram
   pointers of the process itself; a wild one is `EFAULT` too, while a trap in
   the function an FFI call reaches ends the process like any other trap.
 - Wasm calls nest on a browser stack that a page cannot size; a program that
-  exhausts it fails with 126 like any other trap. A Chrome Worker's holds
-  500 KB, so where the browser has JSPI the Worker enters the process through
-  `WebAssembly.promising`, on a stack of about 950 KB (Chrome 151).
+  exhausts it fails with 126 like any other trap. The Worker enters the
+  process through `WebAssembly.promising` where that stack is measured half
+  again as deep: Chrome 151, about 950 KB instead of a Worker's 500 KB, and
+  not Firefox 155 ([browser stack](browser-stack.md)).
   `RLIMIT_STACK` describes only the stack inside the process's memory.
 - `cc`, `c++`, `ld` and `ar` retry status 126 up to twice
   ([`runtime-adapter.c`](../src/process/runtime-adapter.c)), so long

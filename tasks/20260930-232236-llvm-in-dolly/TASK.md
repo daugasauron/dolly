@@ -1109,9 +1109,9 @@ fix changes nothing in Chromium, which runs them). The closure build and the
 second-stage test were never run by the integrator: their evidence is the
 agent's, in `work/llvm/build/llvm-evidence/`.
 
-To correct with the next change to those documents: `docs/process-model.md`
-and `docs/browser-boundary.md` say "where the browser has JSPI"; it is
-"where that stack is measured half again as deep".
+Documented for readers in `docs/browser-stack.md` (2026-10-08, at the owner's
+request), with `docs/process-model.md` and `docs/browser-boundary.md`
+corrected to "where that stack is measured half again as deep".
 
 Not on `main`: `core/runtimes-in-seed` (`61fca608`, a seed change, for the
 release's full catalog round) and `core/llvm-seed-trial` (`a037eb5f`,
