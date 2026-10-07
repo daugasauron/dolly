@@ -19,9 +19,7 @@ SERVER_UNITS := sys_linux vid_null thread_null snd_null \
 SERVER_OBJECTS := $(patsubst %,$(BUILD)/engine/%.o,$(SERVER_UNITS))
 # OBJ_SDL with the null thread, sound and CD units: the sdl2 package has no
 # audio or threads. The software rasterizer draws until RENDERPATH_DOLLY exists.
-# The client threads its software rasterizer (vid_soft_threads) through the
-# engine's pthread unit over threads@0; the sdl2 package itself has no threads.
-CLIENT_UNITS := sys_sdl vid_sdl menu mvm_cmds cd_shared cd_null thread_pthread $(filter-out sys_linux vid_null thread_null,$(SERVER_UNITS))
+CLIENT_UNITS := sys_sdl vid_sdl menu mvm_cmds cd_shared cd_null $(filter-out sys_linux vid_null,$(SERVER_UNITS))
 CLIENT_OBJECTS := $(patsubst %,$(BUILD)/client/%.o,$(CLIENT_UNITS))
 # makefile.inc's CFLAGS_COMMON at -O1 (Dolly's cc takes no -fno-math-errno or
 # -fno-trapping-math), zlib linked statically since there is no dlopen.
@@ -31,7 +29,7 @@ CFLAGS := -O1 -fno-strict-aliasing -D_FILE_OFFSET_BITS=64 -D__KERNEL_STRICT_NAME
 # units with intrinsics compile as Wasm SIMD through simd-unit.c.
 # No dlopen: libjpeg (built here from IJG's sources) and FreeType (the
 # zero-ad-deps package) are linked, as upstream's Android build links them.
-CLIENT_CFLAGS := $(CFLAGS) -pthread -DCONFIG_MENU -DCONFIG_CD -DSSE_PRESENT -DSSE2_PRESENT -I/usr/include/SDL2 \
+CLIENT_CFLAGS := $(CFLAGS) -DCONFIG_MENU -DCONFIG_CD -DSSE_PRESENT -DSSE2_PRESENT -I/usr/include/SDL2 \
   -DLINK_TO_LIBJPEG -I$(SOURCE)/jpeg -DDP_FREETYPE_STATIC -I/usr/include/freetype2
 SIMD_UNITS := dpsoftrast mod_skeletal_animatevertices_sse
 JPEG := $(SOURCE)/jpeg
