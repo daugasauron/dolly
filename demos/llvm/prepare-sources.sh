@@ -29,3 +29,15 @@ if has_image llvm-tablegen; then
   node scripts/build-source-tar.mjs "${static_dir}/llvm/llvm-project.tar.gz" "${llvm_inputs[@]}"
   copy_static demos/llvm/llvm-host-triple.patch llvm/llvm-host-triple.patch
 fi
+if has_image llvm-runtimes; then
+  # The runtime sources at the Emscripten pin, read from the checkout's objects
+  # (its sparse work tree omits compiler-rt), with their __EMSCRIPTEN__ tests
+  # renamed as the installed libc++ headers' are (scripts/prepare-image-sources.sh).
+  emscripten_checkout="$("${project_dir}/scripts/fetch-pinned-checkout.sh" emscripten)"
+  mkdir "${staging}/llvm-runtimes"
+  git -C "${emscripten_checkout}" archive HEAD \
+    system/lib/libcxx/src system/lib/libcxxabi system/lib/libunwind system/lib/llvm-libc |
+    tar -x -C "${staging}/llvm-runtimes"
+  grep -rlZw __EMSCRIPTEN__ "${staging}/llvm-runtimes" | xargs -0 sed -i 's/\b__EMSCRIPTEN__\b/__dolly__/g'
+  node scripts/build-source-tar.mjs "${static_dir}/llvm/runtimes.tar" "${staging}/llvm-runtimes" /tmp/llvm-runtimes
+fi

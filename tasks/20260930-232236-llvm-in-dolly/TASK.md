@@ -264,3 +264,122 @@ the compiler and compare it with the seed's link.
 - The Worker stack overflow on `MSP430.cpp`/`SemaARM.cpp` is fixed on the
   compiler side (measure the recursion, reduce frame use or recursion depth),
   not by patching Clang's sources.
+
+## Runtimes built inside Dolly (2026-10-07, `work/llvm-runtimes`)
+
+Branch `core/llvm-runtimes`. Scratch scripts and raw outputs are under
+`build/runtimes-evidence/` (not committed).
+
+### Inventory of the shipped archives
+
+Method: `ar tv`, the host-built `llvm-nm` of LLVM 24 (`.cache/llvm-host`) and a
+section walk of every member, on the process sysroot the seed was built from
+(`.cache/process-sysroot-82cc4452…`, whose archives equal
+`.cache/emscripten/sysroot/lib/wasm64-emscripten/`). Source lists and flags are
+those of `tools/system_libs.py` at the Emscripten pin (`aeb67926`, the same
+bytes in the container and in the pinned checkout's objects); the cc1 lines
+come from `em++ -v` in the pinned container.
+
+| Archive (as linked by `src/compiler.cpp`) | Bytes | Members | Code | Data | Debug | Defined | Undefined |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| `libc++-ww-wasmexcept.a` | 8,280,018 | 57 | 437,085 | 222,618 | 6,551,784 | 3,530 | 415 |
+| `libc++abi-ww-wasmexcept.a` | 1,181,998 | 18 | 83,018 | 31,313 | 905,206 | 444 | 82 |
+| `libunwind-ww-wasmexcept.a` | 4,466 | 1 | 94 | 30 | 2,941 | 9 | 3 |
+| `libclang_rt.builtins-wasmsjlj-ww.a` | 812,986 | 184 | 77,224 | 47,774 | 523,680 | 383 | 172 |
+| `/usr/lib/libclang_rt.builtins.a` (the `pic` variant less `emscripten_setjmp.o`) | 812,590 | 183 | 83,169 | 47,774 | 529,022 | 379 | |
+
+- The `-mt-` twin of each of the first four (`threads/` in the sysroot, linked
+  by `-pthread`) is the same file: equal SHA-256. One build serves both.
+- Four fifths of the bytes are DWARF: Emscripten builds system libraries with
+  `-g` and Dolly's links strip it unless the program is linked with `-g`.
+- Sources, all in the pinned commit: libc++ is `system/lib/libcxx/src/**/*.cpp`
+  less twelve named files (57 of 69: the top level, `filesystem/` without
+  `int128_builtins.cpp`, `ryu/` and three of `experimental/`); libc++abi is 18
+  named files of `libcxxabi/src`; libunwind is `Unwind-wasm.c`; the builtins are
+  157 of the 181 `compiler-rt/lib/builtins/*.c`, the 20 files of `lib/profile`
+  and seven Emscripten files. Member lists equal the source lists, sorted by
+  name. The pinned checkout is sparse (`scripts/fetch-pinned-checkout.sh`): its
+  work tree has no `compiler-rt` and no `tools/`, its object store has both
+  (`git archive`, `git show`).
+- Flags (`-ww-wasmexcept`, wasm64, not PIC): libc++ `-Oz -std=c++23 -Wall
+  -Werror -g -DNDEBUG -DLIBCXX_BUILDING_LIBCXXABI=1 -D_LIBCPP_BUILDING_LIBRARY
+  -D_LIBCPP_DISABLE_VISIBILITY_ANNOTATIONS -DLIBC_NAMESPACE=__llvm_libc
+  -Isystem/lib/libcxx/src -Isystem/lib/llvm-libc -fwasm-exceptions`; libc++abi
+  the same with `-D_LIBCXXABI_USE_FUTEX -D_LIBCXXABI_BUILDING_LIBRARY
+  -DLIBCXXABI_NON_DEMANGLING_TERMINATE -Isystem/lib/libunwind/include`;
+  libunwind `-Oz -D_LIBUNWIND_HIDE_SYMBOLS -DNDEBUG`; the builtins `-O2
+  -fno-unroll-loops -fno-builtin -DNDEBUG -DCOMPILER_RT_HAS_ATOMICS=1
+  -D__WASM_SJLJ__`, no exceptions. In cc1 terms the Emscripten driver adds what
+  Dolly's `c++` does not: `-mrelocation-model static`, `-fvisibility=hidden`,
+  DWARF 4 (`-debug-info-kind=constructor -gkey-instructions`), prefix maps to
+  `/emsdk/emscripten`, `-fdeprecated-macro`; Dolly's adds `-vectorize-loops`
+  (Emscripten only above `-Oz`) and compiles PIC.
+- Compiler: the container's Clang is `24.0.0git` at `4bfd08c2`, the commit of
+  `DOLLY_LLVM_COMMIT`. The shipped archives and Dolly's `c++` are the same
+  compiler source, built for x86-64 and for wasm64.
+
+### Built inside Dolly: `llvm-runtimes`
+
+`demos/llvm/Dollyfile-llvm-runtimes` is a build-only package `FROM
+system-tools`: the pinned sources (`dist/static/llvm/runtimes.tar`, 2,415 files,
+9.5 MB: `libcxx/src`, `libcxxabi`, `libunwind`, `llvm-libc` from the pinned
+commit's objects, their `__EMSCRIPTEN__` tests renamed to `__dolly__` as the
+installed headers' are), one Makefile with the source lists and flags above,
+`c++`, `cc`, `ar`. It keeps the three archives in `/usr/lib/llvm-runtimes`
+under their shipped names; nothing links them unless it names them.
+
+Method: image builds in headless Chrome on the 16-core host (load 3-6), wall
+time from Dolly's `time` in the image log, memory as the whole browser's PSS
+sampled every 2 s.
+
+- 76 translation units (57 + 18 + 1), no source change, no failure on the
+  first build. `make -j2`: 27.2-28.5 s (three builds); `make -j1`: 44.3 s, the
+  sum of the 76 compiles 43.7 s (median 0.34 s; `algorithm.cpp` 3.9 s,
+  `locale.cpp` 3.4 s, `ios.instantiations.cpp` 1.9 s, `cxa_demangle.cpp`
+  1.8 s). The whole image, restore to snapshot: 36 s. Peak PSS 1.5-1.65 GiB.
+  The snapshot is 9.7 MB.
+- The sysroot lacked nothing: the installed libc and libc++ headers and the
+  staged sources were enough.
+- The driver lacked, each passed through `-Xclang` instead:
+  - a static relocation model (`-fno-pic`): `c++` always compiles
+    `-mrelocation-model pic -pic-level 2`, the shipped archives are not PIC;
+  - `-ffile-prefix-map`/`-fmacro-prefix-map`/`-fdebug-prefix-map` and
+    `-fdebug-compilation-dir` (five members hold `__FILE__` strings);
+  - `-main-file-name`: without it cc1 names every compile unit `<stdin>` in
+    its DWARF, so `c++ -g` does that for every program (measured: the first
+    build's `DW_AT_name` was `…/libcxx/src/<stdin>`);
+  - the DWARF dialect of Clang's driver: `c++ -g` is
+    `-debug-info-kind=standalone -dwarf-version=5`, Emscripten's
+    `constructor`, version 4, `-gkey-instructions`, `-debugger-tuning=gdb`;
+  - `-fno-unroll-loops` (rejected as unsupported; the default at `-Oz`, needed
+    for the builtins at `-O2`).
+  `-fvisibility=hidden` is accepted. `-vectorize-loops`, which `c++` always
+  passes and Emscripten omits at `-Oz`, changed no byte, nor did leaving out
+  `-fdeprecated-macro` and `-fno-unroll-loops`.
+- A link cannot leave the shipped archives out: the driver appends
+  `-lc++-ww-wasmexcept -lc++abi-ww-wasmexcept -lunwind-ww-wasmexcept` to every
+  C++ link and has no `-nostdlib++`. Archives named as inputs come first and
+  win; the proof below reads the linker's trace.
+
+### Compared with the shipped archives
+
+`libc++`, `libc++abi` and `libunwind`, all 76 members: same member names in the
+same order; every section equal byte for byte except the four that hold the
+compiler's own version string. That covers code, data, types, imports, the
+linking section (the symbol table: `llvm-nm` prints 3,530/444/9 defined and
+415/82/3 undefined names on both sides), relocations, `target_features`,
+`.debug_line`, `.debug_abbrev` and `.debug_ranges`.
+
+The one difference: the shipped objects say `clang version 24.0.0git
+(https:/github.com/llvm/llvm-project 4bfd08c2…)`, Dolly's `(https://github.com/llvm/llvm-project.git
+4bfd08c2…)`: how each LLVM build recorded its repository. It is in `producers`
+and in `.debug_str`; substituting it in the shipped `producers` and
+`.debug_str` gives Dolly's bytes for all 76 members. Its five extra bytes move
+the later string offsets, which is all that differs in `.debug_info` and
+`reloc..debug_info` (equal lengths). Archive sizes: 8,280,018 against
+8,280,258, 1,181,998 against 1,181,974, 4,466 against 4,470 bytes.
+
+Shipped: the pinned container's Clang (x86-64 build of LLVM `4bfd08c2`, run by
+`embuilder`). Dolly's: the seed compiler (wasm64 build of the same commit, run
+as `c++` in the browser). No member differs in size by more than 16 bytes, so
+there was no instruction-level difference to look at.
