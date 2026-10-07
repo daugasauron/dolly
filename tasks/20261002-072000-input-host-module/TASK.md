@@ -345,3 +345,39 @@ this branch too: the repeated screen-reading gesture lives in
   `test/{terminal,display,host-modules}-browser.mjs`, `host/manifests.mjs`
   and `test/host-modules.test.mjs` (`dso@0`, the operation-number test),
   `docs/browser-boundary.md`, and the pins of 59 recipes.
+
+Nothing older than this morning's merge counts as verification of the branch
+handed over (integrator's rule): the results above say what ran on which base.
+
+## On `integrate/round3` (`40418a7b`), 2026-10-07
+
+Merge `9298ef41`. The integrator's two fixes from last night survive the move:
+
+- The exit discard is one call, in `mark_process_exited`
+  (`src/process-kernel.c`), reaching `dolly_terminal_discard_pending_input`
+  in `host/input/kernel.c`; last night's case in `test/display-browser.mjs`
+  (keys typed while the exited program's Worker retires reach the shell) is
+  kept, typing through `__dolly.inputTransport`.
+- The repeated screen-reading gesture (a program leaving the alternate screen
+  between press and drag cancels the selection) lives in
+  `src/terminal-text.mjs`, which both modules' page APIs feed;
+  `host/display/display.mjs` keeps only the copy chord and the presenter.
+  Its case in `test/terminal-browser.mjs` is kept.
+- `composed()` in `test/browser.mjs` takes `{ base, files, entry }`: the
+  round's base image (the `dso` suite, which now also declares `input@0` since
+  it types) and this branch's files and entry (host-modules' two images).
+- `dso@0` joins the module list and `default`'s declared set beside `input@0`;
+  the operation-number test sees locks (59), input (88–91) and dso (112–114,
+  120–123) apart.
+- Recipes: the round's pins plus the `input@0` declarations, then
+  `update-recipe-pins` (the cascade, commit `67779583`: without it the lint
+  and the host-set test fail on stale pins) and `--sources` for `dolly-docs`
+  and `system-build` (the documents and headers this branch changes, commit
+  `672d2b51`). The catalog round repins as built.
+
+Verification on this base (logs under `build/input-evidence/`):
+
+- `npm run build:runtime` (`build-runtime-6.log`): `validate-browser` passes,
+  runtime `a4b21f92…`, image inputs `b5247305…`.
+- `node --test 'test/*.test.mjs' 'demos/**/*.test.mjs'`: 419 pass, 0 fail.
+- `npm run lint:dollyfiles`: 67 recipes.
