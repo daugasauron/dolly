@@ -23,4 +23,5 @@ README. Demos may use each other; the core never uses a demo.
 - [sdl2](sdl2/README.md): SDL2 over the Dolly framebuffer.
 - [slopyard](slopyard/README.md): Slopyard and the raylib/Box3D gamedev SDK.
 - [studio](studio/README.md): Dollyfile Studio.
+- [sysroot](sysroot/README.md): the libraries every program links, rebuilt inside Dolly and held against the seed's.
 - [zero-ad](zero-ad/README.md): 0 A.D. Release 28 and its OpenAL build.

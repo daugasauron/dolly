@@ -35,7 +35,10 @@ libc's triple, `wasm64-unknown-emscripten`; a program sees neither name
 Demo exceptions (the Rust compiler seed) are recorded in their demo READMEs.
 The `llvm` demo (`demos/llvm/README.md`) builds the compiler of the second row
 again inside Dolly and gets the seed compiler's output bytes from it; the
-host-built seed is still what every image starts from.
+host-built seed is still what every image starts from. The `sysroot` demo
+(`demos/sysroot/README.md`) does the same for the first row's process libc and
+for Dolly's own parts of the sysroot, to equal code and data; their four
+assembly sources go through file-scope asm, since `cc` has no assembler.
 Every externally built program (compiler, Rust seed)
 validates against `dolly-process-0` exactly and ships without an Emscripten
 JavaScript loader. Host preparation may
