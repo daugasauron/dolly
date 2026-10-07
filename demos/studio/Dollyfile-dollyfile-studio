@@ -12,7 +12,7 @@ REQUIRES HOST snapshot@0
 REQUIRES HOST threads@0
 REQUIRES HOST upload@0
 
-FROM https://daugasauron.com/demos/local-llm/Dollyfile-pi-local c834c465ff92c6cf37458637a3aec5c99e67c1c2e1efe0ddf01b249952d68df5
+FROM https://daugasauron.com/demos/local-llm/Dollyfile-pi-local c7b14a4275b898fc86de39389b7a0f7027d26519f43503e8cd4fde7a075906f3
 INSTALL https://daugasauron.com/demos/neovim/Dollyfile-nvim b94ab608c6b46518fe1f1bc36e88a6c9125cb1223aad2c82d3071aeb4f4f025a
 REQUIRES TOOL pi
 REQUIRES TOOL nvim
@@ -22,7 +22,7 @@ REQUIRES TOOL sha256sum
 REQUIRES TOOL sed
 # dollyfile-build starts disposable image builds through the page.
 
-SOURCE https://daugasauron.com/dist/static/studio/studio.tar 6a343ff548a612c3514b39ba374d0fc6ac6f6f7ed475b576c68d10278665a5e7 /tmp/dollyfile-studio/source.tar
+SOURCE https://daugasauron.com/dist/static/studio/studio.tar 570bbf292baaaa45deb7f283966e0495e7af1ef399e8d1108c02729b27a75c2e /tmp/dollyfile-studio/source.tar
 SLOP tar -xf /tmp/dollyfile-studio/source.tar -C /
 SLOP slop -e /usr/share/dollyfile-studio/install.slop
 SLOP dollyfile-lint /usr/share/dollyfile-studio/examples/Dollyfile-hello
@@ -43,7 +43,7 @@ FILE /home/dolly/.dollyrc
     fi
     printf '\033[33mDOLLY / DOLLYFILE STUDIO\033[0m\n'
     printf 'Start with /dolly-hello, /dolly-tool or /dolly-fix in Pi.\n'
-    printf '/local: install and switch local models and set their parameters. /model: any provider.\n'
+    printf '/model: any provider.\n'
     printf 'Leave Pi with Ctrl+D on an empty prompt, then: nvim /workspace/Dollyfile\n'
     printf 'dollyfile-build streams a test build; click Open image when finished.\n\n'
 

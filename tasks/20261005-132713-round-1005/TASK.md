@@ -712,6 +712,29 @@ reason; the closures rest on the round's logs.
   Clang flags `cc` refused; unbuilt) and `core/full-read` (a `read` of a
   regular file returned at most 1 MiB per call; being written).
 
+### 08:50, 2026-10-07: `integrate/round3` verified on its chains
+
+`integrate/round3` = `40418a7b` (worktree `work/locks`): the branch the
+file-locks agent assembled, plus the released `main` (`430a6735`),
+`core/cc-flags` (`c5edf993`), `core/full-read` (`4cd44cc2`) and one fixture
+correction (`40418a7b`). Runtime `897da9a3…`, image inputs `c1392364…`; the
+exact-import check passes.
+
+- Source suite 333/333. `default` and `system` chains: 14 images in 643 s;
+  every recipe line ran through the newer Slop and the compiler with the four
+  added flags.
+- In chromium and firefox: cpp (with the flags case), process (with the lock
+  and the full-read fixtures), core, shell, slop, host-modules, boundary, dso,
+  terminal, display: all pass. Logs `work/locks/build/round3-evidence/chain3-*`.
+- `core` first failed in both browsers: `src/process/fs-check.c` asserted
+  that a `read` returns at most one packet, the behaviour `core/full-read`
+  removes. It now asks for the whole file once.
+- `default` fails in both browsers only because this tree built no `cc`,
+  `git` or `python` package, which the start-up text names; not run with them.
+- Not run: the Rust seed and any Rust image, `python`, the demos, a catalog.
+  The next catalog round runs on this branch, with `fix/visible` and what the
+  SpiderMonkey and Xonotic tracks have ready.
+
 ## `integrate/round3` (worktree `work/locks`, from `integrate/next` `80595976`; 2026-10-06 23:30 to 2026-10-07 JST)
 
 Assembled by the file-locks agent for the second catalog round. Nothing here
