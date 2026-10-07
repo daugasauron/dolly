@@ -28,6 +28,19 @@ for (const browser of ["chromium", "firefox"]) {
   });
 }
 
+// The same compiler as the llvm package, installed into a default session
+// beside the seed's: llvm-cc and llvm-c++ give the bytes cc and c++ give.
+for (const browser of ["chromium", "firefox"]) {
+  await demoTest("llvm package", { image: "default", browser, timeout: 600_000 }, async ({ server, open }) => {
+    const { run } = await open({ policy: { rules: [{ origin: server.origin, path: "/amy-index.txt", methods: ["GET"] }] } });
+    await run("amy install llvm && mkdir /tmp/llvm-test && cd /tmp/llvm-test");
+    await run(writeCommand("main.cpp", cxx.replace('extern "C" int twice(int);', "static int twice(int value) { return 2 * value; }")));
+    await run('llvm-c++ main.cpp -o main && test "$(./main)" = "CXX-OK 12 thrown" && mv main built && c++ main.cpp -o main && cmp main built');
+    await run("echo 'int main(void) { return 0; }' > main.c && llvm-cc -c main.c -o main.o && mv main.o built.o && cc -c main.c -o main.o && cmp main.o built.o");
+    await run("! cmp -s /usr/lib/llvm/compiler /usr/libexec/dolly/process-bin/compiler && cd / && rm -r /tmp/llvm-test");
+  });
+}
+
 // The runtime built inside Dolly (llvm-runtimes) in place of the shipped
 // archives, with that compiler. Three executables and a kernel plugin are
 // linked both ways: the linker's trace shows which libc++, libc++abi, libunwind

@@ -18,9 +18,8 @@ seed, built again by Dolly's own `cc`. The seed stays the bootstrap.
   compiler from those archives, requires the same bytes from it as from the
   seed compiler for two programs and a sample of LLVM's sources, and installs
   it: `cc`, `c++`, `ld` and `ar` in this image run a compiler built in Dolly.
-- `llvm-stage2`: build-only. Builds the closure, the compiler and the TableGen
-  tools again with that compiler and requires every archive and executable to
-  be the first stage's bytes.
+- `llvm`: that compiler as a package, beside the seed's: `llvm-cc` and
+  `llvm-c++`.
 - `llvm-runtimes`: build-only. libc++, libc++abi, libunwind and the compiler-rt
   builtins built by Dolly's `c++` and `cc` from the pinned Emscripten sources,
   with the flags of the archives the seed ships. A link takes them instead of
@@ -33,6 +32,29 @@ without tests or docs) and [`llvm-host-triple.patch`](llvm-host-triple.patch)
 (LLVM runs `config.guess` even when given `LLVM_HOST_TRIPLE`). CMake comes from
 [`cmake`](../cmake/README.md) and the Python 3 its configure requires from
 [`python`](../python/README.md).
+
+## Using the compiler
+
+The compiler built here is a second compiler beside the seed's. It replaces
+nothing: every other image still starts from the host-built seed.
+
+- In a session, `amy install llvm` adds `llvm-cc` and `llvm-c++`. They take
+  the arguments of `cc` and `c++` and use the same headers and libraries (the
+  package installs `cc` for them), and give the seed compiler's bytes for the
+  same arguments and output path.
+- Or open the `llvm-cc` image (`/llvm-cc/`): there `cc`, `c++`, `ld` and `ar`
+  themselves run it.
+
+[`test/llvm-browser.mjs`](test/llvm-browser.mjs) checks both in Chrome and
+Firefox.
+
+## Reproducing it
+
+`node demos/llvm/test/stage2-browser.mjs` runs `llvm-build`'s rows again in the
+`llvm-cc` image, so with the compiler built there, and requires every archive,
+the compiler and the TableGen tools to be the first stage's bytes. It takes
+about 50 minutes and 7 GB in Chrome and runs on demand: the catalog builds no
+second stage.
 
 ## Limits
 
