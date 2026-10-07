@@ -19,10 +19,14 @@ clauses of "Done when" hold. In the catalog: `llvm-tablegen`, `llvm-build`,
 `llvm-cc` and the package `llvm`; the libraries are `core/llvm-runtimes`'
 part, below. Left:
 
-- **Replacing the host-built seed** (the third clause) is a later decision.
-  The compiler here is a second one beside the seed's. Open: its size (127 MB
-  against the seed's 78 MB: Dolly has no binaryen; about 96 MB without the
-  name section) and the libc, which the host still builds.
+- **Replacing the host-built seed** (the third clause) is shown possible and
+  not done: a trial seed carrying the compiler linked in Dolly (96 MB with
+  `--strip-all`, the seed 18 MB larger) built an 18-image chain to the same
+  files as the host-built seed, the compiler aside ("The seed's compiler
+  from inside Dolly: a trial"). What would change, the bootstrap order and
+  the cost (every driver or libc change needs a round through `llvm-cc`)
+  are listed there; the decision is the owner's. In the catalog the compiler
+  stays a second one beside the seed's.
 - **The browser stack** has no general fix. The JSPI entry doubles Chrome's;
   `MSP430.cpp` fits with a margin of 635 in 760 and `SemaARM.cpp` only with
   LLVM's warnings off. A process primitive that continues on a fresh stack
@@ -318,8 +322,9 @@ and no larger one.
   first attempt and 3,993-4,002 on later ones.
 
 Fix for the first (commit `528f9883`): the process Worker enters `_start` and
-`dolly_thread_start` through `WebAssembly.promising` where it exists. It is
-not in the image inputs, so no image rebuilds. Chain capacity (a function
+`dolly_thread_start` through `WebAssembly.promising` where it exists (since
+`621a7e13` only where that stack is measured deeper, see "Firefox and the JSPI
+entry"). It is not in the image inputs, so no image rebuilds. Chain capacity (a function
 returning N chained member calls, `-O3`, three rounds in one browser):
 
 | entry | compiles | fails |
@@ -514,7 +519,12 @@ that only prove reproducibility must not be recipes.
   so the two cannot drift), then requires every archive, the linked compiler
   and the three TableGen tools to be the first stage's bytes. A third stage
   is the same test again. `Dollyfile-llvm-stage2` is gone. Least code: one
-  test of 40 lines, no change to how the catalog finds recipes.
+  test of 38 lines, no change to how the catalog finds recipes.
+- **The test's first run** (Chrome 151, under the 9 GB slot beside three
+  other suites of mine, mean load 8.0): passed in 3,060.6 s. Peak 6.69 GB of
+  PSS over the processes of its scope (sampled from 15 minutes in; the
+  scope's own peak, file cache included, 7.38 GB), so it needs the 9 GB slot,
+  not the 6 GB one. Not run in Firefox.
 - **Before it went**, `llvm-stage2` was rebuilt once with the TableGen tools
   added (`make -k -j4` 2,569.5 s; tools 91.6 s): the 103 archives identical
   again, the three tools identical to `llvm-tablegen`'s, and then the
@@ -530,7 +540,7 @@ that only prove reproducibility must not be recipes.
 | `llvm-build` | toolchain | 2,623 s, 9 GB slot | 604 MB |
 | `llvm-cc` | toolchain, opens | 236 s | 653 MB |
 | `llvm` | package | 27 s (the command 39.5 s) | 263 MB |
-| second stage | test, on demand | STAGE2_TEST | none |
+| second stage | test, on demand | 3,061 s, 9 GB slot | none |
 
 - **A full round** now has three more recipes than before this task and
   spends 48 more minutes of one builder on them (2,886 s; with the second
@@ -540,8 +550,11 @@ that only prove reproducibility must not be recipes.
   A change to the seed rebuilds all of it; a change elsewhere reuses it.
 
 What a user gets, checked in Chrome 151 and Firefox 155
-(`demos/llvm/test/llvm-browser.mjs`; the image opened directly in a scratch
-run):
+(`demos/llvm/test/llvm-browser.mjs`, whose parts pass on the merged tree: the
+image 13.3 s and 28.7 s, the package 9.3 s and 9.0 s, `core/llvm-runtimes`'
+part 455.5 s and 546.2 s; the image opened directly in a scratch run). On
+that tree the core, process, threads, dso, cpp and amy suites also pass in
+both browsers.
 
 - **A package.** In a session, `amy install llvm` (2.4 s in a `default`
   session: `amy: llvm installed: 1948 files, 262650558 bytes, commands: ar c++
@@ -556,6 +569,205 @@ run):
   `c++`, `ld` and `ar` themselves run that compiler.
 - It is a second compiler beside the seed's, not a replacement: no other
   image changes, and the seed is still what builds `llvm-build`.
+
+## The seed's compiler from inside Dolly: a trial (2026-10-08, `core/llvm-seed-trial`, not merged)
+
+Integrator's request, 04:05: show the third clause of "Done when" rather than
+argue it. Measurement only. Branch `core/llvm-seed-trial` holds one commit
+(`a037eb5f`, three lines of `scripts/build.sh`: the seed takes
+`build/llvm-seed-trial/compiler` once `validate-process` accepts it); none of
+it is for merging. The catalog's `dist/` was set aside for the run and put
+back (end of this section).
+
+**The compiler.** In the `llvm-cc` image (Chrome 151) the compiler was linked
+once more as the image links it, giving the installed bytes again (SHA-256
+`99f690ad…`), and once with `-Wl,--strip-all`; that one was saved to the host
+through `download`.
+
+| compiler | bytes |
+| --- | --- |
+| host-built, in the seed today | 78,338,796 (code 70.3 MB, data 7.9 MB) |
+| linked inside Dolly | 127,138,140 |
+| the same with `-Wl,--strip-all` | 96,090,208 (code 87.5 MB, data 8.3 MB) |
+
+`--strip-all` is one linker flag. It drops the `name` section (31.0 MB),
+`producers` and `target_features`; every other section is the unstripped
+compiler's bytes (compared on the host). `--strip-debug` keeps the names. The
+17.8 MB that remain over the host's are what binaryen saves there.
+
+**The seed.** `npm run build:runtime` with the stripped compiler takes 64 s;
+`dolly-abi.mjs validate-process` accepts the compiler as Dolly linked it.
+`dist/dolly.data` goes from 126,823,257 to 144,574,669 bytes (the compilers'
+difference); image inputs `991f5423…` instead of `c62b2710…`.
+
+**The proving chain.** `system-build`, `system`, `default`, `cc`, `git` and
+`llvm-tablegen` need 18 images. One builder in Chrome 151 under the 9 GB
+slot built them in 2,545 s, peak 4.39 GB. Each snapshot was decoded and its
+files compared with the catalog's snapshot of the same recipe, built by the
+host-built seed. The host-seed times are the integrator's catalog round for
+that seed (logs under `work/*/build`, several builders at once), so they
+show the order of magnitude, not a difference.
+
+| image | host-built seed, s | compiler from Dolly, s | files | files that differ |
+| --- | --- | --- | --- | --- |
+| `system-build` | 27.8 | 24.9 | 1,992 | the compiler |
+| `core` | 7.9 | 1.6 | 47 | none: the snapshot is the same bytes |
+| `zlib` | 11.6 | 5.5 | 11 | none: the snapshot is the same bytes |
+| `gzip` | 3.4 | 2.2 | 15 | none: the snapshot is the same bytes |
+| `curl` | 7.9 | 3.0 | 24 | none: the snapshot is the same bytes |
+| `zig-build` | 460.9 | 423.9 | 3,325 | the compiler |
+| `ghostty-build` | 59.2 | 57.2 | 3,366 | the compiler |
+| `display` | 5.9 | 4.0 | 13 | none: the snapshot is the same bytes |
+| `system-tools` | 114.2 | 110.9 | 2,188 | the compiler |
+| `posix` | 2.4 | 1.9 | 133 | none: the snapshot is the same bytes |
+| `amy` | 1.9 | 1.6 | 18 | none: the snapshot is the same bytes |
+| `default` | 6.6 | 4.4 | 209 | none: the snapshot is the same bytes |
+| `cc` | 13.9 | 11.7 | 1,949 | the compiler |
+| `cmake-build` | 1,337-1,462 | 1,276.9 | 6,343 | the compiler |
+| `git` | 3.6 | 2.8 | 44 | none: the snapshot is the same bytes |
+| `system` | 15.2 | 15.7 | 2,191 | the compiler |
+| `python` | 127.4 | 123.0 | 1,565 | none: the snapshot is the same bytes |
+| `llvm-tablegen` | 451.6 | 444.5 | 8,127 | the compiler |
+
+- **In all 18 images every file is the same** except the compiler executable
+  itself in the eight that carry it; no file is missing or new. Ten snapshots
+  are the same bytes as a whole. What the chain compiles (Slop and the
+  commands, Make, the Zig compiler and Ghostty, Git, Awk, curl, zlib, CMake,
+  CPython, LLVM's TableGen tools and all their outputs) comes out the same
+  from either compiler. Nothing else needed explaining.
+- **Times**: the 18 sum to 2,516 s with the compiler from Dolly and to
+  2,659-2,784 s in the round's logs; no slowdown shows at this size. Like
+  for like remains the closure build: 2,492 s by the seed compiler, 2,570 to
+  2,625 s by the one linked in Dolly.
+- **Core browser suite** on these images, `node test/browser-tests.mjs
+  chromium firefox` (745 s): every test whose images the chain holds passes
+  in both browsers (58 passes). Five files fail, none on the compiler:
+  `audio`, `docs` and `gpu-indicator` need `audio-sdk`, `dolly-docs` and
+  `gpu-sdk`, which the chain does not build; `amy` passes its session part
+  (`amy install python`, `amy install cc`) and stops at `amy install cmake`,
+  a package outside the chain; `fs-growth` is the 6 GB slot again
+  (`Target crashed`), as with the catalog's seed.
+
+**What would have to change** for the seed's compiler to come from inside
+Dolly. The swap itself needed nothing but the file; nothing in the seed's
+layout prevents it. The bootstrap order becomes:
+
+1. Once, on a host: `scripts/build-toolchain.sh` and `npm run build:runtime`
+   as today give seed 0, with the host-built compiler.
+2. With seed 0, in a browser: the chain to `llvm-cc` (about 90 minutes in one
+   builder: 42 to `llvm-tablegen`, 44 `llvm-build`, 4 `llvm-cc`) yields the
+   compiler and Clang's resource headers.
+3. Seed 1 is seed 0 with that compiler. It builds the same chain to the same
+   compiler bytes (the second-stage test), so the host no longer compiles
+   LLVM.
+
+Still built on the host every time, with the pinned Emscripten container:
+the kernel, the process libc and its adapter, `bootstrap`, and the C++
+runtime archives until `core/runtimes-in-seed` lands.
+
+- `scripts/build-toolchain.sh` today builds native TableGen and `llvm-nm` and
+  cross-compiles the 2,559 units into `.cache/llvm-wasm`. It would instead
+  fetch and verify one pinned archive (digest in `config/source-pins.sh`):
+  the compiler and the 298 resource headers, as `llvm-cc` and `llvm-build`
+  produce them. The cross build stays as the documented way to make seed 0
+  for a new LLVM pin. The native `llvm-nm` is still needed by
+  `scripts/prepare-process-sysroot.sh` (the container has one).
+- `scripts/build.sh` loses the toolchain-key check on `.cache/llvm-wasm`, the
+  `LLVM_DIR`, `Clang_DIR` and `LLD_DIR` configuration and the
+  `dolly-process-compiler` target (with `find_package(LLVM|LLD|Clang)` in
+  `toolchain/CMakeLists.txt`), and takes the fetched compiler through
+  `validate-process` to `build/process-bin/compiler`, as the trial's three
+  lines do. The seed's `/usr/lib/clang/24/include` comes from the archive
+  instead of `.cache/llvm-wasm/lib/clang/24/include`.
+- `docs/sources.md`: the LLVM row of "Bootstrap exceptions" says built
+  outside Dolly once, for seed 0; after that the seed carries the compiler
+  `llvm-cc` links, pinned by digest, and
+  `demos/llvm/test/stage2-browser.mjs` reproduces it. Plus where the pinned
+  archive is published.
+- Beyond those three files: the archive (96 MB) must be published and pinned
+  like the other prebuilt input, the font; `llvm-cc` links with
+  `-Wl,--strip-all`; and the loop for a change. Today a change to
+  `src/compiler.cpp`, the process libc adapter or the sysroot archives is a
+  host relink of 100 s. Then it is: build `llvm-cc` with the current seed
+  (4 minutes while `llvm-build` is current, else 48), pin the new compiler,
+  rebuild the runtime, and rebuild the catalog, whose `llvm-cc` must come
+  out as the pinned bytes again. That loop is the cost of the swap, against
+  "iteration speed is king"; the decision is the owner's.
+
+**The worktree afterwards**: on `core/llvm-in-dolly`, with the catalog's
+`dist/` back in place (it had been set aside whole: snapshots and packs by
+hard link, everything else copied). `npm run build:runtime` there prints
+runtime `aebe03b1…` and image inputs `c62b2710…` again, the seed and the
+host-built compiler are the bytes they were, the plan reuses every image,
+and lint and the 416 source tests pass. Kept outside `dist/`, in
+`build/llvm-evidence/seed-trial/` (ignored): the trial's seed, its 18
+snapshots (1.9 GB), the stripped compiler and the logs.
+
+## Firefox and the JSPI entry (2026-10-08, commit `621a7e13`)
+
+Found by the integrator at 05:35: `demos/local-llm/test/local-llm-browser.mjs`
+failed twice in its Firefox `pi-local` scenario with one page error,
+`uncaught exception: undefined`, and passed with the entry reverted.
+
+**Cause.** Firefox 155 reports `uncaught exception: undefined` for every
+Worker that is terminated while inside a `WebAssembly.promising` call. Ending
+a process terminates the Workers of its remaining threads, so every threaded
+program reported one per thread. The Symbols that end a process or a thread
+(`PROCESS_EXIT`, `THREAD_EXIT`) are not involved: threads that leave with
+`pthread_exit` and are joined report nothing.
+
+- In Dolly, Firefox 155, a threaded C program with four threads parked in a
+  condition wait, a mutex, `sleep`, `read` or a spin loop, ended by `exit`,
+  `return`, SIGKILL, another thread's `exit`, a trap, a timeout, or the main
+  thread's `pthread_exit` (35 combinations, twice each): 4 to 6 reports per
+  run, one per terminated Worker, 320 in all, at the two lines that call the
+  entry. All as console errors in that run; the page's error event fires for
+  one only at times, which is what the model test caught.
+- Without Dolly: an 80-byte module in a Worker inside a Worker, entered
+  through `promising` and parked in `memory.atomic.wait32` or spinning, then
+  terminated: one report each time in Firefox, none entered directly, none in
+  Chrome 151 either way. An `error` listener on the Worker (cancelling or
+  not) and the parent's global `onerror` receive nothing, so the supervisor
+  cannot take the report; it can only not cause it.
+
+**Fix.** Firefox gains no stack from the entry, so the supervisor measures
+instead of assuming: how many calls a recursion nests before the stack ends,
+entered each way, once when it starts; processes enter through `promising`
+only where that is half again as deep. No browser is named.
+
+- A one-local recursion is useless for this in Firefox: its depth moved
+  between 21,567 and 84,862 as the compiler tiers changed, the ratio between
+  0.4 and 2.4 (18 pairs); Chrome read 17,259 against 9,090 every time.
+- The probe therefore holds sixteen values it loaded from memory across each
+  call, which every tier must keep in the frame (237 bytes of Wasm): Chrome
+  151 reads 5,252 against 2,766 (1.90), Firefox 155 5,957 against 5,881-5,900
+  (1.01), identically in 48 measurements of 48 each, in under 3 ms.
+- `test/threads-browser.mjs` now requires that the browser reports nothing
+  while threaded processes are interrupted and ended. Without the fix it
+  fails in Firefox with two reports and passes in Chrome; with it both pass,
+  and so does `test/cpp-browser.mjs` in both, whose 640-call chain needs the
+  larger stack: Chrome still enters through JSPI.
+- The ending matrix again in Firefox with the fix (14 combinations, twice):
+  no report; the only console lines are the supervisor's own for the trap.
+- Whole core suite at `621a7e13`, `node test/browser-tests.mjs chromium
+  firefox` (795 s): 74 passes, every test in both browsers except
+  `fs-growth` in Chrome, which the 6 GB browser slot ends as before
+  (`Target crashed`).
+- The model test's Firefox `pi-local` scenario at `621a7e13`
+  (`DOLLY_LLM_IMAGES=pi-local DOLLY_LLM_BROWSERS=firefox`, a private Xvfb, an
+  8 GB scope, `pi-local` and `dollyfile-studio` imported from the integration
+  tree): passes in 7.8 minutes, through "task with qwen3.5-2b, qwen3.5-4b
+  installed and chosen with /local, … task again", with no page error. Its
+  Chromium scenarios and `dollyfile-studio` were not rerun here.
+
+Left as it is: the choice rests on a measurement. A browser whose JSPI stack
+is half again as deep and which has Firefox's fault would report again; the
+threads test would show it. `docs/process-model.md` and
+`docs/browser-boundary.md` still say the entry is taken "where the browser has
+JSPI"; the accurate words are "where that stack is measured deeper". They
+were left because `dolly-docs` pins both and `pi`, `pi-local` and
+`dollyfile-studio` follow it: the sentence should go in with the next change
+that rebuilds those.
 
 ## Decisions (2026-10-01, delegated)
 
