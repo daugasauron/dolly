@@ -876,3 +876,40 @@ rewrites were restored after each build here.
   releases to `build/checkpoint-releases` and `checkpoint-domain-releases`.
   When green: serve on :9003 and :9005, merge to `main`, tag
   `checkpoint-2026-10-07`, tell the owner.
+
+### 14:40, 2026-10-07: the checkpoint is sealed, served and merged
+
+- **`checkpoint-2026-10-07`** = `b036d27e` (`integrate/checkpoint`); `main` =
+  that tree plus task records (merge `015ee838` and later). Not pushed, not
+  deployed. 71 images; runtime `aebe03b1…`, image inputs `c62b2710…`.
+- **Served on localhost from `work/locks`**: :9003 the full site, release
+  `977a312d3734774c0004b2c83842e24c09f184e8d375623a7985fd39f3b0913d`
+  (`build/checkpoint-releases`); :9005 the daugasauron.com packaging, release
+  `d49846b6f7a11514b4773074d87fe2f1069ca59a5ffbc249604c7f4f62faeb92`
+  (`build/checkpoint-domain-releases`), which now lists `xonotic`. The
+  :9008 and :9009 working-tree servers are stopped. After serving, `default`
+  booted from both in headless Chromium and ran `download`, `upload`,
+  `touch -t`, `amy list` and `man`.
+- **The round** (`work/locks/build/checkpoint-evidence/`, 12:37 to 14:34):
+  catalog 31 minutes (only `sdl2` and what installs it, the 0 A.D. chain on
+  the Dolly-built SpiderMonkey, `cmake`, and the four new images rebuilt);
+  source 415/0; artifacts 23/0; core browser suites in chromium and firefox,
+  all passed (800 s); demos all passed, `xonotic` among them (437 s); GPU
+  tests `local-llm`, `0ad-spidermonkey`, `0ad-engine`, `0ad-graphics`,
+  `slopyard` all exit 0; both packagings and their acceptance exit 0.
+- **Known and recorded, not fixed**: `cc -fstandalone-debug` and
+  `-ferror-limit=` fail (fix on `core/cc-flags` `7dbf0f38`, unbuilt); typed
+  text was cut short in Emacs once in round 3 and did not recur here; the demo
+  runner is Chromium-only, so demos in Firefox rest on the agents' own runs
+  (Xonotic, the local-model test) and nothing else; SpiderMonkey's build was
+  not run in Firefox; Xonotic has no sound and renders in software (31 fps at
+  the low preset); the image builder needs 7 to 18 GB for the largest images.
+- **Not in the checkpoint**, each on its branch: `input@0`
+  (`core/input-module` `fa073dc9`), file modes (`core/file-modes`
+  `c17b186e`, unbuilt), the two compiler flags, `exec`, `less`.
+- Worktrees still present: `work/locks` (serves the checkpoint; do not
+  remove), `work/next` (the morning candidate's releases), `work/cargo`,
+  `work/xonotic`, `work/visible`, `work/input`-less branches are gone,
+  `work/pipelines`, `work/recordings`, `work/cc-flags`, `work/cc-simd`,
+  `work/full-read`, `work/publish-memory`. Evidence of removed trees is in
+  `work/evidence-2026-10-06/` and `work/evidence-2026-10-07/`.
