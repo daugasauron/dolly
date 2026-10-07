@@ -352,6 +352,12 @@ int parse_driver_options(int argc, const char *const *argv, DriverOptions &optio
       std::string value;
       if (!take_option_value(argc, argv, index, "-mthread-model", value)) return -1;
       options.thread_model = value;
+    } else if (argument == "-msimd128") {
+      // Wasm SIMD, as Clang's driver spells it for this target; every browser
+      // with memory64 has it. <wasm_simd128.h> and Emscripten's SSE compat
+      // headers need the feature on the unit.
+      options.frontend_options.push_back("-target-feature");
+      options.frontend_options.push_back("+simd128");
     } else if (argument == "-fno-math-errno") {
       // Clang's WebAssembly driver compiles without math errno by default,
       // so the flag states the default and cc1 gets nothing.
