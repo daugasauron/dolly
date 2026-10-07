@@ -366,7 +366,23 @@ small: 17 modes × 20 permutation bits in the source, 14 pairs in use at
   Chrome was OOM-killed twice during the snapshot upload at 5.2 GB anon RSS
   (`image-build-10.log`, `-11.log`), and `/usr/bin/time -v` on the 9 GB
   build reports a 3.0 GB maximum RSS for its largest process
-  (`image-build-13.log`), so the peak lies between 6 and 9 GB.
+  (`image-build-13.log`), so the peak lies between 6 and 9 GB. `/xonotic/`
+  then opens into the menu (`xonotic-menu.png`, 60% of pixels lit), once
+  the wrapper stopped using `exec`, which Slop does not have.
+- Libraries (09:15, commit `bb95315c`): the first menu drew with the bitmap
+  console font and grey or checkerboard textures, because the engine
+  dlopens libjpeg, libpng and FreeType and `Sys_LoadLibrary` reports them
+  unavailable. Linked as upstream's Android build links them: IJG libjpeg 9f
+  (pinned, built in the image, `LINK_TO_LIBJPEG`) and FreeType with its
+  libpng copied from `zero-ad-deps` (`DP_FREETYPE_STATIC`; `zero-ad-deps`
+  is a toolchain, so `COPY` rather than `INSTALL`). PNG textures have no
+  static path in 0.8.6 (`image_png.c` binds through function pointers
+  only), so they stay missing. With real textures the frame's lit fraction
+  is 32% and the software timedemo falls to 13.7 fps in Chromium (76.6 s
+  for 1,046 frames; `browser-test-chromium-15.log`, 231 s in all): the
+  earlier 30 fps drew flat untextured surfaces. The rebuilt data image was
+  OOM-killed once more in the 9 GB slot (Chrome at 7.1 GB anon RSS,
+  09:18:57); a retry is recorded below.
 
 ## Decisions for the owner
 
