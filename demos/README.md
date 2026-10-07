@@ -6,8 +6,8 @@ README. Demos may use each other; the core never uses a demo.
 
 - [bhop](bhop/README.md): Airtime's Foundry strafe course with an optional agent.
 - [classicube](classicube/README.md): ClassiCube block world with Pi agents.
+- [closed-source-agent](closed-source-agent/README.md): Claude Code, downloaded from npm into the session after a notice.
 - [cmake](cmake/README.md): CMake and libuv, a base for C/C++ ports.
-- [code-agent](code-agent/README.md): Claude Code, downloaded from npm into the session after a notice.
 - [codex](codex/README.md): the Codex CLI built from Rust source inside Dolly.
 - [emacs](emacs/README.md): GNU Emacs for the terminal, as a package and an application.
 - [game-agent](game-agent/README.md): agent code and the Codex relay shared by the games.

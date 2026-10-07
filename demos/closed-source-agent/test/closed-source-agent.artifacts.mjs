@@ -1,4 +1,4 @@
-// The sealed code-agent image holds no file of the Claude Code package: no
+// The sealed closed-source-agent image holds no file of the Claude Code package: no
 // path of it, and no file with the bytes of one of its members.
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
@@ -16,8 +16,8 @@ const walk = directory => readdirSync(directory).flatMap(name => {
   return statSync(path).isDirectory() ? walk(path) : [path];
 });
 
-test("the sealed code-agent image contains no file of the Claude Code package", async () => {
-  const snapshot = decodeSystemSnapshot(readFileSync(resolve(import.meta.dirname, "../../../dist/dolly-code-agent-system.snapshot")));
+test("the sealed closed-source-agent image contains no file of the Claude Code package", async () => {
+  const snapshot = decodeSystemSnapshot(readFileSync(resolve(import.meta.dirname, "../../../dist/dolly-closed-source-agent-system.snapshot")));
   assert.deepEqual(snapshot.manifest.filter(path => /claude|anthropic/i.test(path)), []);
   const unpacked = mkdtempSync(`${tmpdir()}/claude-code-package-`);
   try {
