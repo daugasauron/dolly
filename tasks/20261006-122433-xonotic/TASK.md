@@ -486,10 +486,34 @@ Logs: `bench-chromium-*.log`.
 | `r_viewscale 0.5` | 17.4 | +31%: the path honours it, world at half size, HUD full |
 | `exec effects-low.cfg` | 31.0 | +134%: no lightmap deluxe/gloss/normal maps, no realtime lights, particles 0.4, picmip 1 |
 
+| `vid_soft_threads` 2, 4, 8 | not measured | see below |
+| client at `-O2` | not measured | no time left; a rebuild of about 2 minutes plus one benchmark session |
+
+Threads: the client built with `thread_pthread.c` and `-pthread` over
+`threads@0` (commit `41aa6866`, reverted) traps at video start with
+"function signature mismatch" (`browser-test-chromium-19.log`): upstream's
+`Thread_CreateThread` casts the engine's `int (*)(void *)` thread function
+to pthread's `void *(*)(void *)`, which x86 tolerates and Wasm's typed
+indirect calls do not. The fix is a trampoline in `thread_pthread.c` under
+`__dolly__` (one hunk) and the two recipes' `REQUIRES HOST threads@0`; with
+Dolly's 4 reported processors the rasterizer's interlaced bands could give
+up to about 3x. Next step after the pointer and the defaults.
+
 Rebuilding xonotic-build while its recipe was being edited failed the build
 (`image-build-19.log`: the builder's GET of the recipe no longer matched
 its pin); the sdl2 change also rebuilt `zero-ad-deps`, which `xonotic-build`
 copies from, in the same run.
+
+Default chosen for `/xonotic/`: `effects-low.cfg` at 1024×768, the one
+measured change that more than doubles the rate (31 fps against 13 in
+Chromium, Firefox 15–20% faster), shipped as the user directory's
+`config.cfg`, which the engine overwrites with the player's own settings on
+exit, so the settings menu can raise them again. What it costs: the low
+preset drops deluxemapping, gloss and normal maps, realtime dynamic lights,
+most particles (quality 0.4) and one texture mip level (`gl_picmip 1`), and
+compresses textures; geometry, lightmaps and the HUD are unchanged. 800×600
+(19.7 fps at `normal`) and `r_viewscale 0.5` (17.4) are the next levers a
+player can set; their combination with the low preset is not measured.
 
 ## Route (a): the map of what remains (2026-10-07 09:35, estimates)
 
