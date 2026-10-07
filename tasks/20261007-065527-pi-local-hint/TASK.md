@@ -1,6 +1,6 @@
 # pi-local: say on Pi's start screen that /local exists
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 260
 - TAGS: pi,pi-local,local-llm,studio,agent-experience
 
@@ -69,7 +69,11 @@ installs and switches local models". With the widget that was two lines
 about `/local`, so the Studio's line keeps only `/model` and the first
 local prompt; the `/local` line is the provider's in both images.
 
-## Verified (2026-10-07)
+## Closed (2026-10-07, `fix/visible` 6a96f4a9)
+
+A person opening `/pi-local/` or `/dollyfile-studio/` reads the `/local`
+line before typing, in Chromium and Firefox, and the local-model test
+asserts it; verified as follows.
 
 - GPU-less, headless Chromium on its software adapter, through
   `npm run test:demos -- local-llm` (the demo test's first part, before
