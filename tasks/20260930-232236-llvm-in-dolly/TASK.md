@@ -14,7 +14,8 @@ sections below): the TableGen tools; the compiler's whole closure, 2,559
 units in 103 archives, at four jobs in 42 minutes; the compiler linked from
 them, whose output is the seed compiler's byte for byte on a sample; and a
 second stage built by that compiler, identical to the first in every archive
-and in the compiler. The first two clauses of "Done when" hold. Left:
+and in the compiler, as was a third stage run once. The first two clauses of
+"Done when" hold. Left:
 
 - **Replacing the host-built seed** (the third clause) is a later decision.
   It needs the runtime libraries built here too (libc++, libc++abi,
@@ -477,6 +478,17 @@ and job count. First run, no failed unit and no retry.
   two builds an hour apart, by different compiler executables, were
   deterministic. The TableGen tools are still `llvm-tablegen`'s, built by the
   seed; their outputs are the seed's bytes (above), so they were not rebuilt.
+
+**A third stage**, run once and not kept as a recipe: `llvm-stage2`'s rows
+`FROM llvm-stage2`, so built by a compiler with the second stage's bytes.
+`cmake -C` 70.3 s, `make -k -j4` 2,580.8 s, driver and link 6.8 s, image
+2,738.6 s, peak 7.37 GB at the snapshot. All 103 archives and the compiler are
+again identical: stage 3 equals stage 2 equals stage 1. No recipe is kept for
+it because it would repeat `llvm-stage2` row for row with the same inputs.
+
+`MSP430.cpp` and `SemaARM.cpp` compiled on the first attempt in all three
+closure builds (no `retrying` line in any log), the last two by the compiler
+that has no binaryen pass.
 
 ## Decisions (2026-10-01, delegated)
 
