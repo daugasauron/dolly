@@ -902,12 +902,15 @@ bool link_process_executable(const std::string &output,
     // address space. The provider symbol manifest above makes every public
     // archive definition an explicit export root even when the executable
     // itself is C (CPython is).
-    arguments.insert(arguments.end(), {
-        pthread ? "-lc++-mt-wasmexcept" : "-lc++-ww-wasmexcept",
-        pthread ? "-lc++abi-mt-wasmexcept" : "-lc++abi-ww-wasmexcept",
-    });
+    // Emscripten's -mt and -ww builds of these two and of the unwinder are
+    // the same bytes: one set, built by the root recipe, serves threaded links.
+    arguments.insert(arguments.end(), {"-lc++-ww-wasmexcept", "-lc++abi-ww-wasmexcept"});
   }
-  arguments.push_back(pthread ? "-lunwind-mt-wasmexcept" : "-lunwind-ww-wasmexcept");
+  // The root recipe builds the unwinder too. The C programs it links before
+  // that unwind nothing: libc's one reference to it is dead in them.
+  if (llvm::sys::fs::exists(std::string(kProcessSysroot) + "/libunwind-ww-wasmexcept.a")) {
+    arguments.push_back("-lunwind-ww-wasmexcept");
+  }
   arguments.insert(arguments.end(), linker_options.begin(), linker_options.end());
   arguments.insert(arguments.end(), {
       "-mwasm64",

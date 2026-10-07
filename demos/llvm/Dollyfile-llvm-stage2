@@ -10,7 +10,7 @@ REQUIRES HOST upload@0
 # Build-only: the libraries and the compiler once more, compiled by llvm-cc's
 # compiler. It builds only if every archive and the compiler are the first
 # stage's, byte for byte: the compiler reproduces itself.
-FROM https://daugasauron.com/demos/llvm/Dollyfile-llvm-cc 684760aeff54d81c24fdb8e374fecdbd2db66df49d940ebc7a8802c9d51f40a7
+FROM https://daugasauron.com/demos/llvm/Dollyfile-llvm-cc 276de042bbe0b9eba435471c9e437df3fafa5a053d5b2478037a48f1ac89910a
 REQUIRES TOOL llvm-tblgen
 REQUIRES TOOL clang-tblgen
 REQUIRES TOOL cmake

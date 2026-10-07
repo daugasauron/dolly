@@ -63,6 +63,9 @@ await browserTest("cpp", { image: "system" }, async ({ open }) => {
       "'void thrower() { throw 1; }' 'int main() { try { middle(); } catch (int) { std::puts(\"caught\"); } }' > thrower.cpp && " +
       "c++ thrower.cpp middle.cpp -o unwinds && test \"$(./unwinds | tr '\\n' ' ')\" = 'cleanup caught ' && " +
       "c++ -fignore-exceptions -c middle.cpp -o middle.o && c++ thrower.cpp middle.o -o passes && test \"$(./passes)\" = caught",
+    // The root build links C programs before it has built the unwinder.
+    "mv /usr/lib/dolly/process/libunwind-ww-wasmexcept.a held.a && cc cmake-flags.c -o early; status=$?; " +
+      "mv held.a /usr/lib/dolly/process/libunwind-ww-wasmexcept.a && test $status = 0 && ./early",
     // -nostdlib++ leaves the C++ runtime to the link's own inputs.
     "echo 'int main() { return 0; }' > plain.cpp && c++ -nostdlib++ plain.cpp -o no-runtime && ./no-runtime && " +
       "c++ -nostdlib++ thrower.cpp middle.cpp -lc++ -o named-runtime && ./named-runtime > /dev/null",

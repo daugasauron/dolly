@@ -13,16 +13,16 @@ REQUIRES HOST upload@0
 # The image people open: a shell, its text tools, the terminal, curl and amy.
 # It holds no compiler; amy installs what a session needs. The host modules
 # are those packages may need, since an image's list is fixed.
-INSTALL https://daugasauron.com/Dollyfile-core ee33f78766dadb03f15af1803596bc25f266dfac2f7e4d00e7166b88da1af025
-INSTALL https://daugasauron.com/Dollyfile-posix 8ebb68109de1cbebf473f7cdded871c0acb29cdae0af9ddb354a98bb9df157d4
-INSTALL https://daugasauron.com/Dollyfile-display 3bd6c4b934e1f67014b30b9de07273893cfc9905dabaa23deec8dd420694f781
-INSTALL https://daugasauron.com/Dollyfile-curl 6357a015073974760f60f741bb76459db6bb6be5a1bb1379cb3c87d739f5ac24
-INSTALL https://daugasauron.com/Dollyfile-amy 61672c3ec7aed5143577af18b9afafd8d883ddddbacd6f19f703232cd57f405e
+INSTALL https://daugasauron.com/Dollyfile-core 1a775a42f28db470c98e0b1a6a45208536df8f633e05e8cf60765c20833bae4d
+INSTALL https://daugasauron.com/Dollyfile-posix 2bd3eec335058e566d6421aac71ce18420427defb374b6883c681d6aa1783986
+INSTALL https://daugasauron.com/Dollyfile-display 143ff1247f5442eeecfbdc48fa38a953f6a2d7de1a610b34826d54bd6b7acb33
+INSTALL https://daugasauron.com/Dollyfile-curl 686a680e2de74b3d35e434b5b42404d4efdf4677f56a52ddaffd85a60b8d409e
+INSTALL https://daugasauron.com/Dollyfile-amy c5429eab7ecb5336b8120513f30db65876ac2d6812962ce61e8f2e8d78a05187
 # The page's file exchange. system-tools builds them and no package holds them yet.
-COPY https://daugasauron.com/Dollyfile-system-tools 76204eed7416daabd1c8978f628b45da16f77d27d23d4f1473c508c5c750a309 /bin/download /bin/download
-COPY https://daugasauron.com/Dollyfile-system-tools 76204eed7416daabd1c8978f628b45da16f77d27d23d4f1473c508c5c750a309 /bin/upload /bin/upload
-COPY https://daugasauron.com/Dollyfile-system-tools 76204eed7416daabd1c8978f628b45da16f77d27d23d4f1473c508c5c750a309 /usr/share/man/cat1/download.1 /usr/share/man/cat1/download.1
-COPY https://daugasauron.com/Dollyfile-system-tools 76204eed7416daabd1c8978f628b45da16f77d27d23d4f1473c508c5c750a309 /usr/share/man/cat1/upload.1 /usr/share/man/cat1/upload.1
+COPY https://daugasauron.com/Dollyfile-system-tools 6ea7e8c19a9b6677c919dd1c2a9be21967c3f2e9777a2c4bedf31d748f9354fa /bin/download /bin/download
+COPY https://daugasauron.com/Dollyfile-system-tools 6ea7e8c19a9b6677c919dd1c2a9be21967c3f2e9777a2c4bedf31d748f9354fa /bin/upload /bin/upload
+COPY https://daugasauron.com/Dollyfile-system-tools 6ea7e8c19a9b6677c919dd1c2a9be21967c3f2e9777a2c4bedf31d748f9354fa /usr/share/man/cat1/download.1 /usr/share/man/cat1/download.1
+COPY https://daugasauron.com/Dollyfile-system-tools 6ea7e8c19a9b6677c919dd1c2a9be21967c3f2e9777a2c4bedf31d748f9354fa /usr/share/man/cat1/upload.1 /usr/share/man/cat1/upload.1
 REQUIRES TOOL foreground
 REQUIRES TOOL test
 REQUIRES TOOL echo
