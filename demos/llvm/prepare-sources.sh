@@ -29,3 +29,10 @@ if has_image llvm-tablegen; then
   node scripts/build-source-tar.mjs "${static_dir}/llvm/llvm-project.tar.gz" "${llvm_inputs[@]}"
   copy_static demos/llvm/llvm-host-triple.patch llvm/llvm-host-triple.patch
 fi
+if has_image llvm-cc; then
+  # The seed's driver and the contract digests npm run build:runtime generates.
+  copy_static src/compiler.cpp llvm/compiler.cpp
+  copy_static src/process/compiler-main.c llvm/compiler-main.c
+  copy_static build/generated/dolly-process-abi-digest.h llvm/dolly-process-abi-digest.h
+  copy_static build/generated/dolly-kernel-plugin-abi-digest.h llvm/dolly-kernel-plugin-abi-digest.h
+fi

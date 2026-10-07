@@ -1,8 +1,8 @@
 # LLVM
 
 LLVM 24, Clang and LLD built inside Dolly from the seed's pinned sources
-(`tasks/20260930-232236-llvm-in-dolly`). So far: the TableGen stage and the
-compiler's libraries.
+(`tasks/20260930-232236-llvm-in-dolly`): the compiler the host builds as the
+seed, built again by Dolly's own `cc`. The seed stays the bootstrap.
 
 ## Images
 
@@ -14,6 +14,13 @@ compiler's libraries.
   compiles the seed compiler's closure (Clang, LLD, the WebAssembly backend:
   2,559 units) at four jobs. It keeps `/usr/lib/llvm-build`: the archives,
   Clang's resource directory and the configured and generated headers.
+- `llvm-cc`: compiles the seed's driver (`src/compiler.cpp`) and links the
+  compiler from those archives, requires the same bytes from it as from the
+  seed compiler for two programs and a sample of LLVM's sources, and installs
+  it: `cc`, `c++`, `ld` and `ar` in this image run a compiler built in Dolly.
+- `llvm-stage2`: build-only. Builds the closure and the compiler again with
+  that compiler and requires every archive and the compiler to be the first
+  stage's bytes.
 
 Key files: [`Dollyfile-llvm-tablegen`](Dollyfile-llvm-tablegen),
 [`prepare-sources.sh`](prepare-sources.sh) (stages the seed's verified checkout
