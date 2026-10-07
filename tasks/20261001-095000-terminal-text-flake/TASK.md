@@ -239,3 +239,22 @@ to believe: the discard of pending input when a process is marked exited
 (`9abd08b0`), if Emacs or its start-up runs and reaps a child at that moment;
 the page's text push being split across frames while the ring is serviced.
 The same round moves this code into `input@0` next.
+
+## Two more sightings (2026-10-07 and 2026-10-08, the integrator)
+
+- 2026-10-08 04:5x, Chromium, the `pi` demo test in a round on `847006a9`
+  while two image builds ran beside it: the test typed
+  `! printf 'DOLLY-ENTRY-CWD=%s\n' "$(pwd)"` and the terminal held
+  `DOLLY-ENTRY-CWuD`. The command has no `u`. A `u` ends a kitty keyboard
+  sequence (`CSI … u`), so one key's escape sequence was split or half
+  consumed and its last byte landed in the line as text. The test passed on
+  the next run (55.9 s). Log: `work/locks/build/checkpoint-evidence/demos.log`
+  lines 20 to 50.
+- 2026-10-07 21:36, Chromium, the `code-agent` page served from a checkout:
+  a line of about 190 characters typed with Playwright's `keyboard.type`
+  arrived cut near 150 (`janis /opt/claude-coc-`); shorter lines typed the
+  same way were whole. Not reproduced by the agent that looked for it.
+
+Both are fast scripted typing; nobody has reported it from a keyboard. They
+point at the input path under load (bytes of one key's sequence delivered in
+two reads), not at any one program.

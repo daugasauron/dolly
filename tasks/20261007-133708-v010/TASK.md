@@ -31,6 +31,7 @@ they are proposed now.
 | Recipes without the hard-coded domain, in the same rewrite: `FROM /v0.1.0/Dollyfile-system SHA256`, the origin one setting | `20261005-223931-origin-not-hardcoded` | the owner's direction of 2026-10-06; otherwise every recipe is rewritten twice |
 | `cc -fstandalone-debug` and `-ferror-limit=` work | `core/cc-flags` `7dbf0f38` | both fail in the deployed compiler; a seed change |
 | File modes and `umask` | `20261006-120641-umask`, `core/file-modes` `c17b186e` | every autoconf `config.status` needs it; a seed change; in if its tests pass in the round |
+| libc++, libc++abi and libunwind built by `system-build` from the pinned source instead of taken prebuilt; six driver flags | `20260930-232236-llvm-in-dolly`, `core/runtimes-in-seed` `7d302216` | a seed change: seed 126.8 to 107.9 MB, root build +30 s; proven on a 17-image chain whose programs are byte-identical to the old seed's; its round also rebuilds the Rust seed |
 | `input@0`, keyboard and mouse as their own host module | `20261002-072000-input-host-module`, `core/input-module` `fa073dc9` | verified except bhop; a host interface is better changed before a version is published than after |
 | Long typed or pasted lines losing characters | `20261001-095000-terminal-text-flake` | a typed line arrived cut at about 150 characters on 2026-10-07; check a paste, fix if it loses text |
 | Every demo test run once in Firefox | none yet | the demo runner is Chromium-only; a release should know what fails there |

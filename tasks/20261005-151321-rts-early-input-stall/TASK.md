@@ -54,3 +54,10 @@ for the frame from which input is supported, and say why there.
 
 The match loop passes 20 rounds in a row under load, and the rts demo test no
 longer fails at the first lifecycle step.
+
+## Seen again (2026-10-08, the integrator)
+
+The `rts` demo test failed once in a round on `847006a9` (Chromium, two image
+builds running beside it): "mouse menu/quit must not stall either player",
+frames 18 and 19 before the input and the same two frames 6 s after it. It
+passed on the next run (263.9 s) and in both rounds of 2026-10-07.
