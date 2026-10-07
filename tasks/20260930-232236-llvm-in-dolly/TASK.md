@@ -1081,3 +1081,38 @@ runtime part.
   `dolly-docs`, `pi`, `pi-local` and `dollyfile-studio`, because the merged
   branch changed `docs/browser-boundary.md`, which `Dollyfile-dolly-docs` pins.
   They were not built here.
+
+## On `main` (2026-10-08 06:30, the integrator)
+
+`core/llvm-in-dolly` (`1138fcc0`) is merged as `b02b9428`. Its images were
+imported into the integration tree (`work/locks`), where the catalog reuses
+all five (`llvm-tablegen`, `llvm-build`, `llvm-cc`, `llvm`, `llvm-runtimes`)
+and rebuilt only `dolly-docs`, `pi`, `pi-local` and `dollyfile-studio` for
+the two changed documents: 76 images, lint clean.
+
+Verified there, not taken from the agents' reports:
+
+- On `847006a9` (before the Firefox fix): source 416/0, artifacts 24/0, the
+  core suite in chromium and firefox (1,026 s), every demo test including
+  `llvm-cc`, the `llvm` package and `llvm-runtimes` in both browsers; GPU
+  tests `0ad-spidermonkey`, `0ad-engine`, `0ad-graphics`, `slopyard` exit 0.
+  `pi` and `rts` each failed once and passed on the next run (recorded in
+  `20261001-095000-terminal-text-flake` and the RTS stall task).
+- The GPU test `local-llm` failed twice in its Firefox `pi-local` scenario
+  with a page error, and passed with the JSPI entry disabled: the regression
+  `621a7e13` fixes (above).
+- On `b02b9428` (with the fix): source 416/0, the core suite in chromium and
+  firefox (817 s), and the whole `local-llm` test, six scenarios, exit 0.
+
+Not rerun on `b02b9428`: the demo suites and the other four GPU tests (the
+fix changes nothing in Chromium, which runs them). The closure build and the
+second-stage test were never run by the integrator: their evidence is the
+agent's, in `work/llvm/build/llvm-evidence/`.
+
+To correct with the next change to those documents: `docs/process-model.md`
+and `docs/browser-boundary.md` say "where the browser has JSPI"; it is
+"where that stack is measured half again as deep".
+
+Not on `main`: `core/runtimes-in-seed` (`61fca608`, a seed change, for the
+release's full catalog round) and `core/llvm-seed-trial` (`a037eb5f`,
+measurement only).

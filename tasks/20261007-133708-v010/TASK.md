@@ -41,7 +41,7 @@ they are proposed now.
 
 | Item | Task | State |
 | --- | --- | --- |
-| LLVM, Clang and LLD built inside Dolly | `20260930-232236-llvm-in-dolly` | started on `core/llvm-in-dolly`. TableGen stage is in the catalog; left: a stack overflow on two files (compiler side, a seed change), then the 2,559 files of the compiler (measured: 3.8 h serial, about an hour at four jobs), the link, the comparison with the seed. In 0.1.0 if a Dolly-built Clang compiles and runs a program by then; stage 2 equal to stage 3 is not awaited |
+| LLVM, Clang and LLD built inside Dolly | `20260930-232236-llvm-in-dolly` | on `main` (`b02b9428`): the compiler built inside Dolly as the image `llvm-cc` and the package `llvm`, stages 1, 2 and 3 identical, 48 builder-minutes more per full round. Not on `main`: the runtime built by `system-build` (row above) and the trial of a seed carrying this compiler |
 
 ## Out: ships as a documented gap
 
