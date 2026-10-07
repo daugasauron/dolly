@@ -12,6 +12,8 @@ import { sessionLoadUrl } from "../src/session-store.mjs";
 import { deploymentBase, renderReleasePage } from "../scripts/release-layout.mjs";
 import { exportStaticSite, exportVersionedSite } from "../scripts/export-static.mjs";
 import { packageDomain } from "../scripts/package-domain.mjs";
+import { packageGithubPages } from "../scripts/package-github-pages.mjs";
+import { DOLLY_VERSION } from "../src/version.mjs";
 
 test("domain packaging adds the showcase only to its selected site, with public navigation and pinned media", async t => {
   const root = await mkdtemp(resolve(tmpdir(), "dolly-domain-test-"));
@@ -35,6 +37,21 @@ test("domain packaging adds the showcase only to its selected site, with public 
   for (const [, path] of page.matchAll(/(?:src|poster)="([^"]+)"/g)) {
     const bytes = await readFile(resolve(root, "domain/agents", path));
     assert.ok(bytes.length > 0 && bytes.length <= 25 * 1024 * 1024, `${path} must fit a Pages asset`);
+  }
+});
+
+test("GitHub Pages leads to the domain's applications under the version released with it", async t => {
+  const site = await mkdtemp(resolve(tmpdir(), "dolly-github-test-"));
+  t.after(() => rm(site, { recursive: true, force: true }));
+  await writeFile(resolve(site, "index.html"), "<table><tbody>\n</tbody></table>");
+  await packageGithubPages(site);
+  const domain = `https://daugasauron.com/v${DOLLY_VERSION}/`;
+  const links = [...(await readFile(resolve(site, "index.html"), "utf8")).matchAll(/href="([^"]+)"/g)].map(([, link]) => link);
+  assert.ok(links.length > 0);
+  for (const link of links) {
+    assert.ok(link.startsWith(domain), link);
+    // The path the menu links exists here too, and sends its visitor on.
+    assert.ok((await readFile(resolve(site, link.slice(domain.length), "index.html"), "utf8")).includes(JSON.stringify(link)), link);
   }
 });
 
