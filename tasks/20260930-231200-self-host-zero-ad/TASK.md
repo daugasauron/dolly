@@ -646,3 +646,15 @@ deleted yet):
   `cargo-home` (86 MB), `host-tools`, `sysroot`, `zlib`, `mozbuild-state`.
   `DOLLY_EMSDK_IMAGE` in `config/source-pins.sh` stays if anything else uses
   the emsdk container; check before removing.
+
+### `zero-ad-engine` rebuilt against the Dolly-built SpiderMonkey (11:51-11:58)
+
+Built on the round-3 base through the bigbuild slot, reusing `zero-ad-deps`
+and copying `/opt/mozjs` (341 + 149 paths) from `zero-ad-spidermonkey`:
+image 409.1 s, `make config=release -j4 pyrogenesis` 315 s, snapshot
+488,765,730 bytes. The in-recipe probe linked against `/opt/mozjs` printed
+"`spidermonkey: wasm64 realms, GC, callbacks and clone passed`" and `pyrogenesis -version` ran. Scope memory: samples up to
+8.94 GB current, cgroup peak at the 9 GB cap (file cache, no kill). No
+engine source or flag changed: the library is the drop-in the analysis
+above predicted. `zero-ad` itself is the integrator's build (its builder
+needs more than 9 GB); the three 0 A.D. browser tests follow on it.
