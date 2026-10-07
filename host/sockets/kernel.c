@@ -109,8 +109,8 @@ int64_t dolly_kernel_socket_send(dolly_kernel_socket *shared, const unsigned cha
                                  size_t size, int wait) {
   dolly_socket *socket = (dolly_socket *)shared, *peer = socket->peer;
   if (socket->state != DOLLY_SOCKET_CONNECTED) return -ENOTCONN;
-  if (socket->write_shut || peer == NULL || peer->read_shut) return -EPIPE;
   if (size == 0) return 0;
+  if (socket->write_shut || peer == NULL || peer->read_shut) return -EPIPE;
   const size_t room = DOLLY_SOCKET_BUFFER - peer->size;
   if (room == 0) return wait && !shared->nonblocking ? DOLLY_PROCESS_DISPATCH_DEFERRED : -EAGAIN;
   if (size > room) size = room;
@@ -124,8 +124,9 @@ int64_t dolly_kernel_socket_send(dolly_kernel_socket *shared, const unsigned cha
   return (int64_t)size;
 }
 
-/* As Linux reports a stream socket: readable also at end of file, hung up
- * once the peer closed, and an unconnected one writable and hung up. */
+/* As Linux reports a stream socket: readable or writable when the call would
+ * not wait, so also at end of file and toward a peer that is gone; hung up
+ * once the peer closed; an unconnected one writable and hung up. */
 uint16_t dolly_kernel_socket_poll(const dolly_kernel_socket *shared, uint16_t requested) {
   const dolly_socket *socket = (const dolly_socket *)shared, *peer = socket->peer;
   if (socket->state == DOLLY_SOCKET_LISTENING) {
@@ -138,7 +139,7 @@ uint16_t dolly_kernel_socket_poll(const dolly_kernel_socket *shared, uint16_t re
   if (socket->size != 0 || socket->read_shut || peer == NULL || peer->write_shut) {
     events |= DOLLY_PROCESS_POLL_READ;
   }
-  if (peer != NULL && !socket->write_shut && !peer->read_shut &&
+  if (peer == NULL || socket->write_shut || peer->read_shut ||
       peer->size < DOLLY_SOCKET_BUFFER) events |= DOLLY_PROCESS_POLL_WRITE;
   return (events & requested) | (peer == NULL ? DOLLY_PROCESS_POLL_HANGUP : 0);
 }
