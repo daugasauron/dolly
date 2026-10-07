@@ -1021,3 +1021,250 @@ recipes lint, 416 source tests pass, the images built here stay current except
 `dolly-docs`, rebuilt for a changed document, and `cpp` and `docs` pass again
 in both browsers. The `llvm` package and the demo's two tests need `llvm-cc` on
 the new seed.
+
+## The rest of the process sysroot, built inside Dolly (2026-10-08, `core/runtimes-in-seed`)
+
+Asked: the C library and everything else of `/usr/lib/dolly/process` that is
+still only prebuilt, inventoried, rebuilt inside Dolly from the pinned source
+and compared with what the seed ships. Reproduction, not replacement: the
+first link of a root build needs these.
+
+### Inventory
+
+What a link takes is fixed in `src/compiler.cpp`: `crt1.o`, all of
+`libdolly-process.a`, every other `libdolly-NAME.a` of the directory (the host
+clients), then `-lstandalonewasm-ww-memgrow -lstubs -lc-ww -ldlmalloc-ww
+-lclang_rt.builtins-wasmsjlj-ww` and, for C++, the three archives the root
+recipe now builds; `-pthread` takes the same names from `threads/` with `-mt`.
+There is no separate `libm`, `libpthread`, `libdl` or `librt`: musl's are in
+libc, and the driver knows `-lc -lm -ldl -lrt -lpthread -lutil` as the process
+runtime's own (`is_implicit_process_runtime_library`). No recipe's `EXPORTS LIB` names
+one of these archives except the two host clients `dolly-gpu` and
+`dolly-audio` and the C++ pair.
+
+Measured on this branch's sysroot (`build/runtimes-evidence/sysroot/inventory.tsv`;
+bytes of the file, of its code, data and DWARF sections; names `llvm-nm` lists):
+
+| File | Members | Bytes | Code | Data | Debug | Defined | Undefined | From |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | --- |
+| `libc-ww.a` | 1,010 | 3,329,684 | 291,103 | 219,149 | 1,990,417 | 6,284 | 3,401 | container, six members removed |
+| `libdlmalloc-ww.a` | 2 | 97,754 | 18,737 | 1,020 | 71,635 | 67 | 14 | container |
+| `libstandalonewasm-ww-memgrow.a` | 15 | 91,230 | 10,229 | 674 | 61,704 | 190 | 80 | container |
+| `libstubs.a` | 2 | 23,564 | 1,178 | 98 | 17,887 | 75 | 8 | container |
+| `libclang_rt.builtins-wasmsjlj-ww.a` | 184 | 812,986 | 77,224 | 47,774 | 523,680 | 1,273 | 511 | container (rebuilt by `llvm-runtimes`) |
+| `crt1.o` | 1 | 602 | 35 | 0 | 0 | 1 | 5 | `scripts/build.sh` |
+| `libdolly-process.a` | 11 | 51,684 | 27,159 | 4,712 | 0 | 227 | 59 | `scripts/build.sh` |
+| `libdolly-runtime.a` | 1 | 15,742 | 9,028 | 1,237 | 0 | 75 | 38 | `scripts/build.sh` |
+| `libdolly-{audio,display,download,dso,gpu,http,threads,upload}.a` | 9 | 25,548 | 13,152 | 369 | 0 | 64 | 48 | `scripts/build.sh` |
+| `threads/libc-mt.a` | 1,123 | 3,722,512 | 312,308 | 221,639 | 2,259,865 | 7,032 | 3,714 | container, 16 members removed |
+| `threads/libdlmalloc-mt.a` | 2 | 89,924 | 15,810 | 1,096 | 67,114 | 69 | 18 | container |
+| `threads/libstandalonewasm-mt-memgrow.a` | 15 | 91,230 | 10,229 | 674 | 61,704 | 190 | 80 | container, the `-ww` bytes |
+| `threads/libclang_rt.builtins-wasmsjlj-mt.a` | 184 | 812,986 | 77,224 | 47,774 | 523,680 | 1,273 | 511 | container, the `-ww` bytes |
+| `threads/crt1.o` | 1 | 573 | 29 | 0 | 0 | 1 | 4 | `scripts/build-process-threads.sh` |
+| `threads/libdolly-process.a` | 7 | 49,578 | 31,030 | 3,666 | 0 | 157 | 78 | `scripts/build-process-threads.sh` |
+| `threads/libdolly-runtime.a` | 1 | 16,608 | 9,681 | 1,247 | 0 | 76 | 38 | `scripts/build-process-threads.sh` |
+
+Dolly takes members out of the two libc archives, because its own parts
+define those names: `raise.o sigaction.o pthread_sigmask.o sigtimedwait.o
+setitimer.o getitimer.o` from `libc-ww.a` (`scripts/prepare-process-sysroot.sh`),
+those and ten more (thread lifecycle, futex, `sched_yield`) from `libc-mt.a`
+(`scripts/build-process-threads.sh`). The container's own archives have 1,016
+and 1,139 members.
+
+Sources and flags, read from `tools/system_libs.py` in the pinned container
+(`demos/sysroot/list-units.py` asks its library classes;
+`build/runtimes-evidence/sysroot/units.tsv` has the member, source and `emcc`
+flags of all 2,191 units, `cc1-lines.txt` the `cc1` line of each flag set).
+The member names and their order computed this way equal the seven shipped
+archives'. Paths are under `system/lib`:
+
+| Archive | Units | Sources | Emscripten's flags, besides `-g -DNDEBUG -fno-unroll-loops` |
+| --- | ---: | --- | --- |
+| `libc-ww.a` | 1,016 | 984 `libc/musl/src`, 21 `libc`, 5 `libc/compat`, 6 `pthread`; 3 are `.S` | `-Os`, 69 libcall units `-O2`; `-std=c99 -D_XOPEN_SOURCE=700 -fno-inline-functions -fno-builtin`, seven musl include directories, `-sWASM_WORKERS` |
+| `libc-mt.a` | 1,139 | 1,098 `libc/musl/src`, 20 `libc`, 5 `libc/compat`, 16 `pthread`; 3 are `.S` | the same with `-pthread` |
+| `libdlmalloc-ww.a`, `-mt` | 2 | `dlmalloc.c`, `libc/sbrk.c` | `-O2 -fno-builtin`, `-sWASM_WORKERS` or `-pthread` |
+| `libstandalonewasm-ww-memgrow.a`, `-mt` | 15 | 3 `standalone`, 10 `libc/musl/src/time`, 2 `libc/musl/src/exit` | `-Os -fno-builtin`, musl's flags and directories, `-DEMSCRIPTEN_STANDALONE_WASM -DEMSCRIPTEN_MEMORY_GROWTH` |
+| `libstubs.a` | 2 | `libc/emscripten_libc_stubs.c`, `libc/emscripten_syscall_stubs.c` | `-O2 -Ilibc/musl/src/include`, no thread flag |
+
+Emscripten compiles all of these without Wasm exceptions (features `+atomics
++bulk-memory`, none for `libstubs`), non-PIC, hidden visibility, DWARF 4, with
+its JavaScript `setjmp` model selected.
+
+Dolly's own parts are compiled by `emcc -m64 -O1 -matomics -mbulk-memory
+-fwasm-exceptions -sSUPPORT_LONGJMP=wasm -sWASM_LEGACY_EXCEPTIONS=0
+-I build/include`, without `-g`:
+
+| File | Sources |
+| --- | --- |
+| `crt1.o` | `src/process/crt1.c` |
+| `libdolly-process.a` | `src/process/{libc-adapter,mmap,time,poll,signal,pthread-stubs}.c`; from Emscripten `pthread/pthread_self_stub.c` and musl's `default_attr.c`, `pthread_mutexattr_{init,settype,destroy}.c` (these six with musl's internal include directories) |
+| `libdolly-NAME.a` | each host module's client, as `scripts/host-modules.mjs client` lists them: `src/process/runtime-adapter.c`, `host/{display,http,gpu,audio,download,upload,threads,dso}/client.c`, `host/dso/ffi.c` |
+| `threads/crt1.o`, `threads/libdolly-process.a`, `threads/libdolly-runtime.a` | `-pthread` and musl's internal directories for all: `crt1.c`; `libc-adapter mmap time poll signal threads` and `threads-start.S`; `runtime-adapter.c` |
+
+### Built inside Dolly: `sysroot`
+
+`demos/sysroot/Dollyfile-sysroot` (`FROM system-tools`, build-only, keeps
+`/usr/lib/sysroot`): the seven Emscripten archives from a 4.8 MB tar of
+`system/lib/{libc,pthread,standalone,dlmalloc.c}` at the pin, and Dolly's own
+parts from `src/process` and the host clients. `units.mk` lists the sources;
+`list-units.py` generates it from `tools/system_libs.py` in the pinned
+container, so the list is Emscripten's and not a second copy of its rules. A
+new demo and not `demos/llvm`: the C library is not LLVM's. When this is
+adopted the compiler-rt builtins of `llvm-runtimes` belong here too, and that
+image can go (the root recipe builds its other three archives on this branch).
+
+Built in headless Chrome in a build slot, `make -j2`
+(`build/runtimes-evidence/sysroot/try1` to `try5`: image and build logs, PSS
+samples of the browser every 2 s, the extracted files, the reports):
+
+| Build | Holds | `cc` runs | `make -j2` | Peak PSS | Snapshot bytes |
+| --- | --- | ---: | ---: | ---: | ---: |
+| `try1` | the seven Emscripten archives; `ar` refused two assembly members | 2,197 | 193.1 s | 1,383 MiB | none |
+| `try2` | the same, archived | 2,197 | 198.9 s | 1,448 MiB | 7,841,267 |
+| `try3` | and Dolly's own parts, client archives empty by a slip in the Makefile | 2,219 | 197.1 s | 1,444 MiB | 7,969,867 |
+| `try4` | all 21 files | 2,229 | 208.4 s | 1,407 MiB | 8,011,118 |
+| `try5` | the committed recipe: those and the two licence files | 2,229 | 216.6 s | 1,500 MiB | 8,022,961 |
+
+The 2,229 runs are 2,215 C units and seven assembly units, each preprocessed
+and then compiled as file-scope asm, for 2,222 objects. The machine was
+shared (`try4` also ran beside two runs of the source tests), so the time is
+193 to 217 s; a serial build was not measured. The image takes 219.9 s in
+all. The build repeats: the 21 files of `try5` have the SHA-256 of `try4`'s
+(`try5/sha256.txt`), and `units.mk` comes out of the container byte for byte
+again.
+
+### Compared with what the seed ships
+
+Section by section (`build/runtimes-evidence/sysroot/compare.sh`, `wasmar.py`;
+the seven Emscripten archives against the container's full archives, Dolly's
+parts against this branch's process sysroot), and `llvm-nm` line by line:
+
+| File | Members | Shipped bytes | Built bytes | Sections that differ (members) |
+| --- | ---: | ---: | ---: | --- |
+| `crt1.o` | 1 | 602 | 607 | `producers` 1 |
+| `libc-ww.a` | 1,016 | 3,358,676 | 3,367,052 | `producers` 1016, DWARF 1014, `linking` 3, `target_features` 3 |
+| `libdlmalloc-ww.a` | 2 | 97,754 | 97,774 | DWARF 2, `producers` 2 |
+| `libdolly-audio.a` | 1 | 1,912 | 1,916 | `producers` 1 |
+| `libdolly-display.a` | 1 | 4,958 | 4,962 | `producers` 1 |
+| `libdolly-download.a` | 1 | 1,068 | 1,074 | `producers` 1 |
+| `libdolly-dso.a` | 2 | 5,842 | 5,852 | `producers` 2 |
+| `libdolly-gpu.a` | 1 | 5,612 | 5,616 | `producers` 1 |
+| `libdolly-http.a` | 1 | 3,654 | 3,658 | `producers` 1 |
+| `libdolly-process.a` | 11 | 51,684 | 51,738 | `producers` 11 |
+| `libdolly-runtime.a` | 1 | 15,742 | 15,746 | `producers` 1 |
+| `libdolly-threads.a` | 1 | 1,440 | 1,446 | `producers` 1 |
+| `libdolly-upload.a` | 1 | 1,062 | 1,068 | `producers` 1 |
+| `libstandalonewasm-ww-memgrow.a` | 15 | 91,230 | 91,380 | DWARF 15, `producers` 15 |
+| `libstubs.a` | 2 | 23,564 | 23,584 | DWARF 2, `producers` 2 |
+| `threads/crt1.o` | 1 | 573 | 578 | `producers` 1 |
+| `threads/libc-mt.a` | 1,139 | 3,826,578 | 3,836,206 | `producers` 1139, DWARF 1137, `linking` 3, `target_features` 3 |
+| `threads/libdlmalloc-mt.a` | 2 | 89,924 | 89,944 | DWARF 2, `producers` 2 |
+| `threads/libdolly-process.a` | 7 | 49,578 | 49,932 | `producers` 7, `target_features` 1 |
+| `threads/libdolly-runtime.a` | 1 | 16,608 | 16,612 | `producers` 1 |
+| `threads/libstandalonewasm-mt-memgrow.a` | 15 | 91,230 | 91,380 | DWARF 15, `producers` 15 |
+
+2,222 members in 21 files.
+
+`llvm-nm` prints the same lines for 19 of the 21 (`try5-nm.out`); for the two
+libc archives it prints ten fewer, the DWARF section symbols of the three
+assembly members.
+
+`demos/sysroot/test/sysroot.artifacts.mjs` (`npm run test:artifacts`) keeps
+this comparison: it holds the 2,200 members the seed ships in
+`/usr/lib/dolly/process` (all but the builtins, which `llvm-runtimes` has)
+against the image, section by section, allowing `producers` and DWARF, and
+for the assembly members `target_features` and `linking`. It passes on `try4`
+and `try5` and fails on `try3` ("libdolly-audio.a has no
+process-audio-client.o").
+
+Every member has the name, order, code, data, types, imports, relocations and
+symbols of the shipped one. What differs, and why:
+
+- `producers`, in every compiler-made member: the two Clang 24 builds of
+  commit `4bfd08c2` spell their repository `https:/github.com/llvm/llvm-project`
+  (container) and `https://github.com/llvm/llvm-project.git` (Dolly), five
+  bytes.
+- `.debug_info`, `reloc..debug_info`, `.debug_str`, in the members built with
+  `-g`: the same string again, as `DW_AT_producer`. It is the first string, so
+  every later string offset moves by five. `dwarf-check.py` proves it for each
+  of the 2,181 (`try4/dwarf-check.txt`, the same files): the relocations agree in type, place
+  and symbol, each differing addend names the same string on both sides,
+  `.debug_info` is equal outside those four-byte fields and the string lists
+  are equal without the producer.
+- The assembly members (below): code, types, imports and code relocations are
+  equal; they lack the assembler's line tables (`.debug_abbrev`, `.debug_info`,
+  `.debug_line`, `.debug_aranges`, `.debug_ranges`) with their section symbols
+  in `linking`, and carry the compiler's `producers` and its `target_features`
+  (the unit's features where the assembler wrote none, or, for the two
+  bulk-memory units, where the source declares exactly `+bulk-memory`).
+
+### What the driver lacked
+
+- An assembler. `cc` preprocesses `.S` and then refuses real assembly
+  (`run_frontend`, "WebAssembly assembly is unsupported"). Members that need
+  it: in `libc-ww.a` and `libc-mt.a` `emscripten_thread_state.o`
+  (`pthread/emscripten_thread_state.S`), `emscripten_memcpy_bulkmem.o` and
+  `emscripten_memset_bulkmem.o` (`libc/*.S`); in the builtins `stack_ops.o`,
+  `stack_limits.o`, `__c_longjmp.o` (`.S`) and `emscripten_tempret.o` (`.s`);
+  of Dolly's own `threads-start.o` (`src/process/threads-start.S`) in
+  `threads/libdolly-process.a`. No other archive of the sysroot has one. The
+  recipe wraps the preprocessed text in a file-scope `__asm__`, which the
+  embedded assembler takes; that cannot give the line tables, and it fails
+  outright on a unit that writes its own `target_features` section (`ar`: "target
+  features section ended prematurely", the compiler adds a second one), so the
+  recipe deletes that section from the two bulk-memory units.
+  The smallest honest support: where `run_frontend` now refuses, hand the text
+  to LLVM's MC assembler as Clang's `cc1as` does (target `MCAsmParser` into an
+  object streamer, the unit's features, DWARF for the source under `-g`). It
+  adds no library: `LLVMWebAssemblyAsmParser` is linked and initialised
+  already, which is why file-scope asm works. Not added here.
+- The `dl` names. `cc` passes `-Ddlopen=dolly_dlopen` and three more to every
+  program, so libc's own `dlclose.o`, `dlerror.o`, `dlsym.o` and
+  `emscripten_libc_stubs.o` came out defining `dolly_dlclose` and so on (the
+  first comparison showed those seven members, three in each libc and one in
+  `libstubs`, with six more bytes of `linking`). The recipe passes `-U` for
+  the four names.
+- `-fno-inline-functions`: not a `cc` option (unknown options are refused), so
+  it goes through `-Xclang`.
+- Building without Wasm exceptions, and for `libstubs` without atomics: `cc`
+  always enables both features and each member's `target_features` lists them,
+  so the recipe removes them with `-Xclang -target-feature`. Emscripten's
+  DWARF 4 `-g` also goes through `-Xclang`, as for libc++.
+- `__EMSCRIPTEN_PTHREADS__`: `cc` undefines it for programs; the `-mt`
+  variants define it again, with `__EMSCRIPTEN_SHARED_MEMORY__` as `emcc` does.
+- Visibility: the container's `cc1` line for Dolly's own parts has
+  `-fvisibility=hidden` (`cc1-own.txt`) where `cc` passes `default`; the
+  recipe passes `hidden`.
+- Not a gap after all: Emscripten selects its JavaScript `setjmp` model for
+  these and `cc` cannot; `cc` always passes the vectorizer flags and `emcc`
+  at `-O1` does not. Every code section is equal all the same.
+
+### Rows for `docs/sources.md` once adopted
+
+The first row of the exceptions table stays (the first link needs a libc and
+its builtins, the container builds the kernel and the seed). Adoption means
+the root recipe builds these from source after that first link, as it does
+libc++ on this branch, and the table gains:
+
+| Component | Built outside Dolly | Result |
+| --- | --- | --- |
+| musl libc, dlmalloc, standalone glue, stubs (Emscripten 6.0.8 `system/lib`) | The container's archives, in the seed for the links before the root recipe has built its own | `Dollyfile-system-build` compiles the same pinned sources with Emscripten's flags and replaces them; equal code and data, the unit list generated from `tools/system_libs.py` |
+| compiler-rt builtins | The same | The same, from `system/lib/compiler-rt` |
+| Dolly's `crt1.o`, `libdolly-process.a`, host clients | Compiled by `emcc` in `scripts/build.sh` for the same first links | Rebuilt by the root recipe from `src/process` and `host/*/client.c` |
+| Eight assembly sources (three of libc, built for each variant; four of the builtins; `threads-start.S`) | Assembled by the container's Clang | Stay the container's until `cc` assembles; file-scope asm reproduces their code but not their line tables |
+
+and the paragraph on staged sources adds libc's (`dist/static/sysroot/sources.tar`
+or its successor) to "staged with their `__EMSCRIPTEN__` tests renamed".
+Adoption also has to keep what Dolly does to the container's libc today: the
+six and sixteen members it removes, and `dynamic-provider.symbols`, which
+`prepare-process-sysroot.sh` lists from the container's archives (`llvm-nm`
+prints the same names for the rebuilt ones).
+
+### Not done
+
+No link uses the rebuilt archives: the rebuilt libc has the members Dolly
+removes from the shipped one, so `-L/usr/lib/sysroot` would not be the shipped
+link, and equal sections already decide the result. Not run in Firefox (the
+image builds in Chrome; the test reads files). The assembler is not added. The
+comparison reads this worktree's `dist` and `.cache`; the artifact test needs
+the `sysroot` image beside the seed it was built on.
