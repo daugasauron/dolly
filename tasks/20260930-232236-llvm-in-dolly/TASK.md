@@ -385,3 +385,67 @@ Shipped: the pinned container's Clang (x86-64 build of LLVM `4bfd08c2`, run by
 `embuilder`). Dolly's: the seed compiler (wasm64 build of the same commit, run
 as `c++` in the browser). No member differs in size by more than 11 bytes and
 no code section differs, so there was no instruction-level difference to look at.
+
+### The builtins
+
+`libclang_rt.builtins-wasmsjlj-ww.a` joins the same recipe: the 177 C files and
+one C++ file of `compiler-rt/lib/builtins` and `lib/profile`, Emscripten's three
+C files and its four assembly files, from the pinned commit's objects
+(`system/lib/compiler-rt` and `system/lib/libc/emscripten_internal.h`; the
+sysroot does not install that header). All four archives, 260 translation
+units: `make -j2` 48.2-49.1 s, peak PSS 1.56 GiB.
+
+- 180 C and C++ members: as above, equal to the shipped ones except the
+  compiler's version string (`-O2 -fno-builtin`, with `-fno-unroll-loops` and
+  `-fignore-exceptions` through `-Xclang`: Emscripten's default exception mode
+  has no spelling in `c++`).
+- Four assembly members (`stack_ops.S`, `stack_limits.S`, `__c_longjmp.S`,
+  `emscripten_tempret.s`): `cc` has no assembler (`WebAssembly assembly is
+  unsupported`), though the compiler embeds LLVM's. The recipe gives it the
+  text as file-scope `__asm__` in a C file. Their code, data, global, tag, type,
+  import and function sections and code relocations equal the shipped ones; the
+  shipped ones also carry the assembler's DWARF (so three have four more
+  section symbols) and no `producers` or `target_features` section.
+- `llvm-nm`: 383 defined and 172 undefined names on both sides; the listings
+  differ only in those twelve debug section symbols.
+- Found on the way: `cc -E` leaves out the `exception-handling`, `multivalue`
+  and `reference-types` features that `cc -c` compiles with, so
+  `__wasm_exception_handling__` is undefined when preprocessing only
+  (`src/compiler.cpp`, `run_clang`). `__c_longjmp.S` is empty without it; the
+  recipe adds the feature to its `cc -E`. `-x assembler-with-cpp` is rejected.
+- Not built: `/usr/lib/libclang_rt.builtins.a`, the PIC variant kernel plugins
+  link (183 members). Its cc1 line has `+mutable-globals` only, default
+  visibility and `-mllvm -enable-emscripten-sjlj`; `cc` fixes `+atomics`,
+  `+exception-handling` and `-wasm-enable-sjlj` for every compile.
+
+### In Chromium and Firefox
+
+`demos/llvm/test/llvm-browser.mjs` opens `llvm-tablegen` with the package
+installed (`INSTALL`, plus the display and `threads@0`) and, per browser:
+
+- links `demos/llvm/test/fixtures/runtime.cpp` (exceptions through five frames
+  with destructors, nested and rethrown, `dynamic_cast`, library exceptions;
+  `iostream` formatting and parsing, `to_chars`; `std::filesystem` trees) and
+  `test/fixtures/threads-cpp.cpp` (`std::thread`, mutex, condition variable,
+  exceptions and TLS destructors in threads, `-pthread`) twice each: as usual,
+  and with the four built archives named as inputs. `-Wl,--trace` shows 55 and
+  46 members loaded from `/usr/lib/dolly/process` in the usual links and none
+  in the others, which load the same counts from `/usr/lib/llvm-runtimes`.
+  Both runs of each program print the same bytes (SHA-256 `42ba4744…` and
+  `66da3cfe…`, equal across the browsers);
+- configures LLVM with the `llvm-tablegen` recipe's own `cmake` line plus
+  `CMAKE_EXE_LINKER_FLAGS` naming the built archives, builds `llvm-min-tblgen`
+  and `llvm-tblgen` (`make -j2 llvm-tblgen WebAssemblyCommonTableGen`), whose
+  links load 99 members from the built archives and none from the shipped
+  ones, and compares the 18 WebAssembly `.inc` files they generate with those
+  the image kept from its own, shipped-runtime tools: equal (`cmp`).
+
+| | Chrome 151 | Firefox 155 |
+| --- | --- | --- |
+| whole test | 348.7 s | 416.3 s |
+| its `make -j2` (both tools, then the TableGen runs) | 246.5 s | 298.5 s |
+| peak PSS of the browser | 4.3 GiB | 3.9 GiB |
+
+`llvm-tblgen` is 6,203,901 bytes with the built runtime and 6,203,893 in the
+image, `llvm-min-tblgen` 1,750,922 and 1,750,939: naming the archives as
+inputs changes the order the linker loads members in.
