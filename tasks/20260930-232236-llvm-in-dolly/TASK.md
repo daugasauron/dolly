@@ -26,7 +26,8 @@ and in the compiler, as was a third stage run once. The first two clauses of
 - **The browser stack** has no general fix. The JSPI entry doubles Chrome's;
   `MSP430.cpp` fits with a margin of 635 in 760 and `SemaARM.cpp` only with
   LLVM's warnings off. A process primitive that continues on a fresh stack
-  is an ABI decision for the owner (see "The two stack overflows").
+  is an ABI decision for the owner; both browsers can provide one without a
+  suspending import (measured, see "The two stack overflows").
 - **Jobs**: four, because a CMake job is three processes and the supervisor
   admits 32 (`20260930-231102-parallel-rust` decided a memory budget instead).
 - **Cost in the catalog**: `llvm-build` 44 min, `llvm-cc` 4 min, `llvm-stage2`
@@ -353,6 +354,17 @@ Limits that remain, recorded rather than hidden:
   function on a fresh stack (JSPI gives one per `promising` call) would serve
   Clang, rustc's `stacker` and the zig1 route; that is an ABI decision and was
   not taken here.
+- Measured for that decision (2026-10-08, a 125-byte module in a Worker, not
+  Dolly code): an import that enters Wasm again through
+  `WebAssembly.promising` gets a fresh stack and the callee has finished when
+  the call returns, in both browsers, so nothing has to suspend and no
+  `Suspending` import is needed. A recursion that hops every 2,048 frames
+  reached 1,593,343 frames in Chrome 151 (777 nested hops; 8,191 without
+  fresh stacks) and 262,144 in Firefox 155 (128 hops; 512 failed). 400 hops
+  with 819,200 calls took 9.0 ms. After an overflow inside such a call
+  Firefox failed every later one in that Worker; a Dolly process ends there
+  anyway. Not solved by this: when to hop, since Wasm cannot read the
+  browser stack's depth.
 - `cc` therefore cannot compile about 770 chained member calls in one
   expression (Chrome; 700 fit and 760 fail in Firefox 155, where the entry
   changes nothing) or 3,300 to 4,000 consecutive `case` labels under
