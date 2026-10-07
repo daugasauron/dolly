@@ -372,6 +372,70 @@ ELF, Mach-O, Windows and Emscripten: every Clang unit that includes
 `Attr.h` fails (`variable has incomplete type 'class CLANG_ABI'`). The static
 configuration upstream provides, `-DCLANG_BUILD_STATIC`, compiles them.
 
+## The closure and the compiler, built inside Dolly (2026-10-08)
+
+Three images in `demos/llvm`, each built once in headless Chrome 151 through
+`npm run image` under the 9 GB `bigbuild` slot, image inputs `c62b2710…`, the
+seed compiler unchanged. The 16-core host ran other agents' builds (mean load
+5.6). Memory is the PSS of the builder's Chrome, summed over its processes
+every 10 s. Logs: `build/llvm-evidence/build/` (not kept).
+
+**`llvm-build`** (`FROM llvm-tablegen`): the 2,559 units, first run, no failed
+unit, no retried compiler process, no warning.
+
+| step | wall |
+| --- | --- |
+| extract the staged tree | 10.5 s |
+| `cmake -C /usr/lib/llvm-build/Dolly.cmake` | 67.0 s |
+| `make -k -j4`, the seed's five targets | 2,491.7 s (41.5 min) |
+| whole image, with snapshot and packs | 2,622.9 s |
+
+- Peak 5.63 GB while compiling and 6.50 GB while the 604 MB snapshot was
+  captured. Four jobs is the count the 32-process cap allows (three processes
+  a job); `-j6` and `-j8` failed on 2026-10-01 and were not tried again.
+- It keeps `/usr/lib/llvm-build`: 103 archives with 2,559 members (223.3 MB),
+  the names and member lists of the seed's `.cache/llvm-wasm/lib`; Clang's
+  resource directory; the configured and generated headers. Of those 501
+  files 499 are the seed tree's bytes, `config.h` differs in
+  `HAVE__UNWIND_BACKTRACE` as before, and `Dolly.cmake` is the recipe's own.
+- Flags or tools the driver lacked: none. What the build needed instead was
+  configuration: `CLANG_BUILD_STATIC` and `LLVM_ENABLE_WARNINGS=OFF` (above),
+  with `-include endian.h`, `-std=gnu17` and the host-triple patch that
+  `llvm-tablegen` already had. The warning switch leaves `-w` and three
+  `-W…` flags on each command; `cc` took them.
+- The configuration is a CMake initial-cache file the image keeps, so a later
+  stage configures from the same file.
+
+**`llvm-cc`** (`FROM llvm-build`): the compiler.
+
+- `link-compiler.slop` compiles the seed's driver (`src/compiler.cpp`,
+  `compiler-main.c`, the two contract digests, staged as sources) with the
+  flags of `toolchain/CMakeLists.txt` and links it with the 103 archives
+  and `-Wl,--initial-memory=33554432`: 9.8 s for both. The executable is
+  127,138,140 bytes (code 87.5 MB, data 8.3 MB, names 31.0 MB; the seed, which
+  binaryen shrinks and strips, is 78,338,796).
+- `diff -r` finds the resource headers built here identical to the seed's.
+- `check.slop` (174.5 s) runs the seed compiler and the new one on the same
+  arguments and requires the same bytes: a C and a C++ program, linked, which
+  also run and print what they should (`sqrt`, `strdup`, a file; `std::map`,
+  a virtual call, a caught exception), and eleven objects: the two at `-O0 -g`
+  and `-O2`, the driver itself, and LLVM's `regcomp.c`, `APFloat.cpp`,
+  `ItaniumDemangle.cpp`, `SLPVectorizer.cpp`, `MSP430.cpp`, `SemaARM.cpp` and
+  `SemaExpr.cpp` with the closure's flags. All thirteen are identical; no
+  difference to explain. (An executable linked straight from sources differs
+  with its output path alone: `cc` names the scratch object by a hash of that
+  path and wasm-ld records the name. Both compilers therefore write the same
+  path.)
+- The image then installs the compiler as
+  `/usr/libexec/dolly/process-bin/compiler`: its `cc`, `c++`, `ld` and `ar`
+  are built by Dolly. Peak 5.89 GB; snapshot 653 MB.
+- `demos/llvm/test/llvm-browser.mjs` opens the image in Chrome and Firefox:
+  `cc -c`, `ar`, a C++ program linked against that archive and run, and a
+  640-call chain compiled. Both pass (12.4 s, 22.1 s).
+- Before the build, the same rows passed against the seed's own archives
+  staged as a fixture: Dolly's `c++` linking host-built objects gives a
+  compiler with the same outputs too.
+
 ## Decisions (2026-10-01, delegated)
 
 - LLVM-in-Dolly stays a demo (`demos/llvm`): moving CMake and Python into core
