@@ -93,6 +93,63 @@ No recipe, test, demo, generator or page module names the domain.
 - First chain, 17 images (`default`, `system`, `amy`, `cc`, `git`,
   `javascript`, `audio-sdk`, `dolly-docs` and what they need): 12 min 41 s.
   `closed-source-agent` with `rust-sdk`, `rust-build`, `ripgrep`: 3 min 3 s.
+- Second chain after the `curl` change (15 images from `curl` on, plus
+  `python` and `gpu-sdk`; the seed and seven images before `curl` reused):
+  8 min 7 s. 23 images in all.
+- A version change on a copy of all 76 recipes written as `/v0.0.9/…`:
+  `updateRecipePins` rewrote the 526 references and the pins in 0.2 s and
+  the result was byte-identical to the tree.
+- The three recipe generators (`gpu-fluid`, `slopyard`, `zero-ad`)
+  reproduce their committed recipes without a difference.
+
+### Verified (2026-10-08, commit `68626779` and the chain above)
+
+Source: `node --test 'test/*.test.mjs' 'demos/**/*.test.mjs'` 417 pass;
+`npm run -s lint:dollyfiles` 76 recipes; `test/dolly.artifacts.mjs` and the
+demos' artifact tests 21 pass on the chain's registry.
+
+Chromium 151 and Firefox 155, `node test/browser-tests.mjs chromium firefox`
+(12 min 51 s): passed in both: amy (the first test: list, info, install
+python, the record, a saved session), audio, boundary, composed toolchain,
+core, cpp, custom session, default, display, docs, dso, ending, gpu
+indicator, host compute, host modules, image, image inventory, indicators,
+man and --help, network (after its fixture followed `curl`), process,
+session without http, shell, shell environment, site, slop, snapshot
+stream, startup script, terminal, threads, threads refusal, upload.
+
+- `default` boots (core, default).
+- `amy list`, `info`, `install git`, `install cc`, `installed` rows as
+  `/v0.1.0/…`, and `curl` of this version's index; another version's and an
+  unversioned path refused (`build/recipes-evidence/verify-amy.mjs`).
+- The custom page's own template (`FROM /v0.1.0/Dollyfile-system …`) builds
+  and runs; a recipe whose `FROM` or `SOURCE` names `/v987.0.21/…` is
+  refused before a build with both versions in the message (custom session).
+- Under the prefix `/pages/` the image boots, `amy` reads the prefixed index
+  and `curl /v0.1.0/Dollyfile` returns the image's own recipe (site).
+- An exported site's layout, emulated over the checkout server (assets only
+  under `/_dolly/ID/`, pages with a `<base>`): `default` boots, `amy install
+  git`, a recipe by site path comes from the release's copy, a custom recipe
+  with a site-path `SOURCE` builds in the page, and nothing asks for a
+  release asset at its public path
+  (`build/recipes-evidence/verify-export-layout.mjs`).
+- Demo tests: `javascript`, `python`, `closed-source-agent` in Chromium;
+  `closed-source-agent` in Firefox.
+- Studio is not built here: the two lines of its `install.slop` were run in
+  a `system` session in both browsers, its lint ran from a copy of its
+  staged files, and a source test now requires every module the lint and
+  build commands import to be in its archive (`src/version.mjs` was missing).
+
+Not run, and why:
+
+- `amy programs` (the second test of `test/amy-browser.mjs`): needs `cmake`,
+  `sdl2`, `rust` and `codex-cli`.
+- `test/fs-growth-browser.mjs`: the 6 GB browser slot kills it in both
+  browsers (`Memory cgroup out of memory` in the kernel log), before and
+  after this change.
+- `test/gpu-render-browser.mjs` (needs a GPU display) and every demo test
+  but the three above; `demos/llvm/test/stage2-browser.mjs` was edited and
+  not run (`llvm-cc` is not built here).
+- Packaging and release acceptance; the catalog beyond the 23 images.
 
 Owner request (2026-10-06, low priority): "the HOST should be an environment
 variable or something, never hardcode daugasauron.com. … Dollyfiles always

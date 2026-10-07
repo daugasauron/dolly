@@ -207,11 +207,20 @@ Tracked here, one round each; no further tasks are created for them.
 
 1. The canonical base from `package.json`; recipes, documents and tests
    rewritten; the lint; `package.json` at 0.1.0. A full catalog round.
-   **State (2026-10-08, `core/versioned-recipes`):** implemented as Dollyfile 7
-   with no domain in a recipe: `FROM /v0.1.0/Dollyfile-system SHA256`
-   (the integrator's form; decisions and measurements in
-   `20261005-223931-origin-not-hardcoded`). The seed changes (the engine),
-   so every image is rebuilt; the full catalog round is the integrator's.
+   **State (2026-10-08, `core/versioned-recipes` `68626779`):** implemented
+   as Dollyfile 7 with no domain in a recipe:
+   `FROM /v0.1.0/Dollyfile-system SHA256` (the integrator's form; decisions,
+   measurements and what ran in each browser are in
+   `20261005-223931-origin-not-hardcoded`). Proved on 23 images in Chromium
+   and Firefox. Left for the round: `npm run build:runtime`, then every
+   image (the engine is in the seed; the Rust seed is not affected), which
+   also refreshes the source pins of images not built here (Studio's
+   archive changed); the suites that need the whole catalog; packaging.
+   For the hosting steps: recipes and sources are read from the release's
+   own copy (`_dolly/ID/`), so nothing has to serve `/vX.Y.Z/Dollyfile-NAME`
+   itself; `amy-index.txt` is read at the version's public root; GitHub
+   Pages' links to the domain now carry the version; `robots.txt` still
+   cites `https://daugasauron.com/licences/`.
 2. Sessions per version: store name, the version in the exported file, the
    refusal. Browser test: a save made under one version is not listed under
    another, and its export is refused there.
