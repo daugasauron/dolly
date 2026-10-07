@@ -89,6 +89,14 @@ asserts it; verified as follows.
   installed Firefox on Xvfb :142
   (`local-llm-start-screen-firefox.log`, screenshots
   `build/llm-proof/firefox-{pi-local,dollyfile-studio}-start.png`).
+- Against the Studio rebuilt with the shorter notice (`5bf65555`): the
+  GPU-less check passed again in Chromium
+  (`local-llm-start-screen-chromium-2.log`) and the Firefox run on :142
+  (`local-llm-start-screen-firefox-2.log`). The Studio's screen names
+  `/local` once, its own notice holding the status line
+  (`build/visible-evidence/{chromium,firefox}-dollyfile-studio-start.png`);
+  pi-local shows the sandbox line and the hint together
+  (`{chromium,firefox}-pi-local-start.png` there).
 
 ## Related
 
