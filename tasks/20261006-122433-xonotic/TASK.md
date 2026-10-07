@@ -435,9 +435,15 @@ data is pinned but not yet staged as image sources.
    as a bootstrap exception in the demo README. Done: gmqcc builds in Dolly
    and the test plays its second match on the `progs.dat` built there.
 5. Client: rendering by decision 1, SDL2 input with relative mouse and capture
-   as `bhop` has, sound by decision 3.
+   as `bhop` has, sound by decision 3. Started 2026-10-07: the SDL client
+   builds in Dolly and draws through the engine's software rasterizer
+   (interim; "Client findings" above); the `gpu@0` path (`vid_dolly.c`,
+   `dpgpurast.c`, the `normal` preset's shaders in WGSL) and sound are not
+   started.
 6. `demos/xonotic/`: recipes, sources, `prepare-sources.sh`, tests, README and
-   the licence rows.
+   the licence rows. Done for what exists: `xonotic-build`, `xonotic`, the
+   browser test, README, `config/upstreams.json` rows and a `docs/licences.md`
+   section; the asset pass is not done.
 
 Not in scope: network multiplayer (raw sockets are unsupported; 0 A.D.'s relay
 over the broker is the precedent) and an agent player.
