@@ -322,8 +322,9 @@ and no larger one.
   first attempt and 3,993-4,002 on later ones.
 
 Fix for the first (commit `528f9883`): the process Worker enters `_start` and
-`dolly_thread_start` through `WebAssembly.promising` where it exists. It is
-not in the image inputs, so no image rebuilds. Chain capacity (a function
+`dolly_thread_start` through `WebAssembly.promising` where it exists (since
+`621a7e13` only where that stack is measured deeper, see "Firefox and the JSPI
+entry"). It is not in the image inputs, so no image rebuilds. Chain capacity (a function
 returning N chained member calls, `-O3`, three rounds in one browser):
 
 | entry | compiles | fails |
@@ -701,6 +702,72 @@ host-built compiler are the bytes they were, the plan reuses every image,
 and lint and the 416 source tests pass. Kept outside `dist/`, in
 `build/llvm-evidence/seed-trial/` (ignored): the trial's seed, its 18
 snapshots (1.9 GB), the stripped compiler and the logs.
+
+## Firefox and the JSPI entry (2026-10-08, commit `621a7e13`)
+
+Found by the integrator at 05:35: `demos/local-llm/test/local-llm-browser.mjs`
+failed twice in its Firefox `pi-local` scenario with one page error,
+`uncaught exception: undefined`, and passed with the entry reverted.
+
+**Cause.** Firefox 155 reports `uncaught exception: undefined` for every
+Worker that is terminated while inside a `WebAssembly.promising` call. Ending
+a process terminates the Workers of its remaining threads, so every threaded
+program reported one per thread. The Symbols that end a process or a thread
+(`PROCESS_EXIT`, `THREAD_EXIT`) are not involved: threads that leave with
+`pthread_exit` and are joined report nothing.
+
+- In Dolly, Firefox 155, a threaded C program with four threads parked in a
+  condition wait, a mutex, `sleep`, `read` or a spin loop, ended by `exit`,
+  `return`, SIGKILL, another thread's `exit`, a trap, a timeout, or the main
+  thread's `pthread_exit` (35 combinations, twice each): 4 to 6 reports per
+  run, one per terminated Worker, 320 in all, at the two lines that call the
+  entry. All as console errors in that run; the page's error event fires for
+  one only at times, which is what the model test caught.
+- Without Dolly: an 80-byte module in a Worker inside a Worker, entered
+  through `promising` and parked in `memory.atomic.wait32` or spinning, then
+  terminated: one report each time in Firefox, none entered directly, none in
+  Chrome 151 either way. An `error` listener on the Worker (cancelling or
+  not) and the parent's global `onerror` receive nothing, so the supervisor
+  cannot take the report; it can only not cause it.
+
+**Fix.** Firefox gains no stack from the entry, so the supervisor measures
+instead of assuming: how many calls a recursion nests before the stack ends,
+entered each way, once when it starts; processes enter through `promising`
+only where that is half again as deep. No browser is named.
+
+- A one-local recursion is useless for this in Firefox: its depth moved
+  between 21,567 and 84,862 as the compiler tiers changed, the ratio between
+  0.4 and 2.4 (18 pairs); Chrome read 17,259 against 9,090 every time.
+- The probe therefore holds sixteen values it loaded from memory across each
+  call, which every tier must keep in the frame (237 bytes of Wasm): Chrome
+  151 reads 5,252 against 2,766 (1.90), Firefox 155 5,957 against 5,881-5,900
+  (1.01), identically in 48 measurements of 48 each, in under 3 ms.
+- `test/threads-browser.mjs` now requires that the browser reports nothing
+  while threaded processes are interrupted and ended. Without the fix it
+  fails in Firefox with two reports and passes in Chrome; with it both pass,
+  and so does `test/cpp-browser.mjs` in both, whose 640-call chain needs the
+  larger stack: Chrome still enters through JSPI.
+- The ending matrix again in Firefox with the fix (14 combinations, twice):
+  no report; the only console lines are the supervisor's own for the trap.
+- Whole core suite at `621a7e13`, `node test/browser-tests.mjs chromium
+  firefox` (795 s): 74 passes, every test in both browsers except
+  `fs-growth` in Chrome, which the 6 GB browser slot ends as before
+  (`Target crashed`).
+- The model test's Firefox `pi-local` scenario at `621a7e13`
+  (`DOLLY_LLM_IMAGES=pi-local DOLLY_LLM_BROWSERS=firefox`, a private Xvfb, an
+  8 GB scope, `pi-local` and `dollyfile-studio` imported from the integration
+  tree): passes in 7.8 minutes, through "task with qwen3.5-2b, qwen3.5-4b
+  installed and chosen with /local, … task again", with no page error. Its
+  Chromium scenarios and `dollyfile-studio` were not rerun here.
+
+Left as it is: the choice rests on a measurement. A browser whose JSPI stack
+is half again as deep and which has Firefox's fault would report again; the
+threads test would show it. `docs/process-model.md` and
+`docs/browser-boundary.md` still say the entry is taken "where the browser has
+JSPI"; the accurate words are "where that stack is measured deeper". They
+were left because `dolly-docs` pins both and `pi`, `pi-local` and
+`dollyfile-studio` follow it: the sentence should go in with the next change
+that rebuilds those.
 
 ## Decisions (2026-10-01, delegated)
 
