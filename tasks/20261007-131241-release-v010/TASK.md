@@ -64,9 +64,9 @@ at the file limit, security fixes to an old version, and migration.
 
 ## What this task delivers
 
-A plan written into this file, which the owner approves section by section,
-and the implementation tasks it creates. Nothing is implemented or deployed
-under this task.
+The plan below, decided with the owner on 2026-10-07, and its steps.
+Nothing is deployed under this task without the owner asking for the
+release.
 
 ## What exists
 
@@ -104,75 +104,144 @@ under this task.
   rebuilds every image, 26 GB of snapshots; a round that leaves it alone
   shares most packs with the round before.
 
-## Questions the plan answers
+## Plan
 
-Release v0.1.0:
+The owner (2026-10-07): "I think the answer to those questions should be
+pretty clear by now... I want github tags to match releases." What follows is
+decided; the two numbers marked *measure* are taken while implementing.
 
-1. What the version names (the distribution: runtime, catalog and site
-   together?), where it is recorded (`package.json`, a tag, the pages, a file
-   in each image) and how it relates to the interface versions above.
-2. Release criteria: the open tasks that block 0.1.0, by ID from `tatr ls`;
-   the known gaps that ship documented; each site's catalog; the licence
-   gates (the Claude Code image needs the owner's confirmation of Anthropic's
-   Commercial Terms; Xonotic's two points that the archives cannot settle).
-3. The release procedure as a checklist with times from measured rounds:
-   round, checks, tag, notes, the GitHub release, both deployments, the live
-   verification.
-4. The policy after 0.1.0: what makes a patch, a minor and a major version,
-   and what "backward compatible" promises and for how long.
+One name everywhere: version `X.Y.Z` in `package.json` = git tag `vX.Y.Z` =
+GitHub release `vX.Y.Z` = site path `/vX.Y.Z/` = the prefix of every recipe
+URL.
 
-Versioned hosting:
+**Version and tags**
 
-5. URL layout: `/v0.1.0/…` for everything a version serves. What `/` does,
-   what the unversioned links already public do (`/xonotic/`, `/view/NAME/`,
-   `/Dollyfile-NAME`, `/amy-index.txt`, `/licences/`), and whether there is a
-   `/latest/`. How the redirect is made with static files only (a Pages
-   `_redirects` rule or an HTML page), its caching, its effect under
-   COOP/COEP, and proof that no rule shadows `/vX.Y.Z/`, `/_dolly/` or
-   `/dist/packs/`.
-6. Canonical recipe URLs, the interface question. Recipes pin
-   `https://daugasauron.com/Dollyfile-NAME SHA256`. Decide between versioned
-   URLs, unversioned URLs whose hash selects the bytes, or both; show each
-   option on a real recipe, and say what an old image's `amy install` and a
-   custom Dollyfile written against 0.1.0 resolve to once 0.2.0 is out.
-7. What keeps working for an old version, as statements a test can check: its
-   pages boot the same image bytes; its recipes, sources and documents are
-   served unchanged; `amy` installs from its own index; a session saved on it
-   restores on it; an exported `.dolly-session` imports; a custom image
-   rebuilds. And what is not promised: services outside the site (npm, model
-   endpoints, git hosts), and browsers that change.
-8. State shared by all versions on the origin: saved sessions, the image
-   cache, the service worker's scope, `robots.txt`, `404.html`. What a newer
-   page does with an older version's session, and whether the session list
-   names the version.
-9. Capacity and retention, measured, not estimated: the files and bytes one
-   more version adds when the seed did not change and when it did; how many
-   versions fit in 20,000 files; the upload time; the local disk needed to
-   keep every published release (the exporter needs each on disk). A
-   retention rule under which no version disappears silently, and whether a
-   second host or one Pages project per version is needed, with what that
-   does to the origin and so to sessions.
-10. Mechanics: how one deployment is assembled from all versions (extending
-    the predecessor mechanism to carry HTML under a prefix, or one exported
-    directory per version); where published releases are archived so another
-    machine can redeploy them (they are not in git); and how a published
-    version is shown unchanged after later deploys (its live files against
-    its sealed manifest).
-11. GitHub Pages: the newest version only, or a redirect to the domain.
-12. Security. An old version keeps its old runtime and broker. The policy
-    for a flaw found later: withdraw the version, patch it in place (which
-    ends immutability), or mark it and redirect; and who decides.
-13. Migration: the first versioned deploy, starting from the release live
-    today (`b06b5c8a…`) and the links already public.
+- `package.json` carries the version being developed. A release is a green
+  round on a commit, the annotated tag `vX.Y.Z` on that commit, the GitHub
+  release of the same name (notes, and the GitHub Pages tarball as its
+  asset), then the deployments. The next commit moves `package.json` to the
+  next version.
+- The tag is the release: a packaged site records its source commit, and the
+  release check compares it with `git rev-parse vX.Y.Z`. `pages-SHA-rN` tags
+  are no longer made; `checkpoint-*` and `rc-*` stay local markers.
+- While the version is 0.x: a patch release fixes, a minor release may change
+  anything. The promise is that a published `/vX.Y.Z/` keeps serving its
+  bytes while the site exists; nothing is promised about services outside
+  the site (npm, model endpoints, git hosts) or about browsers.
+
+**Recipe URLs**
+
+- Recipes name `https://daugasauron.com/vX.Y.Z/PATH SHA256`. The canonical
+  base becomes origin plus version, generated from `package.json`, behind the
+  one constant `CANONICAL_ORIGIN` in `src/static-asset.mjs` that ten places
+  use; `canonicalPath` strips it. `update-recipe-pins.mjs` writes the base
+  into every recipe when the version changes, and the lint refuses a recipe
+  in the tree that names another base.
+- A version builds only from its own recipes: a URL of another version is
+  refused with the message `src/image-build.mjs` already has. A Dollyfile
+  written against 0.1.0 keeps working on `/v0.1.0/`, which is the
+  compatibility asked for.
+- Cost: a version change rewrites every recipe, and an image contains its
+  recipe, so the round after the change rebuilds the whole catalog (about 80
+  minutes; *measure*). That happens once per version, when `package.json`
+  moves, not on release day.
+
+**Site layout**
+
+- A version is the complete site exported under its prefix, sharing nothing.
+  `export-static.mjs` already takes a base (GitHub Pages' `/dolly/`); the
+  Cloudflare exporter gains the same argument. Cloudflare stores identical
+  files once, so repeated packs cost file slots, not upload time.
+- The root holds only the redirect of `/` to the newest version (a Pages
+  `_redirects` rule, 302), `_headers` (isolation for everything, immutable
+  caching for each version's `_dolly/` and `dist/packs/`), `404.html` and
+  `robots.txt`. Every other unversioned path returns 404, today's public
+  links included.
+- One deployment is the root files plus one directory per published version.
+- `amy` reads `amy-index.txt` under its own version's prefix, as it already
+  does under a prefix.
+
+**Sessions**
+
+- The session database's name carries the version (today the constant
+  `dolly-sessions-v1` in `src/session-store.mjs`): a version lists, restores
+  and imports only its own saves. An exported `.dolly-session` records its
+  version, and another version refuses it, naming the version it belongs to.
+- Sessions saved before 0.1.0 are not carried over: their images leave the
+  site with the unversioned deployment. The release notes say so.
+- The image cache is keyed by content digest and holds no user state; the
+  versions share it.
+
+**Capacity, archive, the limit**
+
+- 2,317 files per version today, so eight versions fit in 20,000 files
+  (*measure* on the first prefixed export). At the limit the exporter fails,
+  and the owner removes a version explicitly; nothing is pruned
+  automatically.
+- Every published version is kept as its exported directory with its
+  `deployment.sha256`, in one place outside `build/` (18 GB each today),
+  because each deploy needs all of them. The live site is the second copy: a
+  script mirrors `/vX.Y.Z/` back and checks it against that list, so another
+  machine can redeploy.
+- After a deploy: every file of the new version is checked on the live site
+  against its list, and each older version's list is fetched and compared
+  with the archived one.
+
+**GitHub Pages**: the newest version only, at `/dolly/vX.Y.Z/`, with an
+`index.html` at `/dolly/` that redirects to it; the catalog of
+`config/github-pages-images.txt`, trimmed until the export is under 1 GB.
+Its recipes name the domain's versioned URLs and resolve to its own files.
+
+**Security**: a published version is never patched. A fix is a new version,
+and `/` points to it. The owner may remove a version; its paths then return
+404.
+
+**What 0.1.0 needs**: `closed-source-agent` merged (in the domain's catalog
+only once the owner has confirmed Anthropic's Commercial Terms); the
+`robots.txt` task (`20261007-132428-robots`); the steps below; a green round
+on the tagged commit. Every other open task ships as a documented gap.
+
+## Steps
+
+Tracked here, one round each; no further tasks are created for them.
+
+1. The canonical base from `package.json`; recipes, documents and tests
+   rewritten; the lint; `package.json` at 0.1.0. A full catalog round.
+2. Sessions per version: store name, the version in the exported file, the
+   refusal. Browser test: a save made under one version is not listed under
+   another, and its export is refused there.
+3. Exporters: the Cloudflare exporter takes a base and assembles the root
+   files and the versions; the GitHub Pages redirect page. Test: two versions
+   side by side in one export each boot their own image and install from
+   their own index; an unversioned path returns 404; `/` redirects.
+4. The release checklist as a script where it can be one; `pages.yml` takes
+   the version tag; `docs/deployment.md` describes this instead of what it
+   replaces.
+5. `robots.txt`.
+6. Release 0.1.0 by the checklist.
+
+## Release checklist
+
+1. Round green on the commit (source, artifacts, browser suites in both
+   browsers, demos, GPU tests); the tree clean.
+2. Credential scan of the commits and of `dist/dolly-*-system.snapshot`.
+3. Package the domain site and the GitHub Pages site; acceptance passes; the
+   Pages workflow's steps pass locally, under 1 GB.
+4. Tag `vX.Y.Z`; push `main` and the tag; the packaged sites' recorded
+   commit equals the tag's.
+5. GitHub release `vX.Y.Z` with notes and the tarball; run `pages.yml`.
+6. Assemble the deployment from the archive and the new version; deploy as a
+   detached job; never restart it.
+7. Live checks in Chromium and Firefox: `/` redirects; the new version boots
+   `default` and runs a command; each older version still boots; the file
+   lists match.
+8. Archive the new version's export; move `package.json` to the next
+   version.
 
 ## Done when
 
-- Each question has a recommendation, the alternatives rejected with the
-  reason, and for question 9 numbers measured on real exports.
-- The decisions that are the owner's are listed first, each with the default
-  the plan proceeds on.
-- The first release is a step list with a verification per step, and the
-  implementation is split into tasks small enough for one round each.
+- The steps are done and 0.1.0 is released by the checklist, with the
+  evidence of each check recorded here.
 
 ## Related
 
