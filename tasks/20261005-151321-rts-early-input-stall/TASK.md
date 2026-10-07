@@ -61,3 +61,15 @@ The `rts` demo test failed once in a round on `847006a9` (Chromium, two image
 builds running beside it): "mouse menu/quit must not stall either player",
 frames 18 and 19 before the input and the same two frames 6 s after it. It
 passed on the next run (263.9 s) and in both rounds of 2026-10-07.
+
+## A third failure, with another message (2026-10-08, the integrator)
+
+The full run on `main` `522564c0` (07:08 to 07:49, three agents building
+images beside it) failed `rts` alone, twice in its log with "both native
+games must animate during the slow model's response, not wait for tools".
+Every other demo, the core suite in both browsers and the five GPU tests
+passed in that run. Since the process entry changed on 2026-10-08 (JSPI in
+Chrome) `rts` has failed two runs of three, all under load; before it, it
+passed both rounds of 2026-10-07 and stalled in about half the loaded runs
+of this task's table. Not yet done: the same count with the entry disabled
+and on a quiet machine, which is what would say whether the entry matters.

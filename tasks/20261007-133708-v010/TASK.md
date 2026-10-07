@@ -29,6 +29,7 @@ export, `robots.txt`.
 | `closed-source-agent`: Claude Code, its TUI with the user's API key | `20261007-085236-claude-code-image` | merged on `main` (`a7108038`): round green on the runtime fix (`457f0ef3`), then the renamed image's tests in chromium and firefox, source 415/0, artifacts 24/0. Left: the owner's run with a real key, and the Terms gate below |
 | Versioned hosting, versioned recipe URLs, sessions per version, tags that match releases | `20261007-131241-release-v010`, steps 1 to 4 | planned |
 | `robots.txt` that explains and invites | `20261007-132428-robots` | open |
+| `git log` works at a terminal without a pager; `amy install less` | `20261006-111926-less-pager` | reported by the owner on 2026-10-08 (git dies when it cannot start `less`); started on `core/less-pager` |
 | LLVM, Clang and LLD built inside Dolly | `20260930-232236-llvm-in-dolly` | on `main` (`b02b9428`): the compiler built inside Dolly as the image `llvm-cc` and the package `llvm`, stages 1, 2 and 3 identical, 48 builder-minutes more per full round. Not on `main`: the runtime built by `system-build` (row above) and the trial of a seed carrying this compiler |
 | `sockets@0`: local stream sockets between processes, and the ports' workarounds removed | `20261007-074904-sockets-module` | started on `core/sockets-module`; a seed change, built in the release round |
 
@@ -53,7 +54,7 @@ they are proposed now.
 
 - Xonotic: sound, rasterizer threads, the `gpu@0` renderer, more than 31 fps
   at the low preset.
-- `man`, `less`, `exec`, sockets, touch and voice input.
+- `man`, `exec`, touch and voice input.
 - The self-hosting tracks other than LLVM: rustc, 0 A.D.'s remaining host
   steps, Zig follow-ups, parallel build jobs, Cargo without Patti, a
   compiler-free base image.
