@@ -28,6 +28,23 @@ const compilationNoticeMilliseconds = 250;
 const largeInteractiveProcessBytes = 128 * 1024 * 1024;
 const workerReclamationMilliseconds = 500;
 
+// How many calls a recursion nests before this thread's stack ends, entered
+// with enter. Each call counts itself in memory and holds sixteen values it
+// loaded there across the next call, so its frame is as large in a baseline
+// compiler as in an optimizing one: a one-local recursion read anything from
+// 0.4 to 2.4 times in Firefox as its tiers changed.
+// (func $dive (result i64) (local i64 x 16) count++; load them; dive() + their sum)
+const diver = "AGFzbQEAAAABBQFgAAF+AwIBAAUDAQABBxECBm1lbW9yeQIABGRpdmUAAAq/AQG8AQEQfkEAQQAoAgBBAWo2AgBBCCkDACEAQRAp" +
+  "AwAhAUEYKQMAIQJBICkDACEDQSgpAwAhBEEwKQMAIQVBOCkDACEGQcAAKQMAIQdByAApAwAhCEHQACkDACEJQdgAKQMAIQpB4AAp" +
+  "AwAhC0HoACkDACEMQfAAKQMAIQ1B+AApAwAhDkGAASkDACEPEAAgAHwgAXwgAnwgA3wgBHwgBXwgBnwgB3wgCHwgCXwgCnwgC3wg" +
+  "DHwgDXwgDnwgD3wL";
+async function stackDepth(enter) {
+  const { memory, dive } = new WebAssembly.Instance(new WebAssembly.Module(
+    Uint8Array.from(atob(diver), character => character.charCodeAt(0)))).exports;
+  try { await enter(dive)(); } catch { /* The stack ended: that is the measurement. */ }
+  return new Uint32Array(memory.buffer, 0, 1)[0];
+}
+
 export function terminalFailureReason(error) {
   const message = error instanceof Error ? error.message : String(error);
   const firstLine = message.split(/[\r\n]/, 1)[0]
@@ -151,6 +168,15 @@ export class DollyProcessSupervisor {
         hostAbi, serviceHost, parseWasmInterface(threadBytes, "dolly-threads-0"), threadHost, processModules,
       );
       supervisor.releaseWorkerSource = () => URL.revokeObjectURL(workerUrl.href);
+      // Entered through JSPI (WebAssembly.promising), a process runs on a
+      // stack of its own. Chrome's holds about 950 KB where a Worker's holds
+      // 500 KB, which Clang needs. Firefox's holds no more, and Firefox 155
+      // reports every Worker terminated inside such a call as an uncaught
+      // exception that no listener receives. So processes enter that way only
+      // where it is measured half again as deep (Chrome 151: 1.90 times,
+      // Firefox 155: 1.01, each in 48 measurements of 48).
+      supervisor.promisingEntry = WebAssembly.promising !== undefined &&
+        await stackDepth(WebAssembly.promising) > 1.5 * await stackDepth(entry => entry);
       return supervisor;
     } catch (error) {
       URL.revokeObjectURL(workerUrl.href);
@@ -405,6 +431,7 @@ export class DollyProcessSupervisor {
     // local: the modules this executable records that are served in its own
     // Worker (host/dso), each as the bundle it imports and its configuration.
     worker.postMessage({ type: "configure", pid, tid: thread.tid, argument, threaded, module, memory, control,
+      promisingEntry: this.promisingEntry,
       clockOrigin: performance.timeOrigin, processInterface, local: local.map(requirement => this.processModules.get(requirement)) });
   }
 

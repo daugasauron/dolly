@@ -92,6 +92,7 @@ Image builds rewrite SHA-256 pins in `Dollyfile*`. Check by what you changed
 
 - [Architecture](docs/architecture.md): components, system calls, core images.
 - [Process model](docs/process-model.md): spawn, descriptors, pipes, signals.
+- [Browser stack](docs/browser-stack.md): what bounds recursion, how a process is entered, Firefox, LLVM.
 - [Machine contracts](abi/README.md): exact Wasm imports, exports and layouts.
 - [Host modules](host/README.md): one directory and manifest per browser bridge.
 - [Browser boundary](docs/browser-boundary.md): threat model and host modules.

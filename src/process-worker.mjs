@@ -152,11 +152,13 @@ try {
     } finally { URL.revokeObjectURL(url); }
   }));
   self.postMessage({ type: "started", pid: configuration.pid, tid: configuration.tid });
+  // Through JSPI where that stack is the larger one (src/process-supervisor.mjs).
+  const enter = configuration.promisingEntry ? WebAssembly.promising : entry => entry;
   if (configuration.argument !== undefined) {
-    threadResult = instance.exports.dolly_thread_start(configuration.tid, configuration.argument);
+    threadResult = await enter(instance.exports.dolly_thread_start)(configuration.tid, configuration.argument);
     self.postMessage({ type: "thread-finished", pid: configuration.pid, tid: configuration.tid, result: threadResult });
   } else {
-    instance.exports._start();
+    await enter(instance.exports._start)();
     self.postMessage({ type: "finished", pid: configuration.pid, tid: configuration.tid });
   }
 } catch (error) {

@@ -13,7 +13,7 @@ README. Demos may use each other; the core never uses a demo.
 - [game-agent](game-agent/README.md): agent code and the Codex relay shared by the games.
 - [gpu-fluid](gpu-fluid/README.md): an upstream WebGPU fluid solver.
 - [javascript](javascript/README.md): QuickJS-ng, Janis and TypeScript.
-- [llvm](llvm/README.md): LLVM, Clang and LLD built inside Dolly (so far TableGen).
+- [llvm](llvm/README.md): LLVM, Clang and LLD built inside Dolly by its own `cc`, and the resulting compiler.
 - [local-llm](local-llm/README.md): llama.cpp and model packages for Pi.
 - [neovim](neovim/README.md): Neovim with Lua and Tree-sitter parsers.
 - [pi](pi/README.md): the Pi coding agent.
