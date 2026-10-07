@@ -1,0 +1,92 @@
+DOLLY 6
+TOOLCHAIN zero-ad-spidermonkey
+REQUIRES HOST runtime@0
+REQUIRES HOST dso@0
+REQUIRES HOST audio@0
+REQUIRES HOST display@0
+REQUIRES HOST download@0
+REQUIRES HOST http@0
+REQUIRES HOST threads@0
+REQUIRES HOST upload@0
+
+# Build-only: SpiderMonkey 128.13.0, the engine's JavaScript library, built by
+# upstream's mozbuild (configure.py and Make) with Dolly's CPython, Cargo,
+# cbindgen and c++ from 0 A.D.'s pinned tarball and patches.
+FROM https://daugasauron.com/demos/zero-ad/Dollyfile-zero-ad-deps 2a77ac29c039bcbcddc68d421fc33825ad9f731a03dceabba5cb5a7772ba746b
+INSTALL https://daugasauron.com/demos/python/Dollyfile-python 63564ea12bb057627a1e3c89b514c01e74895c4a5f2f8cae4793c0dc7dd4dc17
+INSTALL https://daugasauron.com/demos/rust/Dollyfile-cargo aa236f537761c52e49b067432c96b41c7950087be63d8803d9ab0529b8f27d49
+INSTALL https://daugasauron.com/demos/rust/Dollyfile-cbindgen c29d76b4e892379a32d7ccf4a58f1291cd2aa083f3ea3327720581d9d754a3e9
+REQUIRES HEADER zlib
+REQUIRES LIB z
+REQUIRES TOOL cc
+REQUIRES TOOL c++
+REQUIRES TOOL ar
+REQUIRES TOOL make
+REQUIRES TOOL patch
+REQUIRES TOOL tar
+REQUIRES TOOL gzip
+REQUIRES TOOL pkg-config
+REQUIRES TOOL python
+REQUIRES TOOL cargo
+REQUIRES TOOL rustc
+REQUIRES TOOL cbindgen
+REQUIRES TOOL cp
+REQUIRES TOOL mkdir
+REQUIRES TOOL sh
+
+# The pinned tree without its test suites, 0 A.D.'s patches and Dolly's.
+SOURCE https://daugasauron.com/dist/static/zero-ad-build/mozjs.tar.gz a0e7bd4549c698ba1c84c437e4191345afde2e24746eb7ac41e7d799f1ba8808 /tmp/mozjs.tar.gz
+SLOP gzip -dc /tmp/mozjs.tar.gz | tar -xf - -C /
+SLOP CWD /tmp/mozjs/mozjs-128.13.0 sh ../patches/patch.sh
+SLOP patch -p1 -d /tmp/mozjs/mozjs-128.13.0 -i /tmp/mozjs/spidermonkey.patch
+
+# The host build's configuration: mozbuild knows no Dolly OS, so the compiler
+# names the target as the host build did (-D__wasi__, wasm64-unknown-wasi) and
+# Dolly builds on the same triple. No JIT, no Intl, no tests, no debug symbols.
+# A standalone JS build uses no bindgen, but configure still looks for libclang;
+# naming Dolly's library directory (which holds none) takes mozbuild's own
+# --with-libclang-path route and skips its `c++ -print-search-dirs` probe,
+# a spelling Dolly's cc does not have.
+FILE /tmp/mozjs/build.slop
+    set -e
+    export MOZCONFIG=/dev/null MOZBUILD_STATE_PATH=/tmp/mozjs/state
+    export MACH_BUILD_PYTHON_NATIVE_PACKAGE_SOURCE=none RUSTC_BOOTSTRAP=1 CRATE_CC_NO_DEFAULTS=1
+    export CC='cc -D__wasi__' CXX='c++ -D__wasi__' HOST_CC='cc -D__wasi__' HOST_CXX='c++ -D__wasi__'
+    export AR=ar RUST_TARGET=wasm64-emscripten-probe CBINDGEN=/usr/bin/cbindgen
+    mkdir /tmp/mozjs/mozjs-128.13.0/obj
+    cd /tmp/mozjs/mozjs-128.13.0/obj
+    python ../configure.py --enable-project=js --host=wasm64-unknown-wasi --target=wasm64-unknown-wasi \
+      --disable-jit --disable-shared-js --without-intl-api --disable-tests --disable-js-shell \
+      --disable-jemalloc --disable-debug --enable-optimize=-O2 --disable-debug-symbols \
+      --disable-bootstrap --disable-warnings-as-errors --with-libclang-path=/usr/lib
+    # Cargo links the Rust library and its build scripts through Dolly's rustc
+    # linker adapter, which translates the Emscripten target's linker vocabulary
+    # to cc; mozbuild would otherwise hand cc the raw -s/EXPORTED_FUNCTIONS flags.
+    L=/opt/rust-sdk/bin/dolly-rust-link
+    make -j4 MOZ_CARGO_WRAP_LD=$L MOZ_CARGO_WRAP_HOST_LD=$L MOZ_CARGO_WRAP_LD_CXX=$L \
+      MOZ_CARGO_WRAP_HOST_LD_CXX=$L MOZ_CARGO_WRAP_LDFLAGS= MOZ_CARGO_WRAP_HOST_LDFLAGS=
+    mkdir -p /opt/mozjs/lib /usr/share/licenses/spidermonkey/crates
+    # dist/include is 328 symlinks into the source tree, which is not retained;
+    # copytree dereferences them (Dolly's cp has no -L).
+    python -c 'import shutil; shutil.copytree("dist/include", "/opt/mozjs/include", symlinks=False)'
+    cp js/src/build/libjs_static.a wasm64-emscripten-probe/release/libjsrust.a /opt/mozjs/lib/
+    ls -l /opt/mozjs/lib
+    cp ../LICENSE /usr/share/licenses/spidermonkey/LICENSE
+    cp ../nsprpub/LICENSE /usr/share/licenses/spidermonkey/MPL-2.0
+    # The notices of the crates compiled into libjsrust.a.
+    for crate in $(ls wasm64-emscripten-probe/release/deps | sed -nE 's/^lib(.+)-[0-9a-f]{16}\.rlib$/\1/p' | sort -u); do
+      for name in $crate $(echo $crate | tr _ -); do
+        [ -d ../third_party/rust/$name ] || continue
+        for notice in LICENSE LICENSE-MIT LICENSE-APACHE LICENSE-MPL LICENSE.txt LICENSE.md COPYING COPYRIGHT UNLICENSE; do
+          [ -f ../third_party/rust/$name/$notice ] || continue
+          mkdir -p /usr/share/licenses/spidermonkey/crates/$name
+          cp ../third_party/rust/$name/$notice /usr/share/licenses/spidermonkey/crates/$name/$notice
+        done
+        break
+      done
+    done
+SLOP time slop -e /tmp/mozjs/build.slop
+FOLDER /opt/mozjs
+FOLDER /usr/share/licenses/spidermonkey
+
+ENTRY /bin/foreground -i /bin/slop

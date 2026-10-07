@@ -22,9 +22,9 @@ with tarfile.open(download(pin["url"], pin["sha256"])) as archive:
     archive.extractall(stage, filter="data")
 source = stage / pin["directory"]
 lock = source / "Cargo.lock"
-if name in {"ripgrep", "fd"}:
+if name in {"ripgrep", "fd", "cbindgen"}:
     # Use the same libc source/layout as the wasm64 standard library.
-    version = {"ripgrep": "177", "fd": "189"}[name]
+    version = {"ripgrep": "177", "fd": "189", "cbindgen": "144"}[name]
     text, count = re.subn(
         rf'(name = "libc"\n)version = "0\.2\.{version}"\nsource = "[^"\n]+"\nchecksum = "[^"\n]+"\n',
         r'\1version = "0.2.186"\n', lock.read_text())

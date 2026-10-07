@@ -18,8 +18,7 @@ entry.
   and musl, LLVM's compiler, compiler-rt and headers, the Ghostty kernel plugin,
   and the Iosevka font.
 - **Images**: snapshots of programs compiled in Dolly from pinned sources, plus
-  files built outside Dolly: SpiderMonkey for 0 A.D., the Rust seed, model
-  weights, fonts and game data.
+  files built outside Dolly: the Rust seed, model weights, fonts and game data.
 - **Sources**: every canonical `SOURCE` of the catalog under `dist/static/`,
   the recipes and headers, at the same release path as the images. The gpu-fluid
   sources come from raw.githubusercontent.com instead.
@@ -83,20 +82,16 @@ site under `/dolly/` carries an inert copy.
 
 ## 0 A.D.
 
-0 A.D. is built in Dolly: `zero-ad-deps` and `zero-ad-engine` compile the
-engine and the libraries it links from `zero-ad-build/deps.tar.gz` and
-`engine.tar.gz`, which the site serves as recipe inputs. SpiderMonkey is still
-cross-built outside Dolly (`zero-ad-build/mozjs-host.tar.gz`: headers and
-static libraries), so `zero-ad-engine` also takes `zero-ad-build/bootstrap.tar`
-(151 MB): SpiderMonkey 128.13's pinned tarball with 0 A.D.'s patches, and
-`demos/zero-ad/toolchain`, which cross-builds it and translates the game data's
-SPIR-V shaders to WGSL (the GLSL sources stay in the served mod archives). On
-Cloudflare it becomes eight 20 MiB parts and one more `_headers` rule per
-release: 23 of the 100 rules per release, so a deployment still carries at most
-three predecessors. The `zero-ad` image keeps the licences of every statically
-linked library under `/usr/share/licenses/`, SpiderMonkey's MPL-2.0 text and
-the licence files of the 51 vendored Rust crates compiled into its
-`libjsrust.a` (Mozilla's own crates are MPL-2.0).
+0 A.D. is built in Dolly: `zero-ad-deps`, `zero-ad-spidermonkey` and
+`zero-ad-engine` compile the engine, SpiderMonkey and the libraries it links
+from `zero-ad-build/deps.tar.gz`, `mozjs.tar.gz` (SpiderMonkey 128.13's pinned
+tarball without its test suites, with 0 A.D.'s patches and Dolly's) and
+`engine.tar.gz`, which the site serves as recipe inputs. The game data's
+SPIR-V shaders are translated to WGSL by `demos/zero-ad/toolchain` (the GLSL
+sources stay in the served mod archives). The `zero-ad` image keeps the
+licences of every statically linked library under `/usr/share/licenses/`,
+SpiderMonkey's MPL-2.0 text and the licence files of the vendored Rust crates
+compiled into its `libjsrust.a` (Mozilla's own crates are MPL-2.0).
 
 ## Fixed gaps
 

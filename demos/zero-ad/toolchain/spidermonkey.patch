@@ -169,3 +169,322 @@
      )
  )
  
+--- a/moz.configure
++++ b/moz.configure
+@@ -396,6 +396,8 @@
+     what="llvm-objdump",
+     when="--enable-compile-environment",
+     paths=clang_search_path,
++    # Nothing in a static js build runs it, and Dolly ships none.
++    allow_missing=True,
+ )
+ 
+ add_old_configure_assignment("LLVM_OBJDUMP", llvm_objdump)
+@@ -424,6 +426,8 @@
+     plain_llvm_or_prefixed("readelf"),
+     when=readelf_when,
+     paths=clang_search_path,
++    # check_binary skips every file that is not ELF, so a wasm build never runs it.
++    allow_missing=True,
+     validate=validate_readelf,
+ )
+ 
+@@ -443,6 +447,8 @@
+     plain_llvm_or_prefixed("objcopy"),
+     when=readelf_when,
+     paths=clang_search_path,
++    # check_binary skips every file that is not ELF, so a wasm build never runs it.
++    allow_missing=True,
+     validate=validate_objcopy,
+ )
+ 
+@@ -903,6 +909,8 @@
+     when=strip_when,
+     paths=clang_search_path,
+     validate=validate_strip,
++    # Only --enable-strip runs it, and Dolly ships none.
++    allow_missing=True,
+ )
+ 
+ 
+--- a/mfbt/RandomNum.cpp
++++ b/mfbt/RandomNum.cpp
+@@ -7,7 +7,7 @@
+ #include "mozilla/RandomNum.h"
+ 
+ #include <fcntl.h>
+-#ifdef __EMSCRIPTEN__
++#if defined(__EMSCRIPTEN__) || defined(__dolly__)
+ #  include <sys/random.h>
+ #endif
+ #ifdef XP_UNIX
+@@ -96,7 +96,7 @@
+ #if defined(XP_WIN)
+   return !!RtlGenRandom(aBuffer, aLength);
+ 
+-#elif defined(__EMSCRIPTEN__)
++#elif defined(__EMSCRIPTEN__) || defined(__dolly__)
+   return getrandom(aBuffer, aLength, 0) == static_cast<ssize_t>(aLength);
+ 
+ #elif defined(USE_ARC4RANDOM)  // defined(XP_WIN)
+--- a/build/cargo-linker
++++ b/build/cargo-linker
+@@ -1,4 +1,4 @@
+-#!/usr/bin/env python3
++#!/usr/bin/python3
+ 
+ # If you want to use a custom linker with Cargo, Cargo requires that you
+ # specify it in Cargo.toml or via the matching environment variable.
+@@ -25,6 +25,7 @@
+ #   fail if the requested feature is in the C++ runtime only (bug 1747298).
+ 
+ import os
++import subprocess
+ import sys
+ 
+ # This is not necessarily run with a virtualenv python, so add
+@@ -62,4 +63,5 @@
+     args.append(arg)
+ 
+ wrap_ld = split(wrap_ld)
+-os.execvp(wrap_ld[0], wrap_ld + args)
++# Dolly has no exec: run the linker as a child and leave with its status.
++sys.exit(subprocess.call(wrap_ld + args))
+--- a/js/src/old-configure
++++ b/js/src/old-configure
+@@ -2066,7 +2066,7 @@
+     ;;
+ 
+ *-wasi*)
+-    CXXFLAGS="$CXXFLAGS -mthread-model single"
++    # Dolly is not single-threaded WASI: -pthread is probed on, and cc refuses the pair as Clang does.
+     MOZ_FIX_LINK_PATHS=
+     ;;
+ 
+--- a/build/moz.configure/old.configure
++++ b/build/moz.configure/old.configure
+@@ -12,6 +12,8 @@
+         "m4",
+     ),
+     paths=prefer_mozillabuild_path,
++    # Only needed to regenerate old-configure, which the release ships; Dolly has no m4.
++    allow_missing=True,
+ )
+ 
+ 
+@@ -222,6 +224,8 @@
+                 build_env.topsrcdir, "build", "autoconf", "autoconf.sh"
+             )
+             log.info("Refreshing %s with %s", old_configure, autoconf)
++            if not m4:
++                die("Regenerating old-configure needs m4, which is not available")
+             env = dict(os.environ)
+             env["M4"] = m4
+             env["AWK"] = awk
+--- a/build/moz.configure/init.configure
++++ b/build/moz.configure/init.configure
+@@ -715,7 +715,8 @@
+     host = config_sub(shell, host)
+ 
+     try:
+-        return split_triplet(host)
++        # Dolly builds on a wasm64 host.
++        return split_triplet(host, allow_wasi=True)
+     except ValueError as e:
+         die(e)
+ 
+--- a/build/moz.configure/rust.configure
++++ b/build/moz.configure/rust.configure
+@@ -473,6 +473,8 @@
+         os.remove(out_path)
+ 
+ 
++option(env="RUST_TARGET", nargs=1, help="Explicit Rust target triple", when=rust_compiler)
++
+ @depends(
+     rustc,
+     host,
+@@ -480,14 +482,16 @@
+     rustc_info.host,
+     rust_supported_targets,
+     arm_target,
++    "RUST_TARGET",
+     when=rust_compiler,
+ )
+ @checking("for rust host triplet")
+ @imports(_from="textwrap", _import="dedent")
+ def rust_host_triple(
+-    rustc, host, compiler_info, rustc_host, rust_supported_targets, arm_target
++    rustc, host, compiler_info, rustc_host, rust_supported_targets, arm_target, override
+ ):
+-    rustc_target = detect_rustc_target(
++    # Dolly builds on its own target, which rustc knows only as a target file.
++    rustc_target = override[0] if override else detect_rustc_target(
+         host, compiler_info, arm_target, rust_supported_targets
+     )
+     if rustc_target != rustc_host:
+@@ -516,8 +520,6 @@
+     return rustc_target
+ 
+ 
+-option(env="RUST_TARGET", nargs=1, help="Explicit Rust target triple", when=rust_compiler)
+-
+ @depends(
+     rustc, target, c_compiler, rust_supported_targets, arm_target, "RUST_TARGET", when=rust_compiler
+ )
+--- a/third_party/rust/jobserver/.cargo-checksum.json
++++ b/third_party/rust/jobserver/.cargo-checksum.json
+@@ -1 +1 @@
+-{"files":{"Cargo.toml":"8bdb529d87cf3cd9eed1909a2f32216ea34caa2f30ac552f57cb29a1bdad5568","LICENSE-APACHE":"a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2","LICENSE-MIT":"378f5840b258e2779c39418f3f2d7b2ba96f1c7917dd6be0713f88305dbda397","README.md":"07d8d79f8f6b6a94321fe8db78d26ed409de47cee49290947bd6bbfa29d05e9c","src/lib.rs":"4e841d58f95ea5f5cd4f975d0ddefaeef4dc364717cda16d6f0b908850b31ab8","src/unix.rs":"68b089c8c96ee0f8ac867db66520f0bd05cb6ed818f9f3c06aa1a079c9379aec","src/wasm.rs":"65d3d8ed45972b4459581505906481d32a50d2f7514cd7ff2a595fceeaa672f0","src/windows.rs":"8e0fa3ab29757d809d4fa03c8101870435ce8c4ceaebe491df3144d62fe0aaaf","tests/client-of-myself.rs":"ca09bf398f69df4bac1730999e954dbbc3faf3c6512678c136e0938e7e9cd0ab","tests/client.rs":"d4745cdd650c86d19bc81f6c9b35df498996deffb86ae6412ad040af96a19183","tests/helper.rs":"c0e6c00eaf849295d8ec23e374690b6645c0f7d993e91abf7ad53ac960f71762","tests/make-as-a-client.rs":"8be1f3fef1e9e65c7904dbaa04364bf0f44e9deab84a2a247a5a94b5cf0df9bc","tests/server.rs":"da15bf12e1df1883f660892b996c9e0d92485aace3f7b50ee70c4a8e6deae8da"},"package":"068b1ee6743e4d11fb9c6a1e6064b3693a1b600e7f5f5988047d98b3dc9fb90b"}
+\ No newline at end of file
++{"files": {"Cargo.toml": "8bdb529d87cf3cd9eed1909a2f32216ea34caa2f30ac552f57cb29a1bdad5568", "LICENSE-APACHE": "a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2", "LICENSE-MIT": "378f5840b258e2779c39418f3f2d7b2ba96f1c7917dd6be0713f88305dbda397", "README.md": "07d8d79f8f6b6a94321fe8db78d26ed409de47cee49290947bd6bbfa29d05e9c", "src/lib.rs": "bdc0837e8209d1a11d1cae5afc204060fada68433158478998df2c6971ad5d94", "src/unix.rs": "68b089c8c96ee0f8ac867db66520f0bd05cb6ed818f9f3c06aa1a079c9379aec", "src/wasm.rs": "65d3d8ed45972b4459581505906481d32a50d2f7514cd7ff2a595fceeaa672f0", "src/windows.rs": "8e0fa3ab29757d809d4fa03c8101870435ce8c4ceaebe491df3144d62fe0aaaf", "tests/client-of-myself.rs": "ca09bf398f69df4bac1730999e954dbbc3faf3c6512678c136e0938e7e9cd0ab", "tests/client.rs": "d4745cdd650c86d19bc81f6c9b35df498996deffb86ae6412ad040af96a19183", "tests/helper.rs": "c0e6c00eaf849295d8ec23e374690b6645c0f7d993e91abf7ad53ac960f71762", "tests/make-as-a-client.rs": "8be1f3fef1e9e65c7904dbaa04364bf0f44e9deab84a2a247a5a94b5cf0df9bc", "tests/server.rs": "da15bf12e1df1883f660892b996c9e0d92485aace3f7b50ee70c4a8e6deae8da"}, "package": "068b1ee6743e4d11fb9c6a1e6064b3693a1b600e7f5f5988047d98b3dc9fb90b"}
+\ No newline at end of file
+--- a/python/mozboot/mozboot/util.py
++++ b/python/mozboot/mozboot/util.py
+@@ -4,7 +4,6 @@
+ 
+ import hashlib
+ import os
+-import ssl
+ from pathlib import Path
+ from urllib.request import urlopen
+ 
+@@ -35,6 +34,8 @@
+     that will be used to validate the downloaded file using the given
+     digest algorithm.  The value of digest can be any value accepted by
+     hashlib.new.  The default digest used is 'sha256'."""
++    import ssl
++
+     ssl_context = ssl.create_default_context(cafile=certifi.where())
+     f = urlopen(url, context=ssl_context)
+     h = hashlib.new(digest)
+--- a/mfbt/double-conversion/double-conversion/utils.h
++++ b/mfbt/double-conversion/double-conversion/utils.h
+@@ -153,7 +153,7 @@
+     defined(__riscv) || defined(__e2k__) || \
+     defined(__or1k__) || defined(__arc__) || defined(__ARC64__) || \
+     defined(__microblaze__) || defined(__XTENSA__) || \
+-    defined(__EMSCRIPTEN__) || defined(__wasm32__)
++    defined(__EMSCRIPTEN__) || defined(__wasm32__) || defined(__wasm64__)
+ #define DOUBLE_CONVERSION_CORRECT_DOUBLE_OPERATIONS 1
+ #elif defined(__mc68000__) || \
+     defined(__pnacl__) || defined(__native_client__)
+--- a/python/mach/mach/logging.py
++++ b/python/mach/mach/logging.py
+@@ -13,7 +13,6 @@
+ import sys
+ import time
+ 
+-import blessed
+ import six
+ from mozbuild.buildversion import mozilla_build_version
+ from packaging.version import Version
+@@ -289,6 +288,9 @@
+         if enable_blessed():
+             # Sometimes blessed fails to set up the terminal, in that case, silently fail.
+             try:
++                # Needs curses, which Dolly's CPython has not: then no colour.
++                import blessed
++
+                 terminal = blessed.Terminal(stream=_wrap_stdstream(sys.stdout))
+ 
+                 if terminal.is_a_tty:
+--- a/testing/mozbase/mozinfo/mozinfo/mozinfo.py
++++ b/testing/mozbase/mozinfo/mozinfo/mozinfo.py
+@@ -118,6 +118,9 @@
+ elif sys.platform in ("solaris", "sunos5"):
+     info["os"] = "unix"
+     os_version = version = sys.platform
++elif system == "Dolly":
++    info["os"] = "unix"
++    os_version = version = sys.platform
+ else:
+     os_version = version = unknown
+ 
+--- a/python/mozbuild/mozbuild/frontend/reader.py
++++ b/python/mozbuild/mozbuild/frontend/reader.py
+@@ -870,7 +870,8 @@
+             # (as well as inexistent in older versions). So we cap ourselves
+             # to 60, see https://bugs.python.org/issue26903#msg365886.
+             max_workers = min(max_workers, 60)
+-        self._gyp_worker_pool = ProcessPoolExecutor(max_workers=max_workers)
++        self._gyp_worker_max = max_workers
++        self._gyp_worker_pool = None
+         self._gyp_processors = []
+         self._execution_time = 0.0
+         self._file_count = 0
+@@ -912,7 +913,13 @@
+                 yield gyp_context
+             self._gyp_execution_time += g.execution_time
+         self._gyp_file_count += len(all_gyp_paths)
+-        self._gyp_worker_pool.shutdown()
++        if self._gyp_worker_pool is not None:
++            self._gyp_worker_pool.shutdown()
++
++    def _ensure_gyp_worker_pool(self):
++        if self._gyp_worker_pool is None:
++            self._gyp_worker_pool = ProcessPoolExecutor(max_workers=self._gyp_worker_max)
++        return self._gyp_worker_pool
+ 
+     def all_mozbuild_paths(self):
+         """Iterator over all available moz.build files.
+@@ -1230,7 +1237,7 @@
+                 gyp_dir,
+                 mozpath.join(curdir, gyp_dir.input),
+                 mozpath.join(context.objdir, target_dir),
+-                self._gyp_worker_pool,
++                self._ensure_gyp_worker_pool(),
+                 action_overrides,
+                 non_unified_sources,
+             )
+--- a/third_party/rust/jobserver/src/lib.rs
++++ b/third_party/rust/jobserver/src/lib.rs
+@@ -83,13 +83,13 @@
+ use std::process::Command;
+ use std::sync::{Arc, Condvar, Mutex, MutexGuard};
+ 
+-#[cfg(unix)]
++#[cfg(all(unix, not(all(target_arch = "wasm64", target_os = "emscripten"))))]
+ #[path = "unix.rs"]
+ mod imp;
+ #[cfg(windows)]
+ #[path = "windows.rs"]
+ mod imp;
+-#[cfg(not(any(unix, windows)))]
++#[cfg(any(not(any(unix, windows)), all(target_arch = "wasm64", target_os = "emscripten")))]
+ #[path = "wasm.rs"]
+ mod imp;
+ 
+@@ -303,6 +303,9 @@
+     ///
+     /// On platforms other than Unix and Windows this panics.
+     pub fn configure(&self, cmd: &mut Command) {
++        if cfg!(all(target_arch = "wasm64", target_os = "emscripten")) {
++            return;
++        }
+         cmd.env("CARGO_MAKEFLAGS", &self.mflags_env());
+         self.inner.configure(cmd);
+     }
+@@ -325,6 +328,9 @@
+     ///
+     /// On platforms other than Unix and Windows this panics.
+     pub fn configure_make(&self, cmd: &mut Command) {
++        if cfg!(all(target_arch = "wasm64", target_os = "emscripten")) {
++            return;
++        }
+         let value = self.mflags_env();
+         cmd.env("CARGO_MAKEFLAGS", &value);
+         cmd.env("MAKEFLAGS", &value);
+--- a/js/src/moz.build
++++ b/js/src/moz.build
+@@ -557,7 +557,9 @@
+ # Bug 1739321 - clang 13+ only emits debuginfo for classes that are actually
+ # constructed, and we cheat in a number of cases. The flag exists at least
+ # back to clang 4.
+-if CONFIG["CC_TYPE"] == "clang":
++# It only widens debug info, so only with debug symbols: Dolly's cc forwards it
++# to cc1, which refuses it without -g.
++if CONFIG["CC_TYPE"] == "clang" and CONFIG["MOZ_DEBUG_SYMBOLS"]:
+     CXXFLAGS += ["-fstandalone-debug"]
+ 
+ # Bug 1722102 - This should never be enabled in Release without explicit

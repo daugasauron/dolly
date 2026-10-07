@@ -12,7 +12,7 @@ if has_image openal-build; then
     "${openal_dir}/LICENSE-pffft" /usr/share/licenses/OpenAL/LICENSE-pffft \
     "${openal_dir}/fmt-11.1.1/LICENSE" /usr/share/licenses/OpenAL/fmt
 fi
-if has_image zero-ad-deps || has_image zero-ad-engine; then
+if has_image zero-ad-deps || has_image zero-ad-engine || has_image zero-ad-spidermonkey; then
   zad_dir="$(bash demos/zero-ad/prepare-build-sources.sh)"
 fi
 if has_image zero-ad-deps; then
@@ -59,37 +59,21 @@ if has_image zero-ad-engine; then
     demos/zero-ad/engine.patch /tmp/0ad-patches/engine.patch \
     demos/zero-ad/premake-dolly.patch /tmp/0ad-patches/premake.patch \
     demos/zero-ad/test/fixtures/0ad-spidermonkey.cpp /tmp/0ad-patches/spidermonkey-check.cpp
-  # Bootstrap exception: SpiderMonkey cross-compiled by toolchain/build-spidermonkey.sh.
-  mozjs_source=".cache/0ad/0ad-$(source config/source-pins.sh && echo "${DOLLY_0AD_VERSION}")/libraries/source/spidermonkey/mozjs-128.13.0"
-  mozjs_build="${mozjs_source}/obj-dolly"
-  mozjs_inputs=()
-  while IFS= read -r header; do
-    target="$(readlink "${mozjs_build}/dist/${header}" || true)"
-    # The container build links headers by their /src paths.
-    if [[ "${target}" == /src/* ]]; then source_header="${project_dir}/${target#/src/}"; else source_header="${mozjs_build}/dist/${header}"; fi
-    mozjs_inputs+=("$(realpath "${source_header}")" "/tmp/mozjs/${header}")
-  done < <(cd "${mozjs_build}/dist" && find include \( -type f -o -type l \) | sort)
-  # The notices of the Rust crates compiled into libjsrust.a.
-  for crate in $(ls "${mozjs_build}/wasm64-emscripten-probe/release/deps" | sed -nE 's/^lib(.+)-[0-9a-f]{16}\.rlib$/\1/p' | sort -u); do
-    for name in "${crate}" "${crate//_/-}"; do
-      [[ -d "${mozjs_source}/third_party/rust/${name}" ]] || continue
-      for notice in "${mozjs_source}/third_party/rust/${name}"/{LICENSE,COPYING,COPYRIGHT,UNLICENSE}*; do
-        if [[ -f "${notice}" ]]; then
-          mozjs_inputs+=("${notice}" "/usr/share/licenses/spidermonkey/crates/${name}/${notice##*/}")
-        fi
-      done
-      break
-    done
-  done
-  node scripts/build-source-tar.mjs "${static_dir}/zero-ad-build/mozjs-host.tar.gz" "${mozjs_inputs[@]}" \
-    "${mozjs_build}/js/src/build/libjs_static.a" /tmp/mozjs/lib/libjs_static.a \
-    "${mozjs_build}/wasm64-emscripten-probe/release/libjsrust.a" /tmp/mozjs/lib/libjsrust.a \
-    "${mozjs_source}/LICENSE" /usr/share/licenses/spidermonkey/LICENSE \
-    "${mozjs_source}/nsprpub/LICENSE" /usr/share/licenses/spidermonkey/MPL-2.0
-  # Corresponding source of what is built outside Dolly: SpiderMonkey's pinned
-  # tarball with 0 A.D.'s patches, and the scripts that cross-build it and
-  # translate the game data's shaders.
-  node scripts/build-source-tar.mjs "${static_dir}/zero-ad-build/bootstrap.tar" \
-    "${zad_source}/libraries/source/spidermonkey" /tmp/zero-ad-bootstrap/spidermonkey \
-    demos/zero-ad/toolchain /tmp/zero-ad-bootstrap/toolchain
+fi
+if has_image zero-ad-spidermonkey; then
+  # SpiderMonkey's pinned tarball without the test suites a --disable-tests build
+  # never reads (490 MB), 0 A.D.'s patches and Dolly's.
+  spidermonkey="${zad_dir}/0ad-$(source config/source-pins.sh && echo "${DOLLY_0AD_VERSION}")/libraries/source/spidermonkey"
+  # Extracted afresh each time (5 s), so a changed exclude list cannot leave a
+  # stale tree behind. Prune the test suites a --disable-tests build never reads
+  # (490 MB); keep js/src/tests/style, which check_spidermonkey_style.py reads.
+  mozjs_dir="${zad_dir}/mozjs-128.13.0"
+  rm -rf "${mozjs_dir}"
+  tar -xf "${spidermonkey}/mozjs-128.13.0.tar.xz" -C "${zad_dir}" \
+    --exclude='mozjs-128.13.0/js/src/tests/test262' --exclude='mozjs-128.13.0/js/src/tests/non262' \
+    --exclude='mozjs-128.13.0/js/src/jit-test' --exclude='mozjs-128.13.0/testing/web-platform'
+  node scripts/build-source-tar.mjs "${static_dir}/zero-ad-build/mozjs.tar.gz" \
+    "${mozjs_dir}" /tmp/mozjs/mozjs-128.13.0 \
+    "${spidermonkey}/patches" /tmp/mozjs/patches \
+    demos/zero-ad/toolchain/spidermonkey.patch /tmp/mozjs/spidermonkey.patch
 fi
