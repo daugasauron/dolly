@@ -380,8 +380,13 @@ small: 17 modes × 20 permutation bits in the source, 14 pairs in use at
   only), so they stay missing. With real textures the frame's lit fraction
   is 32% and the software timedemo falls to 13.7 fps in Chromium (76.6 s
   for 1,046 frames; `browser-test-chromium-15.log`, 231 s in all): the
-  earlier 30 fps drew flat untextured surfaces. The rebuilt data image was
-  OOM-killed once more in the 9 GB slot (Chrome at 7.1 GB anon RSS,
+  earlier 30 fps drew flat untextured surfaces. The client's own log with
+  `developer 1` (`client-log-run-2.log`) shows "Using DarkPlaces Software
+  Rasterizer rendering path", "DPSOFTRAST available (SSE2 instructions
+  detected)", the 1024×768 window, no image load errors and no library
+  failures; the "Failed to load font-file for 'gfx/conchars'" lines before
+  the font configuration loads appear natively too. The rebuilt data image
+  was OOM-killed once more in the 9 GB slot (Chrome at 7.1 GB anon RSS,
   09:18:57); a retry is recorded below.
 
 ## Decisions for the owner
