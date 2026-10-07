@@ -9,8 +9,8 @@ REQUIRES HOST snapshot@0
 REQUIRES HOST threads@0
 REQUIRES HOST upload@0
 
-FROM https://daugasauron.com/Dollyfile-system 9c28c375cdd62808454d946a416cff63788d944ae15b9fa33cefb37e6f2babcd
-INSTALL https://daugasauron.com/demos/rust/Dollyfile-rust 4028fc18658ec8d34af8dafbce816747bef2b8546bb2605985e6c36e5f8f382a
-INSTALL https://daugasauron.com/demos/rust/Dollyfile-cargo 4f64fc150369a1e0b3e368b92a0a42e6710d9fc289c1e7baaf8806803e9efa77
+FROM https://daugasauron.com/Dollyfile-system d421a3fc0b24fce34be935332cce0f12478534669fafbb6e8476b21c7d1ceccc
+INSTALL https://daugasauron.com/demos/rust/Dollyfile-rust a64ba7eddfccdceecdd7cd37c8dc110cf01c9b0267fe8a1ca7327e5c022edfd9
+INSTALL https://daugasauron.com/demos/rust/Dollyfile-cargo 46b09ae7f8fe8313238190218d8ec3aea831d5dafad797d076ed900313bec031
 
 ENTRY /bin/foreground -i /bin/slop

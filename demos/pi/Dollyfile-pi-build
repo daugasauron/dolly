@@ -6,7 +6,7 @@ REQUIRES HOST download@0
 REQUIRES HOST http@0
 REQUIRES HOST upload@0
 
-FROM https://daugasauron.com/demos/javascript/Dollyfile-typescript-build 69678589c1ae7cc9b808abccdec788c55bb20e9a2e62a780db6593fa9c274cd4
+FROM https://daugasauron.com/demos/javascript/Dollyfile-typescript-build 32e12482554126ac7f42e4b476e81809ac4a20415f5fc27ad29fbeb52cffc300
 # Pi 1.0.3 is compiled from its pinned upstream TypeScript workspace inside
 # Dolly. Only generated model data and the finite locked external dependency
 # graph come from the matching published packages.
