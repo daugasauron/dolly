@@ -50,6 +50,36 @@ in `system-tools` only; the `cc` package brings Make) and `session-recover`
 (built in `system`). With `download`/`upload` above, these are what a
 package, or `core`, still has to own for "everything stays one install away".
 
+## Survey 2026-10-07 (each package alone on `default`)
+
+Method: `build/package-needs-evidence/survey.mjs` (in the `fix/package-needs`
+worktree, not committed) boots a fresh `default` page per package in headless
+Chromium, runs `amy install NAME`, then the package's ordinary use as Slop
+scripts, with the terminal text as evidence (`results.json` beside it).
+`default` installs core, posix, display, curl and amy, so those five are not
+"alone" cases; rust and cargo are held by the suite's "alone" cases already.
+"Starts" is what the package's commands spawn, from the recipes and upstream;
+"Alone" is the measurement, or "unmeasured" where the browser slot never came.
+
+| Package | Starts | Provided by | Alone on default |
+|---|---|---|---|
+| cc | make runs `/bin/sh` (posix) | yes | unmeasured |
+| cmake | `cc` to configure, `make` to build | no: neither installed | unmeasured; expected to fail at configure |
+| git | editor (`vi` unless `GIT_EDITOR`), pager (`less`), `/bin/sh` for hooks, `git-remote-http(s)` | sh and the helpers yes; no package holds `vi` or `less` | unmeasured |
+| python | `/bin/sh` (subprocess), `cc` for pip of a C sdist | sh yes; cc no | unmeasured |
+| emacs | `$SHELL`/`sh` for `M-!`, `shell-command` | yes (posix) | unmeasured |
+| nvim | `sh` for `:!` and `system()` | yes (posix) | unmeasured |
+| sdl2 | nothing; a library for `cc` and `find_package(SDL2)` in cmake | no: neither cc nor cmake installed | unmeasured; expected unusable |
+| zlib | nothing; a library for `cc` | no | unmeasured; expected unusable |
+| ripgrep, fd, gzip | nothing (gzip installs zlib) | yes | unmeasured |
+| javascript | janis `child_process` runs `sh` | yes (posix) | unmeasured |
+| dolly-docs | nothing | - | unmeasured |
+| protox | nothing | - | unmeasured |
+| codex-cli | `rg`, `fd` (installed), `sh` for its shell tool | yes | unmeasured |
+| pi-coding-agent | `janis` (javascript installed), `rg`, `fd`, `sh` | yes | unmeasured |
+| model packages (6) | nothing; `pi-local` (an image, not a package) reads them | - | unmeasured (1.0-1.6 GB each) |
+| gpu-sdk, audio-sdk | named in the brief, but they are TOOLCHAIN images, not packages: `amy install` cannot name them | - | not applicable |
+
 ## Done when
 
 Every package's ordinary use works after `amy install NAME` on `default`, or
