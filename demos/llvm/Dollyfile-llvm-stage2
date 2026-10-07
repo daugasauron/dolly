@@ -7,9 +7,9 @@ REQUIRES HOST dso@0
 REQUIRES HOST http@0
 REQUIRES HOST upload@0
 
-# Build-only: the libraries and the compiler once more, compiled by llvm-cc's
-# compiler. It builds only if every archive and the compiler are the first
-# stage's, byte for byte: the compiler reproduces itself.
+# Build-only: the libraries, the compiler and the TableGen tools once more,
+# compiled by llvm-cc's compiler. It builds only if each of them is the first
+# stage's, byte for byte: the compiler reproduces itself and its tools.
 FROM https://daugasauron.com/demos/llvm/Dollyfile-llvm-cc 684760aeff54d81c24fdb8e374fecdbd2db66df49d940ebc7a8802c9d51f40a7
 REQUIRES TOOL llvm-tblgen
 REQUIRES TOOL clang-tblgen
@@ -35,6 +35,9 @@ SLOP patch -p1 -d /tmp/llvm-project -i /tmp/llvm-host-triple.patch
 SLOP time cmake -C /usr/lib/llvm-build/Dolly.cmake -S /tmp/llvm-project/llvm -B /tmp/llvm-build
 SLOP CWD /tmp/llvm-build time make -k -j4 clangFrontendTool clangCodeGen clang-resource-headers lldWasm LLVMWebAssemblyCodeGen
 SLOP CWD /tmp/llvm-build slop -e -c 'for archive in lib/*.a; do cmp "$archive" "/usr/lib/llvm-build/$archive"; done'
+# llvm-tablegen built its tools with the seed compiler; the build above ran those.
+SLOP CWD /tmp/llvm-build time make -j4 llvm-min-tblgen llvm-tblgen clang-tblgen
+SLOP CWD /tmp/llvm-build slop -e -c 'for tool in llvm-min-tblgen llvm-tblgen clang-tblgen; do cmp "bin/$tool" "/usr/bin/$tool"; done'
 
 SOURCE https://daugasauron.com/dist/static/llvm/compiler.cpp e76523345b5e177001d158e6552ba304fed09f634155c1ef506f76c0406f7665 /tmp/dolly-compiler/compiler.cpp
 SOURCE https://daugasauron.com/dist/static/llvm/compiler-main.c c006a717fb95b2b99ec91eee392a1b607801ef15f21d684acfa905b5116b8fae /tmp/dolly-compiler/compiler-main.c

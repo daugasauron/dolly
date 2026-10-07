@@ -18,9 +18,9 @@ seed, built again by Dolly's own `cc`. The seed stays the bootstrap.
   compiler from those archives, requires the same bytes from it as from the
   seed compiler for two programs and a sample of LLVM's sources, and installs
   it: `cc`, `c++`, `ld` and `ar` in this image run a compiler built in Dolly.
-- `llvm-stage2`: build-only. Builds the closure and the compiler again with
-  that compiler and requires every archive and the compiler to be the first
-  stage's bytes.
+- `llvm-stage2`: build-only. Builds the closure, the compiler and the TableGen
+  tools again with that compiler and requires every archive and executable to
+  be the first stage's bytes.
 
 Key files: [`Dollyfile-llvm-tablegen`](Dollyfile-llvm-tablegen),
 [`prepare-sources.sh`](prepare-sources.sh) (stages the seed's verified checkout
@@ -40,3 +40,5 @@ the build is configured with `LLVM_ENABLE_WARNINGS=OFF`. A program past
 either limit fails explicitly: `dolly: process N failed: Maximum call stack
 size exceeded` (Firefox: `too much recursion`) and status 126, with the shell
 intact.
+
+The closure has been built in Chrome only, which is what builds images.
