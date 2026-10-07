@@ -125,6 +125,12 @@ SOURCE https://daugasauron.com/dist/static/xonotic/data/font-unifont-20230620.pk
 SOURCE https://daugasauron.com/dist/static/xonotic/data/font-xolonium-20230620.pk3 d6404f31eea4b90d7fe4951b41b692261ef26e6b512b5c7de7a9e99d5d57b586 /usr/share/xonotic/data/font-xolonium-20230620.pk3
 SOURCE https://daugasauron.com/dist/static/xonotic/data/xonotic-20230620-data.pk3 7602be0d44a4f1ce4f0918c54ceb215c9bc963a103623d6c7874f081330c8505 /usr/share/xonotic/data/xonotic-20230620-data.pk3
 SOURCE https://daugasauron.com/dist/static/xonotic/data/xonotic-20230620-maps.pk3 d10e5a8eac468a4a5b6d80f9603d95949971c6b10f86bec65a79e19f0d424f54 /usr/share/xonotic/data/xonotic-20230620-maps.pk3
+# The GPL fonts' corresponding source, published beside the image and not installed:
+# GNU Unifont 7.0.06 (its precompiled TTF is the shipped unifont.ttf) and
+# Xolonium v4.2 (whose xonotic/ directory is the shipped GPL variant).
+SOURCE https://daugasauron.com/dist/static/xonotic/unifont-7.0.06.tar.gz d04e8c86aaaf7214b5212340ee853a35502b9fa311561007be3a8cf465dabf3b /tmp/xonotic/unifont-7.0.06.tar.gz
+SOURCE https://daugasauron.com/dist/static/xonotic/xolonium-v4.2.tar.gz 624d623e2f89e94714e69ae51992ec44b07a4041cce616365404e321f71f9b09 /tmp/xonotic/xolonium-v4.2.tar.gz
+SLOP rm -rf /tmp/xonotic
 
 # The player's starting settings: the low effects preset, measured at 31 fps
 # against 13 for the normal preset in the software rasterizer. The engine

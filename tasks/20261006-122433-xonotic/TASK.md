@@ -82,8 +82,8 @@ DarkPlaces, gmqcc and `qcsrc` source file, and a grep for `egyptsoc`,
 | …without any statement of their own | the other 50 texture sets (`exomorphx`, `trak4x`–`trak7x`, `stein1x`, `facility114x`, `exx`, `ex2x`, `techpanelx`, …), 9 skybox sets under `env/`, 1,076 model files, 764 + 138 sound files, 30 maps | only `COPYING`; the menu's credits (`qcsrc/menu/xonotic/credits.qc`) name the artists | yes | nothing beyond the GPL | covered by the release grant; **not independently verifiable** from the archives |
 | `atelier` map's two textures "made by evillair" | named in `maps/atelier-info.txt`, no terms of their own | yes | nothing stated | covered by the release grant and the map's GPL-3.0-or-later notice |
 | `gfx/vera-sans-big.jpg` in `data.pk3` | no statement; by its name a glyph sheet rendered from Bitstream Vera Sans (its licence asks for its notice with copies of the Font Software) | nowhere in the release | yes; DarkPlaces' bitmap fallback behind the TTFs, unused when FreeType loads them | unclear whether a rendered image is a copy; upstream ships it without a notice | Bitstream's copyright and permission notice added to the image as `COPYING.vera`, naming the file (unbuilt); dropping the file is the alternative |
-| Xolonium regular and bold (OTF) | GPL-2.0-or-later WITH Font-exception-2.0, "special GPL version for Xonotic" (Severin Meyer, 2011-2020) | `fonts/README.txt` in `font-xolonium-20230620.pk3` | yes, unmodified | GPL text with the font | done: `GPL-2` in the image, the archive's `README.txt` added as `COPYING.xolonium` (unbuilt); own `/licences/` row added |
-| GNU Unifont 7.0.06 (TTF) | GPL-2.0-or-later WITH Font-exception-2.0: the pk3's `fonts/README` names only the project and URL; unifoundry.com/unifont (fetched 2026-10-07) states GPL-2+ with the embedding exception, with OFL-1.1 added only from 13.0.04 | `fonts/README` (name and URL only) | yes, unmodified | GPL text with the font (done); the font's editing source (`.hex`) is not served, as upstream does not serve it either | terms stated in the image's `NOTICE` (unbuilt); own `/licences/` row added; **owner** may serve the `unifont-7.0.06` source tarball beside the image for completeness |
+| Xolonium regular and bold (OTF) | GPL-2.0-or-later WITH Font-exception-2.0, "special GPL version for Xonotic" (Severin Meyer, 2011-2020) | `fonts/README.txt` in `font-xolonium-20230620.pk3` | yes, unmodified | GPL text with the font; the font's source offered with it | done: `GPL-2` in the image, the archive's `README.txt` added as `COPYING.xolonium` (unbuilt); own `/licences/` row; source served beside the image: `xolonium-v4.2.tar.gz` from gitlab.com/sev/xolonium (218,658 B, SHA-256 `624d623e…`, identical on two downloads), the tag `v4.2` of 2020-11-18 whose date the fonts' name table carries ("Xolonium GPL 4.2 2020-11-18"); its Makefile builds `xonotic/Xolonium-GPL-{Regular,Bold}.otf` from `src/sfd/*.sfd` with the shipped licence string, and its `xonotic/README.txt` is byte-identical to the pk3's |
+| GNU Unifont 7.0.06 (TTF) | GPL-2.0-or-later WITH Font-exception-2.0: the pk3's `fonts/README` names only the project and URL; unifoundry.com/unifont (fetched 2026-10-07) states GPL-2+ with the embedding exception, with OFL-1.1 added only from 13.0.04 | `fonts/README` (name and URL only) | yes, unmodified | GPL text with the font; the font's source (`.hex` files and build scripts) offered with it | done: terms in the image's `NOTICE` (unbuilt); own `/licences/` row; source served beside the image: GNU's `unifont-7.0.06.tar.gz` (ftp.gnu.org, 19,656,923 B, SHA-256 `d04e8c86…`; its `.sig` was not checked against GNU's keyring), whose `font/precompiled/unifont-7.0.06.ttf` is byte-identical to the shipped `fonts/unifont.ttf` |
 | Egyptsoc textures (Simon O'Callaghan: GPL on condition of attribution and a link to simonoc.com in the game documentation) | `Docs/egyptsoc/permission.txt` in the release | **no**: no `egyptsoc` file in `data.pk3` or `maps.pk3` | nothing | not applicable |
 | Music | GPL-3.0-or-later by `COPYING` | `xonotic-20230620-music.pk3` | no | nothing | not shipped |
 | Xonotic name and logos | no trademark statement anywhere in the release; `xonotic.appdata.xml`: `project_license` GPL-3.0, `metadata_license` CC0-1.0; the logo textures (`textures/logos/logo01`–`03`, `gfx/menu`) are inside the release grant | — | the in-archive logos, yes | nothing stated | Dolly uses the name to identify the game it runs; nothing further verifiable from the archives |
@@ -113,8 +113,13 @@ whose grants follow), Creative Commons, or "used with permission".
   and `xonotic`): `prepare-sources.sh` adds warpzone's `COPYING` and the
   csqcmodel header to the source tar, `Dollyfile-xonotic-build` exports them,
   `Dollyfile-xonotic` adds `NOTICE`, `COPYING.xolonium` and `COPYING.vera` as
-  inline files. `npm run -s lint:dollyfiles`, the parser, catalog and
-  upstream tests pass; `update-recipe-pins.mjs` refreshed the references.
+  inline files, and the two font source archives as `SOURCE` lines into
+  `/tmp/xonotic` (removed by a `SLOP rm`), pinned in `config/source-pins.sh`
+  (`UNIFONT`, `XOLONIUM`) and staged by `prepare-sources.sh` through
+  `fetch-pinned-archive.sh`. Neither the 0.8.6 source zip nor anything else
+  served held a `.sfd`, `.ufo` or `.hex` file. `npm run -s lint:dollyfiles`,
+  the parser, catalog and upstream tests pass; `update-recipe-pins.mjs`
+  refreshed the references.
 
 ### Verdict for the owner
 
@@ -147,9 +152,10 @@ whose grants follow), Creative Commons, or "used with permission".
    were to brand itself with the name or logo, ask Team Xonotic first.
    (c) `gfx/vera-sans-big.jpg`'s origin is inferred from its name; upstream
    carries no notice for it, and the Bitstream notice now in the image is the
-   smallest honest remedy, dropping the file the alternative. (d) Unifont's
-   editing source (`.hex`) is not served, as upstream does not serve it
-   either; serve the `unifont-7.0.06` tarball beside the image if wanted.
+   smallest honest remedy, dropping the file the alternative. The fonts'
+   own sources, which the GPL asks us to offer with the compiled fonts, are
+   now served beside the image (Unifont 7.0.06 from GNU, Xolonium v4.2 from
+   its repository; both proven to be the shipped builds' sources above).
 
 ## Measured upstream (2026-10-06)
 

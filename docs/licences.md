@@ -116,7 +116,11 @@ option, as in 0 A.D., and its source, `zero-ad-build/deps.tar.gz`, is in the
 (`xonotic/data/`, GPL-3.0-or-later by Xonotic's `COPYING`; the compiled
 `progs.dat`, `csprogs.dat` and `menu.dat` inside `data.pk3` are the
 release's; Xolonium and GNU Unifont 7.0.06 are GPL-2.0-or-later with the
-font embedding exception) and keeps Xonotic's `COPYING`, `GPL-2` and
+font embedding exception, and the site serves their corresponding source
+beside the image: GNU's `unifont-7.0.06.tar.gz`, whose precompiled TTF is
+the shipped file, and `xolonium-v4.2.tar.gz` from the font's repository,
+whose `xonotic/` directory and Makefile build the shipped GPL variant from
+the FontForge sources) and keeps Xonotic's `COPYING`, `GPL-2` and
 `GPL-3`, the warpzone and csqcmodel MIT notices, Xolonium's README,
 Bitstream's notice for the Vera glyph sheet, Dolly's `NOTICE` (the IJG
 sentence and the fonts' terms), gmqcc's `LICENSE`, libjpeg's, FreeType's,

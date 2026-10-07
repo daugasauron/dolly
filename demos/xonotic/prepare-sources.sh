@@ -27,4 +27,7 @@ if has_image xonotic; then
   for archive in font-unifont-20230620.pk3 font-xolonium-20230620.pk3 xonotic-20230620-data.pk3 xonotic-20230620-maps.pk3; do
     copy_static "${xonotic_data}/${archive}" "xonotic/data/${archive}"
   done
+  # The GPL fonts' own sources, served beside the archives that ship them.
+  copy_static "$(bash scripts/fetch-pinned-archive.sh unifont)" xonotic/unifont-7.0.06.tar.gz
+  copy_static "$(bash scripts/fetch-pinned-archive.sh xolonium)" xonotic/xolonium-v4.2.tar.gz
 fi
