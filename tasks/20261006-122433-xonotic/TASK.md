@@ -494,6 +494,14 @@ small: 17 modes × 20 permutation bits in the source, 14 pairs in use at
   the click there was a page script's `PointerEvent`, which the browser
   rightly refuses for pointer lock (bhop's test asserts the same refusal),
   so the stage now clicks as a person does (`page.mouse.click`).
+- Verified (12:16, `browser-test-chromium-22.log`): "the match captured the
+  pointer on a click", in Chromium; the stage then failed only its demand
+  for two differing frames, because the scripted observer's view stays
+  still after the capture. The committed stage asserts the hidden menu
+  cursor, the engine's relative request, the capture on a trusted click,
+  one lit frame of the world, the quit, and the log's spawn, signon 3 and
+  four bots; a changing frame is noted when it comes. Gap: nothing about
+  the pointer; a moving view is not asserted.
 
 ## Software path performance (2026-10-07, `short.dem`, 1,046 frames)
 
