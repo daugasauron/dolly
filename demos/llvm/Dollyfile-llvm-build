@@ -42,36 +42,30 @@ SLOP patch -p1 -d /tmp/llvm-project -i /tmp/llvm-host-triple.patch
 # - LLVM's warning set includes -Wimplicit-fallthrough, whose visitor recurses
 #   once per case label: SemaARM.cpp has 6,020 in a row, 1.4 MB of browser
 #   stack where Chrome gives a process 950 KB.
-SLOP time cmake -S /tmp/llvm-project/llvm -B /tmp/llvm-build \
-  -DCMAKE_BUILD_TYPE=Release \
-  -DCMAKE_C_FLAGS=-std=gnu17 \
-  '-DCMAKE_CXX_FLAGS=-include endian.h -DCLANG_BUILD_STATIC' \
-  -DCMAKE_DISABLE_PRECOMPILE_HEADERS=ON \
-  -DCMAKE_RULE_MESSAGES=OFF \
-  -DLLVM_ENABLE_WARNINGS=OFF \
-  -DLLVM_ENABLE_PROJECTS='clang;lld' \
-  -DLLVM_TARGETS_TO_BUILD=WebAssembly \
-  -DLLVM_HOST_TRIPLE=wasm64-unknown-emscripten \
-  -DLLVM_DEFAULT_TARGET_TRIPLE=wasm64-unknown-emscripten \
-  -DLLVM_TABLEGEN=/usr/bin/llvm-tblgen \
-  -DCLANG_TABLEGEN=/usr/bin/clang-tblgen \
-  -DLLVM_FORCE_VC_REVISION=4bfd08c2d769736841ae4f5705d76fa6daa39027 \
-  -DLLVM_FORCE_VC_REPOSITORY=https://github.com/llvm/llvm-project.git \
-  -DLLVM_ENABLE_THREADS=OFF \
-  -DLLVM_INCLUDE_TESTS=OFF \
-  -DLLVM_INCLUDE_EXAMPLES=OFF \
-  -DLLVM_INCLUDE_BENCHMARKS=OFF \
-  -DLLVM_INCLUDE_DOCS=OFF \
-  -DLLVM_ENABLE_TERMINFO=OFF \
-  -DLLVM_ENABLE_LIBEDIT=OFF \
-  -DLLVM_ENABLE_LIBPFM=OFF \
-  -DLLVM_ENABLE_ZLIB=OFF \
-  -DLLVM_ENABLE_ZSTD=OFF \
-  -DLLVM_ENABLE_LIBXML2=OFF \
-  -DLLVM_ENABLE_CURL=OFF \
-  -DLLVM_ENABLE_BINDINGS=OFF \
-  -DLLVM_BUILD_LLVM_DYLIB=OFF \
-  -DLLVM_LINK_LLVM_DYLIB=OFF
+FILE /usr/lib/llvm-build/Dolly.cmake
+    set(CMAKE_BUILD_TYPE Release CACHE STRING "")
+    set(CMAKE_C_FLAGS "-std=gnu17" CACHE STRING "")
+    set(CMAKE_CXX_FLAGS "-include endian.h -DCLANG_BUILD_STATIC" CACHE STRING "")
+    set(CMAKE_DISABLE_PRECOMPILE_HEADERS ON CACHE BOOL "")
+    set(CMAKE_RULE_MESSAGES OFF CACHE BOOL "")
+    set(LLVM_ENABLE_WARNINGS OFF CACHE BOOL "")
+    set(LLVM_ENABLE_PROJECTS "clang;lld" CACHE STRING "")
+    set(LLVM_TARGETS_TO_BUILD WebAssembly CACHE STRING "")
+    set(LLVM_HOST_TRIPLE wasm64-unknown-emscripten CACHE STRING "")
+    set(LLVM_DEFAULT_TARGET_TRIPLE wasm64-unknown-emscripten CACHE STRING "")
+    set(LLVM_TABLEGEN /usr/bin/llvm-tblgen CACHE STRING "")
+    set(CLANG_TABLEGEN /usr/bin/clang-tblgen CACHE STRING "")
+    set(LLVM_FORCE_VC_REVISION 4bfd08c2d769736841ae4f5705d76fa6daa39027 CACHE STRING "")
+    set(LLVM_FORCE_VC_REPOSITORY https://github.com/llvm/llvm-project.git CACHE STRING "")
+    foreach(option THREADS TERMINFO LIBEDIT LIBPFM ZLIB ZSTD LIBXML2 CURL BINDINGS)
+      set(LLVM_ENABLE_${option} OFF CACHE STRING "")
+    endforeach()
+    foreach(option TESTS EXAMPLES BENCHMARKS DOCS)
+      set(LLVM_INCLUDE_${option} OFF CACHE BOOL "")
+    endforeach()
+    set(LLVM_BUILD_LLVM_DYLIB OFF CACHE BOOL "")
+    set(LLVM_LINK_LLVM_DYLIB OFF CACHE BOOL "")
+SLOP time cmake -C /usr/lib/llvm-build/Dolly.cmake -S /tmp/llvm-project/llvm -B /tmp/llvm-build
 
 # The seed's targets (scripts/build-toolchain.sh). Four jobs fit the 32-process
 # cap; -k reports every failing unit of an hour's build, not only the first.
