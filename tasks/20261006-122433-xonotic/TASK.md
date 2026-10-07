@@ -681,6 +681,41 @@ compresses textures; geometry, lightmaps and the HUD are unchanged. 800×600
 (19.7 fps at `normal`) and `r_viewscale 0.5` (17.4) are the next levers a
 player can set; their combination with the low preset is not measured.
 
+## The second pointer in the menus (2026-10-07 afternoon)
+
+Owner after the checkpoint: "I see you fixed the mouse for in-game xonotic,
+but its still a problem in the menus etc before the game starts."
+
+- Measured as a person, with a real mouse in headed Chromium and Firefox on
+  the checkpoint `b036d27e` served from `work/locks` on :9160
+  (`build/pointer-evidence/chromium-probe.txt`, `firefox-probe.txt`, with
+  screenshots): at every stage before a match (page ready, the Welcome
+  dialog, the main menu, after Escape, after Shift+Escape, after F11) the
+  element under the mouse across the game area is `canvas#display` with
+  computed cursor `default`, and the transport's cursor style stays 1. The
+  test's assertion of style 4 passed on the checkpoint only because it
+  looked after the match's relative-mode transition. A page indicator
+  button in a corner shows `pointer` while the indicators are shown, which
+  is page UI, not the game's.
+- Cause: `SDL_SetCursor` (`src/events/SDL_mouse.c` 1400 in 2.32.10)
+  returns at once when the cursor equals the current one, and
+  `SDL_ShowCursor` hides through `SDL_SetCursor(NULL)`; the Dolly backend
+  never installed a cursor object, so the current one was NULL as well and
+  the engine's `SDL_ShowCursor(SDL_DISABLE)` in its menu never reached
+  `DollyShowCursor` until relative mode had been toggled once (the earlier
+  fix sat in that transition).
+- Fix: `demos/sdl2/SDL_dollyvideo.c`, `DollyVideoInit` installs a default
+  cursor object (`SDL_SetDefaultCursor`, as Android's backend does). The
+  sdl2 package changes; its dependents rebuild in the integrator's round.
+- Test: before any click or key, the live stage moves the mouse over nine
+  points of the menu and asserts `elementFromPoint`'s computed cursor is
+  `none`, in Chromium and Firefox.
+- Verified (16:10, commit `2e39bb3c`, `build/pointer-evidence/test-chromium-1.log`,
+  `test-firefox-1.log`): with the rebuilt sdl2 the whole Xonotic test passes
+  in Chromium (438.1 s) and Firefox (377.9 s), the nine points over the menu
+  included, and the match still captures the pointer on a click. The sdl2
+  rebuild (491.9 s with xonotic-build) rebuilt `zero-ad-deps` by dependency.
+
 ## Route (a): the map of what remains (2026-10-07 09:35, estimates)
 
 What exists: the client over `vid_sdl.c` and the software rasterizer, the

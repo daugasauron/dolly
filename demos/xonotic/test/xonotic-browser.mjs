@@ -103,6 +103,17 @@ await demoTest("xonotic", { image: "xonotic-build", timeout: 1_800_000, browser:
   await delay(20_000);
   const cursorStyle = () => page.evaluate(() => __dolly.transport.cursorStyle());
   assert.equal(await cursorStyle(), 4, "the menu hides the page's cursor and draws its own");
+  // What a person sees before any click or key: the element under the mouse
+  // across the game area, and its computed cursor, not the canvas's own style.
+  const area = await page.locator("#display").boundingBox();
+  for (const [fx, fy] of [[0.1, 0.1], [0.5, 0.1], [0.9, 0.1], [0.1, 0.5], [0.5, 0.5], [0.9, 0.5], [0.1, 0.9], [0.5, 0.9], [0.9, 0.9]]) {
+    await page.mouse.move(area.x + area.width * fx, area.y + area.height * fy);
+    const under = await page.evaluate(([x, y]) => {
+      const element = document.elementFromPoint(x, y);
+      return `${element?.id ?? element?.tagName} ${element ? getComputedStyle(element).cursor : ""}`;
+    }, [area.x + area.width * fx, area.y + area.height * fy]);
+    assert.equal(under, "display none", `the page's cursor over the menu at ${fx},${fy}`);
+  }
   // Escape closes the first-run dialog, the main menu, and the game menu the
   // map opens into; once the game has the keys the engine asks for relative
   // motion, and the capture takes a click, as bhop's does.

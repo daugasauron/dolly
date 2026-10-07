@@ -9,12 +9,12 @@ REQUIRES HOST threads@0
 REQUIRES HOST upload@0
 
 FROM https://daugasauron.com/demos/pi/Dollyfile-pi-runtime 106aaed7bc1f6268da0f4e906254be12bb49e09f350cc06bc05903010d5ffd34
-INSTALL https://daugasauron.com/demos/sdl2/Dollyfile-sdl2 00d869eb35eef98817eff21107c290b81106333456139491d3cfabac9d5c0dfa
-COPY https://daugasauron.com/demos/rts/Dollyfile-rts-build 2e23a3c94723124f7e4958ee55e2281cc60a3524383ea7c98afda3ca167de92c /usr/bin/seven-kingdoms /usr/bin/seven-kingdoms
-COPY https://daugasauron.com/demos/rts/Dollyfile-rts-build 2e23a3c94723124f7e4958ee55e2281cc60a3524383ea7c98afda3ca167de92c /usr/share/7kaa /usr/share/7kaa
-COPY https://daugasauron.com/demos/rts/Dollyfile-rts-build 2e23a3c94723124f7e4958ee55e2281cc60a3524383ea7c98afda3ca167de92c /usr/src/7kaa /usr/src/7kaa
-COPY https://daugasauron.com/demos/rts/Dollyfile-rts-build 2e23a3c94723124f7e4958ee55e2281cc60a3524383ea7c98afda3ca167de92c /usr/src/dolly/rts /usr/src/dolly/rts
-COPY https://daugasauron.com/demos/rts/Dollyfile-rts-build 2e23a3c94723124f7e4958ee55e2281cc60a3524383ea7c98afda3ca167de92c /usr/share/licenses/7kaa /usr/share/licenses/7kaa
+INSTALL https://daugasauron.com/demos/sdl2/Dollyfile-sdl2 7d7217b33e55540f54a521a58ef6a8473cdb00b1a1b20538f26b822098e053ae
+COPY https://daugasauron.com/demos/rts/Dollyfile-rts-build e815bff736727aaeed9b65aa5d022e66bb834a8c502989dff5fb67286d723654 /usr/bin/seven-kingdoms /usr/bin/seven-kingdoms
+COPY https://daugasauron.com/demos/rts/Dollyfile-rts-build e815bff736727aaeed9b65aa5d022e66bb834a8c502989dff5fb67286d723654 /usr/share/7kaa /usr/share/7kaa
+COPY https://daugasauron.com/demos/rts/Dollyfile-rts-build e815bff736727aaeed9b65aa5d022e66bb834a8c502989dff5fb67286d723654 /usr/src/7kaa /usr/src/7kaa
+COPY https://daugasauron.com/demos/rts/Dollyfile-rts-build e815bff736727aaeed9b65aa5d022e66bb834a8c502989dff5fb67286d723654 /usr/src/dolly/rts /usr/src/dolly/rts
+COPY https://daugasauron.com/demos/rts/Dollyfile-rts-build e815bff736727aaeed9b65aa5d022e66bb834a8c502989dff5fb67286d723654 /usr/share/licenses/7kaa /usr/share/licenses/7kaa
 EXPORTS TOOL seven-kingdoms
 REQUIRES HEADER cpp
 REQUIRES HEADER quickjs-runner
