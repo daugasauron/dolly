@@ -88,11 +88,15 @@ const terrain = png(256, 256, (x, y) => {
   const glass = index === 49 || index === 48;
   return [clamp(cr), clamp(cg), clamp(cb), glass && (x & 15) > 0 && (x & 15) < 15 && (y & 15) > 0 && (y & 15) < 15 ? 0 : 255];
 });
-// gui.png: the hotbar (0,0 182x22) and its selection frame (0,22 24x24).
+// gui.png: the hotbar (0,0 182x22), its selection frame (0,22 24x24) and the button faces
+// (0,46 200x20 disabled, 0,66 plain, 0,86 hovered). The game binds gui_classic.png for them
+// by default (nostalgia-classicgui), so the same image ships under both names.
+const faces = [[24, 34, 40], [38, 63, 73], [58, 93, 108]];
 const gui = png(256, 256, (x, y) => {
   if (x < 182 && y < 22) return (x < 2 || x > 179 || y < 2 || y > 19 || (x - 1) % 20 < 2) ? [40, 40, 40, 255] : [90, 90, 90, 160];
   if (x < 24 && y >= 22 && y < 46) return (x < 2 || x > 21 || y < 24 || y > 43) ? [240, 240, 240, 255] : [0, 0, 0, 0];
+  if (x < 200 && y >= 46 && y < 106) return (x < 1 || x > 198 || (y - 46) % 20 < 1 || (y - 46) % 20 > 18) ? [20, 31, 40, 255] : [...faces[(y - 46) / 20 | 0], 255];
   return [0, 0, 0, 0];
 });
 if (!process.argv[2]) throw new Error("usage: textures.mjs OUTPUT.zip");
-await writeFile(process.argv[2], zip([["gui.png", gui], ["terrain.png", terrain]]));
+await writeFile(process.argv[2], zip([["gui.png", gui], ["gui_classic.png", gui], ["terrain.png", terrain]]));

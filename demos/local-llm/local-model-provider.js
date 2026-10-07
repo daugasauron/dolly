@@ -23,7 +23,10 @@ const limits=new Set(['contextWindow','maxTokens']);
 export default function(pi) {
   let ui;
   const engine=new LocalLlama(text=>ui?.setStatus('local-model',text));
-  pi.on('session_start',(_event,ctx)=>{ui=ctx.ui;});
+  // Above the editor until the first prompt or /local: a notification would replace
+  // dolly-tools' sandbox note, which Pi shows one at a time.
+  const hint=show=>ui?.setWidget('local-model',show?['/local chooses and configures the local model: install, switch, context size, sampling, unload.']:undefined);
+  pi.on('session_start',(_event,ctx)=>{ui=ctx.ui;hint(true);});
   pi.on('session_shutdown',()=>engine.stop());
   pi.on('provider_stream_event',event=>{
     const timings=event.provider===provider && event.data?.timings;
@@ -35,7 +38,7 @@ export default function(pi) {
   // why; if it insists, the run ends and the user is told.
   const key=event=>JSON.stringify([event.toolName,event.input]);
   let last,repeats=0,warned;
-  pi.on('agent_start',()=>{last=undefined;repeats=0;warned=undefined;});
+  pi.on('agent_start',()=>{last=undefined;repeats=0;warned=undefined;hint(false);});
   pi.on('tool_result',event=>{
     if(event.parentToolCallId || key(event)===warned)return;
     const call=key(event),result=JSON.stringify(event.content);
@@ -95,6 +98,7 @@ export default function(pi) {
     }
   }
   pi.registerCommand('local',{description:'Local models: install, switch, parameters, GPU',handler:async(_args,ctx)=>{
+    hint(false);
     const gpu=await checkGpu().catch(error=>({error:error.message}));
     const active=ctx.model?.provider===provider?ctx.model.id:undefined,all=models();
     const rows=all.map(model=>{
