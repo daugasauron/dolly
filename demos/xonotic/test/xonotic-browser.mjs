@@ -89,4 +89,33 @@ await demoTest("xonotic", { image: "xonotic-build", timeout: 1_800_000, browser:
   assert.equal(await timedemo.done, 0, "-benchmark quits when the demo ends");
   await run(`grep ' frames ' ${timedemoLog}`);
   console.log((await text()).split("\n").filter(line => / frames .* fps/.test(line)).map(line => `xonotic: timedemo ${line.replace(/^\^7/, "")}`).join("\n"));
+
+  // A live bot match in the client. A local game pauses while the menu is
+  // up, so Escape closes the first-run dialog and the menu as a player would;
+  // then the map loads, the game draws frames that change, and the client
+  // quits back to the shell.
+  const live = start(`cd ${basedir} && xonotic-sdl -xonotic -basedir ${basedir} ` +
+    "+vid_soft 1 +vid_soft_threads 1 +vid_fullscreen 0 +vid_width 1024 +vid_height 768 " +
+    "+sv_public 0 +bot_number 4 +minplayers 0 +g_warmup 0 +log_file live.log +map stormkeep +defer 200 quit");
+  await page.waitForFunction(() => __dolly.transport.graphicsActive(), null, { timeout: 120_000 });
+  await delay(20_000);
+  for (const press of [1, 2]) { await page.keyboard.press("Escape"); await delay(1000); }
+  await delay(40_000);
+  const frames = [];
+  for (let attempt = 0; attempt < 60 && frames.length < 2; attempt++, await delay(2000)) {
+    const digest = await page.evaluate(() => {
+      const canvas = document.querySelector("#display");
+      if (canvas.width !== 1024 || canvas.height !== 768) return null;
+      const pixels = canvas.getContext("2d").getImageData(0, 0, canvas.width, canvas.height).data;
+      let lit = 0, sum = 0;
+      for (let i = 0; i < pixels.length; i += 4) { if (pixels[i] + pixels[i + 1] + pixels[i + 2] > 48) lit++; sum = (sum * 31 + pixels[i]) >>> 0; }
+      return { lit: lit / (canvas.width * canvas.height), sum };
+    });
+    if (digest && digest.lit > 0.02 && digest.lit < 0.8 && frames.every(frame => frame.sum !== digest.sum)) frames.push(digest);
+  }
+  assert.equal(frames.length, 2, "two different lit frames of the match");
+  assert.equal(await live.done, 0, "the client must quit back to the shell after the match");
+  const liveLog = "/home/dolly/.xonotic/data/live.log";
+  await run(`grep -q 'SpawnServer: stormkeep' ${liveLog} && grep -q 'CL_SignonReply: 3' ${liveLog} && test "$(grep -c '\\[BOT\\].* connected' ${liveLog})" -ge 4`);
+  console.log(`xonotic: a bot match on stormkeep spawned 4 bots, the client entered the game and drew changing frames (lit ${frames.map(frame => frame.lit.toFixed(2)).join(", ")})`);
 });

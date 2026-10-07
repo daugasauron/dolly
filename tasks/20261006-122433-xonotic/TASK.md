@@ -425,6 +425,15 @@ small: 17 modes × 20 permutation bits in the source, 14 pairs in use at
   `quit`'s shutdown flushed the signon. A player closes the dialog; the
   test's live stage now presses Escape twice after the menu appears, as a
   player would, before sampling frames.
+- State at the cut-off (10:00, usage limit): the live stage in
+  `demos/xonotic/test/xonotic-browser.mjs` (Escape twice, sample from 60 s,
+  quit at 200 s, `CL_SignonReply: 3` in the log) is committed unverified;
+  the stages before it pass in both browsers (`browser-test-chromium-18.log`,
+  `browser-test-firefox-7.log` is absent; Firefox last passed at `-4.log`).
+  Next step: run `npm run test:demos -- xonotic` in Chromium, read the
+  frame samples' timing from a run like `live-timeline-2.log` with the
+  Escape presses, set the two delays from it, then Firefox; then the route
+  (a) map above, piece 1.
 
 ## Route (a): the map of what remains (2026-10-07 09:35, estimates)
 
