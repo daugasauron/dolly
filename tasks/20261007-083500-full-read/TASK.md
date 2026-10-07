@@ -1,6 +1,6 @@
 # read() of a regular file returns at most 1 MiB per call
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 230
 - TAGS: bug,process,filesystem
 
@@ -53,3 +53,16 @@ packets until everything is written or a packet writes nothing, so a write of
 The process suite passes in Chromium and Firefox with the fixture, and the
 DarkPlaces patch's sixth hunk (`demos/xonotic/darkplaces-dolly.patch`, which
 loops the read under `__dolly__`) is removed.
+
+## Closed 2026-10-07
+
+Merged into round 3 as `4cd44cc2` (`core/full-read` `f196abfe`) and into the
+checkpoint of 2026-10-07 (`checkpoint-2026-10-07` = `b036d27e`). The process
+suite runs `test/fixtures/process-full-read.c` (one 16 MiB `read` returns the
+whole 3.4 MB file, `pread` and `readv` across the megabyte, a pipe still
+returns what is there) and passed in Chromium and Firefox in round 3's chain
+verification, in round 3's suites and in the checkpoint round
+(`work/locks/build/checkpoint-evidence/browser.log`). The old smoke fixture
+that asserted the short read was changed in `40418a7b`. Xonotic's patch still
+carries its own read loop with a comment naming this branch; removing that
+hunk is noted in the Xonotic task.
