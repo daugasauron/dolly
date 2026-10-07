@@ -1,4 +1,4 @@
-# Plan release v0.1.0 and versioned hosting where every published version stays reachable
+# Versioned hosting and the release procedure for v0.1.0
 
 - STATUS: OPEN
 - PRIORITY: 310

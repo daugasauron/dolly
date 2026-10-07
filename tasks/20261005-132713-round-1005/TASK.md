@@ -1,6 +1,6 @@
 # Integrate the 2026-10-05 round into a local release candidate
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 340
 - TAGS: integration,release
 
@@ -966,3 +966,9 @@ finish the licence work, then "commit, push and deploy".
   `work/next` and the first checkpoint releases were removed).
 - Known and unchanged from the 14:40 entry: the two compiler flags, the demo
   runner being Chromium-only, Xonotic without sound in software rendering.
+
+### Closed, 2026-10-07
+
+The round's candidate became the checkpoint deployed at 19:30 (entry above:
+`93986c67`, daugasauron.com `b06b5c8a…`, GitHub Pages `ce6e9c20…`). The
+integrator's record continues in `20261007-133708-v010`.
