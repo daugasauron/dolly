@@ -913,3 +913,56 @@ rewrites were restored after each build here.
   `work/pipelines`, `work/recordings`, `work/cc-flags`, `work/cc-simd`,
   `work/full-read`, `work/publish-memory`. Evidence of removed trees is in
   `work/evidence-2026-10-06/` and `work/evidence-2026-10-07/`.
+
+### 19:30, 2026-10-07: the checkpoint is pushed and deployed
+
+The owner, after reviewing :9005: fix the page cursor in Xonotic's menus,
+finish the licence work, then "commit, push and deploy".
+
+- **Merged into `integrate/checkpoint`** (`36084562`): `fix/xonotic-menu-pointer`
+  (`2e39bb3c`: the SDL backend installs a default cursor object, so
+  `SDL_ShowCursor(0)` reaches the page before any click) and
+  `docs/xonotic-licences` (`88033c0a`: NOTICE and font licences in the image,
+  Unifont and Xolonium sources pinned and served, `docs/licences.md`).
+- **Round** (`work/locks/build/checkpoint-evidence/`, 16:23 to 18:15, image
+  inputs `c62b2710…` unchanged): catalog 25 minutes (`sdl2` and what installs
+  it, the 0 A.D. chain, both Xonotic images); source 415/0; artifacts 23/0;
+  core browser suites in chromium and firefox all passed (826 s); demos all
+  passed, `xonotic` with the nine-point menu cursor assertion (431 s); GPU
+  tests `local-llm`, `0ad-spidermonkey`, `0ad-engine`, `0ad-graphics`,
+  `slopyard` exit 0; both packagings and their acceptance exit 0.
+- **GitHub Pages packaging failed once**: `docs/architecture.md` links
+  `Dollyfile-audio-sdk`, the smaller catalog lacked it, the packager rewrote
+  the link and the document no longer matched the docs package's pin. Fixed
+  by listing `audio-sdk` in `config/github-pages-images.txt` (`93986c67`).
+  The rule it shows: a catalog must contain every recipe a pinned document
+  links.
+- **Before the push**: the 585 commits, all 82 image snapshots in `dist/`
+  (26 GB, plain bytes) and the domain release's 839 files outside its packs
+  contain neither the OpenRouter key nor a token-shaped string (GNU grep; the
+  packs themselves hold compressed data and prove nothing).
+- **Pushed**: `main` = `origin/main` = `93986c67`; tags `checkpoint-2026-10-07`
+  (`b036d27e`), `checkpoint-2026-10-07-pm` (`93986c67`) and the four `rc-`
+  tags of 2026-10-06 and 2026-10-07.
+- **daugasauron.com**: release
+  `b06b5c8af5f78e587162dfa9fbfb825dc19bc8f993156a87f97a34403f2ad42c`
+  (packaged at `36084562`), exported without a predecessor (`223b8f9e…` was
+  not on disk: tabs open on the old site need a reload) to 2317 files, 18 GB;
+  `wrangler pages deploy` uploaded 1507 files in 45 minutes (809 were already
+  there), deployment `9e01ce58`. Live check at 19:31 in chromium and firefox:
+  `default` boots and runs commands, `/xonotic/` reaches its menu with the
+  page's cursor hidden at nine points.
+- **GitHub Pages**: release
+  `ce6e9c2088ead468ac907ba7e8ec71f182f2b5007d568e25144dba5c74fcb5a5`
+  (packaged at `93986c67`, 44 images, static export 963,592,991 bytes of the
+  1 GB limit), tarball SHA-256 `fafead57…f7b929`, GitHub release
+  `pages-93986c6-r1`, workflow run 37601933942 succeeded at 18:40. Live check:
+  `default` boots and runs commands in chromium and firefox.
+- **Local**: :9003 serves the full release `322f4fd2…`, :9005 the domain
+  release `b06b5c8a…`, both from `work/locks`.
+- **Lessons**: an interrupted `wrangler pages deploy` keeps nothing (a restart
+  began again at 809 of 2316), so it runs as a detached user unit;
+  the disk was at 98% before packaging (the `rc-2026-10-07` releases in
+  `work/next` and the first checkpoint releases were removed).
+- Known and unchanged from the 14:40 entry: the two compiler flags, the demo
+  runner being Chromium-only, Xonotic without sound in software rendering.
