@@ -117,6 +117,27 @@ Decisions:
   holds the other commands every image needs (slop, cat, ls, tar). A
   separate `file-exchange` package would be one more row in every recipe.
 
+## Verification 2026-10-07 (branch `fix/package-needs`)
+
+- `3aee12e4`: cmake installs cc; `test/amy-browser.mjs` gains the cmake
+  "alone" case (asserts `cc` absent on default, installs cmake, configures,
+  builds and runs a one-file C project). The cmake package image was
+  rebuilt alone (`npm run image -- cmake`, 29 s, pin `ea41ca26…`); it is the
+  only image these commits change.
+- The amy suite, Chromium and Firefox, on the rebuilt package: every case
+  passed (amy, amy programs, rust alone, cargo alone, cmake alone, cc,
+  refusal); `amy install cmake alone` 2976 ms Chromium, 3811 ms Firefox.
+  Logs: `build/package-needs-evidence/amy-{chromium,firefox}.log`.
+- `npm run -s lint:dollyfiles`: 67 recipes; `npm run -s test:source`: 399
+  pass, 0 fail.
+- `65f64017`: sdl2 and zlib descriptions; README text only, no image.
+
+Left: a message naming the package for a failed spawn (git's pager and
+editor, and `cc` from pip for a C sdist); the model packages installed on
+`default`; the two side findings (git's `fork failed` on commit, codex's
+`function signature mismatch` when `head` closes its pipe) belong in their
+own tasks.
+
 ## Done when
 
 Every package's ordinary use works after `amy install NAME` on `default`, or
