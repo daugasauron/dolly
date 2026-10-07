@@ -21,11 +21,32 @@ compatible. I want a task to create a thorough plan for this."
   side by side in one deployment), and it turns question 9 into a count:
   how many complete copies fit in 20,000 files (about eight at today's 2,317
   files) and what happens at the limit. The plan no longer weighs schemes
-  that share HTML or assets between versions. Still open: what `/` and
-  today's unversioned links do, whether recipe URLs change (question 6;
-  under a prefix the canonical URLs already resolve to the serving copy's own
-  files, to be shown by test), the shared origin state (8), archiving,
-  GitHub Pages, security fixes and migration.
+  that share HTML or assets between versions.
+- 2026-10-07: "GitHub pages -> just best effort subset of latest relase
+  (whatever fits). There should be no unversioned links, / should redirect
+  to the latests version, like /v0.1.0. Saved sessions belong to a version."
+  - GitHub Pages carries the newest version only, with as much of the
+    catalog as fits in 1 GB; it promises nothing about older versions
+    (question 11).
+  - The domain serves nothing outside `/vX.Y.Z/` except the redirect at `/`
+    (question 5). The plan lists what the host still needs at the root
+    (`_headers`, `_redirects`, the 404 page, `robots.txt`) and says what
+    today's public unversioned URLs return afterwards: 404 by this decision,
+    unless the owner wants them redirected once.
+  - It sharpens question 6: `https://daugasauron.com/Dollyfile-NAME SHA256`
+    is itself an unversioned link, written in every recipe. Either recipes
+    name versioned URLs (every pin changes at each release), or the URL stays
+    a name that a version's page maps to its own copy and that nothing serves
+    literally. The plan shows both on a real recipe and picks one.
+  - Sessions are stored per origin today, so "belong to a version" needs the
+    version in the session store's key: a version's pages list, restore and
+    import only their own saves (question 8). The plan covers the image
+    cache the same way, and what becomes of sessions saved on today's
+    unversioned site.
+
+Still open after these: the recipe URL form, archiving of published
+releases, the retention rule at the file limit, security fixes to an old
+version, and migration.
 
 ## What this task delivers
 
