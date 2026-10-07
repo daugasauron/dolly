@@ -16,7 +16,7 @@ REQUIRES TOOL ln
 REQUIRES TOOL tar
 REQUIRES TOOL time
 
-SOURCE https://daugasauron.com/dist/static/llvm/runtimes.tar fe69601fb30b2a5ac3b3af63111687af06ecb0afb837bd6f9b51b6d8f955ea25 /tmp/runtimes.tar
+SOURCE https://daugasauron.com/dist/static/llvm/runtimes.tar 436306d45c3f319da9afbcdaaa181f6dfb1482ada1d34149752e7294d0c40bcd /tmp/runtimes.tar
 SLOP tar -xf /tmp/runtimes.tar -C /
 
 # Sources, flags and member order of the -ww-wasmexcept and -wasmsjlj-ww variants

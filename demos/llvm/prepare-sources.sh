@@ -39,6 +39,8 @@ if has_image llvm-runtimes; then
     system/lib/libcxx/src system/lib/libcxxabi system/lib/libunwind system/lib/llvm-libc \
     system/lib/compiler-rt system/lib/libc/emscripten_internal.h |
     tar -x -C "${staging}/llvm-runtimes"
+  # The sanitizers are not built.
+  rm -r "${staging}"/llvm-runtimes/system/lib/compiler-rt/{include/sanitizer,lib/{asan,interception,lsan,sanitizer_common,ubsan,ubsan_minimal}}
   grep -rlZw __EMSCRIPTEN__ "${staging}/llvm-runtimes" | xargs -0 sed -i 's/\b__EMSCRIPTEN__\b/__dolly__/g'
   node scripts/build-source-tar.mjs "${static_dir}/llvm/runtimes.tar" "${staging}/llvm-runtimes" /tmp/llvm-runtimes
 fi
