@@ -36,6 +36,11 @@ Build with `npm run image -- xonotic-build` or `npm run image -- xonotic`.
   most 1 MiB per call until `core/full-read` lands; that hunk goes with it).
   Everything else is unchanged upstream; the engine sees `__dolly__`, never
   `__linux__`.
+- Without `dlopen`, the libraries the engine would load at run time are
+  linked as upstream's Android build links them: IJG libjpeg 9f, built in
+  the image from its pinned source (`LINK_TO_LIBJPEG`), and FreeType with its
+  libpng copied from the `zero-ad-deps` build (`DP_FREETYPE_STATIC`). PNG
+  textures, Vorbis, curl, ODE and d0_blind_id stay unavailable.
 - Dolly's libc answers the engine's socket calls with failures, so the INET
   ports are reported unavailable; only the loopback address type carries
   packets.

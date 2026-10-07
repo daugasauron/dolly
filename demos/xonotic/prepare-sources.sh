@@ -1,7 +1,12 @@
 # Sourced by scripts/prepare-image-sources.sh.
 if has_image xonotic-build; then
   xonotic_dir="$(bash demos/xonotic/prepare-xonotic.sh)"
+  jpeg_archive="$(bash scripts/fetch-pinned-archive.sh jpeg)"
+  jpeg_dir="build/generated/jpeg-$(source config/source-pins.sh && echo "${DOLLY_JPEG_VERSION}")"
+  if [[ ! -d "${jpeg_dir}" ]]; then mkdir -p build/generated && tar -xzf "${jpeg_archive}" -C build/generated; fi
   node scripts/build-source-tar.mjs "${static_dir}/xonotic/source.tar.gz" \
+    "${jpeg_dir}" /usr/src/xonotic/jpeg \
+    "${jpeg_dir}/README" /usr/share/licenses/libjpeg/README \
     "${xonotic_dir}/darkplaces" /usr/src/xonotic/darkplaces \
     "${xonotic_dir}/d0_blind_id" /usr/src/xonotic/d0_blind_id \
     "${xonotic_dir}/gmqcc" /usr/src/xonotic/gmqcc \

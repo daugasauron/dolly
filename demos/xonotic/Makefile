@@ -27,8 +27,17 @@ CFLAGS := -O1 -fno-strict-aliasing -D_FILE_OFFSET_BITS=64 -D__KERNEL_STRICT_NAME
 # SSE_PRESENT and SSE2_PRESENT make quakedef.h take the x86 SSE2 paths
 # (Sys_HaveSSE2 answers yes without cpuid, vid_soft is registered); the two
 # units with intrinsics compile as Wasm SIMD through simd-unit.c.
-CLIENT_CFLAGS := $(CFLAGS) -DCONFIG_MENU -DCONFIG_CD -DSSE_PRESENT -DSSE2_PRESENT -I/usr/include/SDL2
+# No dlopen: libjpeg (built here from IJG's sources) and FreeType (the
+# zero-ad-deps package) are linked, as upstream's Android build links them.
+CLIENT_CFLAGS := $(CFLAGS) -DCONFIG_MENU -DCONFIG_CD -DSSE_PRESENT -DSSE2_PRESENT -I/usr/include/SDL2 \
+  -DLINK_TO_LIBJPEG -I$(SOURCE)/jpeg -DDP_FREETYPE_STATIC -I/usr/include/freetype2
 SIMD_UNITS := dpsoftrast mod_skeletal_animatevertices_sse
+JPEG := $(SOURCE)/jpeg
+JPEG_UNITS := jaricom jcapimin jcapistd jcarith jccoefct jccolor jcdctmgr jchuff jcinit jcmainct jcmarker jcmaster \
+  jcomapi jcparam jcprepct jcsample jctrans jdapimin jdapistd jdarith jdatadst jdatasrc jdcoefct jdcolor jddctmgr \
+  jdhuff jdinput jdmainct jdmarker jdmaster jdmerge jdpostct jdsample jdtrans jerror jfdctflt jfdctfst jfdctint \
+  jidctflt jidctfst jidctint jquant1 jquant2 jutils jmemmgr jmemnobs
+JPEG_OBJECTS := $(patsubst %,$(BUILD)/jpeg/%.o,$(JPEG_UNITS))
 
 GMQCC_UNITS := ast code conout fold ftepp intrin ir lexer main opts parser stat utf8 util
 GMQCC_OBJECTS := $(patsubst %,$(BUILD)/gmqcc/%.o,$(GMQCC_UNITS))
@@ -40,9 +49,22 @@ all: /usr/bin/xonotic-dedicated /usr/bin/xonotic-sdl /usr/bin/gmqcc
 	$(CC) $(CFLAGS) -DSVNREVISION=xonotic-v0.8.6 -DBUILDTYPE=release $(SERVER_OBJECTS) $(ENGINE)/builddate.c -o $@ -lz -lm \
 	  -Wl,--initial-memory=67108864
 
-/usr/bin/xonotic-sdl: $(CLIENT_OBJECTS) $(ENGINE)/builddate.c
-	$(CC) $(CLIENT_CFLAGS) -DSVNREVISION=xonotic-v0.8.6 -DBUILDTYPE=release $(CLIENT_OBJECTS) $(ENGINE)/builddate.c -o $@ -lSDL2 -lz -lm \
-	  -Wl,--initial-memory=134217728
+/usr/bin/xonotic-sdl: $(CLIENT_OBJECTS) $(BUILD)/libjpeg.a $(ENGINE)/builddate.c
+	$(CC) $(CLIENT_CFLAGS) -DSVNREVISION=xonotic-v0.8.6 -DBUILDTYPE=release $(CLIENT_OBJECTS) $(ENGINE)/builddate.c -o $@ \
+	  $(BUILD)/libjpeg.a -lfreetype -lpng16 -lSDL2 -lz -lm -Wl,--initial-memory=134217728
+
+# IJG's jconfig.txt is the generic configuration (makefile.ansi); jmemnobs.c is its memory manager.
+$(JPEG)/jconfig.h: $(JPEG)/jconfig.txt
+	cp $< $@
+
+$(BUILD)/jpeg/%.o: $(JPEG)/%.c $(JPEG)/jconfig.h
+	mkdir -p $(@D)
+	$(CC) -O1 -I$(JPEG) -c $< -o $@
+
+$(BUILD)/libjpeg.a: $(JPEG_OBJECTS)
+	ar rcs $@ $^
+
+$(BUILD)/client/jpeg.o: $(JPEG)/jconfig.h
 
 $(BUILD)/engine/%.o: $(ENGINE)/%.c
 	mkdir -p $(@D)
