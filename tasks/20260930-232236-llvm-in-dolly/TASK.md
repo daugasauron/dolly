@@ -438,6 +438,28 @@ unit, no retried compiler process, no warning.
   staged as a fixture: Dolly's `c++` linking host-built objects gives a
   compiler with the same outputs too.
 
+**`llvm-stage2`** (`FROM llvm-cc`): the closure and the compiler again, built
+by the compiler `llvm-cc` installed; same sources, cache file, paths, targets
+and job count. First run, no failed unit and no retry.
+
+| step | wall |
+| --- | --- |
+| `cmake -C` | 75.0 s |
+| `make -k -j4` | 2,625.0 s (43.8 min; the seed compiler took 2,491.7 s) |
+| driver and link | 7.4 s |
+| `llvm-cc` and `llvm-stage2` together, with snapshots | 3,024.7 s |
+
+- `cmp` finds each of the 103 archives identical to the first stage's, and
+  the linked compiler identical to the installed one (127,138,140 bytes,
+  SHA-256 `99f690ad…07d3cc37`). The recipe fails at the first difference, so
+  the image exists only when all of them hold.
+- Peak 6.18 GB while compiling, 7.20 GB while capturing the snapshot.
+- What this shows: the compiler built by the host-built seed and the compiler
+  built by that compiler are the same bytes, so are their 2,559 objects, and
+  two builds an hour apart, by different compiler executables, were
+  deterministic. The TableGen tools are still `llvm-tablegen`'s, built by the
+  seed; their outputs are the seed's bytes (above), so they were not rebuilt.
+
 ## Decisions (2026-10-01, delegated)
 
 - LLVM-in-Dolly stays a demo (`demos/llvm`): moving CMake and Python into core
