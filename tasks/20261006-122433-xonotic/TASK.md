@@ -389,8 +389,58 @@ small: 17 modes × 20 permutation bits in the source, 14 pairs in use at
   the font configuration loads appear natively too. The rebuilt data image
   was OOM-killed once more in the 9 GB slot (Chrome at 7.1 GB anon RSS,
   09:18:57) and again on a retry (7.2 GB, 09:21:23): the peak sits at the
-  cap and variance decides; handed to the integrator for a larger scope
-  (commit `9f98e19e`).
+  cap and variance decides. The integrator built it from `9f98e19e` in an
+  18 GB scope (117 s, exit 0) and serves this tree at
+  `http://127.0.0.1:9009/xonotic/`. Summary of the data image's builds:
+  6 GB cap: killed twice (Chrome 5.2 GB anon RSS); 9 GB: passed once, killed
+  twice (7.1 and 7.2 GB); 18 GB: passed. A 946 MB image needs 7 to 9 GB of
+  renderer memory during the snapshot upload, about eight times its size;
+  noted in `tasks/20261007-065624-publish-memory` (the builder-copies task
+  is not in this tree).
+
+## Route (a): the map of what remains (2026-10-07 09:35, estimates)
+
+What exists: the client over `vid_sdl.c` and the software rasterizer, the
+data image, both browsers. The `gpu@0` path replaces the rasterizer and the
+SDL window; each piece below runs on its own and the estimates are working
+days for one person, measured against this morning's pace (a port step with
+a rebuild-and-test loop of 4 minutes).
+
+1. `vid_dolly.c` (1–2 days): display lease, window size, the loop and
+   clock from `sys_linux.c`, input from the display records as
+   `demos/classicube/window.c` and `input.c` read them (keys with text,
+   relative mouse and capture, focus loss), `VID_Finish` presenting the
+   `gpu@0` surface. Proof: the menu's cursor and keys work and the window
+   survives a resize.
+2. `dpgpurast.c`, the 2D subset (2–3 days): the 41-call DPSOFTRAST surface
+   behind the `RENDERPATH_SOFT` sites, with textures (`CREATE_TEXTURE`,
+   `WRITE_TEXTURE`, samplers), vertex and index buffers, the generic mode's
+   two permutations as WGSL, blend and scissor state, `DrawTriangles`,
+   present. Proof: the menu drawn by the GPU, the test's frame check.
+3. Shaders for `normal` (2–3 days): a host preparation step that expands
+   `shader_glsl.h` for the 11 mode:permutation pairs measured for `normal`
+   (plus the lightsource and water pairs a full match adds: measure them
+   with a longer demo first), glslang then naga to WGSL, served beside the
+   source; uniform and texture binding layouts per mode; a missing pair
+   draws nothing and logs. Bootstrap exception until the translators run in
+   Dolly.
+4. The 3D state (2–3 days): depth and cull state, `R_Mesh_*` vertex
+   formats, lightmaps and deluxemaps as textures, `depth/shadow` passes for
+   `r_depthfirst`, `CopyRectangleToTexture` for what `normal` needs (none
+   for `normal`; `high` waits for the owner's decision), the frame test on a
+   live match. Proof: a bot match at the `normal` preset on the GPU, the
+   timedemo rate against the 13.7 fps software number.
+5. Sound (1–2 days): an SDL2 audio backend over `audio@0` in `demos/sdl2`
+   (`SDL_OpenAudioDevice`, the callback driven from the main loop since the
+   package has no threads), then `snd_sdl.c` unchanged. Proof: the menu
+   music and weapon sounds.
+6. Finishing (1 day): the asset licence pass, `docs/licences.md`, the
+   README's effects table, the music and compatibility archives in the
+   image, forced-termination and quit tests, the owner's acceptance.
+
+Order: 1, 2 (first GPU frame), 3 and 4 together (the world), 5, 6. The
+software path stays selectable (`vid_soft 1`) as the fallback until 4 is
+measured faster than it.
 
 ## Decisions for the owner
 

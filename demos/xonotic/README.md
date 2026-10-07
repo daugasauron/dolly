@@ -72,8 +72,9 @@ Nexuiz compatibility archives are left out. The browser test runs on
 the test runs its second match on the `progs.dat` built in Dolly. The test's
 `short.dem`, a 22 s bot match on stormkeep recorded with the native build, is
 a measurement fixture and not in any image: the software path plays it at
-1024×768 at about 30 fps in Chromium and 43 fps in Firefox on one thread
-(numbers in the task).
+1024×768 on one thread at 13.7 fps in Chromium and 16.1 fps in Firefox
+(native llvmpipe: 76 fps). An earlier 30 and 43 fps was measured before
+libjpeg was linked, when the surfaces drew untextured; numbers in the task.
 
 ## Bootstrap exceptions
 

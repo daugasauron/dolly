@@ -25,6 +25,15 @@ every model package.
   (`/usr/bin/time -v`), and the time.
 - The acceptance step that follows (`scripts/accept-release.mjs`) loads the
   largest images in a browser; measure it separately.
+- The builder has the same shape of problem (noted here on 2026-10-07 09:30
+  by the Xonotic port; the builder-copies task is not in that tree): the
+  `xonotic` image, 946 MB of pk3 `SOURCE`s plus the client on `system`,
+  needs 7 to 9 GB of renderer memory during the snapshot upload. Under a
+  6 GB scope Chrome was OOM-killed twice at 5.2 GB anon RSS; under 9 GB it
+  passed once (107.5 s) and was killed twice at 7.1 and 7.2 GB; under 18 GB
+  it passed (117 s). The ratio of upload memory to image size, about eight
+  to one, is the thing to fix, not the cap (`tasks/20261006-122433-xonotic`
+  records the runs).
 
 ## Done when
 
