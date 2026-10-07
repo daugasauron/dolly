@@ -84,6 +84,24 @@ static void signal_wake(void) {
   CHECK(close(ends[0]) == 0 && close(ends[1]) == 0);
 }
 
+/* sendmsg and recvmsg gather and scatter when they carry no control data;
+ * a duplicate is the same socket. */
+static void vectors(void) {
+  int ends[2], error = -1;
+  socklen_t size = sizeof(error);
+  char first[3], second[1];
+  struct iovec parts[2] = {{"ab", 2}, {"cd", 2}}, into[2] = {{first, 3}, {second, 1}};
+  const struct msghdr gathered = {.msg_iov = parts, .msg_iovlen = 2};
+  struct msghdr scattered = {.msg_iov = into, .msg_iovlen = 2};
+  CHECK(socketpair(AF_UNIX, SOCK_STREAM, 0, ends) == 0);
+  const int duplicate = dup(ends[1]);
+  CHECK(duplicate >= 0 && close(ends[1]) == 0);
+  CHECK(sendmsg(duplicate, &gathered, 0) == 4);
+  CHECK(recvmsg(ends[0], &scattered, 0) == 4 && memcmp(first, "abc", 3) == 0 && second[0] == 'd');
+  CHECK(getsockopt(ends[0], SOL_SOCKET, SO_ERROR, &error, &size) == 0 && error == 0);
+  CHECK(close(duplicate) == 0 && recv(ends[0], first, 1, 0) == 0 && close(ends[0]) == 0);
+}
+
 /* A pair, one end inherited through spawn: 300 KiB each way through the
  * kernel's 64 KiB buffers, so both sides wait and are woken. */
 static void pair(void) {
@@ -106,6 +124,7 @@ static void pair(void) {
   CHECK(shutdown(pipes[0], SHUT_RD) == -1 && errno == ENOTSOCK);
   CHECK(send(99, "x", 1, 0) == -1 && errno == EBADF);
   signal_wake();
+  vectors();
 
   const pid_t child = spawn_with(ends[1], "echo");
   CHECK(close(ends[1]) == 0);
@@ -155,6 +174,7 @@ static void refuse(void) {
   CHECK(bind(local, (const struct sockaddr *)&abstract,
              offsetof(struct sockaddr_un, sun_path) + 5) == -1 && errno == ENOENT);
   CHECK(listen(local, 1) == -1 && errno == EDESTADDRREQ);
+  CHECK(setsockopt(local, SOL_SOCKET, SO_KEEPALIVE, &local, sizeof(local)) == -1 && errno == ENOPROTOOPT);
   CHECK(send(local, "x", 1, 0) == -1 && errno == ENOTCONN);
   /* A descriptor does not travel. */
   CHECK(socketpair(AF_UNIX, SOCK_STREAM, 0, ends) == 0);

@@ -22,7 +22,7 @@ test("sysroot publication keys startup code and preserves previous versions", as
   await writeFile(join(root, "provider.c"), "int fixture(void) { return 0; }\n");
   await run("cc", ["-c", "provider.c", "-o", "provider.o"], { cwd: root });
   await run("ar", ["rcsD", "build/libdolly-process.a", "provider.o"], { cwd: root });
-  const clients = ["runtime", "gpu"].map(name => `libdolly-${name}.a`);
+  const clients = ["runtime", "sockets", "gpu"].map(name => `libdolly-${name}.a`);
   for (const name of clients) await copyFile(join(root, "build/libdolly-process.a"), join(root, "build", name));
   for (const name of ["libstandalonewasm-ww-memgrow.a", "libstubs.a", "libc-ww.a",
     "libdlmalloc-ww.a", "libclang_rt.builtins-wasmsjlj-ww.a", "libunwind-ww-wasmexcept.a",
