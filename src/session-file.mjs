@@ -1,6 +1,7 @@
 import { DOLLY_SESSION_MAX_BYTES, DOLLY_SESSION_METADATA_MAX_BYTES as metadataLimit,
   validateSessionRecord, decodeSessionSnapshot } from "./session-store.mjs";
 import { sha256 } from "./static-asset.mjs";
+import { DOLLY_VERSION } from "./version.mjs";
 
 const magic = new TextEncoder().encode("DOLLYSF1");
 const headerSize = magic.length + 4;
@@ -9,7 +10,7 @@ export async function exportSessionFile(record) {
   validateSessionRecord(record);
   const { name, formatVersion, buildId, image, imageIdentity, updatedAt, encoding, bytes, customImage } = record;
   const metadata = new TextEncoder().encode(JSON.stringify({
-    name, formatVersion, buildId, image, imageIdentity, updatedAt, encoding,
+    version: DOLLY_VERSION, name, formatVersion, buildId, image, imageIdentity, updatedAt, encoding,
     ...(customImage === undefined ? {} : { customImage }),
     byteLength: bytes.byteLength, sha256: await sha256(bytes),
   }));
@@ -33,7 +34,12 @@ export async function importSessionFile(file) {
     await file.slice(headerSize, headerSize + length).arrayBuffer()));
   if (!metadata || typeof metadata !== "object" || Array.isArray(metadata) ||
       metadata.byteLength !== file.size - headerSize - length ||
-      !/^[0-9a-f]{64}$/.test(metadata.sha256)) throw new Error("Invalid session file metadata");
+      !/^[0-9a-f]{64}$/.test(metadata.sha256) ||
+      typeof metadata.version !== "string" || !/^\d+\.\d+\.\d+$/.test(metadata.version)) throw new Error("Invalid session file metadata");
+  // A save restores onto the images of its own version, so only that version's pages take it.
+  if (metadata.version !== DOLLY_VERSION) {
+    throw new Error(`This session file belongs to Dolly ${metadata.version}. Import it on that version's sessions page.`);
+  }
   const { name, formatVersion, buildId, image, imageIdentity, updatedAt, encoding, customImage } = metadata;
   const bytes = await file.slice(headerSize + length).arrayBuffer();
   const record = { name, formatVersion, buildId, image, imageIdentity, updatedAt, encoding, bytes,

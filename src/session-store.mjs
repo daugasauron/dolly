@@ -1,12 +1,14 @@
 import { inspectDollyfile, validName } from "./dollyfile-view.mjs";
 import { imageInputs } from "./image-inputs.mjs";
 import { publicURL } from "./static-asset.mjs";
+import { DOLLY_VERSION } from "./version.mjs";
 
 export const DOLLY_SESSION_FORMAT_VERSION = 2;
 export const DOLLY_SESSION_MAX_BYTES = 512 * 1024 * 1024;
 export const DOLLY_SESSION_METADATA_MAX_BYTES = 1024 * 1024;
 
-const databaseName = "dolly-sessions-v1";
+// Saves belong to a version: every version's pages open their own database.
+const databaseName = `dolly-sessions-v${DOLLY_VERSION}`;
 const storeName = "sessions";
 
 export function validSessionName(value) {
@@ -59,7 +61,7 @@ export function sessionLoadUrl(name, applicationBase) {
 
 export async function listStoredSessions() {
   const records = await transaction("readonly", store => store.getAll());
-  return records.map(({ bytes, ...metadata }) => ({ ...metadata, byteLength: bytes?.byteLength ?? bytes?.size ?? 0 }))
+  return records.map(({ bytes, ...metadata }) => ({ ...metadata, byteLength: bytes.size }))
     .sort((left, right) => right.updatedAt - left.updatedAt);
 }
 
@@ -159,12 +161,11 @@ async function transaction(mode, operation) {
 export async function loadStoredSession(name) {
   if (!validSessionName(name)) throw new TypeError("invalid Dolly session name");
   const record = (await transaction("readonly", (store) => store.get(name))) ?? null;
-  if (record?.bytes instanceof Blob) {
-    if (record.bytes.size === 0 || record.bytes.size > DOLLY_SESSION_MAX_BYTES) {
-      throw new Error("Stored Dolly session is invalid");
-    }
-    record.bytes = await record.bytes.arrayBuffer();
+  if (record === null) return null;
+  if (!(record.bytes instanceof Blob) || record.bytes.size === 0 || record.bytes.size > DOLLY_SESSION_MAX_BYTES) {
+    throw new Error("Stored Dolly session is invalid");
   }
+  record.bytes = await record.bytes.arrayBuffer();
   return record;
 }
 

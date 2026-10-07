@@ -5,24 +5,32 @@ import { Readable } from "node:stream";
 import { pipeline } from "node:stream/promises";
 import { DOLLY_IMAGES } from "../dist/dolly-images.mjs";
 import { discoverImageDefinitions } from "../scripts/image-definitions.mjs";
+import { DOLLY_VERSION } from "../src/version.mjs";
 import { browserTest } from "./browser.mjs";
 
 const root = new URL("..", import.meta.url).pathname;
-// /pages/ stands in for a project-page deployment: a path prefix and no
-// COOP/COEP headers, so only coi-serviceworker.js can isolate the page.
-const prefix = "/pages";
+// Two versions on one origin, as a deployment carries them: each under its own
+// path and, as on a project page, without COOP/COEP headers, so only
+// coi-serviceworker.js can isolate the page. The other version is this
+// checkout with another version constant.
+const prefix = `/v${DOLLY_VERSION}`, other = "/v0.0.0";
 let origin;
 const prefixed = [], unprefixed = [];
 async function handle(request, response, path, headers) {
   if (request.headers["x-dolly-proxy"]) return false;
-  if (path !== prefix && !path.startsWith(`${prefix}/`)) {
+  const version = [prefix, other].find(version => path === version || path.startsWith(`${version}/`));
+  if (!version) {
     if (path === "/favicon.ico") return false;
     unprefixed.push(path);
     response.writeHead(404, headers).end();
     return true;
   }
   prefixed.push(path);
-  const upstream = await fetch(origin + request.url.slice(prefix.length), { headers: { "x-dolly-proxy": "1" } });
+  if (path === `${other}/src/version.mjs`) {
+    response.writeHead(200, { "cache-control": "no-store", "content-type": "text/javascript" }).end('export const DOLLY_VERSION = "0.0.0";\n');
+    return true;
+  }
+  const upstream = await fetch(origin + request.url.slice(version.length), { headers: { "x-dolly-proxy": "1" } });
   response.writeHead(upstream.status, { "cache-control": "no-store", "content-type": upstream.headers.get("content-type") ?? "" });
   if (upstream.body) await pipeline(Readable.fromWeb(upstream.body), response).catch(() => {}); else response.end();
   return true;
@@ -99,6 +107,30 @@ await browserTest("site", { server: { handle } }, async ({ browser, server }) =>
   assert.ok(prefixed.includes(`${prefix}/amy-index.txt`), "amy did not read the site's index");
   assert.ok(prefixed.some(path => path.startsWith(`${prefix}/dist/packs/`)), "image did not load snapshot packs");
   assert.deepEqual(prefixed.filter(path => path.includes("/static/")), [], "prebuilt route fetched rebuild-only sources");
+  assert.deepEqual(prefixed.filter(path => !path.startsWith(`${prefix}/`)), [], "a version requested another version's paths");
   assert.deepEqual(unprefixed, [], "prefixed deployment requested unprefixed paths");
+
+  // A save belongs to its version: the other version neither lists it nor
+  // takes its exported file, and its own version restores it.
+  assert.equal(await page.evaluate(() => __dolly.submit("echo kept > $HOME/kept")), 0);
+  await page.evaluate(() => __dolly.saveSession("versioned"));
+  const sessions = async version => {
+    await page.goto(`${origin}${version}/sessions/`);
+    await page.waitForFunction(() => document.documentElement.dataset.sessionsStatus === "ready");
+    return page.locator("#sessions li").filter({ hasText: "versioned" });
+  };
+  const exported = page.waitForEvent("download");
+  await (await sessions(prefix)).getByRole("button", { name: "Export", exact: true }).click();
+  const file = await (await exported).path();
+  assert.equal(await (await sessions(other)).count(), 0, "another version lists the save");
+  await page.locator("#import-session").setInputFiles(file);
+  await page.waitForFunction(version => document.querySelector("#status").textContent.includes(version), DOLLY_VERSION);
+  assert.equal(await page.locator("#sessions li").count(), 0, "another version imported the save");
+  await page.goto(`${origin}${prefix}/session/?name=versioned`);
+  await page.waitForFunction(() => ["ready", "failed"].includes(document.documentElement.dataset.dollyStatus), null, { timeout: 60000 });
+  assert.equal(await page.evaluate(() => document.documentElement.dataset.dollyStatus), "ready",
+    await page.locator("#bootstrap-log").textContent());
+  await page.evaluate(() => __dolly.waitForInteractiveTerminal(/dolly:[^\n]*\$\s*$/, "session shell"));
+  assert.equal(await page.evaluate(() => __dolly.submit('test "$(cat $HOME/kept)" = kept')), 0);
   await page.context().close();
 });

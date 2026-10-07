@@ -76,8 +76,10 @@ test("reject corrupt, truncated, oversized and unsupported session envelopes", a
     meta => { meta.name = "../secret"; }, meta => { meta.formatVersion = 999; },
     meta => { meta.encoding = "unknown"; }, meta => { meta.byteLength++; },
     meta => { meta.sha256 = "invalid"; }, meta => { meta.updatedAt = 1.5; },
-    meta => { meta.buildId = "x".repeat(8192); },
+    meta => { meta.buildId = "x".repeat(8192); }, meta => { delete meta.version; },
   ]) await assert.rejects(importSessionFile(await edit(file, mutate)));
+  // Another version's file is refused by a message naming the version it belongs to.
+  await assert.rejects(importSessionFile(await edit(file, meta => { meta.version = "9.8.7"; })), /9\.8\.7/);
   await assert.rejects(importSessionFile(await exportSessionFile({ ...record, encoding: "gzip" })));
   await assert.rejects(importSessionFile(await exportSessionFile({ ...record, bytes: new ArrayBuffer(1) })), /incomplete/);
 });
