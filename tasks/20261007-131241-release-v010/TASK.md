@@ -10,6 +10,23 @@ daugasauron.com redirects to daugasauron.com/v0.1.0 (latest). And then when I
 publish updates, I can just add a new version so the old ones are backward
 compatible. I want a task to create a thorough plan for this."
 
+## Owner's decisions
+
+- 2026-10-07: "I want it to be completely backward compatible for now, just
+  duplicate all static pages under the version (like /v0.1.0). It's not
+  sustainable but it's good enough for now."
+  So each version is a complete copy of its site under `/vX.Y.Z/`, and
+  versions share nothing by design. This settles the layout in question 5
+  and the mechanics in question 10 (one exported directory per version,
+  side by side in one deployment), and it turns question 9 into a count:
+  how many complete copies fit in 20,000 files (about eight at today's 2,317
+  files) and what happens at the limit. The plan no longer weighs schemes
+  that share HTML or assets between versions. Still open: what `/` and
+  today's unversioned links do, whether recipe URLs change (question 6;
+  under a prefix the canonical URLs already resolve to the serving copy's own
+  files, to be shown by test), the shared origin state (8), archiving,
+  GitHub Pages, security fixes and migration.
+
 ## What this task delivers
 
 A plan written into this file, which the owner approves section by section,
