@@ -28,6 +28,9 @@ renamed to `__dolly__`, and LLVM generates code under the libc's triple,
 ([process model](process-model.md#executables)).
 
 Demo exceptions (the Rust compiler seed) are recorded in their demo READMEs.
+The `llvm` demo (`demos/llvm/README.md`) builds the compiler of the second row
+again inside Dolly and gets the seed compiler's output bytes from it; the
+host-built seed is still what every image starts from.
 Every externally built program (compiler, Rust seed)
 validates against `dolly-process-0` exactly and ships without an Emscripten
 JavaScript loader. Host preparation may

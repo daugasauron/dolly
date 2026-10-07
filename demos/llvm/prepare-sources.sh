@@ -29,3 +29,32 @@ if has_image llvm-tablegen; then
   node scripts/build-source-tar.mjs "${static_dir}/llvm/llvm-project.tar.gz" "${llvm_inputs[@]}"
   copy_static demos/llvm/llvm-host-triple.patch llvm/llvm-host-triple.patch
 fi
+if has_image llvm-cc; then
+  # The seed's driver and the contract digests npm run build:runtime generates.
+  copy_static src/compiler.cpp llvm/compiler.cpp
+  copy_static src/process/compiler-main.c llvm/compiler-main.c
+  copy_static build/generated/dolly-process-abi-digest.h llvm/dolly-process-abi-digest.h
+  copy_static build/generated/dolly-kernel-plugin-abi-digest.h llvm/dolly-kernel-plugin-abi-digest.h
+fi
+if has_image llvm; then
+  for project in llvm clang lld; do
+    copy_static "${project_dir}/.cache/llvm-project/${project}/LICENSE.TXT" "llvm/licenses/${project}"
+  done
+fi
+if has_image llvm-runtimes; then
+  # The runtime sources at the Emscripten pin, read from the checkout's objects
+  # (its sparse work tree omits compiler-rt), with their __EMSCRIPTEN__ tests
+  # renamed as the installed libc++ headers' are (scripts/prepare-image-sources.sh).
+  emscripten_checkout="$("${project_dir}/scripts/fetch-pinned-checkout.sh" emscripten)"
+  mkdir "${staging}/llvm-runtimes"
+  git -C "${emscripten_checkout}" archive HEAD \
+    system/lib/libcxx/src system/lib/libcxxabi system/lib/libunwind system/lib/llvm-libc \
+    system/lib/compiler-rt system/lib/libc/emscripten_internal.h |
+    tar -x -C "${staging}/llvm-runtimes"
+  # The sanitizers are not built.
+  rm -r "${staging}"/llvm-runtimes/system/lib/compiler-rt/{include/sanitizer,lib/{asan,interception,lsan,sanitizer_common,ubsan,ubsan_minimal}}
+  grep -rlZw __EMSCRIPTEN__ "${staging}/llvm-runtimes" | xargs -0 sed -i 's/\b__EMSCRIPTEN__\b/__dolly__/g'
+  node scripts/build-source-tar.mjs "${static_dir}/llvm/runtimes.tar" "${staging}/llvm-runtimes" /tmp/llvm-runtimes \
+    "${staging}/llvm-runtimes/system/lib/libunwind/LICENSE.TXT" /usr/share/licenses/libunwind/LICENSE \
+    "${staging}/llvm-runtimes/system/lib/compiler-rt/LICENSE.TXT" /usr/share/licenses/compiler-rt/LICENSE
+fi

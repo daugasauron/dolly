@@ -152,11 +152,14 @@ try {
     } finally { URL.revokeObjectURL(url); }
   }));
   self.postMessage({ type: "started", pid: configuration.pid, tid: configuration.tid });
+  // Entered through JSPI where the browser has it, Wasm runs on a stack of its
+  // own: about 950 KB in Chrome, whose Worker stack holds 500 KB.
+  const enter = WebAssembly.promising ?? (entry => entry);
   if (configuration.argument !== undefined) {
-    threadResult = instance.exports.dolly_thread_start(configuration.tid, configuration.argument);
+    threadResult = await enter(instance.exports.dolly_thread_start)(configuration.tid, configuration.argument);
     self.postMessage({ type: "thread-finished", pid: configuration.pid, tid: configuration.tid, result: threadResult });
   } else {
-    instance.exports._start();
+    await enter(instance.exports._start)();
     self.postMessage({ type: "finished", pid: configuration.pid, tid: configuration.tid });
   }
 } catch (error) {

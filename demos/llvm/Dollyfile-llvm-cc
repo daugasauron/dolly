@@ -1,0 +1,124 @@
+DOLLY 6
+TOOLCHAIN llvm-cc
+REQUIRES HOST runtime@0
+REQUIRES HOST display@0
+REQUIRES HOST download@0
+REQUIRES HOST dso@0
+REQUIRES HOST http@0
+REQUIRES HOST upload@0
+
+# Clang and LLD linked inside Dolly from llvm-build's archives, checked against
+# the seed compiler and installed in its place: this image's cc is built by Dolly.
+FROM https://daugasauron.com/demos/llvm/Dollyfile-llvm-build 654a5f2679fb467ce9c6d2acc1ef46dee2db03e625ca0ff537f198e716c8795c
+REQUIRES TOOL cc
+REQUIRES TOOL c++
+REQUIRES TOOL gzip
+REQUIRES TOOL tar
+REQUIRES TOOL time
+REQUIRES TOOL cmp
+REQUIRES TOOL diff
+REQUIRES TOOL grep
+REQUIRES TOOL cp
+REQUIRES TOOL mv
+REQUIRES TOOL mkdir
+REQUIRES TOOL rm
+
+# LLVM's source headers again; llvm-build kept the configured and generated ones.
+SOURCE https://daugasauron.com/dist/static/llvm/llvm-project.tar.gz 033390c4520e51f261eb7572f0a1b4a1592121a1c8c1fc0c3db4845b079a8882 /tmp/llvm-project.tar.gz
+SLOP slop -c 'gzip -dc /tmp/llvm-project.tar.gz | tar -xf - -C /'
+SLOP rm /tmp/llvm-project.tar.gz
+# The driver the seed compiler is (src/compiler.cpp), with the two contract
+# digests the runtime build generates.
+SOURCE https://daugasauron.com/dist/static/llvm/compiler.cpp e76523345b5e177001d158e6552ba304fed09f634155c1ef506f76c0406f7665 /tmp/dolly-compiler/compiler.cpp
+SOURCE https://daugasauron.com/dist/static/llvm/compiler-main.c c006a717fb95b2b99ec91eee392a1b607801ef15f21d684acfa905b5116b8fae /tmp/dolly-compiler/compiler-main.c
+SOURCE https://daugasauron.com/dist/static/llvm/dolly-process-abi-digest.h a9086eddb238582885298ab36c68c8eb7a58c5133e59d1c277f46417205b3720 /tmp/dolly-compiler/dolly-process-abi-digest.h
+SOURCE https://daugasauron.com/dist/static/llvm/dolly-kernel-plugin-abi-digest.h e73a92ed6dbace33c5bf2d3a14905c29e2c114b4e7dba91304b2e6235791b35e /tmp/dolly-compiler/dolly-kernel-plugin-abi-digest.h
+
+# Compiles the driver as toolchain/CMakeLists.txt does and links ./compiler.
+# ROOT holds lib/*.a and the generated headers by build-tree path. The seed's
+# link needs 32 MiB at start: its 8 MiB stack and its data pass cc's 16 MiB.
+FILE /usr/lib/llvm-build/link-compiler.slop
+    # usage, in the driver's directory: slop -e link-compiler.slop ROOT
+    llvm=/tmp/llvm-project
+    include="-I. -I$llvm/llvm/include -I$1/include -I$llvm/clang/include -I$1/tools/clang/include -I$llvm/lld/include -I$1/tools/lld/include"
+    c++ -O2 -DNDEBUG -std=gnu++17 -fno-exceptions -fno-rtti -include endian.h -DCLANG_BUILD_STATIC $include -c compiler.cpp -o compiler.o
+    cc -O2 -DNDEBUG -c compiler-main.c -o compiler-main.o
+    c++ compiler.o compiler-main.o -o compiler -Wl,--initial-memory=33554432 $1/lib/*.a
+SLOP CWD /tmp/dolly-compiler time slop -e /usr/lib/llvm-build/link-compiler.slop /usr/lib/llvm-build
+
+# The resource headers generated here are the seed's.
+SLOP diff -r /usr/lib/llvm-build/lib/clang/24/include /usr/lib/clang/24/include
+
+FILE /tmp/dolly-compiler/check.c
+    #include <math.h>
+    #include <stdio.h>
+    #include <stdlib.h>
+    #include <string.h>
+    int main(int argc, char **argv) {
+      char *copy = strdup(argv[0]);
+      FILE *file = fopen("/tmp/dolly-compiler/check.txt", "w");
+      fprintf(file, "%.6f %zu\n", sqrt(2.0), strlen(copy) ? (size_t)42 : 0);
+      fclose(file);
+      free(copy);
+      return argc != 1;
+    }
+FILE /tmp/dolly-compiler/check.cpp
+    #include <iostream>
+    #include <map>
+    #include <stdexcept>
+    #include <string>
+    #include <vector>
+    struct Shape { virtual ~Shape() = default; virtual int sides() const = 0; };
+    struct Square : Shape { int sides() const override { return 4; } };
+    int main() {
+      std::map<std::string, std::vector<int>> table;
+      table["a"] = {1, 2, 3};
+      Square square;
+      const Shape &shape = square;
+      int total = shape.sides();
+      for (int value : table["a"]) total += value;
+      try { throw std::runtime_error("thrown"); }
+      catch (const std::exception &error) { std::cout << "CXX-OK " << total << " " << error.what() << "\n"; }
+      return total != 10;
+    }
+# The new compiler against the seed's: the same arguments must give the same
+# bytes. wasm-ld records an input's scratch name, which cc derives from the
+# output path, so both write out/unit.
+FILE /tmp/dolly-compiler/check.slop
+    # usage, in the driver's directory: slop -e check.slop
+    llvm=/tmp/llvm-project
+    root=/usr/lib/llvm-build
+    unit="-D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -D__STDC_LIMIT_MACROS -include endian.h -DCLANG_BUILD_STATIC -fPIC -fvisibility-inlines-hidden -w -ffunction-sections -fdata-sections -fno-common -O3 -DNDEBUG -std=c++17 -fno-exceptions -funwind-tables -fno-rtti -I$root/include -I$llvm/llvm/include"
+    clang="$unit -I$llvm/clang/include -I$root/tools/clang/include"
+    mkdir out seed
+    same() {
+      mode=$1
+      shift
+      /usr/libexec/dolly/process-bin/compiler --dolly-toolchain-mode=$mode "$@" -o out/unit
+      mv out/unit seed/unit
+      ./compiler --dolly-toolchain-mode=$mode "$@" -o out/unit
+      cmp out/unit seed/unit
+    }
+    same c check.c
+    out/unit
+    grep -q '^1.414214 42$' check.txt
+    same c++ check.cpp
+    out/unit | grep -q '^CXX-OK 10 thrown$'
+    same c -O0 -g -c check.c
+    same c -O2 -DNDEBUG -c compiler-main.c
+    same c++ -O2 -DNDEBUG -std=gnu++17 -fno-exceptions -fno-rtti -include endian.h -DCLANG_BUILD_STATIC -I. -I$llvm/llvm/include -I$root/include -I$llvm/clang/include -I$root/tools/clang/include -I$llvm/lld/include -I$root/tools/lld/include -c compiler.cpp
+    same c -std=gnu17 -fPIC -w -O3 -DNDEBUG -I$root/include -I$llvm/llvm/include -c $llvm/llvm/lib/Support/regcomp.c
+    same c++ $unit -I$llvm/libc -c $llvm/llvm/lib/Support/APFloat.cpp
+    same c++ $unit -c $llvm/llvm/lib/Demangle/ItaniumDemangle.cpp
+    same c++ $unit -c $llvm/llvm/lib/Transforms/Vectorize/SLPVectorizer.cpp
+    same c++ $clang -I$llvm/clang/lib/Driver -c $llvm/clang/lib/Driver/ToolChains/MSP430.cpp
+    same c++ $clang -I$llvm/clang/lib/Sema -c $llvm/clang/lib/Sema/SemaARM.cpp
+    same c++ $clang -I$llvm/clang/lib/Sema -c $llvm/clang/lib/Sema/SemaExpr.cpp
+SLOP CWD /tmp/dolly-compiler time slop -e check.slop
+
+SLOP cp /tmp/dolly-compiler/compiler /usr/libexec/dolly/process-bin/compiler
+EXPORTS FILE compiler /usr/libexec/dolly/process-bin/compiler
+# cc, c++ and ar now run the compiler built here.
+SLOP CWD /tmp/dolly-compiler slop -c 'c++ check.cpp -o check && ./check && ar rcs check.a compiler.o && cc --version'
+
+ENTRY /bin/foreground -i /bin/slop
