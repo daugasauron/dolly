@@ -22,9 +22,21 @@ SOURCE https://daugasauron.com/dist/static/xonotic/data/font-xolonium-20230620.p
 SOURCE https://daugasauron.com/dist/static/xonotic/data/xonotic-20230620-data.pk3 7602be0d44a4f1ce4f0918c54ceb215c9bc963a103623d6c7874f081330c8505 /usr/share/xonotic/data/xonotic-20230620-data.pk3
 SOURCE https://daugasauron.com/dist/static/xonotic/data/xonotic-20230620-maps.pk3 d10e5a8eac468a4a5b6d80f9603d95949971c6b10f86bec65a79e19f0d424f54 /usr/share/xonotic/data/xonotic-20230620-maps.pk3
 
+# The player's starting settings: the low effects preset, measured at 31 fps
+# against 13 for the normal preset in the software rasterizer. The engine
+# rewrites this file with the player's own settings on exit.
+FILE /home/dolly/.xonotic/data/config.cfg
+    exec effects-low.cfg
+    seta vid_soft 1
+    seta vid_soft_threads 1
+    seta vid_fullscreen 0
+    seta vid_width 1024
+    seta vid_height 768
+    seta cl_allow_uid2name 0
+    seta cl_allow_uidtracking 0
 FILE /usr/bin/xonotic
     #!/bin/slop
-    /usr/bin/xonotic-sdl -xonotic -basedir /usr/share/xonotic +vid_soft 1 +vid_fullscreen 0 +vid_width 1024 +vid_height 768 "$@"
+    /usr/bin/xonotic-sdl -xonotic -basedir /usr/share/xonotic +vid_soft 1 "$@"
 EXPORTS TOOL xonotic
 EXPORTS FOLDER xonotic-data /usr/share/xonotic
 
