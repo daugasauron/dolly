@@ -475,3 +475,16 @@
          let value = self.mflags_env();
          cmd.env("CARGO_MAKEFLAGS", &value);
          cmd.env("MAKEFLAGS", &value);
+--- a/js/src/moz.build
++++ b/js/src/moz.build
+@@ -557,7 +557,9 @@
+ # Bug 1739321 - clang 13+ only emits debuginfo for classes that are actually
+ # constructed, and we cheat in a number of cases. The flag exists at least
+ # back to clang 4.
+-if CONFIG["CC_TYPE"] == "clang":
++# It only widens debug info, so only with debug symbols: Dolly's cc forwards it
++# to cc1, which refuses it without -g.
++if CONFIG["CC_TYPE"] == "clang" and CONFIG["MOZ_DEBUG_SYMBOLS"]:
+     CXXFLAGS += ["-fstandalone-debug"]
+ 
+ # Bug 1722102 - This should never be enabled in Release without explicit

@@ -35,7 +35,7 @@ REQUIRES TOOL mkdir
 REQUIRES TOOL sh
 
 # The pinned tree without its test suites, 0 A.D.'s patches and Dolly's.
-SOURCE https://daugasauron.com/dist/static/zero-ad-build/mozjs.tar.gz 5c9f0e3e1eb198539425a75b5338a92d7a31dcaf9ded5980c1408fd592eb926e /tmp/mozjs.tar.gz
+SOURCE https://daugasauron.com/dist/static/zero-ad-build/mozjs.tar.gz b38f8c15a9bc9407fda3e1ba8a74635a4243d9282fa6e49e949abf8699d1496d /tmp/mozjs.tar.gz
 SLOP gzip -dc /tmp/mozjs.tar.gz | tar -xf - -C /
 SLOP CWD /tmp/mozjs/mozjs-128.13.0 sh ../patches/patch.sh
 SLOP patch -p1 -d /tmp/mozjs/mozjs-128.13.0 -i /tmp/mozjs/spidermonkey.patch

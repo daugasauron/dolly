@@ -555,3 +555,12 @@ memory sampled every 2 s into `memory-4.log`; stage logs `stage-*.log`.
   projects). Gap noted: cc's single-dash `-print-search-dirs` (GNU/Clang
   spelling) is refused; only bindgen-style tooling asks for it, and such ports
   would need libclang itself, so no seed change is requested.
+- Round 3's cc forwards `-fstandalone-debug` and `-ferror-limit=N` to cc1 in
+  the driver's spelling, which cc1 refuses (`9034916a`'s translation is
+  wrong: Clang's driver emits `-debug-info-kind=standalone` only with `-g`,
+  and `-ferror-limit N` as two arguments). `-ferror-limit=0` reaches no real
+  compile here (only the clangd database), `-fstandalone-debug` comes from
+  `js/src/moz.build` for every clang build; one more patch hunk adds
+  `and CONFIG["MOZ_DEBUG_SYMBOLS"]` (the flag only widens debug info, so it
+  is inert without `-g`; upstream could take it). The cc translation fix is
+  listed under remaining.
