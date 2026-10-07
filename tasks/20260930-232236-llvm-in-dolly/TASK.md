@@ -1272,7 +1272,7 @@ prints the same names for the rebuilt ones).
 `sysroot` package installed links a C program (stdio, `malloc`, `sqrt`,
 `timegm`) and a `-pthread` one twice, as usual and with `-L/usr/lib/sysroot`
 (`-L/usr/lib/sysroot/threads` first for the threaded one), so that every `-l`
-name of the driver finds the rebuilt archive. The linker's trace shows the
+name of the driver but the builtins' finds the rebuilt archive. The linker's trace shows the
 usual link loading members of the seed's archives and the other loading none
 of them, and the two executables are the same bytes; the serial one runs.
 `crt1.o` and `libdolly-process.a` are linked by path and stay the seed's in
