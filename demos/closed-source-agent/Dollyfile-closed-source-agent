@@ -24,18 +24,21 @@ REQUIRES TOOL rg
 REQUIRES TOOL sha256sum
 REQUIRES TOOL tar
 
-# Prints the one key it reads from the terminal; Ctrl+C is status 130.
+# anykey PROMPT discards earlier input, shows PROMPT and prints the one key it
+# then reads from the terminal; Ctrl+C is status 130.
 FILE /tmp/anykey.c
+    #include <string.h>
     #include <termios.h>
     #include <unistd.h>
-    int main(void) {
+    int main(int argc, char **argv) {
       struct termios cooked, raw;
-      if (tcgetattr(0, &cooked) != 0) return 1;
+      if (argc != 2 || tcgetattr(0, &cooked) != 0) return 2;
       raw = cooked;
       raw.c_lflag &= ~(ICANON | ECHO | ISIG);
       raw.c_cc[VMIN] = 1;
       raw.c_cc[VTIME] = 0;
       if (tcsetattr(0, TCSAFLUSH, &raw) != 0) return 1;
+      write(2, argv[1], strlen(argv[1]));
       char key;
       const long count = read(0, &key, 1);
       tcsetattr(0, TCSAFLUSH, &cooked);
@@ -46,9 +49,10 @@ FILE /tmp/anykey.c
 SLOP cc -O1 /tmp/anykey.c -o /usr/bin/anykey
 EXPORTS TOOL anykey
 
-# secretenv NAME PROMPT COMMAND [ARG...] shows PROMPT, reads a line from the
-# terminal without showing it and runs COMMAND with NAME set to it, in that
-# environment only; an empty line leaves NAME unset, Ctrl+C is status 130.
+# secretenv NAME PROMPT COMMAND [ARG...] discards earlier input, shows PROMPT,
+# reads a line from the terminal without showing it and runs COMMAND with NAME
+# set to it, in that environment only; an empty line leaves NAME unset, Ctrl+C
+# is status 130.
 FILE /tmp/secretenv.c
     #include <spawn.h>
     #include <stdlib.h>
@@ -125,12 +129,9 @@ FILE /usr/bin/closed-source-agent
     if test $# -eq 0 || ! test -s $package/cli.js; then
       clear
       cat /usr/share/doc/closed-source-agent/NOTICE
-      if test $# -eq 0; then
-        printf '\nEnter (or any other key): download and start with an API key (--bare)\np: start as published        Ctrl+C: leave without downloading\n'
-      else
-        printf '\nAny key: download and run it with your arguments        Ctrl+C: leave\n'
-      fi
-      start=$(anykey) || exit $?
+      keys=$'\nEnter (or any other key): download and start with an API key (--bare)\np: start as published        Ctrl+C: leave without downloading\n'
+      test $# -eq 0 || keys=$'\nAny key: download and run it with your arguments        Ctrl+C: leave\n'
+      start=$(anykey "$keys") || exit $?
     fi
     if ! test -s $package/cli.js; then
       printf '\nDownloading Claude Code 2.1.112 from registry.npmjs.org ...\n'
