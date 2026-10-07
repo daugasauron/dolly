@@ -379,8 +379,9 @@ small: 17 modes × 20 permutation bits in the source, 14 pairs in use at
   static path in 0.8.6 (`image_png.c` binds through function pointers
   only), so they stay missing. With real textures the frame's lit fraction
   is 32% and the software timedemo falls to 13.7 fps in Chromium (76.6 s
-  for 1,046 frames; `browser-test-chromium-15.log`, 231 s in all): the
-  earlier 30 fps drew flat untextured surfaces. The client's own log with
+  for 1,046 frames; `browser-test-chromium-15.log`, 231 s in all) and
+  16.1 fps in Firefox (65.1 s; `browser-test-firefox-4.log`, 174.3 s in
+  all): the earlier 30–43 fps drew flat untextured surfaces. The client's own log with
   `developer 1` (`client-log-run-2.log`) shows "Using DarkPlaces Software
   Rasterizer rendering path", "DPSOFTRAST available (SSE2 instructions
   detected)", the 1024×768 window, no image load errors and no library
