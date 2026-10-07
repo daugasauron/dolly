@@ -359,6 +359,17 @@ int parse_driver_options(int argc, const char *const *argv, DriverOptions &optio
     } else if (starts_with(argument, "-ffp-contract=")) {
       // Follows the default -ffp-contract=on in cc1's arguments, so it wins.
       options.frontend_options.push_back(argument);
+    } else if (argument == "-fno-lto") {
+      // Dolly links no LTO bitcode; -flto is never enabled, so the negative
+      // states the default and cc1, which has no such driver flag, gets nothing.
+    } else if (argument == "-fstandalone-debug" ||
+               argument == "-fno-standalone-debug") {
+      // cc1 accepts both; they select how much debug info types carry and are
+      // inert without -g, exactly as Clang's driver forwards them.
+      options.frontend_options.push_back(argument);
+    } else if (starts_with(argument, "-ferror-limit=")) {
+      // cc1 accepts the joined spelling, like -std=.
+      options.frontend_options.push_back(argument);
     } else if (argument == "-fPIC" || argument == "-fpic" || argument == "-fPIE" ||
                argument == "-fpie" || argument == "-pipe") {
       // Dolly objects are always PIC.

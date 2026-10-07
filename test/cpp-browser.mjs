@@ -47,7 +47,8 @@ await browserTest("cpp", { image: "system" }, async ({ open }) => {
       "grep -q '^dep.h:' dep.d",
     // Flags Mozilla's build system adds without probing them first.
     "echo 'int main(void) { return 0; }' > moz-flags.c && cc -fno-math-errno -fomit-frame-pointer " +
-      "-ffp-contract=off -mthread-model single moz-flags.c -o moz-flags && ./moz-flags",
+      "-ffp-contract=off -mthread-model single -fno-lto -fstandalone-debug -ferror-limit=0 " +
+      "moz-flags.c -o moz-flags && ./moz-flags",
     "echo 'int main(int argc, char **argv) { return argc == 0; }' > sanity.cpp && " +
       "c++ -D_FILE_OFFSET_BITS=64 -o sanity sanity.cpp -D_FILE_OFFSET_BITS=64 && ./sanity",
     "echo 'extern int host(void); int extension(void) { return host(); }' > extension.c && " +
