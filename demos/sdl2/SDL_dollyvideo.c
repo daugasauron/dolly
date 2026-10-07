@@ -31,6 +31,12 @@ static int DollyVideoInit(_THIS)
         return -1;
     }
     SDL_AddDisplayMode(&_this->displays[0], &mode);
+    // SDL_SetCursor returns at once when the cursor equals the current one,
+    // and SDL_ShowCursor hides through SDL_SetCursor(NULL): without a cursor
+    // object the current one is NULL too and a hide request never reaches
+    // DollyShowCursor. A default cursor object, as Android's backend installs.
+    SDL_Cursor *cursor = SDL_calloc(1, sizeof(SDL_Cursor));
+    if (cursor) SDL_SetDefaultCursor(cursor);
     return 0;
 }
 
