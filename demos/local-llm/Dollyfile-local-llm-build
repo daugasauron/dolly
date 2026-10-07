@@ -7,7 +7,7 @@ REQUIRES HOST gpu@0
 REQUIRES HOST http@0
 REQUIRES HOST upload@0
 
-FROM /v0.1.0/demos/local-llm/Dollyfile-llama-build 8c23d738b2bf6f6c2dea0bdf26713372f864f7ec3d1fa38581958fbb0d54404f
+FROM /v0.1.0/demos/local-llm/Dollyfile-llama-build bf7642146866227e1ab38a6eb9fdeb0a6262bce9b35c5effb7d1cc4083e14cf2
 REQUIRES TOOL cc
 REQUIRES TOOL c++
 REQUIRES TOOL tar

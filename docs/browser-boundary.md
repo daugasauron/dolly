@@ -115,10 +115,10 @@ Worker URL.
 - The default includes the app's own origin (same-origin requests need no CORS).
   URLs must be absolute; the page URL is no implicit base. Restrict it with a policy.
 - Bootstrap sources are the exact files the release publishes, named by their
-  canonical `https://daugasauron.com` URLs; the page fetches its own copy instead
-  ([`policy.mjs`](../host/http/policy.mjs)). The guest cannot choose that mirror,
-  and the mirror's URLs grant nothing. Other canonical-origin URLs are ordinary
-  destinations.
+  site paths; the page fetches the copy its own release holds
+  ([`policy.mjs`](../host/http/policy.mjs)). The guest cannot choose where that
+  copy is, and its address grants nothing. Other files of the site are
+  ordinary destinations.
 - A relay ([HTTP](http.md#cors-and-relays)) is embedding configuration consumed
   with the policy: it maps an exact origin to a URL prefix the page fetches
   instead. It adds no destination: the policy judges the URL the program
@@ -129,9 +129,10 @@ Worker URL.
   by default or on the public sites.
 - Loopback and LAN hosts are ordinary destinations: responses need CORS, but the
   request itself still reaches them.
-- A request URL that is a path (`/amy-index.txt`) is resolved against the root
-  of the site serving the release, never above it, and then judged by the
-  policy like any absolute URL ([`broker.mjs`](../host/http/broker.mjs)). It
+- A request URL that is a site path (`/vX.Y.Z/amy-index.txt`, the page's own
+  version) is resolved against the root of the site serving the release,
+  never above it, and then judged by the policy like any absolute URL
+  ([`broker.mjs`](../host/http/broker.mjs)); another version's path is refused. It
   grants nothing: the default policy already admits the page's own origin, an
   explicit policy admits the file only by a rule for it, and the request
   carries no cookies. The program is told the path it asked for, not where

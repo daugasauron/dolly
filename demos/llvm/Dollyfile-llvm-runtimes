@@ -7,7 +7,7 @@ REQUIRES HOST runtime@0
 # from the same pinned sources (tasks/20260930-232236-llvm-in-dolly). A process
 # link takes them instead only when it names the directory:
 # -L/usr/lib/llvm-runtimes.
-FROM /v0.1.0/Dollyfile-system-tools 76204eed7416daabd1c8978f628b45da16f77d27d23d4f1473c508c5c750a309
+FROM /v0.1.0/Dollyfile-system-tools b4ff03bc73ae50e9dc11bc6dc9ef0e62d4a235d420baa897cc64c2adb4d82dc2
 REQUIRES TOOL c++
 REQUIRES TOOL cc
 REQUIRES TOOL ar

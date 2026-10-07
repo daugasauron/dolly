@@ -4,14 +4,67 @@
 - PRIORITY: 60
 - TAGS: dollyfile,site,design,cleanup
 
-## Remaining (2026-10-07)
+## Implemented (2026-10-08, `core/versioned-recipes`)
 
-The owner's direction is recorded below and the HTTP broker already takes
-the path form (`amy` asks for `/amy-index.txt`; in the candidate). Left: the
-recipes, the index rows and `amy installed` in the path form
-(`FROM /Dollyfile-system SHA256`), which is a Dollyfile revision and its own
-catalog round; then `git grep daugasauron.com` finds only the one setting
-and the domain site's pages.
+The owner chose versioned recipe references (`20261007-131241-release-v010`),
+and the integrator decided their form: a site path that starts with the
+version, no domain. This is Dollyfile 7; the old form is not read.
+
+    FROM https://daugasauron.com/Dollyfile-system-tools SHA256      (DOLLY 6)
+    FROM /v0.1.0/Dollyfile-system-tools SHA256                      (DOLLY 7)
+
+### Decisions made while implementing
+
+- **Grammar.** A site path is `/vX.Y.Z/PATH`: three decimal numbers, a
+  normalized path, no query. `FROM`, `INSTALL` and `COPY` take only a site
+  path (a recipe on another host could never be built: the page supplies
+  the artifact); `SOURCE` takes a site path or an absolute URL. Both
+  parsers (`src/dollyfile-view.mjs`, `src/dollyfile.c`) read any version's
+  path: the form is syntax, the version is resolution.
+- **Resolution in the page.** `sitePath()` in `src/static-asset.mjs` is the
+  one place: `/v<DOLLY_VERSION>/PATH` is `/PATH` among the page's own files,
+  an absolute URL is `null`, any other path throws
+  `/v0.2.0/…: this is Dolly 0.1.0, which reads only /v0.1.0/ paths` (both
+  versions: one in the reference, one in the sentence). `siteReference(path)`
+  writes the form. `CANONICAL_ORIGIN` and `canonicalPath` are gone.
+- **A custom recipe** is checked before anything is built
+  (`customRecipeGraph` in `src/image-build.mjs`): its `FROM`, `INSTALL` and
+  `COPY` targets when they are read, its `SOURCE` rows explicitly, because
+  the broker's refusal reaches a program only as an error number.
+- **Inside Wasm.** The engine and `amy` hand the site path to the HTTP broker
+  unchanged. The broker (`host/http/broker.mjs`) resolves this version's path
+  against the site's root and refuses every other path with `EINVAL`. The
+  engine does not know its version and needs none.
+- **Bootstrap sources** (`host/http/policy.mjs`) are keyed by the URL the
+  broker resolves a site path to, the file's public address
+  (`publicURL(path)`), and still fetched from the release's own copy
+  (`applicationBase`, under `_dolly/ID/` in an exported site). Consequence:
+  the absolute URL of a published recipe or source on the page's own site
+  is now the same exact, read-only, credential-free grant as its site path
+  (before, only the `https://daugasauron.com/…` name was). The address of
+  the release's copy still grants nothing.
+- **Builders have a site** (`host/http/http.mjs`, `scripts/page-image-build.mjs`):
+  a build reads its recipe and sources by site path. It grants nothing: the
+  policy still judges the resolved URL.
+- **`amy` knows its version at build time.** The index is
+  `/v0.1.0/amy-index.txt`, so `amy` must write the version.
+  `scripts/prepare-image-sources.sh` generates
+  `dist/static/default/commands/version.h` from `package.json` and
+  `Dollyfile-system-tools` stages it beside `amy.c`. Not chosen: a version
+  file written at boot or `uname` (new platform interface), and reading
+  `/etc/dolly/recipes.lock` (indirect).
+- **The pin updater** rewrites the version segment of every site reference
+  before it pins (`scripts/update-recipe-pins.mjs`): a version change is
+  `package.json`, `src/version.mjs` and one run.
+- **The lint** (`scripts/lint-dollyfiles.mjs`) refuses, by file and line,
+  another version's path (sitePath's message), a `SOURCE` URL on the public
+  site's origin, and (as a syntax error) a path without a version.
+- **Dollyfile Studio's examples** take their `FROM` operands from the image's
+  own `/etc/dolly/recipes.lock` (`demos/studio/install.slop`) instead of a
+  written-out reference.
+- **GitHub Pages' links to the domain** (`scripts/package-github-pages.mjs`)
+  go to `PUBLIC_ORIGIN/v<version>/ROUTE/`, since the domain will serve
+  nothing outside a version.
 
 Owner request (2026-10-06, low priority): "the HOST should be an environment
 variable or something, never hardcode daugasauron.com. … Dollyfiles always

@@ -11,7 +11,7 @@ flowchart TD
   prep --> runtime["npm run build:runtime: kernel dolly.wasm, seed dolly.data"]
   prep --> static["prepare-image-sources.sh: dist/static inputs, deterministic ustar"]
   runtime --> images["in-browser image builds (dollyfile.md)"]
-  static -- "SOURCE on the canonical origin, SHA-256 pinned" --> images
+  static -- "SOURCE by site path, SHA-256 pinned" --> images
 ```
 
 ## Bootstrap exceptions
@@ -46,7 +46,7 @@ compile the programs an image claims to build.
 - [`prepare-image-sources.sh`](../scripts/prepare-image-sources.sh) stages the
   selected catalog's inputs (each demo adds a `prepare-sources.sh` hook);
   [`generate-routes.mjs`](../scripts/generate-routes.mjs) checks every
-  canonical `SOURCE` row against its bytes. Only those rows and module texts are
+  site-path `SOURCE` row against its bytes. Only those rows and module texts are
   trusted build inputs; adding one means referencing it from a recipe.
 - [`build-source-tar.mjs`](../scripts/build-source-tar.mjs) writes deterministic
   ustar archives (regular files only, fixed metadata, no host paths). The in-Dolly

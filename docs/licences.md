@@ -19,7 +19,7 @@ entry.
   and the Iosevka font.
 - **Images**: snapshots of programs compiled in Dolly from pinned sources, plus
   files built outside Dolly: the Rust seed, model weights, fonts and game data.
-- **Sources**: every canonical `SOURCE` of the catalog under `dist/static/`,
+- **Sources**: every site-path `SOURCE` of the catalog under `dist/static/`,
   the recipes and headers, at the same release path as the images. The gpu-fluid
   sources come from raw.githubusercontent.com instead.
 - **Dolly's code**: MIT ([`LICENSE`](../LICENSE), `package.json`), except 10

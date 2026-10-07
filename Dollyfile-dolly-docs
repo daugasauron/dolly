@@ -11,11 +11,11 @@ SOURCE /v0.1.0/docs/slop.md c1c3a9e0e5584a2120079fcce6562b272edee890aadd106bfd10
 SOURCE /v0.1.0/docs/display.md ab6e17fbe9d7218fb24f95e438824e5dfa834a7ddda50212e0f1061381aa8321 /usr/share/doc/dolly/docs/display.md
 SOURCE /v0.1.0/docs/gpu.md f57940e72153898014baa7882a70a0d5d5fcd24508d5d22c70bcf323e3f5bef4 /usr/share/doc/dolly/docs/gpu.md
 SOURCE /v0.1.0/docs/audio.md ebea715a5708fdea8824ee0370f3c8549d81bd7cf66128c0e6f91c42f683e73d /usr/share/doc/dolly/docs/audio.md
-SOURCE /v0.1.0/docs/http.md 73a4c12a0f5bce6e71651f0415a211a02e97b6d70597237addf977ef93b66ca8 /usr/share/doc/dolly/docs/http.md
+SOURCE /v0.1.0/docs/http.md 2913ec3dac310f25062faf4fb3272edda5ff7c48402bd154661532529fc213e4 /usr/share/doc/dolly/docs/http.md
 SOURCE /v0.1.0/docs/sessions.md 0cb99863a6accef672b64d8a5a4856c67ca95fdab82c353965bfaf22f6759245 /usr/share/doc/dolly/docs/sessions.md
-SOURCE /v0.1.0/docs/dollyfile.md cb038698d2b0893dd9a1d0b15e191f94e36b896a7de0dd14fe5ecdb39821a2c6 /usr/share/doc/dolly/docs/dollyfile.md
+SOURCE /v0.1.0/docs/dollyfile.md e291133857e3791612bee6131a1d8c3640fdfe9269bf3dc62975580bb5a9fba2 /usr/share/doc/dolly/docs/dollyfile.md
 SOURCE /v0.1.0/docs/architecture.md c60b0260e2677b15221098af897cd5a41cd10cc1753f007228c5d4bef4207ee4 /usr/share/doc/dolly/docs/architecture.md
-SOURCE /v0.1.0/docs/browser-boundary.md 38bdea122a0a54493edf0e2697525595884cead8e72100a7778f38ca08323d2e /usr/share/doc/dolly/docs/browser-boundary.md
+SOURCE /v0.1.0/docs/browser-boundary.md 3b95be8491e510ab6f0d71deb0e1a3d0cfd20246e6a4fbf0ed057b803ef242a6 /usr/share/doc/dolly/docs/browser-boundary.md
 SOURCE /v0.1.0/docs/image-build-service.md 43bbcfcf7c5e7c8ce83f91c55b3c4bc0682651b2905ba35089b2b85b3b13efa9 /usr/share/doc/dolly/docs/image-build-service.md
 SOURCE /v0.1.0/abi/README.md fb91b76f42f5a1f5c7081de3e1c73c842d06ee68d5e11a9bf9a7c3977dfc933a /usr/share/doc/dolly/abi/README.md
 SOURCE /v0.1.0/host/README.md de8a2dbb7ff1ef2594760041eb581ea696eebc02d38b83176b285f919566ca1b /usr/share/doc/dolly/host/README.md

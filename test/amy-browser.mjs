@@ -12,7 +12,7 @@ const packages = DOLLY_IMAGES.filter(definition => definition.role === "package"
 // The packages default's recipe installs.
 const preinstalled = [...(await readFile(new URL("../Dollyfile", import.meta.url), "utf8")).matchAll(/^INSTALL \S+Dollyfile-(\S+) /gm)]
   .map(([, name]) => name).sort();
-// The site's index, as generated: NAME URL SHA256 DESCRIPTION.
+// The site's index, as generated: NAME RECIPE SHA256 DESCRIPTION.
 const index = await readFile(new URL("../amy-index.txt", import.meta.url), "utf8");
 const indexed = name => index.split("\n").find(row => row.startsWith(`${name} `)).split(" ");
 const pin = name => {

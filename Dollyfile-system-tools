@@ -6,7 +6,7 @@ REQUIRES HOST download@0
 REQUIRES HOST http@0
 REQUIRES HOST upload@0
 
-FROM /v0.1.0/Dollyfile-system-build de7755e5c779736287ad84569923fd2d97d21788ce68ddc043a8e50c6748065e
+FROM /v0.1.0/Dollyfile-system-build e110a5ef1f178fd1c400333d860593797d9a56508db929fbecbca86037a2d85a
 # Unchanged upstream sbase commands, built by sbase's own Makefile.
 REQUIRES HEADER libc
 REQUIRES TOOL   ar
@@ -211,9 +211,9 @@ FILE /usr/share/licenses/samurai/LICENSE
 SLOP rm \
   -rf \
   /tmp/ninja
-INSTALL /v0.1.0/Dollyfile-zlib f93ad53636b2381a1c01ca1cca549c8463d4d9ff96ba4ef06b86994057788978
-INSTALL /v0.1.0/Dollyfile-gzip d05b1ef2b3676c06b8ed9c669f7684ba7dad6d33526a0fb3f8a88c692968bb0e
-INSTALL /v0.1.0/Dollyfile-curl 6357a015073974760f60f741bb76459db6bb6be5a1bb1379cb3c87d739f5ac24
+INSTALL /v0.1.0/Dollyfile-zlib 4dd8fa0006e1eee78747565becd0edfc818ec1d79a7f186304338a24ebef10d6
+INSTALL /v0.1.0/Dollyfile-gzip be125c5c222b5b80d4a59e9bb12a069a34cd6565a653e4b594b96c000f863ee4
+INSTALL /v0.1.0/Dollyfile-curl cf4a3b750c008c1782cea841cc66caafa833fd33ff6048ac279cc9f9a23cc295
 REQUIRES TOOL   mkdir
 REQUIRES LIB    curl
 REQUIRES LIB    z
@@ -399,8 +399,8 @@ SOURCE /v0.1.0/dist/static/default/commands/patch.c       01a81c0b50df26223772e5
 SOURCE /v0.1.0/dist/static/default/commands/hostname.c    14a20a493c8559d8b28f221a6edd9b6f89f893f3e3067093b44d7235b4ae060f /tmp/agent-tools/hostname.c
 SOURCE /v0.1.0/dist/static/default/commands/tty.c         c51c9598e8245d5f651ade70995f2b03fb936c42a0e99c4c81c83749c5714c7e /tmp/agent-tools/tty.c
 SOURCE /v0.1.0/dist/static/default/commands/nproc.c       96ce7b8d1b1cee59d12193c2fa6fab5210bb7f0c9a0d0cc9bde7e0fd8d87c7ac /tmp/agent-tools/nproc.c
-SOURCE /v0.1.0/dist/static/default/commands/amy.c         ba2d94f913245124f4dad08207f585c03ad044f6dc65a3bf82ea8e58884beb14 /tmp/agent-tools/amy.c
-SOURCE /v0.1.0/dist/static/default/commands/version.h   0000000000000000000000000000000000000000000000000000000000000000 /tmp/agent-tools/version.h
+SOURCE /v0.1.0/dist/static/default/commands/amy.c         13a1e2eb87c10f39d8c3ff6ecef5acf2eb56ebc721f4ab7570333fe0b808f98d /tmp/agent-tools/amy.c
+SOURCE /v0.1.0/dist/static/default/commands/version.h   40544df486c693044ebbc6b30b64bbed5793faba632d9a74629601463710569f /tmp/agent-tools/version.h
 
 FILE /tmp/agent-tools/Makefile
     .RECIPEPREFIX := >
@@ -440,6 +440,6 @@ SLOP ln -s slop /bin/sh
 EXPORTS TOOL sh
 SLOP cp /usr/share/man/cat1/slop.1 /usr/share/man/cat1/sh.1
 FOLDER /usr/share/man
-INSTALL /v0.1.0/Dollyfile-display 3bd6c4b934e1f67014b30b9de07273893cfc9905dabaa23deec8dd420694f781
+INSTALL /v0.1.0/Dollyfile-display 33eeaf5f43cfa98aadb060a48c5b9189289d1d26b9256d13db9a0587678b82c5
 
 ENTRY /bin/foreground -i /bin/slop

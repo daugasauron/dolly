@@ -207,6 +207,11 @@ Tracked here, one round each; no further tasks are created for them.
 
 1. The canonical base from `package.json`; recipes, documents and tests
    rewritten; the lint; `package.json` at 0.1.0. A full catalog round.
+   **State (2026-10-08, `core/versioned-recipes`):** implemented as Dollyfile 7
+   with no domain in a recipe: `FROM /v0.1.0/Dollyfile-system SHA256`
+   (the integrator's form; decisions and measurements in
+   `20261005-223931-origin-not-hardcoded`). The seed changes (the engine),
+   so every image is rebuilt; the full catalog round is the integrator's.
 2. Sessions per version: store name, the version in the exported file, the
    refusal. Browser test: a save made under one version is not listed under
    another, and its export is refused there.
