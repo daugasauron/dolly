@@ -10,16 +10,17 @@ seed, built again by Dolly's own `cc`. The seed stays the bootstrap.
   builds `llvm-min-tblgen`, `llvm-tblgen` and `clang-tblgen` and runs the
   TableGen targets the seed compiler's libraries need. It keeps the three tools
   and `/usr/share/llvm-tablegen` (configured headers and TableGen outputs).
-- `llvm-build`: build-only. Configures the tree again with those tools and
-  compiles the seed compiler's closure (Clang, LLD, the WebAssembly backend:
-  2,559 units) at four jobs. It keeps `/usr/lib/llvm-build`: the archives,
-  Clang's resource directory and the configured and generated headers.
-- `llvm-cc`: compiles the seed's driver (`src/compiler.cpp`) and links the
-  compiler from those archives, requires the same bytes from it as from the
-  seed compiler for two programs and a sample of LLVM's sources, and installs
-  it: `cc`, `c++`, `ld` and `ar` in this image run a compiler built in Dolly.
-- `llvm`: that compiler as a package, beside the seed's: `llvm-cc` and
-  `llvm-c++`.
+- `llvm-build`: build-only: the seed compiler's libraries, compiled in Dolly.
+  It configures the tree again with those tools and compiles the closure
+  (Clang, LLD, the WebAssembly backend: 2,559 units) at four jobs. It keeps
+  `/usr/lib/llvm-build`: the archives, Clang's resource directory and the
+  configured and generated headers.
+- `llvm-cc`: a shell whose `cc` and `c++` are the compiler built in Dolly.
+  It compiles the seed's driver (`src/compiler.cpp`), links the compiler from
+  those archives, requires the same bytes from it as from the seed compiler
+  for two programs and a sample of LLVM's sources, and installs it for `cc`,
+  `c++`, `ld` and `ar`.
+- `llvm`: the compiler built in Dolly, as a package: `llvm-cc` and `llvm-c++`.
 - `llvm-runtimes`: build-only. libc++, libc++abi, libunwind and the compiler-rt
   builtins built by Dolly's `c++` and `cc` from the pinned Emscripten sources,
   with the flags of the archives the seed ships. A link takes them instead of
