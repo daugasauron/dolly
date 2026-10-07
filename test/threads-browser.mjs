@@ -45,6 +45,11 @@ await browserTest("threads", { image: "system", server: { fixtures, sourceOverri
     assert.ok((await text()).includes(marker), marker);
   }
   const threaded = "/tmp/threads-pthread.c.wasm";
+  // Ending a process terminates the Workers of its remaining threads, and the
+  // browser reports nothing for them (Firefox 155 does for a Worker inside a
+  // WebAssembly.promising call, src/process-supervisor.mjs).
+  const reports = [];
+  page.on("console", message => { if (message.type() === "error") reports.push(message.text()); });
   await run(`${threaded} --main-exit && test -f /tmp/last-thread`);
   const busy = submit(`${threaded} --busy`);
   await waitForText(/THREADS-BUSY/);
@@ -61,6 +66,8 @@ await browserTest("threads", { image: "system", server: { fixtures, sourceOverri
   await run(`curl -fsS ${server.origin}${probe} -o /tmp/self.c`);
   assert.notEqual(await submit("cc /tmp/self.c -o /tmp/self-without-entry"), 0, "linked a thread client without an entry");
   await run("test ! -e /tmp/self-without-entry && cc -pthread /tmp/self.c -o /tmp/self && /tmp/self");
+
+  assert.deepEqual(reports, []);
 
   // A thread's process exit or trap ends the whole process; the shell survives.
   sourceOverrides.set(probe, "#include <pthread.h>\n#include <stdlib.h>\n" +
