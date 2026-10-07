@@ -6,6 +6,112 @@
 
 Owner goal: the 0 A.D. engine, SpiderMonkey and its dependencies must be compiled inside Dolly instead of by demos/zero-ad/toolchain on the host.
 
+## SpiderMonkey built inside Dolly, 2026-10-07 09:26 (headline)
+
+In a headless-Chrome session on `default` + `amy install python rust cargo
+cbindgen curl`, SpiderMonkey 128.13.0 configured, compiled and linked entirely
+inside Dolly, and the engine's probe, linked against the Dolly-built libraries,
+ran: `spidermonkey: wasm64 realms, GC, callbacks and clone passed`, exit 0.
+Nothing came from the host. Stage timings and scope memory (6 GB browser slot,
+cgroup v2 memory.peak, file cache included):
+
+| Stage | Time | Peak |
+| --- | --- | --- |
+| unpack (537 MB, 29,594 files) + patches + pkgconf | 16-34 s | 3.1 GB |
+| cbindgen 0.26.0 (Patti `-j4`) | 171 s | 3.9 GB |
+| mozbuild `configure.py` (+ config.status, 3 backends, 34 Makefiles) | 41 s | 4.2 GB |
+| Rust library `libjsrust.a` (cargo, build scripts + 59 units) | 205 s | 4.3 GB |
+| C++ compile (js/src, mfbt, mozglue, fdlibm: ~240 objects) | ~6 min | 4.3 GB |
+| style/libs/tools tiers; full `make` exit 0 | — | — |
+
+Artifacts: `libjs_static.a` 21.4 MB, `libjsrust.a` 5.1 MB (the host build's
+are 406 MB and 24 MB: it compiled with `-gdwarf-4` and `-C debuginfo=2`; this
+build omits debug info, which the engine does not need). Evidence (not
+committed) under `build/spidermonkey-evidence/`: per-stage logs
+(`stage-*.log`), the edit scripts, the probe log, memory samples.
+
+Committed on `work/spidermonkey` (`9fa4b4d3`): the recipe
+`demos/zero-ad/Dollyfile-zero-ad-spidermonkey`, `demos/rust/Dollyfile-cbindgen`,
+the consolidated `demos/zero-ad/toolchain/spidermonkey.patch`, the staging in
+`demos/zero-ad/prepare-sources.sh`, and `zero-ad-engine` taking `/opt/mozjs`
+by `COPY`. Seed pieces for round 3: `core/cc-flags` `9034916a` (eight Clang
+flags), `core/touch-t` `b97bddd3` (`touch -t`), both merged into
+`integrate/round3` `35668d93`. The recipe assumes round 3 (cc-flags, `touch
+-t`, the Slop `${1+"$@"}` fix 2de376bd, Cargo+Python in the chain) and is
+committed unbuilt; `build-spidermonkey.sh` and the bootstrap rows stay until
+it builds once there.
+
+### The mozbuild preparation edits (all in spidermonkey.patch)
+
+Each is a fact about Dolly, with its reason as an added comment. "Upstream?"
+says whether upstream mozbuild could take it.
+
+1. `init.configure`: a Wasm host (`split_triplet(..., allow_wasi=True)` on the
+   `config_sub` path), so `--host=wasm64-unknown-wasi` is accepted. Upstream:
+   plausibly, WASI-host is a real cross case.
+2. `old.configure`: `check_prog("M4", allow_missing=True)` and a loud `die` if
+   a refresh is attempted; the release ships `old-configure`, Dolly has no m4.
+   Upstream: yes, m4 is only needed to regenerate.
+3. `cargo-linker`: `os.execvp` -> `sys.exit(subprocess.call(...))` (Dolly has
+   no exec) and shebang `/usr/bin/env python3` -> `/usr/bin/python3` (Dolly's
+   env is `/bin/env`). Upstream: the subprocess form, yes; the shebang is
+   Dolly-specific.
+4. `js/src/old-configure`: drop `-mthread-model single` for `*-wasi*` (Dolly
+   probes `-pthread` on, and cc refuses the pair). Upstream: no, Dolly-specific.
+5. `moz.configure`: `allow_missing=True` on llvm-objdump, readelf, objcopy,
+   strip (a static JS build runs none; `check_binary` skips non-ELF). Upstream:
+   yes for a compile-only toolchain.
+6. `rust.configure`: the rust *host* triple also takes the `RUST_TARGET`
+   override (Dolly's target is a target file rustc knows only by path).
+   Upstream: same shape as the existing target override.
+7. `mozboot/util.py`, `mach/logging.py`: lazy `import ssl` / `import blessed`
+   (Dolly's CPython has no `_ssl`/`_curses`; TLS is the browser's). Upstream:
+   yes, these imports are used only on network/colour paths.
+8. `mozinfo.py`: name the Dolly platform (`system == "Dolly"` -> unix), so
+   `os_version` is a string, not the `unknown` sentinel. Upstream: yes.
+9. `frontend/reader.py`: create the gyp `ProcessPoolExecutor` lazily (Dolly's
+   CPython has no named semaphores; a JS build has no gyp). Upstream: yes, a
+   lazy pool is harmless.
+10. `double-conversion/utils.h`: add `__wasm64__` to the supported-arch list
+    (the same one-line addition `zero-ad-deps` makes to ICU's copy). Upstream:
+    yes.
+11. `mfbt/RandomNum.cpp`: take the `getrandom` path under `__dolly__`, not only
+    `__EMSCRIPTEN__` (programs built in Dolly define `__dolly__`). Upstream: no,
+    `__dolly__` is Dolly's.
+12. `third_party/rust/jobserver`: the vendored 0.1.25 uses the in-process
+    backend under wasm64 (Dolly has no `pthread_kill` and no cross-process
+    jobserver), with its `.cargo-checksum.json` updated. Upstream: it already
+    has a wasm backend; this only extends the `cfg`.
+
+### Dolly gaps found (recorded; round 3 carries the fixes)
+
+- Slop refused `${1+"$@"}` / `VAR="$@"` in a word (old-configure's compiler
+  caching). Fixed on round 3 by `2de376bd`.
+- `touch` had no `-t`. Added as `core/touch-t` `b97bddd3`; the recipe then
+  needs no autotargets.mk workaround.
+- `/usr/bin/env` does not exist (only `/bin/env`); handled by the cargo-linker
+  shebang edit. A `/usr/bin/env` -> `/bin/env` symlink in the base would be the
+  general fix.
+
+### What `build-spidermonkey.sh` still does that the recipe does not
+
+Nothing for SpiderMonkey: the recipe builds the same two libraries and the 328
+headers from the same pinned tarball and patches. The only deliberate
+difference is debug info (the host build keeps DWARF; the recipe builds without
+it: 21.4 vs 406 MB, 5.1 vs 24 MB). The host script and the `mozjs-host.tar.gz`
+(115 MB) / `bootstrap.tar` (151 MB) rows stay until the recipe builds once on
+round 3; then `build-spidermonkey.sh` and `spidermonkey.sh` are deleted.
+
+### `-j` above 1
+
+mozbuild's recursive sub-makes print "jobserver unavailable: using -j1" because
+Dolly has no cross-process jobserver (pipe tokens); the top-level `make -j4`
+parallelises the tiers but each recursed C++ compile runs serially, which is
+most of the wall time. Cargo's own `cc`-crate C++ parallelism uses the
+in-process jobserver (the patched crate), so the Rust half is already parallel.
+Real `-j>1` for the js/src C++ needs either a cross-process jobserver in Dolly
+or mozbuild's `+`-prefix propagation extended past cargo.
+
 Needs in-sandbox CPython (SpiderMonkey configure), rustc (SpiderMonkey Rust parts), the C/C++ compiler and Make/Ninja; depends on 20260930-231100-self-host-rust for a self-hosted rustc.
 
 Done when: zero-ad images build from pinned sources with only in-sandbox tools and the host exception is removed.
