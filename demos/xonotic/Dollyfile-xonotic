@@ -8,19 +8,129 @@ REQUIRES HOST snapshot@0
 REQUIRES HOST upload@0
 
 FROM https://daugasauron.com/Dollyfile-system fcb6783a7cd6771f1d538c6e913180a82d4d93cf3a0f2fed2e2b52bc5f413fd9
-COPY https://daugasauron.com/demos/xonotic/Dollyfile-xonotic-build b6412f74ea8dcc2fc089a7d9e10cf33f8b2f34c5af31876ed32eb5435dadb75e /usr/bin/xonotic-sdl /usr/bin/xonotic-sdl
-COPY https://daugasauron.com/demos/xonotic/Dollyfile-xonotic-build b6412f74ea8dcc2fc089a7d9e10cf33f8b2f34c5af31876ed32eb5435dadb75e /usr/share/licenses/xonotic /usr/share/licenses/xonotic
+COPY https://daugasauron.com/demos/xonotic/Dollyfile-xonotic-build b6f508e2101e4602b330c0fa3c1ec7a1651cbb685294d23056275e95a8803b43 /usr/bin/xonotic-sdl /usr/bin/xonotic-sdl
+COPY https://daugasauron.com/demos/xonotic/Dollyfile-xonotic-build b6f508e2101e4602b330c0fa3c1ec7a1651cbb685294d23056275e95a8803b43 /usr/share/licenses/xonotic /usr/share/licenses/xonotic
 COPY https://daugasauron.com/demos/sdl2/Dollyfile-sdl2 00d869eb35eef98817eff21107c290b81106333456139491d3cfabac9d5c0dfa /usr/share/licenses/SDL2 /usr/share/licenses/SDL2
 # Licences of the libraries linked into the client.
-COPY https://daugasauron.com/demos/xonotic/Dollyfile-xonotic-build b6412f74ea8dcc2fc089a7d9e10cf33f8b2f34c5af31876ed32eb5435dadb75e /usr/share/licenses/libjpeg /usr/share/licenses/libjpeg
+COPY https://daugasauron.com/demos/xonotic/Dollyfile-xonotic-build b6f508e2101e4602b330c0fa3c1ec7a1651cbb685294d23056275e95a8803b43 /usr/share/licenses/libjpeg /usr/share/licenses/libjpeg
 COPY https://daugasauron.com/demos/zero-ad/Dollyfile-zero-ad-deps 68fdf9e443d4ec2f6459e26f107fc75bfee3965b6abeda185d1d92e1ebc4893d /usr/share/licenses/freetype /usr/share/licenses/freetype
 COPY https://daugasauron.com/demos/zero-ad/Dollyfile-zero-ad-deps 68fdf9e443d4ec2f6459e26f107fc75bfee3965b6abeda185d1d92e1ebc4893d /usr/share/licenses/libpng /usr/share/licenses/libpng
+# Dolly's notices for this image: the IJG sentence, the fonts' terms and the
+# Bitstream Vera glyph sheet (the release carries no notice for it).
+FILE /usr/share/licenses/xonotic/NOTICE
+    Notices for the xonotic image, beside Xonotic's COPYING, GPL-2 and GPL-3.
+    
+    This software is based in part on the work of the Independent JPEG Group:
+    libjpeg 9f is linked into /usr/bin/xonotic-sdl (its README is at
+    /usr/share/licenses/libjpeg/README).
+    
+    FreeType is used under its GPL option (/usr/share/licenses/freetype).
+    
+    fonts/xolonium-regular.otf and fonts/xolonium-bold.otf in
+    font-xolonium-20230620.pk3: Xolonium by Severin Meyer, GPL version 2 or
+    later with a font embedding exception; COPYING.xolonium is the archive's
+    fonts/README.txt.
+    
+    fonts/unifont.ttf in font-unifont-20230620.pk3: GNU Unifont 7.0.06
+    (unifoundry.com), GPL version 2 or later "with the exception that embedding
+    the font in a document does not in itself constitute a violation of the GNU
+    GPL".
+    
+    gfx/vera-sans-big.jpg in xonotic-20230620-data.pk3 is a glyph sheet rendered
+    from Bitstream Vera Sans; COPYING.vera is Bitstream's copyright and
+    permission notice. The engine uses it only as a fallback behind the fonts
+    above.
+FILE /usr/share/licenses/xonotic/COPYING.xolonium
+    Copyright 2011-2020 Severin Meyer <sev.ch@web.de>
+    
+    
+    This is a special GPL version of the Xolonium font,
+    intended for Xonotic. Find the public release at
+    <https://gitlab.com/sev/xolonium>
+    
+    
+    This font is free software. You can redistribute and/or
+    modify it under the terms of the GNU General Public
+    License as published by the Free Software Foundation,
+    either version 2 of the license, or any later version.
+    
+    This font is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty
+    of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+    See the GNU General Public License for more details.
+    
+    You should have received a copy of the GNU General Public License
+    along with this font. If not, see <http://www.gnu.org/licenses/>.
+    
+    
+    As a special exception, if you create a document which uses this
+    font, and embed this font or unaltered portions of this font into
+    the document, this font does not by itself cause the resulting
+    document to be covered by the GNU General Public License.
+    
+    This exception does not however invalidate any other reasons why
+    the document might be covered by the GNU General Public License.
+    If you modify this font, you may extend this exception to your
+    version of the font, but you are not obligated to do so. If you do
+    not wish to do so, delete this exception statement from your version.
+FILE /usr/share/licenses/xonotic/COPYING.vera
+    Bitstream Vera Fonts Copyright, for gfx/vera-sans-big.jpg in xonotic-20230620-data.pk3:
+    
+    Copyright (c) 2003 by Bitstream, Inc. All Rights Reserved.
+    Bitstream Vera is a trademark of Bitstream, Inc.
+    
+    Permission is hereby granted, free of charge, to any person obtaining a copy
+    of the fonts accompanying this license ("Fonts") and associated
+    documentation files (the "Font Software"), to reproduce and distribute the
+    Font Software, including without limitation the rights to use, copy, merge,
+    publish, distribute, and/or sell copies of the Font Software, and to permit
+    persons to whom the Font Software is furnished to do so, subject to the
+    following conditions:
+    
+    The above copyright and trademark notices and this permission notice shall
+    be included in all copies of one or more of the Font Software typefaces.
+    
+    The Font Software may be modified, altered, or added to, and in particular
+    the designs of glyphs or characters in the Fonts may be modified and
+    additional glyphs or characters may be added to the Fonts, only if the fonts
+    are renamed to names not containing either the words "Bitstream" or the word
+    "Vera".
+    
+    This License becomes null and void to the extent applicable to Fonts or Font
+    Software that has been modified and is distributed under the "Bitstream
+    Vera" names.
+    
+    The Font Software may be sold as part of a larger software package but no
+    copy of one or more of the Font Software typefaces may be sold by itself.
+    
+    THE FONT SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
+    OR IMPLIED, INCLUDING BUT NOT LIMITED TO ANY WARRANTIES OF MERCHANTABILITY,
+    FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT OF COPYRIGHT, PATENT,
+    TRADEMARK, OR OTHER RIGHT. IN NO EVENT SHALL BITSTREAM OR THE GNOME
+    FOUNDATION BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, INCLUDING
+    ANY GENERAL, SPECIAL, INDIRECT, INCIDENTAL, OR CONSEQUENTIAL DAMAGES,
+    WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF
+    THE USE OR INABILITY TO USE THE FONT SOFTWARE OR FROM OTHER DEALINGS IN THE
+    FONT SOFTWARE.
+    
+    Except as contained in this notice, the names of Gnome, the Gnome
+    Foundation, and Bitstream Inc., shall not be used in advertising or
+    otherwise to promote the sale, use or other dealings in this Font Software
+    without prior written authorization from the Gnome Foundation or Bitstream
+    Inc., respectively. For further information, contact: fonts at gnome dot
+    org.
 # The release's game content, one archive each; music and the Nexuiz
 # compatibility packs are not in the image yet.
 SOURCE https://daugasauron.com/dist/static/xonotic/data/font-unifont-20230620.pk3 7cc9ca2e4cccaa7533d7e9fe7a6e5b5dd6e4af0c8551c1e9edc40d32b90dba2b /usr/share/xonotic/data/font-unifont-20230620.pk3
 SOURCE https://daugasauron.com/dist/static/xonotic/data/font-xolonium-20230620.pk3 d6404f31eea4b90d7fe4951b41b692261ef26e6b512b5c7de7a9e99d5d57b586 /usr/share/xonotic/data/font-xolonium-20230620.pk3
 SOURCE https://daugasauron.com/dist/static/xonotic/data/xonotic-20230620-data.pk3 7602be0d44a4f1ce4f0918c54ceb215c9bc963a103623d6c7874f081330c8505 /usr/share/xonotic/data/xonotic-20230620-data.pk3
 SOURCE https://daugasauron.com/dist/static/xonotic/data/xonotic-20230620-maps.pk3 d10e5a8eac468a4a5b6d80f9603d95949971c6b10f86bec65a79e19f0d424f54 /usr/share/xonotic/data/xonotic-20230620-maps.pk3
+# The GPL fonts' corresponding source, published beside the image and not installed:
+# GNU Unifont 7.0.06 (its precompiled TTF is the shipped unifont.ttf) and
+# Xolonium v4.2 (whose xonotic/ directory is the shipped GPL variant).
+SOURCE https://daugasauron.com/dist/static/xonotic/unifont-7.0.06.tar.gz d04e8c86aaaf7214b5212340ee853a35502b9fa311561007be3a8cf465dabf3b /tmp/xonotic/unifont-7.0.06.tar.gz
+SOURCE https://daugasauron.com/dist/static/xonotic/xolonium-v4.2.tar.gz 624d623e2f89e94714e69ae51992ec44b07a4041cce616365404e321f71f9b09 /tmp/xonotic/xolonium-v4.2.tar.gz
+SLOP rm -rf /tmp/xonotic
 
 # The player's starting settings: the low effects preset, measured at 31 fps
 # against 13 for the normal preset in the software rasterizer. The engine

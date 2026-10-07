@@ -194,3 +194,16 @@ DOLLY_XONOTIC_SOURCE_SHA256=8b92ac781cff4ae89c121a23eacd7dec05a2aabedaccc23a19d1
 DOLLY_JPEG_VERSION=9f
 DOLLY_JPEG_URL='https://www.ijg.org/files/jpegsrc.v9f.tar.gz'
 DOLLY_JPEG_SHA256=04705c110cb2469caa79fb71fba3d7bf834914706e9641a4589485c1f832565b
+
+# GNU Unifont's source (.hex files and build scripts) for the fonts/unifont.ttf
+# Xonotic ships: its precompiled unifont-7.0.06.ttf is byte-identical to it.
+DOLLY_UNIFONT_VERSION=7.0.06
+DOLLY_UNIFONT_URL='https://ftp.gnu.org/gnu/unifont/unifont-7.0.06/unifont-7.0.06.tar.gz'
+DOLLY_UNIFONT_SHA256=d04e8c86aaaf7214b5212340ee853a35502b9fa311561007be3a8cf465dabf3b
+
+# Xolonium's source (FontForge .sfd, features, hinting, the build tools and the
+# xonotic/ GPL variant) at the tag whose date the shipped fonts' name table
+# carries ("Xolonium GPL 4.2 2020-11-18").
+DOLLY_XOLONIUM_VERSION=4.2
+DOLLY_XOLONIUM_URL='https://gitlab.com/sev/xolonium/-/archive/v4.2/xolonium-v4.2.tar.gz'
+DOLLY_XOLONIUM_SHA256=624d623e2f89e94714e69ae51992ec44b07a4041cce616365404e321f71f9b09

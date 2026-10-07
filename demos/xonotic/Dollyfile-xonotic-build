@@ -29,7 +29,7 @@ REQUIRES TOOL tar
 REQUIRES TOOL gzip
 REQUIRES TOOL rm
 
-SOURCE https://daugasauron.com/dist/static/xonotic/source.tar.gz eed3b72fe01ad706545490ec38775bd9d685cf9d5f71582f85008e4d101e558b /tmp/xonotic/source.tar.gz
+SOURCE https://daugasauron.com/dist/static/xonotic/source.tar.gz defe5d25e5b3c94b59be49de22fdf392a6be8177ea475d373b8851efd15e832d /tmp/xonotic/source.tar.gz
 SLOP gzip -dc /tmp/xonotic/source.tar.gz | tar -xf - -C /
 SLOP make -f /usr/src/dolly/xonotic/Makefile
 
@@ -41,6 +41,9 @@ EXPORTS FOLDER xonotic-port /usr/src/dolly/xonotic
 FILE /usr/share/licenses/xonotic/COPYING
 FILE /usr/share/licenses/xonotic/GPL-2
 FILE /usr/share/licenses/xonotic/GPL-3
+# The MIT notices of qcsrc/lib/warpzone and qcsrc/lib/csqcmodel, compiled into the game logic.
+FILE /usr/share/licenses/xonotic/COPYING.warpzone
+FILE /usr/share/licenses/xonotic/COPYING.csqcmodel
 FILE /usr/share/licenses/gmqcc/LICENSE
 FILE /usr/share/licenses/libjpeg/README
 SLOP rm -rf /tmp/xonotic
