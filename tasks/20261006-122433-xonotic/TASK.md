@@ -482,6 +482,9 @@ Logs: `bench-chromium-*.log`.
 | 640×480 scaled to the page | 28.1 | +112%, visibly soft |
 | `r_shadow_realtime_dlight 0` | 12.8 | within noise: the demo has few dynamic lights |
 | `cl_particles_quality 0.5` | 12.0 | within noise |
+| `gl_picmip 2` | 13.5 | within noise: texture size is not the cost |
+| `r_viewscale 0.5` | 17.4 | +31%: the path honours it, world at half size, HUD full |
+| `exec effects-low.cfg` | 31.0 | +134%: no lightmap deluxe/gloss/normal maps, no realtime lights, particles 0.4, picmip 1 |
 
 Rebuilding xonotic-build while its recipe was being edited failed the build
 (`image-build-19.log`: the builder's GET of the recipe no longer matched
