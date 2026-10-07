@@ -60,6 +60,32 @@ line is a widget above the editor (`ctx.ui.setWidget('local-model', …)`),
 which leaves the status line to dolly-tools, and is removed at the first
 prompt (`agent_start`) or when `/local` runs.
 
+Dollyfile Studio, seen on the rebuilt image: its own extension
+(`demos/studio/pi-extension.js`) notifies a four-line notice at start,
+which in this round took the status line from dolly-tools' sandbox note
+(yesterday's release on :9003 showed that note and the Studio's old
+`.dollyrc` banner instead), and one of its lines already said "/local
+installs and switches local models". With the widget that was two lines
+about `/local`, so the Studio's line keeps only `/model` and the first
+local prompt; the `/local` line is the provider's in both images.
+
+## Verified (2026-10-07)
+
+- GPU-less, headless Chromium on its software adapter, through
+  `npm run test:demos -- local-llm` (the demo test's first part, before
+  its DISPLAY skip): both images boot to the hint, `pi-local` beside the
+  sandbox line, and `/local` takes the hint away without loading a model;
+  screenshots `build/llm-proof/chromium-{pi-local,dollyfile-studio}-start.png`.
+- Firefox cannot boot either image headless (no WebGPU adapter, so
+  `gpu@0` is unavailable), so Firefox is asserted on the GPU display: the
+  model test's `boot()` requires the hint (and the sandbox line in
+  `pi-local`) at every boot and its absence after the first prompt, which
+  passed in both images on 2026-10-07 08:36-08:52 (`local-llm.log`); the
+  same assertions ran once more against the widget build with the
+  installed Firefox on Xvfb :142
+  (`local-llm-start-screen-firefox.log`, screenshots
+  `build/llm-proof/firefox-{pi-local,dollyfile-studio}-start.png`).
+
 ## Related
 
 `20261006-093051-local-context-size` (the setting lives behind `/local`),

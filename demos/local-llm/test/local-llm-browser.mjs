@@ -6,17 +6,35 @@ import assert from 'node:assert/strict';
 import {mkdir,readFile,writeFile} from 'node:fs/promises';
 import {chromium,firefox} from 'playwright-core';
 import {startBrowserServer} from '../../../test/browser-server.mjs';
-import {acceptDownload} from '../../browser.mjs';
+import {acceptDownload,demoTest} from '../../browser.mjs';
 
-if(!process.env.DISPLAY){console.log('local-llm: skipped, it needs a GPU window on DISPLAY');process.exit(0);}
+const output=new URL('../../../build/llm-proof/',import.meta.url);
+await mkdir(output,{recursive:true});
+// The extension's hint on Pi's start screen, beside dolly-tools' sandbox line.
+const hint=/\/local chooses/;
+
+// Without a GPU, in headless Chrome on its software adapter: both images start with the
+// hint, pi-local beside dolly-tools' sandbox line (the Studio's own notice takes that line
+// there), and /local takes the hint away without loading a model.
+for(const image of ['pi-local','dollyfile-studio']) {
+  await demoTest(`${image} start screen`,{image,webgpu:true},async({open})=>{
+    const {page,text,waitText,input}=await open({prompt:null,viewport:{width:1280,height:840}});
+    if(image==='pi-local')await waitText(/sandbox/);
+    await waitText(hint);
+    await page.screenshot({path:new URL(`chromium-${image}-start.png`,output).pathname});
+    await input('/local\r');await waitText(/Local models/);
+    await input('\x1b');await page.waitForTimeout(500);
+    assert.doesNotMatch(await text(),hint);
+  });
+}
+
+if(!process.env.DISPLAY){console.log('local-llm: the model steps are skipped, they need a GPU window on DISPLAY');process.exit(0);}
 
 const root=new URL('../../../',import.meta.url).pathname;
 // The model both images bundle, and the one the user installs next: the most capable
 // model the adapter's shader kind can load.
 const model='qwen3.5-2b',weights=`/usr/share/dolly/llm/${model}.gguf`;
 const second={f16:{id:'qwen3.5-4b',packages:['qwen3.5-4b-1','qwen3.5-4b-2','qwen3.5-4b-3','qwen3.5-4b-4']},f32:{id:'minicpm5-2b',packages:['minicpm5-2b']}};
-const output=new URL('../../../build/llm-proof/',import.meta.url);
-await mkdir(output,{recursive:true});
 // Playwright drives the installed Firefox, which on Ubuntu is a snap with a
 // private /tmp: its profile and downloads must live under $HOME.
 process.env.TMPDIR=new URL('tmp/',output).pathname;await mkdir(process.env.TMPDIR,{recursive:true});
@@ -52,7 +70,8 @@ for(const image of (process.env.DOLLY_LLM_IMAGES??'pi-local,dollyfile-studio').s
           await page.waitForFunction(()=>['ready','failed'].includes(document.documentElement.dataset.dollyStatus),null,{timeout:240000});
           assert.equal(await page.evaluate(()=>document.documentElement.dataset.dollyStatus),'ready',await page.locator('#bootstrap-log').textContent());
           await until(new RegExp(model.replaceAll('.','\\.')),label);
-          await until(/\/local/,`${label} naming /local`);
+          if(image==='pi-local')await until(/sandbox/,`${label} with the sandbox line`);
+          await until(hint,`${label} naming /local`);
           // Pi draws its footer before it reads keys.
           await page.waitForTimeout(2000);
         };
@@ -138,6 +157,7 @@ for(const image of (process.env.DOLLY_LLM_IMAGES??'pi-local,dollyfile-studio').s
           await key('Enter');
         };
         await task('first.txt');
+        assert.doesNotMatch(await text(),hint,'the hint stays after the first prompt');
         await page.screenshot({path:new URL(`${name}-${image}-first.png`,output).pathname});
         await type('/local');
         const shaders=/this GPU adapter runs (f16|f32) shaders/.exec(await until(/Local models · this GPU adapter runs/,'/local'))[1];
