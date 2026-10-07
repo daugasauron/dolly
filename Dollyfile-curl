@@ -3,7 +3,7 @@ PACKAGE curl
 REQUIRES HOST runtime@0
 REQUIRES HOST http@0
 
-FROM https://daugasauron.com/Dollyfile-system-build e70a8d56cb8cd7643f6b114e57bdf6476463e33b103ca3b98339cdb72148581d
+FROM https://daugasauron.com/Dollyfile-system-build de7755e5c779736287ad84569923fd2d97d21788ce68ddc043a8e50c6748065e
 
 REQUIRES HEADER libc
 REQUIRES HEADER http
@@ -14,7 +14,7 @@ REQUIRES TOOL   rm
 REQUIRES TOOL   tar
 
 SOURCE https://daugasauron.com/dist/static/default/curl-headers.tar 346a0298fcbdafbad7d0c0259a2d7b8539ca46c39222797c01dcac213564bf30 /tmp/curl-headers.tar
-SOURCE https://daugasauron.com/dist/static/default/libcurl-fetch.c  bba209fdaf90df6151f838940c66dc6d1767e3e0e15d109e275ee2d86787c402 /usr/src/dolly/libcurl-fetch.c
+SOURCE https://daugasauron.com/dist/static/default/libcurl-fetch.c  992908a426d92a471ec71b6910776e529324cdd74d1bab1ae0900ff0ea9f1ae8 /usr/src/dolly/libcurl-fetch.c
 SOURCE https://daugasauron.com/dist/static/default/commands/curl.c  7995797121ae0a28ec05d981ce43e3f70add6156b708d771694affba29be3b66 /usr/src/dolly/commands/curl.c
 SLOP tar \
   -xf /tmp/curl-headers.tar \
