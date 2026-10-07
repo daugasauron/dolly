@@ -4,6 +4,10 @@
 - PRIORITY: 240
 - TAGS: demo,gpu,audio,port
 
+Owner (2026-10-07, after playing `/xonotic/`): "The Xonotic stuff is really
+good but needs better performance tuning, also the 'normal' mouse doesn't get
+hidden so I see 2 mouse pointers when I play it."
+
 Owner (2026-10-06), asking for a game to show off: "Something similar to doom
 to showcase like game engine/physics performance with shaders? Ideally
 something visually striking." Then: "I like Xonotic", and "Add a task to tatr
