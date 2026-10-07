@@ -43,10 +43,24 @@ compatible. I want a task to create a thorough plan for this."
     import only their own saves (question 8). The plan covers the image
     cache the same way, and what becomes of sessions saved on today's
     unversioned site.
+- 2026-10-07: "regarding the versioning, go with 'Versioned recipe URLs'".
+  Recipes name `https://daugasauron.com/vX.Y.Z/Dollyfile-NAME SHA256`: the
+  URL a recipe writes is a file the site serves, and a Dollyfile written
+  against 0.1.0 keeps resolving to 0.1.0's bytes. Question 6 is now how, and
+  the plan works out:
+  - what rewrites the version into every recipe at a release (an extension
+    of `update-recipe-pins.mjs`?) and what recipes name between releases;
+  - the cost: every recipe's text and so every pin changes at each release,
+    and an image records its recipe, so measure whether a release rebuilds
+    the whole catalog (about 80 minutes) or only re-seals it;
+  - `CANONICAL_ORIGIN` and `canonicalPath` with a version in the path, on
+    the domain and under GitHub Pages' prefix;
+  - `amy-index.txt` and `amy install NAME` inside an old version;
+  - recipes of one version that name another version's URL: allowed (the
+    bytes are pinned) or refused.
 
-Still open after these: the recipe URL form, archiving of published
-releases, the retention rule at the file limit, security fixes to an old
-version, and migration.
+Still open after these: archiving of published releases, the retention rule
+at the file limit, security fixes to an old version, and migration.
 
 ## What this task delivers
 
