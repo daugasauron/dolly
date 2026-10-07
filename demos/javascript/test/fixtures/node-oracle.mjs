@@ -214,6 +214,23 @@ export async function observe(root) {
     typeof legacyStream.pipe, heard, typeof stream.promises.pipeline];
   cases.sha1 = [crypto.createHash("sha1").update("abc").digest("hex"), crypto.createHmac("sha1", "key").update("text").digest("base64")];
 
+  // WHATWG streams: a transformer's start, transform and flush, and failures
+  // of a transformer, a sink and a source reaching the other end.
+  const collect = async readable => { const chunks = []; for await (const chunk of readable) chunks.push(chunk); return chunks; };
+  const letters = () => new ReadableStream({ start(controller) { controller.enqueue("a"); controller.enqueue("b"); controller.close(); } });
+  const written = [];
+  await letters().pipeTo(new WritableStream({ write(chunk) { written.push(chunk); }, close() { written.push("closed"); } }));
+  cases.webStreams = [
+    await collect(letters().pipeThrough(new TransformStream({ start(controller) { controller.enqueue("["); },
+      transform(chunk, controller) { controller.enqueue(chunk.toUpperCase()); }, flush(controller) { controller.enqueue("]"); } }))),
+    await collect(letters().pipeThrough(new TransformStream())), written,
+    await outcome(() => collect(new ReadableStream({ start(controller) { controller.enqueue("x"); } }).pipeThrough(new TransformStream({
+      transform(_chunk, controller) { controller.error(Object.assign(new Error("idle"), { code: "E_IDLE" })); } })))),
+    await outcome(() => letters().pipeTo(new WritableStream({ write() { throw Object.assign(new Error("sink"), { code: "E_SINK" }); } }))),
+    await outcome(() => collect(new ReadableStream({ start(controller) { controller.error(Object.assign(new Error("source"), { code: "E_SOURCE" })); } })
+      .pipeThrough(new TransformStream()))),
+  ];
+
   // en-US in UTC, which Janis formats without ICU.
   const instants = [Date.UTC(2026, 9, 5, 14, 5, 9), Date.UTC(2001, 0, 1), Date.UTC(1999, 11, 31, 23, 59, 59)];
   const dateOptions = [{}, { hour: "numeric", minute: "2-digit" }, { weekday: "long", hour: "numeric", minute: "2-digit" },

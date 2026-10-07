@@ -130,6 +130,48 @@ Facts it carries, on one screen (the wording is the builder's):
 - Each condition above has its evidence line here, and the sign-in methods
   that work are listed per browser.
 
+## Builder's log (2026-10-07, branch `demo/claude-code` from `0cece355`)
+
+Decisions:
+
+- Name: `code-agent` (directory `demos/code-agent`, recipe
+  `Dollyfile-code-agent`, route `/code-agent/`). Alternatives the owner can
+  rename to in one move: `agent-cli`, `coding-agent`, `npm-agent`. `cc-*` was
+  rejected because `cc` is Dolly's compiler package.
+- The tarball is never in git or in an image. The browser test downloads it
+  from `registry.npmjs.org` at test time into the untracked
+  `build/claude-code-cache/claude-code-2.1.112.tgz`, checks npm's sha512, and
+  serves it to the page from the test origin in place of the registry; the
+  test fails when it cannot obtain it. The launcher pins the SHA-256 of the
+  same bytes, `84379969ea53a0e5fd231a8f77debe4c7cb17dd971f4809d10d33f9aeca5de09`
+  (18,679,326 bytes; `sha256sum` is in `system`, no SHA-512 tool is), checked
+  with the session's `sha256sum` before anything is unpacked.
+- Launcher: a Slop script `/usr/bin/code-agent` (notice from
+  `/usr/share/doc/code-agent/NOTICE`, `anykey` for the key, `curl`,
+  `sha256sum`, `gzip`, `tar`, then `env USE_BUILTIN_RIPGREP=0 janis
+  …/cli.js "$@"`). `anykey` is a 20-line C program in the recipe that puts
+  the terminal in raw mode and reads one byte; Ctrl+C is SIGINT (ISIG stays
+  on), status 130, and the image's `init.slop` then enters the recovery
+  shell, as `pi` does, so a user can `export ANTHROPIC_API_KEY=…` and run
+  `code-agent` again. Only `USE_BUILTIN_RIPGREP=0` is set (the vendored `rg`
+  cannot run on wasm64; Grep and Glob need the session's `rg`); nothing
+  else of Claude Code's environment is changed.
+
+Step 1, Chromium (`javascript` image of main `0cece355`, session
+`system` + `javascript` + `ripgrep`, 2026-10-07 10:46 UTC): download from the
+real registry 2.6 s, unpack 1.8 s, `--version` 2.3 s, `--help` 2.3 s.
+Regression found: every Messages request failed with "Unable to connect to
+API" after a 200 response. Cause, found by probing the thrown error in the
+session: Claude Code's stream watchdog wraps the response body with
+`body.pipeThrough(new TransformStream({ start, transform, flush }))`, and
+Janis's `ReadableStream` had no `pipeThrough` while its `TransformStream`
+ignored its transformer. Fixed as general Node behaviour in `janis.js`
+(`pipeTo`, `pipeThrough`, a `WritableStream` that runs its sink in order, a
+`TransformStream` with `start`/`transform`/`flush` and a controller with
+`enqueue`/`error`/`terminate`); oracle group `webStreams` in
+`node-oracle.mjs` (identical in Node 22 and Janis natively). With it the
+`-p` file-tool turn against the scripted endpoint completed in 2.8 s.
+
 ## Related
 
 `20261005-133044-claude-code`, `20261005-132750-janis-node-gaps`.
