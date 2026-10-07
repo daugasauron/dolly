@@ -27,14 +27,20 @@ the task records the measurements).
 ## What works in `/xonotic/` today
 
 - The menu and a bot match on the stock maps, drawn by the software path at
-  1024×768 at about 14 fps; `xonotic` takes the engine's command line
-  (`xonotic +map stormkeep +bot_number 4`). Loading a map into the match
-  takes about two minutes in the software client (the task records the
-  measurement); the loading plaque stays up meanwhile.
+  1024×768; `xonotic` takes the engine's command line
+  (`xonotic +map stormkeep +bot_number 4`). The image starts with the low
+  effects preset (`/home/dolly/.xonotic/data/config.cfg`, overwritten with
+  the player's own settings on exit): 31 fps in Chromium on the test's
+  bot-match demo against 13 for the normal preset, at the cost of
+  deluxemapping, gloss and normal maps, realtime dynamic lights, most
+  particles and one texture mip level; the settings menu raises them again.
+  Loading a map takes about two minutes in the software client; the
+  loading plaque stays up meanwhile.
 - Keyboard and mouse reach the engine through the sdl2 package's video
-  backend, which gives keys with text, relative mouse motion and capture;
-  playing with them in Xonotic has not been exercised yet, only the test's
-  scripted runs.
+  backend: in a match the engine asks for relative motion and the page
+  captures the pointer on the first click (Escape releases it); in the menu
+  and in the game's own dialogs the page's cursor is hidden and the game
+  draws its own.
 - No sound (the client has the null sound unit), no network play, and the
   music and Nexuiz compatibility archives are not in the image.
 
