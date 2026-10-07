@@ -109,6 +109,10 @@ bash scripts/package-pages.sh build/github-releases github-pages
   The exporter fails at either limit, naming the versions; nothing is dropped
   automatically. One rule covers a file in every version that stores it the
   same way, so rules grow with distinct large files, not with versions.
+- Measured on 2026-10-08 (71 images): one version is 2,335 files and
+  19.1 GB, so eight versions fit in 20,000 files. It needs 44 rules: 5 for
+  every version, 28 for large sources by path and 11 for large packs by
+  content, which leaves 56 for the large files later versions change.
 
 ## Release
 

@@ -237,6 +237,10 @@ Tracked here, one round each; no further tasks are created for them.
   and that version's saves on them then asked for a rebuild. Changed: a save
   replaces only this runtime's previous image in its slot; other runtimes'
   entries share the bound (32 images, 8 GiB, least recently saved first out).
+- Cost of a merge: `Dollyfile-dolly-docs` pins `docs/sessions.md` and
+  `docs/browser-boundary.md`, which this step edits, so `dolly-docs`, `pi`,
+  `pi-local` and `dollyfile-studio` are re-pinned and rebuilt (385 s with
+  two builders). The pins are not committed on this branch.
 - Test: `test/site-browser.mjs` serves the checkout under `/vX.Y.Z/` and
   `/v0.0.0/` (the second with another version constant) on one origin; a save
   made under the first is not listed under the second, its exported file is
@@ -305,6 +309,92 @@ Decided while implementing:
   deploy: every file of that version, every other version's list) and
   `boot SITE vX.Y.Z…` (real browsers). `test/pages-host.mjs` stands in for
   Pages locally: the documented rule syntax and the behaviour measured above.
+
+Found by packaging, and fixed:
+
+- `serve.mjs` importing from `site-release.mjs` made a module cycle through
+  `accept-release.mjs`: `site-release.mjs accept` exited with an unsettled
+  top-level await (status 13) and sealed nothing. The version is now read in
+  `release-layout.mjs`, which imports nothing.
+- `package-github-pages.mjs` linked the domain's applications at
+  `https://daugasauron.com/IMAGE/`, which is 404 once nothing unversioned is
+  served; it links `https://daugasauron.com/vX.Y.Z/IMAGE/`.
+
+Measured on 2026-10-08, from the 76-image catalog of `main` `03a95b18`
+(evidence in `work/hosting/build/hosting-evidence/`):
+
+- **Domain catalog** (71 images with dependencies, `closed-source-agent`
+  among them): sealed release 19,294,000,490 bytes in 18 min 21 s (41 images
+  accepted; the 20 GiB scope ran at its cap in page cache and was not
+  killed). Cloudflare deployment of the one version: **2,335 files**, 19.1 GB
+  (570 packs, 714 parts, 190 pages, nothing over 25 MiB), plus the 4 root
+  files; exported in 10 min 58 s, 6.3 GB of process memory at most, 38 GB of
+  disk while it runs. **Eight versions fit in 20,000 files** (8 x 2,335 + 4 =
+  18,684; the ninth makes 21,019).
+- **Eight and nine**: eight hard-linked copies of that version, named
+  `v0.1.0` to `v0.1.7`, assemble into one deployment of 18,684 files with
+  the same 44 header rules (1 min 19 s, each copy checked against its
+  list). With a ninth the exporter stops and writes nothing: "Pages'
+  20,000-file limit exceeded by 1019: v0.1.0 has 2335 files, … v0.1.8 has
+  2335 files; remove a published version explicitly".
+- **Header rules**: 44 for one version: the 5 that cover every version, 28
+  for large sources and the seed by path (4 Brotli, 24 in parts) and 11 for
+  large packs by content hash. Versions that keep a file's path and storage
+  share its rule, so a further version costs a rule only per large pack or
+  source it changes; 56 rules remain, eight a version over seven more
+  versions. This worktree's `dist/packs` holds the rounds since 2026-09-30:
+  each added three packs over 25 MiB (two of 38 MiB, one of 31 MiB).
+- **GitHub Pages catalog** (45 images with dependencies): sealed release
+  961,512,839 bytes in 5 min 10 s; `export-static.mjs … /dolly/` gives
+  `index.html` and `v0.1.0/`, 1,017 files, 963,736,637 bytes (36 MB under
+  the limit). The same release as a Cloudflare deployment: 1,039 files, 13
+  header rules.
+- **Two versions in one deployment** (the GitHub catalog release, and a copy
+  of it sealed again with `DOLLY_VERSION` 0.1.1), served by
+  `test/pages-host.mjs`: 2,082 files, still 13 rules, `/` answers 302 to
+  `/v0.1.1/`, `/default/` and `/amy-index.txt` are 404. In Chrome and
+  Firefox `published-version.mjs boot` passes for both versions (each page's
+  requests to the site stay under its own path and include its own
+  `amy-index.txt`; a missing asset is 404). A save made under 0.1.0 is not
+  listed under 0.1.1 and its exported file is refused there ("This session
+  file belongs to Dolly 0.1.0…"), 0.1.0 restores it; the same the other way
+  round; the browser holds `dolly-sessions-v0.1.0` and
+  `dolly-sessions-v0.1.1`.
+- **Mirror and verify**, against the same local host: `mirror` of 0.1.1
+  gives a directory identical to the deployed one (1,039 files, 851,031,588
+  bytes, with its Brotli-stored files and the pages a host redirects);
+  with one bit of `v0.1.1/amy-index.txt` changed it stops, naming the file,
+  and leaves nothing behind. `verify` of the one-version deployment names a
+  pack part with one changed bit and passes again once it is restored;
+  `verify` of the domain deployment reads its 2,335 files in 19 s.
+- **Domain deployment in browsers** (local host): `default` boots in both;
+  `rust-tools` boots from a pack stored in parts (one manifest with
+  `X-Dolly-Parts` by the placeholder rule, two parts).
+- **`npm run serve`** on the sealed GitHub release: `/` is 302 to
+  `/v0.1.0/`, `/default/`, `/amy-index.txt` and `/v0.1.0/src/browser.mjs`
+  are 404, `boot` passes in both browsers. The GitHub export served without
+  isolation headers under `/dolly/`: `/dolly/` leads to `/dolly/v0.1.0/`
+  and `default` boots isolated by the service worker in both browsers.
+- Core browser suites in Chrome and Firefox: 37 suites pass in both;
+  `fs-growth` fills more than 6 GiB by design and the 6 GB browser slot
+  kills it in either browser (6.0 GB at the kill), so it did not run here.
+
+Not settled here:
+
+- A recipe URL `https://daugasauron.com/v0.1.0/Dollyfile-NAME` is not a file
+  the deployment serves, as `https://daugasauron.com/Dollyfile-NAME` is not
+  today (404): the bytes are at `/v0.1.0/_dolly/RELEASE/Dollyfile-NAME` and
+  the version's pages map the URL to their own copy. If the owner's "the URL
+  a recipe writes is a file the site serves" is meant literally, the
+  exporter needs redirect rules per version (`_redirects` allows 100 with a
+  splat) or a second copy of recipes and sources; to decide with the recipe
+  reference form.
+- Step 5: the root `robots.txt` is the newest version's with each
+  `Disallow` written per version; its comment names
+  `https://daugasauron.com/licences/`, which is 404 after this release.
+- The placeholder rules were exercised on the local stand-in, written from
+  Cloudflare's documentation and asset-server source; the first deployment's
+  `boot` and `verify` are their first run on Pages itself.
 
 ### Step 4, checklist, workflow, document
 

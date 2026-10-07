@@ -9,7 +9,9 @@ set -euo pipefail
 
 project_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 [[ $# -ge 2 ]] || { echo "usage: release-checklist.sh DOMAIN_RELEASES GITHUB_RELEASES [ARCHIVE]" >&2; exit 64; }
-domain="$(realpath -- "$1")/current" github="$(realpath -- "$2")/current" archive="$(realpath -- "${3:-${project_dir}/published}")"
+domain="$(realpath -- "$1")/current"
+github="$(realpath -- "$2")/current"
+archive="$(realpath -- "${3:-${project_dir}/published}")"
 cd "${project_dir}"
 version="v$(node -p "require('./package.json').version")"
 commit="$(git rev-parse HEAD)"
