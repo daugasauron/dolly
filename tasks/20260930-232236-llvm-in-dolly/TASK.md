@@ -257,6 +257,92 @@ an upstream source change for such chains and a compiler process that needs
 less native stack. Then the full closure at `-j4`, keep the 103 archives, link
 the compiler and compare it with the seed's link.
 
+## The two stack overflows (2026-10-07, `core/llvm-in-dolly`)
+
+Method: the `llvm-tablegen` image opened with a terminal in headless Chrome
+151.0.7922.71 (and Firefox 155 where named), the staged LLVM tree extracted to
+`/tmp/llvm-project`, the seed compiler (image inputs `c62b2710…`) run as `c++`
+with the flags of the seed's `compile_commands.json` (no PCH). Stacks are V8's,
+with `Error.stackTraceLimit` raised in the Worker and names taken from a
+relink of the seed with `--profiling-funcs` (same code section, 70,301,918
+bytes). Scratch harness and logs: `build/llvm-evidence/stack/` (not kept).
+
+What bounds the recursion is the browser's stack for Wasm frames, not the
+8 MiB stack in the process's memory:
+
+| | depth of a one-local recursive function | stack |
+| --- | --- | --- |
+| Chrome Worker, entered directly | 7,975 Liftoff frames of 64 B | 500 KB (Blink's fixed Worker limit) |
+| Chrome Worker, entered through `WebAssembly.promising` | 15,103 | about 950 KB |
+| Firefox 155 Worker, either way | 162,424 / 163,819 | not the bound here |
+
+`--js-flags=--stack-size=3000` and `--wasm-stack-switching-stack-size=4000`
+change neither Chrome number by more than 5%: a page gets these two stacks
+and no larger one.
+
+- **`MSP430.cpp`** (`clang/lib/Driver/ToolChains`): 635 chained
+  `StringSwitch::Case` calls. Clang's CodeGen recurses once per call, first in
+  `VarBypassDetector::BuildScopeInformation` (4 Wasm frames per AST level,
+  1,214 levels at the overflow, 105 B per frame) and then in `EmitCallExpr` >
+  `EmitCXXMemberOrOperatorMemberCallExpr` > `EmitLValue` (7 frames per call,
+  177-187 B each in tiered-up code: 1.3 KB per call, so 500 KB end at call
+  390-410 of 635). Three of the seven frames are Clang's own
+  `runWithSufficientStackSpace` guard, which only warns when LLVM is built
+  without threads and measures the stack in Wasm memory in any case.
+- **`SemaARM.cpp`**: `arm_sve_streaming_attrs.inc` is one run of 6,020 `case`
+  labels, a `CaseStmt` nest 6,020 deep. The overflow is `-Wimplicit-fallthrough`
+  alone: its `FallthroughMapper` is a `RecursiveASTVisitor` (4 frames of 60 B
+  per label, the smallest frames there are), so it needs 1.44 MB. With LLVM's
+  whole warning set except that flag, and with no warning set, the file
+  compiles; with only that flag added it fails (4 variants, one run each).
+  It overflowed at label 2,094 directly and at 4,000 through JSPI.
+
+Fix for the first (commit `528f9883`): the process Worker enters `_start` and
+`dolly_thread_start` through `WebAssembly.promising` where it exists. It is
+not in the image inputs, so no image rebuilds. Chain capacity (a function
+returning N chained member calls, `-O3`, three rounds in one browser):
+
+| entry | compiles | fails |
+| --- | --- | --- |
+| direct | 400 | 440 |
+| JSPI, compiler not yet optimized by V8 | 760 | 780 |
+| JSPI, third round | 800 (largest tried) | |
+
+`MSP430.cpp` then compiled 12 times of 12 in one browser (6.1 s, then
+3.2-3.3 s) and 3 of 3 with LLVM's full flags; object 108,376 bytes. The core,
+process, threads, dso and cpp browser suites pass in Chrome and Firefox;
+`test/cpp-browser.mjs` compiles a 640-call chain, which fails in Chrome
+without the change.
+
+Fix for the second: none in the compiler. 1.44 MB is more than either Chrome
+stack and the visitor has no guard to hop from, so the LLVM recipe configures
+with `LLVM_ENABLE_WARNINGS=OFF` (upstream's switch for the `-Wall …
+-Wimplicit-fallthrough …` block); diagnostics do not change objects.
+`SemaARM.cpp` then compiles (4 of 4, 10.5-13.5 s, 303,726 bytes).
+
+Limits that remain, recorded rather than hidden:
+
+- The margin for `MSP430.cpp` is 635 of about 770. With `--js-flags=--no-liftoff`
+  (TurboFan for every function, no call feedback) frames grow to 234 B and it
+  overflows at call 590 even through JSPI; `--liftoff-only` passes. Chrome's
+  ordinary tiering stayed inside the stack in every run.
+- A real fix needs more than one browser stack. Clang's guard can continue on
+  a new stack (`llvm::runOnNewStack`), but only when LLVM is built with
+  threads, it decides from the stack in Wasm memory, and visitors such as
+  `FallthroughMapper` have no guard at all. A process primitive that runs a
+  function on a fresh stack (JSPI gives one per `promising` call) would serve
+  Clang, rustc's `stacker` and the zig1 route; that is an ABI decision and was
+  not taken here.
+- `cc` therefore cannot compile, in Chrome, about 770 chained member calls in
+  one expression or about 4,000 consecutive `case` labels under
+  `-Wimplicit-fallthrough`. Firefox was not measured on these files.
+
+Found on the way: since `ce294685` (2026-10-06) the target no longer defines
+`__EMSCRIPTEN__`, and `clang/Support/Compiler.h` defines `CLANG_ABI` only for
+ELF, Mach-O, Windows and Emscripten: every Clang unit that includes
+`Attr.h` fails (`variable has incomplete type 'class CLANG_ABI'`). The static
+configuration upstream provides, `-DCLANG_BUILD_STATIC`, compiles them.
+
 ## Decisions (2026-10-01, delegated)
 
 - LLVM-in-Dolly stays a demo (`demos/llvm`): moving CMake and Python into core
