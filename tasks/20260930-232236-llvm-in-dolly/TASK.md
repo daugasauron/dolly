@@ -7,14 +7,32 @@
 Owner (2026-10-07): "this is very high priority." Worked on branch
 `core/llvm-in-dolly` (worktree `work/llvm`), in parallel with release 0.1.0.
 
-## Remaining (2026-10-07)
+## Remaining (2026-10-08)
 
-In the catalog: `llvm-tablegen` (configure, the three TableGen tools and
-their outputs byte-identical to the seed's; `demos/llvm`), rebuilt in every
-round since. Left, from "Next" below: the Worker stack overflow on
-`MSP430.cpp` and `SemaARM.cpp` (fix on the compiler side, decided), then the
-whole 2,559-TU closure at `-j4`, the 103 archives kept, the compiler linked
-and compared with the seed's link; stage 2 against stage 3.
+Built inside Dolly, on `core/llvm-in-dolly` (four images in `demos/llvm`,
+sections below): the TableGen tools; the compiler's whole closure, 2,559
+units in 103 archives, at four jobs in 42 minutes; the compiler linked from
+them, whose output is the seed compiler's byte for byte on a sample; and a
+second stage built by that compiler, identical to the first in every archive
+and in the compiler. The first two clauses of "Done when" hold. Left:
+
+- **Replacing the host-built seed** (the third clause) is a later decision.
+  It needs the runtime libraries built here too (libc++, libc++abi,
+  compiler-rt: `core/llvm-runtimes`), an answer for size (127 MB against the
+  seed's 78 MB: Dolly has no binaryen; 96 MB without the name section), and
+  the TableGen tools rebuilt by the Dolly-built compiler (their outputs are
+  already the seed's bytes).
+- **The browser stack** has no general fix. The JSPI entry doubles Chrome's;
+  `MSP430.cpp` fits with a margin of 635 in 760 and `SemaARM.cpp` only with
+  LLVM's warnings off. A process primitive that continues on a fresh stack
+  is an ABI decision for the owner (see "The two stack overflows").
+- **Jobs**: four, because a CMake job is three processes and the supervisor
+  admits 32 (`20260930-231102-parallel-rust` decided a memory budget instead).
+- **Cost in the catalog**: `llvm-build` 44 min, `llvm-cc` 4 min, `llvm-stage2`
+  46 min at `-j4`; snapshots of 604, 653 and 653 MB. Each stage extracts the
+  sources and runs TableGen again, because snapshots keep no file times.
+- The closure was built in Chrome only; Firefox compiles the two deepest
+  units but was not given the whole build.
 
 The keystone for the bootstrap goals: a self-hosted rustc
 (`20260930-231100-self-host-rust`), an LLVM-enabled Zig, and a compiler seed
@@ -256,6 +274,209 @@ Next: measure what bounds the recursion (which compiler phase, the depth per
 an upstream source change for such chains and a compiler process that needs
 less native stack. Then the full closure at `-j4`, keep the 103 archives, link
 the compiler and compare it with the seed's link.
+
+## The two stack overflows (2026-10-07, `core/llvm-in-dolly`)
+
+Method: the `llvm-tablegen` image opened with a terminal in headless Chrome
+151.0.7922.71 (and Firefox 155 where named), the staged LLVM tree extracted to
+`/tmp/llvm-project`, the seed compiler (image inputs `c62b2710…`) run as `c++`
+with the flags of the seed's `compile_commands.json` (no PCH). Stacks are V8's,
+with `Error.stackTraceLimit` raised in the Worker and names taken from a
+relink of the seed with `--profiling-funcs` (same code section, 70,301,918
+bytes). Scratch harness and logs: `build/llvm-evidence/stack/` (not kept).
+
+What bounds the recursion is the browser's stack for Wasm frames, not the
+8 MiB stack in the process's memory:
+
+| | depth of a one-local recursive function | stack |
+| --- | --- | --- |
+| Chrome Worker, entered directly | 7,975 Liftoff frames of 64 B | 500 KB (Blink's fixed Worker limit) |
+| Chrome Worker, entered through `WebAssembly.promising` | 15,103 | about 950 KB |
+| Firefox 155 Worker, either way | 162,424 / 163,819 | not the bound here |
+
+`--js-flags=--stack-size=3000` and `--wasm-stack-switching-stack-size=4000`
+change neither Chrome number by more than 5%: a page gets these two stacks
+and no larger one.
+
+- **`MSP430.cpp`** (`clang/lib/Driver/ToolChains`): 635 chained
+  `StringSwitch::Case` calls. Clang's CodeGen recurses once per call, first in
+  `VarBypassDetector::BuildScopeInformation` (4 Wasm frames per AST level,
+  1,214 levels at the overflow, 105 B per frame) and then in `EmitCallExpr` >
+  `EmitCXXMemberOrOperatorMemberCallExpr` > `EmitLValue` (7 frames per call,
+  177-187 B each in tiered-up code: 1.3 KB per call, so 500 KB end at call
+  390-410 of 635). Three of the seven frames are Clang's own
+  `runWithSufficientStackSpace` guard, which only warns when LLVM is built
+  without threads and measures the stack in Wasm memory in any case.
+- **`SemaARM.cpp`**: `arm_sve_streaming_attrs.inc` is one run of 6,020 `case`
+  labels, a `CaseStmt` nest 6,020 deep. The overflow is `-Wimplicit-fallthrough`
+  alone: its `FallthroughMapper` is a `RecursiveASTVisitor` (4 frames of 60 B
+  per label, the smallest frames there are), so it needs 1.44 MB. With LLVM's
+  whole warning set except that flag, and with no warning set, the file
+  compiles; with only that flag added it fails (4 variants, one run each).
+  It overflowed at label 2,094 directly and, through JSPI, at 3,303 on the
+  first attempt and 3,993-4,002 on later ones.
+
+Fix for the first (commit `528f9883`): the process Worker enters `_start` and
+`dolly_thread_start` through `WebAssembly.promising` where it exists. It is
+not in the image inputs, so no image rebuilds. Chain capacity (a function
+returning N chained member calls, `-O3`, three rounds in one browser):
+
+| entry | compiles | fails |
+| --- | --- | --- |
+| direct | 400 | 440 |
+| JSPI, compiler not yet optimized by V8 | 760 | 780 |
+| JSPI, third round | 800 (largest tried) | |
+
+`MSP430.cpp` then compiled 12 times of 12 in one browser (6.1 s, then
+3.2-3.3 s) and 3 of 3 with LLVM's full flags; object 108,376 bytes. The core,
+process, threads, dso and cpp browser suites pass in Chrome and Firefox;
+`test/cpp-browser.mjs` compiles a 640-call chain, which fails in Chrome
+without the change.
+
+Fix for the second: none in the compiler. 1.44 MB is more than either Chrome
+stack and the visitor has no guard to hop from, so the LLVM recipe configures
+with `LLVM_ENABLE_WARNINGS=OFF` (upstream's switch for the `-Wall …
+-Wimplicit-fallthrough …` block); diagnostics do not change objects.
+`SemaARM.cpp` then compiles (4 of 4, 10.5-13.5 s, 303,726 bytes).
+
+Limits that remain, recorded rather than hidden:
+
+- The margin for `MSP430.cpp` is 635 of about 770. With `--js-flags=--no-liftoff`
+  (TurboFan for every function, no call feedback) frames grow to 234 B and it
+  overflows at call 590 even through JSPI; `--liftoff-only` passes. Chrome's
+  ordinary tiering stayed inside the stack in every run.
+- A real fix needs more than one browser stack. Clang's guard can continue on
+  a new stack (`llvm::runOnNewStack`), but only when LLVM is built with
+  threads, it decides from the stack in Wasm memory, and visitors such as
+  `FallthroughMapper` have no guard at all. A process primitive that runs a
+  function on a fresh stack (JSPI gives one per `promising` call) would serve
+  Clang, rustc's `stacker` and the zig1 route; that is an ABI decision and was
+  not taken here.
+- `cc` therefore cannot compile about 770 chained member calls in one
+  expression (Chrome; 700 fit and 760 fail in Firefox 155, where the entry
+  changes nothing) or 3,300 to 4,000 consecutive `case` labels under
+  `-Wimplicit-fallthrough` (Chrome; Firefox fails on the 6,020 too).
+
+Checked after the integrator's review (2026-10-07 night):
+
+- **Whole core suite** with the JSPI entry, `node test/browser-tests.mjs
+  chromium firefox` (988 s): every test passes in both browsers except
+  `fs-growth-browser.mjs` in Chrome, `Target crashed`. That test fills 8 GiB
+  and the browser slot caps the run at 6 GB (journal: `killed by the OOM
+  killer`); it fails at the same line with the entry reverted. Not run: the
+  GPU render test (needs a display).
+- **Cold, N of N**: six fresh Chrome instances, each compiling both files
+  once with the flags `llvm-build`'s CMake emits, three in each order:
+  `MSP430.cpp` 6 of 6 (5.3-5.9 s first, 2.9-3.4 s second), `SemaARM.cpp` 6 of 6
+  (12.1-12.6 s first, 9.8-10.3 s second), and no overflow line in any log, so
+  no retry hid a failure.
+- **Margins**, calls needed against calls that fit: `MSP430.cpp` needs 635;
+  Chrome through JSPI fits 760 cold and at least 800 after V8 tiers up, Chrome
+  directly 400, Firefox 700. `SemaARM.cpp` as the recipe builds it (`-w`) also
+  compiles with the direct entry (6 of 6), so it needs under 500 KB of the
+  950 KB; with `-Wimplicit-fallthrough` it needs 6,020 labels where 3,300 to
+  4,000 fit.
+- **Firefox 155**: `MSP430.cpp` compiles (2 of 2, 4.5 s and 3.3 s) and
+  `SemaARM.cpp` compiles without `-Wimplicit-fallthrough` and fails with it,
+  as in Chrome. The entry gains Firefox nothing: its Worker stack was never
+  the smaller one.
+- **What a user sees** when the stack runs out, in both browsers: the three
+  attempts of `c++`, each `dolly: process N failed: Maximum call stack size
+  exceeded` (Firefox: `too much recursion`), `dolly: compiler process failed;
+  retrying 2/3`, then status 126 after 12-13 s. The shell prompt returns and
+  the next compile works; no hang, no tab crash.
+
+Found on the way: since `ce294685` (2026-10-06) the target no longer defines
+`__EMSCRIPTEN__`, and `clang/Support/Compiler.h` defines `CLANG_ABI` only for
+ELF, Mach-O, Windows and Emscripten: every Clang unit that includes
+`Attr.h` fails (`variable has incomplete type 'class CLANG_ABI'`). The static
+configuration upstream provides, `-DCLANG_BUILD_STATIC`, compiles them.
+
+## The closure and the compiler, built inside Dolly (2026-10-08)
+
+Three images in `demos/llvm`, each built once in headless Chrome 151 through
+`npm run image` under the 9 GB `bigbuild` slot, image inputs `c62b2710…`, the
+seed compiler unchanged. The 16-core host ran other agents' builds (mean load
+5.6). Memory is the PSS of the builder's Chrome, summed over its processes
+every 10 s. Logs: `build/llvm-evidence/build/` (not kept).
+
+**`llvm-build`** (`FROM llvm-tablegen`): the 2,559 units, first run, no failed
+unit, no retried compiler process, no warning.
+
+| step | wall |
+| --- | --- |
+| extract the staged tree | 10.5 s |
+| `cmake -C /usr/lib/llvm-build/Dolly.cmake` | 67.0 s |
+| `make -k -j4`, the seed's five targets | 2,491.7 s (41.5 min) |
+| whole image, with snapshot and packs | 2,622.9 s |
+
+- Peak 5.63 GB while compiling and 6.50 GB while the 604 MB snapshot was
+  captured. Four jobs is the count the 32-process cap allows (three processes
+  a job); `-j6` and `-j8` failed on 2026-10-01 and were not tried again.
+- It keeps `/usr/lib/llvm-build`: 103 archives with 2,559 members (223.3 MB),
+  the names and member lists of the seed's `.cache/llvm-wasm/lib`; Clang's
+  resource directory; the configured and generated headers. Of those 501
+  files 499 are the seed tree's bytes, `config.h` differs in
+  `HAVE__UNWIND_BACKTRACE` as before, and `Dolly.cmake` is the recipe's own.
+- Flags or tools the driver lacked: none. What the build needed instead was
+  configuration: `CLANG_BUILD_STATIC` and `LLVM_ENABLE_WARNINGS=OFF` (above),
+  with `-include endian.h`, `-std=gnu17` and the host-triple patch that
+  `llvm-tablegen` already had. The warning switch leaves `-w` and three
+  `-W…` flags on each command; `cc` took them.
+- The configuration is a CMake initial-cache file the image keeps, so a later
+  stage configures from the same file.
+
+**`llvm-cc`** (`FROM llvm-build`): the compiler.
+
+- `link-compiler.slop` compiles the seed's driver (`src/compiler.cpp`,
+  `compiler-main.c`, the two contract digests, staged as sources) with the
+  flags of `toolchain/CMakeLists.txt` and links it with the 103 archives
+  and `-Wl,--initial-memory=33554432`: 9.8 s for both. The executable is
+  127,138,140 bytes (code 87.5 MB, data 8.3 MB, names 31.0 MB; the seed, which
+  binaryen shrinks and strips, is 78,338,796).
+- `diff -r` finds the resource headers built here identical to the seed's.
+- `check.slop` (174.5 s) runs the seed compiler and the new one on the same
+  arguments and requires the same bytes: a C and a C++ program, linked, which
+  also run and print what they should (`sqrt`, `strdup`, a file; `std::map`,
+  a virtual call, a caught exception), and eleven objects: the two at `-O0 -g`
+  and `-O2`, the driver itself, and LLVM's `regcomp.c`, `APFloat.cpp`,
+  `ItaniumDemangle.cpp`, `SLPVectorizer.cpp`, `MSP430.cpp`, `SemaARM.cpp` and
+  `SemaExpr.cpp` with the closure's flags. All thirteen are identical; no
+  difference to explain. (An executable linked straight from sources differs
+  with its output path alone: `cc` names the scratch object by a hash of that
+  path and wasm-ld records the name. Both compilers therefore write the same
+  path.)
+- The image then installs the compiler as
+  `/usr/libexec/dolly/process-bin/compiler`: its `cc`, `c++`, `ld` and `ar`
+  are built by Dolly. Peak 5.89 GB; snapshot 653 MB.
+- `demos/llvm/test/llvm-browser.mjs` opens the image in Chrome and Firefox:
+  `cc -c`, `ar`, a C++ program linked against that archive and run, and a
+  640-call chain compiled. Both pass (12.4 s, 22.1 s).
+- Before the build, the same rows passed against the seed's own archives
+  staged as a fixture: Dolly's `c++` linking host-built objects gives a
+  compiler with the same outputs too.
+
+**`llvm-stage2`** (`FROM llvm-cc`): the closure and the compiler again, built
+by the compiler `llvm-cc` installed; same sources, cache file, paths, targets
+and job count. First run, no failed unit and no retry.
+
+| step | wall |
+| --- | --- |
+| `cmake -C` | 75.0 s |
+| `make -k -j4` | 2,625.0 s (43.8 min; the seed compiler took 2,491.7 s) |
+| driver and link | 7.4 s |
+| `llvm-cc` and `llvm-stage2` together, with snapshots | 3,024.7 s |
+
+- `cmp` finds each of the 103 archives identical to the first stage's, and
+  the linked compiler identical to the installed one (127,138,140 bytes,
+  SHA-256 `99f690ad…07d3cc37`). The recipe fails at the first difference, so
+  the image exists only when all of them hold.
+- Peak 6.18 GB while compiling, 7.20 GB while capturing the snapshot.
+- What this shows: the compiler built by the host-built seed and the compiler
+  built by that compiler are the same bytes, so are their 2,559 objects, and
+  two builds an hour apart, by different compiler executables, were
+  deterministic. The TableGen tools are still `llvm-tablegen`'s, built by the
+  seed; their outputs are the seed's bytes (above), so they were not rebuilt.
 
 ## Decisions (2026-10-01, delegated)
 

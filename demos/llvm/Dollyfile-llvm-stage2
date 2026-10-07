@@ -1,0 +1,46 @@
+DOLLY 6
+TOOLCHAIN llvm-stage2
+REQUIRES HOST runtime@0
+REQUIRES HOST display@0
+REQUIRES HOST download@0
+REQUIRES HOST dso@0
+REQUIRES HOST http@0
+REQUIRES HOST upload@0
+
+# Build-only: the libraries and the compiler once more, compiled by llvm-cc's
+# compiler. It builds only if every archive and the compiler are the first
+# stage's, byte for byte: the compiler reproduces itself.
+FROM https://daugasauron.com/demos/llvm/Dollyfile-llvm-cc 684760aeff54d81c24fdb8e374fecdbd2db66df49d940ebc7a8802c9d51f40a7
+REQUIRES TOOL llvm-tblgen
+REQUIRES TOOL clang-tblgen
+REQUIRES TOOL cmake
+REQUIRES TOOL make
+REQUIRES TOOL python
+REQUIRES TOOL cc
+REQUIRES TOOL c++
+REQUIRES TOOL ar
+REQUIRES TOOL gzip
+REQUIRES TOOL tar
+REQUIRES TOOL patch
+REQUIRES TOOL time
+REQUIRES TOOL cmp
+REQUIRES TOOL rm
+
+# The same sources, configuration, paths and targets as llvm-build.
+SOURCE https://daugasauron.com/dist/static/llvm/llvm-project.tar.gz 033390c4520e51f261eb7572f0a1b4a1592121a1c8c1fc0c3db4845b079a8882 /tmp/llvm-project.tar.gz
+SLOP slop -c 'gzip -dc /tmp/llvm-project.tar.gz | tar -xf - -C /'
+SLOP rm /tmp/llvm-project.tar.gz
+SOURCE https://daugasauron.com/dist/static/llvm/llvm-host-triple.patch ec739fd5932c1040d07344a8511bae4da4157ff2bcafa348f06a555b71a10981 /tmp/llvm-host-triple.patch
+SLOP patch -p1 -d /tmp/llvm-project -i /tmp/llvm-host-triple.patch
+SLOP time cmake -C /usr/lib/llvm-build/Dolly.cmake -S /tmp/llvm-project/llvm -B /tmp/llvm-build
+SLOP CWD /tmp/llvm-build time make -k -j4 clangFrontendTool clangCodeGen clang-resource-headers lldWasm LLVMWebAssemblyCodeGen
+SLOP CWD /tmp/llvm-build slop -e -c 'for archive in lib/*.a; do cmp "$archive" "/usr/lib/llvm-build/$archive"; done'
+
+SOURCE https://daugasauron.com/dist/static/llvm/compiler.cpp e76523345b5e177001d158e6552ba304fed09f634155c1ef506f76c0406f7665 /tmp/dolly-compiler/compiler.cpp
+SOURCE https://daugasauron.com/dist/static/llvm/compiler-main.c c006a717fb95b2b99ec91eee392a1b607801ef15f21d684acfa905b5116b8fae /tmp/dolly-compiler/compiler-main.c
+SOURCE https://daugasauron.com/dist/static/llvm/dolly-process-abi-digest.h a9086eddb238582885298ab36c68c8eb7a58c5133e59d1c277f46417205b3720 /tmp/dolly-compiler/dolly-process-abi-digest.h
+SOURCE https://daugasauron.com/dist/static/llvm/dolly-kernel-plugin-abi-digest.h e73a92ed6dbace33c5bf2d3a14905c29e2c114b4e7dba91304b2e6235791b35e /tmp/dolly-compiler/dolly-kernel-plugin-abi-digest.h
+SLOP CWD /tmp/dolly-compiler time slop -e /usr/lib/llvm-build/link-compiler.slop /tmp/llvm-build
+SLOP cmp /tmp/dolly-compiler/compiler /usr/libexec/dolly/process-bin/compiler
+
+ENTRY /bin/foreground -i /bin/slop

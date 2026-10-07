@@ -28,6 +28,10 @@ await browserTest("cpp", { image: "system" }, async ({ open }) => {
   // A rejected compile fails normally, and the next compiler runs are unaffected.
   await run("cd /tmp/make && echo '#error deliberate' > bad.cpp");
   assert.equal(await submit("c++ -c bad.cpp -o bad.o"), 1);
+  // Clang recurses once per call of a chain, and LLVM's sources chain 635; a
+  // Chrome Worker's own stack holds about 420 (src/process-worker.mjs).
+  await run("echo 'struct S { S &next(int); int end(); }; int chain(S &s) { return s' > chain.cpp && " +
+    "seq 640 | sed 's/.*/.next(&)/' >> chain.cpp && echo '.end(); }' >> chain.cpp && c++ -c chain.cpp -o chain.o");
   // Build-system probes (Meson style).
   for (const command of [
     "cc --print-search-dirs | grep -q '^libraries: =/usr/lib:/usr/lib/dolly/process$'",
