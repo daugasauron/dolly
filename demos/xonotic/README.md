@@ -41,8 +41,12 @@ the task records the measurements).
   captures the pointer on the first click (Escape releases it); in the menu
   and in the game's own dialogs the page's cursor is hidden and the game
   draws its own.
-- No sound (the client has the null sound unit), no network play, and the
-  music and Nexuiz compatibility archives are not in the image.
+- Not working or not there: sound (the client has the null sound unit),
+  network play (single player with bots only), the music and Nexuiz
+  compatibility archives, and the `gpu@0` renderer (the software path is the
+  interim one; route (a) in the task). Building the data image needs a
+  builder scope above 9 GB (7 to 9 GB of renderer memory during its
+  snapshot upload; the task records the runs).
 
 ## How it works
 
