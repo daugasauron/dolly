@@ -94,15 +94,19 @@ await demoTest("code-agent", { image: "code-agent", timeout: 600_000, browser: p
 
   // Started again by hand, with a key in the environment as a user sets it.
   await run(`printf '${content}\\n' > /workspace/hello.txt && export ANTHROPIC_API_KEY=${key} && clear`);
-  const claude = start("code-agent");
+  // The first run downloads, and its own arguments still reach Claude Code.
+  const version = start("code-agent --version");
   await waitText(notice);
   await delay(1000);
   assert.equal((await http()).requests, 0, "a request left before any key was pressed");
   await page.keyboard.press("Space");
-  for (const deadline = Date.now() + 60_000; tarballRequests().length === 0; await delay(100)) {
-    assert.ok(Date.now() < deadline, `the tarball was not requested:\n${await text()}`);
-  }
-  assert.equal(tarballRequests()[0].method, "GET");
+  assert.equal(await version.done, 0, `the first run did not answer --version:\n${await text()}`);
+  assert.match(await text(), /2\.1\.112/, "the first run's argument did not reach Claude Code");
+  assert.deepEqual(tarballRequests().map(({ method }) => method), ["GET"]);
+  await run("clear");
+  const claude = start("code-agent");
+  await waitText(notice);
+  await page.keyboard.press("Space");
 
   // Claude Code's own onboarding, answered as a user would: the theme, the
   // detected key, its notes and the folder trust question, then the REPL.

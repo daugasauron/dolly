@@ -16,6 +16,7 @@ INSTALL https://daugasauron.com/demos/javascript/Dollyfile-javascript 98d05a011b
 INSTALL https://daugasauron.com/demos/rust/Dollyfile-ripgrep 9f65339190dc1e14f415f22dcef8bee96dfed909d1951b2d3c5a60d0e13bb4d0
 REQUIRES TOOL cc
 REQUIRES TOOL curl
+REQUIRES TOOL cut
 REQUIRES TOOL foreground
 REQUIRES TOOL gzip
 REQUIRES TOOL janis
@@ -78,8 +79,7 @@ FILE /usr/bin/code-agent
     if ! test -s $package/cli.js; then
       printf '\nDownloading Claude Code 2.1.112 from registry.npmjs.org ...\n'
       curl -fsS https://registry.npmjs.org/@anthropic-ai/claude-code/-/claude-code-2.1.112.tgz -o /tmp/claude-code.tgz || exit 1
-      set -- $(sha256sum /tmp/claude-code.tgz)
-      if test "$1" != 84379969ea53a0e5fd231a8f77debe4c7cb17dd971f4809d10d33f9aeca5de09; then
+      if test "$(sha256sum /tmp/claude-code.tgz | cut -d ' ' -f 1)" != 84379969ea53a0e5fd231a8f77debe4c7cb17dd971f4809d10d33f9aeca5de09; then
         printf 'code-agent: the download does not match the pinned SHA-256; nothing was unpacked.\n' >&2
         rm -f /tmp/claude-code.tgz
         exit 1
