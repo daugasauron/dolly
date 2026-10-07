@@ -69,10 +69,10 @@ DarkPlaces, gmqcc and `qcsrc` source file, and a grep for `egyptsoc`,
 |---|---|---|---|---|---|
 | DarkPlaces engine (client binary) | GPL-2.0-or-later; `bih`, `curves`, `lhnet`, `polygon`, `svbsp` public domain (Forest Hale); `palette.c` embeds the Quake palette "considered public domain" | `source/darkplaces/COPYING` (GPL-2 text), Xonotic `COPYING`; 56 `.c` files have no header | yes | GPL text, complete source and build scripts beside the binary | done: `/usr/share/licenses/xonotic/GPL-2`, `source.tar.gz`, the recipe |
 | Engine units not compiled by Dolly's Makefile | `snd_3dras.c` "BSD", `keysym2ucs.c` public domain, `cd_bsd.c` | file headers | source only | notice in source (present in the headers) | done |
-| QuakeC game logic (`progs.dat`, `csprogs.dat`, `menu.dat` in `data.pk3`, the release's build) | GPL-3.0-or-later; `qcsrc/lib/warpzone/` MIT or GPL-2.0-or-later; `qcsrc/lib/csqcmodel/` (9 files) MIT, Rudolf Polzer 2011 | Xonotic `COPYING`; `qcsrc/lib/warpzone/COPYING`; the csqcmodel file headers | yes | GPL text and source (done); the MIT notice with copies, binaries included (Dolly's rule in `docs/licences.md`) | notice in `source.tar.gz` and `xonotic-build`'s `/usr/src/xonotic`; **not in the `xonotic` image**: recipe change below |
+| QuakeC game logic (`progs.dat`, `csprogs.dat`, `menu.dat` in `data.pk3`, the release's build) | GPL-3.0-or-later; `qcsrc/lib/warpzone/` MIT or GPL-2.0-or-later; `qcsrc/lib/csqcmodel/` (9 files) MIT, Rudolf Polzer 2011 | Xonotic `COPYING`; `qcsrc/lib/warpzone/COPYING`; the csqcmodel file headers | yes | GPL text and source (done); the MIT notice with copies, binaries included (Dolly's rule in `docs/licences.md`) | done on this branch, unbuilt: `COPYING.csqcmodel` and `COPYING.warpzone` in `/usr/share/licenses/xonotic/` from the source tar (new pin `defe5d25…`) |
 | gmqcc | MIT (Dale Weiler, Wolfgang Bumiller) | `gmqcc/LICENSE` | in `xonotic-build` only | notice with copies | done: `/usr/share/licenses/gmqcc/LICENSE` there |
 | d0_blind_id headers | BSD-3-Clause (Aaron D. Gifford, Rudolf Polzer) | `d0_blind_id/COPYING`, each header | source only; no code compiled (reports unavailable) | notice in source | done: every shipped header carries it |
-| IJG libjpeg 9f | IJG (`README`, "LEGAL ISSUES") | `README` | yes, linked | source: the unaltered `README` with it (done); binary: the documentation must state "this software is based in part on the work of the Independent JPEG Group" | `README` in both images; the sentence added to `docs/licences.md`, the `/licences/` row and the demo README |
+| IJG libjpeg 9f | IJG (`README`, "LEGAL ISSUES") | `README` | yes, linked | source: the unaltered `README` with it (done); binary: the documentation must state "this software is based in part on the work of the Independent JPEG Group" | `README` in both images; the sentence in the image's `NOTICE`, `docs/licences.md`, the `/licences/` row and the demo README |
 | FreeType 2.14.3 | FTL or GPL-2.0-or-later; used under the GPL option, as in 0 A.D. | `/usr/share/licenses/freetype/LICENSE.TXT`, `FTL.TXT` | yes, linked | GPL: source served | done: `zero-ad-build/deps.tar.gz` |
 | libpng 1.6.58 | libpng-2.0 | `/usr/share/licenses/libpng/LICENSE` | yes, linked | nothing for binaries; notice kept | done |
 | SDL2, zlib | Zlib | `/usr/share/licenses/SDL2/LICENSE.txt`; zlib from `system-tools` | yes, linked | nothing for binaries | done |
@@ -81,9 +81,9 @@ DarkPlaces, gmqcc and `qcsrc` source file, and a grep for `egyptsoc`,
 | …of which with their own statement | phillipk1x, phillipk2x textures: GPL-2.0-or-later (Philip Klevestav, © 2003-2010); `atelier` map: GPL-3.0-or-later (Paweł Chrapka, 2011); `trident`: GPL-3 text; weather sounds: GPL (Michael "Tenshihan" Quinn, 2010); `cyberparcour01/rocket.ogg` and `map_xoylent` sounds: derived from Tenshihan's GPL soundbank and in-release sounds; `gfx/menu/luma/background`: NASA photo ISS007-E-10807, "courtesy of" credit | `textures/phillipk?x/_GPL.txt`, `maps/atelier.license.txt`, `maps/trident.LICENSE`, `sound/weather/--tenshihan.txt`, `sound/cyberparcour01/rocket.txt`, `sound/map_xoylent/sources.txt`, `gfx/menu/luma/background.txt` | yes | the statements travel inside the unmodified archives; the GPL texts are in the image | done |
 | …without any statement of their own | the other 50 texture sets (`exomorphx`, `trak4x`–`trak7x`, `stein1x`, `facility114x`, `exx`, `ex2x`, `techpanelx`, …), 9 skybox sets under `env/`, 1,076 model files, 764 + 138 sound files, 30 maps | only `COPYING`; the menu's credits (`qcsrc/menu/xonotic/credits.qc`) name the artists | yes | nothing beyond the GPL | covered by the release grant; **not independently verifiable** from the archives |
 | `atelier` map's two textures "made by evillair" | named in `maps/atelier-info.txt`, no terms of their own | yes | nothing stated | covered by the release grant and the map's GPL-3.0-or-later notice |
-| `gfx/vera-sans-big.jpg` in `data.pk3` | no statement; by its name a glyph sheet rendered from Bitstream Vera Sans (its licence asks for its notice with copies of the Font Software) | nowhere in the release | yes; DarkPlaces' bitmap fallback behind the TTFs, unused when FreeType loads them | unclear whether a rendered image is a copy; upstream ships it without a notice | **owner**: leave as upstream, or drop the file from the data image |
-| Xolonium regular and bold (OTF) | GPL-2.0-or-later WITH Font-exception-2.0, "special GPL version for Xonotic" (Severin Meyer, 2011-2020) | `fonts/README.txt` in `font-xolonium-20230620.pk3` | yes, unmodified | GPL text with the font | done: `GPL-2` in the image; own `/licences/` row added |
-| GNU Unifont 7.0.06 (TTF) | GPL-2.0-or-later WITH Font-exception-2.0: the pk3's `fonts/README` names only the project and URL; unifoundry.com/unifont (fetched 2026-10-07) states GPL-2+ with the embedding exception, with OFL-1.1 added only from 13.0.04 | `fonts/README` (name and URL only) | yes, unmodified | GPL text with the font (done); the font's editing source (`.hex`) is not served, as upstream does not serve it either | own `/licences/` row added; **owner** may serve the `unifont-7.0.06` source tarball beside the image for completeness |
+| `gfx/vera-sans-big.jpg` in `data.pk3` | no statement; by its name a glyph sheet rendered from Bitstream Vera Sans (its licence asks for its notice with copies of the Font Software) | nowhere in the release | yes; DarkPlaces' bitmap fallback behind the TTFs, unused when FreeType loads them | unclear whether a rendered image is a copy; upstream ships it without a notice | Bitstream's copyright and permission notice added to the image as `COPYING.vera`, naming the file (unbuilt); dropping the file is the alternative |
+| Xolonium regular and bold (OTF) | GPL-2.0-or-later WITH Font-exception-2.0, "special GPL version for Xonotic" (Severin Meyer, 2011-2020) | `fonts/README.txt` in `font-xolonium-20230620.pk3` | yes, unmodified | GPL text with the font | done: `GPL-2` in the image, the archive's `README.txt` added as `COPYING.xolonium` (unbuilt); own `/licences/` row added |
+| GNU Unifont 7.0.06 (TTF) | GPL-2.0-or-later WITH Font-exception-2.0: the pk3's `fonts/README` names only the project and URL; unifoundry.com/unifont (fetched 2026-10-07) states GPL-2+ with the embedding exception, with OFL-1.1 added only from 13.0.04 | `fonts/README` (name and URL only) | yes, unmodified | GPL text with the font (done); the font's editing source (`.hex`) is not served, as upstream does not serve it either | terms stated in the image's `NOTICE` (unbuilt); own `/licences/` row added; **owner** may serve the `unifont-7.0.06` source tarball beside the image for completeness |
 | Egyptsoc textures (Simon O'Callaghan: GPL on condition of attribution and a link to simonoc.com in the game documentation) | `Docs/egyptsoc/permission.txt` in the release | **no**: no `egyptsoc` file in `data.pk3` or `maps.pk3` | nothing | not applicable |
 | Music | GPL-3.0-or-later by `COPYING` | `xonotic-20230620-music.pk3` | no | nothing | not shipped |
 | Xonotic name and logos | no trademark statement anywhere in the release; `xonotic.appdata.xml`: `project_license` GPL-3.0, `metadata_license` CC0-1.0; the logo textures (`textures/logos/logo01`–`03`, `gfx/menu`) are inside the release grant | — | the in-archive logos, yes | nothing stated | Dolly uses the name to identify the game it runs; nothing further verifiable from the archives |
@@ -109,6 +109,12 @@ whose grants follow), Creative Commons, or "used with permission".
   and GNU Unifont added and the data row narrowed to `xonotic-*.pk3`;
   FreeType's and libpng's rows now name Xonotic; libjpeg's row carries the IJG
   sentence.
+- Recipe changes on this branch, unbuilt (the round rebuilds `xonotic-build`
+  and `xonotic`): `prepare-sources.sh` adds warpzone's `COPYING` and the
+  csqcmodel header to the source tar, `Dollyfile-xonotic-build` exports them,
+  `Dollyfile-xonotic` adds `NOTICE`, `COPYING.xolonium` and `COPYING.vera` as
+  inline files. `npm run -s lint:dollyfiles`, the parser, catalog and
+  upstream tests pass; `update-recipe-pins.mjs` refreshed the references.
 
 ### Verdict for the owner
 
@@ -117,25 +123,33 @@ whose grants follow), Creative Commons, or "used with permission".
    its own statement (phillipk textures, atelier, trident, Tenshihan sounds,
    the NASA photo). All are GPL-compatible, their texts are in the image or
    beside it, and the corresponding source is served at the same site.
-2. Fine once a named change is made: the MIT notice of `qcsrc/lib/csqcmodel`
-   and `warpzone` belongs in the `xonotic` image's `/usr/share/licenses/xonotic/`
-   by Dolly's own rule (it is already in the served source). Done on this
-   branch as a recipe change (`prepare-sources.sh` adds the two notices to the
-   source tar, `Dollyfile-xonotic-build` exports them, the `xonotic` image
-   copies the directory); it takes a rebuild of `xonotic-build` and `xonotic`.
-   The IJG acknowledgement sentence is added to the documentation (done, no
-   rebuild).
-3. Not verifiable from the archives, with the smallest remedy: (a) the
-   assets with no statement of their own (most textures, skyboxes, models,
-   sounds, maps) rest on Team Xonotic's blanket grant and its own vetting;
-   nothing contradicts it, and only upstream could say more; (b)
-   `gfx/vera-sans-big.jpg`'s origin and whether Bitstream Vera's notice
-   clause reaches a rendered glyph sheet: leave as upstream, or drop that one
-   file from the data image; (c) Unifont's editing source is not served
-   (neither does upstream): serve the `unifont-7.0.06` source tarball beside
-   the image if wanted; (d) nothing in the release says how the Xonotic name
-   and logo may be used; ask Team Xonotic if the site's use goes beyond
-   naming the game it runs.
+2. Fine once a named change is made; all made on this branch and waiting
+   for the rebuild of `xonotic-build` and `xonotic`: the MIT notices of
+   `qcsrc/lib/csqcmodel` and `warpzone` go into the image's
+   `/usr/share/licenses/xonotic/` (Dolly's own rule; they were only in the
+   served source), and the image gets `NOTICE` (the sentence libjpeg's
+   licence asks for, "this software is based in part on the work of the
+   Independent JPEG Group"; FreeType's GPL option, which makes the FTL's
+   credit moot; the two fonts' terms), `COPYING.xolonium` (the font's own
+   README) and `COPYING.vera` (below). The IJG sentence is also in
+   `docs/licences.md`, the demo README and the `/licences/` row. libpng's and
+   SDL2's notices were already in the image; zlib's licence asks nothing for
+   binaries.
+3. Not verifiable from the archives, and what each means: (a) most
+   textures, skyboxes, models, sounds and maps carry no statement of their
+   own and rest on Team Xonotic's `COPYING`, which licenses the whole
+   official release GPL-3.0-or-later: Dolly's right to redistribute them is
+   exactly as good as Xonotic's own, nothing in the archives contradicts it,
+   and only Team Xonotic could say more about a single asset. (b) The
+   release says nothing about the Xonotic name and logo: the site uses the
+   name to identify the game it runs and ships the logo only inside the
+   unmodified archives, which the GPL grant covers as content; if the site
+   were to brand itself with the name or logo, ask Team Xonotic first.
+   (c) `gfx/vera-sans-big.jpg`'s origin is inferred from its name; upstream
+   carries no notice for it, and the Bitstream notice now in the image is the
+   smallest honest remedy, dropping the file the alternative. (d) Unifont's
+   editing source (`.hex`) is not served, as upstream does not serve it
+   either; serve the `unifont-7.0.06` tarball beside the image if wanted.
 
 ## Measured upstream (2026-10-06)
 

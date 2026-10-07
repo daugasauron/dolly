@@ -4,6 +4,8 @@ if has_image xonotic-build; then
   jpeg_archive="$(bash scripts/fetch-pinned-archive.sh jpeg)"
   jpeg_dir="build/generated/jpeg-$(source config/source-pins.sh && echo "${DOLLY_JPEG_VERSION}")"
   if [[ ! -d "${jpeg_dir}" ]]; then mkdir -p build/generated && tar -xzf "${jpeg_archive}" -C build/generated; fi
+  # The MIT notice of qcsrc/lib/csqcmodel is the header of each of its files.
+  sed -n '1,/^ \*\/$/p' "${xonotic_dir}/qcsrc/lib/csqcmodel/cl_model.qc" > build/generated/xonotic-csqcmodel-COPYING
   node scripts/build-source-tar.mjs "${static_dir}/xonotic/source.tar.gz" \
     "${jpeg_dir}" /usr/src/xonotic/jpeg \
     "${jpeg_dir}/README" /usr/share/licenses/libjpeg/README \
@@ -15,6 +17,8 @@ if has_image xonotic-build; then
     "${xonotic_dir}/GPL-2" /usr/share/licenses/xonotic/GPL-2 \
     "${xonotic_dir}/GPL-3" /usr/share/licenses/xonotic/GPL-3 \
     "${xonotic_dir}/gmqcc/LICENSE" /usr/share/licenses/gmqcc/LICENSE \
+    "${xonotic_dir}/qcsrc/lib/warpzone/COPYING" /usr/share/licenses/xonotic/COPYING.warpzone \
+    build/generated/xonotic-csqcmodel-COPYING /usr/share/licenses/xonotic/COPYING.csqcmodel \
     demos/xonotic/Makefile /usr/src/dolly/xonotic/Makefile \
     demos/xonotic/simd-unit.c /usr/src/dolly/xonotic/simd-unit.c
 fi

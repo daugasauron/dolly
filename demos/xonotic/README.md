@@ -103,6 +103,16 @@ a measurement fixture and not in any image: the software path plays it at
 (native llvmpipe: 76 fps). An earlier 30 and 43 fps was measured before
 libjpeg was linked, when the surfaces drew untextured; numbers in the task.
 
+## Licences
+
+DarkPlaces is GPL-2.0-or-later, the game logic and data GPL-3.0-or-later
+(`qcsrc/lib/warpzone` MIT or GPL-2.0-or-later, `lib/csqcmodel` MIT), the
+fonts GPL-2.0-or-later with the font embedding exception; the texts are under
+`/usr/share/licenses/` in the images and the sources are served beside them.
+This software is based in part on the work of the Independent JPEG Group. The
+pass over the shipped archives is in the task; `docs/licences.md` has Dolly's
+obligations.
+
 ## Bootstrap exceptions
 
 None today: everything in the images is built in Dolly from the pinned

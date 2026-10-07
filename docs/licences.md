@@ -22,11 +22,12 @@ entry.
 - **Sources**: every canonical `SOURCE` of the catalog under `dist/static/`,
   the recipes and headers, at the same release path as the images. The gpu-fluid
   sources come from raw.githubusercontent.com instead.
-- **Dolly's code**: MIT ([`LICENSE`](../LICENSE), `package.json`), except 8
+- **Dolly's code**: MIT ([`LICENSE`](../LICENSE), `package.json`), except 10
   files marked `SPDX-License-Identifier: GPL-2.0-or-later` because they are
   compiled into GPL programs: the Seven Kingdoms port in `demos/rts`
-  (`Makefile`, `OAUDIO.h`, `arena.*`, `config.h`, `input.*`, built with the game)
-  and the 0 A.D. `engine.patch`. The agents, spectators and viewers are separate
+  (`Makefile`, `OAUDIO.h`, `arena.*`, `config.h`, `input.*`, built with the game),
+  the 0 A.D. `engine.patch`, and the Xonotic port's `Makefile` and
+  `simd-unit.c`. The agents, spectators and viewers are separate
   programs that drive the games over pipes and screenshots; they are Dolly's own
   and MIT. The MIT grant covers Dolly's own files only; it does not relicense
   the upstream code an image contains.
@@ -35,7 +36,8 @@ entry.
 
 | Family | Shipped as binaries | Obligation | Status |
 | --- | --- | --- | --- |
-| GPL-2.0/3.0 | Git, Make, Emacs, Seven Kingdoms, 0 A.D. engine, Dolly's GPL files | Complete corresponding source, including build scripts, or a written offer | Met: the prepared source archives and the recipe that builds them are served beside the images, for 0 A.D. too (below) |
+| GPL-2.0/3.0 | Git, Make, Emacs, Seven Kingdoms, 0 A.D. engine, Xonotic (engine, game logic, data, fonts), Dolly's GPL files | Complete corresponding source, including build scripts, or a written offer | Met: the prepared source archives and the recipe that builds them are served beside the images, for 0 A.D. and Xonotic too (below) |
+| IJG | libjpeg in Xonotic | Source: the unaltered `README` with it; binaries: the documentation states that the software is based in part on the work of the Independent JPEG Group | `README` kept as `/usr/share/licenses/libjpeg/README`; the statement is in the Xonotic section below and on `/licences/` |
 | LGPL-2.0+ | OpenAL Soft, static in the 0 A.D. engine | Source, and the means to relink | Source served (`openal/source.tar`), and the engine's (below), so it can be relinked |
 | MPL-2.0 | SpiderMonkey in 0 A.D.; MPL crates vendored by Codex | Source of the MPL files available; tell recipients where | Codex sources served; SpiderMonkey's pinned tarball is served (below); its MPL text is in `zero-ad` |
 | Apache-2.0 | LLVM (with exception), TypeScript, Neovim, luv, Codex, WAMR, crates, npm packages | Licence copy, NOTICE files, modified files marked | Codex `NOTICE`, crates' notices and TypeScript notices shipped. LLVM's text is in every compiler image as `/usr/share/licenses/libcxx`; its exception covers runtime code compiled into programs |
@@ -43,6 +45,7 @@ entry.
 | PSF-2.0 | CPython | Licence, and a brief summary of changes in a derivative | Both shipped (`DOLLY-CHANGES`) |
 | CC-BY-SA-3.0 | 0 A.D. art and audio | Attribution and licence; share-alike for adaptations | The repacked mod archives keep `art/`, `audio/` and font licence files; repacking adapts nothing |
 | OFL-1.1 | Iosevka; 0 A.D. fonts | Licence with the font; no sale of the font alone | Iosevka's name table carries the notice; fonts are unmodified |
+| GPL-2.0-or-later with the font embedding exception | Xolonium and GNU Unifont 7.0.06 in Xonotic | Licence text with the font | `GPL-2` in the image; the fonts are unmodified inside the release's archives |
 | Apache-2.0 weights | Qwen3.5-2B and 4B (GGUF by bartowski), MiniCPM5-2B | Licence copy; no use restrictions | Each model package keeps the licence copied into the demo; nothing checks it against the pinned Hugging Face revision |
 
 ## Combined binaries
@@ -100,21 +103,32 @@ Xonotic 0.8.6 is built in Dolly: `xonotic-build` compiles DarkPlaces
 `README` kept as `/usr/share/licenses/libjpeg/README`) and Dolly's files for
 the port from `xonotic/source.tar.gz`, the release's source zip plus
 libjpeg's tarball, which the site serves as a recipe input together with the
-QuakeC game logic (`qcsrc`, GPL-3.0-or-later) that gmqcc compiles there.
+QuakeC game logic (`qcsrc`, GPL-3.0-or-later; `lib/warpzone` MIT or
+GPL-2.0-or-later, `lib/csqcmodel` MIT) that gmqcc compiles there.
 Dolly's own files compiled into the engine, `demos/xonotic/Makefile` and
 `simd-unit.c`, carry `SPDX-License-Identifier: GPL-2.0-or-later`; the six
 hunks of `darkplaces-dolly.patch` change engine files and take the engine's
 licence. FreeType and libpng come as static libraries copied from
-`zero-ad-deps` with their licence files. The `xonotic` image takes the
-release's `data`, `maps` and font archives as prebuilt files
+`zero-ad-deps` with their licence files; FreeType is used under its GPL
+option, as in 0 A.D., and its source, `zero-ad-build/deps.tar.gz`, is in the
+`xonotic` closure the site serves. The `xonotic` image takes the release's
+`data`, `maps` and font archives unmodified as prebuilt files
 (`xonotic/data/`, GPL-3.0-or-later by Xonotic's `COPYING`; the compiled
 `progs.dat`, `csprogs.dat` and `menu.dat` inside `data.pk3` are the
-release's) and keeps Xonotic's `COPYING`, `GPL-2` and `GPL-3`, gmqcc's
-`LICENSE`, libjpeg's, FreeType's, libpng's and SDL2's under
-`/usr/share/licenses/`. Not done: a pass over the data archives for single
-assets under other terms (Xonotic's `COPYING` says some `qcsrc/` files carry
-other licences in their own `COPYING` files); the owner decides on anything
-it finds.
+release's; Xolonium and GNU Unifont 7.0.06 are GPL-2.0-or-later with the
+font embedding exception) and keeps Xonotic's `COPYING`, `GPL-2` and
+`GPL-3`, the warpzone and csqcmodel MIT notices, Xolonium's README,
+Bitstream's notice for the Vera glyph sheet, Dolly's `NOTICE` (the IJG
+sentence and the fonts' terms), gmqcc's `LICENSE`, libjpeg's, FreeType's,
+libpng's and SDL2's under `/usr/share/licenses/`.
+This software is based in part on the work of the Independent JPEG Group.
+The pass over the shipped archives (task `20261006-122433-xonotic`,
+2026-10-07) found every statement inside them GPL or GPL-compatible and none
+under non-commercial, no-derivatives, Creative Commons or used-with-permission
+terms. The owner's calls: the assets without a statement of their own rest
+on the release grant; `gfx/vera-sans-big.jpg` is a Bitstream Vera glyph
+sheet with no notice, upstream included; the release has no trademark
+statement for the Xonotic name and logo.
 
 ## Fixed gaps
 
