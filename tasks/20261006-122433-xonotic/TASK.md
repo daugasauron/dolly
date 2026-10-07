@@ -417,9 +417,14 @@ small: 17 modes × 20 permutation bits in the source, 14 pairs in use at
   loading plaque, against a few seconds natively; where the time goes is
   not profiled. The engine also prints 204 `LHNET_OpenSocket_Connectionless`
   failures as `NetConn_UpdateSockets` keeps retrying the INET client ports.
-  The test's live stage now starts sampling frames after 150 s, requires
-  two differing lit frames below the plaque's 87% and `CL_SignonReply: 3`
-  in the log, and quits at 240 s.
+  A 320 s run (`live-timeline-2.log`) kept the plaque to the end and its log
+  has signon 2, 3 and 4 only at the quit: the cause is upstream's, not
+  Dolly's. `host.c` 892: a local game's server advances only while
+  `key_dest == key_game` and the console is closed, and the scripted run
+  never closed the first-run Welcome dialog, so the server sat paused until
+  `quit`'s shutdown flushed the signon. A player closes the dialog; the
+  test's live stage now presses Escape twice after the menu appears, as a
+  player would, before sampling frames.
 
 ## Route (a): the map of what remains (2026-10-07 09:35, estimates)
 
