@@ -1012,3 +1012,12 @@ from the container's three archives, whose names equal the built ones'.
 
 In this worktree `dist/` now holds the new seed and those 23 images; the other
 snapshots are the old seed's and stale. The old runtime is in `work/llvm/dist`.
+
+Merged again with `core/llvm-in-dolly` at `98aaa51b`, which had taken
+`core/llvm-runtimes` and gone on (`9b2edc6c`; `core/llvm-runtimes` is
+fast-forwarded to that head). The conflicts were recipe pins, taken from this
+branch and pinned again, the removed `llvm-stage2` and one upstream row. 76
+recipes lint, 416 source tests pass, the images built here stay current except
+`dolly-docs`, rebuilt for a changed document, and `cpp` and `docs` pass again
+in both browsers. The `llvm` package and the demo's two tests need `llvm-cc` on
+the new seed.
