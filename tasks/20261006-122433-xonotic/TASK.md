@@ -467,6 +467,18 @@ small: 17 modes × 20 permutation bits in the source, 14 pairs in use at
   skips the first-join dialog with `cl_allow_uid2name 0`, waits for the
   engine's relative request, clicks, and asserts
   `document.pointerLockElement` is the display.
+- Verified (11:55, `browser-test-chromium-20.log`): with the rebuilt sdl2
+  the menu's page cursor style is 4, hidden, so the menu and the in-game
+  dialogs show one pointer. Not verified: the capture. In the scripted run
+  the engine made no relative request within 150 s of the Escape presses
+  (the earlier diagnostic saw one only during the map load), so the live
+  stage times out there; the test is red at that line. Next step: log
+  `key_dest`, `cl.csqc_wantsmousemove` and `cl_prydoncursor` through the
+  join (`+developer 1`, `in_mouse`-related prints) to see what Xonotic's
+  CSQC asks for after signon with the dialog skipped; a player's click in
+  the match should capture once the engine asks. The rebuild of sdl2 also
+  rebuilt the zero-ad chain and repinned every recipe that installs sdl2
+  (commit `c8487297`).
 
 ## Software path performance (2026-10-07, `short.dem`, 1,046 frames)
 
