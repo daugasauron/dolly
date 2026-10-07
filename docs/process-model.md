@@ -67,6 +67,11 @@ sequenceDiagram
   ([`process-worker.mjs`](../src/process-worker.mjs)). FFI packets (`dso@0`) carry
   pointers of the process itself; a wild one is `EFAULT` too, while a trap in
   the function an FFI call reaches ends the process like any other trap.
+- Wasm calls nest on a browser stack that a page cannot size; a program that
+  exhausts it fails with 126 like any other trap. A Chrome Worker's holds
+  500 KB, so where the browser has JSPI the Worker enters the process through
+  `WebAssembly.promising`, on a stack of about 950 KB (Chrome 151).
+  `RLIMIT_STACK` describes only the stack inside the process's memory.
 - `cc`, `c++`, `ld` and `ar` retry status 126 up to twice
   ([`runtime-adapter.c`](../src/process/runtime-adapter.c)), so long
   source builds survive a transient browser Worker allocation failure without
