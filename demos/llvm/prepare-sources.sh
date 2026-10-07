@@ -36,7 +36,8 @@ if has_image llvm-runtimes; then
   emscripten_checkout="$("${project_dir}/scripts/fetch-pinned-checkout.sh" emscripten)"
   mkdir "${staging}/llvm-runtimes"
   git -C "${emscripten_checkout}" archive HEAD \
-    system/lib/libcxx/src system/lib/libcxxabi system/lib/libunwind system/lib/llvm-libc |
+    system/lib/libcxx/src system/lib/libcxxabi system/lib/libunwind system/lib/llvm-libc \
+    system/lib/compiler-rt system/lib/libc/emscripten_internal.h |
     tar -x -C "${staging}/llvm-runtimes"
   grep -rlZw __EMSCRIPTEN__ "${staging}/llvm-runtimes" | xargs -0 sed -i 's/\b__EMSCRIPTEN__\b/__dolly__/g'
   node scripts/build-source-tar.mjs "${static_dir}/llvm/runtimes.tar" "${staging}/llvm-runtimes" /tmp/llvm-runtimes

@@ -1,0 +1,55 @@
+// The Dolly-built C++ runtime (llvm-runtimes) in place of the shipped archives,
+// in Chrome and Firefox. Two small programs are linked both ways: the linker's
+// trace shows which libc++, libc++abi, libunwind and builtins it loaded, and both runs
+// print the same. Then LLVM's TableGen, configured as the llvm-tablegen recipe
+// configures it, is linked with the built runtime and reproduces the outputs
+// the image kept. Usage: node demos/llvm/test/llvm-browser.mjs [chromium|firefox ...]
+import { readFile } from "node:fs/promises";
+import { demoTest } from "../../browser.mjs";
+import { inspectDollyfile } from "../../../src/dollyfile-view.mjs";
+import { CANONICAL_ORIGIN } from "../../../src/static-asset.mjs";
+import { DOLLY_IMAGES } from "../../../dist/dolly-images.mjs";
+
+const browsers = process.argv.length > 2 ? process.argv.slice(2) : ["chromium", "firefox"];
+const pin = name => {
+  const { dollyfile, sha256 } = DOLLY_IMAGES.find(definition => definition.image === name);
+  return `${CANONICAL_ORIGIN}/${dollyfile} ${sha256}`;
+};
+// llvm-tablegen with the terminal display, the runtime package and threads.
+const hosts = [...new Set([...DOLLY_IMAGES.find(({ image }) => image === "llvm-tablegen").hostRequirements, "threads@0"])].sort();
+const recipe = ["DOLLY 6", "APPLICATION llvm-runtimes-probe", ...hosts.map(host => `REQUIRES HOST ${host}`), `FROM ${pin("llvm-tablegen")}`,
+  ...["/usr/lib/libdisplay.so", "/usr/share/fonts/IosevkaTerm-SemiBold.ttf"].map(path => `COPY ${pin("ghostty-build")} ${path} ${path}`),
+  `INSTALL ${pin("llvm-runtimes")}`, "EXPORTS LIB display /usr/lib/libdisplay.so", "EXPORTS ENV DISPLAY /usr/lib/libdisplay.so",
+  "ENTRY /bin/foreground -i /bin/slop", ""].join("\n");
+const runtime = ["libc++-ww-wasmexcept", "libc++abi-ww-wasmexcept", "libunwind-ww-wasmexcept", "libclang_rt.builtins-wasmsjlj-ww"]
+  .map(name => `/usr/lib/llvm-runtimes/${name}.a`).join(" ");
+const shipped = "'/usr/lib/dolly/process/.*lib(c\\+\\+|c\\+\\+abi|unwind|clang_rt\\.builtins)-'";
+const tablegen = new URL("../Dollyfile-llvm-tablegen", import.meta.url);
+const configure = inspectDollyfile(await readFile(tablegen, "utf8"), tablegen.href).rows
+  .find(row => row.directive === "SLOP" && row.args.startsWith("time cmake ")).args;
+
+for (const browser of browsers) {
+  await demoTest("llvm", { image: "llvm-tablegen", timeout: 2_400_000, browser, server: { fixtures: {
+    "runtime.cpp": "demos/llvm/test/fixtures/runtime.cpp", "threads.cpp": "test/fixtures/threads-cpp.cpp" } } }, async ({ server, open }) => {
+    const { run } = await open({ path: "/custom/rebuild/",
+      policy: { rules: ["/fixture/", "/dist/static/llvm/"].map(pathPrefix => ({ origin: server.origin, pathPrefix, methods: ["GET"] })) },
+      setup: page => page.addInitScript(recipe => sessionStorage.setItem("dolly-custom-source", recipe), recipe) });
+    await run("mkdir /tmp/probe && cd /tmp/probe");
+    for (const [name, flags] of [["runtime", "-std=c++20"], ["threads", "-pthread"]]) {
+      await run(`curl -fsS ${server.origin}/fixture/${name}.cpp -o ${name}.cpp`);
+      await run(`c++ -O1 ${flags} ${name}.cpp -Wl,--trace -o ${name}-shipped > ${name}-shipped.trace`);
+      await run(`c++ -O1 ${flags} ${name}.cpp ${runtime} -Wl,--trace -o ${name}-built > ${name}-built.trace`);
+      // The shipped link loads the SDK's four archives; the other loads none of them.
+      await run(`test "$(grep -c -E ${shipped} ${name}-shipped.trace)" -gt 3`);
+      await run(`test "$(grep -c -E ${shipped} ${name}-built.trace)" = 0 && grep -q 'llvm-runtimes/libclang_rt' ${name}-built.trace`);
+      await run(`./${name}-shipped > shipped.out && ./${name}-built > built.out && cmp shipped.out built.out && grep -q OK built.out`);
+    }
+    const source = `${server.origin}/dist/static/llvm`;
+    await run(`curl -fsS ${source}/llvm-project.tar.gz | gzip -dc | tar -xf - -C / && curl -fsS ${source}/llvm-host-triple.patch -o host-triple.patch`);
+    await run(`patch -p1 -d /tmp/llvm-project -i /tmp/probe/host-triple.patch && ${configure} '-DCMAKE_EXE_LINKER_FLAGS=${runtime} -Wl,--trace'`);
+    await run("cd /tmp/llvm-build && make -j2 llvm-tblgen WebAssemblyCommonTableGen > make.log");
+    await run(`test "$(grep -c -E ${shipped} make.log)" = 0 && grep -q 'llvm-runtimes/libclang_rt' make.log`);
+    await run("for inc in lib/Target/WebAssembly/*.inc; do cmp $inc /usr/share/llvm-tablegen/$inc || exit 1; done; " +
+      "test $(ls lib/Target/WebAssembly/*.inc | wc -l) -gt 5");
+  });
+}

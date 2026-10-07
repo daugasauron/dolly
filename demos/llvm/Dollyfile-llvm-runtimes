@@ -13,11 +13,11 @@ REQUIRES TOOL make
 REQUIRES TOOL tar
 REQUIRES TOOL time
 
-SOURCE https://daugasauron.com/dist/static/llvm/runtimes.tar 9fbd695fb3aec503b10e3c35d431a8d0fd2eff5dcf207a1a253035feeda9c7ba /tmp/runtimes.tar
+SOURCE https://daugasauron.com/dist/static/llvm/runtimes.tar fe69601fb30b2a5ac3b3af63111687af06ecb0afb837bd6f9b51b6d8f955ea25 /tmp/runtimes.tar
 SLOP tar -xf /tmp/runtimes.tar -C /
 
-# Sources, flags and member order of the -ww-wasmexcept variants in Emscripten
-# 6.0.8's tools/system_libs.py; the -mt-wasmexcept variants are the same bytes.
+# Sources, flags and member order of the -ww-wasmexcept and -wasmsjlj-ww variants
+# in Emscripten 6.0.8's tools/system_libs.py; the -mt variants are the same bytes.
 FILE /tmp/llvm-runtimes/Makefile
     .RECIPEPREFIX := >
     S := /tmp/llvm-runtimes/system/lib
@@ -32,19 +32,28 @@ FILE /tmp/llvm-runtimes/Makefile
       -fdebug-prefix-map=/usr/include=/emsdk/emscripten/cache/sysroot/include \
       -fdebug-prefix-map=/usr/lib/clang=/emsdk/upstream/lib/clang \
       -fmacro-prefix-map=/tmp/llvm-runtimes=/emsdk/emscripten
-    FLAGS := -Oz -Wall -Werror -DNDEBUG -fvisibility=hidden $(addprefix -Xclang ,$(CC1))
-    CXXFLAGS := $(FLAGS) -std=c++23 -I$S/libcxx/src
+    FLAGS := -Wall -Werror -DNDEBUG -fvisibility=hidden $(addprefix -Xclang ,$(CC1))
+    CXXFLAGS := $(FLAGS) -Oz -std=c++23 -I$S/libcxx/src
     LIBCXX := $(filter-out %/int128_builtins.cpp,$(wildcard $S/libcxx/src/*.cpp $S/libcxx/src/filesystem/*.cpp \
       $S/libcxx/src/ryu/*.cpp)) $(addprefix $S/libcxx/src/experimental/,chrono_exception.cpp keep.cpp log_hardening_failure.cpp)
     LIBCXXABI := $(addprefix $S/libcxxabi/src/,abort_message.cpp cxa_aux_runtime.cpp cxa_default_handlers.cpp \
       cxa_demangle.cpp cxa_guard.cpp cxa_handlers.cpp cxa_virtual.cpp cxa_thread_atexit.cpp fallback_malloc.cpp \
       stdlib_new_delete.cpp stdlib_exception.cpp stdlib_stdexcept.cpp stdlib_typeinfo.cpp private_typeinfo.cpp \
       cxa_exception_js_utils.cpp cxa_exception_storage.cpp cxa_exception.cpp cxa_personality.cpp)
+    BUILTINS := $(filter-out $(addprefix %/,gcc_personality_v0.c extendbfsf2.c truncdfbf2.c truncxfbf2.c truncsfbf2.c \
+      trunctfbf2.c crtbegin.c crtend.c divxc3.c extendhfxf2.c extendxftf2.c fixxfdi.c fixxfti.c fixunsxfdi.c fixunsxfsi.c \
+      fixunsxfti.c floatdixf.c floattixf.c floatundixf.c floatuntixf.c mulxc3.c powixf2.c trunctfxf2.c truncxfhf2.c), \
+      $(wildcard $S/compiler-rt/lib/builtins/*.c)) $(wildcard $S/compiler-rt/lib/profile/*.c $S/compiler-rt/lib/profile/*.cpp) \
+      $(addprefix $S/compiler-rt/,emscripten_setjmp.c emscripten_exception_builtins.c __trap.c)
+    ASSEMBLY := $(addprefix $S/compiler-rt/,stack_ops.S stack_limits.S __c_longjmp.S emscripten_tempret.s)
+    BUILTINS_FLAGS := $(FLAGS) -O2 -fno-builtin -DCOMPILER_RT_HAS_ATOMICS=1 -Wno-unused-but-set-variable -D__WASM_SJLJ__ \
+      -Xclang -fno-unroll-loops -Xclang -fignore-exceptions -I$S/libc -I$S/compiler-rt/include
     objects = $(sort $(addprefix $B/$1/,$(addsuffix .o,$(basename $(notdir $2)))))
-    all: $L/libc++-ww-wasmexcept.a $L/libc++abi-ww-wasmexcept.a $L/libunwind-ww-wasmexcept.a
+    all: $(addprefix $L/,libc++-ww-wasmexcept.a libc++abi-ww-wasmexcept.a libunwind-ww-wasmexcept.a libclang_rt.builtins-wasmsjlj-ww.a)
     $L/libc++-ww-wasmexcept.a: $(call objects,libc++,$(LIBCXX))
     $L/libc++abi-ww-wasmexcept.a: $(call objects,libc++abi,$(LIBCXXABI))
     $L/libunwind-ww-wasmexcept.a: $B/libunwind/Unwind-wasm.o
+    $L/libclang_rt.builtins-wasmsjlj-ww.a: $(call objects,builtins,$(BUILTINS) $(ASSEMBLY))
     $L/%.a:
     >ar rc $@ $^
     define compile
@@ -57,9 +66,22 @@ FILE /tmp/llvm-runtimes/Makefile
     $(foreach source,$(LIBCXXABI),$(eval $(call compile,libc++abi,$(source),c++ $(CXXFLAGS) -D_LIBCXXABI_USE_FUTEX \
       -D_LIBCPP_BUILDING_LIBRARY -D_LIBCXXABI_BUILDING_LIBRARY -DLIBCXXABI_NON_DEMANGLING_TERMINATE \
       -Wno-unused-but-set-variable -I$S/libunwind/include)))
-    $(eval $(call compile,libunwind,$S/libunwind/src/Unwind-wasm.c,cc $(FLAGS) -D_LIBUNWIND_HIDE_SYMBOLS \
+    $(eval $(call compile,libunwind,$S/libunwind/src/Unwind-wasm.c,cc $(FLAGS) -Oz -D_LIBUNWIND_HIDE_SYMBOLS \
       -Wno-c23-extensions -I$S/libunwind/include))
-SLOP mkdir -p /usr/lib/llvm-runtimes /tmp/llvm-runtimes/build/libc++ /tmp/llvm-runtimes/build/libc++abi /tmp/llvm-runtimes/build/libunwind
+    $(foreach source,$(BUILTINS),$(eval $(call compile,builtins,$(source),$(if $(filter %.cpp,$(source)),c++,cc) $(BUILTINS_FLAGS))))
+    # cc has no assembler entry. The LLVM assembler it embeds takes the same
+    # text as file-scope asm.
+    $B/builtins/%.o: $B/builtins/%.s
+    >echo '__asm__(' > $(@:.o=.c)
+    >sed -e 's/["\\]/\\&/g' -e 's/.*/"&\\n"/' $< >> $(@:.o=.c)
+    >echo ');' >> $(@:.o=.c)
+    >cc $(BUILTINS_FLAGS) -c $(@:.o=.c) -o $@
+    # cc -E leaves out the exception-handling feature that cc -c compiles with.
+    $B/builtins/%.s: $S/compiler-rt/%.S
+    >cc -E -P $(BUILTINS_FLAGS) -Xclang -target-feature -Xclang +exception-handling $< -o $@
+    $B/builtins/%.s: $S/compiler-rt/%.s
+    >cp $< $@
+SLOP mkdir -p /usr/lib/llvm-runtimes /tmp/llvm-runtimes/build/libc++ /tmp/llvm-runtimes/build/libc++abi /tmp/llvm-runtimes/build/libunwind /tmp/llvm-runtimes/build/builtins
 SLOP CWD /tmp/llvm-runtimes time make -j2
 
 EXPORTS FOLDER llvm-runtimes /usr/lib/llvm-runtimes

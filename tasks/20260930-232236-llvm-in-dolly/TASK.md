@@ -377,9 +377,11 @@ and in `.debug_str`; substituting it in the shipped `producers` and
 `.debug_str` gives Dolly's bytes for all 76 members. Its five extra bytes move
 the later string offsets, which is all that differs in `.debug_info` and
 `reloc..debug_info` (equal lengths). Archive sizes: 8,280,018 against
-8,280,258, 1,181,998 against 1,181,974, 4,466 against 4,470 bytes.
+8,280,588, 1,181,998 against 1,182,178, 4,466 against 4,476 bytes. A `-j1` and
+a `-j2` build gave the same three files (SHA-256 `3bc3bbdf…`, `d71be685…`,
+`5144a5f6…`).
 
 Shipped: the pinned container's Clang (x86-64 build of LLVM `4bfd08c2`, run by
 `embuilder`). Dolly's: the seed compiler (wasm64 build of the same commit, run
-as `c++` in the browser). No member differs in size by more than 16 bytes, so
-there was no instruction-level difference to look at.
+as `c++` in the browser). No member differs in size by more than 11 bytes and
+no code section differs, so there was no instruction-level difference to look at.
