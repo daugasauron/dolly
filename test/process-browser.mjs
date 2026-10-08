@@ -7,7 +7,7 @@ import { shellQuote } from "./fixtures/slop-cases.mjs";
 import { DOLLY_ERRNO } from "../src/process-constants.mjs";
 
 const scratch = "/tmp/dolly-process-test";
-const fixtures = Object.fromEntries(["process-lifecycle.c", "process-descriptors.c", "process-locks.c", "process-full-read.c", "process-signals.c", "process-sigchld.c", "process-interrupt.c"]
+const fixtures = Object.fromEntries(["process-lifecycle.c", "process-descriptors.c", "process-locks.c", "process-full-read.c", "process-signals.c", "process-jump.c", "process-sigchld.c", "process-interrupt.c"]
   .map(name => [name, `test/fixtures/${name}`]));
 for (const name of await readdir(new URL("../build", import.meta.url))) {
   if (/^(?:process|dso)-.+\.wasm$/.test(name)) fixtures[name] = `build/${name}`;
@@ -67,7 +67,7 @@ const settle = () => new Promise(resolve => setTimeout(resolve, 200));
 
 // Lifecycle, descriptors and signals, with programs compiled in the image.
 await browserTest("process", { image: "system", server: { fixtures, handle } }, async ({ server, open }) => {
-  const { page, submit, result, waitForText } = await open({
+  const { page, submit, text, waitForText } = await open({
     policy: { rules: [{ origin: server.origin, pathPrefix: "/fixture/", methods: ["GET"] }] } });
   const run = async command => assert.equal(await submit(command), 0, command);
   const fetchFixture = name => run(`curl -fsS ${server.origin}/fixture/${name} -o ${scratch}/${name}`);
@@ -95,7 +95,7 @@ await browserTest("process", { image: "system", server: { fixtures, handle } }, 
   await interrupt();
   assert.equal(await cancelled, 0, "an interrupted process sleep returns EINTR after the handler runs");
 
-  for (const name of ["process-lifecycle.c", "process-descriptors.c", "process-locks.c", "process-full-read.c", "process-signals.c", "process-sigchld.c", "process-interrupt.c", "input.tgz"]) await fetchFixture(name);
+  for (const name of ["process-lifecycle.c", "process-descriptors.c", "process-locks.c", "process-full-read.c", "process-signals.c", "process-jump.c", "process-sigchld.c", "process-interrupt.c", "input.tgz"]) await fetchFixture(name);
   await run(`cc -O0 ${scratch}/process-lifecycle.c -o ${scratch}/lifecycle && timeout 15 ${scratch}/lifecycle`);
   await run(`cc -O0 ${scratch}/process-descriptors.c -o ${scratch}/descriptors && timeout 60 ${scratch}/descriptors`);
   // Two processes contend for flock and fcntl locks; a release wakes its waiter at once.
@@ -103,6 +103,9 @@ await browserTest("process", { image: "system", server: { fixtures, handle } }, 
   // One read of a regular file returns the whole request, as programs assume.
   await run(`cc -O0 ${scratch}/process-full-read.c -o ${scratch}/full-read && timeout 60 ${scratch}/full-read`);
   await run(`cc -O0 ${scratch}/process-signals.c -o ${scratch}/signals && timeout 30 ${scratch}/signals ${scratch}`);
+  // A handler that leaves by siglongjmp or longjmp is over: the mask follows
+  // sigsetjmp, and later signals arrive.
+  await run(`cc -O0 ${scratch}/process-jump.c -o ${scratch}/jump && timeout 30 ${scratch}/jump`);
   await run(`cc -O0 ${scratch}/process-sigchld.c -o ${scratch}/sigchld && timeout 5 ${scratch}/sigchld`);
   await run(`gzip -dc ${scratch}/input.tgz | tar -xf - -C ${scratch} && test "$(cat ${scratch}/nested/message)" = TAR-STDIN-OK`);
 
@@ -132,6 +135,28 @@ await browserTest("process", { image: "system", server: { fixtures, handle } }, 
   }
   assert.equal(await interrupted(`timeout 15 ${scratch}/interrupt linger ${scratch}/shut-down`), 130);
   assert.equal(await submit(`test -f ${scratch}/shut-down`), 1, "a child still running after its grace ends with its parent");
+
+  // At the terminal every resize and every Ctrl+C reaches a handler that
+  // jumps out of a blocked read; the program's status is the jumps it made.
+  const viewport = page.viewportSize();
+  const jumped = async () => Number(/JUMPED (\d+)\s*$/.exec(await text())?.[1] ?? 0);
+  for (const leaving of ["siglongjmp", "longjmp"]) {
+    const jumping = submit(`${scratch}/jump ${leaving}`);
+    await waitForText(/JUMP-READY\s*$/);
+    await settle();
+    let count = 0;
+    for (const event of [() => page.setViewportSize({ ...viewport, height: viewport.height - 200 }),
+      () => page.setViewportSize(viewport), interrupt, interrupt]) {
+      await event();
+      for (const deadline = Date.now() + 5000; await jumped() <= count;) {
+        assert.ok(Date.now() < deadline, `${leaving}: no jump after ${count}`);
+        await settle();
+      }
+      count = await jumped();
+    }
+    await page.keyboard.press("q");
+    assert.equal(await jumping, count, leaving);
+  }
 });
 
 // default's startup script runs $HOME/.dollyrc, then the app shell, then a

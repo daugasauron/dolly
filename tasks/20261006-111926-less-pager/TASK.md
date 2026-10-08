@@ -1,6 +1,6 @@
 # Add less: a pager for long output, and for man
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 335
 - TAGS: userspace,commands,agent-experience
 
@@ -229,7 +229,17 @@ pager), `display` (`/etc/termcap`), `git` (`/etc/gitconfig`), `dolly-docs`
 not: `npm run test:demos -- emacs`, `test/default-browser.mjs` and
 `test/amy-browser.mjs` with `python` built, `test/dolly.artifacts.mjs`.
 
-## Left (why this stays open)
+## Closed (2026-10-08, `core/handler-longjmp`)
+
+With `20261008-002251-handler-longjmp` fixed, less repaints at every resize
+and Ctrl+C stops what it was doing without ending it; `test/pager-browser.mjs`
+resizes twice and interrupts `F`, in Chromium and Firefox. Still true, and
+outside this task: the first and last four points below, and one seen now:
+Ctrl+C in Git's pager still ends pager and Git with status 130, because the
+Slop that runs Git's pager line takes SIGINT's default action and its exit
+reclaims less.
+
+## Left when first reported
 
 - A second resize of the window while less is open, and Ctrl+C in less:
   `20261008-002251-handler-longjmp`, a fix in the seed. The test resizes once.

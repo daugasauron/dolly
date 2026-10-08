@@ -1,6 +1,6 @@
 # A signal handler that leaves by siglongjmp is never acknowledged: the process goes deaf to signals
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 330
 - TAGS: bug,core,process,signals,libc
 
@@ -94,3 +94,32 @@ it leaves that signal blocked, so programs that mean to jump use `siglongjmp`.
 - A fixture whose handler leaves by `siglongjmp` takes a second signal, in
   both browsers, and `less FILE` repaints at a second resize and survives
   Ctrl+C (`test/pager-browser.mjs` can then resize twice).
+
+## Fixed (2026-10-08, `core/handler-longjmp` `76ed527f`, image inputs `fe06fe89…`)
+
+- Cause: `dolly_process_call` (`src/process/signal.c`) acknowledged a signal
+  only after `deliver_pending()` returned. Now `longjmp`, `_longjmp` and
+  `siglongjmp` are libc functions (`config/libc-setjmp-dolly.patch` on the
+  staged `setjmp.h`) that acknowledge before they jump; `sigsetjmp(env, 1)`
+  saves the mask in musl's `jmp_buf` words and `siglongjmp` restores it. The
+  kernel and `process.h` are unchanged, so the Rust seed needs no relink; a
+  handler that never returns is still ended after 500 ms.
+- It does not depend on how `longjmp` is implemented (Wasm exceptions or
+  not), nor on `core/runtimes-in-seed` or the `promising` entry: libc calls
+  the toolchain's `longjmp` after acknowledging. `signal.c` compiles against
+  both the patched and Emscripten's header.
+- Not seen: a jump by a program that declares `longjmp` itself. A jump made
+  and caught inside a handler counts as leaving it. In `docs/process-model.md`.
+- Tests: `test/fixtures/process-jump.c` in `test/process-browser.mjs` (mask
+  after `sigsetjmp(env, 1)` and `(env, 0)`, nine signals in a row, a poll, the
+  500 ms grace, `signal()` with `longjmp`, then real resizes and Ctrl+C at the
+  terminal for both forms). On the old runtime it fails in both browsers at
+  the mask check, and the pager test at the second resize
+  (`build/less-evidence/unfixed-*.log`).
+- Ran on the rebuilt chain (17 images, 688.6 s), Chromium and Firefox:
+  `process`, `pager`, and 24 more core tests pass; the reproduction above
+  prints `JUMPED 1` to `5` for three resizes and two Ctrl+C, with
+  `siglongjmp` and with `signal()` and `longjmp` (`gap-fixed-*.log`); the
+  fixture passes with `-pthread` too. Not run: `default` and `amy` (need
+  `python`), `fs-growth` (exceeds the 6 GB slot), demos.
+- The round: `npm run build:runtime`, then every image.

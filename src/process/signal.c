@@ -4,8 +4,10 @@
 #include <errno.h>
 #include <limits.h>
 #include <poll.h>
+#include <setjmp.h>
 #include <signal.h>
 #include <stdint.h>
+#include <string.h>
 #include <sys/select.h>
 #include "lock.h"
 
@@ -23,6 +25,33 @@ _Static_assert(SIGHUP == DOLLY_PROCESS_SIGHUP && SIGINT == DOLLY_PROCESS_SIGINT 
 static struct sigaction actions[_NSIG];
 static _Thread_local sigset_t blocked, pending;
 static dolly_lock action_lock;
+/* The signal the kernel has handed over. It delivers no other, and the
+ * supervisor ends the process 500 ms after a terminating one, until it hears
+ * that this one's handler is over. */
+static _Thread_local int32_t taken;
+
+/* Every hand-over and its end pass here: dolly_process_call's own and those
+ * dolly_interrupt_poll makes through it. */
+static int64_t kernel_call(uint32_t operation, const void *request,
+                           uint64_t request_size, void *response, uint64_t capacity) {
+  const int64_t result = raw_process_call(operation, request, request_size, response, capacity);
+  if (operation == DOLLY_PROCESS_INTERRUPT_POLL && result == sizeof(taken)) {
+    int32_t number;
+    memcpy(&number, response, sizeof(number));
+    if (number) taken = number;
+  }
+  if (operation == DOLLY_PROCESS_SIGNAL_ACKNOWLEDGE) taken = 0;
+  return result;
+}
+
+/* A handler is over when it returns and when a jump leaves it; the jump has
+ * to say so, since it never comes back to the call that delivered. */
+static int64_t finished(void) {
+  int32_t number = taken, remaining;
+  if (!number) return sizeof(remaining);
+  return kernel_call(DOLLY_PROCESS_SIGNAL_ACKNOWLEDGE, &number, sizeof(number),
+                     &remaining, sizeof(remaining));
+}
 
 static int valid_signal(int signal_number) {
   return signal_number > 0 && signal_number < _NSIG;
@@ -223,18 +252,48 @@ int sigwait(const sigset_t *restrict set, int *restrict number) {
   return ENOTSUP;
 }
 
+/* The jump itself, whatever <setjmp.h> makes of the name longjmp. */
+_Noreturn void jump(jmp_buf, int) __asm__("longjmp");
+
+/* longjmp and _longjmp, as <setjmp.h> declares them. The mask stays as the
+ * handler had it, as on Linux. A jump inside a handler counts as leaving it. */
+_Noreturn void dolly_longjmp(jmp_buf environment, int value) {
+  finished();
+  jump(environment, value);
+}
+
+/* sigsetjmp is a macro, because setjmp must be called by the function that
+ * returns twice: it first notes here whether siglongjmp restores the mask,
+ * and which, in the words musl's jmp_buf keeps for that. */
+_Static_assert(sizeof(((struct __jmp_buf_tag *)0)->__ss) >= sizeof(sigset_t), "jmp_buf holds a signal mask");
+int dolly_sigsetjmp(sigjmp_buf environment, int save) {
+  environment->__fl = save != 0;
+  if (save) memcpy(environment->__ss, &blocked, sizeof(blocked));
+  return 0;
+}
+
+#undef siglongjmp
+_Noreturn void siglongjmp(sigjmp_buf environment, int value) {
+  finished();
+  if (environment->__fl) {
+    sigset_t saved;
+    memcpy(&saved, environment->__ss, sizeof(saved));
+    set_mask(SIG_SETMASK, &saved);
+  }
+  jump(environment, value);
+}
+
 int64_t dolly_process_call(uint32_t operation, const void *request,
                            uint64_t request_size, void *response, uint64_t capacity) {
   for (;;) {
-    const int64_t result = raw_process_call(operation, request, request_size, response, capacity);
+    const int64_t result = kernel_call(operation, request, request_size, response, capacity);
     if (result != -EINTR) return result;
-    int32_t number = 0, remaining = 0;
-    if (raw_process_call(DOLLY_PROCESS_INTERRUPT_POLL, NULL, 0, &number, sizeof(number)) != sizeof(number) || !number)
+    int32_t number = 0;
+    if (kernel_call(DOLLY_PROCESS_INTERRUPT_POLL, NULL, 0, &number, sizeof(number)) != sizeof(number) || !number)
       return result;
     sigaddset(&pending, number);
     const int restart = deliver_pending();
-    if (raw_process_call(DOLLY_PROCESS_SIGNAL_ACKNOWLEDGE, &number, sizeof(number),
-                         &remaining, sizeof(remaining)) != sizeof(remaining)) return -EIO;
+    if (finished() != sizeof(number)) return -EIO;
     if (restart < 0) return -ENOTSUP;
     if (!restart && (operation == DOLLY_PROCESS_FD_READ || operation == DOLLY_PROCESS_FD_WRITE ||
         operation == DOLLY_PROCESS_WAIT || operation == DOLLY_PROCESS_FD_POLL ||
