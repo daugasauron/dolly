@@ -185,6 +185,14 @@ static BOOL has_surface( HWND hwnd )
     return GetAncestor( hwnd, GA_PARENT ) == GetDesktopWindow();
 }
 
+/* There is no window manager: this is the part of one that gives a window the foreground. */
+static BOOL can_activate( HWND hwnd )
+{
+    return hwnd && hwnd != GetDesktopWindow() && IsWindowVisible( hwnd ) &&
+           !(GetWindowLongW( hwnd, GWL_STYLE ) & WS_DISABLED) &&
+           !(GetWindowLongW( hwnd, GWL_EXSTYLE ) & (WS_EX_NOACTIVATE | WS_EX_TOOLWINDOW));
+}
+
 /* the frame */
 
 static void draw_window( const dolly_display_frame *frame, const struct win_data *data )
@@ -246,6 +254,10 @@ static void present_frame(void)
     /* its windows from the bottom of the Z order */
     list.count = 0;
     EnumWindows( list_window, (LPARAM)&list );
+    /* when no window has the foreground, the topmost that can takes it */
+    if (!GetForegroundWindow())
+        for (i = 0; i < list.count; i++)
+            if (can_activate( list.handles[i] ) && SetForegroundWindow( list.handles[i] )) break;
     for (i = list.count; i > 0; i--)
     {
         if (!(data = get_win_data( list.handles[i - 1], FALSE ))) continue;
@@ -256,6 +268,19 @@ static void present_frame(void)
 }
 
 /* input */
+
+static void activate_window_at( int x, int y )
+{
+    GUITHREADINFO info = { sizeof(info) };
+    POINT pt = { x, y };
+    HWND hwnd = GetAncestor( WindowFromPoint( pt ), GA_ROOT );
+
+    if (hwnd == GetForegroundWindow() || !can_activate( hwnd )) return;
+    /* a menu or a drag of the foreground thread keeps the press */
+    if (GetGUIThreadInfo( 0, &info ) &&
+        ((info.flags & (GUI_INMENUMODE | GUI_POPUPMENUMODE | GUI_INMOVESIZE)) || info.hwndCapture)) return;
+    SetForegroundWindow( hwnd );
+}
 
 static void send_pointer( const dolly_input_event *event )
 {
@@ -269,6 +294,7 @@ static void send_pointer( const dolly_input_event *event )
     input.u.mi.dwFlags = MOUSEEVENTF_ABSOLUTE | MOUSEEVENTF_MOVE;
     if (event->action != DOLLY_POINTER_ACTION_DRAG && button < ARRAY_SIZE(down))
     {
+        if (event->action == DOLLY_POINTER_ACTION_PRESS) activate_window_at( event->x, event->y );
         input.u.mi.dwFlags |= event->action == DOLLY_POINTER_ACTION_PRESS ? down[button] : up[button];
         if (button >= 3) input.u.mi.mouseData = button == 3 ? XBUTTON1 : XBUTTON2;
     }
