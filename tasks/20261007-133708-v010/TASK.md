@@ -93,3 +93,41 @@ the domain's catalog. Left of the first gate: the run with a real key.
 - Every row of the two "In" groups is merged or moved to "Out" with the
   owner's word, and 0.1.0 is released by the checklist in
   `20261007-131241-release-v010`.
+
+## Released (2026-10-08, 21:47)
+
+The owner, after reviewing the candidate on :9005: "This is great, commit,
+tag, push & deploy."
+
+- `main` = `origin/main` = tag `v0.1.0` = `3ce97057`; GitHub release
+  `v0.1.0` with the Pages tarball (SHA-256 `7c0eb681…f4c`).
+- The round on that tree (`work/locks/build/checkpoint-evidence/`): all 78
+  images built (77 after the sysroot demo left), source 423/0, artifacts
+  25/0, five GPU tests exit 0. The core suite and the demos passed except
+  four tests that the merges had left behind (`default`'s module list, a
+  recipe reference, the composed helper's arguments, Xonotic's accessor),
+  each fixed and rerun green in the browsers it runs in; the suites were not
+  rerun whole after those fixes.
+- `scripts/release-checklist.sh` passed (no token-shaped string in the 207
+  commits or the image snapshots; both sites sealed from the commit).
+- GitHub Pages: workflow run 37778699799 succeeded; `/dolly/v0.1.0/` boots
+  `default` in chromium and firefox.
+- daugasauron.com: domain release `3ff86080…`, 2,279 files, 796 uploaded in
+  264 s (1,483 were already stored), deployment `1f0db112`. On the
+  deployment's own URL the boot check passes in both browsers (`/`
+  redirects, unversioned paths are 404, `robots.txt`'s paths exist). On
+  daugasauron.com `default` boots under `/v0.1.0/`, installs `less` and
+  `git` from the versioned index and reads a log in both browsers.
+- Not as decided, and not ours to change: on daugasauron.com the old
+  unversioned paths (`/default/`, `/xonotic/`) still answer 200 with
+  yesterday's pages. They are not in the deployment (its own URL answers
+  404); Cloudflare Pages keeps serving files of earlier deployments for
+  paths the new one lacks. How long was not verified.
+- Not done at release: `package.json` and `src/version.mjs` stay at 0.1.0
+  until the 0.1.1 round is assembled, because moving them rewrites every
+  recipe and rebuilds the catalog.
+
+Left out, for 0.1.1: file modes and `umask` (`core/file-modes-2`), the two
+terminal-input fixes (to be ported onto `host/input`), the sysroot
+reproduction demo, the tab-crash cause, a self-hosted Rust compiler and real
+Cargo in place of Patti (the owner, 2026-10-08).
