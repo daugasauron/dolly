@@ -17,7 +17,7 @@ REQUIRES TOOL cp
 REQUIRES TOOL tar
 REQUIRES TOOL rm
 
-SOURCE https://daugasauron.com/dist/static/neovim/libuv.tar 461040408746e35ebd16d2e1db43e6e6ebd368cacffe240e26bac474ca956437 /tmp/libuv/source.tar
+SOURCE https://daugasauron.com/dist/static/neovim/libuv.tar 066c5934e185978c680d03a8fbb42b9241f47fe8dc4b923abe84ee9896f0b86b /tmp/libuv/source.tar
 SLOP tar -xf /tmp/libuv/source.tar -C /
 SLOP make -C /tmp/libuv
 SLOP cp /tmp/libuv/libuv.a /usr/lib/libuv.a

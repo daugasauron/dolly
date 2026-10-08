@@ -127,6 +127,54 @@ static void child_done(uv_process_t* handle, int64_t status, int signal) {
 
 static void forbidden_thread(void* ignored) { abort(); }
 
+static uv_pipe_t duplex;
+static uv_write_t ping;
+static uv_shutdown_t ping_end;
+static char echoed[8];
+static size_t echoed_size;
+static int echo_exits;
+
+static void echo_read(uv_stream_t* stream, ssize_t count, const uv_buf_t* buf) {
+  if (count > 0) {
+    assert(echoed_size + count <= sizeof(echoed));
+    memcpy(echoed + echoed_size, buf->base, count);
+    echoed_size += count;
+  } else if (count < 0) {
+    assert(count == UV_EOF);
+    uv_close((uv_handle_t*)stream, NULL);
+  }
+  free(buf->base);
+}
+
+static void ping_written(uv_write_t* req, int status) {
+  assert(status == 0 && uv_shutdown(&ping_end, req->handle, NULL) == 0);
+}
+
+static void echo_done(uv_process_t* handle, int64_t status, int signal) {
+  assert(status == 0 && signal == 0);
+  echo_exits++;
+  uv_close((uv_handle_t*)handle, NULL);
+}
+
+/* One pipe both ways is the child's descriptor 0: a socket pair. The child
+   answers on it after our shutdown has given it end of file. */
+static void two_way_pipe(char* program) {
+  uv_process_t echo;
+  char* args[] = {program, "echo", NULL};
+  assert(uv_pipe_init(&loop, &duplex, 0) == 0);
+  uv_stdio_container_t stdio[3] = {
+    {.flags = UV_CREATE_PIPE | UV_READABLE_PIPE | UV_WRITABLE_PIPE, .data.stream = (uv_stream_t*)&duplex},
+    {.flags = UV_INHERIT_FD, .data.fd = 1}, {.flags = UV_INHERIT_FD, .data.fd = 2}};
+  uv_process_options_t options = {.file = program, .args = args,
+    .stdio_count = 3, .stdio = stdio, .exit_cb = echo_done};
+  assert(uv_spawn(&loop, &echo, &options) == 0);
+  uv_buf_t bytes = uv_buf_init("ping", 4);
+  assert(uv_write(&ping, (uv_stream_t*)&duplex, &bytes, 1, ping_written) == 0);
+  assert(uv_read_start((uv_stream_t*)&duplex, allocate, echo_read) == 0);
+  assert(uv_run(&loop, UV_RUN_DEFAULT) == 0);
+  assert(echo_exits == 1 && echoed_size == 4 && memcmp(echoed, "PING", 4) == 0);
+}
+
 static void spawn_failures(void) {
   uv_process_t failed;
   char* args[] = {"missing", NULL};
@@ -157,6 +205,50 @@ static void spawn_failures(void) {
   assert(uv_run(&loop, UV_RUN_DEFAULT) == 0);
 }
 
+static uv_pipe_t listener, accepted, connecting;
+static uv_connect_t connection;
+static uv_write_t greeting;
+static int served;
+
+static void served_read(uv_stream_t* stream, ssize_t count, const uv_buf_t* buf) {
+  if (count > 0) {
+    assert(count == 5 && memcmp(buf->base, "named", 5) == 0);
+    served++;
+    uv_close((uv_handle_t*)stream, NULL);
+    uv_close((uv_handle_t*)&listener, NULL);
+  }
+  free(buf->base);
+}
+
+static void accept_one(uv_stream_t* server, int status) {
+  assert(status == 0 && uv_pipe_init(&loop, &accepted, 0) == 0);
+  assert(uv_accept(server, (uv_stream_t*)&accepted) == 0);
+  assert(uv_read_start((uv_stream_t*)&accepted, allocate, served_read) == 0);
+}
+
+static void greeted(uv_write_t* req, int status) {
+  assert(status == 0);
+  uv_close((uv_handle_t*)req->handle, NULL);
+}
+
+static void connected(uv_connect_t* req, int status) {
+  assert(status == 0);
+  uv_buf_t bytes = uv_buf_init("named", 5);
+  assert(uv_write(&greeting, req->handle, &bytes, 1, greeted) == 0);
+}
+
+/* A named pipe is a local socket at a path: libuv's own server and client,
+   and the path gone once the listener closes. */
+static void named_pipe(void) {
+  assert(uv_pipe_init(&loop, &listener, 0) == 0);
+  assert(uv_pipe_bind(&listener, "named.sock") == 0);
+  assert(uv_listen((uv_stream_t*)&listener, 4, accept_one) == 0);
+  assert(uv_pipe_init(&loop, &connecting, 0) == 0);
+  uv_pipe_connect(&connection, &connecting, "named.sock", connected);
+  assert(uv_run(&loop, UV_RUN_DEFAULT) == 0);
+  assert(served == 1 && access("named.sock", F_OK) != 0);
+}
+
 int main(int argc, char** argv) {
   if (argc == 2 && strcmp(argv[1], "child") == 0) {
     assert(strcmp(getenv("LIBUV_CHILD"), "yes") == 0);
@@ -165,6 +257,14 @@ int main(int argc, char** argv) {
     if (access("child-ready", F_OK)) return 9;
     puts("SECOND");
     return 7;
+  }
+  if (argc == 2 && strcmp(argv[1], "echo") == 0) {
+    char bytes[8];
+    ssize_t count, size = 0;
+    assert(uv_guess_handle(0) == UV_NAMED_PIPE);
+    while ((count = read(0, bytes + size, sizeof(bytes) - size)) > 0) size += count;
+    for (ssize_t i = 0; i < size; i++) bytes[i] -= 'a' - 'A';
+    return count == 0 && write(0, bytes, size) == size ? 0 : 9;
   }
   puts("LIBUV-START"); fflush(stdout);
   int descriptor_baseline = open("/dev/null", O_RDONLY);
@@ -231,11 +331,13 @@ int main(int argc, char** argv) {
   assert(uv_run(&loop, UV_RUN_DEFAULT) == 0);
   assert(fs_calls == 1 && timer_calls == 1 && work_calls == 1 && exit_calls == 1);
   assert(read_calls >= 2 && strcmp(collected, "FIRST\nSECOND\n") == 0);
+  two_way_pipe(argv[0]);
+  named_pipe();
   assert(uv_loop_close(&loop) == 0);
   uv_library_shutdown();
   int after = open("/dev/null", O_RDONLY);
   assert(after == descriptor_baseline); close(after);
   unlink("data"); unlink("child-ready");
-  puts("LIBUV-OK: deferred work, cancellation, timers, files, streamed pipes and child exit");
+  puts("LIBUV-OK: deferred work, cancellation, timers, files, streamed, two-way and named pipes and child exit");
   return 0;
 }

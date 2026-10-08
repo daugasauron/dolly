@@ -3,6 +3,7 @@
 #include <dolly/runtime.h>
 #include <fcntl.h>
 #include <limits.h>
+#include <sys/socket.h>
 #include <sys/stat.h>
 #include <sys/wait.h>
 #include <unistd.h>
@@ -143,16 +144,18 @@ int uv_spawn(uv_loop_t* loop, uv_process_t* child,
         break;
       case UV_CREATE_PIPE: {
         unsigned direction = spec.flags & (UV_READABLE_PIPE | UV_WRITABLE_PIPE);
-        if (direction != UV_READABLE_PIPE && direction != UV_WRITABLE_PIPE) {
-          result = UV_ENOTSUP; goto done;
-        }
-        if (!spec.data.stream || spec.data.stream->type != UV_NAMED_PIPE ||
+        /* An IPC pipe passes descriptors, which Dolly's sockets do not. */
+        if (direction == 0 || !spec.data.stream || spec.data.stream->type != UV_NAMED_PIPE ||
             ((uv_pipe_t*)spec.data.stream)->ipc) { result = UV_ENOTSUP; goto done; }
         int pair[2];
         int readable = direction == UV_READABLE_PIPE;
         unsigned child_flags = spec.flags & UV_NONBLOCK_PIPE;
-        result = uv_pipe(pair, readable ? child_flags : UV_NONBLOCK_PIPE,
-                         readable ? UV_NONBLOCK_PIPE : child_flags);
+        /* The child's end is pair[readable ? 0 : 1]. One direction is a pipe;
+           both are a socket pair, as upstream makes every stdio pipe. */
+        result = direction == (UV_READABLE_PIPE | UV_WRITABLE_PIPE)
+            ? uv_socketpair(SOCK_STREAM, 0, pair, UV_NONBLOCK_PIPE, child_flags)
+            : uv_pipe(pair, readable ? child_flags : UV_NONBLOCK_PIPE,
+                      readable ? UV_NONBLOCK_PIPE : child_flags);
         if (result != 0) goto done;
         fd = pair[readable ? 0 : 1];
         owned[i].fd = fd;
