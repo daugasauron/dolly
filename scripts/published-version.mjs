@@ -7,7 +7,8 @@
 //                                  in real browsers: SITE/ leads to the newest of the versions, an
 //                                  unversioned path is 404, and each version boots default from
 //                                  its own files and serves its recipes at the paths they are
-//                                  referenced by
+//                                  referenced by; at a host's root, robots.txt names the newest
+//                                  version's paths and keeps crawlers out of each version's bulk
 import assert from "node:assert/strict";
 import { mkdir, mkdtemp, readFile, readdir, rename, rm, writeFile } from "node:fs/promises";
 import { get as getHttp } from "node:http";
@@ -100,6 +101,18 @@ export async function bootVersions(site, names, browsers) {
       await page.goto(root.href);
       await page.waitForURL(url => url.pathname === `${root.pathname}${newest}/`);
       assert.equal((await page.request.get(new URL("default/", root).href)).status(), 404, "an unversioned path is served");
+      // At a host's root, robots.txt speaks for the newest version: each path it
+      // names is served, and /llms.txt leads to that version's own.
+      const rules = [];
+      if (root.pathname === "/") {
+        const robots = await (await page.request.get(new URL("robots.txt", root).href)).text();
+        const named = [...robots.matchAll(/^#.* (\/v\d+\.\d+\.\d+\/[^\s:]*)/gm)].map(([, path]) => path);
+        assert.ok(named.length && named.every(path => path.startsWith(`/${newest}/`)), "robots.txt does not name the newest version's paths");
+        for (const path of named) assert.equal((await page.request.get(new URL(path, root).href)).status(), 200, `robots.txt names ${path}`);
+        assert.equal(new URL((await page.request.get(new URL("llms.txt", root).href)).url()).pathname, `/${newest}/llms.txt`);
+        rules.push(...[...robots.matchAll(/^Disallow: (\S+)$/gm)].map(([, rule]) => rule));
+      }
+      const blocked = path => rules.some(rule => path.startsWith(rule));
       for (const name of names) {
         const version = versionURL(site, name);
         requested.length = 0;
@@ -125,6 +138,17 @@ export async function bootVersions(site, names, browsers) {
           }
           return wrong;
         }, version.href), [], `${name}: references that do not return their pinned bytes`);
+        // The rules keep a crawler out of this version's bulk and off none of its pages.
+        if (rules.length) {
+          const sources = await page.evaluate(async root => (await import(new URL("dist/dolly-images.mjs", root).href))
+            .DOLLY_STATIC_SOURCES.map(({ path }) => path).filter(path => path.startsWith("/dist/")), version.href);
+          for (const path of ["/dist/dolly.wasm", "/dist/dolly.data", "/dist/packs/", ...sources]) {
+            assert.ok(blocked(version.pathname + path.slice(1)), `${name}: robots.txt leaves ${path} to crawlers`);
+          }
+          await page.goto(version.href);
+          const pages = (await page.$$eval("a[href]", links => links.map(link => link.href))).filter(link => link.startsWith(version.href));
+          for (const link of [version.href, ...pages]) assert.ok(!blocked(new URL(link).pathname), `robots.txt keeps crawlers off ${link}`);
+        }
         console.log(`dolly: ${version} boots default in ${browserName}`);
       }
     } finally {

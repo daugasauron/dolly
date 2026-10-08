@@ -11,7 +11,7 @@ import { pathToFileURL } from "node:url";
 import { promisify } from "node:util";
 import { brotliCompress, constants } from "node:zlib";
 import { refuseExisting } from "./export-static.mjs";
-import { compareVersions, releaseVersion, versionName } from "./release-layout.mjs";
+import { compareVersions, releaseVersion, robotsText, versionName } from "./release-layout.mjs";
 import { fileManifest, releaseFiles } from "./site-release.mjs";
 import { sha256 } from "./snapshot-identity.mjs";
 
@@ -89,10 +89,6 @@ export function pagesHeaders(versions) {
   return text;
 }
 
-// robots.txt works only at the root, so its rules name each version's paths.
-export const pagesRobots = (source, names) =>
-  source.replace(/^Disallow: \/(.*)$/gm, (_, path) => names.map(name => `Disallow: /${name}/${path}`).join("\n"));
-
 // A sealed release as Pages stores it: every file at its own path, those over
 // 25 MiB compressed or in parts, the headers those need, and the list of all.
 async function exportVersion(site, directory) {
@@ -150,11 +146,12 @@ export async function exportCloudflarePages(archive, output, site) {
     if (!newest) throw new Error("no version to deploy");
     const published = path => readFile(resolve(destination, path), "utf8");
     const root = {
-      "_redirects": `/ /${newest}/ 302\n`,
+      // An agent asking for /llms.txt is led to the newest version's, whose links are relative to it.
+      "_redirects": `/ /${newest}/ 302\n/llms.txt /${newest}/llms.txt 302\n`,
       "_headers": pagesHeaders(await Promise.all(names.map(async name =>
         ({ name, paths: versions.get(name), headers: await published(`${name}/deployment.headers`) })))),
       "404.html": await published(`${newest}/404.html`),
-      "robots.txt": pagesRobots(await published(`${newest}/robots.txt`), names),
+      "robots.txt": robotsText(await published(`${newest}/llms.txt`), names),
     };
     const counts = Object.fromEntries(names.map(name => [name, versions.get(name).length + 1]));
     const files = Object.keys(root).length + Object.values(counts).reduce((sum, count) => sum + count, 0);

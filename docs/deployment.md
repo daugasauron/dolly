@@ -23,9 +23,10 @@ flowchart LR
 
 | Path on daugasauron.com | Response |
 | --- | --- |
-| `/` | 302 to the newest version (`_redirects`) |
+| `/`, `/llms.txt` | 302 to the newest version and to its `llms.txt` (`_redirects`) |
 | `/vX.Y.Z/PATH` | That version's file at its checkout path: pages, code, recipes, sources, packs |
-| `/robots.txt`, `/404.html` | The newest version's; `robots.txt` names each version's paths |
+| `/robots.txt` | The newest version's `llms.txt` as comments, and a rule per version |
+| `/404.html` | The newest version's |
 | Anything else | 404 |
 
 - Versions share nothing: each is its sealed release, file for file, under its
@@ -44,6 +45,18 @@ flowchart LR
   relative to themselves, so an export knows no prefix.
 - Saved sessions belong to a version; the image cache is shared
   ([sessions](sessions.md)).
+- [`llms.txt`](../llms.txt) is the one text that says what the site is and
+  how to use it, for a person or an agent that fetches it first. Every
+  version carries it, its links relative to itself, so it is true wherever
+  the version is mounted. A crawler asks for `robots.txt` only at a host's
+  root, so the exporter writes it there
+  ([`release-layout.mjs`](../scripts/release-layout.mjs)): the newest
+  version's text as comments, its links as that version's paths, and
+  `Disallow: /vX.Y.Z/dist/` once per published version. A rule per version is
+  an exact prefix: every crawler reads it, and unlike a wildcard it cannot
+  match a page. `dist/` holds the bulk: packs, sources and the runtime.
+  GitHub Pages serves the version under a prefix, where no crawler looks, so
+  it has `llms.txt` and no `robots.txt`.
 
 ## Package and export
 

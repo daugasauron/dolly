@@ -81,8 +81,9 @@ daugasauron.com keeps every published version's sources under that version's
 path for as long as it serves the version. Each release records the Dolly commit that built
 it (`release/source.commit`); the patches and preparation scripts behind a
 prepared source are in that commit on GitHub. Neither host's terms change a
-licence. `robots.txt` works only at a host root, so the GitHub Pages project
-site under `/dolly/` carries an inert copy.
+licence. `robots.txt` works only at a host root: daugasauron.com has one,
+written by the export, and the GitHub Pages project site under `/dolly/` has
+none ([deployment](deployment.md)).
 
 ## 0 A.D.
 

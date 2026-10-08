@@ -5,7 +5,7 @@ import { createServer } from "node:http";
 import { basename, extname, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { sha256 } from "./snapshot-identity.mjs";
-import { releaseVersion } from "./release-layout.mjs";
+import { releaseVersion, robotsText } from "./release-layout.mjs";
 
 export const mimeTypes = new Map([
   [".html", "text/html; charset=utf-8"],
@@ -34,10 +34,11 @@ export const isolationHeaders = {
 };
 const releaseDigest = /^[0-9a-f]{64}$/;
 
-// Serves RELEASES/current as it would be deployed: / leads to its version and
-// the release's files are under /vX.Y.Z/; every other path is 404. Nothing is
-// cacheable: a candidate keeps its version while it changes. dist/ and the
-// source checkout are build inputs, never the running app.
+// Serves RELEASES/current as it would be deployed: / leads to its version, the
+// release's files are under /vX.Y.Z/, robots.txt speaks for that version, and
+// every other path is 404. Nothing is cacheable: a candidate keeps its version
+// while it changes. dist/ and the source checkout are build inputs, never the
+// running app.
 export function createReleaseServer(releases) {
   let current;
   async function release() {
@@ -63,8 +64,15 @@ export function createReleaseServer(releases) {
       if (!["GET", "HEAD"].includes(request.method)) throw new Error("unsupported method");
       const { digest, files, base } = await release();
       const path = decodeURIComponent(new URL(request.url, "http://127.0.0.1").pathname);
-      if (path === "/") {
-        response.writeHead(302, { ...isolationHeaders, location: base }).end();
+      if (path === "/" || path === "/llms.txt") {
+        response.writeHead(302, { ...isolationHeaders, location: base + path.slice(1) }).end();
+        return;
+      }
+      if (path === "/robots.txt") {
+        const about = await readFile(resolve(releases, digest, "llms.txt"));
+        if (sha256(about) !== files.get("llms.txt")) throw new Error("published file changed");
+        response.writeHead(200, { ...isolationHeaders, "content-type": mimeTypes.get(".txt") });
+        response.end(robotsText(about.toString(), [base.slice(1, -1)]));
         return;
       }
       if (!path.startsWith(base)) throw new Error("unversioned path");

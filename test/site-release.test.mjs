@@ -138,6 +138,7 @@ test("the release server serves the current release as deployed: its files under
     for (const [path, contents] of Object.entries({
       "src/version.mjs": `// The version.\nexport const DOLLY_VERSION = "${version}";\n`,
       "src/browser.mjs": text, "docs/browser-boundary.md": "boundary", "Dollyfile-system": "DOLLY 6\n",
+      "llms.txt": "# Dolly\n\n- [default](default/): a shell\n",
       [`dist/packs/${"a".repeat(64)}.snapshot.gz`]: "compressed bytes", "index.html": "<html>menu</html>",
       "default/index.html": '<html><script src="../src/browser.mjs"></script><a href="../">menu</a></html>',
     })) await writeFile(resolve(stage, path), contents);
@@ -165,6 +166,9 @@ test("the release server serves the current release as deployed: its files under
   assert.equal(await (await get("/v1.2.3/src/browser.mjs")).text(), "old candidate");
   assert.match((await get("/v1.2.3/Dollyfile-system")).headers.get("content-type"), /^text\/plain/);
   assert.equal(sessionLoadUrl("work.1", `${origin}/v1.2.3/`).href, `${origin}/v1.2.3/session/?name=work.1`);
+  // The root speaks for the release's version, as a deployment's root does for its newest.
+  assert.equal(await (await get("/robots.txt")).text(), "# Dolly\n#\n# - default /v1.2.3/default/: a shell\n\nUser-agent: *\nDisallow: /v1.2.3/dist/\n");
+  assert.deepEqual(await answer("/llms.txt"), [302, "/v1.2.3/llms.txt"]);
   // Nothing is served outside the version or the release.
   for (const path of ["/default/", "/src/browser.mjs", "/Dollyfile-system", "/v1.2.4/default/", "/v1.2.3/AGENTS.md", "/v1.2.3/src/compiler.cpp",
     "/v1.2.3/docs/..%2fAGENTS.md", "/v1.2.3/docs/..%2fsrc%2fcompiler.cpp", "/v1.2.3/dist/..%2fAGENTS.md", "/v1.2.3/..%2f..%2fAGENTS.md"]) {

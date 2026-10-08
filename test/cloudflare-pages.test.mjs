@@ -37,8 +37,9 @@ const pin = bytes => createHash("sha256").update(bytes).digest("hex");
 // A published version as the exporter leaves it: its files, the headers its
 // transformed files need, and the list of both.
 async function publish(archive, name, files, headers = "") {
-  const all = { "404.html": `${name} has no such page`, "robots.txt": "# Dolly\nUser-agent: *\nDisallow: /dist/\n",
-    "deployment.headers": headers, ...files };
+  const all = { "404.html": `${name} has no such page`, "deployment.headers": headers,
+    "llms.txt": `# Dolly ${name}\n\n> Runs in a tab.\n\n- [Menu](./): every image\n- [System](Dollyfile-system): a recipe\n- [Source](https://example.org/dolly)\n`,
+    ...files };
   for (const [path, contents] of Object.entries(all)) {
     await mkdir(dirname(resolve(archive, name, path)), { recursive: true });
     await writeFile(resolve(archive, name, path), contents);
@@ -92,9 +93,30 @@ test("one deployment serves every published version under its path and nothing e
     assert.equal((await get(path)).status, 404, path);
   }
   assert.equal(await (await get("/nowhere/")).text(), "v0.10.0 has no such page");
+
+  // robots.txt exists once, at the root, and speaks for the newest version:
+  // its text is that version's llms.txt, every path it names is served, and
+  // /llms.txt leads to the same version's own file.
   const robots = await (await get("/robots.txt")).text();
-  for (const rule of ["/v0.1.0/dist/", "/v0.2.0/dist/", "/v0.10.0/dist/"]) assert.ok(robots.includes(`Disallow: ${rule}\n`), rule);
-  assert.doesNotMatch(robots, /^Disallow: \/dist\//m);
+  assert.ok(robots.includes("Dolly v0.10.0") && !robots.includes("Dolly v0.1.0\n") && !robots.includes("Dolly v0.2.0"));
+  assert.ok(robots.includes("https://example.org/dolly"));
+  const named = [...robots.matchAll(/^#.* (\/v\d+\.\d+\.\d+\/[^\s:]*)/gm)].map(([, path]) => path);
+  assert.deepEqual(named, ["/v0.10.0/", "/v0.10.0/Dollyfile-system"]);
+  for (const path of named) assert.equal((await get(path)).status, 200, path);
+  const about = await get("/llms.txt");
+  assert.deepEqual([about.status, about.headers.get("location")], [302, "/v0.10.0/llms.txt"]);
+  assert.match(await (await get("/v0.10.0/llms.txt")).text(), /^# Dolly v0\.10\.0\n/);
+  // Its rules keep a crawler out of each version's bulk and off no page or other file.
+  const rules = [...robots.matchAll(/^Disallow: (\S+)$/gm)].map(([, rule]) => rule);
+  for (const [version, count] of Object.entries(summary.versions)) {
+    const files = (await readdir(resolve(output, version), { recursive: true, withFileTypes: true })).filter(entry => entry.isFile())
+      .map(entry => `/${version}/${resolve(entry.parentPath, entry.name).slice(resolve(output, version).length + 1)}`);
+    assert.equal(files.length, count);
+    for (const file of files) {
+      const url = file.replace(/index\.html$/, "");
+      assert.equal(rules.some(rule => url.startsWith(rule)), file.startsWith(`/${version}/dist/`), url);
+    }
+  }
 
   // A reference a recipe writes, /vX.Y.Z/PATH, is a file of that version: the
   // recipe and the source it pins come back as that version's bytes.

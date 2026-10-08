@@ -73,13 +73,13 @@ await browserTest("site", { server: { handle } }, async ({ browser, server }) =>
   }
   for (const link of attributed) assert.ok(existsSync(`${root}${link.slice(prefix.length + 1)}index.html`), link);
 
-  // robots.txt keeps crawlers off release assets and snapshot packs, not pages.
-  const robots = await fetch(`${origin}${prefix}/robots.txt`);
-  assert.match(robots.headers.get("content-type"), /^text\/plain/);
-  const disallowed = [...(await robots.text()).matchAll(/^Disallow: (\S+)$/gm)].map(([, rule]) => rule);
-  const blocked = path => disallowed.some(rule => path.startsWith(rule));
-  for (const path of [`/dist/packs/${"b".repeat(64)}.snapshot.gz`, "/dist/static/default/zig.tar", "/dist/dolly.data"]) assert.ok(blocked(path), path);
-  for (const path of ["/", "/licences/", "/view/default/", "/default/"]) assert.ok(!blocked(path), path);
+  // llms.txt says how the site is used, in links relative to itself: each
+  // names a page or a file this site serves.
+  const about = await fetch(`${origin}${prefix}/llms.txt`);
+  assert.match(about.headers.get("content-type"), /^text\/plain/);
+  const named = [...(await about.text()).matchAll(/\]\((\S+)\)/g)].map(([, target]) => new URL(target, about.url));
+  assert.ok(named.filter(url => url.origin === origin).length > 10);
+  for (const url of named) if (url.origin === origin) assert.equal((await fetch(url)).status, 200, url.pathname);
 
   // A large source link is a verified scripted download of the exact bytes.
   await page.goto(`${origin}${prefix}/view/zig-build/`);
