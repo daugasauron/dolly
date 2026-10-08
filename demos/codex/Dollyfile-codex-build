@@ -3,6 +3,7 @@ TOOLCHAIN codex-build
 REQUIRES HOST runtime@0
 REQUIRES HOST display@0
 REQUIRES HOST http@0
+REQUIRES HOST sockets@0
 REQUIRES HOST threads@0
 
 FROM https://daugasauron.com/demos/rust/Dollyfile-rust-build bce1cbb8781af63bae81ea46d42457c10f481c2f445ae29e596c1881dd4a2ed4

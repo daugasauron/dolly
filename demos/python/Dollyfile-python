@@ -3,6 +3,7 @@ PACKAGE python
 REQUIRES HOST runtime@0
 REQUIRES HOST dso@0
 REQUIRES HOST http@0
+REQUIRES HOST sockets@0
 
 FROM https://daugasauron.com/Dollyfile-system dd5ff84132895cbefb855f472b46049ab63c2240e5bb717a014bfe9100e5e772
 # Build the Python runtime and native extension SDK; pip.dm adds pip.
@@ -267,7 +268,7 @@ SLOP CWD /usr/src/python make \
   MODULE_ZLIB_LDFLAGS=-lz \
   MODULE__CTYPES_CFLAGS=-DHAVE_FFI_PREP_CIF_VAR\ -DHAVE_FFI_PREP_CLOSURE_LOC\ -DHAVE_FFI_CLOSURE_ALLOC \
   MODULE__CTYPES_LDFLAGS=-lffi \
-  LIBS= \
+  LIBS=-ldolly-sockets \
   SYSLIBS= \
   LIBM= \
   LIBC= \

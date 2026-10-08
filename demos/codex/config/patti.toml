@@ -25,12 +25,12 @@ args = ["-C", "codegen-units=16", "-C", "lto=off"]
 [[rustc]]
 crate-name = "codex"
 crate-type = "bin"
-args = ["-C", "link-arg=/tmp/codex-build/tools/no-js.o", "-C", "link-arg=-Wl,--initial-memory=33554432"]
+args = ["-C", "link-arg=/tmp/codex-build/tools/no-js.o", "-C", "link-arg=-Wl,--initial-memory=33554432", "-C", "link-arg=-ldolly-sockets"]
 
 [[rustc]]
 crate-name = "codex_exec"
 crate-type = "bin"
-args = ["-C", "link-arg=/tmp/codex-build/tools/no-js.o", "-C", "link-arg=-Wl,--initial-memory=33554432"]
+args = ["-C", "link-arg=/tmp/codex-build/tools/no-js.o", "-C", "link-arg=-Wl,--initial-memory=33554432", "-C", "link-arg=-ldolly-sockets"]
 
 [cache]
 inputs = ["/tmp/codex-build/tools/no-js.o", "/usr/bin/protox"]

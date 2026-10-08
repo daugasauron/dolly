@@ -5,11 +5,12 @@ REQUIRES HOST display@0
 REQUIRES HOST download@0
 REQUIRES HOST http@0
 REQUIRES HOST snapshot@0
+REQUIRES HOST sockets@0
 REQUIRES HOST threads@0
 REQUIRES HOST upload@0
 
 FROM https://daugasauron.com/Dollyfile-system dd5ff84132895cbefb855f472b46049ab63c2240e5bb717a014bfe9100e5e772
-INSTALL https://daugasauron.com/demos/codex/Dollyfile-codex-cli 27b62958f7d3fcb92ea6d5ccc064f5881612b725151d4ecfa30737ef7d94a601
+INSTALL https://daugasauron.com/demos/codex/Dollyfile-codex-cli e2118cf9017dd42544a72d315f525b776d21ab17232f7a71a73709d5904e4772
 REQUIRES TOOL codex
 REQUIRES TOOL sh
 

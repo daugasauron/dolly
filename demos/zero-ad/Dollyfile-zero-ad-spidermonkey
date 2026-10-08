@@ -6,6 +6,7 @@ REQUIRES HOST audio@0
 REQUIRES HOST display@0
 REQUIRES HOST download@0
 REQUIRES HOST http@0
+REQUIRES HOST sockets@0
 REQUIRES HOST threads@0
 REQUIRES HOST upload@0
 
@@ -13,7 +14,7 @@ REQUIRES HOST upload@0
 # upstream's mozbuild (configure.py and Make) with Dolly's CPython, Cargo,
 # cbindgen and c++ from 0 A.D.'s pinned tarball and patches.
 FROM https://daugasauron.com/demos/zero-ad/Dollyfile-zero-ad-deps f4e3e0cbe7ff247598e89b96f5f659771a5e19851d5ecae638aa060bae1eead0
-INSTALL https://daugasauron.com/demos/python/Dollyfile-python ed038719ab407f9753780bbdd7e0dd19c14d9452c7108bc020ca4250599fd569
+INSTALL https://daugasauron.com/demos/python/Dollyfile-python 5d2386026064afb7aa8c184980989f11e4f662c653311b66bb9fcb8e216cdcd0
 INSTALL https://daugasauron.com/demos/rust/Dollyfile-cargo 33d420a99949308da7ec6df1c65bfafbde0ab21c0264e871a0c2efcf1ef6edd2
 INSTALL https://daugasauron.com/demos/rust/Dollyfile-cbindgen f3c3f554b27d27251f5031a77d445ba3e8fd68d3165d1ff36a0a9ae61a5daa30
 REQUIRES HEADER zlib
