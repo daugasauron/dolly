@@ -78,8 +78,7 @@ await browserTest("site", { server: { handle } }, async ({ browser, server }) =>
   assert.match(robots.headers.get("content-type"), /^text\/plain/);
   const disallowed = [...(await robots.text()).matchAll(/^Disallow: (\S+)$/gm)].map(([, rule]) => rule);
   const blocked = path => disallowed.some(rule => path.startsWith(rule));
-  for (const path of [`/_dolly/${"a".repeat(64)}/dist/static/default/zig.tar`, `/dist/packs/${"b".repeat(64)}.snapshot.gz`,
-    "/dist/static/default/zig.tar"]) assert.ok(blocked(path), path);
+  for (const path of [`/dist/packs/${"b".repeat(64)}.snapshot.gz`, "/dist/static/default/zig.tar", "/dist/dolly.data"]) assert.ok(blocked(path), path);
   for (const path of ["/", "/licences/", "/view/default/", "/default/"]) assert.ok(!blocked(path), path);
 
   // A large source link is a verified scripted download of the exact bytes.

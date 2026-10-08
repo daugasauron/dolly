@@ -173,6 +173,21 @@ export async function verifyRelease(site, sourceRoot) {
   return sha256(manifest);
 }
 
+// Every file of a sealed release as [path, bytes], each checked against the
+// seal as it is read, then the seal itself.
+export async function* releaseFiles(site) {
+  const digest = await verifyRelease(site);
+  const manifest = await readFile(resolve(site, "release/files.sha256"));
+  if (sha256(manifest) !== digest) throw new Error("release changed before export");
+  for (const row of manifest.toString().trimEnd().split("\n")) {
+    const bytes = await readFile(resolve(site, row.slice(66)));
+    if (sha256(bytes) !== row.slice(0, 64)) throw new Error(`release changed during export: ${row.slice(66)}`);
+    yield [row.slice(66), bytes];
+  }
+  yield ["release/files.sha256", manifest];
+  yield ["release/acceptance.txt", await readFile(resolve(site, "release/acceptance.txt"))];
+}
+
 // Moves the verified site into RELEASES, so it must be staged on the same filesystem.
 export async function publishRelease(site, releases) {
   const digest = await verifyRelease(site);

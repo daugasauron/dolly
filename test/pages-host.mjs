@@ -2,8 +2,9 @@
 // as Dolly depends on the host: static _redirects, _headers rules (one greedy
 // *, :name for one path segment, every matching rule applied in order, "! Name"
 // removing a header), pages served without .html and index.html and redirected
-// (308) to those URLs, and the nearest 404.html with status 404. The rule
-// syntax is Pages' documented one; the rest was measured on daugasauron.com.
+// (308) to those URLs, and the nearest 404.html with status 404 and no-store.
+// The rule syntax is Pages' documented one; the rest was measured on
+// daugasauron.com.
 //   node test/pages-host.mjs DEPLOYMENT [PORT]
 import { createReadStream } from "node:fs";
 import { readFile, stat } from "node:fs/promises";
@@ -48,6 +49,8 @@ export async function startPagesHost(directory, port = 0) {
           ruled.add(name);
         }
       }
+      // Measured: Pages answers 404 with no-store whatever the rules say.
+      if (status === 404) headers.set("cache-control", "no-store");
       if (file) headers.set("content-length", size);
       response.writeHead(status, Object.fromEntries(headers));
       if (file && request.method !== "HEAD") createReadStream(file).pipe(response); else response.end();

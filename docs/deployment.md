@@ -13,7 +13,7 @@ flowchart LR
   images["dist/ snapshots"] --> pkg["package-pages.sh: sealed release"]
   pkg --> rel["RELEASES/ID"]
   rel --> serve["npm run serve (local)"]
-  rel --> static["export-static.mjs: PREFIX/vX.Y.Z/"]
+  rel --> static["export-static.mjs: vX.Y.Z/ for any static host"]
   rel --> cf["export-cloudflare-pages.mjs"]
   archive["published/: every deployed version"] --> cf
   cf --> deployment["one deployment: root files and a directory per version"]
@@ -24,12 +24,15 @@ flowchart LR
 | Path on daugasauron.com | Response |
 | --- | --- |
 | `/` | 302 to the newest version (`_redirects`) |
-| `/vX.Y.Z/…` | That version's complete site: pages, code, recipes, sources, packs |
+| `/vX.Y.Z/PATH` | That version's file at its checkout path: pages, code, recipes, sources, packs |
 | `/robots.txt`, `/404.html` | The newest version's; `robots.txt` names each version's paths |
 | Anything else | 404 |
 
-- Versions share nothing: each is the whole site exported under its path, so a
-  published version keeps serving its own bytes whatever is released later.
+- Versions share nothing: each is its sealed release, file for file, under its
+  path, so a published version keeps serving its own bytes whatever is
+  released later. A reference a recipe writes, `/vX.Y.Z/Dollyfile-NAME` or
+  `/vX.Y.Z/dist/static/…`, is therefore a file the site serves (Cloudflare
+  holds a file over 25 MiB compressed or as parts, below).
   While the version is 0.x a patch release fixes and a minor release may
   change anything; nothing is promised about services outside the site (npm,
   model endpoints, git hosts) or about browsers.
@@ -37,7 +40,8 @@ flowchart LR
   leads to it. Removing a version is the owner's explicit act: delete its
   directory from the archive and deploy; its paths return 404.
 - GitHub Pages serves `PREFIX/vX.Y.Z/` and an `index.html` at `PREFIX/` that
-  leads there; each deploy replaces the whole site.
+  leads there; each deploy replaces the whole site. Pages find their files
+  relative to themselves, so an export knows no prefix.
 - Saved sessions belong to a version; the image cache is shared
   ([sessions](sessions.md)).
 
@@ -71,8 +75,8 @@ bash scripts/package-pages.sh build/github-releases github-pages
 - `npm run serve [RELEASES]` serves that directory's current release as it
   will be deployed: `/` redirects to its version, the site is under
   `/vX.Y.Z/`, every other path is 404.
-- [`export-static.mjs`](../scripts/export-static.mjs) `RELEASE OUT PREFIX/`
-  writes `OUT/vX.Y.Z/` and the `index.html` that leads there;
+- [`export-static.mjs`](../scripts/export-static.mjs) `RELEASE OUT` writes
+  the release as `OUT/vX.Y.Z/` and the `index.html` that leads there;
   `.github/workflows/pages.yml` runs it for the version tag it is given,
   after checking the artifact's digest and that the release was packaged from
   the tag's commit.
@@ -82,8 +86,9 @@ bash scripts/package-pages.sh build/github-releases github-pages
   Without `RELEASE` it assembles the archive alone, which is how a removed
   version leaves the site.
 - Exporters verify the sealed input, refuse an existing destination, publish
-  atomically and upload nothing. `sha256sum --check deployment.sha256` in a
-  version's directory checks it.
+  atomically and upload nothing. A version's directory carries its seal:
+  `sha256sum --check release/files.sha256` checks a static export, and
+  `deployment.sha256` what Cloudflare stores.
 - A release build needs disk for the catalog twice (snapshots in `dist/` and
   their packs) and little memory: sharing the 67-image, 25 GB catalog into
   packs streams one 4 MB chunk at a time (221 MB peak, 3.5 minutes);
@@ -109,10 +114,6 @@ bash scripts/package-pages.sh build/github-releases github-pages
   The exporter fails at either limit, naming the versions; nothing is dropped
   automatically. One rule covers a file in every version that stores it the
   same way, so rules grow with distinct large files, not with versions.
-- Measured on 2026-10-08 (71 images): one version is 2,335 files and
-  19.1 GB, so eight versions fit in 20,000 files. It needs 44 rules: 5 for
-  every version, 28 for large sources by path and 11 for large packs by
-  content, which leaves 56 for the large files later versions change.
 
 ## Release
 
@@ -143,12 +144,17 @@ pushes, uploads or deploys.
 
 ## Delivery contract
 
-| Path under `/vX.Y.Z/` | Caching |
+| Path under `/vX.Y.Z/` | Caching on daugasauron.com |
 | --- | --- |
-| `_dolly/RELEASE/` code, recipes, sources | Immutable |
-| `dist/packs/HASH.snapshot.gz` | Immutable |
-| HTML, `coi-serviceworker.js`, `amy-index.txt` | No-store |
+| A page: the version's root and every address ending in `/` | No-store |
+| Every file: code, recipes, sources, `dist/packs/HASH.snapshot.gz` | Immutable |
 
+- A version's directory is its release: there is no path level for the
+  release ID, which is the SHA-256 of `release/files.sha256`. Files are
+  immutable because a published version never changes; pages are not, so a
+  removed version stops loading. `npm run serve` sends no-store for
+  everything, since a candidate keeps its version while it changes, and
+  GitHub Pages sets its own caching.
 - Every URL is a file at its checkout path below the version (directories
   serve `index.html`; [`generate-routes.mjs`](../scripts/generate-routes.mjs)
   writes the menu, image routes and recipe views), so no host needs rewrite

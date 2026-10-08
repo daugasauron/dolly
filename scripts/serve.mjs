@@ -5,7 +5,7 @@ import { createServer } from "node:http";
 import { basename, extname, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { sha256 } from "./snapshot-identity.mjs";
-import { publicFiles, releaseVersion, renderReleasePage, snapshotPackPath } from "./release-layout.mjs";
+import { releaseVersion } from "./release-layout.mjs";
 
 export const mimeTypes = new Map([
   [".html", "text/html; charset=utf-8"],
@@ -34,10 +34,10 @@ export const isolationHeaders = {
 };
 const releaseDigest = /^[0-9a-f]{64}$/;
 
-// Serves RELEASES/current as it would be deployed: / leads to its version, the
-// site is under /vX.Y.Z/ with its assets pinned to the release, and every
-// other path is 404. dist/ and the source checkout are build inputs, never
-// the running app.
+// Serves RELEASES/current as it would be deployed: / leads to its version and
+// the release's files are under /vX.Y.Z/; every other path is 404. Nothing is
+// cacheable: a candidate keeps its version while it changes. dist/ and the
+// source checkout are build inputs, never the running app.
 export function createReleaseServer(releases) {
   let current;
   async function release() {
@@ -62,32 +62,26 @@ export function createReleaseServer(releases) {
     try {
       if (!["GET", "HEAD"].includes(request.method)) throw new Error("unsupported method");
       const { digest, files, base } = await release();
-      let path = decodeURIComponent(new URL(request.url, "http://127.0.0.1").pathname);
+      const path = decodeURIComponent(new URL(request.url, "http://127.0.0.1").pathname);
       if (path === "/") {
         response.writeHead(302, { ...isolationHeaders, location: base }).end();
         return;
       }
-      if (!path.startsWith(base) || /[\\\0]/.test(path) || path.split("/").some(part => part === "." || part === "..")) {
-        throw new Error("invalid path");
+      if (!path.startsWith(base)) throw new Error("unversioned path");
+      // A directory's address ends in a slash, as its page's relative links expect.
+      const relative = path.slice(base.length), page = `${relative}${relative && !relative.endsWith("/") ? "/" : ""}index.html`;
+      const file = files.has(relative) ? relative : page;
+      if (!files.has(file)) throw new Error("not published");
+      if (file === page && !path.endsWith("/")) {
+        response.writeHead(308, { ...isolationHeaders, location: `${path}/` }).end();
+        return;
       }
-      path = path.slice(base.length);
-      const pinned = path.startsWith(`_dolly/${digest}/`);
-      if (pinned) path = path.slice(`_dolly/${digest}/`.length);
-      const route = path.replace(/\/+$/, "");
-      const relative = files.has(path) ? path : `${route ? route + "/" : ""}index.html`;
-      if (!files.has(relative) || !(pinned || relative.endsWith(".html") || snapshotPackPath.test(relative) ||
-          publicFiles.includes(relative))) throw new Error("not published");
-      let body = await readFile(resolve(releases, digest, relative));
-      if (sha256(body) !== files.get(relative)) throw new Error("published file changed");
-      if (relative.endsWith(".html")) {
-        body = Buffer.from(renderReleasePage(body.toString("utf8"), relative, digest, files, base));
-      }
+      const body = await readFile(resolve(releases, digest, file));
+      if (sha256(body) !== files.get(file)) throw new Error("published file changed");
       response.writeHead(200, {
         ...isolationHeaders,
-        "cache-control": pinned || snapshotPackPath.test(relative)
-          ? "public, max-age=31536000, immutable" : "no-store",
-        "content-type": /^Dollyfile(?:-|$)/.test(basename(relative)) ? "text/plain; charset=utf-8" :
-          mimeTypes.get(extname(relative)) ?? "application/octet-stream",
+        "content-type": /^Dollyfile(?:-|$)/.test(basename(file)) ? "text/plain; charset=utf-8" :
+          mimeTypes.get(extname(file)) ?? "application/octet-stream",
       });
       response.end(request.method === "HEAD" ? undefined : body);
     } catch {

@@ -39,9 +39,9 @@ for site in "${domain}" "${github}"; do
   node scripts/site-release.mjs verify "${site}" . || stop "${site} is not packaged from this tree: bash scripts/package-pages.sh RELEASES daugasauron.com|github-pages"
 done
 
-step "3 the Pages workflow's steps: export under /dolly/, under 1 GB"
+step "3 the Pages workflow's steps: export, under 1 GB"
 static="$(mktemp -d build/github-static-XXXXXX)"
-node scripts/export-static.mjs "${github}" "${static}/site" /dolly/
+node scripts/export-static.mjs "${github}" "${static}/site"
 [[ -f "${static}/site/${version}/index.html" ]] || stop "the GitHub Pages site is not ${version}"
 github_bytes="$(du -sb "${static}/site" | cut -f1)"
 rm -rf -- "${static}"

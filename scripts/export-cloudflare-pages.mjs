@@ -10,9 +10,9 @@ import { basename, dirname, resolve, sep } from "node:path";
 import { pathToFileURL } from "node:url";
 import { promisify } from "node:util";
 import { brotliCompress, constants } from "node:zlib";
-import { exportStaticSite, refuseExisting } from "./export-static.mjs";
+import { refuseExisting } from "./export-static.mjs";
 import { compareVersions, releaseVersion, versionName } from "./release-layout.mjs";
-import { fileManifest } from "./site-release.mjs";
+import { fileManifest, releaseFiles } from "./site-release.mjs";
 import { sha256 } from "./snapshot-identity.mjs";
 
 const compress = promisify(brotliCompress);
@@ -23,15 +23,12 @@ const fileLimit = 25 * 1024 * 1024;
 export async function pagesAsset(bytes, path) {
   if (bytes.length <= fileLimit) return { bytes, compressed: false };
   const snapshot = /^dist\/packs\/[0-9a-f]{64}\.snapshot\.gz$/.test(path);
-  if (!snapshot && !path.includes("/static/") && !path.endsWith("/dist/dolly.data")) {
+  if (!snapshot && !path.startsWith("dist/static/") && path !== "dist/dolly.data") {
     throw new Error(`oversized browser asset requires a new delivery check: ${path}`);
   }
   if (!snapshot) {
     const encoded = await compress(bytes, { params: { [constants.BROTLI_PARAM_QUALITY]: 9 } });
     if (encoded.length <= fileLimit) return { bytes: encoded, compressed: true };
-    if (!path.includes("/static/") && !path.endsWith("/dist/dolly.data")) {
-      throw new Error(`asset exceeds Pages' 25 MiB limit after Brotli: ${path}`);
-    }
   }
   const parts = [];
   for (let offset = 0; offset < bytes.length; offset += STATIC_PART_BYTES) parts.push(bytes.subarray(offset, offset + STATIC_PART_BYTES));
@@ -45,36 +42,36 @@ export async function pagesAsset(bytes, path) {
 export function versionHeaders(compressed, multipart) {
   return [
     ...[...compressed].sort().map(path => {
-      if (!/^_dolly\/[a-f0-9]{64}\/[a-zA-Z0-9_./-]+$/.test(path)) throw new Error(`invalid Pages header path: ${path}`);
+      if (!/^dist\/(static\/[a-zA-Z0-9_./-]+|dolly\.data)$/.test(path)) throw new Error(`invalid Pages header path: ${path}`);
       // SOURCE artifacts are opaque downloads, not streaming browser modules.
       return `/${path}\n  Content-Encoding: br` +
-        (path.includes("/static/") ? "\n  Content-Type: application/octet-stream" : "");
+        (path.startsWith("dist/static/") ? "\n  Content-Type: application/octet-stream" : "");
     }),
     ...[...multipart].sort().map(path => {
-      if (!/^(_dolly\/[a-f0-9]{64}\/dist\/(static\/[a-zA-Z0-9_./-]+|dolly\.data)|dist\/packs\/[a-f0-9]{64}\.snapshot\.gz)$/.test(path)) throw new Error(`invalid Pages multipart path: ${path}`);
+      if (!/^dist\/(static\/[a-zA-Z0-9_./-]+|dolly\.data|packs\/[a-f0-9]{64}\.snapshot\.gz)$/.test(path)) throw new Error(`invalid Pages multipart path: ${path}`);
       return `/${path}\n  X-Dolly-Parts: 1\n  Content-Type: application/octet-stream`;
     }),
   ].map(rule => `${rule}\n`).join("\n");
 }
 
 // The root _headers for VERSIONS, each { name, paths, headers }: its files and
-// its deployment.headers. Versions name their release differently, so a file's
-// rule matches it in any of them.
-const anyRelease = path => path.replace(/^\/_dolly\/[0-9a-f]{64}\//, "/_dolly/:release/");
+// its deployment.headers.
 export function pagesHeaders(versions) {
   const rules = [
     "/*\n  Cross-Origin-Opener-Policy: same-origin\n  Cross-Origin-Embedder-Policy: require-corp\n  Cross-Origin-Resource-Policy: same-origin\n  Cache-Control: no-store",
-    ...["/:version/_dolly/*", "/:version/dist/packs/*"].map(path => `${path}\n  ! Cache-Control\n  Cache-Control: public, max-age=31536000, immutable, no-transform`),
-    "/:version/_dolly/:release/Dollyfile*\n  Content-Type: text/plain; charset=utf-8",
-    "/:version/_dolly/:release/demos/*\n  Content-Type: text/plain; charset=utf-8",
+    // A published version never changes, so its files are immutable. Its pages
+    // (a directory's address) are not: a removed version must stop loading.
+    "/:version/*\n  ! Cache-Control\n  Cache-Control: public, max-age=31536000, immutable, no-transform",
+    ...["/:version/*/", "/:version/"].map(path => `${path}\n  ! Cache-Control\n  Cache-Control: no-store`),
+    "/:version/Dollyfile*\n  Content-Type: text/plain; charset=utf-8",
+    "/:version/demos/*\n  Content-Type: text/plain; charset=utf-8",
   ];
   const wanting = new Map(), holding = new Map();
   for (const { name, paths, headers } of versions) {
-    for (const path of paths) holding.set(anyRelease(`/${path}`), (holding.get(anyRelease(`/${path}`)) ?? 0) + 1);
-    for (const block of headers.trimEnd().split("\n\n").filter(Boolean)) {
+    for (const path of paths) holding.set(`/${path}`, (holding.get(`/${path}`) ?? 0) + 1);
+    for (const rule of headers.trimEnd().split("\n\n").filter(Boolean)) {
       // No splat or placeholder: a rule names one file.
-      if (!/^\/[A-Za-z0-9_.\/-]+(\n  [A-Za-z-]+: [A-Za-z0-9\/ -]+)+$/.test(block)) throw new Error(`${name}: invalid deployment.headers`);
-      const rule = anyRelease(block);
+      if (!/^\/[A-Za-z0-9_.\/-]+(\n  [A-Za-z-]+: [A-Za-z0-9\/ -]+)+$/.test(rule)) throw new Error(`${name}: invalid deployment.headers`);
       wanting.set(rule, [...wanting.get(rule) ?? [], name]);
     }
   }
@@ -96,19 +93,17 @@ export function pagesHeaders(versions) {
 export const pagesRobots = (source, names) =>
   source.replace(/^Disallow: \/(.*)$/gm, (_, path) => names.map(name => `Disallow: /${name}/${path}`).join("\n"));
 
-// A sealed release as Pages stores it: files over 25 MiB compressed or in
-// parts, the headers those need, and the list of every file.
-async function exportVersion(site, name, directory, scratch) {
-  await exportStaticSite(site, scratch, `/${name}/`);
+// A sealed release as Pages stores it: every file at its own path, those over
+// 25 MiB compressed or in parts, the headers those need, and the list of all.
+async function exportVersion(site, directory) {
   const written = [], compressed = [], multipart = [];
   async function write(path, bytes) {
     await mkdir(dirname(resolve(directory, path)), { recursive: true });
     await writeFile(resolve(directory, path), bytes, { flag: "wx" });
     written.push(path);
   }
-  for (const row of (await readFile(resolve(scratch, "deployment.sha256"), "utf8")).trimEnd().split("\n")) {
-    const path = row.slice(66);
-    const asset = await pagesAsset(await readFile(resolve(scratch, path)), path);
+  for await (const [path, bytes] of releaseFiles(site)) {
+    const asset = await pagesAsset(bytes, path);
     if (asset.compressed) compressed.push(path);
     if (asset.parts) {
       multipart.push(path);
@@ -116,7 +111,6 @@ async function exportVersion(site, name, directory, scratch) {
     }
     await write(path, asset.bytes);
   }
-  await rm(scratch, { recursive: true });
   await write("deployment.headers", versionHeaders(compressed, multipart));
   await writeFile(resolve(directory, "deployment.sha256"), await fileManifest(directory, written), { flag: "wx" });
   return written;
@@ -150,7 +144,7 @@ export async function exportCloudflarePages(archive, output, site) {
     if (site) {
       const name = releaseVersion(await readFile(resolve(site, "src/version.mjs"), "utf8"));
       if (versions.has(name)) throw new Error(`${name} is already published, and a published version never changes`);
-      versions.set(name, await exportVersion(site, name, resolve(destination, name), resolve(staging, "release")));
+      versions.set(name, await exportVersion(site, resolve(destination, name)));
     }
     const names = [...versions.keys()].sort(compareVersions), newest = names.at(-1);
     if (!newest) throw new Error("no version to deploy");

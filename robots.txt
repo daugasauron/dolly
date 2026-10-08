@@ -3,5 +3,4 @@
 # Licences and upstream sources: https://daugasauron.com/licences/
 # Release assets, source archives and image snapshots are large downloads.
 User-agent: *
-Disallow: /_dolly/
 Disallow: /dist/

@@ -48,13 +48,11 @@ jobs:
       - name: Verify complete release and source provenance
         run: node _source/scripts/site-release.mjs verify _site _source
       - uses: actions/configure-pages@v5
-        id: pages
       - name: Export the version under its path
         env:
-          DOLLY_PUBLIC_BASE: ${{ steps.pages.outputs.base_path }}
           DOLLY_PAGES_RELEASE: ${{ inputs.release_tag }}
         run: |
-          node _source/scripts/export-static.mjs _site _static "${DOLLY_PUBLIC_BASE}/"
+          node _source/scripts/export-static.mjs _site _static
           test -f "_static/${DOLLY_PAGES_RELEASE}/index.html"
       - name: Check deployment size
         run: |

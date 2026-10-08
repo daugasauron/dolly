@@ -6,7 +6,8 @@
 //   boot SITE vX.Y.Z... [chromium|firefox ...]
 //                                  in real browsers: SITE/ leads to the newest of the versions, an
 //                                  unversioned path is 404, and each version boots default from
-//                                  its own files
+//                                  its own files and serves its recipes at the paths they are
+//                                  referenced by
 import assert from "node:assert/strict";
 import { mkdir, mkdtemp, readFile, readdir, rename, rm, writeFile } from "node:fs/promises";
 import { get as getHttp } from "node:http";
@@ -112,6 +113,18 @@ export async function bootVersions(site, names, browsers) {
         assert.deepEqual(requested.filter(path => !path.startsWith(version.pathname)), [], `${name} requested paths outside itself`);
         // A missing asset is an error, never a page served as the asset.
         assert.equal(await page.evaluate(async () => (await fetch(new URL("missing.mjs", document.baseURI))).status), 404);
+        // A reference a recipe writes, /vX.Y.Z/PATH, is that file here: each recipe
+        // and source of at most 1 MiB the version publishes returns its pinned bytes.
+        assert.deepEqual(await page.evaluate(async root => {
+          const { DOLLY_STATIC_SOURCES } = await import(new URL("dist/dolly-images.mjs", root).href);
+          const wrong = [];
+          for (const { path, sha256, byteLength } of DOLLY_STATIC_SOURCES) if (byteLength <= 1048576) {
+            const response = await fetch(new URL(path.slice(1), root));
+            const digest = new Uint8Array(await crypto.subtle.digest("SHA-256", await response.arrayBuffer()));
+            if (!response.ok || Array.from(digest, byte => byte.toString(16).padStart(2, "0")).join("") !== sha256) wrong.push(path);
+          }
+          return wrong;
+        }, version.href), [], `${name}: references that do not return their pinned bytes`);
         console.log(`dolly: ${version} boots default in ${browserName}`);
       }
     } finally {
