@@ -4,7 +4,7 @@ import { siteReference } from "../src/static-asset.mjs";
 import { DOLLY_IMAGES } from "../dist/dolly-images.mjs";
 
 const fixtures = { "sockets.c": "test/fixtures/sockets.c" };
-const systemModules = ["runtime", "display", "http", "download", "upload", "snapshot"];
+const systemModules = ["runtime", "display", "input", "http", "download", "upload", "snapshot"];
 
 // sockets@0: local stream sockets between processes, with a program compiled
 // in the image (test/fixtures/sockets.c names what each mode proves). A
@@ -12,7 +12,7 @@ const systemModules = ["runtime", "display", "http", "download", "upload", "snap
 // module: the suite's image is `system` with that one line more.
 await browserTest("sockets", { image: "system", server: { fixtures } }, async ({ server, open }) => {
   const policy = { rules: [{ origin: server.origin, pathPrefix: "/fixture/", methods: ["GET"] }] };
-  const { page, submit, text } = await open({ policy, ...await composed([...systemModules, "sockets"], [], "system") });
+  const { page, submit, text } = await open({ policy, ...await composed([...systemModules, "sockets"], [], { base: "system" }) });
   const run = async command => assert.equal(await submit(command), 0, `${command}\n${await text()}`);
   const status = async (command, expected) => assert.equal(await submit(command), expected, `${command}\n${await text()}`);
   await run(`curl -fsS ${server.origin}/fixture/sockets.c -o /tmp/sockets.c && cc -O1 /tmp/sockets.c -ldolly-sockets -o /tmp/sockets`);
