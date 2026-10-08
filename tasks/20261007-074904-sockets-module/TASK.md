@@ -15,6 +15,22 @@ a task) in parallel since that also needs full rebuild of a lot of things".
 Started on branch `core/sockets-module` (worktree `work/sockets`); its full
 rebuild is shared with the release's (versioned recipes).
 
+## State (2026-10-08, `core/sockets-module`)
+
+Steps 1 and 2 of the proposal are built and pass their tests in Chromium and
+Firefox; libuv, CPython, Tokio and crossterm are upgraded and proven on a
+chain of 27 images; Janis is kept as it is, with its reason. The sections
+"Settled before code", "Built" and "Ports, run" hold the measurements.
+
+- The owner's to decide: whether images declare the module. Built without a
+  record in the client, because the count says a record would be in every
+  runnable image ("Stamping", below).
+- The catalog round's: every image on the new seed, the Rust seed relinked,
+  the Codex chain and the Rust demo test ("What the catalog round must do").
+- Open: Janis `net` on a path, when a program needs it.
+
+## As filed (2026-10-07)
+
 Nothing has been built or run for this. The findings are from reading main at
 `4cbceacf`.
 
@@ -185,9 +201,128 @@ for both answers.
   server removes a stale path before binding (asyncio does so only for a path
   that is a socket). A path that is no socket file also gives `ECONNREFUSED`,
   a missing one `ENOENT`.
-- Snapshots record directories, files and links only: a socket file saved in
-  a session or kept by an image comes back as an empty regular file. Images
-  never retain `/tmp`.
+- Snapshots record directories, files and links only (`src/fs-record.h`), so
+  a socket file saved in a session or kept by an image should come back as an
+  empty regular file; this was read, not run. Images never retain `/tmp`.
+
+## Built (2026-10-08, `core/sockets-module`)
+
+### The module
+
+- `host/sockets/`: `dolly-sockets-0.wat` (ten operations, 160 to 169, and
+  their flags), `sockets.h` (two packets), `kernel.c`, `client.c`,
+  `module.json`, `sockets.mjs` (the digest; there is no page or Worker side).
+  No import: `validate-browser` passes on the unchanged
+  `abi/dolly-browser-0.wat`, and the suite compares the kernel's import list
+  with the nine names.
+- A socket is a descriptor kind of the kernel's table beside files, pipes and
+  the terminal (`src/process-kernel.c`): `read`, `write`, `poll`, `close`,
+  `dup`, `fcntl`, `fstat` and inheritance through spawn are the process
+  contract's own operations, which pass a socket on to the module. The module
+  holds what a socket is: unconnected, listening or connected, its peer, its
+  64 KiB of unread bytes, its bound file and its backlog.
+- The libc calls are the module's client (`libdolly-sockets.a`), in place of
+  the 18 `ENOSYS` stubs of `runtime-adapter.c`. Network families
+  (`EAFNOSUPPORT`), datagram and seqpacket types (`EPROTOTYPE`) and protocols
+  (`EPROTONOSUPPORT`) are refused there: the contract has no way to ask for
+  one. Control data on `sendmsg` (descriptor passing) is `ENOTSUP`; an
+  abstract name is the empty path, `ENOENT`; `setsockopt` is `ENOPROTOOPT`.
+- Added because a port needs it: `SOCK_NONBLOCK` and `SOCK_CLOEXEC` on
+  `socket`, `socketpair` and `accept4` (mio, libuv, CPython); `MSG_DONTWAIT`
+  (signal-hook's wake from a handler) and `MSG_NOSIGNAL`; `getsockname`,
+  `getpeername` and `SO_TYPE` (libuv's `uv_guess_handle`); `SO_ERROR`, always
+  zero since `connect` completes or fails at the call (Tokio reads it after
+  every connect). Not added: `MSG_PEEK`, `MSG_WAITALL`, `SO_PEERCRED`, other
+  options.
+- Quotas, in the kernel (`host/sockets/kernel.c`): 128 sockets in any state
+  (`ENFILE`; a connection is two, so 8 MiB of buffers at most), 16
+  connections a listener holds unaccepted (`listen` clamps to 1 to 16; a
+  blocking `connect` waits for room, a nonblocking one gets `EAGAIN`), 64 KiB
+  unread a direction, 107 bytes a path. A socket goes with its last
+  descriptor, and a process's descriptors close when it exits, aborts, traps
+  or is terminated: the module keeps no state per process.
+- Unlike Linux: a backlog of N holds N connections, not N + 1; a connection
+  the listener never accepted ends as a closed peer (end of file, `EPIPE`)
+  when the listener goes, not with `ECONNRESET`; `readdir` reports a socket
+  file as a regular file; opening one as a file gives an empty file, not
+  `ENXIO`.
+- An `-rdynamic` host exports the socket calls to the libraries it loads, as
+  it did the stubs: `scripts/prepare-process-sysroot.sh` takes the client's
+  names into `dynamic-provider.symbols`. Found by the proving chain: without
+  it `luv.so` failed to load in `lua` ("undefined symbol: getsockopt") and
+  stopped `neovim-build`, and the cmake test's libuv library failed alike.
+
+### Evidence
+
+Logs are in `build/sockets-evidence/` (ignored). Browser commands ran through
+`work/slot.sh browser`, image builds through `work/slot.sh build` with
+`DOLLY_IMAGE_JOBS=1`.
+
+- `npm run build:runtime`: 1 min 1 s with the module (57 s after a client
+  change); `validate-browser` passes: "dist/dolly.wasm has exactly the typed
+  imports in build/dolly-browser-0.wasm". Image inputs `1dbe7a21…` (were
+  `c62b2710…`; the seed changed once more, to `01da8fef…`, below). A
+  kernel-only change afterwards rebuilds in 11 s and keeps the hash, so the
+  images stay valid.
+- `host/sockets/kernel.c` compiled natively against a stand-in descriptor
+  table (`native/harness.c`, AddressSanitizer and UBSan): pair, wrap of the
+  ring, shutdown, close, named connect, backlog, rename, a dying listener,
+  the quota.
+- `test/fixtures/sockets.c` compiled natively on Linux 6.8 with a stub for
+  the raw calls: its `pair`, `peer`, `sigpipe`, `server` and `client` modes
+  pass unchanged, so those expectations are Linux's. `stale` matches up to
+  its Dolly path, `backlog` up to the two differences recorded above.
+- Images: `default,system,cc` and what they need (14 images: `system-build`,
+  `core`, `zlib`, `gzip`, `curl`, `zig-build` 475 s, `ghostty-build`,
+  `display`, `system-tools`, `posix`, `amy`, `default`, `cc`, `system`) in
+  12 min 41 s, exit 0.
+- `node test/sockets-browser.mjs chromium firefox` on `system`: passed in
+  6.1 s and 5.3 s. What it shows:
+
+  | Claim of the task | Mode of `test/fixtures/sockets.c` |
+  | --- | --- |
+  | Bytes both ways over a pair inherited through spawn | `pair`: 300 KiB each way to a child holding one end as descriptor 3, through `poll`; a handler wakes its loop with `send(MSG_DONTWAIT)` |
+  | A server and a client that share no pipe connect through a path | `server PATH &` and `client PATH`, both started by the shell |
+  | Peer exit gives end of file to a waiting reader and `EPIPE` to a writer | `peer`: a child that exits while the parent waits in `poll`, and one in a CPU loop that is killed; `sigpipe` ends with status 141 |
+  | A dead listener gives `ECONNREFUSED` | `stale`, on the path the server left; also `EADDRINUSE` until unlinked, `ENOENT` after, a renamed path still connects |
+  | `poll` wakes on readable, writable, a pending connection and hangup | `server` (waits for a connection), `peer` (waits for the hangup), `backlog` (each state) |
+  | Exhausting a quota fails with an errno; exit, abort and forced termination release | `quota`: 64 pairs then `ENFILE`; again 64 after exit, after `abort` (status 126) and after `timeout 1` ends a CPU loop (124); `backlog`: `EAGAIN` |
+  | `socket(AF_INET, ...)` and `AF_INET6` fail | `refuse`: `EAFNOSUPPORT`; datagram and seqpacket `EPROTOTYPE`; an abstract name `ENOENT`; `SCM_RIGHTS` `ENOTSUP` |
+  | The kernel's import list is unchanged | the suite compares the imports of `dist/dolly.wasm` with the nine names |
+
+- `node test/browser-tests.mjs chromium` (5 min 49 s): every suite passes
+  except seven that need what this chain did not build or cannot run under
+  the slot's cap: `amy`, `default` and `man` (the `git` and `python`
+  packages), `audio` (`audio-sdk`), `gpu-indicator` (`gpu-sdk`), `docs`
+  (`dolly-docs`), and `fs-growth`, which fills 8 GiB and is killed by the
+  browser slot's 6 GiB memory cap (`journalctl -k`: "Memory cgroup out of
+  memory").
+- Firefox: `process`, `core`, `threads`, `dso`, `host-modules`, `boundary`,
+  `cpp` and `shell` pass.
+- Source: `node --test 'test/*.test.mjs'`, 335 of 335; lint, 76 recipes.
+
+### What the first port chain found (image inputs `1dbe7a21…`)
+
+`DOLLY_BUILD_IMAGES=default,system,cc,git,audio-sdk,gpu-sdk,dolly-docs,python,rust,cmake-build,cmake,neovim`:
+27 min 54 s, exit 1. Built: `audio-sdk`, `cmake-build` (22 min 10 s),
+`cmake`, `dolly-docs`, `git`, `gpu-sdk`, `python` (114 s), `rust-sdk`,
+`rust-build`, `rust`. Two defects, both fixed before the chain below:
+
+- `neovim-build` stopped at `lua /tmp/luv/check.lua`: "error loading module
+  'luv' ... undefined symbol: getsockopt", and the cmake demo test stopped at
+  its libuv library the same way after its CMake half and the libuv probe had
+  passed. A host built `-rdynamic` exports libc to the libraries it loads from
+  the names in `dynamic-provider.symbols`; the socket calls were in that list
+  only through `libdolly-runtime.a`. `scripts/prepare-process-sysroot.sh` now
+  reads the sockets client too. This changes the seed: image inputs
+  `01da8fef…`.
+- The python demo test stopped at `socket.socketpair()`: CPython's Emscripten
+  site file denies `sys/un.h`, `socketpair` and `shutdown`, so `_socket` had
+  no `AF_UNIX` and Python's fallback pair asked for `AF_INET`.
+  `demos/python/prepare-cpython.sh` restores the three in `pyconfig.h`, as it
+  does `alarm` and `setitimer`.
+- Passed on those images: the Rust probe below (74 s in Chromium), and the
+  libuv probe on `system` in Chromium (13.5 s) and Firefox (10.8 s).
 
 ## Upgrading the ports
 
@@ -196,6 +331,66 @@ demo test. A workaround that is still needed stays, with the reason recorded
 here. Step 1 should retire the tokio and crossterm substitutions and libuv's
 two-way pipe refusal; step 2 allows Janis and Python servers and clients on a
 path. Network calls keep failing in all of them.
+
+### What was decided for each port (2026-10-08)
+
+Results of the rebuilt images and demo tests follow under "Ports, run".
+
+| Port | Workaround | Decision |
+| --- | --- | --- |
+| Tokio | `tokio-signal-pipe.patch` | Removed: the signal driver is upstream's `UnixStream::pair()` again |
+| crossterm | `crossterm.patch`, `UnixStream` hunks | Removed: the SIGWINCH and wake pairs are upstream's. The patch keeps its one other hunk, which reads the terminal's readiness with `poll` because the terminal has no `FIONREAD`; that is no socket matter |
+| Codex | `demos/codex/config/tui-events.patch` selects crossterm's `use-dev-tty` source | Kept: the default source (signal-hook-mio) would now find its socket pair, but which source Codex's TUI runs on is Codex's to change and to test in its own image |
+| Tokio, mio, socket2 | `tokio-target.patch`, `mio.patch`, `socket2.patch` | Kept, read hunk by hunk: they name the target (the `poll(2)` selector since there is no epoll, the pipe waker since there is no eventfd, `pipe2` and `accept4` flag lists, the `socket2` dependency and the wasm feature gate). None exists because a socket call failed. `get_peer_cred` still returns `ENOSYS`: tokio has no arm for this target and `sockets@0` offers no peer credentials |
+| libuv | `process.c` refused a stdio pipe that is both readable and writable | Removed: such a pipe is `uv_socketpair`, as upstream makes every stdio pipe; one direction stays a kernel pipe. Kept: an IPC pipe is `UV_ENOTSUP`, because it passes descriptors |
+| CPython | `_socket` compiled against `dolly_socket_stubs.c` | Removed for the twelve calls the libc now has (`accept`, `accept4`, `bind`, `getpeername`, `getsockname`, `getsockopt`, `listen`, `recvfrom`, `recvmsg`, `send`, `sendmsg`, `sendto`). Kept: the stubs for name resolution, interfaces and `inet_*`, which no local socket needs |
+| Janis | `net`, `http` and `https` raise `ENOSYS` from JavaScript; no IPC | Kept. What its users ask for is a TCP listener (`listen(1455)` for Pi's sign-in) and TCP clients, which stay refused; nothing in the catalog asks Janis for a path. Janis calls no libc socket function at all, so `net` on a path is new adapter code (three native calls, a duplex stream and a server in its event pump, cases for the Node oracle), to be written when a program needs it |
+
+### Ports, run (image inputs `01da8fef…`, runtime `fa012a7a…`)
+
+`DOLLY_IMAGE_JOBS=1 DOLLY_BUILD_IMAGES=default,system,cc,git,audio-sdk,gpu-sdk,dolly-docs,python,rust,cmake-build,cmake,neovim
+work/slot.sh build npm run image`: 27 images in 54 min 45 s, exit 0, while a
+catalog round ran in another worktree (`cmake-build` 27 min 6 s,
+`neovim-build` 3 min 51 s, `python` 2 min 6 s, `zig-build` 9 min 7 s, the
+three Rust images under 45 s each with the existing seed). `npm run
+build:runtime` afterwards prints the same two hashes.
+
+| Port | Image rebuilt | Run |
+| --- | --- | --- |
+| libuv | `cmake-build`, `cmake`, `neovim-build`, `nvim`, `neovim` | `npm run test:demos -- cmake`: passed (23.7 s): CMake, then the probe with a child on a two-way pipe (`uv_guess_handle` names it a pipe, `uv_shutdown` gives the child end of file) and libuv's server and client on a named pipe, then libuv as a library in an `-rdynamic` host. `npm run test:demos -- neovim`: passed (7.8 s). The probe alone on `system`: Chromium and Firefox |
+| CPython | `python` | `npm run test:demos -- python`: passed (29.2 s); `python-sockets.py`: `AF_INET` and `AF_INET6` are `EAFNOSUPPORT`, `socket.socketpair()`, and `asyncio.run` of a Unix server and client at a path |
+| Tokio, crossterm | `rust-sdk`, `rust-build`, `rust` (the existing seed, not relinked) | `build/sockets-evidence/tokio-probe.mjs`, the demo test's Tokio fixture on `system` plus the `rust` package (the demo test's own image, `rust-tools`, needs `cargo`): Patti builds Tokio 1.52.3 without the signal patch and crossterm with the reduced patch; the probe reads a resize through crossterm (`use-dev-tty`, as Codex builds it), a signal through Tokio's driver, `EAFNOSUPPORT` from a TCP connect, and a `UnixListener` and `UnixStream` at a path, twice. Chromium 68 s, Firefox 82 s |
+
+- Core suites on these images, each in Chromium and Firefox: `sockets`,
+  `process`, `core`, `threads`, `dso` (its library now makes a socket call
+  through its owner), `host-modules`, `boundary`, `cpp`, `shell`.
+- `node --test test/dolly.artifacts.mjs`: 16 of 16, among them that no kernel
+  import is named for a socket. Source: 416 of 416 (`test/` and `demos/`).
+- The scan again, on these 27 images: the same executables keep a socket
+  function as before the change (`rustc-real`, `cmake`, `git`, `lua`, `nvim`,
+  `python`, `zig`), no other.
+
+Not run: the Rust demo test itself (`rust-tools` needs the `cargo` image),
+the Codex chain, `javascript`, `emacs`, and every image outside the 27. The
+Rust seed was not relinked: `rustc-real` in these images still holds the
+stubs it was linked with, which it never calls.
+
+### What the catalog round must do
+
+- `npm run build:runtime`, then every image: the seed changed (the libc's
+  socket calls, the provider symbol list, two headers).
+- `demos/rust/build-rust-toolchain.sh`: its input key hashes the sysroot, so
+  it relinks `rustc-real`. `demos/rust/toolchain/link.sh` gained
+  `-ldolly-sockets`, which the provider symbol list now roots; that link was
+  not run here (this worktree holds the seed's tarball, not its build tree).
+- Rust images whose sources changed: `codex-build`, `codex-cli`, `codex`
+  (`demos/codex/prepare-codex-sources.py` no longer applies the Tokio signal
+  patch and applies the shorter crossterm patch; their source pins move in
+  the round's own preparation). Every other Rust image (`rust-sdk`,
+  `rust-build`, `rust`, `rust-tools`, `cargo`, `cbindgen`, `ripgrep`, `fd`,
+  `protox`) rebuilds for the seed alone.
+- `npm run test:demos -- rust` (its fixture now needs crossterm's crates from
+  the Codex sources) and the Codex demo test.
 
 ## Tests that decide it
 
