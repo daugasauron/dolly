@@ -22,7 +22,7 @@ test("every image declares its complete host set itself", async () => {
   // installs packages with amy and runs what they bring: threaded tools and
   // programs that load modules.
   const core = {
-    default: [...interactive, "packages@0", "threads@0", "dso@0"], system: interactive, "gpu-sdk": [...interactive, "gpu@0"],
+    default: [...interactive, "packages@0", "threads@0", "dso@0", "sockets@0"], system: interactive, "gpu-sdk": [...interactive, "gpu@0"],
     "audio-sdk": [...interactive, "audio@0"], "system-build": ["runtime@0", "http@0"], "zig-build": ["runtime@0", "http@0"],
     "ghostty-build": [...terminal, "http@0"],
     "system-tools": [...terminal, "download@0", "http@0", "upload@0"],

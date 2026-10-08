@@ -75,6 +75,20 @@ links a member of `libdolly-dso.a`: `cc -rdynamic` selects the loader's client,
 a call to `dolly_ffi_*` the FFI client. A program that only calls `dlopen`
 gets the process libc's refusal and records nothing.
 
+## Local sockets
+
+`sockets@0` has no import, no page or Worker side and no browser authority.
+Its kernel side is a descriptor kind of the runtime's table
+([`process-kernel.h`](../src/process-kernel.h)). Its client defines the
+libc's socket calls, which many programs reference for a network path they
+never take here, so `cc` does not link it with the other clients: a program
+asks with `-ldolly-sockets`
+([process model](../docs/process-model.md#local-sockets)). That argument
+comes before the archives `cc` adds, and the linker takes each name from the
+first archive that defines it; every other program gets libc's refusals
+([`socket-refusals.c`](../src/process/socket-refusals.c), an object that
+names the same functions and nothing else) and records nothing.
+
 ## Runtimes
 
 A runtime is a module whose manifest says `"provides": "kernel"`; `runtime@0`

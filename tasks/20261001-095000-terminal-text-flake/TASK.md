@@ -258,3 +258,166 @@ The same round moves this code into `input@0` next.
 Both are fast scripted typing; nobody has reported it from a keyboard. They
 point at the input path under load (bytes of one key's sequence delivered in
 two reads), not at any one program.
+
+# Input: typed and pasted text (2026-10-08, `fix/terminal-input`)
+
+Apart from the screen-reading entries above. Everything here is about bytes
+on their way from the page to the program that reads the terminal. Probes
+and logs: `build/input-evidence/` of `work/sockets` (not committed).
+
+## Sighting 2 reproduced: scripted typing overruns the ring
+
+`page.keyboard.type` at Playwright's default rate (about 1.6 ms a key) into
+Slop's prompt, image `system`, Chromium, 1280x800, load average 4 to 10
+(`type-slop-chromium-2.log`), wrong lines per attempts by line length:
+
+| 50 | 100 | 150 | 200 | 400 | 1000 |
+| --- | --- | --- | --- | --- | --- |
+| 0/3 | 0/3 | 3/3 | 3/3 | 3/3 | 3/3 |
+
+Every wrong line is whole for about 128 characters and has holes after that.
+The page counted every lost record in `data-input-dropped` (25 to 1583 a
+line) and showed "Input dropped": the ring holds 256 records, a typed
+character is two (key down, key up), and Slop took them slower than they came.
+
+Why Slop is slow (`rate-chromium-1.log`: 100 keys pushed at once, timed until
+the ring is empty, frames counted from `data-frame-sequence`):
+
+| canvas | ms per key | frames published for 100 keys |
+| --- | --- | --- |
+| 1280x800 | 1.5 | 102 |
+| 1920x1080 | 3.1 | 101 |
+| 2560x1440 | 5.6 | 101 |
+| 3840x2160 | 14.3 | 102 |
+
+One whole frame is drawn for every record the reader takes, key or text
+record alike. `fill_terminal_input` (`host/display/kernel.c:147`) asks the
+driver for pending terminal replies with `handle_event(NULL, …)` before every
+record, and the driver draws a dirty terminal on that call
+(`src/ghostty/display.c:850`): Slop's echo of the last key made it dirty. The
+service tick was meant to be the only caller that draws ("at most one dirty
+framebuffer per supervisor tick", `host/display/input-ring.c:25`).
+
+A person: 5 to 15 keys a second, 30 with a held key, against 670 a second
+taken at 1280x800 and 70 at 3840x2160 on this machine. Not reachable by
+typing here; a slower device with a large canvas narrows it.
+
+## Not causes (measured, Chromium, `system`)
+
+- A paste into Slop's prompt, written to a file by the commands it holds and
+  compared byte for byte (`paste-slop-chromium-1.log`), wrong per attempts:
+  one line of 200, 2,000 and 50,000 characters 0/3 each; many `echo … >> file`
+  lines totalling 200, 2,000 and 50,000 characters 0/3 each; the same after a
+  first line that runs a program (`cat /dev/null`) 0/3 each; 2,000 characters
+  where every line is a pipeline of programs 0/3.
+- Keys typed while a command runs (`sleep 3`, then 23 keys at 60 ms):
+  0 of 5 lost (`ahead-chromium-1.log`). The discard at process exit
+  (`9abd08b0`) applies to the program that holds the foreground role, which
+  only `/bin/foreground` gives (image entries); a command Slop runs is its
+  child and its exit discards nothing.
+- A program in raw mode (`rawread.c`: `tcsetattr` without ICANON, ECHO and
+  ISIG, `read(0, …, 65536)` until 0x04, every read logged), what it read
+  compared byte for byte (`raw-chromium-1.log`), one attempt a cell, all
+  equal: 150, 400 and 2,000 characters typed at Playwright's rate (2,000 in
+  234 ms, 8,500 keys a second, nothing dropped: without an echo there is no
+  frame to draw); pastes of 200, 2,000 and 50,000 characters with a newline
+  every 30, plain and with bracketed paste on, through `__dolly.paste`, with a
+  100-byte read buffer, and through the clipboard and Ctrl+Shift+V.
+
+## Sighting 1 explained: a 256-byte read cuts a key's sequence (Janis)
+
+Pi asks for kitty keyboard flags 7, so a typed character is its text on the
+press and `ESC [ code ; 1 : 3 u` on the release (`key_encode.zig` of the
+pinned Ghostty). Janis reads the terminal in `js_dolly_read_raw`
+(`demos/javascript/quickjs-main.c:882`) one byte a call into `bytes[256]` and
+hands Pi what it has when the buffer is full. The bytes of
+`! printf 'DOLLY-ENTRY-CW` as Playwright types them count 257: byte 256 is
+the `3` of W's release `ESC [ 1 1 9 ; 1 : 3 u` and byte 257 its `u`. Pi's
+input buffer (`pi-tui/dist/stdin-buffer.js`) gives up on an unfinished
+sequence after 50 ms and takes what follows as text: `CWuD`, as seen. It
+needs 23 keys waiting when Pi starts to read (Pi busy, as at start-up under
+load) and Pi spending 50 ms on the first chunk.
+
+Measured with the probe reading as Janis does (`-j`, flags 7, 60 keys queued,
+601 bytes): 3 reads of 256, 256 and 89 bytes, and both boundaries inside a
+sequence (`ESC [ 4 8 ;` | `1 : 3 u`, then `ESC` | `[ 4 8 ; 1 : 3 u`). The
+same keys through one `read` of 65,536: one read of 601 bytes, no cut.
+A person meets it by typing 23 keys or more while Pi does not read.
+
+## More counts before the fix (2026-10-08)
+
+- Firefox, the same typing at Slop's prompt (`type-slop-firefox-1.log`):
+  50 and 100 characters 0/3, 150, 200 and 400 characters 3/3 wrong, 7 to 405
+  records counted as dropped a line. The same as Chromium.
+- At a person's rate, Chromium (`type-slop-human-chromium-1.log`): 200
+  characters at 15 keys a second 0/3 wrong and at 5 a second 0/3, nothing
+  dropped. With node and the browser pinned to one core (`taskset -c 7`,
+  `type-slop-pinned-chromium-1.log`): 100 and 200 characters at 15 a second
+  0/3 each. The 2,000-character and the scripted one-core cells were stopped
+  unfinished when the round was cut short.
+- Paste, 2,000 and 50,000 characters with newlines, wrong per attempts:
+  Slop's prompt in Chromium 0/3 and 0/3 as one line, 0/3 and 0/3 as many
+  lines; the raw-mode reader in Chromium and in Firefox byte for byte equal,
+  plain and bracketed, with the same SHA-256 in both browsers
+  (`raw-firefox-1.log`); Neovim's insert mode (`nvim --clean`, the file it
+  wrote hashed) in Chromium 0/3 and 0/3, and 200 characters 0/3
+  (`nvim-chromium-1.log`); Slop's prompt in Firefox 200 and 2,000 as one line
+  0/3 each (50,000 not run). No paste lost or reordered a byte.
+- Neovim's insert mode, typed, Chromium: 150 and 400 characters at
+  Playwright's rate 0/3 each, 200 at 12 keys a second 0/3.
+
+## A paste a person can lose: no element focused (found on the way)
+
+Ctrl+Shift+V with the focus on the page body does nothing and says nothing,
+while typing still arrives (`focus-paste-chromium-1.log`: 1 of 1). The paste
+handler takes only pastes aimed at the hidden keyboard element, and a click
+on page text that is not a control (the status line) leaves no element
+focused. After a click on the terminal or the download button the element
+has the focus and the paste arrives (1 of 1 each).
+
+## Fixes (`fix/terminal-input`)
+
+- Kernel only, image inputs unchanged (`01da8fef…` before and after
+  `npm run build:runtime`): `fill_terminal_input` (`host/display/kernel.c`)
+  makes the driver call that also draws only once the reader has caught up,
+  so a person's echo shows as before; while records wait it fetches the
+  terminal's replies with a record the driver has nothing to do for, and the
+  service tick draws. `test/display-browser.mjs` pushes 100 keys at Slop's
+  prompt and counts the frames published until the ring is empty: against the
+  runtime without the fix it fails with "100 frames for the echo of 100 keys
+  in 10 ticks" (Chromium, `display-before-chromium.log`); with it the suite
+  passes in Chromium and Firefox (`suites-after.log`).
+- Page only, not an image input: the paste chord gives the keyboard element
+  the focus in the terminal as it did under a graphics lease
+  (`host/display/input.mjs`). `test/terminal-browser.mjs` pastes after a
+  blur; the suite passes in Chromium and Firefox. That test was not run
+  against the page without the fix; the probe above is its evidence.
+
+Ran after the fixes: `display` and `terminal`, once each in Chromium and
+Firefox, all four passed. Not run: the typing matrix again (the number of
+keys a second Slop now takes is not measured), the other core suites, any
+demo.
+
+## Left open
+
+- Janis (`demos/javascript/quickjs-main.c:882`) still cuts at 256 bytes. A
+  version of `js_dolly_read_raw` that returns everything that waits, with a
+  test that queues 60 keys under flags 7, was written and taken out again
+  unbuilt: it needs `typescript-build` and `javascript` rebuilt, and Pi's
+  chain after them.
+- The ring still drops what it has no room for, counted and shown on the
+  page. A test that types should read `data-input-dropped` when it fails.
+- Sighting 3 (Emacs received `/t` of a 26-byte text record) is not explained.
+  The record reaches a `read` whole on every path read here; Emacs drops its
+  own type-ahead on a command error (`discard-input`), which was not tested.
+  The `gnu-emacs` image was stale in this tree.
+- `core/input-module` moves `fill_terminal_input` to `host/input/kernel.c`
+  and gives the driver separate `read` and `present` calls, so the kernel
+  change here conflicts with it in text and is replaced by it in substance:
+  there every frame is the tick's. Its `discard_pending_input` still clears
+  the kernel's 256 bytes and not what the driver holds of a long paste, which
+  matters only when a program that holds the foreground role exits in the
+  middle of a paste.
+- Not measured: Python's REPL, a paste larger than 50,000 characters, keys
+  that AltGr or Option produce on Windows and macOS (the page passes Ctrl and
+  Alt as modifiers; read in the code, not tried).

@@ -5,7 +5,7 @@ REQUIRES HOST dso@0
 REQUIRES HOST http@0
 REQUIRES HOST threads@0
 
-FROM https://daugasauron.com/demos/rust/Dollyfile-rust-build 2f85d647bdc5d2b6c201f483291f7e5333ba29349187b32f8847d144eabff512
+FROM https://daugasauron.com/demos/rust/Dollyfile-rust-build 395772c3328df00491c72661dea806fe711e231633cad30331ef507a2e1eda49
 REQUIRES TOOL patti
 REQUIRES TOOL tar
 REQUIRES TOOL cp
@@ -34,7 +34,7 @@ SLOP cp /tmp/cargo/build/patti-build.json /usr/share/dolly/builds/cargo.json
 SLOP rm -rf /tmp/cargo /tmp/cargo.tar /tmp/cargo-patti.toml
 
 # Cargo runs rustc: the package brings the compiler it was built for.
-INSTALL https://daugasauron.com/demos/rust/Dollyfile-rust 697476ca1de7589b6286230dd3f4cd17854fc31610ccd9d754df657cf85727bc
+INSTALL https://daugasauron.com/demos/rust/Dollyfile-rust ad9b0bbd016e1bb529d66b0b972b81d64c6ce7688d2e0efd3b810ed980890372
 # Until Dolly has file locks: rustc's incremental sessions need them.
 EXPORTS ENV CARGO_INCREMENTAL 0
 EXPORTS TOOL cargo

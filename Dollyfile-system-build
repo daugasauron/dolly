@@ -31,6 +31,8 @@ SOURCE https://daugasauron.com/host/threads/threads.h ec223fbc34ff65f173f4b15e33
 SOURCE https://daugasauron.com/host/threads/threads-abi.h 894528f5f392b8f95e4617035ac799b9ff4d520a246ec1bd89b6d04257c644c1 /usr/include/dolly/threads-abi.h
 SOURCE https://daugasauron.com/host/dso/dso.h 8f58b257826b92a7f903d2a33484d6bc49bcc035dac5de3af288bc906728a67b /usr/include/dolly/dso.h
 SOURCE https://daugasauron.com/host/dso/dso-abi.h 7b2243afa5cf82109b2768264686cb57e4a611a577a74793056b4f7cfc2e68f4 /usr/include/dolly/dso-abi.h
+SOURCE https://daugasauron.com/host/sockets/sockets.h 8abea9ccf861677d4dec5a222d048a6be691e8c7f6596d604dd601d44cb65eb3 /usr/include/dolly/sockets.h
+SOURCE https://daugasauron.com/host/sockets/sockets-abi.h d707a200164602165663283a79c2cd43d3932a330dac2dbeddd1e0ef87d7b158 /usr/include/dolly/sockets-abi.h
 
 EXPORTS HEADER libc      /usr/include
 EXPORTS HEADER toolchain /usr/include/dolly/toolchain.h
@@ -57,6 +59,8 @@ EXPORTS HEADER threads /usr/include/dolly/threads.h
 EXPORTS HEADER threads-abi /usr/include/dolly/threads-abi.h
 EXPORTS HEADER dso /usr/include/dolly/dso.h
 EXPORTS HEADER dso-abi /usr/include/dolly/dso-abi.h
+EXPORTS HEADER sockets /usr/include/dolly/sockets.h
+EXPORTS HEADER sockets-abi /usr/include/dolly/sockets-abi.h
 
 EXPORTS LIB compiler-rt /usr/lib/libclang_rt.builtins.a
 EXPORTS LIB dolly-gpu /usr/lib/dolly/process/libdolly-gpu.a

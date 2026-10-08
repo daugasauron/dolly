@@ -8,7 +8,7 @@ REQUIRES HOST runtime@0
 # seed ships the container's builtins; Dollyfile-system-build compiles the
 # other three itself. A process link takes these instead only when it names
 # the directory: -L/usr/lib/llvm-runtimes.
-FROM https://daugasauron.com/Dollyfile-system-tools 90721b2609286ae992dbb6473f68e48bc38b79acef06433a2136868e67f1c513
+FROM https://daugasauron.com/Dollyfile-system-tools bd54fde46734089b841b63c7ea3a9c2edbdfc3a400c20c70615f68f7fa16b16f
 REQUIRES TOOL c++
 REQUIRES TOOL cc
 REQUIRES TOOL ar

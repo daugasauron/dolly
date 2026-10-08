@@ -5,20 +5,20 @@ REQUIRES HOST runtime@0
 # The platform as a program sees it: the documents and machine contracts of
 # this release at their repository paths, so their links to each other work.
 # The rows are checked against the documents' links (test/platform-documents.test.mjs).
-SOURCE https://daugasauron.com/docs/process-model.md 340ba7d95e053fb11165095073e32df3ba39e278a547b4af5848953bd01d40c1 /usr/share/doc/dolly/docs/process-model.md
+SOURCE https://daugasauron.com/docs/process-model.md f3144987708692bae0b02b4c18a10c6e567069abbe36d49a7c694b76fc92d4b3 /usr/share/doc/dolly/docs/process-model.md
 SOURCE https://daugasauron.com/docs/browser-stack.md 2944e47cd37225b0729452455d762054021a50c09a87c1254af8d2b1fbb6a335 /usr/share/doc/dolly/docs/browser-stack.md
 SOURCE https://daugasauron.com/docs/slop.md c1c3a9e0e5584a2120079fcce6562b272edee890aadd106bfd10b65110ac01f1 /usr/share/doc/dolly/docs/slop.md
 SOURCE https://daugasauron.com/docs/display.md 32601ae0ab7977ac5008709344cf3bc4a140bf7dbb45f20da6b36ec6ee71f820 /usr/share/doc/dolly/docs/display.md
 SOURCE https://daugasauron.com/docs/gpu.md f57940e72153898014baa7882a70a0d5d5fcd24508d5d22c70bcf323e3f5bef4 /usr/share/doc/dolly/docs/gpu.md
 SOURCE https://daugasauron.com/docs/audio.md ebea715a5708fdea8824ee0370f3c8549d81bd7cf66128c0e6f91c42f683e73d /usr/share/doc/dolly/docs/audio.md
-SOURCE https://daugasauron.com/docs/http.md 73a4c12a0f5bce6e71651f0415a211a02e97b6d70597237addf977ef93b66ca8 /usr/share/doc/dolly/docs/http.md
+SOURCE https://daugasauron.com/docs/http.md 9e04bde1bd1d513782f0e01697d142f3b4075e1b0a9a03c977dcf925a18813cb /usr/share/doc/dolly/docs/http.md
 SOURCE https://daugasauron.com/docs/sessions.md 0cb99863a6accef672b64d8a5a4856c67ca95fdab82c353965bfaf22f6759245 /usr/share/doc/dolly/docs/sessions.md
-SOURCE https://daugasauron.com/docs/dollyfile.md 04bcc42529d07b5adb417d4df7d413349fbf563f5eee19f8fff32e5a3879b9ae /usr/share/doc/dolly/docs/dollyfile.md
+SOURCE https://daugasauron.com/docs/dollyfile.md 4ecf9592f50679bd1e94acf405e73a740728c876dea890cf83cc1821d3ce1bbd /usr/share/doc/dolly/docs/dollyfile.md
 SOURCE https://daugasauron.com/docs/architecture.md 426e04102b4c97517553efa7ee910d7462f44d67e9ae3e1ccfd76e96681d847b /usr/share/doc/dolly/docs/architecture.md
-SOURCE https://daugasauron.com/docs/browser-boundary.md b3ffeb6a6659ed0cd397ef9673fb7c950ca02b681324f40146e5421cd0702c1b /usr/share/doc/dolly/docs/browser-boundary.md
+SOURCE https://daugasauron.com/docs/browser-boundary.md 5586ea7d697456c4f0b5b8aedc411501081d376ca6846b96dc0935c84ac274f7 /usr/share/doc/dolly/docs/browser-boundary.md
 SOURCE https://daugasauron.com/docs/image-build-service.md 43bbcfcf7c5e7c8ce83f91c55b3c4bc0682651b2905ba35089b2b85b3b13efa9 /usr/share/doc/dolly/docs/image-build-service.md
 SOURCE https://daugasauron.com/abi/README.md 4a3caf8ffbf15cf7a4b4aaea5e1ec1f0278cd1df5e23b61d71cccef796f1788d /usr/share/doc/dolly/abi/README.md
-SOURCE https://daugasauron.com/host/README.md 27459ad2735daaf04ae3e4cb94a6f1823427d08368451742cde65776ddf8e49b /usr/share/doc/dolly/host/README.md
+SOURCE https://daugasauron.com/host/README.md 18e1a5e6b4f40496f513dd294992543fe36cdb64124bcb0d4a3e1e5839ecca9d /usr/share/doc/dolly/host/README.md
 SOURCE https://daugasauron.com/abi/dolly-browser-0.wat fd7137b44e4a2b54ba1150fc4b8d1214b578e721871075ca4ff4144ef660faaf /usr/share/doc/dolly/abi/dolly-browser-0.wat
 SOURCE https://daugasauron.com/abi/dolly-host-0.wat 7d1a02e3317086c06ca022e917d6d8537d9a005e9804e5ffdf256dc7d70c8671 /usr/share/doc/dolly/abi/dolly-host-0.wat
 SOURCE https://daugasauron.com/abi/dolly-image-0.wat 9a16a6472d26ee6ca5d7a67a474a1723745b3eefaf585bd292d115725bf44d6a /usr/share/doc/dolly/abi/dolly-image-0.wat
@@ -35,6 +35,7 @@ SOURCE https://daugasauron.com/host/dso/dolly-dso-0.wat c7ec277a279bf43f660ae802
 SOURCE https://daugasauron.com/host/gpu/dolly-gpu-0.wat 2dc0bed0e75621938eac9e7d65c1575dbd666bb24ada4e176a1ef1bf1b9f2ab7 /usr/share/doc/dolly/host/gpu/dolly-gpu-0.wat
 SOURCE https://daugasauron.com/host/http/dolly-http-0.wat d15733708906375e1f717b447d5d743d7c6562a7fe8bc44ec2cf018acb960f12 /usr/share/doc/dolly/host/http/dolly-http-0.wat
 SOURCE https://daugasauron.com/host/snapshot/dolly-snapshot-0.wat 952a3f794788c0a59c57c0e61b182036794fa84fa6e91787f3cf7f5a54b00f2a /usr/share/doc/dolly/host/snapshot/dolly-snapshot-0.wat
+SOURCE https://daugasauron.com/host/sockets/dolly-sockets-0.wat 9be4f7cb45d09c2e442033f8ce283c1ce5d04d1538918540740423a29443fbe4 /usr/share/doc/dolly/host/sockets/dolly-sockets-0.wat
 SOURCE https://daugasauron.com/host/threads/dolly-threads-0.wat b900fd7380154710aad9bfe76cd4ee69a73de31a7265b5cb81f1008e1e19d003 /usr/share/doc/dolly/host/threads/dolly-threads-0.wat
 SOURCE https://daugasauron.com/host/threads/dolly-threads-supervisor-0.wat af90e6b1e934c3762b915e2b075cbff3b2f74d7164e61c2a6b07dccd9f1c2504 /usr/share/doc/dolly/host/threads/dolly-threads-supervisor-0.wat
 SOURCE https://daugasauron.com/host/upload/dolly-upload-0.wat b58e827a56aa158cd759f247151fded6286a526d7c4392d2486cdf8097dfb9bc /usr/share/doc/dolly/host/upload/dolly-upload-0.wat

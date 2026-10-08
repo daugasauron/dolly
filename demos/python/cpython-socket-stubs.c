@@ -15,108 +15,6 @@ static int unavailable(void) {
   return -1;
 }
 
-int dolly_py_accept(int descriptor, struct sockaddr *address,
-                    socklen_t *address_length) {
-  (void)descriptor;
-  (void)address;
-  (void)address_length;
-  return unavailable();
-}
-
-int dolly_py_accept4(int descriptor, struct sockaddr *address,
-                     socklen_t *address_length, int flags) {
-  (void)flags;
-  return dolly_py_accept(descriptor, address, address_length);
-}
-
-int dolly_py_bind(int descriptor, const struct sockaddr *address,
-                  socklen_t address_length) {
-  (void)descriptor;
-  (void)address;
-  (void)address_length;
-  return unavailable();
-}
-
-int dolly_py_listen(int descriptor, int backlog) {
-  (void)descriptor;
-  (void)backlog;
-  return unavailable();
-}
-
-int dolly_py_getpeername(int descriptor, struct sockaddr *address,
-                         socklen_t *address_length) {
-  (void)descriptor;
-  (void)address;
-  (void)address_length;
-  return unavailable();
-}
-
-int dolly_py_getsockname(int descriptor, struct sockaddr *address,
-                         socklen_t *address_length) {
-  (void)descriptor;
-  (void)address;
-  (void)address_length;
-  return unavailable();
-}
-
-int dolly_py_getsockopt(int descriptor, int level, int option,
-                        void *value, socklen_t *value_length) {
-  (void)descriptor;
-  (void)level;
-  (void)option;
-  (void)value;
-  (void)value_length;
-  return unavailable();
-}
-
-ssize_t dolly_py_recvfrom(int descriptor, void *buffer, size_t length,
-                          int flags, struct sockaddr *address,
-                          socklen_t *address_length) {
-  (void)descriptor;
-  (void)buffer;
-  (void)length;
-  (void)flags;
-  (void)address;
-  (void)address_length;
-  return (ssize_t)unavailable();
-}
-
-ssize_t dolly_py_recvmsg(int descriptor, struct msghdr *message, int flags) {
-  (void)descriptor;
-  (void)message;
-  (void)flags;
-  return (ssize_t)unavailable();
-}
-
-ssize_t dolly_py_send(int descriptor, const void *buffer, size_t length,
-                      int flags) {
-  (void)descriptor;
-  (void)buffer;
-  (void)length;
-  (void)flags;
-  return (ssize_t)unavailable();
-}
-
-ssize_t dolly_py_sendmsg(int descriptor, const struct msghdr *message,
-                         int flags) {
-  (void)descriptor;
-  (void)message;
-  (void)flags;
-  return (ssize_t)unavailable();
-}
-
-ssize_t dolly_py_sendto(int descriptor, const void *buffer, size_t length,
-                        int flags, const struct sockaddr *address,
-                        socklen_t address_length) {
-  (void)descriptor;
-  (void)buffer;
-  (void)length;
-  (void)flags;
-  (void)address;
-  (void)address_length;
-  return (ssize_t)unavailable();
-}
-
 int dolly_py_poll(struct pollfd *descriptors, nfds_t count, int timeout) {
   return poll(descriptors, count, timeout);
 }
@@ -136,7 +34,7 @@ void dolly_py_freeaddrinfo(struct addrinfo *result) { (void)result; }
 
 const char *dolly_py_gai_strerror(int error) {
   (void)error;
-  return "Dolly raw sockets are unavailable";
+  return "Dolly resolves no host names";
 }
 
 struct hostent *dolly_py_gethostbyaddr(const void *address, socklen_t length,

@@ -13,7 +13,7 @@ shutil.rmtree(stage, ignore_errors=True)
 probe = stage / "probe"
 shutil.copytree("demos/rust/test/fixtures/rust/tokio", probe)
 lock = (codex / "Cargo.lock").read_text()
-(probe / "Cargo.lock").write_text(lock + '\n[[package]]\nname="dolly-tokio-probe"\nversion="0.0.0"\ndependencies=["libc", "tokio", "zlib-rs 0.5.5"]\n')
+(probe / "Cargo.lock").write_text(lock + '\n[[package]]\nname="dolly-tokio-probe"\nversion="0.0.0"\ndependencies=["crossterm", "libc", "tokio", "zlib-rs 0.5.5"]\n')
 records = tomllib.loads(lock)["package"]
 selected = {}
 
@@ -30,6 +30,8 @@ def visit(package):
 
 
 visit(next(p for p in records if p["name"] == "tokio"))
+crossterm = next(p for p in records if p["name"] == "crossterm")
+visit(crossterm)
 visit(next(p for p in records if p["name"] == "zlib-rs" and p["version"] == "0.5.5"))
 archives = stage / "archives"
 archives.mkdir()
@@ -40,4 +42,5 @@ for package in selected.values():
 mappings = [str(probe), "/tmp/tokio/probe", str(archives), "/tmp/tokio/cache/archives"]
 for name in ["tokio-1.52.3", "mio-1.2.0", "socket2-0.6.3", "zlib-rs-0.5.5"]:
     mappings.extend([str(source / name), "/tmp/tokio/" + name])
+mappings.extend([str(source / "git" / crossterm["source"].partition("#")[2]), "/tmp/tokio/crossterm"])
 subprocess.run(["node", "scripts/build-source-tar.mjs", "build/fixtures/tokio.tar", *mappings], check=True)

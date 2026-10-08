@@ -8,14 +8,14 @@ REQUIRES HOST input@0
 REQUIRES HOST snapshot@0
 REQUIRES HOST upload@0
 
-FROM https://daugasauron.com/Dollyfile-system d54406310fdea1a671b44477fbf376b8e742536b8b2f7afe5f504db060ff0b2d
-COPY https://daugasauron.com/demos/xonotic/Dollyfile-xonotic-build ba63017e855fb210222d3d01574df632dc7c605caa5ab203d478c88a70f5aea6 /usr/bin/xonotic-sdl /usr/bin/xonotic-sdl
-COPY https://daugasauron.com/demos/xonotic/Dollyfile-xonotic-build ba63017e855fb210222d3d01574df632dc7c605caa5ab203d478c88a70f5aea6 /usr/share/licenses/xonotic /usr/share/licenses/xonotic
-COPY https://daugasauron.com/demos/sdl2/Dollyfile-sdl2 780aab47227496daec6bbbd8c4f0cad67c60ac58abe2419968204d8b028ebc15 /usr/share/licenses/SDL2 /usr/share/licenses/SDL2
+FROM https://daugasauron.com/Dollyfile-system 5c197324e0089a7a37e6fc342997a55752d2cf459254df9d1ffe3d26bdb41450
+COPY https://daugasauron.com/demos/xonotic/Dollyfile-xonotic-build 2672d14aa69c534b6c668a15c935b68800a8d26245ed8736977b8364df675bf0 /usr/bin/xonotic-sdl /usr/bin/xonotic-sdl
+COPY https://daugasauron.com/demos/xonotic/Dollyfile-xonotic-build 2672d14aa69c534b6c668a15c935b68800a8d26245ed8736977b8364df675bf0 /usr/share/licenses/xonotic /usr/share/licenses/xonotic
+COPY https://daugasauron.com/demos/sdl2/Dollyfile-sdl2 5b191b36a60aa7b57ba12693ad208f29fd4d6c800f82e42c0ae2156a7c66b46a /usr/share/licenses/SDL2 /usr/share/licenses/SDL2
 # Licences of the libraries linked into the client.
-COPY https://daugasauron.com/demos/xonotic/Dollyfile-xonotic-build ba63017e855fb210222d3d01574df632dc7c605caa5ab203d478c88a70f5aea6 /usr/share/licenses/libjpeg /usr/share/licenses/libjpeg
-COPY https://daugasauron.com/demos/zero-ad/Dollyfile-zero-ad-deps 8120984128cf0826c6af57816663bbdb5111fcc681ba002de1286d9429977f83 /usr/share/licenses/freetype /usr/share/licenses/freetype
-COPY https://daugasauron.com/demos/zero-ad/Dollyfile-zero-ad-deps 8120984128cf0826c6af57816663bbdb5111fcc681ba002de1286d9429977f83 /usr/share/licenses/libpng /usr/share/licenses/libpng
+COPY https://daugasauron.com/demos/xonotic/Dollyfile-xonotic-build 2672d14aa69c534b6c668a15c935b68800a8d26245ed8736977b8364df675bf0 /usr/share/licenses/libjpeg /usr/share/licenses/libjpeg
+COPY https://daugasauron.com/demos/zero-ad/Dollyfile-zero-ad-deps d765a4518d61d1479b7ab72e77a77bf59cb8c4767927099c7eea4049a0c89e82 /usr/share/licenses/freetype /usr/share/licenses/freetype
+COPY https://daugasauron.com/demos/zero-ad/Dollyfile-zero-ad-deps d765a4518d61d1479b7ab72e77a77bf59cb8c4767927099c7eea4049a0c89e82 /usr/share/licenses/libpng /usr/share/licenses/libpng
 # Dolly's notices for this image: the IJG sentence, the fonts' terms and the
 # Bitstream Vera glyph sheet (the release carries no notice for it).
 FILE /usr/share/licenses/xonotic/NOTICE

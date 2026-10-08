@@ -7,7 +7,7 @@ REQUIRES HOST download@0
 REQUIRES HOST http@0
 REQUIRES HOST upload@0
 
-FROM https://daugasauron.com/Dollyfile-system-build d7cbbd59498e1a3e030a4489d85ea53949d7070cea5bfa1a0479ac3662edbd6d
+FROM https://daugasauron.com/Dollyfile-system-build 072c1979af90daa285cbdd6982cf4efca6778ab6265897344ce5538b995c9817
 # Unchanged upstream sbase commands, built by sbase's own Makefile.
 REQUIRES HEADER libc
 REQUIRES TOOL   ar
@@ -212,9 +212,9 @@ FILE /usr/share/licenses/samurai/LICENSE
 SLOP rm \
   -rf \
   /tmp/ninja
-INSTALL https://daugasauron.com/Dollyfile-zlib 58a8529d78120fc3ecbb5c52582010c6bcf09faba6fb1ed4581dde999cc76509
-INSTALL https://daugasauron.com/Dollyfile-gzip 2c8ff52fd37da21575abbb8e0e695a4fbe66760026e51d40ada188f40c800b39
-INSTALL https://daugasauron.com/Dollyfile-curl f133c087e1d1a05abed96a54d88c0e5f4cf11e8d1897f21c1392ae93a1d58e6a
+INSTALL https://daugasauron.com/Dollyfile-zlib d619501352fd3f8b9adf97d88b87dcc1d52e30621c0aa5715ba949a55a6e186a
+INSTALL https://daugasauron.com/Dollyfile-gzip a49ce2141a086fce710471994f4d1e2c11df91e76eba2a1a79c30eb2f6c6c565
+INSTALL https://daugasauron.com/Dollyfile-curl f8b7c9cbe8cb0b3b03226f830406805fbb98d33837a36d2c3f6f8386bdbefee2
 REQUIRES TOOL   mkdir
 REQUIRES LIB    curl
 REQUIRES LIB    z
@@ -440,6 +440,6 @@ SLOP ln -s slop /bin/sh
 EXPORTS TOOL sh
 SLOP cp /usr/share/man/cat1/slop.1 /usr/share/man/cat1/sh.1
 FOLDER /usr/share/man
-INSTALL https://daugasauron.com/Dollyfile-display c64a1fd4ffb44196a0d9283a849f3a7febc9e608160be3a303bb110a4d4967c1
+INSTALL https://daugasauron.com/Dollyfile-display 1eccd55b6363ac17661681e9df46495a7fd3e7469d45486dc1a37ec16ab82124
 
 ENTRY /bin/foreground -i /bin/slop

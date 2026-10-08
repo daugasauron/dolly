@@ -2,16 +2,17 @@ DOLLY 6
 PACKAGE codex-cli
 REQUIRES HOST runtime@0
 REQUIRES HOST http@0
+REQUIRES HOST sockets@0
 REQUIRES HOST threads@0
 
 # Codex as codex-build compiles it, the launcher that seeds CODEX_HOME, and
 # the search tools Codex runs.
-FROM https://daugasauron.com/Dollyfile-system d54406310fdea1a671b44477fbf376b8e742536b8b2f7afe5f504db060ff0b2d
-COPY https://daugasauron.com/demos/codex/Dollyfile-codex-build ba3e16cb79529ca64fc9049914b0d3e29c65c1fe55c1b03306d224940897c6e4 /usr/bin/codex /usr/libexec/codex
-COPY https://daugasauron.com/demos/codex/Dollyfile-codex-build ba3e16cb79529ca64fc9049914b0d3e29c65c1fe55c1b03306d224940897c6e4 /usr/share/licenses/codex /usr/share/licenses/codex
-COPY https://daugasauron.com/demos/codex/Dollyfile-codex-build ba3e16cb79529ca64fc9049914b0d3e29c65c1fe55c1b03306d224940897c6e4 /usr/share/dolly/builds/codex.json /usr/share/dolly/builds/codex.json
-INSTALL https://daugasauron.com/demos/rust/Dollyfile-ripgrep 7db50555054373bd61bcc823f9da2a8b881350a5f908a473d879a16beb292f49
-INSTALL https://daugasauron.com/demos/rust/Dollyfile-fd c78e592f930c8e890f8d433e94504041ed575f24591388ceba50909378f3c3e9
+FROM https://daugasauron.com/Dollyfile-system 5c197324e0089a7a37e6fc342997a55752d2cf459254df9d1ffe3d26bdb41450
+COPY https://daugasauron.com/demos/codex/Dollyfile-codex-build c01062b444e6c59174018148f77b5aefece81a09cea0568b0292dae2f3599efc /usr/bin/codex /usr/libexec/codex
+COPY https://daugasauron.com/demos/codex/Dollyfile-codex-build c01062b444e6c59174018148f77b5aefece81a09cea0568b0292dae2f3599efc /usr/share/licenses/codex /usr/share/licenses/codex
+COPY https://daugasauron.com/demos/codex/Dollyfile-codex-build c01062b444e6c59174018148f77b5aefece81a09cea0568b0292dae2f3599efc /usr/share/dolly/builds/codex.json /usr/share/dolly/builds/codex.json
+INSTALL https://daugasauron.com/demos/rust/Dollyfile-ripgrep c24d438ec292812ddfd05597b7c2154bf8c9764efa9d50c342e9974383bb1c4f
+INSTALL https://daugasauron.com/demos/rust/Dollyfile-fd 5bda2bcb333d1428f709dc5d18c3d530c936d9fdb461463913865177ca5ad774
 REQUIRES HEADER libc
 REQUIRES HEADER runtime
 REQUIRES TOOL cc

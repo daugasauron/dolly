@@ -192,7 +192,8 @@ done | in_container
 for module in $(printf '%s\n' "${clients[@]%% *}" | uniq); do
   replace_if_changed "build/libdolly-${module}.a.new" "build/libdolly-${module}.a"
 done
-mapfile -t client_links < <(node scripts/host-modules.mjs client | awk '{ print "-ldolly-" $1 }' | uniq)
+# Not sockets@0's client: a program links it by asking (-ldolly-sockets).
+mapfile -t client_links < <(node scripts/host-modules.mjs client | awk '$1 != "sockets" { print "-ldolly-" $1 }' | uniq)
 
 build_process() {
   local output="$1"

@@ -221,7 +221,9 @@ and `/host/MODULE/`, prepared sources in `/dist/static/`.
   for an unknown module or a different layout. Calling a disabled module
   returns `ENOSYS`. `-pthread` programs need `REQUIRES HOST threads@0`,
   `-rdynamic` programs and FFI callers `dso@0`
-  ([process model](process-model.md#threads-dsos-and-ffi)).
+  ([process model](process-model.md#threads-dsos-and-ffi)), programs linked
+  with `-ldolly-sockets` `sockets@0`
+  ([local sockets](process-model.md#local-sockets)).
 
 ## Entry and startup
 
