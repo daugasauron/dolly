@@ -1,7 +1,8 @@
 /* SPDX-License-Identifier: MIT
  * An x86-64 interpreter for user code: the integer instructions compilers
- * and hand-written programs use, and the SSE moves that copy data. No
- * floating point, no JIT. An instruction it does not know stops the run
+ * and hand-written programs use, and the SSE moves that copy data. Of x87
+ * only the control word, no SSE arithmetic, no JIT; one thread, so a lock
+ * prefix changes nothing. An instruction it does not know stops the run
  * with its bytes named; it never guesses.
  *
  * Guest memory is this process's memory: an address is used as it is. */
@@ -240,7 +241,71 @@ static int two_byte( struct decoder *d, const uint8_t *start )
     }
     else switch (opcode)
     {
-    case 0x1f: modrm( d, &op, 0 ); break;  /* nop */
+    case 0x18: case 0x1f: modrm( d, &op, 0 ); break;  /* prefetch, nop */
+    case 0xa3: case 0xab: case 0xb3: case 0xbb: case 0xba:  /* bt, bts, btr, btc */
+    {
+        unsigned operation;
+        uint64_t bit;
+        reg = modrm( d, &op, opcode == 0xba ? 1 : 0 );
+        if (opcode == 0xba) { operation = reg & 3; bit = *d->p++; if ((reg & 7) < 4) { unknown( cpu, start ); return 0; } }
+        else
+        {
+            operation = (opcode >> 3) & 3;
+            bit = get_reg( d, reg, size );
+            if (!op.is_reg) op.addr += (sext( bit, size ) >> (size == 2 ? 4 : size == 4 ? 5 : 6)) * size;  /* a bit string */
+        }
+        bit &= size * 8 - 1;
+        value = get( d, &op, size );
+        cpu->flags = (cpu->flags & ~(uint64_t)CF) | ((value >> bit) & 1);
+        if (operation == 1) value |= 1ull << bit;
+        else if (operation == 2) value &= ~(1ull << bit);
+        else if (operation == 3) value ^= 1ull << bit;
+        if (operation) set( d, &op, size, value );
+        break;
+    }
+    case 0xa4: case 0xa5: case 0xac: case 0xad:  /* shld, shrd */
+    {
+        unsigned count, bits = size * 8;
+        uint64_t other, carry;
+        reg = modrm( d, &op, opcode & 1 ? 0 : 1 );
+        count = (opcode & 1 ? cpu->r[RCX] : *d->p++) & (size == 8 ? 63 : 31);
+        value = get( d, &op, size );
+        other = get_reg( d, reg, size );
+        if (!count) break;
+        if (count >= bits) { unknown( cpu, start ); return 0; }
+        if (opcode < 0xac) { carry = (value >> (bits - count)) & 1; value = (value << count) | (other >> (bits - count)); }
+        else { carry = (value >> (count - 1)) & 1; value = (value >> count) | (other << (bits - count)); }
+        set_szp( cpu, value, size );
+        cpu->flags = (cpu->flags & ~(uint64_t)CF) | carry;
+        set( d, &op, size, value );
+        break;
+    }
+    case 0xb0: case 0xb1:  /* cmpxchg */
+        if (opcode == 0xb0) size = 1;
+        reg = modrm( d, &op, 0 );
+        value = get( d, &op, size );
+        alu( cpu, 7, get_reg( d, RAX, size ), value, size );
+        if (cpu->flags & ZF) set( d, &op, size, get_reg( d, reg, size ) );
+        else set_reg( d, RAX, size, value );
+        break;
+    case 0xc0: case 0xc1:  /* xadd */
+        if (opcode == 0xc0) size = 1;
+        reg = modrm( d, &op, 0 );
+        value = get( d, &op, size );
+        set( d, &op, size, alu( cpu, 0, value, get_reg( d, reg, size ), size ) );
+        set_reg( d, reg, size, value );
+        break;
+    case 0xbc: case 0xbd:  /* bsf, bsr; with F3 they are tzcnt and lzcnt, which differ */
+        if (d->rep) { unknown( cpu, start ); return 0; }
+        reg = modrm( d, &op, 0 );
+        value = get( d, &op, size );
+        cpu->flags = (cpu->flags & ~(uint64_t)ZF) | (value ? 0 : ZF);
+        if (value) set_reg( d, reg, size, opcode == 0xbc ? __builtin_ctzll( value ) : 63 - __builtin_clzll( value ) );
+        break;
+    case 0xc8: case 0xc9: case 0xca: case 0xcb: case 0xcc: case 0xcd: case 0xce: case 0xcf:  /* bswap */
+        reg = (opcode & 7) | ((d->rex & 1) << 3);
+        set_reg( d, reg, size, size == 8 ? __builtin_bswap64( cpu->r[reg] ) : __builtin_bswap32( (uint32_t)cpu->r[reg] ) );
+        break;
     case 0xa2: cpu->r[RAX] = cpu->r[RBX] = cpu->r[RCX] = cpu->r[RDX] = 0; break;  /* cpuid: no features */
     case 0xaf:  /* imul r, r/m */
         reg = modrm( d, &op, 0 );
@@ -311,6 +376,8 @@ void cpu_run( struct cpu *cpu, uint64_t stops, uint64_t stops_end )
     {
         const uint8_t *start = (const uint8_t *)cpu->rip;
         struct decoder d = { cpu, start };
+
+        if (cpu->rip < 0x10000) { cpu->error = "call of a null pointer, or of a function of Wine's as if it were x86 code"; return; }
         struct operand op;
         unsigned opcode, size, reg;
         uint64_t a, b;
@@ -320,7 +387,7 @@ void cpu_run( struct cpu *cpu, uint64_t stops, uint64_t stops_end )
             if (*d.p == 0x66) d.opsize16 = 1;
             else if (*d.p == 0xf2 || *d.p == 0xf3) d.rep = *d.p;
             else if (*d.p == 0x65) d.segment_gs = 1;
-            else if (*d.p != 0x2e && *d.p != 0x3e && *d.p != 0x26 && *d.p != 0x36 && *d.p != 0x64) break;
+            else if (*d.p != 0x2e && *d.p != 0x3e && *d.p != 0x26 && *d.p != 0x36 && *d.p != 0x64 && *d.p != 0xf0) break;
         }
         if ((*d.p & 0xf0) == 0x40) d.rex = *d.p++;
         size = d.size = d.rex & 8 ? 8 : d.opsize16 ? 2 : 4;
@@ -405,6 +472,36 @@ void cpu_run( struct cpu *cpu, uint64_t stops, uint64_t stops_end )
             if (opcode == 0xa8) size = 1;
             alu( cpu, 4, get_reg( &d, RAX, size ), (uint64_t)imm( &d, size ), size );
             break;
+        case 0x9b: break;  /* fwait */
+        case 0x9c: push( cpu, cpu->flags ); break;
+        case 0x9d: cpu->flags = pop( cpu ); break;
+        case 0xa0: case 0xa1: case 0xa2: case 0xa3:  /* mov between rax and an absolute address */
+            if (!(opcode & 1)) size = 1;
+            memcpy( &a, d.p, 8 ); d.p += 8;
+            if (opcode < 0xa2) set_reg( &d, RAX, size, load( a, size ) );
+            else store( a, size, cpu->r[RAX] );
+            break;
+        case 0xa6: case 0xa7: case 0xae: case 0xaf:  /* cmps, scas: repeated while equal (F3) or while different (F2) */
+        {
+            int64_t step = (cpu->flags & DF) ? -1 : 1;
+            if (!(opcode & 1)) size = 1;
+            while (!d.rep || cpu->r[RCX])
+            {
+                a = opcode < 0xae ? load( cpu->r[RSI], size ) : get_reg( &d, RAX, size );
+                alu( cpu, 7, a, load( cpu->r[RDI], size ), size );
+                cpu->r[RDI] += step * size;
+                if (opcode < 0xae) cpu->r[RSI] += step * size;
+                if (!d.rep) break;
+                cpu->r[RCX]--;
+                if (!(cpu->flags & ZF) == (d.rep == 0xf3)) break;
+            }
+            break;
+        }
+        case 0xac: case 0xad:  /* lods */
+            if (!(opcode & 1)) size = 1;
+            set_reg( &d, RAX, size, load( cpu->r[RSI], size ) );
+            cpu->r[RSI] += (cpu->flags & DF) ? -(int64_t)size : (int64_t)size;
+            break;
         case 0xa4: case 0xa5: case 0xaa: case 0xab:  /* movs, stos, repeated by rcx */
         {
             int64_t step = (cpu->flags & DF) ? -1 : 1;
@@ -433,6 +530,13 @@ void cpu_run( struct cpu *cpu, uint64_t stops, uint64_t stops_end )
             break;
         case 0xc9: cpu->r[RSP] = cpu->r[RBP]; cpu->r[RBP] = pop( cpu ); break;  /* leave */
         case 0xcc: cpu->error = "breakpoint (int3)"; cpu->rip = (uint64_t)d.p; return;
+        case 0xd9: case 0xdb:  /* of x87, its control word: fldcw, fnstcw, fninit, fnclex */
+            if (opcode == 0xdb && (*d.p == 0xe2 || *d.p == 0xe3)) { if (*d.p++ == 0xe3) cpu->x87_control = 0x37f; break; }
+            reg = modrm( &d, &op, 0 ) & 7;
+            if (opcode == 0xd9 && !op.is_reg && reg == 5) cpu->x87_control = load( op.addr, 2 );
+            else if (opcode == 0xd9 && !op.is_reg && reg == 7) store( op.addr, 2, cpu->x87_control );
+            else { unknown( cpu, start ); return; }
+            break;
         case 0xe8: { int32_t rel = imm32( &d ); push( cpu, (uint64_t)d.p ); d.p += rel; break; }
         case 0xe9: { int32_t rel = imm32( &d ); d.p += rel; break; }
         case 0xeb: { int8_t rel = *d.p++; d.p += rel; break; }
@@ -464,6 +568,10 @@ void cpu_run( struct cpu *cpu, uint64_t stops, uint64_t stops_end )
                 }
             }
             break;
+        case 0xf8: cpu->flags &= ~(uint64_t)CF; break;
+        case 0xf9: cpu->flags |= CF; break;
+        case 0xfc: cpu->flags &= ~(uint64_t)DF; break;
+        case 0xfd: cpu->flags |= DF; break;
         case 0xfe: case 0xff:  /* inc, dec, call, jmp, push */
             if (opcode == 0xfe) size = 1;
             reg = modrm( &d, &op, 0 ) & 7;

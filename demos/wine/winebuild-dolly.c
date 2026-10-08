@@ -730,8 +730,13 @@ void output_dolly_module( DLLSPEC *spec, char **argv )
             const ORDDEF *odp = spec->ordinals[spec->base + i];
             const struct symbol *symbol;
 
-            if (!declared[i] || odp->type == TYPE_VARIABLE) continue;
+            if (!declared[i]) continue;
             symbol = find_symbol( c_name( prefix, odp->link_name ) );
+            if (odp->type == TYPE_VARIABLE || (odp->type == TYPE_EXTERN && symbol && !symbol->is_func))
+            {
+                output( "        [%d] = \"data\",\n", i );
+                continue;
+            }
             if (!symbol || !symbol->is_func) continue;
             /* a variadic function takes its variable arguments as one pointer after the fixed ones: marked by a dot */
             output( "        [%d] = \"%s%s\", /* type: %s */\n", i, symbol->type, odp->type == TYPE_VARARGS ? "." : "", symbol->type );

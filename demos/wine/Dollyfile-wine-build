@@ -29,8 +29,11 @@ REQUIRES TOOL sed
 REQUIRES TOOL sort
 REQUIRES TOOL tar
 
-SOURCE /v0.1.0/dist/static/wine/source.tar.gz 1c22205aee3e2dc326036eb233cfdbdaae2ea71bf775ead6bb64fe345f9b5e83 /tmp/wine-source.tar.gz
+SOURCE /v0.1.0/dist/static/wine/source.tar.gz 7ef7d902a67fdb43113415d8c522f091aa7d308bfe9e0f4a602ac13d699b3d13 /tmp/wine-source.tar.gz
 SLOP gzip -dc /tmp/wine-source.tar.gz | tar -xf - -C /
+# TinyCC's win64 binaries, unmodified: x86-64 code for x86emu, which builds the Start menu's x86-64 sample with them.
+SOURCE /v0.1.0/dist/static/wine/tinycc.tar.gz 20709ea054c77d290a1837699bd8993dfbe84f97b5900002057a50dfd002fe4a /tmp/tinycc.tar.gz
+SLOP gzip -dc /tmp/tinycc.tar.gz | tar -xf - -C /
 # Tools, generated headers, every module and wineserver, linked into /usr/bin/wine; Wine's fonts.
 SLOP make -j4 -f /usr/src/dolly/wine/Makefile
 
@@ -41,5 +44,6 @@ EXPORTS FOLDER wine-port /usr/src/dolly/wine
 FILE /usr/share/licenses/wine/COPYING.LIB
 FILE /usr/share/licenses/wine/LICENSE
 FILE /usr/share/licenses/wine/AUTHORS
+FILE /usr/share/licenses/tinycc/COPYING
 
 ENTRY /bin/foreground -i /bin/slop

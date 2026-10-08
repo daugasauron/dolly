@@ -9,7 +9,8 @@ CC := cc
 CFLAGS := -O2 -fno-strict-aliasing -pthread -w
 TOOLCPP := -I$(PORT) -I$(SRC)/include -D__WINESRC__
 
-all: /usr/bin/wine fonts
+X86 := /usr/share/wine/x86
+all: /usr/bin/wine fonts $(X86)/hello_win.exe
 
 # libwine_port and the parts of libwine the tools use.
 PORT_SRCS := $(wildcard $(SRC)/libs/port/*.c)
@@ -141,4 +142,8 @@ FONTS := $(patsubst $(SRC)/fonts/%,/usr/share/wine/fonts/%,$(wildcard $(SRC)/fon
 
 FORCE:
 fonts: $(FONTS)
+
+# The Start menu's x86-64 program: TinyCC's example, built by TinyCC's own x86-64 compiler under x86emu.
+$(X86)/hello_win.exe: /usr/bin/wine
+	cd $(X86)/tcc && WINEPREFIX=$(B)/prefix wine x86emu 'Z:\usr\share\wine\x86\tcc\tcc.exe' -o ../hello_win.exe examples/hello_win.c
 .PHONY: all tools headers fonts shared-names FORCE

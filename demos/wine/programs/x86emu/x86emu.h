@@ -12,6 +12,7 @@ struct cpu
     uint64_t flags;
     uint64_t xmm[16][2];
     uint64_t gs_base;       /* the TEB, as on Windows */
+    uint64_t x87_control;
     uint64_t instructions;
     const char *error;      /* why it stopped, when not by returning */
 };

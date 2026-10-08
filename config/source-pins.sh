@@ -231,3 +231,10 @@ DOLLY_FLEX_SHA256=e87aae032bf07c26f85ac0ed3250998c37621d95f8bd748b31f15b33c45ee9
 # Paint is plain C; demos/wine/mspaint.sha256 pins each file taken from it.
 DOLLY_REACTOS_COMMIT=1bca06c493016c137186496bc5aeda9082d1080f
 DOLLY_REACTOS_URL='https://raw.githubusercontent.com/reactos/reactos'
+# TinyCC for the Wine demo's x86-64 emulator: its maintainers' win64 binary release, x86-64 Windows code
+# that ships unmodified, and the source release that goes with it.
+DOLLY_TINYCC_VERSION=0.9.27
+DOLLY_TINYCC_URL='https://download.savannah.gnu.org/releases/tinycc/tcc-0.9.27.tar.bz2'
+DOLLY_TINYCC_SHA256=de23af78fca90ce32dff2dd45b3432b2334740bb9bb7b05bf60fdbfc396ceb9c
+DOLLY_TINYCC_WIN64_URL='https://download.savannah.gnu.org/releases/tinycc/tcc-0.9.27-win64-bin.zip'
+DOLLY_TINYCC_WIN64_SHA256=34a721949a2583fdff725312da092fa0f5f1f284b702e6f811c6954714faabb2

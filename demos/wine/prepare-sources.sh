@@ -15,4 +15,9 @@ if has_image wine-build; then
     "${mspaint_dir}" /usr/src/dolly/wine/programs/mspaint \
     "${mspaint_dir}/COPYING.LIB" /usr/share/licenses/reactos-paint/COPYING.LIB \
     "${wine_port_inputs[@]}"
+  tinycc_dir="$(bash demos/wine/prepare-tinycc.sh)"
+  node scripts/build-source-tar.mjs "${static_dir}/wine/tinycc.tar.gz" \
+    "${tinycc_dir}/tcc" /usr/share/wine/x86/tcc \
+    "${tinycc_dir}/COPYING" /usr/share/licenses/tinycc/COPYING \
+    "${tinycc_dir}/tcc-source.tar.bz2" /usr/src/tinycc/tcc-source.tar.bz2
 fi

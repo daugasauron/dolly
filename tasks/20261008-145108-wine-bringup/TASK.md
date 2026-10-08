@@ -297,3 +297,79 @@ call has its arguments re-laid from the format string, since a guest uses 8-byte
 - msvcrt joined the image for this; its `DllMain` read `0x7ffe0000`, where Windows has the shared user
   page: on Dolly kernel32 now reads the page ntdll allocated.
 - Images build in 141.9 s; the browser test takes 18.7 s.
+
+### 2026-10-09, deliverable 3, second step: an x86-64 compiler and a GUI program with a window procedure
+
+The fixture became TinyCC 0.9.27's win64 binary release (savannah, zip sha256 `34a72194…`, source
+release sha256 `de23af78…`; LGPL; staged as `dist/static/wine/tinycc.tar.gz`, never committed):
+`tcc.exe` (23 KB) and `libtcc.dll` (156 KB) are x86-64 code its maintainers built with mingw-w64 GCC.
+It ships unmodified in the image under `/usr/share/wine/x86/tcc`. The corkami sample is no longer used.
+
+What x86emu gained for it:
+
+- x86 DLLs: an import whose DLL lies beside the program is loaded, relocated and bound guest to
+  guest, and its entry point called (`libtcc.dll` is linked at 0x62180000, above the hole).
+- Data imports (`_acmdln`, `_fmode`, `__initenv`): winebuild marks exported variables `data`, and the
+  import slot gets the variable's address.
+- Calls back into the guest, each through a wasm function of ours that runs the interpreter nested:
+  16 window procedures (`RegisterClass[Ex][AW]`), `qsort`'s comparison, `_initterm`'s table,
+  `_onexit` functions run at `exit`. `_setjmp` fills a Windows `_JUMP_BUFFER` from guest registers.
+- What Wine must not answer for itself: `__getmainargs`, `GetCommandLine`, `GetModuleHandle(NULL)`
+  and `GetModuleFileName` are the guest's; exception filters, function tables and the math-error
+  handler are not registered (nothing would call them).
+- Instructions: `scas`, `cmps`, `lods`, absolute moves, `bt*`, `shld`/`shrd`, `cmpxchg`, `xadd`,
+  `bsf`/`bsr`, `bswap`, `pushf`/`popf`, the lock prefix, the x87 control word. scanf's arguments
+  are laid out as pointers.
+
+Measured in Chrome (`node demos/wine/test/wine-browser.mjs`, 19.5 s, passes):
+
+- The image build itself runs `tcc.exe` under x86emu to compile TinyCC's `examples/hello_win.c`
+  into `/usr/share/wine/x86/hello_win.exe` (5,120 bytes): 50.6 million instructions.
+- Start menu > "Hello_win (x86-64)": the desktop starts `x86emu` as a program thread; the window
+  appears centred (`"HELLO_WIN" at 460,280 foreground` in the desktop's list), its window procedure
+  paints yellow text on black (more than 40 such pixels read from the frame), and Escape, handled in
+  that procedure, destroys it.
+- In the shell, `tcc.exe` compiles `examples/fib.c` to `C:\fib.exe`, and `wine x86emu 'C:\fib.exe' 24`
+  prints `fib(24) = 46368`.
+- `wine x86emu --bench`: 82 to 112 million instructions a second across runs on a loaded machine.
+- Images build in 148.3 s. The task buttons had been ordered by window handle, which Wine reuses:
+  they now keep the order the windows appeared in.
+
+Not done, and how it fails: README, "x86-64 programs". The one that matters most is callbacks:
+any guest function handed to Wine other than the kinds above is called as a wasm table index and
+traps, which ends every program of the process. A general fix is a thunk per callback-taking
+argument, generated from prototypes as the calls out are; the spec files do not say which
+arguments are functions, so that needs the headers.
+
+### 32-bit x86: assessed, not started
+
+The interpreter would need a 32-bit decoding mode (no REX, `inc`/`dec` at 40-4F, `fs` for the TEB,
+stdcall and cdecl frames): a few hundred lines. Addresses are not the problem today: every pointer
+in this process is below 4 GiB as long as the memory is capped there. The problem is layout. This
+Wine's DLLs are wasm64: every structure with a pointer, handle or `LONG_PTR` has another layout
+than the 32-bit guest's, in both directions and inside messages (`CREATESTRUCT`, `WINDOWPOS`,
+`NMHDR`, `MSG`, …), and Wine 4.0 has no boundary at which to convert: it would be a thunk per
+Win32 function with such an argument (kernel32, user32, gdi32 and msvcrt export about 3,900
+names) plus message conversion both ways, the shape of Wine's 16-bit thunks (`user.exe16`'s
+message code alone is 2,693 lines for far fewer messages). A demo set for one program is a
+day; coverage is not reachable this way.
+
+The route that scales is modern Wine's: from 8.0 its DLLs are PE files and only about a thousand
+`Nt*` and `NtUser*`/`NtGdi*` calls cross to the Unix side, with `wow64*.dll` converting 32-bit
+callers at exactly that boundary. Under an emulator that means: Wine's own i386 PE DLLs (from a
+pinned upstream build) run as guest code, the Unix side (`ntdll.so`, `win32u.so`, a display driver)
+is wasm64, and nothing is thunked by hand. Its costs are a port of a current Wine's Unix side and
+an emulator fast enough to run user32 and gdi32 themselves interpreted; at 100 million
+instructions a second that is slow, and a translator to WebAssembly would need a way to
+instantiate generated modules, which is a new host capability and so an owner decision.
+
+### State after phase 2
+
+Runs in Chrome: the desktop with taskbar, Start menu and clock; Notepad, WineMine, ReactOS Paint
+and an x86-64 program side by side; file dialogs; the x86-64 TinyCC compiling and its output
+running. No core change was made. The one core operation Wine would use is still descriptor
+passing on `sockets@0` (above), for real processes.
+
+Next step, if x86 is to grow: generate callback thunks from the headers, add SSE2 scalar
+arithmetic (floating point), then pick a real program and follow its missing instructions and
+imports. If more programs of this Wine are wanted instead: ole32 and rpcrt4.

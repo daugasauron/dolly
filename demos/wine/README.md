@@ -8,23 +8,26 @@ side by side on the Dolly display and take the mouse and the keyboard.
 The task, with every measurement, is
 `tasks/20261008-145108-wine-bringup/TASK.md`.
 
-**It does not run Windows binaries.** A `.exe` or `.dll` from anywhere else
-is x86 machine code, Wine is not a CPU emulator, and Dolly has no x86. What
-runs is what this image compiled: `desktop`, `notepad`, `winemine`,
-`mspaint` and `hello`.
+**Windows binaries run only under an interpreter.** A `.exe` from anywhere
+else is x86 machine code and Dolly has no x86. Wine's programs here are
+what this image compiled (`desktop`, `notepad`, `winemine`, `mspaint`,
+`hello`); `x86emu` interprets small x86-64 programs against these DLLs
+(below). 32-bit programs do not run.
 
 ## Images
 
 - `wine-build`: the build. Wine's `widl`, `wrc`, `wmc` and `winebuild`,
-  then 14 DLLs (`ntdll`, `kernel32`, `advapi32`, `gdi32`, `user32`,
+  then 15 DLLs (`ntdll`, `kernel32`, `advapi32`, `gdi32`, `user32`,
   `version`, `usp10`, `imm32`, `comctl32`, `comdlg32`, `shell32`, `shlwapi`,
-  `uxtheme`, `winspool.drv`), the display driver `winedolly.drv`, the
-  programs and `wineserver`, linked as `/usr/bin/wine` (21 MB) on
+  `uxtheme`, `winspool.drv`, `msvcrt`), the display driver `winedolly.drv`,
+  the programs and `wineserver`, linked as `/usr/bin/wine` on
   `system-tools` with the FreeType that `zero-ad-deps` built. Wine's source
   as built stays under `/usr/src/wine`, the port under `/usr/src/dolly/wine`.
+  The build ends by running TinyCC's x86-64 compiler under `x86emu` to make
+  the Start menu's x86-64 sample.
 - `wine`: `/wine/` starts the desktop (`wine desktop`); Shut Down in its
-  Start menu leaves a shell, where `wine hello`, `wine notepad` and
-  `wine desktop` run.
+  Start menu leaves a shell, where `wine hello`, `wine notepad`,
+  `wine x86emu` and `wine desktop` run.
 
 Build with `DOLLY_BUILD_IMAGES=wine-build,wine npm run image` (both images
 in about 150 s); test with `npm run test:demos -- wine`.
@@ -45,6 +48,51 @@ dialog (the Windows 3.1 one): the Explorer-style dialog needs ole32 and the
 shell's folder views, so on Dolly `GetOpenFileName` and `GetSaveFileName`
 always take the older one, without the caller's Explorer template and hook
 (Notepad's encoding choice is not offered) and with a single selection.
+
+## x86-64 programs
+
+`programs/x86emu` is an x86-64 interpreter linked into `wine` like any
+program. It loads a PE32+ image into the process's own memory (at its base
+when that lies in the 64 MiB left free below Wine's data, else relocated),
+interprets its code, and binds what it imports to the functions of the
+wasm64 DLLs above: `winebuild` records each export's WebAssembly type, and a
+call out of the guest takes its arguments from the Win64 registers and stack
+and is made with that type. An x86 DLL beside the program is loaded the same
+way. Wine cannot call a guest address, so where the guest hands Wine a
+function, Wine gets one of x86emu's that runs it: window procedures of
+registered classes, `qsort`'s comparison, the C runtime's initializer and
+exit tables.
+
+What ships to run under it is TinyCC 0.9.27's win64 binary release,
+unmodified (`/usr/share/wine/x86/tcc`, pinned by checksum; `tcc.exe` and
+`libtcc.dll` are x86-64 code its maintainers built with mingw-w64 GCC), and
+`hello_win.exe`, which that compiler built from its own example while the
+image was made. The Start menu lists the `.exe` files of
+`/usr/share/wine/x86`. In the shell:
+
+    wine x86emu 'Z:\usr\share\wine\x86\tcc\tcc.exe' -o 'C:\fib.exe' 'Z:\usr\share\wine\x86\tcc\examples\fib.c'
+    wine x86emu 'C:\fib.exe' 24
+
+Measured in Chrome: about 85 million instructions a second (`wine x86emu
+--bench`); compiling `hello_win.c` with its `windows.h` is 50.6 million
+instructions.
+
+It is an interpreter for small programs, not a Windows machine:
+
+- integer instructions and the SSE moves; no x87 or SSE arithmetic, so no
+  floating point. An instruction it lacks ends the program with its bytes
+  named;
+- one thread; no exceptions (a guest's filters, function tables and
+  math-error handler are not registered), no TLS callbacks;
+- any callback other than those above is a guest address handed to
+  WebAssembly: it traps, which ends the desktop too. `SetWindowLongPtr`
+  subclassing, dialogs, timers with a procedure and `CreateThread` are in
+  that class;
+- an import this Wine lacks is reported when it is called;
+- one x86-64 program at a time, like every program here;
+- 32-bit x86 is refused. Its pointers are half the size of this Wine's, so
+  every structure and message crossing between guest and DLL would need
+  converting; the task file has the assessment.
 
 ## The desktop
 
@@ -107,7 +155,7 @@ no `mmap` at a chosen address and no assembler. So:
 - **The desktop** is the ownerless window the server makes when there is no
   `explorer.exe` (`port/user32-desktop.c` names the driver for it).
 
-`wine-dolly.patch` (26 files, about 320 added lines) holds the changes to
+`wine-dolly.patch` (32 files, about 365 added lines) holds the changes to
 Wine itself: the `wasm64` CPU in widl, winebuild, the headers and the server
 protocol; ntdll's server connection, loader slots and virtual memory; where
 libwine finds its directories; and the two calls through a mismatched
@@ -122,8 +170,9 @@ compiled outside Dolly.
 - **Another process**: `CreateProcess` fails, so no `wineboot` (the registry
   starts empty; Wine reports that it could not start it), no
   `explorer.exe`, no second program in the same desktop.
-- **Windows binaries**: a PE file with code is refused
-  (`STATUS_INVALID_IMAGE_FORMAT`).
+- **Windows binaries**: Wine's loader refuses a PE file with code
+  (`STATUS_INVALID_IMAGE_FORMAT`); only `x86emu` loads one, within the
+  limits above.
 - **Memory**: no allocation at a chosen address
   (`STATUS_CONFLICTING_ADDRESSES`), no write watches and no writable shared
   file mapping (`STATUS_NOT_SUPPORTED`); a file view is a private copy;
@@ -148,4 +197,7 @@ compiled outside Dolly.
 Wine is LGPL-2.1-or-later (`/usr/share/licenses/wine`); the port files that
 replace or extend Wine files carry the same licence, the rest are MIT.
 FreeType (under its GPL option) and libpng are linked in. The source as
-built ships in `wine-build`.
+built ships in `wine-build`. TinyCC is LGPL (`/usr/share/licenses/tinycc`);
+its binaries are its maintainers', and its source release is served in the
+same archive (`dist/static/wine/tinycc.tar.gz`, `/usr/src/tinycc` in
+`wine-build`).

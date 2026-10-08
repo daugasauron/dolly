@@ -20,7 +20,11 @@ extern HANDLE wine_dolly_start_program( const WCHAR *cmdline );
 extern BOOL wine_dolly_program_running( const WCHAR *name );
 extern void wine_dolly_free_program_classes( HINSTANCE module );
 
-enum { HEIGHT = 28, START_WIDTH = 60, CLOCK_WIDTH = 52, TASK_WIDTH = 160, MAX_TASKS = 32, ID_SHUT_DOWN = 99, ID_PROGRAM = 100 };
+enum { HEIGHT = 28, START_WIDTH = 60, CLOCK_WIDTH = 52, TASK_WIDTH = 160, MAX_TASKS = 32, ID_SHUT_DOWN = 99, ID_PROGRAM = 100, ID_X86 = 1000 };
+
+/* x86-64 programs: the Start menu lists those in this directory, and x86emu runs them */
+static const char x86_dir[] = "Z:\\usr\\share\\wine\\x86\\";
+static char x86_programs[8][64];
 
 struct task
 {
@@ -52,23 +56,21 @@ static BOOL CALLBACK add_task( HWND hwnd, LPARAM param )
     return TRUE;
 }
 
-/* the windows in the order their buttons keep: by handle, not by Z order */
-static int compare_tasks( const void *a, const void *b )
-{
-    const struct task *x = a, *y = b;
-    return x->hwnd < y->hwnd ? -1 : x->hwnd > y->hwnd;
-}
-
 static void refresh_tasks(void)
 {
-    struct task list[MAX_TASKS];
-    unsigned int i, previous = nb_tasks;
+    struct task found[MAX_TASKS], list[MAX_TASKS];
+    unsigned int i, j, count = 0, previous = nb_tasks;
     char title[200];
 
+    memset( found, 0, sizeof(found) );
     memset( list, 0, sizeof(list) );
     nb_tasks = 0;
-    EnumWindows( add_task, (LPARAM)list );
-    qsort( list, nb_tasks, sizeof(list[0]), compare_tasks );
+    EnumWindows( add_task, (LPARAM)found );
+    /* buttons keep their order: the windows there already, then the new ones, whatever the Z order */
+    for (i = 0; i < previous; i++)
+        for (j = 0; j < nb_tasks; j++)
+            if (found[j].hwnd == tasks[i].hwnd) { list[count++] = found[j]; found[j].hwnd = 0; }
+    for (j = 0; j < nb_tasks; j++) if (found[j].hwnd) list[count++] = found[j];
     if (nb_tasks == previous && !memcmp( list, tasks, sizeof(list) )) return;
     memcpy( tasks, list, sizeof(list) );
     InvalidateRect( taskbar, NULL, TRUE );
@@ -181,14 +183,22 @@ static void program_label( const char *name, WCHAR *label )
     label[i] = 0;
 }
 
-static void start_program( const char *name )
+/* a program linked into Wine; with a file, x86emu and the x86-64 program it is to run */
+static void start_program( const char *name, const char *x86_file )
 {
-    WCHAR nameW[64];
+    WCHAR nameW[64], command[MAX_PATH];
     HMODULE module;
     HANDLE thread;
     unsigned int i;
 
     for (i = 0; (nameW[i] = name[i]); i++) /* nothing */;
+    MultiByteToWideChar( CP_ACP, 0, name, -1, command, ARRAY_SIZE(command) );
+    if (x86_file)
+    {
+        char arguments[MAX_PATH];
+        snprintf( arguments, sizeof(arguments), " %s%s", x86_dir, x86_file );
+        MultiByteToWideChar( CP_ACP, 0, arguments, -1, command + i, ARRAY_SIZE(command) - i );
+    }
     if (wine_dolly_program_running( nameW ))
     {
         printf( "desktop: %s is running already; a program runs once at a time\n", name );
@@ -197,7 +207,7 @@ static void start_program( const char *name )
     }
     /* the classes its last run registered would make the next one fail */
     if ((module = GetModuleHandleW( nameW ))) wine_dolly_free_program_classes( module );
-    if ((thread = wine_dolly_start_program( nameW ))) CloseHandle( thread );
+    if ((thread = wine_dolly_start_program( command ))) CloseHandle( thread );
     printf( "desktop: %s %s\n", thread ? "started" : "could not start", name );
     fflush( stdout );
 }
@@ -205,9 +215,13 @@ static void start_program( const char *name )
 static void start_menu(void)
 {
     static const WCHAR shut_downW[] = {'S','h','&','u','t',' ','D','o','w','n',0};
+    static const WCHAR x86W[] = {' ','(','x','8','6','-','6','4',')',0};
+    WIN32_FIND_DATAA file;
+    HANDLE found;
+    char pattern[MAX_PATH];
     HMENU menu = CreatePopupMenu();
     HWND foreground = GetForegroundWindow();
-    WCHAR label[64];
+    WCHAR label[80];
     const char *name;
     RECT rect;
     unsigned int i;
@@ -226,6 +240,19 @@ static void start_menu(void)
         program_label( name, label );
         AppendMenuW( menu, MF_STRING, ID_PROGRAM + i, label );
     }
+    snprintf( pattern, sizeof(pattern), "%s*.exe", x86_dir );
+    if ((found = FindFirstFileA( pattern, &file )) != INVALID_HANDLE_VALUE)
+    {
+        for (i = 0; i < ARRAY_SIZE(x86_programs); i++)
+        {
+            lstrcpynA( x86_programs[i], file.cFileName, sizeof(x86_programs[i]) );
+            program_label( file.cFileName, label );
+            lstrcatW( label, x86W );
+            AppendMenuW( menu, MF_STRING, ID_X86 + i, label );
+            if (!FindNextFileA( found, &file )) break;
+        }
+        FindClose( found );
+    }
     AppendMenuW( menu, MF_SEPARATOR, 0, NULL );
     AppendMenuW( menu, MF_STRING, ID_SHUT_DOWN, shut_downW );
 
@@ -240,7 +267,8 @@ static void start_menu(void)
     InvalidateRect( taskbar, NULL, FALSE );
 
     if (command == ID_SHUT_DOWN) PostQuitMessage( 0 );
-    else if (command >= ID_PROGRAM) start_program( wine_dolly_enum_programs( command - ID_PROGRAM ) );
+    else if (command >= ID_X86) start_program( "x86emu.exe", x86_programs[command - ID_X86] );
+    else if (command >= ID_PROGRAM) start_program( wine_dolly_enum_programs( command - ID_PROGRAM ), NULL );
     else if (foreground) SetForegroundWindow( foreground );
 }
 
@@ -325,7 +353,7 @@ int WINAPI WinMain( HINSTANCE instance, HINSTANCE previous, LPSTR cmdline, int s
 
     /* a program named on the command line starts with the desktop */
     while (*cmdline == ' ') cmdline++;
-    if (*cmdline) start_program( cmdline );
+    if (*cmdline) start_program( cmdline, NULL );
 
     while (GetMessageW( &msg, 0, 0, 0 ) > 0)
     {

@@ -1,22 +1,15 @@
 // Wine in the wine image. The image's ENTRY starts the desktop: a taskbar
-// with a Start menu, from which Paint, then Notepad and WineMine side by side,
-// are started. The test reads the frame's pixels and, after Shut Down, the list of
-// windows the desktop printed whenever it changed. Then, from the shell, a
-// console program that uses files, a thread and an event through wineserver.
+// with a Start menu, from which Paint, an x86-64 program under x86emu, then
+// Notepad and WineMine side by side, are started. The test reads the frame's
+// pixels and, after Shut Down, the list of windows the desktop printed whenever
+// it changed. Then, from the shell, a console program that uses files, a thread
+// and an event through wineserver, and the x86-64 TinyCC compiling and running C.
 // Usage: node demos/wine/test/wine-browser.mjs
 import assert from "node:assert/strict";
-import { execFileSync } from "node:child_process";
 import { mkdir } from "node:fs/promises";
 import { delay, demoTest, shellPrompt } from "../../browser.mjs";
 
-const projectDir = new URL("../../..", import.meta.url).pathname;
 const evidence = new URL("../../../build/wine-evidence/", import.meta.url).pathname;
-// An x86-64 Windows program nobody here compiled: Ange Albertini's hand-assembled "normal" PE32+ from
-// corkami/pocs, 1,024 bytes that call msvcrt's printf and kernel32's ExitProcess. Fetched for the test only.
-const sample = ".cache/corkami-normal64-d526f32e.exe";
-execFileSync("bash", ["scripts/fetch-verified-file.sh",
-  "https://raw.githubusercontent.com/corkami/pocs/af2e1a071fffc3d52d079bdf355513e930ec4c0a/PE/bin/normal64.exe",
-  "d526f32ec97c10f9cef71132c89d457b388711b4a4eb4168da3896fb4d45b6d0", sample], { cwd: projectDir });
 const desktop = [58, 110, 165], face = [212, 208, 200], white = [255, 255, 255], black = [0, 0, 0];
 
 const frameSize = page => page.evaluate(() => [document.querySelector("#display").width, document.querySelector("#display").height]);
@@ -40,15 +33,14 @@ async function at(page, x, y) {
 }
 const click = async (page, x, y) => page.mouse.click(...await at(page, x, y));
 
-await demoTest("wine", { image: "wine", timeout: 600_000, server: { fixtures: { "normal64.exe": sample } } }, async ({ server, open }) => {
-  const { page, prompt, start, waitText } = await open({ prompt: null,
-    policy: { rules: [{ origin: server.origin, pathPrefix: "/fixture/", methods: ["GET"] }] } });
+await demoTest("wine", { image: "wine", timeout: 600_000 }, async ({ open }) => {
+  const { page, prompt, start, waitText } = await open({ prompt: null });
   await mkdir(evidence, { recursive: true });
-  try { await run(page, prompt, start, waitText, server); }
+  try { await run(page, prompt, start, waitText); }
   catch (error) { await page.screenshot({ path: `${evidence}failure.png` }); throw error; }
 });
 
-async function run(page, prompt, start, waitText, server) {
+async function run(page, prompt, start, waitText) {
   await page.waitForFunction(() => __dolly.transport.graphicsActive(), null, { timeout: 120_000 });
   const [width, height] = await frameSize(page);
   // Start menu: the key of a program's name starts it.
@@ -80,6 +72,23 @@ async function run(page, prompt, start, waitText, server) {
   await delay(1500);
   await page.keyboard.press("Alt+F4");
   await pixelIs(page, 364, 350, desktop);
+
+  // An x86-64 program under x86emu: TinyCC's hello_win.exe, which TinyCC's own x86-64 compiler built
+  // under x86emu when the image was made. It centres its window, paints yellow text on black from its
+  // window procedure, and destroys the window on Escape.
+  const left = (width - 360) >> 1, top = (height - 240) >> 1;
+  await startMenu("h");
+  await pixelIs(page, left + 40, top + 60, black);
+  await page.waitForFunction(([x, y]) => {
+    const data = document.querySelector("#display").getContext("2d").getImageData(x, y, 360, 240).data;
+    let count = 0;
+    for (let i = 0; i < data.length; i += 4) if (data[i] > 200 && data[i + 1] > 200 && data[i + 2] < 150) count++;
+    return count > 40;
+  }, [left, top], { timeout: 30_000, polling: 250 });
+  await page.screenshot({ path: `${evidence}x86.png` });
+  await page.keyboard.press("Escape");
+  await pixelIs(page, left + 40, top + 60, desktop);
+  console.log("wine: an x86-64 program opened a window from the Start menu, painted it and closed on Escape");
 
   // Notepad, typed into.
   await startMenu("n");
@@ -131,6 +140,8 @@ async function run(page, prompt, start, waitText, server) {
     /desktop: started mspaint\.exe/,
     /"Unnamed\.bmp - Paint" at 100,100 foreground/,
     /"dolly\.bmp - Paint"/,
+    /desktop: started x86emu\.exe/,
+    new RegExp(`"HELLO_WIN" at ${left},${top} foreground`),
     /desktop: started notepad\.exe/,
     /2 windows; "Untitled - Notepad" at 0,0; "WineMine" at 0,0 foreground/,
     /"WineMine" at 800,300/,
@@ -151,15 +162,17 @@ async function run(page, prompt, start, waitText, server) {
   assert.equal(await hello.done, 0);
   console.log("wine: a console program used a file, a thread and an event through wineserver; CreateProcess is refused");
 
-  // The x86-64 emulator: the unmodified sample prints its line through Wine's msvcrt and exits by ExitProcess.
-  const fetched = start(`curl -fsS ${server.origin}/fixture/normal64.exe -o /home/dolly/.wine/drive_c/normal64.exe`);
-  assert.equal(await fetched.done, 0);
-  const emulated = start("wine x86emu 'C:\\normal64.exe'");
-  await waitText(/ \* a standard PE32\+ \(imports, standard alignments\)/);
-  assert.equal(await emulated.done, 0);
+  // The x86-64 emulator in the terminal: TinyCC's compiler, x86-64 code built by its maintainers, compiles
+  // its own example into an x86-64 program, which then runs.
+  const tcc = "Z:\\usr\\share\\wine\\x86\\tcc";
+  const compiled = start(`wine x86emu '${tcc}\\tcc.exe' -o 'C:\\fib.exe' '${tcc}\\examples\\fib.c'`);
+  assert.equal(await compiled.done, 0);
+  const fib = start("wine x86emu 'C:\\fib.exe' 24");
+  await waitText(/fib\(24\) = 46368/);
+  assert.equal(await fib.done, 0);
   const bench = start("wine x86emu --bench");
   const speed = (await waitText(/x86emu: 200000003 instructions in \d+ ms: [\d.]+ million a second/, 120_000))
     .match(/200000003 instructions in (\d+) ms: ([\d.]+) million a second/);
   assert.equal(await bench.done, 0);
-  console.log(`wine: x86emu ran an x86-64 PE nobody here compiled; its interpreter does ${speed[2]} million instructions a second`);
+  console.log(`wine: x86emu ran the x86-64 TinyCC and the program it compiled; its interpreter does ${speed[2]} million instructions a second`);
 }
