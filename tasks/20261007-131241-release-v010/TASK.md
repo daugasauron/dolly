@@ -484,6 +484,10 @@ Run in the new layout (both browsers unless said):
   on the domain release separately, above).
 - The token patterns are a floor, not the owner's key: before a push the
   owner's own keys are still searched for by value.
+- Run again end to end after the layout change, on the same stand-in:
+  2 min 31 s, 894 files in the deployment, no tag afterwards. It reads the
+  releases through `RELEASES/current`, the symlink path that had failed in
+  the Cloudflare exporter until `fc5dd947`.
 
 ## Release checklist
 
