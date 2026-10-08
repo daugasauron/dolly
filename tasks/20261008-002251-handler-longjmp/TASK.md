@@ -24,6 +24,38 @@ blocking call; libc's `setjmp.h` defines `sigsetjmp` and `siglongjmp` as
 `build/less-evidence/try-chromium-1.log` and `try2-chromium-1.log` in
 `work/recipes`.
 
+Without less (2026-10-08, `system` rebuilt on `core/less-pager`, Chromium and
+Firefox, `build/less-evidence/gap-*.log`): this program prints `JUMPED 1` at
+the first of three resizes and nothing at the next two, and the Ctrl+C that
+follows ends it with status 130 instead of printing `JUMPED 2`.
+
+    #define _POSIX_C_SOURCE 200809L
+    #include <setjmp.h>
+    #include <signal.h>
+    #include <stdio.h>
+    #include <unistd.h>
+    static sigjmp_buf waiting;
+    static volatile sig_atomic_t taken;
+    static void leave(int number) { (void)number; taken++; siglongjmp(waiting, 1); }
+    int main(void) {
+      struct sigaction action = {.sa_handler = leave};
+      sigaction(SIGWINCH, &action, NULL);
+      sigaction(SIGINT, &action, NULL);
+      puts("JUMP-READY");
+      for (;;) {
+        char key = 0;
+        if (sigsetjmp(waiting, 1)) {
+          sigset_t none;
+          sigemptyset(&none);
+          sigprocmask(SIG_SETMASK, &none, NULL);
+          printf("JUMPED %d\n", (int)taken);
+          fflush(stdout);
+        }
+        if (read(STDIN_FILENO, &key, 1) == 1 && key == 'q') break;
+      }
+      return 0;
+    }
+
 ## Why
 
 - libc runs a handler inside the system-call wrapper and tells the kernel it

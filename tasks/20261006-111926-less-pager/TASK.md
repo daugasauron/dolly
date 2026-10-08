@@ -187,3 +187,60 @@ moves on, `q` returns with status 0; what fits the screen is not held;
 `less FILE` goes forward, back, to a search and repaints in a smaller window;
 `PAGER=cat`, `GIT_PAGER=cat` and `core.pager=cat` end without a key; and
 piped or redirected, Git, man and less wait for nothing.
+
+## Built and run (2026-10-08, `core/less-pager`, image inputs unchanged)
+
+- Chain: `DOLLY_IMAGE_JOBS=1 DOLLY_BUILD_IMAGES=default,system,git,amy,cc,less,dolly-docs`,
+  17 images in 860.7 s once the slot was free (`zig-build` about 8.5 minutes
+  of it; the wait for the slot was 26 minutes); the `git` package again,
+  alone, in 4.2 s. `build/less-evidence/image-build-1.log`, `-2.log`.
+- `test/pager-browser.mjs` passes in Chromium (7.7 s) and Firefox (9.2 s).
+  With `amy install less` taken out of a copy it fails at "the terminal
+  never showed the first page of git log": the check tells paging from
+  printing.
+- Also on the rebuilt images, each in both browsers: `man`, `docs`, `core`,
+  `terminal`, `shell`, `shell-env`, `slop`, `process`, `display`, `ending`
+  pass. `default` stops in Chromium at "the text names cc,git,python":
+  `python` is not built in this chain, so the index does not publish it; the
+  rest of that test did not run here. Source suite 336 of 336, demo source
+  tests 82 of 82, lint 77 recipes.
+- The screens of every step, both browsers: `build/less-evidence/tour-*.log`.
+- Sizes: the `less` snapshot is 769,018 bytes; `amy install less` adds 5
+  files, 532,577 bytes, in 0.2 s (`less` 370,001, `lessecho` 32,440, the page
+  110,922, two licence texts). `default` is 14,362,052 bytes (13,495 more
+  than before: the termcap entry and the larger `man`); with less installed
+  by its recipe it would hold those 532,577 bytes more, 3.7%.
+
+## Found on the way and fixed
+
+- The `git` package did not hold `/etc/gitconfig`, where `system-tools`
+  turns automatic maintenance off because it forks: in `default`, after
+  `amy install git`, every commit printed "fatal: fork failed: Function not
+  implemented" with status 0. `Dollyfile-git` keeps the file now, and the
+  pager test's sixty commits must be silent.
+
+## What the round must rebuild
+
+Every image: `Dollyfile-system-build` changed (`man`), and with it the pin of
+every recipe. No seed change: `npm run build:runtime` is not needed for this
+branch. Changed recipes: `system-build`, `system-tools` (Git's default
+pager), `display` (`/etc/termcap`), `git` (`/etc/gitconfig`), `dolly-docs`
+(`slop.md`, `display.md`), `emacs` (its termcap entry removed), and the new
+`less`, which is in both published catalogs. To run that this chain could
+not: `npm run test:demos -- emacs`, `test/default-browser.mjs` and
+`test/amy-browser.mjs` with `python` built, `test/dolly.artifacts.mjs`.
+
+## Left (why this stays open)
+
+- A second resize of the window while less is open, and Ctrl+C in less:
+  `20261008-002251-handler-longjmp`, a fix in the seed. The test resizes once.
+- `git help COMMAND` and `git COMMAND --help` still end with status 128
+  ("failed to exec 'man'", "no man viewer handled the request"), with or
+  without less: Git execs `man`, Dolly has no exec
+  (`20261006-214244-process-exec`), and Git's own pages are AsciiDoc that no
+  image renders. `git help`, `git help -a` and `git COMMAND -h` work.
+- Emacs was not rebuilt with the entry in `display`.
+- `man less` and the other upstream pages are roff source until pages are
+  rendered at build time (`20261005-220754-man-help`).
+- less 710 with GNU termcap: the crash is worth reporting to gwsw/less.
+- The owner's choice: whether `default` installs less.

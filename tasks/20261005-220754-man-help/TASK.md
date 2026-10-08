@@ -22,7 +22,6 @@ with a page, `amy install git` bringing pages; 108,058 bytes of pages,
   rows unverified.
 - `cd --help`, `command --help` and `time --help` reach Slop's own builtins,
   which have no `--help`.
-- Paging through `$PAGER` once a pager exists (`20261006-111926-less-pager`).
 
 Owner request (2026-10-06): "I want to add the man command, and make sure
 things in general in the shell has good man/help."
@@ -120,6 +119,10 @@ Inventory: 94 commands on `PATH` in `default` (`EXPORTS TOOL` rows of
   program. Not implemented: there is no `exec`, so it is a `posix_spawn` of
   the terminal's foreground program and needs a pager to verify against.
   `man --help` says what holds today.
+  Done otherwise on 2026-10-08 (`20261006-111926-less-pager`): `man` runs
+  `$PAGER` through Slop, and without it less when it is on `PATH`; the
+  package exports nothing, because an exported variable reaches a session
+  only at its next load.
 - **Packages**: a page is a `FILE /usr/share/man/…` row beside the command's
   export; no new mechanism (`core`, `cc`, `amy`, `curl`, `gzip`, `ripgrep`).
   Toolchains keep the directory with one `FOLDER /usr/share/man` row placed
