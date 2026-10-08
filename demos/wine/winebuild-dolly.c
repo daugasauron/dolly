@@ -379,6 +379,17 @@ static void output_missing_functions( char *names, char *aliases )
     }
 }
 
+/* The C name of an export: a name several modules define was compiled with the module's prefix (shared-names.txt). */
+static const char *c_name( const char *prefix, const char *link_name )
+{
+    char *own = strmake( "%s_%s", prefix, link_name );
+    const struct symbol *symbol = find_symbol( own );
+
+    if (symbol && symbol->defined) return own;
+    free( own );
+    return link_name;
+}
+
 static int ends_with( const char *str, const char *suffix )
 {
     size_t len = strlen( str ), suffix_len = strlen( suffix );
@@ -501,7 +512,7 @@ void output_dolly_module( DLLSPEC *spec, char **argv )
         const char *target;
 
         if (!odp || !odp->name || odp->type == TYPE_STUB || odp->type == TYPE_VARIABLE || odp->type == TYPE_EXTERN) continue;
-        target = (odp->flags & FLAG_FORWARD) ? strrchr( odp->link_name, '.' ) + 1 : odp->link_name;
+        target = (odp->flags & FLAG_FORWARD) ? strrchr( odp->link_name, '.' ) + 1 : c_name( prefix, odp->link_name );
         if (*target != '#' && strcmp( odp->name, target )) output( "/* alias: %s %s */\n", odp->name, target );
     }
     output( "\n" );
@@ -533,7 +544,7 @@ void output_dolly_module( DLLSPEC *spec, char **argv )
                 const ORDDEF *other = spec->ordinals[spec->base + j];
                 if (declared[j] && other->type != TYPE_VARIABLE && !strcmp( other->link_name, odp->link_name )) break;
             }
-            declared[i] = j < i ? 1 : output_declaration( odp->link_name );
+            declared[i] = j < i ? 1 : output_declaration( c_name( prefix, odp->link_name ) );
             if (!declared[i]) warning( "%s: no definition of %s to export\n", spec->file_name, odp->link_name );
             break;
         default:
@@ -559,8 +570,7 @@ void output_dolly_module( DLLSPEC *spec, char **argv )
         output( "    ExitProcess( %s( %s ) );\n    return 0;\n}\n", symbol->name, args );
         entry = xstrdup( "module_entry" );
     }
-    else if (find_symbol( entry )) output( "extern int %s( void *, unsigned int, void * );\n", entry );
-    else entry = NULL;
+    else if (!output_declaration( entry )) entry = NULL;
 
     output( "\nstatic struct image\n{\n" );
     output( "    struct dolly_image_header header;\n" );
@@ -642,7 +652,11 @@ void output_dolly_module( DLLSPEC *spec, char **argv )
         for (i = 0; i < spec->nb_names; i++) output( "        %d,\n", spec->names[i]->ordinal - spec->base );
         output( "    },\n    .slots =\n    {\n" );
         for (i = 0; i < nb_funcs; i++)
-            if (declared[i]) output( "        [%d] = (void *)%s,\n", i, spec->ordinals[spec->base + i]->link_name );
+            if (declared[i])
+            {
+                const ORDDEF *odp = spec->ordinals[spec->base + i];
+                output( "        [%d] = (void *)%s,\n", i, odp->type == TYPE_VARIABLE ? odp->link_name : c_name( prefix, odp->link_name ) );
+            }
         output( "    },\n" );
     }
     output( "    .strings =\n" );

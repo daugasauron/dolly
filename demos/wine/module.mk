@@ -3,6 +3,7 @@
 # is one of the demo's own) for the static link: its own Makefile.in names the
 # sources. Result: $(O)/module.a.
 MODSRC ?= $(SRC)
+top_srcdir := $(SRC)
 include $(MODSRC)/$(MODDIR)/Makefile.in
 
 NAME := $(or $(MODULE),$(STATICLIB),$(notdir $(MODDIR)))
@@ -14,17 +15,20 @@ PREFIX := $(subst -,_,$(subst .,_,$(NAME:.dll=)))
 IS_EXE := $(filter %.exe,$(NAME))
 IS_MODULE := $(filter-out %.a,$(MODULE))
 
-# Every module is linked into one program, so the entry points each defines get its name.
-RENAMES ?= $(if $(IS_EXE),-Dmain=$(PREFIX)_main -Dwmain=$(PREFIX)_wmain -DWinMain=$(PREFIX)_WinMain -DwWinMain=$(PREFIX)_wWinMain,\
-           $(if $(IS_MODULE),-DDllMain=$(PREFIX)_DllMain))
+# Every module is linked into one program, so the entry points each defines get its name, and so does
+# every other name that more than one module defines (shared-names.txt).
+ENTRY_RENAMES ?= $(if $(IS_EXE),-Dmain=$(PREFIX)_main -Dwmain=$(PREFIX)_wmain -DWinMain=$(PREFIX)_WinMain -DwWinMain=$(PREFIX)_wWinMain,\
+                 $(if $(IS_MODULE),-DDllMain=$(PREFIX)_DllMain))
+RENAMES := $(ENTRY_RENAMES) $(shell sed -n 's|^$(MODDIR) \(.*\)$$|-D\1=$(PREFIX)_\1|p' $(PORT)/shared-names.txt)
 CPPFLAGS := -I$(PORT) -I$(S) -I$(O) -I$(B)/include -I$(SRC)/include $(EXTRAINCL) -D__WINESRC__ $(EXTRADEFS) -D_REENTRANT $(RENAMES)
 CFLAGS := -O2 -fno-strict-aliasing -pthread -w
 
 # A GUI program has WinMain; winecrt0's main calls it.
 CRT0 := $(if $(filter -mwindows,$(APPMODE)),$(if $(filter -municode,$(APPMODE)),exe_wmain,exe_main))
 SRCS := $(filter-out $(EXCLUDE),$(C_SRCS))
-# widl output for the module's own .idl files: a header, and the RPC client code of those marked for it.
-IDL_HEADERS := $(IDL_SRCS:%.idl=$(O)/%.h)
+# widl output for the module's own .idl files: the header a source includes, and the RPC client code of
+# those marked for it. (Registration scripts and type libraries, which regsvr32 would use, are not built.)
+IDL_HEADERS := $(foreach idl,$(IDL_SRCS),$(if $(shell cd $(S) && grep -l '"$(idl:.idl=.h)"' *.c),$(O)/$(idl:.idl=.h)))
 IDL_CLIENTS := $(patsubst %.idl,$(O)/%_c.o,$(if $(IDL_SRCS),$(shell cd $(S) && grep -l "pragma makedep client" $(IDL_SRCS))))
 OBJS := $(SRCS:%.c=$(O)/%.o) $(IDL_CLIENTS) $(CRT0:%=$(O)/crt0_%.o) $(PORT_SRCS:%.c=$(O)/port_%.o)
 RES := $(RC_SRCS:%.rc=$(O)/%.res) $(MC_SRCS:%.mc=$(O)/%.res)
@@ -48,6 +52,10 @@ $(O)/%_c.c: $(S)/%.idl
 $(O)/%_c.o: $(O)/%_c.c
 	cc $(CFLAGS) $(CPPFLAGS) -c $< -o $@
 $(OBJS): | $(IDL_HEADERS)
+
+# A module is recompiled when the names it must prefix change.
+$(shell mkdir -p $(O) && echo '$(RENAMES)' | cmp -s - $(O)/renames || echo '$(RENAMES)' > $(O)/renames)
+$(OBJS): $(O)/renames
 
 $(O)/port_%.o: $(PORT)/port/%.c
 	@mkdir -p $(@D)

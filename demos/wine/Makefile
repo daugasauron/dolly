@@ -60,21 +60,17 @@ $(B)/include/%.h: $(SRC)/include/%.idl $(T)/widl
 headers: $(IDL_HEADERS)
 
 # Modules, each built by module.mk from its own Makefile.in: Wine's, and the demo's own under $(PORT).
-DLLS := ntdll kernel32 advapi32 gdi32 user32 version usp10 imm32
+DLLS := ntdll kernel32 advapi32 gdi32 user32 version usp10 imm32 comctl32 comdlg32 shell32 shlwapi uxtheme winspool.drv
 OWN_DLLS := winedolly.drv
-PROGRAMS := winemine
+PROGRAMS := notepad winemine
 OWN_PROGRAMS := hello
 MODULES := $(DLLS:%=dlls/%) $(OWN_DLLS:%=dlls/%) $(PROGRAMS:%=programs/%) $(OWN_PROGRAMS:%=programs/%) server
 export MODULE_FILE_winspool := winspool.drv
 MODULE_ARGS_dlls/ntdll := PORT_SRCS=signal_wasm64.c
 MODULE_ARGS_dlls/gdi32 := PORT_SRCS=freetype-symbols.c FREETYPE_CFLAGS="-I/usr/include/freetype2 -I$(PORT)/port" \
                           freetype_EXTRADEFS='-DWINE_FONT_DIR=\"fonts\"'
-# gdi32 has a bitmap_info_size of its own.
-MODULE_ARGS_dlls/user32 := PORT_SRCS=user32-desktop.c MODDEFS=-Dbitmap_info_size=user32_bitmap_info_size
-# Names the server shares with a DLL, now that both are one program.
-SERVER_RENAMES := main init_directories close_handle server_start_time get_thread_context set_thread_context \
-                  alloc_user_handle free_user_handle destroy_thread_windows mirror_region
-MODULE_ARGS_server := RENAMES="$(foreach name,$(SERVER_RENAMES),-D$(name)=wineserver_$(name))" \
+MODULE_ARGS_dlls/user32 := PORT_SRCS=user32-desktop.c
+MODULE_ARGS_server := ENTRY_RENAMES=-Dmain=wineserver_main \
                       MODDEFS="-include $(PORT)/port/server-cwd.h" PORT_SRCS=server-cwd.c \
                       main_EXTRADEFS=-Dmain_loop=wine_dolly_server_ready
 # Of winecrt0 only what a statically linked module still calls.
@@ -85,7 +81,7 @@ MODULE_LIBS := $(MODULES:%=$(B)/obj/%/module.a)
 STATIC_LIBS := $(B)/obj/dlls/winecrt0/module.a $(B)/obj/dlls/uuid/module.a
 
 $(MODULE_LIBS) $(STATIC_LIBS): $(B)/obj/%/module.a: headers tools FORCE
-	$(MAKE) -f $(PORT)/module.mk SRC=$(SRC) PORT=$(PORT) B=$(B) MODDIR=$* LINKED="$(DLLS) $(basename $(OWN_DLLS))" $(MODULE_ARGS_$*)
+	$(MAKE) -f $(PORT)/module.mk SRC=$(SRC) PORT=$(PORT) B=$(B) MODDIR=$* LINKED="$(basename $(DLLS) $(OWN_DLLS))" $(MODULE_ARGS_$*)
 
 # libwine, with Dolly's loader in place of loader.c and port.c.
 LIBWINE_OBJS := $(addprefix $(B)/obj/libs/wine/,casemap.o collation.o config.o debug.o ldt.o mmap.o sortkey.o string.o wctype.o) \
@@ -101,8 +97,9 @@ comma := ,
 space := $(subst ,, )
 LINK_INPUTS := $(MODULE_LIBS) $(STATIC_LIBS) $(B)/libwine.a $(B)/libwine_port.a $(B)/obj/port/port/main.o
 # Win32 reads a pointer below 64 KiB as an integer (an ordinal, an atom, a resource identifier), so no
-# data may live there: wasm-ld would start the data at 1024.
-link = $(CC) -pthread -Wl,--global-base=65536 -o $(1) $(B)/obj/port/port/main.o $(2) \
+# data may live there: wasm-ld would start the data at 1024. The modules' images and resources are 25 MB of data,
+# more than the memory cc starts a program with.
+link = $(CC) -pthread -Wl,--global-base=65536 -Wl,--initial-memory=67108864 -o $(1) $(B)/obj/port/port/main.o $(2) \
        -Wl,--whole-archive,$(subst $(space),$(comma),$(strip $(MODULE_LIBS))),--no-whole-archive \
        $(STATIC_LIBS) $(B)/libwine.a $(B)/libwine_port.a -lfreetype -lpng16 -lz -lm -ldolly-sockets
 
@@ -117,6 +114,13 @@ $(B)/missing.c: $(LINK_INPUTS)
 $(B)/missing.o: $(B)/missing.c
 	$(CC) $(CFLAGS) -c $< -o $@
 
+# The names more than one module defines, as the linker reports them, added to those known: what
+# shared-names.txt must hold for this set of modules (the build fails on a duplicate symbol until it does).
+shared-names: $(LINK_INPUTS)
+	-$(call link,$(B)/wine.unresolved,-Wl$(comma)--error-limit=0) 2> $(B)/link.log
+	(cat $(PORT)/shared-names.txt; awk '/duplicate symbol: /{name=$$NF} />>> defined in .*\/obj\/.*\/module\.a/{sub(/^.*\/obj\//,""); sub(/\/module\.a.*/,""); print $$0, name}' $(B)/link.log) | sort -u > $(B)/shared-names.txt
+	wc -l $(B)/shared-names.txt
+
 /usr/bin/wine: $(LINK_INPUTS) $(B)/missing.o
 	$(call link,$@,$(B)/missing.o)
 
@@ -128,4 +132,4 @@ FONTS := $(patsubst $(SRC)/fonts/%,/usr/share/wine/fonts/%,$(wildcard $(SRC)/fon
 
 FORCE:
 fonts: $(FONTS)
-.PHONY: all tools headers fonts FORCE
+.PHONY: all tools headers fonts shared-names FORCE
