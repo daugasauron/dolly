@@ -13,6 +13,8 @@ fi
 input_key="$({
   printf '%s\n' 'dolly-rust-seed-1' "$DOLLY_EMSDK_IMAGE"
   sha256sum demos/rust/toolchain/* demos/rust/build-rust-toolchain.sh include/dolly/process.h include/dolly/runtime.h
+  sha256sum demos/rust/prepare-rust-sources.py demos/rust/rust_sources.py demos/rust/config/sources.json \
+    demos/rust/config/cargo.toml demos/rust/config/patches/*
   find "$sysroot" -type f | sort | xargs sha256sum | cut -d' ' -f1
 } | sha256sum | cut -d' ' -f1)"
 if [[ -f "$port/seed.inputs" && "$(cat "$port/seed.inputs")" == "$input_key" &&
@@ -32,9 +34,11 @@ rm -f "$port"/target/wasm64-emscripten-probe/debug/deps/rustc_main-*
 bash demos/rust/toolchain/build.sh > "$port/compiler-build.jsonl" 2> "$port/compiler-build.log"
 bash demos/rust/toolchain/build-sdk.sh > "$port/sdk-build.jsonl" 2> "$port/sdk-build.log"
 python3 demos/rust/toolchain/package.py "$port/compiler-build.jsonl" "$port/sdk-build.jsonl"
+python3 demos/rust/prepare-rust-sources.py cargo > "$port/cargo-sources.log" 2>&1
+bash demos/rust/toolchain/build-cargo.sh > "$port/cargo-build.log" 2>&1
 rm -rf "$port/process-sysroot"
 cp -a "$sysroot" "$port/process-sysroot"
 bash demos/rust/toolchain/link.sh > "$port/link.log" 2>&1
 (cd "$port" && sha256sum rust-sdk.tar.gz > seed.sha256)
 printf '%s\n' "$input_key" > "$port/seed.inputs"
-echo 'dolly: built and validated the complete Rust compiler seed'
+echo 'dolly: built and validated the complete Rust seed'

@@ -1,0 +1,16 @@
+
+# The libc and jobserver sources of the seed's own build (demos/rust/toolchain/prepare.sh).
+[patch.crates-io]
+libc = { path = "/tmp/rustc/libc-186" }
+libc-std = { package = "libc", path = "/tmp/rustc/libc" }
+jobserver = { path = "/tmp/rustc/jobserver" }
+
+[build]
+rustflags = ["-C", "relocation-model=pic"]
+
+[env]
+LLVM_CONFIG = "/opt/rust-llvm/bin/llvm-config"
+# Dolly's C++ runtime is libc++.
+LLVM_USE_LIBCXX = "1"
+# rustc_llvm's build script restores the library path that Rust's own build saves.
+REAL_LIBRARY_PATH_VAR = "LD_LIBRARY_PATH"

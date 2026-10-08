@@ -4,6 +4,40 @@
 - PRIORITY: 210
 - TAGS: rust,cargo,toolchain,network
 
+## Patti removed (2026-10-08)
+
+Owner (2026-10-08): "I want \"native\" cargo to work so patti can be
+completely removed", then: "include removing patti completely from the
+system, everything should be cargo."
+
+- Patti, its tests and tomlc17 are deleted. Cargo's first binary comes with
+  the Rust seed: cross-compiled on the host from the sources the image build
+  uses, up to one relocatable object (`demos/rust/toolchain/build-cargo.sh`,
+  91 MB, 18 MB compressed), which `Dollyfile-rust-sdk` links against Dolly's
+  libc, libcurl and zlib (31 MB). `Dollyfile-rust-build` then builds Cargo
+  with the rustc built there; measured once in a session: 641 s at four
+  jobs and 16 codegen units, 667 MB of build tree, and the result builds a
+  program with a procedural macro.
+- A project is staged for `cargo build --offline`
+  (`demos/rust/rust_sources.py`): every locked crate extracted to `vendor/`
+  with `.cargo-checksum.json` (no file checksums, so a target patch applies
+  in place), libc locked to the SDK's 0.2.186, and `.cargo/config.toml` with
+  the directory source and the profile. `.crate` archives cannot be unpacked
+  in Dolly (its `tar` reads no GNU long names).
+- Codex: its workspace patches crates with git forks, and Cargo fetches a git
+  source unless the lock already names the package as a path; the staging
+  rewrites the seven references to paths in the pinned checkouts and drops
+  the lock's git sources. Windows bindings, V8 and OpenSSL's source are
+  locked but never compiled here: they keep a manifest and an empty library
+  (1.5 GB of crates becomes 853 MB). The host's Cargo resolves the staged
+  workspace offline (967 packages for the target).
+- Cargo has one environment for all build scripts: Oniguruma's two C
+  settings now reach every C file of the Codex build.
+- `cargo run` fails after building (Cargo `exec`s the program; Dolly has no
+  `exec`). Open.
+- The build record `/usr/share/dolly/builds/NAME.json` is now the project's
+  `Cargo.lock` at `/usr/share/dolly/builds/NAME.lock`.
+
 ## Remaining (2026-10-07)
 
 In the candidate (`main` at `ab412d94`): the `cargo` package built in the

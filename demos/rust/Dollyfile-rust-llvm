@@ -1,0 +1,78 @@
+DOLLY 7
+TOOLCHAIN rust-llvm
+REQUIRES HOST runtime@0
+REQUIRES HOST display@0
+REQUIRES HOST input@0
+REQUIRES HOST download@0
+REQUIRES HOST dso@0
+REQUIRES HOST http@0
+REQUIRES HOST sockets@0
+REQUIRES HOST upload@0
+
+# Build-only: the LLVM 22 libraries rustc links, at the revision Rust pins,
+# compiled inside Dolly by its own c++.
+FROM /v0.1.0/demos/cmake/Dollyfile-cmake-build 027c34052c076c0e7d60073467282dae4403e085d2557b45c0238c52a38b6ed8
+# LLVM's CMake requires a Python 3 interpreter.
+INSTALL /v0.1.0/demos/python/Dollyfile-python 454d312cb4327a65f051b1a5b626fc47f5a98e2d8530308db114f7791809d9a1
+REQUIRES TOOL cmake
+REQUIRES TOOL make
+REQUIRES TOOL python
+REQUIRES TOOL cc
+REQUIRES TOOL c++
+REQUIRES TOOL gzip
+REQUIRES TOOL tar
+REQUIRES TOOL patch
+REQUIRES TOOL time
+REQUIRES TOOL cp
+REQUIRES TOOL mkdir
+REQUIRES TOOL rm
+
+SOURCE /v0.1.0/dist/static/rust/rust-llvm.tar.gz 29562231e68f3722be93686f9729b76866dfbf0b0c0846e450cbe548687ade5d /tmp/rust-llvm.tar.gz
+SLOP time slop -c 'gzip -dc /tmp/rust-llvm.tar.gz | tar -xf - -C /'
+SLOP rm /tmp/rust-llvm.tar.gz
+# As demos/llvm: config.guess runs and knows no Dolly host.
+SOURCE /v0.1.0/dist/static/rust/llvm-host-triple.patch ec739fd5932c1040d07344a8511bae4da4157ff2bcafa348f06a555b71a10981 /tmp/llvm-host-triple.patch
+SLOP patch -p1 -d /tmp/rust-llvm -i /tmp/llvm-host-triple.patch
+# llvm-config reports paths beside its own. Dolly has no /proc/self/exe, so it
+# finds itself as OpenBSD's does: from argv[0].
+SOURCE /v0.1.0/dist/static/rust/llvm-main-executable.patch a9fb350ef60401eeea39f75895ffc2bc89747ac4338a6daa0c3350491d0d025a /tmp/llvm-main-executable.patch
+SLOP patch -p1 -d /tmp/rust-llvm -i /tmp/llvm-main-executable.patch
+
+# As demos/llvm configures LLVM 24, and position-independent: rustc is linked
+# as a host of procedural-macro libraries.
+FILE /tmp/rust-llvm/Dolly.cmake
+    set(CMAKE_BUILD_TYPE Release CACHE STRING "")
+    set(CMAKE_C_FLAGS "-std=gnu17 -fPIC" CACHE STRING "")
+    set(CMAKE_CXX_FLAGS "-include endian.h -fPIC" CACHE STRING "")
+    set(CMAKE_POSITION_INDEPENDENT_CODE ON CACHE BOOL "")
+    set(CMAKE_DISABLE_PRECOMPILE_HEADERS ON CACHE BOOL "")
+    set(CMAKE_RULE_MESSAGES OFF CACHE BOOL "")
+    set(LLVM_ENABLE_WARNINGS OFF CACHE BOOL "")
+    set(LLVM_TARGETS_TO_BUILD WebAssembly CACHE STRING "")
+    set(LLVM_HOST_TRIPLE wasm64-unknown-emscripten CACHE STRING "")
+    set(LLVM_DEFAULT_TARGET_TRIPLE wasm64-unknown-emscripten CACHE STRING "")
+    foreach(option THREADS TERMINFO LIBEDIT LIBPFM ZLIB ZSTD LIBXML2 CURL BINDINGS)
+      set(LLVM_ENABLE_${option} OFF CACHE STRING "")
+    endforeach()
+    foreach(option TESTS EXAMPLES BENCHMARKS DOCS)
+      set(LLVM_INCLUDE_${option} OFF CACHE BOOL "")
+    endforeach()
+    set(LLVM_BUILD_LLVM_DYLIB OFF CACHE BOOL "")
+    set(LLVM_LINK_LLVM_DYLIB OFF CACHE BOOL "")
+SLOP time cmake -C /tmp/rust-llvm/Dolly.cmake -S /tmp/rust-llvm/llvm -B /tmp/rust-llvm/build
+
+# The components rustc_llvm asks llvm-config for.
+SLOP CWD /tmp/rust-llvm/build time make -k -j4 LLVMipo LLVMBitReader LLVMBitWriter LLVMLinker LLVMAsmParser LLVMLTO LLVMCoverage LLVMInstrumentation LLVMWebAssemblyCodeGen LLVMWebAssemblyAsmParser LLVMWebAssemblyDisassembler llvm-config
+# Installed as llvm-config expects: the prefix is its directory's parent.
+SLOP mkdir -p /opt/rust-llvm/bin /opt/rust-llvm/lib /opt/rust-llvm/include
+SLOP cp /tmp/rust-llvm/build/bin/llvm-config /opt/rust-llvm/bin/llvm-config
+SLOP CWD /tmp/rust-llvm/build slop -c 'cp lib/*.a /opt/rust-llvm/lib'
+SLOP cp -R /tmp/rust-llvm/llvm/include/llvm /tmp/rust-llvm/llvm/include/llvm-c /opt/rust-llvm/include
+SLOP cp -R /tmp/rust-llvm/build/include/llvm /opt/rust-llvm/include
+SLOP cp /tmp/rust-llvm/llvm/LICENSE.TXT /opt/rust-llvm/LICENSE.TXT
+SLOP rm -rf /tmp/rust-llvm /tmp/llvm-host-triple.patch /tmp/llvm-main-executable.patch
+
+FOLDER /opt/rust-llvm
+SLOP /opt/rust-llvm/bin/llvm-config --version
+
+ENTRY /bin/foreground -i /bin/slop

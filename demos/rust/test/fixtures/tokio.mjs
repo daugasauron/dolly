@@ -35,9 +35,9 @@ export function createTokioFixture() {
       try {
         await run(`curl -fsS ${origin}/fixture/tokio.tar -o /tmp/tokio.tar`);
         await run("tar -xf /tmp/tokio.tar -C /");
-        await run("patti build -j 4 --offline --manifest-path /tmp/tokio/probe/Cargo.toml --target-dir /tmp/tokio/build --cache /tmp/tokio/cache --config /tmp/tokio/probe/patti.toml --patch libc=/opt/rust-sdk/src/libc --patch mio=/tmp/tokio/mio-1.2.0 --patch crossterm=/tmp/tokio/crossterm --patch tokio=/tmp/tokio/tokio-1.52.3 --patch socket2=/tmp/tokio/socket2-0.6.3 --patch zlib-rs@0.5.5=/tmp/tokio/zlib-rs-0.5.5");
+        await run("cd /tmp/tokio/probe && cargo rustc -j 4 --offline --target-dir /tmp/tokio/build -- -C link-arg=-ldolly-sockets");
         for (let i = 0; i < 2; i++) {
-          await run(`TOKIO_HTTP_ORIGIN=${origin}/tokio TOKIO_HTTP_RUN=${i} /tmp/tokio/build/dolly-tokio-probe`);
+          await run(`TOKIO_HTTP_ORIGIN=${origin}/tokio TOKIO_HTTP_RUN=${i} /tmp/tokio/build/debug/dolly-tokio-probe`);
         }
         // The server sees a cancelled stream close when the browser drops the connection, which may follow the program's exit.
         for (let attempt = 0; attempt < 200 && cancelled < 2; attempt++) await new Promise(resolve => setTimeout(resolve, 10));

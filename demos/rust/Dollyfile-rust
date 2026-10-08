@@ -4,18 +4,15 @@ REQUIRES HOST runtime@0
 REQUIRES HOST dso@0
 REQUIRES HOST threads@0
 
-# The Rust SDK and Patti as rust-build holds them. The SDK's rustc finds its
-# sysroot beside itself, so /usr/bin/rustc starts it by its own path.
-COPY /v0.1.0/demos/rust/Dollyfile-rust-build acef41fe98288dad784487c4dae4d89277eb4f2ab1c6cdedf7185223e36595a1 /opt/rust-sdk /opt/rust-sdk
-COPY /v0.1.0/demos/rust/Dollyfile-rust-build acef41fe98288dad784487c4dae4d89277eb4f2ab1c6cdedf7185223e36595a1 /usr/bin/patti /usr/bin/patti
-COPY /v0.1.0/demos/rust/Dollyfile-rust-build acef41fe98288dad784487c4dae4d89277eb4f2ab1c6cdedf7185223e36595a1 /usr/share/licenses/rust /usr/share/licenses/rust
-COPY /v0.1.0/demos/rust/Dollyfile-rust-build acef41fe98288dad784487c4dae4d89277eb4f2ab1c6cdedf7185223e36595a1 /usr/share/licenses/patti /usr/share/licenses/patti
+# The Rust SDK as rust-build built it. Its rustc finds its sysroot beside
+# itself, so /usr/bin/rustc starts it by its own path.
+COPY /v0.1.0/demos/rust/Dollyfile-rust-build fd31dc39dea74f0606bd1c88a985e4078e0f23a42e5f2efbe717f0bee4639fed /opt/rust-sdk /opt/rust-sdk
+COPY /v0.1.0/demos/rust/Dollyfile-rust-build fd31dc39dea74f0606bd1c88a985e4078e0f23a42e5f2efbe717f0bee4639fed /usr/share/licenses/rust /usr/share/licenses/rust
 # rustc links what it compiles with the C toolchain.
 INSTALL /v0.1.0/Dollyfile-cc 9065e475e05854eaa4a2f6a4f21e2f431e9b2275b76bfea6c8c3c4bf78a63e36
 FILE /usr/bin/rustc
     #!/bin/slop
     /opt/rust-sdk/bin/rustc "$@"
 EXPORTS TOOL rustc
-EXPORTS TOOL patti
 EXPORTS FOLDER rust-sdk /opt/rust-sdk
 EXPORTS FOLDER rust-licenses /usr/share/licenses/rust

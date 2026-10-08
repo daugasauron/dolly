@@ -19,7 +19,7 @@ README. Demos may use each other; the core never uses a demo.
 - [pi](pi/README.md): the Pi coding agent.
 - [python](python/README.md): CPython and stock pip over the HTTP broker.
 - [rts](rts/README.md): Seven Kingdoms matches between two Pi players.
-- [rust](rust/README.md): the Rust compiler seed, Patti, ripgrep and fd.
+- [rust](rust/README.md): rustc and Cargo built inside Dolly, ripgrep and fd.
 - [sdl2](sdl2/README.md): SDL2 over the Dolly framebuffer.
 - [slopyard](slopyard/README.md): Slopyard and the raylib/Box3D gamedev SDK.
 - [studio](studio/README.md): Dollyfile Studio.

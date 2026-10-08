@@ -1,18 +1,16 @@
 #!/usr/bin/env python3
-"""Stage verified source archives for offline Patti image builds; compile nothing."""
+"""Stage verified sources for offline Cargo image builds; compile nothing."""
 import json
 from pathlib import Path
-import re
 import shutil
 import subprocess
 import sys
 import tarfile
-import tomllib
 
 project = Path(__file__).resolve().parents[2]
 name, = sys.argv[1:]
 pin = json.loads((project / "demos/rust/config/sources.json").read_text())[name]
-from rust_sources import crate_licences, download
+from rust_sources import cargo_config, crate_licences, download, lock_sdk_libc, vendor
 
 
 stage = project / "build/rust-sources" / name
@@ -21,28 +19,8 @@ stage.mkdir(parents=True)
 with tarfile.open(download(pin["url"], pin["sha256"])) as archive:
     archive.extractall(stage, filter="data")
 source = stage / pin["directory"]
-lock = source / "Cargo.lock"
-if name in {"ripgrep", "fd", "cbindgen"}:
-    # Use the same libc source/layout as the wasm64 standard library.
-    version = {"ripgrep": "177", "fd": "189", "cbindgen": "144"}[name]
-    text, count = re.subn(
-        rf'(name = "libc"\n)version = "0\.2\.{version}"\nsource = "[^"\n]+"\nchecksum = "[^"\n]+"\n',
-        r'\1version = "0.2.186"\n', lock.read_text())
-    if count != 1:
-        raise ValueError(f"{name}'s locked libc version changed")
-    lock.write_text(text)
-    if name == "ripgrep":
-        (source / "HomebrewFormula").unlink()
-archives = stage / "archives"
-archives.mkdir()
-for package in tomllib.loads(lock.read_text())["package"]:
-    if "checksum" not in package:
-        continue
-    filename = f'{package["name"]}-{package["version"]}.crate'
-    url = f'https://static.crates.io/crates/{package["name"]}/{filename}'
-    shutil.copyfile(download(url, package["checksum"]), archives / filename)
-mappings = [source, f"/tmp/{name}/source", archives, f"/tmp/{name}/cache/archives",
-            *crate_licences(archives, stage, f"/usr/share/licenses/{name}/crates")]
+if name == "ripgrep":
+    (source / "HomebrewFormula").unlink()
 
 
 def apply(directory, patch):
@@ -57,12 +35,15 @@ if name == "cargo":
     # commit, its short form and its date, as the 1.98.1 release prints them.
     commit = pin["directory"].removeprefix("cargo-")
     (source / "git-commit-info").write_text(f"{commit}\n{commit[:9]}\n2026-08-05\n")
-    for unused in ["tests", "benches"]:
-        shutil.rmtree(source / unused)
     for link in [path for path in source.rglob("*") if path.is_symlink()]:
-        data = link.read_bytes()
+        target = link.resolve()
         link.unlink()
-        link.write_bytes(data)
+        if target.is_dir():
+            shutil.copytree(target, link)
+        else:
+            shutil.copyfile(target, link)
+libc = lock_sdk_libc(source / "Cargo.lock")
+archives = vendor(source / "Cargo.lock", stage / "vendor", stage / "archives")
 adapted = {
     "fd": [("nix-0.31.3", "config/patches/nix-hostname.patch"),
            ("jiff-0.2.29", "config/patches/jiff-timezone.patch")],
@@ -74,14 +55,13 @@ adapted = {
               ("jobserver-0.1.34", "toolchain/jobserver.patch"),
               ("jobserver-0.1.34", "config/patches/jobserver-in-process.patch")],
 }
-for crate, patch in adapted.get(name, []):
-    if not (stage / crate).exists():
-        with tarfile.open(archives / f"{crate}.crate") as archive:
-            archive.extractall(stage, filter="data")
-        mappings += [stage / crate, f"/tmp/{name}/{crate}"]
-    apply(stage / crate, patch)
+for crate, patch in [libc, *adapted.get(name, [])]:
+    apply(stage / "vendor" / crate, patch)
+extra = project / "demos/rust/config" / f"{name}.toml"
+cargo_config(source, f"/tmp/{name}/vendor", extra.read_text() if extra.exists() else "")
 
-output = project / "build/rust-sources" / f"{name}.tar"
+output = project / "build/rust-sources" / f"{name}.tar.gz"
 subprocess.run(["node", str(project / "scripts/build-source-tar.mjs"), str(output),
-                *map(str, mappings)], check=True)
+                str(source), f"/tmp/{name}/source", str(stage / "vendor"), f"/tmp/{name}/vendor",
+                *map(str, crate_licences(archives, stage, f"/usr/share/licenses/{name}/crates"))], check=True)
 print(output)

@@ -2,6 +2,7 @@
 from pathlib import Path
 import shutil
 import subprocess
+import sys
 import tomllib
 
 source = Path("build/codex-sources")
@@ -33,14 +34,16 @@ visit(next(p for p in records if p["name"] == "tokio"))
 crossterm = next(p for p in records if p["name"] == "crossterm")
 visit(crossterm)
 visit(next(p for p in records if p["name"] == "zlib-rs" and p["version"] == "0.5.5"))
-archives = stage / "archives"
-archives.mkdir()
+sys.path.insert(0, "demos/rust")
+from rust_sources import cargo_config  # noqa: E402
+
+cargo_config(probe, "/tmp/tokio/vendor")
+# Codex's crossterm is a fork: the probe takes the same checkout by path.
+checkout, = (path.parent for path in (source / "git").glob("*/Cargo.toml")
+             if tomllib.loads(path.read_text()).get("package", {}).get("name") == "crossterm")
+mappings = [str(probe), "/tmp/tokio/probe", str(checkout), "/tmp/tokio/crossterm"]
 for package in selected.values():
     if "checksum" in package:
-        name = f'{package["name"]}-{package["version"]}.crate'
-        shutil.copyfile(source / "archives" / name, archives / name)
-mappings = [str(probe), "/tmp/tokio/probe", str(archives), "/tmp/tokio/cache/archives"]
-for name in ["tokio-1.52.3", "mio-1.2.0", "socket2-0.6.3", "zlib-rs-0.5.5"]:
-    mappings.extend([str(source / name), "/tmp/tokio/" + name])
-mappings.extend([str(source / "git" / crossterm["source"].partition("#")[2]), "/tmp/tokio/crossterm"])
+        crate = f'{package["name"]}-{package["version"]}'
+        mappings.extend([str(source / "vendor" / crate), f"/tmp/tokio/vendor/{crate}"])
 subprocess.run(["node", "scripts/build-source-tar.mjs", "build/fixtures/tokio.tar", *mappings], check=True)

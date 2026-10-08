@@ -1,7 +1,7 @@
 # Codex
 
-The pinned upstream Codex CLI, built from Rust source inside Dolly by Patti. Only
-the Rust compiler seed comes from outside ([Rust demo](../rust/README.md)).
+The pinned upstream Codex CLI, built from Rust source inside Dolly by Cargo with
+the Rust toolchain Dolly builds ([Rust demo](../rust/README.md)).
 
 ## Images
 
@@ -25,12 +25,12 @@ the TUI returns to Slop; `codex` starts it again.
 
 ## Key files
 
-- [`Dollyfile-codex-build`](Dollyfile-codex-build): the complete offline Patti build; its
-  record is kept at `/usr/share/dolly/builds/codex.json`.
+- [`Dollyfile-codex-build`](Dollyfile-codex-build): the complete offline Cargo build; its
+  lock file is kept at `/usr/share/dolly/builds/codex.lock`.
 - [`Dollyfile-codex-cli`](Dollyfile-codex-cli), [`launch.c`](launch.c): the package and its launcher;
   [`Dollyfile-codex`](Dollyfile-codex) installs it and starts the TUI.
 - [`config/`](config/): source pins ([`codex-git.json`](config/codex-git.json)),
-  Patti settings ([`patti.toml`](config/patti.toml)) and target patches.
+  Cargo settings ([`cargo.toml`](config/cargo.toml)) and target patches.
 - [`prepare-codex-sources.py`](prepare-codex-sources.py): verifies and packages
   sources; compiles nothing.
 

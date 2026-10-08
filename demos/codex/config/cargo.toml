@@ -1,0 +1,8 @@
+
+# Cargo has one environment for every build script: Oniguruma's two settings
+# reach each C file.
+[env]
+CFLAGS = "-O1 -D_POSIX_C_SOURCE=200809L -DHAVE_ALLOCA_H=1 -DONIG_DISABLE_DIRECT_THREADING=1"
+CXXFLAGS = "-O1"
+AWS_LC_SYS_NO_JITTER_ENTROPY = "1"
+PROTOC = "/usr/bin/protox"

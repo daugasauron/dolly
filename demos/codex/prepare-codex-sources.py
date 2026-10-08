@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Prepare pinned Codex sources and crate archives; all compilation happens in Dolly."""
+"""Prepare pinned Codex sources and their crates for an offline Cargo build; all compilation happens in Dolly."""
 import gzip
 import json
 from pathlib import Path
@@ -11,7 +11,7 @@ import tarfile
 import tomllib
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "rust"))
-from rust_sources import crate_licences, download  # noqa: E402
+from rust_sources import cargo_config, crate_licences, download, lock_sdk_libc, project, vendor  # noqa: E402
 
 stage = Path("build/codex-sources")
 shutil.rmtree(stage, ignore_errors=True)
@@ -53,16 +53,22 @@ def reconcile(match):
 lock_path.write_text(re.sub(r'\[\[package\]\].*?(?=\[\[package\]\]|\Z)', reconcile, lock_path.read_text(), flags=re.S))
 records = tomllib.loads(lock_path.read_text())["package"]
 assert [p for p in original["package"] if "source" in p] == [p for p in records if "source" in p]
-adapted = []
+libc = lock_sdk_libc(lock_path)
+archives = vendor(lock_path, stage / "vendor", stage / "archives")
+apply(stage / "vendor" / libc[0], project / "demos/rust" / libc[1])
+# Locked on every platform, compiled on none of Dolly's, and 600 MB: Windows
+# bindings, V8 and OpenSSL's source keep their manifest and an empty library.
+for directory in (stage / "vendor").iterdir():
+    if re.match(r"(winapi|windows|v8|openssl-src)[-_]", directory.name):
+        for path in directory.iterdir():
+            if path.name not in {"Cargo.toml", ".cargo-checksum.json"}:
+                shutil.rmtree(path) if path.is_dir() else path.unlink()
+        (directory / "src").mkdir()
+        (directory / "src/lib.rs").touch()
 for name, version in [("tokio", "1.52.3"), ("socket2", "0.6.3"), ("mio", "1.2.0"), ("zlib-rs", "0.5.5"), ("zlib-rs", "0.6.3"), ("cc", "1.2.55"),
                       ("ring", "0.17.14"), ("reqwest", "0.12.28"),
                       ("nix", "0.28.0"), ("nix", "0.30.1"), ("sqlx-sqlite", "0.9.0"), ("serial2", "0.2.33")]:
-    record, = (p for p in records if p["name"] == name and p["version"] == version)
-    source_archive = download(f'https://static.crates.io/crates/{name}/{name}-{version}.crate', record["checksum"])
-    directory = stage / f'{name}-{record["version"]}'
-    shutil.rmtree(directory, ignore_errors=True)
-    with tarfile.open(source_archive) as source:
-        source.extractall(stage, filter="data")
+    directory = stage / "vendor" / f"{name}-{version}"
     if name == "nix":
         # Only errno uses the Linux variant names; values come from Emscripten libc.
         path = directory / "src/errno.rs"
@@ -95,7 +101,6 @@ pub mod ioctl;"""))
                         "-i", str(Path(f"demos/rust/config/patches/{name}.patch").resolve())], check=True)
     if name == "reqwest":
         shutil.copyfile("demos/rust/config/patches/reqwest-broker.rs", directory / "src/async_impl/dolly.rs")
-    adapted.append(directory)
 
 revisions = {p.get("source", "").partition("#")[2] for p in records}
 git = stage / "git"
@@ -113,19 +118,27 @@ for pin in json.loads(Path("demos/codex/config/codex-git.json").read_text()):
     if patch := pin.get("patch"):
         apply(git / revision, Path(f"demos/rust/config/patches/{patch}.patch"))
 
-archives = stage / "archives"
-archives.mkdir()
-for package in records:
-    if "checksum" not in package:
-        continue
-    filename = f'{package["name"]}-{package["version"]}.crate'
-    path = download(f'https://static.crates.io/crates/{package["name"]}/{filename}', package["checksum"])
-    shutil.copyfile(path, archives / filename)
+# Cargo fetches a git dependency even when a patch stands in for it. Each
+# reference to a pinned revision becomes its package's path in that checkout,
+# and the lock names the packages as paths.
+def checkout(match):
+    manifest, = (path for path in (git / match["rev"]).rglob("Cargo.toml")
+                 if tomllib.loads(path.read_text()).get("package", {}).get("name") == (match["inline"] or match["table"]))
+    directory = "/tmp/codex-sources/git/" + manifest.parent.relative_to(git).as_posix()
+    return f'{match["open"]}path = "{directory}"'
+
+
+for manifest in [codex / "Cargo.toml", *sorted(git.glob("*/Cargo.toml"))]:
+    manifest.write_text(re.sub(
+        r'^(?P<open>(?P<inline>[\w-]+) = \{ |\[dependencies\.(?P<table>[\w-]+)\]\n)git = "[^"\n]+"(?:, |\n)rev = "(?P<rev>[0-9a-f]{40})"',
+        checkout, manifest.read_text(), flags=re.M))
+assert 'git = "' not in (codex / "Cargo.toml").read_text()
+lock_path.write_text(re.sub(r'\nsource = "git\+[^"\n]+"| \(git\+[^)"\n]+\)', "", lock_path.read_text()))
+cargo_config(codex, "/tmp/codex-sources/vendor", Path("demos/codex/config/cargo.toml").read_text())
 
 mappings = [(codex, "/tmp/codex-sources/codex-rs"), (git, "/tmp/codex-sources/git"),
-            (archives, "/tmp/patti-cache/archives"),
+            (stage / "vendor", "/tmp/codex-sources/vendor"),
             tuple(crate_licences(archives, stage, "/usr/share/licenses/codex/crates"))]
-mappings += [(path, f"/tmp/codex-sources/{path.name}") for path in adapted]
 mappings += [(codex.parent / name, f"/tmp/codex-sources/{name}") for name in ["LICENSE", "NOTICE"]]
 for directory, _ in mappings:
     for path in directory.rglob("*") if directory.is_dir() else []:

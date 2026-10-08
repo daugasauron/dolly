@@ -2,6 +2,7 @@
 #include <dolly/runtime.h>
 #include <ctype.h>
 #include <errno.h>
+#include <libgen.h>
 #include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -12,18 +13,34 @@
  * Dolly cc. Executables link threaded, so std::thread works under threads@0.
  * Unsupported Emscripten modes remain errors. */
 int main(int argc, char **argv) {
+  char self[PATH_MAX], *host_library;
+  if (!realpath(argv[0], self)) { perror(argv[0]); return 1; }
+  if (asprintf(&host_library, "%s/../lib/dolly-rust-host.a", dirname(self)) < 0) return 1;
   char directory[] = "/tmp/dolly-rust-link.XXXXXX";
   if (!mkdtemp(directory)) { perror("mkdtemp"); return 1; }
-  size_t capacity = (size_t)argc + 2;
+  size_t capacity = (size_t)argc + 4;
   for (int i = 1; i < argc; i++) capacity += strlen(argv[i]);
   char **args = calloc(capacity, sizeof(*args));
   char **links = calloc((size_t)argc, sizeof(*links));
   if (!args || !links) return 1;
   int count = 0, files = 0, status = 1;
   args[count++] = "/bin/cc";
-  int shared = 0;
-  for (int i = 1; i < argc; i++) if (!strcmp(argv[i], "-sSIDE_MODULE=2")) shared = 1;
-  args[count++] = shared ? "-Wl,--no-export-dynamic" : "-pthread";
+  int shared = 0, host = 0;
+  for (int i = 1; i < argc; i++) {
+    if (!strcmp(argv[i], "-sSIDE_MODULE=2")) shared = 1;
+    if (!strcmp(argv[i], "-rdynamic")) host = 1;
+  }
+  if (shared) args[count++] = "-Wl,--no-export-dynamic";
+  else if (!host) args[count++] = "-pthread";
+  else {
+    /* A program that loads Rust libraries, as rustc loads procedural macros:
+     * cc links such a host without threads. Rust binds the dl* names
+     * themselves, and std inside a loaded library imports these from its host. */
+    args[count++] = "-Wl,--wrap=dlopen,--wrap=dlsym,--wrap=dlerror,--wrap=dlclose";
+    args[count++] = "-Wl,--export=emscripten_futex_wait,--export=emscripten_futex_wake,--export=posix_spawnp,"
+                    "--export=fork,--export=_exit,--export=setgroups,--export=chroot,--export=__trap";
+    args[count++] = host_library;
+  }
   for (int i = 1; i < argc; i++) {
     char *arg = argv[i];
     if (!strcmp(arg, "-s")) {

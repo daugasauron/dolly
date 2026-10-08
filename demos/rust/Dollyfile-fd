@@ -4,25 +4,27 @@ REQUIRES HOST runtime@0
 REQUIRES HOST http@0
 REQUIRES HOST threads@0
 
-FROM /v0.1.0/demos/rust/Dollyfile-rust-build acef41fe98288dad784487c4dae4d89277eb4f2ab1c6cdedf7185223e36595a1
-REQUIRES TOOL patti
+FROM /v0.1.0/demos/rust/Dollyfile-rust-build fd31dc39dea74f0606bd1c88a985e4078e0f23a42e5f2efbe717f0bee4639fed
+REQUIRES TOOL cargo
+REQUIRES TOOL gzip
 REQUIRES TOOL tar
 REQUIRES TOOL cp
 REQUIRES TOOL mkdir
 REQUIRES TOOL rm
 
-# Archives contain upstream source and checksum-verified locked crate archives.
-SOURCE /v0.1.0/dist/static/rust/fd.tar 49e0dceb2e8fb3e37437308d3e4a1eecdf86c920a956245a3663723ea071be9a /tmp/fd.tar
-SLOP tar -xf /tmp/fd.tar -C /
-SLOP patti build -j 4 --offline --manifest-path /tmp/fd/source/Cargo.toml --bin fd --patch jiff=/tmp/fd/jiff-0.2.29 --patch nix@0.31.3=/tmp/fd/nix-0.31.3 --patch libc=/opt/rust-sdk/src/libc --cache /tmp/fd/cache --target-dir /tmp/fd/build
-SLOP cp /tmp/fd/build/fd /usr/bin/fd
+# The archive holds upstream source and its locked crates, checksum-verified,
+# laid out as Cargo's directory source.
+SOURCE /v0.1.0/dist/static/rust/fd.tar.gz 0000000000000000000000000000000000000000000000000000000000000000 /tmp/fd.tar.gz
+SLOP gzip -dc /tmp/fd.tar.gz | tar -xf - -C /
+SLOP CWD /tmp/fd/source cargo build -j 4 --offline --bin fd --target-dir /tmp/fd/build
+SLOP cp /tmp/fd/build/debug/fd /usr/bin/fd
 SLOP mkdir -p /usr/share/licenses/fd /usr/share/dolly/builds
 SLOP cp /tmp/fd/source/LICENSE-MIT /usr/share/licenses/fd/LICENSE-MIT
 SLOP cp /tmp/fd/source/LICENSE-APACHE /usr/share/licenses/fd/LICENSE-APACHE
-SLOP cp /tmp/fd/build/patti-build.json /usr/share/dolly/builds/fd.json
-SLOP rm -rf /tmp/fd /tmp/fd.tar
+SLOP cp /tmp/fd/source/Cargo.lock /usr/share/dolly/builds/fd.lock
+SLOP rm -rf /tmp/fd /tmp/fd.tar.gz
 
 EXPORTS TOOL fd
 EXPORTS FOLDER fd-licenses /usr/share/licenses/fd
-FILE /usr/share/dolly/builds/fd.json
+FILE /usr/share/dolly/builds/fd.lock
 SLOP fd --version

@@ -33,8 +33,8 @@ export async function runRustTools(submit, origin) {
       await run(`printf ${shellQuote(contents.replaceAll("%", "%%").replaceAll("\\", "\\\\").replaceAll("\n", "\\n"))} > ${path}`);
     }
     await run("cp macro.rs macro/src/lib.rs && cp macro-library.rs library/src/lib.rs && cp macro-use.rs src/main.rs");
-    await run("patti build --offline --bin macro-use && target/patti/macro-use");
-    await run("patti build --offline --resume --bin macro-use && target/patti/macro-use");
+    await run("cargo build --offline --bin macro-use && target/debug/macro-use");
+    await run("cargo build --offline --bin macro-use && target/debug/macro-use");
   } finally {
     await submit(`cd /workspace; rm -rf ${root}`);
   }

@@ -4,27 +4,29 @@ REQUIRES HOST runtime@0
 REQUIRES HOST http@0
 REQUIRES HOST threads@0
 
-FROM /v0.1.0/demos/rust/Dollyfile-rust-build acef41fe98288dad784487c4dae4d89277eb4f2ab1c6cdedf7185223e36595a1
-REQUIRES TOOL patti
+FROM /v0.1.0/demos/rust/Dollyfile-rust-build fd31dc39dea74f0606bd1c88a985e4078e0f23a42e5f2efbe717f0bee4639fed
+REQUIRES TOOL cargo
+REQUIRES TOOL gzip
 REQUIRES TOOL tar
 REQUIRES TOOL cp
 REQUIRES TOOL mkdir
 REQUIRES TOOL rm
 
-# Archives contain upstream source and checksum-verified locked crate archives.
-SOURCE /v0.1.0/dist/static/rust/ripgrep.tar ac6da03c191a3c245c4581446aa6e0477d81137045ea4814b68739b46e8cdda1 /tmp/ripgrep.tar
-SLOP tar -xf /tmp/ripgrep.tar -C /
-SLOP patti build -j 4 --offline --manifest-path /tmp/ripgrep/source/Cargo.toml --bin rg --patch libc=/opt/rust-sdk/src/libc --cache /tmp/ripgrep/cache --target-dir /tmp/ripgrep/build
-SLOP cp /tmp/ripgrep/build/rg /usr/bin/rg
+# The archive holds upstream source and its locked crates, checksum-verified,
+# laid out as Cargo's directory source.
+SOURCE /v0.1.0/dist/static/rust/ripgrep.tar.gz 0000000000000000000000000000000000000000000000000000000000000000 /tmp/ripgrep.tar.gz
+SLOP gzip -dc /tmp/ripgrep.tar.gz | tar -xf - -C /
+SLOP CWD /tmp/ripgrep/source cargo build -j 4 --offline --bin rg --target-dir /tmp/ripgrep/build
+SLOP cp /tmp/ripgrep/build/debug/rg /usr/bin/rg
 SLOP mkdir -p /usr/share/licenses/ripgrep /usr/share/dolly/builds
 SLOP cp /tmp/ripgrep/source/LICENSE-MIT /usr/share/licenses/ripgrep/LICENSE-MIT
 SLOP cp /tmp/ripgrep/source/UNLICENSE /usr/share/licenses/ripgrep/UNLICENSE
-SLOP cp /tmp/ripgrep/build/patti-build.json /usr/share/dolly/builds/ripgrep.json
-SLOP rm -rf /tmp/ripgrep /tmp/ripgrep.tar
+SLOP cp /tmp/ripgrep/source/Cargo.lock /usr/share/dolly/builds/ripgrep.lock
+SLOP rm -rf /tmp/ripgrep /tmp/ripgrep.tar.gz
 
 EXPORTS TOOL rg
 EXPORTS FOLDER ripgrep-licenses /usr/share/licenses/ripgrep
-FILE /usr/share/dolly/builds/ripgrep.json
+FILE /usr/share/dolly/builds/ripgrep.lock
 SLOP rg --version
 SLOP mkdir -p /usr/share/man/cat1
 SLOP rg --help > /usr/share/man/cat1/rg.1

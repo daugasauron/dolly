@@ -1,4 +1,4 @@
-// rustc, Patti, Cargo and a Tokio HTTP client in the rust-tools image.
+// rustc, Cargo and a Tokio HTTP client in the rust-tools image.
 // Usage: node demos/rust/test/rust-browser.mjs (Tokio needs the Codex sources:
 // python3 demos/codex/prepare-codex-sources.py)
 import { execFileSync } from "node:child_process";
