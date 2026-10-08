@@ -80,7 +80,7 @@ async function probe(source, ...files) {
     await writeFile(join(scratch, "emscripten/atomic.h"),
       "#define EMSCRIPTEN_NOTIFY_ALL_WAITERS (-1)\nlong long emscripten_atomic_notify(void *address, long long count);\n");
     await writeFile(join(scratch, "probe.c"), source);
-    await run("cc", ["-std=c11", "-I", await stagedIncludeDirectory(), "-I", input, "-I", resolve(input, "../../src"),
+    await run("cc", ["-std=c11", "-D_XOPEN_SOURCE=700", "-I", await stagedIncludeDirectory(), "-I", input, "-I", resolve(input, "../../src"),
       "-I", scratch, join(scratch, "probe.c"), ...files.map(file => join(input, file)), "-o", join(scratch, "probe")]);
     await run(join(scratch, "probe"), []);
   } finally {

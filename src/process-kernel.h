@@ -1,6 +1,7 @@
 #ifndef DOLLY_PROCESS_KERNEL_H
 #define DOLLY_PROCESS_KERNEL_H
 
+#include <sys/types.h>
 #include <stddef.h>
 #include <stdint.h>
 #include <string.h>
