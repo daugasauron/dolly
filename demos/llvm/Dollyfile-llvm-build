@@ -5,6 +5,7 @@ REQUIRES HOST display@0
 REQUIRES HOST download@0
 REQUIRES HOST dso@0
 REQUIRES HOST http@0
+REQUIRES HOST input@0
 REQUIRES HOST upload@0
 
 # Build-only: the libraries of Clang, LLD and the WebAssembly backend that the
