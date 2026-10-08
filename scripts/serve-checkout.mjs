@@ -70,7 +70,7 @@ export async function startCheckoutServer(projectDir, image = "default",
   const paths = new Set([
     ...await listed("src/", /^[^/]+\.mjs$/),
     ...await listed("host/", /\.(?:mjs|json)$/),
-    "coi-serviceworker.js", "robots.txt", "index.html", "licences/index.html", "custom/index.html", "sessions/index.html",
+    "coi-serviceworker.js", "llms.txt", "index.html", "licences/index.html", "custom/index.html", "sessions/index.html",
     "amy-index.txt",
     ...pageRoutes(DOLLY_IMAGES.map(definition => ({ image: definition.image,
       openable: definition.entry && definition.hostRequirements.includes("display@0") })), image).map(route => route.path),

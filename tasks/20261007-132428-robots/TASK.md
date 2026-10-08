@@ -47,6 +47,63 @@ Decide while doing it, and record:
   newest version's paths or the redirect, and the `Disallow` rules must cover
   each version's assets.
 
+## Built (2026-10-08, branch `core/versioned-hosting`, commit `7d46e9f7`)
+
+- **One text, `llms.txt`**, at the repository root and so in every version:
+  a title, a summary, three short paragraphs and two lists of links, 38
+  lines. Its links are relative to itself, so it is true wherever a version
+  is mounted. The repository's `robots.txt` is deleted.
+- **The root `robots.txt` is written by the export** (`robotsText` in
+  `scripts/release-layout.mjs`) from the newest version's `llms.txt`: the
+  text as comments without its Markdown marks, each link as that version's
+  path (`/v0.1.1/default/`), then the rules; 41 lines for one version.
+  `npm run serve` answers the same for its release.
+- **Rule form: one `Disallow: /vX.Y.Z/dist/` per published version**, not a
+  wildcard. It is an exact prefix, which every crawler reads, including one
+  that knows no wildcards; `/*/dist/` would also match a page (the recipe
+  view of an image named `dist`), and the file is rewritten with every
+  deployment, so the list is always the published versions. `dist/` is the
+  bulk in the new layout: packs, sources, the seed and the runtime. The old
+  rules changed for a reason: `/_dolly/` no longer exists
+  (`20261007-131241-release-v010`, the layout), and `/dist/` is under each
+  version.
+- **`llms.txt` at the root: a redirect, not a second file.** `/llms.txt`
+  answers 302 to the newest version's `llms.txt`, as `/` leads to the newest
+  version; the proposal (llmstxt.org) places the file "at the root path
+  `/llms.txt` of a website or at any subpath". The root keeps its four
+  files, and there is one text.
+- **GitHub Pages** carries `llms.txt` inside the version, a plain file whose
+  relative links hold under `/dolly/vX.Y.Z/`, and no `robots.txt`: under a
+  prefix no crawler asks for one.
+- **Each statement, checked on the exported default image** in Chrome and
+  Firefox (GitHub catalog, two versions, served by `test/pages-host.mjs`):
+  the shell is Slop; `grep sed awk find sort curl` are there; `amy list`
+  shows `core`, `posix` and `curl` installed and `cc` and `git` to install;
+  after `amy install cc` a C and a C++ program compile and run and `make`
+  works; after `amy install git`, `git init`, `add` and `commit` work;
+  `curl` fetches the site's own index through the broker; the site received
+  269 requests, all GET; after the page is loaded again without a save, the
+  file written and the installed compiler are gone; `default` boots from
+  7.9 MB (4.6 MB of packs), the largest image with a page there
+  (`rts-arena`) is 116.6 MB of packs.
+- **Tests.** `test/cloudflare-pages.test.mjs`: with three versions exported,
+  the root file carries the newest version's text and none of the others',
+  every path it names is served, `/llms.txt` leads to the newest, and the
+  rules match every file under each version's `dist/` and no other file or
+  page. `test/site-browser.mjs` (both browsers): every link of `llms.txt`
+  is served; with a link to nothing added it fails naming the path.
+  `published-version.mjs boot` (the live check of a release) asserts the
+  same on a deployment at a host's root, with each version's sources from
+  its registry and its pages from its menu; on the two-version export it
+  passes in both browsers and fails, naming the fault, when the text names
+  the older version, a rule is missing, a rule covers a page, or a named
+  path is not served.
+
+Left for the integrator: the fresh-agent run below. The two-version export
+is `work/hosting/build/hosting-evidence/two-versions` (1.6 GB); from
+`work/hosting`, `node test/pages-host.mjs build/hosting-evidence/two-versions 9046`
+serves it at `http://127.0.0.1:9046/`.
+
 ## Done when
 
 - The deployed `robots.txt` carries the text; a test asserts the rules (as

@@ -7,7 +7,7 @@ single files between the user's computer and WasmFS, one user action at a time.
 ```mermaid
 flowchart LR
   boot["Boot: kernel fingerprints the base image"] --> save["Save: kernel encodes changed, new and deleted paths"]
-  save -- "snapshot@0 mailbox chunks" --> gzip["Page: gzip"] --> idb[("IndexedDB, per origin")]
+  save -- "snapshot@0 mailbox chunks" --> gzip["Page: gzip"] --> idb[("IndexedDB, per version")]
   idb -- "/session/?name=NAME" --> restore["Boot the same base, apply the delta, run ENTRY"]
 ```
 
@@ -53,6 +53,18 @@ flowchart LR
   synced or shared by the session URL. Exports are unencrypted
   `.dolly-session` files, checksummed but not authenticated; imports never
   overwrite an existing name.
+- A save belongs to the version that made it
+  ([`version.mjs`](../src/version.mjs)): the database is
+  `dolly-sessions-vX.Y.Z`, so the pages under `/vX.Y.Z/` list, load, export
+  and import only their own saves. An exported file records its version, and
+  another version refuses it, naming the version it belongs to. Saves made
+  before 0.1.0 are not carried over.
+- The image cache is one database for every version on the origin. It holds
+  rebuildable images only, never a save: an entry is keyed by the runtime's
+  image build ID and the recipe's SHA-256, and its bytes are checked against
+  their SHA-256 when loaded, so one version cannot hand another a wrong
+  image. The versions share its bound (32 images, 8 GiB, least recently
+  saved first out).
 
 Code: kernel [`host/snapshot/kernel.c`](../host/snapshot/kernel.c); page
 [`host/snapshot/transport.mjs`](../host/snapshot/transport.mjs),

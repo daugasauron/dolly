@@ -3,13 +3,12 @@
 import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { createReadStream } from "node:fs";
-import { lstat, mkdir, mkdtemp, readdir, readFile, rename, rm, symlink, writeFile } from "node:fs/promises";
+import { lstat, mkdir, mkdtemp, readdir, readFile, realpath, rename, rm, symlink, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { gunzipSync } from "node:zlib";
 import { mergeSnapshotRecords, validateSnapshotPacks, MAX_SNAPSHOT_BYTES } from "../src/snapshot-records.mjs";
 import { imageInputsMatch } from "../src/image-inputs.mjs";
-import { validName } from "../src/dollyfile-view.mjs";
 import { contractDigest, validateBrowserImports } from "./dolly-abi.mjs";
 import { createDollyfileGraphLoader, recipeRecords } from "./dollyfile-graph.mjs";
 import { discoverImageDefinitions, imageRegistrySource, inspectStaticSources, selectImageDefinitions } from "./image-definitions.mjs";
@@ -31,7 +30,7 @@ export function parseGeneratedConstant(source, name) {
   return JSON.parse(value);
 }
 
-function safePath(path) {
+export function safePath(path) {
   if (!path || /[\\\r\n\0]/.test(path) || path.split("/").some(part => !part || part === "." || part === "..")) {
     throw new Error(`invalid release path: ${path}`);
   }
@@ -160,19 +159,6 @@ async function verifyAcceptance(site, manifest, images) {
   }
 }
 
-// Retention preserves previously accepted immutable bytes, without applying
-// newer source/documentation rules or publishing their HTML as the current app.
-export async function verifyRetainedRelease(site) {
-  const manifest = await verifyReleaseFiles(site);
-  const source = await readFile(resolve(site, "dist/dolly-images.mjs"), "utf8");
-  const registry = parseGeneratedConstant(source.split("\nexport const DOLLY_STATIC_SOURCES =", 1)[0], "DOLLY_IMAGES");
-  if (!Array.isArray(registry) || !registry.length || registry.length > 256 ||
-      registry.some(item => !validName(item?.image)) ||
-      new Set(registry.map(item => item.image)).size !== registry.length) throw new Error("invalid retained image registry");
-  await verifyAcceptance(site, manifest, registry.filter(item => item.role !== "package").map(item => item.image));
-  return sha256(manifest);
-}
-
 export async function verifyRelease(site, sourceRoot) {
   const manifest = await verifyReleaseFiles(site);
   const images = await verifySite(site);
@@ -185,6 +171,23 @@ export async function verifyRelease(site, sourceRoot) {
     }
   }
   return sha256(manifest);
+}
+
+// Every file of a sealed release as [path, bytes], each checked against the
+// seal as it is read, then the seal itself.
+export async function* releaseFiles(site) {
+  // Verification resolves a release's links against its real location.
+  site = await realpath(site);
+  const digest = await verifyRelease(site);
+  const manifest = await readFile(resolve(site, "release/files.sha256"));
+  if (sha256(manifest) !== digest) throw new Error("release changed before export");
+  for (const row of manifest.toString().trimEnd().split("\n")) {
+    const bytes = await readFile(resolve(site, row.slice(66)));
+    if (sha256(bytes) !== row.slice(0, 64)) throw new Error(`release changed during export: ${row.slice(66)}`);
+    yield [row.slice(66), bytes];
+  }
+  yield ["release/files.sha256", manifest];
+  yield ["release/acceptance.txt", await readFile(resolve(site, "release/acceptance.txt"))];
 }
 
 // Moves the verified site into RELEASES, so it must be staged on the same filesystem.

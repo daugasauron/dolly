@@ -1,0 +1,38 @@
+# Dolly
+
+> A POSIX-like userspace that runs in a browser tab as one WebAssembly
+> machine: a shell, files, processes, a compiler and git, with no server
+> behind it.
+
+You are welcome to use it, by hand or as an agent: open an image's page and
+type commands at its shell. There is no account, and the site receives
+nothing from a session: it is static files. Files live in the tab and are
+gone when it closes unless you save the session (Ctrl+Shift+S, in this
+browser; a save can be exported and imported). Programs reach the network
+only through the page's HTTP broker.
+
+The default image has a shell (Slop), the usual text and file tools and
+curl; `amy install NAME` adds a package, such as `cc` (C and C++, make) or
+`git`, and `amy list` shows them all. A page downloads its image first:
+megabytes for default, far more for the largest. The bulk is under dist/,
+which crawlers are asked to leave alone.
+
+## Pages
+
+- [Menu](./): every image with its page, its rebuild page and its recipe
+- [default](default/): boots the default image to a shell prompt
+- [Recipe of default](view/default/): its Dollyfile and sources
+- [Your own image](custom/): write a recipe and build it in the page
+- [Saved sessions](sessions/): list, export and import saves
+- [Licences](licences/): the licences of what is served, and upstream sources
+
+## Files
+
+- [Package index](amy-index.txt): what `amy install` can fetch
+- [Dollyfile](docs/dollyfile.md): the recipe language, packages and `amy`
+- [Slop](docs/slop.md): the shell and its commands
+- [HTTP](docs/http.md): the broker, CORS and what it refuses
+- [Sessions](docs/sessions.md): saving, exporting, file transfer
+- [Browser boundary](docs/browser-boundary.md): what a page can reach
+- [Architecture](docs/architecture.md): components, system calls, images
+- [Source](https://github.com/daugasauron/dolly)

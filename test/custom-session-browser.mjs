@@ -92,28 +92,23 @@ ENTRY /bin/foreground -i /bin/slop
   const saved = await stored(page, "custom-proof");
   assert.equal(saved.image, "custom");
   assert.equal(saved.customImage.source, source);
-  // Existing sessions and cached images stored ArrayBuffers directly.
+  // Existing cached images stored ArrayBuffers directly.
   await page.evaluate(async () => {
     const record = await (await import("/src/session-store.mjs")).loadStoredSession("custom-proof");
-    async function replace(database, version, store, write) {
-      const db = await new Promise((resolve, reject) => {
-        const request = indexedDB.open(database, version);
-        request.onsuccess = () => resolve(request.result);
-        request.onerror = () => reject(request.error);
-      });
-      try {
-        await new Promise((resolve, reject) => {
-          const tx = db.transaction(store, "readwrite");
-          write(tx.objectStore(store));
-          tx.oncomplete = resolve;
-          tx.onabort = () => reject(tx.error);
-        });
-      } finally { db.close(); }
-    }
-    await replace("dolly-sessions-v1", 1, "sessions", store => store.put(record));
     const artifact = await (await import("/src/image-artifact.mjs")).loadImageArtifact(record.customImage.artifact);
-    await replace("dolly-image-artifacts-v3", 3, "payloads", store =>
-      store.put(artifact.bytes, artifact.buildId + ":" + artifact.recipeSha256));
+    const db = await new Promise((resolve, reject) => {
+      const request = indexedDB.open("dolly-image-artifacts-v3", 3);
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+    });
+    try {
+      await new Promise((resolve, reject) => {
+        const tx = db.transaction("payloads", "readwrite");
+        tx.objectStore("payloads").put(artifact.bytes, artifact.buildId + ":" + artifact.recipeSha256);
+        tx.oncomplete = resolve;
+        tx.onabort = () => reject(tx.error);
+      });
+    } finally { db.close(); }
   });
   const rebuildPage = page;
   const popupPromise = page.waitForEvent("popup");

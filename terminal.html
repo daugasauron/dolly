@@ -114,9 +114,7 @@
           document.documentElement.dataset.dollyStatus = "failed";
         }
       } else if ("serviceWorker" in navigator) {
-        const publicRoot = new URL(assets);
-        publicRoot.pathname = publicRoot.pathname.replace(/_dolly\/[0-9a-f]{64}\/$/, "");
-        await navigator.serviceWorker.register(new URL("coi-serviceworker.js", publicRoot), { scope: publicRoot.pathname });
+        await navigator.serviceWorker.register(new URL("coi-serviceworker.js", assets), { scope: assets.pathname });
         if (!navigator.serviceWorker.controller) {
           await navigator.serviceWorker.ready;
           location.reload();

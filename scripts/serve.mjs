@@ -1,11 +1,11 @@
 #!/usr/bin/env node
 
-import { readFile, readlink, readdir } from "node:fs/promises";
+import { readFile, readlink } from "node:fs/promises";
 import { createServer } from "node:http";
 import { basename, extname, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { sha256 } from "./snapshot-identity.mjs";
-import { renderReleasePage, snapshotPackPath } from "./release-layout.mjs";
+import { releaseVersion, robotsText } from "./release-layout.mjs";
 
 export const mimeTypes = new Map([
   [".html", "text/html; charset=utf-8"],
@@ -34,69 +34,62 @@ export const isolationHeaders = {
 };
 const releaseDigest = /^[0-9a-f]{64}$/;
 
-// Only published files are visible. dist/ and the source checkout are build inputs,
-// never the running app. Each HTML response pins subsequent asset requests.
+// Serves RELEASES/current as it would be deployed: / leads to its version, the
+// release's files are under /vX.Y.Z/, robots.txt speaks for that version, and
+// every other path is 404. Nothing is cacheable: a candidate keeps its version
+// while it changes. dist/ and the source checkout are build inputs, never the
+// running app.
 export function createReleaseServer(releases) {
-  const manifests = new Map();
-  const packReleases = new Map();
-  let scannedRelease;
-  async function filesFor(digest) {
+  let current;
+  async function release() {
+    const digest = await readlink(resolve(releases, "current"));
+    if (current?.digest === digest) return current;
     if (!releaseDigest.test(digest)) throw new Error("invalid release ID");
-    if (!manifests.has(digest)) {
-      const manifest = await readFile(resolve(releases, digest, "release/files.sha256"), "utf8");
-      if (sha256(manifest) !== digest) throw new Error("release manifest changed");
-      const files = new Map();
-      for (const row of manifest.trimEnd().split("\n")) {
-        const match = /^([0-9a-f]{64})  (.+)$/.exec(row);
-        if (!match || /[\\\0]/.test(match[2]) ||
-            match[2].split("/").some(part => !part || part === "." || part === "..") ||
-            files.has(match[2])) throw new Error("invalid release file manifest");
-        files.set(match[2], match[1]);
-      }
-      manifests.set(digest, files);
-      for (const path of files.keys()) if (snapshotPackPath.test(path)) packReleases.set(path, digest);
+    const manifest = await readFile(resolve(releases, digest, "release/files.sha256"), "utf8");
+    if (sha256(manifest) !== digest) throw new Error("release manifest changed");
+    const files = new Map();
+    for (const row of manifest.trimEnd().split("\n")) {
+      const match = /^([0-9a-f]{64})  (.+)$/.exec(row);
+      if (!match || /[\\\0]/.test(match[2]) ||
+          match[2].split("/").some(part => !part || part === "." || part === "..") ||
+          files.has(match[2])) throw new Error("invalid release file manifest");
+      files.set(match[2], match[1]);
     }
-    return manifests.get(digest);
+    const version = await readFile(resolve(releases, digest, "src/version.mjs"));
+    if (sha256(version) !== files.get("src/version.mjs")) throw new Error("published file changed");
+    return current = { digest, files, base: `/${releaseVersion(version.toString())}/` };
   }
   return createServer(async (request, response) => {
     try {
       if (!["GET", "HEAD"].includes(request.method)) throw new Error("unsupported method");
-      const url = new URL(request.url, "http://127.0.0.1");
-      let path = decodeURIComponent(url.pathname).slice(1);
-      if (/[\\\0]/.test(path) || path.split("/").some(part => part === "." || part === "..")) {
-        throw new Error("invalid path");
+      const { digest, files, base } = await release();
+      const path = decodeURIComponent(new URL(request.url, "http://127.0.0.1").pathname);
+      if (path === "/" || path === "/llms.txt") {
+        response.writeHead(302, { ...isolationHeaders, location: base + path.slice(1) }).end();
+        return;
       }
-      let digest;
-      const pinned = /^_dolly\/([0-9a-f]{64})\/(.*)$/.exec(path);
-      if (pinned) [, digest, path] = pinned;
-      else digest = await readlink(resolve(releases, "current"));
-      let files = await filesFor(digest);
-      if (!pinned && snapshotPackPath.test(path) && !files.has(path)) {
-        // Stable content URLs may outlive the current release. Only discover
-        // files through digest-verified published manifests, never loose blobs.
-        if (!packReleases.has(path) && scannedRelease !== digest) {
-          for (const entry of await readdir(releases)) if (releaseDigest.test(entry)) {
-            try { await filesFor(entry); } catch { /* Ignore incomplete or corrupt old releases. */ }
-          }
-          scannedRelease = digest;
-        }
-        digest = packReleases.get(path);
-        files = await filesFor(digest);
+      if (path === "/robots.txt") {
+        const about = await readFile(resolve(releases, digest, "llms.txt"));
+        if (sha256(about) !== files.get("llms.txt")) throw new Error("published file changed");
+        response.writeHead(200, { ...isolationHeaders, "content-type": mimeTypes.get(".txt") });
+        response.end(robotsText(about.toString(), [base.slice(1, -1)]));
+        return;
       }
-      const route = path.replace(/\/+$/, "");
-      const relative = files.has(path) ? path : `${route ? route + "/" : ""}index.html`;
-      if (!files.has(relative)) throw new Error("not published");
-      let body = await readFile(resolve(releases, digest, relative));
-      if (sha256(body) !== files.get(relative)) throw new Error("published file changed");
-      if (relative.endsWith(".html")) {
-        body = Buffer.from(renderReleasePage(body.toString("utf8"), relative, digest, files));
+      if (!path.startsWith(base)) throw new Error("unversioned path");
+      // A directory's address ends in a slash, as its page's relative links expect.
+      const relative = path.slice(base.length), page = `${relative}${relative && !relative.endsWith("/") ? "/" : ""}index.html`;
+      const file = files.has(relative) ? relative : page;
+      if (!files.has(file)) throw new Error("not published");
+      if (file === page && !path.endsWith("/")) {
+        response.writeHead(308, { ...isolationHeaders, location: `${path}/` }).end();
+        return;
       }
+      const body = await readFile(resolve(releases, digest, file));
+      if (sha256(body) !== files.get(file)) throw new Error("published file changed");
       response.writeHead(200, {
         ...isolationHeaders,
-        "cache-control": pinned || snapshotPackPath.test(relative)
-          ? "public, max-age=31536000, immutable" : "no-store",
-        "content-type": /^Dollyfile(?:-|$)/.test(basename(relative)) ? "text/plain; charset=utf-8" :
-          mimeTypes.get(extname(relative)) ?? "application/octet-stream",
+        "content-type": /^Dollyfile(?:-|$)/.test(basename(file)) ? "text/plain; charset=utf-8" :
+          mimeTypes.get(extname(file)) ?? "application/octet-stream",
       });
       response.end(request.method === "HEAD" ? undefined : body);
     } catch {

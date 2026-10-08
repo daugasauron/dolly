@@ -1,17 +1,18 @@
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
-import { mkdtemp, mkdir, readFile, readlink, rename, rm, symlink, writeFile } from "node:fs/promises";
+import { mkdtemp, mkdir, readFile, readdir, readlink, rename, rm, symlink, writeFile } from "node:fs/promises";
 import { once } from "node:events";
 import { tmpdir } from "node:os";
 import { resolve } from "node:path";
 import test from "node:test";
-import { fileManifest, parseGeneratedConstant, publishRelease, siteManifest, sourceManifest, verifyRelease, verifyRetainedRelease } from "../scripts/site-release.mjs";
+import { fileManifest, parseGeneratedConstant, publishRelease, siteManifest, sourceManifest, verifyRelease } from "../scripts/site-release.mjs";
 import { createReleaseServer } from "../scripts/serve.mjs";
 import { sha256 } from "../scripts/snapshot-identity.mjs";
 import { sessionLoadUrl } from "../src/session-store.mjs";
-import { deploymentBase, renderReleasePage } from "../scripts/release-layout.mjs";
-import { exportStaticSite, exportRetainedStaticAssets } from "../scripts/export-static.mjs";
+import { exportVersionedSite } from "../scripts/export-static.mjs";
 import { packageDomain } from "../scripts/package-domain.mjs";
+import { packageGithubPages } from "../scripts/package-github-pages.mjs";
+import { DOLLY_VERSION } from "../src/version.mjs";
 
 test("domain packaging adds the showcase only to its selected site, with public navigation and pinned media", async t => {
   const root = await mkdtemp(resolve(tmpdir(), "dolly-domain-test-"));
@@ -26,11 +27,9 @@ test("domain packaging adds the showcase only to its selected site, with public 
   assert.equal(await readFile(resolve(root, "github/index.html"), "utf8"), source);
   await assert.rejects(readFile(resolve(root, "github/agents/index.html")), { code: "ENOENT" });
   const page = await readFile(resolve(root, "domain/agents/index.html"), "utf8");
-  const files = new Set(["index.html", "agents/index.html", ...["rts-arena", "dollyfile-studio"].map(name => `${name}/index.html`)]);
-  const rendered = renderReleasePage(page, "agents/index.html", "a".repeat(64), files);
-  assert.match(rendered, /<a href="\/">← Dolly/);
-  assert.match(rendered, /<a href="\/rts-arena\/">/);
-  assert.match(rendered, /<base href="\/_dolly\/a{64}\/agents\/">/);
+  // Its links are relative, so they lead to this site's pages wherever it is mounted.
+  const links = [...page.matchAll(/<a href="([^"]+)"/g)].map(([, link]) => new URL(link, "https://site.example/v0.1.0/agents/").pathname);
+  for (const path of ["/v0.1.0/", "/v0.1.0/rts-arena/"]) assert.ok(links.includes(path), path);
   assert.equal((page.match(/<video /g) ?? []).length, 2);
   for (const [, path] of page.matchAll(/(?:src|poster)="([^"]+)"/g)) {
     const bytes = await readFile(resolve(root, "domain/agents", path));
@@ -38,63 +37,33 @@ test("domain packaging adds the showcase only to its selected site, with public 
   }
 });
 
-test("static pages pin assets below the deployment prefix but keep navigation public", () => {
-  const digest = "a".repeat(64);
-  const files = new Set(["index.html", "default/index.html", "session/index.html", "src/browser.mjs", "Dollyfile"]);
-  const source = '<html><head></head><script src="../src/browser.mjs"></script>' +
-    '<a href="../session/">sessions</a><a href="#help">help</a>' +
-    '<a href="../Dollyfile">source</a><a href="https://example.com/">external</a></html>';
-  for (const base of ["/", "/dolly/", "/demo/dolly/"]) {
-    const page = renderReleasePage(source, "default/index.html", digest, files, base);
-    assert.ok(page.includes(`<base href="${base}_dolly/${digest}/default/">`));
-    assert.ok(page.includes(`<a href="${base}session/">`));
-    assert.ok(page.includes(`<a href="${base}default/#help">`));
-    assert.ok(page.includes('<script src="../src/browser.mjs">'));
-    assert.ok(page.includes('<a href="../Dollyfile">'));
-    assert.ok(page.includes('<a href="https://example.com/">'));
-    assert.ok(renderReleasePage('<head></head>', "404.html", digest, files, base)
-      .includes(`<base href="${base}_dolly/${digest}/">`));
+test("GitHub Pages leads to the domain's applications under the version released with it", async t => {
+  const site = await mkdtemp(resolve(tmpdir(), "dolly-github-test-"));
+  t.after(() => rm(site, { recursive: true, force: true }));
+  await writeFile(resolve(site, "index.html"), "<table><tbody>\n</tbody></table>");
+  await packageGithubPages(site);
+  const domain = `https://daugasauron.com/v${DOLLY_VERSION}/`;
+  const links = [...(await readFile(resolve(site, "index.html"), "utf8")).matchAll(/href="([^"]+)"/g)].map(([, link]) => link);
+  assert.ok(links.length > 0);
+  for (const link of links) {
+    assert.ok(link.startsWith(domain), link);
+    // The path the menu links exists here too, and sends its visitor on.
+    assert.ok((await readFile(resolve(site, link.slice(domain.length), "index.html"), "utf8")).includes(JSON.stringify(link)), link);
   }
-  for (const base of ["dolly/", "//example.com/", "/../", "/a/../b/", "/a//b/", "/a?b/", '/a"b/']) {
-    assert.throws(() => deploymentBase(base), /deployment base/);
-  }
-  assert.throws(() => renderReleasePage(source, "index.html", "../bad", files), /invalid release ID/);
 });
 
 test("static export refuses existing destinations and unverified releases", async t => {
   const root = await mkdtemp(resolve(tmpdir(), "dolly-static-test-"));
   t.after(() => rm(root, { recursive: true, force: true }));
   await writeFile(resolve(root, "keep"), "owned data");
-  await assert.rejects(exportStaticSite(root, root), /destination already exists/);
+  await assert.rejects(exportVersionedSite(root, root), /destination already exists/);
   assert.equal(await readFile(resolve(root, "keep"), "utf8"), "owned data");
-  await assert.rejects(exportStaticSite(root, resolve(root, "output")), /cannot modify its source/);
-  await mkdir(resolve(root, "unverified"));
-  await assert.rejects(exportStaticSite(resolve(root, "unverified"), resolve(root, "output")), /ENOENT/);
-  await assert.rejects(readFile(resolve(root, "output")), /ENOENT/);
-});
-
-test("retention verifies the original seal without republishing legacy HTML or weakening current acceptance", async t => {
-  const root = await mkdtemp(resolve(tmpdir(), "dolly-retained-test-"));
-  t.after(() => rm(root, { recursive: true, force: true }));
-  const site = resolve(root, "old"), output = resolve(root, "export");
-  for (const path of ["dist", "docs", "release"]) await mkdir(resolve(site, path), { recursive: true });
-  await writeFile(resolve(site, "index.html"), "old application");
-  await writeFile(resolve(site, "docs/architecture.md"), "[Old broken link](security.md)\n");
-  await writeFile(resolve(site, "dist/dolly-images.mjs"), 'export const DOLLY_IMAGES = Object.freeze([{"image":"default"}]);\n');
-  const manifest = await siteManifest(site), digest = sha256(manifest);
-  await writeFile(resolve(site, "release/files.sha256"), manifest);
-  const receipt = `DOLLY-ACCEPTANCE 1\nfiles sha256:${digest}\nPASS image-inventory default\n`;
-  await writeFile(resolve(site, "release/acceptance.txt"), receipt);
-  assert.equal(await verifyRetainedRelease(site), digest);
-  await assert.rejects(verifyRelease(site), /security\.md/);
-  assert.equal(await exportRetainedStaticAssets(site, output), digest);
-  assert.equal(await readFile(resolve(output, `_dolly/${digest}/index.html`), "utf8"), "old application");
-  await assert.rejects(readFile(resolve(output, "index.html")), { code: "ENOENT" });
-  await writeFile(resolve(site, "release/acceptance.txt"), receipt.replace(digest, "0".repeat(64)));
-  await assert.rejects(verifyRetainedRelease(site), /acceptance/);
-  await writeFile(resolve(site, "release/acceptance.txt"), receipt);
-  await writeFile(resolve(site, "index.html"), "changed application");
-  await assert.rejects(verifyRetainedRelease(site), /file manifest mismatch/);
+  await assert.rejects(exportVersionedSite(root, resolve(root, "output")), /cannot modify its source/);
+  await mkdir(resolve(root, "unverified/src"), { recursive: true });
+  await assert.rejects(exportVersionedSite(resolve(root, "unverified"), resolve(root, "output")), /ENOENT/);
+  await writeFile(resolve(root, "unverified/src/version.mjs"), 'export const DOLLY_VERSION = "0.1.0";\n');
+  await assert.rejects(exportVersionedSite(resolve(root, "unverified"), resolve(root, "output")), /ENOENT/);
+  assert.deepEqual((await readdir(root)).sort(), ["keep", "unverified"]);
 });
 
 test("release metadata accepts generated JSON constants, never JavaScript", () => {
@@ -160,18 +129,18 @@ test("source provenance includes uncommitted inputs but excludes local agent sta
   assert.equal(await readFile(resolve(source, ".pi/private.txt"), "utf8"), "must not enter provenance");
 });
 
-test("published server pins complete versions, preserves public session URLs and denies checkout access", async t => {
+test("the release server serves the current release as deployed: its files under its version, nothing cached", async t => {
   const releases = await mkdtemp(resolve(tmpdir(), "dolly-release-server-"));
   t.after(() => rm(releases, { recursive: true, force: true }));
-  async function version(text, packName = "a".repeat(64)) {
+  async function publish(version, text) {
     const stage = resolve(releases, "candidate");
-    for (const path of ["release", "src", "docs", "default", "custom", "session", "dist/packs"]) await mkdir(resolve(stage, path), { recursive: true });
+    for (const path of ["release", "src", "docs", "default", "dist/packs"]) await mkdir(resolve(stage, path), { recursive: true });
     for (const [path, contents] of Object.entries({
-      "src/browser.mjs": text, "docs/browser-boundary.md": "boundary",
-      [`dist/packs/${packName}.snapshot.gz`]: "shared compressed bytes",
-      "default/index.html": '<html><head></head><script src="../src/browser.mjs"></script><a href="../custom/">custom</a><a href="#help">help</a><a href="https://example.com/">external</a><a href="../src/browser.mjs">source</a></html>',
-      "custom/index.html": '<html><head></head></html>',
-      "session/index.html": '<html><head></head><script src="../src/browser.mjs"></script></html>',
+      "src/version.mjs": `// The version.\nexport const DOLLY_VERSION = "${version}";\n`,
+      "src/browser.mjs": text, "docs/browser-boundary.md": "boundary", "Dollyfile-system": "DOLLY 6\n",
+      "llms.txt": "# Dolly\n\n- [default](default/): a shell\n",
+      [`dist/packs/${"a".repeat(64)}.snapshot.gz`]: "compressed bytes", "index.html": "<html>menu</html>",
+      "default/index.html": '<html><script src="../src/browser.mjs"></script><a href="../">menu</a></html>',
     })) await writeFile(resolve(stage, path), contents);
     const manifest = await siteManifest(stage);
     const digest = sha256(manifest);
@@ -181,56 +150,43 @@ test("published server pins complete versions, preserves public session URLs and
     await rename(resolve(releases, "next"), resolve(releases, "current"));
     return digest;
   }
-  const old = await version("old version");
+  await publish("1.2.3", "old candidate");
   const server = createReleaseServer(releases);
   server.listen(0, "127.0.0.1");
   await once(server, "listening");
   t.after(() => new Promise(resolveClose => { server.closeAllConnections(); server.close(resolveClose); }));
-  const base = `http://127.0.0.1:${server.address().port}`;
-  const get = path => fetch(base + "/" + path, { signal: AbortSignal.timeout(5000) });
-  assert.match(await (await get("default")).text(), new RegExp(`<base href="/_dolly/${old}/default/">`));
-  const page = await (await get("default/")).text();
-  assert.match(page, /href="\/custom\/"/);
-  assert.match(page, /href="\/default\/#help"/);
-  assert.match(page, /href="https:\/\/example.com\/"/);
-  assert.match(page, /script src="\.\.\/src\/browser.mjs"/, "scripts still resolve against the pinned base");
-  assert.match(page, /a href="\.\.\/src\/browser.mjs"/, "source inspection links keep the same release too");
-  const pack = `dist/packs/${"a".repeat(64)}.snapshot.gz`;
-  assert.equal((await get(`_dolly/${old}/${pack}`)).headers.get("cache-control"), "public, max-age=31536000, immutable");
-  assert.equal((await get(`_dolly/${old}/src/browser.mjs`)).headers.get("cache-control"), "public, max-age=31536000, immutable");
-  assert.equal((await get("src/browser.mjs")).headers.get("cache-control"), "no-store");
-  assert.equal((await get(pack)).headers.get("cache-control"), "public, max-age=31536000, immutable");
-  assert.equal((await get("default")).headers.get("cache-control"), "no-store");
-  assert.match(await (await get("session/?name=work.1")).text(), new RegExp(`<base href="/_dolly/${old}/session/">`));
-  assert.equal(sessionLoadUrl("work.1", `${base}/_dolly/${old}/`).href, `${base}/session/?name=work.1`);
-  const current = await version("new version", "b".repeat(64));
-  assert.equal(await (await get(pack)).text(), "shared compressed bytes", "old public packs remain available after publication");
-  const loosePack = `dist/packs/${"c".repeat(64)}.snapshot.gz`;
-  await writeFile(resolve(releases, current, loosePack), "unlisted blob");
-  for (const name of ["candidate", "c".repeat(64)]) {
-    await mkdir(resolve(releases, name, "release"), { recursive: true });
-    await mkdir(resolve(releases, name, "dist/packs"), { recursive: true });
-    await writeFile(resolve(releases, name, loosePack), "unpublished blob");
-    await writeFile(resolve(releases, name, "release/files.sha256"), `${sha256("unpublished blob")}  ${loosePack}\n`);
+  const origin = `http://127.0.0.1:${server.address().port}`;
+  const get = path => fetch(origin + path, { redirect: "manual", signal: AbortSignal.timeout(5000) });
+  const answer = async path => { const response = await get(path); return [response.status, response.headers.get("location")]; };
+  assert.deepEqual(await answer("/"), [302, "/v1.2.3/"]);
+  assert.deepEqual(await answer("/v1.2.3/default"), [308, "/v1.2.3/default/"]);
+  // The pages are the release's own: relative links, no rewriting.
+  assert.equal(await (await get("/v1.2.3/")).text(), "<html>menu</html>");
+  assert.match(await (await get("/v1.2.3/default/")).text(), /script src="\.\.\/src\/browser.mjs"/);
+  assert.equal(await (await get("/v1.2.3/src/browser.mjs")).text(), "old candidate");
+  assert.match((await get("/v1.2.3/Dollyfile-system")).headers.get("content-type"), /^text\/plain/);
+  assert.equal(sessionLoadUrl("work.1", `${origin}/v1.2.3/`).href, `${origin}/v1.2.3/session/?name=work.1`);
+  // The root speaks for the release's version, as a deployment's root does for its newest.
+  assert.equal(await (await get("/robots.txt")).text(), "# Dolly\n#\n# - default /v1.2.3/default/: a shell\n\nUser-agent: *\nDisallow: /v1.2.3/dist/\n");
+  assert.deepEqual(await answer("/llms.txt"), [302, "/v1.2.3/llms.txt"]);
+  // Nothing is served outside the version or the release.
+  for (const path of ["/default/", "/src/browser.mjs", "/Dollyfile-system", "/v1.2.4/default/", "/v1.2.3/AGENTS.md", "/v1.2.3/src/compiler.cpp",
+    "/v1.2.3/docs/..%2fAGENTS.md", "/v1.2.3/docs/..%2fsrc%2fcompiler.cpp", "/v1.2.3/dist/..%2fAGENTS.md", "/v1.2.3/..%2f..%2fAGENTS.md"]) {
+    assert.equal((await get(path)).status, 404, path);
   }
-  const coldServer = createReleaseServer(releases);
-  coldServer.listen(0, "127.0.0.1");
-  await once(coldServer, "listening");
-  t.after(() => new Promise(resolveClose => { coldServer.closeAllConnections(); coldServer.close(resolveClose); }));
-  const coldGet = path => fetch(`http://127.0.0.1:${coldServer.address().port}/${path}`, { signal: AbortSignal.timeout(5000) });
-  assert.equal(await (await coldGet(pack)).text(), "shared compressed bytes", "a restarted server finds packs in verified old manifests");
-  assert.equal((await coldGet(loosePack)).status, 404, "loose or unverified candidates cannot provide public packs");
-  await writeFile(resolve(releases, old, pack), "tampered pack");
-  assert.equal((await coldGet(pack)).status, 404, "cached manifest lookup still verifies each served file");
-  assert.equal(await (await get("src/browser.mjs")).text(), "new version");
-  assert.equal(await (await get(`_dolly/${old}/src/browser.mjs`)).text(), "old version");
-  assert.equal(await (await get(`_dolly/${current}/src/browser.mjs`)).text(), "new version");
-  await writeFile(resolve(releases, current, "src/browser.mjs"), "tampered");
-  assert.equal((await get(`_dolly/${current}/src/browser.mjs`)).status, 404);
-  await assert.rejects(publishRelease(resolve(releases, current), releases), /file manifest mismatch/);
-  assert.equal(await readlink(resolve(releases, "current")), current);
-  for (const path of ["AGENTS.md", "src/compiler.cpp", "docs/..%2fAGENTS.md", "docs/..%2fsrc%2fcompiler.cpp", "dist/..%2fAGENTS.md"]) {
-    for (const prefix of ["", `_dolly/${old}/`]) assert.equal((await get(prefix + path)).status, 404, path);
+  // A candidate keeps its version while it changes, so no response may be kept.
+  for (const path of ["/v1.2.3/default/", "/v1.2.3/src/browser.mjs", `/v1.2.3/dist/packs/${"a".repeat(64)}.snapshot.gz`, "/nowhere"]) {
+    assert.equal((await get(path)).headers.get("cache-control"), "no-store", path);
   }
-  assert.equal((await get("docs/browser-boundary.md")).status, 200);
+  const current = await publish("1.2.3", "new candidate");
+  assert.equal(await (await get("/v1.2.3/src/browser.mjs")).text(), "new candidate");
+  await publish("1.3.0", "next version");
+  assert.deepEqual(await answer("/"), [302, "/v1.3.0/"]);
+  assert.equal((await get("/v1.2.3/default/")).status, 404);
+  const next = await readlink(resolve(releases, "current"));
+  await writeFile(resolve(releases, next, "src/browser.mjs"), "tampered");
+  assert.equal((await get("/v1.3.0/src/browser.mjs")).status, 404);
+  await assert.rejects(publishRelease(resolve(releases, next), releases), /file manifest mismatch/);
+  assert.equal(await readlink(resolve(releases, "current")), next);
+  assert.notEqual(current, next);
 });

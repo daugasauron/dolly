@@ -93,13 +93,29 @@ await browserTest("core", { image }, async ({ server, open }) => {
     const { saveImageArtifact, loadImageArtifactDescriptor, IMAGE_CACHE_MAX_ENTRIES } = await import("/src/image-artifact.mjs");
     const { DOLLY_IMAGE_BUILD_ID: buildId } = await import("/dist/dolly-image-build-id.mjs");
     const recipe = index => index.toString(16).padStart(64, "0"), kept = [];
-    for (let index = 0; index <= IMAGE_CACHE_MAX_ENTRIES; index++) {
-      await saveImageArtifact({ buildId, recipeSha256: recipe(index), sha256: "a".repeat(64), inputs: [],
-        hostRequirements: [], byteLength: 16, bytes: new ArrayBuffer(16) }, `custom:bound-${index}`);
-    }
+    const save = index => saveImageArtifact({ buildId, recipeSha256: recipe(index), sha256: "a".repeat(64), inputs: [],
+      hostRequirements: [], byteLength: 16, bytes: new ArrayBuffer(16) }, `custom:bound-${index}`);
+    await save(0);
+    // Another version's page keeps its images in the same cache: a save here
+    // leaves them, even one in the slot this runtime writes next.
+    const images = async (mode, use) => {
+      const database = await new Promise((resolve, reject) => {
+        const request = indexedDB.open("dolly-image-artifacts-v3", 3);
+        request.onsuccess = () => resolve(request.result); request.onerror = () => reject(request.error);
+      });
+      try {
+        return await new Promise((resolve, reject) => {
+          const request = use(database.transaction("images", mode).objectStore("images"));
+          request.onsuccess = () => resolve(request.result); request.onerror = () => reject(request.error);
+        });
+      } finally { database.close(); }
+    };
+    await images("readwrite", store => store.put({ id: "another-runtime:image", buildId: "another-runtime", slot: "custom:bound-1",
+      byteLength: 16, savedAt: performance.timeOrigin + performance.now() + 3600_000 }));
+    for (let index = 1; index <= IMAGE_CACHE_MAX_ENTRIES; index++) await save(index);
     for (let index = 0; index <= IMAGE_CACHE_MAX_ENTRIES; index++) kept.push(!!await loadImageArtifactDescriptor(recipe(index)));
-    return [kept[0], kept.filter(Boolean).length === IMAGE_CACHE_MAX_ENTRIES];
-  }), [false, true], "image cache exceeded its entry bound");
+    return [kept[0], kept.filter(Boolean).length === IMAGE_CACHE_MAX_ENTRIES - 1, !!await images("readonly", store => store.get("another-runtime:image"))];
+  }), [false, true, true], "image cache exceeded its entry bound or dropped another runtime's image");
   // Without an embedding policy every HTTP(S) destination is reachable,
   // the page's own origin included.
   const defaults = await open();

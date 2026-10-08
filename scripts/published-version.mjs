@@ -1,0 +1,176 @@
+#!/usr/bin/env node
+// A published version on a site, held to its deployment.sha256:
+//   mirror SITE vX.Y.Z ARCHIVE     copy SITE/vX.Y.Z/ into ARCHIVE, checking every file
+//   verify SITE DEPLOYMENT vX.Y.Z  after DEPLOYMENT is deployed: every file of that version, and
+//                                  every other version's list against the one the site serves
+//   boot SITE vX.Y.Z... [chromium|firefox ...]
+//                                  in real browsers: SITE/ leads to the newest of the versions, an
+//                                  unversioned path is 404, and each version boots default from
+//                                  its own files and serves its recipes at the paths they are
+//                                  referenced by; at a host's root, robots.txt names the newest
+//                                  version's paths and keeps crawlers out of each version's bulk
+import assert from "node:assert/strict";
+import { mkdir, mkdtemp, readFile, readdir, rename, rm, writeFile } from "node:fs/promises";
+import { get as getHttp } from "node:http";
+import { get as getHttps } from "node:https";
+import { dirname, resolve } from "node:path";
+import { pathToFileURL } from "node:url";
+import { refuseExisting } from "./export-static.mjs";
+import { compareVersions, versionName } from "./release-layout.mjs";
+import { safePath } from "./site-release.mjs";
+import { sha256 } from "./snapshot-identity.mjs";
+
+// The bytes the site stores at URL. Identity encoding, so a file stored
+// compressed arrives as stored; a host's redirects between a page's names
+// (X/index.html to X/, X.html to X) are followed on the site only.
+async function stored(url, redirects = 2) {
+  const response = await new Promise((resolveResponse, reject) => (url.protocol === "http:" ? getHttp : getHttps)(
+    url, { headers: { "accept-encoding": "identity" } }, resolveResponse).once("error", reject));
+  if (response.statusCode >= 300 && response.statusCode < 400 && redirects) {
+    response.resume();
+    const target = new URL(response.headers.location, url);
+    if (target.origin !== url.origin) throw new Error(`${url} redirects off the site`);
+    return stored(target, redirects - 1);
+  }
+  const chunks = [];
+  for await (const chunk of response) chunks.push(chunk);
+  if (response.statusCode !== 200) throw new Error(`${url} returned HTTP ${response.statusCode}`);
+  return Buffer.concat(chunks);
+}
+
+// SITE is where the versions are: an origin, or a project page's address.
+const siteRoot = site => new URL(site.endsWith("/") ? site : `${site}/`);
+const versionURL = (site, name) => {
+  if (!versionName.test(name)) throw new Error(`not a version: ${name}`);
+  return new URL(`${name}/`, siteRoot(site));
+};
+
+// Fetches every file LIST names below BASE; keep(path, bytes) receives each once it matches.
+async function checkFiles(base, list, keep) {
+  for (const row of list.trimEnd().split("\n")) {
+    const path = safePath(row.slice(66));
+    const bytes = await stored(new URL(path.split("/").map(encodeURIComponent).join("/"), base));
+    if (sha256(bytes) !== row.slice(0, 64)) throw new Error(`${base}${path} differs from deployment.sha256`);
+    await keep?.(path, bytes);
+  }
+}
+
+export async function mirrorVersion(site, name, archive) {
+  const base = versionURL(site, name);
+  await refuseExisting(resolve(archive, name));
+  const staging = await mkdtemp(resolve(archive, ".mirror-"));
+  try {
+    const list = await stored(new URL("deployment.sha256", base));
+    await checkFiles(base, list.toString(), async (path, bytes) => {
+      await mkdir(dirname(resolve(staging, path)), { recursive: true });
+      await writeFile(resolve(staging, path), bytes, { flag: "wx" });
+    });
+    await writeFile(resolve(staging, "deployment.sha256"), list, { flag: "wx" });
+    await rename(staging, resolve(archive, name));
+  } finally {
+    await rm(staging, { recursive: true, force: true });
+  }
+}
+
+export async function verifyDeployment(site, deployment, name) {
+  const names = (await readdir(deployment)).filter(entry => versionName.test(entry)).sort(compareVersions);
+  if (!names.includes(name)) throw new Error(`${deployment} holds no ${name}`);
+  for (const version of names) {
+    const base = versionURL(site, version), list = await readFile(resolve(deployment, version, "deployment.sha256"));
+    if (!list.equals(await stored(new URL("deployment.sha256", base)))) throw new Error(`${base} serves another deployment.sha256`);
+    if (version === name) await checkFiles(base, list.toString());
+  }
+  return names;
+}
+
+export async function bootVersions(site, names, browsers) {
+  const { chromium, firefox } = await import("playwright-core");
+  const root = siteRoot(site), newest = [...names].sort(compareVersions).at(-1);
+  for (const browserName of browsers) {
+    const browser = await (browserName === "chromium"
+      ? chromium.launch({ channel: "chrome", headless: true, args: ["--no-sandbox", "--disable-gpu"] })
+      : firefox.launch({ headless: true }));
+    try {
+      const page = await browser.newPage(), requested = [];
+      page.setDefaultTimeout(120_000);
+      page.on("request", request => {
+        // What the page asks the site for: not its own blob: Workers.
+        const { protocol, host, pathname } = new URL(request.url());
+        if (protocol === root.protocol && host === root.host && pathname !== "/favicon.ico") requested.push(pathname);
+      });
+      await page.goto(root.href);
+      await page.waitForURL(url => url.pathname === `${root.pathname}${newest}/`);
+      assert.equal((await page.request.get(new URL("default/", root).href)).status(), 404, "an unversioned path is served");
+      // At a host's root, robots.txt speaks for the newest version: each path it
+      // names is served, and /llms.txt leads to that version's own.
+      const rules = [];
+      if (root.pathname === "/") {
+        const robots = await (await page.request.get(new URL("robots.txt", root).href)).text();
+        const named = [...robots.matchAll(/^#.* (\/v\d+\.\d+\.\d+\/[^\s:]*)/gm)].map(([, path]) => path);
+        assert.ok(named.length && named.every(path => path.startsWith(`/${newest}/`)), "robots.txt does not name the newest version's paths");
+        for (const path of named) assert.equal((await page.request.get(new URL(path, root).href)).status(), 200, `robots.txt names ${path}`);
+        assert.equal(new URL((await page.request.get(new URL("llms.txt", root).href)).url()).pathname, `/${newest}/llms.txt`);
+        rules.push(...[...robots.matchAll(/^Disallow: (\S+)$/gm)].map(([, rule]) => rule));
+      }
+      const blocked = path => rules.some(rule => path.startsWith(rule));
+      for (const name of names) {
+        const version = versionURL(site, name);
+        requested.length = 0;
+        await page.goto(new URL("default/", version).href);
+        await page.waitForFunction(() => ["ready", "failed"].includes(document.documentElement.dataset.dollyStatus));
+        assert.equal(await page.evaluate(() => document.documentElement.dataset.dollyStatus), "ready",
+          `${name}: ${await page.locator("#bootstrap-log").textContent()}`);
+        await page.evaluate(() => __dolly.waitForInteractiveTerminal(/dolly:[^\n]*\$\s*$/, "shell"));
+        assert.equal(await page.evaluate(() => __dolly.submit("amy list | grep -q '^curl  *installed '")), 0, `${name}: amy list failed`);
+        assert.ok(requested.includes(`${version.pathname}amy-index.txt`), `${name}: amy did not read its own index`);
+        assert.deepEqual(requested.filter(path => !path.startsWith(version.pathname)), [], `${name} requested paths outside itself`);
+        // A missing asset is an error, never a page served as the asset.
+        assert.equal(await page.evaluate(async () => (await fetch(new URL("missing.mjs", document.baseURI))).status), 404);
+        // A reference a recipe writes, /vX.Y.Z/PATH, is that file here: each recipe
+        // and source of at most 1 MiB the version publishes returns its pinned bytes.
+        assert.deepEqual(await page.evaluate(async root => {
+          const { DOLLY_STATIC_SOURCES } = await import(new URL("dist/dolly-images.mjs", root).href);
+          const wrong = [];
+          for (const { path, sha256, byteLength } of DOLLY_STATIC_SOURCES) if (byteLength <= 1048576) {
+            const response = await fetch(new URL(path.slice(1), root));
+            const digest = new Uint8Array(await crypto.subtle.digest("SHA-256", await response.arrayBuffer()));
+            if (!response.ok || Array.from(digest, byte => byte.toString(16).padStart(2, "0")).join("") !== sha256) wrong.push(path);
+          }
+          return wrong;
+        }, version.href), [], `${name}: references that do not return their pinned bytes`);
+        // The rules keep a crawler out of this version's bulk and off none of its pages.
+        if (rules.length) {
+          const sources = await page.evaluate(async root => (await import(new URL("dist/dolly-images.mjs", root).href))
+            .DOLLY_STATIC_SOURCES.map(({ path }) => path).filter(path => path.startsWith("/dist/")), version.href);
+          for (const path of ["/dist/dolly.wasm", "/dist/dolly.data", "/dist/packs/", ...sources]) {
+            assert.ok(blocked(version.pathname + path.slice(1)), `${name}: robots.txt leaves ${path} to crawlers`);
+          }
+          await page.goto(version.href);
+          const pages = (await page.$$eval("a[href]", links => links.map(link => link.href))).filter(link => link.startsWith(version.href));
+          for (const link of [version.href, ...pages]) assert.ok(!blocked(new URL(link).pathname), `robots.txt keeps crawlers off ${link}`);
+        }
+        console.log(`dolly: ${version} boots default in ${browserName}`);
+      }
+    } finally {
+      await browser.close();
+    }
+  }
+}
+
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  const [command, site, ...rest] = process.argv.slice(2);
+  if (command === "mirror" && rest.length === 2) {
+    const [name, archive] = rest;
+    await mirrorVersion(site, name, archive);
+    console.log(`dolly: mirrored ${name} into ${resolve(archive)}; every file matches its deployment.sha256`);
+  } else if (command === "verify" && rest.length === 2) {
+    const [deployment, name] = rest;
+    console.log(`dolly: ${site} serves every file of ${name} and the lists of ${(await verifyDeployment(site, deployment, name)).join(", ")}`);
+  } else if (command === "boot" && rest.some(name => versionName.test(name)) &&
+      rest.every(name => versionName.test(name) || ["chromium", "firefox"].includes(name))) {
+    const browsers = rest.filter(name => !versionName.test(name));
+    await bootVersions(site, rest.filter(name => versionName.test(name)), browsers.length ? browsers : ["chromium", "firefox"]);
+  } else {
+    throw new Error("usage: published-version.mjs mirror SITE VERSION ARCHIVE | verify SITE DEPLOYMENT VERSION | boot SITE VERSION... [chromium|firefox ...]");
+  }
+}

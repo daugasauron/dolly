@@ -180,7 +180,9 @@ Worker URL.
   exported session file or a custom image; discard them when trust is lost.
 - Sessions and exports may contain credentials; they are neither encrypted nor
   signed. Browser storage is per origin: every site on one `github.io` account
-  can read Dolly's sessions and image cache.
+  can read Dolly's sessions and image cache. Dolly's own versions on an origin
+  keep their saves apart by database name, which separates them for the user
+  and is no boundary between them ([sessions](sessions.md)).
 - Images never retain `/tmp` or `/workspace`, and otherwise only the paths their
   recipes name. A hash proves byte identity, not that an image is benign.
 

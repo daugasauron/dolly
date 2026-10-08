@@ -261,15 +261,16 @@ export async function saveImageArtifact(artifact, slot = artifact.recipeSha256) 
         savedAt: performance.timeOrigin + performance.now() });
       // Publish and prune atomically: failed writes preserve the previous pair,
       // and concurrent writers cannot prune each other's newly published data.
-      // Older runtimes and the slot's previous version go first, then the least
-      // recently saved images beyond the entry and byte bounds.
+      // This runtime's previous image in the slot goes first, then the least
+      // recently saved images beyond the entry and byte bounds. Other versions'
+      // pages keep their images here too, so another runtime's are only bounded.
       const remove = key => { store.delete(key); payloads.delete(key); };
       const kept = [], cursor = store.openCursor();
       cursor.onsuccess = () => {
         const entry = cursor.result?.value;
         if (entry) {
           if (entry.id !== id) {
-            if (entry.buildId !== DOLLY_IMAGE_BUILD_ID || entry.slot === slot) remove(entry.id);
+            if (entry.buildId === DOLLY_IMAGE_BUILD_ID && entry.slot === slot) remove(entry.id);
             else kept.push(entry);
           }
           cursor.result.continue();
