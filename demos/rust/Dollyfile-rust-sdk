@@ -6,9 +6,9 @@ REQUIRES HOST dso@0
 REQUIRES HOST http@0
 REQUIRES HOST threads@0
 
-FROM /v0.1.0/Dollyfile-system-build e110a5ef1f178fd1c400333d860593797d9a56508db929fbecbca86037a2d85a
-INSTALL /v0.1.0/Dollyfile-zlib 4dd8fa0006e1eee78747565becd0edfc818ec1d79a7f186304338a24ebef10d6
-INSTALL /v0.1.0/Dollyfile-gzip be125c5c222b5b80d4a59e9bb12a069a34cd6565a653e4b594b96c000f863ee4
+FROM /v0.1.0/Dollyfile-system-build 919bac970703f4821c4ca228b1c8d6ae920220ed9678576aa891dafadf454f1e
+INSTALL /v0.1.0/Dollyfile-zlib 70552f8396b8e8e49ba37637eba2b29705b673d7afec5495d4338252715a12b5
+INSTALL /v0.1.0/Dollyfile-gzip d5d29c11b9f3ab00022f4b5e61784ff134b28dc5a36eca4b2623cc985ee02ad5
 REQUIRES TOOL cc
 REQUIRES TOOL tar
 REQUIRES TOOL gzip
@@ -32,6 +32,6 @@ EXPORTS TOOL rustc
 EXPORTS FOLDER rust-sdk /opt/rust-sdk
 EXPORTS FOLDER rust-licenses /usr/share/licenses/rust
 SLOP rustc --version --verbose
-INSTALL /v0.1.0/Dollyfile-display 472490987570c93332e9f96fdc94eaac9557b7c00734ed5175c66c2c93cae43e
+INSTALL /v0.1.0/Dollyfile-display 2bcb456d6491ffd9bfacb2e0540d18ad8cf8e44f2e34c074cf880c24eb72f0c7
 
 ENTRY /bin/foreground -i /bin/slop
