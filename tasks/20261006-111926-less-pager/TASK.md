@@ -140,8 +140,7 @@ its next load, so paging would start after a reload.
 
 ## What less needed of the platform (measured in a `system` session, Chromium)
 
-Built with the recipe's Makefile in 6.5 s (`make -j4`); `less` 370,001
-bytes, `lessecho` 32,440.
+Built there with the recipe's Makefile in 6.5 s (`make -j4`).
 
 - Works unchanged: `/dev/tty` for keys while the data comes from a pipe, raw
   mode through termios, `TIOCGWINSZ`, `poll` on the terminal and a pipe,
@@ -206,8 +205,8 @@ piped or redirected, Git, man and less wait for nothing.
   tests 82 of 82, lint 77 recipes.
 - The screens of every step, both browsers: `build/less-evidence/tour-*.log`.
 - Sizes: the `less` snapshot is 769,018 bytes; `amy install less` adds 5
-  files, 532,577 bytes, in 0.2 s (`less` 370,001, `lessecho` 32,440, the page
-  110,922, two licence texts). `default` is 14,362,052 bytes (13,495 more
+  files, 532,577 bytes, in 0.2 s (`less` 369,952, `lessecho` 32,440, the page
+  110,922, the two licence texts 19,263). `default` is 14,362,052 bytes (13,495 more
   than before: the termcap entry and the larger `man`); with less installed
   by its recipe it would hold those 532,577 bytes more, 3.7%.
 
