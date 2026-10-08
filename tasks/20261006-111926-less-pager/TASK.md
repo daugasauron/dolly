@@ -90,3 +90,100 @@ Rejected:
   2.47: a source patch against a decision upstream took on purpose.
 - A `pager` command that picks the program (Debian's way): a command, a page
   and an export for what one build flag says.
+
+## man
+
+`man` (in `Dollyfile-system-build`) printed every page whole. At a terminal it
+now gives the page to `$PAGER`, a shell command as POSIX has it, and without
+one to the line Git runs, with Git's `LESS=FRX` unless `LESS` is set: a page
+that fits the screen prints and returns, a longer one is held, and what was
+read stays on the screen after `q`. Output that is not a terminal is copied
+as before. This replaces the note in `20261005-220754-man-help` that the
+package would export `PAGER`: an exported variable reaches a session only at
+its next load, so paging would start after a reload.
+
+## The package
+
+- `Dollyfile-less`: less 692 and GNU termcap 1.3.1, from upstream's release
+  archives as published (`SOURCE` pins are upstream's SHA-256), built inside
+  Dolly `FROM system-tools`. Slop does not run `configure`, so the recipe's
+  Makefile states what it would find (a `HAVE` list of 46 names) and writes
+  `defines.h` as `config.status` does, by dropping the `#undef` lines. Not
+  claimed: `fchmod` (no permission bits) and `ttyname`. It installs
+  `/usr/bin/less`, `/usr/libexec/lessecho` (less runs it to expand a name
+  typed at `:e`), the page `man1/less.1` as upstream ships it, less's
+  `LICENSE` and termcap's `COPYING`.
+- **692, not 710.** From 701 on ("don't init terminal if stdout is not tty")
+  less looks up its keys with `tgetstr` without having called `tgetent` when
+  its output is not a terminal. ncurses answers that; GNU termcap 1.3.1
+  dereferences its null entry. Built natively, 710 with termcap 1.3.1 ends
+  with SIGSEGV at `seq 1 5 | less | head` and `less --help > file`, in
+  `tgetstr` under `special_key_str` (`build/less-evidence/native/`): the
+  tool-call path. 692 is the newest release before that change. Worth a
+  report to gwsw/less; not made from here.
+- **A termcap library is the gap.** The platform has no terminal description
+  library: Neovim compiles its entries in, Emacs carries its own `termcap.c`
+  and installed `/etc/termcap`. less needs `tgetent`, `tgetstr`, `tgetnum`,
+  `tgetflag`, `tgoto` and `tputs` to link (its `--without-termlib` only skips
+  the check). GNU termcap is that library as an upstream, built unchanged
+  and linked into less; it is not exported, since nothing else asks for it.
+- **`/etc/termcap` belongs to the terminal.** The entry moved from the Emacs
+  recipe to `Dollyfile-display`, byte for byte plus `@7=\EOF`: without the
+  End key in it, less reads End's `ESC O F` as its `F` command and waits for
+  the file to grow. The Emacs recipe lost its copy; **Emacs was not rebuilt
+  here** (it reads the same path, and every image with a terminal installs
+  `display`).
+- Licence: less is used under its own two-clause licence; termcap is
+  GPL-2.0-or-later, so the program is a GPL one, and the site serves both
+  archives with the recipe (`config/upstreams.json`, `docs/licences.md`).
+- `default` does not install it: the owner's choice.
+
+## What less needed of the platform (measured in a `system` session, Chromium)
+
+Built with the recipe's Makefile in 6.5 s (`make -j4`); `less` 370,001
+bytes, `lessecho` 32,440.
+
+- Works unchanged: `/dev/tty` for keys while the data comes from a pipe, raw
+  mode through termios, `TIOCGWINSZ`, `poll` on the terminal and a pipe,
+  `popen` and `system` through Slop (`!`, `|`, `:e` with `lessecho`), UTF-8
+  text, the alternate screen, arrows, Page Up and Down, Home and End (with the
+  `@7` above), search, `LESS=FRX`.
+- **Gap: a signal handler that leaves by `longjmp`.** less's SIGINT and
+  SIGWINCH handlers jump out of the `read` it is waiting in (`intio` in
+  `os.c`, `sigsetjmp` and `siglongjmp`, which libc's `setjmp.h` defines as
+  `setjmp` and `longjmp`). In Dolly the handler runs inside libc's system-call
+  wrapper, which tells the kernel the handler finished only after it returns
+  (`DOLLY_PROCESS_SIGNAL_ACKNOWLEDGE` in `dolly_process_call`,
+  `src/process/signal.c`). A handler that jumps away never says so: the
+  kernel's `handling_signal` stays set, no later signal is delivered to that
+  process, and the supervisor's 500 ms timer ends it at the next SIGINT.
+  Measured:
+  - the first resize of the window repaints less at the new size; a second
+    one does not (less keeps the old height until it is restarted);
+  - Ctrl+C in less ends less 0.5 s later with status 130 instead of only
+    stopping what it was doing. Under Git and man nothing is left behind
+    (`LESS=FRX` uses no alternate screen); after a plain `less FILE` the
+    prompt comes back on the alternate screen, until a program that leaves it
+    properly has run.
+  Not changed here: it is the signal contract ("a process that does not
+  finish a delivered signal within 500 ms is terminated"), and the fix is in
+  the seed. Two ways: libc acknowledges before it runs the handler, which
+  ends the 500 ms rule for a handler that never returns; or `siglongjmp`
+  becomes a libc function that restores the mask and acknowledges, with
+  `sigsetjmp` saving the mask (musl's `jmp_buf` has the fields), which keeps
+  the rule and needs the staged `setjmp.h` changed.
+- Not a gap, but seen: forced termination does not restore the terminal
+  (alternate screen, modes), for any full-screen program.
+
+## Tests
+
+`test/pager-browser.mjs`, in the core suite, on `default`: every command is
+typed at the terminal and none is captured. Without less: `git log`,
+`git log -n3`, `git diff`, `git show`, `git branch`, `git help -a` and `man`
+of a 300-line page print to their last line with status 0, and `PAGER`,
+`GIT_PAGER` and `LESS` are unset. After `amy install less`: `git log`,
+`git diff`, `man` and `seq | less` hold the screen at their first lines, Space
+moves on, `q` returns with status 0; what fits the screen is not held;
+`less FILE` goes forward, back, to a search and repaints in a smaller window;
+`PAGER=cat`, `GIT_PAGER=cat` and `core.pager=cat` end without a key; and
+piped or redirected, Git, man and less wait for nothing.

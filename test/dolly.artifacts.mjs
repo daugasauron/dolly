@@ -210,6 +210,7 @@ test("system snapshots are sealed to their visible recipe chain", async () => {
     ["ghostty-build", "/usr/bin/zig"],
     ["git", "/usr/bin/git"],
     ["gzip", "/bin/gzip"],
+    ["less", "/usr/bin/less"],
     ["gpu-sdk", "/usr/lib/dolly/process/libdolly-gpu.a"],
     ["posix", "/bin/grep"],
     ["system", "/usr/lib/libdisplay.so"],
