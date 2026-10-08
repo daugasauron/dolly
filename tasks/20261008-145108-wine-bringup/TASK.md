@@ -280,3 +280,20 @@ every program that starts another, expects.
   `wc -c ~/.wine/drive_c/dolly.bmp` in the shell says 480054 (400x300 at 32
   bits plus the 54-byte header). Images build in 143 s; `lint-dollyfiles`
   and `node --test` pass.
+
+### 2026-10-09, deliverable 3, first step: an x86-64 console program under an interpreter
+
+`demos/wine/programs/x86emu` is an x86-64 interpreter linked into `wine` like any program. It loads a
+PE32+ image at its own base when that lies in the hole below the wasm data (`--global-base` is 64 MiB
+for this), else relocates it; binds each import to the export of the wasm64 Wine DLL of that name; and
+makes a call out of the guest with the wasm type winebuild now records per export (data directory 15 of
+each module's description, and `calls.c`, one typed indirect call per distinct signature). A variadic
+call has its arguments re-laid from the format string, since a guest uses 8-byte slots and wasm64 does not.
+
+- Measured in Chrome: Ange Albertini's hand-assembled `normal64.exe` (corkami/pocs `af2e1a07`,
+  sha256 `d526f32e…`, 1,024 bytes, fetched by the test, never committed) prints
+  ` * a standard PE32+ (imports, standard alignments)` through Wine's msvcrt `printf` and exits 0 through
+  kernel32 `ExitProcess`. `wine x86emu --bench`: 85.9 million instructions a second (a 4-instruction loop).
+- msvcrt joined the image for this; its `DllMain` read `0x7ffe0000`, where Windows has the shared user
+  page: on Dolly kernel32 now reads the page ntdll allocated.
+- Images build in 141.9 s; the browser test takes 18.7 s.

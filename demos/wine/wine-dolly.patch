@@ -100,6 +100,21 @@
      if (is_win16_looks(ofn->Flags))
          return GetFileName31W(ofn, SAVE_DIALOG);
      else
+--- a/dlls/kernel32/cpu.c
++++ b/dlls/kernel32/cpu.c
+@@ -46,7 +46,12 @@
+ 
+ WINE_DEFAULT_DEBUG_CHANNEL(reg);
+ 
++#ifdef __dolly__  /* the page is where ntdll could allocate it, not at the address Windows has it */
++extern KSHARED_USER_DATA *user_shared_data;
++#define SHARED_DATA     user_shared_data
++#else
+ #define SHARED_DATA     ((KSHARED_USER_DATA*)0x7ffe0000)
++#endif
+ 
+ /****************************************************************************
+  *		QueryPerformanceCounter (KERNEL32.@)
 --- a/dlls/kernel32/environ.c
 +++ b/dlls/kernel32/environ.c
 @@ -68,10 +68,18 @@

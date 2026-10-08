@@ -5,10 +5,18 @@
 // console program that uses files, a thread and an event through wineserver.
 // Usage: node demos/wine/test/wine-browser.mjs
 import assert from "node:assert/strict";
+import { execFileSync } from "node:child_process";
 import { mkdir } from "node:fs/promises";
 import { delay, demoTest, shellPrompt } from "../../browser.mjs";
 
+const projectDir = new URL("../../..", import.meta.url).pathname;
 const evidence = new URL("../../../build/wine-evidence/", import.meta.url).pathname;
+// An x86-64 Windows program nobody here compiled: Ange Albertini's hand-assembled "normal" PE32+ from
+// corkami/pocs, 1,024 bytes that call msvcrt's printf and kernel32's ExitProcess. Fetched for the test only.
+const sample = ".cache/corkami-normal64-d526f32e.exe";
+execFileSync("bash", ["scripts/fetch-verified-file.sh",
+  "https://raw.githubusercontent.com/corkami/pocs/af2e1a071fffc3d52d079bdf355513e930ec4c0a/PE/bin/normal64.exe",
+  "d526f32ec97c10f9cef71132c89d457b388711b4a4eb4168da3896fb4d45b6d0", sample], { cwd: projectDir });
 const desktop = [58, 110, 165], face = [212, 208, 200], white = [255, 255, 255], black = [0, 0, 0];
 
 const frameSize = page => page.evaluate(() => [document.querySelector("#display").width, document.querySelector("#display").height]);
@@ -32,14 +40,15 @@ async function at(page, x, y) {
 }
 const click = async (page, x, y) => page.mouse.click(...await at(page, x, y));
 
-await demoTest("wine", { image: "wine", timeout: 600_000 }, async ({ open }) => {
-  const { page, prompt, start, waitText } = await open({ prompt: null });
+await demoTest("wine", { image: "wine", timeout: 600_000, server: { fixtures: { "normal64.exe": sample } } }, async ({ server, open }) => {
+  const { page, prompt, start, waitText } = await open({ prompt: null,
+    policy: { rules: [{ origin: server.origin, pathPrefix: "/fixture/", methods: ["GET"] }] } });
   await mkdir(evidence, { recursive: true });
-  try { await run(page, prompt, start, waitText); }
+  try { await run(page, prompt, start, waitText, server); }
   catch (error) { await page.screenshot({ path: `${evidence}failure.png` }); throw error; }
 });
 
-async function run(page, prompt, start, waitText) {
+async function run(page, prompt, start, waitText, server) {
   await page.waitForFunction(() => __dolly.transport.graphicsActive(), null, { timeout: 120_000 });
   const [width, height] = await frameSize(page);
   // Start menu: the key of a program's name starts it.
@@ -141,4 +150,16 @@ async function run(page, prompt, start, waitText) {
   await waitText(/Hello from C:\\windows\\system32\\hello\.exe, Windows \d+\.\d+, page size 65536, \d+ processors\s+file: written through wineserver \(26 bytes\)\s+thread: wait 0, exit code 7\s+VirtualAlloc: ok, CreateProcess: refused/);
   assert.equal(await hello.done, 0);
   console.log("wine: a console program used a file, a thread and an event through wineserver; CreateProcess is refused");
+
+  // The x86-64 emulator: the unmodified sample prints its line through Wine's msvcrt and exits by ExitProcess.
+  const fetched = start(`curl -fsS ${server.origin}/fixture/normal64.exe -o /home/dolly/.wine/drive_c/normal64.exe`);
+  assert.equal(await fetched.done, 0);
+  const emulated = start("wine x86emu 'C:\\normal64.exe'");
+  await waitText(/ \* a standard PE32\+ \(imports, standard alignments\)/);
+  assert.equal(await emulated.done, 0);
+  const bench = start("wine x86emu --bench");
+  const speed = (await waitText(/x86emu: 200000003 instructions in \d+ ms: [\d.]+ million a second/, 120_000))
+    .match(/200000003 instructions in (\d+) ms: ([\d.]+) million a second/);
+  assert.equal(await bench.done, 0);
+  console.log(`wine: x86emu ran an x86-64 PE nobody here compiled; its interpreter does ${speed[2]} million instructions a second`);
 }

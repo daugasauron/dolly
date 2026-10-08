@@ -29,9 +29,9 @@ REQUIRES TOOL sed
 REQUIRES TOOL sort
 REQUIRES TOOL tar
 
-SOURCE /v0.1.0/dist/static/wine/source.tar.gz 5717d9d562dedbe1e70097a2bd38b4cf2e19e393840344f7ff44dbfcb05c5176 /tmp/wine-source.tar.gz
+SOURCE /v0.1.0/dist/static/wine/source.tar.gz 1c22205aee3e2dc326036eb233cfdbdaae2ea71bf775ead6bb64fe345f9b5e83 /tmp/wine-source.tar.gz
 SLOP gzip -dc /tmp/wine-source.tar.gz | tar -xf - -C /
-# Tools, 193 generated headers, 17 modules and wineserver, linked into /usr/bin/wine; Wine's fonts.
+# Tools, generated headers, every module and wineserver, linked into /usr/bin/wine; Wine's fonts.
 SLOP make -j4 -f /usr/src/dolly/wine/Makefile
 
 EXPORTS TOOL wine

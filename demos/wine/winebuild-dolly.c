@@ -10,6 +10,7 @@
  *   winebuild --dll|--exe -E module.spec -F module.dll -o module.spec.c
  *       OBJECT.o|ARCHIVE.a... RESOURCE.res... [NAMES.imports]
  *   winebuild --dll -F missing.dll -o missing.c ARCHIVE.a... NAMES.missing NAMES.aliases
+ *   winebuild --dll -F calls.dll -o calls.c TYPES.types
  */
 #include "config.h"
 
@@ -390,6 +391,59 @@ static const char *c_name( const char *prefix, const char *link_name )
     return link_name;
 }
 
+/* For code that is not compiled against the modules (the x86 emulator): a call of a function of any
+ * of the types the module descriptions record, with its arguments in 64-bit slots. */
+static void output_typed_calls( char *types )
+{
+    char *type;
+    int index = 0;
+
+    output( "/* File generated automatically; do not edit! */\n\n#include <string.h>\n\n" );
+    output( "static inline double as_double( unsigned long long bits ) { double value; memcpy( &value, &bits, 8 ); return value; }\n" );
+    output( "static inline float as_float( unsigned long long bits ) { float value; memcpy( &value, &bits, 4 ); return value; }\n\n" );
+    output( "static const char *const call_types[] =\n{\n" );
+    for (type = types; (type = strtok( type, " \t\r\n" )); type = NULL)
+    {
+        if (strcmp( type, "types:" )) output( "    \"%s\",\n", type );
+        type[strlen( type )] = '\n';  /* undo strtok: the list is read again below */
+    }
+    output( "};\n\n" );
+    output( "/* the number of a type for wine_dolly_call, or -1 */\n" );
+    output( "int wine_dolly_call_type( const char *type, unsigned int len )\n{\n    int i;\n\n" );
+    output( "    for (i = 0; i < (int)(sizeof(call_types) / sizeof(call_types[0])); i++)\n" );
+    output( "        if (strlen( call_types[i] ) == len && !memcmp( call_types[i], type, len )) return i;\n    return -1;\n}\n\n" );
+    output( "/* a[] holds the arguments as integers, x[] as the bits of floating-point ones; returns 1 for an\n" );
+    output( " * integer result in *ret, 2 for a floating-point one (its bits), 0 for none */\n" );
+    output( "int wine_dolly_call( int type, void *func, const unsigned long long *a, const unsigned long long *x, unsigned long long *ret )\n{\n" );
+    output( "    switch (type)\n    {\n" );
+    for (type = strtok( types, " \t\r\n" ); type; type = strtok( NULL, " \t\r\n" ))
+    {
+        const char *p, *result;
+        if (!strcmp( type, "types:" )) continue;
+        result = strchr( type, ':' ) + 1;
+        output( "    case %d:  /* %s */\n    {\n        ", index++, type );
+        if (*result != 'v') output( "%s value = ", c_type( *result ) );
+        output( "((%s (*)(", c_type( *result ) );
+        if (type[0] == ':') output( "void" );
+        for (p = type; *p != ':'; p++) output( "%s%s", p == type ? "" : ", ", c_type( *p ) );
+        output( "))func)(" );
+        for (p = type; *p != ':'; p++)
+        {
+            int n = p - type;
+            if (*p == 'd') output( "%s as_double( x[%d] )", n ? "," : "", n );
+            else if (*p == 'f') output( "%s as_float( x[%d] )", n ? "," : "", n );
+            else output( "%s (%s)a[%d]", n ? "," : "", c_type( *p ), n );
+        }
+        output( " );\n" );
+        if (*result == 'v') output( "        return 0;\n" );
+        else if (*result == 'i') output( "        *ret = (unsigned int)value;\n        return 1;\n" );
+        else if (*result == 'j') output( "        *ret = value;\n        return 1;\n" );
+        else output( "        *ret = 0;\n        memcpy( ret, &value, sizeof(value) );\n        return 2;\n" );
+        output( "    }\n" );
+    }
+    output( "    }\n    return 0;\n}\n" );
+}
+
 static int ends_with( const char *str, const char *suffix )
 {
     size_t len = strlen( str ), suffix_len = strlen( suffix );
@@ -425,6 +479,15 @@ void output_dolly_module( DLLSPEC *spec, char **argv )
     {
         char *text, *name;
 
+        if (ends_with( *argv, ".types" ))
+        {
+            init_input_buffer( *argv );
+            text = xmalloc( input_buffer_size + 1 );
+            memcpy( text, input_buffer, input_buffer_size );
+            text[input_buffer_size] = 0;
+            output_typed_calls( text );
+            return;
+        }
         if (ends_with( *argv, ".missing" ) || ends_with( *argv, ".aliases" ))
         {
             init_input_buffer( *argv );
@@ -582,6 +645,7 @@ void output_dolly_module( DLLSPEC *spec, char **argv )
     output( "    uint16_t ordinals[%d];\n", spec->nb_names + 1 );
     output( "    char strings[%u];\n", strings_size );
     output( "    void *slots[%d];\n", nb_funcs + 1 );
+    output( "    const char *types[%d];\n", nb_funcs + 1 );
     output( "    void *entry;\n" );
     output( "    struct dolly_import_descriptor imports[%u];\n", nb_imports + 1 );
     output( "    uint64_t no_thunk;\n" );
@@ -618,6 +682,8 @@ void output_dolly_module( DLLSPEC *spec, char **argv )
         output( "                    [1] = { offsetof(struct image, imports), sizeof(((struct image *)0)->imports) },\n" );
     if (resources_size)
         output( "                    [2] = { offsetof(struct image, resources), %u },\n", (unsigned int)resources_size );
+    if (nb_funcs)  /* a directory of our own: the wasm type of each exported function, for the x86 emulator's calls */
+        output( "                    [15] = { offsetof(struct image, types), sizeof(((struct image *)0)->types) },\n" );
     output( "                },\n            },\n        },\n" );
     output( "        .section = { .Name = \".data\", .VirtualSize = sizeof(struct image) - 0x1000, .VirtualAddress = 0x1000,\n" );
     output( "                     .SizeOfRawData = sizeof(struct image) - 0x1000, .PointerToRawData = 0x1000, .Characteristics = 0xc0000040 },\n" );
@@ -658,6 +724,18 @@ void output_dolly_module( DLLSPEC *spec, char **argv )
                 const ORDDEF *odp = spec->ordinals[spec->base + i];
                 output( "        [%d] = (void *)%s,\n", i, odp->type == TYPE_VARIABLE ? odp->link_name : c_name( prefix, odp->link_name ) );
             }
+        output( "    },\n    .types =\n    {\n" );
+        for (i = 0; i < nb_funcs; i++)
+        {
+            const ORDDEF *odp = spec->ordinals[spec->base + i];
+            const struct symbol *symbol;
+
+            if (!declared[i] || odp->type == TYPE_VARIABLE) continue;
+            symbol = find_symbol( c_name( prefix, odp->link_name ) );
+            if (!symbol || !symbol->is_func) continue;
+            /* a variadic function takes its variable arguments as one pointer after the fixed ones: marked by a dot */
+            output( "        [%d] = \"%s%s\", /* type: %s */\n", i, symbol->type, odp->type == TYPE_VARARGS ? "." : "", symbol->type );
+        }
         output( "    },\n" );
     }
     output( "    .strings =\n" );

@@ -60,10 +60,10 @@ $(B)/include/%.h: $(SRC)/include/%.idl $(T)/widl
 headers: $(IDL_HEADERS)
 
 # Modules, each built by module.mk from its own Makefile.in: Wine's, and the demo's own under $(PORT).
-DLLS := ntdll kernel32 advapi32 gdi32 user32 version usp10 imm32 comctl32 comdlg32 shell32 shlwapi uxtheme winspool.drv
+DLLS := ntdll kernel32 advapi32 gdi32 user32 version usp10 imm32 comctl32 comdlg32 shell32 shlwapi uxtheme winspool.drv msvcrt
 OWN_DLLS := winedolly.drv
 PROGRAMS := notepad winemine
-OWN_PROGRAMS := desktop hello mspaint
+OWN_PROGRAMS := desktop hello mspaint x86emu
 MODULES := $(DLLS:%=dlls/%) $(OWN_DLLS:%=dlls/%) $(PROGRAMS:%=programs/%) $(OWN_PROGRAMS:%=programs/%) server
 export MODULE_FILE_winspool := winspool.drv
 MODULE_ARGS_dlls/ntdll := PORT_SRCS=signal_wasm64.c
@@ -98,21 +98,29 @@ comma := ,
 space := $(subst ,, )
 LINK_INPUTS := $(MODULE_LIBS) $(STATIC_LIBS) $(B)/libwine.a $(B)/libwine_port.a $(B)/obj/port/port/main.o
 # Win32 reads a pointer below 64 KiB as an integer (an ordinal, an atom, a resource identifier), so no
-# data may live there: wasm-ld would start the data at 1024. The modules' images and resources are 25 MB of data,
+# data may live there: wasm-ld would start the data at 1024. The data starts at 64 MiB instead, which
+# leaves the addresses below it free for an x86 program that must be loaded where it was linked (x86emu). The modules' images and resources are 25 MB of data,
 # more than the memory cc starts a program with.
-link = $(CC) -pthread -Wl,--global-base=65536 -Wl,--initial-memory=67108864 -o $(1) $(B)/obj/port/port/main.o $(2) \
+link = $(CC) -pthread -Wl,--global-base=67108864 -Wl,--initial-memory=134217728 -o $(1) $(B)/obj/port/port/main.o $(2) \
        -Wl,--whole-archive,$(subst $(space),$(comma),$(strip $(MODULE_LIBS))),--no-whole-archive \
        $(STATIC_LIBS) $(B)/libwine.a $(B)/libwine_port.a -lfreetype -lpng16 -lz -lm -ldolly-sockets
 
 # What the linked modules call in modules left out of the program (delay-loaded DLLs mostly): the first
 # link names them, and each gets a stub that raises Wine's "unimplemented function" exception.
-$(B)/missing.c: $(LINK_INPUTS)
-	-$(call link,$(B)/wine.unresolved,-Wl$(comma)--error-limit=0) 2> $(B)/link.log
+$(B)/missing.c: $(LINK_INPUTS) $(B)/calls.o
+	-$(call link,$(B)/wine.unresolved,$(B)/calls.o -Wl$(comma)--error-limit=0) 2> $(B)/link.log
 	rm -f $(B)/wine.unresolved
 	(echo missing:; sed -n 's/.*undefined symbol: //p' $(B)/link.log | sort -u) > $(B)/wine.missing
 	(echo aliases:; cat $(MODULE_LIBS:module.a=spec.c) 2>/dev/null | sed -n 's/^.. alias: \(.*\) ..$$/\1/p') > $(B)/wine.aliases
 	$(T)/winebuild --dll -F missing.dll -o $@ $(MODULE_LIBS) $(B)/wine.missing $(B)/wine.aliases
 $(B)/missing.o: $(B)/missing.c
+	$(CC) $(CFLAGS) -c $< -o $@
+
+# One call for each type an exported function has, for the x86 emulator, which reaches them by name.
+$(B)/calls.c: $(MODULE_LIBS)
+	(echo types:; cat $(MODULE_LIBS:module.a=spec.c) 2>/dev/null | sed -n 's/^.*. type: \([a-z:]*\) ..$$/\1/p' | grep -v '?' | sort -u) > $(B)/wine.types
+	$(T)/winebuild --dll -F calls.dll -o $@ $(B)/wine.types
+$(B)/calls.o: $(B)/calls.c
 	$(CC) $(CFLAGS) -c $< -o $@
 
 # The names more than one module defines, as the linker reports them, added to those known: what
@@ -122,8 +130,8 @@ shared-names: $(LINK_INPUTS)
 	(cat $(PORT)/shared-names.txt; awk '/duplicate symbol: /{name=$$NF} />>> defined in .*\/obj\/.*\/module\.a/{sub(/^.*\/obj\//,""); sub(/\/module\.a.*/,""); print $$0, name}' $(B)/link.log) | sort -u > $(B)/shared-names.txt
 	wc -l $(B)/shared-names.txt
 
-/usr/bin/wine: $(LINK_INPUTS) $(B)/missing.o
-	$(call link,$@,$(B)/missing.o)
+/usr/bin/wine: $(LINK_INPUTS) $(B)/missing.o $(B)/calls.o
+	$(call link,$@,$(B)/missing.o $(B)/calls.o)
 
 # Wine's own TrueType fonts, where gdi32 looks for them.
 FONTS := $(patsubst $(SRC)/fonts/%,/usr/share/wine/fonts/%,$(wildcard $(SRC)/fonts/*.ttf))

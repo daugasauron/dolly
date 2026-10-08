@@ -9,7 +9,7 @@ demo_dir="${project_dir}/demos/wine"
 # What the build reads: headers, the tools, the server, and each module's directory without its tests.
 paths=(include libs/port libs/wine libs/wpp tools/winebuild tools/wrc tools/widl tools/wmc server fonts
   dlls/winecrt0 dlls/uuid dlls/ntdll dlls/kernel32 dlls/advapi32 dlls/gdi32 dlls/user32 dlls/version
-  dlls/usp10 dlls/imm32 dlls/comctl32 dlls/comdlg32 dlls/shell32 dlls/shlwapi dlls/uxtheme dlls/winspool.drv
+  dlls/usp10 dlls/imm32 dlls/comctl32 dlls/comdlg32 dlls/shell32 dlls/shlwapi dlls/uxtheme dlls/winspool.drv dlls/msvcrt
   programs/notepad programs/winemine COPYING.LIB LICENSE AUTHORS VERSION)
 archive="$("${project_dir}/scripts/fetch-verified-file.sh" "${DOLLY_WINE_URL}" "${DOLLY_WINE_SHA256}" \
   "${project_dir}/.cache/wine-${DOLLY_WINE_VERSION}.tar.xz")"
