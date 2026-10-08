@@ -769,6 +769,39 @@ were left because `dolly-docs` pins both and `pi`, `pi-local` and
 `dollyfile-studio` follow it: the sentence should go in with the next change
 that rebuilds those.
 
+## Chrome's tab crash and the confinement of the JSPI entry (2026-10-08, `fix/jspi-crash`, commit `8262c6ba`)
+
+- **Evidence** (the integrator's, `integrate/checkpoint`, image inputs
+  `6ccafb32…`): with every process entered through `WebAssembly.promising`,
+  `codex-build` (Patti driving rustc at `-j 4`, threads, proc macros through
+  `dso@0`) crashed the builder's Chrome tab twice (`Target crashed`) at the
+  same place, after `patti: compile codex-cloud-tasks-0.153.4 (target)`, about
+  35 minutes in, once as the only image building and with no kernel OOM kill.
+  With the entry disabled the same build finished in 1,870 s (cgroup peak
+  20.3 GB). `llvm-build` had built three times with the entry on.
+- **Confinement.** The default is again the entry programs had before
+  2026-10-08: direct. An executable asks for the larger stack with a custom
+  section, `dolly.process.stack`, carried as host-module records are; the
+  supervisor enters it through JSPI where that stack is also measured deeper
+  (so never in Firefox). Only the compiler's `main` carries it. No existing
+  section could serve: `rustc-real` and `codex` declare the compiler's 32 MiB
+  in `dolly.process.memory`. **This changes the seed** (the compiler gains 23
+  bytes; image inputs `650ce359…`), so every image rebuilds. On that seed
+  (`system` and `default` rebuilt, 845 s): `cpp`, `threads` and `process` pass
+  in Chrome 151 and Firefox 155. `test/cpp-browser.mjs` compiles the 640-call
+  chain and runs 5,000 calls holding eight values each: they fit with the
+  section and end an ordinary program with 126 in Chrome (3,725 calls fit
+  directly, 7,076 through JSPI; Firefox 7,193 either way). On the old seed the
+  unmarked compiler fails the chain in Chrome and a copy with the section
+  appended compiles it.
+- **The cause is not found**, and by the owner's decision was not hunted.
+  Not measured: whether an overflow on the `promising` stack inside a thread
+  or an import always ends in a trap; which rustc invocation it was; Chrome's
+  own reason. That the test fails without the confinement follows from the
+  capacities above and was not run. What a user loses: in Chrome, rustc and
+  every program but the compiler are back on the 500 KB stack. Any program
+  can still write the section and take the risk for itself.
+
 ## Decisions (2026-10-01, delegated)
 
 - LLVM-in-Dolly stays a demo (`demos/llvm`): moving CMake and Python into core
