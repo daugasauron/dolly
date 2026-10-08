@@ -2,7 +2,8 @@ import assert from "node:assert/strict";
 import { browserTest } from "./browser.mjs";
 
 // The page's presenter and input ring: an idle terminal requests no animation
-// frames and output wakes it; pointer motion is one record per frame, waits
+// frames and output wakes it; a burst of typed keys costs a frame a tick, not
+// one a key; pointer motion is one record per frame, waits
 // for a program that does not read and never takes a key's slot; a record the
 // ring has no room for is counted and shown; when a foreground program ends
 // the terminal keeps its pointer records, and the keys typed while that
@@ -27,6 +28,20 @@ await browserTest("display", { image: "system", server }, async ({ server, open 
   assert.equal(await sleeping, 0);
   assert.equal(requested, 0, "an idle terminal requested animation frames");
   await page.waitForFunction(frame => document.documentElement.dataset.frameSequence !== frame, frameSequence);
+
+  // The echo of a burst of keys is drawn on the service ticks, 16 ms apart,
+  // and once the reader has caught up: not once for every key, which kept
+  // Slop slower than a script types and overran the ring. Ctrl+U drops the line.
+  const burst = await page.evaluate(async () => {
+    const transport = __dolly.transport, started = performance.now();
+    const published = () => Atomics.load(transport.words, transport.word + transport.constructor.frameSequence);
+    const before = published();
+    for (let key = 0; key < 100; key++) for (const action of [1, 0]) transport.pushSyntheticKey("x", "KeyX", 0, action);
+    while (!transport.inputIdle()) await new Promise(resolve => setTimeout(resolve, 1));
+    transport.pushText("\x15");
+    return { frames: published() - before, ticks: (performance.now() - started) / 16 };
+  });
+  assert.ok(burst.frames <= burst.ticks + 5, `${burst.frames} frames for the echo of 100 keys in ${Math.ceil(burst.ticks)} ticks`);
 
   const probe = "/tmp/display-ui";
   assert.equal(await submit(`curl -fsS ${server.origin}/fixture/terminal-ui.c -o ${probe}.c && cc ${probe}.c -o ${probe}`), 0);

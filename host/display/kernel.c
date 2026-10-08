@@ -144,15 +144,21 @@ static int fill_terminal_input(void) {
     encoded_input_cursor = 0;
     encoded_input_length = 0;
 
-    if (terminal_input.driver != NULL &&
-        dolly_input_ring_handle(&terminal_input, NULL, encoded_input, sizeof(encoded_input),
-                              &encoded_input_length) == 0 &&
-        encoded_input_length != 0) continue;
-
     uint32_t read = atomic_load_explicit(&display_mailbox.event_read,
                                          memory_order_relaxed);
     uint32_t write = atomic_load_explicit(&display_mailbox.event_write,
                                           memory_order_acquire);
+    // The terminal's replies come before the next record. The NULL call also
+    // draws, so it is made once the reader has caught up: its echo shows at
+    // once. While records wait, a record the driver has nothing to do for
+    // fetches the replies alone and the service tick draws: a burst costs a
+    // frame per tick, not per record.
+    static const dolly_input_event waiting = {.type = DOLLY_INPUT_EVENT_FOCUS};
+    if (terminal_input.driver != NULL &&
+        dolly_input_ring_handle(&terminal_input, read == write ? NULL : &waiting,
+                                encoded_input, sizeof(encoded_input),
+                                &encoded_input_length) == 0 &&
+        encoded_input_length != 0) continue;
     if (read == write) return -1;
     dolly_input_event event =
         display_mailbox.events[read & (DOLLY_DISPLAY_EVENT_CAPACITY - 1)];
