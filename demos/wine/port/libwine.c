@@ -47,10 +47,7 @@ static struct module
 static int nb_modules;
 static load_dll_callback_t load_dll_callback;
 
-/* libraries linked into the program that Wine looks up by name (freetype-symbols.c) */
-struct linked_symbol { const char *name; void *value; };
-struct linked_library { const char *name; const struct linked_symbol *symbols; };
-extern const struct linked_library *const wine_dolly_libraries[] __attribute__((weak));
+#include "linked-library.h"
 
 static struct module *find_module( const char *name )
 {
@@ -182,7 +179,7 @@ void *wine_dlopen( const char *filename, int flag, char *error, size_t errorsize
 {
     const struct linked_library *const *library;
 
-    for (library = wine_dolly_libraries; library && *library; library++)
+    for (library = wine_dolly_libraries; *library; library++)
         if (filename && !strcmp( (*library)->name, filename )) return (void *)*library;
     set_error( error, errorsize, "%s: Dolly loads no shared library into a threaded program", filename ? filename : "(self)" );
     errno = ENOSYS;

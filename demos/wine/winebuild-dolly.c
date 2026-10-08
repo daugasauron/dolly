@@ -9,6 +9,7 @@
  *
  *   winebuild --dll|--exe -E module.spec -F module.dll -o module.spec.c
  *       OBJECT.o|ARCHIVE.a... RESOURCE.res... [NAMES.imports]
+ *   winebuild --dll -F missing.dll -o missing.c ARCHIVE.a... NAMES.missing NAMES.aliases
  */
 #include "config.h"
 
@@ -24,6 +25,7 @@ struct symbol
 {
     char *name;
     int   is_func;
+    int   defined;                   /* or only called, by an object that expects another to define it */
     int   next;                      /* next symbol of the hash chain, plus one */
     char  type[256];                 /* parameters, ':', result; "ij:v" is void f(int, long long) */
 };
@@ -94,12 +96,19 @@ static struct symbol *find_symbol( const char *name )
     return NULL;
 }
 
-static void add_symbol( char *name, int is_func, const char *type )
+static void add_symbol( char *name, int is_func, int defined, const char *type )
 {
-    struct symbol *symbol;
+    struct symbol *symbol = find_symbol( name );
     unsigned int hash = hash_name( name );
 
-    if (find_symbol( name )) return;
+    if (symbol)
+    {
+        if (symbol->defined || !defined) return;
+        symbol->defined = 1;
+        symbol->is_func = is_func;
+        strcpy( symbol->type, type ? type : "" );
+        return;
+    }
     if (nb_symbols == symbols_size)
     {
         symbols_size = symbols_size ? symbols_size * 2 : 1024;
@@ -108,6 +117,7 @@ static void add_symbol( char *name, int is_func, const char *type )
     symbol = &symbols[nb_symbols++];
     symbol->name = name;
     symbol->is_func = is_func;
+    symbol->defined = defined;
     symbol->next = symbol_hash[hash];
     symbol_hash[hash] = nb_symbols;
     strcpy( symbol->type, type ? type : "" );
@@ -119,6 +129,7 @@ static void read_wasm_object( const unsigned char *data, size_t size, const char
     char **types = NULL;
     unsigned int nb_types = 0, nb_imports = 0, nb_funcs = 0, i, j, count;
     unsigned int *import_types = NULL, *func_types = NULL;
+    char **import_names = NULL;
     const unsigned char *end = data + size, *symtab = NULL, *symtab_end = NULL;
 
     if (size < 8 || memcmp( data, "\0asm", 4 )) return;
@@ -157,13 +168,16 @@ static void read_wasm_object( const unsigned char *data, size_t size, const char
         case 2:  /* imports */
             count = leb();
             import_types = xmalloc( (count + 1) * sizeof(*import_types) );
+            import_names = xmalloc( (count + 1) * sizeof(*import_names) );
             for (i = 0; i < count; i++)
             {
+                char *field;
+
                 free( leb_name() );
-                free( leb_name() );
+                field = leb_name();
                 switch (*in++)
                 {
-                case 0: import_types[nb_imports++] = leb(); break;
+                case 0: import_names[nb_imports] = field; import_types[nb_imports++] = leb(); break;
                 case 1: in++; skip_limits(); break;
                 case 2: skip_limits(); break;
                 case 3: in += 2; break;
@@ -212,17 +226,23 @@ static void read_wasm_object( const unsigned char *data, size_t size, const char
         case 0:  /* function */
             index = leb();
             if (!undefined || (flags & 0x40)) name = leb_name();
-            if (undefined || local) break;
+            if (local) break;
+            if (undefined)
+            {
+                if (index >= nb_imports || import_types[index] >= nb_types) fatal_error( "%s: bad function import\n", filename );
+                add_symbol( xstrdup( name ? name : import_names[index] ), 1, 0, types[import_types[index]] );
+                break;
+            }
             if (index < nb_imports || index - nb_imports >= nb_funcs || func_types[index - nb_imports] >= nb_types)
                 fatal_error( "%s: bad function symbol %s\n", filename, name );
-            add_symbol( name, 1, types[func_types[index - nb_imports]] );
+            add_symbol( name, 1, 1, types[func_types[index - nb_imports]] );
             name = NULL;
             break;
         case 1:  /* data */
             name = leb_name();
             if (undefined) break;
             leb(); leb(); leb();
-            if (!local) { add_symbol( name, 0, NULL ); name = NULL; }
+            if (!local) { add_symbol( name, 0, 1, NULL ); name = NULL; }
             break;
         case 3:  /* section */
             leb();
@@ -282,7 +302,7 @@ static int output_declaration( const char *name )
     const struct symbol *symbol = find_symbol( name );
     const char *p, *result;
 
-    if (!symbol) return 0;
+    if (!symbol || !symbol->defined) return 0;
     if (!symbol->is_func)
     {
         output( "extern char %s[];\n", name );
@@ -295,6 +315,68 @@ static int output_declaration( const char *name )
     for (p = symbol->type; *p != ':'; p++) output( "%s%s", p == symbol->type ? "" : ", ", c_type( *p ) );
     output( ");\n" );
     return 1;
+}
+
+/* The functions the linked modules call that no object defines under that name.
+ * An export that a spec file forwards or implements under another name (the
+ * "alias:" lines of the module descriptions) calls its implementation; the
+ * others belong to modules left out of the program, and fail as a Wine stub
+ * does, by the unimplemented-function exception. */
+static void output_missing_functions( char *names, char *aliases )
+{
+    char *name, *next;
+
+    output( "/* File generated automatically; do not edit! */\n\n" );
+    output( "extern void __wine_spec_unimplemented_stub( const char *module, const char *function );\n\n" );
+    for (name = strtok( names, " \t\r\n" ); name; name = next)
+    {
+        const struct symbol *symbol = find_symbol( name ), *target = NULL;
+        const char *p, *result, *line;
+        size_t len = strlen( name );
+
+        next = strtok( NULL, " \t\r\n" );
+        if (!strcmp( name, "missing:" )) continue;
+        if (!symbol || symbol->defined || !symbol->is_func || strchr( symbol->type, '?' ))
+        {
+            error( "%s is not a function a stub can stand for\n", name );
+            continue;
+        }
+        for (line = aliases; line && *line && !target; line = strchr( line, '\n' ) ? strchr( line, '\n' ) + 1 : NULL)
+        {
+            char buffer[256];
+            if (strncmp( line, name, len ) || line[len] != ' ' || sscanf( line + len + 1, "%255s", buffer ) != 1) continue;
+            if ((target = find_symbol( buffer )) && (!target->defined || !target->is_func || strchr( target->type, '?' )))
+                target = NULL;
+        }
+        result = strchr( symbol->type, ':' ) + 1;
+        if (target)
+        {
+            /* the callers' type is the Win32 one; the implementation may return a status they do not want */
+            const char *target_result = strchr( target->type, ':' ) + 1;
+            if (strncmp( target->type, symbol->type, target_result - target->type ) || (*target_result == 'v' && *result != 'v'))
+            {
+                error( "%s is called as %s but %s is %s\n", name, symbol->type, target->name, target->type );
+                continue;
+            }
+            output_declaration( target->name );
+        }
+        output( "%s %s(", c_type( *result ), name );
+        if (symbol->type[0] == ':') output( "void" );
+        for (p = symbol->type; *p != ':'; p++) output( "%s%s a%d", p == symbol->type ? "" : ", ", c_type( *p ), (int)(p - symbol->type) );
+        output( ")\n{\n" );
+        if (target)
+        {
+            output( "    %s%s(", *result != 'v' ? "return " : "", target->name );
+            for (p = symbol->type; *p != ':'; p++) output( "%s a%d", p == symbol->type ? "" : ",", (int)(p - symbol->type) );
+            output( " );\n" );
+        }
+        else
+        {
+            output( "    __wine_spec_unimplemented_stub( \"not-linked\", \"%s\" );\n", name );
+            if (*result != 'v') output( "    return 0;\n" );
+        }
+        output( "}\n\n" );
+    }
 }
 
 static int ends_with( const char *str, const char *suffix )
@@ -322,7 +404,7 @@ void output_dolly_module( DLLSPEC *spec, char **argv )
     const char *kind = (spec->characteristics & IMAGE_FILE_DLL) ? "DllMain" : "main";
     unsigned char *resources = NULL;
     size_t resources_size = 0;
-    char *prefix = xstrdup( spec->file_name );
+    char *prefix = xstrdup( spec->file_name ), *missing = NULL, *aliases = NULL;
 
     /* the module's name as the C prefix its sources were compiled with */
     if (ends_with( prefix, ".dll" )) prefix[strlen( prefix ) - 4] = 0;
@@ -332,6 +414,16 @@ void output_dolly_module( DLLSPEC *spec, char **argv )
     {
         char *text, *name;
 
+        if (ends_with( *argv, ".missing" ) || ends_with( *argv, ".aliases" ))
+        {
+            init_input_buffer( *argv );
+            text = xmalloc( input_buffer_size + 1 );
+            memcpy( text, input_buffer, input_buffer_size );
+            text[input_buffer_size] = 0;
+            if (ends_with( *argv, ".missing" )) missing = text;
+            else aliases = text;
+            continue;
+        }
         if (!ends_with( *argv, ".imports" ))
         {
             read_symbols( *argv );
@@ -348,6 +440,12 @@ void output_dolly_module( DLLSPEC *spec, char **argv )
             imports = xrealloc( imports, (nb_imports + 1) * sizeof(*imports) );
             imports[nb_imports++] = name;
         }
+    }
+
+    if (missing)
+    {
+        output_missing_functions( missing, aliases );
+        return;
     }
 
     if (spec->nb_resources)
@@ -395,6 +493,18 @@ void output_dolly_module( DLLSPEC *spec, char **argv )
 
     output( "/* File generated automatically from %s; do not edit! */\n\n", spec->src_name ? spec->src_name : spec->file_name );
     output( "#include \"dolly-image.h\"\n\n" );
+
+    /* exports under another name than their C function, for the callers linked to this module by name */
+    for (i = 0; i < nb_funcs; i++)
+    {
+        const ORDDEF *odp = spec->ordinals[spec->base + i];
+        const char *target;
+
+        if (!odp || !odp->name || odp->type == TYPE_STUB || odp->type == TYPE_VARIABLE || odp->type == TYPE_EXTERN) continue;
+        target = (odp->flags & FLAG_FORWARD) ? strrchr( odp->link_name, '.' ) + 1 : odp->link_name;
+        if (*target != '#' && strcmp( odp->name, target )) output( "/* alias: %s %s */\n", odp->name, target );
+    }
+    output( "\n" );
 
     /* which exports this module can hand out: what its objects define with a nameable type */
     declared = xmalloc( nb_funcs + 1 );

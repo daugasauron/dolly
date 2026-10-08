@@ -9,7 +9,7 @@ CC := cc
 CFLAGS := -O2 -fno-strict-aliasing -pthread -w
 TOOLCPP := -I$(PORT) -I$(SRC)/include -D__WINESRC__
 
-all: $(B)/wine
+all: /usr/bin/wine fonts
 
 # libwine_port and the parts of libwine the tools use.
 PORT_SRCS := $(wildcard $(SRC)/libs/port/*.c)
@@ -60,25 +60,32 @@ $(B)/include/%.h: $(SRC)/include/%.idl $(T)/widl
 headers: $(IDL_HEADERS)
 
 # Modules, each built by module.mk from its own Makefile.in: Wine's, and the demo's own under $(PORT).
-DLLS := ntdll kernel32
-PROGRAMS :=
+DLLS := ntdll kernel32 advapi32 gdi32 user32 version usp10 imm32
+OWN_DLLS := winedolly.drv
+PROGRAMS := winemine
 OWN_PROGRAMS := hello
-MODULES := $(DLLS:%=dlls/%) $(PROGRAMS:%=programs/%) $(OWN_PROGRAMS:%=programs/%) server
+MODULES := $(DLLS:%=dlls/%) $(OWN_DLLS:%=dlls/%) $(PROGRAMS:%=programs/%) $(OWN_PROGRAMS:%=programs/%) server
 export MODULE_FILE_winspool := winspool.drv
 MODULE_ARGS_dlls/ntdll := PORT_SRCS=signal_wasm64.c
+MODULE_ARGS_dlls/gdi32 := PORT_SRCS=freetype-symbols.c FREETYPE_CFLAGS="-I/usr/include/freetype2 -I$(PORT)/port" \
+                          freetype_EXTRADEFS='-DWINE_FONT_DIR=\"fonts\"'
+# gdi32 has a bitmap_info_size of its own.
+MODULE_ARGS_dlls/user32 := PORT_SRCS=user32-desktop.c MODDEFS=-Dbitmap_info_size=user32_bitmap_info_size
 # Names the server shares with a DLL, now that both are one program.
-SERVER_RENAMES := main init_directories close_handle server_start_time get_thread_context set_thread_context
+SERVER_RENAMES := main init_directories close_handle server_start_time get_thread_context set_thread_context \
+                  alloc_user_handle free_user_handle destroy_thread_windows mirror_region
 MODULE_ARGS_server := RENAMES="$(foreach name,$(SERVER_RENAMES),-D$(name)=wineserver_$(name))" \
                       MODDEFS="-include $(PORT)/port/server-cwd.h" PORT_SRCS=server-cwd.c \
                       main_EXTRADEFS=-Dmain_loop=wine_dolly_server_ready
 # Of winecrt0 only what a statically linked module still calls.
-MODULE_ARGS_dlls/winecrt0 := C_SRCS="exception.c register.c stub.c"
-$(foreach program,$(OWN_PROGRAMS),$(eval MODULE_ARGS_programs/$(program) := MODSRC=$(PORT)))
+MODULE_ARGS_dlls/winecrt0 := C_SRCS="exception.c register.c"
+MODULE_ARGS_dlls/uuid :=
+$(foreach module,$(OWN_DLLS:%=dlls/%) $(OWN_PROGRAMS:%=programs/%),$(eval MODULE_ARGS_$(module) := MODSRC=$(PORT)))
 MODULE_LIBS := $(MODULES:%=$(B)/obj/%/module.a)
-CRT0 := $(B)/obj/dlls/winecrt0/module.a
+STATIC_LIBS := $(B)/obj/dlls/winecrt0/module.a $(B)/obj/dlls/uuid/module.a
 
-$(MODULE_LIBS) $(CRT0): $(B)/obj/%/module.a: headers tools FORCE
-	$(MAKE) -f $(PORT)/module.mk SRC=$(SRC) PORT=$(PORT) B=$(B) MODDIR=$* LINKED="$(DLLS)" $(MODULE_ARGS_$*)
+$(MODULE_LIBS) $(STATIC_LIBS): $(B)/obj/%/module.a: headers tools FORCE
+	$(MAKE) -f $(PORT)/module.mk SRC=$(SRC) PORT=$(PORT) B=$(B) MODDIR=$* LINKED="$(DLLS) $(basename $(OWN_DLLS))" $(MODULE_ARGS_$*)
 
 # libwine, with Dolly's loader in place of loader.c and port.c.
 LIBWINE_OBJS := $(addprefix $(B)/obj/libs/wine/,casemap.o collation.o config.o debug.o ldt.o mmap.o sortkey.o string.o wctype.o) \
@@ -92,9 +99,33 @@ $(B)/libwine.a: $(LIBWINE_OBJS)
 # (cc keeps linker options apart from its inputs, so the archives go inside the option.)
 comma := ,
 space := $(subst ,, )
-$(B)/wine: $(MODULE_LIBS) $(CRT0) $(B)/libwine.a $(B)/libwine_port.a $(B)/obj/port/port/main.o
-	$(CC) -pthread -o $@ $(B)/obj/port/port/main.o -Wl,--whole-archive,$(subst $(space),$(comma),$(strip $(MODULE_LIBS))),--no-whole-archive \
-	  $(CRT0) $(B)/libwine.a $(B)/libwine_port.a -lm -ldolly-sockets
+LINK_INPUTS := $(MODULE_LIBS) $(STATIC_LIBS) $(B)/libwine.a $(B)/libwine_port.a $(B)/obj/port/port/main.o
+# Win32 reads a pointer below 64 KiB as an integer (an ordinal, an atom, a resource identifier), so no
+# data may live there: wasm-ld would start the data at 1024.
+link = $(CC) -pthread -Wl,--global-base=65536 -o $(1) $(B)/obj/port/port/main.o $(2) \
+       -Wl,--whole-archive,$(subst $(space),$(comma),$(strip $(MODULE_LIBS))),--no-whole-archive \
+       $(STATIC_LIBS) $(B)/libwine.a $(B)/libwine_port.a -lfreetype -lpng16 -lz -lm -ldolly-sockets
+
+# What the linked modules call in modules left out of the program (delay-loaded DLLs mostly): the first
+# link names them, and each gets a stub that raises Wine's "unimplemented function" exception.
+$(B)/missing.c: $(LINK_INPUTS)
+	-$(call link,$(B)/wine.unresolved,-Wl$(comma)--error-limit=0) 2> $(B)/link.log
+	rm -f $(B)/wine.unresolved
+	(echo missing:; sed -n 's/.*undefined symbol: //p' $(B)/link.log | sort -u) > $(B)/wine.missing
+	(echo aliases:; cat $(MODULE_LIBS:module.a=spec.c) 2>/dev/null | sed -n 's/^.. alias: \(.*\) ..$$/\1/p') > $(B)/wine.aliases
+	$(T)/winebuild --dll -F missing.dll -o $@ $(MODULE_LIBS) $(B)/wine.missing $(B)/wine.aliases
+$(B)/missing.o: $(B)/missing.c
+	$(CC) $(CFLAGS) -c $< -o $@
+
+/usr/bin/wine: $(LINK_INPUTS) $(B)/missing.o
+	$(call link,$@,$(B)/missing.o)
+
+# Wine's own TrueType fonts, where gdi32 looks for them.
+FONTS := $(patsubst $(SRC)/fonts/%,/usr/share/wine/fonts/%,$(wildcard $(SRC)/fonts/*.ttf))
+/usr/share/wine/fonts/%: $(SRC)/fonts/%
+	@mkdir -p $(@D)
+	cp $< $@
 
 FORCE:
-.PHONY: all tools headers FORCE
+fonts: $(FONTS)
+.PHONY: all tools headers fonts FORCE

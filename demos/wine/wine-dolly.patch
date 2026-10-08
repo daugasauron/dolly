@@ -276,6 +276,51 @@
  
      /* Reserve the memory */
  
+--- a/dlls/user32/win.c
++++ b/dlls/user32/win.c
+@@ -2064,6 +2064,10 @@
+ /**********************************************************************
+  *		GetDesktopWindow (USER32.@)
+  */
++#ifdef __dolly__
++extern void wine_dolly_init_desktop( HWND hwnd );
++#endif
++
+ HWND WINAPI GetDesktopWindow(void)
+ {
+     struct user_thread_info *thread_info = get_user_thread_info();
+@@ -2124,15 +2128,21 @@
+         strcatW( cmdline, args );
+ 
+         Wow64DisableWow64FsRedirection( &redir );
++#ifdef __dolly__  /* no second process can be the desktop's: the server's ownerless one is used */
++        if (0)
++#else
+         if (CreateProcessW( app, cmdline, NULL, NULL, FALSE, DETACHED_PROCESS,
+                             NULL, windir, &si, &pi ))
++#endif
+         {
+             TRACE( "started explorer pid %04x tid %04x\n", pi.dwProcessId, pi.dwThreadId );
+             WaitForInputIdle( pi.hProcess, 10000 );
+             CloseHandle( pi.hThread );
+             CloseHandle( pi.hProcess );
+         }
++#ifndef __dolly__
+         else WARN( "failed to start explorer, err %d\n", GetLastError() );
++#endif
+         Wow64RevertWow64FsRedirection( redir );
+ 
+         SERVER_START_REQ( get_desktop_window )
+@@ -2145,6 +2155,9 @@
+             }
+         }
+         SERVER_END_REQ;
++#ifdef __dolly__  /* name the graphics driver, as explorer would (user32-desktop.c) */
++        if (thread_info->top_window) wine_dolly_init_desktop( thread_info->top_window );
++#endif
+     }
+ 
+     if (!thread_info->top_window || !USER_Driver->pCreateDesktopWindow( thread_info->top_window ))
 --- a/include/basetsd.h
 +++ b/include/basetsd.h
 @@ -36,7 +36,7 @@
@@ -387,6 +432,20 @@
  #if !defined(CONTEXT_FULL) && !defined(RC_INVOKED)
  #error You need to define a CONTEXT for your CPU
  #endif
+--- a/libs/wine/config.c
++++ b/libs/wine/config.c
+@@ -339,7 +339,11 @@
+ static int is_valid_bindir( const char *bindir )
+ {
+     struct stat st;
++#ifdef __dolly__  /* the server is part of the wine program */
++    char *path = build_path( bindir, "wine" );
++#else
+     char *path = build_path( bindir, "wineserver" );
++#endif
+     int ret = (stat( path, &st ) != -1);
+     free( path );
+     return ret;
 --- a/server/process.h
 +++ b/server/process.h
 @@ -108,7 +108,7 @@
