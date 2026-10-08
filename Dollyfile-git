@@ -9,6 +9,8 @@ FROM /v0.1.0/Dollyfile-system-tools 6228667da8e2accc8870a324522c7e6b806407b6a400
 EXPORTS TOOL git
 EXPORTS TOOL diff
 EXPORTS TOOL patch
+# Automatic maintenance forks; the system configuration turns it off.
+FILE /etc/gitconfig
 FILE /usr/libexec/dolly/git-remote-http
 FILE /usr/libexec/dolly/git-remote-https
 FOLDER /usr/share/git-core/templates

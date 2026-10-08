@@ -58,7 +58,9 @@ await browserTest("pager", { timeout: 300_000 }, async ({ open }) => {
   // Sixty commits, a file that grows by a line in each, three hundred lines:
   // more than a screen of log, of diff and of page.
   await run("git init -q . && seq 1 300 > /tmp/lines && cp /tmp/lines /usr/share/man/cat1/lines.1");
-  await run("for n in $(seq 101 160); do seq 1 $n > file && git add file && git commit -qm change-$n; done");
+  // The package's Git commits without a word: it holds the system configuration.
+  await run("for n in $(seq 101 160); do seq 1 $n > file && git add file && git commit -qm change-$n; done 2> /tmp/said");
+  await run("test ! -s /tmp/said");
   const unset = "test -z \"$PAGER$GIT_PAGER$LESS\"";
   await run(unset);
 
