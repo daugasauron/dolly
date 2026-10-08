@@ -20,17 +20,26 @@ import { compareVersions, versionName } from "./release-layout.mjs";
 import { safePath } from "./site-release.mjs";
 import { sha256 } from "./snapshot-identity.mjs";
 
-// The bytes the site stores at URL. Identity encoding, so a file stored
-// compressed arrives as stored; a host's redirects between a page's names
+// The bytes the site stores at URL. A file stored compressed arrives as stored
+// only when its encoding is asked for: Cloudflare decodes it for a request
+// that accepts identity alone. A host's redirects between a page's names
 // (X/index.html to X/, X.html to X) are followed on the site only.
-async function stored(url, redirects = 2) {
+async function stored(url, redirects = 2, encoding = "identity", attempts = 4) {
+  // A long verification outlives a connection: a reset is tried again, a wrong byte never is.
+  try { return await storedOnce(url, redirects, encoding); } catch (error) {
+    if (attempts <= 1 || !["ECONNRESET", "ETIMEDOUT", "EAI_AGAIN", "UND_ERR_SOCKET"].includes(error.code)) throw error;
+    await new Promise(resolve => setTimeout(resolve, 2000));
+    return stored(url, redirects, encoding, attempts - 1);
+  }
+}
+async function storedOnce(url, redirects, encoding) {
   const response = await new Promise((resolveResponse, reject) => (url.protocol === "http:" ? getHttp : getHttps)(
-    url, { headers: { "accept-encoding": "identity" } }, resolveResponse).once("error", reject));
+    url, { headers: { "accept-encoding": encoding } }, resolveResponse).once("error", reject));
   if (response.statusCode >= 300 && response.statusCode < 400 && redirects) {
     response.resume();
     const target = new URL(response.headers.location, url);
     if (target.origin !== url.origin) throw new Error(`${url} redirects off the site`);
-    return stored(target, redirects - 1);
+    return storedOnce(target, redirects - 1, encoding);
   }
   const chunks = [];
   for await (const chunk of response) chunks.push(chunk);
@@ -45,11 +54,23 @@ const versionURL = (site, name) => {
   return new URL(`${name}/`, siteRoot(site));
 };
 
+// The encoding each file of a version is stored in, from its deployment.headers.
+function storedEncodings(headers) {
+  const encodings = new Map();
+  for (const block of headers.split("\n\n")) {
+    const [path, ...rows] = block.trim().split("\n");
+    const encoding = rows.map(row => row.trim().match(/^Content-Encoding: (\S+)$/)?.[1]).find(Boolean);
+    if (path?.startsWith("/") && encoding) encodings.set(path.slice(1), encoding);
+  }
+  return encodings;
+}
+
 // Fetches every file LIST names below BASE; keep(path, bytes) receives each once it matches.
 async function checkFiles(base, list, keep) {
+  const encodings = storedEncodings((await stored(new URL("deployment.headers", base))).toString());
   for (const row of list.trimEnd().split("\n")) {
     const path = safePath(row.slice(66));
-    const bytes = await stored(new URL(path.split("/").map(encodeURIComponent).join("/"), base));
+    const bytes = await stored(new URL(path.split("/").map(encodeURIComponent).join("/"), base), 2, encodings.get(path));
     if (sha256(bytes) !== row.slice(0, 64)) throw new Error(`${base}${path} differs from deployment.sha256`);
     await keep?.(path, bytes);
   }
