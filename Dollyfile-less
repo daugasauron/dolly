@@ -33,7 +33,7 @@ FILE /tmp/less.mk
       TERMIOS_H TIME_H TIME_T UNISTD_H UPPER_LOWER USLEEP VOID
     CPPFLAGS := $(addprefix -DHAVE_,$(HAVE)) -DSTDC_HEADERS -DSECURE_COMPILE=0 \
       '-DEDIT_PGM="vi"' '-DBINDIR="/usr/bin"' '-DLIBEXECDIR="/usr/libexec"' \
-      '-DSYSDIR="/etc"' -I /tmp/termcap-1.3.1
+      '-DSYSDIR="/etc"' -I /tmp/less-692 -I /tmp/termcap-1.3.1
     # The objects of upstream's Makefile.in.
     NAMES := main screen brac ch charset cmdbuf command cvt decode edit evar \
       filename forwback help ifile input jump line linenum lsystem mark optfunc \

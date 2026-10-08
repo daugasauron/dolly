@@ -165,7 +165,7 @@ bytes, `lessecho` 32,440.
     (`LESS=FRX` uses no alternate screen); after a plain `less FILE` the
     prompt comes back on the alternate screen, until a program that leaves it
     properly has run.
-  Not changed here: it is the signal contract ("a process that does not
+  Task `20261008-002251-handler-longjmp`. Not changed here: it is the signal contract ("a process that does not
   finish a delivered signal within 500 ms is terminated"), and the fix is in
   the seed. Two ways: libc acknowledges before it runs the handler, which
   ends the 500 ms rule for a handler that never returns; or `siglongjmp`

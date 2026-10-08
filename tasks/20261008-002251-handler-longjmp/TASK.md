@@ -4,8 +4,6 @@
 - PRIORITY: 330
 - TAGS: bug,core,process,signals,libc
 
-No description.
-
 Found while packaging less (`20261006-111926-less-pager`, 2026-10-08), on
 image inputs `503e6ffe…`, Chromium.
 
