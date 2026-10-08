@@ -11,12 +11,12 @@ REQUIRES HOST threads@0
 REQUIRES HOST upload@0
 
 FROM /v0.1.0/Dollyfile-system b43cf11c78f97613a811593435c3fbfce0ee1223b5fff71539675433a6f440b0
-COPY /v0.1.0/demos/wine/Dollyfile-wine-build cec93a93006d1e8a6d237b83d34ef3370a66a5a9aa1b1c0a5abc3baadcd89abd /usr/bin/wine /usr/bin/wine
-COPY /v0.1.0/demos/wine/Dollyfile-wine-build cec93a93006d1e8a6d237b83d34ef3370a66a5a9aa1b1c0a5abc3baadcd89abd /usr/share/wine /usr/share/wine
+COPY /v0.1.0/demos/wine/Dollyfile-wine-build 89441537ad702d375a5b297ba7a8cfe08d4ea6d6add40bc8d3e03a84d005a17a /usr/bin/wine /usr/bin/wine
+COPY /v0.1.0/demos/wine/Dollyfile-wine-build 89441537ad702d375a5b297ba7a8cfe08d4ea6d6add40bc8d3e03a84d005a17a /usr/share/wine /usr/share/wine
 # Wine is LGPL; FreeType (under its GPL option) and libpng are linked into it.
-COPY /v0.1.0/demos/wine/Dollyfile-wine-build cec93a93006d1e8a6d237b83d34ef3370a66a5a9aa1b1c0a5abc3baadcd89abd /usr/share/licenses/wine /usr/share/licenses/wine
-COPY /v0.1.0/demos/wine/Dollyfile-wine-build cec93a93006d1e8a6d237b83d34ef3370a66a5a9aa1b1c0a5abc3baadcd89abd /usr/share/licenses/freetype /usr/share/licenses/freetype
-COPY /v0.1.0/demos/wine/Dollyfile-wine-build cec93a93006d1e8a6d237b83d34ef3370a66a5a9aa1b1c0a5abc3baadcd89abd /usr/share/licenses/libpng /usr/share/licenses/libpng
+COPY /v0.1.0/demos/wine/Dollyfile-wine-build 89441537ad702d375a5b297ba7a8cfe08d4ea6d6add40bc8d3e03a84d005a17a /usr/share/licenses/wine /usr/share/licenses/wine
+COPY /v0.1.0/demos/wine/Dollyfile-wine-build 89441537ad702d375a5b297ba7a8cfe08d4ea6d6add40bc8d3e03a84d005a17a /usr/share/licenses/freetype /usr/share/licenses/freetype
+COPY /v0.1.0/demos/wine/Dollyfile-wine-build 89441537ad702d375a5b297ba7a8cfe08d4ea6d6add40bc8d3e03a84d005a17a /usr/share/licenses/libpng /usr/share/licenses/libpng
 EXPORTS TOOL wine
 REQUIRES TOOL wine
 

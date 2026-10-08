@@ -1,6 +1,6 @@
 // Wine in the wine image. The image's ENTRY starts the desktop: a taskbar
-// with a Start menu, from which Notepad and WineMine are started side by
-// side. The test reads the frame's pixels and, after Shut Down, the list of
+// with a Start menu, from which Paint, then Notepad and WineMine side by side,
+// are started. The test reads the frame's pixels and, after Shut Down, the list of
 // windows the desktop printed whenever it changed. Then, from the shell, a
 // console program that uses files, a thread and an event through wineserver.
 // Usage: node demos/wine/test/wine-browser.mjs
@@ -49,6 +49,29 @@ async function run(page, prompt, start, waitText) {
   await pixelIs(page, width >> 1, height >> 1, desktop);
   await pixelIs(page, width >> 1, height - 6, face);
 
+  // Paint (ReactOS's): a pencil line dragged across its image, saved through the file dialog, closed.
+  await startMenu("p");
+  await pixelIs(page, 364, 350, white);       // the window opens at 100,100 with a white 400x300 image
+  await page.mouse.move(...await at(page, 200, 230));
+  await page.mouse.down();
+  await page.mouse.move(...await at(page, 500, 450), { steps: 15 });
+  await page.mouse.up();
+  await page.waitForFunction(() => {
+    const data = document.querySelector("#display").getContext("2d").getImageData(170, 200, 390, 290).data;
+    let count = 0;
+    for (let i = 0; i < data.length; i += 4) if (data[i] + data[i + 1] + data[i + 2] < 200) count++;
+    return count > 150;
+  }, null, { timeout: 30_000, polling: 250 });
+  await page.screenshot({ path: `${evidence}paint.png` });
+  console.log(`wine: Paint drew ${await dark(page, 170, 200, 390, 290)} dark pixels along a dragged pencil line`);
+  await page.keyboard.press("Control+s");
+  await delay(1500);
+  await page.keyboard.type("C:\\dolly.bmp", { delay: 20 });
+  await page.keyboard.press("Enter");
+  await delay(1500);
+  await page.keyboard.press("Alt+F4");
+  await pixelIs(page, 364, 350, desktop);
+
   // Notepad, typed into.
   await startMenu("n");
   await pixelIs(page, 100, 100, white);
@@ -96,6 +119,9 @@ async function run(page, prompt, start, waitText) {
   assert.equal(await page.evaluate(() => __dolly.transport.graphicsActive()), false, "the display is released");
   const log = await waitText(/the Wine desktop was shut down/);
   for (const pattern of [
+    /desktop: started mspaint\.exe/,
+    /"Unnamed\.bmp - Paint" at 100,100 foreground/,
+    /"dolly\.bmp - Paint"/,
     /desktop: started notepad\.exe/,
     /2 windows; "Untitled - Notepad" at 0,0; "WineMine" at 0,0 foreground/,
     /"WineMine" at 800,300/,
@@ -104,6 +130,12 @@ async function run(page, prompt, start, waitText) {
     /started winemine\.exe[\s\S]*started winemine\.exe/,
   ]) assert.match(log, pattern);
   console.log("wine: two programs at once; a window dragged, minimized, restored, closed and started again; shut down");
+
+  // What Paint saved: a 400x300 bitmap of 32 bits a pixel is 480,054 bytes.
+  const size = start("wc -c /home/dolly/.wine/drive_c/dolly.bmp");
+  await waitText(/480054 \/home\/dolly\/\.wine\/drive_c\/dolly\.bmp/);
+  assert.equal(await size.done, 0);
+  console.log("wine: Paint saved its image through the file dialog as a 480,054-byte bitmap");
 
   const hello = start("wine hello");
   await waitText(/Hello from C:\\windows\\system32\\hello\.exe, Windows \d+\.\d+, page size 65536, \d+ processors\s+file: written through wineserver \(26 bytes\)\s+thread: wait 0, exit code 7\s+VirtualAlloc: ok, CreateProcess: refused/);

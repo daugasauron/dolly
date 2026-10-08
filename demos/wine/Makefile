@@ -63,7 +63,7 @@ headers: $(IDL_HEADERS)
 DLLS := ntdll kernel32 advapi32 gdi32 user32 version usp10 imm32 comctl32 comdlg32 shell32 shlwapi uxtheme winspool.drv
 OWN_DLLS := winedolly.drv
 PROGRAMS := notepad winemine
-OWN_PROGRAMS := desktop hello
+OWN_PROGRAMS := desktop hello mspaint
 MODULES := $(DLLS:%=dlls/%) $(OWN_DLLS:%=dlls/%) $(PROGRAMS:%=programs/%) $(OWN_PROGRAMS:%=programs/%) server
 export MODULE_FILE_winspool := winspool.drv
 MODULE_ARGS_dlls/ntdll := PORT_SRCS=signal_wasm64.c

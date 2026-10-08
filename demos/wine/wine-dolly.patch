@@ -1,3 +1,105 @@
+--- a/dlls/comdlg32/filedlg.c
++++ b/dlls/comdlg32/filedlg.c
+@@ -4168,6 +4168,59 @@
+ 
+ /* ------------------ APIs ---------------------- */
+ 
++#ifdef __dolly__
++/* The Explorer-style dialog is built on ole32 and the shell's folder views,
++ * which this Wine does not link: every file dialog is comdlg32's older one,
++ * without the caller's Explorer template and hook, and with one selection. */
++static const DWORD explorer_flags = OFN_EXPLORER | OFN_ENABLEHOOK | OFN_ENABLETEMPLATE |
++                                    OFN_ENABLETEMPLATEHANDLE | OFN_ALLOWMULTISELECT;
++
++static BOOL dolly_file_dialog_W( OPENFILENAMEW *ofn, UINT type )
++{
++    OPENFILENAMEW copy;
++    BOOL ret;
++
++    if (is_win16_looks( ofn->Flags )) return GetFileName31W( ofn, type );
++    memset( &copy, 0, sizeof(copy) );
++    memcpy( &copy, ofn, min( ofn->lStructSize, sizeof(copy) ) );
++    copy.Flags &= ~explorer_flags;
++    ret = GetFileName31W( &copy, type );
++    /* that dialog takes the title from its list, which a typed name is not in */
++    if (ret && ofn->lpstrFile && ofn->lpstrFileTitle && ofn->nMaxFileTitle)
++    {
++        const WCHAR *name = strrchrW( ofn->lpstrFile, '\\' );
++        lstrcpynW( ofn->lpstrFileTitle, name ? name + 1 : ofn->lpstrFile, ofn->nMaxFileTitle );
++    }
++    ofn->nFileOffset = copy.nFileOffset;
++    ofn->nFileExtension = copy.nFileExtension;
++    ofn->nFilterIndex = copy.nFilterIndex;
++    ofn->Flags = copy.Flags | (ofn->Flags & explorer_flags);
++    return ret;
++}
++
++static BOOL dolly_file_dialog_A( OPENFILENAMEA *ofn, UINT type )
++{
++    OPENFILENAMEA copy;
++    BOOL ret;
++
++    if (is_win16_looks( ofn->Flags )) return GetFileName31A( ofn, type );
++    memset( &copy, 0, sizeof(copy) );
++    memcpy( &copy, ofn, min( ofn->lStructSize, sizeof(copy) ) );
++    copy.Flags &= ~explorer_flags;
++    ret = GetFileName31A( &copy, type );
++    if (ret && ofn->lpstrFile && ofn->lpstrFileTitle && ofn->nMaxFileTitle)
++    {
++        const char *name = strrchr( ofn->lpstrFile, '\\' );
++        lstrcpynA( ofn->lpstrFileTitle, name ? name + 1 : ofn->lpstrFile, ofn->nMaxFileTitle );
++    }
++    ofn->nFileOffset = copy.nFileOffset;
++    ofn->nFileExtension = copy.nFileExtension;
++    ofn->nFilterIndex = copy.nFilterIndex;
++    ofn->Flags = copy.Flags | (ofn->Flags & explorer_flags);
++    return ret;
++}
++#endif
++
+ /***********************************************************************
+  *            GetOpenFileNameA  (COMDLG32.@)
+  *
+@@ -4192,6 +4245,9 @@
+     if (ofn->Flags & OFN_FILEMUSTEXIST)
+         ofn->Flags |= OFN_PATHMUSTEXIST;
+ 
++#ifdef __dolly__
++    return dolly_file_dialog_A( ofn, OPEN_DIALOG );
++#endif
+     if (is_win16_looks(ofn->Flags))
+         return GetFileName31A(ofn, OPEN_DIALOG);
+     else
+@@ -4227,6 +4283,9 @@
+     if (ofn->Flags & OFN_FILEMUSTEXIST)
+         ofn->Flags |= OFN_PATHMUSTEXIST;
+ 
++#ifdef __dolly__
++    return dolly_file_dialog_W( ofn, OPEN_DIALOG );
++#endif
+     if (is_win16_looks(ofn->Flags))
+         return GetFileName31W(ofn, OPEN_DIALOG);
+     else
+@@ -4257,6 +4316,9 @@
+         return FALSE;
+     }
+ 
++#ifdef __dolly__
++    return dolly_file_dialog_A( ofn, SAVE_DIALOG );
++#endif
+     if (is_win16_looks(ofn->Flags))
+         return GetFileName31A(ofn, SAVE_DIALOG);
+     else
+@@ -4287,6 +4349,9 @@
+         return FALSE;
+     }
+ 
++#ifdef __dolly__
++    return dolly_file_dialog_W( ofn, SAVE_DIALOG );
++#endif
+     if (is_win16_looks(ofn->Flags))
+         return GetFileName31W(ofn, SAVE_DIALOG);
+     else
 --- a/dlls/kernel32/environ.c
 +++ b/dlls/kernel32/environ.c
 @@ -68,10 +68,18 @@

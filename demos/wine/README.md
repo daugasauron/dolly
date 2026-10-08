@@ -3,14 +3,15 @@
 Wine 4.0.4 brought up inside Dolly as a feasibility study: Wine's own
 programs and DLLs, compiled from Wine's source for wasm64 by Dolly's `cc`
 and linked with `wineserver` into one executable. It boots into a desktop
-with a taskbar and a Start menu; Notepad and WineMine open side by side on
-the Dolly display and take the mouse and the keyboard.
+with a taskbar and a Start menu; Notepad, WineMine and ReactOS's Paint open
+side by side on the Dolly display and take the mouse and the keyboard.
 The task, with every measurement, is
 `tasks/20261008-145108-wine-bringup/TASK.md`.
 
 **It does not run Windows binaries.** A `.exe` or `.dll` from anywhere else
 is x86 machine code, Wine is not a CPU emulator, and Dolly has no x86. What
-runs is what this image compiled: `desktop`, `notepad`, `winemine`, `hello`.
+runs is what this image compiled: `desktop`, `notepad`, `winemine`,
+`mspaint` and `hello`.
 
 ## Images
 
@@ -27,6 +28,23 @@ runs is what this image compiled: `desktop`, `notepad`, `winemine`, `hello`.
 
 Build with `DOLLY_BUILD_IMAGES=wine-build,wine npm run image` (both images
 in about 150 s); test with `npm run test:demos -- wine`.
+
+## Paint
+
+Wine has no Paint. `programs/mspaint` builds ReactOS's, from the 0.3.17
+release (the last line in which it is plain C; LGPL), unchanged: 45 files
+fetched at a pinned commit and checked against `mspaint.sha256`. It is a
+program for the Windows headers, not part of Wine, so it is compiled without
+`__WINESRC__`. Of ReactOS's SDK it wants `<tchar.h>` and two resource
+includes; ours are in `programs/mspaint/` (`tchar.h` maps its seven wide
+string functions to libwine's and makes its literals 16-bit, since `cc` has
+no `-fshort-wchar`). Its help file and version resource are not built.
+
+File > Open and Save work in Paint and Notepad through comdlg32's older
+dialog (the Windows 3.1 one): the Explorer-style dialog needs ole32 and the
+shell's folder views, so on Dolly `GetOpenFileName` and `GetSaveFileName`
+always take the older one, without the caller's Explorer template and hook
+(Notepad's encoding choice is not offered) and with a single selection.
 
 ## The desktop
 
@@ -120,10 +138,10 @@ compiled outside Dolly.
   use, each needs a patch.
 - **Not built**: bitmap fonts (`.fon`), translations, registration scripts
   and type libraries; clipboard, printing, sound, networking, OpenGL.
-- **File > Open and Save** end Notepad: comdlg32 calls `OleInitialize`, and
-  ole32 is not linked ("Call to unimplemented function
-  not-linked.OleInitialize"). ole32 needs rpcrt4, whose proxies are per-CPU
-  assembly: the next module to bring up.
+- **ole32** is not linked, so anything that reaches into it (drag and drop,
+  the Explorer-style file dialog, which is replaced as described above) ends
+  with Wine's "unimplemented function" exception; in a program started from
+  the desktop that ends the desktop too.
 
 ## Licences
 

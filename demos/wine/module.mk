@@ -73,7 +73,7 @@ $(O)/port_%.o: $(PORT)/port/%.c
 
 $(O)/crt0_%.o: $(SRC)/dlls/winecrt0/%.c
 	@mkdir -p $(@D)
-	cc $(CFLAGS) $(CPPFLAGS) -c $< -o $@
+	cc $(CFLAGS) $(filter-out -U__WINESRC__,$(CPPFLAGS)) -c $< -o $@
 
 $(O)/%.res: $(S)/%.rc
 	@mkdir -p $(@D)

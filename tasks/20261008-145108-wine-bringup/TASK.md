@@ -257,3 +257,26 @@ whose programs link `-ldolly-sockets` is rebuilt; no browser import
 changes. With it, `wineserver` could be its own process and
 `CreateProcess` a `posix_spawn` of `wine`, which is what explorer, and
 every program that starts another, expects.
+
+### 2026-10-09, deliverable 2: Paint
+
+- ReactOS's `mspaint` at the `ReactOS-0.3.17` tag (commit `1bca06c4…`): the
+  last release line where it is C (later ones are ATL C++ with GDI+).
+  Licence: LGPL (its headers; ReactOS's `COPYING.LIB` is 2.1) (read). 44
+  files plus the licence are fetched from that commit and checked against
+  `demos/wine/mspaint.sha256`; no file is changed.
+- From ReactOS's SDK it needs only `<tchar.h>`, `<reactos/version.rc>` and
+  `<reactos/manifest_exe.rc>`; ours stand in. `cc` refuses `-fshort-wchar`,
+  so `TEXT()` and `_T()` become `u""` literals in our `tchar.h`.
+- File dialogs: the Explorer-style dialog needs ole32 (not linked). On
+  Dolly comdlg32 now always shows its older dialog (`GetFileName31`),
+  which needs only user32. This also makes Notepad's File > Open and Save
+  work. Not attempted: ole32 itself (it wants rpcrt4, whose proxies are
+  per-CPU assembly).
+- **Measured in the browser** (same test, Chrome, 15 s in all): Start and
+  `P` open Paint at 100,100; a pencil line dragged across the image draws
+  260 dark pixels; Ctrl+S, a typed `C:\dolly.bmp` and Enter save it; the
+  title becomes `dolly.bmp - Paint`; Alt+F4 closes it; afterwards
+  `wc -c ~/.wine/drive_c/dolly.bmp` in the shell says 480054 (400x300 at 32
+  bits plus the 54-byte header). Images build in 143 s; `lint-dollyfiles`
+  and `node --test` pass.

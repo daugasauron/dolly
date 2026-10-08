@@ -227,3 +227,7 @@ DOLLY_WINE_SHA256=53a051ff61009f5c0d0f3770fac56c5d1cccd1015078f8b214d63bc6cd8f61
 DOLLY_FLEX_VERSION=2.6.4
 DOLLY_FLEX_URL='https://github.com/westes/flex/releases/download/v2.6.4/flex-2.6.4.tar.gz'
 DOLLY_FLEX_SHA256=e87aae032bf07c26f85ac0ed3250998c37621d95f8bd748b31f15b33c45ee995
+# ReactOS Paint for the Wine demo: the commit of the ReactOS-0.3.17 tag, the last release line whose
+# Paint is plain C; demos/wine/mspaint.sha256 pins each file taken from it.
+DOLLY_REACTOS_COMMIT=1bca06c493016c137186496bc5aeda9082d1080f
+DOLLY_REACTOS_URL='https://raw.githubusercontent.com/reactos/reactos'

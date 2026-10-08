@@ -175,6 +175,7 @@ static void program_label( const char *name, WCHAR *label )
 {
     unsigned int i;
 
+    if (!strcmp( name, "mspaint.exe" )) name = "paint";  /* as its own window calls it */
     *label++ = '&';
     for (i = 0; name[i] && name[i] != '.'; i++) label[i] = i ? name[i] : name[i] - 'a' + 'A';
     label[i] = 0;

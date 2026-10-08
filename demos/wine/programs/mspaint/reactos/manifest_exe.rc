@@ -1,0 +1,2 @@
+/* <reactos/manifest_exe.rc> of the ReactOS SDK adds the manifest asking for
+ * version 6 of the common controls; Paint in the Wine demo uses version 5. */
