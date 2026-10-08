@@ -25,7 +25,7 @@ packaging and ABI tests read only these manifests.
 | `process` | WAT of process-side ABIs, such as the threads entry point |
 | `headers` | C API and packets, installed as `<dolly/NAME.h>`; `NAME-abi.h` is generated from the WAT constants and carries the module's ABI digest |
 | `kernel` | Kernel C; defines `dolly_NAME_kernel`, the process operations it handles and its release hook ([`process-kernel.h`](../src/process-kernel.h)) |
-| `client` | Process C linked as `libdolly-NAME.a`; it records `DOLLY_HOST_REQUIRE(NAME, VERSION, DOLLY_NAME_ABI_DIGEST)` (not `sockets`, below) |
+| `client` | Process C linked as `libdolly-NAME.a`; it records `DOLLY_HOST_REQUIRE(NAME, VERSION, DOLLY_NAME_ABI_DIGEST)` |
 
 A provider's `browser()` and `worker()` receive the page's shared resources
 (`mount`, `canvas`, `keyboard`, `applicationBase`, `showStatus`, `fatal`,
@@ -79,12 +79,15 @@ gets the process libc's refusal and records nothing.
 
 `sockets@0` has no import, no page or Worker side and no browser authority.
 Its kernel side is a descriptor kind of the runtime's table
-([`process-kernel.h`](../src/process-kernel.h)); its client is the libc's
-socket calls ([process model](../docs/process-model.md#local-sockets)). That
-client records no requirement: a program that links `socket` for a network
-path it never takes here would carry it, and `git` alone would put the line
-into every image built on `system`. So no image declares the module, and the
-kernel serves its operations to every process.
+([`process-kernel.h`](../src/process-kernel.h)). Its client defines the
+libc's socket calls, which many programs reference for a network path they
+never take here, so `cc` does not link it with the other clients: a program
+asks with `-ldolly-sockets`
+([process model](../docs/process-model.md#local-sockets)). That argument
+comes before the archives `cc` adds, and the linker takes each name from the
+first archive that defines it; every other program gets libc's refusals
+([`socket-refusals.c`](../src/process/socket-refusals.c), an object that
+names the same functions and nothing else) and records nothing.
 
 ## Runtimes
 

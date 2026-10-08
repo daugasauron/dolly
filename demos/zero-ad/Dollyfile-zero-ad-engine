@@ -44,8 +44,8 @@ SLOP slop -e /tmp/premake.slop
 
 # SpiderMonkey, built inside Dolly by zero-ad-spidermonkey: its headers, the
 # two archives and its licences.
-COPY https://daugasauron.com/demos/zero-ad/Dollyfile-zero-ad-spidermonkey 6777cb8d3db41aac5e3de5947b5a1e56bee84bce57e3a1610194b64c4e8abf2b /opt/mozjs /opt/mozjs
-COPY https://daugasauron.com/demos/zero-ad/Dollyfile-zero-ad-spidermonkey 6777cb8d3db41aac5e3de5947b5a1e56bee84bce57e3a1610194b64c4e8abf2b /usr/share/licenses/spidermonkey /usr/share/licenses/spidermonkey
+COPY https://daugasauron.com/demos/zero-ad/Dollyfile-zero-ad-spidermonkey d2bc4552d4aa6e7538d5bc98e4c9f24a8f7601741c3bdb9ee7c8fccf5a8685bf /opt/mozjs /opt/mozjs
+COPY https://daugasauron.com/demos/zero-ad/Dollyfile-zero-ad-spidermonkey d2bc4552d4aa6e7538d5bc98e4c9f24a8f7601741c3bdb9ee7c8fccf5a8685bf /usr/share/licenses/spidermonkey /usr/share/licenses/spidermonkey
 FILE /tmp/pkgconfig/mozjs-128.pc
     Name: SpiderMonkey 128.13.0
     Description: The Mozilla library for JavaScript

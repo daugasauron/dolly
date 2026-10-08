@@ -22,9 +22,11 @@ Firefox; libuv, CPython, Tokio and crossterm are upgraded and proven on a
 chain of 27 images; Janis is kept as it is, with its reason. The sections
 "Settled before code", "Built" and "Ports, run" hold the measurements.
 
-- The owner's to decide: whether images declare the module. Built without a
-  record in the client, because the count says a record would be in every
-  runnable image ("Stamping", below).
+- Decided by the owner (2026-10-08) and built on `core/sockets-optin`: a
+  program asks for the module when it links, and only then records it
+  ("Opt-in at link time", below). What "Settled before code" and "Built" say
+  of a client without a record describes `core/sockets-module`, the step
+  before.
 - The catalog round's: every image on the new seed, the Rust seed relinked,
   the Codex chain and the Rust demo test ("What the catalog round must do").
 - Open: Janis `net` on a path, when a program needs it.
@@ -323,6 +325,86 @@ Logs are in `build/sockets-evidence/` (ignored). Browser commands ran through
   does `alarm` and `setitimer`.
 - Passed on those images: the Rust probe below (74 s in Chromium), and the
   libuv probe on `system` in Chromium (13.5 s) and Firefox (10.8 s).
+
+## Opt-in at link time (2026-10-08, `core/sockets-optin`)
+
+Owner: "declared only by programs that require only at link time. Things that
+don't need it to run shouldnt require it."
+
+- libc refuses every socket call with `ENOSYS`, as on `main`
+  (`src/process/socket-refusals.c`, the 18 stubs unchanged), and records
+  nothing. `git`, `cmake`, `nvim`, `zig` and the rest are what they were.
+- A program asks with the library flag: `cc ... -ldolly-sockets`. The client
+  (`host/sockets/client.c`) then replaces the refusals and carries the
+  `sockets@0` record; sealing and the loader enforce `REQUIRES HOST
+  sockets@0` as for every module. No operation and no kernel code changed.
+- Why the plain flag is reliable. `cc` no longer adds this one client to the
+  archives it links by default (`host_client_libraries`, `src/compiler.cpp`),
+  so the archive is on the link line only when the program names it, and
+  then before every archive `cc` adds (a `-l` argument is an input). The
+  linker takes a name from the first archive that defines it, whichever
+  object or later archive member refers to it. The refusals are an object of
+  their own in `libdolly-runtime.a` that defines the same 18 names and
+  nothing else, so a link takes the client or the refusals, never both: with
+  the stubs inside `runtime-adapter.o`, as on `main`, a program that also
+  spawns would have defined each call twice. An `-rdynamic` host exports
+  whichever it linked to its libraries.
+- Ports that ask, because they need a local socket to run:
+  - CPython (`LIBS=-ldolly-sockets`): `_socket`, asyncio's wake-up pair.
+  - Codex (`demos/codex/config/patti.toml`, both binaries): Tokio's signal
+    driver and crossterm's wake pairs, now upstream's `UnixStream` pairs. Not
+    built here.
+  - The Tokio probe of the Rust demo test, by the same Patti option.
+  - Not libuv's users: CMake and Neovim run without (their stdio pipes are
+    one-way; Neovim's server socket fails as on `main`). A program that wants
+    libuv's two-way or named pipes links the flag, as the cmake test's probe
+    does. Not Emacs: its server was not part of this task.
+  - The Rust seed's link has no client, and `dolly-rust-link` adds none: a
+    Rust program asks with `-C link-arg=-ldolly-sockets`.
+- Recipes that declare `sockets@0` (ten): `python`; `llvm-tablegen`,
+  `llvm-build`, `llvm-cc` and `zero-ad-spidermonkey`, which keep `python`;
+  `codex-build`, `codex-cli`, `codex`; `default` (for `amy install python`)
+  and `rust-tools` (a shell for building such programs), by the rule that
+  gave them `dso@0`.
+
+### Run (image inputs `fba70aaf…`, runtime `1f0a68d9…`)
+
+- `npm run build:runtime`: 55 s, `validate-browser` passes. Chain
+  `default,system,cc,python,rust`: 18 images in 17 min 47 s, exit 0.
+- By the record, on those 18 images (`build/sockets-evidence/scan-socket-references.mjs`):
+  only `/usr/bin/python` carries `sockets@0`. `git`, `zig` and `rustc-real`
+  keep their socket calls, the refusals, and no record.
+- Chromium and Firefox, once each, all passed: `sockets` (programs linked
+  with the flag in `system` plus the module), `sockets not declared` (a
+  program linked without the flag runs in `system` and gets `ENOSYS`; one
+  linked with it is refused there, status 126, naming the module; a recipe
+  that keeps one without the line does not seal), `cpp`, `process`,
+  `threads`, `dso` (its library calls `socket` through its owner: the
+  refusal).
+- Chromium: `npm run test:demos -- python` (27.3 s); the Tokio and crossterm
+  probe built by Patti with the link option, on `system` plus `rust` plus the
+  module (71.3 s); the libuv probe linked with the flag (10.6 s).
+- Source: 416 of 416; lint, 76 recipes.
+- Not run on this seed: `cmake-build` and the cmake and neovim demo tests
+  (their link lines did not change; the cmake test's probe now links the flag
+  and its image adds the module), the Rust demo test (`rust-tools`, `cargo`),
+  the Codex chain, and every image outside the 18.
+
+### What the release round must do
+
+- `npm run build:runtime` and every image: the seed changed (the refusals,
+  the client's record, `cc`'s default archives).
+- `demos/rust/build-rust-toolchain.sh`: relinks `rustc-real` because the
+  sysroot changed; `link.sh` is `main`'s again, without the client.
+- The Codex chain (`codex-build`, `codex-cli`, `codex`): Tokio without the
+  signal patch, the shorter crossterm patch, both binaries linked with
+  `-ldolly-sockets`, the three recipes declaring `sockets@0`. None of this
+  was built here; a Codex binary that failed to link the client would abort
+  in Tokio's signal driver ("failed to create UnixStream").
+- `llvm-tablegen`, `llvm-build`, `llvm-cc`, `zero-ad-spidermonkey`,
+  `rust-tools`: rebuilt with their new line; sealing names any image that
+  keeps `python` or `codex` without it.
+- `npm run test:demos -- rust cmake neovim` and the Codex demo test.
 
 ## Upgrading the ports
 

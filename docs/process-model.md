@@ -138,6 +138,14 @@ sequenceDiagram
 processes of this kernel. The bytes stay in kernel memory, as a pipe's do, and
 the module has no browser import: nothing here reaches a network.
 
+A program asks for them when it links: `cc ... -ldolly-sockets` takes the
+socket calls from the module's client, which records `sockets@0`, and the
+image that keeps the program declares `REQUIRES HOST sockets@0`. A program
+that does not ask is unchanged: every socket call is libc's refusal,
+`ENOSYS`, and nothing is recorded, so a tool with a network path it never
+takes here needs no line. The rest of this section is what a program gets
+that asked.
+
 - `socketpair(AF_UNIX, SOCK_STREAM)` gives two connected descriptors, which
   spawn inherits like any other. A server binds a path, listens and accepts;
   a client that shares no descriptor with it connects to the path.

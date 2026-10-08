@@ -109,8 +109,8 @@ Worker URL.
 
 - Programs have no Fetch, network sockets, DNS or TLS. libcurl, Git, Python and
   Janis are adapters above `http@0` ([HTTP](http.md)). `sockets@0` connects
-  processes inside the kernel only: `socket(AF_INET, ...)` fails with
-  `EAFNOSUPPORT` ([process model](process-model.md#local-sockets)).
+  processes inside the kernel only, for programs linked with it: no socket
+  call reaches a network ([process model](process-model.md#local-sockets)).
 - Policy is set by the embedding outside Wasm and survives total compromise.
   **The default permits arbitrary HTTP(S), including credentials stored in Dolly:
   it does not prevent exfiltration.** An allowlist bounds destinations, not what
