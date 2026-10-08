@@ -361,9 +361,15 @@ build:runtime` afterwards prints the same two hashes.
 | CPython | `python` | `npm run test:demos -- python`: passed (29.2 s); `python-sockets.py`: `AF_INET` and `AF_INET6` are `EAFNOSUPPORT`, `socket.socketpair()`, and `asyncio.run` of a Unix server and client at a path |
 | Tokio, crossterm | `rust-sdk`, `rust-build`, `rust` (the existing seed, not relinked) | `build/sockets-evidence/tokio-probe.mjs`, the demo test's Tokio fixture on `system` plus the `rust` package (the demo test's own image, `rust-tools`, needs `cargo`): Patti builds Tokio 1.52.3 without the signal patch and crossterm with the reduced patch; the probe reads a resize through crossterm (`use-dev-tty`, as Codex builds it), a signal through Tokio's driver, `EAFNOSUPPORT` from a TCP connect, and a `UnixListener` and `UnixStream` at a path, twice. Chromium 68 s, Firefox 82 s |
 
-- Core suites on these images, each in Chromium and Firefox: `sockets`,
-  `process`, `core`, `threads`, `dso` (its library now makes a socket call
-  through its owner), `host-modules`, `boundary`, `cpp`, `shell`.
+- `node test/browser-tests.mjs` on these images: Chromium 7 min 19 s,
+  Firefox 15 min 16 s; 32 suites pass in each, `sockets` among them and `dso`
+  with its library making a socket call through its owner. Two fail in both,
+  neither on a socket: `amy`, whose second block runs `amy install sdl2`, a
+  package this chain did not build (its first block passes); and `fs-growth`,
+  which fills 8 GiB under the browser slot's 6 GiB cap. Chromium is killed
+  there (`journalctl -k`, 09:36:13: "Memory cgroup out of memory: Killed
+  process ... (chrome) ... anon-rss:6019808kB"); Firefox ran into the test's
+  300 s limit instead, with no kernel line, and was not attributed further.
 - `node --test test/dolly.artifacts.mjs`: 16 of 16, among them that no kernel
   import is named for a socket. Source: 416 of 416 (`test/` and `demos/`).
 - The scan again, on these 27 images: the same executables keep a socket
