@@ -332,6 +332,7 @@ Measured in Chrome (`node demos/wine/test/wine-browser.mjs`, 19.5 s, passes):
 - In the shell, `tcc.exe` compiles `examples/fib.c` to `C:\fib.exe`, and `wine x86emu 'C:\fib.exe' 24`
   prints `fib(24) = 46368`.
 - `wine x86emu --bench`: 82 to 112 million instructions a second across runs on a loaded machine.
+- Firefox, run once with the same test: passes in 21.0 s, 107.6 million instructions a second.
 - Images build in 148.3 s. The task buttons had been ordered by window handle, which Wine reuses:
   they now keep the order the windows appeared in.
 
