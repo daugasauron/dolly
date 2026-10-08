@@ -271,12 +271,9 @@ Decided while implementing:
 
 - The version is never an argument: the exporters read it from the sealed
   release (`src/version.mjs`), so a site cannot be exported under a path its
-  pages do not believe in. `export-static.mjs RELEASE OUT PREFIX/` writes
+  pages do not believe in. `export-static.mjs RELEASE OUT` writes
   `OUT/vX.Y.Z/` and a redirecting `OUT/index.html`;
   `export-cloudflare-pages.mjs ARCHIVE OUT [RELEASE]` assembles a deployment.
-- `deploymentBase` refused a dot in a path, so `/v0.1.0/` was not a base; it
-  now takes dots inside a segment and still refuses `.`, `..` and hidden
-  segments.
 - The archive is `published/` in the checkout a release is made from
   (ignored by git): `published/vX.Y.Z/` exactly as deployed, with
   `deployment.sha256` (every file) and `deployment.headers` (the headers its
@@ -288,22 +285,18 @@ Decided while implementing:
 - Root files: `_redirects` (`/ /vNEWEST/ 302`, one static rule), `_headers`,
   the newest version's `404.html`, and its `robots.txt` with each `Disallow`
   rule written once per version. No root list: each version carries its own.
-- `_headers` within 100 rules: five fixed rules cover every version by
-  placeholder (`/*` isolation and no-store; `/:version/_dolly/*` and
-  `/:version/dist/packs/*` immutable; two `text/plain` rules for recipes).
-  A compressed or split file needs a rule of its own. One rule
-  (`/:version/_dolly/:release/PATH` or `/:version/dist/packs/HASH…`) serves
-  it in every version when all versions that hold the file store it the same
-  way; a file stored differently by two versions gets a rule per version.
-  So rules grow with distinct large files, not with versions.
+- `_headers` within 100 rules: fixed rules cover every version by
+  placeholder. A compressed or split file needs a rule of its own. One rule
+  (`/:version/PATH`) serves it in every version when all versions that hold
+  the file store it the same way; a file stored differently by two versions
+  gets a rule per version. So rules grow with distinct large files, not with
+  versions.
 - The predecessor mechanism is gone: `retained` and
   `exportRetainedStaticAssets` in the exporters, `verifyRetainedRelease`, the
   multipart-support check for old releases, their tests, and in `serve.mjs`
   the lookup of older releases' packs and pinned paths.
 - `npm run serve RELEASES` serves the current release under `/vX.Y.Z/`,
-  redirects `/` there and answers 404 elsewhere; below the version it serves
-  only what an export has there (pages, packs, `coi-serviceworker.js`,
-  `robots.txt`, `amy-index.txt`, and everything under `_dolly/RELEASE/`).
+  redirects `/` there and answers 404 elsewhere.
 - `scripts/published-version.mjs`: `mirror SITE vX.Y.Z ARCHIVE` (every file
   against the list the site serves), `verify SITE OUT vX.Y.Z` (after a
   deploy: every file of that version, every other version's list) and
@@ -321,7 +314,9 @@ Found by packaging, and fixed:
   served; it links `https://daugasauron.com/vX.Y.Z/IMAGE/`.
 
 Measured on 2026-10-08, from the 76-image catalog of `main` `03a95b18`
-(evidence in `work/hosting/build/hosting-evidence/`):
+(evidence in `work/hosting/build/hosting-evidence/`), in the layout that
+still had `_dolly/RELEASE/`; the next section has the numbers of the layout
+that replaced it:
 
 - **Domain catalog** (71 images with dependencies, `closed-source-agent`
   among them): sealed release 19,294,000,490 bytes in 18 min 21 s (41 images
@@ -381,20 +376,91 @@ Measured on 2026-10-08, from the 76-image catalog of `main` `03a95b18`
 
 Not settled here:
 
-- A recipe URL `https://daugasauron.com/v0.1.0/Dollyfile-NAME` is not a file
-  the deployment serves, as `https://daugasauron.com/Dollyfile-NAME` is not
-  today (404): the bytes are at `/v0.1.0/_dolly/RELEASE/Dollyfile-NAME` and
-  the version's pages map the URL to their own copy. If the owner's "the URL
-  a recipe writes is a file the site serves" is meant literally, the
-  exporter needs redirect rules per version (`_redirects` allows 100 with a
-  splat) or a second copy of recipes and sources; to decide with the recipe
-  reference form.
+- (Settled by the layout below.) A recipe reference
+  `/v0.1.0/Dollyfile-NAME` was not a file the deployment served: the bytes
+  were at `/v0.1.0/_dolly/RELEASE/Dollyfile-NAME`.
 - Step 5: the root `robots.txt` is the newest version's with each
   `Disallow` written per version; its comment names
   `https://daugasauron.com/licences/`, which is 404 after this release.
 - The placeholder rules were exercised on the local stand-in, written from
   Cloudflare's documentation and asset-server source; the first deployment's
   `boot` and `verify` are their first run on Pages itself.
+
+### Step 3, the layout: a version's directory is its release
+
+The integrator, 2026-10-08: a reference a recipe writes
+(`/v0.1.0/Dollyfile-system`, `SOURCE /v0.1.0/dist/static/…`) must return
+those bytes from the deployment; copy the referenced files to their literal
+paths (A) or drop the `_dolly/RELEASE/` level (B), whichever is smaller.
+Measured on the domain catalog (71 images, `main` `03a95b18`), 20,000 files:
+
+| Layout | Files a version | Versions that fit |
+| --- | --- | --- |
+| Before: `_dolly/RELEASE/`, references 404 | 2,335 | 8 |
+| A, recipes copied (71) | 2,406 | 8 |
+| A, recipes and sources copied (319 sources, 693 files with their parts) | 3,099 | 6 |
+| **B, no release level** | **2,139** | **9** |
+
+B is implemented (`17793187`, 15 files, 211 lines added and 288 removed
+with its tests and document):
+
+- Every file of the sealed release is at its checkout path under
+  `/vX.Y.Z/`; the export is the release, file for file (`diff -r` of the
+  static export and the sealed release is empty). The 196 files fewer are
+  the pages and public files that existed twice.
+- Removed: `renderReleasePage`, `deploymentBase`, the public-file list, the
+  static export's prefix argument (pages find their files relative to
+  themselves, so GitHub Pages' `/dolly/` is no input any more), the
+  Cloudflare export's intermediate copy (19 GB of scratch disk; the domain
+  export takes 7 min 47 s instead of 10 min 58 s), the `:release`
+  placeholder, the release server's pinned paths, the service worker
+  registration's path stripping in `terminal.html`, and `Disallow: /_dolly/`.
+- Caching on Cloudflare: `/:version/*` immutable, then `/:version/*/` and
+  `/:version/` no-store, so every file is immutable and every page (a
+  directory's address) is not: a removed version stops loading. Measured on
+  daugasauron.com: Pages answers a 404 with no-store whatever the rules say,
+  so a path asked for before its version exists is not remembered.
+  `npm run serve` sends no-store for everything: a candidate keeps its
+  version while it changes (a release republished under the same version is
+  served at once in the test). 45 header rules for the domain version (6
+  fixed, 28 sources, 11 packs).
+- The release ID is the SHA-256 of the version's `release/files.sha256`,
+  which `sha256sum --check` runs against a static export.
+- Left in place: `publicURL`'s stripping of a release path in
+  `src/static-asset.mjs`, now dead; that file is the recipe branch's, so the
+  removal is one line after the merge.
+- A file over 25 MiB cannot be one file on Cloudflare: a reference to a
+  source stored Brotli returns its bytes to a client that decodes
+  (`curl --compressed`), and one stored in parts returns the manifest of its
+  parts (24 files on the domain, the seed among them); pages reassemble and
+  check them as before. GitHub Pages holds every file whole.
+
+Run in the new layout (both browsers unless said):
+
+- Source tests 335/335; `site`, `default`, `composed toolchain`, `custom
+  session`, `session without http` and `core` on the checkout (the service
+  worker under two version paths in `site`).
+- Two versions in one Cloudflare deployment (GitHub catalog release and its
+  0.1.1 copy; 890 files a version, 14 rules): `published-version.mjs boot`
+  passes for both, and now fetches every recipe and every source of at most
+  1 MiB the version publishes (174 of 204 targets there, 254 of 390 on the
+  domain) at the path it is referenced by and holds each to its pin; with
+  one source changed it names it. Sessions stay with their version in both
+  directions. `mirror` gives the deployed directory back (890 files);
+  `verify` names a changed recipe.
+- `curl` under each of the two versions: the 20 references that
+  `Dollyfile`, `Dollyfile-curl`, `Dollyfile-system` and
+  `Dollyfile-zig-build` write (recipes and `SOURCE` targets, `zig.tar`
+  stored Brotli among them) return the pinned bytes at `/vX.Y.Z/PATH`; the
+  unversioned paths are 404. The catalog here still writes
+  `https://daugasauron.com/PATH`, so the path was put under the version by
+  hand.
+- GitHub form: `index.html` and `v0.1.0/`, 867 files, 961,601,757 bytes,
+  served under `/dolly/` without isolation headers: `boot` passes, isolated
+  by the service worker. `npm run serve`: `boot` passes; every response
+  no-store.
+- Domain deployment: `boot` passes, `rust-tools` boots from a pack in
+  parts, `verify` reads the 2,139 files in 24 s.
 
 ### Step 4, checklist, workflow, document
 
