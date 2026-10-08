@@ -7,7 +7,7 @@ REQUIRES HOST download@0
 REQUIRES HOST http@0
 REQUIRES HOST upload@0
 
-FROM /v0.1.0/demos/cmake/Dollyfile-cmake-build 6f9f033fb9a69d09198466f00f84c8dcde1cda88b506fac297640626995e4921
+FROM /v0.1.0/demos/cmake/Dollyfile-cmake-build 027c34052c076c0e7d60073467282dae4403e085d2557b45c0238c52a38b6ed8
 REQUIRES HEADER libc
 REQUIRES HEADER cpp
 REQUIRES LIB c++

@@ -214,7 +214,7 @@ SLOP rm \
   /tmp/ninja
 INSTALL /v0.1.0/Dollyfile-zlib 1765c80b34559d95d7d6f5908cec4f1b10d5ef9f93953989f8254ea08145ca92
 INSTALL /v0.1.0/Dollyfile-gzip defb0a863c548e73e1d7761dbc54fa9b225b23724a2f56268def0052f7d9f709
-INSTALL /v0.1.0/Dollyfile-curl 53f48bed724ca4741d4c9a5879e44e9c252f8d4f90660e63fcfe521be33d3f6a
+INSTALL /v0.1.0/Dollyfile-curl f9587b53f71273125ef30c38f597de4e480aa52731dbb2b564312dd6d6a13235
 REQUIRES TOOL   mkdir
 REQUIRES LIB    curl
 REQUIRES LIB    z
@@ -403,7 +403,7 @@ SOURCE /v0.1.0/dist/static/default/commands/patch.c       01a81c0b50df26223772e5
 SOURCE /v0.1.0/dist/static/default/commands/hostname.c    14a20a493c8559d8b28f221a6edd9b6f89f893f3e3067093b44d7235b4ae060f /tmp/agent-tools/hostname.c
 SOURCE /v0.1.0/dist/static/default/commands/tty.c         c51c9598e8245d5f651ade70995f2b03fb936c42a0e99c4c81c83749c5714c7e /tmp/agent-tools/tty.c
 SOURCE /v0.1.0/dist/static/default/commands/nproc.c       96ce7b8d1b1cee59d12193c2fa6fab5210bb7f0c9a0d0cc9bde7e0fd8d87c7ac /tmp/agent-tools/nproc.c
-SOURCE /v0.1.0/dist/static/default/commands/amy.c         ba2d94f913245124f4dad08207f585c03ad044f6dc65a3bf82ea8e58884beb14 /tmp/agent-tools/amy.c
+SOURCE /v0.1.0/dist/static/default/commands/amy.c         13a1e2eb87c10f39d8c3ff6ecef5acf2eb56ebc721f4ab7570333fe0b808f98d /tmp/agent-tools/amy.c
 SOURCE /v0.1.0/dist/static/default/commands/version.h   40544df486c693044ebbc6b30b64bbed5793faba632d9a74629601463710569f /tmp/agent-tools/version.h
 
 FILE /tmp/agent-tools/Makefile

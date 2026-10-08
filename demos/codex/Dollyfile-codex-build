@@ -7,8 +7,8 @@ REQUIRES HOST http@0
 REQUIRES HOST sockets@0
 REQUIRES HOST threads@0
 
-FROM /v0.1.0/demos/rust/Dollyfile-rust-build d78df632a5ee59e3683be7967b4b9d9a7bb36aa7a12e7bb12206f38ae94bced2
-INSTALL /v0.1.0/demos/rust/Dollyfile-protox 0fd84312acca6582d407a27527a4cfd87b79b48c2e5203ec22a574595ce6b5ec
+FROM /v0.1.0/demos/rust/Dollyfile-rust-build acef41fe98288dad784487c4dae4d89277eb4f2ab1c6cdedf7185223e36595a1
+INSTALL /v0.1.0/demos/rust/Dollyfile-protox cf36eff995065a249391e3b363907e954e07dab3e2ad3a95423e45edcab3cd68
 REQUIRES TOOL patti
 REQUIRES TOOL cc
 REQUIRES TOOL cp
@@ -20,15 +20,15 @@ REQUIRES TOOL mkdir
 REQUIRES TOOL rm
 REQUIRES TOOL protox
 
-SOURCE /v0.1.0/dist/static/codex/sources-00.part 94762aeb718a213f4ec1fad5b15d741f56b9bb4e39247657303723d9131b4fd6 /tmp/codex-sources-00.part
-SOURCE /v0.1.0/dist/static/codex/sources-01.part 448871170a5c2638cfd191906ba2d643e62bffead0ed301fb2da8a73bcb42fb8 /tmp/codex-sources-01.part
-SOURCE /v0.1.0/dist/static/codex/sources-02.part 22e944c6ec67323e26c59a4fad8c2adeb751d8e28b7c36d3d242ecc24c939f25 /tmp/codex-sources-02.part
-SOURCE /v0.1.0/dist/static/codex/sources-03.part 27ada4872ace681c6f20bfef01a195687aa2f6a446595be794438c1f4b4fdd94 /tmp/codex-sources-03.part
-SOURCE /v0.1.0/dist/static/codex/sources-04.part e5704b1be15e03895cc2253b2c7044df48e4ae990d8f28f4c2215890411faeb2 /tmp/codex-sources-04.part
-SOURCE /v0.1.0/dist/static/codex/sources-05.part 2684667b52dd121b13b45ecf8eea17890f8e814ccdd402388b6979b9ddde7599 /tmp/codex-sources-05.part
-SOURCE /v0.1.0/dist/static/codex/sources-06.part b76987a1ccfc5b787fecde83743fd00bb82a881062e6dc54157f143b81fd4cea /tmp/codex-sources-06.part
+SOURCE /v0.1.0/dist/static/codex/sources-00.part ec6de9737084952770ca201cc78cce8492174cff7cd381256e30d3c6c192271c /tmp/codex-sources-00.part
+SOURCE /v0.1.0/dist/static/codex/sources-01.part e95ff1bdd267f9fc0c79f43df9506c7382e6185b15a58e34b68bfe991386ff30 /tmp/codex-sources-01.part
+SOURCE /v0.1.0/dist/static/codex/sources-02.part 99dc6d0bf9ea8af7e14cc0423235552cdcdebab7b5d763575216500f6cb48578 /tmp/codex-sources-02.part
+SOURCE /v0.1.0/dist/static/codex/sources-03.part e53f8b07879d8fe53ec7a17e5446083fc9668fa6e5a5f725bfc10424e519b15c /tmp/codex-sources-03.part
+SOURCE /v0.1.0/dist/static/codex/sources-04.part fc834a75722915d085acff1b526ae68c238ced3d4cafc51e9c33777c57ec407d /tmp/codex-sources-04.part
+SOURCE /v0.1.0/dist/static/codex/sources-05.part fff446f99c212bf7185df7416483efec75373e85fb32b3fe52e93b51b208f5ed /tmp/codex-sources-05.part
+SOURCE /v0.1.0/dist/static/codex/sources-06.part 3ddcc432e4647b0a8ccd844a1e50c2fe68a9dc3a4550d288cad333e29d71c9f0 /tmp/codex-sources-06.part
 SOURCE /v0.1.0/dist/static/codex/no-js.c 5b2a995a8f36f4917f40f39af9806be9d4646d90850585fbc8bd904ff18c45fd /tmp/codex-no-js.c
-SOURCE /v0.1.0/dist/static/codex/patti.toml 104a7e2428fc418b9da14e4da2ac8d14b8e7b9af40eb1d768d89c74034a82dea /tmp/codex-patti.toml
+SOURCE /v0.1.0/dist/static/codex/patti.toml 01ac824868280a89737c83ef1eb567bf13c55482611de8ebecd1f173b9a02a68 /tmp/codex-patti.toml
 SLOP cat /tmp/codex-sources-00.part /tmp/codex-sources-01.part /tmp/codex-sources-02.part /tmp/codex-sources-03.part /tmp/codex-sources-04.part /tmp/codex-sources-05.part /tmp/codex-sources-06.part | gzip -dc - | tar -xf - -C /
 SLOP rm /tmp/codex-sources-00.part /tmp/codex-sources-01.part /tmp/codex-sources-02.part /tmp/codex-sources-03.part /tmp/codex-sources-04.part /tmp/codex-sources-05.part /tmp/codex-sources-06.part
 SLOP mkdir -p /tmp/codex-build/tools

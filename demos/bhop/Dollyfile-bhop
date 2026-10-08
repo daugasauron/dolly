@@ -9,10 +9,10 @@ REQUIRES HOST snapshot@0
 REQUIRES HOST threads@0
 REQUIRES HOST upload@0
 
-FROM /v0.1.0/demos/slopyard/Dollyfile-gamedev-sdk 915f9113f6f84e0b0546aee1f51d3070d3fed82337592be77a7a099bab02c42f
-INSTALL /v0.1.0/demos/javascript/Dollyfile-javascript 9e29902ccd5b0a333cc88d4d568b6b3ccbb158fd6c82d501f76f67bb2529ba5b
-INSTALL /v0.1.0/demos/pi/Dollyfile-pi-coding-agent 5e8a9f83b63817228f6dceb2d957761d71d26b0c0604f09029b61dee2d7bc7d9
-INSTALL /v0.1.0/demos/sdl2/Dollyfile-sdl2 3343eaaa377a15e85f3e754016d2b0165b983f2a45a81397530785552ff4a60c
+FROM /v0.1.0/demos/slopyard/Dollyfile-gamedev-sdk b8753807b54b0f8751da27f41da2351cf1b39cc1f39503fc7903d40edcc40383
+INSTALL /v0.1.0/demos/javascript/Dollyfile-javascript 0ae34c711280d106dd0c4c3e98bd084042ba737968a49b35dda28c4a8684c141
+INSTALL /v0.1.0/demos/pi/Dollyfile-pi-coding-agent 8b0d0dfc19fd3f8abaa4a7c411391d062bcd0e560dd8e9878aedc19b3c76f42a
+INSTALL /v0.1.0/demos/sdl2/Dollyfile-sdl2 3205aa8dfbcb4cdb0ba4ddb3419eb248ce6770ec633e1f5e81b9773d2f651f8e
 REQUIRES TOOL cc
 REQUIRES TOOL make
 REQUIRES TOOL c++
@@ -26,7 +26,7 @@ REQUIRES HEADER sdl2
 REQUIRES LIB dolly-js
 REQUIRES LIB SDL2
 
-SOURCE /v0.1.0/dist/static/bhop/source.tar 7217b98b23e13a0a8afe8e36f6e6c05f81e9b8839a9cb7af9ee660cba5c767f7 /tmp/bhop-source.tar
+SOURCE /v0.1.0/dist/static/bhop/source.tar 545e1598c5b30df2c6c27988e2b28938d511a335be491d1a8d037d8066cdf94b /tmp/bhop-source.tar
 SOURCE /v0.1.0/dist/static/default/stb_truetype.h ecd30b05e0dd4fea3a13c26810dd9e1992dc379049482c393d5a19e6b5090aab /tmp/bhop-stb/stb_truetype.h
 SLOP tar -xf /tmp/bhop-source.tar -C /
 

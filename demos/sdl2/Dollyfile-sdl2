@@ -4,7 +4,7 @@ REQUIRES HOST runtime@0
 REQUIRES HOST display@0
 REQUIRES HOST input@0
 
-FROM /v0.1.0/demos/cmake/Dollyfile-cmake-build 6f9f033fb9a69d09198466f00f84c8dcde1cda88b506fac297640626995e4921
+FROM /v0.1.0/demos/cmake/Dollyfile-cmake-build 027c34052c076c0e7d60073467282dae4403e085d2557b45c0238c52a38b6ed8
 REQUIRES HEADER libc
 REQUIRES HEADER display
 REQUIRES HEADER input
@@ -14,7 +14,7 @@ REQUIRES TOOL make
 REQUIRES TOOL tar
 REQUIRES TOOL rm
 
-SOURCE /v0.1.0/dist/static/sdl2/source.tar 3129e3169e12810e34cb86383826a202ee312718f3478391457d55fde7824a8b /tmp/sdl2/source.tar
+SOURCE /v0.1.0/dist/static/sdl2/source.tar d167e861de21ab0bba8cf6cf3bb1e9e89d9dd9e2487a5069fa90b7fd03d8fa9f /tmp/sdl2/source.tar
 SLOP tar -xf /tmp/sdl2/source.tar -C /
 SLOP cmake -S /tmp/sdl2/source -B /tmp/sdl2/build \
   -DCMAKE_SYSTEM_NAME=Dolly -DCMAKE_SYSTEM_PROCESSOR=wasm64 \
