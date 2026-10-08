@@ -25,7 +25,7 @@ packaging and ABI tests read only these manifests.
 | `process` | WAT of process-side ABIs, such as the threads entry point |
 | `headers` | C API and packets, installed as `<dolly/NAME.h>`; `NAME-abi.h` is generated from the WAT constants and carries the module's ABI digest |
 | `kernel` | Kernel C; defines `dolly_NAME_kernel`, the process operations it handles and its release hook ([`process-kernel.h`](../src/process-kernel.h)) |
-| `client` | Process C linked as `libdolly-NAME.a`; it records `DOLLY_HOST_REQUIRE(NAME, VERSION, DOLLY_NAME_ABI_DIGEST)` |
+| `client` | Process C linked as `libdolly-NAME.a`; it records `DOLLY_HOST_REQUIRE(NAME, VERSION, DOLLY_NAME_ABI_DIGEST)` (not `sockets`, below) |
 
 A provider's `browser()` and `worker()` receive the page's shared resources
 (`mount`, `canvas`, `keyboard`, `applicationBase`, `showStatus`, `fatal`,
@@ -74,6 +74,17 @@ program that does not record it nothing. An executable records `dso@0` when it
 links a member of `libdolly-dso.a`: `cc -rdynamic` selects the loader's client,
 a call to `dolly_ffi_*` the FFI client. A program that only calls `dlopen`
 gets the process libc's refusal and records nothing.
+
+## Local sockets
+
+`sockets@0` has no import, no page or Worker side and no browser authority.
+Its kernel side is a descriptor kind of the runtime's table
+([`process-kernel.h`](../src/process-kernel.h)); its client is the libc's
+socket calls ([process model](../docs/process-model.md#local-sockets)). That
+client records no requirement: a program that links `socket` for a network
+path it never takes here would carry it, and `git` alone would put the line
+into every image built on `system`. So no image declares the module, and the
+kernel serves its operations to every process.
 
 ## Runtimes
 

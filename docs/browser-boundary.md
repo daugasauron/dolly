@@ -61,6 +61,7 @@ Worker URL.
 | `gpu@0` | `env.dolly_gpu_dispatch` | Bounded WebGPU packets on the browser's `high-performance` adapter, 8 scopes, 4,096 objects each, 4 GiB total, one canvas | [`host/gpu/`](../host/gpu/module.json) |
 | `audio@0` | `env.dolly_audio_dispatch` | Stereo PCM output, 4 streams of 1 s; no capture | [`host/audio/`](../host/audio/module.json) |
 | `threads@0` | supervisor | Worker per thread of an admitted executable: 16 per process, 64 total | [`host/threads/`](../host/threads/module.json) |
+| `sockets@0` | none | Local stream sockets between processes of the kernel, in its memory: 128 sockets, 16 unaccepted connections a listener, 64 KiB a direction. No network family and nothing outside Wasm | [`host/sockets/`](../host/sockets/module.json) |
 | `dso@0` | process Worker of an executable that records it | Instantiate Wasm the process supplies into its own memory and function table, and call its table entries with signatures chosen at run time; no import, no kernel entry, nothing outside that process | [`host/dso/`](../host/dso/module.json) ([`process.mjs`](../host/dso/process.mjs)) |
 | `build@0` | reserved URL via `http@0` | Start a disposable image build that writes the image cache | [`host/build/`](../host/build/module.json) |
 | `packages@0` | reserved URL via `http@0` | Serve the verified snapshot of a published package, one at a time, 64 per page | [`host/packages/`](../host/packages/module.json) |
@@ -106,8 +107,10 @@ Worker URL.
 
 ## Network
 
-- Programs have no Fetch, sockets, DNS or TLS. libcurl, Git, Python and Janis are
-  adapters above `http@0` ([HTTP](http.md)).
+- Programs have no Fetch, network sockets, DNS or TLS. libcurl, Git, Python and
+  Janis are adapters above `http@0` ([HTTP](http.md)). `sockets@0` connects
+  processes inside the kernel only: `socket(AF_INET, ...)` fails with
+  `EAFNOSUPPORT` ([process model](process-model.md#local-sockets)).
 - Policy is set by the embedding outside Wasm and survives total compromise.
   **The default permits arbitrary HTTP(S), including credentials stored in Dolly:
   it does not prevent exfiltration.** An allowlist bounds destinations, not what
@@ -182,8 +185,8 @@ Worker URL.
 - Denied HTTP never reaches Fetch; credentials, redirects, limits and
   cancellation stay enforceable after arbitrary guest mailbox writes.
 - Span, frame, input, file-transfer and decompression bounds fail closed.
-- Filesystem and process operations stay in Wasm; unsupported fork, socket and
-  host operations fail without fallbacks.
+- Filesystem and process operations stay in Wasm, local sockets among them;
+  unsupported fork, network socket and host operations fail without fallbacks.
 - Fixed loaders cannot resolve guest-selected URLs, paths or JavaScript.
 - Process failure and forced termination preserve the kernel and shell.
 

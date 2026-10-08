@@ -2,7 +2,7 @@
 
 Every ordinary command runs in a fresh private wasm64 memory and Worker. The
 kernel ([`process-kernel.c`](../src/process-kernel.c)) owns files, open-file
-descriptions, pipes, process records, signals and the terminal; processes
+descriptions, pipes, local sockets, process records, signals and the terminal; processes
 inherit handles and values, never another address space. The call path is in
 [architecture](architecture.md#system-calls); packet layouts are in
 [`process.h`](../include/dolly/process.h) and each [host module](../host/README.md)'s header.
@@ -96,7 +96,7 @@ sequenceDiagram
   descriptor 0, 1 or 2.
 - `/dev/tty` opens the terminal for reading and writing. There are no sessions,
   so it is every process's controlling terminal.
-- `poll` covers files, pipes and the terminal; signals wake it with `EINTR`.
+- `poll` covers files, pipes, sockets and the terminal; signals wake it with `EINTR`.
 - Terminal reads return raw input bytes. `ICANON`/`ECHO` round-trip through termios
   without a line discipline; `OPOST`/`ONLCR` map LF to CRLF on output. While
   `ISIG` is set (the default), Ctrl+C sends SIGINT to the foreground; a program
@@ -128,8 +128,48 @@ sequenceDiagram
   kinds do not see each other, and neither stops `read` or `write`. A waiting request is parked like a pipe read: a release wakes it at
   once and a signal interrupts it. Waiters are not ordered and deadlocks are
   not detected (no `EDEADLK`). Exit, a kill and a failed Worker release every
-  lock of the process. `F_OFD_*` is `EINVAL`; a pipe cannot be locked
-  (`ENOTSUP`).
+  lock of the process. `F_OFD_*` is `EINVAL`; a pipe or socket cannot be
+  locked (`ENOTSUP`).
+
+## Local sockets
+
+`sockets@0` ([`host/sockets/dolly-sockets-0.wat`](../host/sockets/dolly-sockets-0.wat),
+[`host/sockets/kernel.c`](../host/sockets/kernel.c)): stream sockets between
+processes of this kernel. The bytes stay in kernel memory, as a pipe's do, and
+the module has no browser import: nothing here reaches a network.
+
+- `socketpair(AF_UNIX, SOCK_STREAM)` gives two connected descriptors, which
+  spawn inherits like any other. A server binds a path, listens and accepts;
+  a client that shares no descriptor with it connects to the path.
+- A socket reads, writes, polls, duplicates and closes like a pipe, 64 KiB
+  each way; `send` and `recv` take `MSG_DONTWAIT`, `send` also `MSG_NOSIGNAL`.
+  A stream has no record boundaries: a write takes what fits and a blocking
+  one waits for the rest. A closed, shut down or dead peer is end of file to
+  a reader, also one that was waiting, and `EPIPE` to a writer, with `SIGPIPE`
+  as for a pipe. `poll` reports a pending connection as readable and a closed
+  peer as hung up; `shutdown` ends one direction.
+- A bound path is an empty file that `stat` reports as a socket; `bind` fails
+  with `EADDRINUSE` when the name exists. `connect` finds the listener by the
+  file, so a renamed path still connects; an unlinked one leaves the listener
+  and its connections alone and can be bound again. The file stays when its
+  socket closes or its process ends: `connect` then fails with
+  `ECONNREFUSED`, as for any path nobody listens at, and a server unlinks a
+  stale path before it binds.
+- `connect` returns once the listener has room for the connection, before it
+  is accepted, and the client may write at once. A listener holds at most 16
+  unaccepted connections (`listen`'s backlog, 1 to 16): a blocking `connect`
+  waits for room, a nonblocking one fails with `EAGAIN`. Connections nobody
+  accepted end with their listener.
+- The kernel holds at most 128 sockets, a connection being two; one more
+  fails with `ENFILE`. A socket goes with its last descriptor, so exit, a
+  kill and a failed Worker release what a process held.
+- Refused by name: every other family (`AF_INET` and `AF_INET6` fail with
+  `EAFNOSUPPORT`, so a program takes the path it has for a host without a
+  network), datagram and seqpacket sockets (`EPROTOTYPE`), descriptor
+  passing (`sendmsg` with control data, `ENOTSUP`), abstract names
+  (`ENOENT`) and every `setsockopt` (`ENOPROTOOPT`). `getsockopt` answers
+  `SO_TYPE` and `SO_ERROR`. A socket call on another descriptor fails with
+  `ENOTSOCK`.
 
 ## Spawn and wait
 
@@ -220,5 +260,5 @@ sequenceDiagram
 
 ## Unsupported
 
-`fork`, `exec` replacement, job control and process groups, raw sockets, and
-changing user or group identity fail explicitly.
+`fork`, `exec` replacement, job control and process groups, network sockets,
+and changing user or group identity fail explicitly.

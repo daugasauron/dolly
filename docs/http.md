@@ -1,7 +1,7 @@
 # HTTP
 
 `env.dolly_http_dispatch` is Dolly's only agent-selected network edge. Programs
-never import Fetch, sockets, DNS or TLS; libcurl, Git, Python and Janis all sit
+never import Fetch, network sockets, DNS or TLS; libcurl, Git, Python and Janis all sit
 above one kernel slot pool and one browser broker whose policy the embedding
 sets. Authority is summarized in the [browser boundary](browser-boundary.md).
 
@@ -181,4 +181,4 @@ globalThis.DOLLY_HTTP_RELAYS = [{
 - Janis `fetch()` polls slots cooperatively so timers and promises keep running.
 - Python (demo): the built-in `_dolly_http` module carries `urllib.request` and
   `requests` (pip's vendored copy included), so stock `pip` installs through the
-  broker; sockets and `ssl` stay unavailable.
+  broker; network sockets and `ssl` stay unavailable.
