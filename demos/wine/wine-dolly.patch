@@ -1,3 +1,14 @@
+--- a/dlls/kernel32/process.c
++++ b/dlls/kernel32/process.c
+@@ -111,7 +111,7 @@
+                           '\\','s','y','s','t','e','m','3','2',
+                           '\\','w','i','n','e','v','d','m','.','e','x','e',0};
+ 
+-static const char * const cpu_names[] = { "x86", "x86_64", "PowerPC", "ARM", "ARM64" };
++static const char * const cpu_names[] = { "x86", "x86_64", "PowerPC", "ARM", "ARM64", "wasm64" };
+ 
+ static void exec_process( LPCWSTR name );
+ 
 --- a/dlls/ntdll/loader.c
 +++ b/dlls/ntdll/loader.c
 @@ -589,6 +589,9 @@
@@ -60,7 +71,12 @@
  /******************************************************************
 --- a/dlls/ntdll/process.c
 +++ b/dlls/ntdll/process.c
-@@ -64,7 +64,7 @@
+@@ -60,11 +60,11 @@
+ 
+ static const BOOL is_win64 = (sizeof(void *) > sizeof(int));
+ 
+-static const char * const cpu_names[] = { "x86", "x86_64", "PowerPC", "ARM", "ARM64" };
++static const char * const cpu_names[] = { "x86", "x86_64", "PowerPC", "ARM", "ARM64", "wasm64" };
  
  static inline BOOL is_64bit_arch( cpu_type_t cpu )
  {
@@ -175,6 +191,15 @@
      NTSTATUS status;
      int suspend;
  
+@@ -1475,7 +1512,7 @@
+  */
+ size_t server_init_thread( void *entry_point, BOOL *suspend )
+ {
+-    static const char *cpu_names[] = { "x86", "x86_64", "PowerPC", "ARM", "ARM64" };
++    static const char *cpu_names[] = { "x86", "x86_64", "PowerPC", "ARM", "ARM64", "wasm64" };
+     static const BOOL is_win64 = (sizeof(void *) > sizeof(int));
+     const char *arch = getenv( "WINEARCH" );
+     int ret;
 --- a/dlls/ntdll/thread.c
 +++ b/dlls/ntdll/thread.c
 @@ -287,6 +287,9 @@
@@ -468,6 +493,15 @@
  #endif
 --- a/libs/wine/config.c
 +++ b/libs/wine/config.c
+@@ -54,7 +54,7 @@
+ static void fatal_perror( const char *err, ... )  __attribute__((noreturn,format(printf,1,2)));
+ #endif
+ 
+-#if defined(__linux__) || defined(__FreeBSD_kernel__ )
++#if defined(__linux__) || defined(__FreeBSD_kernel__ ) || defined(__dolly__)  /* Dolly answers this one /proc path */
+ static const char exe_link[] = "/proc/self/exe";
+ #elif defined (__FreeBSD__) || defined(__DragonFly__)
+ static const char exe_link[] = "/proc/curproc/file";
 @@ -339,7 +339,11 @@
  static int is_valid_bindir( const char *bindir )
  {
@@ -504,16 +538,18 @@
  
 --- a/server/ptrace.c
 +++ b/server/ptrace.c
-@@ -210,6 +210,9 @@
-     return ret;
- #elif (defined(__FreeBSD__) || defined (__FreeBSD_kernel__)) && defined(HAVE_THR_KILL2)
-     return thr_kill2( tgid, pid, sig );
-+#elif defined(__dolly__)
-+    errno = ENOTSUP;  /* no signal reaches one thread, and the process is the server too */
+@@ -238,6 +238,11 @@
+ {
+     int ret = -1;
+ 
++#ifdef __dolly__  /* every client thread is in this process, the server too, and no signal reaches one thread */
++    errno = ENOTSUP;
 +    return -1;
- #else
-     errno = ENOSYS;
-     return -1;
++#endif
++
+     if (thread->unix_pid != -1)
+     {
+         if (thread->unix_tid != -1)
 --- a/server/request.c
 +++ b/server/request.c
 @@ -401,8 +401,22 @@

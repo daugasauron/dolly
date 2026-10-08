@@ -92,5 +92,8 @@
 {"name": "libsodium", "use": "Cryptography in 0 A.D.", "licence": "ISC", "repository": "https://github.com/jedisct1/libsodium", "sources": ["dist/static/zero-ad-build/deps.tar.gz"]},
 {"name": "pkgconf", "use": "pkg-config for the 0 A.D. build", "licence": "ISC", "repository": "https://github.com/pkgconf/pkgconf", "sources": ["dist/static/zero-ad-build/deps.tar.gz"]},
 {"name": "Premake", "use": "Generates the 0 A.D. engine's Makefiles", "licence": "BSD-3-Clause", "repository": "https://github.com/premake/premake-core", "sources": ["dist/static/zero-ad-build/engine.tar.gz"]},
-{"name": "CxxTest", "use": "Test framework in the 0 A.D. source; not built", "licence": "LGPL-3.0-only", "repository": "https://github.com/CxxTest/cxxtest", "sources": ["dist/static/zero-ad-build/engine.tar.gz"]}
+{"name": "CxxTest", "use": "Test framework in the 0 A.D. source; not built", "licence": "LGPL-3.0-only", "repository": "https://github.com/CxxTest/cxxtest", "sources": ["dist/static/zero-ad-build/engine.tar.gz"]},
+{"name": "Wine", "use": "Wine 4.0.4: the DLLs, programs, tools and server the Wine demo builds in Dolly, with demos/wine/wine-dolly.patch applied and its Bison and flex parsers generated", "licence": "LGPL-2.1-or-later", "repository": "https://gitlab.winehq.org/wine/wine", "pins": ["WINE"], "sources": ["dist/static/wine/source.tar.gz"]},
+{"name": "flex", "use": "Generates three of Wine's lexers outside Dolly; only its output ships", "licence": "BSD-2-Clause", "repository": "https://github.com/westes/flex", "pins": ["FLEX"], "sources": ["dist/static/wine/source.tar.gz"]},
+{"name": "Dolly's Wine port files", "use": "The loader, platform, server and display driver files compiled into Wine, and its winebuild backend", "licence": "LGPL-2.1-or-later AND MIT", "repository": "https://github.com/daugasauron/dolly", "sources": ["dist/static/wine/source.tar.gz"]}
 ]

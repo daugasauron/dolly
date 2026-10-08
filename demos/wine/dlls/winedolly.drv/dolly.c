@@ -240,7 +240,9 @@ static void present_frame(void)
     dolly_display_frame frame;
     unsigned i;
 
+    static HWND last_foreground;
     COLORREF background = GetSysColor( COLOR_BACKGROUND );
+    HWND foreground;
     unsigned x;
 
     if (dolly_display_begin_frame( display.generation, &frame )) return;
@@ -255,9 +257,13 @@ static void present_frame(void)
     list.count = 0;
     EnumWindows( list_window, (LPARAM)&list );
     /* when no window has the foreground, the topmost that can takes it */
-    if (!GetForegroundWindow())
+    if (!(foreground = GetForegroundWindow()))
         for (i = 0; i < list.count; i++)
             if (can_activate( list.handles[i] ) && SetForegroundWindow( list.handles[i] )) break;
+    /* A window that was made active before it got the foreground (Notepad focuses its edit control
+     * while it is created) has drawn an inactive caption and is not told again: the window manager's nudge. */
+    if (foreground && foreground != last_foreground) SendNotifyMessageW( foreground, WM_NCACTIVATE, TRUE, 0 );
+    last_foreground = foreground;
     for (i = list.count; i > 0; i--)
     {
         if (!(data = get_win_data( list.handles[i - 1], FALSE ))) continue;
