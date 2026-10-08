@@ -15,6 +15,21 @@ a task) in parallel since that also needs full rebuild of a lot of things".
 Started on branch `core/sockets-module` (worktree `work/sockets`); its full
 rebuild is shared with the release's (versioned recipes).
 
+Owner (2026-10-08), asked whether a program using sockets must declare the
+module: "Of course it needs to be declared, thats why I want to include it
+with the other neccesary rebuilds". So `sockets@0` is a declared module like
+the others: the client stamps the executable and the recipe carries
+`REQUIRES HOST sockets@0`. The branch was built without the stamp; the stamp
+and the recipe lines are added when the release round is assembled.
+
+Owner (2026-10-08, later, settling it): "git with 3rd, declared only by
+programs that require only at link time. Things that don't need it to run
+shouldnt require it." So the declaration is an opt-in at link time: libc
+keeps the refusals, a link flag selects the socket client and its stamp, and
+only the programs that need local sockets to run pass it and have
+`REQUIRES HOST sockets@0` in their image. `git` does not. Branch
+`core/sockets-optin`.
+
 ## State (2026-10-08, `core/sockets-module`)
 
 Steps 1 and 2 of the proposal are built and pass their tests in Chromium and
