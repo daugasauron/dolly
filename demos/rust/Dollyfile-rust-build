@@ -64,6 +64,9 @@ SLOP cp /tmp/cargo/vendor/libgit2-sys-0.18.5+1.9.4/libgit2/COPYING /usr/share/li
 SLOP cp /tmp/cargo/source/Cargo.lock /usr/share/dolly/builds/cargo.lock
 SLOP rm -rf /tmp/cargo
 
+# The SDK's members are this recipe's now, not the seed's.
+EXPORTS FOLDER rust-sdk /opt/rust-sdk
+EXPORTS FOLDER rust-licenses /usr/share/licenses/rust
 EXPORTS FOLDER cargo-licenses /usr/share/licenses/cargo
 FILE /usr/share/dolly/builds/cargo.lock
 SLOP rustc --version --verbose

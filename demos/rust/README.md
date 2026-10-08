@@ -12,7 +12,8 @@ Rust in the catalog is built by the result with Cargo.
 - `rust-tools`: interactive shell: `system` with the `rust` and `cargo` packages.
 - `rust`: the SDK that `rust-build` built, as a package.
 - `cargo`: the Cargo that `rust-build` built, with the `rust` package, as a package.
-- `ripgrep`, `fd`: rg and fd, as packages.
+- `ripgrep`: rg, as a package.
+- `fd`: fd, as a package.
 - `protox`: the protobuf compiler Codex builds with, as a package.
 - `cbindgen`: the header generator SpiderMonkey's configure requires, as a package.
 

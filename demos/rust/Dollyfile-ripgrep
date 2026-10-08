@@ -4,7 +4,7 @@ REQUIRES HOST runtime@0
 REQUIRES HOST http@0
 REQUIRES HOST threads@0
 
-FROM /v0.1.0/demos/rust/Dollyfile-rust-build fd31dc39dea74f0606bd1c88a985e4078e0f23a42e5f2efbe717f0bee4639fed
+FROM /v0.1.0/demos/rust/Dollyfile-rust-build 192e30951e5396edcdca3baa77c464a92bfe795bec8c1d50c8054462fa13d58d
 REQUIRES TOOL cargo
 REQUIRES TOOL gzip
 REQUIRES TOOL tar
@@ -14,7 +14,7 @@ REQUIRES TOOL rm
 
 # The archive holds upstream source and its locked crates, checksum-verified,
 # laid out as Cargo's directory source.
-SOURCE /v0.1.0/dist/static/rust/ripgrep.tar.gz 0000000000000000000000000000000000000000000000000000000000000000 /tmp/ripgrep.tar.gz
+SOURCE /v0.1.0/dist/static/rust/ripgrep.tar.gz 7f4f092352953f6c04d74c5cf5e5fc5f047ba6968c36a927926193d95857e9c4 /tmp/ripgrep.tar.gz
 SLOP gzip -dc /tmp/ripgrep.tar.gz | tar -xf - -C /
 SLOP CWD /tmp/ripgrep/source cargo build -j 4 --offline --bin rg --target-dir /tmp/ripgrep/build
 SLOP cp /tmp/ripgrep/build/debug/rg /usr/bin/rg
