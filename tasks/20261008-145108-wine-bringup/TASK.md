@@ -128,9 +128,8 @@ msvcrt and PE, and from 6.0 ntdll is split by a per-CPU syscall dispatcher.
 - The desktop: a thread standing in for `explorer.exe` deadlocked on
   user32's `display_dc_section` (the starter held it); replaced by the
   ownerless desktop window the server already makes, as winex11 handles it.
-- Two more "function signature mismatch" cases, both through
-  `CallWindowProc`: timers (`TIMERPROC` called as `WNDPROC`). Fixed in
-  `DispatchMessage`.
+- One more "function signature mismatch": timers, a `TIMERPROC` called as
+  a `WNDPROC` through `CallWindowProc`. Fixed in both `DispatchMessage`s.
 - `argv[0]` without a slash (`wine winemine` from the shell) left libwine
   without its data directory, so no fonts: it now reads `/proc/self/exe`,
   which Dolly answers.
@@ -168,7 +167,7 @@ libc, compiler or host module was changed.
   several programs as threads of one Win32 process, which Windows programs
   do not expect.
 - **Function pointer casts**: every call through a function type that
-  differs from the callee's traps. Three found and patched; the trap names
+  differs from the callee's traps. Two found and patched; the trap names
   no function, so each costs a trace. More will surface with more use.
 - `SuspendThread`/`TerminateThread` on another thread report success
   without effect (README); not fixed.
