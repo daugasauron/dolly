@@ -2,14 +2,15 @@
 
 Wine 4.0.4 brought up inside Dolly as a feasibility study: Wine's own
 programs and DLLs, compiled from Wine's source for wasm64 by Dolly's `cc`
-and linked with `wineserver` into one executable. Notepad and WineMine open
-their windows on the Dolly display and take the mouse and the keyboard.
+and linked with `wineserver` into one executable. It boots into a desktop
+with a taskbar and a Start menu; Notepad and WineMine open side by side on
+the Dolly display and take the mouse and the keyboard.
 The task, with every measurement, is
 `tasks/20261008-145108-wine-bringup/TASK.md`.
 
 **It does not run Windows binaries.** A `.exe` or `.dll` from anywhere else
 is x86 machine code, Wine is not a CPU emulator, and Dolly has no x86. What
-runs is what this image compiled: `notepad`, `winemine` and `hello`.
+runs is what this image compiled: `desktop`, `notepad`, `winemine`, `hello`.
 
 ## Images
 
@@ -20,11 +21,37 @@ runs is what this image compiled: `notepad`, `winemine` and `hello`.
   programs and `wineserver`, linked as `/usr/bin/wine` (21 MB) on
   `system-tools` with the FreeType that `zero-ad-deps` built. Wine's source
   as built stays under `/usr/src/wine`, the port under `/usr/src/dolly/wine`.
-- `wine`: `/wine/` starts Notepad; when it exits, a shell where
-  `wine winemine` and `wine hello` run.
+- `wine`: `/wine/` starts the desktop (`wine desktop`); Shut Down in its
+  Start menu leaves a shell, where `wine hello`, `wine notepad` and
+  `wine desktop` run.
 
-Build with `npm run image -- wine` (the build image takes about three
-minutes of compiling); test with `npm run test:demos -- wine`.
+Build with `DOLLY_BUILD_IMAGES=wine-build,wine npm run image` (both images
+in about 150 s); test with `npm run test:demos -- wine`.
+
+## The desktop
+
+`programs/desktop` is ours, not Wine's `explorer.exe` (which wants shell32,
+ole32 and a process per program): a taskbar window with a Start button, a
+button per top-level window and a clock, drawn with user32 and gdi32. Moving,
+resizing, minimizing and closing windows is Wine's own non-client code; the
+driver brings a clicked window to the front and gives it the foreground, as
+a window manager would, and a minimized window is hidden until its button is
+clicked (`ARW_HIDE`, added to user32).
+
+**Programs are threads.** With one process, the Start menu starts a program
+linked into this Wine as a thread of the desktop's process
+(`port/kernel32-program.c`): for that thread `GetModuleHandle(NULL)`, the
+resources, `GetCommandLine` and the arguments of `main` are the program's,
+and `ExitProcess` ends the thread. Before each start the program's static
+data is put back as it was linked, and the window classes of its last run
+are unregistered. What this is not:
+
+- a crash (a trap) in one program ends all of them and the desktop;
+- a program runs once at a time (its static data exists once);
+- threads a program creates see the desktop as their process, and they, its
+  handles and its heap blocks are not released when it exits;
+- `exit()` or `TerminateProcess` on itself ends everything;
+- programs cannot start each other: `CreateProcess` still fails.
 
 ## How it is put together
 
@@ -84,11 +111,9 @@ compiled outside Dolly.
   file mapping (`STATUS_NOT_SUPPORTED`); a file view is a private copy;
   decommitted pages are cleared but stay; page protection, guard pages and
   stack overflow detection do not exist in WebAssembly.
-- **Threads**: thread contexts are refused (`STATUS_NOT_SUPPORTED`: no
-  registers). `SuspendThread` and `TerminateThread` on another thread cannot
-  be delivered, since no signal reaches one thread: the server sends none
-  and records the thread as suspended or dead while it runs on. This is the
-  one place where an unsupported operation does not fail explicitly yet.
+- **Threads**: thread contexts, `SuspendThread` and `TerminateThread` on
+  another thread are refused (`STATUS_NOT_SUPPORTED`): a WebAssembly thread
+  has no registers to read and no signal reaches one thread.
 - **Exceptions** are those a program raises; a fault ends the process.
 - **Function pointer casts** that x86 tolerates trap in WebAssembly
   ("function signature mismatch"). Timers were one; more will be found by

@@ -281,11 +281,13 @@ static void activate_window_at( int x, int y )
     POINT pt = { x, y };
     HWND hwnd = GetAncestor( WindowFromPoint( pt ), GA_ROOT );
 
-    if (hwnd == GetForegroundWindow() || !can_activate( hwnd )) return;
+    if (!can_activate( hwnd )) return;
     /* a menu or a drag of the foreground thread keeps the press */
     if (GetGUIThreadInfo( 0, &info ) &&
         ((info.flags & (GUI_INMENUMODE | GUI_POPUPMENUMODE | GUI_INMOVESIZE)) || info.hwndCapture)) return;
-    SetForegroundWindow( hwnd );
+    /* the clicked window comes to the top, by a message to its own thread */
+    SetWindowPos( hwnd, HWND_TOP, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE | SWP_ASYNCWINDOWPOS );
+    if (hwnd != GetForegroundWindow()) SetForegroundWindow( hwnd );
 }
 
 static void send_pointer( const dolly_input_event *event )
@@ -504,6 +506,9 @@ BOOL CDECL DOLLY_EnumDisplayMonitors( HDC hdc, LPRECT rect, MONITORENUMPROC proc
 BOOL CDECL DOLLY_GetMonitorInfo( HMONITOR handle, LPMONITORINFO info )
 {
     static const WCHAR device[] = {'\\','\\','.','\\','D','I','S','P','L','A','Y','1',0};
+    static const WCHAR trayW[] = {'S','h','e','l','l','_','T','r','a','y','W','n','d',0};
+    HWND tray;
+    RECT rect;
 
     if (handle != (HMONITOR)1)
     {
@@ -511,6 +516,9 @@ BOOL CDECL DOLLY_GetMonitorInfo( HMONITOR handle, LPMONITORINFO info )
         return FALSE;
     }
     info->rcMonitor = info->rcWork = screen_rect;
+    /* a taskbar along the bottom is not part of the work area */
+    tray = FindWindowW( trayW, NULL );
+    if (tray && IsWindowVisible( tray ) && GetWindowRect( tray, &rect ) && rect.top > 0) info->rcWork.bottom = rect.top;
     info->dwFlags = MONITORINFOF_PRIMARY;
     if (info->cbSize >= sizeof(MONITORINFOEXW)) lstrcpyW( ((MONITORINFOEXW *)info)->szDevice, device );
     return TRUE;

@@ -63,10 +63,11 @@ headers: $(IDL_HEADERS)
 DLLS := ntdll kernel32 advapi32 gdi32 user32 version usp10 imm32 comctl32 comdlg32 shell32 shlwapi uxtheme winspool.drv
 OWN_DLLS := winedolly.drv
 PROGRAMS := notepad winemine
-OWN_PROGRAMS := hello
+OWN_PROGRAMS := desktop hello
 MODULES := $(DLLS:%=dlls/%) $(OWN_DLLS:%=dlls/%) $(PROGRAMS:%=programs/%) $(OWN_PROGRAMS:%=programs/%) server
 export MODULE_FILE_winspool := winspool.drv
 MODULE_ARGS_dlls/ntdll := PORT_SRCS=signal_wasm64.c
+MODULE_ARGS_dlls/kernel32 := PORT_SRCS=kernel32-program.c
 MODULE_ARGS_dlls/gdi32 := PORT_SRCS=freetype-symbols.c FREETYPE_CFLAGS="-I/usr/include/freetype2 -I$(PORT)/port" \
                           freetype_EXTRADEFS='-DWINE_FONT_DIR=\"fonts\"'
 MODULE_ARGS_dlls/user32 := PORT_SRCS=user32-desktop.c

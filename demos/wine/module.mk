@@ -35,7 +35,17 @@ RES := $(RC_SRCS:%.rc=$(O)/%.res) $(MC_SRCS:%.mc=$(O)/%.res)
 SPEC := $(wildcard $(S)/$(NAME:.dll=).spec)
 IMPORT_NAMES := $(filter $(LINKED),$(IMPORTS) $(DELAYIMPORTS))
 
-$(O)/module.a: $(OBJS) $(if $(IS_MODULE),$(O)/spec.o)
+# A program's objects lie between two marks, so that its static data can be put back when it is started
+# again as a thread of the desktop (port/kernel32-program.c).
+MARKS := $(if $(IS_EXE),$(O)/data_begin.o $(O)/data_end.o)
+.PRECIOUS: $(O)/data_%.c
+$(O)/data_%.c:
+	@mkdir -p $(@D)
+	echo 'char $(PREFIX)_data_$*[16] = "$*"; char $(PREFIX)_bss_$*[16];' > $@
+$(O)/data_%.o: $(O)/data_%.c
+	cc $(CFLAGS) -c $< -o $@
+
+$(O)/module.a: $(word 1,$(MARKS)) $(OBJS) $(if $(IS_MODULE),$(O)/spec.o) $(word 2,$(MARKS))
 	rm -f $@ && ar rcs $@ $^
 
 $(O)/%.o: $(S)/%.c

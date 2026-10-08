@@ -558,13 +558,14 @@ void output_dolly_module( DLLSPEC *spec, char **argv )
         /* what winecrt0's exe_entry.c does, with the type kernel32 calls it by */
         char *wide = strmake( "%s_wmain", prefix );
         const struct symbol *symbol = find_symbol( wide );
-        const char *args = "__wine_main_argc, __wine_main_wargv";
+        const char *args = "wine_dolly_main_argc(), wine_dolly_main_wargv()";
 
-        if (!symbol) { symbol = find_symbol( entry ); args = "__wine_main_argc, __wine_main_argv"; }
+        if (!symbol) { symbol = find_symbol( entry ); args = "wine_dolly_main_argc(), wine_dolly_main_argv()"; }
         if (!symbol || !symbol->is_func) fatal_error( "%s: neither %s nor %s is defined\n", spec->file_name, entry, wide );
         if (!strcmp( symbol->type, ":i" )) args = "";
         else if (strcmp( symbol->type, "ij:i" )) fatal_error( "%s: unsupported type of %s\n", spec->file_name, symbol->name );
-        output( "extern int __wine_main_argc;\nextern char **__wine_main_argv;\nextern unsigned short **__wine_main_wargv;\n" );
+        /* the process's arguments, or those of the program this thread runs (kernel32-program.c) */
+        output( "extern int wine_dolly_main_argc(void);\nextern void *wine_dolly_main_argv(void);\nextern void *wine_dolly_main_wargv(void);\n" );
         output( "extern int %s( %s );\nextern void ExitProcess( unsigned int );\n", symbol->name, *args ? "int, void *" : "void" );
         output( "static unsigned int module_entry( void *peb )\n{\n" );
         output( "    ExitProcess( %s( %s ) );\n    return 0;\n}\n", symbol->name, args );
@@ -672,6 +673,16 @@ void output_dolly_module( DLLSPEC *spec, char **argv )
         output( "    },\n" );
     }
     output( "};\n\n" );
+    if (!(spec->characteristics & IMAGE_FILE_DLL))
+    {
+        /* a program's static data lies between these marks, which module.mk links around it */
+        output( "extern char %s_data_begin[], %s_data_end[], %s_bss_begin[], %s_bss_end[];\n", prefix, prefix, prefix, prefix );
+        output( "extern void wine_dolly_register_program( const char *name, void *data, void *data_end, void *bss, void *bss_end );\n\n" );
+    }
     output( "__attribute__((constructor)) static void register_module(void)\n{\n" );
-    output( "    __wine_dll_register( &image, \"%s\" );\n}\n", spec->file_name );
+    output( "    __wine_dll_register( &image, \"%s\" );\n", spec->file_name );
+    if (!(spec->characteristics & IMAGE_FILE_DLL))
+        output( "    wine_dolly_register_program( \"%s\", %s_data_begin, %s_data_end, %s_bss_begin, %s_bss_end );\n",
+                spec->file_name, prefix, prefix, prefix, prefix );
+    output( "}\n" );
 }

@@ -1,3 +1,77 @@
+--- a/dlls/kernel32/environ.c
++++ b/dlls/kernel32/environ.c
+@@ -68,10 +68,18 @@
+  *
+  * References: MS KB article q102762.txt (special Win32s handling)
+  */
++#ifdef __dolly__  /* a program started inside the desktop has a command line of its own (kernel32-program.c) */
++extern char *wine_dolly_program_cmdlineA(void);
++extern WCHAR *wine_dolly_program_cmdlineW(void);
++#endif
++
+ LPSTR WINAPI GetCommandLineA(void)
+ {
+     static char *cmdlineA;  /* ASCII command line */
+     
++#ifdef __dolly__
++    if (wine_dolly_program_cmdlineA()) return wine_dolly_program_cmdlineA();
++#endif
+     if (!cmdlineA) /* make an ansi version if we don't have it */
+     {
+         ANSI_STRING     ansi;
+@@ -89,6 +97,9 @@
+  */
+ LPWSTR WINAPI GetCommandLineW(void)
+ {
++#ifdef __dolly__
++    if (wine_dolly_program_cmdlineW()) return wine_dolly_program_cmdlineW();
++#endif
+     return NtCurrentTeb()->Peb->ProcessParameters->CommandLine.Buffer;
+ }
+ 
+--- a/dlls/kernel32/module.c
++++ b/dlls/kernel32/module.c
+@@ -42,6 +42,13 @@
+ #include "wine/exception.h"
+ #include "wine/list.h"
+ #include "wine/debug.h"
++
++#ifdef __dolly__  /* a program started inside the desktop is a thread with a module of its own (kernel32-program.c) */
++extern HMODULE wine_dolly_program_module(void);
++#define main_module() wine_dolly_program_module()
++#else
++#define main_module() NtCurrentTeb()->Peb->ImageBaseAddress
++#endif
+ #include "wine/unicode.h"
+ 
+ WINE_DEFAULT_DEBUG_CHANNEL(module);
+@@ -438,7 +445,7 @@
+ 
+     if (!name)
+     {
+-        ret = NtCurrentTeb()->Peb->ImageBaseAddress;
++        ret = main_module();
+     }
+     else if (flags & GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS)
+     {
+@@ -566,7 +573,7 @@
+ 
+     LdrLockLoaderLock( 0, NULL, &magic );
+ 
+-    if (!hModule) hModule = NtCurrentTeb()->Peb->ImageBaseAddress;
++    if (!hModule) hModule = main_module();
+     nts = LdrFindEntryForAddress( hModule, &pldr );
+     if (nts == STATUS_SUCCESS)
+     {
+@@ -1152,7 +1159,7 @@
+     NTSTATUS    nts;
+     FARPROC     fp;
+ 
+-    if (!hModule) hModule = NtCurrentTeb()->Peb->ImageBaseAddress;
++    if (!hModule) hModule = main_module();
+ 
+     if ((ULONG_PTR)function >> 16)
+     {
 --- a/dlls/kernel32/process.c
 +++ b/dlls/kernel32/process.c
 @@ -111,7 +111,7 @@
@@ -8,6 +82,17 @@
 +static const char * const cpu_names[] = { "x86", "x86_64", "PowerPC", "ARM", "ARM64", "wasm64" };
  
  static void exec_process( LPCWSTR name );
+ 
+@@ -3134,6 +3134,10 @@
+ 
+ void WINAPI ExitProcess( DWORD status )
+ {
++#ifdef __dolly__  /* a program started inside the desktop is one of its threads: its exit ends that thread */
++    extern char *wine_dolly_program_cmdlineA(void);
++    if (wine_dolly_program_cmdlineA()) ExitThread( status );
++#endif
+     RtlExitUserProcess( status );
+ }
  
 --- a/dlls/ntdll/loader.c
 +++ b/dlls/ntdll/loader.c
@@ -301,6 +386,40 @@
  
      /* Reserve the memory */
  
+--- a/dlls/user32/class.c
++++ b/dlls/user32/class.c
+@@ -775,6 +775,31 @@
+ }
+ 
+ 
++#ifdef __dolly__
++/***********************************************************************
++ *		wine_dolly_free_program_classes
++ *
++ * Unregister the classes of a program that ended. The programs of the
++ * desktop are threads of one process (kernel32-program.c), so the process
++ * exit that frees a program's classes never comes.
++ */
++void wine_dolly_free_program_classes( HINSTANCE module )
++{
++    for (;;)
++    {
++        CLASS *class;
++        ATOM atom = 0;
++
++        USER_Lock();
++        LIST_FOR_EACH_ENTRY( class, &class_list, CLASS, entry )
++            if (class->hInstance == module) { atom = class->atomName; break; }
++        USER_Unlock();
++        if (!atom || !UnregisterClassW( (LPCWSTR)MAKEINTATOM(atom), module )) break;
++    }
++}
++#endif
++
++
+ /***********************************************************************
+  *		UnregisterClassA (USER32.@)
+  */
 --- a/dlls/user32/message.c
 +++ b/dlls/user32/message.c
 @@ -3965,8 +3965,15 @@
@@ -380,6 +499,21 @@
      }
  
      if (!thread_info->top_window || !USER_Driver->pCreateDesktopWindow( thread_info->top_window ))
+--- a/dlls/user32/winpos.c
++++ b/dlls/user32/winpos.c
+@@ -870,6 +870,12 @@
+     SystemParametersInfoW( SPI_GETMINIMIZEDMETRICS, sizeof(metrics), &metrics, 0 );
+ 
+     parent = GetAncestor( hwnd, GA_PARENT );
++    /* a shell with a taskbar asks for minimized windows to be hidden, as on Windows */
++    if ((metrics.iArrange & ARW_HIDE) && parent == GetDesktopWindow())
++    {
++        pt.x = pt.y = -32000;
++        return pt;
++    }
+     if (parent == GetDesktopWindow())
+     {
+         MONITORINFO mon_info;
 --- a/include/basetsd.h
 +++ b/include/basetsd.h
 @@ -36,7 +36,7 @@
@@ -622,6 +756,32 @@
  #else
  #error Unsupported CPU
  #endif
+@@ -1410,6 +1412,14 @@
+     reply->last = 0;
+     if ((thread = get_thread_from_handle( req->handle, THREAD_TERMINATE )))
+     {
++#ifdef __dolly__  /* nor can another thread be ended: it would run on, recorded as dead */
++        if (thread != current)
++        {
++            set_error( STATUS_NOT_SUPPORTED );
++            release_object( thread );
++            return;
++        }
++#endif
+         thread->exit_code = req->exit_code;
+         if (thread != current) kill_thread( thread, 1 );
+         else
+@@ -1489,6 +1499,10 @@
+ {
+     struct thread *thread;
+ 
++#ifdef __dolly__  /* no signal reaches one thread of the process, so none can be stopped: refused, not counted */
++    set_error( STATUS_NOT_SUPPORTED );
++    return;
++#endif
+     if ((thread = get_thread_from_handle( req->handle, THREAD_SUSPEND_RESUME )))
+     {
+         if (thread->state == TERMINATED) set_error( STATUS_ACCESS_DENIED );
 --- a/tools/widl/widl.c
 +++ b/tools/widl/widl.c
 @@ -101,6 +101,8 @@

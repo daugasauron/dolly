@@ -206,3 +206,54 @@ kernel32.
 ole32 and rpcrt4 for the file dialogs (with oleaut32 and the shell
 folders shell32 then reaches), then `wordpad`/`regedit`/`clock` as further
 programs; a Paint would be ReactOS's, built the same way.
+
+## Phase 2 (the owner, after trying the image)
+
+"add more things to wine (x86 emulator etc). I want it to look like windows
+with start bar etc and paint!" Three deliverables, in order: a desktop with
+a taskbar and Start menu and more than one program at once; Paint; an x86
+emulator with a first real result.
+
+### 2026-10-09, deliverable 1: the desktop
+
+- Route: a shell of our own (`programs/desktop`, 300 lines against user32
+  and gdi32), not Wine's `explorer.exe`. Explorer's desktop mode needs
+  shell32's folders and ole32, and starts every program with
+  `CreateProcess`, which one Dolly process cannot provide.
+- More than one program: each program linked into Wine is started as a
+  thread of the desktop's process (`port/kernel32-program.c`; the README
+  lists what that cannot do). kernel32 answers `GetModuleHandle(NULL)`,
+  `GetModuleFileName(NULL)`, `GetCommandLine` and `ExitProcess` per program
+  thread; each program's objects are linked between two marks so that its
+  static data can be restored before a restart; user32 unregisters the
+  classes its last run left.
+- The window manager's part is in the driver: a click raises the window
+  (`SWP_ASYNCWINDOWPOS`, so its own thread does it) and gives it the
+  foreground; the work area ends above `Shell_TrayWnd`. user32 got
+  `ARW_HIDE` for minimized windows. Wine 4.0 ignores `WS_EX_NOACTIVATE` on a
+  click, so the taskbar answers `WM_MOUSEACTIVATE` itself.
+- `SuspendThread` and `TerminateThread` on another thread now fail with
+  `STATUS_NOT_SUPPORTED` in the server (they reported success before).
+- **Measured in the browser** (`node demos/wine/test/wine-browser.mjs`,
+  Chrome, 10 s): the image boots into the desktop; Start and `N` start
+  Notepad, which takes typed text; Start and `W` start WineMine beside it;
+  WineMine is dragged by its caption to 800,300; Notepad's taskbar button
+  minimizes and restores it (pixels); WineMine is closed with Alt+F4 and
+  started again (classes and data reset); Shut Down returns to the shell.
+  The desktop prints its window list whenever it changes and the test reads
+  it after Shut Down. Images build in 152 s.
+
+Real processes instead of threads (not done, a core change): Wine needs to
+send descriptors between processes over a local socket.
+`host/sockets/client.c` refuses `sendmsg` with control data and `recvmsg`
+returns none (read); the kernel side (`host/sockets/kernel.c`) was not
+studied. The shape it would take: `sendmsg` with one `SCM_RIGHTS` message
+makes the kernel keep a reference to each named open-file description in
+the stream at that byte position, and `recvmsg` with a control buffer
+installs them as new descriptors of the receiver (dropped with the socket
+if never received). That is new behaviour of two existing operations of
+`sockets@0`, so its contract text and ABI digest change and every image
+whose programs link `-ldolly-sockets` is rebuilt; no browser import
+changes. With it, `wineserver` could be its own process and
+`CreateProcess` a `posix_spawn` of `wine`, which is what explorer, and
+every program that starts another, expects.

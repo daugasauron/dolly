@@ -1,44 +1,57 @@
-// Wine in the wine image. The image's ENTRY starts Notepad: its window must
-// appear on the Dolly display, take a click and typed text, ask about the
-// unsaved text and quit. Then, from the shell: a console program that uses
-// files, a thread and an event through wineserver, and WineMine.
+// Wine in the wine image. The image's ENTRY starts the desktop: a taskbar
+// with a Start menu, from which Notepad and WineMine are started side by
+// side. The test reads the frame's pixels and, after Shut Down, the list of
+// windows the desktop printed whenever it changed. Then, from the shell, a
+// console program that uses files, a thread and an event through wineserver.
 // Usage: node demos/wine/test/wine-browser.mjs
 import assert from "node:assert/strict";
 import { mkdir } from "node:fs/promises";
 import { delay, demoTest, shellPrompt } from "../../browser.mjs";
 
 const evidence = new URL("../../../build/wine-evidence/", import.meta.url).pathname;
-const desktop = [58, 110, 165];  // Wine's default desktop colour
+const desktop = [58, 110, 165], face = [212, 208, 200], white = [255, 255, 255], black = [0, 0, 0];
 
-// The colour of one frame pixel, and how many pixels of a rectangle are dark (text).
-const pixel = (page, x, y) => page.evaluate(([x, y]) =>
-  [...document.querySelector("#display").getContext("2d").getImageData(x, y, 1, 1).data].slice(0, 3), [x, y]);
+const frameSize = page => page.evaluate(() => [document.querySelector("#display").width, document.querySelector("#display").height]);
+// Waits until the frame pixel (x, y) has (or, with `not`, no longer has) a colour.
+const pixelIs = (page, x, y, colour, not = false) => page.waitForFunction(([x, y, colour, not]) => {
+  if (!__dolly.transport.graphicsActive()) return false;
+  const data = document.querySelector("#display").getContext("2d").getImageData(x, y, 1, 1).data;
+  return ([...data].slice(0, 3).join() === colour.join()) !== not;
+}, [x, y, colour, not], { timeout: 60_000, polling: 200 });
 const dark = (page, x, y, width, height) => page.evaluate(([x, y, width, height]) => {
   const data = document.querySelector("#display").getContext("2d").getImageData(x, y, width, height).data;
   let count = 0;
   for (let i = 0; i < data.length; i += 4) if (data[i] + data[i + 1] + data[i + 2] < 200) count++;
   return count;
 }, [x, y, width, height]);
-// A click at a frame pixel: the canvas may be shown at another size than the frame.
-async function click(page, x, y) {
+// Page coordinates of a frame pixel: the canvas may be shown at another size than the frame.
+async function at(page, x, y) {
   const box = await page.locator("#display").boundingBox();
-  const size = await page.evaluate(() => [document.querySelector("#display").width, document.querySelector("#display").height]);
-  await page.mouse.click(box.x + (x + 0.5) * box.width / size[0], box.y + (y + 0.5) * box.height / size[1]);
+  const [width, height] = await frameSize(page);
+  return [box.x + (x + 0.5) * box.width / width, box.y + (y + 0.5) * box.height / height];
 }
-// Waits for a window whose client area is `colour` at (x, y), over the desktop.
-const windowAt = (page, x, y, colour) => page.waitForFunction(([x, y, colour, desktop]) => {
-  if (!__dolly.transport.graphicsActive()) return false;
-  const canvas = document.querySelector("#display"), context = canvas.getContext("2d");
-  const at = (x, y) => [...context.getImageData(x, y, 1, 1).data].slice(0, 3).join();
-  return at(x, y) === colour.join() && at(canvas.width - 8, canvas.height - 8) === desktop.join();
-}, [x, y, colour, desktop], { timeout: 120_000, polling: 250 });
+const click = async (page, x, y) => page.mouse.click(...await at(page, x, y));
 
 await demoTest("wine", { image: "wine", timeout: 600_000 }, async ({ open }) => {
   const { page, prompt, start, waitText } = await open({ prompt: null });
   await mkdir(evidence, { recursive: true });
+  try { await run(page, prompt, start, waitText); }
+  catch (error) { await page.screenshot({ path: `${evidence}failure.png` }); throw error; }
+});
 
-  await windowAt(page, 100, 100, [255, 255, 255]);
-  assert.equal(await dark(page, 12, 49, 400, 30), 0, "Notepad's text area starts empty");
+async function run(page, prompt, start, waitText) {
+  await page.waitForFunction(() => __dolly.transport.graphicsActive(), null, { timeout: 120_000 });
+  const [width, height] = await frameSize(page);
+  // Start menu: the key of a program's name starts it.
+  const startMenu = async key => { await click(page, 30, height - 14); await delay(700); await page.keyboard.press(key); };
+
+  // The desktop: its colour, and the taskbar along the bottom.
+  await pixelIs(page, width >> 1, height >> 1, desktop);
+  await pixelIs(page, width >> 1, height - 6, face);
+
+  // Notepad, typed into.
+  await startMenu("n");
+  await pixelIs(page, 100, 100, white);
   await click(page, 100, 100);
   await page.keyboard.type("Dolly runs Wine: (4.0.4) [wasm64]", { delay: 20 });
   await page.waitForFunction(() => {
@@ -47,33 +60,53 @@ await demoTest("wine", { image: "wine", timeout: 600_000 }, async ({ open }) => 
     for (let i = 0; i < data.length; i += 4) if (data[i] + data[i + 1] + data[i + 2] < 200) count++;
     return count > 300;
   }, null, { timeout: 30_000, polling: 250 });
-  const [red, , blue] = await pixel(page, 200, 12);
-  assert.ok(blue > red + 40, "the clicked window has the active caption");
-  await page.screenshot({ path: `${evidence}notepad.png` });
-  console.log(`wine: Notepad drew its window and ${await dark(page, 12, 49, 400, 30)} dark pixels of typed text`);
+  console.log(`wine: Notepad started from the Start menu and drew ${await dark(page, 12, 49, 400, 30)} dark pixels of typed text`);
 
-  // Alt+F4 with unsaved text: Notepad asks, N answers "No", and the image's entry script goes on to the shell.
+  // WineMine beside it: it opens over Notepad's corner and is dragged away by its caption.
+  await startMenu("w");
+  await pixelIs(page, 60, 50, black);
+  await page.screenshot({ path: `${evidence}desktop.png` });
+  await page.mouse.move(...await at(page, 60, 12));
+  await page.mouse.down();
+  await page.mouse.move(...await at(page, 860, 312), { steps: 12 });
+  await page.mouse.up();
+  await pixelIs(page, 860, 350, black);       // its counters, 800 to the right and 300 down, clear of Notepad
+  await pixelIs(page, 60, 50, black, true);   // and Notepad's text area is back at the corner
+
+  // Notepad's taskbar button: brings it to the front, minimizes it, restores it.
+  await click(page, 140, height - 14);
+  await delay(800);
+  await click(page, 140, height - 14);
+  await pixelIs(page, 100, 100, desktop);
+  await delay(800);  // long enough for the desktop to list it as minimized
+  await click(page, 140, height - 14);
+  await pixelIs(page, 100, 100, white);
+
+  // WineMine: a click on its field, closed with Alt+F4, started again.
+  await click(page, 880, 430);
+  await delay(500);
   await page.keyboard.press("Alt+F4");
-  await delay(2000);
-  await page.keyboard.press("n");
+  await pixelIs(page, 660, 350, black, true);
+  await startMenu("w");
+  await pixelIs(page, 860, 350, black);       // it comes back where it was closed
+  await page.screenshot({ path: `${evidence}desktop-2.png` });
+
+  await startMenu("u");
   await prompt(shellPrompt);
-  await waitText(/Notepad exited/);
   assert.equal(await page.evaluate(() => __dolly.transport.graphicsActive()), false, "the display is released");
+  const log = await waitText(/the Wine desktop was shut down/);
+  for (const pattern of [
+    /desktop: started notepad\.exe/,
+    /2 windows; "Untitled - Notepad" at 0,0; "WineMine" at 0,0 foreground/,
+    /"WineMine" at 800,300/,
+    /"Untitled - Notepad" at -32000,-32000 minimized/,
+    /1 windows; "Untitled - Notepad" at 0,0/,
+    /started winemine\.exe[\s\S]*started winemine\.exe/,
+  ]) assert.match(log, pattern);
+  console.log("wine: two programs at once; a window dragged, minimized, restored, closed and started again; shut down");
 
   const hello = start("wine hello");
   await waitText(/Hello from C:\\windows\\system32\\hello\.exe, Windows \d+\.\d+, page size 65536, \d+ processors\s+file: written through wineserver \(26 bytes\)\s+thread: wait 0, exit code 7\s+VirtualAlloc: ok, CreateProcess: refused/);
   assert.equal(await hello.done, 0);
   console.log("wine: a console program used a file, a thread and an event through wineserver; CreateProcess is refused");
-
-  // WineMine: its counters are black with green digits; a click on the field uncovers squares, which turns them grey.
-  const mines = start("wine winemine");
-  await windowAt(page, 60, 50, [0, 0, 0]);
-  const covered = await pixel(page, 80, 130);
-  await click(page, 80, 130);
-  await delay(1500);
-  assert.notDeepEqual(await pixel(page, 80, 130), covered, "a click changes the square");
-  await page.screenshot({ path: `${evidence}winemine.png` });
-  await page.keyboard.press("Alt+F4");
-  assert.equal(await mines.done, 0, "WineMine quits back to the shell");
-  console.log("wine: WineMine drew its field, took a click and quit");
-});
+}

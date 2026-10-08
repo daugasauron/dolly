@@ -11,18 +11,18 @@ REQUIRES HOST threads@0
 REQUIRES HOST upload@0
 
 FROM /v0.1.0/Dollyfile-system b43cf11c78f97613a811593435c3fbfce0ee1223b5fff71539675433a6f440b0
-COPY /v0.1.0/demos/wine/Dollyfile-wine-build c475b252206d80d5b92d7f60e20f268db6d71dc7ad96f46c1e67c08e668f336f /usr/bin/wine /usr/bin/wine
-COPY /v0.1.0/demos/wine/Dollyfile-wine-build c475b252206d80d5b92d7f60e20f268db6d71dc7ad96f46c1e67c08e668f336f /usr/share/wine /usr/share/wine
+COPY /v0.1.0/demos/wine/Dollyfile-wine-build cec93a93006d1e8a6d237b83d34ef3370a66a5a9aa1b1c0a5abc3baadcd89abd /usr/bin/wine /usr/bin/wine
+COPY /v0.1.0/demos/wine/Dollyfile-wine-build cec93a93006d1e8a6d237b83d34ef3370a66a5a9aa1b1c0a5abc3baadcd89abd /usr/share/wine /usr/share/wine
 # Wine is LGPL; FreeType (under its GPL option) and libpng are linked into it.
-COPY /v0.1.0/demos/wine/Dollyfile-wine-build c475b252206d80d5b92d7f60e20f268db6d71dc7ad96f46c1e67c08e668f336f /usr/share/licenses/wine /usr/share/licenses/wine
-COPY /v0.1.0/demos/wine/Dollyfile-wine-build c475b252206d80d5b92d7f60e20f268db6d71dc7ad96f46c1e67c08e668f336f /usr/share/licenses/freetype /usr/share/licenses/freetype
-COPY /v0.1.0/demos/wine/Dollyfile-wine-build c475b252206d80d5b92d7f60e20f268db6d71dc7ad96f46c1e67c08e668f336f /usr/share/licenses/libpng /usr/share/licenses/libpng
+COPY /v0.1.0/demos/wine/Dollyfile-wine-build cec93a93006d1e8a6d237b83d34ef3370a66a5a9aa1b1c0a5abc3baadcd89abd /usr/share/licenses/wine /usr/share/licenses/wine
+COPY /v0.1.0/demos/wine/Dollyfile-wine-build cec93a93006d1e8a6d237b83d34ef3370a66a5a9aa1b1c0a5abc3baadcd89abd /usr/share/licenses/freetype /usr/share/licenses/freetype
+COPY /v0.1.0/demos/wine/Dollyfile-wine-build cec93a93006d1e8a6d237b83d34ef3370a66a5a9aa1b1c0a5abc3baadcd89abd /usr/share/licenses/libpng /usr/share/licenses/libpng
 EXPORTS TOOL wine
 REQUIRES TOOL wine
 
 FILE /etc/dolly/init.slop
-    /bin/foreground -i /usr/bin/wine notepad
-    printf '\nDolly: Notepad exited. Other programs of this Wine: wine winemine, wine hello.\n'
+    /bin/foreground -i /usr/bin/wine desktop
+    printf '\nDolly: the Wine desktop was shut down; "wine desktop" starts it again, "wine hello" is a console program.\n'
     /bin/foreground -i /bin/slop
 
 ENTRY /bin/foreground -i /bin/slop /etc/dolly/init.slop
