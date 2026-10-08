@@ -54,3 +54,30 @@ Decide while doing it, and record:
   not the wording.
 - A fresh agent given only the site's URL and this file boots an image and
   runs a command without other help; record the run here.
+
+## The fresh-agent run (2026-10-08, the integrator)
+
+A new agent on a smaller model (Sonnet), told nothing about the project and
+forbidden to read the repository, was given `http://127.0.0.1:9046/robots.txt`
+(the two-version export of `core/versioned-hosting` `2c9aae49`, served by
+`test/pages-host.mjs`) and a way to drive headless Chrome. In 2.5 minutes and
+12 tool calls it opened `/v0.1.1/default/`, got the prompt, ran
+`echo hello-from-agent`, `ls /` and `amy list` (19 rows, 5 installed), ran
+`amy install cc` (1,942 files, 135 MB) and compiled and ran a C program. The
+file named the page, `amy list` and `amy install cc`; the rest it worked out.
+
+What it had to work out or found wrong, to fix in the text or the page:
+
+- Nothing says how to read the terminal: it is a canvas with no text in the
+  document, so the agent read screenshots. The page has `__dolly` on
+  `window` (the tests' handle: `visibleTerminalText()`, `submit(command)`),
+  which is not a documented interface. Whether a small part of it becomes
+  one for agents is the owner's decision.
+- Nothing says when the page is ready. The page already sets
+  `data-dolly-status` on the document element; the text should name it.
+- It had to guess that the canvas takes a click and then keys.
+- `amy install cc` prints nothing until it finishes (135 MB), and then says
+  "its environment applies when the session is next loaded" although `cc`
+  works at once.
+- One 404 appeared in the console on the first load and not again; not
+  identified.
