@@ -343,3 +343,81 @@ Measured with the probe reading as Janis does (`-j`, flags 7, 60 keys queued,
 sequence (`ESC [ 4 8 ;` | `1 : 3 u`, then `ESC` | `[ 4 8 ; 1 : 3 u`). The
 same keys through one `read` of 65,536: one read of 601 bytes, no cut.
 A person meets it by typing 23 keys or more while Pi does not read.
+
+## More counts before the fix (2026-10-08)
+
+- Firefox, the same typing at Slop's prompt (`type-slop-firefox-1.log`):
+  50 and 100 characters 0/3, 150, 200 and 400 characters 3/3 wrong, 7 to 405
+  records counted as dropped a line. The same as Chromium.
+- At a person's rate, Chromium (`type-slop-human-chromium-1.log`): 200
+  characters at 15 keys a second 0/3 wrong and at 5 a second 0/3, nothing
+  dropped. With node and the browser pinned to one core (`taskset -c 7`,
+  `type-slop-pinned-chromium-1.log`): 100 and 200 characters at 15 a second
+  0/3 each. The 2,000-character and the scripted one-core cells were stopped
+  unfinished when the round was cut short.
+- Paste, 2,000 and 50,000 characters with newlines, wrong per attempts:
+  Slop's prompt in Chromium 0/3 and 0/3 as one line, 0/3 and 0/3 as many
+  lines; the raw-mode reader in Chromium and in Firefox byte for byte equal,
+  plain and bracketed, with the same SHA-256 in both browsers
+  (`raw-firefox-1.log`); Neovim's insert mode (`nvim --clean`, the file it
+  wrote hashed) in Chromium 0/3 and 0/3, and 200 characters 0/3
+  (`nvim-chromium-1.log`); Slop's prompt in Firefox 200 and 2,000 as one line
+  0/3 each (50,000 not run). No paste lost or reordered a byte.
+- Neovim's insert mode, typed, Chromium: 150 and 400 characters at
+  Playwright's rate 0/3 each, 200 at 12 keys a second 0/3.
+
+## A paste a person can lose: no element focused (found on the way)
+
+Ctrl+Shift+V with the focus on the page body does nothing and says nothing,
+while typing still arrives (`focus-paste-chromium-1.log`: 1 of 1). The paste
+handler takes only pastes aimed at the hidden keyboard element, and a click
+on page text that is not a control (the status line) leaves no element
+focused. After a click on the terminal or the download button the element
+has the focus and the paste arrives (1 of 1 each).
+
+## Fixes (`fix/terminal-input`)
+
+- Kernel only, image inputs unchanged (`01da8fef…` before and after
+  `npm run build:runtime`): `fill_terminal_input` (`host/display/kernel.c`)
+  makes the driver call that also draws only once the reader has caught up,
+  so a person's echo shows as before; while records wait it fetches the
+  terminal's replies with a record the driver has nothing to do for, and the
+  service tick draws. `test/display-browser.mjs` pushes 100 keys at Slop's
+  prompt and counts the frames published until the ring is empty: against the
+  runtime without the fix it fails with "100 frames for the echo of 100 keys
+  in 10 ticks" (Chromium, `display-before-chromium.log`); with it the suite
+  passes in Chromium and Firefox (`suites-after.log`).
+- Page only, not an image input: the paste chord gives the keyboard element
+  the focus in the terminal as it did under a graphics lease
+  (`host/display/input.mjs`). `test/terminal-browser.mjs` pastes after a
+  blur; the suite passes in Chromium and Firefox. That test was not run
+  against the page without the fix; the probe above is its evidence.
+
+Ran after the fixes: `display` and `terminal`, once each in Chromium and
+Firefox, all four passed. Not run: the typing matrix again (the number of
+keys a second Slop now takes is not measured), the other core suites, any
+demo.
+
+## Left open
+
+- Janis (`demos/javascript/quickjs-main.c:882`) still cuts at 256 bytes. A
+  version of `js_dolly_read_raw` that returns everything that waits, with a
+  test that queues 60 keys under flags 7, was written and taken out again
+  unbuilt: it needs `typescript-build` and `javascript` rebuilt, and Pi's
+  chain after them.
+- The ring still drops what it has no room for, counted and shown on the
+  page. A test that types should read `data-input-dropped` when it fails.
+- Sighting 3 (Emacs received `/t` of a 26-byte text record) is not explained.
+  The record reaches a `read` whole on every path read here; Emacs drops its
+  own type-ahead on a command error (`discard-input`), which was not tested.
+  The `gnu-emacs` image was stale in this tree.
+- `core/input-module` moves `fill_terminal_input` to `host/input/kernel.c`
+  and gives the driver separate `read` and `present` calls, so the kernel
+  change here conflicts with it in text and is replaced by it in substance:
+  there every frame is the tick's. Its `discard_pending_input` still clears
+  the kernel's 256 bytes and not what the driver holds of a long paste, which
+  matters only when a program that holds the foreground role exits in the
+  middle of a paste.
+- Not measured: Python's REPL, a paste larger than 50,000 characters, keys
+  that AltGr or Option produce on Windows and macOS (the page passes Ctrl and
+  Alt as modifiers; read in the code, not tried).
