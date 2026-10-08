@@ -22,6 +22,14 @@ the others: the client stamps the executable and the recipe carries
 `REQUIRES HOST sockets@0`. The branch was built without the stamp; the stamp
 and the recipe lines are added when the release round is assembled.
 
+Owner (2026-10-08, later, settling it): "git with 3rd, declared only by
+programs that require only at link time. Things that don't need it to run
+shouldnt require it." So the declaration is an opt-in at link time: libc
+keeps the refusals, a link flag selects the socket client and its stamp, and
+only the programs that need local sockets to run pass it and have
+`REQUIRES HOST sockets@0` in their image. `git` does not. Branch
+`core/sockets-optin`.
+
 Nothing has been built or run for this. The findings are from reading main at
 `4cbceacf`.
 

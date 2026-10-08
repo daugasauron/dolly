@@ -25,8 +25,9 @@ export, `robots.txt`.
 ## The lean cut (owner, 2026-10-08: "get to and deploy v0.1.0 within the usage limit of this week… keep it lean")
 
 In the release round: versioned recipe references, the versioned export with
-sessions per version and `robots.txt`/`llms.txt`, `sockets@0` as a declared
-module (the owner: "Of course it needs to be declared"), the `git log` fix
+sessions per version and `robots.txt`/`llms.txt`, `sockets@0` as a module a
+program opts into at link time and then declares (the owner: "declared only
+by programs that require only at link time"), the `git log` fix
 with `amy install less`. The signal fix and the terminal-input fix only if
 they merge without hand resolution. Deferred to 0.1.1: file modes and
 `umask`, the tab-crash cause, the RTS comparison, a Firefox pass over the
