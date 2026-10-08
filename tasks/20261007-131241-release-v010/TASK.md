@@ -282,9 +282,9 @@ Decided while implementing:
   hard-links it into the deployment (no second copy of 18 GB a version);
   anything in the archive that is not a version, or a release whose version
   is already there, stops it.
-- Root files: `_redirects` (`/ /vNEWEST/ 302`, one static rule), `_headers`,
-  the newest version's `404.html`, and its `robots.txt` with each `Disallow`
-  rule written once per version. No root list: each version carries its own.
+- Root files: `_redirects` (`/` and `/llms.txt` to the newest version, two
+  static rules), `_headers`, the newest version's `404.html`, and
+  `robots.txt`. No root list: each version carries its own.
 - `_headers` within 100 rules: fixed rules cover every version by
   placeholder. A compressed or split file needs a rule of its own. One rule
   (`/:version/PATH`) serves it in every version when all versions that hold
@@ -379,9 +379,9 @@ Not settled here:
 - (Settled by the layout below.) A recipe reference
   `/v0.1.0/Dollyfile-NAME` was not a file the deployment served: the bytes
   were at `/v0.1.0/_dolly/RELEASE/Dollyfile-NAME`.
-- Step 5: the root `robots.txt` is the newest version's with each
-  `Disallow` written per version; its comment names
-  `https://daugasauron.com/licences/`, which is 404 after this release.
+- (Step 5, built: `20261007-132428-robots`.) The root `robots.txt` is
+  written by the export from the newest version's `llms.txt`, with one rule
+  per published version.
 - The placeholder rules were exercised on the local stand-in, written from
   Cloudflare's documentation and asset-server source; the first deployment's
   `boot` and `verify` are their first run on Pages itself.
