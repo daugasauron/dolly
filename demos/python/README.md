@@ -33,8 +33,10 @@ Install it with `INSTALL` or `amy install python`; build with
 
 ## Limits
 
-- Sockets and `ssl` fail explicitly, so do httpx, aiohttp and other socket or
-  asyncio clients; fork is absent; `threading.Thread` targets run serially.
+- Network sockets and `ssl` fail explicitly (`socket.socket()` raises
+  `EAFNOSUPPORT`), so do httpx, aiohttp and other network clients. `asyncio`
+  runs, and `AF_UNIX` stream sockets connect processes inside Dolly. Fork is
+  absent; `threading.Thread` targets run serially.
 - The browser owns TLS, redirects and content decoding: client certificates
   and custom TLS verification fail.
 - NumPy 2.5.2 and Pandas 3.0.5 build from source with Meson's debug build;

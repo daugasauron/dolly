@@ -163,6 +163,14 @@ sed -i \
   -e 's/^\/\* #undef HAVE_SETITIMER \*\/$/#define HAVE_SETITIMER 1/' \
   "${temporary}/pyconfig.h"
 
+# The site file also denies what Emscripten's sockets lack. Dolly serves local
+# stream sockets (sockets@0): sys/un.h is what defines AF_UNIX for _socket.
+sed -i \
+  -e 's/^\/\* #undef HAVE_SYS_UN_H \*\/$/#define HAVE_SYS_UN_H 1/' \
+  -e 's/^\/\* #undef HAVE_SOCKETPAIR \*\/$/#define HAVE_SOCKETPAIR 1/' \
+  -e 's/^\/\* #undef HAVE_SHUTDOWN \*\/$/#define HAVE_SHUTDOWN 1/' \
+  "${temporary}/pyconfig.h"
+
 # A non-threaded Emscripten libc still advertises pthread.h and supplies its
 # own compatibility symbols. Dolly deliberately uses CPython's smaller,
 # explicit single-thread implementation instead: pthread_create() returns

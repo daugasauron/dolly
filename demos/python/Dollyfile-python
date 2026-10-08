@@ -116,13 +116,13 @@ EXPORTS ENV PYTHONDONTWRITEBYTECODE 1
 # The target is configured outside the browser, but every target object and
 # executable is compiled here. Dolly-owned adapters remain independent pinned
 # inputs instead of being hidden inside the upstream archive.
-SOURCE https://daugasauron.com/dist/static/python/cpython.tar.gz 0dae9286340c4cca01b4408f630638335559c52f5676f042af9ee828c0c605e7 /tmp/cpython.tar.gz
+SOURCE https://daugasauron.com/dist/static/python/cpython.tar.gz d379c7b2c1687130126c2da3b3b8de372ee34c8689ff214d42339f0c23a332bf /tmp/cpython.tar.gz
 
 SLOP gzip -dc /tmp/cpython.tar.gz | tar -xf - -C /
 
 SOURCE https://daugasauron.com/dist/static/python/runtimes/cpython-platform.c        20c5c120f835ce94ceb9be08cc25c4623ae333d844b2d3c3098ffed36f3b41eb /usr/src/python/Python/dolly_platform.c
 SOURCE https://daugasauron.com/dist/static/python/runtimes/cpython-extension-check.c 1763ec04e582beee6066af81c93fe20e8cf0d83ae7d41d935b395c5cb3cdf071 /usr/src/python/Modules/dolly_extension_check.c
-SOURCE https://daugasauron.com/dist/static/python/runtimes/cpython-socket-stubs.c    d54e0a1d299c128d483e7edc9dc089693e8ca53a7de54509e687a87a6368a4ce /usr/src/python/Modules/dolly_socket_stubs.c
+SOURCE https://daugasauron.com/dist/static/python/runtimes/cpython-socket-stubs.c    2aebdbdf3722dfa79f7b7eeb178b4beae2894a3d35ef12501054fb667342b335 /usr/src/python/Modules/dolly_socket_stubs.c
 SOURCE https://daugasauron.com/dist/static/python/runtimes/cpython-http.c 13610f3322a4d09aa558e5d31523a082303835bf7c5981557c09443562cdc2da /usr/src/python/Modules/dolly_http.c
 SOURCE https://daugasauron.com/dist/static/python/runtimes/cpython-transport.py 4567a855ff8459f6671c770dd69d93c84870bef3acd272f11ca28a394c9be92d /usr/src/python/Lib/_dolly_transport.py
 SOURCE https://daugasauron.com/dist/static/python/runtimes/cpython-process.c         9dfbbe0c2de367d829b4fec488ff4e17488324c4cc4c750b34de2c82547fb943 /usr/src/python/Modules/dolly_process.c
@@ -260,7 +260,7 @@ SLOP CWD /usr/src/python make \
   MODULE__STATISTICS_LDFLAGS= \
   MODULE__DATETIME_LDFLAGS= \
   MODULE_PYEXPAT_LDFLAGS=Modules/expat/libexpat.a \
-  MODULE__SOCKET_CFLAGS=-Daccept=dolly_py_accept\ -Daccept4=dolly_py_accept4\ -Dbind=dolly_py_bind\ -Dfreeaddrinfo=dolly_py_freeaddrinfo\ -Dgai_strerror=dolly_py_gai_strerror\ -Dgetaddrinfo=dolly_py_getaddrinfo\ -Dgethostbyaddr=dolly_py_gethostbyaddr\ -Dgethostname=dolly_py_gethostname\ -Dgetnameinfo=dolly_py_getnameinfo\ -Dgetpeername=dolly_py_getpeername\ -Dgetprotobyname=dolly_py_getprotobyname\ -Dgetservbyport=dolly_py_getservbyport\ -Dgetsockname=dolly_py_getsockname\ -Dgetsockopt=dolly_py_getsockopt\ -Dhtonl=dolly_py_htonl\ -Dif_freenameindex=dolly_py_if_freenameindex\ -Dif_indextoname=dolly_py_if_indextoname\ -Dif_nameindex=dolly_py_if_nameindex\ -Dif_nametoindex=dolly_py_if_nametoindex\ -Dinet_aton=dolly_py_inet_aton\ -Dinet_ntop=dolly_py_inet_ntop\ -Dinet_pton=dolly_py_inet_pton\ -Dlisten=dolly_py_listen\ -Dntohl=dolly_py_ntohl\ -Dpoll=dolly_py_poll\ -Drecvfrom=dolly_py_recvfrom\ -Drecvmsg=dolly_py_recvmsg\ -Dsend=dolly_py_send\ -Dsendmsg=dolly_py_sendmsg\ -Dsendto=dolly_py_sendto \
+  MODULE__SOCKET_CFLAGS=-Dfreeaddrinfo=dolly_py_freeaddrinfo\ -Dgai_strerror=dolly_py_gai_strerror\ -Dgetaddrinfo=dolly_py_getaddrinfo\ -Dgethostbyaddr=dolly_py_gethostbyaddr\ -Dgethostname=dolly_py_gethostname\ -Dgetnameinfo=dolly_py_getnameinfo\ -Dgetprotobyname=dolly_py_getprotobyname\ -Dgetservbyport=dolly_py_getservbyport\ -Dhtonl=dolly_py_htonl\ -Dif_freenameindex=dolly_py_if_freenameindex\ -Dif_indextoname=dolly_py_if_indextoname\ -Dif_nameindex=dolly_py_if_nameindex\ -Dif_nametoindex=dolly_py_if_nametoindex\ -Dinet_aton=dolly_py_inet_aton\ -Dinet_ntop=dolly_py_inet_ntop\ -Dinet_pton=dolly_py_inet_pton\ -Dntohl=dolly_py_ntohl\ -Dpoll=dolly_py_poll \
   MODULE_BINASCII_CFLAGS=-DUSE_ZLIB_CRC32 \
   MODULE_BINASCII_LDFLAGS=-lz \
   MODULE_ZLIB_CFLAGS= \
@@ -372,8 +372,8 @@ FILE /usr/share/licenses/cpython/DOLLY-CHANGES
     sysconfig, uuid, ctypes.util and the pager to sys.platform "dolly", where
     processes use Dolly's spawn and wait, there is no fork and thread targets
     run serially. Built-in modules added by Dolly carry HTTP through the
-    browser's broker (_dolly_http, _dolly_transport), fail sockets and ssl
-    explicitly, and run libffi over process-local calls. The patched source is
+    browser's broker (_dolly_http, _dolly_transport), fail name resolution
+    and ssl explicitly, and run libffi over process-local calls. The patched source is
     published beside this image as dist/static/python/cpython.tar.gz.
 EXPORTS FOLDER python-stdlib /usr/lib/python3.14
 
