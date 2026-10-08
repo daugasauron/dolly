@@ -8,7 +8,6 @@
 #include <string.h>
 #include <sys/socket.h>
 #include <time.h>
-#include <unistd.h>
 
 static int increment(int value) { return value + 1; }
 
@@ -31,10 +30,8 @@ int dolly_process_dso_answer(int value) {
   assert(getprotobyname("tcp") == NULL && errno == ENOSYS);
   assert(getprotobynumber(6) == NULL && errno == ENOSYS);
   freeaddrinfo(NULL);
-  /* The owner's libc serves a library's socket calls too. */
-  int ends[2];
-  assert(socket(AF_INET, SOCK_STREAM, 0) == -1 && errno == EAFNOSUPPORT);
-  assert(socketpair(AF_UNIX, SOCK_STREAM, 0, ends) == 0 && close(ends[0]) == 0 && close(ends[1]) == 0);
+  /* The owner's libc serves a library's socket calls too: here its refusal. */
+  assert(socket(AF_INET, SOCK_STREAM, 0) == -1 && errno == ENOSYS);
   assert(in6addr_any.s6_addr[0] == 0 && in6addr_any.s6_addr[15] == 0);
   pthread_condattr_t attribute;
   assert(pthread_condattr_init(&attribute) == ENOSYS);

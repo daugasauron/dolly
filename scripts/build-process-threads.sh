@@ -16,13 +16,13 @@ internal=(-I/emsdk/upstream/emscripten/system/lib/libc/musl/arch/emscripten \
   -I/emsdk/upstream/emscripten/system/lib/libc/musl/include \
   -I/emsdk/upstream/emscripten/system/lib/libc \
   -I/emsdk/upstream/emscripten/system/lib/pthread)
-for source in libc-adapter runtime-adapter mmap time poll signal threads crt1; do
+for source in libc-adapter runtime-adapter socket-refusals mmap time poll signal threads crt1; do
   emcc "${flags[@]}" "${internal[@]}" -c "src/process/$source.c" -o "$target/$source.o"
 done
 emcc "${flags[@]}" -c src/process/threads-start.S -o "$target/threads-start.o"
 rm -f "$target/libdolly-process.a" "$target/libdolly-runtime.a"
 emar rcsD "$target/libdolly-process.a" "$target"/{libc-adapter,mmap,time,poll,signal,threads,threads-start}.o
-emar rcsD "$target/libdolly-runtime.a" "$target/runtime-adapter.o"
+emar rcsD "$target/libdolly-runtime.a" "$target/runtime-adapter.o" "$target/socket-refusals.o"
 cp /emsdk/upstream/emscripten/cache/sysroot/lib/wasm64-emscripten/libc-mt.a "$target/libc-mt.a"
 # Replace upstream browser thread lifecycle and signal owners, retaining musl's
 # actual mutex/condition/semaphore/once/TSD/stdio algorithms unchanged.

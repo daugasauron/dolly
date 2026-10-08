@@ -1,6 +1,8 @@
 #define _GNU_SOURCE
 
-/* The libc socket calls over sockets@0: local stream sockets only. */
+/* The libc socket calls over sockets@0: local stream sockets only. A program
+ * links this instead of libc's refusals by asking for -ldolly-sockets. */
+#include <dolly/host.h>
 #include <dolly/process.h>
 #include <dolly/sockets.h>
 #include <errno.h>
@@ -11,6 +13,7 @@
 #include <sys/socket.h>
 #include <sys/un.h>
 
+DOLLY_HOST_REQUIRE(sockets, 0, DOLLY_SOCKETS_ABI_DIGEST);
 _Static_assert(sizeof(((struct sockaddr_un *)0)->sun_path) > DOLLY_SOCKET_PATH_MAX, "sun_path");
 
 /* One call: the request header, then `payload`. */

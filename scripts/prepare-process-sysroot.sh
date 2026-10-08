@@ -92,8 +92,7 @@ done <"${staging}/libc-provider.symbols"
 # archives are static, so publish their provider symbol set and let -rdynamic
 # executables root and export it.
 #
-# libc, its Dolly adapters (the socket calls are sockets@0's client) and
-# dlmalloc contribute their public C spellings.
+# libc, its Dolly adapters and dlmalloc contribute their public C spellings.
 # Private helpers are implementation details and Emscripten's browser-facing API is
 # deliberately excluded: neither is part of Dolly's process-local libc ABI.
 # The small reviewed file adds conventional reserved public libc spellings
@@ -110,7 +109,6 @@ done <"${staging}/libc-provider.symbols"
     "${staging}/libstandalonewasm-ww-memgrow.a" \
     "${staging}/libdolly-process.a" \
     "${staging}/libdolly-runtime.a" \
-    "${staging}/libdolly-sockets.a" \
     "${staging}/libdlmalloc-ww.a" \
     2>/dev/null | awk \
       'NF && $0 !~ /:$/ && $0 !~ /^_/ && $0 !~ /^emscripten_/ { print }'

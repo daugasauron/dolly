@@ -775,12 +775,17 @@ bool link_side_module(const std::string &output,
 
 // Every host module's client archive in the process sysroot. The linker pulls
 // only referenced members, so a program records only the modules it uses.
+// Not sockets@0's: its client defines libc's socket calls, which a program
+// may reference for a path it never takes here, so it is linked only when the
+// program asks with -ldolly-sockets. That argument comes before these
+// archives, and the linker takes a name from the first archive that has it.
 std::vector<std::string> host_client_libraries() {
   std::vector<std::string> libraries;
   DIR *directory = opendir(kProcessSysroot);
   while (dirent *entry = directory == nullptr ? nullptr : readdir(directory)) {
     const std::string name = entry->d_name;
     if (name.size() > 11 && name.rfind("libdolly-", 0) == 0 && name != "libdolly-process.a" &&
+        name != "libdolly-sockets.a" &&
         name.compare(name.size() - 2, 2, ".a") == 0) {
       libraries.push_back("-l" + name.substr(3, name.size() - 5));
     }

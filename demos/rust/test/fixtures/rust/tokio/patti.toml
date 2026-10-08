@@ -1,0 +1,4 @@
+[[rustc]]
+package = "dolly-tokio-probe"
+crate-type = "bin"
+args = ["-C", "link-arg=-ldolly-sockets"]

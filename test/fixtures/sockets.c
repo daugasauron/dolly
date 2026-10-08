@@ -351,6 +351,12 @@ int main(int argc, char **argv) {
     if (write(3, "s", 1) != 1) return 6;
     for (;;) {}
   }
+  /* Linked without -ldolly-sockets, the calls are libc's refusals. */
+  if (strcmp(mode, "unlinked") == 0) {
+    int ends[2];
+    return socketpair(AF_UNIX, SOCK_STREAM, 0, ends) == -1 && errno == ENOSYS &&
+        socket(AF_INET, SOCK_STREAM, 0) == -1 && errno == ENOSYS ? 0 : 9;
+  }
   if (strcmp(mode, "pair") == 0) pair();
   else if (strcmp(mode, "refuse") == 0) refuse();
   else if (strcmp(mode, "peer") == 0) peer();

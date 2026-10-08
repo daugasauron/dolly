@@ -10,5 +10,5 @@
   "process": ["../../abi/dolly-process-0.wat", "../../abi/dolly-process-gate-0.wat"],
   "headers": ["../../include/dolly/runtime.h", "../../include/dolly/process.h", "../../include/dolly/host.h", "../../include/dolly/host-abi.h", "../../include/dolly/toolchain.h"],
   "kernel": ["../../src/dolly.c", "../../src/process-kernel.c", "../../src/system-snapshot.c", "../../src/device-lease.c", "../../src/file-blocks.cpp", "../../src/libc-host.c"],
-  "client": ["../../src/process/runtime-adapter.c"]
+  "client": ["../../src/process/runtime-adapter.c", "../../src/process/socket-refusals.c"]
 }

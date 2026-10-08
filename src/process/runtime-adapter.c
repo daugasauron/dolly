@@ -281,8 +281,6 @@ char *getpass(const char *prompt) {
   return password;
 }
 
-/* The socket calls are sockets@0's (host/sockets/client.c): local streams only,
- * so no name resolves to an address. */
 struct hostent *gethostbyname(const char *name) {
   (void)name;
   h_errno = NO_RECOVERY;
