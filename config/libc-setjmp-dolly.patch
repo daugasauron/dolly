@@ -1,0 +1,34 @@
+--- a/setjmp.h
++++ b/setjmp.h
+@@ -25,24 +25,22 @@
+  || defined(_XOPEN_SOURCE) || defined(_GNU_SOURCE) \
+  || defined(_BSD_SOURCE)
+ typedef jmp_buf sigjmp_buf;
+-/* XXX EMSCRIPTEN: No signals support, alias sigsetjmp and siglongjmp to their non-signals counterparts. */
+-#if __EMSCRIPTEN__ && !defined(LLVM_LIBC)
+-#define sigsetjmp(buf, x) setjmp((buf))
+-#define siglongjmp(buf, val) longjmp(buf, val)
+-#else
+-int sigsetjmp (sigjmp_buf, int) __setjmp_attr;
++/* Dolly: setjmp must be called by the function that returns twice, so
++   sigsetjmp first has libc note whether siglongjmp restores the mask. */
++int dolly_sigsetjmp (sigjmp_buf, int);
++#define sigsetjmp(buf, save) (dolly_sigsetjmp((buf), (save)), setjmp((buf)))
+ _Noreturn void siglongjmp (sigjmp_buf, int);
+ #endif
+-#endif
+ 
+ #if defined(_XOPEN_SOURCE) || defined(_GNU_SOURCE) \
+  || defined(_BSD_SOURCE)
+ int _setjmp (jmp_buf) __setjmp_attr;
+-_Noreturn void _longjmp (jmp_buf, int);
++_Noreturn void _longjmp (jmp_buf, int) __asm__("dolly_longjmp");
+ #endif
+ 
+ int setjmp (jmp_buf) __setjmp_attr;
+-_Noreturn void longjmp (jmp_buf, int);
++/* Dolly: a jump may leave a signal handler, which libc tells the kernel. */
++_Noreturn void longjmp (jmp_buf, int) __asm__("dolly_longjmp");
+ 
+ #define setjmp setjmp
+ 

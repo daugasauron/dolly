@@ -169,7 +169,17 @@ sequenceDiagram
   unsupported.
 - A process that does not finish a delivered signal within 500 ms is terminated.
   The filesystem and the shell survive; kernel or supervisor failure is outside
-  this guarantee.
+  this guarantee. Until a handler is finished the kernel delivers the process
+  no other signal.
+- A handler is finished when it returns, and when it leaves by `longjmp`,
+  `_longjmp` or `siglongjmp`, as a pager or a shell leaves a blocked read.
+  `sigsetjmp(env, 1)` saves the signal mask and `siglongjmp` restores it,
+  delivering what that unblocks before it jumps; after `sigsetjmp(env, 0)`
+  and after `setjmp` the jump leaves the handler's mask, as on Linux, and the
+  program unblocks its signal itself. libc sees the jump because `<setjmp.h>`
+  declares these as its own functions: a program that declares `longjmp`
+  itself is not seen leaving, and its handler stays unfinished. A jump made
+  and caught inside a handler counts as leaving it.
 - Exit reclaims the subtree, so an exiting parent first leaves a signalled child
   running until it exits, at most 500 ms after its signal. An event loop whose
   handler only notes Ctrl+C (libuv's self-pipe, a flag) still shuts down when

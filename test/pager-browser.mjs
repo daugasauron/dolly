@@ -13,7 +13,7 @@ await browserTest("pager", { timeout: 300_000 }, async ({ open }) => {
   // Starts a command and resolves to its status; settled says whether it ended.
   const start = command => {
     const running = Object.assign(submit(command), { settled: false });
-    running.then(() => { running.settled = true; });
+    running.then(() => { running.settled = true; }, () => {});
     return running;
   };
   const press = async key => { await page.locator("#keyboard").focus(); await page.keyboard.press(key); };
@@ -80,7 +80,7 @@ await browserTest("pager", { timeout: 300_000 }, async ({ open }) => {
   await printsThrough("git branch", /^\* \S+\n/m);
   await printsThrough("man echo", /\n.+\n/);
 
-  // less itself: forward, back, a search, a window of another size, quit.
+  // less itself: forward, back, a search, windows of other sizes, Ctrl+C, quit.
   await run("clear");
   const reading = start("less /tmp/lines");
   const height = await size();
@@ -93,15 +93,25 @@ await browserTest("pager", { timeout: 300_000 }, async ({ open }) => {
   await page.keyboard.type("250");
   await press("Enter");
   await pageFrom(250);
+  // Every resize repaints, the second as the first.
   const viewport = page.viewportSize();
   await page.setViewportSize({ width: viewport.width, height: Math.round(viewport.height * 0.6) });
   await page.waitForFunction(rows => __dolly.transport.dimensions().rows < rows, height);
   await pageFrom(250);
-  assert.equal(reading.settled, false);
-  await press("q");
-  assert.equal(await reading, 0);
   await page.setViewportSize(viewport);
   await page.waitForFunction(rows => __dolly.transport.dimensions().rows === rows, height);
+  await pageFrom(250);
+  // Ctrl+C stops less waiting for the file to grow and does not end it: past
+  // the 500 ms an unfinished handler would be given, it still takes commands.
+  await press("Shift+F");
+  await rows(screen => screen.includes("300"), "the end of the file");
+  await press("Control+c");
+  await page.waitForTimeout(700);
+  assert.equal(reading.settled, false, "Ctrl+C ended less");
+  await press("g");
+  await pageFrom(1);
+  await press("q");
+  assert.equal(await reading, 0);
 
   // A pager the person names is the one that runs: these end without a key.
   for (const command of ["PAGER=cat git log", "GIT_PAGER=cat git log", "git -c core.pager=cat log", "PAGER=cat man lines"]) {
