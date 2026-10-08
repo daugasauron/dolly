@@ -15,6 +15,13 @@ a task) in parallel since that also needs full rebuild of a lot of things".
 Started on branch `core/sockets-module` (worktree `work/sockets`); its full
 rebuild is shared with the release's (versioned recipes).
 
+Owner (2026-10-08), asked whether a program using sockets must declare the
+module: "Of course it needs to be declared, thats why I want to include it
+with the other neccesary rebuilds". So `sockets@0` is a declared module like
+the others: the client stamps the executable and the recipe carries
+`REQUIRES HOST sockets@0`. The branch was built without the stamp; the stamp
+and the recipe lines are added when the release round is assembled.
+
 Nothing has been built or run for this. The findings are from reading main at
 `4cbceacf`.
 
