@@ -117,11 +117,11 @@ await demoTest("xonotic", { image: "xonotic-build", timeout: 1_800_000, browser:
   // Escape closes the first-run dialog, the main menu, and the game menu the
   // map opens into; once the game has the keys the engine asks for relative
   // motion, and the capture takes a click, as bhop's does.
-  for (let attempt = 0; attempt < 70 && !await page.evaluate(() => __dolly.transport.relativePointerRequested()); attempt++) {
+  for (let attempt = 0; attempt < 70 && !await page.evaluate(() => __dolly.inputTransport.relativePointerRequested()); attempt++) {
     if (await cursorStyle() === 4) await page.keyboard.press("Escape");
     await delay(3000);
   }
-  assert.ok(await page.evaluate(() => __dolly.transport.relativePointerRequested()), "the match asks for relative motion");
+  assert.ok(await page.evaluate(() => __dolly.inputTransport.relativePointerRequested()), "the match asks for relative motion");
   // Only a person's click (a trusted event) may capture; a page script's cannot.
   const box = await page.locator("#display").boundingBox();
   await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
