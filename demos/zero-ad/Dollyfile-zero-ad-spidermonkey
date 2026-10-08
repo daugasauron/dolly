@@ -12,8 +12,8 @@ REQUIRES HOST upload@0
 # Build-only: SpiderMonkey 128.13.0, the engine's JavaScript library, built by
 # upstream's mozbuild (configure.py and Make) with Dolly's CPython, Cargo,
 # cbindgen and c++ from 0 A.D.'s pinned tarball and patches.
-FROM https://daugasauron.com/demos/zero-ad/Dollyfile-zero-ad-deps 1d97f0a0d931f85b8faa3191f925ed181a193f2e69ebc4b598a0bc081a6628ce
-INSTALL https://daugasauron.com/demos/python/Dollyfile-python 9ded735713731ef978532982e2509b603c85af3dddcd0100f040306d45955246
+FROM https://daugasauron.com/demos/zero-ad/Dollyfile-zero-ad-deps f4e3e0cbe7ff247598e89b96f5f659771a5e19851d5ecae638aa060bae1eead0
+INSTALL https://daugasauron.com/demos/python/Dollyfile-python ed038719ab407f9753780bbdd7e0dd19c14d9452c7108bc020ca4250599fd569
 INSTALL https://daugasauron.com/demos/rust/Dollyfile-cargo 33d420a99949308da7ec6df1c65bfafbde0ab21c0264e871a0c2efcf1ef6edd2
 INSTALL https://daugasauron.com/demos/rust/Dollyfile-cbindgen f3c3f554b27d27251f5031a77d445ba3e8fd68d3165d1ff36a0a9ae61a5daa30
 REQUIRES HEADER zlib
