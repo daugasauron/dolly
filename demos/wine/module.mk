@@ -1,0 +1,61 @@
+# SPDX-License-Identifier: MIT
+# One Wine module (MODDIR, its directory under MODSRC, the Wine tree unless it
+# is one of the demo's own) for the static link: its own Makefile.in names the
+# sources. Result: $(O)/module.a.
+MODSRC ?= $(SRC)
+include $(MODSRC)/$(MODDIR)/Makefile.in
+
+NAME := $(or $(MODULE),$(STATICLIB),$(notdir $(MODDIR)))
+O := $(B)/obj/$(MODDIR)
+S := $(MODSRC)/$(MODDIR)
+T := $(B)/tools
+# The module's name as a C prefix; winebuild-dolly.c derives the same one.
+PREFIX := $(subst -,_,$(subst .,_,$(NAME:.dll=)))
+IS_EXE := $(filter %.exe,$(NAME))
+IS_MODULE := $(filter-out %.a,$(MODULE))
+
+# Every module is linked into one program, so the entry points each defines get its name.
+RENAMES ?= $(if $(IS_EXE),-Dmain=$(PREFIX)_main -Dwmain=$(PREFIX)_wmain -DWinMain=$(PREFIX)_WinMain -DwWinMain=$(PREFIX)_wWinMain,\
+           $(if $(IS_MODULE),-DDllMain=$(PREFIX)_DllMain))
+CPPFLAGS := -I$(PORT) -I$(S) -I$(O) -I$(B)/include -I$(SRC)/include $(EXTRAINCL) -D__WINESRC__ $(EXTRADEFS) -D_REENTRANT $(RENAMES)
+CFLAGS := -O2 -fno-strict-aliasing -pthread -w
+
+# A GUI program has WinMain; winecrt0's main calls it.
+CRT0 := $(if $(filter -mwindows,$(APPMODE)),$(if $(filter -municode,$(APPMODE)),exe_wmain,exe_main))
+SRCS := $(filter-out $(EXCLUDE),$(C_SRCS))
+OBJS := $(SRCS:%.c=$(O)/%.o) $(CRT0:%=$(O)/crt0_%.o) $(PORT_SRCS:%.c=$(O)/port_%.o)
+RES := $(RC_SRCS:%.rc=$(O)/%.res) $(MC_SRCS:%.mc=$(O)/%.res)
+SPEC := $(wildcard $(S)/$(NAME:.dll=).spec)
+IMPORT_NAMES := $(filter $(LINKED),$(IMPORTS) $(DELAYIMPORTS))
+
+$(O)/module.a: $(OBJS) $(if $(IS_MODULE),$(O)/spec.o)
+	rm -f $@ && ar rcs $@ $^
+
+$(O)/%.o: $(S)/%.c
+	@mkdir -p $(@D)
+	cc $(CFLAGS) $(CPPFLAGS) $(MODDEFS) $($*_EXTRADEFS) -c $< -o $@
+
+$(O)/port_%.o: $(PORT)/port/%.c
+	@mkdir -p $(@D)
+	cc $(CFLAGS) $(CPPFLAGS) -c $< -o $@
+
+$(O)/crt0_%.o: $(SRC)/dlls/winecrt0/%.c
+	@mkdir -p $(@D)
+	cc $(CFLAGS) $(CPPFLAGS) -c $< -o $@
+
+$(O)/%.res: $(S)/%.rc
+	@mkdir -p $(@D)
+	$(T)/wrc -o $@ -m64 --nostdinc -I$(S) -I$(O) -I$(B)/include -I$(SRC)/include $(EXTRAINCL) -D__WINESRC__ $(EXTRADEFS) $<
+
+$(O)/%.res: $(S)/%.mc
+	@mkdir -p $(@D)
+	$(T)/wmc -U -O res -o $@ $<
+
+# The module description: exports with the types the objects give them, resources, entry point.
+$(O)/spec.c: $(OBJS) $(RES) $(SPEC)
+	echo "imports: $(foreach import,$(IMPORT_NAMES),$(or $(MODULE_FILE_$(import)),$(import).dll))" > $(O)/module.imports
+	$(T)/winebuild $(if $(IS_EXE),--exe,--dll) $(SPEC:%=-E %) -F $(NAME) \
+	  $(if $(IS_EXE),--subsystem $(if $(filter -mwindows,$(APPMODE)),windows,console)) -o $@ $(OBJS) $(RES) $(O)/module.imports
+
+$(O)/spec.o: $(O)/spec.c
+	cc $(CFLAGS) -I$(PORT)/port -c $< -o $@

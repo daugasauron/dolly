@@ -8,7 +8,7 @@
  * objects that define them (the wasm object symbol table).
  *
  *   winebuild --dll|--exe -E module.spec -F module.dll -o module.spec.c
- *       OBJECT.o|ARCHIVE.a... RESOURCE.res... IMPORTED-MODULE...
+ *       OBJECT.o|ARCHIVE.a... RESOURCE.res... [NAMES.imports]
  */
 #include "config.h"
 
@@ -126,10 +126,14 @@ static void read_wasm_object( const unsigned char *data, size_t size, const char
     in_end = end;
     while (in < end)
     {
-        unsigned int id = *in++;
-        size_t len = leb();
-        const unsigned char *next = in + len;
+        unsigned int id;
+        size_t len;
+        const unsigned char *next;
 
+        in_end = end;
+        id = *in++;
+        len = leb();
+        next = in + len;
         in_end = next;
         switch (id)
         {
@@ -326,11 +330,23 @@ void output_dolly_module( DLLSPEC *spec, char **argv )
 
     for (; *argv; argv++)
     {
-        if (ends_with( *argv, ".o" ) || ends_with( *argv, ".a" )) read_symbols( *argv );
-        else
+        char *text, *name;
+
+        if (!ends_with( *argv, ".imports" ))
         {
+            read_symbols( *argv );
+            continue;
+        }
+        /* the word imports: and the modules to load before this one */
+        init_input_buffer( *argv );
+        text = xmalloc( input_buffer_size + 1 );
+        memcpy( text, input_buffer, input_buffer_size );
+        text[input_buffer_size] = 0;
+        for (name = strtok( text, " \t\r\n" ); name; name = strtok( NULL, " \t\r\n" ))
+        {
+            if (!strcmp( name, "imports:" )) continue;
             imports = xrealloc( imports, (nb_imports + 1) * sizeof(*imports) );
-            imports[nb_imports++] = *argv;
+            imports[nb_imports++] = name;
         }
     }
 

@@ -69,3 +69,37 @@ msvcrt and PE, and from 6.0 ntdll is split by a per-CPU syscall dispatcher.
   CPU in widl and winebuild (their host CPU is a compile-time `#error`
   otherwise), `_WIN64`, endianness and a register-less `CONTEXT` in three
   headers.
+
+### 2026-10-09, ntdll, kernel32 and wineserver: a console program runs
+
+- More facts measured (`probe2.c`): the `*at` calls take a directory descriptor,
+  symlinks and Unix-socket paths work, `pthread_attr_setstack` is honoured,
+  `chmod` changes no mode (directories stay `0755`), `recvmsg` refuses
+  `MSG_CMSG_CLOEXEC`, hard links fail (`EMLINK`).
+- `cc` passes `-Wl,--whole-archive,A.a,--no-whole-archive` only as one option
+  (as separate options the archive is not whole), and `ld -r` is unsupported.
+- Build (`demos/wine/Makefile`, `module.mk`): each Wine module is compiled from
+  its own `Makefile.in`; `winebuild` (wasm64 backend `winebuild-dolly.c`) writes
+  the module's PE headers, export directory, resources and import list as one
+  initialized C object and takes the exported functions' types from the wasm
+  objects; 193 headers come from widl in about 10 s; ntdll (66 files),
+  kernel32 (71) and wineserver (43) compile in about 16 s at four jobs. Only
+  `SList` needed a header fix (`interlocked_cmpxchg128`); three names clash
+  between ntdll and the server and are renamed at compile time.
+- wineserver runs unchanged as a thread (`port/main.c`) with a working
+  directory of its own (`port/server-cwd.c`: its relative paths go through
+  `openat` and friends), so it never moves the program's. A descriptor sent
+  either way is a `dup` whose number travels in the message.
+- **Measured in the browser** (`/tmp/wine/wine hello`, `programs/hello`):
+
+      Hello from C:\windows\system32\hello.exe, Windows 6.1, page size 65536, 4 processors
+      file: written through wineserver (26 bytes)
+      thread: wait 0, exit code 7
+      VirtualAlloc: ok, CreateProcess: refused
+
+  The prefix is created in `/home/dolly/.wine`; `wineboot` cannot be started
+  (no second process), so the registry starts empty.
+- Function pointers: WebAssembly calls a function by its exact type, so a cast
+  between function types that x86 tolerates traps ("function signature
+  mismatch"). First case: ntdll passed `void start_thread()` to
+  `pthread_create`. More are expected in the GUI DLLs.
