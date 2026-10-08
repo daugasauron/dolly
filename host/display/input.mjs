@@ -79,8 +79,10 @@ export function displayInput({ mount, canvas, keyboard, showStatus, claimsKey, s
       (event.code === "KeyV" && (event.ctrlKey || event.metaKey)) ||
       (event.code === "Insert" && event.shiftKey && !event.ctrlKey && !event.metaKey));
     if (graphicsPaste || (clipboardChord && event.code === "KeyV")) {
-      // Let the browser deliver clipboard bytes through a user-initiated PasteEvent.
-      if (graphicsPaste && event.type === "keydown") keyboard.focus({ preventScroll: true });
+      // Let the browser deliver clipboard bytes through a user-initiated
+      // PasteEvent. It goes to the focused element, and a click on page text
+      // (a status line, a panel) leaves none: the paste handler would not see it.
+      if (event.type === "keydown") keyboard.focus({ preventScroll: true });
       return;
     }
     if (clipboardChord && event.code === "KeyC") {

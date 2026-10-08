@@ -48,6 +48,12 @@ await browserTest("terminal", { image: "system", server }, async ({ name, server
   await keyboard.focus();
   assert.equal(await result(() => page.keyboard.press("Control+Shift+V")), 0);
   assert.equal(await submit("grep -q PASTE-BRIDGE-OK /tmp/paste.txt && rm /tmp/paste.txt"), 0);
+  // A click on page text leaves no element focused; the paste chord gives the
+  // keyboard element the focus back, so the paste is not ignored.
+  await page.evaluate(() => { document.activeElement.blur(); });
+  assert.equal(await Promise.race([result(() => page.keyboard.press("Control+Shift+V")),
+    page.waitForTimeout(10000).then(() => "not delivered")]), 0);
+  assert.equal(await submit("grep -q PASTE-BRIDGE-OK /tmp/paste.txt && rm /tmp/paste.txt"), 0);
 
   // Select the output row with the mouse and copy it with Ctrl+Shift+C.
   assert.equal(await submit("echo COPY-BRIDGE-TEXT"), 0);
