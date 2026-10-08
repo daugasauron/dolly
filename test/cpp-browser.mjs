@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { browserTest } from "./browser.mjs";
 import { runCppSdkCases } from "./fixtures/cpp-sdk.mjs";
 
-await browserTest("cpp", { image: "system" }, async ({ open }) => {
+await browserTest("cpp", { image: "system" }, async ({ name, open }) => {
   const { submit } = await open();
   const run = async command => assert.equal(await submit(command), 0, command);
   await run("test ! -e /usr/bin/zig && test ! -e /usr/lib/zig");
@@ -28,10 +28,23 @@ await browserTest("cpp", { image: "system" }, async ({ open }) => {
   // A rejected compile fails normally, and the next compiler runs are unaffected.
   await run("cd /tmp/make && echo '#error deliberate' > bad.cpp");
   assert.equal(await submit("c++ -c bad.cpp -o bad.o"), 1);
-  // Clang recurses once per call of a chain, and LLVM's sources chain 635; a
-  // Chrome Worker's own stack holds about 420 (src/process-worker.mjs).
+  // Clang recurses once per call of a chain, and LLVM's sources chain 635: more
+  // than a Chrome Worker's stack holds (about 420). The compiler asks for the
+  // larger stack Chrome has (src/process/compiler-main.c).
   await run("echo 'struct S { S &next(int); int end(); }; int chain(S &s) { return s' > chain.cpp && " +
     "seq 640 | sed 's/.*/.next(&)/' >> chain.cpp && echo '.end(); }' >> chain.cpp && c++ -c chain.cpp -o chain.o");
+  // Only an executable that asks is entered there. 5,000 calls that each hold
+  // eight values fit on that stack and on Firefox's (7,100 do), and not on a
+  // Chrome Worker's own (3,700 do): an ordinary program is entered directly.
+  await run("printf '%s\\n' '#include <stdlib.h>' '#ifdef LARGE_STACK' " +
+    `'__asm__(".section .custom_section.dolly.process.stack,\\"\\",@\\n.byte 1\\n");' '#endif' ` +
+    "'static volatile long cell[8];' 'static long dive(long depth);' 'static long (*volatile next)(long) = dive;' " +
+    "'static long dive(long depth) {' " +
+    "'  long a = cell[0], b = cell[1], c = cell[2], d = cell[3], e = cell[4], f = cell[5], g = cell[6], h = cell[7];' " +
+    "'  return depth ? next(depth - 1) + a + b + c + d + e + f + g + h : 0; }' " +
+    "'int main(int argc, char **argv) { return (int)dive(atol(argv[argc - 1])); }' > deep.c && " +
+    "cc -O1 deep.c -o deep && cc -O1 -DLARGE_STACK deep.c -o deep-large && ./deep 1000 && ./deep-large 5000");
+  assert.equal(await submit("./deep 5000"), name === "chromium" ? 126 : 0);
   // Build-system probes (Meson style).
   for (const command of [
     "cc --print-search-dirs | grep -q '^libraries: =/usr/lib:/usr/lib/dolly/process$'",
