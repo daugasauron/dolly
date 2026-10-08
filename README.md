@@ -33,7 +33,8 @@ recipes build on, or a `PACKAGE` recipes and sessions install
 - `zlib`: the zlib headers and static library, for programs the `cc` package builds; it installs no compiler, as a package.
 - `curl`: curl and libcurl over the HTTP broker, as a package.
 - `gzip`: gzip over zlib, as a package.
-- `display`: the Ghostty display plugin and its font, as a package.
+- `less`: the pager; Git and `man` page through it once it is installed, as a package.
+- `display`: the Ghostty display plugin, its font and the terminal's termcap entry, as a package.
 - `dolly-docs`: the platform's documents and contracts in `/usr/share/doc/dolly`, as a package.
 
 ## Try it

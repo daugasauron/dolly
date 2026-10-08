@@ -8,8 +8,8 @@ REQUIRES HOST snapshot@0
 REQUIRES HOST threads@0
 REQUIRES HOST upload@0
 
-FROM /v0.1.0/Dollyfile-system 1f4e34f5885472a09d117f4499a56aefe41faad460245831bb58e18585af69df
-INSTALL /v0.1.0/demos/javascript/Dollyfile-javascript 8514d800ea7b8a7ed260b257a551fd6df835cfea35f62b66130fad4f827491f7
-INSTALL /v0.1.0/demos/pi/Dollyfile-pi-coding-agent 29a823e52a427f9ce14ff1f21822fe1887eaf4f5bf4a6dd1cbe46579b362bcf8
+FROM /v0.1.0/Dollyfile-system e290489e2f17d94d7a8703433549b7317b6fdb64aebed1585496700a18a31d59
+INSTALL /v0.1.0/demos/javascript/Dollyfile-javascript 09b258f6541ba5fe5cd9c047a24db8798aa11d40be6013f7ab4c8b630afc3a6e
+INSTALL /v0.1.0/demos/pi/Dollyfile-pi-coding-agent 672719c00dcf9d04134844d402824f2da3518ab2ec9d9aa1c331ce30aea88585
 
 ENTRY /bin/foreground -i /bin/slop

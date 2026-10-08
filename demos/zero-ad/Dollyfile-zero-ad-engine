@@ -10,7 +10,7 @@ REQUIRES HOST upload@0
 
 # Build-only: premake and the 0 A.D. engine (pyrogenesis), built by upstream's
 # premake Makefiles with Dolly's c++.
-FROM /v0.1.0/demos/zero-ad/Dollyfile-zero-ad-deps 476a8bcb0265cc86e135659ee85790a6d58d8b3a9f2e8bb0726e64c5e38b5617
+FROM /v0.1.0/demos/zero-ad/Dollyfile-zero-ad-deps 1a7696b27745ebc7d5b3ae7b17f6cc23719f9a4c8d58ac95e3516cf006a72ef6
 REQUIRES TOOL cc
 REQUIRES TOOL c++
 REQUIRES TOOL ar
@@ -44,8 +44,8 @@ SLOP slop -e /tmp/premake.slop
 
 # SpiderMonkey, built inside Dolly by zero-ad-spidermonkey: its headers, the
 # two archives and its licences.
-COPY /v0.1.0/demos/zero-ad/Dollyfile-zero-ad-spidermonkey a7083a08f960780ff45cd04b926eb2933b765d27b1d9046082c8f4fe9c402cde /opt/mozjs /opt/mozjs
-COPY /v0.1.0/demos/zero-ad/Dollyfile-zero-ad-spidermonkey a7083a08f960780ff45cd04b926eb2933b765d27b1d9046082c8f4fe9c402cde /usr/share/licenses/spidermonkey /usr/share/licenses/spidermonkey
+COPY /v0.1.0/demos/zero-ad/Dollyfile-zero-ad-spidermonkey 1fd7e29b1a101b4e1bed0ab4968436ba300eb386576897e0aaebd6498c895c97 /opt/mozjs /opt/mozjs
+COPY /v0.1.0/demos/zero-ad/Dollyfile-zero-ad-spidermonkey 1fd7e29b1a101b4e1bed0ab4968436ba300eb386576897e0aaebd6498c895c97 /usr/share/licenses/spidermonkey /usr/share/licenses/spidermonkey
 FILE /tmp/pkgconfig/mozjs-128.pc
     Name: SpiderMonkey 128.13.0
     Description: The Mozilla library for JavaScript

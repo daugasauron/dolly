@@ -36,7 +36,7 @@ entry.
 
 | Family | Shipped as binaries | Obligation | Status |
 | --- | --- | --- | --- |
-| GPL-2.0/3.0 | Git, Make, Emacs, Seven Kingdoms, 0 A.D. engine, Xonotic (engine, game logic, data, fonts), Dolly's GPL files | Complete corresponding source, including build scripts, or a written offer | Met: the prepared source archives and the recipe that builds them are served beside the images, for 0 A.D. and Xonotic too (below) |
+| GPL-2.0/3.0 | Git, Make, less (through GNU termcap), Emacs, Seven Kingdoms, 0 A.D. engine, Xonotic (engine, game logic, data, fonts), Dolly's GPL files | Complete corresponding source, including build scripts, or a written offer | Met: the prepared source archives and the recipe that builds them are served beside the images, for 0 A.D. and Xonotic too (below) |
 | IJG | libjpeg in Xonotic | Source: the unaltered `README` with it; binaries: the documentation states that the software is based in part on the work of the Independent JPEG Group | `README` kept as `/usr/share/licenses/libjpeg/README`; the statement is in the Xonotic section below and on `/licences/` |
 | LGPL-2.0+ | OpenAL Soft, static in the 0 A.D. engine | Source, and the means to relink | Source served (`openal/source.tar`), and the engine's (below), so it can be relinked |
 | MPL-2.0 | SpiderMonkey in 0 A.D.; MPL crates vendored by Codex | Source of the MPL files available; tell recipients where | Codex sources served; SpiderMonkey's pinned tarball is served (below); its MPL text is in `zero-ad` |
@@ -58,6 +58,9 @@ entry.
 - Git (GPL-2.0-only) links curl's API over Dolly's fetch-backed libcurl and
   zlib; Emacs (GPL-3.0-or-later) has no GPL-incompatible dependency. No
   program links GNU readline or ncurses.
+- less links GNU termcap (GPL-2.0-or-later) statically, so the program is a
+  GPL one. less itself is taken under its own two-clause licence, which the
+  GPL admits; its `LICENSE` and termcap's `COPYING` are in the package.
 - The 0 A.D. engine (GPL-2.0-or-later) links SpiderMonkey (MPL-2.0, whose
   secondary-licence clause allows the GPL combination), OpenAL Soft (LGPL),
   SDL2, FreeType, libpng, Ogg/Vorbis, ICU, Boost, {fmt}, libxml2, ENet and

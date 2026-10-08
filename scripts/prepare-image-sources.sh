@@ -134,6 +134,10 @@ if has_image system-tools; then
     "${git_dir}/templates" /usr/share/git-core/templates \
     "${git_dir}/COPYING" /usr/share/licenses/git/COPYING
 fi
+if has_image less; then
+  copy_static "$(bash scripts/fetch-pinned-archive.sh less)" default/less-692.tar.gz
+  copy_static "$(bash scripts/fetch-pinned-archive.sh termcap)" default/termcap-1.3.1.tar.gz
+fi
 if has_image curl; then
   node scripts/build-source-tar.mjs "${static_dir}/default/curl-headers.tar" \
     "${curl_dir}/include/curl" /usr/include/curl \

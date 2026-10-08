@@ -6,7 +6,7 @@ REQUIRES HOST download@0
 REQUIRES HOST http@0
 REQUIRES HOST upload@0
 
-FROM /v0.1.0/Dollyfile-system-tools b94f564a70d5dc41ae3f92ef119b725a5a6fa32516ee6e50a9a09922815c9a4e
+FROM /v0.1.0/Dollyfile-system-tools 02040fa8d15280a7e81961f799a21da1086bbb9a159b53e23dea5f56e9c60de3
 
 REQUIRES TOOL   ar
 REQUIRES TOOL   cc

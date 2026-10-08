@@ -72,6 +72,17 @@ DOLLY_MAKE_VERSION=4.4.1
 DOLLY_MAKE_URL='https://ftp.gnu.org/gnu/make/make-4.4.1.tar.gz'
 DOLLY_MAKE_SHA256=dd16fb1d67bfab79a72f5e8390735c49e3e8e70b4945a15ab1f81ddb78658fb3
 
+# The newest less that GNU termcap serves: from 701 on less asks for a
+# capability before tgetent when its output is not a terminal, which termcap
+# 1.3.1 does not survive.
+DOLLY_LESS_VERSION=692
+DOLLY_LESS_URL='https://www.greenwoodsoftware.com/less/less-692.tar.gz'
+DOLLY_LESS_SHA256=61300f603798ecf1d7786570789f0ff3f5a1acf075a6fb9f756837d166e37d14
+
+DOLLY_TERMCAP_VERSION=1.3.1
+DOLLY_TERMCAP_URL='https://ftp.gnu.org/gnu/termcap/termcap-1.3.1.tar.gz'
+DOLLY_TERMCAP_SHA256=91a0e22e5387ca4467b5bcb18edf1c51b930262fd466d5fda396dd9d26719100
+
 DOLLY_SAMURAI_VERSION=1.3
 DOLLY_SAMURAI_COMMIT=4288e71812493cb21b54ef23642a13214f44885f
 DOLLY_SAMURAI_URL='https://github.com/michaelforney/samurai.git'

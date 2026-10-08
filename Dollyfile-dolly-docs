@@ -8,7 +8,7 @@ REQUIRES HOST runtime@0
 SOURCE /v0.1.0/docs/process-model.md 340ba7d95e053fb11165095073e32df3ba39e278a547b4af5848953bd01d40c1 /usr/share/doc/dolly/docs/process-model.md
 SOURCE /v0.1.0/docs/browser-stack.md 2944e47cd37225b0729452455d762054021a50c09a87c1254af8d2b1fbb6a335 /usr/share/doc/dolly/docs/browser-stack.md
 SOURCE /v0.1.0/docs/slop.md c1c3a9e0e5584a2120079fcce6562b272edee890aadd106bfd10b65110ac01f1 /usr/share/doc/dolly/docs/slop.md
-SOURCE /v0.1.0/docs/display.md ab6e17fbe9d7218fb24f95e438824e5dfa834a7ddda50212e0f1061381aa8321 /usr/share/doc/dolly/docs/display.md
+SOURCE /v0.1.0/docs/display.md 3fadd8aabd7d5e6854f126a93987a03276932a63dd1aba978cc519f54d250a35 /usr/share/doc/dolly/docs/display.md
 SOURCE /v0.1.0/docs/gpu.md f57940e72153898014baa7882a70a0d5d5fcd24508d5d22c70bcf323e3f5bef4 /usr/share/doc/dolly/docs/gpu.md
 SOURCE /v0.1.0/docs/audio.md ebea715a5708fdea8824ee0370f3c8549d81bd7cf66128c0e6f91c42f683e73d /usr/share/doc/dolly/docs/audio.md
 SOURCE /v0.1.0/docs/http.md 0ba4c40efe8c186e4cb4bf705f71fdab5124f7e5c54b452de0c276e88edaf741 /usr/share/doc/dolly/docs/http.md

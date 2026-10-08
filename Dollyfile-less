@@ -1,0 +1,71 @@
+DOLLY 7
+PACKAGE less
+REQUIRES HOST runtime@0
+
+# less over GNU termcap, both from upstream's release archives, unchanged.
+# The terminal's entry is /etc/termcap, which the display package holds. less
+# is used under its own licence; termcap makes the program a GPL one.
+FROM /v0.1.0/Dollyfile-system-tools 02040fa8d15280a7e81961f799a21da1086bbb9a159b53e23dea5f56e9c60de3
+
+REQUIRES HEADER libc
+REQUIRES TOOL   cc
+REQUIRES TOOL   cp
+REQUIRES TOOL   grep
+REQUIRES TOOL   gzip
+REQUIRES TOOL   make
+REQUIRES TOOL   mkdir
+REQUIRES TOOL   tar
+
+SOURCE /v0.1.0/dist/static/default/less-692.tar.gz 61300f603798ecf1d7786570789f0ff3f5a1acf075a6fb9f756837d166e37d14 /tmp/less.tar.gz
+SOURCE /v0.1.0/dist/static/default/termcap-1.3.1.tar.gz 91a0e22e5387ca4467b5bcb18edf1c51b930262fd466d5fda396dd9d26719100 /tmp/termcap.tar.gz
+SLOP gzip -dc /tmp/less.tar.gz | tar -xf - -C /tmp
+SLOP gzip -dc /tmp/termcap.tar.gz | tar -xf - -C /tmp
+
+# Slop does not run upstream's configure, so HAVE says what it would find
+# here. Not claimed: fchmod (there are no permission bits) and ttyname.
+FILE /tmp/less.mk
+    .RECIPEPREFIX := >
+    HAVE := CONST CTYPE_H ERRNO ERRNO_H FCNTL_H FILENO FSYNC INTTYPES_H LIMITS_H \
+      LOCALE NANOSLEEP OSPEED POLL POPEN POSIX_REGCOMP REALPATH SETTABLE_ERRNO \
+      SIGEMPTYSET SIGPROCMASK SIGSETJMP SIGSET_T SNPRINTF STAT STAT_INO \
+      STDCKDINT_H STDINT_H STDIO_H STDLIB_H STRERROR STRINGS_H STRING_H \
+      STRSIGNAL SYSTEM SYS_IOCTL_H SYS_STAT_H SYS_WAIT_H TERMCAP_H TERMIOS_FUNCS \
+      TERMIOS_H TIME_H TIME_T UNISTD_H UPPER_LOWER USLEEP VOID
+    CPPFLAGS := $(addprefix -DHAVE_,$(HAVE)) -DSTDC_HEADERS -DSECURE_COMPILE=0 \
+      '-DEDIT_PGM="vi"' '-DBINDIR="/usr/bin"' '-DLIBEXECDIR="/usr/libexec"' \
+      '-DSYSDIR="/etc"' -I /tmp/termcap-1.3.1
+    # The objects of upstream's Makefile.in.
+    NAMES := main screen brac ch charset cmdbuf command cvt decode edit evar \
+      filename forwback help ifile input jump line linenum lsystem mark optfunc \
+      option opttbl os output pattern position prompt search signal tags ttyin \
+      version xbuf lesskey_parse
+    OBJECTS := $(addprefix /tmp/less-692/,$(addsuffix .o,$(NAMES)))
+    all: /usr/bin/less /usr/libexec/lessecho
+    # As configure writes it: a name it did not define is no longer mentioned.
+    /tmp/less-692/defines.h: /tmp/less-692/defines.h.in
+    >grep -v '^#undef' $< > $@
+    # termcap.c is K&R C and tparam.c calls write without its header.
+    /tmp/termcap-1.3.1/%.o: /tmp/termcap-1.3.1/%.c
+    >cc -O2 -std=gnu89 -DSTDC_HEADERS -DHAVE_UNISTD_H -include unistd.h -c $< -o $@
+    /tmp/less-692/%.o: /tmp/less-692/%.c /tmp/less-692/defines.h
+    >cc -O2 $(CPPFLAGS) -c $< -o $@
+    /usr/bin/less: $(OBJECTS) /tmp/termcap-1.3.1/termcap.o /tmp/termcap-1.3.1/tparam.o
+    >cc $^ -o $@
+    /usr/libexec/lessecho: /tmp/less-692/lessecho.o /tmp/less-692/version.o
+    >cc $^ -o $@
+SLOP make -j4 -f /tmp/less.mk
+SLOP mkdir -p /usr/share/licenses/less /usr/share/licenses/termcap
+SLOP cp /tmp/less-692/LICENSE /usr/share/licenses/less/LICENSE
+SLOP cp /tmp/termcap-1.3.1/COPYING /usr/share/licenses/termcap/COPYING
+SLOP cp /tmp/less-692/less.nro /usr/share/man/man1/less.1
+
+# Not a terminal: straight through, and no key is waited for.
+SLOP less /tmp/less-692/NEWS > /tmp/less.out && cmp /tmp/less.out /tmp/less-692/NEWS
+SLOP less < /tmp/less-692/NEWS | cmp - /tmp/less-692/NEWS
+
+EXPORTS TOOL less
+# less runs lessecho to expand a file name typed at its prompt.
+FILE /usr/libexec/lessecho
+FILE /usr/share/licenses/less/LICENSE
+FILE /usr/share/licenses/termcap/COPYING
+FILE /usr/share/man/man1/less.1
