@@ -24,4 +24,5 @@ README. Demos may use each other; the core never uses a demo.
 - [slopyard](slopyard/README.md): Slopyard and the raylib/Box3D gamedev SDK.
 - [studio](studio/README.md): Dollyfile Studio.
 - [sysroot](sysroot/README.md): the libraries every program links, rebuilt inside Dolly and held against the seed's.
+- [wine](wine/README.md): Wine 4.0.4's own Notepad and WineMine as one wasm64 process; no Windows binaries.
 - [zero-ad](zero-ad/README.md): 0 A.D. Release 28 and its OpenAL build.

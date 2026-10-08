@@ -62,10 +62,11 @@ no `mmap` at a chosen address and no assembler. So:
 - **The desktop** is the ownerless window the server makes when there is no
   `explorer.exe` (`port/user32-desktop.c` names the driver for it).
 
-`wine-dolly.patch` (24 files) holds the changes to Wine itself: the
-`wasm64` CPU in widl, winebuild, the headers and the server protocol;
-ntdll's server connection, loader slots and virtual memory; and the two
-calls through a mismatched function type found so far.
+`wine-dolly.patch` (26 files, about 320 added lines) holds the changes to
+Wine itself: the `wasm64` CPU in widl, winebuild, the headers and the server
+protocol; ntdll's server connection, loader slots and virtual memory; where
+libwine finds its directories; and the two calls through a mismatched
+function type found so far (thread start, timer procedures).
 
 Host preparation (`prepare-wine.sh`) applies the patch and generates the
 seven Bison and flex parser files, as the core does for awk; nothing is
@@ -83,18 +84,21 @@ compiled outside Dolly.
   file mapping (`STATUS_NOT_SUPPORTED`); a file view is a private copy;
   decommitted pages are cleared but stay; page protection, guard pages and
   stack overflow detection do not exist in WebAssembly.
-- **Threads**: `SuspendThread`, `TerminateThread` on another thread and
-  thread contexts cannot be delivered (no directed signal, no registers).
-  The server records such a thread as suspended or dead while it runs on:
-  this is the one place where an unsupported operation does not fail
-  explicitly yet.
+- **Threads**: thread contexts are refused (`STATUS_NOT_SUPPORTED`: no
+  registers). `SuspendThread` and `TerminateThread` on another thread cannot
+  be delivered, since no signal reaches one thread: the server sends none
+  and records the thread as suspended or dead while it runs on. This is the
+  one place where an unsupported operation does not fail explicitly yet.
 - **Exceptions** are those a program raises; a fault ends the process.
 - **Function pointer casts** that x86 tolerates trap in WebAssembly
   ("function signature mismatch"). Timers were one; more will be found by
   use, each needs a patch.
 - **Not built**: bitmap fonts (`.fon`), translations, registration scripts
   and type libraries; clipboard, printing, sound, networking, OpenGL.
-- Not tried: the file dialogs, which reach into ole32.
+- **File > Open and Save** end Notepad: comdlg32 calls `OleInitialize`, and
+  ole32 is not linked ("Call to unimplemented function
+  not-linked.OleInitialize"). ole32 needs rpcrt4, whose proxies are per-CPU
+  assembly: the next module to bring up.
 
 ## Licences
 
