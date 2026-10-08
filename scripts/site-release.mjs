@@ -3,7 +3,7 @@
 import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { createReadStream } from "node:fs";
-import { lstat, mkdir, mkdtemp, readdir, readFile, rename, rm, symlink, writeFile } from "node:fs/promises";
+import { lstat, mkdir, mkdtemp, readdir, readFile, realpath, rename, rm, symlink, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { gunzipSync } from "node:zlib";
@@ -176,6 +176,8 @@ export async function verifyRelease(site, sourceRoot) {
 // Every file of a sealed release as [path, bytes], each checked against the
 // seal as it is read, then the seal itself.
 export async function* releaseFiles(site) {
+  // Verification resolves a release's links against its real location.
+  site = await realpath(site);
   const digest = await verifyRelease(site);
   const manifest = await readFile(resolve(site, "release/files.sha256"));
   if (sha256(manifest) !== digest) throw new Error("release changed before export");
