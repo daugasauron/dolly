@@ -2,6 +2,11 @@
 
 #include <string.h>
 
+/* Clang recurses on the browser's stack, deeper than a Chrome Worker's holds.
+ * With this record the executable asks to be entered on the larger stack a
+ * browser may have (src/process-supervisor.mjs); other programs do not. */
+__asm__(".section .custom_section.dolly.process.stack,\"\",@\n.byte 1\n");
+
 static int toolchain_mode(const char *argument) {
   static const char *const values[] = {
       "--dolly-toolchain-mode=c",

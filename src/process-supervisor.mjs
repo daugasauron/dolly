@@ -170,11 +170,15 @@ export class DollyProcessSupervisor {
       supervisor.releaseWorkerSource = () => URL.revokeObjectURL(workerUrl.href);
       // Entered through JSPI (WebAssembly.promising), a process runs on a
       // stack of its own. Chrome's holds about 950 KB where a Worker's holds
-      // 500 KB, which Clang needs. Firefox's holds no more, and Firefox 155
-      // reports every Worker terminated inside such a call as an uncaught
-      // exception that no listener receives. So processes enter that way only
-      // where it is measured half again as deep (Chrome 151: 1.90 times,
-      // Firefox 155: 1.01, each in 48 measurements of 48).
+      // 500 KB, which Clang needs: an executable asks for it with a
+      // dolly.process.stack section, and only the compiler carries one
+      // (src/process/compiler-main.c). Every other program is entered
+      // directly: a Codex build crashed Chrome's tab twice on that stack
+      // (tasks/20260930-232236-llvm-in-dolly), and Firefox 155 reports every
+      // Worker terminated inside such a call as an uncaught exception that no
+      // listener receives. Firefox's holds no more, so the entry is also taken
+      // only where it is measured half again as deep (Chrome 151: 1.90
+      // times, Firefox 155: 1.01, each in 48 measurements of 48).
       supervisor.promisingEntry = WebAssembly.promising !== undefined &&
         await stackDepth(WebAssembly.promising) > 1.5 * await stackDepth(entry => entry);
       return supervisor;
@@ -315,6 +319,7 @@ export class DollyProcessSupervisor {
     let memoryRequirements;
     let processInterface;
     let threaded;
+    let largeStack;
     let local;
     let prepared = false;
     try {
@@ -323,6 +328,7 @@ export class DollyProcessSupervisor {
       const requirements = executableHostRequirements(parsed);
       checkHostAbi(requirements, this.hostAbi);
       threaded = validateThreadProfile(parsed, requirements, this.threadContract);
+      largeStack = parsed.customSections.includes("dolly.process.stack");
       // The modules served in this executable's own Worker. Each holds one
       // Worker's state, such as its function table, so none goes with threads.
       local = [...requirements.keys()].filter(requirement => this.processModules.has(requirement));
@@ -340,7 +346,7 @@ export class DollyProcessSupervisor {
         );
       }
     }
-    const compiled = { module, memoryRequirements, processInterface, threaded, local, byteLength: bytes.byteLength };
+    const compiled = { module, memoryRequirements, processInterface, threaded, largeStack, local, byteLength: bytes.byteLength };
     if (bytes.byteLength <= compiledModuleCacheBytes) {
       this.compiledModules.set(key, compiled);
       this.compiledModuleBytes += bytes.byteLength;
@@ -387,7 +393,7 @@ export class DollyProcessSupervisor {
         if (this.dolly._dolly_process_image_consumed(pid) !== 0) {
           throw new Error(`kernel did not release executable ${pid}`);
         }
-        const { module, memoryRequirements, processInterface, threaded, local } = await this.#compileProcess(bytes);
+        const { module, memoryRequirements, processInterface, threaded, largeStack, local } = await this.#compileProcess(bytes);
         if (!this.#canLaunch(process)) continue;
         const memory = createProcessMemory(memoryRequirements);
         process.memory = memory;
@@ -395,7 +401,7 @@ export class DollyProcessSupervisor {
           process: { memory },
           kernel: { memory: this.kernelMemory },
         });
-        Object.assign(process, { gate, module, processInterface, threaded, local });
+        Object.assign(process, { gate, module, processInterface, threaded, largeStack, local });
         if (threaded) {
           if (!this.threadHost) throw new Error("threads@0 is unavailable");
           const tid = this.dolly._dolly_threads_attach(pid);
@@ -431,7 +437,7 @@ export class DollyProcessSupervisor {
     // local: the modules this executable records that are served in its own
     // Worker (host/dso), each as the bundle it imports and its configuration.
     worker.postMessage({ type: "configure", pid, tid: thread.tid, argument, threaded, module, memory, control,
-      promisingEntry: this.promisingEntry,
+      promisingEntry: this.promisingEntry && process.largeStack,
       clockOrigin: performance.timeOrigin, processInterface, local: local.map(requirement => this.processModules.get(requirement)) });
   }
 
