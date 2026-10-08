@@ -7,7 +7,7 @@ REQUIRES HOST http@0
 REQUIRES HOST snapshot@0
 REQUIRES HOST upload@0
 
-FROM /v0.1.0/Dollyfile-system-tools 1fc3fd92545cc4a60b20488456c6a21fda5a6b0cbf28ebf4868009d328537263
+FROM /v0.1.0/Dollyfile-system-tools b94f564a70d5dc41ae3f92ef119b725a5a6fa32516ee6e50a9a09922815c9a4e
 
 REQUIRES HEADER libc
 REQUIRES TOOL cc

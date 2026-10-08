@@ -47,3 +47,46 @@ whole page at once.
 - `less FILE`, `COMMAND | less` and `man NAME` page in the terminal with
   search and quit, shown by a browser test; the same commands print straight
   through when the output is not a terminal.
+
+## Reproduced (2026-10-08, `default` of image inputs `503e6ffe…`, Chromium)
+
+`amy install git`, then at the terminal: `git diff`, `git branch` and
+`git help -a` end with status 128 and "cannot spawn less"; `git log` and
+`git show` do the same in a repository that has a commit. `git log | cat`,
+`git --no-pager log` and `PAGER=cat git log` work. The cause: Git's built-in
+pager is `less`, Git 2.55 dies when its pager cannot start (`setup_pager` in
+`pager.c`), and Dolly's `start_command` reports `ENOENT` for it.
+`build/less-evidence/repro-before-chromium.log`.
+
+## How Git finds its pager
+
+Git's own order is unchanged: `GIT_PAGER`, `core.pager` (and `pager.CMD`),
+`PAGER`, then the built-in default. Only the default changes, by one build
+flag in `Dollyfile-system-tools`:
+
+    -DDEFAULT_PAGER="$(command -v less || command -v cat)"
+
+A pager with shell characters is run by Git through `SHELL_PATH -c`, which is
+Slop; `command -v` is Slop's own, so the line costs one Slop process and
+names `less` when it is on `PATH` and `cat` otherwise. Nothing is installed,
+exported or configured for it, it holds the moment `amy install less`
+returns, and an argument Git appends (`git grep -O`) still reaches the
+program. Measured at the terminal of `system` (Chromium, 40 commits):
+`git log` through the line and `cat` 30 ms, `git --no-pager log` 30 ms.
+
+Rejected:
+
+- `PAGER` in the default environment (a `cat` exported by `core` or `git`, a
+  `less` exported by the package): an installed variable reaches a session
+  only when it is next loaded, so `git log` would start paging after a
+  reload, and a session that unsets `PAGER` is back at the failure. It is
+  also the silent assumption the tests are told not to make.
+- A system `gitconfig` with `core.pager`: it outranks `PAGER`, so it would
+  make Git wrong for a person who sets `PAGER`; and the `git` package holds
+  no `/etc/gitconfig`.
+- `-DDEFAULT_PAGER=cat`: Git would never page, less installed or not,
+  without one of the two above.
+- Changing `pager.c` to print when the pager cannot start, as Git did before
+  2.47: a source patch against a decision upstream took on purpose.
+- A `pager` command that picks the program (Debian's way): a command, a page
+  and an export for what one build flag says.

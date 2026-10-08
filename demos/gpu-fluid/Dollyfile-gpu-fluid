@@ -8,7 +8,7 @@ REQUIRES HOST http@0
 REQUIRES HOST snapshot@0
 REQUIRES HOST upload@0
 
-FROM /v0.1.0/Dollyfile-gpu-sdk 2838e944e3e3aeb11bd9e8fd8613d79fb3f23e1bd2e5f39beb885cbdc4fbb8ec
+FROM /v0.1.0/Dollyfile-gpu-sdk f86b315dbe7c0c9d3d09fc9cc904e3c18c29d6b1001d087c127e683d02b21dc8
 REQUIRES TOOL cc
 REQUIRES HEADER gpu
 REQUIRES LIB dolly-gpu

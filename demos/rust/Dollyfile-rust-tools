@@ -9,7 +9,7 @@ REQUIRES HOST snapshot@0
 REQUIRES HOST threads@0
 REQUIRES HOST upload@0
 
-FROM /v0.1.0/Dollyfile-system 82c8fb18770af3786b213c8fc66f888ac212bf8df19fce1e8ec2396fc61cbda5
+FROM /v0.1.0/Dollyfile-system 1f4e34f5885472a09d117f4499a56aefe41faad460245831bb58e18585af69df
 INSTALL /v0.1.0/demos/rust/Dollyfile-rust d4e86870bc949f841104d3feaf433806c11c0650e7bb0e6bd2b64daaccca56d1
 INSTALL /v0.1.0/demos/rust/Dollyfile-cargo b679a452fc614a19c75f97fc1555d4f826a5ce00f846031d8fb4357232cb1e54
 

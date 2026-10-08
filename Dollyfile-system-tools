@@ -239,6 +239,8 @@ FILE /tmp/git/Makefile
     # Keep the bootstrap build unoptimized: Git has hundreds of translation
     # units and this layer is optimized for deterministic browser cold-build
     # latency rather than execution throughput.
+    # Git ends with status 128 when its pager cannot start, so the default one
+    # is a command for Slop: less when it is installed, cat otherwise.
     CPPFLAGS := \
       -O0 \
       -std=gnu99 \
@@ -279,6 +281,7 @@ FILE /tmp/git/Makefile
       '-DGIT_HOST_CPU="wasm64"' \
       '-DGIT_LOCALE_PATH="/usr/share/locale"' \
       '-DSHELL_PATH="/bin/slop"' \
+      '-DDEFAULT_PAGER="$$(command -v less || command -v cat)"' \
       '-DPAGER_ENV="LESS=FRX LV=-c"' \
       '-DETC_GITCONFIG="/etc/gitconfig"' \
       '-DETC_GITATTRIBUTES="/etc/gitattributes"' \

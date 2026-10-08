@@ -9,9 +9,9 @@ REQUIRES HOST upload@0
 
 # Build-only: the libraries the 0 A.D. engine links, and pkgconf for its premake
 # scripts, built from the pinned upstream sources of build-sources.tsv.
-FROM /v0.1.0/demos/zero-ad/Dollyfile-openal-build fa6f767dcde2e0f2b42d165effcfcad1c8b385186f70b8d666eec091f67c396d
-COPY /v0.1.0/demos/sdl2/Dollyfile-sdl2 9e2ae202e8a426d2995ed3d6579d2567f5db68716c0d3df99ad2bbe26572e1c3 /usr/include/SDL2 /usr/include/SDL2
-COPY /v0.1.0/demos/sdl2/Dollyfile-sdl2 9e2ae202e8a426d2995ed3d6579d2567f5db68716c0d3df99ad2bbe26572e1c3 /usr/lib/libSDL2.a /usr/lib/libSDL2.a
+FROM /v0.1.0/demos/zero-ad/Dollyfile-openal-build e9c7bfcc95e5e00ff3c1b417abba8a053b33613faa378b69c5a7e4177eb2dd9e
+COPY /v0.1.0/demos/sdl2/Dollyfile-sdl2 b713b9fc0160f1ea5dcc45af5a1c9c3f4d138cac2d2fbae14b0e7d054faa9c88 /usr/include/SDL2 /usr/include/SDL2
+COPY /v0.1.0/demos/sdl2/Dollyfile-sdl2 b713b9fc0160f1ea5dcc45af5a1c9c3f4d138cac2d2fbae14b0e7d054faa9c88 /usr/lib/libSDL2.a /usr/lib/libSDL2.a
 REQUIRES HEADER libc
 REQUIRES HEADER cpp
 REQUIRES HEADER zlib
@@ -32,7 +32,7 @@ REQUIRES TOOL mkdir
 SOURCE /v0.1.0/dist/static/zero-ad-build/deps.tar.gz 70cd7adb14d05e83a61b096a3515cf11b93dd95b2d31ef705896998d8712ac77 /tmp/zad/deps.tar.gz
 SLOP gzip -dc /tmp/zad/deps.tar.gz | tar -xf - -C /
 # Licences of the libraries the engine links; zero-ad copies them.
-COPY /v0.1.0/demos/sdl2/Dollyfile-sdl2 9e2ae202e8a426d2995ed3d6579d2567f5db68716c0d3df99ad2bbe26572e1c3 /usr/share/licenses/SDL2 /usr/share/licenses/SDL2
+COPY /v0.1.0/demos/sdl2/Dollyfile-sdl2 b713b9fc0160f1ea5dcc45af5a1c9c3f4d138cac2d2fbae14b0e7d054faa9c88 /usr/share/licenses/SDL2 /usr/share/licenses/SDL2
 FOLDER /usr/share/licenses
 
 # Upstream builds pkgconf with Meson; these are the values its configure step finds here.
