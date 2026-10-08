@@ -35,7 +35,7 @@ export function createTokioFixture() {
       try {
         await run(`curl -fsS ${origin}/fixture/tokio.tar -o /tmp/tokio.tar`);
         await run("tar -xf /tmp/tokio.tar -C /");
-        await run("patti build -j 4 --offline --manifest-path /tmp/tokio/probe/Cargo.toml --target-dir /tmp/tokio/build --cache /tmp/tokio/cache --patch libc=/opt/rust-sdk/src/libc --patch mio=/tmp/tokio/mio-1.2.0 --patch tokio=/tmp/tokio/tokio-1.52.3 --patch socket2=/tmp/tokio/socket2-0.6.3 --patch zlib-rs@0.5.5=/tmp/tokio/zlib-rs-0.5.5");
+        await run("patti build -j 4 --offline --manifest-path /tmp/tokio/probe/Cargo.toml --target-dir /tmp/tokio/build --cache /tmp/tokio/cache --patch libc=/opt/rust-sdk/src/libc --patch mio=/tmp/tokio/mio-1.2.0 --patch crossterm=/tmp/tokio/crossterm --patch tokio=/tmp/tokio/tokio-1.52.3 --patch socket2=/tmp/tokio/socket2-0.6.3 --patch zlib-rs@0.5.5=/tmp/tokio/zlib-rs-0.5.5");
         for (let i = 0; i < 2; i++) {
           await run(`TOKIO_HTTP_ORIGIN=${origin}/tokio TOKIO_HTTP_RUN=${i} /tmp/tokio/build/dolly-tokio-probe`);
         }

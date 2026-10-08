@@ -6,6 +6,7 @@ edition = "2021"
 [workspace]
 
 [dependencies]
+crossterm = { git = "https://github.com/openai-oss-forks/crossterm", rev = "45fecb9508105988f42fe6ff0441783ed3717f92", features = ["use-dev-tty", "libc"] }
 libc = "=0.2.186"
 tokio = { version = "=1.52.3", features = ["full", "test-util"] }
 zlib-rs = "=0.5.5"

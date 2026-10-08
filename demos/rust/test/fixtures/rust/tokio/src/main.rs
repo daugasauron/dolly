@@ -28,6 +28,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         zlib_rs::InflateFlush::Finish).unwrap(), zlib_rs::Status::StreamEnd);
     assert_eq!(output, input);
     println!("ZLIB-SCALAR-ROUNDTRIP-OK");
+    // crossterm as Codex builds it: signal-hook wakes its event source for a
+    // resize through a nonblocking socket pair.
+    assert!(!crossterm::event::poll(Duration::ZERO)?);
+    assert_eq!(unsafe { libc::kill(libc::getpid(), libc::SIGWINCH) }, 0);
+    assert!(crossterm::event::poll(Duration::from_secs(1))?);
+    assert!(matches!(crossterm::event::read()?, crossterm::event::Event::Resize(..)));
+    println!("CROSSTERM-RESIZE-OK");
     // Like Codex: a multi-thread runtime on a spawned thread while main joins it.
     std::thread::spawn(move || {
         let runtime = tokio::runtime::Builder::new_multi_thread().worker_threads(2).enable_all().build().unwrap();
@@ -91,8 +98,25 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             println!("TOKIO-SIGNALS-OK");
 
             let error = tokio::net::TcpStream::connect("127.0.0.1:9").await.unwrap_err();
-            assert_eq!(error.raw_os_error(), Some(libc::ENOSYS));
+            assert_eq!(error.raw_os_error(), Some(libc::EAFNOSUPPORT));
             println!("TOKIO-SOCKETS-DENIED-OK");
+
+            // Local streams are served: a server and a client meet at a path.
+            let _ = std::fs::remove_file("/tmp/tokio-files/socket");
+            let listener = tokio::net::UnixListener::bind("/tmp/tokio-files/socket")?;
+            let server = tokio::spawn(async move {
+                let (mut stream, _) = listener.accept().await?;
+                let mut request = [0; 4];
+                stream.read_exact(&mut request).await?;
+                stream.write_all(&request.map(|byte| byte.to_ascii_uppercase())).await
+            });
+            let mut stream = tokio::net::UnixStream::connect("/tmp/tokio-files/socket").await?;
+            stream.write_all(b"ping").await?;
+            let mut reply = [0; 4];
+            stream.read_exact(&mut reply).await?;
+            server.await??;
+            assert_eq!(&reply, b"PING");
+            println!("TOKIO-LOCAL-SOCKETS-OK");
 
             let origin = std::env::var("TOKIO_HTTP_ORIGIN")?;
             let mut received = Vec::new();
