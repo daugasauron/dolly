@@ -179,3 +179,7 @@ that run inside the shell stay serial.
 - `cc`, `c++`, `ld` and `ar` are the private compiler
   ([process model](process-model.md#executables)); `git`, `curl` and `gzip` are
   source-built.
+- At a terminal `git` and `man` send long output to `$PAGER`, or to `less`
+  once it is installed (`amy install less`), and print it otherwise. Output
+  that is not a terminal is never paged: a pipe, a file or a tool call gets
+  it at once.

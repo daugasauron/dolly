@@ -5,19 +5,19 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { browserTest } from "./browser.mjs";
 import { encodeSnapshotRecords } from "../src/snapshot-records.mjs";
-import { CANONICAL_ORIGIN } from "../src/static-asset.mjs";
+import { siteReference } from "../src/static-asset.mjs";
 import { DOLLY_IMAGES } from "../dist/dolly-images.mjs";
 
 const packages = DOLLY_IMAGES.filter(definition => definition.role === "package").map(({ image }) => image).sort();
 // The packages default's recipe installs.
 const preinstalled = [...(await readFile(new URL("../Dollyfile", import.meta.url), "utf8")).matchAll(/^INSTALL \S+Dollyfile-(\S+) /gm)]
   .map(([, name]) => name).sort();
-// The site's index, as generated: NAME URL SHA256 DESCRIPTION.
+// The site's index, as generated: NAME RECIPE SHA256 DESCRIPTION.
 const index = await readFile(new URL("../amy-index.txt", import.meta.url), "utf8");
 const indexed = name => index.split("\n").find(row => row.startsWith(`${name} `)).split(" ");
 const pin = name => {
   const { dollyfile, sha256 } = DOLLY_IMAGES.find(definition => definition.image === name);
-  return `${CANONICAL_ORIGIN}/${dollyfile} ${sha256}`;
+  return `${siteReference(dollyfile)} ${sha256}`;
 };
 const sha256 = text => createHash("sha256").update(text).digest("hex");
 
@@ -26,8 +26,8 @@ const sha256 = text => createHash("sha256").update(text).digest("hex");
 const encoder = new TextEncoder();
 const u32 = value => { const bytes = new Uint8Array(4); new DataView(bytes.buffer).setUint32(0, value, true); return bytes; };
 const text = value => [u32(encoder.encode(value).length), encoder.encode(value)];
-const threaded = { url: `${CANONICAL_ORIGIN}/Dollyfile-threaded`,
-  source: "DOLLY 6\nPACKAGE threaded\nREQUIRES HOST runtime@0\nREQUIRES HOST threads@0\nFILE /usr/share/threaded\n    needs threads\n" };
+const threaded = { url: siteReference("Dollyfile-threaded"),
+  source: "DOLLY 7\nPACKAGE threaded\nREQUIRES HOST runtime@0\nREQUIRES HOST threads@0\nFILE /usr/share/threaded\n    needs threads\n" };
 threaded.sha256 = sha256(threaded.source);
 const receipt = [encoder.encode("DOLLYART"), u32(5), u32(1),
   ...["PACKAGE", "threaded", threaded.url, threaded.sha256, threaded.source].flatMap(text),

@@ -4,7 +4,7 @@
 // a package by the recipe pin this release publishes; the page materializes
 // and verifies its snapshot exactly as it does a build input, then serves the
 // bytes. A request grants no network or other authority. The index of names
-// is a public file of the site, /amy-index.txt, read like any other URL.
+// is a public file of the site, amy-index.txt, read like any other URL.
 import { PackageService } from "./service.mjs";
 
 export function browser({ get }) {

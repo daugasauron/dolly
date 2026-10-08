@@ -1,5 +1,5 @@
-system_sha=$(sha256sum /etc/dolly/recipes/Dollyfile-system)
-system_sha=${system_sha%% *}
+# The row that names system in this image's record of its recipes: site path and pin.
+system=$(grep '/Dollyfile-system ' /etc/dolly/recipes.lock)
 for name in hello tool; do
-  sed "s/@SYSTEM_SHA256@/$system_sha/g" "/usr/share/dollyfile-studio/examples/$name.in" > "/usr/share/dollyfile-studio/examples/Dollyfile-$name"
+  sed "s|@SYSTEM@|$system|" "/usr/share/dollyfile-studio/examples/$name.in" > "/usr/share/dollyfile-studio/examples/Dollyfile-$name"
 done

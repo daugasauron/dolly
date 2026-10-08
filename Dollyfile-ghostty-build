@@ -1,11 +1,11 @@
-DOLLY 6
+DOLLY 7
 TOOLCHAIN ghostty-build
 REQUIRES HOST runtime@0
 REQUIRES HOST display@0
 REQUIRES HOST input@0
 REQUIRES HOST http@0
 
-FROM https://daugasauron.com/Dollyfile-zig-build 23169ed9302346132a70520ee643c4b8fc5ffe29a7a3ad67f78c872ee542de56
+FROM /v0.1.0/Dollyfile-zig-build 4786542f41d1e1b0f54a2c335a5b1c77db2ddb98da84a8583dba14b4e3865696
 
 REQUIRES HEADER libc
 REQUIRES HEADER display
@@ -17,11 +17,11 @@ REQUIRES TOOL   rm
 REQUIRES TOOL   tar
 REQUIRES TOOL   zig
 
-SOURCE https://daugasauron.com/dist/static/default/ghostty.tar              945865657d183d1b97124e383af4c455da577f42215d58cdd29ee4a942136664 /tmp/ghostty.tar
-SOURCE https://daugasauron.com/dist/static/default/uucode.tar               27d4103c73b68b20c21adaee05c4cd2c01fc418e083f5961148e1f872951453e /tmp/uucode.tar
-SOURCE https://daugasauron.com/dist/static/default/ghostty/display.c        82ea249af6a269753dc55c7573ddf8f6ca2d5bac25a8bf78ddd5f6c62a847adb /usr/src/dolly/ghostty/display.c
-SOURCE https://daugasauron.com/dist/static/default/stb_truetype.h           ecd30b05e0dd4fea3a13c26810dd9e1992dc379049482c393d5a19e6b5090aab /tmp/ghostty/stb_truetype.h
-SOURCE https://daugasauron.com/dist/static/default/IosevkaTerm-SemiBold.ttf 754545a4f6250efdd3d2cc916bb344c59f0c59830405307dfd44d183f919a654 /usr/share/fonts/IosevkaTerm-SemiBold.ttf
+SOURCE /v0.1.0/dist/static/default/ghostty.tar              945865657d183d1b97124e383af4c455da577f42215d58cdd29ee4a942136664 /tmp/ghostty.tar
+SOURCE /v0.1.0/dist/static/default/uucode.tar               27d4103c73b68b20c21adaee05c4cd2c01fc418e083f5961148e1f872951453e /tmp/uucode.tar
+SOURCE /v0.1.0/dist/static/default/ghostty/display.c        82ea249af6a269753dc55c7573ddf8f6ca2d5bac25a8bf78ddd5f6c62a847adb /usr/src/dolly/ghostty/display.c
+SOURCE /v0.1.0/dist/static/default/stb_truetype.h           ecd30b05e0dd4fea3a13c26810dd9e1992dc379049482c393d5a19e6b5090aab /tmp/ghostty/stb_truetype.h
+SOURCE /v0.1.0/dist/static/default/IosevkaTerm-SemiBold.ttf 754545a4f6250efdd3d2cc916bb344c59f0c59830405307dfd44d183f919a654 /usr/share/fonts/IosevkaTerm-SemiBold.ttf
 SLOP tar \
   -xf /tmp/ghostty.tar \
   -C /

@@ -18,7 +18,8 @@ await browserTest("host compute", { image: "system-build" }, async ({ browser, s
       const { consumeDollyHttpPolicy } = await import("/host/http/policy.mjs");
       const { localServicesTransport } = await import("/host/http/local-services.mjs");
       const sources = [...DOLLY_IMAGES.map(d => ({ path: `/${d.dollyfile}`, byteLength: d.byteLength })), ...DOLLY_STATIC_SOURCES];
-      return localServicesTransport(consumeDollyHttpPolicy(globalThis, sources, new URL("/", location.href)));
+      const site = new URL("/", location.href);
+      return { ...localServicesTransport(consumeDollyHttpPolicy(globalThis, sources, site)), site: site.href };
     };
     globalThis.runHeadless = async (modules, configuration, transfers, running) => {
       const { createHost } = await import("/host/modules.mjs");
@@ -48,10 +49,11 @@ await browserTest("host compute", { image: "system-build" }, async ({ browser, s
       const { buildImage } = await import("/src/image-builder.mjs");
       const { prepareImageArtifacts } = await import("/src/image-build.mjs");
       const { describeImageArtifact, sha256 } = await import("/src/image-artifact.mjs");
+      const { siteReference } = await import("/src/static-asset.mjs");
       const builders = { http: { network: await headlessNetwork() } };
       const base = DOLLY_IMAGES.find(d => d.image === "system-build");
       const hosts = rows.match(/^(?:REQUIRES HOST [^\n]*\n)*/)[0];
-      const recipe = `DOLLY 6\nAPPLICATION ${name}\n${hosts}FROM https://daugasauron.com/Dollyfile-system-build ${base.sha256}\n${rows.slice(hosts.length)}`;
+      const recipe = `DOLLY 7\nAPPLICATION ${name}\n${hosts}FROM ${siteReference(base.dollyfile)} ${base.sha256}\n${rows.slice(hosts.length)}`;
       const report = () => {};
       const artifacts = await prepareImageArtifacts("custom", recipe, (name, inputs) => buildImage(name, inputs, builders, report), report);
       const built = await buildImage("custom", artifacts, builders, report, { customSource: recipe });

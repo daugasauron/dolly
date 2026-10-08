@@ -1,4 +1,4 @@
-DOLLY 6
+DOLLY 7
 APPLICATION closed-source-agent
 REQUIRES HOST runtime@0
 REQUIRES HOST display@0
@@ -12,9 +12,9 @@ REQUIRES HOST upload@0
 
 # Runs Claude Code, which the launcher downloads from the npm registry into
 # the session after the notice: the image holds nothing of it.
-FROM https://daugasauron.com/Dollyfile-system 5c197324e0089a7a37e6fc342997a55752d2cf459254df9d1ffe3d26bdb41450
-INSTALL https://daugasauron.com/demos/javascript/Dollyfile-javascript 128955d8ba160281224ae7b1acc1e4804587a2ade24d39a2ecee6704d480be4d
-INSTALL https://daugasauron.com/demos/rust/Dollyfile-ripgrep c24d438ec292812ddfd05597b7c2154bf8c9764efa9d50c342e9974383bb1c4f
+FROM /v0.1.0/Dollyfile-system 1eba51dd58b0d5611dbbf8c3a5ff6c8b0bb425800eb4f62110b91365a57d3b47
+INSTALL /v0.1.0/demos/javascript/Dollyfile-javascript 9e29902ccd5b0a333cc88d4d568b6b3ccbb158fd6c82d501f76f67bb2529ba5b
+INSTALL /v0.1.0/demos/rust/Dollyfile-ripgrep 7b0f25da57c5dfb9c72929334dd440bb4b39b24a527e0481fb6bafd66119cc19
 REQUIRES TOOL cc
 REQUIRES TOOL curl
 REQUIRES TOOL cut

@@ -3,6 +3,7 @@ import { resolve } from "node:path";
 import test from "node:test";
 import { discoverImageDefinitions } from "../scripts/image-definitions.mjs";
 import { sourcePins, upstreamRows } from "../scripts/upstreams.mjs";
+import { siteReference } from "../src/static-asset.mjs";
 
 const projectDir = resolve(import.meta.dirname, "..");
 const spdxExpression = /^\(?[A-Za-z0-9.+-]+\)?(?: (?:AND|OR|WITH) \(?[A-Za-z0-9.+-]+\)?)*$/;
@@ -25,6 +26,6 @@ test("every recipe SOURCE and source pin has a licensed upstream entry, and ever
 
 test("a SOURCE without an upstream entry fails the inventory", async () => {
   const definition = { image: "example", filename: "Dollyfile-example",
-    parsed: { sources: [{ location: "https://daugasauron.com/dist/static/unlisted.tar", line: 7 }] } };
+    parsed: { sources: [{ location: siteReference("dist/static/unlisted.tar"), line: 7 }] } };
   await assert.rejects(upstreamRows(projectDir, [definition]), /Dollyfile-example:7: .*unlisted\.tar has no entry/);
 });

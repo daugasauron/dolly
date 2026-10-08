@@ -8,7 +8,7 @@ import { inspectDollyfile } from "../src/dollyfile-view.mjs";
 import { loadRecipeGraph } from "../src/dollyfile-graph.mjs";
 import { resolvePins, syntaxCases } from "./fixtures/dollyfile-syntax.mjs";
 import { stagedIncludeDirectory } from "../scripts/host-modules.mjs";
-import { canonicalPath } from "../src/static-asset.mjs";
+import { sitePath } from "../src/static-asset.mjs";
 const includeDirectory = await stagedIncludeDirectory();
 
 const project = resolve(import.meta.dirname, "..");
@@ -36,7 +36,7 @@ async function checkBoth(scratch, run, files, name = "case") {
   const native = run("check", directory);
   let javascript = null;
   try {
-    await loadRecipeGraph(url => readFile(resolve(directory, url === "Dollyfile" ? url : canonicalPath(url).slice(1))), "Dollyfile");
+    await loadRecipeGraph(reference => readFile(resolve(directory, reference === "Dollyfile" ? reference : sitePath(reference).slice(1))), "Dollyfile");
   } catch (error) { javascript = error; }
   return { native, nativeAccepted: native.status === 0, javascriptAccepted: javascript === null, javascript };
 }
@@ -54,23 +54,26 @@ test("the C executor and the JavaScript recipe graph accept exactly the same rec
 
 test("the C and JavaScript parsers decode the same words and values", async () => {
   await withParser(async (scratch, run) => {
-    const prefix = "DOLLY 6\nPACKAGE probe\n";
+    const prefix = "DOLLY 7\nPACKAGE probe\n";
     for (const raw of ['cc "" "a b" c\\ d', "'cc' 'a\\b' \"東京\"", "cc input name.c",
       '"a\\$b" "a\\xb" "a\\\\b" "a\\"b"', "a\\#b 'a#b' \"#\""]) {
       const expected = inspectDollyfile(prefix + "SLOP " + raw + "\n").slops[0].command;
       assert.deepEqual(run("words", raw).stdout.split("\0").slice(0, -1), expected, raw);
     }
-    for (const url of ["https://daugasauron.com/Dollyfile", "http://127.0.0.1:8080/Dollyfile-pi",
-      "https://daugasauron.com/a/Dollyfile-pi-local", "https://daugasauron.com/Dollyfile-",
-      "https://daugasauron.com/Dollyfile-/bad", `https://daugasauron.com/Dollyfile-${"a".repeat(32)}`,
-      `https://daugasauron.com/Dollyfile-${"a".repeat(33)}`, "https://daugasauron.com/Dollyfile?x=1",
-      "https://Dollyfile", "https:///Dollyfile", "/Dollyfile", "ftp://daugasauron.com/Dollyfile"]) {
+    for (const [reference, expected] of [["/v1.2.3/Dollyfile", true], ["/v0.0.0/a/Dollyfile-pi-local", true],
+      ["/v10.20.30/Dollyfile-pi", true], [`/v1.2.3/Dollyfile-${"a".repeat(32)}`, true],
+      [`/v1.2.3/Dollyfile-${"a".repeat(33)}`, false], ["/v1.2.3/Dollyfile-", false], ["/v1.2.3/Dollyfile-/bad", false],
+      ["/v1.2.3/Dollyfile?x=1", false], ["/v1.2.3/Dollyfile#x", false], ["/v1.2.3//Dollyfile", false],
+      ["/v1.2.3/", false], ["/v1.2.3", false], ["/v1.2/Dollyfile", false], ["/v1.2.3.4/Dollyfile", false],
+      ["/v1.2.x/Dollyfile", false], ["/v.2.3/Dollyfile", false], ["/1.2.3/Dollyfile", false], ["/Dollyfile", false],
+      ["v1.2.3/Dollyfile", false], ["https://example.com/v1.2.3/Dollyfile", false], ["http://127.0.0.1:8080/Dollyfile-pi", false]]) {
       let accepted = true;
-      try { inspectDollyfile(`DOLLY 6\nAPPLICATION check\nFROM ${url} ${"0".repeat(64)}\nENTRY /bin/slop\n`); }
+      try { inspectDollyfile(`DOLLY 7\nAPPLICATION check\nFROM ${reference} ${"0".repeat(64)}\nENTRY /bin/slop\n`); }
       catch { accepted = false; }
-      assert.equal(run("image-url", url).status === 0, accepted, url);
+      assert.equal(accepted, expected, reference);
+      assert.equal(run("image-reference", reference).status === 0, expected, reference);
     }
-    const image = rows => `DOLLY 6\nAPPLICATION default\n${rows}ENTRY /bin/slop\n`;
+    const image = rows => `DOLLY 7\nAPPLICATION default\n${rows}ENTRY /bin/slop\n`;
     const values = async (files) => (await checkBoth(scratch, run, files)).native.stdout;
     assert.match(await values({ "/Dollyfile": image('EXPORTS ENV DOLLY_TEST_VALUE "APPEND literal"\n') }),
       /ENV-VALUE:APPEND literal\n/);
@@ -106,7 +109,7 @@ test("the C executor keeps paths, kinds, commands and recipe names exact", async
       assert.equal(run("kind", type, resolve(scratch, "link")).status === 0, type !== "FOLDER", type);
     }
     assert.equal(run("recipe-names", "custom", "FILE:/etc/dolly/upload.Dollyfile").status, 0);
-    assert.equal(run("recipe-names", "base", "https://daugasauron.com/Dollyfile-base").status, 0,
+    assert.equal(run("recipe-names", "base", "/v1.2.3/Dollyfile-base").status, 0,
       "the same recipe is recorded once");
     assert.equal(run("recipe-names", "base", "FILE:/etc/dolly/upload.Dollyfile").status, 1,
       "a custom image cannot take its base's retained recipe name");

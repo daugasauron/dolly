@@ -1,10 +1,10 @@
-DOLLY 6
+DOLLY 7
 PACKAGE sdl2
 REQUIRES HOST runtime@0
 REQUIRES HOST display@0
 REQUIRES HOST input@0
 
-FROM https://daugasauron.com/demos/cmake/Dollyfile-cmake-build 3b293c0d485d4b87a9e86610780328d6d9ffcb9b250bd3b035e9ce5f2808f6a3
+FROM /v0.1.0/demos/cmake/Dollyfile-cmake-build 6f9f033fb9a69d09198466f00f84c8dcde1cda88b506fac297640626995e4921
 REQUIRES HEADER libc
 REQUIRES HEADER display
 REQUIRES HEADER input
@@ -14,7 +14,7 @@ REQUIRES TOOL make
 REQUIRES TOOL tar
 REQUIRES TOOL rm
 
-SOURCE https://daugasauron.com/dist/static/sdl2/source.tar 3129e3169e12810e34cb86383826a202ee312718f3478391457d55fde7824a8b /tmp/sdl2/source.tar
+SOURCE /v0.1.0/dist/static/sdl2/source.tar 3129e3169e12810e34cb86383826a202ee312718f3478391457d55fde7824a8b /tmp/sdl2/source.tar
 SLOP tar -xf /tmp/sdl2/source.tar -C /
 SLOP cmake -S /tmp/sdl2/source -B /tmp/sdl2/build \
   -DCMAKE_SYSTEM_NAME=Dolly -DCMAKE_SYSTEM_PROCESSOR=wasm64 \

@@ -1,4 +1,4 @@
-DOLLY 6
+DOLLY 7
 APPLICATION codex
 REQUIRES HOST runtime@0
 REQUIRES HOST display@0
@@ -10,8 +10,8 @@ REQUIRES HOST sockets@0
 REQUIRES HOST threads@0
 REQUIRES HOST upload@0
 
-FROM https://daugasauron.com/Dollyfile-system 5c197324e0089a7a37e6fc342997a55752d2cf459254df9d1ffe3d26bdb41450
-INSTALL https://daugasauron.com/demos/codex/Dollyfile-codex-cli 50ca1a49bdbf9a671ea1264c0cef1cf8c84f02ac0d8460777ad01c08e29a2a7b
+FROM /v0.1.0/Dollyfile-system 1eba51dd58b0d5611dbbf8c3a5ff6c8b0bb425800eb4f62110b91365a57d3b47
+INSTALL /v0.1.0/demos/codex/Dollyfile-codex-cli 908830b9eccba657ff7d8117f2b794727dc6a8aa45195cd319615c7289c06fb6
 REQUIRES TOOL codex
 REQUIRES TOOL sh
 

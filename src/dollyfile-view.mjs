@@ -119,18 +119,21 @@ function validAbsolutePath(value) {
     !value.split("/").some((part) => part === "." || part === "..");
 }
 
-// SOURCE takes an absolute http(s) URL without a fragment. FROM, INSTALL and
-// COPY URLs also have a path and no query; their file is Dollyfile[-NAME].
+// A site path names a file one release of the site publishes: /vX.Y.Z/PATH,
+// without a query. FROM, INSTALL and COPY take one whose file is
+// Dollyfile[-NAME]; SOURCE takes one or an absolute http(s) URL without a
+// fragment.
+const sitePathSyntax = /^\/v\d+\.\d+\.\d+\/[^?#\\ \t\r\n\v\f]+$/;
 const sourceURL = /^https?:\/\/[^/?#\\ \t\r\n\v\f]+(?:[/?][^#\\ \t\r\n\v\f]*)?$/;
-const recipeURL = /^https?:\/\/[^/?#\\ \t\r\n\v\f]+\/[^?#\\ \t\r\n\v\f]*$/;
 // A URL parser resolves empty, "." and ".." path segments (also spelled with
 // %2e) to another path, so a recipe names only normalized paths.
-function normalizedPath(url) {
-  const path = url.split("?")[0].replace(/^https?:\/\/[^/]*/, "");
+function normalizedPath(reference) {
+  const path = reference.split("?")[0].replace(/^https?:\/\/[^/]*/, "");
   return !path.includes("//") && !path.split("/").some(segment => /^(?:\.|%2e){1,2}$/i.test(segment));
 }
-// The file a recipe URL names, or "" when the value is not a recipe URL.
-export const recipeFileName = url => recipeURL.test(url) && normalizedPath(url) ? url.slice(url.lastIndexOf("/") + 1) : "";
+// The file a recipe's site path names, or "" when the value is not one.
+export const recipeFileName = reference =>
+  sitePathSyntax.test(reference) && normalizedPath(reference) ? reference.slice(reference.lastIndexOf("/") + 1) : "";
 // Image names: [a-z][a-z0-9]*(-[a-z0-9]+|\.[0-9]+)*, at most 32 bytes. A dot
 // starts a run of version digits, so a documentation copy such as
 // Dollyfile-example.txt is never a recipe.
@@ -217,7 +220,7 @@ function inspectRecipe(source, label, rows) {
       }
       case "SOURCE":
         operations += 1;
-        if (tokens.length !== 3 || !sourceURL.test(tokens[0]) || !normalizedPath(tokens[0]) ||
+        if (tokens.length !== 3 || !(sitePathSyntax.test(tokens[0]) || sourceURL.test(tokens[0])) || !normalizedPath(tokens[0]) ||
             !sha256Pattern.test(tokens[1]) || !validAbsolutePath(tokens[2])) fail(label, item.line, "invalid SOURCE");
         sources.push({ location: tokens[0], sha256: tokens[1], destination: tokens[2], line: item.line });
         break;
@@ -307,8 +310,8 @@ function inspectRecipe(source, label, rows) {
 
 export function inspectDollyfile(source, label = "Dollyfile") {
   const rows = directives(physicalLines(source, label), label);
-  if (rows[0]?.directive !== "DOLLY" || rows[0].args !== "6") {
-    throw new Error(`${label}:${rows[0]?.line ?? 1}: first declaration must be DOLLY 6`);
+  if (rows[0]?.directive !== "DOLLY" || rows[0].args !== "7") {
+    throw new Error(`${label}:${rows[0]?.line ?? 1}: first declaration must be DOLLY 7`);
   }
   return inspectRecipe(source, label, rows);
 }

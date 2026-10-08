@@ -1,4 +1,4 @@
-DOLLY 6
+DOLLY 7
 TOOLCHAIN cmake-build
 REQUIRES HOST runtime@0
 REQUIRES HOST display@0
@@ -8,7 +8,7 @@ REQUIRES HOST http@0
 REQUIRES HOST upload@0
 
 # Keep the expensive bootstrap reusable across source-build workspaces.
-FROM https://daugasauron.com/Dollyfile-system-tools bd54fde46734089b841b63c7ea3a9c2edbdfc3a400c20c70615f68f7fa16b16f
+FROM /v0.1.0/Dollyfile-system-tools 76aa01b1bd157fbc79419fe1ac04527c99ef8779db56be35e5daa77c3a5419b0
 REQUIRES HEADER libc
 REQUIRES HEADER runtime
 REQUIRES TOOL cc
@@ -18,7 +18,7 @@ REQUIRES TOOL cp
 REQUIRES TOOL tar
 REQUIRES TOOL rm
 
-SOURCE https://daugasauron.com/dist/static/neovim/libuv.tar 066c5934e185978c680d03a8fbb42b9241f47fe8dc4b923abe84ee9896f0b86b /tmp/libuv/source.tar
+SOURCE /v0.1.0/dist/static/neovim/libuv.tar 066c5934e185978c680d03a8fbb42b9241f47fe8dc4b923abe84ee9896f0b86b /tmp/libuv/source.tar
 SLOP tar -xf /tmp/libuv/source.tar -C /
 SLOP make -C /tmp/libuv
 SLOP cp /tmp/libuv/libuv.a /usr/lib/libuv.a
@@ -73,7 +73,7 @@ REQUIRES TOOL true
 REQUIRES TOOL uname
 REQUIRES TOOL which
 
-SOURCE https://daugasauron.com/dist/static/neovim/cmake.tar.gz e49a4a2cd7ed5ff7fb2b8a7bf3a0ce1a61b7dd444b20604075e2152f158c4a41 /tmp/cmake/source.tar.gz
+SOURCE /v0.1.0/dist/static/neovim/cmake.tar.gz e49a4a2cd7ed5ff7fb2b8a7bf3a0ce1a61b7dd444b20604075e2152f158c4a41 /tmp/cmake/source.tar.gz
 SLOP gzip -dc /tmp/cmake/source.tar.gz | tar -xf - -C /
 
 FILE /tmp/cmake/build.slop

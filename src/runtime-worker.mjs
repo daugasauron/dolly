@@ -8,7 +8,7 @@ import { imageInputs } from "./image-inputs.mjs";
 import { inspectDollyfile, MAX_DOLLYFILE_BYTES } from "./dollyfile-view.mjs";
 import { decodeImageEntry } from "./image-entry.mjs";
 import { checkedCustomArtifact } from "./custom-image.mjs";
-import { CANONICAL_ORIGIN, decodeStaticAsset, hex } from "./static-asset.mjs";
+import { siteReference, decodeStaticAsset, hex } from "./static-asset.mjs";
 import { terminalFailureReason } from "./process-supervisor.mjs";
 import { bootFiles } from "../host/runtime/boot-files.mjs";
 
@@ -158,7 +158,7 @@ try {
   };
 
   const recipeLocator = configuredImage === "custom"
-    ? "FILE:/etc/dolly/upload.Dollyfile" : `${CANONICAL_ORIGIN}/${definition.dollyfile}`;
+    ? "FILE:/etc/dolly/upload.Dollyfile" : siteReference(definition.dollyfile);
   files.write("/etc/dolly/recipe.locator", recipeLocator);
   if (configuredImage === "custom") {
     files.write("/etc/dolly/upload.Dollyfile", bootConfig.customSource);

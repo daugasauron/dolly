@@ -1,10 +1,10 @@
-DOLLY 6
+DOLLY 7
 PACKAGE ripgrep
 REQUIRES HOST runtime@0
 REQUIRES HOST http@0
 REQUIRES HOST threads@0
 
-FROM https://daugasauron.com/demos/rust/Dollyfile-rust-build 395772c3328df00491c72661dea806fe711e231633cad30331ef507a2e1eda49
+FROM /v0.1.0/demos/rust/Dollyfile-rust-build d78df632a5ee59e3683be7967b4b9d9a7bb36aa7a12e7bb12206f38ae94bced2
 REQUIRES TOOL patti
 REQUIRES TOOL tar
 REQUIRES TOOL cp
@@ -12,7 +12,7 @@ REQUIRES TOOL mkdir
 REQUIRES TOOL rm
 
 # Archives contain upstream source and checksum-verified locked crate archives.
-SOURCE https://daugasauron.com/dist/static/rust/ripgrep.tar ac6da03c191a3c245c4581446aa6e0477d81137045ea4814b68739b46e8cdda1 /tmp/ripgrep.tar
+SOURCE /v0.1.0/dist/static/rust/ripgrep.tar ac6da03c191a3c245c4581446aa6e0477d81137045ea4814b68739b46e8cdda1 /tmp/ripgrep.tar
 SLOP tar -xf /tmp/ripgrep.tar -C /
 SLOP patti build -j 4 --offline --manifest-path /tmp/ripgrep/source/Cargo.toml --bin rg --patch libc=/opt/rust-sdk/src/libc --cache /tmp/ripgrep/cache --target-dir /tmp/ripgrep/build
 SLOP cp /tmp/ripgrep/build/rg /usr/bin/rg

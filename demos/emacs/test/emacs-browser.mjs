@@ -4,7 +4,7 @@
 // Usage: node demos/emacs/test/emacs-browser.mjs [chromium|firefox ...]
 import assert from "node:assert/strict";
 import { demoTest, recoveryPrompt, shellPrompt } from "../../browser.mjs";
-import { CANONICAL_ORIGIN } from "../../../src/static-asset.mjs";
+import { siteReference } from "../../../src/static-asset.mjs";
 
 const browsers = process.argv.length > 2 ? process.argv.slice(2) : ["chromium", "firefox"];
 const file = "/tmp/dolly-emacs-test.txt";
@@ -35,11 +35,11 @@ if (browsers.includes("chromium")) {
   const { DOLLY_IMAGES } = await import("../../../dist/dolly-images.mjs");
   const pin = name => {
     const { dollyfile, sha256 } = DOLLY_IMAGES.find(definition => definition.image === name);
-    return `${CANONICAL_ORIGIN}/${dollyfile} ${sha256}`;
+    return `${siteReference(dollyfile)} ${sha256}`;
   };
   // Host requirements are never inherited: the probe restates default's.
   const hosts = DOLLY_IMAGES.find(definition => definition.image === "default").hostRequirements;
-  const recipe = ["DOLLY 6", "APPLICATION emacs-probe", ...hosts.map(host => `REQUIRES HOST ${host}`),
+  const recipe = ["DOLLY 7", "APPLICATION emacs-probe", ...hosts.map(host => `REQUIRES HOST ${host}`),
     `FROM ${pin("default")}`, `INSTALL ${pin("emacs")}`,
     "ENTRY /bin/foreground -i /bin/slop", ""].join("\n");
   await demoTest("emacs package", { image: "default", timeout: 600_000 }, async ({ open }) => {

@@ -11,6 +11,7 @@ import { createServer } from "node:http";
 import { extname, resolve } from "node:path";
 import { buildImageInPage } from "./page-image-build.mjs";
 import { isolationHeaders, mimeTypes } from "./serve.mjs";
+import { siteReference } from "../src/static-asset.mjs";
 
 const inventory = (await readFile(new URL("./image-inventory.c", import.meta.url), "utf8"))
   .replace('#include "sha256.h"', await readFile(new URL("../src/sha256.h", import.meta.url), "utf8"));
@@ -34,7 +35,7 @@ export async function acceptImage(browser, server, image) {
   const artifact = `/etc/dolly/artifacts/${definition.sha256}.snapshot`;
   // A build-only toolchain over the image, declaring exactly the image's host modules.
   const hosts = definition.hostRequirements.map(requirement => `REQUIRES HOST ${requirement}\n`).join("");
-  const recipe = `DOLLY 6\nTOOLCHAIN inventory\n${hosts}FROM https://daugasauron.com/${definition.dollyfile} ${definition.sha256}\n` +
+  const recipe = `DOLLY 7\nTOOLCHAIN inventory\n${hosts}FROM ${siteReference(definition.dollyfile)} ${definition.sha256}\n` +
     `FILE /tmp/inventory.c\n${inventory.trimEnd().split("\n").map(line => `    ${line}`).join("\n")}\n` +
     "SLOP cc -O1 /tmp/inventory.c -o /tmp/inventory\nSLOP help > /tmp/help\n" +
     `SLOP if /tmp/inventory /tmp/help ${"0".repeat(64)} ${artifact}; then exit 1; fi\n` +

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { browserTest, composed } from "./browser.mjs";
-import { CANONICAL_ORIGIN } from "../src/static-asset.mjs";
+import { siteReference } from "../src/static-asset.mjs";
 import { DOLLY_IMAGES } from "../dist/dolly-images.mjs";
 
 const fixtures = { "sockets.c": "test/fixtures/sockets.c" };
@@ -61,8 +61,8 @@ await browserTest("sockets not declared", { image: "system", server: { fixtures 
   await run("grep -q 'sockets@0' /tmp/refused");
 
   const { dollyfile, sha256 } = DOLLY_IMAGES.find(({ image }) => image === "system");
-  const recipe = ["DOLLY 6", "APPLICATION unsealed", ...systemModules.map(module => `REQUIRES HOST ${module}@0`),
-    `FROM ${CANONICAL_ORIGIN}/${dollyfile} ${sha256}`, "REQUIRES TOOL cc", "FILE /tmp/asked.c", "    #include <sys/socket.h>",
+  const recipe = ["DOLLY 7", "APPLICATION unsealed", ...systemModules.map(module => `REQUIRES HOST ${module}@0`),
+    `FROM ${siteReference(dollyfile)} ${sha256}`, "REQUIRES TOOL cc", "FILE /tmp/asked.c", "    #include <sys/socket.h>",
     "    int main(void) { int ends[2]; return socketpair(AF_UNIX, SOCK_STREAM, 0, ends); }",
     "SLOP cc /tmp/asked.c -ldolly-sockets -o /usr/bin/asked", "EXPORTS TOOL asked", "ENTRY /bin/foreground -i /bin/slop", ""].join("\n");
   await open({ prompt: null, path: "/custom/rebuild/",

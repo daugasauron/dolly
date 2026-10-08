@@ -14,6 +14,7 @@ test("redistributed upstream programs retain their licenses", async () => {
       "/usr/share/licenses/awk/LICENSE", "/usr/share/licenses/sbase/LICENSE"]],
     ["zlib", ["/usr/share/licenses/zlib/LICENSE"]], ["curl", ["/usr/share/licenses/curl/COPYING"]],
     ["zig-build", ["/usr/share/licenses/zig/LICENSE"]],
+    ["less", ["/usr/share/licenses/less/LICENSE", "/usr/share/licenses/termcap/COPYING"]],
     ["ghostty-build", ["/usr/share/licenses/ghostty/LICENSE", "/usr/share/licenses/uucode/LICENSE.md"]],
   ]);
   for (const [image, paths] of expected) {

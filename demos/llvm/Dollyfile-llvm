@@ -1,12 +1,12 @@
-DOLLY 6
+DOLLY 7
 PACKAGE llvm
 REQUIRES HOST runtime@0
 
 # The compiler llvm-cc built inside Dolly, beside the seed's: llvm-cc and
 # llvm-c++ run it as cc and c++ run the seed compiler, on the same headers
 # and libraries.
-COPY https://daugasauron.com/demos/llvm/Dollyfile-llvm-cc 69cf5766b41a5fe4ccb418a932997cb47c1c3e724d9eb7409e2626f18b3bc1a9 /usr/libexec/dolly/process-bin/compiler /usr/lib/llvm/compiler
-INSTALL https://daugasauron.com/Dollyfile-cc b2212c85f454dd8901e984bfe21378aaa773f14858ea653e422a4f8dd5c2958a
+COPY /v0.1.0/demos/llvm/Dollyfile-llvm-cc f7c3f304e2f7eda9d934a105b9526d5f1eb13bd85deb2ef448e9794c41581d63 /usr/libexec/dolly/process-bin/compiler /usr/lib/llvm/compiler
+INSTALL /v0.1.0/Dollyfile-cc 9065e475e05854eaa4a2f6a4f21e2f431e9b2275b76bfea6c8c3c4bf78a63e36
 FILE /usr/bin/llvm-cc
     #!/bin/slop
     /usr/lib/llvm/compiler --dolly-toolchain-mode=c "$@"
@@ -16,9 +16,9 @@ FILE /usr/bin/llvm-c++
 EXPORTS TOOL llvm-cc
 EXPORTS TOOL llvm-c++
 EXPORTS FILE llvm-compiler /usr/lib/llvm/compiler
-SOURCE https://daugasauron.com/dist/static/llvm/licenses/llvm 8d85c1057d742e597985c7d4e6320b015a9139385cff4cbae06ffc0ebe89afee /usr/share/licenses/llvm/LICENSE.TXT
-SOURCE https://daugasauron.com/dist/static/llvm/licenses/clang ebcd9bbf783a73d05c53ba4d586b8d5813dcdf3bbec50265860ccc885e606f47 /usr/share/licenses/clang/LICENSE.TXT
-SOURCE https://daugasauron.com/dist/static/llvm/licenses/lld f7891568956e34643eb6a0db1462db30820d40d7266e2a78063f2fe233ece5a0 /usr/share/licenses/lld/LICENSE.TXT
+SOURCE /v0.1.0/dist/static/llvm/licenses/llvm 8d85c1057d742e597985c7d4e6320b015a9139385cff4cbae06ffc0ebe89afee /usr/share/licenses/llvm/LICENSE.TXT
+SOURCE /v0.1.0/dist/static/llvm/licenses/clang ebcd9bbf783a73d05c53ba4d586b8d5813dcdf3bbec50265860ccc885e606f47 /usr/share/licenses/clang/LICENSE.TXT
+SOURCE /v0.1.0/dist/static/llvm/licenses/lld f7891568956e34643eb6a0db1462db30820d40d7266e2a78063f2fe233ece5a0 /usr/share/licenses/lld/LICENSE.TXT
 FILE /usr/share/licenses/llvm/LICENSE.TXT
 FILE /usr/share/licenses/clang/LICENSE.TXT
 FILE /usr/share/licenses/lld/LICENSE.TXT

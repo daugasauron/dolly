@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import {readFile,writeFile,readdir} from "node:fs/promises";
 import {createHash} from "node:crypto";
+import {siteReference} from "../../src/static-asset.mjs";
 const root=new URL("../../",import.meta.url);
 const hash=bytes=>createHash("sha256").update(bytes).digest("hex");
 const entries=[
@@ -12,7 +13,7 @@ for(const [path,include] of [["cglm/cglm.h","../platform.h"],["webgpu/wgpu_commo
 const headers=JSON.parse(await readFile(new URL("demos/gpu-fluid/fluid-cglm-headers.json",root),"utf8"));
 const cglm=headers.map(({path,sha256})=>`SOURCE https://raw.githubusercontent.com/recp/cglm/144d1e7c29b3b0c6dede7917a0476cc95248559c/include/${path} ${sha256} /usr/src/dolly/fluid/${path}`).join("\n");
 const parent=hash(await readFile(new URL("Dollyfile-gpu-sdk",root)));
-await writeFile(new URL("demos/gpu-fluid/Dollyfile-gpu-fluid",root),`DOLLY 6
+await writeFile(new URL("demos/gpu-fluid/Dollyfile-gpu-fluid",root),`DOLLY 7
 APPLICATION gpu-fluid
 REQUIRES HOST runtime@0
 REQUIRES HOST display@0
@@ -23,7 +24,7 @@ REQUIRES HOST http@0
 REQUIRES HOST snapshot@0
 REQUIRES HOST upload@0
 
-FROM https://daugasauron.com/Dollyfile-gpu-sdk ${parent}
+FROM ${siteReference("Dollyfile-gpu-sdk")} ${parent}
 REQUIRES TOOL cc
 REQUIRES HEADER gpu
 REQUIRES LIB dolly-gpu

@@ -8,7 +8,7 @@ import { readFile } from "node:fs/promises";
 import { dirname, join, normalize } from "node:path";
 import test from "node:test";
 import { inspectDollyfile } from "../src/dollyfile-view.mjs";
-import { canonicalPath } from "../src/static-asset.mjs";
+import { sitePath } from "../src/static-asset.mjs";
 import { documentationLinks } from "../scripts/package-documentation.mjs";
 import { publishedDocument } from "../scripts/host-modules.mjs";
 
@@ -21,7 +21,7 @@ test("the docs package ships the linked documents and contracts of this checkout
   const recipe = inspectDollyfile(await readFile(join(project, "Dollyfile-dolly-docs"), "utf8"), "Dollyfile-dolly-docs");
   const shipped = new Map();
   for (const { location, sha256, destination, line } of recipe.sources) {
-    const path = canonicalPath(location);
+    const path = sitePath(location);
     assert.ok(path && publishedDocument(path), `Dollyfile-dolly-docs:${line}: ${location} is not a platform document`);
     assert.equal(destination, `/usr/share/doc/dolly${path}`, `Dollyfile-dolly-docs:${line}`);
     const bytes = await readFile(join(project, path));

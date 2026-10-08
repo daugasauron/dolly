@@ -1,7 +1,7 @@
 // amy installs the packages this site publishes into the running session.
-// The index is the site's public /amy-index.txt, "NAME URL SHA256 DESCRIPTION"
+// The index is the site's public amy-index.txt, "NAME PATH SHA256 DESCRIPTION"
 // per package, read like any URL under the page's HTTP policy. An install is
-// the Dollyfile row INSTALL URL SHA256, executed against the live filesystem
+// the Dollyfile row INSTALL PATH SHA256, executed against the live filesystem
 // by /bin/dollyfile and recorded in /etc/dolly/installed; the page's
 // packages@0 service hands over the verified package snapshot.
 #define _POSIX_C_SOURCE 200809L
@@ -18,15 +18,17 @@
 #include <dolly/http.h>
 #include <dolly/runtime.h>
 
-// A path names a file of the site that serves this release.
-static const char index_url[] = "/amy-index.txt";
+#include "version.h"
+
+// A site path names a file of the site that serves this release.
+static const char index_url[] = "/v" DOLLY_VERSION "/amy-index.txt";
 static const char service[] = "https://packages.dolly.invalid/v1/packages/";
 static const char installed_path[] = "/etc/dolly/installed";
 static const char artifacts_dir[] = "/etc/dolly/artifacts";
 static const char files_dir[] = "/etc/dolly/files";
 enum { MAX_INDEX_BYTES = 64 * 1024 };
 
-typedef struct { char *name, *url, *sha256, *description; } Package;
+typedef struct { char *name, *recipe, *sha256, *description; } Package;
 typedef struct { Package *items; size_t count; char *text; } Packages;
 
 static void usage(FILE *stream) {
@@ -34,7 +36,7 @@ static void usage(FILE *stream) {
         "       amy info NAME         its description and INSTALL row\n"
         "       amy install NAME...   install packages; says what each added\n"
         "       amy files NAME        the files NAME installs outside /etc/dolly: SIZE PATH\n"
-        "       amy installed         the installed rows: NAME URL SHA256\n", stream);
+        "       amy installed         the installed rows: NAME PATH SHA256\n", stream);
 }
 
 static size_t append_text(const void *bytes, size_t length, void *context) {
@@ -76,15 +78,15 @@ static void report(const char *subject, int status) {
   else fprintf(stderr, "amy: %s: HTTP %d\n", subject, status);
 }
 
-// The image a recipe URL names: Dollyfile-NAME, or default for Dollyfile.
-static const char *package_name(const char *url) {
-  const char *file = strrchr(url, '/');
-  file = file == NULL ? url : file + 1;
+// The image a recipe's path names: Dollyfile-NAME, or default for Dollyfile.
+static const char *package_name(const char *recipe) {
+  const char *file = strrchr(recipe, '/');
+  file = file == NULL ? recipe : file + 1;
   return strncmp(file, "Dollyfile-", 10) == 0 ? file + 10 : "default";
 }
 
-// Index rows are NAME URL SHA256 DESCRIPTION. The record's are INSTALL URL
-// SHA256, where the name is the one the URL names.
+// Index rows are NAME PATH SHA256 DESCRIPTION. The record's are INSTALL PATH
+// SHA256, where the name is the one the path names.
 static int parse_rows(Packages *packages, const char *source) {
   for (char *line = packages->text, *next; line != NULL && *line != '\0'; line = next) {
     next = strchr(line, '\n');
@@ -106,7 +108,7 @@ static int parse_rows(Packages *packages, const char *source) {
     const int recorded = strcmp(words[0], "INSTALL") == 0;
     packages->items[packages->count++] = (Package){
         .name = (char *)(recorded ? package_name(words[1]) : words[0]),
-        .url = words[1], .sha256 = words[2], .description = words[3]};
+        .recipe = words[1], .sha256 = words[2], .description = words[3]};
   }
   return 0;
 }
@@ -124,10 +126,10 @@ static int read_installed(Packages *installed) {
   return result != 0 ? result : parse_rows(installed, installed_path);
 }
 
-static const Package *find_row(const Packages *packages, const char *url, const char *sha256) {
+static const Package *find_row(const Packages *packages, const char *recipe, const char *sha256) {
   for (size_t index = 0; index < packages->count; ++index) {
     const Package *package = &packages->items[index];
-    if (strcmp(package->url, url) == 0 && strcmp(package->sha256, sha256) == 0) return package;
+    if (strcmp(package->recipe, recipe) == 0 && strcmp(package->sha256, sha256) == 0) return package;
   }
   return NULL;
 }
@@ -216,7 +218,7 @@ static int snapshot_files(const Package *package, const char *snapshot, int keep
 static int install(const Packages *index, Packages *installed, const char *name) {
   const Package *package = find_name(index, name);
   if (package == NULL) return -1;
-  if (find_row(installed, package->url, package->sha256) != NULL) {
+  if (find_row(installed, package->recipe, package->sha256) != NULL) {
     printf("amy: %s is already installed\n", name);
     return 0;
   }
@@ -226,7 +228,7 @@ static int install(const Packages *index, Packages *installed, const char *name)
   Summary summary = {0};
   if (status == 0) {
     // The engine's log is diagnostics here; amy's stdout reports the result.
-    char *arguments[] = {"/bin/dollyfile", "install", package->url, package->sha256, NULL};
+    char *arguments[] = {"/bin/dollyfile", "install", package->recipe, package->sha256, NULL};
     int exit_status = 126;
     const int pid = dolly_spawn(arguments[0], 4, arguments, STDIN_FILENO, STDERR_FILENO, STDERR_FILENO);
     const int waited = pid < 0 ? pid : dolly_wait(pid, &exit_status);
@@ -244,7 +246,7 @@ static int install(const Packages *index, Packages *installed, const char *name)
          "amy: its environment applies when the session is next loaded\n",
          name, summary.files, summary.bytes, summary.commands[0] != '\0' ? ", commands:" : "", summary.commands, name);
   char row[8192];
-  snprintf(row, sizeof(row), "INSTALL %s %s\n", package->url, package->sha256);
+  snprintf(row, sizeof(row), "INSTALL %s %s\n", package->recipe, package->sha256);
   return append_text(row, strlen(row), installed) == strlen(row) ? 0 : -1;
 }
 
@@ -293,7 +295,7 @@ int main(int argc, char **argv) {
   if (status == 0 && recorded) {
     for (size_t position = 0; position < installed.count; ++position) {
       const Package *package = &installed.items[position];
-      printf("%s %s %s\n", package->name, package->url, package->sha256);
+      printf("%s %s %s\n", package->name, package->recipe, package->sha256);
     }
   }
   const int local = recorded || (naming && status == 0 && print_record(argv[2]) == 0);
@@ -307,14 +309,14 @@ int main(int argc, char **argv) {
     for (size_t position = 0; position < index.count; ++position) {
       const Package *package = &index.items[position];
       printf("%-16s %-9s %s\n", package->name,
-             find_row(&installed, package->url, package->sha256) ? "installed" : "-", package->description);
+             find_row(&installed, package->recipe, package->sha256) ? "installed" : "-", package->description);
     }
   }
   const Package *package = status == 0 && describing ? find_name(&index, argv[2]) : NULL;
   if (describing && package == NULL) status = -1;
   if (package != NULL) {
-    printf("%s: %s\nINSTALL %s %s\n%s\n", package->name, package->description, package->url, package->sha256,
-           find_row(&installed, package->url, package->sha256) ? "installed" : "not installed");
+    printf("%s: %s\nINSTALL %s %s\n%s\n", package->name, package->description, package->recipe, package->sha256,
+           find_row(&installed, package->recipe, package->sha256) ? "installed" : "not installed");
   }
   if (status == 0 && naming && !local) status = files(&index, argv[2]);
   for (int argument = 2; status == 0 && installing && argument < argc; ++argument) {

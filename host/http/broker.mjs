@@ -1,6 +1,6 @@
 import { HttpError, isDollyCredentialHeader, stripDollyBrowserOwnedHeaders } from "./policy.mjs";
 import { DOLLY_ERRNO as errno } from "../../src/process-constants.mjs";
-import { decodeStaticAsset } from "../../src/static-asset.mjs";
+import { decodeStaticAsset, sitePath } from "../../src/static-asset.mjs";
 import { DOLLY_HTTP_SLOT_COUNT, DOLLY_HTTP_CHUNK_CAPACITY, DOLLY_HTTP_MAX_METHOD, DOLLY_HTTP_MAX_URL,
   DOLLY_HTTP_MAX_HEADERS, DOLLY_HTTP_MAX_BODY, DOLLY_HTTP_HEADER_SIZE, DOLLY_HTTP_WORD_SEQUENCE,
   DOLLY_HTTP_WORD_STATUS, DOLLY_HTTP_WORD_LENGTH, DOLLY_HTTP_WORD_EOF, DOLLY_HTTP_WORD_ERROR,
@@ -48,12 +48,13 @@ export class NetworkTransport {
 
   get active() { return this.slots.some(slot => slot !== null); }
 
-  // A URL is absolute, or a path: a file of the site serving this release,
-  // never above its root. The policy then judges it like any other URL.
+  // A URL is absolute, or a site path: /vVERSION/FILE is a file of the site
+  // serving this release, never above its root and of no other version. The
+  // policy then judges it like any other URL.
   target(url) {
     const absolute = URL.parse(url);
-    if (absolute || !this.site || !url.startsWith("/")) return absolute;
-    const file = URL.parse(url.slice(1), this.site);
+    if (absolute || !url.startsWith("/")) return absolute;
+    const file = URL.parse(sitePath(url).slice(1), this.site);
     return file?.href.startsWith(this.site) ? file : null;
   }
 
@@ -198,7 +199,7 @@ class HttpTransfer {
     try {
       this.check();
       const target = this.broker.target(url);
-      if (target === null) throw new HttpError(errno.EINVAL, "HTTP requires an absolute URL or a path of this site");
+      if (target === null) throw new HttpError(errno.EINVAL, "HTTP requires an absolute URL or a site path");
       if (target.protocol !== "http:" && target.protocol !== "https:")
         throw new HttpError(errno.EPROTONOSUPPORT, "HTTP requires HTTP(S)");
       if (target.username !== "" || target.password !== "")

@@ -17,7 +17,7 @@
 // milliseconds.
 import { chromium, firefox } from "playwright-core";
 import { startBrowserServer } from "./browser-server.mjs";
-import { CANONICAL_ORIGIN } from "../src/static-asset.mjs";
+import { siteReference } from "../src/static-asset.mjs";
 
 const projectDir = new URL("..", import.meta.url).pathname;
 const shellPrompt = /dolly:[^\n]*\$\s*$/;
@@ -61,9 +61,9 @@ export async function composed(hosts, packages, { base, files = {}, entry = "/bi
   const { DOLLY_IMAGES } = await import("../dist/dolly-images.mjs");
   const pin = name => {
     const { dollyfile, sha256 } = DOLLY_IMAGES.find(definition => definition.image === name);
-    return `${CANONICAL_ORIGIN}/${dollyfile} ${sha256}`;
+    return `${siteReference(dollyfile)} ${sha256}`;
   };
-  const recipe = ["DOLLY 6", "APPLICATION composed", ...hosts.map(host => `REQUIRES HOST ${host}@0`),
+  const recipe = ["DOLLY 7", "APPLICATION composed", ...hosts.map(host => `REQUIRES HOST ${host}@0`),
     ...base ? [`FROM ${pin(base)}`] : [], ...packages.map(name => `INSTALL ${pin(name)}`),
     ...Object.entries(files).map(([path, text]) => `FILE ${path}\n${text.trim().split("\n").map(line => `    ${line}`).join("\n")}`),
     `ENTRY ${entry}`, ""].join("\n");

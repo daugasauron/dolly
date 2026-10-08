@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { resolve } from "node:path";
 import test from "node:test";
 import { createDollyfileGraphLoader, recipeRecords } from "../../../scripts/dollyfile-graph.mjs";
+import { siteReference } from "../../../src/static-asset.mjs";
 
 const loadProjectGraph = createDollyfileGraphLoader(resolve(import.meta.dirname, "../../.."));
 
@@ -28,10 +29,10 @@ test("Pi is compiled from pinned source after an in-sandbox TypeScript layer", a
   const typescript = graph.records.find(({ name }) => name === "typescript-build");
   const pi = graph.records.find(({ name }) => name === "pi-build");
   assert.ok(typescript.sources.some(({ location }) =>
-    location === "https://daugasauron.com/dist/static/default/typescript-5.9.3.tgz"));
+    location === siteReference("dist/static/default/typescript-5.9.3.tgz")));
   assert.ok(typescript.exports.some(({ type, name }) => type === "TOOL" && name === "tsc"));
   assert.ok(pi.sources.some(({ location }) =>
-    location === "https://daugasauron.com/dist/static/default/pi-source.tar"));
+    location === siteReference("dist/static/default/pi-source.tar")));
   assert.equal(pi.sources.some(({ location }) => location.includes("pi-package.tar")), false);
   assert.deepEqual(
     pi.slops.filter(({ command }) => command[0] === "tsc").map(({ cwd }) => cwd),

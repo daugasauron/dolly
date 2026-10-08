@@ -1,4 +1,4 @@
-DOLLY 6
+DOLLY 7
 PACKAGE codex-cli
 REQUIRES HOST runtime@0
 REQUIRES HOST http@0
@@ -7,19 +7,19 @@ REQUIRES HOST threads@0
 
 # Codex as codex-build compiles it, the launcher that seeds CODEX_HOME, and
 # the search tools Codex runs.
-FROM https://daugasauron.com/Dollyfile-system 5c197324e0089a7a37e6fc342997a55752d2cf459254df9d1ffe3d26bdb41450
-COPY https://daugasauron.com/demos/codex/Dollyfile-codex-build c01062b444e6c59174018148f77b5aefece81a09cea0568b0292dae2f3599efc /usr/bin/codex /usr/libexec/codex
-COPY https://daugasauron.com/demos/codex/Dollyfile-codex-build c01062b444e6c59174018148f77b5aefece81a09cea0568b0292dae2f3599efc /usr/share/licenses/codex /usr/share/licenses/codex
-COPY https://daugasauron.com/demos/codex/Dollyfile-codex-build c01062b444e6c59174018148f77b5aefece81a09cea0568b0292dae2f3599efc /usr/share/dolly/builds/codex.json /usr/share/dolly/builds/codex.json
-INSTALL https://daugasauron.com/demos/rust/Dollyfile-ripgrep c24d438ec292812ddfd05597b7c2154bf8c9764efa9d50c342e9974383bb1c4f
-INSTALL https://daugasauron.com/demos/rust/Dollyfile-fd 5bda2bcb333d1428f709dc5d18c3d530c936d9fdb461463913865177ca5ad774
+FROM /v0.1.0/Dollyfile-system 1eba51dd58b0d5611dbbf8c3a5ff6c8b0bb425800eb4f62110b91365a57d3b47
+COPY /v0.1.0/demos/codex/Dollyfile-codex-build 7ffd0d717cf00def60608de2f4284ef021a56fd85fe84212aed1c82509438703 /usr/bin/codex /usr/libexec/codex
+COPY /v0.1.0/demos/codex/Dollyfile-codex-build 7ffd0d717cf00def60608de2f4284ef021a56fd85fe84212aed1c82509438703 /usr/share/licenses/codex /usr/share/licenses/codex
+COPY /v0.1.0/demos/codex/Dollyfile-codex-build 7ffd0d717cf00def60608de2f4284ef021a56fd85fe84212aed1c82509438703 /usr/share/dolly/builds/codex.json /usr/share/dolly/builds/codex.json
+INSTALL /v0.1.0/demos/rust/Dollyfile-ripgrep 7b0f25da57c5dfb9c72929334dd440bb4b39b24a527e0481fb6bafd66119cc19
+INSTALL /v0.1.0/demos/rust/Dollyfile-fd 32317711b4457f3aecda857bf98e4546ef78eb088fc7bf33aed3dca02543ca1b
 REQUIRES HEADER libc
 REQUIRES HEADER runtime
 REQUIRES TOOL cc
 REQUIRES TOOL rm
 
-SOURCE https://daugasauron.com/dist/static/codex/launch.c 976af0443f20a29fb54d0e9b04d21138ba6d2fde269d2d6fd4a88b413ac9b04c /tmp/codex-launch.c
-SOURCE https://daugasauron.com/dist/static/codex/config.toml 41195a65f4ae7b2502f30cf0ed938d0746954ed5434af4a2ef99ce0e05683c97 /usr/share/codex/config.toml
+SOURCE /v0.1.0/dist/static/codex/launch.c 976af0443f20a29fb54d0e9b04d21138ba6d2fde269d2d6fd4a88b413ac9b04c /tmp/codex-launch.c
+SOURCE /v0.1.0/dist/static/codex/config.toml 41195a65f4ae7b2502f30cf0ed938d0746954ed5434af4a2ef99ce0e05683c97 /usr/share/codex/config.toml
 SLOP cc -O1 /tmp/codex-launch.c -o /usr/bin/codex
 SLOP rm /tmp/codex-launch.c
 

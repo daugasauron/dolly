@@ -1,4 +1,4 @@
-DOLLY 6
+DOLLY 7
 TOOLCHAIN llvm-tablegen
 REQUIRES HOST runtime@0
 REQUIRES HOST display@0
@@ -10,9 +10,9 @@ REQUIRES HOST sockets@0
 REQUIRES HOST upload@0
 
 # Build-only: LLVM 24 configured by CMake inside Dolly, its TableGen tools and outputs.
-FROM https://daugasauron.com/demos/cmake/Dollyfile-cmake-build 3b293c0d485d4b87a9e86610780328d6d9ffcb9b250bd3b035e9ce5f2808f6a3
+FROM /v0.1.0/demos/cmake/Dollyfile-cmake-build 6f9f033fb9a69d09198466f00f84c8dcde1cda88b506fac297640626995e4921
 # LLVM's CMake requires a Python 3 interpreter.
-INSTALL https://daugasauron.com/demos/python/Dollyfile-python 0388679604b43d2fc4546f7fd85e4729e6d355eb2f9d79f9634578194938cdc7
+INSTALL /v0.1.0/demos/python/Dollyfile-python 76b976783d5550445e91cb921d067076a071722cc30374cbfb408ed9bff849e2
 # Configure the pinned LLVM 24 tree as the seed is configured
 # (scripts/build-toolchain.sh), then build and run its TableGen tools.
 REQUIRES TOOL cmake
@@ -29,12 +29,12 @@ REQUIRES TOOL cp
 REQUIRES TOOL mkdir
 REQUIRES TOOL rm
 
-SOURCE https://daugasauron.com/dist/static/llvm/llvm-project.tar.gz 033390c4520e51f261eb7572f0a1b4a1592121a1c8c1fc0c3db4845b079a8882 /tmp/llvm-project.tar.gz
+SOURCE /v0.1.0/dist/static/llvm/llvm-project.tar.gz 033390c4520e51f261eb7572f0a1b4a1592121a1c8c1fc0c3db4845b079a8882 /tmp/llvm-project.tar.gz
 SLOP time slop -c 'gzip -dc /tmp/llvm-project.tar.gz | tar -xf - -C /'
 SLOP rm /tmp/llvm-project.tar.gz
 # LLVM runs config.guess even when LLVM_HOST_TRIPLE is given; it knows no Dolly host.
 # Its one platform list without a portable branch (is_local) gains Dolly.
-SOURCE https://daugasauron.com/dist/static/llvm/llvm-host-triple.patch ec739fd5932c1040d07344a8511bae4da4157ff2bcafa348f06a555b71a10981 /tmp/llvm-host-triple.patch
+SOURCE /v0.1.0/dist/static/llvm/llvm-host-triple.patch ec739fd5932c1040d07344a8511bae4da4157ff2bcafa348f06a555b71a10981 /tmp/llvm-host-triple.patch
 SLOP patch -p1 -d /tmp/llvm-project -i /tmp/llvm-host-triple.patch
 
 # C probes and sources get Clang's default gnu17 as in the seed; Dolly's cc

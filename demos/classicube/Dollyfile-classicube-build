@@ -1,4 +1,4 @@
-DOLLY 6
+DOLLY 7
 TOOLCHAIN classicube-build
 REQUIRES HOST runtime@0
 REQUIRES HOST display@0
@@ -7,8 +7,8 @@ REQUIRES HOST download@0
 REQUIRES HOST http@0
 REQUIRES HOST upload@0
 
-FROM https://daugasauron.com/Dollyfile-system-tools bd54fde46734089b841b63c7ea3a9c2edbdfc3a400c20c70615f68f7fa16b16f
-INSTALL https://daugasauron.com/demos/sdl2/Dollyfile-sdl2 5b191b36a60aa7b57ba12693ad208f29fd4d6c800f82e42c0ae2156a7c66b46a
+FROM /v0.1.0/Dollyfile-system-tools 76aa01b1bd157fbc79419fe1ac04527c99ef8779db56be35e5daa77c3a5419b0
+INSTALL /v0.1.0/demos/sdl2/Dollyfile-sdl2 3343eaaa377a15e85f3e754016d2b0165b983f2a45a81397530785552ff4a60c
 REQUIRES HEADER sdl2
 REQUIRES LIB SDL2
 REQUIRES TOOL cc
@@ -18,7 +18,7 @@ REQUIRES TOOL tar
 REQUIRES TOOL gzip
 REQUIRES TOOL rm
 
-SOURCE https://daugasauron.com/dist/static/classicube/source.tar.gz 20ebb3e4c9fa4fe103c57153585365974ce90f788eec7589a0cc7fbd635cc8fe /tmp/classicube/source.tar.gz
+SOURCE /v0.1.0/dist/static/classicube/source.tar.gz 20ebb3e4c9fa4fe103c57153585365974ce90f788eec7589a0cc7fbd635cc8fe /tmp/classicube/source.tar.gz
 SLOP gzip -dc /tmp/classicube/source.tar.gz | tar -xf - -C /
 SLOP make -f /usr/src/dolly/classicube/Makefile
 

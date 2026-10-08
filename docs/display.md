@@ -50,6 +50,8 @@ flowchart LR
   ([`input.h`](../host/input/input.h)). Without `input@0` no record arrives.
 - Before the plugin loads, and in images without a display, output goes to a
   plain-text bootstrap log.
+- Programs see `TERM=xterm-256color`. The display package holds the
+  terminal's `/etc/termcap` entry, for programs that link a termcap library.
 
 ## Graphics processes
 

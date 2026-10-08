@@ -15,7 +15,7 @@ import { pageRoutes } from "./image-menu.mjs";
 import { isolationHeaders, mimeTypes } from "./serve.mjs";
 import { buildIdentities } from "./write-build-id.mjs";
 import { imageInputsMatch } from "../src/image-inputs.mjs";
-import { CANONICAL_ORIGIN, canonicalPath } from "../src/static-asset.mjs";
+import { siteReference, sitePath } from "../src/static-asset.mjs";
 
 // IMAGE's current snapshot chain is required; null requires none (the builder,
 // whose image is being built). Options: port; files (URL path -> checkout
@@ -51,7 +51,7 @@ export async function startCheckoutServer(projectDir, image = "default",
       const inputs = [];
       for (const reference of definition.artifacts) {
         const parent = DOLLY_IMAGES.find(candidate =>
-          `${CANONICAL_ORIGIN}/${candidate.dollyfile}` === reference.location && candidate.sha256 === reference.sha256);
+          siteReference(candidate.dollyfile) === reference.location && candidate.sha256 === reference.sha256);
         if (!parent) throw new Error(`${reference.location} is missing from the registry`);
         inputs.push({ recipeSha256: reference.sha256, sha256: (await check(parent)).sha256 });
       }
@@ -59,7 +59,7 @@ export async function startCheckoutServer(projectDir, image = "default",
       return metadata;
     }
     if (image) for (const recipe of (await check(DOLLY_IMAGES.find(definition => definition.image === image))).recipes) {
-      const bytes = await readFile(resolve(projectDir, canonicalPath(recipe.sourcePath).slice(1)));
+      const bytes = await readFile(resolve(projectDir, sitePath(recipe.sourcePath).slice(1)));
       if (createHash("sha256").update(bytes).digest("hex") !== recipe.sha256) throw new Error(`${recipe.sourcePath} changed`);
     }
   } catch (error) {

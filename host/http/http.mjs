@@ -42,11 +42,12 @@ export function browser({ applicationBase, bootstrapSources, inherited, configur
     // own; a missing inheritance fails closed.
     let policy = consumeDollyHttpPolicy(window, bootstrapSources, applicationBase);
     if (inherited) policy = restrictDollyHttpPolicy(policy, inherited.policies, bootstrapSources, applicationBase);
-    // A path names a file of this page's site; a builder has no site.
-    network = { ...localServicesTransport(policy, services), site: publicURL("", applicationBase).href };
+    // A site path names a file of this page's site.
+    const site = publicURL("", applicationBase).href;
+    network = { ...localServicesTransport(policy, services), site };
     // Builders inherit the policy and no local service; an opened result tab
     // or restored session inherits the policy configurations.
-    instance.builder = { network: localServicesTransport(policy) };
+    instance.builder = { network: { ...localServicesTransport(policy), site } };
     instance.inherited = { policies: httpPolicyConfigurations(policy) };
   }
   return instance;

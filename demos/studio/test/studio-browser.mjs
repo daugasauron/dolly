@@ -4,6 +4,7 @@
 // Usage: node demos/studio/test/studio-browser.mjs
 import assert from "node:assert/strict";
 import { delay, demoTest, recoveryPrompt, shellQuote, writeCommand } from "../../browser.mjs";
+import { siteReference } from "../../../src/static-asset.mjs";
 
 await demoTest("studio", { image: "dollyfile-studio", webgpu: true, timeout: 900_000,
   server: { fixtures: { "studio-nvim.lua": "demos/studio/test/fixtures/studio-nvim.lua" } } }, async ({ server, open }) => {
@@ -18,22 +19,22 @@ await demoTest("studio", { image: "dollyfile-studio", webgpu: true, timeout: 900
   await run("printf 'DOLLY 2\\n' | dollyfile-lint --stdin Draft", 1);
   // Errors name the literal file, even with replacement patterns or Unicode.
   for (const label of ["Dollyfile-$&", "Dollyfile-$$", "Dollyfile-$'", "Dollyfile-$`", "Dollyfile-東京"]) {
-    await run(`message=$(printf 'DOLLY 6\\n' | dollyfile-lint --stdin ${shellQuote(label)} 2>&1); test "$?" = 1 && test "$message" = ${shellQuote(`${label}:1: missing APPLICATION, TOOLCHAIN or PACKAGE`)}`);
+    await run(`message=$(printf 'DOLLY 7\\n' | dollyfile-lint --stdin ${shellQuote(label)} 2>&1); test "$?" = 1 && test "$message" = ${shellQuote(`${label}:1: missing APPLICATION, TOOLCHAIN or PACKAGE`)}`);
   }
   await run("test -f /home/dolly/.pi/agent/skills/dollyfiles/SKILL.md && test -f /home/dolly/.pi/agent/extensions/local-model-provider.js");
-  // Recipes name canonical URLs; the page serves its own copies, pinned by hash.
-  await run("curl -f https://daugasauron.com/demos/javascript/Dollyfile-typescript-build -o /tmp/module.dm && curl -f https://daugasauron.com/dist/static/default/quickjs.tar -o /tmp/source.tar && grep -q \"$(sha256sum /tmp/source.tar | cut -d ' ' -f 1)\" /tmp/module.dm");
-  await run("curl -f https://daugasauron.com/dist/static/default/runtimes/quickjs-main.c | grep -q dolly_quickjs_run && rm /tmp/module.dm /tmp/source.tar");
+  // Recipes name site paths; the page serves its own copies, pinned by hash.
+  await run(`curl -f ${siteReference("demos/javascript/Dollyfile-typescript-build")} -o /tmp/module.dm && curl -f ${siteReference("dist/static/default/quickjs.tar")} -o /tmp/source.tar && grep -q "$(sha256sum /tmp/source.tar | cut -d ' ' -f 1)" /tmp/module.dm`);
+  await run(`curl -f ${siteReference("dist/static/default/runtimes/quickjs-main.c")} | grep -q dolly_quickjs_run && rm /tmp/module.dm /tmp/source.tar`);
   await run(`curl -fsS ${server.origin}/fixture/studio-nvim.lua -o /tmp/studio-nvim.lua && timeout 60 nvim --headless -n -i NONE -S /tmp/studio-nvim.lua`);
   await run("rm -f /tmp/studio-nvim.lua /tmp/Dollyfile-studio-lint && clear");
   const editor = start("nvim /workspace/Dollyfile");
-  await waitText(/DOLLY 6/);
+  await waitText(/DOLLY 7/);
   // An edit shows its lint error without saving; correcting it clears the error.
   await page.keyboard.type("gg$a0");
   await page.keyboard.press("Escape");
-  await waitText(/! .*DOLLY 6/);
+  await waitText(/! .*DOLLY 7/);
   await page.keyboard.type("$x");
-  for (const deadline = Date.now() + 30_000; /! .*DOLLY 6/.test(await text()); await delay(100)) {
+  for (const deadline = Date.now() + 30_000; /! .*DOLLY 7/.test(await text()); await delay(100)) {
     assert.ok(Date.now() < deadline, "correcting the recipe did not clear its error");
   }
   await page.keyboard.type(":");
@@ -44,7 +45,7 @@ await demoTest("studio", { image: "dollyfile-studio", webgpu: true, timeout: 900
   // Open image opens the result, which has neither parent files nor build services.
   const { DOLLY_IMAGES } = await import("../../../dist/dolly-images.mjs");
   const system = DOLLY_IMAGES.find(definition => definition.image === "system").sha256;
-  const recipe = `DOLLY 6
+  const recipe = `DOLLY 7
 APPLICATION build-proof
 REQUIRES HOST runtime@0
 REQUIRES HOST display@0
@@ -53,7 +54,7 @@ REQUIRES HOST download@0
 REQUIRES HOST http@0
 REQUIRES HOST snapshot@0
 REQUIRES HOST upload@0
-FROM https://daugasauron.com/Dollyfile-system ${system}
+FROM ${siteReference("Dollyfile-system")} ${system}
 FILE /tmp/proof/hello.c
     #include <stdio.h>
     #warning BUILD-COMPILER-WARNING

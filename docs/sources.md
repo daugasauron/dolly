@@ -11,7 +11,7 @@ flowchart TD
   prep --> runtime["npm run build:runtime: kernel dolly.wasm, seed dolly.data"]
   prep --> static["prepare-image-sources.sh: dist/static inputs, deterministic ustar"]
   runtime --> images["in-browser image builds (dollyfile.md)"]
-  static -- "SOURCE on the canonical origin, SHA-256 pinned" --> images
+  static -- "SOURCE by site path, SHA-256 pinned" --> images
 ```
 
 ## Bootstrap exceptions
@@ -54,7 +54,7 @@ compile the programs an image claims to build.
 - [`prepare-image-sources.sh`](../scripts/prepare-image-sources.sh) stages the
   selected catalog's inputs (each demo adds a `prepare-sources.sh` hook);
   [`generate-routes.mjs`](../scripts/generate-routes.mjs) checks every
-  canonical `SOURCE` row against its bytes. Only those rows and module texts are
+  site-path `SOURCE` row against its bytes. Only those rows and module texts are
   trusted build inputs; adding one means referencing it from a recipe.
 - [`build-source-tar.mjs`](../scripts/build-source-tar.mjs) writes deterministic
   ustar archives (regular files only, fixed metadata, no host paths). The in-Dolly
@@ -77,6 +77,7 @@ compile the programs an image claims to build.
 | Make, Ninja | GNU Make 4.4.1 and Samurai 1.3 | Ninja runs one job |
 | Git, curl | Local Git 2.55 and HTTP clone/fetch/push over Fetch-backed libcurl ([HTTP](http.md)) | CORS applies; no sockets; clean/smudge filters unported |
 | Awk, zlib, gzip | One True Awk (Bison output prepared outside), zlib 1.3.2, Dolly `gzip` | |
+| less | less 692 over GNU termcap 1.3.1, from upstream's archives; the recipe states what `configure` would find | No later less: from 701 on it asks termcap for a key before `tgetent` when its output is not a terminal, which termcap 1.3.1 does not survive |
 | Zig, Ghostty | Zig 0.16 built from source by `cc`; source-built terminal ([display](display.md#zig-and-the-ghostty-build)) | Builder images only; Zig emits only C |
 
 Everything above Dolly's core (Python, JavaScript and Pi, Neovim, Rust, games) is

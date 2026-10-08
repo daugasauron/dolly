@@ -32,7 +32,8 @@ static void usage(FILE *stream) {
       "  -w, --write-out FORMAT  print response metadata\n"
       "  -v, --verbose           emit libcurl diagnostics\n"
       "Requests go through the browser: a URL needs CORS headers unless it is\n"
-      "this page's origin. The exit status is curl's: 7 the browser could not\n"
+      "this page's origin, and /vVERSION/FILE is a file of this page's site,\n"
+      "as recipes name them. The exit status is curl's: 7 the browser could not\n"
       "fetch, 9 refused by policy, 22 HTTP error with -f, 28 timed out.\n",
       stream);
 }

@@ -13,7 +13,7 @@
 import assert from "node:assert/strict";
 import { chromium, firefox } from "playwright-core";
 import { startBrowserServer } from "../test/browser-server.mjs";
-import { CANONICAL_ORIGIN } from "../src/static-asset.mjs";
+import { siteReference } from "../src/static-asset.mjs";
 
 const projectDir = new URL("..", import.meta.url).pathname;
 export const shellPrompt = /dolly:[^\n]*\$\s*$/;
@@ -125,12 +125,12 @@ export async function displayProbe(image, ...more) {
   const { DOLLY_IMAGES } = await import("../dist/dolly-images.mjs");
   const pin = name => {
     const { dollyfile, sha256 } = DOLLY_IMAGES.find(definition => definition.image === name);
-    return `${CANONICAL_ORIGIN}/${dollyfile} ${sha256}`;
+    return `${siteReference(dollyfile)} ${sha256}`;
   };
   // Host requirements are never inherited: restate the base's, plus the terminal's.
   const hosts = [...new Set([...DOLLY_IMAGES.find(definition => definition.image === image).hostRequirements,
     "display@0", "input@0", ...more])].sort();
-  const recipe = ["DOLLY 6", "APPLICATION display-probe", ...hosts.map(host => `REQUIRES HOST ${host}`), `FROM ${pin(image)}`,
+  const recipe = ["DOLLY 7", "APPLICATION display-probe", ...hosts.map(host => `REQUIRES HOST ${host}`), `FROM ${pin(image)}`,
     ...["/usr/lib/libdisplay.so", "/usr/share/fonts/IosevkaTerm-SemiBold.ttf"]
       .map(path => `COPY ${pin("ghostty-build")} ${path} ${path}`),
     "EXPORTS LIB display /usr/lib/libdisplay.so", "EXPORTS ENV DISPLAY /usr/lib/libdisplay.so",
@@ -145,12 +145,12 @@ export async function installProbe(...packages) {
   const { DOLLY_IMAGES } = await import("../dist/dolly-images.mjs");
   const pin = name => {
     const { dollyfile, sha256 } = DOLLY_IMAGES.find(definition => definition.image === name);
-    return `${CANONICAL_ORIGIN}/${dollyfile} ${sha256}`;
+    return `${siteReference(dollyfile)} ${sha256}`;
   };
   // system's modules and those the packages need: nothing is inherited.
   const hosts = [...new Set(["system", ...packages].flatMap(name =>
     DOLLY_IMAGES.find(definition => definition.image === name).hostRequirements))].sort();
-  const recipe = ["DOLLY 6", "APPLICATION install-probe", ...hosts.map(host => `REQUIRES HOST ${host}`), `FROM ${pin("system")}`,
+  const recipe = ["DOLLY 7", "APPLICATION install-probe", ...hosts.map(host => `REQUIRES HOST ${host}`), `FROM ${pin("system")}`,
     ...packages.map(name => `INSTALL ${pin(name)}`), "ENTRY /bin/foreground -i /bin/slop", ""].join("\n");
   return { path: "/custom/rebuild/",
     setup: page => page.addInitScript(recipe => sessionStorage.setItem("dolly-custom-source", recipe), recipe) };

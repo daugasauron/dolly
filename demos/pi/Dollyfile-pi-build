@@ -1,4 +1,4 @@
-DOLLY 6
+DOLLY 7
 TOOLCHAIN pi-build
 REQUIRES HOST runtime@0
 REQUIRES HOST display@0
@@ -7,7 +7,7 @@ REQUIRES HOST download@0
 REQUIRES HOST http@0
 REQUIRES HOST upload@0
 
-FROM https://daugasauron.com/demos/javascript/Dollyfile-typescript-build f00471839214ad451048c33d3157dd7e2dfbeae632961ee00bebf40c99c3f1b9
+FROM /v0.1.0/demos/javascript/Dollyfile-typescript-build b1bb89988dfdc3ef553147d913a254c07b86e93c6cd9962e2c288d0dbeca1d69
 # Pi 1.0.3 is compiled from its pinned upstream TypeScript workspace inside
 # Dolly. Only generated model data and the finite locked external dependency
 # graph come from the matching published packages.
@@ -27,13 +27,13 @@ REQUIRES TOOL   rm
 REQUIRES TOOL   tar
 REQUIRES TOOL   tsc
 
-SOURCE https://daugasauron.com/dist/static/default/pi-source.tar                        9be86247a96baa825cab90d521583ad04b25e8bbab6137d185ddcdc32a68a1ae /tmp/pi/pi-source.tar
-SOURCE https://daugasauron.com/dist/static/default/pi-generated-model-data.tar          b8355760645dad058413c2df0e724edb43e482d4fa6a0bc42d404880d62ce385 /tmp/pi/pi-generated-model-data.tar
-SOURCE https://daugasauron.com/dist/static/default/pi-runtime-packages.tar              493fdaaf40089049f3cb7bf2074640c3a6b19f43a6b0ca196ced161ad2c1c523 /tmp/pi/pi-runtime-packages.tar
-SOURCE https://daugasauron.com/dist/static/default/pi-tsconfig.dolly.json               5b810ca0942889c635e7675a2945578d6d02d1be6dba98bb860269882d2ea825 /tmp/pi/tsconfig.dolly.json
-SOURCE https://daugasauron.com/dist/static/default/pi-quickjs-compat.mjs                ee2f334201f4fbfea2d69a7969a4129be535cf252589aa9b5ecdd01b49e0dacb /tmp/pi/quickjs-compat.mjs
-SOURCE https://daugasauron.com/dist/static/default/pi-secret-input.patch              1d85ce2016b81125ee3c11f59eba32d9c2d2d767d23991c6d345cf1cc18bb504 /tmp/pi/secret-input.patch
-SOURCE https://daugasauron.com/dist/static/default/commands/pi.c                        2296ec09e6b95b0d0dd065f806138e48eaad855d77d6366adfdfc33d720da98e /tmp/pi/pi.c
+SOURCE /v0.1.0/dist/static/default/pi-source.tar                        9be86247a96baa825cab90d521583ad04b25e8bbab6137d185ddcdc32a68a1ae /tmp/pi/pi-source.tar
+SOURCE /v0.1.0/dist/static/default/pi-generated-model-data.tar          b8355760645dad058413c2df0e724edb43e482d4fa6a0bc42d404880d62ce385 /tmp/pi/pi-generated-model-data.tar
+SOURCE /v0.1.0/dist/static/default/pi-runtime-packages.tar              493fdaaf40089049f3cb7bf2074640c3a6b19f43a6b0ca196ced161ad2c1c523 /tmp/pi/pi-runtime-packages.tar
+SOURCE /v0.1.0/dist/static/default/pi-tsconfig.dolly.json               5b810ca0942889c635e7675a2945578d6d02d1be6dba98bb860269882d2ea825 /tmp/pi/tsconfig.dolly.json
+SOURCE /v0.1.0/dist/static/default/pi-quickjs-compat.mjs                ee2f334201f4fbfea2d69a7969a4129be535cf252589aa9b5ecdd01b49e0dacb /tmp/pi/quickjs-compat.mjs
+SOURCE /v0.1.0/dist/static/default/pi-secret-input.patch              1d85ce2016b81125ee3c11f59eba32d9c2d2d767d23991c6d345cf1cc18bb504 /tmp/pi/secret-input.patch
+SOURCE /v0.1.0/dist/static/default/commands/pi.c                        2296ec09e6b95b0d0dd065f806138e48eaad855d77d6366adfdfc33d720da98e /tmp/pi/pi.c
 
 SLOP tar \
   -xf /tmp/pi/pi-source.tar \

@@ -1,6 +1,6 @@
 import { inspectDollyfile, MAX_DOLLYFILE_BYTES } from "./dollyfile-view.mjs";
 import { DOLLY_IMAGES } from "../dist/dolly-images.mjs";
-import { CANONICAL_ORIGIN, publicURL } from "./static-asset.mjs";
+import { siteReference, publicURL } from "./static-asset.mjs";
 
 const form = document.querySelector("#custom-dollyfile");
 const source = document.querySelector("#source");
@@ -9,10 +9,10 @@ const fileInput = document.querySelector("#dollyfile-upload");
 const storageKey = "dolly-custom-source";
 const base = DOLLY_IMAGES.find(image => image.image === "system") ?? DOLLY_IMAGES[0];
 try {
-  source.value = sessionStorage.getItem(storageKey) ?? `DOLLY 6
+  source.value = sessionStorage.getItem(storageKey) ?? `DOLLY 7
 APPLICATION custom
 ${base.hostRequirements.map(requirement => `REQUIRES HOST ${requirement}\n`).join("")}
-FROM ${CANONICAL_ORIGIN}/${base.dollyfile} ${base.sha256}
+FROM ${siteReference(base.dollyfile)} ${base.sha256}
 
 FILE /usr/share/hello.txt
     Hello from your custom image. Try: cat /usr/share/hello.txt

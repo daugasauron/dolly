@@ -17,6 +17,8 @@
 {"name": "GNU Make", "use": "make", "licence": "GPL-3.0-or-later", "repository": "https://git.savannah.gnu.org/cgit/make.git", "pins": ["MAKE"], "sources": ["dist/static/default/make-4.4.1.tar"]},
 {"name": "samurai", "use": "Ninja-compatible build tool", "licence": "ISC AND Apache-2.0", "repository": "https://github.com/michaelforney/samurai", "pins": ["SAMURAI"], "sources": ["dist/static/default/samurai.tar"]},
 {"name": "Git", "use": "git", "licence": "GPL-2.0-only", "repository": "https://github.com/git/git", "pins": ["GIT"], "sources": ["dist/static/default/git.tar"]},
+{"name": "less", "use": "Pager", "licence": "GPL-3.0-or-later OR BSD-2-Clause", "repository": "https://github.com/gwsw/less", "pins": ["LESS"], "sources": ["dist/static/default/less-692.tar.gz"]},
+{"name": "GNU termcap", "use": "Terminal capability library in less", "licence": "GPL-2.0-or-later", "repository": "https://ftp.gnu.org/gnu/termcap/", "pins": ["TERMCAP"], "sources": ["dist/static/default/termcap-1.3.1.tar.gz"]},
 {"name": "curl", "use": "libcurl API headers over Dolly's fetch-backed libcurl", "licence": "curl", "repository": "https://github.com/curl/curl", "pins": ["CURL"], "sources": ["dist/static/default/curl-headers.tar"]},
 {"name": "zlib", "use": "Compression library", "licence": "Zlib", "repository": "https://github.com/madler/zlib", "pins": ["ZLIB"], "sources": ["dist/static/default/zlib.tar"]},
 {"name": "QuickJS-ng", "use": "JavaScript engine for Janis and Pi", "licence": "MIT", "repository": "https://github.com/quickjs-ng/quickjs", "pins": ["QUICKJS"], "sources": ["dist/static/default/quickjs.tar"]},

@@ -1,4 +1,4 @@
-DOLLY 6
+DOLLY 7
 PACKAGE rust
 REQUIRES HOST runtime@0
 REQUIRES HOST dso@0
@@ -6,12 +6,12 @@ REQUIRES HOST threads@0
 
 # The Rust SDK and Patti as rust-build holds them. The SDK's rustc finds its
 # sysroot beside itself, so /usr/bin/rustc starts it by its own path.
-COPY https://daugasauron.com/demos/rust/Dollyfile-rust-build 395772c3328df00491c72661dea806fe711e231633cad30331ef507a2e1eda49 /opt/rust-sdk /opt/rust-sdk
-COPY https://daugasauron.com/demos/rust/Dollyfile-rust-build 395772c3328df00491c72661dea806fe711e231633cad30331ef507a2e1eda49 /usr/bin/patti /usr/bin/patti
-COPY https://daugasauron.com/demos/rust/Dollyfile-rust-build 395772c3328df00491c72661dea806fe711e231633cad30331ef507a2e1eda49 /usr/share/licenses/rust /usr/share/licenses/rust
-COPY https://daugasauron.com/demos/rust/Dollyfile-rust-build 395772c3328df00491c72661dea806fe711e231633cad30331ef507a2e1eda49 /usr/share/licenses/patti /usr/share/licenses/patti
+COPY /v0.1.0/demos/rust/Dollyfile-rust-build d78df632a5ee59e3683be7967b4b9d9a7bb36aa7a12e7bb12206f38ae94bced2 /opt/rust-sdk /opt/rust-sdk
+COPY /v0.1.0/demos/rust/Dollyfile-rust-build d78df632a5ee59e3683be7967b4b9d9a7bb36aa7a12e7bb12206f38ae94bced2 /usr/bin/patti /usr/bin/patti
+COPY /v0.1.0/demos/rust/Dollyfile-rust-build d78df632a5ee59e3683be7967b4b9d9a7bb36aa7a12e7bb12206f38ae94bced2 /usr/share/licenses/rust /usr/share/licenses/rust
+COPY /v0.1.0/demos/rust/Dollyfile-rust-build d78df632a5ee59e3683be7967b4b9d9a7bb36aa7a12e7bb12206f38ae94bced2 /usr/share/licenses/patti /usr/share/licenses/patti
 # rustc links what it compiles with the C toolchain.
-INSTALL https://daugasauron.com/Dollyfile-cc b2212c85f454dd8901e984bfe21378aaa773f14858ea653e422a4f8dd5c2958a
+INSTALL /v0.1.0/Dollyfile-cc 9065e475e05854eaa4a2f6a4f21e2f431e9b2275b76bfea6c8c3c4bf78a63e36
 FILE /usr/bin/rustc
     #!/bin/slop
     /opt/rust-sdk/bin/rustc "$@"

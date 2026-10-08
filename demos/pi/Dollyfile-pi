@@ -1,4 +1,4 @@
-DOLLY 6
+DOLLY 7
 APPLICATION pi
 REQUIRES HOST runtime@0
 REQUIRES HOST display@0
@@ -10,13 +10,13 @@ REQUIRES HOST snapshot@0
 REQUIRES HOST threads@0
 REQUIRES HOST upload@0
 
-FROM https://daugasauron.com/demos/pi/Dollyfile-pi-runtime e107c4bf6a203022bc17a8380ba4f00940f94e02d2b98d9be2b72ce393a3eabf
+FROM /v0.1.0/demos/pi/Dollyfile-pi-runtime 41d41a01f8e9fd0f9749fea58f97681af006d2e1e8433f5999c189c2182c413d
 REQUIRES TOOL foreground
 REQUIRES TOOL test
 REQUIRES TOOL printf
 REQUIRES TOOL pi
 # The platform's documents, for the agent: /usr/share/doc/dolly.
-INSTALL https://daugasauron.com/Dollyfile-dolly-docs 8ca52d1c946d0c6011d4e4abfa2c1a9acf07313fd82fb136ee14b0a90129e4e6
+INSTALL /v0.1.0/Dollyfile-dolly-docs 40b1cdc700250b4cdba7dfb3e6d940a452ecd1c6321b225e1b8ccfc2fb9381d6
 
 FILE /etc/dolly/init.slop
     cd /workspace

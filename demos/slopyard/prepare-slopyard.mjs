@@ -3,15 +3,16 @@ import {execFileSync} from "node:child_process";
 import {readFile,writeFile} from "node:fs/promises";
 import {createHash} from "node:crypto";
 import {resolve} from "node:path";
+import {siteReference} from "../../src/static-asset.mjs";
 const root=resolve(import.meta.dirname, "../..");
 const output=process.argv[2]??resolve(root,"dist/static/slopyard/source.tar");
 execFileSync(process.execPath,[resolve(root,"scripts/build-source-tar.mjs"),output,
   "demos/slopyard/src","/usr/src/dolly/slopyard"],{cwd:root,stdio:"inherit"});
 const hash=bytes=>createHash("sha256").update(bytes).digest("hex");
-const pin=async path=>hash(await readFile(resolve(root,path)));
+const pin=async path=>`${siteReference(path)} ${hash(await readFile(resolve(root,path)))}`;
 // The Lua archive pin is refreshed by update-recipe-pins --sources.
 const luaPin=(/lua-5\.5\.1\.tar\.gz ([0-9a-f]{64})/.exec(await readFile(resolve(root,"demos/slopyard/Dollyfile-slopyard"),"utf8").catch(()=>""))??[,"0".repeat(64)])[1];
-await writeFile(resolve(root,"demos/slopyard/Dollyfile-slopyard"),`DOLLY 6
+await writeFile(resolve(root,"demos/slopyard/Dollyfile-slopyard"),`DOLLY 7
 APPLICATION slopyard
 REQUIRES HOST runtime@0
 REQUIRES HOST display@0
@@ -23,9 +24,9 @@ REQUIRES HOST snapshot@0
 REQUIRES HOST threads@0
 REQUIRES HOST upload@0
 
-FROM https://daugasauron.com/demos/slopyard/Dollyfile-gamedev-sdk ${await pin("demos/slopyard/Dollyfile-gamedev-sdk")}
-INSTALL https://daugasauron.com/demos/javascript/Dollyfile-javascript ${await pin("demos/javascript/Dollyfile-javascript")}
-INSTALL https://daugasauron.com/demos/pi/Dollyfile-pi-coding-agent ${await pin("demos/pi/Dollyfile-pi-coding-agent")}
+FROM ${await pin("demos/slopyard/Dollyfile-gamedev-sdk")}
+INSTALL ${await pin("demos/javascript/Dollyfile-javascript")}
+INSTALL ${await pin("demos/pi/Dollyfile-pi-coding-agent")}
 REQUIRES TOOL cc
 REQUIRES TOOL ar
 REQUIRES TOOL make
@@ -36,7 +37,7 @@ REQUIRES TOOL mkdir
 REQUIRES TOOL rm
 REQUIRES HEADER libc
 
-SOURCE https://daugasauron.com/dist/static/slopyard/lua-5.5.1.tar.gz ${luaPin} /tmp/lua55/source.tar.gz
+SOURCE ${siteReference("dist/static/slopyard/lua-5.5.1.tar.gz")} ${luaPin} /tmp/lua55/source.tar.gz
 SLOP gzip -dc /tmp/lua55/source.tar.gz > /tmp/lua55/source.tar
 SLOP tar -xf /tmp/lua55/source.tar -C /tmp/lua55
 FILE /tmp/lua55/Makefile
@@ -65,7 +66,7 @@ REQUIRES HEADER gpu
 REQUIRES HEADER quickjs
 REQUIRES HEADER quickjs-runner
 
-SOURCE https://daugasauron.com/dist/static/slopyard/source.tar ${hash(await readFile(output))} /tmp/slopyard.tar
+SOURCE ${siteReference("dist/static/slopyard/source.tar")} ${hash(await readFile(output))} /tmp/slopyard.tar
 SLOP tar -xf /tmp/slopyard.tar -C / && rm /tmp/slopyard.tar
 SLOP make -f /usr/src/dolly/slopyard/box3d.mk
 SLOP cc -std=c17 -O2 -pthread -U__SIZEOF_INT128__ -I/usr/include/lua5.5 /usr/src/dolly/slopyard/main.c /usr/src/dolly/slopyard/data.c /usr/src/dolly/slopyard/pi.c /usr/src/dolly/slopyard/character.c /usr/src/dolly/slopyard/render.c /usr/src/dolly/slopyard/world.c /usr/src/dolly/slopyard/terrain.c /usr/src/dolly/slopyard/magnet.c -ldolly-gpu -llua5.5 -ldolly-js -ldolly-raylib -lraylib -lslopyard-box3d -lm -o /usr/bin/slopyard

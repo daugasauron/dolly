@@ -1,5 +1,5 @@
 import { DOLLY_ERRNO } from "../../src/process-constants.mjs";
-import { CANONICAL_ORIGIN } from "../../src/static-asset.mjs";
+import { publicURL } from "../../src/static-asset.mjs";
 
 export class HttpError extends Error {
   constructor(errno, message) { super(message); this.errno = errno; }
@@ -117,8 +117,9 @@ function pathWithin(pathname, prefix) {
   return pathname === prefix || pathname.startsWith(prefix.endsWith("/") ? prefix : `${prefix}/`);
 }
 
-// Recipes name a published file by its canonical URL; the embedding fetches it
-// from its own release (applicationBase), the canonical origin's mirror.
+// Recipes name a published file by its site path, which the broker resolves
+// to the file's public URL; the embedding fetches the copy its own release
+// holds (applicationBase).
 function normalizeTrustedSource(source, applicationBase) {
   if (source === null || typeof source !== "object" ||
       typeof source.path !== "string" || !source.path.startsWith("/") ||
@@ -130,7 +131,7 @@ function normalizeTrustedSource(source, applicationBase) {
     throw new TypeError("invalid trusted Dolly bootstrap source URL");
   }
   return Object.freeze({
-    href: new URL(`${CANONICAL_ORIGIN}${source.path}`).href,
+    href: publicURL(source.path.slice(1), applicationBase).href,
     mirror: mirror.href,
     bootstrap: true,
     maxRequestBytes: 1,
@@ -204,8 +205,8 @@ export class DollyHttpPolicy {
       ? this.trustedSources.get(target.href)
       : undefined;
     if (rule) {
-      // Canonical recipe and source URLs are build inputs selected by the
-      // embedding page and fetched from its mirror, not capabilities granted
+      // The release's recipes and sources are build inputs selected by the
+      // embedding page and fetched from its own copy, not capabilities granted
       // by an untrusted Dollyfile. They are exact, read-only, credential-free
       // URLs with byte-for-byte response limits and their own quota, so a
       // large source graph cannot exhaust agent requests.

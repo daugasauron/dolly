@@ -1,10 +1,10 @@
 import { readFile } from "node:fs/promises";
 import { basename, resolve } from "node:path";
 import { escapeHtml } from "./render-dollyfile-view.mjs";
-import { CANONICAL_ORIGIN, canonicalPath } from "../src/static-asset.mjs";
+import { siteReference, sitePath } from "../src/static-asset.mjs";
 
 // config/upstreams.json names every upstream the catalog builds or bundles.
-// "sources" match recipe SOURCE URLs: paths on the canonical origin or full
+// "sources" match recipe SOURCE references: paths of the site or full
 // URLs, where "*" matches within a path segment and a trailing "/" matches a
 // tree. "pins" are config/source-pins.sh keys (DOLLY_GIT_URL and
 // DOLLY_GIT_COMMIT are GIT), which also name the seed's and host-built inputs.
@@ -21,12 +21,12 @@ export async function sourcePins(projectDir) {
 }
 
 function sourcePattern(entry) {
-  const url = /^https?:/.test(entry) ? entry : `${CANONICAL_ORIGIN}/${entry}`;
-  const pattern = url.replace(/[.+?^${}()|[\]\\]/g, "\\$&").replaceAll("*", "[^/]*");
-  return new RegExp(`^${pattern}${url.endsWith("/") ? "" : "$"}`);
+  const reference = /^https?:/.test(entry) ? entry : siteReference(entry);
+  const pattern = reference.replace(/[.+?^${}()|[\]\\]/g, "\\$&").replaceAll("*", "[^/]*");
+  return new RegExp(`^${pattern}${reference.endsWith("/") ? "" : "$"}`);
 }
 
-// The table's rows with the SOURCE URLs of DEFINITIONS that each one matches
+// The table's rows with the SOURCE references of DEFINITIONS that each one matches
 // and the images whose own recipe reads them. Every SOURCE needs a row.
 export async function upstreamRows(projectDir, definitions) {
   const rows = JSON.parse(await readFile(resolve(projectDir, "config/upstreams.json"), "utf8"))
@@ -72,7 +72,7 @@ export async function upstreamInventory(projectDir, definitions) {
     if (!row.locations.size && !row.seed) continue;
     const locations = [...row.locations];
     const served = [
-      ...locations.some(location => canonicalPath(location)) ? [row.prebuilt ? "prebuilt files" : "source"] : [],
+      ...locations.some(location => sitePath(location)) ? [row.prebuilt ? "prebuilt files" : "source"] : [],
       ...row.images.size ? ["images"] : [],
       ...row.seed ? ["runtime"] : [],
     ];
@@ -80,7 +80,7 @@ export async function upstreamInventory(projectDir, definitions) {
       images: [...row.images], served };
     if (row.npm) {
       for (const location of locations) {
-        for (const item of npmPackages(await readFile(resolve(projectDir, canonicalPath(location).slice(1))))) {
+        for (const item of npmPackages(await readFile(resolve(projectDir, sitePath(location).slice(1))))) {
           inventory.push({ ...entry, ...item });
         }
       }

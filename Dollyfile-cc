@@ -1,10 +1,10 @@
-DOLLY 6
+DOLLY 7
 PACKAGE cc
 REQUIRES HOST runtime@0
 
 # The C/C++ toolchain as system-build bootstraps it: the compiler and its
 # drivers, the C and C++ headers and libraries, the host clients and Make.
-FROM https://daugasauron.com/Dollyfile-system-build 072c1979af90daa285cbdd6982cf4efca6778ab6265897344ce5538b995c9817
+FROM /v0.1.0/Dollyfile-system-build 6e03b119cf1b52f9cff2725c844daaa45965436245921c6059f8d6a9181039da
 
 EXPORTS FILE   compiler      /usr/libexec/dolly/process-bin/compiler
 EXPORTS FOLDER process-sdk   /usr/lib/dolly/process

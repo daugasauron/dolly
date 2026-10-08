@@ -1,4 +1,4 @@
-import { canonicalPath } from "../src/static-asset.mjs";
+import { sitePath } from "../src/static-asset.mjs";
 import { recipeFileName } from "../src/dollyfile-view.mjs";
 
 export function escapeHtml(value) {
@@ -17,9 +17,9 @@ function moduleHref(current, target, fragment = "") {
   return current === target ? fragment || "./" : `../../view/${target.image}/${fragment}`;
 }
 
-// Canonical sources link to this release's copy, others to their origin.
+// Site paths link to this release's copy, URLs to their origin.
 function rawHref(record, location) {
-  const path = canonicalPath(location);
+  const path = sitePath(location);
   return path === null ? location : `../../${path.slice(1)}`;
 }
 
@@ -77,7 +77,7 @@ function renderSourceReference(record, row, prefix, spacing, rest) {
   const before = rest.slice(0, rest.indexOf(location));
   const after = rest.slice(rest.indexOf(location) + location.length);
   return `${escapeHtml(prefix)}<b>${row.directive}</b>${escapeHtml(spacing + before)}` +
-    `${link(location, rawHref(record, location), canonicalPath(location) === null ? "" : "source")}${escapeHtml(after)}`;
+    `${link(location, rawHref(record, location), sitePath(location) === null ? "" : "source")}${escapeHtml(after)}`;
 }
 
 function renderSlop(record, row, prefix, spacing, rest) {

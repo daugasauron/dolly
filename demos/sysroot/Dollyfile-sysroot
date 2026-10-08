@@ -1,4 +1,4 @@
-DOLLY 6
+DOLLY 7
 PACKAGE sysroot
 REQUIRES HOST runtime@0
 
@@ -6,7 +6,7 @@ REQUIRES HOST runtime@0
 # the standalone glue, the stubs) and Dolly's own parts of it, as the Emscripten
 # container builds them and the seed ships them, compiled by Dolly's cc from the
 # same sources (tasks/20260930-232236-llvm-in-dolly). Nothing links them.
-FROM https://daugasauron.com/Dollyfile-system-tools bd54fde46734089b841b63c7ea3a9c2edbdfc3a400c20c70615f68f7fa16b16f
+FROM /v0.1.0/Dollyfile-system-tools 76aa01b1bd157fbc79419fe1ac04527c99ef8779db56be35e5daa77c3a5419b0
 REQUIRES TOOL cc
 REQUIRES TOOL ar
 REQUIRES TOOL make
@@ -14,7 +14,7 @@ REQUIRES TOOL sed
 REQUIRES TOOL tar
 REQUIRES TOOL time
 
-SOURCE https://daugasauron.com/dist/static/sysroot/sources.tar 298d04ea5b9b0c57c97f6563fe065a6c78541d16d287f7d82e1adfc2edb3db39 /tmp/sysroot.tar
+SOURCE /v0.1.0/dist/static/sysroot/sources.tar 298d04ea5b9b0c57c97f6563fe065a6c78541d16d287f7d82e1adfc2edb3db39 /tmp/sysroot.tar
 SLOP tar -xf /tmp/sysroot.tar -C /
 
 # units.mk names each archive's sources (tools/system_libs.py at the pin); the

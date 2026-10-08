@@ -1,4 +1,4 @@
-DOLLY 6
+DOLLY 7
 TOOLCHAIN neovim-build
 REQUIRES HOST runtime@0
 REQUIRES HOST display@0
@@ -9,7 +9,7 @@ REQUIRES HOST http@0
 REQUIRES HOST upload@0
 
 # Reusable Neovim build artifacts.
-FROM https://daugasauron.com/demos/cmake/Dollyfile-cmake-build 3b293c0d485d4b87a9e86610780328d6d9ffcb9b250bd3b035e9ce5f2808f6a3
+FROM /v0.1.0/demos/cmake/Dollyfile-cmake-build 6f9f033fb9a69d09198466f00f84c8dcde1cda88b506fac297640626995e4921
 # Neovim supports PUC Lua 5.1. Build the upstream interpreter and C library;
 # -rdynamic lets source-built Lua C modules share that interpreter's API.
 REQUIRES HEADER libc
@@ -23,7 +23,7 @@ REQUIRES TOOL cp
 REQUIRES TOOL rm
 REQUIRES TOOL sed
 
-SOURCE https://daugasauron.com/dist/static/neovim/lua-5.1.5.tar.gz 2640fc56a795f29d28ef15e13c34a47e223960b0240e8cb0a82d9b0738695333 /tmp/lua/source.tar.gz
+SOURCE /v0.1.0/dist/static/neovim/lua-5.1.5.tar.gz 2640fc56a795f29d28ef15e13c34a47e223960b0240e8cb0a82d9b0738695333 /tmp/lua/source.tar.gz
 SLOP gzip -dc /tmp/lua/source.tar.gz > /tmp/lua/source.tar
 SLOP tar -xf /tmp/lua/source.tar -C /tmp/lua
 SLOP sed 's@"/usr/local/"@"/usr/"@' /tmp/lua/lua-5.1.5/src/luaconf.h > /tmp/lua/luaconf.h
@@ -58,7 +58,7 @@ SLOP rm -rf /tmp/lua
 REQUIRES HEADER lua
 REQUIRES TOOL lua
 
-SOURCE https://daugasauron.com/dist/static/neovim/lpeg.tar e8a9fd286cf0ba6b9eff1ac12680eca887e409236b34a556a5cf6e55957f83f6 /tmp/lpeg/source.tar
+SOURCE /v0.1.0/dist/static/neovim/lpeg.tar e8a9fd286cf0ba6b9eff1ac12680eca887e409236b34a556a5cf6e55957f83f6 /tmp/lpeg/source.tar
 SLOP tar -xf /tmp/lpeg/source.tar -C /
 SLOP make -C /tmp/lpeg/source CC=cc LUADIR=/usr/include/lua5.1 \
   COPT=-O0 DLLFLAGS=-shared lpeg.so
@@ -80,7 +80,7 @@ REQUIRES LIB uv
 REQUIRES LIB lua
 REQUIRES TOOL cmake
 
-SOURCE https://daugasauron.com/dist/static/neovim/luv.tar 576f4f861cabfd1d7313d56124e1473f724f3da09060df4dc93d59936d3b4004 /tmp/luv/source.tar
+SOURCE /v0.1.0/dist/static/neovim/luv.tar 576f4f861cabfd1d7313d56124e1473f724f3da09060df4dc93d59936d3b4004 /tmp/luv/source.tar
 SLOP tar -xf /tmp/luv/source.tar -C /
 SLOP cmake -S /tmp/luv/source -B /tmp/luv/build \
   -DCMAKE_INSTALL_PREFIX=/usr -DCMAKE_C_FLAGS=-O0 \
@@ -111,7 +111,7 @@ FILE /usr/share/licenses/lua-compat53/LICENSE
 SLOP rm -rf /tmp/luv
 REQUIRES TOOL uname
 
-SOURCE https://daugasauron.com/dist/static/neovim/utf8proc.tar c9fdc1bf18b4d5ceb006b2847f6ead4642bfd82a7f102652cac4c13105b0e12a /tmp/utf8proc/source.tar
+SOURCE /v0.1.0/dist/static/neovim/utf8proc.tar c9fdc1bf18b4d5ceb006b2847f6ead4642bfd82a7f102652cac4c13105b0e12a /tmp/utf8proc/source.tar
 SLOP tar -xf /tmp/utf8proc/source.tar -C /
 SLOP make -C /tmp/utf8proc/source CC=cc CFLAGS=-O0 libutf8proc.a
 SLOP cp /tmp/utf8proc/source/libutf8proc.a /usr/lib/libutf8proc.a
@@ -136,7 +136,7 @@ EXPORTS HEADER utf8proc /usr/include/utf8proc.h
 EXPORTS LIB utf8proc /usr/lib/libutf8proc.a
 FILE /usr/share/licenses/utf8proc/LICENSE
 SLOP rm -rf /tmp/utf8proc
-SOURCE https://daugasauron.com/dist/static/neovim/treesitter.tar c31944873f3cd13235f2e9148b474f329b6bf183823baea50eacdb125fc46f9c /tmp/treesitter/source.tar
+SOURCE /v0.1.0/dist/static/neovim/treesitter.tar c31944873f3cd13235f2e9148b474f329b6bf183823baea50eacdb125fc46f9c /tmp/treesitter/source.tar
 SLOP tar -xf /tmp/treesitter/source.tar -C /
 SLOP make -C /tmp/treesitter/source CC=cc CFLAGS=-O0 libtree-sitter.a
 SLOP cp /tmp/treesitter/source/libtree-sitter.a /usr/lib/libtree-sitter.a
@@ -175,7 +175,7 @@ REQUIRES TOOL sh
 REQUIRES TOOL sleep
 REQUIRES TOOL timeout
 
-SOURCE https://daugasauron.com/dist/static/neovim/neovim.tar.gz 037fc672b70c6bc962e9ecf08b847f5d4f4d2e526678c00dd8382aa156db3c82 /tmp/neovim/source.tar.gz
+SOURCE /v0.1.0/dist/static/neovim/neovim.tar.gz 037fc672b70c6bc962e9ecf08b847f5d4f4d2e526678c00dd8382aa156db3c82 /tmp/neovim/source.tar.gz
 SLOP gzip -dc /tmp/neovim/source.tar.gz | tar -xf - -C /
 SLOP cmake -S /tmp/neovim/source -B /tmp/neovim/build \
   -DCMAKE_INSTALL_PREFIX=/usr -DCMAKE_INSTALL_LIBDIR=lib \
@@ -219,7 +219,7 @@ SLOP rm -rf /tmp/neovim
 REQUIRES TOOL nvim
 
 # Neovim's pinned grammars and its own CMake build recipes, all built in Dolly.
-SOURCE https://daugasauron.com/dist/static/neovim/parsers.tar 18656076f67f0cb39a68cbe1c6f628c35faf23e2ec207f914e97874a9cf323f7 /tmp/neovim-parsers/source.tar
+SOURCE /v0.1.0/dist/static/neovim/parsers.tar 18656076f67f0cb39a68cbe1c6f628c35faf23e2ec207f914e97874a9cf323f7 /tmp/neovim-parsers/source.tar
 SLOP tar -xf /tmp/neovim-parsers/source.tar -C /
 FILE /tmp/neovim-parsers/build.slop
     set -ex

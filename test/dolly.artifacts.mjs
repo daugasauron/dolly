@@ -23,6 +23,7 @@ import {
   inspectStaticSources,
 } from "../scripts/image-definitions.mjs";
 import { loadDollyfileGraph, recipeRecords } from "../scripts/dollyfile-graph.mjs";
+import { siteReference, sitePath } from "../src/static-asset.mjs";
 
 const artifact = (name) => new URL(`../dist/${name}`, import.meta.url);
 const contractArtifact = file => artifact(`${basename(file, ".wat")}.wasm`);
@@ -229,6 +230,7 @@ test("system snapshots are sealed to their visible recipe chain", async () => {
     ["ghostty-build", "/usr/bin/zig"],
     ["git", "/usr/bin/git"],
     ["gzip", "/bin/gzip"],
+    ["less", "/usr/bin/less"],
     ["gpu-sdk", "/usr/lib/dolly/process/libdolly-gpu.a"],
     ["posix", "/bin/grep"],
     ["system", "/usr/lib/libdisplay.so"],
@@ -264,14 +266,14 @@ test("system snapshots are sealed to their visible recipe chain", async () => {
     const toolchain = ["/usr/libexec/dolly/process-bin/compiler", "/usr/lib/dolly/process/libc-ww.a",
       "/usr/lib/clang/24/include/stddef.h", "/usr/lib/dolly/dolly-kernel-plugin-0.wasm"];
     const base = graph.root.role === "package" || graph.root.from === null ? undefined : definitions.find(
-      definition => definition.filename === new URL(graph.root.from.location).pathname.slice(1)).image;
+      definition => definition.filename === sitePath(graph.root.from.location).slice(1)).image;
     const inherited = base === undefined ? [] : (await import(
       artifact(`dolly-${base}-system-snapshot.mjs`))).DOLLY_SYSTEM_SNAPSHOT.manifest;
     // A package it installs brings that package's files: rust installs cc, cargo installs rust.
     const installed = (await Promise.all(definitions.find(definition => definition.image === image).source.split("\n")
       .map(line => /^INSTALL (\S+)/.exec(line)?.[1]).filter(Boolean)
-      .map(async url => (await import(artifact(`dolly-${definitions.find(
-        definition => definition.filename === new URL(url).pathname.slice(1)).image}-system-snapshot.mjs`)))
+      .map(async recipe => (await import(artifact(`dolly-${definitions.find(
+        definition => definition.filename === sitePath(recipe).slice(1)).image}-system-snapshot.mjs`)))
         .DOLLY_SYSTEM_SNAPSHOT.manifest))).flat();
     const declared = { amy: ["/bin/dollyfile"], cc: toolchain, core: ["/bin/foreground"] }[image] ?? [];
     for (const path of ["/bin/dollyfile", "/bin/foreground", ...toolchain]) {
@@ -342,7 +344,7 @@ test("registry, routes, and source viewer derive from Dollyfiles", async () => {
   // The package index names every package of the registry by its pinned recipe, then describes it.
   const index = (await readFile(new URL("../amy-index.txt", import.meta.url), "utf8")).trimEnd().split("\n").filter(Boolean);
   assert.deepEqual(index.map(row => row.split(" ").slice(0, 3).join(" ")), DOLLY_IMAGES.filter(({ role }) => role === "package")
-    .map(({ image, dollyfile, sha256 }) => `${image} https://daugasauron.com/${dollyfile} ${sha256}`));
+    .map(({ image, dollyfile, sha256 }) => `${image} ${siteReference(dollyfile)} ${sha256}`));
   assert.ok(index.every(row => row.split(" ").length > 3), "a package without a description");
 });
 

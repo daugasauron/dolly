@@ -28,7 +28,7 @@ export async function loadRecipeGraph(read, rootLocation, recipes = new Map()) {
     if (active.has(location)) throw new Error(`${location}: recipe cycle`);
     const parsed = await parse(location);
     if (expected && parsed.sha256 !== expected) throw new Error(`${location}: stale recipe pin`);
-    // An uploaded root is labeled "Dollyfile"; every URL names its recipe's file.
+    // An uploaded root is labeled "Dollyfile"; every site path names its recipe's file.
     const file = recipeFileName(location);
     if (file !== "" && imageFileName(file) !== parsed.name) {
       throw new Error(`${location}: ${parsed.role.toUpperCase()} ${parsed.name} must match its file name`);

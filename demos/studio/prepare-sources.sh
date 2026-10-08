@@ -9,6 +9,7 @@ if has_image dollyfile-studio; then
     host/requirements.mjs /usr/share/dollyfile-studio/host/requirements.mjs \
     host/abi.mjs /usr/share/dollyfile-studio/host/abi.mjs \
     src/static-asset.mjs /usr/share/dollyfile-studio/src/static-asset.mjs \
+    src/version.mjs /usr/share/dollyfile-studio/src/version.mjs \
     src/snapshot-records.mjs /usr/share/dollyfile-studio/src/snapshot-records.mjs \
     docs/dollyfile.md /usr/share/dollyfile-studio/dollyfile.md \
     docs/image-build-service.md /usr/share/dollyfile-studio/build-service.md \
