@@ -1,0 +1,49 @@
+DOLLY 7
+TOOLCHAIN wine-build
+REQUIRES HOST runtime@0
+REQUIRES HOST display@0
+REQUIRES HOST download@0
+REQUIRES HOST http@0
+REQUIRES HOST input@0
+REQUIRES HOST sockets@0
+REQUIRES HOST threads@0
+REQUIRES HOST upload@0
+
+FROM /v0.1.0/Dollyfile-system-tools f99e72a38ac306ca9c2b0a9788648c1295251fa3eeedbcf872a75b0962bacf7b
+# FreeType (with its libpng) for gdi32's fonts, as 0 A.D. built them.
+COPY /v0.1.0/demos/zero-ad/Dollyfile-zero-ad-deps a440863df049b80a7d7a0211998c59eec454461fe9513e0297e7237f3bf74f57 /usr/include/freetype2 /usr/include/freetype2
+COPY /v0.1.0/demos/zero-ad/Dollyfile-zero-ad-deps a440863df049b80a7d7a0211998c59eec454461fe9513e0297e7237f3bf74f57 /usr/lib/libfreetype.a /usr/lib/libfreetype.a
+COPY /v0.1.0/demos/zero-ad/Dollyfile-zero-ad-deps a440863df049b80a7d7a0211998c59eec454461fe9513e0297e7237f3bf74f57 /usr/lib/libpng16.a /usr/lib/libpng16.a
+COPY /v0.1.0/demos/zero-ad/Dollyfile-zero-ad-deps a440863df049b80a7d7a0211998c59eec454461fe9513e0297e7237f3bf74f57 /usr/share/licenses/freetype /usr/share/licenses/freetype
+COPY /v0.1.0/demos/zero-ad/Dollyfile-zero-ad-deps a440863df049b80a7d7a0211998c59eec454461fe9513e0297e7237f3bf74f57 /usr/share/licenses/libpng /usr/share/licenses/libpng
+REQUIRES HEADER zlib
+REQUIRES LIB z
+REQUIRES TOOL ar
+REQUIRES TOOL awk
+REQUIRES TOOL cc
+REQUIRES TOOL cmp
+REQUIRES TOOL grep
+REQUIRES TOOL gzip
+REQUIRES TOOL make
+REQUIRES TOOL sed
+REQUIRES TOOL sort
+REQUIRES TOOL tar
+
+SOURCE /v0.1.0/dist/static/wine/source.tar.gz 7ef7d902a67fdb43113415d8c522f091aa7d308bfe9e0f4a602ac13d699b3d13 /tmp/wine-source.tar.gz
+SLOP gzip -dc /tmp/wine-source.tar.gz | tar -xf - -C /
+# TinyCC's win64 binaries, unmodified: x86-64 code for x86emu, which builds the Start menu's x86-64 sample with them.
+SOURCE /v0.1.0/dist/static/wine/tinycc.tar.gz 20709ea054c77d290a1837699bd8993dfbe84f97b5900002057a50dfd002fe4a /tmp/tinycc.tar.gz
+SLOP gzip -dc /tmp/tinycc.tar.gz | tar -xf - -C /
+# Tools, generated headers, every module and wineserver, linked into /usr/bin/wine; Wine's fonts.
+SLOP make -j4 -f /usr/src/dolly/wine/Makefile
+
+EXPORTS TOOL wine
+EXPORTS FOLDER wine-data /usr/share/wine
+EXPORTS FOLDER wine-source /usr/src/wine
+EXPORTS FOLDER wine-port /usr/src/dolly/wine
+FILE /usr/share/licenses/wine/COPYING.LIB
+FILE /usr/share/licenses/wine/LICENSE
+FILE /usr/share/licenses/wine/AUTHORS
+FILE /usr/share/licenses/tinycc/COPYING
+
+ENTRY /bin/foreground -i /bin/slop

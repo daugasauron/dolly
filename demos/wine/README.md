@@ -1,0 +1,203 @@
+# Wine
+
+Wine 4.0.4 brought up inside Dolly as a feasibility study: Wine's own
+programs and DLLs, compiled from Wine's source for wasm64 by Dolly's `cc`
+and linked with `wineserver` into one executable. It boots into a desktop
+with a taskbar and a Start menu; Notepad, WineMine and ReactOS's Paint open
+side by side on the Dolly display and take the mouse and the keyboard.
+The task, with every measurement, is
+`tasks/20261008-145108-wine-bringup/TASK.md`.
+
+**Windows binaries run only under an interpreter.** A `.exe` from anywhere
+else is x86 machine code and Dolly has no x86. Wine's programs here are
+what this image compiled (`desktop`, `notepad`, `winemine`, `mspaint`,
+`hello`); `x86emu` interprets small x86-64 programs against these DLLs
+(below). 32-bit programs do not run.
+
+## Images
+
+- `wine-build`: the build. Wine's `widl`, `wrc`, `wmc` and `winebuild`,
+  then 15 DLLs (`ntdll`, `kernel32`, `advapi32`, `gdi32`, `user32`,
+  `version`, `usp10`, `imm32`, `comctl32`, `comdlg32`, `shell32`, `shlwapi`,
+  `uxtheme`, `winspool.drv`, `msvcrt`), the display driver `winedolly.drv`,
+  the programs and `wineserver`, linked as `/usr/bin/wine` on
+  `system-tools` with the FreeType that `zero-ad-deps` built. Wine's source
+  as built stays under `/usr/src/wine`, the port under `/usr/src/dolly/wine`.
+  The build ends by running TinyCC's x86-64 compiler under `x86emu` to make
+  the Start menu's x86-64 sample.
+- `wine`: `/wine/` starts the desktop (`wine desktop`); Shut Down in its
+  Start menu leaves a shell, where `wine hello`, `wine notepad`,
+  `wine x86emu` and `wine desktop` run.
+
+Build with `DOLLY_BUILD_IMAGES=wine-build,wine npm run image` (both images
+in about 150 s); test with `npm run test:demos -- wine`.
+
+## Paint
+
+Wine has no Paint. `programs/mspaint` builds ReactOS's, from the 0.3.17
+release (the last line in which it is plain C; LGPL), unchanged: 45 files
+fetched at a pinned commit and checked against `mspaint.sha256`. It is a
+program for the Windows headers, not part of Wine, so it is compiled without
+`__WINESRC__`. Of ReactOS's SDK it wants `<tchar.h>` and two resource
+includes; ours are in `programs/mspaint/` (`tchar.h` maps its seven wide
+string functions to libwine's and makes its literals 16-bit, since `cc` has
+no `-fshort-wchar`). Its help file and version resource are not built.
+
+File > Open and Save work in Paint and Notepad through comdlg32's older
+dialog (the Windows 3.1 one): the Explorer-style dialog needs ole32 and the
+shell's folder views, so on Dolly `GetOpenFileName` and `GetSaveFileName`
+always take the older one, without the caller's Explorer template and hook
+(Notepad's encoding choice is not offered) and with a single selection.
+
+## x86-64 programs
+
+`programs/x86emu` is an x86-64 interpreter linked into `wine` like any
+program. It loads a PE32+ image into the process's own memory (at its base
+when that lies in the 64 MiB left free below Wine's data, else relocated),
+interprets its code, and binds what it imports to the functions of the
+wasm64 DLLs above: `winebuild` records each export's WebAssembly type, and a
+call out of the guest takes its arguments from the Win64 registers and stack
+and is made with that type. An x86 DLL beside the program is loaded the same
+way. Wine cannot call a guest address, so where the guest hands Wine a
+function, Wine gets one of x86emu's that runs it: window procedures of
+registered classes, `qsort`'s comparison, the C runtime's initializer and
+exit tables.
+
+What ships to run under it is TinyCC 0.9.27's win64 binary release,
+unmodified (`/usr/share/wine/x86/tcc`, pinned by checksum; `tcc.exe` and
+`libtcc.dll` are x86-64 code its maintainers built with mingw-w64 GCC), and
+`hello_win.exe`, which that compiler built from its own example while the
+image was made. The Start menu lists the `.exe` files of
+`/usr/share/wine/x86`. In the shell:
+
+    wine x86emu 'Z:\usr\share\wine\x86\tcc\tcc.exe' -o 'C:\fib.exe' 'Z:\usr\share\wine\x86\tcc\examples\fib.c'
+    wine x86emu 'C:\fib.exe' 24
+
+Measured in Chrome: about 85 million instructions a second (`wine x86emu
+--bench`); compiling `hello_win.c` with its `windows.h` is 50.6 million
+instructions.
+
+It is an interpreter for small programs, not a Windows machine:
+
+- integer instructions and the SSE moves; no x87 or SSE arithmetic, so no
+  floating point. An instruction it lacks ends the program with its bytes
+  named;
+- one thread; no exceptions (a guest's filters, function tables and
+  math-error handler are not registered), no TLS callbacks;
+- any callback other than those above is a guest address handed to
+  WebAssembly: it traps, which ends the desktop too. `SetWindowLongPtr`
+  subclassing, dialogs, timers with a procedure and `CreateThread` are in
+  that class;
+- an import this Wine lacks is reported when it is called;
+- one x86-64 program at a time, like every program here;
+- 32-bit x86 is refused. Its pointers are half the size of this Wine's, so
+  every structure and message crossing between guest and DLL would need
+  converting; the task file has the assessment.
+
+## The desktop
+
+`programs/desktop` is ours, not Wine's `explorer.exe` (which wants shell32,
+ole32 and a process per program): a taskbar window with a Start button, a
+button per top-level window and a clock, drawn with user32 and gdi32. Moving,
+resizing, minimizing and closing windows is Wine's own non-client code; the
+driver brings a clicked window to the front and gives it the foreground, as
+a window manager would, and a minimized window is hidden until its button is
+clicked (`ARW_HIDE`, added to user32).
+
+**Programs are threads.** With one process, the Start menu starts a program
+linked into this Wine as a thread of the desktop's process
+(`port/kernel32-program.c`): for that thread `GetModuleHandle(NULL)`, the
+resources, `GetCommandLine` and the arguments of `main` are the program's,
+and `ExitProcess` ends the thread. Before each start the program's static
+data is put back as it was linked, and the window classes of its last run
+are unregistered. What this is not:
+
+- a crash (a trap) in one program ends all of them and the desktop;
+- a program runs once at a time (its static data exists once);
+- threads a program creates see the desktop as their process, and they, its
+  handles and its heap blocks are not released when it exits;
+- `exit()` or `TerminateProcess` on itself ends everything;
+- programs cannot start each other: `CreateProcess` still fails.
+
+## How it is put together
+
+Dolly gives a program threads and local sockets, but no `fork`, no second
+process it could hand a descriptor to, no `dlopen` in a threaded program,
+no `mmap` at a chosen address and no assembler. So:
+
+- **One process.** Every module is linked statically into `wine`, each with
+  the image `winebuild` wrote for it. Wine 4.0's loader already accepts
+  modules that register themselves from a constructor; `port/libwine.c`
+  replaces only its `dlopen` half.
+- **`wineserver` is a thread** (`port/main.c`). Its `main` is unchanged and
+  is reached over its Unix socket as always. It keeps a working directory of
+  its own (`port/server-cwd.c`), and a descriptor "sent" either way is a
+  `dup` whose number travels in the message.
+- **`winebuild` writes C** (`winebuild-dolly.c`, a `wasm64` target): the PE
+  headers, export directory, resources and import list of a module as one
+  initialized object. A wasm function pointer carries its exact type and a
+  spec file names no return types, so the types of the exports are read
+  from the wasm objects. An export's RVA names a slot that holds the
+  pointer, since a wasm function has no address in memory.
+- **One namespace.** 85 names are defined by more than one module
+  (`shared-names.txt`: `DllGetVersion`, `StrChrW`, the controls comctl32
+  copies from user32, …); each such module is compiled with its own prefix
+  for them. A call to an export under a name no object defines goes to the
+  first module, in link order, that exports it.
+- **Modules left out** (ole32, rpcrt4, setupapi, …, mostly delay-loaded):
+  the 95 functions the linked modules call in them are stubs that raise
+  Wine's own "unimplemented function" exception, generated at link time.
+- **Display and input** (`dlls/winedolly.drv`): each top-level window draws
+  into a surface through Wine's DIB engine; one thread composes them in Z
+  order over the desktop colour, presents the frame and queues Dolly's input
+  records as hardware messages. The key a browser reports as typed is what
+  `ToUnicodeEx` answers, so the user's layout applies.
+- **The desktop** is the ownerless window the server makes when there is no
+  `explorer.exe` (`port/user32-desktop.c` names the driver for it).
+
+`wine-dolly.patch` (32 files, about 365 added lines) holds the changes to
+Wine itself: the `wasm64` CPU in widl, winebuild, the headers and the server
+protocol; ntdll's server connection, loader slots and virtual memory; where
+libwine finds its directories; and the two calls through a mismatched
+function type found so far (thread start, timer procedures).
+
+Host preparation (`prepare-wine.sh`) applies the patch and generates the
+seven Bison and flex parser files, as the core does for awk; nothing is
+compiled outside Dolly.
+
+## What does not work, and how it fails
+
+- **Another process**: `CreateProcess` fails, so no `wineboot` (the registry
+  starts empty; Wine reports that it could not start it), no
+  `explorer.exe`, no second program in the same desktop.
+- **Windows binaries**: Wine's loader refuses a PE file with code
+  (`STATUS_INVALID_IMAGE_FORMAT`); only `x86emu` loads one, within the
+  limits above.
+- **Memory**: no allocation at a chosen address
+  (`STATUS_CONFLICTING_ADDRESSES`), no write watches and no writable shared
+  file mapping (`STATUS_NOT_SUPPORTED`); a file view is a private copy;
+  decommitted pages are cleared but stay; page protection, guard pages and
+  stack overflow detection do not exist in WebAssembly.
+- **Threads**: thread contexts, `SuspendThread` and `TerminateThread` on
+  another thread are refused (`STATUS_NOT_SUPPORTED`): a WebAssembly thread
+  has no registers to read and no signal reaches one thread.
+- **Exceptions** are those a program raises; a fault ends the process.
+- **Function pointer casts** that x86 tolerates trap in WebAssembly
+  ("function signature mismatch"). Timers were one; more will be found by
+  use, each needs a patch.
+- **Not built**: bitmap fonts (`.fon`), translations, registration scripts
+  and type libraries; clipboard, printing, sound, networking, OpenGL.
+- **ole32** is not linked, so anything that reaches into it (drag and drop,
+  the Explorer-style file dialog, which is replaced as described above) ends
+  with Wine's "unimplemented function" exception; in a program started from
+  the desktop that ends the desktop too.
+
+## Licences
+
+Wine is LGPL-2.1-or-later (`/usr/share/licenses/wine`); the port files that
+replace or extend Wine files carry the same licence, the rest are MIT.
+FreeType (under its GPL option) and libpng are linked in. The source as
+built ships in `wine-build`. TinyCC is LGPL (`/usr/share/licenses/tinycc`);
+its binaries are its maintainers', and its source release is served in the
+same archive (`dist/static/wine/tinycc.tar.gz`, `/usr/src/tinycc` in
+`wine-build`).

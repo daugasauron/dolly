@@ -1,0 +1,1025 @@
+--- a/dlls/comdlg32/filedlg.c
++++ b/dlls/comdlg32/filedlg.c
+@@ -4168,6 +4168,59 @@
+ 
+ /* ------------------ APIs ---------------------- */
+ 
++#ifdef __dolly__
++/* The Explorer-style dialog is built on ole32 and the shell's folder views,
++ * which this Wine does not link: every file dialog is comdlg32's older one,
++ * without the caller's Explorer template and hook, and with one selection. */
++static const DWORD explorer_flags = OFN_EXPLORER | OFN_ENABLEHOOK | OFN_ENABLETEMPLATE |
++                                    OFN_ENABLETEMPLATEHANDLE | OFN_ALLOWMULTISELECT;
++
++static BOOL dolly_file_dialog_W( OPENFILENAMEW *ofn, UINT type )
++{
++    OPENFILENAMEW copy;
++    BOOL ret;
++
++    if (is_win16_looks( ofn->Flags )) return GetFileName31W( ofn, type );
++    memset( &copy, 0, sizeof(copy) );
++    memcpy( &copy, ofn, min( ofn->lStructSize, sizeof(copy) ) );
++    copy.Flags &= ~explorer_flags;
++    ret = GetFileName31W( &copy, type );
++    /* that dialog takes the title from its list, which a typed name is not in */
++    if (ret && ofn->lpstrFile && ofn->lpstrFileTitle && ofn->nMaxFileTitle)
++    {
++        const WCHAR *name = strrchrW( ofn->lpstrFile, '\\' );
++        lstrcpynW( ofn->lpstrFileTitle, name ? name + 1 : ofn->lpstrFile, ofn->nMaxFileTitle );
++    }
++    ofn->nFileOffset = copy.nFileOffset;
++    ofn->nFileExtension = copy.nFileExtension;
++    ofn->nFilterIndex = copy.nFilterIndex;
++    ofn->Flags = copy.Flags | (ofn->Flags & explorer_flags);
++    return ret;
++}
++
++static BOOL dolly_file_dialog_A( OPENFILENAMEA *ofn, UINT type )
++{
++    OPENFILENAMEA copy;
++    BOOL ret;
++
++    if (is_win16_looks( ofn->Flags )) return GetFileName31A( ofn, type );
++    memset( &copy, 0, sizeof(copy) );
++    memcpy( &copy, ofn, min( ofn->lStructSize, sizeof(copy) ) );
++    copy.Flags &= ~explorer_flags;
++    ret = GetFileName31A( &copy, type );
++    if (ret && ofn->lpstrFile && ofn->lpstrFileTitle && ofn->nMaxFileTitle)
++    {
++        const char *name = strrchr( ofn->lpstrFile, '\\' );
++        lstrcpynA( ofn->lpstrFileTitle, name ? name + 1 : ofn->lpstrFile, ofn->nMaxFileTitle );
++    }
++    ofn->nFileOffset = copy.nFileOffset;
++    ofn->nFileExtension = copy.nFileExtension;
++    ofn->nFilterIndex = copy.nFilterIndex;
++    ofn->Flags = copy.Flags | (ofn->Flags & explorer_flags);
++    return ret;
++}
++#endif
++
+ /***********************************************************************
+  *            GetOpenFileNameA  (COMDLG32.@)
+  *
+@@ -4192,6 +4245,9 @@
+     if (ofn->Flags & OFN_FILEMUSTEXIST)
+         ofn->Flags |= OFN_PATHMUSTEXIST;
+ 
++#ifdef __dolly__
++    return dolly_file_dialog_A( ofn, OPEN_DIALOG );
++#endif
+     if (is_win16_looks(ofn->Flags))
+         return GetFileName31A(ofn, OPEN_DIALOG);
+     else
+@@ -4227,6 +4283,9 @@
+     if (ofn->Flags & OFN_FILEMUSTEXIST)
+         ofn->Flags |= OFN_PATHMUSTEXIST;
+ 
++#ifdef __dolly__
++    return dolly_file_dialog_W( ofn, OPEN_DIALOG );
++#endif
+     if (is_win16_looks(ofn->Flags))
+         return GetFileName31W(ofn, OPEN_DIALOG);
+     else
+@@ -4257,6 +4316,9 @@
+         return FALSE;
+     }
+ 
++#ifdef __dolly__
++    return dolly_file_dialog_A( ofn, SAVE_DIALOG );
++#endif
+     if (is_win16_looks(ofn->Flags))
+         return GetFileName31A(ofn, SAVE_DIALOG);
+     else
+@@ -4287,6 +4349,9 @@
+         return FALSE;
+     }
+ 
++#ifdef __dolly__
++    return dolly_file_dialog_W( ofn, SAVE_DIALOG );
++#endif
+     if (is_win16_looks(ofn->Flags))
+         return GetFileName31W(ofn, SAVE_DIALOG);
+     else
+--- a/dlls/kernel32/cpu.c
++++ b/dlls/kernel32/cpu.c
+@@ -46,7 +46,12 @@
+ 
+ WINE_DEFAULT_DEBUG_CHANNEL(reg);
+ 
++#ifdef __dolly__  /* the page is where ntdll could allocate it, not at the address Windows has it */
++extern KSHARED_USER_DATA *user_shared_data;
++#define SHARED_DATA     user_shared_data
++#else
+ #define SHARED_DATA     ((KSHARED_USER_DATA*)0x7ffe0000)
++#endif
+ 
+ /****************************************************************************
+  *		QueryPerformanceCounter (KERNEL32.@)
+--- a/dlls/kernel32/environ.c
++++ b/dlls/kernel32/environ.c
+@@ -68,10 +68,18 @@
+  *
+  * References: MS KB article q102762.txt (special Win32s handling)
+  */
++#ifdef __dolly__  /* a program started inside the desktop has a command line of its own (kernel32-program.c) */
++extern char *wine_dolly_program_cmdlineA(void);
++extern WCHAR *wine_dolly_program_cmdlineW(void);
++#endif
++
+ LPSTR WINAPI GetCommandLineA(void)
+ {
+     static char *cmdlineA;  /* ASCII command line */
+     
++#ifdef __dolly__
++    if (wine_dolly_program_cmdlineA()) return wine_dolly_program_cmdlineA();
++#endif
+     if (!cmdlineA) /* make an ansi version if we don't have it */
+     {
+         ANSI_STRING     ansi;
+@@ -89,6 +97,9 @@
+  */
+ LPWSTR WINAPI GetCommandLineW(void)
+ {
++#ifdef __dolly__
++    if (wine_dolly_program_cmdlineW()) return wine_dolly_program_cmdlineW();
++#endif
+     return NtCurrentTeb()->Peb->ProcessParameters->CommandLine.Buffer;
+ }
+ 
+--- a/dlls/kernel32/module.c
++++ b/dlls/kernel32/module.c
+@@ -42,6 +42,13 @@
+ #include "wine/exception.h"
+ #include "wine/list.h"
+ #include "wine/debug.h"
++
++#ifdef __dolly__  /* a program started inside the desktop is a thread with a module of its own (kernel32-program.c) */
++extern HMODULE wine_dolly_program_module(void);
++#define main_module() wine_dolly_program_module()
++#else
++#define main_module() NtCurrentTeb()->Peb->ImageBaseAddress
++#endif
+ #include "wine/unicode.h"
+ 
+ WINE_DEFAULT_DEBUG_CHANNEL(module);
+@@ -438,7 +445,7 @@
+ 
+     if (!name)
+     {
+-        ret = NtCurrentTeb()->Peb->ImageBaseAddress;
++        ret = main_module();
+     }
+     else if (flags & GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS)
+     {
+@@ -566,7 +573,7 @@
+ 
+     LdrLockLoaderLock( 0, NULL, &magic );
+ 
+-    if (!hModule) hModule = NtCurrentTeb()->Peb->ImageBaseAddress;
++    if (!hModule) hModule = main_module();
+     nts = LdrFindEntryForAddress( hModule, &pldr );
+     if (nts == STATUS_SUCCESS)
+     {
+@@ -1152,7 +1159,7 @@
+     NTSTATUS    nts;
+     FARPROC     fp;
+ 
+-    if (!hModule) hModule = NtCurrentTeb()->Peb->ImageBaseAddress;
++    if (!hModule) hModule = main_module();
+ 
+     if ((ULONG_PTR)function >> 16)
+     {
+--- a/dlls/kernel32/process.c
++++ b/dlls/kernel32/process.c
+@@ -111,7 +111,7 @@
+                           '\\','s','y','s','t','e','m','3','2',
+                           '\\','w','i','n','e','v','d','m','.','e','x','e',0};
+ 
+-static const char * const cpu_names[] = { "x86", "x86_64", "PowerPC", "ARM", "ARM64" };
++static const char * const cpu_names[] = { "x86", "x86_64", "PowerPC", "ARM", "ARM64", "wasm64" };
+ 
+ static void exec_process( LPCWSTR name );
+ 
+@@ -3134,6 +3134,10 @@
+ 
+ void WINAPI ExitProcess( DWORD status )
+ {
++#ifdef __dolly__  /* a program started inside the desktop is one of its threads: its exit ends that thread */
++    extern char *wine_dolly_program_cmdlineA(void);
++    if (wine_dolly_program_cmdlineA()) ExitThread( status );
++#endif
+     RtlExitUserProcess( status );
+ }
+ 
+--- a/dlls/ntdll/loader.c
++++ b/dlls/ntdll/loader.c
+@@ -589,6 +589,9 @@
+     if (((const char *)proc >= (const char *)exports) && 
+         ((const char *)proc < (const char *)exports + exp_size))
+         return find_forwarded_export( module, (const char *)proc, load_path );
++#ifdef __wasm64__  /* a function has no address in the image: the RVA names a slot holding it */
++    proc = *(FARPROC *)proc;
++#endif
+ 
+     if (TRACE_ON(snoop))
+     {
+@@ -668,7 +671,11 @@
+     else
+         import_list = thunk_list;
+ 
++#ifndef __wasm64__  /* a module linked into the program imports no address, but still needs its modules loaded */
+     if (!import_list->u1.Ordinal)
++#else
++    if (0)
++#endif
+     {
+         WARN( "Skipping unused import %s\n", name );
+         *pwm = NULL;
+@@ -1088,6 +1095,9 @@
+             wm->ldr.Flags |= LDR_IMAGE_IS_DLL;
+         if (nt->OptionalHeader.AddressOfEntryPoint)
+             wm->ldr.EntryPoint = (char *)hModule + nt->OptionalHeader.AddressOfEntryPoint;
++#ifdef __wasm64__  /* a function has no address in the image: the RVA names a slot holding it */
++        if (wm->ldr.EntryPoint) wm->ldr.EntryPoint = *(void **)wm->ldr.EntryPoint;
++#endif
+     }
+ 
+     InsertTailList(&NtCurrentTeb()->Peb->LdrData->InLoadOrderModuleList,
+@@ -1980,6 +1990,8 @@
+ #elif defined(_WIN64)  /* support 32-bit IL-only images on 64-bit */
+ #ifdef __x86_64__
+     if (info->machine == IMAGE_FILE_MACHINE_AMD64) return TRUE;
++#elif defined(__wasm64__)
++    return !info->contains_code;  /* no PE file holds code for WebAssembly */
+ #else
+     if (info->machine == IMAGE_FILE_MACHINE_ARM64) return TRUE;
+ #endif
+--- a/dlls/ntdll/nt.c
++++ b/dlls/ntdll/nt.c
+@@ -1299,6 +1299,14 @@
+     info->Architecture = PROCESSOR_ARCHITECTURE_ARM64;
+ }
+ 
++#elif defined(__wasm64__)
++
++/* WebAssembly is no architecture Windows has a name for, and reports no features. */
++static inline void get_cpuinfo(SYSTEM_CPU_INFORMATION* info)
++{
++    info->Architecture = PROCESSOR_ARCHITECTURE_UNKNOWN;
++}
++
+ #endif /* End architecture specific feature detection for CPUs */
+ 
+ /******************************************************************
+--- a/dlls/ntdll/process.c
++++ b/dlls/ntdll/process.c
+@@ -60,11 +60,11 @@
+ 
+ static const BOOL is_win64 = (sizeof(void *) > sizeof(int));
+ 
+-static const char * const cpu_names[] = { "x86", "x86_64", "PowerPC", "ARM", "ARM64" };
++static const char * const cpu_names[] = { "x86", "x86_64", "PowerPC", "ARM", "ARM64", "wasm64" };
+ 
+ static inline BOOL is_64bit_arch( cpu_type_t cpu )
+ {
+-    return (cpu == CPU_x86_64 || cpu == CPU_ARM64);
++    return (cpu == CPU_x86_64 || cpu == CPU_ARM64 || cpu == CPU_WASM64);
+ }
+ 
+ /*
+--- a/dlls/ntdll/server.c
++++ b/dlls/ntdll/server.c
+@@ -92,6 +92,10 @@
+ #ifndef MSG_CMSG_CLOEXEC
+ #define MSG_CMSG_CLOEXEC 0
+ #endif
++#ifdef __dolly__  /* no descriptor arrives with a message, so there is none to flag */
++#undef MSG_CMSG_CLOEXEC
++#define MSG_CMSG_CLOEXEC 0
++#endif
+ 
+ #define SOCKETNAME "socket"        /* name of the socket file */
+ #define LOCKNAME   "lock"          /* name of the lock file */
+@@ -106,6 +110,8 @@
+ static const enum cpu_type client_cpu = CPU_ARM;
+ #elif defined(__aarch64__)
+ static const enum cpu_type client_cpu = CPU_ARM64;
++#elif defined(__wasm64__)
++static const enum cpu_type client_cpu = CPU_WASM64;
+ #else
+ #error Unsupported CPU
+ #endif
+@@ -118,6 +124,9 @@
+ sigset_t server_block_set;  /* signals to block during server calls */
+ static int fd_socket = -1;  /* socket to exchange file descriptors with the server */
+ static pid_t server_pid;
++#ifdef __dolly__
++extern void wine_dolly_start_server( int debug );
++#endif
+ 
+ static RTL_CRITICAL_SECTION fd_cache_section;
+ static RTL_CRITICAL_SECTION_DEBUG critsect_debug =
+@@ -733,10 +742,19 @@
+ 
+     data.tid = GetCurrentThreadId();
+     data.fd  = fd;
++#ifdef __dolly__
++    /* The server is a thread of this process: no descriptor travels, it is
++     * given the number of a copy made for it. */
++    struct { struct send_fd data; int copy; } dolly_fd = { data, dup( fd ) };
++    msghdr.msg_control    = NULL;
++    msghdr.msg_controllen = 0;
++    vec.iov_base = (void *)&dolly_fd;
++    vec.iov_len  = sizeof(dolly_fd);
++#endif
+ 
+     for (;;)
+     {
+-        if ((ret = sendmsg( fd_socket, &msghdr, 0 )) == sizeof(data)) return;
++        if ((ret = sendmsg( fd_socket, &msghdr, 0 )) == vec.iov_len) return;
+         if (ret >= 0) server_protocol_error( "partial write %d\n", ret );
+         if (errno == EINTR) continue;
+         if (errno == EPIPE) abort_thread(0);
+@@ -772,11 +790,21 @@
+     msghdr.msg_iovlen  = 1;
+     vec.iov_base = (void *)handle;
+     vec.iov_len  = sizeof(*handle);
++#ifdef __dolly__
++    /* The server sends the number of the copy it made for us. */
++    struct { obj_handle_t handle; int fd; } dolly_fd;
++    vec.iov_base = (void *)&dolly_fd;
++    vec.iov_len  = sizeof(dolly_fd);
++#endif
+ 
+     for (;;)
+     {
+         if ((ret = recvmsg( fd_socket, &msghdr, MSG_CMSG_CLOEXEC )) > 0)
+         {
++#ifdef __dolly__
++            *handle = dolly_fd.handle;
++            fd = dolly_fd.fd;
++#endif
+ #ifndef HAVE_STRUCT_MSGHDR_MSG_ACCRIGHTS
+             struct cmsghdr *cmsg;
+             for (cmsg = CMSG_FIRSTHDR( &msghdr ); cmsg; cmsg = CMSG_NXTHDR( &msghdr, cmsg ))
+@@ -1097,6 +1125,10 @@
+     static char wineserver[] = "server/wineserver";
+     static char debug[] = "-d";
+ 
++#ifdef __dolly__  /* no fork: the server is a thread of this program */
++    if (!started) wine_dolly_start_server( TRACE_ON(server) );
++    started = TRUE;
++#endif
+     if (!started)
+     {
+         int status;
+@@ -1232,7 +1264,9 @@
+     /* make sure we are at the right place */
+     if (stat( ".", &st ) == -1) fatal_perror( "stat %s", serverdir );
+     if (st.st_uid != getuid()) fatal_error( "'%s' is not owned by you\n", serverdir );
++#ifndef __dolly__  /* one user, no permission bits */
+     if (st.st_mode & 077) fatal_error( "'%s' must not be accessible by other users\n", serverdir );
++#endif
+ 
+     for (retry = 0; retry < 6; retry++)
+     {
+@@ -1434,6 +1468,9 @@
+     PEB *peb = NtCurrentTeb()->Peb;
+     IMAGE_NT_HEADERS *nt = RtlImageNtHeader( peb->ImageBaseAddress );
+     void *entry = (char *)peb->ImageBaseAddress + nt->OptionalHeader.AddressOfEntryPoint;
++#ifdef __wasm64__  /* the RVA names a slot holding the function */
++    entry = *(void **)entry;
++#endif
+     NTSTATUS status;
+     int suspend;
+ 
+@@ -1475,7 +1512,7 @@
+  */
+ size_t server_init_thread( void *entry_point, BOOL *suspend )
+ {
+-    static const char *cpu_names[] = { "x86", "x86_64", "PowerPC", "ARM", "ARM64" };
++    static const char *cpu_names[] = { "x86", "x86_64", "PowerPC", "ARM", "ARM64", "wasm64" };
+     static const BOOL is_win64 = (sizeof(void *) > sizeof(int));
+     const char *arch = getenv( "WINEARCH" );
+     int ret;
+--- a/dlls/ntdll/thread.c
++++ b/dlls/ntdll/thread.c
+@@ -287,6 +287,9 @@
+     /* reserve space for shared user data */
+ 
+     addr = (void *)0x7ffe0000;
++#ifdef __dolly__  /* no mapping at a chosen address */
++    addr = NULL;
++#endif
+     size = 0x10000;
+     status = NtAllocateVirtualMemory( NtCurrentProcess(), &addr, 0, &size,
+                                       MEM_RESERVE|MEM_COMMIT, PAGE_READWRITE );
+@@ -536,6 +539,15 @@
+ }
+ 
+ 
++#ifdef __wasm64__
++static void *start_thread_entry( void *info )
++{
++    start_thread( info );
++    return NULL;
++}
++#endif
++
++
+ /***********************************************************************
+  *              RtlCreateUserThread   (NTDLL.@)
+  */
+@@ -664,7 +676,11 @@
+                          (char *)teb->Tib.StackBase + extra_stack - (char *)teb->DeallocationStack );
+     pthread_attr_setscope( &attr, PTHREAD_SCOPE_SYSTEM ); /* force creating a kernel thread */
+     interlocked_xchg_add( &nb_threads, 1 );
++#ifdef __wasm64__  /* a WebAssembly function is called by its exact type */
++    if (pthread_create( &pthread_id, &attr, start_thread_entry, info ))
++#else
+     if (pthread_create( &pthread_id, &attr, (void * (*)(void *))start_thread, info ))
++#endif
+     {
+         interlocked_xchg_add( &nb_threads, -1 );
+         pthread_attr_destroy( &attr );
+--- a/dlls/ntdll/virtual.c
++++ b/dlls/ntdll/virtual.c
+@@ -1101,6 +1101,12 @@
+         size_t view_size = size + mask + 1;
+         struct alloc_area alloc;
+ 
++#ifdef __dolly__
++        /* A mapping cannot be trimmed or placed; it starts on a page, which is the granularity. */
++        if (mask > page_mask) return STATUS_NOT_SUPPORTED;
++        view_size = size;
++#endif
++
+         alloc.size = size;
+         alloc.mask = mask;
+         alloc.top_down = top_down;
+@@ -1171,6 +1177,9 @@
+             break;
+         case ENOEXEC:
+         case ENODEV:  /* filesystem doesn't support mmap(), fall back to read() */
++#ifdef __dolly__
++        case ENOTSUP:  /* no mapping at a chosen address either */
++#endif
+             if (vprot & VPROT_WRITE)
+             {
+                 ERR( "shared writable mmap not supported, broken filesystem?\n" );
+@@ -1192,7 +1201,11 @@
+     }
+ 
+     /* Reserve the memory with an anonymous mmap */
++#ifdef __dolly__  /* the view's own pages take the copy */
++    ptr = (char *)view->base + start;
++#else
+     ptr = wine_anon_mmap( (char *)view->base + start, size, PROT_READ | PROT_WRITE, MAP_FIXED );
++#endif
+     if (ptr == (void *)-1) return FILE_GetNtStatus();
+     /* Now read in the file */
+     pread( fd, ptr, size, offset );
+@@ -1250,6 +1263,13 @@
+  */
+ static NTSTATUS decommit_pages( struct file_view *view, size_t start, size_t size )
+ {
++#ifdef __dolly__
++    /* Pages cannot be given back or made inaccessible. They are cleared,
++     * which is how the next commit must find them. */
++    memset( (char *)view->base + start, 0, size );
++    set_page_vprot_bits( (char *)view->base + start, size, 0, VPROT_COMMITTED );
++    return STATUS_SUCCESS;
++#endif
+     if (wine_anon_mmap( (char *)view->base + start, size, PROT_NONE, MAP_FIXED ) != (void *)-1)
+     {
+         set_page_vprot_bits( (char *)view->base + start, size, 0, VPROT_COMMITTED );
+@@ -2535,6 +2555,9 @@
+         WARN("called with wrong alloc type flags (%08x) !\n", type);
+         return STATUS_INVALID_PARAMETER;
+     }
++#ifdef __dolly__  /* a write watch is a page fault, and WebAssembly has none */
++    if (type & MEM_WRITE_WATCH) return STATUS_NOT_SUPPORTED;
++#endif
+ 
+     /* Reserve the memory */
+ 
+--- a/dlls/user32/class.c
++++ b/dlls/user32/class.c
+@@ -775,6 +775,31 @@
+ }
+ 
+ 
++#ifdef __dolly__
++/***********************************************************************
++ *		wine_dolly_free_program_classes
++ *
++ * Unregister the classes of a program that ended. The programs of the
++ * desktop are threads of one process (kernel32-program.c), so the process
++ * exit that frees a program's classes never comes.
++ */
++void wine_dolly_free_program_classes( HINSTANCE module )
++{
++    for (;;)
++    {
++        CLASS *class;
++        ATOM atom = 0;
++
++        USER_Lock();
++        LIST_FOR_EACH_ENTRY( class, &class_list, CLASS, entry )
++            if (class->hInstance == module) { atom = class->atomName; break; }
++        USER_Unlock();
++        if (!atom || !UnregisterClassW( (LPCWSTR)MAKEINTATOM(atom), module )) break;
++    }
++}
++#endif
++
++
+ /***********************************************************************
+  *		UnregisterClassA (USER32.@)
+  */
+--- a/dlls/user32/message.c
++++ b/dlls/user32/message.c
+@@ -3965,8 +3965,15 @@
+         {
+             __TRY
+             {
++#ifdef __wasm64__  /* WebAssembly calls a function by its exact type, and a TIMERPROC is no WNDPROC */
++                WNDPROC proc = WINPROC_GetProc( (WNDPROC)msg->lParam, TRUE );
++                if (proc == (WNDPROC)msg->lParam) proc = WINPROC_GetProc( proc, FALSE );
++                ((TIMERPROC)proc)( msg->hwnd, msg->message, msg->wParam, GetTickCount() );
++                retval = 0;
++#else
+                 retval = CallWindowProcA( (WNDPROC)msg->lParam, msg->hwnd,
+                                           msg->message, msg->wParam, GetTickCount() );
++#endif
+             }
+             __EXCEPT_ALL
+             {
+@@ -4036,8 +4043,15 @@
+         {
+             __TRY
+             {
++#ifdef __wasm64__  /* WebAssembly calls a function by its exact type, and a TIMERPROC is no WNDPROC */
++                WNDPROC proc = WINPROC_GetProc( (WNDPROC)msg->lParam, TRUE );
++                if (proc == (WNDPROC)msg->lParam) proc = WINPROC_GetProc( proc, FALSE );
++                ((TIMERPROC)proc)( msg->hwnd, msg->message, msg->wParam, GetTickCount() );
++                retval = 0;
++#else
+                 retval = CallWindowProcW( (WNDPROC)msg->lParam, msg->hwnd,
+                                           msg->message, msg->wParam, GetTickCount() );
++#endif
+             }
+             __EXCEPT_ALL
+             {
+--- a/dlls/user32/win.c
++++ b/dlls/user32/win.c
+@@ -2064,6 +2064,10 @@
+ /**********************************************************************
+  *		GetDesktopWindow (USER32.@)
+  */
++#ifdef __dolly__
++extern void wine_dolly_init_desktop( HWND hwnd );
++#endif
++
+ HWND WINAPI GetDesktopWindow(void)
+ {
+     struct user_thread_info *thread_info = get_user_thread_info();
+@@ -2124,15 +2128,21 @@
+         strcatW( cmdline, args );
+ 
+         Wow64DisableWow64FsRedirection( &redir );
++#ifdef __dolly__  /* no second process can be the desktop's: the server's ownerless one is used */
++        if (0)
++#else
+         if (CreateProcessW( app, cmdline, NULL, NULL, FALSE, DETACHED_PROCESS,
+                             NULL, windir, &si, &pi ))
++#endif
+         {
+             TRACE( "started explorer pid %04x tid %04x\n", pi.dwProcessId, pi.dwThreadId );
+             WaitForInputIdle( pi.hProcess, 10000 );
+             CloseHandle( pi.hThread );
+             CloseHandle( pi.hProcess );
+         }
++#ifndef __dolly__
+         else WARN( "failed to start explorer, err %d\n", GetLastError() );
++#endif
+         Wow64RevertWow64FsRedirection( redir );
+ 
+         SERVER_START_REQ( get_desktop_window )
+@@ -2145,6 +2155,9 @@
+             }
+         }
+         SERVER_END_REQ;
++#ifdef __dolly__  /* name the graphics driver, as explorer would (user32-desktop.c) */
++        if (thread_info->top_window) wine_dolly_init_desktop( thread_info->top_window );
++#endif
+     }
+ 
+     if (!thread_info->top_window || !USER_Driver->pCreateDesktopWindow( thread_info->top_window ))
+--- a/dlls/user32/winpos.c
++++ b/dlls/user32/winpos.c
+@@ -870,6 +870,12 @@
+     SystemParametersInfoW( SPI_GETMINIMIZEDMETRICS, sizeof(metrics), &metrics, 0 );
+ 
+     parent = GetAncestor( hwnd, GA_PARENT );
++    /* a shell with a taskbar asks for minimized windows to be hidden, as on Windows */
++    if ((metrics.iArrange & ARW_HIDE) && parent == GetDesktopWindow())
++    {
++        pt.x = pt.y = -32000;
++        return pt;
++    }
+     if (parent == GetDesktopWindow())
+     {
+         MONITORINFO mon_info;
+--- a/include/basetsd.h
++++ b/include/basetsd.h
+@@ -36,7 +36,7 @@
+  * 64-bit.
+  */
+ 
+-#if (defined(__x86_64__) || defined(__powerpc64__) || defined(__aarch64__)) && !defined(_WIN64)
++#if (defined(__x86_64__) || defined(__powerpc64__) || defined(__aarch64__) || defined(__wasm64__)) && !defined(_WIN64)
+ #define _WIN64
+ #endif
+ 
+@@ -309,6 +309,10 @@
+ # undef  WORDS_BIGENDIAN
+ # undef  BITFIELDS_BIGENDIAN
+ # undef  ALLOW_UNALIGNED_ACCESS
++#elif defined(__wasm64__)
++# undef  WORDS_BIGENDIAN
++# undef  BITFIELDS_BIGENDIAN
++# undef  ALLOW_UNALIGNED_ACCESS
+ #elif !defined(RC_INVOKED) && !defined(__WIDL__) && !defined(__midl)
+ # error Unknown CPU architecture!
+ #endif
+--- a/include/msvcrt/crtdefs.h
++++ b/include/msvcrt/crtdefs.h
+@@ -29,7 +29,7 @@
+ # error You cannot use both wine/port.h and msvcrt headers
+ #endif
+ 
+-#if (defined(__x86_64__) || defined(__powerpc64__) || defined(__aarch64__)) && !defined(_WIN64)
++#if (defined(__x86_64__) || defined(__powerpc64__) || defined(__aarch64__) || defined(__wasm64__)) && !defined(_WIN64)
+ #define _WIN64
+ #endif
+ 
+--- a/include/windef.h
++++ b/include/windef.h
+@@ -37,7 +37,7 @@
+ 
+ /* Calling conventions definitions */
+ 
+-#if (defined(__x86_64__) || defined(__powerpc64__) || defined(__aarch64__)) && !defined(_WIN64)
++#if (defined(__x86_64__) || defined(__powerpc64__) || defined(__aarch64__) || defined(__wasm64__)) && !defined(_WIN64)
+ #define _WIN64
+ #endif
+ 
+--- a/include/wine/port.h
++++ b/include/wine/port.h
+@@ -57,7 +57,7 @@
+  */
+ 
+ #if !defined(_MSC_VER) && !defined(__int64)
+-#  if defined(__x86_64__) || defined(__aarch64__) || defined(_WIN64)
++#  if defined(__x86_64__) || defined(__aarch64__) || defined(__wasm64__) || defined(_WIN64)
+ #    define __int64 long
+ #  else
+ #    define __int64 long long
+@@ -502,7 +502,7 @@
+ extern void *interlocked_xchg_ptr( void **dest, void *val );
+ #endif
+ 
+-#if defined(__x86_64__) || defined(__aarch64__) || defined(_WIN64)
++#if defined(__x86_64__) || defined(__aarch64__) || defined(__wasm64__) || defined(_WIN64)
+ extern unsigned char interlocked_cmpxchg128( __int64 *dest, __int64 xchg_high,
+                                              __int64 xchg_low, __int64 *compare );
+ #endif
+--- a/include/wine/server_protocol.h
++++ b/include/wine/server_protocol.h
+@@ -117,7 +117,7 @@
+ 
+ enum cpu_type
+ {
+-    CPU_x86, CPU_x86_64, CPU_POWERPC, CPU_ARM, CPU_ARM64
++    CPU_x86, CPU_x86_64, CPU_POWERPC, CPU_ARM, CPU_ARM64, CPU_WASM64
+ };
+ typedef int cpu_type_t;
+ 
+--- a/include/winnt.h
++++ b/include/winnt.h
+@@ -2118,6 +2118,33 @@
+ 
+ #endif  /* __powerpc__ */
+ 
++#ifdef __wasm64__
++
++/* A WebAssembly thread has no registers a program can read or set: its
++ * frames live on a stack outside its memory. Only the stack pointer of the
++ * part kept in linear memory can be named. */
++#define CONTEXT_WASM64          0x800000
++#define CONTEXT_CONTROL         (CONTEXT_WASM64 | 0x00000001)
++#define CONTEXT_INTEGER         (CONTEXT_WASM64 | 0x00000002)
++#define CONTEXT_FLOATING_POINT  (CONTEXT_WASM64 | 0x00000004)
++#define CONTEXT_DEBUG_REGISTERS (CONTEXT_WASM64 | 0x00000008)
++
++#define CONTEXT_FULL (CONTEXT_CONTROL | CONTEXT_INTEGER)
++#define CONTEXT_ALL  (CONTEXT_CONTROL | CONTEXT_INTEGER | CONTEXT_FLOATING_POINT | CONTEXT_DEBUG_REGISTERS)
++
++#define EXCEPTION_READ_FAULT    0
++#define EXCEPTION_WRITE_FAULT   1
++#define EXCEPTION_EXECUTE_FAULT 8
++
++typedef struct _CONTEXT
++{
++    DWORD   ContextFlags;
++    DWORD64 Sp;
++    DWORD64 Pc;
++} CONTEXT;
++
++#endif /* __wasm64__ */
++
+ #if !defined(CONTEXT_FULL) && !defined(RC_INVOKED)
+ #error You need to define a CONTEXT for your CPU
+ #endif
+--- a/libs/wine/config.c
++++ b/libs/wine/config.c
+@@ -54,7 +54,7 @@
+ static void fatal_perror( const char *err, ... )  __attribute__((noreturn,format(printf,1,2)));
+ #endif
+ 
+-#if defined(__linux__) || defined(__FreeBSD_kernel__ )
++#if defined(__linux__) || defined(__FreeBSD_kernel__ ) || defined(__dolly__)  /* Dolly answers this one /proc path */
+ static const char exe_link[] = "/proc/self/exe";
+ #elif defined (__FreeBSD__) || defined(__DragonFly__)
+ static const char exe_link[] = "/proc/curproc/file";
+@@ -339,7 +339,11 @@
+ static int is_valid_bindir( const char *bindir )
+ {
+     struct stat st;
++#ifdef __dolly__  /* the server is part of the wine program */
++    char *path = build_path( bindir, "wine" );
++#else
+     char *path = build_path( bindir, "wineserver" );
++#endif
+     int ret = (stat( path, &st ) != -1);
+     free( path );
+     return ret;
+--- a/server/process.h
++++ b/server/process.h
+@@ -108,7 +108,7 @@
+ };
+ 
+ #define CPU_FLAG(cpu) (1 << (cpu))
+-#define CPU_64BIT_MASK (CPU_FLAG(CPU_x86_64) | CPU_FLAG(CPU_ARM64))
++#define CPU_64BIT_MASK (CPU_FLAG(CPU_x86_64) | CPU_FLAG(CPU_ARM64) | CPU_FLAG(CPU_WASM64))
+ 
+ /* process functions */
+ 
+--- a/server/protocol.def
++++ b/server/protocol.def
+@@ -133,7 +133,7 @@
+ /* supported CPU types */
+ enum cpu_type
+ {
+-    CPU_x86, CPU_x86_64, CPU_POWERPC, CPU_ARM, CPU_ARM64
++    CPU_x86, CPU_x86_64, CPU_POWERPC, CPU_ARM, CPU_ARM64, CPU_WASM64
+ };
+ typedef int cpu_type_t;
+ 
+--- a/server/ptrace.c
++++ b/server/ptrace.c
+@@ -238,6 +238,11 @@
+ {
+     int ret = -1;
+ 
++#ifdef __dolly__  /* every client thread is in this process, the server too, and no signal reaches one thread */
++    errno = ENOTSUP;
++    return -1;
++#endif
++
+     if (thread->unix_pid != -1)
+     {
+         if (thread->unix_tid != -1)
+--- a/server/request.c
++++ b/server/request.c
+@@ -401,8 +401,22 @@
+     msghdr.msg_iovlen  = 1;
+     vec.iov_base = (void *)&data;
+     vec.iov_len  = sizeof(data);
++#ifdef __dolly__
++    /* The client is this process: it sends the number of a copy made for us. */
++    struct { struct send_fd data; int copy; } dolly_fd;
++    vec.iov_base = (void *)&dolly_fd;
++    vec.iov_len  = sizeof(dolly_fd);
++#endif
+ 
+     ret = recvmsg( get_unix_fd( process->msg_fd ), &msghdr, 0 );
++#ifdef __dolly__
++    if (ret == sizeof(dolly_fd))
++    {
++        data = dolly_fd.data;
++        fd = dolly_fd.copy;
++        ret = sizeof(data);
++    }
++#endif
+ 
+ #ifndef HAVE_STRUCT_MSGHDR_MSG_ACCRIGHTS
+     if (ret > 0)
+@@ -495,13 +509,24 @@
+ 
+     vec.iov_base = (void *)&handle;
+     vec.iov_len  = sizeof(handle);
++#ifdef __dolly__
++    /* The client is this process: it is sent the number of its copy. */
++    struct { obj_handle_t handle; int fd; } dolly_fd = { handle, dup( fd ) };
++    msghdr.msg_control    = NULL;
++    msghdr.msg_controllen = 0;
++    vec.iov_base = (void *)&dolly_fd;
++    vec.iov_len  = sizeof(dolly_fd);
++#endif
+ 
+     if (debug_level)
+         fprintf( stderr, "%04x: *fd* %04x -> %d\n", current ? current->id : process->id, handle, fd );
+ 
+     ret = sendmsg( get_unix_fd( process->msg_fd ), &msghdr, 0 );
+ 
+-    if (ret == sizeof(handle)) return 0;
++    if (ret == vec.iov_len) return 0;
++#ifdef __dolly__
++    close( dolly_fd.fd );
++#endif
+ 
+     if (ret >= 0)
+     {
+@@ -606,7 +631,9 @@
+     }
+     if (!S_ISDIR(st->st_mode)) fatal_error( "%s is not a directory\n", name );
+     if (st->st_uid != getuid()) fatal_error( "%s is not owned by you\n", name );
++#ifndef __dolly__  /* one user, no permission bits */
+     if (st->st_mode & 077) fatal_error( "%s must not be accessible by other users\n", name );
++#endif
+ }
+ 
+ /* create the server directory and chdir to it */
+--- a/server/thread.c
++++ b/server/thread.c
+@@ -63,6 +63,8 @@
+ static const unsigned int supported_cpus = CPU_FLAG(CPU_ARM);
+ #elif defined(__aarch64__)
+ static const unsigned int supported_cpus = CPU_FLAG(CPU_ARM64) | CPU_FLAG(CPU_ARM);
++#elif defined(__wasm64__)
++static const unsigned int supported_cpus = CPU_FLAG(CPU_WASM64);
+ #else
+ #error Unsupported CPU
+ #endif
+@@ -1410,6 +1412,14 @@
+     reply->last = 0;
+     if ((thread = get_thread_from_handle( req->handle, THREAD_TERMINATE )))
+     {
++#ifdef __dolly__  /* nor can another thread be ended: it would run on, recorded as dead */
++        if (thread != current)
++        {
++            set_error( STATUS_NOT_SUPPORTED );
++            release_object( thread );
++            return;
++        }
++#endif
+         thread->exit_code = req->exit_code;
+         if (thread != current) kill_thread( thread, 1 );
+         else
+@@ -1489,6 +1499,10 @@
+ {
+     struct thread *thread;
+ 
++#ifdef __dolly__  /* no signal reaches one thread of the process, so none can be stopped: refused, not counted */
++    set_error( STATUS_NOT_SUPPORTED );
++    return;
++#endif
+     if ((thread = get_thread_from_handle( req->handle, THREAD_SUSPEND_RESUME )))
+     {
+         if (thread->state == TERMINATED) set_error( STATUS_ACCESS_DENIED );
+--- a/tools/widl/widl.c
++++ b/tools/widl/widl.c
+@@ -101,6 +101,8 @@
+ enum target_cpu target_cpu = CPU_ARM;
+ #elif defined(__aarch64__)
+ enum target_cpu target_cpu = CPU_ARM64;
++#elif defined(__wasm64__)
++enum target_cpu target_cpu = CPU_WASM64;
+ #else
+ #error Unsupported CPU
+ #endif
+@@ -292,6 +294,7 @@
+         { "armv7",   CPU_ARM },
+         { "arm64",   CPU_ARM64 },
+         { "aarch64", CPU_ARM64 },
++        { "wasm64",  CPU_WASM64 },
+     };
+ 
+     unsigned int i;
+@@ -747,6 +750,7 @@
+       else pointer_size = 8;
+       break;
+   case CPU_ARM64:
++  case CPU_WASM64:
+       if (pointer_size == 4) error( "Cannot build 32-bit code for this CPU\n" );
+       pointer_size = 8;
+       break;
+--- a/tools/widl/widl.h
++++ b/tools/widl/widl.h
+@@ -76,7 +76,7 @@
+ 
+ enum target_cpu
+ {
+-    CPU_x86, CPU_x86_64, CPU_POWERPC, CPU_ARM, CPU_ARM64, CPU_LAST = CPU_ARM64
++    CPU_x86, CPU_x86_64, CPU_POWERPC, CPU_ARM, CPU_ARM64, CPU_WASM64, CPU_LAST = CPU_WASM64
+ };
+ 
+ extern enum target_cpu target_cpu;
+--- a/tools/winebuild/build.h
++++ b/tools/winebuild/build.h
+@@ -142,7 +142,7 @@
+ 
+ enum target_cpu
+ {
+-    CPU_x86, CPU_x86_64, CPU_POWERPC, CPU_ARM, CPU_ARM64, CPU_LAST = CPU_ARM64
++    CPU_x86, CPU_x86_64, CPU_POWERPC, CPU_ARM, CPU_ARM64, CPU_WASM64, CPU_LAST = CPU_WASM64
+ };
+ 
+ enum target_platform
+@@ -180,7 +180,7 @@
+ 
+ #define FLAG_CPU(cpu)  (0x01000 << (cpu))
+ #define FLAG_CPU_MASK  (FLAG_CPU(CPU_LAST + 1) - FLAG_CPU(0))
+-#define FLAG_CPU_WIN64 (FLAG_CPU(CPU_x86_64) | FLAG_CPU(CPU_ARM64))
++#define FLAG_CPU_WIN64 (FLAG_CPU(CPU_x86_64) | FLAG_CPU(CPU_ARM64) | FLAG_CPU(CPU_WASM64))
+ #define FLAG_CPU_WIN32 (FLAG_CPU_MASK & ~FLAG_CPU_WIN64)
+ 
+ #define MAX_ORDINALS  65535
+@@ -295,6 +295,7 @@
+ extern int load_res32_file( const char *name, DLLSPEC *spec );
+ extern void output_resources( DLLSPEC *spec );
+ extern void output_bin_resources( DLLSPEC *spec, unsigned int start_rva );
++extern void output_dolly_module( DLLSPEC *spec, char **argv );
+ extern void output_fake_module( DLLSPEC *spec );
+ extern void output_def_file( DLLSPEC *spec, int include_private );
+ extern void load_res16_file( const char *name, DLLSPEC *spec );
+--- a/tools/winebuild/main.c
++++ b/tools/winebuild/main.c
+@@ -57,6 +57,8 @@
+ enum target_cpu target_cpu = CPU_ARM;
+ #elif defined(__aarch64__)
+ enum target_cpu target_cpu = CPU_ARM64;
++#elif defined(__wasm64__)
++enum target_cpu target_cpu = CPU_WASM64;
+ #else
+ #error Unsupported CPU
+ #endif
+@@ -647,6 +649,12 @@
+         /* fall through */
+     case MODE_EXE:
+         load_resources( argv, spec );
++        if (target_cpu == CPU_WASM64)
++        {
++            if (spec_file_name && !parse_input_file( spec )) break;
++            output_dolly_module( spec, argv );
++            break;
++        }
+         load_import_libs( argv );
+         if (spec_file_name && !parse_input_file( spec )) break;
+         if (fake_module)
+--- a/tools/winebuild/utils.c
++++ b/tools/winebuild/utils.c
+@@ -68,6 +68,7 @@
+     { "armv7",   CPU_ARM },
+     { "arm64",   CPU_ARM64 },
+     { "aarch64", CPU_ARM64 },
++    { "wasm64",  CPU_WASM64 },
+ };
+ 
+ /* atexit handler to clean tmp files */
+@@ -898,6 +899,7 @@
+     case CPU_POWERPC:
+     case CPU_ARM:
+     case CPU_ARM64:
++    case CPU_WASM64:
+         n = 0;
+         while ((1u << n) != align) n++;
+         return n;
+@@ -918,6 +920,7 @@
+     case CPU_ARM:
+         return 0x1000;
+     case CPU_ARM64:
++    case CPU_WASM64:
+         return 0x10000;
+     }
+     /* unreached */
+@@ -936,6 +939,7 @@
+         return 4;
+     case CPU_x86_64:
+     case CPU_ARM64:
++    case CPU_WASM64:
+         return 8;
+     }
+     /* unreached */

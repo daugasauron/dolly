@@ -1,0 +1,6 @@
+MODULE    = winedolly.drv
+IMPORTS   = user32 gdi32 advapi32
+
+C_SRCS = \
+	dolly.c \
+	keyboard.c

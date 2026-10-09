@@ -1,0 +1,23 @@
+MODULE    = mspaint.exe
+APPMODE   = -mwindows -municode
+IMPORTS   = comdlg32 shell32 comctl32 user32 gdi32 advapi32 kernel32
+# ReactOS Paint is a program for the Windows headers, not a part of Wine.
+EXTRADEFS = -U__WINESRC__ -DUNICODE -D_UNICODE -DLANGUAGE_EN_US
+
+C_SRCS = \
+	dialogs.c \
+	dib.c \
+	drawing.c \
+	history.c \
+	main.c \
+	mouse.c \
+	palette.c \
+	registry.c \
+	scrollbox.c \
+	selection.c \
+	sizebox.c \
+	textedit.c \
+	toolsettings.c \
+	winproc.c
+
+RC_SRCS = rsrc.rc

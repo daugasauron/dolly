@@ -218,3 +218,23 @@ DOLLY_UNIFONT_SHA256=d04e8c86aaaf7214b5212340ee853a35502b9fa311561007be3a8cf465d
 DOLLY_XOLONIUM_VERSION=4.2
 DOLLY_XOLONIUM_URL='https://gitlab.com/sev/xolonium/-/archive/v4.2/xolonium-v4.2.tar.gz'
 DOLLY_XOLONIUM_SHA256=624d623e2f89e94714e69ae51992ec44b07a4041cce616365404e321f71f9b09
+
+# The Wine demo: the last release series whose DLLs are all ELF-style Winelib (demos/wine/README.md);
+# flex generates three of its parsers during host preparation, as Bison does.
+DOLLY_WINE_VERSION=4.0.4
+DOLLY_WINE_URL='https://dl.winehq.org/wine/source/4.0/wine-4.0.4.tar.xz'
+DOLLY_WINE_SHA256=53a051ff61009f5c0d0f3770fac56c5d1cccd1015078f8b214d63bc6cd8f6169
+DOLLY_FLEX_VERSION=2.6.4
+DOLLY_FLEX_URL='https://github.com/westes/flex/releases/download/v2.6.4/flex-2.6.4.tar.gz'
+DOLLY_FLEX_SHA256=e87aae032bf07c26f85ac0ed3250998c37621d95f8bd748b31f15b33c45ee995
+# ReactOS Paint for the Wine demo: the commit of the ReactOS-0.3.17 tag, the last release line whose
+# Paint is plain C; demos/wine/mspaint.sha256 pins each file taken from it.
+DOLLY_REACTOS_COMMIT=1bca06c493016c137186496bc5aeda9082d1080f
+DOLLY_REACTOS_URL='https://raw.githubusercontent.com/reactos/reactos'
+# TinyCC for the Wine demo's x86-64 emulator: its maintainers' win64 binary release, x86-64 Windows code
+# that ships unmodified, and the source release that goes with it.
+DOLLY_TINYCC_VERSION=0.9.27
+DOLLY_TINYCC_URL='https://download.savannah.gnu.org/releases/tinycc/tcc-0.9.27.tar.bz2'
+DOLLY_TINYCC_SHA256=de23af78fca90ce32dff2dd45b3432b2334740bb9bb7b05bf60fdbfc396ceb9c
+DOLLY_TINYCC_WIN64_URL='https://download.savannah.gnu.org/releases/tinycc/tcc-0.9.27-win64-bin.zip'
+DOLLY_TINYCC_WIN64_SHA256=34a721949a2583fdff725312da092fa0f5f1f284b702e6f811c6954714faabb2

@@ -1,0 +1,29 @@
+DOLLY 7
+APPLICATION wine
+REQUIRES HOST runtime@0
+REQUIRES HOST display@0
+REQUIRES HOST download@0
+REQUIRES HOST http@0
+REQUIRES HOST input@0
+REQUIRES HOST snapshot@0
+REQUIRES HOST sockets@0
+REQUIRES HOST threads@0
+REQUIRES HOST upload@0
+
+FROM /v0.1.0/Dollyfile-system b43cf11c78f97613a811593435c3fbfce0ee1223b5fff71539675433a6f440b0
+COPY /v0.1.0/demos/wine/Dollyfile-wine-build 0fdde2a134aba1efcde1bd49e840511a871b7a4c087c9112e12ccdac3d10ec7a /usr/bin/wine /usr/bin/wine
+COPY /v0.1.0/demos/wine/Dollyfile-wine-build 0fdde2a134aba1efcde1bd49e840511a871b7a4c087c9112e12ccdac3d10ec7a /usr/share/wine /usr/share/wine
+# Wine is LGPL; FreeType (under its GPL option) and libpng are linked into it. TinyCC (LGPL) is under /usr/share/wine/x86.
+COPY /v0.1.0/demos/wine/Dollyfile-wine-build 0fdde2a134aba1efcde1bd49e840511a871b7a4c087c9112e12ccdac3d10ec7a /usr/share/licenses/wine /usr/share/licenses/wine
+COPY /v0.1.0/demos/wine/Dollyfile-wine-build 0fdde2a134aba1efcde1bd49e840511a871b7a4c087c9112e12ccdac3d10ec7a /usr/share/licenses/freetype /usr/share/licenses/freetype
+COPY /v0.1.0/demos/wine/Dollyfile-wine-build 0fdde2a134aba1efcde1bd49e840511a871b7a4c087c9112e12ccdac3d10ec7a /usr/share/licenses/libpng /usr/share/licenses/libpng
+COPY /v0.1.0/demos/wine/Dollyfile-wine-build 0fdde2a134aba1efcde1bd49e840511a871b7a4c087c9112e12ccdac3d10ec7a /usr/share/licenses/tinycc /usr/share/licenses/tinycc
+EXPORTS TOOL wine
+REQUIRES TOOL wine
+
+FILE /etc/dolly/init.slop
+    /bin/foreground -i /usr/bin/wine desktop
+    printf '\nDolly: the Wine desktop was shut down; "wine desktop" starts it again, "wine hello" is a console program.\n'
+    /bin/foreground -i /bin/slop
+
+ENTRY /bin/foreground -i /bin/slop /etc/dolly/init.slop

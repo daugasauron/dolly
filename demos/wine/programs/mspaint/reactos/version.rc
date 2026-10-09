@@ -1,0 +1,2 @@
+/* <reactos/version.rc> of the ReactOS SDK adds a version resource from the
+ * REACTOS_STR_* definitions; Paint in the Wine demo is built without one. */

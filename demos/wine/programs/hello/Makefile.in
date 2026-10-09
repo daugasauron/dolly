@@ -1,0 +1,5 @@
+MODULE    = hello.exe
+APPMODE   = -mconsole
+IMPORTS   = kernel32
+
+C_SRCS = hello.c

@@ -1,0 +1,7 @@
+MODULE    = x86emu.exe
+APPMODE   = -mconsole
+IMPORTS   = kernel32
+
+C_SRCS = \
+	cpu.c \
+	x86emu.c
