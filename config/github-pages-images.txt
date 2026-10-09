@@ -3,10 +3,8 @@ bhop
 classicube
 gpu-fluid
 javascript
-neovim
 pi
 python
-rts-arena
 rust-tools
 slopyard
 cc
