@@ -8,7 +8,7 @@ Rust in the catalog is built by the result with Cargo.
 
 - `rust-sdk`: the seed, staged: its compiler and standard library, and its Cargo linked here.
 - `rust-llvm`: the LLVM 22 libraries rustc links, built by Dolly's `c++`.
-- `rust-build`: rustc, the standard library and Cargo built by the seed; the base of every Rust build.
+- `rust-build`: rustc, the standard library and Cargo built from source, the kept rustc by the first one built here; the base of every Rust build.
 - `rust-tools`: interactive shell: `system` with the `rust` and `cargo` packages.
 - `rust`: the SDK that `rust-build` built, as a package.
 - `cargo`: the Cargo that `rust-build` built, with the `rust` package, as a package.
@@ -30,23 +30,36 @@ patches beside it, then validated against `dolly-process-0`. It holds `rustc`
 linked, the standard library, and Cargo cross-compiled up to one object that
 [`Dollyfile-rust-sdk`](Dollyfile-rust-sdk) links against Dolly's libc, libcurl
 and zlib. Image preparation only stages a verified seed; it never builds one.
-Nothing of the seed is in the `rust` or `cargo` package.
+Rust is written in Rust, so some first compiler has to come from outside; the
+seed is that and nothing more ([below](#built-inside-dolly)).
 
 ## Built inside Dolly
 
-[`Dollyfile-rust-build`](Dollyfile-rust-build) runs Cargo three times: the
-compiler's 251 crates against `rust-llvm`'s libraries, the standard library
-with that compiler (`-Z build-std`), then Cargo with both.
+[`Dollyfile-rust-build`](Dollyfile-rust-build) builds two generations of the
+compiler against `rust-llvm`'s libraries and keeps the second:
 
+1. The seed's rustc compiles rustc's 251 crates. This first rustc links the
+   seed's standard library, so it still holds code compiled outside Dolly.
+2. The first rustc compiles the standard library (`-Z build-std`), which
+   replaces the seed's.
+3. The first rustc compiles rustc again, against that library. This second
+   rustc is the one the `rust` package carries.
+4. The second rustc compiles the standard library once more, and the build
+   fails unless all 22 libraries are, byte for byte, those of step 2.
+5. The second rustc compiles Cargo.
+
+- So nothing of the seed is in the `rust` or `cargo` package: every Rust
+  crate in them was compiled inside Dolly. Like every program here they link
+  Dolly's libc, which is built with the kernel, outside.
+- A third rustc would be the second again: measured once in a Chrome
+  session, 264 files (the 251.3 MiB `rustc` and 263 libraries) were the same
+  between the second and third generation
+  ([task](../../tasks/20260930-231100-self-host-rust/TASK.md)). The recipe
+  checks the standard library on every build, not the compiler.
 - The sources are the seed's: the pinned Rust archive with the same patches,
   the `rust-src` component for the standard library, and each locked crate
   extracted as Cargo's directory source
   ([`prepare-rustc-sources.py`](prepare-rustc-sources.py)).
-- Building the compiler again with the compiler built here gives the same
-  bytes: of 264 files (the 251.3 MiB `rustc` and 263 libraries) none differs
-  between the second and third generation, and the 22 libraries of the
-  standard library are the same from either. Measured in one Chrome session,
-  recorded in the [task](../../tasks/20260930-231100-self-host-rust/TASK.md).
 - `rustc` is linked as a host of procedural-macro libraries (`cc -rdynamic`),
   so it has no threads; [`rust-linker.c`](rust-linker.c) adds the loader names
   Rust binds and what std in a loaded library imports.

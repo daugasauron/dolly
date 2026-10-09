@@ -137,3 +137,14 @@ Done-when is met: `rust-build` builds rustc, std and Cargo from pinned
 sources inside Dolly, every later Rust image uses them, and the seed is the
 documented stage 0 (`demos/rust/README.md`). What is left is in
 `tasks/20261009-110500-rust-followups`.
+
+### The kept rustc is the second generation (2026-10-09)
+
+Owner, on learning that the first rustc links the seed's standard library:
+"implement choice 1 for v0.1.1" (ship the second generation; the seed stays
+the documented stage 0). `Dollyfile-rust-build` now builds rustc with the
+seed (8 min 42 s), std with that rustc (52 s), rustc again with both
+(9 min 26 s), std again (53 s, `cmp` against the installed 22 libraries:
+identical), then Cargo (9 min 19 s). The README's claim that nothing of the
+seed is in the packages was false before this and is true with it; they
+still link Dolly's libc, which is built outside like every program's.

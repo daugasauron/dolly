@@ -16,8 +16,8 @@ REQUIRES HOST upload@0
 # cbindgen and c++ from 0 A.D.'s pinned tarball and patches.
 FROM /v0.1.0/demos/zero-ad/Dollyfile-zero-ad-deps a440863df049b80a7d7a0211998c59eec454461fe9513e0297e7237f3bf74f57
 INSTALL /v0.1.0/demos/python/Dollyfile-python 454d312cb4327a65f051b1a5b626fc47f5a98e2d8530308db114f7791809d9a1
-INSTALL /v0.1.0/demos/rust/Dollyfile-cargo 56b1a8f23e11271abe2ee8001ee049c1b2e2cb71e3059ced60a4d99b54b02175
-INSTALL /v0.1.0/demos/rust/Dollyfile-cbindgen be638b4a032ac1d526583b9ff27aa21640c4eeb8f26a69931ed27e26ec6c88db
+INSTALL /v0.1.0/demos/rust/Dollyfile-cargo 6a3dfcc3b6c84329b661d544d82dc64168896a4e887007cb9a00436a6a4cc1d5
+INSTALL /v0.1.0/demos/rust/Dollyfile-cbindgen cfb28aea59f7ac9fd4c357be47dbf7bc1f56168f9260fa74880afb00d771873a
 REQUIRES HEADER zlib
 REQUIRES LIB z
 REQUIRES TOOL cc

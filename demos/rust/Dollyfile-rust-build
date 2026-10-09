@@ -8,13 +8,17 @@ REQUIRES HOST http@0
 REQUIRES HOST threads@0
 
 # Rust as Dolly builds it: rustc, its standard library and Cargo, compiled
-# here by the seed's from their pinned sources. Every Rust program in the
-# catalog is built by this image's toolchain.
+# here from their pinned sources. The seed builds the first rustc; that one
+# builds the rustc kept. Every Rust program in the catalog is built by this
+# image's toolchain.
 FROM /v0.1.0/demos/rust/Dollyfile-rust-sdk 331e90d408dc0728e1a6cea77b4964c9062e753337e58bac0b7bfdf327cee631
 COPY /v0.1.0/demos/rust/Dollyfile-rust-llvm 84a6f47a45ce09ab00c1f1d02ebcfbf50da8b99b4837cb8fc3f1bffaeee28989 /opt/rust-llvm /opt/rust-llvm
+# cmp, for the check that the second generation rebuilds the same library.
+INSTALL /v0.1.0/Dollyfile-posix 881233429ebb58c7e2707dad41c2a8e6078685009df5feb212566d1267042599
 REQUIRES TOOL cargo
 REQUIRES TOOL rustc
 REQUIRES TOOL cc
+REQUIRES TOOL cmp
 REQUIRES TOOL gzip
 REQUIRES TOOL tar
 REQUIRES TOOL cp
@@ -28,15 +32,22 @@ SOURCE /v0.1.0/dist/static/rust/rustc.tar.gz f0b868e4ae64c9842939247250b3e7cb0fa
 SLOP gzip -dc /tmp/rustc.tar.gz | tar -xf - -C /
 SLOP rm /tmp/rustc.tar.gz
 
-# The compiler: a host of procedural-macro libraries, with room for its data.
-SLOP CWD /tmp/rustc/source slop -c 'RUSTC_BOOTSTRAP=1 cargo rustc -j 4 --offline -p rustc-main --bin rustc-main --features llvm --target-dir /tmp/rustc/target -- -C link-arg=-rdynamic -C link-arg=-Wl,--initial-memory=33554432'
-SLOP cp /tmp/rustc/target/debug/rustc-main /opt/rust-sdk/bin/rustc-real
-SLOP rm -rf /tmp/rustc/target /opt/rust-llvm
-
-# Its standard library, by that compiler. Cargo's build-std reads the source
-# below the sysroot and builds it for a crate.
-SLOP mkdir -p /opt/rust-sdk/lib/rustlib/src/rust
-SLOP cp -R /tmp/rustc/source/library /opt/rust-sdk/lib/rustlib/src/rust/library
+# One generation: the compiler, built by the rustc in /opt/rust-sdk against the
+# standard library there, replaces that rustc. It is linked as a host of
+# procedural-macro libraries, with room for its data.
+FILE /tmp/rustc/compiler.slop
+    cd /tmp/rustc/source
+    RUSTC_BOOTSTRAP=1 cargo rustc -j 4 --offline -p rustc-main --bin rustc-main --features llvm --target-dir /tmp/rustc/target -- -C link-arg=-rdynamic -C link-arg=-Wl,--initial-memory=33554432
+    cp /tmp/rustc/target/debug/rustc-main /opt/rust-sdk/bin/rustc-real
+    rm -rf /tmp/rustc/target
+# The standard library by the rustc in /opt/rust-sdk, left in
+# /tmp/rustc/sdk-target. Cargo's build-std reads the source below the sysroot
+# and builds it for a crate.
+FILE /tmp/rustc/std.slop
+    cd /tmp/rustc/sdk
+    rm -rf /tmp/rustc/sdk-target
+    RUSTC_BOOTSTRAP=1 RUSTFLAGS="-C relocation-model=pic -C embed-bitcode=yes" cargo build -j 4 --offline --lib --target /opt/rust-sdk/wasm64-emscripten-probe.json -Z json-target-spec -Z build-std=std,panic_abort,proc_macro --target-dir /tmp/rustc/sdk-target
+    rm /tmp/rustc/sdk-target/wasm64-emscripten-probe/debug/deps/libdolly_rust_sdk-*
 FILE /tmp/rustc/sdk/Cargo.toml
     [package]
     name = "dolly-rust-sdk"
@@ -45,12 +56,24 @@ FILE /tmp/rustc/sdk/Cargo.toml
     [workspace]
 FILE /tmp/rustc/sdk/src/lib.rs
     // Built for its dependency: the standard library.
-SLOP CWD /tmp/rustc/sdk slop -c 'RUSTC_BOOTSTRAP=1 RUSTFLAGS="-C relocation-model=pic -C embed-bitcode=yes" cargo build -j 4 --offline --lib --target /opt/rust-sdk/wasm64-emscripten-probe.json -Z json-target-spec -Z build-std=std,panic_abort,proc_macro --target-dir /tmp/rustc/sdk-target'
-SLOP slop -c 'rm /opt/rust-sdk/lib/rustlib/wasm64-emscripten-probe/lib/*.rlib /tmp/rustc/sdk-target/wasm64-emscripten-probe/debug/deps/libdolly_rust_sdk-*'
-SLOP slop -c 'cp /tmp/rustc/sdk-target/wasm64-emscripten-probe/debug/deps/*.rlib /opt/rust-sdk/lib/rustlib/wasm64-emscripten-probe/lib'
-SLOP rm -rf /tmp/rustc /opt/rust-sdk/lib/rustlib/src
+SLOP mkdir -p /opt/rust-sdk/lib/rustlib/src/rust
+SLOP cp -R /tmp/rustc/source/library /opt/rust-sdk/lib/rustlib/src/rust/library
 
-# Cargo, by that compiler and library; the seed's Cargo drives its last build.
+# The first generation is the seed's work and links the seed's standard
+# library. Its own standard library replaces the seed's.
+SLOP slop -e /tmp/rustc/compiler.slop
+SLOP slop -e /tmp/rustc/std.slop
+SLOP slop -c 'rm /opt/rust-sdk/lib/rustlib/wasm64-emscripten-probe/lib/*.rlib'
+SLOP slop -c 'cp /tmp/rustc/sdk-target/wasm64-emscripten-probe/debug/deps/*.rlib /opt/rust-sdk/lib/rustlib/wasm64-emscripten-probe/lib'
+# The second generation is built by the first from the same source and holds
+# nothing of the seed: it is the rustc this image keeps. The standard library
+# it builds must be, byte for byte, the one installed.
+SLOP slop -e /tmp/rustc/compiler.slop
+SLOP slop -e /tmp/rustc/std.slop
+SLOP CWD /tmp/rustc/sdk-target/wasm64-emscripten-probe/debug/deps slop -e -c 'for library in *.rlib; do cmp "$library" "/opt/rust-sdk/lib/rustlib/wasm64-emscripten-probe/lib/$library"; done'
+SLOP rm -rf /tmp/rustc /opt/rust-llvm /opt/rust-sdk/lib/rustlib/src
+
+# Cargo, by the kept compiler and library; the seed's Cargo drives its last build.
 SOURCE /v0.1.0/dist/static/rust/cargo.tar.gz 6bf320264ef2386bd56bb5b59ea0f0a15d26018218bcafe7d62aa9219a957945 /tmp/cargo.tar.gz
 SLOP gzip -dc /tmp/cargo.tar.gz | tar -xf - -C /
 SLOP rm /tmp/cargo.tar.gz
