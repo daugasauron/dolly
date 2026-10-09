@@ -1,6 +1,6 @@
 # Build the Rust compiler inside the userspace
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 250
 - TAGS: toolchain,bootstrap,rust
 
@@ -119,7 +119,21 @@ object), image inputs `c5e8e449…` as v0.1.0, headless Chrome:
   no standard library (the first run failed with "can't find crate for
   `core`").
 
-Not done: an on-demand test that repeats the stage comparison with the
-recipe's own commands, as `demos/llvm/test/stage2-browser.mjs` does (the
-recipe drops `/opt/rust-llvm` once rustc is linked, so that test needs LLVM
-kept or rebuilt).
+### Verified and merged (2026-10-09)
+
+`main` `878d9f3d` (local). All 26 images downstream of the Rust recipes were
+rebuilt with this toolchain (the Rust, Codex, pi and 0 A.D. chains and the
+agent demos); the other 52 of the catalog stayed current. In that tree:
+
+- `node --test 'test/*.test.mjs'`: 341 pass.
+- Demo tests in Chromium: rust, codex, pi, classicube, bhop, rts, slopyard,
+  studio, local-llm, closed-source-agent.
+- `node test/browser-tests.mjs`: 41 of 41 in Chromium and in Firefox
+  (`fs-growth` needs more than a 6 GB slot: it fills kernel memory).
+- 0 A.D.: `0ad-spidermonkey` and `0ad-engine` headless, `0ad-graphics` on
+  the hardware adapter; `local-llm` and `slopyard` on a GPU window.
+
+Done-when is met: `rust-build` builds rustc, std and Cargo from pinned
+sources inside Dolly, every later Rust image uses them, and the seed is the
+documented stage 0 (`demos/rust/README.md`). What is left is in
+`tasks/20261009-110500-rust-followups`.

@@ -35,6 +35,13 @@ system, everything should be cargo."
   settings now reach every C file of the Codex build.
 - `cargo run` fails after building (Cargo `exec`s the program; Dolly has no
   `exec`). Open.
+- Verified 2026-10-09 on `main` `878d9f3d`: ripgrep, fd, cbindgen and protox
+  build in 68 to 87 s each and Codex's 963 crates in 28 min 41 s with Cargo;
+  the demo tests of rust, codex and pi pass, and 0 A.D.'s SpiderMonkey
+  builds with the `cargo` and `rust` packages. Still open from the list
+  below: file locks (SQLite's dot-file setting, `CARGO_INCREMENTAL=0`),
+  `libc` for a user's project, `--frozen`, the `test` crate, libcurl's
+  `PUT` and timeouts, a relay for git dependencies.
 - The build record `/usr/share/dolly/builds/NAME.json` is now the project's
   `Cargo.lock` at `/usr/share/dolly/builds/NAME.lock`.
 
