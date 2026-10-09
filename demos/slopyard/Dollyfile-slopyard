@@ -10,9 +10,9 @@ REQUIRES HOST snapshot@0
 REQUIRES HOST threads@0
 REQUIRES HOST upload@0
 
-FROM /v0.1.1/demos/slopyard/Dollyfile-gamedev-sdk e126a92bcdf6e7281b424f934ef47ab8c5d2b5331b2bfe7fb9f7c734a6289c96
-INSTALL /v0.1.1/demos/javascript/Dollyfile-javascript 5fd410f292b46b8ae1991d0cc6ae6b5beffac6474cca11805f6700e0d3677f83
-INSTALL /v0.1.1/demos/pi/Dollyfile-pi-coding-agent 4bb0fd3de5f22108a9673a0d9170205d438326965f66d74ac6c87b828f088fcc
+FROM /v0.1.1/demos/slopyard/Dollyfile-gamedev-sdk ae2f4bfb61c98dc97e30928f72b95713cb23e8300dfeabe72167f9b51520cb06
+INSTALL /v0.1.1/demos/javascript/Dollyfile-javascript 607c0ba44bba40db05b487ba5ae6ddd759bcc73935fa6e3d6dfad72b25575c65
+INSTALL /v0.1.1/demos/pi/Dollyfile-pi-coding-agent b536e7d2212a3a8e7698ca4c1f1396efe2d8317801d180c96a59661e2aee603c
 REQUIRES TOOL cc
 REQUIRES TOOL ar
 REQUIRES TOOL make

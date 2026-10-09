@@ -404,7 +404,7 @@ SOURCE /v0.1.1/dist/static/default/commands/hostname.c    14a20a493c8559d8b28f22
 SOURCE /v0.1.1/dist/static/default/commands/tty.c         c51c9598e8245d5f651ade70995f2b03fb936c42a0e99c4c81c83749c5714c7e /tmp/agent-tools/tty.c
 SOURCE /v0.1.1/dist/static/default/commands/nproc.c       96ce7b8d1b1cee59d12193c2fa6fab5210bb7f0c9a0d0cc9bde7e0fd8d87c7ac /tmp/agent-tools/nproc.c
 SOURCE /v0.1.1/dist/static/default/commands/amy.c         13a1e2eb87c10f39d8c3ff6ecef5acf2eb56ebc721f4ab7570333fe0b808f98d /tmp/agent-tools/amy.c
-SOURCE /v0.1.1/dist/static/default/commands/version.h   40544df486c693044ebbc6b30b64bbed5793faba632d9a74629601463710569f /tmp/agent-tools/version.h
+SOURCE /v0.1.1/dist/static/default/commands/version.h   62ef26f7078f1dde3222ca8e01e255eb865df60d64ddba2441eb92f31961cd70 /tmp/agent-tools/version.h
 
 FILE /tmp/agent-tools/Makefile
     .RECIPEPREFIX := >
