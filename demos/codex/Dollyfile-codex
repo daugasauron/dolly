@@ -11,7 +11,7 @@ REQUIRES HOST threads@0
 REQUIRES HOST upload@0
 
 FROM /v0.1.0/Dollyfile-system b43cf11c78f97613a811593435c3fbfce0ee1223b5fff71539675433a6f440b0
-INSTALL /v0.1.0/demos/codex/Dollyfile-codex-cli ba586c4c9d15004580400d0b4c4afe29b6ccd386285efee19cd404d17aae50cf
+INSTALL /v0.1.0/demos/codex/Dollyfile-codex-cli ab4b806956e272e5249e483ddc746c2038b9ca873c7aa5b61f3a1a119e4077a6
 REQUIRES TOOL codex
 REQUIRES TOOL sh
 
