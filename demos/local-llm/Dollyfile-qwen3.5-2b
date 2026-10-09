@@ -3,12 +3,12 @@ PACKAGE qwen3.5-2b
 REQUIRES HOST runtime@0
 
 # Qwen3.5-2B Q4_K_M, the exact upstream GGUF assembled from parts SOURCE accepts, its description and its license.
-FROM /v0.1.0/Dollyfile-system b43cf11c78f97613a811593435c3fbfce0ee1223b5fff71539675433a6f440b0
+FROM /v0.1.1/Dollyfile-system 7635073a45c05c0733dae9a6664f2ffa63b439b636686329ae265e4a3bd608e4
 
-SOURCE /v0.1.0/dist/static/llm/qwen3.5-2b/0.part d49c138cdbb01620bd5912d636e952e8525e7616e36442281ee60bc7d647b560 /tmp/llm/0.part
-SOURCE /v0.1.0/dist/static/llm/qwen3.5-2b/1.part 1ed4f36687871e49f58433733848d1786f75021124e9ce94a81c5d106e39bbad /tmp/llm/1.part
-SOURCE /v0.1.0/dist/static/llm/qwen3.5-2b/qwen3.5-2b.json abe15045f24cda3af8633d97dea841a798b93e3f120bce3270bb3394b87fbfe2 /usr/share/dolly/llm/qwen3.5-2b.json
-SOURCE /v0.1.0/dist/static/llm/qwen3.5-2b/LICENSE bbedc3fda3305820b977265f01b8619d87570a6739de3a5582c3464840f1e57a /usr/share/licenses/qwen3.5-2b/LICENSE
+SOURCE /v0.1.1/dist/static/llm/qwen3.5-2b/0.part d49c138cdbb01620bd5912d636e952e8525e7616e36442281ee60bc7d647b560 /tmp/llm/0.part
+SOURCE /v0.1.1/dist/static/llm/qwen3.5-2b/1.part 1ed4f36687871e49f58433733848d1786f75021124e9ce94a81c5d106e39bbad /tmp/llm/1.part
+SOURCE /v0.1.1/dist/static/llm/qwen3.5-2b/qwen3.5-2b.json abe15045f24cda3af8633d97dea841a798b93e3f120bce3270bb3394b87fbfe2 /usr/share/dolly/llm/qwen3.5-2b.json
+SOURCE /v0.1.1/dist/static/llm/qwen3.5-2b/LICENSE bbedc3fda3305820b977265f01b8619d87570a6739de3a5582c3464840f1e57a /usr/share/licenses/qwen3.5-2b/LICENSE
 SLOP mkdir -p /usr/share/dolly/llm
 SLOP cat /tmp/llm/0.part /tmp/llm/1.part > /usr/share/dolly/llm/qwen3.5-2b.gguf
 SLOP test "$(sha256sum /usr/share/dolly/llm/qwen3.5-2b.gguf | cut -d ' ' -f 1)" = 57a1085840f497d764a7fc5d346922dbde961efb54cc792ea81d694fd846a1d8

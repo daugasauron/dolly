@@ -8,7 +8,7 @@ REQUIRES HOST http@0
 REQUIRES HOST upload@0
 
 # Keep the expensive bootstrap reusable across source-build workspaces.
-FROM /v0.1.0/Dollyfile-system-tools f99e72a38ac306ca9c2b0a9788648c1295251fa3eeedbcf872a75b0962bacf7b
+FROM /v0.1.1/Dollyfile-system-tools fbe6af51bee27c91938884d142e2f4f4d7669de888a1a099f2b90552bc2364a9
 REQUIRES HEADER libc
 REQUIRES HEADER runtime
 REQUIRES TOOL cc
@@ -18,7 +18,7 @@ REQUIRES TOOL cp
 REQUIRES TOOL tar
 REQUIRES TOOL rm
 
-SOURCE /v0.1.0/dist/static/neovim/libuv.tar 066c5934e185978c680d03a8fbb42b9241f47fe8dc4b923abe84ee9896f0b86b /tmp/libuv/source.tar
+SOURCE /v0.1.1/dist/static/neovim/libuv.tar 066c5934e185978c680d03a8fbb42b9241f47fe8dc4b923abe84ee9896f0b86b /tmp/libuv/source.tar
 SLOP tar -xf /tmp/libuv/source.tar -C /
 SLOP make -C /tmp/libuv
 SLOP cp /tmp/libuv/libuv.a /usr/lib/libuv.a
@@ -73,7 +73,7 @@ REQUIRES TOOL true
 REQUIRES TOOL uname
 REQUIRES TOOL which
 
-SOURCE /v0.1.0/dist/static/neovim/cmake.tar.gz e49a4a2cd7ed5ff7fb2b8a7bf3a0ce1a61b7dd444b20604075e2152f158c4a41 /tmp/cmake/source.tar.gz
+SOURCE /v0.1.1/dist/static/neovim/cmake.tar.gz e49a4a2cd7ed5ff7fb2b8a7bf3a0ce1a61b7dd444b20604075e2152f158c4a41 /tmp/cmake/source.tar.gz
 SLOP gzip -dc /tmp/cmake/source.tar.gz | tar -xf - -C /
 
 FILE /tmp/cmake/build.slop

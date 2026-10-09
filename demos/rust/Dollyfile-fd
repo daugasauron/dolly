@@ -4,7 +4,7 @@ REQUIRES HOST runtime@0
 REQUIRES HOST http@0
 REQUIRES HOST threads@0
 
-FROM /v0.1.0/demos/rust/Dollyfile-rust-build 2548409d44fbb1119a89cec53d1a9af6ba2eaf7d8a8ff90c890f98fdf1cd9f61
+FROM /v0.1.1/demos/rust/Dollyfile-rust-build a9e34be880cadc7a96e922b45abfc2312c946996c5c899dc46191da1858d320f
 REQUIRES TOOL cargo
 REQUIRES TOOL gzip
 REQUIRES TOOL tar
@@ -14,7 +14,7 @@ REQUIRES TOOL rm
 
 # The archive holds upstream source and its locked crates, checksum-verified,
 # laid out as Cargo's directory source.
-SOURCE /v0.1.0/dist/static/rust/fd.tar.gz 93f527ed83a52ee561582c63667c347f170a3f6611619e2f2f6584246d6f0667 /tmp/fd.tar.gz
+SOURCE /v0.1.1/dist/static/rust/fd.tar.gz 93f527ed83a52ee561582c63667c347f170a3f6611619e2f2f6584246d6f0667 /tmp/fd.tar.gz
 SLOP gzip -dc /tmp/fd.tar.gz | tar -xf - -C /
 SLOP CWD /tmp/fd/source cargo build -j 4 --offline --bin fd --target-dir /tmp/fd/build
 SLOP cp /tmp/fd/build/debug/fd /usr/bin/fd

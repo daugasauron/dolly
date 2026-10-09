@@ -5,8 +5,8 @@ REQUIRES HOST runtime@0
 # The compiler llvm-cc built inside Dolly, beside the seed's: llvm-cc and
 # llvm-c++ run it as cc and c++ run the seed compiler, on the same headers
 # and libraries.
-COPY /v0.1.0/demos/llvm/Dollyfile-llvm-cc 22bcbcf6703b4ba9ccf87359c1ffc2b75b710d85d7ac69b76a3ff705906e2629 /usr/libexec/dolly/process-bin/compiler /usr/lib/llvm/compiler
-INSTALL /v0.1.0/Dollyfile-cc 9065e475e05854eaa4a2f6a4f21e2f431e9b2275b76bfea6c8c3c4bf78a63e36
+COPY /v0.1.1/demos/llvm/Dollyfile-llvm-cc ad15fe6afa243391ba6805599ee69ed20ab1e755a614c14c45583e0a54189b69 /usr/libexec/dolly/process-bin/compiler /usr/lib/llvm/compiler
+INSTALL /v0.1.1/Dollyfile-cc 7ffca9dfec8be5a4c02fc2659e8363bece9128d1f9f97fb8fa51541a72224629
 FILE /usr/bin/llvm-cc
     #!/bin/slop
     /usr/lib/llvm/compiler --dolly-toolchain-mode=c "$@"
@@ -16,9 +16,9 @@ FILE /usr/bin/llvm-c++
 EXPORTS TOOL llvm-cc
 EXPORTS TOOL llvm-c++
 EXPORTS FILE llvm-compiler /usr/lib/llvm/compiler
-SOURCE /v0.1.0/dist/static/llvm/licenses/llvm 8d85c1057d742e597985c7d4e6320b015a9139385cff4cbae06ffc0ebe89afee /usr/share/licenses/llvm/LICENSE.TXT
-SOURCE /v0.1.0/dist/static/llvm/licenses/clang ebcd9bbf783a73d05c53ba4d586b8d5813dcdf3bbec50265860ccc885e606f47 /usr/share/licenses/clang/LICENSE.TXT
-SOURCE /v0.1.0/dist/static/llvm/licenses/lld f7891568956e34643eb6a0db1462db30820d40d7266e2a78063f2fe233ece5a0 /usr/share/licenses/lld/LICENSE.TXT
+SOURCE /v0.1.1/dist/static/llvm/licenses/llvm 8d85c1057d742e597985c7d4e6320b015a9139385cff4cbae06ffc0ebe89afee /usr/share/licenses/llvm/LICENSE.TXT
+SOURCE /v0.1.1/dist/static/llvm/licenses/clang ebcd9bbf783a73d05c53ba4d586b8d5813dcdf3bbec50265860ccc885e606f47 /usr/share/licenses/clang/LICENSE.TXT
+SOURCE /v0.1.1/dist/static/llvm/licenses/lld f7891568956e34643eb6a0db1462db30820d40d7266e2a78063f2fe233ece5a0 /usr/share/licenses/lld/LICENSE.TXT
 FILE /usr/share/licenses/llvm/LICENSE.TXT
 FILE /usr/share/licenses/clang/LICENSE.TXT
 FILE /usr/share/licenses/lld/LICENSE.TXT

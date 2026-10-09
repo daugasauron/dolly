@@ -8,14 +8,14 @@ REQUIRES HOST input@0
 REQUIRES HOST snapshot@0
 REQUIRES HOST upload@0
 
-FROM /v0.1.0/Dollyfile-system b43cf11c78f97613a811593435c3fbfce0ee1223b5fff71539675433a6f440b0
-COPY /v0.1.0/demos/xonotic/Dollyfile-xonotic-build 46e1d1001af79ac5c8a9f3b58e322260d297d8cca785b78c03b10fa08fd350da /usr/bin/xonotic-sdl /usr/bin/xonotic-sdl
-COPY /v0.1.0/demos/xonotic/Dollyfile-xonotic-build 46e1d1001af79ac5c8a9f3b58e322260d297d8cca785b78c03b10fa08fd350da /usr/share/licenses/xonotic /usr/share/licenses/xonotic
-COPY /v0.1.0/demos/sdl2/Dollyfile-sdl2 3205aa8dfbcb4cdb0ba4ddb3419eb248ce6770ec633e1f5e81b9773d2f651f8e /usr/share/licenses/SDL2 /usr/share/licenses/SDL2
+FROM /v0.1.1/Dollyfile-system 7635073a45c05c0733dae9a6664f2ffa63b439b636686329ae265e4a3bd608e4
+COPY /v0.1.1/demos/xonotic/Dollyfile-xonotic-build 797a629c9039c9996b51a9d0a838f469b78f89fce376d2c8bf81f44c6df881c8 /usr/bin/xonotic-sdl /usr/bin/xonotic-sdl
+COPY /v0.1.1/demos/xonotic/Dollyfile-xonotic-build 797a629c9039c9996b51a9d0a838f469b78f89fce376d2c8bf81f44c6df881c8 /usr/share/licenses/xonotic /usr/share/licenses/xonotic
+COPY /v0.1.1/demos/sdl2/Dollyfile-sdl2 4c328946ad0d4e64a78a18502c105838f522233fb87c0f5ad7bdf43e08b197dd /usr/share/licenses/SDL2 /usr/share/licenses/SDL2
 # Licences of the libraries linked into the client.
-COPY /v0.1.0/demos/xonotic/Dollyfile-xonotic-build 46e1d1001af79ac5c8a9f3b58e322260d297d8cca785b78c03b10fa08fd350da /usr/share/licenses/libjpeg /usr/share/licenses/libjpeg
-COPY /v0.1.0/demos/zero-ad/Dollyfile-zero-ad-deps a440863df049b80a7d7a0211998c59eec454461fe9513e0297e7237f3bf74f57 /usr/share/licenses/freetype /usr/share/licenses/freetype
-COPY /v0.1.0/demos/zero-ad/Dollyfile-zero-ad-deps a440863df049b80a7d7a0211998c59eec454461fe9513e0297e7237f3bf74f57 /usr/share/licenses/libpng /usr/share/licenses/libpng
+COPY /v0.1.1/demos/xonotic/Dollyfile-xonotic-build 797a629c9039c9996b51a9d0a838f469b78f89fce376d2c8bf81f44c6df881c8 /usr/share/licenses/libjpeg /usr/share/licenses/libjpeg
+COPY /v0.1.1/demos/zero-ad/Dollyfile-zero-ad-deps 34ed58285e2c51853fb235a1a278ff21bdb8fa02cb61b491288b9e5238190142 /usr/share/licenses/freetype /usr/share/licenses/freetype
+COPY /v0.1.1/demos/zero-ad/Dollyfile-zero-ad-deps 34ed58285e2c51853fb235a1a278ff21bdb8fa02cb61b491288b9e5238190142 /usr/share/licenses/libpng /usr/share/licenses/libpng
 # Dolly's notices for this image: the IJG sentence, the fonts' terms and the
 # Bitstream Vera glyph sheet (the release carries no notice for it).
 FILE /usr/share/licenses/xonotic/NOTICE
@@ -122,15 +122,15 @@ FILE /usr/share/licenses/xonotic/COPYING.vera
     org.
 # The release's game content, one archive each; music and the Nexuiz
 # compatibility packs are not in the image yet.
-SOURCE /v0.1.0/dist/static/xonotic/data/font-unifont-20230620.pk3 7cc9ca2e4cccaa7533d7e9fe7a6e5b5dd6e4af0c8551c1e9edc40d32b90dba2b /usr/share/xonotic/data/font-unifont-20230620.pk3
-SOURCE /v0.1.0/dist/static/xonotic/data/font-xolonium-20230620.pk3 d6404f31eea4b90d7fe4951b41b692261ef26e6b512b5c7de7a9e99d5d57b586 /usr/share/xonotic/data/font-xolonium-20230620.pk3
-SOURCE /v0.1.0/dist/static/xonotic/data/xonotic-20230620-data.pk3 7602be0d44a4f1ce4f0918c54ceb215c9bc963a103623d6c7874f081330c8505 /usr/share/xonotic/data/xonotic-20230620-data.pk3
-SOURCE /v0.1.0/dist/static/xonotic/data/xonotic-20230620-maps.pk3 d10e5a8eac468a4a5b6d80f9603d95949971c6b10f86bec65a79e19f0d424f54 /usr/share/xonotic/data/xonotic-20230620-maps.pk3
+SOURCE /v0.1.1/dist/static/xonotic/data/font-unifont-20230620.pk3 7cc9ca2e4cccaa7533d7e9fe7a6e5b5dd6e4af0c8551c1e9edc40d32b90dba2b /usr/share/xonotic/data/font-unifont-20230620.pk3
+SOURCE /v0.1.1/dist/static/xonotic/data/font-xolonium-20230620.pk3 d6404f31eea4b90d7fe4951b41b692261ef26e6b512b5c7de7a9e99d5d57b586 /usr/share/xonotic/data/font-xolonium-20230620.pk3
+SOURCE /v0.1.1/dist/static/xonotic/data/xonotic-20230620-data.pk3 7602be0d44a4f1ce4f0918c54ceb215c9bc963a103623d6c7874f081330c8505 /usr/share/xonotic/data/xonotic-20230620-data.pk3
+SOURCE /v0.1.1/dist/static/xonotic/data/xonotic-20230620-maps.pk3 d10e5a8eac468a4a5b6d80f9603d95949971c6b10f86bec65a79e19f0d424f54 /usr/share/xonotic/data/xonotic-20230620-maps.pk3
 # The GPL fonts' corresponding source, published beside the image and not installed:
 # GNU Unifont 7.0.06 (its precompiled TTF is the shipped unifont.ttf) and
 # Xolonium v4.2 (whose xonotic/ directory is the shipped GPL variant).
-SOURCE /v0.1.0/dist/static/xonotic/unifont-7.0.06.tar.gz d04e8c86aaaf7214b5212340ee853a35502b9fa311561007be3a8cf465dabf3b /tmp/xonotic/unifont-7.0.06.tar.gz
-SOURCE /v0.1.0/dist/static/xonotic/xolonium-v4.2.tar.gz 624d623e2f89e94714e69ae51992ec44b07a4041cce616365404e321f71f9b09 /tmp/xonotic/xolonium-v4.2.tar.gz
+SOURCE /v0.1.1/dist/static/xonotic/unifont-7.0.06.tar.gz d04e8c86aaaf7214b5212340ee853a35502b9fa311561007be3a8cf465dabf3b /tmp/xonotic/unifont-7.0.06.tar.gz
+SOURCE /v0.1.1/dist/static/xonotic/xolonium-v4.2.tar.gz 624d623e2f89e94714e69ae51992ec44b07a4041cce616365404e321f71f9b09 /tmp/xonotic/xolonium-v4.2.tar.gz
 SLOP rm -rf /tmp/xonotic
 
 # The player's starting settings: the low effects preset, measured at 31 fps

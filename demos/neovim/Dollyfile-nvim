@@ -3,18 +3,18 @@ PACKAGE nvim
 REQUIRES HOST runtime@0
 REQUIRES HOST dso@0
 
-COPY /v0.1.0/demos/neovim/Dollyfile-neovim-build c309496309b2e20445ba859629e27b0809a99c311374b9007e7760195eb2f11a /usr/bin/nvim /usr/bin/nvim
-COPY /v0.1.0/demos/neovim/Dollyfile-neovim-build c309496309b2e20445ba859629e27b0809a99c311374b9007e7760195eb2f11a /usr/share/nvim /usr/share/nvim
-COPY /v0.1.0/demos/neovim/Dollyfile-neovim-build c309496309b2e20445ba859629e27b0809a99c311374b9007e7760195eb2f11a /usr/lib/nvim /usr/lib/nvim
-COPY /v0.1.0/demos/neovim/Dollyfile-neovim-build c309496309b2e20445ba859629e27b0809a99c311374b9007e7760195eb2f11a /usr/share/licenses/neovim /usr/share/licenses/neovim
-COPY /v0.1.0/demos/neovim/Dollyfile-neovim-build c309496309b2e20445ba859629e27b0809a99c311374b9007e7760195eb2f11a /usr/share/licenses/neovim-parsers /usr/share/licenses/neovim-parsers
-COPY /v0.1.0/demos/neovim/Dollyfile-neovim-build c309496309b2e20445ba859629e27b0809a99c311374b9007e7760195eb2f11a /usr/share/licenses/libuv /usr/share/licenses/libuv
-COPY /v0.1.0/demos/neovim/Dollyfile-neovim-build c309496309b2e20445ba859629e27b0809a99c311374b9007e7760195eb2f11a /usr/share/licenses/lua /usr/share/licenses/lua
-COPY /v0.1.0/demos/neovim/Dollyfile-neovim-build c309496309b2e20445ba859629e27b0809a99c311374b9007e7760195eb2f11a /usr/share/licenses/luv /usr/share/licenses/luv
-COPY /v0.1.0/demos/neovim/Dollyfile-neovim-build c309496309b2e20445ba859629e27b0809a99c311374b9007e7760195eb2f11a /usr/share/licenses/lua-compat53 /usr/share/licenses/lua-compat53
-COPY /v0.1.0/demos/neovim/Dollyfile-neovim-build c309496309b2e20445ba859629e27b0809a99c311374b9007e7760195eb2f11a /usr/share/licenses/lpeg /usr/share/licenses/lpeg
-COPY /v0.1.0/demos/neovim/Dollyfile-neovim-build c309496309b2e20445ba859629e27b0809a99c311374b9007e7760195eb2f11a /usr/share/licenses/utf8proc /usr/share/licenses/utf8proc
-COPY /v0.1.0/demos/neovim/Dollyfile-neovim-build c309496309b2e20445ba859629e27b0809a99c311374b9007e7760195eb2f11a /usr/share/licenses/treesitter /usr/share/licenses/treesitter
+COPY /v0.1.1/demos/neovim/Dollyfile-neovim-build 39db89a2278e96b27e9a30be2314105ea36e9acd9f0f147dc78cfa5878eeb605 /usr/bin/nvim /usr/bin/nvim
+COPY /v0.1.1/demos/neovim/Dollyfile-neovim-build 39db89a2278e96b27e9a30be2314105ea36e9acd9f0f147dc78cfa5878eeb605 /usr/share/nvim /usr/share/nvim
+COPY /v0.1.1/demos/neovim/Dollyfile-neovim-build 39db89a2278e96b27e9a30be2314105ea36e9acd9f0f147dc78cfa5878eeb605 /usr/lib/nvim /usr/lib/nvim
+COPY /v0.1.1/demos/neovim/Dollyfile-neovim-build 39db89a2278e96b27e9a30be2314105ea36e9acd9f0f147dc78cfa5878eeb605 /usr/share/licenses/neovim /usr/share/licenses/neovim
+COPY /v0.1.1/demos/neovim/Dollyfile-neovim-build 39db89a2278e96b27e9a30be2314105ea36e9acd9f0f147dc78cfa5878eeb605 /usr/share/licenses/neovim-parsers /usr/share/licenses/neovim-parsers
+COPY /v0.1.1/demos/neovim/Dollyfile-neovim-build 39db89a2278e96b27e9a30be2314105ea36e9acd9f0f147dc78cfa5878eeb605 /usr/share/licenses/libuv /usr/share/licenses/libuv
+COPY /v0.1.1/demos/neovim/Dollyfile-neovim-build 39db89a2278e96b27e9a30be2314105ea36e9acd9f0f147dc78cfa5878eeb605 /usr/share/licenses/lua /usr/share/licenses/lua
+COPY /v0.1.1/demos/neovim/Dollyfile-neovim-build 39db89a2278e96b27e9a30be2314105ea36e9acd9f0f147dc78cfa5878eeb605 /usr/share/licenses/luv /usr/share/licenses/luv
+COPY /v0.1.1/demos/neovim/Dollyfile-neovim-build 39db89a2278e96b27e9a30be2314105ea36e9acd9f0f147dc78cfa5878eeb605 /usr/share/licenses/lua-compat53 /usr/share/licenses/lua-compat53
+COPY /v0.1.1/demos/neovim/Dollyfile-neovim-build 39db89a2278e96b27e9a30be2314105ea36e9acd9f0f147dc78cfa5878eeb605 /usr/share/licenses/lpeg /usr/share/licenses/lpeg
+COPY /v0.1.1/demos/neovim/Dollyfile-neovim-build 39db89a2278e96b27e9a30be2314105ea36e9acd9f0f147dc78cfa5878eeb605 /usr/share/licenses/utf8proc /usr/share/licenses/utf8proc
+COPY /v0.1.1/demos/neovim/Dollyfile-neovim-build 39db89a2278e96b27e9a30be2314105ea36e9acd9f0f147dc78cfa5878eeb605 /usr/share/licenses/treesitter /usr/share/licenses/treesitter
 EXPORTS TOOL nvim
 EXPORTS FOLDER nvim-runtime /usr/share/nvim
 EXPORTS FOLDER nvim-libraries /usr/lib/nvim

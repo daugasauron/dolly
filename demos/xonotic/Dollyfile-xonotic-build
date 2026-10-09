@@ -7,14 +7,14 @@ REQUIRES HOST http@0
 REQUIRES HOST input@0
 REQUIRES HOST upload@0
 
-FROM /v0.1.0/Dollyfile-system-tools f99e72a38ac306ca9c2b0a9788648c1295251fa3eeedbcf872a75b0962bacf7b
-INSTALL /v0.1.0/demos/sdl2/Dollyfile-sdl2 3205aa8dfbcb4cdb0ba4ddb3419eb248ce6770ec633e1f5e81b9773d2f651f8e
+FROM /v0.1.1/Dollyfile-system-tools fbe6af51bee27c91938884d142e2f4f4d7669de888a1a099f2b90552bc2364a9
+INSTALL /v0.1.1/demos/sdl2/Dollyfile-sdl2 4c328946ad0d4e64a78a18502c105838f522233fb87c0f5ad7bdf43e08b197dd
 # FreeType (with its libpng) for the client's fonts, as 0 A.D. built them.
-COPY /v0.1.0/demos/zero-ad/Dollyfile-zero-ad-deps a440863df049b80a7d7a0211998c59eec454461fe9513e0297e7237f3bf74f57 /usr/include/freetype2 /usr/include/freetype2
-COPY /v0.1.0/demos/zero-ad/Dollyfile-zero-ad-deps a440863df049b80a7d7a0211998c59eec454461fe9513e0297e7237f3bf74f57 /usr/lib/libfreetype.a /usr/lib/libfreetype.a
-COPY /v0.1.0/demos/zero-ad/Dollyfile-zero-ad-deps a440863df049b80a7d7a0211998c59eec454461fe9513e0297e7237f3bf74f57 /usr/lib/libpng16.a /usr/lib/libpng16.a
-COPY /v0.1.0/demos/zero-ad/Dollyfile-zero-ad-deps a440863df049b80a7d7a0211998c59eec454461fe9513e0297e7237f3bf74f57 /usr/share/licenses/freetype /usr/share/licenses/freetype
-COPY /v0.1.0/demos/zero-ad/Dollyfile-zero-ad-deps a440863df049b80a7d7a0211998c59eec454461fe9513e0297e7237f3bf74f57 /usr/share/licenses/libpng /usr/share/licenses/libpng
+COPY /v0.1.1/demos/zero-ad/Dollyfile-zero-ad-deps 34ed58285e2c51853fb235a1a278ff21bdb8fa02cb61b491288b9e5238190142 /usr/include/freetype2 /usr/include/freetype2
+COPY /v0.1.1/demos/zero-ad/Dollyfile-zero-ad-deps 34ed58285e2c51853fb235a1a278ff21bdb8fa02cb61b491288b9e5238190142 /usr/lib/libfreetype.a /usr/lib/libfreetype.a
+COPY /v0.1.1/demos/zero-ad/Dollyfile-zero-ad-deps 34ed58285e2c51853fb235a1a278ff21bdb8fa02cb61b491288b9e5238190142 /usr/lib/libpng16.a /usr/lib/libpng16.a
+COPY /v0.1.1/demos/zero-ad/Dollyfile-zero-ad-deps 34ed58285e2c51853fb235a1a278ff21bdb8fa02cb61b491288b9e5238190142 /usr/share/licenses/freetype /usr/share/licenses/freetype
+COPY /v0.1.1/demos/zero-ad/Dollyfile-zero-ad-deps 34ed58285e2c51853fb235a1a278ff21bdb8fa02cb61b491288b9e5238190142 /usr/share/licenses/libpng /usr/share/licenses/libpng
 REQUIRES HEADER cpp
 REQUIRES HEADER sdl2
 REQUIRES HEADER zlib
@@ -30,7 +30,7 @@ REQUIRES TOOL tar
 REQUIRES TOOL gzip
 REQUIRES TOOL rm
 
-SOURCE /v0.1.0/dist/static/xonotic/source.tar.gz defe5d25e5b3c94b59be49de22fdf392a6be8177ea475d373b8851efd15e832d /tmp/xonotic/source.tar.gz
+SOURCE /v0.1.1/dist/static/xonotic/source.tar.gz defe5d25e5b3c94b59be49de22fdf392a6be8177ea475d373b8851efd15e832d /tmp/xonotic/source.tar.gz
 SLOP gzip -dc /tmp/xonotic/source.tar.gz | tar -xf - -C /
 SLOP make -f /usr/src/dolly/xonotic/Makefile
 

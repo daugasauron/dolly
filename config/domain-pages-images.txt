@@ -32,3 +32,4 @@ xonotic
 closed-source-agent
 llvm-cc
 llvm
+wine

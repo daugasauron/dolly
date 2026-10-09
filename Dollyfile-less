@@ -5,7 +5,7 @@ REQUIRES HOST runtime@0
 # less over GNU termcap, both from upstream's release archives, unchanged.
 # The terminal's entry is /etc/termcap, which the display package holds. less
 # is used under its own licence; termcap makes the program a GPL one.
-FROM /v0.1.0/Dollyfile-system-tools f99e72a38ac306ca9c2b0a9788648c1295251fa3eeedbcf872a75b0962bacf7b
+FROM /v0.1.1/Dollyfile-system-tools fbe6af51bee27c91938884d142e2f4f4d7669de888a1a099f2b90552bc2364a9
 
 REQUIRES HEADER libc
 REQUIRES TOOL   cc
@@ -16,8 +16,8 @@ REQUIRES TOOL   make
 REQUIRES TOOL   mkdir
 REQUIRES TOOL   tar
 
-SOURCE /v0.1.0/dist/static/default/less-692.tar.gz 61300f603798ecf1d7786570789f0ff3f5a1acf075a6fb9f756837d166e37d14 /tmp/less.tar.gz
-SOURCE /v0.1.0/dist/static/default/termcap-1.3.1.tar.gz 91a0e22e5387ca4467b5bcb18edf1c51b930262fd466d5fda396dd9d26719100 /tmp/termcap.tar.gz
+SOURCE /v0.1.1/dist/static/default/less-692.tar.gz 61300f603798ecf1d7786570789f0ff3f5a1acf075a6fb9f756837d166e37d14 /tmp/less.tar.gz
+SOURCE /v0.1.1/dist/static/default/termcap-1.3.1.tar.gz 91a0e22e5387ca4467b5bcb18edf1c51b930262fd466d5fda396dd9d26719100 /tmp/termcap.tar.gz
 SLOP gzip -dc /tmp/less.tar.gz | tar -xf - -C /tmp
 SLOP gzip -dc /tmp/termcap.tar.gz | tar -xf - -C /tmp
 

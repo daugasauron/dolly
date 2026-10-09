@@ -5,23 +5,23 @@ REQUIRES HOST download@0
 REQUIRES HOST http@0
 REQUIRES HOST threads@0
 
-FROM /v0.1.0/Dollyfile-system b43cf11c78f97613a811593435c3fbfce0ee1223b5fff71539675433a6f440b0
-INSTALL /v0.1.0/demos/javascript/Dollyfile-javascript 0ae34c711280d106dd0c4c3e98bd084042ba737968a49b35dda28c4a8684c141
+FROM /v0.1.1/Dollyfile-system 7635073a45c05c0733dae9a6664f2ffa63b439b636686329ae265e4a3bd608e4
+INSTALL /v0.1.1/demos/javascript/Dollyfile-javascript 5fd410f292b46b8ae1991d0cc6ae6b5beffac6474cca11805f6700e0d3677f83
 
-INSTALL /v0.1.0/demos/rust/Dollyfile-ripgrep d18ff87441df1e3695353082aecf19e99195236a30c2f771e81bfa818e11de44
-INSTALL /v0.1.0/demos/rust/Dollyfile-fd 821ba06441dd4e9d7d86c012ae7e95094c207d4dd2aa0ab78c6edc9a4b2bcfee
+INSTALL /v0.1.1/demos/rust/Dollyfile-ripgrep 113a561eda88c91d942ed9f21277be705a73e29be01307fb9d2afd3e9f3b63ae
+INSTALL /v0.1.1/demos/rust/Dollyfile-fd 9b4a53c3e4131cd4bda13c5c509eb981d8e864069585a6efb19c69417856162f
 EXPORTS TOOL rg
 EXPORTS TOOL fd
-COPY /v0.1.0/demos/pi/Dollyfile-pi-build acdcb243b2184139cc70d67942c28c38aa667bb57ab563b11649e56fcb0038c4 /usr/bin/pi /usr/bin/pi
-COPY /v0.1.0/demos/pi/Dollyfile-pi-build acdcb243b2184139cc70d67942c28c38aa667bb57ab563b11649e56fcb0038c4 /usr/lib/node_modules /usr/lib/node_modules
-COPY /v0.1.0/demos/pi/Dollyfile-pi-build acdcb243b2184139cc70d67942c28c38aa667bb57ab563b11649e56fcb0038c4 /usr/src/pi-source /usr/src/pi-source
-COPY /v0.1.0/demos/pi/Dollyfile-pi-build acdcb243b2184139cc70d67942c28c38aa667bb57ab563b11649e56fcb0038c4 /usr/share/licenses/pi-source /usr/share/licenses/pi-source
+COPY /v0.1.1/demos/pi/Dollyfile-pi-build f0212a47257e5af2afcf09ff1124d2d759946f0a9e3e618c538c2d3d60d9fbf7 /usr/bin/pi /usr/bin/pi
+COPY /v0.1.1/demos/pi/Dollyfile-pi-build f0212a47257e5af2afcf09ff1124d2d759946f0a9e3e618c538c2d3d60d9fbf7 /usr/lib/node_modules /usr/lib/node_modules
+COPY /v0.1.1/demos/pi/Dollyfile-pi-build f0212a47257e5af2afcf09ff1124d2d759946f0a9e3e618c538c2d3d60d9fbf7 /usr/src/pi-source /usr/src/pi-source
+COPY /v0.1.1/demos/pi/Dollyfile-pi-build f0212a47257e5af2afcf09ff1124d2d759946f0a9e3e618c538c2d3d60d9fbf7 /usr/share/licenses/pi-source /usr/share/licenses/pi-source
 
-SOURCE /v0.1.0/dist/static/default/pi/dolly-tools.js                    22d1cd0cd804ef22b7e73683a3c93e98cd99b574a12643bc6b240329da460d9a /home/dolly/.pi/agent/extensions/dolly-tools.js
-SOURCE /v0.1.0/dist/static/default/pi/SYSTEM.md                         edfd0f622a1bc68d19a4e4c54e6438d06e404333f2b7be41fb34162f60dad1d4 /home/dolly/.pi/agent/SYSTEM.md
-SOURCE /v0.1.0/dist/static/default/pi/settings.json                     852b78af9b490d627858723c8b67f24e55e58d9f621ce4afbc7424b872917c1f /home/dolly/.pi/agent/settings.json
-SOURCE /v0.1.0/dist/static/default/pi/dolly-theme.json                  ed4737d4339c7458fa46c6f351c8a619e762189c051206aef1a8840e1f288297 /home/dolly/.pi/agent/themes/dolly.json
-SOURCE /v0.1.0/dist/static/default/pi/dolly-skill.md                    c61cbfe26348d965dfd2fea553cad198db9d156c6bccf18a308c8807894882c2 /home/dolly/.pi/agent/skills/dolly/SKILL.md
+SOURCE /v0.1.1/dist/static/default/pi/dolly-tools.js                    22d1cd0cd804ef22b7e73683a3c93e98cd99b574a12643bc6b240329da460d9a /home/dolly/.pi/agent/extensions/dolly-tools.js
+SOURCE /v0.1.1/dist/static/default/pi/SYSTEM.md                         edfd0f622a1bc68d19a4e4c54e6438d06e404333f2b7be41fb34162f60dad1d4 /home/dolly/.pi/agent/SYSTEM.md
+SOURCE /v0.1.1/dist/static/default/pi/settings.json                     852b78af9b490d627858723c8b67f24e55e58d9f621ce4afbc7424b872917c1f /home/dolly/.pi/agent/settings.json
+SOURCE /v0.1.1/dist/static/default/pi/dolly-theme.json                  ed4737d4339c7458fa46c6f351c8a619e762189c051206aef1a8840e1f288297 /home/dolly/.pi/agent/themes/dolly.json
+SOURCE /v0.1.1/dist/static/default/pi/dolly-skill.md                    c61cbfe26348d965dfd2fea553cad198db9d156c6bccf18a308c8807894882c2 /home/dolly/.pi/agent/skills/dolly/SKILL.md
 
 EXPORTS ENV PI_PACKAGE_DIR /usr/lib/node_modules/@earendil-works/pi-coding-agent
 EXPORTS ENV PI_SKIP_VERSION_CHECK 1

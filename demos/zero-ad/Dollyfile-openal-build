@@ -7,7 +7,7 @@ REQUIRES HOST download@0
 REQUIRES HOST http@0
 REQUIRES HOST upload@0
 
-FROM /v0.1.0/demos/cmake/Dollyfile-cmake-build 027c34052c076c0e7d60073467282dae4403e085d2557b45c0238c52a38b6ed8
+FROM /v0.1.1/demos/cmake/Dollyfile-cmake-build 94ed8f738a81f1853c686f4005d7a5c8a55c448ec57387cce7ea9d105a95d347
 REQUIRES HEADER libc
 REQUIRES HEADER cpp
 REQUIRES LIB c++
@@ -20,7 +20,7 @@ REQUIRES TOOL ar
 REQUIRES TOOL tar
 REQUIRES TOOL rm
 
-SOURCE /v0.1.0/dist/static/openal/source.tar e11cc1b7572297fa95d400c886831cf88740f2fb934edd16f1d2572d5974bba6 /tmp/openal/source.tar
+SOURCE /v0.1.1/dist/static/openal/source.tar e11cc1b7572297fa95d400c886831cf88740f2fb934edd16f1d2572d5974bba6 /tmp/openal/source.tar
 SLOP tar -xf /tmp/openal/source.tar -C /
 # HAVE_PTHREAD=OFF: the mixer is serial (openal-dolly.patch) and 0 A.D. is not a threaded process.
 SLOP cmake -S /tmp/openal/source -B /tmp/openal/build \

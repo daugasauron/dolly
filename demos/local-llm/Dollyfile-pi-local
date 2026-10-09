@@ -11,17 +11,17 @@ REQUIRES HOST snapshot@0
 REQUIRES HOST threads@0
 REQUIRES HOST upload@0
 
-FROM /v0.1.0/demos/pi/Dollyfile-pi d2cebf03b78d090f72d3c5f21ce3a760d075a9d7bb2f128518680c61ccd338ab
-COPY /v0.1.0/demos/local-llm/Dollyfile-local-llm-build 6907b0fcdc010b717401fbf313457fb075670b8fccafd8d27447804f9b26d214 /usr/bin/dolly-llama /usr/bin/dolly-llama
-COPY /v0.1.0/demos/local-llm/Dollyfile-llama-build f8458ef64ad55d4a4fe90c15a34dd4be4d24835631dbec3ea7420d9c34fd077f /usr/share/licenses/dolly-llm /usr/share/licenses/dolly-llm
+FROM /v0.1.1/demos/pi/Dollyfile-pi ea0c5e0fa7582acdd6f3ad0718e9aeb648206ab0911b09c2d52a726125c66ca4
+COPY /v0.1.1/demos/local-llm/Dollyfile-local-llm-build 2256ef0cc2303dfd85ebc0906e74eb5b30240818b780f2d5cfada78cf8f23241 /usr/bin/dolly-llama /usr/bin/dolly-llama
+COPY /v0.1.1/demos/local-llm/Dollyfile-llama-build 66d123802b2f3832eda8ad96e62a69f3850a58b5a393697d5a425d7eebf4e282 /usr/share/licenses/dolly-llm /usr/share/licenses/dolly-llm
 EXPORTS TOOL dolly-llama
-INSTALL /v0.1.0/demos/local-llm/Dollyfile-qwen3.5-2b 6cf988ebf12a70f3d0ac6c5c8354ae2abebc7ee8b8549f92fe4ca5b56771e81a
+INSTALL /v0.1.1/demos/local-llm/Dollyfile-qwen3.5-2b c4467b2cfb875ee6b5b2b33f092c7d9bbb53329436340b3acc895e260c132e52
 
 REQUIRES TOOL janis
 REQUIRES TOOL tar
 REQUIRES TOOL dolly-llama
 
-SOURCE /v0.1.0/dist/static/llama/provider.tar 0c92a330cceb666ebabe9a93e1bbeb68c7f21f61c9167864ab82319c9d24c426 /tmp/llm-provider.tar
+SOURCE /v0.1.1/dist/static/llama/provider.tar 0c92a330cceb666ebabe9a93e1bbeb68c7f21f61c9167864ab82319c9d24c426 /tmp/llm-provider.tar
 SLOP tar -xf /tmp/llm-provider.tar -C /
 
 FILE /home/dolly/.pi/agent/settings.json
