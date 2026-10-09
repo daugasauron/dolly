@@ -96,11 +96,30 @@ Measured in one headless Chrome session of an image composed from
 - Slop's `cd` fails once its directory is deleted
   (`tasks/20261008-134330-deleted-cwd`).
 
-### In the tree (`core/self-host-rust`)
+### Through the image pipeline (2026-10-09, `core/self-host-rust`)
 
-- `Dollyfile-rust-llvm`, `Dollyfile-rust-build` (rustc, std, Cargo), `rust`
-  and `cargo` as copies out of `rust-build`; sources staged by
-  `prepare-rustc-sources.py`.
-- Not done: an on-demand test that repeats the stage comparison through the
-  recipe's own commands (as `demos/llvm/test/stage2-browser.mjs` does); the
-  images downstream of `rust` (`pi`, `zero-ad-spidermonkey`) rebuilt.
+Seed `rust-sdk.tar.gz` `a56fb9db…` (77 MB: rustc, std, and Cargo as one
+object), image inputs `c5e8e449…` as v0.1.0, headless Chrome:
+
+| Image | What ran | Time |
+| --- | --- | --- |
+| `rust-sdk` | seed staged, its Cargo linked by `cc` | 54 s |
+| `rust-llvm` | LLVM 22.1.8, 12 targets, 4 jobs | 1,349 s of make, 1,455 s in all |
+| `rust-build` | rustc 8 min 12 s, std 48 s, Cargo 9 min 0 s | about 20 min |
+| `ripgrep`, `fd`, `cbindgen`, `protox` | `cargo build --offline` | 68 to 87 s each |
+| `codex-build` | 963 crates | 28 min 41 s, 1,873 s in all |
+
+- `rust-build` ends by building and running a program that uses a
+  procedural macro with the toolchain it built ("built by cargo: 42").
+- `npm run test:demos -- rust` passes in Chromium (83.6 s): rustc, Cargo
+  against a fixture registry, procedural macros, threads, and the Tokio probe
+  built by Cargo. `node --test 'test/*.test.mjs'`: 341 pass.
+- A derived image keeps its base's exported folder as the base captured it:
+  `rust-build` exports `/opt/rust-sdk` itself, or images built from it have
+  no standard library (the first run failed with "can't find crate for
+  `core`").
+
+Not done: an on-demand test that repeats the stage comparison with the
+recipe's own commands, as `demos/llvm/test/stage2-browser.mjs` does (the
+recipe drops `/opt/rust-llvm` once rustc is linked, so that test needs LLVM
+kept or rebuilt).
