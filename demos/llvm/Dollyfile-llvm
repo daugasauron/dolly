@@ -5,8 +5,8 @@ REQUIRES HOST runtime@0
 # The compiler llvm-cc built inside Dolly, beside the seed's: llvm-cc and
 # llvm-c++ run it as cc and c++ run the seed compiler, on the same headers
 # and libraries.
-COPY /v0.1.2/demos/llvm/Dollyfile-llvm-cc 7915544e78a83c171b67dcd2e9ca99cf76b06e187a8e31bf0010e69983a9b7ff /usr/libexec/dolly/process-bin/compiler /usr/lib/llvm/compiler
-INSTALL /v0.1.2/Dollyfile-cc 1e6b86c8a9ea655c37ec6c74d13667e6a231c96c78ce099c902dae6c3c6aae3a
+COPY /v0.1.2/demos/llvm/Dollyfile-llvm-cc 0f2b9e2ae476ad248829245ea923ce7dd358fce5b93a7ef48c47402f94fc225d /usr/libexec/dolly/process-bin/compiler /usr/lib/llvm/compiler
+INSTALL /v0.1.2/Dollyfile-cc fde55370dfb28cc38ba5e7aec641b0501449abc73e70a4af6fa7ecc2eee49ae0
 FILE /usr/bin/llvm-cc
     #!/bin/slop
     /usr/lib/llvm/compiler --dolly-toolchain-mode=c "$@"

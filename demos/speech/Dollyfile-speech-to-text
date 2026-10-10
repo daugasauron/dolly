@@ -10,9 +10,9 @@ REQUIRES HOST snapshot@0
 REQUIRES HOST threads@0
 REQUIRES HOST upload@0
 
-FROM /v0.1.2/Dollyfile-system 1b986f665ab3f4fcab0e9ddc3d3da3534ffdd26191cb3f18cd75d9304889fef5
-COPY /v0.1.2/demos/speech/Dollyfile-speech-build 3044104d3760e6d060a2cfb81f61db8be6930c58e23736fa9c5463e6c8d2604a /usr/bin/speech-to-text /usr/bin/speech-to-text
-COPY /v0.1.2/demos/speech/Dollyfile-speech-build 3044104d3760e6d060a2cfb81f61db8be6930c58e23736fa9c5463e6c8d2604a /usr/share/licenses/transcribe.cpp /usr/share/licenses/transcribe.cpp
+FROM /v0.1.2/Dollyfile-system cb003619fa38f3340386739e0df6a500c95f5ff040b1efb6804461adf294b259
+COPY /v0.1.2/demos/speech/Dollyfile-speech-build c57e041d1691ee763753830a48736f10d8247cc0f4c0ccccf9210a530f5ccbb4 /usr/bin/speech-to-text /usr/bin/speech-to-text
+COPY /v0.1.2/demos/speech/Dollyfile-speech-build c57e041d1691ee763753830a48736f10d8247cc0f4c0ccccf9210a530f5ccbb4 /usr/share/licenses/transcribe.cpp /usr/share/licenses/transcribe.cpp
 EXPORTS TOOL speech-to-text
 
 # NVIDIA's Parakeet TDT-CTC 110M, 8-bit weights: English. Silero VAD tells speech from other sound.
