@@ -214,6 +214,15 @@ driver brings a clicked window to the front and gives it the foreground, as
 a window manager would, and a minimized window is hidden until its button is
 clicked (`ARW_HIDE`, added to user32).
 
+The shortcuts on the desktop are a comctl32 list view in a window of the
+shell's that covers the work area and puts itself back under every other
+window whenever something raises it. The icons with their names, the
+selection by a click, the rubber band from the empty desktop, Ctrl+click and
+the keyboard are that control's; ours are the list of programs (the Start
+menu's), each one's first icon resource (an x86-64 file gets the generic
+one, its own is not read), and starting the focused one on a double click or
+Enter. They cannot be dragged elsewhere: the control keeps them arranged.
+
 **Programs are threads.** With one process, the Start menu starts a program
 linked into this Wine as a thread of the desktop's process
 (`port/kernel32-program.c`): for that thread `GetModuleHandle(NULL)`, the
