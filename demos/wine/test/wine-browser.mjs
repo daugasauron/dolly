@@ -72,6 +72,18 @@ const coloured = (page, colour, tolerance = 0) => page.evaluate(([colour, tolera
   }
   return found;
 }, [colour, tolerance]);
+// The rows of text in a strip of the frame: runs of lines with dark pixels.
+const textRows = (page, x, y, width, height) => page.evaluate(([x, y, width, height]) => {
+  const data = document.querySelector("#display").getContext("2d").getImageData(x, y, width, height).data;
+  let rows = 0, blank = 3;
+  for (let line = 0; line < height; line++) {
+    let ink = false;
+    for (let i = line * width * 4; i < (line + 1) * width * 4 && !ink; i += 4) ink = data[i] + data[i + 1] + data[i + 2] < 200;
+    if (ink && blank >= 3) rows++;
+    blank = ink ? 0 : blank + 1;
+  }
+  return rows;
+}, [x, y, width, height]);
 async function until(check, what, timeout = 60_000) {
   for (const deadline = Date.now() + timeout; Date.now() < deadline; await delay(200)) {
     const result = await check();
@@ -252,6 +264,53 @@ async function site(page, prompt, start, waitText, server) {
   const log = await waitText(/the Wine desktop was shut down/);
   assert.match(log, /"Dolly  -  NetSurf"[\s\S]*"Licences and sources . Dolly  -  NetSurf"[\s\S]*"Dolly  -  NetSurf"[\s\S]*"Fixture two  -  NetSurf"/);
   console.log("wine: site:/ in NetSurf is the site's own landing page; a link on it loads, and a redirect is followed to its last address");
+  await fileManager(page, start, waitText);
+}
+
+// Wine's file manager, from the shell the desktop left: a directory made here, its subdirectory and
+// back, a file deleted, a text file opened into Notepad.
+async function fileManager(page, start, waitText) {
+  for (const command of ["mkdir -p /0test/inner", "echo Opened from the file manager > /0test/notes.txt",
+    "echo deep > /0test/inner/deep.txt", "echo 0123456789 > /0test/ten.dat"]) assert.equal(await start(command).done, 0);
+  const session = start("wine desktop");
+  await page.waitForFunction(() => __dolly.transport.graphicsActive(), null, { timeout: 60_000 });
+  const [, height] = await frameSize(page);
+  await pixelIs(page, 640, height - 6, face);
+  await click(page, 30, height - 14);
+  await delay(700);
+  await page.keyboard.press("f");
+  // Its window at 0,0 shows drive Z:, the Dolly filesystem: the tree on the left, the entries with their
+  // sizes and dates from x 310. 0test sorts first. Inside a directory the first two entries are . and ..
+  const names = () => textRows(page, 334, 112, 46, 440);
+  const open = async row => page.mouse.dblclick(...await at(page, 342, 119 + 16 * row));
+  await until(async () => await names() >= 6, "the entries of Z:\\");
+  await open(0);
+  await until(async () => await names() === 5, "the five entries of 0test");
+  await page.screenshot({ path: `${evidence}winefile.png` });
+  await open(2);
+  await until(async () => await names() === 3, "the three entries of 0test\\inner");
+  await open(1);
+  await until(async () => await names() === 5, "0test again");
+  await click(page, 342, 119 + 16 * 4);       // ten.dat: Delete, and Yes in shell32's question
+  await page.keyboard.press("Delete");
+  await delay(1500);
+  await page.keyboard.press("Enter");
+  await until(async () => await names() === 4, "0test without ten.dat");
+  await open(3);                              // notes.txt, into Notepad, which opens over it at 0,0
+  await until(async () => await dark(page, 8, 46, 400, 20) > 150, "the text of notes.txt in Notepad");
+  console.log(`wine: the file manager listed a directory, entered and left a subdirectory, deleted a file, and opened a text file into Notepad (${await dark(page, 8, 46, 400, 20)} dark pixels of its text)`);
+  await page.keyboard.press("Alt+F4");
+  await delay(1000);
+  await click(page, 600, 300);
+  await page.keyboard.press("Alt+F4");
+  await delay(1000);
+  await click(page, 30, height - 14);
+  await delay(700);
+  await page.keyboard.press("u");
+  assert.equal(await session.done, 0);
+  const log = await waitText(/"notes\.txt - Notepad"/);
+  assert.match(log, /"Wine File Manager - \[Z:\\0test\]"[\s\S]*"Wine File Manager - \[Z:\\0test\\inner\]"[\s\S]*"Wine File Manager - \[Z:\\0test\]"/);
+  assert.notEqual(await start("ls /0test/ten.dat").done, 0, "the deleted file is gone from the Dolly filesystem");
 }
 
 async function run(page, prompt, start, waitText) {

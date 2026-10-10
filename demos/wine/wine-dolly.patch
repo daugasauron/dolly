@@ -211,6 +211,39 @@
      RtlExitUserProcess( status );
  }
  
+--- a/dlls/kernel32/volume.c
++++ b/dlls/kernel32/volume.c
+@@ -28,6 +28,9 @@
+ #include <stdarg.h>
+ #include <stdlib.h>
+ #include <stdio.h>
++#ifdef HAVE_SYS_STAT_H
++# include <sys/stat.h>
++#endif
+ 
+ #include "ntstatus.h"
+ #define WIN32_NO_STATUS
+@@ -1352,6 +1355,20 @@
+     NTSTATUS status;
+     HANDLE handle;
+ 
++#ifdef __dolly__
++    /* mountmgr, a driver in a process of its own, names the drives in \DosDevices; without it
++     * they are the links in the prefix's dosdevices directory, where mountmgr finds them too */
++    {
++        char path[4096];
++        struct stat st;
++        int len = snprintf( path, sizeof(path), "%s/dosdevices/a:", wine_get_config_dir() );
++
++        if (len < 0 || len >= sizeof(path)) return 0;
++        for (; path[len - 2] <= 'z'; path[len - 2]++)
++            if (!stat( path, &st )) bitmask |= 1 << (path[len - 2] - 'a');
++        return bitmask;
++    }
++#endif
+     RtlInitUnicodeString( &nt_name, dosdevW );
+     nt_name.Length -= sizeof(WCHAR);  /* without trailing slash */
+     attr.Length = sizeof(attr);
 --- a/dlls/ntdll/loader.c
 +++ b/dlls/ntdll/loader.c
 @@ -589,6 +589,9 @@
@@ -503,6 +536,19 @@
  
      /* Reserve the memory */
  
+--- a/dlls/shell32/changenotify.c
++++ b/dlls/shell32/changenotify.c
+@@ -274,6 +274,10 @@
+ 
+     TRACE("(0x%08x,0x%08x,%p,%p)\n", wEventId, uFlags, dwItem1, dwItem2);
+ 
++#ifdef __dolly__  /* ole32, which turns a path into an item list, is not linked: nobody listening, nothing to turn */
++    if (list_empty( &notifications )) return;
++#endif
++
+     if(uFlags & ~(SHCNF_TYPE|SHCNF_FLUSH))
+         FIXME("ignoring unsupported flags: %x\n", uFlags);
+ 
 --- a/dlls/user32/class.c
 +++ b/dlls/user32/class.c
 @@ -775,6 +775,31 @@
@@ -765,6 +811,154 @@
      int ret = (stat( path, &st ) != -1);
      free( path );
      return ret;
+--- a/libs/wine/string.c
++++ b/libs/wine/string.c
+@@ -478,8 +478,16 @@
+                         sprintf(bufaiter, fmtbufa, va_arg(valist, double));
+                     else
+                     {
++#ifdef __dolly__
++                        /* WebAssembly passes an int among variable arguments in four bytes, not in a
++                         * pointer's eight; l is Windows' long, an int too, and the C library's is not */
++                        if (fmta[-2] != 'l') sprintf(bufaiter, fmtbufa, va_arg(valist, int));
++                        else if (*iter == 'd' || *iter == 'i') sprintf(bufaiter, fmtbufa, (long)va_arg(valist, int));
++                        else sprintf(bufaiter, fmtbufa, (unsigned long)va_arg(valist, unsigned int));
++#else
+                         /* FIXME: On 32 bit systems this doesn't handle int 64's. */
+                         sprintf(bufaiter, fmtbufa, va_arg(valist, void *));
++#endif
+                     }
+                 }
+                 while (*bufaiter)
+--- a/programs/winefile/winefile.c
++++ b/programs/winefile/winefile.c
+@@ -2181,6 +2181,14 @@
+                                                       Globals.saveSettings ? MF_CHECKED : MF_UNCHECKED );
+ 					break;
+ 
++#ifdef __dolly__  /* no other process to run, no network drives (mpr), no help viewer */
++				case ID_RUN:
++				case ID_CONNECT_NETWORK_DRIVE:
++				case ID_DISCONNECT_NETWORK_DRIVE:
++				case ID_HELP:
++					display_error(hwnd, ERROR_NOT_SUPPORTED);
++					break;
++#else
+ 				case ID_RUN:
+ 					WineFile_OnRun( hwnd );
+ 					break;
+@@ -2212,6 +2220,7 @@
+ 				case ID_HELP:
+ 					WinHelpW(hwnd, RS(b1,IDS_WINEFILE), HELP_INDEX, 0);
+ 					break;
++#endif
+ 
+ 				case ID_VIEW_FULLSCREEN:
+ 					CheckMenuItem(Globals.hMenuOptions, cmd, toggle_fullscreen(hwnd)?MF_CHECKED:0);
+@@ -3429,6 +3438,7 @@
+ 	SendMessageW(Globals.hdrivebar, TB_INSERTBUTTONW, btn++, (LPARAM)&drivebarBtn);
+ 	drivebarBtn.iString++;
+ #endif
++#ifndef __dolly__  /* the shell namespace is ole32's */
+ 	/* insert shell namespace button */
+ 	load_string(b1, ARRAY_SIZE(b1), IDS_SHELL);
+ 	b1[lstrlenW(b1)+1] = '\0';
+@@ -3437,6 +3447,7 @@
+ 	drivebarBtn.idCommand = ID_DRIVE_SHELL_NS;
+ 	SendMessageW(Globals.hdrivebar, TB_INSERTBUTTONW, btn++, (LPARAM)&drivebarBtn);
+ 	drivebarBtn.iString++;
++#endif
+ 
+ 	/* register windows drive root strings */
+ 	SendMessageW(Globals.hdrivebar, TB_ADDSTRINGW, 0, (LPARAM)Globals.drives);
+@@ -3477,6 +3488,43 @@
+ }
+ 
+ 
++#ifdef __dolly__
++/* CreateProcess starts nothing on Dolly: programs are threads of this process. A file is opened by
++ * the program of this Wine that reads its kind: a bitmap by Paint, an x86-64 program by x86emu,
++ * anything else as text by Notepad. */
++extern HANDLE wine_dolly_start_program( const WCHAR *cmdline );
++extern BOOL wine_dolly_program_running( const WCHAR *name );
++extern void wine_dolly_free_program_classes( HMODULE module );
++
++static BOOL launch_file(HWND hwnd, LPCWSTR cmd, UINT nCmdShow)
++{
++	static const WCHAR bmpW[] = {'.','b','m','p',0}, exeW[] = {'.','e','x','e',0};
++	static const WCHAR paintW[] = {'m','s','p','a','i','n','t','.','e','x','e',0};
++	static const WCHAR x86emuW[] = {'x','8','6','e','m','u','.','e','x','e',0};
++	static const WCHAR notepadW[] = {'n','o','t','e','p','a','d','.','e','x','e',0};
++	static const WCHAR plainW[] = {'%','s',' ','%','s',0}, quotedW[] = {'%','s',' ','"','%','s','"',0};
++	LPCWSTR ext = strrchrW(cmd, '.'), program = notepadW;
++	WCHAR line[MAX_PATH + 16];
++	HMODULE module;
++	HANDLE thread;
++
++	if (ext && !lstrcmpiW(ext, bmpW)) program = paintW;
++	else if (ext && !lstrcmpiW(ext, exeW)) program = x86emuW;
++	if (wine_dolly_program_running(program)) {
++		display_error(hwnd, ERROR_BUSY);
++		return FALSE;
++	}
++	/* the window classes its last run registered would make this one fail */
++	if ((module = GetModuleHandleW(program))) wine_dolly_free_program_classes(module);
++	snprintfW(line, ARRAY_SIZE(line), program == paintW ? plainW : quotedW, program, cmd);
++	if (!(thread = wine_dolly_start_program(line))) {
++		display_error(hwnd, GetLastError());
++		return FALSE;
++	}
++	CloseHandle(thread);
++	return TRUE;
++}
++#else
+ static BOOL launch_file(HWND hwnd, LPCWSTR cmd, UINT nCmdShow)
+ {
+ 	HINSTANCE hinst = ShellExecuteW(hwnd, NULL/*operation*/, cmd, NULL/*parameters*/, NULL/*dir*/, nCmdShow);
+@@ -3488,6 +3536,7 @@
+ 
+ 	return TRUE;
+ }
++#endif
+ 
+ 
+ static BOOL launch_entry(Entry* entry, HWND hwnd, UINT nCmdShow)
+@@ -4027,6 +4076,11 @@
+ 			Pane* pane;
+ 			int idx;
+ 
++#ifdef __dolly__  /* the context menu is the shell folder's */
++			display_error(hwnd, ERROR_NOT_SUPPORTED);
++			break;
++#endif
++
+ 			 /* first select the current item in the listbox */
+ 			HWND hpanel = (HWND) wparam;
+ 			pt_clnt.x = pt.x = (short)LOWORD(lparam);
+@@ -4190,9 +4244,11 @@
+ 
+ 	Globals.hInstance = hinstance;
+ 
++#ifndef __dolly__  /* ole32 is not linked: no shell namespace */
+ 	CoInitialize(NULL);
+ 	CoGetMalloc(MEMCTX_TASK, &Globals.iMalloc);
+ 	SHGetDesktopFolder(&Globals.iDesktop);
++#endif
+ 	Globals.cfStrFName = RegisterClipboardFormatW(CFSTR_FILENAMEW);
+ 
+ 	/* load column strings */
+@@ -4338,9 +4394,11 @@
+ 
+ static void ExitInstance(void)
+ {
++#ifndef __dolly__
+ 	IShellFolder_Release(Globals.iDesktop);
+ 	IMalloc_Release(Globals.iMalloc);
+ 	CoUninitialize();
++#endif
+ 
+ 	DeleteObject(Globals.hfont);
+ 	ImageList_Destroy(Globals.himl);
 --- a/server/process.h
 +++ b/server/process.h
 @@ -108,7 +108,7 @@

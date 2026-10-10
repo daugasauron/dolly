@@ -63,7 +63,7 @@ headers: $(IDL_HEADERS)
 # Modules, each built by module.mk from its own Makefile.in: Wine's, and the demo's own under $(PORT).
 DLLS := ntdll kernel32 advapi32 gdi32 user32 version usp10 imm32 comctl32 comdlg32 shell32 shlwapi uxtheme winspool.drv msvcrt
 OWN_DLLS := winedolly.drv
-PROGRAMS := notepad winemine
+PROGRAMS := notepad winefile winemine
 OWN_PROGRAMS := desktop hello mspaint netsurf x86emu
 MODULES := $(DLLS:%=dlls/%) $(OWN_DLLS:%=dlls/%) $(PROGRAMS:%=programs/%) $(OWN_PROGRAMS:%=programs/%) server
 export MODULE_FILE_winspool := winspool.drv
@@ -72,6 +72,7 @@ MODULE_ARGS_dlls/kernel32 := PORT_SRCS=kernel32-program.c
 MODULE_ARGS_dlls/gdi32 := PORT_SRCS=freetype-symbols.c FREETYPE_CFLAGS="-I/usr/include/freetype2 -I$(PORT)/port" \
                           freetype_EXTRADEFS='-DWINE_FONT_DIR=\"fonts\"'
 MODULE_ARGS_dlls/user32 := PORT_SRCS=user32-desktop.c
+MODULE_ARGS_dlls/shell32 := PORT_SRCS=ole32-taskmem.c
 MODULE_ARGS_server := ENTRY_RENAMES=-Dmain=wineserver_main \
                       MODDEFS="-include $(PORT)/port/server-cwd.h" PORT_SRCS=server-cwd.c \
                       main_EXTRADEFS=-Dmain_loop=wine_dolly_server_ready

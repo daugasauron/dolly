@@ -179,6 +179,7 @@ static void program_label( const char *name, WCHAR *label )
 
     if (!strcmp( name, "mspaint.exe" )) name = "paint";  /* as its own window calls it */
     if (!strcmp( name, "netsurf.exe" )) name = "net&Surf";  /* N is Notepad's key */
+    if (!strcmp( name, "winefile.exe" )) name = "file Manager";  /* W is WineMine's */
     if (!strchr( name, '&' )) *label++ = '&';
     for (i = 0; name[i] && name[i] != '.'; i++) label[i] = i ? name[i] : name[i] - 'a' + 'A';
     label[i] = 0;

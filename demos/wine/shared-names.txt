@@ -73,7 +73,9 @@ dlls/shlwapi StrToIntW
 dlls/user32 COMBO_FlipListbox
 dlls/user32 bitmap_info_size
 dlls/user32 set_control_clipping
+programs/notepad Globals
 programs/notepad get_dpi
+programs/winefile Globals
 server alloc_user_handle
 server close_handle
 server destroy_thread_windows

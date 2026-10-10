@@ -11,8 +11,8 @@ mouse and the keyboard. The tasks, with every measurement, are
 
 **Windows binaries run only under an interpreter.** A `.exe` from anywhere
 else is x86 machine code and Dolly has no x86. Wine's programs here are
-what this image compiled (`desktop`, `notepad`, `winemine`, `mspaint`,
-`netsurf`, `hello`); `x86emu` interprets small x86-64 programs against these DLLs
+what this image compiled (`desktop`, `notepad`, `winefile`, `winemine`,
+`mspaint`, `netsurf`, `hello`); `x86emu` interprets small x86-64 programs against these DLLs
 (below). 32-bit programs do not run.
 
 ## Images
@@ -176,6 +176,34 @@ It is an interpreter for small programs, not a Windows machine:
   every structure and message crossing between guest and DLL would need
   converting; the task file has the assessment.
 
+## The file manager
+
+Wine's own `winefile` (the Start menu's "File Manager") browses what the
+prefix sees: drive `Z:` is the Dolly filesystem, `C:` the prefix's
+`drive_c`, and the `/` button its Unix view. Directories open on a
+double-click, `..` leads back; Move, Copy and Delete are shell32's file
+operations with their question dialogs. Four things had to change for a Wine
+without ole32, mpr and other processes (`wine-dolly.patch`):
+
+- it does not start COM or take the shell's desktop folder: the "Shell"
+  namespace button is gone, and the context menu, which is the shell
+  folder's, answers "not supported", as do Run, the network drive dialogs
+  and Help;
+- a double-clicked file is opened by the program of this image that reads
+  it, started as a thread with the path: a `.bmp` by Paint, an `.exe` by
+  `x86emu`, anything else as text by Notepad. If that program is already
+  running, the file manager says it is busy;
+- `GetLogicalDrives` reads the drives from the prefix's `dosdevices` links:
+  Wine has them from mountmgr, a driver in a process of its own. (The file
+  dialogs' drive lists come from the same call.)
+- shell32 allocates with ole32's task allocator, which is the process heap
+  (`port/ole32-taskmem.c`), and tells listeners of changes only when there
+  are some, as turning a path into an item list is ole32's.
+
+It also showed that libwine's wide `printf` read every integer argument as
+a pointer, which WebAssembly's variable arguments do not allow: each number
+Wine formatted that way (dates, sizes) was wrong until that was patched.
+
 ## The desktop
 
 `programs/desktop` is ours, not Wine's `explorer.exe` (which wants shell32,
@@ -237,7 +265,7 @@ no `mmap` at a chosen address and no assembler. So:
 - **The desktop** is the ownerless window the server makes when there is no
   `explorer.exe` (`port/user32-desktop.c` names the driver for it).
 
-`wine-dolly.patch` (32 files, about 365 added lines) holds the changes to
+`wine-dolly.patch` (36 files, about 450 added lines) holds the changes to
 Wine itself: the `wasm64` CPU in widl, winebuild, the headers and the server
 protocol; ntdll's server connection, loader slots and virtual memory; where
 libwine finds its directories; and the two calls through a mismatched
