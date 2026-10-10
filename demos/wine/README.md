@@ -5,14 +5,15 @@ programs and DLLs, compiled from Wine's source for wasm64 by Dolly's `cc`
 and linked with `wineserver` into one executable. It boots into a desktop
 with a taskbar and a Start menu; Notepad, WineMine, ReactOS's Paint, the
 NetSurf web browser and GIMP 2.2 open side by side on the Dolly display and
-take the mouse and the keyboard. The tasks, with every measurement, are
+take the mouse and the keyboard, and a Command Prompt runs Wine's `cmd`. The
+tasks, with every measurement, are
 `tasks/20261008-145108-wine-bringup/TASK.md` and
 `tasks/20261010-114236-netsurf/TASK.md`.
 
 **Windows binaries run only under an interpreter.** A `.exe` from anywhere
 else is x86 machine code and Dolly has no x86. Wine's programs here are
 what this image compiled (`desktop`, `notepad`, `winefile`, `winemine`,
-`mspaint`, `netsurf`, `gimp`, `hello`); `x86emu` interprets small x86-64 programs against these DLLs
+`mspaint`, `netsurf`, `gimp`, `wineconsole`, `cmd`, `hello`); `x86emu` interprets small x86-64 programs against these DLLs
 (below). 32-bit programs do not run.
 
 ## Images
@@ -276,6 +277,60 @@ It is an interpreter for small programs, not a Windows machine:
   every structure and message crossing between guest and DLL would need
   converting; the task file has the assessment.
 
+## The terminal
+
+"Command Prompt" on the Start menu and the desktop is Wine's own `cmd` in
+the window of Wine's own `wineconsole` (its user32 backend): 80 columns by 25
+lines, with kernel32's line editing and history. `dir`, `cd`, `type`, `echo`,
+`cls`, redirection and batch files are cmd's. It starts in the user's
+directory, `Z:\home\dolly`, with TinyCC on its `PATH`.
+
+**Programs start by name, as threads.** A command that names a program
+linked into this Wine (`notepad hello_win.c`, `winemine`, `mspaint`, `gimp`,
+`hello`) starts it with its arguments; a path to an x86-64 `.exe`, or its
+name where cmd looks for one (the directory, then `PATH`), runs under
+`x86emu`. cmd waits for a program of the console subsystem and has its exit
+code in `%errorlevel%`; one with a window leaves the prompt free. Which of
+the two an x86-64 file is, cmd reads from its header.
+
+**Edit, compile, run.** `hello_win.c`, the source of the Start menu's x86-64
+sample (TinyCC's example), is in the user's directory, since that is where a
+user's files are and where the terminal starts:
+
+    notepad hello_win.c
+    tcc hello_win.c
+    hello_win
+
+Notepad edits and saves it, the x86-64 TinyCC compiles it under the
+interpreter (0.6 to 0.8 s in Chrome), and the result opens its window.
+
+What one process makes of it:
+
+- a program's output is in the console when it writes through Windows'
+  standard handles: `hello`'s first line, and all of an x86-64 program, whose
+  C runtime is Wine's msvcrt (its standard files follow the handles of the
+  moment, so `tcc -v > file` and `2> file` work, and it writes them out when
+  a program exits). What a program of this Wine prints with the C library's
+  `printf` goes to the Dolly terminal behind the desktop: the rest of `hello`;
+- `start` answers that this Wine has no process to start;
+- a second x86-64 program while one runs, and a second `cmd` (`cmd /c …`),
+  are refused with a message: each program runs once at a time;
+- the current directory is the process's: `cd` moves the file dialogs and
+  the file manager of every program with it;
+- pipes are cmd's: through a temporary file, one command after the other;
+- Ctrl+C interrupts nothing: no signal reaches a thread;
+- closing the window ends `cmd` when it next reads a line: at once at the
+  prompt, after the console program it is waiting for otherwise.
+
+For it Wine changed in four places (`wine-dolly.patch`): the server attaches
+a console to the process of its own renderer; `wineconsole` starts the
+program as a thread, makes the console's handles the process's standard
+ones while it runs, and ends with it; `cmd` starts programs as above; and
+msvcrt as said. The console's font is the terminal's Iosevka, linked into
+Wine's font directory: Wine's own fonts of fixed width are bitmap fonts,
+which this image does not build. NetSurf's fixed-width text is drawn in it
+too.
+
 ## The file manager
 
 Wine's own `winefile` (the Start menu's "File Manager") browses what the
@@ -336,7 +391,8 @@ are unregistered. What this is not:
 - threads a program creates see the desktop as their process, and they, its
   handles and its heap blocks are not released when it exits;
 - `exit()` or `TerminateProcess` on itself ends everything;
-- programs cannot start each other: `CreateProcess` still fails.
+- programs cannot start each other: `CreateProcess` still fails. Only the
+  desktop, the file manager and `cmd` start programs, by this means.
 
 ## How it is put together
 
@@ -383,12 +439,12 @@ no `mmap` at a chosen address and no assembler. So:
 - **The desktop** is the ownerless window the server makes when there is no
   `explorer.exe` (`port/user32-desktop.c` names the driver for it).
 
-`wine-dolly.patch` (38 files, about 450 added lines) holds the changes to
+`wine-dolly.patch` (45 files, about 580 added lines) holds the changes to
 Wine itself: the `wasm64` CPU in widl, winebuild, the headers and the server
 protocol; ntdll's server connection, loader slots and virtual memory; where
 libwine finds its directories; the two calls through a mismatched
-function type found so far (thread start, timer procedures); and the ranges
-of GDI and window handles (see GIMP).
+function type found so far (thread start, timer procedures); the ranges
+of GDI and window handles (see GIMP); and the terminal's four (see there).
 
 Host preparation (`prepare-wine.sh`) applies the patch and generates the
 seven Bison and flex parser files, as the core does for awk; nothing is
@@ -397,8 +453,9 @@ compiled outside Dolly.
 ## What does not work, and how it fails
 
 - **Another process**: `CreateProcess` fails, so no `wineboot` (the registry
-  starts empty; Wine reports that it could not start it), no
-  `explorer.exe`, no second program in the same desktop.
+  starts empty; Wine reports that it could not start it) and no
+  `explorer.exe`. The desktop and `cmd` start a program of this Wine as a
+  thread instead, and an x86-64 file under `x86emu`; a program cannot.
 - **Windows binaries**: Wine's loader refuses a PE file with code
   (`STATUS_INVALID_IMAGE_FORMAT`); only `x86emu` loads one, within the
   limits above.
