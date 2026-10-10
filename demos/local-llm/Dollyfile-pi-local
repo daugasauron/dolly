@@ -11,7 +11,7 @@ REQUIRES HOST snapshot@0
 REQUIRES HOST threads@0
 REQUIRES HOST upload@0
 
-FROM /v0.1.1/demos/pi/Dollyfile-pi 44e7c3e555a4c723ea7f3977cac56e097b1729de3d4af655fb28f6bb96fbb971
+FROM /v0.1.1/demos/pi/Dollyfile-pi d423ca7e9ca3c982ecce68d3e269ed6e4c199a21d02706049fd451b5b0ca812a
 COPY /v0.1.1/demos/local-llm/Dollyfile-local-llm-build 36531fa8b3622ba9e61c4b4941fde0846b389607417c838574b96dff3339f9cc /usr/bin/dolly-llama /usr/bin/dolly-llama
 COPY /v0.1.1/demos/local-llm/Dollyfile-llama-build 6c1de7585789a2abc7d730a258ea1cefa25d60ec34829b16db91b0d2fdead0cd /usr/share/licenses/dolly-llm /usr/share/licenses/dolly-llm
 EXPORTS TOOL dolly-llama

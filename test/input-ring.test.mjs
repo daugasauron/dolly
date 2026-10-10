@@ -177,7 +177,7 @@ int main(void) {
 `, "ring.c");
 });
 
-test("the terminal reads its replies, then records; a lease takes the ring and its end drops what was unread", async () => {
+test("the terminal reads its replies, then records and typed bytes in order; a lease takes the ring and its end drops what was unread", async () => {
   await probe(`
 #include "process-kernel.h"
 #include <dolly/input.h>
@@ -192,6 +192,10 @@ uintptr_t dolly_input_paste_buffer_address(void);
 int dolly_kernel_foreground(void) { return 100; }
 int dolly_process_descends_from(int pid, int ancestor) { return pid == ancestor || pid == ancestor + 1; }
 int dolly_kernel_deadline_pending(uint64_t deadline) { return deadline != 0; }
+static int interruptible, interrupts, wakes;
+int dolly_kernel_foreground_interruptible(void) { return interruptible; }
+void dolly_kernel_foreground_interrupt(void) { ++interrupts; }
+void dolly_kernel_wake(void) { ++wakes; }
 static char replies[8];
 static size_t reply_length;
 size_t dolly_kernel_terminal_replies(unsigned char *output, size_t capacity) {
@@ -220,6 +224,7 @@ static void push(uint32_t type, uint32_t action) {
   mailbox->events[mailbox->event_write++ & 255] = (dolly_input_event){.type = type, .action = action};
 }
 static unsigned unread(void) { return mailbox->event_write - mailbox->event_read; }
+static int type(const char *bytes, size_t length) { return dolly_kernel_terminal_type((const unsigned char *)bytes, length); }
 static unsigned char box[256];
 static int64_t call(int pid, uint32_t operation, const void *request, size_t size, size_t capacity) {
   memcpy(box, request, size);
@@ -286,6 +291,25 @@ int main(void) {
   push(DOLLY_INPUT_EVENT_POINTER, 0);
   dolly_terminal_discard_pending_input();
   assert(unread() == 0 && pointers == 1 && dolly_kernel_terminal_read() == -1);
+  // What a program types is read after the keys that were unread when it
+  // typed and before later ones; Ctrl+C is a byte while nothing takes signals.
+  push(DOLLY_INPUT_EVENT_KEY, 'k');
+  push(DOLLY_INPUT_EVENT_POINTER, 0);
+  assert(type("ab", 2) == 0 && wakes == 1 && pointers == 2);
+  push(DOLLY_INPUT_EVENT_KEY, 'l');
+  assert(type("c\x03", 2) == 0);
+  push(DOLLY_INPUT_EVENT_KEY, 'm');
+  for (const char *expected = "kablc\x03m"; *expected; ++expected) assert(dolly_kernel_terminal_read() == *expected);
+  assert(dolly_kernel_terminal_read() == -1 && interrupts == 0);
+  // It interrupts a foreground that takes signals, and needs no room for that.
+  interruptible = 1;
+  static char filler[4096];
+  assert(type("x\x03y", 3) == 0 && interrupts == 1 && dolly_kernel_terminal_read() == 'x' && dolly_kernel_terminal_read() == 'y');
+  assert(type(filler, 4096) == 0 && type(filler, 4096) == 0 && type("z", 1) == -EAGAIN);
+  assert(type("\x03", 1) == 0 && interrupts == 2);
+  // The foreground's end drops typed bytes with its other unread input.
+  dolly_terminal_discard_pending_input();
+  assert(dolly_kernel_terminal_read() == -1 && type("z", 1) == 0 && dolly_kernel_terminal_read() == 'z');
   return 0;
 }
 `, "kernel.c", "ring.c");

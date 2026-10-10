@@ -46,6 +46,10 @@ semantics, and lifecycle rules matter more than a high-level wrapper API.
 - Microphone capture is its own explicit external resource, `microphone@0`:
   mono PCM of the browser's default input, only for an image that declares
   the module, only after the browser's own permission prompt.
+- The button strip is its own explicit external resource, `buttons@0`: a
+  caption and labelled buttons the page draws as text for one process, and
+  the clipboard's text only by the user's press of the page's own Paste
+  button. What that process types into the terminal stays in Wasm.
 - The browser host is not Dolly's filesystem and cannot provide native
   subprocesses.
 - Network access crosses one explicit, restrictable browser broker. Programs do

@@ -1,0 +1,21 @@
+/* Generated from host/buttons/dolly-buttons-0.wat, host/buttons/buttons.h. */
+#pragma once
+#define DOLLY_BUTTONS_VERSION 0u
+#define DOLLY_BUTTONS_PROCESS_OP 131u
+#define DOLLY_BUTTONS_TYPE_OP 132u
+#define DOLLY_BUTTONS_SLOTS 1u
+#define DOLLY_BUTTONS_PACKET_BYTES 856u
+#define DOLLY_BUTTONS_REPLY_BYTES 4116u
+#define DOLLY_BUTTONS_MAX 12u
+#define DOLLY_BUTTONS_LABEL_BYTES 24u
+#define DOLLY_BUTTONS_CAPTION_BYTES 480u
+#define DOLLY_BUTTONS_PASTE_BYTES 4096u
+#define DOLLY_BUTTONS_TYPE_BYTES 4096u
+#define DOLLY_BUTTONS_EVENTS 16u
+#define DOLLY_BUTTONS_OPEN 1u
+#define DOLLY_BUTTONS_SHOW 2u
+#define DOLLY_BUTTONS_READ 3u
+#define DOLLY_BUTTONS_CLOSE 4u
+#define DOLLY_BUTTON_PRESS 1u
+#define DOLLY_BUTTON_PASTE 2u
+#define DOLLY_BUTTONS_ABI_DIGEST 0x73, 0xc2, 0x74, 0x22, 0x0f, 0xd8, 0x1b, 0x4e, 0xc2, 0xba, 0x53, 0x8a, 0xa9, 0xf1, 0x9d, 0xf4, 0x7f, 0x5b, 0x96, 0x65, 0x66, 0x5f, 0xb0, 0x09, 0x22, 0xc2, 0x90, 0x7b, 0xda, 0xf4, 0xfe, 0x85

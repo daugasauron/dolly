@@ -1,0 +1,13 @@
+{
+  "name": "buttons",
+  "version": 0,
+  "dependencies": ["runtime@0"],
+  "phase": "kernel",
+  "imports": ["env.dolly_buttons_dispatch"],
+  "host": "buttons.mjs",
+  "contracts": ["dolly-buttons-0.wat"],
+  "process": [],
+  "headers": ["buttons.h", "buttons-abi.h"],
+  "kernel": ["kernel.c"],
+  "client": ["client.c"]
+}

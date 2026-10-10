@@ -88,6 +88,11 @@ int dolly_kernel_terminal_read(void);
 int dolly_kernel_terminal_ready(void);
 int dolly_kernel_terminal_input_service(void);
 void dolly_terminal_discard_pending_input(void);
+/* Terminal input from inside Wasm (host/buttons/kernel.c): whoever reads the
+ * terminal reads the bytes as if typed, after the keyboard input that came
+ * before them. Byte 3 interrupts an interruptible foreground instead. Zero, or
+ * -EAGAIN while the queue has no room for them. */
+int dolly_kernel_terminal_type(const unsigned char *bytes, size_t length);
 
 /* The terminal line discipline and the page's terminal mailbox, src/dolly.c. */
 uint32_t dolly_kernel_terminal_mode(void);
@@ -102,6 +107,9 @@ void dolly_terminal_publish_result(int status);
 void dolly_kernel_foreground_publish(int pid, int interruptible);
 /* The terminal's foreground owner, or zero. */
 int dolly_kernel_foreground(void);
+/* Whether Ctrl+C is its SIGINT (ISIG) and not input; the request to send it. */
+int dolly_kernel_foreground_interruptible(void);
+void dolly_kernel_foreground_interrupt(void);
 
 int dolly_process_descends_from(int pid, int ancestor_pid);
 void dolly_kernel_terminal_resized(void);

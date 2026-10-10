@@ -33,6 +33,17 @@ static unsigned char encoded_input[256];
 static size_t encoded_input_length;
 static size_t encoded_input_cursor;
 
+// What a program typed (dolly_kernel_terminal_type), oldest first. TYPED_RECORD
+// stands for one keyboard record that was unread when the bytes behind it
+// were typed: the terminal reads that record first.
+enum { TYPED_CAPACITY = 8192, TYPED_RECORD = 256 };
+static uint16_t typed[TYPED_CAPACITY];
+static uint32_t typed_read, typed_write, typed_records;
+
+static uint16_t *typed_at(uint32_t index) {
+  return &typed[index % TYPED_CAPACITY];
+}
+
 uintptr_t dolly_input_mailbox_address(void) {
   return (uintptr_t)&input_mailbox;
 }
@@ -63,6 +74,8 @@ static void discard_pending_input(int terminal_ui) {
       atomic_load_explicit(&input_mailbox.paste_sequence, memory_order_acquire), memory_order_release);
   encoded_input_cursor = 0;
   encoded_input_length = 0;
+  typed_read = typed_write;
+  typed_records = 0;
 }
 
 void dolly_terminal_discard_pending_input(void) {
@@ -96,12 +109,57 @@ static int fill_terminal_input(void) {
     // paste) comes before the next record.
     encoded_input_length = dolly_kernel_terminal_replies(encoded_input, sizeof(encoded_input));
     if (encoded_input_length != 0) continue;
+    while (typed_read != typed_write && *typed_at(typed_read) != TYPED_RECORD &&
+           encoded_input_length < sizeof(encoded_input)) {
+      encoded_input[encoded_input_length++] = (unsigned char)*typed_at(typed_read++);
+    }
+    if (encoded_input_length != 0) continue;
+    // What is left of the typed queue begins with a record to read first.
+    const int owed = typed_read != typed_write;
     // A lessee reads the records itself: no terminal reader may race it for
     // the single-consumer ring.
     dolly_input_event event;
-    if (lease_generation != 0 || ring.decoder == NULL || !dolly_input_ring_take(&ring, &event)) return -1;
-    if (decode(&event) != 0) encoded_input_length = 0;
+    const int taken = lease_generation == 0 && ring.decoder != NULL && dolly_input_ring_take(&ring, &event);
+    if (owed) {
+      // Read now, or gone to a lessee.
+      ++typed_read;
+      --typed_records;
+    } else if (!taken) {
+      return -1;
+    }
+    if (taken && decode(&event) != 0) encoded_input_length = 0;
   }
+}
+
+int dolly_kernel_terminal_type(const unsigned char *bytes, size_t length) {
+  // Pointer and scroll records are not input: what stays unread after them
+  // was typed on the keyboard before these bytes.
+  uint32_t records = 0;
+  if (lease_generation == 0 && ring.decoder != NULL && dolly_input_ring_service(&ring) == 0) {
+    const uint32_t unread = atomic_load_explicit(&input_mailbox.event_write, memory_order_acquire) -
+        atomic_load_explicit(&input_mailbox.event_read, memory_order_relaxed);
+    if (unread > typed_records) records = unread - typed_records;
+  }
+  uint32_t room = TYPED_CAPACITY - (typed_write - typed_read), write = typed_write;
+  if (records > room) return -EAGAIN;
+  room -= records;
+  for (uint32_t index = 0; index < records; ++index) *typed_at(write++) = TYPED_RECORD;
+  const int interruptible = dolly_kernel_foreground_interruptible();
+  int interrupt = 0;
+  for (size_t index = 0; index < length; ++index) {
+    if (bytes[index] == 3 && interruptible) {
+      interrupt = 1;
+    } else if (room-- == 0) {
+      return -EAGAIN;
+    } else {
+      *typed_at(write++) = bytes[index];
+    }
+  }
+  typed_write = write;
+  typed_records += records;
+  if (interrupt) dolly_kernel_foreground_interrupt();
+  dolly_kernel_wake();
+  return 0;
 }
 
 int dolly_kernel_terminal_ready(void) {

@@ -20,6 +20,7 @@ flowchart TB
     gpu["gpu@0"]
     au["audio@0"]
     mic["microphone@0"]
+    btn["buttons@0"]
   end
   subgraph mailboxes["Mailboxes"]
     disp["display@0"]
@@ -40,6 +41,7 @@ flowchart TB
   dl --> save["user clicks Save"]
   up --> picker["user picks a file"]
   mic --> prompt["browser's own permission prompt"]
+  btn --> paste["user presses the page's Paste button"]
 ```
 
 ## Host modules
@@ -65,6 +67,7 @@ Worker URL.
 | `gpu@0` | `env.dolly_gpu_dispatch` | Bounded WebGPU packets on the browser's `high-performance` adapter, 8 scopes, 4,096 objects each, 4 GiB total, one canvas | [`host/gpu/`](../host/gpu/module.json) |
 | `audio@0` | `env.dolly_audio_dispatch` | Stereo PCM output, 4 streams of 1 s; no capture | [`host/audio/`](../host/audio/module.json) |
 | `microphone@0` | `env.dolly_microphone_dispatch` | Mono PCM of the browser's default input: one capture, 2 s queued. The browser is asked only when a program opens it and grants it only through its own prompt; the page shows it while held; tracks stop on close and exit. No device list, labels or choice, no video | [`host/microphone/`](../host/microphone/module.json) |
+| `buttons@0` | `env.dolly_buttons_dispatch` | A strip of page DOM below the terminal, for one process: a caption (480 bytes) and 12 buttons (24-byte labels) set as text, 16 queued presses. The clipboard's text (4,096 bytes) is read only inside the user's press of the page's own Paste button, which the guest cannot name. What the process types into the terminal stays in Wasm | [`host/buttons/`](../host/buttons/module.json) |
 | `threads@0` | supervisor | Worker per thread of an admitted executable: 16 per process, 64 total | [`host/threads/`](../host/threads/module.json) |
 | `sockets@0` | none | Local stream sockets between processes of the kernel, in its memory: 128 sockets, 16 unaccepted connections a listener, 64 KiB a direction. No network family and nothing outside Wasm | [`host/sockets/`](../host/sockets/module.json) |
 | `dso@0` | process Worker of an executable that records it | Instantiate Wasm the process supplies into its own memory and function table, and call its table entries with signatures chosen at run time; no import, no kernel entry, nothing outside that process | [`host/dso/`](../host/dso/module.json) ([`process.mjs`](../host/dso/process.mjs)) |
@@ -163,7 +166,7 @@ Worker URL.
 
 | Channel | Bound |
 | --- | --- |
-| Keyboard, pointer, wheel, focus, paste (`input@0`) | Bounded records, one motion sample per animation frame; a record the ring has no room for is counted, shown and marked in the ring, never queued on the page ([input](input.md#the-ring)). Interpretation stays in Wasm. Nothing is read from the clipboard but a paste the user makes. Pointer lock only after a trusted canvas press while the program holding the lease asks; Escape ends it. Without `input@0` no listener writes a record |
+| Keyboard, pointer, wheel, focus, paste (`input@0`) | Bounded records, one motion sample per animation frame; a record the ring has no room for is counted, shown and marked in the ring, never queued on the page ([input](input.md#the-ring)). Interpretation stays in Wasm. Nothing is read from the clipboard but a paste the user makes: the browser's own, or a press of the page's Paste button (`buttons@0`). Pointer lock only after a trusted canvas press while the program holding the lease asks; Escape ends it. Without `input@0` no listener writes a record |
 | Surface size (`display@0`) | Three numbers the page writes: width, height, device scale |
 | Clipboard copy (`display@0`) | Bounded selection text after a user Ctrl+Shift+C |
 | Page keys | F11 (fullscreen) and Ctrl+Shift+F (indicators) are the page's own and are taken before any module or the guest reads them ([`page-chords.mjs`](../src/page-chords.mjs)); the guest cannot request fullscreen |

@@ -62,6 +62,21 @@ int dolly_kernel_foreground(void) {
                                    memory_order_acquire);
 }
 
+// Ctrl+C typed inside Wasm (dolly_kernel_terminal_type) asks as the page does
+// for its key; the supervisor's next tick takes the request.
+int dolly_kernel_foreground_interruptible(void) {
+  return dolly_kernel_foreground() != 0 &&
+      atomic_load_explicit(&terminal_mailbox.foreground_interruptible,
+                           memory_order_acquire);
+}
+
+void dolly_kernel_foreground_interrupt(void) {
+  atomic_store_explicit(&terminal_mailbox.interrupt_target_pid,
+                        (uint32_t)dolly_kernel_foreground(), memory_order_relaxed);
+  atomic_fetch_add_explicit(&terminal_mailbox.interrupt_sequence, 1,
+                            memory_order_acq_rel);
+}
+
 int dolly_process_take_interrupt(void) {
   const uint32_t sequence = atomic_load_explicit(
       &terminal_mailbox.interrupt_sequence, memory_order_acquire);

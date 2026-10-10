@@ -44,8 +44,8 @@ await browserTest("sockets", { image: "system", server: { fixtures } }, async ({
   // The module adds no kernel import: http@0's dispatch stays the one network edge.
   assert.deepEqual(await page.evaluate(async () => WebAssembly.Module.imports(
     await WebAssembly.compileStreaming(fetch("/dist/dolly.wasm"))).map(entry => `${entry.module}.${entry.name}`).sort()),
-  ["env.dolly_audio_dispatch", "env.dolly_bootstrap_write_bytes", "env.dolly_clock_monotonic", "env.dolly_clock_realtime",
-    "env.dolly_download_dispatch", "env.dolly_entropy", "env.dolly_gpu_dispatch", "env.dolly_http_dispatch",
+  ["env.dolly_audio_dispatch", "env.dolly_bootstrap_write_bytes", "env.dolly_buttons_dispatch", "env.dolly_clock_monotonic",
+    "env.dolly_clock_realtime", "env.dolly_download_dispatch", "env.dolly_entropy", "env.dolly_gpu_dispatch", "env.dolly_http_dispatch",
     "env.dolly_microphone_dispatch", "env.memory"]);
 });
 
