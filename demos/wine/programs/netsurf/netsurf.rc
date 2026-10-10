@@ -1,0 +1,5 @@
+/* SPDX-License-Identifier: MIT
+ * NetSurf's resources. Its file names control classes by macros (WC_STATIC)
+ * that Wine's headers resolve to the ANSI or Unicode name only for C. */
+#define WINELIB_NAME_AW(name) name##A
+#include "netsurf/frontends/windows/res/resource.rc"

@@ -4,9 +4,12 @@
 // pixels and, after Shut Down, the list of windows the desktop printed whenever
 // it changed. Then, from the shell, a console program that uses files, a thread
 // and an event through wineserver, and the x86-64 TinyCC compiling and running C.
+// In a second session NetSurf, started from the Start menu, fetches pages of this
+// test's server through libcurl and the page's HTTP policy; the test reads the
+// colours it lays out and the server's log of its requests.
 // Usage: node demos/wine/test/wine-browser.mjs
 import assert from "node:assert/strict";
-import { mkdir } from "node:fs/promises";
+import { mkdir, readFile } from "node:fs/promises";
 import { delay, demoTest, shellPrompt } from "../../browser.mjs";
 
 const evidence = new URL("../../../build/wine-evidence/", import.meta.url).pathname;
@@ -33,12 +36,101 @@ async function at(page, x, y) {
 }
 const click = async (page, x, y) => page.mouse.click(...await at(page, x, y));
 
-await demoTest("wine", { image: "wine", timeout: 600_000 }, async ({ open }) => {
-  const { page, prompt, start, waitText } = await open({ prompt: null });
+// NetSurf's pages: demos/wine/test/fixtures/netsurf, each request for them noted.
+const requests = [];
+async function serveNetsurfFixtures(request, response, path, headers) {
+  const [, name, extension] = path.match(/^\/fixture\/netsurf\/([a-z]+\.(html|css|png|jpg))$/) ?? [];
+  if (!name) return false;
+  requests.push(`${request.method} ${name}`);
+  response.writeHead(200, { ...headers,
+    "content-type": { html: "text/html", css: "text/css", png: "image/png", jpg: "image/jpeg" }[extension] });
+  response.end(await readFile(new URL(`fixtures/netsurf/${name}`, import.meta.url)));
+  return true;
+}
+// The pixels of the frame near a colour: how many, and the box around them.
+const coloured = (page, colour, tolerance = 0) => page.evaluate(([colour, tolerance]) => {
+  const canvas = document.querySelector("#display"), { width, height } = canvas;
+  const data = canvas.getContext("2d").getImageData(0, 0, width, height).data;
+  const found = { count: 0, left: width, top: height, right: -1, bottom: -1 };
+  for (let y = 0, i = 0; y < height; y++) for (let x = 0; x < width; x++, i += 4) {
+    if (Math.abs(data[i] - colour[0]) > tolerance || Math.abs(data[i + 1] - colour[1]) > tolerance ||
+        Math.abs(data[i + 2] - colour[2]) > tolerance) continue;
+    found.count++;
+    found.left = Math.min(found.left, x); found.right = Math.max(found.right, x);
+    found.top = Math.min(found.top, y); found.bottom = Math.max(found.bottom, y);
+  }
+  return found;
+}, [colour, tolerance]);
+async function until(check, what, timeout = 60_000) {
+  for (const deadline = Date.now() + timeout; Date.now() < deadline; await delay(200)) {
+    const result = await check();
+    if (result) return result;
+  }
+  throw new Error(`timed out waiting for ${what}`);
+}
+
+await demoTest("wine", { image: "wine", timeout: 600_000, server: { handle: serveNetsurfFixtures } }, async ({ server, open }) => {
   await mkdir(evidence, { recursive: true });
-  try { await run(page, prompt, start, waitText); }
-  catch (error) { await page.screenshot({ path: `${evidence}failure.png` }); throw error; }
+  for (const [name, session, options] of [["desktop", run, {}], ["netsurf", netsurf, { policy: { rules: [
+    { origin: server.origin, pathPrefix: "/fixture/netsurf/", methods: ["GET"] }] } }]]) {
+    const { page, prompt, start, waitText } = await open({ prompt: null, ...options });
+    try { await session(page, prompt, start, waitText, server); }
+    catch (error) { await page.screenshot({ path: `${evidence}failure-${name}.png` }); throw error; }
+    await page.close();
+  }
 });
+
+// NetSurf: the address bar, a page with a style sheet, a PNG and a JPEG, a link, back and forward.
+async function netsurf(page, prompt, start, waitText, server) {
+  const blue = [0x20, 0x40, 0xc0], orange = [0xf0, 0x80, 0x20], green = [0x00, 0xa0, 0x40], red = [0xd0, 0x20, 0x20];
+  const yellow = [0xff, 0xe0, 0x60], purple = [0x60, 0x20, 0x80];
+  await page.waitForFunction(() => __dolly.transport.graphicsActive(), null, { timeout: 120_000 });
+  const [, height] = await frameSize(page);
+  await pixelIs(page, 640, height - 6, face);
+  await click(page, 30, height - 14);
+  await delay(700);
+  await page.keyboard.press("s");
+  await pixelIs(page, 600, 58, white);        // its address bar, in the toolbar of a window at 0,0
+  await delay(1500);                          // the welcome page, from its resources
+  await page.screenshot({ path: `${evidence}netsurf-welcome.png` });
+
+  await click(page, 600, 58);
+  await page.keyboard.press("Home");
+  await page.keyboard.press("Shift+End");
+  await page.keyboard.type(`${server.origin}/fixture/netsurf/page.html`, { delay: 10 });
+  const entered = performance.now();
+  await page.keyboard.press("Enter");
+  // The style sheet's two floated boxes, side by side: 200 by 60 each.
+  const box = await until(async () => { const found = await coloured(page, blue); return found.count === 12000 && found; }, "the page's blue box");
+  const rendered = performance.now() - entered;
+  assert.deepEqual([box.right - box.left + 1, box.bottom - box.top + 1], [200, 60]);
+  const beside = await coloured(page, orange);
+  assert.deepEqual([beside.count, beside.left, beside.top], [12000, box.right + 1, box.top]);
+  // The images, 120 by 80 each: the PNG exactly its colour, the JPEG near its.
+  await until(async () => (await coloured(page, green)).count === 9600, "the PNG");
+  const jpeg = await until(async () => { const found = await coloured(page, red, 12); return found.count >= 9600 && found; }, "the JPEG");
+  assert.ok(jpeg.count < 9700, `the JPEG covers ${jpeg.count} pixels`);
+  await page.screenshot({ path: `${evidence}netsurf.png` });
+  assert.deepEqual([...new Set(requests)].sort(), ["GET green.png", "GET page.html", "GET red.jpg", "GET style.css"]);
+
+  // The link, then the toolbar's back and forward.
+  const link = await coloured(page, yellow);
+  await click(page, (link.left + link.right) >> 1, link.bottom - 5);
+  await until(async () => (await coloured(page, purple)).count > 100_000, "the second page");
+  assert.ok(requests.includes("GET second.html"));
+  await click(page, 18, 58);
+  await until(async () => (await coloured(page, blue)).count === 12000, "the first page after Back");
+  await click(page, 49, 58);
+  await until(async () => (await coloured(page, purple)).count > 100_000, "the second page after Forward");
+  console.log(`wine: NetSurf fetched a page, its style sheet, a PNG and a JPEG through libcurl and drew them ${Math.round(rendered)} ms after Enter; link, Back and Forward work`);
+
+  await page.keyboard.press("Alt+F4");
+  await until(async () => (await coloured(page, purple)).count === 0, "NetSurf to close");
+  await click(page, 30, height - 14);
+  await delay(700);
+  await page.keyboard.press("u");
+  await prompt(shellPrompt);
+}
 
 async function run(page, prompt, start, waitText) {
   await page.waitForFunction(() => __dolly.transport.graphicsActive(), null, { timeout: 120_000 });

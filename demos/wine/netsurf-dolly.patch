@@ -1,0 +1,214 @@
+--- a/netsurf/content/fetchers/curl.c
++++ b/netsurf/content/fetchers/curl.c
+@@ -1156,6 +1156,9 @@
+ 		break;
+ 
+ 	case FETCH_POSTDATA_MULTIPART:
++#ifdef __dolly__ /* Dolly's libcurl has no multipart API: the fetch fails rather than post something else */
++		return CURLE_NOT_BUILT_IN;
++#endif
+ 		SETOPT(CURLOPT_POSTFIELDS, NULL);
+ 		SETOPT(CURLOPT_HTTPGET, 0L);
+ 		if (f->curl_postdata == NULL) {
+--- a/netsurf/frontends/windows/about.c
++++ b/netsurf/frontends/windows/about.c
+@@ -94,7 +94,7 @@
+ 
+ }
+ 
+-static BOOL CALLBACK 
++static INT_PTR CALLBACK 
+ nsws_about_event_callback(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
+ {
+ 
+--- a/netsurf/frontends/windows/clipboard.c
++++ b/netsurf/frontends/windows/clipboard.c
+@@ -37,7 +37,7 @@
+ static void gui_get_clipboard(char **buffer, size_t *length)
+ {
+ 	HANDLE clipboard_handle;
+-	wchar_t *content;
++	WCHAR *content;
+ 
+ 	if (OpenClipboard(NULL)) {
+ 		clipboard_handle = GetClipboardData(CF_UNICODETEXT);
+@@ -47,7 +47,7 @@
+ 				int required_len;
+ 				size_t content_len;
+ 
+-				content_len = wcslen(content);
++				content_len = lstrlenW(content);
+ 
+ 				/* compute length */
+ 				required_len = WideCharToMultiByte(
+@@ -94,7 +94,7 @@
+ 		  int n_styles)
+ {
+ 	HGLOBAL hglbCopy;
+-	wchar_t *content; /* clipboard content */
++	WCHAR *content; /* clipboard content */
+ 	int content_len; /* characters in content */
+ 
+ 	if (OpenClipboard(NULL)) {
+@@ -105,7 +105,7 @@
+ 						  NULL, 0);
+ 
+ 		hglbCopy = GlobalAlloc(GMEM_MOVEABLE,
+-				       ((content_len + 1) * sizeof(wchar_t)));
++				       ((content_len + 1) * sizeof(WCHAR)));
+ 		if (hglbCopy != NULL) {
+ 			content = GlobalLock(hglbCopy);
+ 			MultiByteToWideChar(CP_UTF8,
+--- a/netsurf/frontends/windows/download.c
++++ b/netsurf/frontends/windows/download.c
+@@ -155,7 +155,7 @@
+ }
+ 
+ 
+-static BOOL CALLBACK
++static INT_PTR CALLBACK
+ nsws_download_event_callback(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
+ {
+ 	switch(msg) {
+--- a/netsurf/frontends/windows/drawable.c
++++ b/netsurf/frontends/windows/drawable.c
+@@ -41,7 +41,7 @@
+ #include "windows/local_history.h"
+ #include "windows/drawable.h"
+ 
+-static const wchar_t *windowclassname_drawable = L"nswsdrawablewindow";
++static const WCHAR *windowclassname_drawable = u"nswsdrawablewindow";
+ 
+ 
+ /**
+--- a/netsurf/frontends/windows/findfile.c
++++ b/netsurf/frontends/windows/findfile.c
+@@ -73,11 +73,13 @@
+ 	return respath;
+ }
+ 
++#ifndef __dolly__ /* the C library has it */
+ static char *realpath(const char *path, char *resolved_path)
+ {
+ 	/* useless, but there we go */
+ 	return strncpy(resolved_path, path, PATH_MAX);
+ }
++#endif
+ 
+ 
+ /**
+--- a/netsurf/frontends/windows/main.c
++++ b/netsurf/frontends/windows/main.c
+@@ -23,7 +23,6 @@
+ #include <windows.h>
+ #include <shlobj.h>
+ #include <shlwapi.h>
+-#include <io.h>
+ 
+ #include "utils/utils.h"
+ #include "utils/log.h"
+@@ -94,11 +93,16 @@
+ 	char nsdir[] = "NetSurf";
+ 	HRESULT hres;
+ 
++#ifdef __dolly__ /* this Wine's shell32 cannot name the user's folders without ole32: drive C */
++	strcpy(adPath, "C:\\");
++	hres = S_OK;
++#else
+ 	hres = SHGetFolderPath(NULL,
+ 			       CSIDL_APPDATA | CSIDL_FLAG_CREATE,
+ 			       NULL,
+ 			       SHGFP_TYPE_CURRENT,
+ 			       adPath);
++#endif
+ 	if (hres != S_OK) {
+ 		return NSERROR_INVALID;
+ 	}
+@@ -206,11 +210,15 @@
+ 	 */
+ 	buf[0] = '\0';
+ 
++#ifdef __dolly__
++	hres = E_NOTIMPL;
++#else
+ 	hres = SHGetFolderPath(NULL,
+ 			       CSIDL_PROFILE | CSIDL_FLAG_CREATE,
+ 			       NULL,
+ 			       SHGFP_TYPE_CURRENT,
+ 			       buf);
++#endif
+ 	if (hres == S_OK) {
+ 		if (PathAppend(buf, dldir)) {
+ 			nsoption_setnull_charp(downloads_directory,
+@@ -325,6 +333,14 @@
+  */
+ static nserror win32_to_unix_commandline(int *argc_out, char ***argv_out)
+ {
++#ifdef __dolly__ /* this Wine's shell32 forwards CommandLineToArgvW to a DLL it lacks: what its main() was given */
++	extern int wine_dolly_main_argc(void);
++	extern void *wine_dolly_main_argv(void);
++
++	*argc_out = wine_dolly_main_argc();
++	*argv_out = wine_dolly_main_argv();
++	return NSERROR_OK;
++#else
+ 	int argc = 0;
+ 	char **argv;
+ 	int cura;
+@@ -366,6 +382,7 @@
+ 	*argv_out = argv;
+ 
+ 	return NSERROR_OK;
++#endif
+ }
+ 
+ 
+--- a/netsurf/frontends/windows/prefs.c
++++ b/netsurf/frontends/windows/prefs.c
+@@ -145,7 +145,7 @@
+  * \param lParam The message l parameter
+  * \return result appropriate for message
+  */
+-static BOOL CALLBACK options_appearance_dialog_handler(HWND hwnd,
++static INT_PTR CALLBACK options_appearance_dialog_handler(HWND hwnd,
+ 						       UINT msg,
+ 						       WPARAM wparam,
+ 						       LPARAM lParam)
+@@ -427,7 +427,7 @@
+  * \param lParam The message l parameter
+  * \return result appropriate for message
+  */
+-static BOOL CALLBACK options_connections_dialog_handler(HWND hwnd,
++static INT_PTR CALLBACK options_connections_dialog_handler(HWND hwnd,
+ 							UINT msg,
+ 							WPARAM wparam,
+ 							LPARAM lParam)
+@@ -598,7 +598,7 @@
+  * \param lParam The message l parameter
+  * \return result appropriate for message
+  */
+-static BOOL CALLBACK options_general_dialog_handler(HWND hwnd,
++static INT_PTR CALLBACK options_general_dialog_handler(HWND hwnd,
+ 						    UINT msg,
+ 						    WPARAM wparam,
+ 						    LPARAM lParam)
+--- a/netsurf/frontends/windows/window.c
++++ b/netsurf/frontends/windows/window.c
+@@ -63,7 +63,7 @@
+ /**
+  * The main window class name
+  */
+-static const LPCWSTR windowclassname_main = L"nswsmainwindow";
++static const LPCWSTR windowclassname_main = u"nswsmainwindow";
+ 
+ /**
+  * width of the throbber element
+@@ -174,7 +174,7 @@
+ 
+ 	hwnd = CreateWindowExW(0,
+ 			       windowclassname_main,
+-			       L"NetSurf Browser",
++			       u"NetSurf Browser",
+ 			       WS_OVERLAPPEDWINDOW |
+ 			       WS_CLIPCHILDREN |
+ 			       WS_CLIPSIBLINGS |

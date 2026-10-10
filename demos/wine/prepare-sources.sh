@@ -2,6 +2,14 @@
 if has_image wine-build; then
   wine_dir="$(bash demos/wine/prepare-wine.sh)"
   mspaint_dir="$(bash demos/wine/prepare-mspaint.sh)"
+  netsurf_dir="$(bash demos/wine/prepare-netsurf.sh)"
+  jpeg_archive="$(bash scripts/fetch-pinned-archive.sh jpeg)"
+  jpeg_dir="build/generated/jpeg-$(source config/source-pins.sh && echo "${DOLLY_JPEG_VERSION}")"
+  if [[ ! -d "${jpeg_dir}" ]]; then mkdir -p build/generated && tar -xzf "${jpeg_archive}" -C build/generated; fi
+  netsurf_licences=("${netsurf_dir}/libutf8proc/LICENSE.md" /usr/share/licenses/netsurf/libutf8proc-LICENSE.md)
+  for licence in "${netsurf_dir}"/lib*/COPYING; do
+    netsurf_licences+=("${licence}" "/usr/share/licenses/netsurf/$(basename "$(dirname "${licence}")")-COPYING")
+  done
   wine_port_inputs=()
   for entry in Makefile module.mk config.h shared-names.txt winebuild-dolly.c port dlls programs; do
     wine_port_inputs+=("demos/wine/${entry}" "/usr/src/dolly/wine/${entry}")
@@ -14,6 +22,11 @@ if has_image wine-build; then
     demos/wine/wine-dolly.patch /usr/src/dolly/wine/wine-dolly.patch \
     "${mspaint_dir}" /usr/src/dolly/wine/programs/mspaint \
     "${mspaint_dir}/COPYING.LIB" /usr/share/licenses/reactos-paint/COPYING.LIB \
+    "${netsurf_dir}" /usr/src/dolly/wine/programs/netsurf \
+    "${netsurf_dir}/netsurf/COPYING" /usr/share/licenses/netsurf/COPYING \
+    "${netsurf_licences[@]}" \
+    "${jpeg_dir}" /usr/src/dolly/wine/programs/netsurf/jpeg \
+    "${jpeg_dir}/README" /usr/share/licenses/libjpeg/README \
     "${wine_port_inputs[@]}"
   tinycc_dir="$(bash demos/wine/prepare-tinycc.sh)"
   node scripts/build-source-tar.mjs "${static_dir}/wine/tinycc.tar.gz" \

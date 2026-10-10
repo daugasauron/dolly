@@ -11,13 +11,16 @@ REQUIRES HOST threads@0
 REQUIRES HOST upload@0
 
 FROM /v0.1.1/Dollyfile-system 79aa3d3d8f32b96dc4803cf2eeb0a38ad2b6ef726b9affa7f994458193285b31
-COPY /v0.1.1/demos/wine/Dollyfile-wine-build 75020b77968232ebefc77a6e5898f70d4397e34f125b2856826033adc29e362b /usr/bin/wine /usr/bin/wine
-COPY /v0.1.1/demos/wine/Dollyfile-wine-build 75020b77968232ebefc77a6e5898f70d4397e34f125b2856826033adc29e362b /usr/share/wine /usr/share/wine
+COPY /v0.1.1/demos/wine/Dollyfile-wine-build 47008a5efa694e655ffdd14276ae6fe2652f6d84684e79d3c84d8662b143f571 /usr/bin/wine /usr/bin/wine
+COPY /v0.1.1/demos/wine/Dollyfile-wine-build 47008a5efa694e655ffdd14276ae6fe2652f6d84684e79d3c84d8662b143f571 /usr/share/wine /usr/share/wine
 # Wine is LGPL; FreeType (under its GPL option) and libpng are linked into it. TinyCC (LGPL) is under /usr/share/wine/x86.
-COPY /v0.1.1/demos/wine/Dollyfile-wine-build 75020b77968232ebefc77a6e5898f70d4397e34f125b2856826033adc29e362b /usr/share/licenses/wine /usr/share/licenses/wine
-COPY /v0.1.1/demos/wine/Dollyfile-wine-build 75020b77968232ebefc77a6e5898f70d4397e34f125b2856826033adc29e362b /usr/share/licenses/freetype /usr/share/licenses/freetype
-COPY /v0.1.1/demos/wine/Dollyfile-wine-build 75020b77968232ebefc77a6e5898f70d4397e34f125b2856826033adc29e362b /usr/share/licenses/libpng /usr/share/licenses/libpng
-COPY /v0.1.1/demos/wine/Dollyfile-wine-build 75020b77968232ebefc77a6e5898f70d4397e34f125b2856826033adc29e362b /usr/share/licenses/tinycc /usr/share/licenses/tinycc
+COPY /v0.1.1/demos/wine/Dollyfile-wine-build 47008a5efa694e655ffdd14276ae6fe2652f6d84684e79d3c84d8662b143f571 /usr/share/licenses/wine /usr/share/licenses/wine
+COPY /v0.1.1/demos/wine/Dollyfile-wine-build 47008a5efa694e655ffdd14276ae6fe2652f6d84684e79d3c84d8662b143f571 /usr/share/licenses/freetype /usr/share/licenses/freetype
+COPY /v0.1.1/demos/wine/Dollyfile-wine-build 47008a5efa694e655ffdd14276ae6fe2652f6d84684e79d3c84d8662b143f571 /usr/share/licenses/libpng /usr/share/licenses/libpng
+COPY /v0.1.1/demos/wine/Dollyfile-wine-build 47008a5efa694e655ffdd14276ae6fe2652f6d84684e79d3c84d8662b143f571 /usr/share/licenses/tinycc /usr/share/licenses/tinycc
+# NetSurf is GPL-2.0-only; IJG's libjpeg is linked with it.
+COPY /v0.1.1/demos/wine/Dollyfile-wine-build 47008a5efa694e655ffdd14276ae6fe2652f6d84684e79d3c84d8662b143f571 /usr/share/licenses/netsurf /usr/share/licenses/netsurf
+COPY /v0.1.1/demos/wine/Dollyfile-wine-build 47008a5efa694e655ffdd14276ae6fe2652f6d84684e79d3c84d8662b143f571 /usr/share/licenses/libjpeg /usr/share/licenses/libjpeg
 EXPORTS TOOL wine
 REQUIRES TOOL wine
 

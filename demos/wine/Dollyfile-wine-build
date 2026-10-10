@@ -10,13 +10,18 @@ REQUIRES HOST threads@0
 REQUIRES HOST upload@0
 
 FROM /v0.1.1/Dollyfile-system-tools a0862f4ba16199d659505f9eb21ef0654a454f53e89c8ef205d4df8edf442558
-# FreeType (with its libpng) for gdi32's fonts, as 0 A.D. built them.
+# FreeType (with its libpng) for gdi32's fonts, as 0 A.D. built them; libpng's headers for NetSurf.
 COPY /v0.1.1/demos/zero-ad/Dollyfile-zero-ad-deps 64e3cb164cf6ebe5a7729b6545f6bf0e5e00c734cebfbf485e5cdd7582be6745 /usr/include/freetype2 /usr/include/freetype2
 COPY /v0.1.1/demos/zero-ad/Dollyfile-zero-ad-deps 64e3cb164cf6ebe5a7729b6545f6bf0e5e00c734cebfbf485e5cdd7582be6745 /usr/lib/libfreetype.a /usr/lib/libfreetype.a
 COPY /v0.1.1/demos/zero-ad/Dollyfile-zero-ad-deps 64e3cb164cf6ebe5a7729b6545f6bf0e5e00c734cebfbf485e5cdd7582be6745 /usr/lib/libpng16.a /usr/lib/libpng16.a
+COPY /v0.1.1/demos/zero-ad/Dollyfile-zero-ad-deps 64e3cb164cf6ebe5a7729b6545f6bf0e5e00c734cebfbf485e5cdd7582be6745 /usr/include/png.h /usr/include/png.h
+COPY /v0.1.1/demos/zero-ad/Dollyfile-zero-ad-deps 64e3cb164cf6ebe5a7729b6545f6bf0e5e00c734cebfbf485e5cdd7582be6745 /usr/include/pngconf.h /usr/include/pngconf.h
+COPY /v0.1.1/demos/zero-ad/Dollyfile-zero-ad-deps 64e3cb164cf6ebe5a7729b6545f6bf0e5e00c734cebfbf485e5cdd7582be6745 /usr/include/pnglibconf.h /usr/include/pnglibconf.h
 COPY /v0.1.1/demos/zero-ad/Dollyfile-zero-ad-deps 64e3cb164cf6ebe5a7729b6545f6bf0e5e00c734cebfbf485e5cdd7582be6745 /usr/share/licenses/freetype /usr/share/licenses/freetype
 COPY /v0.1.1/demos/zero-ad/Dollyfile-zero-ad-deps 64e3cb164cf6ebe5a7729b6545f6bf0e5e00c734cebfbf485e5cdd7582be6745 /usr/share/licenses/libpng /usr/share/licenses/libpng
+REQUIRES HEADER curl
 REQUIRES HEADER zlib
+REQUIRES LIB curl
 REQUIRES LIB z
 REQUIRES TOOL ar
 REQUIRES TOOL awk
@@ -29,7 +34,7 @@ REQUIRES TOOL sed
 REQUIRES TOOL sort
 REQUIRES TOOL tar
 
-SOURCE /v0.1.1/dist/static/wine/source.tar.gz 7ef7d902a67fdb43113415d8c522f091aa7d308bfe9e0f4a602ac13d699b3d13 /tmp/wine-source.tar.gz
+SOURCE /v0.1.1/dist/static/wine/source.tar.gz 17fed08a1223464274aaeaa8577fe2ca38cd07c8649816bb4c6e34abc0c7833c /tmp/wine-source.tar.gz
 SLOP gzip -dc /tmp/wine-source.tar.gz | tar -xf - -C /
 # TinyCC's win64 binaries, unmodified: x86-64 code for x86emu, which builds the Start menu's x86-64 sample with them.
 SOURCE /v0.1.1/dist/static/wine/tinycc.tar.gz 20709ea054c77d290a1837699bd8993dfbe84f97b5900002057a50dfd002fe4a /tmp/tinycc.tar.gz
@@ -45,5 +50,7 @@ FILE /usr/share/licenses/wine/COPYING.LIB
 FILE /usr/share/licenses/wine/LICENSE
 FILE /usr/share/licenses/wine/AUTHORS
 FILE /usr/share/licenses/tinycc/COPYING
+FILE /usr/share/licenses/netsurf/COPYING
+FILE /usr/share/licenses/libjpeg/README
 
 ENTRY /bin/foreground -i /bin/slop

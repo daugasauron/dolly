@@ -64,7 +64,7 @@ headers: $(IDL_HEADERS)
 DLLS := ntdll kernel32 advapi32 gdi32 user32 version usp10 imm32 comctl32 comdlg32 shell32 shlwapi uxtheme winspool.drv msvcrt
 OWN_DLLS := winedolly.drv
 PROGRAMS := notepad winemine
-OWN_PROGRAMS := desktop hello mspaint x86emu
+OWN_PROGRAMS := desktop hello mspaint netsurf x86emu
 MODULES := $(DLLS:%=dlls/%) $(OWN_DLLS:%=dlls/%) $(PROGRAMS:%=programs/%) $(OWN_PROGRAMS:%=programs/%) server
 export MODULE_FILE_winspool := winspool.drv
 MODULE_ARGS_dlls/ntdll := PORT_SRCS=signal_wasm64.c
@@ -104,7 +104,7 @@ LINK_INPUTS := $(MODULE_LIBS) $(STATIC_LIBS) $(B)/libwine.a $(B)/libwine_port.a 
 # more than the memory cc starts a program with.
 link = $(CC) -pthread -Wl,--global-base=67108864 -Wl,--initial-memory=134217728 -o $(1) $(B)/obj/port/port/main.o $(2) \
        -Wl,--whole-archive,$(subst $(space),$(comma),$(strip $(MODULE_LIBS))),--no-whole-archive \
-       $(STATIC_LIBS) $(B)/libwine.a $(B)/libwine_port.a -lfreetype -lpng16 -lz -lm -ldolly-sockets
+       $(STATIC_LIBS) $(B)/libwine.a $(B)/libwine_port.a -lcurl -lfreetype -lpng16 -lz -lm -ldolly-sockets
 
 # What the linked modules call in modules left out of the program (delay-loaded DLLs mostly): the first
 # link names them, and each gets a stub that raises Wine's "unimplemented function" exception.
