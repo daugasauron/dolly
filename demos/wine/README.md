@@ -3,15 +3,16 @@
 Wine 4.0.4 brought up inside Dolly as a feasibility study: Wine's own
 programs and DLLs, compiled from Wine's source for wasm64 by Dolly's `cc`
 and linked with `wineserver` into one executable. It boots into a desktop
-with a taskbar and a Start menu; Notepad, WineMine and ReactOS's Paint open
-side by side on the Dolly display and take the mouse and the keyboard.
-The task, with every measurement, is
-`tasks/20261008-145108-wine-bringup/TASK.md`.
+with a taskbar and a Start menu; Notepad, WineMine, ReactOS's Paint and the
+NetSurf web browser open side by side on the Dolly display and take the
+mouse and the keyboard. The tasks, with every measurement, are
+`tasks/20261008-145108-wine-bringup/TASK.md` and
+`tasks/20261010-114236-netsurf/TASK.md`.
 
 **Windows binaries run only under an interpreter.** A `.exe` from anywhere
 else is x86 machine code and Dolly has no x86. Wine's programs here are
 what this image compiled (`desktop`, `notepad`, `winemine`, `mspaint`,
-`hello`); `x86emu` interprets small x86-64 programs against these DLLs
+`netsurf`, `hello`); `x86emu` interprets small x86-64 programs against these DLLs
 (below). 32-bit programs do not run.
 
 ## Images
@@ -30,7 +31,7 @@ what this image compiled (`desktop`, `notepad`, `winemine`, `mspaint`,
   `wine x86emu` and `wine desktop` run.
 
 Build with `DOLLY_BUILD_IMAGES=wine-build,wine npm run image` (both images
-in about 150 s); test with `npm run test:demos -- wine`.
+in about 190 s); test with `npm run test:demos -- wine`.
 
 ## Paint
 
@@ -48,6 +49,62 @@ dialog (the Windows 3.1 one): the Explorer-style dialog needs ole32 and the
 shell's folder views, so on Dolly `GetOpenFileName` and `GetSaveFileName`
 always take the older one, without the caller's Explorer template and hook
 (Notepad's encoding choice is not offered) and with a single selection.
+
+## NetSurf
+
+`programs/netsurf` builds NetSurf 3.11 with its Windows front end, the ten
+libraries of the same release that it needs (libcss, libdom, libhubbub, …)
+and IJG's libjpeg as one program of this Wine: HTML and CSS, PNG, JPEG, GIF
+and BMP images. No JavaScript engine is built, nor SVG or WebP.
+
+**It fetches through Dolly's libcurl**, the `curl` package's library over
+the HTTP broker (`REQUIRES HOST http@0`, which the image already declared;
+NetSurf is its first use by the desktop). No contract was changed for it.
+NetSurf's own `content/fetchers/curl.c` is compiled as it is, behind
+`curl-dolly.h`, which names the refusals of that libcurl NetSurf can live
+with (connection timing and tuning, HTTP/1.1 preference, TLS session reuse,
+proxy, cookie and multipart body when turned off, two pool sizes) and
+repeats `curl_multi_perform` while more is ready. What follows from fetching
+with the browser's `fetch`:
+
+- an address is fetched only if the page's HTTP policy admits it and the
+  browser's rules do: this site's own origin, or a site that sends CORS
+  headers. Any other, and `http:` from an `https:` page, ends in NetSurf's
+  error page with libcurl's message ("Browser could not fetch the URL:
+  blocked (no CORS headers, or a redirect) or unreachable …"). Most of the
+  web is in that class, the links of NetSurf's welcome page included;
+- a redirect ends there too: NetSurf follows redirects itself and does not
+  ask libcurl to, and the broker refuses one that is not followed;
+- cookies stay with the browser: NetSurf neither sees nor sends any;
+- a multipart form post fails (`CURLE_NOT_BUILT_IN`); proxies, certificate
+  choices and client certificates do not exist.
+
+The home page is NetSurf's own welcome page, from its resources. A page of
+the site Dolly was loaded from is not possible as it stands: the broker
+takes `/vVERSION/FILE` for a file of that site but tells a program the path
+it asked for, never the origin, and NetSurf opens absolute URLs only.
+
+Measured in Chrome with a local server: a page with its style sheet, a PNG
+and a JPEG is drawn 210 ms after Enter. The image grew by 2.9 MB (178.9 MB);
+the build compiles 790 more files and takes 27 s longer. The page's renderer
+process holds 570 MiB with the desktop and 595 MiB with NetSurf open.
+
+`prepare-netsurf.sh` generates on the host what NetSurf's makefiles generate
+(perl for two tables and the messages, a pinned gperf for one table, libcss's
+own `gen_parser` for 119 parsers); `netsurf-dolly.patch` changes nine files:
+
+- five dialog procedures return `INT_PTR`: as `BOOL` their WebAssembly type
+  is not the one Wine calls;
+- four wide strings are 16-bit (`cc` has no `-fshort-wchar`);
+- `main`'s arguments replace `CommandLineToArgvW`, which this Wine's shell32
+  forwards to a DLL that is not linked;
+- its settings live in `C:\NetSurf` and no download directory is preset:
+  shell32's folder lookup needs ole32;
+- `<io.h>` and its own `realpath` are left out;
+- a multipart post fails instead of posting something else.
+
+Not done: downloads to a file and the settings dialogs were not tried; the
+toolbar's activity animation does not show.
 
 ## x86-64 programs
 
@@ -197,7 +254,11 @@ compiled outside Dolly.
 Wine is LGPL-2.1-or-later (`/usr/share/licenses/wine`); the port files that
 replace or extend Wine files carry the same licence, the rest are MIT.
 FreeType (under its GPL option) and libpng are linked in. The source as
-built ships in `wine-build`. TinyCC is LGPL (`/usr/share/licenses/tinycc`);
+built ships in `wine-build`. NetSurf is GPL-2.0-only (with the OpenSSL exception of its
+`COPYING`; its libraries are MIT) and is linked into `/usr/bin/wine`, which
+as a whole is therefore distributed under the GPL, version 2; IJG's libjpeg
+is linked with it (`/usr/share/licenses/netsurf`, `libjpeg`). TinyCC is LGPL
+(`/usr/share/licenses/tinycc`);
 its binaries are its maintainers', and its source release is served in the
 same archive (`dist/static/wine/tinycc.tar.gz`, `/usr/src/tinycc` in
 `wine-build`).

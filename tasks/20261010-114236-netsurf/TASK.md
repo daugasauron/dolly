@@ -117,5 +117,61 @@ How it is built (all in `demos/wine/`):
   `CURLE_NOT_BUILT_IN`.
 - The desktop labels it "NetSurf" with S as its key (N is Notepad's).
 
-Not yet: redirects (NetSurf does not ask libcurl to follow, and the broker refuses unfollowed
-ones); the default start page and the CORS error page (step 3); the README.
+
+### 2026-10-10, step 3: the error page works; a start page on the site's own origin does not
+
+- **Refused by CORS** (measured in Chrome, in the same test): a second server on another port
+  answers without CORS headers and the policy admits it. Its address typed into NetSurf: one
+  request reaches that server, and NetSurf shows its own error page, window title "Error occurred
+  fetching page - NetSurf" (read from the desktop's window list), with the text "An error occurred
+  when connecting to 127.0.0.1" and libcurl's message "Browser could not fetch the URL: blocked (no
+  CORS headers, or a redirect) or unreachable (DNS, TLS, offline)" (`build/wine-evidence/
+  netsurf-refused.png`; the text is seen, not asserted). No hang, no crash; Back and Try Again are
+  offered.
+- **`http:` from an `https:` page**: not measurable here, every local page is `http:`. Read from
+  `host/http/broker.mjs` and `http.h`: a rejected `fetch` of any cause is the one error above, so
+  it takes the same path.
+- **Redirects** (read, not measured): the broker fetches with `redirect: "error"` unless the caller
+  asks to follow, and NetSurf follows redirects itself, so a redirected address ends in the same
+  error page. Asking libcurl to follow would load the page under the address typed, with relative
+  links resolved against the wrong one, unless NetSurf is also told the final address
+  (`CURLINFO_EFFECTIVE_URL`); not done.
+- **Default start page on the release's own origin: blocked, stopped here.** NetSurf opens absolute
+  URLs only, and a program cannot learn the page's origin: the broker takes `/vVERSION/FILE` as a
+  file of the site serving the release, but publishes as the effective URL "the URL it asked for"
+  (`broker.mjs`, "where the site is served is the page's business"; read, not measured: my one
+  attempt asked for `/licences/`, which is no versioned path and failed). The home page therefore stays
+  NetSurf's own welcome page (from its resources, always there), whose links are other origins.
+  Two ways on, both the owner's call:
+  1. a `site:` scheme inside NetSurf (`site:/v0.1.1/licences/index.html`), registered with its curl
+     fetcher and passed to libcurl as the path: no contract changes, about 15 patched lines, but
+     which HTML page a deployed release has under `/vVERSION/` I could not establish from here
+     (the local server serves `licences/index.html`; the versioned docs do not answer), and the
+     version in the address must follow the release;
+  2. the public origin as an absolute address, which is the same origin only on that site.
+
+### 2026-10-10, step 4: measurements (Chrome, this machine, other builds running)
+
+| | before | with NetSurf |
+|---|---|---|
+| `wine` snapshot | 175,994,122 bytes | 178,869,903 bytes |
+| `wine-build` and `wine` built | 160.6 s | 187.5 s |
+| browser test | 19.5 s | 29.5 s |
+| renderer process, desktop only | 570 MiB resident | |
+| renderer process, NetSurf on its welcome page | | 595 MiB resident |
+
+Firefox, the same test run once: passes in 31.2 s, first render 211 ms.
+
+First render of the fixture page (page, style sheet, PNG, JPEG from a local server): 209 to 211 ms
+after Enter in three runs. A full build in the development session, Wine and NetSurf from
+nothing at `-j4`: 136.8 s; NetSurf's 790 files alone about 60 s.
+
+### Contracts
+
+None changed: no file outside `demos/wine/`, `config/source-pins.sh`, `config/upstreams.json` and
+`demos/README.md` is touched. `src/libcurl-fetch.c` is as released. The image already declared
+`REQUIRES HOST http@0`. One licence fact for the owner: NetSurf is GPL-2.0-only and is linked into
+`/usr/bin/wine`, which as a whole is thereby under GPL-2 (Wine LGPL-2.1+, FreeType under its GPL
+option, libpng, IJG libjpeg and the MIT parts are compatible).
+
+Paint's text tool (`tasks/20261010-112539-paint-text`) did not fall out of this work and is untouched.
