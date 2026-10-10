@@ -10,6 +10,9 @@
   (import "env" "dolly_gpu_dispatch" (func (param i64 i64) (result i32)))
   ;; Bounded stereo PCM playback; no recording, URL or browser object access.
   (import "env" "dolly_audio_dispatch" (func (param i64 i64) (result i32)))
+  ;; Mono PCM of the browser's default input, behind the browser's own
+  ;; permission prompt; no device list, playback, URL or browser object access.
+  (import "env" "dolly_microphone_dispatch" (func (param i64 i64) (result i32)))
 
   ;; The only Wasm-selected network edge. Null method means cancellation.
   ;; Implementation: host/http/kernel.c supplies spans; host/http/broker.mjs applies

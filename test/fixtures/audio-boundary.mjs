@@ -1,6 +1,7 @@
 export async function audioBoundaryProof() {
-  const [{createAudioProvider}, {createAudioBridge}, {DOLLY_ERRNO: E}] = await Promise.all([
-    import("../../host/audio/provider.mjs"), import("../../host/audio/bridge.mjs"), import("../../src/process-constants.mjs")]);
+  const [{createAudioProvider}, {createLeaseBridge}, {lease}, {DOLLY_ERRNO: E}] = await Promise.all([
+    import("../../host/audio/provider.mjs"), import("../../host/lease-bridge.mjs"), import("../../host/audio/audio.mjs"),
+    import("../../src/process-constants.mjs")]);
   const check = (ok, message) => { if (!ok) throw Error(message); };
   let sequence = 0;
   function packet(op, scope = 1, frames = 0) {
@@ -57,7 +58,7 @@ export async function audioBoundaryProof() {
   const memory = new WebAssembly.Memory({initial: 1, maximum: 2, shared: true});
   const mailbox = 64, address = 1024, messages = [];
   let completions = 0;
-  const bridge = createAudioBridge(memory, mailbox, message => messages.push(message), () => ++completions);
+  const bridge = createLeaseBridge(lease, memory, mailbox, message => messages.push(message), () => ++completions);
   function send(bytes) {
     new Uint8Array(memory.buffer, address, bytes.length).set(bytes);
     return bridge.dispatch({address, bytes: bytes.length});

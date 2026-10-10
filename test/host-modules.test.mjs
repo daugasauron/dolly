@@ -24,7 +24,7 @@ test("every image declares its complete host set itself", async () => {
   // programs that load modules.
   const core = {
     default: [...interactive, "packages@0", "threads@0", "dso@0", "sockets@0"], system: interactive, "gpu-sdk": [...interactive, "gpu@0"],
-    "audio-sdk": [...interactive, "audio@0"], "system-build": ["runtime@0", "http@0"], "zig-build": ["runtime@0", "http@0"],
+    "audio-sdk": [...interactive, "audio@0", "microphone@0"], "system-build": ["runtime@0", "http@0"], "zig-build": ["runtime@0", "http@0"],
     "ghostty-build": [...terminal, "http@0"],
     "system-tools": [...terminal, "download@0", "http@0", "upload@0"],
     zlib: ["runtime@0"], gzip: ["runtime@0"], curl: ["runtime@0", "http@0"], display: ["runtime@0", "display@0"],

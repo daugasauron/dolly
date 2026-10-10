@@ -1,6 +1,6 @@
 // Shared Playwright setup for Dolly browser tests:
 //
-//   await browserTest("name", { image, server, timeout }, async ({ name, browser, server, open }) => {
+//   await browserTest("name", { image, server, timeout, launch }, async ({ name, browser, server, open }) => {
 //     const { page, submit, text, result, waitForText } = await open({ policy, prompt, path, setup });
 //     assert.equal(await submit("true"), 0);
 //   });
@@ -14,7 +14,8 @@
 // (typing, a paste) and resolves to the status of the command it completes;
 // waitForText(pattern) waits until the visible terminal matches. On failure the
 // latest page's terminal is printed; each browser is closed after timeout
-// milliseconds.
+// milliseconds. launch adds to how the browsers start: { chromium: [argument…],
+// firefox: { preference: value } }.
 import { chromium, firefox } from "playwright-core";
 import { startBrowserServer } from "./browser-server.mjs";
 import { siteReference } from "../src/static-asset.mjs";
@@ -71,7 +72,7 @@ export async function composed(hosts, packages, { base, files = {}, entry = "/bi
     setup: page => page.addInitScript(recipe => sessionStorage.setItem("dolly-custom-source", recipe), recipe) };
 }
 
-export async function browserTest(label, { image = "default", server: serverOptions, timeout = 120_000 } = {}, test) {
+export async function browserTest(label, { image = "default", server: serverOptions, timeout = 120_000, launch = {} } = {}, test) {
   const names = process.argv.slice(2);
   if (!names.length) names.push("chromium", "firefox");
   if (names.some(name => !["chromium", "firefox"].includes(name))) {
@@ -84,8 +85,10 @@ export async function browserTest(label, { image = "default", server: serverOpti
       const browser = await (name === "chromium"
         // WebGPU runs on the browsers' software adapters; Firefox's clipboard
         // testing pref lets Ctrl+Shift+V read without a paste prompt.
-        ? chromium.launch({ channel: "chrome", headless: true, args: ["--no-sandbox", "--disable-gpu", "--enable-unsafe-webgpu"] })
-        : firefox.launch({ headless: true, firefoxUserPrefs: { "dom.events.testing.asyncClipboard": true, "dom.webgpu.enabled": true } }));
+        ? chromium.launch({ channel: "chrome", headless: true,
+          args: ["--no-sandbox", "--disable-gpu", "--enable-unsafe-webgpu", ...launch.chromium ?? []] })
+        : firefox.launch({ headless: true, firefoxUserPrefs: { "dom.events.testing.asyncClipboard": true,
+          "dom.webgpu.enabled": true, ...launch.firefox } }));
       let expired = false;
       const deadline = setTimeout(() => { expired = true; void browser.close(); }, timeout);
       try {
