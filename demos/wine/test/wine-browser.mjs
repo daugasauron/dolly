@@ -406,20 +406,6 @@ async function run(page, prompt, start, waitText) {
     return count > 150;
   }, null, { timeout: 30_000, polling: 250 });
   console.log(`wine: Paint drew ${await dark(page, 170, 200, 390, 290)} dark pixels along a dragged pencil line`);
-  // Its text tool: a box dragged on the image clear of the line; what is typed next is drawn in it
-  // (the keys go to the edit control of the text window Paint opens above).
-  await click(page, 144, 257);
-  await page.mouse.move(...await at(page, 380, 210));
-  await page.mouse.down();
-  await page.mouse.move(...await at(page, 550, 260), { steps: 8 });
-  await page.mouse.up();
-  await delay(1000);
-  const empty = await dark(page, 381, 211, 166, 46);
-  await page.keyboard.type("Dolly writes", { delay: 30 });
-  await until(async () => await dark(page, 381, 211, 166, 46) > empty + 60, "the typed text in Paint's text box");
-  await page.screenshot({ path: `${evidence}paint.png` });
-  console.log(`wine: Paint's text tool drew ${await dark(page, 381, 211, 166, 46) - empty} dark pixels of typed text into its box`);
-  await click(page, 119, 232);                // the pencil again: the text window goes
   await delay(1000);
   await page.keyboard.press("Control+s");
   await delay(1500);

@@ -1,6 +1,6 @@
 # Paint's text tool does not write
 
-- STATUS: CLOSED
+- STATUS: OPEN
 - PRIORITY: 80
 - TAGS: bug,wine,demo
 
@@ -37,3 +37,16 @@ focus, the focus goes to its edit control.
 Evidence: `demos/wine/test/wine-browser.mjs` selects the tool, drags a box clear of the pencil
 line and types "Dolly writes" without clicking anywhere; it waits for dark pixels inside the box
 (157 in Firefox, 166 in Chromium; none before typing). `build/wine-evidence/paint.png`.
+
+## The focus patch is taken out (2026-10-10)
+
+Owner, after trying it: "The \"fix\" that seemed to have been added in
+paint for text input is bad I don't want this."
+
+The patch (`mspaint-dolly.patch`, two `SetFocus` calls so that the separate
+text window ReactOS Paint opens gets the keys) is removed with its test; the
+text tool again takes no typing. The owner did not say what was bad about
+it. The integrator's guess, to confirm before another attempt: text should
+be typed in the box on the image, as in Windows' Paint, not in a window of
+its own; that is how this version of ReactOS Paint is built, so it would be
+a change to its design, not a two-line patch.

@@ -37,11 +37,7 @@ in about 190 s); test with `npm run test:demos -- wine`.
 
 Wine has no Paint. `programs/mspaint` builds ReactOS's, from the 0.3.17
 release (the last line in which it is plain C; LGPL): 45 files fetched at a
-pinned commit and checked against `mspaint.sha256`, with two added lines
-(`mspaint-dolly.patch`). Its text tool takes what is typed in a window of
-its own, which it opened without giving its edit control the keys, so
-nothing typed arrived; now the edit control has them once the text box is
-drawn, and whenever that window is activated. It is a
+pinned commit and checked against `mspaint.sha256`. It is a
 program for the Windows headers, not part of Wine, so it is compiled without
 `__WINESRC__`. Of ReactOS's SDK it wants `<tchar.h>` and two resource
 includes; ours are in `programs/mspaint/` (`tchar.h` maps its seven wide
