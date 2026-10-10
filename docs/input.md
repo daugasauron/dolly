@@ -22,6 +22,8 @@ flowchart LR
   selection and scrollback, handled ahead of unread keys on the display's tick.
   A finger's drag is sent as scroll records, so it scrolls where a mouse's
   drag selects.
+  Two fingers moving apart or together are sent as the keys Ctrl+= and
+  Ctrl+-, a font size for each 20 CSS px.
 - `dolly_input_acquire` gives the foreground process or a descendant the
   lease, one at a time. It then reads every record with
   `dolly_input_next_event`, and the terminal reads none. The page sends it

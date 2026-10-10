@@ -372,12 +372,24 @@ export function browser({ canvas, keyboard, showStatus, claimsKey, surfaceSize, 
   // The terminal takes the primary button's drags as its selection; a program
   // holding the lease reads every button and every move. A finger's drag on
   // the terminal scrolls instead, as a wheel does: its distance in the
-  // frame's pixels, so the text follows the finger.
-  let touch = null;
+  // frame's pixels, so the text follows the finger. Two fingers moving apart
+  // or together change the font's size as Ctrl+= and Ctrl+- do, a step for
+  // each 20 CSS px.
+  const fingers = new Map();
+  let touch = null, span = 0;
+  const spread = () => { const [a, b] = fingers.values(); return Math.hypot(a.x - b.x, a.y - b.y); };
+  const lifted = (event) => {
+    fingers.delete(event.pointerId);
+    // The finger that stays scrolls on from where it is.
+    const [id, finger] = fingers.entries().next().value ?? [];
+    touch = finger ? { id, y: finger.y } : null;
+  };
   canvas.addEventListener("pointerdown", (event) => {
     if (!transport || (event.button !== 0 && !transport.leased())) return;
     if (event.pointerType === "touch" && !transport.leased()) {
+      fingers.set(event.pointerId, { x: event.clientX, y: event.clientY });
       touch ??= { id: event.pointerId, y: event.clientY };
+      if (fingers.size === 2) span = spread();
       keyboard.focus({ preventScroll: true });
       event.preventDefault();
       return;
@@ -407,9 +419,16 @@ export function browser({ canvas, keyboard, showStatus, claimsKey, surfaceSize, 
       event.preventDefault();
       return;
     }
-    if (touch?.id === event.pointerId) {
-      transport?.pushScroll((touch.y - event.clientY) * canvas.height / canvas.clientHeight, 0);
-      touch.y = event.clientY;
+    if (fingers.has(event.pointerId)) {
+      fingers.set(event.pointerId, { x: event.clientX, y: event.clientY });
+      if (fingers.size === 2) {
+        for (const now = spread(); Math.abs(now - span) >= 20; span += now > span ? 20 : -20) {
+          transport?.pushSyntheticKey(now > span ? "=" : "-", now > span ? "Equal" : "Minus", 2);
+        }
+      } else if (touch?.id === event.pointerId) {
+        transport?.pushScroll((touch.y - event.clientY) * canvas.height / canvas.clientHeight, 0);
+        touch.y = event.clientY;
+      }
       event.preventDefault();
       return;
     }
@@ -418,7 +437,7 @@ export function browser({ canvas, keyboard, showStatus, claimsKey, surfaceSize, 
     event.preventDefault();
   });
   canvas.addEventListener("pointerup", (event) => {
-    if (touch?.id === event.pointerId) touch = null;
+    if (fingers.has(event.pointerId)) lifted(event);
     if (!transport?.leased() && (!selecting || event.button !== 0)) return;
     selecting = false;
     pushPointer(event, 0);
@@ -431,7 +450,7 @@ export function browser({ canvas, keyboard, showStatus, claimsKey, surfaceSize, 
     if (transport?.leased()) event.preventDefault();
   });
   canvas.addEventListener("pointercancel", (event) => {
-    if (touch?.id === event.pointerId) touch = null;
+    if (fingers.has(event.pointerId)) lifted(event);
     if (selecting) {
       selecting = false;
       pushPointer(event, 0);

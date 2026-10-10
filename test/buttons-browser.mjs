@@ -131,6 +131,20 @@ await browserTest("buttons", options, async ({ name, server, open }) => {
   assert.equal(await page.evaluate(() => __dolly.copySelection()), null);
   await waitForText(line(top - 5));
   assert.doesNotMatch(await text(), line(top - 6));
+
+  // Two fingers 45 px further apart are two sizes more, and back together the size it was.
+  const size = await page.evaluate(() => __dolly.fontSize);
+  const pinch = (type, id, x) => page.evaluate(([type, id, x]) => document.querySelector("#display").dispatchEvent(
+    new PointerEvent(type, { pointerId: id, pointerType: "touch", button: 0, buttons: type === "pointerup" ? 0 : 1,
+      clientX: x, clientY: 100, bubbles: true, cancelable: true })), [type, id, x]);
+  await pinch("pointerdown", 7, 150);
+  await pinch("pointerdown", 8, 250);
+  await pinch("pointermove", 8, 295);
+  await page.waitForFunction(size => __dolly.fontSize === size + 2, size);
+  await pinch("pointermove", 8, 250);
+  await page.waitForFunction(size => __dolly.fontSize === size, size);
+  await pinch("pointerup", 8, 250);
+  await pinch("pointerup", 7, 150);
   assert.deepEqual(errors, []);
   if (name === "chromium") await phone(open, server);
 });
