@@ -10,14 +10,14 @@ REQUIRES HOST sockets@0
 REQUIRES HOST threads@0
 REQUIRES HOST upload@0
 
-FROM /v0.1.1/Dollyfile-system 79aa3d3d8f32b96dc4803cf2eeb0a38ad2b6ef726b9affa7f994458193285b31
-COPY /v0.1.1/demos/wine/Dollyfile-wine-build 75020b77968232ebefc77a6e5898f70d4397e34f125b2856826033adc29e362b /usr/bin/wine /usr/bin/wine
-COPY /v0.1.1/demos/wine/Dollyfile-wine-build 75020b77968232ebefc77a6e5898f70d4397e34f125b2856826033adc29e362b /usr/share/wine /usr/share/wine
+FROM /v0.1.1/Dollyfile-system 634bb9d9d5ad58e2f0d638453a6f396452306ebe9a86e3638c6da90069f5c9f5
+COPY /v0.1.1/demos/wine/Dollyfile-wine-build 8965373be8a0ab3d86a05decc752921e3648d2443d76cd3bc6781e7748bdf189 /usr/bin/wine /usr/bin/wine
+COPY /v0.1.1/demos/wine/Dollyfile-wine-build 8965373be8a0ab3d86a05decc752921e3648d2443d76cd3bc6781e7748bdf189 /usr/share/wine /usr/share/wine
 # Wine is LGPL; FreeType (under its GPL option) and libpng are linked into it. TinyCC (LGPL) is under /usr/share/wine/x86.
-COPY /v0.1.1/demos/wine/Dollyfile-wine-build 75020b77968232ebefc77a6e5898f70d4397e34f125b2856826033adc29e362b /usr/share/licenses/wine /usr/share/licenses/wine
-COPY /v0.1.1/demos/wine/Dollyfile-wine-build 75020b77968232ebefc77a6e5898f70d4397e34f125b2856826033adc29e362b /usr/share/licenses/freetype /usr/share/licenses/freetype
-COPY /v0.1.1/demos/wine/Dollyfile-wine-build 75020b77968232ebefc77a6e5898f70d4397e34f125b2856826033adc29e362b /usr/share/licenses/libpng /usr/share/licenses/libpng
-COPY /v0.1.1/demos/wine/Dollyfile-wine-build 75020b77968232ebefc77a6e5898f70d4397e34f125b2856826033adc29e362b /usr/share/licenses/tinycc /usr/share/licenses/tinycc
+COPY /v0.1.1/demos/wine/Dollyfile-wine-build 8965373be8a0ab3d86a05decc752921e3648d2443d76cd3bc6781e7748bdf189 /usr/share/licenses/wine /usr/share/licenses/wine
+COPY /v0.1.1/demos/wine/Dollyfile-wine-build 8965373be8a0ab3d86a05decc752921e3648d2443d76cd3bc6781e7748bdf189 /usr/share/licenses/freetype /usr/share/licenses/freetype
+COPY /v0.1.1/demos/wine/Dollyfile-wine-build 8965373be8a0ab3d86a05decc752921e3648d2443d76cd3bc6781e7748bdf189 /usr/share/licenses/libpng /usr/share/licenses/libpng
+COPY /v0.1.1/demos/wine/Dollyfile-wine-build 8965373be8a0ab3d86a05decc752921e3648d2443d76cd3bc6781e7748bdf189 /usr/share/licenses/tinycc /usr/share/licenses/tinycc
 EXPORTS TOOL wine
 REQUIRES TOOL wine
 

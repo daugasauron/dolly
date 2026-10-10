@@ -7,8 +7,8 @@ REQUIRES HOST download@0
 REQUIRES HOST http@0
 REQUIRES HOST upload@0
 
-FROM /v0.1.1/Dollyfile-system-tools a0862f4ba16199d659505f9eb21ef0654a454f53e89c8ef205d4df8edf442558
-INSTALL /v0.1.1/demos/sdl2/Dollyfile-sdl2 949d36dff442aa55dffd2bb33f64e212db372a49f602b99eb4365a005af9dcd0
+FROM /v0.1.1/Dollyfile-system-tools 2f8b0bdb02e77ad37b3e792a0ecbbcdb59c7a9861e5c38fe2f9d33412e1b5fd1
+INSTALL /v0.1.1/demos/sdl2/Dollyfile-sdl2 d42496abb9f17a0ebecf1ba4aa5aa5f7fb74497aae93770913b927ebf6ff25cf
 REQUIRES HEADER cpp
 REQUIRES HEADER sdl2
 REQUIRES HEADER zlib

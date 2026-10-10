@@ -7,7 +7,7 @@ REQUIRES HOST download@0
 REQUIRES HOST http@0
 REQUIRES HOST upload@0
 
-FROM /v0.1.1/demos/cmake/Dollyfile-cmake-build 504d61382dfa33720417b60434843deb862fad2f8eb559d25e0dec7ebbee5022
+FROM /v0.1.1/demos/cmake/Dollyfile-cmake-build 8c579acd30f22921f8c7b4b9f78783d977c108c53c883a6f400a2903e3ace7aa
 REQUIRES TOOL cc
 REQUIRES TOOL c++
 REQUIRES TOOL cmake

@@ -12,9 +12,9 @@ REQUIRES HOST upload@0
 
 # Runs Claude Code, which the launcher downloads from the npm registry into
 # the session after the notice: the image holds nothing of it.
-FROM /v0.1.1/Dollyfile-system 79aa3d3d8f32b96dc4803cf2eeb0a38ad2b6ef726b9affa7f994458193285b31
-INSTALL /v0.1.1/demos/javascript/Dollyfile-javascript 607c0ba44bba40db05b487ba5ae6ddd759bcc73935fa6e3d6dfad72b25575c65
-INSTALL /v0.1.1/demos/rust/Dollyfile-ripgrep 212f91eab2bee772436c71129295e9c7e330f2c7a7909f1966c493bcc83fd060
+FROM /v0.1.1/Dollyfile-system 634bb9d9d5ad58e2f0d638453a6f396452306ebe9a86e3638c6da90069f5c9f5
+INSTALL /v0.1.1/demos/javascript/Dollyfile-javascript eff668a974fe0a2eaaafa69d45e5491b60d596554e6ed96e1b5cbbfcff0e02e9
+INSTALL /v0.1.1/demos/rust/Dollyfile-ripgrep 568a110d82cf0270d5a330f729729048027fd852c485ce27534839f232ce23d0
 REQUIRES TOOL cc
 REQUIRES TOOL curl
 REQUIRES TOOL cut

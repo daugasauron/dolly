@@ -9,13 +9,13 @@ REQUIRES HOST sockets@0
 REQUIRES HOST threads@0
 REQUIRES HOST upload@0
 
-FROM /v0.1.1/Dollyfile-system-tools a0862f4ba16199d659505f9eb21ef0654a454f53e89c8ef205d4df8edf442558
+FROM /v0.1.1/Dollyfile-system-tools 2f8b0bdb02e77ad37b3e792a0ecbbcdb59c7a9861e5c38fe2f9d33412e1b5fd1
 # FreeType (with its libpng) for gdi32's fonts, as 0 A.D. built them.
-COPY /v0.1.1/demos/zero-ad/Dollyfile-zero-ad-deps 64e3cb164cf6ebe5a7729b6545f6bf0e5e00c734cebfbf485e5cdd7582be6745 /usr/include/freetype2 /usr/include/freetype2
-COPY /v0.1.1/demos/zero-ad/Dollyfile-zero-ad-deps 64e3cb164cf6ebe5a7729b6545f6bf0e5e00c734cebfbf485e5cdd7582be6745 /usr/lib/libfreetype.a /usr/lib/libfreetype.a
-COPY /v0.1.1/demos/zero-ad/Dollyfile-zero-ad-deps 64e3cb164cf6ebe5a7729b6545f6bf0e5e00c734cebfbf485e5cdd7582be6745 /usr/lib/libpng16.a /usr/lib/libpng16.a
-COPY /v0.1.1/demos/zero-ad/Dollyfile-zero-ad-deps 64e3cb164cf6ebe5a7729b6545f6bf0e5e00c734cebfbf485e5cdd7582be6745 /usr/share/licenses/freetype /usr/share/licenses/freetype
-COPY /v0.1.1/demos/zero-ad/Dollyfile-zero-ad-deps 64e3cb164cf6ebe5a7729b6545f6bf0e5e00c734cebfbf485e5cdd7582be6745 /usr/share/licenses/libpng /usr/share/licenses/libpng
+COPY /v0.1.1/demos/zero-ad/Dollyfile-zero-ad-deps b9788b74981a1d4108f2d161a7a01870bc0a94f8136ec6e48733894bab781709 /usr/include/freetype2 /usr/include/freetype2
+COPY /v0.1.1/demos/zero-ad/Dollyfile-zero-ad-deps b9788b74981a1d4108f2d161a7a01870bc0a94f8136ec6e48733894bab781709 /usr/lib/libfreetype.a /usr/lib/libfreetype.a
+COPY /v0.1.1/demos/zero-ad/Dollyfile-zero-ad-deps b9788b74981a1d4108f2d161a7a01870bc0a94f8136ec6e48733894bab781709 /usr/lib/libpng16.a /usr/lib/libpng16.a
+COPY /v0.1.1/demos/zero-ad/Dollyfile-zero-ad-deps b9788b74981a1d4108f2d161a7a01870bc0a94f8136ec6e48733894bab781709 /usr/share/licenses/freetype /usr/share/licenses/freetype
+COPY /v0.1.1/demos/zero-ad/Dollyfile-zero-ad-deps b9788b74981a1d4108f2d161a7a01870bc0a94f8136ec6e48733894bab781709 /usr/share/licenses/libpng /usr/share/licenses/libpng
 REQUIRES HEADER zlib
 REQUIRES LIB z
 REQUIRES TOOL ar

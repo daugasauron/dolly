@@ -4,7 +4,7 @@ REQUIRES HOST runtime@0
 
 # Qwen3.5-4B Q4_K_M, shard 1 of 4 as llama.cpp's gguf-split writes them,
 # with the model's description and license. The model needs all four.
-FROM /v0.1.1/Dollyfile-system 79aa3d3d8f32b96dc4803cf2eeb0a38ad2b6ef726b9affa7f994458193285b31
+FROM /v0.1.1/Dollyfile-system 634bb9d9d5ad58e2f0d638453a6f396452306ebe9a86e3638c6da90069f5c9f5
 
 SOURCE /v0.1.1/dist/static/llm/qwen3.5-4b/qwen3.5-4b-00001-of-00004.gguf 03c0c0d2440e96700aeb4d3cf2d2603f5b897adc57d51748824a0417fb2fdffc /usr/share/dolly/llm/qwen3.5-4b-00001-of-00004.gguf
 SOURCE /v0.1.1/dist/static/llm/qwen3.5-4b/qwen3.5-4b.json 0c8d7eb324a050dfc147e42b70ef7cd356aad56223466e721061b41cd59eb531 /usr/share/dolly/llm/qwen3.5-4b.json

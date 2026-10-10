@@ -3,7 +3,9 @@ import * as A from "./abi.mjs";
 export { DOLLY_DISPLAY_ABI_DIGEST as digest } from "./abi.mjs";
 
 const textDecoder = new TextDecoder("utf-8", { ignoreBOM: true });
-const cursorStyles = ["text", "default", "crosshair", "pointer", "none"];
+// dolly_display_cursor (display.h), by value: the page's own cursors, nothing a guest draws.
+const cursorStyles = ["text", "default", "crosshair", "pointer", "none", "ns-resize", "ew-resize", "nwse-resize",
+  "nesw-resize", "move", "wait", "progress", "not-allowed", "help"];
 // The presenter keeps requesting animation frames this long after the last
 // frame, so the next one is painted on the frame after it is published.
 const lingerMilliseconds = 250;
