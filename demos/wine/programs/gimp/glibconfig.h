@@ -42,6 +42,7 @@ typedef unsigned int guint32;
 typedef signed long gint64;
 typedef unsigned long guint64;
 #define G_GINT64_CONSTANT(val) (val##L)
+#define G_GUINT64_CONSTANT(val) (val##UL)
 #define G_GINT64_MODIFIER "l"
 #define G_GINT64_FORMAT "li"
 #define G_GUINT64_FORMAT "lu"
@@ -62,11 +63,11 @@ typedef unsigned long gsize;
 #define GUINT_TO_POINTER(u) ((gpointer) (gulong) (u))
 
 #define g_ATEXIT(proc) (atexit (proc))
-#define g_memmove(d,s,n) G_STMT_START { memmove ((d), (s), (n)); } G_STMT_END
+#define g_memmove(dest,src,len) G_STMT_START { memmove ((dest), (src), (len)); } G_STMT_END
 
 #define GLIB_MAJOR_VERSION 2
-#define GLIB_MINOR_VERSION 6
-#define GLIB_MICRO_VERSION 6
+#define GLIB_MINOR_VERSION 12
+#define GLIB_MICRO_VERSION 13
 
 #define G_OS_UNIX
 #define G_VA_COPY va_copy

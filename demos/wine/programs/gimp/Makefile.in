@@ -1,32 +1,40 @@
-MODULE    = gtkhello.exe
+MODULE    = gimp.exe
 APPMODE   = -mwindows
 IMPORTS   = imm32 user32 gdi32 advapi32 kernel32
-# GLib, ATK, Pango, GTK+ and the program are written for the C library and (GDK's and Pango's Windows
-# backends) the Windows headers; none is a part of Wine. The program starts at main (main.c).
+# GIMP and the libraries under it are written for the C library and (GDK's and Pango's Windows backends)
+# the Windows headers; none is a part of Wine. The program starts at main (main.c).
 EXTRADEFS = -U__WINESRC__ -DICALL_PROGRAM='"/usr/bin/wine"'
 CRT0 :=
 ICALL := 1
+# Wilber, for the desktop's shortcut and taskbar.
+RC_SRCS   = gimp/app/gimp.rc
 PORT_SRCS = icall.c
 
-# The prepared sources lie beside this file: glib, atk, pango, gtk (GTK+ with GDK and gdk-pixbuf).
+# The prepared sources lie beside this file: glib, atk, pango, gtk (GTK+ with GDK and gdk-pixbuf),
+# libart_lgpl, expat, fontconfig and gimp.
 N := $(MODSRC)/$(MODDIR)
 OBJ := $(B)/obj/$(MODDIR)
 # config.h here is the one each library includes, before Wine's own.
 FIRSTINCL := -I$(N) -I$(N)/glib -I$(N)/glib/glib -I$(N)/glib/gmodule -I$(N)/atk -I$(N)/pango -I$(N)/gtk -I$(N)/gtk/gdk \
-    -I$(N)/gtk/gdk-pixbuf -I$(N)/gtk/gtk
+    -I$(N)/gtk/gdk-pixbuf -I$(N)/gtk/gtk -I$(N)/expat/lib -I$(N)/fontconfig -I/usr/include/freetype2 -I$(N)/gimp
 
-GLIB_UNITS := garray gasyncqueue gatomic gbacktrace gcache gcompletion gconvert gdataset gdate gdir gerror gfileutils \
-    ghash ghook giochannel giounix gkeyfile glist gmain gmarkup gmem gmessages gnode goption gpattern gprimes gprintf \
-    gqsort gqueue grand grel gscanner gshell gslist gspawn gstdio gstrfuncs gstring gthread gthreadpool gtimer gtree \
+GLIB_UNITS := garray gasyncqueue gatomic gbacktrace gbase64 gbookmarkfile gcache gcompletion gconvert gdataset gdate gdir \
+    gerror gfileutils ghash ghook giochannel giounix gkeyfile glist gmain gmappedfile gmarkup gmem gmessages gnode goption \
+    gpattern gprimes gprintf gqsort gqueue grand grel gscanner gshell gslice gslist gspawn gstdio gstrfuncs gstring gthread \
+    gthreadpool gtimer gtree \
     gunibreak gunicollate gunidecomp guniprop gutf8 gutils gwin32 libcharset/localcharset \
     gnulib/asnprintf gnulib/printf gnulib/printf-args gnulib/printf-parse gnulib/vasnprintf
 GOBJECT_UNITS := gboxed gclosure genums gobject gparam gparamspecs gsignal gsourceclosure gtype gtypemodule gtypeplugin \
     gvalue gvaluearray gvaluetransform gvaluetypes
+# Pango with both its backends: Windows' for GTK+, and FreeType's with fontconfig, which GIMP's text is drawn by.
 PANGO_UNITS := break ellipsize fonts glyphstring mapping modules pango-attributes pango-color pango-context \
     pango-coverage pango-engine pango-fontmap pango-fontset pango-glyph-item pango-item pango-layout pango-markup \
-    pango-renderer pango-script pango-tabs pango-utils reorder-items shape pango-enum-types \
+    pango-matrix pango-renderer pango-script pango-tabs pango-utils reorder-items shape pango-enum-types module-defs-lang \
     mini-fribidi/fribidi mini-fribidi/fribidi_char_type mini-fribidi/fribidi_types \
-    pangowin32 pangowin32-fontcache pangowin32-fontmap module-defs-win32
+    pangowin32 pangowin32-fontcache pangowin32-fontmap module-defs-win32 \
+    pangofc-font pangofc-fontmap pangofc-decoder pangoft2 pangoft2-fontmap pangoft2-render module-defs-fc \
+    pango-ot-buffer pango-ot-info pango-ot-ruleset opentype/ftglue opentype/harfbuzz-buffer opentype/harfbuzz-dump \
+    opentype/harfbuzz-gdef opentype/harfbuzz-gpos opentype/harfbuzz-gsub opentype/harfbuzz-open
 GDK_UNITS := gdk gdkcolor gdkcursor gdkdisplay gdkdnd gdkdraw gdkevents gdkfont gdkgc gdkglobals gdkkeynames gdkkeys gdkkeyuni \
     gdkimage gdkdisplaymanager gdkpango gdkpixbuf-drawable gdkpixbuf-render gdkpixmap gdkpolyreg-generic gdkrgb \
     gdkrectangle gdkregion-generic gdkscreen gdkselection gdkvisual gdkwindow gdkenumtypes
@@ -40,23 +48,30 @@ PIXBUF_UNITS := gdk-pixbuf gdk-pixbuf-animation gdk-pixbuf-data gdk-pixbuf-io gd
 sources = $(patsubst $(N)/%,%,$(wildcard $(addprefix $(N)/,$(1))))
 C_SRCS := $(GLIB_UNITS:%=glib/glib/%.c) $(GOBJECT_UNITS:%=glib/gobject/%.c) glib/gmodule/gmodule.c \
     $(call sources,atk/atk/*.c) $(PANGO_UNITS:%=pango/pango/%.c) pango/modules/basic/basic-win32.c \
-    $(PIXBUF_UNITS:%=gtk/gdk-pixbuf/%.c) $(GDK_UNITS:%=gtk/gdk/%.c) $(GDK_WIN32_UNITS:%=gtk/gdk/win32/%.c) \
-    $(call sources,gtk/gtk/*.c gtk/gtk/xdgmime/*.c) main.c hello.c
+    pango/modules/basic/basic-fc.c $(PIXBUF_UNITS:%=gtk/gdk-pixbuf/%.c) $(GDK_UNITS:%=gtk/gdk/%.c) \
+    $(GDK_WIN32_UNITS:%=gtk/gdk/win32/%.c) $(call sources,gtk/gtk/*.c gtk/gtk/xdgmime/*.c libart_lgpl/*.c \
+    expat/lib/xml*.c fontconfig/src/*.c gimp/libgimpbase/*.c gimp/libgimpcolor/*.c gimp/libgimpmath/*.c \
+    gimp/libgimpmodule/*.c gimp/libgimpthumb/*.c gimp/libgimpwidgets/*.c gimp/app/*.c gimp/app/*/*.c) \
+    gimp/regexrepl/regex.c main.c
 # Included by another source; the Windows file system (the C library's files are Unix ones), X11's
 # embedding, tools and tests.
-EXCLUDE := atk/atk/atkmarshal.c gtk/gtk/gtkfilesystemwin32.c gtk/gtk/gtkplug.c gtk/gtk/gtksocket.c gtk/gtk/gtkxembed.c \
-    gtk/gtk/gtkplug-stub.c gtk/gtk/gtksocket-stub.c gtk/gtk/gtkwin32embed.c gtk/gtk/updateiconcache.c \
-    gtk/gtk/queryimmodules.c gtk/gtk/xdgmime/test-mime.c $(call sources,gtk/gtk/test*.c)
+EXCLUDE := atk/atk/atkmarshal.c expat/lib/xmltok_impl.c expat/lib/xmltok_ns.c gtk/gtk/gtkfilesystemwin32.c \
+    gtk/gtk/gtkplug.c gtk/gtk/gtksocket.c gtk/gtk/gtkxembed.c gtk/gtk/gtkplug-stub.c gtk/gtk/gtksocket-stub.c \
+    gtk/gtk/gtkwin32embed.c gtk/gtk/updateiconcache.c gtk/gtk/queryimmodules.c gtk/gtk/xdgmime/test-mime.c \
+    libart_lgpl/gen_art_config.c gimp/app/composite/gimp-composite-regression.c \
+    $(call sources,gtk/gtk/test*.c libart_lgpl/test*.c gimp/*/test-*.c gimp/app/*/test-*.c gimp/app/composite/*-test.c)
 
-# The code is of 2005: implicit declarations, GNU inline functions.
-COMMON := -std=gnu89 -DHAVE_CONFIG_H -DG_DISABLE_DEPRECATED
+# The code is of 2005 to 2007: implicit declarations, GNU inline functions, and pointers passed as pointers
+# to another type of the same layout (an object as its parent class, long as time_t).
+COMMON := -std=gnu89 -DHAVE_CONFIG_H -Wno-incompatible-pointer-types
 $(OBJ)/glib/glib/%.o: MODDEFS := $(COMMON) -DG_LOG_DOMAIN='"GLib"' -DGLIB_COMPILATION -DLIBDIR='"/usr/lib"'
 $(OBJ)/glib/gobject/%.o: MODDEFS := $(COMMON) -DG_LOG_DOMAIN='"GLib-GObject"' -DGOBJECT_COMPILATION -DG_DISABLE_CONST_RETURNS
 $(OBJ)/glib/gmodule/%.o: MODDEFS := $(COMMON) -DG_LOG_DOMAIN='"GModule"'
 $(OBJ)/atk/%.o: MODDEFS := $(COMMON) -DG_LOG_DOMAIN='"Atk"' -I$(N)/atk/atk
 $(OBJ)/pango/%.o: MODDEFS := $(COMMON) -DG_LOG_DOMAIN='"Pango"' -DPANGO_ENABLE_BACKEND -DPANGO_ENABLE_ENGINE \
     -DSYSCONFDIR='"/etc"' -DLIBDIR='"/usr/lib"' -DMODULE_VERSION='"1.4.0"' -DPANGO_MODULE_PREFIX=_pango_basic_win32 \
-    -I$(N)/pango/pango
+    -I$(N)/pango/pango -I$(N)/pango/pango/opentype
+pango/modules/basic/basic-fc_EXTRADEFS += -UPANGO_MODULE_PREFIX -DPANGO_MODULE_PREFIX=_pango_basic_ft2
 # A window's handle is a pointer (gdkconfig.h) that GTK+ 2.6 still keeps in 32 bits in places, where Windows' handles fit.
 $(OBJ)/gtk/%.o: MODDEFS := $(COMMON) -DGTK_VERSION='"2.6.10"' -DGTK_BINARY_VERSION='"2.4.0"' -DGTK_HOST='"wasm64-unknown-dolly"' \
     -DGTK_LIBDIR='"/usr/lib"' -DGTK_DATADIR='"/usr/share"' -DGTK_DATA_PREFIX='"/usr"' -DGTK_PREFIX='"/usr"' \
@@ -68,33 +83,76 @@ log_domain = $(foreach unit,$(2),$(eval $(1)/$(unit)_EXTRADEFS += -DG_LOG_DOMAIN
 $(call log_domain,gtk/gdk-pixbuf,$(PIXBUF_UNITS),GdkPixbuf)
 $(call log_domain,gtk/gdk,$(GDK_UNITS),Gdk)
 $(call log_domain,gtk/gdk/win32,$(GDK_WIN32_UNITS),Gdk)
-# Files written for the Windows API (win32.h); gwin32.c in its flavour for a Unix C library over that API,
-# with the number Windows now has for a sublanguage it gives another's.
+# Files written for the Windows API (win32.h); gwin32.c in its flavour for a Unix C library over that API.
 WIN32 := glib/glib/gwin32 pango/pango/pangowin32 pango/pango/pangowin32-fontcache pango/pango/pangowin32-fontmap \
     pango/modules/basic/basic-win32 $(GDK_WIN32_UNITS:%=gtk/gdk/win32/%) main
-$(foreach unit,$(WIN32),$(eval $(unit)_EXTRADEFS += -DG_PLATFORM_WIN32 -include $(N)/win32.h -Wno-incompatible-pointer-types))
-glib/glib/gwin32_EXTRADEFS += -DG_WITH_CYGWIN -DSUBLANG_ROMANIAN_MOLDOVA=0x02
+$(foreach unit,$(WIN32),$(eval $(unit)_EXTRADEFS += -DG_PLATFORM_WIN32 -include $(N)/win32.h))
+glib/glib/gwin32_EXTRADEFS += -DG_WITH_CYGWIN
 # GDK's Windows backend is built with the deprecated declarations (its GdkFont).
-$(foreach unit,$(GDK_WIN32_UNITS),$(eval gtk/gdk/win32/$(unit)_EXTRADEFS += -DINSIDE_GDK_WIN32 -UG_DISABLE_DEPRECATED \
-    -UGDK_DISABLE_DEPRECATED -UGDK_PIXBUF_DISABLE_DEPRECATED))
-$(OBJ)/main.o $(OBJ)/hello.o: MODDEFS := -std=gnu89
+$(foreach unit,$(GDK_WIN32_UNITS),$(eval gtk/gdk/win32/$(unit)_EXTRADEFS += -DINSIDE_GDK_WIN32 -UGDK_DISABLE_DEPRECATED \
+    -UGDK_PIXBUF_DISABLE_DEPRECATED))
 # Wine's uuid library has the identifiers that GDK's drag and drop would define: its headers are read
 # before the file asks for definitions.
 gtk/gdk/win32/gdkdnd-win32_EXTRADEFS += -include ole2.h -include shlobj.h -include shlguid.h
+$(OBJ)/libart_lgpl/%.o: MODDEFS := -std=gnu89 -DHAVE_CONFIG_H -DLIBART_COMPILATION -I$(N)/libart_lgpl
+# Fonts are those of the system and of Wine (fonts.conf, written by the Makefile).
+$(OBJ)/fontconfig/%.o: MODDEFS := -std=gnu89 -DHAVE_CONFIG_H -I$(N)/fontconfig/src -DFONTCONFIG_PATH='"/etc/fonts"' \
+    -DFC_DEFAULT_FONTS='"/usr/share/fonts"'
+# GIMP's exit ends the program, which here is a thread (main.c). Its interface functions take their own
+# object types where the interface names its own, and FreeType's callbacks have since become const.
+$(OBJ)/gimp/%.o: MODDEFS := -std=gnu89 -DHAVE_CONFIG_H -DG_LOG_DOMAIN='"Gimp"' -DGIMP_COMPILATION \
+    -DGIMP_APP_GLUE_COMPILATION -DGETTEXT_PACKAGE='"gimp20"' -I$(N)/gimp/app -Dexit=program_exit \
+    -Wno-incompatible-function-pointer-types \
+    -DPREFIX='"/usr"' -DGIMPDIR='".gimp-2.2"' -DDATADIR='"/usr/share/gimp/2.0"' -DLOCALEDIR='"/usr/share/locale"' \
+    -DPLUGINDIR='"/usr/lib/gimp/2.0"' -DSYSCONFDIR='"/etc/gimp/2.0"'
+$(OBJ)/main.o: MODDEFS := -std=gnu89
 # The program's own main is called by ours.
-hello_EXTRADEFS += -Dmain=program_main
+gimp/app/main_EXTRADEFS += -Dmain=program_main
+# As GIMP's makefile builds the regular expressions it brings for C libraries other than GNU's.
+gimp/regexrepl/regex_EXTRADEFS += -DREGEX_MALLOC
 
-# GLib's marshaller generator, built here as a program of its own, writes ATK's two marshallers.
+# What the makefiles of these libraries generate with programs they build: here those programs are built
+# from the module's own objects, each as a program of its own, and run.
 .DEFAULT_GOAL := $(OBJ)/module.a
-TOOL_OBJS := $(patsubst %,$(OBJ)/glib/glib/%.o,$(filter-out gwin32,$(GLIB_UNITS)))
+TOOL_OBJS := $(patsubst %,$(OBJ)/glib/glib/%.o,$(filter-out gwin32,$(GLIB_UNITS))) $(GOBJECT_UNITS:%=$(OBJ)/glib/gobject/%.o) \
+    $(OBJ)/glib/gmodule/gmodule.o $(PIXBUF_UNITS:%=$(OBJ)/gtk/gdk-pixbuf/%.o)
 $(OBJ)/tools/%.o: $(N)/glib/gobject/%.c
+	@mkdir -p $(@D)
+	cc $(CFLAGS) $(FIRSTINCL) $(COMMON) -c $< -o $@
+	$(T)/icall $@
+$(OBJ)/tools/%.o: $(N)/gtk/gdk-pixbuf/%.c
 	@mkdir -p $(@D)
 	cc $(CFLAGS) $(FIRSTINCL) $(COMMON) -c $< -o $@
 	$(T)/icall $@
 $(OBJ)/tools/%: $(OBJ)/tools/%.o $(TOOL_OBJS)
 	$(T)/icall --thunks $^ > $@-thunks.c
-	cc $(CFLAGS) -I$(PORT)/port -DICALL_PROGRAM='"$@"' $^ $@-thunks.c $(PORT)/port/icall.c -o $@
+	cc $(CFLAGS) -I$(PORT)/port -DICALL_PROGRAM='"$@"' $^ $@-thunks.c $(PORT)/port/icall.c -o $@ -lpng16 -lz -lm
+# ATK's two marshallers, by GLib's generator.
 ATK_MARSHAL := $(N)/atk/atk/atkmarshal
 $(ATK_MARSHAL).h $(ATK_MARSHAL).c: $(ATK_MARSHAL).list $(OBJ)/tools/glib-genmarshal
 	$(OBJ)/tools/glib-genmarshal --prefix=atk_marshal $< $(if $(filter %.h,$@),--header,--body) > $@
 $(patsubst %.c,$(OBJ)/%.o,$(call sources,atk/atk/*.c)): $(ATK_MARSHAL).h $(ATK_MARSHAL).c
+# libart's sizes of the C types.
+$(N)/libart_lgpl/art_config.h: $(N)/libart_lgpl/gen_art_config.c
+	@mkdir -p $(OBJ)/tools
+	cc -I$(N) $< -o $(OBJ)/tools/gen_art_config
+	$(OBJ)/tools/gen_art_config > $@
+# GIMP's icons and cursors as C data, by gdk-pixbuf's converter: the lists are its makefiles' own
+# (images.mk and cursors.mk, cut out of them by the preparation), each picture under its file's name.
+IMAGES := $(N)/gimp/themes/Default/images
+CURSORS := $(N)/gimp/cursors
+srcdir := $(IMAGES)
+include $(IMAGES)/images.mk $(CURSORS)/cursors.mk
+named = $(foreach image,$(2),$(subst -,_,$(basename $(notdir $(image)))) $(1)/$(image))
+PIXBUFS = $(OBJ)/tools/gdk-pixbuf-csource --raw --build-list
+$(IMAGES)/gimp-core-pixbufs.h: $(OBJ)/tools/gdk-pixbuf-csource
+	$(PIXBUFS) $(CORE_VARIABLES) > $@
+$(IMAGES)/gimp-wilber-pixbufs.h: $(OBJ)/tools/gdk-pixbuf-csource
+	$(PIXBUFS) $(WILBER_VARIABLES) > $@
+$(IMAGES)/gimp-stock-pixbufs.h: $(OBJ)/tools/gdk-pixbuf-csource
+	$(PIXBUFS) $(call named,$(IMAGES),$(STOCK_IMAGES)) > $@
+$(CURSORS)/gimp-tool-cursors.h: $(OBJ)/tools/gdk-pixbuf-csource
+	$(PIXBUFS) $(call named,$(CURSORS),$(CURSOR_IMAGES)) > $@
+GENERATED := $(N)/libart_lgpl/art_config.h $(IMAGES)/gimp-core-pixbufs.h $(IMAGES)/gimp-wilber-pixbufs.h \
+    $(IMAGES)/gimp-stock-pixbufs.h $(CURSORS)/gimp-tool-cursors.h
+$(patsubst %.c,$(OBJ)/%.o,$(call sources,libart_lgpl/*.c gimp/*/*.c gimp/app/*/*.c)): $(GENERATED)

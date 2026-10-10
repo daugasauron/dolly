@@ -246,17 +246,33 @@ DOLLY_NETSURF_SHA256=4dea880ff3c2f698bfd62c982b259340f9abcd7f67e6c8eb2b32c61f716
 DOLLY_GPERF_VERSION=3.1
 DOLLY_GPERF_URL='https://ftp.gnu.org/gnu/gperf/gperf-3.1.tar.gz'
 DOLLY_GPERF_SHA256=588546b945bba4b70b6a3a616e80b4ab466e3f33024a352fc2198112cdbb3ae2
-# GTK+ for the Wine demo: the last GTK+ that draws without cairo, with the GLib, ATK and Pango of its time;
-# GDK's and Pango's Windows backends are built against Winelib.
-DOLLY_GLIB_VERSION=2.6.6
-DOLLY_GLIB_URL='https://download.gnome.org/sources/glib/2.6/glib-2.6.6.tar.bz2'
-DOLLY_GLIB_SHA256=de4f25424840b8e3b1fb03e6bac0c095affc3ca9c228f8b780817489914bdebf
+# GTK+ for the Wine demo: the last GTK+ that draws without cairo, with the ATK of its time; GDK's and
+# Pango's Windows backends are built against Winelib. Pango is the first whose OpenType code may be taken
+# under the GPL (before, the FreeType licence alone), and GLib the series that Pango needs.
+DOLLY_GLIB_VERSION=2.12.13
+DOLLY_GLIB_URL='https://download.gnome.org/sources/glib/2.12/glib-2.12.13.tar.bz2'
+DOLLY_GLIB_SHA256=1253d563ca2e50292d924849fe3a23c3b7bc707ab8b79bda19319f9d192b0e8e
 DOLLY_ATK_VERSION=1.9.1
 DOLLY_ATK_URL='https://download.gnome.org/sources/atk/1.9/atk-1.9.1.tar.bz2'
 DOLLY_ATK_SHA256=65732d71c6c02e957673f49f8c5818f2cad3f451116b58ab1636c73dc8ab0dc6
-DOLLY_PANGO_VERSION=1.8.2
-DOLLY_PANGO_URL='https://download.gnome.org/sources/pango/1.8/pango-1.8.2.tar.bz2'
-DOLLY_PANGO_SHA256=4cf04489ff291f3f1835783b8cfa8347d99f6a05d7d9da21c8d737f441bea3ac
+DOLLY_PANGO_VERSION=1.14.10
+DOLLY_PANGO_URL='https://download.gnome.org/sources/pango/1.14/pango-1.14.10.tar.bz2'
+DOLLY_PANGO_SHA256=1c53eb4a430c2311b75d6bedef87e452fa3cfea3c51a23a2e898f95e868bc503
 DOLLY_GTK_VERSION=2.6.10
 DOLLY_GTK_URL='https://download.gnome.org/sources/gtk+/2.6/gtk+-2.6.10.tar.bz2'
 DOLLY_GTK_SHA256=d408b606c8dd414dfbf220ccc168a0bc85a419945439796792a5357a96ff02af
+# GIMP for the Wine demo: the last release of the 2.2 series, which needs no cairo, GEGL or babl; libart
+# fills its paths; its text is drawn by Pango's FreeType backend, which finds fonts with fontconfig, whose
+# configuration expat parses.
+DOLLY_GIMP_VERSION=2.2.17
+DOLLY_GIMP_URL='https://download.gimp.org/gimp/v2.2/gimp-2.2.17.tar.bz2'
+DOLLY_GIMP_SHA256=8a4d3b28b3a11ea7564df09c8990d1c90bc3dd713b1dde0737e08603854b01b4
+DOLLY_LIBART_VERSION=2.3.17
+DOLLY_LIBART_URL='https://download.gnome.org/sources/libart_lgpl/2.3/libart_lgpl-2.3.17.tar.bz2'
+DOLLY_LIBART_SHA256=0c9a06d612cf2e527b96aeb129fe79db750ab93e13f215043d720bcde72b407e
+DOLLY_FONTCONFIG_VERSION=2.3.2
+DOLLY_FONTCONFIG_URL='https://www.freedesktop.org/software/fontconfig/release/fontconfig-2.3.2.tar.gz'
+DOLLY_FONTCONFIG_SHA256=6f7b91d328d6408c097ec11777bf4b1c2c710613b573b399794bc5999ff12227
+DOLLY_EXPAT_VERSION=2.7.1
+DOLLY_EXPAT_URL='https://github.com/libexpat/libexpat/releases/download/R_2_7_1/expat-2.7.1.tar.xz'
+DOLLY_EXPAT_SHA256=354552544b8f99012e5062f7d570ec77f14b412a3ff5c7d8d0dae62c0d217c30

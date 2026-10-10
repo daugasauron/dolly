@@ -3,16 +3,16 @@
 Wine 4.0.4 brought up inside Dolly as a feasibility study: Wine's own
 programs and DLLs, compiled from Wine's source for wasm64 by Dolly's `cc`
 and linked with `wineserver` into one executable. It boots into a desktop
-with a taskbar and a Start menu; Notepad, WineMine, ReactOS's Paint and the
-NetSurf web browser open side by side on the Dolly display and take the
-mouse and the keyboard. The tasks, with every measurement, are
+with a taskbar and a Start menu; Notepad, WineMine, ReactOS's Paint, the
+NetSurf web browser and GIMP 2.2 open side by side on the Dolly display and
+take the mouse and the keyboard. The tasks, with every measurement, are
 `tasks/20261008-145108-wine-bringup/TASK.md` and
 `tasks/20261010-114236-netsurf/TASK.md`.
 
 **Windows binaries run only under an interpreter.** A `.exe` from anywhere
 else is x86 machine code and Dolly has no x86. Wine's programs here are
 what this image compiled (`desktop`, `notepad`, `winefile`, `winemine`,
-`mspaint`, `netsurf`, `gtkhello`, `hello`); `x86emu` interprets small x86-64 programs against these DLLs
+`mspaint`, `netsurf`, `gimp`, `hello`); `x86emu` interprets small x86-64 programs against these DLLs
 (below). 32-bit programs do not run.
 
 ## Images
@@ -31,7 +31,7 @@ what this image compiled (`desktop`, `notepad`, `winefile`, `winemine`,
   `wine x86emu` and `wine desktop` run.
 
 Build with `DOLLY_BUILD_IMAGES=wine-build,wine npm run image` (both images
-in about 240 s); test with `npm run test:demos -- wine`.
+in about 350 s); test with `npm run test:demos -- wine`.
 
 ## Paint
 
@@ -139,50 +139,97 @@ Not done: downloads to a file and the settings dialogs were not tried; the
 toolbar's activity animation does not show; File > Open's dialog answers
 with a Windows path, which the Unix file operations do not take.
 
-## GTK+
+## GIMP
 
-`programs/gimp` builds GLib 2.6.6, ATK 1.9.1, Pango 1.8.2 and GTK+ 2.6.10 (the
-last GTK+ that draws without cairo) with a program on top into one program of
-this Wine: 468 files, compiled as their releases are but for four
-(`gimp-dolly.patch`). For now the program is `gtkhello` (`hello.c`: a menu, a
-label, a coloured area and a button).
+`programs/gimp` builds GIMP 2.2.17, the last release of the series that needs
+no cairo, GEGL or babl, as one program of this Wine: its toolbox, docks and
+image windows, the paint and selection tools, layers, text, and XCF files.
+It is here because an old GIMP is what runs compiled to asm.js in Gary
+Bernhardt's talk "The Birth and Death of JavaScript". Under it, from their
+pinned releases, are GLib 2.12.13, ATK 1.9.1, Pango 1.14.10, GTK+ 2.6.10 (the
+last that draws without cairo), libart 2.3.17, fontconfig 2.3.2 and Expat
+2.7.1: about 1,170 files, compiled as released but for five
+(`gimp-dolly.patch`).
 
-- **GLib is the Unix GLib**, on Dolly's C library, without threads: files are
-  Unix paths and the character set is the locale's. GDK and Pango are their
-  Windows backends, over GDI and USER of this Wine, and `gwin32.c` is compiled
-  in its flavour for a Unix C library over the Windows API (Cygwin's) for the
-  three helpers they call. `config.h`, `glibconfig.h`, `gdkconfig.h` and
-  `gmoduleconf.h` are what configure would write for Dolly; `win32.h` is
-  included before each file written for the Windows API (16-bit `wchar_t`,
-  pointer-sized window longs, no COM).
+Measured in Chrome: the toolbox is drawn 0.8 s after the Start menu's key;
+the test paints a stroke, saves it as XCF, quits, starts GIMP again and
+opens the file. The image grew by 12.0 MB (191.1 MB); the build takes
+about 150 s longer.
+
+- **No plug-ins.** A GIMP plug-in is a process and this Wine has one.
+  Everything that is a plug-in in 2.2 is therefore missing: every file
+  format but XCF (opening or saving a PNG answers "Unknown file type"), the
+  filters, Script-Fu, the help browser. Its plug-in, module and script
+  directories are empty and their scan finds nothing.
+- **GLib is the Unix GLib**, on Dolly's C library, without threads: GIMP's
+  files are Unix paths (`/usr/share/gimp/2.0`, `/etc/gimp/2.0`,
+  `~/.gimp-2.2`, and what its file dialogs browse). GDK and Pango's backend
+  for GTK+ are the Windows ones, over GDI and USER of this Wine; `gwin32.c`
+  is compiled in its flavour for a Unix C library over the Windows API
+  (Cygwin's) for the three helpers they call. `config.h`, `glibconfig.h`,
+  `gdkconfig.h`, `gmoduleconf.h` and `expat_config.h` are what configure
+  would write for Dolly; `win32.h` is included before each file written for
+  the Windows API (16-bit `wchar_t`, pointer-sized window longs, no COM).
 - **No loadable modules**: `g_module_open` answers that the system has none.
-  Pango's basic shaper and gdk-pixbuf's PNG and XPM loaders are built in;
-  theme engines and input methods are not built.
-- **The main loop waits for Windows messages** through a poll function GLib is
-  given at start (`main.c`): GDK's backend expects Windows' GLib there.
-- **Function pointers of another type.** GLib and GTK+ call every class and
-  instance initializer, most signal handlers and every `g_list_foreach
+  Pango's basic shapers and gdk-pixbuf's PNG and XPM loaders are built in;
+  theme engines, input methods and GIMP's modules are not built.
+- **The main loop waits for Windows messages** through a poll function GLib
+  is given at start (`main.c`): GDK's backend expects Windows' GLib there.
+  GIMP's `exit` ends its thread, not the desktop.
+- **Function pointers of another type.** GLib, GTK+ and GIMP call every class
+  and instance initializer, most signal handlers and every `g_list_foreach
   (list, (GFunc) g_free, NULL)` through a pointer whose type has more
   arguments than the function, which WebAssembly refuses ("function signature
   mismatch") at the first `g_object_new`. Dolly's `cc` has no pass that
   emulates such calls, so `icall` (`icall.c`, built with the other tools)
   rewrites each object file of this module: a `call_indirect` of type T
-  becomes a call of a thunk `__icall_T`, generated for all objects together.
-  The thunk calls the function directly when its type is T; otherwise the
-  function is called with its own type, its integer parameters taking the
-  caller's integer arguments in order and its floating-point parameters the
-  floating-point ones, as the registers of a processor would (`port/icall.c`).
-  Which type a function has is read once from `/usr/bin/wine` itself: its
-  element segment names the function behind each pointer. Calls that Wine
-  makes into this code are not covered and must have Windows' exact types.
-- **Generated sources**: ATK's two marshallers are written during the build by
-  GLib's own `glib-genmarshal`, built there as a program of its own from the
-  module's GLib objects; perl writes two alias files during host preparation.
+  becomes a call of a thunk `__icall_T`, generated for all objects together
+  (191 types). The thunk calls the function directly when its type is T;
+  otherwise the function is called with its own type, its integer parameters
+  taking the caller's integer arguments in order and its floating-point
+  parameters the floating-point ones, as the registers of a processor would
+  (`port/icall.c`). Which type a function has is read once from
+  `/usr/bin/wine` itself: its element segment names the function behind each
+  pointer. Calls that Wine makes into this code are not covered and must
+  have Windows' exact types.
+- **Text** is drawn by Pango's FreeType backend with fonts fontconfig finds:
+  the system's and Wine's (`/etc/fonts/fonts.conf`; `local.conf` prefers
+  Tahoma, the one text font among them). The OpenType code of that backend
+  (HarfBuzz of 2006) is taken under its GPL option: until Pango 1.14 it was
+  under the FreeType licence alone, which is why Pango and GLib are newer
+  than GTK+ here.
+- **Generated sources** are written during the build by the libraries' own
+  generators, built there as programs of their own from the module's objects:
+  `glib-genmarshal` (ATK's marshallers), `gdk-pixbuf-csource` (GIMP's 330
+  icons and cursors) and libart's `gen_art_config`. Host preparation only
+  cuts the lists of those icons out of GIMP's makefiles and has perl write
+  two alias files.
+- **The personal folder** `~/.gimp-2.2` is in the image as GIMP's first-run
+  wizard makes it, so the toolbox opens at once (the wizard itself works: it
+  runs when the folder is missing). The tip of the day opens with it, as in
+  any GIMP of the time.
+- **The keyboard**: GDK asks Windows for the whole layout once, and this Wine
+  knows what a key types only from when it was last pressed, so GDK makes its
+  table again at each key. A window GIMP opens takes the keyboard once it is
+  clicked, like every window on this desktop.
 
 `gimp-dolly.patch`: libpng's `png_jmpbuf` instead of its structure's field
 (gdk-pixbuf's PNG loader is of libpng 1.2's time); GDK's timer procedure takes
-`UINT_PTR`, the type Wine calls it with; `<io.h>` is not included; three wide
-string literals in `gwin32.c` are 16-bit.
+`UINT_PTR`, the type Wine calls it with, and its key table is made again at
+each key; `<io.h>` is not included; three wide string literals in `gwin32.c`
+are 16-bit; fontconfig reads a font's OpenType scripts and format through
+FreeType's public calls, where it used internals FreeType no longer shows.
+
+Wine itself changed in one place for it: GDI handles and window handles now
+have generations in separate ranges, so a bitmap's handle never equals a
+window's. Windows guarantees that and GDK keeps both kinds in one table;
+without it GDK took windows for pixmaps within seconds.
+
+Not done: plug-ins as threads (each would need its own copy of libgimp's
+static state and a pipe pair to the core in place of `fork` and `exec`;
+GIMP's wire protocol itself needs no process); printing; drag and drop from
+other programs; the icon theme GTK+'s file dialog asks for (its folder icons
+are GTK+'s stock ones); a font with an italic.
 
 ## x86-64 programs
 
@@ -311,11 +358,13 @@ no `mmap` at a chosen address and no assembler. So:
   spec file names no return types, so the types of the exports are read
   from the wasm objects. An export's RVA names a slot that holds the
   pointer, since a wasm function has no address in memory.
-- **One namespace.** 85 names are defined by more than one module
+- **One namespace.** 57 names are defined by more than one module
   (`shared-names.txt`: `DllGetVersion`, `StrChrW`, the controls comctl32
   copies from user32, …); each such module is compiled with its own prefix
   for them. A call to an export under a name no object defines goes to the
-  first module, in link order, that exports it.
+  first module, in link order, that exports it. Two functions of one name
+  and different types are no duplicate symbol to the linker: it warns and
+  lets the callers of one trap, so the link fails on any warning.
 - **Modules left out** (ole32, rpcrt4, setupapi, …, mostly delay-loaded):
   the 95 functions the linked modules call in them are stubs that raise
   Wine's own "unimplemented function" exception, generated at link time.
@@ -334,11 +383,12 @@ no `mmap` at a chosen address and no assembler. So:
 - **The desktop** is the ownerless window the server makes when there is no
   `explorer.exe` (`port/user32-desktop.c` names the driver for it).
 
-`wine-dolly.patch` (36 files, about 450 added lines) holds the changes to
+`wine-dolly.patch` (38 files, about 450 added lines) holds the changes to
 Wine itself: the `wasm64` CPU in widl, winebuild, the headers and the server
 protocol; ntdll's server connection, loader slots and virtual memory; where
-libwine finds its directories; and the two calls through a mismatched
-function type found so far (thread start, timer procedures).
+libwine finds its directories; the two calls through a mismatched
+function type found so far (thread start, timer procedures); and the ranges
+of GDI and window handles (see GIMP).
 
 Host preparation (`prepare-wine.sh`) applies the patch and generates the
 seven Bison and flex parser files, as the core does for awk; nothing is
@@ -379,7 +429,13 @@ FreeType (under its GPL option) and libpng are linked in. The source as
 built ships in `wine-build`. NetSurf is GPL-2.0-only (with the OpenSSL exception of its
 `COPYING`; its libraries are MIT) and is linked into `/usr/bin/wine`, which
 as a whole is therefore distributed under the GPL, version 2; IJG's libjpeg
-is linked with it (`/usr/share/licenses/netsurf`, `libjpeg`). TinyCC is LGPL
+is linked with it (`/usr/share/licenses/netsurf`, `libjpeg`). GIMP is
+GPL-2.0-or-later (its libgimp libraries, GLib, ATK, Pango, GTK+ and libart
+LGPL-2.0-or-later, fontconfig and Expat under MIT-style licences), which
+that executable's GPL, version 2, admits; Pango's OpenType code is taken
+under its GPL option, not its FreeType licence (`/usr/share/licenses/gimp`).
+GIMP's brushes, patterns, gradients, palettes, icons and tips are part of
+its release under the same licence. TinyCC is LGPL
 (`/usr/share/licenses/tinycc`);
 its binaries are its maintainers', and its source release is served in the
 same archive (`dist/static/wine/tinycc.tar.gz`, `/usr/src/tinycc` in

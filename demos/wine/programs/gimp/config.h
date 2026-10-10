@@ -1,11 +1,11 @@
 /* SPDX-License-Identifier: MIT */
-/* What configure would find on Dolly, once for GLib, ATK, Pango, GTK+, libart and GIMP; each
+/* What configure would find on Dolly, once for GLib, ATK, Pango, GTK+, libart, fontconfig and GIMP; each
  * library's own names (its gettext domain, version and directories) are -D flags in Makefile.in. */
 #define G_COMPILED_WITH_DEBUGGING "minimum"
 #define G_THREAD_SOURCE "gthread-none.c"
 #define GLIB_SIZEOF_SYSTEM_THREAD 8
-#define GLIB_BINARY_AGE 606
-#define GLIB_INTERFACE_AGE 6
+#define GLIB_BINARY_AGE 1213
+#define GLIB_INTERFACE_AGE 13
 #define G_VA_COPY va_copy
 #define G_HAVE_INLINE 1
 #define G_HAVE___INLINE 1
@@ -40,6 +40,20 @@
 #define HAVE_VALUES_H 1
 
 #define HAVE_ATEXIT 1
+#define HAVE_BIND_TEXTDOMAIN_CODESET 1
+#define HAVE_DIFFTIME 1
+#define HAVE_DOWHILE_MACROS 1
+#define HAVE_FINITE 1
+#define HAVE_GETEUID 1
+#define HAVE_GETUID 1
+#define HAVE_ISFINITE 1
+#define HAVE_MATH_H 1
+#define HAVE_PUTENV 1
+#define HAVE_RINT 1
+#define HAVE_SYS_WAIT_H 1
+#define HAVE_TIMEGM 1
+#define RETSIGTYPE void
+#define TIME_WITH_SYS_TIME 1
 #define HAVE_C99_SNPRINTF 1
 #define HAVE_C99_VSNPRINTF 1
 #define HAVE_CODESET 1
@@ -76,6 +90,7 @@
 #define HAVE_VASPRINTF 1
 #define HAVE_VPRINTF 1
 #define HAVE_VSNPRINTF 1
+#define HAVE_WCSLEN 1
 #define HAVE_WCHAR_T 1
 #define HAVE_WINT_T 1
 #define NO_SYS_ERRLIST 1
@@ -91,3 +106,8 @@
 #define SIZEOF_SIZE_T 8
 #define SIZEOF_VOID_P 8
 #define SIZEOF___INT64 0
+
+/* fontconfig: its configuration is parsed by expat, and of FreeType's optional calls it has these two. */
+#define HAVE_EXPAT 1
+#define HAVE_FT_BITMAP_SIZE_Y_PPEM 1
+#define HAVE_FT_GET_NEXT_CHAR 1

@@ -1,6 +1,7 @@
 dlls/comctl32 COMBO_FlipListbox
 dlls/comctl32 DllGetVersion
 dlls/comctl32 DllInstall
+dlls/comctl32 FreeMRUList
 dlls/comctl32 StrCSpnA
 dlls/comctl32 StrCSpnIA
 dlls/comctl32 StrCSpnIW
@@ -30,11 +31,14 @@ dlls/comdlg32 DllGetClassObject
 dlls/comdlg32 DllRegisterServer
 dlls/comdlg32 DllUnregisterServer
 dlls/gdi32 get_dpi
+dlls/msvcrt _lfind
+dlls/ntdll _lfind
 dlls/shell32 DllGetClassObject
 dlls/shell32 DllGetVersion
 dlls/shell32 DllInstall
 dlls/shell32 DllRegisterServer
 dlls/shell32 DllUnregisterServer
+dlls/shell32 FreeMRUList
 dlls/shell32 GUIDFromStringW
 dlls/shell32 SHAllocShared
 dlls/shell32 SHFreeShared
@@ -73,6 +77,13 @@ dlls/shlwapi StrToIntW
 dlls/user32 COMBO_FlipListbox
 dlls/user32 bitmap_info_size
 dlls/user32 set_control_clipping
+programs/gimp copy_region
+programs/gimp foreground
+programs/gimp regcomp
+programs/gimp regerror
+programs/gimp regexec
+programs/gimp regfree
+programs/gimp scale_region
 programs/notepad Globals
 programs/notepad get_dpi
 programs/winefile Globals

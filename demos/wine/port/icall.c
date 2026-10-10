@@ -174,7 +174,7 @@ unsigned long icall_adapt( unsigned long function, const char *caller, const uns
     if (!icall_types) load();
     if (function >= icall_slots || icall_types[function] == NO_FUNCTION) die( "pointer %lu, called as %s, is no function", function, caller );
     if (!(callee = type_signatures[icall_types[function]]))
-        die( "a %s function is called as %s, and no thunk of its type is built: add it to ICALL_TYPES",
+        die( "a %s function is called as %s, and no thunk of its type is built: name the type in the module's ICALL_TYPES",
              type_names[icall_types[function]], caller );
     if (!strcmp( callee->name, caller )) return callee->call( function, arguments );  /* before the types were read */
 

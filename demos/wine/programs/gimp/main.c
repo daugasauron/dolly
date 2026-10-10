@@ -43,6 +43,13 @@ poll_messages (GPollFD *fds, guint count, gint timeout)
   return ready;
 }
 
+/* The program's exit: the end of its thread, not of the desktop it is a thread of. */
+void
+program_exit (int status)
+{
+  ExitProcess (status);
+}
+
 int
 main (int argc, char **argv)
 {

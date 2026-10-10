@@ -100,6 +100,19 @@
      if (is_win16_looks(ofn->Flags))
          return GetFileName31W(ofn, SAVE_DIALOG);
      else
+--- a/dlls/gdi32/gdiobj.c
++++ b/dlls/gdi32/gdiobj.c
+@@ -810,7 +810,9 @@
+     entry->selcount = 0;
+     entry->system   = 0;
+     entry->deleted  = 0;
+-    if (++entry->generation == 0xffff) entry->generation = 1;
++    /* Windows' GDI handles carry their type and never equal a window's handle, which programs rely on
++     * (GDK keeps both in one table): here their generations are apart from those of server/user.c. */
++    if (++entry->generation < 0x4000 || entry->generation == 0x8000) entry->generation = 0x4000;
+     ret = entry_to_handle( entry );
+     LeaveCriticalSection( &gdi_section );
+     TRACE( "allocated %s %p %u/%u\n", gdi_obj_type(type), ret,
 --- a/dlls/kernel32/cpu.c
 +++ b/dlls/kernel32/cpu.c
 @@ -46,7 +46,12 @@
@@ -1093,6 +1106,17 @@
      if ((thread = get_thread_from_handle( req->handle, THREAD_SUSPEND_RESUME )))
      {
          if (thread->state == TERMINATED) set_error( STATUS_ACCESS_DENIED );
+--- a/server/user.c
++++ b/server/user.c
+@@ -96,7 +96,7 @@
+     if (!entry) return 0;
+     entry->ptr  = ptr;
+     entry->type = type;
+-    if (++entry->generation >= 0xffff) entry->generation = 1;
++    if (++entry->generation >= 0x4000) entry->generation = 1;  /* below those of GDI's handles (gdi32/gdiobj.c) */
+     return entry_to_handle( entry );
+ }
+ 
 --- a/tools/widl/widl.c
 +++ b/tools/widl/widl.c
 @@ -101,6 +101,8 @@

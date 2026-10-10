@@ -34,7 +34,7 @@ REQUIRES TOOL sed
 REQUIRES TOOL sort
 REQUIRES TOOL tar
 
-SOURCE /v0.1.1/dist/static/wine/source.tar.gz 962a39ceb0977457fe4d739d90d03a6934fb5b9c3e58c9c9b17c16bd10bbf1ae /tmp/wine-source.tar.gz
+SOURCE /v0.1.1/dist/static/wine/source.tar.gz 9b778d008513cee29033cdb0182c40de2d1748a7491ea0ae3164313720affca3 /tmp/wine-source.tar.gz
 SLOP gzip -dc /tmp/wine-source.tar.gz | tar -xf - -C /
 # TinyCC's win64 binaries, unmodified: x86-64 code for x86emu, which builds the Start menu's x86-64 sample with them.
 SOURCE /v0.1.1/dist/static/wine/tinycc.tar.gz 20709ea054c77d290a1837699bd8993dfbe84f97b5900002057a50dfd002fe4a /tmp/tinycc.tar.gz
@@ -52,6 +52,11 @@ FILE /usr/share/licenses/wine/AUTHORS
 FILE /usr/share/licenses/tinycc/COPYING
 FILE /usr/share/licenses/netsurf/COPYING
 FILE /usr/share/licenses/libjpeg/README
-FOLDER /usr/share/licenses/gtk
+FOLDER /usr/share/licenses/gimp
+# GIMP's data, configuration and personal folder, and fontconfig's configuration.
+FOLDER /usr/share/gimp
+FOLDER /etc/gimp
+FOLDER /etc/fonts
+FOLDER /home/dolly/.gimp-2.2
 
 ENTRY /bin/foreground -i /bin/slop

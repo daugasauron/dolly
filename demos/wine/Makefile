@@ -10,7 +10,7 @@ CFLAGS := -O2 -fno-strict-aliasing -pthread -w
 TOOLCPP := -I$(PORT) -I$(SRC)/include -D__WINESRC__
 
 X86 := /usr/share/wine/x86
-all: /usr/bin/wine fonts $(X86)/hello_win.exe
+all: /usr/bin/wine fonts gimp-data $(X86)/hello_win.exe
 
 # libwine_port and the parts of libwine the tools use.
 PORT_SRCS := $(wildcard $(SRC)/libs/port/*.c)
@@ -108,7 +108,9 @@ LINK_INPUTS := $(MODULE_LIBS) $(STATIC_LIBS) $(B)/libwine.a $(B)/libwine_port.a 
 # data may live there: wasm-ld would start the data at 1024. The data starts at 64 MiB instead, which
 # leaves the addresses below it free for an x86 program that must be loaded where it was linked (x86emu). The modules' images and resources are 25 MB of data,
 # more than the memory cc starts a program with.
-link = $(CC) -pthread -Wl,--global-base=67108864 -Wl,--initial-memory=134217728 -o $(1) $(B)/obj/port/port/main.o $(2) \
+# Two functions of one name and different types are no duplicate to the linker, which warns and lets the
+# callers of one of them trap: that warning, like any other, fails the link (the name belongs in shared-names.txt).
+link = $(CC) -pthread -Wl,--fatal-warnings -Wl,--global-base=67108864 -Wl,--initial-memory=134217728 -o $(1) $(B)/obj/port/port/main.o $(2) \
        -Wl,--whole-archive,$(subst $(space),$(comma),$(strip $(MODULE_LIBS))),--no-whole-archive \
        $(STATIC_LIBS) $(B)/libwine.a $(B)/libwine_port.a -lcurl -lfreetype -lpng16 -lz -lm -ldolly-sockets
 
@@ -149,7 +151,31 @@ FONTS := $(patsubst $(SRC)/fonts/%,/usr/share/wine/fonts/%,$(wildcard $(SRC)/fon
 FORCE:
 fonts: $(FONTS)
 
+# GIMP's data and configuration where its makefiles install them; its personal folder as its first-run
+# wizard makes it, so that the program opens at once; and fontconfig's configuration, which names the
+# system's fonts and Wine's.
+GIMP := $(PORT)/programs/gimp/gimp
+GIMP_DATA := /usr/share/gimp/2.0
+GIMP_DATA_DIRS := brushes gradients palettes patterns images
+GIMP_HOME := /home/dolly/.gimp-2.2
+GIMP_HOME_DIRS := brushes curves environ fonts fractalexplorer gfig gflare gimpressionist gradients levels modules \
+    palettes patterns plug-ins scripts templates themes tmp tool-options
+gimp-data:
+	mkdir -p $(GIMP_DATA_DIRS:%=$(GIMP_DATA)/%) $(GIMP_DATA)/menus $(GIMP_DATA)/tips \
+	  $(GIMP_DATA)/themes/Default/images/preferences /etc/gimp/2.0 /etc/fonts $(GIMP_HOME_DIRS:%=$(GIMP_HOME)/%)
+	$(foreach dir,$(GIMP_DATA_DIRS),cp $(GIMP)/data/$(dir)/* $(GIMP_DATA)/$(dir)/ &&) true
+	cp $(GIMP)/menus/* $(GIMP_DATA)/menus/
+	cp $(GIMP)/tips/gimp-tips.xml $(GIMP_DATA)/tips/
+	cp $(GIMP)/themes/Default/gtkrc $(GIMP)/themes/Default/imagerc $(GIMP_DATA)/themes/Default/
+	cp $(GIMP)/themes/Default/images/*.png $(GIMP)/themes/Default/images/tools/*.png $(GIMP_DATA)/themes/Default/images/
+	cp $(GIMP)/themes/Default/images/preferences/*.png $(GIMP_DATA)/themes/Default/images/preferences/
+	cp $(GIMP)/etc/* /etc/gimp/2.0/
+	cp $(GIMP)/etc/gtkrc $(GIMP_HOME)/
+	sed -e 's|@FC_DEFAULT_FONTS@|/usr/share/fonts|' -e 's|@FC_FONTPATH@|<dir>/usr/share/wine/fonts</dir>|' \
+	  $(PORT)/programs/gimp/fontconfig/fonts.conf.in > /etc/fonts/fonts.conf
+	cp $(PORT)/programs/gimp/fontconfig/fonts.dtd $(PORT)/programs/gimp/local.conf /etc/fonts/
+
 # The Start menu's x86-64 program: TinyCC's example, built by TinyCC's own x86-64 compiler under x86emu.
 $(X86)/hello_win.exe: /usr/bin/wine
 	cd $(X86)/tcc && WINEPREFIX=$(B)/prefix wine x86emu 'Z:\usr\share\wine\x86\tcc\tcc.exe' -o ../hello_win.exe examples/hello_win.c
-.PHONY: all tools headers fonts shared-names FORCE
+.PHONY: all tools headers fonts gimp-data shared-names FORCE

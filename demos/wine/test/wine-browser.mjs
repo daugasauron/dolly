@@ -9,8 +9,8 @@
 // reads the colours it lays out and the server's log of its requests. In a third,
 // under the page's default policy, site:/ is the site's own landing page and a
 // redirect is followed. (NetSurf's home page is an outside site, which the test
-// does not wait for.) In a fourth a GTK+ program draws, lays out again when its
-// window is resized, takes a button and a menu, quits and starts again.
+// does not wait for.) In a fourth GIMP paints a stroke, saves it as XCF, quits,
+// starts again and opens it.
 // Usage: node demos/wine/test/wine-browser.mjs [firefox]
 import assert from "node:assert/strict";
 import { mkdir, readFile } from "node:fs/promises";
@@ -115,7 +115,7 @@ await demoTest("wine", { image: "wine", timeout: 600_000, server: { handle: serv
   await mkdir(evidence, { recursive: true });
   for (const [name, session, options] of [["desktop", run, {}], ["netsurf", netsurf, { policy: { rules: [
     { origin: server.origin, pathPrefix: "/fixture/netsurf/", methods: ["GET"] },
-    { origin: elsewhereOrigin, pathPrefix: "/", methods: ["GET"] }] } }], ["site", site, {}], ["gtk", gtk, {}]]) {
+    { origin: elsewhereOrigin, pathPrefix: "/", methods: ["GET"] }] } }], ["site", site, {}], ["gimp", gimp, {}]]) {
     const { page, prompt, start, waitText } = await open({ prompt: null, ...options });
     try { await session(page, prompt, start, waitText, server); }
     catch (error) { await page.screenshot({ path: `${evidence}failure-${name}.png` }); throw error; }
@@ -123,41 +123,78 @@ await demoTest("wine", { image: "wine", timeout: 600_000, server: { handle: serv
   }
 }).finally(() => elsewhere.close());
 
-// GTK+ 2.6 over GDK's Windows backend: a window with a menu, a label, an area of one colour and a button.
-async function gtk(page) {
-  const yellow = [255, 255, 0], magenta = [255, 0, 255], cyan = [0, 255, 255];
-  const area = (colour, width = 240) => until(async () => {
-    const found = await coloured(page, colour);
-    return found.count === width * 80 && found;
-  }, `an area of ${width} by 80 pixels in ${colour}`);
+// GIMP 2.2 on GTK+ 2.6 over GDK's Windows backend. Its toolbox is where its session file puts it, the tip
+// of the day in the middle of the screen, and what it opens after that at 0,0.
+async function gimp(page, prompt, start) {
+  const grey = [220, 218, 213];
   await page.waitForFunction(() => __dolly.transport.graphicsActive(), null, { timeout: 120_000 });
-  const [, height] = await frameSize(page);
-  const startIt = async () => { await click(page, 30, height - 14); await delay(700); await page.keyboard.press("g"); };
+  const [width, height] = await frameSize(page);
+  // The paintbrush's options in the toolbox; the tip's window and its Close button; the 420 by 300 canvas
+  // from 30,75.
+  const toolbox = [150, 600], tip = [((width - 566) >> 1) + 300, ((height - 139) >> 1) + 80];
+  const stroke = () => dark(page, 34, 79, 412, 292);            // inside the layer's dashed boundary
+  const startIt = async () => {
+    await click(page, 30, height - 14);
+    await delay(700);
+    await page.keyboard.press("g");
+    const pressed = Date.now();
+    await pixelIs(page, ...toolbox, grey);
+    const shown = Date.now() - pressed;
+    await pixelIs(page, ...tip, grey);
+    await click(page, tip[0] + 216, tip[1] + 54);
+    await pixelIs(page, ...tip, desktop);
+    return shown;
+  };
+  const quit = async () => {                                    // File > Quit in the image window's menu
+    await click(page, 24, 36);
+    await delay(500);
+    await click(page, 47, 306);
+    await pixelIs(page, ...toolbox, desktop);
+  };
   await pixelIs(page, 640, height - 6, face);
-  await startIt();
-  const { left, top, right, bottom } = await area(yellow);
-  // Pango's text through GDI: the label over the area and the button's under it.
-  assert.ok(await dark(page, left, top - 20, 240, 16) > 20, "the label's text is drawn");
-  assert.ok(await dark(page, left + 60, bottom + 8, 120, 20) > 20, "the button's text is drawn");
-  await page.screenshot({ path: `${evidence}gtk.png` });
-  await click(page, (left + right) >> 1, bottom + 18);          // the button's signal handler paints the area
-  await area(magenta);
-  await click(page, left + 20, top - 37);                       // File, and its first item
+  const started = await startIt();
+  await page.screenshot({ path: `${evidence}gimp.png` });
+
+  await click(page, 72, 85);                                    // the toolbox's File > New, and OK in its dialog
   await delay(500);
-  await click(page, left + 26, top - 14);
-  await area(cyan);
-  await page.mouse.move(...await at(page, right + 2, (top + bottom) >> 1));   // the window's right border, dragged
+  await click(page, 100, 119);
+  await pixelIs(page, 270, 150, grey);
+  await click(page, 331, 254);
+  await pixelIs(page, 270, 220, white);
+  assert.equal(await stroke(), 0, "the new image is white");
+  await page.mouse.move(...await at(page, 80, 120));            // the paintbrush, GIMP's first tool, across the canvas
   await page.mouse.down();
-  await page.mouse.move(...await at(page, right + 62, (top + bottom) >> 1), { steps: 10 });
+  await page.mouse.move(...await at(page, 380, 320), { steps: 25 });
   await page.mouse.up();
-  await area(cyan, 300);
-  await click(page, left + 20, top - 37);                       // File > Quit destroys the window, which ends its main loop
+  await page.mouse.move(...await at(page, 700, 500));           // GIMP draws the tool's mark where the pointer is
   await delay(500);
-  await click(page, left + 26, top + 6);
-  await until(async () => !(await coloured(page, cyan)).count, "the window to close");
-  await startIt();                                              // a second run starts from the program's first state
-  await area(yellow);
-  console.log("wine: a GTK+ window drew its label, button and menu; a click and a menu item each painted its area, a dragged border laid it out wider; it quit and started again");
+  const painted = await until(async () => { const count = await stroke(); return count > 3000 && count; }, "the stroke");
+  await pixelIs(page, 230, 220, black);                         // on the line dragged,
+  await pixelIs(page, 380, 120, white);                         // and off it
+  await page.screenshot({ path: `${evidence}gimp-stroke.png` });
+
+  await page.keyboard.press("Control+s");                       // Save: GTK+'s file dialog, its name replaced by a path
+  await pixelIs(page, 380, 130, grey);
+  await click(page, 280, 47);
+  await page.keyboard.press("Home");
+  await page.keyboard.press("Shift+End");
+  await page.keyboard.type("/tmp/stroke.xcf", { delay: 20 });
+  await page.keyboard.press("Enter");
+  await pixelIs(page, 380, 130, white);
+  await quit();
+
+  await startIt();                                              // a second run: the last document, by its key
+  await click(page, ...toolbox);
+  await page.keyboard.press("Control+1");
+  await pixelIs(page, 270, 220, white);
+  await until(async () => await stroke() === painted, "the saved stroke in the image opened again");
+  await quit();
+  await click(page, 30, height - 14);
+  await delay(700);
+  await page.keyboard.press("u");
+  await prompt(shellPrompt);
+  assert.equal(await start("test -s /tmp/stroke.xcf").done, 0, "the image was saved as a file");
+  console.log(`wine: GIMP showed its toolbox ${started} ms after the Start menu's key; a paintbrush stroke of ${painted} dark pixels was saved as XCF and came back in a second run`);
 }
 
 // NetSurf: the address bar, a page with a style sheet, a PNG and a JPEG, a link, back and forward.
@@ -390,7 +427,7 @@ async function run(page, prompt, start, waitText) {
   await pixelIs(page, width >> 1, height - 6, face);
 
   // Its shortcuts: a column of icons with their names from the top left, 75 pixels apart, in the Start
-  // menu's order (Notepad, File Manager, Winemine, Paint, NetSurf, the x86-64 sample).
+  // menu's order (Notepad, File Manager, Winemine, Paint, NetSurf, GIMP, the x86-64 sample).
   const highlight = [10, 36, 106];
   const inCell = (index, counted) => page.evaluate(([top, colour, same]) => {
     const data = document.querySelector("#display").getContext("2d").getImageData(0, top, 75, 75).data;
@@ -398,37 +435,37 @@ async function run(page, prompt, start, waitText) {
     for (let i = 0; i < data.length; i += 4) if ((data[i] === colour[0] && data[i + 1] === colour[1] && data[i + 2] === colour[2]) === same) count++;
     return count;
   }, [75 * index, counted ?? desktop, counted !== undefined]);
-  const selected = async () => { const cells = []; for (let index = 0; index < 6; index++) cells.push(await inCell(index, highlight) > 30); return cells.map(Number).join(""); };
-  for (let index = 0; index < 6; index++) assert.ok(await inCell(index) > 300, `shortcut ${index} is drawn`);
+  const selected = async () => { const cells = []; for (let index = 0; index < 7; index++) cells.push(await inCell(index, highlight) > 30); return cells.map(Number).join(""); };
+  for (let index = 0; index < 7; index++) assert.ok(await inCell(index) > 300, `shortcut ${index} is drawn`);
   await page.screenshot({ path: `${evidence}shortcuts.png` });
   await click(page, 36, 20);                  // a click selects one
-  await until(async () => await selected() === "100000", "the first shortcut selected");
+  await until(async () => await selected() === "1000000", "the first shortcut selected");
   await click(page, 500, 400);                // a click on the empty desktop, none
-  await until(async () => await selected() === "000000", "no shortcut selected");
+  await until(async () => await selected() === "0000000", "no shortcut selected");
   await page.mouse.move(...await at(page, 300, 200));   // a rubber band from the empty desktop over three
   await page.mouse.down();
   await page.mouse.move(...await at(page, 5, 5), { steps: 12 });
   await page.screenshot({ path: `${evidence}shortcuts-band.png` });
   await page.mouse.up();
-  await until(async () => await selected() === "111000", "the three shortcuts the rubber band touched");
+  await until(async () => await selected() === "1110000", "the three shortcuts the rubber band touched");
   await page.keyboard.down("Control");        // Ctrl and a click add a fourth
   await click(page, 36, 245);
   await page.keyboard.up("Control");
-  await until(async () => await selected() === "111100", "a fourth shortcut selected with Ctrl");
+  await until(async () => await selected() === "1111000", "a fourth shortcut selected with Ctrl");
   await click(page, 500, 400);
-  await until(async () => await selected() === "000000", "no shortcut selected");
+  await until(async () => await selected() === "0000000", "no shortcut selected");
   await page.mouse.dblclick(...await at(page, 36, 20));   // a double click starts Notepad
   await pixelIs(page, 100, 100, white);
   await page.keyboard.press("Alt+F4");
   await pixelIs(page, 100, 100, desktop);
   await click(page, 36, 170);                 // Enter on the selected one starts WineMine
-  await until(async () => await selected() === "001000", "WineMine's shortcut selected");
+  await until(async () => await selected() === "0010000", "WineMine's shortcut selected");
   await page.keyboard.press("Enter");
   await pixelIs(page, 60, 50, black);
   await page.keyboard.press("Alt+F4");
   await pixelIs(page, 60, 50, black, true);
   await click(page, 500, 400);
-  console.log("wine: six shortcuts on the desktop; one selected by a click, three by a rubber band, a fourth with Ctrl; a double click and Enter each started a program");
+  console.log("wine: seven shortcuts on the desktop; one selected by a click, three by a rubber band, a fourth with Ctrl; a double click and Enter each started a program");
 
   // Paint (ReactOS's): a pencil line dragged across its image, saved through the file dialog, closed.
   await startMenu("p");

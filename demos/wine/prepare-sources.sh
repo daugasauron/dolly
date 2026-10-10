@@ -11,8 +11,11 @@ if has_image wine-build; then
     netsurf_licences+=("${licence}" "/usr/share/licenses/netsurf/$(basename "$(dirname "${licence}")")-COPYING")
   done
   gimp_dir="$(bash demos/wine/prepare-gimp.sh)"
-  gimp_licences=()
-  for library in glib atk pango gtk; do gimp_licences+=("${gimp_dir}/${library}/COPYING" "/usr/share/licenses/gtk/${library}-COPYING"); done
+  gimp_licences=("${gimp_dir}/gimp/COPYING" /usr/share/licenses/gimp/COPYING "${gimp_dir}/gimp/LICENSE" /usr/share/licenses/gimp/LICENSE
+    "${gimp_dir}/pango/pango/opentype/COPYING" /usr/share/licenses/gimp/pango-opentype-COPYING)
+  for library in glib atk pango gtk libart_lgpl fontconfig expat; do
+    gimp_licences+=("${gimp_dir}/${library}/COPYING" "/usr/share/licenses/gimp/${library}-COPYING")
+  done
   # NetSurf's site: addresses are files of the version it was built for, as amy's index is.
   node -p '`#define DOLLY_VERSION "${require("./package.json").version}"`' > "${staging}/netsurf-version.h"
   wine_port_inputs=()
