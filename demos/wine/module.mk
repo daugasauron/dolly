@@ -20,17 +20,20 @@ IS_MODULE := $(filter-out %.a,$(MODULE))
 ENTRY_RENAMES ?= $(if $(IS_EXE),-Dmain=$(PREFIX)_main -Dwmain=$(PREFIX)_wmain -DWinMain=$(PREFIX)_WinMain -DwWinMain=$(PREFIX)_wWinMain,\
                  $(if $(IS_MODULE),-DDllMain=$(PREFIX)_DllMain))
 RENAMES := $(ENTRY_RENAMES) $(shell sed -n 's|^$(MODDIR) \(.*\)$$|-D\1=$(PREFIX)_\1|p' $(PORT)/shared-names.txt)
-CPPFLAGS := -I$(PORT) -I$(S) -I$(O) -I$(B)/include -I$(SRC)/include $(EXTRAINCL) -D__WINESRC__ $(EXTRADEFS) -D_REENTRANT $(RENAMES)
+CPPFLAGS := $(FIRSTINCL) -I$(PORT) -I$(S) -I$(O) -I$(B)/include -I$(SRC)/include $(EXTRAINCL) -D__WINESRC__ $(EXTRADEFS) -D_REENTRANT $(RENAMES)
 CFLAGS := -O2 -fno-strict-aliasing -pthread -w
 
-# A GUI program has WinMain; winecrt0's main calls it.
-CRT0 := $(if $(filter -mwindows,$(APPMODE)),$(if $(filter -municode,$(APPMODE)),exe_wmain,exe_main))
+# A GUI program has WinMain; winecrt0's main calls it (one that starts at main sets CRT0 empty).
+CRT0 ?= $(if $(filter -mwindows,$(APPMODE)),$(if $(filter -municode,$(APPMODE)),exe_wmain,exe_main))
 SRCS := $(filter-out $(EXCLUDE),$(C_SRCS))
 # widl output for the module's own .idl files: the header a source includes, and the RPC client code of
 # those marked for it. (Registration scripts and type libraries, which regsvr32 would use, are not built.)
 IDL_HEADERS := $(foreach idl,$(IDL_SRCS),$(if $(shell cd $(S) && grep -l '"$(idl:.idl=.h)"' *.c),$(O)/$(idl:.idl=.h)))
 IDL_CLIENTS := $(patsubst %.idl,$(O)/%_c.o,$(if $(IDL_SRCS),$(shell cd $(S) && grep -l "pragma makedep client" $(IDL_SRCS))))
-OBJS := $(SRCS:%.c=$(O)/%.o) $(IDL_CLIENTS) $(CRT0:%=$(O)/crt0_%.o) $(PORT_SRCS:%.c=$(O)/port_%.o)
+# A module of code that calls functions through pointers of other types (ICALL set, see icall.c) has its
+# indirect calls rewritten into calls of thunks, which are generated for all its objects together.
+REWRITTEN := $(if $(ICALL),$(SRCS:%.c=$(O)/%.o))
+OBJS := $(SRCS:%.c=$(O)/%.o) $(IDL_CLIENTS) $(CRT0:%=$(O)/crt0_%.o) $(PORT_SRCS:%.c=$(O)/port_%.o) $(if $(ICALL),$(O)/icall-thunks.o)
 RES := $(RC_SRCS:%.rc=$(O)/%.res) $(MC_SRCS:%.mc=$(O)/%.res)
 SPEC := $(wildcard $(S)/$(NAME:.dll=).spec)
 IMPORT_NAMES := $(filter $(LINKED),$(IMPORTS) $(DELAYIMPORTS))
@@ -51,6 +54,12 @@ $(O)/module.a: $(word 1,$(MARKS)) $(OBJS) $(if $(IS_MODULE),$(O)/spec.o) $(word 
 $(O)/%.o: $(S)/%.c
 	@mkdir -p $(@D)
 	cc $(CFLAGS) $(CPPFLAGS) $(MODDEFS) $($*_EXTRADEFS) -c $< -o $@
+	$(if $(ICALL),$(T)/icall $@)
+
+$(O)/icall-thunks.c: $(REWRITTEN)
+	$(T)/icall --thunks $(ICALL_TYPES:%=--type=%) $(REWRITTEN) > $@
+$(O)/icall-thunks.o: $(O)/icall-thunks.c
+	cc $(CFLAGS) -I$(PORT)/port -c $< -o $@
 
 WIDL = $(T)/widl -o $@ -I$(S) -I$(O) -I$(B)/include -I$(SRC)/include -D__WINESRC__ $(EXTRADEFS) $<
 $(O)/%.h: $(S)/%.idl

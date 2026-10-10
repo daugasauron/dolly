@@ -100,6 +100,19 @@
      if (is_win16_looks(ofn->Flags))
          return GetFileName31W(ofn, SAVE_DIALOG);
      else
+--- a/dlls/gdi32/gdiobj.c
++++ b/dlls/gdi32/gdiobj.c
+@@ -810,7 +810,9 @@
+     entry->selcount = 0;
+     entry->system   = 0;
+     entry->deleted  = 0;
+-    if (++entry->generation == 0xffff) entry->generation = 1;
++    /* Windows' GDI handles carry their type and never equal a window's handle, which programs rely on
++     * (GDK keeps both in one table): here their generations are apart from those of server/user.c. */
++    if (++entry->generation < 0x4000 || entry->generation == 0x8000) entry->generation = 0x4000;
+     ret = entry_to_handle( entry );
+     LeaveCriticalSection( &gdi_section );
+     TRACE( "allocated %s %p %u/%u\n", gdi_obj_type(type), ret,
 --- a/dlls/kernel32/cpu.c
 +++ b/dlls/kernel32/cpu.c
 @@ -46,7 +46,12 @@
@@ -244,6 +257,34 @@
      RtlInitUnicodeString( &nt_name, dosdevW );
      nt_name.Length -= sizeof(WCHAR);  /* without trailing slash */
      attr.Length = sizeof(attr);
+--- a/dlls/msvcrt/exit.c
++++ b/dlls/msvcrt/exit.c
+@@ -380,6 +380,12 @@
+ 
+   TRACE("(%d)\n",exitcode);
+   MSVCRT__cexit();
++#ifdef __dolly__  /* the program is a thread, whose end is no end of the process: what msvcrt writes out when unloaded */
++  {
++    extern int CDECL MSVCRT__flushall(void);
++    MSVCRT__flushall();
++  }
++#endif
+ 
+   hmscoree = GetModuleHandleW(mscoreeW);
+ 
+--- a/dlls/msvcrt/file.c
++++ b/dlls/msvcrt/file.c
+@@ -249,6 +249,10 @@
+     if(!ret)
+         return &MSVCRT___badioinfo;
+ 
++#ifdef __dolly__  /* programs are threads of one process, where msvcrt starts once: a standard file is the
++                   * process's standard handle of now (a console's, or what cmd redirected), not that of then */
++    if (fd < 3 && (ret[fd].wxflag & WX_OPEN)) ret[fd].handle = GetStdHandle(STD_INPUT_HANDLE - fd);
++#endif
+     return ret + (fd%MSVCRT_FD_BLOCK_SIZE);
+ }
+ 
 --- a/dlls/ntdll/loader.c
 +++ b/dlls/ntdll/loader.c
 @@ -589,6 +589,9 @@
@@ -830,6 +871,267 @@
                      }
                  }
                  while (*bufaiter)
+--- a/programs/cmd/builtins.c
++++ b/programs/cmd/builtins.c
+@@ -4405,6 +4405,13 @@
+     STARTUPINFOW st;
+     PROCESS_INFORMATION pi;
+ 
++#ifdef __dolly__  /* start is a program of its own, for a process of its own */
++    extern void WCMD_dolly_say (const char *text);
++    WCMD_dolly_say("start: this Wine is one process and has none to start. Name the program itself: "
++                   "one with a window returns to the prompt at once.\r\n");
++    errorlevel = 9009;
++    return;
++#endif
+     GetWindowsDirectoryW( file, MAX_PATH );
+     strcatW( file, exeW );
+     cmdline = heap_xalloc( (strlenW(file) + strlenW(args) + 8) * sizeof(WCHAR) );
+--- a/programs/cmd/wcmdmain.c
++++ b/programs/cmd/wcmdmain.c
+@@ -1035,6 +1035,80 @@
+  *          so go back through wcmd_execute.
+  */
+ 
++#ifdef __dolly__
++/* Dolly's Wine is one process. A program linked into it is started as a thread (kernel32's
++ * wine_dolly_start_program), an x86-64 file by the interpreter, which is such a program; cmd waits for
++ * a console program, and its exit code is the thread's. What that cannot do says so. */
++extern HANDLE wine_dolly_start_program( const WCHAR *cmdline );
++static WCHAR dolly_directory[MAX_PATH];
++
++void WCMD_dolly_say (const char *text)
++{
++  WCHAR buffer[256];
++
++  MultiByteToWideChar(CP_ACP, 0, text, -1, buffer, ARRAY_SIZE(buffer));
++  WCMD_output_asis_stderr(buffer);
++}
++
++/* Runs FILE, an x86-64 program, with COMMAND's arguments, or without FILE the program of this Wine that
++ * COMMAND names. FALSE if there is no such program. */
++static BOOL WCMD_dolly_run (const WCHAR *file, WCHAR *command)
++{
++  static const WCHAR x86emuW[] = {'x','8','6','e','m','u',' ','"','%','s','"',' ','%','s',0};
++  static const WCHAR exeW[] = {'.','e','x','e',0};
++  WCHAR *line = command, *args = NULL, name[MAX_PATH];
++  BOOL console;
++  HANDLE thread;
++  HMODULE module;
++
++  if (file) {
++    /* whether it is a program, and one for a console, is in its header (this Wine maps no x86 image) */
++    IMAGE_DOS_HEADER dos;
++    IMAGE_NT_HEADERS nt;
++    DWORD count;
++    HANDLE handle = CreateFileW(file, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, 0, 0);
++    BOOL program = handle != INVALID_HANDLE_VALUE &&
++                   ReadFile(handle, &dos, sizeof(dos), &count, NULL) && count == sizeof(dos) &&
++                   dos.e_magic == IMAGE_DOS_SIGNATURE &&
++                   SetFilePointer(handle, dos.e_lfanew, NULL, FILE_BEGIN) != INVALID_SET_FILE_POINTER &&
++                   ReadFile(handle, &nt, sizeof(nt), &count, NULL) && count == sizeof(nt) &&
++                   nt.Signature == IMAGE_NT_SIGNATURE;
++
++    CloseHandle(handle);
++    if (!program) return FALSE;
++    console = nt.OptionalHeader.Subsystem == IMAGE_SUBSYSTEM_WINDOWS_CUI;
++    WCMD_parameter(command, 1, &args, TRUE, TRUE);
++    line = heap_xalloc((strlenW(file) + strlenW(command) + 16) * sizeof(WCHAR));
++    sprintfW(line, x86emuW, file, args ? args : exeW + 4);
++  }
++  thread = wine_dolly_start_program(line);
++  if (file) heap_free(line);
++  if (!thread) {
++    if (GetLastError() == ERROR_FILE_NOT_FOUND) return FALSE;
++    if (GetLastError() == ERROR_BUSY)
++      WCMD_dolly_say(file ? "An x86-64 program is running: this Wine interprets one at a time.\r\n"
++                          : "That program is running: in this Wine, which is one process, each runs once at a time.\r\n");
++    else WCMD_print_error();
++    errorlevel = 9009;
++    return TRUE;
++  }
++  if (!file) {
++    lstrcpynW(name, WCMD_parameter(command, 0, NULL, FALSE, TRUE), MAX_PATH - 4);
++    if (!strchrW(name, '.')) strcatW(name, exeW);
++    module = GetModuleHandleW(name);
++    console = ((IMAGE_NT_HEADERS *)((char *)module + ((IMAGE_DOS_HEADER *)module)->e_lfanew))->OptionalHeader.Subsystem
++              == IMAGE_SUBSYSTEM_WINDOWS_CUI;
++  }
++  errorlevel = 0;
++  if (console || !interactive) {
++    WaitForSingleObject(thread, INFINITE);
++    GetExitCodeThread(thread, &errorlevel);
++  }
++  CloseHandle(thread);
++  return TRUE;
++}
++#endif
++
+ void WCMD_run_program (WCHAR *command, BOOL called)
+ {
+   WCHAR  temp[MAX_PATH];
+@@ -1204,6 +1278,10 @@
+         return;
+       } else {
+ 
++#ifdef __dolly__
++        if (WCMD_dolly_run(thisDir, command)) return;
++        break;
++#endif
+         /* thisDir contains the file to be launched, but with what?
+            eg. a.exe will require a.exe to be launched, a.html may be iexplore */
+         hinst = FindExecutableW (thisDir, NULL, temp);
+@@ -1247,6 +1325,10 @@
+     }
+   }
+ 
++#ifdef __dolly__
++  if (WCMD_dolly_run(NULL, command)) return;
++#endif
++
+   /* Not found anywhere - were we called? */
+   if (called) {
+     CMD_LIST *toExecute = NULL;         /* Commands left to be executed */
+@@ -2767,14 +2849,26 @@
+ 
+   interactive = TRUE;
+   if (!opt_k) WCMD_version ();
++#ifdef __dolly__  /* The current directory is the process's, and other programs move it: cmd keeps its own. */
++  GetCurrentDirectoryW(ARRAY_SIZE(dolly_directory), dolly_directory);
++#endif
+   while (TRUE) {
+ 
+     /* Read until EOF (which for std input is never, but if redirect
+        in place, may occur                                          */
++#ifdef __dolly__
++    SetCurrentDirectoryW(dolly_directory);
++#endif
+     if (echo_mode) WCMD_show_prompt(promptNewLine);
+     if (!WCMD_ReadAndParseLine(NULL, &toExecute, GetStdHandle(STD_INPUT_HANDLE)))
+       break;
++#ifdef __dolly__
++    SetCurrentDirectoryW(dolly_directory);
++    WCMD_process_commands(toExecute, FALSE, FALSE);
++    GetCurrentDirectoryW(ARRAY_SIZE(dolly_directory), dolly_directory);
++#else
+     WCMD_process_commands(toExecute, FALSE, FALSE);
++#endif
+     WCMD_free_commands(toExecute);
+     promptNewLine = !!toExecute;
+     toExecute = NULL;
+--- a/programs/wineconsole/user.c
++++ b/programs/wineconsole/user.c
+@@ -1365,7 +1365,15 @@
+     ShowWindow(data->hWnd, data->nCmdShow);
+     while (!data->dying || !data->curcfg.exit_on_die)
+     {
++#ifdef __dolly__  /* the program is a thread of this process: its end is the end of its thread */
++	HANDLE handles[2] = { data->hSynchro, data->hProcess };
++	DWORD count = data->hProcess ? 2 : 1, res = MsgWaitForMultipleObjects(count, handles, FALSE, INFINITE, QS_ALLINPUT);
++
++	if (count == 2 && res == WAIT_OBJECT_0 + 1) return 0;
++	switch (res == WAIT_OBJECT_0 + count ? WAIT_OBJECT_0 + 1 : res)
++#else
+ 	switch (MsgWaitForMultipleObjects(1, &data->hSynchro, FALSE, INFINITE, QS_ALLINPUT))
++#endif
+ 	{
+ 	case WAIT_OBJECT_0:
+ 	    WINECON_GrabChanges(data);
+--- a/programs/wineconsole/wineconsole.c
++++ b/programs/wineconsole/wineconsole.c
+@@ -679,6 +679,9 @@
+      * - they are not inheritable
+      * - hConIn is not synchronizable
+      */
++#ifdef __dolly__  /* the one process has the console of the terminal Wine was started in: this one takes its place */
++    FreeConsole();
++#endif
+     SERVER_START_REQ(alloc_console)
+     {
+         req->access     = GENERIC_READ | GENERIC_WRITE;
+@@ -760,6 +763,54 @@
+  *
+  * Spawn the child process when invoked with wineconsole foo bar
+  */
++#ifdef __dolly__
++/* Dolly's Wine is one process: the program in the console is a thread of it (kernel32's
++ * wine_dolly_start_program), and the process's standard handles are the console's while it runs. */
++extern HANDLE wine_dolly_start_program( const WCHAR *cmdline );
++static HANDLE process_handles[3];
++
++static int WINECON_Spawn(struct inner_data* data, LPWSTR cmdLine)
++{
++    static const WCHAR coninW[] = {'C','O','N','I','N','$',0};
++    static const WCHAR conoutW[] = {'C','O','N','O','U','T','$',0};
++    HANDLE in = CreateFileW(coninW, GENERIC_READ|GENERIC_WRITE, FILE_SHARE_READ|FILE_SHARE_WRITE, NULL, OPEN_EXISTING, 0, 0);
++    HANDLE out = CreateFileW(conoutW, GENERIC_READ|GENERIC_WRITE, FILE_SHARE_READ|FILE_SHARE_WRITE, NULL, OPEN_EXISTING, 0, 0);
++
++    if (in == INVALID_HANDLE_VALUE || out == INVALID_HANDLE_VALUE) return 1;
++    process_handles[0] = GetStdHandle(STD_INPUT_HANDLE);
++    process_handles[1] = GetStdHandle(STD_OUTPUT_HANDLE);
++    process_handles[2] = GetStdHandle(STD_ERROR_HANDLE);
++    SetStdHandle(STD_INPUT_HANDLE, in);
++    SetStdHandle(STD_OUTPUT_HANDLE, out);
++    SetStdHandle(STD_ERROR_HANDLE, out);
++    data->hProcess = wine_dolly_start_program(cmdLine);
++    return !data->hProcess;
++}
++
++/* The console goes: the program's next read from it fails, which ends cmd, and when it has ended the
++ * process has its own standard handles again and no console. */
++static void WINECON_Detach(struct inner_data* data)
++{
++    HANDLE in = GetStdHandle(STD_INPUT_HANDLE), out = GetStdHandle(STD_OUTPUT_HANDLE);
++    INPUT_RECORD wake;
++    DWORD count;
++
++    if (!process_handles[1]) return;
++    SetStdHandle(STD_INPUT_HANDLE, INVALID_HANDLE_VALUE);
++    SetStdHandle(STD_OUTPUT_HANDLE, INVALID_HANDLE_VALUE);
++    SetStdHandle(STD_ERROR_HANDLE, INVALID_HANDLE_VALUE);
++    CloseHandle(in);
++    CloseHandle(out);
++    memset(&wake, 0, sizeof(wake));
++    wake.EventType = FOCUS_EVENT;
++    WriteConsoleInputW(data->hConIn, &wake, 1, &count);
++    if (data->hProcess) WaitForSingleObject(data->hProcess, INFINITE);
++    SetStdHandle(STD_INPUT_HANDLE, process_handles[0]);
++    SetStdHandle(STD_OUTPUT_HANDLE, process_handles[1]);
++    SetStdHandle(STD_ERROR_HANDLE, process_handles[2]);
++    FreeConsole();
++}
++#else
+ static int WINECON_Spawn(struct inner_data* data, LPWSTR cmdLine)
+ {
+     PROCESS_INFORMATION info;
+@@ -800,6 +851,7 @@
+ 
+     return !done;
+ }
++#endif
+ 
+ struct wc_init {
+     LPCSTR              ptr;
+@@ -920,6 +972,9 @@
+             HeapFree(GetProcessHeap(), 0, buffer);
+             if (ret != 0)
+             {
++#ifdef __dolly__
++                WINECON_Detach(data);
++#endif
+                 WINECON_Delete(data);
+                 printf_res(IDS_CMD_LAUNCH_FAILED, wine_dbgstr_a(wci.ptr));
+                 return ret;
+@@ -946,6 +1001,9 @@
+         }
+     }
+ 
++#ifdef __dolly__
++    WINECON_Detach(data);
++#endif
+     WINECON_Delete(data);
+ 
+     return ret;
 --- a/programs/winefile/winefile.c
 +++ b/programs/winefile/winefile.c
 @@ -2181,6 +2181,14 @@
@@ -871,40 +1173,20 @@
  
  	/* register windows drive root strings */
  	SendMessageW(Globals.hdrivebar, TB_ADDSTRINGW, 0, (LPARAM)Globals.drives);
-@@ -3477,6 +3488,43 @@
+@@ -3477,6 +3488,23 @@
  }
  
  
 +#ifdef __dolly__
-+/* CreateProcess starts nothing on Dolly: programs are threads of this process. A file is opened by
-+ * the program of this Wine that reads its kind: a bitmap by Paint, an x86-64 program by x86emu,
-+ * anything else as text by Notepad. */
-+extern HANDLE wine_dolly_start_program( const WCHAR *cmdline );
-+extern BOOL wine_dolly_program_running( const WCHAR *name );
-+extern void wine_dolly_free_program_classes( HMODULE module );
++/* CreateProcess starts nothing on Dolly: programs are threads of this process, and a file is opened by
++ * the program of this Wine that reads its kind (shell32's wine_dolly_open_file). */
++extern HANDLE wine_dolly_open_file( const WCHAR *path );
 +
 +static BOOL launch_file(HWND hwnd, LPCWSTR cmd, UINT nCmdShow)
 +{
-+	static const WCHAR bmpW[] = {'.','b','m','p',0}, exeW[] = {'.','e','x','e',0};
-+	static const WCHAR paintW[] = {'m','s','p','a','i','n','t','.','e','x','e',0};
-+	static const WCHAR x86emuW[] = {'x','8','6','e','m','u','.','e','x','e',0};
-+	static const WCHAR notepadW[] = {'n','o','t','e','p','a','d','.','e','x','e',0};
-+	static const WCHAR plainW[] = {'%','s',' ','%','s',0}, quotedW[] = {'%','s',' ','"','%','s','"',0};
-+	LPCWSTR ext = strrchrW(cmd, '.'), program = notepadW;
-+	WCHAR line[MAX_PATH + 16];
-+	HMODULE module;
-+	HANDLE thread;
++	HANDLE thread = wine_dolly_open_file(cmd);
 +
-+	if (ext && !lstrcmpiW(ext, bmpW)) program = paintW;
-+	else if (ext && !lstrcmpiW(ext, exeW)) program = x86emuW;
-+	if (wine_dolly_program_running(program)) {
-+		display_error(hwnd, ERROR_BUSY);
-+		return FALSE;
-+	}
-+	/* the window classes its last run registered would make this one fail */
-+	if ((module = GetModuleHandleW(program))) wine_dolly_free_program_classes(module);
-+	snprintfW(line, ARRAY_SIZE(line), program == paintW ? plainW : quotedW, program, cmd);
-+	if (!(thread = wine_dolly_start_program(line))) {
++	if (!thread) {
 +		display_error(hwnd, GetLastError());
 +		return FALSE;
 +	}
@@ -915,7 +1197,7 @@
  static BOOL launch_file(HWND hwnd, LPCWSTR cmd, UINT nCmdShow)
  {
  	HINSTANCE hinst = ShellExecuteW(hwnd, NULL/*operation*/, cmd, NULL/*parameters*/, NULL/*dir*/, nCmdShow);
-@@ -3488,6 +3536,7 @@
+@@ -3488,6 +3516,7 @@
  
  	return TRUE;
  }
@@ -923,7 +1205,7 @@
  
  
  static BOOL launch_entry(Entry* entry, HWND hwnd, UINT nCmdShow)
-@@ -4027,6 +4076,11 @@
+@@ -4027,6 +4056,11 @@
  			Pane* pane;
  			int idx;
  
@@ -935,7 +1217,7 @@
  			 /* first select the current item in the listbox */
  			HWND hpanel = (HWND) wparam;
  			pt_clnt.x = pt.x = (short)LOWORD(lparam);
-@@ -4190,9 +4244,11 @@
+@@ -4190,9 +4224,11 @@
  
  	Globals.hInstance = hinstance;
  
@@ -947,7 +1229,7 @@
  	Globals.cfStrFName = RegisterClipboardFormatW(CFSTR_FILENAMEW);
  
  	/* load column strings */
-@@ -4338,9 +4394,11 @@
+@@ -4338,9 +4374,11 @@
  
  static void ExitInstance(void)
  {
@@ -959,6 +1241,18 @@
  
  	DeleteObject(Globals.hfont);
  	ImageList_Destroy(Globals.himl);
+--- a/server/console.c
++++ b/server/console.c
+@@ -1461,6 +1461,9 @@
+             if (fd != -1) close( fd );
+             return;
+         }
++#ifdef __dolly__  /* the program in the console is a thread of the renderer's own process: no new process will attach to it */
++        if (process == current->process) attach = 1;
++#endif
+     }
+ 
+     if (attach && process->console)
 --- a/server/process.h
 +++ b/server/process.h
 @@ -108,7 +108,7 @@
@@ -995,6 +1289,18 @@
      if (thread->unix_pid != -1)
      {
          if (thread->unix_tid != -1)
+--- a/server/queue.c
++++ b/server/queue.c
+@@ -527,6 +527,9 @@
+     }
+     if (!ptr) return 0;
+     if (prev->result) return 0;
++#ifdef __dolly__  /* The thread has that one and will release it as it saw it: the last move of a drag was lost so. */
++    if (prev->unique_id) return 0;
++#endif
+     if (prev->win && msg->win && prev->win != msg->win) return 0;
+     if (prev->msg != msg->msg) return 0;
+     if (prev->type != msg->type) return 0;
 --- a/server/request.c
 +++ b/server/request.c
 @@ -401,8 +401,22 @@
@@ -1093,6 +1399,17 @@
      if ((thread = get_thread_from_handle( req->handle, THREAD_SUSPEND_RESUME )))
      {
          if (thread->state == TERMINATED) set_error( STATUS_ACCESS_DENIED );
+--- a/server/user.c
++++ b/server/user.c
+@@ -96,7 +96,7 @@
+     if (!entry) return 0;
+     entry->ptr  = ptr;
+     entry->type = type;
+-    if (++entry->generation >= 0xffff) entry->generation = 1;
++    if (++entry->generation >= 0x4000) entry->generation = 1;  /* below those of GDI's handles (gdi32/gdiobj.c) */
+     return entry_to_handle( entry );
+ }
+ 
 --- a/tools/widl/widl.c
 +++ b/tools/widl/widl.c
 @@ -101,6 +101,8 @@

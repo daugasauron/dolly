@@ -1,0 +1,276 @@
+--- a/glib/glib/gwin32.c
++++ b/glib/glib/gwin32.c
+@@ -395,20 +395,21 @@
+       nbytes = 0;
+       if (G_WIN32_HAVE_WIDECHAR_API ())
+ 	{
++	  static const WCHAR installation_directory[] = {'I','n','s','t','a','l','l','a','t','i','o','n','D','i','r','e','c','t','o','r','y',0};
+ 	  wchar_t *wc_key = g_utf8_to_utf16 (key, -1, NULL, NULL, NULL);
+ 	  if (((RegOpenKeyExW (HKEY_CURRENT_USER, wc_key, 0,
+ 			       KEY_QUERY_VALUE, &reg_key) == ERROR_SUCCESS
+-		&& RegQueryValueExW (reg_key, L"InstallationDirectory", 0,
++		&& RegQueryValueExW (reg_key, installation_directory, 0,
+ 				     &type, NULL, &nbytes) == ERROR_SUCCESS)
+ 	       ||
+ 	       (RegOpenKeyExW (HKEY_LOCAL_MACHINE, wc_key, 0,
+ 			       KEY_QUERY_VALUE, &reg_key) == ERROR_SUCCESS
+-		&& RegQueryValueExW (reg_key, L"InstallationDirectory", 0,
++		&& RegQueryValueExW (reg_key, installation_directory, 0,
+ 				     &type, NULL, &nbytes) == ERROR_SUCCESS))
+ 	      && type == REG_SZ)
+ 	    {
+ 	      wchar_t *wc_temp = g_new (wchar_t, (nbytes+1)/2 + 1);
+-	      RegQueryValueExW (reg_key, L"InstallationDirectory", 0,
++	      RegQueryValueExW (reg_key, installation_directory, 0,
+ 				&type, (LPBYTE) wc_temp, &nbytes);
+ 	      wc_temp[nbytes/2] = '\0';
+ 	      result = g_utf16_to_utf8 (wc_temp, -1, NULL, NULL, NULL);
+--- a/gtk/gdk-pixbuf/io-png.c
++++ b/gtk/gdk-pixbuf/io-png.c
+@@ -184,7 +184,7 @@
+                              error_msg);
+         }
+ 
+-        longjmp (png_save_ptr->jmpbuf, 1);
++        longjmp (png_jmpbuf (png_save_ptr), 1);
+ }
+ 
+ static void
+@@ -272,7 +272,7 @@
+ 		return NULL;
+ 	}
+ 
+-	if (setjmp (png_ptr->jmpbuf)) {
++	if (setjmp (png_jmpbuf (png_ptr))) {
+ 	    	if (rows)
+ 		  	g_free (rows);
+ 
+@@ -433,7 +433,7 @@
+                 return NULL;
+         }
+         
+-	if (setjmp (lc->png_read_ptr->jmpbuf)) {
++	if (setjmp (png_jmpbuf (lc->png_read_ptr))) {
+ 		if (lc->png_info_ptr)
+ 			png_destroy_read_struct(&lc->png_read_ptr, NULL, NULL);
+                 g_free(lc);
+@@ -505,7 +505,7 @@
+         lc->error = error;
+         
+         /* Invokes our callbacks as needed */
+-	if (setjmp (lc->png_read_ptr->jmpbuf)) {
++	if (setjmp (png_jmpbuf (lc->png_read_ptr))) {
+                 lc->error = NULL;
+ 		return FALSE;
+ 	} else {
+@@ -719,7 +719,7 @@
+                              error_msg);
+         }
+ 
+-        longjmp (png_read_ptr->jmpbuf, 1);
++        longjmp (png_jmpbuf (png_read_ptr), 1);
+ }
+ 
+ static void
+@@ -880,7 +880,7 @@
+ 	       success = FALSE;
+ 	       goto cleanup;
+        }
+-       if (setjmp (png_ptr->jmpbuf)) {
++       if (setjmp (png_jmpbuf (png_ptr))) {
+ 	       success = FALSE;
+ 	       goto cleanup;
+        }
+--- a/gtk/gdk/win32/gdkevents-win32.c
++++ b/gtk/gdk/win32/gdkevents-win32.c
+@@ -2140,7 +2140,7 @@
+ static VOID CALLBACK
+ resize_timer_proc (HWND     hwnd,
+ 		   UINT     msg,
+-		   UINT     id,
++		   UINT_PTR id,
+ 		   DWORD    time)
+ {
+   if (_sizemove_in_progress)
+@@ -2468,6 +2468,12 @@
+       
+       build_key_event_state (event, key_state);
+ 
++      /* Dolly's Wine knows what a key types only from when it was last
++       * pressed, so the layout cannot be asked for once: the table is
++       * made again for each key.
++       */
++      _gdk_keymap_serial++;
++
+       gdk_keymap_translate_keyboard_state (NULL,
+ 					   event->key.hardware_keycode,
+ 					   event->key.state,
+--- a/gtk/gdk/win32/gdkmain-win32.c
++++ b/gtk/gdk/win32/gdkmain-win32.c
+@@ -31,7 +31,6 @@
+ #include <stdlib.h>
+ #include <string.h>
+ #include <limits.h>
+-#include <io.h>
+ 
+ #include "gdk.h"
+ #include "gdkregion-generic.h"
+--- a/fontconfig/src/fcfreetype.c
++++ b/fontconfig/src/fcfreetype.c
+@@ -50,14 +50,11 @@
+ #include "fcint.h"
+ #include <ft2build.h>
+ #include FT_FREETYPE_H
+-#include FT_INTERNAL_OBJECTS_H
+ #include FT_TRUETYPE_TABLES_H
+ #include FT_SFNT_NAMES_H
+ #include FT_TRUETYPE_IDS_H
+ #include FT_TYPE1_TABLES_H
+-#include FT_INTERNAL_STREAM_H
+-#include FT_INTERNAL_SFNT_H
+-#include FT_INTERNAL_TRUETYPE_TYPES_H
++#include FT_FONT_FORMATS_H
+ #if HAVE_FT_GET_X11_FONT_FORMAT
+ #include FT_XFREE86_H
+ #endif
+@@ -1559,7 +1556,7 @@
+      */
+     if (FcCharSetCount (cs) == 0)
+     {
+-	if (!strcmp(FT_MODULE_CLASS(&face->driver->root)->module_name, "pcf"))
++	if (!strcmp(FT_Get_Font_Format (face), "PCF"))
+ 	    goto bail2;
+     }
+ 
+@@ -2706,86 +2703,43 @@
+ static FT_Error
+ GetScriptTags(FT_Face face, FT_ULong tabletag, FT_ULong **stags, FT_UShort *script_count)
+ {
+-    FT_ULong         cur_offset, new_offset, base_offset;
+-    TT_Face          tt_face = (TT_Face)face;
+-    FT_Stream  stream = face->stream;
+-    FT_Error   error;
+-    FT_UShort          n, p;
+-    FT_Memory  memory = stream->memory;
+-
+-    if ( !stream )
+-	return TT_Err_Invalid_Face_Handle;
+-
+-    if (( error = tt_face->goto_table( tt_face, tabletag, stream, 0 ) ))
+-	return error;
+-
+-    base_offset = FT_STREAM_POS();
+-
+-    /* skip version */
+-
+-    if ( FT_STREAM_SEEK( base_offset + 4L ) || FT_FRAME_ENTER( 2L ) )
++    FT_Byte   bytes[6];
++    FT_ULong  length, list;
++    FT_Error  error;
++    FT_UShort n;
++
++    /* after the table's version: where its script list is, which starts with its length */
++    length = 2;
++    if (( error = FT_Load_Sfnt_Table( face, tabletag, 4, bytes, &length ) ))
+ 	return error;
+-
+-    new_offset = FT_GET_USHORT() + base_offset;
+-
+-    FT_FRAME_EXIT();
+-
+-    cur_offset = FT_STREAM_POS();
+-
+-    if ( FT_STREAM_SEEK( new_offset ) != TT_Err_Ok )
+-	return error;
+-
+-    base_offset = FT_STREAM_POS();
+-
+-    if ( FT_FRAME_ENTER( 2L ) )
+-	return error;
+-
+-    *script_count = FT_GET_USHORT();
+-
+-    FT_FRAME_EXIT();
+-
+-    if ( FT_SET_ERROR (FT_MEM_ALLOC_ARRAY( *stags, *script_count, FT_ULong )) )
++    list = bytes[0] << 8 | bytes[1];
++    length = 2;
++    if (( error = FT_Load_Sfnt_Table( face, tabletag, list, bytes, &length ) ))
+ 	return error;
+-
+-    p = 0;
++    *script_count = bytes[0] << 8 | bytes[1];
++    if (!*script_count)
++	return TTO_Err_Invalid_SubTable;
++
++    *stags = malloc( *script_count * sizeof (FT_ULong) );
++    if (!*stags)
++	return FT_Err_Out_Of_Memory;
+     for ( n = 0; n < *script_count; n++ )
+     {
+-	if ( FT_FRAME_ENTER( 6L ) )
+-	    goto Fail;
+-
+-	(*stags)[p] = FT_GET_ULONG();
+-	new_offset = FT_GET_USHORT() + base_offset;
+-
+-	FT_FRAME_EXIT();
+-
+-	cur_offset = FT_STREAM_POS();
+-
+-	if ( FT_STREAM_SEEK( new_offset ) )
+-	    goto Fail;
+-
+-	if ( error == TT_Err_Ok )
+-	    p++;
+-	else if ( error != TTO_Err_Empty_Script )
+-	    goto Fail;
+-
+-	(void)FT_STREAM_SEEK( cur_offset );
+-    }
+-
+-    if (!p)
+-    {
+-	error = TTO_Err_Invalid_SubTable;
+-	goto Fail;
++	length = 6;
++	if (( error = FT_Load_Sfnt_Table( face, tabletag, list + 2 + 6 * n, bytes, &length ) ))
++	{
++	    *script_count = 0;
++	    free( *stags );
++	    *stags = NULL;
++	    return error;
++	}
++	(*stags)[n] = (FT_ULong) bytes[0] << 24 | bytes[1] << 16 | bytes[2] << 8 | bytes[3];
+     }
+ 
+     // sort the tag list before returning it
+     qsort(*stags, *script_count, sizeof(FT_ULong), compareulong);
+ 
+     return TT_Err_Ok;
+-
+-Fail:
+-    *script_count = 0;
+-    FT_FREE( *stags );
+-    return error;
+ }
+ 
+ static FcChar8 *
+@@ -2797,7 +2751,6 @@
+     FT_ULong *gsubtags=NULL, *gpostags=NULL;
+     FT_UShort gsub_count=0, gpos_count=0;
+     FT_ULong maxsize;
+-    FT_Memory  memory = face->stream->memory;
+     FcChar8 *complex = NULL;
+     int indx1 = 0, indx2 = 0;
+ 
+@@ -2841,7 +2794,7 @@
+     if (FcDebug () & FC_DBG_SCANV)
+ 	printf("complex features in this font: %s\n", complex);
+ bail:
+-    FT_FREE(gsubtags);
+-    FT_FREE(gpostags);
++    free(gsubtags);
++    free(gpostags);
+     return complex;
+ }

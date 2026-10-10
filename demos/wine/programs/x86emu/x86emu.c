@@ -36,6 +36,7 @@
 
 extern int wine_dolly_call_type( const char *type, unsigned int len );
 extern int wine_dolly_call( int type, void *func, const unsigned long long *a, const unsigned long long *x, unsigned long long *ret );
+extern void wine_dolly_free_program_classes( HINSTANCE module );
 extern char __global_base[];  /* where this program's own data starts: below it, from 64 KiB, nothing lives */
 extern char **environ;
 
@@ -539,6 +540,8 @@ static struct module *load_module( const char *path )
     for (i = 0; i < nb_modules; i++) if (!lstrcmpiA( modules[i].path, module->path )) return &modules[i];
     if (!(module->base = load_image( module->path, &module->nt ))) return NULL;
     nb_modules++;
+    /* the window classes of the last program loaded here would make this one's registrations fail */
+    wine_dolly_free_program_classes( (HINSTANCE)module->base );
     if (trace) fprintf( stderr, "x86emu: %s loaded at %p\n", module->path, module->base );
     if (!bind_imports( module )) return NULL;
     if ((module->nt->FileHeader.Characteristics & IMAGE_FILE_DLL) && module->nt->OptionalHeader.AddressOfEntryPoint)

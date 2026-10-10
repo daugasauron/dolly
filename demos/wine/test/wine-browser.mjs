@@ -9,7 +9,9 @@
 // reads the colours it lays out and the server's log of its requests. In a third,
 // under the page's default policy, site:/ is the site's own landing page and a
 // redirect is followed. (NetSurf's home page is an outside site, which the test
-// does not wait for.)
+// does not wait for.) In a fourth GIMP paints a stroke, saves it as XCF, quits,
+// starts again and opens it. In a fifth the terminal runs cmd's commands and
+// programs, and the source of the x86-64 sample is edited, compiled and run.
 // Usage: node demos/wine/test/wine-browser.mjs [firefox]
 import assert from "node:assert/strict";
 import { mkdir, readFile } from "node:fs/promises";
@@ -114,13 +116,256 @@ await demoTest("wine", { image: "wine", timeout: 600_000, server: { handle: serv
   await mkdir(evidence, { recursive: true });
   for (const [name, session, options] of [["desktop", run, {}], ["netsurf", netsurf, { policy: { rules: [
     { origin: server.origin, pathPrefix: "/fixture/netsurf/", methods: ["GET"] },
-    { origin: elsewhereOrigin, pathPrefix: "/", methods: ["GET"] }] } }], ["site", site, {}]]) {
+    { origin: elsewhereOrigin, pathPrefix: "/", methods: ["GET"] }] } }], ["site", site, {}], ["gimp", gimp, {}], ["terminal", terminal, {}]]) {
     const { page, prompt, start, waitText } = await open({ prompt: null, ...options });
     try { await session(page, prompt, start, waitText, server); }
     catch (error) { await page.screenshot({ path: `${evidence}failure-${name}.png` }); throw error; }
     await page.close();
   }
 }).finally(() => elsewhere.close());
+
+// The terminal: Wine's cmd in wineconsole's window, 80 columns by 25 lines at 0,0. What its commands did
+// is read from the files they wrote, after Shut Down.
+async function terminal(page, prompt, start, waitText) {
+  const tcc = "Z:\\usr\\share\\wine\\x86\\tcc\\tcc";
+  await page.waitForFunction(() => __dolly.transport.graphicsActive(), null, { timeout: 120_000 });
+  const [width, height] = await frameSize(page);
+  const enter = async (line, wait = 700) => { await page.keyboard.type(line, { delay: 15 }); await page.keyboard.press("Enter"); await delay(wait); };
+  // The console's lit pixels: its text.
+  const lit = () => page.evaluate(() => {
+    const data = document.querySelector("#display").getContext("2d").getImageData(4, 23, 560, 446).data;
+    let count = 0;
+    for (let i = 0; i < data.length; i += 4) if (data[i] + data[i + 1] + data[i + 2] > 384) count++;
+    return count;
+  });
+  // The x86-64 sample's window, in the middle of the screen: its yellow text, and a point of it beside the console.
+  const sample = [(width - 360) >> 1, (height - 240) >> 1], beside = [sample[0] + 300, sample[1] + 150];
+  const sampleText = () => page.evaluate(([x, y]) => {
+    const data = document.querySelector("#display").getContext("2d").getImageData(x, y, 360, 240).data;
+    let count = 0, left = 360, right = 0;
+    for (let i = 0; i < data.length; i += 4) if (data[i] > 200 && data[i + 1] > 200 && data[i + 2] < 150) {
+      count++;
+      left = Math.min(left, (i >> 2) % 360);
+      right = Math.max(right, (i >> 2) % 360);
+    }
+    return { count, width: right - left };
+  }, sample);
+  // The console takes the keyboard when clicked, once its thread has heard of it: a key sooner than that is nobody's.
+  const toConsole = async () => { await click(page, 200, 200); await delay(300); };
+  const closeSample = async () => {
+    await click(page, ...beside);
+    await delay(500);
+    await page.keyboard.press("Escape");
+    await pixelIs(page, ...beside, desktop);
+  };
+  await pixelIs(page, 640, height - 6, face);
+
+  // The sample from its shortcut, the fourth of eight: while it runs the desktop refuses a second x86-64
+  // program with a message box, over the sample's window; once it has ended, it starts again.
+  const refusal = [(width >> 1) - 120, (height >> 1) + 17];
+  await page.mouse.dblclick(...await at(page, 36, 245));
+  await until(async () => (await sampleText()).count > 40, "the sample from the desktop");
+  await page.mouse.dblclick(...await at(page, 36, 245));
+  await pixelIs(page, ...refusal, face);
+  await page.keyboard.press("Enter");
+  await pixelIs(page, ...refusal, black);
+  await closeSample();
+  await page.mouse.dblclick(...await at(page, 36, 245));
+  await until(async () => (await sampleText()).count > 40, "the sample from the desktop again");
+  await closeSample();
+
+  await click(page, 30, height - 14);
+  await delay(700);
+  await page.keyboard.press("c");
+  await pixelIs(page, 400, 300, black);
+  await until(async () => await lit() > 300, "cmd's prompt");
+  await toConsole();
+
+  // cmd's own commands, with a line edited before Enter and one fetched from the history.
+  await enter("dir > dir.txt");
+  await page.keyboard.type("echo editedXY", { delay: 15 });
+  await page.keyboard.press("Backspace");
+  await page.keyboard.press("Backspace");
+  await enter("> echo.txt");
+  await enter("cd \\usr\\share\\wine");
+  await enter("cd > \\home\\dolly\\cd.txt");
+  await enter("cd \\home\\dolly");
+  await enter("type echo.txt > typed.txt");
+  await enter("echo again>> again.txt");
+  await page.keyboard.press("ArrowUp");
+  await enter("");
+  const written = await lit();
+  await enter("cls");
+  const cleared = await lit();
+  assert.ok(written > 4 * cleared && cleared > 100, `cls left ${cleared} lit pixels of ${written}: more than a prompt, or nothing`);
+  await page.screenshot({ path: `${evidence}terminal.png` });
+
+  // Programs: one of this Wine and an x86-64 one for the console, which cmd waits for and whose exit
+  // codes it has; an x86-64 one with a window, which leaves the prompt free; and what one process cannot do.
+  await enter("hello > hello.txt", 3000);
+  await enter("echo %errorlevel%> level0.txt");
+  await enter(`${tcc} -v > tccv.txt`, 3000);
+  await enter(`${tcc} nosuch.c 2> tccerr.txt`, 3000);
+  await enter("echo %errorlevel%> level1.txt");
+  await enter("Z:\\usr\\share\\wine\\x86\\hello_win");
+  await until(async () => (await sampleText()).count > 40, "the x86-64 program's window");
+  await toConsole();
+  await enter("echo free> free.txt");
+  await enter(`${tcc} -v 2> busy.txt`, 1500);
+  await enter("cmd /c echo nested 2> nested.txt", 1500);
+  await enter("start notepad 2> start.txt", 1500);
+  await closeSample();
+
+  // The source of that program: edited in Notepad, compiled by the x86-64 TinyCC, run, and run again.
+  await toConsole();
+  await enter("notepad hello_win.c");
+  await pixelIs(page, 700, 400, white);                         // Notepad, over the console
+  await delay(1000);
+  await page.keyboard.press("Control+Home");                    // line 92: … : "Hello Windows!";
+  for (let line = 1; line < 92; line++) await page.keyboard.press("ArrowDown");
+  await page.keyboard.press("End");
+  await page.keyboard.press("ArrowLeft");
+  await page.keyboard.press("ArrowLeft");
+  await page.keyboard.type(" Edited in Notepad.", { delay: 15 });
+  await page.screenshot({ path: `${evidence}terminal-notepad.png` });
+  await page.keyboard.press("Control+s");
+  await delay(1500);
+  await page.keyboard.press("Alt+F4");
+  await pixelIs(page, 700, 400, desktop);
+  await toConsole();
+  await page.keyboard.type("tcc hello_win.c", { delay: 15 });
+  await delay(500);
+  const before = await lit(), pressed = Date.now();
+  await page.keyboard.press("Enter");
+  await until(async () => await lit() > before + 150, "the prompt after the compiler", 120_000);
+  const compiled = Date.now() - pressed;
+  const edited = async what => {
+    const text = await until(async () => { const found = await sampleText(); return found.count > 40 && found; }, what);
+    assert.ok(text.width > 150, `the window's text is ${text.width} pixels wide: not the longer one`);
+    await page.screenshot({ path: `${evidence}terminal-run.png` });
+    await closeSample();
+  };
+  for (const run of ["first", "second"]) {
+    await enter("hello_win");
+    await edited(`the edited program's ${run} window`);
+    await toConsole();
+  }
+
+  // On the desktop. A shortcut made from the desktop's menu, through the file dialog, is its fifth icon,
+  // after the sample's shortcut; then a copy of the program in the Desktop folder is, from a second prompt.
+  await enter("exit", 1500);
+  await pixelIs(page, 400, 300, desktop);
+  await page.mouse.click(...await at(page, 500, 500), { button: "right" });
+  await delay(700);
+  await page.keyboard.press("n");
+  await pixelIs(page, 420, 180, face);
+  await page.keyboard.type("hello_win.exe", { delay: 15 });
+  await page.keyboard.press("Enter");
+  await pixelIs(page, 420, 180, desktop);
+  await delay(800);                                             // the desktop reads its folder four times a second
+  await page.mouse.dblclick(...await at(page, 36, 320));
+  await edited("the program from its new shortcut");
+  await click(page, 30, height - 14);
+  await delay(700);
+  await page.keyboard.press("c");
+  await pixelIs(page, 400, 300, black);
+  await until(async () => await lit() > 300, "the second prompt");
+  await toConsole();
+  await enter("copy hello_win.exe Desktop");
+  await enter("exit", 1500);
+  await pixelIs(page, 400, 300, desktop);
+  await page.screenshot({ path: `${evidence}desktop-folder.png` });
+  await page.mouse.dblclick(...await at(page, 36, 320));
+  await edited("the program copied to the desktop");
+  await click(page, 30, height - 14);
+  await delay(700);
+  await page.keyboard.press("u");
+  await prompt(shellPrompt);
+  await waitText(/the Wine desktop was shut down/);
+
+  for (const [name, pattern] of [["dir", "hello_win.c"], ["echo", "^edited"], ["cd", "usr.share.wine"], ["typed", "^edited"],
+    ["hello", "Hello from C:.windows.system32.hello.exe"], ["level0", "^0"], ["tccv", "tcc version 0.9.27 (x86_64 Windows)"],
+    ["tccerr", "nosuch.c' not found"], ["level1", "^1"], ["free", "^free"],
+    ["busy", "."], ["nested", "."], ["start", "."]]) {          // what was refused left its message, whatever it says
+    assert.equal(await start(`grep -q "${pattern}" /home/dolly/${name}.txt`).done, 0, `${name}.txt has no "${pattern}"`);
+  }
+  assert.equal(await start('test "$(grep -c again /home/dolly/again.txt)" = 2').done, 0, "the command from the history did not run again");
+  console.log(`wine: the terminal ran cmd's commands, a console program and an x86-64 one with their exit codes, and refused what one process cannot do; the x86-64 sample started again after it had ended, from the desktop and the prompt; hello_win.c, edited in Notepad, was compiled by tcc in ${compiled} ms and showed its new text, also from a shortcut made on the desktop and from a copy in the Desktop folder`);
+}
+
+// GIMP 2.2 on GTK+ 2.6 over GDK's Windows backend. Its toolbox is where its session file puts it, the tip
+// of the day in the middle of the screen, and what it opens after that at 0,0.
+async function gimp(page, prompt, start) {
+  const grey = [220, 218, 213];
+  await page.waitForFunction(() => __dolly.transport.graphicsActive(), null, { timeout: 120_000 });
+  const [width, height] = await frameSize(page);
+  // The paintbrush's options in the toolbox; the tip's window and its Close button; the 420 by 300 canvas
+  // from 30,75.
+  const toolbox = [150, 600], tip = [((width - 566) >> 1) + 300, ((height - 139) >> 1) + 80];
+  const stroke = () => dark(page, 34, 79, 412, 292);            // inside the layer's dashed boundary
+  const startIt = async () => {
+    await click(page, 30, height - 14);
+    await delay(700);
+    await page.keyboard.press("g");
+    const pressed = Date.now();
+    await pixelIs(page, ...toolbox, grey);
+    const shown = Date.now() - pressed;
+    await pixelIs(page, ...tip, grey);
+    await click(page, tip[0] + 216, tip[1] + 54);
+    await pixelIs(page, ...tip, desktop);
+    return shown;
+  };
+  const quit = async () => {                                    // File > Quit in the image window's menu
+    await click(page, 24, 36);
+    await delay(500);
+    await click(page, 47, 306);
+    await pixelIs(page, ...toolbox, desktop);
+  };
+  await pixelIs(page, 640, height - 6, face);
+  const started = await startIt();
+  await page.screenshot({ path: `${evidence}gimp.png` });
+
+  await click(page, 72, 85);                                    // the toolbox's File > New, and OK in its dialog
+  await delay(500);
+  await click(page, 100, 119);
+  await pixelIs(page, 270, 150, grey);
+  await click(page, 331, 254);
+  await pixelIs(page, 270, 220, white);
+  assert.equal(await stroke(), 0, "the new image is white");
+  await page.mouse.move(...await at(page, 80, 120));            // the paintbrush, GIMP's first tool, across the canvas
+  await page.mouse.down();
+  await page.mouse.move(...await at(page, 380, 320), { steps: 25 });
+  await page.mouse.up();
+  await page.mouse.move(...await at(page, 700, 500));           // GIMP draws the tool's mark where the pointer is
+  await delay(500);
+  const painted = await until(async () => { const count = await stroke(); return count > 3000 && count; }, "the stroke");
+  await pixelIs(page, 230, 220, black);                         // on the line dragged,
+  await pixelIs(page, 380, 120, white);                         // and off it
+  await page.screenshot({ path: `${evidence}gimp-stroke.png` });
+
+  await page.keyboard.press("Control+s");                       // Save: GTK+'s file dialog, its name replaced by a path
+  await pixelIs(page, 380, 130, grey);
+  await click(page, 280, 47);
+  await page.keyboard.press("Home");
+  await page.keyboard.press("Shift+End");
+  await page.keyboard.type("/tmp/stroke.xcf", { delay: 20 });
+  await page.keyboard.press("Enter");
+  await pixelIs(page, 380, 130, white);
+  await quit();
+
+  await startIt();                                              // a second run: the last document, by its key
+  await click(page, ...toolbox);
+  await page.keyboard.press("Control+1");
+  await pixelIs(page, 270, 220, white);
+  await until(async () => await stroke() === painted, "the saved stroke in the image opened again");
+  await quit();
+  await click(page, 30, height - 14);
+  await delay(700);
+  await page.keyboard.press("u");
+  await prompt(shellPrompt);
+  assert.equal(await start("test -s /tmp/stroke.xcf").done, 0, "the image was saved as a file");
+  console.log(`wine: GIMP showed its toolbox ${started} ms after the Start menu's key; a paintbrush stroke of ${painted} dark pixels was saved as XCF and came back in a second run`);
+}
 
 // NetSurf: the address bar, a page with a style sheet, a PNG and a JPEG, a link, back and forward.
 async function netsurf(page, prompt, start, waitText, server) {
@@ -266,7 +511,7 @@ async function site(page, prompt, start, waitText, server) {
   await startMenu("s");
   await until(async () => (await coloured(page, dark)).count > 200_000, "the site's landing page as the home page");
   await page.screenshot({ path: `${evidence}netsurf-home.png` });
-  await click(page, 495, 293);                // "Licences and sources", in the row of links under IMAGES
+  await click(page, 552, 318);                // "Licences and sources", in the row of links under IMAGES
   await delay(2500);
   await click(page, 18, 58);                  // Back
   await delay(2000);
@@ -306,12 +551,13 @@ async function fileManager(page, start, waitText) {
   await click(page, 30, height - 14);
   await delay(700);
   await page.keyboard.press("f");
-  // Its window at 0,0 shows drive Z:, the Dolly filesystem: the tree on the left, the entries with their
-  // sizes and dates from x 310. 0test sorts first. Inside a directory the first two entries are . and ..
+  // Its window at 0,0 shows drive Z:, the Dolly filesystem: the tree on the left, where 0test sorts first,
+  // and from x 310 the entries, with sizes and dates, of the directory above the desktop's own, the
+  // user's. Inside a directory the first two entries are . and ..
   const names = () => textRows(page, 334, 112, 46, 440);
   const open = async row => page.mouse.dblclick(...await at(page, 342, 119 + 16 * row));
-  await until(async () => await names() >= 6, "the entries of Z:\\");
-  await open(0);
+  await until(async () => await names() >= 2, "the entries of Z:\\home");
+  await click(page, 79, 135);
   await until(async () => await names() === 5, "the five entries of 0test");
   await page.screenshot({ path: `${evidence}winefile.png` });
   await open(2);
@@ -351,8 +597,9 @@ async function run(page, prompt, start, waitText) {
   await pixelIs(page, width >> 1, height >> 1, desktop);
   await pixelIs(page, width >> 1, height - 6, face);
 
-  // Its shortcuts: a column of icons with their names from the top left, 75 pixels apart, in the Start
-  // menu's order (Notepad, File Manager, Winemine, Paint, NetSurf, the x86-64 sample).
+  // Its icons: the files of the user's Desktop folder, a column with their names from the top left, 75
+  // pixels apart, by name: shortcuts to Command Prompt, File Manager, GIMP, the x86-64 sample, NetSurf,
+  // Notepad and Paint, README.txt, and a shortcut to Winemine.
   const highlight = [10, 36, 106];
   const inCell = (index, counted) => page.evaluate(([top, colour, same]) => {
     const data = document.querySelector("#display").getContext("2d").getImageData(0, top, 75, 75).data;
@@ -360,37 +607,42 @@ async function run(page, prompt, start, waitText) {
     for (let i = 0; i < data.length; i += 4) if ((data[i] === colour[0] && data[i + 1] === colour[1] && data[i + 2] === colour[2]) === same) count++;
     return count;
   }, [75 * index, counted ?? desktop, counted !== undefined]);
-  const selected = async () => { const cells = []; for (let index = 0; index < 6; index++) cells.push(await inCell(index, highlight) > 30); return cells.map(Number).join(""); };
-  for (let index = 0; index < 6; index++) assert.ok(await inCell(index) > 300, `shortcut ${index} is drawn`);
+  const selected = async () => { const cells = []; for (let index = 0; index < 9; index++) cells.push(await inCell(index, highlight) > 30); return cells.map(Number).join(""); };
+  for (let index = 0; index < 9; index++) assert.ok(await inCell(index) > 300, `icon ${index} is drawn`);
   await page.screenshot({ path: `${evidence}shortcuts.png` });
   await click(page, 36, 20);                  // a click selects one
-  await until(async () => await selected() === "100000", "the first shortcut selected");
+  await until(async () => await selected() === "100000000", "the first shortcut selected");
   await click(page, 500, 400);                // a click on the empty desktop, none
-  await until(async () => await selected() === "000000", "no shortcut selected");
+  await until(async () => await selected() === "000000000", "no shortcut selected");
   await page.mouse.move(...await at(page, 300, 200));   // a rubber band from the empty desktop over three
   await page.mouse.down();
   await page.mouse.move(...await at(page, 5, 5), { steps: 12 });
   await page.screenshot({ path: `${evidence}shortcuts-band.png` });
   await page.mouse.up();
-  await until(async () => await selected() === "111000", "the three shortcuts the rubber band touched");
+  await until(async () => await selected() === "111000000", "the three shortcuts the rubber band touched");
   await page.keyboard.down("Control");        // Ctrl and a click add a fourth
   await click(page, 36, 245);
   await page.keyboard.up("Control");
-  await until(async () => await selected() === "111100", "a fourth shortcut selected with Ctrl");
+  await until(async () => await selected() === "111100000", "a fourth shortcut selected with Ctrl");
   await click(page, 500, 400);
-  await until(async () => await selected() === "000000", "no shortcut selected");
-  await page.mouse.dblclick(...await at(page, 36, 20));   // a double click starts Notepad
+  await until(async () => await selected() === "000000000", "no shortcut selected");
+  await page.mouse.dblclick(...await at(page, 36, 395));  // a double click starts Notepad
   await pixelIs(page, 100, 100, white);
   await page.keyboard.press("Alt+F4");
   await pixelIs(page, 100, 100, desktop);
-  await click(page, 36, 170);                 // Enter on the selected one starts WineMine
-  await until(async () => await selected() === "001000", "WineMine's shortcut selected");
+  await click(page, 36, 620);                 // Enter on the selected one starts WineMine
+  await until(async () => await selected() === "000000001", "WineMine's shortcut selected");
   await page.keyboard.press("Enter");
   await pixelIs(page, 60, 50, black);
   await page.keyboard.press("Alt+F4");
   await pixelIs(page, 60, 50, black, true);
+  await page.mouse.dblclick(...await at(page, 36, 545));  // README.txt opens in Notepad, at 0,0
+  await until(async () => await dark(page, 8, 46, 400, 300) > 2000, "the text of README.txt in Notepad");
+  await page.screenshot({ path: `${evidence}desktop-readme.png` });
+  await page.keyboard.press("Alt+F4");
+  await pixelIs(page, 100, 100, desktop);
   await click(page, 500, 400);
-  console.log("wine: six shortcuts on the desktop; one selected by a click, three by a rubber band, a fourth with Ctrl; a double click and Enter each started a program");
+  console.log("wine: nine icons on the desktop, the files of its folder; one selected by a click, three by a rubber band, a fourth with Ctrl; a double click and Enter each started a program, and README.txt opened in Notepad");
 
   // Paint (ReactOS's): a pencil line dragged across its image, saved through the file dialog, closed.
   await startMenu("p");
@@ -428,6 +680,7 @@ async function run(page, prompt, start, waitText) {
     return count > 40;
   }, [left, top], { timeout: 30_000, polling: 250 });
   await page.screenshot({ path: `${evidence}x86.png` });
+  await delay(800);                           // long enough for the desktop to list the window
   await page.keyboard.press("Escape");
   await pixelIs(page, left + 40, top + 60, desktop);
   console.log("wine: an x86-64 program opened a window from the Start menu, painted it and closed on Escape");
@@ -512,7 +765,7 @@ async function run(page, prompt, start, waitText) {
     /desktop: started mspaint\.exe/,
     /"Unnamed\.bmp - Paint" at 100,100 foreground/,
     /"dolly\.bmp - Paint"/,
-    /desktop: started x86emu\.exe/,
+    /desktop: started hello_win\.exe/,
     new RegExp(`"HELLO_WIN" at ${left},${top} foreground`),
     /desktop: started notepad\.exe/,
     /2 windows; "Untitled - Notepad" at 0,0; "WineMine" at 0,0 foreground/,
@@ -524,6 +777,7 @@ async function run(page, prompt, start, waitText) {
   console.log("wine: two programs at once; a window dragged, minimized, restored, closed and started again; shut down");
 
   // What Paint saved: a 400x300 bitmap of 32 bits a pixel is 480,054 bytes.
+  assert.equal(await start('tail -c 2 /home/dolly/Desktop/README.txt | od -An -b | grep -q "15  *12"').done, 0, "README.txt ends its lines as Windows does");
   const size = start("wc -c /home/dolly/.wine/drive_c/dolly.bmp");
   await waitText(/480054 \/home\/dolly\/\.wine\/drive_c\/dolly\.bmp/);
   assert.equal(await size.done, 0);

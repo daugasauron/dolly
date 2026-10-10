@@ -1,11 +1,12 @@
 /* SPDX-License-Identifier: MIT
  * desktop: the shell of the Wine demo. Not Wine's explorer.exe, which needs
  * a process per program: this one draws a taskbar with a Start button, a
- * button per window and a clock, puts a shortcut per program on the desktop
- * (a comctl32 list view under every window: icons, labels, selection and
- * the rubber band are that control's), and starts the programs linked into
- * this Wine as threads of its own process (port/kernel32-program.c says
- * what that can and cannot do). It prints the list of windows whenever it
+ * button per window and a clock, shows the files of the user's Desktop
+ * folder on the desktop (a comctl32 list view under every window: icons,
+ * labels, selection and the rubber band are that control's; a shortcut is
+ * read and written by shell32), and starts the programs linked into this
+ * Wine as threads of its own process (port/kernel32-program.c says what
+ * that can and cannot do). It prints the list of windows whenever it
  * changes, which is how the browser test reads it. */
 #include <stdarg.h>
 #include <stdio.h>
@@ -16,18 +17,24 @@
 #include <wingdi.h>
 #include <winuser.h>
 #include <winnls.h>
+#include <winreg.h>
 #include <commctrl.h>
+#include <commdlg.h>
+#include <shlobj.h>
 
 extern const char *wine_dolly_enum_programs( unsigned int index );
 extern HANDLE wine_dolly_start_program( const WCHAR *cmdline );
-extern BOOL wine_dolly_program_running( const WCHAR *name );
-extern void wine_dolly_free_program_classes( HINSTANCE module );
+/* shell32 (port/shell32-dolly.c) */
+extern HANDLE wine_dolly_open_file( const WCHAR *path );
+extern BOOL wine_dolly_read_shortcut( const WCHAR *file, WCHAR *target, WCHAR *arguments );
+extern BOOL wine_dolly_write_shortcut( const WCHAR *file, const WCHAR *target );
 
 enum { HEIGHT = 28, START_WIDTH = 60, CLOCK_WIDTH = 52, TASK_WIDTH = 160, MAX_TASKS = 32, ID_SHUT_DOWN = 99, ID_PROGRAM = 100 };
 
 /* What the Start menu and the shortcuts start: the graphical programs linked into this Wine, and the
  * x86-64 programs of a directory, which x86emu runs. */
 static const char x86_dir[] = "Z:\\usr\\share\\wine\\x86\\";
+static char home_dir[MAX_PATH];  /* the user's, where programs start: the current directory is every program's */
 struct program
 {
     char    name[64];   /* of the program, or of the file in x86_dir */
@@ -192,38 +199,48 @@ static void program_label( const char *name, WCHAR *label )
     if (!strcmp( name, "mspaint.exe" )) name = "paint";  /* as its own window calls it */
     if (!strcmp( name, "netsurf.exe" )) name = "net&Surf";  /* N is Notepad's key */
     if (!strcmp( name, "winefile.exe" )) name = "file Manager";  /* W is WineMine's */
+    if (!strcmp( name, "gimp.exe" )) name = "gIMP";
+    if (!strcmp( name, "wineconsole.exe" )) name = "command Prompt";
     if (!strchr( name, '&' )) *label++ = '&';
     for (i = 0; name[i] && name[i] != '.'; i++) label[i] = i ? name[i] : name[i] - 'a' + 'A';
     label[i] = 0;
 }
 
+/* What a start came to: a line for the terminal behind the desktop and, where the user is, what one
+ * process cannot do. */
+static void report_start( HANDLE thread, const char *name, BOOL x86 )
+{
+    DWORD error = GetLastError();
+    char text[200];
+
+    printf( "desktop: %s %s\n", thread ? "started" : "could not start", name );
+    fflush( stdout );
+    if (thread)
+    {
+        CloseHandle( thread );
+        return;
+    }
+    if (error == ERROR_BUSY)
+        lstrcpynA( text, x86 ? "An x86-64 program is running: this Wine interprets one at a time."
+                             : "It is running: in this Wine, which is one process, a program runs once at a time.", sizeof(text) );
+    else FormatMessageA( FORMAT_MESSAGE_FROM_SYSTEM, NULL, error, 0, text, sizeof(text), NULL );
+    MessageBoxA( 0, text, name, MB_OK | MB_ICONEXCLAMATION | MB_SETFOREGROUND );
+}
+
 /* a program linked into Wine; with a file, x86emu and the x86-64 program it is to run */
 static void start_program( const char *name, const char *x86_file )
 {
-    WCHAR nameW[64], command[MAX_PATH];
-    HMODULE module;
-    HANDLE thread;
-    unsigned int i;
+    WCHAR command[MAX_PATH];
+    unsigned int i = MultiByteToWideChar( CP_ACP, 0, name, -1, command, ARRAY_SIZE(command) ) - 1;
 
-    for (i = 0; (nameW[i] = name[i]); i++) /* nothing */;
-    MultiByteToWideChar( CP_ACP, 0, name, -1, command, ARRAY_SIZE(command) );
     if (x86_file)
     {
         char arguments[MAX_PATH];
         snprintf( arguments, sizeof(arguments), " %s%s", x86_dir, x86_file );
         MultiByteToWideChar( CP_ACP, 0, arguments, -1, command + i, ARRAY_SIZE(command) - i );
     }
-    if (wine_dolly_program_running( nameW ))
-    {
-        printf( "desktop: %s is running already; a program runs once at a time\n", name );
-        fflush( stdout );
-        return;
-    }
-    /* the classes its last run registered would make the next one fail */
-    if ((module = GetModuleHandleW( nameW ))) wine_dolly_free_program_classes( module );
-    if ((thread = wine_dolly_start_program( command ))) CloseHandle( thread );
-    printf( "desktop: %s %s\n", thread ? "started" : "could not start", name );
-    fflush( stdout );
+    SetCurrentDirectoryA( home_dir );
+    report_start( wine_dolly_start_program( command ), x86_file ? x86_file : name, x86_file != NULL );
 }
 
 static void find_programs(void)
@@ -314,6 +331,8 @@ static void click_task( const struct task *task )
     SetForegroundWindow( task->hwnd );
 }
 
+static void read_desktop(void);
+
 static LRESULT CALLBACK taskbar_proc( HWND hwnd, UINT message, WPARAM wparam, LPARAM lparam )
 {
     switch (message)
@@ -345,6 +364,7 @@ static LRESULT CALLBACK taskbar_proc( HWND hwnd, UINT message, WPARAM wparam, LP
     {
         SYSTEMTIME now;
         refresh_tasks();
+        read_desktop();
         GetLocalTime( &now );
         if (now.wMinute != shown_minute) InvalidateRect( hwnd, NULL, FALSE );
         return 0;
@@ -356,14 +376,147 @@ static LRESULT CALLBACK taskbar_proc( HWND hwnd, UINT message, WPARAM wparam, LP
     return DefWindowProcW( hwnd, message, wparam, lparam );
 }
 
-/* The desktop's shortcuts: a list view in a window that stays under every other. */
+/* The desktop's folder: its files are the icons of a list view in a window that stays under every
+ * other. Which folder, shell32 says (CSIDL_DESKTOPDIRECTORY). */
 
+struct entry
+{
+    WCHAR name[MAX_PATH];    /* of the file */
+    WCHAR target[MAX_PATH];  /* what opening it opens: the file, or what a shortcut names */
+};
+static struct entry entries[64];
+static unsigned int nb_entries;
+static WCHAR desktop_dir[MAX_PATH];
 static HWND shortcuts;
+static HIMAGELIST icons;
+
+static const WCHAR *base_name( const WCHAR *path )
+{
+    const WCHAR *name = path;
+
+    for (; *path; path++) if (*path == '\\') name = path + 1;
+    return name;
+}
+
+static WCHAR *extension( WCHAR *name )
+{
+    WCHAR *dot = name + lstrlenW( name );
+
+    for (; *name; name++) if (*name == '.') dot = name;
+    return dot;
+}
 
 static BOOL CALLBACK first_icon( HMODULE module, const WCHAR *type, WCHAR *name, LONG_PTR icon )
 {
     *(HICON *)icon = LoadImageW( module, name, IMAGE_ICON, 32, 32, 0 );
     return FALSE;
+}
+
+/* A program of this Wine has its first icon; an x86-64 file's is not read. */
+static HICON entry_icon( struct entry *entry )
+{
+    static const WCHAR exeW[] = {'.','e','x','e',0};
+    DWORD attributes = GetFileAttributesW( entry->target );
+    HMODULE module, shell32 = GetModuleHandleA( "shell32.dll" );
+    HICON icon = 0;
+
+    if (attributes == INVALID_FILE_ATTRIBUTES)
+    {
+        if ((module = LoadLibraryW( base_name( entry->target ) )))
+            EnumResourceNamesW( module, (const WCHAR *)RT_GROUP_ICON, first_icon, (LONG_PTR)&icon );
+    }
+    else if (attributes & FILE_ATTRIBUTE_DIRECTORY) icon = LoadImageW( shell32, MAKEINTRESOURCEW(4), IMAGE_ICON, 32, 32, 0 );
+    else if (lstrcmpiW( extension( entry->target ), exeW )) icon = LoadImageW( shell32, MAKEINTRESOURCEW(2), IMAGE_ICON, 32, 32, 0 );
+    return icon ? icon : LoadIconW( 0, (const WCHAR *)IDI_APPLICATION );
+}
+
+static int compare_names( const void *a, const void *b )
+{
+    return lstrcmpiW( a, b );
+}
+
+/* The folder's files as the list's items, by name, whenever they are not the ones shown: nothing
+ * tells this Wine of a change in a directory, so the taskbar's timer asks. */
+static void read_desktop(void)
+{
+    static const WCHAR allW[] = {'%','s','\\','*',0}, fileW[] = {'%','s','\\','%','s',0}, lnkW[] = {'.','l','n','k',0};
+    static WCHAR found[ARRAY_SIZE(entries)][MAX_PATH];
+    WIN32_FIND_DATAW file;
+    WCHAR path[2 * MAX_PATH], label[MAX_PATH], arguments[MAX_PATH];
+    HANDLE handle;
+    unsigned int i, count = 0;
+
+    wsprintfW( path, allW, desktop_dir );
+    if ((handle = FindFirstFileW( path, &file )) != INVALID_HANDLE_VALUE)
+    {
+        do if (file.cFileName[0] != '.') lstrcpyW( found[count++], file.cFileName );  /* not . and .., nor what Unix hides */
+        while (count < ARRAY_SIZE(found) && FindNextFileW( handle, &file ));
+        FindClose( handle );
+    }
+    qsort( found, count, sizeof(found[0]), compare_names );
+    for (i = 0; i < count && i < nb_entries && !lstrcmpW( found[i], entries[i].name ); i++) /* nothing */;
+    if (i == count && count == nb_entries) return;
+
+    SendMessageW( shortcuts, LVM_DELETEALLITEMS, 0, 0 );
+    ImageList_RemoveAll( icons );
+    for (i = 0; i < count; i++)
+    {
+        struct entry *entry = &entries[i];
+        LVITEMW item = { LVIF_TEXT | LVIF_IMAGE, i };
+        HICON icon;
+
+        lstrcpyW( entry->name, found[i] );
+        lstrcpyW( label, found[i] );
+        wsprintfW( path, fileW, desktop_dir, found[i] );
+        /* a shortcut shows without its extension, as on Windows */
+        if (!lstrcmpiW( extension( label ), lnkW ) && wine_dolly_read_shortcut( path, entry->target, arguments )) *extension( label ) = 0;
+        else lstrcpynW( entry->target, path, MAX_PATH );
+        item.iImage = ImageList_ReplaceIcon( icons, -1, icon = entry_icon( entry ) );
+        DestroyIcon( icon );
+        item.pszText = label;
+        SendMessageW( shortcuts, LVM_INSERTITEMW, 0, (LPARAM)&item );
+    }
+    nb_entries = count;
+}
+
+/* An icon opens as its file does in the file manager, from the user's directory. */
+static void open_entry( struct entry *entry )
+{
+    static const WCHAR fileW[] = {'%','s','\\','%','s',0}, exeW[] = {'.','e','x','e',0};
+    WCHAR path[2 * MAX_PATH];
+    char name[MAX_PATH];
+
+    wsprintfW( path, fileW, desktop_dir, entry->name );
+    WideCharToMultiByte( CP_ACP, 0, entry->name, -1, name, sizeof(name), NULL, NULL );
+    SetCurrentDirectoryA( home_dir );
+    report_start( wine_dolly_open_file( path ), name,
+                  GetFileAttributesW( entry->target ) != INVALID_FILE_ATTRIBUTES && !lstrcmpiW( extension( entry->target ), exeW ) );
+}
+
+/* The desktop's menu: a shortcut to a file chosen in the file dialog. */
+static void desktop_menu( HWND hwnd, int x, int y )
+{
+    static const WCHAR newW[] = {'&','N','e','w',' ','S','h','o','r','t','c','u','t','.','.','.',0};
+    static const WCHAR lnkW[] = {'%','s','\\','%','s','.','l','n','k',0};
+    WCHAR target[MAX_PATH] = {0}, title[MAX_PATH], file[2 * MAX_PATH];
+    OPENFILENAMEW dialog = { sizeof(dialog) };
+    HMENU menu = CreatePopupMenu();
+    int command;
+
+    AppendMenuW( menu, MF_STRING, 1, newW );
+    command = TrackPopupMenu( menu, TPM_RETURNCMD | TPM_NONOTIFY, x, y, 0, hwnd, NULL );
+    DestroyMenu( menu );
+    dialog.lpstrFile = target;
+    dialog.nMaxFile = ARRAY_SIZE(target);
+    dialog.lpstrFileTitle = title;
+    dialog.nMaxFileTitle = ARRAY_SIZE(title);
+    dialog.lpstrTitle = newW + 1;
+    dialog.Flags = OFN_FILEMUSTEXIST | OFN_HIDEREADONLY | OFN_NOCHANGEDIR;  /* the directory is every program's */
+    SetCurrentDirectoryA( home_dir );
+    if (command != 1 || !GetOpenFileNameW( &dialog )) return;
+    *extension( title ) = 0;
+    wsprintfW( file, lnkW, desktop_dir, title );
+    if (!wine_dolly_write_shortcut( file, target )) MessageBoxW( 0, file, NULL, MB_OK | MB_ICONERROR | MB_SETFOREGROUND );
 }
 
 static LRESULT CALLBACK progman_proc( HWND hwnd, UINT message, WPARAM wparam, LPARAM lparam )
@@ -376,12 +529,15 @@ static LRESULT CALLBACK progman_proc( HWND hwnd, UINT message, WPARAM wparam, LP
     case WM_SETFOCUS:
         SetFocus( shortcuts );
         return 0;
-    case WM_NOTIFY:  /* a double click on a shortcut, or Enter: the control names the item only for the first */
+    case WM_NOTIFY:  /* a double click on an icon, or Enter: the control names the item only for the first */
         if (((NMHDR *)lparam)->code == LVN_ITEMACTIVATE)
         {
             int item = SendMessageW( shortcuts, LVM_GETNEXTITEM, -1, LVNI_FOCUSED );
-            if (item >= 0) start( &programs[item] );
+            if (item >= 0) open_entry( &entries[item] );
         }
+        return 0;
+    case WM_CONTEXTMENU:
+        desktop_menu( hwnd, (short)LOWORD(lparam), (short)HIWORD(lparam) );
         return 0;
     case WM_CLOSE:  /* Alt+F4 closes programs, not the desktop */
         return 0;
@@ -393,11 +549,7 @@ static void create_shortcuts( HINSTANCE instance )
 {
     static const WCHAR progman_class[] = {'P','r','o','g','m','a','n',0};
     int width = GetSystemMetrics( SM_CXSCREEN ), height = GetSystemMetrics( SM_CYSCREEN ) - HEIGHT;
-    HIMAGELIST icons = ImageList_Create( 32, 32, ILC_COLOR32 | ILC_MASK, 8, 8 );
     WNDCLASSW class = { 0 };
-    LVITEMW item = { LVIF_TEXT | LVIF_IMAGE };
-    WCHAR text[80];
-    unsigned int i, j;
     HWND progman;
 
     class.lpfnWndProc = progman_proc;
@@ -408,26 +560,54 @@ static void create_shortcuts( HINSTANCE instance )
     progman = CreateWindowExW( 0, progman_class, NULL, WS_POPUP | WS_VISIBLE | WS_CLIPCHILDREN, 0, 0, width, height, 0, 0, instance, NULL );
     shortcuts = CreateWindowExW( 0, WC_LISTVIEWW, NULL, WS_CHILD | WS_VISIBLE | LVS_ICON | LVS_ALIGNLEFT | LVS_AUTOARRANGE,
                                  0, 0, width, height, progman, 0, instance, NULL );
+    icons = ImageList_Create( 32, 32, ILC_COLOR32 | ILC_MASK, 8, 8 );
     SendMessageW( shortcuts, LVM_SETBKCOLOR, 0, GetSysColor( COLOR_DESKTOP ) );
     SendMessageW( shortcuts, LVM_SETTEXTBKCOLOR, 0, GetSysColor( COLOR_DESKTOP ) );
     SendMessageW( shortcuts, LVM_SETTEXTCOLOR, 0, RGB(255,255,255) );
     SendMessageW( shortcuts, LVM_SETIMAGELIST, LVSIL_NORMAL, (LPARAM)icons );
+    read_desktop();
+}
+
+/* "desktop /shortcuts", when the image is built: a shortcut in the folder to each program of the Start menu. */
+static void write_default_shortcuts(void)
+{
+    static const WCHAR x86W[] = {'%','S','%','S',0}, lnkW[] = {'%','s','\\','%','s','.','l','n','k',0};
+    WCHAR target[MAX_PATH], label[80], file[2 * MAX_PATH];
+    unsigned int i, j, k;
 
     find_programs();
-    for (item.iItem = 0; item.iItem < nb_programs; item.iItem++)
+    for (i = 0; i < nb_programs; i++)
     {
-        const struct program *program = &programs[item.iItem];
-        HICON icon = 0;
-
-        /* its own first icon; an x86-64 file's is not read */
-        if (program->module) EnumResourceNamesW( program->module, (const WCHAR *)RT_GROUP_ICON, first_icon, (LONG_PTR)&icon );
-        if (!icon) icon = LoadIconW( 0, (const WCHAR *)IDI_APPLICATION );
-        for (i = j = 0; program->label[i]; i++) if (program->label[i] != '&') text[j++] = program->label[i];
-        text[j] = 0;
-        item.iImage = ImageList_ReplaceIcon( icons, -1, icon );
-        item.pszText = text;
-        SendMessageW( shortcuts, LVM_INSERTITEMW, 0, (LPARAM)&item );
+        if (programs[i].x86) wsprintfW( target, x86W, x86_dir, programs[i].name );
+        else GetModuleFileNameW( programs[i].module, target, ARRAY_SIZE(target) );
+        for (j = k = 0; programs[i].label[j]; j++) if (programs[i].label[j] != '&') label[k++] = programs[i].label[j];
+        label[k] = 0;
+        wsprintfW( file, lnkW, desktop_dir, label );
+        if (!wine_dolly_write_shortcut( file, target )) ExitProcess( 1 );
     }
+}
+
+/* The user's directory is where programs start, as from shortcuts on Windows; the Desktop folder is
+ * in it, where a prompt reaches it by its name (shell32 has it from the registry); and the x86-64
+ * compiler is a command of the terminal. */
+static void set_environment(void)
+{
+    char path[2048], *p;
+    const char *home = getenv( "HOME" );
+    HKEY key;
+
+    snprintf( home_dir, sizeof(home_dir), "Z:%s", home ? home : "" );
+    for (p = home_dir; *p; p++) if (*p == '/') *p = '\\';
+    snprintf( path, sizeof(path), "%s\\Desktop", home_dir );
+    if (!RegCreateKeyA( HKEY_CURRENT_USER, "Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\User Shell Folders", &key ))
+    {
+        RegSetValueExA( key, "Desktop", 0, REG_SZ, (BYTE *)path, strlen( path ) + 1 );
+        RegCloseKey( key );
+    }
+    SHGetFolderPathW( 0, CSIDL_DESKTOPDIRECTORY | CSIDL_FLAG_CREATE, 0, SHGFP_TYPE_CURRENT, desktop_dir );
+    p = path + GetEnvironmentVariableA( "PATH", path, sizeof(path) - sizeof(x86_dir) - 8 );
+    sprintf( p, ";%stcc", x86_dir );
+    SetEnvironmentVariableA( "PATH", path );
 }
 
 int WINAPI WinMain( HINSTANCE instance, HINSTANCE previous, LPSTR cmdline, int show )
@@ -435,6 +615,13 @@ int WINAPI WinMain( HINSTANCE instance, HINSTANCE previous, LPSTR cmdline, int s
     WNDCLASSW class = { 0 };
     MINIMIZEDMETRICS metrics = { sizeof(metrics) };
     MSG msg;
+
+    set_environment();
+    if (!strcmp( cmdline, "/shortcuts" ))
+    {
+        write_default_shortcuts();
+        return 0;
+    }
 
     class.lpfnWndProc = taskbar_proc;
     class.hInstance = instance;
