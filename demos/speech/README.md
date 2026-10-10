@@ -31,9 +31,9 @@ Pi runs in the terminal as in the `pi` image; `voice` runs beside it, holds
 - **Speak** listens until Send, Done or Cancel; what was heard so far shows
   above the buttons, and Send or Done type it into Pi.
 - **Menu** leads to Pi's model list (say part of a name, or use the arrows),
-  the thinking level, a new chat, and the OpenRouter key: copy the key, tap
-  Paste. The key goes to Pi's own `/login`, which keeps it in
-  `~/.pi/agent/auth.json` in the session.
+  the thinking level, a new chat, and the OpenRouter key: tap API key when Pi
+  asks how to sign in, copy the key, tap Paste. The key goes to Pi's own
+  `/login`, which keeps it in `~/.pi/agent/auth.json` in the session.
 - The microphone is open only while it listens.
 
 [`pi.menu`](pi.menu) is the whole menu: each button is a label and the keys it
@@ -60,11 +60,13 @@ is told goes to the model provider like anything typed.
 - The model is not a streaming one: the longer a line, the longer each
   hearing of it takes, so the text falls further behind towards the end of a
   long line. Four threads on the CPU, no GPU.
-- `pi-phone` was run in Chrome with a phone's screen and touch, not on a
-  phone: how fast a phone hears, and whether its browser keeps the image in
-  memory, are not measured.
+- A phone hears slowly. On a Mode1 MD06P (Helio G80 class, 4 GB) the text
+  was 3 to 7 s behind an 11 s sentence, further behind the longer it went;
+  this desktop is 16 times faster. The image loaded and ran there in Chrome
+  152 with 1.9 GB free.
 - `voice` types; it cannot see the screen. A button that types a command at
-  the wrong moment types it into whatever Pi is showing.
+  the wrong moment types it into whatever Pi is showing, so no button types
+  into a list Pi has yet to open.
 - Why this engine and model, and what was measured:
   [task](../../tasks/20261010-181500-speech-to-text/TASK.md).
 

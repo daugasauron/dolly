@@ -6,6 +6,9 @@
 #   :paste       a Paste button: type the clipboard, then TEXT; ":paste NAME" then shows a page
 #   :page NAME   show another page
 
+# A command begins with \x15, which empties Pi's prompt. No button types into
+# a list that Pi has yet to open: voice cannot see when it has, the user can.
+
 [main] Tap Speak and say what Pi should do. The first time: Menu, then OpenRouter key.
 Speak = :speak
 Send = \r
@@ -16,10 +19,10 @@ Up = \e[A
 Down = \e[B
 
 [menu] Pi's settings.
-Model = /model\r :page pick
-Thinking = /thinking\r :page pick
-OpenRouter key = /login openrouter\r\w\e[B\r :page key
-New chat = /new\r :page main
+Model = \x15/model\r :page pick
+Thinking = \x15/thinking\r :page pick
+OpenRouter key = \x15/login openrouter\r :page key
+New chat = \x15/new\r :page main
 Back = :page main
 
 [pick] Say part of a name, or move with the arrows, then Choose.
@@ -30,6 +33,7 @@ Choose = \r :page main
 Erase = \x15
 Back = \e :page main
 
-[key] Copy your key at openrouter.ai/keys, then tap Paste.
+[key] When Pi asks how to sign in, tap API key. Then copy your key at openrouter.ai/keys and tap Paste.
+API key = \e[B\r
 Paste = \r :paste main
 Back = \e :page main

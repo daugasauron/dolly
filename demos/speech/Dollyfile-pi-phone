@@ -29,7 +29,7 @@ FILE /usr/share/licenses/parakeet/NOTICE
     https://huggingface.co/handy-computer/parakeet-tdt_ctc-110m-gguf
 EXPORTS FOLDER speech-models /usr/share/dolly/speech
 EXPORTS FOLDER parakeet-license /usr/share/licenses/parakeet
-SOURCE /v0.1.1/dist/static/speech/pi.menu 53aaba97985aea66c677cb86792ad37a5c34c881071b3e882f3d6c938ac31877 /etc/dolly/pi.menu
+SOURCE /v0.1.1/dist/static/speech/pi.menu 1ed86c976443a7ae51821afba49e1b7a17cdf07bb40bb68c186a37a28f75349b /etc/dolly/pi.menu
 EXPORTS FILE pi-menu /etc/dolly/pi.menu
 
 # voice has the buttons and types; Pi has the terminal.

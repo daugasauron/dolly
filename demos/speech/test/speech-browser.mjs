@@ -93,6 +93,8 @@ if (browser === "chromium") await demoTest("pi-phone", { image: "pi-phone", laun
   await page.evaluate(key => navigator.clipboard.writeText(`${key}\n`), key);
   await tap("Menu");
   await tap("OpenRouter key");
+  await waitText(/Select authentication method/);
+  await tap("API key");
   await waitText(/Enter OpenRouter API key/);
   await tap("Paste");
   await waitText(/Saved API key for OpenRouter/);

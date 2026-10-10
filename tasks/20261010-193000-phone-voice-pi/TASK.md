@@ -155,3 +155,43 @@ Not verified, for the owner's phone:
   the strip against the gesture bar, the feel of drag and pinch.
 - The page's "Microphone on" and "Save" marks sit over Pi's last two rows while they show.
 - A real OpenRouter key and a real answer: the test answers for openrouter.ai.
+
+## On the owner's phone (2026-10-10, 23:00 to 23:40)
+
+Owner: "I put a new openrouter key in ~/.openrouter. Use it to test in chrome on my phone thats
+connected by usb". A Mode1 MD06P (Android 13, MT6769: two Cortex-A75 and six A55, 3.9 GB of
+memory with 1.9 GB free, 360x640 CSS px at 2x, Chrome 152), reached with the owner's `adb`
+(`adb reverse tcp:9008`, Chrome's debugging socket forwarded) and driven with touch events over
+the debugging protocol. The key was read from the file into the phone's clipboard, never
+printed, and the clipboard was overwritten afterwards; no log or screenshot holds it.
+
+- Loads and runs: 374 MiB over USB and Pi up 9 s after the first open; 31 s on a reload, the
+  speech model loaded at 45 s. 48 columns by 20 rows at 17 px with the seven buttons. The page
+  took about 0.85 GB of the phone's memory.
+- The key: the page's Paste button read the clipboard and Pi wrote "Saved API key for
+  OpenRouter". The first menu typed Pi's login command and its answer to "how to sign in" 0.4 s
+  apart (then 1.6 s): the list took 0.5 s to open once and longer another time, so the answer
+  was typed into nothing. The key page now has an "API key" button the user taps when the list
+  shows; no button types into a list Pi has yet to open.
+- A real answer: the sample's sentence, typed by `voice` and sent, was answered by
+  `moonshotai/kimi-k2.6` through OpenRouter ("That appears to be a variation of John F.
+  Kennedy's famous inaugural address quote").
+- Hearing, with the sample played into the page: "Listening." 0.4 s after the tap, the first
+  words at 1.8 s, then 3 to 7 s behind the voice, more the longer the sentence (its end, spoken
+  at 11 s, shown at 18.4 s). About 1.8 times as fast as speech for a whole pass, against 29
+  times on this desktop.
+- The real microphone: Chrome asked, the owner allowed, the state went from waiting to
+  capturing in 8 s; the USB link then dropped. Owner: "I think it worked, but was very slow.
+  Thats fine for now."
+- The owner's first tap on Speak said "No microphone is available": that page still had the
+  test's recording in place of `getUserMedia`, which played once.
+
+Left open by the phone:
+
+- Speed. The thread count is fixed at four because Dolly does not tell a program how many cores
+  there are; on two fast and six slow cores, eight threads may halve the time (not measured).
+  Hearing only the last seconds again for the caption, or the phone's GPU, are larger changes.
+- After every load on the phone Pi's prompt holds "/d7d7", the end of the terminal's answer to
+  Pi's colour question (`rgb:e8e8/e3e3/d7d7`): `tasks/20261010-234000-pi-stray-reply`. The
+  menu's commands empty the prompt first, so they are not hurt; a first spoken prompt is.
+- The USB link dropped three times in forty minutes; the port forwards go with it.
