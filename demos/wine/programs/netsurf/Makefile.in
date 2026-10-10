@@ -37,7 +37,7 @@ $(OBJ)/libutf8proc/%.o: MODDEFS += -I$(N)/libutf8proc/include/libutf8proc
 $(OBJ)/netsurf/%.o: MODDEFS := -I$(N)/netsurf -I$(N)/netsurf/include -I$(N)/netsurf/frontends \
     -I$(N)/netsurf/content/handlers $(COMMON) -Dnswin32 -DWITH_CURL -DWITH_PNG -DWITH_JPEG \
     -DWITH_BMP -DWITH_GIF -DWITH_UTF8PROC -DWITH_NSPSL -DNETSURF_LOG_LEVEL=INFO \
-    -DNETSURF_UA_FORMAT_STRING='"Mozilla/5.0 (%s) NetSurf/%d.%d"' -DNETSURF_HOMEPAGE='"about:welcome"' \
+    -DNETSURF_UA_FORMAT_STRING='"Mozilla/5.0 (%s) NetSurf/%d.%d"' -DNETSURF_HOMEPAGE='"site:/"' \
     -DNETSURF_BUILTIN_LOG_FILTER='"level:WARNING"' -DNETSURF_BUILTIN_VERBOSE_FILTER='"level:VERBOSE"' \
     -DNETSURF_WINDOWS_RESPATH='"C:"'
 # Its fetcher on Dolly's libcurl (curl-dolly.h), which has no curl_getdate for the date parser.

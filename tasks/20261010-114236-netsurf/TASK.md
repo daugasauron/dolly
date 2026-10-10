@@ -175,3 +175,50 @@ None changed: no file outside `demos/wine/`, `config/source-pins.sh`, `config/up
 option, libpng, IJG libjpeg and the MIT parts are compatible).
 
 Paint's text tool (`tasks/20261010-112539-paint-text`) did not fall out of this work and is untouched.
+
+### 2026-10-10, second round: a start page on the site, redirects, requests without preflight
+
+The owner, trying it: the addresses given "don't load", and the start page should be "something that
+works and is stable".
+
+- **Why real sites failed** (measured): a second origin that logs what it is asked received
+  `OPTIONS /a.html` with `Access-Control-Request-Headers: pragma` and no `GET`. NetSurf's fetcher
+  appends `Pragma:` (libcurl's way to drop its own header), which Dolly's libcurl hands to `fetch` as
+  a header; any header outside the CORS safelist makes the browser preflight, and static hosts do
+  not answer preflights. `curl-dolly.h` now lets only safelisted headers into the list (`Accept`,
+  `Accept-Language`, `Content-Language`, a form's `Content-Type`, within the safelist's value
+  limits), which also drops NetSurf's cache validators, `Referer` and `DNT`. After it the same
+  origin logs one `GET` with only headers the browser sets.
+  By hand in the development session (default policy): `https://daugasauron.com/v0.1.1/` now
+  renders the catalog (seen, with the padlock in the address bar); `https://daugasauron.github.io/dolly/`
+  and `…/dolly/v0.1.1/` kept the window title "Dolly" (an error page would have changed it);
+  `https://httpbin.org/html` loads.
+- **`site:/FILE`**: a scheme inside NetSurf for a file of the site the release is served from,
+  registered with its curl fetcher and handed to libcurl as `/vVERSION/FILE`. The version comes from
+  a `version.h` staged from `package.json`, as `amy`'s. NetSurf's canonical spelling of a host-less
+  address is `site:///FILE`, which is what the address bar shows. The home page is `site:/`.
+  Measured in the test (third session, default policy, the checkout server): the window title is
+  "Dolly", the "Licences and sources" link loads `site:///licences/` (title read), Back returns,
+  and Home in the toolbar returns to it from another page. The published release's `agents/` page
+  is not on a checkout server and was not tested. A link to an image page (`site:///wine/`) shows
+  that page without its JavaScript, an empty dark background, not an error; nothing cheap makes
+  that more useful from NetSurf's side.
+- **Redirects**: libcurl is asked to follow. It names the last address only when the transfer is
+  done (`CURLINFO_EFFECTIVE_URL` is empty before), so the fetcher keeps the body back until then
+  and, when the address differs, redirects NetSurf to it as by a 303: one more request, after which
+  address bar and relative links are right. Measured: an address that redirects from a directory
+  below draws the second page with its style sheet asked for beside the final address. Under an
+  explicit rule the broker follows nothing and the address ends in the error page (measured: the
+  error title appears for it). Cost: a page appears only when it has arrived whole.
+- **The error page's text**: could not be read off the page. Select All highlights it and
+  Edit > Copy is enabled and runs, but nothing reaches the clipboard: pasting into NetSurf's own
+  address bar and into Notepad changes nothing (Notepad saved a 0-byte file). Not found out why.
+  The test asserts instead the window title and, in the same session, that `curl` prints libcurl's
+  message for the same address, which is the string the page shows ("Browser could not fetch the
+  URL: blocked (no CORS headers, or a redirect)…").
+- The second origin of the test is now a static host: `GET` answered with
+  `Access-Control-Allow-Origin: *`, anything else refused without CORS headers. NetSurf draws its
+  page, style sheet, PNG and JPEG; the test asserts that no request but `GET` arrived and that no
+  header beyond the browser's own was sent. One address there has no CORS header, for the error page.
+
+Chrome: the test passes in 44.9 s (three sessions). Images build in 211.0 s; `wine` is 178.9 MB.

@@ -1,6 +1,45 @@
 --- a/netsurf/content/fetchers/curl.c
 +++ b/netsurf/content/fetchers/curl.c
-@@ -1156,6 +1156,9 @@
+@@ -267,6 +267,11 @@
+ 	uint64_t last_progress_update;	/**< Time of last progress update */
+ 	int cert_depth; /**< deepest certificate in use */
+ 	struct cert_info cert_data[MAX_CERT_DEPTH]; /**< HTTPS certificate data */
++#ifdef __dolly__
++	char *held; /**< the body, kept until libcurl says where it came from (fetch_curl_done) */
++	size_t held_len;
++	bool replay; /**< the kept body is being passed on */
++#endif
+ };
+ 
+ /** curl handle cache entry */
+@@ -366,6 +371,11 @@
+  */
+ static bool fetch_curl_can_fetch(const nsurl *url)
+ {
++#ifdef __dolly__ /* site:/FILE has no host */
++	if (strncmp(nsurl_access(url), "site:///", 8) == 0) {
++		return true;
++	}
++#endif
+ 	return nsurl_has_component(url, NSURL_HOST);
+ }
+ 
+@@ -505,6 +515,14 @@
+ 	fetch->fetch_handle = parent_fetch;
+ 	fetch->url = nsurl_ref(url);
+ 	fetch->host = nsurl_get_component(url, NSURL_HOST);
++#ifdef __dolly__ /* site:/FILE has no host; its handles are kept under its scheme */
++	if (fetch->host == NULL) {
++		fetch->host = nsurl_get_component(url, NSURL_SCHEME);
++	}
++	fetch->held = NULL;
++	fetch->held_len = 0;
++	fetch->replay = false;
++#endif
+ 	if (fetch->host == NULL) {
+ 		goto failed;
+ 	}
+@@ -1156,6 +1174,9 @@
  		break;
  
  	case FETCH_POSTDATA_MULTIPART:
@@ -10,6 +49,90 @@
  		SETOPT(CURLOPT_POSTFIELDS, NULL);
  		SETOPT(CURLOPT_HTTPGET, 0L);
  		if (f->curl_postdata == NULL) {
+@@ -1449,6 +1470,9 @@
+ 	}
+ 	nsurl_unref(f->url);
+ 	lwc_string_unref(f->host);
++#ifdef __dolly__
++	free(f->held);
++#endif
+ 	free(f->location);
+ 	free(f->cookie_string);
+ 	free(f->realm);
+@@ -1537,6 +1561,10 @@
+  * \param curl_handle curl easy handle of fetch
+  * \param result The result code of the completed fetch.
+  */
++#ifdef __dolly__
++static size_t fetch_curl_data(char *data, size_t size, size_t nmemb, void *_f);
++#endif
++
+ static void fetch_curl_done(CURL *curl_handle, CURLcode result)
+ {
+ 	bool finished = false;
+@@ -1555,6 +1583,37 @@
+ 	abort_fetch = f->abort;
+ 	NSLOG(netsurf, INFO, "done %s", nsurl_access(f->url));
+ 
++#ifdef __dolly__
++	/* Dolly's libcurl follows redirects (the broker refuses one that is
++	 * not followed) and says where it ended only now. From another
++	 * address than the one asked, NetSurf is redirected there as by the
++	 * server; else the body kept back meanwhile is passed on.
++	 */
++	if (abort_fetch == false && result == CURLE_OK) {
++		char *final = NULL;
++		nsurl *final_url = NULL;
++
++		curl_easy_getinfo(curl_handle, CURLINFO_EFFECTIVE_URL, &final);
++		if (final != NULL && final[0] != '/' &&
++		    nsurl_create(final, &final_url) == NSERROR_OK &&
++		    nsurl_compare(final_url, f->url, NSURL_COMPLETE) == false) {
++			fetch_msg msg;
++			/* what was asked for is to be found there: 303 */
++			fetch_set_http_code(f->fetch_handle, 303);
++			msg.type = FETCH_REDIRECT;
++			msg.data.redirect = final;
++			fetch_send_callback(&msg, f->fetch_handle);
++			f->stopped = true;
++		} else if (f->held_len > 0) {
++			f->replay = true;
++			fetch_curl_data(f->held, 1, f->held_len, f);
++		}
++		if (final_url != NULL) {
++			nsurl_unref(final_url);
++		}
++	}
++#endif
++
+ 	if ((abort_fetch == false) &&
+ 	    (result == CURLE_OK ||
+ 	     ((result == CURLE_WRITE_ERROR) && (f->stopped == false)))) {
+@@ -1806,6 +1865,11 @@
+ 	CURLcode code;
+ 	fetch_msg msg;
+ 
++#ifdef __dolly__
++	if (!f->replay) {
++		return netsurf_hold(&f->held, &f->held_len, data, size * nmemb);
++	}
++#endif
+ 	/* ensure we only have to get this information once */
+ 	if (!f->http_code) {
+ 		code = curl_easy_getinfo(f->curl_handle, CURLINFO_HTTP_CODE,
+@@ -2124,6 +2188,12 @@
+ 		}
+ 	}
+ 
++#ifdef __dolly__ /* site:/FILE, a file of the site this release is served from (curl-dolly.h) */
++	if (lwc_intern_string("site", SLEN("site"), &scheme) == lwc_error_ok &&
++	    fetcher_add(scheme, &fetcher_ops) != NSERROR_OK) {
++		NSLOG(netsurf, INFO, "Unable to register cURL fetcher for site");
++	}
++#endif
+ 	return NSERROR_OK;
+ 
+ curl_easy_setopt_failed:
 --- a/netsurf/frontends/windows/about.c
 +++ b/netsurf/frontends/windows/about.c
 @@ -94,7 +94,7 @@

@@ -63,26 +63,46 @@ NetSurf is its first use by the desktop). No contract was changed for it.
 NetSurf's own `content/fetchers/curl.c` is compiled as it is, behind
 `curl-dolly.h`, which names the refusals of that libcurl NetSurf can live
 with (connection timing and tuning, HTTP/1.1 preference, TLS session reuse,
-proxy, cookie and multipart body when turned off, two pool sizes) and
-repeats `curl_multi_perform` while more is ready. What follows from fetching
-with the browser's `fetch`:
+proxy, cookie and multipart body when turned off, two pool sizes), repeats
+`curl_multi_perform` while more is ready, asks libcurl to follow redirects,
+and lets only CORS-safelisted request headers through. What follows from
+fetching with the browser's `fetch`:
 
 - an address is fetched only if the page's HTTP policy admits it and the
   browser's rules do: this site's own origin, or a site that sends CORS
-  headers. Any other, and `http:` from an `https:` page, ends in NetSurf's
+  headers. NetSurf's requests are made "simple" for that: its `Pragma:`
+  (libcurl's way to drop a header, which reaches `fetch` as a header), its
+  cache validators, `Referer` and `DNT` made the browser send a preflight,
+  which static hosts do not answer, so only `Accept`, `Accept-Language`,
+  `Content-Language` and a form's `Content-Type` are kept. A changed page is
+  therefore fetched whole again, never revalidated. Any other, and `http:` from an `https:` page, ends in NetSurf's
   error page with libcurl's message ("Browser could not fetch the URL:
   blocked (no CORS headers, or a redirect) or unreachable …"). Most of the
-  web is in that class, the links of NetSurf's welcome page included;
-- a redirect ends there too: NetSurf follows redirects itself and does not
-  ask libcurl to, and the broker refuses one that is not followed;
+  web is in that class;
+- redirects are libcurl's to follow, not NetSurf's: the broker refuses one
+  the request did not ask to follow. Under the page's default policy it is
+  followed; libcurl names the last address only when the transfer is done,
+  so NetSurf keeps the body back until then and, if the address differs, is
+  redirected to it as by a 303 (one more request; the address bar and
+  relative links are then right). A page therefore appears when it has
+  arrived whole. Under an explicit policy rule no redirect is followed and
+  the address ends in the error page;
 - cookies stay with the browser: NetSurf neither sees nor sends any;
 - a multipart form post fails (`CURLE_NOT_BUILT_IN`); proxies, certificate
   choices and client certificates do not exist.
 
-The home page is NetSurf's own welcome page, from its resources. A page of
-the site Dolly was loaded from is not possible as it stands: the broker
-takes `/vVERSION/FILE` for a file of that site but tells a program the path
-it asked for, never the origin, and NetSurf opens absolute URLs only.
+**`site:/FILE`** is a file of the site this release is served from,
+wherever that is: the broker takes the path `/vVERSION/FILE` for it and
+never tells a program the origin, so NetSurf has a scheme for it, fetched by
+the same curl fetcher. The version is the one the image was built for
+(`version.h`, staged as `amy`'s is). The home page is `site:/`, the release's
+landing page; its relative links stay in the scheme (`site:/licences/`).
+NetSurf spells such an address `site:///…`, as it does `file:///…`. Where
+the site itself redirects a `site:` address (a directory without its slash),
+the broker still reports the path asked for, and relative links resolve
+against that. Home in the toolbar returns to `site:/`. The landing page's
+links to image pages lead to JavaScript applications, of which NetSurf, with
+no JavaScript engine, shows the empty dark background; Back returns.
 
 Measured in Chrome with a local server: a page with its style sheet, a PNG
 and a JPEG is drawn 210 ms after Enter. The image grew by 2.9 MB (178.9 MB);
@@ -101,10 +121,13 @@ own `gen_parser` for 119 parsers); `netsurf-dolly.patch` changes nine files:
 - its settings live in `C:\NetSurf` and no download directory is preset:
   shell32's folder lookup needs ole32;
 - `<io.h>` and its own `realpath` are left out;
-- a multipart post fails instead of posting something else.
+- in its curl fetcher: a multipart post fails instead of posting something
+  else; `site:` is registered and accepted without a host; the body is kept
+  until libcurl has named the last address (above).
 
 Not done: downloads to a file and the settings dialogs were not tried; the
-toolbar's activity animation does not show.
+toolbar's activity animation does not show; Select All and Edit > Copy run
+but the text reaches no clipboard.
 
 ## x86-64 programs
 

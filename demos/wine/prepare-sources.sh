@@ -10,6 +10,8 @@ if has_image wine-build; then
   for licence in "${netsurf_dir}"/lib*/COPYING; do
     netsurf_licences+=("${licence}" "/usr/share/licenses/netsurf/$(basename "$(dirname "${licence}")")-COPYING")
   done
+  # NetSurf's site: addresses are files of the version it was built for, as amy's index is.
+  node -p '`#define DOLLY_VERSION "${require("./package.json").version}"`' > "${staging}/netsurf-version.h"
   wine_port_inputs=()
   for entry in Makefile module.mk config.h shared-names.txt winebuild-dolly.c port dlls programs; do
     wine_port_inputs+=("demos/wine/${entry}" "/usr/src/dolly/wine/${entry}")
@@ -23,6 +25,7 @@ if has_image wine-build; then
     "${mspaint_dir}" /usr/src/dolly/wine/programs/mspaint \
     "${mspaint_dir}/COPYING.LIB" /usr/share/licenses/reactos-paint/COPYING.LIB \
     "${netsurf_dir}" /usr/src/dolly/wine/programs/netsurf \
+    "${staging}/netsurf-version.h" /usr/src/dolly/wine/programs/netsurf/version.h \
     "${netsurf_dir}/netsurf/COPYING" /usr/share/licenses/netsurf/COPYING \
     "${netsurf_licences[@]}" \
     "${jpeg_dir}" /usr/src/dolly/wine/programs/netsurf/jpeg \

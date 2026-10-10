@@ -5,8 +5,10 @@
 // it changed. Then, from the shell, a console program that uses files, a thread
 // and an event through wineserver, and the x86-64 TinyCC compiling and running C.
 // In a second session NetSurf, started from the Start menu, fetches pages of this
-// test's server through libcurl and the page's HTTP policy; the test reads the
-// colours it lays out and the server's log of its requests.
+// test's server through libcurl and an HTTP policy of explicit rules; the test
+// reads the colours it lays out and the server's log of its requests. In a third,
+// under the page's default policy, its home page is the site's own landing page
+// and a redirect is followed.
 // Usage: node demos/wine/test/wine-browser.mjs
 import assert from "node:assert/strict";
 import { mkdir, readFile } from "node:fs/promises";
@@ -37,15 +39,22 @@ async function at(page, x, y) {
 }
 const click = async (page, x, y) => page.mouse.click(...await at(page, x, y));
 
-// NetSurf's pages: demos/wine/test/fixtures/netsurf, each request for them noted.
+// NetSurf's pages: demos/wine/test/fixtures/netsurf, each request for them noted, and one address
+// that redirects to the second page from a directory below.
 const requests = [];
+const fixture = name => readFile(new URL(`fixtures/netsurf/${name}`, import.meta.url));
+const fixtureType = name => ({ html: "text/html", css: "text/css", png: "image/png", jpg: "image/jpeg" })[name.split(".").pop()];
 async function serveNetsurfFixtures(request, response, path, headers) {
-  const [, name, extension] = path.match(/^\/fixture\/netsurf\/([a-z]+\.(html|css|png|jpg))$/) ?? [];
+  if (!path.startsWith("/fixture/netsurf/")) return false;
+  requests.push(`${request.method} ${path.slice("/fixture/netsurf/".length)}`);
+  if (path === "/fixture/netsurf/moved/page.html") {
+    response.writeHead(302, { ...headers, location: "../second.html" }).end();
+    return true;
+  }
+  const [, name] = path.match(/^\/fixture\/netsurf\/([a-z]+\.(html|css|png|jpg))$/) ?? [];
   if (!name) return false;
-  requests.push(`${request.method} ${name}`);
-  response.writeHead(200, { ...headers,
-    "content-type": { html: "text/html", css: "text/css", png: "image/png", jpg: "image/jpeg" }[extension] });
-  response.end(await readFile(new URL(`fixtures/netsurf/${name}`, import.meta.url)));
+  response.writeHead(200, { ...headers, "content-type": fixtureType(name) });
+  response.end(await fixture(name));
   return true;
 }
 // The pixels of the frame near a colour: how many, and the box around them.
@@ -70,11 +79,19 @@ async function until(check, what, timeout = 60_000) {
   throw new Error(`timed out waiting for ${what}`);
 }
 
-// Another origin, whose replies carry no CORS headers: the policy admits it, the browser's fetch does not.
-const refused = [];
-const elsewhere = createServer((request, response) => {
-  refused.push(request.url);
-  response.writeHead(200, { "content-type": "text/html" }).end("<title>never shown</title>");
+// Another origin that behaves as a static host does: it answers GET with Access-Control-Allow-Origin
+// and gives no leave to a preflight. One address there carries no CORS header at all. What it is
+// asked, and with which headers, is noted.
+const elsewhereAsked = [], elsewhereHeaders = new Set();
+const elsewhere = createServer(async (request, response) => {
+  elsewhereAsked.push(`${request.method} ${request.url}`);
+  const name = request.url.slice(1);
+  if (request.method !== "GET") response.writeHead(405).end();
+  else if (name === "nocors.html") response.writeHead(200, { "content-type": "text/html" }).end("<title>never shown</title>");
+  else if (/^[a-z]+\.(html|css|png|jpg)$/.test(name)) {
+    for (const header of Object.keys(request.headers)) elsewhereHeaders.add(header);
+    response.writeHead(200, { "content-type": fixtureType(name), "access-control-allow-origin": "*" }).end(await fixture(name));
+  } else response.writeHead(404, { "access-control-allow-origin": "*" }).end();
 });
 await new Promise(listening => elsewhere.listen(0, "127.0.0.1", listening));
 const elsewhereOrigin = `http://127.0.0.1:${elsewhere.address().port}`;
@@ -83,7 +100,7 @@ await demoTest("wine", { image: "wine", timeout: 600_000, server: { handle: serv
   await mkdir(evidence, { recursive: true });
   for (const [name, session, options] of [["desktop", run, {}], ["netsurf", netsurf, { policy: { rules: [
     { origin: server.origin, pathPrefix: "/fixture/netsurf/", methods: ["GET"] },
-    { origin: elsewhereOrigin, pathPrefix: "/", methods: ["GET"] }] } }]]) {
+    { origin: elsewhereOrigin, pathPrefix: "/", methods: ["GET"] }] } }], ["site", site, {}]]) {
     const { page, prompt, start, waitText } = await open({ prompt: null, ...options });
     try { await session(page, prompt, start, waitText, server); }
     catch (error) { await page.screenshot({ path: `${evidence}failure-${name}.png` }); throw error; }
@@ -102,8 +119,7 @@ async function netsurf(page, prompt, start, waitText, server) {
   await delay(700);
   await page.keyboard.press("s");
   await pixelIs(page, 600, 58, white);        // its address bar, in the toolbar of a window at 0,0
-  await delay(1500);                          // the welcome page, from its resources
-  await page.screenshot({ path: `${evidence}netsurf-welcome.png` });
+  await delay(1500);                          // (its home page is the site's, which these rules do not admit)
 
   await click(page, 600, 58);
   await page.keyboard.press("Home");
@@ -135,14 +151,39 @@ async function netsurf(page, prompt, start, waitText, server) {
   await until(async () => (await coloured(page, purple)).count > 100_000, "the second page after Forward");
   console.log(`wine: NetSurf fetched a page, its style sheet, a PNG and a JPEG through libcurl and drew them ${Math.round(rendered)} ms after Enter; link, Back and Forward work`);
 
-  // An address the browser's CORS rules refuse: NetSurf's own error page, as its window title says.
+  // An explicit rule follows no redirect: the address that redirects ends in NetSurf's error page.
+  await click(page, 600, 58);
+  await page.keyboard.press("Home");
+  await page.keyboard.press("Shift+End");
+  await page.keyboard.type(`${server.origin}/fixture/netsurf/moved/page.html`, { delay: 10 });
+  await page.keyboard.press("Enter");
+  await until(async () => (await coloured(page, purple)).count === 0, "the second page to go");
+  await until(() => requests.includes("GET moved/page.html"), "the request that is redirected");
+  await delay(1000);
+  await click(page, 18, 58);
+  await until(async () => (await coloured(page, purple)).count > 100_000, "the second page after Back");
+
+  // The other origin, a static host: NetSurf's requests carry only headers a browser sends without
+  // asking that site's leave first, so the page, its style sheet and its images arrive and are drawn.
   await click(page, 600, 58);
   await page.keyboard.press("Home");
   await page.keyboard.press("Shift+End");
   await page.keyboard.type(`${elsewhereOrigin}/page.html`, { delay: 10 });
   await page.keyboard.press("Enter");
-  await until(async () => (await coloured(page, purple)).count === 0, "the second page to go");
-  await until(() => refused.length > 0, "the request to the other origin");
+  await until(async () => (await coloured(page, blue)).count === 12000, "the other origin's page");
+  await until(async () => (await coloured(page, green)).count === 9600, "the other origin's PNG");
+  assert.deepEqual(elsewhereAsked.filter(asked => !asked.startsWith("GET ")), [], "no preflight was sent");
+  const unsafe = [...elsewhereHeaders].filter(header => !/^(accept|accept-encoding|accept-language|connection|host|origin|referer|user-agent|sec-.*)$/.test(header));
+  assert.deepEqual(unsafe, [], "only headers the browser sets itself, and safelisted ones");
+
+  // An address there that the browser's CORS rules refuse: NetSurf's own error page, as its window title says.
+  await click(page, 600, 58);
+  await page.keyboard.press("Home");
+  await page.keyboard.press("Shift+End");
+  await page.keyboard.type(`${elsewhereOrigin}/nocors.html`, { delay: 10 });
+  await page.keyboard.press("Enter");
+  await until(async () => (await coloured(page, blue)).count === 0, "the other origin's page to go");
+  await until(() => elsewhereAsked.includes("GET /nocors.html"), "the request for the address without CORS headers");
   await delay(1500);
   await page.screenshot({ path: `${evidence}netsurf-refused.png` });
 
@@ -153,11 +194,57 @@ async function netsurf(page, prompt, start, waitText, server) {
   await page.keyboard.press("u");
   await prompt(shellPrompt);
   const log = await waitText(/the Wine desktop was shut down/);
-  for (const title of ["Fixture one  -  NetSurf", "Fixture two  -  NetSurf", "Error occurred fetching page  -  NetSurf"]) {
+  for (const title of ["Fixture one  -  NetSurf", "Fixture two  -  NetSurf"]) {
     assert.ok(log.includes(`"${title}"`), `the desktop listed a window titled ${title}`);
   }
-  assert.deepEqual(refused, ["/page.html"]);
-  console.log("wine: an address without CORS headers ends in NetSurf's error page, after one request");
+  // The error page three times: the home page these rules do not admit, the redirect, the other origin.
+  assert.equal(log.split('"Error occurred fetching page  -  NetSurf"').length - 1, 3);
+  assert.equal(elsewhereAsked.filter(asked => asked === "GET /nocors.html").length, 1);
+  // What that page says is libcurl's message for the address, which curl prints for the same address.
+  const told = start(`curl ${elsewhereOrigin}/nocors.html`);
+  await waitText(/Browser could not fetch the URL: blocked \(no CORS headers, or a redirect\)/);
+  assert.notEqual(await told.done, 0);
+  console.log("wine: NetSurf drew a page of another origin without a preflight; a redirect under an explicit rule and an address without CORS headers end in its error page");
+}
+
+// NetSurf under the page's default policy: its home page is the landing page of the site this
+// release is served from (site:/), whose links load; a redirect is followed to its last address.
+async function site(page, prompt, start, waitText, server) {
+  const dark = [0x26, 0x26, 0x26], purple = [0x60, 0x20, 0x80];
+  await page.waitForFunction(() => __dolly.transport.graphicsActive(), null, { timeout: 120_000 });
+  const [, height] = await frameSize(page);
+  await pixelIs(page, 640, height - 6, face);
+  await click(page, 30, height - 14);
+  await delay(700);
+  await page.keyboard.press("s");
+  await until(async () => (await coloured(page, dark)).count > 200_000, "the site's landing page");
+  await page.screenshot({ path: `${evidence}netsurf-home.png` });
+  await click(page, 495, 293);                // "Licences and sources", in the row of links under IMAGES
+  await delay(2500);
+  await click(page, 18, 58);                  // Back
+  await delay(2000);
+
+  await click(page, 600, 58);
+  await page.keyboard.press("Home");
+  await page.keyboard.press("Shift+End");
+  await page.keyboard.type(`${server.origin}/fixture/netsurf/moved/page.html`, { delay: 10 });
+  await page.keyboard.press("Enter");
+  // Its style sheet is asked for beside the page it was redirected to, not beside the address typed.
+  await until(async () => (await coloured(page, purple)).count > 100_000, "the page the redirect leads to");
+  assert.ok(!requests.includes("GET moved/style.css"));
+  await click(page, 81, 58);                  // Home
+  await until(async () => (await coloured(page, dark)).count > 200_000, "the landing page after Home");
+  await delay(1000);
+
+  await page.keyboard.press("Alt+F4");
+  await delay(1000);
+  await click(page, 30, height - 14);
+  await delay(700);
+  await page.keyboard.press("u");
+  await prompt(shellPrompt);
+  const log = await waitText(/the Wine desktop was shut down/);
+  assert.match(log, /"Dolly  -  NetSurf"[\s\S]*"Licences and sources . Dolly  -  NetSurf"[\s\S]*"Dolly  -  NetSurf"[\s\S]*"Fixture two  -  NetSurf"[\s\S]*"Dolly  -  NetSurf"/);
+  console.log("wine: NetSurf's home page is the site's own landing page; a link on it loads, a redirect is followed to its last address, Home returns");
 }
 
 async function run(page, prompt, start, waitText) {
