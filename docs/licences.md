@@ -59,6 +59,13 @@ entry.
 - Git (GPL-2.0-only) links curl's API over Dolly's fetch-backed libcurl and
   zlib; Emacs (GPL-3.0-or-later) has no GPL-incompatible dependency. No
   program links GNU readline or ncurses.
+- `wine` is one executable, so the licences of all it links meet in it: Wine
+  and ReactOS Paint (LGPL-2.1-or-later), GLib, ATK, Pango, GTK+ and libart
+  (LGPL-2.0-or-later), FreeType (taken under GPL-2.0), libpng, IJG libjpeg,
+  fontconfig and Expat (permissive), GIMP (GPL-2.0-or-later) and NetSurf with
+  its libraries (GPL-2.0-only). As a whole it is GPL-2.0-only. Every source
+  is in the served `wine/source.tar.gz` and each licence under
+  `/usr/share/licenses`; TinyCC's win64 release is data beside it, not linked.
 - less links GNU termcap (GPL-2.0-or-later) statically, so the program is a
   GPL one. less itself is taken under its own two-clause licence, which the
   GPL admits; its `LICENSE` and termcap's `COPYING` are in the package.

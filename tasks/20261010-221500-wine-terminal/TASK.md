@@ -1,6 +1,6 @@
 # A terminal in the Wine image, and editing, recompiling and running a window program
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 130
 - TAGS: wine,demo,terminal
 
@@ -36,3 +36,31 @@ Given to the same agent, in this order:
    put there appears and opens on a double-click, and the owner's compiled program can be put
    there and started.
 6. `README.txt` on the desktop: how to change, recompile, run and place the program.
+
+## Result (2026-10-11)
+
+Commits `519958ae`, `5fc403b7`, `88ab27e6`, `b31e15e5`, `5d274072`, `ea21e73a`, `5f104d0e`,
+merged in `56b0223b`. The test at the last of them, in Chrome (147 s) and Firefox (154 s): "the
+terminal ran cmd's commands, a console program and an x86-64 one with their exit codes, and
+refused what one process cannot do; the x86-64 sample started again after it had ended, from the
+desktop and the prompt; hello_win.c, edited in Notepad, was compiled by tcc in 607 ms and showed
+its new text, also from a shortcut made on the desktop and from a copy in the Desktop folder".
+
+- The bug: the interpreter was not taken. The first run's window class was still registered, so
+  the second run's `RegisterClass` failed and TinyCC's example returns without a word. A
+  program's classes are now freed at every start. The desktop says in a box when a program is
+  busy; the prompt and the file manager already did.
+- The desktop is `Z:\home\dolly\Desktop` (`Desktop` from the prompt), listed four times a
+  second, its icons by name. The eight shortcuts are real `.lnk` files written by shell32 at
+  image build; a `.lnk` opens by its target, an `.exe` under `x86emu`, a directory in the file
+  manager, a `.bmp` in Paint, anything else in Notepad. The owner's program goes there by
+  `copy hello_win.exe Desktop` or by the desktop's right-click "New Shortcut...".
+- `README.txt` on the desktop says the steps; each is in the test.
+- The integrator, on the served copy: the desktop's sample, closed; `tcc hello_win.c`,
+  `copy hello_win.exe Desktop`, `hello_win`, closed, `hello_win` again: a window each time.
+
+Still so, each refused with a message: a running program is not started a second time, one
+x86-64 program runs at a time (so `tcc` waits for the compiled program to be closed), no `start`
+and no second `cmd`. Of a shortcut only target and arguments are used. Icons are not dragged,
+renamed or deleted on the desktop. A key typed at once after clicking another program's window
+can be lost (the test waits 300 ms).

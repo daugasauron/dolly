@@ -25,5 +25,5 @@ README. Demos may use each other; the core never uses a demo.
 - [speech](speech/README.md): speech to text from the microphone, and Pi on a phone with speech and buttons in place of a keyboard.
 - [studio](studio/README.md): Dollyfile Studio.
 - [sysroot](sysroot/README.md): the libraries every program links, rebuilt inside Dolly and held against the seed's.
-- [wine](wine/README.md): Wine 4.0.4 as one wasm64 process: a desktop with Notepad, WineMine, ReactOS Paint and the NetSurf browser (fetching through libcurl), and an interpreter for small x86-64 Windows programs.
+- [wine](wine/README.md): Wine 4.0.4 as one wasm64 process: a desktop that is a folder, with Notepad, WineMine, ReactOS Paint, GIMP 2.2, the NetSurf browser (fetching through libcurl), a Command Prompt, and an interpreter for small x86-64 Windows programs with TinyCC to compile them.
 - [zero-ad](zero-ad/README.md): 0 A.D. Release 28 and its OpenAL build.
