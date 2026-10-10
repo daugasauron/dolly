@@ -164,7 +164,7 @@
  
  				/* compute length */
  				required_len = WideCharToMultiByte(
-@@ -94,7 +94,7 @@
+@@ -94,22 +94,22 @@
  		  int n_styles)
  {
  	HGLOBAL hglbCopy;
@@ -173,7 +173,11 @@
  	int content_len; /* characters in content */
  
  	if (OpenClipboard(NULL)) {
-@@ -105,7 +105,7 @@
+ 		EmptyClipboard();
+ 		content_len = MultiByteToWideChar(CP_UTF8,
+-						  MB_PRECOMPOSED,
++						  0, /* with CP_UTF8 any other flag is refused */
+ 						  buffer, length,
  						  NULL, 0);
  
  		hglbCopy = GlobalAlloc(GMEM_MOVEABLE,
@@ -182,6 +186,11 @@
  		if (hglbCopy != NULL) {
  			content = GlobalLock(hglbCopy);
  			MultiByteToWideChar(CP_UTF8,
+-					    MB_PRECOMPOSED,
++					    0, /* with CP_UTF8 any other flag is refused */
+ 					    buffer, length,
+ 					    content, content_len);
+ 			content[content_len] = 0; /* null terminate */
 --- a/netsurf/frontends/windows/download.c
 +++ b/netsurf/frontends/windows/download.c
 @@ -155,7 +155,7 @@
@@ -247,7 +256,31 @@
  	if (hres != S_OK) {
  		return NSERROR_INVALID;
  	}
-@@ -206,11 +210,15 @@
+@@ -116,7 +120,23 @@
+ 		}
+ 	}
+ 
++#ifdef __dolly__ /* NetSurf opens its files with the C library, which wants that directory's Unix name */
++	{
++		extern char *wine_get_unix_file_name(const WCHAR *dos);
++		WCHAR wide[MAX_PATH];
++		char *unix_name;
++
++		MultiByteToWideChar(CP_ACP, 0, adPath, -1, wide, MAX_PATH);
++		unix_name = wine_get_unix_file_name(wide);
++		*config_home_out = unix_name ? strdup(unix_name) : NULL;
++		HeapFree(GetProcessHeap(), 0, unix_name);
++		if (*config_home_out == NULL) {
++			return NSERROR_NOT_FOUND;
++		}
++	}
++#else
+ 	*config_home_out = strdup(adPath);
++#endif
+ 
+ 	NSLOG(netsurf, INFO, "using config path \"%s\"", *config_home_out);
+ 
+@@ -206,11 +226,15 @@
  	 */
  	buf[0] = '\0';
  
@@ -263,7 +296,7 @@
  	if (hres == S_OK) {
  		if (PathAppend(buf, dldir)) {
  			nsoption_setnull_charp(downloads_directory,
-@@ -325,6 +333,14 @@
+@@ -325,6 +349,14 @@
   */
  static nserror win32_to_unix_commandline(int *argc_out, char ***argv_out)
  {
@@ -278,7 +311,7 @@
  	int argc = 0;
  	char **argv;
  	int cura;
-@@ -366,6 +382,7 @@
+@@ -366,6 +398,7 @@
  	*argv_out = argv;
  
  	return NSERROR_OK;
@@ -286,6 +319,16 @@
  }
  
  
+@@ -393,7 +426,9 @@
+ 		.clipboard = win32_clipboard_table,
+ 		.download = win32_download_table,
+ 		.fetch = win32_fetch_table,
++#ifndef __dolly__ /* paths are the C library's here: NetSurf's own file operations for Unix */
+ 		.file = win32_file_table,
++#endif
+ 		.utf8 = win32_utf8_table,
+ 		.bitmap = win32_bitmap_table,
+ 		.layout = win32_layout_table,
 --- a/netsurf/frontends/windows/prefs.c
 +++ b/netsurf/frontends/windows/prefs.c
 @@ -145,7 +145,7 @@
@@ -335,3 +378,13 @@
  			       WS_OVERLAPPEDWINDOW |
  			       WS_CLIPCHILDREN |
  			       WS_CLIPSIBLINGS |
+@@ -380,7 +380,8 @@
+ {
+ 	RECT rc;
+ 	GetClientRect(hwnd, &rc);
+-	rc.left += NSW32_PGIBUTTON_HEIGHT;
++	/* past the page info button, which is centred in a strip as wide as the bar is high */
++	rc.left += NSWS_URLBAR_HEIGHT;
+ 	SendMessage(hwnd, EM_SETRECT, 0, (LPARAM)&rc);
+ 	NSLOG(netsurf, DEBUG, "left:%ld right:%ld top:%ld bot:%ld",
+ 	      rc.left,rc.right,rc.top,rc.bottom);

@@ -223,3 +223,29 @@ works and is stable".
 
 Chrome: the test passes in 44.9 s (three sessions); Firefox, run once: 48.2 s (it sends a `Priority`
 header of its own, which the test admits). Images build in 211.0 s; `wine` is 178.9 MB.
+
+### 2026-10-10, third round: small things
+
+- **Hermetic test.** The default-policy session wrote `homepage_url:site:/` into NetSurf's `Choices`
+  before starting it, and NetSurf still opened its compiled-in home page: it never read the file.
+  It opens its own files with the C library (`fopen("C:\\NetSurf\\Choices")`), which here is
+  Dolly's and does not know Windows paths. It is now given the Unix name of that directory
+  (`wine_get_unix_file_name`) and NetSurf's Unix file operations instead of the Windows ones.
+  Measured: the log says "Successfully opened '…/dosdevices/c:/NetSurf/Choices'", the home page is
+  the site's landing page, and Home in the toolbar returns to it from the redirected page (title
+  sequence read from the desktop's list). No test run asks an outside site now.
+- **Address bar.** The edit control's text began 16 pixels in, the page info button ends at 19: the
+  margin is now the bar's height (23). The test finds no ink in the three columns between the
+  button and the address, and ink in the address.
+- **Copy.** Two causes, neither in the driver's clipboard: NetSurf converted with `MB_PRECOMPOSED`,
+  which `MultiByteToWideChar` refuses for UTF-8, so it put an empty string on the clipboard (after
+  the fix a watcher in the shell's thread read 1,013 characters from it); and my check last round
+  pasted with Ctrl+V, a chord the Dolly page keeps for the browser's clipboard and never sends as a
+  key. Wine's clipboard works between its programs through their menus. The driver now also takes
+  the text the page hands on (a paste, composed text) and sends it as typed characters; the test
+  pushes a paste into Notepad and reads a second line of ink. What is missing for a copy to reach
+  the browser's clipboard is a call in `display@0`/`input@0` by which the program holding the
+  display offers text on the user's copy; only the terminal's selection has one.
+- **The error page's text is now read off the page**: Select All and Edit > Copy in NetSurf,
+  Edit > Paste in Notepad, saved through the file dialog, and `cat` in the shell shows "Browser
+  could not fetch the URL: blocked (no CORS headers, or a redirect)". The `curl` stand-in is gone.

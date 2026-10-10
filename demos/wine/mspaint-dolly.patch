@@ -1,0 +1,22 @@
+--- a/mouse.c
++++ b/mouse.c
+@@ -323,6 +323,7 @@
+                 placeSelWin();
+                 ShowWindow(hSelection, SW_SHOW);
+                 ForceRefreshSelectionContents();
++                SetFocus(hwndEditCtl); /* what is typed next is the box's text */
+             }
+             break;
+         case TOOL_RUBBER:
+--- a/textedit.c
++++ b/textedit.c
+@@ -45,6 +45,9 @@
+             MoveWindow(hwndEditCtl, clientRect.left, clientRect.top, RECT_WIDTH(clientRect), RECT_HEIGHT(clientRect), TRUE);
+             break;
+         }
++        case WM_SETFOCUS: /* the keys are the edit control's */
++            SetFocus(hwndEditCtl);
++            break;
+         case WM_CLOSE:
+             ShowWindow(hwnd, SW_HIDE);
+             break;

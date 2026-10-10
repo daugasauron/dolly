@@ -153,6 +153,9 @@ async function netsurf(page, prompt, start, waitText, server) {
   assert.ok(jpeg.count < 9700, `the JPEG covers ${jpeg.count} pixels`);
   await page.screenshot({ path: `${evidence}netsurf.png` });
   assert.deepEqual([...new Set(requests)].sort(), ["GET green.png", "GET page.html", "GET red.jpg", "GET style.css"]);
+  // The address is written clear of the page info button at the left of its bar.
+  assert.equal(await dark(page, 187, 50, 3, 16), 0, "no ink between the button and the address");
+  assert.ok(await dark(page, 190, 50, 300, 16) > 100, "the address is drawn");
 
   // The link, then the toolbar's back and forward.
   const link = await coloured(page, yellow);
@@ -200,6 +203,32 @@ async function netsurf(page, prompt, start, waitText, server) {
   await until(() => elsewhereAsked.includes("GET /nocors.html"), "the request for the address without CORS headers");
   await delay(1500);
   await page.screenshot({ path: `${evidence}netsurf-refused.png` });
+  // What the page says, read off it: Select All, Edit > Copy, then into Notepad by its Edit > Paste
+  // and from there into a file.
+  await click(page, 500, 450);
+  await page.keyboard.press("Control+a");
+  await delay(500);
+  await click(page, 46, 34);
+  await delay(700);
+  await page.keyboard.press("c");
+  await delay(700);
+  await click(page, 30, height - 14);
+  await delay(700);
+  await page.keyboard.press("n");
+  await pixelIs(page, 100, 300, white);
+  await click(page, 100, 300);
+  await click(page, 46, 34);
+  await delay(700);
+  await page.keyboard.press("p");
+  await until(async () => await dark(page, 8, 46, 600, 120) > 300, "the copied text in Notepad");
+  await page.keyboard.press("Control+s");
+  await delay(1500);
+  await page.keyboard.type("C:\\refused.txt", { delay: 20 });
+  await page.keyboard.press("Enter");
+  await delay(1500);
+  await page.keyboard.press("Alt+F4");
+  await delay(1000);
+  await click(page, 500, 450);
 
   await page.keyboard.press("Alt+F4");
   await delay(1000);
@@ -208,16 +237,12 @@ async function netsurf(page, prompt, start, waitText, server) {
   await page.keyboard.press("u");
   await prompt(shellPrompt);
   const log = await waitText(/the Wine desktop was shut down/);
-  for (const title of ["Fixture one  -  NetSurf", "Fixture two  -  NetSurf"]) {
-    assert.ok(log.includes(`"${title}"`), `the desktop listed a window titled ${title}`);
-  }
-  // The error page three times: the home page these rules do not admit, the redirect, the other origin.
-  assert.equal(log.split('"Error occurred fetching page  -  NetSurf"').length - 1, 3);
+  // The error page for the home page these rules do not admit, for the redirect, and for the other origin.
+  assert.match(log, /"Error occurred fetching page  -  NetSurf"[\s\S]*"Fixture one  -  NetSurf"[\s\S]*"Fixture two  -  NetSurf"[\s\S]*"Error occurred fetching page  -  NetSurf"[\s\S]*"Fixture two  -  NetSurf"[\s\S]*"Fixture one  -  NetSurf"[\s\S]*"Error occurred fetching page  -  NetSurf"/);
   assert.equal(elsewhereAsked.filter(asked => asked === "GET /nocors.html").length, 1);
-  // What that page says is libcurl's message for the address, which curl prints for the same address.
-  const told = start(`curl ${elsewhereOrigin}/nocors.html`);
+  const read = start("cat /home/dolly/.wine/drive_c/refused.txt");
   await waitText(/Browser could not fetch the URL: blocked \(no CORS headers, or a redirect\)/);
-  assert.notEqual(await told.done, 0);
+  assert.equal(await read.done, 0);
   console.log("wine: NetSurf drew a page of another origin without a preflight; a redirect under an explicit rule and an address without CORS headers end in its error page");
 }
 
@@ -227,18 +252,19 @@ async function site(page, prompt, start, waitText, server) {
   const dark = [0x26, 0x26, 0x26], purple = [0x60, 0x20, 0x80];
   await page.waitForFunction(() => __dolly.transport.graphicsActive(), null, { timeout: 120_000 });
   const [, height] = await frameSize(page);
+  const startMenu = async key => { await click(page, 30, height - 14); await delay(700); await page.keyboard.press(key); };
+  // No run of this test asks an outside site: NetSurf's home page, the owner's choice of one, is set to
+  // site:/ in its Choices file before it starts, from the shell the desktop leaves.
   await pixelIs(page, 640, height - 6, face);
-  await click(page, 30, height - 14);
-  await delay(700);
-  await page.keyboard.press("s");
-  await pixelIs(page, 600, 58, white);        // its address bar; the home page is an outside site
-  await delay(1500);
-  await click(page, 600, 58);
-  await page.keyboard.press("Home");
-  await page.keyboard.press("Shift+End");
-  await page.keyboard.type("site:/", { delay: 10 });
-  await page.keyboard.press("Enter");
-  await until(async () => (await coloured(page, dark)).count > 200_000, "the site's landing page");
+  await startMenu("u");
+  await prompt(shellPrompt);
+  assert.equal(await start("mkdir -p /home/dolly/.wine/drive_c/NetSurf").done, 0);
+  assert.equal(await start("echo homepage_url:site:/ > /home/dolly/.wine/drive_c/NetSurf/Choices").done, 0);
+  const session = start("wine desktop");
+  await page.waitForFunction(() => __dolly.transport.graphicsActive(), null, { timeout: 60_000 });
+  await pixelIs(page, 640, height - 6, face);
+  await startMenu("s");
+  await until(async () => (await coloured(page, dark)).count > 200_000, "the site's landing page as the home page");
   await page.screenshot({ path: `${evidence}netsurf-home.png` });
   await click(page, 495, 293);                // "Licences and sources", in the row of links under IMAGES
   await delay(2500);
@@ -254,16 +280,17 @@ async function site(page, prompt, start, waitText, server) {
   await until(async () => (await coloured(page, purple)).count > 100_000, "the page the redirect leads to");
   assert.ok(!requests.includes("GET moved/style.css"));
   await delay(1000);
+  await click(page, 81, 58);                  // Home, in the toolbar
+  await until(async () => (await coloured(page, dark)).count > 200_000, "the home page after Home");
+  await delay(1000);
 
   await page.keyboard.press("Alt+F4");
   await delay(1000);
-  await click(page, 30, height - 14);
-  await delay(700);
-  await page.keyboard.press("u");
-  await prompt(shellPrompt);
-  const log = await waitText(/the Wine desktop was shut down/);
-  assert.match(log, /"Dolly  -  NetSurf"[\s\S]*"Licences and sources . Dolly  -  NetSurf"[\s\S]*"Dolly  -  NetSurf"[\s\S]*"Fixture two  -  NetSurf"/);
-  console.log("wine: site:/ in NetSurf is the site's own landing page; a link on it loads, and a redirect is followed to its last address");
+  await startMenu("u");
+  assert.equal(await session.done, 0);
+  const log = await waitText(/"Fixture two  -  NetSurf"[\s\S]*"Dolly  -  NetSurf"/);
+  assert.match(log, /"Dolly  -  NetSurf"[\s\S]*"Licences and sources . Dolly  -  NetSurf"[\s\S]*"Dolly  -  NetSurf"[\s\S]*"Fixture two  -  NetSurf"[\s\S]*"Dolly  -  NetSurf"/);
+  console.log("wine: NetSurf's home page, set to site:/, is the site's own landing page; a link on it loads, a redirect is followed to its last address, Home returns");
   await fileManager(page, start, waitText);
 }
 
@@ -378,8 +405,22 @@ async function run(page, prompt, start, waitText) {
     for (let i = 0; i < data.length; i += 4) if (data[i] + data[i + 1] + data[i + 2] < 200) count++;
     return count > 150;
   }, null, { timeout: 30_000, polling: 250 });
-  await page.screenshot({ path: `${evidence}paint.png` });
   console.log(`wine: Paint drew ${await dark(page, 170, 200, 390, 290)} dark pixels along a dragged pencil line`);
+  // Its text tool: a box dragged on the image clear of the line; what is typed next is drawn in it
+  // (the keys go to the edit control of the text window Paint opens above).
+  await click(page, 144, 257);
+  await page.mouse.move(...await at(page, 380, 210));
+  await page.mouse.down();
+  await page.mouse.move(...await at(page, 550, 260), { steps: 8 });
+  await page.mouse.up();
+  await delay(1000);
+  const empty = await dark(page, 381, 211, 166, 46);
+  await page.keyboard.type("Dolly writes", { delay: 30 });
+  await until(async () => await dark(page, 381, 211, 166, 46) > empty + 60, "the typed text in Paint's text box");
+  await page.screenshot({ path: `${evidence}paint.png` });
+  console.log(`wine: Paint's text tool drew ${await dark(page, 381, 211, 166, 46) - empty} dark pixels of typed text into its box`);
+  await click(page, 119, 232);                // the pencil again: the text window goes
+  await delay(1000);
   await page.keyboard.press("Control+s");
   await delay(1500);
   await page.keyboard.type("C:\\dolly.bmp", { delay: 20 });
@@ -417,6 +458,10 @@ async function run(page, prompt, start, waitText) {
     return count > 300;
   }, null, { timeout: 30_000, polling: 250 });
   console.log(`wine: Notepad started from the Start menu and drew ${await dark(page, 12, 49, 400, 30)} dark pixels of typed text`);
+  // What the user pastes with Ctrl+V is the page's clipboard, which the page hands on as text: a second line.
+  const typed = await dark(page, 12, 49, 400, 60);
+  await page.evaluate(() => __dolly.inputTransport.pushPaste("\npasted from the page's clipboard"));
+  await until(async () => await dark(page, 12, 49, 400, 60) > typed + 200, "the pasted line in Notepad");
 
   // The page's cursor says what the pointer is over: Notepad's edges and corner, its text, the desktop.
   const cursorAt = async (x, y) => {
@@ -446,6 +491,7 @@ async function run(page, prompt, start, waitText) {
   // WineMine beside it: it opens over Notepad's corner and is dragged away by its caption.
   await startMenu("w");
   await pixelIs(page, 60, 50, black);
+  await delay(800);                           // long enough for the desktop to list it where it opened
   await page.screenshot({ path: `${evidence}desktop.png` });
   await page.mouse.move(...await at(page, 60, 12));
   await page.mouse.down();

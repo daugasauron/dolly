@@ -36,8 +36,12 @@ in about 190 s); test with `npm run test:demos -- wine`.
 ## Paint
 
 Wine has no Paint. `programs/mspaint` builds ReactOS's, from the 0.3.17
-release (the last line in which it is plain C; LGPL), unchanged: 45 files
-fetched at a pinned commit and checked against `mspaint.sha256`. It is a
+release (the last line in which it is plain C; LGPL): 45 files fetched at a
+pinned commit and checked against `mspaint.sha256`, with two added lines
+(`mspaint-dolly.patch`). Its text tool takes what is typed in a window of
+its own, which it opened without giving its edit control the keys, so
+nothing typed arrived; now the edit control has them once the text box is
+drawn, and whenever that window is activated. It is a
 program for the Windows headers, not part of Wine, so it is compiled without
 `__WINESRC__`. Of ReactOS's SDK it wants `<tchar.h>` and two resource
 includes; ours are in `programs/mspaint/` (`tchar.h` maps its seven wide
@@ -121,15 +125,23 @@ own `gen_parser` for 119 parsers); `netsurf-dolly.patch` changes nine files:
 - `main`'s arguments replace `CommandLineToArgvW`, which this Wine's shell32
   forwards to a DLL that is not linked;
 - its settings live in `C:\NetSurf` and no download directory is preset:
-  shell32's folder lookup needs ole32;
+  shell32's folder lookup needs ole32. NetSurf opens its own files
+  (`Choices`, cookies, history) with the C library, which is Dolly's and
+  takes Unix names: it is given that directory's Unix name and its own
+  Unix file operations, and `file:` addresses are Unix paths. Before that
+  nothing in `C:\NetSurf` was ever read or written;
+- copying text converts it with a flag Windows refuses for UTF-8
+  (`MB_PRECOMPOSED`): nothing reached the clipboard;
+- the address is written clear of the page info button, which it overlapped
+  by three pixels;
 - `<io.h>` and its own `realpath` are left out;
 - in its curl fetcher: a multipart post fails instead of posting something
   else; `site:` is registered and accepted without a host; the body is kept
   until libcurl has named the last address (above).
 
 Not done: downloads to a file and the settings dialogs were not tried; the
-toolbar's activity animation does not show; Select All and Edit > Copy run
-but the text reaches no clipboard.
+toolbar's activity animation does not show; File > Open's dialog answers
+with a Windows path, which the Unix file operations do not take.
 
 ## x86-64 programs
 
@@ -270,7 +282,14 @@ no `mmap` at a chosen address and no assembler. So:
   into a surface through Wine's DIB engine; one thread composes them in Z
   order over the desktop colour, presents the frame and queues Dolly's input
   records as hardware messages. The key a browser reports as typed is what
-  `ToUnicodeEx` answers, so the user's layout applies.
+  `ToUnicodeEx` answers, so the user's layout applies. Text the page sends
+  without keys (composed, or pasted) arrives as typed characters.
+- **The clipboard** is Wine's own, shared by its programs: Copy in one and
+  Paste in another work from their menus. Ctrl+V does not reach a program:
+  the Dolly page keeps that chord for the browser's clipboard and hands its
+  text on, which arrives as if typed. Nothing a program copies reaches the
+  browser's clipboard: `display@0` and `input@0` have no call for it (the
+  terminal's own selection has one).
 - **The desktop** is the ownerless window the server makes when there is no
   `explorer.exe` (`port/user32-desktop.c` names the driver for it).
 
@@ -305,7 +324,7 @@ compiled outside Dolly.
   ("function signature mismatch"). Timers were one; more will be found by
   use, each needs a patch.
 - **Not built**: bitmap fonts (`.fon`), translations, registration scripts
-  and type libraries; clipboard, printing, sound, networking, OpenGL.
+  and type libraries; printing, sound, OpenGL.
 - **ole32** is not linked, so anything that reaches into it (drag and drop,
   the Explorer-style file dialog, which is replaced as described above) ends
   with Wine's "unimplemented function" exception; in a program started from

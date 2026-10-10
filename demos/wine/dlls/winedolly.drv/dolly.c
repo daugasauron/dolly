@@ -24,6 +24,7 @@
 #define NONAMELESSUNION
 #define NONAMELESSSTRUCT
 #include "dolly.h"
+#include "winnls.h"
 #include "wine/gdi_driver.h"
 #include "wine/server.h"
 #include "wine/list.h"
@@ -331,6 +332,27 @@ static void send_pointer( const dolly_input_event *event )
     __wine_send_input( 0, &input );
 }
 
+/* Text without keys: composed, or pasted from the page's clipboard (the page keeps Ctrl+V for that,
+ * so Wine's own clipboard is pasted from a program's menu). Each character arrives as typed. */
+static void send_text( const dolly_input_event *event )
+{
+    WCHAR text[DOLLY_INPUT_EVENT_DATA_SIZE];
+    int i, len = MultiByteToWideChar( CP_UTF8, 0, (const char *)event->data + event->key_length + event->code_length,
+                                      event->text_length, text, ARRAY_SIZE(text) );
+
+    for (i = 0; i < len; i++)
+    {
+        INPUT input = { INPUT_KEYBOARD };
+
+        if (text[i] == '\r') continue;  /* a line ends in \n, which an edit control takes for the Enter key */
+        input.u.ki.wScan = text[i];
+        input.u.ki.dwFlags = KEYEVENTF_UNICODE;
+        __wine_send_input( 0, &input );
+        input.u.ki.dwFlags |= KEYEVENTF_KEYUP;
+        __wine_send_input( 0, &input );
+    }
+}
+
 static void send_scroll( const dolly_input_event *event )
 {
     /* a wheel notch is WHEEL_DELTA: three lines, or a hundred pixels */
@@ -364,6 +386,9 @@ static DWORD WINAPI device_thread( void *arg )
                 break;
             case DOLLY_INPUT_EVENT_KEY:
                 if (dolly_key_input( &event, &input )) __wine_send_input( 0, &input );
+                break;
+            case DOLLY_INPUT_EVENT_TEXT:
+                send_text( &event );
                 break;
             }
         }
