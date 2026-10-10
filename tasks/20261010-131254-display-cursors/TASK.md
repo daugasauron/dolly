@@ -1,6 +1,6 @@
 # More cursors for a program that holds the display
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 200
 - TAGS: host,display,wine
 
@@ -38,3 +38,9 @@ kernel refuses any other value.
 
 Not done: Wine's mapping and its test (the Wine worktree is on the released
 seed until it takes `main`); the rest of the catalog on this seed.
+
+## Closed (2026-10-11)
+
+The catalog was rebuilt on this seed in the v0.1.2 round (`tasks/20261011-011000-v012-draft`):
+every image, source tests 424/0, artifact checks 25/0, the core browser suite in Chrome and
+Firefox, every demo test and five GPU tests.

@@ -1,6 +1,6 @@
 # A host module that captures the microphone
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 220
 - TAGS: host,audio,browser-boundary
 
@@ -78,3 +78,9 @@ round), and with it `amy-browser.mjs`, the artifact tests and the demos.
 
 Not measured: a real microphone and the browsers' real prompts (headless
 tests use fake devices and preset answers); Safari.
+
+## Closed (2026-10-11)
+
+The catalog was rebuilt on this seed in the v0.1.2 round (`tasks/20261011-011000-v012-draft`):
+every image, source tests 424/0, artifact checks 25/0, the core browser suite in Chrome and
+Firefox, every demo test and five GPU tests. The owner's phone gave it a real microphone and Chrome's real prompt on 2026-10-10 (`pi-phone`: asked, allowed, capturing). Safari is still not measured.

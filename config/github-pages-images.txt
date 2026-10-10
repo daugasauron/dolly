@@ -1,13 +1,11 @@
 default
-bhop
-classicube
 gpu-fluid
 javascript
-pi
 python
-rust-tools
-slopyard
 cc
 git
 less
 audio-sdk
+wine
+neovim
+speech-to-text

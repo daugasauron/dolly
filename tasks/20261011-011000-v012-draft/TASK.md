@@ -57,3 +57,21 @@ Known in this draft: the phone's open items (`tasks/20261010-193000-phone-voice-
 The disk is at 12 GB free: `work/rust/build/pages-v0.1.0` (18 GB) and
 `work/rust/build/domain-releases` (19 GB) are local packagings of the two published versions,
 whose archive is `work/locks/published`; they were not removed without the owner's word.
+
+## Released at the owner's word (2026-10-11)
+
+Owner, on the draft: "Check and remove, then tag push and deploy. I want the wine thing to be
+available on github static page so might have to remove something else."
+
+- Checked and removed: `work/locks/published/v0.1.0` (2,276 files) and `v0.1.1` (2,369) each
+  match their own `deployment.sha256`; `work/rust/build/pages-v0.1.0/v0.1.0` matched the
+  archive's list file by file as a second copy, and `build/domain-releases` was v0.1.1's local
+  release before export. Both removed: 37 GB.
+- Wine on GitHub Pages: with `wine` added the subset was 1,102,560,175 bytes of 1,000,000,000
+  (its packs 55 MB, its sources 22 MB, and the FreeType and libpng it takes from 0 A.D.'s
+  dependencies with their sources, 36 MB). Nothing in the list but the Rust build chain is that
+  large: its sources (259 MB) and images (104 MB) come with Pi's tools, ripgrep and fd. So `pi`,
+  `bhop`, `classicube`, `slopyard` and `rust-tools`, which all carry it, left the GitHub list;
+  they stay on daugasauron.com and GitHub's menu links to them there. With the room that made,
+  `neovim` (left out of v0.1.1 for size only) and `speech-to-text` are in: 883,488,023 bytes.
+  The integrator's decision; the owner named Wine and that something else would have to go.
