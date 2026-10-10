@@ -173,7 +173,7 @@ async function netsurf(page, prompt, start, waitText, server) {
   await until(async () => (await coloured(page, blue)).count === 12000, "the other origin's page");
   await until(async () => (await coloured(page, green)).count === 9600, "the other origin's PNG");
   assert.deepEqual(elsewhereAsked.filter(asked => !asked.startsWith("GET ")), [], "no preflight was sent");
-  const unsafe = [...elsewhereHeaders].filter(header => !/^(accept|accept-encoding|accept-language|connection|host|origin|referer|user-agent|sec-.*)$/.test(header));
+  const unsafe = [...elsewhereHeaders].filter(header => !/^(accept|accept-encoding|accept-language|connection|host|origin|priority|referer|user-agent|sec-.*)$/.test(header));
   assert.deepEqual(unsafe, [], "only headers the browser sets itself, and safelisted ones");
 
   // An address there that the browser's CORS rules refuse: NetSurf's own error page, as its window title says.

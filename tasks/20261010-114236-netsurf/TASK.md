@@ -221,4 +221,5 @@ works and is stable".
   page, style sheet, PNG and JPEG; the test asserts that no request but `GET` arrived and that no
   header beyond the browser's own was sent. One address there has no CORS header, for the error page.
 
-Chrome: the test passes in 44.9 s (three sessions). Images build in 211.0 s; `wine` is 178.9 MB.
+Chrome: the test passes in 44.9 s (three sessions); Firefox, run once: 48.2 s (it sends a `Priority`
+header of its own, which the test admits). Images build in 211.0 s; `wine` is 178.9 MB.
