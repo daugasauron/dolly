@@ -7,8 +7,8 @@ REQUIRES HOST http@0
 REQUIRES HOST sockets@0
 REQUIRES HOST threads@0
 
-FROM /v0.1.1/demos/rust/Dollyfile-rust-build bce904a6f1cbb297cea656212c7f4fea8732797572c20336b7c98496a488e116
-INSTALL /v0.1.1/demos/rust/Dollyfile-protox b2f644d0cce45eac2035dd5e79dfb4eca625741cc716a361ce05653a3cacbd3f
+FROM /v0.1.2/demos/rust/Dollyfile-rust-build bce904a6f1cbb297cea656212c7f4fea8732797572c20336b7c98496a488e116
+INSTALL /v0.1.2/demos/rust/Dollyfile-protox b2f644d0cce45eac2035dd5e79dfb4eca625741cc716a361ce05653a3cacbd3f
 REQUIRES TOOL cargo
 REQUIRES TOOL cc
 REQUIRES TOOL cp
@@ -20,12 +20,12 @@ REQUIRES TOOL mkdir
 REQUIRES TOOL rm
 REQUIRES TOOL protox
 
-SOURCE /v0.1.1/dist/static/codex/sources-00.part 75a0781c2d72eda40ac9954af6b7fecb053475d26aeaac156ff6a2cdd5a18d4d /tmp/codex-sources-00.part
-SOURCE /v0.1.1/dist/static/codex/sources-01.part d8ee156478798198c61a80f69a1311a1e1d67f067cc4eeb467fae27584e1aa09 /tmp/codex-sources-01.part
-SOURCE /v0.1.1/dist/static/codex/sources-02.part 12919ad5f48d483605419b62286902f699b31ba7961e259a5dc0704ce395112c /tmp/codex-sources-02.part
-SOURCE /v0.1.1/dist/static/codex/sources-03.part b8e2339131e04743599de658edba6a0f0704774efcf0dca9e39d6734e5f8f71d /tmp/codex-sources-03.part
-SOURCE /v0.1.1/dist/static/codex/sources-04.part d9820a6b8c001824c5ce6e09065af654b271860cfa7604a072bb13749d203b9e /tmp/codex-sources-04.part
-SOURCE /v0.1.1/dist/static/codex/no-js.c 5b2a995a8f36f4917f40f39af9806be9d4646d90850585fbc8bd904ff18c45fd /tmp/codex-no-js.c
+SOURCE /v0.1.2/dist/static/codex/sources-00.part 75a0781c2d72eda40ac9954af6b7fecb053475d26aeaac156ff6a2cdd5a18d4d /tmp/codex-sources-00.part
+SOURCE /v0.1.2/dist/static/codex/sources-01.part d8ee156478798198c61a80f69a1311a1e1d67f067cc4eeb467fae27584e1aa09 /tmp/codex-sources-01.part
+SOURCE /v0.1.2/dist/static/codex/sources-02.part 12919ad5f48d483605419b62286902f699b31ba7961e259a5dc0704ce395112c /tmp/codex-sources-02.part
+SOURCE /v0.1.2/dist/static/codex/sources-03.part b8e2339131e04743599de658edba6a0f0704774efcf0dca9e39d6734e5f8f71d /tmp/codex-sources-03.part
+SOURCE /v0.1.2/dist/static/codex/sources-04.part d9820a6b8c001824c5ce6e09065af654b271860cfa7604a072bb13749d203b9e /tmp/codex-sources-04.part
+SOURCE /v0.1.2/dist/static/codex/no-js.c 5b2a995a8f36f4917f40f39af9806be9d4646d90850585fbc8bd904ff18c45fd /tmp/codex-no-js.c
 SLOP cat /tmp/codex-sources-00.part /tmp/codex-sources-01.part /tmp/codex-sources-02.part /tmp/codex-sources-03.part /tmp/codex-sources-04.part | gzip -dc - | tar -xf - -C /
 SLOP rm /tmp/codex-sources-00.part /tmp/codex-sources-01.part /tmp/codex-sources-02.part /tmp/codex-sources-03.part /tmp/codex-sources-04.part
 SLOP cc -O1 -c /tmp/codex-no-js.c -o /tmp/codex-no-js.o

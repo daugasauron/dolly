@@ -12,16 +12,16 @@ REQUIRES HOST snapshot@0
 REQUIRES HOST threads@0
 REQUIRES HOST upload@0
 
-FROM /v0.1.1/demos/pi/Dollyfile-pi-runtime bbe71083f68fb87515504051fbf44b0fa6a69287fe53748b19902f9d9775a135
+FROM /v0.1.2/demos/pi/Dollyfile-pi-runtime bbe71083f68fb87515504051fbf44b0fa6a69287fe53748b19902f9d9775a135
 REQUIRES TOOL foreground
 REQUIRES TOOL pi
-COPY /v0.1.1/demos/speech/Dollyfile-speech-build 3044104d3760e6d060a2cfb81f61db8be6930c58e23736fa9c5463e6c8d2604a /usr/bin/voice /usr/bin/voice
-COPY /v0.1.1/demos/speech/Dollyfile-speech-build 3044104d3760e6d060a2cfb81f61db8be6930c58e23736fa9c5463e6c8d2604a /usr/share/licenses/transcribe.cpp /usr/share/licenses/transcribe.cpp
+COPY /v0.1.2/demos/speech/Dollyfile-speech-build 3044104d3760e6d060a2cfb81f61db8be6930c58e23736fa9c5463e6c8d2604a /usr/bin/voice /usr/bin/voice
+COPY /v0.1.2/demos/speech/Dollyfile-speech-build 3044104d3760e6d060a2cfb81f61db8be6930c58e23736fa9c5463e6c8d2604a /usr/share/licenses/transcribe.cpp /usr/share/licenses/transcribe.cpp
 EXPORTS TOOL voice
 
 # NVIDIA's Parakeet TDT-CTC 110M, 8-bit weights: English.
-SOURCE /v0.1.1/dist/static/speech/parakeet-tdt_ctc-110m.gguf 7dd44c74a331d788a4e5f8b16913b3feb29ced22cf5613aad0e0f6cd30516296 /usr/share/dolly/speech/parakeet-tdt_ctc-110m.gguf
-SOURCE /v0.1.1/dist/static/speech/CC-BY-4.0.txt 9ba9550ad48438d0836ddab3da480b3b69ffa0aac7b7878b5a0039e7ab429411 /usr/share/licenses/parakeet/CC-BY-4.0.txt
+SOURCE /v0.1.2/dist/static/speech/parakeet-tdt_ctc-110m.gguf 7dd44c74a331d788a4e5f8b16913b3feb29ced22cf5613aad0e0f6cd30516296 /usr/share/dolly/speech/parakeet-tdt_ctc-110m.gguf
+SOURCE /v0.1.2/dist/static/speech/CC-BY-4.0.txt 9ba9550ad48438d0836ddab3da480b3b69ffa0aac7b7878b5a0039e7ab429411 /usr/share/licenses/parakeet/CC-BY-4.0.txt
 FILE /usr/share/licenses/parakeet/NOTICE
     Parakeet TDT-CTC 110M, by NVIDIA: https://huggingface.co/nvidia/parakeet-tdt_ctc-110m
     Licensed under the Creative Commons Attribution 4.0 International License (CC-BY-4.0.txt).
@@ -29,7 +29,7 @@ FILE /usr/share/licenses/parakeet/NOTICE
     https://huggingface.co/handy-computer/parakeet-tdt_ctc-110m-gguf
 EXPORTS FOLDER speech-models /usr/share/dolly/speech
 EXPORTS FOLDER parakeet-license /usr/share/licenses/parakeet
-SOURCE /v0.1.1/dist/static/speech/pi.menu 1ed86c976443a7ae51821afba49e1b7a17cdf07bb40bb68c186a37a28f75349b /etc/dolly/pi.menu
+SOURCE /v0.1.2/dist/static/speech/pi.menu 1ed86c976443a7ae51821afba49e1b7a17cdf07bb40bb68c186a37a28f75349b /etc/dolly/pi.menu
 EXPORTS FILE pi-menu /etc/dolly/pi.menu
 
 # voice has the buttons and types; Pi has the terminal.

@@ -9,13 +9,13 @@ REQUIRES HOST snapshot@0
 REQUIRES HOST threads@0
 REQUIRES HOST upload@0
 
-FROM /v0.1.1/demos/pi/Dollyfile-pi-runtime bbe71083f68fb87515504051fbf44b0fa6a69287fe53748b19902f9d9775a135
-INSTALL /v0.1.1/demos/sdl2/Dollyfile-sdl2 13d7b8ef40692e7402b22e1e8c54d75f9b4d35203c9f4ed9ad820a30e2abba11
-COPY /v0.1.1/demos/rts/Dollyfile-rts-build 3cd3bc080f39afe458ab55798ca9b962e2ca5b480191511a9ef97f7ea0f8008d /usr/bin/seven-kingdoms /usr/bin/seven-kingdoms
-COPY /v0.1.1/demos/rts/Dollyfile-rts-build 3cd3bc080f39afe458ab55798ca9b962e2ca5b480191511a9ef97f7ea0f8008d /usr/share/7kaa /usr/share/7kaa
-COPY /v0.1.1/demos/rts/Dollyfile-rts-build 3cd3bc080f39afe458ab55798ca9b962e2ca5b480191511a9ef97f7ea0f8008d /usr/src/7kaa /usr/src/7kaa
-COPY /v0.1.1/demos/rts/Dollyfile-rts-build 3cd3bc080f39afe458ab55798ca9b962e2ca5b480191511a9ef97f7ea0f8008d /usr/src/dolly/rts /usr/src/dolly/rts
-COPY /v0.1.1/demos/rts/Dollyfile-rts-build 3cd3bc080f39afe458ab55798ca9b962e2ca5b480191511a9ef97f7ea0f8008d /usr/share/licenses/7kaa /usr/share/licenses/7kaa
+FROM /v0.1.2/demos/pi/Dollyfile-pi-runtime bbe71083f68fb87515504051fbf44b0fa6a69287fe53748b19902f9d9775a135
+INSTALL /v0.1.2/demos/sdl2/Dollyfile-sdl2 13d7b8ef40692e7402b22e1e8c54d75f9b4d35203c9f4ed9ad820a30e2abba11
+COPY /v0.1.2/demos/rts/Dollyfile-rts-build 3cd3bc080f39afe458ab55798ca9b962e2ca5b480191511a9ef97f7ea0f8008d /usr/bin/seven-kingdoms /usr/bin/seven-kingdoms
+COPY /v0.1.2/demos/rts/Dollyfile-rts-build 3cd3bc080f39afe458ab55798ca9b962e2ca5b480191511a9ef97f7ea0f8008d /usr/share/7kaa /usr/share/7kaa
+COPY /v0.1.2/demos/rts/Dollyfile-rts-build 3cd3bc080f39afe458ab55798ca9b962e2ca5b480191511a9ef97f7ea0f8008d /usr/src/7kaa /usr/src/7kaa
+COPY /v0.1.2/demos/rts/Dollyfile-rts-build 3cd3bc080f39afe458ab55798ca9b962e2ca5b480191511a9ef97f7ea0f8008d /usr/src/dolly/rts /usr/src/dolly/rts
+COPY /v0.1.2/demos/rts/Dollyfile-rts-build 3cd3bc080f39afe458ab55798ca9b962e2ca5b480191511a9ef97f7ea0f8008d /usr/share/licenses/7kaa /usr/share/licenses/7kaa
 EXPORTS TOOL seven-kingdoms
 REQUIRES HEADER cpp
 REQUIRES HEADER quickjs-runner
@@ -35,8 +35,8 @@ REQUIRES TOOL gzip
 REQUIRES TOOL upload
 REQUIRES TOOL mkdir
 
-SOURCE /v0.1.1/dist/static/rts/arena.tar ff3401a83bc206169f03458fd124e9b8871fd536f655b690456d4c4ae7df1be3 /tmp/rts-arena/source.tar
-SOURCE /v0.1.1/dist/static/default/stb_truetype.h ecd30b05e0dd4fea3a13c26810dd9e1992dc379049482c393d5a19e6b5090aab /tmp/rts-arena/stb_truetype.h
+SOURCE /v0.1.2/dist/static/rts/arena.tar ff3401a83bc206169f03458fd124e9b8871fd536f655b690456d4c4ae7df1be3 /tmp/rts-arena/source.tar
+SOURCE /v0.1.2/dist/static/default/stb_truetype.h ecd30b05e0dd4fea3a13c26810dd9e1992dc379049482c393d5a19e6b5090aab /tmp/rts-arena/stb_truetype.h
 SLOP tar -xf /tmp/rts-arena/source.tar -C /
 SLOP mkdir -p /usr/share/dolly/rts
 SLOP gzip -dc /tmp/rts-arena/demo.tar.gz | tar -xf - -C /usr/share/dolly/rts

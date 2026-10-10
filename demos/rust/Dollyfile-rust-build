@@ -11,10 +11,10 @@ REQUIRES HOST threads@0
 # here from their pinned sources. The seed builds the first rustc; that one
 # builds the rustc kept. Every Rust program in the catalog is built by this
 # image's toolchain.
-FROM /v0.1.1/demos/rust/Dollyfile-rust-sdk 68955c1cfaab2ee229b298d8c90a6738d637cf4453f733aff475ec32cec994c8
-COPY /v0.1.1/demos/rust/Dollyfile-rust-llvm 58a6cae60be9c0ea5f5e877f0d5a3a86e0b4fe1a92c5b0005ccb53b9633d2c1c /opt/rust-llvm /opt/rust-llvm
+FROM /v0.1.2/demos/rust/Dollyfile-rust-sdk 68955c1cfaab2ee229b298d8c90a6738d637cf4453f733aff475ec32cec994c8
+COPY /v0.1.2/demos/rust/Dollyfile-rust-llvm 58a6cae60be9c0ea5f5e877f0d5a3a86e0b4fe1a92c5b0005ccb53b9633d2c1c /opt/rust-llvm /opt/rust-llvm
 # cmp, for the check that the second generation rebuilds the same library.
-INSTALL /v0.1.1/Dollyfile-posix f01adde58c050328bf2a6d8b409feaa8323b106041ceaef87f8b6c2b4d657b9c
+INSTALL /v0.1.2/Dollyfile-posix f01adde58c050328bf2a6d8b409feaa8323b106041ceaef87f8b6c2b4d657b9c
 REQUIRES TOOL cargo
 REQUIRES TOOL rustc
 REQUIRES TOOL cc
@@ -28,7 +28,7 @@ REQUIRES TOOL rm
 # rustc's and std's source as the seed's build prepared it, their locked
 # crates as Cargo's directory source, and the build's settings in
 # /tmp/rustc/.cargo/config.toml.
-SOURCE /v0.1.1/dist/static/rust/rustc.tar.gz f0b868e4ae64c9842939247250b3e7cb0fa623aab823112994e5bd00cdc9c536 /tmp/rustc.tar.gz
+SOURCE /v0.1.2/dist/static/rust/rustc.tar.gz f0b868e4ae64c9842939247250b3e7cb0fa623aab823112994e5bd00cdc9c536 /tmp/rustc.tar.gz
 SLOP gzip -dc /tmp/rustc.tar.gz | tar -xf - -C /
 SLOP rm /tmp/rustc.tar.gz
 
@@ -74,7 +74,7 @@ SLOP CWD /tmp/rustc/sdk-target/wasm64-emscripten-probe/debug/deps slop -e -c 'fo
 SLOP rm -rf /tmp/rustc /opt/rust-llvm /opt/rust-sdk/lib/rustlib/src
 
 # Cargo, by the kept compiler and library; the seed's Cargo drives its last build.
-SOURCE /v0.1.1/dist/static/rust/cargo.tar.gz 6bf320264ef2386bd56bb5b59ea0f0a15d26018218bcafe7d62aa9219a957945 /tmp/cargo.tar.gz
+SOURCE /v0.1.2/dist/static/rust/cargo.tar.gz 6bf320264ef2386bd56bb5b59ea0f0a15d26018218bcafe7d62aa9219a957945 /tmp/cargo.tar.gz
 SLOP gzip -dc /tmp/cargo.tar.gz | tar -xf - -C /
 SLOP rm /tmp/cargo.tar.gz
 SLOP CWD /tmp/cargo/source cargo build -j 4 --offline --bin cargo --target-dir /tmp/cargo/build

@@ -4,7 +4,7 @@ REQUIRES HOST runtime@0
 
 # GNU Emacs 31.1 for the terminal. demos/emacs/prepare-emacs.sh patches and
 # configures the release outside; Dolly compiles every object and dumps it.
-FROM /v0.1.1/Dollyfile-system 1b986f665ab3f4fcab0e9ddc3d3da3534ffdd26191cb3f18cd75d9304889fef5
+FROM /v0.1.2/Dollyfile-system 1b986f665ab3f4fcab0e9ddc3d3da3534ffdd26191cb3f18cd75d9304889fef5
 REQUIRES HEADER libc
 REQUIRES TOOL   cc
 REQUIRES TOOL   ar
@@ -20,7 +20,7 @@ REQUIRES TOOL   cp
 REQUIRES TOOL   mkdir
 REQUIRES TOOL   rm
 
-SOURCE /v0.1.1/dist/static/emacs/emacs.tar.gz b152cfe40981dbb0ee1764c3ace278346fbd9aff6d2cb94ebbd22485c478ba1a /tmp/emacs.tar.gz
+SOURCE /v0.1.2/dist/static/emacs/emacs.tar.gz b152cfe40981dbb0ee1764c3ace278346fbd9aff6d2cb94ebbd22485c478ba1a /tmp/emacs.tar.gz
 SLOP gzip -dc /tmp/emacs.tar.gz | tar -xf - -C /
 
 # Dolly's tar does not restore archive times. One time for every file lets

@@ -5,7 +5,7 @@ REQUIRES HOST http@0
 REQUIRES HOST packages@0
 
 # amy and the recipe engine it runs: what a session needs to install packages.
-FROM /v0.1.1/Dollyfile-system-tools ee3db7cf4b4ac5c93eb07ac89eda1e67ddc6f1988c9c971fc9b15f4529d44151
+FROM /v0.1.2/Dollyfile-system-tools ee3db7cf4b4ac5c93eb07ac89eda1e67ddc6f1988c9c971fc9b15f4529d44151
 
 EXPORTS TOOL amy
 EXPORTS TOOL dollyfile

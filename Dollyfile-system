@@ -8,15 +8,15 @@ REQUIRES HOST http@0
 REQUIRES HOST snapshot@0
 REQUIRES HOST upload@0
 
-FROM /v0.1.1/Dollyfile-system-tools ee3db7cf4b4ac5c93eb07ac89eda1e67ddc6f1988c9c971fc9b15f4529d44151
+FROM /v0.1.2/Dollyfile-system-tools ee3db7cf4b4ac5c93eb07ac89eda1e67ddc6f1988c9c971fc9b15f4529d44151
 
 REQUIRES HEADER libc
 REQUIRES TOOL cc
 REQUIRES TOOL rm
 
-SOURCE /v0.1.1/dist/static/session-recovery/session-recover.c 5f1c6511cc7e23b6714da04b5e52734460a584d530df4585ee0625ecf07c0ffb /tmp/session-recovery/session-recover.c
-SOURCE /v0.1.1/dist/static/session-recovery/session-records.h 8542c23bb84e8e89b3f995c7d446c7a68dd2d10de7054d44266ef2f78c78434a /tmp/session-recovery/session-records.h
-SOURCE /v0.1.1/dist/static/session-recovery/fs-record.h 585989ac06fab7f4ba0325aa1faefa414b45f96d72b3525838cea7cdffe80e3c /tmp/session-recovery/fs-record.h
+SOURCE /v0.1.2/dist/static/session-recovery/session-recover.c 5f1c6511cc7e23b6714da04b5e52734460a584d530df4585ee0625ecf07c0ffb /tmp/session-recovery/session-recover.c
+SOURCE /v0.1.2/dist/static/session-recovery/session-records.h 8542c23bb84e8e89b3f995c7d446c7a68dd2d10de7054d44266ef2f78c78434a /tmp/session-recovery/session-records.h
+SOURCE /v0.1.2/dist/static/session-recovery/fs-record.h 585989ac06fab7f4ba0325aa1faefa414b45f96d72b3525838cea7cdffe80e3c /tmp/session-recovery/fs-record.h
 
 SLOP cc -O1 -I/tmp/session-recovery /tmp/session-recovery/session-recover.c -o /usr/bin/session-recover
 EXPORTS TOOL session-recover

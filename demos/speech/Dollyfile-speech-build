@@ -10,14 +10,14 @@ REQUIRES HOST microphone@0
 REQUIRES HOST threads@0
 REQUIRES HOST upload@0
 
-FROM /v0.1.1/demos/cmake/Dollyfile-cmake-build 1af48f314edf9f397d8f584dfbbd6fe4544e4c7d8dfc4074d0e14e7076fbf4db
+FROM /v0.1.2/demos/cmake/Dollyfile-cmake-build 1af48f314edf9f397d8f584dfbbd6fe4544e4c7d8dfc4074d0e14e7076fbf4db
 REQUIRES TOOL cc
 REQUIRES TOOL c++
 REQUIRES TOOL cmake
 REQUIRES TOOL make
 REQUIRES TOOL tar
 
-SOURCE /v0.1.1/dist/static/speech/source.tar 86b4305fdfe2ae10aafba4691f1b111a8544a632d381e051b8b8799b16df41d4 /tmp/speech-source.tar
+SOURCE /v0.1.2/dist/static/speech/source.tar 86b4305fdfe2ae10aafba4691f1b111a8544a632d381e051b8b8799b16df41d4 /tmp/speech-source.tar
 SLOP tar -xf /tmp/speech-source.tar -C /
 # Threads and SIMD are what let the model keep up with speech; ggml's precompiled header is not built by cc.
 SLOP cmake -S /tmp/transcribe -B /tmp/transcribe/build \
