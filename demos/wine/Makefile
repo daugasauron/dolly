@@ -192,8 +192,9 @@ $(X86)/hello_win.exe: /usr/bin/wine
 /home/dolly/hello_win.c: $(X86)/tcc/examples/hello_win.c
 	cp $< $@
 # The user's Desktop folder as the image has it: a shortcut to each program of the Start menu, which
-# shell32 writes for the desktop.
+# shell32 writes for the desktop, and how to change the sample, with the line ends of Windows' text files.
 desktop-folder: $(X86)/hello_win.exe
 	rm -rf /home/dolly/Desktop
 	HOME=/home/dolly WINEPREFIX=$(B)/prefix wine desktop /shortcuts
+	awk '{ printf "%s\r\n", $$0 }' $(PORT)/programs/desktop/Desktop/README.txt > /home/dolly/Desktop/README.txt
 .PHONY: all tools headers fonts gimp-data desktop-folder shared-names FORCE

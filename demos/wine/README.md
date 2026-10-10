@@ -33,7 +33,7 @@ what this image compiled (`desktop`, `notepad`, `winefile`, `winemine`,
   `wine x86emu` and `wine desktop` run.
 
 Build with `DOLLY_BUILD_IMAGES=wine-build,wine npm run image` (both images
-in about 350 s); test with `npm run test:demos -- wine`.
+in about 330 s); test with `npm run test:demos -- wine`.
 
 ## Paint
 
@@ -386,11 +386,13 @@ every other window whenever something raises it; the icons with their names,
 the selection by a click, the rubber band from the empty desktop, Ctrl+click
 and the keyboard are that control's.
 
-A double click or Enter opens an icon as the file manager opens a file. The
-image's eight are shortcuts, one to each program of the Start menu: real
-`.lnk` files, read and written by shell32's own shortcut object, which it
-makes without ole32 (`wine desktop /shortcuts` writes them when the image is
-built). Two ways put a compiled program there: `copy hello_win.exe Desktop`
+A double click or Enter opens an icon as the file manager opens a file. Of
+the image's nine, eight are shortcuts, one to each program of the Start
+menu: real `.lnk` files, read and written by shell32's own shortcut object,
+which it makes without ole32 (`wine desktop /shortcuts` writes them when the
+image is built). The ninth is `README.txt`, which tells how to change what
+the x86-64 sample prints: edit, compile, run, and put the result on the
+desktop. Two ways put a compiled program there: `copy hello_win.exe Desktop`
 at the prompt, or "New Shortcut..." in the menu of a right click on the
 desktop, which asks for the file in the file dialog and writes a shortcut to
 it. For shell32's file streams, which are shcore's in Wine 4.0, shcore is

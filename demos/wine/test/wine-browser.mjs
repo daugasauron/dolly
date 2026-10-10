@@ -599,7 +599,7 @@ async function run(page, prompt, start, waitText) {
 
   // Its icons: the files of the user's Desktop folder, a column with their names from the top left, 75
   // pixels apart, by name: shortcuts to Command Prompt, File Manager, GIMP, the x86-64 sample, NetSurf,
-  // Notepad, Paint and Winemine.
+  // Notepad and Paint, README.txt, and a shortcut to Winemine.
   const highlight = [10, 36, 106];
   const inCell = (index, counted) => page.evaluate(([top, colour, same]) => {
     const data = document.querySelector("#display").getContext("2d").getImageData(0, top, 75, 75).data;
@@ -607,37 +607,42 @@ async function run(page, prompt, start, waitText) {
     for (let i = 0; i < data.length; i += 4) if ((data[i] === colour[0] && data[i + 1] === colour[1] && data[i + 2] === colour[2]) === same) count++;
     return count;
   }, [75 * index, counted ?? desktop, counted !== undefined]);
-  const selected = async () => { const cells = []; for (let index = 0; index < 8; index++) cells.push(await inCell(index, highlight) > 30); return cells.map(Number).join(""); };
-  for (let index = 0; index < 8; index++) assert.ok(await inCell(index) > 300, `shortcut ${index} is drawn`);
+  const selected = async () => { const cells = []; for (let index = 0; index < 9; index++) cells.push(await inCell(index, highlight) > 30); return cells.map(Number).join(""); };
+  for (let index = 0; index < 9; index++) assert.ok(await inCell(index) > 300, `icon ${index} is drawn`);
   await page.screenshot({ path: `${evidence}shortcuts.png` });
   await click(page, 36, 20);                  // a click selects one
-  await until(async () => await selected() === "10000000", "the first shortcut selected");
+  await until(async () => await selected() === "100000000", "the first shortcut selected");
   await click(page, 500, 400);                // a click on the empty desktop, none
-  await until(async () => await selected() === "00000000", "no shortcut selected");
+  await until(async () => await selected() === "000000000", "no shortcut selected");
   await page.mouse.move(...await at(page, 300, 200));   // a rubber band from the empty desktop over three
   await page.mouse.down();
   await page.mouse.move(...await at(page, 5, 5), { steps: 12 });
   await page.screenshot({ path: `${evidence}shortcuts-band.png` });
   await page.mouse.up();
-  await until(async () => await selected() === "11100000", "the three shortcuts the rubber band touched");
+  await until(async () => await selected() === "111000000", "the three shortcuts the rubber band touched");
   await page.keyboard.down("Control");        // Ctrl and a click add a fourth
   await click(page, 36, 245);
   await page.keyboard.up("Control");
-  await until(async () => await selected() === "11110000", "a fourth shortcut selected with Ctrl");
+  await until(async () => await selected() === "111100000", "a fourth shortcut selected with Ctrl");
   await click(page, 500, 400);
-  await until(async () => await selected() === "00000000", "no shortcut selected");
+  await until(async () => await selected() === "000000000", "no shortcut selected");
   await page.mouse.dblclick(...await at(page, 36, 395));  // a double click starts Notepad
   await pixelIs(page, 100, 100, white);
   await page.keyboard.press("Alt+F4");
   await pixelIs(page, 100, 100, desktop);
-  await click(page, 36, 545);                 // Enter on the selected one starts WineMine
-  await until(async () => await selected() === "00000001", "WineMine's shortcut selected");
+  await click(page, 36, 620);                 // Enter on the selected one starts WineMine
+  await until(async () => await selected() === "000000001", "WineMine's shortcut selected");
   await page.keyboard.press("Enter");
   await pixelIs(page, 60, 50, black);
   await page.keyboard.press("Alt+F4");
   await pixelIs(page, 60, 50, black, true);
+  await page.mouse.dblclick(...await at(page, 36, 545));  // README.txt opens in Notepad, at 0,0
+  await until(async () => await dark(page, 8, 46, 400, 300) > 2000, "the text of README.txt in Notepad");
+  await page.screenshot({ path: `${evidence}desktop-readme.png` });
+  await page.keyboard.press("Alt+F4");
+  await pixelIs(page, 100, 100, desktop);
   await click(page, 500, 400);
-  console.log("wine: eight shortcuts on the desktop; one selected by a click, three by a rubber band, a fourth with Ctrl; a double click and Enter each started a program");
+  console.log("wine: nine icons on the desktop, the files of its folder; one selected by a click, three by a rubber band, a fourth with Ctrl; a double click and Enter each started a program, and README.txt opened in Notepad");
 
   // Paint (ReactOS's): a pencil line dragged across its image, saved through the file dialog, closed.
   await startMenu("p");
@@ -675,6 +680,7 @@ async function run(page, prompt, start, waitText) {
     return count > 40;
   }, [left, top], { timeout: 30_000, polling: 250 });
   await page.screenshot({ path: `${evidence}x86.png` });
+  await delay(800);                           // long enough for the desktop to list the window
   await page.keyboard.press("Escape");
   await pixelIs(page, left + 40, top + 60, desktop);
   console.log("wine: an x86-64 program opened a window from the Start menu, painted it and closed on Escape");
@@ -771,6 +777,7 @@ async function run(page, prompt, start, waitText) {
   console.log("wine: two programs at once; a window dragged, minimized, restored, closed and started again; shut down");
 
   // What Paint saved: a 400x300 bitmap of 32 bits a pixel is 480,054 bytes.
+  assert.equal(await start('tail -c 2 /home/dolly/Desktop/README.txt | od -An -b | grep -q "15  *12"').done, 0, "README.txt ends its lines as Windows does");
   const size = start("wc -c /home/dolly/.wine/drive_c/dolly.bmp");
   await waitText(/480054 \/home\/dolly\/\.wine\/drive_c\/dolly\.bmp/);
   assert.equal(await size.done, 0);
