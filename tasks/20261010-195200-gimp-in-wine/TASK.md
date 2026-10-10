@@ -1,13 +1,19 @@
 # GIMP in the Wine image, through the x86-64 interpreter
 
 - STATUS: OPEN
-- PRIORITY: 50
-- TAGS: wine,demo,question
+- PRIORITY: 120
+- TAGS: wine,demo,gimp
 
 Owner (2026-10-10): "In parallel, would it be possible to add gimp to the wine environment and
 run it through the emulator?"
 
 Answer given: not as the interpreter stands; nothing was built or tried.
+
+Owner, after that answer: "Any old version of GIMP is fine, I just want it as a tribute to the
+original "The rise and death of JavaScript" talk." (Gary Bernhardt's "The Birth and Death of
+JavaScript", where GIMP runs compiled to asm.js.) Taken up as: an old GIMP compiled from source
+against Winelib into the Wine image, as Paint and NetSurf are, not interpreted. Branch
+`demo/gimp`, worktree `work/wine`.
 
 - `x86emu` has integer instructions and SSE moves only, no guest threads, and bridges window
   procedures but few other callbacks (`demos/wine/README.md`, "x86emu"). GIMP's own code, GLib,
