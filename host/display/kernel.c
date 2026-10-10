@@ -453,7 +453,7 @@ static int64_t display_set_cursor_packet(int pid, unsigned char *mailbox,
   if (request.reserved != 0) return -EINVAL;
   const int status = validate_display_lease(pid, request.generation);
   if (status != 0) return status;
-  if (request.cursor > DOLLY_DISPLAY_CURSOR_HIDDEN) return -EINVAL;
+  if (request.cursor > DOLLY_DISPLAY_CURSOR_HELP) return -EINVAL;
   atomic_store_explicit(&display_mailbox.cursor_style, request.cursor,
                         memory_order_release);
   return 0;

@@ -65,7 +65,7 @@ flowchart LR
 | `dolly_display_begin_frame` | Private writable buffer and stride |
 | `dolly_display_present` | Copy and publish a complete frame |
 | `dolly_display_wait_frame` | Wait for the browser's animation frame |
-| `dolly_display_set_cursor` | Closed cursor values |
+| `dolly_display_set_cursor` | One of the page's own cursors: text, default, crosshair, pointer, hidden, the four resize arrows, move, wait, progress, not-allowed, help |
 | `dolly_display_release` | Return the canvas to the terminal |
 
 - Frames are top-down non-premultiplied RGBA8. The kernel checks size, stride,

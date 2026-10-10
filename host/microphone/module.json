@@ -1,0 +1,13 @@
+{
+  "name": "microphone",
+  "version": 0,
+  "dependencies": ["runtime@0"],
+  "phase": "kernel",
+  "imports": ["env.dolly_microphone_dispatch"],
+  "host": "microphone.mjs",
+  "contracts": ["dolly-microphone-0.wat"],
+  "process": [],
+  "headers": ["microphone.h", "microphone-abi.h"],
+  "kernel": ["kernel.c"],
+  "client": ["client.c"]
+}

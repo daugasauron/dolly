@@ -375,6 +375,7 @@ test("the main Wasm has an explicit, minimal browser boundary", async () => {
   assert.deepEqual(policy.download, ["env.dolly_download_dispatch"]);
   assert.deepEqual(policy.gpu, ["env.dolly_gpu_dispatch"]);
   assert.deepEqual(policy.audio, ["env.dolly_audio_dispatch"]);
+  assert.deepEqual(policy.microphone, ["env.dolly_microphone_dispatch"]);
   assert.equal(
     actual.some((name) => /nodefs|opfs|fetch|socket|spawn|process|pthread|thread_/.test(name)),
     false,

@@ -1,7 +1,12 @@
 import { createAudioProvider } from "./provider.mjs";
-import { createAudioBridge } from "./bridge.mjs";
+import * as A from "./abi.mjs";
+import { createLeaseBridge } from "../lease-bridge.mjs";
 import { DOLLY_ERRNO as E } from "../../src/process-constants.mjs";
 export { DOLLY_AUDIO_ABI_DIGEST as digest } from "./abi.mjs";
+
+// The device as the lease bridge sees it.
+export const lease = { type: "audio", slots: A.DOLLY_AUDIO_SLOTS, packetBytes: A.DOLLY_AUDIO_PACKET_BYTES,
+  replyBytes: A.DOLLY_AUDIO_REPLY_BYTES, open: A.DOLLY_AUDIO_OPEN, close: A.DOLLY_AUDIO_CLOSE };
 
 export function check() {
   return typeof globalThis.AudioContext === "function" ? null : "Web Audio playback is unavailable in this browser";
@@ -40,7 +45,7 @@ export function worker({ send, get }) {
     bindings: { "env.dolly_audio_dispatch": (address, bytes) =>
       bridge ? bridge.dispatch({ address, bytes }) : -E.ENOSYS },
     start({ dolly, memory }) {
-      bridge = createAudioBridge(memory, Number(dolly._dolly_audio_mailbox_address()), send,
+      bridge = createLeaseBridge(lease, memory, Number(dolly._dolly_audio_mailbox_address()), send,
         () => get("runtime").serviceDeferred());
     },
     messages: { "audio-complete": message => bridge?.acknowledge(message) },
