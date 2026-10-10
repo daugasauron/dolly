@@ -65,5 +65,16 @@ none, and capture is its own module that an image must declare.
   ("Closed before resume completed") as an uncaught page error; the provider
   takes that rejection.
 
+- The core browser suite on the new kernel (`default`, `system`,
+  `system-build`, `audio-sdk`, `gpu-sdk`, `cc`, `git`, `less`, `python` and
+  `dolly-docs` rebuilt on it): every test file passes in Chromium and
+  Firefox except `amy-browser.mjs`, which installs packages (`rust`,
+  `cargo`, `llvm`, …) that were not rebuilt. `sockets-browser.mjs` and
+  `dolly.artifacts.mjs` hold the kernel's exact import list and gained
+  `env.dolly_microphone_dispatch`.
+
+Not done: the rest of the catalog rebuilt on this seed (the next release
+round), and with it `amy-browser.mjs`, the artifact tests and the demos.
+
 Not measured: a real microphone and the browsers' real prompts (headless
 tests use fake devices and preset answers); Safari.
