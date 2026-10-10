@@ -10,7 +10,7 @@ CFLAGS := -O2 -fno-strict-aliasing -pthread -w
 TOOLCPP := -I$(PORT) -I$(SRC)/include -D__WINESRC__
 
 X86 := /usr/share/wine/x86
-all: /usr/bin/wine fonts gimp-data $(X86)/hello_win.exe
+all: /usr/bin/wine fonts gimp-data $(X86)/hello_win.exe /home/dolly/hello_win.c
 
 # libwine_port and the parts of libwine the tools use.
 PORT_SRCS := $(wildcard $(SRC)/libs/port/*.c)
@@ -187,4 +187,7 @@ gimp-data:
 # The Start menu's x86-64 program: TinyCC's example, built by TinyCC's own x86-64 compiler under x86emu.
 $(X86)/hello_win.exe: /usr/bin/wine
 	cd $(X86)/tcc && WINEPREFIX=$(B)/prefix wine x86emu 'Z:\usr\share\wine\x86\tcc\tcc.exe' -o ../hello_win.exe examples/hello_win.c
+# That program's source in the user's directory, where the terminal starts: to edit, compile and run.
+/home/dolly/hello_win.c: $(X86)/tcc/examples/hello_win.c
+	cp $< $@
 .PHONY: all tools headers fonts gimp-data shared-names FORCE

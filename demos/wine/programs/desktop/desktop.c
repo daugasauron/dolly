@@ -432,7 +432,8 @@ static void create_shortcuts( HINSTANCE instance )
     }
 }
 
-/* Programs start in the user's directory, as from shortcuts on Windows. */
+/* Programs start in the user's directory, as from shortcuts on Windows, and the x86-64 compiler is a
+ * command of the terminal. */
 static void set_environment(void)
 {
     char path[2048], *p;
@@ -441,6 +442,9 @@ static void set_environment(void)
     snprintf( path, sizeof(path), "Z:%s", home ? home : "/" );
     for (p = path; *p; p++) if (*p == '/') *p = '\\';
     SetCurrentDirectoryA( path );
+    p = path + GetEnvironmentVariableA( "PATH", path, sizeof(path) - sizeof(x86_dir) - 8 );
+    sprintf( p, ";%stcc", x86_dir );
+    SetEnvironmentVariableA( "PATH", path );
 }
 
 int WINAPI WinMain( HINSTANCE instance, HINSTANCE previous, LPSTR cmdline, int show )

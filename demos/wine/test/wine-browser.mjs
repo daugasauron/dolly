@@ -196,6 +196,43 @@ async function terminal(page, prompt, start, waitText) {
   await page.keyboard.press("Escape");                          // ends the sample
   await pixelIs(page, ...beside, desktop);
 
+  // The source of that program: edited in Notepad, compiled by the x86-64 TinyCC, run.
+  await click(page, 200, 200);
+  await enter("notepad hello_win.c");
+  await pixelIs(page, 700, 400, white);                         // Notepad, over the console
+  await delay(1000);
+  await page.keyboard.press("Control+Home");                    // line 9: #define APPNAME "HELLO_WIN"
+  for (let line = 1; line < 9; line++) await page.keyboard.press("ArrowDown");
+  await page.keyboard.press("End");
+  await page.keyboard.press("ArrowLeft");
+  await page.keyboard.type("_EDITED", { delay: 15 });
+  await page.keyboard.press("Control+Home");                    // line 92: … : "Hello Windows!";
+  for (let line = 1; line < 92; line++) await page.keyboard.press("ArrowDown");
+  await page.keyboard.press("End");
+  await page.keyboard.press("ArrowLeft");
+  await page.keyboard.press("ArrowLeft");
+  await page.keyboard.type(" Edited in Notepad.", { delay: 15 });
+  await page.screenshot({ path: `${evidence}terminal-notepad.png` });
+  await page.keyboard.press("Control+s");
+  await delay(1500);
+  await page.keyboard.press("Alt+F4");
+  await pixelIs(page, 700, 400, desktop);
+  await click(page, 200, 200);
+  await page.keyboard.type("tcc hello_win.c", { delay: 15 });
+  await delay(500);
+  const before = await lit(), pressed = Date.now();
+  await page.keyboard.press("Enter");
+  await until(async () => await lit() > before + 150, "the prompt after the compiler", 120_000);
+  const compiled = Date.now() - pressed;
+  await enter("hello_win");
+  const text = await until(async () => { const found = await sampleText(); return found.count > 40 && found; }, "the edited program's window");
+  assert.ok(text.width > 150, `the window's text is ${text.width} pixels wide: not the longer one`);
+  await page.screenshot({ path: `${evidence}terminal-run.png` });
+  await delay(800);                                             // long enough for the desktop to list the window
+  await click(page, ...beside);
+  await delay(500);
+  await page.keyboard.press("Escape");
+  await pixelIs(page, ...beside, desktop);
   await click(page, 200, 200);
   await enter("exit", 1500);
   await pixelIs(page, 400, 300, desktop);
@@ -203,16 +240,16 @@ async function terminal(page, prompt, start, waitText) {
   await delay(700);
   await page.keyboard.press("u");
   await prompt(shellPrompt);
-  await waitText(/the Wine desktop was shut down/);
+  assert.match(await waitText(/the Wine desktop was shut down/), /"HELLO_WIN_EDITED" at \d+,\d+/);
 
-  for (const [name, pattern] of [["dir", "dir.txt"], ["echo", "^edited"], ["cd", "usr.share.wine"], ["typed", "^edited"],
+  for (const [name, pattern] of [["dir", "hello_win.c"], ["echo", "^edited"], ["cd", "usr.share.wine"], ["typed", "^edited"],
     ["hello", "Hello from C:.windows.system32.hello.exe"], ["level0", "^0"], ["tccv", "tcc version 0.9.27 (x86_64 Windows)"],
     ["tccerr", "nosuch.c' not found"], ["level1", "^1"], ["free", "^free"],
     ["busy", "."], ["nested", "."], ["start", "."]]) {          // what was refused left its message, whatever it says
     assert.equal(await start(`grep -q "${pattern}" /home/dolly/${name}.txt`).done, 0, `${name}.txt has no "${pattern}"`);
   }
   assert.equal(await start('test "$(grep -c again /home/dolly/again.txt)" = 2').done, 0, "the command from the history did not run again");
-  console.log("wine: the terminal ran cmd's commands, a console program and an x86-64 one with their exit codes, and refused what one process cannot do");
+  console.log(`wine: the terminal ran cmd's commands, a console program and an x86-64 one with their exit codes, and refused what one process cannot do; hello_win.c, edited in Notepad, was compiled by tcc in ${compiled} ms and showed its new text`);
 }
 
 // GIMP 2.2 on GTK+ 2.6 over GDK's Windows backend. Its toolbox is where its session file puts it, the tip
