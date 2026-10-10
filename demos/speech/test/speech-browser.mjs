@@ -1,10 +1,14 @@
 // The speech-to-text image writes what the microphone hears while it is being
-// said. The microphone here is the engine's sample recording played over and
-// over through Web Audio (test/microphone-browser.mjs proves the device itself).
-// Refused the microphone, the program says so and leaves a shell.
+// said; refused the microphone, the program says so and leaves a shell. The
+// pi-phone image is Pi worked by touch on a phone's screen: an OpenRouter key
+// pasted, a model and a thinking level chosen, a prompt spoken and sent, with
+// openrouter.ai answered here. The microphone is the engine's sample recording
+// played over and over through Web Audio (test/microphone-browser.mjs proves
+// the device itself).
 // Usage: node demos/speech/test/speech-browser.mjs [chromium|firefox]
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
+import { devices } from "playwright-core";
 import { delay, demoTest, shellPrompt } from "../../browser.mjs";
 
 const root = new URL("../../../", import.meta.url).pathname;
@@ -48,4 +52,65 @@ await demoTest("speech", { image, browser, launch: plays }, async ({ open }) => 
 await demoTest("speech refused", { image, browser, launch: refuses }, async ({ open }) => {
   const { text } = await open();
   assert.match(await text(), /the browser refused the microphone/);
+});
+
+// Chrome on Android is the phone this is for; Firefox has no phone to stand in for.
+if (browser === "chromium") await demoTest("pi-phone", { image: "pi-phone", launch: plays, timeout: 600_000 }, async ({ open }) => {
+  const key = "sk-or-v1-DOLLYPHONETESTKEY0123456789", asked = [];
+  const answer = text => ({ status: 200, headers: { "access-control-allow-origin": "*", "content-type": "text/event-stream" },
+    body: [{ role: "assistant", content: text }, {}].map((delta, index) => `data: ${JSON.stringify({ id: "phone", object: "chat.completion.chunk",
+      created: 0, model: "phone", choices: [{ index: 0, delta, finish_reason: index ? "stop" : null }] })}\n\n`).join("") + "data: [DONE]\n\n" });
+  const { page, text, waitText } = await open({ prompt: null, device: devices["Pixel 7"], setup: async page => {
+    await speaking(page);
+    // The catalog is refused, so Pi keeps the models it ships; a completion is answered.
+    await page.route("https://openrouter.ai/**", route => {
+      const request = route.request();
+      if (!request.url().endsWith("/chat/completions")) return route.fulfill({ status: 404, headers: { "access-control-allow-origin": "*" } });
+      asked.push({ authorization: request.headers().authorization, body: request.postDataJSON() });
+      return route.fulfill(answer("DOLLY-PHONE-HEARD"));
+    });
+  } });
+  const tap = label => page.locator("#buttons button", { hasText: new RegExp(`^${label}$`) }).tap();
+  const caption = pattern => page.waitForFunction(([source, flags]) =>
+    new RegExp(source, flags).test(document.querySelector("#buttons p").textContent), [pattern.source, pattern.flags], { timeout: 90_000 });
+  await caption(/Tap Speak/);
+  await waitText(/No models available/);
+  assert.equal(await page.locator("#keyboard").getAttribute("inputmode"), "none", "a tap on the terminal must not raise the phone's keyboard");
+
+  await page.evaluate(key => navigator.clipboard.writeText(`${key}\n`), key);
+  await tap("Menu");
+  await tap("OpenRouter key");
+  await waitText(/Enter OpenRouter API key/);
+  await tap("Paste");
+  await waitText(/Saved API key for OpenRouter/);
+  assert.doesNotMatch(await text(), /DOLLYPHONETESTKEY/, "Pi shows the key it was given");
+
+  await tap("Menu");
+  await tap("Model");
+  await waitText(/\(1\/\d+\)/);
+  await tap("Say");
+  await caption(/my fellow americans/i);
+  await tap("Done");
+  await waitText(/> and so,? my fellow/);
+  await tap("Erase");
+  await waitText(/\(1\/\d+\)/);
+  await tap("Down");
+  const chosen = (await text()).match(/→\s+(\S+)/)[1];
+  await tap("Choose");
+  await waitText(new RegExp(chosen.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
+
+  await tap("Menu");
+  await tap("Thinking");
+  await delay(1000);
+  await tap("Down");
+  await tap("Choose");
+  await waitText(/Thinking level: \w+/);
+
+  await tap("Speak");
+  await caption(/ask not what your country can do for you/i);
+  await tap("Send");
+  await waitText(/DOLLY-PHONE-HEARD/);
+  assert.equal(asked[0].authorization, `Bearer ${key}`);
+  assert.match(JSON.stringify(asked[0].body.messages.at(-1)), /ask not what your country can do for you/i);
+  assert.equal(await page.evaluate(() => __dolly.microphone.active + __dolly.microphone.liveTracks), 0, "the microphone is open only while voice listens");
 });

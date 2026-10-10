@@ -47,7 +47,7 @@ entry.
 | OFL-1.1 | Iosevka; 0 A.D. fonts | Licence with the font; no sale of the font alone | Iosevka's name table carries the notice; fonts are unmodified |
 | GPL-2.0-or-later with the font embedding exception | Xolonium and GNU Unifont 7.0.06 in Xonotic | Licence text with the font | `GPL-2` in the image; the fonts are unmodified inside the release's archives |
 | Apache-2.0 weights | Qwen3.5-2B and 4B (GGUF by bartowski), MiniCPM5-2B | Licence copy; no use restrictions | Each model package keeps the licence copied into the demo; nothing checks it against the pinned Hugging Face revision |
-| MIT weights | Moonshine Streaming Tiny (GGUF by transcribe.cpp's authors) | Copyright and permission notice with copies | `speech-to-text` keeps Moonshine's `LICENSE`, which names every streaming model as MIT; nothing checks the conversion against the pinned Hugging Face revision |
+| CC-BY-4.0 weights | Parakeet TDT-CTC 110M by NVIDIA (GGUF by transcribe.cpp's authors) | Credit, the licence, and a note of changes | `speech-to-text` and `pi-phone` keep the licence's text and a `NOTICE` naming NVIDIA and the conversion; nothing checks the conversion against the pinned Hugging Face revision |
 | Anthropic Commercial Terms | Claude Code: nothing. The `closed-source-agent` image downloads 2.1.112 from the npm registry into the user's session after a notice; no file of it is in the repository, an image or a site | Unmodified binary, every built-in sign-in method kept, no paid or intermediated usage, no use of the names as a product name | Met by construction ([task](../tasks/20261007-085236-claude-code-image/TASK.md)); **Owner**: acceptance of the Commercial Terms |
 
 ## Combined binaries

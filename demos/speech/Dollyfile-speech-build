@@ -4,6 +4,7 @@ REQUIRES HOST runtime@0
 REQUIRES HOST display@0
 REQUIRES HOST input@0
 REQUIRES HOST download@0
+REQUIRES HOST buttons@0
 REQUIRES HOST http@0
 REQUIRES HOST microphone@0
 REQUIRES HOST threads@0
@@ -31,7 +32,13 @@ SLOP cc -pthread -msimd128 -O2 -Wall -Werror -I/tmp/transcribe/include \
 SLOP c++ -pthread -msimd128 -O2 /tmp/transcribe/speech-to-text.o /tmp/transcribe/build/src/libtranscribe.a \
   /tmp/transcribe/build/ggml/src/libggml.a /tmp/transcribe/build/ggml/src/libggml-cpu.a \
   /tmp/transcribe/build/ggml/src/libggml-base.a -lm -o /usr/bin/speech-to-text
+SLOP cc -pthread -msimd128 -O2 -Wall -Werror -I/tmp/transcribe/include \
+  -c /tmp/transcribe/voice.c -o /tmp/transcribe/voice.o
+SLOP c++ -pthread -msimd128 -O2 /tmp/transcribe/voice.o /tmp/transcribe/build/src/libtranscribe.a \
+  /tmp/transcribe/build/ggml/src/libggml.a /tmp/transcribe/build/ggml/src/libggml-cpu.a \
+  /tmp/transcribe/build/ggml/src/libggml-base.a -lm -o /usr/bin/voice
 EXPORTS TOOL speech-to-text
+EXPORTS TOOL voice
 EXPORTS FOLDER transcribe-licenses /usr/share/licenses/transcribe.cpp
 
 ENTRY /bin/foreground -i /bin/slop

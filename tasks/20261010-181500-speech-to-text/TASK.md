@@ -72,3 +72,44 @@ revision `f33fef62` of `handy-computer/moonshine-streaming-tiny-gguf`). Both MIT
   played through Web Audio in place of `getUserMedia`.
 - Once with Chrome's fake capture device playing the same file, so through the real
   `getUserMedia` and the page's permission.
+
+## The owner's verdict, and what was wrong (2026-10-10, evening)
+
+Owner, after trying it with a Bluetooth headset: "The model for speech to text is okay but it
+misinterprets a lot of things. Are there better models or like tuning available?" Both.
+
+Two faults were the program's, found by running it natively on 3.5 minutes of the engine's
+English samples (`samples/jfk`, `fleurs-en`, `dots`, `product-names`, `whole-earth`) against a
+stand-in microphone that plays a file:
+
+- The level that counted as "the room" kept adapting during a line, so quiet speech raised it
+  until the rest of the sentence was taken for silence. `fleurs-en` (peaks of 0.008 to 0.015)
+  came out as "Styles in the west could land." with any model; with the estimate held during a
+  line Moonshine Small wrote the sentence whole. The fixed floor of 0.006 was also above much of
+  that recording.
+- A line cut at a pause started the model again with no context, and short pieces came out as
+  "Yeah." or "You".
+
+And the model: Moonshine Streaming Tiny's card gives 4.5% word error on LibriSpeech but 18.2% on
+FLEURS. Candidates from the same engine's models, measured here (one 10.6 s utterance, four
+threads; "Dolly" is Chrome on this desktop):
+
+| Model | Size | LibriSpeech / FLEURS | Native, whole | Dolly, whole | Dolly, as a stream |
+|---|---|---|---|---|---|
+| Moonshine Streaming Tiny, 8-bit | 50 MB | 4.5% / 18.2% | 160x | 20-23x | 1.7x at 200 ms, 4.2x at 1 s |
+| Moonshine Streaming Small, 8-bit | 199 MB | 2.5% / 8.6% | 28x | 3.0x | 0.2x at 200 ms, 0.7x at 1 s |
+| Moonshine Streaming Medium, 8-bit | 296 MB | 2.2% / 7.9% | 26x | 3.0x | 0.9x at 1 s |
+| Parakeet Unified EN 0.6B, 4-bit | 477 MB | 1.6% / 4.0% | 3.7x | 1.0x | 1.0x |
+| Parakeet TDT-CTC 110M, 4-bit | 90 MB | 2.5% / 6.1% | 90x | 22-24x | not a streaming model |
+| Parakeet TDT-CTC 110M, 8-bit | 135 MB | 2.4% / 6.1% | 117x | 29x (16x on two threads, 44x on eight) | not a streaming model |
+
+- Wasm costs five to seven times native here. Moonshine's streaming decodes the whole line again
+  at every feed (`min_decode_interval_ms`, 240 ms by default) and its encoder pays per feed, so
+  as a stream Small and Medium do not keep up even on this desktop.
+- Tiny in 16-bit floats is half as fast in Dolly as in 8 bits (11.6x), so quantized is the fast
+  path in Wasm too.
+- Chosen: Parakeet TDT-CTC 110M, 8-bit (NVIDIA, CC-BY-4.0; GGUF by transcribe.cpp's authors). It
+  is as fast heard whole as Tiny, a third of Tiny's errors on FLEURS, and 85 MB more. It is not a
+  streaming model, so a line is heard again from its start whenever the model is free: 0.36 s
+  for 10 s of speech here. Speech is told from other sound by Silero VAD 6.2 (1.2 MB, MIT)
+  through the same engine instead of by level.

@@ -34,3 +34,4 @@ llvm-cc
 llvm
 wine
 speech-to-text
+pi-phone

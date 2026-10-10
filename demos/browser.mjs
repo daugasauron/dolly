@@ -1,7 +1,7 @@
 // Shared setup for demo browser tests, which drive one Chrome (or Firefox):
 //
 //   await demoTest("pi", { image: "pi", server, timeout, webgpu, browser, launch }, async ({ server, open }) => {
-//     const { page, run, start, waitText } = await open({ policy, prompt, path, setup, viewport });
+//     const { page, run, start, waitText } = await open({ policy, prompt, path, setup, viewport, device });
 //   });
 //
 // runs against one startBrowserServer(image, server) in headless Chrome, with a
@@ -26,8 +26,9 @@ export const writeCommand = (path, text) =>
 export const delay = milliseconds => new Promise(resolve => setTimeout(resolve, milliseconds));
 
 async function openImage(browser, origin, image, { policy, prompt = shellPrompt, path = `/${image}/`, setup,
-  viewport = { width: 1280, height: 800 } } = {}) {
-  const context = await browser.newContext({ viewport });
+  viewport = { width: 1280, height: 800 }, device } = {}) {
+  // device is one of Playwright's devices: its screen, touch and name in place of the viewport.
+  const context = await browser.newContext({ viewport, ...device });
   // Firefox has no clipboard permissions to grant.
   if (browser.browserType().name() === "chromium") {
     await context.grantPermissions(["clipboard-read", "clipboard-write"], { origin });

@@ -1,0 +1,35 @@
+# The buttons voice shows beside Pi. "[NAME] caption" begins a page and
+# "LABEL = TEXT" is a button that types TEXT: \r Enter, \e Escape, \t Tab,
+# \xHH a byte, \w a wait of 0.4 s. After the text, one of
+#   :speak       listen, then type what was said
+#   :word        listen, then type it as a search word
+#   :paste       a Paste button: type the clipboard, then TEXT; ":paste NAME" then shows a page
+#   :page NAME   show another page
+
+[main] Tap Speak and say what Pi should do. The first time: Menu, then OpenRouter key.
+Speak = :speak
+Send = \r
+Stop = \e
+Menu = :page menu
+Erase = \x15
+Up = \e[A
+Down = \e[B
+
+[menu] Pi's settings.
+Model = /model\r :page pick
+Thinking = /thinking\r :page pick
+OpenRouter key = /login openrouter\r\w\e[B\r :page key
+New chat = /new\r :page main
+Back = :page main
+
+[pick] Say part of a name, or move with the arrows, then Choose.
+Say = :word
+Up = \e[A
+Down = \e[B
+Choose = \r :page main
+Erase = \x15
+Back = \e :page main
+
+[key] Copy your key at openrouter.ai/keys, then tap Paste.
+Paste = \r :paste main
+Back = \e :page main

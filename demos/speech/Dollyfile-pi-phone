@@ -1,23 +1,26 @@
 DOLLY 7
-APPLICATION speech-to-text
+APPLICATION pi-phone
 REQUIRES HOST runtime@0
+REQUIRES HOST buttons@0
 REQUIRES HOST display@0
 REQUIRES HOST download@0
 REQUIRES HOST http@0
 REQUIRES HOST input@0
 REQUIRES HOST microphone@0
+REQUIRES HOST packages@0
 REQUIRES HOST snapshot@0
 REQUIRES HOST threads@0
 REQUIRES HOST upload@0
 
-FROM /v0.1.1/Dollyfile-system 1b986f665ab3f4fcab0e9ddc3d3da3534ffdd26191cb3f18cd75d9304889fef5
-COPY /v0.1.1/demos/speech/Dollyfile-speech-build 3370f251f81953ed7c1c06a209fc35e71400b0fdb1bb0616dfa3087530658f39 /usr/bin/speech-to-text /usr/bin/speech-to-text
+FROM /v0.1.1/demos/pi/Dollyfile-pi-runtime a210809b2f10e87ddee6088adf9523833b70cefdf02e536be3afdd51c4dcf51a
+REQUIRES TOOL foreground
+REQUIRES TOOL pi
+COPY /v0.1.1/demos/speech/Dollyfile-speech-build 3370f251f81953ed7c1c06a209fc35e71400b0fdb1bb0616dfa3087530658f39 /usr/bin/voice /usr/bin/voice
 COPY /v0.1.1/demos/speech/Dollyfile-speech-build 3370f251f81953ed7c1c06a209fc35e71400b0fdb1bb0616dfa3087530658f39 /usr/share/licenses/transcribe.cpp /usr/share/licenses/transcribe.cpp
-EXPORTS TOOL speech-to-text
+EXPORTS TOOL voice
 
-# NVIDIA's Parakeet TDT-CTC 110M, 8-bit weights: English. Silero VAD tells speech from other sound.
+# NVIDIA's Parakeet TDT-CTC 110M, 8-bit weights: English.
 SOURCE /v0.1.1/dist/static/speech/parakeet-tdt_ctc-110m.gguf 0000000000000000000000000000000000000000000000000000000000000000 /usr/share/dolly/speech/parakeet-tdt_ctc-110m.gguf
-SOURCE /v0.1.1/dist/static/speech/silero-vad.gguf 0000000000000000000000000000000000000000000000000000000000000000 /usr/share/dolly/speech/silero-vad.gguf
 SOURCE /v0.1.1/dist/static/speech/CC-BY-4.0.txt 0000000000000000000000000000000000000000000000000000000000000000 /usr/share/licenses/parakeet/CC-BY-4.0.txt
 FILE /usr/share/licenses/parakeet/NOTICE
     Parakeet TDT-CTC 110M, by NVIDIA: https://huggingface.co/nvidia/parakeet-tdt_ctc-110m
@@ -26,10 +29,19 @@ FILE /usr/share/licenses/parakeet/NOTICE
     https://huggingface.co/handy-computer/parakeet-tdt_ctc-110m-gguf
 EXPORTS FOLDER speech-models /usr/share/dolly/speech
 EXPORTS FOLDER parakeet-license /usr/share/licenses/parakeet
+SOURCE /v0.1.1/dist/static/speech/pi.menu 0000000000000000000000000000000000000000000000000000000000000000 /etc/dolly/pi.menu
+EXPORTS FILE pi-menu /etc/dolly/pi.menu
 
+# voice has the buttons and types; Pi has the terminal.
 FILE /etc/dolly/init.slop
-    /bin/foreground -i /usr/bin/speech-to-text
-    printf '\nDolly: "speech-to-text" listens again.\n'
+    cd /workspace
+    /usr/bin/voice /etc/dolly/pi.menu &
+    for attempt in 1 2 3; do
+      /bin/foreground -i /usr/bin/pi
+      status=$?
+      case "$status" in 0|130) break ;; esac
+    done
+    printf '\nDolly: Pi has ended; this is the recovery Slop shell.\n'
     /bin/foreground -i /bin/slop
 
 ENTRY /bin/foreground -i /bin/slop /etc/dolly/init.slop
