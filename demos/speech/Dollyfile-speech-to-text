@@ -11,14 +11,14 @@ REQUIRES HOST threads@0
 REQUIRES HOST upload@0
 
 FROM /v0.1.1/Dollyfile-system 1b986f665ab3f4fcab0e9ddc3d3da3534ffdd26191cb3f18cd75d9304889fef5
-COPY /v0.1.1/demos/speech/Dollyfile-speech-build 3370f251f81953ed7c1c06a209fc35e71400b0fdb1bb0616dfa3087530658f39 /usr/bin/speech-to-text /usr/bin/speech-to-text
-COPY /v0.1.1/demos/speech/Dollyfile-speech-build 3370f251f81953ed7c1c06a209fc35e71400b0fdb1bb0616dfa3087530658f39 /usr/share/licenses/transcribe.cpp /usr/share/licenses/transcribe.cpp
+COPY /v0.1.1/demos/speech/Dollyfile-speech-build 3044104d3760e6d060a2cfb81f61db8be6930c58e23736fa9c5463e6c8d2604a /usr/bin/speech-to-text /usr/bin/speech-to-text
+COPY /v0.1.1/demos/speech/Dollyfile-speech-build 3044104d3760e6d060a2cfb81f61db8be6930c58e23736fa9c5463e6c8d2604a /usr/share/licenses/transcribe.cpp /usr/share/licenses/transcribe.cpp
 EXPORTS TOOL speech-to-text
 
 # NVIDIA's Parakeet TDT-CTC 110M, 8-bit weights: English. Silero VAD tells speech from other sound.
-SOURCE /v0.1.1/dist/static/speech/parakeet-tdt_ctc-110m.gguf 0000000000000000000000000000000000000000000000000000000000000000 /usr/share/dolly/speech/parakeet-tdt_ctc-110m.gguf
-SOURCE /v0.1.1/dist/static/speech/silero-vad.gguf 0000000000000000000000000000000000000000000000000000000000000000 /usr/share/dolly/speech/silero-vad.gguf
-SOURCE /v0.1.1/dist/static/speech/CC-BY-4.0.txt 0000000000000000000000000000000000000000000000000000000000000000 /usr/share/licenses/parakeet/CC-BY-4.0.txt
+SOURCE /v0.1.1/dist/static/speech/parakeet-tdt_ctc-110m.gguf 7dd44c74a331d788a4e5f8b16913b3feb29ced22cf5613aad0e0f6cd30516296 /usr/share/dolly/speech/parakeet-tdt_ctc-110m.gguf
+SOURCE /v0.1.1/dist/static/speech/silero-vad.gguf 0d871a800c420fdd5d1b17a3aea4296d1c39608f0ff4a9295eb76457eb1c88e6 /usr/share/dolly/speech/silero-vad.gguf
+SOURCE /v0.1.1/dist/static/speech/CC-BY-4.0.txt 9ba9550ad48438d0836ddab3da480b3b69ffa0aac7b7878b5a0039e7ab429411 /usr/share/licenses/parakeet/CC-BY-4.0.txt
 FILE /usr/share/licenses/parakeet/NOTICE
     Parakeet TDT-CTC 110M, by NVIDIA: https://huggingface.co/nvidia/parakeet-tdt_ctc-110m
     Licensed under the Creative Commons Attribution 4.0 International License (CC-BY-4.0.txt).

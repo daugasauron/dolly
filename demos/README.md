@@ -22,7 +22,7 @@ README. Demos may use each other; the core never uses a demo.
 - [rust](rust/README.md): rustc and Cargo built inside Dolly, ripgrep and fd.
 - [sdl2](sdl2/README.md): SDL2 over the Dolly framebuffer.
 - [slopyard](slopyard/README.md): Slopyard and the raylib/Box3D gamedev SDK.
-- [speech](speech/README.md): speech to text from the microphone, with transcribe.cpp and a Moonshine model.
+- [speech](speech/README.md): speech to text from the microphone, and Pi on a phone with speech and buttons in place of a keyboard.
 - [studio](studio/README.md): Dollyfile Studio.
 - [sysroot](sysroot/README.md): the libraries every program links, rebuilt inside Dolly and held against the seed's.
 - [wine](wine/README.md): Wine 4.0.4 as one wasm64 process: a desktop with Notepad, WineMine, ReactOS Paint and the NetSurf browser (fetching through libcurl), and an interpreter for small x86-64 Windows programs.

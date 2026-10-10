@@ -93,11 +93,13 @@ export default function dollyTools(pi) {
   pi.on("session_start", async (_event, context) => {
     if (context.mode === "tui") {
       context.ui.setHeader((_tui, theme) => ({
-        render() {
+        // Pi ends on a line wider than the terminal; every character here is one column.
+        render(width) {
+          const line = (color, text) => theme.fg(color, text.slice(0, width));
           return [
-            theme.bold(theme.fg("accent", "pi / DOLLY")),
-            theme.fg("muted", "Ctrl+C interrupt · / commands · ! Slop"),
-            theme.fg("muted", "Ctrl+Shift+C/V copy/paste · Ctrl+/- zoom · F11 fullscreen"),
+            theme.bold(line("accent", "pi / DOLLY")),
+            line("muted", "Ctrl+C interrupt · / commands · ! Slop"),
+            line("muted", "Ctrl+Shift+C/V copy/paste · Ctrl+/- zoom · F11 fullscreen"),
           ];
         },
         invalidate() {},

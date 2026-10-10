@@ -10,7 +10,7 @@ REQUIRES HOST snapshot@0
 REQUIRES HOST threads@0
 REQUIRES HOST upload@0
 
-FROM /v0.1.1/demos/pi/Dollyfile-pi-runtime a210809b2f10e87ddee6088adf9523833b70cefdf02e536be3afdd51c4dcf51a
+FROM /v0.1.1/demos/pi/Dollyfile-pi-runtime bbe71083f68fb87515504051fbf44b0fa6a69287fe53748b19902f9d9775a135
 REQUIRES TOOL foreground
 REQUIRES TOOL test
 REQUIRES TOOL printf

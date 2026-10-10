@@ -107,3 +107,18 @@ Run before the images existed, in a 412x839 touch session on `cmake-build` with 
   sentence typed at the shell's prompt, the microphone closed with no live track.
 - Menu, OpenRouter key, Paste: the page's own Paste button, the made-up key typed with Enter.
 - `speech-to-text` on the new model and detector: the sample's sentence whole, line after line.
+
+## The owner on the module's shape (2026-10-10, 22:00)
+
+"Explain the buttons module? It sounds strange to me, I was thinking more of "phone input"
+handling input from the touch screen, like dragging zooming etc. Buttons is sort of irrelevant
+for that?"
+
+Answered: `buttons@0` is the keyboard's replacement (a strip the page draws for one program, a
+page-owned Paste, typing that stays in Wasm), not touch handling; touch reaches programs as
+pointer input through `input@0`, with drag-to-scroll added in its page code. Open, the owner's
+to decide: keep it, rename it (`keypad@0`), or have the terminal reserve rows for a second
+program that gets the taps. Each of the last two changes the seed. Pinch to zoom was promised
+for the terminal; touch points for programs (a `touch@0`) are not built.
+
+Owner, after the answer: "Keep it as is for now, I want to try it before rejecting it."

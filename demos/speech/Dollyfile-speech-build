@@ -17,7 +17,7 @@ REQUIRES TOOL cmake
 REQUIRES TOOL make
 REQUIRES TOOL tar
 
-SOURCE /v0.1.1/dist/static/speech/source.tar 2559826bcb43b0ea095c20475524bd3f804bce2c64b64d570c51f42b33a3b558 /tmp/speech-source.tar
+SOURCE /v0.1.1/dist/static/speech/source.tar 86b4305fdfe2ae10aafba4691f1b111a8544a632d381e051b8b8799b16df41d4 /tmp/speech-source.tar
 SLOP tar -xf /tmp/speech-source.tar -C /
 # Threads and SIMD are what let the model keep up with speech; ggml's precompiled header is not built by cc.
 SLOP cmake -S /tmp/transcribe -B /tmp/transcribe/build \

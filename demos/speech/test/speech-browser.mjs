@@ -56,18 +56,31 @@ await demoTest("speech refused", { image, browser, launch: refuses }, async ({ o
 
 // Chrome on Android is the phone this is for; Firefox has no phone to stand in for.
 if (browser === "chromium") await demoTest("pi-phone", { image: "pi-phone", launch: plays, timeout: 600_000 }, async ({ open }) => {
-  const key = "sk-or-v1-DOLLYPHONETESTKEY0123456789", asked = [];
-  const answer = text => ({ status: 200, headers: { "access-control-allow-origin": "*", "content-type": "text/event-stream" },
-    body: [{ role: "assistant", content: text }, {}].map((delta, index) => `data: ${JSON.stringify({ id: "phone", object: "chat.completion.chunk",
-      created: 0, model: "phone", choices: [{ index: 0, delta, finish_reason: index ? "stop" : null }] })}\n\n`).join("") + "data: [DONE]\n\n" });
+  const key = "sk-or-v1-DOLLYPHONETESTKEY0123456789", asked = [], said = "DOLLY-PHONE-HEARD";
+  // OpenRouter speaks OpenAI's completions or Anthropic's messages, by the model chosen.
+  const events = {
+    "/chat/completions": [{ role: "assistant", content: said }, {}].map((delta, index) => ["", { id: "phone", object: "chat.completion.chunk",
+      created: 0, model: "phone", choices: [{ index: 0, delta, finish_reason: index ? "stop" : null }] }]),
+    "/messages": [
+      { type: "message_start", message: { id: "phone", type: "message", role: "assistant", model: "phone", content: [], stop_reason: null,
+        stop_sequence: null, usage: { input_tokens: 1, output_tokens: 1 } } },
+      { type: "content_block_start", index: 0, content_block: { type: "text", text: "" } },
+      { type: "content_block_delta", index: 0, delta: { type: "text_delta", text: said } },
+      { type: "content_block_stop", index: 0 },
+      { type: "message_delta", delta: { stop_reason: "end_turn", stop_sequence: null }, usage: { output_tokens: 1 } },
+      { type: "message_stop" },
+    ].map(event => [`event: ${event.type}\n`, event]),
+  };
   const { page, text, waitText } = await open({ prompt: null, device: devices["Pixel 7"], setup: async page => {
     await speaking(page);
-    // The catalog is refused, so Pi keeps the models it ships; a completion is answered.
+    // The catalog is refused, so Pi keeps the models it ships; a prompt is answered.
     await page.route("https://openrouter.ai/**", route => {
-      const request = route.request();
-      if (!request.url().endsWith("/chat/completions")) return route.fulfill({ status: 404, headers: { "access-control-allow-origin": "*" } });
-      asked.push({ authorization: request.headers().authorization, body: request.postDataJSON() });
-      return route.fulfill(answer("DOLLY-PHONE-HEARD"));
+      const request = route.request(), headers = { "access-control-allow-origin": "*" };
+      const answer = events[new URL(request.url()).pathname.replace("/api/v1", "")];
+      if (!answer) return route.fulfill({ status: 404, headers });
+      asked.push({ headers: request.headers(), body: request.postDataJSON() });
+      return route.fulfill({ status: 200, headers: { ...headers, "content-type": "text/event-stream" },
+        body: answer.map(([event, data]) => `${event}data: ${JSON.stringify(data)}\n\n`).join("") + "data: [DONE]\n\n" });
     });
   } });
   const tap = label => page.locator("#buttons button", { hasText: new RegExp(`^${label}$`) }).tap();
@@ -109,8 +122,8 @@ if (browser === "chromium") await demoTest("pi-phone", { image: "pi-phone", laun
   await tap("Speak");
   await caption(/ask not what your country can do for you/i);
   await tap("Send");
-  await waitText(/DOLLY-PHONE-HEARD/);
-  assert.equal(asked[0].authorization, `Bearer ${key}`);
+  await waitText(new RegExp(said));
+  assert.ok([asked[0].headers.authorization, asked[0].headers["x-api-key"]].some(value => value?.endsWith(key)), "the pasted key signs the request");
   assert.match(JSON.stringify(asked[0].body.messages.at(-1)), /ask not what your country can do for you/i);
   assert.equal(await page.evaluate(() => __dolly.microphone.active + __dolly.microphone.liveTracks), 0, "the microphone is open only while voice listens");
 });
