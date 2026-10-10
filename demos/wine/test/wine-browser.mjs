@@ -150,6 +150,8 @@ async function terminal(page, prompt, start, waitText) {
     }
     return { count, width: right - left };
   }, sample);
+  // The console takes the keyboard when clicked, once its thread has heard of it: a key sooner than that is nobody's.
+  const toConsole = async () => { await click(page, 200, 200); await delay(300); };
   const closeSample = async () => {
     await click(page, ...beside);
     await delay(500);
@@ -158,17 +160,17 @@ async function terminal(page, prompt, start, waitText) {
   };
   await pixelIs(page, 640, height - 6, face);
 
-  // The sample from its shortcut, the last of eight: while it runs the desktop refuses a second x86-64
+  // The sample from its shortcut, the fourth of eight: while it runs the desktop refuses a second x86-64
   // program with a message box, over the sample's window; once it has ended, it starts again.
   const refusal = [(width >> 1) - 120, (height >> 1) + 17];
-  await page.mouse.dblclick(...await at(page, 36, 545));
+  await page.mouse.dblclick(...await at(page, 36, 245));
   await until(async () => (await sampleText()).count > 40, "the sample from the desktop");
-  await page.mouse.dblclick(...await at(page, 36, 545));
+  await page.mouse.dblclick(...await at(page, 36, 245));
   await pixelIs(page, ...refusal, face);
   await page.keyboard.press("Enter");
   await pixelIs(page, ...refusal, black);
   await closeSample();
-  await page.mouse.dblclick(...await at(page, 36, 545));
+  await page.mouse.dblclick(...await at(page, 36, 245));
   await until(async () => (await sampleText()).count > 40, "the sample from the desktop again");
   await closeSample();
 
@@ -177,7 +179,7 @@ async function terminal(page, prompt, start, waitText) {
   await page.keyboard.press("c");
   await pixelIs(page, 400, 300, black);
   await until(async () => await lit() > 300, "cmd's prompt");
-  await click(page, 200, 200);                                  // a window takes the keyboard when clicked
+  await toConsole();
 
   // cmd's own commands, with a line edited before Enter and one fetched from the history.
   await enter("dir > dir.txt");
@@ -207,7 +209,7 @@ async function terminal(page, prompt, start, waitText) {
   await enter("echo %errorlevel%> level1.txt");
   await enter("Z:\\usr\\share\\wine\\x86\\hello_win");
   await until(async () => (await sampleText()).count > 40, "the x86-64 program's window");
-  await click(page, 200, 200);
+  await toConsole();
   await enter("echo free> free.txt");
   await enter(`${tcc} -v 2> busy.txt`, 1500);
   await enter("cmd /c echo nested 2> nested.txt", 1500);
@@ -215,7 +217,7 @@ async function terminal(page, prompt, start, waitText) {
   await closeSample();
 
   // The source of that program: edited in Notepad, compiled by the x86-64 TinyCC, run, and run again.
-  await click(page, 200, 200);
+  await toConsole();
   await enter("notepad hello_win.c");
   await pixelIs(page, 700, 400, white);                         // Notepad, over the console
   await delay(1000);
@@ -230,23 +232,51 @@ async function terminal(page, prompt, start, waitText) {
   await delay(1500);
   await page.keyboard.press("Alt+F4");
   await pixelIs(page, 700, 400, desktop);
-  await click(page, 200, 200);
+  await toConsole();
   await page.keyboard.type("tcc hello_win.c", { delay: 15 });
   await delay(500);
   const before = await lit(), pressed = Date.now();
   await page.keyboard.press("Enter");
   await until(async () => await lit() > before + 150, "the prompt after the compiler", 120_000);
   const compiled = Date.now() - pressed;
-  for (const run of ["first", "second"]) {
-    await enter("hello_win");
-    const text = await until(async () => { const found = await sampleText(); return found.count > 40 && found; }, `the edited program's ${run} window`);
+  const edited = async what => {
+    const text = await until(async () => { const found = await sampleText(); return found.count > 40 && found; }, what);
     assert.ok(text.width > 150, `the window's text is ${text.width} pixels wide: not the longer one`);
     await page.screenshot({ path: `${evidence}terminal-run.png` });
     await closeSample();
-    await click(page, 200, 200);
+  };
+  for (const run of ["first", "second"]) {
+    await enter("hello_win");
+    await edited(`the edited program's ${run} window`);
+    await toConsole();
   }
+
+  // On the desktop. A shortcut made from the desktop's menu, through the file dialog, is its fifth icon,
+  // after the sample's shortcut; then a copy of the program in the Desktop folder is, from a second prompt.
   await enter("exit", 1500);
   await pixelIs(page, 400, 300, desktop);
+  await page.mouse.click(...await at(page, 500, 500), { button: "right" });
+  await delay(700);
+  await page.keyboard.press("n");
+  await pixelIs(page, 420, 180, face);
+  await page.keyboard.type("hello_win.exe", { delay: 15 });
+  await page.keyboard.press("Enter");
+  await pixelIs(page, 420, 180, desktop);
+  await delay(800);                                             // the desktop reads its folder four times a second
+  await page.mouse.dblclick(...await at(page, 36, 320));
+  await edited("the program from its new shortcut");
+  await click(page, 30, height - 14);
+  await delay(700);
+  await page.keyboard.press("c");
+  await pixelIs(page, 400, 300, black);
+  await until(async () => await lit() > 300, "the second prompt");
+  await toConsole();
+  await enter("copy hello_win.exe Desktop");
+  await enter("exit", 1500);
+  await pixelIs(page, 400, 300, desktop);
+  await page.screenshot({ path: `${evidence}desktop-folder.png` });
+  await page.mouse.dblclick(...await at(page, 36, 320));
+  await edited("the program copied to the desktop");
   await click(page, 30, height - 14);
   await delay(700);
   await page.keyboard.press("u");
@@ -260,7 +290,7 @@ async function terminal(page, prompt, start, waitText) {
     assert.equal(await start(`grep -q "${pattern}" /home/dolly/${name}.txt`).done, 0, `${name}.txt has no "${pattern}"`);
   }
   assert.equal(await start('test "$(grep -c again /home/dolly/again.txt)" = 2').done, 0, "the command from the history did not run again");
-  console.log(`wine: the terminal ran cmd's commands, a console program and an x86-64 one with their exit codes, and refused what one process cannot do; the x86-64 sample started again after it had ended, from the desktop and the prompt; hello_win.c, edited in Notepad, was compiled by tcc in ${compiled} ms and showed its new text`);
+  console.log(`wine: the terminal ran cmd's commands, a console program and an x86-64 one with their exit codes, and refused what one process cannot do; the x86-64 sample started again after it had ended, from the desktop and the prompt; hello_win.c, edited in Notepad, was compiled by tcc in ${compiled} ms and showed its new text, also from a shortcut made on the desktop and from a copy in the Desktop folder`);
 }
 
 // GIMP 2.2 on GTK+ 2.6 over GDK's Windows backend. Its toolbox is where its session file puts it, the tip
@@ -567,8 +597,9 @@ async function run(page, prompt, start, waitText) {
   await pixelIs(page, width >> 1, height >> 1, desktop);
   await pixelIs(page, width >> 1, height - 6, face);
 
-  // Its shortcuts: a column of icons with their names from the top left, 75 pixels apart, in the Start
-  // menu's order (Notepad, File Manager, Winemine, Paint, NetSurf, GIMP, Command Prompt, the x86-64 sample).
+  // Its icons: the files of the user's Desktop folder, a column with their names from the top left, 75
+  // pixels apart, by name: shortcuts to Command Prompt, File Manager, GIMP, the x86-64 sample, NetSurf,
+  // Notepad, Paint and Winemine.
   const highlight = [10, 36, 106];
   const inCell = (index, counted) => page.evaluate(([top, colour, same]) => {
     const data = document.querySelector("#display").getContext("2d").getImageData(0, top, 75, 75).data;
@@ -595,12 +626,12 @@ async function run(page, prompt, start, waitText) {
   await until(async () => await selected() === "11110000", "a fourth shortcut selected with Ctrl");
   await click(page, 500, 400);
   await until(async () => await selected() === "00000000", "no shortcut selected");
-  await page.mouse.dblclick(...await at(page, 36, 20));   // a double click starts Notepad
+  await page.mouse.dblclick(...await at(page, 36, 395));  // a double click starts Notepad
   await pixelIs(page, 100, 100, white);
   await page.keyboard.press("Alt+F4");
   await pixelIs(page, 100, 100, desktop);
-  await click(page, 36, 170);                 // Enter on the selected one starts WineMine
-  await until(async () => await selected() === "00100000", "WineMine's shortcut selected");
+  await click(page, 36, 545);                 // Enter on the selected one starts WineMine
+  await until(async () => await selected() === "00000001", "WineMine's shortcut selected");
   await page.keyboard.press("Enter");
   await pixelIs(page, 60, 50, black);
   await page.keyboard.press("Alt+F4");
@@ -728,7 +759,7 @@ async function run(page, prompt, start, waitText) {
     /desktop: started mspaint\.exe/,
     /"Unnamed\.bmp - Paint" at 100,100 foreground/,
     /"dolly\.bmp - Paint"/,
-    /desktop: started x86emu\.exe/,
+    /desktop: started hello_win\.exe/,
     new RegExp(`"HELLO_WIN" at ${left},${top} foreground`),
     /desktop: started notepad\.exe/,
     /2 windows; "Untitled - Notepad" at 0,0; "WineMine" at 0,0 foreground/,

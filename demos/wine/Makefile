@@ -10,7 +10,7 @@ CFLAGS := -O2 -fno-strict-aliasing -pthread -w
 TOOLCPP := -I$(PORT) -I$(SRC)/include -D__WINESRC__
 
 X86 := /usr/share/wine/x86
-all: /usr/bin/wine fonts gimp-data $(X86)/hello_win.exe /home/dolly/hello_win.c
+all: /usr/bin/wine fonts gimp-data $(X86)/hello_win.exe /home/dolly/hello_win.c desktop-folder
 
 # libwine_port and the parts of libwine the tools use.
 PORT_SRCS := $(wildcard $(SRC)/libs/port/*.c)
@@ -66,7 +66,7 @@ $(B)/include/%.h: $(SRC)/include/%.idl $(T)/widl
 headers: $(IDL_HEADERS)
 
 # Modules, each built by module.mk from its own Makefile.in: Wine's, and the demo's own under $(PORT).
-DLLS := ntdll kernel32 advapi32 gdi32 user32 version usp10 imm32 comctl32 comdlg32 shell32 shlwapi uxtheme winspool.drv msvcrt
+DLLS := ntdll kernel32 advapi32 gdi32 user32 version usp10 imm32 comctl32 comdlg32 shell32 shlwapi shcore uxtheme winspool.drv msvcrt
 OWN_DLLS := winedolly.drv
 PROGRAMS := notepad winefile winemine
 OWN_PROGRAMS := desktop hello mspaint netsurf x86emu gimp
@@ -79,7 +79,8 @@ MODULE_ARGS_dlls/kernel32 := PORT_SRCS=kernel32-program.c
 MODULE_ARGS_dlls/gdi32 := PORT_SRCS=freetype-symbols.c FREETYPE_CFLAGS="-I/usr/include/freetype2 -I$(PORT)/port" \
                           freetype_EXTRADEFS='-DWINE_FONT_DIR=\"fonts\"'
 MODULE_ARGS_dlls/user32 := PORT_SRCS=user32-desktop.c
-MODULE_ARGS_dlls/shell32 := PORT_SRCS=ole32-taskmem.c
+MODULE_ARGS_dlls/shell32 := PORT_SRCS=shell32-dolly.c
+MODULE_ARGS_dlls/shcore := FIRSTINCL=-I$(PORT)/port/shcore
 MODULE_ARGS_server := ENTRY_RENAMES=-Dmain=wineserver_main \
                       MODDEFS="-include $(PORT)/port/server-cwd.h" PORT_SRCS=server-cwd.c \
                       main_EXTRADEFS=-Dmain_loop=wine_dolly_server_ready
@@ -190,4 +191,9 @@ $(X86)/hello_win.exe: /usr/bin/wine
 # That program's source in the user's directory, where the terminal starts: to edit, compile and run.
 /home/dolly/hello_win.c: $(X86)/tcc/examples/hello_win.c
 	cp $< $@
-.PHONY: all tools headers fonts gimp-data shared-names FORCE
+# The user's Desktop folder as the image has it: a shortcut to each program of the Start menu, which
+# shell32 writes for the desktop.
+desktop-folder: $(X86)/hello_win.exe
+	rm -rf /home/dolly/Desktop
+	HOME=/home/dolly WINEPREFIX=$(B)/prefix wine desktop /shortcuts
+.PHONY: all tools headers fonts gimp-data desktop-folder shared-names FORCE

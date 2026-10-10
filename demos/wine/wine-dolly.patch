@@ -889,7 +889,7 @@
      cmdline = heap_xalloc( (strlenW(file) + strlenW(args) + 8) * sizeof(WCHAR) );
 --- a/programs/cmd/wcmdmain.c
 +++ b/programs/cmd/wcmdmain.c
-@@ -1035,6 +1035,79 @@
+@@ -1035,6 +1035,80 @@
   *          so go back through wcmd_execute.
   */
  
@@ -898,6 +898,7 @@
 + * wine_dolly_start_program), an x86-64 file by the interpreter, which is such a program; cmd waits for
 + * a console program, and its exit code is the thread's. What that cannot do says so. */
 +extern HANDLE wine_dolly_start_program( const WCHAR *cmdline );
++static WCHAR dolly_directory[MAX_PATH];
 +
 +void WCMD_dolly_say (const char *text)
 +{
@@ -969,7 +970,7 @@
  void WCMD_run_program (WCHAR *command, BOOL called)
  {
    WCHAR  temp[MAX_PATH];
-@@ -1204,6 +1277,10 @@
+@@ -1204,6 +1278,10 @@
          return;
        } else {
  
@@ -980,7 +981,7 @@
          /* thisDir contains the file to be launched, but with what?
             eg. a.exe will require a.exe to be launched, a.html may be iexplore */
          hinst = FindExecutableW (thisDir, NULL, temp);
-@@ -1247,6 +1324,10 @@
+@@ -1247,6 +1325,10 @@
      }
    }
  
@@ -991,6 +992,33 @@
    /* Not found anywhere - were we called? */
    if (called) {
      CMD_LIST *toExecute = NULL;         /* Commands left to be executed */
+@@ -2767,14 +2849,26 @@
+ 
+   interactive = TRUE;
+   if (!opt_k) WCMD_version ();
++#ifdef __dolly__  /* The current directory is the process's, and other programs move it: cmd keeps its own. */
++  GetCurrentDirectoryW(ARRAY_SIZE(dolly_directory), dolly_directory);
++#endif
+   while (TRUE) {
+ 
+     /* Read until EOF (which for std input is never, but if redirect
+        in place, may occur                                          */
++#ifdef __dolly__
++    SetCurrentDirectoryW(dolly_directory);
++#endif
+     if (echo_mode) WCMD_show_prompt(promptNewLine);
+     if (!WCMD_ReadAndParseLine(NULL, &toExecute, GetStdHandle(STD_INPUT_HANDLE)))
+       break;
++#ifdef __dolly__
++    SetCurrentDirectoryW(dolly_directory);
++    WCMD_process_commands(toExecute, FALSE, FALSE);
++    GetCurrentDirectoryW(ARRAY_SIZE(dolly_directory), dolly_directory);
++#else
+     WCMD_process_commands(toExecute, FALSE, FALSE);
++#endif
+     WCMD_free_commands(toExecute);
+     promptNewLine = !!toExecute;
+     toExecute = NULL;
 --- a/programs/wineconsole/user.c
 +++ b/programs/wineconsole/user.c
 @@ -1365,7 +1365,15 @@
@@ -1145,31 +1173,20 @@
  
  	/* register windows drive root strings */
  	SendMessageW(Globals.hdrivebar, TB_ADDSTRINGW, 0, (LPARAM)Globals.drives);
-@@ -3477,6 +3488,34 @@
+@@ -3477,6 +3488,23 @@
  }
  
  
 +#ifdef __dolly__
-+/* CreateProcess starts nothing on Dolly: programs are threads of this process. A file is opened by
-+ * the program of this Wine that reads its kind: a bitmap by Paint, an x86-64 program by x86emu,
-+ * anything else as text by Notepad. */
-+extern HANDLE wine_dolly_start_program( const WCHAR *cmdline );
++/* CreateProcess starts nothing on Dolly: programs are threads of this process, and a file is opened by
++ * the program of this Wine that reads its kind (shell32's wine_dolly_open_file). */
++extern HANDLE wine_dolly_open_file( const WCHAR *path );
 +
 +static BOOL launch_file(HWND hwnd, LPCWSTR cmd, UINT nCmdShow)
 +{
-+	static const WCHAR bmpW[] = {'.','b','m','p',0}, exeW[] = {'.','e','x','e',0};
-+	static const WCHAR paintW[] = {'m','s','p','a','i','n','t','.','e','x','e',0};
-+	static const WCHAR x86emuW[] = {'x','8','6','e','m','u','.','e','x','e',0};
-+	static const WCHAR notepadW[] = {'n','o','t','e','p','a','d','.','e','x','e',0};
-+	static const WCHAR plainW[] = {'%','s',' ','%','s',0}, quotedW[] = {'%','s',' ','"','%','s','"',0};
-+	LPCWSTR ext = strrchrW(cmd, '.'), program = notepadW;
-+	WCHAR line[MAX_PATH + 16];
-+	HANDLE thread;
++	HANDLE thread = wine_dolly_open_file(cmd);
 +
-+	if (ext && !lstrcmpiW(ext, bmpW)) program = paintW;
-+	else if (ext && !lstrcmpiW(ext, exeW)) program = x86emuW;
-+	snprintfW(line, ARRAY_SIZE(line), program == paintW ? plainW : quotedW, program, cmd);
-+	if (!(thread = wine_dolly_start_program(line))) {
++	if (!thread) {
 +		display_error(hwnd, GetLastError());
 +		return FALSE;
 +	}
@@ -1180,7 +1197,7 @@
  static BOOL launch_file(HWND hwnd, LPCWSTR cmd, UINT nCmdShow)
  {
  	HINSTANCE hinst = ShellExecuteW(hwnd, NULL/*operation*/, cmd, NULL/*parameters*/, NULL/*dir*/, nCmdShow);
-@@ -3488,6 +3527,7 @@
+@@ -3488,6 +3516,7 @@
  
  	return TRUE;
  }
@@ -1188,7 +1205,7 @@
  
  
  static BOOL launch_entry(Entry* entry, HWND hwnd, UINT nCmdShow)
-@@ -4027,6 +4067,11 @@
+@@ -4027,6 +4056,11 @@
  			Pane* pane;
  			int idx;
  
@@ -1200,7 +1217,7 @@
  			 /* first select the current item in the listbox */
  			HWND hpanel = (HWND) wparam;
  			pt_clnt.x = pt.x = (short)LOWORD(lparam);
-@@ -4190,9 +4235,11 @@
+@@ -4190,9 +4224,11 @@
  
  	Globals.hInstance = hinstance;
  
@@ -1212,7 +1229,7 @@
  	Globals.cfStrFName = RegisterClipboardFormatW(CFSTR_FILENAMEW);
  
  	/* load column strings */
-@@ -4338,9 +4385,11 @@
+@@ -4338,9 +4374,11 @@
  
  static void ExitInstance(void)
  {
@@ -1272,6 +1289,18 @@
      if (thread->unix_pid != -1)
      {
          if (thread->unix_tid != -1)
+--- a/server/queue.c
++++ b/server/queue.c
+@@ -527,6 +527,9 @@
+     }
+     if (!ptr) return 0;
+     if (prev->result) return 0;
++#ifdef __dolly__  /* The thread has that one and will release it as it saw it: the last move of a drag was lost so. */
++    if (prev->unique_id) return 0;
++#endif
+     if (prev->win && msg->win && prev->win != msg->win) return 0;
+     if (prev->msg != msg->msg) return 0;
+     if (prev->type != msg->type) return 0;
 --- a/server/request.c
 +++ b/server/request.c
 @@ -401,8 +401,22 @@

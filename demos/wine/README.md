@@ -19,9 +19,10 @@ what this image compiled (`desktop`, `notepad`, `winefile`, `winemine`,
 ## Images
 
 - `wine-build`: the build. Wine's `widl`, `wrc`, `wmc` and `winebuild`,
-  then 15 DLLs (`ntdll`, `kernel32`, `advapi32`, `gdi32`, `user32`,
+  then 16 DLLs (`ntdll`, `kernel32`, `advapi32`, `gdi32`, `user32`,
   `version`, `usp10`, `imm32`, `comctl32`, `comdlg32`, `shell32`, `shlwapi`,
-  `uxtheme`, `winspool.drv`, `msvcrt`), the display driver `winedolly.drv`,
+  `shcore`, `uxtheme`, `winspool.drv`, `msvcrt`), the display driver
+  `winedolly.drv`,
   the programs and `wineserver`, linked as `/usr/bin/wine` on
   `system-tools` with the FreeType that `zero-ad-deps` built. Wine's source
   as built stays under `/usr/src/wine`, the port under `/usr/src/dolly/wine`.
@@ -315,8 +316,10 @@ What one process makes of it:
 - `start` answers that this Wine has no process to start;
 - a second x86-64 program while one runs, and a second `cmd` (`cmd /c …`),
   are refused with a message: each program runs once at a time;
-- the current directory is the process's: `cd` moves the file dialogs and
-  the file manager of every program with it;
+- the current directory is the process's: the file manager and the file
+  dialogs move it for every program. cmd keeps its own and puts it back
+  before each command, and the desktop starts each program in the user's
+  directory;
 - pipes are cmd's: through a temporary file, one command after the other;
 - Ctrl+C interrupts nothing: no signal reaches a thread;
 - closing the window ends `cmd` when it next reads a line: at once at the
@@ -345,14 +348,15 @@ without ole32, mpr and other processes (`wine-dolly.patch`):
   folder's, answers "not supported", as do Run, the network drive dialogs
   and Help;
 - a double-clicked file is opened by the program of this image that reads
-  it, started as a thread with the path: a `.bmp` by Paint, an `.exe` by
-  `x86emu`, anything else as text by Notepad. If that program is already
-  running, the file manager says it is busy;
+  it, started as a thread with the path (`port/shell32-dolly.c`, where
+  `ShellExecute` would start a process): a `.bmp` by Paint, an `.exe` by
+  `x86emu`, a shortcut by its target, anything else as text by Notepad. If
+  that program is already running, the file manager says it is busy;
 - `GetLogicalDrives` reads the drives from the prefix's `dosdevices` links:
   Wine has them from mountmgr, a driver in a process of its own. (The file
   dialogs' drive lists come from the same call.)
 - shell32 allocates with ole32's task allocator, which is the process heap
-  (`port/ole32-taskmem.c`), and tells listeners of changes only when there
+  (`port/shell32-dolly.c`), and tells listeners of changes only when there
   are some, as turning a path into an item list is ole32's.
 
 It also showed that libwine's wide `printf` read every integer argument as
@@ -369,14 +373,38 @@ driver brings a clicked window to the front and gives it the foreground, as
 a window manager would, and a minimized window is hidden until its button is
 clicked (`ARW_HIDE`, added to user32).
 
-The shortcuts on the desktop are a comctl32 list view in a window of the
-shell's that covers the work area and puts itself back under every other
-window whenever something raises it. The icons with their names, the
-selection by a click, the rubber band from the empty desktop, Ctrl+click and
-the keyboard are that control's; ours are the list of programs (the Start
-menu's), each one's first icon resource (an x86-64 file gets the generic
-one, its own is not read), and starting the focused one on a double click or
-Enter. They cannot be dragged elsewhere: the control keeps them arranged.
+**The desktop is a folder.** Its icons are the files of the user's Desktop
+folder, the one shell32 names for `CSIDL_DESKTOPDIRECTORY`:
+`Z:\home\dolly\Desktop`, which is `/home/dolly/Desktop` on the Dolly side.
+The desktop puts it there (the registry's "User Shell Folders") so that the
+prompt, which starts in `Z:\home\dolly`, reaches it as `Desktop`, and the
+file manager under `home\dolly`. The folder is listed four times a second
+and the icons are made again, by name, when the names have changed: nothing
+tells this Wine of a change in a directory. They are a comctl32 list view in
+a window of the shell's that covers the work area and puts itself back under
+every other window whenever something raises it; the icons with their names,
+the selection by a click, the rubber band from the empty desktop, Ctrl+click
+and the keyboard are that control's.
+
+A double click or Enter opens an icon as the file manager opens a file. The
+image's eight are shortcuts, one to each program of the Start menu: real
+`.lnk` files, read and written by shell32's own shortcut object, which it
+makes without ole32 (`wine desktop /shortcuts` writes them when the image is
+built). Two ways put a compiled program there: `copy hello_win.exe Desktop`
+at the prompt, or "New Shortcut..." in the menu of a right click on the
+desktop, which asks for the file in the file dialog and writes a shortcut to
+it. For shell32's file streams, which are shcore's in Wine 4.0, shcore is
+built too.
+
+What is not there: of a shortcut the target and the arguments are used, not
+its icon, working directory or window state (a program of this Wine shows
+its own first icon, an x86-64 file the generic one, since its own is not
+read); a shortcut is saved with its target's path alone, where ole32 would
+help add an item list; for each one saved shell32 tries to start
+`winemenubuilder`, a process, which fails with a line in the terminal behind
+the desktop; and an icon cannot be dragged, renamed or deleted on the
+desktop: the prompt (`del Desktop\hello_win.lnk`) and the file manager do
+that.
 
 **Programs are threads.** With one process, the Start menu starts a program
 linked into this Wine as a thread of the desktop's process
@@ -441,12 +469,16 @@ no `mmap` at a chosen address and no assembler. So:
 - **The desktop** is the ownerless window the server makes when there is no
   `explorer.exe` (`port/user32-desktop.c` names the driver for it).
 
-`wine-dolly.patch` (45 files, about 580 added lines) holds the changes to
+`wine-dolly.patch` (46 files, about 580 added lines) holds the changes to
 Wine itself: the `wasm64` CPU in widl, winebuild, the headers and the server
 protocol; ntdll's server connection, loader slots and virtual memory; where
 libwine finds its directories; the two calls through a mismatched
 function type found so far (thread start, timer procedures); the ranges
-of GDI and window handles (see GIMP); and the terminal's four (see there).
+of GDI and window handles (see GIMP); the terminal's four (see there); and
+one in the server, which merged a mouse move into the one before even when
+a thread already held that one and was about to release it, so that the
+last move of a drag could be lost (a window dragged in the test stopped a
+step short once).
 
 Host preparation (`prepare-wine.sh`) applies the patch and generates the
 seven Bison and flex parser files, as the core does for awk; nothing is

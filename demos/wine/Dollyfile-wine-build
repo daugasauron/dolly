@@ -34,7 +34,7 @@ REQUIRES TOOL sed
 REQUIRES TOOL sort
 REQUIRES TOOL tar
 
-SOURCE /v0.1.1/dist/static/wine/source.tar.gz 48545b3db937f2024d04e61e259c8c467fa9e051ef4c6ae53b0a2a3594ba91f9 /tmp/wine-source.tar.gz
+SOURCE /v0.1.1/dist/static/wine/source.tar.gz 3caf84cdb2c6469634eb19c0be8cb2f46ed963536fd3a13d9184f88bcb1b82bf /tmp/wine-source.tar.gz
 SLOP gzip -dc /tmp/wine-source.tar.gz | tar -xf - -C /
 # TinyCC's win64 binaries, unmodified: x86-64 code for x86emu, which builds the Start menu's x86-64 sample with them.
 SOURCE /v0.1.1/dist/static/wine/tinycc.tar.gz 20709ea054c77d290a1837699bd8993dfbe84f97b5900002057a50dfd002fe4a /tmp/tinycc.tar.gz
@@ -58,7 +58,8 @@ FOLDER /usr/share/gimp
 FOLDER /etc/gimp
 FOLDER /etc/fonts
 FOLDER /home/dolly/.gimp-2.2
-# The source of the x86-64 sample, for the terminal.
+# The source of the x86-64 sample, for the terminal, and the user's Desktop folder: the desktop's icons.
 FILE /home/dolly/hello_win.c
+FOLDER /home/dolly/Desktop
 
 ENTRY /bin/foreground -i /bin/slop
