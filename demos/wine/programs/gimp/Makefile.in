@@ -1,0 +1,100 @@
+MODULE    = gtkhello.exe
+APPMODE   = -mwindows
+IMPORTS   = imm32 user32 gdi32 advapi32 kernel32
+# GLib, ATK, Pango, GTK+ and the program are written for the C library and (GDK's and Pango's Windows
+# backends) the Windows headers; none is a part of Wine. The program starts at main (main.c).
+EXTRADEFS = -U__WINESRC__ -DICALL_PROGRAM='"/usr/bin/wine"'
+CRT0 :=
+ICALL := 1
+PORT_SRCS = icall.c
+
+# The prepared sources lie beside this file: glib, atk, pango, gtk (GTK+ with GDK and gdk-pixbuf).
+N := $(MODSRC)/$(MODDIR)
+OBJ := $(B)/obj/$(MODDIR)
+# config.h here is the one each library includes, before Wine's own.
+FIRSTINCL := -I$(N) -I$(N)/glib -I$(N)/glib/glib -I$(N)/glib/gmodule -I$(N)/atk -I$(N)/pango -I$(N)/gtk -I$(N)/gtk/gdk \
+    -I$(N)/gtk/gdk-pixbuf -I$(N)/gtk/gtk
+
+GLIB_UNITS := garray gasyncqueue gatomic gbacktrace gcache gcompletion gconvert gdataset gdate gdir gerror gfileutils \
+    ghash ghook giochannel giounix gkeyfile glist gmain gmarkup gmem gmessages gnode goption gpattern gprimes gprintf \
+    gqsort gqueue grand grel gscanner gshell gslist gspawn gstdio gstrfuncs gstring gthread gthreadpool gtimer gtree \
+    gunibreak gunicollate gunidecomp guniprop gutf8 gutils gwin32 libcharset/localcharset \
+    gnulib/asnprintf gnulib/printf gnulib/printf-args gnulib/printf-parse gnulib/vasnprintf
+GOBJECT_UNITS := gboxed gclosure genums gobject gparam gparamspecs gsignal gsourceclosure gtype gtypemodule gtypeplugin \
+    gvalue gvaluearray gvaluetransform gvaluetypes
+PANGO_UNITS := break ellipsize fonts glyphstring mapping modules pango-attributes pango-color pango-context \
+    pango-coverage pango-engine pango-fontmap pango-fontset pango-glyph-item pango-item pango-layout pango-markup \
+    pango-renderer pango-script pango-tabs pango-utils reorder-items shape pango-enum-types \
+    mini-fribidi/fribidi mini-fribidi/fribidi_char_type mini-fribidi/fribidi_types \
+    pangowin32 pangowin32-fontcache pangowin32-fontmap module-defs-win32
+GDK_UNITS := gdk gdkcolor gdkcursor gdkdisplay gdkdnd gdkdraw gdkevents gdkfont gdkgc gdkglobals gdkkeynames gdkkeys gdkkeyuni \
+    gdkimage gdkdisplaymanager gdkpango gdkpixbuf-drawable gdkpixbuf-render gdkpixmap gdkpolyreg-generic gdkrgb \
+    gdkrectangle gdkregion-generic gdkscreen gdkselection gdkvisual gdkwindow gdkenumtypes
+GDK_WIN32_UNITS := gdkcolor-win32 gdkcursor-win32 gdkdisplay-win32 gdkdnd-win32 gdkdrawable-win32 gdkevents-win32 \
+    gdkfont-win32 gdkgc-win32 gdkgeometry-win32 gdkglobals-win32 gdkim-win32 gdkimage-win32 gdkinput gdkinput-win32 \
+    gdkkeys-win32 gdkmain-win32 gdkpango-win32 gdkpixmap-win32 gdkproperty-win32 gdkscreen-win32 gdkselection-win32 \
+    gdkspawn-win32 gdkvisual-win32 gdkwin32id gdkwindow-win32
+PIXBUF_UNITS := gdk-pixbuf gdk-pixbuf-animation gdk-pixbuf-data gdk-pixbuf-io gdk-pixbuf-loader gdk-pixbuf-scale \
+    gdk-pixbuf-util gdk-pixdata gdk-pixbuf-enum-types pixops/pixops io-png io-xpm
+
+sources = $(patsubst $(N)/%,%,$(wildcard $(addprefix $(N)/,$(1))))
+C_SRCS := $(GLIB_UNITS:%=glib/glib/%.c) $(GOBJECT_UNITS:%=glib/gobject/%.c) glib/gmodule/gmodule.c \
+    $(call sources,atk/atk/*.c) $(PANGO_UNITS:%=pango/pango/%.c) pango/modules/basic/basic-win32.c \
+    $(PIXBUF_UNITS:%=gtk/gdk-pixbuf/%.c) $(GDK_UNITS:%=gtk/gdk/%.c) $(GDK_WIN32_UNITS:%=gtk/gdk/win32/%.c) \
+    $(call sources,gtk/gtk/*.c gtk/gtk/xdgmime/*.c) main.c hello.c
+# Included by another source; the Windows file system (the C library's files are Unix ones), X11's
+# embedding, tools and tests.
+EXCLUDE := atk/atk/atkmarshal.c gtk/gtk/gtkfilesystemwin32.c gtk/gtk/gtkplug.c gtk/gtk/gtksocket.c gtk/gtk/gtkxembed.c \
+    gtk/gtk/gtkplug-stub.c gtk/gtk/gtksocket-stub.c gtk/gtk/gtkwin32embed.c gtk/gtk/updateiconcache.c \
+    gtk/gtk/queryimmodules.c gtk/gtk/xdgmime/test-mime.c $(call sources,gtk/gtk/test*.c)
+
+# The code is of 2005: implicit declarations, GNU inline functions.
+COMMON := -std=gnu89 -DHAVE_CONFIG_H -DG_DISABLE_DEPRECATED
+$(OBJ)/glib/glib/%.o: MODDEFS := $(COMMON) -DG_LOG_DOMAIN='"GLib"' -DGLIB_COMPILATION -DLIBDIR='"/usr/lib"'
+$(OBJ)/glib/gobject/%.o: MODDEFS := $(COMMON) -DG_LOG_DOMAIN='"GLib-GObject"' -DGOBJECT_COMPILATION -DG_DISABLE_CONST_RETURNS
+$(OBJ)/glib/gmodule/%.o: MODDEFS := $(COMMON) -DG_LOG_DOMAIN='"GModule"'
+$(OBJ)/atk/%.o: MODDEFS := $(COMMON) -DG_LOG_DOMAIN='"Atk"' -I$(N)/atk/atk
+$(OBJ)/pango/%.o: MODDEFS := $(COMMON) -DG_LOG_DOMAIN='"Pango"' -DPANGO_ENABLE_BACKEND -DPANGO_ENABLE_ENGINE \
+    -DSYSCONFDIR='"/etc"' -DLIBDIR='"/usr/lib"' -DMODULE_VERSION='"1.4.0"' -DPANGO_MODULE_PREFIX=_pango_basic_win32 \
+    -I$(N)/pango/pango
+# A window's handle is a pointer (gdkconfig.h) that GTK+ 2.6 still keeps in 32 bits in places, where Windows' handles fit.
+$(OBJ)/gtk/%.o: MODDEFS := $(COMMON) -DGTK_VERSION='"2.6.10"' -DGTK_BINARY_VERSION='"2.4.0"' -DGTK_HOST='"wasm64-unknown-dolly"' \
+    -DGTK_LIBDIR='"/usr/lib"' -DGTK_DATADIR='"/usr/share"' -DGTK_DATA_PREFIX='"/usr"' -DGTK_PREFIX='"/usr"' \
+    -DGTK_SYSCONFDIR='"/etc"' -DGTK_LOCALEDIR='"/usr/share/locale"' -DGETTEXT_PACKAGE='"gtk20"' \
+    -DGDK_PIXBUF_DISABLE_DEPRECATED -DGDK_DISABLE_DEPRECATED -DINCLUDE_png -DINCLUDE_xpm \
+    -DGDK_PIXBUF_ENABLE_BACKEND -DGDK_COMPILATION -DGTK_COMPILATION -DGTK_FILE_SYSTEM_ENABLE_UNSUPPORTED \
+    -DXDG_PREFIX=_gtk_xdg -I$(N)/gtk/gtk/stock-icons -Wno-int-conversion
+log_domain = $(foreach unit,$(2),$(eval $(1)/$(unit)_EXTRADEFS += -DG_LOG_DOMAIN='"$(3)"'))
+$(call log_domain,gtk/gdk-pixbuf,$(PIXBUF_UNITS),GdkPixbuf)
+$(call log_domain,gtk/gdk,$(GDK_UNITS),Gdk)
+$(call log_domain,gtk/gdk/win32,$(GDK_WIN32_UNITS),Gdk)
+# Files written for the Windows API (win32.h); gwin32.c in its flavour for a Unix C library over that API,
+# with the number Windows now has for a sublanguage it gives another's.
+WIN32 := glib/glib/gwin32 pango/pango/pangowin32 pango/pango/pangowin32-fontcache pango/pango/pangowin32-fontmap \
+    pango/modules/basic/basic-win32 $(GDK_WIN32_UNITS:%=gtk/gdk/win32/%) main
+$(foreach unit,$(WIN32),$(eval $(unit)_EXTRADEFS += -DG_PLATFORM_WIN32 -include $(N)/win32.h -Wno-incompatible-pointer-types))
+glib/glib/gwin32_EXTRADEFS += -DG_WITH_CYGWIN -DSUBLANG_ROMANIAN_MOLDOVA=0x02
+# GDK's Windows backend is built with the deprecated declarations (its GdkFont).
+$(foreach unit,$(GDK_WIN32_UNITS),$(eval gtk/gdk/win32/$(unit)_EXTRADEFS += -DINSIDE_GDK_WIN32 -UG_DISABLE_DEPRECATED \
+    -UGDK_DISABLE_DEPRECATED -UGDK_PIXBUF_DISABLE_DEPRECATED))
+$(OBJ)/main.o $(OBJ)/hello.o: MODDEFS := -std=gnu89
+# Wine's uuid library has the identifiers that GDK's drag and drop would define: its headers are read
+# before the file asks for definitions.
+gtk/gdk/win32/gdkdnd-win32_EXTRADEFS += -include ole2.h -include shlobj.h -include shlguid.h
+# The program's own main is called by ours.
+hello_EXTRADEFS += -Dmain=program_main
+
+# GLib's marshaller generator, built here as a program of its own, writes ATK's two marshallers.
+.DEFAULT_GOAL := $(OBJ)/module.a
+TOOL_OBJS := $(patsubst %,$(OBJ)/glib/glib/%.o,$(filter-out gwin32,$(GLIB_UNITS)))
+$(OBJ)/tools/%.o: $(N)/glib/gobject/%.c
+	@mkdir -p $(@D)
+	cc $(CFLAGS) $(FIRSTINCL) $(COMMON) -c $< -o $@
+	$(T)/icall $@
+$(OBJ)/tools/%: $(OBJ)/tools/%.o $(TOOL_OBJS)
+	$(T)/icall --thunks $^ > $@-thunks.c
+	cc $(CFLAGS) -I$(PORT)/port -DICALL_PROGRAM='"$@"' $^ $@-thunks.c $(PORT)/port/icall.c -o $@
+ATK_MARSHAL := $(N)/atk/atk/atkmarshal
+$(ATK_MARSHAL).h $(ATK_MARSHAL).c: $(ATK_MARSHAL).list $(OBJ)/tools/glib-genmarshal
+	$(OBJ)/tools/glib-genmarshal --prefix=atk_marshal $< $(if $(filter %.h,$@),--header,--body) > $@
+$(patsubst %.c,$(OBJ)/%.o,$(call sources,atk/atk/*.c)): $(ATK_MARSHAL).h $(ATK_MARSHAL).c

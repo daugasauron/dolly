@@ -1,0 +1,104 @@
+--- a/glib/glib/gwin32.c
++++ b/glib/glib/gwin32.c
+@@ -1264,20 +1264,21 @@
+       nbytes = 0;
+       if (G_WIN32_HAVE_WIDECHAR_API ())
+ 	{
++	  static const WCHAR installation_directory[] = {'I','n','s','t','a','l','l','a','t','i','o','n','D','i','r','e','c','t','o','r','y',0};
+ 	  wchar_t *wc_key = g_utf8_to_utf16 (key, -1, NULL, NULL, NULL);
+ 	  if (((RegOpenKeyExW (HKEY_CURRENT_USER, wc_key, 0,
+ 			       KEY_QUERY_VALUE, &reg_key) == ERROR_SUCCESS
+-		&& RegQueryValueExW (reg_key, L"InstallationDirectory", 0,
++		&& RegQueryValueExW (reg_key, installation_directory, 0,
+ 				     &type, NULL, &nbytes) == ERROR_SUCCESS)
+ 	       ||
+ 	       (RegOpenKeyExW (HKEY_LOCAL_MACHINE, wc_key, 0,
+ 			       KEY_QUERY_VALUE, &reg_key) == ERROR_SUCCESS
+-		&& RegQueryValueExW (reg_key, L"InstallationDirectory", 0,
++		&& RegQueryValueExW (reg_key, installation_directory, 0,
+ 				     &type, NULL, &nbytes) == ERROR_SUCCESS))
+ 	      && type == REG_SZ)
+ 	    {
+ 	      wchar_t *wc_temp = g_new (wchar_t, (nbytes+1)/2 + 1);
+-	      RegQueryValueExW (reg_key, L"InstallationDirectory", 0,
++	      RegQueryValueExW (reg_key, installation_directory, 0,
+ 				&type, (LPBYTE) wc_temp, &nbytes);
+ 	      wc_temp[nbytes/2] = '\0';
+ 	      result = g_utf16_to_utf8 (wc_temp, -1, NULL, NULL, NULL);
+--- a/gtk/gdk-pixbuf/io-png.c
++++ b/gtk/gdk-pixbuf/io-png.c
+@@ -184,7 +184,7 @@
+                              error_msg);
+         }
+ 
+-        longjmp (png_save_ptr->jmpbuf, 1);
++        longjmp (png_jmpbuf (png_save_ptr), 1);
+ }
+ 
+ static void
+@@ -272,7 +272,7 @@
+ 		return NULL;
+ 	}
+ 
+-	if (setjmp (png_ptr->jmpbuf)) {
++	if (setjmp (png_jmpbuf (png_ptr))) {
+ 	    	if (rows)
+ 		  	g_free (rows);
+ 
+@@ -433,7 +433,7 @@
+                 return NULL;
+         }
+         
+-	if (setjmp (lc->png_read_ptr->jmpbuf)) {
++	if (setjmp (png_jmpbuf (lc->png_read_ptr))) {
+ 		if (lc->png_info_ptr)
+ 			png_destroy_read_struct(&lc->png_read_ptr, NULL, NULL);
+                 g_free(lc);
+@@ -505,7 +505,7 @@
+         lc->error = error;
+         
+         /* Invokes our callbacks as needed */
+-	if (setjmp (lc->png_read_ptr->jmpbuf)) {
++	if (setjmp (png_jmpbuf (lc->png_read_ptr))) {
+                 lc->error = NULL;
+ 		return FALSE;
+ 	} else {
+@@ -719,7 +719,7 @@
+                              error_msg);
+         }
+ 
+-        longjmp (png_read_ptr->jmpbuf, 1);
++        longjmp (png_jmpbuf (png_read_ptr), 1);
+ }
+ 
+ static void
+@@ -880,7 +880,7 @@
+ 	       success = FALSE;
+ 	       goto cleanup;
+        }
+-       if (setjmp (png_ptr->jmpbuf)) {
++       if (setjmp (png_jmpbuf (png_ptr))) {
+ 	       success = FALSE;
+ 	       goto cleanup;
+        }
+--- a/gtk/gdk/win32/gdkevents-win32.c
++++ b/gtk/gdk/win32/gdkevents-win32.c
+@@ -2140,7 +2140,7 @@
+ static VOID CALLBACK
+ resize_timer_proc (HWND     hwnd,
+ 		   UINT     msg,
+-		   UINT     id,
++		   UINT_PTR id,
+ 		   DWORD    time)
+ {
+   if (_sizemove_in_progress)
+--- a/gtk/gdk/win32/gdkmain-win32.c
++++ b/gtk/gdk/win32/gdkmain-win32.c
+@@ -31,7 +31,6 @@
+ #include <stdlib.h>
+ #include <string.h>
+ #include <limits.h>
+-#include <io.h>
+ 
+ #include "gdk.h"
+ #include "gdkregion-generic.h"

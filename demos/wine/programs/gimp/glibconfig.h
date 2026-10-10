@@ -1,0 +1,130 @@
+/* SPDX-License-Identifier: MIT */
+/* GLib's generated configuration for Dolly: wasm64 is LP64 and little-endian, the C library is POSIX,
+ * and GLib is built without threads (one GTK program runs in one thread). */
+#ifndef __G_LIBCONFIG_H__
+#define __G_LIBCONFIG_H__
+
+#include <glib/gmacros.h>
+#include <limits.h>
+#include <float.h>
+#define GLIB_HAVE_ALLOCA_H
+#define GLIB_HAVE_SYS_POLL_H
+
+G_BEGIN_DECLS
+
+#define G_MINFLOAT FLT_MIN
+#define G_MAXFLOAT FLT_MAX
+#define G_MINDOUBLE DBL_MIN
+#define G_MAXDOUBLE DBL_MAX
+#define G_MINSHORT SHRT_MIN
+#define G_MAXSHORT SHRT_MAX
+#define G_MAXUSHORT USHRT_MAX
+#define G_MININT INT_MIN
+#define G_MAXINT INT_MAX
+#define G_MAXUINT UINT_MAX
+#define G_MINLONG LONG_MIN
+#define G_MAXLONG LONG_MAX
+#define G_MAXULONG ULONG_MAX
+
+typedef signed char gint8;
+typedef unsigned char guint8;
+typedef signed short gint16;
+typedef unsigned short guint16;
+#define G_GINT16_MODIFIER "h"
+#define G_GINT16_FORMAT "hi"
+#define G_GUINT16_FORMAT "hu"
+typedef signed int gint32;
+typedef unsigned int guint32;
+#define G_GINT32_MODIFIER ""
+#define G_GINT32_FORMAT "i"
+#define G_GUINT32_FORMAT "u"
+#define G_HAVE_GINT64 1
+typedef signed long gint64;
+typedef unsigned long guint64;
+#define G_GINT64_CONSTANT(val) (val##L)
+#define G_GINT64_MODIFIER "l"
+#define G_GINT64_FORMAT "li"
+#define G_GUINT64_FORMAT "lu"
+
+#define GLIB_SIZEOF_VOID_P 8
+#define GLIB_SIZEOF_LONG 8
+#define GLIB_SIZEOF_SIZE_T 8
+typedef signed long gssize;
+typedef unsigned long gsize;
+#define G_GSIZE_MODIFIER "l"
+#define G_GSSIZE_FORMAT "li"
+#define G_GSIZE_FORMAT "lu"
+#define G_MAXSIZE G_MAXULONG
+
+#define GPOINTER_TO_INT(p) ((gint) (glong) (p))
+#define GPOINTER_TO_UINT(p) ((guint) (gulong) (p))
+#define GINT_TO_POINTER(i) ((gpointer) (glong) (i))
+#define GUINT_TO_POINTER(u) ((gpointer) (gulong) (u))
+
+#define g_ATEXIT(proc) (atexit (proc))
+#define g_memmove(d,s,n) G_STMT_START { memmove ((d), (s), (n)); } G_STMT_END
+
+#define GLIB_MAJOR_VERSION 2
+#define GLIB_MINOR_VERSION 6
+#define GLIB_MICRO_VERSION 6
+
+#define G_OS_UNIX
+#define G_VA_COPY va_copy
+#define G_HAVE_INLINE 1
+#define G_HAVE___INLINE 1
+#define G_HAVE___INLINE__ 1
+#define G_CAN_INLINE 1
+#define G_HAVE_ISO_VARARGS 1
+#define G_HAVE_GNUC_VARARGS 1
+#define G_HAVE_GROWING_STACK 0
+#define G_GNUC_INTERNAL
+
+#undef G_THREADS_ENABLED
+#define G_THREADS_IMPL_NONE
+typedef struct _GMutex* GStaticMutex;
+#define G_STATIC_MUTEX_INIT NULL
+#define g_static_mutex_get_mutex(mutex) (g_static_mutex_get_mutex_impl_shortcut (mutex))
+typedef union _GSystemThread GSystemThread;
+union _GSystemThread
+{
+  char   data[8];
+  double dummy_double;
+  void  *dummy_pointer;
+  long   dummy_long;
+};
+
+#define GINT16_TO_LE(val) ((gint16) (val))
+#define GUINT16_TO_LE(val) ((guint16) (val))
+#define GINT16_TO_BE(val) ((gint16) GUINT16_SWAP_LE_BE (val))
+#define GUINT16_TO_BE(val) (GUINT16_SWAP_LE_BE (val))
+#define GINT32_TO_LE(val) ((gint32) (val))
+#define GUINT32_TO_LE(val) ((guint32) (val))
+#define GINT32_TO_BE(val) ((gint32) GUINT32_SWAP_LE_BE (val))
+#define GUINT32_TO_BE(val) (GUINT32_SWAP_LE_BE (val))
+#define GINT64_TO_LE(val) ((gint64) (val))
+#define GUINT64_TO_LE(val) ((guint64) (val))
+#define GINT64_TO_BE(val) ((gint64) GUINT64_SWAP_LE_BE (val))
+#define GUINT64_TO_BE(val) (GUINT64_SWAP_LE_BE (val))
+#define GLONG_TO_LE(val) ((glong) GINT64_TO_LE (val))
+#define GULONG_TO_LE(val) ((gulong) GUINT64_TO_LE (val))
+#define GLONG_TO_BE(val) ((glong) GINT64_TO_BE (val))
+#define GULONG_TO_BE(val) ((gulong) GUINT64_TO_BE (val))
+#define GINT_TO_LE(val) ((gint) GINT32_TO_LE (val))
+#define GUINT_TO_LE(val) ((guint) GUINT32_TO_LE (val))
+#define GINT_TO_BE(val) ((gint) GINT32_TO_BE (val))
+#define GUINT_TO_BE(val) ((guint) GUINT32_TO_BE (val))
+#define G_BYTE_ORDER G_LITTLE_ENDIAN
+
+#define GLIB_SYSDEF_POLLIN =1
+#define GLIB_SYSDEF_POLLOUT =4
+#define GLIB_SYSDEF_POLLPRI =2
+#define GLIB_SYSDEF_POLLHUP =16
+#define GLIB_SYSDEF_POLLERR =8
+#define GLIB_SYSDEF_POLLNVAL =32
+
+#define G_MODULE_SUFFIX "so"
+typedef int GPid;
+
+G_END_DECLS
+
+#endif

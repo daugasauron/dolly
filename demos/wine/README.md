@@ -12,7 +12,7 @@ mouse and the keyboard. The tasks, with every measurement, are
 **Windows binaries run only under an interpreter.** A `.exe` from anywhere
 else is x86 machine code and Dolly has no x86. Wine's programs here are
 what this image compiled (`desktop`, `notepad`, `winefile`, `winemine`,
-`mspaint`, `netsurf`, `hello`); `x86emu` interprets small x86-64 programs against these DLLs
+`mspaint`, `netsurf`, `gtkhello`, `hello`); `x86emu` interprets small x86-64 programs against these DLLs
 (below). 32-bit programs do not run.
 
 ## Images
@@ -31,7 +31,7 @@ what this image compiled (`desktop`, `notepad`, `winefile`, `winemine`,
   `wine x86emu` and `wine desktop` run.
 
 Build with `DOLLY_BUILD_IMAGES=wine-build,wine npm run image` (both images
-in about 190 s); test with `npm run test:demos -- wine`.
+in about 240 s); test with `npm run test:demos -- wine`.
 
 ## Paint
 
@@ -138,6 +138,51 @@ own `gen_parser` for 119 parsers); `netsurf-dolly.patch` changes nine files:
 Not done: downloads to a file and the settings dialogs were not tried; the
 toolbar's activity animation does not show; File > Open's dialog answers
 with a Windows path, which the Unix file operations do not take.
+
+## GTK+
+
+`programs/gimp` builds GLib 2.6.6, ATK 1.9.1, Pango 1.8.2 and GTK+ 2.6.10 (the
+last GTK+ that draws without cairo) with a program on top into one program of
+this Wine: 468 files, compiled as their releases are but for four
+(`gimp-dolly.patch`). For now the program is `gtkhello` (`hello.c`: a menu, a
+label, a coloured area and a button).
+
+- **GLib is the Unix GLib**, on Dolly's C library, without threads: files are
+  Unix paths and the character set is the locale's. GDK and Pango are their
+  Windows backends, over GDI and USER of this Wine, and `gwin32.c` is compiled
+  in its flavour for a Unix C library over the Windows API (Cygwin's) for the
+  three helpers they call. `config.h`, `glibconfig.h`, `gdkconfig.h` and
+  `gmoduleconf.h` are what configure would write for Dolly; `win32.h` is
+  included before each file written for the Windows API (16-bit `wchar_t`,
+  pointer-sized window longs, no COM).
+- **No loadable modules**: `g_module_open` answers that the system has none.
+  Pango's basic shaper and gdk-pixbuf's PNG and XPM loaders are built in;
+  theme engines and input methods are not built.
+- **The main loop waits for Windows messages** through a poll function GLib is
+  given at start (`main.c`): GDK's backend expects Windows' GLib there.
+- **Function pointers of another type.** GLib and GTK+ call every class and
+  instance initializer, most signal handlers and every `g_list_foreach
+  (list, (GFunc) g_free, NULL)` through a pointer whose type has more
+  arguments than the function, which WebAssembly refuses ("function signature
+  mismatch") at the first `g_object_new`. Dolly's `cc` has no pass that
+  emulates such calls, so `icall` (`icall.c`, built with the other tools)
+  rewrites each object file of this module: a `call_indirect` of type T
+  becomes a call of a thunk `__icall_T`, generated for all objects together.
+  The thunk calls the function directly when its type is T; otherwise the
+  function is called with its own type, its integer parameters taking the
+  caller's integer arguments in order and its floating-point parameters the
+  floating-point ones, as the registers of a processor would (`port/icall.c`).
+  Which type a function has is read once from `/usr/bin/wine` itself: its
+  element segment names the function behind each pointer. Calls that Wine
+  makes into this code are not covered and must have Windows' exact types.
+- **Generated sources**: ATK's two marshallers are written during the build by
+  GLib's own `glib-genmarshal`, built there as a program of its own from the
+  module's GLib objects; perl writes two alias files during host preparation.
+
+`gimp-dolly.patch`: libpng's `png_jmpbuf` instead of its structure's field
+(gdk-pixbuf's PNG loader is of libpng 1.2's time); GDK's timer procedure takes
+`UINT_PTR`, the type Wine calls it with; `<io.h>` is not included; three wide
+string literals in `gwin32.c` are 16-bit.
 
 ## x86-64 programs
 

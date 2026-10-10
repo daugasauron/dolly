@@ -9,7 +9,8 @@
 // reads the colours it lays out and the server's log of its requests. In a third,
 // under the page's default policy, site:/ is the site's own landing page and a
 // redirect is followed. (NetSurf's home page is an outside site, which the test
-// does not wait for.)
+// does not wait for.) In a fourth a GTK+ program draws, lays out again when its
+// window is resized, takes a button and a menu, quits and starts again.
 // Usage: node demos/wine/test/wine-browser.mjs [firefox]
 import assert from "node:assert/strict";
 import { mkdir, readFile } from "node:fs/promises";
@@ -114,13 +115,50 @@ await demoTest("wine", { image: "wine", timeout: 600_000, server: { handle: serv
   await mkdir(evidence, { recursive: true });
   for (const [name, session, options] of [["desktop", run, {}], ["netsurf", netsurf, { policy: { rules: [
     { origin: server.origin, pathPrefix: "/fixture/netsurf/", methods: ["GET"] },
-    { origin: elsewhereOrigin, pathPrefix: "/", methods: ["GET"] }] } }], ["site", site, {}]]) {
+    { origin: elsewhereOrigin, pathPrefix: "/", methods: ["GET"] }] } }], ["site", site, {}], ["gtk", gtk, {}]]) {
     const { page, prompt, start, waitText } = await open({ prompt: null, ...options });
     try { await session(page, prompt, start, waitText, server); }
     catch (error) { await page.screenshot({ path: `${evidence}failure-${name}.png` }); throw error; }
     await page.close();
   }
 }).finally(() => elsewhere.close());
+
+// GTK+ 2.6 over GDK's Windows backend: a window with a menu, a label, an area of one colour and a button.
+async function gtk(page) {
+  const yellow = [255, 255, 0], magenta = [255, 0, 255], cyan = [0, 255, 255];
+  const area = (colour, width = 240) => until(async () => {
+    const found = await coloured(page, colour);
+    return found.count === width * 80 && found;
+  }, `an area of ${width} by 80 pixels in ${colour}`);
+  await page.waitForFunction(() => __dolly.transport.graphicsActive(), null, { timeout: 120_000 });
+  const [, height] = await frameSize(page);
+  const startIt = async () => { await click(page, 30, height - 14); await delay(700); await page.keyboard.press("g"); };
+  await pixelIs(page, 640, height - 6, face);
+  await startIt();
+  const { left, top, right, bottom } = await area(yellow);
+  // Pango's text through GDI: the label over the area and the button's under it.
+  assert.ok(await dark(page, left, top - 20, 240, 16) > 20, "the label's text is drawn");
+  assert.ok(await dark(page, left + 60, bottom + 8, 120, 20) > 20, "the button's text is drawn");
+  await page.screenshot({ path: `${evidence}gtk.png` });
+  await click(page, (left + right) >> 1, bottom + 18);          // the button's signal handler paints the area
+  await area(magenta);
+  await click(page, left + 20, top - 37);                       // File, and its first item
+  await delay(500);
+  await click(page, left + 26, top - 14);
+  await area(cyan);
+  await page.mouse.move(...await at(page, right + 2, (top + bottom) >> 1));   // the window's right border, dragged
+  await page.mouse.down();
+  await page.mouse.move(...await at(page, right + 62, (top + bottom) >> 1), { steps: 10 });
+  await page.mouse.up();
+  await area(cyan, 300);
+  await click(page, left + 20, top - 37);                       // File > Quit destroys the window, which ends its main loop
+  await delay(500);
+  await click(page, left + 26, top + 6);
+  await until(async () => !(await coloured(page, cyan)).count, "the window to close");
+  await startIt();                                              // a second run starts from the program's first state
+  await area(yellow);
+  console.log("wine: a GTK+ window drew its label, button and menu; a click and a menu item each painted its area, a dragged border laid it out wider; it quit and started again");
+}
 
 // NetSurf: the address bar, a page with a style sheet, a PNG and a JPEG, a link, back and forward.
 async function netsurf(page, prompt, start, waitText, server) {

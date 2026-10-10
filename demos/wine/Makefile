@@ -49,7 +49,12 @@ $(T)/wrc $(T)/widl $(T)/wmc $(T)/winebuild:
 	@mkdir -p $(@D)
 	$(CC) $^ -o $@ -lm
 
-tools: $(T)/wrc $(T)/widl $(T)/wmc $(T)/winebuild
+# icall rewrites the indirect calls of a module of old C code (icall.c).
+$(T)/icall: $(PORT)/icall.c
+	@mkdir -p $(@D)
+	$(CC) -O2 $< -o $@
+
+tools: $(T)/wrc $(T)/widl $(T)/wmc $(T)/winebuild $(T)/icall
 
 # Every header widl generates, once: the .idl files that include/Makefile.in lists, in about ten seconds.
 include $(SRC)/include/Makefile.in
@@ -64,7 +69,7 @@ headers: $(IDL_HEADERS)
 DLLS := ntdll kernel32 advapi32 gdi32 user32 version usp10 imm32 comctl32 comdlg32 shell32 shlwapi uxtheme winspool.drv msvcrt
 OWN_DLLS := winedolly.drv
 PROGRAMS := notepad winefile winemine
-OWN_PROGRAMS := desktop hello mspaint netsurf x86emu
+OWN_PROGRAMS := desktop hello mspaint netsurf x86emu gimp
 MODULES := $(DLLS:%=dlls/%) $(OWN_DLLS:%=dlls/%) $(PROGRAMS:%=programs/%) $(OWN_PROGRAMS:%=programs/%) server
 export MODULE_FILE_winspool := winspool.drv
 MODULE_ARGS_dlls/ntdll := PORT_SRCS=signal_wasm64.c

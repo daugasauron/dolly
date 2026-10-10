@@ -10,10 +10,13 @@ if has_image wine-build; then
   for licence in "${netsurf_dir}"/lib*/COPYING; do
     netsurf_licences+=("${licence}" "/usr/share/licenses/netsurf/$(basename "$(dirname "${licence}")")-COPYING")
   done
+  gimp_dir="$(bash demos/wine/prepare-gimp.sh)"
+  gimp_licences=()
+  for library in glib atk pango gtk; do gimp_licences+=("${gimp_dir}/${library}/COPYING" "/usr/share/licenses/gtk/${library}-COPYING"); done
   # NetSurf's site: addresses are files of the version it was built for, as amy's index is.
   node -p '`#define DOLLY_VERSION "${require("./package.json").version}"`' > "${staging}/netsurf-version.h"
   wine_port_inputs=()
-  for entry in Makefile module.mk config.h shared-names.txt winebuild-dolly.c port dlls programs; do
+  for entry in Makefile module.mk config.h shared-names.txt winebuild-dolly.c icall.c port dlls programs; do
     wine_port_inputs+=("demos/wine/${entry}" "/usr/src/dolly/wine/${entry}")
   done
   node scripts/build-source-tar.mjs "${static_dir}/wine/source.tar.gz" \
@@ -30,6 +33,8 @@ if has_image wine-build; then
     "${netsurf_licences[@]}" \
     "${jpeg_dir}" /usr/src/dolly/wine/programs/netsurf/jpeg \
     "${jpeg_dir}/README" /usr/share/licenses/libjpeg/README \
+    "${gimp_dir}" /usr/src/dolly/wine/programs/gimp \
+    "${gimp_licences[@]}" \
     "${wine_port_inputs[@]}"
   tinycc_dir="$(bash demos/wine/prepare-tinycc.sh)"
   node scripts/build-source-tar.mjs "${static_dir}/wine/tinycc.tar.gz" \
