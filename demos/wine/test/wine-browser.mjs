@@ -316,6 +316,31 @@ async function run(page, prompt, start, waitText) {
   }, null, { timeout: 30_000, polling: 250 });
   console.log(`wine: Notepad started from the Start menu and drew ${await dark(page, 12, 49, 400, 30)} dark pixels of typed text`);
 
+  // The page's cursor says what the pointer is over: Notepad's edges and corner, its text, the desktop.
+  const cursorAt = async (x, y) => {
+    await page.mouse.move(...await at(page, x, y));
+    await delay(120);
+    return page.evaluate(() => document.querySelector("#display").style.cursor);
+  };
+  const along = async points => { const seen = new Set(); for (const [x, y] of points) seen.add(await cursorAt(x, y)); return seen; };
+  const steps = [...Array(24).keys()].map(step => step * 2);
+  const [, , right, bottom] = await page.evaluate(() => {
+    // Notepad's window is the face-coloured frame from the top left corner: down its left border, then along its bottom one.
+    const canvas = document.querySelector("#display"), context = canvas.getContext("2d");
+    const face = (x, y) => context.getImageData(x, y, 1, 1).data.slice(0, 3).join() === "212,208,200";
+    let right = 2, bottom = 0;
+    for (let y = 0; y < canvas.height - 40; y++) if (face(2, y)) bottom = y; else if (y > bottom + 40) break;
+    while (right + 1 < canvas.width && face(right + 1, bottom)) right++;
+    return [0, 0, right, bottom];
+  });
+  assert.ok((await along(steps.map(step => [right - 24 + step, 300]))).has("ew-resize"), "no resize arrow over Notepad's right edge");
+  assert.ok((await along(steps.map(step => [300, bottom - 24 + step]))).has("ns-resize"), "no resize arrow over Notepad's bottom edge");
+  const corner = await along(steps.map(step => [right - 24 + step, bottom - 24 + step]));
+  assert.ok(corner.has("nwse-resize"), `no resize arrow over Notepad's corner at ${right},${bottom}: ${[...corner]}`);
+  assert.equal(await cursorAt(100, 100), "text", "the pointer over Notepad's text");
+  assert.equal(await cursorAt(right + 200, bottom + 100), "default", "the pointer over the desktop");
+  console.log("wine: the page's cursor is a resize arrow over Notepad's right edge, bottom edge and corner, an I-beam over its text and an arrow over the desktop");
+
   // WineMine beside it: it opens over Notepad's corner and is dragged away by its caption.
   await startMenu("w");
   await pixelIs(page, 60, 50, black);

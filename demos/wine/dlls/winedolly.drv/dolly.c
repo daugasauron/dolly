@@ -306,6 +306,13 @@ static void send_pointer( const dolly_input_event *event )
         input.u.mi.dwFlags |= event->action == DOLLY_POINTER_ACTION_PRESS ? down[button] : up[button];
         if (button >= 3) input.u.mi.mouseData = button == 3 ? XBUTTON1 : XBUTTON2;
     }
+    /* No thread answers WM_SETCURSOR for the bare desktop: the arrow, as its window class says. */
+    {
+        POINT pt = { event->x, event->y };
+        GUITHREADINFO info = { sizeof(info) };
+        if (WindowFromPoint( pt ) == GetDesktopWindow() && !(GetGUIThreadInfo( 0, &info ) && info.hwndCapture))
+            dolly_display_set_cursor( display.generation, DOLLY_DISPLAY_CURSOR_DEFAULT );
+    }
     __wine_send_input( 0, &input );
 }
 
@@ -488,13 +495,28 @@ void CDECL DOLLY_WindowPosChanged( HWND hwnd, HWND insert_after, UINT swp_flags,
 
 void CDECL DOLLY_SetCursor( HCURSOR handle )
 {
-    uint32_t cursor = DOLLY_DISPLAY_CURSOR_DEFAULT;
+    /* The page draws the pointer: a system cursor becomes the page's cursor of the same meaning,
+     * and a program's own cursor image the default arrow. */
+    static const struct { LPCWSTR system; uint32_t cursor; } shapes[] =
+    {
+        { (LPCWSTR)IDC_IBEAM, DOLLY_DISPLAY_CURSOR_TEXT },
+        { (LPCWSTR)IDC_CROSS, DOLLY_DISPLAY_CURSOR_CROSSHAIR },
+        { (LPCWSTR)IDC_HAND, DOLLY_DISPLAY_CURSOR_POINTER },
+        { (LPCWSTR)IDC_SIZENS, DOLLY_DISPLAY_CURSOR_NS_RESIZE },
+        { (LPCWSTR)IDC_SIZEWE, DOLLY_DISPLAY_CURSOR_EW_RESIZE },
+        { (LPCWSTR)IDC_SIZENWSE, DOLLY_DISPLAY_CURSOR_NWSE_RESIZE },
+        { (LPCWSTR)IDC_SIZENESW, DOLLY_DISPLAY_CURSOR_NESW_RESIZE },
+        { (LPCWSTR)IDC_SIZEALL, DOLLY_DISPLAY_CURSOR_MOVE },
+        { (LPCWSTR)IDC_WAIT, DOLLY_DISPLAY_CURSOR_WAIT },
+        { (LPCWSTR)IDC_APPSTARTING, DOLLY_DISPLAY_CURSOR_PROGRESS },
+        { (LPCWSTR)IDC_NO, DOLLY_DISPLAY_CURSOR_NOT_ALLOWED },
+        { (LPCWSTR)IDC_HELP, DOLLY_DISPLAY_CURSOR_HELP },
+    };
+    uint32_t cursor = handle ? DOLLY_DISPLAY_CURSOR_DEFAULT : DOLLY_DISPLAY_CURSOR_HIDDEN;
+    unsigned int i;
 
-    /* Dolly draws the pointer and knows five shapes */
-    if (!handle) cursor = DOLLY_DISPLAY_CURSOR_HIDDEN;
-    else if (handle == LoadCursorW( 0, (LPCWSTR)IDC_IBEAM )) cursor = DOLLY_DISPLAY_CURSOR_TEXT;
-    else if (handle == LoadCursorW( 0, (LPCWSTR)IDC_CROSS )) cursor = DOLLY_DISPLAY_CURSOR_CROSSHAIR;
-    else if (handle == LoadCursorW( 0, (LPCWSTR)IDC_HAND )) cursor = DOLLY_DISPLAY_CURSOR_POINTER;
+    for (i = 0; handle && i < ARRAY_SIZE(shapes); i++)
+        if (handle == LoadCursorW( 0, shapes[i].system )) cursor = shapes[i].cursor;
     dolly_display_set_cursor( display.generation, cursor );
 }
 
