@@ -95,12 +95,14 @@ fetching with the browser's `fetch`:
 wherever that is: the broker takes the path `/vVERSION/FILE` for it and
 never tells a program the origin, so NetSurf has a scheme for it, fetched by
 the same curl fetcher. The version is the one the image was built for
-(`version.h`, staged as `amy`'s is). The home page is `site:/`, the release's
-landing page; its relative links stay in the scheme (`site:/licences/`).
+(`version.h`, staged as `amy`'s is). `site:/` is the release's landing page;
+its relative links stay in the scheme (`site:/licences/`). The home page is
+`https://www.w3.org/`, the owner's choice among the few well-known sites
+that let another origin read them.
 NetSurf spells such an address `site:///…`, as it does `file:///…`. Where
 the site itself redirects a `site:` address (a directory without its slash),
 the broker still reports the path asked for, and relative links resolve
-against that. Home in the toolbar returns to `site:/`. The landing page's
+against that. The landing page's
 links to image pages lead to JavaScript applications, of which NetSurf, with
 no JavaScript engine, shows the empty dark background; Back returns.
 

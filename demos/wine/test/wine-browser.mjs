@@ -7,8 +7,9 @@
 // In a second session NetSurf, started from the Start menu, fetches pages of this
 // test's server through libcurl and an HTTP policy of explicit rules; the test
 // reads the colours it lays out and the server's log of its requests. In a third,
-// under the page's default policy, its home page is the site's own landing page
-// and a redirect is followed.
+// under the page's default policy, site:/ is the site's own landing page and a
+// redirect is followed. (NetSurf's home page is an outside site, which the test
+// does not wait for.)
 // Usage: node demos/wine/test/wine-browser.mjs
 import assert from "node:assert/strict";
 import { mkdir, readFile } from "node:fs/promises";
@@ -207,8 +208,8 @@ async function netsurf(page, prompt, start, waitText, server) {
   console.log("wine: NetSurf drew a page of another origin without a preflight; a redirect under an explicit rule and an address without CORS headers end in its error page");
 }
 
-// NetSurf under the page's default policy: its home page is the landing page of the site this
-// release is served from (site:/), whose links load; a redirect is followed to its last address.
+// NetSurf under the page's default policy: site:/ is the landing page of the site this release is
+// served from, whose links load; a redirect is followed to its last address.
 async function site(page, prompt, start, waitText, server) {
   const dark = [0x26, 0x26, 0x26], purple = [0x60, 0x20, 0x80];
   await page.waitForFunction(() => __dolly.transport.graphicsActive(), null, { timeout: 120_000 });
@@ -217,6 +218,13 @@ async function site(page, prompt, start, waitText, server) {
   await click(page, 30, height - 14);
   await delay(700);
   await page.keyboard.press("s");
+  await pixelIs(page, 600, 58, white);        // its address bar; the home page is an outside site
+  await delay(1500);
+  await click(page, 600, 58);
+  await page.keyboard.press("Home");
+  await page.keyboard.press("Shift+End");
+  await page.keyboard.type("site:/", { delay: 10 });
+  await page.keyboard.press("Enter");
   await until(async () => (await coloured(page, dark)).count > 200_000, "the site's landing page");
   await page.screenshot({ path: `${evidence}netsurf-home.png` });
   await click(page, 495, 293);                // "Licences and sources", in the row of links under IMAGES
@@ -232,8 +240,6 @@ async function site(page, prompt, start, waitText, server) {
   // Its style sheet is asked for beside the page it was redirected to, not beside the address typed.
   await until(async () => (await coloured(page, purple)).count > 100_000, "the page the redirect leads to");
   assert.ok(!requests.includes("GET moved/style.css"));
-  await click(page, 81, 58);                  // Home
-  await until(async () => (await coloured(page, dark)).count > 200_000, "the landing page after Home");
   await delay(1000);
 
   await page.keyboard.press("Alt+F4");
@@ -243,8 +249,8 @@ async function site(page, prompt, start, waitText, server) {
   await page.keyboard.press("u");
   await prompt(shellPrompt);
   const log = await waitText(/the Wine desktop was shut down/);
-  assert.match(log, /"Dolly  -  NetSurf"[\s\S]*"Licences and sources . Dolly  -  NetSurf"[\s\S]*"Dolly  -  NetSurf"[\s\S]*"Fixture two  -  NetSurf"[\s\S]*"Dolly  -  NetSurf"/);
-  console.log("wine: NetSurf's home page is the site's own landing page; a link on it loads, a redirect is followed to its last address, Home returns");
+  assert.match(log, /"Dolly  -  NetSurf"[\s\S]*"Licences and sources . Dolly  -  NetSurf"[\s\S]*"Dolly  -  NetSurf"[\s\S]*"Fixture two  -  NetSurf"/);
+  console.log("wine: site:/ in NetSurf is the site's own landing page; a link on it loads, and a redirect is followed to its last address");
 }
 
 async function run(page, prompt, start, waitText) {
