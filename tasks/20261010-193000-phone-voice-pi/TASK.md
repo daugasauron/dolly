@@ -73,3 +73,37 @@ Not shown by emulation, for a real phone:
   strip take no browser panning, the page's small indicators still do.
 - Headless Firefox cannot refuse a clipboard read (its prompt is never answered), so that
   refusal is the test's own; Chrome's is the browser's.
+
+## Demo: voice and the pi-phone image
+
+Decided by the integrator (2026-10-10):
+
+- Pi is not changed and keeps the terminal. `voice` (`demos/speech/voice.c`) runs beside it,
+  holds `buttons@0`, and types: a button's keys, a paste, or what the microphone heard. Pi's own
+  `/login openrouter`, `/model` and `/thinking` do the rest; `demos/speech/pi.menu` is the whole
+  menu as labels and keys. Pi has no pseudo-terminal to be driven through, and its RPC mode would
+  have meant another front end than Pi's.
+- Speech is one utterance at a time, begun and ended by buttons (Speak, then Send, Done or
+  Cancel); nothing guesses where speech ends. The text so far is the strip's caption, and is
+  typed when the utterance ends. The microphone is open only meanwhile.
+- A search word (`:word`, for the model list) is typed in small letters without the model's
+  punctuation: "Sonnet." does not filter a list of names.
+- A PASTE button types the clipboard, then the button's keys (Enter). The key goes through Pi's
+  masked prompt into `~/.pi/agent/auth.json` in the session, nowhere else.
+- `voice` ignores SIGINT: a typed or pressed Ctrl+C reaches every program the foreground shell
+  started.
+- The speech model and why: [speech task](../20261010-181500-speech-to-text/TASK.md).
+
+Studied first in the released `pi` image at 48 columns (Pi 1.0.3): `/login openrouter`, Down,
+Enter, the key, Enter ends in "Saved API key for OpenRouter" and OpenRouter's default model;
+`/model` filters as one types (116 OpenRouter models ship with Pi); Shift+Tab and `/thinking`
+change the level.
+
+Run before the images existed, in a 412x839 touch session on `cmake-build` with `buttons@0`,
+`microphone@0` and `threads@0` (programs compiled there with the image's flags):
+
+- `voice` with the menu: seven buttons in two rows, the strip 160 px high, `inputmode="none"`;
+  Speak, the sample sentence in the caption while Chrome's fake microphone played it, Done, the
+  sentence typed at the shell's prompt, the microphone closed with no live track.
+- Menu, OpenRouter key, Paste: the page's own Paste button, the made-up key typed with Enter.
+- `speech-to-text` on the new model and detector: the sample's sentence whole, line after line.
