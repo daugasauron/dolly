@@ -127,8 +127,9 @@ await demoTest("wine", { image: "wine", timeout: 600_000, server: { handle: serv
 // The terminal: Wine's cmd in wineconsole's window, 80 columns by 25 lines at 0,0. What its commands did
 // is read from the files they wrote, after Shut Down.
 async function terminal(page, prompt, start, waitText) {
+  const tcc = "Z:\\usr\\share\\wine\\x86\\tcc\\tcc";
   await page.waitForFunction(() => __dolly.transport.graphicsActive(), null, { timeout: 120_000 });
-  const [, height] = await frameSize(page);
+  const [width, height] = await frameSize(page);
   const enter = async (line, wait = 700) => { await page.keyboard.type(line, { delay: 15 }); await page.keyboard.press("Enter"); await delay(wait); };
   // The console's lit pixels: its text.
   const lit = () => page.evaluate(() => {
@@ -137,6 +138,18 @@ async function terminal(page, prompt, start, waitText) {
     for (let i = 0; i < data.length; i += 4) if (data[i] + data[i + 1] + data[i + 2] > 384) count++;
     return count;
   });
+  // The x86-64 sample's window, in the middle of the screen: its yellow text, and a point of it beside the console.
+  const sample = [(width - 360) >> 1, (height - 240) >> 1], beside = [sample[0] + 300, sample[1] + 150];
+  const sampleText = () => page.evaluate(([x, y]) => {
+    const data = document.querySelector("#display").getContext("2d").getImageData(x, y, 360, 240).data;
+    let count = 0, left = 360, right = 0;
+    for (let i = 0; i < data.length; i += 4) if (data[i] > 200 && data[i + 1] > 200 && data[i + 2] < 150) {
+      count++;
+      left = Math.min(left, (i >> 2) % 360);
+      right = Math.max(right, (i >> 2) % 360);
+    }
+    return { count, width: right - left };
+  }, sample);
   await pixelIs(page, 640, height - 6, face);
   await click(page, 30, height - 14);
   await delay(700);
@@ -164,6 +177,26 @@ async function terminal(page, prompt, start, waitText) {
   assert.ok(written > 4 * cleared && cleared > 100, `cls left ${cleared} lit pixels of ${written}: more than a prompt, or nothing`);
   await page.screenshot({ path: `${evidence}terminal.png` });
 
+  // Programs: one of this Wine and an x86-64 one for the console, which cmd waits for and whose exit
+  // codes it has; an x86-64 one with a window, which leaves the prompt free; and what one process cannot do.
+  await enter("hello > hello.txt", 3000);
+  await enter("echo %errorlevel%> level0.txt");
+  await enter(`${tcc} -v > tccv.txt`, 3000);
+  await enter(`${tcc} nosuch.c 2> tccerr.txt`, 3000);
+  await enter("echo %errorlevel%> level1.txt");
+  await enter("Z:\\usr\\share\\wine\\x86\\hello_win");
+  await until(async () => (await sampleText()).count > 40, "the x86-64 program's window");
+  await click(page, 200, 200);
+  await enter("echo free> free.txt");
+  await enter(`${tcc} -v 2> busy.txt`, 1500);
+  await enter("cmd /c echo nested 2> nested.txt", 1500);
+  await enter("start notepad 2> start.txt", 1500);
+  await click(page, ...beside);
+  await delay(500);
+  await page.keyboard.press("Escape");                          // ends the sample
+  await pixelIs(page, ...beside, desktop);
+
+  await click(page, 200, 200);
   await enter("exit", 1500);
   await pixelIs(page, 400, 300, desktop);
   await click(page, 30, height - 14);
@@ -172,11 +205,14 @@ async function terminal(page, prompt, start, waitText) {
   await prompt(shellPrompt);
   await waitText(/the Wine desktop was shut down/);
 
-  for (const [name, pattern] of [["dir", "dir.txt"], ["echo", "^edited"], ["cd", "usr.share.wine"], ["typed", "^edited"]]) {
+  for (const [name, pattern] of [["dir", "dir.txt"], ["echo", "^edited"], ["cd", "usr.share.wine"], ["typed", "^edited"],
+    ["hello", "Hello from C:.windows.system32.hello.exe"], ["level0", "^0"], ["tccv", "tcc version 0.9.27 (x86_64 Windows)"],
+    ["tccerr", "nosuch.c' not found"], ["level1", "^1"], ["free", "^free"],
+    ["busy", "."], ["nested", "."], ["start", "."]]) {          // what was refused left its message, whatever it says
     assert.equal(await start(`grep -q "${pattern}" /home/dolly/${name}.txt`).done, 0, `${name}.txt has no "${pattern}"`);
   }
   assert.equal(await start('test "$(grep -c again /home/dolly/again.txt)" = 2').done, 0, "the command from the history did not run again");
-  console.log("wine: the terminal ran cmd's commands, with a line edited before Enter and one fetched from its history");
+  console.log("wine: the terminal ran cmd's commands, a console program and an x86-64 one with their exit codes, and refused what one process cannot do");
 }
 
 // GIMP 2.2 on GTK+ 2.6 over GDK's Windows backend. Its toolbox is where its session file puts it, the tip

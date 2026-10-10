@@ -257,6 +257,34 @@
      RtlInitUnicodeString( &nt_name, dosdevW );
      nt_name.Length -= sizeof(WCHAR);  /* without trailing slash */
      attr.Length = sizeof(attr);
+--- a/dlls/msvcrt/exit.c
++++ b/dlls/msvcrt/exit.c
+@@ -380,6 +380,12 @@
+ 
+   TRACE("(%d)\n",exitcode);
+   MSVCRT__cexit();
++#ifdef __dolly__  /* the program is a thread, whose end is no end of the process: what msvcrt writes out when unloaded */
++  {
++    extern int CDECL MSVCRT__flushall(void);
++    MSVCRT__flushall();
++  }
++#endif
+ 
+   hmscoree = GetModuleHandleW(mscoreeW);
+ 
+--- a/dlls/msvcrt/file.c
++++ b/dlls/msvcrt/file.c
+@@ -249,6 +249,10 @@
+     if(!ret)
+         return &MSVCRT___badioinfo;
+ 
++#ifdef __dolly__  /* programs are threads of one process, where msvcrt starts once: a standard file is the
++                   * process's standard handle of now (a console's, or what cmd redirected), not that of then */
++    if (fd < 3 && (ret[fd].wxflag & WX_OPEN)) ret[fd].handle = GetStdHandle(STD_INPUT_HANDLE - fd);
++#endif
+     return ret + (fd%MSVCRT_FD_BLOCK_SIZE);
+ }
+ 
 --- a/dlls/ntdll/loader.c
 +++ b/dlls/ntdll/loader.c
 @@ -589,6 +589,9 @@
@@ -843,6 +871,126 @@
                      }
                  }
                  while (*bufaiter)
+--- a/programs/cmd/builtins.c
++++ b/programs/cmd/builtins.c
+@@ -4405,6 +4405,13 @@
+     STARTUPINFOW st;
+     PROCESS_INFORMATION pi;
+ 
++#ifdef __dolly__  /* start is a program of its own, for a process of its own */
++    extern void WCMD_dolly_say (const char *text);
++    WCMD_dolly_say("start: this Wine is one process and has none to start. Name the program itself: "
++                   "one with a window returns to the prompt at once.\r\n");
++    errorlevel = 9009;
++    return;
++#endif
+     GetWindowsDirectoryW( file, MAX_PATH );
+     strcatW( file, exeW );
+     cmdline = heap_xalloc( (strlenW(file) + strlenW(args) + 8) * sizeof(WCHAR) );
+--- a/programs/cmd/wcmdmain.c
++++ b/programs/cmd/wcmdmain.c
+@@ -1035,6 +1035,79 @@
+  *          so go back through wcmd_execute.
+  */
+ 
++#ifdef __dolly__
++/* Dolly's Wine is one process. A program linked into it is started as a thread (kernel32's
++ * wine_dolly_start_program), an x86-64 file by the interpreter, which is such a program; cmd waits for
++ * a console program, and its exit code is the thread's. What that cannot do says so. */
++extern HANDLE wine_dolly_start_program( const WCHAR *cmdline );
++
++void WCMD_dolly_say (const char *text)
++{
++  WCHAR buffer[256];
++
++  MultiByteToWideChar(CP_ACP, 0, text, -1, buffer, ARRAY_SIZE(buffer));
++  WCMD_output_asis_stderr(buffer);
++}
++
++/* Runs FILE, an x86-64 program, with COMMAND's arguments, or without FILE the program of this Wine that
++ * COMMAND names. FALSE if there is no such program. */
++static BOOL WCMD_dolly_run (const WCHAR *file, WCHAR *command)
++{
++  static const WCHAR x86emuW[] = {'x','8','6','e','m','u',' ','"','%','s','"',' ','%','s',0};
++  static const WCHAR exeW[] = {'.','e','x','e',0};
++  WCHAR *line = command, *args = NULL, name[MAX_PATH];
++  BOOL console;
++  HANDLE thread;
++  HMODULE module;
++
++  if (file) {
++    /* whether it is a program, and one for a console, is in its header (this Wine maps no x86 image) */
++    IMAGE_DOS_HEADER dos;
++    IMAGE_NT_HEADERS nt;
++    DWORD count;
++    HANDLE handle = CreateFileW(file, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, 0, 0);
++    BOOL program = handle != INVALID_HANDLE_VALUE &&
++                   ReadFile(handle, &dos, sizeof(dos), &count, NULL) && count == sizeof(dos) &&
++                   dos.e_magic == IMAGE_DOS_SIGNATURE &&
++                   SetFilePointer(handle, dos.e_lfanew, NULL, FILE_BEGIN) != INVALID_SET_FILE_POINTER &&
++                   ReadFile(handle, &nt, sizeof(nt), &count, NULL) && count == sizeof(nt) &&
++                   nt.Signature == IMAGE_NT_SIGNATURE;
++
++    CloseHandle(handle);
++    if (!program) return FALSE;
++    console = nt.OptionalHeader.Subsystem == IMAGE_SUBSYSTEM_WINDOWS_CUI;
++    WCMD_parameter(command, 1, &args, TRUE, TRUE);
++    line = heap_xalloc((strlenW(file) + strlenW(command) + 16) * sizeof(WCHAR));
++    sprintfW(line, x86emuW, file, args ? args : exeW + 4);
++  }
++  thread = wine_dolly_start_program(line);
++  if (file) heap_free(line);
++  if (!thread) {
++    if (GetLastError() == ERROR_FILE_NOT_FOUND) return FALSE;
++    if (GetLastError() == ERROR_BUSY)
++      WCMD_dolly_say(file ? "An x86-64 program is running: this Wine interprets one at a time.\r\n"
++                          : "That program is running: in this Wine, which is one process, each runs once at a time.\r\n");
++    else WCMD_print_error();
++    errorlevel = 9009;
++    return TRUE;
++  }
++  if (!file) {
++    lstrcpynW(name, WCMD_parameter(command, 0, NULL, FALSE, TRUE), MAX_PATH - 4);
++    if (!strchrW(name, '.')) strcatW(name, exeW);
++    module = GetModuleHandleW(name);
++    console = ((IMAGE_NT_HEADERS *)((char *)module + ((IMAGE_DOS_HEADER *)module)->e_lfanew))->OptionalHeader.Subsystem
++              == IMAGE_SUBSYSTEM_WINDOWS_CUI;
++  }
++  errorlevel = 0;
++  if (console || !interactive) {
++    WaitForSingleObject(thread, INFINITE);
++    GetExitCodeThread(thread, &errorlevel);
++  }
++  CloseHandle(thread);
++  return TRUE;
++}
++#endif
++
+ void WCMD_run_program (WCHAR *command, BOOL called)
+ {
+   WCHAR  temp[MAX_PATH];
+@@ -1204,6 +1277,10 @@
+         return;
+       } else {
+ 
++#ifdef __dolly__
++        if (WCMD_dolly_run(thisDir, command)) return;
++        break;
++#endif
+         /* thisDir contains the file to be launched, but with what?
+            eg. a.exe will require a.exe to be launched, a.html may be iexplore */
+         hinst = FindExecutableW (thisDir, NULL, temp);
+@@ -1247,6 +1324,10 @@
+     }
+   }
+ 
++#ifdef __dolly__
++  if (WCMD_dolly_run(NULL, command)) return;
++#endif
++
+   /* Not found anywhere - were we called? */
+   if (called) {
+     CMD_LIST *toExecute = NULL;         /* Commands left to be executed */
 --- a/programs/wineconsole/user.c
 +++ b/programs/wineconsole/user.c
 @@ -1365,7 +1365,15 @@
