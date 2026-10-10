@@ -195,3 +195,16 @@ Left open by the phone:
   Pi's colour question (`rgb:e8e8/e3e3/d7d7`): `tasks/20261010-234000-pi-stray-reply`. The
   menu's commands empty the prompt first, so they are not hurt; a first spoken prompt is.
 - The USB link dropped three times in forty minutes; the port forwards go with it.
+
+## Parked (2026-10-10, 23:55)
+
+Owner: "I think using the phone GPU for the speech to text would be a significant boost? And
+most phones have some kind of GPU right? But I want to park this locally for now and focus on
+the wine stuff."
+
+Parked on local `main`, served from `work/rust/build/phone-release` on port 9008. To take up
+again, in this order: whether the phone's Chrome has WebGPU and whether transcribe.cpp's ggml
+has a backend for it over `gpu@0` (the engine's card gives its Vulkan build 1.5 times its CPU
+build for this model on a laptop, so the gain on a phone is to be measured, not assumed); more
+threads; why the Wasm build is a quarter of the native one's speed on the same processor; the
+stray reply in Pi's prompt; the owner's verdict on `buttons@0` once tried at length.
