@@ -246,3 +246,11 @@ DOLLY_NETSURF_SHA256=4dea880ff3c2f698bfd62c982b259340f9abcd7f67e6c8eb2b32c61f716
 DOLLY_GPERF_VERSION=3.1
 DOLLY_GPERF_URL='https://ftp.gnu.org/gnu/gperf/gperf-3.1.tar.gz'
 DOLLY_GPERF_SHA256=588546b945bba4b70b6a3a616e80b4ab466e3f33024a352fc2198112cdbb3ae2
+# The speech demo: transcribe.cpp with the ggml it vendors, the Moonshine Streaming Tiny weights as that
+# project publishes them for it (8-bit GGUF), and Moonshine's licence for them.
+DOLLY_TRANSCRIBE_URL='https://codeload.github.com/handy-computer/transcribe.cpp/tar.gz/c63b18e2b4292760f71721ad86778e721c92ebeb'
+DOLLY_TRANSCRIBE_SHA256=688b5064156032c1703070c521247f770882498075ec79226ac4ef717d3f1fb0
+DOLLY_MOONSHINE_URL='https://huggingface.co/handy-computer/moonshine-streaming-tiny-gguf/resolve/f33fef628bc4d7ddb419384b1cf28ee83b662b06/moonshine-streaming-tiny-Q8_0.gguf'
+DOLLY_MOONSHINE_SHA256=930e4622ad3a24158b91406c30c977fa6a26b34cb32d6ac3e57cfb23383a869e
+DOLLY_MOONSHINE_LICENSE_URL='https://raw.githubusercontent.com/moonshine-ai/moonshine/234f60faa0eb388b01cdf7e60aca232af37aefda/LICENSE'
+DOLLY_MOONSHINE_LICENSE_SHA256=fa7d1174dd8af6a7cd280be20b80d10095ed4c19b5b20b61a7715c3ad790dc5f

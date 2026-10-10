@@ -1,11 +1,12 @@
 // Shared setup for demo browser tests, which drive one Chrome (or Firefox):
 //
-//   await demoTest("pi", { image: "pi", server, timeout, webgpu, browser }, async ({ server, open }) => {
+//   await demoTest("pi", { image: "pi", server, timeout, webgpu, browser, launch }, async ({ server, open }) => {
 //     const { page, run, start, waitText } = await open({ policy, prompt, path, setup, viewport });
 //   });
 //
 // runs against one startBrowserServer(image, server) in headless Chrome, with a
-// software WebGPU adapter when webgpu is set, or Firefox when browser is "firefox". open() loads the image
+// software WebGPU adapter when webgpu is set, or Firefox when browser is "firefox"; launch adds Chrome
+// arguments or Firefox preferences. open() loads the image
 // route after installing DOLLY_HTTP_POLICY = policy and awaiting setup(page),
 // then waits for boot and prompt (null skips it), returning the terminal
 // helpers below and the prompting program's pid. On failure the latest page's
@@ -157,12 +158,12 @@ export async function installProbe(...packages) {
 }
 
 export async function demoTest(label, { image, server: serverOptions, timeout = 300_000, webgpu = false,
-  browser: browserName = "chromium" } = {}, test) {
+  browser: browserName = "chromium", launch } = {}, test) {
   const server = await startBrowserServer(projectDir, image, serverOptions);
   const started = performance.now();
-  const browser = await (browserName === "firefox" ? firefox.launch({ headless: true })
+  const browser = await (browserName === "firefox" ? firefox.launch({ headless: true, firefoxUserPrefs: launch })
     : chromium.launch({ channel: "chrome", headless: true,
-      args: ["--no-sandbox", "--disable-gpu", ...webgpu ? ["--enable-unsafe-webgpu"] : []] }));
+      args: ["--no-sandbox", "--disable-gpu", ...webgpu ? ["--enable-unsafe-webgpu"] : [], ...launch ?? []] }));
   let expired = false;
   const deadline = setTimeout(() => { expired = true; void browser.close(); }, timeout);
   try {

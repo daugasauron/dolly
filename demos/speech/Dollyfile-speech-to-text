@@ -1,0 +1,29 @@
+DOLLY 7
+APPLICATION speech-to-text
+REQUIRES HOST runtime@0
+REQUIRES HOST display@0
+REQUIRES HOST download@0
+REQUIRES HOST http@0
+REQUIRES HOST input@0
+REQUIRES HOST microphone@0
+REQUIRES HOST snapshot@0
+REQUIRES HOST threads@0
+REQUIRES HOST upload@0
+
+FROM /v0.1.1/Dollyfile-system 634bb9d9d5ad58e2f0d638453a6f396452306ebe9a86e3638c6da90069f5c9f5
+COPY /v0.1.1/demos/speech/Dollyfile-speech-build bc3520cf8ac4fe45058f3bf5ac6ed1409e46e3b1eac2684d0660023b41506a21 /usr/bin/speech-to-text /usr/bin/speech-to-text
+COPY /v0.1.1/demos/speech/Dollyfile-speech-build bc3520cf8ac4fe45058f3bf5ac6ed1409e46e3b1eac2684d0660023b41506a21 /usr/share/licenses/transcribe.cpp /usr/share/licenses/transcribe.cpp
+EXPORTS TOOL speech-to-text
+
+# Moonshine Streaming Tiny: English, 34 million parameters, 8-bit weights.
+SOURCE /v0.1.1/dist/static/speech/moonshine-streaming-tiny.gguf 930e4622ad3a24158b91406c30c977fa6a26b34cb32d6ac3e57cfb23383a869e /usr/share/dolly/speech/moonshine-streaming-tiny.gguf
+SOURCE /v0.1.1/dist/static/speech/moonshine-LICENSE fa7d1174dd8af6a7cd280be20b80d10095ed4c19b5b20b61a7715c3ad790dc5f /usr/share/licenses/moonshine/LICENSE
+EXPORTS FILE moonshine-streaming-tiny /usr/share/dolly/speech/moonshine-streaming-tiny.gguf
+EXPORTS FOLDER moonshine-license /usr/share/licenses/moonshine
+
+FILE /etc/dolly/init.slop
+    /bin/foreground -i /usr/bin/speech-to-text
+    printf '\nDolly: "speech-to-text" listens again.\n'
+    /bin/foreground -i /bin/slop
+
+ENTRY /bin/foreground -i /bin/slop /etc/dolly/init.slop

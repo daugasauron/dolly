@@ -1,0 +1,37 @@
+DOLLY 7
+TOOLCHAIN speech-build
+REQUIRES HOST runtime@0
+REQUIRES HOST display@0
+REQUIRES HOST input@0
+REQUIRES HOST download@0
+REQUIRES HOST http@0
+REQUIRES HOST microphone@0
+REQUIRES HOST threads@0
+REQUIRES HOST upload@0
+
+FROM /v0.1.1/demos/cmake/Dollyfile-cmake-build 8c579acd30f22921f8c7b4b9f78783d977c108c53c883a6f400a2903e3ace7aa
+REQUIRES TOOL cc
+REQUIRES TOOL c++
+REQUIRES TOOL cmake
+REQUIRES TOOL make
+REQUIRES TOOL tar
+
+SOURCE /v0.1.1/dist/static/speech/source.tar 2559826bcb43b0ea095c20475524bd3f804bce2c64b64d570c51f42b33a3b558 /tmp/speech-source.tar
+SLOP tar -xf /tmp/speech-source.tar -C /
+# Threads and SIMD are what let the model keep up with speech; ggml's precompiled header is not built by cc.
+SLOP cmake -S /tmp/transcribe -B /tmp/transcribe/build \
+  -DCMAKE_SYSTEM_NAME=Dolly -DCMAKE_SYSTEM_PROCESSOR=wasm64 -DCMAKE_C_COMPILER=cc -DCMAKE_CXX_COMPILER=c++ \
+  -DCMAKE_BUILD_TYPE=Release -DCMAKE_C_FLAGS_RELEASE=-O2 -DCMAKE_CXX_FLAGS_RELEASE=-O2 \
+  '-DCMAKE_C_FLAGS=-pthread -msimd128' '-DCMAKE_CXX_FLAGS=-pthread -msimd128' \
+  -DTRANSCRIBE_BUILD_TESTS=OFF -DTRANSCRIBE_BUILD_EXAMPLES=OFF -DTRANSCRIBE_USE_SYSTEM_BLAS=OFF \
+  -DTRANSCRIBE_METAL=OFF -DCMAKE_DISABLE_PRECOMPILE_HEADERS=ON
+SLOP make -C /tmp/transcribe/build -j4
+SLOP cc -pthread -msimd128 -O2 -Wall -Werror -I/tmp/transcribe/include \
+  -c /tmp/transcribe/speech-to-text.c -o /tmp/transcribe/speech-to-text.o
+SLOP c++ -pthread -msimd128 -O2 /tmp/transcribe/speech-to-text.o /tmp/transcribe/build/src/libtranscribe.a \
+  /tmp/transcribe/build/ggml/src/libggml.a /tmp/transcribe/build/ggml/src/libggml-cpu.a \
+  /tmp/transcribe/build/ggml/src/libggml-base.a -lm -o /usr/bin/speech-to-text
+EXPORTS TOOL speech-to-text
+EXPORTS FOLDER transcribe-licenses /usr/share/licenses/transcribe.cpp
+
+ENTRY /bin/foreground -i /bin/slop
