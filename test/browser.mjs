@@ -1,13 +1,14 @@
 // Shared Playwright setup for Dolly browser tests:
 //
 //   await browserTest("name", { image, server, timeout, launch }, async ({ name, browser, server, open }) => {
-//     const { page, submit, text, result, waitForText } = await open({ policy, prompt, path, setup });
+//     const { page, submit, text, result, waitForText } = await open({ policy, prompt, path, setup, context });
 //     assert.equal(await submit("true"), 0);
 //   });
 //
 // runs the body once per browser named on the command line (default: chromium,
 // which is Chrome, then firefox) against one startBrowserServer(image, server).
-// open() loads the image route (path, default /IMAGE/) in a new page after
+// open() loads the image route (path, default /IMAGE/) in a new page (of a
+// context with Playwright's options `context`, such as a phone's) after
 // installing DOLLY_HTTP_POLICY = policy and awaiting setup(page), then waits for
 // boot and the shell prompt (null skips it). submit(command) resolves to the
 // exit status; text() reads the visible terminal; result(action) runs action()
@@ -23,8 +24,8 @@ import { siteReference } from "../src/static-asset.mjs";
 const projectDir = new URL("..", import.meta.url).pathname;
 const shellPrompt = /dolly:[^\n]*\$\s*$/;
 
-async function openImage(browser, origin, image, { policy, prompt = shellPrompt, path = `/${image}/`, setup } = {}) {
-  const page = await browser.newPage();
+async function openImage(browser, origin, image, { policy, prompt = shellPrompt, path = `/${image}/`, setup, context } = {}) {
+  const page = await browser.newPage(context);
   page.setDefaultTimeout(30000);
   if (policy) await page.addInitScript(policy => { globalThis.DOLLY_HTTP_POLICY = policy; }, policy);
   await setup?.(page);

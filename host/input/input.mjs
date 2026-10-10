@@ -370,9 +370,18 @@ export function browser({ canvas, keyboard, showStatus, claimsKey, surfaceSize, 
   });
 
   // The terminal takes the primary button's drags as its selection; a program
-  // holding the lease reads every button and every move.
+  // holding the lease reads every button and every move. A finger's drag on
+  // the terminal scrolls instead, as a wheel does: its distance in the
+  // frame's pixels, so the text follows the finger.
+  let touch = null;
   canvas.addEventListener("pointerdown", (event) => {
     if (!transport || (event.button !== 0 && !transport.leased())) return;
+    if (event.pointerType === "touch" && !transport.leased()) {
+      touch ??= { id: event.pointerId, y: event.clientY };
+      keyboard.focus({ preventScroll: true });
+      event.preventDefault();
+      return;
+    }
     if (transport.relativePointerRequested()) {
       keyboard.blur();
       event.preventDefault();
@@ -398,11 +407,18 @@ export function browser({ canvas, keyboard, showStatus, claimsKey, surfaceSize, 
       event.preventDefault();
       return;
     }
+    if (touch?.id === event.pointerId) {
+      transport?.pushScroll((touch.y - event.clientY) * canvas.height / canvas.clientHeight, 0);
+      touch.y = event.clientY;
+      event.preventDefault();
+      return;
+    }
     if (!transport?.leased() && (!selecting || (event.buttons & 1) === 0)) return;
     pushPointer(event, 2);
     event.preventDefault();
   });
   canvas.addEventListener("pointerup", (event) => {
+    if (touch?.id === event.pointerId) touch = null;
     if (!transport?.leased() && (!selecting || event.button !== 0)) return;
     selecting = false;
     pushPointer(event, 0);
@@ -415,6 +431,7 @@ export function browser({ canvas, keyboard, showStatus, claimsKey, surfaceSize, 
     if (transport?.leased()) event.preventDefault();
   });
   canvas.addEventListener("pointercancel", (event) => {
+    if (touch?.id === event.pointerId) touch = null;
     if (selecting) {
       selecting = false;
       pushPointer(event, 0);
