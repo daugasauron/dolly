@@ -20,6 +20,9 @@ enum {
   MIN_FONT_MILLI = 8000,
   MAX_FONT_MILLI = 32000,
   DEFAULT_FONT_MILLI = 20000,
+  NARROW_WIDTH_CSS = 640,
+  NARROW_MIN_FONT_MILLI = 12000,
+  NARROW_COLUMNS = 48,
   DEFAULT_SCALE_MILLI = 1000,
   PTY_RESPONSE_CAPACITY = 512 * 1024,
   MAX_GRAPHEME_CODEPOINTS = 16,
@@ -149,6 +152,8 @@ static uint32_t viewport_width_css = 1000;
 static uint32_t viewport_height_css = 650;
 static uint32_t device_scale_milli = DEFAULT_SCALE_MILLI;
 static uint32_t font_size_milli = DEFAULT_FONT_MILLI;
+// Set by Ctrl+= and Ctrl+-; until then the surface decides the font.
+static bool font_chosen;
 static uint32_t framebuffer_width;
 static uint32_t framebuffer_height;
 static uint32_t framebuffer_stride;
@@ -383,13 +388,36 @@ static void draw_codepoint(unsigned char *frame, uint32_t codepoint,
   }
 }
 
+static float font_pixels_of(uint32_t font_milli) {
+  return ((float)font_milli * device_scale_milli) / 1000000.0f;
+}
+
+static uint32_t cell_width_of(float font_pixels) {
+  int advance = 0;
+  int bearing = 0;
+  stbtt_GetCodepointHMetrics(&font, 'M', &advance, &bearing);
+  (void)bearing;
+  const uint32_t width = (uint32_t)(
+      advance * stbtt_ScaleForPixelHeight(&font, font_pixels) + 0.5f);
+  return width < 4 ? 4 : width;
+}
+
+// 20 CSS pixels, or on a surface narrower than 640 (a phone) the largest size
+// down to 12 that gives 48 columns.
+static uint32_t surface_font_milli(uint32_t usable_width) {
+  uint32_t font_milli = DEFAULT_FONT_MILLI;
+  while (viewport_width_css < NARROW_WIDTH_CSS &&
+         font_milli > NARROW_MIN_FONT_MILLI &&
+         usable_width < NARROW_COLUMNS *
+             cell_width_of(font_pixels_of(font_milli))) font_milli -= 1000;
+  return font_milli;
+}
+
 static int set_layout(uint32_t width_css, uint32_t height_css,
-                      uint32_t scale_milli, uint32_t requested_font_milli) {
+                      uint32_t scale_milli) {
   viewport_width_css = clamp_u32(width_css, 160, 8192);
   viewport_height_css = clamp_u32(height_css, 100, 8192);
   device_scale_milli = clamp_u32(scale_milli, 500, 4000);
-  font_size_milli = clamp_u32(requested_font_milli,
-                             MIN_FONT_MILLI, MAX_FONT_MILLI);
 
   uint64_t width = ((uint64_t)viewport_width_css * device_scale_milli + 500) / 1000;
   uint64_t height = ((uint64_t)viewport_height_css * device_scale_milli + 500) / 1000;
@@ -409,23 +437,21 @@ static int set_layout(uint32_t width_css, uint32_t height_css,
   __c11_atomic_store(&mailbox->frame_stride, framebuffer_stride,
                      __ATOMIC_RELAXED);
 
-  const float font_pixels = ((float)font_size_milli * device_scale_milli) /
-                            1000000.0f;
+  padding_x = (12u * device_scale_milli + 500) / 1000;
+  padding_y = (10u * device_scale_milli + 500) / 1000;
+  if (!font_chosen) {
+    font_size_milli = surface_font_milli(framebuffer_width > 2 * padding_x
+        ? framebuffer_width - 2 * padding_x : 0);
+  }
+  const float font_pixels = font_pixels_of(font_size_milli);
   clear_glyph_cache();
   font_scale = stbtt_ScaleForPixelHeight(&font, font_pixels);
   int descent = 0;
   int line_gap = 0;
   stbtt_GetFontVMetrics(&font, &font_ascent, &descent, &line_gap);
-  int advance = 0;
-  int bearing = 0;
-  stbtt_GetCodepointHMetrics(&font, 'M', &advance, &bearing);
-  (void)bearing;
-  cell_width = (uint32_t)(advance * font_scale + 0.5f);
-  if (cell_width < 4) cell_width = 4;
+  cell_width = cell_width_of(font_pixels);
   cell_height = (uint32_t)(font_pixels * 1.32f + 0.5f);
   if (cell_height < 8) cell_height = 8;
-  padding_x = (12u * device_scale_milli + 500) / 1000;
-  padding_y = (10u * device_scale_milli + 500) / 1000;
   uint32_t usable_width = framebuffer_width > 2 * padding_x
       ? framebuffer_width - 2 * padding_x : cell_width;
   uint32_t usable_height = framebuffer_height > 2 * padding_y
@@ -615,7 +641,7 @@ static int initialize(dolly_display_mailbox *shared_mailbox,
   ghostty_terminal_set(terminal, GHOSTTY_TERMINAL_OPT_WRITE_PTY,
                        terminal_write_pty);
   if (set_layout(viewport_width_css, viewport_height_css,
-                 device_scale_milli, font_size_milli) != 0) return -1;
+                 device_scale_milli) != 0) return -1;
   render_frame();
   return dolly_input_decoder_install(&decoder);
 }
@@ -642,7 +668,7 @@ static size_t read_replies(unsigned char *output, size_t capacity) {
 
 static int resize(uint32_t width_css, uint32_t height_css, uint32_t scale_milli) {
   frame_dirty = true;
-  return set_layout(width_css, height_css, scale_milli, font_size_milli);
+  return set_layout(width_css, height_css, scale_milli);
 }
 
 static void present(void) {
@@ -879,10 +905,12 @@ static int decode_record(const dolly_input_event *event,
        strcmp(code, "Minus") == 0 || strcmp(code, "NumpadSubtract") == 0)) {
     const bool increase = strcmp(code, "Equal") == 0 ||
                           strcmp(code, "NumpadAdd") == 0;
-    uint32_t next = increase ? font_size_milli + 1000 : font_size_milli - 1000;
-    next = clamp_u32(next, MIN_FONT_MILLI, MAX_FONT_MILLI);
+    font_chosen = true;
+    font_size_milli = clamp_u32(
+        increase ? font_size_milli + 1000 : font_size_milli - 1000,
+        MIN_FONT_MILLI, MAX_FONT_MILLI);
     if (set_layout(viewport_width_css, viewport_height_css,
-                   device_scale_milli, next) == 0) render_frame();
+                   device_scale_milli) == 0) render_frame();
     return 0;
   }
 

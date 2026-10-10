@@ -9,7 +9,7 @@ REQUIRES HOST microphone@0
 REQUIRES HOST threads@0
 REQUIRES HOST upload@0
 
-FROM /v0.1.1/demos/cmake/Dollyfile-cmake-build 8c579acd30f22921f8c7b4b9f78783d977c108c53c883a6f400a2903e3ace7aa
+FROM /v0.1.1/demos/cmake/Dollyfile-cmake-build 1af48f314edf9f397d8f584dfbbd6fe4544e4c7d8dfc4074d0e14e7076fbf4db
 REQUIRES TOOL cc
 REQUIRES TOOL c++
 REQUIRES TOOL cmake

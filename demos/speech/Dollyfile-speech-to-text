@@ -10,9 +10,9 @@ REQUIRES HOST snapshot@0
 REQUIRES HOST threads@0
 REQUIRES HOST upload@0
 
-FROM /v0.1.1/Dollyfile-system 634bb9d9d5ad58e2f0d638453a6f396452306ebe9a86e3638c6da90069f5c9f5
-COPY /v0.1.1/demos/speech/Dollyfile-speech-build bc3520cf8ac4fe45058f3bf5ac6ed1409e46e3b1eac2684d0660023b41506a21 /usr/bin/speech-to-text /usr/bin/speech-to-text
-COPY /v0.1.1/demos/speech/Dollyfile-speech-build bc3520cf8ac4fe45058f3bf5ac6ed1409e46e3b1eac2684d0660023b41506a21 /usr/share/licenses/transcribe.cpp /usr/share/licenses/transcribe.cpp
+FROM /v0.1.1/Dollyfile-system 1b986f665ab3f4fcab0e9ddc3d3da3534ffdd26191cb3f18cd75d9304889fef5
+COPY /v0.1.1/demos/speech/Dollyfile-speech-build 4b387b5dca7a66138c2d3f2ec2b7bd1f35fa5018a76dc3b13f8384226865f722 /usr/bin/speech-to-text /usr/bin/speech-to-text
+COPY /v0.1.1/demos/speech/Dollyfile-speech-build 4b387b5dca7a66138c2d3f2ec2b7bd1f35fa5018a76dc3b13f8384226865f722 /usr/share/licenses/transcribe.cpp /usr/share/licenses/transcribe.cpp
 EXPORTS TOOL speech-to-text
 
 # Moonshine Streaming Tiny: English, 34 million parameters, 8-bit weights.

@@ -33,6 +33,9 @@ flowchart LR
 
 ## Terminal
 
+- The font is 20 CSS pixels. A surface narrower than 640, a phone, starts at
+  the largest size down to 12 that gives 48 columns. Ctrl+= and Ctrl+- change
+  it either way.
 - Ghostty is the only resident kernel plugin, so terminal state survives
   foreground replacement. Its closed contract
   ([`dolly-kernel-plugin-0.wat`](../abi/dolly-kernel-plugin-0.wat)) is built only
