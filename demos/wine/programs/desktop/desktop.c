@@ -20,8 +20,6 @@
 
 extern const char *wine_dolly_enum_programs( unsigned int index );
 extern HANDLE wine_dolly_start_program( const WCHAR *cmdline );
-extern BOOL wine_dolly_program_running( const WCHAR *name );
-extern void wine_dolly_free_program_classes( HINSTANCE module );
 
 enum { HEIGHT = 28, START_WIDTH = 60, CLOCK_WIDTH = 52, TASK_WIDTH = 160, MAX_TASKS = 32, ID_SHUT_DOWN = 99, ID_PROGRAM = 100 };
 
@@ -202,30 +200,33 @@ static void program_label( const char *name, WCHAR *label )
 /* a program linked into Wine; with a file, x86emu and the x86-64 program it is to run */
 static void start_program( const char *name, const char *x86_file )
 {
-    WCHAR nameW[64], command[MAX_PATH];
-    HMODULE module;
+    WCHAR command[MAX_PATH];
+    char text[200];
     HANDLE thread;
-    unsigned int i;
+    DWORD error;
+    unsigned int i = MultiByteToWideChar( CP_ACP, 0, name, -1, command, ARRAY_SIZE(command) ) - 1;
 
-    for (i = 0; (nameW[i] = name[i]); i++) /* nothing */;
-    MultiByteToWideChar( CP_ACP, 0, name, -1, command, ARRAY_SIZE(command) );
     if (x86_file)
     {
         char arguments[MAX_PATH];
         snprintf( arguments, sizeof(arguments), " %s%s", x86_dir, x86_file );
         MultiByteToWideChar( CP_ACP, 0, arguments, -1, command + i, ARRAY_SIZE(command) - i );
     }
-    if (wine_dolly_program_running( nameW ))
-    {
-        printf( "desktop: %s is running already; a program runs once at a time\n", name );
-        fflush( stdout );
-        return;
-    }
-    /* the classes its last run registered would make the next one fail */
-    if ((module = GetModuleHandleW( nameW ))) wine_dolly_free_program_classes( module );
-    if ((thread = wine_dolly_start_program( command ))) CloseHandle( thread );
+    thread = wine_dolly_start_program( command );
+    error = GetLastError();
     printf( "desktop: %s %s\n", thread ? "started" : "could not start", name );
     fflush( stdout );
+    if (thread)
+    {
+        CloseHandle( thread );
+        return;
+    }
+    /* what one process cannot do is said where the user is */
+    if (error == ERROR_BUSY)
+        lstrcpynA( text, x86_file ? "An x86-64 program is running: this Wine interprets one at a time."
+                                  : "It is running: in this Wine, which is one process, a program runs once at a time.", sizeof(text) );
+    else FormatMessageA( FORMAT_MESSAGE_FROM_SYSTEM, NULL, error, 0, text, sizeof(text), NULL );
+    MessageBoxA( 0, text, x86_file ? x86_file : name, MB_OK | MB_ICONEXCLAMATION | MB_SETFOREGROUND );
 }
 
 static void find_programs(void)

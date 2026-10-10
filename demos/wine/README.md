@@ -384,10 +384,12 @@ linked into this Wine as a thread of the desktop's process
 resources, `GetCommandLine` and the arguments of `main` are the program's,
 and `ExitProcess` ends the thread. Before each start the program's static
 data is put back as it was linked, and the window classes of its last run
-are unregistered. What this is not:
+are unregistered (an x86-64 program's when the next one is loaded where it
+was). What this is not:
 
 - a crash (a trap) in one program ends all of them and the desktop;
-- a program runs once at a time (its static data exists once);
+- a program runs once at a time (its static data exists once): the desktop,
+  the prompt and the file manager refuse a second start with a message;
 - threads a program creates see the desktop as their process, and they, its
   handles and its heap blocks are not released when it exits;
 - `exit()` or `TerminateProcess` on itself ends everything;

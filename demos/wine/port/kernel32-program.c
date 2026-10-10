@@ -47,6 +47,8 @@ struct program
     WCHAR     **wargv;
 };
 
+extern void wine_dolly_free_program_classes( HINSTANCE module );  /* user32 */
+
 static struct program programs[32];
 static unsigned int nb_programs;
 static __thread struct program *current;
@@ -122,13 +124,6 @@ static BOOL is_running( struct program *program )
     return FALSE;
 }
 
-BOOL wine_dolly_program_running( const WCHAR *name )
-{
-    struct program *program = find_program( name, strlenW( name ) );
-
-    return program && is_running( program );
-}
-
 /* the words of a command line, split at blanks outside double quotes */
 static void split_command_line( struct program *program )
 {
@@ -201,6 +196,8 @@ HANDLE wine_dolly_start_program( const WCHAR *cmdline )
     }
     for (len = 0; (name[len] = program->name[len]); len++) /* nothing */;
     if (!program->module && !(program->module = LoadLibraryW( name ))) return 0;
+    /* the window classes its last run registered would make this one fail: no process ended to free them */
+    wine_dolly_free_program_classes( program->module );
 
     /* its data as linked: a copy is kept at the first start and put back at each later one */
     size = program->data_end - program->data;

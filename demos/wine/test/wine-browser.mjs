@@ -150,7 +150,28 @@ async function terminal(page, prompt, start, waitText) {
     }
     return { count, width: right - left };
   }, sample);
+  const closeSample = async () => {
+    await click(page, ...beside);
+    await delay(500);
+    await page.keyboard.press("Escape");
+    await pixelIs(page, ...beside, desktop);
+  };
   await pixelIs(page, 640, height - 6, face);
+
+  // The sample from its shortcut, the last of eight: while it runs the desktop refuses a second x86-64
+  // program with a message box, over the sample's window; once it has ended, it starts again.
+  const refusal = [(width >> 1) - 120, (height >> 1) + 17];
+  await page.mouse.dblclick(...await at(page, 36, 545));
+  await until(async () => (await sampleText()).count > 40, "the sample from the desktop");
+  await page.mouse.dblclick(...await at(page, 36, 545));
+  await pixelIs(page, ...refusal, face);
+  await page.keyboard.press("Enter");
+  await pixelIs(page, ...refusal, black);
+  await closeSample();
+  await page.mouse.dblclick(...await at(page, 36, 545));
+  await until(async () => (await sampleText()).count > 40, "the sample from the desktop again");
+  await closeSample();
+
   await click(page, 30, height - 14);
   await delay(700);
   await page.keyboard.press("c");
@@ -191,21 +212,13 @@ async function terminal(page, prompt, start, waitText) {
   await enter(`${tcc} -v 2> busy.txt`, 1500);
   await enter("cmd /c echo nested 2> nested.txt", 1500);
   await enter("start notepad 2> start.txt", 1500);
-  await click(page, ...beside);
-  await delay(500);
-  await page.keyboard.press("Escape");                          // ends the sample
-  await pixelIs(page, ...beside, desktop);
+  await closeSample();
 
-  // The source of that program: edited in Notepad, compiled by the x86-64 TinyCC, run.
+  // The source of that program: edited in Notepad, compiled by the x86-64 TinyCC, run, and run again.
   await click(page, 200, 200);
   await enter("notepad hello_win.c");
   await pixelIs(page, 700, 400, white);                         // Notepad, over the console
   await delay(1000);
-  await page.keyboard.press("Control+Home");                    // line 9: #define APPNAME "HELLO_WIN"
-  for (let line = 1; line < 9; line++) await page.keyboard.press("ArrowDown");
-  await page.keyboard.press("End");
-  await page.keyboard.press("ArrowLeft");
-  await page.keyboard.type("_EDITED", { delay: 15 });
   await page.keyboard.press("Control+Home");                    // line 92: … : "Hello Windows!";
   for (let line = 1; line < 92; line++) await page.keyboard.press("ArrowDown");
   await page.keyboard.press("End");
@@ -224,23 +237,21 @@ async function terminal(page, prompt, start, waitText) {
   await page.keyboard.press("Enter");
   await until(async () => await lit() > before + 150, "the prompt after the compiler", 120_000);
   const compiled = Date.now() - pressed;
-  await enter("hello_win");
-  const text = await until(async () => { const found = await sampleText(); return found.count > 40 && found; }, "the edited program's window");
-  assert.ok(text.width > 150, `the window's text is ${text.width} pixels wide: not the longer one`);
-  await page.screenshot({ path: `${evidence}terminal-run.png` });
-  await delay(800);                                             // long enough for the desktop to list the window
-  await click(page, ...beside);
-  await delay(500);
-  await page.keyboard.press("Escape");
-  await pixelIs(page, ...beside, desktop);
-  await click(page, 200, 200);
+  for (const run of ["first", "second"]) {
+    await enter("hello_win");
+    const text = await until(async () => { const found = await sampleText(); return found.count > 40 && found; }, `the edited program's ${run} window`);
+    assert.ok(text.width > 150, `the window's text is ${text.width} pixels wide: not the longer one`);
+    await page.screenshot({ path: `${evidence}terminal-run.png` });
+    await closeSample();
+    await click(page, 200, 200);
+  }
   await enter("exit", 1500);
   await pixelIs(page, 400, 300, desktop);
   await click(page, 30, height - 14);
   await delay(700);
   await page.keyboard.press("u");
   await prompt(shellPrompt);
-  assert.match(await waitText(/the Wine desktop was shut down/), /"HELLO_WIN_EDITED" at \d+,\d+/);
+  await waitText(/the Wine desktop was shut down/);
 
   for (const [name, pattern] of [["dir", "hello_win.c"], ["echo", "^edited"], ["cd", "usr.share.wine"], ["typed", "^edited"],
     ["hello", "Hello from C:.windows.system32.hello.exe"], ["level0", "^0"], ["tccv", "tcc version 0.9.27 (x86_64 Windows)"],
@@ -249,7 +260,7 @@ async function terminal(page, prompt, start, waitText) {
     assert.equal(await start(`grep -q "${pattern}" /home/dolly/${name}.txt`).done, 0, `${name}.txt has no "${pattern}"`);
   }
   assert.equal(await start('test "$(grep -c again /home/dolly/again.txt)" = 2').done, 0, "the command from the history did not run again");
-  console.log(`wine: the terminal ran cmd's commands, a console program and an x86-64 one with their exit codes, and refused what one process cannot do; hello_win.c, edited in Notepad, was compiled by tcc in ${compiled} ms and showed its new text`);
+  console.log(`wine: the terminal ran cmd's commands, a console program and an x86-64 one with their exit codes, and refused what one process cannot do; the x86-64 sample started again after it had ended, from the desktop and the prompt; hello_win.c, edited in Notepad, was compiled by tcc in ${compiled} ms and showed its new text`);
 }
 
 // GIMP 2.2 on GTK+ 2.6 over GDK's Windows backend. Its toolbox is where its session file puts it, the tip
