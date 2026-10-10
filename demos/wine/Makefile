@@ -70,7 +70,9 @@ DLLS := ntdll kernel32 advapi32 gdi32 user32 version usp10 imm32 comctl32 comdlg
 OWN_DLLS := winedolly.drv
 PROGRAMS := notepad winefile winemine
 OWN_PROGRAMS := desktop hello mspaint netsurf x86emu gimp
-MODULES := $(DLLS:%=dlls/%) $(OWN_DLLS:%=dlls/%) $(PROGRAMS:%=programs/%) $(OWN_PROGRAMS:%=programs/%) server
+# The terminal comes after the others on the Start menu, which lists programs in this order.
+MODULES := $(DLLS:%=dlls/%) $(OWN_DLLS:%=dlls/%) $(PROGRAMS:%=programs/%) $(OWN_PROGRAMS:%=programs/%) \
+           programs/wineconsole programs/cmd server
 export MODULE_FILE_winspool := winspool.drv
 MODULE_ARGS_dlls/ntdll := PORT_SRCS=signal_wasm64.c
 MODULE_ARGS_dlls/kernel32 := PORT_SRCS=kernel32-program.c
@@ -148,8 +150,15 @@ FONTS := $(patsubst $(SRC)/fonts/%,/usr/share/wine/fonts/%,$(wildcard $(SRC)/fon
 	@mkdir -p $(@D)
 	cp $< $@
 
+# The console needs a font of fixed width with letters, which Wine's own are not: the terminal's, the
+# system's one font, is that.
+TERMINAL_FONT := /usr/share/fonts/IosevkaTerm-SemiBold.ttf
+/usr/share/wine/fonts/$(notdir $(TERMINAL_FONT)):
+	@mkdir -p $(@D)
+	ln -s $(TERMINAL_FONT) $@
+
 FORCE:
-fonts: $(FONTS)
+fonts: $(FONTS) /usr/share/wine/fonts/$(notdir $(TERMINAL_FONT))
 
 # GIMP's data and configuration where its makefiles install them; its personal folder as its first-run
 # wizard makes it, so that the program opens at once; and fontconfig's configuration, which names the

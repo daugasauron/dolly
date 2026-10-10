@@ -193,6 +193,7 @@ static void program_label( const char *name, WCHAR *label )
     if (!strcmp( name, "netsurf.exe" )) name = "net&Surf";  /* N is Notepad's key */
     if (!strcmp( name, "winefile.exe" )) name = "file Manager";  /* W is WineMine's */
     if (!strcmp( name, "gimp.exe" )) name = "gIMP";
+    if (!strcmp( name, "wineconsole.exe" )) name = "command Prompt";
     if (!strchr( name, '&' )) *label++ = '&';
     for (i = 0; name[i] && name[i] != '.'; i++) label[i] = i ? name[i] : name[i] - 'a' + 'A';
     label[i] = 0;
@@ -431,11 +432,24 @@ static void create_shortcuts( HINSTANCE instance )
     }
 }
 
+/* Programs start in the user's directory, as from shortcuts on Windows. */
+static void set_environment(void)
+{
+    char path[2048], *p;
+    const char *home = getenv( "HOME" );
+
+    snprintf( path, sizeof(path), "Z:%s", home ? home : "/" );
+    for (p = path; *p; p++) if (*p == '/') *p = '\\';
+    SetCurrentDirectoryA( path );
+}
+
 int WINAPI WinMain( HINSTANCE instance, HINSTANCE previous, LPSTR cmdline, int show )
 {
     WNDCLASSW class = { 0 };
     MINIMIZEDMETRICS metrics = { sizeof(metrics) };
     MSG msg;
+
+    set_environment();
 
     class.lpfnWndProc = taskbar_proc;
     class.hInstance = instance;
