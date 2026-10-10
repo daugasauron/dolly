@@ -122,3 +122,36 @@ program that gets the taps. Each of the last two changes the seed. Pinch to zoom
 for the terminal; touch points for programs (a `touch@0`) are not built.
 
 Owner, after the answer: "Keep it as is for now, I want to try it before rejecting it."
+
+## Result (2026-10-10, 22:40)
+
+Branch `demo/pi-phone`; images `pi-phone` (392 MB snapshot: `pi-runtime` 253 MB, the speech
+model 135 MB, `voice` 4 MB), `speech-to-text` (292 MB) and `speech-build`, built on the seed
+with `buttons@0` (image inputs `a7ee26c5...`; the 23 images of their closure took 85 min, the
+Rust chain most of it).
+
+Verified, all in Chrome's Pixel 7 emulation (412x839, touch) unless said:
+
+- `node demos/speech/test/speech-browser.mjs chromium`: "pi-phone: chromium passed in 20.4s".
+  By taps alone: Menu, OpenRouter key, Paste (the clipboard's made-up key into Pi's masked
+  prompt, "Saved API key for OpenRouter", the key on no screen); Menu, Model, Say (the sample's
+  words typed into Pi's filter in small letters), Erase, Down, Choose; Menu, Thinking, Down,
+  Choose; Speak, the caption growing, Send; the request to openrouter.ai (answered by the test)
+  signed with the pasted key and holding the spoken sentence; Pi showing the answer; the
+  microphone closed. `inputmode="none"` on the page's text field throughout.
+- The same file's `speech` and `speech refused` pass in Chrome and Firefox on the new model.
+- `node test/buttons-browser.mjs`: passes in Chrome and Firefox, with the pinch case added.
+- The frozen copy served on port 9008 (`build/phone-release`, release `8dfc8ec8...`): buttons
+  5.3 s after opening the page, the sample dictated into Pi's prompt.
+- Found on the way: Pi ended at 48 columns ("Rendered line 3 exceeds terminal width (57 > 48)")
+  on the Dolly header's line of keyboard hints; `demos/pi/dolly-tools.js` now cuts its header to
+  the width. Every `pi` image had this on a terminal narrower than 57 columns.
+
+Not verified, for the owner's phone:
+
+- Everything a real phone decides: whether Chrome for Android keeps a 392 MB image and the
+  model in memory, how long it takes to hear (this desktop: 0.36 s for 10 s of speech on four
+  threads; a phone was not measured), its clipboard prompt, that no on-screen keyboard rises,
+  the strip against the gesture bar, the feel of drag and pinch.
+- The page's "Microphone on" and "Save" marks sit over Pi's last two rows while they show.
+- A real OpenRouter key and a real answer: the test answers for openrouter.ai.
