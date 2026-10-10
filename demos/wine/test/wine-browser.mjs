@@ -10,7 +10,7 @@
 // under the page's default policy, site:/ is the site's own landing page and a
 // redirect is followed. (NetSurf's home page is an outside site, which the test
 // does not wait for.)
-// Usage: node demos/wine/test/wine-browser.mjs
+// Usage: node demos/wine/test/wine-browser.mjs [firefox]
 import assert from "node:assert/strict";
 import { mkdir, readFile } from "node:fs/promises";
 import { createServer } from "node:http";
@@ -97,7 +97,8 @@ const elsewhere = createServer(async (request, response) => {
 await new Promise(listening => elsewhere.listen(0, "127.0.0.1", listening));
 const elsewhereOrigin = `http://127.0.0.1:${elsewhere.address().port}`;
 
-await demoTest("wine", { image: "wine", timeout: 600_000, server: { handle: serveNetsurfFixtures } }, async ({ server, open }) => {
+await demoTest("wine", { image: "wine", timeout: 600_000, server: { handle: serveNetsurfFixtures },
+  browser: process.argv[2] }, async ({ server, open }) => {
   await mkdir(evidence, { recursive: true });
   for (const [name, session, options] of [["desktop", run, {}], ["netsurf", netsurf, { policy: { rules: [
     { origin: server.origin, pathPrefix: "/fixture/netsurf/", methods: ["GET"] },

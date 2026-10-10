@@ -233,8 +233,13 @@ static BOOL CALLBACK list_window( HWND hwnd, LPARAM param )
     return TRUE;
 }
 
+/* where the last frame's windows are, for the pointer */
+static RECT frame_windows[256];
+static unsigned frame_window_count;
+
 static void present_frame(void)
 {
+    unsigned drawn = 0;
     struct window_list list;
     struct win_data *data;
     dolly_display_frame frame;
@@ -267,9 +272,14 @@ static void present_frame(void)
     for (i = list.count; i > 0; i--)
     {
         if (!(data = get_win_data( list.handles[i - 1], FALSE ))) continue;
-        if (data->visible && data->surface) draw_window( &frame, data );
+        if (data->visible && data->surface)
+        {
+            draw_window( &frame, data );
+            frame_windows[drawn++] = data->rect;
+        }
         release_win_data( data );
     }
+    frame_window_count = drawn;
     dolly_display_present( display.generation, frame.buffer_index );
 }
 
@@ -292,6 +302,7 @@ static void activate_window_at( int x, int y )
 
 static void send_pointer( const dolly_input_event *event )
 {
+    static BOOL pressed;
     static const DWORD down[] = { MOUSEEVENTF_LEFTDOWN, MOUSEEVENTF_MIDDLEDOWN, MOUSEEVENTF_RIGHTDOWN, MOUSEEVENTF_XDOWN, MOUSEEVENTF_XDOWN };
     static const DWORD up[] = { MOUSEEVENTF_LEFTUP, MOUSEEVENTF_MIDDLEUP, MOUSEEVENTF_RIGHTUP, MOUSEEVENTF_XUP, MOUSEEVENTF_XUP };
     unsigned button = event->flags >> 8;
@@ -306,12 +317,16 @@ static void send_pointer( const dolly_input_event *event )
         input.u.mi.dwFlags |= event->action == DOLLY_POINTER_ACTION_PRESS ? down[button] : up[button];
         if (button >= 3) input.u.mi.mouseData = button == 3 ? XBUTTON1 : XBUTTON2;
     }
-    /* No thread answers WM_SETCURSOR for the bare desktop: the arrow, as its window class says. */
+    /* No thread answers WM_SETCURSOR for the bare desktop: the arrow, as its window class says.
+     * Asked of the last frame's windows, not of their threads, and not while a button drags. */
+    if (event->action == DOLLY_POINTER_ACTION_PRESS) pressed = TRUE;
+    else if (event->action != DOLLY_POINTER_ACTION_DRAG && button < ARRAY_SIZE(down)) pressed = FALSE;
+    if (!pressed)
     {
         POINT pt = { event->x, event->y };
-        GUITHREADINFO info = { sizeof(info) };
-        if (WindowFromPoint( pt ) == GetDesktopWindow() && !(GetGUIThreadInfo( 0, &info ) && info.hwndCapture))
-            dolly_display_set_cursor( display.generation, DOLLY_DISPLAY_CURSOR_DEFAULT );
+        unsigned i;
+        for (i = 0; i < frame_window_count && !PtInRect( &frame_windows[i], pt ); i++) {}
+        if (i == frame_window_count) dolly_display_set_cursor( display.generation, DOLLY_DISPLAY_CURSOR_DEFAULT );
     }
     __wine_send_input( 0, &input );
 }
