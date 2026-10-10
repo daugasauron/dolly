@@ -62,10 +62,11 @@ demo, the Qwen 4B packaging, alphabetical order on the page.
   `rust-tools` and v0.1.0's `default` reach ready; every file of v0.1.1
   matches the list (`published-version.mjs verify`, exit 0). On the
   deployment's own address `boot v0.1.0 v0.1.1` passes in both browsers.
-- As after v0.1.0, and not ours to change: on daugasauron.com unversioned
-  paths (`/default/`) still answer 200 from a deployment older than v0.1.0,
-  so `published-version.mjs boot https://daugasauron.com` stops at "an
-  unversioned path is served".
+- On daugasauron.com one unversioned URL, `/default/`, still answers 200
+  with a copy Cloudflare keeps of an older deployment's page, so
+  `published-version.mjs boot https://daugasauron.com` stops at "an
+  unversioned path is served"; every other unversioned path is 404
+  (`tasks/*-stale-default`).
 - Archive for later deploys: `work/locks/published/` holds v0.1.0 and
   v0.1.1 (36 GB).
 - Not done at release: `package.json` and `src/version.mjs` stay at 0.1.1

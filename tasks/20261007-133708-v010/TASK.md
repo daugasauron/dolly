@@ -118,11 +118,11 @@ tag, push & deploy."
   redirects, unversioned paths are 404, `robots.txt`'s paths exist). On
   daugasauron.com `default` boots under `/v0.1.0/`, installs `less` and
   `git` from the versioned index and reads a log in both browsers.
-- Not as decided, and not ours to change: on daugasauron.com the old
-  unversioned paths (`/default/`, `/xonotic/`) still answer 200 with
-  yesterday's pages. They are not in the deployment (its own URL answers
-  404); Cloudflare Pages keeps serving files of earlier deployments for
-  paths the new one lacks. How long was not verified.
+- Not as decided: on daugasauron.com old unversioned URLs (`/default/`,
+  `/xonotic/`) still answered 200 with pages of the deployment before.
+  They are not in the deployment (its own URL answers 404). Measured on
+  2026-10-10: copies Cloudflare keeps per exact URL; `/xonotic/` had gone,
+  `/default/` had not (`tasks/*-stale-default`).
 - Not done at release: `package.json` and `src/version.mjs` stay at 0.1.0
   until the 0.1.1 round is assembled, because moving them rewrites every
   recipe and rebuilds the catalog.
