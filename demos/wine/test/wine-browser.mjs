@@ -10,6 +10,7 @@
 // Usage: node demos/wine/test/wine-browser.mjs
 import assert from "node:assert/strict";
 import { mkdir, readFile } from "node:fs/promises";
+import { createServer } from "node:http";
 import { delay, demoTest, shellPrompt } from "../../browser.mjs";
 
 const evidence = new URL("../../../build/wine-evidence/", import.meta.url).pathname;
@@ -69,16 +70,26 @@ async function until(check, what, timeout = 60_000) {
   throw new Error(`timed out waiting for ${what}`);
 }
 
+// Another origin, whose replies carry no CORS headers: the policy admits it, the browser's fetch does not.
+const refused = [];
+const elsewhere = createServer((request, response) => {
+  refused.push(request.url);
+  response.writeHead(200, { "content-type": "text/html" }).end("<title>never shown</title>");
+});
+await new Promise(listening => elsewhere.listen(0, "127.0.0.1", listening));
+const elsewhereOrigin = `http://127.0.0.1:${elsewhere.address().port}`;
+
 await demoTest("wine", { image: "wine", timeout: 600_000, server: { handle: serveNetsurfFixtures } }, async ({ server, open }) => {
   await mkdir(evidence, { recursive: true });
   for (const [name, session, options] of [["desktop", run, {}], ["netsurf", netsurf, { policy: { rules: [
-    { origin: server.origin, pathPrefix: "/fixture/netsurf/", methods: ["GET"] }] } }]]) {
+    { origin: server.origin, pathPrefix: "/fixture/netsurf/", methods: ["GET"] },
+    { origin: elsewhereOrigin, pathPrefix: "/", methods: ["GET"] }] } }]]) {
     const { page, prompt, start, waitText } = await open({ prompt: null, ...options });
     try { await session(page, prompt, start, waitText, server); }
     catch (error) { await page.screenshot({ path: `${evidence}failure-${name}.png` }); throw error; }
     await page.close();
   }
-});
+}).finally(() => elsewhere.close());
 
 // NetSurf: the address bar, a page with a style sheet, a PNG and a JPEG, a link, back and forward.
 async function netsurf(page, prompt, start, waitText, server) {
@@ -124,12 +135,29 @@ async function netsurf(page, prompt, start, waitText, server) {
   await until(async () => (await coloured(page, purple)).count > 100_000, "the second page after Forward");
   console.log(`wine: NetSurf fetched a page, its style sheet, a PNG and a JPEG through libcurl and drew them ${Math.round(rendered)} ms after Enter; link, Back and Forward work`);
 
+  // An address the browser's CORS rules refuse: NetSurf's own error page, as its window title says.
+  await click(page, 600, 58);
+  await page.keyboard.press("Home");
+  await page.keyboard.press("Shift+End");
+  await page.keyboard.type(`${elsewhereOrigin}/page.html`, { delay: 10 });
+  await page.keyboard.press("Enter");
+  await until(async () => (await coloured(page, purple)).count === 0, "the second page to go");
+  await until(() => refused.length > 0, "the request to the other origin");
+  await delay(1500);
+  await page.screenshot({ path: `${evidence}netsurf-refused.png` });
+
   await page.keyboard.press("Alt+F4");
-  await until(async () => (await coloured(page, purple)).count === 0, "NetSurf to close");
+  await delay(1000);
   await click(page, 30, height - 14);
   await delay(700);
   await page.keyboard.press("u");
   await prompt(shellPrompt);
+  const log = await waitText(/the Wine desktop was shut down/);
+  for (const title of ["Fixture one  -  NetSurf", "Fixture two  -  NetSurf", "Error occurred fetching page  -  NetSurf"]) {
+    assert.ok(log.includes(`"${title}"`), `the desktop listed a window titled ${title}`);
+  }
+  assert.deepEqual(refused, ["/page.html"]);
+  console.log("wine: an address without CORS headers ends in NetSurf's error page, after one request");
 }
 
 async function run(page, prompt, start, waitText) {
