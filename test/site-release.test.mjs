@@ -42,7 +42,7 @@ test("GitHub Pages leads to the domain's applications under the version released
   t.after(() => rm(site, { recursive: true, force: true }));
   await writeFile(resolve(site, "index.html"), "<table><tbody>\n</tbody></table>");
   await packageGithubPages(site);
-  const domain = `https://daugasauron.com/v${DOLLY_VERSION}/`;
+  const domain = `https://slopshare.dev/v${DOLLY_VERSION}/`;
   const links = [...(await readFile(resolve(site, "index.html"), "utf8")).matchAll(/href="([^"]+)"/g)].map(([, link]) => link);
   assert.ok(links.length > 0);
   for (const link of links) {

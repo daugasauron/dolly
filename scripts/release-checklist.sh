@@ -36,7 +36,7 @@ found="$({ git log -p origin/main..HEAD; cat dist/dolly-*-system.snapshot; } | {
 
 step "3 both sites are sealed from ${commit:0:8}, accepted, and are ${version}"
 for site in "${domain}" "${github}"; do
-  node scripts/site-release.mjs verify "${site}" . || stop "${site} is not packaged from this tree: bash scripts/package-pages.sh RELEASES daugasauron.com|github-pages"
+  node scripts/site-release.mjs verify "${site}" . || stop "${site} is not packaged from this tree: bash scripts/package-pages.sh RELEASES slopshare.dev|github-pages"
 done
 
 step "3 the Pages workflow's steps: export, under 1 GB"
@@ -65,8 +65,8 @@ cat <<COMMANDS
    gh workflow run pages.yml -f release_tag=${version} -f artifact_sha256=${tarball_sha256}
 6  systemd-run --user --unit dolly-deploy-${version} bash -c 'npx wrangler@4.129.1 pages deploy ${project_dir}/${deployment} --project-name dolly --branch main > ${project_dir}/build/deploy-${version}.log 2>&1'
    (detached: an interrupted upload keeps nothing, so never restart it)
-7  node scripts/published-version.mjs verify https://daugasauron.com ${deployment} ${version}
-   node scripts/published-version.mjs boot https://daugasauron.com ${versions}
+7  node scripts/published-version.mjs verify https://slopshare.dev ${deployment} ${version}
+   node scripts/published-version.mjs boot https://slopshare.dev ${versions}
    node scripts/published-version.mjs boot https://daugasauron.github.io/dolly ${version}
 8  mv ${deployment}/${version} ${archive}/ && rm -rf ${deployment}
    then move package.json and src/version.mjs to the next version

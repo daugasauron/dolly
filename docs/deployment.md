@@ -3,7 +3,7 @@
 Dolly deploys as static files: no server code, Functions or proxy. A release is
 a version `X.Y.Z` ([`version.mjs`](../src/version.mjs), equal to
 `package.json`): the git tag `vX.Y.Z`, the GitHub release of that name and the
-site path `/vX.Y.Z/`. [daugasauron.com](https://daugasauron.com/) (Cloudflare
+site path `/vX.Y.Z/`. [slopshare.dev](https://slopshare.dev/) (Cloudflare
 Pages project `dolly`, full catalog) keeps every published version;
 [GitHub Pages](https://daugasauron.github.io/dolly/) (a smaller catalog within
 its 1 GB limit) carries the newest only.
@@ -21,7 +21,7 @@ flowchart LR
 
 ## What a site serves
 
-| Path on daugasauron.com | Response |
+| Path on slopshare.dev | Response |
 | --- | --- |
 | `/`, `/llms.txt` | 302 to the newest version and to its `llms.txt` (`_redirects`) |
 | `/vX.Y.Z/PATH` | That version's file at its checkout path: pages, code, recipes, sources, packs |
@@ -65,7 +65,7 @@ Use one catalog for source preparation, snapshots and packaging:
 ```sh
 export DOLLY_BUILD_IMAGES="$(paste -sd, config/domain-pages-images.txt)"
 npm run image
-bash scripts/package-pages.sh build/domain-releases daugasauron.com
+bash scripts/package-pages.sh build/domain-releases slopshare.dev
 npm run serve build/domain-releases     # the candidate as it will be deployed
 
 export DOLLY_BUILD_IMAGES="$(paste -sd, config/github-pages-images.txt)"
@@ -76,7 +76,7 @@ bash scripts/package-pages.sh build/github-releases github-pages
 - Catalogs: [`domain-pages-images.txt`](../config/domain-pages-images.txt) and
   [`github-pages-images.txt`](../config/github-pages-images.txt); dependencies are
   included automatically.
-- The second packaging argument selects the site: `daugasauron.com` adds the
+- The second packaging argument selects the site: `slopshare.dev` adds the
   `/agents/` showcase ([`package-domain.mjs`](../scripts/package-domain.mjs));
   `github-pages` links Studio, Pi Local and 0 A.D. to the domain
   ([`package-github-pages.mjs`](../scripts/package-github-pages.mjs)).
@@ -161,7 +161,7 @@ pushes, uploads or deploys.
 
 ## Delivery contract
 
-| Path under `/vX.Y.Z/` | Caching on daugasauron.com |
+| Path under `/vX.Y.Z/` | Caching on slopshare.dev |
 | --- | --- |
 | A page: the version's root and every address ending in `/` | No-store |
 | Every file: code, recipes, sources, `dist/packs/HASH.snapshot.gz` | Immutable |

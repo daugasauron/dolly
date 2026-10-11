@@ -7,7 +7,7 @@ export async function packageDomain(site) {
   const index = resolve(site, "index.html");
   const source = await readFile(index, "utf8");
   if (!source.includes("<!-- site-links -->")) throw Error("index is missing the site-links marker");
-  await cp(new URL("../sites/daugasauron.com/agents", import.meta.url), resolve(site, "agents"),
+  await cp(new URL("../sites/slopshare.dev/agents", import.meta.url), resolve(site, "agents"),
     { recursive: true, force: false, errorOnExist: true });
   await writeFile(index, source.replace("<!-- site-links -->",
     '<p><a href="./agents/">Demo videos →</a></p>'));

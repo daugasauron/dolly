@@ -4,7 +4,7 @@
 // removing a header), pages served without .html and index.html and redirected
 // (308) to those URLs, and the nearest 404.html with status 404 and no-store.
 // The rule syntax is Pages' documented one; the rest was measured on
-// daugasauron.com.
+// slopshare.dev.
 //   node test/pages-host.mjs DEPLOYMENT [PORT]
 import { createReadStream } from "node:fs";
 import { readFile, stat } from "node:fs/promises";

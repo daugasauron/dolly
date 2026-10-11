@@ -23,7 +23,7 @@ export const siteReference = path => `${sitePrefix}/${path}`;
 
 // The public site, for the pages of another site that link to it. A recipe
 // that names it by URL instead of a site path fails the lint.
-export const PUBLIC_ORIGIN = "https://daugasauron.com";
+export const PUBLIC_ORIGIN = "https://slopshare.dev";
 
 // The path ("/Dollyfile-system") a site reference names among this page's
 // files, or null for an absolute URL. Another version's files are not here.

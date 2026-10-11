@@ -39,7 +39,7 @@ recipes build on, or a `PACKAGE` recipes and sessions install
 
 ## Try it
 
-Open [daugasauron.com](https://daugasauron.com/) or
+Open [slopshare.dev](https://slopshare.dev/) or
 [GitHub Pages](https://daugasauron.github.io/dolly/). The menu lists every image.
 
 - `/IMAGE/` boots the prebuilt image; `/IMAGE/rebuild/` builds it from its
