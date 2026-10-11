@@ -1,6 +1,6 @@
-# A draft v0.1.2: a rebuild with the new Wine and pi-phone
+# v0.1.2: a rebuild with the new Wine and pi-phone, drafted and then released
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 180
 - TAGS: release
 
@@ -75,3 +75,31 @@ available on github static page so might have to remove something else."
   they stay on daugasauron.com and GitHub's menu links to them there. With the room that made,
   `neovim` (left out of v0.1.1 for size only) and `speech-to-text` are in: 883,488,023 bytes.
   The integrator's decision; the owner named Wine and that something else would have to go.
+
+## Released (2026-10-11, 09:25 to 10:20)
+
+- `main` = `origin/main` = tag `v0.1.2` = `6cf78ea5`. The round's suites ran on `8e7c4d92`;
+  the commits after it change tasks and the GitHub Pages list only, and the source tests were
+  run again on the tagged commit (424 passed, 0 failed).
+- `scripts/release-checklist.sh` passed there: no token-shaped string in the 51 commits or the
+  snapshots, both sites sealed from the commit, the deployment assembled with v0.1.0 (2,277
+  files), v0.1.1 (2,370) and v0.1.2 (2,460), 60 of 100 header rules. The owner's key is in no
+  commit, deployment file, GitHub release file or tarball by value.
+- GitHub release https://github.com/daugasauron/dolly/releases/tag/v0.1.2 with the Pages
+  tarball (587,518,311 bytes, SHA-256 `e95d3280...9bb5`); workflow run 38098508358 succeeded;
+  883,492,324 bytes. `/dolly/v0.1.2/` boots `default` in Chromium and Firefox, and its Wine page
+  ran the desktop's sample, a compile at the prompt, a copy to the Desktop folder and two runs.
+- daugasauron.com: domain release `5c99a425...`, deployment `109069de`, 7,109 files, 670
+  uploaded in 240 s. `/` leads to `/v0.1.2/`. On the deployment's own address `boot v0.1.0
+  v0.1.1 v0.1.2` passes in both browsers (a first run stopped once on a failed fetch of one
+  source; all 284 small sources then answered with their pinned bytes, and the rerun passed).
+  `published-version.mjs verify`: "serves every file of v0.1.2 and the lists of v0.1.0, v0.1.1,
+  v0.1.2". The phone page there showed its buttons 81 s after opening and typed the dictated
+  sample.
+- As for v0.1.1, `boot https://daugasauron.com` stops at "an unversioned path is served":
+  `/default/` still answers 200 from a copy Cloudflare keeps (`age: 311392`,
+  `tasks/20261010-112540-stale-default`).
+- The archive `work/locks/published/` holds v0.1.0, v0.1.1 and v0.1.2 (55 GB); v0.1.2 there
+  matches its list, whose SHA-256 is `9de1458a...ddf3`, the one in the release notes.
+- Not done at release: `package.json` and `src/version.mjs` stay at 0.1.2 until the next round
+  is assembled.
