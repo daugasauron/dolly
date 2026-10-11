@@ -32,3 +32,18 @@ Not done:
 - Saved sessions and cached images are the browser's per origin: they do not follow.
 - The GitHub account's addresses (`daugasauron.github.io/dolly`, `github.com/daugasauron/dolly`)
   are another matter and were not asked for.
+
+## The live checks found Cloudflare's beacon on the new zone (2026-10-11, 14:00)
+
+`published-version.mjs boot https://slopshare.dev v0.1.0 v0.1.1 v0.1.2` stops at "v0.1.0
+requested paths outside itself: /cdn-cgi/rum", twice. A page loaded as a browser loads it comes
+with `<script type="module" src="https://static.cloudflareinsights.com/beacon.min.js/...">`
+added by Cloudflare (2,374 bytes for `/v0.1.2/default/` against the published 2,113); the same
+request to daugasauron.com returns the published bytes. It is Cloudflare Web Analytics'
+automatic setup, on by default for the new zone. Fetched without a browser's headers the files
+are the published ones (`agents/index.html` matched its list on a second try; the first
+`verify` run met a changed copy of it).
+
+The token has no permission over that setting (`rum/site_info` and the zone's `rum` setting
+both answer "Authentication error"). To do, by the owner in the dashboard: Web Analytics, the
+site `slopshare.dev`, disable the automatic setup. Then `boot` and `verify` are run again.
