@@ -26,8 +26,9 @@ flowchart LR
 - [`../Dollyfile-mojo-runtime`](../Dollyfile-mojo-runtime): `libmojo-rt.a`,
   the compiler runtime over libc, and `libmojo-gpu.a`, the device side of
   `DeviceContext` over `gpu@0`. Their sources are the recipe's `FILE` bodies.
-- [`gpu/`](gpu): the Mojo package `gpu`: `gpu.host.DeviceContext` and the
-  kernel-side names. A program imports it with `-I` this directory.
+- [`gpu/`](gpu): the Mojo package `gpu`: `gpu.host.DeviceContext`, the
+  kernel-side names and `gpu.sync.barrier`. A program imports it with `-I`
+  this directory.
 - [`cross-compile.sh`](cross-compile.sh), [`test/`](test): the fixtures as
   objects, and their run in the `mojo-runtime` image.
 
@@ -113,6 +114,12 @@ other examples index buffers through `layout`, which is in `max`.
 - `Atomic[T].fetch_add`, `max`, `min` and `compare_exchange` on a pointer
   into a buffer work for `UInt32`, `Int32` and `Float32`: WGSL's atomic
   where it has one, else a loop around its compare and exchange.
+- `stack_allocation[N, T, address_space=AddressSpace.SHARED]()` is memory
+  of the block's threads, and `barrier()` of `gpu.sync` waits until each of
+  them has reached a barrier or returned. WGSL wants its barrier in uniform
+  control flow, which a kernel's is not: a thread at a barrier leaves the
+  loop of blocks, and all meet at one WGSL barrier. So a barrier may stand
+  anywhere, also where only some threads come.
 - `block_dim` is the WebGPU workgroup size, set when the pipeline is created:
   at most 256 threads on a default device. `grid_dim` is the workgroup
   count. A block the device does not admit raises when enqueued, as does a

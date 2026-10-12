@@ -13,7 +13,7 @@ import { startBrowserServer } from "../../../../test/browser-server.mjs";
 import { shellPrompt } from "../../../browser.mjs";
 
 const root = new URL("../../../../", import.meta.url);
-const gpu = "-lmojo-gpu -ldolly-gpu", programs = { hello: "", library: "", tasks: "", saxpy: gpu, kernels: gpu, mandelbrot: gpu, output: gpu,
+const gpu = "-lmojo-gpu -ldolly-gpu", programs = { hello: "", library: "", tasks: "", saxpy: gpu, kernels: gpu, mandelbrot: gpu, output: gpu, shared: gpu,
   upstream_hello_writing: gpu, upstream_gpu_hello: gpu };
 const objects = Object.fromEntries(Object.keys(programs).map(name => [`${name}.o`, `build/mojo-target/objects/${name}.o`]));
 if (!Object.values(objects).every(path => existsSync(new URL(path, root)))) {
@@ -54,6 +54,8 @@ try {
       await run("/tmp/library one | grep -qx 'MOJO-LIBRARY 6 5 29 True 2 7.25 True'");
       await run("/tmp/tasks | grep -qx 'MOJO-TASKS 33 6'");
       await run("/tmp/saxpy | grep -qx 'MOJO-GPU webgpu 1000 1998.5'");
+      // Sums folded in shared memory between barriers, and a barrier after which every thread sees every other's mark.
+      await run("/tmp/shared | grep -qx 'MOJO-SHARED wrong: 0 of 8 fewest marks 256'");
       // Upstream's two GPU hellos: a kernel stores into a buffer that the host maps, and a kernel prints.
       await run("/tmp/upstream_hello_writing | grep -qx 'GPU responded: 👋, 🔥'");
       await run("/tmp/upstream_gpu_hello | grep -qx 'Hello from the GPU'");

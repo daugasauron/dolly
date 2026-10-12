@@ -82,7 +82,7 @@ objects from `demos/mojo/target/cross-compile.sh`, image `mojo-runtime`:
 | Chrome 151.0.7922.71 on Xvfb, Vulkan | NVIDIA (`nvidia blackwell`) | passed |
 | Firefox 157.0.1 on Xvfb | unnamed WebGPU adapter | passed |
 
-Each run (25 s for the three) links nine cross-compiled objects with `cc`
+Each run (25 s for the three) links ten cross-compiled objects with `cc`
 in the session and checks their output: `hello` (print), `library` (split,
 `List`, `Dict`, `Path.write_text`/`read_text`, `exists`, `argv`, float
 formatting, a clock), `tasks` (coroutines awaited through the runtime's
@@ -95,6 +95,8 @@ and a compare and exchange; thirteen math functions; every element
 compared with the host's), `mandelbrot` (the set drawn as text from a
 kernel's escape times, and a 24 by 24 matrix product), `output` (each
 thread's printed line, and the message of the assertion that ends one),
+`shared` (sums folded in shared memory between barriers, and a barrier
+after which every thread sees every other's mark),
 and upstream's `hello_writing.mojo` and `gpu_hello.mojo` with their import
 changed. Screenshots of the three browsers after the first of these runs
 are in `build/mojo-target-evidence/` of the worktree.
@@ -116,7 +118,10 @@ atomic sums, signed and float maxima and one compare and exchange among
 GPUs); fourteen cases of 64-bit arithmetic over 257 values, division,
 shifts by a variable, conversions and 64-, 16- and 8-bit arguments among
 them; lines printed by six threads with integers, floats, `Bool` and a
-64-bit integer; asserts and an `abort` with their messages. An
+64-bit integer; asserts and an `abort` with their messages; shared memory
+of floats, of bytes and with atomic counters, and barriers that only some
+threads reach or that a return follows (without its barrier a thread saw
+one mark of 256 in all three browsers, with it all). An
 `Optional` through a branch did not compile until a struct that is a value
 was printed as its scalars, and every function a kernel calls is inlined
 before LLVM optimizes. Two things were wrong and are fixed:
@@ -255,10 +260,6 @@ the released compiler on this machine's x86-64: 1.4 times.
   compiled without `-D ASSERT=all` has none of the standard library's own
   assertions, so the fixtures did not grow.
 - **Kernels, not built**:
-  - Shared memory and barriers (upstream's names for them are in `max/`).
-    Not tried: WGSL wants a barrier in uniform control flow, which a block
-    number in a loop is not once a branch has depended on the thread, so
-    they need the kernel's control flow printed as structured statements.
   - SIMD vectors, `Float16`, atomics of 64 bits (WGSL's are 32).
     `Float64` cannot be: WGSL has none.
   - The libm functions WGSL lacks (`log10`, `cbrt`, `expm1`, `erfc`, gamma
