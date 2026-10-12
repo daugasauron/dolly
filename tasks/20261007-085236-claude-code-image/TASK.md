@@ -1,8 +1,28 @@
-# An image that downloads and runs Claude Code, opening on a notice of its terms and limits
+# closed-source-agent (Claude Code): one real-model turn with the owner's key is owed
 
 - STATUS: OPEN
-- PRIORITY: 320
+- PRIORITY: 130
 - TAGS: javascript,janis,agent,demo,licence
+
+## State (2026-10-12)
+
+On the domain since v0.1.0 as `closed-source-agent` (`a7108038`; in
+`config/domain-pages-images.txt`, not in the GitHub Pages subset). The image opens on the notice,
+fetches the pinned Claude Code 2.1.112 from npm only after a key is pressed, and starts its
+interface with an API key the user types. Its browser test (the notice, no request for the
+package before the key, a file-tool turn against a scripted endpoint) passed in Chromium and
+Firefox on 2026-10-07 and in Chrome in each release round;
+`demos/closed-source-agent/test/closed-source-agent.artifacts.mjs` holds that the sealed image
+contains no file of the package. The owner, shown the Commercial Terms gate and the open
+readings: "All of this is fine."
+
+Left, the third done-when line and the owner's to do: **one real-model turn in a browser** with
+a funded key, recorded here without the key. Open the image, press Enter, paste the key. The
+made-up key drew the API's 401, which proves the request path and not an answer.
+
+Lowered from 320: nothing is left for an agent.
+
+## The request
 
 Owner (2026-10-07): "It should be ok licence wise to have an image that can
 download it and run it?" Then: "Add a high priority task to add claude code,
@@ -14,25 +34,6 @@ Owner (2026-10-07, after the first build): "My idea with claude was that it
 would be possible to start the application at least to see the TUI. Ideally
 some kind of api-key login flow can work… I want the name in dolly to be
 closed-source-agent."
-
-## What exists
-
-From `20261005-133044-claude-code` (closed; its commands and the ten Janis
-gaps are there):
-
-- The last release that is JavaScript is 2.1.112 (2026-04-16): tarball
-  18.7 MB, integrity
-  `sha512-9FUgJ0EOvILyhIqxFKNVliebiUjL68dwpEW3eGSSe0vkVDJ1c5qMDNWc22gW3zkD7zRAqtfQPSGv0t4vMM2DPA==`.
-  Later releases are native executables that nothing in Dolly can run.
-- Under Janis in Chromium (2026-10-06): the interface rendered and a file-tool
-  turn completed against a scripted Messages endpoint; an invalid key drew a
-  401 from `api.anthropic.com`. A real model answered only on a native host
-  build of Janis. Download and unpack 5.7 s, `--version` 4.5 s.
-- No Bash tool: Claude Code wants a shell named bash or zsh, and that task's
-  decision not to call Slop bash stands.
-- Not tested: Firefox, signing in with a Claude account, a real model in a
-  browser. The October driver was not committed, no test in the repo covers
-  Claude Code, and Janis has changed since.
 
 ## Licence (read 2026-10-07; an engineering reading, not legal advice)
 
@@ -137,21 +138,6 @@ Facts the notice carries, on one screen (the wording is the builder's):
 - A saved or exported session contains the sign-in and the package.
 - Limits here: an old release, run on Janis instead of Node, no working Bash
   tool.
-
-## Work
-
-1. Rerun the October procedure on current main in Chromium and Firefox. Fix
-   regressions as Janis gaps with oracle cases.
-2. The demo directory: recipe on `system` with `javascript` and `ripgrep`
-   installed, the launcher and notice as the image's ENTRY, README, test, and
-   a row in `docs/licences.md` saying that nothing of Claude Code is served.
-3. Run Claude Code's own onboarding unassisted, with an API key and with a
-   Claude account, in both browsers. Record what works; the notice names what
-   does not.
-4. A browser test without a model or a key: a scripted Messages endpoint on
-   the test origin, as in October. Decide how the test obtains the tarball
-   without committing it.
-5. One real turn in a browser with the owner's key.
 
 ## Done when
 
