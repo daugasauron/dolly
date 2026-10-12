@@ -1,6 +1,6 @@
 # Packages that start programs they do not install
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 285
 - TAGS: packages,amy,images,agent-experience
 
@@ -142,3 +142,15 @@ own tasks.
 
 Every package's ordinary use works after `amy install NAME` on `default`, or
 fails with a message naming what to install, and a test holds each.
+
+## Closed into `packages` (2026-10-12)
+
+[`20261012-130814-packages`](../20261012-130814-packages/TASK.md) holds what
+is left. Since the survey above: `ninja`, `transfer` (`download`, `upload`)
+and `session-recover` are packages, so the three tools the old `default` had
+are one install away; Git prints without a pager when `less` is absent
+(`c6e8ac47`); the `python` package says what pip needs, and a held commit
+makes it install `cc` and `ninja`. Each new tool package is tested alone on
+`default` (`test/amy-browser.mjs`, "amy tools"). Open there: a failed start
+naming the package (the seed), `default` installing `transfer` (held), the
+model packages on `default`.
