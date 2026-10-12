@@ -106,7 +106,8 @@ drivers that are not open source, so this one is new, with its names:
   at most 256 threads on a default device, and a larger block raises when
   enqueued. `grid_dim` is the workgroup count.
 - Control flow is printed as a block number in a loop, so any branch or loop
-  compiles; calls are inlined. The text must fit `gpu@0`'s 128 KiB for a
+  compiles; calls are inlined; a local array of a fixed size is a WGSL
+  array. The text must fit `gpu@0`'s 128 KiB for a
   shader: the largest of the fixtures, eleven math functions, is 13 KB.
 - The compiler refuses, naming the instruction: 64-bit integers, `Float64`,
   `Float16`, SIMD vectors, stores of 8 and 16 bits, pointers stored in memory

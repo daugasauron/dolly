@@ -1,4 +1,5 @@
 from std.bit import byte_swap, rotate_bits_left
+from std.collections.array import Array
 from std.math import acos, atan, cos, erf, exp, log, sin, sinh, sqrt, tan
 
 from gpu import block_dim, block_idx, global_idx, grid_dim, thread_idx
@@ -11,14 +12,18 @@ def horner(
     n: Int,
     terms: Int32,
 ):
-    """A loop: sum of x^k for k below terms."""
+    """A loop over a local array: a polynomial with the coefficients 1, 2, 3,
+    4, 1, 2 and so on."""
     var i = global_idx.x
     if i >= n:
         return
+    var coefficients = Array[Float32, 4](fill=0)
+    for k in range(4):
+        coefficients[k] = Float32(k + 1)
     var sum = Float32(0)
     var k = Int32(0)
     while k < terms:
-        sum = sum * x[unsafe_offset=i] + 1
+        sum = sum * x[unsafe_offset=i] + coefficients[Int(k) % 4]
         k += 1
     result[unsafe_offset=i] = sum
 
@@ -100,14 +105,15 @@ def main() raises:
     for i in range(n):
         xs[i] = Float32(i) / 16 - 2
     x.enqueue_copy_from(xs.unsafe_ptr())
-    ctx.enqueue_function[horner](x, y, n, Int32(5), grid_dim=2, block_dim=32)
+    ctx.enqueue_function[horner](x, y, n, Int32(6), grid_dim=2, block_dim=32)
     var ys = y.to_host()
     var wrong_sums = 0
     for i in range(n):
         var sum = Float32(0)
-        for _ in range(5):
-            sum = sum * xs[i] + 1
-        if ys[i] != sum:
+        for k in range(6):
+            sum = sum * xs[i] + Float32(k % 4 + 1)
+        # The host may fuse a multiplication and an addition, or the GPU.
+        if abs(ys[i] - sum) > 1e-5 * max(abs(sum), 1):
             wrong_sums += 1
 
     var a = ctx.enqueue_create_buffer[DType.int32](n)

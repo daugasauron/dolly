@@ -52,7 +52,7 @@ try {
       await run("/tmp/library one | grep -qx 'MOJO-LIBRARY 6 5 29 True 2 7.25 True'");
       await run("/tmp/tasks | grep -qx 'MOJO-TASKS 33 6'");
       await run("/tmp/saxpy | grep -qx 'MOJO-GPU webgpu 1000 1998.5'");
-      // A loop; integers of 8, 16 and 32 bits on a two-dimensional grid, some from a buffer of bytes; math functions within 1e-3 of the host.
+      // A loop over a local array; integers of 8, 16 and 32 bits on a two-dimensional grid, some from a buffer of bytes; math functions within 1e-3 of the host.
       await run("/tmp/kernels | grep -qx 'MOJO-KERNELS wrong: 0 0 0 236027'");
       // The Mandelbrot set as text (its middle row is inside from column 22 on), and a matrix product.
       await run("/tmp/mandelbrot > /tmp/set.txt && grep -q '^ *[.:=+*#%@-]*@\\{40\\}' /tmp/set.txt && grep -qx 'MOJO-MATMUL wrong: 0 of 576 6.0' /tmp/set.txt");

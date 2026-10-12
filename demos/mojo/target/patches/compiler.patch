@@ -94,10 +94,10 @@ index 8bdcb15..42aea40 100644
    }
 diff --git a/Mojo/lib/Compiler/ObjectCompiler/Target/Dolly/DollyBackend.cpp b/Mojo/lib/Compiler/ObjectCompiler/Target/Dolly/DollyBackend.cpp
 new file mode 100644
-index 0000000..b7a90d5
+index 0000000..95f1640
 --- /dev/null
 +++ b/Mojo/lib/Compiler/ObjectCompiler/Target/Dolly/DollyBackend.cpp
-@@ -0,0 +1,875 @@
+@@ -0,0 +1,902 @@
 +//===----------------------------------------------------------------------===//
 +// Added for Dolly, a POSIX-like userspace for wasm64 in the browser.
 +//
@@ -301,6 +301,16 @@ index 0000000..b7a90d5
 +    return found;
 +  }
 +
++  /// The array a pointer indexes: `b3` of a parameter, `m7` of a local.
++  std::string memory(const Value *pointer) {
++    const Value *base = root(pointer);
++    if (!base)
++      return "b0";
++    return isa<Argument>(base)
++               ? "b" + utostr(Buffers.lookup(cast<Argument>(base)))
++               : "m" + utostr(Numbers.lookup(base));
++  }
++
 +  /// `b3[(offset) >> 2u]` for a 32-bit access through `pointer`.
 +  std::string word(const Value *pointer, Type *accessed,
 +                   const Instruction &access) {
@@ -308,13 +318,20 @@ index 0000000..b7a90d5
 +      fail("only 32-bit values can be loaded or stored", &access);
 +      return "b0[0]";
 +    }
-+    const Value *base = root(pointer);
-+    if (!base)
-+      return "b0[0]";
-+    std::string memory =
-+        isa<Argument>(base) ? "b" + utostr(Buffers.lookup(cast<Argument>(base)))
-+                            : "m" + utostr(Numbers.lookup(base));
-+    return memory + "[(" + use(pointer) + ") >> 2u]";
++    return memory(pointer) + "[(" + use(pointer) + ") >> 2u]";
++  }
++
++  /// `for` over the words of a fill or a copy of a fixed length, or empty.
++  std::string words(const MemIntrinsic &operation) {
++    auto *length = dyn_cast<ConstantInt>(operation.getLength());
++    if (!length || length->getZExtValue() % 4 || length->getZExtValue() > 65536) {
++      fail("a fill or a copy must be whole 32-bit words of a small fixed count",
++           &operation);
++      return "";
++    }
++    return "for (var j = 0u; j < " + utostr(length->getZExtValue() / 4) +
++           "u; j++) { " + memory(operation.getRawDest()) + "[((" +
++           use(operation.getRawDest()) + ") >> 2u) + j] = ";
 +  }
 +
 +  std::string offset(const GEPOperator &gep) {
@@ -720,6 +737,16 @@ index 0000000..b7a90d5
 +         << (value->getType()->isFloatTy() ? "bitcast<u32>(" + use(value) + ")"
 +                                           : use(value))
 +         << ";\n";
++    } else if (auto *fill = dyn_cast<MemSetInst>(&i)) {
++      auto *byte = dyn_cast<ConstantInt>(fill->getValue());
++      if (!byte)
++        fail("a fill must be of a fixed byte", &i);
++      else
++        os << "      " << words(*fill)
++           << utostr((byte->getZExtValue() & 255) * 0x01010101u) << "u; }\n";
++    } else if (auto *copy = dyn_cast<MemTransferInst>(&i)) {
++      os << "      " << words(*copy) << memory(copy->getRawSource()) << "[(("
++         << use(copy->getRawSource()) << ") >> 2u) + j]; }\n";
 +    } else if (auto *invocation = dyn_cast<CallInst>(&i)) {
 +      std::string value = call(*invocation);
 +      if (!value.empty() && !i.getType()->isVoidTy())
