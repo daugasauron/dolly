@@ -1,0 +1,83 @@
+DOLLY 7
+TOOLCHAIN mojo-build
+REQUIRES HOST runtime@0
+REQUIRES HOST display@0
+REQUIRES HOST input@0
+REQUIRES HOST download@0
+REQUIRES HOST dso@0
+REQUIRES HOST http@0
+REQUIRES HOST sockets@0
+REQUIRES HOST upload@0
+
+# Build-only: the Mojo compiler, compiled and linked inside Dolly from the
+# sources upstream builds with Bazel, and the standard library it precompiles.
+FROM /v0.1.2/demos/mojo/Dollyfile-mojo-llvm 2943464b8a96eb83d892fe07a58c104d76b6ea0f7ba93cce75caad2cdc12231f
+REQUIRES TOOL cmake
+REQUIRES TOOL make
+REQUIRES TOOL python
+REQUIRES TOOL cc
+REQUIRES TOOL c++
+REQUIRES TOOL ar
+REQUIRES TOOL gzip
+REQUIRES TOOL tar
+REQUIRES TOOL patch
+REQUIRES TOOL time
+REQUIRES TOOL cp
+REQUIRES TOOL mkdir
+REQUIRES TOOL rm
+REQUIRES TOOL sha256sum
+REQUIRES TOOL cut
+
+SOURCE /v0.1.2/dist/static/mojo/mojo.tar.gz dabaffdcc40c602d4e22c50f7bba7680c63a374128eca6ea8a8365861adbbf53 /tmp/mojo.tar.gz
+SLOP slop -c 'gzip -dc /tmp/mojo.tar.gz | tar -xf - -C /'
+# Where the sources name Linux, macOS and Windows, and Dolly is none of them.
+SLOP patch -p1 -d /tmp/mojo/modular -i /tmp/mojo/mojo-dolly.patch
+# The targets a Dolly program and a WebGPU kernel are compiled for, and the
+# standard library's bindings to Dolly's libc (target/README.md).
+SLOP patch -p1 -d /tmp/mojo/modular -i /tmp/mojo/target/patches/compiler.patch
+SLOP patch -p1 -d /tmp/mojo/modular -i /tmp/mojo/target/patches/stdlib.patch
+# The build graph of //Mojo/tools/mojo:mojo, from upstream's BUILD.bazel files.
+SLOP slop -c 'python /tmp/mojo/bazel-to-cmake.py /tmp/mojo/modular > /tmp/mojo/CMakeLists.txt'
+
+# As mojo-llvm compiles LLVM. The version is the tag's, without Bazel's
+# development label. The data of LLVM and MLIR and an 8 MiB stack need more
+# than the 16 MiB a process starts with.
+FILE /tmp/mojo/Dolly.cmake
+    set(CMAKE_BUILD_TYPE Release CACHE STRING "")
+    set(CMAKE_C_FLAGS "-std=gnu17" CACHE STRING "")
+    set(CMAKE_CXX_FLAGS "-include endian.h -DCLANG_BUILD_STATIC" CACHE STRING "")
+    set(CMAKE_EXE_LINKER_FLAGS "-Wl,--initial-memory=67108864" CACHE STRING "")
+    set(CMAKE_RULE_MESSAGES OFF CACHE BOOL "")
+    set(MOJO_SOURCE /tmp/mojo/modular CACHE PATH "")
+    set(MOJO_PORT /tmp/mojo/port CACHE PATH "")
+    set(MOJO_LLVM /opt/mojo-llvm CACHE PATH "")
+    set(FMT /tmp/mojo/fmt CACHE PATH "")
+    set(XXHASH /tmp/mojo/xxhash CACHE PATH "")
+    set(OPENTELEMETRY /tmp/mojo/opentelemetry CACHE PATH "")
+    set(MOJO_VERSION_LABEL "" CACHE STRING "")
+# The revision is the pin and this archive: the compiler keys its caches by
+# it, where upstream reads the build id of its own ELF file.
+SLOP time slop -c 'cmake -C /tmp/mojo/Dolly.cmake -DMODULAR_VERSION_REVISION=c6fa49f7+dolly.$(sha256sum /tmp/mojo.tar.gz | cut -c1-8) -S /tmp/mojo -B /tmp/mojo/build'
+
+# 356 units and 134 TableGen runs. Three jobs: the units that include every
+# dialect take 1.9 GB each.
+SLOP CWD /tmp/mojo/build time make -k -j3 Mojo.tools.mojo.mojo
+SLOP mkdir -p /opt/mojo/bin /opt/mojo/lib/mojo /usr/share/licenses/mojo
+SLOP cp /tmp/mojo/build/mojo /opt/mojo/bin/mojo
+SLOP /opt/mojo/bin/mojo --version
+# The standard library and the package gpu, precompiled by this compiler.
+SLOP time /opt/mojo/bin/mojo precompile -o /opt/mojo/lib/mojo/std.mojoc /tmp/mojo/modular/Mojo/stdlib/std
+SLOP time /opt/mojo/bin/mojo precompile -I /opt/mojo/lib/mojo -o /opt/mojo/lib/mojo/gpu.mojoc /tmp/mojo/target/gpu
+# What the executable is linked from.
+SLOP cp /tmp/mojo/modular/LICENSE /usr/share/licenses/mojo/LICENSE
+SLOP cp /opt/mojo-llvm/LICENSE.TXT /usr/share/licenses/mojo/LICENSE.llvm
+SLOP cp /opt/mojo-llvm/LICENSE.zstd /usr/share/licenses/mojo/LICENSE.zstd
+SLOP cp /tmp/mojo/fmt/LICENSE /usr/share/licenses/mojo/LICENSE.fmt
+SLOP cp /tmp/mojo/xxhash/LICENSE /usr/share/licenses/mojo/LICENSE.xxhash
+SLOP cp /tmp/mojo/opentelemetry/LICENSE /usr/share/licenses/mojo/LICENSE.opentelemetry
+SLOP rm -rf /tmp/mojo /tmp/mojo.tar.gz
+
+FOLDER /opt/mojo
+FOLDER /usr/share/licenses/mojo
+
+ENTRY /bin/foreground -i /bin/slop

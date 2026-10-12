@@ -1,8 +1,23 @@
-# Reduce peak memory when saving a large restored session
+# A refresh of the same tab after saving a large session exceeds 4 GiB in Chrome
 
 - STATUS: OPEN
-- PRIORITY: 120
+- PRIORITY: 100
 - TAGS: runtime,persistence,memory
+
+## State (2026-10-12)
+
+Half done on 2026-09-24: a save of the 388 MB session followed by closing and reopening the tab
+stays under 4 GiB (3.08 GiB peak), with every file hash preserved. Left: the same save followed
+by a refresh of the same tab, where the replacement boot exceeds 4 GiB in Chrome because the old
+kernel's 2.2 GiB of Wasm memory is not yet reclaimed; a forced collection frees it, which shows
+the memory is reclaimable and is not a fix.
+
+Not measured since: the runtime has changed under it (since 2026-10-06 the Worker instantiates
+the kernel itself, without Emscripten's JavaScript). Owed first: the synthetic probe described
+below (grow a file to 1,800 MiB, unlink it, write 256 MiB, Save, refresh) on today's `main`
+under a 4 GiB cgroup. The logs it names are under `build/` on this machine only.
+
+## The record (2026-09-23 and 24)
 
 Restoring the 387804845-byte native Pi history and its 51-object world through
 ordinary Dolly uploads succeeds, including an exact pre-tick world comparison.

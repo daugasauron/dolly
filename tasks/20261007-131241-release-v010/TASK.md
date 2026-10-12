@@ -1,6 +1,6 @@
 # Versioned hosting and the release procedure for v0.1.0
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 310
 - TAGS: release,deployment,hosting,plan
 
@@ -530,3 +530,20 @@ Run in the new layout (both browsers unless said):
 
 `20261007-085236-claude-code-image` (to finish first), `docs/deployment.md`,
 `docs/browser-boundary.md`, the 19:30 entry of `20261005-132713-round-1005`.
+
+## Closed (2026-10-12)
+
+Done-when met. Steps 1 to 6 are done and 0.1.0 was released by the checklist on 2026-10-08: tag
+`v0.1.0` = `3ce97057`, with the evidence of each check in `tasks/20261007-133708-v010`
+("Released"). The same procedure released v0.1.1 (`2f6478a2`) and v0.1.2 (`6cf78ea5`). The plan
+is now `docs/deployment.md`, `scripts/release-checklist.sh` and `scripts/published-version.mjs`.
+
+Not as planned, and where it went:
+
+- The placeholder header rules first ran on Pages itself at that deployment; `boot` passed on
+  the deployment's own address in both browsers.
+- One unversioned URL stayed up from a copy Cloudflare kept
+  (`tasks/20261010-112540-stale-default`, 404 since).
+- `publicURL` in `src/static-asset.mjs` still strips a `_dolly/RELEASE/` path, a layout gone
+  since `17793187`: moved to `tasks/20260930-100000-audit-24`.
+- The site's name changed to slopshare.dev on 2026-10-11 (`tasks/20261011-134500-slopshare`).

@@ -1,6 +1,6 @@
 # Stop hard-coding daugasauron.com: the catalog origin as one setting
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 60
 - TAGS: dollyfile,site,design,cleanup
 
@@ -226,3 +226,18 @@ The HTTP broker now takes the recommended form for a request: a URL that is
 a path names a file of the site serving the release (`host/http/broker.mjs`,
 `docs/http.md`), and `amy` asks for `/amy-index.txt` with no domain. Recipes,
 the index rows and `amy installed` still carry `https://daugasauron.com/…`.
+
+## Closed (2026-10-12)
+
+Done-when met, in v0.1.0 (`6c5bafa4`, Dollyfile 7):
+
+- The owner's choice is recorded ("Implemented", above): a site path that starts with the
+  version, no domain.
+- `git grep 'daugasauron\.com' -- ':!tasks'` finds nothing today. The one setting is
+  `PUBLIC_ORIGIN` in `src/static-asset.mjs`; the move to slopshare.dev (`dbdf87f8`) changed that
+  line, the packaging scripts, the site's own pages, two tests and three documents, and no
+  recipe.
+- Recipes, views and `amy installed` rows show `/vX.Y.Z/…` ("Verified", above).
+- A release served on another port or host: the same catalog is served from `127.0.0.1:9005`,
+  GitHub Pages under `/dolly/`, daugasauron.com and slopshare.dev, and the release rounds of
+  v0.1.0, v0.1.1 and v0.1.2 passed the suites on it.

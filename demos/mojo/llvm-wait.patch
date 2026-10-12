@@ -1,0 +1,24 @@
+--- a/llvm/lib/Support/Unix/Program.inc
++++ b/llvm/lib/Support/Unix/Program.inc
+@@ -336,6 +336,12 @@
+ 
+ #if defined(_AIX)
+ static pid_t(wait4)(pid_t pid, int *status, int options, struct rusage *usage);
++#elif defined(__dolly__)
++// Dolly does not account a child's resources: its wait4 refuses a usage
++// record, and Wait reports no statistics.
++static pid_t wait4(pid_t pid, int *status, int options, struct rusage *) {
++  return ::waitpid(pid, status, options);
++}
+ #elif !defined(__Fuchsia__)
+ using ::wait4;
+ #endif
+@@ -455,7 +461,7 @@
+     sigaction(SIGALRM, &Old, nullptr);
+   }
+ 
+-#ifndef __Fuchsia__
++#if !defined(__Fuchsia__) && !defined(__dolly__)
+   if (ProcStat) {
+     std::chrono::microseconds UserT = toDuration(Info.ru_utime);
+     std::chrono::microseconds KernelT = toDuration(Info.ru_stime);

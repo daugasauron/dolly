@@ -1,37 +1,35 @@
 # Zig self-host follow-ups
 
 - STATUS: OPEN
-- PRIORITY: 180
+- PRIORITY: 140
 - TAGS: toolchain,zig,display
 
-From merging `work/zig-self-host` (2026-10-01):
+## State (2026-10-12)
 
-- WAMR is compiled with `-DBUILD_TARGET_X86_64` (`modules/zig.dm`). It only
-  selects WAMR's generic 64-bit register path for native calls; zig1 binds raw
-  natives. Check against the porting rule "do not claim AMD64": find the
-  smallest target-neutral configuration (`invokeNative_general.c` exists).
-- `libdisplay.so` grew from 1,007,438 to 1,644,382 bytes (+63%) with Ghostty
-  emitted as C instead of compiled by LLVM Zig; measure where the size comes
-  from and whether `cc` flags recover it.
-- `modules/ghostty.dm` carries `strlen`/`memcmp`/`bcmp` because C-output
-  compiler_rt leaves them to libc and the kernel-plugin contract lacks them;
-  decide whether the contract should offer them (a contract change).
-- Generate `src/ghostty/generated/` (uucode and Ghostty's Unicode tables,
-  5.4 MB committed) with their upstream Zig generators inside the sandbox and
-  drop the checked-in output; `src/ghostty/generated/README.md` predates
-  self-hosted Zig (from `20260930-100000-audit-64`).
-- Carry over the Zig SDK browser check from the closed
-  `20261001-014500-zig-sdk-browser`: the in-sandbox Zig compiles a small Zig
-  program and a C interop case (via its C output and `cc`).
-- From `20261006-103306-zig-child` (closed into this task, 2026-10-07): `zig`
-  reaches WAIT and SIGNAL but no SPAWN (static scan of the release in
-  `20261005-222449-spawn-users`); its standard library has no way to start a
-  process on this target, so `zig build`, `zig run` and `zig test` cannot
-  work while `zig build-obj` and `zig build-lib -ofmt=c` do. Record what a
-  user sees for each in `ghostty-build`; then either `docs/display.md` names
-  the commands that cannot work and why, or Zig's spawn is ported to
-  `posix_spawn` (a patch beside `patches/zig-0.16.0-dolly-native.patch`) and
-  `zig run` of a hello program passes there.
+From merging `work/zig-self-host` (2026-10-01): Zig is built inside Dolly and emits Ghostty as C.
+Done since: the kernel-plugin contract imports `strlen`, `memcmp` and `bcmp` from the kernel's
+libc, so the display plugin no longer carries its own. Nothing else on this list has moved since
+2026-10-07. Left:
+
+- **`src/ghostty/generated/` is committed output**: 5.4 MB; `uucode-tables.zig` alone is
+  233,478 lines, 89% of the lines under `src/` when counted on 2026-10-05. Generate it with the
+  upstream Zig generators inside Dolly and drop the checked-in copy: the largest deletion
+  available in the core tree.
+- **WAMR is compiled with `-DBUILD_TARGET_X86_64`** (`Dollyfile-zig-build:35`). The guest never
+  observes it ("WAMR target", below), but it is dead configuration for a CPU Dolly is not; an
+  honest form needs a WAMR source change or an upstream generic target.
+- **`libdisplay.so` grew 63%** (1,007,438 to 1,644,382 bytes) with Ghostty emitted as C instead
+  of compiled by an LLVM Zig. Not measured: where the size comes from, and whether `cc` flags
+  recover it.
+- **No test runs Zig as a user would**: the in-sandbox Zig compiling a small Zig program and a
+  C interop case through its C output and `cc` (from `20261001-014500-zig-sdk-browser`).
+- **`zig build`, `zig run` and `zig test` cannot work**: Zig's standard library has no way to
+  start a process on this target (from `20261006-103306-zig-child`). `docs/display.md` says
+  there is no `zig build` or `zig cc` and gives the missing LLVM as the reason; what a user
+  sees for each command is not recorded. Either the document names them with the real reason,
+  or Zig's spawn is ported to `posix_spawn` and `zig run` of a hello program passes.
+
+Lowered from 180: nothing here blocks a user or a build.
 
 ## WAMR target (read 2026-10-01)
 
@@ -50,17 +48,3 @@ honest form would make non-raw native calls fail explicitly instead of
 compiling a marshalling path for a CPU Dolly is not. That needs a WAMR source
 change, or an upstream generic target.
 
-## Progress (2026-10-01, branch `work/core-polish`)
-
-The kernel-plugin contract now imports `strlen`, `memcmp` and `bcmp` from the
-kernel's libc, and `modules/ghostty.dm` no longer carries `string.c`. WAMR's
-`BUILD_TARGET_X86_64`: as recorded above, the guest never observes it and an
-honest target needs a WAMR source change; left. The `libdisplay.so` size
-measurement and the Zig SDK browser check are still open.
-
-## Review note (2026-10-05, `20261005-131642-big-picture`)
-
-Measured: `src/ghostty/generated/uucode-tables.zig` is 233,478 lines, 89% of
-every line under `src/` (261,434) and 5.4 MB of the checkout. Generating it
-in the sandbox (the fourth item above) is the largest deletion available in
-the core tree.

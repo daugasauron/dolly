@@ -1,0 +1,1258 @@
+The Mojo standard library for Dolly programs and WebGPU kernels.
+Against github.com/modular/modular at the tag mojo/v1.1.0; apply with patch -p1.
+Dolly's values are those a C probe printed when compiled by Dolly's cc.
+
+sys/info.mojo
+  CompilationTarget.is_dolly(), a dolly column in platform_map, is_webgpu()
+  and is_gpu() for the kernel target.
+sys/_libc_errno.mojo
+  Dolly's libc numbers errors as WASI does, so every ErrNo has a dolly value,
+  also those Linux and macOS share. errno is __errno_location, as on Linux.
+io/file.mojo, time/time.mojo, ffi/__init__.mojo, os/os.mojo
+  Open flags, clock ids, dlopen flags, C long and struct dirent are as on
+  Linux. Without these lines a target that is not Linux took macOS's values.
+os/_dolly.mojo (new), os/fstat.mojo, os/path/path.mojo
+  struct stat as Dolly's libc lays it out, through stat and lstat.
+io/file_descriptor.mojo, io/file.mojo, os/os.mojo
+  read, write, lseek and mkdir were called with an Int where C has an int or
+  mode_t.
+  Wasm types every call, so such a call traps; on x86-64 and arm64 the
+  register hid it.
+ffi/__init__.mojo, os/process.mojo, sys/_libc.mojo
+  C's pid_t is 32 bits, not an Int: waitpid trapped. With that,
+  Process.run needs only the environment for posix_spawnp, which Dolly's
+  compiler runtime hands over as KGEN_CompilerRT_Environ.
+testing/assert_aborts.mojo
+  A Mojo abort is a trap, which Dolly reports as exit status 126 and not as
+  a signal.
+math/math.mojo
+  A WebGPU kernel may call libm: the target prints tan, atan, asinh, acosh
+  and atanh as WGSL's builtins and refuses the others by name.
+_gpu/primitives/id.mojo
+  thread_idx, block_idx, block_dim and grid_dim of a WebGPU kernel are calls
+  the target prints as WGSL builtins.
+io/io.mojo, builtin/debug_assert.mojo, os/os.mojo, sys/__init__.mojo
+  WGSL has no output and no variadic call. What a kernel prints is formatted
+  in the kernel, as for Apple's GPUs, and handed to the target as bytes,
+  which become a record of the kernel's log buffer. A failed assert prints
+  its message so; an abort prints as on a CPU, every thread its own.
+builtin/_format_float.mojo
+  WGSL has no 128-bit integer either: a float is printed by the formatter
+  upstream has for Apple's GPUs.
+memory/memory.mojo
+  Bytes are copied and filled through LLVM's intrinsics, which the target
+  prints as loops: upstream's own copy is in vectors of bytes, which WGSL
+  has not.
+
+diff --git a/Mojo/stdlib/std/_gpu/primitives/id.mojo b/Mojo/stdlib/std/_gpu/primitives/id.mojo
+index b91f561..911c4db 100644
+--- a/Mojo/stdlib/std/_gpu/primitives/id.mojo
++++ b/Mojo/stdlib/std/_gpu/primitives/id.mojo
+@@ -32,7 +32,9 @@ from std.sys.info import (
+     is_apple_gpu,
+     is_gpu,
+     is_nvidia_gpu,
++    is_webgpu,
+ )
++from std.ffi import external_call
+ from std.sys.intrinsics import readfirstlane
+ from std.memory import AddressSpace
+ 
+@@ -55,6 +57,18 @@ def _verify_xyz[dim: StaticString]():
+     ), "the dimension must be x, y, or z"
+ 
+ 
++@always_inline("nodebug")
++def _webgpu_axis[dim: StaticString]() -> UInt32:
++    """Returns the axis a WGSL builtin vector is read at: the WebGPU target
++    prints `__webgpu_NAME(axis)` as that builtin's component."""
++    comptime if dim == "x":
++        return 0
++    elif dim == "y":
++        return 1
++    else:
++        return 2
++
++
+ @always_inline
+ def _get_gcn_idx[offset: Int, dtype: DType]() -> Int:
+     var ptr = llvm_intrinsic[
+@@ -231,9 +245,16 @@ struct _ThreadIdx(Defaultable, TrivialRegisterPassable):
+             The `x`, `y`, or `z` coordinates of a thread within a block.
+         """
+         _verify_xyz[dim]()
+-        comptime intrinsic_name = Self._get_intrinsic_name[dim]()
+-        var i = llvm_intrinsic[intrinsic_name, UInt32, has_side_effect=False]()
+-        return Int(i)
++        comptime if is_webgpu():
++            return Int(
++                external_call["__webgpu_thread_idx", UInt32](_webgpu_axis[dim]())
++            )
++        else:
++            comptime intrinsic_name = Self._get_intrinsic_name[dim]()
++            var i = llvm_intrinsic[
++                intrinsic_name, UInt32, has_side_effect=False
++            ]()
++            return Int(i)
+ 
+ 
+ comptime thread_idx = _ThreadIdx()
+@@ -276,9 +297,16 @@ struct _BlockIdx(Defaultable, TrivialRegisterPassable):
+             The `x`, `y`, or `z` coordinates of a block within a grid.
+         """
+         _verify_xyz[dim]()
+-        comptime intrinsic_name = Self._get_intrinsic_name[dim]()
+-        var i = llvm_intrinsic[intrinsic_name, UInt32, has_side_effect=False]()
+-        return Int(i)
++        comptime if is_webgpu():
++            return Int(
++                external_call["__webgpu_block_idx", UInt32](_webgpu_axis[dim]())
++            )
++        else:
++            comptime intrinsic_name = Self._get_intrinsic_name[dim]()
++            var i = llvm_intrinsic[
++                intrinsic_name, UInt32, has_side_effect=False
++            ]()
++            return Int(i)
+ 
+ 
+ comptime block_idx = _BlockIdx()
+@@ -306,7 +334,11 @@ struct _BlockDim(Defaultable, TrivialRegisterPassable):
+         """
+         _verify_xyz[dim]()
+ 
+-        comptime if is_nvidia_gpu():
++        comptime if is_webgpu():
++            return Int(
++                external_call["__webgpu_block_dim", UInt32](_webgpu_axis[dim]())
++            )
++        elif is_nvidia_gpu():
+             comptime intrinsic_name = "llvm.nvvm.read.ptx.sreg.ntid." + dim
+             var i = llvm_intrinsic[
+                 intrinsic_name, Int32, has_side_effect=False
+@@ -366,7 +398,11 @@ struct _GridDim(Defaultable, TrivialRegisterPassable):
+         """
+         _verify_xyz[dim]()
+ 
+-        comptime if is_nvidia_gpu():
++        comptime if is_webgpu():
++            return Int(
++                external_call["__webgpu_grid_dim", UInt32](_webgpu_axis[dim]())
++            )
++        elif is_nvidia_gpu():
+             comptime intrinsic_name = "llvm.nvvm.read.ptx.sreg.nctaid." + dim
+             var i = llvm_intrinsic[
+                 intrinsic_name, Int32, has_side_effect=False
+diff --git a/Mojo/stdlib/std/builtin/_format_float.mojo b/Mojo/stdlib/std/builtin/_format_float.mojo
+index 2313ee8..a49883f 100644
+--- a/Mojo/stdlib/std/builtin/_format_float.mojo
++++ b/Mojo/stdlib/std/builtin/_format_float.mojo
+@@ -30,7 +30,7 @@ from std.memory import bitcast
+ 
+ from .globals import global_constant
+ 
+-from std.sys import is_apple_gpu
++from std.sys import is_apple_gpu, is_webgpu
+ from std.utils.numerics import FPUtils, isinf, isnan
+ 
+ 
+@@ -136,7 +136,7 @@ def _write_float[
+         # and float64 operations. Apple GPU doesn't support UInt128
+         # (needed by dragonbox) or double→uint64 conversions.
+         # Use float32 arithmetic only.
+-        comptime if is_apple_gpu():
++        comptime if is_apple_gpu() or is_webgpu():
+             var f32 = value.cast[.float32]()
+             var bits = bitcast[.uint32](f32)
+             var is_neg = (bits >> 31) != 0
+diff --git a/Mojo/stdlib/std/builtin/debug_assert.mojo b/Mojo/stdlib/std/builtin/debug_assert.mojo
+index a7d01d4..4a9901d 100644
+--- a/Mojo/stdlib/std/builtin/debug_assert.mojo
++++ b/Mojo/stdlib/std/builtin/debug_assert.mojo
+@@ -24,6 +24,7 @@ from std.sys import (
+     is_apple_gpu,
+     is_gpu,
+     is_nvidia_gpu,
++    is_webgpu,
+ )
+ from std.sys._amdgpu import (
+     printf_append_args,
+@@ -581,7 +582,18 @@ def _debug_assert_msg(
+             " Assert Error: %s\n"
+         )
+ 
+-        comptime if is_nvidia_gpu():
++        comptime if is_webgpu():
++            # WGSL has no variadic call: the message is formatted here.
++            print(
++                "At: ",
++                loc,
++                ": Assert Error: ",
++                StringSlice(
++                    unsafe_from_utf8=Span(unsafe_ptr=message, length=length - 1)
++                ),
++                sep="",
++            )
++        elif is_nvidia_gpu():
+             from std._gpu.primitives.id import block_idx, thread_idx
+ 
+             _printf[fmt](
+diff --git a/Mojo/stdlib/std/ffi/__init__.mojo b/Mojo/stdlib/std/ffi/__init__.mojo
+index a6ac93a..670682c 100644
+--- a/Mojo/stdlib/std/ffi/__init__.mojo
++++ b/Mojo/stdlib/std/ffi/__init__.mojo
+@@ -125,7 +125,7 @@ comptime c_float = Float32
+ comptime c_double = Float64
+ """C `double` type."""
+ 
+-comptime c_pid_t = Int
++comptime c_pid_t = Int32
+ """C `pid_t` type."""
+ 
+ comptime MAX_PATH = _get_max_path()
+@@ -146,7 +146,9 @@ def _c_long_dtype[unsigned: Bool = False]() -> DType:
+     # https://en.wikipedia.org/wiki/64-bit_computing#64-bit_data_models
+ 
+     comptime if is_64bit() and (
+-        CompilationTarget.is_macos() or CompilationTarget.is_linux()
++        CompilationTarget.is_macos()
++        or CompilationTarget.is_linux()
++        or CompilationTarget.is_dolly()
+     ):
+         # LP64: long is 64-bit on 64-bit systems (e.g. x86_64 or aarch64)
+         return DType.uint64 if unsigned else DType.int64
+@@ -180,13 +182,16 @@ struct RTLD:
+     """
+     comptime NOW = 2
+     """Load library immediately (resolve all symbols on load)."""
+-    comptime LOCAL = 0 if CompilationTarget.is_linux() else 4
++    comptime _LINUX_FLAGS = (
++        CompilationTarget.is_linux() or CompilationTarget.is_dolly()
++    )
++    comptime LOCAL = 0 if Self._LINUX_FLAGS else 4
+     """Make symbols not available for symbol resolution of subsequently loaded
+     libraries."""
+-    comptime GLOBAL = 256 if CompilationTarget.is_linux() else 8
++    comptime GLOBAL = 256 if Self._LINUX_FLAGS else 8
+     """Make symbols available for symbol resolution of subsequently loaded
+     libraries."""
+-    comptime NODELETE = 4096 if CompilationTarget.is_linux() else 128
++    comptime NODELETE = 4096 if Self._LINUX_FLAGS else 128
+     """Do not delete the library when the process exits."""
+ 
+ 
+diff --git a/Mojo/stdlib/std/io/file.mojo b/Mojo/stdlib/std/io/file.mojo
+index d6ed33f..4c633c9 100644
+--- a/Mojo/stdlib/std/io/file.mojo
++++ b/Mojo/stdlib/std/io/file.mojo
+@@ -55,19 +55,23 @@ comptime O_RDWR = 0x0002
+ """Open file for reading and writing."""
+ 
+ # File creation flags
+-comptime O_CREAT = platform_map[T=Int, "O_CREAT", linux=0x0040, macos=0x0200]()
++comptime O_CREAT = platform_map[
++    T=Int, "O_CREAT", linux=0x0040, macos=0x0200, dolly=0x0040
++]()
+ """Create file if it doesn't exist."""
+ 
+-comptime O_TRUNC = platform_map[T=Int, "O_TRUNC", linux=0x0200, macos=0x0400]()
++comptime O_TRUNC = platform_map[
++    T=Int, "O_TRUNC", linux=0x0200, macos=0x0400, dolly=0x0200
++]()
+ """Truncate file to zero length."""
+ 
+ comptime O_APPEND = platform_map[
+-    T=Int, "O_APPEND", linux=0x0400, macos=0x0008
++    T=Int, "O_APPEND", linux=0x0400, macos=0x0008, dolly=0x400
+ ]()
+ """Append mode: writes always go to end of file."""
+ 
+ comptime O_CLOEXEC = platform_map[
+-    T=Int, "O_CLOEXEC", linux=0x80000, macos=0x1000000
++    T=Int, "O_CLOEXEC", linux=0x80000, macos=0x1000000, dolly=0x80000
+ ]()
+ """Close file descriptor on exec."""
+ 
+@@ -311,7 +315,7 @@ struct FileHandle(Defaultable, Movable, Writer):
+ 
+         var fd = self._get_raw_fd()
+         var bytes_read = external_call["read", c_ssize_t](
+-            fd,
++            c_int(fd),
+             buffer.unsafe_ptr(),
+             len(buffer) * size_of[dtype](),
+         )
+@@ -385,7 +389,7 @@ struct FileHandle(Defaultable, Movable, Writer):
+             # signifies EOF with a result of zero bytes.
+             var chunk_bytes_to_read = len(result) - num_read
+             var chunk_bytes_read = external_call["read", c_ssize_t](
+-                fd,
++                c_int(fd),
+                 result.unsafe_ptr().unsafe_offset(num_read),
+                 chunk_bytes_to_read,
+             )
+@@ -453,7 +457,9 @@ struct FileHandle(Defaultable, Movable, Writer):
+ 
+         var fd = self._get_raw_fd()
+         # lseek returns off_t which is typically Int64 on Unix systems
+-        var pos = external_call["lseek", Int64](fd, Int64(offset), Int(whence))
++        var pos = external_call["lseek", Int64](
++            c_int(fd), Int64(offset), c_int(whence)
++        )
+ 
+         if pos < 0:
+             var err = get_errno()
+@@ -499,7 +505,7 @@ struct FileHandle(Defaultable, Movable, Writer):
+ 
+         var fd = self._get_raw_fd()
+         var bytes_written = external_call["write", c_ssize_t](
+-            fd, bytes.unsafe_ptr(), len(bytes)
++            c_int(fd), bytes.unsafe_ptr(), len(bytes)
+         )
+ 
+         if bytes_written < 0:
+@@ -589,7 +595,7 @@ struct FileHandle(Defaultable, Movable, Writer):
+         while total_written < len(bytes):
+             var fd = self._get_raw_fd()
+             var bytes_written = external_call["write", c_ssize_t](
+-                fd,
++                c_int(fd),
+                 bytes.unsafe_ptr().unsafe_offset(total_written),
+                 len(bytes) - total_written,
+             )
+@@ -659,7 +665,7 @@ struct FileHandle(Defaultable, Movable, Writer):
+         while total_written < len:
+             var current_ptr = ptr.unsafe_offset(total_written)
+             var bytes_written = external_call["write", c_ssize_t](
+-                fd, current_ptr, len - total_written
++                c_int(fd), current_ptr, len - total_written
+             )
+ 
+             if bytes_written < 0:
+diff --git a/Mojo/stdlib/std/io/file_descriptor.mojo b/Mojo/stdlib/std/io/file_descriptor.mojo
+index 6e39f2d..9501360 100644
+--- a/Mojo/stdlib/std/io/file_descriptor.mojo
++++ b/Mojo/stdlib/std/io/file_descriptor.mojo
+@@ -73,9 +73,9 @@ struct FileDescriptor(TrivialRegisterPassable, Writer):
+             bytes: The byte span to write to this file.
+         """
+         var written = external_call["write", c_ssize_t](
+-            self.value.__mlir_index__(),
++            c_int(self.value),
+             bytes.unsafe_ptr(),
+-            len(bytes).__mlir_index__(),
++            len(bytes),
+         )
+         assert written == len(bytes), "expected amount of bytes not written"
+ 
+@@ -112,10 +112,12 @@ struct FileDescriptor(TrivialRegisterPassable, Writer):
+         ), "`read_bytes()` is not yet implemented for GPUs."
+ 
+         comptime assert (
+-            CompilationTarget.is_macos() or CompilationTarget.is_linux()
++            CompilationTarget.is_macos()
++            or CompilationTarget.is_linux()
++            or CompilationTarget.is_dolly()
+         ), "`read_bytes()` is not yet implemented for unknown platform."
+         var read = external_call["read", c_ssize_t](
+-            self.value, buffer.unsafe_ptr(), len(buffer)
++            c_int(self.value), buffer.unsafe_ptr(), len(buffer)
+         )
+         if read < 0:
+             raise Error("Failed to read bytes.")
+diff --git a/Mojo/stdlib/std/io/io.mojo b/Mojo/stdlib/std/io/io.mojo
+index 625aa5d..abbb486 100644
+--- a/Mojo/stdlib/std/io/io.mojo
++++ b/Mojo/stdlib/std/io/io.mojo
+@@ -33,6 +33,7 @@ from std.sys import (
+     is_apple_gpu,
+     is_gpu,
+     is_nvidia_gpu,
++    is_webgpu,
+     stdin,
+     stdout,
+ )
+@@ -205,6 +206,14 @@ def _printf_cpu[
+         )
+ 
+ 
++@always_inline("nodebug")
++def _webgpu_log(text: Pointer[Byte, _], length: Int):
++    """Prints `length` bytes from a WebGPU kernel: the target makes them a
++    record of the kernel's log buffer, which the host prints after the
++    kernel has run."""
++    external_call["__webgpu_log", NoneType](text, length)
++
++
+ @no_inline
+ def _printf[
+     fmt: StaticString, *types: AnyType
+@@ -306,6 +315,9 @@ def _printf[
+         )
+     elif not is_gpu():
+         _printf_cpu[fmt](*args, file=file)
++    elif is_webgpu():
++        # The template without its arguments: WGSL has no variadic call.
++        _webgpu_log(fmt.unsafe_ptr(), fmt.byte_length())
+     else:
+         # If we aren't targeting either a known GPU vendor, or CPU, issue
+         # a target error.
+@@ -446,6 +458,9 @@ def print[
+             _metal_print_write(
+                 StringSlice(unsafe_from_utf8=cstr.as_bytes_with_nul())
+             )
++        elif is_webgpu():
++            # Without its terminator.
++            _webgpu_log(buffer._data.unsafe_ptr(), buffer._pos - 1)
+         else:
+             CompilationTarget.unsupported_target_error[
+                 operation=__get_current_function_name()
+diff --git a/Mojo/stdlib/std/math/math.mojo b/Mojo/stdlib/std/math/math.mojo
+index 20c4681..8d48fdf 100644
+--- a/Mojo/stdlib/std/math/math.mojo
++++ b/Mojo/stdlib/std/math/math.mojo
+@@ -26,6 +26,7 @@ from std.sys import (
+     is_apple_gpu,
+     is_gpu,
+     is_nvidia_gpu,
++    is_webgpu,
+     llvm_intrinsic,
+     simd_width_of,
+     size_of,
+@@ -3288,8 +3289,10 @@ def _call_libm[
+ ](arg: SIMD[dtype, width]) -> SIMD[
+     dtype, width
+ ] where dtype.is_floating_point():
++    # A WebGPU kernel's call of a libm function is printed as the WGSL builtin
++    # of that name, or refused where WGSL has none.
+     comptime assert (
+-        not is_gpu()
++        not is_gpu() or is_webgpu()
+     ), "libm operations are only available on CPU targets"
+ 
+     comptime if dtype not in [DType.float32, DType.float64]:
+diff --git a/Mojo/stdlib/std/memory/memory.mojo b/Mojo/stdlib/std/memory/memory.mojo
+index 1b4a5be..666bdea 100644
+--- a/Mojo/stdlib/std/memory/memory.mojo
++++ b/Mojo/stdlib/std/memory/memory.mojo
+@@ -33,6 +33,7 @@ from std.sys import (
+     codegen_unreachable,
+     get_defined_string,
+     is_gpu,
++    is_webgpu,
+     llvm_intrinsic,
+     simd_byte_width,
+     simd_width_of,
+@@ -184,6 +185,11 @@ def _memcpy_impl(
+             offset, src_data.unsafe_load[width=width](offset)
+         )
+ 
++    comptime if is_webgpu():
++        # WGSL has no vector of bytes: the target copies a byte at a time.
++        llvm_intrinsic["llvm.memcpy", NoneType](dest_data, src_data, n, False)
++        return
++
+     comptime if is_gpu():
+         vectorize[simd_byte_width()](n, copy)
+ 
+@@ -350,6 +356,10 @@ def _memset_impl(ptr: MutPointer[Byte, ...], value: Byte, count: Int):
+     def fill[width: Int](offset: Int) {imm}:
+         ptr.unsafe_store(offset, SIMD[.uint8, width](value))
+ 
++    comptime if is_webgpu():
++        llvm_intrinsic["llvm.memset", NoneType](ptr, value, count, False)
++        return
++
+     comptime simd_width = simd_width_of[Byte]()
+     vectorize[simd_width](count, fill)
+ 
+diff --git a/Mojo/stdlib/std/os/_dolly.mojo b/Mojo/stdlib/std/os/_dolly.mojo
+new file mode 100644
+index 0000000..c9e2b89
+--- /dev/null
++++ b/Mojo/stdlib/std/os/_dolly.mojo
+@@ -0,0 +1,87 @@
++# ===----------------------------------------------------------------------=== #
++# Added for Dolly, a POSIX-like userspace for wasm64 in the browser.
++#
++# Licensed under the Apache License v2.0 with LLVM Exceptions:
++# https://llvm.org/LICENSE.txt
++# ===----------------------------------------------------------------------=== #
++"""`struct stat` of Dolly's libc for wasm64, as its C compiler lays it out."""
++
++from std.ffi import external_call
++from std.time.time import _CTimeSpec
++
++from .fstat import stat_result
++
++
++struct _c_stat(Copyable, Defaultable):
++    var st_dev: Int32
++    var st_mode: Int32
++    var st_nlink: Int64
++    var st_uid: Int32
++    var st_gid: Int32
++    var st_rdev: Int32
++    var __pad0: Int32
++    var st_size: Int64
++    var st_blksize: Int32
++    var st_blocks: Int32
++    var st_atimespec: _CTimeSpec
++    var st_mtimespec: _CTimeSpec
++    var st_ctimespec: _CTimeSpec
++    var st_ino: Int64
++
++    def __init__(out self):
++        self.st_dev = 0
++        self.st_mode = 0
++        self.st_nlink = 0
++        self.st_uid = 0
++        self.st_gid = 0
++        self.st_rdev = 0
++        self.__pad0 = 0
++        self.st_size = 0
++        self.st_blksize = 0
++        self.st_blocks = 0
++        self.st_atimespec = _CTimeSpec()
++        self.st_mtimespec = _CTimeSpec()
++        self.st_ctimespec = _CTimeSpec()
++        self.st_ino = 0
++
++    def _to_stat_result(self) -> stat_result:
++        return stat_result(
++            st_dev=Int(self.st_dev),
++            st_mode=Int(self.st_mode),
++            st_nlink=Int(self.st_nlink),
++            st_ino=Int(self.st_ino),
++            st_uid=Int(self.st_uid),
++            st_gid=Int(self.st_gid),
++            st_rdev=Int(self.st_rdev),
++            st_atimespec=self.st_atimespec,
++            st_ctimespec=self.st_ctimespec,
++            st_mtimespec=self.st_mtimespec,
++            # Dolly keeps no creation time.
++            st_birthtimespec=_CTimeSpec(),
++            st_size=Int(self.st_size),
++            st_blocks=Int(self.st_blocks),
++            st_blksize=Int(self.st_blksize),
++            st_flags=0,
++        )
++
++
++@always_inline
++def _stat(var path: String) raises -> _c_stat:
++    var stat = _c_stat()
++    var err = external_call["stat", Int32](
++        path.as_c_string_span(), Pointer(to=stat)
++    )
++    if err == -1:
++        raise Error("unable to stat '", path, "'")
++    return stat^
++
++
++@always_inline
++def _lstat(var path: String) raises -> _c_stat:
++    var stat = _c_stat()
++    var err = external_call["lstat", Int32](
++        path.as_c_string_span(), Pointer(to=stat)
++    )
++    if err == -1:
++        raise Error("unable to lstat '", path, "'")
++    return stat^
+diff --git a/Mojo/stdlib/std/os/fstat.mojo b/Mojo/stdlib/std/os/fstat.mojo
+index eb6d1b6..92ae0d8 100644
+--- a/Mojo/stdlib/std/os/fstat.mojo
++++ b/Mojo/stdlib/std/os/fstat.mojo
+@@ -23,6 +23,8 @@ from std.sys import CompilationTarget
+ from std.time.time import _CTimeSpec
+ 
+ from . import PathLike as stdPathLike
++from ._dolly import _lstat as _lstat_dolly
++from ._dolly import _stat as _stat_dolly
+ from ._linux_aarch64 import _lstat as _lstat_linux_arm
+ from ._linux_aarch64 import _stat as _stat_linux_arm
+ from ._linux_x86 import _lstat as _lstat_linux_x86
+@@ -193,7 +195,9 @@ def stat[PathLike: stdPathLike](path: PathLike) raises -> stat_result:
+     """
+     var fspath = path.__fspath__()
+ 
+-    comptime if CompilationTarget.is_macos():
++    comptime if CompilationTarget.is_dolly():
++        return _stat_dolly(fspath^)._to_stat_result()
++    elif CompilationTarget.is_macos():
+         return _stat_macos(fspath^)._to_stat_result()
+     elif CompilationTarget.has_neon():
+         return _stat_linux_arm(fspath^)._to_stat_result()
+@@ -222,7 +226,9 @@ def lstat[PathLike: stdPathLike](path: PathLike) raises -> stat_result:
+     """
+     var fspath = path.__fspath__()
+ 
+-    comptime if CompilationTarget.is_macos():
++    comptime if CompilationTarget.is_dolly():
++        return _lstat_dolly(fspath^)._to_stat_result()
++    elif CompilationTarget.is_macos():
+         return _lstat_macos(fspath^)._to_stat_result()
+     elif CompilationTarget.has_neon():
+         return _lstat_linux_arm(fspath^)._to_stat_result()
+diff --git a/Mojo/stdlib/std/os/os.mojo b/Mojo/stdlib/std/os/os.mojo
+index bea7e25..076f41f 100644
+--- a/Mojo/stdlib/std/os/os.mojo
++++ b/Mojo/stdlib/std/os/os.mojo
+@@ -28,7 +28,7 @@ from std.io import FileDescriptor
+ from std.ffi import c_char, c_int, external_call, get_errno
+ from std.reflection import SourceLocation, call_location
+ from std._gpu import thread_idx, block_idx
+-from std.sys import CompilationTarget, is_gpu, is_apple_gpu
++from std.sys import CompilationTarget, is_gpu, is_apple_gpu, is_webgpu
+ 
+ from .path import isdir, split, exists
+ from .pathlike import PathLike as stdPathLike
+@@ -127,7 +127,8 @@ struct _DirHandle:
+           A string containing the output of running the command.
+         """
+ 
+-        comptime if CompilationTarget.is_linux():
++        # Dolly's `struct dirent` is laid out as Linux's.
++        comptime if CompilationTarget.is_linux() or CompilationTarget.is_dolly():
+             return self._list_linux()
+         else:
+             return self._list_macos()
+@@ -274,7 +275,7 @@ def _abort_report[
+     comptime if is_apple_gpu():
+         # FIXME: Remove after MOCO-3697 is fixed.
+         pass
+-    elif is_gpu():
++    elif is_gpu() and not is_webgpu():
+         # On GPU, gate the print to a single thread to avoid flooding the
+         # printf buffer with identical messages from thousands of threads.
+         if (
+@@ -521,7 +522,9 @@ def mkdir[PathLike: stdPathLike](path: PathLike, mode: Int = 0o777) raises:
+     """
+ 
+     var fspath = path.__fspath__()
+-    var error = external_call["mkdir", Int32](fspath.as_c_string_span(), mode)
++    var error = external_call["mkdir", Int32](
++        fspath.as_c_string_span(), Int32(mode)
++    )
+     if error != 0:
+         var err = get_errno()
+         raise Error("Can not create directory: ", fspath, " Err: ", String(err))
+diff --git a/Mojo/stdlib/std/os/path/path.mojo b/Mojo/stdlib/std/os/path/path.mojo
+index ba883ef..b5895f3 100644
+--- a/Mojo/stdlib/std/os/path/path.mojo
++++ b/Mojo/stdlib/std/os/path/path.mojo
+@@ -28,6 +28,8 @@ from std.sys import CompilationTarget
+ from std.sys._libc import realpath as libc_realpath
+ 
+ from .. import PathLike as stdPathLike, getuid
++from .._dolly import _lstat as _lstat_dolly
++from .._dolly import _stat as _stat_dolly
+ from .._linux_aarch64 import _lstat as _lstat_linux_arm
+ from .._linux_aarch64 import _stat as _stat_linux_arm
+ from .._linux_x86 import _lstat as _lstat_linux_x86
+@@ -46,7 +48,9 @@ from ..os import sep
+ 
+ @always_inline
+ def _get_stat_st_mode(var path: String) raises -> Int:
+-    comptime if CompilationTarget.is_macos():
++    comptime if CompilationTarget.is_dolly():
++        return Int(_stat_dolly(path^).st_mode)
++    elif CompilationTarget.is_macos():
+         return Int(_stat_macos(path^).st_mode)
+     elif CompilationTarget.has_neon():
+         return Int(_stat_linux_arm(path^).st_mode)
+@@ -56,7 +60,9 @@ def _get_stat_st_mode(var path: String) raises -> Int:
+ 
+ @always_inline
+ def _get_lstat_st_mode(var path: String) raises -> Int:
+-    comptime if CompilationTarget.is_macos():
++    comptime if CompilationTarget.is_dolly():
++        return Int(_lstat_dolly(path^).st_mode)
++    elif CompilationTarget.is_macos():
+         return Int(_lstat_macos(path^).st_mode)
+     elif CompilationTarget.has_neon():
+         return Int(_lstat_linux_arm(path^).st_mode)
+diff --git a/Mojo/stdlib/std/os/process.mojo b/Mojo/stdlib/std/os/process.mojo
+index 188257d..db8bf29 100644
+--- a/Mojo/stdlib/std/os/process.mojo
++++ b/Mojo/stdlib/std/os/process.mojo
+@@ -388,7 +388,9 @@ struct Process:
+         """
+ 
+         comptime assert (
+-            CompilationTarget.is_linux() or CompilationTarget.is_macos()
++            CompilationTarget.is_linux()
++            or CompilationTarget.is_macos()
++            or CompilationTarget.is_dolly()
+         ), "Unknown platform process execution not implemented"
+         var parts = path.split(sep)
+         var file_name = String(parts[len(parts) - 1])
+diff --git a/Mojo/stdlib/std/sys/__init__.mojo b/Mojo/stdlib/std/sys/__init__.mojo
+index 3254305..b857cf3 100644
+--- a/Mojo/stdlib/std/sys/__init__.mojo
++++ b/Mojo/stdlib/std/sys/__init__.mojo
+@@ -39,6 +39,7 @@ from .info import (
+     has_nvidia_gpu_accelerator,
+     is_amd_gpu,
+     is_apple_gpu,
++    is_webgpu,
+     is_big_endian,
+     is_gpu,
+     is_little_endian,
+diff --git a/Mojo/stdlib/std/sys/_libc.mojo b/Mojo/stdlib/std/sys/_libc.mojo
+index 187f0be..c5eb95d 100644
+--- a/Mojo/stdlib/std/sys/_libc.mojo
++++ b/Mojo/stdlib/std/sys/_libc.mojo
+@@ -190,6 +190,10 @@ def _get_environ() -> (
+             OptionalPointer[NoneType, MutUntrackedOrigin](),
+             "environ".as_c_string_span().ptr(),
+         ).value()[]
++    elif CompilationTarget.is_dolly():
++        # Mojo cannot name C's `environ`, and Dolly's `dlsym` is only for
++        # programs that load modules: Dolly's compiler runtime hands it over.
++        return external_call["KGEN_CompilerRT_Environ", _EnvpType]()
+     else:
+         CompilationTarget.unsupported_target_error[operation="_get_environ"]()
+ 
+diff --git a/Mojo/stdlib/std/sys/_libc_errno.mojo b/Mojo/stdlib/std/sys/_libc_errno.mojo
+index 1fb3265..d5af93d 100644
+--- a/Mojo/stdlib/std/sys/_libc_errno.mojo
++++ b/Mojo/stdlib/std/sys/_libc_errno.mojo
+@@ -16,7 +16,7 @@ from std.sys.info import CompilationTarget, platform_map
+ 
+ 
+ def _errno_ptr(out result: Pointer[c_int, MutUntrackedOrigin]):
+-    comptime if CompilationTarget.is_linux():
++    comptime if CompilationTarget.is_linux() or CompilationTarget.is_dolly():
+         result = external_call["__errno_location", type_of(result)]()
+     elif CompilationTarget.is_macos():
+         result = external_call["__error", type_of(result)]()
+@@ -88,276 +88,276 @@ struct ErrNo(Equatable, TrivialRegisterPassable, Writable):
+     # fmt: off
+     comptime SUCCESS        = Self(0)
+     """Success."""
+-    comptime EPERM          = Self(1)
++    comptime EPERM          = Self(pm["EPERM", linux=1, macos=1, dolly=63]())
+     """Operation not permitted."""
+-    comptime ENOENT         = Self(2)
++    comptime ENOENT         = Self(pm["ENOENT", linux=2, macos=2, dolly=44]())
+     """No such file or directory."""
+-    comptime ESRCH          = Self(3)
++    comptime ESRCH          = Self(pm["ESRCH", linux=3, macos=3, dolly=71]())
+     """No such process."""
+-    comptime EINTR          = Self(4)
++    comptime EINTR          = Self(pm["EINTR", linux=4, macos=4, dolly=27]())
+     """Interrupted system call."""
+-    comptime EIO            = Self(5)
++    comptime EIO            = Self(pm["EIO", linux=5, macos=5, dolly=29]())
+     """I/O error."""
+-    comptime ENXIO          = Self(6)
++    comptime ENXIO          = Self(pm["ENXIO", linux=6, macos=6, dolly=60]())
+     """No such device or address."""
+-    comptime E2BIG          = Self(7)
++    comptime E2BIG          = Self(pm["E2BIG", linux=7, macos=7, dolly=1]())
+     """Argument list too long."""
+-    comptime ENOEXEC        = Self(8)
++    comptime ENOEXEC        = Self(pm["ENOEXEC", linux=8, macos=8, dolly=45]())
+     """Exec format error."""
+-    comptime EBADF          = Self(9)
++    comptime EBADF          = Self(pm["EBADF", linux=9, macos=9, dolly=8]())
+     """Bad file number."""
+-    comptime ECHILD         = Self(10)
++    comptime ECHILD         = Self(pm["ECHILD", linux=10, macos=10, dolly=12]())
+     """No child processes."""
+-    comptime EAGAIN         = Self(pm["EAGAIN",           linux=11, macos=35]())
++    comptime EAGAIN         = Self(pm["EAGAIN",           linux=11, macos=35, dolly=6]())
+     """Try again."""
+-    comptime ENOMEM         = Self(12)
++    comptime ENOMEM         = Self(pm["ENOMEM", linux=12, macos=12, dolly=48]())
+     """Out of memory."""
+-    comptime EACCES         = Self(13)
++    comptime EACCES         = Self(pm["EACCES", linux=13, macos=13, dolly=2]())
+     """Permission denied."""
+-    comptime EFAULT         = Self(14)
++    comptime EFAULT         = Self(pm["EFAULT", linux=14, macos=14, dolly=21]())
+     """Bad address."""
+-    comptime ENOTBLK        = Self(15)
++    comptime ENOTBLK        = Self(pm["ENOTBLK", linux=15, macos=15, dolly=105]())
+     """Block device required."""
+-    comptime EBUSY          = Self(16)
++    comptime EBUSY          = Self(pm["EBUSY", linux=16, macos=16, dolly=10]())
+     """Device or resource busy."""
+-    comptime EEXIST         = Self(17)
++    comptime EEXIST         = Self(pm["EEXIST", linux=17, macos=17, dolly=20]())
+     """File exists."""
+-    comptime EXDEV          = Self(18)
++    comptime EXDEV          = Self(pm["EXDEV", linux=18, macos=18, dolly=75]())
+     """Cross-device link."""
+-    comptime ENODEV         = Self(19)
++    comptime ENODEV         = Self(pm["ENODEV", linux=19, macos=19, dolly=43]())
+     """No such device."""
+-    comptime ENOTDIR        = Self(20)
++    comptime ENOTDIR        = Self(pm["ENOTDIR", linux=20, macos=20, dolly=54]())
+     """Not a directory."""
+-    comptime EISDIR         = Self(21)
++    comptime EISDIR         = Self(pm["EISDIR", linux=21, macos=21, dolly=31]())
+     """Is a directory."""
+-    comptime EINVAL         = Self(22)
++    comptime EINVAL         = Self(pm["EINVAL", linux=22, macos=22, dolly=28]())
+     """Invalid argument."""
+-    comptime ENFILE         = Self(23)
++    comptime ENFILE         = Self(pm["ENFILE", linux=23, macos=23, dolly=41]())
+     """File table overflow."""
+-    comptime EMFILE         = Self(24)
++    comptime EMFILE         = Self(pm["EMFILE", linux=24, macos=24, dolly=33]())
+     """Too many open files."""
+-    comptime ENOTTY         = Self(25)
++    comptime ENOTTY         = Self(pm["ENOTTY", linux=25, macos=25, dolly=59]())
+     """Not a typewriter."""
+-    comptime ETXTBSY        = Self(26)
++    comptime ETXTBSY        = Self(pm["ETXTBSY", linux=26, macos=26, dolly=74]())
+     """Text file busy."""
+-    comptime EFBIG          = Self(27)
++    comptime EFBIG          = Self(pm["EFBIG", linux=27, macos=27, dolly=22]())
+     """File too large."""
+-    comptime ENOSPC         = Self(28)
++    comptime ENOSPC         = Self(pm["ENOSPC", linux=28, macos=28, dolly=51]())
+     """No space left on device."""
+-    comptime ESPIPE         = Self(29)
++    comptime ESPIPE         = Self(pm["ESPIPE", linux=29, macos=29, dolly=70]())
+     """Illegal seek."""
+-    comptime EROFS          = Self(30)
++    comptime EROFS          = Self(pm["EROFS", linux=30, macos=30, dolly=69]())
+     """Read-only file system."""
+-    comptime EMLINK         = Self(31)
++    comptime EMLINK         = Self(pm["EMLINK", linux=31, macos=31, dolly=34]())
+     """Too many links."""
+-    comptime EPIPE          = Self(32)
++    comptime EPIPE          = Self(pm["EPIPE", linux=32, macos=32, dolly=64]())
+     """Broken pipe."""
+-    comptime EDOM           = Self(33)
++    comptime EDOM           = Self(pm["EDOM", linux=33, macos=33, dolly=18]())
+     """Math argument out of domain of func."""
+-    comptime ERANGE         = Self(34)
++    comptime ERANGE         = Self(pm["ERANGE", linux=34, macos=34, dolly=68]())
+     """Math result not representable."""
+-    comptime EDEADLK        = Self(pm["EDEADLK",          linux=35, macos=11]())
++    comptime EDEADLK        = Self(pm["EDEADLK",          linux=35, macos=11, dolly=16]())
+     """Resource deadlock would occur."""
+-    comptime ENAMETOOLONG   = Self(pm["ENAMETOOLONG",     linux=36, macos=63]())
++    comptime ENAMETOOLONG   = Self(pm["ENAMETOOLONG",     linux=36, macos=63, dolly=37]())
+     """File name too long."""
+-    comptime ENOLCK         = Self(pm["ENOLCK",           linux=37, macos=77]())
++    comptime ENOLCK         = Self(pm["ENOLCK",           linux=37, macos=77, dolly=46]())
+     """No record locks available."""
+-    comptime ENOSYS         = Self(pm["ENOSYS",           linux=38, macos=78]())
++    comptime ENOSYS         = Self(pm["ENOSYS",           linux=38, macos=78, dolly=52]())
+     """Function not implemented."""
+-    comptime ENOTEMPTY      = Self(pm["ENOTEMPTY",        linux=39, macos=66]())
++    comptime ENOTEMPTY      = Self(pm["ENOTEMPTY",        linux=39, macos=66, dolly=55]())
+     """Directory not empty."""
+-    comptime ELOOP          = Self(pm["ELOOP",            linux=40, macos=62]())
++    comptime ELOOP          = Self(pm["ELOOP",            linux=40, macos=62, dolly=32]())
+     """Too many symbolic links encountered."""
+     comptime EWOULDBLOCK    = Self.EAGAIN
+     """Operation would block."""
+-    comptime ENOMSG         = Self(pm["ENOMSG",           linux=42, macos=91]())
++    comptime ENOMSG         = Self(pm["ENOMSG",           linux=42, macos=91, dolly=49]())
+     """No message of desired type."""
+-    comptime EIDRM          = Self(pm["EIDRM",            linux=43, macos=90]())
++    comptime EIDRM          = Self(pm["EIDRM",            linux=43, macos=90, dolly=24]())
+     """Identifier removed."""
+-    comptime ECHRNG         = Self(pm["ECHRNG",           linux=44]())
++    comptime ECHRNG         = Self(pm["ECHRNG",           linux=44, dolly=106]())
+     """Channel number out of range."""
+-    comptime EL2NSYNC       = Self(pm["EL2NSYNC",         linux=45]())
++    comptime EL2NSYNC       = Self(pm["EL2NSYNC",         linux=45, dolly=156]())
+     """Level 2 not synchronized."""
+-    comptime EL3HLT         = Self(pm["EL3HLT",           linux=46]())
++    comptime EL3HLT         = Self(pm["EL3HLT",           linux=46, dolly=107]())
+     """Level 3 halted."""
+-    comptime EL3RST         = Self(pm["EL3RST",           linux=47]())
++    comptime EL3RST         = Self(pm["EL3RST",           linux=47, dolly=108]())
+     """Level 3 reset."""
+-    comptime ELNRNG         = Self(pm["ELNRNG",           linux=48]())
++    comptime ELNRNG         = Self(pm["ELNRNG",           linux=48, dolly=109]())
+     """Link number out of range."""
+-    comptime EUNATCH        = Self(pm["EUNATCH",          linux=49]())
++    comptime EUNATCH        = Self(pm["EUNATCH",          linux=49, dolly=110]())
+     """Protocol driver not attached."""
+-    comptime ENOCSI         = Self(pm["ENOCSI",           linux=50]())
++    comptime ENOCSI         = Self(pm["ENOCSI",           linux=50, dolly=111]())
+     """No CSI structure available."""
+-    comptime EL2HLT         = Self(pm["EL2HLT",           linux=51]())
++    comptime EL2HLT         = Self(pm["EL2HLT",           linux=51, dolly=112]())
+     """Level 2 halted."""
+-    comptime EBADE          = Self(pm["EBADE",            linux=52]())
++    comptime EBADE          = Self(pm["EBADE",            linux=52, dolly=113]())
+     """Invalid exchange."""
+-    comptime EBADR          = Self(pm["EBADR",            linux=53]())
++    comptime EBADR          = Self(pm["EBADR",            linux=53, dolly=114]())
+     """Invalid request descriptor."""
+-    comptime EXFULL         = Self(pm["EXFULL",           linux=54]())
++    comptime EXFULL         = Self(pm["EXFULL",           linux=54, dolly=115]())
+     """Exchange full."""
+-    comptime ENOANO         = Self(pm["ENOANO",           linux=55]())
++    comptime ENOANO         = Self(pm["ENOANO",           linux=55, dolly=104]())
+     """No anode."""
+-    comptime EBADRQC        = Self(pm["EBADRQC",          linux=56]())
++    comptime EBADRQC        = Self(pm["EBADRQC",          linux=56, dolly=103]())
+     """Invalid request code."""
+-    comptime EBADSLT        = Self(pm["EBADSLT",          linux=57]())
++    comptime EBADSLT        = Self(pm["EBADSLT",          linux=57, dolly=102]())
+     """Invalid slot."""
+     comptime EDEADLOCK      = Self.EDEADLK
+     """Alias for EDEADLK."""
+-    comptime EBFONT         = Self(pm["EBFONT",           linux=59]())
++    comptime EBFONT         = Self(pm["EBFONT",           linux=59, dolly=101]())
+     """Bad font file format."""
+-    comptime ENOSTR         = Self(pm["ENOSTR",           linux=60, macos=99]())
++    comptime ENOSTR         = Self(pm["ENOSTR",           linux=60, macos=99, dolly=100]())
+     """Device not a stream."""
+-    comptime ENODATA        = Self(pm["ENODATA",          linux=61, macos=96]())
++    comptime ENODATA        = Self(pm["ENODATA",          linux=61, macos=96, dolly=116]())
+     """No data available."""
+-    comptime ETIME          = Self(pm["ETIME",            linux=62, macos=101]())
++    comptime ETIME          = Self(pm["ETIME",            linux=62, macos=101, dolly=117]())
+     """Timer expired."""
+-    comptime ENOSR          = Self(pm["ENOSR",            linux=63, macos=98]())
++    comptime ENOSR          = Self(pm["ENOSR",            linux=63, macos=98, dolly=118]())
+     """Out of streams resources."""
+-    comptime ENONET         = Self(pm["ENONET",           linux=64]())
++    comptime ENONET         = Self(pm["ENONET",           linux=64, dolly=119]())
+     """Machine is not on the network."""
+-    comptime ENOPKG         = Self(pm["ENOPKG",           linux=65]())
++    comptime ENOPKG         = Self(pm["ENOPKG",           linux=65, dolly=120]())
+     """Package not installed."""
+-    comptime EREMOTE        = Self(pm["EREMOTE",          linux=66, macos=71]())
++    comptime EREMOTE        = Self(pm["EREMOTE",          linux=66, macos=71, dolly=121]())
+     """Object is remote."""
+-    comptime ENOLINK        = Self(pm["ENOLINK",          linux=67, macos=97]())
++    comptime ENOLINK        = Self(pm["ENOLINK",          linux=67, macos=97, dolly=47]())
+     """Link has been severed."""
+-    comptime EADV           = Self(pm["EADV",             linux=68]())
++    comptime EADV           = Self(pm["EADV",             linux=68, dolly=122]())
+     """Advertise error."""
+-    comptime ESRMNT         = Self(pm["ESRMNT",           linux=69]())
++    comptime ESRMNT         = Self(pm["ESRMNT",           linux=69, dolly=123]())
+     """Srmount error."""
+-    comptime ECOMM          = Self(pm["ECOMM",            linux=70]())
++    comptime ECOMM          = Self(pm["ECOMM",            linux=70, dolly=124]())
+     """Communication error on send."""
+-    comptime EPROTO         = Self(pm["EPROTO",           linux=71, macos=100]())
++    comptime EPROTO         = Self(pm["EPROTO",           linux=71, macos=100, dolly=65]())
+     """Protocol error."""
+-    comptime EMULTIHOP      = Self(pm["EMULTIHOP",        linux=72, macos=95]())
++    comptime EMULTIHOP      = Self(pm["EMULTIHOP",        linux=72, macos=95, dolly=36]())
+     """Multihop attempted."""
+-    comptime EDOTDOT        = Self(pm["EDOTDOT",          linux=73]())
++    comptime EDOTDOT        = Self(pm["EDOTDOT",          linux=73, dolly=125]())
+     """RFS specific error."""
+-    comptime EBADMSG        = Self(pm["EBADMSG",          linux=74, macos=94]())
++    comptime EBADMSG        = Self(pm["EBADMSG",          linux=74, macos=94, dolly=9]())
+     """Not a data message."""
+-    comptime EOVERFLOW      = Self(pm["EOVERFLOW",        linux=75, macos=84]())
++    comptime EOVERFLOW      = Self(pm["EOVERFLOW",        linux=75, macos=84, dolly=61]())
+     """Value too large for defined data type."""
+-    comptime ENOTUNIQ       = Self(pm["ENOTUNIQ",         linux=76]())
++    comptime ENOTUNIQ       = Self(pm["ENOTUNIQ",         linux=76, dolly=126]())
+     """Name not unique on network."""
+-    comptime EBADFD         = Self(pm["EBADFD",           linux=77]())
++    comptime EBADFD         = Self(pm["EBADFD",           linux=77, dolly=127]())
+     """File descriptor in bad state."""
+-    comptime EREMCHG        = Self(pm["EREMCHG",          linux=78]())
++    comptime EREMCHG        = Self(pm["EREMCHG",          linux=78, dolly=128]())
+     """Remote address changed."""
+-    comptime ELIBACC        = Self(pm["ELIBACC",          linux=79]())
++    comptime ELIBACC        = Self(pm["ELIBACC",          linux=79, dolly=129]())
+     """Can not access a needed shared library."""
+-    comptime ELIBBAD        = Self(pm["ELIBBAD",          linux=80]())
++    comptime ELIBBAD        = Self(pm["ELIBBAD",          linux=80, dolly=130]())
+     """Accessing a corrupted shared library."""
+-    comptime ELIBSCN        = Self(pm["ELIBSCN",          linux=81]())
++    comptime ELIBSCN        = Self(pm["ELIBSCN",          linux=81, dolly=131]())
+     """.lib section in a.out corrupted."""
+-    comptime ELIBMAX        = Self(pm["ELIBMAX",          linux=82]())
++    comptime ELIBMAX        = Self(pm["ELIBMAX",          linux=82, dolly=132]())
+     """Attempting to link in too many shared libraries."""
+-    comptime ELIBEXEC       = Self(pm["ELIBEXEC",         linux=83]())
++    comptime ELIBEXEC       = Self(pm["ELIBEXEC",         linux=83, dolly=133]())
+     """Cannot exec a shared library directly."""
+-    comptime EILSEQ         = Self(pm["EILSEQ",           linux=84, macos=92]())
++    comptime EILSEQ         = Self(pm["EILSEQ",           linux=84, macos=92, dolly=25]())
+     """Illegal byte sequence."""
+-    comptime ERESTART       = Self(pm["ERESTART",         linux=85]())
++    comptime ERESTART       = Self(pm["ERESTART",         linux=85, dolly=134]())
+     """Interrupted system call should be restarted."""
+-    comptime ESTRPIPE       = Self(pm["ESTRPIPE",         linux=86]())
++    comptime ESTRPIPE       = Self(pm["ESTRPIPE",         linux=86, dolly=135]())
+     """Streams pipe error."""
+-    comptime EUSERS         = Self(pm["EUSERS",           linux=87, macos=68]())
++    comptime EUSERS         = Self(pm["EUSERS",           linux=87, macos=68, dolly=136]())
+     """Too many users."""
+-    comptime ENOTSOCK       = Self(pm["ENOTSOCK",         linux=88, macos=38]())
++    comptime ENOTSOCK       = Self(pm["ENOTSOCK",         linux=88, macos=38, dolly=57]())
+     """Socket operation on non-socket."""
+-    comptime EDESTADDRREQ   = Self(pm["EDESTADDRREQ",     linux=89, macos=39]())
++    comptime EDESTADDRREQ   = Self(pm["EDESTADDRREQ",     linux=89, macos=39, dolly=17]())
+     """Destination address required."""
+-    comptime EMSGSIZE       = Self(pm["EMSGSIZE",         linux=90, macos=40]())
++    comptime EMSGSIZE       = Self(pm["EMSGSIZE",         linux=90, macos=40, dolly=35]())
+     """Message too long."""
+-    comptime EPROTOTYPE     = Self(pm["EPROTOTYPE",       linux=91, macos=41]())
++    comptime EPROTOTYPE     = Self(pm["EPROTOTYPE",       linux=91, macos=41, dolly=67]())
+     """Protocol wrong type for socket."""
+-    comptime ENOPROTOOPT    = Self(pm["ENOPROTOOPT",      linux=92, macos=42]())
++    comptime ENOPROTOOPT    = Self(pm["ENOPROTOOPT",      linux=92, macos=42, dolly=50]())
+     """Protocol not available."""
+     comptime EPROTONOSUPPORT= Self(pm["EPROTONOSUPPORT",  linux=93, macos=43]())
+     """Protocol not supported."""
+     comptime ESOCKTNOSUPPORT= Self(pm["ESOCKTNOSUPPORT",  linux=94, macos=44]())
+     """Socket type not supported."""
+-    comptime EOPNOTSUPP     = Self(pm["EOPNOTSUPP",       linux=95, macos=102]())
++    comptime EOPNOTSUPP     = Self(pm["EOPNOTSUPP",       linux=95, macos=102, dolly=138]())
+     """Operation not supported on transport endpoint."""
+-    comptime EPFNOSUPPORT   = Self(pm["EPFNOSUPPORT",     linux=96, macos=46]())
++    comptime EPFNOSUPPORT   = Self(pm["EPFNOSUPPORT",     linux=96, macos=46, dolly=139]())
+     """Protocol family not supported."""
+-    comptime EAFNOSUPPORT   = Self(pm["EAFNOSUPPORT",     linux=97, macos=47]())
++    comptime EAFNOSUPPORT   = Self(pm["EAFNOSUPPORT",     linux=97, macos=47, dolly=5]())
+     """Address family not supported by protocol."""
+-    comptime EADDRINUSE     = Self(pm["EADDRINUSE",       linux=98, macos=48]())
++    comptime EADDRINUSE     = Self(pm["EADDRINUSE",       linux=98, macos=48, dolly=3]())
+     """Address already in use."""
+-    comptime EADDRNOTAVAIL  = Self(pm["EADDRNOTAVAIL",    linux=99, macos=49]())
++    comptime EADDRNOTAVAIL  = Self(pm["EADDRNOTAVAIL",    linux=99, macos=49, dolly=4]())
+     """Cannot assign requested address."""
+-    comptime ENETDOWN       = Self(pm["ENETDOWN",         linux=100, macos=50]())
++    comptime ENETDOWN       = Self(pm["ENETDOWN",         linux=100, macos=50, dolly=38]())
+     """Network is down."""
+-    comptime ENETUNREACH    = Self(pm["ENETUNREACH",      linux=101, macos=51]())
++    comptime ENETUNREACH    = Self(pm["ENETUNREACH",      linux=101, macos=51, dolly=40]())
+     """Network is unreachable."""
+-    comptime ENETRESET      = Self(pm["ENETRESET",        linux=102, macos=52]())
++    comptime ENETRESET      = Self(pm["ENETRESET",        linux=102, macos=52, dolly=39]())
+     """Network dropped connection because of reset."""
+-    comptime ECONNABORTED   = Self(pm["ECONNABORTED",     linux=103, macos=53]())
++    comptime ECONNABORTED   = Self(pm["ECONNABORTED",     linux=103, macos=53, dolly=13]())
+     """Software caused connection abort."""
+-    comptime ECONNRESET     = Self(pm["ECONNRESET",       linux=104, macos=54]())
++    comptime ECONNRESET     = Self(pm["ECONNRESET",       linux=104, macos=54, dolly=15]())
+     """Connection reset by peer."""
+-    comptime ENOBUFS        = Self(pm["ENOBUFS",          linux=105, macos=55]())
++    comptime ENOBUFS        = Self(pm["ENOBUFS",          linux=105, macos=55, dolly=42]())
+     """No buffer space available."""
+-    comptime EISCONN        = Self(pm["EISCONN",          linux=106, macos=56]())
++    comptime EISCONN        = Self(pm["EISCONN",          linux=106, macos=56, dolly=30]())
+     """Transport endpoint is already connected."""
+-    comptime ENOTCONN       = Self(pm["ENOTCONN",         linux=107, macos=57]())
++    comptime ENOTCONN       = Self(pm["ENOTCONN",         linux=107, macos=57, dolly=53]())
+     """Transport endpoint is not connected."""
+-    comptime ESHUTDOWN      = Self(pm["ESHUTDOWN",        linux=108, macos=58]())
++    comptime ESHUTDOWN      = Self(pm["ESHUTDOWN",        linux=108, macos=58, dolly=140]())
+     """Cannot send after transport endpoint shutdown."""
+-    comptime ETOOMANYREFS   = Self(pm["ETOOMANYREFS",     linux=109, macos=59]())
++    comptime ETOOMANYREFS   = Self(pm["ETOOMANYREFS",     linux=109, macos=59, dolly=141]())
+     """Too many references: cannot splice."""
+-    comptime ETIMEDOUT      = Self(pm["ETIMEDOUT",        linux=110, macos=60]())
++    comptime ETIMEDOUT      = Self(pm["ETIMEDOUT",        linux=110, macos=60, dolly=73]())
+     """Connection timed out."""
+-    comptime ECONNREFUSED   = Self(pm["ECONNREFUSED",     linux=111, macos=61]())
++    comptime ECONNREFUSED   = Self(pm["ECONNREFUSED",     linux=111, macos=61, dolly=14]())
+     """Connection refused."""
+-    comptime EHOSTDOWN      = Self(pm["EHOSTDOWN",        linux=112, macos=64]())
++    comptime EHOSTDOWN      = Self(pm["EHOSTDOWN",        linux=112, macos=64, dolly=142]())
+     """Host is down."""
+-    comptime EHOSTUNREACH   = Self(pm["EHOSTUNREACH",     linux=113, macos=65]())
++    comptime EHOSTUNREACH   = Self(pm["EHOSTUNREACH",     linux=113, macos=65, dolly=23]())
+     """No route to host."""
+-    comptime EALREADY       = Self(pm["EALREADY",         linux=114, macos=37]())
++    comptime EALREADY       = Self(pm["EALREADY",         linux=114, macos=37, dolly=7]())
+     """Operation already in progress."""
+-    comptime EINPROGRESS    = Self(pm["EINPROGRESS",      linux=115, macos=36]())
++    comptime EINPROGRESS    = Self(pm["EINPROGRESS",      linux=115, macos=36, dolly=26]())
+     """Operation now in progress."""
+-    comptime ESTALE         = Self(pm["ESTALE",           linux=116, macos=70]())
++    comptime ESTALE         = Self(pm["ESTALE",           linux=116, macos=70, dolly=72]())
+     """Stale NFS file handle."""
+-    comptime EUCLEAN        = Self(pm["EUCLEAN",          linux=117]())
++    comptime EUCLEAN        = Self(pm["EUCLEAN",          linux=117, dolly=143]())
+     """Structure needs cleaning."""
+-    comptime ENOTNAM        = Self(pm["ENOTNAM",          linux=118]())
++    comptime ENOTNAM        = Self(pm["ENOTNAM",          linux=118, dolly=144]())
+     """Not a XENIX named type file."""
+-    comptime ENAVAIL        = Self(pm["ENAVAIL",          linux=119]())
++    comptime ENAVAIL        = Self(pm["ENAVAIL",          linux=119, dolly=145]())
+     """No XENIX semaphores available."""
+-    comptime EISNAM         = Self(pm["EISNAM",           linux=120]())
++    comptime EISNAM         = Self(pm["EISNAM",           linux=120, dolly=146]())
+     """Is a named type file."""
+-    comptime EREMOTEIO      = Self(pm["EREMOTEIO",        linux=121]())
++    comptime EREMOTEIO      = Self(pm["EREMOTEIO",        linux=121, dolly=147]())
+     """Remote I/O error."""
+-    comptime EDQUOT         = Self(pm["EDQUOT",           linux=122, macos=69]())
++    comptime EDQUOT         = Self(pm["EDQUOT",           linux=122, macos=69, dolly=19]())
+     """Quota exceeded."""
+-    comptime ENOMEDIUM      = Self(pm["ENOMEDIUM",        linux=123]())
++    comptime ENOMEDIUM      = Self(pm["ENOMEDIUM",        linux=123, dolly=148]())
+     """No medium found."""
+-    comptime EMEDIUMTYPE    = Self(pm["EMEDIUMTYPE",      linux=124]())
++    comptime EMEDIUMTYPE    = Self(pm["EMEDIUMTYPE",      linux=124, dolly=149]())
+     """Wrong medium type."""
+-    comptime ECANCELED      = Self(pm["ECANCELED",        linux=125, macos=89]())
++    comptime ECANCELED      = Self(pm["ECANCELED",        linux=125, macos=89, dolly=11]())
+     """Operation canceled."""
+-    comptime ENOKEY         = Self(pm["ENOKEY",           linux=126]())
++    comptime ENOKEY         = Self(pm["ENOKEY",           linux=126, dolly=150]())
+     """Required key not available."""
+-    comptime EKEYEXPIRED    = Self(pm["EKEYEXPIRED",      linux=127]())
++    comptime EKEYEXPIRED    = Self(pm["EKEYEXPIRED",      linux=127, dolly=151]())
+     """Key has expired."""
+-    comptime EKEYREVOKED    = Self(pm["EKEYREVOKED",      linux=128]())
++    comptime EKEYREVOKED    = Self(pm["EKEYREVOKED",      linux=128, dolly=152]())
+     """Key has been revoked."""
+-    comptime EKEYREJECTED   = Self(pm["EKEYREJECTED",     linux=129]())
++    comptime EKEYREJECTED   = Self(pm["EKEYREJECTED",     linux=129, dolly=153]())
+     """Key was rejected by service."""
+-    comptime EOWNERDEAD     = Self(pm["EOWNERDEAD",       linux=130, macos=105]())
++    comptime EOWNERDEAD     = Self(pm["EOWNERDEAD",       linux=130, macos=105, dolly=62]())
+     """Owner died."""
+     comptime ENOTRECOVERABLE= Self(pm["ENOTRECOVERABLE",  linux=131, macos=104]())
+     """State not recoverable."""
+-    comptime ERFKILL        = Self(pm["ERFKILL",          linux=132]())
++    comptime ERFKILL        = Self(pm["ERFKILL",          linux=132, dolly=154]())
+     """Operation not possible due to RF-kill."""
+-    comptime EHWPOISON      = Self(pm["EHWPOISON",        linux=133]())
++    comptime EHWPOISON      = Self(pm["EHWPOISON",        linux=133, dolly=155]())
+     """Memory page has hardware error."""
+ 
+ 
+     # macOS-specific
+-    comptime ENOTSUP        = Self(pm["ENOTSUP",          macos=45]())
++    comptime ENOTSUP        = Self(pm["ENOTSUP",          macos=45, dolly=138]())
+     """Operation not supported."""
+     comptime EPROCLIM       = Self(pm["EPROCLIM",         macos=67]())
+     """Too many processes."""
+diff --git a/Mojo/stdlib/std/sys/info.mojo b/Mojo/stdlib/std/sys/info.mojo
+index 1739a71..fd8084e 100644
+--- a/Mojo/stdlib/std/sys/info.mojo
++++ b/Mojo/stdlib/std/sys/info.mojo
+@@ -562,6 +562,16 @@ struct CompilationTarget[_mlir_value: _TargetType = _current_target(), //](
+         """
+         return Self._os() in ["darwin", "macosx"]
+ 
++    @staticmethod
++    def is_dolly() -> Bool:
++        """Returns True if the host operating system is Dolly, a POSIX-like
++        userspace for wasm64 in the browser.
++
++        Returns:
++            True if the host operating system is Dolly and False otherwise.
++        """
++        return Self._os() == "dolly"
++
+ 
+ def platform_map[
+     T: Copyable,
+@@ -570,6 +580,7 @@ def platform_map[
+     *,
+     linux: Optional[T] = None,
+     macos: Optional[T] = None,
++    dolly: Optional[T] = None,
+ ]() -> T:
+     """Helper for defining a compile time value depending
+     on the current compilation target, raising a compilation
+@@ -580,6 +591,7 @@ def platform_map[
+         operation: Optional operation name for error messages.
+         linux: The value to use on Linux platforms.
+         macos: The value to use on macOS platforms.
++        dolly: The value to use on Dolly.
+ 
+     Returns:
+         The platform-specific value for the current target.
+@@ -597,6 +609,8 @@ def platform_map[
+         return materialize[macos.value()]()
+     elif CompilationTarget.is_linux() and linux:
+         return materialize[linux.value()]()
++    elif CompilationTarget.is_dolly() and dolly:
++        return materialize[dolly.value()]()
+     else:
+         CompilationTarget.unsupported_target_error[operation=operation]()
+ 
+@@ -1250,7 +1264,18 @@ def is_gpu() -> Bool:
+     Returns:
+         True if the triple target is GPU and False otherwise.
+     """
+-    return is_nvidia_gpu() or is_amd_gpu() or is_apple_gpu()
++    return is_nvidia_gpu() or is_amd_gpu() or is_apple_gpu() or is_webgpu()
++
++
++@always_inline("nodebug")
++def is_webgpu() -> Bool:
++    """Returns True if the target triple of the compiler is
++    `wasm32-unknown-webgpu`, whose kernels are WGSL, and False otherwise.
++
++    Returns:
++        True if the triple target is WebGPU and False otherwise.
++    """
++    return is_triple["wasm32-unknown-webgpu"]()
+ 
+ 
+ @always_inline("nodebug")
+diff --git a/Mojo/stdlib/std/testing/assert_aborts.mojo b/Mojo/stdlib/std/testing/assert_aborts.mojo
+index 96a06ca..b1c6433 100644
+--- a/Mojo/stdlib/std/testing/assert_aborts.mojo
++++ b/Mojo/stdlib/std/testing/assert_aborts.mojo
+@@ -22,7 +22,7 @@ from std.os.env import getenv, setenv, unsetenv
+ from std.os.path import exists
+ from std.os.process import Process, ProcessStatus
+ from std.reflection import call_location, SourceLocation
+-from std.sys import argv
++from std.sys import CompilationTarget, argv
+ from std.sys._io import stderr, stdout
+ from std.sys._libc import dup2
+ from std.sys.compile import SanitizeAddress
+@@ -199,7 +199,12 @@ def _spawn_and_check(
+             t" may be hanging rather than aborting.\nCaptured output:"
+             t"\n{captured}"
+         )
+-    if not status.term_signal:
++    # An abort is a trap. Dolly ends a trapped process with status 126, as it
++    # ends any Wasm trap, and not through a signal.
++    var aborted = Bool(status.term_signal)
++    comptime if CompilationTarget.is_dolly():
++        aborted = status.exit_code.or_else(0) == 126
++    if not aborted:
+         var note = contains.map(
+             lambda (s: String) -> String: String(
+                 t' (expected substring: "{s}")'
+diff --git a/Mojo/stdlib/std/time/time.mojo b/Mojo/stdlib/std/time/time.mojo
+index 4443a45..7bf4b41 100644
+--- a/Mojo/stdlib/std/time/time.mojo
++++ b/Mojo/stdlib/std/time/time.mojo
+@@ -37,9 +37,13 @@ from std.sys._assembly import inlined_assembly
+ 
+ # Enums used in time.h 's glibc
+ comptime _CLOCK_REALTIME = 0
+-comptime _CLOCK_MONOTONIC = 1 if CompilationTarget.is_linux() else 6
+-comptime _CLOCK_PROCESS_CPUTIME_ID = 2 if CompilationTarget.is_linux() else 12
+-comptime _CLOCK_THREAD_CPUTIME_ID = 3 if CompilationTarget.is_linux() else 16
++# Dolly's libc numbers its clocks as Linux does.
++comptime _LINUX_CLOCKS = (
++    CompilationTarget.is_linux() or CompilationTarget.is_dolly()
++)
++comptime _CLOCK_MONOTONIC = 1 if _LINUX_CLOCKS else 6
++comptime _CLOCK_PROCESS_CPUTIME_ID = 2 if _LINUX_CLOCKS else 12
++comptime _CLOCK_THREAD_CPUTIME_ID = 3 if _LINUX_CLOCKS else 16
+ comptime _CLOCK_MONOTONIC_RAW = 4
+ 
+ # Constants
+@@ -80,7 +84,7 @@ def _clock_gettime(clockid: Int) -> _CTimeSpec:
+ 
+ @always_inline
+ def _gettime_as_nsec_unix(clockid: Int) -> Int:
+-    comptime if CompilationTarget.is_linux():
++    comptime if _LINUX_CLOCKS:
+         var ts = _clock_gettime(clockid)
+         return ts.as_nanoseconds()
+     else:

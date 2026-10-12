@@ -1,8 +1,18 @@
 # Image builds keep every dependency snapshot twice more than they need
 
 - STATUS: OPEN
-- PRIORITY: 220
+- PRIORITY: 180
 - TAGS: core,builder,memory
+
+## State (2026-10-12)
+
+Unchanged since it was filed: `src/runtime-worker.mjs` still writes every dependency artifact to
+`/etc/dolly/artifacts/` (line 173) and removes them only after the recipe has run (line 202).
+Not measured again since Cargo replaced Patti; the `cargo` image is now a copy of what
+`rust-build` built (`d678b040`), so the done-when's measurement needs another large image
+(`rust-build` itself, or `codex-build`).
+
+## The finding
 
 Found on the Cargo track (2026-10-06, `tasks/20260930-231102-cargo-native`).
 
@@ -48,4 +58,3 @@ its dependencies' size this way; a Codex builder was seen at about 10 GB.
 
 - The `cargo` image build stays within a few hundred MB of the same build in
   a session, measured the same way, and the image suites pass.
-

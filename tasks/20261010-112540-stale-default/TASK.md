@@ -1,6 +1,6 @@
 # daugasauron.com/default/ still answers 200 from Cloudflare's edge
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 120
 - TAGS: hosting,cloudflare
 
@@ -41,3 +41,13 @@ lacks": right in kind, wrong in extent (one URL, not the unversioned paths).
 Done when `https://daugasauron.com/default/` is 404 and
 `node scripts/published-version.mjs boot https://daugasauron.com v0.1.0
 v0.1.1` passes.
+
+## Closed (2026-10-12)
+
+`https://daugasauron.com/default/` answers 404 (curl from this machine, 2026-10-12 13:16 UTC): the
+kept copy is gone. On 2026-10-11 it was still the one thing
+`published-version.mjs boot https://daugasauron.com` stopped at.
+
+Not run: `boot` against daugasauron.com since. The site is slopshare.dev now, where `boot v0.1.0
+v0.1.1 v0.1.2` passes in both browsers on the same deployment and `/default/` is 404; what is
+left of the old domain is in `tasks/20261011-134500-slopshare`.

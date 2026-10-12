@@ -1,6 +1,6 @@
 # Bring Wine up inside Dolly: a classic Windows program on the Dolly display
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 150
 - TAGS: demo,wine
 
@@ -374,3 +374,18 @@ passing on `sockets@0` (above), for real processes.
 Next step, if x86 is to grow: generate callback thunks from the headers, add SSE2 scalar
 arithmetic (floating point), then pick a real program and follow its missing instructions and
 imports. If more programs of this Wine are wanted instead: ole32 and rpcrt4.
+
+## Closed (2026-10-12)
+
+What was asked for runs: Wine's own programs on the Dolly display, as the `wine` image
+(`878d9f3d`), in v0.1.1 and v0.1.2: a desktop with a taskbar and Start menu, Notepad, WineMine,
+ReactOS Paint and an x86-64 interpreter that runs TinyCC ("State after phase 2", above). Its
+browser test passes in Chromium and Firefox (`81241de1`) and ran in both release rounds. No core
+change was made.
+
+What came after has its own tasks: NetSurf (`tasks/20261010-114236-netsurf`), GIMP
+(`tasks/20261010-195200-gimp-in-wine`), Paint's text tool (`tasks/20261010-112539-paint-text`,
+open). Not taken up, each an owner's decision rather than a remainder: arbitrary x86 programs
+(callback thunks, floating point, the route through a modern Wine's PE DLLs, above), and a
+`wineserver` process of its own, which needs descriptor passing that `sockets@0` refuses
+(`tasks/20261007-074904-sockets-module`).

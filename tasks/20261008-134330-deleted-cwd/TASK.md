@@ -4,7 +4,11 @@
 - PRIORITY: 200
 - TAGS: bug,slop,shell
 
+## State (2026-10-12)
 
+Unchanged since it was filed on 2026-10-08: no fix and no test.
+
+## The defect
 
 Found on 2026-10-08 in a session of the v0.1.0 catalog (a custom image on
 `cmake-build`, Chromium), while bringing the Rust compiler build up.

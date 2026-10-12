@@ -1,6 +1,6 @@
 # Replace Patti with real Cargo over Dolly's libcurl
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 210
 - TAGS: rust,cargo,toolchain,network
 
@@ -595,3 +595,14 @@ seed with the empty suffix, explicit `runtime@0`, the libcurl follow-up.
   and builds ripgrep, fd, protox and Codex from their manifests; `cargo test`
   runs a small crate's tests; a git dependency over HTTPS resolves.
 - Patti, its recipes and tests are deleted; the Rust images use Cargo.
+
+## Closed (2026-10-12)
+
+Patti, its recipes and tests are deleted and the Rust images build with Cargo (`2370dc85`, in
+v0.1.1): Cargo built from pinned sources builds ripgrep, fd, cbindgen, protox and Codex from
+their manifests, in a real browser ("Patti removed", above; again in the release rounds of
+v0.1.1 and v0.1.2, Codex in 29 min 58 s). The second done-when line holds, and the first up to
+its semicolon.
+
+Not done: `cargo test` and a git dependency over HTTPS. They moved, with `cargo run` and the
+stopgaps still in place, to `tasks/20261009-110500-rust-followups`.

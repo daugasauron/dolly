@@ -4,6 +4,15 @@
 - PRIORITY: 80
 - TAGS: performance,wasm64,0ad
 
+## State (2026-10-12)
+
+Not worked on since it was filed. The numbers below are of the host-built engine of 2026-09-25;
+since 2026-10-07 the engine and SpiderMonkey are built inside Dolly, without debug info, and
+this workload has not been measured on them. The harness and evidence are under `.cache/0ad/`
+on this machine only.
+
+## The finding
+
 Follow-up to the [gameplay audit](../20260924-115634-0ad-gameplay-performance/TASK.md),
 checkpoint implementation `532a3c0` on `codex/0ad-baseline-20260923`.
 The rendering/selection fixes are verified, but developed matches still hitch.

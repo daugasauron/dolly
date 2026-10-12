@@ -1,8 +1,35 @@
-# Port Xonotic: DarkPlaces over gpu@0, built inside Dolly
+# Xonotic runs in software; the gpu@0 renderer and sound are not started
 
 - STATUS: OPEN
-- PRIORITY: 240
+- PRIORITY: 200
 - TAGS: demo,gpu,audio,port
+
+## State (2026-10-12)
+
+On the domain since v0.1.0 as `/xonotic/`: the dedicated server, the SDL client and gmqcc build
+inside Dolly from the pinned release; the menu and a bot match on the stock maps play with
+keyboard and captured mouse, drawn by the engine's own software rasterizer at 1024×768. The
+second pointer the owner saw is fixed (`demos/sdl2/SDL_dollyvideo.c`). Its browser test passed in
+each release round (in v0.1.1's alone, once a recording the worktree lacked was copied in). The licence pass with its asset pass, the pins, and `timedemo` rates in Dolly
+and native are recorded below; the owner accepted the pass's two open points on 2026-10-07
+(`tasks/20261007-133708-v010`, "The owner's gates").
+
+Left, against the done-when:
+
+- **The `gpu@0` renderer**: `vid_dolly.c`, `dpgpurast.c` and the `normal` preset's shaders as
+  WGSL (route (a), "Decisions for the owner" 1 and 2). Not started; the software path is the
+  interim one. The done-when's "on a hardware adapter" waits for it.
+- **Sound**: the client has the null sound unit. Recommended and not started: an SDL2 audio
+  backend over `audio@0` in `demos/sdl2`, which every SDL port would share (decision 3).
+- **Speed**, the owner's remark ("needs better performance tuning"): 31 fps at the low preset
+  and 13 at normal in Chromium, on one rasterizer thread; a map takes about two minutes to
+  load.
+- With the `gpu@0` path: the README's list of effects that are off, each with the `gpu@0`
+  limit it waits for. Today it lists what the low preset turns off.
+
+Lowered from 240: it plays; what is left is the larger half and nobody is on it.
+
+## The request
 
 Owner (2026-10-07, after playing `/xonotic/`): "The Xonotic stuff is really
 good but needs better performance tuning, also the 'normal' mouse doesn't get
@@ -14,8 +41,7 @@ something visually striking." Then: "I like Xonotic", and "Add a task to tatr
 to do this port."
 
 Xonotic is an arena shooter on the DarkPlaces engine. Bot matches run client
-and server in one process, so they need no sockets. Nothing has been built or
-run for this yet: the measurements below are of upstream's source only.
+and server in one process, so they need no sockets.
 
 ## Licence (pass of 2026-10-07, branch `docs/xonotic-licences`)
 
@@ -808,42 +834,6 @@ measured faster than it.
    Either an SDL2 audio backend over `audio@0` in `demos/sdl2`, which serves
    every SDL port, or a `snd_dolly.c` beside `snd_sdl.c`. Recommended: the
    SDL2 backend, since the gap is the package's.
-
-## Work
-
-In order; each step leaves something that runs. Steps 1 to 4 were done on
-2026-10-07 morning (branch `demo/xonotic`; sections above record them); the
-data is pinned but not yet staged as image sources.
-
-1. Pin Xonotic's current release and the engine commit it ships. Stage the
-   data as `SOURCE` chunks like 0 A.D.'s and record the sizes. Done, except
-   the staging, whose shape is decided above.
-2. Native baseline on the host, for measurement only and never a build input:
-   for each Xonotic preset, log the shader mode and permutation pairs,
-   framebuffer formats and GL features a bot match uses, and its `timedemo`
-   frame rate. Done on llvmpipe.
-3. Headless in Dolly: build the dedicated-server configuration (`*_null.c`)
-   with `cc` and Make and run a bot match to its end. This proves the
-   filesystem, pk3 loading and the QuakeC VM before any graphics. Done:
-   `xonotic-build` and `demos/xonotic/test/xonotic-browser.mjs`, Chromium
-   and Firefox.
-4. QuakeC: the game logic is compiled to `.dat` files. Build it inside Dolly
-   with Xonotic's compiler (gmqcc, unverified), or record the prebuilt files
-   as a bootstrap exception in the demo README. Done: gmqcc builds in Dolly
-   and the test plays its second match on the `progs.dat` built there.
-5. Client: rendering by decision 1, SDL2 input with relative mouse and capture
-   as `bhop` has, sound by decision 3. Started 2026-10-07: the SDL client
-   builds in Dolly and draws through the engine's software rasterizer
-   (interim; "Client findings" above); the `gpu@0` path (`vid_dolly.c`,
-   `dpgpurast.c`, the `normal` preset's shaders in WGSL) and sound are not
-   started.
-6. `demos/xonotic/`: recipes, sources, `prepare-sources.sh`, tests, README and
-   the licence rows. Done for what exists: `xonotic-build`, `xonotic`, the
-   browser test, README, `config/upstreams.json` rows and a `docs/licences.md`
-   section; the asset pass is not done.
-
-Not in scope: network multiplayer (raw sockets are unsupported; 0 A.D.'s relay
-over the broker is the precedent) and an agent player.
 
 ## Done when
 

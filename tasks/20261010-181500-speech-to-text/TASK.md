@@ -1,6 +1,6 @@
 # An image that boots into speech-to-text from the microphone
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 150
 - TAGS: demo,speech,microphone
 
@@ -113,3 +113,16 @@ threads; "Dolly" is Chrome on this desktop):
   streaming model, so a line is heard again from its start whenever the model is free: 0.36 s
   for 10 s of speech here. Speech is told from other sound by Silero VAD 6.2 (1.2 MB, MIT)
   through the same engine instead of by level.
+
+## Closed (2026-10-12)
+
+The image is `demos/speech/` (`88a8003f`, then Parakeet and a speech detector in `8a7fd584`), in
+v0.1.2 on the domain and on GitHub Pages. In its release round `speech` and `speech refused`
+passed (`tasks/20261011-011000-v012-draft`); `speech-browser.mjs` ran in Chromium and Firefox
+("Verified", above).
+
+The item this stayed open for, the owner's own voice on a real microphone, happened on
+2026-10-10 with a Bluetooth headset ("The owner's verdict", above); that verdict changed the
+model. The owner then: "I really like this setup." His verdict on the new model at a desk is not
+recorded; on his phone it heard him and was slow, and speed there is in
+`tasks/20261010-193000-phone-voice-pi`.

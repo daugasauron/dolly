@@ -6,20 +6,26 @@ For the CLI, follow the upstream build instructions. Revision `9b0d752` is insta
 
 ```sh
 tatr ls
-tatr ls :audit and priority ge 200
+tatr ls :core and priority ge 150
 tatr ls :bug
 tatr summary
 tatr new -p 200 -t bug,filesystem -s alice-01 "Describe the problem"
 ```
 
-Higher priorities sort first. Rank reproduced bugs and measured iteration costs
-ahead of file reorganization; use `tatr ls` for the current remaining work.
-Use a unique suffix when creating multiple tasks in the same second.
-Put reproduction steps, evidence, and completion criteria in the task body.
-Set `STATUS: CLOSED` after verifying the fix and record the result or commit;
-`tatr ls -c` lists closed issues; `tatr find ID`, `tatr ref ID` and `tatr untag` exist too. The CLI has no `close` command.
+An open task is something still to do. After its properties it has a dated "State" section
+that says what is done and exactly what is left; when that changes, rewrite the section instead
+of appending another. Reproduction steps, evidence and the done-when go in the body.
 
-The `audit` tasks tagged before 2026-09-30 come from the 2026-09-13 review of deployed
-main at `ff633f7`. Tasks `20260930-100000-audit-*` come from the 2026-09-30 takeover
-audit of main `4340d03`; each records whether a finding was reproduced in a browser,
-confirmed by reading, or suspected. Local evidence paths may not exist in a fresh clone.
+Higher priorities sort first. Rank reproduced bugs and measured iteration costs ahead of file
+reorganization; a task that waits for the owner says so in its State and ranks low.
+
+Close with `- STATUS: CLOSED` after verifying the done-when, in a closing section with the date
+and the evidence (commit, release tag, test). A part that is not done and still wanted moves to
+the task where it belongs first. The CLI has no `close` command; `tatr ls -c` lists closed
+tasks, `tatr ref ID` what refers to one. Closed tasks are history and are not rewritten.
+
+Use a unique suffix (`-s`) when creating several tasks in the same second. `tasks/tags`
+describes every tag in use, one per line. The `audit` tag marks findings of the audits of
+2026-09-13 (main `ff633f7`) and 2026-09-30 (main `4340d03`). Evidence paths under `build/`,
+`.cache/` and `work/` exist only on the machine that produced them. Four closed tasks of
+September have ids without a time of day, so `tatr` does not list them.
