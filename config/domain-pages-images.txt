@@ -44,3 +44,6 @@ libuv
 lua
 raylib
 box3d
+pkgconf
+libpng
+freetype
