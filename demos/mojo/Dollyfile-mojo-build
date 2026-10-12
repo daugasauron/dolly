@@ -24,6 +24,7 @@ REQUIRES TOOL patch
 REQUIRES TOOL time
 REQUIRES TOOL cp
 REQUIRES TOOL mkdir
+REQUIRES TOOL rm
 REQUIRES TOOL sha256sum
 REQUIRES TOOL cut
 
@@ -74,6 +75,7 @@ SLOP cp /opt/mojo-llvm/LICENSE.zstd /usr/share/licenses/mojo/LICENSE.zstd
 SLOP cp /tmp/mojo/fmt/LICENSE /usr/share/licenses/mojo/LICENSE.fmt
 SLOP cp /tmp/mojo/xxhash/LICENSE /usr/share/licenses/mojo/LICENSE.xxhash
 SLOP cp /tmp/mojo/opentelemetry/LICENSE /usr/share/licenses/mojo/LICENSE.opentelemetry
+SLOP rm -rf /tmp/mojo /tmp/mojo.tar.gz
 
 FOLDER /opt/mojo
 FOLDER /usr/share/licenses/mojo
