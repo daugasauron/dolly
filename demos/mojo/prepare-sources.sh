@@ -66,3 +66,8 @@ if has_image mojo-build; then
     demos/mojo/mojo-dolly.patch /tmp/mojo/mojo-dolly.patch \
     demos/mojo/target/patches /tmp/mojo/target/patches demos/mojo/target/gpu /tmp/mojo/target/gpu
 fi
+if has_image mojo; then
+  for example in hello saxpy mandelbrot; do
+    copy_static "demos/mojo/target/test/fixtures/${example}.mojo" "mojo/examples/${example}.mojo"
+  done
+fi

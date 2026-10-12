@@ -55,6 +55,8 @@ try {
       await run(`curl -fsS ${server.origin}/fixture/hello_writing.mojo | sed 's/^from max\\.gpu\\.host import/from gpu.host import/' > upstream_hello.mojo`);
       await run("mojo build upstream_hello.mojo && ./upstream_hello | grep -qx 'GPU responded: 👋, 🔥'");
       await run("./mandelbrot > set.txt && grep -q '^ *[.:=+*#%@-]*@\\{40\\}' set.txt && grep -qx 'MOJO-MATMUL wrong: 0 of 576 6.0' set.txt");
+      // The image's own copies of three of them, as its greeting says.
+      await run("(cd ~/mojo && mojo build -o /tmp/mojo-test/shipped mandelbrot.mojo) && ./shipped | grep -qx 'MOJO-MATMUL wrong: 0 of 576 6.0'");
       // An object is what cc links; a package precompiled here is imported by name.
       await run("mojo build --emit object -o hello.o hello.mojo && cc hello.o -lmojo-rt -o hello-linked && ./hello-linked | grep -qx 'hello from mojo'");
       await run("mkdir shapes && " + writeCommand("shapes/__init__.mojo", "def area(width: Int, height: Int) -> Int:\n    return width * height\n"));

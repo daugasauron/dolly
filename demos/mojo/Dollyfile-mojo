@@ -32,9 +32,23 @@ EXPORTS TOOL mojo
 EXPORTS FOLDER mojo-packages /usr/lib/mojo
 EXPORTS FOLDER mojo-licenses /usr/share/licenses/mojo
 
-FILE /tmp/mojo-check/hello.mojo
-    def main():
-        print("hello from mojo")
-SLOP CWD /tmp/mojo-check slop -c 'mojo build hello.mojo && test "$(./hello)" = "hello from mojo"'
+# Programs to start from: the target's test programs, as they are tested.
+SOURCE /v0.1.2/dist/static/mojo/examples/hello.mojo d4e226386de30b33dba73929f423f9c820f482edc771bdd2b0a625b204fd25e5 /home/dolly/mojo/hello.mojo
+SOURCE /v0.1.2/dist/static/mojo/examples/saxpy.mojo 15035ff21b6e8a5c00ba7f7ac62ab28f33663fa1df00e54ab7ecf0c6cee4d891 /home/dolly/mojo/saxpy.mojo
+SOURCE /v0.1.2/dist/static/mojo/examples/mandelbrot.mojo 08b7af85c9f3ee75311940c02c7392d327622faa3741b51ee5b627dbdbb16d6c /home/dolly/mojo/mandelbrot.mojo
+FOLDER /home/dolly/mojo
+FILE /home/dolly/.dollyrc
+    echo 'DOLLY / MOJO: the Mojo compiler, compiled inside Dolly, and WebGPU.'
+    echo '  cd ~/mojo && mojo build mandelbrot.mojo && ./mandelbrot    kernels on the GPU'
+    echo '  mojo build hello.mojo && ./hello'
+    echo 'There is no mojo run here: build, then run.'
+    echo
+
+# The compiler and the link work here; a kernel runs where there is a GPU.
+REQUIRES TOOL mkdir
+REQUIRES TOOL test
+SLOP mkdir /tmp/mojo-check
+SLOP CWD /home/dolly/mojo slop -c 'mojo build -o /tmp/mojo-check/hello hello.mojo && test "$(/tmp/mojo-check/hello)" = "hello from mojo"'
+SLOP CWD /home/dolly/mojo slop -c 'mojo build -o /tmp/mojo-check/saxpy saxpy.mojo && mojo build -o /tmp/mojo-check/mandelbrot mandelbrot.mojo'
 
 ENTRY /bin/foreground -i /bin/slop

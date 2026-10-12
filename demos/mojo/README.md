@@ -24,11 +24,12 @@ Programs for Dolly, their runtime and GPU kernels: [target](target/README.md).
 
 ## Using it
 
-Open the `mojo` image (`/mojo/`):
+Open the `mojo` image (`/mojo/`). `~/mojo` holds three programs:
 
 ```sh
-printf 'def main():\n    print("hello from mojo")\n' > hello.mojo
+cd ~/mojo
 mojo build hello.mojo && ./hello
+mojo build mandelbrot.mojo && ./mandelbrot    # the set as text, from a kernel on the GPU
 ```
 
 - `mojo build` compiles for Dolly when given no `--target-triple`

@@ -47,6 +47,11 @@ Final builds (02:05 to 02:20, machine otherwise idle): `mojo-llvm` `make`
 38 s in a 6 GB slot (4.7 GB anonymous while it copies out of `mojo-build`'s
 snapshot), 252 MB.
 
+The image greets with two commands and holds three of the target's test
+programs in `~/mojo`; `mojo build mandelbrot.mojo && ./mandelbrot` there
+prints the set, computed by a kernel on WebGPU (02:47, Chrome headless). The
+test passed again in the three browsers with them (02:45).
+
 Not done, and not filed: no `PACKAGE` of the compiler for `amy install`
 (the image needs `gpu@0` only because the runtime's base is `gpu-sdk`);
 `mojo build --print-supported-targets` lists nothing;
@@ -189,14 +194,14 @@ hello.mojo` 2.5 s and 171 MB, a 3,534 byte Wasm object, the same bytes twice.
 `strace -f` counts no `clone` in that build and 15 in the build with threads:
 the single-thread work queue is the default and nothing starts a thread.
 
-## Disk (2026-10-13 00:30)
+## Disk (2026-10-13)
 
 The native check took 29 GB under `build/mojo-native` at its peak (two LLVM
-build trees of 6.9 and 6.3 GB, three compiler trees of 2.6 GB). The finished
-trees are deleted; 6.8 GB remain (one LLVM as headers and archives, one
-compiler tree) and nothing more is to be built natively. The images add
-about 4 GB of snapshots to `dist/` (`mojo-llvm` 731 MB, `mojo-build` under
-1 GB, each built twice tonight).
+build trees of 6.9 and 6.3 GB, three compiler trees of 2.6 GB). All of it is
+deleted (02:43). What stays: the two pinned checkouts in `.cache`
+(`mojo-llvm-…` 2.5 GB, `modular-…` 82 MB) and four snapshots in `dist/`
+(`mojo-llvm` 731 MB, `mojo-build` 831 MB, `mojo` 252 MB, `mojo-runtime`
+152 MB).
 
 ## The chain with Zstandard and the target's patches (2026-10-13)
 
