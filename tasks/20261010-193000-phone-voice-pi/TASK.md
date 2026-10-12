@@ -1,8 +1,39 @@
-# A phone image: Pi driven by buttons and speech, no keyboard
+# Phone: Pi by buttons and speech (parked), and touch for programs
 
 - STATUS: OPEN
-- PRIORITY: 200
-- TAGS: demo,speech,pi,phone,host
+- PRIORITY: 100
+- TAGS: demo,speech,pi,phone,host-modules
+
+## State (2026-10-12)
+
+In v0.1.2, on the domain: the `pi-phone` image, `voice`, `buttons@0` (`7a6daada`, `c6fed63f`),
+the 48-column font rule (`870b6ab4`), and in `host/input` a finger's drag that scrolls the
+terminal and a pinch that changes the font's size (`c6fed63f`, `077bb981`). "Done means" 1 to 6
+are met in Chrome's phone emulation and on the owner's phone ("Result", "On the owner's phone").
+
+Parked by the owner on 2026-10-10: "I want to park this locally for now and focus on the wine
+stuff." Lowered from 200 for that reason. Open, in the order to take it up:
+
+1. **Hearing is slow on a phone** (1.8 times as fast as speech, against 29 on this desktop):
+   whether the phone's Chrome has WebGPU and transcribe.cpp's ggml a backend for it over
+   `gpu@0`; more threads (Dolly does not tell a program how many cores there are); why the Wasm
+   build is a quarter of the native one's speed.
+2. **The stray reply in Pi's prompt** on a slow device: `tasks/20261010-234000-pi-stray-reply`.
+3. **The owner's verdict on `buttons@0`**: "Keep it as is for now, I want to try it before
+   rejecting it." Keep, rename (`keypad@0`), or have the terminal reserve rows; the last two
+   change the seed ("The owner on the module's shape").
+4. **Touch for programs**, from `tasks/20261005-222057-touch-input` (closed into this task).
+   Owner (2026-10-06): "a smartphone-input module so it's easy to write programs for phones
+   (respond to touch, drag etc), and a simple image with some demo to prove/test that it works
+   nicely." Not built: a program still gets a finger as the one pointer of `input@0`, with no
+   contact id, so no second finger and no pinch of its own. Wanted there: contact records (id;
+   down, move, up, cancel; position; pressure and radius where the browser gives them) in a
+   bounded ring; gestures as a C library in Wasm; a demo image that draws with several fingers,
+   drags and pinches, tested with emulated multi-touch in Chrome and Firefox and by hand on a
+   phone. The record layout sketched for it ("Touch, later") is in
+   `tasks/20261002-072000-input-host-module`. Not measured either: a graphics image on a phone.
+
+## The request
 
 Owner (2026-10-10), after trying `speech-to-text`: "The model for speech to text is okay but it
 misinterprets a lot of things. Are there better models or like tuning available?" and then:

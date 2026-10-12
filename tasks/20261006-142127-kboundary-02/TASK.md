@@ -1,6 +1,6 @@
 # Call kernel exports by their contract names; drop the _NAME object
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 150
 - TAGS: core,cleanup,boundary
 
@@ -34,3 +34,10 @@ made straight on the exports object are likelier to hit that is not known.
 - The failure is explained (reproduced without the rename, or traced to it),
   the call sites use the exports' names, the one-line object is gone, and the
   browser suites pass in Chrome and Firefox, the terminal suite twenty times.
+
+## Closed (2026-10-12)
+
+Folded into `tasks/20260930-100000-audit-24` as its item 8: both are the clean-up of trusted
+browser code. Nothing changed here since it was filed: `main` has 52 `dolly._NAME` call sites in
+ten files, the rename stays on `core/kernel-boundary-rename` (`e63b04f1`), and the Firefox
+failure is not explained. The done-when moved with it.

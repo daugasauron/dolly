@@ -4,6 +4,16 @@
 - PRIORITY: 40
 - TAGS: core,process,abi,slop,design
 
+## State (2026-10-12)
+
+Not started, by the owner's word ("very low priority for now"). Operation 61 is still free on
+`main`; 58 and 60 are taken on `core/file-modes-2` (`tasks/20261006-120641-umask`), 59 is locks.
+Asked for since: `cargo run`, which builds and then fails because Cargo `exec`s the program
+(`tasks/20261009-110500-rust-followups`). The uses seen in real scripts are listed in
+`tasks/20261006-121403-configure-survey` (closed).
+
+## The request
+
 Owner (2026-10-06, 21:45): "I think real execve sounds better?", then: "keep
 the real execve path but its very low priority for now." Asked while
 Slop was being run against real `configure` scripts: libtool's generated

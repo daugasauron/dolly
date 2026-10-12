@@ -1,0 +1,14 @@
+DOLLY 7
+PACKAGE voice
+REQUIRES HOST runtime@0
+REQUIRES HOST buttons@0
+REQUIRES HOST microphone@0
+REQUIRES HOST threads@0
+
+# voice as speech-build links it against transcribe.cpp, with the model it
+# reads: buttons and speech in the place of a keyboard, beside a terminal program.
+FROM /v0.1.2/demos/speech/Dollyfile-speech-build c57e041d1691ee763753830a48736f10d8247cc0f4c0ccccf9210a530f5ccbb4
+INSTALL /v0.1.2/demos/speech/Dollyfile-parakeet c0e95b7689cd55a55d68bebf3aaf4feb84eb216be54378d4de38e244c442fde4
+
+EXPORTS TOOL   voice
+EXPORTS FOLDER transcribe-licenses /usr/share/licenses/transcribe.cpp

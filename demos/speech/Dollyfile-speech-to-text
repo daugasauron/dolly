@@ -11,21 +11,7 @@ REQUIRES HOST threads@0
 REQUIRES HOST upload@0
 
 FROM /v0.1.2/Dollyfile-system cb003619fa38f3340386739e0df6a500c95f5ff040b1efb6804461adf294b259
-COPY /v0.1.2/demos/speech/Dollyfile-speech-build c57e041d1691ee763753830a48736f10d8247cc0f4c0ccccf9210a530f5ccbb4 /usr/bin/speech-to-text /usr/bin/speech-to-text
-COPY /v0.1.2/demos/speech/Dollyfile-speech-build c57e041d1691ee763753830a48736f10d8247cc0f4c0ccccf9210a530f5ccbb4 /usr/share/licenses/transcribe.cpp /usr/share/licenses/transcribe.cpp
-EXPORTS TOOL speech-to-text
-
-# NVIDIA's Parakeet TDT-CTC 110M, 8-bit weights: English. Silero VAD tells speech from other sound.
-SOURCE /v0.1.2/dist/static/speech/parakeet-tdt_ctc-110m.gguf 7dd44c74a331d788a4e5f8b16913b3feb29ced22cf5613aad0e0f6cd30516296 /usr/share/dolly/speech/parakeet-tdt_ctc-110m.gguf
-SOURCE /v0.1.2/dist/static/speech/silero-vad.gguf 0d871a800c420fdd5d1b17a3aea4296d1c39608f0ff4a9295eb76457eb1c88e6 /usr/share/dolly/speech/silero-vad.gguf
-SOURCE /v0.1.2/dist/static/speech/CC-BY-4.0.txt 9ba9550ad48438d0836ddab3da480b3b69ffa0aac7b7878b5a0039e7ab429411 /usr/share/licenses/parakeet/CC-BY-4.0.txt
-FILE /usr/share/licenses/parakeet/NOTICE
-    Parakeet TDT-CTC 110M, by NVIDIA: https://huggingface.co/nvidia/parakeet-tdt_ctc-110m
-    Licensed under the Creative Commons Attribution 4.0 International License (CC-BY-4.0.txt).
-    Changed: converted to GGUF and quantized to 8 bits by the authors of transcribe.cpp,
-    https://huggingface.co/handy-computer/parakeet-tdt_ctc-110m-gguf
-EXPORTS FOLDER speech-models /usr/share/dolly/speech
-EXPORTS FOLDER parakeet-license /usr/share/licenses/parakeet
+INSTALL /v0.1.2/demos/speech/Dollyfile-transcribe 69c07ee6144ad01171fc4c2b74d24096e8cdacb1b89cdd7630f8e8496fba8c80
 
 FILE /etc/dolly/init.slop
     /bin/foreground -i /usr/bin/speech-to-text

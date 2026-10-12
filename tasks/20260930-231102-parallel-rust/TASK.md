@@ -1,6 +1,6 @@
 # Run build tools' jobs in parallel
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 230
 - TAGS: rust,build,iteration
 
@@ -137,3 +137,18 @@ concurrent spawns a supervisor memory budget (the cap is 32 processes,
 Replace the fixed 32-process cap with a supervisor memory budget (admit a spawn
 while committed Wasm memory stays under a page budget), keeping a hard count
 limit as a backstop. Until then LLVM-sized builds run at `-j4`.
+
+## Closed (2026-10-12)
+
+Builds run their jobs in parallel: GNU Make `-jN` over its upstream jobserver, Slop's concurrent
+program stages and `xargs -P` (2026-10-01, above), and since v0.1.1 Cargo, which replaced Patti
+(`2370dc85`): Codex's 963 crates in 28 min 41 s (2026-10-09), where `codex-build` had taken
+3,980 s with Patti one crate at a time.
+
+The done-when also asks for the same outputs as a serial build. That was shown for Patti's
+ripgrep, fd and protox (byte-identical at `-j 1` and `-j 4`, above) and never for Codex; under
+Cargo it is not measured (`tasks/20261009-110500-rust-followups`).
+
+Moved to `tasks/20260930-100000-audit-53`, the one task for iteration cost: Ninja's serial
+spawn, the fixed 32-process cap and its decided replacement, and the serial part of each `cc`
+launch.
