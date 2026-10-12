@@ -11,11 +11,12 @@ works for GPU compute." The compiler itself is
 ## For the compiler's side (`demos/mojo/`, task mojo-compiler)
 
 What a compiler built in Dolly must carry for its programs to run here; all
-of it is in `demos/mojo/target/` and described in its README. The patches
-and the package `gpu` are settled at `ddad69d6` (2026-10-13 01:04): after it
-only tests and notes change, unless a fault is found. One was, in the
-runtime recipe alone (a read of more than 16 MiB), so `mojo-runtime` and the
-pin of what is built `FROM` it are of the commit after this line's.
+of it is in `demos/mojo/target/` and described in its README. Take the
+patches, the package `gpu` and the runtime recipe from the head of
+`demo/mojo-target`: two faults were found after `ddad69d6` and are fixed
+there (a read of more than 16 MiB, in the runtime recipe; a kernel loop that
+clears or copies, which LLVM turned into `memset` and the target refused,
+in `compiler.patch`). The fixtures of the head need the patches of the head.
 
 - Apply `patches/compiler.patch` and `patches/stdlib.patch` to the tag
   `mojo/v1.1.0`. The compiler patch needs LLVM's WebAssembly backend linked
@@ -93,9 +94,12 @@ Checked beyond the fixtures, with the host computing the same Mojo function
 values, twelve float comparisons with and without a NaN, pointers that
 advance in a loop or are chosen between two places of one buffer, a local
 array, loads from buffers of bytes and of 16-bit integers, thirteen math
-functions within 7e-6 on the GPUs. One thing was wrong and is fixed:
+functions within 7e-6 on the GPUs, loops that copy and clear rows of a
+length known only when they run. Two things were wrong and are fixed:
 `isnan` printed as `x != x` is false on SwiftShader, because WGSL lets a
-compiler assume there is no NaN; the target now reads the bits.
+compiler assume there is no NaN, so the target reads the bits; and LLVM
+turned a loop that clears into `memset`, which WGSL has not, so a kernel is
+compiled with `no-builtins`.
 
 How it is built, what a kernel may contain and what is refused:
 `demos/mojo/target/README.md`. Refusals measured: a `Float64` kernel fails
