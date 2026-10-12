@@ -156,3 +156,32 @@ trees are deleted; 6.8 GB remain (one LLVM as headers and archives, one
 compiler tree) and nothing more is to be built natively. The images add
 about 4 GB of snapshots to `dist/` (`mojo-llvm` 731 MB, `mojo-build` under
 1 GB, each built twice tonight).
+
+## The chain with Zstandard and the target's patches (2026-10-13)
+
+- `mojo-llvm` again, with Zstandard and `wasm64-unknown-dolly` as the default
+  target (01:06, Chrome): Zstandard's 30 units 5 s, configure 124 s, `make`
+  3,048 s, image 3,237 s (54 minutes), snapshot 731.5 MB.
+- `mojo-build` with `demos/mojo/target/patches` (01:17): `make -k -j3`
+  596 s; `Mojo 1.1.0 (c6fa49f7+dolly.12975345)`; `mojo precompile` of the
+  standard library 22.4 s and of the package `gpu` 1.2 s, in the recipe;
+  image 673 s, snapshot 831 MB.
+- `mojo` stopped in its own check: `mojo build hello.mojo` compiled, started
+  `cc`, and reported `failed to link executable: Error waiting for child
+  process: Not supported`. LLVM's `sys::Wait` always passes `wait4` a
+  `rusage`; Dolly's `wait4` answers `ENOTSUP` to one
+  (`src/process/libc-adapter.c`: it does not account children).
+  `demos/mojo/llvm-wait.patch` makes LLVM wait with `waitpid` on Dolly and
+  report no statistics; `mojo-llvm` is building with it (third build).
+- Meanwhile, that `mojo` and `std.mojoc`, copied out of the snapshot into a
+  `system` session with `libmojo-rt.a` (Chrome 151 headless):
+  `mojo build --emit object hello.mojo` 5.1 s, `cc hello.o libmojo-rt.a -o
+  hello`, `./hello` prints `hello from mojo`; `library.mojo` 7.8 s and prints
+  `MOJO-LIBRARY 6 5 29 True 2 7.25 True`; `tasks.mojo` 4.3 s and prints
+  `MOJO-TASKS 33 6`. No `--target-triple` was given. The first `mojo-build`'s
+  binary ran the standard library's precompile to its last step in Chrome and
+  in Firefox, 26 s in both.
+- Memory: the scope's `memory.current` counts the file cache (about 1 GB
+  while a 731 MB snapshot is served). With it, `mojo-build` at three jobs
+  peaked at 8.96 GB of the 9 GB cap; the anonymous part is logged in the next
+  run.
