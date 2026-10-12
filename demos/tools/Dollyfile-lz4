@@ -1,0 +1,55 @@
+DOLLY 7
+PACKAGE lz4
+REQUIRES HOST runtime@0
+
+# LZ4 from the files of upstream's release archive, unchanged: lz4 and liblz4,
+# with the files and flags of upstream's Makefiles for one thread (a -pthread
+# program would need threads@0). unlz4 and lz4cat are lz4 under the names it
+# looks for. The library is BSD-licensed and the program GPL-2.0-or-later.
+FROM /v0.1.2/Dollyfile-system-tools a79e48b88e5552cc965f0aa06dd9d28c05712649cc7b059036eb6a3857665632
+
+REQUIRES HEADER libc
+REQUIRES TOOL   ar
+REQUIRES TOOL   cc
+REQUIRES TOOL   cmp
+REQUIRES TOOL   cp
+REQUIRES TOOL   ln
+REQUIRES TOOL   make
+REQUIRES TOOL   tar
+
+SOURCE /v0.1.2/dist/static/tools/lz4.tar 4d09752b58d1c0051e1fc94321767836d78c6cdc095d4016ff0a595f7d5656b7 /tmp/lz4.tar
+SLOP tar -xf /tmp/lz4.tar -C /
+
+FILE /tmp/lz4.mk
+    .RECIPEPREFIX := >
+    S := /tmp/lz4
+    BIN := /usr/bin
+    LIB := /usr/lib
+    LIBRARY := $(wildcard $S/lib/*.c)
+    PROGRAM := $(wildcard $S/programs/*.c)
+    all: $(BIN)/lz4
+    $S/%.o: $S/%.c
+    >cc -O2 -I $S/lib -DXXH_NAMESPACE=LZ4_ -c $< -o $@
+    $(LIB)/liblz4.a: $(LIBRARY:.c=.o)
+    >ar rcs $@ $^
+    $(BIN)/lz4: $(PROGRAM:.c=.o) $(LIB)/liblz4.a
+    >cc $^ -o $@
+SLOP make -j4 -f /tmp/lz4.mk
+SLOP ln -s lz4 /usr/bin/unlz4
+SLOP ln -s lz4 /usr/bin/lz4cat
+SLOP cp /tmp/lz4/lib/lz4.h /tmp/lz4/lib/lz4hc.h /tmp/lz4/lib/lz4frame.h /usr/include
+
+SLOP lz4 -9 -c /tmp/lz4/lib/lz4.h | unlz4 | cmp - /tmp/lz4/lib/lz4.h
+SLOP lz4 -q /tmp/lz4/lib/lz4.h /tmp/lz4-check.lz4 && lz4cat /tmp/lz4-check.lz4 | cmp - /tmp/lz4/lib/lz4.h
+
+EXPORTS TOOL   lz4
+EXPORTS TOOL   unlz4
+EXPORTS TOOL   lz4cat
+EXPORTS LIB    lz4      /usr/lib/liblz4.a
+EXPORTS HEADER lz4      /usr/include/lz4.h
+EXPORTS HEADER lz4hc    /usr/include/lz4hc.h
+EXPORTS HEADER lz4frame /usr/include/lz4frame.h
+FILE /usr/share/licenses/lz4/LICENSE
+FILE /usr/share/licenses/lz4/lib-LICENSE
+FILE /usr/share/licenses/lz4/programs-COPYING
+FILE /usr/share/man/man1/lz4.1

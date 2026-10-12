@@ -19,3 +19,121 @@ built inside Dolly from a pinned source, each with its check in
   terminfo library).
 - The rule for what is a package is in
   [packages](../20261012-130814-packages/TASK.md), "What makes sense".
+
+## 2026-10-13: the tools demo (branch `core/more-packages`)
+
+The packages live in `demos/tools/`: recipes, `prepare-sources.sh`, a README
+with one row each. Every one is `FROM system-tools` and built by `cc` there
+with a Makefile in the recipe, as `less` is: Slop runs no configure script, so
+the recipe states the answers. Nothing at the top level grew except pins
+(`config/source-pins.sh`), `config/upstreams.json`, `docs/licences.md`,
+`config/domain-pages-images.txt` and the checks in `test/amy-browser.mjs`.
+No image input changed.
+
+### Decisions
+
+- **Names** are the command a person types: `sqlite`, `jq`, `xz`, `zstd`,
+  `bzip2`, `lz4`, `zip`, `unzip`, `tree`, `bc`, `vi`, `xxd`, `base64`.
+- **One package per upstream**, the tool with its library and headers where
+  upstream has a library (`sqlite`, `xz`, `zstd`, `bzip2`, `lz4`): none
+  installs `cc`. `zip` installs `unzip`, because `zip -T` starts it; `sqlite`
+  installs `zlib`, which its shell links for archives.
+- **One thread** everywhere (`SQLITE_THREADSAFE=0`, xz `--disable-threads`,
+  zstd and lz4 without their thread pools): a `-pthread` program needs
+  `threads@0`, and so would every program linking such a library.
+- **SQLite locks a database for the process that has it open**
+  (`SQLITE_DEFAULT_LOCKING_MODE=1`). A write-ahead log keeps its index in a
+  mapping two processes share; `docs/process-model.md` says a mapping is a
+  private copy written back at `munmap`, so two processes on one WAL database
+  would each see a stale index and the last to close would checkpoint with
+  it. In exclusive mode the index is heap memory and the second process gets
+  `database is locked`, which the test asserts. `SQLITE_OMIT_WAL` was the
+  other honest setting; it makes every WAL database (most that people
+  download) unreadable. No loadable extensions (`dlopen` needs `-rdynamic`
+  and `dso@0`).
+- **bc is Gavin Howard's** (FreeBSD's and macOS's): GNU bc generates
+  `libmath.h` with `ed`, and its release is no newer.
+- **vi is Neatvi**: nano needs a curses library with a terminfo database and
+  generated sources; Neatvi draws with its own escape sequences, builds from
+  twenty C files and has an `ex` mode for scripted edits.
+- **xz**: upstream's `mythread.h` gives a Wasm target other than Emscripten
+  no `mythread_sigmask`. Dolly has `sigprocmask`, so the recipe says
+  `-Dmythread_sigmask=sigprocmask` for the program's objects rather than
+  claiming `__EMSCRIPTEN__`.
+- **xxd** is one file of Vim's repository at a tag, with its manual page;
+  **base64** is Alfred Klomp's (a library and a program with GNU's `-d` and
+  `-w`), built with none of its x86 and ARM codecs.
+- **Lines typed at the terminal** (see the measurement below): `sqlite3` is
+  built with linenoise 2.0, which upstream's configure supports
+  (`--with-linenoise`); `dc` is given bc's line editor (`dc.tty_mode`, off by
+  default upstream); Neatvi leaves Enter to the terminal's `ICRNL`, so
+  `term.c` is compiled with a six-line header that turns a carriage return
+  it reads into a newline. That header is the only change to an upstream
+  source in the demo; its reason is in the recipe.
+- **Not `ne`** (the nice editor): its tagged source generates six files with
+  makeinfo and Perl, and upstream publishes no archive that holds them.
+- **Not `file`**: `core` holds Dolly's own `/bin/file` and `PATH` is
+  `/bin:/usr/bin`, so an upstream `file` in `/usr/bin` would never start,
+  and replacing a core command is not a package's to do.
+
+### What the platform lacked (measured)
+
+- **`tar` reads only regular files and directories** (`Dollyfile-system-build`,
+  `tar.c`: types `0` and `5`). Four of the ten release archives stop it at
+  the first entry, `pax_global_header` (every `git archive`: zstd, lz4, tree,
+  Neatvi), jq's at a hard link in `docs/`, and bc's holds 76 symbolic links:
+  `tar: validate path at pax_global_header (errno 138)`. Those six are staged
+  by `prepare-sources.sh` as plain tars of the files a build reads, the way
+  most of the catalog is; sqlite, xz, bzip2, zip and unzip are the archives
+  as published. It also creates nothing (`tar -c`), and a package cannot
+  bring another `tar`: `/bin` precedes `/usr/bin`. A `tar` that skips pax
+  headers and writes archives is a change to an image input.
+- **The terminal has no line discipline** (`docs/process-model.md` says so:
+  reads return raw bytes; `ICANON` and `ECHO` only round-trip). Measured in
+  Chromium on `default`: `sqlite3` as upstream builds it shows its prompt
+  and then nothing typed, and Enter (a carriage return) never ends the line;
+  `dc` the same; `unzip`'s `replace f? [y]es, [n]o…` and `zstd`'s
+  `overwrite (y/n) ?` wait for ever; in Neatvi `:wq` and Enter printed a
+  stray glyph and wrote nothing. `bc`, with a line editor of its own, works.
+  Every upstream program that reads a line from the terminal with `fgets` is
+  affected, whatever package brings it. A line discipline in the kernel's
+  terminal (echo, erase, CR to NL while `ICANON` is set) is a change to the
+  kernel, not to an image input.
+- **sbase's `od` rejects `-t o1`** at the pinned commit (its `-t` loop does
+  not step over the size digit and takes `1` for a type): upstream jq writes
+  `builtin.inc` with `od -t o1 | sed`, so the recipe compiles a five-line C
+  program for it. `od -b` is the same output for a person.
+- **Unix source that names no header**: unzip 6.0 calls `read`, `write` and
+  `lseek` through declarations of its own unless the system says it is BSD
+  4.4 or System V; `wasm-ld: warning: function signature mismatch: read` and
+  the program traps (`unreachable`) at its first read. `-include unistd.h`
+  is the answer, as `less` gives termcap; a native ELF link never notices.
+- jq and xz need `_GNU_SOURCE`, which `AC_USE_SYSTEM_EXTENSIONS` defines for
+  them: the recipes say so.
+
+### Result (2026-10-13 09:00, images built in this tree)
+
+Thirteen packages install into `default` and pass their checks in Chromium
+and Firefox (`build/more-evidence/tools-case.mjs` runs the entries of the
+`tools` and `typed` tables of `test/amy-browser.mjs` after `amy install cc`,
+which is what `zig` leaves in the full case; the full file needs every image
+of the catalog and runs in the integration tree). Each install takes 0.1 to
+0.25 s. Sizes are what `amy install` reports:
+
+| Package | Files | Bytes | Commands | The check |
+| --- | --- | --- | --- | --- |
+| `sqlite` | 11 | 5,639,684 | `sqlite3` | a table written, summed and read as JSON; a second process refused; a C program linked; a query typed at the prompt |
+| `jq` | 4 | 1,258,929 | `jq` | a sum, and a regular-expression capture |
+| `xz` | 22 | 821,789 | `xz` `unxz` `xzcat` | 20,000 lines packed smaller and back, as a file and a pipe; liblzma linked |
+| `zstd` | 9 | 1,857,378 | `zstd` `unzstd` `zstdcat` | the same; libzstd linked |
+| `bzip2` | 8 | 301,670 | `bzip2` `bunzip2` `bzcat` `bzip2recover` | the same; libbz2 linked |
+| `lz4` | 11 | 524,972 | `lz4` `unlz4` `lz4cat` | the same; liblz4 linked |
+| `unzip` | 5 | 304,198 | `unzip` `zipinfo` | a stored archive listed and unpacked |
+| `zip` | 8 | 700,831 | `zip` (+ `unzip`) | a tree zipped, `zip -T`, unzipped to the same bytes |
+| `tree` | 3 | 182,280 | `tree` | a directory listed, and as JSON |
+| `bc` | 6 | 599,170 | `bc` `dc` | 2^64 and pi to 20 places; `dc` typed at the terminal |
+| `xxd` | 3 | 66,223 | `xxd` | a dump, and a dump read back to the same bytes |
+| `base64` | 4 | 103,200 | `base64` | encoded and decoded; libbase64 linked |
+| `vi` | 4 | 242,573 | `vi` `ex` | a substitution by `ex`; two lines typed in `vi` and written with `:wq` |
+
+An image builds in 5 to 15 s once its base is restored (SQLite 33 s).

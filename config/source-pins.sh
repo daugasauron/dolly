@@ -306,3 +306,52 @@ DOLLY_OPENTELEMETRY_SHA256=e0330194b72f2fe4c0ce3ece06b02dc4aa0ab491eb75bf42c6f5e
 DOLLY_ZSTD_VERSION=1.5.7
 DOLLY_ZSTD_URL='https://github.com/facebook/zstd/releases/download/v1.5.7/zstd-1.5.7.tar.gz'
 DOLLY_ZSTD_SHA256=eb33e51f49a15e023950cd7825ca74a4a2b43db8354825ac24fc1b7ee09e6fa3
+
+# The tools demo: everyday programs as packages, each built in Dolly from its
+# release archive as published. Zstandard's is the one pinned for Mojo above.
+DOLLY_SQLITE_VERSION=3.54.0
+DOLLY_SQLITE_URL='https://www.sqlite.org/2026/sqlite-autoconf-3540000.tar.gz'
+DOLLY_SQLITE_SHA256=134ec0802dda5795816e25d25872d20b312cb3973438c49b30bc40b7705ea9ed
+DOLLY_JQ_VERSION=1.8.2
+DOLLY_JQ_URL='https://github.com/jqlang/jq/releases/download/jq-1.8.2/jq-1.8.2.tar.gz'
+DOLLY_JQ_SHA256=71b8d6e8f5fe81f6c6d0d110e3892251f6ce76ed095abd315e26e6e1193af3af
+DOLLY_XZ_VERSION=5.8.4
+DOLLY_XZ_URL='https://github.com/tukaani-project/xz/releases/download/v5.8.4/xz-5.8.4.tar.gz'
+DOLLY_XZ_SHA256=0014c7886930454fe8bd4228665b51af55eeae560ea135c9c4cd33f55b2591d9
+DOLLY_BZIP2_VERSION=1.0.8
+DOLLY_BZIP2_URL='https://sourceware.org/pub/bzip2/bzip2-1.0.8.tar.gz'
+DOLLY_BZIP2_SHA256=ab5a03176ee106d3f0fa90e381da478ddae405918153cca248e682cd0c4a2269
+DOLLY_TREE_VERSION=2.3.2
+DOLLY_TREE_URL='https://gitlab.com/OldManProgrammer/unix-tree/-/archive/2.3.2/unix-tree-2.3.2.tar.gz'
+DOLLY_TREE_SHA256=513a53cbc42ca1f4ea06af2bab1f5283524a3848266b1d162416f8033afc4985
+DOLLY_LZ4_VERSION=1.10.0
+DOLLY_LZ4_URL='https://github.com/lz4/lz4/releases/download/v1.10.0/lz4-1.10.0.tar.gz'
+DOLLY_LZ4_SHA256=537512904744b35e232912055ccf8ec66d768639ff3abe5788d90d792ec5f48b
+DOLLY_ZIP_VERSION=3.0
+DOLLY_ZIP_URL='https://downloads.sourceforge.net/infozip/zip30.tar.gz'
+DOLLY_ZIP_SHA256=f0e8bb1f9b7eb0b01285495a2699df3a4b766784c1765a8f1aeedf63c0806369
+DOLLY_UNZIP_VERSION=6.0
+DOLLY_UNZIP_URL='https://downloads.sourceforge.net/infozip/unzip60.tar.gz'
+DOLLY_UNZIP_SHA256=036d96991646d0449ed0aa952e4fbe21b476ce994abc276e49d30e686708bd37
+# Gavin Howard's bc and dc.
+DOLLY_BC_VERSION=7.0.3
+DOLLY_BC_URL='https://github.com/gavinhoward/bc/releases/download/7.0.3/bc-7.0.3.tar.gz'
+DOLLY_BC_SHA256=6e59d1154d167f8073a56de58a5476cc6213a7672abdf4197b5cc9599d56cd43
+# Neatvi: the vi package.
+DOLLY_NEATVI_VERSION=20
+DOLLY_NEATVI_URL='https://github.com/aligrudi/neatvi/archive/refs/tags/20.tar.gz'
+DOLLY_NEATVI_SHA256=e1d9a89d770aa5bb60da472be1a526eb1d99be9267c4d6067fc625f10efc8fe5
+# xxd, from Vim's repository at a tag.
+DOLLY_XXD_VERSION=9.2.1178
+DOLLY_XXD_URL='https://raw.githubusercontent.com/vim/vim/v9.2.1178/src/xxd/xxd.c'
+DOLLY_XXD_SHA256=f4f9812f9b83651e30040c83bd722651cc4656eb95b86a852edd1cd60e9b2fcd
+DOLLY_XXD_MAN_URL='https://raw.githubusercontent.com/vim/vim/v9.2.1178/runtime/doc/xxd.1'
+DOLLY_XXD_MAN_SHA256=ab329ce79d69f86007ace6040d5915fc3453368ba0568bed8a944f9e5bd02ae5
+# Alfred Klomp's base64.
+DOLLY_BASE64_VERSION=0.5.2
+DOLLY_BASE64_URL='https://github.com/aklomp/base64/archive/refs/tags/v0.5.2.tar.gz'
+DOLLY_BASE64_SHA256=723a0f9f4cf44cf79e97bcc315ec8f85e52eb104c8882942c3f2fba95acc080d
+# linenoise, the line editor of the sqlite3 shell.
+DOLLY_LINENOISE_VERSION=2.0
+DOLLY_LINENOISE_URL='https://github.com/antirez/linenoise/archive/refs/tags/2.0.tar.gz'
+DOLLY_LINENOISE_SHA256=97ad7d4041e11d7fa395819fd773c1892dea89e5292342378a8345692ce89c29

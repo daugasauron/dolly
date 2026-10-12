@@ -1,0 +1,58 @@
+DOLLY 7
+PACKAGE vi
+REQUIRES HOST runtime@0
+
+# Neatvi, a small vi and ex, from the files of upstream's tagged archive,
+# unchanged, by the rules of its Makefile. It draws with escape sequences of
+# its own and reads no terminal database. Its ! commands and language servers
+# start by fork, which fails here, and it says so.
+FROM /v0.1.2/Dollyfile-system-tools a79e48b88e5552cc965f0aa06dd9d28c05712649cc7b059036eb6a3857665632
+
+REQUIRES HEADER libc
+REQUIRES TOOL   cc
+REQUIRES TOOL   ln
+REQUIRES TOOL   make
+REQUIRES TOOL   mkdir
+REQUIRES TOOL   printf
+REQUIRES TOOL   sed
+REQUIRES TOOL   tar
+REQUIRES TOOL   test
+
+SOURCE /v0.1.2/dist/static/tools/neatvi.tar 46da6486814546d4b020784571bb1a750d279dc3a128fdd4d5e99a66454cfca3 /tmp/neatvi.tar
+SLOP tar -xf /tmp/neatvi.tar -C /
+
+# Neatvi leaves it to the terminal to turn Enter, a carriage return, into a
+# newline (ICRNL). Dolly's terminal maps no input, so term.c reads through this.
+FILE /tmp/neatvi/enter.h
+    #include <unistd.h>
+    static ssize_t read_enter(int fd, void *bytes, size_t size) {
+      ssize_t count = read(fd, bytes, size);
+      for (ssize_t at = 0; at < count; at++) {
+        if (((char *)bytes)[at] == '\r') ((char *)bytes)[at] = '\n';
+      }
+      return count;
+    }
+    #define read read_enter
+FILE /tmp/vi.mk
+    .RECIPEPREFIX := >
+    S := /tmp/neatvi
+    BIN := /usr/bin
+    NAMES := vi ex lbuf mot sbuf ren dir syn reg led uc term rset rstr regex cmd tag conf lsp json
+    $(BIN)/vi: $(addprefix $S/,$(addsuffix .o,$(NAMES)))
+    >cc $^ -o $@
+    $S/term.o: CFLAGS := -include $S/enter.h
+    $S/%.o: $S/%.c $S/vi.h $S/conf.h $S/kmap.h
+    >cc -O2 $(CFLAGS) -c $< -o $@
+SLOP make -j4 -f /tmp/vi.mk
+SLOP ln -s vi /usr/bin/ex
+# Neatvi ships no licence file or manual page: its sources open with the
+# licence, and its README is the manual.
+SLOP mkdir -p /usr/share/licenses/vi
+SLOP sed -n 2,16p /tmp/neatvi/vi.c > /usr/share/licenses/vi/LICENSE
+
+SLOP printf 'one\ntwo\n' > /tmp/vi-check && printf '%s\n' '%s/two/2/' 'w' 'q' | ex -s /tmp/vi-check > /dev/null && test "$(sed -n 2p /tmp/vi-check)" = 2
+
+EXPORTS TOOL vi
+EXPORTS TOOL ex
+FILE /usr/share/licenses/vi/LICENSE
+FILE /usr/share/doc/vi/README

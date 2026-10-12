@@ -49,3 +49,16 @@ libpng
 freetype
 mojo
 mojo-compiler
+sqlite
+jq
+xz
+zstd
+bzip2
+tree
+lz4
+zip
+unzip
+bc
+vi
+xxd
+base64

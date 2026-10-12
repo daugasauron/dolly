@@ -166,6 +166,20 @@ await browserTest("amy programs", { image: "default", timeout: 600_000 }, async 
   }
 });
 
+// Checks of the demos/tools packages. A file that NAME packs is smaller and
+// unpacks to the same bytes, as a file and through a pipe.
+const packs = (pack, unpack, suffix) => `seq 1 20000 > /tmp/amy-${pack} && ${pack} -k /tmp/amy-${pack} && ` +
+  `test "$(stat -c %s /tmp/amy-${pack}.${suffix})" -lt "$(stat -c %s /tmp/amy-${pack})" && ` +
+  `${unpack} -c /tmp/amy-${pack}.${suffix} | cmp - /tmp/amy-${pack} && ${pack} -c < /tmp/amy-${pack} | ${pack} -dc | cmp - /tmp/amy-${pack}`;
+// A program that includes HEADER links LIBRARY, and EXPRESSION is zero in it.
+const links = (header, library, expression) => `printf '%s\\n' '#include <${header}.h>' "int main(void) { return ${expression}; }" > /tmp/amy-${header}.c && ` +
+  `cc -O0 /tmp/amy-${header}.c -l${library} -o /tmp/amy-${header} && /tmp/amy-${header}`;
+// "packed" in the file note, stored.
+const zipped = "\\120\\113\\003\\004\\012\\000\\000\\000\\000\\000\\307\\273\\114\\135\\103\\340\\101\\057\\007\\000\\000\\000\\007\\000\\000\\000\\004\\000\\000\\000" +
+  "\\156\\157\\164\\145\\160\\141\\143\\153\\145\\144\\012\\120\\113\\001\\002\\036\\003\\012\\000\\000\\000\\000\\000\\307\\273\\114\\135\\103\\340\\101\\057\\007\\000" +
+  "\\000\\000\\007\\000\\000\\000\\004\\000\\000\\000\\000\\000\\000\\000\\000\\000\\000\\000\\264\\201\\000\\000\\000\\000\\156\\157\\164\\145\\120\\113\\005\\006\\000\\000" +
+  "\\000\\000\\001\\000\\001\\000\\062\\000\\000\\000\\051\\000\\000\\000\\000\\000";
+
 // What a session adds one package at a time: each command is absent from
 // default, installs alone and is used. None brings the compiler until zig,
 // which writes C for it. transfer holds the two commands default copies.
@@ -195,6 +209,41 @@ const tools = {
     "printf 'const std = @import(\"std\");\\npub fn main() void { std.debug.print(\"{d}\", .{6 * 7}); }\\n' > hello.zig && " +
     "zig build-exe -target wasm64-emscripten -fsingle-threaded -ofmt=c -lc -femit-bin=hello.c hello.zig && " +
     "cc -Wno-incompatible-pointer-types '-Dzig_unimplemented()=(__builtin_trap(),0)' -I /usr/lib/zig hello.c -o hello && test \"$(./hello 2>&1)\" = 42"],
+  // demos/tools. zig brought cc, so a package that holds a library also links a program with it.
+  // A database written and queried; a second process is told that the first has it.
+  sqlite: ["sqlite3", "sqlite3 /tmp/amy.db \"create table word(n, name); insert into word values (6, 'six'), (7, 'seven'), (9, 'nine'); pragma journal_mode = wal\" > /dev/null && " +
+    "test \"$(sqlite3 /tmp/amy.db \"select sum(n) * 3 + 3, json_group_array(name) from word where name like 's%'\")\" = '42|[\"six\",\"seven\"]' && " +
+    "sqlite3 /tmp/amy.db 'select count(*) from word' \".shell sqlite3 /tmp/amy.db 'select count(*) from word' 2>&1\" | grep -q 'database is locked' && " +
+    links("sqlite3", "sqlite3", "sqlite3_libversion_number() != SQLITE_VERSION_NUMBER") + " && man sqlite3 > /dev/null"],
+  // A sum, and a number that a regular expression takes out of a string.
+  jq: ["jq", "echo '{\"a\": [1, 20, 21], \"b\": \"x-42\"}' > /tmp/amy.json && " +
+    "test \"$(jq -r '(.a | add | tostring) + \" \" + (.b | capture(\"(?<n>[0-9]+)\").n)' /tmp/amy.json)\" = '42 42' && man jq > /dev/null"],
+  xz: ["xz", `${packs("xz", "unxz", "xz")} && ${links("lzma", "lzma", "lzma_version_number() != LZMA_VERSION")} && man xz > /dev/null`],
+  zstd: ["zstd", `${packs("zstd", "unzstd", "zst")} && ${links("zstd", "zstd", "ZSTD_versionNumber() != ZSTD_VERSION_NUMBER")} && man zstd > /dev/null`],
+  bzip2: ["bzip2", `${packs("bzip2", "bunzip2", "bz2")} && ${links("bzlib", "bz2", "BZ2_bzlibVersion()[0] != '1'")} && man bzip2 > /dev/null`],
+  lz4: ["lz4", `${packs("lz4", "unlz4", "lz4")} && ${links("lz4", "lz4", "LZ4_versionNumber() != LZ4_VERSION_NUMBER")} && man lz4 > /dev/null`],
+  unzip: ["unzip", `mkdir /tmp/amy-unzip && cd /tmp/amy-unzip && printf '${zipped}' > note.zip && test "$(zipinfo -1 note.zip)" = note && ` +
+    "unzip -q note.zip && grep -qx packed note && man unzip > /dev/null"],
+  // zip comes with unzip, which zip -T starts.
+  zip: ["zip", "mkdir -p /tmp/amy-zip/in/deep /tmp/amy-zip/out && cd /tmp/amy-zip && seq 1 2000 > in/deep/numbers && zip -q -r in.zip in && zip -T in.zip > /dev/null && " +
+    "unzip -q in.zip -d out && cmp out/in/deep/numbers in/deep/numbers && test \"$(stat -c %s in.zip)\" -lt \"$(stat -c %s in/deep/numbers)\" && man zip > /dev/null"],
+  tree: ["tree", "mkdir -p /tmp/amy-tree/a/b && touch /tmp/amy-tree/a/b/leaf /tmp/amy-tree/top && cd /tmp/amy-tree && " +
+    "test \"$(tree --noreport -i -f . | tr '\\n' ' ')\" = '. ./a ./a/b ./a/b/leaf ./top ' && tree -J . | grep -q '\"name\":\"leaf\"' && man tree > /dev/null"],
+  bc: ["bc", "test \"$(echo '6 * 7; 2 ^ 64; scale = 20; 4 * a(1)' | bc -l | tr '\\n' ' ')\" = '42 18446744073709551616 3.14159265358979323844 ' && " +
+    "test \"$(echo '6 7 * p' | dc)\" = 42 && man bc > /dev/null && man dc > /dev/null"],
+  xxd: ["xxd", "test \"$(echo hello | xxd -p)\" = 68656c6c6f0a && seq 1 300 > /tmp/amy-xxd && xxd /tmp/amy-xxd | xxd -r | cmp - /tmp/amy-xxd && man xxd > /dev/null"],
+  base64: ["base64", `test "$(echo packed | base64)" = cGFja2VkCg== && seq 1 3000 | base64 > /tmp/amy-base64 && base64 -d /tmp/amy-base64 | tail -n 1 | grep -qx 3000 && ` +
+    links("libbase64", "base64", "base64_decode(0, 0, 0, 0, 0) != 1")],
+  // ex edits by commands; vi at the terminal is the step after this table.
+  vi: ["vi", "printf 'one\\ntwo\\n' > /tmp/amy-ex && printf '%s\\n' '%s/two/2/' w q | ex -s /tmp/amy-ex > /dev/null && test \"$(tr '\\n' ' ' < /tmp/amy-ex)\" = 'one 2 '"],
+};
+// The terminal has no line discipline: a program that reads lines there edits
+// them itself. For each command, what the screen shows and what is then typed
+// (\n is Enter, \x1b Escape); the command ends with status 0.
+const typed = {
+  "sqlite3 /tmp/amy.db": [[/amy\.db->\s*$/, "select count(*) * 14 from word;\n"], [/\D42\D[^>]*amy\.db->\s*$/, ".quit\n"]],
+  dc: [[/>>>\s*$/, "6 7 * p\n"], [/\n42\n>>>\s*$/, "q\n"]],
+  "vi /tmp/amy-vi": [[/^~$/m, "ione\ntwo\x1b:wq\n"]],
 };
 await browserTest("amy tools", { image: "default", timeout: 300_000 }, async ({ open }) => {
   const session = await open(), run = check(session);
@@ -203,6 +252,19 @@ await browserTest("amy tools", { image: "default", timeout: 300_000 }, async ({ 
     console.log(`amy install ${name}: ${await timed(run, `amy install ${name}`)} ms`);
     await run(use);
   }
+  for (const [command, steps] of Object.entries(typed)) {
+    const running = session.submit(command);
+    await session.page.locator("#keyboard").focus();
+    for (const [shown, keys] of steps) {
+      await session.waitForText(shown);
+      for (const [index, text] of keys.split("\x1b").entries()) {
+        if (index) await session.page.keyboard.press("Escape");
+        await session.page.keyboard.type(text);
+      }
+    }
+    assert.equal(await running, 0, `${command}\n${await session.text()}`);
+  }
+  await run("test \"$(tr '\\n' ' ' < /tmp/amy-vi)\" = 'one two '");
   await run("amy install dolly-docs && test -f /usr/share/doc/dolly/docs/dollyfile.md");
   await run("amy install transfer && amy files transfer | grep -q ' /bin/upload$' && download --help | grep -q '^usage: download'");
 });
