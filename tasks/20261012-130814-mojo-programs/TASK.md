@@ -130,6 +130,10 @@ give 5000.0 everywhere: Chrome 151 on the NVIDIA GPU in 1.51 s (0.3 ms an
 enqueue) and 10 ms for the read, Firefox 157 in 1.24 s and 104 ms, headless
 Chrome on SwiftShader in 26.7 s.
 
+The scripts of this measurement are scratch, in `build/mojo-target/` of the
+worktree (`stdtests/`, `session.mjs`, `stdtests.cmds`), not committed: the
+natural form, once the compiler runs in Dolly, compiles the suite there.
+
 Two of upstream's example programs run unchanged:
 `Mojo/examples/operators/main.mojo`, and `Mojo/examples/life/benchmark.mojo`,
 where 1,000 evolutions take 15.4 s and 3.09 s against 10.6 s and 2.19 s for
