@@ -41,6 +41,26 @@ const snapshot = encodeSnapshotRecords(new Map([["/etc/dolly/Dollyfile", file(th
 const scratch = await mkdtemp(join(tmpdir(), "dolly-amy-"));
 await writeFile(join(scratch, "threaded.snapshot"), snapshot);
 const fixtures = { "threaded.snapshot": join(scratch, "threaded.snapshot") };
+// Sealed packages of one file, /usr/share/NAME, as the engine would build
+// them. `needed` are the packages the recipe installs: its INSTALL rows, which
+// the snapshot records and does not hold. `hosts` are its host modules.
+async function sealed(name, body, needed = [], hosts = []) {
+  const url = siteReference(`Dollyfile-${name}`), rows = needed.map(({ url, sha256 }) => `INSTALL ${url} ${sha256}\n`).join("");
+  const source = `DOLLY 7\nPACKAGE ${name}\n${hosts.map(host => `REQUIRES HOST ${host}\n`).join("")}${rows}FILE /usr/share/${name}\n    ${body}\n`;
+  const pin = sha256(source), chain = [...needed, { name, url, sha256: pin, source }];
+  const receipt = [encoder.encode("DOLLYART"), u32(5), u32(chain.length),
+    ...chain.flatMap(recipe => ["PACKAGE", recipe.name, recipe.url, recipe.sha256, recipe.source].flatMap(text)),
+    u32(hosts.length), ...hosts.flatMap(text), u32(1), ...text("FILE"), ...text(name), ...text(`/usr/share/${name}`), u32(1), ...text(`/usr/share/${name}`)];
+  const records = new Map([["/etc/dolly/Dollyfile", file(source)], ["/etc/dolly/artifact", { kind: 2, data: bytes(receipt) }],
+    ...rows ? [["/etc/dolly/installed", file(rows)]] : [], [`/usr/share/${name}`, file(`${body}\n`)]]);
+  await writeFile(join(scratch, `${pin}.snapshot`), encodeSnapshotRecords(new Map([...records].sort(([left], [right]) => left < right ? -1 : 1))));
+  fixtures[`${pin}.snapshot`] = join(scratch, `${pin}.snapshot`);
+  return { name, url, sha256: pin, source };
+}
+// The same recipe at two pins, a package whose recipe installs the newer, and
+// one that also needs a host module default does not declare.
+const [older, newer] = [await sealed("needed", "one"), await sealed("needed", "two")];
+const needs = await sealed("needs", "top", [newer]), listens = await sealed("listens", "ears", [newer], ["microphone@0"]);
 const artifact = `/etc/dolly/artifacts/${threaded.sha256}.snapshot`;
 const row = `INSTALL ${threaded.url} ${threaded.sha256}`;
 const check = ({ submit, text }) => async command => assert.equal(await submit(command), 0, `${command}\n${await text()}`);
@@ -104,6 +124,27 @@ await browserTest("amy", { image: "default", timeout: 300_000, server: { fixture
   await run(`dollyfile install ${threaded.url} ${threaded.sha256} && rm ${artifact}`);
   await run(`test "$(cat /usr/share/threaded)" = 'needs threads' && grep -qx '${row}' /etc/dolly/installed`);
   await run(`test "$(amy installed | tail -n 1)" = "threaded ${threaded.url} ${threaded.sha256}"`);
+  // A package names the packages its recipe installs and holds none of their
+  // files: the engine installs those rows first, each from its own snapshot.
+  // Without a row's snapshot it ends with 3 and changes nothing: amy then
+  // installs the row and asks again.
+  const place = ({ sha256 }) => `curl -fsS ${server.origin}/fixture/${sha256}.snapshot -o /etc/dolly/artifacts/${sha256}.snapshot`;
+  const install = ({ url, sha256 }) => `dollyfile install ${url} ${sha256}`;
+  await run(`mkdir -p /etc/dolly/artifacts && ${place(needs)}`);
+  assert.equal(await session.submit(install(needs)), 3);
+  await run("test ! -e /usr/share/needs && ! grep -q Dollyfile-need /etc/dolly/installed");
+  // A package the image may not hold is refused before any of its rows is installed.
+  await run(`${place(newer)} && ${place(listens)}`);
+  assert.equal(await session.submit(install(listens)), 2);
+  await run("test ! -e /usr/share/needed && test ! -e /usr/share/listens && ! grep -q Dollyfile-need /etc/dolly/installed");
+  await run(`${install(needs)} && test "$(cat /usr/share/needed)" = two && test "$(cat /usr/share/needs)" = top`);
+  await run(`test "$(grep Dollyfile-need /etc/dolly/installed | tr '\\n' ' ')" = 'INSTALL ${newer.url} ${newer.sha256} INSTALL ${needs.url} ${needs.sha256} '`);
+  // A row the record holds is not installed again: the file changed since stays.
+  await run(`echo kept > /usr/share/needed && ${install(needs)} && test "$(cat /usr/share/needed)" = kept`);
+  // The record holds a recipe at one pin, in a session as in a build: another pin is refused.
+  await run(`${place(older)}`);
+  assert.equal(await session.submit(install(older)), 2);
+  await run(`test "$(cat /usr/share/needed)" = kept && test "$(grep -c Dollyfile-needed /etc/dolly/installed)" = 1 && rm -r /etc/dolly/artifacts`);
   // Saved and reloaded, the installed tools and environment are there.
   assert.equal(await session.page.evaluate(() => __dolly.saveSession("amy-proof")), "amy-proof");
   const delta = Number(await session.page.evaluate(() => document.documentElement.dataset.sessionUncompressedBytes));
@@ -116,6 +157,7 @@ await browserTest("amy", { image: "default", timeout: 300_000, server: { fixture
   await session.page.evaluate(() => __dolly.waitForInteractiveTerminal(/dolly:[^\n]*\$\s*$/, "session shell"));
   await run("test \"$(python3 -c 'print(6 * 7)')\" = 42 && test \"$PYTHONUTF8\" = 1 && test \"$PYTHONDONTWRITEBYTECODE\" = 1");
   await run(`amy installed | grep -qx "python ${pin("python")}" && test "$(cat /usr/share/threaded)" = 'needs threads'`);
+  await run(`test "$(cat /usr/share/needs)" = top && amy installed | grep -qx "needed ${newer.url} ${newer.sha256}"`);
 });
 
 // Compilers, libraries and an agent: each installs into a running default
@@ -211,7 +253,7 @@ await browserTest("amy tools", { image: "default", timeout: 300_000 }, async ({ 
 const elsewhere = {
   git: "man-browser.mjs, pager-browser.mjs", less: "pager-browser.mjs", llvm: "demos/llvm",
   parakeet: "demos/speech", transcribe: "demos/speech: default refuses it", voice: "demos/speech, in pi-phone",
-  "llvm-runtimes": "a build stage", "minicpm5-2b": "demos/local-llm", "qwen3.5-2b": "demos/local-llm",
+  "llvm-runtimes": "a build stage", "minicpm5-2b": "demos/local-llm", "qwen3.5-2b": "demos/local-llm", "qwen3.5-4b": "demos/local-llm",
   ...Object.fromEntries([1, 2, 3, 4].map(shard => [`qwen3.5-4b-${shard}`, "demos/local-llm"])),
 };
 const used = new Set([...preinstalled, "python", "cargo", "mojo-compiler", "dolly-docs", ...Object.keys({ ...programs, ...tools, ...elsewhere })]);

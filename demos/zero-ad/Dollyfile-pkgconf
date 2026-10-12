@@ -4,7 +4,7 @@ REQUIRES HOST runtime@0
 
 # pkgconf as zero-ad-deps compiles it, and pkg-config, its other name: it
 # reads the .pc files that libraries install into /usr/lib/pkgconfig.
-FROM /v0.1.2/demos/zero-ad/Dollyfile-zero-ad-deps 885e93b8eb52cd42e4d691fd12580893ecf8614d1791ce6b2d179274e66db7ae
+FROM /v0.1.2/demos/zero-ad/Dollyfile-zero-ad-deps da927e3d591e54cc59a0a22d4860c15bd48c7825bf0dcd14ca2a531f3b2de751
 
 EXPORTS TOOL pkgconf
 EXPORTS TOOL pkg-config

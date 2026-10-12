@@ -6,7 +6,9 @@ const decoder = new TextDecoder("utf-8", { fatal: true, ignoreBOM: true });
 
 // The recipe graph of one image, as /bin/dollyfile reads it: the root and the
 // FROM/INSTALL/COPY images it imports, each with its own imports. `read(url)`
-// returns a recipe's bytes; this checks every pin. It is an inspection graph,
+// returns a recipe's bytes; this checks every pin. `artifacts` are the images
+// a build of the root reads: its own rows and, before each INSTALL, the rows
+// that package's recipe installs, which the package names and does not hold. It is an inspection graph,
 // not a dependency solver: runtime assertions may resolve against files and
 // environment that recipes do not declare. Pass the same `recipes` cache to
 // reuse parsed recipes across graphs.
@@ -39,7 +41,7 @@ export async function loadRecipeGraph(read, rootLocation, recipes = new Map()) {
     imageNames.set(parsed.name, location);
     if (!root && images.has(location)) return images.get(location);
     active.add(location);
-    const record = { ...parsed, location, dependencies: [], imports: new Map(), artifactTargets: [] };
+    const record = { ...parsed, location, dependencies: [], imports: new Map(), artifactTargets: [], installs: [], installTargets: [] };
     records.push(record);
     const visible = new Map();
     const published = new Map();
@@ -64,11 +66,26 @@ export async function loadRecipeGraph(read, rootLocation, recipes = new Map()) {
           }
         }
         record.artifactTargets.push({ reference: operation, target });
+        if (operation.operation === "install") {
+          const row = { operation: "install", location: operation.location, sha256: operation.sha256, line: operation.line, image: target.image };
+          for (const needed of [...target.installs, row]) {
+            if (record.installs.some(held => held.sha256 === needed.sha256)) continue;
+            record.installs.push({ ...needed, line: operation.line });
+            if (root && needed !== row && !artifacts.some(held => held.sha256 === needed.sha256)) {
+              artifacts.push({ ...needed, line: operation.line });
+            }
+          }
+          for (const needed of [...target.installTargets, target]) {
+            if (!record.installTargets.includes(needed)) record.installTargets.push(needed);
+          }
+        }
         if (root) artifacts.push({ ...operation, image: target.image });
-        // A package keeps nothing of its base; COPY takes files only.
-        const imports = operation.operation === "from" ? record.role !== "package" : operation.operation === "install";
-        if (operation.operation !== "copy") {
-          for (const [name, provider] of target.scopeExporters) {
+        // A package keeps nothing of its base nor of what it installs; COPY takes files only.
+        const imports = operation.operation !== "copy" && record.role !== "package";
+        const imported = operation.operation === "install" ? [...target.installTargets, target]
+          : operation.operation === "from" ? [target] : [];
+        for (const source of imported) {
+          for (const [name, provider] of source.scopeExporters) {
             visible.set(name, provider);
             if (imports) published.set(name, provider);
           }

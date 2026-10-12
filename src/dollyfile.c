@@ -1148,6 +1148,25 @@ static int valid_installed(const unsigned char *text, size_t size) {
   return 1;
 }
 
+// The row of `record` that starts with `prefix`, or NULL.
+static const unsigned char *installed_row(const Buffer *record, const unsigned char *prefix, size_t length) {
+  for (size_t start = 0; start + length <= record->length;) {
+    if (memcmp(record->data + start, prefix, length) == 0) return record->data + start;
+    const unsigned char *next = memchr(record->data + start, '\n', record->length - start);
+    start = next == NULL ? record->length : (size_t)(next - record->data) + 1;
+  }
+  return NULL;
+}
+
+// Whether /etc/dolly/installed holds a row that starts with the first
+// `length` bytes of `row`: all of "INSTALL PATH SHA256\n", or "INSTALL PATH ".
+static int installed_holds(const unsigned char *row, size_t length) {
+  Buffer record = {.limit = MAX_RECIPE_BYTES};
+  const int held = read_file_buffer(installed_path, &record) == 0 && installed_row(&record, row, length) != NULL;
+  free(record.data);
+  return held;
+}
+
 // /etc/dolly/installed lists the packages a filesystem holds, whether a
 // recipe or a session installed them. Appends the rows of `text` it lacks.
 static int record_installed(Engine *engine, const unsigned char *text, size_t size) {
@@ -1156,13 +1175,7 @@ static int record_installed(Engine *engine, const unsigned char *text, size_t si
   if (result == -ENOENT) result = 0;
   for (const unsigned char *row = text, *end = text + size; result == 0 && row < end;) {
     const size_t length = (size_t)((const unsigned char *)memchr(row, '\n', (size_t)(end - row)) - row) + 1;
-    int recorded = 0;
-    for (size_t start = 0; !recorded && start + length <= record.length;) {
-      recorded = memcmp(record.data + start, row, length) == 0;
-      const unsigned char *next = memchr(record.data + start, '\n', record.length - start);
-      start = next == NULL ? record.length : (size_t)(next - record.data) + 1;
-    }
-    if (!recorded && append_buffer(row, length, &record) != length) result = -EFBIG;
+    if (installed_row(&record, row, length) == NULL && append_buffer(row, length, &record) != length) result = -EFBIG;
     row += length;
   }
   if (result == 0) result = dolly_write_file(installed_path, record.data, record.length);
@@ -1289,9 +1302,42 @@ static int image_control_file(const char *path) {
   return 0;
 }
 
+static int load_artifact(Engine *engine, const char *locator, const char *expected,
+                         ImportMode mode, int package_recipe, const char *source,
+                         const char *destination, Scope *visible, Scope *exports, const Scope *own);
+
+// A package's record names the packages its recipe installed, dependencies
+// first. Installs the rows this filesystem's record lacks, for `locator`. A
+// row whose snapshot is not here ends with ROW_FIRST before anything changed:
+// a builder supplies every row, and amy fetches and installs the row, then
+// asks again.
+enum { ROW_FIRST = 3 };
+static int install_rows(Engine *engine, const char *locator, const unsigned char *rows, size_t size,
+                        int package_recipe, Scope *visible, Scope *exports, const Scope *own) {
+  char *text = strndup((const char *)rows, size);
+  int result = text == NULL ? -ENOMEM : 0;
+  for (char *row = text, *next; result == 0 && row != NULL && *row != '\0'; row = next) {
+    next = strchr(row, '\n');
+    const size_t length = (size_t)(next - row) + 1;
+    if (installed_holds((const unsigned char *)row, length)) { ++next; continue; }
+    *next++ = '\0';
+    char *sha256 = strrchr(row, ' ');
+    *sha256++ = '\0';
+    char artifact_path[128];
+    snprintf(artifact_path, sizeof(artifact_path), "/etc/dolly/artifacts/%s.snapshot", sha256);
+    if (access(artifact_path, F_OK) != 0) {
+      fprintf(stderr, "dollyfile: %s installs %s first\n", locator, row + 8);
+      result = ROW_FIRST;
+    } else result = load_artifact(engine, row + 8, sha256, IMPORT_INSTALL, package_recipe, NULL, NULL, visible, exports, own);
+  }
+  free(text);
+  return result;
+}
+
 // FROM restores an application or toolchain as the base, INSTALL merges a
-// package, COPY takes files. A package recipe keeps nothing of its base: its
-// files, environment and exports serve only the build.
+// package, COPY takes files. A package recipe keeps nothing of its base nor
+// of the packages it installs: their files, environment and exports serve
+// the build, and its record names the packages for whoever installs it.
 static int load_artifact(Engine *engine, const char *locator, const char *expected,
                          ImportMode mode, int package_recipe, const char *source,
                          const char *destination, Scope *visible, Scope *exports, const Scope *own) {
@@ -1314,7 +1360,27 @@ static int load_artifact(Engine *engine, const char *locator, const char *expect
   if (result == 0 && source != NULL && !artifact_has_path(artifact, source)) {
     result = -ENOENT;
   }
-  const int keep = !(mode == IMPORT_FROM && package_recipe);
+  // An image holds one pin of a recipe. A build's recipe chain says so; a session has its record.
+  if (result == 0 && mode == IMPORT_INSTALL) {
+    const size_t path = strlen(locator) + 9;
+    char *row = malloc(path + 66);
+    if (row == NULL) result = -ENOMEM;
+    else {
+      snprintf(row, path + 66, "INSTALL %s %s\n", locator, expected);
+      if (installed_holds((const unsigned char *)row, path) && !installed_holds((const unsigned char *)row, path + 65)) {
+        fprintf(stderr, "dollyfile: %s is installed at another pin\n", locator);
+        result = 2;
+      }
+      free(row);
+    }
+  }
+  const dolly_fs_record *needs = result == 0 && mode == IMPORT_INSTALL ? artifact_file(artifact, installed_path) : NULL;
+  if (needs != NULL) {
+    // Installing a row reads another artifact; this one is read again after.
+    result = install_rows(engine, locator, needs->data, needs->size, package_recipe, visible, exports, own);
+    if (result == 0) result = read_artifact(artifact, artifact_path, expected);
+  }
+  const int keep = !(package_recipe && mode != IMPORT_COPY);
   size_t count = 0;
   dolly_fs_record *selected = result == 0 ? calloc(artifact->count, sizeof(*selected)) : NULL;
   uint32_t *indices = result == 0 ? calloc(artifact->count, sizeof(*indices)) : NULL;
@@ -1348,8 +1414,8 @@ static int load_artifact(Engine *engine, const char *locator, const char *expect
     if (result == 0 && keep) result = append_string(&engine->keep, &engine->keep_count, &engine->keep_capacity, selected[index].path);
   }
   // A package recipe starts its own record; INSTALL adds the package's rows, then its row.
-  if (result == 0 && !keep && unlink(installed_path) != 0 && errno != ENOENT) result = -errno;
-  const dolly_fs_record *rows = mode == IMPORT_INSTALL ? artifact_file(artifact, installed_path) : NULL;
+  if (result == 0 && mode == IMPORT_FROM && package_recipe && unlink(installed_path) != 0 && errno != ENOENT) result = -errno;
+  const dolly_fs_record *rows = result == 0 && mode == IMPORT_INSTALL ? artifact_file(artifact, installed_path) : NULL;
   if (result == 0 && rows != NULL) result = record_installed(engine, rows->data, rows->size);
   if (result == 0 && mode == IMPORT_INSTALL) {
     const size_t length = strlen(locator) + strlen(expected) + 10;

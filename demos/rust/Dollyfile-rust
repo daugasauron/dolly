@@ -6,8 +6,8 @@ REQUIRES HOST threads@0
 
 # The Rust SDK as rust-build built it. Its rustc finds its sysroot beside
 # itself, so /usr/bin/rustc starts it by its own path.
-COPY /v0.1.2/demos/rust/Dollyfile-rust-build 540d31628b7dedb71a3e83d829b0e3c15ef1239230a385c054408e9514ed7133 /opt/rust-sdk /opt/rust-sdk
-COPY /v0.1.2/demos/rust/Dollyfile-rust-build 540d31628b7dedb71a3e83d829b0e3c15ef1239230a385c054408e9514ed7133 /usr/share/licenses/rust /usr/share/licenses/rust
+COPY /v0.1.2/demos/rust/Dollyfile-rust-build 391a38eca791dbc7fac695e187f06f5f0173e7d7423e832a88fa4222019933a4 /opt/rust-sdk /opt/rust-sdk
+COPY /v0.1.2/demos/rust/Dollyfile-rust-build 391a38eca791dbc7fac695e187f06f5f0173e7d7423e832a88fa4222019933a4 /usr/share/licenses/rust /usr/share/licenses/rust
 # rustc links what it compiles with the C toolchain.
 INSTALL /v0.1.2/Dollyfile-cc fde55370dfb28cc38ba5e7aec641b0501449abc73e70a4af6fa7ecc2eee49ae0
 FILE /usr/bin/rustc

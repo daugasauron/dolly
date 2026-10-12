@@ -4,7 +4,7 @@ REQUIRES HOST runtime@0
 
 # Ninja as system-tools builds it: Samurai, which runs one job at a time and
 # starts each command with Slop.
-FROM /v0.1.2/Dollyfile-system-tools a79e48b88e5552cc965f0aa06dd9d28c05712649cc7b059036eb6a3857665632
+FROM /v0.1.2/Dollyfile-system-tools 675c51b5a24db3ad640da53d4c3e0efb45c285beae7b4394fd22f4c338712459
 
 EXPORTS TOOL ninja
 FILE /usr/share/man/man1/ninja.1

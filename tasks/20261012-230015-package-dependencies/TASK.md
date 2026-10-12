@@ -13,14 +13,92 @@ snapshot holds its own files while `amy install` installs the `INSTALL` rows
 of its recipe first (tested in both browsers, sizes before and after), or
 the task says exactly what stops it.
 
-## As filed
+## The answer
 
-- Today `INSTALL` inside a package copies the installed files into the
-  package's own snapshot: `cargo` is 500 MB of which 463 MB is `rust`, and
-  Qwen3.5-4B is four shard packages because one snapshot holds 2 GiB
-  ([packages](../20261012-130814-packages/TASK.md), item 3 of "Held").
-- The recipe already names what a package needs: `INSTALL` rows with pins,
-  `REQUIRES TOOL|LIB|HEADER`, `REQUIRES HOST`. A package keeps its recipe in
-  `/etc/dolly/Dollyfile`. The question is whether resolving those rows at
-  install time is enough, with no new syntax.
-- It changes `src/dollyfile.c` and `src/commands/amy.c`: the seed.
+Yes: no new syntax, and nothing has to parse a Dollyfile at install time.
+
+- **The dependencies are the `INSTALL` rows.** They carry the pin, so nothing
+  is resolved and no solver chooses: 14 of the catalog's 49 packages have
+  them, 18 rows in all. The engine already wrote them down: a package's
+  snapshot holds `/etc/dolly/installed`, the rows its recipe installed with
+  those packages' own rows before them. That file is the parsed recipe.
+- **What was missing is that a package also held the files.** `INSTALL` in a
+  package's recipe copied the installed package into the package's own
+  snapshot (`cargo` 500 MB, of which `rust` 463 MB, of which `cc` 126 MB).
+  Now it keeps nothing of them: the files, environment and exports serve the
+  build, and the record names the rows.
+- **Whoever installs a package installs its rows first**, each from its own
+  snapshot, and skips a row its own record holds. That is one rule in the
+  engine for an image build (`INSTALL` in a recipe) and for a session
+  (`dollyfile install`). A builder supplies the snapshots of the rows; in a
+  session `amy` fetches them through `packages@0`, one at a time, and
+  installs each as an install of its own (its own summary, its own file
+  list).
+- **`REQUIRES TOOL|LIB|HEADER` cannot be the dependencies**, measured: 13
+  packages have such rows, 109 in all. 103 resolve to the toolchain the
+  package is built `FROM`, 4 to the package's own exports, 2 to a package it
+  installs (`gzip`: zlib's header and archive, which it links statically).
+  They describe the build. Read as install-time needs they would bring the
+  compiler into `zlib`, `curl`, `less` and `sdl2`, against the ruling that a
+  library installs no compiler; and they carry no pin and name no package,
+  so using them would need the catalog-wide solver the design refuses. What
+  catches a missing row (a package that starts a program it does not
+  install) is not a declaration but amy's test, which uses each package on a
+  `default` that holds nothing else.
+
+## How it works (branch `core/package-dependencies`)
+
+- `src/dollyfile.c`, `load_artifact`: in a `PACKAGE` recipe `INSTALL` keeps
+  nothing (files, exported objects, variables) and records the row. For any
+  `INSTALL`, after the package's own checks (role, host modules, pin) and
+  before a file changes, `install_rows` installs the rows of the package's
+  record that `/etc/dolly/installed` lacks.
+- A row whose snapshot is not there ends the install with status 3, nothing
+  changed. A builder always supplies it. `amy` runs the engine first, so a
+  package the image may not hold is refused before any row is installed;
+  on 3 it installs the rows and asks again.
+- `src/dollyfile-graph.mjs`: the `artifacts` of a recipe (what a build
+  reads, and what an image's identity covers) include, before each
+  `INSTALL`, the rows that package installs. Every builder reads that list:
+  `npm run image`, `/IMAGE/rebuild/`, `/custom/`, the checkout server's
+  freshness check.
+- Unchanged: the recipe language, the artifact receipt, the record's format,
+  the `packages@0` service (it serves any package of the release by pin),
+  the index.
+
+## What happens to
+
+- **A package whose dependency moved its pin.** It cannot move alone: pins
+  cascade, so the package's own pin moves with it, and one release's index
+  and record are consistent. A session cannot mix releases either: the
+  service answers 404 for a pin the tab's release does not publish (amy says
+  to reload, and installs nothing), and a save loads only under the release
+  that made it. By hand it can be done (`dollyfile install` with snapshots
+  placed in `/etc/dolly/artifacts`), and the audit of 2026-10-13 found that a
+  session then got two rows of one recipe and overwritten files, because the
+  one-pin check of a build reads the recipe chain, which a session does not
+  load. Now the record is checked too: an `INSTALL` of a recipe the record
+  holds at another pin fails, naming it, as the document already said.
+- **`amy remove`.** There is none. Before, it could not have been written:
+  `zig`'s file list held `cc`. Now `/etc/dolly/files/NAME` is the package's
+  own files, and the records say who names whom (each installed package's
+  recipe is in `/etc/dolly/recipes`). Not built: nobody asked for it.
+- **A saved session.** Nothing new: installed files and the record are
+  session files as before. Tested: the rows installed for a package are
+  there after a save and a reload.
+- **A refusal.** `amy install transcribe` on `default` is refused for
+  `microphone@0` before `parakeet`, which it names, is fetched.
+
+## Measured
+
+To be filled from the chain rebuilt on this seed.
+
+## Not done, and why
+
+- `rust`, `cargo`, `ripgrep`, `fd`, `codex-cli`, `pi-coding-agent`, `llvm`,
+  `cmake`'s neighbours and the models were not rebuilt here: their sizes
+  after are what their own files weigh today (the table), their installs are
+  the same code path as `zig` and `python`.
+- `pi-coding-agent` exports `rg` and `fd`, which `ripgrep` and `fd` hold: it
+  keeps a second copy of the two programs (12 MB). Dropping the two rows is
+  a recipe edit for the next round.

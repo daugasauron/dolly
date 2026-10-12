@@ -403,7 +403,7 @@ SOURCE /v0.1.2/dist/static/default/commands/patch.c       01a81c0b50df26223772e5
 SOURCE /v0.1.2/dist/static/default/commands/hostname.c    14a20a493c8559d8b28f221a6edd9b6f89f893f3e3067093b44d7235b4ae060f /tmp/agent-tools/hostname.c
 SOURCE /v0.1.2/dist/static/default/commands/tty.c         c51c9598e8245d5f651ade70995f2b03fb936c42a0e99c4c81c83749c5714c7e /tmp/agent-tools/tty.c
 SOURCE /v0.1.2/dist/static/default/commands/nproc.c       96ce7b8d1b1cee59d12193c2fa6fab5210bb7f0c9a0d0cc9bde7e0fd8d87c7ac /tmp/agent-tools/nproc.c
-SOURCE /v0.1.2/dist/static/default/commands/amy.c         13a1e2eb87c10f39d8c3ff6ecef5acf2eb56ebc721f4ab7570333fe0b808f98d /tmp/agent-tools/amy.c
+SOURCE /v0.1.2/dist/static/default/commands/amy.c         7bb0b4b59750320c339e7455eede09a0144b76c90e71887c739c99fdf14d56da /tmp/agent-tools/amy.c
 SOURCE /v0.1.2/dist/static/default/commands/version.h   38d6aed46e71d8422aaace40bb483753d7ce253c8de759df3966475927377dde /tmp/agent-tools/version.h
 
 FILE /tmp/agent-tools/Makefile

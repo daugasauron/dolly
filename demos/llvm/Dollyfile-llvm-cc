@@ -11,7 +11,7 @@ REQUIRES HOST upload@0
 
 # Clang and LLD linked inside Dolly from llvm-build's archives, checked against
 # the seed compiler and installed in its place: this image's cc is built by Dolly.
-FROM /v0.1.2/demos/llvm/Dollyfile-llvm-build 68dc488502bafd463232cf24821538a129ad1ab8a2310760d762aee3f038441c
+FROM /v0.1.2/demos/llvm/Dollyfile-llvm-build 82dfe5fb8c37081773cd2ca6c4e0ee6d5aafe239ca45d9c5a29646142b7db6a9
 REQUIRES TOOL cc
 REQUIRES TOOL c++
 REQUIRES TOOL gzip

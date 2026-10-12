@@ -45,3 +45,11 @@ await browserTest("composed toolchain", {}, async ({ open }) => {
   assert.equal(await session.submit("/tmp/http"), 126);
   assert.match(await session.text(), /host module http@0 is not declared by this image/);
 });
+
+// An image build installs the rows of a package's record first: zig names cc
+// and holds none of it, and the composed image has both, cc recorded before zig.
+await browserTest("composed dependency", {}, async ({ open }) => {
+  const run = check(await open(await composed(["runtime", "display", "input"], ["core", "display", "zig"])));
+  await run(`test -x /usr/bin/zig && ${hello} && cc /tmp/hello.c -o /tmp/hello && test "$(/tmp/hello)" = HELLO`);
+  await run("names=; while read row path pin; do names=\"$names ${path##*Dollyfile-}\"; done < /etc/dolly/installed; test \"$names\" = ' core display cc zig'");
+});
