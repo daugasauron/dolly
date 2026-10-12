@@ -2331,7 +2331,7 @@ int dolly_kernel_process_directory(int pid) {
 
 void dolly_kernel_wake(void) { wakeup_pending = 1; }
 
-/* A process that has not started holds what it inherits: a signal ends it. */
+/* A process that has not started holds what it inherits. */
 static int holds_socket(const dolly_kernel_process *process, const dolly_kernel_socket *socket) {
   if (process->state != DOLLY_KERNEL_PROCESS_PENDING &&
       process->state != DOLLY_KERNEL_PROCESS_RUNNING) return 0;
@@ -2341,7 +2341,8 @@ static int holds_socket(const dolly_kernel_process *process, const dolly_kernel_
   return 0;
 }
 
-void dolly_kernel_socket_signal(const dolly_kernel_socket *socket, int signal_number, int foreground) {
+void dolly_kernel_socket_holders(const dolly_kernel_socket *socket, int foreground,
+                                 void (*each)(int pid, int argument), int argument) {
   for (size_t index = 0; index < DOLLY_KERNEL_PROCESS_LIMIT; ++index) {
     const dolly_kernel_process *holder = &process_table[index];
     if (!holds_socket(holder, socket)) continue;
@@ -2351,9 +2352,8 @@ void dolly_kernel_socket_signal(const dolly_kernel_socket *socket, int signal_nu
       if (dolly_process_descends_from(holder->pid, process_table[other].pid)) first = 0;
       if (dolly_process_descends_from(process_table[other].pid, holder->pid)) waits = 1;
     }
-    if (!(foreground && first && waits)) dolly_process_signal(holder->pid, signal_number);
+    if (!(foreground && first && waits)) each(holder->pid, argument);
   }
-  wakeup_pending = 1;
 }
 
 int dolly_process_next_launch(void) {

@@ -244,7 +244,16 @@ export class DollyProcessSupervisor {
     for (let pid; (pid = this.dolly._dolly_process_take_alarm()) > 0;) {
       this.#deliverSignal(this.processes.get(pid), DOLLY_PROCESS_SIGALRM);
     }
+    this.#deliverRaised();
     this.serviceDeferred();
+  }
+
+  // What a pseudo-terminal raised for the programs on its slave
+  // (host/pty/dolly-pty-supervisor-0.wat): its interrupt key, resize or hang-up.
+  #deliverRaised() {
+    for (let pid; (pid = this.dolly._dolly_pty_take_signal()) > 0;) {
+      this.#deliverSignal(this.processes.get(pid), this.dolly._dolly_pty_taken_signal());
+    }
   }
 
   #interruptForeground(pid) {
@@ -600,6 +609,7 @@ export class DollyProcessSupervisor {
     if (signalDelivery?.signal) {
       this.#deliverSignal(this.processes.get(signalDelivery.pid), signalDelivery.signal);
     }
+    this.#deliverRaised();
     if (retry) return;
     this.#scheduleLaunches();
     // A pipe write or close can complete another thread's blocked read or poll,
@@ -659,6 +669,7 @@ export class DollyProcessSupervisor {
     this.#stop(process);
     // The kernel has closed the process's descriptors: a reader of its pipe or
     // a waiter for its lock proceeds now, not at the next tick.
+    this.#deliverRaised();
     if (this.dolly._dolly_process_take_wakeup()) this.serviceDeferred();
     const retired = () => {
       process.retirementTimer = null;

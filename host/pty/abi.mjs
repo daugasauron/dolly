@@ -1,4 +1,4 @@
-// Generated from host/pty/dolly-pty-0.wat.
+// Generated from host/pty/dolly-pty-supervisor-0.wat, host/pty/dolly-pty-0.wat.
 export const DOLLY_PTY_OPEN = 176;
 export const DOLLY_PTY_RESIZE = 177;
 export const DOLLY_PTY_CLOEXEC = 1;

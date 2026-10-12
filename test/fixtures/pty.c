@@ -57,14 +57,18 @@ static pid_t spawn_on(int slave, char *mode) {
 static void expect(int descriptor, const char *text) {
   char bytes[128];
   const size_t wanted = strlen(text);
-  for (size_t size = 0; size < wanted;) {
+  size_t size = 0;
+  while (size < wanted) {
     struct pollfd query = {descriptor, POLLIN, 0};
-    CHECK(poll(&query, 1, 5000) == 1);
+    if (poll(&query, 1, 5000) != 1) break;
     const ssize_t count = read(descriptor, bytes + size, wanted - size);
-    CHECK(count > 0);
+    if (count <= 0) break;
     size += (size_t)count;
   }
-  CHECK(memcmp(bytes, text, wanted) == 0);
+  if (size != wanted || memcmp(bytes, text, wanted) != 0) {
+    fprintf(stderr, "PTY FAIL: expected \"%s\", read %zu bytes \"%.*s\"\n", text, size, (int)size, bytes);
+    exit(1);
+  }
 }
 
 /* One process holding both ends: bytes cross, the slave is a terminal with a
@@ -129,15 +133,23 @@ static int terminal(void) {
   sigaction(SIGWINCH, &action, NULL);
   sigaction(SIGINT, &action, NULL);
   write(1, "ready\n", 6);
+  /* A handler runs when a system call starts: one that ran during the last
+   * write is seen here, before the read that would wait. */
   for (;;) {
+    if (resized) {
+      resized = 0;
+      if (ioctl(0, TIOCGWINSZ, &size) == 0) dprintf(1, "size %dx%d\n", size.ws_col, size.ws_row);
+      continue;
+    }
+    if (interrupted) {
+      interrupted = 0;
+      write(1, "interrupt\n", 10);
+      continue;
+    }
     const ssize_t count = read(0, bytes, sizeof(bytes));
-    if (count < 0 && errno == EINTR) {
-      if (resized && ioctl(0, TIOCGWINSZ, &size) == 0) dprintf(1, "size %dx%d\n", size.ws_col, size.ws_row);
-      if (interrupted) write(1, "interrupt\n", 10);
-      resized = interrupted = 0;
-    } else if (count <= 0 || bytes[0] == 'q') {
-      return count <= 0 ? 4 : 0;
-    } else if (bytes[0] == 't') {
+    if (count < 0 && errno == EINTR) continue;
+    if (count <= 0 || bytes[0] == 'q') return count <= 0 ? 4 : 0;
+    if (bytes[0] == 't') {
       const int own = open("/dev/tty", O_RDWR);
       if (own < 0 || !isatty(own) || write(own, "own\n", 4) != 4 || close(own) != 0) return 7;
     } else if (bytes[0] == 'r') {
@@ -184,6 +196,23 @@ static int program(void) {
   CHECK(write(ends[0], "q", 1) == 1);
   CHECK(waitpid(child, &status, 0) == child && WIFEXITED(status) && WEXITSTATUS(status) == 0);
   CHECK(read(ends[0], &byte, 1) == 0);
+  return 0;
+}
+
+/* A program that makes no system call hears no signal: the interrupt key
+ * and the hang-up end it all the same, as they do at the display's terminal. */
+static int deaf(void) {
+  int ends[2], status;
+  const int signals[] = {SIGINT, SIGHUP};
+  for (int round = 0; round < 2; ++round) {
+    CHECK(pty_open(DOLLY_PTY_CLOEXEC, ends) == 0);
+    const pid_t child = spawn_on(ends[1], "spin");
+    CHECK(close(ends[1]) == 0);
+    expect(ends[0], "spinning\r\n");
+    CHECK(round == 0 ? write(ends[0], "\3", 1) == 1 : close(ends[0]) == 0);
+    CHECK(waitpid(child, &status, 0) == child && WIFSIGNALED(status) && WTERMSIG(status) == signals[round]);
+    if (round == 0) CHECK(close(ends[0]) == 0);
+  }
   return 0;
 }
 
@@ -288,6 +317,8 @@ int main(int argc, char **argv) {
   if (strcmp(mode, "shell") == 0) return waiter("script");
   if (strcmp(mode, "script") == 0) return waiter("sleeper");
   if (strcmp(mode, "sleeper") == 0) return write(1, "sleeping\n", 9), sleep(30), 5;
+  if (strcmp(mode, "deaf") == 0) return deaf();
+  if (strcmp(mode, "spin") == 0) for (write(1, "spinning\n", 9);;) {}
   if (strcmp(mode, "quota") == 0 && argc > 2) return quota(argv[2]);
   return 2;
 }

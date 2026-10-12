@@ -69,17 +69,18 @@ struct dolly_kernel_socket {
 /* For those modules: the stream of `kind` a descriptor of `pid` names (EBADF,
  * ENOTSOCK for another kind); `count` new descriptors, all or none (EMFILE);
  * the directory relative paths of `pid` start from; that a deferred call may
- * now complete; and a signal for the processes that hold a descriptor of
- * `socket`. With `foreground` the one the other holders descend from is
- * spared while it has them, as a terminal's interrupt key spares the shell
- * that waits for its command. */
+ * now complete; and each(pid, argument) for the processes that hold a
+ * descriptor of `socket`. With `foreground` the one the other holders descend
+ * from is left out while it has them, as a terminal's interrupt key spares
+ * the shell that waits for its command. */
 int dolly_kernel_socket_descriptor(int pid, uint32_t descriptor, const dolly_kernel_socket_kind *kind,
                                    dolly_kernel_socket **socket);
 int dolly_kernel_socket_open(int pid, dolly_kernel_socket *const *sockets, uint32_t count,
                              int close_on_exec, uint32_t *descriptors);
 int dolly_kernel_process_directory(int pid);
 void dolly_kernel_wake(void);
-void dolly_kernel_socket_signal(const dolly_kernel_socket *socket, int signal_number, int foreground);
+void dolly_kernel_socket_holders(const dolly_kernel_socket *socket, int foreground,
+                                 void (*each)(int pid, int argument), int argument);
 /* WasmFS has no socket node. A path a socket was bound to is an empty regular
  * file with the sticky bit, which no process can set: chmod changes nothing. */
 static inline int dolly_kernel_socket_node(mode_t mode) {

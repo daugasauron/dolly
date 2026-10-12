@@ -28,6 +28,26 @@ struct dolly_pty {
 
 static dolly_pty *ptys[DOLLY_PTY_LIMIT];
 
+/* Signals for the programs on a slave wait here for the supervisor
+ * (dolly-pty-supervisor-0.wat), which delivers them as it delivers a kill. */
+static struct { int pid, number; } raised[DOLLY_PTY_LIMIT * 32], taken;
+static size_t raised_count;
+
+static void raise_signal(int pid, int number) {
+  if (raised_count == sizeof(raised) / sizeof(*raised)) return;
+  raised[raised_count].pid = pid;
+  raised[raised_count++].number = number;
+}
+
+int dolly_pty_take_signal(void) {
+  if (raised_count == 0) return 0;
+  taken = raised[0];
+  memmove(raised, raised + 1, --raised_count * sizeof(*raised));
+  return taken.pid;
+}
+
+int dolly_pty_taken_signal(void) { return taken.number; }
+
 static pty_end *other_end(const pty_end *end) {
   return end == &end->pty->master ? &end->pty->slave : &end->pty->master;
 }
@@ -56,9 +76,8 @@ static int valid_size(uint32_t rows, uint32_t columns) {
 static void pty_close(dolly_kernel_socket *closing) {
   pty_end *end = (pty_end *)closing;
   dolly_pty *pty = end->pty;
-  /* A program the signal ends closes the slave here: the master is still open. */
   if (end == &pty->master && pty->slave.open) {
-    dolly_kernel_socket_signal(&pty->slave.shared, DOLLY_PROCESS_SIGHUP, 0);
+    dolly_kernel_socket_holders(&pty->slave.shared, 0, raise_signal, DOLLY_PROCESS_SIGHUP);
   }
   end->open = 0;
   dolly_kernel_wake();
@@ -94,7 +113,7 @@ static int64_t pty_send(dolly_kernel_socket *shared, const unsigned char *bytes,
   for (; taken < size; ++taken) {
     const unsigned char byte = bytes[taken];
     if (input && byte == 3 && (pty->mode & DOLLY_TERMINAL_ISIG) != 0) {
-      dolly_kernel_socket_signal(&pty->slave.shared, DOLLY_PROCESS_SIGINT, 1);
+      dolly_kernel_socket_holders(&pty->slave.shared, 1, raise_signal, DOLLY_PROCESS_SIGINT);
       continue;
     }
     const int carriage_return = !input && byte == '\n' && (pty->mode & newline) == newline;
@@ -211,7 +230,7 @@ static int64_t pty_call(int pid, int tid, uint32_t operation, unsigned char *mai
   if (request.flags != 0 || !valid_size(request.rows, request.columns)) return -EINVAL;
   pty->rows = request.rows;
   pty->columns = request.columns;
-  if (pty->slave.open) dolly_kernel_socket_signal(&pty->slave.shared, DOLLY_PROCESS_SIGWINCH, 0);
+  if (pty->slave.open) dolly_kernel_socket_holders(&pty->slave.shared, 0, raise_signal, DOLLY_PROCESS_SIGWINCH);
   return 0;
 }
 
