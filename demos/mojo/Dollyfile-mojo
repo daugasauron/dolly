@@ -12,9 +12,9 @@ REQUIRES HOST upload@0
 # A shell with the Mojo compiler that mojo-build built in Dolly and what its
 # programs link against: mojo build NAME.mojo makes a Dolly executable.
 FROM /v0.1.2/demos/mojo/Dollyfile-mojo-runtime f82129e78ae976ea9cbca6e836f0b7212728d0d0f13b6a4031a19ca82b79ee47
-COPY /v0.1.2/demos/mojo/Dollyfile-mojo-build a5ccc15163cdefcab94faf33de03ab1931de2ad72ef9c7495711e1950fc6ae9e /opt/mojo/bin/mojo /usr/bin/mojo
-COPY /v0.1.2/demos/mojo/Dollyfile-mojo-build a5ccc15163cdefcab94faf33de03ab1931de2ad72ef9c7495711e1950fc6ae9e /opt/mojo/lib/mojo /usr/lib/mojo
-COPY /v0.1.2/demos/mojo/Dollyfile-mojo-build a5ccc15163cdefcab94faf33de03ab1931de2ad72ef9c7495711e1950fc6ae9e /usr/share/licenses/mojo /usr/share/licenses/mojo
+COPY /v0.1.2/demos/mojo/Dollyfile-mojo-build 4c3abeba1e87daebe17fab89b5677c7ad13280eef0990443c8ca2b336e576b59 /opt/mojo/bin/mojo /usr/bin/mojo
+COPY /v0.1.2/demos/mojo/Dollyfile-mojo-build 4c3abeba1e87daebe17fab89b5677c7ad13280eef0990443c8ca2b336e576b59 /opt/mojo/lib/mojo /usr/lib/mojo
+COPY /v0.1.2/demos/mojo/Dollyfile-mojo-build 4c3abeba1e87daebe17fab89b5677c7ad13280eef0990443c8ca2b336e576b59 /usr/share/licenses/mojo /usr/share/licenses/mojo
 REQUIRES TOOL cc
 REQUIRES LIB mojo-rt
 REQUIRES LIB mojo-gpu

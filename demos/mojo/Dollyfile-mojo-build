@@ -24,6 +24,8 @@ REQUIRES TOOL patch
 REQUIRES TOOL time
 REQUIRES TOOL cp
 REQUIRES TOOL mkdir
+REQUIRES TOOL sha256sum
+REQUIRES TOOL cut
 
 SOURCE /v0.1.2/dist/static/mojo/mojo.tar.gz e2aa0482d9c80db7eb13eee92cc41300952196404ab4be56323d79e6df5f30a6 /tmp/mojo.tar.gz
 SLOP slop -c 'gzip -dc /tmp/mojo.tar.gz | tar -xf - -C /'
@@ -37,8 +39,8 @@ SLOP patch -p1 -d /tmp/mojo/modular -i /tmp/mojo/target/patches/stdlib.patch
 SLOP slop -c 'python /tmp/mojo/bazel-to-cmake.py /tmp/mojo/modular > /tmp/mojo/CMakeLists.txt'
 
 # As mojo-llvm compiles LLVM. The version is the tag's, without Bazel's
-# development label, and the revision is the pin. The data of LLVM and MLIR
-# and an 8 MiB stack need more than the 16 MiB a process starts with.
+# development label. The data of LLVM and MLIR and an 8 MiB stack need more
+# than the 16 MiB a process starts with.
 FILE /tmp/mojo/Dolly.cmake
     set(CMAKE_BUILD_TYPE Release CACHE STRING "")
     set(CMAKE_C_FLAGS "-std=gnu17" CACHE STRING "")
@@ -52,10 +54,11 @@ FILE /tmp/mojo/Dolly.cmake
     set(XXHASH /tmp/mojo/xxhash CACHE PATH "")
     set(OPENTELEMETRY /tmp/mojo/opentelemetry CACHE PATH "")
     set(MOJO_VERSION_LABEL "" CACHE STRING "")
-    set(MODULAR_VERSION_REVISION c6fa49f7 CACHE STRING "")
-SLOP time cmake -C /tmp/mojo/Dolly.cmake -S /tmp/mojo -B /tmp/mojo/build
+# The revision is the pin and this archive: the compiler keys its caches by
+# it, where upstream reads the build id of its own ELF file.
+SLOP time slop -c 'cmake -C /tmp/mojo/Dolly.cmake -DMODULAR_VERSION_REVISION=c6fa49f7+dolly.$(sha256sum /tmp/mojo.tar.gz | cut -c1-8) -S /tmp/mojo -B /tmp/mojo/build'
 
-# 351 units and 134 TableGen runs. Three jobs: the units that include every
+# 356 units and 134 TableGen runs. Three jobs: the units that include every
 # dialect take 1.9 GB each.
 SLOP CWD /tmp/mojo/build time make -k -j3 Mojo.tools.mojo.mojo
 SLOP mkdir -p /opt/mojo/bin /opt/mojo/lib/mojo /usr/share/licenses/mojo

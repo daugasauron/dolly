@@ -45,7 +45,7 @@ Programs for Dolly, their runtime and GPU kernels: [target](target/README.md).
   | `Support/PlatformUtils.h` | stops with `#error` unless the platform is Linux, macOS or Windows |
   | `Support/Threading/SpinWaiter.h` | stops with `#error` unless the processor is x86 or ARM; WebAssembly has no pause instruction |
   | `Support/ML/TensorShape.h` | `size_t` and `int64_t` are different types on wasm64, as on macOS |
-  | `Support/lib/BinaryID.cpp` | reads the ELF build-id note of the running program; a WebAssembly module names itself by the revision it was built from |
+  | `Support/lib/BinaryID.cpp` | reads the ELF build-id note of the running program, to key caches; a WebAssembly module has none and names itself by its revision, to which `mojo-build` adds the digest of its source archive |
   | `AsyncRT/Runtime/CPUDevice.h` | the default work queue starts threads; with an LLVM built without threads it is the one that runs on the caller's thread |
   | `AsyncRT/lib/Support/Semaphore.cpp` | `sem_timedwait`, which the libc of a process without threads does not have |
   | `Mojo/tools/mojo/Run/mojo-run.cpp` | `mojo run` executes through LLVM's JIT; it fails saying so |

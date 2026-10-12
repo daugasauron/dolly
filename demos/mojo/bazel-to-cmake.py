@@ -74,7 +74,7 @@ def package_environment(package):
             def overridden(values):
                 return [f"{value.split('=')[0]}={OVERRIDE_DEFINES.get(value.split('=')[0], value.partition('=')[2])}" for value in values]
             if name in ("Profiling", "ProfilerHostGlue"):  # bazel/api.bzl
-                attributes = {"deps": ["//Support:TimeProfiler"]}
+                attributes, defines, local_defines = {"deps": ["//Support:TimeProfiler"]}, (), ()
             rule(kind)(name=name, defines=overridden(defines), local_defines=overridden(local_defines), **attributes)
         return declare
 
