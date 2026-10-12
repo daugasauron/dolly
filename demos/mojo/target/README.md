@@ -100,7 +100,8 @@ drivers that are not open source, so this one is new, with its names:
 - Each pointer parameter is a storage buffer and takes a `DeviceBuffer`; a
   pointer is an offset into the buffer its parameter names. The other
   parameters (`Int`, `UInt`, `Int32`, `UInt32`, `Float32`, `Bool`) travel in
-  one more buffer.
+  one more buffer. A kernel loads 8, 16 and 32 bits and stores 32: storing
+  less would rewrite the word around it, which another thread may be writing.
 - `block_dim` is the WebGPU workgroup size, set when the pipeline is created:
   at most 256 threads on a default device, and a larger block raises when
   enqueued. `grid_dim` is the workgroup count.
@@ -108,9 +109,9 @@ drivers that are not open source, so this one is new, with its names:
   compiles; calls are inlined. The text must fit `gpu@0`'s 128 KiB for a
   shader: the largest of the fixtures, eleven math functions, is 13 KB.
 - The compiler refuses, naming the instruction: 64-bit integers, `Float64`,
-  `Float16`, SIMD vectors, memory accesses that are not 32 bits wide (so
-  buffers of 8- and 16-bit scalars), pointers stored in memory or chosen
-  between two buffers, recursion, `print`.
+  `Float16`, SIMD vectors, stores of 8 and 16 bits, pointers stored in memory
+  or chosen between two buffers, recursion, `print`, and the libm functions
+  WGSL lacks (`log10`, `cbrt`, `expm1`, `erfc`, gamma and Bessel functions).
 - A failed `assert` or an abort ends that invocation without a message; the
   others go on. WGSL has no trap and `gpu@0` carries no kernel output.
 - WebGPU forbids one buffer bound twice as writable, so enqueueing a kernel

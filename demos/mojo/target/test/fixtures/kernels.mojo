@@ -1,3 +1,4 @@
+from std.bit import byte_swap, rotate_bits_left
 from std.math import acos, atan, cos, erf, exp, log, sin, sinh, sqrt, tan
 
 from gpu import block_dim, block_idx, global_idx, grid_dim, thread_idx
@@ -22,10 +23,12 @@ def horner(
     result[unsafe_offset=i] = sum
 
 
-def mix(value: Int32, i: Int, negate: Bool) -> Int32:
+def mix(value: Int32, byte: UInt8, i: Int, negate: Bool) -> Int32:
     """Integer arithmetic in 32, 16 and 8 bits, signed and unsigned, for the
     kernel and for the host."""
     var mixed = (value * 7 - 3) // 2 + (value % 5) + (value >> 1) ^ Int32(i)
+    mixed += Int32(byte) * 3 + byte_swap(value) % 1000 + abs(value) % 7
+    mixed ^= rotate_bits_left[7](value) & 0xFF
     mixed += Int32(Int8(value) * 3 // 2) + Int32(UInt8(value) >> 2)
     mixed += Int32(Int16(value * 301) % 7) + Int32(UInt16(value) * 5)
     if Int8(value) < Int8(i):
@@ -37,16 +40,19 @@ def mix(value: Int32, i: Int, negate: Bool) -> Int32:
 
 def integers(
     values: Pointer[Int32, MutAnyOrigin],
+    bytes: Pointer[UInt8, MutAnyOrigin],
     result: Pointer[Int32, MutAnyOrigin],
     n: UInt32,
     negate: Bool,
 ):
-    """Integers on a two-dimensional grid."""
+    """Integers on a two-dimensional grid, some read from a buffer of bytes."""
     var column = thread_idx.x + block_idx.x * block_dim.x
     var row = thread_idx.y + block_idx.y * block_dim.y
     var i = row * (grid_dim.x * block_dim.x) + column
     if UInt32(i) < n:
-        result[unsafe_offset=i] = mix(values[unsafe_offset=i], i, negate)
+        result[unsafe_offset=i] = mix(
+            values[unsafe_offset=i], bytes[unsafe_offset=i], i, negate
+        )
 
 
 def function(which: Int, v: Float32) -> Float32:
@@ -106,18 +112,25 @@ def main() raises:
 
     var a = ctx.enqueue_create_buffer[DType.int32](n)
     var b = ctx.enqueue_create_buffer[DType.int32](n)
+    var bytes = ctx.enqueue_create_buffer[DType.uint8](n - 1)
     var ints = List[Int32](length=n, fill=0)
+    var small = List[UInt8](length=n, fill=0)
     for i in range(n):
         ints[i] = Int32(i * 2741 - 70000)
+        small[i] = UInt8(i * 5 + 3)
     a.enqueue_copy_from(ints.unsafe_ptr())
+    bytes.enqueue_copy_from(small.unsafe_ptr())
+    # One thread more than there are bytes: n - 1 is not a multiple of four.
     ctx.enqueue_function[integers](
-        a, b, UInt32(n), True, grid_dim=Dim(2, 4), block_dim=Dim(4, 2)
+        a, bytes, b, UInt32(n - 1), True, grid_dim=Dim(2, 4), block_dim=Dim(4, 2)
     )
     var bs = b.to_host()
     var wrong_integers = 0
-    for i in range(n):
-        if bs[i] != mix(ints[i], i, True):
+    for i in range(n - 1):
+        if bs[i] != mix(ints[i], small[i], i, True):
             wrong_integers += 1
+    if bs[n - 1] != 0:
+        wrong_integers += 1
 
     ctx.enqueue_function[functions](x, y, n, grid_dim=1, block_dim=64)
     ctx.synchronize()

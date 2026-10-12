@@ -94,10 +94,10 @@ index 8bdcb15..42aea40 100644
    }
 diff --git a/Mojo/lib/Compiler/ObjectCompiler/Target/Dolly/DollyBackend.cpp b/Mojo/lib/Compiler/ObjectCompiler/Target/Dolly/DollyBackend.cpp
 new file mode 100644
-index 0000000..858bb6f
+index 0000000..b7a90d5
 --- /dev/null
 +++ b/Mojo/lib/Compiler/ObjectCompiler/Target/Dolly/DollyBackend.cpp
-@@ -0,0 +1,839 @@
+@@ -0,0 +1,875 @@
 +//===----------------------------------------------------------------------===//
 +// Added for Dolly, a POSIX-like userspace for wasm64 in the browser.
 +//
@@ -119,8 +119,8 @@ index 0000000..858bb6f
 +//   - `block_dim` is the workgroup size, an override constant of the pipeline;
 +//   - control flow is a block number in a loop, which expresses any CFG.
 +// What WGSL cannot say is an error naming the instruction: 64-bit integers,
-+// f64, f16, vectors, memory accesses that are not 32 bits wide, calls. A trap
-+// ends the invocation.
++// f64, f16, vectors, stores that are not 32 bits wide, calls. A trap ends the
++// invocation.
 +//
 +//===----------------------------------------------------------------------===//
 +
@@ -594,6 +594,29 @@ index 0000000..858bb6f
 +    case Intrinsic::umax: return ordered("max", false);
 +    case Intrinsic::smin: return ordered("min", true);
 +    case Intrinsic::smax: return ordered("max", true);
++    case Intrinsic::abs:
++      if (width)
++        return normalize("u32(abs(" + asSigned(argument(0), width) + "))",
++                         width);
++      break;
++    case Intrinsic::bitreverse: return whole("reverseBits");
++    case Intrinsic::bswap:
++      if (width == 32)
++        return "((" + argument(0) + " >> 24u) | ((" + argument(0) +
++               " >> 8u) & 65280u) | ((" + argument(0) +
++               " << 8u) & 16711680u) | (" + argument(0) + " << 24u))";
++      break;
++    // A funnel shift by s of 32 bits; no WGSL shift may be by 32.
++    case Intrinsic::fshl:
++      if (width == 32)
++        return "((" + argument(0) + " << (" + argument(2) + " & 31u)) | ((" +
++               argument(1) + " >> 1u) >> (31u - (" + argument(2) + " & 31u))))";
++      break;
++    case Intrinsic::fshr:
++      if (width == 32)
++        return "((" + argument(1) + " >> (" + argument(2) + " & 31u)) | ((" +
++               argument(0) + " << 1u) << (31u - (" + argument(2) + " & 31u))))";
++      break;
 +    case Intrinsic::ctpop: return whole("countOneBits");
 +    case Intrinsic::ctlz: return whole("countLeadingZeros");
 +    case Intrinsic::cttz: return whole("countTrailingZeros");
@@ -674,10 +697,23 @@ index 0000000..858bb6f
 +    } else if (auto *gep = dyn_cast<GetElementPtrInst>(&i)) {
 +      assign(offset(*cast<GEPOperator>(gep)));
 +    } else if (auto *load = dyn_cast<LoadInst>(&i)) {
++      unsigned narrow = bits(i.getType());
++      if (narrow == 8 || narrow == 16) {
++        // A part of the 32-bit word around it.
++        std::string at = use(load->getPointerOperand());
++        std::string value = word(load->getPointerOperand(),
++                                 Type::getInt32Ty(i.getContext()), i);
++        assign(normalize("(" + value + " >> ((" + at + " & 3u) * 8u))", narrow));
++        return;
++      }
 +      std::string value = word(load->getPointerOperand(), i.getType(), i);
 +      assign(i.getType()->isFloatTy() ? "bitcast<f32>(" + value + ")" : value);
 +    } else if (auto *store = dyn_cast<StoreInst>(&i)) {
 +      const Value *value = store->getValueOperand();
++      if (bits(value->getType()) == 8 || bits(value->getType()) == 16)
++        fail("8 and 16 bits cannot be stored: it would rewrite the 32-bit "
++             "word around them, which another thread may be writing",
++             &i);
 +      std::string target =
 +          word(store->getPointerOperand(), value->getType(), i);
 +      os << "      " << target << " = "
