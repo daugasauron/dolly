@@ -17,7 +17,8 @@ const sizeProgram = `
 #include <stdio.h>
 #include <sys/ioctl.h>
 #include <unistd.h>
-static void resized(int number) { (void)number; }
+static volatile sig_atomic_t resizes;
+static void resized(int number) { (void)number; ++resizes; }
 int main(void) {
   struct sigaction action = {.sa_handler = resized};
   sigaction(SIGWINCH, &action, NULL);
@@ -25,7 +26,8 @@ int main(void) {
     struct winsize size;
     if (!isatty(1) || ioctl(1, TIOCGWINSZ, &size) != 0) return 1;
     printf("SIZE-%d %dx%d\\n", count, size.ws_col, size.ws_row);
-    if (count < 2) pause();
+    fflush(stdout);
+    while (count < 2 && resizes <= count) pause();
   }
   return 0;
 }`;
