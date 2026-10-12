@@ -65,6 +65,18 @@ Worked on branch `demo/mojo` (worktree `work/mojo`, commits `319c3a34` to
 2026-10-12. Everything is in `demos/mojo`; scratch scripts and logs were in
 `build/mojo-evidence/` and are not kept.
 
+With `main` merged (no conflict, no pin changed, the chain plans as sixteen
+reuses): `node --test 'test/*.test.mjs' 'demos/**/*.test.mjs'` passes (424),
+the Mojo test passes again in the three browsers (04:26), and
+`node test/amy-browser.mjs` passes in Chromium and Firefox (04:23) on a
+catalog of `default`, `system`, the thirty packages its cases install and
+`mojo`: 57 images, all reused. For that catalog this tree took from
+`work/rust` what it lacked: the snapshots and packs of main's fifteen new
+packages (hard links; their `-snapshot.mjs` copied) and the Rust chain's
+sources (`build/rustc-port/{rust,toolchain,libc,libc-186,jobserver,llvm-source}`,
+2.5 GB copied), which staging reads even when every image is a cache hit.
+This branch adds no `PACKAGE`, so amy's list is main's.
+
 To build and test it in a tree that has main's images, as run here (the
 first build fetches the pinned sources into `.cache`, 2.6 GB):
 
