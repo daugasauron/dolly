@@ -47,3 +47,5 @@ box3d
 pkgconf
 libpng
 freetype
+mojo
+mojo-compiler
