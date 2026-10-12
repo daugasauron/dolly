@@ -203,6 +203,9 @@ child ever stops.
   passes except `fs-growth-browser.mjs`, whose page is ended by the 6 GB cap
   of the browser slot ("Target crashed") in both. It was not run under a
   larger cap.
+- `node --test test/dolly.artifacts.mjs` over the 38 packages and the images
+  registered in this tree: 17 of 17, among them that the kernel exports
+  exactly what its contracts name and that its browser imports are unchanged.
 - Not run: the catalog (`config/domain-pages-images.txt` does not list
   `tmux`; the module is a proposal).
 
