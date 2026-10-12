@@ -18,9 +18,9 @@ Done. The `mojo` image holds the compiler that `mojo-build` compiled and
 linked inside Dolly from pinned source (`mojo-llvm` before it: LLVM, MLIR,
 Clang's Basic library and Zstandard, also compiled inside Dolly), with the
 other task's targets and runtime. `node demos/mojo/test/mojo-browser.mjs`
-with `DISPLAY=:141` (03:23, with `demo/mojo-target` merged at `0cfaddd0`,
-after `mojo-runtime`, `mojo-build` and `mojo` were rebuilt with it:
-`make -k -j3` 649 s; 03:05 with it at `9558491e`, 02:39 at `c2918333`,
+with `DISPLAY=:141` (03:40, with `demo/mojo-target` merged at `95ba9c00`,
+after `mojo-build` and `mojo` were rebuilt with it: `make -k -j3` 598 s;
+03:23 with it at `0cfaddd0`, 03:05 at `9558491e`, 02:39 at `c2918333`,
 02:22 at `35771eb3`):
 
 | Browser | Adapter | Result |
