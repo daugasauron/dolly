@@ -1,0 +1,223 @@
+DOLLY 7
+PACKAGE tmux
+REQUIRES HOST runtime@0
+REQUIRES HOST pty@0
+REQUIRES HOST sockets@0
+
+# tmux over libevent and NetBSD's terminfo library, all from upstream's
+# release archives. tmux takes Dolly's port (README.md): a patch, its operating
+# system file and the calls of pty@0, which ships no client yet.
+FROM /v0.1.2/Dollyfile-system-tools a79e48b88e5552cc965f0aa06dd9d28c05712649cc7b059036eb6a3857665632
+
+REQUIRES HEADER libc
+REQUIRES TOOL ar
+REQUIRES TOOL awk
+REQUIRES TOOL cc
+REQUIRES TOOL cp
+REQUIRES TOOL grep
+REQUIRES TOOL gzip
+REQUIRES TOOL make
+REQUIRES TOOL mkdir
+REQUIRES TOOL patch
+REQUIRES TOOL sed
+REQUIRES TOOL sh
+REQUIRES TOOL sleep
+REQUIRES TOOL tar
+
+SOURCE /v0.1.2/dist/static/tmux/tmux-3.8.tar.gz e79c699c7e949dccd0a4a125e17b8d1261e311b16979dbc8eb34542f3966d82e /tmp/tmux.tar.gz
+SOURCE /v0.1.2/dist/static/tmux/libevent-2.1.13-stable.tar.gz f7e9383b8c0baa81b687e5b5eecc01beefaf1b19b64151d95ed61647fe7a315c /tmp/libevent.tar.gz
+SOURCE /v0.1.2/dist/static/tmux/terminfo.tar 02f16349f246ae130a95a41ef88a78aabf7d5374d6e962ce0520dd216274edbe /tmp/terminfo.tar
+SOURCE /v0.1.2/dist/static/tmux/port.tar f1662a02195e55e3210681d94f2320c28f2ae7226a5758c2fc1cfc423330b645 /tmp/tmux-port.tar
+SLOP gzip -dc /tmp/tmux.tar.gz | tar -xf - -C /tmp
+SLOP gzip -dc /tmp/libevent.tar.gz | tar -xf - -C /tmp
+SLOP tar -xf /tmp/terminfo.tar -C /
+SLOP tar -xf /tmp/tmux-port.tar -C /
+SLOP patch -p1 -d /tmp/tmux-3.8 -i /tmp/tmux-3.8/tmux-dolly.patch
+
+# Slop does not run upstream's configure scripts, so these say what they
+# would find here. Not claimed: epoll and select (libevent polls), threads,
+# sendfile and getrandom, whose header is missing.
+FILE /tmp/libevent-2.1.13-stable/evconfig-private.h
+    #define _GNU_SOURCE 1
+FILE /tmp/libevent-2.1.13-stable/include/event2/event-config.h
+    #ifndef EVENT2_EVENT_CONFIG_H_INCLUDED_
+    #define EVENT2_EVENT_CONFIG_H_INCLUDED_
+    #define EVENT__NUMERIC_VERSION 0x02010d00
+    #define EVENT__PACKAGE_VERSION "2.1.13"
+    #define EVENT__VERSION_MAJOR 2
+    #define EVENT__VERSION_MINOR 1
+    #define EVENT__VERSION_PATCH 13
+    #define EVENT__VERSION "2.1.13-stable"
+    #define EVENT__PACKAGE "libevent"
+    #define EVENT__DISABLE_THREAD_SUPPORT 1
+    #define EVENT__HAVE_ARPA_INET_H 1
+    #define EVENT__HAVE_CLOCK_GETTIME 1
+    #define EVENT__HAVE_ERRNO_H 1
+    #define EVENT__HAVE_FCNTL 1
+    #define EVENT__HAVE_FCNTL_H 1
+    #define EVENT__HAVE_FD_MASK 1
+    #define EVENT__HAVE_GETEGID 1
+    #define EVENT__HAVE_GETEUID 1
+    #define EVENT__HAVE_GETTIMEOFDAY 1
+    #define EVENT__HAVE_INTTYPES_H 1
+    #define EVENT__HAVE_NANOSLEEP 1
+    #define EVENT__HAVE_NETDB_H 1
+    #define EVENT__HAVE_NETINET_IN_H 1
+    #define EVENT__HAVE_PIPE 1
+    #define EVENT__HAVE_PIPE2 1
+    #define EVENT__HAVE_POLL 1
+    #define EVENT__HAVE_POLL_H 1
+    #define EVENT__HAVE_SA_FAMILY_T 1
+    #define EVENT__HAVE_SETFD 1
+    #define EVENT__HAVE_SIGACTION 1
+    #define EVENT__HAVE_SIGNAL 1
+    #define EVENT__HAVE_STDARG_H 1
+    #define EVENT__HAVE_STDDEF_H 1
+    #define EVENT__HAVE_STDINT_H 1
+    #define EVENT__HAVE_STDLIB_H 1
+    #define EVENT__HAVE_STRING_H 1
+    #define EVENT__HAVE_STRLCPY 1
+    #define EVENT__HAVE_STRSEP 1
+    #define EVENT__HAVE_STRTOK_R 1
+    #define EVENT__HAVE_STRTOLL 1
+    #define EVENT__HAVE_STRUCT_ADDRINFO 1
+    #define EVENT__HAVE_STRUCT_IN6_ADDR 1
+    #define EVENT__HAVE_STRUCT_SOCKADDR_IN6 1
+    #define EVENT__HAVE_STRUCT_SOCKADDR_STORAGE 1
+    #define EVENT__HAVE_STRUCT_SOCKADDR_STORAGE_SS_FAMILY 1
+    #define EVENT__HAVE_STRUCT_SOCKADDR_UN 1
+    #define EVENT__HAVE_SYS_IOCTL_H 1
+    #define EVENT__HAVE_SYS_PARAM_H 1
+    #define EVENT__HAVE_SYS_RESOURCE_H 1
+    #define EVENT__HAVE_SYS_SOCKET_H 1
+    #define EVENT__HAVE_SYS_STAT_H 1
+    #define EVENT__HAVE_SYS_TIME_H 1
+    #define EVENT__HAVE_SYS_TYPES_H 1
+    #define EVENT__HAVE_SYS_UIO_H 1
+    #define EVENT__HAVE_SYS_UN_H 1
+    #define EVENT__HAVE_SYS_WAIT_H 1
+    #define EVENT__HAVE_TIMERADD 1
+    #define EVENT__HAVE_TIMERCMP 1
+    #define EVENT__HAVE_TIMERISSET 1
+    #define EVENT__HAVE_UINT8_T 1
+    #define EVENT__HAVE_UINT16_T 1
+    #define EVENT__HAVE_UINT32_T 1
+    #define EVENT__HAVE_UINT64_T 1
+    #define EVENT__HAVE_UINTPTR_T 1
+    #define EVENT__HAVE_UNISTD_H 1
+    #define EVENT__HAVE_USLEEP 1
+    #define EVENT__HAVE_VASPRINTF 1
+    #define EVENT__HAVE___func__ 1
+    #define EVENT__HAVE___FUNCTION__ 1
+    #define EVENT__HAVE_DECL_CTL_KERN 0
+    #define EVENT__HAVE_DECL_KERN_ARND 0
+    #define EVENT__SIZEOF_INT 4
+    #define EVENT__SIZEOF_LONG 8
+    #define EVENT__SIZEOF_LONG_LONG 8
+    #define EVENT__SIZEOF_OFF_T 8
+    #define EVENT__SIZEOF_SSIZE_T 8
+    #define EVENT__SIZEOF_SHORT 2
+    #define EVENT__SIZEOF_SIZE_T 8
+    #define EVENT__SIZEOF_SOCKLEN_T 4
+    #define EVENT__SIZEOF_VOID_P 8
+    #define EVENT__SIZEOF_TIME_T 8
+    #define EVENT__TIME_WITH_SYS_TIME 1
+    #define EVENT__inline inline
+    #endif
+
+FILE /tmp/tmux.mk
+    .RECIPEPREFIX := >
+    .DELETE_ON_ERROR:
+    MAKEFLAGS += -r
+    N := /tmp/terminfo
+    E := /tmp/libevent-2.1.13-stable
+    T := /tmp/tmux-3.8
+    all: /usr/bin/tmux
+    
+    # libterminfo as its GNUmakefile builds it. nbperf and tic are built
+    # first: the library's own scripts run them to write its hash tables
+    # and the terminal descriptions it holds (xterm-256color among them).
+    # tic needs TERMINFO_COMPAT for _ti_promote, which the release's
+    # GNUmakefile leaves out.
+    L := $(N)/libterminfo
+    $(N)/nbperf/nbperf: $(wildcard $(N)/nbperf/*.c) $(L)/mi_vector_hash.c
+    >cc -O1 -I$(N) -I$(N)/nbperf $^ -o $@
+    $(L)/hash.c: $(L)/genhash $(L)/term.h $(N)/nbperf/nbperf
+    >TOOL_NBPERF=$(N)/nbperf/nbperf sh $(L)/genhash $(L)/term.h > $@
+    $(L)/termcap_hash.c: $(L)/genthash $(L)/termcap_map.c $(N)/nbperf/nbperf
+    >TOOL_NBPERF=$(N)/nbperf/nbperf sh $(L)/genthash $(L)/termcap_map.c > $@
+    $(N)/tic/tic: $(N)/tic/tic.c $(N)/tic/cdbw.c $(L)/compile.c $(L)/mi_vector_hash.c $(L)/hash.c
+    >cc -O1 -I$(N) -I$(L) -I$(N)/tic -DTERMINFO_COMPAT $^ -o $@
+    $(L)/compiled_terms.c: $(L)/genterms $(N)/terminfo/terminfo $(N)/tic/tic
+    >TOOL_TIC=$(N)/tic/tic TERMINFODIR=$(N)/terminfo sh $(L)/genterms > $@
+    TI := term ti setupterm curterm tparm tputs compile hash cdbr mi_vector_hash termcap
+    $(L)/term.o: $(L)/compiled_terms.c
+    $(L)/termcap.o: $(L)/termcap_hash.c
+    $(L)/%.o: $(L)/%.c
+    >cc -O2 -I$(N) -I$(L) -I$(N)/libcurses '-DINSTALL_PREFIX="/usr"' \
+    >  -DTERMINFO_COMPILE -DTERMINFO_DB -DTERMINFO_COMPAT -c $< -o $@
+    /tmp/libterminfo.a: $(addprefix $(L)/,$(addsuffix .o,$(TI)))
+    >ar rcs $@ $^
+    
+    # libevent's core, the sources of its CMakeLists.txt without threads.
+    EV := buffer bufferevent bufferevent_filter bufferevent_pair bufferevent_ratelim \
+      bufferevent_sock event evmap evutil evutil_rand evutil_time listener log signal \
+      strlcpy poll
+    $(E)/%.o: $(E)/%.c
+    >cc -O2 -I$(E) -I$(E)/include -I$(E)/compat -c $< -o $@
+    /tmp/libevent_core.a: $(addprefix $(E)/,$(addsuffix .o,$(EV)))
+    >ar rcs $@ $^
+    
+    # tmux: HAVE is what its configure would define here and COMPAT the
+    # functions it would replace. Not claimed: SO_PEERCRED, which sockets@0
+    # refuses (tmux then answers the one user itself). TMUX_SOCK_PERM is
+    # upstream's knob: Dolly has no permission bits to check on /tmp/tmux-0.
+    # TMUX_TERM is configure's pick among the names libterminfo knows.
+    HAVE := DIRENT_H FCNTL_H INTTYPES_H PATHS_H PTY_H STDINT_H SYS_DIR_H CURSES_H \
+      EVENT2_EVENT_H ERR_H DIRFD FLOCK SYSCONF ASPRINTF CFMAKERAW CLOCK_GETTIME \
+      EXPLICIT_BZERO GETLINE MEMMEM SETENV STRCASESTR STRLCAT STRLCPY STRNDUP \
+      STRNLEN STRSEP FORKPTY TIPARM
+    COMPAT := base64 closefrom daemon fdforkpty freezero getdtablecount getdtablesize \
+      getopt_long getpeereid getprogname htonll imsg imsg-buffer ntohll recallocarray \
+      setproctitle strtonum unvis vis
+    PORT := $(T)/osdep-dolly.c $(T)/pty.c
+    SOURCES := $(filter-out $(T)/osdep-%.c $(T)/image.c $(T)/image-sixel.c $(PORT),$(wildcard $(T)/*.c)) \
+      $(PORT) $(addprefix $(T)/compat/,$(addsuffix .c,$(COMPAT)))
+    CPPFLAGS := -D_GNU_SOURCE $(addprefix -DHAVE_,$(HAVE)) '-DTMUX_VERSION="3.8"' \
+      '-DTMUX_CONF="/etc/tmux.conf:~/.tmux.conf:$$XDG_CONFIG_HOME/tmux/tmux.conf:~/.config/tmux/tmux.conf"' \
+      '-DTMUX_LOCK_CMD="lock -np"' '-DTMUX_TERM="tmux-256color"' -DTMUX_MOUSE=1 \
+      -DTMUX_SOCK_PERM=0 -I$(T) -I$(E)/include -I$(L) -I$(N)/libcurses
+    $(T)/%.o: $(T)/%.c
+    >cc -O2 -std=gnu99 $(CPPFLAGS) -c $< -o $@
+    /usr/bin/tmux: $(SOURCES:.c=.o) /tmp/libevent_core.a /tmp/libterminfo.a
+    >cc $^ -ldolly-sockets -o $@
+SLOP make -j4 -f /tmp/tmux.mk
+SLOP mkdir -p /usr/share/licenses/tmux /usr/share/licenses/libevent
+SLOP cp /tmp/tmux-3.8/COPYING /usr/share/licenses/tmux/COPYING
+SLOP cp /tmp/libevent-2.1.13-stable/LICENSE /usr/share/licenses/libevent/LICENSE
+SLOP cp /tmp/tmux-3.8/tmux.1 /usr/share/man/man1/tmux.1
+
+# A server, one pane on a pseudo-terminal, a command typed into its shell
+# and the file that command wrote.
+FILE /tmp/tmux-check.slop
+    tmux -S /tmp/tmux-check.sock -D &
+    for attempt in 1 2 3 4 5; do test -e /tmp/tmux-check.sock || sleep 1; done
+    tmux -S /tmp/tmux-check.sock new-session -d -x 80 -y 24
+    tmux -S /tmp/tmux-check.sock send-keys 'echo $((6 * 7)) > /tmp/tmux-check.out' Enter
+    for attempt in 1 2 3 4 5 6 7 8 9 10; do test -s /tmp/tmux-check.out || sleep 1; done
+    tmux -S /tmp/tmux-check.sock kill-server
+    wait
+    grep -qx 42 /tmp/tmux-check.out
+SLOP tmux -V | grep -qx 'tmux 3.8'
+SLOP slop -e /tmp/tmux-check.slop
+
+# Dolly's termcap programs (less) know one terminal, the display's
+# (/etc/termcap): a pane is that one to them.
+FILE /etc/tmux.conf
+    set -g default-terminal xterm-256color
+
+EXPORTS TOOL tmux
+FILE /usr/share/licenses/tmux/COPYING
+FILE /usr/share/licenses/libevent/LICENSE
+FILE /usr/share/licenses/netbsd-curses/COPYING
+FILE /usr/share/man/man1/tmux.1

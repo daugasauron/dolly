@@ -1,0 +1,36 @@
+DOLLY 7
+APPLICATION tmux-panes
+REQUIRES HOST runtime@0
+REQUIRES HOST display@0
+REQUIRES HOST input@0
+REQUIRES HOST download@0
+REQUIRES HOST http@0
+REQUIRES HOST pty@0
+REQUIRES HOST snapshot@0
+REQUIRES HOST sockets@0
+REQUIRES HOST upload@0
+
+FROM /v0.1.2/Dollyfile-system cb003619fa38f3340386739e0df6a500c95f5ff040b1efb6804461adf294b259
+INSTALL /v0.1.2/demos/tmux/Dollyfile-tmux 3d794814070b31252021a917e661cd4acc0725519791dc25bdb2c4fe58080506
+
+FILE /usr/share/tmux/welcome.txt
+    tmux inside Dolly: two shells, each on a pseudo-terminal.
+    Ctrl+B then o   moves to the other pane.
+    Ctrl+B then %   splits a pane left and right, Ctrl+B then "   above and below.
+    Ctrl+B then x   closes a pane.
+    Ctrl+B then d   detaches: the shells keep running and tmux attach returns.
+
+# Dolly has no fork, so tmux cannot start its own server: this shell does,
+# and the server lives as long as it. A child ends with its parent here.
+FILE /etc/dolly/init.slop
+    /usr/bin/tmux -D &
+    tries=0
+    until test -e /tmp/tmux-0/default || test $tries = 100; do tries=$((tries + 1)); done
+    /usr/bin/tmux new-session -d
+    /usr/bin/tmux split-window -h
+    /usr/bin/tmux send-keys 'cat /usr/share/tmux/welcome.txt' Enter
+    /bin/foreground /usr/bin/tmux attach
+    printf '\nDolly: image entry exited; entering the recovery Slop shell.\n'
+    /bin/foreground -i /bin/slop
+
+ENTRY /bin/foreground -i /bin/slop /etc/dolly/init.slop
