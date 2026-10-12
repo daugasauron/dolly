@@ -51,7 +51,7 @@ try {
       await run("./library one | grep -qx 'MOJO-LIBRARY 6 5 29 True 2 7.25 True'");
       await run("./tasks | grep -qx 'MOJO-TASKS 33 6'");
       await run("./saxpy | grep -qx 'MOJO-GPU webgpu 1000 1998.5'");
-      await run("./kernels | grep -qx 'MOJO-KERNELS wrong: 0 0 0 0 236027'");
+      await run("./kernels | grep -qx 'MOJO-KERNELS wrong: 0 0 0 0 4898230'");
       await run(`curl -fsS ${server.origin}/fixture/hello_writing.mojo | sed 's/^from max\\.gpu\\.host import/from gpu.host import/' > upstream_hello.mojo`);
       await run("mojo build upstream_hello.mojo && ./upstream_hello | grep -qx 'GPU responded: 👋, 🔥'");
       await run("./mandelbrot > set.txt && grep -q '^ *[.:=+*#%@-]*@\\{40\\}' set.txt && grep -qx 'MOJO-MATMUL wrong: 0 of 576 6.0' set.txt");
