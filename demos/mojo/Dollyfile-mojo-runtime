@@ -135,6 +135,12 @@ FILE /tmp/mojo-runtime/runtime.c
       result->count = argument_count;
     }
     
+    /* The environment for a spawned process: Mojo cannot name a C variable,
+     * and Dolly's dlsym, which upstream asks on Linux, belongs to programs that
+     * load modules. Dolly's patch of the standard library calls this. */
+    extern char **environ;
+    char **KGEN_CompilerRT_Environ(void) { return environ; }
+    
     /* The system */
     
     size_t KGEN_CompilerRT_NumPhysicalCores(void) { return 1; }

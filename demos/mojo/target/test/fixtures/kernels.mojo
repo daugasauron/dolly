@@ -1,4 +1,4 @@
-from std.math import sqrt
+from std.math import acos, atan, cos, erf, exp, log, sin, sinh, sqrt, tan
 
 from gpu import block_dim, block_idx, global_idx, grid_dim, thread_idx
 from gpu.host import DeviceContext, Dim
@@ -41,19 +41,40 @@ def integers(
     result[unsafe_offset=i] = max(mixed, -1000)
 
 
-def roots(
+def function(which: Int, v: Float32) -> Float32:
+    """One of the math functions, for the kernel and for the host."""
+    if which == 0:
+        return sqrt(abs(v))
+    elif which == 1:
+        return log(v + 3)
+    elif which == 2:
+        return tan(v * 0.5)
+    elif which == 3:
+        return atan(v * 4)
+    elif which == 4:
+        return sinh(v * 3)
+    elif which == 5:
+        return acos(v * 0.5)
+    elif which == 6:
+        return erf(v)
+    elif which == 7:
+        return exp(v)
+    elif which == 8:
+        return sin(v * 5) + cos(v * 5)
+    elif which == 9:
+        return Float32(Int(v * 100))
+    return log(v - 2)  # of a negative number: not a number
+
+
+def functions(
     x: Pointer[Float32, MutAnyOrigin],
     result: Pointer[Float32, MutAnyOrigin],
     n: Int,
 ):
-    """Math functions and conversions."""
+    """Math functions and conversions, through a call."""
     var i = global_idx.x
     if i < n:
-        var value = x[unsafe_offset=i]
-        if value < 100:
-            result[unsafe_offset=i] = sqrt(abs(value))
-        else:
-            result[unsafe_offset=i] = Float32(Int(value))
+        result[unsafe_offset=i] = function(i % 11, x[unsafe_offset=i])
 
 
 def main() raises:
@@ -94,11 +115,22 @@ def main() raises:
         if bs[i] != max(mixed, -1000):
             wrong_integers += 1
 
-    ctx.enqueue_function[roots](x, y, n, grid_dim=1, block_dim=64)
+    ctx.enqueue_function[functions](x, y, n, grid_dim=1, block_dim=64)
     ctx.synchronize()
     ys = y.to_host()
-    var wrong_roots = 0
+    var wrong_functions = 0
     for i in range(n):
-        if abs(ys[i] - sqrt(abs(xs[i]))) > 1e-6:
-            wrong_roots += 1
-    print("MOJO-KERNELS wrong:", wrong_sums, wrong_integers, wrong_roots, bs[0])
+        var expected = function(i % 11, xs[i])
+        if expected != expected:
+            if ys[i] == ys[i]:
+                wrong_functions += 1
+        # WGSL lets `sin` be off by 2^-11; SwiftShader is by 2e-4.
+        elif abs(ys[i] - expected) > 1e-3 * max(abs(expected), 1):
+            wrong_functions += 1
+    print(
+        "MOJO-KERNELS wrong:",
+        wrong_sums,
+        wrong_integers,
+        wrong_functions,
+        bs[0],
+    )

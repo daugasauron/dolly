@@ -94,10 +94,10 @@ index 8bdcb15..42aea40 100644
    }
 diff --git a/Mojo/lib/Compiler/ObjectCompiler/Target/Dolly/DollyBackend.cpp b/Mojo/lib/Compiler/ObjectCompiler/Target/Dolly/DollyBackend.cpp
 new file mode 100644
-index 0000000..2e5a607
+index 0000000..858bb6f
 --- /dev/null
 +++ b/Mojo/lib/Compiler/ObjectCompiler/Target/Dolly/DollyBackend.cpp
-@@ -0,0 +1,797 @@
+@@ -0,0 +1,839 @@
 +//===----------------------------------------------------------------------===//
 +// Added for Dolly, a POSIX-like userspace for wasm64 in the browser.
 +//
@@ -146,6 +146,7 @@ index 0000000..2e5a607
 +#include "llvm/Transforms/Utils/Cloning.h"
 +
 +#include <cmath>
++#include <map>
 +
 +namespace {
 +
@@ -171,6 +172,7 @@ index 0000000..2e5a607
 +  DenseMap<const BasicBlock *, unsigned> Blocks;
 +  DenseMap<const Argument *, unsigned> Buffers;
 +  DenseMap<const Argument *, unsigned> Slots;
++  std::map<uint32_t, unsigned> NonFinite;
 +
 +  void fail(const Twine &what, const Value *value = nullptr) {
 +    if (!Failure.empty())
@@ -227,9 +229,16 @@ index 0000000..2e5a607
 +      return utostr(integer->getZExtValue() & 0xffffffffu) + "u";
 +    }
 +    if (auto *real = dyn_cast<ConstantFP>(value)) {
-+      if (!type->isFloatTy() || !real->getValueAPF().isFinite()) {
++      if (!type->isFloatTy()) {
 +        fail("WGSL has no such constant", value);
 +        return "0.0f";
++      }
++      // WGSL has no literal for an infinity or a NaN and refuses a constant
++      // expression that makes one: its bits come from a variable.
++      if (!real->getValueAPF().isFinite()) {
++        uint32_t pattern = real->getValueAPF().bitcastToAPInt().getZExtValue();
++        auto [slot, isNew] = NonFinite.try_emplace(pattern, NonFinite.size());
++        return "bitcast<f32>(k" + utostr(slot->second) + ")";
 +      }
 +      std::string text;
 +      raw_string_ostream(text)
@@ -550,6 +559,9 @@ index 0000000..2e5a607
 +    case Intrinsic::assume: case Intrinsic::donothing:
 +    case Intrinsic::experimental_noalias_scope_decl:
 +      return "";
++    case Intrinsic::sincos:
++      // Its two results are printed where they are taken.
++      return "";
 +    case Intrinsic::trap:
 +      // WGSL has no trap: this invocation ends, the others go on.
 +      return "";
@@ -570,6 +582,12 @@ index 0000000..2e5a607
 +    case Intrinsic::fma: return real("fma", 3);
 +    case Intrinsic::fmuladd:
 +      return "(" + argument(0) + " * " + argument(1) + " + " + argument(2) + ")";
++    case Intrinsic::copysign:
++      if (type->isFloatTy())
++        return "bitcast<f32>((bitcast<u32>(" + argument(0) +
++               ") & 2147483647u) | (bitcast<u32>(" + argument(1) +
++               ") & 2147483648u))";
++      break;
 +    case Intrinsic::minnum: case Intrinsic::minimum: return real("min", 2);
 +    case Intrinsic::maxnum: case Intrinsic::maximum: return real("max", 2);
 +    case Intrinsic::umin: return ordered("min", false);
@@ -595,6 +613,16 @@ index 0000000..2e5a607
 +      if (builtin && axis && axis->getZExtValue() < 3)
 +        return std::string(builtin) + "xyz"[axis->getZExtValue()];
 +    }
++    // libm's functions that WGSL has, as `std.math` calls them.
++    if (const char *builtin = StringSwitch<const char *>(callee->getName())
++                                  .Case("tanf", "tan")
++                                  .Case("atanf", "atan")
++                                  .Case("asinhf", "asinh")
++                                  .Case("acoshf", "acosh")
++                                  .Case("atanhf", "atanh")
++                                  .Default(nullptr))
++      if (instruction.arg_size() == 1)
++        return real(builtin, 1);
 +    fail("WGSL cannot call", &instruction);
 +    return "0u";
 +  }
@@ -629,6 +657,14 @@ index 0000000..2e5a607
 +      assign("(-" + use(i.getOperand(0)) + ")");
 +    } else if (isa<FreezeInst>(i)) {
 +      assign(use(i.getOperand(0)));
++    } else if (auto *part = dyn_cast<ExtractValueInst>(&i)) {
++      auto *both = dyn_cast<IntrinsicInst>(part->getAggregateOperand());
++      if (both && both->getIntrinsicID() == Intrinsic::sincos &&
++          i.getType()->isFloatTy())
++        assign((part->getIndices()[0] ? "cos(" : "sin(") +
++               use(both->getArgOperand(0)) + ")");
++      else
++        fail("WGSL has no such instruction", &i);
 +    } else if (auto *choice = dyn_cast<SelectInst>(&i)) {
 +      if (i.getType()->isPointerTy())
 +        root(&i);
@@ -736,7 +772,9 @@ index 0000000..2e5a607
 +    unsigned blockNumber = Blocks.size();
 +    Blocks[&block] = blockNumber;
 +    for (const Instruction &i : block) {
-+      if (i.getType()->isVoidTy())
++      auto *intrinsic = dyn_cast<IntrinsicInst>(&i);
++      if (i.getType()->isVoidTy() ||
++          (intrinsic && intrinsic->getIntrinsicID() == Intrinsic::sincos))
 +        continue;
 +      Numbers[&i] = number++;
 +      if (auto *memory = dyn_cast<AllocaInst>(&i)) {
@@ -754,14 +792,18 @@ index 0000000..2e5a607
 +         << ";\n";
 +    }
 +  }
-+  os << "  var bb: u32 = 0u;\n  loop {\n    switch bb {\n";
++  std::string body;
++  raw_string_ostream bodyStream(body);
 +  for (const BasicBlock &block : F) {
-+    os << "    case " << Blocks[&block] << "u {\n";
++    bodyStream << "    case " << Blocks[&block] << "u {\n";
 +    for (const Instruction &i : block)
-+      instruction(i, os);
-+    os << "    }\n";
++      instruction(i, bodyStream);
++    bodyStream << "    }\n";
 +  }
-+  os << "    default { return; }\n    }\n  }\n}\n";
++  for (const auto &[pattern, slot] : NonFinite)
++    os << "  var k" << slot << ": u32 = " << pattern << "u;\n";
++  os << "  var bb: u32 = 0u;\n  loop {\n    switch bb {\n"
++     << body << "    default { return; }\n    }\n  }\n}\n";
 +  return Failure.empty() ? text : std::string();
 +}
 +

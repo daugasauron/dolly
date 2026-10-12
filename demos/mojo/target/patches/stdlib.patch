@@ -18,6 +18,16 @@ io/file_descriptor.mojo, io/file.mojo, os/os.mojo
   mode_t.
   Wasm types every call, so such a call traps; on x86-64 and arm64 the
   register hid it.
+ffi/__init__.mojo, os/process.mojo, sys/_libc.mojo
+  C's pid_t is 32 bits, not an Int: waitpid trapped. With that,
+  Process.run needs only the environment for posix_spawnp, which Dolly's
+  compiler runtime hands over as KGEN_CompilerRT_Environ.
+testing/assert_aborts.mojo
+  A Mojo abort is a trap, which Dolly reports as exit status 126 and not as
+  a signal.
+math/math.mojo
+  A WebGPU kernel may call libm: the target prints tan, atan, asinh, acosh
+  and atanh as WGSL's builtins and refuses the others by name.
 _gpu/primitives/id.mojo
   thread_idx, block_idx, block_dim and grid_dim of a WebGPU kernel are calls
   the target prints as WGSL builtins.
@@ -150,9 +160,18 @@ index a7d01d4..023ce93 100644
  
              _printf[fmt](
 diff --git a/Mojo/stdlib/std/ffi/__init__.mojo b/Mojo/stdlib/std/ffi/__init__.mojo
-index a6ac93a..c0eded8 100644
+index a6ac93a..670682c 100644
 --- a/Mojo/stdlib/std/ffi/__init__.mojo
 +++ b/Mojo/stdlib/std/ffi/__init__.mojo
+@@ -125,7 +125,7 @@ comptime c_float = Float32
+ comptime c_double = Float64
+ """C `double` type."""
+ 
+-comptime c_pid_t = Int
++comptime c_pid_t = Int32
+ """C `pid_t` type."""
+ 
+ comptime MAX_PATH = _get_max_path()
 @@ -146,7 +146,9 @@ def _c_long_dtype[unsigned: Bool = False]() -> DType:
      # https://en.wikipedia.org/wiki/64-bit_computing#64-bit_data_models
  
@@ -347,6 +366,30 @@ index 625aa5d..b00c938 100644
          else:
              CompilationTarget.unsupported_target_error[
                  operation=__get_current_function_name()
+diff --git a/Mojo/stdlib/std/math/math.mojo b/Mojo/stdlib/std/math/math.mojo
+index 20c4681..8d48fdf 100644
+--- a/Mojo/stdlib/std/math/math.mojo
++++ b/Mojo/stdlib/std/math/math.mojo
+@@ -26,6 +26,7 @@ from std.sys import (
+     is_apple_gpu,
+     is_gpu,
+     is_nvidia_gpu,
++    is_webgpu,
+     llvm_intrinsic,
+     simd_width_of,
+     size_of,
+@@ -3288,8 +3289,10 @@ def _call_libm[
+ ](arg: SIMD[dtype, width]) -> SIMD[
+     dtype, width
+ ] where dtype.is_floating_point():
++    # A WebGPU kernel's call of a libm function is printed as the WGSL builtin
++    # of that name, or refused where WGSL has none.
+     comptime assert (
+-        not is_gpu()
++        not is_gpu() or is_webgpu()
+     ), "libm operations are only available on CPU targets"
+ 
+     comptime if dtype not in [DType.float32, DType.float64]:
 diff --git a/Mojo/stdlib/std/os/_dolly.mojo b/Mojo/stdlib/std/os/_dolly.mojo
 new file mode 100644
 index 0000000..c9e2b89
@@ -554,6 +597,21 @@ index ba883ef..b5895f3 100644
          return Int(_lstat_macos(path^).st_mode)
      elif CompilationTarget.has_neon():
          return Int(_lstat_linux_arm(path^).st_mode)
+diff --git a/Mojo/stdlib/std/os/process.mojo b/Mojo/stdlib/std/os/process.mojo
+index 188257d..db8bf29 100644
+--- a/Mojo/stdlib/std/os/process.mojo
++++ b/Mojo/stdlib/std/os/process.mojo
+@@ -388,7 +388,9 @@ struct Process:
+         """
+ 
+         comptime assert (
+-            CompilationTarget.is_linux() or CompilationTarget.is_macos()
++            CompilationTarget.is_linux()
++            or CompilationTarget.is_macos()
++            or CompilationTarget.is_dolly()
+         ), "Unknown platform process execution not implemented"
+         var parts = path.split(sep)
+         var file_name = String(parts[len(parts) - 1])
 diff --git a/Mojo/stdlib/std/sys/__init__.mojo b/Mojo/stdlib/std/sys/__init__.mojo
 index 3254305..b857cf3 100644
 --- a/Mojo/stdlib/std/sys/__init__.mojo
@@ -566,6 +624,21 @@ index 3254305..b857cf3 100644
      is_big_endian,
      is_gpu,
      is_little_endian,
+diff --git a/Mojo/stdlib/std/sys/_libc.mojo b/Mojo/stdlib/std/sys/_libc.mojo
+index 187f0be..c5eb95d 100644
+--- a/Mojo/stdlib/std/sys/_libc.mojo
++++ b/Mojo/stdlib/std/sys/_libc.mojo
+@@ -190,6 +190,10 @@ def _get_environ() -> (
+             OptionalPointer[NoneType, MutUntrackedOrigin](),
+             "environ".as_c_string_span().ptr(),
+         ).value()[]
++    elif CompilationTarget.is_dolly():
++        # Mojo cannot name C's `environ`, and Dolly's `dlsym` is only for
++        # programs that load modules: Dolly's compiler runtime hands it over.
++        return external_call["KGEN_CompilerRT_Environ", _EnvpType]()
+     else:
+         CompilationTarget.unsupported_target_error[operation="_get_environ"]()
+ 
 diff --git a/Mojo/stdlib/std/sys/_libc_errno.mojo b/Mojo/stdlib/std/sys/_libc_errno.mojo
 index 1fb3265..d5af93d 100644
 --- a/Mojo/stdlib/std/sys/_libc_errno.mojo
@@ -1051,6 +1124,33 @@ index 1739a71..fd8084e 100644
  
  
  @always_inline("nodebug")
+diff --git a/Mojo/stdlib/std/testing/assert_aborts.mojo b/Mojo/stdlib/std/testing/assert_aborts.mojo
+index 96a06ca..b1c6433 100644
+--- a/Mojo/stdlib/std/testing/assert_aborts.mojo
++++ b/Mojo/stdlib/std/testing/assert_aborts.mojo
+@@ -22,7 +22,7 @@ from std.os.env import getenv, setenv, unsetenv
+ from std.os.path import exists
+ from std.os.process import Process, ProcessStatus
+ from std.reflection import call_location, SourceLocation
+-from std.sys import argv
++from std.sys import CompilationTarget, argv
+ from std.sys._io import stderr, stdout
+ from std.sys._libc import dup2
+ from std.sys.compile import SanitizeAddress
+@@ -199,7 +199,12 @@ def _spawn_and_check(
+             t" may be hanging rather than aborting.\nCaptured output:"
+             t"\n{captured}"
+         )
+-    if not status.term_signal:
++    # An abort is a trap. Dolly ends a trapped process with status 126, as it
++    # ends any Wasm trap, and not through a signal.
++    var aborted = Bool(status.term_signal)
++    comptime if CompilationTarget.is_dolly():
++        aborted = status.exit_code.or_else(0) == 126
++    if not aborted:
+         var note = contains.map(
+             lambda (s: String) -> String: String(
+                 t' (expected substring: "{s}")'
 diff --git a/Mojo/stdlib/std/time/time.mojo b/Mojo/stdlib/std/time/time.mojo
 index 4443a45..7bf4b41 100644
 --- a/Mojo/stdlib/std/time/time.mojo
