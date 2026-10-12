@@ -252,6 +252,8 @@ struct DeviceContext(ImplicitlyCopyable):
         comptime for i in range(args.__len__()):
             comptime T = actual_arg_types[i]
             comptime if conforms_to(T, _Storage):
+                if buffer_count == len(buffers):
+                    raise Error("a kernel takes at most 16 buffers")
                 buffers[buffer_count] = rebind[downcast[T, _Storage]](
                     args[i]
                 )._handle()
@@ -260,6 +262,8 @@ struct DeviceContext(ImplicitlyCopyable):
                 )._byte_size()
                 buffer_count += 1
             else:
+                if slot_count == len(slots):
+                    raise Error("a kernel takes at most 64 other arguments")
                 slots[slot_count] = _slot(args[i])
                 slot_count += 1
         var grid = grid_dim._extent()
