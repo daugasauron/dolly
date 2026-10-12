@@ -10,9 +10,10 @@ that are installable with amy."
 Done when: the list is here with a decision per row, the packages exist,
 install into `default` with `amy`, and run.
 
-State (2026-10-12): the list is below; twelve packages were made and tested
-in Chromium and Firefox; what is open is "Left" and "Held for a catalog
-round". [`package-needs`](../20261007-003116-package-needs/TASK.md),
+State (2026-10-12): the list is below; fifteen packages were made and
+tested in Chromium and Firefox, and amy's test now installs and uses every
+package of the catalog on `default`; what is open is "Left" and "Held for a
+catalog round". [`package-needs`](../20261007-003116-package-needs/TASK.md),
 [`lean-game-images`](../20260930-231300-lean-game-images/TASK.md) and
 [`qwen-shards`](../20261008-234448-qwen-shards/TASK.md) are closed into this
 task: what they left is under the same two headings.
@@ -101,16 +102,19 @@ break out there.
 | `llama-build`, `local-llm-build`, `pi-local` | llama.cpp, `dolly-llama` | - | stay: one consumer, needs `gpu@0` |
 | the six model recipes | Qwen3.5-2B, MiniCPM5-2B, Qwen3.5-4B in four shards | themselves | offered; the four shards are held |
 | `openal-build` | OpenAL Soft | - | stays: 0 A.D.'s build stage; its programs need `audio@0` |
-| `zero-ad-deps` | pkgconf; libpng and FreeType, which `xonotic-build` and `wine-build` copy with the same rows; Ogg, Vorbis, fmt, libxml2, ICU, libsodium, ENet, Boost headers | - | left: `pkgconf`, `libpng` and `freetype` are packages by the rule |
-| `wine-build`, `wine` | Wine | - | left |
+| `zero-ad-deps` | pkgconf (146 KB) | **`pkgconf`** | made: `pkg-config` is what a build asks for a library |
+| `zero-ad-deps` | libpng (262 KB), FreeType (903 KB, headers 878 KB), which `xonotic-build` and `wine-build` copy with the same rows | **`libpng`**, **`freetype`** | made |
+| `zero-ad-deps` | Ogg, Vorbis, fmt, libxml2 | - | stay: upstream's CMake builds them here unchanged, one consumer |
+| `zero-ad-deps` | ICU, libsodium, ENet, Boost's headers (150 MB) | - | stay: one consumer; ICU's data file is 0 A.D.'s, ENet's transport is 0 A.D.'s relay |
+| `wine-build`, `wine` | Wine, with GIMP and NetSurf | - | stays: a desktop the image boots into, with files under `/home/dolly` and `/etc`, not a program a session adds |
 
 ## Made (2026-10-12, branch `core/packages`)
 
-Each is a thin recipe over the image that builds the program; the twelve
+Each is a thin recipe over the image that builds the program; the fifteen
 images built in 2 to 25 s each and no other image changed, except
 `speech-to-text` and `pi-phone`, which now install theirs (26 s and 38 s).
-The catalog goes from 34 packages to 46 and the domain's index from 32 rows
-to 44 (`config/domain-pages-images.txt`); the GitHub Pages site gains `ninja`,
+The catalog goes from 33 packages to 48 and the domain's index from 32 rows
+to 47 (`config/domain-pages-images.txt`); the GitHub Pages site gains `ninja`,
 which NumPy needs beside `python` and `cc` there.
 
 | Package | Snapshot bytes | Tested, in Chromium and Firefox |
@@ -119,7 +123,7 @@ which NumPy needs beside `python` and `cc` there.
 | `make` | 595,184 | absent; install; a rule runs; `cc` is still absent |
 | `lua` | 3,454,961 | absent; install; LPeg and luv load and a script prints its result |
 | `session-recover` | 291,860 | absent; install; its usage; a missing file fails with status 1 |
-| `zig` | 186,887,421 | absent, and so is `cc`; install brings both; `zig build-obj -ofmt=c`, `cc` links it with a C `main`, the program returns 42; `man zig` |
+| `zig` | 186,887,937 | absent, and so is `cc`; install brings both; the two invocations of `man zig`: a function linked into a C program, and a program with the standard library |
 | `transfer` | 294,148 | install into `default`, `amy files` lists `/bin/upload`, `download --help` |
 | `libuv` | 746,685 | with `cc`: a timer on a loop compiles, links `-luv` and fires |
 | `raylib` | 1,982,270 | with `cc`: a frame is drawn and shown through Dolly's adapter |
@@ -127,9 +131,21 @@ which NumPy needs beside `python` and `cc` there.
 | `parakeet` | 135,396,361 | install into `default`: the model is there |
 | `transcribe` | 140,729,934 | the `speech-to-text` image hears the sample sentence as before; `default` refuses the package, naming `microphone@0` |
 | `voice` | 139,491,289 | the `pi-phone` image passes its phone test (Chromium only, as before) |
+| `pkgconf` | 420,925 | with `cc`: `pkg-config` does not know libpng until its package is there; `man pkgconf` |
+| `libpng` | 1,125,307 | with `cc`: a program compiled and linked with the flags `pkg-config` gives, and run |
+| `freetype` | 2,923,260 | with `cc`: the same, and FreeType loads the terminal's font |
 
-- `node test/amy-browser.mjs`: every case passes in both browsers ("amy
-  tools" is new, 12 s; "amy programs" gains the three libraries).
+- `node test/amy-browser.mjs`: every case passes in both browsers. "amy
+  tools" is new (20 s): fourteen packages, each absent from `default`,
+  installed alone and used; besides tonight's these are `gzip`, `javascript`,
+  `nvim`, `emacs`, `ripgrep`, `fd`, `protox`, `cbindgen` and
+  `pi-coding-agent`, which had no check there (`package-needs`: all nine
+  work alone), then `dolly-docs` and `transfer`. "amy programs" gains `zlib`
+  and the libraries. The file now
+  fails, by name, for a package that no case installs, unless its list says
+  where the package is tested: a new package comes with its check.
+- `node test/site-browser.mjs`, `default-browser.mjs`, `man-browser.mjs`:
+  pass in both browsers on the grown catalog.
 - `node demos/speech/test/speech-browser.mjs chromium|firefox`: passes;
   "speech packages" is new.
 - `node --test 'test/*.test.mjs' 'demos/**/*.test.mjs'`: 424 pass.
@@ -137,9 +153,14 @@ which NumPy needs beside `python` and `cc` there.
 
 Found on the way:
 
-- `zig --help` and `zig version` end in a panic: this zig is built with the
-  C backend only. The package's manual page holds the two invocations that
-  work, measured in a session.
+- `zig --help`, `zig version`, `zig run` and `zig fmt` end in a panic: this
+  zig is built with the C backend only. The package's manual page holds the
+  two invocations that work, measured in a session; a program with the
+  standard library has to name its target, or zig looks for a libc by
+  starting a compiler it does not know.
+- `zero-ad-deps` was a cache hit here once its one source archive
+  (`dist/static/zero-ad-build/deps.tar.gz`, 31 MB) was taken from the
+  integration tree; nothing of 0 A.D. was rebuilt.
 - `gamedev-sdk` writes a `/usr/lib/libm.a` of thirteen math functions. A
   raylib program links and runs without it, with `-lm` and `-fno-builtin`
   (measured), so the `raylib` package leaves it out and `-lm` in a session
@@ -148,18 +169,15 @@ Found on the way:
 - `llvm-runtimes` is a package whose description starts "build-only": it is
   in `amy list` and nobody installs it.
 
-## Left (no round needed, a full tree is)
+## Left (no round needed)
 
-This worktree has no sources for 0 A.D., Xonotic, Wine or the models, and a
-package's chain has to be staged to be built, so these were not made:
-
-- `pkgconf`, `libpng`, `freetype`: thin packages over `zero-ad-deps`;
-  `xonotic-build` and `wine-build` would then `INSTALL` the two libraries in
-  place of their five and eight `COPY` rows (two image rebuilds).
-- `wine`: the application is `system` plus rows copied from `wine-build`; a
-  package would let a session install it.
+- `xonotic-build` and `wine-build` `INSTALL` `libpng` and `freetype` in place
+  of their five and eight `COPY` rows: two image rebuilds (Xonotic's is not
+  this tree's to make, Wine's builds Wine, GIMP and NetSurf).
 - The model packages installed into `default` were never measured (1.0 to
   1.6 GB each; `package-needs`).
+- tmux is another agent's tonight; when it merges, amy's test asks for its
+  row.
 
 ## Held for a catalog round
 
@@ -171,7 +189,7 @@ chain they were tested on. Merging one changes pins far beyond it.
    by the rule above the package brings the compiler and Ninja, and
    `amy install python` is enough for `pip install numpy`. `rust-llvm`,
    `llvm-tablegen` and `zero-ad-spidermonkey` install `python` as a build
-   tool, so its pin cascades to 30 of 94 images: the Rust, LLVM, Pi and
+   tool, so its pin cascades to 30 of 97 images: the Rust, LLVM, Pi and
    0 A.D. chains.
 2. **`default` installs `transfer`** (commit `HELD: default …`) in place of
    the four `COPY` rows from `system-tools`, and is then composed from
@@ -211,7 +229,7 @@ Designs, not code:
 4. **The builds move into the packages** (`lean-game-images`, stage 2).
    `posix`, `git`, `amy`, `ninja`, `transfer`, `make`, `session-recover`,
    `core` and `cc` are views of `system-build`, `system-tools` and `system`:
-   80 of 94 images still carry `system-tools`. The inversion is that each
+   83 of 97 images still carry `system-tools`. The inversion is that each
    package holds its build (`FROM system-build`) and `system-tools` installs
    them, as it installs `zlib`, `gzip`, `curl` and `display` today: about
    600 recipe lines move, none are added, one round. A game that never
