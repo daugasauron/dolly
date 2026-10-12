@@ -14,7 +14,8 @@ keyboard and captured mouse, drawn by the engine's own software rasterizer at 10
 second pointer the owner saw is fixed (`demos/sdl2/SDL_dollyvideo.c`). Its browser test passed
 in each release round and on `main` on 2026-10-13 in Chrome (442.6 s: an 8-bot server
 benchmark, `progs.dat` rebuilt by gmqcc, a client frame, a bot match on stormkeep, and a
-timedemo of 14.3 fps at the normal preset; `work/rust/build/integrate-evidence/final-demos.log`).
+timedemo at 14.3 fps with the engine's default effects, the normal preset;
+`work/rust/build/integrate-evidence/final-demos.log`).
 The licence pass with its asset pass, the pins, and `timedemo` rates in Dolly and native are
 recorded below; the owner accepted the pass's two open points on 2026-10-07
 (`tasks/20261007-133708-v010`, "The owner's gates").
