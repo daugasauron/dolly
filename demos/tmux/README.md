@@ -10,15 +10,18 @@ pseudo-terminal of `pty@0`, a prototype host module
 - `tmux-panes`: an application that opens into tmux with a shell in each of two panes.
 
 Open `/tmux-panes/`; build with `npm run image -- tmux-panes`. `Ctrl+B d`
-detaches to Slop, the shells keep running, and `tmux attach` returns.
+detaches to Slop, the shells keep running, and `tmux attach` returns. `amy`
+installs into a pane what it installs into `default`: `amy install nvim`
+puts an editor beside a shell.
 
 ## Use
 
-- Windows, panes and layouts, copy mode, the status line, the command prompt,
-  `send-keys`, `capture-pane`, detach and attach work as upstream. A pane runs
-  `$SHELL`, Slop, and any program built for Dolly, unchanged: it sees a
-  terminal with its own size and mode, and Ctrl+C interrupts the program in
-  the pane, not its shell.
+- Windows, panes and layouts, the status line, `send-keys`, `capture-pane`,
+  detach and attach work as upstream. A pane runs `$SHELL`, Slop, and any
+  program built for Dolly, unchanged: the `less` and `nvim` packages, built
+  before `pty@0` existed, page and edit in one. A program sees a terminal
+  with its own size and mode, `/dev/tty` is its pane, and Ctrl+C interrupts
+  the programs in the pane, not its shell.
 - Dolly has no `fork`, so tmux does not start its own server and says so. A
   shell starts it, `tmux -D &`, and it lives as long as that shell;
   `tmux-panes` starts it from the image's entry.
@@ -61,7 +64,8 @@ detaches to Slop, the shells keep running, and `tmux attach` returns.
 - A server started with `tmux -D &` is a job of that shell: Ctrl+C for another
   command of the shell reaches the server too, and it exits. Dolly has no
   sessions to put it in. `tmux-panes` starts it beside the shell instead.
-- One client: Dolly has one terminal. No suspend (`Ctrl+B Ctrl+Z`), no lock.
+- One client at a time: the server opens the client's terminal by name, and
+  Dolly has one.
 - `man tmux` shows the page's source: Dolly has no formatter for it.
 
 Test: `npm run test:demos -- tmux` ([`test/`](test/)); the module's own is
