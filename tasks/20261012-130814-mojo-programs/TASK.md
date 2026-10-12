@@ -65,13 +65,16 @@ objects from `demos/mojo/target/cross-compile.sh`, image `mojo-runtime`:
 | Chrome 151.0.7922.71 on Xvfb, Vulkan | NVIDIA (`nvidia blackwell`) | passed |
 | Firefox 157.0.1 on Xvfb | unnamed WebGPU adapter | passed |
 
-Each run links four cross-compiled objects with `cc` in the session and
+Each run links five cross-compiled objects with `cc` in the session and
 checks their output: `hello` (print), `library` (split, `List`, `Dict`,
 `Path.write_text`/`read_text`, `exists`, `argv`, float formatting, a clock),
 `saxpy` (one kernel over 1,000 floats through
-`DeviceContext.enqueue_function`) and `kernels` (a loop, signed and unsigned
+`DeviceContext.enqueue_function`), `kernels` (a loop, signed and unsigned
 integer arithmetic on a two-dimensional grid, `sqrt`/`abs` and conversions;
-every element compared with the host's).
+every element compared with the host's) and `mandelbrot` (the set drawn as
+text from a kernel's escape times, and a 24 by 24 matrix product).
+Screenshots of the three browsers after these runs are in
+`build/mojo-target-evidence/` of the worktree.
 
 How it is built, what a kernel may contain and what is refused:
 `demos/mojo/target/README.md`. Refusals measured: a `Float64` kernel fails

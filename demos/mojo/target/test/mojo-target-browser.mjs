@@ -12,7 +12,7 @@ import { startBrowserServer } from "../../../../test/browser-server.mjs";
 import { shellPrompt } from "../../../browser.mjs";
 
 const root = new URL("../../../../", import.meta.url);
-const programs = { hello: "", library: "", saxpy: "-lmojo-gpu -ldolly-gpu", kernels: "-lmojo-gpu -ldolly-gpu" };
+const gpu = "-lmojo-gpu -ldolly-gpu", programs = { hello: "", library: "", saxpy: gpu, kernels: gpu, mandelbrot: gpu };
 const objects = Object.fromEntries(Object.keys(programs).map(name => [`${name}.o`, `build/mojo-target/objects/${name}.o`]));
 if (!Object.values(objects).every(path => existsSync(new URL(path, root)))) {
   console.log("mojo-target: skipped, it needs the objects of demos/mojo/target/cross-compile.sh");
@@ -53,6 +53,8 @@ try {
       await run("/tmp/saxpy | grep -qx 'MOJO-GPU webgpu 1000 1998.5'");
       // A loop, integer arithmetic on a two-dimensional grid, and math functions.
       await run("/tmp/kernels | grep -qx 'MOJO-KERNELS wrong: 0 0 0 2002'");
+      // The Mandelbrot set as text (its middle row is inside from column 22 on), and a matrix product.
+      await run("/tmp/mandelbrot > /tmp/set.txt && grep -q '^ *[.:=+*#%@-]*@\\{40\\}' /tmp/set.txt && grep -qx 'MOJO-MATMUL wrong: 0 of 576 6.0' /tmp/set.txt");
       console.log(`mojo-target: ${name} ${browser.version()} passed on ${await page.evaluate(() => __dolly.gpu.adapter)}`);
     } finally {
       await browser.close();
