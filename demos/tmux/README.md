@@ -59,8 +59,9 @@ puts an editor beside a shell.
 - No jobs: `run-shell`, `if-shell`, `#()` in the status line, `pipe-pane`,
   `copy-pipe` and popups fork, and fail saying so ("failed to run command").
 - Ctrl+C does not end a program in a pane that makes no system call: a
-  pseudo-terminal's signals are not yet the supervisor's to enforce. `Ctrl+B x`
-  ends it through its shell, and `kill` from another pane.
+  pseudo-terminal's signals are not yet the supervisor's to enforce.
+  `Ctrl+B x` closes the pane, whose shell hangs up and takes the program
+  with it; `kill` ends it from another pane.
 - A server started with `tmux -D &` is a job of that shell: Ctrl+C for another
   command of the shell reaches the server too, and it exits. Dolly has no
   sessions to put it in. `tmux-panes` starts it beside the shell instead.
