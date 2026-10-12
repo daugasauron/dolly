@@ -94,10 +94,10 @@ index 8bdcb15..42aea40 100644
    }
 diff --git a/Mojo/lib/Compiler/ObjectCompiler/Target/Dolly/DollyBackend.cpp b/Mojo/lib/Compiler/ObjectCompiler/Target/Dolly/DollyBackend.cpp
 new file mode 100644
-index 0000000..5f23319
+index 0000000..cf8f462
 --- /dev/null
 +++ b/Mojo/lib/Compiler/ObjectCompiler/Target/Dolly/DollyBackend.cpp
-@@ -0,0 +1,1036 @@
+@@ -0,0 +1,1119 @@
 +//===----------------------------------------------------------------------===//
 +// Added for Dolly, a POSIX-like userspace for wasm64 in the browser.
 +//
@@ -114,8 +114,8 @@ index 0000000..5f23319
 +//     parameter order; a pointer value is a byte offset into the buffer its
 +//     parameter names, so a pointer may not be chosen between two buffers,
 +//     stored in memory or converted to an integer;
-+//   - a buffer into which the kernel stores less than a word has atomic
-+//     words, so that two threads can store into one;
++//   - a buffer has atomic words if the kernel has an atomic operation on it
++//     or stores less than a word into it, which two threads may do to one;
 +//   - the other parameters are 32-bit slots of the read-only buffer `args`,
 +//     bound after the last pointer, in parameter order;
 +//   - `block_dim` is the workgroup size, an override constant of the pipeline;
@@ -400,6 +400,82 @@ index 0000000..5f23319
 +    if (!bits(type))
 +      fail("WGSL has no such type to load", &i);
 +    return value;
++  }
++
++  /// `&b3[...]`, the word of a buffer parameter an atomic operation is on.
++  std::string atomicWord(const Value *pointer, Type *type,
++                         const Instruction &i) {
++    if (!type->isFloatTy() && bits(type) != 32)
++      fail("WGSL has atomics of 32 bits only", &i);
++    if (!Atomic.count(root(pointer)))
++      fail("an atomic operation must be on a buffer parameter", &i);
++    return "&" + word(pointer);
++  }
++
++  static std::string asWord(Type *type, const std::string &value) {
++    return type->isFloatTy() ? "bitcast<u32>(" + value + ")" : value;
++  }
++
++  static std::string fromWord(Type *type, const std::string &word) {
++    return type->isFloatTy() ? "bitcast<f32>(" + word + ")" : word;
++  }
++
++  /// The statement of an atomic read-modify-write.
++  std::string modify(const AtomicRMWInst &i) {
++    Type *type = i.getType();
++    std::string cell = atomicWord(i.getPointerOperand(), type, i);
++    std::string operand = use(i.getValOperand());
++    const char *builtin = nullptr;
++    std::string old = fromWord(type, "old"), next;
++    switch (i.getOperation()) {
++    case AtomicRMWInst::Xchg: builtin = "atomicExchange"; break;
++    case AtomicRMWInst::Add: builtin = "atomicAdd"; break;
++    case AtomicRMWInst::Sub: builtin = "atomicSub"; break;
++    case AtomicRMWInst::And: builtin = "atomicAnd"; break;
++    case AtomicRMWInst::Or: builtin = "atomicOr"; break;
++    case AtomicRMWInst::Xor: builtin = "atomicXor"; break;
++    case AtomicRMWInst::UMax: builtin = "atomicMax"; break;
++    case AtomicRMWInst::UMin: builtin = "atomicMin"; break;
++    case AtomicRMWInst::Max:
++      next = "u32(max(i32(old), i32(" + operand + ")))";
++      break;
++    case AtomicRMWInst::Min:
++      next = "u32(min(i32(old), i32(" + operand + ")))";
++      break;
++    case AtomicRMWInst::FAdd: next = old + " + " + operand; break;
++    case AtomicRMWInst::FSub: next = old + " - " + operand; break;
++    case AtomicRMWInst::FMax: next = "max(" + old + ", " + operand + ")"; break;
++    case AtomicRMWInst::FMin: next = "min(" + old + ", " + operand + ")"; break;
++    default:
++      fail("WGSL has no such atomic operation", &i);
++    }
++    if (builtin)
++      return use(&i) + " = " +
++             fromWord(type, std::string(builtin) + "(" + cell + ", " +
++                                asWord(type, operand) + ")") +
++             ";";
++    // The word's atomics are those of a u32: exchange until no other thread
++    // came between.
++    return "loop { let old = atomicLoad(" + cell +
++           "); if (atomicCompareExchangeWeak(" + cell + ", old, " +
++           asWord(type, next) + ").exchanged) { " + use(&i) + " = " + old +
++           "; break; } }";
++  }
++
++  /// The statement of a compare and exchange; WGSL's may fail for no reason.
++  std::string exchange(const AtomicCmpXchgInst &i) {
++    std::string expected = use(i.getCompareOperand());
++    std::string attempt =
++        "let r = atomicCompareExchangeWeak(" +
++        atomicWord(i.getPointerOperand(), i.getCompareOperand()->getType(),
++                   i) +
++        ", " + expected + ", " + use(i.getNewValOperand()) + "); ";
++    std::string result = leaf(&i, 0) + " = r.old_value; " + leaf(&i, 1) +
++                         " = r.exchanged; ";
++    return i.isWeak() ? "{ " + attempt + result + "}"
++                      : "loop { " + attempt +
++                            "if (r.exchanged || r.old_value != " + expected +
++                            ") { " + result + "break; } }";
 +  }
 +
 +  /// The statement of a store.
@@ -838,6 +914,10 @@ index 0000000..5f23319
 +      assign(load(*loaded));
 +    } else if (auto *stored = dyn_cast<StoreInst>(&i)) {
 +      os << "      " << store(*stored) << "\n";
++    } else if (auto *modified = dyn_cast<AtomicRMWInst>(&i)) {
++      os << "      " << modify(*modified) << "\n";
++    } else if (auto *exchanged = dyn_cast<AtomicCmpXchgInst>(&i)) {
++      os << "      " << exchange(*exchanged) << "\n";
 +    } else if (auto *invocation = dyn_cast<CallInst>(&i)) {
 +      std::string value = call(*invocation);
 +      if (!value.empty() && !i.getType()->isVoidTy())
@@ -886,12 +966,15 @@ index 0000000..5f23319
 +     << "override block_z: u32 = 1u;\n";
 +  unsigned buffers = 0, slots = 0;
 +  for (const BasicBlock &block : F)
-+    for (const Instruction &i : block)
-+      if (auto *narrow = dyn_cast<StoreInst>(&i))
-+        if (partBits(narrow->getValueOperand()->getType()))
-+          if (auto *buffer = dyn_cast_or_null<Argument>(
-+                  root(narrow->getPointerOperand())))
-+            Atomic.insert(buffer);
++    for (const Instruction &i : block) {
++      auto *stored = dyn_cast<StoreInst>(&i);
++      bool narrow = stored && partBits(stored->getValueOperand()->getType());
++      if (!narrow && (!i.isAtomic() || isa<FenceInst>(i)))
++        continue;
++      if (auto *buffer = dyn_cast_or_null<Argument>(
++              root(i.getOperand(stored ? 1 : 0))))
++        Atomic.insert(buffer);
++    }
 +  for (const Argument &argument : F.args()) {
 +    if (!argument.getType()->isPointerTy()) {
 +      Slots[&argument] = slots++;

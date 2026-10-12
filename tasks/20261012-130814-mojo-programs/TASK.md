@@ -218,8 +218,8 @@ the released compiler on this machine's x86-64: 1.4 times.
   the test suite does not call is unchecked: `sys/_libc.mojo` declares
   `write` returning `c_int`, for one. `wasm-ld` warns of each mismatch when a
   program links.
-- **Kernels**: `Float64`, `Float16`,
-  SIMD, shared memory and barriers, atomics, `print`, more than 256 threads
+- **Kernels**: `Float64`, `Float16`, SIMD, shared memory and barriers
+  (upstream's names for them are in `max/`), `print`, more than 256 threads
   in a block, the libm functions WGSL lacks (`log10`, `cbrt`, `expm1`, `erfc`,
   gamma and Bessel functions), and host-side
   `map_to_host`/`HostBuffer`/`TileTensor` (upstream's examples use `layout`,

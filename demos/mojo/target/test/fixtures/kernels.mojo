@@ -1,3 +1,4 @@
+from std.atomic import Atomic
 from std.bit import byte_swap, rotate_bits_left
 from std.collections.array import Array
 from std.math import acos, atan, cos, erf, exp, isnan, log, sin, sinh, sqrt, tan
@@ -66,6 +67,27 @@ def integers(
         result[unsafe_offset=i] = mixed
         bytes[unsafe_offset=i] = UInt8(mixed)
         flags[unsafe_offset=i] = mixed > 500
+
+
+def tally(
+    values: Pointer[Int32, MutAnyOrigin],
+    counts: Pointer[UInt32, MutAnyOrigin],
+    largest: Pointer[Float32, MutAnyOrigin],
+    n: Int,
+):
+    """Atomic operations: a histogram of four bins, a maximum, and a slot
+    that only one thread finds empty."""
+    var i = global_idx.x
+    if i >= n:
+        return
+    var v = values[unsafe_offset=i]
+    _ = Atomic[UInt32].fetch_add(counts.unsafe_offset(Int(v & 3)), 1)
+    Atomic[Float32].max(largest, Float32(v % 1000))
+    var empty = UInt32(0)
+    if Atomic[UInt32].compare_exchange(
+        counts.unsafe_offset(4), empty, UInt32(i) + 1
+    ):
+        _ = Atomic[UInt32].fetch_add(counts.unsafe_offset(5), 1)
 
 
 def halved(i: Int, v: Float32) -> Optional[Float32]:
@@ -177,6 +199,24 @@ def main() raises:
     if bs[n - 1] != 0:
         wrong_integers += 1
 
+    var counts = ctx.enqueue_create_buffer[DType.uint32](6)
+    var largest = ctx.enqueue_create_buffer[DType.float32](1)
+    counts.enqueue_fill(0)
+    largest.enqueue_fill(-1000)
+    ctx.enqueue_function[tally](a, counts, largest, n, grid_dim=8, block_dim=8)
+    var cs = counts.to_host()
+    var expected_counts = List[UInt32](length=4, fill=0)
+    var expected_largest = Float32(-1000)
+    for i in range(n):
+        expected_counts[Int(ints[i] & 3)] += 1
+        expected_largest = max(expected_largest, Float32(ints[i] % 1000))
+    var wrong_tallies = 0
+    for k in range(4):
+        if cs[k] != expected_counts[k]:
+            wrong_tallies += 1
+    if largest.to_host()[0] != expected_largest or cs[4] == 0 or cs[5] != 1:
+        wrong_tallies += 1
+
     ctx.enqueue_function[functions](x, y, n, grid_dim=1, block_dim=64)
     ctx.synchronize()
     ys = y.to_host()
@@ -193,6 +233,7 @@ def main() raises:
         "MOJO-KERNELS wrong:",
         wrong_sums,
         wrong_integers,
+        wrong_tallies,
         wrong_functions,
         bs[0],
     )

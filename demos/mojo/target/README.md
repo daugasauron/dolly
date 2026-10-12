@@ -104,6 +104,9 @@ drivers that are not open source, so this one is new, with its names:
   one more buffer. A buffer is 32-bit words; one the kernel stores a
   `Bool`, 8 or 16 bits into has atomic words, so that four threads can store
   into one.
+- `Atomic[T].fetch_add`, `max`, `min` and `compare_exchange` on a pointer
+  into a buffer work for `UInt32`, `Int32` and `Float32`: WGSL's atomic
+  where it has one, else a loop around its compare and exchange.
 - `block_dim` is the WebGPU workgroup size, set when the pipeline is created:
   at most 256 threads on a default device. `grid_dim` is the workgroup
   count. A block the device does not admit raises when enqueued, as does a
