@@ -1,6 +1,6 @@
 # A microphone capture module
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 50
 - TAGS: host-modules,audio,input,boundary
 
@@ -35,3 +35,13 @@ captures the microphone through the browser.
   and the indicator's state.
 - `docs/browser-boundary.md`, `docs/audio.md` and `AGENTS.md` say exactly what
   is granted.
+
+## Closed (2026-10-12)
+
+A duplicate of `tasks/20261010-114415-microphone` (closed 2026-10-11), which built it:
+`microphone@0` (`ef06bf34`), in v0.1.2. `test/microphone-browser.mjs` covers granted (with the
+page's "Microphone on" indicator), release on exit and on Ctrl-C, and denied, with fake devices
+in Chromium and Firefox; `docs/browser-boundary.md`, `docs/audio.md` and `AGENTS.md` say what is
+granted. No browser test runs without any device: the provider answers `unavailable` on
+`NotFoundError` (`host/microphone/provider.mjs`), read and not run. Not measured there either:
+Safari.

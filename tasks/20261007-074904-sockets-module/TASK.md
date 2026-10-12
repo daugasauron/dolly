@@ -1,8 +1,28 @@
-# sockets@0: local stream sockets between Dolly processes, and the ports that work around their absence
+# sockets@0: Janis `net` on a path is not written
 
 - STATUS: OPEN
-- PRIORITY: 300
+- PRIORITY: 120
 - TAGS: core,process,host-modules,abi,compatibility
+
+## State (2026-10-12)
+
+Shipped in v0.1.0 (`ef4b01dc`): local stream sockets between Dolly processes, as a module a
+program asks for at link time (`-ldolly-sockets`) and its image declares; thirteen recipes
+declare `sockets@0` today. `test/sockets-browser.mjs` is in the core suite, which passed in
+Chromium and Firefox in the release rounds of v0.1.0, v0.1.1 and v0.1.2, and
+`docs/process-model.md` ("Local sockets") says what is served and refused. Tokio, crossterm,
+libuv and CPython run upstream's socket code again ("What was decided for each port").
+
+Left, and the only reason this is open:
+
+- **Janis `net` on a path.** Kept refused, to be written when a program needs it: three native
+  calls, a duplex stream and a server in its event pump, cases for the Node oracle. Nothing in
+  the catalog asks for it. Lowered from 300 for that reason.
+
+Refused by design, and asked for twice since: descriptor passing (`SCM_RIGHTS`, `ENOTSUP`). A
+`wineserver` process of its own (`tasks/20261008-145108-wine-bringup`) and tmux
+(`tasks/20261012-130814-tmux`) would use it. It is a kernel change and an owner's decision, not
+part of this task.
 
 Owner (2026-10-07), after a conversation about what GTK, X11 and Wayland
 would need: "The reason I didn't want them was mainly to restrict network
@@ -30,28 +50,7 @@ only the programs that need local sockets to run pass it and have
 `REQUIRES HOST sockets@0` in their image. `git` does not. Branch
 `core/sockets-optin`.
 
-## State (2026-10-08, `core/sockets-module`)
-
-Steps 1 and 2 of the proposal are built and pass their tests in Chromium and
-Firefox; libuv, CPython, Tokio and crossterm are upgraded and proven on a
-chain of 27 images; Janis is kept as it is, with its reason. The sections
-"Settled before code", "Built" and "Ports, run" hold the measurements.
-
-- Decided by the owner (2026-10-08) and built on `core/sockets-optin`: a
-  program asks for the module when it links, and only then records it
-  ("Opt-in at link time", below). What "Settled before code" and "Built" say
-  of a client without a record describes `core/sockets-module`, the step
-  before.
-- The catalog round's: every image on the new seed, the Rust seed relinked,
-  the Codex chain and the Rust demo test ("What the catalog round must do").
-- Open: Janis `net` on a path, when a program needs it.
-
-## As filed (2026-10-07)
-
-Nothing has been built or run for this. The findings are from reading main at
-`4cbceacf`.
-
-## Today
+## The workarounds, as filed (2026-10-07, main `4cbceacf`)
 
 Every socket call, `socketpair` included, returns `ENOSYS`
 (`src/process/runtime-adapter.c:285-415`). Processes talk through inherited
@@ -76,42 +75,6 @@ Ports that carry a change because of it:
 - `demos/javascript/janis.js`: `net`, `http` and `https` servers fail on
   `listen` with `ENOSYS`, `net.connect` is unsupported, `child_process` IPC
   fails (`demos/javascript/README.md`, Limits).
-
-## Proposal (Claude, 2026-10-07; the shape is the owner's)
-
-A module `sockets@0` in `host/sockets/`, like `threads@0`: kernel C, a client
-archive that stamps the requirement, its own contract and digest, and no
-import. `abi/dolly-browser-0.wat` and the browser's authority do not change.
-It is local only: both ends are Dolly processes and the bytes stay in kernel
-memory, as a pipe's do. `env.dolly_http_dispatch` remains the only network
-edge.
-
-1. `socketpair(AF_UNIX, SOCK_STREAM)`: each end reads what the other writes,
-   over the kernel's 64 KiB pipe buffers.
-2. Named streams: `bind` to a path, `listen`, `accept`, `connect`; then
-   `read`, `write`, `send`, `recv`, `shutdown`, `poll` and `close` as for
-   pipes. A closed or dead peer gives EOF and `EPIPE`; a path nobody listens on
-   gives `ECONNREFUSED`.
-
-Refused explicitly: network families (with `EAFNOSUPPORT` rather than today's
-`ENOSYS`, so upstream selects its fallback), datagram and seqpacket sockets,
-descriptor passing (`SCM_RIGHTS`) and abstract names. Listeners, pending
-connections and connections are a new resource kind with their own quotas.
-
-## To settle before code
-
-- Stamping. `cc` links client archives by default and a call stamps the
-  module into the executable, which its image must then declare. A program
-  that references `socket` only for a network path it never takes here would
-  carry the stamp too. Count the executables of the catalog that would, as
-  `20261005-222449-spawn-users` did for spawn, before choosing between a
-  declared module and core operations.
-- Which ports match on `ENOSYS` today and would misread `EAFNOSUPPORT`.
-- What a bound path is in the filesystem (`S_IFSOCK` in `stat`), and what
-  unlinking it or the listener's exit does.
-- Nonblocking `connect`, `SOCK_NONBLOCK`/`SOCK_CLOEXEC`, `SO_ERROR`,
-  `SO_PEERCRED` and `getpeername` are added when one of the programs above
-  needs them, not in advance.
 
 ## Settled before code (2026-10-08, `core/sockets-module`)
 
@@ -405,25 +368,9 @@ don't need it to run shouldnt require it."
   and its image adds the module), the Rust demo test (`rust-tools`, `cargo`),
   the Codex chain, and every image outside the 18.
 
-### What the release round must do
-
-- `npm run build:runtime` and every image: the seed changed (the refusals,
-  the client's record, `cc`'s default archives).
-- `demos/rust/build-rust-toolchain.sh`: relinks `rustc-real` because the
-  sysroot changed; `link.sh` is `main`'s again, without the client.
-- The Codex chain (`codex-build`, `codex-cli`, `codex`): Tokio without the
-  signal patch, the shorter crossterm patch, both binaries linked with
-  `-ldolly-sockets`, the three recipes declaring `sockets@0`. None of this
-  was built here; a Codex binary that failed to link the client would abort
-  in Tokio's signal driver ("failed to create UnixStream").
-- `llvm-tablegen`, `llvm-build`, `llvm-cc`, `zero-ad-spidermonkey`,
-  `rust-tools`: rebuilt with their new line; sealing names any image that
-  keeps `python` or `codex` without it.
-- `npm run test:demos -- rust cmake neovim` and the Codex demo test.
-
 ## Upgrading the ports
 
-For each entry under Today: remove the workaround, rebuild the image, run its
+For each workaround above: remove the workaround, rebuild the image, run its
 demo test. A workaround that is still needed stays, with the reason recorded
 here. Step 1 should retire the tokio and crossterm substitutions and libuv's
 two-way pipe refusal; step 2 allows Janis and Python servers and clients on a
@@ -478,40 +425,6 @@ the Codex chain, `javascript`, `emacs`, and every image outside the 27. The
 Rust seed was not relinked: `rustc-real` in these images still holds the
 stubs it was linked with, which it never calls.
 
-### What the catalog round must do
-
-- `npm run build:runtime`, then every image: the seed changed (the libc's
-  socket calls, the provider symbol list, two headers).
-- `demos/rust/build-rust-toolchain.sh`: its input key hashes the sysroot, so
-  it relinks `rustc-real`. `demos/rust/toolchain/link.sh` gained
-  `-ldolly-sockets`, which the provider symbol list now roots; that link was
-  not run here (this worktree holds the seed's tarball, not its build tree).
-- Rust images whose sources changed: `codex-build`, `codex-cli`, `codex`
-  (`demos/codex/prepare-codex-sources.py` no longer applies the Tokio signal
-  patch and applies the shorter crossterm patch; their source pins move in
-  the round's own preparation). Every other Rust image (`rust-sdk`,
-  `rust-build`, `rust`, `rust-tools`, `cargo`, `cbindgen`, `ripgrep`, `fd`,
-  `protox`) rebuilds for the seed alone.
-- `npm run test:demos -- rust` (its fixture now needs crossterm's crates from
-  the Codex sources) and the Codex demo test.
-
-## Tests that decide it
-
-In a real browser: bytes both ways over a `socketpair` inherited through
-spawn; a server and a client that share no pipe connect through a path; peer
-exit gives EOF to a waiting reader and `EPIPE` to a writer; a dead listener
-gives `ECONNREFUSED`; `poll` wakes on readable, writable, a pending connection
-and hangup; exhausting a quota fails with an errno, and exit, abort and forced
-termination release what a process held; `socket(AF_INET, ...)` and `AF_INET6`
-fail; the kernel's import list is unchanged.
-
-## Cost
-
-The socket stubs are in the process libc, so the seed changes: every image
-rebuilds and the Rust seed is relinked. Dropping the Rust patches rebuilds the
-Rust chain, Codex included. It belongs in a round with other seed changes, not
-in one of its own.
-
 ## Not here
 
 An X11 server needs step 2 and nothing more from the substrate (a byte stream
@@ -523,7 +436,7 @@ both see (`mmap` copies, `docs/process-model.md`) and `epoll`, `timerfd` and
 
 - `sockets@0` has its contract, kernel, client and the browser tests above,
   and `docs/process-model.md` says what is supported and what is refused.
-- Each workaround under Today is removed or kept with its reason, its image
+- Each workaround as filed is removed or kept with its reason, its image
   rebuilt and its demo test passed.
 
 ## Related

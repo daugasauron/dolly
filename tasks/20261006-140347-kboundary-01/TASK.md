@@ -4,6 +4,10 @@
 - PRIORITY: 180
 - TAGS: bug,filesystem,performance,kernel
 
+## State (2026-10-12)
+
+Unchanged since it was filed: not investigated further, no fix. Firefox is not affected.
+
 Found while verifying `20261005-133401-kernel-boundary`; not caused by it.
 
 ## Reproduction (Chrome, `system` image, 2026-10-06)

@@ -1,6 +1,6 @@
 # A touch input module for phones, with a demo image that proves it
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 250
 - TAGS: core,host-modules,input,mobile,demo
 
@@ -48,3 +48,15 @@ conventions.
   real phone, with the result recorded here.
 - A program that declares only `display@0` and `touch@0` receives contacts;
   one that does not declare `touch@0` is refused by the loader.
+
+## Closed (2026-10-12)
+
+Folded into `tasks/20261010-193000-phone-voice-pi`, where the phone work is parked.
+
+Built since this was filed, in v0.1.2: a finger's drag scrolls the terminal and two fingers
+change the font's size (`c6fed63f`, `077bb981`, in `host/input`), a narrow surface starts at 48
+columns (`870b6ab4`), and `buttons@0` stands in for the keyboard. Step 1 was measured on the
+owner's phone (a Mode1 MD06P, Chrome 152: `pi-phone` loads and runs, about 0.85 GB).
+
+Not built, and moved there as item 4: contact records for programs (`touch@0` or record types of
+`input@0`), the gesture library and the demo image. Neither done-when line is met.

@@ -1,8 +1,13 @@
 # On a slow device Pi starts with part of a terminal reply in its prompt
 
 - STATUS: OPEN
-- PRIORITY: 150
+- PRIORITY: 110
 - TAGS: bug,pi,terminal
+
+## State (2026-10-12)
+
+Unchanged since it was found: no fix, no reproduction on a desktop yet. It waits with the parked
+phone image (`tasks/20261010-193000-phone-voice-pi`). Lowered from 150 with it.
 
 Found 2026-10-10 on a Mode1 MD06P (MT6769, Chrome 152) with the `pi-phone` image: after every
 load, three of three, Pi's prompt holds `/d7d7` before anything is typed. On this desktop it

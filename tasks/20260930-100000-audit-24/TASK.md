@@ -1,74 +1,50 @@
 # Trusted browser code is too large and carries test-only surface
 
 - STATUS: OPEN
-- PRIORITY: 250
+- PRIORITY: 150
 - TAGS: core,boundary,cleanup
 
-## Remaining (2026-10-07)
+## State (2026-10-12)
 
-Measured on the candidate's line: 62 files, 9,319 lines of trusted
-JavaScript, the kernel's generated loader gone (below). Step 1 (five lines
-nobody read) is on `core/trusted-surface` in `integrate/round3`, not in the
-candidate. Left, in the order proposed below: 2, the test logic out of the
-display provider into one injected harness (needs a catalog round); 3, what
-the 21 `__dolly` accessors and the page attributes are (embedding API or
-test probes: an owner decision); 4, load a provider only when the image
-declares its module; 5, the review map naming or removing the 18 unnamed
-files, most of them the process Worker's DSO loader and FFI, which
-`20261006-111835-dso-module` moves out of every Worker (bundle 65,304 to
-9,112 bytes).
+Found by the 2026-09-30 audit of main `4340d03`: authority code should be short and reviewable,
+and test hooks apart from it. The done-when, as the review of 2026-10-05 made it measurable: the
+total below is recorded at each release and does not grow without a line here saying which
+authority was added.
 
-About 7,600 lines / 341 KB of trusted-perimeter JS across ~33 files (`browser.mjs` 792,
-`process-supervisor.mjs` 773, `process-ffi.mjs` 693, `gpu-worker.mjs` 690 with 56 lines over 120
-columns). The production page exposes `window.__dolly` (`src/browser.mjs:723-778`),
-terminal-scraping helpers (`:449-510`) and 46 `dataset.*` writes. SHA-256-to-hex is written four
-times (`browser.mjs:161-163` despite importing `sha256`), `MAX_DOLLYFILE_BYTES` is redefined
-(`runtime-worker.mjs:16`), the `_dolly/<digest>` strip regex appears four times, the `boot()`
-catch repeats `displayFatal`, `encodeSessionSnapshot` (`session-store.mjs:109-122`) is
-test-only, upload polls every 50 ms forever (`src/host/upload.mjs:12`). `Dollyfile-system:6-10`
-declares display/http/download/upload/snapshot so requirements barely narrow derived images.
-Emscripten generated glue for runtime imports is part of the perimeter but not reviewable.
+Trusted JavaScript by that review's count (`wc -l`):
 
-## Evidence
+| | `src/*.mjs` | `host/**/*.mjs` | Total |
+| --- | --- | --- | --- |
+| 2026-10-05 (`c5b9e132`) | 4,942 | 4,164 | 9,106 |
+| v0.1.0 and v0.1.1 | 4,121 | 5,602 | 9,723 |
+| v0.1.2 and `main` today | 4,121 | 6,083 | 10,204 |
 
-Established: CONFIRMED BY READING. Read in main `4340d03`.
+Up to v0.1.0 the DSO loader and FFI moved from `src/` into `host/dso`, and `input@0` and
+`sockets@0` became modules. v0.1.2 added authority the owner asked for: `microphone@0` (236
+lines), `buttons@0` (203) and touch in `host/input` (38).
 
-Source: 2026-09-30 takeover audit of main `4340d03` (six read-only subsystem audits plus browser
-reproductions in Chrome against the prebuilt `default` image).
+Done: step 1 of "Order proposed" (`133ac892`, five lines nobody read). Left:
 
-## Expected
+2. The test logic out of the display provider into one harness the launch points inject. It
+   touches every launch point, so it needs a round with the whole catalog.
+3. What the `__dolly` accessors and the page attributes are: an embedding API, documented, or
+   test probes, injected. The owner's decision; the agent that used the site from `robots.txt`
+   alone had to guess here (`tasks/20261005-220754-man-help`).
+4. Load a provider only when the image declares its module.
+5. The review map (`docs/browser-boundary.md`) names every file a page can load, or the file
+   goes. Not recounted since `dso@0` became a module (18 unnamed files before it).
+6. Two demo tests still rewrite the trusted GPU worker's source before serving it
+   (`demos/zero-ad/test/0ad-menu-browser.mjs:13`, `demos/gpu-fluid/test/gpu-fluid-browser.mjs:11`).
+7. `publicURL` in `src/static-asset.mjs` strips a `_dolly/RELEASE/` path, a layout gone since
+   `17793187` (from `tasks/20261007-131241-release-v010`).
+8. From `tasks/20261006-142127-kboundary-02` (closed into this task): trusted code still calls
+   the kernel through an object of Emscripten's `_NAME` spellings, 52 call sites in ten files
+   (`dolly._dolly_process_dispatch`). The rename is on `core/kernel-boundary-rename`
+   (`e63b04f1`) and was not merged: with it the terminal suite failed in Firefox in 2 of 8 runs,
+   without it in 0 of 8, unexplained. Done when that failure is explained, the call sites use
+   the exports' names and the terminal suite passes twenty times in Firefox.
 
-Authority code is short and reviewable; test hooks are separated from production code.
-
-## Done when
-
-- Line count of trusted JS reduced; duplicates removed; test hooks isolated; behavior tests
-  pass.
-
-## Progress (2026-10-01)
-
-- The page shell knows no module: display input, session UI and build admission
-  moved into their modules (`src/browser.mjs` 792 -> 376 lines); session restore
-  moved from the runtime Worker into the snapshot module.
-- Duplicates removed: seven hex encoders, three dylink readers, a second
-  `MAX_DOLLYFILE_BYTES`, a second `sha256`, the supervisor's stop sequence,
-  unused spawn options, audio counters, dead display methods.
-- Remaining: the test helpers in `window.__dolly` (submit, visible text, waits)
-  still ship in the page; 54 test files and about 20 page launch points use them.
-- Measured on `next` (2026-10-01 afternoon): 5,157 lines in `src/*.mjs` and
-  3,437 in `host/*/*.mjs`; `src/browser.mjs` 380, `src/process-supervisor.mjs`
-  742, `src/process-worker.mjs` 556, `src/runtime-worker.mjs` 380.
-
-## Progress (2026-10-01, branch `work/core-polish`)
-
-Removed from trusted code: the boot-error compiler-trace reader, the
-`DecompressionStream`/`CompressionStream` fallbacks, the session marker write,
-the plugin loader's hand-kept import list, the parser's start-section flag, the
-kernel's unused exports. The TextDecoder shadowing at boot records its measured
-reason. `window.__dolly` (24 members, 54 test files, 18 page launch points) is
-unchanged: isolating it needs the harnesses to inject the helpers, which is a
-test-infrastructure change rather than core polish; the upload module now polls
-only during a transfer (25 ms), driven by the kernel storing without a notify.
+Lowered from 250: clean-up, with an owner's decision in step 3.
 
 ## Review (2026-10-05, `20261005-131642-big-picture`): the number goes the wrong way
 
@@ -227,4 +203,3 @@ suites in Chrome and in Firefox, 26 passed in each
 `cmake` package is not built in either tree. Not run: `fs-growth` (the 6 GB
 cap kills it on any runtime), `gpu-render` (needs a hardware adapter),
 `site`, and every demo suite.
-

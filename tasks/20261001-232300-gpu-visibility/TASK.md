@@ -1,29 +1,31 @@
 # Make GPU use and CPU fallbacks obvious
 
 - STATUS: OPEN
-- PRIORITY: 200
+- PRIORITY: 150
 - TAGS: gpu,display,ux,demo
 
-## Remaining (2026-10-07)
+## State (2026-10-12)
 
-Done and in the candidate: the trusted `#gpu-status` indicator with its three
-states and `test/gpu-indicator-browser.mjs`; since `7ecc1466` the corner
-indicators hide after ten seconds and return on Ctrl+Shift+F (owner's
-decision, `20261006-105730-corner-indicators`), so "persistent" in the
-done-when now means that. Left:
+Owner (2026-10-01): "everything that uses GPU should be obvious. The user should always know if
+GPU is used or if there's some CPU fallback in place."
 
-- Start-page and image-page labels (GPU, software adapter, CPU) for the
-  seven demo images, derived from `REQUIRES HOST gpu@0` and the README line
-  (section "Start page and image page labels").
-- From `20261005-225813-firefox-adapter` (closed into this task): when
-  Firefox hides the adapter's name, say what the indicator can truthfully
-  say and whether a second, unused adapter exists; `docs/gpu.md` says how to
-  tell which card is in use and how to switch (on the owner's machine
-  Firefox is already on the RTX 5070, measured there).
+Shipped: the trusted `#gpu-status` indicator with its three states (hardware adapter, software
+adapter, WebGPU unavailable) and `test/gpu-indicator-browser.mjs`. Since `7ecc1466` the corner
+indicators hide after ten seconds and return on Ctrl+Shift+F (the owner's decision,
+`20261006-105730-corner-indicators`), so "persistent" in the done-when means that.
 
-Owner request (2026-10-01): "everything that uses GPU should be obvious. The
-user should always know if GPU is used or if there's some CPU fallback in
-place."
+Left, checked against `main` today (`scripts/image-menu.mjs` and
+`scripts/render-dollyfile-view.mjs` name no GPU):
+
+- Start-page and image-page labels (GPU, software adapter, CPU) for the demo images, derived
+  from `REQUIRES HOST gpu@0` and the demo's README line ("Start page and image page labels").
+  SDL2 games and Slopyard's raylib path draw on the CPU and no page says so.
+- From `20261005-225813-firefox-adapter` (closed into this task): when Firefox hides the
+  adapter's name, say what the indicator can truthfully say and whether a second, unused
+  adapter exists; `docs/gpu.md` says how to tell which card is in use and how to switch.
+
+Lowered from 200: what keeps the user informed while a program runs is shipped; the rest is
+wording on two pages and one document.
 
 ## Measured (2026-10-01, Linux, NVIDIA Blackwell)
 
@@ -34,17 +36,6 @@ place."
 | Playwright Firefox 155 | no `navigator.gpu` | `requestAdapter()` returns null |
 
 Enable steps are in [`docs/gpu.md`](../../docs/gpu.md#enabling-webgpu).
-
-## Where the user cannot tell today
-
-- `host/gpu/worker.mjs` knows the adapter and `isFallbackAdapter` and posts them
-  in its status, but a software adapter (SwiftShader, llvmpipe) runs without any
-  visible sign; the 0 A.D. tests use one deliberately.
-- With no adapter, `gpu@0` programs fail with `ENOSYS`; the page does not say
-  why or how to enable WebGPU.
-- SDL2 games (ClassiCube, bhop, rts-arena) and Slopyard's raylib path render on
-  the CPU into the framebuffer; the start page and image pages do not say so.
-- Local LLM inference: check whether any CPU path exists.
 
 ## Done when
 
@@ -132,10 +123,3 @@ the page indicator is the authority.
   Dollyfile view (`scripts/render-dollyfile-view.mjs:150`, title; body at
   `:163`) has `record.hostRequirements` and can show the same label.
 
-## Review note (2026-10-05, `20261005-131642-big-picture`)
-
-Lowered from 290: the trusted indicator, the part that keeps the user
-informed while a program runs, is shipped and tested
-(`test/gpu-indicator-browser.mjs`). What remains is start-page and
-image-page wording for seven demo images. The adapter shown by the indicator
-is being reworked in `20261005-131646-webgpu-any-gpu`.
