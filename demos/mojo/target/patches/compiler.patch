@@ -1,0 +1,1873 @@
+The Mojo compiler for Dolly programs and WebGPU kernels.
+Against github.com/modular/modular at the tag mojo/v1.1.0; apply with patch -p1.
+
+bazel/public-patches/llvm_project.bzl
+  The compiler links the LLVM backends of this list; WebAssembly was not one.
+Support/include/Support/MDialect/MAttrs.td
+  A target's OS is named through LLVM's enumeration, where Dolly is "unknown".
+  The standard library chooses its libc bindings by this name.
+Support/lib/MArchTarget/MArchTargetMinimal.cpp
+  The CPU name "generic" was looked up as an AArch64 CPU for every triple, so
+  a wasm64 target got +neon, +fp-armv8 and +ete and LLVM warned of each.
+  A Dolly target has atomics and exception-handling beyond that CPU's
+  features, as every object of Dolly's C compiler has: the linker refuses to
+  share memory with an object without atomics. It also has tail-call: a
+  coroutine resumes through a call that must be a tail call, and without the
+  feature LLVM fails every async function.
+Mojo/lib/Compiler/ObjectCompiler/MCLinker.cpp
+  Code is generated in one MC context and printed in another. Wasm code
+  names its function table by a symbol of the first, the printer makes the
+  symbol again in the second, and the object declared
+  __indirect_function_table twice: wasm-ld refused every program with both an
+  indirect call and a function pointer.
+Mojo/lib/Target/Dolly, Mojo/lib/KGENToLLVM/Target/Dolly,
+Mojo/lib/Compiler/ObjectCompiler/Target/Dolly (new)
+  Two targets, each registered as upstream's host target is:
+  wasm64-unknown-dolly, a program: an object for Dolly's linker, generated as
+  wasm64-unknown-emscripten, the triple of Dolly's libc archives;
+  wasm32-unknown-webgpu, a kernel: compile_info's "asm" is WGSL text.
+
+diff --git a/Mojo/lib/Compiler/ObjectCompiler/MCLinker.cpp b/Mojo/lib/Compiler/ObjectCompiler/MCLinker.cpp
+index 8bdcb15..42aea40 100644
+--- a/Mojo/lib/Compiler/ObjectCompiler/MCLinker.cpp
++++ b/Mojo/lib/Compiler/ObjectCompiler/MCLinker.cpp
+@@ -22,6 +22,7 @@
+ #include "llvm/IR/LegacyPassManager.h"
+ #include "llvm/IR/PassManager.h"
+ #include "llvm/Linker/Linker.h"
++#include "llvm/MC/MCSymbolWasm.h"
+ #include "llvm/Target/TargetLoweringObjectFile.h"
+ #include "llvm/Target/TargetMachine.h"
+ #include "llvm/TargetParser/Triple.h"
+@@ -34,6 +35,33 @@ void SymbolAndMCInfo::clear() {
+   mcInfos.clear();
+ }
+ 
++/// Wasm code names its function table by a symbol of the context it was
++/// generated in; the object is printed in this linker's context, which makes
++/// that symbol too. Left alone, the object declares __indirect_function_table
++/// twice and no linker takes it.
++static void adoptWasmFunctionTable(llvm::MachineFunction &mf,
++                                   llvm::MCContext &printed) {
++  for (llvm::MachineBasicBlock &block : mf) {
++    for (llvm::MachineInstr &instruction : block) {
++      for (llvm::MachineOperand &operand : instruction.operands()) {
++        if (!operand.isMCSymbol() ||
++            operand.getMCSymbol()->getName() != "__indirect_function_table")
++          continue;
++        auto *generated =
++            static_cast<llvm::MCSymbolWasm *>(operand.getMCSymbol());
++        auto *table = static_cast<llvm::MCSymbolWasm *>(
++            printed.getOrCreateSymbol(generated->getName()));
++        if (!table->isFunctionTable()) {
++          table->setFunctionTable(printed.getTargetTriple().isArch64Bit());
++          if (generated->omitFromLinkingSection())
++            table->setOmitFromLinkingSection();
++        }
++        operand.ChangeToMCSymbol(table, operand.getTargetFlags());
++      }
++    }
++  }
++}
++
+ MCLinker::MCLinker(
+     SmallVectorImpl<SymbolAndMCInfo *> &symbolAndMCInfos,
+     llvm::TargetMachine &targetMachine, CompilationOptions options,
+@@ -229,6 +257,8 @@ void MCLinker::prepareMachineModuleInfo(
+           });
+         }
+ 
++        if (llvmTargetMachine.getTargetTriple().isWasm())
++          adoptWasmFunctionTable(*mf, machineModInfoPass->getMMI().getContext());
+         machineModInfoPass->getMMI().insertFunction(fn, std::move(mf));
+ 
+         // Restore function linkage types.
+@@ -282,6 +312,9 @@ MCLinker::getModuleToPrintOneSplit(llvm::TargetMachine &llvmTargetMachine) {
+     if (mfPtrIter == machineFunctions.end())
+       continue;
+ 
++    if (llvmTargetMachine.getTargetTriple().isWasm())
++      adoptWasmFunctionTable(*mfPtrIter->second,
++                             machineModInfoPass->getMMI().getContext());
+     machineModInfoPass->getMMI().insertFunction(fn,
+                                                 std::move(mfPtrIter->second));
+   }
+diff --git a/Mojo/lib/Compiler/ObjectCompiler/Target/Dolly/DollyBackend.cpp b/Mojo/lib/Compiler/ObjectCompiler/Target/Dolly/DollyBackend.cpp
+new file mode 100644
+index 0000000..a5377b2
+--- /dev/null
++++ b/Mojo/lib/Compiler/ObjectCompiler/Target/Dolly/DollyBackend.cpp
+@@ -0,0 +1,1554 @@
++//===----------------------------------------------------------------------===//
++// Added for Dolly, a POSIX-like userspace for wasm64 in the browser.
++//
++// Licensed under the Apache License v2.0 with LLVM Exceptions:
++// https://llvm.org/LICENSE.txt
++//===----------------------------------------------------------------------===//
++//
++// Dolly programs (wasm64 objects for Dolly's linker) and WebGPU kernels
++// (WGSL text for Dolly's gpu@0).
++//
++// A kernel is optimized as 32-bit LLVM IR and printed as one WGSL compute
++// entry point:
++//   - each pointer parameter is a storage buffer `b<N>: array<u32>`, bound in
++//     parameter order; a pointer value is a byte offset into the buffer its
++//     parameter names, so a pointer may not be chosen between two buffers,
++//     stored in memory or converted to an integer;
++//   - a buffer has atomic words if the kernel has an atomic operation on it
++//     or stores less than a word into it, which two threads may do to one;
++//   - the other parameters are 32-bit slots of the read-only buffer `args`,
++//     bound after the last pointer, in parameter order;
++//   - `block_dim` is the workgroup size, an override constant of the pipeline;
++//   - control flow is a block number in a loop, which expresses any CFG;
++//   - a struct that is a value is printed as its scalars;
++//   - a 64-bit integer is a `vec2<u32>`, low word first, with functions for
++//     what WGSL's operators do not do across the two words;
++//   - a constant global is a private array, and what the kernel prints is a
++//     record in one more buffer, `log`, bound last: the words it has used,
++//     then for each record its thread, its length in bytes and its text;
++//   - shared memory is a workgroup array. WGSL wants a barrier in uniform
++//     control flow, which a kernel's is not: a thread at a barrier leaves the
++//     loop of blocks, and all threads meet at one WGSL barrier until none
++//     has a block left to run.
++// What WGSL cannot say is an error naming the instruction: f64, f16,
++// vectors, calls. A trap ends the invocation.
++//
++//===----------------------------------------------------------------------===//
++
++#include "Mojo/Compiler/Target/TargetBackend.h"
++#include "Mojo/ToolCommon/CompilationOptions.h"
++#include "Target/Dolly/DollyTraits.h"
++#include "Target/Host/HostBackend.h"
++
++#include "llvm/ADT/DenseMap.h"
++#include "llvm/ADT/SmallPtrSet.h"
++#include "llvm/ADT/StringExtras.h"
++#include "llvm/ADT/StringSwitch.h"
++#include "llvm/Analysis/ConstantFolding.h"
++#include "llvm/IR/Constants.h"
++#include "llvm/IR/DataLayout.h"
++#include "llvm/IR/Function.h"
++#include "llvm/IR/GetElementPtrTypeIterator.h"
++#include "llvm/IR/Instructions.h"
++#include "llvm/IR/IntrinsicInst.h"
++#include "llvm/IR/Module.h"
++#include "llvm/IR/Operator.h"
++#include "llvm/Support/Format.h"
++#include "llvm/Support/raw_ostream.h"
++#include "llvm/Transforms/Utils/Cloning.h"
++
++#include <cmath>
++#include <map>
++
++namespace {
++
++using namespace llvm;
++
++constexpr StringLiteral kKernelAttribute = "dolly-webgpu-kernel";
++
++/// Whether `i` calls what the standard library or the package `gpu` names so.
++bool isCallTo(const Instruction &i, StringRef name) {
++  auto *call = dyn_cast<CallInst>(&i);
++  const Function *callee = call ? call->getCalledFunction() : nullptr;
++  return callee && callee->getName() == name;
++}
++
++/// 64-bit integers as (low, high). WGSL shifts by less than 32 only, and its
++/// floats are exact to 24 bits, so a conversion rounds once per word.
++constexpr StringLiteral kWide = R"(
++fn add64(a: vec2<u32>, b: vec2<u32>) -> vec2<u32> {
++  let low = a.x + b.x;
++  return vec2<u32>(low, a.y + b.y + u32(low < a.x));
++}
++fn sub64(a: vec2<u32>, b: vec2<u32>) -> vec2<u32> {
++  return vec2<u32>(a.x - b.x, a.y - b.y - u32(a.x < b.x));
++}
++fn mul64(a: vec2<u32>, b: vec2<u32>) -> vec2<u32> {
++  let al = a.x & 65535u; let ah = a.x >> 16u;
++  let bl = b.x & 65535u; let bh = b.x >> 16u;
++  let ll = al * bl; let lh = al * bh; let hl = ah * bl;
++  let middle = (ll >> 16u) + (lh & 65535u) + (hl & 65535u);
++  return vec2<u32>((ll & 65535u) | (middle << 16u),
++                   ah * bh + (lh >> 16u) + (hl >> 16u) + (middle >> 16u) +
++                       a.x * b.y + a.y * b.x);
++}
++fn shl64(a: vec2<u32>, n: u32) -> vec2<u32> {
++  if (n == 0u) { return a; }
++  if (n >= 32u) { return vec2<u32>(0u, a.x << (n - 32u)); }
++  return vec2<u32>(a.x << n, (a.y << n) | (a.x >> (32u - n)));
++}
++fn shr64(a: vec2<u32>, n: u32) -> vec2<u32> {
++  if (n == 0u) { return a; }
++  if (n >= 32u) { return vec2<u32>(a.y >> (n - 32u), 0u); }
++  return vec2<u32>((a.x >> n) | (a.y << (32u - n)), a.y >> n);
++}
++fn sar64(a: vec2<u32>, n: u32) -> vec2<u32> {
++  if (n == 0u) { return a; }
++  if (n >= 32u) {
++    return vec2<u32>(u32(i32(a.y) >> (n - 32u)), u32(i32(a.y) >> 31u));
++  }
++  return vec2<u32>((a.x >> n) | (a.y << (32u - n)), u32(i32(a.y) >> n));
++}
++fn fshl64(a: vec2<u32>, b: vec2<u32>, n: u32) -> vec2<u32> {
++  let by = n & 63u;
++  if (by == 0u) { return a; }
++  return shl64(a, by) | shr64(b, 64u - by);
++}
++fn fshr64(a: vec2<u32>, b: vec2<u32>, n: u32) -> vec2<u32> {
++  let by = n & 63u;
++  if (by == 0u) { return b; }
++  return shr64(b, by) | shl64(a, 64u - by);
++}
++fn less64(a: vec2<u32>, b: vec2<u32>) -> bool {
++  return a.y < b.y || (a.y == b.y && a.x < b.x);
++}
++fn abs64(a: vec2<u32>) -> vec2<u32> {
++  return select(a, sub64(vec2<u32>(0u, 0u), a), i32(a.y) < 0);
++}
++fn swap32(a: u32) -> u32 {
++  return (a >> 24u) | ((a >> 8u) & 65280u) | ((a << 8u) & 16711680u) |
++         (a << 24u);
++}
++// The quotient and the remainder, a bit at a time.
++fn divide64(a: vec2<u32>, b: vec2<u32>) -> array<vec2<u32>, 2> {
++  var quotient = vec2<u32>(0u, 0u);
++  var rest = vec2<u32>(0u, 0u);
++  for (var bit = 63i; bit >= 0i; bit--) {
++    let carried = rest.y >= 2147483648u;
++    rest = shl64(rest, 1u) | vec2<u32>(shr64(a, u32(bit)).x & 1u, 0u);
++    if (carried || !less64(rest, b)) {
++      rest = sub64(rest, b);
++      quotient = quotient | shl64(vec2<u32>(1u, 0u), u32(bit));
++    }
++  }
++  return array<vec2<u32>, 2>(quotient, rest);
++}
++// Signed: the quotient rounds to zero and the remainder has a's sign.
++fn sdivide64(a: vec2<u32>, b: vec2<u32>) -> array<vec2<u32>, 2> {
++  let both = divide64(abs64(a), abs64(b));
++  let zero = vec2<u32>(0u, 0u);
++  return array<vec2<u32>, 2>(
++      select(both[0], sub64(zero, both[0]), i32(a.y ^ b.y) < 0),
++      select(both[1], sub64(zero, both[1]), i32(a.y) < 0));
++}
++fn f32u64(a: vec2<u32>) -> f32 {
++  return f32(a.y) * 4294967296.0f + f32(a.x);
++}
++fn u64f32(a: f32) -> vec2<u32> {
++  let high = u32(a / 4294967296.0f);
++  return vec2<u32>(u32(a - f32(high) * 4294967296.0f), high);
++}
++)";
++
++class WGSLKernel {
++public:
++  explicit WGSLKernel(Function &kernel)
++      : F(kernel), DL(kernel.getParent()->getDataLayout()) {}
++
++  /// The WGSL module, or empty with `failure()` set.
++  std::string print();
++  StringRef failure() const { return Failure; }
++
++private:
++  Function &F;
++  const DataLayout &DL;
++  std::string Failure;
++  DenseMap<const Value *, unsigned> Numbers;
++  DenseMap<const Value *, const Value *> Roots;
++  /// The buffer parameters whose words are atomic.
++  SmallPtrSet<const Value *, 4> Atomic;
++  DenseMap<const BasicBlock *, unsigned> Blocks;
++  DenseMap<const Argument *, unsigned> Buffers;
++  DenseMap<const Argument *, unsigned> Slots;
++  std::map<uint32_t, unsigned> NonFinite;
++  /// Whether the kernel has a 64-bit integer, and so needs kWide.
++  bool Wide = false;
++  /// The constant globals the kernel reads, in the order it names them, and
++  /// the shared ones.
++  SmallVector<const GlobalVariable *, 4> Globals, Shared;
++  /// What ends a thread: a return, or with barriers its last wait.
++  const char *End = "return;";
++
++  void fail(const Twine &what, const Value *value = nullptr) {
++    if (!Failure.empty())
++      return;
++    raw_string_ostream os(Failure);
++    os << "WebGPU kernel '" << F.getName() << "': " << what;
++    if (value)
++      os << ":" << *value;
++  }
++
++  static bool isBool(Type *type) { return type->isIntegerTy(1); }
++
++  /// Whether `i` is what `std.io` calls with the text a kernel prints.
++  static bool isLog(const Instruction &i) {
++    return isCallTo(i, "__webgpu_log") && cast<CallInst>(i).arg_size() == 2;
++  }
++
++  static bool isWide(Type *type) { return type->isIntegerTy(64); }
++
++  /// Whether `base` is memory of a block's threads, as
++  /// `stack_allocation[..., address_space=AddressSpace.SHARED]` makes it.
++  static bool isShared(const Value *base) {
++    auto *global = dyn_cast_or_null<GlobalVariable>(base);
++    return global && !global->isConstant() && global->getAddressSpace() == 3;
++  }
++
++  /// Bits of an integer the printer holds in a u32, or 0.
++  static unsigned bits(Type *type) {
++    if (!type->isIntegerTy())
++      return 0;
++    unsigned width = type->getIntegerBitWidth();
++    return width == 8 || width == 16 || width == 32 ? width : 0;
++  }
++
++  std::string typeName(Type *type, const Value *value) {
++    if (isBool(type))
++      return "bool";
++    if (bits(type) || type->isPointerTy())
++      return "u32";
++    if (type->isFloatTy())
++      return "f32";
++    if (isWide(type)) {
++      Wide = true;
++      return "vec2<u32>";
++    }
++    fail(type->isDoubleTy() ? "WGSL has no Float64" : "WGSL has no such type",
++         value);
++    return "u32";
++  }
++
++  static std::string normalize(const std::string &expression, unsigned width) {
++    if (width == 32)
++      return expression;
++    return "((" + expression + ") & " + utostr((1u << width) - 1) + "u)";
++  }
++
++  static std::string asSigned(const std::string &expression, unsigned width) {
++    if (width == 32)
++      return "i32(" + expression + ")";
++    std::string shift = utostr(32 - width) + "u";
++    return "(i32((" + expression + ") << " + shift + ") >> " + shift + ")";
++  }
++
++  std::string use(const Value *value) {
++    Type *type = value->getType();
++    if (isa<UndefValue>(value) || isa<ConstantPointerNull>(value))
++      return isBool(type)        ? "false"
++             : type->isFloatTy() ? "0.0f"
++             : isWide(type)      ? "vec2<u32>(0u, 0u)"
++                                 : "0u";
++    if (auto *integer = dyn_cast<ConstantInt>(value)) {
++      if (isBool(type))
++        return integer->isZero() ? "false" : "true";
++      if (isWide(type))
++        return "vec2<u32>(" + utostr(integer->getZExtValue() & 0xffffffffu) +
++               "u, " + utostr(integer->getZExtValue() >> 32) + "u)";
++      if (!bits(type)) {
++        fail("WGSL has no such integer", value);
++        return "0u";
++      }
++      return utostr(integer->getZExtValue() & 0xffffffffu) + "u";
++    }
++    if (auto *real = dyn_cast<ConstantFP>(value)) {
++      if (!type->isFloatTy()) {
++        fail("WGSL has no such constant", value);
++        return "0.0f";
++      }
++      // WGSL has no literal for an infinity or a NaN and refuses a constant
++      // expression that makes one: its bits come from a variable.
++      if (!real->getValueAPF().isFinite()) {
++        uint32_t pattern = real->getValueAPF().bitcastToAPInt().getZExtValue();
++        auto [slot, isNew] = NonFinite.try_emplace(pattern, NonFinite.size());
++        return "bitcast<f32>(k" + utostr(slot->second) + ")";
++      }
++      std::string text;
++      raw_string_ostream(text)
++          << format("%.9g", double(real->getValueAPF().convertToFloat()));
++      if (text.find_first_of(".e") == std::string::npos)
++        text += ".0";
++      return "(" + text + "f)";
++    }
++    if (auto *argument = dyn_cast<Argument>(value))
++      return type->isPointerTy() ? "0u" : "a" + utostr(argument->getArgNo());
++    if (isa<GlobalVariable>(value))
++      return "0u";
++    if (isa<ConstantExpr>(value))
++      if (auto *gep = dyn_cast<GEPOperator>(value))
++        return offset(*gep);
++    if (isa<Instruction>(value)) {
++      auto number = Numbers.find(value);
++      if (number != Numbers.end())
++        return "v" + utostr(number->second);
++    }
++    fail("WGSL cannot name this value", value);
++    return "0u";
++  }
++
++  /// The scalars of a struct or an array in order; a scalar is its own one.
++  /// A struct that is a value, an Optional chosen in a branch for one, is
++  /// printed as its scalars: `v7_0`, `v7_1`.
++  static void leaves(Type *type, SmallVectorImpl<Type *> &scalars) {
++    if (auto *record = dyn_cast<StructType>(type)) {
++      for (Type *element : record->elements())
++        leaves(element, scalars);
++    } else if (auto *array = dyn_cast<ArrayType>(type)) {
++      for (uint64_t i = 0; i < array->getNumElements(); i++)
++        leaves(array->getElementType(), scalars);
++    } else {
++      scalars.push_back(type);
++    }
++  }
++
++  static unsigned leafCount(Type *type) {
++    SmallVector<Type *, 8> scalars;
++    leaves(type, scalars);
++    return scalars.size();
++  }
++
++  /// The first scalar that `indices` select within `type`, which becomes the
++  /// type they select.
++  static unsigned leafAt(Type *&type, ArrayRef<unsigned> indices) {
++    unsigned first = 0;
++    for (unsigned index : indices) {
++      if (auto *record = dyn_cast<StructType>(type)) {
++        for (unsigned element = 0; element < index; element++)
++          first += leafCount(record->getElementType(element));
++        type = record->getElementType(index);
++      } else {
++        type = cast<ArrayType>(type)->getElementType();
++        first += index * leafCount(type);
++      }
++    }
++    return first;
++  }
++
++  /// One scalar of a value: of a scalar, itself.
++  std::string leaf(const Value *value, unsigned index) {
++    Type *type = value->getType();
++    if (!type->isAggregateType())
++      return use(value);
++    if (auto *constant = dyn_cast<Constant>(value)) {
++      for (unsigned element = 0;; element++) {
++        Constant *part = constant->getAggregateElement(element);
++        if (!part)
++          break;
++        unsigned count = leafCount(part->getType());
++        if (index < count)
++          return leaf(part, index);
++        index -= count;
++      }
++    } else if (Numbers.count(value)) {
++      return "v" + utostr(Numbers.lookup(value)) + "_" + utostr(index);
++    }
++    fail("WGSL cannot name this value", value);
++    return "0u";
++  }
++
++  /// The parameter, the alloca or the global a pointer indexes, or null with
++  /// a failure.
++  const Value *root(const Value *pointer) {
++    SmallPtrSet<const Value *, 8> visiting;
++    const Value *found = findRoot(pointer, visiting);
++    if (!found)
++      fail("a pointer must index one buffer parameter", pointer);
++    return found;
++  }
++
++  const Value *findRoot(const Value *pointer,
++                        SmallPtrSetImpl<const Value *> &visiting) {
++    auto known = Roots.find(pointer);
++    if (known != Roots.end())
++      return known->second;
++    if (!visiting.insert(pointer).second)
++      return nullptr;
++    const Value *found = nullptr;
++    if (isa<Argument>(pointer) || isa<AllocaInst>(pointer) ||
++        isa<GlobalVariable>(pointer)) {
++      found = pointer;
++    } else if (auto *gep = dyn_cast<GEPOperator>(pointer)) {
++      found = findRoot(gep->getPointerOperand(), visiting);
++    } else if (isa<PHINode>(pointer) || isa<SelectInst>(pointer)) {
++      auto *user = cast<User>(pointer);
++      for (unsigned i = isa<SelectInst>(pointer) ? 1 : 0;
++           i < user->getNumOperands(); i++) {
++        const Value *operand = user->getOperand(i);
++        if (isa<UndefValue>(operand))
++          continue;
++        const Value *next = findRoot(operand, visiting);
++        if (!next)
++          continue;
++        if (found && found != next)
++          return nullptr;
++        found = next;
++      }
++    } else if (auto *freeze = dyn_cast<FreezeInst>(pointer)) {
++      found = findRoot(freeze->getOperand(0), visiting);
++    }
++    if (found)
++      Roots[pointer] = found;
++    return found;
++  }
++
++  /// The array `pointer` points into: `b` is the buffer of a parameter, `m`
++  /// a local array, `g` a constant global.
++  std::string memory(const Value *pointer) {
++    const Value *base = root(pointer);
++    if (auto *buffer = dyn_cast_or_null<Argument>(base))
++      return "b" + utostr(Buffers.lookup(buffer));
++    if (auto *global = dyn_cast_or_null<GlobalVariable>(base)) {
++      bool constant = global->isConstant() && global->hasDefinitiveInitializer();
++      if (!constant && !isShared(global))
++        fail("a kernel has no global variables", global);
++      auto &kind = constant ? Globals : Shared;
++      auto known = find(kind, global);
++      if (known == kind.end())
++        known = kind.insert(kind.end(), global);
++      return (constant ? "g" : "s") + utostr(known - kind.begin());
++    }
++    return "m" + utostr(Numbers.lookup(base));
++  }
++
++  /// `b3[(offset) >> 2u]`, the word `pointer` is in; `next` is for the word
++  /// after it, the high one of a 64-bit integer.
++  std::string word(const Value *pointer, bool next = false) {
++    return memory(pointer) + "[((" + use(pointer) + ") >> 2u)" +
++           (next ? " + 1u]" : "]");
++  }
++
++  /// The byte at the offset `at` of the array `pointer` points into.
++  std::string byteAt(const Value *pointer, const std::string &at) {
++    std::string cell = memory(pointer) + "[(" + at + ") >> 2u]";
++    if (Atomic.count(root(pointer)))
++      cell = "atomicLoad(&" + cell + ")";
++    return "((" + cell + " >> (((" + at + ") & 3u) * 8u)) & 255u)";
++  }
++
++  /// The statement that stores the byte `value` there.
++  std::string storeByte(const Value *pointer, const std::string &at,
++                        const std::string &value) {
++    if (isa_and_nonnull<GlobalVariable>(root(pointer)) &&
++        !isShared(root(pointer)))
++      fail("a kernel cannot store into a constant", pointer);
++    std::string cell = memory(pointer) + "[(" + at + ") >> 2u]";
++    std::string shift = " << (((" + at + ") & 3u) * 8u))";
++    return Atomic.count(root(pointer))
++               ? "_ = atomicAnd(&" + cell + ", ~(255u" + shift +
++                     "); _ = atomicOr(&" + cell + ", (" + value + shift + ");"
++               : cell + " = (" + cell + " & ~(255u" + shift + ") | (" + value +
++                     shift + ";";
++  }
++
++  /// A count of bytes, which is 32 or 64 bits wide.
++  std::string count(const Value *bytes) {
++    return isWide(bytes->getType()) ? use(bytes) + ".x" : use(bytes);
++  }
++
++  /// The statement of a copy or a fill, a byte at a time.
++  std::string bytes(const MemIntrinsic &i) {
++    std::string to = "(" + use(i.getRawDest()) + " + k)";
++    std::string loop = "for (var k = 0u; k < " + count(i.getLength()) +
++                       "; k++) { ";
++    if (auto *fill = dyn_cast<MemSetInst>(&i))
++      return loop + storeByte(i.getRawDest(), to, use(fill->getValue())) + " }";
++    auto *copy = cast<MemTransferInst>(&i);
++    if (isa<MemMoveInst>(i) &&
++        root(copy->getRawSource()) == root(i.getRawDest()))
++      fail("WGSL cannot move bytes within one array", &i);
++    return loop +
++           storeByte(i.getRawDest(), to,
++                     byteAt(copy->getRawSource(),
++                            use(copy->getRawSource()) + " + k")) +
++           " }";
++  }
++
++  /// What the kernel prints: a record of `log`, without its text where that
++  /// does not fit, and nothing where the log is full.
++  std::string record(const CallInst &i) {
++    const Value *text = i.getArgOperand(0);
++    return "{ let n = " + count(i.getArgOperand(1)) +
++           "; let words = (n + 3u) / 4u; let at = atomicAdd(&log[0], 2u + "
++           "words); if (at + 3u <= arrayLength(&log)) { "
++           "atomicStore(&log[at + 1u], gid.x + (gid.y + gid.z * nwg.y * "
++           "block_y) * nwg.x * block_x); atomicStore(&log[at + 2u], n); } "
++           "if (at + 3u + words <= arrayLength(&log)) { "
++           "for (var w = 0u; w < words; w++) { var word = 0u; "
++           "for (var k = w * 4u; k < min(n, w * 4u + 4u); k++) { word |= " +
++           byteAt(text, use(text) + " + k") +
++           " << ((k & 3u) * 8u); } atomicStore(&log[at + 3u + w], word); } } }";
++  }
++
++  /// The bytes a value takes in memory.
++  static unsigned bytesOf(Type *type) {
++    return isWide(type)        ? 8
++           : isBool(type)      ? 1
++           : type->isFloatTy() ? 4
++                               : bits(type) / 8;
++  }
++
++  /// Bits of a value that memory holds as a part of a word, or 0: a Bool is
++  /// a byte.
++  static unsigned partBits(Type *type) {
++    return isBool(type) ? 8 : bits(type) == 32 ? 0 : bits(type);
++  }
++
++  static std::string asWord(Type *type, const std::string &value) {
++    return type->isFloatTy() ? "bitcast<u32>(" + value + ")" : value;
++  }
++
++  static std::string fromWord(Type *type, const std::string &word) {
++    return type->isFloatTy() ? "bitcast<f32>(" + word + ")" : word;
++  }
++
++  /// A constant global as a private array of its words.
++  void printGlobal(raw_ostream &os, unsigned index) {
++    const GlobalVariable *global = Globals[index];
++    uint64_t size = DL.getTypeAllocSize(global->getValueType()).getFixedValue();
++    if (size > 65536) {
++      fail("a constant of a kernel is at most 64 KiB", global);
++      return;
++    }
++    uint64_t words = std::max<uint64_t>(1, (size + 3) / 4);
++    os << "var<private> g" << index << ": array<u32, " << words
++       << "> = array<u32, " << words << ">(";
++    Type *byte = Type::getInt8Ty(global->getContext());
++    for (uint64_t at = 0; at < words * 4; at += 4) {
++      uint32_t word = 0;
++      for (uint64_t k = at; k < std::min(size, at + 4); k++) {
++        auto *value = dyn_cast_or_null<ConstantInt>(ConstantFoldLoadFromConst(
++            const_cast<Constant *>(global->getInitializer()), byte,
++            APInt(DL.getIndexSizeInBits(global->getAddressSpace()), k), DL));
++        if (!value) {
++          fail("WGSL cannot hold this constant", global);
++          return;
++        }
++        word |= uint32_t(value->getZExtValue()) << ((k - at) * 8);
++      }
++      os << (at ? ", " : "") << word << "u";
++    }
++    os << ");\n";
++  }
++
++  /// The value a load reads.
++  std::string load(const LoadInst &i) {
++    const Value *from = i.getPointerOperand();
++    Type *type = i.getType();
++    bool atomic = Atomic.count(root(from));
++    // Where the value may lie across two words, each word is its bytes.
++    bool across = bytesOf(type) > 1 && i.getAlign().value() < bytesOf(type);
++    auto read = [&](bool next) {
++      if (across) {
++        std::string value;
++        for (unsigned k = 0; k < std::min(bytesOf(type), 4u); k++) {
++          std::string at = use(from) + " + " + utostr(k + next * 4) + "u";
++          value += (k ? " | (" : "(") + byteAt(from, at) + " << " +
++                   utostr(k * 8) + "u)";
++        }
++        return "(" + value + ")";
++      }
++      std::string cell = word(from, next);
++      return atomic ? "atomicLoad(&" + cell + ")" : cell;
++    };
++    if (isWide(type))
++      return "vec2<u32>(" + read(false) + ", " + read(true) + ")";
++    std::string value = read(false);
++    if (across && bits(type) == 16)
++      return value;
++    if (unsigned width = partBits(type)) {
++      value = "(" + value + " >> ((" + use(from) + " & 3u) * 8u))";
++      return isBool(type) ? "((" + value + " & 1u) != 0u)"
++                          : normalize(value, width);
++    }
++    if (!type->isFloatTy() && !bits(type))
++      fail("WGSL has no such type to load", &i);
++    return fromWord(type, value);
++  }
++
++  /// `&b3[...]`, the word of a buffer parameter an atomic operation is on.
++  std::string atomicWord(const Value *pointer, Type *type,
++                         const Instruction &i) {
++    if (!type->isFloatTy() && bits(type) != 32)
++      fail("WGSL has atomics of 32 bits only", &i);
++    if (!Atomic.count(root(pointer)))
++      fail("an atomic operation must be on a buffer or on shared memory", &i);
++    return "&" + word(pointer);
++  }
++
++  /// The statement of an atomic read-modify-write.
++  std::string modify(const AtomicRMWInst &i) {
++    Type *type = i.getType();
++    std::string cell = atomicWord(i.getPointerOperand(), type, i);
++    std::string operand = use(i.getValOperand());
++    const char *builtin = nullptr;
++    std::string old = fromWord(type, "old"), next;
++    switch (i.getOperation()) {
++    case AtomicRMWInst::Xchg: builtin = "atomicExchange"; break;
++    case AtomicRMWInst::Add: builtin = "atomicAdd"; break;
++    case AtomicRMWInst::Sub: builtin = "atomicSub"; break;
++    case AtomicRMWInst::And: builtin = "atomicAnd"; break;
++    case AtomicRMWInst::Or: builtin = "atomicOr"; break;
++    case AtomicRMWInst::Xor: builtin = "atomicXor"; break;
++    case AtomicRMWInst::UMax: builtin = "atomicMax"; break;
++    case AtomicRMWInst::UMin: builtin = "atomicMin"; break;
++    case AtomicRMWInst::Max:
++      next = "u32(max(i32(old), i32(" + operand + ")))";
++      break;
++    case AtomicRMWInst::Min:
++      next = "u32(min(i32(old), i32(" + operand + ")))";
++      break;
++    case AtomicRMWInst::FAdd: next = old + " + " + operand; break;
++    case AtomicRMWInst::FSub: next = old + " - " + operand; break;
++    case AtomicRMWInst::FMax: next = "max(" + old + ", " + operand + ")"; break;
++    case AtomicRMWInst::FMin: next = "min(" + old + ", " + operand + ")"; break;
++    default:
++      fail("WGSL has no such atomic operation", &i);
++    }
++    if (builtin)
++      return use(&i) + " = " +
++             fromWord(type, std::string(builtin) + "(" + cell + ", " +
++                                asWord(type, operand) + ")") +
++             ";";
++    // The word's atomics are those of a u32: exchange until no other thread
++    // came between.
++    return "loop { let old = atomicLoad(" + cell +
++           "); if (atomicCompareExchangeWeak(" + cell + ", old, " +
++           asWord(type, next) + ").exchanged) { " + use(&i) + " = " + old +
++           "; break; } }";
++  }
++
++  /// The statement of a compare and exchange; WGSL's may fail for no reason.
++  std::string exchange(const AtomicCmpXchgInst &i) {
++    std::string expected = use(i.getCompareOperand());
++    std::string attempt =
++        "let r = atomicCompareExchangeWeak(" +
++        atomicWord(i.getPointerOperand(), i.getCompareOperand()->getType(),
++                   i) +
++        ", " + expected + ", " + use(i.getNewValOperand()) + "); ";
++    std::string result = leaf(&i, 0) + " = r.old_value; " + leaf(&i, 1) +
++                         " = r.exchanged; ";
++    return i.isWeak() ? "{ " + attempt + result + "}"
++                      : "loop { " + attempt +
++                            "if (r.exchanged || r.old_value != " + expected +
++                            ") { " + result + "break; } }";
++  }
++
++  /// The statement of a store.
++  std::string store(const StoreInst &i) {
++    const Value *value = i.getValueOperand(), *to = i.getPointerOperand();
++    Type *type = value->getType();
++    if (!type->isFloatTy() && !isBool(type) && !bits(type) && !isWide(type)) {
++      fail("WGSL has no such type to store", &i);
++      return "";
++    }
++    bool atomic = Atomic.count(root(to));
++    bool across = bytesOf(type) > 1 && i.getAlign().value() < bytesOf(type);
++    auto write = [&](bool next, const std::string &stored) {
++      if (across) {
++        std::string statements;
++        for (unsigned k = 0; k < std::min(bytesOf(type), 4u); k++) {
++          std::string at = use(to) + " + " + utostr(k + next * 4) + "u";
++          statements += storeByte(to, at,
++                                  "((" + stored + " >> " + utostr(k * 8) +
++                                      "u) & 255u)") +
++                        " ";
++        }
++        return statements;
++      }
++      return atomic ? "atomicStore(&" + word(to, next) + ", " + stored + ");"
++                    : word(to, next) + " = " + stored + ";";
++    };
++    if (isWide(type))
++      return write(false, use(value) + ".x") + " " +
++             write(true, use(value) + ".y");
++    std::string target = word(to);
++    std::string stored = isBool(type) ? "u32(" + use(value) + ")"
++                                      : asWord(type, use(value));
++    unsigned width = partBits(type);
++    if (!width || across)
++      return write(false, stored);
++    // Only the bits of this part change, whatever other threads store into
++    // the other parts of the word.
++    std::string shift = " << ((" + use(to) + " & 3u) * 8u))";
++    std::string keep = "~(" + utostr((1u << width) - 1) + "u" + shift;
++    stored = "(" + stored + shift;
++    return atomic ? "_ = atomicAnd(&" + target + ", " + keep +
++                        "); _ = atomicOr(&" + target + ", " + stored + ");"
++                  : target + " = (" + target + " & " + keep + ") | " + stored +
++                        ";";
++  }
++
++  std::string offset(const GEPOperator &gep) {
++    std::string expression = use(gep.getPointerOperand());
++    uint32_t constant = 0;
++    for (gep_type_iterator it = gep_type_begin(gep), end = gep_type_end(gep);
++         it != end; ++it) {
++      Value *index = it.getOperand();
++      if (StructType *aggregate = it.getStructTypeOrNull()) {
++        constant += DL.getStructLayout(aggregate)->getElementOffset(
++            cast<ConstantInt>(index)->getZExtValue());
++        continue;
++      }
++      uint32_t stride = it.getSequentialElementStride(DL).getFixedValue();
++      if (auto *known = dyn_cast<ConstantInt>(index)) {
++        constant += uint32_t(known->getSExtValue()) * stride;
++      } else {
++        if (bits(index->getType()) != 32)
++          fail("an index must be 32 bits wide", &gep);
++        expression += " + " + use(index) + " * " + utostr(stride) + "u";
++      }
++    }
++    if (constant)
++      expression += " + " + utostr(constant) + "u";
++    return "(" + expression + ")";
++  }
++
++  std::string compare(const ICmpInst &instruction) {
++    const Value *left = instruction.getOperand(0),
++                *right = instruction.getOperand(1);
++    Type *type = left->getType();
++    if (isWide(type)) {
++      std::string a = use(left), b = use(right);
++      if (instruction.isSigned()) {
++        a = "(" + a + " ^ vec2<u32>(0u, 2147483648u))";
++        b = "(" + b + " ^ vec2<u32>(0u, 2147483648u))";
++      }
++      switch (instruction.getUnsignedPredicate()) {
++      case CmpInst::ICMP_EQ: return "all(" + a + " == " + b + ")";
++      case CmpInst::ICMP_NE: return "any(" + a + " != " + b + ")";
++      case CmpInst::ICMP_UGT: return "less64(" + b + ", " + a + ")";
++      case CmpInst::ICMP_UGE: return "!less64(" + a + ", " + b + ")";
++      case CmpInst::ICMP_ULT: return "less64(" + a + ", " + b + ")";
++      default: return "!less64(" + b + ", " + a + ")";
++      }
++    }
++    if (type->isPointerTy()) {
++      if (root(left) != root(right))
++        fail("pointers into two buffers cannot be compared", &instruction);
++    } else if (!isBool(type) && !bits(type)) {
++      fail("WGSL has no such integer", &instruction);
++    }
++    unsigned width = type->isPointerTy() ? 32 : bits(type);
++    std::string a = use(left), b = use(right);
++    if (instruction.isSigned() && !isBool(type)) {
++      a = asSigned(a, width);
++      b = asSigned(b, width);
++    } else if (isBool(type) && !instruction.isEquality()) {
++      a = "u32(" + a + ")";
++      b = "u32(" + b + ")";
++      if (instruction.isSigned())
++        std::swap(a, b); // As i1, true is -1.
++    }
++    const char *relation;
++    switch (instruction.getPredicate()) {
++    case CmpInst::ICMP_EQ: relation = " == "; break;
++    case CmpInst::ICMP_NE: relation = " != "; break;
++    case CmpInst::ICMP_UGT: case CmpInst::ICMP_SGT: relation = " > "; break;
++    case CmpInst::ICMP_UGE: case CmpInst::ICMP_SGE: relation = " >= "; break;
++    case CmpInst::ICMP_ULT: case CmpInst::ICMP_SLT: relation = " < "; break;
++    default: relation = " <= "; break;
++    }
++    return "(" + a + relation + b + ")";
++  }
++
++  static std::string isNaN(const std::string &value) {
++    return "((bitcast<u32>(" + value + ") & 2147483647u) > 2139095040u)";
++  }
++
++  std::string compare(const FCmpInst &instruction) {
++    if (!instruction.getOperand(0)->getType()->isFloatTy())
++      fail("WGSL has no such type", &instruction);
++    std::string a = use(instruction.getOperand(0)),
++                b = use(instruction.getOperand(1));
++    auto is = [&](const char *relation) {
++      return "(" + a + relation + b + ")";
++    };
++    switch (instruction.getPredicate()) {
++    case CmpInst::FCMP_FALSE: return "false";
++    case CmpInst::FCMP_TRUE: return "true";
++    case CmpInst::FCMP_OEQ: return is(" == ");
++    case CmpInst::FCMP_OGT: return is(" > ");
++    case CmpInst::FCMP_OGE: return is(" >= ");
++    case CmpInst::FCMP_OLT: return is(" < ");
++    case CmpInst::FCMP_OLE: return is(" <= ");
++    case CmpInst::FCMP_ONE: return "(" + is(" < ") + " || " + is(" > ") + ")";
++    // Whether a value is a NaN is read from its bits: WGSL lets a compiler
++    // assume there is none, and SwiftShader then makes `x != x` false.
++    case CmpInst::FCMP_ORD: return "!(" + isNaN(a) + " || " + isNaN(b) + ")";
++    case CmpInst::FCMP_UNO: return "(" + isNaN(a) + " || " + isNaN(b) + ")";
++    case CmpInst::FCMP_UEQ: return "!(" + is(" < ") + " || " + is(" > ") + ")";
++    case CmpInst::FCMP_UGT: return "!" + is(" <= ");
++    case CmpInst::FCMP_UGE: return "!" + is(" < ");
++    case CmpInst::FCMP_ULT: return "!" + is(" >= ");
++    case CmpInst::FCMP_ULE: return "!" + is(" > ");
++    default: return is(" != ");
++    }
++  }
++
++  std::string binary(const BinaryOperator &instruction) {
++    Type *type = instruction.getType();
++    std::string a = use(instruction.getOperand(0)),
++                b = use(instruction.getOperand(1));
++    auto is = [&](const char *operation) {
++      return "(" + a + operation + b + ")";
++    };
++    if (type->isFloatTy()) {
++      switch (instruction.getOpcode()) {
++      case Instruction::FAdd: return is(" + ");
++      case Instruction::FSub: return is(" - ");
++      case Instruction::FMul: return is(" * ");
++      case Instruction::FDiv: return is(" / ");
++      case Instruction::FRem: return is(" % ");
++      default: break;
++      }
++    } else if (isBool(type)) {
++      switch (instruction.getOpcode()) {
++      case Instruction::And: case Instruction::Mul: return is(" && ");
++      case Instruction::Or: return is(" || ");
++      case Instruction::Xor: case Instruction::Add: case Instruction::Sub:
++        return is(" != ");
++      default: break;
++      }
++    } else if (isWide(type)) {
++      auto by = [&](const char *function, const char *amount = "") {
++        return std::string(function) + "(" + a + ", " + b + amount + ")";
++      };
++      switch (instruction.getOpcode()) {
++      case Instruction::Add: return by("add64");
++      case Instruction::Sub: return by("sub64");
++      case Instruction::Mul: return by("mul64");
++      case Instruction::Shl: return by("shl64", ".x");
++      case Instruction::LShr: return by("shr64", ".x");
++      case Instruction::AShr: return by("sar64", ".x");
++      case Instruction::And: return is(" & ");
++      case Instruction::Or: return is(" | ");
++      case Instruction::Xor: return is(" ^ ");
++      case Instruction::UDiv: return by("divide64") + "[0]";
++      case Instruction::URem: return by("divide64") + "[1]";
++      case Instruction::SDiv: return by("sdivide64") + "[0]";
++      case Instruction::SRem: return by("sdivide64") + "[1]";
++      default: break;
++      }
++    } else if (unsigned width = bits(type)) {
++      auto signedly = [&](const char *operation) {
++        return normalize("u32(" + asSigned(a, width) + operation +
++                             asSigned(b, width) + ")",
++                         width);
++      };
++      switch (instruction.getOpcode()) {
++      case Instruction::Add: return normalize(is(" + "), width);
++      case Instruction::Sub: return normalize(is(" - "), width);
++      case Instruction::Mul: return normalize(is(" * "), width);
++      case Instruction::UDiv: return is(" / ");
++      case Instruction::URem: return is(" % ");
++      case Instruction::SDiv: return signedly(" / ");
++      case Instruction::SRem: return signedly(" % ");
++      case Instruction::Shl: return normalize(is(" << "), width);
++      case Instruction::LShr: return is(" >> ");
++      case Instruction::AShr:
++        return normalize("u32(" + asSigned(a, width) + " >> " + b + ")", width);
++      case Instruction::And: return is(" & ");
++      case Instruction::Or: return is(" | ");
++      case Instruction::Xor: return is(" ^ ");
++      default: break;
++      }
++    }
++    fail("WGSL has no such operation", &instruction);
++    return "0u";
++  }
++
++  std::string convert(const CastInst &instruction) {
++    const Value *operand = instruction.getOperand(0);
++    Type *from = operand->getType(), *to = instruction.getType();
++    std::string a = use(operand);
++    unsigned source = bits(from), width = bits(to);
++    switch (instruction.getOpcode()) {
++    case Instruction::ZExt:
++      if (isWide(to) && (isBool(from) || source))
++        return "vec2<u32>(" + (isBool(from) ? "u32(" + a + ")" : a) + ", 0u)";
++      if (width && (isBool(from) || source))
++        return isBool(from) ? "u32(" + a + ")" : a;
++      break;
++    case Instruction::SExt:
++      if (isWide(to) && isBool(from))
++        return "vec2<u32>(select(0u, 4294967295u, " + a + "))";
++      if (isWide(to) && source)
++        return "vec2<u32>(u32(" + asSigned(a, source) + "), u32(" +
++               asSigned(a, source) + " >> 31u))";
++      if (width && isBool(from))
++        return "select(0u, " + utostr(width == 32 ? 0xffffffffu
++                                                   : (1u << width) - 1) +
++               "u, " + a + ")";
++      if (width && source)
++        return normalize("u32(" + asSigned(a, source) + ")", width);
++      break;
++    case Instruction::Trunc:
++      if (isWide(from) && isBool(to))
++        return "((" + a + ".x & 1u) != 0u)";
++      if (isWide(from) && width)
++        return normalize(a + ".x", width);
++      if (source && isBool(to))
++        return "((" + a + " & 1u) != 0u)";
++      if (source && width)
++        return normalize(a, width);
++      break;
++    case Instruction::UIToFP:
++      if (to->isFloatTy() && isWide(from))
++        return "f32u64(" + a + ")";
++      if (to->isFloatTy() && (isBool(from) || source))
++        return "f32(" + a + ")";
++      break;
++    case Instruction::SIToFP:
++      if (to->isFloatTy() && isWide(from))
++        return "select(f32u64(" + a + "), -f32u64(sub64(vec2<u32>(0u, 0u), " +
++               a + ")), i32(" + a + ".y) < 0)";
++      if (to->isFloatTy() && isBool(from))
++        return "select(0.0f, -1.0f, " + a + ")";
++      if (to->isFloatTy() && source)
++        return "f32(" + asSigned(a, source) + ")";
++      break;
++    case Instruction::FPToUI:
++      if (from->isFloatTy() && isWide(to))
++        return "u64f32(" + a + ")";
++      if (from->isFloatTy() && width)
++        return normalize("u32(" + a + ")", width);
++      break;
++    case Instruction::FPToSI:
++      if (from->isFloatTy() && isWide(to))
++        return "select(u64f32(" + a + "), sub64(vec2<u32>(0u, 0u), u64f32(-" +
++               a + ")), " + a + " < 0.0f)";
++      if (from->isFloatTy() && width)
++        return normalize("u32(i32(" + a + "))", width);
++      break;
++    case Instruction::BitCast:
++      if (from == to)
++        return a;
++      if (from->isFloatTy() && width == 32)
++        return "bitcast<u32>(" + a + ")";
++      if (source == 32 && to->isFloatTy())
++        return "bitcast<f32>(" + a + ")";
++      break;
++    default:
++      break;
++    }
++    fail("WGSL has no such conversion", &instruction);
++    return "0u";
++  }
++
++  /// The value of a call, or empty for one that is only dropped.
++  std::string call(const CallInst &instruction) {
++    const Function *callee = instruction.getCalledFunction();
++    if (!callee) {
++      fail("WGSL has no indirect calls", &instruction);
++      return "0u";
++    }
++    auto argument = [&](unsigned i) { return use(instruction.getOperand(i)); };
++    Type *type = instruction.getType();
++    unsigned width = bits(type);
++    auto real = [&](const char *function, unsigned count) -> std::string {
++      if (!type->isFloatTy()) {
++        fail("WGSL has no such type", &instruction);
++        return "0.0f";
++      }
++      std::string text = std::string(function) + "(" + argument(0);
++      for (unsigned i = 1; i < count; i++)
++        text += ", " + argument(i);
++      return text + ")";
++    };
++    auto whole = [&](const char *function) -> std::string {
++      if (width != 32) {
++        fail("WGSL has this only for 32-bit integers", &instruction);
++        return "0u";
++      }
++      return std::string(function) + "(" + argument(0) + ")";
++    };
++    auto ordered = [&](const char *function, bool isSigned) -> std::string {
++      if (isWide(type)) {
++        // min takes the first where it is less, max the second.
++        std::string flip = isSigned ? " ^ vec2<u32>(0u, 2147483648u)" : "";
++        bool least = StringRef(function) == "min";
++        return "select(" + argument(least ? 1 : 0) + ", " +
++               argument(least ? 0 : 1) + ", less64(" + argument(0) + flip +
++               ", " + argument(1) + flip + "))";
++      }
++      if (!width) {
++        fail("WGSL has no such integer", &instruction);
++        return "0u";
++      }
++      if (!isSigned)
++        return std::string(function) + "(" + argument(0) + ", " + argument(1) +
++               ")";
++      return normalize("u32(" + std::string(function) + "(" +
++                           asSigned(argument(0), width) + ", " +
++                           asSigned(argument(1), width) + "))",
++                       width);
++    };
++    switch (callee->getIntrinsicID()) {
++    case Intrinsic::lifetime_start: case Intrinsic::lifetime_end:
++    case Intrinsic::assume: case Intrinsic::donothing:
++    case Intrinsic::experimental_noalias_scope_decl:
++      return "";
++    case Intrinsic::sincos:
++      // Its two results are printed where they are taken.
++      return "";
++    case Intrinsic::trap:
++      // WGSL has no trap: this invocation ends, the others go on.
++      return "";
++    case Intrinsic::fabs: return real("abs", 1);
++    case Intrinsic::sqrt: return real("sqrt", 1);
++    case Intrinsic::sin: return real("sin", 1);
++    case Intrinsic::cos: return real("cos", 1);
++    case Intrinsic::exp: return real("exp", 1);
++    case Intrinsic::exp2: return real("exp2", 1);
++    case Intrinsic::log: return real("log", 1);
++    case Intrinsic::log2: return real("log2", 1);
++    case Intrinsic::pow: return real("pow", 2);
++    case Intrinsic::floor: return real("floor", 1);
++    case Intrinsic::ceil: return real("ceil", 1);
++    case Intrinsic::trunc: return real("trunc", 1);
++    case Intrinsic::rint: case Intrinsic::nearbyint: case Intrinsic::roundeven:
++      return real("round", 1);
++    case Intrinsic::fma: return real("fma", 3);
++    case Intrinsic::fmuladd:
++      return "(" + argument(0) + " * " + argument(1) + " + " + argument(2) +
++             ")";
++    case Intrinsic::copysign:
++      if (type->isFloatTy())
++        return "bitcast<f32>((bitcast<u32>(" + argument(0) +
++               ") & 2147483647u) | (bitcast<u32>(" + argument(1) +
++               ") & 2147483648u))";
++      break;
++    case Intrinsic::minnum: case Intrinsic::minimum: return real("min", 2);
++    case Intrinsic::maxnum: case Intrinsic::maximum: return real("max", 2);
++    case Intrinsic::umin: return ordered("min", false);
++    case Intrinsic::umax: return ordered("max", false);
++    case Intrinsic::smin: return ordered("min", true);
++    case Intrinsic::smax: return ordered("max", true);
++    case Intrinsic::abs:
++      if (isWide(type))
++        return "abs64(" + argument(0) + ")";
++      if (width)
++        return normalize("u32(abs(" + asSigned(argument(0), width) + "))",
++                         width);
++      break;
++    case Intrinsic::bitreverse: return whole("reverseBits");
++    case Intrinsic::bswap:
++      if (isWide(type))
++        return "vec2<u32>(swap32(" + argument(0) + ".y), swap32(" +
++               argument(0) + ".x))";
++      if (width == 32)
++        return "((" + argument(0) + " >> 24u) | ((" + argument(0) +
++               " >> 8u) & 65280u) | ((" + argument(0) +
++               " << 8u) & 16711680u) | (" + argument(0) + " << 24u))";
++      break;
++    // A funnel shift by s of 32 bits; no WGSL shift may be by 32.
++    case Intrinsic::fshl:
++      if (isWide(type))
++        return "fshl64(" + argument(0) + ", " + argument(1) + ", " +
++               argument(2) + ".x)";
++      if (width == 32)
++        return "((" + argument(0) + " << (" + argument(2) + " & 31u)) | ((" +
++               argument(1) + " >> 1u) >> (31u - (" + argument(2) + " & 31u))))";
++      break;
++    case Intrinsic::fshr:
++      if (isWide(type))
++        return "fshr64(" + argument(0) + ", " + argument(1) + ", " +
++               argument(2) + ".x)";
++      if (width == 32)
++        return "((" + argument(1) + " >> (" + argument(2) + " & 31u)) | ((" +
++               argument(0) + " << 1u) << (31u - (" + argument(2) + " & 31u))))";
++      break;
++    case Intrinsic::ctpop:
++      if (isWide(type))
++        return "vec2<u32>(countOneBits(" + argument(0) + ".x) + countOneBits(" +
++               argument(0) + ".y), 0u)";
++      return whole("countOneBits");
++    case Intrinsic::ctlz:
++      if (isWide(type))
++        return "vec2<u32>(select(countLeadingZeros(" + argument(0) +
++               ".y), 32u + countLeadingZeros(" + argument(0) + ".x), " +
++               argument(0) + ".y == 0u), 0u)";
++      return whole("countLeadingZeros");
++    case Intrinsic::cttz:
++      if (isWide(type))
++        return "vec2<u32>(select(countTrailingZeros(" + argument(0) +
++               ".x), 32u + countTrailingZeros(" + argument(0) + ".y), " +
++               argument(0) + ".x == 0u), 0u)";
++      return whole("countTrailingZeros");
++    default: break;
++    }
++    // What `std._gpu` asks of this target: a builtin's x, y or z.
++    StringRef name = callee->getName();
++    if (name.consume_front("__webgpu_") && instruction.arg_size() == 1 &&
++        width == 32) {
++      auto *axis = dyn_cast<ConstantInt>(instruction.getArgOperand(0));
++      const char *builtin = StringSwitch<const char *>(name)
++                                .Case("thread_idx", "lid.")
++                                .Case("block_idx", "wid.")
++                                .Case("grid_dim", "nwg.")
++                                .Case("block_dim", "block_")
++                                .Default(nullptr);
++      if (builtin && axis && axis->getZExtValue() < 3)
++        return std::string(builtin) + "xyz"[axis->getZExtValue()];
++    }
++    // libm's functions that WGSL has, as `std.math` calls them.
++    if (const char *builtin = StringSwitch<const char *>(callee->getName())
++                                  .Case("tanf", "tan")
++                                  .Case("atanf", "atan")
++                                  .Case("asinhf", "asinh")
++                                  .Case("acoshf", "acosh")
++                                  .Case("atanhf", "atanh")
++                                  .Default(nullptr))
++      if (instruction.arg_size() == 1)
++        return real(builtin, 1);
++    fail("WGSL cannot call", &instruction);
++    return "0u";
++  }
++
++  /// The assignments to `to`'s phis that the edge from `from` makes.
++  std::string edge(const BasicBlock *from, const BasicBlock *to) {
++    std::string values, assignments;
++    unsigned count = 0;
++    for (const PHINode &phi : to->phis()) {
++      for (unsigned k = 0, n = leafCount(phi.getType()); k < n; k++) {
++        std::string temporary = "t" + utostr(count++);
++        values += "let " + temporary + " = " +
++                  leaf(phi.getIncomingValueForBlock(from), k) + "; ";
++        assignments += leaf(&phi, k) + " = " + temporary + "; ";
++      }
++    }
++    std::string next = "bb = " + utostr(Blocks.lookup(to)) + "u;";
++    return count ? "{ " + values + assignments + next + " }"
++                 : "{ " + next + " }";
++  }
++
++  void instruction(const Instruction &i, raw_ostream &os) {
++    auto assign = [&](const std::string &expression) {
++      os << "      " << use(&i) << " = " << expression << ";\n";
++    };
++    if (auto *operation = dyn_cast<BinaryOperator>(&i)) {
++      assign(binary(*operation));
++    } else if (auto *conversion = dyn_cast<CastInst>(&i)) {
++      assign(convert(*conversion));
++    } else if (auto *comparison = dyn_cast<ICmpInst>(&i)) {
++      assign(compare(*comparison));
++    } else if (auto *comparison = dyn_cast<FCmpInst>(&i)) {
++      assign(compare(*comparison));
++    } else if (i.getOpcode() == Instruction::FNeg) {
++      assign("(-" + use(i.getOperand(0)) + ")");
++    } else if (isa<FreezeInst>(i)) {
++      assign(use(i.getOperand(0)));
++    } else if (auto *part = dyn_cast<ExtractValueInst>(&i)) {
++      const Value *whole = part->getAggregateOperand();
++      auto *both = dyn_cast<IntrinsicInst>(whole);
++      if (both && both->getIntrinsicID() == Intrinsic::sincos) {
++        assign((part->getIndices()[0] ? "cos(" : "sin(") +
++               use(both->getArgOperand(0)) + ")");
++        return;
++      }
++      Type *selected = whole->getType();
++      unsigned first = leafAt(selected, part->getIndices());
++      for (unsigned k = 0, n = leafCount(selected); k < n; k++)
++        os << "      " << leaf(&i, k) << " = " << leaf(whole, first + k)
++           << ";\n";
++    } else if (auto *insert = dyn_cast<InsertValueInst>(&i)) {
++      const Value *whole = insert->getAggregateOperand();
++      Type *selected = whole->getType();
++      unsigned first = leafAt(selected, insert->getIndices());
++      unsigned inserted = leafCount(selected);
++      for (unsigned k = 0, n = leafCount(i.getType()); k < n; k++)
++        os << "      " << leaf(&i, k) << " = "
++           << (k >= first && k < first + inserted
++                   ? leaf(insert->getInsertedValueOperand(), k - first)
++                   : leaf(whole, k))
++           << ";\n";
++    } else if (auto *choice = dyn_cast<SelectInst>(&i)) {
++      if (i.getType()->isPointerTy())
++        root(&i);
++      for (unsigned k = 0, n = leafCount(i.getType()); k < n; k++)
++        os << "      " << leaf(&i, k) << " = select("
++           << leaf(choice->getFalseValue(), k) << ", "
++           << leaf(choice->getTrueValue(), k) << ", "
++           << use(choice->getCondition()) << ");\n";
++    } else if (auto *gep = dyn_cast<GetElementPtrInst>(&i)) {
++      assign(offset(*cast<GEPOperator>(gep)));
++    } else if (auto *loaded = dyn_cast<LoadInst>(&i)) {
++      assign(load(*loaded));
++    } else if (auto *stored = dyn_cast<StoreInst>(&i)) {
++      os << "      " << store(*stored) << "\n";
++    } else if (auto *modified = dyn_cast<AtomicRMWInst>(&i)) {
++      os << "      " << modify(*modified) << "\n";
++    } else if (auto *exchanged = dyn_cast<AtomicCmpXchgInst>(&i)) {
++      os << "      " << exchange(*exchanged) << "\n";
++    } else if (auto *moved = dyn_cast<MemIntrinsic>(&i)) {
++      os << "      " << bytes(*moved) << "\n";
++    } else if (isLog(i)) {
++      os << "      " << record(cast<CallInst>(i)) << "\n";
++    } else if (isCallTo(i, "__webgpu_barrier")) {
++      // The block ends here (printKernel): the thread goes to the barrier.
++      os << "      stopped = true;\n";
++    } else if (auto *invocation = dyn_cast<CallInst>(&i)) {
++      std::string value = call(*invocation);
++      if (!value.empty() && !i.getType()->isVoidTy())
++        assign(value);
++    } else if (auto *jump = dyn_cast<UncondBrInst>(&i)) {
++      os << "      " << edge(i.getParent(), jump->getSuccessor(0)) << "\n";
++    } else if (auto *branch = dyn_cast<CondBrInst>(&i)) {
++      const BasicBlock *from = i.getParent();
++      os << "      if (" << use(branch->getCondition()) << ") "
++         << edge(from, branch->getSuccessor(0)) << " else "
++         << edge(from, branch->getSuccessor(1)) << "\n";
++    } else if (auto *choice = dyn_cast<SwitchInst>(&i)) {
++      const BasicBlock *from = i.getParent();
++      if (!bits(choice->getCondition()->getType()))
++        fail("WGSL has no such integer", &i);
++      os << "      ";
++      for (const auto &target : choice->cases())
++        os << "if (" << use(choice->getCondition()) << " == "
++           << use(target.getCaseValue()) << ") "
++           << edge(from, target.getCaseSuccessor()) << " else ";
++      os << edge(from, choice->getDefaultDest()) << "\n";
++    } else if (isa<ReturnInst>(i) || isa<UnreachableInst>(i)) {
++      os << "      " << End << "\n";
++    } else if (!isa<PHINode>(i) && !isa<AllocaInst>(i)) {
++      fail("WGSL has no such instruction", &i);
++    }
++  }
++};
++
++std::string WGSLKernel::print() {
++  if (!F.getReturnType()->isVoidTy())
++    fail("a kernel returns nothing");
++  std::string text;
++  raw_string_ostream os(text);
++  os << "// " << F.getName() << "\n"
++     << "override block_x: u32 = 1u;\noverride block_y: u32 = 1u;\n"
++     << "override block_z: u32 = 1u;\n";
++  unsigned buffers = 0, slots = 0;
++  bool logs = false, waits = false;
++  for (const BasicBlock &block : F)
++    for (const Instruction &i : block) {
++      logs |= isLog(i);
++      waits |= isCallTo(i, "__webgpu_barrier");
++    }
++  if (waits)
++    End = "bb = 4294967295u; stopped = true;";
++  for (const BasicBlock &block : F)
++    for (const Instruction &i : block) {
++      auto *stored = dyn_cast<StoreInst>(&i);
++      Type *type = stored ? stored->getValueOperand()->getType() : nullptr;
++      // Stores of a part of a word, which other threads store into too.
++      bool narrow =
++          isa<MemIntrinsic>(i) ||
++          (stored &&
++           (partBits(type) || stored->getAlign().value() < bytesOf(type)));
++      if (!narrow && (!i.isAtomic() || isa<FenceInst>(i)))
++        continue;
++      const Value *base = root(i.getOperand(stored ? 1 : 0));
++      if (isa_and_nonnull<Argument>(base) || isShared(base))
++        Atomic.insert(base);
++    }
++  for (const Argument &argument : F.args()) {
++    if (!argument.getType()->isPointerTy()) {
++      Slots[&argument] = slots;
++      slots += isWide(argument.getType()) ? 2 : 1;
++      continue;
++    }
++    os << "@group(0) @binding(" << buffers << ") var<storage, read_write> b"
++       << buffers << ": array<"
++       << (Atomic.count(&argument) ? "atomic<u32>" : "u32") << ">;\n";
++    Buffers[&argument] = buffers++;
++  }
++  if (slots)
++    os << "@group(0) @binding(" << buffers
++       << ") var<storage, read> args: array<u32>;\n";
++  if (logs)
++    os << "@group(0) @binding(" << buffers + (slots ? 1 : 0)
++       << ") var<storage, read_write> log: array<atomic<u32>>;\n";
++  os << "@compute @workgroup_size(block_x, block_y, block_z)\n"
++     << "fn kernel(@builtin(global_invocation_id) gid: vec3<u32>,\n"
++     << "          @builtin(local_invocation_id) lid: vec3<u32>,\n"
++     << "          @builtin(workgroup_id) wid: vec3<u32>,\n"
++     << "          @builtin(num_workgroups) nwg: vec3<u32>) {\n";
++  for (const Argument &argument : F.args())
++    Wide |= isWide(argument.getType());
++  // The pipeline's layout has a binding only if the entry point names it.
++  for (unsigned i = 0; i < buffers; i++)
++    os << "  _ = arrayLength(&b" << i << ");\n";
++  if (logs)
++    os << "  _ = arrayLength(&log);\n";
++  for (const Argument &argument : F.args()) {
++    Type *type = argument.getType();
++    if (type->isPointerTy())
++      continue;
++    std::string slot = "args[" + utostr(Slots[&argument]) + "]";
++    os << "  let a" << argument.getArgNo() << " = ";
++    if (isBool(type))
++      os << "(" << slot << " != 0u)";
++    else if (type->isFloatTy())
++      os << "bitcast<f32>(" << slot << ")";
++    else if (unsigned width = bits(type))
++      os << normalize(slot, width);
++    else if (isWide(type))
++      os << "vec2<u32>(" << slot << ", args[" << Slots[&argument] + 1 << "])";
++    else
++      fail("WGSL has no such parameter type", &argument);
++    os << ";\n";
++  }
++
++  unsigned number = 0;
++  for (const BasicBlock &block : F) {
++    unsigned blockNumber = Blocks.size();
++    Blocks[&block] = blockNumber;
++    for (const Instruction &i : block) {
++      auto *intrinsic = dyn_cast<IntrinsicInst>(&i);
++      if (i.getType()->isVoidTy() ||
++          (intrinsic && intrinsic->getIntrinsicID() == Intrinsic::sincos))
++        continue;
++      Numbers[&i] = number++;
++      if (auto *memory = dyn_cast<AllocaInst>(&i)) {
++        auto *count = dyn_cast<ConstantInt>(memory->getArraySize());
++        uint64_t bytes = count ? DL.getTypeAllocSize(memory->getAllocatedType())
++                                         .getFixedValue() *
++                                     count->getZExtValue()
++                               : 0;
++        if (!bytes || bytes > 65536)
++          fail("a local must have a small fixed size", &i);
++        os << "  var m" << Numbers[&i] << ": array<u32, "
++           << std::max<uint64_t>(1, (bytes + 3) / 4) << ">;\n";
++      }
++      if (!i.getType()->isAggregateType()) {
++        os << "  var v" << Numbers[&i] << ": " << typeName(i.getType(), &i)
++           << ";\n";
++        continue;
++      }
++      SmallVector<Type *, 8> scalars;
++      leaves(i.getType(), scalars);
++      for (unsigned k = 0; k < scalars.size(); k++)
++        os << "  var v" << Numbers[&i] << "_" << k << ": "
++           << typeName(scalars[k], &i) << ";\n";
++    }
++  }
++  std::string body;
++  raw_string_ostream bodyStream(body);
++  for (const BasicBlock &block : F) {
++    bodyStream << "    case " << Blocks[&block] << "u {\n";
++    for (const Instruction &i : block)
++      instruction(i, bodyStream);
++    bodyStream << "    }\n";
++  }
++  for (const auto &[pattern, slot] : NonFinite)
++    os << "  var k" << slot << ": u32 = " << pattern << "u;\n";
++  os << "  var bb: u32 = 0u;\n";
++  if (waits)
++    os << "  loop {\n  var stopped = false;\n";
++  os << "  loop {\n    switch bb {\n"
++     << body << "    default { " << (waits ? "stopped = true;" : "return;")
++     << " }\n    }\n";
++  if (waits)
++    // A thread with a block left to run says so; all read whether one did.
++    os << "    if (stopped) { break; }\n  }\n"
++       << "  if (bb != 4294967295u) { atomicStore(&running, 1u); }\n"
++       << "  if (workgroupUniformLoad(&running) == 0u) { break; }\n"
++       << "  atomicStore(&running, 0u);\n  workgroupBarrier();\n"
++       << "  storageBarrier();\n";
++  os << "  }\n}\n";
++  if (waits)
++    os << "var<workgroup> running: atomic<u32>;\n";
++  if (Wide)
++    os << kWide;
++  for (unsigned index = 0; index < Globals.size(); index++)
++    printGlobal(os, index);
++  for (unsigned index = 0; index < Shared.size(); index++) {
++    uint64_t bytes =
++        DL.getTypeAllocSize(Shared[index]->getValueType()).getFixedValue();
++    os << "var<workgroup> s" << index << ": array<"
++       << (Atomic.count(Shared[index]) ? "atomic<u32>" : "u32") << ", "
++       << std::max<uint64_t>(1, (bytes + 3) / 4) << ">;\n";
++  }
++  return Failure.empty() ? text : std::string();
++}
++
++/// Before LLVM optimizes a kernel's module: every function the kernel calls is
++/// to become part of it, since one WGSL function is printed, and none has a C
++/// library to call.
++struct KernelCallees : RequiredPassInfoMixin<KernelCallees> {
++  PreservedAnalyses run(Module &module, ModuleAnalysisManager &) {
++    for (Function &function : module) {
++      if (function.isDeclaration() || function.hasFnAttribute(kKernelAttribute))
++        continue;
++      function.removeFnAttr(Attribute::NoInline);
++      function.removeFnAttr(Attribute::OptimizeNone);
++      function.addFnAttr(Attribute::AlwaysInline);
++      function.addFnAttr("no-builtins");
++    }
++    return PreservedAnalyses::none();
++  }
++};
++
++/// Inlines every call to a defined function that LLVM left, so one WGSL
++/// function suffices.
++/// Returns what prevents it, or nothing.
++std::string inlineCalls(Function &kernel) {
++  for (unsigned round = 0; round < 64; round++) {
++    SmallVector<CallBase *, 16> calls;
++    for (BasicBlock &block : kernel)
++      for (Instruction &i : block)
++        if (auto *call = dyn_cast<CallBase>(&i))
++          if (Function *callee = call->getCalledFunction())
++            if (!callee->isDeclaration())
++              calls.push_back(call);
++    if (calls.empty())
++      return {};
++    for (CallBase *call : calls) {
++      InlineFunctionInfo info;
++      std::string callee = call->getCalledFunction()->getName().str();
++      if (!InlineFunction(*call, info).isSuccess())
++        return "WebGPU kernel '" + kernel.getName().str() +
++               "' calls a function that cannot be inlined: " + callee;
++    }
++  }
++  return "WebGPU kernel '" + kernel.getName().str() + "' is recursive";
++}
++
++/// The WGSL of the module's kernel, or empty with `failure` set.
++std::string printKernel(Module &module, std::string &failure) {
++  Function *kernel = nullptr;
++  for (Function &function : module)
++    if (function.hasFnAttribute(kKernelAttribute))
++      kernel = &function;
++  if (!kernel) {
++    failure = "no WebGPU kernel in the module";
++    return {};
++  }
++  failure = inlineCalls(*kernel);
++  if (!failure.empty())
++    return {};
++  // A barrier ends its block, so that the thread can leave there and return.
++  SmallVector<Instruction *, 8> barriers;
++  for (BasicBlock &block : *kernel)
++    for (Instruction &i : block)
++      if (isCallTo(i, "__webgpu_barrier"))
++        barriers.push_back(&i);
++  for (Instruction *barrier : barriers)
++    barrier->getParent()->splitBasicBlock(std::next(barrier->getIterator()));
++  WGSLKernel printer(*kernel);
++  std::string text = printer.print();
++  failure = printer.failure().str();
++  return text;
++}
++
++} // namespace
++
++namespace M::KGEN {
++namespace {
++
++class DollyBackend final : public HostBackend {
++public:
++  const TargetTraits *traits() const override { return &DollyTraits::get(); }
++
++  // One module, one llc: merging the objects of functions compiled apart
++  // declares a Wasm object's __indirect_function_table once for each, and the
++  // linker refuses the duplicate.
++  SplitStrategy splitStrategy(const CompilationOptions &) const override {
++    return SplitStrategy::None;
++  }
++  bool isCodegenInterprocedural() const override { return true; }
++
++  CompilationOptions
++  adjustOptionsForTargetMachine(const CompilationOptions &options,
++                                llvm::StringRef moduleTriple) const override {
++    CompilationOptions adjusted = options;
++    adjusted.targetTriple = DollyTraits::get().codegenTriple(moduleTriple);
++    return adjusted;
++  }
++};
++
++class WebGPUBackend final : public TargetBackend {
++public:
++  const TargetTraits *traits() const override { return &WebGPUTraits::get(); }
++
++  SplitStrategy splitStrategy(const CompilationOptions &) const override {
++    return SplitStrategy::PerExported;
++  }
++  bool isOffload() const override { return true; }
++  bool requiresSingleModuleSplit() const override { return true; }
++
++  CompilationOptions
++  adjustOptionsForTargetMachine(const CompilationOptions &options,
++                                llvm::StringRef moduleTriple) const override {
++    CompilationOptions adjusted = options;
++    adjusted.targetTriple = WebGPUTraits::get().codegenTriple(moduleTriple);
++    adjusted.targetCpu = "generic";
++    // No SIMD: the printer has no vectors, so LLVM must not form them.
++    adjusted.targetFeatures = "";
++    return adjusted;
++  }
++
++  void addSanitizers(llvm::ModulePassManager &,
++                     const CompilationOptions &) const override {}
++
++  void addPipelineStartPasses(llvm::ModulePassManager &mpm,
++                              const CompilationOptions &) const override {
++    mpm.addPass(KernelCallees());
++  }
++
++  void attachCodegenAttributes(llvm::Function *kernelEntry) const override {
++    kernelEntry->addFnAttr(kKernelAttribute);
++    // No C library is behind a kernel: LLVM must not turn a loop that
++    // clears or copies into memset or memcpy of a length WGSL cannot take.
++    kernelEntry->addFnAttr("no-builtins");
++  }
++
++  ErrorOr<BufferRef> emitAssembly(llvm::Module &module,
++                                  EmitContext &) const override {
++    std::string failure;
++    std::string text = printKernel(module, failure);
++    if (text.empty())
++      return Error(failure);
++    WriteableBufferRef buffer = WriteableBuffer::get();
++    *buffer << text;
++    return buffer;
++  }
++
++  ErrorOr<BufferRef> emitObject(llvm::Module &, EmitContext &) const override {
++    return Error("a WebGPU kernel is WGSL text and has no object file");
++  }
++
++  ErrorOr<BufferRef> createArchive(llvm::MutableArrayRef<BufferRef>,
++                                   llvm::StringRef,
++                                   EmitContext &) const override {
++    return Error("a WebGPU kernel is WGSL text and has no archive");
++  }
++
++protected:
++  bool isBaseTarget() const override { return true; }
++};
++
++#pragma GCC diagnostic push
++#pragma GCC diagnostic ignored "-Wglobal-constructors"
++RegisterTargetBackend<DollyBackend> registerDollyBackend;
++RegisterTargetBackend<WebGPUBackend> registerWebGPUBackend;
++#pragma GCC diagnostic pop
++
++} // namespace
++} // namespace M::KGEN
+diff --git a/Mojo/lib/KGENToLLVM/Target/Dolly/DollyLowering.cpp b/Mojo/lib/KGENToLLVM/Target/Dolly/DollyLowering.cpp
+new file mode 100644
+index 0000000..1c0aa50
+--- /dev/null
++++ b/Mojo/lib/KGENToLLVM/Target/Dolly/DollyLowering.cpp
+@@ -0,0 +1,34 @@
++//===----------------------------------------------------------------------===//
++// Added for Dolly, a POSIX-like userspace for wasm64 in the browser.
++//
++// Licensed under the Apache License v2.0 with LLVM Exceptions:
++// https://llvm.org/LICENSE.txt
++//===----------------------------------------------------------------------===//
++
++
++#include "Target/Dolly/DollyTraits.h"
++#include "Target/TargetLowering.h"
++
++namespace M::KGEN {
++namespace {
++
++class DollyLowering final : public TargetLowering {
++public:
++  const TargetTraits *traits() const override { return &DollyTraits::get(); }
++  bool isBaseTarget() const override { return true; }
++};
++
++class WebGPULowering final : public TargetLowering {
++public:
++  const TargetTraits *traits() const override { return &WebGPUTraits::get(); }
++  bool isBaseTarget() const override { return true; }
++};
++
++#pragma GCC diagnostic push
++#pragma GCC diagnostic ignored "-Wglobal-constructors"
++RegisterTargetLowering<DollyLowering> registerDollyLowering;
++RegisterTargetLowering<WebGPULowering> registerWebGPULowering;
++#pragma GCC diagnostic pop
++
++} // namespace
++} // namespace M::KGEN
+diff --git a/Mojo/lib/Target/Dolly/DollyTraits.cpp b/Mojo/lib/Target/Dolly/DollyTraits.cpp
+new file mode 100644
+index 0000000..83e9bf3
+--- /dev/null
++++ b/Mojo/lib/Target/Dolly/DollyTraits.cpp
+@@ -0,0 +1,31 @@
++//===----------------------------------------------------------------------===//
++// Added for Dolly, a POSIX-like userspace for wasm64 in the browser.
++//
++// Licensed under the Apache License v2.0 with LLVM Exceptions:
++// https://llvm.org/LICENSE.txt
++//===----------------------------------------------------------------------===//
++
++
++#include "Target/Dolly/DollyTraits.h"
++
++namespace M::KGEN {
++
++const DollyTraits &DollyTraits::get() {
++  static const DollyTraits instance;
++  return instance;
++}
++
++const WebGPUTraits &WebGPUTraits::get() {
++  static const WebGPUTraits instance;
++  return instance;
++}
++
++namespace {
++#pragma GCC diagnostic push
++#pragma GCC diagnostic ignored "-Wglobal-constructors"
++RegisterTargetTraits<DollyTraits> registerDollyTraits;
++RegisterTargetTraits<WebGPUTraits> registerWebGPUTraits;
++#pragma GCC diagnostic pop
++} // namespace
++
++} // namespace M::KGEN
+diff --git a/Mojo/lib/Target/Dolly/DollyTraits.h b/Mojo/lib/Target/Dolly/DollyTraits.h
+new file mode 100644
+index 0000000..c63da5f
+--- /dev/null
++++ b/Mojo/lib/Target/Dolly/DollyTraits.h
+@@ -0,0 +1,76 @@
++//===----------------------------------------------------------------------===//
++// Added for Dolly, a POSIX-like userspace for wasm64 in the browser.
++//
++// Licensed under the Apache License v2.0 with LLVM Exceptions:
++// https://llvm.org/LICENSE.txt
++//===----------------------------------------------------------------------===//
++
++//
++// Dolly: a POSIX-like userspace for wasm64 in the browser. Programs are
++// wasm64 objects that Dolly's `cc` links against its process sysroot.
++// WebGPU: compute kernels emitted as WGSL for Dolly's `gpu@0`.
++//
++//===----------------------------------------------------------------------===//
++
++#ifndef KGEN_TARGET_DOLLY_DOLLYTRAITS_H
++#define KGEN_TARGET_DOLLY_DOLLYTRAITS_H
++
++#include "Target/TargetTraits.h"
++
++#include "llvm/TargetParser/Triple.h"
++
++namespace M::KGEN {
++
++struct DollyTraits final : TargetTraits {
++  llvm::StringRef name() const override { return "dolly"; }
++  bool matches(const llvm::Triple &triple) const override {
++    return triple.getArch() == llvm::Triple::wasm64 &&
++           triple.getOSName() == "dolly";
++  }
++  llvm::StringRef defaultCPU(const llvm::Triple &) const override {
++    return "generic";
++  }
++  /// LLVM has no Dolly OS. Dolly's libc archives are built for this triple,
++  /// as its C compiler does; it is not the platform's name.
++  std::string codegenTriple(llvm::StringRef) const override {
++    return "wasm64-unknown-emscripten";
++  }
++  llvm::StringRef getAsmExtension() const override { return ".s"; }
++  llvm::StringRef getLLVMExtension() const override { return ".ll"; }
++  llvm::StringRef getObjectExtension() const override { return ".o"; }
++
++  static const DollyTraits &get();
++
++protected:
++  bool isBaseTarget() const override { return true; }
++};
++
++struct WebGPUTraits final : TargetTraits {
++  llvm::StringRef name() const override { return "webgpu"; }
++  bool matches(const llvm::Triple &triple) const override {
++    return triple.getArch() == llvm::Triple::wasm32 &&
++           triple.getOSName() == "webgpu";
++  }
++  bool isGPU() const override { return true; }
++  llvm::StringRef defaultCPU(const llvm::Triple &) const override {
++    return "generic";
++  }
++  /// A kernel is optimized as 32-bit LLVM IR (WGSL has no 64-bit integers
++  /// and its pointers index buffers) and then printed as WGSL.
++  std::string codegenTriple(llvm::StringRef) const override {
++    return "wasm32-unknown-unknown";
++  }
++  bool emitsOffloadObjectFile() const override { return false; }
++  llvm::StringRef getAsmExtension() const override { return ".wgsl"; }
++  llvm::StringRef getLLVMExtension() const override { return ".webgpu.ll"; }
++  llvm::StringRef getObjectExtension() const override { return ".wgsl"; }
++
++  static const WebGPUTraits &get();
++
++protected:
++  bool isBaseTarget() const override { return true; }
++};
++
++} // namespace M::KGEN
++
++#endif // KGEN_TARGET_DOLLY_DOLLYTRAITS_H
+diff --git a/Support/include/Support/MDialect/MAttrs.td b/Support/include/Support/MDialect/MAttrs.td
+index b720fd1..fa62243 100644
+--- a/Support/include/Support/MDialect/MAttrs.td
++++ b/Support/include/Support/MDialect/MAttrs.td
+@@ -391,6 +391,10 @@ def M_TargetInfoAttr : MAttr<"TargetInfo", "target"> {
+ 
+     /// Returns the operating system for the triple.
+     StringRef getOS() const {
++      // LLVM names the operating systems it knows. Dolly is not one of them
++      // and is not to be mistaken for one.
++      if (getTriple().getOSName() == "dolly")
++        return "dolly";
+       return llvm::Triple::getOSTypeName(getTriple().getOS());
+     }
+ 
+diff --git a/Support/lib/MArchTarget/MArchTargetMinimal.cpp b/Support/lib/MArchTarget/MArchTargetMinimal.cpp
+index a96d1af..0a5eea9 100644
+--- a/Support/lib/MArchTarget/MArchTargetMinimal.cpp
++++ b/Support/lib/MArchTarget/MArchTargetMinimal.cpp
+@@ -78,8 +78,10 @@ M::getFeaturesFromClang(std::shared_ptr<clang::TargetOptions> opts,
+ 
+   // AARCH64 CPU features are not parsed by `CreateTargetInfo`. We have to query
+   // them and add them here manually.
++  // "generic" names a CPU of other architectures too.
+   if (std::optional<llvm::AArch64::CpuInfo> cpuInfo =
+-          llvm::AArch64::parseCpu(cpu)) {
++          llvm::Triple(opts->Triple).isAArch64() ? llvm::AArch64::parseCpu(cpu)
++                                                 : std::nullopt) {
+     std::vector<std::string> updatedFeaturesVec;
+     auto exts = cpuInfo->DefaultExtensions;
+     std::vector<StringRef> cpuFeats;
+@@ -115,6 +117,16 @@ M::getFeaturesFromClang(std::shared_ptr<clang::TargetOptions> opts,
+       features.emplace_back(feature.drop_front());
+   }
+ 
++  // Every object of Dolly's C compiler has the first two beyond the generic
++  // CPU: a process shares its memory with its threads, and its C++ unwinds.
++  // Mojo's coroutines resume through calls that must be tail calls, which
++  // every browser with 64-bit memories has.
++  if (llvm::Triple(opts->Triple).getOSName() == "dolly") {
++    features.emplace_back("atomics");
++    features.emplace_back("exception-handling");
++    features.emplace_back("tail-call");
++  }
++
+   llvm::sort(features);
+   // The per-architecture blocks above append what clang already resolved, so a
+   // CPU's base ISA can appear twice.
+diff --git a/bazel/public-patches/llvm_project.bzl b/bazel/public-patches/llvm_project.bzl
+index f431143..24b9531 100644
+--- a/bazel/public-patches/llvm_project.bzl
++++ b/bazel/public-patches/llvm_project.bzl
+@@ -5,6 +5,7 @@ load("@llvm-raw//utils/bazel:configure.bzl", _llvm_configure = "llvm_configure")
+ BACKENDS = [
+     "AArch64",
+     "RISCV",
++    "WebAssembly",
+     "X86",
+ ]
+ 

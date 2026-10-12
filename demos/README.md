@@ -15,6 +15,7 @@ README. Demos may use each other; the core never uses a demo.
 - [javascript](javascript/README.md): QuickJS-ng, Janis and TypeScript.
 - [llvm](llvm/README.md): LLVM, Clang and LLD built inside Dolly by its own `cc`, and the resulting compiler.
 - [local-llm](local-llm/README.md): llama.cpp and model packages for Pi.
+- [mojo](mojo/README.md): the Mojo compiler built inside Dolly; its programs run there, with kernels on WebGPU.
 - [neovim](neovim/README.md): Neovim with Lua and Tree-sitter parsers.
 - [pi](pi/README.md): the Pi coding agent.
 - [python](python/README.md): CPython and stock pip over the HTTP broker.
