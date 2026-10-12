@@ -37,12 +37,14 @@ typedef struct dolly_socket {
 } dolly_socket;
 
 static dolly_socket *sockets[DOLLY_SOCKET_LIMIT];
+static const dolly_kernel_socket_kind socket_kind;
 
 static int socket_new(dolly_socket **created) {
   for (size_t index = 0; index < DOLLY_SOCKET_LIMIT; ++index) {
     if (sockets[index] != NULL) continue;
     dolly_socket *socket = calloc(1, sizeof(*socket));
     if (socket == NULL) return -ENOMEM;
+    socket->shared.kind = &socket_kind;
     socket->node = -1;
     *created = sockets[index] = socket;
     return 0;
@@ -69,11 +71,11 @@ static int socket_join(dolly_socket *left, dolly_socket *right) {
 /* The last descriptor went, or the socket never had one. The peer reads what
  * it was sent and then end of file; connections nobody accepted end too. The
  * bound file stays, as a path nobody listens at. */
-void dolly_kernel_socket_close(dolly_kernel_socket *closing) {
+static void socket_close(dolly_kernel_socket *closing) {
   dolly_socket *socket = (dolly_socket *)closing;
   if (socket->peer != NULL) socket->peer->peer = NULL;
   for (uint32_t index = 0; index < socket->pending_count; ++index) {
-    dolly_kernel_socket_close(&socket->pending[index]->shared);
+    socket_close(&socket->pending[index]->shared);
   }
   for (size_t index = 0; index < DOLLY_SOCKET_LIMIT; ++index) {
     if (sockets[index] == socket) sockets[index] = NULL;
@@ -84,7 +86,7 @@ void dolly_kernel_socket_close(dolly_kernel_socket *closing) {
   free(socket);
 }
 
-int64_t dolly_kernel_socket_receive(dolly_kernel_socket *shared, unsigned char *bytes,
+static int64_t socket_receive(dolly_kernel_socket *shared, unsigned char *bytes,
                                     size_t size, int wait) {
   dolly_socket *socket = (dolly_socket *)shared;
   if (socket->state != DOLLY_SOCKET_CONNECTED) return -ENOTCONN;
@@ -105,7 +107,7 @@ int64_t dolly_kernel_socket_receive(dolly_kernel_socket *shared, unsigned char *
 }
 
 /* A stream has no record boundaries: takes what fits, at least one byte. */
-int64_t dolly_kernel_socket_send(dolly_kernel_socket *shared, const unsigned char *bytes,
+static int64_t socket_send(dolly_kernel_socket *shared, const unsigned char *bytes,
                                  size_t size, int wait) {
   dolly_socket *socket = (dolly_socket *)shared, *peer = socket->peer;
   if (socket->state != DOLLY_SOCKET_CONNECTED) return -ENOTCONN;
@@ -127,7 +129,7 @@ int64_t dolly_kernel_socket_send(dolly_kernel_socket *shared, const unsigned cha
 /* As Linux reports a stream socket: readable or writable when the call would
  * not wait, so also at end of file and toward a peer that is gone; hung up
  * once the peer closed; an unconnected one writable and hung up. */
-uint16_t dolly_kernel_socket_poll(const dolly_kernel_socket *shared, uint16_t requested) {
+static uint16_t socket_poll(const dolly_kernel_socket *shared, uint16_t requested) {
   const dolly_socket *socket = (const dolly_socket *)shared, *peer = socket->peer;
   if (socket->state == DOLLY_SOCKET_LISTENING) {
     return socket->pending_count != 0 ? requested & DOLLY_PROCESS_POLL_READ : 0;
@@ -143,6 +145,9 @@ uint16_t dolly_kernel_socket_poll(const dolly_kernel_socket *shared, uint16_t re
       peer->size < DOLLY_SOCKET_BUFFER) events |= DOLLY_PROCESS_POLL_WRITE;
   return (events & requested) | (peer == NULL ? DOLLY_PROCESS_POLL_HANGUP : 0);
 }
+
+static const dolly_kernel_socket_kind socket_kind = {
+    DOLLY_PROCESS_FILE_SOCKET, socket_close, socket_receive, socket_send, socket_poll, NULL};
 
 static int64_t socket_create(int pid, int pair, const dolly_socket_request *request,
                              unsigned char *mailbox, uintptr_t response_capacity) {
@@ -161,7 +166,7 @@ static int64_t socket_create(int pid, int pair, const dolly_socket_request *requ
         (request->argument & DOLLY_SOCKET_CLOEXEC) != 0, descriptors);
   }
   for (int end = 0; end < 2 && ends[end] != NULL; ++end) {
-    if (result != 0) dolly_kernel_socket_close(opened[end]);
+    if (result != 0) socket_close(opened[end]);
     else opened[end]->nonblocking = (request->argument & DOLLY_SOCKET_NONBLOCK) != 0;
   }
   if (result != 0) return result;
@@ -217,7 +222,7 @@ static int socket_connect(dolly_socket *socket, int directory, const char *path)
   if (result == 0 && (accepted->path = strdup(listener->path)) == NULL) result = -ENOMEM;
   if (result == 0) result = socket_join(socket, accepted);
   if (result != 0) {
-    if (accepted != NULL) dolly_kernel_socket_close(&accepted->shared);
+    if (accepted != NULL) socket_close(&accepted->shared);
     return result;
   }
   listener->pending[listener->pending_count++] = accepted;
@@ -261,7 +266,7 @@ static int64_t sockets_call(int pid, int tid, uint32_t operation, unsigned char 
     return socket_create(pid, operation == DOLLY_SOCKET_PAIR, &request, mailbox, response_capacity);
   }
   dolly_kernel_socket *shared;
-  const int found = dolly_kernel_socket_descriptor(pid, request.descriptor, &shared);
+  const int found = dolly_kernel_socket_descriptor(pid, request.descriptor, &socket_kind, &shared);
   if (found != 0) return found;
   dolly_socket *socket = (dolly_socket *)shared;
   if (addressed) {
@@ -296,7 +301,7 @@ static int64_t sockets_call(int pid, int tid, uint32_t operation, unsigned char 
     case DOLLY_SOCKET_SEND: {
       if ((request.argument & ~DOLLY_SOCKET_DONTWAIT) != 0 ||
           response_capacity < sizeof(dolly_process_io_result)) return -EINVAL;
-      const int64_t sent = dolly_kernel_socket_send(shared, payload, payload_size,
+      const int64_t sent = socket_send(shared, payload, payload_size,
           (request.argument & DOLLY_SOCKET_DONTWAIT) == 0);
       if (sent < 0) return sent;
       const dolly_process_io_result response = {(uint64_t)sent};
@@ -304,7 +309,7 @@ static int64_t sockets_call(int pid, int tid, uint32_t operation, unsigned char 
     }
     case DOLLY_SOCKET_RECEIVE:
       if ((request.argument & ~DOLLY_SOCKET_DONTWAIT) != 0) return -EINVAL;
-      return dolly_kernel_socket_receive(shared, mailbox, response_capacity,
+      return socket_receive(shared, mailbox, response_capacity,
           (request.argument & DOLLY_SOCKET_DONTWAIT) == 0);
     case DOLLY_SOCKET_NAME: {
       if ((request.argument & ~DOLLY_SOCKET_PEER) != 0) return -EINVAL;

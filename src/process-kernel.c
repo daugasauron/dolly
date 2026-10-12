@@ -295,7 +295,7 @@ static void release_descriptor(dolly_kernel_process *process,
   dolly_kernel_socket *socket = process->sockets[descriptor];
   if (socket != NULL) {
     process->sockets[descriptor] = NULL;
-    if (--socket->descriptors == 0) dolly_kernel_socket_close(socket);
+    if (--socket->descriptors == 0) socket->kind->close(socket);
     wakeup_pending = 1;
   }
   process->terminal_descriptors[descriptor] = 0;
@@ -1058,8 +1058,8 @@ static int64_t fd_read_packet(dolly_kernel_process *process,
     return (int64_t)count;
   }
   if (process->sockets[request.descriptor] != NULL) {
-    return dolly_kernel_socket_receive(process->sockets[request.descriptor],
-                                       process_mailbox, (size_t)request.size, 1);
+    dolly_kernel_socket *socket = process->sockets[request.descriptor];
+    return socket->kind->receive(socket, process_mailbox, (size_t)request.size, 1);
   }
   int descriptor = descriptor_for(process, request.descriptor);
   if (descriptor < 0) return descriptor;
@@ -1227,8 +1227,9 @@ static int64_t fd_write_packet(dolly_kernel_process *process,
     return respond(&response, sizeof(response));
   }
   if (process->sockets[request.descriptor] != NULL) {
-    const int64_t sent = dolly_kernel_socket_send(process->sockets[request.descriptor],
-        process_mailbox + sizeof(request), (size_t)request.size, 1);
+    dolly_kernel_socket *socket = process->sockets[request.descriptor];
+    const int64_t sent = socket->kind->send(socket, process_mailbox + sizeof(request),
+                                            (size_t)request.size, 1);
     if (sent < 0) return sent;
     const dolly_process_io_result response = {(uint64_t)sent};
     return respond(&response, sizeof(response));
@@ -1414,6 +1415,12 @@ static int64_t terminal_packet(dolly_kernel_process *process,
       request.operation != DOLLY_PROCESS_TERMINAL_MODE_GET &&
       request.operation != DOLLY_PROCESS_TERMINAL_MODE_SET &&
       request.operation != DOLLY_PROCESS_TERMINAL_SIZE) return -EINVAL;
+  dolly_kernel_socket *stream = request.descriptor < DOLLY_KERNEL_DESCRIPTOR_LIMIT
+      ? process->sockets[request.descriptor] : NULL;
+  if (stream != NULL && stream->kind->terminal != NULL) {
+    const int64_t result = stream->kind->terminal(stream, &request, &response);
+    return result < 0 ? result : respond(&response, sizeof(response));
+  }
   const int descriptor = descriptor_for(process, request.descriptor);
   if (descriptor < 0) return descriptor;
   const int terminal = process->terminal_descriptors[request.descriptor] != 0;
@@ -1480,7 +1487,8 @@ static uint16_t fd_poll_events(dolly_kernel_process *process,
     return result;
   }
   if (process->sockets[query->descriptor] != NULL) {
-    return dolly_kernel_socket_poll(process->sockets[query->descriptor], requested);
+    const dolly_kernel_socket *socket = process->sockets[query->descriptor];
+    return socket->kind->poll(socket, requested);
   }
 
   const int descriptor = descriptor_for(process, query->descriptor);
@@ -1834,7 +1842,7 @@ static int64_t process_dispatch(int pid, int tid, int takes_signals, uint32_t op
       dolly_process_stat_response response = {
           .mode = 0600, .link_count = 1, .block_size = 4096,
           .file_type = process->sockets[guest] != NULL
-              ? DOLLY_PROCESS_FILE_SOCKET : DOLLY_PROCESS_FILE_FIFO,
+              ? process->sockets[guest]->kind->file_type : DOLLY_PROCESS_FILE_FIFO,
       };
       if (process->descriptors[guest] >= 0) {
         struct stat metadata;
@@ -2272,12 +2280,13 @@ void dolly_kernel_thread_released(int pid, int tid) {
   release_modules(pid, tid);
 }
 
-int dolly_kernel_socket_descriptor(int pid, uint32_t descriptor, dolly_kernel_socket **socket) {
+int dolly_kernel_socket_descriptor(int pid, uint32_t descriptor, const dolly_kernel_socket_kind *kind,
+                                   dolly_kernel_socket **socket) {
   const dolly_kernel_process *process = find_process(pid);
   if (process == NULL) return -ESRCH;
   if (!descriptor_is_open(process, descriptor)) return -EBADF;
   *socket = process->sockets[descriptor];
-  return *socket != NULL ? 0 : -ENOTSOCK;
+  return *socket != NULL && (*socket)->kind == kind ? 0 : -ENOTSOCK;
 }
 
 int dolly_kernel_socket_open(int pid, dolly_kernel_socket *const *sockets, uint32_t count,
@@ -2305,6 +2314,30 @@ int dolly_kernel_process_directory(int pid) {
 }
 
 void dolly_kernel_wake(void) { wakeup_pending = 1; }
+
+/* A process that has not started holds what it inherits: a signal ends it. */
+static int holds_socket(const dolly_kernel_process *process, const dolly_kernel_socket *socket) {
+  if (process->state != DOLLY_KERNEL_PROCESS_PENDING &&
+      process->state != DOLLY_KERNEL_PROCESS_RUNNING) return 0;
+  for (size_t descriptor = 0; descriptor < DOLLY_KERNEL_DESCRIPTOR_LIMIT; ++descriptor) {
+    if (process->sockets[descriptor] == socket) return 1;
+  }
+  return 0;
+}
+
+void dolly_kernel_socket_signal(const dolly_kernel_socket *socket, int signal_number, int foreground) {
+  for (size_t index = 0; index < DOLLY_KERNEL_PROCESS_LIMIT; ++index) {
+    const dolly_kernel_process *holder = &process_table[index];
+    if (!holds_socket(holder, socket)) continue;
+    int waits_for_a_holder = 0;
+    for (size_t other = 0; foreground && other < DOLLY_KERNEL_PROCESS_LIMIT; ++other) {
+      waits_for_a_holder |= other != index && holds_socket(&process_table[other], socket) &&
+          dolly_process_descends_from(process_table[other].pid, holder->pid);
+    }
+    if (!waits_for_a_holder) dolly_process_signal(holder->pid, signal_number);
+  }
+  wakeup_pending = 1;
+}
 
 int dolly_process_next_launch(void) {
   for (size_t index = 0; index < DOLLY_KERNEL_PROCESS_LIMIT; ++index) {

@@ -7,6 +7,8 @@
 #include <string.h>
 #include <sys/stat.h>
 
+#include <dolly/process.h>
+
 /* A kernel import (abi/dolly-browser-0.wat). The host module whose manifest
  * owns the name provides it; a module the page did not enable answers ENOSYS. */
 #define DOLLY_BROWSER_IMPORT(name) \
@@ -43,29 +45,40 @@ void dolly_kernel_thread_released(int pid, int tid);
 int64_t dolly_kernel_request_path(int pid, uintptr_t request_size,
                                   char *path, size_t capacity);
 
-/* A local stream socket, host/sockets/kernel.c: the open description its
- * descriptors name. The kernel counts them, keeps the description's
- * O_NONBLOCK, closes the socket with its last descriptor and passes on reads,
- * writes and polls; `wait` is whether an empty read or a full write may be
- * deferred. */
+/* A stream a host module implements (host/sockets/kernel.c, host/pty/kernel.c):
+ * the open description its descriptors name. The kernel counts them, keeps the
+ * description's O_NONBLOCK, closes the stream with its last descriptor and
+ * passes on reads, writes and polls; `wait` is whether an empty read or a full
+ * write may be deferred. A kind that is a terminal answers the terminal
+ * request of its descriptors: the response to fill, or a negative errno. */
+typedef struct dolly_kernel_socket dolly_kernel_socket;
 typedef struct {
+  uint32_t file_type; /* DOLLY_PROCESS_FILE_*, as fstat reports the descriptor. */
+  void (*close)(dolly_kernel_socket *socket);
+  int64_t (*receive)(dolly_kernel_socket *socket, unsigned char *bytes, size_t size, int wait);
+  int64_t (*send)(dolly_kernel_socket *socket, const unsigned char *bytes, size_t size, int wait);
+  uint16_t (*poll)(const dolly_kernel_socket *socket, uint16_t requested);
+  int64_t (*terminal)(dolly_kernel_socket *socket, const dolly_process_terminal_request *request,
+                      dolly_process_terminal_response *response);
+} dolly_kernel_socket_kind;
+struct dolly_kernel_socket {
+  const dolly_kernel_socket_kind *kind;
   uint32_t descriptors;
   unsigned char nonblocking;
-} dolly_kernel_socket;
-void dolly_kernel_socket_close(dolly_kernel_socket *socket);
-int64_t dolly_kernel_socket_receive(dolly_kernel_socket *socket, unsigned char *bytes,
-                                    size_t size, int wait);
-int64_t dolly_kernel_socket_send(dolly_kernel_socket *socket, const unsigned char *bytes,
-                                 size_t size, int wait);
-uint16_t dolly_kernel_socket_poll(const dolly_kernel_socket *socket, uint16_t requested);
-/* For that module: the socket a descriptor of `pid` names (EBADF, ENOTSOCK);
- * `count` new descriptors, all or none (EMFILE); the directory relative
- * paths of `pid` start from; and that a deferred call may now complete. */
-int dolly_kernel_socket_descriptor(int pid, uint32_t descriptor, dolly_kernel_socket **socket);
+};
+/* For those modules: the stream of `kind` a descriptor of `pid` names (EBADF,
+ * ENOTSOCK for another kind); `count` new descriptors, all or none (EMFILE);
+ * the directory relative paths of `pid` start from; that a deferred call may
+ * now complete; and a signal for the processes that hold a descriptor of
+ * `socket`, with `foreground` only those none of whose descendants holds one,
+ * as a terminal's interrupt key spares the shell that waits for its command. */
+int dolly_kernel_socket_descriptor(int pid, uint32_t descriptor, const dolly_kernel_socket_kind *kind,
+                                   dolly_kernel_socket **socket);
 int dolly_kernel_socket_open(int pid, dolly_kernel_socket *const *sockets, uint32_t count,
                              int close_on_exec, uint32_t *descriptors);
 int dolly_kernel_process_directory(int pid);
 void dolly_kernel_wake(void);
+void dolly_kernel_socket_signal(const dolly_kernel_socket *socket, int signal_number, int foreground);
 /* WasmFS has no socket node. A path a socket was bound to is an empty regular
  * file with the sticky bit, which no process can set: chmod changes nothing. */
 static inline int dolly_kernel_socket_node(mode_t mode) {
