@@ -1,48 +1,31 @@
 # Regenerate the demo recordings with a stronger model over OpenRouter
 
 - STATUS: OPEN
-- PRIORITY: 250
+- PRIORITY: 100
 - TAGS: demo,site,openrouter
 
-## Remaining (2026-10-07)
+## State (2026-10-12)
 
-The Studio recording is done elsewhere (`20261006-094507-studio-video-game`,
-closed; the g1 take is on the agents page). Left here: RTS Arena, ClassiCube
-and bhop keep their old recordings, because no free model played them
-visibly better (takes below) and the owner's rule was free models only. It
-waits on one owner decision: which model and budget, if any, for those three
-(the round record lists "a model for re-recording RTS Arena" as open for
-him). The rig and commands are under "Rerun".
+Owner (2026-10-05): "Use the openrouter API key in ~/.openrouter to regenerate some demos, the
+current ones are nice regarding format but the results in the videos are very underwhelming."
 
-Owner (2026-10-05): "Use the openrouter API key in ~/.openrouter to regenerate
-some demos, the current ones are nice regarding format but the results in the
-videos are very underwhelming."
+The agents page (`sites/slopshare.dev/agents/`) shows two recordings: Studio, the new take
+(`a8b5198e`, `tasks/20261006-094507-studio-video-game`), and RTS Arena, still the old Codex
+match. The ClassiCube and bhop videos were taken off the page on 2026-10-06 (`bb153d4b`) and not
+replaced.
 
-## Work
+Left: RTS Arena recorded again, and ClassiCube and bhop back on the page with new takes. No free
+model played them visibly better than the old recordings (takes below) and the owner's rule was
+free models only, so this waits on one owner decision: which model, and what budget. Lowered from
+250 for that reason. The rig and its commands are under "Rerun".
 
-Find how the current recordings were made (`demos/game-agent`, the site's demo
-page, `20260930-220200-demo-page`). Keep the format. The owner chose the model
-(2026-10-05): `stealth/space-bunny-alpha` on OpenRouter, currently free. Choose
-tasks whose result is visibly good on screen, record against the
-local release candidate, and replace the recordings. Record the model, prompt,
-selection rule and cost of each here.
-
-The key is read from `~/.openrouter` at run time. It is never printed, logged,
-committed, or sent anywhere but openrouter.ai. If the model stops being free, stop and report before spending.
+The key is read from `~/.openrouter` at run time. It is never printed, logged, committed, or sent
+anywhere but openrouter.ai.
 
 ## Done when
 
 - The local release candidate's demo page shows the new recordings.
 - Costs and the before and after are recorded here.
-
-## Status (2026-10-06 07:15 JST)
-
-`stealth/space-bunny-alpha` disappeared from OpenRouter at about 16:05 UTC on
-2026-10-05: the catalog no longer lists it and every request returns
-`404 No endpoints found for stealth/space-bunny-alpha` (still so at 16:15).
-Per the owner's rule no paid model was substituted. Only the Studio video is
-new; RTS Arena, ClassiCube and bhop keep their previous recordings (see the
-candidate takes below for why) and remain to be redone.
 
 ## Model decision (2026-10-06 06:40 JST)
 

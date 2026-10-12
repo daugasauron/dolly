@@ -4,6 +4,22 @@
 - PRIORITY: 170
 - TAGS: release,site
 
+## State (2026-10-12)
+
+slopshare.dev serves v0.1.0, v0.1.1 and v0.1.2 and the repository names it (`dbdf87f8`); `boot`
+passes for every version in Chromium and Firefox (2026-10-12, below). Left:
+
+- **Email Address Obfuscation is still on for the zone.** `/v0.1.2/view/system-tools/` still
+  comes with a `/cdn-cgi/l/email-protection` link (curl, 2026-10-12 22:16 JST), so
+  `published-version.mjs verify https://slopshare.dev …` stops there. The owner switches it off
+  in the dashboard (the token cannot); then `verify` is run again.
+- **`www.slopshare.dev` is not the site**: it has the registrar's record still, and a request
+  from this machine timed out after 15 s (2026-10-12).
+- **daugasauron.com** serves the same deployment with no redirect until the owner says to take
+  it off. Its stale `/default/` is 404 now (`tasks/20261010-112540-stale-default`, closed); if
+  the domain stays, one run of `boot https://daugasauron.com v0.1.0 v0.1.1 v0.1.2` is owed.
+- The renamed tree reaches the sites with the next version.
+
 Owner (2026-10-11): "I just bought a new domain slopshare.dev, I want to rebrand
 daugasauron.com into this domain completely." And: "I don't want to redirect, I want slopshare
 to be the new source."

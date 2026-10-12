@@ -1,6 +1,6 @@
 # Release v0.1.0: what goes in
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 350
 - TAGS: release
 
@@ -131,3 +131,24 @@ Left out, for 0.1.1: file modes and `umask` (`core/file-modes-2`), the two
 terminal-input fixes (to be ported onto `host/input`), the sysroot
 reproduction demo, the tab-crash cause, a self-hosted Rust compiler and real
 Cargo in place of Patti (the owner, 2026-10-08).
+
+## Closed (2026-10-12)
+
+Done-when met. v0.1.0 was released by the checklist on 2026-10-08 (tag `v0.1.0` = `3ce97057`,
+"Released" above; the GitHub release carries 34 lines of notes, read 2026-10-12), and v0.1.1
+(`2f6478a2`, `tasks/20261009-185407-v011`) and v0.1.2 (`6cf78ea5`,
+`tasks/20261011-011000-v012-draft`) since.
+
+Every row of the two "In" groups is on `main`, except three that live in their own tasks:
+
+- file modes and `umask`: `tasks/20261006-120641-umask` (on `core/file-modes-2`, not on `main`);
+- typed and pasted lines losing characters: `tasks/20261001-095000-terminal-text-flake` (the two
+  fixes are in history but changed files that `input@0` replaced);
+- every demo test once in Firefox: `tasks/20260930-100000-audit-53` (the demo runner is headless
+  Chrome).
+
+Of "Left out, for 0.1.1": Rust built inside Dolly and Cargo in place of Patti shipped in v0.1.1;
+the sysroot reproduction demo and the tab-crash cause are in `tasks/20260930-232236-llvm-in-dolly`.
+The owner's run of `closed-source-agent` with a real key is in
+`tasks/20261007-085236-claude-code-image`; the RTS comparison in
+`tasks/20261005-151321-rts-early-input-stall`.
