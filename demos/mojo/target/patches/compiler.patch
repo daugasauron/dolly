@@ -12,6 +12,12 @@ Support/lib/MArchTarget/MArchTargetMinimal.cpp
   A Dolly target has atomics and exception-handling beyond that CPU's
   features, as every object of Dolly's C compiler has: the linker refuses to
   share memory with an object without atomics.
+Mojo/lib/Compiler/ObjectCompiler/MCLinker.cpp
+  Code is generated in one MC context and printed in another. Wasm code
+  names its function table by a symbol of the first, the printer makes the
+  symbol again in the second, and the object declared
+  __indirect_function_table twice: wasm-ld refused every program with both an
+  indirect call and a function pointer.
 Mojo/lib/Target/Dolly, Mojo/lib/KGENToLLVM/Target/Dolly,
 Mojo/lib/Compiler/ObjectCompiler/Target/Dolly (new)
   Two targets, each registered as upstream's host target is:
@@ -19,12 +25,77 @@ Mojo/lib/Compiler/ObjectCompiler/Target/Dolly (new)
   wasm64-unknown-emscripten, the triple of Dolly's libc archives;
   wasm32-unknown-webgpu, a kernel: compile_info's "asm" is WGSL text.
 
+diff --git a/Mojo/lib/Compiler/ObjectCompiler/MCLinker.cpp b/Mojo/lib/Compiler/ObjectCompiler/MCLinker.cpp
+index 8bdcb15..42aea40 100644
+--- a/Mojo/lib/Compiler/ObjectCompiler/MCLinker.cpp
++++ b/Mojo/lib/Compiler/ObjectCompiler/MCLinker.cpp
+@@ -22,6 +22,7 @@
+ #include "llvm/IR/LegacyPassManager.h"
+ #include "llvm/IR/PassManager.h"
+ #include "llvm/Linker/Linker.h"
++#include "llvm/MC/MCSymbolWasm.h"
+ #include "llvm/Target/TargetLoweringObjectFile.h"
+ #include "llvm/Target/TargetMachine.h"
+ #include "llvm/TargetParser/Triple.h"
+@@ -34,6 +35,33 @@ void SymbolAndMCInfo::clear() {
+   mcInfos.clear();
+ }
+ 
++/// Wasm code names its function table by a symbol of the context it was
++/// generated in; the object is printed in this linker's context, which makes
++/// that symbol too. Left alone, the object declares __indirect_function_table
++/// twice and no linker takes it.
++static void adoptWasmFunctionTable(llvm::MachineFunction &mf,
++                                   llvm::MCContext &printed) {
++  for (llvm::MachineBasicBlock &block : mf) {
++    for (llvm::MachineInstr &instruction : block) {
++      for (llvm::MachineOperand &operand : instruction.operands()) {
++        if (!operand.isMCSymbol() ||
++            operand.getMCSymbol()->getName() != "__indirect_function_table")
++          continue;
++        auto *generated =
++            static_cast<llvm::MCSymbolWasm *>(operand.getMCSymbol());
++        auto *table = static_cast<llvm::MCSymbolWasm *>(
++            printed.getOrCreateSymbol(generated->getName()));
++        if (!table->isFunctionTable()) {
++          table->setFunctionTable(printed.getTargetTriple().isArch64Bit());
++          if (generated->omitFromLinkingSection())
++            table->setOmitFromLinkingSection();
++        }
++        operand.ChangeToMCSymbol(table, operand.getTargetFlags());
++      }
++    }
++  }
++}
++
+ MCLinker::MCLinker(
+     SmallVectorImpl<SymbolAndMCInfo *> &symbolAndMCInfos,
+     llvm::TargetMachine &targetMachine, CompilationOptions options,
+@@ -229,6 +257,8 @@ void MCLinker::prepareMachineModuleInfo(
+           });
+         }
+ 
++        if (llvmTargetMachine.getTargetTriple().isWasm())
++          adoptWasmFunctionTable(*mf, machineModInfoPass->getMMI().getContext());
+         machineModInfoPass->getMMI().insertFunction(fn, std::move(mf));
+ 
+         // Restore function linkage types.
+@@ -282,6 +312,9 @@ MCLinker::getModuleToPrintOneSplit(llvm::TargetMachine &llvmTargetMachine) {
+     if (mfPtrIter == machineFunctions.end())
+       continue;
+ 
++    if (llvmTargetMachine.getTargetTriple().isWasm())
++      adoptWasmFunctionTable(*mfPtrIter->second,
++                             machineModInfoPass->getMMI().getContext());
+     machineModInfoPass->getMMI().insertFunction(fn,
+                                                 std::move(mfPtrIter->second));
+   }
 diff --git a/Mojo/lib/Compiler/ObjectCompiler/Target/Dolly/DollyBackend.cpp b/Mojo/lib/Compiler/ObjectCompiler/Target/Dolly/DollyBackend.cpp
 new file mode 100644
-index 0000000..4dedf68
+index 0000000..2e5a607
 --- /dev/null
 +++ b/Mojo/lib/Compiler/ObjectCompiler/Target/Dolly/DollyBackend.cpp
-@@ -0,0 +1,789 @@
+@@ -0,0 +1,797 @@
 +//===----------------------------------------------------------------------===//
 +// Added for Dolly, a POSIX-like userspace for wasm64 in the browser.
 +//
@@ -743,6 +814,14 @@ index 0000000..4dedf68
 +class DollyBackend final : public HostBackend {
 +public:
 +  const TargetTraits *traits() const override { return &DollyTraits::get(); }
++
++  // One module, one llc: merging the objects of functions compiled apart
++  // declares a Wasm object's __indirect_function_table once for each, and the
++  // linker refuses the duplicate.
++  SplitStrategy splitStrategy(const CompilationOptions &) const override {
++    return SplitStrategy::None;
++  }
++  bool isCodegenInterprocedural() const override { return true; }
 +
 +  CompilationOptions
 +  adjustOptionsForTargetMachine(const CompilationOptions &options,

@@ -79,6 +79,38 @@ the build with `WGSL has no such type:  %11 = load double`; an `Int64`
 argument with `a WebGPU kernel argument is a DeviceBuffer, Int, UInt, Int32,
 UInt32, Float32 or Bool`.
 
+### The standard library's own tests, in Dolly (2026-10-13, headless Chrome 151)
+
+`Mojo/stdlib/test` has 261 `test_*.mojo` files that are programs (35 more
+are compile-failure tests with `RUN:` lines). Each was cross-compiled with
+`-D ASSERT=all` and no per-test option of its `BUILD.bazel`, linked with
+`cc NAME.o -lmojo-rt` in one `mojo-runtime` session with the test tree
+unpacked at its source path, and run:
+
+| Files | Outcome |
+| --- | --- |
+| 175 | exit 0: every test of the file passes |
+| 33 | the output its `CHECK` lines expect (most abort on purpose, status 126) |
+| 12 | output differs because the build lacked the file's options (`LOGGING_LEVEL`, `MOJO_STDLIB_SIMD_UNINIT_CHECK`, `ASSERT=warn`) or my check is stricter than FileCheck about spaces: not looked into one by one |
+| 11 | fail: 7 need another platform or build (`sys/test_linux_target`, `test_aarch64_target`, `test_targetinfo`, `test_c_types`, `test_build_info_debug`, `test_compile_debug`, `testing/test_suite_cli`), `os/test_env` wants Bazel's environment, and three meet Dolly: no FIFO (`builtin/test_file`, 32 of 33), no hard link (`os/test_link`), no password database (`pwd/test_pwd`) |
+| 12 | do not link: 9 of `python/`, `os/test_stat` and `testing/test_assertion` need `KGEN_CompilerRT_Python_SetPythonPath`; `test_utils` has no `main` |
+| 18 | do not compile: 5 import `max`, 1 a GPU target, 1 `reflection`; `os/test_process` and three abort tests spawn through `fork`; `sys/test_ffi`, `test_dlhandle`, `test_macos_target` are for other platforms; 2 need bfloat16, which LLVM's WebAssembly backend cannot select; `runtime/test_asyncrt` and `test_raising_asyncrt` fail in this compiler for x86-64 too |
+
+Before that came to pass:
+
+- Every program with both an indirect call and a function pointer failed to
+  link (`duplicate symbol name __indirect_function_table`, 205 of 243
+  files): the compiler prints an object in another MC context than the one
+  its code was generated in. Fixed in `MCLinker.cpp`.
+- `lseek` was called as `(i64, i64, i64)` and trapped. With it fixed, the
+  objects of all 243 files call 76 libc functions, each with the type libc
+  defines (import and definition types read from the Wasm objects).
+
+Two of upstream's example programs run unchanged:
+`Mojo/examples/operators/main.mojo`, and `Mojo/examples/life/benchmark.mojo`,
+where 1,000 evolutions take 15.4 s and 3.09 s against 10.6 s and 2.19 s for
+the released compiler on this machine's x86-64: 1.4 times.
+
 ### Decisions
 
 - **Two targets, named for what they are.** `wasm64-unknown-dolly` for
@@ -122,11 +154,11 @@ UInt32, Float32 or Bool`.
   `std.os.process` and `std.subprocess` (they assert Linux or macOS; Dolly
   has `posix_spawn`, no `fork`), `_get_environ`, `dlopen` (Dolly's is
   `dolly_dlopen`, selected by `cc` for C only), `std.python`.
-- **C calls with the wrong integer width trap on Wasm.** `read`, `write`
-  and `mkdir` passed an `Int` for an `int`; fixed in the patch. Every other
-  `external_call` of the 57 libc functions the library names has to be
-  checked the same way: `sys/_libc.mojo` declares `write` returning `c_int`,
-  for one. `wasm-ld` warns of each mismatch when a program links.
+- **C calls with the wrong integer width trap on Wasm.** `read`, `write`,
+  `lseek` and `mkdir` passed an `Int` for an `int`; fixed in the patch. What
+  the test suite does not call is unchecked: `sys/_libc.mojo` declares
+  `write` returning `c_int`, for one. `wasm-ld` warns of each mismatch when a
+  program links.
 - **Kernels**: buffers of 8- and 16-bit scalars, `Float64`, `Float16`, SIMD,
   shared memory and barriers, atomics, `print`, more than 256 threads in a
   block, and host-side `map_to_host`/`HostBuffer`/`TileTensor` (upstream's

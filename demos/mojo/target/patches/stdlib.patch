@@ -14,7 +14,8 @@ io/file.mojo, time/time.mojo, ffi/__init__.mojo, os/os.mojo
 os/_dolly.mojo (new), os/fstat.mojo, os/path/path.mojo
   struct stat as Dolly's libc lays it out, through stat and lstat.
 io/file_descriptor.mojo, io/file.mojo, os/os.mojo
-  read, write and mkdir were called with an Int where C has an int or mode_t.
+  read, write, lseek and mkdir were called with an Int where C has an int or
+  mode_t.
   Wasm types every call, so such a call traps; on x86-64 and arm64 the
   register hid it.
 _gpu/primitives/id.mojo
@@ -184,7 +185,7 @@ index a6ac93a..c0eded8 100644
  
  
 diff --git a/Mojo/stdlib/std/io/file.mojo b/Mojo/stdlib/std/io/file.mojo
-index d6ed33f..811b6c1 100644
+index d6ed33f..4c633c9 100644
 --- a/Mojo/stdlib/std/io/file.mojo
 +++ b/Mojo/stdlib/std/io/file.mojo
 @@ -55,19 +55,23 @@ comptime O_RDWR = 0x0002
@@ -233,7 +234,18 @@ index d6ed33f..811b6c1 100644
                  result.unsafe_ptr().unsafe_offset(num_read),
                  chunk_bytes_to_read,
              )
-@@ -499,7 +503,7 @@ struct FileHandle(Defaultable, Movable, Writer):
+@@ -453,7 +457,9 @@ struct FileHandle(Defaultable, Movable, Writer):
+ 
+         var fd = self._get_raw_fd()
+         # lseek returns off_t which is typically Int64 on Unix systems
+-        var pos = external_call["lseek", Int64](fd, Int64(offset), Int(whence))
++        var pos = external_call["lseek", Int64](
++            c_int(fd), Int64(offset), c_int(whence)
++        )
+ 
+         if pos < 0:
+             var err = get_errno()
+@@ -499,7 +505,7 @@ struct FileHandle(Defaultable, Movable, Writer):
  
          var fd = self._get_raw_fd()
          var bytes_written = external_call["write", c_ssize_t](
@@ -242,7 +254,7 @@ index d6ed33f..811b6c1 100644
          )
  
          if bytes_written < 0:
-@@ -589,7 +593,7 @@ struct FileHandle(Defaultable, Movable, Writer):
+@@ -589,7 +595,7 @@ struct FileHandle(Defaultable, Movable, Writer):
          while total_written < len(bytes):
              var fd = self._get_raw_fd()
              var bytes_written = external_call["write", c_ssize_t](
@@ -251,7 +263,7 @@ index d6ed33f..811b6c1 100644
                  bytes.unsafe_ptr().unsafe_offset(total_written),
                  len(bytes) - total_written,
              )
-@@ -659,7 +663,7 @@ struct FileHandle(Defaultable, Movable, Writer):
+@@ -659,7 +665,7 @@ struct FileHandle(Defaultable, Movable, Writer):
          while total_written < len:
              var current_ptr = ptr.unsafe_offset(total_written)
              var bytes_written = external_call["write", c_ssize_t](
