@@ -120,7 +120,32 @@ GPU and Firefox; the source suite with the demos' tests passes (424).
 `config/domain-pages-images.txt` lists `mojo` and `mojo-compiler`. To build:
 `DOLLY_IMAGE_JOBS=1 DOLLY_BUILD_IMAGES=mojo-compiler,mojo work/slot.sh build npm run image`.
 
-## Sources (2026-10-12)
+## The names (2026-10-13, 08:00, on main `4ed1d9ef`)
+
+The owner: "it should be amy install mojo/amy install tmux. Not mojo-compiler
+or whatever." The package is `mojo` (`demos/mojo/Dollyfile-mojo`) and the
+application that opens into it with WebGPU is `mojo-gpu`
+(`Dollyfile-mojo-gpu`, `/mojo-gpu/`), named for what the image adds to the
+package. Above, `mojo-compiler` is today's `mojo` and "the `mojo` image" of
+the night is `mojo-gpu`. Nothing was published under either name.
+
+`docs/dollyfile.md` still states the opposite: "When an application already
+has the product's name, the package takes another name the project uses
+(`nvim`, `pi-coding-agent`, `codex-cli`)." It is an image input, so it is not
+edited here; the integrator takes it into the round.
+
+Only the two recipes changed, so only they were built: `mojo` 28 s,
+227,327,168 bytes; `mojo-gpu` 40 s, 252,104,845 bytes; `mojo-llvm`,
+`mojo-build` and `mojo-runtime` reused, no image input changed.
+
+Tested (08:03 to 08:17): `node test/amy-browser.mjs` passes in Chromium and
+Firefox with the case `amy mojo alone` (a fresh `default` without `cc` and
+`mojo`; `amy install mojo`; a hello built and run), on a catalog of 58
+reused images; `demos/mojo/test/mojo-browser.mjs` passes on `mojo-gpu` in
+headless Chrome, Chrome on the NVIDIA GPU and Firefox 157.0.1 on Xvfb; the
+source suite with the demos' tests passes (424). To build:
+`DOLLY_IMAGE_JOBS=1 DOLLY_BUILD_IMAGES=mojo,mojo-gpu work/slot.sh build npm run image`.
+
 
 - Mojo: tag `mojo/v1.1.0` of `github.com/modular/modular`, commit
   `c6fa49f712fe15c99d0461ad2baaf2a15cbc58ce` (`DOLLY_MODULAR_*`). Fetched
