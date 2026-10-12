@@ -70,8 +70,9 @@ struct dolly_kernel_socket {
  * ENOTSOCK for another kind); `count` new descriptors, all or none (EMFILE);
  * the directory relative paths of `pid` start from; that a deferred call may
  * now complete; and a signal for the processes that hold a descriptor of
- * `socket`, with `foreground` only those none of whose descendants holds one,
- * as a terminal's interrupt key spares the shell that waits for its command. */
+ * `socket`. With `foreground` the one the other holders descend from is
+ * spared while it has them, as a terminal's interrupt key spares the shell
+ * that waits for its command. */
 int dolly_kernel_socket_descriptor(int pid, uint32_t descriptor, const dolly_kernel_socket_kind *kind,
                                    dolly_kernel_socket **socket);
 int dolly_kernel_socket_open(int pid, dolly_kernel_socket *const *sockets, uint32_t count,

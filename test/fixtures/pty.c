@@ -187,26 +187,28 @@ static int program(void) {
   return 0;
 }
 
-/* On a slave: waits for a program it starts there, as a shell does. */
-static int waiter(void) {
+/* On a slave: waits for a program it starts there, as a shell does, and as
+ * the script does that the shell runs. */
+static int waiter(char *program) {
   int status;
-  write(1, "waiting\n", 8);
-  const pid_t child = spawn_on(0, "sleeper");
+  if (strcmp(program, "script") == 0) write(1, "waiting\n", 8);
+  const pid_t child = spawn_on(0, program);
   if (waitpid(child, &status, 0) != child) return 3;
-  dprintf(1, "ended %d\n", WIFSIGNALED(status) ? WTERMSIG(status) : -1);
+  dprintf(1, "%s ended %d\n", program, WIFSIGNALED(status) ? WTERMSIG(status) : -1);
   return 0;
 }
 
-/* The interrupt key is for the program a shell waits for, not for the shell. */
+/* The interrupt key is for the programs a shell waits for, the script and
+ * what the script runs, not for the shell. */
 static int spared(void) {
   int ends[2], status;
   CHECK(pty_open(DOLLY_PTY_CLOEXEC, ends) == 0);
-  const pid_t child = spawn_on(ends[1], "waiter");
+  const pid_t child = spawn_on(ends[1], "shell");
   CHECK(close(ends[1]) == 0);
   expect(ends[0], "waiting\r\nsleeping\r\n");
   CHECK(write(ends[0], "\3", 1) == 1);
   char line[32];
-  snprintf(line, sizeof(line), "ended %d\r\n", SIGINT);
+  snprintf(line, sizeof(line), "script ended %d\r\n", SIGINT);
   expect(ends[0], line);
   CHECK(waitpid(child, &status, 0) == child && WIFEXITED(status) && WEXITSTATUS(status) == 0);
   return 0;
@@ -283,7 +285,8 @@ int main(int argc, char **argv) {
   if (strcmp(mode, "flow") == 0) return flow();
   if (strcmp(mode, "flood") == 0) return flood();
   if (strcmp(mode, "spared") == 0) return spared();
-  if (strcmp(mode, "waiter") == 0) return waiter();
+  if (strcmp(mode, "shell") == 0) return waiter("script");
+  if (strcmp(mode, "script") == 0) return waiter("sleeper");
   if (strcmp(mode, "sleeper") == 0) return write(1, "sleeping\n", 9), sleep(30), 5;
   if (strcmp(mode, "quota") == 0 && argc > 2) return quota(argv[2]);
   return 2;

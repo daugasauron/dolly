@@ -2345,12 +2345,13 @@ void dolly_kernel_socket_signal(const dolly_kernel_socket *socket, int signal_nu
   for (size_t index = 0; index < DOLLY_KERNEL_PROCESS_LIMIT; ++index) {
     const dolly_kernel_process *holder = &process_table[index];
     if (!holds_socket(holder, socket)) continue;
-    int waits_for_a_holder = 0;
+    int first = 1, waits = 0;
     for (size_t other = 0; foreground && other < DOLLY_KERNEL_PROCESS_LIMIT; ++other) {
-      waits_for_a_holder |= other != index && holds_socket(&process_table[other], socket) &&
-          dolly_process_descends_from(process_table[other].pid, holder->pid);
+      if (other == index || !holds_socket(&process_table[other], socket)) continue;
+      if (dolly_process_descends_from(holder->pid, process_table[other].pid)) first = 0;
+      if (dolly_process_descends_from(process_table[other].pid, holder->pid)) waits = 1;
     }
-    if (!waits_for_a_holder) dolly_process_signal(holder->pid, signal_number);
+    if (!(foreground && first && waits)) dolly_process_signal(holder->pid, signal_number);
   }
   wakeup_pending = 1;
 }

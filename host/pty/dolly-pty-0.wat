@@ -12,8 +12,8 @@
   ;; terminal, so a program runs on one unchanged and links no client. As
   ;; there, input is not edited or echoed, OPOST with ONLCR writes LF as CRLF,
   ;; and while ISIG is set byte 3 written to the master is not input but
-  ;; SIGINT, for the processes that hold the slave and are not waiting for a
-  ;; descendant that holds it: a shell is spared while its command runs.
+  ;; SIGINT for the processes that hold the slave. The one the others descend
+  ;; from is spared while it has them: a shell, while its command runs.
   ;;
   ;; A process whose descriptor 0, 1 or 2 is a slave opens that slave as
   ;; /dev/tty; any other process opens the display's terminal there.
