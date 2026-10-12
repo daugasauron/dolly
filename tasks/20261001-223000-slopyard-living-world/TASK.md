@@ -4,6 +4,13 @@
 - PRIORITY: 60
 - TAGS: game,controllers,cargo,combat
 
+## State (2026-10-12)
+
+Not worked on since 2026-10-06: the open problems measured below stand, and no controller has
+changed since. `audit.c` and `run.mjs` are beside this file.
+
+## What this is
+
 One list of what the fresh catalog actually does, replacing twenty September
 game tasks whose saves, candidates and evidence no longer exist (each closed on
 2026-10-01 with a note). Measure before changing a controller, and re-run the

@@ -1,72 +1,43 @@
-# Edit-to-verified turnaround: a working-tree server, a full check that runs, no preparation before the cache check
+# Iteration cost left: serial Ninja, a 32-process cap, slow unchanged demo builds, demo tests in Chrome only
 
 - STATUS: OPEN
-- PRIORITY: 300
+- PRIORITY: 170
 - TAGS: core,iteration,build
 
-## Remaining (2026-10-07)
+## State (2026-10-12)
 
-In the candidate (`core/iteration`, `f56fd246`, `db825da2`, `c5537f53`):
-`npm run dev` serves the checkout and the tests and image builder use it,
-nothing under `scripts/` imports from `test/`; `build` and `test:full` are
-deleted; an unchanged `npm run image -- default` takes 2 s (was 6.5 s) and
-`README.md` carries the turnaround table with measured numbers. Left, the
-third done-when line for three demo images: unchanged runs of `codex`
-(13 s, its Python preparer re-extracts), `zero-ad` (10 s, the 1.8 GB copy)
-and `pi-local` (10-15 s, the snapshot re-hash) stay above 10 s; the fixes
-named under "Left" below belong with each demo's next change
-(`prepare-codex-sources.py`, `prepare-distribution.mjs`,
-`prepare-emacs.sh`'s fetch).
+`AGENTS.md`: "Development iteration speed is king." Since the review of 2026-10-05 this is the
+one task for measured iteration cost; `tasks/20260930-231102-parallel-rust` was closed into it
+on 2026-10-12.
 
-`npm run serve` reads only sealed releases (`README.md:62`), so seeing a JS change in a browser
-requires `npm run publish` (a browser check per image). The only source-tree server is
-`scripts/serve-gpu.mjs`, documented only in `docs/gpu.md:107`; `test/browser-server.mjs:26-49`
-keeps a hand-maintained allowlist of served files.
+Done and on `main`: `npm run dev` serves the checkout and the tests and the image builder use
+it; nothing under `scripts/` imports from `test/`; `npm run build` and `test:full` are deleted;
+`README.md` carries the turnaround table; an unchanged `npm run image -- default` takes 2 s (was
+6.5 s). Make runs `-jN`, Slop runs a pipeline's programs at once, Cargo builds at four jobs.
 
-## Evidence
+Left:
 
-Established: CONFIRMED BY READING. Read in main `4340d03`.
+1. **Three demo images prepare for 10 s or more with nothing changed** (2026-10-06, the last
+   section): `codex` 13 s, `zero-ad` 10 s (a 1.8 GB copy), `pi-local` 10 to 15 s (its plan
+   re-hashes 24 snapshots). The third done-when line is not met for them. Codex's preparer has
+   changed since (`2370dc85`); owed is `npm run image -- NAME` timed unchanged for the three.
+2. **Ninja spawns serially.** Samurai runs one `dolly_spawn` at a time
+   (`config/samurai-dolly.patch`): its upstream `jobstart` needs `posix_spawn`'s `addclose` of
+   an inherited pipe end, which spawn mappings cannot express, and `addopen`.
+3. **The supervisor admits 32 processes** (`processWorkerLimit`, `src/process-supervisor.mjs`),
+   which holds CMake builds and LLVM at `-j4`. Decided on 2026-10-01 and not built: a memory
+   budget (admit a spawn while committed Wasm memory stays under a page budget), the count kept
+   as a backstop.
+4. **Part of each `cc` launch does not run in parallel**: 40 runs of `cc --version` took 4.2 s
+   at `-j1` and 3.3 s at `-j8` (2026-10-01), which capped small-unit builds near 2x. Not
+   profiled, not measured again since.
+5. **Demo tests run in Chrome only.** `demos/run-browser-tests.mjs` starts headless Chrome; ten
+   of the thirty demo test files name Firefox. "Every demo test once in Firefox" was on
+   v0.1.0's list (`tasks/20261007-133708-v010`) and has not been done.
 
-Source: 2026-09-30 takeover audit of main `4340d03` (six read-only subsystem audits plus browser
-reproductions in Chrome against the prebuilt `default` image).
-
-## Expected
-
-One documented command serves the working tree with current `dist/` for local development.
+Lowered from 300: the done-when lines that cost every edit are met.
 
 ## Done when
-
-- README documents the dev server; tests reuse it.
-
-## Review (2026-10-05, `20261005-131642-big-picture`): one iteration task
-
-`AGENTS.md`: "Development iteration speed is king." Three open tasks described
-one cost at priorities 100 to 160, below every demo task. They are merged
-here (`20260930-100000-audit-52` and `20260913-105437-codex-16` are closed
-into this one) and ranked with the core.
-
-Turnaround today, from the tasks and the workspace notes:
-
-| Edit | To a verified result |
-| --- | --- |
-| Page JavaScript | no working-tree server: `npm run serve` serves sealed releases only (`scripts/serve.mjs:39-72`), so a browser check goes through the test server or `npm run publish` |
-| Kernel C | `npm run build:runtime` 9 s without changes (was 88 s), then `node test/core-browser.mjs` 20-25 s per browser; the full browser suite is 4-5 min per browser |
-| Any recipe | `npm run image` runs `scripts/prepare-image-sources.sh` first (`scripts/build-image.mjs:43`): 124 s for the catalog with every input already staged, before the first cache check |
-| Seed (Slop, a command, a header, libc adapter) | every image rebuilds: 843 s for the ten images of the `default` chain, about 3.5 h for the catalog (Codex about 70 min) |
-| `process.h` | the above plus the Rust seed (5-8 min) and a 0 A.D. relink |
-
-Found in this review: `npm run build` and `npm run test:full` have failed
-since `3162a565` (2026-10-01), which removed the `snapshot` script that
-`build` still calls (`package.json`: `"build": "npm run build:runtime && npm run snapshot"`;
-`npm run snapshot` prints `Missing script: "snapshot"`). `README.md:74` still
-documents `test:full`. Nobody noticed for five days, so the documented full
-check is not what verifies a release.
-
-Still open from the merged tasks: `scripts/build-snapshot-browser.mjs:17`
-imports the test harness's server and detects cache reuse by reading the log
-for "reusing local "; `scripts/site-release.mjs:216` spawns a test file.
-
-## Done when (replaces the list above)
 
 - One documented command serves the working tree with the current `dist/`;
   the tests and the image builder use the same server, and nothing under
@@ -75,7 +46,7 @@ for "reusing local "; `scripts/site-release.mjs:216` spawns a test file.
   and its README line.
 - `npm run image -- IMAGE` with nothing changed finishes in under 10 s; the
   time before and after is recorded here.
-- The table above is in `README.md` in place of the comments on the check
+- The turnaround table is in `README.md` in place of the comments on the check
   commands, with the measured numbers.
 
 ## Findings (2026-10-06)
@@ -168,33 +139,7 @@ Changed inputs still rebuild exactly what they should:
   at load 5-13), `node test/image-inventory-browser.mjs chromium firefox`
   and the release tests pass.
 
-## Merged with `integrate/1005-seed` (2026-10-06)
-
-`7712300f` merges the release candidate (`c1f085ad`, image inputs
-`047fc328…`). Its two conflicts were code this branch moved: the newer
-inventory check (build only on a base whose manifest retains
-`/bin/dollyfile`) is ported to `scripts/accept-release.mjs`, and the new
-`licences/index.html`, `robots.txt` and `process-wrong-import` fixture to the
-checkout server and the test layer.
-
-Verified on round 2's catalog (61 images imported read-only from
-`work/round2/dist`, its Rust seed and `node_modules`): preparation restaged
-every source with round 2's exact pins and the plan reuses all 61 images.
-`npm run -s test:source` 358/358, `npm run -s test:artifacts` 24/24.
-`node test/browser-tests.mjs chromium firefox` passed every test except one
-Firefox pixel wait in `terminal-browser.mjs` (728 s at load 4-5), which then
-passed twice alone. `DOLLY_BUILD_IMAGES=default,minimal,pi npm run publish
-build/iteration-evidence/releases` accepted all 13 non-package images through
-`accept-release.mjs` and published `e3e8a460…` there (2 min 10 s).
-
-Unchanged runs, interleaved with the candidate's scripts at load 3.7:
-
-| Unchanged command | Before (`c1f085ad`) | After |
-| --- | --- | --- |
-| `npm run image -- default` | 6.4-6.6 s (preparation 5.3-5.6 s) | 2.2 s (1.1 s) |
-| `DOLLY_BUILD_IMAGES=default,pi npm run image` | 9.5-10.4 s (7.0-7.9 s) | 5.3-7.0 s (2.7-4.4 s) |
-
-## Left
+## The three demo images, as measured (2026-10-06)
 
 Unchanged runs of three demo images with multi-gigabyte inputs stay above
 10 s (preparation + routes + plan, measured): `codex` 13.1 + 0.5 + 1.7 s

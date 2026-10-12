@@ -1,6 +1,6 @@
 # Packages that start programs they do not install
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 285
 - TAGS: packages,amy,images,agent-experience
 
@@ -142,3 +142,23 @@ own tasks.
 
 Every package's ordinary use works after `amy install NAME` on `default`, or
 fails with a message naming what to install, and a test holds each.
+
+## Closed into `packages` (2026-10-12)
+
+[`20261012-130814-packages`](../20261012-130814-packages/TASK.md) holds what
+is left. Since the survey above:
+
+- `ninja`, `transfer` (`download`, `upload`) and `session-recover` are
+  packages: the three tools the old `default` had are one install away.
+- Git prints without a pager when `less` is absent (`c6e8ac47`).
+- The `python` package says what pip needs (`cc`, `ninja`); a held commit
+  makes it install them.
+- The test asked for here exists: `test/amy-browser.mjs` installs the
+  catalog's packages into `default` and uses each, the tools one at a time
+  where their command was absent. It names the test that does so for the
+  thirteen it leaves out (Git, less, LLVM, the speech packages, the models
+  and one build stage) and fails by name for a package with neither. `gzip`, `javascript`, `nvim`, `emacs`, `ripgrep`, `fd`, `protox`,
+  `cbindgen` and `pi-coding-agent` work alone, as the survey found.
+
+Open there: a failed start naming the package (the seed), `default`
+installing `transfer` (held), the model packages on `default`.

@@ -1,6 +1,6 @@
 # Keyboard and mouse as their own host module
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 320
 - TAGS: core,architecture,host-modules,display,input
 
@@ -439,3 +439,27 @@ round repins as built.
   takes the one build slot for an hour with the chain). Pointer lock in a
   real program (Airtime) is therefore unverified on this base; the page and
   kernel sides of it are covered by `display` and `terminal`.
+
+## Closed (2026-10-12)
+
+Done-when met, in v0.1.0 (`a1284224`, "Merge core/input-module"):
+
+- `host/input/` is the module: `dolly-input-0.wat`, `module.json`, `kernel.c`, the client and
+  `input.mjs`. `host/display/dolly-display-0.wat` names no input record, and the terminal reads
+  keys through `input@0`.
+- Every image that reads input declares `REQUIRES HOST input@0` (`Dollyfile`, `Dollyfile-system`,
+  `sdl2`, Slopyard, 0 A.D., Neovim, Emacs and the rest).
+- `docs/browser-boundary.md` has the module's row and what it grants.
+- The release rounds of v0.1.0, v0.1.1 and v0.1.2 passed the core suite in Chromium and Firefox
+  and every demo test (`sdl2`, `bhop`, `slopyard`, `zero-ad`, `neovim`, `emacs` among them) in
+  Chrome (`tasks/20261007-133708-v010`, `tasks/20261009-185407-v011`,
+  `tasks/20261011-011000-v012-draft`).
+
+Not verified, and where it is kept:
+
+- The demo tests in Firefox: the runner is headless Chrome. `tasks/20260930-100000-audit-53`.
+- Key-to-paint after 250 ms of silence, now that the presenter no longer wakes on input
+  ("Decisions made while implementing"): `tasks/20261001-095000-terminal-text-flake`.
+- Touch records ("Touch, later"): the terminal's finger scroll and pinch are in `host/input`
+  (`c6fed63f`, `077bb981`); contact records for programs are in
+  `tasks/20261010-193000-phone-voice-pi`.

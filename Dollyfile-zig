@@ -1,0 +1,28 @@
+DOLLY 7
+PACKAGE zig
+REQUIRES HOST runtime@0
+
+# Zig as zig-build bootstraps it, with its standard library. This zig has only
+# the C backend (-ofmt=c) and no `zig build` or `zig cc`: cc compiles what it
+# emits, so the package brings the compiler.
+FROM /v0.1.2/Dollyfile-zig-build ca6ff5aed5f4dbe0e3cfad7a256bc3d05fb4e5d045099dfc1869cc64990af16e
+INSTALL /v0.1.2/Dollyfile-cc fde55370dfb28cc38ba5e7aec641b0501449abc73e70a4af6fa7ecc2eee49ae0
+
+EXPORTS TOOL   zig
+EXPORTS FOLDER zig-lib     /usr/lib/zig
+EXPORTS ENV    ZIG_LIB_DIR /usr/lib/zig
+FILE /usr/share/licenses/zig/LICENSE
+FILE /usr/share/man/cat1/zig.1
+    zig: the Zig compiler with its C backend only. It writes C and cc compiles it.
+    It has no zig build, zig cc, zig run, zig fmt, zig version or zig --help.
+    
+    A function for a C program:
+      zig build-obj -ofmt=c -femit-bin=answer.c answer.zig
+      cc -I /usr/lib/zig main.c answer.c -o answer
+    
+    A program that uses the standard library names the target, or zig looks
+    for a libc by starting a compiler it does not know:
+      zig build-exe -target wasm64-emscripten -fsingle-threaded -ofmt=c -lc \
+        -femit-bin=hello.c hello.zig
+      cc -Wno-incompatible-pointer-types '-Dzig_unimplemented()=(__builtin_trap(),0)' \
+        -I /usr/lib/zig hello.c -o hello

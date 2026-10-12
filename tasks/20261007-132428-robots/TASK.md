@@ -1,6 +1,6 @@
 # Extend robots.txt: say how the site works and invite agents to use it
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 330
 - TAGS: site,docs,agents,small
 
@@ -138,3 +138,19 @@ What it had to work out or found wrong, to fix in the text or the page:
   works at once.
 - One 404 appeared in the console on the first load and not again; not
   identified.
+
+## Closed (2026-10-12)
+
+Done-when met, in v0.1.0 (`7d46e9f7`, merged by `43e7078d`):
+
+- The deployed `robots.txt` carries the text: `https://slopshare.dev/robots.txt` is the newest
+  version's `llms.txt` as comments, its links as `/v0.1.2/…` paths, then one
+  `Disallow: /vX.Y.Z/dist/` per published version (read 2026-10-12).
+- `test/cloudflare-pages.test.mjs` asserts the rules and that every path the text names is
+  served; `published-version.mjs boot` asserts the same on a deployment and passed on
+  slopshare.dev for all three versions (`tasks/20261011-134500-slopshare`).
+- The fresh-agent run is recorded above.
+
+What that run found wrong in the text or the page is not fixed (`llms.txt` names neither
+`data-dolly-status` nor how to type and read; `src/commands/amy.c` still prints "its environment
+applies when the session is next loaded"). The list moved to `tasks/20261005-220754-man-help`.

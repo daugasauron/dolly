@@ -4,6 +4,13 @@
 - PRIORITY: 50
 - TAGS: studio,neovim,audit
 
+## State (2026-10-12)
+
+Not started. Recipes are Dollyfile 7 since v0.1.0 (the text below says 6); what to audit is
+`demos/studio/skills/dollyfiles/neovim.md`, `demos/studio/nvim/` and `demos/studio/lint.mjs`.
+
+## The request
+
 Owner (2026-10-06): "I think there is some lsp thing for neovim in dollyfile
 studio? Not sure if it's up to date, create a task for that on low priority."
 

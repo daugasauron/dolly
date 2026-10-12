@@ -1,42 +1,40 @@
-# Add man and make every shell command explain itself
+# man and --help: what is left, and what llms.txt does not tell an agent
 
 - STATUS: OPEN
-- PRIORITY: 235
+- PRIORITY: 110
 - TAGS: core,commands,docs,agent-experience
 
-## Remaining (2026-10-07)
+## State (2026-10-12)
 
-The done-when holds in the candidate (`work/man-help` `b35fab2f` merged;
-`test/man-browser.mjs` in Chromium and Firefox, every command of `default`
-with a page, `amy install git` bringing pages; 108,058 bytes of pages,
-0.75% of the image: "Built and run" below). The task stays open for what
-"Expected" asks beyond it:
+Owner (2026-10-06): "I want to add the man command, and make sure things in general in the shell
+has good man/help."
 
-- Upstream pages rendered at build time (mandoc in `system-tools`); today
-  45 pages print as mdoc or man source.
-- One line per option and an example in every in-house `--help`; a wrong
-  invocation printing the usage line and exiting 2 (most still print a
-  message).
+Shipped in v0.1.0: `man` with a page for every command of `default`, `--help` on Dolly's own
+commands, pages that arrive with `amy install`, and `test/man-browser.mjs` in Chromium and
+Firefox ("Built and run", below); at a terminal `man` pages through `$PAGER` or `less`
+(`f3f641cb`). The done-when holds. Lowered from 235 for that reason. Open is what "Expected"
+asks beyond it:
+
+- Upstream pages rendered at build time (mandoc in `system-tools`): 45 pages print as mdoc or
+  man source.
+- One line per option and an example in every in-house `--help`; a wrong invocation printing
+  the usage line and exiting 2 (most still print a message).
 - `help` listing the commands with one-line summaries.
-- Pages for the other packages (`fd`, `python`, `nvim`, …); `ripgrep`'s page
-  rows unverified.
-- `cd --help`, `command --help` and `time --help` reach Slop's own builtins,
-  which have no `--help`.
+- Pages for the other packages (`fd`, `python`, `nvim`, …); `ripgrep`'s page rows are unverified.
+- `cd --help`, `command --help` and `time --help` reach Slop's own builtins, which have no
+  `--help`.
 
-Owner request (2026-10-06): "I want to add the man command, and make sure
-things in general in the shell has good man/help."
+From the fresh-agent run of `tasks/20261007-132428-robots` (closed 2026-10-12; the run is of
+2026-10-08), the same question asked of the site:
 
-## Today (main `4f8a2309`)
-
-- There is no `man`. `help` (a core command in `Dollyfile-system-build`)
-  prints one page about Slop: builtins, expansions, options.
-- `--help` is uneven: the in-house commands answer it (35 `"--help"` branches
-  across the core recipes, `src/commands/` and `src/slop.c`); sbase commands
-  print a usage line only on a wrong invocation; sbase ships a `.1` page per
-  command that the image does not retain; Git, Make, curl and awk carry their
-  own help of very different depth.
-- Packages bring commands with no shared help convention (`rg --help` is long,
-  `amy` prints four lines).
+- `llms.txt` does not say when a page is ready (the page sets `data-dolly-status` on the
+  document element), nor that the canvas takes a click and then keys.
+- Nothing says how to read the terminal: it is a canvas, so the agent read screenshots.
+  `window.__dolly` (`visibleTerminalText()`, `submit(command)`) is the tests' handle, not a
+  documented interface; whether part of it becomes one is the owner's decision (step 3 of
+  `tasks/20260930-100000-audit-24`).
+- `amy install cc` prints nothing until its 135 MB are installed, then says "its environment
+  applies when the session is next loaded" (`src/commands/amy.c`) although `cc` works at once.
 
 ## Expected
 
@@ -133,113 +131,6 @@ Inventory: 94 commands on `PATH` in `default` (`EXPORTS TOOL` rows of
   not list commands with summaries yet: Dolly's `--help` texts start with the
   usage line and have no summary line to list.
 
-## Implemented, not built
-
-- `man` (inline in `Dollyfile-system-build`, exported by `core`): status 1
-  and `man: no manual entry for NAME` for a missing page, 2 and the usage
-  line for a wrong invocation.
-- Page capture in `system-build`, `system-tools`, `system`, `curl`, `gzip`,
-  `ripgrep`; sbase's pages staged (`prepare-image-sources.sh`) and moved by
-  the same `TOOLS` list that builds the commands; `awk.1`, `samu.1`; Make's
-  page is `make --help`.
-- `--help` added to `xargs`, `nproc`, `session-recover`; `xargs` and `help`
-  exit 2 with the usage line on a wrong invocation; `help` names `man` and
-  no longer prints `PATH`, so its page is the same text wherever it is read.
-- Checked natively: `test/commands.test.mjs` builds 30 of the commands
-  (`man` among them) and checks `--help` and the statuses (8 of 8 pass); 15
-  inline commands and `tar` were also run through the capture loop under gcc
-  (5,011 bytes with the `test` pages); the `test` page was checked against
-  `test.c`;
-  `npm run lint:dollyfiles` passes for 61 recipes; the source suite passes
-  257 of 261, the four failures being `dist/*.mjs` modules this source-only
-  checkout does not have; the demo source tests pass 83 of 83.
-- `sbase.tar` is re-pinned from a tar built in `build/man-evidence/` (the
-  old glob reproduces the old pin, so the builder is deterministic; the new
-  tar holds sbase's 99 pages, of which the 44 built tools' are kept). The
-  `SOURCE` pin of `awk.tar` is stale until staging runs (`npm run image`
-  refreshes it). The loops' shell syntax was run in a native Slop.
-
-## To run when the catalog is built (integrator)
-
-Each inside the brief's memory-capped scope, one at a time, in a full
-worktree (`work/round2`'s `emacs-*.tar.gz` and `pi-source-d78dc83…`
-hard-linked into its `.cache`):
-
-    bash work/setup-worktree.sh man2 work/man-help-verify work/man-help work/round2
-    npm run build:runtime            # system-build's recipe changed: every image re-pins and rebuilds
-    DOLLY_IMAGE_JOBS=1 DOLLY_BUILD_IMAGES=default,ripgrep work/build-slot.sh npm run image
-    unset DISPLAY
-    node test/man-browser.mjs chromium && node test/man-browser.mjs firefox
-    node --test 'test/*.test.mjs'
-    for suite in core shell slop; do node test/$suite-browser.mjs chromium && node test/$suite-browser.mjs firefox; done
-
-Steps most likely to fail, each a one-line recipe row: `ld --help`,
-`make --help` and `git --help` (status read from the source, never run) and
-the `cp` of `/tmp/ninja/source/samu.1`.
-
-## Left
-
-- Render upstream pages at build time (mandoc in `system-tools`).
-- One line per option and an example in each `--help` (only `man`, `xargs`,
-  `nproc`, `session-recover` and `test` follow it); a wrong invocation still
-  prints a message instead of the usage line in most (`download`, `pwd`, `cd`, …).
-- `help` listing the commands with summaries.
-- Pages for the other packages (`fd`, `python`, `nvim`, …); image growth
-  measured in a built image.
-
-## Merged branch `integrate/userspace-next` (2026-10-06, not built)
-
-`work/man-help`, then `work/small-default` (with `work/amy-index`),
-`core/self-description` and `core/concurrent-pipelines`, which merged
-without a conflict outside recipe pins. Resolved by hand: `Dollyfile-minimal`
-(removed, as small-default does), the `nproc.c` and `amy.c` pins of
-`Dollyfile-system-tools`, and the package paragraph of `docs/dollyfile.md`.
-Added for the merge:
-
-- Page rows: 59 in `Dollyfile-posix` (45 upstream pages in `man1`, 14 in
-  `cat1`), 3 in `Dollyfile-git`. `sh`'s page is a copy of Slop's, not a link:
-  `posix` cannot rely on a file of `core`. The start-up text names `man`.
-- `help` is one text of nine lines: commands and `man`, the documents
-  directory (`amy install dolly-docs` where it is absent), what Slop lacks,
-  pipelines and `&` as `20260930-100000-audit-32` words them, no permission
-  bits or `chmod`, the limits, status 126. The language table is gone from it:
-  `docs/slop.md` is the one description (`20261005-133403-self-description`).
-  The Pi skill and `docs/slop.md` no longer say `help` prints the syntax.
-- Six document pins of `Dollyfile-dolly-docs` refreshed: the merge changed
-  the documents it ships.
-
-Checked, each in a 2G scope: `npm run -s lint:dollyfiles` (63 recipes, each
-with `REQUIRES HOST runtime@0`); `node --test 'test/*.test.mjs'` 272 of 276,
-failing only for the missing `dist/` modules (`image-build-service`,
-`process-abi`, `system-snapshot-format`, `terminal-ring`); demo source tests
-83 of 83; the task files of the merged branches are byte for byte theirs.
-
-To verify, in order, in a full worktree of this branch, one capped scope at a
-time (this replaces the list above):
-
-    npm run build:runtime          # seed: slop.c, the libc adapter, amy.c, system-build; runs pipe-driver
-    node --test 'test/*.test.mjs' 'demos/**/*.test.mjs'      # now with dist/: all pass
-    DOLLY_IMAGE_JOBS=1 DOLLY_BUILD_IMAGES=default,system,cc,git,ripgrep,dolly-docs,pi work/build-slot.sh npm run image
-    unset DISPLAY
-    for suite in man default amy docs core shell slop; do node test/$suite-browser.mjs chromium && node test/$suite-browser.mjs firefox; done
-    npm run test:demos -- pi
-    npm run image -- pi --plan     # after a one-word edit of docs/slop.md (self-description's done-when)
-
-Likeliest failures, first to last:
-
-1. `system-build`: the `--help` capture loop (`ld`, `make` and the compiler
-   drivers were read, never run) stops the build at the command that fails.
-2. `system-tools`: `mv $(TOOLS:=.1)` when `sbase.tar` is staged without pages
-   (its pin was computed here, not by staging); `git --help`; the copy of
-   `samu.1`; the `awk.tar` pin, stale until staging refreshes it.
-3. `posix`, `git`, `core`, `cc`, `amy`: a `FILE` row naming a page its
-   toolchain did not write fails by name.
-4. `pi-coding-agent`: the skill's pin, refreshed by staging.
-5. `test/man-browser.mjs` has never run; it assumes every file in `/bin` and
-   `/usr/bin` of `default` is a command with a page.
-6. Recipes that pipe (`gzip -dc A | tar -xf -`) now run both programs at once
-   (`20260930-100000-audit-32`, "Recipes").
-
 ## Built and run (2026-10-06 night, `integrate/next`, worktree `work/next`)
 
 On the final merge (runtime `dccf70f9…`, image inputs `4431ea80…`), and
@@ -261,8 +152,4 @@ before it on the first chain (`e8e495dc…`):
   (`fbfc278b`). None of the steps listed as likely to fail did.
 - `sbase.tar`'s pin, computed natively, is the one staging produced.
 
-The done-when holds. The task stays open for what "Expected" asks beyond it,
-listed under "Left" above (pages rendered at build time, one line per option
-and an example in every `--help`, `help` listing commands with summaries),
-and one more: `cd --help`, `command --help` and `time --help` typed at a
-prompt reach Slop's own `cd`, `command` and `time`, which have no `--help`.
+The done-when holds; what "Expected" asks beyond it is under "State".
