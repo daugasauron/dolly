@@ -94,10 +94,10 @@ index 8bdcb15..42aea40 100644
    }
 diff --git a/Mojo/lib/Compiler/ObjectCompiler/Target/Dolly/DollyBackend.cpp b/Mojo/lib/Compiler/ObjectCompiler/Target/Dolly/DollyBackend.cpp
 new file mode 100644
-index 0000000..5c161d4
+index 0000000..a5377b2
 --- /dev/null
 +++ b/Mojo/lib/Compiler/ObjectCompiler/Target/Dolly/DollyBackend.cpp
-@@ -0,0 +1,1553 @@
+@@ -0,0 +1,1554 @@
 +//===----------------------------------------------------------------------===//
 +// Added for Dolly, a POSIX-like userspace for wasm64 in the browser.
 +//
@@ -1469,7 +1469,8 @@ index 0000000..5c161d4
 +    os << "    if (stopped) { break; }\n  }\n"
 +       << "  if (bb != 4294967295u) { atomicStore(&running, 1u); }\n"
 +       << "  if (workgroupUniformLoad(&running) == 0u) { break; }\n"
-+       << "  atomicStore(&running, 0u);\n  workgroupBarrier();\n";
++       << "  atomicStore(&running, 0u);\n  workgroupBarrier();\n"
++       << "  storageBarrier();\n";
 +  os << "  }\n}\n";
 +  if (waits)
 +    os << "var<workgroup> running: atomic<u32>;\n";

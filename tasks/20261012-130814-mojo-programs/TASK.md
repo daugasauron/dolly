@@ -1,6 +1,6 @@
 # Mojo programs that run in Dolly: target, runtime, standard library, and DeviceContext over gpu@0
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 335
 - TAGS: toolchain,mojo,gpu,demo
 
@@ -11,13 +11,13 @@ works for GPU compute." The compiler itself is
 ## For the compiler's side (`demos/mojo/`, task mojo-compiler)
 
 What a compiler built in Dolly must carry for its programs to run here; all
-of it is in `demos/mojo/target/` and described in its README. Take the
-patches, the package `gpu`, the runtime recipe and the fixtures together
-from the head of `demo/mojo-target`. `demo/mojo` merged them at `35771eb3`;
-everything after that commit is about kernels and `DeviceContext` (both
-patches, the runtime recipe, the package `gpu`), and the fixtures of the
-head need all of it. Programs that are not kernels compile the same with
-either.
+of it is in `demos/mojo/target/` and described in its README. `demo/mojo`
+carries it and merges this branch as it moves, at `59a520c6` when last
+seen (03:41); its own test compiles `saxpy`, `kernels`, `mandelbrot` and
+upstream's `hello_writing.mojo` in the `mojo` image, in the three browsers.
+`compiler.patch` changed last in `abd8329e` (a barrier is also WGSL's
+storage barrier). Take the patches, the package, the runtime recipe and
+the fixtures together: the fixtures of the head need all of the head.
 
 - Apply `patches/compiler.patch` and `patches/stdlib.patch` to the tag
   `mojo/v1.1.0`. The compiler patch needs LLVM's WebAssembly backend linked
@@ -44,10 +44,10 @@ either.
   `demos/mojo/target/test/fixtures/*.mojo` there and expect the lines that
   `demos/mojo/target/test/mojo-target-browser.mjs` greps for (it links the
   same programs from cross-compiled objects), and upstream's two GPU
-  hellos as `cross-compile.sh` rewrites their import. With the
-  native compiler the GPU ones also compile against a precompiled
-  `std.mojoc` and `gpu.mojoc`, as that image has them, and run (02:22). `tasks.mojo` needs the
-  target's tail calls and the four GPU programs the package `gpu`; with
+  hellos as `cross-compile.sh` rewrites their import. With the native
+  compiler the GPU ones also compile against a precompiled `std.mojoc` and
+  `gpu.mojoc`, as that image has them, and run (02:22). `tasks.mojo` needs
+  the target's tail calls and the GPU programs the package `gpu`; with
   `--disable-gpu --enable-unsafe-webgpu` headless Chrome runs them on
   SwiftShader.
 
@@ -71,7 +71,12 @@ Done when: a Mojo program compiled for Dolly runs in a session, and what
 stands between `DeviceContext` and `gpu@0` is either built or measured and
 written here.
 
-## Done 2026-10-12: programs and kernels run (commits 0571270c and after)
+## Result (2026-10-13): programs and kernels run (commits `0571270c` and after on `demo/mojo-target`)
+
+A Mojo program compiled for Dolly runs in a session, and `DeviceContext`
+launches its kernels on `gpu@0`: buffers, atomics, shared memory with
+barriers, 64-bit integers and what a kernel prints are built; what is not
+is listed under "What is left".
 
 `node demos/mojo/target/test/mojo-target-browser.mjs` with `DISPLAY=:142`,
 objects from `demos/mojo/target/cross-compile.sh`, image `mojo-runtime`:
@@ -120,8 +125,11 @@ shifts by a variable, conversions and 64-, 16- and 8-bit arguments among
 them; lines printed by six threads with integers, floats, `Bool` and a
 64-bit integer; asserts and an `abort` with their messages; shared memory
 of floats, of bytes and with atomic counters, and barriers that only some
-threads reach or that a return follows (without its barrier a thread saw
-one mark of 256 in all three browsers, with it all). An
+threads reach or that a return follows, and threads that return before
+any (without its barrier a thread saw one mark of 256 in all three
+browsers, with it all; 16,416 bytes of shared
+memory in a block run in all three, 64 KiB are `I/O error` when enqueued,
+the device's reason being in the page's indicator). An
 `Optional` through a branch did not compile until a struct that is a value
 was printed as its scalars, and every function a kernel calls is inlined
 before LLVM optimizes. Two things were wrong and are fixed:
@@ -210,7 +218,7 @@ the released compiler on this machine's x86-64: 1.4 times.
 - **WGSL comes from the compiler, at compile time.** `std.compile.compile_info`
   already compiles one function for another target and embeds the text, and a
   backend may print that text itself (`TargetBackend::emitAssembly`). So the
-  kernel is optimized as 32-bit LLVM IR and printed as WGSL by 700 lines in
+  kernel is optimized as 32-bit LLVM IR and printed as WGSL by 1,500 lines in
   the compiler; the program carries WGSL as a constant and needs no LLVM, no
   SPIR-V and no translator when it runs. 32-bit because Mojo's `Int` is the
   target's pointer width and WGSL has no 64-bit integer.
@@ -221,6 +229,20 @@ the released compiler on this machine's x86-64: 1.4 times.
 - **`block_dim` is the workgroup size**, an override constant of the pipeline
   (`COMPUTE_CONSTANTS`), so `thread_idx`, `block_idx`, `block_dim` and
   `grid_dim` are WGSL's own builtins and mean what they mean on CUDA.
+- **A buffer is words, atomic where threads share one.** WGSL has no bytes:
+  a buffer the kernel stores less than a word into, or has an atomic
+  operation on, is `array<atomic<u32>>`, and a store there changes its bits
+  only. A 64-bit integer is two words.
+- **What a kernel prints is a buffer of its own.** WGSL has no output: the
+  text is formatted in the kernel, as the standard library does for Apple's
+  GPUs, and the runtime prints the records once the kernel has run, thread
+  after thread, so the order is the same every time. Nothing was added to
+  `gpu@0` for it.
+- **A barrier is where a thread leaves the loop of blocks.** WGSL wants a
+  barrier in uniform control flow, which a block number in a loop never is.
+  The threads meet at one WGSL barrier in a loop around that one, read
+  there through `workgroupUniformLoad` whether any of them has a block left,
+  and go on past `workgroupBarrier` and `storageBarrier`.
 - **The runtime is new C over libc, not upstream's CompilerRT**: see the next
   section.
 
