@@ -293,10 +293,11 @@ struct DeviceContext(ImplicitlyCopyable):
                 limits[1], " by ", limits[2], " by ", limits[3],
                 " and ", limits[0], " threads",
             )
-        if buffer_count + Int(slot_count > 0) > Int(limits[5]):
+        var prints = ") var<storage, read_write> log:" in kernel.asm
+        if buffer_count + Int(slot_count > 0) + Int(prints) > Int(limits[5]):
             raise Error(
-                "a kernel on this device takes ", limits[5],
-                " buffers, its other arguments being one of them",
+                "a kernel on this device takes ", limits[5], " buffers, its"
+                " other arguments being one of them and what it prints another",
             )
         _ = _check(
             external_call["mojo_gpu_launch", Int](

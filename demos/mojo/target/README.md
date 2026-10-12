@@ -108,9 +108,8 @@ other examples index buffers through `layout`, which is in `max`.
 - Each pointer parameter is a storage buffer and takes a `DeviceBuffer`; a
   pointer is an offset into the buffer its parameter names. The other
   parameters (integers, `Float32`, `Bool`) travel in one more buffer. A
-  buffer is 32-bit words; one the kernel stores a
-  `Bool`, 8 or 16 bits into has atomic words, so that four threads can store
-  into one.
+  buffer is 32-bit words; one the kernel stores a `Bool`, 8 or 16 bits into
+  has atomic words, so that four threads can store into one.
 - `Atomic[T].fetch_add`, `max`, `min` and `compare_exchange` on a pointer
   into a buffer work for `UInt32`, `Int32` and `Float32`: WGSL's atomic
   where it has one, else a loop around its compare and exchange.
@@ -124,7 +123,7 @@ other examples index buffers through `layout`, which is in `max`.
   at most 256 threads on a default device. `grid_dim` is the workgroup
   count. A block the device does not admit raises when enqueued, as does a
   kernel with more buffers than it binds (10 where measured, the scalar
-  arguments being one of them).
+  arguments being one of them and what it prints another).
 - Control flow is printed as a block number in a loop, so any branch or loop
   compiles; calls are inlined; a local array of a fixed size is a WGSL
   array, and a struct, an `Optional` or a tuple is its scalars. The text
