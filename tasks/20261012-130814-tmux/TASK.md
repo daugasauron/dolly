@@ -23,9 +23,10 @@ unchanged, but tmux needs three more things, each measured below:
 
 With a prototype of (1) as a host module of two operations, kernel and
 supervisor only and **not a seed change** (`pty@0`, below), and a patch of
-nine hunks for (2) and (3), upstream tmux 3.8 built by Dolly's `cc` runs: two panes, a shell in each,
+ten hunks for (2) and (3), upstream tmux 3.8 built by Dolly's `cc` runs: two panes, a shell in each,
 typing in the active pane, Ctrl+C for the program in it, a window resize,
-detach and attach. The unchanged `less` and `nvim` packages run in a pane.
+detach and attach, and its jobs (`run-shell`, `if-shell`, `#()`). The
+unchanged `less` and `nvim` packages run in a pane.
 The contract's shape is the owner's to decide; the proposal and what the
 prototype leaves out are under "Proposal".
 
@@ -211,6 +212,31 @@ child ever stops.
 
 The task stays open for the owner's decision on `pty@0`. Its done-when is
 met on the branch.
+
+## 2026-10-13 06:00: jobs, and main merged again
+
+- **Jobs start by spawn** (`100a136c`). tmux forked for `run-shell`,
+  `if-shell` and `#()`: each failed with "failed to run command" (measured
+  before). `job.c` now calls `osdep_job` (`demos/tmux/osdep-dolly.c`), which
+  spawns the job's command on the socket pair tmux reads it from, with the
+  job's environment and directory: the same means as a pane's program, one
+  hunk more in the patch (ten), nothing in `host/` or `src/`. Tested in both
+  browsers: `run-shell` prints its command's output, `if-shell` takes each
+  branch by its command's status, `#()` puts a command's output in the
+  status line. `pipe-pane` forks in its own file and still fails, saying
+  "fork error" (tested). `copy-pipe` and popups go through `osdep_job` too
+  and were not tried.
+- **`main` at `67bcc680` merged** (`1b5cdfd2`); the two conflicts were
+  adjacent rows in `config/source-pins.sh` and `config/upstreams.json`, both
+  sides kept. On the result: `npm run test:source` 424 of 424;
+  `test/pty-browser.mjs` and `demos/tmux/test/tmux-browser.mjs` in Chromium
+  and Firefox; `test/amy-browser.mjs` in both, all nine cases, with the 50
+  packages of the catalog registered (the Mojo images, the packs and the
+  sources this tree lacked are hard links into `work/rust/dist`). The core
+  browser suite was not run again after this merge.
+- The `tmux` and `tmux-panes` images are rebuilt for the new patch. A server
+  started before the rebuild does not know the new pack and answers 404 for
+  it: restart it.
 
 Done when: tmux runs in a Dolly session with two panes, or the task says
 exactly which operations are missing, each with its measurement.
