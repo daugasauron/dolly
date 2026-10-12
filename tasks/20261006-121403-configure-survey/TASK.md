@@ -1,6 +1,6 @@
 # What an autoconf configure needs from Slop and Dolly: measured with four real ones
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 230
 - TAGS: slop,compatibility,corpus
 
@@ -155,3 +155,15 @@ need `exec` (above).
 `build/pipelines-evidence/` (not committed): `run-configure.sh NAME` runs
 `configure/NAME/configure` under both shells and compares; the sources are
 copies of the shared cache.
+
+## Closed (2026-10-12)
+
+A survey, and it is made: four upstream `configure` scripts give the same output and the same
+files under Slop as under Bash, with the seven Slop fixes listed above (all on `main` since
+v0.1.0) and `umask`.
+
+What it found still in the way has its tasks: `umask`, `chmod` and `test -x` in
+`tasks/20261006-120641-umask` (built on `core/file-modes-2`, not on `main`), which also took
+this survey's remaining findings (a name for `config.guess`, the cost of `test` and `printf` as
+programs, the three missing builtins); `exec PROGRAM` in `tasks/20261006-214244-process-exec`,
+which keeps the list of uses above.

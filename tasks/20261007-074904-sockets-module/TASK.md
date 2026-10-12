@@ -24,6 +24,8 @@ Refused by design, and asked for twice since: descriptor passing (`SCM_RIGHTS`, 
 (`tasks/20261012-130814-tmux`) would use it. It is a kernel change and an owner's decision, not
 part of this task.
 
+## The request
+
 Owner (2026-10-07), after a conversation about what GTK, X11 and Wayland
 would need: "The reason I didn't want them was mainly to restrict network
 stuff, but maybe worth adding something like that." Then: "Add a task to

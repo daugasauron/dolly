@@ -33,6 +33,8 @@ stuff." Open, in the order to take it up:
    phone. The record layout sketched for it ("Touch, later") is in
    `tasks/20261002-072000-input-host-module`. Not measured either: a graphics image on a phone.
 
+## The request
+
 Owner (2026-10-10), after trying `speech-to-text`: "The model for speech to text is okay but it
 misinterprets a lot of things. Are there better models or like tuning available?" and then:
 

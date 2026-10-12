@@ -1,70 +1,49 @@
-# Build LLVM, Clang and LLD inside Dolly
+# LLVM is built inside Dolly; the seed's compiler still comes from the host
 
 - STATUS: OPEN
-- PRIORITY: 345
+- PRIORITY: 180
 - TAGS: toolchain,bootstrap,llvm,core
+
+## State (2026-10-12)
+
+In v0.1.0 (`b02b9428`, then `49845778`): LLVM, Clang and LLD are built inside Dolly from the
+pinned sources, as the images `llvm-tablegen`, `llvm-build` and `llvm-cc` and the package
+`llvm`. A second stage built by that compiler is identical to the first in every archive, the
+compiler and the TableGen tools (`demos/llvm/test/stage2-browser.mjs`); a third was run once.
+`system-build` compiles libc++, libc++abi and libunwind from the pinned source. Rust's LLVM is
+built the same way since v0.1.1 (`rust-llvm`). The first two clauses of the done-when hold.
+
+Left:
+
+- **The seed's compiler still comes from the host** (`scripts/build-toolchain.sh`, the second
+  row of `docs/sources.md`). A trial seed carrying the compiler linked in Dolly built an
+  18-image chain to the same files, the compiler aside ("The seed's compiler from inside Dolly:
+  a trial"; branch `core/llvm-seed-trial`, not merged). That section lists what would change,
+  the bootstrap order and the cost: every driver or libc change would need a round through
+  `llvm-cc`. The owner's decision.
+- **The sysroot reproduction demo is not on `main`.** It rebuilt the rest of the process sysroot
+  inside Dolly and held it against the seed's ("The rest of the process sysroot"). `d148aa86`
+  took it out before v0.1.0: its unit list no longer matched the C library once sockets split
+  its refusals from the client. It stays on `core/runtimes-in-seed`.
+- **The browser stack has no general fix.** Only the compiler is entered on the deeper JSPI
+  stack (`8262c6ba`). Why Chrome's tab crashed with every process entered that way was not
+  found and, by the owner's decision, not hunted. `MSP430.cpp` fits with a margin of 635 in 760
+  and `SemaARM.cpp` only with LLVM's warnings off. A process primitive that continues on a
+  fresh stack is an ABI decision for the owner ("The two stack overflows").
+- Jobs are four, because a CMake job is three processes and the supervisor admits 32
+  (`tasks/20260930-100000-audit-53`).
+- Each stage extracts the sources and runs TableGen again, because snapshots keep no file times
+  (about 4 of `llvm-build`'s 44 minutes).
+- The closure was built in Chrome only; Firefox compiles the two deepest units and was not
+  given the whole build.
+
+Lowered from 345: what the owner called very high priority is shipped, and the first item waits
+for him.
+
+## The request
 
 Owner (2026-10-07): "this is very high priority." Worked on branch
 `core/llvm-in-dolly` (worktree `work/llvm`), in parallel with release 0.1.0.
-
-## Remaining (2026-10-08)
-
-Built inside Dolly, on `core/llvm-in-dolly` (`demos/llvm`, sections below):
-the TableGen tools; the compiler's whole closure, 2,559 units in 103
-archives, at four jobs in 42 minutes; the compiler linked from them, whose
-output is the seed compiler's byte for byte on a sample; and, on demand, a
-second stage built by that compiler, identical to the first in every archive,
-the compiler and the TableGen tools (a third was run once). The first two
-clauses of "Done when" hold. In the catalog: `llvm-tablegen`, `llvm-build`,
-`llvm-cc` and the package `llvm`; the libraries are `core/llvm-runtimes`'
-part, below. Left:
-
-- **Replacing the host-built seed** (the third clause) is shown possible and
-  not done: a trial seed carrying the compiler linked in Dolly (96 MB with
-  `--strip-all`, the seed 18 MB larger) built an 18-image chain to the same
-  files as the host-built seed, the compiler aside ("The seed's compiler
-  from inside Dolly: a trial"). What would change, the bootstrap order and
-  the cost (every driver or libc change needs a round through `llvm-cc`)
-  are listed there; the decision is the owner's. In the catalog the compiler
-  stays a second one beside the seed's.
-- **The browser stack** has no general fix. The JSPI entry doubles Chrome's;
-  `MSP430.cpp` fits with a margin of 635 in 760 and `SemaARM.cpp` only with
-  LLVM's warnings off. A process primitive that continues on a fresh stack
-  is an ABI decision for the owner; both browsers can provide one without a
-  suspending import (measured, see "The two stack overflows").
-- **Jobs**: four, because a CMake job is three processes and the supervisor
-  admits 32 (`20260930-231102-parallel-rust` decided a memory budget instead).
-- **Each stage extracts the sources and runs TableGen again**, because
-  snapshots keep no file times (about 4 of `llvm-build`'s 44 minutes).
-- The closure was built in Chrome only; Firefox compiles the two deepest
-  units but was not given the whole build.
-
-The keystone for the bootstrap goals: a self-hosted rustc
-(`20260930-231100-self-host-rust`), an LLVM-enabled Zig, and a compiler seed
-reproducible from inside Dolly all need LLVM built by Dolly's own `cc`. Today
-the seed compiler (Clang/LLD 24, one 75 MiB executable) is built on the host by
-`scripts/build-toolchain.sh` (native tblgen at `:83`, flags at `:96-97`).
-Source: Fable review, 2026-10-01.
-
-## Measure first
-
-- tblgen built by `cc` inside Dolly, then run on LLVM's `.td` files.
-- The three heaviest Clang translation units: wall time and peak memory
-  (the Zig spike saw 2-3.3 GB per large compile).
-- The LLD link of the compiler executable (inputs are copied by `mmap`, so
-  memory roughly doubles).
-- The translation-unit count, to extrapolate the serial and `-j N` total.
-
-## Risks
-
-- 8 GiB per process and per kernel memory; the build tree and sources
-  (3-4 GB) live in WasmFS inside that memory. Stage builds as images that keep
-  only archives (the 2 GiB import limit forbids retaining trees).
-- The ~0.5 MB Worker stack (it stopped the wasm2c route for zig1).
-- Parallel jobs: Make `-jN` works (`20260930-231102-parallel-rust`), but each
-  `cc` launch spends ~80 ms serially, a floor of N x 80 ms for N TUs.
-- Two LLVMs today: 24 for the seed (`config/source-pins.sh`), 22 for rustc
-  (`demos/rust/toolchain/bootstrap-sources.json`); settle one before building.
 
 ## Done when
 

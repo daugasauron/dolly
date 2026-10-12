@@ -9,6 +9,8 @@
 Not started: no commit names it, and it was left out of v0.1.1 and v0.1.2. The menu today is
 ordered by role, then by the recipe's directory, then by name (`scripts/generate-routes.mjs`).
 
+## The request
+
 Owner (2026-10-08): "add a task that I everything on the dolly page to be
 sorted alphabetically".
 

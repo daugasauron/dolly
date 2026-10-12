@@ -20,6 +20,8 @@ passes for every version in Chromium and Firefox (2026-10-12, below). Left:
   the domain stays, one run of `boot https://daugasauron.com v0.1.0 v0.1.1 v0.1.2` is owed.
 - The renamed tree reaches the sites with the next version.
 
+## The request, and what was done on 2026-10-11
+
 Owner (2026-10-11): "I just bought a new domain slopshare.dev, I want to rebrand
 daugasauron.com into this domain completely." And: "I don't want to redirect, I want slopshare
 to be the new source."
