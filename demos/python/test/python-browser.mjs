@@ -119,15 +119,15 @@ await demoTest("python", { image: "python", timeout: packages ? 7_200_000 : 600_
 });
 
 // A session gets Python from amy, on default, which holds neither a compiler
-// nor Ninja. pip builds NumPy there with Meson: without Ninja beside it,
-// meson-python asks the index for a ninja to build, and pip fails on that.
+// nor Ninja: the package brings both. pip builds NumPy there with Meson;
+// without a ninja, meson-python asks the index for one to build, and pip fails.
 for (const browser of ["chromium", "firefox"]) {
   await demoTest("python on default", { image: "default", browser, timeout: 1_800_000, server: { handle } }, async ({ server, open }) => {
     const { run } = await open({ policy: { maxRequests: 1024, rules: [
       { origin: server.origin, pathPrefix: "/fixture/", methods: ["GET"] },
       { origin: server.origin, path: "/amy-index.txt", methods: ["GET"] },
     ] } });
-    await run("amy install python cc ninja");
+    await run("! cc --version 2> /dev/null && amy install python");
     await run(`pip install --no-index --find-links ${server.origin}/fixture/wheels/ numpy`);
     await run("python -c 'import numpy as np; assert int((np.array([1,2,3])**2).sum()) == 14'");
   });

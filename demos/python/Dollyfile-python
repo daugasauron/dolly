@@ -402,6 +402,11 @@ FOLDER /usr/lib/python3.14/site-packages
 EXPORTS TOOL pip
 EXPORTS TOOL pip3
 
+# pip builds what has no wheel for Dolly, which is every native package: a C
+# extension with the compiler, a Meson project such as NumPy with Ninja too.
+INSTALL /v0.1.2/Dollyfile-cc fde55370dfb28cc38ba5e7aec641b0501449abc73e70a4af6fa7ecc2eee49ae0
+INSTALL /v0.1.2/Dollyfile-ninja b469afeecab51cbe225862b69654fb3887223dd1c218c36c10bb02b9c94a675f
+
 # The browser policy decides which indexes are reachable; skip pip's own
 # PyPI version check. Dolly has one user, uid 0. Progress bars refresh from a
 # thread, which would never yield under Dolly's serial threading. Meson's debug

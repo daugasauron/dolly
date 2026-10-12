@@ -8,8 +8,8 @@ REQUIRES HOST threads@0
 FROM /v0.1.2/Dollyfile-system cb003619fa38f3340386739e0df6a500c95f5ff040b1efb6804461adf294b259
 INSTALL /v0.1.2/demos/javascript/Dollyfile-javascript fb348fa05cd708e79fe9f6b3f7603b99441fc17fe01de2253505ad9df7c239e3
 
-INSTALL /v0.1.2/demos/rust/Dollyfile-ripgrep 350d007ec2460f2ca278b1e587d1aec953c82dd21cd76c26e3fa86dea5db2542
-INSTALL /v0.1.2/demos/rust/Dollyfile-fd a145069b2dc35dc08b5164a7b33c3fc81bf829b45184711ef4523d24100c4d22
+INSTALL /v0.1.2/demos/rust/Dollyfile-ripgrep 0cf392f83a8fab44b52dff2ea892d76cdcf0bc1a2d5c0b69a9cdea6e4dbe7a10
+INSTALL /v0.1.2/demos/rust/Dollyfile-fd bcba4dfa82ef6b96220b41ef12c1c83808ce14062dc71b2c958ad0431414ce7c
 EXPORTS TOOL rg
 EXPORTS TOOL fd
 COPY /v0.1.2/demos/pi/Dollyfile-pi-build 535497e3ea11744c81bf4a9cb3db93e652321182ea349a7607db0f78749ee0ee /usr/bin/pi /usr/bin/pi
