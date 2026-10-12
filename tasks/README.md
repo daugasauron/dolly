@@ -2,7 +2,7 @@
 
 Project issues live in `tasks/<id>/TASK.md` using [tatr](https://github.com/tsoding/tatr).
 The files are ordinary Markdown committed with the project; editing them requires no tool.
-For the CLI, follow the upstream build instructions. Revision `49fc042` was used for this import.
+For the CLI, follow the upstream build instructions. Revision `9b0d752` is installed (upstream's newest on 2026-10-12).
 
 ```sh
 tatr ls
@@ -17,7 +17,7 @@ ahead of file reorganization; use `tatr ls` for the current remaining work.
 Use a unique suffix when creating multiple tasks in the same second.
 Put reproduction steps, evidence, and completion criteria in the task body.
 Set `STATUS: CLOSED` after verifying the fix and record the result or commit;
-`tatr ls -c` lists closed issues. The current CLI has no `close` command.
+`tatr ls -c` lists closed issues; `tatr find ID`, `tatr ref ID` and `tatr untag` exist too. The CLI has no `close` command.
 
 The `audit` tasks tagged before 2026-09-30 come from the 2026-09-13 review of deployed
 main at `ff633f7`. Tasks `20260930-100000-audit-*` come from the 2026-09-30 takeover
