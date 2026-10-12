@@ -18,9 +18,9 @@ Done. The `mojo` image holds the compiler that `mojo-build` compiled and
 linked inside Dolly from pinned source (`mojo-llvm` before it: LLVM, MLIR,
 Clang's Basic library and Zstandard, also compiled inside Dolly), with the
 other task's targets and runtime. `node demos/mojo/test/mojo-browser.mjs`
-with `DISPLAY=:141` (03:40, with `demo/mojo-target` merged at `95ba9c00`,
-after `mojo-build` and `mojo` were rebuilt with it: `make -k -j3` 598 s;
-03:23 with it at `0cfaddd0`, 03:05 at `9558491e`, 02:39 at `c2918333`,
+with `DISPLAY=:141` (03:57, with `demo/mojo-target` merged at `59a520c6`,
+after `mojo-build` and `mojo` were rebuilt with it: `make -k -j3` 595 s;
+03:40 with it at `95ba9c00`, 03:23 at `0cfaddd0`, 03:05 at `9558491e`, 02:39 at `c2918333`,
 02:22 at `35771eb3`):
 
 | Browser | Adapter | Result |
@@ -29,11 +29,11 @@ after `mojo-build` and `mojo` were rebuilt with it: `make -k -j3` 598 s;
 | Chrome 151.0.7922.71 on Xvfb, Vulkan | NVIDIA (`nvidia blackwell`) | passed |
 | Firefox 157.0.1 on Xvfb | unnamed WebGPU adapter | passed |
 
-In each, `mojo build NAME.mojo` in the session compiles and links nine
+In each, `mojo build NAME.mojo` in the session compiles and links ten
 programs that then run: hello, the standard library (`library`), coroutines
-(`tasks`), four with kernels that `DeviceContext` launches on WebGPU
-(`saxpy`, `kernels`, `mandelbrot`, and `output`, whose kernel prints and
-fails an assertion) and upstream's own two GPU hellos (importing `gpu.host`
+(`tasks`), five with kernels that `DeviceContext` launches on WebGPU
+(`saxpy`, `kernels`, `mandelbrot`, `output`, whose kernel prints and fails
+an assertion, and `shared`, with shared memory and barriers) and upstream's own two GPU hellos (importing `gpu.host`
 for `max.gpu.host`): `hello_writing.mojo` prints `GPU responded: 👋, 🔥` and
 `gpu_hello.mojo`, whose kernel prints, `Hello from the GPU`; an object links
 with `cc`; a package

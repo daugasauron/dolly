@@ -13,7 +13,7 @@ import { shellPrompt, writeCommand } from "../../browser.mjs";
 import { sourcePins } from "../../../scripts/upstreams.mjs";
 
 const root = new URL("../../../", import.meta.url);
-const programs = ["hello", "library", "tasks", "saxpy", "kernels", "mandelbrot", "output"], upstream = ["hello_writing", "gpu_hello"];
+const programs = ["hello", "library", "tasks", "saxpy", "kernels", "mandelbrot", "output", "shared"], upstream = ["hello_writing", "gpu_hello"];
 const notebooks = `.cache/modular-${(await sourcePins(root.pathname)).get("MODULAR").commit}/Mojo/docs/site/code/tools/notebooks`;
 const fixtures = { ...Object.fromEntries(upstream.map(name => [`${name}.mojo`, `${notebooks}/${name}.mojo`])),
   ...Object.fromEntries(programs.map(name => [`${name}.mojo`, `demos/mojo/target/test/fixtures/${name}.mojo`])) };
@@ -60,6 +60,7 @@ try {
       // Each thread's line, the message of the assertion that ends thread 2, and what the others then stored.
       await run("./output > output.txt && grep -qx 'thread 1 of 3 holds 1.25' output.txt" +
         " && grep -q 'Assert Error: thread 2 stops here$' output.txt && grep -qx 'MOJO-OUTPUT \\[-1.0, -1.0, 2.25\\]' output.txt");
+      await run("./shared | grep -qx 'MOJO-SHARED wrong: 0 of 8 fewest marks 256'");
       await run("./mandelbrot > set.txt && grep -q '^ *[.:=+*#%@-]*@\\{40\\}' set.txt && grep -qx 'MOJO-MATMUL wrong: 0 of 576 6.0' set.txt");
       // The image's own copies of three of them, as its greeting says.
       await run("(cd ~/mojo && mojo build -o /tmp/mojo-test/shipped mandelbrot.mojo) && ./shipped | grep -qx 'MOJO-MATMUL wrong: 0 of 576 6.0'");

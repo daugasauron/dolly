@@ -59,8 +59,8 @@ What does not work, and how it says so:
 - The compiler runs on one thread (LLVM is built without threads, as Dolly's
   other LLVMs are), and it sends no telemetry and no crash reports.
 
-Test: `npm run test:demos -- mojo` ([`test/`](test/)) builds and runs nine
-programs in the image, six of them with kernels on WebGPU; with a GPU
+Test: `npm run test:demos -- mojo` ([`test/`](test/)) builds and runs ten
+programs in the image, seven of them with kernels on WebGPU; with a GPU
 window on `DISPLAY`, `node demos/mojo/test/mojo-browser.mjs` runs it in
 Chrome on the GPU and in the installed Firefox too.
 

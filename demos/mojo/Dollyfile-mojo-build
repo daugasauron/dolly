@@ -28,7 +28,7 @@ REQUIRES TOOL rm
 REQUIRES TOOL sha256sum
 REQUIRES TOOL cut
 
-SOURCE /v0.1.2/dist/static/mojo/mojo.tar.gz 69928d32fca6130fb74c6c810e705b145dc2ee42fc2b0d4581d015919524572f /tmp/mojo.tar.gz
+SOURCE /v0.1.2/dist/static/mojo/mojo.tar.gz d0c7acad37858e003ac96b29f3cb375adb1b24ab5d8ec708fabc09e49eb0a9db /tmp/mojo.tar.gz
 SLOP slop -c 'gzip -dc /tmp/mojo.tar.gz | tar -xf - -C /'
 # Where the sources name Linux, macOS and Windows, and Dolly is none of them.
 SLOP patch -p1 -d /tmp/mojo/modular -i /tmp/mojo/mojo-dolly.patch
