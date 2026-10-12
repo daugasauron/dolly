@@ -1,0 +1,114 @@
+DOLLY 7
+TOOLCHAIN mojo-llvm
+REQUIRES HOST runtime@0
+REQUIRES HOST display@0
+REQUIRES HOST input@0
+REQUIRES HOST download@0
+REQUIRES HOST dso@0
+REQUIRES HOST http@0
+REQUIRES HOST sockets@0
+REQUIRES HOST upload@0
+
+# Build-only: the LLVM, MLIR and Clang Basic libraries the Mojo compiler
+# links, at the revision Mojo pins, and Zstandard, compiled inside Dolly by
+# its own cc and c++.
+FROM /v0.1.2/demos/cmake/Dollyfile-cmake-build 7c1a8aa0eb6e27afe59c40294c79d4c556f031f85f2cbcd01f85e9fd328feed1
+# LLVM's CMake requires a Python 3 interpreter.
+INSTALL /v0.1.2/demos/python/Dollyfile-python 5b036ab5bdd21eab0797e497b06abe8d6adb076f29f7ff9823e7c038d353b8c3
+REQUIRES TOOL cmake
+REQUIRES TOOL make
+REQUIRES TOOL python
+REQUIRES TOOL cc
+REQUIRES TOOL c++
+REQUIRES TOOL ar
+REQUIRES TOOL gzip
+REQUIRES TOOL tar
+REQUIRES TOOL patch
+REQUIRES TOOL time
+REQUIRES TOOL find
+REQUIRES TOOL cp
+REQUIRES TOOL mkdir
+REQUIRES TOOL rm
+
+SOURCE /v0.1.2/dist/static/mojo/mojo-llvm.tar.gz bb20b5265be3bcb4387eb866060e3fa6ba5a07fb132fad481793b6db0699ac75 /tmp/mojo-llvm.tar.gz
+SLOP time slop -c 'gzip -dc /tmp/mojo-llvm.tar.gz | tar -xf - -C /'
+SLOP rm /tmp/mojo-llvm.tar.gz
+# As demos/llvm: config.guess runs and knows no Dolly host.
+SOURCE /v0.1.2/dist/static/mojo/llvm-host-triple.patch ec739fd5932c1040d07344a8511bae4da4157ff2bcafa348f06a555b71a10981 /tmp/llvm-host-triple.patch
+SLOP patch -p1 -d /tmp/mojo-llvm -i /tmp/llvm-host-triple.patch
+# As demos/rust: Dolly has no /proc/self/exe; a program finds itself from argv[0].
+SOURCE /v0.1.2/dist/static/mojo/llvm-main-executable.patch a9fb350ef60401eeea39f75895ffc2bc89747ac4338a6daa0c3350491d0d025a /tmp/llvm-main-executable.patch
+SLOP patch -p1 -d /tmp/mojo-llvm -i /tmp/llvm-main-executable.patch
+# Mojo's own patch to LLVM's code generator (bazel/public-patches/llvm_source.bzl);
+# its others change LLDB and the Bazel overlay, which are not built.
+SOURCE /v0.1.2/dist/static/mojo/llvm-machinefunction-sti-ref-to-ptr.patch 6226c7dca544ff5ea5cf384bafecdfb49a4ef8f43d88c3996d310f25a42d6a53 /tmp/llvm-sti.patch
+SLOP patch -p1 -d /tmp/mojo-llvm -i /tmp/llvm-sti.patch
+
+# Zstandard, with which LLVM's Support compresses: Mojo's precompiled
+# packages are compressed.
+SOURCE /v0.1.2/dist/static/mojo/zstd.tar 9a873f533780038d91f831cc4d24d6360bc745f2a2c1c6eaf62a2699c16cb133 /tmp/zstd.tar
+SLOP tar -xf /tmp/zstd.tar -C /
+FILE /tmp/zstd/Makefile
+    .RECIPEPREFIX := >
+    OBJECTS := $(patsubst %.c,%.o,$(wildcard lib/common/*.c lib/compress/*.c lib/decompress/*.c))
+    libzstd.a: $(OBJECTS)
+    >ar rcs $@ $^
+    %.o: %.c
+    >cc -O2 -c $< -o $@
+SLOP CWD /tmp/zstd time make -j4
+
+# As demos/llvm configures the seed's LLVM, with MLIR and Zstandard and
+# without LLD. The default target is what Mojo compiles for when it is given
+# none: a Dolly program, which its own target description turns into the
+# wasm64-unknown-emscripten of Dolly's libc archives.
+FILE /tmp/mojo-llvm/Dolly.cmake
+    set(CMAKE_BUILD_TYPE Release CACHE STRING "")
+    set(CMAKE_C_FLAGS "-std=gnu17" CACHE STRING "")
+    set(CMAKE_CXX_FLAGS "-include endian.h -DCLANG_BUILD_STATIC" CACHE STRING "")
+    set(CMAKE_DISABLE_PRECOMPILE_HEADERS ON CACHE BOOL "")
+    set(CMAKE_RULE_MESSAGES OFF CACHE BOOL "")
+    set(LLVM_ENABLE_WARNINGS OFF CACHE BOOL "")
+    set(LLVM_ENABLE_PROJECTS "clang;mlir" CACHE STRING "")
+    set(LLVM_TARGETS_TO_BUILD WebAssembly CACHE STRING "")
+    set(LLVM_HOST_TRIPLE wasm64-unknown-emscripten CACHE STRING "")
+    set(LLVM_DEFAULT_TARGET_TRIPLE wasm64-unknown-dolly CACHE STRING "")
+    set(LLVM_FORCE_VC_REVISION 4154b56ccc70220dca3fa1226fc8a24bafd90ac3 CACHE STRING "")
+    set(LLVM_FORCE_VC_REPOSITORY https://github.com/llvm/llvm-project.git CACHE STRING "")
+    foreach(option THREADS TERMINFO LIBEDIT LIBPFM ZLIB LIBXML2 CURL BINDINGS)
+      set(LLVM_ENABLE_${option} OFF CACHE STRING "")
+    endforeach()
+    set(LLVM_ENABLE_ZSTD FORCE_ON CACHE STRING "")
+    set(LLVM_USE_STATIC_ZSTD ON CACHE BOOL "")
+    set(zstd_INCLUDE_DIR /tmp/zstd/lib CACHE PATH "")
+    set(zstd_LIBRARY /tmp/zstd/libzstd.a CACHE FILEPATH "")
+    set(zstd_STATIC_LIBRARY /tmp/zstd/libzstd.a CACHE FILEPATH "")
+    foreach(option TESTS EXAMPLES BENCHMARKS DOCS)
+      set(LLVM_INCLUDE_${option} OFF CACHE BOOL "")
+    endforeach()
+    set(LLVM_BUILD_LLVM_DYLIB OFF CACHE BOOL "")
+    set(LLVM_LINK_LLVM_DYLIB OFF CACHE BOOL "")
+    set(MLIR_ENABLE_BINDINGS_PYTHON OFF CACHE BOOL "")
+    set(MLIR_ENABLE_EXECUTION_ENGINE OFF CACHE BOOL "")
+SLOP time cmake -C /tmp/mojo-llvm/Dolly.cmake -S /tmp/mojo-llvm/llvm -B /tmp/mojo-llvm/build
+
+# The roots of what Mojo's BUILD.bazel files name of @llvm-project, MLIR's
+# first; Make builds the TableGen tools and the libraries below them. Four jobs
+# fit the 32-process cap; -k reports every failing unit, not only the first.
+SLOP CWD /tmp/mojo-llvm/build time make -k -j4 MLIRCAPIIR MLIRCAPITransforms MLIRLspServerSupportLib \
+  MLIRIndexToLLVM MLIRReconcileUnrealizedCasts MLIRBuiltinToLLVMIRTranslation MLIRLLVMToLLVMIRTranslation \
+  MLIRNVVMToLLVMIRTranslation MLIRROCDLToLLVMIRTranslation clangBasic LLVMOrcDebugging LLVMMCJIT \
+  LLVMWebAssemblyCodeGen LLVMWebAssemblyAsmParser LLVMWebAssemblyDisassembler
+# The TableGen tools, the archives, and every header and TableGen source of
+# the three projects with the configured and generated ones over them.
+SLOP mkdir -p /opt/mojo-llvm/bin /opt/mojo-llvm/lib /opt/mojo-llvm/include
+SLOP CWD /tmp/mojo-llvm/build slop -c 'cp bin/llvm-tblgen bin/mlir-tblgen /opt/mojo-llvm/bin && cp lib/*.a /tmp/zstd/libzstd.a /opt/mojo-llvm/lib'
+SLOP CWD /tmp/mojo-llvm cp -R llvm/include/llvm llvm/include/llvm-c mlir/include/mlir mlir/include/mlir-c clang/include/clang clang/include/clang-c /opt/mojo-llvm/include
+SLOP CWD /tmp/mojo-llvm/build slop -c 'for tree in include tools/mlir/include tools/clang/include; do for f in $(cd $tree && find . -name CMakeFiles -prune -o -type f \( -name "*.inc" -o -name "*.def" -o -name "*.h" \) -print); do mkdir -p "/opt/mojo-llvm/include/${f%/*}"; cp "$tree/$f" "/opt/mojo-llvm/include/$f"; done; done'
+SLOP cp /tmp/mojo-llvm/llvm/LICENSE.TXT /opt/mojo-llvm/LICENSE.TXT
+SLOP cp /tmp/zstd/LICENSE /opt/mojo-llvm/LICENSE.zstd
+SLOP rm -rf /tmp/mojo-llvm /tmp/zstd /tmp/zstd.tar /tmp/llvm-host-triple.patch /tmp/llvm-main-executable.patch /tmp/llvm-sti.patch
+
+FOLDER /opt/mojo-llvm
+SLOP /opt/mojo-llvm/bin/mlir-tblgen --version
+
+ENTRY /bin/foreground -i /bin/slop

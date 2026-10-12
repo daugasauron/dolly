@@ -1,0 +1,63 @@
+DOLLY 7
+TOOLCHAIN mojo-build
+REQUIRES HOST runtime@0
+REQUIRES HOST display@0
+REQUIRES HOST input@0
+REQUIRES HOST download@0
+REQUIRES HOST dso@0
+REQUIRES HOST http@0
+REQUIRES HOST sockets@0
+REQUIRES HOST upload@0
+
+# Build-only: the Mojo compiler, compiled and linked inside Dolly from the
+# sources upstream builds with Bazel, and the standard library it precompiles.
+FROM /v0.1.2/demos/mojo/Dollyfile-mojo-llvm 1d2f98954632a0c1a1fcb24e0272b6124c3caa721060a385bba92078d5e534cc
+REQUIRES TOOL cmake
+REQUIRES TOOL make
+REQUIRES TOOL python
+REQUIRES TOOL cc
+REQUIRES TOOL c++
+REQUIRES TOOL ar
+REQUIRES TOOL gzip
+REQUIRES TOOL tar
+REQUIRES TOOL patch
+REQUIRES TOOL time
+REQUIRES TOOL cp
+REQUIRES TOOL mkdir
+
+SOURCE /v0.1.2/dist/static/mojo/mojo.tar.gz e2aa0482d9c80db7eb13eee92cc41300952196404ab4be56323d79e6df5f30a6 /tmp/mojo.tar.gz
+SLOP slop -c 'gzip -dc /tmp/mojo.tar.gz | tar -xf - -C /'
+# Where the sources name Linux, macOS and Windows, and Dolly is none of them.
+SLOP patch -p1 -d /tmp/mojo/modular -i /tmp/mojo/mojo-dolly.patch
+# The build graph of //Mojo/tools/mojo:mojo, from upstream's BUILD.bazel files.
+SLOP slop -c 'python /tmp/mojo/bazel-to-cmake.py /tmp/mojo/modular > /tmp/mojo/CMakeLists.txt'
+
+# As mojo-llvm compiles LLVM. The version is the tag's, without Bazel's
+# development label, and the revision is the pin. The data of LLVM and MLIR
+# and an 8 MiB stack need more than the 16 MiB a process starts with.
+FILE /tmp/mojo/Dolly.cmake
+    set(CMAKE_BUILD_TYPE Release CACHE STRING "")
+    set(CMAKE_C_FLAGS "-std=gnu17" CACHE STRING "")
+    set(CMAKE_CXX_FLAGS "-include endian.h -DCLANG_BUILD_STATIC" CACHE STRING "")
+    set(CMAKE_EXE_LINKER_FLAGS "-Wl,--initial-memory=67108864" CACHE STRING "")
+    set(CMAKE_RULE_MESSAGES OFF CACHE BOOL "")
+    set(MOJO_SOURCE /tmp/mojo/modular CACHE PATH "")
+    set(MOJO_PORT /tmp/mojo/port CACHE PATH "")
+    set(MOJO_LLVM /opt/mojo-llvm CACHE PATH "")
+    set(FMT /tmp/mojo/fmt CACHE PATH "")
+    set(XXHASH /tmp/mojo/xxhash CACHE PATH "")
+    set(OPENTELEMETRY /tmp/mojo/opentelemetry CACHE PATH "")
+    set(MOJO_VERSION_LABEL "" CACHE STRING "")
+    set(MODULAR_VERSION_REVISION c6fa49f7 CACHE STRING "")
+SLOP time cmake -C /tmp/mojo/Dolly.cmake -S /tmp/mojo -B /tmp/mojo/build
+
+# 348 units and 134 TableGen runs. Three jobs: the units that include every
+# dialect take 1.9 GB each.
+SLOP CWD /tmp/mojo/build time make -k -j3 Mojo.tools.mojo.mojo
+SLOP mkdir -p /opt/mojo/bin
+SLOP cp /tmp/mojo/build/mojo /opt/mojo/bin/mojo
+SLOP /opt/mojo/bin/mojo --version
+
+FOLDER /opt/mojo
+
+ENTRY /bin/foreground -i /bin/slop
