@@ -20,9 +20,9 @@ Left, and the only reason this is open:
   the catalog asks for it. Lowered from 300 for that reason.
 
 Refused by design, and asked for twice since: descriptor passing (`SCM_RIGHTS`, `ENOTSUP`). A
-`wineserver` process of its own (`tasks/20261008-145108-wine-bringup`) and tmux
-(`tasks/20261012-130814-tmux`) would use it. It is a kernel change and an owner's decision, not
-part of this task.
+`wineserver` process of its own (`tasks/20261008-145108-wine-bringup`, measured there) and tmux
+(`tasks/20261012-130814-tmux`, read and not yet measured) would use it. It is a kernel change and
+an owner's decision, not part of this task.
 
 ## The request
 

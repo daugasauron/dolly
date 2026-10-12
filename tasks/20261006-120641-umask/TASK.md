@@ -27,6 +27,10 @@ Left:
 - Its two open decisions: the exec check (starting a program needs an x bit), not built, and
   whether the source packer keeps x bits, which repins every source archive.
 
+Done when `umask`, `chmod` and `test -x` work under Slop on `main`, the branch's mode cases pass
+there in Chromium and Firefox, and the image whose recipe runs an unchanged `configure` builds
+in the catalog.
+
 From the configure survey (`tasks/20261006-121403-configure-survey`, closed 2026-10-12): what an
 autoconf `configure` needs inside Dolly beyond modes.
 

@@ -139,6 +139,21 @@ Facts the notice carries, on one screen (the wording is the builder's):
 - Limits here: an old release, run on Janis instead of Node, no working Bash
   tool.
 
+## The steps, as planned (the builder's log refers to them)
+
+1. Rerun the October procedure on current main in Chromium and Firefox. Fix
+   regressions as Janis gaps with oracle cases.
+2. The demo directory: recipe on `system` with `javascript` and `ripgrep`
+   installed, the launcher and notice as the image's ENTRY, README, test, and
+   a row in `docs/licences.md` saying that nothing of Claude Code is served.
+3. Run Claude Code's own onboarding unassisted, with an API key and with a
+   Claude account, in both browsers. Record what works; the notice names what
+   does not.
+4. A browser test without a model or a key: a scripted Messages endpoint on
+   the test origin, as in October. Decide how the test obtains the tarball
+   without committing it.
+5. One real turn in a browser with the owner's key.
+
 ## Done when
 
 - In Chromium and Firefox the image opens on the notice, no request for the
