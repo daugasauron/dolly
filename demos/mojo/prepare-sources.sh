@@ -35,6 +35,7 @@ if has_image mojo-llvm; then
   node scripts/build-source-tar.mjs "${static_dir}/mojo/zstd.tar" "${mojo_inputs[@]}"
   copy_static demos/llvm/llvm-host-triple.patch mojo/llvm-host-triple.patch
   copy_static demos/rust/config/patches/llvm-main-executable.patch mojo/llvm-main-executable.patch
+  copy_static demos/mojo/llvm-wait.patch mojo/llvm-wait.patch
   # The one patch of Mojo's LLVM (bazel/public-patches/llvm_source.bzl) outside LLDB and the Bazel overlay.
   copy_static "${mojo_dir}/bazel/public-patches/llvm-machinefunction-sti-ref-to-ptr.patch" mojo/llvm-machinefunction-sti-ref-to-ptr.patch
 fi

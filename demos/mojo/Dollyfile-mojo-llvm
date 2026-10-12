@@ -39,6 +39,10 @@ SLOP patch -p1 -d /tmp/mojo-llvm -i /tmp/llvm-host-triple.patch
 # As demos/rust: Dolly has no /proc/self/exe; a program finds itself from argv[0].
 SOURCE /v0.1.2/dist/static/mojo/llvm-main-executable.patch a9fb350ef60401eeea39f75895ffc2bc89747ac4338a6daa0c3350491d0d025a /tmp/llvm-main-executable.patch
 SLOP patch -p1 -d /tmp/mojo-llvm -i /tmp/llvm-main-executable.patch
+# LLVM waits for a child with wait4 and a usage record, which Dolly's wait4
+# refuses: there it waits with waitpid and reports no statistics.
+SOURCE /v0.1.2/dist/static/mojo/llvm-wait.patch bf70d879125c381e90275938d9533cba32d1c7f9ac82252a4d324c53e05195b1 /tmp/llvm-wait.patch
+SLOP patch -p1 -d /tmp/mojo-llvm -i /tmp/llvm-wait.patch
 # Mojo's own patch to LLVM's code generator (bazel/public-patches/llvm_source.bzl);
 # its others change LLDB and the Bazel overlay, which are not built.
 SOURCE /v0.1.2/dist/static/mojo/llvm-machinefunction-sti-ref-to-ptr.patch 6226c7dca544ff5ea5cf384bafecdfb49a4ef8f43d88c3996d310f25a42d6a53 /tmp/llvm-sti.patch
@@ -106,7 +110,7 @@ SLOP CWD /tmp/mojo-llvm cp -R llvm/include/llvm llvm/include/llvm-c mlir/include
 SLOP CWD /tmp/mojo-llvm/build slop -c 'for tree in include tools/mlir/include tools/clang/include; do for f in $(cd $tree && find . -name CMakeFiles -prune -o -type f \( -name "*.inc" -o -name "*.def" -o -name "*.h" \) -print); do mkdir -p "/opt/mojo-llvm/include/${f%/*}"; cp "$tree/$f" "/opt/mojo-llvm/include/$f"; done; done'
 SLOP cp /tmp/mojo-llvm/llvm/LICENSE.TXT /opt/mojo-llvm/LICENSE.TXT
 SLOP cp /tmp/zstd/LICENSE /opt/mojo-llvm/LICENSE.zstd
-SLOP rm -rf /tmp/mojo-llvm /tmp/zstd /tmp/zstd.tar /tmp/llvm-host-triple.patch /tmp/llvm-main-executable.patch /tmp/llvm-sti.patch
+SLOP rm -rf /tmp/mojo-llvm /tmp/zstd /tmp/zstd.tar /tmp/llvm-host-triple.patch /tmp/llvm-main-executable.patch /tmp/llvm-wait.patch /tmp/llvm-sti.patch
 
 FOLDER /opt/mojo-llvm
 SLOP /opt/mojo-llvm/bin/mlir-tblgen --version
