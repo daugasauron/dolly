@@ -94,7 +94,10 @@ ctx.enqueue_function[saxpy](x, y, result, Float32(2), n, grid_dim=4, block_dim=2
 Upstream's `DeviceContext` is the package `max` over CUDA, HIP and Metal
 drivers that are not open source, so this one is new, with its names:
 `enqueue_create_buffer`, `enqueue_function`, `synchronize`, and on a buffer
-`enqueue_copy_from`, `enqueue_copy_to`, `enqueue_fill`.
+`enqueue_copy_from`, `enqueue_copy_to`, `enqueue_fill`, `map_to_host`.
+Upstream's GPU hello (`hello_writing.mojo` of its documentation) runs with
+`gpu.host` for `max.gpu.host` in its import; its other examples index
+buffers through `layout`, which is in `max`.
 
 - A kernel is compiled as 32-bit code, so its `Int` is 32 bits wide, like
   WGSL's integers; an `Int` argument that does not fit raises when enqueued.

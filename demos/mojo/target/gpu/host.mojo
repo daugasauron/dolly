@@ -157,12 +157,62 @@ struct DeviceBuffer[dtype: DType](Movable, Sized, _Storage):
         self.enqueue_copy_to(values.unsafe_ptr())
         return values^
 
+    def map_to_host(
+        mut self,
+    ) raises -> HostBuffer[Self.dtype, origin_of(self)]:
+        """Returns the buffer's elements for a `with`; what is stored into
+        them goes back to the device when it ends."""
+        return HostBuffer(self.to_host(), Pointer(to=self))
+
+
+struct HostBuffer[dtype: DType, origin: MutOrigin](Movable, Sized):
+    """A device buffer's elements in host memory."""
+
+    var _values: List[Scalar[Self.dtype]]
+    var _device: Pointer[DeviceBuffer[Self.dtype], Self.origin]
+    var _stored: Bool
+
+    def __init__(
+        out self,
+        var values: List[Scalar[Self.dtype]],
+        device: Pointer[DeviceBuffer[Self.dtype], Self.origin],
+    ):
+        self._values = values^
+        self._device = device
+        self._stored = False
+
+    def __enter__(var self) -> Self:
+        return self^
+
+    def __deinit__(deinit self):
+        if self._stored:
+            # A device that is gone says so at the next call that can raise.
+            _ = external_call["mojo_gpu_write", Int](
+                self._device[]._id,
+                UInt64(0),
+                self._values.unsafe_ptr(),
+                self._device[]._byte_size(),
+            )
+
+    def __len__(self) -> Int:
+        return len(self._values)
+
+    def __getitem__[I: Indexer](self, idx: I) -> Scalar[Self.dtype]:
+        return self._values[idx]
+
+    def __setitem__[I: Indexer](mut self, idx: I, value: Scalar[Self.dtype]):
+        self._values[idx] = value
+        self._stored = True
+
 
 struct DeviceContext(ImplicitlyCopyable):
     """The page's WebGPU device, as `gpu@0` lends it to this process."""
 
     def __init__(out self) raises:
         _ = _check(external_call["mojo_gpu_open", Int](), "DeviceContext")
+
+    def __enter__(var self) -> Self:
+        return self^
 
     def name(self) -> String:
         """Returns the device's name. Browsers do not tell an adapter's."""

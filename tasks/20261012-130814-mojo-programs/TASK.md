@@ -230,9 +230,10 @@ the released compiler on this machine's x86-64: 1.4 times.
 - **Kernels**: `Float64`, `Float16`, SIMD, shared memory and barriers
   (upstream's names for them are in `max/`), `print`, more than 256 threads
   in a block, the libm functions WGSL lacks (`log10`, `cbrt`, `expm1`, `erfc`,
-  gamma and Bessel functions), and host-side
-  `map_to_host`/`HostBuffer`/`TileTensor` (upstream's examples use `layout`,
-  which is in `max/`).
+  gamma and Bessel functions), and `TileTensor`: upstream's examples
+  index buffers through `layout`, which is in `max/`. The one that does
+  not, `hello_writing.mojo` of its documentation, runs with `gpu.host` for
+  `max.gpu.host` in its import and is in the test.
 - **Floating point in a kernel is the device's** (01:35, a scratch kernel
   over eight values, the three browsers): infinities and NaN from a buffer,
   from a sum and from a division by zero, and `isinf`, `isfinite`, `isnan`
