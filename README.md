@@ -35,6 +35,10 @@ recipes build on, or a `PACKAGE` recipes and sessions install
 - `gzip`: gzip over zlib, as a package.
 - `less`: the pager; Git and `man` page through it once it is installed, as a package.
 - `ninja`: Ninja (Samurai), which Meson and CMake's Ninja generator build with, as a package.
+- `make`: GNU Make alone, for rules that compile nothing; `cc` holds it too, as a package.
+- `zig`: Zig with its standard library and the `cc` package: it emits C (`-ofmt=c`) that `cc` compiles, as a package.
+- `transfer`: `download` and `upload`, the page's file exchange, as a package.
+- `session-recover`: copies the files of a saved session file into a new directory, as a package.
 - `display`: the Ghostty display plugin, its font and the terminal's termcap entry, as a package.
 - `dolly-docs`: the platform's documents and contracts in `/usr/share/doc/dolly`, as a package.
 

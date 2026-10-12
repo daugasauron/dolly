@@ -36,3 +36,11 @@ wine
 speech-to-text
 pi-phone
 ninja
+make
+zig
+transfer
+session-recover
+libuv
+lua
+raylib
+box3d

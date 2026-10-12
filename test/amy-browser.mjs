@@ -118,8 +118,9 @@ await browserTest("amy", { image: "default", timeout: 300_000, server: { fixture
   await run(`amy installed | grep -qx "python ${pin("python")}" && test "$(cat /usr/share/threaded)" = 'needs threads'`);
 });
 
-// Compilers, a library and an agent: each installs into a running default
-// session and works at once, CMake finding the SDL2 installed beside it.
+// Compilers, libraries and an agent: each installs into a running default
+// session and works at once, CMake finding the SDL2 installed beside it. A
+// library installs no compiler: cc, first here, links the programs.
 const programs = {
   cc: "cc --version > /dev/null && make --version > /dev/null",
   cmake: "mkdir /tmp/amy-cmake && cd /tmp/amy-cmake && printf 'int main(void) { return 0; }\\n' > main.c && " +
@@ -132,6 +133,20 @@ const programs = {
   rust: "printf 'fn main() { println!(\"{}\", 6 * 7); }\\n' > /tmp/amy.rs && rustc /tmp/amy.rs -o /tmp/amy-rust && test \"$(/tmp/amy-rust)\" = 42",
   // codex-cli installs ripgrep and fd: their rows come with it.
   "codex-cli": "codex --version | grep -q '^codex-cli ' && fd --version > /dev/null && amy list | grep -q '^ripgrep  *installed '",
+  libuv: "printf '%s\\n' '#include <uv.h>' 'static int fired;' 'static void fire(uv_timer_t *timer) { fired = 1; uv_close((uv_handle_t *)timer, 0); }' " +
+    "'int main(void) { uv_loop_t loop; uv_timer_t timer; uv_loop_init(&loop); uv_timer_init(&loop, &timer); uv_timer_start(&timer, fire, 1, 0); " +
+    "uv_run(&loop, UV_RUN_DEFAULT); return uv_loop_close(&loop) != 0 || !fired; }' > /tmp/amy-uv.c && cc -O0 /tmp/amy-uv.c -luv -o /tmp/amy-uv && /tmp/amy-uv",
+  // One frame drawn by raylib's software renderer and shown through Dolly's adapter.
+  raylib: "printf '%s\\n' '#include <dolly/raylib.h>' 'int main(void) { dolly_raylib window; if (dolly_raylib_open(&window, \"amy\") != 0) return 2; " +
+    "BeginDrawing(); ClearBackground(RAYWHITE); DrawCircle(64, 64, 32, RED); int shown = dolly_raylib_end_frame(&window); " +
+    "return dolly_raylib_close(&window) != 0 || shown != 0; }' > /tmp/amy-raylib.c && " +
+    "cc -O0 /tmp/amy-raylib.c -ldolly-raylib -lraylib -lm -o /tmp/amy-raylib && /tmp/amy-raylib > /dev/null",
+  // A body dropped for a second falls.
+  box3d: "printf '%s\\n' '#include <box3d/box3d.h>' 'int main(void) { b3WorldDef world = b3DefaultWorldDef(); b3WorldId id = b3CreateWorld(&world); " +
+    "b3BodyDef body = b3DefaultBodyDef(); body.type = b3_dynamicBody; b3BodyId ball = b3CreateBody(id, &body); b3ShapeDef shape = b3DefaultShapeDef(); " +
+    "b3Sphere sphere = { { 0.0f, 0.0f, 0.0f }, 0.5f }; b3CreateSphereShape(ball, &shape, &sphere); " +
+    "for (int step = 0; step < 60; ++step) b3World_Step(id, 1.0f / 60.0f, 4); int fell = b3Body_GetPosition(ball).y < -1.0f; b3DestroyWorld(id); return !fell; }' " +
+    "> /tmp/amy-box3d.c && cc -O0 -U__SIZEOF_INT128__ /tmp/amy-box3d.c -lbox3d -o /tmp/amy-box3d && /tmp/amy-box3d",
 };
 await browserTest("amy programs", { image: "default", timeout: 600_000 }, async ({ open }) => {
   const run = check(await open());
@@ -139,6 +154,30 @@ await browserTest("amy programs", { image: "default", timeout: 600_000 }, async 
     console.log(`amy install ${name}: ${await timed(run, `amy install ${name}`)} ms`);
     await run(program);
   }
+});
+
+// Tools a session adds one at a time: each command is absent from default,
+// installs alone and runs. None brings the compiler until zig, which writes C
+// for it. transfer holds the two commands default copies.
+const tools = {
+  ninja: "mkdir /tmp/amy-ninja && cd /tmp/amy-ninja && printf '%s\\n' 'rule write' '  command = echo built > $out' 'build out: write' > build.ninja && " +
+    "ninja && test \"$(cat out)\" = built && man ninja > /dev/null",
+  make: "mkdir /tmp/amy-make && cd /tmp/amy-make && printf 'out:\\n\\techo made > out\\n' > Makefile && make && test \"$(cat out)\" = made",
+  // The interpreter and the two modules built for it.
+  lua: "test \"$(lua -e 'local lpeg, uv = require(\"lpeg\"), require(\"luv\"); assert(uv.now() >= 0); print(lpeg.match(lpeg.R(\"09\")^1, \"42\") * 14)')\" = 42",
+  "session-recover": "session-recover --help | grep -q '^usage: session-recover' && ! session-recover /tmp/missing /tmp/recovered 2> /dev/null && ! cc --version 2> /dev/null",
+  zig: "mkdir /tmp/amy-zig && cd /tmp/amy-zig && printf 'export fn answer() c_int { return 42; }\\n' > answer.zig && " +
+    "printf 'int answer(void); int main(void) { return answer(); }\\n' > main.c && zig build-obj -ofmt=c -femit-bin=answer.c answer.zig && " +
+    "cc -I /usr/lib/zig main.c answer.c -o answer && man zig > /dev/null && ./answer; test $? = 42",
+};
+await browserTest("amy tools", { image: "default", timeout: 300_000 }, async ({ open }) => {
+  const session = await open(), run = check(session);
+  for (const [name, program] of Object.entries(tools)) {
+    assert.equal(await session.submit(`${name} > /dev/null 2>&1`), 127, `default holds ${name}`);
+    console.log(`amy install ${name}: ${await timed(run, `amy install ${name}`)} ms`);
+    await run(program);
+  }
+  await run("amy install transfer && amy files transfer | grep -q ' /bin/upload$' && download --help | grep -q '^usage: download'");
 });
 
 // A package brings the programs its own programs start. rustc links through
