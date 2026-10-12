@@ -11,7 +11,13 @@ works for GPU compute." The compiler itself is
 ## For the compiler's side (`demos/mojo/`, task mojo-compiler)
 
 What a compiler built in Dolly must carry for its programs to run here; all
-of it is in `demos/mojo/target/` and described in its README:
+of it is in `demos/mojo/target/` and described in its README. Take the
+patches, the package `gpu`, the runtime recipe and the fixtures together
+from the head of `demo/mojo-target`. `demo/mojo` merged them at `35771eb3`;
+everything after that commit is about kernels and `DeviceContext` (both
+patches, the runtime recipe, the package `gpu`), and the fixtures of the
+head need all of it. Programs that are not kernels compile the same with
+either.
 
 - Apply `patches/compiler.patch` and `patches/stdlib.patch` to the tag
   `mojo/v1.1.0`. The compiler patch needs LLVM's WebAssembly backend linked
@@ -28,11 +34,20 @@ of it is in `demos/mojo/target/` and described in its README:
   -ldolly-gpu` and the package directory `demos/mojo/target/gpu` on its
   import path.
 - `mojo run`, `mojo repl` and `mojo debug` go through LLVM's JIT
-  (`Mojo/lib/ExecutionEngine`), which Wasm cannot have. Decision: `mojo run`
-  becomes build, spawn, wait; the other two are refused by name.
+  (`Mojo/lib/ExecutionEngine`), which Wasm cannot have: refuse them by name
+  (the compiler's side did, pointing `mojo run` at `mojo build`; a `mojo
+  run` that builds, spawns and waits would be the convenience, not built).
 - The recipe `demos/mojo/Dollyfile-mojo-runtime` and one line of
   `demos/mojo/README.md` are in that directory because recipes and their
   descriptions are found only there: merge the README with yours.
+- To prove the pair in the `mojo` image: `mojo build` each of
+  `demos/mojo/target/test/fixtures/*.mojo` there and expect the lines that
+  `demos/mojo/target/test/mojo-target-browser.mjs` greps for (it links the
+  same programs from cross-compiled objects), and upstream's
+  `hello_writing.mojo` as `cross-compile.sh` rewrites its import. `tasks.mojo` needs the
+  target's tail calls and the four GPU programs the package `gpu`; with
+  `--disable-gpu --enable-unsafe-webgpu` headless Chrome runs them on
+  SwiftShader.
 
 ## As filed
 
@@ -76,33 +91,51 @@ text from a kernel's escape times, and a 24 by 24 matrix product).
 Screenshots of the three browsers after these runs are in
 `build/mojo-target-evidence/` of the worktree.
 
+Checked beyond the fixtures, with the host computing the same Mojo function
+(scratch programs, all three browsers): 8- and 16-bit arithmetic over 4,800
+values, twelve float comparisons with and without a NaN, pointers that
+advance in a loop or are chosen between two places of one buffer, a local
+array, loads from buffers of bytes and of 16-bit integers, thirteen math
+functions within 7e-6 on the GPUs, loops that copy and clear rows of a
+length known only when they run, and eight idioms (a struct chosen in a
+branch with its methods, a `Span` iterated, stepped ranges with `break`,
+`**`, `floor`, `fma`, `%` and `clamp`, an integer hash with variable shifts,
+an `Optional` from a function, a tuple, a three-dimensional grid). An
+`Optional` through a branch did not compile until a struct that is a value
+was printed as its scalars, and every function a kernel calls is inlined
+before LLVM optimizes. Two things were wrong and are fixed:
+`isnan` printed as `x != x` is false on SwiftShader, because WGSL lets a
+compiler assume there is no NaN, so the target reads the bits; and LLVM
+turned a loop that clears into `memset`, which WGSL has not, so a kernel is
+compiled with `no-builtins`.
+
 How it is built, what a kernel may contain and what is refused:
 `demos/mojo/target/README.md`. Refusals measured: a `Float64` kernel fails
 the build with `WGSL has no such type:  %11 = load double`; an `Int64`
 argument with `a WebGPU kernel argument is a DeviceBuffer, Int, UInt, Int32,
 UInt32, Float32 or Bool`.
 
-### The standard library's own tests, in Dolly (2026-10-13, headless Chrome 151)
+### The standard library's own tests, in Dolly (2026-10-13 02:11, headless Chrome 151 and Firefox 157)
 
 `Mojo/stdlib/test` has 261 `test_*.mojo` files that are programs (35 more
 are compile-failure tests with `RUN:` lines). Each was cross-compiled with
-`-D ASSERT=all` and no per-test option of its `BUILD.bazel`, linked with
-`cc NAME.o -lmojo-rt` in one `mojo-runtime` session with the test tree
-unpacked at its source path, and run (3.5 minutes for all):
+the final patches, `-D ASSERT=all` and the defines its `BUILD.bazel` gives
+it, linked with `cc NAME.o -lmojo-rt` in one `mojo-runtime` session with the
+test tree unpacked at its source path, and run with the arguments its
+`BUILD.bazel` gives it (3 minutes for all). 224 do what upstream expects,
+every file with the same status in Chrome and in a window of Firefox:
 
 | Files | Outcome |
 | --- | --- |
-| 178 | exit 0: every test of the file passes |
-| 33 | the output its `CHECK` lines expect (most abort on purpose, status 126) |
-| 13 | not judged: 10 lacked their file's build options (`LOGGING_LEVEL`, `MOJO_STDLIB_SIMD_UNINIT_CHECK`, `ASSERT=warn`); `os/test_process` and `runtime/test_locks` print what is expected, which my check (stricter than FileCheck about spaces and order) did not accept; `benchmark/test_quick_bench` not looked at |
-| 11 | fail: 7 need another platform, build or arguments (`sys/test_linux_target`, `test_aarch64_target`, `test_targetinfo`, `test_c_types`, `test_build_info_debug`, `test_compile_debug`, `testing/test_suite_cli`), `os/test_env` wants Bazel's environment, and three meet Dolly: no FIFO (`builtin/test_file`, 32 of 33), no hard link (`os/test_link`), no password database (`pwd/test_pwd`) |
+| 179 | exit 0: every test of the file passes |
+| 45 | the output its `CHECK` lines expect (most abort on purpose, status 126); four of them judged by reading, where my check knew less than FileCheck |
+| 11 | fail: 6 need another platform or build (`sys/test_linux_target`, `test_aarch64_target`, `test_targetinfo`, `test_c_types`, `test_build_info_debug`, `test_compile_debug`), `os/test_env` wants Bazel's environment, `os/test_process` passes its tests and then expects Linux's number for `ENOENT` in a message (2; Dolly's is 44), and three meet Dolly: no FIFO (`builtin/test_file`, 32 of 33), no hard link (`os/test_link`), no password database (`pwd/test_pwd`) |
 | 12 | do not link: 9 of `python/`, `os/test_stat` and `testing/test_assertion` need `KGEN_CompilerRT_Python_SetPythonPath`; `test_utils` has no `main` |
 | 14 | do not compile: 5 import `max`, 1 a GPU target, 1 `reflection`; `sys/test_ffi`, `test_dlhandle`, `test_macos_target` are for other platforms; 2 need bfloat16, which LLVM's WebAssembly backend cannot select; `runtime/test_asyncrt` and `test_raising_asyncrt` fail in this compiler for x86-64 too, and in the released one |
 
-Among the 178: `os/test_process` and the three tests that spawn themselves to
-watch an abort (`Process.run`, `waitpid`, `kill`, the environment),
-`subprocess/test_run` (`popen`), `tempfile`, `pathlib`, `os/test_listdir`,
-`test_symlink`, `time`.
+Among the 179: the three tests that spawn themselves to watch an abort
+(`Process.run`, `waitpid`, `kill`, the environment), `subprocess/test_run`
+(`popen`), `tempfile`, `pathlib`, `os/test_listdir`, `test_symlink`, `time`.
 
 Before that came to pass:
 
@@ -122,6 +155,24 @@ a kernel over 2^20 floats, then `synchronize()` and a read of all 4 MiB,
 give 5000.0 everywhere: Chrome 151 on the NVIDIA GPU in 1.51 s (0.3 ms an
 enqueue) and 10 ms for the read, Firefox 157 in 1.24 s and 104 ms, headless
 Chrome on SwiftShader in 26.7 s.
+
+The scripts of this measurement are scratch, in `build/mojo-target/` of the
+worktree (`stdtests/`, `session.mjs`, `stdtests.cmds`), not committed: the
+natural form, once the compiler runs in Dolly, compiles the suite there.
+
+A buffer of 10,000,001 floats (40 MB), written, doubled by a kernel and
+read back, is right in all three: 35 ms to write, and 73 ms (Chrome,
+NVIDIA), 291 ms (Firefox) and 95 ms (SwiftShader) to run and read. `gpu@0`
+maps at most 16 MiB at once, so the runtime reads a larger buffer in pieces.
+
+The Mandelbrot set at 1024 by 1024 and up to 500 iterations (81.9 million
+in all), one function for the kernel and for the host (01:55, a scratch
+program): the kernel with its read of 4 MiB takes 4.5 ms in Chrome on the
+NVIDIA GPU, 102 ms in Firefox and 171 ms on SwiftShader; the same loop on
+the one Wasm thread takes 269 ms in Chrome and 413 ms in Firefox. On the
+NVIDIA GPU 2,383 pixels (0.2 %) differ from the host's under both browsers,
+on SwiftShader none: not attributed (a driver that fuses a multiplication
+and an addition would do it).
 
 Two of upstream's example programs run unchanged:
 `Mojo/examples/operators/main.mojo`, and `Mojo/examples/life/benchmark.mojo`,
@@ -177,12 +228,32 @@ the released compiler on this machine's x86-64: 1.4 times.
   the test suite does not call is unchecked: `sys/_libc.mojo` declares
   `write` returning `c_int`, for one. `wasm-ld` warns of each mismatch when a
   program links.
-- **Kernels**: buffers of 8- and 16-bit scalars, `Float64`, `Float16`, SIMD,
-  shared memory and barriers, atomics, `print`, more than 256 threads in a
-  block, the libm functions WGSL lacks (`log10`, `cbrt`, `expm1`, `erfc`,
-  gamma and Bessel functions), and host-side
-  `map_to_host`/`HostBuffer`/`TileTensor` (upstream's examples use `layout`,
-  which is in `max/`).
+- **Kernels**: `Float64`, `Float16`, SIMD, shared memory and barriers
+  (upstream's names for them are in `max/`), `print`, more than 256 threads
+  in a block, the libm functions WGSL lacks (`log10`, `cbrt`, `expm1`, `erfc`,
+  gamma and Bessel functions), and `TileTensor`: upstream's examples
+  index buffers through `layout`, which is in `max/`. The one that does
+  not, `hello_writing.mojo` of its documentation, runs with `gpu.host` for
+  `max.gpu.host` in its import and is in the test.
+- **Floating point in a kernel is the device's** (01:35, a scratch kernel
+  over eight values, the three browsers): infinities and NaN from a buffer,
+  from a sum and from a division by zero, and `isinf`, `isfinite`, `isnan`
+  and comparisons on them, were the host's everywhere; a subnormal quotient
+  was 0.0 everywhere; `v * 3.0e38 * 10` was 0.0 for every `v` on the NVIDIA
+  GPU under Chrome and Firefox and infinite on SwiftShader, as WGSL allows a
+  compiler that reassociates. Upstream's `exp` on any GPU is its own
+  polynomial, which stops at 2^127 where the host's is infinite.
+- **What `gpu@0` lacks for this, written down and not added**: a kernel has
+  no way to say anything (no print, no trap), so a failed `assert` ends the
+  invocation silently; the text of a rejected shader or pipeline reaches the
+  page's indicator and not the program, which gets an errno (a block over
+  the device's limit was `EIO`, an aliased buffer is `EINVAL`); buffers come
+  back only through a mapped staging buffer, 64 KiB a call (4 MiB in 10 ms
+  in Chrome); a dispatch is at most 65,535 workgroups a dimension and 2^20
+  in all. `CAPABILITIES` reports the device's limits, and `DeviceContext`
+  reads them to refuse by name a block that is too large (256 threads here)
+  and a kernel with more buffers than the device binds (10 here, the scalar
+  arguments being one).
 - **One run not attributed**: at 00:14 the scratch GPU runner, with Chrome
   on the NVIDIA GPU, the `kernels` object and a six-job compile beside it,
   had not returned after ten minutes and was killed. The same object passed

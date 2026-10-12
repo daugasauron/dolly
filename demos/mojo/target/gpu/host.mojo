@@ -58,6 +58,14 @@ struct Dim(TrivialRegisterPassable):
         self.y = y
         self.z = z
 
+    @implicit
+    def __init__(out self, dims: Tuple[Int, Int]):
+        self = Self(dims[0], dims[1])
+
+    @implicit
+    def __init__(out self, dims: Tuple[Int, Int, Int]):
+        self = Self(dims[0], dims[1], dims[2])
+
     def _extent(self) raises -> Array[UInt32, 3]:
         """Returns the extent as WebGPU counts it."""
         var extent = Array[UInt32, 3](fill=0)
@@ -149,12 +157,62 @@ struct DeviceBuffer[dtype: DType](Movable, Sized, _Storage):
         self.enqueue_copy_to(values.unsafe_ptr())
         return values^
 
+    def map_to_host(
+        mut self,
+    ) raises -> HostBuffer[Self.dtype, origin_of(self)]:
+        """Returns the buffer's elements for a `with`; what is stored into
+        them goes back to the device when it ends."""
+        return HostBuffer(self.to_host(), Pointer(to=self))
+
+
+struct HostBuffer[dtype: DType, origin: MutOrigin](Movable, Sized):
+    """A device buffer's elements in host memory."""
+
+    var _values: List[Scalar[Self.dtype]]
+    var _device: Pointer[DeviceBuffer[Self.dtype], Self.origin]
+    var _stored: Bool
+
+    def __init__(
+        out self,
+        var values: List[Scalar[Self.dtype]],
+        device: Pointer[DeviceBuffer[Self.dtype], Self.origin],
+    ):
+        self._values = values^
+        self._device = device
+        self._stored = False
+
+    def __enter__(var self) -> Self:
+        return self^
+
+    def __deinit__(deinit self):
+        if self._stored:
+            # A device that is gone says so at the next call that can raise.
+            _ = external_call["mojo_gpu_write", Int](
+                self._device[]._id,
+                UInt64(0),
+                self._values.unsafe_ptr(),
+                self._device[]._byte_size(),
+            )
+
+    def __len__(self) -> Int:
+        return len(self._values)
+
+    def __getitem__[I: Indexer](self, idx: I) -> Scalar[Self.dtype]:
+        return self._values[idx]
+
+    def __setitem__[I: Indexer](mut self, idx: I, value: Scalar[Self.dtype]):
+        self._values[idx] = value
+        self._stored = True
+
 
 struct DeviceContext(ImplicitlyCopyable):
     """The page's WebGPU device, as `gpu@0` lends it to this process."""
 
     def __init__(out self) raises:
         _ = _check(external_call["mojo_gpu_open", Int](), "DeviceContext")
+
+    def __enter__(var self) -> Self:
+        return self^
 
     def name(self) -> String:
         """Returns the device's name. Browsers do not tell an adapter's."""
@@ -180,7 +238,8 @@ struct DeviceContext(ImplicitlyCopyable):
         `block_dim` threads.
 
         `block_dim` is the WebGPU workgroup size (256 threads at most on a
-        default device, 64 in z) and `grid_dim` the workgroup count.
+        default device, 64 in z) and `grid_dim` the workgroup count; what the
+        device does not admit raises.
         """
         var kernel = compile_info[
             func, emission_kind="asm", target=CompilationTarget[_mlir_value=_webgpu()]()
@@ -193,6 +252,8 @@ struct DeviceContext(ImplicitlyCopyable):
         comptime for i in range(args.__len__()):
             comptime T = actual_arg_types[i]
             comptime if conforms_to(T, _Storage):
+                if buffer_count == len(buffers):
+                    raise Error("a kernel takes at most 16 buffers")
                 buffers[buffer_count] = rebind[downcast[T, _Storage]](
                     args[i]
                 )._handle()
@@ -201,10 +262,33 @@ struct DeviceContext(ImplicitlyCopyable):
                 )._byte_size()
                 buffer_count += 1
             else:
+                if slot_count == len(slots):
+                    raise Error("a kernel takes at most 64 other arguments")
                 slots[slot_count] = _slot(args[i])
                 slot_count += 1
         var grid = grid_dim._extent()
         var block = block_dim._extent()
+        var limits = Array[UInt32, 6](fill=0)
+        _ = _check(
+            external_call["mojo_gpu_limits", Int](limits.unsafe_ptr()),
+            "enqueue_function",
+        )
+        if (
+            block[0] * block[1] * block[2] > limits[0]
+            or block[0] > limits[1]
+            or block[1] > limits[2]
+            or block[2] > limits[3]
+        ):
+            raise Error(
+                "block_dim is larger than this device's workgroup: ",
+                limits[1], " by ", limits[2], " by ", limits[3],
+                " and ", limits[0], " threads",
+            )
+        if buffer_count + Int(slot_count > 0) > Int(limits[5]):
+            raise Error(
+                "a kernel on this device takes ", limits[5],
+                " buffers, its other arguments being one of them",
+            )
         _ = _check(
             external_call["mojo_gpu_launch", Int](
                 kernel.asm.unsafe_ptr(),

@@ -34,7 +34,7 @@ _gpu/primitives/id.mojo
 io/io.mojo, builtin/debug_assert.mojo, os/os.mojo, sys/__init__.mojo
   A WGSL kernel has nowhere to print. A print is a call the target refuses
   when the kernel can reach it; a failed assert and an abort end the
-  invocation without their message.
+  invocation without their message, which is not formatted either.
 
 diff --git a/Mojo/stdlib/std/_gpu/primitives/id.mojo b/Mojo/stdlib/std/_gpu/primitives/id.mojo
 index b91f561..911c4db 100644
@@ -136,7 +136,7 @@ index b91f561..911c4db 100644
              var i = llvm_intrinsic[
                  intrinsic_name, Int32, has_side_effect=False
 diff --git a/Mojo/stdlib/std/builtin/debug_assert.mojo b/Mojo/stdlib/std/builtin/debug_assert.mojo
-index a7d01d4..023ce93 100644
+index a7d01d4..ba96570 100644
 --- a/Mojo/stdlib/std/builtin/debug_assert.mojo
 +++ b/Mojo/stdlib/std/builtin/debug_assert.mojo
 @@ -24,6 +24,7 @@ from std.sys import (
@@ -147,7 +147,17 @@ index a7d01d4..023ce93 100644
  )
  from std.sys._amdgpu import (
      printf_append_args,
-@@ -581,7 +582,10 @@ def _debug_assert_msg(
+@@ -113,7 +114,8 @@ def _debug_assert_fail_format[
+ def _debug_assert_fail[*Ts: Writable](*messages: *Ts, location: SourceLocation):
+     """Reports a failed assertion, formatting the message if there is one."""
+ 
+-    comptime if messages.__len__() == 0:
++    # A WGSL kernel has nowhere to print: its message is not even formatted.
++    comptime if messages.__len__() == 0 or is_webgpu():
+         _debug_assert_msg(
+             _NO_MESSAGE.ptr(), _NO_MESSAGE.byte_length() + 1, location
+         )
+@@ -581,7 +583,10 @@ def _debug_assert_msg(
              " Assert Error: %s\n"
          )
  

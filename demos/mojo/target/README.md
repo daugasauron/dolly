@@ -32,8 +32,9 @@ flowchart LR
 
 ## Build and test
 
-There is no compiler in Dolly yet, so programs are cross-compiled by a native
-compiler built from the patched source (45 minutes at six jobs, 10 GB):
+The test takes its programs as objects from a native compiler built from the
+patched source (45 minutes at six jobs, 10 GB), so it needs no compiler in
+Dolly; [the `mojo` image](../README.md) compiles the same sources there:
 
 ```sh
 mkdir -p build/mojo-target && cd build/mojo-target
@@ -56,19 +57,24 @@ node demos/mojo/target/test/mojo-target-browser.mjs
 - The driver takes `--target-triple wasm64-unknown-dolly`; the CPU and the
   features are then those of every object `cc` makes, and Wasm tail calls,
   which coroutines need and every browser with 64-bit memories has.
-  `--emit object` is what works; the driver's own link step runs `cc ARCHIVE
-  COMPILER-RT -lm`, which Dolly's `cc` can serve once the compiler runs here
-  with `libmojo-rt.a` as its CompilerRT.
+  The driver links by running `cc ARCHIVE COMPILER-RT -lm`: in Dolly that is
+  Dolly's `cc` with `libmojo-rt.a` as the CompilerRT; a native compiler has
+  no such `cc`, so it stops at `--emit object`.
 - `CompilationTarget.is_dolly()` is the standard library's name for the
-  platform; it is neither `is_linux()` nor `is_macos()`.
+  platform; it is neither `is_linux()` nor `is_macos()`. Files, paths,
+  time, `subprocess.run` and `Process.run` work; Dolly has no FIFO, hard
+  link or password database, and `dlopen` is not ported. Of the 261 programs
+  of upstream's own test suite 224 do what upstream expects
+  ([the task](../../../tasks/20261012-130814-mojo-programs/TASK.md) has the
+  table).
 - The runtime is one thread: a task runs when something waits for it, and
   `parallelism_level()` is 1. Nothing public in the standard library of this
   tag starts parallel work (`parallelize` is in `max`). Python
   interoperation is absent, so a program that uses it does not link.
-- `mojo run` and the REPL execute through LLVM's JIT, which Wasm cannot have:
-  code is a module the browser instantiates, not memory a process writes. In
-  Dolly `mojo run` is to be `mojo build` and a spawn of the result; the REPL
-  and `mojo debug` are refused.
+- `mojo run`, the REPL and `mojo debug` execute through LLVM's JIT, which
+  Wasm cannot have: code is a module the browser instantiates, not memory a
+  process writes. In Dolly they fail saying so; `mojo build` and running the
+  result is what there is.
 
 ## A kernel
 
@@ -88,23 +94,40 @@ ctx.enqueue_function[saxpy](x, y, result, Float32(2), n, grid_dim=4, block_dim=2
 Upstream's `DeviceContext` is the package `max` over CUDA, HIP and Metal
 drivers that are not open source, so this one is new, with its names:
 `enqueue_create_buffer`, `enqueue_function`, `synchronize`, and on a buffer
-`enqueue_copy_from`, `enqueue_copy_to`, `enqueue_fill`.
+`enqueue_copy_from`, `enqueue_copy_to`, `enqueue_fill`, `map_to_host`.
+Upstream's GPU hello (`hello_writing.mojo` of its documentation) runs with
+`gpu.host` for `max.gpu.host` in its import; its other examples index
+buffers through `layout`, which is in `max`.
 
 - A kernel is compiled as 32-bit code, so its `Int` is 32 bits wide, like
   WGSL's integers; an `Int` argument that does not fit raises when enqueued.
 - Each pointer parameter is a storage buffer and takes a `DeviceBuffer`; a
   pointer is an offset into the buffer its parameter names. The other
   parameters (`Int`, `UInt`, `Int32`, `UInt32`, `Float32`, `Bool`) travel in
-  one more buffer.
+  one more buffer. A buffer is 32-bit words; one the kernel stores a
+  `Bool`, 8 or 16 bits into has atomic words, so that four threads can store
+  into one.
+- `Atomic[T].fetch_add`, `max`, `min` and `compare_exchange` on a pointer
+  into a buffer work for `UInt32`, `Int32` and `Float32`: WGSL's atomic
+  where it has one, else a loop around its compare and exchange.
 - `block_dim` is the WebGPU workgroup size, set when the pipeline is created:
-  at most 256 threads on a default device, and a larger block raises when
-  enqueued. `grid_dim` is the workgroup count.
+  at most 256 threads on a default device. `grid_dim` is the workgroup
+  count. A block the device does not admit raises when enqueued, as does a
+  kernel with more buffers than it binds (10 where measured, the scalar
+  arguments being one of them).
 - Control flow is printed as a block number in a loop, so any branch or loop
-  compiles; calls are inlined.
+  compiles; calls are inlined; a local array of a fixed size is a WGSL
+  array, and a struct, an `Optional` or a tuple is its scalars. The text
+  must fit `gpu@0`'s 128 KiB for a shader: the largest of the fixtures, a
+  dozen math functions, is 13 KB.
 - The compiler refuses, naming the instruction: 64-bit integers, `Float64`,
-  `Float16`, SIMD vectors, memory accesses that are not 32 bits wide (so
-  buffers of 8- and 16-bit scalars), pointers stored in memory or chosen
-  between two buffers, recursion, `print`.
+  `Float16`, SIMD vectors, pointers stored in memory or chosen between two
+  buffers, recursion, `print`, and the libm functions WGSL lacks (`log10`,
+  `cbrt`, `expm1`, `erfc`, gamma and Bessel functions).
+- Floating point is the device's. Where measured, an infinity or a NaN from
+  a buffer, a sum or a division compares and propagates as on the host, a
+  subnormal result is zero, and a value times two constants whose product
+  overflows was 0.0 on the NVIDIA driver, infinite in software.
 - A failed `assert` or an abort ends that invocation without a message; the
   others go on. WGSL has no trap and `gpu@0` carries no kernel output.
 - WebGPU forbids one buffer bound twice as writable, so enqueueing a kernel

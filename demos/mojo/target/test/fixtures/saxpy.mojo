@@ -20,10 +20,9 @@ def main() raises:
     var x = ctx.enqueue_create_buffer[DType.float32](n)
     var y = ctx.enqueue_create_buffer[DType.float32](n)
     var result = ctx.enqueue_create_buffer[DType.float32](n)
-    var values = List[Float32](length=n, fill=0)
-    for i in range(n):
-        values[i] = Float32(i)
-    x.enqueue_copy_from(values.unsafe_ptr())
+    with x.map_to_host() as host:
+        for i in range(n):
+            host[i] = Float32(i)
     y.enqueue_fill(0.5)
     ctx.enqueue_function[saxpy](
         x, y, result, Float32(2), n, grid_dim=4, block_dim=256

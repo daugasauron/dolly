@@ -316,14 +316,17 @@ FILE /tmp/mojo-runtime/gpu.c
     int64_t mojo_gpu_write(uint64_t buffer, uint64_t offset, const void *data, uint64_t bytes) {
       for (uint64_t at = 0; at < bytes; at += CHUNK) {
         uint32_t size = bytes - at < CHUNK ? (uint32_t)(bytes - at) : CHUNK;
+        /* WebGPU writes whole 32-bit words: the tail of a buffer of bytes is
+         * padded with the zeros of the record, into the buffer's own padding. */
+        uint32_t padded = (size + 3) & ~3u;
         dolly_gpu_begin(&g);
-        char *record = dolly_gpu_record(&g, DOLLY_GPU_WRITE_BUFFER, 32 + size);
+        char *record = dolly_gpu_record(&g, DOLLY_GPU_WRITE_BUFFER, 32 + padded);
         uint64_t target = offset + at;
         uint32_t data_offset = 32;
         memcpy(record + 8, &buffer, 8);
         memcpy(record + 16, &target, 8);
         memcpy(record + 24, &data_offset, 4);
-        memcpy(record + 28, &size, 4);
+        memcpy(record + 28, &padded, 4);
         memcpy(record + 32, (const char *)data + at, size);
         int64_t error = done();
         if (error) return error;
@@ -331,7 +334,8 @@ FILE /tmp/mojo-runtime/gpu.c
       return 0;
     }
     
-    int64_t mojo_gpu_read(uint64_t buffer, uint64_t offset, void *data, uint64_t bytes) {
+    /* gpu@0 maps at most 16 MiB at once and answers 64 KiB a call. */
+    static int64_t read_mapped(uint64_t buffer, uint64_t offset, char *data, uint64_t bytes) {
       uint64_t staging = next++, size = (bytes + 3) & ~(uint64_t)3;
       dolly_gpu_begin(&g);
       dolly_gpu_buffer(&g, staging, size, READBACK);
@@ -346,10 +350,19 @@ FILE /tmp/mojo-runtime/gpu.c
       for (uint64_t at = 0; !error && at < bytes; at += DOLLY_GPU_REPLY_BYTES) {
         uint64_t part = bytes - at < DOLLY_GPU_REPLY_BYTES ? bytes - at : DOLLY_GPU_REPLY_BYTES;
         if (dolly_gpu_read(&g, staging, at, part) != (int)part) error = errno ? -errno : -EIO;
-        else memcpy((char *)data + at, g.reply, part);
+        else memcpy(data + at, g.reply, part);
       }
       int64_t released = mojo_gpu_release(staging);
       return error ? error : released;
+    }
+    
+    int64_t mojo_gpu_read(uint64_t buffer, uint64_t offset, void *data, uint64_t bytes) {
+      enum { MAPPED = 16 * 1024 * 1024 };
+      for (uint64_t at = 0; at < bytes; at += MAPPED) {
+        int64_t error = read_mapped(buffer, offset + at, (char *)data + at, bytes - at < MAPPED ? bytes - at : MAPPED);
+        if (error) return error;
+      }
+      return 0;
     }
     
     /* One shader module per kernel text and one pipeline per block_dim of it. */
@@ -409,7 +422,8 @@ FILE /tmp/mojo-runtime/gpu.c
       if (compute < 0) return compute;
       uint64_t bound[DOLLY_GPU_MAX_BINDINGS], bound_sizes[DOLLY_GPU_MAX_BINDINGS], arguments = 0;
       memcpy(bound, buffers, buffer_count * 8);
-      memcpy(bound_sizes, sizes, buffer_count * 8);
+      /* A kernel reads whole 32-bit words, also of a buffer of bytes. */
+      for (unsigned i = 0; i < buffer_count; i++) bound_sizes[i] = (sizes[i] + 3) & ~(uint64_t)3;
       dolly_gpu_begin(&g);
       if (slot_count) {
         arguments = next++;
@@ -432,6 +446,19 @@ FILE /tmp/mojo-runtime/gpu.c
     }
     
     int64_t mojo_gpu_synchronize(void) { return dolly_gpu_wait(&g) < 0 ? -errno : 0; }
+    
+    /* What the device admits of a launch: the threads of a block, its x, y and
+     * z, the workgroups of a dimension, the storage buffers of a kernel. */
+    int64_t mojo_gpu_limits(uint32_t limits[6]) {
+      static uint32_t known[6];
+      if (!known[0]) {
+        if (dolly_gpu_capabilities(&g) < 72) return errno ? -errno : -EIO;
+        memcpy(known, g.reply + 44, 20);
+        memcpy(known + 5, g.reply + 68, 4);
+      }
+      memcpy(limits, known, sizeof known);
+      return 0;
+    }
 
 SLOP cc -O2 -Wall -Wextra -Werror -c /tmp/mojo-runtime/runtime.c -o /tmp/mojo-runtime/runtime.o
 SLOP cc -O2 -Wall -Wextra -Werror -c /tmp/mojo-runtime/gpu.c -o /tmp/mojo-runtime/gpu.o
