@@ -24,7 +24,7 @@ What Studio ships (`demos/studio/nvim/`, packed into `studio.tar` by `prepare-so
 
 What was stale, and is fixed:
 
-- **The syntax file knew Dollyfile 5's directives.** `syntax/dollyfile.vim` highlighted
+- **The syntax file knew the directives of before Dollyfile 6.** `syntax/dollyfile.vim` highlighted
   `IMAGE`, `MODULE` and `USE`, which no longer exist, and not `APPLICATION`, `TOOLCHAIN`,
   `PACKAGE`, `INSTALL` and `RUN`, nor `FILE` and `FOLDER` after `EXPORTS` or `REQUIRES`. Drawn
   by a native Neovim 0.12 (`tohtml`) over the catalog's 103 recipes, 264 of 3,513 directive
