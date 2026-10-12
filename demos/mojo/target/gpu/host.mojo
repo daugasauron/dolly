@@ -183,7 +183,7 @@ struct DeviceContext(ImplicitlyCopyable):
         default device, 64 in z) and `grid_dim` the workgroup count.
         """
         var kernel = compile_info[
-            func, emission_kind="asm", target=CompilationTarget[_webgpu()]()
+            func, emission_kind="asm", target=CompilationTarget[_mlir_value=_webgpu()]()
         ]()
         var buffers = Array[UInt64, 16](fill=0)
         var sizes = Array[UInt64, 16](fill=0)

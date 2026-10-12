@@ -110,6 +110,11 @@ FILE /tmp/mojo-runtime/runtime.c
       }
     }
     
+    /* Clang names a C program's main(argc, argv) __main_argc_argv for Wasm, and
+     * libc calls that. Mojo names its entry point main. */
+    int mojo_main(int, char **) __asm__("main");
+    int __main_argc_argv(int count, char **values) { return mojo_main(count, values); }
+    
     /* Arguments */
     
     struct string { const char *bytes; size_t length; };
@@ -149,7 +154,7 @@ FILE /tmp/mojo-runtime/runtime.c
     void KGEN_CompilerRT_PrintStackTraceOnFault(void) {}
     
     /* As upstream answers while stack traces on errors are not configured. */
-    int KGEN_CompilerRT_GetStackTrace(char **text, unsigned depth) {
+    int64_t KGEN_CompilerRT_GetStackTrace(char **text, int64_t depth) {
       (void)text;
       (void)depth;
       return 0;
