@@ -88,16 +88,21 @@ UInt32, Float32 or Bool`.
 are compile-failure tests with `RUN:` lines). Each was cross-compiled with
 `-D ASSERT=all` and no per-test option of its `BUILD.bazel`, linked with
 `cc NAME.o -lmojo-rt` in one `mojo-runtime` session with the test tree
-unpacked at its source path, and run:
+unpacked at its source path, and run (3.5 minutes for all):
 
 | Files | Outcome |
 | --- | --- |
-| 175 | exit 0: every test of the file passes |
+| 178 | exit 0: every test of the file passes |
 | 33 | the output its `CHECK` lines expect (most abort on purpose, status 126) |
-| 12 | output differs because the build lacked the file's options (`LOGGING_LEVEL`, `MOJO_STDLIB_SIMD_UNINIT_CHECK`, `ASSERT=warn`) or my check is stricter than FileCheck about spaces: not looked into one by one |
-| 11 | fail: 7 need another platform or build (`sys/test_linux_target`, `test_aarch64_target`, `test_targetinfo`, `test_c_types`, `test_build_info_debug`, `test_compile_debug`, `testing/test_suite_cli`), `os/test_env` wants Bazel's environment, and three meet Dolly: no FIFO (`builtin/test_file`, 32 of 33), no hard link (`os/test_link`), no password database (`pwd/test_pwd`) |
+| 13 | not judged: 10 lacked their file's build options (`LOGGING_LEVEL`, `MOJO_STDLIB_SIMD_UNINIT_CHECK`, `ASSERT=warn`); `os/test_process` and `runtime/test_locks` print what is expected, which my check (stricter than FileCheck about spaces and order) did not accept; `benchmark/test_quick_bench` not looked at |
+| 11 | fail: 7 need another platform, build or arguments (`sys/test_linux_target`, `test_aarch64_target`, `test_targetinfo`, `test_c_types`, `test_build_info_debug`, `test_compile_debug`, `testing/test_suite_cli`), `os/test_env` wants Bazel's environment, and three meet Dolly: no FIFO (`builtin/test_file`, 32 of 33), no hard link (`os/test_link`), no password database (`pwd/test_pwd`) |
 | 12 | do not link: 9 of `python/`, `os/test_stat` and `testing/test_assertion` need `KGEN_CompilerRT_Python_SetPythonPath`; `test_utils` has no `main` |
-| 18 | do not compile: 5 import `max`, 1 a GPU target, 1 `reflection`; `os/test_process` and three abort tests spawn through `fork`; `sys/test_ffi`, `test_dlhandle`, `test_macos_target` are for other platforms; 2 need bfloat16, which LLVM's WebAssembly backend cannot select; `runtime/test_asyncrt` and `test_raising_asyncrt` fail in this compiler for x86-64 too |
+| 14 | do not compile: 5 import `max`, 1 a GPU target, 1 `reflection`; `sys/test_ffi`, `test_dlhandle`, `test_macos_target` are for other platforms; 2 need bfloat16, which LLVM's WebAssembly backend cannot select; `runtime/test_asyncrt` and `test_raising_asyncrt` fail in this compiler for x86-64 too, and in the released one |
+
+Among the 178: `os/test_process` and the three tests that spawn themselves to
+watch an abort (`Process.run`, `waitpid`, `kill`, the environment),
+`subprocess/test_run` (`popen`), `tempfile`, `pathlib`, `os/test_listdir`,
+`test_symlink`, `time`.
 
 Before that came to pass:
 
@@ -105,9 +110,12 @@ Before that came to pass:
   link (`duplicate symbol name __indirect_function_table`, 205 of 243
   files): the compiler prints an object in another MC context than the one
   its code was generated in. Fixed in `MCLinker.cpp`.
-- `lseek` was called as `(i64, i64, i64)` and trapped. With it fixed, the
-  objects of all 243 files call 76 libc functions, each with the type libc
-  defines (import and definition types read from the Wasm objects).
+- `lseek` was called as `(i64, i64, i64)` and trapped, `waitpid` with a
+  64-bit `pid_t`. With them fixed, the objects of all 247 files call 80 libc
+  functions, each with the type libc defines (import and definition types
+  read from the Wasm objects).
+- A Mojo abort is a trap, which Dolly reports as exit status 126 and Linux
+  as a signal: `std.testing.assert_aborts` now knows both.
 
 Measured on the GPU (Xvfb, 2026-10-13): 5,000 `enqueue_function` calls of
 a kernel over 2^20 floats, then `synchronize()` and a read of all 4 MiB,
@@ -160,20 +168,26 @@ the released compiler on this machine's x86-64: 1.4 times.
   Nothing public in the standard library of this tag starts parallel work
   (`parallelize` is in `max`), so `threads@0` is not used; Python
   interoperation is not there.
-- **Standard library: what was ported is what the fixtures and the probe
-  cover.** Not ported, and failing at compile time or at link: `std.pwd`,
-  `std.os.process` and `std.subprocess` (they assert Linux or macOS; Dolly
-  has `posix_spawn`, no `fork`), `_get_environ`, `dlopen` (Dolly's is
-  `dolly_dlopen`, selected by `cc` for C only), `std.python`.
+- **Standard library: not ported**: `dlopen` (Dolly's is `dolly_dlopen`,
+  selected by `cc` for C only, and needs `dso@0`), `std.python`, bfloat16.
+  `std.pwd` compiles and finds nobody: Dolly has one user and no database.
 - **C calls with the wrong integer width trap on Wasm.** `read`, `write`,
-  `lseek` and `mkdir` passed an `Int` for an `int`; fixed in the patch. What
+  `lseek`, `mkdir` and `waitpid` passed an `Int` for an `int`; fixed in the
+  patch. What
   the test suite does not call is unchecked: `sys/_libc.mojo` declares
   `write` returning `c_int`, for one. `wasm-ld` warns of each mismatch when a
   program links.
 - **Kernels**: buffers of 8- and 16-bit scalars, `Float64`, `Float16`, SIMD,
   shared memory and barriers, atomics, `print`, more than 256 threads in a
-  block, and host-side `map_to_host`/`HostBuffer`/`TileTensor` (upstream's
-  examples use `layout`, which is in `max/`).
+  block, the libm functions WGSL lacks (`log10`, `cbrt`, `expm1`, `erfc`,
+  gamma and Bessel functions), and host-side
+  `map_to_host`/`HostBuffer`/`TileTensor` (upstream's examples use `layout`,
+  which is in `max/`).
+- **One run not attributed**: at 00:14 the scratch GPU runner, with Chrome
+  on the NVIDIA GPU, the `kernels` object and a six-job compile beside it,
+  had not returned after ten minutes and was killed. The same object passed
+  three times in Chrome and twice in Firefox afterwards. The runner had no
+  time limit and kept no output, so it is unknown which step stood still.
 - `mojo build --print-supported-targets` lists LLVM architectures and omits
   both targets, since it asks for a triple without an operating system.
 

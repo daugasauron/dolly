@@ -22,6 +22,9 @@ ffi/__init__.mojo, os/process.mojo, sys/_libc.mojo
   C's pid_t is 32 bits, not an Int: waitpid trapped. With that,
   Process.run needs only the environment for posix_spawnp, which Dolly's
   compiler runtime hands over as KGEN_CompilerRT_Environ.
+testing/assert_aborts.mojo
+  A Mojo abort is a trap, which Dolly reports as exit status 126 and not as
+  a signal.
 math/math.mojo
   A WebGPU kernel may call libm: the target prints tan, atan, asinh, acosh
   and atanh as WGSL's builtins and refuses the others by name.
@@ -1121,6 +1124,33 @@ index 1739a71..fd8084e 100644
  
  
  @always_inline("nodebug")
+diff --git a/Mojo/stdlib/std/testing/assert_aborts.mojo b/Mojo/stdlib/std/testing/assert_aborts.mojo
+index 96a06ca..b1c6433 100644
+--- a/Mojo/stdlib/std/testing/assert_aborts.mojo
++++ b/Mojo/stdlib/std/testing/assert_aborts.mojo
+@@ -22,7 +22,7 @@ from std.os.env import getenv, setenv, unsetenv
+ from std.os.path import exists
+ from std.os.process import Process, ProcessStatus
+ from std.reflection import call_location, SourceLocation
+-from std.sys import argv
++from std.sys import CompilationTarget, argv
+ from std.sys._io import stderr, stdout
+ from std.sys._libc import dup2
+ from std.sys.compile import SanitizeAddress
+@@ -199,7 +199,12 @@ def _spawn_and_check(
+             t" may be hanging rather than aborting.\nCaptured output:"
+             t"\n{captured}"
+         )
+-    if not status.term_signal:
++    # An abort is a trap. Dolly ends a trapped process with status 126, as it
++    # ends any Wasm trap, and not through a signal.
++    var aborted = Bool(status.term_signal)
++    comptime if CompilationTarget.is_dolly():
++        aborted = status.exit_code.or_else(0) == 126
++    if not aborted:
+         var note = contains.map(
+             lambda (s: String) -> String: String(
+                 t' (expected substring: "{s}")'
 diff --git a/Mojo/stdlib/std/time/time.mojo b/Mojo/stdlib/std/time/time.mojo
 index 4443a45..7bf4b41 100644
 --- a/Mojo/stdlib/std/time/time.mojo
