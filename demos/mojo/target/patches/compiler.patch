@@ -94,10 +94,10 @@ index 8bdcb15..42aea40 100644
    }
 diff --git a/Mojo/lib/Compiler/ObjectCompiler/Target/Dolly/DollyBackend.cpp b/Mojo/lib/Compiler/ObjectCompiler/Target/Dolly/DollyBackend.cpp
 new file mode 100644
-index 0000000..1c14b2b
+index 0000000..5c161d4
 --- /dev/null
 +++ b/Mojo/lib/Compiler/ObjectCompiler/Target/Dolly/DollyBackend.cpp
-@@ -0,0 +1,1497 @@
+@@ -0,0 +1,1553 @@
 +//===----------------------------------------------------------------------===//
 +// Added for Dolly, a POSIX-like userspace for wasm64 in the browser.
 +//
@@ -125,7 +125,11 @@ index 0000000..1c14b2b
 +//     what WGSL's operators do not do across the two words;
 +//   - a constant global is a private array, and what the kernel prints is a
 +//     record in one more buffer, `log`, bound last: the words it has used,
-+//     then for each record its thread, its length in bytes and its text.
++//     then for each record its thread, its length in bytes and its text;
++//   - shared memory is a workgroup array. WGSL wants a barrier in uniform
++//     control flow, which a kernel's is not: a thread at a barrier leaves the
++//     loop of blocks, and all threads meet at one WGSL barrier until none
++//     has a block left to run.
 +// What WGSL cannot say is an error naming the instruction: f64, f16,
 +// vectors, calls. A trap ends the invocation.
 +//
@@ -161,6 +165,13 @@ index 0000000..1c14b2b
 +using namespace llvm;
 +
 +constexpr StringLiteral kKernelAttribute = "dolly-webgpu-kernel";
++
++/// Whether `i` calls what the standard library or the package `gpu` names so.
++bool isCallTo(const Instruction &i, StringRef name) {
++  auto *call = dyn_cast<CallInst>(&i);
++  const Function *callee = call ? call->getCalledFunction() : nullptr;
++  return callee && callee->getName() == name;
++}
 +
 +/// 64-bit integers as (low, high). WGSL shifts by less than 32 only, and its
 +/// floats are exact to 24 bits, so a conversion rounds once per word.
@@ -272,8 +283,11 @@ index 0000000..1c14b2b
 +  std::map<uint32_t, unsigned> NonFinite;
 +  /// Whether the kernel has a 64-bit integer, and so needs kWide.
 +  bool Wide = false;
-+  /// The constant globals the kernel reads, in the order it names them.
-+  SmallVector<const GlobalVariable *, 4> Globals;
++  /// The constant globals the kernel reads, in the order it names them, and
++  /// the shared ones.
++  SmallVector<const GlobalVariable *, 4> Globals, Shared;
++  /// What ends a thread: a return, or with barriers its last wait.
++  const char *End = "return;";
 +
 +  void fail(const Twine &what, const Value *value = nullptr) {
 +    if (!Failure.empty())
@@ -288,13 +302,17 @@ index 0000000..1c14b2b
 +
 +  /// Whether `i` is what `std.io` calls with the text a kernel prints.
 +  static bool isLog(const Instruction &i) {
-+    auto *call = dyn_cast<CallInst>(&i);
-+    const Function *callee = call ? call->getCalledFunction() : nullptr;
-+    return callee && callee->getName() == "__webgpu_log" &&
-+           call->arg_size() == 2;
++    return isCallTo(i, "__webgpu_log") && cast<CallInst>(i).arg_size() == 2;
 +  }
 +
 +  static bool isWide(Type *type) { return type->isIntegerTy(64); }
++
++  /// Whether `base` is memory of a block's threads, as
++  /// `stack_allocation[..., address_space=AddressSpace.SHARED]` makes it.
++  static bool isShared(const Value *base) {
++    auto *global = dyn_cast_or_null<GlobalVariable>(base);
++    return global && !global->isConstant() && global->getAddressSpace() == 3;
++  }
 +
 +  /// Bits of an integer the printer holds in a u32, or 0.
 +  static unsigned bits(Type *type) {
@@ -499,12 +517,14 @@ index 0000000..1c14b2b
 +    if (auto *buffer = dyn_cast_or_null<Argument>(base))
 +      return "b" + utostr(Buffers.lookup(buffer));
 +    if (auto *global = dyn_cast_or_null<GlobalVariable>(base)) {
-+      if (!global->isConstant() || !global->hasDefinitiveInitializer())
++      bool constant = global->isConstant() && global->hasDefinitiveInitializer();
++      if (!constant && !isShared(global))
 +        fail("a kernel has no global variables", global);
-+      auto known = find(Globals, global);
-+      if (known == Globals.end())
-+        known = Globals.insert(Globals.end(), global);
-+      return "g" + utostr(known - Globals.begin());
++      auto &kind = constant ? Globals : Shared;
++      auto known = find(kind, global);
++      if (known == kind.end())
++        known = kind.insert(kind.end(), global);
++      return (constant ? "g" : "s") + utostr(known - kind.begin());
 +    }
 +    return "m" + utostr(Numbers.lookup(base));
 +  }
@@ -527,7 +547,8 @@ index 0000000..1c14b2b
 +  /// The statement that stores the byte `value` there.
 +  std::string storeByte(const Value *pointer, const std::string &at,
 +                        const std::string &value) {
-+    if (isa_and_nonnull<GlobalVariable>(root(pointer)))
++    if (isa_and_nonnull<GlobalVariable>(root(pointer)) &&
++        !isShared(root(pointer)))
 +      fail("a kernel cannot store into a constant", pointer);
 +    std::string cell = memory(pointer) + "[(" + at + ") >> 2u]";
 +    std::string shift = " << (((" + at + ") & 3u) * 8u))";
@@ -669,7 +690,7 @@ index 0000000..1c14b2b
 +    if (!type->isFloatTy() && bits(type) != 32)
 +      fail("WGSL has atomics of 32 bits only", &i);
 +    if (!Atomic.count(root(pointer)))
-+      fail("an atomic operation must be on a buffer parameter", &i);
++      fail("an atomic operation must be on a buffer or on shared memory", &i);
 +    return "&" + word(pointer);
 +  }
 +
@@ -1282,6 +1303,9 @@ index 0000000..1c14b2b
 +      os << "      " << bytes(*moved) << "\n";
 +    } else if (isLog(i)) {
 +      os << "      " << record(cast<CallInst>(i)) << "\n";
++    } else if (isCallTo(i, "__webgpu_barrier")) {
++      // The block ends here (printKernel): the thread goes to the barrier.
++      os << "      stopped = true;\n";
 +    } else if (auto *invocation = dyn_cast<CallInst>(&i)) {
 +      std::string value = call(*invocation);
 +      if (!value.empty() && !i.getType()->isVoidTy())
@@ -1304,7 +1328,7 @@ index 0000000..1c14b2b
 +           << edge(from, target.getCaseSuccessor()) << " else ";
 +      os << edge(from, choice->getDefaultDest()) << "\n";
 +    } else if (isa<ReturnInst>(i) || isa<UnreachableInst>(i)) {
-+      os << "      return;\n";
++      os << "      " << End << "\n";
 +    } else if (!isa<PHINode>(i) && !isa<AllocaInst>(i)) {
 +      fail("WGSL has no such instruction", &i);
 +    }
@@ -1320,10 +1344,14 @@ index 0000000..1c14b2b
 +     << "override block_x: u32 = 1u;\noverride block_y: u32 = 1u;\n"
 +     << "override block_z: u32 = 1u;\n";
 +  unsigned buffers = 0, slots = 0;
-+  bool logs = false;
++  bool logs = false, waits = false;
 +  for (const BasicBlock &block : F)
-+    for (const Instruction &i : block)
++    for (const Instruction &i : block) {
 +      logs |= isLog(i);
++      waits |= isCallTo(i, "__webgpu_barrier");
++    }
++  if (waits)
++    End = "bb = 4294967295u; stopped = true;";
 +  for (const BasicBlock &block : F)
 +    for (const Instruction &i : block) {
 +      auto *stored = dyn_cast<StoreInst>(&i);
@@ -1335,9 +1363,9 @@ index 0000000..1c14b2b
 +           (partBits(type) || stored->getAlign().value() < bytesOf(type)));
 +      if (!narrow && (!i.isAtomic() || isa<FenceInst>(i)))
 +        continue;
-+      if (auto *buffer = dyn_cast_or_null<Argument>(
-+              root(i.getOperand(stored ? 1 : 0))))
-+        Atomic.insert(buffer);
++      const Value *base = root(i.getOperand(stored ? 1 : 0));
++      if (isa_and_nonnull<Argument>(base) || isShared(base))
++        Atomic.insert(base);
 +    }
 +  for (const Argument &argument : F.args()) {
 +    if (!argument.getType()->isPointerTy()) {
@@ -1430,12 +1458,32 @@ index 0000000..1c14b2b
 +  }
 +  for (const auto &[pattern, slot] : NonFinite)
 +    os << "  var k" << slot << ": u32 = " << pattern << "u;\n";
-+  os << "  var bb: u32 = 0u;\n  loop {\n    switch bb {\n"
-+     << body << "    default { return; }\n    }\n  }\n}\n";
++  os << "  var bb: u32 = 0u;\n";
++  if (waits)
++    os << "  loop {\n  var stopped = false;\n";
++  os << "  loop {\n    switch bb {\n"
++     << body << "    default { " << (waits ? "stopped = true;" : "return;")
++     << " }\n    }\n";
++  if (waits)
++    // A thread with a block left to run says so; all read whether one did.
++    os << "    if (stopped) { break; }\n  }\n"
++       << "  if (bb != 4294967295u) { atomicStore(&running, 1u); }\n"
++       << "  if (workgroupUniformLoad(&running) == 0u) { break; }\n"
++       << "  atomicStore(&running, 0u);\n  workgroupBarrier();\n";
++  os << "  }\n}\n";
++  if (waits)
++    os << "var<workgroup> running: atomic<u32>;\n";
 +  if (Wide)
 +    os << kWide;
 +  for (unsigned index = 0; index < Globals.size(); index++)
 +    printGlobal(os, index);
++  for (unsigned index = 0; index < Shared.size(); index++) {
++    uint64_t bytes =
++        DL.getTypeAllocSize(Shared[index]->getValueType()).getFixedValue();
++    os << "var<workgroup> s" << index << ": array<"
++       << (Atomic.count(Shared[index]) ? "atomic<u32>" : "u32") << ", "
++       << std::max<uint64_t>(1, (bytes + 3) / 4) << ">;\n";
++  }
 +  return Failure.empty() ? text : std::string();
 +}
 +
@@ -1494,6 +1542,14 @@ index 0000000..1c14b2b
 +  failure = inlineCalls(*kernel);
 +  if (!failure.empty())
 +    return {};
++  // A barrier ends its block, so that the thread can leave there and return.
++  SmallVector<Instruction *, 8> barriers;
++  for (BasicBlock &block : *kernel)
++    for (Instruction &i : block)
++      if (isCallTo(i, "__webgpu_barrier"))
++        barriers.push_back(&i);
++  for (Instruction *barrier : barriers)
++    barrier->getParent()->splitBasicBlock(std::next(barrier->getIterator()));
 +  WGSLKernel printer(*kernel);
 +  std::string text = printer.print();
 +  failure = printer.failure().str();
