@@ -17,10 +17,10 @@ of it is in `demos/mojo/target/` and described in its README:
   `mojo/v1.1.0`. The compiler patch needs LLVM's WebAssembly backend linked
   in (`BACKENDS` for Bazel; whatever builds LLVM in Dolly has it already). Its
   three new directories are found by upstream's globs.
-- Default the driver to `--target-triple wasm64-unknown-dolly --target-cpu
-  generic --target-features
-  +mutable-globals,+atomics,+bulk-memory,+exception-handling,+multivalue,+reference-types`:
-  upstream takes the host's triple and CPU from LLVM, which knows no Dolly.
+- Default the driver to `--target-triple wasm64-unknown-dolly`: upstream
+  takes the host's triple, CPU and features from LLVM, which knows no Dolly.
+  With that triple the patch selects the CPU `generic` and the features of
+  `cc`'s objects.
 - `mojo build` links by running `cc ARCHIVE COMPILER-RT -Wl,--gc-sections -lm
   -o OUT` (`Mojo/tools/mojo/Build/mojo-build.cpp`, `linkOutput`). Give it
   `/usr/lib/libmojo-rt.a` of the `mojo-runtime` image as the CompilerRT path
@@ -105,8 +105,10 @@ UInt32, Float32 or Bool`.
 ### What is left, measured
 
 - **Upstream's CompilerRT does not compile here as it is.** It is 1,100
-  lines over AsyncRT's thread pool (3,500 lines), tcmalloc, `Support` and
-  LLVMSupport, and its entry points take `llvm::StringRef` by value. The
+  lines of its own, and `bazel query 'kind("source file",
+  deps(//Mojo:CompilerRT))'` names 2,543 C and C++ files beneath it: 2,221
+  of LLVM, 105 of Abseil, 58 of tcmalloc, 62 of `Support`, 19 of AsyncRT (its
+  thread pool). Its entry points take `llvm::StringRef` by value. The
   standard library calls them now with a struct and now with a pointer and a
   length (`_get_global` and `_get_global_or_null` in `std/ffi`), which is
   the same on x86-64 and arm64 and not in the C ABI of Wasm, where a two-word

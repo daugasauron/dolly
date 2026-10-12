@@ -15,7 +15,7 @@ parameters take `Int`, `UInt`, `Int32`, `UInt32`, `Float32` or `Bool`.
 from std.collections.array import Array
 from std.compile import compile_info
 from std.builtin.rebind import downcast
-from std.ffi import external_call
+from std.ffi import ErrNo, external_call
 from std.memory import bitcast
 from std.sys import size_of
 from std.sys.info import CompilationTarget, _TargetType
@@ -26,7 +26,7 @@ def _webgpu() -> _TargetType:
         `#kgen.target<triple = "wasm32-unknown-webgpu", `,
         `arch = "generic", `,
         `features = "", `,
-        `data_layout = "e-m:e-p:32:32-p10:8:8-p20:8:8-i64:64-i128:128-n32:64-S128-ni:1:10:20", `,
+        `data_layout = "e-m:e-p:32:32-p10:8:8-p20:8:8-i64:64-i128:128-n32-S128-ni:1:10:20", `,
         `index_bit_width = 32, `,
         `simd_bit_width = 128`,
         `> : !kgen.target`,
@@ -36,7 +36,7 @@ def _webgpu() -> _TargetType:
 def _check(status: Int, operation: StaticString) raises -> Int:
     """Returns what a `gpu@0` call answered, or raises its errno."""
     if status < 0:
-        raise Error(operation, ": gpu@0 failed with errno ", -status)
+        raise Error(operation, ": gpu@0: ", ErrNo(-status))
     return status
 
 

@@ -20,6 +20,10 @@ io/file_descriptor.mojo, io/file.mojo, os/os.mojo
 _gpu/primitives/id.mojo
   thread_idx, block_idx, block_dim and grid_dim of a WebGPU kernel are calls
   the target prints as WGSL builtins.
+io/io.mojo, builtin/debug_assert.mojo, os/os.mojo, sys/__init__.mojo
+  A WGSL kernel has nowhere to print. A print is a call the target refuses
+  when the kernel can reach it; a failed assert and an abort end the
+  invocation without their message.
 
 diff --git a/Mojo/stdlib/std/_gpu/primitives/id.mojo b/Mojo/stdlib/std/_gpu/primitives/id.mojo
 index b91f561..911c4db 100644
@@ -120,6 +124,30 @@ index b91f561..911c4db 100644
              comptime intrinsic_name = "llvm.nvvm.read.ptx.sreg.nctaid." + dim
              var i = llvm_intrinsic[
                  intrinsic_name, Int32, has_side_effect=False
+diff --git a/Mojo/stdlib/std/builtin/debug_assert.mojo b/Mojo/stdlib/std/builtin/debug_assert.mojo
+index a7d01d4..023ce93 100644
+--- a/Mojo/stdlib/std/builtin/debug_assert.mojo
++++ b/Mojo/stdlib/std/builtin/debug_assert.mojo
+@@ -24,6 +24,7 @@ from std.sys import (
+     is_apple_gpu,
+     is_gpu,
+     is_nvidia_gpu,
++    is_webgpu,
+ )
+ from std.sys._amdgpu import (
+     printf_append_args,
+@@ -581,7 +582,10 @@ def _debug_assert_msg(
+             " Assert Error: %s\n"
+         )
+ 
+-        comptime if is_nvidia_gpu():
++        comptime if is_webgpu():
++            # A WGSL kernel has nowhere to print: the invocation only ends.
++            pass
++        elif is_nvidia_gpu():
+             from std._gpu.primitives.id import block_idx, thread_idx
+ 
+             _printf[fmt](
 diff --git a/Mojo/stdlib/std/ffi/__init__.mojo b/Mojo/stdlib/std/ffi/__init__.mojo
 index a6ac93a..c0eded8 100644
 --- a/Mojo/stdlib/std/ffi/__init__.mojo
@@ -263,6 +291,50 @@ index 6e39f2d..9501360 100644
          )
          if read < 0:
              raise Error("Failed to read bytes.")
+diff --git a/Mojo/stdlib/std/io/io.mojo b/Mojo/stdlib/std/io/io.mojo
+index 625aa5d..b00c938 100644
+--- a/Mojo/stdlib/std/io/io.mojo
++++ b/Mojo/stdlib/std/io/io.mojo
+@@ -33,6 +33,7 @@ from std.sys import (
+     is_apple_gpu,
+     is_gpu,
+     is_nvidia_gpu,
++    is_webgpu,
+     stdin,
+     stdout,
+ )
+@@ -205,6 +206,13 @@ def _printf_cpu[
+         )
+ 
+ 
++@always_inline("nodebug")
++def _webgpu_print():
++    """Marks a print in a WebGPU kernel. A WGSL kernel has nowhere to print:
++    the target refuses a kernel in which this call can be reached."""
++    external_call["__webgpu_print", NoneType]()
++
++
+ @no_inline
+ def _printf[
+     fmt: StaticString, *types: AnyType
+@@ -306,6 +314,8 @@ def _printf[
+         )
+     elif not is_gpu():
+         _printf_cpu[fmt](*args, file=file)
++    elif is_webgpu():
++        _webgpu_print()
+     else:
+         # If we aren't targeting either a known GPU vendor, or CPU, issue
+         # a target error.
+@@ -446,6 +456,8 @@ def print[
+             _metal_print_write(
+                 StringSlice(unsafe_from_utf8=cstr.as_bytes_with_nul())
+             )
++        elif is_webgpu():
++            _webgpu_print()
+         else:
+             CompilationTarget.unsupported_target_error[
+                 operation=__get_current_function_name()
 diff --git a/Mojo/stdlib/std/os/_dolly.mojo b/Mojo/stdlib/std/os/_dolly.mojo
 new file mode 100644
 index 0000000..c9e2b89

@@ -8,7 +8,6 @@ modular=$tree/build/mojo-target/modular
 mkdir -p "$tree/build/mojo-target/objects"
 for program in "$tree"/demos/mojo/target/test/fixtures/*.mojo; do
   MODULAR_MOJO_MAX_IMPORT_PATH=$modular/Mojo/stdlib MODULAR_TELEMETRY_ENABLED=false MODULAR_CRASH_REPORTING_ENABLED=false \
-    "$modular/bazel-bin/Mojo/tools/mojo/mojo" build --target-triple wasm64-unknown-dolly --target-cpu generic \
-    --target-features +mutable-globals,+atomics,+bulk-memory,+exception-handling,+multivalue,+reference-types \
+    "$modular/bazel-bin/Mojo/tools/mojo/mojo" build --target-triple wasm64-unknown-dolly \
     --emit object -I "$tree/demos/mojo/target" "$program" -o "$tree/build/mojo-target/objects/$(basename "$program" .mojo).o"
 done

@@ -9,6 +9,9 @@ Support/include/Support/MDialect/MAttrs.td
 Support/lib/MArchTarget/MArchTargetMinimal.cpp
   The CPU name "generic" was looked up as an AArch64 CPU for every triple, so
   a wasm64 target got +neon, +fp-armv8 and +ete and LLVM warned of each.
+  A Dolly target has atomics and exception-handling beyond that CPU's
+  features, as every object of Dolly's C compiler has: the linker refuses to
+  share memory with an object without atomics.
 Mojo/lib/Target/Dolly, Mojo/lib/KGENToLLVM/Target/Dolly,
 Mojo/lib/Compiler/ObjectCompiler/Target/Dolly (new)
   Two targets, each registered as upstream's host target is:
@@ -18,10 +21,10 @@ Mojo/lib/Compiler/ObjectCompiler/Target/Dolly (new)
 
 diff --git a/Mojo/lib/Compiler/ObjectCompiler/Target/Dolly/DollyBackend.cpp b/Mojo/lib/Compiler/ObjectCompiler/Target/Dolly/DollyBackend.cpp
 new file mode 100644
-index 0000000..5fe44f2
+index 0000000..4dedf68
 --- /dev/null
 +++ b/Mojo/lib/Compiler/ObjectCompiler/Target/Dolly/DollyBackend.cpp
-@@ -0,0 +1,781 @@
+@@ -0,0 +1,789 @@
 +//===----------------------------------------------------------------------===//
 +// Added for Dolly, a POSIX-like userspace for wasm64 in the browser.
 +//
@@ -604,6 +607,14 @@ index 0000000..5fe44f2
 +std::string WGSLKernel::print() {
 +  if (!F.getReturnType()->isVoidTy())
 +    fail("a kernel returns nothing");
++  // The standard library marks a print so: it is the reason to give, before
++  // the formatting around it fails for another.
++  for (const BasicBlock &block : F)
++    for (const Instruction &i : block)
++      if (auto *invocation = dyn_cast<CallInst>(&i))
++        if (const Function *callee = invocation->getCalledFunction())
++          if (callee->getName() == "__webgpu_print")
++            fail("a kernel cannot print: WGSL has no output");
 +
 +  std::string text;
 +  raw_string_ostream os(text);
@@ -978,7 +989,7 @@ index b720fd1..fa62243 100644
      }
  
 diff --git a/Support/lib/MArchTarget/MArchTargetMinimal.cpp b/Support/lib/MArchTarget/MArchTargetMinimal.cpp
-index a96d1af..3b5acf1 100644
+index a96d1af..b113ae6 100644
 --- a/Support/lib/MArchTarget/MArchTargetMinimal.cpp
 +++ b/Support/lib/MArchTarget/MArchTargetMinimal.cpp
 @@ -78,8 +78,10 @@ M::getFeaturesFromClang(std::shared_ptr<clang::TargetOptions> opts,
@@ -993,6 +1004,20 @@ index a96d1af..3b5acf1 100644
      std::vector<std::string> updatedFeaturesVec;
      auto exts = cpuInfo->DefaultExtensions;
      std::vector<StringRef> cpuFeats;
+@@ -115,6 +117,13 @@ M::getFeaturesFromClang(std::shared_ptr<clang::TargetOptions> opts,
+       features.emplace_back(feature.drop_front());
+   }
+ 
++  // Every object of Dolly's C compiler has these two beyond the generic CPU:
++  // a process shares its memory with its threads, and its C++ unwinds.
++  if (llvm::Triple(opts->Triple).getOSName() == "dolly") {
++    features.emplace_back("atomics");
++    features.emplace_back("exception-handling");
++  }
++
+   llvm::sort(features);
+   // The per-architecture blocks above append what clang already resolved, so a
+   // CPU's base ISA can appear twice.
 diff --git a/bazel/public-patches/llvm_project.bzl b/bazel/public-patches/llvm_project.bzl
 index f431143..24b9531 100644
 --- a/bazel/public-patches/llvm_project.bzl

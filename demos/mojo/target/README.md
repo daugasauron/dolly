@@ -53,12 +53,11 @@ node demos/mojo/target/test/mojo-target-browser.mjs
 
 ## A program
 
-- The driver takes `--target-triple wasm64-unknown-dolly --target-cpu generic
-  --target-features +mutable-globals,+atomics,+bulk-memory,+exception-handling,+multivalue,+reference-types`:
-  the features of every object `cc` makes. `--emit object` is what works;
-  the driver's own link step runs `cc ARCHIVE COMPILER-RT -lm`, which Dolly's
-  `cc` can serve once the compiler runs here with `libmojo-rt.a` as its
-  CompilerRT.
+- The driver takes `--target-triple wasm64-unknown-dolly`; the CPU and the
+  features are then those of every object `cc` makes. `--emit object` is
+  what works; the driver's own link step runs `cc ARCHIVE COMPILER-RT -lm`,
+  which Dolly's `cc` can serve once the compiler runs here with
+  `libmojo-rt.a` as its CompilerRT.
 - `CompilationTarget.is_dolly()` is the standard library's name for the
   platform; it is neither `is_linux()` nor `is_macos()`.
 - The runtime is one thread: a task runs when something waits for it, and
@@ -96,13 +95,17 @@ drivers that are not open source, so this one is new, with its names:
   parameters (`Int`, `UInt`, `Int32`, `UInt32`, `Float32`, `Bool`) travel in
   one more buffer.
 - `block_dim` is the WebGPU workgroup size, set when the pipeline is created:
-  at most 256 threads on a default device. `grid_dim` is the workgroup count.
+  at most 256 threads on a default device, and a larger block raises when
+  enqueued. `grid_dim` is the workgroup count.
 - Control flow is printed as a block number in a loop, so any branch or loop
   compiles; calls are inlined.
 - The compiler refuses, naming the instruction: 64-bit integers, `Float64`,
   `Float16`, SIMD vectors, memory accesses that are not 32 bits wide (so
   buffers of 8- and 16-bit scalars), pointers stored in memory or chosen
-  between two buffers, recursion, `print`. An abort ends the invocation
-  without a message: WGSL has no trap.
-- WebGPU forbids one buffer bound twice as writable, so a kernel cannot take
-  the same `DeviceBuffer` for two parameters.
+  between two buffers, recursion, `print`.
+- A failed `assert` or an abort ends that invocation without a message; the
+  others go on. WGSL has no trap and `gpu@0` carries no kernel output.
+- WebGPU forbids one buffer bound twice as writable, so enqueueing a kernel
+  with the same `DeviceBuffer` for two parameters raises.
+- A failure of `gpu@0` raises with its errno's text; the page's GPU indicator
+  has WebGPU's message.
