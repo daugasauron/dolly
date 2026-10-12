@@ -94,10 +94,10 @@ index 8bdcb15..42aea40 100644
    }
 diff --git a/Mojo/lib/Compiler/ObjectCompiler/Target/Dolly/DollyBackend.cpp b/Mojo/lib/Compiler/ObjectCompiler/Target/Dolly/DollyBackend.cpp
 new file mode 100644
-index 0000000..18bf42a
+index 0000000..1c14b2b
 --- /dev/null
 +++ b/Mojo/lib/Compiler/ObjectCompiler/Target/Dolly/DollyBackend.cpp
-@@ -0,0 +1,1483 @@
+@@ -0,0 +1,1497 @@
 +//===----------------------------------------------------------------------===//
 +// Added for Dolly, a POSIX-like userspace for wasm64 in the browser.
 +//
@@ -215,15 +215,17 @@ index 0000000..18bf42a
 +  return select(a, sub64(vec2<u32>(0u, 0u), a), i32(a.y) < 0);
 +}
 +fn swap32(a: u32) -> u32 {
-+  return (a >> 24u) | ((a >> 8u) & 65280u) | ((a << 8u) & 16711680u) | (a << 24u);
++  return (a >> 24u) | ((a >> 8u) & 65280u) | ((a << 8u) & 16711680u) |
++         (a << 24u);
 +}
 +// The quotient and the remainder, a bit at a time.
 +fn divide64(a: vec2<u32>, b: vec2<u32>) -> array<vec2<u32>, 2> {
 +  var quotient = vec2<u32>(0u, 0u);
 +  var rest = vec2<u32>(0u, 0u);
 +  for (var bit = 63i; bit >= 0i; bit--) {
++    let carried = rest.y >= 2147483648u;
 +    rest = shl64(rest, 1u) | vec2<u32>(shr64(a, u32(bit)).x & 1u, 0u);
-+    if (!less64(rest, b)) {
++    if (carried || !less64(rest, b)) {
 +      rest = sub64(rest, b);
 +      quotient = quotient | shl64(vec2<u32>(1u, 0u), u32(bit));
 +    }
@@ -344,8 +346,10 @@ index 0000000..18bf42a
 +      if (isWide(type))
 +        return "vec2<u32>(" + utostr(integer->getZExtValue() & 0xffffffffu) +
 +               "u, " + utostr(integer->getZExtValue() >> 32) + "u)";
-+      if (!bits(type))
++      if (!bits(type)) {
 +        fail("WGSL has no such integer", value);
++        return "0u";
++      }
 +      return utostr(integer->getZExtValue() & 0xffffffffu) + "u";
 +    }
 +    if (auto *real = dyn_cast<ConstantFP>(value)) {
@@ -443,7 +447,8 @@ index 0000000..18bf42a
 +    return "0u";
 +  }
 +
-+  /// The parameter or alloca a pointer indexes, or null with a failure.
++  /// The parameter, the alloca or the global a pointer indexes, or null with
++  /// a failure.
 +  const Value *root(const Value *pointer) {
 +    SmallPtrSet<const Value *, 8> visiting;
 +    const Value *found = findRoot(pointer, visiting);
@@ -546,7 +551,8 @@ index 0000000..18bf42a
 +    if (auto *fill = dyn_cast<MemSetInst>(&i))
 +      return loop + storeByte(i.getRawDest(), to, use(fill->getValue())) + " }";
 +    auto *copy = cast<MemTransferInst>(&i);
-+    if (isa<MemMoveInst>(i) && root(copy->getRawSource()) == root(i.getRawDest()))
++    if (isa<MemMoveInst>(i) &&
++        root(copy->getRawSource()) == root(i.getRawDest()))
 +      fail("WGSL cannot move bytes within one array", &i);
 +    return loop +
 +           storeByte(i.getRawDest(), to,
@@ -573,7 +579,10 @@ index 0000000..18bf42a
 +
 +  /// The bytes a value takes in memory.
 +  static unsigned bytesOf(Type *type) {
-+    return isWide(type) ? 8 : isBool(type) ? 1 : type->isFloatTy() ? 4 : bits(type) / 8;
++    return isWide(type)        ? 8
++           : isBool(type)      ? 1
++           : type->isFloatTy() ? 4
++                               : bits(type) / 8;
 +  }
 +
 +  /// Bits of a value that memory holds as a part of a word, or 0: a Bool is
@@ -629,13 +638,15 @@ index 0000000..18bf42a
 +    auto read = [&](bool next) {
 +      if (across) {
 +        std::string value;
-+        for (unsigned k = 0; k < std::min(bytesOf(type), 4u); k++)
-+          value += (k ? " | (" : "(") +
-+                   byteAt(from, use(from) + " + " + utostr(k + next * 4) + "u") +
-+                   " << " + utostr(k * 8) + "u)";
++        for (unsigned k = 0; k < std::min(bytesOf(type), 4u); k++) {
++          std::string at = use(from) + " + " + utostr(k + next * 4) + "u";
++          value += (k ? " | (" : "(") + byteAt(from, at) + " << " +
++                   utostr(k * 8) + "u)";
++        }
 +        return "(" + value + ")";
 +      }
-+      return atomic ? "atomicLoad(&" + word(from, next) + ")" : word(from, next);
++      std::string cell = word(from, next);
++      return atomic ? "atomicLoad(&" + cell + ")" : cell;
 +    };
 +    if (isWide(type))
 +      return "vec2<u32>(" + read(false) + ", " + read(true) + ")";
@@ -733,12 +744,13 @@ index 0000000..18bf42a
 +    auto write = [&](bool next, const std::string &stored) {
 +      if (across) {
 +        std::string statements;
-+        for (unsigned k = 0; k < std::min(bytesOf(type), 4u); k++)
-+          statements += storeByte(to,
-+                                  use(to) + " + " + utostr(k + next * 4) + "u",
++        for (unsigned k = 0; k < std::min(bytesOf(type), 4u); k++) {
++          std::string at = use(to) + " + " + utostr(k + next * 4) + "u";
++          statements += storeByte(to, at,
 +                                  "((" + stored + " >> " + utostr(k * 8) +
 +                                      "u) & 255u)") +
 +                        " ";
++        }
 +        return statements;
 +      }
 +      return atomic ? "atomicStore(&" + word(to, next) + ", " + stored + ");"
@@ -1096,7 +1108,8 @@ index 0000000..18bf42a
 +      return real("round", 1);
 +    case Intrinsic::fma: return real("fma", 3);
 +    case Intrinsic::fmuladd:
-+      return "(" + argument(0) + " * " + argument(1) + " + " + argument(2) + ")";
++      return "(" + argument(0) + " * " + argument(1) + " + " + argument(2) +
++             ")";
 +    case Intrinsic::copysign:
 +      if (type->isFloatTy())
 +        return "bitcast<f32>((bitcast<u32>(" + argument(0) +
@@ -1203,7 +1216,8 @@ index 0000000..18bf42a
 +      }
 +    }
 +    std::string next = "bb = " + utostr(Blocks.lookup(to)) + "u;";
-+    return count ? "{ " + values + assignments + next + " }" : "{ " + next + " }";
++    return count ? "{ " + values + assignments + next + " }"
++                 : "{ " + next + " }";
 +  }
 +
 +  void instruction(const Instruction &i, raw_ostream &os) {
