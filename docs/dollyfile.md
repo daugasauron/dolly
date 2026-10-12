@@ -134,8 +134,8 @@ mounted, and reads no other version's.
   package keeps none of it: the base is only the environment the package is
   built in. The build runs the base's `/bin/dollyfile`.
 - A recipe without `FROM` starts from nothing and keeps only what it installs
-  and declares: `default` is `core`, `posix`, `display`, `curl`, `amy`, its
-  start-up script and an ENTRY, with no compiler. It opens, and `amy` installs
+  and declares: `default` is `core`, `posix`, `display`, `curl`, `amy`,
+  `transfer`, its start-up script and an ENTRY, with no compiler. It opens, and `amy` installs
   into it, but it is not a base to compile on: `FROM` a toolchain for that.
 - `INSTALL` restores a package's retained files, applies and exports its
   environment and exports its objects. It may appear anywhere and names only a
