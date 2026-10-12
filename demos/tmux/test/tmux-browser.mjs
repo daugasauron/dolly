@@ -81,6 +81,14 @@ for (const browser of browsers) {
     await run("test \"$(tmux list-panes -F '#{pane_tty}:#{pane_dead}' | tr '\\n' ' ')\" = '/dev/pts/0:0 /dev/pts/1:0 '");
     await run("until test -s /tmp/tmux-kept; do sleep 1; done; grep -qx KEPT /tmp/tmux-kept");
 
+    // The entry started the server beside this shell, not under it: Ctrl+C
+    // for a command of the shell does not reach the server or its panes.
+    const sleeping = start("sleep 50");
+    await waitText(/\$ sleep 50\s*$/);
+    await page.keyboard.press("Control+c");
+    assert.equal(await sleeping.done, 130);
+    await run("test \"$(tmux list-panes -F '#{pane_dead}' | tr '\\n' ' ')\" = '0 0 '");
+
     // Attached again, the panes are as they were left and take input.
     const attached = start("tmux attach");
     await waitText(right(`SIZE-2 \\d+x${rows}`));

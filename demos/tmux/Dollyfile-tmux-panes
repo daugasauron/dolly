@@ -15,10 +15,9 @@ INSTALL /v0.1.2/demos/tmux/Dollyfile-tmux 3d794814070b31252021a917e661cd4acc0725
 
 FILE /usr/share/tmux/welcome.txt
     tmux inside Dolly: two shells, each on a pseudo-terminal.
-    Ctrl+B then o   moves to the other pane.
-    Ctrl+B then %   splits a pane left and right, Ctrl+B then "   above and below.
-    Ctrl+B then x   closes a pane.
-    Ctrl+B then d   detaches: the shells keep running and tmux attach returns.
+    Ctrl+B o   the other pane          Ctrl+B x   close this pane
+    Ctrl+B %   split left and right    Ctrl+B "   split above and below
+    Ctrl+B d   detach: the shells keep running, tmux attach returns
 
 # Dolly has no fork, so tmux cannot start its own server: this shell does,
 # and the server lives as long as it. A child ends with its parent here.
