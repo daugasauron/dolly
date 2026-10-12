@@ -32,6 +32,30 @@
  
  	pid = getpid();
  	proc_send(client_peer, MSG_IDENTIFY_CLIENTPID, -1, &pid, sizeof pid);
+--- a/job.c
++++ b/job.c
+@@ -113,11 +113,21 @@
+ 		memset(&ws, 0, sizeof ws);
+ 		ws.ws_col = sx;
+ 		ws.ws_row = sy;
++#ifdef __dolly__
++		pid = osdep_job(flags, &master, tty, &ws, -1, env, cwd, shell,
++		    cmd, argc, argv);
++#else
+ 		pid = fdforkpty(ptm_fd, &master, tty, NULL, &ws);
++#endif
+ 	} else {
+ 		if (socketpair(AF_UNIX, SOCK_STREAM, PF_UNSPEC, out) != 0)
+ 			goto fail;
++#ifdef __dolly__
++		pid = osdep_job(flags, NULL, NULL, NULL, out[1], env, cwd,
++		    shell, cmd, argc, argv);
++#else
+ 		pid = fork();
++#endif
+ 	}
+ 	if (cmd == NULL) {
+ 		cmd_log_argv(argc, argv, "%s:", __func__);
 --- a/server-client.c
 +++ b/server-client.c
 @@ -331,6 +331,7 @@
@@ -104,13 +128,16 @@
  		new_wp->fd = -1;
 --- a/tmux.h
 +++ b/tmux.h
-@@ -4147,6 +4147,10 @@
+@@ -4147,6 +4147,13 @@
  char		*osdep_get_name(int, char *);
  char		*osdep_get_cwd(int);
  struct event_base *osdep_event_init(void);
 +#ifdef __dolly__
 +pid_t		 osdep_spawn(int *, char *, struct winsize *, struct environ *,
 +		     const char *, int, char **);
++pid_t		 osdep_job(int, int *, char *, struct winsize *, int,
++		     struct environ *, const char *, const char *, const char *,
++		     int, char **);
 +#endif
  
  /* utf8-combined.c */

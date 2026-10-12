@@ -17,7 +17,7 @@ puts an editor beside a shell.
 ## Use
 
 - Windows, panes and layouts, the status line, `send-keys`, `capture-pane`,
-  detach and attach work as upstream. A pane runs `$SHELL`, Slop, and any
+  `run-shell`, `if-shell`, `#()`, detach and attach work as upstream. A pane runs `$SHELL`, Slop, and any
   program built for Dolly, unchanged: the `less` and `nvim` packages, built
   before `pty@0` existed, page and edit in one. A program sees a terminal
   with its own size and mode, `/dev/tty` is its pane, and Ctrl+C interrupts
@@ -38,7 +38,7 @@ puts an editor beside a shell.
   own scripts with `nbperf` and `tic` compiled in the same recipe),
   libevent's core over `poll`, and tmux; then runs a server, a pane and a
   command typed into it.
-- [`tmux-dolly.patch`](tmux-dolly.patch), nine hunks:
+- [`tmux-dolly.patch`](tmux-dolly.patch), ten hunks:
   - `client.c`: the client names its terminal `/dev/tty`, since `ttyname`
     fails, and sends no descriptors, since `sockets@0` passes none.
   - `server-client.c`: the server opens that terminal by name, on upstream's
@@ -46,19 +46,21 @@ puts an editor beside a shell.
     terminal and no sessions.
   - `server.c`: without a server tmux says how to start one, instead of
     forking; `waitpid` is asked without `WUNTRACED`, which Dolly refuses.
-  - `spawn.c`, `tmux.h`: a pane's program is started by `osdep_spawn` in
-    place of `forkpty`.
+  - `spawn.c`, `job.c`, `tmux.h`: a pane's program and a job's command are
+    started by `osdep_spawn` and `osdep_job` in place of `forkpty` and `fork`.
 - [`osdep-dolly.c`](osdep-dolly.c): tmux's operating system file for Dolly.
   `osdep_spawn` opens a pseudo-terminal and spawns the pane's program on its
-  slave, with the pane's environment and no other descriptor of the server.
+  slave, with the pane's environment and no other descriptor of the server;
+  `osdep_job` spawns a job's command on the socket tmux reads it from.
 - [`pty.c`](pty.c): `openpty` and `ioctl(TIOCSWINSZ)` over `pty@0`, which
   ships no client yet; the packets are `host/pty/pty.h`, staged as
   `dolly-pty.h`.
 
 ## Limits
 
-- No jobs: `run-shell`, `if-shell`, `#()` in the status line, `pipe-pane`,
-  `copy-pipe` and popups fork, and fail saying so ("failed to run command").
+- `pipe-pane` forks by itself and fails saying so ("fork error"). Jobs are
+  spawned: `run-shell`, `if-shell` and `#()` in a status line are tested;
+  `copy-pipe` and popups take the same way and are not.
 - A server started with `tmux -D &` is a job of that shell: Ctrl+C for another
   command of the shell reaches the server too, and it exits. Dolly has no
   sessions to put it in. `tmux-panes` starts it beside the shell instead.

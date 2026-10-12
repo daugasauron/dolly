@@ -27,7 +27,7 @@ REQUIRES TOOL tar
 SOURCE /v0.1.2/dist/static/tmux/tmux-3.8.tar.gz e79c699c7e949dccd0a4a125e17b8d1261e311b16979dbc8eb34542f3966d82e /tmp/tmux.tar.gz
 SOURCE /v0.1.2/dist/static/tmux/libevent-2.1.13-stable.tar.gz f7e9383b8c0baa81b687e5b5eecc01beefaf1b19b64151d95ed61647fe7a315c /tmp/libevent.tar.gz
 SOURCE /v0.1.2/dist/static/tmux/terminfo.tar 02f16349f246ae130a95a41ef88a78aabf7d5374d6e962ce0520dd216274edbe /tmp/terminfo.tar
-SOURCE /v0.1.2/dist/static/tmux/port.tar f1662a02195e55e3210681d94f2320c28f2ae7226a5758c2fc1cfc423330b645 /tmp/tmux-port.tar
+SOURCE /v0.1.2/dist/static/tmux/port.tar bff3569065ea845bdb30c277d73cb786c5b5bc41f835fdd5f422bde24dee9d21 /tmp/tmux-port.tar
 SLOP gzip -dc /tmp/tmux.tar.gz | tar -xf - -C /tmp
 SLOP gzip -dc /tmp/libevent.tar.gz | tar -xf - -C /tmp
 SLOP tar -xf /tmp/terminfo.tar -C /

@@ -34,7 +34,7 @@ int main(void) {
 
 for (const browser of browsers) {
   await demoTest("tmux", { image: "tmux-panes", timeout: 300_000, browser }, async ({ open }) => {
-    const { page, run, start, prompt, waitText, input } = await open({ prompt: null });
+    const { page, run, submit, text, start, prompt, waitText, input } = await open({ prompt: null });
     const prefix = async key => { await page.keyboard.press("Control+b"); await page.keyboard.press(key); };
     // In a line of the screen: left of the panes' border, or right of it.
     const left = text => new RegExp(`^${text}[^│\\n]*│`, "m"), right = text => new RegExp(`│${text}`);
@@ -91,9 +91,20 @@ for (const browser of browsers) {
     assert.equal(await sleeping.done, 130);
     await run("test \"$(tmux list-panes -F '#{pane_dead}' | tr '\\n' ' ')\" = '0 0 '");
 
+    // Jobs start by spawn: run-shell prints what its command wrote, if-shell
+    // takes the branch its command's status chooses, and #() puts a command's
+    // output in the status line. pipe-pane forks by itself, and says so.
+    await run("test \"$(tmux run-shell 'echo JOB-$((6 * 7))')\" = JOB-42");
+    await run("tmux if-shell 'test -d /tmp' 'set -g @chosen yes' 'set -g @chosen no' && test \"$(tmux show -gv @chosen)\" = yes");
+    await run("tmux if-shell 'test -d /nowhere' 'set -g @chosen yes' 'set -g @chosen no' && test \"$(tmux show -gv @chosen)\" = no");
+    await run("tmux set -g status-right '#(echo STATUS-$((6 * 7))) #S'");
+    assert.equal(await submit("tmux pipe-pane 'cat > /tmp/piped' 2> /tmp/refused"), 1, await text());
+    await run("grep -q 'fork error' /tmp/refused");
+
     // Attached again, the panes are as they were left and take input.
     const attached = start("tmux attach");
     await waitText(right(`SIZE-2 \\d+x${rows}`));
+    await waitText(/STATUS-42/);
     await input("echo ATTACHED-$((6 * 7))\r");
     await waitText(right("ATTACHED-42"));
 

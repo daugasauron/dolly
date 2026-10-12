@@ -4,6 +4,7 @@
 
 #include <dolly/runtime.h>
 #include <errno.h>
+#include <fcntl.h>
 #include <pty.h>
 #include <stdlib.h>
 #include <string.h>
@@ -53,22 +54,48 @@ osdep_find_program(const char *name, struct environ *env)
 }
 
 /*
- * Dolly has spawn, not fork: this is forkpty and what spawn.c does in the
- * child, for a pane. The program starts on a new pseudo-terminal's slave in
- * the server's current directory with the pane's environment and no other
- * descriptor of the server. Returns its pid, or -1.
+ * The program and arguments execl or execvp would run: `cmd` by the shell, a
+ * login shell when there is nothing to run, else argv.
  */
-pid_t
-osdep_spawn(int *master, char *tty, struct winsize *ws, struct environ *env,
-    const char *shell, int argc, char **argv)
+static char **
+osdep_command(struct environ *env, const char *shell, const char *cmd,
+    int argc, char **argv, char **program, int *count)
+{
+	const char	 *slash = strrchr(shell, '/');
+	const char	 *base = (slash != NULL && slash[1] != '\0') ?
+			      slash + 1 : shell;
+	char		**args;
+
+	if (cmd == NULL && argc != 0) {
+		*program = osdep_find_program(argv[0], env);
+		*count = argc;
+		return (cmd_copy_argv(argc, argv));
+	}
+	args = xcalloc(4, sizeof *args);
+	xasprintf(&args[0], "%s%s", cmd == NULL ? "-" : "", base);
+	if (cmd != NULL) {
+		args[1] = xstrdup("-c");
+		args[2] = xstrdup(cmd);
+	}
+	*program = xstrdup(shell);
+	*count = cmd == NULL ? 1 : 3;
+	return (args);
+}
+
+/*
+ * Dolly has spawn, not fork: this is fork and what tmux does in the child
+ * before it execs. The program starts on the three descriptors with the
+ * environment and no other descriptor of the server, in `cwd` or, when that
+ * is NULL, the server's directory. Returns its pid, or -1.
+ */
+static pid_t
+osdep_run(struct environ *env, const char *cwd, const char *shell,
+    const char *cmd, int argc, char **argv, int in, int out, int err)
 {
 	struct environ_entry	 *envent;
-	const char		 *slash = strrchr(shell, '/');
-	const char		 *base = (slash != NULL && slash[1] != '\0') ?
-				      slash + 1 : shell;
-	char			**envp = NULL, **args, *program, *argv0 = NULL;
+	char			**envp = NULL, **args, *program;
 	size_t			  envc = 0;
-	int			  slave, pid, error, i;
+	int			  pid, count, i;
 
 	for (envent = environ_first(env); envent != NULL;
 	    envent = environ_next(envent)) {
@@ -82,43 +109,86 @@ osdep_spawn(int *master, char *tty, struct winsize *ws, struct environ *env,
 		envp = xcalloc(1, sizeof *envp);
 	envp[envc] = NULL;
 
-	/* As spawn.c: several arguments are a command, one is for the shell. */
-	if (argc > 1) {
-		args = cmd_copy_argv(argc, argv);
-		program = osdep_find_program(args[0], env);
-	} else {
-		args = xcalloc(4, sizeof *args);
-		xasprintf(&argv0, "%s%s", argc == 1 ? "" : "-", base);
-		args[0] = argv0;
-		if (argc == 1) {
-			args[1] = xstrdup("-c");
-			args[2] = xstrdup(argv[0]);
-		}
-		program = xstrdup(shell);
-		argc = argc == 1 ? 3 : 1;
-	}
+	args = osdep_command(env, shell, cmd, argc, argv, &program, &count);
+	pid = dolly_spawn_env_cwd(program, count, args, envp, cwd, in, out,
+	    err, -1);
 
-	if (openpty(master, &slave, tty, NULL, ws) != 0)
-		pid = -1;
-	else {
-		pid = dolly_spawn_env_cwd(program, argc, args, envp, NULL,
-		    slave, slave, slave, -1);
-		close(slave);
-		if (pid < 0) {
-			close(*master);
-			errno = -pid;
-			pid = -1;
-		}
-	}
-
-	error = errno;
-	for (i = 0; i < argc; i++)
+	for (i = 0; i < count; i++)
 		free(args[i]);
 	free(args);
 	while (envc != 0)
 		free(envp[--envc]);
 	free(envp);
 	free(program);
+	if (pid < 0) {
+		errno = -pid;
+		return (-1);
+	}
+	return (pid);
+}
+
+/* forkpty for a pane, in the directory spawn.c has changed to. */
+pid_t
+osdep_spawn(int *master, char *tty, struct winsize *ws, struct environ *env,
+    const char *shell, int argc, char **argv)
+{
+	int	slave, error;
+	pid_t	pid;
+
+	if (openpty(master, &slave, tty, NULL, ws) != 0)
+		return (-1);
+	pid = osdep_run(env, NULL, shell, argc == 1 ? argv[0] : NULL,
+	    argc == 1 ? 0 : argc, argv, slave, slave, slave);
+	error = errno;
+	close(slave);
+	if (pid == -1)
+		close(*master);
+	errno = error;
+	return (pid);
+}
+
+/*
+ * fork or forkpty for a job, as job.c's child sets it up: in `cwd`, the home
+ * directory or the root, on a new pseudo-terminal or on `out` with errors
+ * there too or discarded.
+ */
+pid_t
+osdep_job(int flags, int *master, char *tty, struct winsize *ws, int out,
+    struct environ *env, const char *cwd, const char *shell, const char *cmd,
+    int argc, char **argv)
+{
+	const char	*home = find_home(), *directory = NULL;
+	int		 err = out, opened = -1, error;
+	pid_t		 pid;
+
+	if (cwd != NULL) {
+		if (*cwd == '/' && access(cwd, X_OK) == 0)
+			directory = cwd;
+		else if (home != NULL && *home == '/' && access(home, X_OK) == 0)
+			directory = home;
+		else
+			directory = "/";
+		environ_set(env, "PWD", 0, "%s", directory);
+	}
+	if (cmd != NULL && (flags & JOB_DEFAULTSHELL))
+		environ_set(env, "SHELL", 0, "%s", shell);
+
+	if (flags & JOB_PTY) {
+		if (openpty(master, &opened, tty, NULL, ws) != 0)
+			return (-1);
+		out = err = opened;
+	} else if (~flags & JOB_SHOWSTDERR) {
+		if ((opened = open(_PATH_DEVNULL, O_RDWR)) == -1)
+			return (-1);
+		err = opened;
+	}
+	pid = osdep_run(env, directory, shell, cmd, cmd != NULL ? 0 : argc,
+	    argv, out, out, err);
+	error = errno;
+	if (opened != -1)
+		close(opened);
+	if (pid == -1 && (flags & JOB_PTY))
+		close(*master);
 	errno = error;
 	return (pid);
 }
