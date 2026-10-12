@@ -64,7 +64,7 @@ node demos/mojo/target/test/mojo-target-browser.mjs
   platform; it is neither `is_linux()` nor `is_macos()`. Files, paths,
   time, `subprocess.run` and `Process.run` work; Dolly has no FIFO, hard
   link or password database, and `dlopen` is not ported. Of the 261 programs
-  of upstream's own test suite 211 run as built
+  of upstream's own test suite 224 do what upstream expects
   ([the task](../../../tasks/20261012-130814-mojo-programs/TASK.md) has the
   table).
 - The runtime is one thread: a task runs when something waits for it, and

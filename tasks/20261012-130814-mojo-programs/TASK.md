@@ -115,27 +115,26 @@ the build with `WGSL has no such type:  %11 = load double`; an `Int64`
 argument with `a WebGPU kernel argument is a DeviceBuffer, Int, UInt, Int32,
 UInt32, Float32 or Bool`.
 
-### The standard library's own tests, in Dolly (2026-10-13, headless Chrome 151)
+### The standard library's own tests, in Dolly (2026-10-13 02:11, headless Chrome 151)
 
 `Mojo/stdlib/test` has 261 `test_*.mojo` files that are programs (35 more
 are compile-failure tests with `RUN:` lines). Each was cross-compiled with
-`-D ASSERT=all` and no per-test option of its `BUILD.bazel`, linked with
-`cc NAME.o -lmojo-rt` in one `mojo-runtime` session with the test tree
-unpacked at its source path, and run (3.5 minutes for all):
+the final patches, `-D ASSERT=all` and the defines its `BUILD.bazel` gives
+it, linked with `cc NAME.o -lmojo-rt` in one `mojo-runtime` session with the
+test tree unpacked at its source path, and run with the arguments its
+`BUILD.bazel` gives it (3 minutes for all). 224 do what upstream expects:
 
 | Files | Outcome |
 | --- | --- |
-| 178 | exit 0: every test of the file passes |
-| 33 | the output its `CHECK` lines expect (most abort on purpose, status 126) |
-| 13 | not judged: 10 lacked their file's build options (`LOGGING_LEVEL`, `MOJO_STDLIB_SIMD_UNINIT_CHECK`, `ASSERT=warn`); `os/test_process` and `runtime/test_locks` print what is expected, which my check (stricter than FileCheck about spaces and order) did not accept; `benchmark/test_quick_bench` not looked at |
-| 11 | fail: 7 need another platform, build or arguments (`sys/test_linux_target`, `test_aarch64_target`, `test_targetinfo`, `test_c_types`, `test_build_info_debug`, `test_compile_debug`, `testing/test_suite_cli`), `os/test_env` wants Bazel's environment, and three meet Dolly: no FIFO (`builtin/test_file`, 32 of 33), no hard link (`os/test_link`), no password database (`pwd/test_pwd`) |
+| 179 | exit 0: every test of the file passes |
+| 45 | the output its `CHECK` lines expect (most abort on purpose, status 126); four of them judged by reading, where my check knew less than FileCheck |
+| 11 | fail: 6 need another platform or build (`sys/test_linux_target`, `test_aarch64_target`, `test_targetinfo`, `test_c_types`, `test_build_info_debug`, `test_compile_debug`), `os/test_env` wants Bazel's environment, `os/test_process` passes its tests and then expects Linux's number for `ENOENT` in a message (2; Dolly's is 44), and three meet Dolly: no FIFO (`builtin/test_file`, 32 of 33), no hard link (`os/test_link`), no password database (`pwd/test_pwd`) |
 | 12 | do not link: 9 of `python/`, `os/test_stat` and `testing/test_assertion` need `KGEN_CompilerRT_Python_SetPythonPath`; `test_utils` has no `main` |
 | 14 | do not compile: 5 import `max`, 1 a GPU target, 1 `reflection`; `sys/test_ffi`, `test_dlhandle`, `test_macos_target` are for other platforms; 2 need bfloat16, which LLVM's WebAssembly backend cannot select; `runtime/test_asyncrt` and `test_raising_asyncrt` fail in this compiler for x86-64 too, and in the released one |
 
-Among the 178: `os/test_process` and the three tests that spawn themselves to
-watch an abort (`Process.run`, `waitpid`, `kill`, the environment),
-`subprocess/test_run` (`popen`), `tempfile`, `pathlib`, `os/test_listdir`,
-`test_symlink`, `time`.
+Among the 179: the three tests that spawn themselves to watch an abort
+(`Process.run`, `waitpid`, `kill`, the environment), `subprocess/test_run`
+(`popen`), `tempfile`, `pathlib`, `os/test_listdir`, `test_symlink`, `time`.
 
 Before that came to pass:
 

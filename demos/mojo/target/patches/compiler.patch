@@ -94,10 +94,10 @@ index 8bdcb15..42aea40 100644
    }
 diff --git a/Mojo/lib/Compiler/ObjectCompiler/Target/Dolly/DollyBackend.cpp b/Mojo/lib/Compiler/ObjectCompiler/Target/Dolly/DollyBackend.cpp
 new file mode 100644
-index 0000000..e85c537
+index 0000000..22bf2c9
 --- /dev/null
 +++ b/Mojo/lib/Compiler/ObjectCompiler/Target/Dolly/DollyBackend.cpp
-@@ -0,0 +1,1115 @@
+@@ -0,0 +1,1118 @@
 +//===----------------------------------------------------------------------===//
 +// Added for Dolly, a POSIX-like userspace for wasm64 in the browser.
 +//
@@ -204,7 +204,10 @@ index 0000000..e85c537
 +      return "u32";
 +    if (type->isFloatTy())
 +      return "f32";
-+    fail("WGSL has no such type", value);
++    fail(type->isDoubleTy()      ? "WGSL has no Float64"
++         : type->isIntegerTy(64) ? "WGSL has no 64-bit integers"
++                                 : "WGSL has no such type",
++         value);
 +    return "u32";
 +  }
 +
