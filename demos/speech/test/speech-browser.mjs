@@ -54,6 +54,15 @@ await demoTest("speech refused", { image, browser, launch: refuses }, async ({ o
   assert.match(await text(), /the browser refused the microphone/);
 });
 
+// The model is a package any session installs. The programs need the
+// microphone, which default does not declare: amy refuses them, naming it.
+await demoTest("speech packages", { image: "default", browser }, async ({ open }) => {
+  const { run, submit } = await open();
+  await run("amy install parakeet && test -f /usr/share/dolly/speech/parakeet-tdt_ctc-110m.gguf");
+  assert.notEqual(await submit("amy install transcribe 2> /tmp/refused"), 0);
+  await run("grep -q 'REQUIRES HOST microphone@0' /tmp/refused && test ! -e /usr/bin/speech-to-text");
+});
+
 // Chrome on Android is the phone this is for; Firefox has no phone to stand in for.
 if (browser === "chromium") await demoTest("pi-phone", { image: "pi-phone", launch: plays, timeout: 600_000 }, async ({ open }) => {
   const key = "sk-or-v1-DOLLYPHONETESTKEY0123456789", asked = [], said = "DOLLY-PHONE-HEARD";
