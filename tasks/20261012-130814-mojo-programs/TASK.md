@@ -121,7 +121,9 @@ them; lines printed by six threads with integers, floats, `Bool` and a
 64-bit integer; asserts and an `abort` with their messages; shared memory
 of floats, of bytes and with atomic counters, and barriers that only some
 threads reach or that a return follows (without its barrier a thread saw
-one mark of 256 in all three browsers, with it all). An
+one mark of 256 in all three browsers, with it all; 16,416 bytes of shared
+memory in a block run in all three, 64 KiB are `I/O error` when enqueued,
+the device's reason being in the page's indicator). An
 `Optional` through a branch did not compile until a struct that is a value
 was printed as its scalars, and every function a kernel calls is inlined
 before LLVM optimizes. Two things were wrong and are fixed:
