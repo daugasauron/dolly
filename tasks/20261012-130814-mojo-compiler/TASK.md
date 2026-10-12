@@ -18,7 +18,8 @@ Done. The `mojo` image holds the compiler that `mojo-build` compiled and
 linked inside Dolly from pinned source (`mojo-llvm` before it: LLVM, MLIR,
 Clang's Basic library and Zstandard, also compiled inside Dolly), with the
 other task's targets and runtime. `node demos/mojo/test/mojo-browser.mjs`
-with `DISPLAY=:141` (02:22):
+with `DISPLAY=:141` (02:39, with `demo/mojo-target` merged at `c2918333`;
+02:22 with it at `35771eb3`):
 
 | Browser | Adapter | Result |
 | --- | --- | --- |
@@ -26,10 +27,12 @@ with `DISPLAY=:141` (02:22):
 | Chrome 151.0.7922.71 on Xvfb, Vulkan | NVIDIA (`nvidia blackwell`) | passed |
 | Firefox 157.0.1 on Xvfb | unnamed WebGPU adapter | passed |
 
-In each, `mojo build NAME.mojo` in the session compiles and links six
+In each, `mojo build NAME.mojo` in the session compiles and links seven
 programs that then run: hello, the standard library (`library`), coroutines
-(`tasks`), and three with kernels that `DeviceContext` launches on WebGPU
-(`saxpy`, `kernels`, `mandelbrot`); an object links with `cc`; a package
+(`tasks`), three with kernels that `DeviceContext` launches on WebGPU
+(`saxpy`, `kernels`, `mandelbrot`) and upstream's own GPU hello
+(`hello_writing.mojo`, importing `gpu.host` for `max.gpu.host`), which prints
+`GPU responded: 👋, 🔥`; an object links with `cc`; a package
 precompiled there is imported; a type error and `mojo run`/`mojo repl` fail
 with status 1. Playwright's headless Firefox offers no GPU adapter, and the
 image requires `gpu@0`, so Firefox is tested on a display.

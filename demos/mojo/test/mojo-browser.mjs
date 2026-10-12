@@ -1,7 +1,8 @@
 // The Mojo compiler that mojo-build compiled inside Dolly, in the mojo image:
 // it compiles in the session the programs demos/mojo/target cross-compiles,
-// and they run: the standard library, coroutines, and kernels that
-// DeviceContext launches on WebGPU. Usage: node demos/mojo/test/mojo-browser.mjs
+// and they run: the standard library, coroutines, kernels that DeviceContext
+// launches on WebGPU, and upstream's own GPU hello with the package's name
+// for max's. Usage: node demos/mojo/test/mojo-browser.mjs
 // Headless Chrome has a software adapter. With a GPU window on DISPLAY, Chrome
 // and the installed Firefox run it on the GPU as well.
 import assert from "node:assert/strict";
@@ -9,10 +10,13 @@ import { mkdir } from "node:fs/promises";
 import { chromium, firefox } from "playwright-core";
 import { startBrowserServer } from "../../../test/browser-server.mjs";
 import { shellPrompt, writeCommand } from "../../browser.mjs";
+import { sourcePins } from "../../../scripts/upstreams.mjs";
 
 const root = new URL("../../../", import.meta.url);
 const programs = ["hello", "library", "tasks", "saxpy", "kernels", "mandelbrot"];
-const fixtures = Object.fromEntries(programs.map(name => [`${name}.mojo`, `demos/mojo/target/test/fixtures/${name}.mojo`]));
+const upstream = `.cache/modular-${(await sourcePins(root.pathname)).get("MODULAR").commit}/Mojo/docs/site/code/tools/notebooks/hello_writing.mojo`;
+const fixtures = { "hello_writing.mojo": upstream,
+  ...Object.fromEntries(programs.map(name => [`${name}.mojo`, `demos/mojo/target/test/fixtures/${name}.mojo`])) };
 // The installed Firefox is a snap with a private /tmp: its profile must live under $HOME.
 process.env.TMPDIR = new URL("build/mojo-test/", root).pathname;
 await mkdir(process.env.TMPDIR, { recursive: true });
@@ -47,7 +51,9 @@ try {
       await run("./library one | grep -qx 'MOJO-LIBRARY 6 5 29 True 2 7.25 True'");
       await run("./tasks | grep -qx 'MOJO-TASKS 33 6'");
       await run("./saxpy | grep -qx 'MOJO-GPU webgpu 1000 1998.5'");
-      await run("./kernels | grep -qx 'MOJO-KERNELS wrong: 0 0 0 2002'");
+      await run("./kernels | grep -qx 'MOJO-KERNELS wrong: 0 0 0 0 236027'");
+      await run(`curl -fsS ${server.origin}/fixture/hello_writing.mojo | sed 's/^from max\\.gpu\\.host import/from gpu.host import/' > upstream_hello.mojo`);
+      await run("mojo build upstream_hello.mojo && ./upstream_hello | grep -qx 'GPU responded: 👋, 🔥'");
       await run("./mandelbrot > set.txt && grep -q '^ *[.:=+*#%@-]*@\\{40\\}' set.txt && grep -qx 'MOJO-MATMUL wrong: 0 of 576 6.0' set.txt");
       // An object is what cc links; a package precompiled here is imported by name.
       await run("mojo build --emit object -o hello.o hello.mojo && cc hello.o -lmojo-rt -o hello-linked && ./hello-linked | grep -qx 'hello from mojo'");
