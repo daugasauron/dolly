@@ -94,10 +94,10 @@ index 8bdcb15..42aea40 100644
    }
 diff --git a/Mojo/lib/Compiler/ObjectCompiler/Target/Dolly/DollyBackend.cpp b/Mojo/lib/Compiler/ObjectCompiler/Target/Dolly/DollyBackend.cpp
 new file mode 100644
-index 0000000..13450d1
+index 0000000..18bf42a
 --- /dev/null
 +++ b/Mojo/lib/Compiler/ObjectCompiler/Target/Dolly/DollyBackend.cpp
-@@ -0,0 +1,1324 @@
+@@ -0,0 +1,1483 @@
 +//===----------------------------------------------------------------------===//
 +// Added for Dolly, a POSIX-like userspace for wasm64 in the browser.
 +//
@@ -122,7 +122,10 @@ index 0000000..13450d1
 +//   - control flow is a block number in a loop, which expresses any CFG;
 +//   - a struct that is a value is printed as its scalars;
 +//   - a 64-bit integer is a `vec2<u32>`, low word first, with functions for
-+//     what WGSL's operators do not do across the two words.
++//     what WGSL's operators do not do across the two words;
++//   - a constant global is a private array, and what the kernel prints is a
++//     record in one more buffer, `log`, bound last: the words it has used,
++//     then for each record its thread, its length in bytes and its text.
 +// What WGSL cannot say is an error naming the instruction: f64, f16,
 +// vectors, calls. A trap ends the invocation.
 +//
@@ -137,6 +140,7 @@ index 0000000..13450d1
 +#include "llvm/ADT/SmallPtrSet.h"
 +#include "llvm/ADT/StringExtras.h"
 +#include "llvm/ADT/StringSwitch.h"
++#include "llvm/Analysis/ConstantFolding.h"
 +#include "llvm/IR/Constants.h"
 +#include "llvm/IR/DataLayout.h"
 +#include "llvm/IR/Function.h"
@@ -266,6 +270,8 @@ index 0000000..13450d1
 +  std::map<uint32_t, unsigned> NonFinite;
 +  /// Whether the kernel has a 64-bit integer, and so needs kWide.
 +  bool Wide = false;
++  /// The constant globals the kernel reads, in the order it names them.
++  SmallVector<const GlobalVariable *, 4> Globals;
 +
 +  void fail(const Twine &what, const Value *value = nullptr) {
 +    if (!Failure.empty())
@@ -277,6 +283,14 @@ index 0000000..13450d1
 +  }
 +
 +  static bool isBool(Type *type) { return type->isIntegerTy(1); }
++
++  /// Whether `i` is what `std.io` calls with the text a kernel prints.
++  static bool isLog(const Instruction &i) {
++    auto *call = dyn_cast<CallInst>(&i);
++    const Function *callee = call ? call->getCalledFunction() : nullptr;
++    return callee && callee->getName() == "__webgpu_log" &&
++           call->arg_size() == 2;
++  }
 +
 +  static bool isWide(Type *type) { return type->isIntegerTy(64); }
 +
@@ -355,6 +369,11 @@ index 0000000..13450d1
 +    }
 +    if (auto *argument = dyn_cast<Argument>(value))
 +      return type->isPointerTy() ? "0u" : "a" + utostr(argument->getArgNo());
++    if (isa<GlobalVariable>(value))
++      return "0u";
++    if (isa<ConstantExpr>(value))
++      if (auto *gep = dyn_cast<GEPOperator>(value))
++        return offset(*gep);
 +    if (isa<Instruction>(value)) {
 +      auto number = Numbers.find(value);
 +      if (number != Numbers.end())
@@ -441,7 +460,8 @@ index 0000000..13450d1
 +    if (!visiting.insert(pointer).second)
 +      return nullptr;
 +    const Value *found = nullptr;
-+    if (isa<Argument>(pointer) || isa<AllocaInst>(pointer)) {
++    if (isa<Argument>(pointer) || isa<AllocaInst>(pointer) ||
++        isa<GlobalVariable>(pointer)) {
 +      found = pointer;
 +    } else if (auto *gep = dyn_cast<GEPOperator>(pointer)) {
 +      found = findRoot(gep->getPointerOperand(), visiting);
@@ -467,17 +487,93 @@ index 0000000..13450d1
 +    return found;
 +  }
 +
-+  /// `b3[(offset) >> 2u]`, the word `pointer` is in: `b` is the buffer of a
-+  /// parameter, `m` a local array.
-+  /// `next` is for the word after it, the high one of a 64-bit integer.
-+  std::string word(const Value *pointer, bool next = false) {
++  /// The array `pointer` points into: `b` is the buffer of a parameter, `m`
++  /// a local array, `g` a constant global.
++  std::string memory(const Value *pointer) {
 +    const Value *base = root(pointer);
-+    if (!base)
-+      return "b0[0]";
-+    std::string memory =
-+        isa<Argument>(base) ? "b" + utostr(Buffers.lookup(cast<Argument>(base)))
-+                            : "m" + utostr(Numbers.lookup(base));
-+    return memory + "[((" + use(pointer) + ") >> 2u)" + (next ? " + 1u]" : "]");
++    if (auto *buffer = dyn_cast_or_null<Argument>(base))
++      return "b" + utostr(Buffers.lookup(buffer));
++    if (auto *global = dyn_cast_or_null<GlobalVariable>(base)) {
++      if (!global->isConstant() || !global->hasDefinitiveInitializer())
++        fail("a kernel has no global variables", global);
++      auto known = find(Globals, global);
++      if (known == Globals.end())
++        known = Globals.insert(Globals.end(), global);
++      return "g" + utostr(known - Globals.begin());
++    }
++    return "m" + utostr(Numbers.lookup(base));
++  }
++
++  /// `b3[(offset) >> 2u]`, the word `pointer` is in; `next` is for the word
++  /// after it, the high one of a 64-bit integer.
++  std::string word(const Value *pointer, bool next = false) {
++    return memory(pointer) + "[((" + use(pointer) + ") >> 2u)" +
++           (next ? " + 1u]" : "]");
++  }
++
++  /// The byte at the offset `at` of the array `pointer` points into.
++  std::string byteAt(const Value *pointer, const std::string &at) {
++    std::string cell = memory(pointer) + "[(" + at + ") >> 2u]";
++    if (Atomic.count(root(pointer)))
++      cell = "atomicLoad(&" + cell + ")";
++    return "((" + cell + " >> (((" + at + ") & 3u) * 8u)) & 255u)";
++  }
++
++  /// The statement that stores the byte `value` there.
++  std::string storeByte(const Value *pointer, const std::string &at,
++                        const std::string &value) {
++    if (isa_and_nonnull<GlobalVariable>(root(pointer)))
++      fail("a kernel cannot store into a constant", pointer);
++    std::string cell = memory(pointer) + "[(" + at + ") >> 2u]";
++    std::string shift = " << (((" + at + ") & 3u) * 8u))";
++    return Atomic.count(root(pointer))
++               ? "_ = atomicAnd(&" + cell + ", ~(255u" + shift +
++                     "); _ = atomicOr(&" + cell + ", (" + value + shift + ");"
++               : cell + " = (" + cell + " & ~(255u" + shift + ") | (" + value +
++                     shift + ";";
++  }
++
++  /// A count of bytes, which is 32 or 64 bits wide.
++  std::string count(const Value *bytes) {
++    return isWide(bytes->getType()) ? use(bytes) + ".x" : use(bytes);
++  }
++
++  /// The statement of a copy or a fill, a byte at a time.
++  std::string bytes(const MemIntrinsic &i) {
++    std::string to = "(" + use(i.getRawDest()) + " + k)";
++    std::string loop = "for (var k = 0u; k < " + count(i.getLength()) +
++                       "; k++) { ";
++    if (auto *fill = dyn_cast<MemSetInst>(&i))
++      return loop + storeByte(i.getRawDest(), to, use(fill->getValue())) + " }";
++    auto *copy = cast<MemTransferInst>(&i);
++    if (isa<MemMoveInst>(i) && root(copy->getRawSource()) == root(i.getRawDest()))
++      fail("WGSL cannot move bytes within one array", &i);
++    return loop +
++           storeByte(i.getRawDest(), to,
++                     byteAt(copy->getRawSource(),
++                            use(copy->getRawSource()) + " + k")) +
++           " }";
++  }
++
++  /// What the kernel prints: a record of `log`, without its text where that
++  /// does not fit, and nothing where the log is full.
++  std::string record(const CallInst &i) {
++    const Value *text = i.getArgOperand(0);
++    return "{ let n = " + count(i.getArgOperand(1)) +
++           "; let words = (n + 3u) / 4u; let at = atomicAdd(&log[0], 2u + "
++           "words); if (at + 3u <= arrayLength(&log)) { "
++           "atomicStore(&log[at + 1u], gid.x + (gid.y + gid.z * nwg.y * "
++           "block_y) * nwg.x * block_x); atomicStore(&log[at + 2u], n); } "
++           "if (at + 3u + words <= arrayLength(&log)) { "
++           "for (var w = 0u; w < words; w++) { var word = 0u; "
++           "for (var k = w * 4u; k < min(n, w * 4u + 4u); k++) { word |= " +
++           byteAt(text, use(text) + " + k") +
++           " << ((k & 3u) * 8u); } atomicStore(&log[at + 3u + w], word); } } }";
++  }
++
++  /// The bytes a value takes in memory.
++  static unsigned bytesOf(Type *type) {
++    return isWide(type) ? 8 : isBool(type) ? 1 : type->isFloatTy() ? 4 : bits(type) / 8;
 +  }
 +
 +  /// Bits of a value that memory holds as a part of a word, or 0: a Bool is
@@ -494,17 +590,58 @@ index 0000000..13450d1
 +    return type->isFloatTy() ? "bitcast<f32>(" + word + ")" : word;
 +  }
 +
++  /// A constant global as a private array of its words.
++  void printGlobal(raw_ostream &os, unsigned index) {
++    const GlobalVariable *global = Globals[index];
++    uint64_t size = DL.getTypeAllocSize(global->getValueType()).getFixedValue();
++    if (size > 65536) {
++      fail("a constant of a kernel is at most 64 KiB", global);
++      return;
++    }
++    uint64_t words = std::max<uint64_t>(1, (size + 3) / 4);
++    os << "var<private> g" << index << ": array<u32, " << words
++       << "> = array<u32, " << words << ">(";
++    Type *byte = Type::getInt8Ty(global->getContext());
++    for (uint64_t at = 0; at < words * 4; at += 4) {
++      uint32_t word = 0;
++      for (uint64_t k = at; k < std::min(size, at + 4); k++) {
++        auto *value = dyn_cast_or_null<ConstantInt>(ConstantFoldLoadFromConst(
++            const_cast<Constant *>(global->getInitializer()), byte,
++            APInt(DL.getIndexSizeInBits(global->getAddressSpace()), k), DL));
++        if (!value) {
++          fail("WGSL cannot hold this constant", global);
++          return;
++        }
++        word |= uint32_t(value->getZExtValue()) << ((k - at) * 8);
++      }
++      os << (at ? ", " : "") << word << "u";
++    }
++    os << ");\n";
++  }
++
 +  /// The value a load reads.
 +  std::string load(const LoadInst &i) {
 +    const Value *from = i.getPointerOperand();
 +    Type *type = i.getType();
 +    bool atomic = Atomic.count(root(from));
++    // Where the value may lie across two words, each word is its bytes.
++    bool across = bytesOf(type) > 1 && i.getAlign().value() < bytesOf(type);
 +    auto read = [&](bool next) {
++      if (across) {
++        std::string value;
++        for (unsigned k = 0; k < std::min(bytesOf(type), 4u); k++)
++          value += (k ? " | (" : "(") +
++                   byteAt(from, use(from) + " + " + utostr(k + next * 4) + "u") +
++                   " << " + utostr(k * 8) + "u)";
++        return "(" + value + ")";
++      }
 +      return atomic ? "atomicLoad(&" + word(from, next) + ")" : word(from, next);
 +    };
 +    if (isWide(type))
 +      return "vec2<u32>(" + read(false) + ", " + read(true) + ")";
 +    std::string value = read(false);
++    if (across && bits(type) == 16)
++      return value;
 +    if (unsigned width = partBits(type)) {
 +      value = "(" + value + " >> ((" + use(from) + " & 3u) * 8u))";
 +      return isBool(type) ? "((" + value + " & 1u) != 0u)"
@@ -592,7 +729,18 @@ index 0000000..13450d1
 +      return "";
 +    }
 +    bool atomic = Atomic.count(root(to));
++    bool across = bytesOf(type) > 1 && i.getAlign().value() < bytesOf(type);
 +    auto write = [&](bool next, const std::string &stored) {
++      if (across) {
++        std::string statements;
++        for (unsigned k = 0; k < std::min(bytesOf(type), 4u); k++)
++          statements += storeByte(to,
++                                  use(to) + " + " + utostr(k + next * 4) + "u",
++                                  "((" + stored + " >> " + utostr(k * 8) +
++                                      "u) & 255u)") +
++                        " ";
++        return statements;
++      }
 +      return atomic ? "atomicStore(&" + word(to, next) + ", " + stored + ");"
 +                    : word(to, next) + " = " + stored + ";";
 +    };
@@ -603,7 +751,7 @@ index 0000000..13450d1
 +    std::string stored = isBool(type) ? "u32(" + use(value) + ")"
 +                                      : asWord(type, use(value));
 +    unsigned width = partBits(type);
-+    if (!width)
++    if (!width || across)
 +      return write(false, stored);
 +    // Only the bits of this part change, whatever other threads store into
 +    // the other parts of the word.
@@ -1116,6 +1264,10 @@ index 0000000..13450d1
 +      os << "      " << modify(*modified) << "\n";
 +    } else if (auto *exchanged = dyn_cast<AtomicCmpXchgInst>(&i)) {
 +      os << "      " << exchange(*exchanged) << "\n";
++    } else if (auto *moved = dyn_cast<MemIntrinsic>(&i)) {
++      os << "      " << bytes(*moved) << "\n";
++    } else if (isLog(i)) {
++      os << "      " << record(cast<CallInst>(i)) << "\n";
 +    } else if (auto *invocation = dyn_cast<CallInst>(&i)) {
 +      std::string value = call(*invocation);
 +      if (!value.empty() && !i.getType()->isVoidTy())
@@ -1148,25 +1300,25 @@ index 0000000..13450d1
 +std::string WGSLKernel::print() {
 +  if (!F.getReturnType()->isVoidTy())
 +    fail("a kernel returns nothing");
-+  // The standard library marks a print so: it is the reason to give, before
-+  // the formatting around it fails for another.
-+  for (const BasicBlock &block : F)
-+    for (const Instruction &i : block)
-+      if (auto *invocation = dyn_cast<CallInst>(&i))
-+        if (const Function *callee = invocation->getCalledFunction())
-+          if (callee->getName() == "__webgpu_print")
-+            fail("a kernel cannot print: WGSL has no output");
-+
 +  std::string text;
 +  raw_string_ostream os(text);
 +  os << "// " << F.getName() << "\n"
 +     << "override block_x: u32 = 1u;\noverride block_y: u32 = 1u;\n"
 +     << "override block_z: u32 = 1u;\n";
 +  unsigned buffers = 0, slots = 0;
++  bool logs = false;
++  for (const BasicBlock &block : F)
++    for (const Instruction &i : block)
++      logs |= isLog(i);
 +  for (const BasicBlock &block : F)
 +    for (const Instruction &i : block) {
 +      auto *stored = dyn_cast<StoreInst>(&i);
-+      bool narrow = stored && partBits(stored->getValueOperand()->getType());
++      Type *type = stored ? stored->getValueOperand()->getType() : nullptr;
++      // Stores of a part of a word, which other threads store into too.
++      bool narrow =
++          isa<MemIntrinsic>(i) ||
++          (stored &&
++           (partBits(type) || stored->getAlign().value() < bytesOf(type)));
 +      if (!narrow && (!i.isAtomic() || isa<FenceInst>(i)))
 +        continue;
 +      if (auto *buffer = dyn_cast_or_null<Argument>(
@@ -1187,6 +1339,9 @@ index 0000000..13450d1
 +  if (slots)
 +    os << "@group(0) @binding(" << buffers
 +       << ") var<storage, read> args: array<u32>;\n";
++  if (logs)
++    os << "@group(0) @binding(" << buffers + (slots ? 1 : 0)
++       << ") var<storage, read_write> log: array<atomic<u32>>;\n";
 +  os << "@compute @workgroup_size(block_x, block_y, block_z)\n"
 +     << "fn kernel(@builtin(global_invocation_id) gid: vec3<u32>,\n"
 +     << "          @builtin(local_invocation_id) lid: vec3<u32>,\n"
@@ -1197,6 +1352,8 @@ index 0000000..13450d1
 +  // The pipeline's layout has a binding only if the entry point names it.
 +  for (unsigned i = 0; i < buffers; i++)
 +    os << "  _ = arrayLength(&b" << i << ");\n";
++  if (logs)
++    os << "  _ = arrayLength(&log);\n";
 +  for (const Argument &argument : F.args()) {
 +    Type *type = argument.getType();
 +    if (type->isPointerTy())
@@ -1263,6 +1420,8 @@ index 0000000..13450d1
 +     << body << "    default { return; }\n    }\n  }\n}\n";
 +  if (Wide)
 +    os << kWide;
++  for (unsigned index = 0; index < Globals.size(); index++)
++    printGlobal(os, index);
 +  return Failure.empty() ? text : std::string();
 +}
 +

@@ -20,8 +20,9 @@ flowchart LR
   as `wasm64-unknown-emscripten`, the triple of Dolly's libc archives, as `cc`
   does. `wasm32-unknown-webgpu` is a kernel: its "assembly" is WGSL.
 - [`patches/stdlib.patch`](patches/stdlib.patch): the standard library's
-  bindings to Dolly's libc and the kernel-side names (`thread_idx`,
-  `block_idx`, `block_dim`, `grid_dim`, `global_idx`) for WebGPU.
+  bindings to Dolly's libc, and for WebGPU the kernel-side names
+  (`thread_idx`, `block_idx`, `block_dim`, `grid_dim`, `global_idx`) and
+  what a kernel prints.
 - [`../Dollyfile-mojo-runtime`](../Dollyfile-mojo-runtime): `libmojo-rt.a`,
   the compiler runtime over libc, and `libmojo-gpu.a`, the device side of
   `DeviceContext` over `gpu@0`. Their sources are the recipe's `FILE` bodies.
@@ -95,9 +96,9 @@ Upstream's `DeviceContext` is the package `max` over CUDA, HIP and Metal
 drivers that are not open source, so this one is new, with its names:
 `enqueue_create_buffer`, `enqueue_function`, `synchronize`, and on a buffer
 `enqueue_copy_from`, `enqueue_copy_to`, `enqueue_fill`, `map_to_host`.
-Upstream's GPU hello (`hello_writing.mojo` of its documentation) runs with
-`gpu.host` for `max.gpu.host` in its import; its other examples index
-buffers through `layout`, which is in `max`.
+Upstream's two GPU hellos (`gpu_hello.mojo` and `hello_writing.mojo` of its
+documentation) run with `gpu.host` for `max.gpu.host` in their import; its
+other examples index buffers through `layout`, which is in `max`.
 
 - A kernel is compiled as 32-bit code, so its `Int` is 32 bits wide, like
   WGSL's integers; an `Int` argument that does not fit raises when enqueued.
@@ -118,23 +119,30 @@ buffers through `layout`, which is in `max`.
 - Control flow is printed as a block number in a loop, so any branch or loop
   compiles; calls are inlined; a local array of a fixed size is a WGSL
   array, and a struct, an `Optional` or a tuple is its scalars. The text
-  must fit `gpu@0`'s 128 KiB for a shader: the largest of the fixtures, a
-  dozen math functions, is 13 KB.
+  must fit `gpu@0`'s 128 KiB for a shader, or `enqueue_function` raises: a
+  dozen math functions are 13 KB, and the largest of the fixtures is the
+  one that prints, 42 KB.
+- `print` in a kernel is formatted there and becomes a record of one more
+  buffer, 64 KiB, which the runtime writes out once the kernel has run,
+  thread after thread; `enqueue_function` then waits for it. A float is
+  printed by the formatter upstream has for Apple's GPUs, to six decimals.
+  A print of two floats and five integers is 90 KB of WGSL, which a GPU
+  compiles in 3 to 7 seconds and software in 20.
 - `Int64` and `UInt64` are two words each, in buffers, values and
   arguments: arithmetic, division a bit at a time, shifts, comparisons and
   conversions; no 64-bit atomic.
 - The compiler refuses, naming the instruction: `Float64`, `Float16`, SIMD
   vectors, pointers stored in memory or chosen between two buffers,
-  recursion, `print`, and the libm functions WGSL lacks (`log10`, `cbrt`,
-  `expm1`, `erfc`, gamma and Bessel functions).
+  recursion, and the libm functions WGSL lacks (`log10`, `cbrt`, `expm1`,
+  `erfc`, gamma and Bessel functions).
 - Floating point is the device's. Where measured, an infinity or a NaN from
   a buffer, a sum or a division compares and propagates as on the host, a
   subnormal result is zero, a value times two constants whose product
   overflows was 0.0 on the NVIDIA driver and infinite in software, and a
   `UInt32` of more than 24 bits became the nearest `Float32` on the GPU and
   the next one up in software.
-- A failed `assert` or an abort ends that invocation without a message; the
-  others go on. WGSL has no trap and `gpu@0` carries no kernel output.
+- A failed `assert` or an `abort` prints its message and ends that
+  invocation; the others go on, since WGSL has no trap.
 - WebGPU forbids one buffer bound twice as writable, so enqueueing a kernel
   with the same `DeviceBuffer` for two parameters raises.
 - A failure of `gpu@0` raises with its errno's text; the page's GPU indicator

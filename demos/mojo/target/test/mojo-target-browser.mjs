@@ -1,6 +1,7 @@
 // Mojo programs cross-compiled for Dolly (../cross-compile.sh) link against
 // the mojo-runtime image's libraries and run there: hello, the standard
-// library, coroutines, and kernels that DeviceContext launches on WebGPU.
+// library, coroutines, and kernels that DeviceContext launches on WebGPU,
+// upstream's two GPU hellos among them.
 // Usage: node demos/mojo/target/test/mojo-target-browser.mjs
 // Headless Chrome has a software adapter. With a GPU window on DISPLAY, Chrome
 // and the installed Firefox use the GPU as well.
@@ -12,7 +13,8 @@ import { startBrowserServer } from "../../../../test/browser-server.mjs";
 import { shellPrompt } from "../../../browser.mjs";
 
 const root = new URL("../../../../", import.meta.url);
-const gpu = "-lmojo-gpu -ldolly-gpu", programs = { hello: "", library: "", tasks: "", saxpy: gpu, kernels: gpu, mandelbrot: gpu, upstream_hello: gpu };
+const gpu = "-lmojo-gpu -ldolly-gpu", programs = { hello: "", library: "", tasks: "", saxpy: gpu, kernels: gpu, mandelbrot: gpu, output: gpu,
+  upstream_hello_writing: gpu, upstream_gpu_hello: gpu };
 const objects = Object.fromEntries(Object.keys(programs).map(name => [`${name}.o`, `build/mojo-target/objects/${name}.o`]));
 if (!Object.values(objects).every(path => existsSync(new URL(path, root)))) {
   console.log("mojo-target: skipped, it needs the objects of demos/mojo/target/cross-compile.sh");
@@ -52,8 +54,12 @@ try {
       await run("/tmp/library one | grep -qx 'MOJO-LIBRARY 6 5 29 True 2 7.25 True'");
       await run("/tmp/tasks | grep -qx 'MOJO-TASKS 33 6'");
       await run("/tmp/saxpy | grep -qx 'MOJO-GPU webgpu 1000 1998.5'");
-      // Upstream's hello_writing.mojo: a kernel stores into a buffer that the host maps.
-      await run("/tmp/upstream_hello | grep -qx 'GPU responded: 👋, 🔥'");
+      // Upstream's two GPU hellos: a kernel stores into a buffer that the host maps, and a kernel prints.
+      await run("/tmp/upstream_hello_writing | grep -qx 'GPU responded: 👋, 🔥'");
+      await run("/tmp/upstream_gpu_hello | grep -qx 'Hello from the GPU'");
+      // Each thread's line in thread order, the message of the assertion that ends thread 2, and what the others then stored.
+      await run("/tmp/output > /tmp/output.txt && grep -qx 'thread 1 of 3 holds 1.25' /tmp/output.txt" +
+        " && grep -q 'Assert Error: thread 2 stops here$' /tmp/output.txt && grep -qx 'MOJO-OUTPUT \\[-1.0, -1.0, 2.25\\]' /tmp/output.txt");
       // A loop over a local array; integers of 8, 16, 32 and 64 bits on a two-dimensional grid, with bytes and Bool loaded and stored; atomic operations; math functions within 1e-3 of the host.
       await run("/tmp/kernels | grep -qx 'MOJO-KERNELS wrong: 0 0 0 0 4898230'");
       // The Mandelbrot set as text (its middle row is inside from column 22 on), and a matrix product.
