@@ -6,7 +6,7 @@ REQUIRES HOST upload@0
 
 # The page's file exchange as system-tools builds it: download offers a file
 # of the session to the browser, upload takes one the user chooses.
-FROM /v0.1.2/Dollyfile-system-tools a79e48b88e5552cc965f0aa06dd9d28c05712649cc7b059036eb6a3857665632
+FROM /v0.1.2/Dollyfile-system-tools 326da72993c5e27cdc47bd2c34b2c6414b9e207f122920f1f7913ee40023c514
 
 EXPORTS TOOL download
 EXPORTS TOOL upload

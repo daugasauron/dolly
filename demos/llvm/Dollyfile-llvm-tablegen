@@ -10,9 +10,9 @@ REQUIRES HOST sockets@0
 REQUIRES HOST upload@0
 
 # Build-only: LLVM 24 configured by CMake inside Dolly, its TableGen tools and outputs.
-FROM /v0.1.2/demos/cmake/Dollyfile-cmake-build 7c1a8aa0eb6e27afe59c40294c79d4c556f031f85f2cbcd01f85e9fd328feed1
+FROM /v0.1.2/demos/cmake/Dollyfile-cmake-build eec56e95fcf7c352b93c675702b5f64d644a57c586a6736fc45dce4b06b463cf
 # LLVM's CMake requires a Python 3 interpreter.
-INSTALL /v0.1.2/demos/python/Dollyfile-python 5b036ab5bdd21eab0797e497b06abe8d6adb076f29f7ff9823e7c038d353b8c3
+INSTALL /v0.1.2/demos/python/Dollyfile-python bace66884e76c4f9459eadd293287db8575750e61be56a35d181323d239b3dcc
 # Configure the pinned LLVM 24 tree as the seed is configured
 # (scripts/build-toolchain.sh), then build and run its TableGen tools.
 REQUIRES TOOL cmake

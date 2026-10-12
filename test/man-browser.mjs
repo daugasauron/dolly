@@ -20,6 +20,8 @@ await browserTest("man and --help", { timeout: 300_000 }, async ({ open }) => {
   await run(everyOwnCommandAnswersHelp);
   await run("man foreground > /tmp/page && foreground --help > /tmp/help && cmp /tmp/page /tmp/help");
   await run("man help > /tmp/page && help > /tmp/help && cmp /tmp/page /tmp/help");
+  // help is the first thing the greeting names: it fits a terminal of 80 columns.
+  await run("test -s /tmp/help && ! grep -q '.\\{81\\}' /tmp/help");
   await run("man grep > /tmp/page && cmp /tmp/page /usr/share/man/man1/grep.1");
   assert.equal(await submit("man no-such-command > /tmp/out 2> /tmp/err"), 1);
   await run("grep -q no-such-command /tmp/err && test ! -s /tmp/out");

@@ -9,8 +9,8 @@ REQUIRES HOST http@0
 REQUIRES HOST snapshot@0
 REQUIRES HOST upload@0
 
-FROM /v0.1.2/Dollyfile-system cb003619fa38f3340386739e0df6a500c95f5ff040b1efb6804461adf294b259
-INSTALL /v0.1.2/demos/neovim/Dollyfile-nvim 3c844db3d33b613e179875d85609833255db06f081b34a530a0a57561269e2b0
+FROM /v0.1.2/Dollyfile-system fccc1226be55761962e251bf6d3d9b9c40dda88463812fd454cb199887ffc3d8
+INSTALL /v0.1.2/demos/neovim/Dollyfile-nvim 882ec76107632603e3f9505c3243f82540c587b0d7900e587e84ae5d0b03579b
 
 FILE /home/dolly/.config/nvim/init.lua
     vim.opt.shell = "/bin/slop"
