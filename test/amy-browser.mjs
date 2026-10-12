@@ -133,6 +133,8 @@ const programs = {
   rust: "printf 'fn main() { println!(\"{}\", 6 * 7); }\\n' > /tmp/amy.rs && rustc /tmp/amy.rs -o /tmp/amy-rust && test \"$(/tmp/amy-rust)\" = 42",
   // codex-cli installs ripgrep and fd: their rows come with it.
   "codex-cli": "codex --version | grep -q '^codex-cli ' && fd --version > /dev/null && amy list | grep -q '^ripgrep  *installed '",
+  zlib: "printf '#include <zlib.h>\\n#include <string.h>\\nint main(void) { return strcmp(zlibVersion(), ZLIB_VERSION) != 0; }\\n' > /tmp/amy-zlib.c && " +
+    "cc /tmp/amy-zlib.c -lz -o /tmp/amy-zlib && /tmp/amy-zlib",
   libuv: "printf '%s\\n' '#include <uv.h>' 'static int fired;' 'static void fire(uv_timer_t *timer) { fired = 1; uv_close((uv_handle_t *)timer, 0); }' " +
     "'int main(void) { uv_loop_t loop; uv_timer_t timer; uv_loop_init(&loop); uv_timer_init(&loop, &timer); uv_timer_start(&timer, fire, 1, 0); " +
     "uv_run(&loop, UV_RUN_DEFAULT); return uv_loop_close(&loop) != 0 || !fired; }' > /tmp/amy-uv.c && cc -O0 /tmp/amy-uv.c -luv -o /tmp/amy-uv && /tmp/amy-uv",
@@ -156,33 +158,57 @@ await browserTest("amy programs", { image: "default", timeout: 600_000 }, async 
   }
 });
 
-// Tools a session adds one at a time: each command is absent from default,
-// installs alone and runs. None brings the compiler until zig, which writes C
-// for it. transfer holds the two commands default copies.
+// What a session adds one package at a time: each command is absent from
+// default, installs alone and is used. None brings the compiler until zig,
+// which writes C for it. transfer holds the two commands default copies.
 const tools = {
-  ninja: "mkdir /tmp/amy-ninja && cd /tmp/amy-ninja && printf '%s\\n' 'rule write' '  command = echo built > $out' 'build out: write' > build.ninja && " +
-    "ninja && test \"$(cat out)\" = built && man ninja > /dev/null",
-  make: "mkdir /tmp/amy-make && cd /tmp/amy-make && printf 'out:\\n\\techo made > out\\n' > Makefile && make && test \"$(cat out)\" = made",
+  ninja: ["ninja", "mkdir /tmp/amy-ninja && cd /tmp/amy-ninja && printf '%s\\n' 'rule write' '  command = echo built > $out' 'build out: write' > build.ninja && " +
+    "ninja && test \"$(cat out)\" = built && man ninja > /dev/null"],
+  make: ["make", "mkdir /tmp/amy-make && cd /tmp/amy-make && printf 'out:\\n\\techo made > out\\n' > Makefile && make && test \"$(cat out)\" = made"],
   // The interpreter and the two modules built for it.
-  lua: "test \"$(lua -e 'local lpeg, uv = require(\"lpeg\"), require(\"luv\"); assert(uv.now() >= 0); print(lpeg.match(lpeg.R(\"09\")^1, \"42\") * 14)')\" = 42",
-  "session-recover": "session-recover --help | grep -q '^usage: session-recover' && ! session-recover /tmp/missing /tmp/recovered 2> /dev/null && ! cc --version 2> /dev/null",
+  lua: ["lua", "test \"$(lua -e 'local lpeg, uv = require(\"lpeg\"), require(\"luv\"); assert(uv.now() >= 0); print(lpeg.match(lpeg.R(\"09\")^1, \"42\") * 14)')\" = 42"],
+  "session-recover": ["session-recover", "session-recover --help | grep -q '^usage: session-recover' && ! session-recover /tmp/missing /tmp/recovered 2> /dev/null"],
+  // "packed", compressed.
+  gzip: ["gzip", "printf '\\037\\213\\010\\000\\000\\000\\000\\000\\002\\003\\053\\110\\114\\316\\116\\115\\341\\002\\000\\103\\340\\101\\057\\007\\000\\000\\000' | gzip -dc | grep -qx packed"],
+  // Janis starts its children with sh, which posix holds.
+  javascript: ["qjs", "test \"$(qjs -e 'console.log(6 * 7)')\" = 42 && " +
+    "test \"$(janis -e 'console.log(require(\"node:child_process\").execSync(\"echo spawned\").toString().trim())')\" = spawned"],
+  nvim: ["nvim", "nvim --headless -c 'call writefile([\"written\"], \"/tmp/amy-nvim\")' -c 'qa!' && test \"$(cat /tmp/amy-nvim)\" = written"],
+  emacs: ["emacs", "test \"$(emacs --batch --eval '(princ (* 6 7))')\" = 42"],
+  ripgrep: ["rg", "mkdir /tmp/amy-hay && echo needle > /tmp/amy-hay/stack && rg -q needle /tmp/amy-hay"],
+  fd: ["fd", "test \"$(fd stack /tmp/amy-hay)\" = /tmp/amy-hay/stack"],
+  protox: ["protox", "cd /tmp && printf 'syntax = \"proto3\";\\nmessage Probe { string name = 1; }\\n' > amy.proto && protox amy.proto -o amy.pb && test -s amy.pb"],
+  cbindgen: ["cbindgen", "printf '#[no_mangle]\\npub extern \"C\" fn answer() -> i32 { 42 }\\n' > /tmp/amy-answer.rs && cbindgen /tmp/amy-answer.rs | grep -q 'int32_t answer'"],
+  "pi-coding-agent": ["pi", "pi --version > /dev/null && ! cc --version 2> /dev/null"],
   // The two ways its manual page gives: a function for a C program, and a program with the standard library.
-  zig: "mkdir /tmp/amy-zig && cd /tmp/amy-zig && printf 'export fn answer() c_int { return 42; }\\n' > answer.zig && " +
+  zig: ["zig", "mkdir /tmp/amy-zig && cd /tmp/amy-zig && printf 'export fn answer() c_int { return 42; }\\n' > answer.zig && " +
     "printf 'int answer(void); int main(void) { return answer(); }\\n' > main.c && zig build-obj -ofmt=c -femit-bin=answer.c answer.zig && " +
     "cc -I /usr/lib/zig main.c answer.c -o answer && man zig > /dev/null && ./answer; test $? = 42 && " +
     "printf 'const std = @import(\"std\");\\npub fn main() void { std.debug.print(\"{d}\", .{6 * 7}); }\\n' > hello.zig && " +
     "zig build-exe -target wasm64-emscripten -fsingle-threaded -ofmt=c -lc -femit-bin=hello.c hello.zig && " +
-    "cc -Wno-incompatible-pointer-types '-Dzig_unimplemented()=(__builtin_trap(),0)' -I /usr/lib/zig hello.c -o hello && test \"$(./hello 2>&1)\" = 42",
+    "cc -Wno-incompatible-pointer-types '-Dzig_unimplemented()=(__builtin_trap(),0)' -I /usr/lib/zig hello.c -o hello && test \"$(./hello 2>&1)\" = 42"],
 };
 await browserTest("amy tools", { image: "default", timeout: 300_000 }, async ({ open }) => {
   const session = await open(), run = check(session);
-  for (const [name, program] of Object.entries(tools)) {
-    assert.equal(await session.submit(`${name} > /dev/null 2>&1`), 127, `default holds ${name}`);
+  for (const [name, [command, use]] of Object.entries(tools)) {
+    await run(`! command -v ${command}`);
     console.log(`amy install ${name}: ${await timed(run, `amy install ${name}`)} ms`);
-    await run(program);
+    await run(use);
   }
+  await run("amy install dolly-docs && test -f /usr/share/doc/dolly/docs/dollyfile.md");
   await run("amy install transfer && amy files transfer | grep -q ' /bin/upload$' && download --help | grep -q '^usage: download'");
 });
+
+// Every package of the catalog is installed into default and used: by a case
+// of this file, or where this says.
+const elsewhere = {
+  git: "man-browser.mjs, pager-browser.mjs", less: "pager-browser.mjs", llvm: "demos/llvm",
+  parakeet: "demos/speech", transcribe: "demos/speech: default refuses it", voice: "demos/speech, in pi-phone",
+  "llvm-runtimes": "a build stage", "minicpm5-2b": "demos/local-llm", "qwen3.5-2b": "demos/local-llm",
+  ...Object.fromEntries([1, 2, 3, 4].map(shard => [`qwen3.5-4b-${shard}`, "demos/local-llm"])),
+};
+const used = new Set([...preinstalled, "python", "cargo", "dolly-docs", "transfer", ...Object.keys({ ...programs, ...tools, ...elsewhere })]);
+assert.deepEqual(packages.filter(name => !used.has(name)), [], "packages that no test installs and uses");
 
 // A package brings the programs its own programs start. rustc links through
 // cc, which default lacks: installed alone, rust links a program and cargo
