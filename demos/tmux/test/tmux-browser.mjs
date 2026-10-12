@@ -2,8 +2,8 @@
 // two panes with a shell on a pseudo-terminal in each. Typing reaches the
 // active pane; Ctrl+C ends the program in a pane and not its shell; a resize
 // of the window reaches the program in a pane; detached, the shells keep
-// running, and attach returns to them. Then, in Chrome, the tmux package
-// installed into a default-based session.
+// running, and attach returns to them. Then, in Chrome, the tmux package:
+// refused by default, and installed into a default that declares pty@0.
 // Usage: node demos/tmux/test/tmux-browser.mjs [chromium|firefox ...]
 import assert from "node:assert/strict";
 import { demoTest, shellPrompt, writeCommand } from "../../browser.mjs";
@@ -118,6 +118,11 @@ if (browsers.includes("chromium")) {
   const recipe = ["DOLLY 7", "APPLICATION tmux-probe", ...hosts.map(host => `REQUIRES HOST ${host}`),
     `FROM ${pin("default")}`, `INSTALL ${pin("tmux")}`, "ENTRY /bin/foreground -i /bin/slop", ""].join("\n");
   await demoTest("tmux package", { image: "default", timeout: 300_000 }, async ({ open }) => {
+    // default declares no pty@0: amy refuses the package there, naming the module.
+    const session = await open();
+    assert.notEqual(await session.submit("amy install tmux 2> /tmp/refused"), 0, await session.text());
+    await session.run("grep -q 'Dollyfile-tmux needs pty@0: add REQUIRES HOST pty@0' /tmp/refused && ! command -v tmux");
+
     const { run, submit, text } = await open({ path: "/custom/rebuild/", prompt: shellPrompt,
       setup: page => page.addInitScript(recipe => sessionStorage.setItem("dolly-custom-source", recipe), recipe) });
     // No fork: tmux says how its server is started, and the shell starts it.
