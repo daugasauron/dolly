@@ -115,14 +115,15 @@ the build with `WGSL has no such type:  %11 = load double`; an `Int64`
 argument with `a WebGPU kernel argument is a DeviceBuffer, Int, UInt, Int32,
 UInt32, Float32 or Bool`.
 
-### The standard library's own tests, in Dolly (2026-10-13 02:11, headless Chrome 151)
+### The standard library's own tests, in Dolly (2026-10-13 02:11, headless Chrome 151 and Firefox 157)
 
 `Mojo/stdlib/test` has 261 `test_*.mojo` files that are programs (35 more
 are compile-failure tests with `RUN:` lines). Each was cross-compiled with
 the final patches, `-D ASSERT=all` and the defines its `BUILD.bazel` gives
 it, linked with `cc NAME.o -lmojo-rt` in one `mojo-runtime` session with the
 test tree unpacked at its source path, and run with the arguments its
-`BUILD.bazel` gives it (3 minutes for all). 224 do what upstream expects:
+`BUILD.bazel` gives it (3 minutes for all). 224 do what upstream expects,
+every file with the same status in Chrome and in a window of Firefox:
 
 | Files | Outcome |
 | --- | --- |
