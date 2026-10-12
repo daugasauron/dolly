@@ -32,9 +32,17 @@ _gpu/primitives/id.mojo
   thread_idx, block_idx, block_dim and grid_dim of a WebGPU kernel are calls
   the target prints as WGSL builtins.
 io/io.mojo, builtin/debug_assert.mojo, os/os.mojo, sys/__init__.mojo
-  A WGSL kernel has nowhere to print. A print is a call the target refuses
-  when the kernel can reach it; a failed assert and an abort end the
-  invocation without their message, which is not formatted either.
+  WGSL has no output and no variadic call. What a kernel prints is formatted
+  in the kernel, as for Apple's GPUs, and handed to the target as bytes,
+  which become a record of the kernel's log buffer. A failed assert prints
+  its message so; an abort prints as on a CPU, every thread its own.
+builtin/_format_float.mojo
+  WGSL has no 128-bit integer either: a float is printed by the formatter
+  upstream has for Apple's GPUs.
+memory/memory.mojo
+  Bytes are copied and filled through LLVM's intrinsics, which the target
+  prints as loops: upstream's own copy is in vectors of bytes, which WGSL
+  has not.
 
 diff --git a/Mojo/stdlib/std/_gpu/primitives/id.mojo b/Mojo/stdlib/std/_gpu/primitives/id.mojo
 index b91f561..911c4db 100644
@@ -135,8 +143,30 @@ index b91f561..911c4db 100644
              comptime intrinsic_name = "llvm.nvvm.read.ptx.sreg.nctaid." + dim
              var i = llvm_intrinsic[
                  intrinsic_name, Int32, has_side_effect=False
+diff --git a/Mojo/stdlib/std/builtin/_format_float.mojo b/Mojo/stdlib/std/builtin/_format_float.mojo
+index 2313ee8..a49883f 100644
+--- a/Mojo/stdlib/std/builtin/_format_float.mojo
++++ b/Mojo/stdlib/std/builtin/_format_float.mojo
+@@ -30,7 +30,7 @@ from std.memory import bitcast
+ 
+ from .globals import global_constant
+ 
+-from std.sys import is_apple_gpu
++from std.sys import is_apple_gpu, is_webgpu
+ from std.utils.numerics import FPUtils, isinf, isnan
+ 
+ 
+@@ -136,7 +136,7 @@ def _write_float[
+         # and float64 operations. Apple GPU doesn't support UInt128
+         # (needed by dragonbox) or double→uint64 conversions.
+         # Use float32 arithmetic only.
+-        comptime if is_apple_gpu():
++        comptime if is_apple_gpu() or is_webgpu():
+             var f32 = value.cast[.float32]()
+             var bits = bitcast[.uint32](f32)
+             var is_neg = (bits >> 31) != 0
 diff --git a/Mojo/stdlib/std/builtin/debug_assert.mojo b/Mojo/stdlib/std/builtin/debug_assert.mojo
-index a7d01d4..ba96570 100644
+index a7d01d4..4a9901d 100644
 --- a/Mojo/stdlib/std/builtin/debug_assert.mojo
 +++ b/Mojo/stdlib/std/builtin/debug_assert.mojo
 @@ -24,6 +24,7 @@ from std.sys import (
@@ -147,24 +177,22 @@ index a7d01d4..ba96570 100644
  )
  from std.sys._amdgpu import (
      printf_append_args,
-@@ -113,7 +114,8 @@ def _debug_assert_fail_format[
- def _debug_assert_fail[*Ts: Writable](*messages: *Ts, location: SourceLocation):
-     """Reports a failed assertion, formatting the message if there is one."""
- 
--    comptime if messages.__len__() == 0:
-+    # A WGSL kernel has nowhere to print: its message is not even formatted.
-+    comptime if messages.__len__() == 0 or is_webgpu():
-         _debug_assert_msg(
-             _NO_MESSAGE.ptr(), _NO_MESSAGE.byte_length() + 1, location
-         )
-@@ -581,7 +583,10 @@ def _debug_assert_msg(
+@@ -581,7 +582,18 @@ def _debug_assert_msg(
              " Assert Error: %s\n"
          )
  
 -        comptime if is_nvidia_gpu():
 +        comptime if is_webgpu():
-+            # A WGSL kernel has nowhere to print: the invocation only ends.
-+            pass
++            # WGSL has no variadic call: the message is formatted here.
++            print(
++                "At: ",
++                loc,
++                ": Assert Error: ",
++                StringSlice(
++                    unsafe_from_utf8=Span(unsafe_ptr=message, length=length - 1)
++                ),
++                sep="",
++            )
 +        elif is_nvidia_gpu():
              from std._gpu.primitives.id import block_idx, thread_idx
  
@@ -333,7 +361,7 @@ index 6e39f2d..9501360 100644
          if read < 0:
              raise Error("Failed to read bytes.")
 diff --git a/Mojo/stdlib/std/io/io.mojo b/Mojo/stdlib/std/io/io.mojo
-index 625aa5d..b00c938 100644
+index 625aa5d..abbb486 100644
 --- a/Mojo/stdlib/std/io/io.mojo
 +++ b/Mojo/stdlib/std/io/io.mojo
 @@ -33,6 +33,7 @@ from std.sys import (
@@ -344,35 +372,38 @@ index 625aa5d..b00c938 100644
      stdin,
      stdout,
  )
-@@ -205,6 +206,13 @@ def _printf_cpu[
+@@ -205,6 +206,14 @@ def _printf_cpu[
          )
  
  
 +@always_inline("nodebug")
-+def _webgpu_print():
-+    """Marks a print in a WebGPU kernel. A WGSL kernel has nowhere to print:
-+    the target refuses a kernel in which this call can be reached."""
-+    external_call["__webgpu_print", NoneType]()
++def _webgpu_log(text: Pointer[Byte, _], length: Int):
++    """Prints `length` bytes from a WebGPU kernel: the target makes them a
++    record of the kernel's log buffer, which the host prints after the
++    kernel has run."""
++    external_call["__webgpu_log", NoneType](text, length)
 +
 +
  @no_inline
  def _printf[
      fmt: StaticString, *types: AnyType
-@@ -306,6 +314,8 @@ def _printf[
+@@ -306,6 +315,9 @@ def _printf[
          )
      elif not is_gpu():
          _printf_cpu[fmt](*args, file=file)
 +    elif is_webgpu():
-+        _webgpu_print()
++        # The template without its arguments: WGSL has no variadic call.
++        _webgpu_log(fmt.unsafe_ptr(), fmt.byte_length())
      else:
          # If we aren't targeting either a known GPU vendor, or CPU, issue
          # a target error.
-@@ -446,6 +456,8 @@ def print[
+@@ -446,6 +458,9 @@ def print[
              _metal_print_write(
                  StringSlice(unsafe_from_utf8=cstr.as_bytes_with_nul())
              )
 +        elif is_webgpu():
-+            _webgpu_print()
++            # Without its terminator.
++            _webgpu_log(buffer._data.unsafe_ptr(), buffer._pos - 1)
          else:
              CompilationTarget.unsupported_target_error[
                  operation=__get_current_function_name()
@@ -400,6 +431,41 @@ index 20c4681..8d48fdf 100644
      ), "libm operations are only available on CPU targets"
  
      comptime if dtype not in [DType.float32, DType.float64]:
+diff --git a/Mojo/stdlib/std/memory/memory.mojo b/Mojo/stdlib/std/memory/memory.mojo
+index 1b4a5be..666bdea 100644
+--- a/Mojo/stdlib/std/memory/memory.mojo
++++ b/Mojo/stdlib/std/memory/memory.mojo
+@@ -33,6 +33,7 @@ from std.sys import (
+     codegen_unreachable,
+     get_defined_string,
+     is_gpu,
++    is_webgpu,
+     llvm_intrinsic,
+     simd_byte_width,
+     simd_width_of,
+@@ -184,6 +185,11 @@ def _memcpy_impl(
+             offset, src_data.unsafe_load[width=width](offset)
+         )
+ 
++    comptime if is_webgpu():
++        # WGSL has no vector of bytes: the target copies a byte at a time.
++        llvm_intrinsic["llvm.memcpy", NoneType](dest_data, src_data, n, False)
++        return
++
+     comptime if is_gpu():
+         vectorize[simd_byte_width()](n, copy)
+ 
+@@ -350,6 +356,10 @@ def _memset_impl(ptr: MutPointer[Byte, ...], value: Byte, count: Int):
+     def fill[width: Int](offset: Int) {imm}:
+         ptr.unsafe_store(offset, SIMD[.uint8, width](value))
+ 
++    comptime if is_webgpu():
++        llvm_intrinsic["llvm.memset", NoneType](ptr, value, count, False)
++        return
++
+     comptime simd_width = simd_width_of[Byte]()
+     vectorize[simd_width](count, fill)
+ 
 diff --git a/Mojo/stdlib/std/os/_dolly.mojo b/Mojo/stdlib/std/os/_dolly.mojo
 new file mode 100644
 index 0000000..c9e2b89
@@ -529,7 +595,7 @@ index eb6d1b6..92ae0d8 100644
      elif CompilationTarget.has_neon():
          return _lstat_linux_arm(fspath^)._to_stat_result()
 diff --git a/Mojo/stdlib/std/os/os.mojo b/Mojo/stdlib/std/os/os.mojo
-index bea7e25..b84a876 100644
+index bea7e25..076f41f 100644
 --- a/Mojo/stdlib/std/os/os.mojo
 +++ b/Mojo/stdlib/std/os/os.mojo
 @@ -28,7 +28,7 @@ from std.io import FileDescriptor
@@ -551,17 +617,16 @@ index bea7e25..b84a876 100644
              return self._list_linux()
          else:
              return self._list_macos()
-@@ -274,6 +275,9 @@ def _abort_report[
+@@ -274,7 +275,7 @@ def _abort_report[
      comptime if is_apple_gpu():
          # FIXME: Remove after MOCO-3697 is fixed.
          pass
-+    elif is_webgpu():
-+        # A WGSL kernel has nowhere to print.
-+        pass
-     elif is_gpu():
+-    elif is_gpu():
++    elif is_gpu() and not is_webgpu():
          # On GPU, gate the print to a single thread to avoid flooding the
          # printf buffer with identical messages from thousands of threads.
-@@ -521,7 +525,9 @@ def mkdir[PathLike: stdPathLike](path: PathLike, mode: Int = 0o777) raises:
+         if (
+@@ -521,7 +522,9 @@ def mkdir[PathLike: stdPathLike](path: PathLike, mode: Int = 0o777) raises:
      """
  
      var fspath = path.__fspath__()

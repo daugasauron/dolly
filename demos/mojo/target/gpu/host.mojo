@@ -244,6 +244,11 @@ struct DeviceContext(ImplicitlyCopyable):
         var kernel = compile_info[
             func, emission_kind="asm", target=CompilationTarget[_mlir_value=_webgpu()]()
         ]()
+        if kernel.asm.byte_length() > 128 * 1024:
+            raise Error(
+                "this kernel is ", kernel.asm.byte_length(), " bytes of WGSL"
+                " and gpu@0 takes 131072: what it prints is most of it",
+            )
         var buffers = Array[UInt64, 16](fill=0)
         var sizes = Array[UInt64, 16](fill=0)
         var slots = Array[UInt32, 64](fill=0)

@@ -43,8 +43,8 @@ either.
 - To prove the pair in the `mojo` image: `mojo build` each of
   `demos/mojo/target/test/fixtures/*.mojo` there and expect the lines that
   `demos/mojo/target/test/mojo-target-browser.mjs` greps for (it links the
-  same programs from cross-compiled objects), and upstream's
-  `hello_writing.mojo` as `cross-compile.sh` rewrites its import. With the
+  same programs from cross-compiled objects), and upstream's two GPU
+  hellos as `cross-compile.sh` rewrites their import. With the
   native compiler the GPU ones also compile against a precompiled
   `std.mojoc` and `gpu.mojoc`, as that image has them, and run (02:22). `tasks.mojo` needs the
   target's tail calls and the four GPU programs the package `gpu`; with
@@ -82,16 +82,22 @@ objects from `demos/mojo/target/cross-compile.sh`, image `mojo-runtime`:
 | Chrome 151.0.7922.71 on Xvfb, Vulkan | NVIDIA (`nvidia blackwell`) | passed |
 | Firefox 157.0.1 on Xvfb | unnamed WebGPU adapter | passed |
 
-Each run links six cross-compiled objects with `cc` in the session and
-checks their output: `hello` (print), `library` (split, `List`, `Dict`,
-`Path.write_text`/`read_text`, `exists`, `argv`, float formatting, a clock),
-`tasks` (coroutines awaited through the runtime's task queue), `saxpy` (one kernel over 1,000 floats through
-`DeviceContext.enqueue_function`), `kernels` (a loop, signed and unsigned
-integer arithmetic on a two-dimensional grid, `sqrt`/`abs` and conversions;
-every element compared with the host's) and `mandelbrot` (the set drawn as
-text from a kernel's escape times, and a 24 by 24 matrix product).
-Screenshots of the three browsers after these runs are in
-`build/mojo-target-evidence/` of the worktree.
+Each run (25 s for the three) links nine cross-compiled objects with `cc`
+in the session and checks their output: `hello` (print), `library` (split,
+`List`, `Dict`, `Path.write_text`/`read_text`, `exists`, `argv`, float
+formatting, a clock), `tasks` (coroutines awaited through the runtime's
+task queue), `saxpy` (one kernel over 1,000 floats through
+`DeviceContext.enqueue_function`, its input written through
+`map_to_host`), `kernels` (a loop over a local array; integers of 8, 16,
+32 and 64 bits on a two-dimensional grid with a 64-bit argument, bytes and
+`Bool` loaded and stored four threads to a word; atomic counts, a maximum
+and a compare and exchange; thirteen math functions; every element
+compared with the host's), `mandelbrot` (the set drawn as text from a
+kernel's escape times, and a 24 by 24 matrix product), `output` (each
+thread's printed line, and the message of the assertion that ends one),
+and upstream's `hello_writing.mojo` and `gpu_hello.mojo` with their import
+changed. Screenshots of the three browsers after the first of these runs
+are in `build/mojo-target-evidence/` of the worktree.
 
 Checked beyond the fixtures, with the host computing the same Mojo function
 (scratch programs, all three browsers): 8- and 16-bit arithmetic over 4,800
@@ -102,7 +108,15 @@ functions within 7e-6 on the GPUs, loops that copy and clear rows of a
 length known only when they run, and eight idioms (a struct chosen in a
 branch with its methods, a `Span` iterated, stepped ranges with `break`,
 `**`, `floor`, `fma`, `%` and `clamp`, an integer hash with variable shifts,
-an `Optional` from a function, a tuple, a three-dimensional grid). An
+an `Optional` from a function, a tuple, a three-dimensional grid); and on
+2026-10-13: seven more idioms with buffers of `Bool` and `UInt32`; stores
+of bytes, 16-bit integers and `Bool` by 65,521 threads, twenty times;
+atomic sums, signed and float maxima and one compare and exchange among
+100,000 threads, five times (one thread wins it, another each time on the
+GPUs); fourteen cases of 64-bit arithmetic over 257 values, division,
+shifts by a variable, conversions and 64-, 16- and 8-bit arguments among
+them; lines printed by six threads with integers, floats, `Bool` and a
+64-bit integer; asserts and an `abort` with their messages. An
 `Optional` through a branch did not compile until a struct that is a value
 was printed as its scalars, and every function a kernel calls is inlined
 before LLVM optimizes. Two things were wrong and are fixed:
@@ -113,9 +127,9 @@ compiled with `no-builtins`.
 
 How it is built, what a kernel may contain and what is refused:
 `demos/mojo/target/README.md`. Refusals measured: a `Float64` kernel fails
-the build with `WGSL has no such type:  %11 = load double`; an `Int64`
-argument with `a WebGPU kernel argument is a DeviceBuffer, Int, UInt, Int32,
-UInt32, Float32 or Bool`.
+the build with `WGSL has no Float64:  %10 = fpext float %9 to double`; a
+kernel with 17 buffers raises `a kernel takes at most 16 buffers` when
+enqueued.
 
 ### The standard library's own tests, in Dolly (2026-10-13 02:11, headless Chrome 151 and Firefox 157)
 
@@ -230,11 +244,16 @@ the released compiler on this machine's x86-64: 1.4 times.
   the test suite does not call is unchecked: `sys/_libc.mojo` declares
   `write` returning `c_int`, for one. `wasm-ld` warns of each mismatch when a
   program links.
+- **What a kernel prints costs** (02:55): the text is formatted in the
+  kernel, every call inlined, so one `print("value", i)` is 10 KB of WGSL,
+  an `assert` with a message 6 KB, an `abort` 7 KB. A print of two floats
+  and five integers is 90 KB, against `gpu@0`'s 128 KiB: its pipeline took
+  3.4 s in Chrome on the NVIDIA GPU, 7.0 s in Firefox and 19.8 s on
+  SwiftShader. Smaller would need the formatters printed as WGSL functions
+  of their own, which the one-function printer does not do. A kernel
+  compiled without `-D ASSERT=all` has none of the standard library's own
+  assertions, so the fixtures did not grow.
 - **Kernels, not built**:
-  - `print`, and the message of a failed `assert`: WGSL has no output and
-    no trap. They would be records in one more buffer that the runtime
-    reads back and prints, which `gpu@0` carries as it is; upstream's
-    `gpu_hello.mojo` is a kernel that prints.
   - Shared memory and barriers (upstream's names for them are in `max/`).
     Not tried: WGSL wants a barrier in uniform control flow, which a block
     number in a loop is not once a branch has depended on the thread, so
@@ -244,9 +263,9 @@ the released compiler on this machine's x86-64: 1.4 times.
   - The libm functions WGSL lacks (`log10`, `cbrt`, `expm1`, `erfc`, gamma
     and Bessel functions), and more than 256 threads in a block.
   - `TileTensor`: upstream's examples index buffers through `layout`, which
-    is in `max/`. The one that does not, `hello_writing.mojo` of its
-    documentation, runs with `gpu.host` for `max.gpu.host` in its import
-    and is in the test.
+    is in `max/`. The two that do not, `gpu_hello.mojo` and
+    `hello_writing.mojo` of its documentation, run with `gpu.host` for
+    `max.gpu.host` in their import and are in the test.
 - **Floating point in a kernel is the device's** (01:35, a scratch kernel
   over eight values, the three browsers): infinities and NaN from a buffer,
   from a sum and from a division by zero, and `isinf`, `isfinite`, `isnan`

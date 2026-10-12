@@ -280,10 +280,14 @@ FILE /tmp/mojo-runtime/gpu.c
     /* The device side of the Mojo package `gpu` (gpu.host.DeviceContext) over
      * Dolly's gpu@0. A kernel is WGSL as the compiler's webgpu target prints it:
      * pointer parameters are storage buffers bound in order, the other parameters
-     * are 32-bit slots of one more buffer, block_dim is the workgroup size. */
+     * are 32-bit slots of one more buffer, block_dim is the workgroup size, and
+     * what it prints are records of a last buffer, `log`. */
+    #define _GNU_SOURCE
     #include <dolly/gpu.h>
     #include <errno.h>
     #include <stdint.h>
+    #include <stdio.h>
+    #include <stdlib.h>
     #include <string.h>
     
     enum { STORAGE = 128 | 4 | 8, READBACK = 1 | 8, CHUNK = 512 * 1024 };
@@ -414,10 +418,40 @@ FILE /tmp/mojo-runtime/gpu.c
       return (int64_t)id;
     }
     
+    /* A kernel's log: the words its records take, then each record's thread,
+     * its length in bytes and its text. One that does not fit has no text. */
+    enum { LOG_WORDS = 16 * 1024 };
+    static const char log_binding[] = ") var<storage, read_write> log:";
+    static uint64_t log_buffer;
+    
+    static int by_thread(const void *a, const void *b) {
+      const uint32_t *left = *(const uint32_t *const *)a, *right = *(const uint32_t *const *)b;
+      return left[0] != right[0] ? (left[0] < right[0] ? -1 : 1) : (left > right) - (left < right);
+    }
+    
+    /* Writes what the kernel that has just run printed, thread after thread. */
+    static int64_t print_log(void) {
+      static uint32_t words[LOG_WORDS];
+      static const uint32_t *records[LOG_WORDS / 2];
+      int64_t error = mojo_gpu_read(log_buffer, 0, words, sizeof words);
+      if (error) return error;
+      unsigned count = 0, lost = 0;
+      for (uint64_t at = 1; at <= words[0] && at + 2 <= LOG_WORDS; at += 2 + ((uint64_t)words[at + 1] + 3) / 4) {
+        if (at + 2 + ((uint64_t)words[at + 1] + 3) / 4 <= LOG_WORDS) records[count++] = words + at;
+        else lost = 1;
+      }
+      qsort(records, count, sizeof *records, by_thread);
+      for (unsigned i = 0; i < count; i++) fwrite(records[i] + 2, 1, records[i][1], stdout);
+      fflush(stdout);
+      if (lost || words[0] > LOG_WORDS - 1) fputs("mojo: a kernel printed more than its 64 KiB of log\n", stderr);
+      return 0;
+    }
+    
     int64_t mojo_gpu_launch(const char *code, uint64_t bytes, const uint32_t grid[3], const uint32_t block[3],
                             const uint64_t *buffers, const uint64_t *sizes, uint32_t buffer_count,
                             const uint32_t *slots, uint32_t slot_count) {
-      if (buffer_count + !!slot_count > DOLLY_GPU_MAX_BINDINGS) return -E2BIG;
+      int logs = memmem(code, bytes, log_binding, sizeof log_binding - 1) != 0;
+      if (buffer_count + !!slot_count + logs > DOLLY_GPU_MAX_BINDINGS) return -E2BIG;
       int64_t compute = pipeline(code, bytes, block);
       if (compute < 0) return compute;
       uint64_t bound[DOLLY_GPU_MAX_BINDINGS], bound_sizes[DOLLY_GPU_MAX_BINDINGS], arguments = 0;
@@ -432,6 +466,13 @@ FILE /tmp/mojo-runtime/gpu.c
         bound[buffer_count] = arguments;
         bound_sizes[buffer_count++] = slot_count * 4;
       }
+      if (logs) {
+        uint32_t empty = 0;
+        if (!log_buffer) dolly_gpu_buffer(&g, log_buffer = next++, LOG_WORDS * 4, STORAGE);
+        dolly_gpu_write(&g, log_buffer, &empty, 4);
+        bound[buffer_count] = log_buffer;
+        bound_sizes[buffer_count++] = LOG_WORDS * 4;
+      }
       uint64_t group = next++;
       dolly_gpu_group(&g, group, (uint64_t)compute, buffer_count, bound, bound_sizes);
       char *record = dolly_gpu_record(&g, DOLLY_GPU_COMPUTE, 40);
@@ -440,6 +481,7 @@ FILE /tmp/mojo-runtime/gpu.c
       memcpy(record + 24, grid, 12);
       dolly_gpu_submit(&g);
       int64_t error = done();
+      if (!error && logs) error = print_log();
       if (error) return error;
       error = mojo_gpu_release(group);
       return error || !arguments ? error : mojo_gpu_release(arguments);
