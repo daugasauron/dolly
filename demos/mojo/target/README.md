@@ -6,10 +6,10 @@ Everything is against the tag `mojo/v1.1.0` of `github.com/modular/modular`.
 
 ```mermaid
 flowchart LR
-  program["program.mojo"] -- "mojo build --target-triple wasm64-unknown-dolly --emit object" --> object["program.o"]
+  program["program.mojo"] -- "mojo build, target wasm64-unknown-dolly" --> object["program.o"]
   kernel["a kernel function"] -- "compile_info, target wasm32-unknown-webgpu" --> wgsl["WGSL text"]
   wgsl -- "a constant of" --> object
-  object -- "cc program.o -lmojo-gpu -lmojo-rt -ldolly-gpu" --> exe["Dolly executable"]
+  object -- "mojo build runs cc program.o -lmojo-gpu -lmojo-rt -ldolly-gpu" --> exe["Dolly executable"]
   exe -- "gpu@0" --> webgpu["the page's WebGPU device"]
 ```
 
@@ -33,9 +33,10 @@ flowchart LR
 
 ## Build and test
 
-The test takes its programs as objects from a native compiler built from the
-patched source (45 minutes at six jobs, 10 GB), so it needs no compiler in
-Dolly; [the `mojo` image](../README.md) compiles the same sources there:
+In [the `mojo` image](../README.md) `mojo build program.mojo` does all of
+it, and that image's test compiles these fixtures there. The test here
+needs no compiler in Dolly: it takes its programs as objects from a native
+compiler built from the patched source (45 minutes at six jobs, 10 GB):
 
 ```sh
 mkdir -p build/mojo-target && cd build/mojo-target
@@ -55,7 +56,8 @@ node demos/mojo/target/test/mojo-target-browser.mjs
 
 ## A program
 
-- The driver takes `--target-triple wasm64-unknown-dolly`; the CPU and the
+- The driver takes `--target-triple wasm64-unknown-dolly`, which the
+  compiler built in Dolly has as its default; the CPU and the
   features are then those of every object `cc` makes, and Wasm tail calls,
   which coroutines need and every browser with 64-bit memories has.
   The driver links by running `cc ARCHIVE COMPILER-RT -lm`: in Dolly that is
