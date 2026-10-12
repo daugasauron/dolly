@@ -168,7 +168,7 @@ await browserTest("amy programs", { image: "default", timeout: 600_000 }, async 
 
 // What a session adds one package at a time: each command is absent from
 // default, installs alone and is used. None brings the compiler until zig,
-// which writes C for it. transfer holds the two commands default copies.
+// which writes C for it.
 const tools = {
   ninja: ["ninja", "mkdir /tmp/amy-ninja && cd /tmp/amy-ninja && printf '%s\\n' 'rule write' '  command = echo built > $out' 'build out: write' > build.ninja && " +
     "ninja && test \"$(cat out)\" = built && man ninja > /dev/null"],
@@ -204,7 +204,6 @@ await browserTest("amy tools", { image: "default", timeout: 300_000 }, async ({ 
     await run(use);
   }
   await run("amy install dolly-docs && test -f /usr/share/doc/dolly/docs/dollyfile.md");
-  await run("amy install transfer && amy files transfer | grep -q ' /bin/upload$' && download --help | grep -q '^usage: download'");
 });
 
 // Every package of the catalog is installed into default and used: by a case
@@ -215,7 +214,7 @@ const elsewhere = {
   "llvm-runtimes": "a build stage", "minicpm5-2b": "demos/local-llm", "qwen3.5-2b": "demos/local-llm",
   ...Object.fromEntries([1, 2, 3, 4].map(shard => [`qwen3.5-4b-${shard}`, "demos/local-llm"])),
 };
-const used = new Set([...preinstalled, "python", "cargo", "dolly-docs", "transfer", ...Object.keys({ ...programs, ...tools, ...elsewhere })]);
+const used = new Set([...preinstalled, "python", "cargo", "dolly-docs", ...Object.keys({ ...programs, ...tools, ...elsewhere })]);
 assert.deepEqual(packages.filter(name => !used.has(name)), [], "packages that no test installs and uses");
 
 // A package brings the programs its own programs start. rustc links through

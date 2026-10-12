@@ -12,7 +12,8 @@ REQUIRES HOST sockets@0
 REQUIRES HOST threads@0
 REQUIRES HOST upload@0
 
-# The image people open: a shell, its text tools, the terminal, curl and amy.
+# The image people open: a shell, its text tools, the terminal, curl, amy and
+# the page's file exchange.
 # It holds no compiler; amy installs what a session needs. The host modules
 # are those packages may need, since an image's list is fixed.
 INSTALL /v0.1.2/Dollyfile-core df5b101a605e45348e95929d202fb24c3a1e38cb0f69763a0973047710294220
@@ -20,11 +21,7 @@ INSTALL /v0.1.2/Dollyfile-posix f86fffdfdd22e67543d0c8f787f3623f6cf1953f89242a0d
 INSTALL /v0.1.2/Dollyfile-display 133d99fcd484b7cb260939ee300895459bd30164ec61aadfcd853cb9571215e8
 INSTALL /v0.1.2/Dollyfile-curl fa7dc027b8d70e8439ba5f6e03c12c396af3773b38577ceec7bcb30763a0c6f3
 INSTALL /v0.1.2/Dollyfile-amy 32d0c32b1443a49c7ef0720e261961ca6f6ca4f6b7419222392f2ca4a321bcb0
-# The page's file exchange. system-tools builds them and no package holds them yet.
-COPY /v0.1.2/Dollyfile-system-tools a79e48b88e5552cc965f0aa06dd9d28c05712649cc7b059036eb6a3857665632 /bin/download /bin/download
-COPY /v0.1.2/Dollyfile-system-tools a79e48b88e5552cc965f0aa06dd9d28c05712649cc7b059036eb6a3857665632 /bin/upload /bin/upload
-COPY /v0.1.2/Dollyfile-system-tools a79e48b88e5552cc965f0aa06dd9d28c05712649cc7b059036eb6a3857665632 /usr/share/man/cat1/download.1 /usr/share/man/cat1/download.1
-COPY /v0.1.2/Dollyfile-system-tools a79e48b88e5552cc965f0aa06dd9d28c05712649cc7b059036eb6a3857665632 /usr/share/man/cat1/upload.1 /usr/share/man/cat1/upload.1
+INSTALL /v0.1.2/Dollyfile-transfer 672b8561adb75f4d25c598e9b903d19f8acfe8ce6009066ca91c2dd14269ef3a
 REQUIRES TOOL foreground
 REQUIRES TOOL test
 REQUIRES TOOL echo
