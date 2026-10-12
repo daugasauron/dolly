@@ -1,0 +1,1116 @@
+The Mojo compiler for Dolly programs and WebGPU kernels.
+Against github.com/modular/modular at the tag mojo/v1.1.0; apply with patch -p1.
+
+bazel/public-patches/llvm_project.bzl
+  The compiler links the LLVM backends of this list; WebAssembly was not one.
+Support/include/Support/MDialect/MAttrs.td
+  A target's OS is named through LLVM's enumeration, where Dolly is "unknown".
+  The standard library chooses its libc bindings by this name.
+Support/lib/MArchTarget/MArchTargetMinimal.cpp
+  The CPU name "generic" was looked up as an AArch64 CPU for every triple, so
+  a wasm64 target got +neon, +fp-armv8 and +ete and LLVM warned of each.
+  A Dolly target has atomics and exception-handling beyond that CPU's
+  features, as every object of Dolly's C compiler has: the linker refuses to
+  share memory with an object without atomics. It also has tail-call: a
+  coroutine resumes through a call that must be a tail call, and without the
+  feature LLVM fails every async function.
+Mojo/lib/Compiler/ObjectCompiler/MCLinker.cpp
+  Code is generated in one MC context and printed in another. Wasm code
+  names its function table by a symbol of the first, the printer makes the
+  symbol again in the second, and the object declared
+  __indirect_function_table twice: wasm-ld refused every program with both an
+  indirect call and a function pointer.
+Mojo/lib/Target/Dolly, Mojo/lib/KGENToLLVM/Target/Dolly,
+Mojo/lib/Compiler/ObjectCompiler/Target/Dolly (new)
+  Two targets, each registered as upstream's host target is:
+  wasm64-unknown-dolly, a program: an object for Dolly's linker, generated as
+  wasm64-unknown-emscripten, the triple of Dolly's libc archives;
+  wasm32-unknown-webgpu, a kernel: compile_info's "asm" is WGSL text.
+
+diff --git a/Mojo/lib/Compiler/ObjectCompiler/MCLinker.cpp b/Mojo/lib/Compiler/ObjectCompiler/MCLinker.cpp
+index 8bdcb15..42aea40 100644
+--- a/Mojo/lib/Compiler/ObjectCompiler/MCLinker.cpp
++++ b/Mojo/lib/Compiler/ObjectCompiler/MCLinker.cpp
+@@ -22,6 +22,7 @@
+ #include "llvm/IR/LegacyPassManager.h"
+ #include "llvm/IR/PassManager.h"
+ #include "llvm/Linker/Linker.h"
++#include "llvm/MC/MCSymbolWasm.h"
+ #include "llvm/Target/TargetLoweringObjectFile.h"
+ #include "llvm/Target/TargetMachine.h"
+ #include "llvm/TargetParser/Triple.h"
+@@ -34,6 +35,33 @@ void SymbolAndMCInfo::clear() {
+   mcInfos.clear();
+ }
+ 
++/// Wasm code names its function table by a symbol of the context it was
++/// generated in; the object is printed in this linker's context, which makes
++/// that symbol too. Left alone, the object declares __indirect_function_table
++/// twice and no linker takes it.
++static void adoptWasmFunctionTable(llvm::MachineFunction &mf,
++                                   llvm::MCContext &printed) {
++  for (llvm::MachineBasicBlock &block : mf) {
++    for (llvm::MachineInstr &instruction : block) {
++      for (llvm::MachineOperand &operand : instruction.operands()) {
++        if (!operand.isMCSymbol() ||
++            operand.getMCSymbol()->getName() != "__indirect_function_table")
++          continue;
++        auto *generated =
++            static_cast<llvm::MCSymbolWasm *>(operand.getMCSymbol());
++        auto *table = static_cast<llvm::MCSymbolWasm *>(
++            printed.getOrCreateSymbol(generated->getName()));
++        if (!table->isFunctionTable()) {
++          table->setFunctionTable(printed.getTargetTriple().isArch64Bit());
++          if (generated->omitFromLinkingSection())
++            table->setOmitFromLinkingSection();
++        }
++        operand.ChangeToMCSymbol(table, operand.getTargetFlags());
++      }
++    }
++  }
++}
++
+ MCLinker::MCLinker(
+     SmallVectorImpl<SymbolAndMCInfo *> &symbolAndMCInfos,
+     llvm::TargetMachine &targetMachine, CompilationOptions options,
+@@ -229,6 +257,8 @@ void MCLinker::prepareMachineModuleInfo(
+           });
+         }
+ 
++        if (llvmTargetMachine.getTargetTriple().isWasm())
++          adoptWasmFunctionTable(*mf, machineModInfoPass->getMMI().getContext());
+         machineModInfoPass->getMMI().insertFunction(fn, std::move(mf));
+ 
+         // Restore function linkage types.
+@@ -282,6 +312,9 @@ MCLinker::getModuleToPrintOneSplit(llvm::TargetMachine &llvmTargetMachine) {
+     if (mfPtrIter == machineFunctions.end())
+       continue;
+ 
++    if (llvmTargetMachine.getTargetTriple().isWasm())
++      adoptWasmFunctionTable(*mfPtrIter->second,
++                             machineModInfoPass->getMMI().getContext());
+     machineModInfoPass->getMMI().insertFunction(fn,
+                                                 std::move(mfPtrIter->second));
+   }
+diff --git a/Mojo/lib/Compiler/ObjectCompiler/Target/Dolly/DollyBackend.cpp b/Mojo/lib/Compiler/ObjectCompiler/Target/Dolly/DollyBackend.cpp
+new file mode 100644
+index 0000000..2e5a607
+--- /dev/null
++++ b/Mojo/lib/Compiler/ObjectCompiler/Target/Dolly/DollyBackend.cpp
+@@ -0,0 +1,797 @@
++//===----------------------------------------------------------------------===//
++// Added for Dolly, a POSIX-like userspace for wasm64 in the browser.
++//
++// Licensed under the Apache License v2.0 with LLVM Exceptions:
++// https://llvm.org/LICENSE.txt
++//===----------------------------------------------------------------------===//
++//
++// Dolly programs (wasm64 objects for Dolly's linker) and WebGPU kernels
++// (WGSL text for Dolly's gpu@0).
++//
++// A kernel is optimized as 32-bit LLVM IR and printed as one WGSL compute
++// entry point:
++//   - each pointer parameter is a storage buffer `b<N>: array<u32>`, bound in
++//     parameter order; a pointer value is a byte offset into the buffer its
++//     parameter names, so a pointer may not be chosen between two buffers,
++//     stored in memory or converted to an integer;
++//   - the other parameters are 32-bit slots of the read-only buffer `args`,
++//     bound after the last pointer, in parameter order;
++//   - `block_dim` is the workgroup size, an override constant of the pipeline;
++//   - control flow is a block number in a loop, which expresses any CFG.
++// What WGSL cannot say is an error naming the instruction: 64-bit integers,
++// f64, f16, vectors, memory accesses that are not 32 bits wide, calls. A trap
++// ends the invocation.
++//
++//===----------------------------------------------------------------------===//
++
++#include "Mojo/Compiler/Target/TargetBackend.h"
++#include "Mojo/ToolCommon/CompilationOptions.h"
++#include "Target/Dolly/DollyTraits.h"
++#include "Target/Host/HostBackend.h"
++
++#include "llvm/ADT/DenseMap.h"
++#include "llvm/ADT/SmallPtrSet.h"
++#include "llvm/ADT/StringExtras.h"
++#include "llvm/ADT/StringSwitch.h"
++#include "llvm/IR/Constants.h"
++#include "llvm/IR/DataLayout.h"
++#include "llvm/IR/Function.h"
++#include "llvm/IR/GetElementPtrTypeIterator.h"
++#include "llvm/IR/Instructions.h"
++#include "llvm/IR/IntrinsicInst.h"
++#include "llvm/IR/Module.h"
++#include "llvm/IR/Operator.h"
++#include "llvm/Support/Format.h"
++#include "llvm/Support/raw_ostream.h"
++#include "llvm/Transforms/Utils/Cloning.h"
++
++#include <cmath>
++
++namespace {
++
++using namespace llvm;
++
++constexpr StringLiteral kKernelAttribute = "dolly-webgpu-kernel";
++
++class WGSLKernel {
++public:
++  explicit WGSLKernel(Function &kernel)
++      : F(kernel), DL(kernel.getParent()->getDataLayout()) {}
++
++  /// The WGSL module, or empty with `failure()` set.
++  std::string print();
++  StringRef failure() const { return Failure; }
++
++private:
++  Function &F;
++  const DataLayout &DL;
++  std::string Failure;
++  DenseMap<const Value *, unsigned> Numbers;
++  DenseMap<const Value *, const Value *> Roots;
++  DenseMap<const BasicBlock *, unsigned> Blocks;
++  DenseMap<const Argument *, unsigned> Buffers;
++  DenseMap<const Argument *, unsigned> Slots;
++
++  void fail(const Twine &what, const Value *value = nullptr) {
++    if (!Failure.empty())
++      return;
++    raw_string_ostream os(Failure);
++    os << "WebGPU kernel '" << F.getName() << "': " << what;
++    if (value)
++      os << ":" << *value;
++  }
++
++  static bool isBool(Type *type) { return type->isIntegerTy(1); }
++
++  /// Bits of an integer the printer holds in a u32, or 0.
++  static unsigned bits(Type *type) {
++    if (!type->isIntegerTy())
++      return 0;
++    unsigned width = type->getIntegerBitWidth();
++    return width == 8 || width == 16 || width == 32 ? width : 0;
++  }
++
++  std::string typeName(Type *type, const Value *value) {
++    if (isBool(type))
++      return "bool";
++    if (bits(type) || type->isPointerTy())
++      return "u32";
++    if (type->isFloatTy())
++      return "f32";
++    fail("WGSL has no such type", value);
++    return "u32";
++  }
++
++  static std::string normalize(const std::string &expression, unsigned width) {
++    if (width == 32)
++      return expression;
++    return "((" + expression + ") & " + utostr((1u << width) - 1) + "u)";
++  }
++
++  static std::string asSigned(const std::string &expression, unsigned width) {
++    if (width == 32)
++      return "i32(" + expression + ")";
++    std::string shift = utostr(32 - width) + "u";
++    return "(i32((" + expression + ") << " + shift + ") >> " + shift + ")";
++  }
++
++  std::string use(const Value *value) {
++    Type *type = value->getType();
++    if (isa<UndefValue>(value) || isa<ConstantPointerNull>(value))
++      return isBool(type) ? "false" : type->isFloatTy() ? "0.0f" : "0u";
++    if (auto *integer = dyn_cast<ConstantInt>(value)) {
++      if (isBool(type))
++        return integer->isZero() ? "false" : "true";
++      if (!bits(type))
++        fail("WGSL has no such integer", value);
++      return utostr(integer->getZExtValue() & 0xffffffffu) + "u";
++    }
++    if (auto *real = dyn_cast<ConstantFP>(value)) {
++      if (!type->isFloatTy() || !real->getValueAPF().isFinite()) {
++        fail("WGSL has no such constant", value);
++        return "0.0f";
++      }
++      std::string text;
++      raw_string_ostream(text)
++          << format("%.9g", double(real->getValueAPF().convertToFloat()));
++      if (text.find_first_of(".e") == std::string::npos)
++        text += ".0";
++      return "(" + text + "f)";
++    }
++    if (auto *argument = dyn_cast<Argument>(value))
++      return type->isPointerTy() ? "0u" : "a" + utostr(argument->getArgNo());
++    if (isa<Instruction>(value)) {
++      auto number = Numbers.find(value);
++      if (number != Numbers.end())
++        return "v" + utostr(number->second);
++    }
++    fail("WGSL cannot name this value", value);
++    return "0u";
++  }
++
++  /// The parameter or alloca a pointer indexes, or null with a failure.
++  const Value *root(const Value *pointer) {
++    SmallPtrSet<const Value *, 8> visiting;
++    const Value *found = findRoot(pointer, visiting);
++    if (!found)
++      fail("a pointer must index one buffer parameter", pointer);
++    return found;
++  }
++
++  const Value *findRoot(const Value *pointer,
++                        SmallPtrSetImpl<const Value *> &visiting) {
++    auto known = Roots.find(pointer);
++    if (known != Roots.end())
++      return known->second;
++    if (!visiting.insert(pointer).second)
++      return nullptr;
++    const Value *found = nullptr;
++    if (isa<Argument>(pointer) || isa<AllocaInst>(pointer)) {
++      found = pointer;
++    } else if (auto *gep = dyn_cast<GEPOperator>(pointer)) {
++      found = findRoot(gep->getPointerOperand(), visiting);
++    } else if (isa<PHINode>(pointer) || isa<SelectInst>(pointer)) {
++      auto *user = cast<User>(pointer);
++      for (unsigned i = isa<SelectInst>(pointer) ? 1 : 0;
++           i < user->getNumOperands(); i++) {
++        const Value *operand = user->getOperand(i);
++        if (isa<UndefValue>(operand))
++          continue;
++        const Value *next = findRoot(operand, visiting);
++        if (!next)
++          continue;
++        if (found && found != next)
++          return nullptr;
++        found = next;
++      }
++    } else if (auto *freeze = dyn_cast<FreezeInst>(pointer)) {
++      found = findRoot(freeze->getOperand(0), visiting);
++    }
++    if (found)
++      Roots[pointer] = found;
++    return found;
++  }
++
++  /// `b3[(offset) >> 2u]` for a 32-bit access through `pointer`.
++  std::string word(const Value *pointer, Type *accessed,
++                   const Instruction &access) {
++    if (!accessed->isFloatTy() && bits(accessed) != 32) {
++      fail("only 32-bit values can be loaded or stored", &access);
++      return "b0[0]";
++    }
++    const Value *base = root(pointer);
++    if (!base)
++      return "b0[0]";
++    std::string memory =
++        isa<Argument>(base) ? "b" + utostr(Buffers.lookup(cast<Argument>(base)))
++                            : "m" + utostr(Numbers.lookup(base));
++    return memory + "[(" + use(pointer) + ") >> 2u]";
++  }
++
++  std::string offset(const GEPOperator &gep) {
++    std::string expression = use(gep.getPointerOperand());
++    uint32_t constant = 0;
++    for (gep_type_iterator it = gep_type_begin(gep), end = gep_type_end(gep);
++         it != end; ++it) {
++      Value *index = it.getOperand();
++      if (StructType *aggregate = it.getStructTypeOrNull()) {
++        constant += DL.getStructLayout(aggregate)->getElementOffset(
++            cast<ConstantInt>(index)->getZExtValue());
++        continue;
++      }
++      uint32_t stride = it.getSequentialElementStride(DL).getFixedValue();
++      if (auto *known = dyn_cast<ConstantInt>(index)) {
++        constant += uint32_t(known->getSExtValue()) * stride;
++      } else {
++        if (bits(index->getType()) != 32)
++          fail("an index must be 32 bits wide", &gep);
++        expression += " + " + use(index) + " * " + utostr(stride) + "u";
++      }
++    }
++    if (constant)
++      expression += " + " + utostr(constant) + "u";
++    return "(" + expression + ")";
++  }
++
++  std::string compare(const ICmpInst &instruction) {
++    const Value *left = instruction.getOperand(0),
++                *right = instruction.getOperand(1);
++    Type *type = left->getType();
++    if (type->isPointerTy()) {
++      if (root(left) != root(right))
++        fail("pointers into two buffers cannot be compared", &instruction);
++    } else if (!isBool(type) && !bits(type)) {
++      fail("WGSL has no such integer", &instruction);
++    }
++    unsigned width = type->isPointerTy() ? 32 : bits(type);
++    std::string a = use(left), b = use(right);
++    if (instruction.isSigned() && !isBool(type)) {
++      a = asSigned(a, width);
++      b = asSigned(b, width);
++    } else if (isBool(type) && !instruction.isEquality()) {
++      a = "u32(" + a + ")";
++      b = "u32(" + b + ")";
++      if (instruction.isSigned())
++        std::swap(a, b); // As i1, true is -1.
++    }
++    const char *relation;
++    switch (instruction.getPredicate()) {
++    case CmpInst::ICMP_EQ: relation = " == "; break;
++    case CmpInst::ICMP_NE: relation = " != "; break;
++    case CmpInst::ICMP_UGT: case CmpInst::ICMP_SGT: relation = " > "; break;
++    case CmpInst::ICMP_UGE: case CmpInst::ICMP_SGE: relation = " >= "; break;
++    case CmpInst::ICMP_ULT: case CmpInst::ICMP_SLT: relation = " < "; break;
++    default: relation = " <= "; break;
++    }
++    return "(" + a + relation + b + ")";
++  }
++
++  std::string compare(const FCmpInst &instruction) {
++    if (!instruction.getOperand(0)->getType()->isFloatTy())
++      fail("WGSL has no such type", &instruction);
++    std::string a = use(instruction.getOperand(0)),
++                b = use(instruction.getOperand(1));
++    auto is = [&](const char *relation) {
++      return "(" + a + relation + b + ")";
++    };
++    switch (instruction.getPredicate()) {
++    case CmpInst::FCMP_FALSE: return "false";
++    case CmpInst::FCMP_TRUE: return "true";
++    case CmpInst::FCMP_OEQ: return is(" == ");
++    case CmpInst::FCMP_OGT: return is(" > ");
++    case CmpInst::FCMP_OGE: return is(" >= ");
++    case CmpInst::FCMP_OLT: return is(" < ");
++    case CmpInst::FCMP_OLE: return is(" <= ");
++    case CmpInst::FCMP_ONE: return "(" + is(" < ") + " || " + is(" > ") + ")";
++    case CmpInst::FCMP_ORD:
++      return "((" + a + " == " + a + ") && (" + b + " == " + b + "))";
++    case CmpInst::FCMP_UNO:
++      return "((" + a + " != " + a + ") || (" + b + " != " + b + "))";
++    case CmpInst::FCMP_UEQ: return "!(" + is(" < ") + " || " + is(" > ") + ")";
++    case CmpInst::FCMP_UGT: return "!" + is(" <= ");
++    case CmpInst::FCMP_UGE: return "!" + is(" < ");
++    case CmpInst::FCMP_ULT: return "!" + is(" >= ");
++    case CmpInst::FCMP_ULE: return "!" + is(" > ");
++    default: return is(" != ");
++    }
++  }
++
++  std::string binary(const BinaryOperator &instruction) {
++    Type *type = instruction.getType();
++    std::string a = use(instruction.getOperand(0)),
++                b = use(instruction.getOperand(1));
++    auto is = [&](const char *operation) {
++      return "(" + a + operation + b + ")";
++    };
++    if (type->isFloatTy()) {
++      switch (instruction.getOpcode()) {
++      case Instruction::FAdd: return is(" + ");
++      case Instruction::FSub: return is(" - ");
++      case Instruction::FMul: return is(" * ");
++      case Instruction::FDiv: return is(" / ");
++      case Instruction::FRem: return is(" % ");
++      default: break;
++      }
++    } else if (isBool(type)) {
++      switch (instruction.getOpcode()) {
++      case Instruction::And: case Instruction::Mul: return is(" && ");
++      case Instruction::Or: return is(" || ");
++      case Instruction::Xor: case Instruction::Add: case Instruction::Sub:
++        return is(" != ");
++      default: break;
++      }
++    } else if (unsigned width = bits(type)) {
++      auto signedly = [&](const char *operation) {
++        return normalize("u32(" + asSigned(a, width) + operation +
++                             asSigned(b, width) + ")",
++                         width);
++      };
++      switch (instruction.getOpcode()) {
++      case Instruction::Add: return normalize(is(" + "), width);
++      case Instruction::Sub: return normalize(is(" - "), width);
++      case Instruction::Mul: return normalize(is(" * "), width);
++      case Instruction::UDiv: return is(" / ");
++      case Instruction::URem: return is(" % ");
++      case Instruction::SDiv: return signedly(" / ");
++      case Instruction::SRem: return signedly(" % ");
++      case Instruction::Shl: return normalize(is(" << "), width);
++      case Instruction::LShr: return is(" >> ");
++      case Instruction::AShr:
++        return normalize("u32(" + asSigned(a, width) + " >> " + b + ")", width);
++      case Instruction::And: return is(" & ");
++      case Instruction::Or: return is(" | ");
++      case Instruction::Xor: return is(" ^ ");
++      default: break;
++      }
++    }
++    fail("WGSL has no such operation", &instruction);
++    return "0u";
++  }
++
++  std::string convert(const CastInst &instruction) {
++    const Value *operand = instruction.getOperand(0);
++    Type *from = operand->getType(), *to = instruction.getType();
++    std::string a = use(operand);
++    unsigned source = bits(from), width = bits(to);
++    switch (instruction.getOpcode()) {
++    case Instruction::ZExt:
++      if (width && (isBool(from) || source))
++        return isBool(from) ? "u32(" + a + ")" : a;
++      break;
++    case Instruction::SExt:
++      if (width && isBool(from))
++        return "select(0u, " + utostr(width == 32 ? 0xffffffffu
++                                                   : (1u << width) - 1) +
++               "u, " + a + ")";
++      if (width && source)
++        return normalize("u32(" + asSigned(a, source) + ")", width);
++      break;
++    case Instruction::Trunc:
++      if (source && isBool(to))
++        return "((" + a + " & 1u) != 0u)";
++      if (source && width)
++        return normalize(a, width);
++      break;
++    case Instruction::UIToFP:
++      if (to->isFloatTy() && (isBool(from) || source))
++        return "f32(" + a + ")";
++      break;
++    case Instruction::SIToFP:
++      if (to->isFloatTy() && isBool(from))
++        return "select(0.0f, -1.0f, " + a + ")";
++      if (to->isFloatTy() && source)
++        return "f32(" + asSigned(a, source) + ")";
++      break;
++    case Instruction::FPToUI:
++      if (from->isFloatTy() && width)
++        return normalize("u32(" + a + ")", width);
++      break;
++    case Instruction::FPToSI:
++      if (from->isFloatTy() && width)
++        return normalize("u32(i32(" + a + "))", width);
++      break;
++    case Instruction::BitCast:
++      if (from == to)
++        return a;
++      if (from->isFloatTy() && width == 32)
++        return "bitcast<u32>(" + a + ")";
++      if (source == 32 && to->isFloatTy())
++        return "bitcast<f32>(" + a + ")";
++      break;
++    default:
++      break;
++    }
++    fail("WGSL has no such conversion", &instruction);
++    return "0u";
++  }
++
++  /// The value of a call, or empty for one that is only dropped.
++  std::string call(const CallInst &instruction) {
++    const Function *callee = instruction.getCalledFunction();
++    if (!callee) {
++      fail("WGSL has no indirect calls", &instruction);
++      return "0u";
++    }
++    auto argument = [&](unsigned i) { return use(instruction.getOperand(i)); };
++    Type *type = instruction.getType();
++    unsigned width = bits(type);
++    auto real = [&](const char *function, unsigned count) -> std::string {
++      if (!type->isFloatTy()) {
++        fail("WGSL has no such type", &instruction);
++        return "0.0f";
++      }
++      std::string text = std::string(function) + "(" + argument(0);
++      for (unsigned i = 1; i < count; i++)
++        text += ", " + argument(i);
++      return text + ")";
++    };
++    auto whole = [&](const char *function) -> std::string {
++      if (width != 32) {
++        fail("WGSL has this only for 32-bit integers", &instruction);
++        return "0u";
++      }
++      return std::string(function) + "(" + argument(0) + ")";
++    };
++    auto ordered = [&](const char *function, bool isSigned) -> std::string {
++      if (!width) {
++        fail("WGSL has no such integer", &instruction);
++        return "0u";
++      }
++      if (!isSigned)
++        return std::string(function) + "(" + argument(0) + ", " + argument(1) +
++               ")";
++      return normalize("u32(" + std::string(function) + "(" +
++                           asSigned(argument(0), width) + ", " +
++                           asSigned(argument(1), width) + "))",
++                       width);
++    };
++    switch (callee->getIntrinsicID()) {
++    case Intrinsic::lifetime_start: case Intrinsic::lifetime_end:
++    case Intrinsic::assume: case Intrinsic::donothing:
++    case Intrinsic::experimental_noalias_scope_decl:
++      return "";
++    case Intrinsic::trap:
++      // WGSL has no trap: this invocation ends, the others go on.
++      return "";
++    case Intrinsic::fabs: return real("abs", 1);
++    case Intrinsic::sqrt: return real("sqrt", 1);
++    case Intrinsic::sin: return real("sin", 1);
++    case Intrinsic::cos: return real("cos", 1);
++    case Intrinsic::exp: return real("exp", 1);
++    case Intrinsic::exp2: return real("exp2", 1);
++    case Intrinsic::log: return real("log", 1);
++    case Intrinsic::log2: return real("log2", 1);
++    case Intrinsic::pow: return real("pow", 2);
++    case Intrinsic::floor: return real("floor", 1);
++    case Intrinsic::ceil: return real("ceil", 1);
++    case Intrinsic::trunc: return real("trunc", 1);
++    case Intrinsic::rint: case Intrinsic::nearbyint: case Intrinsic::roundeven:
++      return real("round", 1);
++    case Intrinsic::fma: return real("fma", 3);
++    case Intrinsic::fmuladd:
++      return "(" + argument(0) + " * " + argument(1) + " + " + argument(2) + ")";
++    case Intrinsic::minnum: case Intrinsic::minimum: return real("min", 2);
++    case Intrinsic::maxnum: case Intrinsic::maximum: return real("max", 2);
++    case Intrinsic::umin: return ordered("min", false);
++    case Intrinsic::umax: return ordered("max", false);
++    case Intrinsic::smin: return ordered("min", true);
++    case Intrinsic::smax: return ordered("max", true);
++    case Intrinsic::ctpop: return whole("countOneBits");
++    case Intrinsic::ctlz: return whole("countLeadingZeros");
++    case Intrinsic::cttz: return whole("countTrailingZeros");
++    default: break;
++    }
++    // What `std._gpu` asks of this target: a builtin's x, y or z.
++    StringRef name = callee->getName();
++    if (name.consume_front("__webgpu_") && instruction.arg_size() == 1 &&
++        width == 32) {
++      auto *axis = dyn_cast<ConstantInt>(instruction.getArgOperand(0));
++      const char *builtin = StringSwitch<const char *>(name)
++                                .Case("thread_idx", "lid.")
++                                .Case("block_idx", "wid.")
++                                .Case("grid_dim", "nwg.")
++                                .Case("block_dim", "block_")
++                                .Default(nullptr);
++      if (builtin && axis && axis->getZExtValue() < 3)
++        return std::string(builtin) + "xyz"[axis->getZExtValue()];
++    }
++    fail("WGSL cannot call", &instruction);
++    return "0u";
++  }
++
++  /// The assignments to `to`'s phis that the edge from `from` makes.
++  std::string edge(const BasicBlock *from, const BasicBlock *to) {
++    std::string values, assignments;
++    unsigned count = 0;
++    for (const PHINode &phi : to->phis()) {
++      std::string temporary = "t" + utostr(count++);
++      values += "let " + temporary + " = " +
++                use(phi.getIncomingValueForBlock(from)) + "; ";
++      assignments += use(&phi) + " = " + temporary + "; ";
++    }
++    std::string next = "bb = " + utostr(Blocks.lookup(to)) + "u;";
++    return count ? "{ " + values + assignments + next + " }" : "{ " + next + " }";
++  }
++
++  void instruction(const Instruction &i, raw_ostream &os) {
++    auto assign = [&](const std::string &expression) {
++      os << "      " << use(&i) << " = " << expression << ";\n";
++    };
++    if (auto *operation = dyn_cast<BinaryOperator>(&i)) {
++      assign(binary(*operation));
++    } else if (auto *conversion = dyn_cast<CastInst>(&i)) {
++      assign(convert(*conversion));
++    } else if (auto *comparison = dyn_cast<ICmpInst>(&i)) {
++      assign(compare(*comparison));
++    } else if (auto *comparison = dyn_cast<FCmpInst>(&i)) {
++      assign(compare(*comparison));
++    } else if (i.getOpcode() == Instruction::FNeg) {
++      assign("(-" + use(i.getOperand(0)) + ")");
++    } else if (isa<FreezeInst>(i)) {
++      assign(use(i.getOperand(0)));
++    } else if (auto *choice = dyn_cast<SelectInst>(&i)) {
++      if (i.getType()->isPointerTy())
++        root(&i);
++      assign("select(" + use(choice->getFalseValue()) + ", " +
++             use(choice->getTrueValue()) + ", " + use(choice->getCondition()) +
++             ")");
++    } else if (auto *gep = dyn_cast<GetElementPtrInst>(&i)) {
++      assign(offset(*cast<GEPOperator>(gep)));
++    } else if (auto *load = dyn_cast<LoadInst>(&i)) {
++      std::string value = word(load->getPointerOperand(), i.getType(), i);
++      assign(i.getType()->isFloatTy() ? "bitcast<f32>(" + value + ")" : value);
++    } else if (auto *store = dyn_cast<StoreInst>(&i)) {
++      const Value *value = store->getValueOperand();
++      std::string target =
++          word(store->getPointerOperand(), value->getType(), i);
++      os << "      " << target << " = "
++         << (value->getType()->isFloatTy() ? "bitcast<u32>(" + use(value) + ")"
++                                           : use(value))
++         << ";\n";
++    } else if (auto *invocation = dyn_cast<CallInst>(&i)) {
++      std::string value = call(*invocation);
++      if (!value.empty() && !i.getType()->isVoidTy())
++        assign(value);
++    } else if (auto *jump = dyn_cast<UncondBrInst>(&i)) {
++      os << "      " << edge(i.getParent(), jump->getSuccessor(0)) << "\n";
++    } else if (auto *branch = dyn_cast<CondBrInst>(&i)) {
++      const BasicBlock *from = i.getParent();
++      os << "      if (" << use(branch->getCondition()) << ") "
++         << edge(from, branch->getSuccessor(0)) << " else "
++         << edge(from, branch->getSuccessor(1)) << "\n";
++    } else if (auto *choice = dyn_cast<SwitchInst>(&i)) {
++      const BasicBlock *from = i.getParent();
++      if (!bits(choice->getCondition()->getType()))
++        fail("WGSL has no such integer", &i);
++      os << "      ";
++      for (const auto &target : choice->cases())
++        os << "if (" << use(choice->getCondition()) << " == "
++           << use(target.getCaseValue()) << ") "
++           << edge(from, target.getCaseSuccessor()) << " else ";
++      os << edge(from, choice->getDefaultDest()) << "\n";
++    } else if (isa<ReturnInst>(i) || isa<UnreachableInst>(i)) {
++      os << "      return;\n";
++    } else if (!isa<PHINode>(i) && !isa<AllocaInst>(i)) {
++      fail("WGSL has no such instruction", &i);
++    }
++  }
++};
++
++std::string WGSLKernel::print() {
++  if (!F.getReturnType()->isVoidTy())
++    fail("a kernel returns nothing");
++  // The standard library marks a print so: it is the reason to give, before
++  // the formatting around it fails for another.
++  for (const BasicBlock &block : F)
++    for (const Instruction &i : block)
++      if (auto *invocation = dyn_cast<CallInst>(&i))
++        if (const Function *callee = invocation->getCalledFunction())
++          if (callee->getName() == "__webgpu_print")
++            fail("a kernel cannot print: WGSL has no output");
++
++  std::string text;
++  raw_string_ostream os(text);
++  os << "// " << F.getName() << "\n"
++     << "override block_x: u32 = 1u;\noverride block_y: u32 = 1u;\n"
++     << "override block_z: u32 = 1u;\n";
++  unsigned buffers = 0, slots = 0;
++  for (const Argument &argument : F.args())
++    if (argument.getType()->isPointerTy())
++      Buffers[&argument] = buffers++;
++    else
++      Slots[&argument] = slots++;
++  for (unsigned i = 0; i < buffers; i++)
++    os << "@group(0) @binding(" << i << ") var<storage, read_write> b" << i
++       << ": array<u32>;\n";
++  if (slots)
++    os << "@group(0) @binding(" << buffers
++       << ") var<storage, read> args: array<u32>;\n";
++  os << "@compute @workgroup_size(block_x, block_y, block_z)\n"
++     << "fn kernel(@builtin(global_invocation_id) gid: vec3<u32>,\n"
++     << "          @builtin(local_invocation_id) lid: vec3<u32>,\n"
++     << "          @builtin(workgroup_id) wid: vec3<u32>,\n"
++     << "          @builtin(num_workgroups) nwg: vec3<u32>) {\n";
++  // The pipeline's layout has a binding only if the entry point names it.
++  for (unsigned i = 0; i < buffers; i++)
++    os << "  _ = arrayLength(&b" << i << ");\n";
++  for (const Argument &argument : F.args()) {
++    Type *type = argument.getType();
++    if (type->isPointerTy())
++      continue;
++    std::string slot = "args[" + utostr(Slots[&argument]) + "]";
++    os << "  let a" << argument.getArgNo() << " = ";
++    if (isBool(type))
++      os << "(" << slot << " != 0u)";
++    else if (type->isFloatTy())
++      os << "bitcast<f32>(" << slot << ")";
++    else if (unsigned width = bits(type))
++      os << normalize(slot, width);
++    else
++      fail("WGSL has no such parameter type", &argument);
++    os << ";\n";
++  }
++
++  unsigned number = 0;
++  for (const BasicBlock &block : F) {
++    unsigned blockNumber = Blocks.size();
++    Blocks[&block] = blockNumber;
++    for (const Instruction &i : block) {
++      if (i.getType()->isVoidTy())
++        continue;
++      Numbers[&i] = number++;
++      if (auto *memory = dyn_cast<AllocaInst>(&i)) {
++        auto *count = dyn_cast<ConstantInt>(memory->getArraySize());
++        uint64_t bytes = count ? DL.getTypeAllocSize(memory->getAllocatedType())
++                                         .getFixedValue() *
++                                     count->getZExtValue()
++                               : 0;
++        if (!bytes || bytes > 65536)
++          fail("a local must have a small fixed size", &i);
++        os << "  var m" << Numbers[&i] << ": array<u32, "
++           << std::max<uint64_t>(1, (bytes + 3) / 4) << ">;\n";
++      }
++      os << "  var v" << Numbers[&i] << ": " << typeName(i.getType(), &i)
++         << ";\n";
++    }
++  }
++  os << "  var bb: u32 = 0u;\n  loop {\n    switch bb {\n";
++  for (const BasicBlock &block : F) {
++    os << "    case " << Blocks[&block] << "u {\n";
++    for (const Instruction &i : block)
++      instruction(i, os);
++    os << "    }\n";
++  }
++  os << "    default { return; }\n    }\n  }\n}\n";
++  return Failure.empty() ? text : std::string();
++}
++
++/// Inlines every call to a defined function, so one WGSL function suffices.
++/// Returns what prevents it, or nothing.
++std::string inlineCalls(Function &kernel) {
++  for (unsigned round = 0; round < 64; round++) {
++    SmallVector<CallBase *, 16> calls;
++    for (BasicBlock &block : kernel)
++      for (Instruction &i : block)
++        if (auto *call = dyn_cast<CallBase>(&i))
++          if (Function *callee = call->getCalledFunction())
++            if (!callee->isDeclaration())
++              calls.push_back(call);
++    if (calls.empty())
++      return {};
++    for (CallBase *call : calls) {
++      InlineFunctionInfo info;
++      std::string callee = call->getCalledFunction()->getName().str();
++      if (!InlineFunction(*call, info).isSuccess())
++        return "WebGPU kernel '" + kernel.getName().str() +
++               "' calls a function that cannot be inlined: " + callee;
++    }
++  }
++  return "WebGPU kernel '" + kernel.getName().str() + "' is recursive";
++}
++
++/// The WGSL of the module's kernel, or empty with `failure` set.
++std::string printKernel(Module &module, std::string &failure) {
++  Function *kernel = nullptr;
++  for (Function &function : module)
++    if (function.hasFnAttribute(kKernelAttribute))
++      kernel = &function;
++  if (!kernel) {
++    failure = "no WebGPU kernel in the module";
++    return {};
++  }
++  failure = inlineCalls(*kernel);
++  if (!failure.empty())
++    return {};
++  WGSLKernel printer(*kernel);
++  std::string text = printer.print();
++  failure = printer.failure().str();
++  return text;
++}
++
++} // namespace
++
++namespace M::KGEN {
++namespace {
++
++class DollyBackend final : public HostBackend {
++public:
++  const TargetTraits *traits() const override { return &DollyTraits::get(); }
++
++  // One module, one llc: merging the objects of functions compiled apart
++  // declares a Wasm object's __indirect_function_table once for each, and the
++  // linker refuses the duplicate.
++  SplitStrategy splitStrategy(const CompilationOptions &) const override {
++    return SplitStrategy::None;
++  }
++  bool isCodegenInterprocedural() const override { return true; }
++
++  CompilationOptions
++  adjustOptionsForTargetMachine(const CompilationOptions &options,
++                                llvm::StringRef moduleTriple) const override {
++    CompilationOptions adjusted = options;
++    adjusted.targetTriple = DollyTraits::get().codegenTriple(moduleTriple);
++    return adjusted;
++  }
++};
++
++class WebGPUBackend final : public TargetBackend {
++public:
++  const TargetTraits *traits() const override { return &WebGPUTraits::get(); }
++
++  SplitStrategy splitStrategy(const CompilationOptions &) const override {
++    return SplitStrategy::PerExported;
++  }
++  bool isOffload() const override { return true; }
++  bool requiresSingleModuleSplit() const override { return true; }
++
++  CompilationOptions
++  adjustOptionsForTargetMachine(const CompilationOptions &options,
++                                llvm::StringRef moduleTriple) const override {
++    CompilationOptions adjusted = options;
++    adjusted.targetTriple = WebGPUTraits::get().codegenTriple(moduleTriple);
++    adjusted.targetCpu = "generic";
++    // No SIMD: the printer has no vectors, so LLVM must not form them.
++    adjusted.targetFeatures = "";
++    return adjusted;
++  }
++
++  void addSanitizers(llvm::ModulePassManager &,
++                     const CompilationOptions &) const override {}
++
++  void attachCodegenAttributes(llvm::Function *kernelEntry) const override {
++    kernelEntry->addFnAttr(kKernelAttribute);
++  }
++
++  ErrorOr<BufferRef> emitAssembly(llvm::Module &module,
++                                  EmitContext &) const override {
++    std::string failure;
++    std::string text = printKernel(module, failure);
++    if (text.empty())
++      return Error(failure);
++    WriteableBufferRef buffer = WriteableBuffer::get();
++    *buffer << text;
++    return buffer;
++  }
++
++  ErrorOr<BufferRef> emitObject(llvm::Module &, EmitContext &) const override {
++    return Error("a WebGPU kernel is WGSL text and has no object file");
++  }
++
++  ErrorOr<BufferRef> createArchive(llvm::MutableArrayRef<BufferRef>,
++                                   llvm::StringRef,
++                                   EmitContext &) const override {
++    return Error("a WebGPU kernel is WGSL text and has no archive");
++  }
++
++protected:
++  bool isBaseTarget() const override { return true; }
++};
++
++#pragma GCC diagnostic push
++#pragma GCC diagnostic ignored "-Wglobal-constructors"
++RegisterTargetBackend<DollyBackend> registerDollyBackend;
++RegisterTargetBackend<WebGPUBackend> registerWebGPUBackend;
++#pragma GCC diagnostic pop
++
++} // namespace
++} // namespace M::KGEN
+diff --git a/Mojo/lib/KGENToLLVM/Target/Dolly/DollyLowering.cpp b/Mojo/lib/KGENToLLVM/Target/Dolly/DollyLowering.cpp
+new file mode 100644
+index 0000000..1c0aa50
+--- /dev/null
++++ b/Mojo/lib/KGENToLLVM/Target/Dolly/DollyLowering.cpp
+@@ -0,0 +1,34 @@
++//===----------------------------------------------------------------------===//
++// Added for Dolly, a POSIX-like userspace for wasm64 in the browser.
++//
++// Licensed under the Apache License v2.0 with LLVM Exceptions:
++// https://llvm.org/LICENSE.txt
++//===----------------------------------------------------------------------===//
++
++
++#include "Target/Dolly/DollyTraits.h"
++#include "Target/TargetLowering.h"
++
++namespace M::KGEN {
++namespace {
++
++class DollyLowering final : public TargetLowering {
++public:
++  const TargetTraits *traits() const override { return &DollyTraits::get(); }
++  bool isBaseTarget() const override { return true; }
++};
++
++class WebGPULowering final : public TargetLowering {
++public:
++  const TargetTraits *traits() const override { return &WebGPUTraits::get(); }
++  bool isBaseTarget() const override { return true; }
++};
++
++#pragma GCC diagnostic push
++#pragma GCC diagnostic ignored "-Wglobal-constructors"
++RegisterTargetLowering<DollyLowering> registerDollyLowering;
++RegisterTargetLowering<WebGPULowering> registerWebGPULowering;
++#pragma GCC diagnostic pop
++
++} // namespace
++} // namespace M::KGEN
+diff --git a/Mojo/lib/Target/Dolly/DollyTraits.cpp b/Mojo/lib/Target/Dolly/DollyTraits.cpp
+new file mode 100644
+index 0000000..83e9bf3
+--- /dev/null
++++ b/Mojo/lib/Target/Dolly/DollyTraits.cpp
+@@ -0,0 +1,31 @@
++//===----------------------------------------------------------------------===//
++// Added for Dolly, a POSIX-like userspace for wasm64 in the browser.
++//
++// Licensed under the Apache License v2.0 with LLVM Exceptions:
++// https://llvm.org/LICENSE.txt
++//===----------------------------------------------------------------------===//
++
++
++#include "Target/Dolly/DollyTraits.h"
++
++namespace M::KGEN {
++
++const DollyTraits &DollyTraits::get() {
++  static const DollyTraits instance;
++  return instance;
++}
++
++const WebGPUTraits &WebGPUTraits::get() {
++  static const WebGPUTraits instance;
++  return instance;
++}
++
++namespace {
++#pragma GCC diagnostic push
++#pragma GCC diagnostic ignored "-Wglobal-constructors"
++RegisterTargetTraits<DollyTraits> registerDollyTraits;
++RegisterTargetTraits<WebGPUTraits> registerWebGPUTraits;
++#pragma GCC diagnostic pop
++} // namespace
++
++} // namespace M::KGEN
+diff --git a/Mojo/lib/Target/Dolly/DollyTraits.h b/Mojo/lib/Target/Dolly/DollyTraits.h
+new file mode 100644
+index 0000000..c63da5f
+--- /dev/null
++++ b/Mojo/lib/Target/Dolly/DollyTraits.h
+@@ -0,0 +1,76 @@
++//===----------------------------------------------------------------------===//
++// Added for Dolly, a POSIX-like userspace for wasm64 in the browser.
++//
++// Licensed under the Apache License v2.0 with LLVM Exceptions:
++// https://llvm.org/LICENSE.txt
++//===----------------------------------------------------------------------===//
++
++//
++// Dolly: a POSIX-like userspace for wasm64 in the browser. Programs are
++// wasm64 objects that Dolly's `cc` links against its process sysroot.
++// WebGPU: compute kernels emitted as WGSL for Dolly's `gpu@0`.
++//
++//===----------------------------------------------------------------------===//
++
++#ifndef KGEN_TARGET_DOLLY_DOLLYTRAITS_H
++#define KGEN_TARGET_DOLLY_DOLLYTRAITS_H
++
++#include "Target/TargetTraits.h"
++
++#include "llvm/TargetParser/Triple.h"
++
++namespace M::KGEN {
++
++struct DollyTraits final : TargetTraits {
++  llvm::StringRef name() const override { return "dolly"; }
++  bool matches(const llvm::Triple &triple) const override {
++    return triple.getArch() == llvm::Triple::wasm64 &&
++           triple.getOSName() == "dolly";
++  }
++  llvm::StringRef defaultCPU(const llvm::Triple &) const override {
++    return "generic";
++  }
++  /// LLVM has no Dolly OS. Dolly's libc archives are built for this triple,
++  /// as its C compiler does; it is not the platform's name.
++  std::string codegenTriple(llvm::StringRef) const override {
++    return "wasm64-unknown-emscripten";
++  }
++  llvm::StringRef getAsmExtension() const override { return ".s"; }
++  llvm::StringRef getLLVMExtension() const override { return ".ll"; }
++  llvm::StringRef getObjectExtension() const override { return ".o"; }
++
++  static const DollyTraits &get();
++
++protected:
++  bool isBaseTarget() const override { return true; }
++};
++
++struct WebGPUTraits final : TargetTraits {
++  llvm::StringRef name() const override { return "webgpu"; }
++  bool matches(const llvm::Triple &triple) const override {
++    return triple.getArch() == llvm::Triple::wasm32 &&
++           triple.getOSName() == "webgpu";
++  }
++  bool isGPU() const override { return true; }
++  llvm::StringRef defaultCPU(const llvm::Triple &) const override {
++    return "generic";
++  }
++  /// A kernel is optimized as 32-bit LLVM IR (WGSL has no 64-bit integers
++  /// and its pointers index buffers) and then printed as WGSL.
++  std::string codegenTriple(llvm::StringRef) const override {
++    return "wasm32-unknown-unknown";
++  }
++  bool emitsOffloadObjectFile() const override { return false; }
++  llvm::StringRef getAsmExtension() const override { return ".wgsl"; }
++  llvm::StringRef getLLVMExtension() const override { return ".webgpu.ll"; }
++  llvm::StringRef getObjectExtension() const override { return ".wgsl"; }
++
++  static const WebGPUTraits &get();
++
++protected:
++  bool isBaseTarget() const override { return true; }
++};
++
++} // namespace M::KGEN
++
++#endif // KGEN_TARGET_DOLLY_DOLLYTRAITS_H
+diff --git a/Support/include/Support/MDialect/MAttrs.td b/Support/include/Support/MDialect/MAttrs.td
+index b720fd1..fa62243 100644
+--- a/Support/include/Support/MDialect/MAttrs.td
++++ b/Support/include/Support/MDialect/MAttrs.td
+@@ -391,6 +391,10 @@ def M_TargetInfoAttr : MAttr<"TargetInfo", "target"> {
+ 
+     /// Returns the operating system for the triple.
+     StringRef getOS() const {
++      // LLVM names the operating systems it knows. Dolly is not one of them
++      // and is not to be mistaken for one.
++      if (getTriple().getOSName() == "dolly")
++        return "dolly";
+       return llvm::Triple::getOSTypeName(getTriple().getOS());
+     }
+ 
+diff --git a/Support/lib/MArchTarget/MArchTargetMinimal.cpp b/Support/lib/MArchTarget/MArchTargetMinimal.cpp
+index a96d1af..0a5eea9 100644
+--- a/Support/lib/MArchTarget/MArchTargetMinimal.cpp
++++ b/Support/lib/MArchTarget/MArchTargetMinimal.cpp
+@@ -78,8 +78,10 @@ M::getFeaturesFromClang(std::shared_ptr<clang::TargetOptions> opts,
+ 
+   // AARCH64 CPU features are not parsed by `CreateTargetInfo`. We have to query
+   // them and add them here manually.
++  // "generic" names a CPU of other architectures too.
+   if (std::optional<llvm::AArch64::CpuInfo> cpuInfo =
+-          llvm::AArch64::parseCpu(cpu)) {
++          llvm::Triple(opts->Triple).isAArch64() ? llvm::AArch64::parseCpu(cpu)
++                                                 : std::nullopt) {
+     std::vector<std::string> updatedFeaturesVec;
+     auto exts = cpuInfo->DefaultExtensions;
+     std::vector<StringRef> cpuFeats;
+@@ -115,6 +117,16 @@ M::getFeaturesFromClang(std::shared_ptr<clang::TargetOptions> opts,
+       features.emplace_back(feature.drop_front());
+   }
+ 
++  // Every object of Dolly's C compiler has the first two beyond the generic
++  // CPU: a process shares its memory with its threads, and its C++ unwinds.
++  // Mojo's coroutines resume through calls that must be tail calls, which
++  // every browser with 64-bit memories has.
++  if (llvm::Triple(opts->Triple).getOSName() == "dolly") {
++    features.emplace_back("atomics");
++    features.emplace_back("exception-handling");
++    features.emplace_back("tail-call");
++  }
++
+   llvm::sort(features);
+   // The per-architecture blocks above append what clang already resolved, so a
+   // CPU's base ISA can appear twice.
+diff --git a/bazel/public-patches/llvm_project.bzl b/bazel/public-patches/llvm_project.bzl
+index f431143..24b9531 100644
+--- a/bazel/public-patches/llvm_project.bzl
++++ b/bazel/public-patches/llvm_project.bzl
+@@ -5,6 +5,7 @@ load("@llvm-raw//utils/bazel:configure.bzl", _llvm_configure = "llvm_configure")
+ BACKENDS = [
+     "AArch64",
+     "RISCV",
++    "WebAssembly",
+     "X86",
+ ]
+ 

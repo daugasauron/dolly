@@ -15,6 +15,9 @@ files.
   `/opt/mojo-llvm`: `llvm-tblgen`, `mlir-tblgen`, the archives and the headers.
 - `mojo-build`: build-only: the compiler, compiled and linked from those
   archives. It keeps `/opt/mojo`.
+- `mojo-runtime`: What a Mojo object links against, and its `DeviceContext` over WebGPU. Requires WebGPU.
+
+Programs for Dolly, their runtime and GPU kernels: [target](target/README.md).
 
 ## Key files
 
