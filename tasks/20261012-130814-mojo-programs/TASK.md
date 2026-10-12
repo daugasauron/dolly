@@ -12,13 +12,12 @@ works for GPU compute." The compiler itself is
 
 What a compiler built in Dolly must carry for its programs to run here; all
 of it is in `demos/mojo/target/` and described in its README. `demo/mojo`
-carries it and merges this branch as it moves, at `0cfaddd0` when last
-seen (03:06); its own test compiles `saxpy`, `kernels`, `mandelbrot` and
+carries it and merges this branch as it moves, at `59a520c6` when last
+seen (03:41); its own test compiles `saxpy`, `kernels`, `mandelbrot` and
 upstream's `hello_writing.mojo` in the `mojo` image, in the three browsers.
-After that commit came a fix to 64-bit division, shared memory with
-barriers (`compiler.patch`, and the module `sync` of the package `gpu`) and
-the fixture `shared`. Take the patches, the package, the runtime recipe
-and the fixtures together: the fixtures of the head need all of the head.
+`compiler.patch` changed last in `abd8329e` (a barrier is also WGSL's
+storage barrier). Take the patches, the package, the runtime recipe and
+the fixtures together: the fixtures of the head need all of the head.
 
 - Apply `patches/compiler.patch` and `patches/stdlib.patch` to the tag
   `mojo/v1.1.0`. The compiler patch needs LLVM's WebAssembly backend linked
