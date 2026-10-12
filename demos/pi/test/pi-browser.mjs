@@ -1,4 +1,4 @@
-// Pi in the pi image: package and model commands, rg and fd, its tools over
+// Pi in the pi-agent image: package and model commands, rg and fd, its tools over
 // Slop, the OpenRouter and Codex logins, session resume, and the TUI against a
 // scripted streaming provider. Usage: node demos/pi/test/pi-browser.mjs
 import assert from "node:assert/strict";
@@ -60,7 +60,7 @@ async function provider(request, response, path, headers) {
   return true;
 }
 
-await demoTest("pi", { image: "pi", timeout: 900_000, server: { handle: provider, fixtures: {
+await demoTest("pi", { image: "pi-agent", timeout: 900_000, server: { handle: provider, fixtures: {
   "pi-tools.mjs": "demos/pi/test/fixtures/pi-tools.mjs",
   "pi-sessions.mjs": "demos/pi/test/fixtures/pi-sessions.mjs",
   "utf8-writer.c": "demos/javascript/test/fixtures/utf8-writer.c",

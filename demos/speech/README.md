@@ -33,7 +33,7 @@ again.
 
 ## pi-phone
 
-Pi runs in the terminal as in the `pi` image; `voice` runs beside it, holds
+Pi runs in the terminal as in the `pi-agent` image; `voice` runs beside it, holds
 `buttons@0` ([input](../../docs/input.md)) and types for the user:
 
 - **Speak** listens until Send, Done or Cancel; what was heard so far shows

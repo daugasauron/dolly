@@ -2,14 +2,14 @@ default
 audio-sdk
 bhop
 classicube
-codex
+codex-agent
 dollyfile-studio
 gnu-emacs
 gpu-fluid
 javascript
 neovim
 openal-build
-pi
+pi-agent
 pi-local
 minicpm5-2b
 python
@@ -20,7 +20,8 @@ slopyard
 cmake
 sdl2
 rust
-codex-cli
+codex
+pi
 qwen3.5-4b-1
 qwen3.5-4b-2
 qwen3.5-4b-3

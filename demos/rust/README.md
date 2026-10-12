@@ -19,7 +19,7 @@ Rust in the catalog is built by the result with Cargo.
 
 Build the seed once with `./demos/rust/build-rust-toolchain.sh` (Linux x86_64, Podman, Python
 3.12+, curl, patch), then `npm run image -- rust-tools`. `rust-sdk` starts from
-`system-build`; the `pi-coding-agent` and `codex-cli` packages install `ripgrep` and `fd`.
+`system-build`; the `pi` and `codex` packages install `ripgrep` and `fd`.
 
 ## The seed
 
