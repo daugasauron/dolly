@@ -4,14 +4,19 @@
 - PRIORITY: 200
 - TAGS: demo,gpu,audio,port
 
-## State (2026-10-12)
+## State (2026-10-13)
+
+A large item that stays open: it plays, and what is left is the larger half, which nobody is on.
 
 On the domain since v0.1.0 as `/xonotic/`: the dedicated server, the SDL client and gmqcc build
 inside Dolly from the pinned release; the menu and a bot match on the stock maps play with
 keyboard and captured mouse, drawn by the engine's own software rasterizer at 1024×768. The
-second pointer the owner saw is fixed (`demos/sdl2/SDL_dollyvideo.c`). Its browser test passed in
-each release round (in v0.1.1's alone, once a recording the worktree lacked was copied in). The licence pass with its asset pass, the pins, and `timedemo` rates in Dolly
-and native are recorded below; the owner accepted the pass's two open points on 2026-10-07
+second pointer the owner saw is fixed (`demos/sdl2/SDL_dollyvideo.c`). Its browser test passed
+in each release round and on `main` on 2026-10-13 in Chrome (442.6 s: an 8-bot server
+benchmark, `progs.dat` rebuilt by gmqcc, a client frame, a bot match on stormkeep, and a
+timedemo of 14.3 fps at the normal preset; `work/rust/build/integrate-evidence/final-demos.log`).
+The licence pass with its asset pass, the pins, and `timedemo` rates in Dolly and native are
+recorded below; the owner accepted the pass's two open points on 2026-10-07
 (`tasks/20261007-133708-v010`, "The owner's gates").
 
 Left, against the done-when:
@@ -19,15 +24,14 @@ Left, against the done-when:
 - **The `gpu@0` renderer**: `vid_dolly.c`, `dpgpurast.c` and the `normal` preset's shaders as
   WGSL (route (a), "Decisions for the owner" 1 and 2). Not started; the software path is the
   interim one. The done-when's "on a hardware adapter" waits for it.
-- **Sound**: the client has the null sound unit. Recommended and not started: an SDL2 audio
-  backend over `audio@0` in `demos/sdl2`, which every SDL port would share (decision 3).
+- **Sound**: the client has the null sound unit (`demos/xonotic/Makefile`), and the `sdl2`
+  package is built with `-DSDL_AUDIO=OFF`. Recommended and not started: an SDL2 audio backend
+  over `audio@0` in `demos/sdl2`, which every SDL port would share (decision 3).
 - **Speed**, the owner's remark ("needs better performance tuning"): 31 fps at the low preset
-  and 13 at normal in Chromium, on one rasterizer thread; a map takes about two minutes to
-  load.
+  and 13 to 14 at normal in Chromium, on one rasterizer thread; a map takes about two minutes
+  to load.
 - With the `gpu@0` path: the README's list of effects that are off, each with the `gpu@0`
   limit it waits for. Today it lists what the low preset turns off.
-
-Lowered from 240: it plays; what is left is the larger half and nobody is on it.
 
 ## The request
 
