@@ -18,12 +18,17 @@ if has_image speech-build; then
   done
   node scripts/build-source-tar.mjs "${static_dir}/speech/source.tar" "${speech_inputs[@]}"
 fi
-if has_image speech-to-text || has_image pi-phone; then
+if has_image parakeet; then
   (source config/source-pins.sh
     copy_static "$(bash scripts/fetch-verified-file.sh "${DOLLY_PARAKEET_URL}" "${DOLLY_PARAKEET_SHA256}" \
-      .cache/parakeet-tdt_ctc-110m-Q8_0.gguf)" speech/parakeet-tdt_ctc-110m.gguf
+      .cache/parakeet-tdt_ctc-110m-Q8_0.gguf)" speech/parakeet-tdt_ctc-110m.gguf)
+  copy_static demos/speech/CC-BY-4.0.txt speech/CC-BY-4.0.txt
+fi
+if has_image transcribe; then
+  (source config/source-pins.sh
     copy_static "$(bash scripts/fetch-verified-file.sh "${DOLLY_SILERO_VAD_URL}" "${DOLLY_SILERO_VAD_SHA256}" \
       .cache/silero-vad-v6.2-F32.gguf)" speech/silero-vad.gguf)
-  copy_static demos/speech/CC-BY-4.0.txt speech/CC-BY-4.0.txt
+fi
+if has_image pi-phone; then
   copy_static demos/speech/pi.menu speech/pi.menu
 fi

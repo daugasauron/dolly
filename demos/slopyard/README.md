@@ -8,6 +8,8 @@ a shared coastal scrapyard where two teams compete to deliver cargo.
 
 - `slopyard`: Build machines, haul cargo and compete across a coastal scrapyard. Requires WebGPU.
 - `gamedev-sdk`: raylib and Box3D headers, libraries and sources.
+- `raylib`: raylib's software renderer with Dolly's display and input adapter, a library for programs the `cc` package builds; it installs no compiler, as a package.
+- `box3d`: the Box3D physics library, for programs the `cc` package builds; it installs no compiler, as a package.
 
 Open `/slopyard/`; build with `npm run image -- slopyard`. Slopyard needs
 `threads@0` and a WebGPU adapter.

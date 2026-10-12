@@ -1,0 +1,20 @@
+DOLLY 7
+PACKAGE lua
+REQUIRES HOST runtime@0
+REQUIRES HOST dso@0
+
+# PUC Lua 5.1 as neovim-build compiles it for Neovim: the interpreter, its
+# library and headers, and the LPeg and luv modules built for it.
+FROM /v0.1.2/demos/neovim/Dollyfile-neovim-build 45ab684e3a49b93bb64abcce8559a4b595cc03b80cea2a3afa7a274bf03e794c
+
+EXPORTS TOOL   lua
+EXPORTS HEADER lua      /usr/include/lua5.1
+EXPORTS LIB    lua      /usr/lib/liblua.a
+EXPORTS LIB    lua-lpeg /usr/lib/lua/5.1/lpeg.so
+EXPORTS LIB    lua-luv  /usr/lib/lua/5.1/luv.so
+EXPORTS FOLDER lua-re   /usr/share/lua/5.1
+FILE /usr/share/licenses/lua/COPYRIGHT
+FILE /usr/share/licenses/lpeg/lpeg.html
+FILE /usr/share/licenses/luv/LICENSE.txt
+FILE /usr/share/licenses/lua-compat53/LICENSE
+FILE /usr/share/licenses/libuv/LICENSE

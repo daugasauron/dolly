@@ -7,6 +7,7 @@ llama.cpp and OpenAL builds start from this image.
 
 - `cmake-build`: CMake bootstrap and libuv.
 - `cmake`: CMake, as a package.
+- `libuv`: the libuv port CMake and Neovim are built on, a library for programs the `cc` package builds; it installs no compiler, as a package.
 
 Key files: [`Dollyfile-cmake-build`](Dollyfile-cmake-build), [`Dolly.cmake`](Dolly.cmake) (platform file),
 [`Dollyfile-cmake-build`](Dollyfile-cmake-build) and [`libuv-dolly.patch`](libuv-dolly.patch). The libuv

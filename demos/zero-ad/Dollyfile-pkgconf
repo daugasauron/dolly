@@ -1,0 +1,13 @@
+DOLLY 7
+PACKAGE pkgconf
+REQUIRES HOST runtime@0
+
+# pkgconf as zero-ad-deps compiles it, and pkg-config, its other name: it
+# reads the .pc files that libraries install into /usr/lib/pkgconfig.
+FROM /v0.1.2/demos/zero-ad/Dollyfile-zero-ad-deps 885e93b8eb52cd42e4d691fd12580893ecf8614d1791ce6b2d179274e66db7ae
+
+EXPORTS TOOL pkgconf
+EXPORTS TOOL pkg-config
+SLOP pkgconf --help > /usr/share/man/cat1/pkgconf.1
+FILE /usr/share/man/cat1/pkgconf.1
+FILE /usr/share/licenses/pkgconf/COPYING

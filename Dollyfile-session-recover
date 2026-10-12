@@ -1,0 +1,10 @@
+DOLLY 7
+PACKAGE session-recover
+REQUIRES HOST runtime@0
+
+# session-recover as system builds it: it copies the files a saved session
+# holds under /home and /workspace into a new directory.
+FROM /v0.1.2/Dollyfile-system cb003619fa38f3340386739e0df6a500c95f5ff040b1efb6804461adf294b259
+
+EXPORTS TOOL session-recover
+FILE /usr/share/man/cat1/session-recover.1

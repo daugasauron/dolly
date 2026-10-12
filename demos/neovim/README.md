@@ -7,6 +7,7 @@ Neovim, PUC Lua and Tree-sitter grammars compiled inside Dolly from pinned sourc
 - `neovim`: Neovim with Lua and syntax parsers.
 - `neovim-build`: Neovim, Lua and syntax-parser build tools.
 - `nvim`: Neovim with its runtime and parsers, as a package.
+- `lua`: PUC Lua 5.1 with its library and headers and the LPeg and luv modules, as a package.
 
 Open `/neovim/`; build with `npm run image -- neovim`. The image enters the
 editor; `:q` returns to Slop and `nvim` reopens it. `:!command` runs Slop.

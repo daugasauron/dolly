@@ -1,6 +1,6 @@
 # A compiler-free core base: the C/C++ toolchain as a package
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 280
 - TAGS: core,dollyfile,images,packages
 
@@ -236,3 +236,12 @@ composition built in the page (`composed()` in `test/browser.mjs`, or
 - `gpu-sdk` and `audio-sdk`: reason recorded above.
 
 Open: stages 1 and 2.
+
+## Closed into `packages` (2026-10-12)
+
+The done-when above held on 2026-10-05 ("Against the done-when"); stages 1
+and 2 are items 4 and 5 under "Held for a catalog round" in
+[`20261012-130814-packages`](../20261012-130814-packages/TASK.md), with this
+task as their design. New since: `ninja`, `make`, `transfer` and
+`session-recover` exist as packages kept from the toolchains, so stage 2 is
+the inversion alone (the builds move into them).

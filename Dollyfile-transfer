@@ -1,0 +1,14 @@
+DOLLY 7
+PACKAGE transfer
+REQUIRES HOST runtime@0
+REQUIRES HOST download@0
+REQUIRES HOST upload@0
+
+# The page's file exchange as system-tools builds it: download offers a file
+# of the session to the browser, upload takes one the user chooses.
+FROM /v0.1.2/Dollyfile-system-tools a79e48b88e5552cc965f0aa06dd9d28c05712649cc7b059036eb6a3857665632
+
+EXPORTS TOOL download
+EXPORTS TOOL upload
+FILE /usr/share/man/cat1/download.1
+FILE /usr/share/man/cat1/upload.1

@@ -141,7 +141,7 @@ test("images separate reusable toolchains and packages from applications", async
       assert.deepEqual(records.filter(record => files.get(record.locator).startsWith("demos/")), [],
         `core image ${definition.image} uses demo recipes`);
     }
-    assert.equal(graph.exporters.has("TOOL:zig"), ["zig-build", "ghostty-build"].includes(definition.image));
+    assert.equal(graph.exporters.has("TOOL:zig"), ["zig-build", "ghostty-build", "zig"].includes(definition.image));
     // A package carries its builder's chain as provenance, nothing of its files.
     if (!graph.root.hostRequirements.includes("display@0") && definition.parsed.role !== "package") {
       assert.equal(graph.exporters.has("ENV:DISPLAY"), false, definition.image);
