@@ -54,8 +54,8 @@ try {
       await run("/tmp/saxpy | grep -qx 'MOJO-GPU webgpu 1000 1998.5'");
       // Upstream's hello_writing.mojo: a kernel stores into a buffer that the host maps.
       await run("/tmp/upstream_hello | grep -qx 'GPU responded: 👋, 🔥'");
-      // A loop over a local array; integers of 8, 16 and 32 bits on a two-dimensional grid, with bytes and Bool loaded and stored; atomic operations; math functions within 1e-3 of the host.
-      await run("/tmp/kernels | grep -qx 'MOJO-KERNELS wrong: 0 0 0 0 236027'");
+      // A loop over a local array; integers of 8, 16, 32 and 64 bits on a two-dimensional grid, with bytes and Bool loaded and stored; atomic operations; math functions within 1e-3 of the host.
+      await run("/tmp/kernels | grep -qx 'MOJO-KERNELS wrong: 0 0 0 0 5554712'");
       // The Mandelbrot set as text (its middle row is inside from column 22 on), and a matrix product.
       await run("/tmp/mandelbrot > /tmp/set.txt && grep -q '^ *[.:=+*#%@-]*@\\{40\\}' /tmp/set.txt && grep -qx 'MOJO-MATMUL wrong: 0 of 576 6.0' /tmp/set.txt");
       console.log(`mojo-target: ${name} ${browser.version()} passed on ${await page.evaluate(() => __dolly.gpu.adapter)}`);

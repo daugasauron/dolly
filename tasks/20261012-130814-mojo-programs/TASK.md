@@ -44,7 +44,9 @@ either.
   `demos/mojo/target/test/fixtures/*.mojo` there and expect the lines that
   `demos/mojo/target/test/mojo-target-browser.mjs` greps for (it links the
   same programs from cross-compiled objects), and upstream's
-  `hello_writing.mojo` as `cross-compile.sh` rewrites its import. `tasks.mojo` needs the
+  `hello_writing.mojo` as `cross-compile.sh` rewrites its import. With the
+  native compiler the GPU ones also compile against a precompiled
+  `std.mojoc` and `gpu.mojoc`, as that image has them, and run (02:22). `tasks.mojo` needs the
   target's tail calls and the four GPU programs the package `gpu`; with
   `--disable-gpu --enable-unsafe-webgpu` headless Chrome runs them on
   SwiftShader.
@@ -228,13 +230,24 @@ the released compiler on this machine's x86-64: 1.4 times.
   the test suite does not call is unchecked: `sys/_libc.mojo` declares
   `write` returning `c_int`, for one. `wasm-ld` warns of each mismatch when a
   program links.
-- **Kernels**: `Float64`, `Float16`, SIMD, shared memory and barriers
-  (upstream's names for them are in `max/`), `print`, more than 256 threads
-  in a block, the libm functions WGSL lacks (`log10`, `cbrt`, `expm1`, `erfc`,
-  gamma and Bessel functions), and `TileTensor`: upstream's examples
-  index buffers through `layout`, which is in `max/`. The one that does
-  not, `hello_writing.mojo` of its documentation, runs with `gpu.host` for
-  `max.gpu.host` in its import and is in the test.
+- **Kernels, not built**:
+  - `print`, and the message of a failed `assert`: WGSL has no output and
+    no trap. They would be records in one more buffer that the runtime
+    reads back and prints, which `gpu@0` carries as it is; upstream's
+    `gpu_hello.mojo` is a kernel that prints.
+  - Shared memory and barriers (upstream's names for them are in `max/`).
+    Not tried: WGSL wants a barrier in uniform control flow, which a block
+    number in a loop is not once a branch has depended on the thread, so
+    they need the kernel's control flow printed as structured statements.
+  - Of 64-bit integers (two words each): division, the bit-counting and
+    byte-swapping functions, atomics, and scalar arguments. SIMD vectors,
+    `Float16`. `Float64` cannot be: WGSL has none.
+  - The libm functions WGSL lacks (`log10`, `cbrt`, `expm1`, `erfc`, gamma
+    and Bessel functions), and more than 256 threads in a block.
+  - `TileTensor`: upstream's examples index buffers through `layout`, which
+    is in `max/`. The one that does not, `hello_writing.mojo` of its
+    documentation, runs with `gpu.host` for `max.gpu.host` in its import
+    and is in the test.
 - **Floating point in a kernel is the device's** (01:35, a scratch kernel
   over eight values, the three browsers): infinities and NaN from a buffer,
   from a sum and from a division by zero, and `isinf`, `isfinite`, `isnan`
@@ -242,15 +255,17 @@ the released compiler on this machine's x86-64: 1.4 times.
   was 0.0 everywhere; `v * 3.0e38 * 10` was 0.0 for every `v` on the NVIDIA
   GPU under Chrome and Firefox and infinite on SwiftShader, as WGSL allows a
   compiler that reassociates. Upstream's `exp` on any GPU is its own
-  polynomial, which stops at 2^127 where the host's is infinite.
-- **What `gpu@0` lacks for this, written down and not added**: a kernel has
-  no way to say anything (no print, no trap), so a failed `assert` ends the
-  invocation silently; the text of a rejected shader or pipeline reaches the
-  page's indicator and not the program, which gets an errno (a block over
-  the device's limit was `EIO`, an aliased buffer is `EINVAL`); buffers come
-  back only through a mapped staging buffer, 64 KiB a call (4 MiB in 10 ms
-  in Chrome); a dispatch is at most 65,535 workgroups a dimension and 2^20
-  in all. `CAPABILITIES` reports the device's limits, and `DeviceContext`
+  polynomial, which stops at 2^127 where the host's is infinite. A `UInt32`
+  of more than 24 bits as a `Float32` (02:27, 257 values) was the host's
+  nearest on the NVIDIA GPU under both browsers; SwiftShader gave the next
+  one up for 28 of them, which WGSL allows.
+- **What `gpu@0` lacks for this, written down and not added**: the text of
+  a rejected shader or pipeline reaches the page's indicator and not the
+  program, which gets an errno (a block over the device's limit was `EIO`,
+  an aliased buffer is `EINVAL`); buffers come back only through a mapped
+  staging buffer, 64 KiB a call (4 MiB in 10 ms in Chrome, 100 ms in
+  Firefox); a dispatch is at most 65,535 workgroups a dimension and 2^20 in
+  all. `CAPABILITIES` reports the device's limits, and `DeviceContext`
   reads them to refuse by name a block that is too large (256 threads here)
   and a kernel with more buffers than the device binds (10 here, the scalar
   arguments being one).

@@ -30,8 +30,8 @@ def horner(
 
 
 def mix(value: Int32, byte: UInt8, i: Int, negate: Bool) -> Int32:
-    """Integer arithmetic in 32, 16 and 8 bits, signed and unsigned, for the
-    kernel and for the host."""
+    """Integer arithmetic in 64, 32, 16 and 8 bits, signed and unsigned, for
+    the kernel and for the host."""
     var mixed = (value * 7 - 3) // 2 + (value % 5) + (value >> 1) ^ Int32(i)
     mixed += Int32(byte) * 3 + byte_swap(value) % 1000 + abs(value) % 7
     mixed ^= rotate_bits_left[7](value) & 0xFF
@@ -39,6 +39,11 @@ def mix(value: Int32, byte: UInt8, i: Int, negate: Bool) -> Int32:
     mixed += Int32(Int16(value * 301) % 7) + Int32(UInt16(value) * 5)
     if Int8(value) < Int8(i):
         mixed += Int32(min(UInt8(value), UInt8(200)))
+    # A step of a 64-bit generator, and a signed 64-bit product.
+    var state = UInt64(UInt32(value)) * 6364136223846793005 + 1442695040888963407
+    mixed ^= Int32(UInt32((state ^ (state >> 29)) >> 40))
+    if Int64(value) * 3000000007 < Int64(i) - 100000000000000:
+        mixed += 11
     if negate:
         mixed = -mixed
     return max(mixed, -1000)
