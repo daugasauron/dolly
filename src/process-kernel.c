@@ -1406,8 +1406,12 @@ static int64_t terminal_packet(dolly_kernel_process *process,
   memcpy(&request, process_mailbox, sizeof(request));
   if (request.reserved != 0) return -EINVAL;
   dolly_process_terminal_response response = {0};
+  dolly_kernel_socket *stream = request.descriptor < DOLLY_KERNEL_DESCRIPTOR_LIMIT
+      ? process->sockets[request.descriptor] : NULL;
+  if (stream != NULL && stream->kind->terminal == NULL) stream = NULL;
   if (request.operation == DOLLY_PROCESS_TERMINAL_PUBLISH_RESULT) {
-    dolly_terminal_publish_result((int)request.flags);
+    /* The page follows the shell at the display's terminal, not one at a stream. */
+    if (stream == NULL) dolly_terminal_publish_result((int)request.flags);
     return respond(&response, sizeof(response));
   }
   if (request.operation != DOLLY_PROCESS_TERMINAL_READ &&
@@ -1415,9 +1419,7 @@ static int64_t terminal_packet(dolly_kernel_process *process,
       request.operation != DOLLY_PROCESS_TERMINAL_MODE_GET &&
       request.operation != DOLLY_PROCESS_TERMINAL_MODE_SET &&
       request.operation != DOLLY_PROCESS_TERMINAL_SIZE) return -EINVAL;
-  dolly_kernel_socket *stream = request.descriptor < DOLLY_KERNEL_DESCRIPTOR_LIMIT
-      ? process->sockets[request.descriptor] : NULL;
-  if (stream != NULL && stream->kind->terminal != NULL) {
+  if (stream != NULL) {
     const int64_t result = stream->kind->terminal(stream, &request, &response);
     return result < 0 ? result : respond(&response, sizeof(response));
   }
