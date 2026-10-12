@@ -1,41 +1,51 @@
-# Firefox terminal test can read an empty visible text
+# Terminal input and screen reading: the losses and flakes still open
 
 - STATUS: OPEN
-- PRIORITY: 170
+- PRIORITY: 190
 - TAGS: tests,flaky,display,firefox
 
-## Remaining (2026-10-07)
+## State (2026-10-12)
 
-Fixed and in the candidate: the empty selection at retirement
-(`fix/firefox-selection`), the pixel wait after fullscreen (`9b21ab9e`, test
-only), the gesture repeated across a program's exit (`ac4b4e5d`) and the
-input discard at exit (`9abd08b0`, restored in `0ebf7356`); the main round's
-core suites passed in both browsers and `demos/neovim` passed. Left:
+`__dolly.visibleTerminalText()` reads the screen by a pointer drag and the display library's
+copy, and a script types faster than a person: both have lost text under load. This task began
+as one Firefox failure of `test/terminal-browser.mjs` (2026-10-01) and holds what is open on that
+path; each cause found keeps its section below.
 
-- The mouse-drag failure at `test/terminal-browser.mjs:67` after font zoom
-  and paste (not seen in the recent runs; "Narrowed" below).
-- `demos/local-llm/test/local-llm-browser.mjs` stopped once in Firefox on
-  the candidate with "timed out waiting for terminal selection reset" after
-  the model had loaded (`work/next/build/next-evidence/gpu-local-llm.log`,
-  the first run; the rerun passed), the sequence noted under "Seen again
-  with the parked presenter".
+Fixed and released: the empty selection at retirement (`fix/firefox-selection`), the pixel wait
+after fullscreen (`9b21ab9e`, test only), the gesture repeated across a program's exit
+(`ac4b4e5d`), the input discarded at exit (`9abd08b0`). The core suite passed in Chromium and
+Firefox in the release rounds of v0.1.0, v0.1.1 and v0.1.2.
 
-`test/terminal-browser.mjs` failed once in Firefox (terminal-mailbox branch,
-2026-10-01) because `__dolly.visibleTerminalText()` returned an empty
-selection; three reruns passed. The helper (`src/browser.mjs`) reads the
-screen by pushing a pointer drag and waiting for the display library's copy
-sequence, so a drag that lands before a redraw, or a copy of an empty
-selection, reads as "".
+Not on `main`, though their commits are in its history: the two fixes of `fix/terminal-input`
+(`92a64117`, `d621a31d`). They changed `host/display/kernel.c` and `host/display/input.mjs`,
+which `input@0` replaced in the same round (`a1284224`); neither test they added is in
+`test/display-browser.mjs` or `test/terminal-browser.mjs` today.
 
-Done when: the cause is reproduced (for example 50 Firefox runs of the test)
-and the helper or the display copy path is fixed, or the race is shown to be
-elsewhere.
+Left:
 
-## Evidence (2026-10-01, `rebuild-batch` release run)
+- **A paste with nothing focused is lost, silently** ("A paste a person can lose").
+  `host/input/input.mjs:328` gives the keyboard element the focus at the paste chord only while
+  a program holds the input lease. Port `d621a31d`, one line, with its test (a paste after a
+  blur). Page code: no image changes.
+- **A burst of typed keys.** On `input@0` every frame is the tick's, which should make
+  `92a64117` unnecessary; not measured. Port its test (100 keys at Slop's prompt, frames
+  counted) to say so.
+- **Janis cuts a read at 256 bytes** (`demos/javascript/quickjs-main.c:882`), which can split
+  one key's escape sequence ("Sighting 1 explained"). The fix rebuilds `javascript` and Pi's
+  chain.
+- **Sighting 3**: Emacs received `/t` of a 26-byte text record. Not explained.
+- **The mouse drag** at `test/terminal-browser.mjs:67` after font zoom and paste ("Narrowed").
+  Not seen in the release rounds, not explained.
+- **"timed out waiting for terminal selection reset"**: `local-llm` once in Firefox on
+  2026-10-07, Emacs in Firefox under load ("Seen again", "Note").
+- The ring drops what it has no room for and counts it on the page (`data-input-dropped`); a
+  test that types should read that when it fails.
+- Not measured: key-to-paint after 250 ms of silence, now that the presenter no longer wakes on
+  input (from `tasks/20261002-072000-input-host-module`); Python's REPL; a paste over 50,000
+  characters; AltGr and Option.
 
-The full Firefox suite failed `terminal-browser.mjs` with
-`page.waitForFunction: Timeout 30000ms exceeded`; 6 of 7 isolated reruns passed
-(Chrome passed). Same failure rate as the terminal-mailbox branch's report.
+Done when each line is fixed with a test that fails without the fix, or shown to be elsewhere.
+Raised from 170: the first line is a loss a person meets.
 
 ## Narrowed (2026-10-01, 12:40)
 
@@ -48,13 +58,6 @@ The full Firefox suite failed `terminal-browser.mjs` with
   (`Ctrl+Shift+=`, `Ctrl+-`, waiting only for `__dolly.fontSize`) and the
   clipboard paste. Next: log `transport.geometry()` and the selection on
   failure; suspect cell metrics that lag `fontSize` after zoom.
-
-## Note (2026-10-06, `20261005-131644-page-presenter`)
-
-`visibleTerminalText()` returned on any publication and so could read an empty
-selection: 3 of 16 Firefox runs of the new display test before, 13 of 13 after
-it waits for its own selection (`fix/page-presenter`). The mouse-drag failure
-recorded here is separate and still open.
 
 ## Cause of the empty selection (2026-10-06, `fix/firefox-selection`)
 
@@ -398,7 +401,7 @@ Firefox, all four passed. Not run: the typing matrix again (the number of
 keys a second Slop now takes is not measured), the other core suites, any
 demo.
 
-## Left open
+## Left open (2026-10-08, before `input@0` was merged)
 
 - Janis (`demos/javascript/quickjs-main.c:882`) still cuts at 256 bytes. A
   version of `js_dolly_read_raw` that returns everything that waits, with a

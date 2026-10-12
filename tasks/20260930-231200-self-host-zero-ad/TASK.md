@@ -1,20 +1,32 @@
-# Build 0 A.D. completely inside the userspace
+# 0 A.D.: its content (shaders through Naga, the data packaging) is still prepared on the host
 
 - STATUS: OPEN
-- PRIORITY: 270
-- TAGS: demo,zero-ad,bootstrap
+- PRIORITY: 150
+- TAGS: demo,0ad,bootstrap
 
-## Remaining (2026-10-07)
+## State (2026-10-12)
 
-Everything in the `zero-ad` image except SpiderMonkey's archives is built by
-Dolly's own tools (since 2026-10-02, below); the chain rebuilt in every
-round since. Left: SpiderMonkey 128.13.0 inside Dolly, which needs mozbuild
-to accept a wasm host, Slop's `trap` and `umask` in `config.guess`, and
-Cargo driven by mozbuild (`20260930-231102-cargo-native`: its `libjsrust.a`
-already builds with the packaged Cargo, 3 m 42 s); and the content (Naga for
-the shaders, the data packaging) run in Dolly's CPython and Patti or Cargo.
+Owner goal: the 0 A.D. engine, SpiderMonkey and its dependencies compiled inside Dolly instead
+of by `demos/zero-ad/toolchain` on the host.
 
-Owner goal: the 0 A.D. engine, SpiderMonkey and its dependencies must be compiled inside Dolly instead of by demos/zero-ad/toolchain on the host.
+Met for every compiled file, in v0.1.0 and since: `zero-ad-deps`, `zero-ad-spidermonkey`
+(SpiderMonkey 128.13.0, with mozbuild and Cargo inside Dolly) and `zero-ad-engine` are image
+builds, the host bootstrap scripts are deleted ("0 A.D. on the Dolly-built SpiderMonkey: green"),
+and the GPU tests `0ad-spidermonkey`, `0ad-engine` and `0ad-graphics` passed on it in each
+release round.
+
+Left: the content is prepared on the host before `npm run image -- zero-ad`
+(`demos/zero-ad/README.md`, "Build"):
+
+- `toolchain/prepare-shaders.sh`: SPIR-V to WGSL with Naga, a Rust tool run natively;
+- `toolchain/prepare-headless.sh`, `package-graphics.py` and `prepare-distribution.mjs`: the
+  release data, packaged by the host's Python and Node.
+
+To do: build Naga with the `cargo` package, run `convert-shaders.py` and the packaging in
+Dolly's CPython, and stage the release data as `.tar.gz` (Dolly has no `xz`); then those four
+commands leave the README. Nothing of it is started.
+
+Lowered from 270: no compiled code comes from the host any more.
 
 ## SpiderMonkey built inside Dolly, 2026-10-07 09:26 (headline)
 
@@ -103,15 +115,6 @@ says whether upstream mozbuild could take it.
   shebang edit. A `/usr/bin/env` -> `/bin/env` symlink in the base would be the
   general fix.
 
-### What `build-spidermonkey.sh` still does that the recipe does not
-
-Nothing for SpiderMonkey: the recipe builds the same two libraries and the 328
-headers from the same pinned tarball and patches. The only deliberate
-difference is debug info (the host build keeps DWARF; the recipe builds without
-it: 21.4 vs 406 MB, 5.1 vs 24 MB). The host script and the `mozjs-host.tar.gz`
-(115 MB) / `bootstrap.tar` (151 MB) rows stay until the recipe builds once on
-round 3; then `build-spidermonkey.sh` and `spidermonkey.sh` are deleted.
-
 ### Is the Dolly-built library a drop-in for the engine? (the integrator's question)
 
 Yes. `zero-ad-engine` recompiles `pyrogenesis` in its own image against
@@ -155,36 +158,6 @@ or mozbuild's `+`-prefix propagation extended past cargo.
 Needs in-sandbox CPython (SpiderMonkey configure), rustc (SpiderMonkey Rust parts), the C/C++ compiler and Make/Ninja; depends on 20260930-231100-self-host-rust for a self-hosted rustc.
 
 Done when: zero-ad images build from pinned sources with only in-sandbox tools and the host exception is removed.
-
-## 2026-10-01: the host-built engine no longer links
-
-The 2026-10-01 checkpoint rebuilt 39 of 40 images; `zero-ad` failed with "wrong
-dolly.process stamp": its engine is linked outside Dolly against the process
-ABI of 2026-09-30. Relinking (`DOLLY_PROCESS_SYSROOT=.cache/process-sysroot-KEY
-bash demos/zero-ad/toolchain/link-engine.sh`) now needs the Emscripten port
-libraries again, and `dependencies.sh` fails at CMake configure
-(`.cache/0ad/dependencies.log`); the link also needs `-ldolly-http` for its
-`libcurl`. Building the engine inside Dolly removes this whole host path.
-
-Relinked on `rebuild-batch` (process sysroot `1d4fab67…`): the link now takes
-the host module clients (`-ldolly-runtime -ldolly-http -ldolly-display
--ldolly-gpu -ldolly-audio`) from the process sysroot instead of the stale
-`libdollygpu`/`libdollyaudio`, and `libcurl.a` is rebuilt from the current
-`src/libcurl-fetch.c`; `dependencies.sh` was not needed. The `zero-ad` image
-(snapshot `25b3f8f5…` for image inputs `74246d78…`) passes
-`0ad-engine-browser.mjs` and `0ad-graphics-browser.mjs zero-ad hardware`.
-
-- Released in the local checkpoint `35b11b69…` (2026-10-01, 15:21). The engine
-  is still host-built; building it inside Dolly remains this task.
-
-Relinked again on `next` for the process ABI of 892c163 (per-module packets
-and `dolly.host` ABI digests; process sysroot `ef304c4d…`), with `libcurl.a`
-rebuilt against those headers: engine `9bf417de…` declares `http`, `display`,
-`gpu` and `audio` with digests. The `zero-ad` image (snapshot `56cb41bd…` for
-image inputs `fda71d69…`) passes `0ad-engine-browser.mjs` and
-`0ad-graphics-browser.mjs zero-ad hardware`. In a worktree, `link-engine.sh`
-needs real copies of its `.cache/0ad` inputs: the container mounts only the
-worktree, so symlinks into the root checkout do not resolve.
 
 ## In-sandbox build (2026-10-01/02 night, `work/zero-ad-self`)
 
@@ -301,77 +274,6 @@ declares both, with Chrome's software WebGPU adapter. All pass:
 `0ad-graphics-browser.mjs zero-ad hardware` (Xvfb `:123`, boot 31.6 s, 25 ms
 per frame, economy, quick save/load, shell recovery).
 
-### Still from the host
-
-- SpiderMonkey 128.13.0: `toolchain/build-spidermonkey.sh` cross-compiles
-  `libjs_static.a`, `libjsrust.a` and `dist/include`, staged as
-  `zero-ad-build/mozjs-host.tar.gz`.
-- Content: the WGSL shaders (Naga, a Rust tool, `toolchain/prepare-shaders.sh`)
-  and the packaging of the release data (`package-*.py`).
-
-### SpiderMonkey 128.13.0 inside Dolly: blockers
-
-Probed with the pinned `mozjs-128.13.0.tar.xz` (0 A.D.'s patches, which
-include `FixPython3_14.diff`, plus `spidermonkey.patch`) in the
-`llvm-tablegen` image (CMake with CPython 3.14.7):
-`python configure.py --enable-project=js --disable-jit ... --disable-bootstrap`.
-A native build of `src/slop.c` (four Dolly calls stubbed with `posix_spawn`)
-ran the shell scripts outside the browser for quick checks.
-
-- Python is not the problem: mach creates its virtualenv in Dolly's
-  CPython 3.14 in about a second.
-- mozbuild cannot name a wasm host. Without `--host` it runs config.guess;
-  with `--host=wasm64-unknown-wasi` or `-emscripten`, `split_triplet`
-  (init.configure:472) accepts WASI only for the target (`allow_wasi`):
-  `ERROR: Unknown OS: wasi` / `Unknown OS: emscripten`. A host patch is
-  needed; claiming Linux is not allowed.
-- Slop: config.sub printed `unset: invalid name: -v`; config.guess stopped on
-  `<<-`. After c0bf8c8 config.sub runs cleanly and config.guess stops on the
-  missing `trap` and `umask` builtins. `trap` only prints an error there;
-  `umask` is what fails, because every temporary-directory fallback runs
-  `(umask 077 && mkdir ...)`. A Slop `umask` alone would not be honest: the
-  process libc only stores the mask (`__syscall_umask` in
-  `src/process/libc-adapter.c`), nothing applies it to created files, and
-  spawning does not carry it to the `mkdir` a script starts. `js/src/old-configure` (autoconf 2.13,
-  2,794 lines) parses and prints `--help`; a real run stops on
-  `trap: command not found` before its first check.
-- Rust: configure requires `cargo` (version check); the build runs
-  `cargo rustc` for the `jsrust` static library and `cargo metadata`
-  (`build/RunCbindgen.py generate_metadata`), and needs `cbindgen` (host
-  build: 0.26.0 via `cargo install`). Dolly has rustc 1.98.1 (the seed that
-  compiled `libjsrust.a` for the host build) but no Cargo. Patti builds only
-  binaries as roots (`root_binary`: "select exactly one binary with --bin";
-  `staticlib` fails "dynamic Rust libraries are not supported"); `jsrust` is
-  `crate-type = ["staticlib"]` in a 672-package workspace lockfile with
-  `[patch.crates-io]` path and git overrides.
-- The C++ half compiles in Dolly. With the host build's configure output
-  (generated headers, `Unified_*.cpp`, `js-confdefs.h`) and its compile
-  commands minus emcc-only flags (`-matomics`, `-msimd128`, `-mthread-model`,
-  `-gdwarf-4`, `-fno-sized-deallocation`, `-fno-aligned-new`,
-  `-fno-math-errno`, `-fomit-frame-pointer`, `-ffp-contract=off`,
-  `-ferror-limit=0`, `-fstandalone-debug`; `c++` rejects each today), all 158
-  objects of `libjs_static.a` compile with `c++ -O2 -j3` in 320 s wall, 952 s
-  summed, slowest TU 30 s, no failures and no Worker stack overflow. The
-  engine linked against them (and the host `libjsrust.a`; 22,894,081 bytes)
-  passes `0ad-engine-browser.mjs` with the same replay and save/load hashes:
-  SpiderMonkey compiled by Dolly's `c++` runs the game identically.
-
-Decision needed (owner): how Cargo-driven builds run in Dolly. Options: build
-Cargo itself with Patti (heavy: curl, libgit2 and TLS sys crates); teach
-Patti the Cargo subset mozbuild calls (`--version`, `metadata`,
-`rustc --lib`); or build `jsrust` with Patti (after adding static-library
-roots) and keep Cargo out of mozbuild with a build-system patch. The mozbuild
-wasm-host patch and Slop's `trap` are needed in every case.
-
-### Next
-
-1. SpiderMonkey (Cargo decided below): mozbuild's wasm host and Slop's
-   `trap`/`umask` first, then configure inside a CMake-plus-Python toolchain,
-   then Cargo built in Dolly (`20260930-231102-cargo-native`).
-2. Content: build Naga with Patti and run `convert-shaders.py` and the
-   packaging in Dolly's CPython; stage the release data as `.tar.gz` (Dolly
-   has no `xz`).
-
 ## Decision (2026-10-02, integrator)
 
 SpiderMonkey's Cargo steps: build upstream Cargo inside Dolly over its libcurl
@@ -467,74 +369,6 @@ Gaps, by kind:
   locked crates, 12.5 MB), the SDK's `libc` as `--patch`; row in
   `config/upstreams.json`. Untested until the image builds.
 
-### Session 1 (headless Chrome, `default` + `amy install python rust curl`, 07:58-08:10)
-
-The `cargo` image could not be rebuilt under the 6 GB build cap (two OOM
-kills in its last crate, 07:34 at 5.95 GB RSS and 07:45 at the cap; its pin
-had moved with the Rust linker adapter), so the session is `default` with
-the packages amy installs; the integrator opened a 9 GB `bigbuild` slot for
-`cargo` once release packaging is done (about 08:20). Driver:
-`build/spidermonkey-evidence/drive.mjs` (control port 38811); the scope's
-memory sampled every 2 s into `memory-4.log`; stage logs `stage-*.log`.
-
-- Staging: the tree must be packed by `scripts/build-source-tar.mjs`.
-  GNU tar's default format writes `././@LongLink` entries, which Dolly's
-  `tar` rejects ("validate path ... errno 138"); the script's archive paths
-  are limited to 255 bytes anyway (longest here: 149). 537 MB, 29,594 files,
-  packed in 1.5 s on the host, unpacked in 34 s in the session, 2.7 GB of
-  scope memory afterwards. Every file gets the archive's fixed mtime, so
-  `old-configure` is as new as `old-configure.in` and mozbuild does not
-  refresh it (the m4 question is moot for a staged tree).
-- `patch` is not in `default`, `posix` or `rust` (it comes with
-  `system-tools` and `git`); the preparation patch was applied on the host
-  before packing for this session; `zero-ad-deps`'s base has it.
-- pkgconf from the deps sources, one `cc` line, 2 s; `zlib.pc` written;
-  `pkg-config --modversion zlib` answers 1.3.2.
-- configure (`stage-2-configure-1.full.log`, 3.2 s): mach's state directory
-  and virtualenv created; "checking for a shell... /bin/sh" (Slop);
-  `config.sub` under Slop canonicalises `wasm64-unknown-wasi` for host and
-  target (the Wasm-host edit works); `rustc` found, version 1.98.1;
-  "checking for cargo... not found" and then the bootstrap fallback for a
-  missing tool imports `mozboot.util`, whose module-level `import ssl` has
-  no `_ssl` in Dolly's CPython (TLS stays in the browser), so the traceback
-  hides mozbuild's own "Cannot find cargo" message. Not a blocker once
-  cargo is present; worth one lazy-import line if it ever is.
-- cbindgen 0.26.0 by Patti from the staged archive, `-j 4`: 171 s, scope
-  peak 3.93 GB, `cbindgen --version` prints 0.26.0. Patti first refused the
-  libc override ("manifest/lock mismatch") because cbindgen's lock pins
-  libc 0.2.144 while the SDK's crate is 0.2.186; the staging script now
-  rewrites that lock line for cbindgen as it does for ripgrep and fd.
-
-### The recipe's inputs, decided 08:20-08:27 (uncommitted until the chain builds)
-
-- `demos/zero-ad/Dollyfile-zero-ad-spidermonkey`: build-only toolchain
-  `FROM zero-ad-deps` (pkgconf, `zlib.pc`, the C++ toolchain, `patch`),
-  `INSTALL python`, `INSTALL cargo` (brings `rust`), `INSTALL cbindgen`;
-  one `build.slop` (patches, configure, `make -j4`, the copy into
-  `/opt/mozjs/{include,lib}` and the licences into
-  `/usr/share/licenses/spidermonkey`, crate notices included);
-  `FOLDER /opt/mozjs`. `zero-ad-engine` takes both trees by `COPY` and its
-  `mozjs-128.pc` and probe point at `/opt/mozjs`; `zero-ad` already copies
-  the licence directory from the engine. The two `SOURCE`s of the exception
-  (`mozjs-host.tar.gz` 115 MB, `bootstrap.tar` 151 MB) go away.
-- Source staging in `demos/zero-ad/prepare-sources.sh`: the pristine
-  `mozjs-128.13.0.tar.xz` from the already-staged 0 A.D. tree, extracted
-  without `js/src/tests`, `js/src/jit-test` and `testing/web-platform`
-  (490 MB that `--disable-tests` never reads; 625 MB stay, of which
-  `third_party/rust` 398 MB: Cargo resolves the whole vendored workspace, so
-  it cannot be pruned), 0 A.D.'s `patches/` and `spidermonkey.patch`, packed
-  by `build-source-tar.mjs` into `zero-ad-build/mozjs.tar.gz` (161 MB).
-  Both patch sets are applied in the image by `sh ../patches/patch.sh` and
-  `patch -p1`, verified in order on the host.
-- `spidermonkey.patch` carries the four preparation hunks (Wasm host,
-  `allow_missing` M4 plus a loud `die` if a refresh is ever attempted, the
-  linker wrapper's `subprocess.call`, the `*-wasi*` `-mthread-model single`
-  line dropped from the shipped `old-configure`).
-- The recipe writes `CC='cc -D__wasi__'` and assumes `core/cc-flags`
-  (round 3); this tree's `cc` lacks the four flags, so the session and any
-  image build here use the filtering wrappers instead, which is the only
-  difference between what is verified today and the committed text.
-
 ### Image builds on the round-3 base (2026-10-07, `work/cargo` after the import)
 
 - `cbindgen`: built at 10:12 in about 2.5 min (slot opened 10:09:56; Patti
@@ -564,42 +398,6 @@ memory sampled every 2 s into `memory-4.log`; stage logs `stage-*.log`.
   `and CONFIG["MOZ_DEBUG_SYMBOLS"]` (the flag only widens debug info, so it
   is inert without `-g`; upstream could take it). The cc translation fix is
   listed under remaining.
-
-### Remaining (as of 11:20)
-
-- `core/cc-flags` `7dbf0f38` (unbuilt, for the next round): `-fstandalone-debug`
-  and `-ferror-limit=N` translated as Clang's driver does (no cc1 argument
-  without `-g`; `limited` for the negative under `-g`; `-ferror-limit N` as
-  two arguments), suite case with all seven flags plus a `-g
-  -fstandalone-debug` compile. Until it lands, the patch's `js/src/moz.build`
-  hunk keeps `-fstandalone-debug` out of a build without debug symbols.
-- `cc -print-search-dirs` (single dash) is refused; only bindgen asks, and
-  such ports need libclang, which Dolly lacks: no seed change requested.
-- `build-spidermonkey.sh`, `spidermonkey.sh` and the bootstrap rows in
-  `demos/zero-ad/README.md` and `docs/sources.md` are deleted once the
-  `zero-ad-spidermonkey` image has built and `zero-ad-engine` has rebuilt
-  against it (the integrator's call).
-- `-msimd128` to match the host's optimize flags: one token in the recipe
-  after the first verified build.
-- Second image build (11:17-11:30): configure, the Rust library and all C++
-  compiled and `libjs_static.a` was archived (742 s to the archive, scope
-  peak 7.33 GB under the 9 GB bigbuild slot), then the misc tier's
-  `check_spidermonkey_style.py` failed: the staged `mozjs.tar.gz` had no
-  `js/src/tests/style` because `prepare-sources.sh` reused the tree extracted
-  by the first (all-of-`js/src/tests`) pruning. Staging now re-extracts every
-  time (5 s); the fixtures are in the tarball; the recipe lists
-  `/opt/mozjs/lib` so the image log carries the library sizes.
-- **`zero-ad-spidermonkey` built** (third image build, 11:34:43-11:49:24,
-  `work/slot.sh bigbuild`, round-3 base, `cbindgen`, `zero-ad-deps`, `python`
-  and `cargo` reused): `build.slop` 756 s, image 879.4 s with the 795,577,904
-  byte snapshot export; `libjs_static.a` 21,428,434 bytes and `libjsrust.a`
-  5,140,674 bytes (the host-built ones: 406,352,974 and 24,145,424 with
-  DWARF). Scope memory reached the 9 GB bigbuild cap (cgroup v2 peak, file
-  cache included: the 537 MB tree and the 796 MB export are in it; no kill,
-  the kernel reclaimed cache); the previous run peaked at 7.33 GB before its
-  export stage; the same build in a session peaked at 4.3 GB. The
-  bootstrap exception is replaced in the recipe graph; `build-spidermonkey.sh`
-  and the doc rows go once `zero-ad-engine` has rebuilt against `/opt/mozjs`.
 
 ### Image build stages, sizes, and what the engine rebuild unlocks (11:52)
 
@@ -687,4 +485,4 @@ changed no recipe (no recipe pins those documents); lint, the source suite
 git and untouched. The bootstrap exception named in this task's goal is gone:
 done when the checkpoint carries this branch.
 
-- STATUS: DONE when merged (integrator's checkpoint, 13:15).
+Merged at the integrator's checkpoint of 2026-10-07, 13:15.

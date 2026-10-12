@@ -1,10 +1,17 @@
-# Rust toolchain: what the self-built compiler left open
+# Rust and Cargo built inside Dolly: what they left open
 
 - STATUS: OPEN
-- PRIORITY: 180
+- PRIORITY: 160
 - TAGS: toolchain,rust,bootstrap
 
-From `tasks/20260930-231100-self-host-rust` (closed 2026-10-09).
+## State (2026-10-12)
+
+In v0.1.1: rustc is built inside Dolly in two generations whose standard libraries are checked
+equal, Cargo is built by that rustc, and Patti is gone (`2370dc85`, `78572443`). The seed
+compiler stays the documented stage 0. This task is the list both pieces of work left; nothing
+on it has been done since. Lowered from 180 and merged with Cargo's list.
+
+## From the self-built compiler (`tasks/20260930-231100-self-host-rust`, closed 2026-10-09)
 
 - **Stage comparison on demand.** `Dollyfile-rust-build` keeps the second
   generation of rustc and fails unless the standard library that generation
@@ -25,4 +32,29 @@ From `tasks/20260930-231100-self-host-rust` (closed 2026-10-09).
   settings reach every C file of the Codex build
   (`demos/codex/config/cargo.toml`).
 
-Done when each is fixed or has its own task.
+## From Cargo (`tasks/20260930-231102-cargo-native`, closed 2026-10-12)
+
+- **`cargo run`** builds and then fails: Cargo `exec`s the program, and Dolly has no `exec`
+  (`tasks/20261006-214244-process-exec`).
+- **`cargo test`** needs the `test` crate in the SDK, and tests on a panic-abort target need
+  `-Zpanic-abort-tests`.
+- **A git dependency over HTTPS** needs a relay and libgit2's curl transport, which Cargo
+  registers only with a non-default `[http]` configuration. `cargo search`, `publish` and
+  `login` need `CONNECTTIMEOUT`, `LOW_SPEED_*` and `PUT` in Dolly's libcurl.
+- **Two stopgaps from before the kernel had file locks** are still in place, though it has had
+  `flock` and `fcntl` byte ranges since `85a01262` (2026-10-06): SQLite's dot-file locking
+  (`demos/rust/config/cargo.toml`, whose comment still says Dolly has no such locks) and
+  `CARGO_INCREMENTAL=0` (`Dollyfile-rust-sdk`, `Dollyfile-cargo`). Not tried: Cargo without
+  them.
+- **`libc` for a user's project.** crates.io's copy has wasm32 layouts for this target, so a
+  project needs `[patch.crates-io] libc = { path = "/opt/rust-sdk/src/libc" }`
+  (`demos/rust/README.md`); a system-wide patch would harm every other project.
+- **`--frozen`** failed half the runs with this Cargo and SpiderMonkey's lock (2026-10-07). Not
+  explained; mozbuild does not pass it to a standalone JS build, so the catalog does not meet it.
+- The `cargo` image build needs 5 to 6 GB (`tasks/20261006-145958-builder-artifact-copies`).
+- Not measured: that Cargo's parallel build of Codex equals a serial one byte for byte (from
+  `tasks/20260930-231102-parallel-rust`, where Patti's ripgrep, fd and protox did).
+
+## Done when
+
+Each is fixed or has its own task.

@@ -1,8 +1,20 @@
 # RTS match freezes when player input arrives in its first frames
 
 - STATUS: OPEN
-- PRIORITY: 240
+- PRIORITY: 190
 - TAGS: demo,rts,tests,flaky,bug
+
+## State (2026-10-12)
+
+Open: which early step freezes the match is not found, and the done-when's loop has not been
+run again. Since `8262c6ba` (2026-10-08) only the compiler is entered through JSPI, so the
+comparison "with the entry disabled" that the last section still owed is what `main` does now.
+The `rts` demo test passed in the release rounds of v0.1.0, v0.1.1 and v0.1.2, one run each.
+
+Owed: the match loop of "Evidence", 20 rounds on today's `main` under load. If it passes, close
+with the count; if it stalls, "Work" below stands. Lowered from 240: three rounds without it.
+
+## The defect
 
 `node demos/run-browser-tests.mjs rts` sometimes fails in
 `demos/rts/test/fixtures/rts-match.mjs` with "RTS test timed out: mouse

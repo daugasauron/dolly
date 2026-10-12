@@ -1,10 +1,155 @@
-audit, Finding from the 2026-09-13 architecture audit
+0ad, The 0 A.D. port and its build
+abi, Machine ABI and contract numbers, layouts and digests
+agent, A coding agent running inside Dolly, or a model driving a demo
+agent-experience, What an agent meets when it uses the system without help
+agents, Guidance and interfaces for agents and game controllers
+amy, The package installer
+architecture, Where a responsibility lives among kernel, modules and page
+art, Look of the Slopyard world
+audio, Sound playback and capture
+audit, Finding of the 2026-09-13 or 2026-09-30 audit, or a task to audit something
+boundary, The browser host boundary and its trusted code
+bootstrap, What is still built outside Dolly, and building it inside
+browser, Behaviour particular to a browser or its engine
+browser-boundary, Older spelling of boundary
 bug, Confirmed incorrect behavior
-core, Shared runtime or platform substrate
-filesystem, File and path semantics
-lifecycle, Process termination and recovery
-compatibility, Supported upstream API behavior
-cleanup, Remove unused code or reduce maintenance
-testing, Verification and development feedback
 build, Image dependencies and build iteration
+builder, Building creatures and machines in Slopyard; the image builder
+camera, Slopyard's view
+cargo, Rust's Cargo; cargo hauling in Slopyard
+catalog, The list of images a site publishes
+checkpoint, A verified state of the tree and its images, kept to return to
+classicube, The ClassiCube demo
+cleanup, Remove unused code or reduce maintenance
+cloudflare, The domain's host
+codex, The Codex agent and its build
+combat, Fighting in Slopyard
+commands, Shell commands and core tools
+compatibility, Supported upstream API behavior
+compiler, The cc and c++ driver
+configuration, A setting a user may change
+content, New things in the Slopyard world
+controller, Older spelling of controllers
+controllers, Programs that steer Slopyard's creatures and machines
+controls, Driving a Slopyard creation by hand
+core, Shared runtime or platform substrate
+corpus, Measurements over a set of real upstream programs
+demo, A demo under demos/
+deployment, Publishing a site
+design, A decision about shape to make before code
+diagnostics, Telling a player or agent why something happened
+display, The display module and the terminal drawn through it
+distribution, What a fresh Slopyard game ships with
+doc, Older spelling of docs
+docs, Documents under docs/ and in images
+documentation, Older spelling of docs
+dollyfile, The recipe language and its engine
+editor, A text editor as an image
+environment, Environment variables an image exports
+experiment, A prototype to learn from, not to keep
+filesystem, File and path semantics
+firefox, Seen in Firefox only
+flaky, A test that fails some runs
+frontend, The page's own JavaScript
+game, The Slopyard game
+gamedev, Game engine ports
+gimp, GIMP in the Wine image
+git, Git inside Dolly
+gpu, The GPU module and what renders or computes through it
+graphics, How the Slopyard world is drawn
+host, Older spelling of host-modules
+host-modules, A host bridge: its contract, kernel part, client and page side
+hosting, Where and how the sites are served
+image, A new image for the catalog
+images, Image recipes, their sizes and what they keep
+input, Keyboard, pointer, touch and paste
+integration, Merging rounds of work into a release candidate
+investigation, A question to answer by measuring, with no change promised
+iteration, Time from an edit to a verified result
+janis, The Node-compatible JavaScript runtime
+javascript, JavaScript programs running inside Dolly
+kernel, The Wasm kernel
+libc, The process libc adapter
+licences, Licences of what is built and served
+lifecycle, Process termination and recovery
+llm, Model inference inside Dolly
+llvm, LLVM, Clang and LLD
+local-llm, The local-llm demo and its model packages
+local-model, Measurements of a locally run model's work
+locks, File locks
+logistics, Cargo flow in Slopyard
+maintainability, Duplication and drift that make a change risky
+memory, Peak memory of a build, a save or a page
+microphone, The microphone module
+mobile, Phones and touch screens
+models, Model weights as packages
+mojo, The Mojo compiler and its programs
+neovim, Neovim as an image and in Studio
+netsurf, NetSurf in the Wine image
+network, The HTTP broker and what crosses it
+observability, Seeing what the runtime does while it runs
+openrouter, Models reached through OpenRouter
+owner, A decision only the owner can make
+packages, Packages and what installs them
+packaging, Sealing and exporting a release
+page, The Dolly pages a visitor sees
+performance, Measured speed
 persistence, Saving and restoring user state
+phone, The phone image
+physics, Slopyard's simulation
+pi, The Pi agent
+pi-local, Pi on a locally run model
+placement, Where Slopyard puts structures
+plan, A plan to agree on before work
+port, An upstream program brought to Dolly
+process, The process contract, spawn, wait, pipes and signals
+programs, Programs embedded in Slopyard's machines
+python, CPython inside Dolly
+recording, Demo videos
+regression, Worked before a named change
+relay, A local relay between a demo and a model
+release, A version, its scope and its checks
+rendering, How frames are drawn
+replicability, Whether a recipe rebuilds the same image elsewhere
+reproducibility, Whether a build gives the same bytes twice
+research, Reading and measuring before a decision
+review, A look at the whole before going on
+rts, The RTS Arena demo
+runtime, The page's runtime Worker, timers and sessions
+rust, The Rust toolchain
+scripting, The language Slopyard's controllers are written in
+security, What a compromised userspace could reach
+seed, The externally built start of every image
+sessions, Saved sessions and their page
+shell, Behaviour at Slop's prompt
+signals, Signal delivery and handlers
+site, The published sites and their pages
+skills, The skills Pi is given
+slop, The shell
+slopyard, The Slopyard demo
+small, Little work
+sockets, Local stream sockets
+speech, Speech to text
+studio, Dollyfile Studio
+syntax, The spelling of a recipe line
+teams, The two sides of a Slopyard world
+terminal, The terminal as programs see it
+terrain, Slopyard's ground
+testing, Verification and development feedback
+tests, A test or its harness
+threads, The threads module and threaded programs
+timers, Timer wakeups
+tmux, tmux inside Dolly
+toolchain, Compilers and build tools
+ui, What a player or user sees and presses
+upgrade, Moving to a newer upstream version
+usability, A limit a user runs into
+userspace, Commands and conventions above the kernel
+ux, Whether the page tells the user what is happening
+visuals, How distinct the Slopyard world looks
+wasm64, Costs and limits of the 64-bit Wasm target
+water, Water in Slopyard
+wine, The Wine demo
+workflow, A sequence of steps a user repeats
+world, The Slopyard world as a whole
+zig, The Zig toolchain

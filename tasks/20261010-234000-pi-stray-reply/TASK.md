@@ -1,8 +1,21 @@
 # On a slow device Pi starts with part of a terminal reply in its prompt
 
 - STATUS: OPEN
-- PRIORITY: 150
+- PRIORITY: 110
 - TAGS: bug,pi,terminal
+
+## State (2026-10-12)
+
+Unchanged since it was found: no fix, no reproduction on a desktop yet. It waits with the parked
+phone image (`tasks/20261010-193000-phone-voice-pi`). Lowered from 150 with it.
+
+A lead, not checked: `demos/javascript/janis.js` reads the terminal with `Dolly.readStdin(4096)`
+in one branch and `Dolly.readRaw` in the other (lines 3130 to 3132), and `readRaw` returns at
+most 256 bytes a call (`demos/javascript/quickjs-main.c:882`), fewer than the eighteen colour
+answers together. `tasks/20261001-095000-terminal-text-flake` found that cut splitting a key's
+sequence. Which branch Pi's reader takes was not read.
+
+## The defect
 
 Found 2026-10-10 on a Mode1 MD06P (MT6769, Chrome 152) with the `pi-phone` image: after every
 load, three of three, Pi's prompt holds `/d7d7` before anything is typed. On this desktop it

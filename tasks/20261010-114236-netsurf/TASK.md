@@ -1,6 +1,6 @@
 # NetSurf in the Wine image, fetching through Dolly's libcurl
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 150
 - TAGS: wine,demo,netsurf
 
@@ -116,7 +116,6 @@ How it is built (all in `demos/wine/`):
   folder lookup needs ole32 at every turn. In the fetcher, a multipart post fails with
   `CURLE_NOT_BUILT_IN`.
 - The desktop labels it "NetSurf" with S as its key (N is Notepad's).
-
 
 ### 2026-10-10, step 3: the error page works; a start page on the site's own origin does not
 
@@ -249,3 +248,17 @@ header of its own, which the test admits). Images build in 211.0 s; `wine` is 17
 - **The error page's text is now read off the page**: Select All and Edit > Copy in NetSurf,
   Edit > Paste in Notepad, saved through the file dialog, and `cat` in the shell shows "Browser
   could not fetch the URL: blocked (no CORS headers, or a redirect)". The `curl` stand-in is gone.
+
+## Closed (2026-10-12)
+
+"Done means" 1 to 4 are met, in v0.1.2 (`af333b75`, `2fb38c1a`, `2d4e6abf`, `7d4b9798`): NetSurf
+3.11 is on the Wine desktop's Start menu and fetches through the `curl` package's libcurl; it
+renders the fixture page, follows a link and goes back; its start page is the release's own
+site, and an address the browser's CORS rules refuse ends in NetSurf's error page; the
+measurements are under "step 4". `demos/wine/test/wine-browser.mjs` holds the checks: it passed
+in Chrome and, run once, in Firefox (above), and in v0.1.2's release round. No contract changed.
+
+Stated above and not part of this: a copy made in NetSurf does not reach the browser's
+clipboard, because `display@0` and `input@0` have no call by which the program holding the
+display offers text on the user's copy; only the terminal's selection has one. NetSurf makes
+`/usr/bin/wine` GPL-2.0-only as a whole.
