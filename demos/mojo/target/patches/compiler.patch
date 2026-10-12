@@ -94,10 +94,10 @@ index 8bdcb15..42aea40 100644
    }
 diff --git a/Mojo/lib/Compiler/ObjectCompiler/Target/Dolly/DollyBackend.cpp b/Mojo/lib/Compiler/ObjectCompiler/Target/Dolly/DollyBackend.cpp
 new file mode 100644
-index 0000000..cf8f462
+index 0000000..e85c537
 --- /dev/null
 +++ b/Mojo/lib/Compiler/ObjectCompiler/Target/Dolly/DollyBackend.cpp
-@@ -0,0 +1,1119 @@
+@@ -0,0 +1,1115 @@
 +//===----------------------------------------------------------------------===//
 +// Added for Dolly, a POSIX-like userspace for wasm64 in the browser.
 +//
@@ -383,6 +383,14 @@ index 0000000..cf8f462
 +    return isBool(type) ? 8 : bits(type) == 32 ? 0 : bits(type);
 +  }
 +
++  static std::string asWord(Type *type, const std::string &value) {
++    return type->isFloatTy() ? "bitcast<u32>(" + value + ")" : value;
++  }
++
++  static std::string fromWord(Type *type, const std::string &word) {
++    return type->isFloatTy() ? "bitcast<f32>(" + word + ")" : word;
++  }
++
 +  /// The value a load reads.
 +  std::string load(const LoadInst &i) {
 +    const Value *from = i.getPointerOperand();
@@ -395,11 +403,9 @@ index 0000000..cf8f462
 +      return isBool(type) ? "((" + value + " & 1u) != 0u)"
 +                          : normalize(value, width);
 +    }
-+    if (type->isFloatTy())
-+      return "bitcast<f32>(" + value + ")";
-+    if (!bits(type))
++    if (!type->isFloatTy() && !bits(type))
 +      fail("WGSL has no such type to load", &i);
-+    return value;
++    return fromWord(type, value);
 +  }
 +
 +  /// `&b3[...]`, the word of a buffer parameter an atomic operation is on.
@@ -410,14 +416,6 @@ index 0000000..cf8f462
 +    if (!Atomic.count(root(pointer)))
 +      fail("an atomic operation must be on a buffer parameter", &i);
 +    return "&" + word(pointer);
-+  }
-+
-+  static std::string asWord(Type *type, const std::string &value) {
-+    return type->isFloatTy() ? "bitcast<u32>(" + value + ")" : value;
-+  }
-+
-+  static std::string fromWord(Type *type, const std::string &word) {
-+    return type->isFloatTy() ? "bitcast<f32>(" + word + ")" : word;
 +  }
 +
 +  /// The statement of an atomic read-modify-write.
@@ -487,9 +485,8 @@ index 0000000..cf8f462
 +      return "";
 +    }
 +    std::string target = word(to);
-+    std::string stored = type->isFloatTy() ? "bitcast<u32>(" + use(value) + ")"
-+                         : isBool(type)    ? "u32(" + use(value) + ")"
-+                                           : use(value);
++    std::string stored = isBool(type) ? "u32(" + use(value) + ")"
++                                      : asWord(type, use(value));
 +    bool atomic = Atomic.count(root(to));
 +    unsigned width = partBits(type);
 +    if (!width)
@@ -505,7 +502,6 @@ index 0000000..cf8f462
 +                  : target + " = (" + target + " & " + keep + ") | " + stored +
 +                        ";";
 +  }
-+
 +
 +  std::string offset(const GEPOperator &gep) {
 +    std::string expression = use(gep.getPointerOperand());
