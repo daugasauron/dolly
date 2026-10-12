@@ -1,6 +1,6 @@
 // Mojo programs cross-compiled for Dolly (../cross-compile.sh) link against
 // the mojo-runtime image's libraries and run there: hello, the standard
-// library, and a kernel that DeviceContext launches on WebGPU.
+// library, and kernels that DeviceContext launches on WebGPU.
 // Usage: node demos/mojo/target/test/mojo-target-browser.mjs
 // Headless Chrome has a software adapter. With a GPU window on DISPLAY, Chrome
 // and the installed Firefox use the GPU as well.
@@ -12,7 +12,7 @@ import { startBrowserServer } from "../../../../test/browser-server.mjs";
 import { shellPrompt } from "../../../browser.mjs";
 
 const root = new URL("../../../../", import.meta.url);
-const programs = { hello: "", library: "", saxpy: "-lmojo-gpu -ldolly-gpu" };
+const programs = { hello: "", library: "", saxpy: "-lmojo-gpu -ldolly-gpu", kernels: "-lmojo-gpu -ldolly-gpu" };
 const objects = Object.fromEntries(Object.keys(programs).map(name => [`${name}.o`, `build/mojo-target/objects/${name}.o`]));
 if (!Object.values(objects).every(path => existsSync(new URL(path, root)))) {
   console.log("mojo-target: skipped, it needs the objects of demos/mojo/target/cross-compile.sh");
@@ -51,6 +51,8 @@ try {
       await run("/tmp/hello | grep -qx 'hello from mojo'");
       await run("/tmp/library one | grep -qx 'MOJO-LIBRARY 6 5 29 True 2 7.25 True'");
       await run("/tmp/saxpy | grep -qx 'MOJO-GPU webgpu 1000 1998.5'");
+      // A loop, integer arithmetic on a two-dimensional grid, and math functions.
+      await run("/tmp/kernels | grep -qx 'MOJO-KERNELS wrong: 0 0 0 2002'");
       console.log(`mojo-target: ${name} ${browser.version()} passed on ${await page.evaluate(() => __dolly.gpu.adapter)}`);
     } finally {
       await browser.close();
