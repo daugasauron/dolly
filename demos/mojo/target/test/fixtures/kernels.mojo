@@ -181,7 +181,7 @@ def main() raises:
         b,
         UInt32(n - 1),
         True,
-        grid_dim=Dim(2, 4),
+        grid_dim=(2, 4),
         block_dim=Dim(4, 2),
     )
     var bs = b.to_host()

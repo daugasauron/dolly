@@ -164,6 +164,15 @@ read back, is right in all three: 35 ms to write, and 73 ms (Chrome,
 NVIDIA), 291 ms (Firefox) and 95 ms (SwiftShader) to run and read. `gpu@0`
 maps at most 16 MiB at once, so the runtime reads a larger buffer in pieces.
 
+The Mandelbrot set at 1024 by 1024 and up to 500 iterations (81.9 million
+in all), one function for the kernel and for the host (01:55, a scratch
+program): the kernel with its read of 4 MiB takes 4.5 ms in Chrome on the
+NVIDIA GPU, 102 ms in Firefox and 171 ms on SwiftShader; the same loop on
+the one Wasm thread takes 269 ms in Chrome and 413 ms in Firefox. On the
+NVIDIA GPU 2,383 pixels (0.2 %) differ from the host's under both browsers,
+on SwiftShader none: not attributed (a driver that fuses a multiplication
+and an addition would do it).
+
 Two of upstream's example programs run unchanged:
 `Mojo/examples/operators/main.mojo`, and `Mojo/examples/life/benchmark.mojo`,
 where 1,000 evolutions take 15.4 s and 3.09 s against 10.6 s and 2.19 s for

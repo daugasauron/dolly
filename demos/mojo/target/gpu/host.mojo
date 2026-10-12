@@ -58,6 +58,14 @@ struct Dim(TrivialRegisterPassable):
         self.y = y
         self.z = z
 
+    @implicit
+    def __init__(out self, dims: Tuple[Int, Int]):
+        self = Self(dims[0], dims[1])
+
+    @implicit
+    def __init__(out self, dims: Tuple[Int, Int, Int]):
+        self = Self(dims[0], dims[1], dims[2])
+
     def _extent(self) raises -> Array[UInt32, 3]:
         """Returns the extent as WebGPU counts it."""
         var extent = Array[UInt32, 3](fill=0)
