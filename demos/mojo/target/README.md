@@ -118,8 +118,9 @@ other examples index buffers through `layout`, which is in `max`.
   them has reached a barrier or returned. WGSL wants its barrier in uniform
   control flow, which a kernel's is not: a thread at a barrier leaves the
   loop of blocks, and all meet at one WGSL barrier. So a barrier may stand
-  anywhere, also where only some threads come. A block had 16 KiB of
-  shared memory where measured, and not 64.
+  in any branch or loop, and a thread that has returned holds nobody up;
+  each thread's n-th wait is the same meeting, whatever line it waits at.
+  A block had 16 KiB of shared memory where measured, and not 64.
 - `block_dim` is the WebGPU workgroup size, set when the pipeline is created:
   at most 256 threads on a default device. `grid_dim` is the workgroup
   count. A block the device does not admit raises when enqueued, as does a

@@ -126,8 +126,9 @@ shifts by a variable, conversions and 64-, 16- and 8-bit arguments among
 them; lines printed by six threads with integers, floats, `Bool` and a
 64-bit integer; asserts and an `abort` with their messages; shared memory
 of floats, of bytes and with atomic counters, and barriers that only some
-threads reach or that a return follows (without its barrier a thread saw
-one mark of 256 in all three browsers, with it all; 16,416 bytes of shared
+threads reach or that a return follows, and threads that return before
+any (without its barrier a thread saw one mark of 256 in all three
+browsers, with it all; 16,416 bytes of shared
 memory in a block run in all three, 64 KiB are `I/O error` when enqueued,
 the device's reason being in the page's indicator). An
 `Optional` through a branch did not compile until a struct that is a value
@@ -218,7 +219,7 @@ the released compiler on this machine's x86-64: 1.4 times.
 - **WGSL comes from the compiler, at compile time.** `std.compile.compile_info`
   already compiles one function for another target and embeds the text, and a
   backend may print that text itself (`TargetBackend::emitAssembly`). So the
-  kernel is optimized as 32-bit LLVM IR and printed as WGSL by 1,400 lines in
+  kernel is optimized as 32-bit LLVM IR and printed as WGSL by 1,500 lines in
   the compiler; the program carries WGSL as a constant and needs no LLVM, no
   SPIR-V and no translator when it runs. 32-bit because Mojo's `Int` is the
   target's pointer width and WGSL has no 64-bit integer.
