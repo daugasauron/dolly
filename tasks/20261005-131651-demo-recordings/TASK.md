@@ -1,4 +1,4 @@
-# Regenerate the demo recordings with a stronger model over OpenRouter
+# Demo recordings: RTS Arena, ClassiCube and bhop wait for a model and a budget
 
 - STATUS: OPEN
 - PRIORITY: 100

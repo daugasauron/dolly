@@ -1,4 +1,4 @@
-# The site moves to slopshare.dev
+# slopshare.dev: Cloudflare still rewrites two pages; www and the old domain are undecided
 
 - STATUS: OPEN
 - PRIORITY: 170

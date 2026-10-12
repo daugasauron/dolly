@@ -2,7 +2,7 @@
 
 - STATUS: OPEN
 - PRIORITY: 130
-- TAGS: javascript,janis,agent,demo,licence
+- TAGS: javascript,janis,agent,demo,licences
 
 ## State (2026-10-12)
 

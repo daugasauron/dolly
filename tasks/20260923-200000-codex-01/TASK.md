@@ -1,4 +1,4 @@
-# Reduce peak memory when saving a large restored session
+# A refresh of the same tab after saving a large session exceeds 4 GiB in Chrome
 
 - STATUS: OPEN
 - PRIORITY: 100

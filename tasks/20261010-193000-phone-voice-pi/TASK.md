@@ -1,8 +1,8 @@
 # Phone: Pi by buttons and speech (parked), and touch for programs
 
 - STATUS: OPEN
-- PRIORITY: 200
-- TAGS: demo,speech,pi,phone,host
+- PRIORITY: 100
+- TAGS: demo,speech,pi,phone,host-modules
 
 ## State (2026-10-12)
 
@@ -12,7 +12,7 @@ terminal and a pinch that changes the font's size (`c6fed63f`, `077bb981`). "Don
 are met in Chrome's phone emulation and on the owner's phone ("Result", "On the owner's phone").
 
 Parked by the owner on 2026-10-10: "I want to park this locally for now and focus on the wine
-stuff." Open, in the order to take it up:
+stuff." Lowered from 200 for that reason. Open, in the order to take it up:
 
 1. **Hearing is slow on a phone** (1.8 times as fast as speech, against 29 on this desktop):
    whether the phone's Chrome has WebGPU and transcribe.cpp's ggml a backend for it over

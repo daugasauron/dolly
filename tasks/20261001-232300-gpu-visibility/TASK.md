@@ -1,4 +1,4 @@
-# Make GPU use and CPU fallbacks obvious
+# GPU or CPU: the start page and the image pages do not say which a demo uses
 
 - STATUS: OPEN
 - PRIORITY: 150
@@ -122,4 +122,3 @@ the page indicator is the authority.
 - Image page: the run page already shows `#gpu-status` for `gpu@0`. The
   Dollyfile view (`scripts/render-dollyfile-view.mjs:150`, title; body at
   `:163`) has `record.hostRequirements` and can show the same label.
-
