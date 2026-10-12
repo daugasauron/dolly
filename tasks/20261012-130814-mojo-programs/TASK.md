@@ -11,7 +11,10 @@ works for GPU compute." The compiler itself is
 ## For the compiler's side (`demos/mojo/`, task mojo-compiler)
 
 What a compiler built in Dolly must carry for its programs to run here; all
-of it is in `demos/mojo/target/` and described in its README:
+of it is in `demos/mojo/target/` and described in its README. The patches,
+the package `gpu` and the runtime recipe are settled at `ddad69d6`
+(2026-10-13 01:04): after it only tests and notes change, unless a fault is
+found.
 
 - Apply `patches/compiler.patch` and `patches/stdlib.patch` to the tag
   `mojo/v1.1.0`. The compiler patch needs LLVM's WebAssembly backend linked
