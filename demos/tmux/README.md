@@ -21,7 +21,8 @@ puts an editor beside a shell.
   program built for Dolly, unchanged: the `less` and `nvim` packages, built
   before `pty@0` existed, page and edit in one. A program sees a terminal
   with its own size and mode, `/dev/tty` is its pane, and Ctrl+C interrupts
-  the programs in the pane, not its shell.
+  the programs in the pane, not its shell; one that does not answer is
+  ended, as at the display's terminal.
 - Dolly has no `fork`, so tmux does not start its own server and says so. A
   shell starts it, `tmux -D &`, and it lives as long as that shell;
   `tmux-panes` starts it from the image's entry.
@@ -58,10 +59,6 @@ puts an editor beside a shell.
 
 - No jobs: `run-shell`, `if-shell`, `#()` in the status line, `pipe-pane`,
   `copy-pipe` and popups fork, and fail saying so ("failed to run command").
-- Ctrl+C does not end a program in a pane that makes no system call: a
-  pseudo-terminal's signals are not yet the supervisor's to enforce.
-  `Ctrl+B x` closes the pane, whose shell hangs up and takes the program
-  with it; `kill` ends it from another pane.
 - A server started with `tmux -D &` is a job of that shell: Ctrl+C for another
   command of the shell reaches the server too, and it exits. Dolly has no
   sessions to put it in. `tmux-panes` starts it beside the shell instead.
