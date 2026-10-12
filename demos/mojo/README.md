@@ -22,6 +22,54 @@ files.
 
 Programs for Dolly, their runtime and GPU kernels: [target](target/README.md).
 
+## Using it
+
+Open the `mojo` image (`/mojo/`):
+
+```sh
+printf 'def main():\n    print("hello from mojo")\n' > hello.mojo
+mojo build hello.mojo && ./hello
+```
+
+- `mojo build` compiles for Dolly when given no `--target-triple`
+  (`wasm64-unknown-dolly` is this LLVM's default target) and links with `cc`
+  against `libmojo-rt.a`; a program that imports `gpu` gets `libmojo-gpu.a`
+  and Dolly's GPU library from the same link. `/etc/modular/modular.cfg` says
+  so. `--emit object`, `llvm`, `llvm-bitcode` and `asm` write those files.
+- `mojo precompile -o NAME.mojoc DIRECTORY` makes a package; `-I` finds it.
+  `std` and `gpu` are in `/usr/lib/mojo`, precompiled by `mojo-build`.
+- `mojo doc` and `mojo demangle` run.
+- Hello builds in 4.4 s and, from the cache in `~/.cache/modular`, again in
+  0.7 s; the standard library precompiles in 22 s (Chrome 151).
+
+What does not work, and how it says so:
+
+- `mojo run NAME.mojo` and `mojo NAME.mojo` execute through LLVM's JIT, and a
+  WebAssembly process cannot execute code it generates: ``error: `mojo run`
+  compiles and executes a program in one process, which WebAssembly does not
+  allow; build it with `mojo build` ``.
+- `mojo`, `mojo repl` and `mojo debug` start LLDB, which is not built:
+  `unable to resolve the lldb path`. `mojo format` starts the Python
+  formatter `mblack`, which is not installed: `unable to resolve Mojo
+  formatter in PATH`.
+- Another target: `No available targets are compatible with triple
+  "x86_64-unknown-linux-gnu"`. This LLVM has the WebAssembly backend only.
+  `mojo build --print-supported-targets` lists none, the two it has included.
+- The compiler runs on one thread (LLVM is built without threads, as Dolly's
+  other LLVMs are), and it sends no telemetry and no crash reports.
+
+Test: `npm run test:demos -- mojo` ([`test/`](test/)) builds and runs six
+programs in the image, three of them with kernels on WebGPU; with a GPU
+window on `DISPLAY`, `node demos/mojo/test/mojo-browser.mjs` runs it in
+Chrome on the GPU and in the installed Firefox too.
+
+## Building it
+
+`npm run image -- mojo` builds the chain: `mojo-llvm` takes 45 to 77 minutes
+at four jobs and `mojo-build` 13 minutes at three, each in a 9 GB slot
+(`mojo-llvm`'s `ROCDLDialect.cpp` alone takes a compiler about 5 GB natively;
+`mojo-build` held 6.2 GB of anonymous memory), `mojo` under a minute.
+
 ## Key files
 
 - [`prepare-sources.sh`](prepare-sources.sh) stages LLVM's tree without tests

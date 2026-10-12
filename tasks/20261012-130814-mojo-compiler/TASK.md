@@ -1,6 +1,6 @@
 # Build the Mojo compiler inside Dolly
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 340
 - TAGS: toolchain,mojo,llvm,demo
 
@@ -11,6 +11,44 @@ for GPU compute."
 Done when: an image whose recipe compiles the Mojo compiler from pinned source
 inside Dolly and runs `mojo`; what a Mojo program needs to run there is
 [the other task](../20261012-130814-mojo-programs/TASK.md).
+
+## Result (2026-10-13)
+
+Done. The `mojo` image holds the compiler that `mojo-build` compiled and
+linked inside Dolly from pinned source (`mojo-llvm` before it: LLVM, MLIR,
+Clang's Basic library and Zstandard, also compiled inside Dolly), with the
+other task's targets and runtime. `node demos/mojo/test/mojo-browser.mjs`
+with `DISPLAY=:141` (02:22):
+
+| Browser | Adapter | Result |
+| --- | --- | --- |
+| Chrome 151.0.7922.71 headless | SwiftShader | passed |
+| Chrome 151.0.7922.71 on Xvfb, Vulkan | NVIDIA (`nvidia blackwell`) | passed |
+| Firefox 157.0.1 on Xvfb | unnamed WebGPU adapter | passed |
+
+In each, `mojo build NAME.mojo` in the session compiles and links six
+programs that then run: hello, the standard library (`library`), coroutines
+(`tasks`), and three with kernels that `DeviceContext` launches on WebGPU
+(`saxpy`, `kernels`, `mandelbrot`); an object links with `cc`; a package
+precompiled there is imported; a type error and `mojo run`/`mojo repl` fail
+with status 1. Playwright's headless Firefox offers no GPU adapter, and the
+image requires `gpu@0`, so Firefox is tested on a display.
+
+Measured in the image (Chrome 151 headless): `mojo build hello.mojo` 4.4 s,
+again 0.7 s from the cache in `~/.cache/modular`; the executable is 29,720
+bytes. What does not work and how it fails is in `demos/mojo/README.md`.
+
+Final builds (02:05 to 02:20, machine otherwise idle): `mojo-llvm` `make`
+2,529 s, image 2,683 s, 731.5 MB; `mojo-build` `make -k -j3` 680 s, image
+755 s, 831 MB, 6.2 GB of anonymous memory at most in a 9 GB slot; `mojo`
+38 s in a 6 GB slot (4.7 GB anonymous while it copies out of `mojo-build`'s
+snapshot), 252 MB.
+
+Not done, and not filed: no `PACKAGE` of the compiler for `amy install`
+(the image needs `gpu@0` only because the runtime's base is `gpu-sdk`);
+`mojo build --print-supported-targets` lists nothing;
+`demos/mojo/target/README.md` still describes cross-compiling as the only
+way.
 
 Worked on branch `demo/mojo` (worktree `work/mojo`), night of 2026-10-12.
 Everything is in `demos/mojo`; scratch scripts and logs were in
