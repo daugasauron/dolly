@@ -240,3 +240,35 @@ met on the branch.
 
 Done when: tmux runs in a Dolly session with two panes, or the task says
 exactly which operations are missing, each with its measurement.
+
+## 2026-10-13 08:30: Pi's test and this branch
+
+`npm run test:demos -- pi` typed `! printf 'DOLLY-ENTRY-CWD=%s\n' "$(pwd)"` and
+the screen held `DOLLY-ENTRY-CWuD=`: 3 of 7 runs on `main` with `demo/tmux`
+merged (runtime `aacab8fb…`), none of 11 without it, measured by the
+integrator in `work/rust`. Measured again in `work/tmux`, Chromium, the same
+test, every failure with that same text:
+
+| Runtime | Three at a time | One at a time |
+| --- | --- | --- |
+| `bd347084…`, built in `work/tmux` from `main`'s kernel and supervisor: the same bytes as `main`'s | 2 of 9 | 1 of 8 |
+| `aacab8fb…`, `demo/tmux` | 2 of 9 | 4 of 8 |
+| `aacab8fb…` with the supervisor's three `#deliverRaised` calls taken out | 3 of 9 | |
+
+So it fails without `pty@0`, on `main`'s own runtime. It is sighting 1 of
+`tasks/20261001-095000-terminal-text-flake`, explained there on 2026-10-08:
+Janis reads the terminal 256 bytes at a time (`js_dolly_read_raw`,
+`demos/javascript/quickjs-main.c`), byte 256 of this line as Playwright types
+it is the `3` of W's key release `ESC [ 119 ; 1 : 3 u`, and Pi takes the `u`
+as text when it has spent 50 ms on the first 256 bytes. It needs 23 keys
+waiting when Pi starts to read: Pi late, as under load. Another agent ran
+Pi's test in `work/polish` during these runs, so the rates above are those of
+a loaded machine and do not rank the two runtimes: 3 of 17 against 9 of 26.
+Nothing in the module is on the display terminal's read path (read in the
+code, and the drain taken out changes nothing).
+
+Decision: the cut is fixed where it is, in Janis, in a commit of its own on
+this branch (today's round rebuilds Pi's chain anyway), with a test in the
+`javascript` demo that fails before it. **The branch must not merge until
+Pi's test passes 12 of 12 on it.**
+
