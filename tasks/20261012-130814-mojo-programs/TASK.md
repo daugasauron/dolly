@@ -139,7 +139,8 @@ the final patches, `-D ASSERT=all` and the defines its `BUILD.bazel` gives
 it, linked with `cc NAME.o -lmojo-rt` in one `mojo-runtime` session with the
 test tree unpacked at its source path, and run with the arguments its
 `BUILD.bazel` gives it (3 minutes for all). 224 do what upstream expects,
-every file with the same status in Chrome and in a window of Firefox:
+every file with the same status in Chrome and in a window of Firefox, and
+again in Chrome at 03:09 with the patches as they are now:
 
 | Files | Outcome |
 | --- | --- |
