@@ -239,9 +239,8 @@ the released compiler on this machine's x86-64: 1.4 times.
     Not tried: WGSL wants a barrier in uniform control flow, which a block
     number in a loop is not once a branch has depended on the thread, so
     they need the kernel's control flow printed as structured statements.
-  - Of 64-bit integers (two words each): division, the bit-counting and
-    byte-swapping functions, atomics, and scalar arguments. SIMD vectors,
-    `Float16`. `Float64` cannot be: WGSL has none.
+  - SIMD vectors, `Float16`, atomics of 64 bits (WGSL's are 32).
+    `Float64` cannot be: WGSL has none.
   - The libm functions WGSL lacks (`log10`, `cbrt`, `expm1`, `erfc`, gamma
     and Bessel functions), and more than 256 threads in a block.
   - `TileTensor`: upstream's examples index buffers through `layout`, which
@@ -271,9 +270,11 @@ the released compiler on this machine's x86-64: 1.4 times.
   arguments being one).
 - **One run not attributed**: at 00:14 the scratch GPU runner, with Chrome
   on the NVIDIA GPU, the `kernels` object and a six-job compile beside it,
-  had not returned after ten minutes and was killed. The same object passed
-  three times in Chrome and twice in Firefox afterwards. The runner had no
+  had not returned after ten minutes and was killed. The runner had no
   time limit and kept no output, so it is unknown which step stood still.
+  It did not come back: the same runner with a time limit passed eight of
+  eight times beside a six-job compile (02:21 to 02:34, 93 s each), and the
+  test of the three browsers every one of its runs since.
 - `mojo build --print-supported-targets` lists LLVM architectures and omits
   both targets, since it asks for a triple without an operating system.
 

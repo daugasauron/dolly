@@ -103,8 +103,8 @@ buffers through `layout`, which is in `max`.
   WGSL's integers; an `Int` argument that does not fit raises when enqueued.
 - Each pointer parameter is a storage buffer and takes a `DeviceBuffer`; a
   pointer is an offset into the buffer its parameter names. The other
-  parameters (`Int`, `UInt`, `Int32`, `UInt32`, `Float32`, `Bool`) travel in
-  one more buffer. A buffer is 32-bit words; one the kernel stores a
+  parameters (integers, `Float32`, `Bool`) travel in one more buffer. A
+  buffer is 32-bit words; one the kernel stores a
   `Bool`, 8 or 16 bits into has atomic words, so that four threads can store
   into one.
 - `Atomic[T].fetch_add`, `max`, `min` and `compare_exchange` on a pointer
@@ -120,9 +120,9 @@ buffers through `layout`, which is in `max`.
   array, and a struct, an `Optional` or a tuple is its scalars. The text
   must fit `gpu@0`'s 128 KiB for a shader: the largest of the fixtures, a
   dozen math functions, is 13 KB.
-- `Int64` and `UInt64` are two words each: arithmetic, shifts, comparisons
-  and conversions, in buffers and in values; no division, atomic or
-  argument of 64 bits.
+- `Int64` and `UInt64` are two words each, in buffers, values and
+  arguments: arithmetic, division a bit at a time, shifts, comparisons and
+  conversions; no 64-bit atomic.
 - The compiler refuses, naming the instruction: `Float64`, `Float16`, SIMD
   vectors, pointers stored in memory or chosen between two buffers,
   recursion, `print`, and the libm functions WGSL lacks (`log10`, `cbrt`,

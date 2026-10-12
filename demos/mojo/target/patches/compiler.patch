@@ -94,10 +94,10 @@ index 8bdcb15..42aea40 100644
    }
 diff --git a/Mojo/lib/Compiler/ObjectCompiler/Target/Dolly/DollyBackend.cpp b/Mojo/lib/Compiler/ObjectCompiler/Target/Dolly/DollyBackend.cpp
 new file mode 100644
-index 0000000..140dea9
+index 0000000..13450d1
 --- /dev/null
 +++ b/Mojo/lib/Compiler/ObjectCompiler/Target/Dolly/DollyBackend.cpp
-@@ -0,0 +1,1271 @@
+@@ -0,0 +1,1324 @@
 +//===----------------------------------------------------------------------===//
 +// Added for Dolly, a POSIX-like userspace for wasm64 in the browser.
 +//
@@ -124,7 +124,7 @@ index 0000000..140dea9
 +//   - a 64-bit integer is a `vec2<u32>`, low word first, with functions for
 +//     what WGSL's operators do not do across the two words.
 +// What WGSL cannot say is an error naming the instruction: f64, f16,
-+// vectors, 64-bit division, calls. A trap ends the invocation.
++// vectors, calls. A trap ends the invocation.
 +//
 +//===----------------------------------------------------------------------===//
 +
@@ -206,6 +206,33 @@ index 0000000..140dea9
 +}
 +fn less64(a: vec2<u32>, b: vec2<u32>) -> bool {
 +  return a.y < b.y || (a.y == b.y && a.x < b.x);
++}
++fn abs64(a: vec2<u32>) -> vec2<u32> {
++  return select(a, sub64(vec2<u32>(0u, 0u), a), i32(a.y) < 0);
++}
++fn swap32(a: u32) -> u32 {
++  return (a >> 24u) | ((a >> 8u) & 65280u) | ((a << 8u) & 16711680u) | (a << 24u);
++}
++// The quotient and the remainder, a bit at a time.
++fn divide64(a: vec2<u32>, b: vec2<u32>) -> array<vec2<u32>, 2> {
++  var quotient = vec2<u32>(0u, 0u);
++  var rest = vec2<u32>(0u, 0u);
++  for (var bit = 63i; bit >= 0i; bit--) {
++    rest = shl64(rest, 1u) | vec2<u32>(shr64(a, u32(bit)).x & 1u, 0u);
++    if (!less64(rest, b)) {
++      rest = sub64(rest, b);
++      quotient = quotient | shl64(vec2<u32>(1u, 0u), u32(bit));
++    }
++  }
++  return array<vec2<u32>, 2>(quotient, rest);
++}
++// Signed: the quotient rounds to zero and the remainder has a's sign.
++fn sdivide64(a: vec2<u32>, b: vec2<u32>) -> array<vec2<u32>, 2> {
++  let both = divide64(abs64(a), abs64(b));
++  let zero = vec2<u32>(0u, 0u);
++  return array<vec2<u32>, 2>(
++      select(both[0], sub64(zero, both[0]), i32(a.y ^ b.y) < 0),
++      select(both[1], sub64(zero, both[1]), i32(a.y) < 0));
 +}
 +fn f32u64(a: vec2<u32>) -> f32 {
 +  return f32(a.y) * 4294967296.0f + f32(a.x);
@@ -734,9 +761,11 @@ index 0000000..140dea9
 +      case Instruction::And: return is(" & ");
 +      case Instruction::Or: return is(" | ");
 +      case Instruction::Xor: return is(" ^ ");
-+      default:
-+        fail("WGSL has no 64-bit division", &instruction);
-+        return "vec2<u32>(0u, 0u)";
++      case Instruction::UDiv: return by("divide64") + "[0]";
++      case Instruction::URem: return by("divide64") + "[1]";
++      case Instruction::SDiv: return by("sdivide64") + "[0]";
++      case Instruction::SRem: return by("sdivide64") + "[1]";
++      default: break;
 +      }
 +    } else if (unsigned width = bits(type)) {
 +      auto signedly = [&](const char *operation) {
@@ -933,12 +962,17 @@ index 0000000..140dea9
 +    case Intrinsic::smin: return ordered("min", true);
 +    case Intrinsic::smax: return ordered("max", true);
 +    case Intrinsic::abs:
++      if (isWide(type))
++        return "abs64(" + argument(0) + ")";
 +      if (width)
 +        return normalize("u32(abs(" + asSigned(argument(0), width) + "))",
 +                         width);
 +      break;
 +    case Intrinsic::bitreverse: return whole("reverseBits");
 +    case Intrinsic::bswap:
++      if (isWide(type))
++        return "vec2<u32>(swap32(" + argument(0) + ".y), swap32(" +
++               argument(0) + ".x))";
 +      if (width == 32)
 +        return "((" + argument(0) + " >> 24u) | ((" + argument(0) +
 +               " >> 8u) & 65280u) | ((" + argument(0) +
@@ -961,9 +995,23 @@ index 0000000..140dea9
 +        return "((" + argument(1) + " >> (" + argument(2) + " & 31u)) | ((" +
 +               argument(0) + " << 1u) << (31u - (" + argument(2) + " & 31u))))";
 +      break;
-+    case Intrinsic::ctpop: return whole("countOneBits");
-+    case Intrinsic::ctlz: return whole("countLeadingZeros");
-+    case Intrinsic::cttz: return whole("countTrailingZeros");
++    case Intrinsic::ctpop:
++      if (isWide(type))
++        return "vec2<u32>(countOneBits(" + argument(0) + ".x) + countOneBits(" +
++               argument(0) + ".y), 0u)";
++      return whole("countOneBits");
++    case Intrinsic::ctlz:
++      if (isWide(type))
++        return "vec2<u32>(select(countLeadingZeros(" + argument(0) +
++               ".y), 32u + countLeadingZeros(" + argument(0) + ".x), " +
++               argument(0) + ".y == 0u), 0u)";
++      return whole("countLeadingZeros");
++    case Intrinsic::cttz:
++      if (isWide(type))
++        return "vec2<u32>(select(countTrailingZeros(" + argument(0) +
++               ".x), 32u + countTrailingZeros(" + argument(0) + ".y), " +
++               argument(0) + ".x == 0u), 0u)";
++      return whole("countTrailingZeros");
 +    default: break;
 +    }
 +    // What `std._gpu` asks of this target: a builtin's x, y or z.
@@ -1127,7 +1175,8 @@ index 0000000..140dea9
 +    }
 +  for (const Argument &argument : F.args()) {
 +    if (!argument.getType()->isPointerTy()) {
-+      Slots[&argument] = slots++;
++      Slots[&argument] = slots;
++      slots += isWide(argument.getType()) ? 2 : 1;
 +      continue;
 +    }
 +    os << "@group(0) @binding(" << buffers << ") var<storage, read_write> b"
@@ -1143,6 +1192,8 @@ index 0000000..140dea9
 +     << "          @builtin(local_invocation_id) lid: vec3<u32>,\n"
 +     << "          @builtin(workgroup_id) wid: vec3<u32>,\n"
 +     << "          @builtin(num_workgroups) nwg: vec3<u32>) {\n";
++  for (const Argument &argument : F.args())
++    Wide |= isWide(argument.getType());
 +  // The pipeline's layout has a binding only if the entry point names it.
 +  for (unsigned i = 0; i < buffers; i++)
 +    os << "  _ = arrayLength(&b" << i << ");\n";
@@ -1158,6 +1209,8 @@ index 0000000..140dea9
 +      os << "bitcast<f32>(" << slot << ")";
 +    else if (unsigned width = bits(type))
 +      os << normalize(slot, width);
++    else if (isWide(type))
++      os << "vec2<u32>(" << slot << ", args[" << Slots[&argument] + 1 << "])";
 +    else
 +      fail("WGSL has no such parameter type", &argument);
 +    os << ";\n";
