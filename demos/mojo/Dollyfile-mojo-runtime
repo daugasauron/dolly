@@ -334,7 +334,8 @@ FILE /tmp/mojo-runtime/gpu.c
       return 0;
     }
     
-    int64_t mojo_gpu_read(uint64_t buffer, uint64_t offset, void *data, uint64_t bytes) {
+    /* gpu@0 maps at most 16 MiB at once and answers 64 KiB a call. */
+    static int64_t read_mapped(uint64_t buffer, uint64_t offset, char *data, uint64_t bytes) {
       uint64_t staging = next++, size = (bytes + 3) & ~(uint64_t)3;
       dolly_gpu_begin(&g);
       dolly_gpu_buffer(&g, staging, size, READBACK);
@@ -349,10 +350,19 @@ FILE /tmp/mojo-runtime/gpu.c
       for (uint64_t at = 0; !error && at < bytes; at += DOLLY_GPU_REPLY_BYTES) {
         uint64_t part = bytes - at < DOLLY_GPU_REPLY_BYTES ? bytes - at : DOLLY_GPU_REPLY_BYTES;
         if (dolly_gpu_read(&g, staging, at, part) != (int)part) error = errno ? -errno : -EIO;
-        else memcpy((char *)data + at, g.reply, part);
+        else memcpy(data + at, g.reply, part);
       }
       int64_t released = mojo_gpu_release(staging);
       return error ? error : released;
+    }
+    
+    int64_t mojo_gpu_read(uint64_t buffer, uint64_t offset, void *data, uint64_t bytes) {
+      enum { MAPPED = 16 * 1024 * 1024 };
+      for (uint64_t at = 0; at < bytes; at += MAPPED) {
+        int64_t error = read_mapped(buffer, offset + at, (char *)data + at, bytes - at < MAPPED ? bytes - at : MAPPED);
+        if (error) return error;
+      }
+      return 0;
     }
     
     /* One shader module per kernel text and one pipeline per block_dim of it. */

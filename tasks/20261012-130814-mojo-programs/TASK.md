@@ -11,10 +11,11 @@ works for GPU compute." The compiler itself is
 ## For the compiler's side (`demos/mojo/`, task mojo-compiler)
 
 What a compiler built in Dolly must carry for its programs to run here; all
-of it is in `demos/mojo/target/` and described in its README. The patches,
-the package `gpu` and the runtime recipe are settled at `ddad69d6`
-(2026-10-13 01:04): after it only tests and notes change, unless a fault is
-found.
+of it is in `demos/mojo/target/` and described in its README. The patches
+and the package `gpu` are settled at `ddad69d6` (2026-10-13 01:04): after it
+only tests and notes change, unless a fault is found. One was, in the
+runtime recipe alone (a read of more than 16 MiB), so `mojo-runtime` and the
+pin of what is built `FROM` it are of the commit after this line's.
 
 - Apply `patches/compiler.patch` and `patches/stdlib.patch` to the tag
   `mojo/v1.1.0`. The compiler patch needs LLVM's WebAssembly backend linked
@@ -146,6 +147,11 @@ Chrome on SwiftShader in 26.7 s.
 The scripts of this measurement are scratch, in `build/mojo-target/` of the
 worktree (`stdtests/`, `session.mjs`, `stdtests.cmds`), not committed: the
 natural form, once the compiler runs in Dolly, compiles the suite there.
+
+A buffer of 10,000,001 floats (40 MB), written, doubled by a kernel and
+read back, is right in all three: 35 ms to write, and 73 ms (Chrome,
+NVIDIA), 291 ms (Firefox) and 95 ms (SwiftShader) to run and read. `gpu@0`
+maps at most 16 MiB at once, so the runtime reads a larger buffer in pieces.
 
 Two of upstream's example programs run unchanged:
 `Mojo/examples/operators/main.mojo`, and `Mojo/examples/life/benchmark.mojo`,
