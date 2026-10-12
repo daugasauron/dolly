@@ -1,19 +1,6 @@
 --- a/client.c
 +++ b/client.c
-@@ -302,8 +302,12 @@
- 	/* Save these before pledge(). */
- 	if ((cwd = find_cwd()) == NULL && (cwd = find_home()) == NULL)
- 		cwd = "/";
-+#ifdef __dolly__
-+	ttynam = isatty(STDIN_FILENO) ? _PATH_TTY : "";
-+#else
- 	if ((ttynam = ttyname(STDIN_FILENO)) == NULL)
- 		ttynam = "";
-+#endif
- 	if ((termname = getenv("TERM")) == NULL)
- 		termname = "";
- 
-@@ -467,12 +471,18 @@
+@@ -467,12 +467,18 @@
  		    caps[i], strlen(caps[i]) + 1);
  	}
  
@@ -97,18 +84,6 @@
  		if (proc_fork_and_daemon(&fd) != 0) {
  			sigprocmask(SIG_SETMASK, &oldset, NULL);
  			return (fd);
-@@ -471,7 +476,11 @@
- 	pid_t	 pid;
- 
- 	for (;;) {
-+#ifdef __dolly__
-+		switch (pid = waitpid(WAIT_ANY, &status, WNOHANG)) {
-+#else
- 		switch (pid = waitpid(WAIT_ANY, &status, WNOHANG|WUNTRACED)) {
-+#endif
- 		case -1:
- 			if (errno == ECHILD)
- 				return;
 --- a/spawn.c
 +++ b/spawn.c
 @@ -475,7 +475,14 @@

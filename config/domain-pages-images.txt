@@ -49,3 +49,5 @@ libpng
 freetype
 mojo
 mojo-compiler
+tmux
+tmux-panes

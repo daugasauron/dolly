@@ -21,7 +21,5 @@ if has_image tmux; then
   # Dolly's part of the port, into the unpacked release.
   node scripts/build-source-tar.mjs "${static_dir}/tmux/port.tar" \
     demos/tmux/tmux-dolly.patch /tmp/tmux-3.8/tmux-dolly.patch \
-    demos/tmux/osdep-dolly.c /tmp/tmux-3.8/osdep-dolly.c \
-    demos/tmux/pty.c /tmp/tmux-3.8/pty.c \
-    host/pty/pty.h /tmp/tmux-3.8/dolly-pty.h
+    demos/tmux/osdep-dolly.c /tmp/tmux-3.8/osdep-dolly.c
 fi

@@ -5,8 +5,8 @@ REQUIRES HOST pty@0
 REQUIRES HOST sockets@0
 
 # tmux over libevent and NetBSD's terminfo library, all from upstream's
-# release archives. tmux takes Dolly's port (README.md): a patch, its operating
-# system file and the calls of pty@0, which ships no client yet.
+# release archives. tmux takes Dolly's port (README.md): a patch and its
+# operating system file.
 FROM /v0.1.2/Dollyfile-system-tools a79e48b88e5552cc965f0aa06dd9d28c05712649cc7b059036eb6a3857665632
 
 REQUIRES HEADER libc
@@ -180,9 +180,8 @@ FILE /tmp/tmux.mk
     COMPAT := base64 closefrom daemon fdforkpty freezero getdtablecount getdtablesize \
       getopt_long getpeereid getprogname htonll imsg imsg-buffer ntohll recallocarray \
       setproctitle strtonum unvis vis
-    PORT := $(T)/osdep-dolly.c $(T)/pty.c
-    SOURCES := $(filter-out $(T)/osdep-%.c $(T)/image.c $(T)/image-sixel.c $(PORT),$(wildcard $(T)/*.c)) \
-      $(PORT) $(addprefix $(T)/compat/,$(addsuffix .c,$(COMPAT)))
+    SOURCES := $(filter-out $(T)/osdep-%.c $(T)/image.c $(T)/image-sixel.c,$(wildcard $(T)/*.c)) \
+      $(T)/osdep-dolly.c $(addprefix $(T)/compat/,$(addsuffix .c,$(COMPAT)))
     CPPFLAGS := -D_GNU_SOURCE $(addprefix -DHAVE_,$(HAVE)) '-DTMUX_VERSION="3.8"' \
       '-DTMUX_CONF="/etc/tmux.conf:~/.tmux.conf:$$XDG_CONFIG_HOME/tmux/tmux.conf:~/.config/tmux/tmux.conf"' \
       '-DTMUX_LOCK_CMD="lock -np"' '-DTMUX_TERM="tmux-256color"' -DTMUX_MOUSE=1 \
@@ -190,7 +189,7 @@ FILE /tmp/tmux.mk
     $(T)/%.o: $(T)/%.c
     >cc -O2 -std=gnu99 $(CPPFLAGS) -c $< -o $@
     /usr/bin/tmux: $(SOURCES:.c=.o) /tmp/libevent_core.a /tmp/libterminfo.a
-    >cc $^ -ldolly-sockets -o $@
+    >cc $^ -ldolly-sockets -ldolly-pty -o $@
 SLOP make -j4 -f /tmp/tmux.mk
 SLOP mkdir -p /usr/share/licenses/tmux /usr/share/licenses/libevent
 SLOP cp /tmp/tmux-3.8/COPYING /usr/share/licenses/tmux/COPYING
