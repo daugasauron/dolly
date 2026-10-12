@@ -58,7 +58,8 @@ Not done, and not filed: no `PACKAGE` of the compiler for `amy install`
 `demos/mojo/target/README.md` still describes cross-compiling as the only
 way.
 
-Worked on branch `demo/mojo` (worktree `work/mojo`), night of 2026-10-12.
+Worked on branch `demo/mojo` (worktree `work/mojo`, commits `319c3a34` to
+`16223ed6` and after), night of 2026-10-12.
 Everything is in `demos/mojo`; scratch scripts and logs were in
 `build/mojo-evidence/` and are not kept.
 
@@ -105,7 +106,7 @@ Everything is in `demos/mojo`; scratch scripts and logs were in
   `demos/mojo/bazel-to-cmake.py`, which runs in Dolly's Python and prints one
   `CMakeLists.txt`: Starlark's BUILD dialect is evaluated as Python with the
   macros of `bazel/api.bzl` and `bazel/internal/tablegen.bzl` re-stated (69
-  object libraries, 134 TableGen commands, two executables). Bazel itself was
+  libraries, 134 TableGen commands, two executables). Bazel itself was
   not run.
 - **WebAssembly is the only LLVM backend.** Upstream ships AArch64, RISC-V
   and X86; none of their output runs in Dolly.
@@ -218,7 +219,7 @@ deleted (02:43). What stays: the two pinned checkouts in `.cache`
   `rusage`; Dolly's `wait4` answers `ENOTSUP` to one
   (`src/process/libc-adapter.c`: it does not account children).
   `demos/mojo/llvm-wait.patch` makes LLVM wait with `waitpid` on Dolly and
-  report no statistics; `mojo-llvm` is building with it (third build).
+  report no statistics; the third `mojo-llvm` has it, and the link works.
 - Meanwhile, that `mojo` and `std.mojoc`, copied out of the snapshot into a
   `system` session with `libmojo-rt.a` (Chrome 151 headless):
   `mojo build --emit object hello.mojo` 5.1 s, `cc hello.o libmojo-rt.a -o
@@ -229,5 +230,5 @@ deleted (02:43). What stays: the two pinned checkouts in `.cache`
   in Firefox, 26 s in both.
 - Memory: the scope's `memory.current` counts the file cache (about 1 GB
   while a 731 MB snapshot is served). With it, `mojo-build` at three jobs
-  peaked at 8.96 GB of the 9 GB cap; the anonymous part is logged in the next
-  run.
+  peaked at 8.96 GB of the 9 GB cap; its anonymous part in the next run was
+  6.2 GB, and `mojo-llvm`'s 6.7 GB while its snapshot is taken.
