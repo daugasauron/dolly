@@ -10,8 +10,8 @@ that are installable with amy."
 Done when: the list is here with a decision per row, the packages exist,
 install into `default` with `amy`, and run.
 
-State (2026-10-12): the list is below; fifteen packages were made and
-tested in Chromium and Firefox, and amy's test now installs and uses the
+State (2026-10-13): the list is below; fifteen packages and `mojo-compiler`
+were made and tested in Chromium and Firefox, and amy's test now installs and uses the
 catalog's packages on `default`, or names the test that does; what is open
 is "Left" and "Held for a catalog round". [`package-needs`](../20261007-003116-package-needs/TASK.md),
 [`lean-game-images`](../20260930-231300-lean-game-images/TASK.md) and
@@ -106,6 +106,7 @@ break out there.
 | `zero-ad-deps` | libpng (262 KB), FreeType (903 KB, headers 878 KB), which `xonotic-build` and `wine-build` copy with the same rows | **`libpng`**, **`freetype`** | made |
 | `zero-ad-deps` | Ogg, Vorbis, fmt, libxml2 | - | stay: upstream's CMake builds them here unchanged, one consumer |
 | `zero-ad-deps` | ICU, libsodium, ENet, Boost's headers (150 MB) | - | stay: one consumer; ICU's data file is 0 A.D.'s, ENet's transport is 0 A.D.'s relay |
+| `mojo-build`, `mojo-runtime` | the Mojo compiler (96 MB), its standard library and its package `gpu`, precompiled, `libmojo-rt.a`, `libmojo-gpu.a` | **`mojo-compiler`** | made (2026-10-13, `demo/mojo`): installs `cc`, through which `mojo build` links; the `mojo` image is `gpu-sdk` and this package; `mojo-llvm` is a build stage |
 | `wine-build`, `wine` | Wine, with GIMP and NetSurf | - | stays: a desktop the image boots into, with files under `/home/dolly` and `/etc`, not a program a session adds |
 
 ## Made (2026-10-12, branch `core/packages`)
@@ -190,10 +191,16 @@ by `cp`.
 - `xonotic-build` and `wine-build` `INSTALL` `libpng` and `freetype` in place
   of their five and eight `COPY` rows: two image rebuilds (Xonotic's is not
   this tree's to make, Wine's builds Wine, GIMP and NetSurf).
-- The model packages installed into `default` were never measured (1.0 to
-  1.6 GB each; `package-needs`).
-- tmux is another agent's tonight; when it merges, amy's test asks for its
-  row.
+- The model packages install into `default` (measured 2026-10-13 on main
+  `dbe8e102`, local server): `amy install qwen3.5-2b` (1.40 GB) takes 7.9 s
+  in Chromium and 9.4 s in Firefox, `minicpm5-2b` (1.56 GB) 8.6 s and 10.7 s,
+  and the model file is there. The whole run (browser, test and server)
+  peaked at 6.6 to 8.2 GB, four to five times the package: under a browser
+  slot's 6 GB cap the page crashed in two of three tries. The Qwen3.5-4B
+  shards were not measured.
+- `tmux` is a package on `demo/tmux`, held with `pty@0`
+  ([task](../20261012-130814-tmux/TASK.md)); its row in amy's test is on that
+  branch.
 
 ## Held for a catalog round
 

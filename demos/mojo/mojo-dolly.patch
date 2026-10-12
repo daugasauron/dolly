@@ -1,0 +1,127 @@
+diff --git a/AsyncRT/include/AsyncRT/Runtime/CPUDevice.h b/AsyncRT/include/AsyncRT/Runtime/CPUDevice.h
+index 6ca608b..63f98b7 100644
+--- a/AsyncRT/include/AsyncRT/Runtime/CPUDevice.h
++++ b/AsyncRT/include/AsyncRT/Runtime/CPUDevice.h
+@@ -35,6 +35,7 @@
+ #include "Support/Threading/HWInfo.h"
+ #include "llvm/ADT/DenseMap.h"
+ #include "llvm/ADT/StringRef.h"
++#include "llvm/Config/llvm-config.h"
+ #include "llvm/Support/Process.h"
+ 
+ #include <atomic>
+@@ -140,7 +141,12 @@ struct CPUDeviceOptions {
+   bool tcmallocAllocator = true;
+   bool profilingAllocator = false;
+   bool useAfterFreeAllocator = false;
++#if LLVM_ENABLE_THREADS
+   WorkQueueType workQueueType{CPUDeviceOptions::WorkQueueType::kThreadPool};
++#else
++  // LLVM without threads runs an llvm::thread to its end where it is made.
++  WorkQueueType workQueueType{CPUDeviceOptions::WorkQueueType::kSingleThread};
++#endif
+   /// When true and workQueueType is kThreadPool, creates a partitioned
+   /// WorkQueue per NUMA node and wraps them in a DelegateThreadPoolWorkQueue.
+   bool numaPartitioned = false;
+diff --git a/AsyncRT/lib/Support/Semaphore.cpp b/AsyncRT/lib/Support/Semaphore.cpp
+index 02b2237..23ef1d1 100644
+--- a/AsyncRT/lib/Support/Semaphore.cpp
++++ b/AsyncRT/lib/Support/Semaphore.cpp
+@@ -108,6 +108,15 @@ bool Semaphore::Impl::wait() {
+ }
+ 
+ bool Semaphore::Impl::wait(int64_t timeoutNS) {
++#if defined(__dolly__)
++  // The libc of a Dolly process without threads has no sem_timedwait: what
++  // cannot be taken now is tried once more when the time is over.
++  if (sem_trywait(&sema) == 0)
++    return false;
++  struct timespec timeout = {timeoutNS / 1000000000, timeoutNS % 1000000000};
++  nanosleep(&timeout, nullptr);
++  return sem_trywait(&sema) != 0;
++#endif
+   // Get the current time - the timeout on sem_timedwait is an absolute timeout
+   // since the epoch.
+   struct timespec ts;
+diff --git a/Mojo/tools/mojo/Run/mojo-run.cpp b/Mojo/tools/mojo/Run/mojo-run.cpp
+index 1c05811..74c60c7 100644
+--- a/Mojo/tools/mojo/Run/mojo-run.cpp
++++ b/Mojo/tools/mojo/Run/mojo-run.cpp
+@@ -352,6 +352,12 @@ executeModule(const State &state, AsyncRT::CPUDevice &cpuDevice,
+ /// the source file could be compiled and if it executed without raising an
+ /// error, otherwise returns a failure code.
+ static int run(const State &subcommandState) {
++#if defined(__wasm__)
++  // A WebAssembly process cannot execute the code it generates.
++  return subcommandState.reportError(
++      "`mojo run` compiles and executes a program in one process, which "
++      "WebAssembly does not allow; build it with `mojo build`");
++#endif
+   // Parse arguments.
+   State state = subcommandState;
+   RunOptTable optionsTable;
+diff --git a/Support/include/Support/ML/TensorShape.h b/Support/include/Support/ML/TensorShape.h
+index 0a6bc9b..d482adf 100644
+--- a/Support/include/Support/ML/TensorShape.h
++++ b/Support/include/Support/ML/TensorShape.h
+@@ -385,7 +385,7 @@ public:
+                            TensorRankStyle style = kStaticallyRanked) {
+     assign(storage, dims, style);
+   }
+-#ifdef __APPLE__
++#if defined(__APPLE__) || defined(__wasm__)
+   /*implicit*/ TensorShape(ArrayRef<size_t> dims,
+                            TensorRankStyle style = kStaticallyRanked) {
+     assign(storage, dims, style);
+diff --git a/Support/include/Support/PlatformUtils.h b/Support/include/Support/PlatformUtils.h
+index bdef0d8..90704a7 100644
+--- a/Support/include/Support/PlatformUtils.h
++++ b/Support/include/Support/PlatformUtils.h
+@@ -50,6 +50,10 @@
+ #define MODULAR_LINUX 1
+ #define MODULAR_MACOS 0
+ #define MODULAR_WINDOWS 0
++#elif defined(__dolly__)
++#define MODULAR_LINUX 0
++#define MODULAR_MACOS 0
++#define MODULAR_WINDOWS 0
+ #else
+ #error "Could not determine platform"
+ #endif
+diff --git a/Support/include/Support/Threading/SpinWaiter.h b/Support/include/Support/Threading/SpinWaiter.h
+index d6f8b78..7b700b0 100644
+--- a/Support/include/Support/Threading/SpinWaiter.h
++++ b/Support/include/Support/Threading/SpinWaiter.h
+@@ -85,6 +85,8 @@ public:
+       // O(100) cycles, the isb will typically delay execution by about 50
+       // cycles.
+       __asm__ volatile("isb" ::: "memory");
++#elif defined(__wasm__)
++      // WebAssembly has no instruction that pauses.
+ #else
+       // Hail mary to slow this thread down so other threads can make progress
+       // without us fully occupying the load/store unit.
+diff --git a/Support/lib/BinaryID.cpp b/Support/lib/BinaryID.cpp
+index b8ab17e..32d67fd 100644
+--- a/Support/lib/BinaryID.cpp
++++ b/Support/lib/BinaryID.cpp
+@@ -29,6 +29,8 @@
+ #include <dlfcn.h>
+ #include <mach-o/loader.h>
+ #include <stdint.h>
++#elif defined(__wasm__)
++#include "Config/include/Config/Version.h"
+ #else
+ #include <elf.h>
+ #include <link.h>
+@@ -83,6 +85,10 @@ std::string M::getBinaryID() {
+       command += ((const struct load_command *)command)->cmdsize;
+     }
+   }
++#elif defined(__wasm__)
++  // A WebAssembly module has no note that it can read back: the revision it
++  // was built from names it.
++  return std::string(M::getMojoVersion().revision) + postfix;
+ #else
+   // Based off various compiler-rt sources
+   // https://github.com/llvm/llvm-project/blob/d1d5fc381f0930cf1190367dd6b2e0736c341071/compiler-rt/lib/profile/InstrProfilingPlatformLinux.c#L195

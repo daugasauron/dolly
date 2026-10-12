@@ -9,7 +9,7 @@ fi
 case "$1" in
   quickjs) cache_name=quickjs-ng ;;
   emscripten) cache_name=emscripten-source ;;
-  sbase|awk|curl|git|zlib|samurai|ghostty|raylib|box3d|pi-source|cpython|wamr) cache_name="$1" ;;
+  sbase|awk|curl|git|zlib|samurai|ghostty|raylib|box3d|pi-source|cpython|wamr|modular|mojo-llvm) cache_name="$1" ;;
   *) echo "dolly: unknown pinned Git source: $1" >&2; exit 64 ;;
 esac
 prefix="DOLLY_${1^^}"
@@ -34,7 +34,20 @@ if [[ ! -d "${source_dir}/.git" ]]; then
     git -C "${temporary}" sparse-checkout set \
       system/lib/libcxx system/lib/libcxxabi system/lib/libunwind system/lib/llvm-libc
   fi
-  git -C "${temporary}" fetch --quiet --depth=1 origin "${commit}"
+  # Only the trees a recipe stages: Modular's max/ has another licence, and
+  # neither repository is wanted whole.
+  filter=()
+  case "$1" in
+    modular) sparse=(Mojo AsyncRT Support Cache Config Init bazel Licenses) ;;
+    mojo-llvm) sparse=(llvm mlir clang cmake third-party libc) ;;
+    *) sparse=() ;;
+  esac
+  if ((${#sparse[@]})); then
+    git -C "${temporary}" sparse-checkout init --cone
+    git -C "${temporary}" sparse-checkout set "${sparse[@]}"
+    filter=(--filter=blob:none)
+  fi
+  git -C "${temporary}" fetch --quiet --depth=1 "${filter[@]}" origin "${commit}"
   git -C "${temporary}" checkout --quiet --detach FETCH_HEAD
   bash "${project_dir}/scripts/verify-git-source.sh" "${temporary}" "${commit}"
   mv -T --no-clobber -- "${temporary}" "${source_dir}"
