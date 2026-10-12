@@ -14,13 +14,15 @@ EXPORTS ENV    ZIG_LIB_DIR /usr/lib/zig
 FILE /usr/share/licenses/zig/LICENSE
 FILE /usr/share/man/cat1/zig.1
     zig: the Zig compiler with its C backend only. It writes C and cc compiles it.
-    It has no zig build, zig cc, zig run, zig version or zig --help.
+    It has no zig build, zig cc, zig run, zig fmt, zig version or zig --help.
     
     A function for a C program:
       zig build-obj -ofmt=c -femit-bin=answer.c answer.zig
       cc -I /usr/lib/zig main.c answer.c -o answer
     
-    A program that uses the standard library:
-      zig build-exe -fsingle-threaded -ofmt=c -lc -femit-bin=hello.c hello.zig
+    A program that uses the standard library names the target, or zig looks
+    for a libc by starting a compiler it does not know:
+      zig build-exe -target wasm64-emscripten -fsingle-threaded -ofmt=c -lc \
+        -femit-bin=hello.c hello.zig
       cc -Wno-incompatible-pointer-types '-Dzig_unimplemented()=(__builtin_trap(),0)' \
         -I /usr/lib/zig hello.c -o hello
