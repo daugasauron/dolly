@@ -9,7 +9,7 @@ the GPU.
 
 A kernel is compiled for a 32-bit target: its `Int` is 32 bits wide, as are
 WGSL's integers. Its pointer parameters take `DeviceBuffer`s; its other
-parameters take `Int`, `UInt`, `Int32`, `UInt32`, `Float32` or `Bool`.
+parameters take integers, `Float32` or `Bool`.
 """
 
 from std.collections.array import Array
@@ -262,10 +262,14 @@ struct DeviceContext(ImplicitlyCopyable):
                 )._byte_size()
                 buffer_count += 1
             else:
-                if slot_count == len(slots):
+                if slot_count + 2 > len(slots):
                     raise Error("a kernel takes at most 64 other arguments")
-                slots[slot_count] = _slot(args[i])
+                var bits = _bits(args[i])
+                slots[slot_count] = UInt32(bits & 0xFFFFFFFF)
                 slot_count += 1
+                comptime if T == Int64 or T == UInt64:
+                    slots[slot_count] = UInt32(bits >> 32)
+                    slot_count += 1
         var grid = grid_dim._extent()
         var block = block_dim._extent()
         var limits = Array[UInt32, 6](fill=0)
@@ -309,28 +313,45 @@ struct DeviceContext(ImplicitlyCopyable):
         _ = _check(external_call["mojo_gpu_synchronize", Int](), "synchronize")
 
 
-def _slot[T: AnyType, //](value: T) raises -> UInt32:
-    """Returns a kernel argument as the 32 bits the kernel reads."""
-    comptime if T == Int:
-        var wide = rebind[Int](value)
-        if wide < -2147483648 or wide > 2147483647:
-            raise Error("an Int argument must fit the kernel's 32-bit Int")
-        return UInt32(wide & 0xFFFFFFFF)
-    elif T == UInt:
-        var wide = rebind[UInt](value)
-        if wide > 4294967295:
-            raise Error("a UInt argument must fit the kernel's 32-bit UInt")
-        return UInt32(wide)
-    elif T == Int32:
-        return UInt32(Int(rebind[Int32](value)) & 0xFFFFFFFF)
-    elif T == UInt32:
-        return rebind[UInt32](value)
-    elif T == Bool:
-        return UInt32(1) if rebind[Bool](value) else UInt32(0)
+def _bits[T: AnyType, //](value: T) raises -> UInt64:
+    """Returns a kernel argument as the bits the kernel reads: 32, or the 64
+    of a 64-bit integer."""
+    comptime if T == Bool:
+        return UInt64(1) if rebind[Bool](value) else UInt64(0)
     elif T == Float32:
-        return bitcast[.uint32](rebind[Float32](value))
+        return UInt64(bitcast[.uint32](rebind[Float32](value)))
+    elif T == Int:
+        return _integer(rebind[Int](value))
+    elif T == UInt:
+        return _integer(rebind[UInt](value))
+    elif T == Int8:
+        return _integer(rebind[Int8](value))
+    elif T == Int16:
+        return _integer(rebind[Int16](value))
+    elif T == Int32:
+        return _integer(rebind[Int32](value))
+    elif T == Int64:
+        return _integer(rebind[Int64](value))
+    elif T == UInt8:
+        return _integer(rebind[UInt8](value))
+    elif T == UInt16:
+        return _integer(rebind[UInt16](value))
+    elif T == UInt32:
+        return _integer(rebind[UInt32](value))
+    elif T == UInt64:
+        return _integer(rebind[UInt64](value))
     else:
         comptime assert False, (
-            "a WebGPU kernel argument is a DeviceBuffer, Int, UInt, Int32,"
-            " UInt32, Float32 or Bool"
+            "a WebGPU kernel argument is a DeviceBuffer, an integer, Float32"
+            " or Bool"
         )
+
+
+def _integer[dtype: DType, //](value: Scalar[dtype]) raises -> UInt64:
+    comptime if dtype == DType.int:
+        if value < -2147483648 or value > 2147483647:
+            raise Error("an Int argument must fit the kernel's 32-bit Int")
+    elif dtype == DType.uint:
+        if value > 4294967295:
+            raise Error("a UInt argument must fit the kernel's 32-bit UInt")
+    return value.cast[DType.uint64]()

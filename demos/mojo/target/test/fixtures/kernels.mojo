@@ -29,9 +29,9 @@ def horner(
     result[unsafe_offset=i] = sum
 
 
-def mix(value: Int32, byte: UInt8, i: Int, negate: Bool) -> Int32:
-    """Integer arithmetic in 32, 16 and 8 bits, signed and unsigned, for the
-    kernel and for the host."""
+def mix(value: Int32, byte: UInt8, i: Int, negate: Bool, seed: UInt64) -> Int32:
+    """Integer arithmetic in 64, 32, 16 and 8 bits, signed and unsigned, for
+    the kernel and for the host."""
     var mixed = (value * 7 - 3) // 2 + (value % 5) + (value >> 1) ^ Int32(i)
     mixed += Int32(byte) * 3 + byte_swap(value) % 1000 + abs(value) % 7
     mixed ^= rotate_bits_left[7](value) & 0xFF
@@ -39,6 +39,13 @@ def mix(value: Int32, byte: UInt8, i: Int, negate: Bool) -> Int32:
     mixed += Int32(Int16(value * 301) % 7) + Int32(UInt16(value) * 5)
     if Int8(value) < Int8(i):
         mixed += Int32(min(UInt8(value), UInt8(200)))
+    # A step of a 64-bit generator, and a signed 64-bit product and quotient.
+    var state = (UInt64(UInt32(value)) + seed) * 6364136223846793005
+    mixed ^= Int32(UInt32((state ^ (state >> 29)) >> 40))
+    var product = Int64(value) * 3000000007
+    if product < Int64(i) - 100000000000000:
+        mixed += 11
+    mixed += Int32(product // 1000003 % 1000)
     if negate:
         mixed = -mixed
     return max(mixed, -1000)
@@ -51,6 +58,7 @@ def integers(
     result: Pointer[Int32, MutAnyOrigin],
     n: UInt32,
     negate: Bool,
+    seed: UInt64,
 ):
     """Integers on a two-dimensional grid, some read from buffers of bytes and
     of Bool, which then take a part of the result: four threads to a word."""
@@ -63,6 +71,7 @@ def integers(
             bytes[unsafe_offset=i],
             i,
             negate != Bool(flags[unsafe_offset=i]),
+            seed,
         )
         result[unsafe_offset=i] = mixed
         bytes[unsafe_offset=i] = UInt8(mixed)
@@ -181,6 +190,7 @@ def main() raises:
         b,
         UInt32(n - 1),
         True,
+        UInt64(1442695040888963407),
         grid_dim=(2, 4),
         block_dim=Dim(4, 2),
     )
@@ -189,7 +199,9 @@ def main() raises:
     var large = flags.to_host()
     var wrong_integers = 0
     for i in range(n - 1):
-        var mixed = mix(ints[i], small[i], i, not Bool(third[i]))
+        var mixed = mix(
+            ints[i], small[i], i, not Bool(third[i]), 1442695040888963407
+        )
         if (
             bs[i] != mixed
             or low[i] != UInt8(mixed)

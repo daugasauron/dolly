@@ -103,8 +103,8 @@ buffers through `layout`, which is in `max`.
   WGSL's integers; an `Int` argument that does not fit raises when enqueued.
 - Each pointer parameter is a storage buffer and takes a `DeviceBuffer`; a
   pointer is an offset into the buffer its parameter names. The other
-  parameters (`Int`, `UInt`, `Int32`, `UInt32`, `Float32`, `Bool`) travel in
-  one more buffer. A buffer is 32-bit words; one the kernel stores a
+  parameters (integers, `Float32`, `Bool`) travel in one more buffer. A
+  buffer is 32-bit words; one the kernel stores a
   `Bool`, 8 or 16 bits into has atomic words, so that four threads can store
   into one.
 - `Atomic[T].fetch_add`, `max`, `min` and `compare_exchange` on a pointer
@@ -120,14 +120,19 @@ buffers through `layout`, which is in `max`.
   array, and a struct, an `Optional` or a tuple is its scalars. The text
   must fit `gpu@0`'s 128 KiB for a shader: the largest of the fixtures, a
   dozen math functions, is 13 KB.
-- The compiler refuses, naming the instruction: 64-bit integers, `Float64`,
-  `Float16`, SIMD vectors, pointers stored in memory or chosen between two
-  buffers, recursion, `print`, and the libm functions WGSL lacks (`log10`,
-  `cbrt`, `expm1`, `erfc`, gamma and Bessel functions).
+- `Int64` and `UInt64` are two words each, in buffers, values and
+  arguments: arithmetic, division a bit at a time, shifts, comparisons and
+  conversions; no 64-bit atomic.
+- The compiler refuses, naming the instruction: `Float64`, `Float16`, SIMD
+  vectors, pointers stored in memory or chosen between two buffers,
+  recursion, `print`, and the libm functions WGSL lacks (`log10`, `cbrt`,
+  `expm1`, `erfc`, gamma and Bessel functions).
 - Floating point is the device's. Where measured, an infinity or a NaN from
   a buffer, a sum or a division compares and propagates as on the host, a
-  subnormal result is zero, and a value times two constants whose product
-  overflows was 0.0 on the NVIDIA driver, infinite in software.
+  subnormal result is zero, a value times two constants whose product
+  overflows was 0.0 on the NVIDIA driver and infinite in software, and a
+  `UInt32` of more than 24 bits became the nearest `Float32` on the GPU and
+  the next one up in software.
 - A failed `assert` or an abort ends that invocation without a message; the
   others go on. WGSL has no trap and `gpu@0` carries no kernel output.
 - WebGPU forbids one buffer bound twice as writable, so enqueueing a kernel

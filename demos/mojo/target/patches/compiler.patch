@@ -94,10 +94,10 @@ index 8bdcb15..42aea40 100644
    }
 diff --git a/Mojo/lib/Compiler/ObjectCompiler/Target/Dolly/DollyBackend.cpp b/Mojo/lib/Compiler/ObjectCompiler/Target/Dolly/DollyBackend.cpp
 new file mode 100644
-index 0000000..22bf2c9
+index 0000000..13450d1
 --- /dev/null
 +++ b/Mojo/lib/Compiler/ObjectCompiler/Target/Dolly/DollyBackend.cpp
-@@ -0,0 +1,1118 @@
+@@ -0,0 +1,1324 @@
 +//===----------------------------------------------------------------------===//
 +// Added for Dolly, a POSIX-like userspace for wasm64 in the browser.
 +//
@@ -120,9 +120,11 @@ index 0000000..22bf2c9
 +//     bound after the last pointer, in parameter order;
 +//   - `block_dim` is the workgroup size, an override constant of the pipeline;
 +//   - control flow is a block number in a loop, which expresses any CFG;
-+//   - a struct that is a value is printed as its scalars.
-+// What WGSL cannot say is an error naming the instruction: 64-bit integers,
-+// f64, f16, vectors, calls. A trap ends the invocation.
++//   - a struct that is a value is printed as its scalars;
++//   - a 64-bit integer is a `vec2<u32>`, low word first, with functions for
++//     what WGSL's operators do not do across the two words.
++// What WGSL cannot say is an error naming the instruction: f64, f16,
++// vectors, calls. A trap ends the invocation.
 +//
 +//===----------------------------------------------------------------------===//
 +
@@ -156,6 +158,91 @@ index 0000000..22bf2c9
 +
 +constexpr StringLiteral kKernelAttribute = "dolly-webgpu-kernel";
 +
++/// 64-bit integers as (low, high). WGSL shifts by less than 32 only, and its
++/// floats are exact to 24 bits, so a conversion rounds once per word.
++constexpr StringLiteral kWide = R"(
++fn add64(a: vec2<u32>, b: vec2<u32>) -> vec2<u32> {
++  let low = a.x + b.x;
++  return vec2<u32>(low, a.y + b.y + u32(low < a.x));
++}
++fn sub64(a: vec2<u32>, b: vec2<u32>) -> vec2<u32> {
++  return vec2<u32>(a.x - b.x, a.y - b.y - u32(a.x < b.x));
++}
++fn mul64(a: vec2<u32>, b: vec2<u32>) -> vec2<u32> {
++  let al = a.x & 65535u; let ah = a.x >> 16u;
++  let bl = b.x & 65535u; let bh = b.x >> 16u;
++  let ll = al * bl; let lh = al * bh; let hl = ah * bl;
++  let middle = (ll >> 16u) + (lh & 65535u) + (hl & 65535u);
++  return vec2<u32>((ll & 65535u) | (middle << 16u),
++                   ah * bh + (lh >> 16u) + (hl >> 16u) + (middle >> 16u) +
++                       a.x * b.y + a.y * b.x);
++}
++fn shl64(a: vec2<u32>, n: u32) -> vec2<u32> {
++  if (n == 0u) { return a; }
++  if (n >= 32u) { return vec2<u32>(0u, a.x << (n - 32u)); }
++  return vec2<u32>(a.x << n, (a.y << n) | (a.x >> (32u - n)));
++}
++fn shr64(a: vec2<u32>, n: u32) -> vec2<u32> {
++  if (n == 0u) { return a; }
++  if (n >= 32u) { return vec2<u32>(a.y >> (n - 32u), 0u); }
++  return vec2<u32>((a.x >> n) | (a.y << (32u - n)), a.y >> n);
++}
++fn sar64(a: vec2<u32>, n: u32) -> vec2<u32> {
++  if (n == 0u) { return a; }
++  if (n >= 32u) {
++    return vec2<u32>(u32(i32(a.y) >> (n - 32u)), u32(i32(a.y) >> 31u));
++  }
++  return vec2<u32>((a.x >> n) | (a.y << (32u - n)), u32(i32(a.y) >> n));
++}
++fn fshl64(a: vec2<u32>, b: vec2<u32>, n: u32) -> vec2<u32> {
++  let by = n & 63u;
++  if (by == 0u) { return a; }
++  return shl64(a, by) | shr64(b, 64u - by);
++}
++fn fshr64(a: vec2<u32>, b: vec2<u32>, n: u32) -> vec2<u32> {
++  let by = n & 63u;
++  if (by == 0u) { return b; }
++  return shr64(b, by) | shl64(a, 64u - by);
++}
++fn less64(a: vec2<u32>, b: vec2<u32>) -> bool {
++  return a.y < b.y || (a.y == b.y && a.x < b.x);
++}
++fn abs64(a: vec2<u32>) -> vec2<u32> {
++  return select(a, sub64(vec2<u32>(0u, 0u), a), i32(a.y) < 0);
++}
++fn swap32(a: u32) -> u32 {
++  return (a >> 24u) | ((a >> 8u) & 65280u) | ((a << 8u) & 16711680u) | (a << 24u);
++}
++// The quotient and the remainder, a bit at a time.
++fn divide64(a: vec2<u32>, b: vec2<u32>) -> array<vec2<u32>, 2> {
++  var quotient = vec2<u32>(0u, 0u);
++  var rest = vec2<u32>(0u, 0u);
++  for (var bit = 63i; bit >= 0i; bit--) {
++    rest = shl64(rest, 1u) | vec2<u32>(shr64(a, u32(bit)).x & 1u, 0u);
++    if (!less64(rest, b)) {
++      rest = sub64(rest, b);
++      quotient = quotient | shl64(vec2<u32>(1u, 0u), u32(bit));
++    }
++  }
++  return array<vec2<u32>, 2>(quotient, rest);
++}
++// Signed: the quotient rounds to zero and the remainder has a's sign.
++fn sdivide64(a: vec2<u32>, b: vec2<u32>) -> array<vec2<u32>, 2> {
++  let both = divide64(abs64(a), abs64(b));
++  let zero = vec2<u32>(0u, 0u);
++  return array<vec2<u32>, 2>(
++      select(both[0], sub64(zero, both[0]), i32(a.y ^ b.y) < 0),
++      select(both[1], sub64(zero, both[1]), i32(a.y) < 0));
++}
++fn f32u64(a: vec2<u32>) -> f32 {
++  return f32(a.y) * 4294967296.0f + f32(a.x);
++}
++fn u64f32(a: f32) -> vec2<u32> {
++  let high = u32(a / 4294967296.0f);
++  return vec2<u32>(u32(a - f32(high) * 4294967296.0f), high);
++}
++)";
++
 +class WGSLKernel {
 +public:
 +  explicit WGSLKernel(Function &kernel)
@@ -177,6 +264,8 @@ index 0000000..22bf2c9
 +  DenseMap<const Argument *, unsigned> Buffers;
 +  DenseMap<const Argument *, unsigned> Slots;
 +  std::map<uint32_t, unsigned> NonFinite;
++  /// Whether the kernel has a 64-bit integer, and so needs kWide.
++  bool Wide = false;
 +
 +  void fail(const Twine &what, const Value *value = nullptr) {
 +    if (!Failure.empty())
@@ -188,6 +277,8 @@ index 0000000..22bf2c9
 +  }
 +
 +  static bool isBool(Type *type) { return type->isIntegerTy(1); }
++
++  static bool isWide(Type *type) { return type->isIntegerTy(64); }
 +
 +  /// Bits of an integer the printer holds in a u32, or 0.
 +  static unsigned bits(Type *type) {
@@ -204,9 +295,11 @@ index 0000000..22bf2c9
 +      return "u32";
 +    if (type->isFloatTy())
 +      return "f32";
-+    fail(type->isDoubleTy()      ? "WGSL has no Float64"
-+         : type->isIntegerTy(64) ? "WGSL has no 64-bit integers"
-+                                 : "WGSL has no such type",
++    if (isWide(type)) {
++      Wide = true;
++      return "vec2<u32>";
++    }
++    fail(type->isDoubleTy() ? "WGSL has no Float64" : "WGSL has no such type",
 +         value);
 +    return "u32";
 +  }
@@ -227,10 +320,16 @@ index 0000000..22bf2c9
 +  std::string use(const Value *value) {
 +    Type *type = value->getType();
 +    if (isa<UndefValue>(value) || isa<ConstantPointerNull>(value))
-+      return isBool(type) ? "false" : type->isFloatTy() ? "0.0f" : "0u";
++      return isBool(type)        ? "false"
++             : type->isFloatTy() ? "0.0f"
++             : isWide(type)      ? "vec2<u32>(0u, 0u)"
++                                 : "0u";
 +    if (auto *integer = dyn_cast<ConstantInt>(value)) {
 +      if (isBool(type))
 +        return integer->isZero() ? "false" : "true";
++      if (isWide(type))
++        return "vec2<u32>(" + utostr(integer->getZExtValue() & 0xffffffffu) +
++               "u, " + utostr(integer->getZExtValue() >> 32) + "u)";
 +      if (!bits(type))
 +        fail("WGSL has no such integer", value);
 +      return utostr(integer->getZExtValue() & 0xffffffffu) + "u";
@@ -370,14 +469,15 @@ index 0000000..22bf2c9
 +
 +  /// `b3[(offset) >> 2u]`, the word `pointer` is in: `b` is the buffer of a
 +  /// parameter, `m` a local array.
-+  std::string word(const Value *pointer) {
++  /// `next` is for the word after it, the high one of a 64-bit integer.
++  std::string word(const Value *pointer, bool next = false) {
 +    const Value *base = root(pointer);
 +    if (!base)
 +      return "b0[0]";
 +    std::string memory =
 +        isa<Argument>(base) ? "b" + utostr(Buffers.lookup(cast<Argument>(base)))
 +                            : "m" + utostr(Numbers.lookup(base));
-+    return memory + "[(" + use(pointer) + ") >> 2u]";
++    return memory + "[((" + use(pointer) + ") >> 2u)" + (next ? " + 1u]" : "]");
 +  }
 +
 +  /// Bits of a value that memory holds as a part of a word, or 0: a Bool is
@@ -398,9 +498,13 @@ index 0000000..22bf2c9
 +  std::string load(const LoadInst &i) {
 +    const Value *from = i.getPointerOperand();
 +    Type *type = i.getType();
-+    std::string value = word(from);
-+    if (Atomic.count(root(from)))
-+      value = "atomicLoad(&" + value + ")";
++    bool atomic = Atomic.count(root(from));
++    auto read = [&](bool next) {
++      return atomic ? "atomicLoad(&" + word(from, next) + ")" : word(from, next);
++    };
++    if (isWide(type))
++      return "vec2<u32>(" + read(false) + ", " + read(true) + ")";
++    std::string value = read(false);
 +    if (unsigned width = partBits(type)) {
 +      value = "(" + value + " >> ((" + use(from) + " & 3u) * 8u))";
 +      return isBool(type) ? "((" + value + " & 1u) != 0u)"
@@ -483,18 +587,24 @@ index 0000000..22bf2c9
 +  std::string store(const StoreInst &i) {
 +    const Value *value = i.getValueOperand(), *to = i.getPointerOperand();
 +    Type *type = value->getType();
-+    if (!type->isFloatTy() && !isBool(type) && !bits(type)) {
++    if (!type->isFloatTy() && !isBool(type) && !bits(type) && !isWide(type)) {
 +      fail("WGSL has no such type to store", &i);
 +      return "";
 +    }
++    bool atomic = Atomic.count(root(to));
++    auto write = [&](bool next, const std::string &stored) {
++      return atomic ? "atomicStore(&" + word(to, next) + ", " + stored + ");"
++                    : word(to, next) + " = " + stored + ";";
++    };
++    if (isWide(type))
++      return write(false, use(value) + ".x") + " " +
++             write(true, use(value) + ".y");
 +    std::string target = word(to);
 +    std::string stored = isBool(type) ? "u32(" + use(value) + ")"
 +                                      : asWord(type, use(value));
-+    bool atomic = Atomic.count(root(to));
 +    unsigned width = partBits(type);
 +    if (!width)
-+      return atomic ? "atomicStore(&" + target + ", " + stored + ");"
-+                    : target + " = " + stored + ";";
++      return write(false, stored);
 +    // Only the bits of this part change, whatever other threads store into
 +    // the other parts of the word.
 +    std::string shift = " << ((" + use(to) + " & 3u) * 8u))";
@@ -535,6 +645,21 @@ index 0000000..22bf2c9
 +    const Value *left = instruction.getOperand(0),
 +                *right = instruction.getOperand(1);
 +    Type *type = left->getType();
++    if (isWide(type)) {
++      std::string a = use(left), b = use(right);
++      if (instruction.isSigned()) {
++        a = "(" + a + " ^ vec2<u32>(0u, 2147483648u))";
++        b = "(" + b + " ^ vec2<u32>(0u, 2147483648u))";
++      }
++      switch (instruction.getUnsignedPredicate()) {
++      case CmpInst::ICMP_EQ: return "all(" + a + " == " + b + ")";
++      case CmpInst::ICMP_NE: return "any(" + a + " != " + b + ")";
++      case CmpInst::ICMP_UGT: return "less64(" + b + ", " + a + ")";
++      case CmpInst::ICMP_UGE: return "!less64(" + a + ", " + b + ")";
++      case CmpInst::ICMP_ULT: return "less64(" + a + ", " + b + ")";
++      default: return "!less64(" + b + ", " + a + ")";
++      }
++    }
 +    if (type->isPointerTy()) {
 +      if (root(left) != root(right))
 +        fail("pointers into two buffers cannot be compared", &instruction);
@@ -622,6 +747,26 @@ index 0000000..22bf2c9
 +        return is(" != ");
 +      default: break;
 +      }
++    } else if (isWide(type)) {
++      auto by = [&](const char *function, const char *amount = "") {
++        return std::string(function) + "(" + a + ", " + b + amount + ")";
++      };
++      switch (instruction.getOpcode()) {
++      case Instruction::Add: return by("add64");
++      case Instruction::Sub: return by("sub64");
++      case Instruction::Mul: return by("mul64");
++      case Instruction::Shl: return by("shl64", ".x");
++      case Instruction::LShr: return by("shr64", ".x");
++      case Instruction::AShr: return by("sar64", ".x");
++      case Instruction::And: return is(" & ");
++      case Instruction::Or: return is(" | ");
++      case Instruction::Xor: return is(" ^ ");
++      case Instruction::UDiv: return by("divide64") + "[0]";
++      case Instruction::URem: return by("divide64") + "[1]";
++      case Instruction::SDiv: return by("sdivide64") + "[0]";
++      case Instruction::SRem: return by("sdivide64") + "[1]";
++      default: break;
++      }
 +    } else if (unsigned width = bits(type)) {
 +      auto signedly = [&](const char *operation) {
 +        return normalize("u32(" + asSigned(a, width) + operation +
@@ -657,10 +802,17 @@ index 0000000..22bf2c9
 +    unsigned source = bits(from), width = bits(to);
 +    switch (instruction.getOpcode()) {
 +    case Instruction::ZExt:
++      if (isWide(to) && (isBool(from) || source))
++        return "vec2<u32>(" + (isBool(from) ? "u32(" + a + ")" : a) + ", 0u)";
 +      if (width && (isBool(from) || source))
 +        return isBool(from) ? "u32(" + a + ")" : a;
 +      break;
 +    case Instruction::SExt:
++      if (isWide(to) && isBool(from))
++        return "vec2<u32>(select(0u, 4294967295u, " + a + "))";
++      if (isWide(to) && source)
++        return "vec2<u32>(u32(" + asSigned(a, source) + "), u32(" +
++               asSigned(a, source) + " >> 31u))";
 +      if (width && isBool(from))
 +        return "select(0u, " + utostr(width == 32 ? 0xffffffffu
 +                                                   : (1u << width) - 1) +
@@ -669,26 +821,40 @@ index 0000000..22bf2c9
 +        return normalize("u32(" + asSigned(a, source) + ")", width);
 +      break;
 +    case Instruction::Trunc:
++      if (isWide(from) && isBool(to))
++        return "((" + a + ".x & 1u) != 0u)";
++      if (isWide(from) && width)
++        return normalize(a + ".x", width);
 +      if (source && isBool(to))
 +        return "((" + a + " & 1u) != 0u)";
 +      if (source && width)
 +        return normalize(a, width);
 +      break;
 +    case Instruction::UIToFP:
++      if (to->isFloatTy() && isWide(from))
++        return "f32u64(" + a + ")";
 +      if (to->isFloatTy() && (isBool(from) || source))
 +        return "f32(" + a + ")";
 +      break;
 +    case Instruction::SIToFP:
++      if (to->isFloatTy() && isWide(from))
++        return "select(f32u64(" + a + "), -f32u64(sub64(vec2<u32>(0u, 0u), " +
++               a + ")), i32(" + a + ".y) < 0)";
 +      if (to->isFloatTy() && isBool(from))
 +        return "select(0.0f, -1.0f, " + a + ")";
 +      if (to->isFloatTy() && source)
 +        return "f32(" + asSigned(a, source) + ")";
 +      break;
 +    case Instruction::FPToUI:
++      if (from->isFloatTy() && isWide(to))
++        return "u64f32(" + a + ")";
 +      if (from->isFloatTy() && width)
 +        return normalize("u32(" + a + ")", width);
 +      break;
 +    case Instruction::FPToSI:
++      if (from->isFloatTy() && isWide(to))
++        return "select(u64f32(" + a + "), sub64(vec2<u32>(0u, 0u), u64f32(-" +
++               a + ")), " + a + " < 0.0f)";
 +      if (from->isFloatTy() && width)
 +        return normalize("u32(i32(" + a + "))", width);
 +      break;
@@ -735,6 +901,14 @@ index 0000000..22bf2c9
 +      return std::string(function) + "(" + argument(0) + ")";
 +    };
 +    auto ordered = [&](const char *function, bool isSigned) -> std::string {
++      if (isWide(type)) {
++        // min takes the first where it is less, max the second.
++        std::string flip = isSigned ? " ^ vec2<u32>(0u, 2147483648u)" : "";
++        bool least = StringRef(function) == "min";
++        return "select(" + argument(least ? 1 : 0) + ", " +
++               argument(least ? 0 : 1) + ", less64(" + argument(0) + flip +
++               ", " + argument(1) + flip + "))";
++      }
 +      if (!width) {
 +        fail("WGSL has no such integer", &instruction);
 +        return "0u";
@@ -788,12 +962,17 @@ index 0000000..22bf2c9
 +    case Intrinsic::smin: return ordered("min", true);
 +    case Intrinsic::smax: return ordered("max", true);
 +    case Intrinsic::abs:
++      if (isWide(type))
++        return "abs64(" + argument(0) + ")";
 +      if (width)
 +        return normalize("u32(abs(" + asSigned(argument(0), width) + "))",
 +                         width);
 +      break;
 +    case Intrinsic::bitreverse: return whole("reverseBits");
 +    case Intrinsic::bswap:
++      if (isWide(type))
++        return "vec2<u32>(swap32(" + argument(0) + ".y), swap32(" +
++               argument(0) + ".x))";
 +      if (width == 32)
 +        return "((" + argument(0) + " >> 24u) | ((" + argument(0) +
 +               " >> 8u) & 65280u) | ((" + argument(0) +
@@ -801,18 +980,38 @@ index 0000000..22bf2c9
 +      break;
 +    // A funnel shift by s of 32 bits; no WGSL shift may be by 32.
 +    case Intrinsic::fshl:
++      if (isWide(type))
++        return "fshl64(" + argument(0) + ", " + argument(1) + ", " +
++               argument(2) + ".x)";
 +      if (width == 32)
 +        return "((" + argument(0) + " << (" + argument(2) + " & 31u)) | ((" +
 +               argument(1) + " >> 1u) >> (31u - (" + argument(2) + " & 31u))))";
 +      break;
 +    case Intrinsic::fshr:
++      if (isWide(type))
++        return "fshr64(" + argument(0) + ", " + argument(1) + ", " +
++               argument(2) + ".x)";
 +      if (width == 32)
 +        return "((" + argument(1) + " >> (" + argument(2) + " & 31u)) | ((" +
 +               argument(0) + " << 1u) << (31u - (" + argument(2) + " & 31u))))";
 +      break;
-+    case Intrinsic::ctpop: return whole("countOneBits");
-+    case Intrinsic::ctlz: return whole("countLeadingZeros");
-+    case Intrinsic::cttz: return whole("countTrailingZeros");
++    case Intrinsic::ctpop:
++      if (isWide(type))
++        return "vec2<u32>(countOneBits(" + argument(0) + ".x) + countOneBits(" +
++               argument(0) + ".y), 0u)";
++      return whole("countOneBits");
++    case Intrinsic::ctlz:
++      if (isWide(type))
++        return "vec2<u32>(select(countLeadingZeros(" + argument(0) +
++               ".y), 32u + countLeadingZeros(" + argument(0) + ".x), " +
++               argument(0) + ".y == 0u), 0u)";
++      return whole("countLeadingZeros");
++    case Intrinsic::cttz:
++      if (isWide(type))
++        return "vec2<u32>(select(countTrailingZeros(" + argument(0) +
++               ".x), 32u + countTrailingZeros(" + argument(0) + ".y), " +
++               argument(0) + ".x == 0u), 0u)";
++      return whole("countTrailingZeros");
 +    default: break;
 +    }
 +    // What `std._gpu` asks of this target: a builtin's x, y or z.
@@ -976,7 +1175,8 @@ index 0000000..22bf2c9
 +    }
 +  for (const Argument &argument : F.args()) {
 +    if (!argument.getType()->isPointerTy()) {
-+      Slots[&argument] = slots++;
++      Slots[&argument] = slots;
++      slots += isWide(argument.getType()) ? 2 : 1;
 +      continue;
 +    }
 +    os << "@group(0) @binding(" << buffers << ") var<storage, read_write> b"
@@ -992,6 +1192,8 @@ index 0000000..22bf2c9
 +     << "          @builtin(local_invocation_id) lid: vec3<u32>,\n"
 +     << "          @builtin(workgroup_id) wid: vec3<u32>,\n"
 +     << "          @builtin(num_workgroups) nwg: vec3<u32>) {\n";
++  for (const Argument &argument : F.args())
++    Wide |= isWide(argument.getType());
 +  // The pipeline's layout has a binding only if the entry point names it.
 +  for (unsigned i = 0; i < buffers; i++)
 +    os << "  _ = arrayLength(&b" << i << ");\n";
@@ -1007,6 +1209,8 @@ index 0000000..22bf2c9
 +      os << "bitcast<f32>(" << slot << ")";
 +    else if (unsigned width = bits(type))
 +      os << normalize(slot, width);
++    else if (isWide(type))
++      os << "vec2<u32>(" << slot << ", args[" << Slots[&argument] + 1 << "])";
 +    else
 +      fail("WGSL has no such parameter type", &argument);
 +    os << ";\n";
@@ -1057,6 +1261,8 @@ index 0000000..22bf2c9
 +    os << "  var k" << slot << ": u32 = " << pattern << "u;\n";
 +  os << "  var bb: u32 = 0u;\n  loop {\n    switch bb {\n"
 +     << body << "    default { return; }\n    }\n  }\n}\n";
++  if (Wide)
++    os << kWide;
 +  return Failure.empty() ? text : std::string();
 +}
 +
