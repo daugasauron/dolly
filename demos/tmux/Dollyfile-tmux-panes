@@ -29,7 +29,7 @@ FILE /etc/dolly/init.slop
     /usr/bin/tmux split-window -h
     /usr/bin/tmux send-keys 'cat /usr/share/tmux/welcome.txt' Enter
     /bin/foreground /usr/bin/tmux attach
-    printf '\nDolly: image entry exited; entering the recovery Slop shell.\n'
+    printf '\nThe tmux server runs on: tmux attach returns, tmux new starts a session.\n'
     /bin/foreground -i /bin/slop
 
 ENTRY /bin/foreground -i /bin/slop /etc/dolly/init.slop

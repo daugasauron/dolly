@@ -6,7 +6,7 @@
 // installed into a default-based session.
 // Usage: node demos/tmux/test/tmux-browser.mjs [chromium|firefox ...]
 import assert from "node:assert/strict";
-import { demoTest, recoveryPrompt, shellPrompt, writeCommand } from "../../browser.mjs";
+import { demoTest, shellPrompt, writeCommand } from "../../browser.mjs";
 import { siteReference } from "../../../src/static-asset.mjs";
 
 const browsers = process.argv.length > 2 ? process.argv.slice(2) : ["chromium", "firefox"];
@@ -76,8 +76,8 @@ for (const browser of browsers) {
     // Detached, the shells keep running: one writes a file meanwhile.
     await input("sleep 2; echo KEPT > /tmp/tmux-kept\r");
     await prefix("d");
-    await prompt(recoveryPrompt);
-    await waitText(/\[detached \(from session 0\)\]/);
+    await prompt(shellPrompt);
+    await waitText(/\[detached \(from session 0\)\][\s\S]*tmux attach returns/);
     await run("test \"$(tmux list-panes -F '#{pane_tty}:#{pane_dead}' | tr '\\n' ' ')\" = '/dev/pts/0:0 /dev/pts/1:0 '");
     await run("until test -s /tmp/tmux-kept; do sleep 1; done; grep -qx KEPT /tmp/tmux-kept");
 
