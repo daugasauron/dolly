@@ -24,7 +24,7 @@ if has_image parakeet; then
       .cache/parakeet-tdt_ctc-110m-Q8_0.gguf)" speech/parakeet-tdt_ctc-110m.gguf)
   copy_static demos/speech/CC-BY-4.0.txt speech/CC-BY-4.0.txt
 fi
-if has_image transcribe; then
+if has_image speech-to-text; then
   (source config/source-pins.sh
     copy_static "$(bash scripts/fetch-verified-file.sh "${DOLLY_SILERO_VAD_URL}" "${DOLLY_SILERO_VAD_SHA256}" \
       .cache/silero-vad-v6.2-F32.gguf)" speech/silero-vad.gguf)

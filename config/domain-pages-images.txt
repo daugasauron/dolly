@@ -34,7 +34,7 @@ closed-source-agent
 llvm-cc
 llvm
 wine
-speech-to-text
+speech-to-text-mic
 pi-phone
 ninja
 make

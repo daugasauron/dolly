@@ -8,5 +8,5 @@ less
 audio-sdk
 wine
 neovim
-speech-to-text
+speech-to-text-mic
 ninja

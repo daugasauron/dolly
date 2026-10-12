@@ -211,7 +211,7 @@ await browserTest("amy tools", { image: "default", timeout: 300_000 }, async ({ 
 // of this file, or where this says.
 const elsewhere = {
   git: "man-browser.mjs, pager-browser.mjs", less: "pager-browser.mjs", llvm: "demos/llvm",
-  parakeet: "demos/speech", transcribe: "demos/speech: default refuses it", voice: "demos/speech, in pi-phone",
+  parakeet: "demos/speech", "speech-to-text": "demos/speech: default refuses it", voice: "demos/speech, in pi-phone",
   "llvm-runtimes": "a build stage", "minicpm5-2b": "demos/local-llm", "qwen3.5-2b": "demos/local-llm",
   ...Object.fromEntries([1, 2, 3, 4].map(shard => [`qwen3.5-4b-${shard}`, "demos/local-llm"])),
 };
