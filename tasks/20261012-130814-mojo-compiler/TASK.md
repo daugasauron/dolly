@@ -61,9 +61,20 @@ Not done, and not filed: no `PACKAGE` of the compiler for `amy install`
 `mojo build --print-supported-targets` lists nothing.
 
 Worked on branch `demo/mojo` (worktree `work/mojo`, commits `319c3a34` to
-`16223ed6` and after), night of 2026-10-12.
-Everything is in `demos/mojo`; scratch scripts and logs were in
+`3c8efe02`, then `main` merged at `58d79184` in `d0189286`), night of
+2026-10-12. Everything is in `demos/mojo`; scratch scripts and logs were in
 `build/mojo-evidence/` and are not kept.
+
+To build and test it in a tree that has main's images, as run here (the
+first build fetches the pinned sources into `.cache`, 2.6 GB):
+
+```sh
+DOLLY_IMAGE_JOBS=1 DOLLY_BUILD_IMAGES=mojo-llvm work/slot.sh bigbuild npm run image          # 45 to 77 minutes
+DOLLY_IMAGE_JOBS=1 DOLLY_BUILD_IMAGES=mojo-build work/slot.sh bigbuild npm run image         # 13 minutes
+DOLLY_IMAGE_JOBS=1 DOLLY_BUILD_IMAGES=mojo-runtime,mojo work/slot.sh build npm run image     # 1 minute
+work/slot.sh browser npm run test:demos -- mojo                            # headless Chrome
+DISPLAY=:NNN work/slot.sh browser node demos/mojo/test/mojo-browser.mjs    # also Chrome and Firefox on the GPU
+```
 
 ## Sources (2026-10-12)
 
@@ -201,10 +212,11 @@ the single-thread work queue is the default and nothing starts a thread.
 
 The native check took 29 GB under `build/mojo-native` at its peak (two LLVM
 build trees of 6.9 and 6.3 GB, three compiler trees of 2.6 GB). All of it is
-deleted (02:43). What stays: the two pinned checkouts in `.cache`
-(`mojo-llvm-…` 2.5 GB, `modular-…` 82 MB) and four snapshots in `dist/`
-(`mojo-llvm` 731 MB, `mojo-build` 831 MB, `mojo` 252 MB, `mojo-runtime`
-152 MB).
+deleted (02:43), and nothing native is needed to build the images. What
+stays, 4.7 GB: the two pinned checkouts in `.cache` (`mojo-llvm-…` 2.5 GB,
+`modular-…` 82 MB), the staged archives in `dist/static/mojo` (74 MB) and
+four snapshots in `dist/` (`mojo-llvm` 731 MB, `mojo-build` 831 MB, `mojo`
+252 MB, `mojo-runtime` 152 MB).
 
 ## The chain with Zstandard and the target's patches (2026-10-13)
 
