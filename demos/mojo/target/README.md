@@ -54,15 +54,17 @@ node demos/mojo/target/test/mojo-target-browser.mjs
 ## A program
 
 - The driver takes `--target-triple wasm64-unknown-dolly`; the CPU and the
-  features are then those of every object `cc` makes. `--emit object` is
-  what works; the driver's own link step runs `cc ARCHIVE COMPILER-RT -lm`,
-  which Dolly's `cc` can serve once the compiler runs here with
-  `libmojo-rt.a` as its CompilerRT.
+  features are then those of every object `cc` makes, and Wasm tail calls,
+  which coroutines need and every browser with 64-bit memories has.
+  `--emit object` is what works; the driver's own link step runs `cc ARCHIVE
+  COMPILER-RT -lm`, which Dolly's `cc` can serve once the compiler runs here
+  with `libmojo-rt.a` as its CompilerRT.
 - `CompilationTarget.is_dolly()` is the standard library's name for the
   platform; it is neither `is_linux()` nor `is_macos()`.
 - The runtime is one thread: a task runs when something waits for it, and
-  `parallelism_level()` is 1. Python interoperation is absent, so a program
-  that uses it does not link.
+  `parallelism_level()` is 1. Nothing public in the standard library of this
+  tag starts parallel work (`parallelize` is in `max`). Python
+  interoperation is absent, so a program that uses it does not link.
 - `mojo run` and the REPL execute through LLVM's JIT, which Wasm cannot have:
   code is a module the browser instantiates, not memory a process writes. In
   Dolly `mojo run` is to be `mojo build` and a spawn of the result; the REPL

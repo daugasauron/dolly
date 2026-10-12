@@ -65,10 +65,10 @@ objects from `demos/mojo/target/cross-compile.sh`, image `mojo-runtime`:
 | Chrome 151.0.7922.71 on Xvfb, Vulkan | NVIDIA (`nvidia blackwell`) | passed |
 | Firefox 157.0.1 on Xvfb | unnamed WebGPU adapter | passed |
 
-Each run links five cross-compiled objects with `cc` in the session and
+Each run links six cross-compiled objects with `cc` in the session and
 checks their output: `hello` (print), `library` (split, `List`, `Dict`,
 `Path.write_text`/`read_text`, `exists`, `argv`, float formatting, a clock),
-`saxpy` (one kernel over 1,000 floats through
+`tasks` (coroutines awaited through the runtime's task queue), `saxpy` (one kernel over 1,000 floats through
 `DeviceContext.enqueue_function`), `kernels` (a loop, signed and unsigned
 integer arithmetic on a two-dimensional grid, `sqrt`/`abs` and conversions;
 every element compared with the host's) and `mandelbrot` (the set drawn as
@@ -108,6 +108,12 @@ Before that came to pass:
 - `lseek` was called as `(i64, i64, i64)` and trapped. With it fixed, the
   objects of all 243 files call 76 libc functions, each with the type libc
   defines (import and definition types read from the Wasm objects).
+
+Measured on the GPU (Xvfb, 2026-10-13): 5,000 `enqueue_function` calls of
+a kernel over 2^20 floats, then `synchronize()` and a read of all 4 MiB,
+give 5000.0 everywhere: Chrome 151 on the NVIDIA GPU in 1.51 s (0.3 ms an
+enqueue) and 10 ms for the read, Firefox 157 in 1.24 s and 104 ms, headless
+Chrome on SwiftShader in 26.7 s.
 
 Two of upstream's example programs run unchanged:
 `Mojo/examples/operators/main.mojo`, and `Mojo/examples/life/benchmark.mojo`,
@@ -151,7 +157,9 @@ the released compiler on this machine's x86-64: 1.4 times.
   ABI for Wasm (`CABILowering.cpp` knows x86-64 and AArch64), so a struct is
   its fields. `libmojo-rt.a` implements the 29 `KGEN_CompilerRT_*` functions
   the standard library names with those flattened arguments, on one thread.
-  Threads through `threads@0` and Python interoperation are not there.
+  Nothing public in the standard library of this tag starts parallel work
+  (`parallelize` is in `max`), so `threads@0` is not used; Python
+  interoperation is not there.
 - **Standard library: what was ported is what the fixtures and the probe
   cover.** Not ported, and failing at compile time or at link: `std.pwd`,
   `std.os.process` and `std.subprocess` (they assert Linux or macOS; Dolly
