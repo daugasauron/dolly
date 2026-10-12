@@ -52,17 +52,20 @@ def integers(
     negate: Bool,
 ):
     """Integers on a two-dimensional grid, some read from buffers of bytes and
-    of Bool."""
+    of Bool, which then take a part of the result: four threads to a word."""
     var column = thread_idx.x + block_idx.x * block_dim.x
     var row = thread_idx.y + block_idx.y * block_dim.y
     var i = row * (grid_dim.x * block_dim.x) + column
     if UInt32(i) < n:
-        result[unsafe_offset=i] = mix(
+        var mixed = mix(
             values[unsafe_offset=i],
             bytes[unsafe_offset=i],
             i,
             negate != Bool(flags[unsafe_offset=i]),
         )
+        result[unsafe_offset=i] = mixed
+        bytes[unsafe_offset=i] = UInt8(mixed)
+        flags[unsafe_offset=i] = mixed > 500
 
 
 def halved(i: Int, v: Float32) -> Optional[Float32]:
@@ -160,9 +163,16 @@ def main() raises:
         block_dim=Dim(4, 2),
     )
     var bs = b.to_host()
+    var low = bytes.to_host()
+    var large = flags.to_host()
     var wrong_integers = 0
     for i in range(n - 1):
-        if bs[i] != mix(ints[i], small[i], i, not Bool(third[i])):
+        var mixed = mix(ints[i], small[i], i, not Bool(third[i]))
+        if (
+            bs[i] != mixed
+            or low[i] != UInt8(mixed)
+            or Bool(large[i]) != (mixed > 500)
+        ):
             wrong_integers += 1
     if bs[n - 1] != 0:
         wrong_integers += 1

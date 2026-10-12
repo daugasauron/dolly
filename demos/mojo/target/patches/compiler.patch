@@ -94,10 +94,10 @@ index 8bdcb15..42aea40 100644
    }
 diff --git a/Mojo/lib/Compiler/ObjectCompiler/Target/Dolly/DollyBackend.cpp b/Mojo/lib/Compiler/ObjectCompiler/Target/Dolly/DollyBackend.cpp
 new file mode 100644
-index 0000000..d10c8a1
+index 0000000..5f23319
 --- /dev/null
 +++ b/Mojo/lib/Compiler/ObjectCompiler/Target/Dolly/DollyBackend.cpp
-@@ -0,0 +1,999 @@
+@@ -0,0 +1,1036 @@
 +//===----------------------------------------------------------------------===//
 +// Added for Dolly, a POSIX-like userspace for wasm64 in the browser.
 +//
@@ -114,14 +114,15 @@ index 0000000..d10c8a1
 +//     parameter order; a pointer value is a byte offset into the buffer its
 +//     parameter names, so a pointer may not be chosen between two buffers,
 +//     stored in memory or converted to an integer;
++//   - a buffer into which the kernel stores less than a word has atomic
++//     words, so that two threads can store into one;
 +//   - the other parameters are 32-bit slots of the read-only buffer `args`,
 +//     bound after the last pointer, in parameter order;
 +//   - `block_dim` is the workgroup size, an override constant of the pipeline;
 +//   - control flow is a block number in a loop, which expresses any CFG;
 +//   - a struct that is a value is printed as its scalars.
 +// What WGSL cannot say is an error naming the instruction: 64-bit integers,
-+// f64, f16, vectors, stores that are not 32 bits wide, calls. A trap ends the
-+// invocation.
++// f64, f16, vectors, calls. A trap ends the invocation.
 +//
 +//===----------------------------------------------------------------------===//
 +
@@ -170,6 +171,8 @@ index 0000000..d10c8a1
 +  std::string Failure;
 +  DenseMap<const Value *, unsigned> Numbers;
 +  DenseMap<const Value *, const Value *> Roots;
++  /// The buffer parameters whose words are atomic.
++  SmallPtrSet<const Value *, 4> Atomic;
 +  DenseMap<const BasicBlock *, unsigned> Blocks;
 +  DenseMap<const Argument *, unsigned> Buffers;
 +  DenseMap<const Argument *, unsigned> Slots;
@@ -362,14 +365,9 @@ index 0000000..d10c8a1
 +    return found;
 +  }
 +
-+  /// `b3[(offset) >> 2u]` for a 32-bit access through `pointer`: `b` is the
-+  /// buffer of a parameter, `m` a local array.
-+  std::string word(const Value *pointer, Type *accessed,
-+                   const Instruction &access) {
-+    if (!accessed->isFloatTy() && bits(accessed) != 32) {
-+      fail("only 32-bit values can be loaded or stored", &access);
-+      return "b0[0]";
-+    }
++  /// `b3[(offset) >> 2u]`, the word `pointer` is in: `b` is the buffer of a
++  /// parameter, `m` a local array.
++  std::string word(const Value *pointer) {
 +    const Value *base = root(pointer);
 +    if (!base)
 +      return "b0[0]";
@@ -377,6 +375,59 @@ index 0000000..d10c8a1
 +        isa<Argument>(base) ? "b" + utostr(Buffers.lookup(cast<Argument>(base)))
 +                            : "m" + utostr(Numbers.lookup(base));
 +    return memory + "[(" + use(pointer) + ") >> 2u]";
++  }
++
++  /// Bits of a value that memory holds as a part of a word, or 0: a Bool is
++  /// a byte.
++  static unsigned partBits(Type *type) {
++    return isBool(type) ? 8 : bits(type) == 32 ? 0 : bits(type);
++  }
++
++  /// The value a load reads.
++  std::string load(const LoadInst &i) {
++    const Value *from = i.getPointerOperand();
++    Type *type = i.getType();
++    std::string value = word(from);
++    if (Atomic.count(root(from)))
++      value = "atomicLoad(&" + value + ")";
++    if (unsigned width = partBits(type)) {
++      value = "(" + value + " >> ((" + use(from) + " & 3u) * 8u))";
++      return isBool(type) ? "((" + value + " & 1u) != 0u)"
++                          : normalize(value, width);
++    }
++    if (type->isFloatTy())
++      return "bitcast<f32>(" + value + ")";
++    if (!bits(type))
++      fail("WGSL has no such type to load", &i);
++    return value;
++  }
++
++  /// The statement of a store.
++  std::string store(const StoreInst &i) {
++    const Value *value = i.getValueOperand(), *to = i.getPointerOperand();
++    Type *type = value->getType();
++    if (!type->isFloatTy() && !isBool(type) && !bits(type)) {
++      fail("WGSL has no such type to store", &i);
++      return "";
++    }
++    std::string target = word(to);
++    std::string stored = type->isFloatTy() ? "bitcast<u32>(" + use(value) + ")"
++                         : isBool(type)    ? "u32(" + use(value) + ")"
++                                           : use(value);
++    bool atomic = Atomic.count(root(to));
++    unsigned width = partBits(type);
++    if (!width)
++      return atomic ? "atomicStore(&" + target + ", " + stored + ");"
++                    : target + " = " + stored + ";";
++    // Only the bits of this part change, whatever other threads store into
++    // the other parts of the word.
++    std::string shift = " << ((" + use(to) + " & 3u) * 8u))";
++    std::string keep = "~(" + utostr((1u << width) - 1) + "u" + shift;
++    stored = "(" + stored + shift;
++    return atomic ? "_ = atomicAnd(&" + target + ", " + keep +
++                        "); _ = atomicOr(&" + target + ", " + stored + ");"
++                  : target + " = (" + target + " & " + keep + ") | " + stored +
++                        ";";
 +  }
 +
 +
@@ -783,33 +834,10 @@ index 0000000..d10c8a1
 +           << use(choice->getCondition()) << ");\n";
 +    } else if (auto *gep = dyn_cast<GetElementPtrInst>(&i)) {
 +      assign(offset(*cast<GEPOperator>(gep)));
-+    } else if (auto *load = dyn_cast<LoadInst>(&i)) {
-+      unsigned narrow = bits(i.getType());
-+      if (narrow == 8 || narrow == 16 || isBool(i.getType())) {
-+        // A part of the 32-bit word around it; a Bool is a byte's lowest bit.
-+        std::string at = use(load->getPointerOperand());
-+        std::string value = word(load->getPointerOperand(),
-+                                 Type::getInt32Ty(i.getContext()), i);
-+        value = "(" + value + " >> ((" + at + " & 3u) * 8u))";
-+        assign(narrow ? normalize(value, narrow)
-+                      : "((" + value + " & 1u) != 0u)");
-+        return;
-+      }
-+      std::string value = word(load->getPointerOperand(), i.getType(), i);
-+      assign(i.getType()->isFloatTy() ? "bitcast<f32>(" + value + ")" : value);
-+    } else if (auto *store = dyn_cast<StoreInst>(&i)) {
-+      const Value *value = store->getValueOperand();
-+      if (bits(value->getType()) == 8 || bits(value->getType()) == 16 ||
-+          isBool(value->getType()))
-+        fail("less than 32 bits cannot be stored: it would rewrite the word "
-+             "around them, which another thread may be writing",
-+             &i);
-+      std::string target =
-+          word(store->getPointerOperand(), value->getType(), i);
-+      os << "      " << target << " = "
-+         << (value->getType()->isFloatTy() ? "bitcast<u32>(" + use(value) + ")"
-+                                           : use(value))
-+         << ";\n";
++    } else if (auto *loaded = dyn_cast<LoadInst>(&i)) {
++      assign(load(*loaded));
++    } else if (auto *stored = dyn_cast<StoreInst>(&i)) {
++      os << "      " << store(*stored) << "\n";
 +    } else if (auto *invocation = dyn_cast<CallInst>(&i)) {
 +      std::string value = call(*invocation);
 +      if (!value.empty() && !i.getType()->isVoidTy())
@@ -857,14 +885,23 @@ index 0000000..d10c8a1
 +     << "override block_x: u32 = 1u;\noverride block_y: u32 = 1u;\n"
 +     << "override block_z: u32 = 1u;\n";
 +  unsigned buffers = 0, slots = 0;
-+  for (const Argument &argument : F.args())
-+    if (argument.getType()->isPointerTy())
-+      Buffers[&argument] = buffers++;
-+    else
++  for (const BasicBlock &block : F)
++    for (const Instruction &i : block)
++      if (auto *narrow = dyn_cast<StoreInst>(&i))
++        if (partBits(narrow->getValueOperand()->getType()))
++          if (auto *buffer = dyn_cast_or_null<Argument>(
++                  root(narrow->getPointerOperand())))
++            Atomic.insert(buffer);
++  for (const Argument &argument : F.args()) {
++    if (!argument.getType()->isPointerTy()) {
 +      Slots[&argument] = slots++;
-+  for (unsigned i = 0; i < buffers; i++)
-+    os << "@group(0) @binding(" << i << ") var<storage, read_write> b" << i
-+       << ": array<u32>;\n";
++      continue;
++    }
++    os << "@group(0) @binding(" << buffers << ") var<storage, read_write> b"
++       << buffers << ": array<"
++       << (Atomic.count(&argument) ? "atomic<u32>" : "u32") << ">;\n";
++    Buffers[&argument] = buffers++;
++  }
 +  if (slots)
 +    os << "@group(0) @binding(" << buffers
 +       << ") var<storage, read> args: array<u32>;\n";
