@@ -94,10 +94,10 @@ index 8bdcb15..42aea40 100644
    }
 diff --git a/Mojo/lib/Compiler/ObjectCompiler/Target/Dolly/DollyBackend.cpp b/Mojo/lib/Compiler/ObjectCompiler/Target/Dolly/DollyBackend.cpp
 new file mode 100644
-index 0000000..85f1dc9
+index 0000000..d10c8a1
 --- /dev/null
 +++ b/Mojo/lib/Compiler/ObjectCompiler/Target/Dolly/DollyBackend.cpp
-@@ -0,0 +1,996 @@
+@@ -0,0 +1,999 @@
 +//===----------------------------------------------------------------------===//
 +// Added for Dolly, a POSIX-like userspace for wasm64 in the browser.
 +//
@@ -785,21 +785,24 @@ index 0000000..85f1dc9
 +      assign(offset(*cast<GEPOperator>(gep)));
 +    } else if (auto *load = dyn_cast<LoadInst>(&i)) {
 +      unsigned narrow = bits(i.getType());
-+      if (narrow == 8 || narrow == 16) {
-+        // A part of the 32-bit word around it.
++      if (narrow == 8 || narrow == 16 || isBool(i.getType())) {
++        // A part of the 32-bit word around it; a Bool is a byte's lowest bit.
 +        std::string at = use(load->getPointerOperand());
 +        std::string value = word(load->getPointerOperand(),
 +                                 Type::getInt32Ty(i.getContext()), i);
-+        assign(normalize("(" + value + " >> ((" + at + " & 3u) * 8u))", narrow));
++        value = "(" + value + " >> ((" + at + " & 3u) * 8u))";
++        assign(narrow ? normalize(value, narrow)
++                      : "((" + value + " & 1u) != 0u)");
 +        return;
 +      }
 +      std::string value = word(load->getPointerOperand(), i.getType(), i);
 +      assign(i.getType()->isFloatTy() ? "bitcast<f32>(" + value + ")" : value);
 +    } else if (auto *store = dyn_cast<StoreInst>(&i)) {
 +      const Value *value = store->getValueOperand();
-+      if (bits(value->getType()) == 8 || bits(value->getType()) == 16)
-+        fail("8 and 16 bits cannot be stored: it would rewrite the 32-bit "
-+             "word around them, which another thread may be writing",
++      if (bits(value->getType()) == 8 || bits(value->getType()) == 16 ||
++          isBool(value->getType()))
++        fail("less than 32 bits cannot be stored: it would rewrite the word "
++             "around them, which another thread may be writing",
 +             &i);
 +      std::string target =
 +          word(store->getPointerOperand(), value->getType(), i);

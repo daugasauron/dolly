@@ -12,11 +12,12 @@ works for GPU compute." The compiler itself is
 
 What a compiler built in Dolly must carry for its programs to run here; all
 of it is in `demos/mojo/target/` and described in its README. Take the
-patches, the package `gpu` and the runtime recipe from the head of
-`demo/mojo-target`: two faults were found after `ddad69d6` and are fixed
-there (a read of more than 16 MiB, in the runtime recipe; a kernel loop that
-clears or copies, which LLVM turned into `memset` and the target refused,
-in `compiler.patch`). The fixtures of the head need the patches of the head.
+patches, the package `gpu`, the runtime recipe and the fixtures together
+from the head of `demo/mojo-target`. `demo/mojo` merged them at `35771eb3`;
+since then `compiler.patch` changed in six commits (what a kernel may
+contain), `stdlib.patch` in one (asserts in kernels), the runtime recipe in
+three, and the `kernels` fixture needs all of them. Programs that are not
+kernels compile the same with either.
 
 - Apply `patches/compiler.patch` and `patches/stdlib.patch` to the tag
   `mojo/v1.1.0`. The compiler patch needs LLVM's WebAssembly backend linked
@@ -217,12 +218,20 @@ the released compiler on this machine's x86-64: 1.4 times.
   the test suite does not call is unchecked: `sys/_libc.mojo` declares
   `write` returning `c_int`, for one. `wasm-ld` warns of each mismatch when a
   program links.
-- **Kernels**: stores of 8 and 16 bits (loads work), `Float64`, `Float16`,
+- **Kernels**: stores of less than 32 bits (loads work), `Float64`, `Float16`,
   SIMD, shared memory and barriers, atomics, `print`, more than 256 threads
   in a block, the libm functions WGSL lacks (`log10`, `cbrt`, `expm1`, `erfc`,
   gamma and Bessel functions), and host-side
   `map_to_host`/`HostBuffer`/`TileTensor` (upstream's examples use `layout`,
   which is in `max/`).
+- **Floating point in a kernel is the device's** (01:35, a scratch kernel
+  over eight values, the three browsers): infinities and NaN from a buffer,
+  from a sum and from a division by zero, and `isinf`, `isfinite`, `isnan`
+  and comparisons on them, were the host's everywhere; a subnormal quotient
+  was 0.0 everywhere; `v * 3.0e38 * 10` was 0.0 for every `v` on the NVIDIA
+  GPU under Chrome and Firefox and infinite on SwiftShader, as WGSL allows a
+  compiler that reassociates. Upstream's `exp` on any GPU is its own
+  polynomial, which stops at 2^127 where the host's is infinite.
 - **What `gpu@0` lacks for this, written down and not added**: a kernel has
   no way to say anything (no print, no trap), so a failed `assert` ends the
   invocation silently; the text of a rejected shader or pipeline reaches the

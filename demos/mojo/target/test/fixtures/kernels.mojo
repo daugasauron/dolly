@@ -46,17 +46,22 @@ def mix(value: Int32, byte: UInt8, i: Int, negate: Bool) -> Int32:
 def integers(
     values: Pointer[Int32, MutAnyOrigin],
     bytes: Pointer[UInt8, MutAnyOrigin],
+    flags: Pointer[Scalar[DType.bool], MutAnyOrigin],
     result: Pointer[Int32, MutAnyOrigin],
     n: UInt32,
     negate: Bool,
 ):
-    """Integers on a two-dimensional grid, some read from a buffer of bytes."""
+    """Integers on a two-dimensional grid, some read from buffers of bytes and
+    of Bool."""
     var column = thread_idx.x + block_idx.x * block_dim.x
     var row = thread_idx.y + block_idx.y * block_dim.y
     var i = row * (grid_dim.x * block_dim.x) + column
     if UInt32(i) < n:
         result[unsafe_offset=i] = mix(
-            values[unsafe_offset=i], bytes[unsafe_offset=i], i, negate
+            values[unsafe_offset=i],
+            bytes[unsafe_offset=i],
+            i,
+            negate != Bool(flags[unsafe_offset=i]),
         )
 
 
@@ -132,21 +137,32 @@ def main() raises:
     var a = ctx.enqueue_create_buffer[DType.int32](n)
     var b = ctx.enqueue_create_buffer[DType.int32](n)
     var bytes = ctx.enqueue_create_buffer[DType.uint8](n - 1)
+    var flags = ctx.enqueue_create_buffer[DType.bool](n - 1)
     var ints = List[Int32](length=n, fill=0)
     var small = List[UInt8](length=n, fill=0)
+    var third = List[Scalar[DType.bool]](length=n, fill=False)
     for i in range(n):
         ints[i] = Int32(i * 2741 - 70000)
         small[i] = UInt8(i * 5 + 3)
+        third[i] = i % 3 == 1
     a.enqueue_copy_from(ints.unsafe_ptr())
     bytes.enqueue_copy_from(small.unsafe_ptr())
+    flags.enqueue_copy_from(third.unsafe_ptr())
     # One thread more than there are bytes: n - 1 is not a multiple of four.
     ctx.enqueue_function[integers](
-        a, bytes, b, UInt32(n - 1), True, grid_dim=Dim(2, 4), block_dim=Dim(4, 2)
+        a,
+        bytes,
+        flags,
+        b,
+        UInt32(n - 1),
+        True,
+        grid_dim=Dim(2, 4),
+        block_dim=Dim(4, 2),
     )
     var bs = b.to_host()
     var wrong_integers = 0
     for i in range(n - 1):
-        if bs[i] != mix(ints[i], small[i], i, True):
+        if bs[i] != mix(ints[i], small[i], i, not Bool(third[i])):
             wrong_integers += 1
     if bs[n - 1] != 0:
         wrong_integers += 1
