@@ -1,4 +1,4 @@
-// The Mojo compiler that mojo-build compiled inside Dolly, in the mojo image:
+// The Mojo compiler that mojo-build compiled inside Dolly, in the mojo-gpu image:
 // it compiles in the session the programs demos/mojo/target cross-compiles,
 // and they run: the standard library, coroutines, kernels that DeviceContext
 // launches on WebGPU and that print, and upstream's own two GPU hellos with
@@ -28,7 +28,7 @@ if (process.env.DISPLAY) {
   launches.firefox = () => firefox.launch({ channel: "moz-firefox", headless: false, firefoxUserPrefs: { "dom.webgpu.enabled": true } });
 }
 
-const server = await startBrowserServer(root.pathname, "mojo", { fixtures });
+const server = await startBrowserServer(root.pathname, "mojo-gpu", { fixtures });
 try {
   for (const [name, launch] of Object.entries(launches)) {
     const browser = await launch();
@@ -36,7 +36,7 @@ try {
       const page = await (await browser.newContext()).newPage();
       await page.addInitScript(policy => { globalThis.DOLLY_HTTP_POLICY = policy; },
         { maxRequests: 16, rules: [{ origin: server.origin, pathPrefix: "/fixture/", methods: ["GET"] }] });
-      await page.goto(`${server.origin}/mojo/`);
+      await page.goto(`${server.origin}/mojo-gpu/`);
       await page.waitForFunction(() => ["ready", "failed"].includes(document.documentElement.dataset.dollyStatus), null, { timeout: 180_000 });
       assert.equal(await page.evaluate(() => document.documentElement.dataset.dollyStatus), "ready", await page.locator("#bootstrap-log").textContent());
       await page.evaluate(([source, flags]) => __dolly.waitForInteractiveTerminal(new RegExp(source, flags), "terminal prompt", 0),

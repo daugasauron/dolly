@@ -48,4 +48,4 @@ pkgconf
 libpng
 freetype
 mojo
-mojo-compiler
+mojo-gpu
