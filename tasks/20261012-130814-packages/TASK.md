@@ -11,9 +11,9 @@ Done when: the list is here with a decision per row, the packages exist,
 install into `default` with `amy`, and run.
 
 State (2026-10-12): the list is below; fifteen packages were made and
-tested in Chromium and Firefox, and amy's test now installs and uses every
-package of the catalog on `default`; what is open is "Left" and "Held for a
-catalog round". [`package-needs`](../20261007-003116-package-needs/TASK.md),
+tested in Chromium and Firefox, and amy's test now installs and uses the
+catalog's packages on `default`, or names the test that does; what is open
+is "Left" and "Held for a catalog round". [`package-needs`](../20261007-003116-package-needs/TASK.md),
 [`lean-game-images`](../20260930-231300-lean-game-images/TASK.md) and
 [`qwen-shards`](../20261008-234448-qwen-shards/TASK.md) are closed into this
 task: what they left is under the same two headings.
@@ -101,7 +101,7 @@ break out there.
 | `dollyfile-studio` | `dollyfile-lint`, `dollyfile-build` | - | stay: they are Studio |
 | `llama-build`, `local-llm-build`, `pi-local` | llama.cpp, `dolly-llama` | - | stay: one consumer, needs `gpu@0` |
 | the six model recipes | Qwen3.5-2B, MiniCPM5-2B, Qwen3.5-4B in four shards | themselves | offered; the four shards are held |
-| `openal-build` | OpenAL Soft | - | stays: 0 A.D.'s build stage; its programs need `audio@0` |
+| `openal-build` | OpenAL Soft, Dolly's port | - | stays for now: a package by the rule, but its programs need `audio@0`, which no image people install into declares (held, item 6) |
 | `zero-ad-deps` | pkgconf (146 KB) | **`pkgconf`** | made: `pkg-config` is what a build asks for a library |
 | `zero-ad-deps` | libpng (262 KB), FreeType (903 KB, headers 878 KB), which `xonotic-build` and `wine-build` copy with the same rows | **`libpng`**, **`freetype`** | made |
 | `zero-ad-deps` | Ogg, Vorbis, fmt, libxml2 | - | stay: upstream's CMake builds them here unchanged, one consumer |
@@ -181,19 +181,39 @@ Found on the way:
 
 ## Held for a catalog round
 
-The last commits of the branch are marked `HELD` and are built only for the
-chain they were tested on. Merging one changes pins far beyond it.
+The two commits after the cheap part are marked `HELD`. Each is built here
+only for the chain it was tested on; merging one changes pins far beyond it,
+and in this tree the images behind those pins are stale (with the second,
+`amy install rust` answers HTTP 502: its pin cascaded and nothing rebuilt it).
 
-1. **`python` installs `cc` and `ninja`** (commit `HELD: python …`). pip has
-   no wheel to fetch for Dolly, so every native package is a source build:
-   by the rule above the package brings the compiler and Ninja, and
+1. **`default` installs `transfer`** (`HELD: default …`) in place of the four
+   `COPY` rows from `system-tools`, and is then composed from packages only.
+   `zero-ad` is `FROM default`: one more rebuild, of an image this tree
+   cannot make. Built: `default` alone, 8 s, 14,380,256 bytes (202 fewer).
+   Measured on it, Chromium and Firefox: `default-browser`, `amy-browser`
+   (every case), `site-browser`, `man-browser` pass; source suite 424.
+   `docs/dollyfile.md` names `default`'s packages and would lack `transfer`:
+   the documents are image inputs and were left alone.
+2. **`python` installs `cc` and `ninja`** (`HELD: python …`). pip has no
+   wheel to fetch for Dolly, so every native package is a source build: by
+   the rule above the package brings the compiler and Ninja, and
    `amy install python` is enough for `pip install numpy`. `rust-llvm`,
    `llvm-tablegen` and `zero-ad-spidermonkey` install `python` as a build
    tool, so its pin cascades to 30 of 97 images: the Rust, LLVM, Pi and
-   0 A.D. chains.
-2. **`default` installs `transfer`** (commit `HELD: default …`) in place of
-   the four `COPY` rows from `system-tools`, and is then composed from
-   packages only. `zero-ad` is `FROM default`: one more rebuild.
+   0 A.D. chains. Built: `python` alone, 198 s. What it costs a session:
+
+   | | `python` today | with `cc` and `ninja` |
+   | --- | ---: | ---: |
+   | snapshot | 47,320,780 bytes | 173,588,803 bytes |
+   | `amy install python` on `default`, local server | 0.7 to 0.9 s | 2.6 to 3.0 s |
+   | files added | 1,551 | 3,505 |
+   | a saved session with it: changes, stored | 47.1 MB, 14.6 MB | 173.4 MB, 49.6 MB |
+
+   Measured on it: `npm run test:demos -- python`, where "python on
+   default" is `amy install python` alone with `cc` absent before: Chromium
+   200.3 s, Firefox 199.4 s.
+   Until the round, `amy install python cc ninja` is what the README, the
+   index and the test say, and it works (cheap part).
 
 Designs, not code:
 
@@ -220,8 +240,8 @@ Designs, not code:
    the rows first and skips pins the record holds, and `amy` fetches each
    row's snapshot from `packages@0`. `qwen3.5-4b` is then four rows and a
    description, the shards have none and leave the index, `amy install cargo`
-   no longer restores a Rust that is there, and item 1 costs `python` no
-   bytes. It changes `src/dollyfile.c`, `src/commands/amy.c` and the
+   no longer restores a Rust that is there, and item 2 adds nothing to
+   `python`'s snapshot. It changes `src/dollyfile.c`, `src/commands/amy.c` and the
    artifact's receipt: every image rebuilds, one round.
    Until then the four shards stay: Pi's `/local` installs all four itself.
    Removing the model, which the owner named as the alternative, is a
