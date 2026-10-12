@@ -1,8 +1,8 @@
 # tmux
 
 tmux 3.8 compiled inside Dolly from the pinned release. Each pane is a
-pseudo-terminal of `pty@0`, a prototype host module
-([`host/pty/dolly-pty-0.wat`](../../host/pty/dolly-pty-0.wat)).
+pseudo-terminal of `pty@0`
+([process model](../../docs/process-model.md#pseudo-terminals)).
 
 ## Images
 
@@ -36,25 +36,22 @@ puts an editor beside a shell.
 - [`Dollyfile-tmux`](Dollyfile-tmux): states what upstream's `configure`
   scripts would find; builds NetBSD's libterminfo (its tables written by its
   own scripts with `nbperf` and `tic` compiled in the same recipe),
-  libevent's core over `poll`, and tmux; then runs a server, a pane and a
-  command typed into it.
-- [`tmux-dolly.patch`](tmux-dolly.patch), ten hunks:
-  - `client.c`: the client names its terminal `/dev/tty`, since `ttyname`
-    fails, and sends no descriptors, since `sockets@0` passes none.
-  - `server-client.c`: the server opens that terminal by name, on upstream's
-    Cygwin path, and does not refuse `/dev/tty` as its own: Dolly has one
-    terminal and no sessions.
+  libevent's core over `poll`, and tmux, linked with `-ldolly-sockets` and
+  `-ldolly-pty`; then runs a server, a pane and a command typed into it.
+- [`tmux-dolly.patch`](tmux-dolly.patch), eight hunks:
+  - `client.c`: the client sends no descriptors, since `sockets@0` passes
+    none.
+  - `server-client.c`: the server opens the client's terminal by the name
+    the client gives, `/dev/tty`, on upstream's Cygwin path, and does not
+    refuse that name as its own: Dolly has one terminal and no sessions.
   - `server.c`: without a server tmux says how to start one, instead of
-    forking; `waitpid` is asked without `WUNTRACED`, which Dolly refuses.
+    forking.
   - `spawn.c`, `job.c`, `tmux.h`: a pane's program and a job's command are
     started by `osdep_spawn` and `osdep_job` in place of `forkpty` and `fork`.
 - [`osdep-dolly.c`](osdep-dolly.c): tmux's operating system file for Dolly.
   `osdep_spawn` opens a pseudo-terminal and spawns the pane's program on its
   slave, with the pane's environment and no other descriptor of the server;
   `osdep_job` spawns a job's command on the socket tmux reads it from.
-- [`pty.c`](pty.c): `openpty` and `ioctl(TIOCSWINSZ)` over `pty@0`, which
-  ships no client yet; the packets are `host/pty/pty.h`, staged as
-  `dolly-pty.h`.
 
 ## Limits
 
