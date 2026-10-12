@@ -5,7 +5,7 @@ REQUIRES HOST runtime@0
 # The platform as a program sees it: the documents and machine contracts of
 # this release at their repository paths, so their links to each other work.
 # The rows are checked against the documents' links (test/platform-documents.test.mjs).
-SOURCE /v0.1.2/docs/process-model.md a289f00904437d9f13689ee450423aab2676db650b1e23a890f4cae942048195 /usr/share/doc/dolly/docs/process-model.md
+SOURCE /v0.1.2/docs/process-model.md 7ba466885b1c8b7dc8b996d03e0dab75c7744a69d2a0953b171dce102ee9754c /usr/share/doc/dolly/docs/process-model.md
 SOURCE /v0.1.2/docs/browser-stack.md 2944e47cd37225b0729452455d762054021a50c09a87c1254af8d2b1fbb6a335 /usr/share/doc/dolly/docs/browser-stack.md
 SOURCE /v0.1.2/docs/slop.md 63eed39c0dc495f4be624571a6cb2ed652af39c4b5eb2b17dc9ea69a152484f1 /usr/share/doc/dolly/docs/slop.md
 SOURCE /v0.1.2/docs/display.md 899caac956383f6795adae9c67b5364197d709ba3da0dbb6e141fbf4e735664f /usr/share/doc/dolly/docs/display.md
@@ -15,10 +15,10 @@ SOURCE /v0.1.2/docs/http.md 5936786e22365406fc79b00db86feaf25c1c829db325f9295fb1
 SOURCE /v0.1.2/docs/sessions.md 116fb5d1535f39243029af1ad4b6796982da203f5493cbfd456d09fbef85ad9e /usr/share/doc/dolly/docs/sessions.md
 SOURCE /v0.1.2/docs/dollyfile.md c9cb878b49b0b383dcba3069a5dcbf7a17371768178b65ea3a2b6bcecae7c780 /usr/share/doc/dolly/docs/dollyfile.md
 SOURCE /v0.1.2/docs/architecture.md 426e04102b4c97517553efa7ee910d7462f44d67e9ae3e1ccfd76e96681d847b /usr/share/doc/dolly/docs/architecture.md
-SOURCE /v0.1.2/docs/browser-boundary.md 9a5a6bd46699fb2ea71a301b0aa4ab55c2a795977c74115cb3d1f49f95ee9573 /usr/share/doc/dolly/docs/browser-boundary.md
+SOURCE /v0.1.2/docs/browser-boundary.md 6f0122bdff16579a32b002af8202b1bc375e11098589190450d2d7f33fdc2f8a /usr/share/doc/dolly/docs/browser-boundary.md
 SOURCE /v0.1.2/docs/image-build-service.md 43bbcfcf7c5e7c8ce83f91c55b3c4bc0682651b2905ba35089b2b85b3b13efa9 /usr/share/doc/dolly/docs/image-build-service.md
 SOURCE /v0.1.2/abi/README.md 4a3caf8ffbf15cf7a4b4aaea5e1ec1f0278cd1df5e23b61d71cccef796f1788d /usr/share/doc/dolly/abi/README.md
-SOURCE /v0.1.2/host/README.md 18e1a5e6b4f40496f513dd294992543fe36cdb64124bcb0d4a3e1e5839ecca9d /usr/share/doc/dolly/host/README.md
+SOURCE /v0.1.2/host/README.md 50d4cca069d7536374122031c002efc373a8b79659d255d7b2177d8b25a2eea6 /usr/share/doc/dolly/host/README.md
 SOURCE /v0.1.2/abi/dolly-browser-0.wat f3e8ac03887ef766d983ff7fb9263faff1310455fec47caad50628a589be827a /usr/share/doc/dolly/abi/dolly-browser-0.wat
 SOURCE /v0.1.2/abi/dolly-host-0.wat 7d1a02e3317086c06ca022e917d6d8537d9a005e9804e5ffdf256dc7d70c8671 /usr/share/doc/dolly/abi/dolly-host-0.wat
 SOURCE /v0.1.2/abi/dolly-image-0.wat 9a16a6472d26ee6ca5d7a67a474a1723745b3eefaf585bd292d115725bf44d6a /usr/share/doc/dolly/abi/dolly-image-0.wat
@@ -36,6 +36,8 @@ SOURCE /v0.1.2/host/download/dolly-download-0.wat 6aacfaf743af4bc16ce3099e006836
 SOURCE /v0.1.2/host/dso/dolly-dso-0.wat c7ec277a279bf43f660ae802ddfb3e2c8a8f211cde3492efccca9842496661a6 /usr/share/doc/dolly/host/dso/dolly-dso-0.wat
 SOURCE /v0.1.2/host/gpu/dolly-gpu-0.wat 2dc0bed0e75621938eac9e7d65c1575dbd666bb24ada4e176a1ef1bf1b9f2ab7 /usr/share/doc/dolly/host/gpu/dolly-gpu-0.wat
 SOURCE /v0.1.2/host/http/dolly-http-0.wat d15733708906375e1f717b447d5d743d7c6562a7fe8bc44ec2cf018acb960f12 /usr/share/doc/dolly/host/http/dolly-http-0.wat
+SOURCE /v0.1.2/host/pty/dolly-pty-0.wat 711407713902cef02d468e86f68f8e09c41bda562fd1e2291c6dd2ff1f5ca7ac /usr/share/doc/dolly/host/pty/dolly-pty-0.wat
+SOURCE /v0.1.2/host/pty/dolly-pty-supervisor-0.wat cce1edb921a3d4f93c3c2d94e51fc009bf659d85336349b880730df3294e2ca4 /usr/share/doc/dolly/host/pty/dolly-pty-supervisor-0.wat
 SOURCE /v0.1.2/host/snapshot/dolly-snapshot-0.wat 952a3f794788c0a59c57c0e61b182036794fa84fa6e91787f3cf7f5a54b00f2a /usr/share/doc/dolly/host/snapshot/dolly-snapshot-0.wat
 SOURCE /v0.1.2/host/sockets/dolly-sockets-0.wat 9be4f7cb45d09c2e442033f8ce283c1ce5d04d1538918540740423a29443fbe4 /usr/share/doc/dolly/host/sockets/dolly-sockets-0.wat
 SOURCE /v0.1.2/host/threads/dolly-threads-0.wat b900fd7380154710aad9bfe76cd4ee69a73de31a7265b5cb81f1008e1e19d003 /usr/share/doc/dolly/host/threads/dolly-threads-0.wat

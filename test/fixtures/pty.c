@@ -2,6 +2,7 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <poll.h>
+#include <pty.h>
 #include <signal.h>
 #include <spawn.h>
 #include <stdio.h>
@@ -13,7 +14,7 @@
 #include <termios.h>
 #include <unistd.h>
 #include <dolly/process.h>
-#include "dolly-pty.h"
+#include <dolly/pty.h>
 
 #define CHECK(condition) do { if (!(condition)) { \
   fprintf(stderr, "PTY FAIL line %d: %s (errno %d)\n", __LINE__, #condition, errno); \
@@ -243,6 +244,38 @@ static int spared(void) {
   return 0;
 }
 
+/* What the libc gives a program that asked: openpty, a master's size through
+ * ioctl, the one name a terminal has, and waitpid asked for stopped children
+ * too. */
+static int libc(void) {
+  int master, slave, status;
+  char name[64];
+  struct winsize size = {7, 9, 0, 0};
+  CHECK(openpty(&master, &slave, name, NULL, &size) == 0 && strncmp(name, "/dev/pts/", 9) == 0);
+  CHECK(ioctl(slave, TIOCGWINSZ, &size) == 0 && size.ws_row == 7 && size.ws_col == 9);
+  size.ws_row = 11;
+  size.ws_col = 13;
+  CHECK(ioctl(master, TIOCSWINSZ, &size) == 0);
+  CHECK(ioctl(slave, TIOCGWINSZ, &size) == 0 && size.ws_row == 11 && size.ws_col == 13);
+  CHECK(ioctl(slave, TIOCSWINSZ, &size) == -1 && errno == EPERM);
+  CHECK(ioctl(STDIN_FILENO, TIOCSWINSZ, &size) == -1 && errno == EPERM);
+  CHECK(strcmp(ttyname(slave), "/dev/tty") == 0 && strcmp(ttyname(STDIN_FILENO), "/dev/tty") == 0);
+  CHECK(ttyname(master) == NULL && errno == ENOTTY);
+  const pid_t child = spawn_on(slave, "terminal");
+  CHECK(close(slave) == 0);
+  expect(master, "ready\r\n");
+  CHECK(write(master, "q", 1) == 1);
+  CHECK(waitpid(child, &status, WUNTRACED) == child && WIFEXITED(status) && WEXITSTATUS(status) == 0);
+  return 0;
+}
+
+/* Without the client openpty is the libc's own, which finds no /dev/ptmx. */
+static int unlinked(void) {
+  int master, slave;
+  CHECK(openpty(&master, &slave, NULL, NULL, NULL) == -1 && errno == ENOENT);
+  return 0;
+}
+
 enum { FLOOD_BYTES = 4 * DOLLY_PTY_OUTPUT_BYTES + 5 };
 
 /* On a slave: writes more than the master's side holds. */
@@ -311,6 +344,8 @@ int main(int argc, char **argv) {
   if (strcmp(mode, "pair") == 0) return pair();
   if (strcmp(mode, "program") == 0) return program();
   if (strcmp(mode, "terminal") == 0) return terminal();
+  if (strcmp(mode, "libc") == 0) return libc();
+  if (strcmp(mode, "unlinked") == 0) return unlinked();
   if (strcmp(mode, "flow") == 0) return flow();
   if (strcmp(mode, "flood") == 0) return flood();
   if (strcmp(mode, "spared") == 0) return spared();

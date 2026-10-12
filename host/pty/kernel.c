@@ -3,9 +3,9 @@
 // are read. The slave also answers the terminal request, so a program that
 // holds it has a terminal as it has the display's.
 #include "process-kernel.h"
-#include "pty.h"
 
 #include <dolly/process.h>
+#include <dolly/pty.h>
 #include <dolly/runtime.h>
 #include <errno.h>
 #include <stdint.h>

@@ -2,7 +2,7 @@
 
 Every ordinary command runs in a fresh private wasm64 memory and Worker. The
 kernel ([`process-kernel.c`](../src/process-kernel.c)) owns files, open-file
-descriptions, pipes, local sockets, process records, signals and the terminal; processes
+descriptions, pipes, local sockets, pseudo-terminals, process records, signals and the terminal; processes
 inherit handles and values, never another address space. The call path is in
 [architecture](architecture.md#system-calls); packet layouts are in
 [`process.h`](../include/dolly/process.h) and each [host module](../host/README.md)'s header.
@@ -95,8 +95,10 @@ sequenceDiagram
 - Opening `/dev/stdin`, `/dev/stdout` or `/dev/stderr` duplicates the caller's
   descriptor 0, 1 or 2.
 - `/dev/tty` opens the terminal for reading and writing. There are no sessions,
-  so it is every process's controlling terminal.
-- `poll` covers files, pipes, sockets and the terminal; signals wake it with `EINTR`.
+  so it is every process's controlling terminal, except a process on a
+  [pseudo-terminal](#pseudo-terminals), which opens that. `ttyname` of a
+  terminal answers `/dev/tty`.
+- `poll` covers files, pipes, sockets, pseudo-terminals and the terminal; signals wake it with `EINTR`.
 - Terminal reads return raw input bytes. `ICANON`/`ECHO` round-trip through termios
   without a line discipline; `OPOST`/`ONLCR` map LF to CRLF on output. While
   `ISIG` is set (the default), Ctrl+C sends SIGINT to the foreground; a program
@@ -179,6 +181,52 @@ that asked.
   `SO_TYPE` and `SO_ERROR`. A socket call on another descriptor fails with
   `ENOTSOCK`.
 
+## Pseudo-terminals
+
+`pty@0` ([`host/pty/dolly-pty-0.wat`](../host/pty/dolly-pty-0.wat),
+[`host/pty/kernel.c`](../host/pty/kernel.c)): a terminal one program gives
+another, as a terminal multiplexer gives each of its panes. The bytes stay in
+kernel memory, as a pipe's do, and the module has no browser import.
+
+A program asks when it links: `cc ... -ldolly-pty` takes `openpty` from the
+module's client, which records `pty@0`, and the image that keeps the program
+declares `REQUIRES HOST pty@0`. Without it `openpty` is libc's, which finds
+no `/dev/ptmx` and fails with `ENOENT`. The program on the slave links
+nothing and declares nothing: any program built for Dolly runs on one.
+
+- `openpty` gives two descriptors, a master and a slave, neither inherited by
+  a spawned program unless it is mapped. Each reads, writes, polls,
+  duplicates and closes like a pipe: what is written to the master is the
+  slave's input (4 KiB unread), what is written to the slave is read from the
+  master (64 KiB). A write takes what fits; a master that does not wait gets
+  `EAGAIN` for the rest.
+- The slave is a terminal to the program that holds it, with a mode and a
+  size of its own: `isatty`, termios and `TIOCGWINSZ` answer as for the
+  display's terminal, with the same discipline (no input editing or echo,
+  `OPOST` with `ONLCR`, `ISIG`). A process whose descriptor 0, 1 or 2 is a
+  slave opens it as `/dev/tty`. The master is not a terminal.
+- `ioctl(TIOCSWINSZ)` on the master sets the size, and the processes that
+  hold the slave get `SIGWINCH`.
+- While `ISIG` is set, byte 3 written to the master is `SIGINT` for the
+  processes that hold the slave. The one the others descend from is spared
+  while it has them: a shell, while its command runs. Dolly has no process
+  groups to name a foreground with.
+- Closing the master is `SIGHUP` to the processes that hold the slave, end of
+  file to their reads and `EIO` to their writes. A read of the master returns
+  end of file once every descriptor of the slave is closed and its output is
+  read.
+- The supervisor delivers these signals as it delivers a kill
+  ([`dolly-pty-supervisor-0.wat`](../host/pty/dolly-pty-supervisor-0.wat)):
+  a program that does not answer `SIGINT` or `SIGHUP` within 500 ms is ended.
+- The kernel holds at most 32 pseudo-terminals; one more fails with `ENFILE`.
+  One goes with the last descriptor of its two ends, so exit, a kill and a
+  failed Worker release what a process held.
+- A shell on a slave publishes no command result to the page: the page
+  follows the shell at the display's terminal.
+- Not there: `/dev/ptmx` and a path for a slave (`posix_openpt`, `ptsname`
+  and `forkpty` fail), sessions and controlling-terminal ioctls. The name
+  `openpty` returns, `/dev/pts/N`, is for display.
+
 ## Spawn and wait
 
 - Spawn inherits no descriptors, the standard streams, or all non-CLOEXEC
@@ -189,8 +237,9 @@ that asked.
   A child starts with default dispositions and an empty signal mask; other file
   actions, a session, process group or scheduler, and a non-empty mask return
   `ENOTSUP`. There is no `fork` or `exec`.
-- `waitpid` accepts a child PID, `-1` or `0`. Wait records distinguish signal
-  termination from exit: `exit(130)` is not SIGINT.
+- `waitpid` accepts a child PID, `-1` or `0`, with `WNOHANG` and `WUNTRACED`:
+  no child ever stops. Wait records distinguish signal termination from exit:
+  `exit(130)` is not SIGINT.
 - Timed spawns carry an absolute monotonic deadline at most one day away; the
   supervisor ends the child with status 124 even inside a pure CPU loop.
 - `SPAWN_FOREGROUND` and `SPAWN_INTERACTIVE` are explicit roles. Ctrl+C with

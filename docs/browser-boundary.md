@@ -70,6 +70,7 @@ Worker URL.
 | `buttons@0` | `env.dolly_buttons_dispatch` | A strip of page DOM below the terminal, for one process: a caption (480 bytes) and 12 buttons (24-byte labels) set as text, 16 queued presses. The clipboard's text (4,096 bytes) is read only inside the user's press of the page's own Paste button, which the guest cannot name. What the process types into the terminal stays in Wasm | [`host/buttons/`](../host/buttons/module.json) |
 | `threads@0` | supervisor | Worker per thread of an admitted executable: 16 per process, 64 total | [`host/threads/`](../host/threads/module.json) |
 | `sockets@0` | none | Local stream sockets between processes of the kernel, in its memory: 128 sockets, 16 unaccepted connections a listener, 64 KiB a direction. No network family and nothing outside Wasm | [`host/sockets/`](../host/sockets/module.json) |
+| `pty@0` | supervisor | Pseudo-terminals between processes of the kernel, in its memory: 32 of them, 4 KiB of input and 64 KiB of output each. The supervisor delivers the signals one raises. Nothing outside Wasm | [`host/pty/`](../host/pty/module.json) |
 | `dso@0` | process Worker of an executable that records it | Instantiate Wasm the process supplies into its own memory and function table, and call its table entries with signatures chosen at run time; no import, no kernel entry, nothing outside that process | [`host/dso/`](../host/dso/module.json) ([`process.mjs`](../host/dso/process.mjs)) |
 | `build@0` | reserved URL via `http@0` | Start a disposable image build that writes the image cache | [`host/build/`](../host/build/module.json) |
 | `packages@0` | reserved URL via `http@0` | Serve the verified snapshot of a published package, one at a time, 64 per page | [`host/packages/`](../host/packages/module.json) |
@@ -198,7 +199,7 @@ Worker URL.
 - Denied HTTP never reaches Fetch; credentials, redirects, limits and
   cancellation stay enforceable after arbitrary guest mailbox writes.
 - Span, frame, input, file-transfer and decompression bounds fail closed.
-- Filesystem and process operations stay in Wasm, local sockets among them;
+- Filesystem and process operations stay in Wasm, local sockets and pseudo-terminals among them;
   unsupported fork, network socket and host operations fail without fallbacks.
 - Fixed loaders cannot resolve guest-selected URLs, paths or JavaScript.
 - Process failure and forced termination preserve the kernel and shell.

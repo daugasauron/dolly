@@ -300,9 +300,11 @@ int getnameinfo(const struct sockaddr *address, socklen_t address_length,
   return EAI_FAIL;
 }
 
-/* -1 and 0 wait for any child; Dolly has no other process groups. */
+/* -1 and 0 wait for any child; Dolly has no other process groups. No child
+ * stops, so one that asks for stopped children too (WUNTRACED) is told of
+ * every change there is. */
 pid_t dolly_waitpid(pid_t pid, int *status, int options) {
-  if ((options & ~WNOHANG) != 0 || pid < -1) {
+  if ((options & ~(WNOHANG | WUNTRACED)) != 0 || pid < -1) {
     errno = pid < -1 ? ECHILD : ENOTSUP;
     return -1;
   }
