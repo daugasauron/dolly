@@ -207,11 +207,13 @@ the released compiler on this machine's x86-64: 1.4 times.
   no way to say anything (no print, no trap), so a failed `assert` ends the
   invocation silently; the text of a rejected shader or pipeline reaches the
   page's indicator and not the program, which gets an errno (a block over
-  the device's limit is `EIO`, an aliased buffer `EINVAL`); buffers come
+  the device's limit was `EIO`, an aliased buffer is `EINVAL`); buffers come
   back only through a mapped staging buffer, 64 KiB a call (4 MiB in 10 ms
   in Chrome); a dispatch is at most 65,535 workgroups a dimension and 2^20
-  in all. `CAPABILITIES` reports the device's workgroup limits;
-  `DeviceContext` does not read them yet to refuse a block by name.
+  in all. `CAPABILITIES` reports the device's limits, and `DeviceContext`
+  reads them to refuse by name a block that is too large (256 threads here)
+  and a kernel with more buffers than the device binds (10 here, the scalar
+  arguments being one).
 - **One run not attributed**: at 00:14 the scratch GPU runner, with Chrome
   on the NVIDIA GPU, the `kernels` object and a six-job compile beside it,
   had not returned after ten minutes and was killed. The same object passed

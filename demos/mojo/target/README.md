@@ -103,8 +103,10 @@ drivers that are not open source, so this one is new, with its names:
   one more buffer. A kernel loads 8, 16 and 32 bits and stores 32: storing
   less would rewrite the word around it, which another thread may be writing.
 - `block_dim` is the WebGPU workgroup size, set when the pipeline is created:
-  at most 256 threads on a default device, and a larger block raises when
-  enqueued. `grid_dim` is the workgroup count.
+  at most 256 threads on a default device. `grid_dim` is the workgroup
+  count. A block the device does not admit raises when enqueued, as does a
+  kernel with more buffers than it binds (10 where measured, the scalar
+  arguments being one of them).
 - Control flow is printed as a block number in a loop, so any branch or loop
   compiles; calls are inlined; a local array of a fixed size is a WGSL
   array. The text must fit `gpu@0`'s 128 KiB for a

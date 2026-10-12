@@ -436,6 +436,19 @@ FILE /tmp/mojo-runtime/gpu.c
     }
     
     int64_t mojo_gpu_synchronize(void) { return dolly_gpu_wait(&g) < 0 ? -errno : 0; }
+    
+    /* What the device admits of a launch: the threads of a block, its x, y and
+     * z, the workgroups of a dimension, the storage buffers of a kernel. */
+    int64_t mojo_gpu_limits(uint32_t limits[6]) {
+      static uint32_t known[6];
+      if (!known[0]) {
+        if (dolly_gpu_capabilities(&g) < 72) return errno ? -errno : -EIO;
+        memcpy(known, g.reply + 44, 20);
+        memcpy(known + 5, g.reply + 68, 4);
+      }
+      memcpy(limits, known, sizeof known);
+      return 0;
+    }
 
 SLOP cc -O2 -Wall -Wextra -Werror -c /tmp/mojo-runtime/runtime.c -o /tmp/mojo-runtime/runtime.o
 SLOP cc -O2 -Wall -Wextra -Werror -c /tmp/mojo-runtime/gpu.c -o /tmp/mojo-runtime/gpu.o
