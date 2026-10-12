@@ -22,23 +22,31 @@ def horner(
     result[unsafe_offset=i] = sum
 
 
+def mix(value: Int32, i: Int, negate: Bool) -> Int32:
+    """Integer arithmetic in 32, 16 and 8 bits, signed and unsigned, for the
+    kernel and for the host."""
+    var mixed = (value * 7 - 3) // 2 + (value % 5) + (value >> 1) ^ Int32(i)
+    mixed += Int32(Int8(value) * 3 // 2) + Int32(UInt8(value) >> 2)
+    mixed += Int32(Int16(value * 301) % 7) + Int32(UInt16(value) * 5)
+    if Int8(value) < Int8(i):
+        mixed += Int32(min(UInt8(value), UInt8(200)))
+    if negate:
+        mixed = -mixed
+    return max(mixed, -1000)
+
+
 def integers(
     values: Pointer[Int32, MutAnyOrigin],
     result: Pointer[Int32, MutAnyOrigin],
     n: UInt32,
     negate: Bool,
 ):
-    """Integer arithmetic, signed and unsigned, and a two-dimensional grid."""
+    """Integers on a two-dimensional grid."""
     var column = thread_idx.x + block_idx.x * block_dim.x
     var row = thread_idx.y + block_idx.y * block_dim.y
     var i = row * (grid_dim.x * block_dim.x) + column
-    if UInt32(i) >= n:
-        return
-    var value = values[unsafe_offset=i]
-    var mixed = (value * 7 - 3) // 2 + (value % 5) + (value >> 1) ^ Int32(i)
-    if negate:
-        mixed = -mixed
-    result[unsafe_offset=i] = max(mixed, -1000)
+    if UInt32(i) < n:
+        result[unsafe_offset=i] = mix(values[unsafe_offset=i], i, negate)
 
 
 def function(which: Int, v: Float32) -> Float32:
@@ -100,7 +108,7 @@ def main() raises:
     var b = ctx.enqueue_create_buffer[DType.int32](n)
     var ints = List[Int32](length=n, fill=0)
     for i in range(n):
-        ints[i] = Int32(i * 37 - 500)
+        ints[i] = Int32(i * 2741 - 70000)
     a.enqueue_copy_from(ints.unsafe_ptr())
     ctx.enqueue_function[integers](
         a, b, UInt32(n), True, grid_dim=Dim(2, 4), block_dim=Dim(4, 2)
@@ -108,11 +116,7 @@ def main() raises:
     var bs = b.to_host()
     var wrong_integers = 0
     for i in range(n):
-        var value = ints[i]
-        var mixed = -(
-            (value * 7 - 3) // 2 + (value % 5) + (value >> 1) ^ Int32(i)
-        )
-        if bs[i] != max(mixed, -1000):
+        if bs[i] != mix(ints[i], i, True):
             wrong_integers += 1
 
     ctx.enqueue_function[functions](x, y, n, grid_dim=1, block_dim=64)
