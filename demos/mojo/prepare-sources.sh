@@ -45,9 +45,11 @@ if has_image mojo-build; then
   opentelemetry_dir="$(bash scripts/fetch-pinned-source.sh opentelemetry)"
   # The packages of the compiler's closure and the standard library: no tests,
   # docs, examples, other tools or max/. Of {fmt}, xxHash and OpenTelemetry,
-  # what is compiled or included.
+  # what is compiled or included. The target's patches (one names Bazel's
+  # list of LLVM backends) and its package gpu.
   mojo_inputs=()
-  for path in BUILD.bazel LICENSE bazel/internal/gen_dialect_checksum.py Config Mojo/BUILD.bazel Mojo/include Mojo/lib \
+  for path in BUILD.bazel LICENSE bazel/internal/gen_dialect_checksum.py bazel/public-patches/llvm_project.bzl \
+      Config Mojo/BUILD.bazel Mojo/include Mojo/lib \
       Mojo/tools/mojo Mojo/stdlib/std Support/BUILD.bazel Support/include Support/lib Support/tools/driver-tblgen \
       AsyncRT/BUILD.bazel AsyncRT/include AsyncRT/lib Cache/BUILD.bazel Cache/include Cache/lib \
       Init/BUILD.bazel Init/include Init/lib; do
@@ -60,5 +62,6 @@ if has_image mojo-build; then
   done
   node scripts/build-source-tar.mjs "${static_dir}/mojo/mojo.tar.gz" "${mojo_inputs[@]}" \
     demos/mojo/port /tmp/mojo/port demos/mojo/bazel-to-cmake.py /tmp/mojo/bazel-to-cmake.py \
-    demos/mojo/mojo-dolly.patch /tmp/mojo/mojo-dolly.patch
+    demos/mojo/mojo-dolly.patch /tmp/mojo/mojo-dolly.patch \
+    demos/mojo/target/patches /tmp/mojo/target/patches demos/mojo/target/gpu /tmp/mojo/target/gpu
 fi

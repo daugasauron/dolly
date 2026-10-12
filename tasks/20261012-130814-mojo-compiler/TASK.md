@@ -124,3 +124,35 @@ failed. ORC, JITLink, MCJIT, MLIR and Clang's Basic library had not been
 compiled in Dolly before. `ROCDLDialect.cpp` and `NVVMDialect.cpp` compile
 while little else does, because a top-level Makefile runs its goals one after
 another: the browser held 5.4 GB then.
+
+`mojo-build`, first run (2026-10-13 00:07, Chrome, against that `mojo-llvm`,
+without the target's patches): the generator ran in Dolly's Python, CMake
+configured in 7 s, `make -k -j3` compiled and linked in 855 s, the whole image
+took 922 s. No unit failed and the link had no undefined symbol. `mojo` is
+95,654,254 bytes and printed `Mojo 1.1.0 (c6fa49f7)` in the recipe. In a
+session (`system` plus that file, Chrome 151 headless): `mojo --version`
+prints the same; `mojo build h.mojo` parses and stops at `unable to locate
+module 'std'` (none was installed); `mojo run h.mojo` fails with ``error:
+`mojo run` compiles and executes a program in one process, which WebAssembly
+does not allow; build it with `mojo build` `` and status 1; `mojo` and `mojo
+repl` fail with upstream's `unable to resolve the lldb path`. The browser
+held under 7.3 GB while compiling.
+
+## The Dolly configuration, measured natively (2026-10-13)
+
+A second native LLVM as `mojo-llvm` configures it (no threads, Zstandard) and
+the compiler from the tree with both patch sets (this task's and
+`demos/mojo/target/patches`): `mojo precompile` of the standard library 12.8 s
+and 399 MB; `mojo build --target-triple wasm64-unknown-dolly --emit object
+hello.mojo` 2.5 s and 171 MB, a 3,534 byte Wasm object, the same bytes twice.
+`strace -f` counts no `clone` in that build and 15 in the build with threads:
+the single-thread work queue is the default and nothing starts a thread.
+
+## Disk (2026-10-13 00:30)
+
+The native check took 29 GB under `build/mojo-native` at its peak (two LLVM
+build trees of 6.9 and 6.3 GB, three compiler trees of 2.6 GB). The finished
+trees are deleted; 6.8 GB remain (one LLVM as headers and archives, one
+compiler tree) and nothing more is to be built natively. The images add
+about 4 GB of snapshots to `dist/` (`mojo-llvm` 731 MB, `mojo-build` under
+1 GB, each built twice tonight).

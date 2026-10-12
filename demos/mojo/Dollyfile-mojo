@@ -1,0 +1,40 @@
+DOLLY 7
+APPLICATION mojo
+REQUIRES HOST runtime@0
+REQUIRES HOST display@0
+REQUIRES HOST input@0
+REQUIRES HOST download@0
+REQUIRES HOST gpu@0
+REQUIRES HOST http@0
+REQUIRES HOST snapshot@0
+REQUIRES HOST upload@0
+
+# A shell with the Mojo compiler that mojo-build built in Dolly and what its
+# programs link against: mojo build NAME.mojo makes a Dolly executable.
+FROM /v0.1.2/demos/mojo/Dollyfile-mojo-runtime f82129e78ae976ea9cbca6e836f0b7212728d0d0f13b6a4031a19ca82b79ee47
+COPY /v0.1.2/demos/mojo/Dollyfile-mojo-build a5ccc15163cdefcab94faf33de03ab1931de2ad72ef9c7495711e1950fc6ae9e /opt/mojo/bin/mojo /usr/bin/mojo
+COPY /v0.1.2/demos/mojo/Dollyfile-mojo-build a5ccc15163cdefcab94faf33de03ab1931de2ad72ef9c7495711e1950fc6ae9e /opt/mojo/lib/mojo /usr/lib/mojo
+COPY /v0.1.2/demos/mojo/Dollyfile-mojo-build a5ccc15163cdefcab94faf33de03ab1931de2ad72ef9c7495711e1950fc6ae9e /usr/share/licenses/mojo /usr/share/licenses/mojo
+REQUIRES TOOL cc
+REQUIRES LIB mojo-rt
+REQUIRES LIB mojo-gpu
+REQUIRES LIB dolly-gpu
+# Where the compiler looks for packages, and what it hands cc to link a
+# program: the runtime in place of upstream's shared CompilerRT, and the
+# libraries of the package gpu, of which a link takes what the program uses.
+FILE /etc/modular/modular.cfg
+    [mojo-max]
+    package_root = /usr
+    import_path = /usr/lib/mojo
+    compilerrt_path = /usr/lib/libmojo-rt.a
+    shared_libs = -lmojo-gpu,-ldolly-gpu
+EXPORTS TOOL mojo
+EXPORTS FOLDER mojo-packages /usr/lib/mojo
+EXPORTS FOLDER mojo-licenses /usr/share/licenses/mojo
+
+FILE /tmp/mojo-check/hello.mojo
+    def main():
+        print("hello from mojo")
+SLOP CWD /tmp/mojo-check slop -c 'mojo build hello.mojo && test "$(./hello)" = "hello from mojo"'
+
+ENTRY /bin/foreground -i /bin/slop

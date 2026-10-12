@@ -14,7 +14,10 @@ files.
   code generator, and Zstandard. WebAssembly is the only backend. It keeps
   `/opt/mojo-llvm`: `llvm-tblgen`, `mlir-tblgen`, the archives and the headers.
 - `mojo-build`: build-only: the compiler, compiled and linked from those
-  archives. It keeps `/opt/mojo`.
+  archives with the target's patches, and the standard library and the
+  package `gpu` that it precompiles. It keeps `/opt/mojo`.
+- `mojo`: a shell with that compiler and `mojo-runtime`'s libraries:
+  `mojo build NAME.mojo` makes a Dolly executable. Requires WebGPU.
 - `mojo-runtime`: What a Mojo object links against, and its `DeviceContext` over WebGPU. Requires WebGPU.
 
 Programs for Dolly, their runtime and GPU kernels: [target](target/README.md).
