@@ -169,6 +169,22 @@ Found on the way:
 - `llvm-runtimes` is a package whose description starts "build-only": it is
   in `amy list` and nobody installs it.
 
+## An accident with a shared file (2026-10-13, 00:01 to 00:13 JST)
+
+The snapshots in the worktrees' `dist/` are hard links of one file. Putting a
+saved image back into this tree's `dist/` with `cp` wrote through the link:
+from 00:01:25 to 00:13:28 `dolly-python-system.snapshot` in `work/rust`,
+`work/tmux`, `work/mojo-target` and this tree held the held `python` package
+(173,588,803 bytes) under the old metadata. `work/mojo` met the size mismatch
+and rebuilt `python` at 00:12:42, to the same bytes as before. The file was
+restored through this tree's link from that rebuild: 47,320,780 bytes,
+SHA-256 `e43077ab9a258f94…`, which the integration tree's metadata names. Of
+the 92 snapshots this tree shares, no other was modified tonight (modification
+times and sizes; `default`'s digest too). A test or a build in those trees
+that read the `python` image in those twelve minutes failed, or rebuilt it,
+for this reason. A snapshot goes into `dist/` by `ln -f` or a rename, never
+by `cp`.
+
 ## Left (no round needed)
 
 - `xonotic-build` and `wine-build` `INSTALL` `libpng` and `freetype` in place
