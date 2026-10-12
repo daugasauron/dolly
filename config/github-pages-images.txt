@@ -9,3 +9,4 @@ audio-sdk
 wine
 neovim
 speech-to-text
+ninja

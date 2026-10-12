@@ -35,3 +35,4 @@ llvm
 wine
 speech-to-text
 pi-phone
+ninja
