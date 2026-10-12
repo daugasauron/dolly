@@ -60,7 +60,12 @@ node demos/mojo/target/test/mojo-target-browser.mjs
   COMPILER-RT -lm`, which Dolly's `cc` can serve once the compiler runs here
   with `libmojo-rt.a` as its CompilerRT.
 - `CompilationTarget.is_dolly()` is the standard library's name for the
-  platform; it is neither `is_linux()` nor `is_macos()`.
+  platform; it is neither `is_linux()` nor `is_macos()`. Files, paths,
+  time, `subprocess.run` and `Process.run` work; Dolly has no FIFO, hard
+  link or password database, and `dlopen` is not ported. Of the 261 programs
+  of upstream's own test suite 211 run as built
+  ([the task](../../../tasks/20261012-130814-mojo-programs/TASK.md) has the
+  table).
 - The runtime is one thread: a task runs when something waits for it, and
   `parallelism_level()` is 1. Nothing public in the standard library of this
   tag starts parallel work (`parallelize` is in `max`). Python

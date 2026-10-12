@@ -33,6 +33,13 @@ of it is in `demos/mojo/target/` and described in its README:
 - The recipe `demos/mojo/Dollyfile-mojo-runtime` and one line of
   `demos/mojo/README.md` are in that directory because recipes and their
   descriptions are found only there: merge the README with yours.
+- To prove the pair in the `mojo` image: `mojo build` each of
+  `demos/mojo/target/test/fixtures/*.mojo` there and expect the lines that
+  `demos/mojo/target/test/mojo-target-browser.mjs` greps for (it links the
+  same programs from cross-compiled objects). `tasks.mojo` needs the
+  target's tail calls and the four GPU programs the package `gpu`; with
+  `--disable-gpu --enable-unsafe-webgpu` headless Chrome runs them on
+  SwiftShader.
 
 ## As filed
 
@@ -183,6 +190,15 @@ the released compiler on this machine's x86-64: 1.4 times.
   gamma and Bessel functions), and host-side
   `map_to_host`/`HostBuffer`/`TileTensor` (upstream's examples use `layout`,
   which is in `max/`).
+- **What `gpu@0` lacks for this, written down and not added**: a kernel has
+  no way to say anything (no print, no trap), so a failed `assert` ends the
+  invocation silently; the text of a rejected shader or pipeline reaches the
+  page's indicator and not the program, which gets an errno (a block over
+  the device's limit is `EIO`, an aliased buffer `EINVAL`); buffers come
+  back only through a mapped staging buffer, 64 KiB a call (4 MiB in 10 ms
+  in Chrome); a dispatch is at most 65,535 workgroups a dimension and 2^20
+  in all. `CAPABILITIES` reports the device's workgroup limits;
+  `DeviceContext` does not read them yet to refuse a block by name.
 - **One run not attributed**: at 00:14 the scratch GPU runner, with Chrome
   on the NVIDIA GPU, the `kernels` object and a six-job compile beside it,
   had not returned after ten minutes and was killed. The same object passed
