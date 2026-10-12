@@ -205,6 +205,57 @@ static int spared(void) {
   return 0;
 }
 
+enum { FLOOD_BYTES = 4 * DOLLY_PTY_OUTPUT_BYTES + 5 };
+
+/* On a slave: writes more than the master's side holds. */
+static int flood(void) {
+  char bytes[1000];
+  for (size_t written = 0; written < FLOOD_BYTES;) {
+    const size_t count = FLOOD_BYTES - written < sizeof(bytes) ? FLOOD_BYTES - written : sizeof(bytes);
+    for (size_t index = 0; index < count; ++index) bytes[index] = (char)('a' + (written + index) % 26);
+    if (write(1, bytes, count) != (ssize_t)count) return 3;
+    written += count;
+  }
+  return 0;
+}
+
+/* Neither direction loses a byte: the slave's input takes what it holds and
+ * refuses the rest of a master that does not wait, and a program that writes
+ * more than the master's side holds waits for its reader. */
+static int flow(void) {
+  int ends[2], status;
+  char block[DOLLY_PTY_INPUT_BYTES + 100];
+  struct pollfd query;
+  CHECK(pty_open(DOLLY_PTY_CLOEXEC | DOLLY_PTY_NONBLOCK, ends) == 0);
+  memset(block, 'i', sizeof(block));
+  CHECK(write(ends[0], block, sizeof(block)) == DOLLY_PTY_INPUT_BYTES);
+  CHECK(write(ends[0], block, 1) == -1 && errno == EAGAIN);
+  query = (struct pollfd){ends[0], POLLOUT, 0};
+  CHECK(poll(&query, 1, 0) == 0);
+  for (size_t size = 0; size < DOLLY_PTY_INPUT_BYTES;) {
+    const ssize_t count = read(ends[1], block, sizeof(block));
+    CHECK(count > 0 && block[0] == 'i');
+    size += (size_t)count;
+  }
+  CHECK(poll(&query, 1, 0) == 1 && write(ends[0], block, 1) == 1);
+
+  const pid_t child = spawn_on(ends[1], "flood");
+  CHECK(close(ends[1]) == 0);
+  size_t size = 0;
+  for (;;) {
+    query = (struct pollfd){ends[0], POLLIN, 0};
+    CHECK(poll(&query, 1, 5000) == 1);
+    const ssize_t count = read(ends[0], block, sizeof(block));
+    CHECK(count >= 0);
+    if (count == 0) break;
+    for (ssize_t index = 0; index < count; ++index) CHECK(block[index] == (char)('a' + (size + (size_t)index) % 26));
+    size += (size_t)count;
+  }
+  CHECK(size == FLOOD_BYTES);
+  CHECK(waitpid(child, &status, 0) == child && WIFEXITED(status) && WEXITSTATUS(status) == 0);
+  return 0;
+}
+
 /* Takes every pseudo-terminal the kernel holds; however this ends gives them back. */
 static int quota(const char *end) {
   int ends[2], count = 0;
@@ -222,6 +273,8 @@ int main(int argc, char **argv) {
   if (strcmp(mode, "pair") == 0) return pair();
   if (strcmp(mode, "program") == 0) return program();
   if (strcmp(mode, "terminal") == 0) return terminal();
+  if (strcmp(mode, "flow") == 0) return flow();
+  if (strcmp(mode, "flood") == 0) return flood();
   if (strcmp(mode, "spared") == 0) return spared();
   if (strcmp(mode, "waiter") == 0) return waiter();
   if (strcmp(mode, "sleeper") == 0) return write(1, "sleeping\n", 9), sleep(30), 5;

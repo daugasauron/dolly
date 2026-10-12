@@ -16,6 +16,7 @@ await browserTest("pty", { image: "system", server: { fixtures } }, async ({ ser
   await status("/tmp/pty pair");
   await status("/tmp/pty program");
   await status("/tmp/pty spared");
+  await status("/tmp/pty flow");
 
   // One process can take every pseudo-terminal. Exit, abort (its Worker
   // fails) and forced termination of a CPU loop each give them back.
