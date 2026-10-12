@@ -1,6 +1,6 @@
 # Everything that makes sense is a package amy installs
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 305
 - TAGS: packages,amy,images
 
@@ -296,3 +296,18 @@ Designs, not code:
    `Unknown compiler(s)`. Slop's `command not found` could name the package
    from the index's `TOOL` rows; that is `src/slop.c`, the seed. The pager
    half is done (`c6e8ac47`: Git prints straight through without `less`).
+
+## Closed (2026-10-13)
+
+The done-when is met on main `b6c3d716`: the list has a decision per row;
+sixteen packages were made (the fifteen above and `mojo-compiler`), the
+catalog has 49; `test/amy-browser.mjs` installs each into `default` and uses
+it, or names the test that does, and fails by name for a package without a
+check. It passes in Chromium and Firefox in the integration tree, where
+every image is built. `transcribe` and `voice` are refused by `default`,
+naming the host module it does not declare, and run in the images that
+declare it.
+
+"Left" and "Held for a catalog round" above are not done and still wanted:
+they are the list of [the next catalog round](../20261012-220109-next-round/TASK.md),
+which keeps this task's numbers and designs by reference.
