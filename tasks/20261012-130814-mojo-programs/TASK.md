@@ -243,7 +243,7 @@ the released compiler on this machine's x86-64: 1.4 times.
   barrier in uniform control flow, which a block number in a loop never is.
   The threads meet at one WGSL barrier in a loop around that one, read
   there through `workgroupUniformLoad` whether any of them has a block left,
-  and go on: two WGSL barriers for each of the kernel's.
+  and go on past `workgroupBarrier` and `storageBarrier`.
 - **The runtime is new C over libc, not upstream's CompilerRT**: see the next
   section.
 
