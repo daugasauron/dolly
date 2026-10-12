@@ -83,6 +83,15 @@ text from a kernel's escape times, and a 24 by 24 matrix product).
 Screenshots of the three browsers after these runs are in
 `build/mojo-target-evidence/` of the worktree.
 
+Checked beyond the fixtures, with the host computing the same Mojo function
+(scratch programs, all three browsers): 8- and 16-bit arithmetic over 4,800
+values, twelve float comparisons with and without a NaN, pointers that
+advance in a loop or are chosen between two places of one buffer, a local
+array, loads from buffers of bytes and of 16-bit integers, thirteen math
+functions within 7e-6 on the GPUs. One thing was wrong and is fixed:
+`isnan` printed as `x != x` is false on SwiftShader, because WGSL lets a
+compiler assume there is no NaN; the target now reads the bits.
+
 How it is built, what a kernel may contain and what is refused:
 `demos/mojo/target/README.md`. Refusals measured: a `Float64` kernel fails
 the build with `WGSL has no such type:  %11 = load double`; an `Int64`

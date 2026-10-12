@@ -94,10 +94,10 @@ index 8bdcb15..42aea40 100644
    }
 diff --git a/Mojo/lib/Compiler/ObjectCompiler/Target/Dolly/DollyBackend.cpp b/Mojo/lib/Compiler/ObjectCompiler/Target/Dolly/DollyBackend.cpp
 new file mode 100644
-index 0000000..95f1640
+index 0000000..95df355
 --- /dev/null
 +++ b/Mojo/lib/Compiler/ObjectCompiler/Target/Dolly/DollyBackend.cpp
-@@ -0,0 +1,902 @@
+@@ -0,0 +1,906 @@
 +//===----------------------------------------------------------------------===//
 +// Added for Dolly, a POSIX-like userspace for wasm64 in the browser.
 +//
@@ -392,6 +392,10 @@ index 0000000..95f1640
 +    return "(" + a + relation + b + ")";
 +  }
 +
++  static std::string isNaN(const std::string &value) {
++    return "((bitcast<u32>(" + value + ") & 2147483647u) > 2139095040u)";
++  }
++
 +  std::string compare(const FCmpInst &instruction) {
 +    if (!instruction.getOperand(0)->getType()->isFloatTy())
 +      fail("WGSL has no such type", &instruction);
@@ -409,10 +413,10 @@ index 0000000..95f1640
 +    case CmpInst::FCMP_OLT: return is(" < ");
 +    case CmpInst::FCMP_OLE: return is(" <= ");
 +    case CmpInst::FCMP_ONE: return "(" + is(" < ") + " || " + is(" > ") + ")";
-+    case CmpInst::FCMP_ORD:
-+      return "((" + a + " == " + a + ") && (" + b + " == " + b + "))";
-+    case CmpInst::FCMP_UNO:
-+      return "((" + a + " != " + a + ") || (" + b + " != " + b + "))";
++    // Whether a value is a NaN is read from its bits: WGSL lets a compiler
++    // assume there is none, and SwiftShader then makes `x != x` false.
++    case CmpInst::FCMP_ORD: return "!(" + isNaN(a) + " || " + isNaN(b) + ")";
++    case CmpInst::FCMP_UNO: return "(" + isNaN(a) + " || " + isNaN(b) + ")";
 +    case CmpInst::FCMP_UEQ: return "!(" + is(" < ") + " || " + is(" > ") + ")";
 +    case CmpInst::FCMP_UGT: return "!" + is(" <= ");
 +    case CmpInst::FCMP_UGE: return "!" + is(" < ");

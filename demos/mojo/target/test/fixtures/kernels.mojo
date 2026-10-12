@@ -1,6 +1,6 @@
 from std.bit import byte_swap, rotate_bits_left
 from std.collections.array import Array
-from std.math import acos, atan, cos, erf, exp, log, sin, sinh, sqrt, tan
+from std.math import acos, atan, cos, erf, exp, isnan, log, sin, sinh, sqrt, tan
 
 from gpu import block_dim, block_idx, global_idx, grid_dim, thread_idx
 from gpu.host import DeviceContext, Dim
@@ -82,7 +82,10 @@ def function(which: Int, v: Float32) -> Float32:
         return sin(v * 5) + cos(v * 5)
     elif which == 9:
         return Float32(Int(v * 100))
-    return log(v - 2)  # of a negative number: not a number
+    var undefined = log(v - 2)  # of a negative number: not a number
+    if which == 10:
+        return Float32(7) if isnan(undefined) else Float32(0)
+    return undefined
 
 
 def functions(
@@ -93,7 +96,7 @@ def functions(
     """Math functions and conversions, through a call."""
     var i = global_idx.x
     if i < n:
-        result[unsafe_offset=i] = function(i % 11, x[unsafe_offset=i])
+        result[unsafe_offset=i] = function(i % 12, x[unsafe_offset=i])
 
 
 def main() raises:
@@ -143,7 +146,7 @@ def main() raises:
     ys = y.to_host()
     var wrong_functions = 0
     for i in range(n):
-        var expected = function(i % 11, xs[i])
+        var expected = function(i % 12, xs[i])
         if expected != expected:
             if ys[i] == ys[i]:
                 wrong_functions += 1
