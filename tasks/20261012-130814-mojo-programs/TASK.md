@@ -31,8 +31,9 @@ found.
   -ldolly-gpu` and the package directory `demos/mojo/target/gpu` on its
   import path.
 - `mojo run`, `mojo repl` and `mojo debug` go through LLVM's JIT
-  (`Mojo/lib/ExecutionEngine`), which Wasm cannot have. Decision: `mojo run`
-  becomes build, spawn, wait; the other two are refused by name.
+  (`Mojo/lib/ExecutionEngine`), which Wasm cannot have: refuse them by name
+  (the compiler's side did, pointing `mojo run` at `mojo build`; a `mojo
+  run` that builds, spawns and waits would be the convenience, not built).
 - The recipe `demos/mojo/Dollyfile-mojo-runtime` and one line of
   `demos/mojo/README.md` are in that directory because recipes and their
   descriptions are found only there: merge the README with yours.

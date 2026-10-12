@@ -32,8 +32,9 @@ flowchart LR
 
 ## Build and test
 
-There is no compiler in Dolly yet, so programs are cross-compiled by a native
-compiler built from the patched source (45 minutes at six jobs, 10 GB):
+The test takes its programs as objects from a native compiler built from the
+patched source (45 minutes at six jobs, 10 GB), so it needs no compiler in
+Dolly; [the `mojo` image](../README.md) compiles the same sources there:
 
 ```sh
 mkdir -p build/mojo-target && cd build/mojo-target
@@ -56,9 +57,9 @@ node demos/mojo/target/test/mojo-target-browser.mjs
 - The driver takes `--target-triple wasm64-unknown-dolly`; the CPU and the
   features are then those of every object `cc` makes, and Wasm tail calls,
   which coroutines need and every browser with 64-bit memories has.
-  `--emit object` is what works; the driver's own link step runs `cc ARCHIVE
-  COMPILER-RT -lm`, which Dolly's `cc` can serve once the compiler runs here
-  with `libmojo-rt.a` as its CompilerRT.
+  The driver links by running `cc ARCHIVE COMPILER-RT -lm`: in Dolly that is
+  Dolly's `cc` with `libmojo-rt.a` as the CompilerRT; a native compiler has
+  no such `cc`, so it stops at `--emit object`.
 - `CompilationTarget.is_dolly()` is the standard library's name for the
   platform; it is neither `is_linux()` nor `is_macos()`. Files, paths,
   time, `subprocess.run` and `Process.run` work; Dolly has no FIFO, hard
@@ -70,10 +71,10 @@ node demos/mojo/target/test/mojo-target-browser.mjs
   `parallelism_level()` is 1. Nothing public in the standard library of this
   tag starts parallel work (`parallelize` is in `max`). Python
   interoperation is absent, so a program that uses it does not link.
-- `mojo run` and the REPL execute through LLVM's JIT, which Wasm cannot have:
-  code is a module the browser instantiates, not memory a process writes. In
-  Dolly `mojo run` is to be `mojo build` and a spawn of the result; the REPL
-  and `mojo debug` are refused.
+- `mojo run`, the REPL and `mojo debug` execute through LLVM's JIT, which
+  Wasm cannot have: code is a module the browser instantiates, not memory a
+  process writes. In Dolly they fail saying so; `mojo build` and running the
+  result is what there is.
 
 ## A kernel
 
