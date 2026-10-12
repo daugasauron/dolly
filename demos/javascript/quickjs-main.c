@@ -873,20 +873,24 @@ static JSValue js_dolly_realpath(JSContext *context, JSValueConst this_value,
   return result;
 }
 
+/* Everything the terminal has, in one read once the first byte is there: a
+ * key's escape sequence cut by a short buffer loses its end to a program
+ * that gives up on an unfinished sequence, as Pi does after 50 ms. */
 static JSValue js_dolly_read_raw(JSContext *context, JSValueConst this_value,
                                  int argc, JSValueConst *argv) {
   (void)this_value;
   int32_t timeout = 1000;
   if (argc >= 1 && JS_ToInt32(context, &timeout, argv[0]) < 0) return JS_EXCEPTION;
   if (timeout < 0) timeout = -1;
-  unsigned char bytes[256];
+  static unsigned char bytes[65536];
   size_t length = 0;
-  int byte = dolly_terminal_read_raw_timeout(timeout);
+  const int byte = dolly_terminal_read_raw_timeout(timeout);
   if (byte >= 0) {
     bytes[length++] = (unsigned char)byte;
-    while (length < sizeof(bytes) &&
-           (byte = dolly_terminal_read_raw_timeout(0)) >= 0) {
-      bytes[length++] = (unsigned char)byte;
+    struct pollfd waiting = {STDIN_FILENO, POLLIN, 0};
+    if (poll(&waiting, 1, 0) == 1 && (waiting.revents & POLLIN) != 0) {
+      const ssize_t count = read(STDIN_FILENO, bytes + length, sizeof(bytes) - length);
+      if (count > 0) length += (size_t)count;
     }
   }
   return JS_NewUint8ArrayCopy(context, bytes, length);
