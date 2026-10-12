@@ -1,0 +1,432 @@
+DOLLY 7
+TOOLCHAIN mojo-runtime
+REQUIRES HOST runtime@0
+REQUIRES HOST display@0
+REQUIRES HOST input@0
+REQUIRES HOST download@0
+REQUIRES HOST gpu@0
+REQUIRES HOST http@0
+REQUIRES HOST snapshot@0
+REQUIRES HOST upload@0
+
+# What a Mojo object links against in Dolly: cc NAME.o -lmojo-rt, and
+# -lmojo-gpu -ldolly-gpu for a program that uses the package gpu.
+FROM /v0.1.2/Dollyfile-gpu-sdk 1c89c5226ff3d5c118ac86e0df869ee68add2c419db6f33723e7f3984810679b
+REQUIRES TOOL   cc
+REQUIRES TOOL   ar
+REQUIRES HEADER gpu
+REQUIRES LIB    dolly-gpu
+
+FILE /tmp/mojo-runtime/runtime.c
+    /* The compiler runtime of a Mojo program in Dolly: the KGEN_CompilerRT_*
+     * functions that the standard library and the compiler's output call.
+     *
+     * Upstream's is Mojo/lib/CompilerRT, over AsyncRT's thread pool, tcmalloc,
+     * Support and LLVMSupport. This one is its interface over libc for one
+     * thread: a task runs when something waits for it, and the parallelism level
+     * is 1. A string argument is a pointer and a length, as the compiler emits a
+     * two-word struct for wasm64. Python interoperation is absent, so a program
+     * that uses it does not link. */
+    #include <stdarg.h>
+    #include <stdbool.h>
+    #include <stdint.h>
+    #include <stdio.h>
+    #include <stdlib.h>
+    #include <string.h>
+    #include <time.h>
+    
+    /* Memory */
+    
+    void *KGEN_CompilerRT_AlignedAlloc(int64_t alignment, int64_t size) {
+      void *memory = NULL;
+      if (alignment <= 0) alignment = 16;
+      if (alignment < (int64_t)sizeof(void *)) alignment = sizeof(void *);
+      return posix_memalign(&memory, (size_t)alignment, size > 0 ? (size_t)size : 1) ? NULL : memory;
+    }
+    
+    void KGEN_CompilerRT_AlignedFree(void *memory) { free(memory); }
+    
+    /* Globals, destroyed latest first */
+    
+    struct global {
+      struct global *next;
+      size_t length;
+      void *value;
+      void (*destroy)(void *);
+      char name[];
+    };
+    
+    enum { INDEXED_GLOBALS = 3 };
+    static struct global *globals;
+    static struct { void *value; void (*destroy)(void *); } indexed[INDEXED_GLOBALS];
+    
+    void *KGEN_CompilerRT_GetOrCreateGlobal(const char *name, size_t length, void *(*create)(void),
+                                            void (*destroy)(void *)) {
+      for (struct global *entry = globals; entry; entry = entry->next) {
+        if (entry->length == length && !memcmp(entry->name, name, length)) return entry->value;
+      }
+      if (!create) return NULL;
+      void *value = create();
+      struct global *entry = malloc(sizeof *entry + length);
+      if (!entry) abort();
+      *entry = (struct global){globals, length, value, destroy};
+      memcpy(entry->name, name, length);
+      globals = entry;
+      return value;
+    }
+    
+    void *KGEN_CompilerRT_GetGlobalOrNull(const char *name, size_t length) {
+      return KGEN_CompilerRT_GetOrCreateGlobal(name, length, NULL, NULL);
+    }
+    
+    static void *inserted;
+    static void *take_inserted(void) { return inserted; }
+    
+    void KGEN_CompilerRT_InsertGlobal(const char *name, size_t length, void *value) {
+      inserted = value;
+      KGEN_CompilerRT_GetOrCreateGlobal(name, length, take_inserted, NULL);
+    }
+    
+    void *KGEN_CompilerRT_GetOrCreateGlobalIndexed(size_t index, void *(*create)(void), void (*destroy)(void *)) {
+      if (index >= INDEXED_GLOBALS) abort();
+      if (!indexed[index].value) {
+        indexed[index].value = create();
+        indexed[index].destroy = destroy;
+      }
+      return indexed[index].value;
+    }
+    
+    void KGEN_CompilerRT_DestroyGlobals(void) {
+      while (globals) {
+        struct global *entry = globals;
+        globals = entry->next;
+        if (entry->destroy && entry->value) entry->destroy(entry->value);
+        free(entry);
+      }
+      for (size_t index = 0; index < INDEXED_GLOBALS; index++) {
+        void *value = indexed[index].value;
+        indexed[index].value = NULL;
+        if (value && indexed[index].destroy) indexed[index].destroy(value);
+      }
+    }
+    
+    /* Arguments */
+    
+    struct string { const char *bytes; size_t length; };
+    struct argument_list { struct string *list; size_t count; };
+    static struct string no_arguments = {"", 0}, *arguments = &no_arguments;
+    static size_t argument_count = 1;
+    
+    void KGEN_CompilerRT_SetArgV(int count, char **values) {
+      struct string *list = calloc(count > 0 ? (size_t)count : 1, sizeof *list);
+      if (!list) abort();
+      for (int i = 0; i < count; i++) list[i] = (struct string){values[i], strlen(values[i])};
+      arguments = list;
+      argument_count = (size_t)count;
+    }
+    
+    void KGEN_CompilerRT_GetArgV(struct argument_list *result) {
+      result->list = arguments;
+      result->count = argument_count;
+    }
+    
+    /* The system */
+    
+    size_t KGEN_CompilerRT_NumPhysicalCores(void) { return 1; }
+    size_t KGEN_CompilerRT_NumLogicalCores(void) { return 1; }
+    size_t KGEN_CompilerRT_NumPerformanceCores(void) { return 1; }
+    
+    int KGEN_CompilerRT_fprintf(FILE *stream, const char *format, ...) {
+      va_list values;
+      va_start(values, format);
+      int result = vfprintf(stream, format, values);
+      va_end(values);
+      return result;
+    }
+    
+    /* A fault in Wasm is a trap: the process ends with status 126 and one line
+     * from Dolly's supervisor. There is no signal to print a stack trace from. */
+    void KGEN_CompilerRT_PrintStackTraceOnFault(void) {}
+    
+    /* As upstream answers while stack traces on errors are not configured. */
+    int KGEN_CompilerRT_GetStackTrace(char **text, unsigned depth) {
+      (void)text;
+      (void)depth;
+      return 0;
+    }
+    
+    void KGEN_CompilerRT_SetAsanAllocators(void) {}
+    
+    /* Tasks: one queue, run by whoever waits */
+    
+    struct task {
+      struct task *next;
+      void (*resume)(void *);
+      void *handle;
+    };
+    
+    struct chain {
+      bool ready;
+      struct task *waiting;
+    };
+    
+    static struct task *first_task, **last_task = &first_task;
+    static char device;
+    static void *current_device;
+    
+    static void enqueue(struct task *task) {
+      task->next = NULL;
+      *last_task = task;
+      last_task = &task->next;
+    }
+    
+    static bool run_one(void) {
+      struct task *task = first_task;
+      if (!task) return false;
+      first_task = task->next;
+      if (!first_task) last_task = &first_task;
+      void (*resume)(void *) = task->resume;
+      void *handle = task->handle;
+      free(task);
+      resume(handle);
+      return true;
+    }
+    
+    static struct task *new_task(void (*resume)(void *), void *handle) {
+      struct task *task = malloc(sizeof *task);
+      if (!task) abort();
+      *task = (struct task){NULL, resume, handle};
+      return task;
+    }
+    
+    void KGEN_CompilerRT_AsyncRT_InitializeChain(struct chain **chain) {
+      *chain = calloc(1, sizeof **chain);
+      if (!*chain) abort();
+    }
+    
+    void KGEN_CompilerRT_AsyncRT_DestroyChain(struct chain **chain) {
+      free(*chain);
+      *chain = NULL;
+    }
+    
+    void KGEN_CompilerRT_AsyncRT_Complete(struct chain **chain) {
+      (*chain)->ready = true;
+      while ((*chain)->waiting) {
+        struct task *task = (*chain)->waiting;
+        (*chain)->waiting = task->next;
+        enqueue(task);
+      }
+    }
+    
+    void KGEN_CompilerRT_AsyncRT_Wait(struct chain **chain) {
+      while (!(*chain)->ready) {
+        if (!run_one()) {
+          fputs("mojo: waiting for a task that nothing will complete\n", stderr);
+          abort();
+        }
+      }
+    }
+    
+    bool KGEN_CompilerRT_AsyncRT_Wait_Timeout(struct chain **chain, int64_t nanoseconds) {
+      struct timespec start, now;
+      clock_gettime(CLOCK_MONOTONIC, &start);
+      while (!(*chain)->ready && run_one()) {
+        clock_gettime(CLOCK_MONOTONIC, &now);
+        if ((now.tv_sec - start.tv_sec) * 1000000000 + (now.tv_nsec - start.tv_nsec) >= nanoseconds) break;
+      }
+      return (*chain)->ready;
+    }
+    
+    void KGEN_CompilerRT_AsyncRT_Execute(void (*resume)(void *), void *handle, int64_t worker) {
+      (void)worker;
+      enqueue(new_task(resume, handle));
+    }
+    
+    void KGEN_CompilerRT_AsyncRT_AndThen(void (*resume)(void *), struct chain **chain, void *handle) {
+      struct task *task = new_task(resume, handle);
+      if ((*chain)->ready) {
+        enqueue(task);
+      } else {
+        task->next = (*chain)->waiting;
+        (*chain)->waiting = task;
+      }
+    }
+    
+    void *KGEN_CompilerRT_AsyncRT_GetOrCreateCPUDevice(void) { return current_device = &device; }
+    void *KGEN_CompilerRT_AsyncRT_GetCurrentCPUDevice(void) { return current_device; }
+    void KGEN_CompilerRT_AsyncRT_ReleaseCPUDevice(void *released) { (void)released; }
+    uint32_t KGEN_CompilerRT_AsyncRT_ParallelismLevel(void) { return 1; }
+    
+    /* A spin waiter waits for another task: here, by running one. */
+    void *KGEN_CompilerRT_AsyncRT_InitializeSpinWaiter(void) { return &device; }
+    void KGEN_CompilerRT_AsyncRT_SpinWaiter_Wait(void *waiter) {
+      (void)waiter;
+      run_one();
+    }
+    void KGEN_CompilerRT_AsyncRT_DestroySpinWaiter(void *waiter) { (void)waiter; }
+
+FILE /tmp/mojo-runtime/gpu.c
+    /* The device side of the Mojo package `gpu` (gpu.host.DeviceContext) over
+     * Dolly's gpu@0. A kernel is WGSL as the compiler's webgpu target prints it:
+     * pointer parameters are storage buffers bound in order, the other parameters
+     * are 32-bit slots of one more buffer, block_dim is the workgroup size. */
+    #include <dolly/gpu.h>
+    #include <errno.h>
+    #include <stdint.h>
+    #include <string.h>
+    
+    enum { STORAGE = 128 | 4 | 8, READBACK = 1 | 8, CHUNK = 512 * 1024 };
+    
+    static dolly_gpu g;
+    static uint64_t next = 1;
+    
+    static int64_t done(void) { return dolly_gpu_batch(&g) < 0 ? -errno : 0; }
+    
+    int64_t mojo_gpu_open(void) {
+      if (g.scope) return 0;
+      return dolly_gpu_open(&g, 0, 0) < 0 ? -errno : 0;
+    }
+    
+    int64_t mojo_gpu_buffer(uint64_t bytes) {
+      uint64_t id = next++;
+      dolly_gpu_begin(&g);
+      dolly_gpu_buffer(&g, id, (bytes + 3) & ~(uint64_t)3, STORAGE);
+      int64_t error = done();
+      return error ? error : (int64_t)id;
+    }
+    
+    int64_t mojo_gpu_release(uint64_t id) {
+      dolly_gpu_begin(&g);
+      void *record = dolly_gpu_record(&g, DOLLY_GPU_RELEASE, 16);
+      memcpy((char *)record + 8, &id, 8);
+      return done();
+    }
+    
+    int64_t mojo_gpu_write(uint64_t buffer, uint64_t offset, const void *data, uint64_t bytes) {
+      for (uint64_t at = 0; at < bytes; at += CHUNK) {
+        uint32_t size = bytes - at < CHUNK ? (uint32_t)(bytes - at) : CHUNK;
+        dolly_gpu_begin(&g);
+        char *record = dolly_gpu_record(&g, DOLLY_GPU_WRITE_BUFFER, 32 + size);
+        uint64_t target = offset + at;
+        uint32_t data_offset = 32;
+        memcpy(record + 8, &buffer, 8);
+        memcpy(record + 16, &target, 8);
+        memcpy(record + 24, &data_offset, 4);
+        memcpy(record + 28, &size, 4);
+        memcpy(record + 32, (const char *)data + at, size);
+        int64_t error = done();
+        if (error) return error;
+      }
+      return 0;
+    }
+    
+    int64_t mojo_gpu_read(uint64_t buffer, uint64_t offset, void *data, uint64_t bytes) {
+      uint64_t staging = next++, size = (bytes + 3) & ~(uint64_t)3;
+      dolly_gpu_begin(&g);
+      dolly_gpu_buffer(&g, staging, size, READBACK);
+      char *copy = dolly_gpu_record(&g, DOLLY_GPU_COPY_BUFFER, 48);
+      memcpy(copy + 8, &buffer, 8);
+      memcpy(copy + 16, &staging, 8);
+      memcpy(copy + 24, &offset, 8);
+      memcpy(copy + 40, &size, 8);
+      dolly_gpu_submit(&g);
+      dolly_gpu_map(&g, staging, size);
+      int64_t error = done();
+      for (uint64_t at = 0; !error && at < bytes; at += DOLLY_GPU_REPLY_BYTES) {
+        uint64_t part = bytes - at < DOLLY_GPU_REPLY_BYTES ? bytes - at : DOLLY_GPU_REPLY_BYTES;
+        if (dolly_gpu_read(&g, staging, at, part) != (int)part) error = errno ? -errno : -EIO;
+        else memcpy((char *)data + at, g.reply, part);
+      }
+      int64_t released = mojo_gpu_release(staging);
+      return error ? error : released;
+    }
+    
+    /* One shader module per kernel text and one pipeline per block_dim of it. */
+    static struct { const char *code; uint64_t shader, pipeline; uint32_t block[3]; } kernels[64];
+    
+    static int64_t pipeline(const char *code, uint64_t bytes, const uint32_t block[3]) {
+      uint64_t shader = 0;
+      unsigned free = 64;
+      for (unsigned i = 0; i < 64; i++) {
+        if (!kernels[i].code) { if (free == 64) free = i; continue; }
+        if (kernels[i].code != code) continue;
+        shader = kernels[i].shader;
+        if (!memcmp(kernels[i].block, block, sizeof kernels[i].block)) return (int64_t)kernels[i].pipeline;
+      }
+      if (free == 64) return -ENOSPC;
+      dolly_gpu_begin(&g);
+      if (!shader) {
+        shader = next++;
+        char *record = dolly_gpu_record(&g, DOLLY_GPU_CREATE_SHADER, 24 + bytes);
+        uint32_t length = (uint32_t)bytes;
+        memcpy(record + 8, &shader, 8);
+        memcpy(record + 16, &length, 4);
+        memcpy(record + 24, code, bytes);
+      }
+      /* COMPUTE_CONSTANTS: the entry "kernel", then block_x, block_y, block_z. */
+      uint64_t id = next++;
+      char *record = dolly_gpu_record(&g, DOLLY_GPU_COMPUTE_CONSTANTS, 40 + 3 * 24);
+      uint32_t entry = 6, count = 3;
+      memcpy(record + 8, &id, 8);
+      memcpy(record + 16, &shader, 8);
+      memcpy(record + 24, &entry, 4);
+      memcpy(record + 28, &count, 4);
+      memcpy(record + 32, "kernel", 6);
+      for (unsigned axis = 0; axis < 3; axis++) {
+        char *constant = record + 40 + axis * 24;
+        uint32_t name = 7;
+        double value = block[axis];
+        memcpy(constant, &name, 4);
+        memcpy(constant + 8, &value, 8);
+        memcpy(constant + 16, "block_x", 7);
+        constant[22] += (char)axis;
+      }
+      int64_t error = done();
+      if (error) return error;
+      kernels[free].code = code;
+      kernels[free].shader = shader;
+      kernels[free].pipeline = id;
+      memcpy(kernels[free].block, block, sizeof kernels[free].block);
+      return (int64_t)id;
+    }
+    
+    int64_t mojo_gpu_launch(const char *code, uint64_t bytes, const uint32_t grid[3], const uint32_t block[3],
+                            const uint64_t *buffers, const uint64_t *sizes, uint32_t buffer_count,
+                            const uint32_t *slots, uint32_t slot_count) {
+      if (buffer_count + !!slot_count > DOLLY_GPU_MAX_BINDINGS) return -E2BIG;
+      int64_t compute = pipeline(code, bytes, block);
+      if (compute < 0) return compute;
+      uint64_t bound[DOLLY_GPU_MAX_BINDINGS], bound_sizes[DOLLY_GPU_MAX_BINDINGS], arguments = 0;
+      memcpy(bound, buffers, buffer_count * 8);
+      memcpy(bound_sizes, sizes, buffer_count * 8);
+      dolly_gpu_begin(&g);
+      if (slot_count) {
+        arguments = next++;
+        dolly_gpu_buffer(&g, arguments, slot_count * 4, STORAGE);
+        dolly_gpu_write(&g, arguments, slots, slot_count * 4);
+        bound[buffer_count] = arguments;
+        bound_sizes[buffer_count++] = slot_count * 4;
+      }
+      uint64_t group = next++;
+      dolly_gpu_group(&g, group, (uint64_t)compute, buffer_count, bound, bound_sizes);
+      char *record = dolly_gpu_record(&g, DOLLY_GPU_COMPUTE, 40);
+      memcpy(record + 8, &compute, 8);
+      memcpy(record + 16, &group, 8);
+      memcpy(record + 24, grid, 12);
+      dolly_gpu_submit(&g);
+      int64_t error = done();
+      if (error) return error;
+      error = mojo_gpu_release(group);
+      return error || !arguments ? error : mojo_gpu_release(arguments);
+    }
+    
+    int64_t mojo_gpu_synchronize(void) { return dolly_gpu_wait(&g) < 0 ? -errno : 0; }
+
+SLOP cc -O2 -Wall -Wextra -Werror -c /tmp/mojo-runtime/runtime.c -o /tmp/mojo-runtime/runtime.o
+SLOP cc -O2 -Wall -Wextra -Werror -c /tmp/mojo-runtime/gpu.c -o /tmp/mojo-runtime/gpu.o
+SLOP ar rcs /usr/lib/libmojo-rt.a /tmp/mojo-runtime/runtime.o
+SLOP ar rcs /usr/lib/libmojo-gpu.a /tmp/mojo-runtime/gpu.o
+EXPORTS LIB mojo-rt  /usr/lib/libmojo-rt.a
+EXPORTS LIB mojo-gpu /usr/lib/libmojo-gpu.a
+
+ENTRY /bin/foreground -i /bin/slop
