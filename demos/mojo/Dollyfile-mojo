@@ -10,27 +10,11 @@ REQUIRES HOST snapshot@0
 REQUIRES HOST upload@0
 
 # A shell with the Mojo compiler that mojo-build built in Dolly and what its
-# programs link against: mojo build NAME.mojo makes a Dolly executable.
-FROM /v0.1.2/demos/mojo/Dollyfile-mojo-runtime d5abff16680f85273af061cccb7ae8f29cefc7ec46b571499dcde8b0d603c52b
-COPY /v0.1.2/demos/mojo/Dollyfile-mojo-build e9c91943c7957ce95f78e4fcfd38e084d7e20576a1df17789ac1ca15668b2236 /opt/mojo/bin/mojo /usr/bin/mojo
-COPY /v0.1.2/demos/mojo/Dollyfile-mojo-build e9c91943c7957ce95f78e4fcfd38e084d7e20576a1df17789ac1ca15668b2236 /opt/mojo/lib/mojo /usr/lib/mojo
-COPY /v0.1.2/demos/mojo/Dollyfile-mojo-build e9c91943c7957ce95f78e4fcfd38e084d7e20576a1df17789ac1ca15668b2236 /usr/share/licenses/mojo /usr/share/licenses/mojo
-REQUIRES TOOL cc
-REQUIRES LIB mojo-rt
-REQUIRES LIB mojo-gpu
+# programs link against, on a base with a GPU: kernels run here.
+FROM /v0.1.2/Dollyfile-gpu-sdk 1c89c5226ff3d5c118ac86e0df869ee68add2c419db6f33723e7f3984810679b
+INSTALL /v0.1.2/demos/mojo/Dollyfile-mojo-compiler 851a1bb80d4a5342ea4d87de417642c0aad5afd78ec149da511131d5ae6d6ff8
+REQUIRES TOOL mojo
 REQUIRES LIB dolly-gpu
-# Where the compiler looks for packages, and what it hands cc to link a
-# program: the runtime in place of upstream's shared CompilerRT, and the
-# libraries of the package gpu, of which a link takes what the program uses.
-FILE /etc/modular/modular.cfg
-    [mojo-max]
-    package_root = /usr
-    import_path = /usr/lib/mojo
-    compilerrt_path = /usr/lib/libmojo-rt.a
-    shared_libs = -lmojo-gpu,-ldolly-gpu
-EXPORTS TOOL mojo
-EXPORTS FOLDER mojo-packages /usr/lib/mojo
-EXPORTS FOLDER mojo-licenses /usr/share/licenses/mojo
 
 # Programs to start from: the target's test programs, as they are tested.
 SOURCE /v0.1.2/dist/static/mojo/examples/hello.mojo d4e226386de30b33dba73929f423f9c820f482edc771bdd2b0a625b204fd25e5 /home/dolly/mojo/hello.mojo

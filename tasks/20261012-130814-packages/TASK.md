@@ -106,6 +106,7 @@ break out there.
 | `zero-ad-deps` | libpng (262 KB), FreeType (903 KB, headers 878 KB), which `xonotic-build` and `wine-build` copy with the same rows | **`libpng`**, **`freetype`** | made |
 | `zero-ad-deps` | Ogg, Vorbis, fmt, libxml2 | - | stay: upstream's CMake builds them here unchanged, one consumer |
 | `zero-ad-deps` | ICU, libsodium, ENet, Boost's headers (150 MB) | - | stay: one consumer; ICU's data file is 0 A.D.'s, ENet's transport is 0 A.D.'s relay |
+| `mojo-build`, `mojo-runtime` | the Mojo compiler (96 MB), its standard library and its package `gpu`, precompiled, `libmojo-rt.a`, `libmojo-gpu.a` | **`mojo-compiler`** | made (2026-10-13, `demo/mojo`): installs `cc`, through which `mojo build` links; the `mojo` image is `gpu-sdk` and this package; `mojo-llvm` is a build stage |
 | `wine-build`, `wine` | Wine, with GIMP and NetSurf | - | stays: a desktop the image boots into, with files under `/home/dolly` and `/etc`, not a program a session adds |
 
 ## Made (2026-10-12, branch `core/packages`)

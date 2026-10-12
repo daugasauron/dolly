@@ -56,9 +56,8 @@ programs in `~/mojo`; `mojo build mandelbrot.mojo && ./mandelbrot` there
 prints the set, computed by a kernel on WebGPU (02:47, Chrome headless). The
 test passed again in the three browsers with them (02:45).
 
-Not done, and not filed: no `PACKAGE` of the compiler for `amy install`
-(the image needs `gpu@0` only because the runtime's base is `gpu-sdk`);
-`mojo build --print-supported-targets` lists nothing.
+Not done, and not filed: `mojo build --print-supported-targets` lists
+nothing. The package asked for after the merge is below.
 
 Worked on branch `demo/mojo` (worktree `work/mojo`, commits `319c3a34` to
 `3c8efe02`, then `main` merged at `58d79184` in `d0189286`), night of
@@ -87,6 +86,39 @@ DOLLY_IMAGE_JOBS=1 DOLLY_BUILD_IMAGES=mojo-runtime,mojo work/slot.sh build npm r
 work/slot.sh browser npm run test:demos -- mojo                            # headless Chrome
 DISPLAY=:NNN work/slot.sh browser node demos/mojo/test/mojo-browser.mjs    # also Chrome and Firefox on the GPU
 ```
+
+## The package (2026-10-13, on main `1fd1bfea`)
+
+`mojo-compiler` (`demos/mojo/Dollyfile-mojo-compiler`) is a `PACKAGE` of
+`COPY` rows, as `rust` is: the compiler and `/usr/lib/mojo` out of
+`mojo-build`, `libmojo-rt.a` and `libmojo-gpu.a` out of `mojo-runtime`,
+`/etc/modular/modular.cfg` and the licences; it installs `cc`, through which
+`mojo build` links. It declares `runtime@0` alone. Built in 23 s,
+227,327,240 bytes. The name is upstream's for its package of the compiler
+without the developer tools (`Mojo/docs/site/faq.md`: "two Mojo packages:
+`mojo` and `mojo-compiler`"), which is what `docs/dollyfile.md` rules when an
+application has the product's name.
+
+The `mojo` application is now `gpu-sdk` and this package (35 s, 252,104,771
+bytes): no `COPY` row and no configuration of its own. `mojo-llvm`,
+`mojo-build` and `mojo-runtime` were not rebuilt, and no image input changed.
+
+On `default` (Chrome 151 headless, 04:39): `mojo` and `cc` are absent;
+`amy install mojo-compiler` reports 1,963 files and 226,779,725 bytes and the
+commands `ar c++ cc ld make mojo`; `mojo build hello.mojo && ./hello` prints
+`hello from mojo`. A program with a kernel (`saxpy.mojo`) builds and links
+there with status 0, and starting it fails with status 126 and `dolly:
+process 128 was refused: host module gpu@0 is not declared by this image
+(REQUIRES HOST)`: `default` has no `gpu@0`, and a package cannot add one.
+
+Tested (04:42 to 04:52): `node test/amy-browser.mjs` passes in Chromium and
+Firefox with the case `amy mojo-compiler alone` (a fresh `default` without
+`cc` and `mojo`; the install takes 1.9 s and 2.2 s; a hello is built and
+run), on a catalog of 58 reused images; the Mojo test passes on the `mojo`
+image that installs the package, in headless Chrome, Chrome on the NVIDIA
+GPU and Firefox; the source suite with the demos' tests passes (424).
+`config/domain-pages-images.txt` lists `mojo` and `mojo-compiler`. To build:
+`DOLLY_IMAGE_JOBS=1 DOLLY_BUILD_IMAGES=mojo-compiler,mojo work/slot.sh build npm run image`.
 
 ## Sources (2026-10-12)
 
