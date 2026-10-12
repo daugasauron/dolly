@@ -14,10 +14,10 @@ What a compiler built in Dolly must carry for its programs to run here; all
 of it is in `demos/mojo/target/` and described in its README. Take the
 patches, the package `gpu`, the runtime recipe and the fixtures together
 from the head of `demo/mojo-target`. `demo/mojo` merged them at `35771eb3`;
-since then `compiler.patch` changed in six commits (what a kernel may
-contain), `stdlib.patch` in one (asserts in kernels), the runtime recipe in
-three, and the `kernels` fixture needs all of them. Programs that are not
-kernels compile the same with either.
+everything after that commit is about kernels and `DeviceContext` (both
+patches, the runtime recipe, the package `gpu`), and the fixtures of the
+head need all of it. Programs that are not kernels compile the same with
+either.
 
 - Apply `patches/compiler.patch` and `patches/stdlib.patch` to the tag
   `mojo/v1.1.0`. The compiler patch needs LLVM's WebAssembly backend linked
@@ -43,7 +43,8 @@ kernels compile the same with either.
 - To prove the pair in the `mojo` image: `mojo build` each of
   `demos/mojo/target/test/fixtures/*.mojo` there and expect the lines that
   `demos/mojo/target/test/mojo-target-browser.mjs` greps for (it links the
-  same programs from cross-compiled objects). `tasks.mojo` needs the
+  same programs from cross-compiled objects), and upstream's
+  `hello_writing.mojo` as `cross-compile.sh` rewrites its import. `tasks.mojo` needs the
   target's tail calls and the four GPU programs the package `gpu`; with
   `--disable-gpu --enable-unsafe-webgpu` headless Chrome runs them on
   SwiftShader.
