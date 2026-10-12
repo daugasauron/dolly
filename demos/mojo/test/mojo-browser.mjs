@@ -1,8 +1,8 @@
 // The Mojo compiler that mojo-build compiled inside Dolly, in the mojo image:
 // it compiles in the session the programs demos/mojo/target cross-compiles,
 // and they run: the standard library, coroutines, kernels that DeviceContext
-// launches on WebGPU, and upstream's own GPU hello with the package's name
-// for max's. Usage: node demos/mojo/test/mojo-browser.mjs
+// launches on WebGPU and that print, and upstream's own two GPU hellos with
+// the package's name for max's. Usage: node demos/mojo/test/mojo-browser.mjs
 // Headless Chrome has a software adapter. With a GPU window on DISPLAY, Chrome
 // and the installed Firefox run it on the GPU as well.
 import assert from "node:assert/strict";
@@ -13,9 +13,9 @@ import { shellPrompt, writeCommand } from "../../browser.mjs";
 import { sourcePins } from "../../../scripts/upstreams.mjs";
 
 const root = new URL("../../../", import.meta.url);
-const programs = ["hello", "library", "tasks", "saxpy", "kernels", "mandelbrot"];
-const upstream = `.cache/modular-${(await sourcePins(root.pathname)).get("MODULAR").commit}/Mojo/docs/site/code/tools/notebooks/hello_writing.mojo`;
-const fixtures = { "hello_writing.mojo": upstream,
+const programs = ["hello", "library", "tasks", "saxpy", "kernels", "mandelbrot", "output"], upstream = ["hello_writing", "gpu_hello"];
+const notebooks = `.cache/modular-${(await sourcePins(root.pathname)).get("MODULAR").commit}/Mojo/docs/site/code/tools/notebooks`;
+const fixtures = { ...Object.fromEntries(upstream.map(name => [`${name}.mojo`, `${notebooks}/${name}.mojo`])),
   ...Object.fromEntries(programs.map(name => [`${name}.mojo`, `demos/mojo/target/test/fixtures/${name}.mojo`])) };
 // The installed Firefox is a snap with a private /tmp: its profile must live under $HOME.
 process.env.TMPDIR = new URL("build/mojo-test/", root).pathname;
@@ -52,8 +52,14 @@ try {
       await run("./tasks | grep -qx 'MOJO-TASKS 33 6'");
       await run("./saxpy | grep -qx 'MOJO-GPU webgpu 1000 1998.5'");
       await run("./kernels | grep -qx 'MOJO-KERNELS wrong: 0 0 0 0 4898230'");
-      await run(`curl -fsS ${server.origin}/fixture/hello_writing.mojo | sed 's/^from max\\.gpu\\.host import/from gpu.host import/' > upstream_hello.mojo`);
-      await run("mojo build upstream_hello.mojo && ./upstream_hello | grep -qx 'GPU responded: 👋, 🔥'");
+      for (const program of upstream) {
+        await run(`curl -fsS ${server.origin}/fixture/${program}.mojo | sed 's/^from max\\.gpu\\.host import/from gpu.host import/' > ${program}.mojo && mojo build ${program}.mojo`);
+      }
+      await run("./hello_writing | grep -qx 'GPU responded: 👋, 🔥'");
+      await run("./gpu_hello | grep -qx 'Hello from the GPU'");
+      // Each thread's line, the message of the assertion that ends thread 2, and what the others then stored.
+      await run("./output > output.txt && grep -qx 'thread 1 of 3 holds 1.25' output.txt" +
+        " && grep -q 'Assert Error: thread 2 stops here$' output.txt && grep -qx 'MOJO-OUTPUT \\[-1.0, -1.0, 2.25\\]' output.txt");
       await run("./mandelbrot > set.txt && grep -q '^ *[.:=+*#%@-]*@\\{40\\}' set.txt && grep -qx 'MOJO-MATMUL wrong: 0 of 576 6.0' set.txt");
       // The image's own copies of three of them, as its greeting says.
       await run("(cd ~/mojo && mojo build -o /tmp/mojo-test/shipped mandelbrot.mojo) && ./shipped | grep -qx 'MOJO-MATMUL wrong: 0 of 576 6.0'");

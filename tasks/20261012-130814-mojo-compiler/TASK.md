@@ -18,9 +18,10 @@ Done. The `mojo` image holds the compiler that `mojo-build` compiled and
 linked inside Dolly from pinned source (`mojo-llvm` before it: LLVM, MLIR,
 Clang's Basic library and Zstandard, also compiled inside Dolly), with the
 other task's targets and runtime. `node demos/mojo/test/mojo-browser.mjs`
-with `DISPLAY=:141` (03:05, with `demo/mojo-target` merged at `9558491e`,
-after `mojo-build` and `mojo` were rebuilt with its patches: `make -k -j3`
-603 s; 02:39 with it at `c2918333`; 02:22 at `35771eb3`):
+with `DISPLAY=:141` (03:23, with `demo/mojo-target` merged at `0cfaddd0`,
+after `mojo-runtime`, `mojo-build` and `mojo` were rebuilt with it:
+`make -k -j3` 649 s; 03:05 with it at `9558491e`, 02:39 at `c2918333`,
+02:22 at `35771eb3`):
 
 | Browser | Adapter | Result |
 | --- | --- | --- |
@@ -28,12 +29,14 @@ after `mojo-build` and `mojo` were rebuilt with its patches: `make -k -j3`
 | Chrome 151.0.7922.71 on Xvfb, Vulkan | NVIDIA (`nvidia blackwell`) | passed |
 | Firefox 157.0.1 on Xvfb | unnamed WebGPU adapter | passed |
 
-In each, `mojo build NAME.mojo` in the session compiles and links seven
+In each, `mojo build NAME.mojo` in the session compiles and links nine
 programs that then run: hello, the standard library (`library`), coroutines
-(`tasks`), three with kernels that `DeviceContext` launches on WebGPU
-(`saxpy`, `kernels`, `mandelbrot`) and upstream's own GPU hello
-(`hello_writing.mojo`, importing `gpu.host` for `max.gpu.host`), which prints
-`GPU responded: 👋, 🔥`; an object links with `cc`; a package
+(`tasks`), four with kernels that `DeviceContext` launches on WebGPU
+(`saxpy`, `kernels`, `mandelbrot`, and `output`, whose kernel prints and
+fails an assertion) and upstream's own two GPU hellos (importing `gpu.host`
+for `max.gpu.host`): `hello_writing.mojo` prints `GPU responded: 👋, 🔥` and
+`gpu_hello.mojo`, whose kernel prints, `Hello from the GPU`; an object links
+with `cc`; a package
 precompiled there is imported; a type error and `mojo run`/`mojo repl` fail
 with status 1. Playwright's headless Firefox offers no GPU adapter, and the
 image requires `gpu@0`, so Firefox is tested on a display.
@@ -55,9 +58,7 @@ test passed again in the three browsers with them (02:45).
 
 Not done, and not filed: no `PACKAGE` of the compiler for `amy install`
 (the image needs `gpu@0` only because the runtime's base is `gpu-sdk`);
-`mojo build --print-supported-targets` lists nothing;
-`demos/mojo/target/README.md` still describes cross-compiling as the only
-way.
+`mojo build --print-supported-targets` lists nothing.
 
 Worked on branch `demo/mojo` (worktree `work/mojo`, commits `319c3a34` to
 `16223ed6` and after), night of 2026-10-12.
