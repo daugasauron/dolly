@@ -95,7 +95,13 @@ values, twelve float comparisons with and without a NaN, pointers that
 advance in a loop or are chosen between two places of one buffer, a local
 array, loads from buffers of bytes and of 16-bit integers, thirteen math
 functions within 7e-6 on the GPUs, loops that copy and clear rows of a
-length known only when they run. Two things were wrong and are fixed:
+length known only when they run, and eight idioms (a struct chosen in a
+branch with its methods, a `Span` iterated, stepped ranges with `break`,
+`**`, `floor`, `fma`, `%` and `clamp`, an integer hash with variable shifts,
+an `Optional` from a function, a tuple, a three-dimensional grid). An
+`Optional` through a branch did not compile until a struct that is a value
+was printed as its scalars, and every function a kernel calls is inlined
+before LLVM optimizes. Two things were wrong and are fixed:
 `isnan` printed as `x != x` is false on SwiftShader, because WGSL lets a
 compiler assume there is no NaN, so the target reads the bits; and LLVM
 turned a loop that clears into `memset`, which WGSL has not, so a kernel is

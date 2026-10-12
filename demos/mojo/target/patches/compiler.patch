@@ -94,10 +94,10 @@ index 8bdcb15..42aea40 100644
    }
 diff --git a/Mojo/lib/Compiler/ObjectCompiler/Target/Dolly/DollyBackend.cpp b/Mojo/lib/Compiler/ObjectCompiler/Target/Dolly/DollyBackend.cpp
 new file mode 100644
-index 0000000..908d131
+index 0000000..85f1dc9
 --- /dev/null
 +++ b/Mojo/lib/Compiler/ObjectCompiler/Target/Dolly/DollyBackend.cpp
-@@ -0,0 +1,884 @@
+@@ -0,0 +1,996 @@
 +//===----------------------------------------------------------------------===//
 +// Added for Dolly, a POSIX-like userspace for wasm64 in the browser.
 +//
@@ -117,7 +117,8 @@ index 0000000..908d131
 +//   - the other parameters are 32-bit slots of the read-only buffer `args`,
 +//     bound after the last pointer, in parameter order;
 +//   - `block_dim` is the workgroup size, an override constant of the pipeline;
-+//   - control flow is a block number in a loop, which expresses any CFG.
++//   - control flow is a block number in a loop, which expresses any CFG;
++//   - a struct that is a value is printed as its scalars.
 +// What WGSL cannot say is an error naming the instruction: 64-bit integers,
 +// f64, f16, vectors, stores that are not 32 bits wide, calls. A trap ends the
 +// invocation.
@@ -253,6 +254,66 @@ index 0000000..908d131
 +      auto number = Numbers.find(value);
 +      if (number != Numbers.end())
 +        return "v" + utostr(number->second);
++    }
++    fail("WGSL cannot name this value", value);
++    return "0u";
++  }
++
++  /// The scalars of a struct or an array in order; a scalar is its own one.
++  /// A struct that is a value, an Optional chosen in a branch for one, is
++  /// printed as its scalars: `v7_0`, `v7_1`.
++  static void leaves(Type *type, SmallVectorImpl<Type *> &scalars) {
++    if (auto *record = dyn_cast<StructType>(type)) {
++      for (Type *element : record->elements())
++        leaves(element, scalars);
++    } else if (auto *array = dyn_cast<ArrayType>(type)) {
++      for (uint64_t i = 0; i < array->getNumElements(); i++)
++        leaves(array->getElementType(), scalars);
++    } else {
++      scalars.push_back(type);
++    }
++  }
++
++  static unsigned leafCount(Type *type) {
++    SmallVector<Type *, 8> scalars;
++    leaves(type, scalars);
++    return scalars.size();
++  }
++
++  /// The first scalar that `indices` select within `type`, which becomes the
++  /// type they select.
++  static unsigned leafAt(Type *&type, ArrayRef<unsigned> indices) {
++    unsigned first = 0;
++    for (unsigned index : indices) {
++      if (auto *record = dyn_cast<StructType>(type)) {
++        for (unsigned element = 0; element < index; element++)
++          first += leafCount(record->getElementType(element));
++        type = record->getElementType(index);
++      } else {
++        type = cast<ArrayType>(type)->getElementType();
++        first += index * leafCount(type);
++      }
++    }
++    return first;
++  }
++
++  /// One scalar of a value: of a scalar, itself.
++  std::string leaf(const Value *value, unsigned index) {
++    Type *type = value->getType();
++    if (!type->isAggregateType())
++      return use(value);
++    if (auto *constant = dyn_cast<Constant>(value)) {
++      for (unsigned element = 0;; element++) {
++        Constant *part = constant->getAggregateElement(element);
++        if (!part)
++          break;
++        unsigned count = leafCount(part->getType());
++        if (index < count)
++          return leaf(part, index);
++        index -= count;
++      }
++    } else if (Numbers.count(value)) {
++      return "v" + utostr(Numbers.lookup(value)) + "_" + utostr(index);
 +    }
 +    fail("WGSL cannot name this value", value);
 +    return "0u";
@@ -661,10 +722,12 @@ index 0000000..908d131
 +    std::string values, assignments;
 +    unsigned count = 0;
 +    for (const PHINode &phi : to->phis()) {
-+      std::string temporary = "t" + utostr(count++);
-+      values += "let " + temporary + " = " +
-+                use(phi.getIncomingValueForBlock(from)) + "; ";
-+      assignments += use(&phi) + " = " + temporary + "; ";
++      for (unsigned k = 0, n = leafCount(phi.getType()); k < n; k++) {
++        std::string temporary = "t" + utostr(count++);
++        values += "let " + temporary + " = " +
++                  leaf(phi.getIncomingValueForBlock(from), k) + "; ";
++        assignments += leaf(&phi, k) + " = " + temporary + "; ";
++      }
 +    }
 +    std::string next = "bb = " + utostr(Blocks.lookup(to)) + "u;";
 +    return count ? "{ " + values + assignments + next + " }" : "{ " + next + " }";
@@ -687,19 +750,37 @@ index 0000000..908d131
 +    } else if (isa<FreezeInst>(i)) {
 +      assign(use(i.getOperand(0)));
 +    } else if (auto *part = dyn_cast<ExtractValueInst>(&i)) {
-+      auto *both = dyn_cast<IntrinsicInst>(part->getAggregateOperand());
-+      if (both && both->getIntrinsicID() == Intrinsic::sincos &&
-+          i.getType()->isFloatTy())
++      const Value *whole = part->getAggregateOperand();
++      auto *both = dyn_cast<IntrinsicInst>(whole);
++      if (both && both->getIntrinsicID() == Intrinsic::sincos) {
 +        assign((part->getIndices()[0] ? "cos(" : "sin(") +
 +               use(both->getArgOperand(0)) + ")");
-+      else
-+        fail("WGSL has no such instruction", &i);
++        return;
++      }
++      Type *selected = whole->getType();
++      unsigned first = leafAt(selected, part->getIndices());
++      for (unsigned k = 0, n = leafCount(selected); k < n; k++)
++        os << "      " << leaf(&i, k) << " = " << leaf(whole, first + k)
++           << ";\n";
++    } else if (auto *insert = dyn_cast<InsertValueInst>(&i)) {
++      const Value *whole = insert->getAggregateOperand();
++      Type *selected = whole->getType();
++      unsigned first = leafAt(selected, insert->getIndices());
++      unsigned inserted = leafCount(selected);
++      for (unsigned k = 0, n = leafCount(i.getType()); k < n; k++)
++        os << "      " << leaf(&i, k) << " = "
++           << (k >= first && k < first + inserted
++                   ? leaf(insert->getInsertedValueOperand(), k - first)
++                   : leaf(whole, k))
++           << ";\n";
 +    } else if (auto *choice = dyn_cast<SelectInst>(&i)) {
 +      if (i.getType()->isPointerTy())
 +        root(&i);
-+      assign("select(" + use(choice->getFalseValue()) + ", " +
-+             use(choice->getTrueValue()) + ", " + use(choice->getCondition()) +
-+             ")");
++      for (unsigned k = 0, n = leafCount(i.getType()); k < n; k++)
++        os << "      " << leaf(&i, k) << " = select("
++           << leaf(choice->getFalseValue(), k) << ", "
++           << leaf(choice->getTrueValue(), k) << ", "
++           << use(choice->getCondition()) << ");\n";
 +    } else if (auto *gep = dyn_cast<GetElementPtrInst>(&i)) {
 +      assign(offset(*cast<GEPOperator>(gep)));
 +    } else if (auto *load = dyn_cast<LoadInst>(&i)) {
@@ -830,8 +911,16 @@ index 0000000..908d131
 +        os << "  var m" << Numbers[&i] << ": array<u32, "
 +           << std::max<uint64_t>(1, (bytes + 3) / 4) << ">;\n";
 +      }
-+      os << "  var v" << Numbers[&i] << ": " << typeName(i.getType(), &i)
-+         << ";\n";
++      if (!i.getType()->isAggregateType()) {
++        os << "  var v" << Numbers[&i] << ": " << typeName(i.getType(), &i)
++           << ";\n";
++        continue;
++      }
++      SmallVector<Type *, 8> scalars;
++      leaves(i.getType(), scalars);
++      for (unsigned k = 0; k < scalars.size(); k++)
++        os << "  var v" << Numbers[&i] << "_" << k << ": "
++           << typeName(scalars[k], &i) << ";\n";
 +    }
 +  }
 +  std::string body;
@@ -849,7 +938,25 @@ index 0000000..908d131
 +  return Failure.empty() ? text : std::string();
 +}
 +
-+/// Inlines every call to a defined function, so one WGSL function suffices.
++/// Before LLVM optimizes a kernel's module: every function the kernel calls is
++/// to become part of it, since one WGSL function is printed, and none has a C
++/// library to call.
++struct KernelCallees : RequiredPassInfoMixin<KernelCallees> {
++  PreservedAnalyses run(Module &module, ModuleAnalysisManager &) {
++    for (Function &function : module) {
++      if (function.isDeclaration() || function.hasFnAttribute(kKernelAttribute))
++        continue;
++      function.removeFnAttr(Attribute::NoInline);
++      function.removeFnAttr(Attribute::OptimizeNone);
++      function.addFnAttr(Attribute::AlwaysInline);
++      function.addFnAttr("no-builtins");
++    }
++    return PreservedAnalyses::none();
++  }
++};
++
++/// Inlines every call to a defined function that LLVM left, so one WGSL
++/// function suffices.
 +/// Returns what prevents it, or nothing.
 +std::string inlineCalls(Function &kernel) {
 +  for (unsigned round = 0; round < 64; round++) {
@@ -941,6 +1048,11 @@ index 0000000..908d131
 +
 +  void addSanitizers(llvm::ModulePassManager &,
 +                     const CompilationOptions &) const override {}
++
++  void addPipelineStartPasses(llvm::ModulePassManager &mpm,
++                              const CompilationOptions &) const override {
++    mpm.addPass(KernelCallees());
++  }
 +
 +  void attachCodegenAttributes(llvm::Function *kernelEntry) const override {
 +    kernelEntry->addFnAttr(kKernelAttribute);

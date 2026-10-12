@@ -60,6 +60,13 @@ def integers(
         )
 
 
+def halved(i: Int, v: Float32) -> Optional[Float32]:
+    """An Optional chosen in a branch: a struct that is a value."""
+    if i % 2 == 0:
+        return v * 0.5
+    return None
+
+
 def function(which: Int, v: Float32) -> Float32:
     """One of the math functions, for the kernel and for the host."""
     if which == 0:
@@ -82,8 +89,11 @@ def function(which: Int, v: Float32) -> Float32:
         return sin(v * 5) + cos(v * 5)
     elif which == 9:
         return Float32(Int(v * 100))
+    elif which == 10:
+        var half = halved(Int(v * 8), v)
+        return half.value() if half else Float32(-1)
     var undefined = log(v - 2)  # of a negative number: not a number
-    if which == 10:
+    if which == 11:
         return Float32(7) if isnan(undefined) else Float32(0)
     return undefined
 
@@ -96,7 +106,7 @@ def functions(
     """Math functions and conversions, through a call."""
     var i = global_idx.x
     if i < n:
-        result[unsafe_offset=i] = function(i % 12, x[unsafe_offset=i])
+        result[unsafe_offset=i] = function(i % 13, x[unsafe_offset=i])
 
 
 def main() raises:
@@ -146,7 +156,7 @@ def main() raises:
     ys = y.to_host()
     var wrong_functions = 0
     for i in range(n):
-        var expected = function(i % 12, xs[i])
+        var expected = function(i % 13, xs[i])
         if expected != expected:
             if ys[i] == ys[i]:
                 wrong_functions += 1

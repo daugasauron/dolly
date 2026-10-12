@@ -110,8 +110,9 @@ drivers that are not open source, so this one is new, with its names:
   arguments being one of them).
 - Control flow is printed as a block number in a loop, so any branch or loop
   compiles; calls are inlined; a local array of a fixed size is a WGSL
-  array. The text must fit `gpu@0`'s 128 KiB for a
-  shader: the largest of the fixtures, eleven math functions, is 13 KB.
+  array, and a struct, an `Optional` or a tuple is its scalars. The text
+  must fit `gpu@0`'s 128 KiB for a shader: the largest of the fixtures, a
+  dozen math functions, is 13 KB.
 - The compiler refuses, naming the instruction: 64-bit integers, `Float64`,
   `Float16`, SIMD vectors, stores of 8 and 16 bits, pointers stored in memory
   or chosen between two buffers, recursion, `print`, and the libm functions
