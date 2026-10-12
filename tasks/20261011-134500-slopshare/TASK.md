@@ -47,3 +47,21 @@ are the published ones (`agents/index.html` matched its list on a second try; th
 The token has no permission over that setting (`rum/site_info` and the zone's `rum` setting
 both answer "Authentication error"). To do, by the owner in the dashboard: Web Analytics, the
 site `slopshare.dev`, disable the automatic setup. Then `boot` and `verify` are run again.
+
+## After the beacon was switched off (2026-10-12)
+
+The owner disabled Web Analytics' automatic setup: a page loaded as a browser loads it is the
+published one again. The checks were rerun once this machine's connection stopped dropping
+packets (half of them at midnight; the Firefox half of `boot` and the first `verify` had
+stopped on timeouts):
+
+- `boot https://slopshare.dev v0.1.0 v0.1.1 v0.1.2`: every version boots `default` in Chromium
+  and in Firefox, nothing requested outside itself, `/default/` 404.
+- `verify` stops at `view/system-tools/index.html`. Of v0.1.2's 479 text files fetched from the
+  new domain, two differ from the list, `view/system-tools/index.html` and
+  `view/xonotic/index.html`, and only by Cloudflare's Email Address Obfuscation: the
+  `dolly@example.invalid` of a recipe is served as a `/cdn-cgi/l/email-protection` link. The
+  old zone serves both as published. The token cannot change zone settings.
+
+To do, by the owner: Email Address Obfuscation off for the zone `slopshare.dev`. Then `verify`
+is run again.
