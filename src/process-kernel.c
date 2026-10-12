@@ -589,13 +589,26 @@ static int standard_stream(int kernel_fd) {
   return -1;
 }
 
-/* /dev/tty names the one terminal every Dolly process shares; there are no
- * sessions, so it is every process's controlling terminal. */
+/* /dev/tty names the display's terminal, which every Dolly process shares:
+ * there are no sessions. A process on a terminal stream opens that instead. */
 static int controlling_terminal(int kernel_fd) {
   struct stat opened, terminal;
   return fstat(kernel_fd, &opened) == 0 && stat("/dev/tty", &terminal) == 0 &&
       terminal.st_dev == opened.st_dev &&
       terminal.st_ino == opened.st_ino;
+}
+
+/* The terminal a process stands on when it is not the display's: the first
+ * of its descriptors 0, 1 and 2 that is a terminal stream, or -1. */
+static int terminal_stream(const dolly_kernel_process *process) {
+  const dolly_process_terminal_request request = {DOLLY_PROCESS_TERMINAL_ISATTY, 0, 0, 0, 0};
+  for (int descriptor = 0; descriptor <= STDERR_FILENO; ++descriptor) {
+    dolly_kernel_socket *stream = process->sockets[descriptor];
+    dolly_process_terminal_response response = {0};
+    if (stream != NULL && stream->kind->terminal != NULL &&
+        stream->kind->terminal(stream, &request, &response) == 0 && response.value == 1) return descriptor;
+  }
+  return -1;
 }
 
 static int configure_descriptors(dolly_kernel_process *process,
@@ -1874,7 +1887,8 @@ static int64_t process_dispatch(int pid, int tid, int takes_signals, uint32_t op
       }
       free(path);
       if (result != 0) return result;
-      const int stream = standard_stream(kernel_fd);
+      int stream = standard_stream(kernel_fd);
+      if (stream < 0 && controlling_terminal(kernel_fd)) stream = terminal_stream(process);
       if (stream >= 0) {
         close(kernel_fd);
         result = copy_descriptor(process, process, (uint32_t)stream, (uint32_t)guest_fd);

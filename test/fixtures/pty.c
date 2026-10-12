@@ -1,5 +1,6 @@
 #define _GNU_SOURCE
 #include <errno.h>
+#include <fcntl.h>
 #include <poll.h>
 #include <signal.h>
 #include <spawn.h>
@@ -136,6 +137,9 @@ static int terminal(void) {
       resized = interrupted = 0;
     } else if (count <= 0 || bytes[0] == 'q') {
       return count <= 0 ? 4 : 0;
+    } else if (bytes[0] == 't') {
+      const int own = open("/dev/tty", O_RDWR);
+      if (own < 0 || !isatty(own) || write(own, "own\n", 4) != 4 || close(own) != 0) return 7;
     } else if (bytes[0] == 'r') {
       if (tcgetattr(0, &mode) != 0) return 5;
       mode.c_lflag &= ~(tcflag_t)ISIG;
@@ -147,9 +151,10 @@ static int terminal(void) {
   }
 }
 
-/* A program on the slave reads what the master writes, hears a resize as
- * SIGWINCH and byte 3 as SIGINT until it clears ISIG, and ends with SIGHUP
- * when the master closes. One that exits is end of file to the master. */
+/* A program on the slave reads what the master writes, opens the slave as
+ * /dev/tty, hears a resize as SIGWINCH and byte 3 as SIGINT until it clears
+ * ISIG, and ends with SIGHUP when the master closes. One that exits is end
+ * of file to the master. */
 static int program(void) {
   int ends[2], status;
   char byte;
@@ -159,6 +164,8 @@ static int program(void) {
   expect(ends[0], "ready\r\n");
   CHECK(write(ends[0], "ping", 4) == 4);
   expect(ends[0], "pong\r\n");
+  CHECK(write(ends[0], "t", 1) == 1);
+  expect(ends[0], "own\r\n");
   CHECK(pty_call(DOLLY_PTY_RESIZE, ends[0], 0, 40, 132, NULL) == 0);
   expect(ends[0], "size 132x40\r\n");
   CHECK(write(ends[0], "\3", 1) == 1);

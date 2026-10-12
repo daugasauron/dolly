@@ -15,6 +15,9 @@
   ;; SIGINT, for the processes that hold the slave and are not waiting for a
   ;; descendant that holds it: a shell is spared while its command runs.
   ;;
+  ;; A process whose descriptor 0, 1 or 2 is a slave opens that slave as
+  ;; /dev/tty; any other process opens the display's terminal there.
+  ;;
   ;; A read of the master returns zero once every descriptor of the slave is
   ;; closed and its output is read; a write then fails EIO. Closing the last
   ;; descriptor of the master is SIGHUP to the processes holding the slave,
