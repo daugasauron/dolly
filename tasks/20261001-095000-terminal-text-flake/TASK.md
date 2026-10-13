@@ -452,3 +452,39 @@ code, and the drain taken out changes nothing).
 The cut is still the one "Left open" names. It is being fixed on `demo/tmux`
 (`tasks/20261012-130814-tmux`).
 
+## Pinned to one processor (2026-10-14, `core/terminal-flakes`)
+
+The whole test pinned to one processor, as the microphone task did
+(`taskset -c 5 work/slot.sh browser node TEST`), on `main` at `66f9fc47`,
+runtime and images as built in `work/rust`. Logs: `build/flake-evidence/`
+(not committed).
+
+| Test | Runs | Chromium | Firefox |
+| --- | --- | --- | --- |
+| `test/terminal-browser.mjs` | 12 | 12 passed (34.3 to 34.8 s) | 12 passed (33.2 to 33.6 s) |
+| `test/display-browser.mjs` | 10 | 10 passed | 10 passed |
+
+A run takes as long pinned as unpinned (68 s for both browsers): the test
+waits more than it computes, so one processor does not starve it. Neither the
+mouse drag nor "terminal selection reset" appeared.
+
+### Sighting 3 reproduced: the first "Find file" of a fresh Chromium
+
+A probe that repeats the Emacs test's step (`C-x C-f`, wait for "Find file:"
+by reading the screen, one text record with the name and Return) in one page,
+pinned to one processor:
+
+- Chromium: 0 of 20, 0 of 500, then round 0 of 500 failed and the other 499
+  passed; a second probe that opens twelve pages in one browser and does only
+  the first step in each: page 0 failed, the eleven after it passed. So 2 of 4
+  browser starts lost the name in their first page, and no later page or
+  round did (0 of 1,030).
+- Firefox: 0 of 20, 0 of 500, 0 of 500, 0 of 12 first steps.
+
+Every failure is the screen of 2026-10-07: `Find file: {/usr/share/emacs/} /t`.
+The ring was read to its end (`event_read == event_write`), nothing was
+counted as dropped, no lease. Emacs's own record of what it read (`C-h l`)
+holds `C-x C-f`, `/`, `t` and nothing after; its `*Messages*` holds no error.
+The prompt appeared 28 ms after the welcome text, so the name is typed about
+40 ms after Emacs first draws.
+
