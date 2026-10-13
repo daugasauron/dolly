@@ -1,5 +1,4 @@
 default
-audio-sdk
 bhop
 classicube
 codex-agent

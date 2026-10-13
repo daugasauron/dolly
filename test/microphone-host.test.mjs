@@ -3,6 +3,7 @@ import test from "node:test";
 import { worker } from "../host/microphone/microphone.mjs";
 import { DOLLY_ERRNO as E } from "../src/process-constants.mjs";
 import { createDollyfileGraphLoader } from "../scripts/dollyfile-graph.mjs";
+import { discoverImageDefinitions } from "../scripts/image-definitions.mjs";
 
 test("microphone module binds the bridge, publishes a reply of samples and revokes", () => {
   const memory = new WebAssembly.Memory({ initial: 1, maximum: 2, shared: true });
@@ -27,8 +28,9 @@ test("microphone module binds the bridge, publishes a reply of samples and revok
   assert.equal(dispatch(BigInt(address), 32n), -E.ENOSYS);
 });
 
-test("only the audio SDK declares the microphone", async () => {
-  const graph = createDollyfileGraphLoader(new URL("../", import.meta.url).pathname);
-  assert.ok((await graph("Dollyfile-audio-sdk")).root.hostRequirements.includes("microphone@0"));
-  assert.ok(!(await graph("Dollyfile")).root.hostRequirements.includes("microphone@0"));
+test("no core image declares the microphone: a session of default enables it with nena", async () => {
+  const root = new URL("../", import.meta.url).pathname, graph = createDollyfileGraphLoader(root);
+  for (const { filename } of (await discoverImageDefinitions(root)).filter(({ filename }) => !filename.includes("/"))) {
+    assert.ok(!(await graph(filename)).root.hostRequirements.includes("microphone@0"), filename);
+  }
 });

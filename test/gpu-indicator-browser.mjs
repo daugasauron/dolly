@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { chromium, firefox } from "playwright-core";
+import { composed } from "./browser.mjs";
 import { startBrowserServer } from "./browser-server.mjs";
 
 // The page names the adapter gpu@0 programs get, or why they have none.
@@ -28,7 +29,9 @@ const program = "printf '%s\\n' '#include <dolly/gpu.h>' " +
   "'int main(void) { static dolly_gpu g; return dolly_gpu_open(&g, 0, 0) < 0; }' > /tmp/open.c";
 const provider = await readFile(new URL("../host/gpu/worker.mjs", import.meta.url), "utf8");
 const sourceOverrides = new Map();
-const server = await startBrowserServer(new URL("..", import.meta.url).pathname, "gpu-sdk", { sourceOverrides });
+const server = await startBrowserServer(new URL("..", import.meta.url).pathname, "system", { sourceOverrides });
+// system with gpu@0: an image that declares the module.
+const image = await composed(["runtime", "display", "input", "http", "download", "upload", "snapshot", "gpu"], [], { base: "system" });
 try {
   for (const [state, launch, { workerAdapter = true } = {}] of names.flatMap(name => cases[name])) {
     if (workerAdapter) sourceOverrides.delete("/host/gpu/worker.mjs");
@@ -36,7 +39,8 @@ try {
     const browser = await launch(), deadline = setTimeout(() => void browser.close(), 180_000);
     try {
       const page = await browser.newPage();
-      await page.goto(`${server.origin}/gpu-sdk/`);
+      await image.setup(page);
+      await page.goto(server.origin + image.path);
       await page.waitForFunction(() => ["ready", "failed"].includes(document.documentElement.dataset.dollyStatus), null, { timeout: 120_000 });
       const indicator = () => page.evaluate(() => {
         const element = document.querySelector("#gpu-status");

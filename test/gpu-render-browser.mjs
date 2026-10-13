@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import {readFile} from "node:fs/promises";
 import {chromium,firefox} from "playwright-core";
+import {composed} from "./browser.mjs";
 import {startBrowserServer} from "./browser-server.mjs";
 
 const browserName=process.argv[2]??"chromium";
@@ -9,7 +10,7 @@ assert.ok(["chromium","firefox"].includes(browserName));
 assert.ok(["auto","uncompressed"].includes(compression));
 const provider=(compression==='uncompressed'?'import "/test/fixtures/gpu-no-bc.mjs";\n':'')+
   await readFile(new URL('../host/gpu/worker.mjs',import.meta.url),'utf8');
-const server=await startBrowserServer(new URL('..',import.meta.url).pathname,'gpu-sdk',
+const server=await startBrowserServer(new URL('..',import.meta.url).pathname,'system',
   {sourceOverrides:new Map([['/host/gpu/worker.mjs',provider]]),
    fixtures:{'gpu-render.c':'test/fixtures/gpu-render.c'}});
 let browser,deadline;
@@ -24,7 +25,10 @@ try {
   await page.addInitScript(origin=>{
     globalThis.DOLLY_HTTP_POLICY={maxRequests:1,rules:[{origin,pathPrefix:'/fixture/',methods:['GET']}]};
   },server.origin);
-  await page.goto(`${server.origin}/gpu-sdk/`);
+  // system with gpu@0: an image that declares the module.
+  const image=await composed(['runtime','display','input','http','download','upload','snapshot','gpu'],[],{base:'system'});
+  await image.setup(page);
+  await page.goto(server.origin+image.path);
   await page.waitForFunction(()=>['ready','failed'].includes(document.documentElement.dataset.dollyStatus));
   assert.equal(await page.evaluate(()=>document.documentElement.dataset.dollyStatus),'ready',
     await page.locator('#bootstrap-log').textContent());

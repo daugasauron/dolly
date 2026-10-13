@@ -8,8 +8,8 @@ REQUIRES HOST runtime@0
 COPY /v0.1.3/demos/mojo/Dollyfile-mojo-build 54e834622d8ae768670cdba14011e77bf605f296673d35990364b8259f78320e /opt/mojo/bin/mojo /usr/bin/mojo
 COPY /v0.1.3/demos/mojo/Dollyfile-mojo-build 54e834622d8ae768670cdba14011e77bf605f296673d35990364b8259f78320e /opt/mojo/lib/mojo /usr/lib/mojo
 COPY /v0.1.3/demos/mojo/Dollyfile-mojo-build 54e834622d8ae768670cdba14011e77bf605f296673d35990364b8259f78320e /usr/share/licenses/mojo /usr/share/licenses/mojo
-COPY /v0.1.3/demos/mojo/Dollyfile-mojo-runtime 2658281c2e9211ae4c3df4e300c3b340f681dc33d6b081fa66883dd8b463995c /usr/lib/libmojo-rt.a /usr/lib/libmojo-rt.a
-COPY /v0.1.3/demos/mojo/Dollyfile-mojo-runtime 2658281c2e9211ae4c3df4e300c3b340f681dc33d6b081fa66883dd8b463995c /usr/lib/libmojo-gpu.a /usr/lib/libmojo-gpu.a
+COPY /v0.1.3/demos/mojo/Dollyfile-mojo-runtime a832b58dd21b5a8ff477a89bc684d85ef790a034731ac2d0fb2bb2c940a36267 /usr/lib/libmojo-rt.a /usr/lib/libmojo-rt.a
+COPY /v0.1.3/demos/mojo/Dollyfile-mojo-runtime a832b58dd21b5a8ff477a89bc684d85ef790a034731ac2d0fb2bb2c940a36267 /usr/lib/libmojo-gpu.a /usr/lib/libmojo-gpu.a
 # mojo build links what it compiles with the C toolchain.
 INSTALL /v0.1.3/Dollyfile-cc 496482dedb8df6eda0014425cc726c9f1dafd1225a2af952f0b8e147efeaf295
 # Where the compiler looks for packages, and what it hands cc to link a

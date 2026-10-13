@@ -56,4 +56,5 @@ default input, through process operation 130.
 - No list of devices, labels or choice of device, and no video.
 - C SDK: [`host/microphone/microphone.h`](../host/microphone/microphone.h) and
   `libdolly-microphone.a`, as for playback; calling it stamps `microphone@0`
-  into the executable. `audio-sdk` is the image that declares it.
+  into the executable. No core image declares it: a session of `default`
+  enables it with `nena enable microphone`.

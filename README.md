@@ -23,8 +23,6 @@ recipes build on, or a `PACKAGE` recipes and sessions install
 - `system-build`: C/C++ compiler, headers and basic build tools.
 - `zig-build`: Zig built from source by the C/C++ compiler; emits C.
 - `ghostty-build`: Ghostty terminal build with Zig and its SDK.
-- `gpu-sdk`: `system` with the WebGPU host module (`gpu@0`).
-- `audio-sdk`: `system` with the PCM playback and microphone host modules (`audio@0`, `microphone@0`).
 - `core`: the shell `slop` and its core commands: `ls`, `cat`, `cp`, `mv`, `rm`, `mkdir`, `tar`, `man`, `help` and others.
 - `cc`: `cc` and `c++` with `ld`, `ar` and `make`, and the headers and libraries they compile against.
 - `amy`: `amy`, the package installer, and `dollyfile`, the recipe engine it runs.

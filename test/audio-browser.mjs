@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { browserTest } from "./browser.mjs";
+import { browserTest, composed } from "./browser.mjs";
 
 // Meters each played source per channel through a muted gain.
 function meter() {
@@ -51,9 +51,11 @@ async function queueBeforeActivation(origin) {
   reportAutoplay({ error: completed.error, activated: navigator.userActivation.hasBeenActive, resumeCalls });
 }
 
+// system's host modules: the image under test adds the one it tests.
+const systemModules = ["runtime", "display", "input", "http", "download", "upload", "snapshot"];
 const fixtures = { "audio.c": "test/fixtures/audio.c", "audio-client-contract.c": "test/fixtures/audio-client-contract.c",
   "audio-client.c": "host/audio/client.c" };
-await browserTest("audio", { image: "audio-sdk", server: { fixtures } }, async ({ browser, server, open }) => {
+await browserTest("audio", { image: "system", server: { fixtures } }, async ({ browser, server, open }) => {
   const blank = await browser.newPage();
   let reported;
   const autoplay = new Promise(resolve => { reported = resolve; });
@@ -70,10 +72,10 @@ await browserTest("audio", { image: "audio-sdk", server: { fixtures } }, async (
   const errors = [];
   const { page, submit, text } = await open({
     policy: { maxRequests: 3, rules: [{ origin: server.origin, pathPrefix: "/fixture/", methods: ["GET"] }] },
-    setup: page => {
+    ...await composed([...systemModules, "audio"], [], { base: "system", setup: page => {
       page.on("pageerror", error => errors.push(error.message));
       return Promise.all([page.addInitScript(meter), page.addInitScript(countCaptures)]);
-    } });
+    } }) });
   await page.mouse.click(10, 10);
   // A host without audio@0 refuses audio images and requests.
   const selection = await page.evaluate(async () => {

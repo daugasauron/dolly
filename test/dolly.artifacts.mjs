@@ -221,7 +221,6 @@ test("system snapshots are sealed to their visible recipe chain", async () => {
   const corePrograms = new Map([
     ["default", "/bin/slop"],
     ["amy", "/bin/amy"],
-    ["audio-sdk", "/usr/lib/dolly/process/libdolly-audio.a"],
     ["cc", "/bin/cc"],
     ["core", "/bin/slop"],
     ["curl", "/usr/bin/curl"],
@@ -234,7 +233,6 @@ test("system snapshots are sealed to their visible recipe chain", async () => {
     ["make", "/usr/bin/make"],
     ["nena", "/bin/nena"],
     ["ninja", "/usr/bin/ninja"],
-    ["gpu-sdk", "/usr/lib/dolly/process/libdolly-gpu.a"],
     ["posix", "/bin/grep"],
     ["session-recover", "/usr/bin/session-recover"],
     ["system", "/usr/lib/libdisplay.so"],

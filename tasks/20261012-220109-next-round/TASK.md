@@ -35,8 +35,6 @@ that change the seed or every recipe, and so want one round together:
 
 ## Left by the round of 2026-10-13
 
-- `gpu-sdk` and `audio-sdk` hold nothing of their own; with `nena` a shell
-  with a GPU is `default` and one command (audit 18).
 - The terminal does not turn Enter's carriage return into the newline a
   program reading a line waits for: `unzip` and `zstd` wait at their
   overwrite question until Ctrl+J. The measurement and a design are in
