@@ -1,6 +1,6 @@
 # tmux in Dolly: what it needs beyond sockets@0
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 300
 - TAGS: demo,tmux,sockets,process
 
@@ -408,8 +408,16 @@ Open, for whoever takes pseudo-terminals further: a second open of a slave
 with flags of its own. No program here needs one while `ttyname` names
 nothing.
 
-The done-when is met on the branch. The task stays open until the round has
-measured Pi's test (12 of 12) and amy's on the new seed.
-
 Done when: tmux runs in a Dolly session with two panes, or the task says
 exactly which operations are missing, each with its measurement.
+
+## Closed (2026-10-13)
+
+In the round of 2026-10-13 (`integrate/round-1013`, version 0.1.3, 135 images): `pty@0` is a contract with its client in `host/pty/`, `tmux`,
+`libevent` and `libterminfo` are packages, `tmux-panes` an application. The
+done-when holds there: the round's demo tests ran tmux in Chromium and
+Firefox, Pi's test passed on the new seed, and amy's test passed with the
+catalog in both browsers. On `default`, `nena enable pty` then `amy install
+tmux` ([nena](../20261012-230015-bridges/TASK.md)). What the module leaves
+(a spawn that is not the caller's child, a terminal recorded per process,
+`pipe-pane`) is in [what waits](../20261012-220109-next-round/TASK.md).

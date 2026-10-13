@@ -1,6 +1,6 @@
 # More programs in amy
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 325
 - TAGS: packages,amy
 
@@ -534,3 +534,16 @@ into `0a`, the line is shown as it is typed (`ECHO`), `7f` erases, and
 `04` on an empty line ends the read with 0 bytes; while it is clear,
 reads are as they are now. The two flags already travel through
 `tcgetattr` and `tcsetattr`.
+
+## Closed (2026-10-13)
+
+In the round of 2026-10-13 (`integrate/round-1013`, version 0.1.3, 135 images): the catalog went from 49 packages to 79. Of this task: `sqlite`,
+`jq`, `xz`, `zstd`, `bzip2`, `lz4`, `pigz`, `zip`, `unzip`, `tree`, `bc`,
+`xxd`, `base64`, `vi`, `dte`, `yacc`, `flex`, `wabt`, `meson`, `tar`,
+`sbase`, `toybox`, `mandoc`, `openal`, `llama`; beside it `tmux`,
+`libevent`, `libterminfo`, `nena` and `mojo`. Each is installed into
+`default` and used by `test/amy-browser.mjs`, which passed in Chromium and
+Firefox on the round's images, or is refused there by the name of the
+module it needs. Not done and still wanted (`chmod`, `file`, the pages not
+reached, the question at the terminal) is in
+[what waits](../20261012-220109-next-round/TASK.md).

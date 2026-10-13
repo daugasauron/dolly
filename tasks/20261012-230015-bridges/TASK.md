@@ -1,6 +1,6 @@
 # Host bridges enabled from inside the runtime: nena@0 and nena
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 340
 - TAGS: host-modules,core,owner
 
@@ -363,3 +363,17 @@ after the pin update the round's build also made, the same recipe pins).
 - `snapshot@0` and `build@0` are fixed without a measurement of a late start.
 - After `nena disable nena` the loader says of a module the image declares
   and the session disabled that it "is not declared by this image".
+
+## Closed (2026-10-13)
+
+In the round of 2026-10-13 (`integrate/round-1013`, version 0.1.3, 135 images). The done-when, on the round's branch in Chromium and Firefox: in
+a `default` session `amy install tmux` is refused and names `nena enable
+pty`; after `nena enable pty` it installs, with `libevent` and `libterminfo`
+by reference, `tmux -V` answers and `nena` lists `pty@0` as enabled
+(`build/round-1013-evidence/preflight2-*`, integrator); an image without
+`nena@0` changes nothing (`test/host-modules-browser.mjs`,
+`test/nena-browser.mjs`), in the core suite, which passed whole in both
+browsers on the round's images. A read-only audit of the boundary found no
+hole ([report](../20261012-230015-audit-fable/boundary.md)); its page-side
+weaknesses are fixed above. "Left" above and the audit's B5 to B8 are in
+[what waits](../20261012-220109-next-round/TASK.md).

@@ -1,61 +1,65 @@
-# The next catalog round: what waits for it
+# What waits for the owner and the next catalog round
 
 - STATUS: OPEN
 - PRIORITY: 150
 - TAGS: catalog,owner,packages,host-modules
 
-State (2026-10-13): nothing here is started. Each item changes an image
-input or repins a chain, so it costs the round (5.5 h) and is the owner's to
-take or leave; the items are independent. Main `b6c3d716` has every image
-built without them.
+State (2026-10-13): the round of 2026-10-13 took four of the seven items this
+task was filed with: `pty@0` as a contract with tmux, `default` installing
+`transfer`, dependencies by reference, and `python` installing `cc` and
+`ninja`; `nena@0` answers a fifth, since `default` now enables a module
+instead of declaring it. Nothing below is started. Each item is the owner's
+to take or leave.
 
 Done when: each item is in a round that passed, or is dropped here with the
 reason.
 
-## Seed changes
+## The audit's ranking
 
-1. **`pty@0`, and tmux with it**: on branch `demo/tmux`, not on main
-   ([tmux](../20261012-130814-tmux/TASK.md)). First its regression: merged
-   into main on 2026-10-13, Pi's demo test failed 3 of 7 runs with a stray
-   `u` in what the test typed (`DOLLY-ENTRY-CWuD`), against 0 of 11 on the
-   kernel without it, and the merge was taken out again. Then the owner's
-   review of the contract's shape (two operations, the slave answered by the
-   process contract's terminal request, `/dev/tty` by descriptor), and the
-   seed step: the client and `<dolly/pty.h>` in `host/pty/` with a stamped
-   digest, the module's row in `docs/browser-boundary.md` and its section in
-   `docs/process-model.md`, `default` declaring it (then `amy install tmux`
-   works there), `tmux` and `tmux-panes` in `config/domain-pages-images.txt`.
-   Left beside it, each a change to the process contract: a spawn that is not
-   the caller's child (tmux starting its own server), a terminal recorded per
-   process, and `pipe-pane`, which forks.
-2. **`default` installs `transfer`** in place of four `COPY` rows: commit
-   `1240e208` on `core/packages`. `docs/dollyfile.md` names `default`'s
-   packages and gains the name; `zero-ad` is `FROM default`.
-3. **A failed start names the package** (`src/slop.c`): `command not found`
-   could name the package from the index's `TOOL` rows.
-4. **A package names its dependencies instead of holding them**
-   (`src/dollyfile.c`, `src/commands/amy.c`): `cargo` is 500 MB of which
-   463 MB is `rust`; with it Qwen3.5-4B is one package of four rows, not four.
+[The audit of 2026-10-13](../20261012-230015-audit-fable/TASK.md) ranks
+thirty items and eight of the boundary, each with evidence and cost. Those
+that change the seed or every recipe, and so want one round together:
 
-## Repins without a seed change
+- 1: the release version leaves every reference (a version change alone is a
+  full rebuild today).
+- 2, 4: the host modules' SDKs leave the root image, and `display` leaves
+  `system-tools`.
+- 3: the ABI digest hashes the generated layout, not the bytes of `process.h`.
+- 5: recipe digests are no longer written into `FROM`, `INSTALL`, `COPY`.
+- 8 to 11: `REQUIRES TOOL` goes, `EXPORTS FILE|FOLDER` lose their names,
+  `SLOP` takes a body, licences and manual pages are kept by convention.
+- 13, 14, 16: `runtime.h` to three functions, fifty operations to thirty-six,
+  a block of operation numbers per module.
+- 22: `system-tools` and `system` become one base, and the builds move into
+  the packages that are views of them.
 
-5. **`python` installs `cc` and `ninja`**: commit `025cffb6` on
-   `core/packages`, so that `amy install python` alone builds NumPy. It
-   repins the chains that install `python` as a build tool: Rust, LLVM, Pi,
-   0 A.D. and now Mojo. With item 4 it adds nothing to `python`'s snapshot.
-6. **The builds move into the packages**, and **the builder supplies the
-   engine**: the two stages of the lean base, about 600 recipe lines moved.
-7. **`default`'s host list**: it declares neither `microphone@0`,
-   `buttons@0`, `audio@0` nor `gpu@0`, so `transcribe`, `voice` and a kernel
-   built by `mojo-compiler` are refused there by name. What the page people
-   open may ask the browser for is the owner's decision.
+## Left by the round of 2026-10-13
 
-The measurements and designs for items 2 to 7 are in
-[packages](../20261012-130814-packages/TASK.md), "Held for a catalog round".
-
-## At their next rebuild, no round
-
-- `xonotic-build` and `wine-build` install `libpng` and `freetype` in place
-  of their five and eight `COPY` rows.
-- `gamedev-sdk` drops its `/usr/lib/libm.a` when `bhop` and `slopyard` next
-  rebuild.
+- `zero-ad` is `FROM default` and its recipe now removes `default`'s `nena`
+  command, which a game's page may not hold: an image of its own packages is
+  the clean shape (audit 19).
+- `gpu-sdk` and `audio-sdk` hold nothing of their own; with `nena` a shell
+  with a GPU is `default` and one command (audit 18).
+- The terminal does not turn Enter's carriage return into the newline a
+  program reading a line waits for: `unzip` and `zstd` wait at their
+  overwrite question until Ctrl+J. The measurement and a design are in
+  [more packages](../20261012-230015-more-packages/TASK.md) (audit 17).
+- `pty@0`: a spawn that is not the caller's child (tmux starting its own
+  server), a terminal recorded per process, `pipe-pane`
+  ([tmux](../20261012-130814-tmux/TASK.md)).
+- `nena@0`: credential stripping by a list of six header names, the test
+  surface every page ships, every provider's script loaded on every page,
+  the page's own parser of recipes (audit B5 to B8).
+- `amy`: the file list without the download, `remove`, and a failed start
+  naming the package (`src/slop.c`).
+- Packages wanted and not made: `chmod` (waits for
+  [file modes](../20261006-120641-umask/TASK.md)), `file`, and formatted
+  pages for `less`, `ninja`, `posix`, Python, Emacs, Cargo, Rust, `fd`,
+  CMake ([man and --help](../20261005-220754-man-help/TASK.md)).
+- Branch `demo/overlay-word-wrap` (`614fe59d`): the game overlays break lines
+  at words. Never built: it wants the three game images built and their
+  tests run before it merges.
+- At their next rebuild: `xonotic-build` and `wine-build` install `libpng`
+  and `freetype`; `gamedev-sdk` drops its `/usr/lib/libm.a`.
+- `qwen3.5-4b` is one package of four rows now; the four shard packages stay
+  until Pi's `/local` installs the one.

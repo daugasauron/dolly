@@ -1,6 +1,6 @@
 # Audit of 2026-10-13: the minimal core, the Dollyfile, what can be broken out
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 320
 - TAGS: audit,core
 
@@ -137,14 +137,25 @@ work costs no round; the builder's plan, which says why each image rebuilds;
 anywhere; thin packages over the images that build a program; the test that
 fails by name for a package nobody installs.
 
-## Done today from this list
+## Done from this list in the round of 2026-10-13
 
-- 12, in the round of 2026-10-13: twenty-three C programs moved from
-  `Dollyfile-system-build` (2,248 lines to 475) to `src/commands/`, the
-  installed tools byte for byte the same (`core/commands-source`).
+- 6 in part and 7: both browser suites run four files side by side (the core
+  suite 1,456 s to 447 s for both browsers, thirteen demos 1,357 s to 445 s),
+  and the demo runner runs every browser test of a demo, six of 0 A.D.'s
+  among them, and says which it skips.
+- 12: twenty-three C programs moved from `Dollyfile-system-build` (2,248
+  lines to 475) to `src/commands/`, the installed tools byte for byte the same.
+- 23 in part: 76 package rows say what the package brings.
+- 28: the stale statements of hygiene 14, in READMEs and documents.
+- 30 in part: tests that audio grants no capture and that a module enabled
+  again holds nothing of before.
+- B1 to B4 and B3's status line, page side.
 - Dependencies by reference, the owner's question
-  ([task](../20261012-230015-package-dependencies/TASK.md)), in the same round.
-- B1 to B4 and B3's status line: with the `nena@0` agent, page side, to merge
-  after the round.
-- 7, 23, 28 and the residue of hygiene 17: with the site agent, to merge
-  after the round where they change no image.
+  ([task](../20261012-230015-package-dependencies/TASK.md)).
+
+## Closed (2026-10-13)
+
+The done-when is met: the findings are here, ranked, with their evidence in
+the five reports, and what was cheap is done above. What is not done stays
+ranked here as the reference of
+[what waits](../20261012-220109-next-round/TASK.md).
