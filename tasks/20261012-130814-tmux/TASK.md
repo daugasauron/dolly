@@ -21,14 +21,15 @@ unchanged, but tmux needs three more things, each measured below:
    terminal, `/dev/tty`, which the server opens by name, as upstream already
    does on Cygwin.
 
-With a prototype of (1) as a host module of two operations, kernel and
-supervisor only and **not a seed change** (`pty@0`, below), and a patch of
-ten hunks for (2) and (3), upstream tmux 3.8 built by Dolly's `cc` runs: two panes, a shell in each,
-typing in the active pane, Ctrl+C for the program in it, a window resize,
-detach and attach, and its jobs (`run-shell`, `if-shell`, `#()`). The
-unchanged `less` and `nvim` packages run in a pane.
-The contract's shape is the owner's to decide; the proposal and what the
-prototype leaves out are under "Proposal".
+With (1) as the host module `pty@0`, two operations in the kernel and the
+supervisor, and a patch of eight hunks for (2) and (3), upstream tmux 3.8
+built by Dolly's `cc` runs: two panes, a shell in each, typing in the active
+pane, Ctrl+C for the program in it, a window resize, detach and attach, and
+its jobs (`run-shell`, `if-shell`, `#()`). The unchanged `less` and `nvim`
+packages run in a pane.
+The owner accepted the module on 2026-10-13 ("adding pty is fine"). It was a
+prototype outside the seed until then and is a contract since `706afa45`, a
+seed change: the sections below follow that order, the proposal first.
 
 To try it: `npm run dev -- tmux-panes` in `work/tmux`, then `/tmux-panes/`
 ([demo](../../demos/tmux/README.md)). Screenshots of both browsers are in
@@ -359,3 +360,8 @@ Measured on the new seed at `fe04b918`, Chromium and Firefox unless said:
 Not measured here, for the round: Pi's test and the whole of
 `test/amy-browser.mjs` on the new seed. Pi's image needs `rust-build` and
 amy's test the catalog, which the caps of this tree do not allow.
+
+`main` at `743757a4` is merged (`7b81cff1`): one conflict, adjacent rows of
+`config/domain-pages-images.txt`, both sides kept. The runtime and the image
+inputs are the same after it; source suite 424 of 424, the tmux test and
+amy's two cases again in both browsers.
