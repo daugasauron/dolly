@@ -1,6 +1,6 @@
 # A package names its dependencies: amy installs the INSTALL rows of its recipe
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 330
 - TAGS: packages,amy,core
 
@@ -86,6 +86,9 @@ Yes: no new syntax, and nothing has to parse a Dollyfile at install time.
 - **A saved session.** Nothing new: installed files and the record are
   session files as before. Tested: the rows installed for a package are
   there after a save and a reload.
+- **The service's quota.** The page hands over 64 snapshots per tab; a row's
+  snapshot counts as one, where a package with its dependencies inside
+  counted once. The largest case of amy's test fetches 18, by its tables.
 - **A refusal.** The engine is asked before anything is fetched for a row:
   `amy install transcribe` on `default` is refused for `microphone@0` and
   `parakeet`, which it names, is not fetched (measured, both browsers).
@@ -165,7 +168,11 @@ Tests on that chain, Chromium and Firefox unless said:
   Firefox 217.8 s.
 - `npm run test:demos -- javascript`: passes, Chromium 25.0 s (the test
   runs Chromium only).
-- `test/man-browser.mjs`, `test/pager-browser.mjs`: pass.
+- `node test/browser-tests.mjs chromium` and `firefox` (the core suite, with
+  the slot `fs-growth` needs): every test passes in both, 564 s and 602 s,
+  except that the suite's own run of `amy-browser.mjs` stops at
+  `amy install rust`, a package this tree did not rebuild; the run on the
+  rebuilt packages is the first item above.
 - `node --test 'test/*.artifacts.mjs' 'demos/**/*.artifacts.mjs'`: 25 pass
   over the 39 images, with the invariant turned round: a package holds
   nothing of the packages it installs (`cmake`, `zig` and `python` hold no
@@ -200,6 +207,18 @@ built here (the model images are the round's). Two things to know:
 - The four shards stay packages with index rows, and Pi's `/local` still
   names the four (`models/qwen3.5-4b.json`). Taking them out of `amy list`
   is a change to the index's generator and to `pi-local`, with its test.
+
+## Where it is
+
+Branch `core/package-dependencies`, on `core/packages` (main `4ed1d9ef`
+merged, `default` installs `transfer`, `python` installs `cc` and `ninja`,
+which merge alone if this does not). The seed changes are the two commits
+marked `SEED`; the Qwen recipe and the `pi-coding-agent` rows are commits of
+their own. It enters main with the catalog round, which rebuilds every
+image: the 39 rebuilt here are `default`'s chain, `system`, `cc`, `make`,
+`ninja`, `zig`, `transfer`, `session-recover`, `python`, `javascript`,
+`git`, `less`, `zlib`, `gzip`, `dolly-docs`, `raylib`, `box3d`, `cmake`,
+`sdl2`, `libuv`, the two SDK images and the speech chain.
 
 ## Not done, and why
 
