@@ -8,7 +8,7 @@ REQUIRES HOST http@0
 REQUIRES HOST snapshot@0
 REQUIRES HOST upload@0
 
-FROM /v0.1.2/Dollyfile-system 7b156dd4eef7042abb9e6ec29e8d9ebd5f0c2a60163761d79f77021d7066680b
+FROM /v0.1.3/Dollyfile-system b3b69ed31ed3671cb1d2b1c16b04acc0b057ec3fbd7fe295ff4b35cced249d20
 REQUIRES HEADER libc
 REQUIRES HEADER display
 REQUIRES HEADER input
@@ -20,8 +20,8 @@ REQUIRES TOOL   rm
 REQUIRES TOOL   tar
 
 # raylib 6.0 and Box3D 0.1.0 are unchanged upstream source archives.
-SOURCE /v0.1.2/dist/static/gamedev/raylib.tar b16dd083b9205e14f8b79a1d91c934b579c9a92bcb4e3af0e374f3e71dcf82d3 /tmp/raylib.tar
-SOURCE /v0.1.2/dist/static/gamedev/box3d.tar  5a502138e8f7b47c5994bdd279e9dcddeae0b8e147e3b92ab79b723bd07e4377 /tmp/box3d.tar
+SOURCE /v0.1.3/dist/static/gamedev/raylib.tar b16dd083b9205e14f8b79a1d91c934b579c9a92bcb4e3af0e374f3e71dcf82d3 /tmp/raylib.tar
+SOURCE /v0.1.3/dist/static/gamedev/box3d.tar  5a502138e8f7b47c5994bdd279e9dcddeae0b8e147e3b92ab79b723bd07e4377 /tmp/box3d.tar
 
 FILE /usr/src/dolly/gamedev/sdk.mk
     CC := cc

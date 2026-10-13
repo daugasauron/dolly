@@ -12,9 +12,9 @@ REQUIRES HOST upload@0
 # Build-only: the LLVM, MLIR and Clang Basic libraries the Mojo compiler
 # links, at the revision Mojo pins, and Zstandard, compiled inside Dolly by
 # its own cc and c++.
-FROM /v0.1.2/demos/cmake/Dollyfile-cmake-build 7fba368b51efb19e49e4fdc4e4f3e4f11ba046921ea3176a1e5609dcb08dd2b5
+FROM /v0.1.3/demos/cmake/Dollyfile-cmake-build f002927249cb3b1e534510aba53bb6502eb6693f81c52bef9d95c7f674ebf528
 # LLVM's CMake requires a Python 3 interpreter.
-INSTALL /v0.1.2/demos/python/Dollyfile-python 853121164f23a297adbccd1ae753fc71d598fe7307cee0262196bd9842992529
+INSTALL /v0.1.3/demos/python/Dollyfile-python 7238d00da57cb6782198862626ee08678859e599f1fc168f6324a40ee72a9071
 REQUIRES TOOL cmake
 REQUIRES TOOL make
 REQUIRES TOOL python
@@ -30,27 +30,27 @@ REQUIRES TOOL cp
 REQUIRES TOOL mkdir
 REQUIRES TOOL rm
 
-SOURCE /v0.1.2/dist/static/mojo/mojo-llvm.tar.gz bb20b5265be3bcb4387eb866060e3fa6ba5a07fb132fad481793b6db0699ac75 /tmp/mojo-llvm.tar.gz
+SOURCE /v0.1.3/dist/static/mojo/mojo-llvm.tar.gz bb20b5265be3bcb4387eb866060e3fa6ba5a07fb132fad481793b6db0699ac75 /tmp/mojo-llvm.tar.gz
 SLOP time slop -c 'gzip -dc /tmp/mojo-llvm.tar.gz | tar -xf - -C /'
 SLOP rm /tmp/mojo-llvm.tar.gz
 # As demos/llvm: config.guess runs and knows no Dolly host.
-SOURCE /v0.1.2/dist/static/mojo/llvm-host-triple.patch ec739fd5932c1040d07344a8511bae4da4157ff2bcafa348f06a555b71a10981 /tmp/llvm-host-triple.patch
+SOURCE /v0.1.3/dist/static/mojo/llvm-host-triple.patch ec739fd5932c1040d07344a8511bae4da4157ff2bcafa348f06a555b71a10981 /tmp/llvm-host-triple.patch
 SLOP patch -p1 -d /tmp/mojo-llvm -i /tmp/llvm-host-triple.patch
 # As demos/rust: Dolly has no /proc/self/exe; a program finds itself from argv[0].
-SOURCE /v0.1.2/dist/static/mojo/llvm-main-executable.patch a9fb350ef60401eeea39f75895ffc2bc89747ac4338a6daa0c3350491d0d025a /tmp/llvm-main-executable.patch
+SOURCE /v0.1.3/dist/static/mojo/llvm-main-executable.patch a9fb350ef60401eeea39f75895ffc2bc89747ac4338a6daa0c3350491d0d025a /tmp/llvm-main-executable.patch
 SLOP patch -p1 -d /tmp/mojo-llvm -i /tmp/llvm-main-executable.patch
 # LLVM waits for a child with wait4 and a usage record, which Dolly's wait4
 # refuses: there it waits with waitpid and reports no statistics.
-SOURCE /v0.1.2/dist/static/mojo/llvm-wait.patch bf70d879125c381e90275938d9533cba32d1c7f9ac82252a4d324c53e05195b1 /tmp/llvm-wait.patch
+SOURCE /v0.1.3/dist/static/mojo/llvm-wait.patch bf70d879125c381e90275938d9533cba32d1c7f9ac82252a4d324c53e05195b1 /tmp/llvm-wait.patch
 SLOP patch -p1 -d /tmp/mojo-llvm -i /tmp/llvm-wait.patch
 # Mojo's own patch to LLVM's code generator (bazel/public-patches/llvm_source.bzl);
 # its others change LLDB and the Bazel overlay, which are not built.
-SOURCE /v0.1.2/dist/static/mojo/llvm-machinefunction-sti-ref-to-ptr.patch 6226c7dca544ff5ea5cf384bafecdfb49a4ef8f43d88c3996d310f25a42d6a53 /tmp/llvm-sti.patch
+SOURCE /v0.1.3/dist/static/mojo/llvm-machinefunction-sti-ref-to-ptr.patch 6226c7dca544ff5ea5cf384bafecdfb49a4ef8f43d88c3996d310f25a42d6a53 /tmp/llvm-sti.patch
 SLOP patch -p1 -d /tmp/mojo-llvm -i /tmp/llvm-sti.patch
 
 # Zstandard, with which LLVM's Support compresses: Mojo's precompiled
 # packages are compressed.
-SOURCE /v0.1.2/dist/static/mojo/zstd.tar 9a873f533780038d91f831cc4d24d6360bc745f2a2c1c6eaf62a2699c16cb133 /tmp/zstd.tar
+SOURCE /v0.1.3/dist/static/mojo/zstd.tar 9a873f533780038d91f831cc4d24d6360bc745f2a2c1c6eaf62a2699c16cb133 /tmp/zstd.tar
 SLOP tar -xf /tmp/zstd.tar -C /
 FILE /tmp/zstd/Makefile
     .RECIPEPREFIX := >

@@ -7,8 +7,8 @@ REQUIRES HOST download@0
 REQUIRES HOST http@0
 REQUIRES HOST upload@0
 
-FROM /v0.1.2/Dollyfile-system-tools 0b45999e6aa7b373f5abb794c278bb22cd3733f33931581e4673c9bf280af08e
-INSTALL /v0.1.2/demos/sdl2/Dollyfile-sdl2 45b51dbd12c3251479e2a5f6a9405cd5e1df0f5405b7685732af4b5cfad2aa82
+FROM /v0.1.3/Dollyfile-system-tools aecc7314f41144a73fad7bfa2e15f97040b646c689fe9073854f98525002379e
+INSTALL /v0.1.3/demos/sdl2/Dollyfile-sdl2 9d2bdf21f71d47dcff6e82483cd824013d484b2d6cd07abb3223771f41bf7bed
 REQUIRES HEADER cpp
 REQUIRES HEADER sdl2
 REQUIRES HEADER zlib
@@ -22,7 +22,7 @@ REQUIRES TOOL tar
 REQUIRES TOOL gzip
 REQUIRES TOOL rm
 
-SOURCE /v0.1.2/dist/static/rts/seven-kingdoms.tar.gz 3aad67177fca52d82c53b9a1e4d80665e3b11457480ca434cb9c9294195b04d6 /tmp/seven-kingdoms/source.tar.gz
+SOURCE /v0.1.3/dist/static/rts/seven-kingdoms.tar.gz 3aad67177fca52d82c53b9a1e4d80665e3b11457480ca434cb9c9294195b04d6 /tmp/seven-kingdoms/source.tar.gz
 SLOP gzip -dc /tmp/seven-kingdoms/source.tar.gz | tar -xf - -C /
 SLOP make -f /usr/src/dolly/rts/Makefile
 

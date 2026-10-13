@@ -9,16 +9,16 @@ REQUIRES HOST sockets@0
 REQUIRES HOST threads@0
 REQUIRES HOST upload@0
 
-FROM /v0.1.2/Dollyfile-system-tools 0b45999e6aa7b373f5abb794c278bb22cd3733f33931581e4673c9bf280af08e
+FROM /v0.1.3/Dollyfile-system-tools aecc7314f41144a73fad7bfa2e15f97040b646c689fe9073854f98525002379e
 # FreeType (with its libpng) for gdi32's fonts, as 0 A.D. built them; libpng's headers for NetSurf.
-COPY /v0.1.2/demos/zero-ad/Dollyfile-zero-ad-deps 37193c962ae0d6a3c683168508e7a2f8a3e484ebf483084689c66a6af23f5a16 /usr/include/freetype2 /usr/include/freetype2
-COPY /v0.1.2/demos/zero-ad/Dollyfile-zero-ad-deps 37193c962ae0d6a3c683168508e7a2f8a3e484ebf483084689c66a6af23f5a16 /usr/lib/libfreetype.a /usr/lib/libfreetype.a
-COPY /v0.1.2/demos/zero-ad/Dollyfile-zero-ad-deps 37193c962ae0d6a3c683168508e7a2f8a3e484ebf483084689c66a6af23f5a16 /usr/lib/libpng16.a /usr/lib/libpng16.a
-COPY /v0.1.2/demos/zero-ad/Dollyfile-zero-ad-deps 37193c962ae0d6a3c683168508e7a2f8a3e484ebf483084689c66a6af23f5a16 /usr/include/png.h /usr/include/png.h
-COPY /v0.1.2/demos/zero-ad/Dollyfile-zero-ad-deps 37193c962ae0d6a3c683168508e7a2f8a3e484ebf483084689c66a6af23f5a16 /usr/include/pngconf.h /usr/include/pngconf.h
-COPY /v0.1.2/demos/zero-ad/Dollyfile-zero-ad-deps 37193c962ae0d6a3c683168508e7a2f8a3e484ebf483084689c66a6af23f5a16 /usr/include/pnglibconf.h /usr/include/pnglibconf.h
-COPY /v0.1.2/demos/zero-ad/Dollyfile-zero-ad-deps 37193c962ae0d6a3c683168508e7a2f8a3e484ebf483084689c66a6af23f5a16 /usr/share/licenses/freetype /usr/share/licenses/freetype
-COPY /v0.1.2/demos/zero-ad/Dollyfile-zero-ad-deps 37193c962ae0d6a3c683168508e7a2f8a3e484ebf483084689c66a6af23f5a16 /usr/share/licenses/libpng /usr/share/licenses/libpng
+COPY /v0.1.3/demos/zero-ad/Dollyfile-zero-ad-deps 9b1cbb3204423f4dea7b801514b6282212b7533c80b10e57e83c77b19286fc6c /usr/include/freetype2 /usr/include/freetype2
+COPY /v0.1.3/demos/zero-ad/Dollyfile-zero-ad-deps 9b1cbb3204423f4dea7b801514b6282212b7533c80b10e57e83c77b19286fc6c /usr/lib/libfreetype.a /usr/lib/libfreetype.a
+COPY /v0.1.3/demos/zero-ad/Dollyfile-zero-ad-deps 9b1cbb3204423f4dea7b801514b6282212b7533c80b10e57e83c77b19286fc6c /usr/lib/libpng16.a /usr/lib/libpng16.a
+COPY /v0.1.3/demos/zero-ad/Dollyfile-zero-ad-deps 9b1cbb3204423f4dea7b801514b6282212b7533c80b10e57e83c77b19286fc6c /usr/include/png.h /usr/include/png.h
+COPY /v0.1.3/demos/zero-ad/Dollyfile-zero-ad-deps 9b1cbb3204423f4dea7b801514b6282212b7533c80b10e57e83c77b19286fc6c /usr/include/pngconf.h /usr/include/pngconf.h
+COPY /v0.1.3/demos/zero-ad/Dollyfile-zero-ad-deps 9b1cbb3204423f4dea7b801514b6282212b7533c80b10e57e83c77b19286fc6c /usr/include/pnglibconf.h /usr/include/pnglibconf.h
+COPY /v0.1.3/demos/zero-ad/Dollyfile-zero-ad-deps 9b1cbb3204423f4dea7b801514b6282212b7533c80b10e57e83c77b19286fc6c /usr/share/licenses/freetype /usr/share/licenses/freetype
+COPY /v0.1.3/demos/zero-ad/Dollyfile-zero-ad-deps 9b1cbb3204423f4dea7b801514b6282212b7533c80b10e57e83c77b19286fc6c /usr/share/licenses/libpng /usr/share/licenses/libpng
 REQUIRES HEADER curl
 REQUIRES HEADER zlib
 REQUIRES LIB curl
@@ -34,10 +34,10 @@ REQUIRES TOOL sed
 REQUIRES TOOL sort
 REQUIRES TOOL tar
 
-SOURCE /v0.1.2/dist/static/wine/source.tar.gz 64d924af03f4d8460cfec78b2fa8147f165ca7f04e91176e3b5e807f6f190912 /tmp/wine-source.tar.gz
+SOURCE /v0.1.3/dist/static/wine/source.tar.gz 64d924af03f4d8460cfec78b2fa8147f165ca7f04e91176e3b5e807f6f190912 /tmp/wine-source.tar.gz
 SLOP gzip -dc /tmp/wine-source.tar.gz | tar -xf - -C /
 # TinyCC's win64 binaries, unmodified: x86-64 code for x86emu, which builds the Start menu's x86-64 sample with them.
-SOURCE /v0.1.2/dist/static/wine/tinycc.tar.gz 20709ea054c77d290a1837699bd8993dfbe84f97b5900002057a50dfd002fe4a /tmp/tinycc.tar.gz
+SOURCE /v0.1.3/dist/static/wine/tinycc.tar.gz 20709ea054c77d290a1837699bd8993dfbe84f97b5900002057a50dfd002fe4a /tmp/tinycc.tar.gz
 SLOP gzip -dc /tmp/tinycc.tar.gz | tar -xf - -C /
 # Tools, generated headers, every module and wineserver, linked into /usr/bin/wine; Wine's fonts.
 SLOP make -j4 -f /usr/src/dolly/wine/Makefile

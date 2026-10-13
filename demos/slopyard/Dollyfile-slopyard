@@ -10,9 +10,9 @@ REQUIRES HOST snapshot@0
 REQUIRES HOST threads@0
 REQUIRES HOST upload@0
 
-FROM /v0.1.2/demos/slopyard/Dollyfile-gamedev-sdk a2836ad1b85a99a019ed6e5efdf9766e75e62162693ddaef13387c36f6c86684
-INSTALL /v0.1.2/demos/javascript/Dollyfile-javascript 7e3eb0f6f5c1f424734093e537090fddb5cfb2d2bd8bfcbc6a48f817b3aa0de0
-INSTALL /v0.1.2/demos/pi/Dollyfile-pi 690ac1080dc50467a9cd81edf86fb41e4ec9a17ff4d6bc24824eae62af1339fb
+FROM /v0.1.3/demos/slopyard/Dollyfile-gamedev-sdk f2ccc6dee1950806558ce229a5976695cd07d0e4ac9caeb8ae541d7e0de81e41
+INSTALL /v0.1.3/demos/javascript/Dollyfile-javascript 8daf65f7d1fa92a0d41265f45098497cc4e77b426fe3fbcf76479d261092e23a
+INSTALL /v0.1.3/demos/pi/Dollyfile-pi 580c41b0fa544dfa3e3f4b114ee2abea28adc6f0b5417c4b69eb0457d765b6c0
 REQUIRES TOOL cc
 REQUIRES TOOL ar
 REQUIRES TOOL make
@@ -23,7 +23,7 @@ REQUIRES TOOL mkdir
 REQUIRES TOOL rm
 REQUIRES HEADER libc
 
-SOURCE /v0.1.2/dist/static/slopyard/lua-5.5.1.tar.gz 1c4b4068d67061f2a2231ad2b5422e77acea1487ea9890f6320af614f4373dce /tmp/lua55/source.tar.gz
+SOURCE /v0.1.3/dist/static/slopyard/lua-5.5.1.tar.gz 1c4b4068d67061f2a2231ad2b5422e77acea1487ea9890f6320af614f4373dce /tmp/lua55/source.tar.gz
 SLOP gzip -dc /tmp/lua55/source.tar.gz > /tmp/lua55/source.tar
 SLOP tar -xf /tmp/lua55/source.tar -C /tmp/lua55
 FILE /tmp/lua55/Makefile
@@ -52,7 +52,7 @@ REQUIRES HEADER gpu
 REQUIRES HEADER quickjs
 REQUIRES HEADER quickjs-runner
 
-SOURCE /v0.1.2/dist/static/slopyard/source.tar 2167fc5bfdf9bc2647b22ad940665f2629a4305e4f48de00e91653fca55acd50 /tmp/slopyard.tar
+SOURCE /v0.1.3/dist/static/slopyard/source.tar 2167fc5bfdf9bc2647b22ad940665f2629a4305e4f48de00e91653fca55acd50 /tmp/slopyard.tar
 SLOP tar -xf /tmp/slopyard.tar -C / && rm /tmp/slopyard.tar
 SLOP make -f /usr/src/dolly/slopyard/box3d.mk
 SLOP cc -std=c17 -O2 -pthread -U__SIZEOF_INT128__ -I/usr/include/lua5.5 /usr/src/dolly/slopyard/main.c /usr/src/dolly/slopyard/data.c /usr/src/dolly/slopyard/pi.c /usr/src/dolly/slopyard/character.c /usr/src/dolly/slopyard/render.c /usr/src/dolly/slopyard/world.c /usr/src/dolly/slopyard/terrain.c /usr/src/dolly/slopyard/magnet.c -ldolly-gpu -llua5.5 -ldolly-js -ldolly-raylib -lraylib -lslopyard-box3d -lm -o /usr/bin/slopyard

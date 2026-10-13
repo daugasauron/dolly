@@ -11,9 +11,9 @@ REQUIRES HOST upload@0
 
 # Build-only: the LLVM 22 libraries rustc links, at the revision Rust pins,
 # compiled inside Dolly by its own c++.
-FROM /v0.1.2/demos/cmake/Dollyfile-cmake-build 7fba368b51efb19e49e4fdc4e4f3e4f11ba046921ea3176a1e5609dcb08dd2b5
+FROM /v0.1.3/demos/cmake/Dollyfile-cmake-build f002927249cb3b1e534510aba53bb6502eb6693f81c52bef9d95c7f674ebf528
 # LLVM's CMake requires a Python 3 interpreter.
-INSTALL /v0.1.2/demos/python/Dollyfile-python 853121164f23a297adbccd1ae753fc71d598fe7307cee0262196bd9842992529
+INSTALL /v0.1.3/demos/python/Dollyfile-python 7238d00da57cb6782198862626ee08678859e599f1fc168f6324a40ee72a9071
 REQUIRES TOOL cmake
 REQUIRES TOOL make
 REQUIRES TOOL python
@@ -27,15 +27,15 @@ REQUIRES TOOL cp
 REQUIRES TOOL mkdir
 REQUIRES TOOL rm
 
-SOURCE /v0.1.2/dist/static/rust/rust-llvm.tar.gz 29562231e68f3722be93686f9729b76866dfbf0b0c0846e450cbe548687ade5d /tmp/rust-llvm.tar.gz
+SOURCE /v0.1.3/dist/static/rust/rust-llvm.tar.gz 29562231e68f3722be93686f9729b76866dfbf0b0c0846e450cbe548687ade5d /tmp/rust-llvm.tar.gz
 SLOP time slop -c 'gzip -dc /tmp/rust-llvm.tar.gz | tar -xf - -C /'
 SLOP rm /tmp/rust-llvm.tar.gz
 # As demos/llvm: config.guess runs and knows no Dolly host.
-SOURCE /v0.1.2/dist/static/rust/llvm-host-triple.patch ec739fd5932c1040d07344a8511bae4da4157ff2bcafa348f06a555b71a10981 /tmp/llvm-host-triple.patch
+SOURCE /v0.1.3/dist/static/rust/llvm-host-triple.patch ec739fd5932c1040d07344a8511bae4da4157ff2bcafa348f06a555b71a10981 /tmp/llvm-host-triple.patch
 SLOP patch -p1 -d /tmp/rust-llvm -i /tmp/llvm-host-triple.patch
 # llvm-config reports paths beside its own. Dolly has no /proc/self/exe, so it
 # finds itself as OpenBSD's does: from argv[0].
-SOURCE /v0.1.2/dist/static/rust/llvm-main-executable.patch a9fb350ef60401eeea39f75895ffc2bc89747ac4338a6daa0c3350491d0d025a /tmp/llvm-main-executable.patch
+SOURCE /v0.1.3/dist/static/rust/llvm-main-executable.patch a9fb350ef60401eeea39f75895ffc2bc89747ac4338a6daa0c3350491d0d025a /tmp/llvm-main-executable.patch
 SLOP patch -p1 -d /tmp/rust-llvm -i /tmp/llvm-main-executable.patch
 
 # As demos/llvm configures LLVM 24, and position-independent: rustc is linked
