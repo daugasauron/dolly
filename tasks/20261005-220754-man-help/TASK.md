@@ -1,40 +1,63 @@
-# man and --help: what is left, and what llms.txt does not tell an agent
+# man and --help: upstream pages print as roff source, and 17 packages have no page
 
 - STATUS: OPEN
-- PRIORITY: 110
+- PRIORITY: 100
 - TAGS: core,commands,docs,agent-experience
 
-## State (2026-10-12)
+## State (2026-10-13)
 
 Owner (2026-10-06): "I want to add the man command, and make sure things in general in the shell
 has good man/help."
 
-Shipped in v0.1.0: `man` with a page for every command of `default`, `--help` on Dolly's own
-commands, pages that arrive with `amy install`, and `test/man-browser.mjs` in Chromium and
-Firefox ("Built and run", below); at a terminal `man` pages through `$PAGER` or `less`
-(`f3f641cb`). The done-when holds. Lowered from 235 for that reason. Open is what "Expected"
-asks beyond it:
+Shipped in v0.1.0, and the done-when holds: `man` with a page for every command of `default`,
+`--help` on Dolly's own commands, pages that arrive with `amy install`, and
+`test/man-browser.mjs` in Chromium and Firefox ("Built and run", below); at a terminal `man`
+pages through `$PAGER` or `less` (`f3f641cb`).
 
-- Upstream pages rendered at build time (mandoc in `system-tools`): 45 pages print as mdoc or
-  man source.
-- One line per option and an example in every in-house `--help`; a wrong invocation printing
-  the usage line and exiting 2 (most still print a message).
-- `help` listing the commands with one-line summaries.
-- Pages for the other packages (`fd`, `python`, `nvim`, …); `ripgrep`'s page rows are unverified.
-- `cd --help`, `command --help` and `time --help` reach Slop's own builtins, which have no
-  `--help`.
+Done on 2026-10-13:
 
-From the fresh-agent run of `tasks/20261007-132428-robots` (closed 2026-10-12; the run is of
-2026-10-08), the same question asked of the site:
+- **`help` fits 80 columns.** The greeting sends a newcomer to `help`, whose lines were up to
+  200 characters and broke inside words at the page's width. The same words on lines of at
+  most 78 characters, held by `test/man-browser.mjs`: commit `d05f6443` on the branch
+  `core/site-polish-help`, apart from the rest of that day's work because it is an image input
+  (`Dollyfile-system-build`, every recipe repinned). Built on the chain of `default`, `cc`,
+  `git` and `less` (15 images, 888 s); `man`, `pager` and `shell-env` tests passed there in
+  Chromium and Firefox. It is done when that commit is on `main`.
+- **`llms.txt` says how a page is driven** (`d9402889`): the terminal is a canvas and is read
+  from a screenshot, `data-dolly-status` on the `html` element says `loading`, `ready`,
+  `built`, `failed` or `exited`, and typed keys reach the shell once it is `ready`
+  (`test/site-browser.mjs` types into a page that has no focused element). Whether part of
+  `window.__dolly` becomes a documented interface stays with step 3 of
+  `tasks/20260930-100000-audit-24`.
 
-- `llms.txt` does not say when a page is ready (the page sets `data-dolly-status` on the
-  document element), nor that the canvas takes a click and then keys.
-- Nothing says how to read the terminal: it is a canvas, so the agent read screenshots.
-  `window.__dolly` (`visibleTerminalText()`, `submit(command)`) is the tests' handle, not a
-  documented interface; whether part of it becomes one is the owner's decision (step 3 of
-  `tasks/20260930-100000-audit-24`).
-- `amy install cc` prints nothing until its 135 MB are installed, then says "its environment
-  applies when the session is next loaded" (`src/commands/amy.c`) although `cc` works at once.
+Left, in the order of what a newcomer meets:
+
+1. **45 upstream pages print as mdoc or man source**: `man grep`, the example `man man` gives,
+   starts with `.Dd October 8, 2015`. Rendering them when `system-tools` is built needs mandoc
+   there (119 C files, a hand-written `./configure`; "Decisions", below): a port with a new
+   source, pin and licence row, and a change of the seed.
+2. **17 packages bring commands without a page** (read from the recipes on 2026-10-13: the
+   packages with an `EXPORTS TOOL` and no row under `/usr/share/man`): `cargo`, `cbindgen`,
+   `cmake`, `codex-cli`, `emacs`, `fd`, `javascript`, `llvm`, `lua`, `mojo-compiler`, `nvim`,
+   `pi-coding-agent`, `protox`, `python`, `rust`, `transcribe`, `voice`. A page is one `FILE`
+   row beside the export, as in `Dollyfile-zig`; the check belongs in each package's row of
+   `test/amy-browser.mjs`.
+3. **`amy install` says "its environment applies when the session is next loaded" after every
+   package**, also one that exports no variable, and nothing between "fetching" and the end of
+   a large install. `src/commands/amy.c` was the packages work's file on 2026-10-13; said to
+   the integrator that day.
+
+Decided on 2026-10-13, and not planned:
+
+- `help` does not list the commands with summaries. `ls /bin /usr/bin` lists them and `man NAME`
+  describes each; `help` is the list of what differs from a POSIX shell, and a summary line
+  per command would be a second text to keep beside the pages.
+- Slop's builtins take no `--help`: `cd --help` is "No such file or directory". `man cd`,
+  `man command` and `man time` answer with the usage line of the programs of the same name, and
+  `docs/slop.md` lists the builtins.
+- An in-house `--help` is its usage line, with a line per option where the command has options
+  worth a line (`xargs`, `curl`, `cc`). A wrong invocation exits 2 with a message that names
+  what was wrong (`ls -Z`: "unsupported option: -Z"), which says more than the usage line.
 
 ## Expected
 
