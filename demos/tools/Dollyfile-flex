@@ -8,7 +8,7 @@ REQUIRES HOST runtime@0
 # run its configure, so config.h says what it would find here. Its own
 # grammar is compiled by yacc, and a scanner seldom goes without a grammar,
 # so the yacc package comes with it.
-FROM /v0.1.3/Dollyfile-system-tools e19ab2a237b16de1596ccbb3a2ae07dd34b65488de38762b66ec0207a89c4b83
+FROM /v0.1.3/demos/tools/Dollyfile-tools-build 6ba4c47ce2631185f78f778a161ffc23f43f3948e2676ed8a287f7b07d6cbfc4
 INSTALL /v0.1.3/demos/tools/Dollyfile-yacc c3a919362dd0d4be356d82b8af5735fe1a8108891d3c2746decaa272a71fbf38
 
 REQUIRES HEADER libc
@@ -24,6 +24,7 @@ REQUIRES TOOL   mv
 REQUIRES TOOL   tar
 REQUIRES TOOL   test
 REQUIRES TOOL   yacc
+REQUIRES TOOL   text-page
 
 SOURCE /v0.1.3/dist/static/tools/reflex-20260131.tgz ab51a65f33623bb9a3877fc5991ca7960b2421ed112d94c733d85597991748bd /tmp/reflex.tgz
 SLOP gzip -dc /tmp/reflex.tgz | tar -xf - -C /tmp
@@ -68,7 +69,7 @@ SLOP ln -s flex /usr/bin/lex
 SLOP cp /tmp/reflex-20260131/FlexLexer.h /usr/include/FlexLexer.h
 SLOP mkdir -p /usr/share/licenses/flex
 SLOP cp /tmp/reflex-20260131/COPYING /usr/share/licenses/flex/COPYING
-SLOP cp /tmp/reflex-20260131/flex.1 /usr/share/man/man1/flex.1
+SLOP text-page /tmp/reflex-20260131/flex.1
 
 # A scanner that counts the numbers in its input.
 FILE /tmp/flex-check/count.l
@@ -87,4 +88,4 @@ EXPORTS TOOL   lex
 EXPORTS LIB    fl        /usr/lib/libfl.a
 EXPORTS HEADER FlexLexer /usr/include/FlexLexer.h
 FILE /usr/share/licenses/flex/COPYING
-FILE /usr/share/man/man1/flex.1
+FILE /usr/share/man/cat1/flex.1

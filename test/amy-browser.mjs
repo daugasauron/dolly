@@ -260,6 +260,7 @@ const pages = {
   bc: { bc: "calculator", dc: "calculator" },
   xxd: { xxd: "hex" },
   yacc: { yacc: "parser" },
+  flex: { flex: "scanner" },
   mandoc: { mandoc: "manual" },
 };
 const reads = name => Object.entries(pages[name] ?? {}).map(([page, word]) =>
@@ -332,7 +333,7 @@ const tools = {
     "'#include <stdio.h>' 'int yylex(void) { return getchar() == EOF ? 0 : A; }' 'int main(void) { yyparse(); return count; }' > amy.y && " +
     "yacc -o amy-y.c amy.y && cc amy-y.c -o amy-y; printf abcdef | ./amy-y; test $? = 6"],
   flex: ["flex", "cd /tmp && printf '%s\\n' '%{' 'static int numbers;' '%}' '%%' '[0-9]+ numbers++;' '.|\\n ;' '%%' 'int main(void) { yylex(); return numbers; }' > amy.l && " +
-    "flex -o amy-l.c amy.l && cc amy-l.c -lfl -o amy-l; echo 'a 1 bb 22 c 333' | ./amy-l; test $? = 3 && lex --version > /dev/null && man flex > /dev/null"],
+    "flex -o amy-l.c amy.l && cc amy-l.c -lfl -o amy-l; echo 'a 1 bb 22 c 333' | ./amy-l; test $? = 3 && lex --version > /dev/null"],
   // A page of macros becomes text; the pages default holds as macros are such pages.
   mandoc: ["mandoc", "printf '%s\\n' '.Dd October 13, 2026' '.Dt PROBE 1' '.Os' '.Sh NAME' '.Nm probe' '.Nd a page of macros' > /tmp/amy.1 && " +
     "mandoc -T ascii /tmp/amy.1 | grep -q 'a page of macros' && mandoc -T ascii /usr/share/man/man1/grep.1 | grep -q 'search files for patterns'"],
