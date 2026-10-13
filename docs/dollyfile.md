@@ -66,12 +66,13 @@ mounted, and reads no other version's.
   documentation copy such as `Dollyfile-example.txt` is never a recipe.
 - A recipe is the file `Dollyfile-NAME` (`Dollyfile` for `default`); the site
   path that imports it must name that file.
-- Catalog convention: applications and packages take the product's name
-  (`pi`, `ripgrep`, `python`); toolchains are `family-variant`
+- Catalog convention: a package has the plain name a person types, its
+  command (`pi`, `mojo`, `nvim`) or the product (`ripgrep`, `python`,
+  `sdl2`); toolchains are `family-variant`
   (`rust-sdk`, `cmake-build`, `pi-runtime`); versions go in the family
-  (`qwen3.5-4b`). When an application already has the product's name, the
-  package takes another name the project uses (`nvim`, `pi-coding-agent`,
-  `codex-cli`). The
+  (`qwen3.5-4b`). An application that opens into a package takes another
+  name: what the image adds (`pi-agent`, `mojo-gpu`) or the product's
+  longer name (`neovim`, `gnu-emacs`). The
   start page lists images by role, toolchains grouped by their directory.
 - `/etc/dolly/recipes/` retains every recipe an image was built from, by file
   name; `/etc/dolly/Dollyfile` is the image's own.
@@ -258,7 +259,7 @@ nothing, and installed by recipes and sessions with the same row.
 Software is a package when a session would install it (`amy install cmake`)
 or more than one image uses it. An application, or a toolchain people open,
 is then a base, `INSTALL` rows and its own entry and configuration
-(`codex`, `neovim`, `rust-tools`); a toolchain remains where software is
+(`codex-agent`, `neovim`, `rust-tools`); a toolchain remains where software is
 built. The same `COPY` rows in two recipes are a missing package. The core
 is packaged the same way: `core` (Slop and its commands), `cc` (the C/C++
 toolchain) and `amy` (with the engine it runs) are kept from the toolchains
@@ -279,7 +280,7 @@ EXPORTS TOOL rg
 - A package holds its build (`FROM` a toolchain, then steps: `zlib`,
   `ripgrep`, `sdl2`) or keeps the outputs of the toolchain that built them,
   with `FROM` and only `EXPORTS` (`cc`, `cmake`, `javascript`) or with `COPY`
-  rows (`nvim`, `rust`, `codex-cli`), which leaves an expensive builder as it
+  rows (`nvim`, `rust`, `codex`), which leaves an expensive builder as it
   is.
 - Packages install into standard paths (`/usr/bin`, `/usr/lib`, `/usr/share`)
   and set environment variables only for their own use: an installed value

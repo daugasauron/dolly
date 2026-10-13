@@ -26,7 +26,7 @@ REQUIRES HOST upload@0
 
 FROM ${await pin("demos/slopyard/Dollyfile-gamedev-sdk")}
 INSTALL ${await pin("demos/javascript/Dollyfile-javascript")}
-INSTALL ${await pin("demos/pi/Dollyfile-pi-coding-agent")}
+INSTALL ${await pin("demos/pi/Dollyfile-pi")}
 REQUIRES TOOL cc
 REQUIRES TOOL ar
 REQUIRES TOOL make

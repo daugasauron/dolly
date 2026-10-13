@@ -12,7 +12,7 @@ REQUIRES HOST snapshot@0
 REQUIRES HOST threads@0
 REQUIRES HOST upload@0
 
-FROM /v0.1.2/demos/pi/Dollyfile-pi-runtime b7361ca4f0713b3acecf45eddc495fb2c15c93041bc8ced1d8bd3d3585778448
+FROM /v0.1.2/demos/pi/Dollyfile-pi-runtime 36996c843372c15c98b16ed7965098f1f5465c0c4ccbabb0d22e1ac853771fd5
 REQUIRES TOOL foreground
 REQUIRES TOOL pi
 INSTALL /v0.1.2/demos/speech/Dollyfile-voice 18c325fe0c019038955d931c401746f943604a1340737625f176155258715da4

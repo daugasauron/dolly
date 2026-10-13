@@ -1,4 +1,4 @@
-// Codex in the codex image: the TUI's editing, paste, shell tool, status and
+// Codex in the codex-agent image: the TUI's editing, paste, shell tool, status and
 // exit against a scripted Responses provider, then device login, cancellation,
 // persistence, token refresh and the login CLI against synthetic OAuth.
 // Usage: node demos/codex/test/codex-browser.mjs
@@ -9,7 +9,7 @@ import { demoFixture } from "./fixtures/codex-responses.mjs";
 
 const responses = demoFixture(), login = createCodexLoginFixture();
 const handle = (request, response) => responses.handle(request, response) || login.handle(request, response);
-await demoTest("codex", { image: "codex", timeout: 1_200_000, server: { handle } }, async ({ server, open }) => {
+await demoTest("codex", { image: "codex-agent", timeout: 1_200_000, server: { handle } }, async ({ server, open }) => {
   // The image enters Codex's sign-in screen; Ctrl-C leaves it for the shell.
   const shell = async options => {
     const terminal = await open({ ...options, prompt: null });

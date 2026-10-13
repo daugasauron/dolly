@@ -11,10 +11,10 @@ test("QuickJS reaches only Pi-bearing images, through the javascript package", a
   assert.equal(recipeRecords(defaultGraph).some(({ name }) => name === "javascript"), false);
   assert.equal(defaultGraph.exporters.has("HEADER:quickjs-runner"), false);
   assert.equal(defaultGraph.exporters.has("LIB:dolly-js"), false);
-  for (const image of ["pi", "bhop"]) {
-    const graph = await loadProjectGraph(`demos/${image}/Dollyfile-${image}`);
+  for (const [demo, image] of [["pi", "pi-agent"], ["bhop", "bhop"]]) {
+    const graph = await loadProjectGraph(`demos/${demo}/Dollyfile-${image}`);
     const names = recipeRecords(graph).map(({ name }) => name);
-    for (const name of ["javascript", "pi-coding-agent", "pi-build"]) assert.ok(names.includes(name), `${image}: ${name}`);
+    for (const name of ["javascript", "pi", "pi-build"]) assert.ok(names.includes(name), `${image}: ${name}`);
     const build = graph.records.find(({ name }) => name === "pi-build");
     for (const requirement of ["LIB:dolly-js", "HEADER:quickjs-runner"]) {
       const [type, name] = requirement.split(":");
@@ -25,7 +25,7 @@ test("QuickJS reaches only Pi-bearing images, through the javascript package", a
 });
 
 test("Pi is compiled from pinned source after an in-sandbox TypeScript layer", async () => {
-  const graph = await loadProjectGraph("demos/pi/Dollyfile-pi");
+  const graph = await loadProjectGraph("demos/pi/Dollyfile-pi-agent");
   const typescript = graph.records.find(({ name }) => name === "typescript-build");
   const pi = graph.records.find(({ name }) => name === "pi-build");
   assert.ok(typescript.sources.some(({ location }) =>
@@ -44,7 +44,7 @@ test("Pi is compiled from pinned source after an in-sandbox TypeScript layer", a
     type === "ENV" && name === "PI_PACKAGE_DIR" && details[0] === "/usr/lib/node_modules/@earendil-works/pi-coding-agent"));
   assert.ok(pi.requirements.some(({ type, name }) => type === "TOOL" && name === "cc"));
   assert.ok(pi.folders.some(({ path }) => path === "/usr/share/licenses/pi-source"));
-  const agent = graph.records.find(({ name }) => name === "pi-coding-agent");
+  const agent = graph.records.find(({ name }) => name === "pi");
   assert.equal(agent.role, "package");
   assert.ok(agent.exports.some(({ type, name, details }) =>
     type === "ENV" && name === "PI_SKIP_VERSION_CHECK" && details[0] === "1"));

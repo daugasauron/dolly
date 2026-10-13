@@ -9,19 +9,20 @@ place of a keyboard, for Pi on a phone.
 ## Images
 
 - `speech-build`: transcribe.cpp built with CMake, and `speech-to-text` and `voice` linked against it.
-- `speech-to-text`: Speak, and what the microphone hears is written as text. English.
+- `speech-to-text-mic`: Speak, and what the microphone hears is written as text. English.
 - `pi-phone`: Pi for a phone: say what it should do, and tap buttons for the rest. English.
-- `transcribe`: `speech-to-text` with the Parakeet model and Silero VAD, for an image that declares `microphone@0`, as a package.
+- `speech-to-text`: `speech-to-text` with the Parakeet model and Silero VAD, for an image that declares `microphone@0`, as a package.
 - `voice`: `voice` with the Parakeet model, for an image that declares `microphone@0` and `buttons@0`, as a package.
-- `parakeet`: NVIDIA's Parakeet TDT-CTC 110M speech model (English, 135 MB), which `transcribe` and `voice` read, as a package.
+- `parakeet`: NVIDIA's Parakeet TDT-CTC 110M speech model (English, 135 MB), which `speech-to-text` and `voice` read, as a package.
 
-Open `/speech-to-text/` or `/pi-phone/` and allow the microphone; build with
+Open `/speech-to-text-mic/` or `/pi-phone/` and allow the microphone; build with
 `npm run image -- pi-phone`.
 
 The two images are a base and a package each. A recipe that declares the host
-modules installs the same: `INSTALL` of `transcribe` or `voice`. `default`
-declares neither `microphone@0` nor `buttons@0`, so `amy install transcribe`
-is refused there, naming the module; `parakeet` installs anywhere.
+modules installs the same: `INSTALL` of `speech-to-text` or `voice`. `default`
+declares neither `microphone@0` nor `buttons@0`, so `amy install
+speech-to-text` is refused there, naming the module; `parakeet` installs
+anywhere.
 
 ## speech-to-text
 
@@ -33,7 +34,7 @@ again.
 
 ## pi-phone
 
-Pi runs in the terminal as in the `pi` image; `voice` runs beside it, holds
+Pi runs in the terminal as in the `pi-agent` image; `voice` runs beside it, holds
 `buttons@0` ([input](../../docs/input.md)) and types for the user:
 
 - **Speak** listens until Send, Done or Cancel; what was heard so far shows

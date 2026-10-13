@@ -1,6 +1,6 @@
 // Shared setup for demo browser tests, which drive one Chrome (or Firefox):
 //
-//   await demoTest("pi", { image: "pi", server, timeout, webgpu, browser, launch }, async ({ server, open }) => {
+//   await demoTest("pi", { image: "pi-agent", server, timeout, webgpu, browser, launch }, async ({ server, open }) => {
 //     const { page, run, start, waitText } = await open({ policy, prompt, path, setup, viewport, device });
 //   });
 //
