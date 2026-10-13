@@ -22,7 +22,8 @@ has checked) or the second is fixed with a test that fails before.
 - It ran beside three other test files, right after four images were built,
   with two agents reading the tree. Alone it passes three of three (440 Hz,
   rms 0.3453; Firefox 1000 Hz), and it passed in the core suite two hours
-  before.
+  before and in the rerun of the whole suite twenty minutes after (427 s,
+  all passed).
 - The change under test did not touch it (the page's parser lost an unread
   field; a comment).
 - Not known: who wrote the zeros. Chrome's fake device loops a one-second
