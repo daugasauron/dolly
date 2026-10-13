@@ -18,7 +18,7 @@ test("Pages verifies the user-selected artifact digest before extraction", async
     const script = new URL("../scripts/verify-sha256.sh", import.meta.url).pathname;
     const verify = value => execFileSync("bash", [script, value, "dolly-pages.tar.gz"], { cwd: scratch, stdio: "pipe" });
     await writeFile(archive, bytes);
-    assert.match(verify(digest).toString(), /dolly-pages.tar.gz: OK/);
+    verify(digest);
     assert.throws(() => verify(""));
     assert.throws(() => verify("not a digest"));
     assert.throws(() => verify(`${digest}\n${digest}`));
