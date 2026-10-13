@@ -68,3 +68,15 @@ and the 17 clients have no remark), a check of `pthread-stubs.c`,
 `threads.c`, `src/slop.c`, `src/dollyfile.c` and `src/commands/`. `-Wextra`
 would ask for 19 `(void)` lines in ten modules' `kernel.c`; not done.
 
+## Checked after (2026-10-14, 06:40)
+
+With the libc's internal include paths, `src/process/pthread-stubs.c` and
+the nine files of the threaded process side
+(`scripts/build-process-threads.sh:18`) have no remark of their own under
+`-Wall`. Four of the ten compiles print three remarks each from musl's
+`endian.h` (`-Wbitwise-op-parentheses`, `-Wshift-op-parentheses`): those
+paths make the libc's headers ordinary ones. `-Werror` on the process side
+would need them as `-isystem` paths or the two remarks switched off. Four
+`-Wshift-op-parentheses` remarks from that header are in
+`npm run build:runtime`'s output today, with no flag asking.
+
