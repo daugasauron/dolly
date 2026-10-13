@@ -2,7 +2,7 @@
 
 - STATUS: OPEN
 - PRIORITY: 250
-- TAGS: packages,catalog,toolchain
+- TAGS: packages,catalog,toolchain,owner
 
 Owner (2026-10-13), on
 [the inventory of builds](../20261013-142800-generic-builds/inventory.md): "I
@@ -31,6 +31,54 @@ in the group:
 - what could not be found out without building.
 
 The owner decides what, if anything, follows.
+
+## State (2026-10-14, 03:00): investigated, the owner's to read
+
+[The investigation](investigation.md), by a Fable agent that read `main`
+`f7ea8f76`, the staged sources, the built images and the logs, and changed
+nothing (one report in two parts; the other is
+[what is compiled more than once](../20261013-145359-builds-twice/investigation.md)).
+The integrator checked the three LLVM pins and the versions they print, one
+build time, and the quoted decision in the Mojo task. It gives no verdict.
+What it found:
+
+- Every build of this group is where its first commit put it, and all but
+  Mojo's were put there before packages existed (Neovim 2026-09-07,
+  Codex 09-09, llama.cpp and Pi 09-14). The packages over them came later
+  as `COPY` rows or views.
+- The three LLVMs are three revisions, not one source built three ways:
+  the seed's (`4bfd08c2`, prints 24.0.0git), Mojo's (`4154b56c`, also
+  24.0.0git, 2,381 commits later) and Rust's fork (`52ed14fc`, 22.1.8). Each
+  has a recorded reason of its own: `llvm-cc` must give the seed
+  compiler's bytes; Mojo "is written against its pin … Not tried:
+  compiling Mojo against the seed's revision"; rustc accepts any LLVM from
+  21 and nothing records a try with another. The three restate one
+  configuration and share two patches as three staged copies; `make` took
+  2,502, 1,657 and 3,925 s.
+- "llama.cpp in two images" is one build and one link. ggml is in both
+  engines' trees at different revisions (0.23.0 in llama.cpp, 0.25.3 in
+  transcribe.cpp; 194 files differ) and is built with different flags on
+  purpose: with threads and SIMD for speech ("what let the model keep up
+  with speech"), without either for llama. llama.cpp can take a system
+  ggml; transcribe.cpp cannot without a change.
+- `rust-build` "replaces the seed compiler in place twice": the rustc it
+  built is copied over the seed's and builds the standard library and
+  rustc again; the second generation is kept and its standard library must
+  compare equal. The owner chose this ("implement choice 1 for v0.1.1").
+- Neovim's Lua 5.1 is upstream's requirement, and all five of its libraries
+  are at Neovim's own pins. Only utf8proc has a second user, at another
+  version (NetSurf's bundled copy).
+- Written out, a llama.cpp library package meets the host-module rule both
+  ways: its archives stamp nothing, so it seals with `runtime@0` alone; but
+  the document says a library declares what every program built with it
+  needs, and with `gpu@0` on it the speech images could not install it.
+  Both readings are in the catalog today (`sdl2` and `mojo`).
+- An LLVM package would not build LLVM fewer times: three revisions stay
+  three builds. What three recipes repeat is the base (`cmake-build` with
+  Python), the configuration text and the patches.
+- Not found out, each needs a build: whether either engine compiles against
+  the other's ggml; whether rustc or Mojo compile against the seed's LLVM;
+  whether a package keeps a result its recipe later deletes.
 
 ## What the inventory says (2026-10-13, unchecked)
 

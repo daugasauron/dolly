@@ -2,7 +2,7 @@
 
 - STATUS: OPEN
 - PRIORITY: 248
-- TAGS: packages,catalog
+- TAGS: packages,catalog,owner
 
 Owner (2026-10-13), on
 [the inventory of builds](../20261013-142800-generic-builds/inventory.md): "I
@@ -31,6 +31,47 @@ in the group:
 - what could not be found out without building.
 
 The owner decides what, if anything, follows.
+
+## State (2026-10-14, 03:00): investigated, the owner's to read
+
+[The investigation](investigation.md), by a Fable agent that read `main`
+`f7ea8f76`, the staged sources and the logs, and changed nothing (one report
+in two parts; the other is
+[the engines](../20261013-145359-builds-engines/investigation.md)). The
+integrator checked sbase's archive in three recipes, the `zstd` package's
+defines and the JPEG rows of the two Makefiles. It gives no verdict. What it
+found:
+
+- Three repeats are the same source at the same pin, and none was ever
+  compiled to the same bytes:
+  - sbase: three recipes, the same flags, three disjoint lists of tools
+    (44, 8 and 1); its two small libraries are compiled three times. The
+    two packages sit on `tools-build` for their manual pages.
+  - IJG libjpeg 9f: 46 units at `-O1` for Xonotic, 26 decoder units at `-O2`
+    with threads for NetSurf in the Wine image. Neither exports a library.
+  - Zstandard 1.5.7: three directories with no defines inside `mojo-llvm`,
+    the whole library with upstream's defines in the package `zstd`, which
+    came eight hours later the same day and already exports `libzstd.a`
+    and its headers.
+- The second copy was each time made when no package existed to install.
+- "Different on purpose" holds on the record for most: Lua 5.1 is Neovim's
+  requirement; Box3D's second build was measured (6.8% less simulation
+  time) and later fixed a 71-minute hang; fmt's three versions are three
+  upstreams' choices, one of them Dolly's own for 0 A.D.; `less` has GNU
+  termcap because nothing else asked for one, and tmux needed a function it
+  lacks. Not on the record: why Slopyard took Lua 5.5.1.
+- Written out: `libjpeg` as a package is about twenty rows, and then one of
+  today's two flag sets is chosen for both users. `mojo-llvm` installing
+  `zstd` needs nothing added to the package; it would bring the tool into
+  the Mojo build images and put the page formatter's pin under Mojo's
+  65-minute LLVM. One sbase build of all 53 tools would put sbase's `tar`
+  in `/bin` of every image on `system-tools`, which the `tar` package
+  today confines to whoever installs it.
+- The repeated `SOURCE` rows are as the inventory counted;
+  `llvm-host-triple.patch` is one file served at three paths.
+- Not found out, each needs a build: whether `less` works on
+  `libterminfo`; whether 0 A.D. or OpenAL compile against fmt 11; how
+  Mojo's link resolves its two copies of xxHash.
 
 ## What the inventory says (2026-10-13, unchecked)
 
