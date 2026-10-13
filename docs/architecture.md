@@ -106,8 +106,6 @@ flowchart TD
   sb --> st["system-tools<br/>sbase, git, awk, /bin/sh"]
   disp -. "INSTALL" .-> st
   st --> sys["system<br/>sessions"]
-  sys --> gpu["gpu-sdk"]
-  sys --> audio["audio-sdk"]
   sb -. "packages: core, curl, nena" .-> def["default<br/>packages only"]
   st -. "packages: posix, amy, transfer" .-> def
   disp -. "INSTALL" .-> def
@@ -122,8 +120,7 @@ flowchart TD
   [`Dollyfile-zig-build`](../Dollyfile-zig-build),
   [`Dollyfile-ghostty-build`](../Dollyfile-ghostty-build),
   [`Dollyfile-display`](../Dollyfile-display),
-  [`Dollyfile-system`](../Dollyfile-system), [`Dollyfile`](../Dollyfile) (default),
-  [`Dollyfile-gpu-sdk`](../Dollyfile-gpu-sdk), [`Dollyfile-audio-sdk`](../Dollyfile-audio-sdk);
+  [`Dollyfile-system`](../Dollyfile-system), [`Dollyfile`](../Dollyfile) (default);
 - An edit rebuilds its descendants: each builder starts from the smallest
   image with its tools. `default` has no base: it installs packages, each
   built in `system-build` or `system-tools`. `system-tools` installs the
