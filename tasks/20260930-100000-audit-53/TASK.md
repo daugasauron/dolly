@@ -110,6 +110,13 @@ Left:
 5. **Demo tests run in Chrome only.** `demos/run-browser-tests.mjs` starts headless Chrome; ten
    of the thirty demo test files name Firefox. "Every demo test once in Firefox" was on
    v0.1.0's list (`tasks/20261007-133708-v010`) and has not been done.
+6. **A single-image run narrows what the suites check, and they do not say so.**
+   `npm run image -- NAME` writes `dist/dolly-images.mjs` and the routes for NAME's closure,
+   also when nothing is built: 31 images after `-- pi-local`. The artifact tests then read 31
+   images and pass, and one skips (`test/zig-sdk.artifacts.mjs:19`, `skip:
+   !selected.has("default")`). Found on 2026-10-14 after the timing runs of item 4, when the
+   artifact tests went from 25 passes to 24 and a skip; the plain `npm run image` listed 130
+   again (155 s, nothing built) and they pass 25.
 
 Not done on 2026-10-13: the day went to reproduced bugs; 1 and 2 are the two that cost every
 build inside Dolly and come first.
