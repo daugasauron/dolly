@@ -18,50 +18,31 @@ only a view of a demo's build image; each has its check in
 `test/amy-browser.mjs` or its consumer's test; the list of what was not
 broken out says why for each.
 
-## State (2026-10-13, 23:50)
+## State (2026-10-14, 00:00)
 
 [The inventory](inventory.md) is made, by an agent that read all 133 recipes
-and changed nothing. What it found:
+and changed nothing. The owner read it: "I agree in some sense, but some of
+the judgement is again too blunt. These are all good points but needs way
+more understanding to make a call if the changes actually improve things or
+not."
 
-- 31 of 79 packages hold no build: 22 are `FROM` a build image and compile
-  nothing, 9 are `COPY` rows. 39 hold their build, 9 are data.
-- Built more than once: sbase three times from one archive, IJG libjpeg in
-  `xonotic-build` and `wine-build`, Zstandard in `mojo-llvm` beside the
-  package `zstd`. The three LLVMs, the three Luas and the two Box3D differ
-  for real reasons (three compilers' pins, versions, build options).
-- The package set it proposes adds `libogg`, `libvorbis`, `libxml2`,
-  `libsodium`, `icu`, `boost-headers`, `libjpeg`, `utf8proc`, `tree-sitter`,
-  `lpeg`, `luv`, `lua5.5`, `premake`, `spidermonkey`, `transcribe`, `libffi`,
-  `gmqcc`; ten build images go.
-- SpiderMonkey written out in full: its recipe, the three of 0 A.D.'s six
-  patches any build needs, that Dolly's 490-line patch is all the port's,
-  and what stands in the way (its build tools,
-  [which a package cannot name](../20261013-144754-build-needs/TASK.md);
-  `pkgconf` and `zlib.pc` living in `zero-ad-deps`; a source without a pin
-  of its own).
+So the inventory is a map of where builds live and a list of candidates, not
+a plan: it proposed a package set and nine steps from the recipes' text,
+without reading why each build is where it is or showing on a real case that
+breaking it out improves anything. No step of it is taken. Each group of its
+points is a task that investigates and decides nothing:
 
-Its order, each step leaving every image building:
+- [packages that are views of a build image](../20261013-145359-builds-views/TASK.md);
+- [the libraries inside the 0 A.D. builds, and SpiderMonkey](../20261013-145359-builds-zero-ad-deps/TASK.md),
+  the owner's example;
+- [the engines and compilers built in demo images](../20261013-145359-builds-engines/TASK.md);
+- [the base images and their views](../20261013-145359-builds-root/TASK.md);
+- [what is compiled more than once](../20261013-145359-builds-twice/TASK.md);
+- [a package cannot say what it needs only to build](../20261013-144754-build-needs/TASK.md),
+  a question about the language it met on the way.
 
-1. `.pc` files to their owners (`zlib`, `curl`, `sdl2`): repins nearly
-   everything.
-2. Leaf libraries hold their builds, no consumer changes: 8 views rewritten
-   (`pkgconf`, `libpng`, `freetype`, `openal`, `libuv`, `lua`, `raylib`,
-   `box3d`) and 13 added. 21 images, no build image touched.
-3. Build images install them (`zero-ad-deps`, `xonotic-build`, `wine-build`,
-   `gamedev-sdk`, `slopyard`, `mojo-llvm`): 15 images.
-4. `spidermonkey`.
-5. Engines on composed bases: `nvim`, `llama`, `transcribe`, `mojo`,
-   `codex`, `llvm`.
-6. `quickjs`, `janis`, `typescript`
-   ([task](../20261013-135951-javascript-split/TASK.md), running).
-7. `rust`, `cargo`.
-8. `cmake`.
-9. The root: `posix`, `git`, `ninja`, `transfer`, `amy`, `session-recover`,
-   `zig`, `display` hold their builds and the base images compose them.
-
-Taken tonight, one at a time: step 2, which touches no build image. Steps 1,
-8 and 9 repin most of the catalog and are a round's work; they wait for the
-owner's word.
+Running, by the owner's word of the same evening:
+[the javascript package split](../20261013-135951-javascript-split/TASK.md).
 
 ## As filed (2026-10-13, main `50c698f8`)
 
