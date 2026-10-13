@@ -38,8 +38,20 @@ that change the seed or every recipe, and so want one round together:
 - `zero-ad` is `FROM default` and its recipe now removes `default`'s `nena`
   command, which a game's page may not hold: an image of its own packages is
   the clean shape (audit 19).
-- `gpu-sdk` and `audio-sdk` hold nothing of their own; with `nena` a shell
-  with a GPU is `default` and one command (audit 18).
+- Done on `core/no-sdk-images` (2026-10-13, not merged, no round needed):
+  `gpu-sdk` and `audio-sdk` are deleted (audit 18). `gpu-fluid`,
+  `mojo-runtime` and `mojo-gpu` are built `FROM system` and declare `gpu@0`
+  themselves as before; `mojo` is repinned with `mojo-runtime`. The tests of
+  `audio@0`, `microphone@0` and `gpu@0` open `system` with the module added,
+  composed in the page, because they test what an image that declares the
+  module gets (the refusal before ENTRY among it); `nena`'s own test covers
+  a module enabled later. Rebuilt and measured there: the four images (28,
+  14, 18 and 34 s), the source suite with the demos' tests (429), the audio,
+  microphone, GPU indicator and every test of a composed image in Chromium
+  and Firefox, Mojo headless, and on a GPU window in Chromium the render
+  test and the fluid demo. Firefox gave no adapter on that Xvfb display, so
+  its two GPU runs did not happen. The documents' commit repins
+  `dolly-docs`, and with it `pi-agent`, `pi-local` and `dollyfile-studio`.
 - The terminal does not turn Enter's carriage return into the newline a
   program reading a line waits for: `unzip` and `zstd` wait at their
   overwrite question until Ctrl+J. The measurement and a design are in
