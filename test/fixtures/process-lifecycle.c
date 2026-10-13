@@ -8,6 +8,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/resource.h>
 #include <sys/wait.h>
 #include <time.h>
 #include <unistd.h>
@@ -22,6 +23,10 @@ static double now(void) {
   clock_gettime(CLOCK_MONOTONIC, &value);
   return value.tv_sec + value.tv_nsec / 1e9;
 }
+
+/* SIGCHLD: a child has exited and its Worker is retired. */
+static volatile sig_atomic_t retired;
+static void child_retired(int number) { retired += number == SIGCHLD; }
 
 static int child(const char *path, const char *mode) {
   int output[2];
@@ -261,18 +266,36 @@ int main(int argc, char **argv) {
     CHECK(WIFEXITED(status) && WEXITSTATUS(status) == 0);
     if (failures) return 1;
   }
-  // The supervisor caps live processes; a spawn beyond the cap fails.
+  // No more than RLIMIT_NPROC processes exist: the ones /proc/processes lists
+  // and the exited ones nobody has waited for. A spawn past them is EAGAIN,
+  // from the kernel's table when the others have exited unwaited and from the
+  // supervisor while they run; waiting for them makes the room again.
+  struct rlimit limit;
+  CHECK(getrlimit(RLIMIT_NPROC, &limit) == 0);
+  int room = (int)limit.rlim_cur;
+  FILE *listed = fopen("/proc/processes", "r");
+  CHECK(listed != NULL);
+  if (listed == NULL) return 1;
+  for (int byte; (byte = fgetc(listed)) != EOF;) room -= byte == '\n';
+  fclose(listed);
   const int quiet = open("/dev/null", O_WRONLY);
-  char *sleep_arguments[] = {argv[0], "sleep", NULL};
-  int held[64], count = 0, spawned = 0;
-  while (count < 64 && (spawned = dolly_spawn(argv[0], 2, sleep_arguments, 0, quiet, 2)) > 0) {
-    held[count++] = spawned;
+  char *sleep_arguments[] = {argv[0], "sleep", NULL}, *exit_arguments[] = {argv[0], "exit130", NULL};
+  CHECK(signal(SIGCHLD, child_retired) != SIG_ERR);
+  for (int running = 0; running < 2; ++running) {
+    int held[limit.rlim_cur], count = 0, spawned = 0;
+    while (count < (int)limit.rlim_cur &&
+           (spawned = dolly_spawn(argv[0], 2, running ? sleep_arguments : exit_arguments, 0, quiet, 2)) > 0) {
+      held[count++] = spawned;
+      // A handler runs inside a kernel call only, so none is missed before the pause.
+      while (!running && retired < count) pause();
+    }
+    CHECK(spawned == -EAGAIN && count == room);
+    for (int index = 0; index < count; ++index) {
+      if (running) CHECK(kill(held[index], SIGKILL) == 0);
+      CHECK(waitpid(held[index], &status, 0) == held[index]);
+    }
   }
-  CHECK(spawned == -EAGAIN && count > 0 && count < 64);
-  for (int index = 0; index < count; ++index) {
-    CHECK(kill(held[index], SIGKILL) == 0);
-    CHECK(waitpid(held[index], &status, 0) == held[index]);
-  }
+  CHECK(signal(SIGCHLD, SIG_DFL) != SIG_ERR);
   close(quiet);
   const int after_cap = child(argv[0], "exit130");
   CHECK(after_cap > 0 && waitpid(after_cap, &status, 0) == after_cap);
