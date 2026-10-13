@@ -4,7 +4,7 @@
 - PRIORITY: 150
 - TAGS: catalog,owner,packages,host-modules
 
-State (2026-10-14, 04:10). In the night of 2026-10-14 the owner's feedback
+State (2026-10-14, 06:15). In the night of 2026-10-14 the owner's feedback
 of the evening was done and verified without a round (a minimal `ps`, tmux's
 two defects, the CPU/GPU column out, `javascript` split into `quickjs`,
 `janis` and `typescript`, the four-part Qwen model out), and every point of
@@ -84,7 +84,14 @@ What a round costs, image by image, from the logs
 ([the measurements](../20260930-100000-audit-53/round-costs.md)): 5.1 hours
 of single builds, a longest chain of 1 h 49 min, and a `system-tools` change
 within 4% of a seed change because the six long images all sit below
-`cmake-build`.
+`cmake-build`. An unchanged `npm run image -- codex` takes 80 to 87 s
+([iteration cost](../20260930-100000-audit-53/TASK.md)).
+
+Also his, from before the night:
+[three answers only he can give](../20261012-232215-owner-answers/TASK.md),
+[slopshare.dev](../20261011-134500-slopshare/TASK.md), and
+[the two terminal flakes still open](../20261001-095000-terminal-text-flake/TASK.md), which were not
+reproduced: 0 of 160 drags, no failed screen read in about 9,000.
 
 ## The audit's ranking, as the owner reads it
 
