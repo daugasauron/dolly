@@ -474,17 +474,51 @@ A probe that repeats the Emacs test's step (`C-x C-f`, wait for "Find file:"
 by reading the screen, one text record with the name and Return) in one page,
 pinned to one processor:
 
-- Chromium: 0 of 20, 0 of 500, then round 0 of 500 failed and the other 499
-  passed; a second probe that opens twelve pages in one browser and does only
-  the first step in each: page 0 failed, the eleven after it passed. So 2 of 4
-  browser starts lost the name in their first page, and no later page or
-  round did (0 of 1,030).
-- Firefox: 0 of 20, 0 of 500, 0 of 500, 0 of 12 first steps.
+Counted over every probe of the night, the plain image, pinned to one
+processor (the first step of a browser that has just started / a later page
+of the same browser / a later round in the same page):
+
+| | First step of a fresh browser | Later page | Later round |
+| --- | --- | --- | --- |
+| Chromium, the runtime as built | 3 of 24 | 0 of 11 | 0 of 1,017 |
+| Chromium, the kernel's log kept in memory (below) | 5 of 36 | | |
+| Chromium, the kernel's log written a line a record | 0 of 32 | | |
 
 Every failure is the screen of 2026-10-07: `Find file: {/usr/share/emacs/} /t`.
 The ring was read to its end (`event_read == event_write`), nothing was
 counted as dropped, no lease. Emacs's own record of what it read (`C-h l`)
 holds `C-x C-f`, `/`, `t` and nothing after; its `*Messages*` holds no error.
-The prompt appeared 28 ms after the welcome text, so the name is typed about
-40 ms after Emacs first draws.
+The prompt appears about 30 ms after the welcome text and the name is typed
+one service tick after the prompt is drawn. Waiting a second between the
+welcome text and `C-x C-f` does not remove it: 2 of the 36 logged first steps
+are of the 20 made with that wait, 3 of the 16 without.
+
+### The kernel hands Emacs the whole record; Emacs drops 24 of its 26 bytes
+
+Measured with a temporary log in the kernel (`fill_terminal_input` of
+`host/input/kernel.c`, the terminal read of `src/process-kernel.c`, the
+terminal write of `src/dolly.c`; lines kept in memory and written to the
+page's log after 2.4 s without one, since a line a record changed the timing
+and gave 0 of 32). Image inputs `538c5a8aea82…` with and without it; the log
+is taken out again (`build/flake-evidence/kernel-log-buffered.patch`).
+36 first steps logged, 5 failed, every one with the same lines
+(`pair-klog2-2-c6.log`, the number is the service tick, 16 ms):
+
+    47 record type=2 action=0 -> 26 [/tmp/dolly-emacs-test.txt<0d>]
+    47 read pid=103 size=4095 -> 26 [/tmp/dolly-emacs-test.txt<0d>]
+    47 write 57 first 40 [<1b>[30;12H<1b>[?25l{/usr/share/emacs/} /t<1b>[?1]
+
+and nothing after: no discard (`discard_pending_input`), no lease, no mode
+change, no second reader, no further read or write until the probe's `C-g`.
+A step that passes has the same two first lines and then Emacs's writes for
+the new buffer, with no frame drawn in between. So the text record reaches
+one `read` of Emacs (pid 103) whole, in the failing runs as in the passing
+ones. Emacs then handles `/` and `t`, finds no more input, draws, and waits.
+
+Not the kernel, the ring, the page or the display library. Not a 256-byte cut
+(one read of 4,095 asked, 26 given). Not a terminal reply arriving in the
+text: the two replies Emacs asks for at its start (`ESC [ > 1 ; 0 ; 0 c`,
+`ESC [ ? 6 2 ; 2 2 c`) are read 15 ticks earlier, each by the read that
+follows its question. Not a query sent late (no write of one). Not a command
+error (`*Messages*` is empty of one, and both of Emacs's error paths write).
 
