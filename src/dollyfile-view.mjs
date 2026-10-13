@@ -176,7 +176,6 @@ function inspectRecipe(source, label, rows) {
   const requirements = [];
   const exports = [];
   const sources = [];
-  const runs = [];
   const slops = [];
   const files = [];
   const folders = [];
@@ -279,7 +278,7 @@ function inspectRecipe(source, label, rows) {
           cwd = tokens[1];
           command = tokens.slice(2);
         }
-        if (item.directive === "RUN") runs.push({ cwd, command: programWords(command, label, item), line: item.line });
+        if (item.directive === "RUN") programWords(command, label, item);
         else {
           if (!command[0]) fail(label, item.line, "empty SLOP");
           slops.push({ cwd, command, line: item.line });
@@ -304,7 +303,7 @@ function inspectRecipe(source, label, rows) {
   catch (error) { throw new Error(`${label}: ${error.message}`); }
   return {
     hostRequirements: required, role, kind: "image", name, image: name, entry,
-    requirements, exports, artifacts, from, sources, runs, slops, files, folders, rows, source,
+    requirements, exports, artifacts, from, sources, slops, files, folders, rows, source,
   };
 }
 

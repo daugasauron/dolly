@@ -26,7 +26,7 @@ SOURCE /v0.1.3/abi/dolly-kernel-plugin-0.wat 8ed18bd8b9221ac11e077bba609db2e161b
 SOURCE /v0.1.3/docs/input.md ae1b4183ef2243e83d6c92ee9b1450893750edd0de0db6e68163c3fe15e26353 /usr/share/doc/dolly/docs/input.md
 SOURCE /v0.1.3/abi/dolly-process-0.wat ecbeb8baf2f2ead274da643bde8bd325e250b9a46549ad4155f4451b06d1657d /usr/share/doc/dolly/abi/dolly-process-0.wat
 SOURCE /v0.1.3/abi/dolly-process-gate-0.wat 04763b281b286061ccae2c91cb18207fc5e820e9368ea004306047561e3cf269 /usr/share/doc/dolly/abi/dolly-process-gate-0.wat
-SOURCE /v0.1.3/abi/dolly-supervisor-0.wat 3d3d16fdb57f01ca23537affa4bf72a7ac24b8f1bcaa0203c489d67fa0e4400b /usr/share/doc/dolly/abi/dolly-supervisor-0.wat
+SOURCE /v0.1.3/abi/dolly-supervisor-0.wat fbd2a33fb428d69fc36a7b77fbdd4d28b85b266d18fa9d3dac21ccd3667a3cc9 /usr/share/doc/dolly/abi/dolly-supervisor-0.wat
 SOURCE /v0.1.3/host/audio/dolly-audio-0.wat f216dedd6a02c35f51e5b6222cadf9af584f41cdd3d9587c42ebba586ea8e778 /usr/share/doc/dolly/host/audio/dolly-audio-0.wat
 SOURCE /v0.1.3/host/microphone/dolly-microphone-0.wat 76694b97ce96556e72f8e0c5a64a3649405e4b967c2e34a020ef776489abe6ba /usr/share/doc/dolly/host/microphone/dolly-microphone-0.wat
 SOURCE /v0.1.3/host/buttons/dolly-buttons-0.wat 07974ea1a33d75064f84ebb5794b5bb7971de8bac235f240c0cea069f3bbbc11 /usr/share/doc/dolly/host/buttons/dolly-buttons-0.wat

@@ -28,7 +28,31 @@ holds it, and the suites pass.
   [the investigation](../20261013-144241-dollyfile-words/investigation.md),
   nothing in the tree repeats it.
 - `src/custom-dollyfile.mjs:42` refuses a recipe whose `kind` is not
-  `"image"` ("Upload an IMAGE recipe, not a MODULE"). Since modules went on
-  2026-10-01 (`5ec4783c`) the parser's `kind` is the constant `"image"`
-  (`src/dollyfile-view.mjs:306`): the check cannot fail and the field says
-  nothing ([the roles](../20261013-144241-roles/investigation.md)).
+  `"image"` ("Upload an IMAGE recipe, not a MODULE"), and six other places
+  make the same comparison (`src/custom-image.mjs:8,18`,
+  `src/session-store.mjs:38`, `host/build/service.mjs:72`,
+  `scripts/image-definitions.mjs:20`, `demos/studio/build.mjs:13`). Since
+  modules went on 2026-10-01 (`5ec4783c`) the parser's `kind` is the
+  constant `"image"` (`src/dollyfile-view.mjs`): no check can fail
+  ([the roles](../20261013-144241-roles/investigation.md)). But the field is
+  not unread: `scripts/dollyfile-graph.mjs:33` writes it into the recipe
+  records of every image's metadata, which the build plan and the page
+  compare. Tried on 2026-10-14 and taken back: without the field the plan
+  calls all 130 images stale ("recipe graph changed"). So it goes with a
+  change of the metadata's format, in a catalog round, not alone.
+
+## 2026-10-14 02:30: two of them done
+
+On `main` after the night's small rebuild (`dolly-docs`, `pi-agent`,
+`pi-local`, `dollyfile-studio`):
+
+- `runs` is out of `src/dollyfile-view.mjs`; a `RUN` row's words are still
+  checked.
+- The comment on `dolly_terminal_write_bytes` in
+  `abi/dolly-supervisor-0.wat` says where the supervisor's words go since
+  `2fcc6c62`: to descriptor 2 of the process that waits for the executable
+  where that is a terminal. Agents in the Pi images read that file as
+  documentation.
+
+Left: the three `COMPILEC` comments (root recipe and seed) and `kind` (the
+metadata's format), each for a catalog round.

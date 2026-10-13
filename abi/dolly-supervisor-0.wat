@@ -7,10 +7,12 @@
   ;; while no display driver is resident: boot, rebuilds and headless images.
   ;; The page shows it only as bounded plain text in the bootstrap log.
   (import "env" "dolly_bootstrap_write_bytes" (func (param i64 i64) (result i32)))
-  ;; Supervisor diagnostics for the terminal. Before a display driver is
-  ;; installed they reach the bootstrap sink; after installation the resident
-  ;; driver consumes them without host interpretation. Zero, or the negative
-  ;; error number of a refused bootstrap write.
+  ;; The supervisor's words about the executable it prepares. Before a display
+  ;; driver is installed they reach the bootstrap sink. After it they go to
+  ;; descriptor 2 of the process that waits for the executable where that is a
+  ;; terminal, the display's or a pseudo-terminal's, and nowhere otherwise,
+  ;; without host interpretation. Zero, or the negative error number of a
+  ;; refused bootstrap write.
   (func (export "dolly_terminal_write_bytes") (param i64 i64) (result i32) i32.const 0)
   ;; Runs the kernel's constructors: once, after instantiation, before any
   ;; other export.
