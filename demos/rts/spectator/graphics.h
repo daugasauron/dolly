@@ -83,7 +83,18 @@ void text(const std::string &value, int left, int top, int width, int rows, bool
         if (code == '\n') { lines.emplace_back(); x = 0; continue; }
         if (code < 32) continue;
         const auto &item = glyph(code);
-        if (x + item.advance > width) { lines.emplace_back(); x = 0; }
+        if (x + item.advance > width) {
+            // A word that does not fit moves to the next line whole, unless it began this one.
+            auto &line = lines.back();
+            auto begin = line.end();
+            while (begin != line.begin() && *(begin - 1) != ' ') --begin;
+            const std::vector<int> word(code == ' ' || begin == line.begin() ? line.end() : begin, line.end());
+            line.resize(line.size() - word.size());
+            lines.push_back(word);
+            x = 0;
+            for (int moved : word) x += glyph(moved).advance;
+            if (code == ' ') continue;
+        }
         lines.back().push_back(code);
         x += item.advance;
     }
