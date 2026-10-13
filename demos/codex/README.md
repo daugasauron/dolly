@@ -39,7 +39,7 @@ another image, `amy install codex` brings the command.
 
 - Threads run on `threads@0` (at most 16 per process); children use Dolly
   spawn/wait.
-- No native sockets, fork hooks, file locks or clipboard.
+- No native sockets, fork hooks or clipboard.
   Socket-based clients such as HTTP MCP are unsupported.
 - SQLite uses one connection without WAL. TUI sessions are ephemeral.
 

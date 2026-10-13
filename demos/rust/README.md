@@ -90,8 +90,10 @@ with the compiler.
   "/opt/rust-sdk/src/libc" }` in the project's `.cargo/config.toml`.
 - A build script that compiles C needs `CRATE_CC_NO_DEFAULTS=1`, which the
   package sets: the `cc` crate's default flags name a target.
-- No incremental builds (the package sets `CARGO_INCREMENTAL=0`) until Dolly
-  has file locks; no `cargo search`, `publish` or `login`.
+- Incremental builds are off (the package sets `CARGO_INCREMENTAL=0`, from
+  before the kernel had file locks). With `CARGO_INCREMENTAL=1` Cargo builds
+  incrementally and warns each time that it copies the cache: there are no
+  hard links. No `cargo search`, `publish` or `login`.
 - Its sources are upstream's with target patches only: Cargo's manifest
   without TLS, SSH and HTTP/2 features (`cargo-features`, `git2-curl`), and
   `is_executable`, `jobserver-in-process`, `socket2`, `zlib-rs` and

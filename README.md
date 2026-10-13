@@ -84,16 +84,16 @@ npm run image -- default --package    # also seal a local release for npm run se
 ```
 
 Image builds rewrite SHA-256 pins in `Dollyfile*`. Check by what you changed
-(measured 2026-10-06 on 16 shared cores):
+(measured on 16 shared cores, on 2026-10-06 where no date is given):
 
 | Edit | Check | Turnaround |
 | --- | --- | --- |
-| Scripts, Node-side code | `npm run test:source`, `npm run test:artifacts` | 5 s, 2 s |
-| Page JavaScript | `npm run dev`, reload; `npm run test:core` | 33-36 s Chrome, 44-48 s Firefox |
+| Scripts, Node-side code | `npm run test:source`, `npm run test:artifacts` | 20 s (2026-10-13), 2 s |
+| Page JavaScript | `npm run dev`, reload; `npm run test:core` | 24-32 s Chrome, 32-68 s Firefox, the higher under load (2026-10-13) |
 | Kernel C | `npm run build:runtime`, then `npm run test:core` | 9-12 s without changes |
 | A recipe or its sources | `npm run image -- IMAGE` | 2 s when nothing changed (`default`); 9 s to rebuild `gzip` |
-| Seed: headers, Slop, commands, libc adapter | every image rebuilds | 843 s for the `default` chain (2026-10-05) |
-| Before merging | `npm run test:browser` (`test/*-browser.mjs`), `npm run test:demos` (`demos/*/test/`) | 11 min for the core tests in both browsers |
+| Seed: headers, Slop, commands, libc adapter | every image rebuilds | 888 s for `default`, `cc`, `git` and `less`, 15 images (2026-10-13) |
+| Before merging | `npm run test:browser` (`test/*-browser.mjs`), `npm run test:demos` (`demos/*/test/`) | 17 min for the core tests in both browsers (2026-10-13) |
 
 ## Docs
 
