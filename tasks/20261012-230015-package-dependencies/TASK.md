@@ -86,26 +86,43 @@ Yes: no new syntax, and nothing has to parse a Dollyfile at install time.
 - **A saved session.** Nothing new: installed files and the record are
   session files as before. Tested: the rows installed for a package are
   there after a save and a reload.
-- **A refusal.** `amy install transcribe` on `default` is refused for
-  `microphone@0` before `parakeet`, which it names, is fetched.
+- **A refusal.** The engine is asked before anything is fetched for a row:
+  `amy install transcribe` on `default` is refused for `microphone@0` and
+  `parakeet`, which it names, is not fetched (measured, both browsers).
 
-## Measured (2026-10-13, this tree, the chain rebuilt on the changed seed)
+## Measured (2026-10-13, this tree, 39 images rebuilt on the changed seed)
 
 Snapshot bytes, before on main's seed and after:
 
 | Package | Its rows | Before | After |
 | --- | --- | ---: | ---: |
-| `gzip` | `zlib` | 508,918 | 279,954 |
+| `cmake` | `cc` | 214,066,460 | 87,956,686 |
 | `zig` | `cc` | 186,887,937 | 60,778,163 |
-| `python`, with the held rows | `cc`, `ninja` | 173,588,803 | 47,325,381 |
-| `cc`, `ninja`, `make` (no rows) | | 126,284,177; 387,072; 595,184 | the same |
+| `python`, with the two held rows | `cc`, `ninja` | 173,588,803 | 47,325,381 |
+| `transcribe` | `parakeet` | 140,729,934 | 5,337,136 |
+| `voice` | `parakeet` | 139,491,289 | 4,098,491 |
+| `gzip` | `zlib` | 508,918 | 279,954 |
+| `cc`, `parakeet`, `ninja`, `make`, `sdl2`, `libuv` (no rows) | | | the same |
+| the `speech-to-text` image (`system`, `INSTALL transcribe`) | | 291,612,753 | 291,615,575 |
 
-`amy install` on `default`, from the local checkout server:
+The six went from 855 MB to 206 MB. Not rebuilt here, by their own files
+today: `cargo` 500 MB to about 37, `rust` 463 to 337, `llvm` 254 to 127,
+`codex-cli` 221 to 209, `pi-coding-agent` 102 to about 62. With those the
+catalog's packages that install packages go from 2.4 GB of snapshots to
+about 1.0 GB. An image that installs them holds what it held: the session's
+change after `amy install python` is 173,369,728 bytes before and after
+(49.6 MB stored).
+
+`amy install` on `default`, local checkout server, Chromium / Firefox; before
+is last night's run on main's seed:
 
 | | Before | After |
 | --- | --- | --- |
-| `zig`, no compiler in the session | one snapshot of 187 MB: 1.8 s Chromium, 2.2 s Firefox | `cc`, then `zig`: 2.2 s Chromium |
-| `python`, `cc` in the session | 173 MB again, `cc` restored a second time | `ninja` and `python`: 1.0 s |
+| `zig`, no compiler in the session | 1.8 s / 2.2 s, one snapshot | 1.9 s / 2.6 s, `cc` then `zig` |
+| `zig`, `cc` in the session | the same snapshot again | 0.8 s / 1.1 s |
+| `cmake`, no compiler | 2.7 s / 3.3 s | 3.1 s / 4.5 s, `cc` then `cmake` |
+| `cmake`, `cc` in the session | 2.7 s / 3.3 s | 1.6 s / 2.1 s |
+| `python` with its rows, no compiler | 2.6 s (Chromium) | 2.0 s / 2.6 s, `cc`, `ninja`, `python` |
 
 What amy prints for `amy install zig`:
 
@@ -119,23 +136,52 @@ amy: cc installed: 1951 files, 125907943 bytes, commands: ar c++ cc ld make; amy
 amy: zig installed: 1333 files, 60452098 bytes, commands: zig; amy files zig lists them
 ```
 
-Tests on that chain:
+Tests on that chain, Chromium and Firefox unless said:
 
-- `test/default-browser.mjs`, Chromium and Firefox: "composed dependency" is
-  new. The page builds an image whose recipe installs `zig` alone: it holds
-  `cc` too, recorded before `zig`, and compiles a C program.
+- `test/amy-browser.mjs`, run on the packages rebuilt here (the cases for
+  `rust`, `cargo`, `codex-cli`, `mojo-compiler`, `lua`, `nvim`, `emacs`,
+  `ripgrep`, `fd`, `protox`, `cbindgen`, `pi-coding-agent`, `pkgconf`,
+  `libpng` and `freetype` wait for the round): every case passes. New in
+  it, with sealed fixture packages: an install whose row has no snapshot
+  ends with 3 and changes nothing; a package that needs `microphone@0` is
+  refused with 2 before its row is installed, though the row's snapshot is
+  there; rows are installed first and recorded first; a held row is not
+  installed again (a file of it changed since stays); a second pin of a
+  recorded recipe is refused; all of it survives a save and a reload. With
+  real packages: `zig` beside `cc` leaves `cc` alone, and each lists its
+  own files.
+- `test/default-browser.mjs`: "composed dependency" is new. The page builds
+  an image whose recipe installs `zig` alone: it holds `cc` too, recorded
+  before `zig`, and compiles a C program.
+- `demos/speech/test/speech-browser.mjs`: the `speech-to-text` image, built
+  by installing `transcribe`, hears the sample sentence; on `default`
+  `amy install transcribe` is refused for `microphone@0` and the model it
+  names is not fetched; `parakeet` then installs. (`pi-phone` needs Pi's
+  image: not rebuilt, so its Chromium case did not run.)
 - `npm run test:demos -- python`: `python` (a `system` image built in the
   page with `INSTALL python`: `cc` and `ninja` come from their own
   snapshots) 29.1 s; "python on default" (`amy install python` alone, `cc`
   absent before, then `pip install numpy` from the sdist) Chromium 181.3 s,
   Firefox 217.8 s.
-- `npm run test:demos -- javascript`: passes, Chromium 25.0 s.
+- `npm run test:demos -- javascript`: passes, Chromium 25.0 s (the test
+  runs Chromium only).
+- `test/man-browser.mjs`, `test/pager-browser.mjs`: pass.
+- `node --test 'test/*.artifacts.mjs' 'demos/**/*.artifacts.mjs'`: 25 pass
+  over the 39 images, with the invariant turned round: a package holds
+  nothing of the packages it installs (`cmake`, `zig` and `python` hold no
+  compiler), an application holds them and the ones they name.
+- Source suite: 424 pass.
+- Pi's demo test: not run. Its image needs `ripgrep` and `fd`, built by the
+  Rust chain, which this tree may not build.
 
 The chain, one image at a time: `system-build` to `default` in 12 min 5 s
 of builds (`system-build` 63 s, `zig-build` 7 min 22 s, `ghostty-build`
 65 s, `system-tools` 116 s, the eight packages and `default` 39 s). With
 `cc`, `make`, `ninja`, `zig`, `system`, `python` (148 s), `javascript`,
-`git`, `less`, `raylib`, `box3d` and `dolly-docs`: 17 min 21 s.
+`git`, `less`, `raylib`, `box3d` and `dolly-docs`: 17 min 21 s. The second
+batch (`cmake-build` alone 27 min, `sdl2`, `speech-build`, the speech
+packages, the two SDK images): 39 min. Two earlier rebuilds of the chain
+went to engine changes made after the first measurements.
 
 ## Qwen3.5-4B as one package
 
@@ -161,6 +207,9 @@ built here (the model images are the round's). Two things to know:
   `cmake`'s neighbours and the models were not rebuilt here: their sizes
   after are what their own files weigh today (the table), their installs are
   the same code path as `zig` and `python`.
-- `pi-coding-agent` exports `rg` and `fd`, which `ripgrep` and `fd` hold: it
-  keeps a second copy of the two programs (12 MB). Dropping the two rows is
-  a recipe edit for the next round.
+- `pi-coding-agent` exported `rg` and `fd`, which the `ripgrep` and `fd`
+  packages it installs export: it would have kept a second copy of the two
+  programs without their licences, and Pi's artifact test asks that an image
+  ship a tool's licence exactly when it exports the tool. The two rows are
+  gone (no other package exports what a package it installs exports). Not
+  built here: the edit removes two `EXPORTS` rows and nothing reads them.

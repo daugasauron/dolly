@@ -10,8 +10,6 @@ INSTALL /v0.1.2/demos/javascript/Dollyfile-javascript 4fa690847258ddbaade1713b67
 
 INSTALL /v0.1.2/demos/rust/Dollyfile-ripgrep 542d959ad1da63c3fe60a4013e7f190c82bfce9a852f6f1848bf1e4771583b79
 INSTALL /v0.1.2/demos/rust/Dollyfile-fd 90c2d7237ae1e7326e9bbf4cdf302c8173288c70ee4354682a1e746c6faab1ef
-EXPORTS TOOL rg
-EXPORTS TOOL fd
 COPY /v0.1.2/demos/pi/Dollyfile-pi-build 06da78592e044f1a99ba3b8f2de71b1f4a53c7d0a308971c649df62b541b873b /usr/bin/pi /usr/bin/pi
 COPY /v0.1.2/demos/pi/Dollyfile-pi-build 06da78592e044f1a99ba3b8f2de71b1f4a53c7d0a308971c649df62b541b873b /usr/lib/node_modules /usr/lib/node_modules
 COPY /v0.1.2/demos/pi/Dollyfile-pi-build 06da78592e044f1a99ba3b8f2de71b1f4a53c7d0a308971c649df62b541b873b /usr/src/pi-source /usr/src/pi-source
