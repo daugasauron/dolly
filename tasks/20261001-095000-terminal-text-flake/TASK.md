@@ -37,6 +37,10 @@ Left, none of them reproduced:
 - Not measured: key-to-paint after 250 ms of silence, Python's REPL, a paste over 50,000
   characters, AltGr and Option.
 
+Ran on the three commits: `terminal`, `display` and every other core suite in Chromium and
+Firefox, JavaScript's demo test, Pi's twelve times (12 of 12, twice: with the reader fix alone
+and with the page and kernel commits).
+
 Done when the two unexplained lines are explained or have a rate from a hundred runs that says
 they are gone. Lowered from 190: what a person met is fixed.
 

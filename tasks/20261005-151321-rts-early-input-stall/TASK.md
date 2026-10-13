@@ -10,7 +10,9 @@ Open and reproduced on today's tree: the match loop of "Evidence", 20 rounds in 
 session (main `4ed1d9ef` with the Janis reader fix `cb9ae5cd`, Chromium, load 9), stalled in 2
 of 20, rounds 13 and 16, both with "mouse menu/quit must not stall either player": frames 17
 and 18 at 1.3 s after launch and the same two frames 6 s later. The other 18 rounds took 36 to
-39 s each. So it does not need the 2026-10-08 process entry or an image build beside it.
+39 s each. So it does not need the 2026-10-08 process entry or an image build beside it. A
+second loop of 24 rounds an hour later, with Pi's demo test running beside it, stalled in none:
+2 of 44 today.
 
 Not found: which early step freezes the match. Read on 2026-10-13 and not the cause by
 reading: the fixture's relay between the two engines and Janis's child pump (one read and one
@@ -20,10 +22,11 @@ a player out of the menus. Upstream's `Sys::is_mp_sync` waits for the other play
 `MSG_NEXT_FRAME` and asks for a resend after 2 s, which the fixture's 5 s does not outlast by
 much: whether a stalled match recovers on its own is not measured.
 
-Next, as "Work" has it, with a loop that keeps what a failed round leaves (the engines'
-`inputs.log` and standard error) and waits 30 s before it gives up. The loop is
-`build/polish-evidence/rts-loop.mjs` (not committed): open `rts-arena`, choose the shell, fetch
-the fixture, run it 20 times.
+Next, as "Work" has it, with a loop that keeps what a failed round leaves and waits 30 s before
+it gives up: `build/polish-evidence/rts-loop.mjs` with `RTS_FIXTURE=…/rts-match-probe.mjs` (not
+committed) opens `rts-arena`, chooses the shell, fetches the fixture and runs it; the copy of
+the fixture watches a stalled match for thirty seconds and prints both engines' `inputs.log`.
+It was what ran the second loop, so it has caught nothing yet.
 
 ## The defect
 
