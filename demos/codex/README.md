@@ -5,7 +5,7 @@ the Rust toolchain Dolly builds ([Rust demo](../rust/README.md)).
 
 ## Images
 
-- `codex`: Codex, its launcher, ripgrep and fd, as a package.
+- `codex`: `codex`, the Codex coding agent with its launcher, and the `ripgrep` and `fd` packages.
 - `codex-agent`: Codex TUI with shell tools, ripgrep and fd.
 - `codex-build`: Source-built Codex and its build record.
 
@@ -39,7 +39,7 @@ another image, `amy install codex` brings the command.
 
 - Threads run on `threads@0` (at most 16 per process); children use Dolly
   spawn/wait.
-- No native sockets, fork hooks, file locks or clipboard.
+- No native sockets, fork hooks or clipboard.
   Socket-based clients such as HTTP MCP are unsupported.
 - SQLite uses one connection without WAL. TUI sessions are ephemeral.
 

@@ -25,23 +25,23 @@ recipes build on, or a `PACKAGE` recipes and sessions install
 - `ghostty-build`: Ghostty terminal build with Zig and its SDK.
 - `gpu-sdk`: `system` with the WebGPU host module (`gpu@0`).
 - `audio-sdk`: `system` with the PCM playback and microphone host modules (`audio@0`, `microphone@0`).
-- `core`: Slop and its core commands, as a package.
-- `cc`: the C/C++ compiler, headers, libraries and Make, as a package.
-- `amy`: the package installer and the recipe engine it runs, as a package.
-- `nena`: lists a session's host modules and enables or disables them, where the image declares `nena@0`, as a package.
-- `posix`: grep, sed, sort, find, xargs, awk, sh and the other text and file tools, as a package.
-- `git`: Git over the HTTP broker, with diff and patch, as a package.
-- `zlib`: the zlib headers and static library, for programs the `cc` package builds; it installs no compiler, as a package.
-- `curl`: curl and libcurl over the HTTP broker, as a package.
-- `gzip`: gzip over zlib, as a package.
-- `less`: the pager; Git and `man` page through it once it is installed, as a package.
-- `ninja`: Ninja (Samurai), which Meson and CMake's Ninja generator build with, as a package.
-- `make`: GNU Make alone, for rules that compile nothing; `cc` holds it too, as a package.
-- `zig`: Zig with its standard library and the `cc` package: it emits C (`-ofmt=c`) that `cc` compiles, as a package.
-- `transfer`: `download` and `upload`, the page's file exchange, as a package.
-- `session-recover`: copies the files of a saved session file into a new directory, as a package.
-- `display`: the Ghostty display plugin, its font and the terminal's termcap entry, as a package.
-- `dolly-docs`: the platform's documents and contracts in `/usr/share/doc/dolly`, as a package.
+- `core`: the shell `slop` and its core commands: `ls`, `cat`, `cp`, `mv`, `rm`, `mkdir`, `tar`, `man`, `help` and others.
+- `cc`: `cc` and `c++` with `ld`, `ar` and `make`, and the headers and libraries they compile against.
+- `amy`: `amy`, the package installer, and `dollyfile`, the recipe engine it runs.
+- `nena`: `nena`, which lists a session's host modules and enables or disables them, where the image declares `nena@0`.
+- `posix`: `grep`, `sed`, `sort`, `find`, `xargs`, `awk`, `sh` and the other text and file tools.
+- `git`: `git` over the page's HTTP broker, with `diff` and `patch`.
+- `zlib`: libz: zlib's headers and static library, for programs the `cc` package builds; it brings no compiler.
+- `curl`: `curl` and libcurl, over the page's HTTP broker.
+- `gzip`: `gzip -dc`, which unpacks a `.gz` file to standard output; the `pigz` package writes them.
+- `less`: `less`, the pager; Git and `man` page through it once it is installed.
+- `ninja`: `ninja` (Samurai), which Meson and CMake's Ninja generator build with.
+- `make`: GNU `make` alone, for rules that compile nothing; `cc` brings it too.
+- `zig`: `zig` with its standard library, and the `cc` package: it emits C (`-ofmt=c`) that `cc` compiles.
+- `transfer`: `download` and `upload`, the page's file exchange.
+- `session-recover`: `session-recover`, which copies the files of a saved session file into a new directory.
+- `display`: the terminal: the Ghostty display plugin, its font and the termcap entry.
+- `dolly-docs`: the platform's documents and machine contracts, in `/usr/share/doc/dolly`.
 
 ## Try it
 
@@ -84,16 +84,16 @@ npm run image -- default --package    # also seal a local release for npm run se
 ```
 
 Image builds rewrite SHA-256 pins in `Dollyfile*`. Check by what you changed
-(measured 2026-10-06 on 16 shared cores):
+(measured on 16 shared cores, on 2026-10-06 where no date is given):
 
 | Edit | Check | Turnaround |
 | --- | --- | --- |
-| Scripts, Node-side code | `npm run test:source`, `npm run test:artifacts` | 5 s, 2 s |
-| Page JavaScript | `npm run dev`, reload; `npm run test:core` | 33-36 s Chrome, 44-48 s Firefox |
+| Scripts, Node-side code | `npm run test:source`, `npm run test:artifacts` | 20 s (2026-10-13), 2 s |
+| Page JavaScript | `npm run dev`, reload; `npm run test:core` | 24-32 s Chrome, 32-68 s Firefox, the higher under load (2026-10-13) |
 | Kernel C | `npm run build:runtime`, then `npm run test:core` | 9-12 s without changes |
 | A recipe or its sources | `npm run image -- IMAGE` | 2 s when nothing changed (`default`); 9 s to rebuild `gzip` |
-| Seed: headers, Slop, commands, libc adapter | every image rebuilds | 843 s for the `default` chain (2026-10-05) |
-| Before merging | `npm run test:browser` (`test/*-browser.mjs`), `npm run test:demos` (`demos/*/test/`) | 11 min for the core tests in both browsers |
+| Seed: headers, Slop, commands, libc adapter | every image rebuilds | 888 s for `default`, `cc`, `git` and `less`, 15 images (2026-10-13) |
+| Before merging | `npm run test:browser` (`test/*-browser.mjs`), `npm run test:demos` (`demos/*/test/`) | 17 min for the core tests in both browsers (2026-10-13) |
 
 ## Docs
 

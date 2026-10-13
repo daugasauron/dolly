@@ -82,6 +82,17 @@ test("lint refuses an ENTRY program that no recipe of the image declares", async
     await assert.rejects(lint(`${from}ENTRY /bin/foreground -i /workspace/game\n`), /\/workspace\/game is in scratch/);
     await assert.rejects(lint(`${from}ENTRY /bin/foreground -i game\n`), /absolute path of a program/);
     await assert.rejects(lint(`${from}ENTRY /bin/foreground -i\n`), /absolute path of a program/);
+    // An image has one description, in the README beside its recipe: a second
+    // row for it, or none, fails; a row in another README is not its own.
+    const valid = `${from}ENTRY /bin/foreground -i /bin/slop /etc/dolly/init.slop\n`;
+    const described = names => writeFile(resolve(directory, "README.md"), names.map(name => `- \`${name}\`: a fixture\n`).join(""));
+    await mkdir(resolve(directory, "demos/other"));
+    await writeFile(resolve(directory, "demos/other/README.md"), "- `pkg`: something else of that name\n");
+    await lint(valid);
+    await described(["default", "core", "base", "pkg", "pkg"]);
+    await assert.rejects(lint(valid));
+    await described(["default", "core", "base"]);
+    await assert.rejects(lint(valid));
   } finally { await rm(directory, { recursive: true, force: true }); }
 });
 

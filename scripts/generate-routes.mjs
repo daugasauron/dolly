@@ -38,12 +38,8 @@ const graphs = await Promise.all(definitions.map(async (definition) => ({
 const openable = new Set(graphs.filter(({ definition, graph }) =>
   definition.parsed.entry && graph.root.hostRequirements.includes("display@0")).map(({ definition }) => definition.image));
 await writeImageRegistry(projectDir, definitions, staticSources);
-const descriptions = await imageDescriptions(projectDir);
-const described = definitions.map(({ image, parsed }) => {
-  const description = descriptions.get(image);
-  if (!description) throw new Error(`${image}: describe it as "- \`${image}\`: …" in its README`);
-  return { image, description, parsed };
-});
+const descriptions = await imageDescriptions(projectDir, definitions);
+const described = definitions.map(({ image, parsed }) => ({ image, description: descriptions.get(image), parsed }));
 const groups = [["application", "Applications"], ["package", "Packages"], ["toolchain", "Toolchains"]]
   .map(([role, heading]) => [heading, described.filter(({ parsed }) => parsed.role === role)])
   .filter(([, images]) => images.length).map(([heading, images]) => menuGroup(heading, images));

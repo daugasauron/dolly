@@ -35,4 +35,5 @@ stirring, Q or Escape returns to Slop. `fluid --check` verifies the solver;
 - GPU pass timestamps exclude copies, transport and CPU work; they are not frame
   latency.
 
-Test: `npm run test:demos -- gpu-fluid` ([`test/`](test/)).
+Test: `node demos/gpu-fluid/test/gpu-fluid-browser.mjs` with `DISPLAY` set; it needs a GPU
+window, so `npm run test:demos` skips it ([`test/`](test/)).

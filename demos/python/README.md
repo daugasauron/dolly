@@ -5,7 +5,7 @@ builds, plus stock pip over Dolly's HTTP broker.
 
 ## Images
 
-- `python`: CPython and pip, with the `cc` and `ninja` packages pip builds NumPy and other native packages with, as a package.
+- `python`: `python3` and `pip` (CPython), with the `cc` and `ninja` packages pip builds NumPy and other native packages with.
 
 Install it with `INSTALL` or `amy install python`; build with
 `npm run image -- python`.

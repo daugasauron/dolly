@@ -16,12 +16,12 @@ export async function domainOnlyApplications(projectDir) {
 
 export async function packageGithubPages(site) {
   const projectDir = resolve(import.meta.dirname, "..");
-  const descriptions = await imageDescriptions(projectDir);
   const index = resolve(site, "index.html");
   const menu = await readFile(index, "utf8");
   // The domain serves each version under its own path and nothing beside it.
   const domain = new URL(PUBLIC_ORIGIN).host, hosted = PUBLIC_ORIGIN + siteReference("");
   const applications = await domainOnlyApplications(projectDir);
+  const descriptions = await imageDescriptions(projectDir, applications);
   for (const { image } of applications) {
     if (menu.includes(`data-image="${image}"`)) throw Error(`${image} is already packaged locally`);
     for (const route of [image, `${image}/rebuild`, `view/${image}`]) {

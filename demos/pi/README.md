@@ -6,7 +6,7 @@ Dolly's files, processes and HTTP broker.
 
 ## Images
 
-- `pi`: Pi with ripgrep and fd, as a package.
+- `pi`: `pi`, the Pi coding agent, with the `javascript`, `ripgrep` and `fd` packages.
 - `pi-agent`: Pi coding agent with JavaScript, shell tools, ripgrep and fd.
 - `pi-runtime`: Reusable Pi and JavaScript runtime.
 - `pi-build`: Pi packages compiled from pinned TypeScript sources.

@@ -70,10 +70,7 @@ export async function lintDollyfiles(projectDir) {
     const problem = entryProblem(graph.root);
     if (problem) throw new Error(`${definition.filename}: ${problem}`);
   }
-  const descriptions = await imageDescriptions(projectDir);
-  for (const { image, filename } of definitions) {
-    if (!descriptions.has(image)) throw new Error(`${filename}: describe it as "- \`${image}\`: …" in its README`);
-  }
+  await imageDescriptions(projectDir, definitions);
   return definitions.length;
 }
 

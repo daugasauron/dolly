@@ -8,26 +8,26 @@ the script would find here, in the comments beside its flags.
 
 ## Images
 
-- `sqlite`: SQLite: the `sqlite3` shell, and its library and headers for programs the `cc` package builds, as a package.
-- `jq`: jq, the JSON processor, with regular expressions, as a package.
-- `xz`: XZ Utils: `xz`, `unxz`, `xzcat` and liblzma, as a package.
-- `zstd`: Zstandard: `zstd`, `unzstd`, `zstdcat` and libzstd, as a package.
-- `bzip2`: bzip2: `bzip2`, `bunzip2`, `bzcat` and libbz2, as a package.
-- `lz4`: LZ4: `lz4`, `unlz4`, `lz4cat` and liblz4, as a package.
-- `pigz`: pigz, which writes the `.gz` files `gzip` here only reads, and `unpigz`, as a package.
-- `zip`: Info-ZIP's `zip`, with the `unzip` package, which `zip -T` starts, as a package.
-- `unzip`: Info-ZIP's `unzip` and `zipinfo`, as a package.
-- `tree`: tree, which draws a directory as a tree, as a package.
-- `bc`: the `bc` and `dc` calculators (Gavin Howard's), as a package.
-- `vi`: Neatvi, a small `vi` and `ex` that needs no terminal database, as a package.
-- `xxd`: xxd, the hex dump that also reads one back, as a package.
-- `base64`: `base64` (Alfred Klomp's) and libbase64, as a package.
-- `yacc`: Berkeley Yacc, as `yacc` and `byacc`, as a package.
-- `flex`: flex 2.5.4 as Thomas Dickey maintains it (reflex), which starts no m4, also as `lex`, with libfl and the `yacc` package, as a package.
-- `wabt`: the WebAssembly Binary Toolkit: `wat2wasm`, `wasm2wat`, `wasm-objdump`, `wasm-strip` and `wasm-validate`, as a package.
-- `meson`: Meson, with the `python`, `cc` and `ninja` packages it runs on, as a package.
-- `tar`: sbase's `tar`, which writes archives and reads links and pax headers, in place of the one that only unpacks, as a package.
-- `sbase`: the sbase commands the image leaves out: `yes`, `cal`, `sha1sum`, `sha512sum`, `sponge`, `cols`, `uuencode` and `uudecode`, as a package.
+- `sqlite`: SQLite: the `sqlite3` shell, and its library and headers for programs the `cc` package builds.
+- `jq`: jq, the JSON processor, with regular expressions.
+- `xz`: XZ Utils: `xz`, `unxz`, `xzcat` and liblzma.
+- `zstd`: Zstandard: `zstd`, `unzstd`, `zstdcat` and libzstd.
+- `bzip2`: bzip2: `bzip2`, `bunzip2`, `bzcat` and libbz2.
+- `lz4`: LZ4: `lz4`, `unlz4`, `lz4cat` and liblz4.
+- `pigz`: pigz, which writes the `.gz` files `gzip` here only reads, and `unpigz`.
+- `zip`: Info-ZIP's `zip`, with the `unzip` package, which `zip -T` starts.
+- `unzip`: Info-ZIP's `unzip` and `zipinfo`.
+- `tree`: tree, which draws a directory as a tree.
+- `bc`: the `bc` and `dc` calculators (Gavin Howard's).
+- `vi`: Neatvi, a small `vi` and `ex` that needs no terminal database.
+- `xxd`: xxd, the hex dump that also reads one back.
+- `base64`: `base64` (Alfred Klomp's) and libbase64.
+- `yacc`: Berkeley Yacc, as `yacc` and `byacc`.
+- `flex`: flex 2.5.4 as Thomas Dickey maintains it (reflex), which starts no m4, also as `lex`, with libfl and the `yacc` package.
+- `wabt`: the WebAssembly Binary Toolkit: `wat2wasm`, `wasm2wat`, `wasm-objdump`, `wasm-strip` and `wasm-validate`.
+- `meson`: Meson, with the `python`, `cc` and `ninja` packages it runs on.
+- `tar`: sbase's `tar`, which writes archives and reads links and pax headers, in place of the one that only unpacks.
+- `sbase`: the sbase commands the image leaves out: `yes`, `cal`, `sha1sum`, `sha512sum`, `sponge`, `cols`, `uuencode` and `uudecode`.
 
 What the platform decides ([process model](../../docs/process-model.md)):
 

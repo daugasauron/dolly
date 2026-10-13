@@ -11,7 +11,7 @@ cancellation tests.
 
 ## Images
 
-- `javascript`: QuickJS, Janis, which runs Node-style programs (`janis FILE.js`; there is no `node`), and TypeScript's `tsc`, as a package.
+- `javascript`: `janis` (also `qjs`), QuickJS with a Node-compatible surface: `janis FILE.js` runs Node-style programs, and there is no `node`; and TypeScript's `tsc`.
 - `typescript-build`: QuickJS, Janis and the TypeScript compiler build.
 
 `janis`, `tsc` and `qjs` (a link to `janis`) are ordinary programs;

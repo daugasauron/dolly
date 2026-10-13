@@ -58,9 +58,10 @@ the task records the measurements).
   `__dolly__`: the dedicated server listens on the in-process loopback, sleeps
   and polls the console without `select`, loads no dynamic libraries (zlib is
   linked; JPEG, PNG, curl, ODE and d0_blind_id report themselves
-  unavailable), keeps its session lock an ordinary file (Dolly has no file
-  locks yet) and reads large plain files whole (Dolly's `read` returns at
-  most 1 MiB per call until `core/full-read` lands; that hunk goes with it).
+  unavailable), keeps its session lock an ordinary file and reads large
+  plain files in a loop. Those two hunks are from before the kernel had file
+  locks and returned a whole `read`; it has both now, and they go with the
+  patch's next change.
   Everything else is unchanged upstream; the engine sees `__dolly__`, never
   `__linux__`.
 - Without `dlopen`, the libraries the engine would load at run time are

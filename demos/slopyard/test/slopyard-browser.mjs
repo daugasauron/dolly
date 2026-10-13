@@ -9,7 +9,7 @@ import {execFileSync} from 'node:child_process';
 import {chromium} from 'playwright-core';
 import {startBrowserServer} from '../../../test/browser-server.mjs';
 import {acceptDownload} from '../../browser.mjs';
-if(!process.env.DISPLAY){console.log('slopyard: skipped, it needs a GPU window on DISPLAY');process.exit(0);}
+if(!process.env.DISPLAY){console.log('slopyard: skipped: needs DISPLAY: a GPU window');process.exit(77);}
 const output='build/slopyard-browser',fixtureDir='demos/slopyard/test/fixtures/';await fs.mkdir(output,{recursive:true});
 const fixtures=process.argv.length>2?process.argv.slice(2):(await fs.readdir(fixtureDir)).filter(name=>name.endsWith('.c')).sort().map(name=>fixtureDir+name);
 execFileSync(process.execPath,['scripts/build-source-tar.mjs',output+'/source.tar','demos/slopyard/src','/usr/src/dolly/slopyard']);
