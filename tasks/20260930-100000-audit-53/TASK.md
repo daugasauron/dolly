@@ -92,10 +92,19 @@ Left:
 3. **Ninja spawns serially.** Samurai runs one `dolly_spawn` at a time
    (`config/samurai-dolly.patch`): its upstream `jobstart` needs `posix_spawn`'s `addclose` of
    an inherited pipe end, which spawn mappings cannot express, and `addopen`.
-4. **Three demo images prepare for 10 s or more with nothing changed** (2026-10-06, the last
-   section): `codex` 13 s, `zero-ad` 10 s (a 1.8 GB copy), `pi-local` 10 to 15 s (its plan
-   re-hashes 24 snapshots). Codex's preparer has changed since (`2370dc85`); owed is
-   `npm run image -- NAME` timed unchanged for the three, in a tree that has their sources.
+4. **Three demo images prepare for half a minute or more with nothing changed.** Measured on
+   2026-10-14 (load 1 to 3, twice each, nothing built): `npm run image -- codex` 80 and 87 s,
+   `zero-ad` 51 and 52 s, `pi-local` 33 and 33 s; all but 3 to 7 s of each is
+   `scripts/prepare-image-sources.sh`. On 2026-10-06 they took 15, 14 and 16 s (the last
+   section). `default` takes 3 s. What an unchanged run does, counted from its output: `codex`
+   writes 16 archives of 1,052 MB (905 MB and 63,131 files are `codex-sources.tar`), builds 8
+   compressed archives again to compare and keep them (241 MB compressed) and patches 60 files;
+   `zero-ad` writes 17 (172 MB), compares 9 (402 MB) and patches 12; `pi-local` writes 22
+   (240 MB), compares 7 (225 MB), patches 15 and stages the 1.4 GB model. All three closures
+   hold `rust-build` (through `ripgrep` and `fd`, or `cbindgen`), so each run extracts, patches
+   and archives rustc, its LLVM and Cargo again (58,029 files); `default`'s closure holds none.
+   Not measured: the seconds of each preparer. That needs a timed trace of the script; a
+   safety check of the session stopped the one tried, and it was not run another way.
 5. **Demo tests run in Chrome only.** `demos/run-browser-tests.mjs` starts headless Chrome; ten
    of the thirty demo test files name Firefox. "Every demo test once in Firefox" was on
    v0.1.0's list (`tasks/20261007-133708-v010`) and has not been done.
