@@ -6,27 +6,27 @@ import { siteReference } from "../../../src/static-asset.mjs";
 
 const loadProjectGraph = createDollyfileGraphLoader(resolve(import.meta.dirname, "../../.."));
 
-test("QuickJS reaches only Pi-bearing images, through the javascript package", async () => {
+test("QuickJS reaches only Pi-bearing images, through the janis package", async () => {
   const defaultGraph = await loadProjectGraph();
-  assert.equal(recipeRecords(defaultGraph).some(({ name }) => name === "javascript"), false);
+  assert.equal(recipeRecords(defaultGraph).some(({ name }) => name === "janis"), false);
   assert.equal(defaultGraph.exporters.has("HEADER:quickjs-runner"), false);
   assert.equal(defaultGraph.exporters.has("LIB:dolly-js"), false);
   for (const [demo, image] of [["pi", "pi-agent"], ["bhop", "bhop"]]) {
     const graph = await loadProjectGraph(`demos/${demo}/Dollyfile-${image}`);
     const names = recipeRecords(graph).map(({ name }) => name);
-    for (const name of ["javascript", "pi", "pi-build"]) assert.ok(names.includes(name), `${image}: ${name}`);
+    for (const name of ["quickjs", "janis", "pi", "pi-build"]) assert.ok(names.includes(name), `${image}: ${name}`);
     const build = graph.records.find(({ name }) => name === "pi-build");
-    for (const requirement of ["LIB:dolly-js", "HEADER:quickjs-runner"]) {
+    for (const [requirement, provider] of [["LIB:quickjs", "quickjs"], ["LIB:dolly-js", "janis"], ["HEADER:quickjs-runner", "janis"]]) {
       const [type, name] = requirement.split(":");
       const edge = build.dependencies.find((item) => item.requirement.type === type && item.requirement.name === name);
-      assert.equal(edge?.provider.name, "typescript-build", `${image}: ${requirement}`);
+      assert.equal(edge?.provider.name, provider, `${image}: ${requirement}`);
     }
   }
 });
 
-test("Pi is compiled from pinned source after an in-sandbox TypeScript layer", async () => {
+test("Pi is compiled from pinned source by the typescript package", async () => {
   const graph = await loadProjectGraph("demos/pi/Dollyfile-pi-agent");
-  const typescript = graph.records.find(({ name }) => name === "typescript-build");
+  const typescript = graph.records.find(({ name }) => name === "typescript");
   const pi = graph.records.find(({ name }) => name === "pi-build");
   assert.ok(typescript.sources.some(({ location }) =>
     location === siteReference("dist/static/default/typescript-5.9.3.tgz")));

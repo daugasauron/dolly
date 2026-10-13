@@ -10,8 +10,8 @@ REQUIRES HOST threads@0
 REQUIRES HOST upload@0
 
 FROM /v0.1.3/demos/slopyard/Dollyfile-gamedev-sdk 3e4403df90ca6fcbd46d9a5d3af8b1d6625a6fb7930f87c1e9fcaab1660f2742
-INSTALL /v0.1.3/demos/javascript/Dollyfile-javascript cfb67082fa59f1f0b0c0ef97128ae3be3f7f107af78b9698f2b66537f3ccd2f1
-INSTALL /v0.1.3/demos/pi/Dollyfile-pi 37ce850089435b511edf32c2566f79837cb6bc27600c98cf03aff32d1b7073e5
+INSTALL /v0.1.3/demos/javascript/Dollyfile-janis c9fa27f8bbaec063ee7bdbe3685ee8b67658768580c817f83c0f045c4048e622
+INSTALL /v0.1.3/demos/pi/Dollyfile-pi dddd3e66544271993b8465f3f542a7fc7e1e3fc68f63f004a76202d3f736cc10
 INSTALL /v0.1.3/demos/sdl2/Dollyfile-sdl2 45637d0fca8217942ee7ba0376560348e0643eddb3a7d8936811bad6484136a4
 REQUIRES TOOL cc
 REQUIRES TOOL make
@@ -24,6 +24,7 @@ REQUIRES HEADER cpp
 REQUIRES HEADER quickjs-runner
 REQUIRES HEADER sdl2
 REQUIRES LIB dolly-js
+REQUIRES LIB quickjs
 REQUIRES LIB SDL2
 
 SOURCE /v0.1.3/dist/static/bhop/source.tar 0446cbeb662cd144fac5cd12973093bf92db6c0295b4a55dd71a0aa283df4c3c /tmp/bhop-source.tar
@@ -738,7 +739,7 @@ FILE /usr/src/dolly/bhop/bhop.mk
 SLOP make -f /usr/src/dolly/bhop/bhop.mk all check
 
 SLOP c++ -O1 -std=c++11 -I/usr/include/SDL2 -I/tmp/bhop-stb /usr/src/dolly/game-agent/viewer.cpp -o /usr/bin/bhop-viewer -lSDL2 -lm
-SLOP cc -std=gnu11 -I/usr/include/dolly -DEMSCRIPTEN=1 -D_GNU_SOURCE -DQUICKJS_NG_BUILD -DNDEBUG -funsigned-char /usr/src/dolly/bhop/agent/launch.c -ldolly-js -o /usr/bin/bhop-agent
+SLOP cc -std=gnu11 -I/usr/include/dolly -DEMSCRIPTEN=1 -D_GNU_SOURCE -DQUICKJS_NG_BUILD -DNDEBUG -funsigned-char /usr/src/dolly/bhop/agent/launch.c -ldolly-js -lquickjs -o /usr/bin/bhop-agent
 SLOP rm -rf /tmp/bhop-source.tar /tmp/bhop-stb
 
 EXPORTS TOOL bhop

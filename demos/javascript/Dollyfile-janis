@@ -1,0 +1,43 @@
+DOLLY 7
+PACKAGE janis
+REQUIRES HOST runtime@0
+REQUIRES HOST download@0
+REQUIRES HOST http@0
+
+# Janis: Dolly's runner on the QuickJS library, with Node's module rules and
+# a finite node:* surface over Dolly's files, processes and HTTP. The runner
+# is a library too: a program that is one script (tsc, pi, a game's agent)
+# links -ldolly-js -lquickjs and reads the two scripts kept here when it starts.
+FROM /v0.1.3/Dollyfile-system-tools e19ab2a237b16de1596ccbb3a2ae07dd34b65488de38762b66ec0207a89c4b83
+INSTALL /v0.1.3/demos/javascript/Dollyfile-quickjs bd2693a16fccf4295ec82417b87370ba587dffcc644a0b4992f7e0af88a8d107
+
+REQUIRES HEADER libc
+REQUIRES HEADER runtime
+REQUIRES HEADER http
+REQUIRES HEADER download
+REQUIRES HEADER quickjs
+REQUIRES LIB    quickjs
+REQUIRES TOOL   ar
+REQUIRES TOOL   cc
+REQUIRES TOOL   mkdir
+
+SOURCE /v0.1.3/dist/static/default/runtimes/quickjs-main.c   d8d0b1c931c5c1932c630b2fa4d51be7a3f9f392c3d19e954b66280a4a9ecb62 /tmp/janis/quickjs-main.c
+SOURCE /v0.1.3/dist/static/default/runtimes/quickjs-runner.h cb2ae27cc02ed3d90b43eeb924f474b01fa8d7598f1e5989b0de3fcd12c2a97f /usr/include/dolly/quickjs-runner.h
+SOURCE /v0.1.3/dist/static/default/runtimes/dolly-node.js    d7e19c4bb4f46cce32ccbe2130e5f5e9203c1ba185cf0d0a9952f5d1b1ecabd3 /usr/lib/dolly/node.js
+SOURCE /v0.1.3/dist/static/default/runtimes/janis.js         d2c1e36b24c6501a81354608154cddc5fe2dc4fb8108a93a4c42ec64823426b2 /usr/lib/janis/runtime.js
+SOURCE /v0.1.3/dist/static/default/commands/janis.c          08c40227d11f06e851a6406fe5ed8f8d7e5f7cdd28a3dad2609c04650a7afe1b /tmp/janis/janis.c
+
+SLOP cc -O2 -std=gnu11 -funsigned-char -D_GNU_SOURCE -I /usr/include/dolly -c /tmp/janis/quickjs-main.c -o /tmp/janis/quickjs-main.o
+SLOP ar rcs /usr/lib/libdolly-js.a /tmp/janis/quickjs-main.o
+SLOP cc -I /usr/include/dolly /tmp/janis/janis.c -ldolly-js -lquickjs -o /usr/bin/janis
+
+SLOP test "$(janis -e 'console.log(require("node:fs").readFileSync("/tmp/janis/janis.c", "utf8").includes("dolly_quickjs_run"))')" = true
+SLOP mkdir -p /usr/share/man/cat1
+SLOP janis --help > /usr/share/man/cat1/janis.1
+
+EXPORTS TOOL   janis
+EXPORTS LIB    dolly-js       /usr/lib/libdolly-js.a
+EXPORTS HEADER quickjs-runner /usr/include/dolly/quickjs-runner.h
+FILE /usr/lib/dolly/node.js
+FILE /usr/lib/janis/runtime.js
+FILE /usr/share/man/cat1/janis.1

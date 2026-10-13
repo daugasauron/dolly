@@ -129,7 +129,7 @@ flowchart TD
   `display` as well.
 - Toolchains stay in images that are only built; applications and packages keep
   exact outputs, as the `display` package copies Ghostty's plugin and font
-  without the Zig SDK and `pi-runtime` installs the `javascript` package
+  without the Zig SDK and `pi-runtime` installs the `janis` package
   ([Dollyfile](dollyfile.md#building)).
 - Prebuilt boot restores a sealed snapshot without downloading the compiler seed
   or compiling anything.

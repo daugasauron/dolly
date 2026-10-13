@@ -41,9 +41,9 @@ static int quickjs_interrupt_handler(JSRuntime *runtime, void *opaque) {
 }
 
 static void print_usage(FILE *stream) {
-  fputs("usage: qjs [-m] [-e CODE | FILE [ARG...]]\n"
-        "       qjs --help\n"
-        "       qjs --version\n",
+  fputs("usage: janis [-m] [-e CODE | FILE [ARG...]]\n"
+        "       janis --help\n"
+        "       janis --version\n",
         stream);
 }
 
@@ -1750,7 +1750,7 @@ static void print_exception(JSContext *context) {
       ? JS_GetPropertyStr(context, exception, "stack") : JS_UNDEFINED;
   const char *trace = JS_IsString(stack) ? JS_ToCString(context, stack) : NULL;
   // A V8-style stack already begins with the message line.
-  if (message == NULL) fputs("qjs: JavaScript exception\n", stderr);
+  if (message == NULL) fputs("janis: JavaScript exception\n", stderr);
   else if (trace == NULL || strncmp(trace, message, strlen(message)) != 0)
     fprintf(stderr, "%s\n", message);
   if (trace != NULL) fprintf(stderr, "%s\n", trace);
@@ -1895,7 +1895,7 @@ int dolly_quickjs_embed(int argc, char **argv, const char *default_module,
                (strcmp(argv[argument_index], "-e") == 0 ||
                 strcmp(argv[argument_index], "--eval") == 0)) {
       if (++argument_index >= argc) {
-        fputs("qjs: -e requires JavaScript source\n", stderr);
+        fputs("janis: -e requires JavaScript source\n", stderr);
         return DOLLY_JS_USAGE;
       }
       source = argv[argument_index++];
@@ -1903,7 +1903,7 @@ int dolly_quickjs_embed(int argc, char **argv, const char *default_module,
       name = "[eval]";
     } else if (argument_index < argc && argv[argument_index][0] == '-' &&
                strcmp(argv[argument_index], "-") != 0) {
-      fprintf(stderr, "qjs: unsupported option: %s\n", argv[argument_index]);
+      fprintf(stderr, "janis: unsupported option: %s\n", argv[argument_index]);
       return DOLLY_JS_USAGE;
     }
   }
@@ -1911,7 +1911,7 @@ int dolly_quickjs_embed(int argc, char **argv, const char *default_module,
   if (source == NULL) {
     if (name == NULL) {
       if (argument_index >= argc) {
-        fputs("qjs: interactive mode is not implemented; use -e, FILE, or -\n",
+        fputs("janis: interactive mode is not implemented; use -e, FILE, or -\n",
               stderr);
         return DOLLY_JS_USAGE;
       }
@@ -1919,7 +1919,7 @@ int dolly_quickjs_embed(int argc, char **argv, const char *default_module,
     }
     owned_source = read_file(name, &length);
     if (owned_source == NULL) {
-      fprintf(stderr, "qjs: %s: %s\n", name, strerror(errno));
+      fprintf(stderr, "janis: %s: %s\n", name, strerror(errno));
       return 1;
     }
     source = owned_source;
@@ -1927,7 +1927,7 @@ int dolly_quickjs_embed(int argc, char **argv, const char *default_module,
 
   JSRuntime *runtime = JS_NewRuntime();
   if (runtime == NULL) {
-    fputs("qjs: could not create runtime\n", stderr);
+    fputs("janis: could not create runtime\n", stderr);
     free(owned_source);
     return 1;
   }
@@ -1949,7 +1949,7 @@ int dolly_quickjs_embed(int argc, char **argv, const char *default_module,
     free(owned_source);
     // Ctrl+C during startup aborts the setup code it interrupted.
     if (janis_interrupted) dolly_exit_signal(SIGINT);
-    fputs("qjs: could not create context\n", stderr);
+    fputs("janis: could not create context\n", stderr);
     return 1;
   }
 

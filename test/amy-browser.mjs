@@ -179,6 +179,14 @@ const programs = {
   codex: "codex --version | grep -q '^codex-cli ' && fd --version > /dev/null && amy list | grep -q '^ripgrep  *installed '",
   zlib: "printf '#include <zlib.h>\\n#include <string.h>\\nint main(void) { return strcmp(zlibVersion(), ZLIB_VERSION) != 0; }\\n' > /tmp/amy-zlib.c && " +
     "cc /tmp/amy-zlib.c -lz -o /tmp/amy-zlib && /tmp/amy-zlib",
+  // The engine as a library: a C program evaluates an expression with it.
+  quickjs: "printf '%s\\n' '#include <quickjs.h>' 'int main(void) { JSRuntime *runtime = JS_NewRuntime(); JSContext *context = JS_NewContext(runtime); int answer = 0; " +
+    "JS_ToInt32(context, &answer, JS_Eval(context, \"6 * 7\", 5, \"amy\", JS_EVAL_TYPE_GLOBAL)); JS_FreeContext(context); JS_FreeRuntime(runtime); return answer != 42; }' " +
+    "> /tmp/amy-quickjs.c && cc -O0 /tmp/amy-quickjs.c -lquickjs -o /tmp/amy-quickjs && /tmp/amy-quickjs",
+  // Janis as a library: a C program that is one script, linked on the engine that janis installs.
+  janis: "echo 'import { readFileSync } from \"node:fs\"; process.exitCode = readFileSync(process.argv[2], \"utf8\").length;' > /tmp/amy-embed.mjs && " +
+    "printf '%s\\n' '#include <dolly/quickjs-runner.h>' 'int main(int argc, char **argv) { return dolly_quickjs_run(argc, argv, \"/tmp/amy-embed.mjs\"); }' " +
+    "> /tmp/amy-embed.c && cc -O0 /tmp/amy-embed.c -ldolly-js -lquickjs -o /tmp/amy-embed && printf 12345 > /tmp/amy-embed.txt; /tmp/amy-embed /tmp/amy-embed.txt; test $? = 5",
   libuv: "printf '%s\\n' '#include <uv.h>' 'static int fired;' 'static void fire(uv_timer_t *timer) { fired = 1; uv_close((uv_handle_t *)timer, 0); }' " +
     "'int main(void) { uv_loop_t loop; uv_timer_t timer; uv_loop_init(&loop); uv_timer_init(&loop, &timer); uv_timer_start(&timer, fire, 1, 0); " +
     "uv_run(&loop, UV_RUN_DEFAULT); return uv_loop_close(&loop) != 0 || !fired; }' > /tmp/amy-uv.c && cc -O0 /tmp/amy-uv.c -luv -o /tmp/amy-uv && /tmp/amy-uv",
@@ -287,9 +295,13 @@ const tools = {
   "session-recover": ["session-recover", "session-recover --help | grep -q '^usage: session-recover' && ! session-recover /tmp/missing /tmp/recovered 2> /dev/null"],
   // "packed", compressed.
   gzip: ["gzip", "printf '\\037\\213\\010\\000\\000\\000\\000\\000\\002\\003\\053\\110\\114\\316\\116\\115\\341\\002\\000\\103\\340\\101\\057\\007\\000\\000\\000' | gzip -dc | grep -qx packed"],
-  // Janis starts its children with sh, which posix holds.
-  javascript: ["qjs", "test \"$(qjs -e 'console.log(6 * 7)')\" = 42 && " +
-    "test \"$(janis -e 'console.log(require(\"node:child_process\").execSync(\"echo spawned\").toString().trim())')\" = spawned"],
+  // The engine's own command: it evaluates, and holds no module of Node's.
+  quickjs: ["qjs", "test \"$(qjs -e 'console.log(6 * 7)')\" = 42 && ! qjs -e 'import \"node:fs\"' 2> /dev/null && man qjs > /dev/null"],
+  // A Node-style script reads a file. Janis starts its children with sh, which posix holds.
+  janis: ["janis", "echo read > /tmp/amy-janis.txt && " +
+    "test \"$(janis -e 'console.log(require(\"node:fs\").readFileSync(\"/tmp/amy-janis.txt\", \"utf8\").trim().toUpperCase())')\" = READ && " +
+    "test \"$(janis -e 'console.log(require(\"node:child_process\").execSync(\"echo spawned\").toString().trim())')\" = spawned && " +
+    "man janis > /dev/null && ! command -v tsc"],
   nvim: ["nvim", "nvim --headless -c 'call writefile([\"written\"], \"/tmp/amy-nvim\")' -c 'qa!' && test \"$(cat /tmp/amy-nvim)\" = written"],
   emacs: ["emacs", "test \"$(emacs --batch --eval '(princ (* 6 7))')\" = 42"],
   ripgrep: ["rg", "mkdir /tmp/amy-hay && echo needle > /tmp/amy-hay/stack && rg -q needle /tmp/amy-hay"],
@@ -420,7 +432,7 @@ const elsewhere = {
   "llvm-runtimes": "a build stage", "minicpm5-2b": "demos/local-llm", "qwen3.5-2b": "demos/local-llm", "qwen3.5-4b": "demos/local-llm",
   ...Object.fromEntries([1, 2, 3, 4].map(shard => [`qwen3.5-4b-${shard}`, "demos/local-llm"])),
 };
-const used = new Set([...preinstalled, "python", "cargo", "mojo", "dolly-docs", "llama", "tar", "meson", ...Object.keys({ ...programs, ...tools, ...elsewhere })]);
+const used = new Set([...preinstalled, "python", "cargo", "mojo", "dolly-docs", "llama", "tar", "meson", "typescript", ...Object.keys({ ...programs, ...tools, ...elsewhere })]);
 assert.deepEqual(packages.filter(name => !used.has(name)), [], "packages that no test installs and uses");
 
 // A package brings the programs its own programs start. rustc links through
@@ -440,8 +452,12 @@ const hello = "mkdir /tmp/amy-mojo && cd /tmp/amy-mojo && printf 'def main():\\n
 // compile builds with Ninja: the meson package installs the three.
 const mesoned = "mkdir /tmp/amy-meson && cd /tmp/amy-meson && printf 'int main(void) { return 42; }\\n' > main.c && " +
   "printf '%s\\n' \"project('probe', 'c')\" \"executable('probe', 'main.c')\" > meson.build && meson setup build && meson compile -C build; build/probe; test $? = 42 && " + reads("meson")[0];
+// tsc is Janis started on the compiler: the typescript package installs
+// janis, and janis the engine it is built on. tsc compiles and janis runs.
+const compiled = "cd /tmp && echo 'export const answer: number = 6 * 7; console.log(answer);' > amy-answer.ts && tsc --target ES2023 --module ES2022 amy-answer.ts && " +
+  "test \"$(janis amy-answer.js)\" = 42 && amy list | grep -q '^janis  *installed ' && amy list | grep -q '^quickjs  *installed ' && man tsc > /dev/null";
 for (const [name, command, program] of [["rust", "rustc", programs.rust], ["cargo", "cargo", crate], ["cmake", "cmake", programs.cmake],
-  ["mojo", "mojo", hello], ["meson", "meson", mesoned]]) {
+  ["mojo", "mojo", hello], ["meson", "meson", mesoned], ["typescript", "tsc", compiled]]) {
   await browserTest(`amy ${name} alone`, { image: "default", timeout: 300_000 }, async ({ open }) => {
     const run = check(await open());
     await run(`! cc --version 2> /dev/null && ! command -v ${command}`);

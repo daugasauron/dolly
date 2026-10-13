@@ -15,7 +15,7 @@ REQUIRES HOST display@0
 REQUIRES HOST input@0
 
 FROM /vX.Y.Z/Dollyfile-system <sha256>
-INSTALL /vX.Y.Z/demos/javascript/Dollyfile-javascript <sha256>
+INSTALL /vX.Y.Z/demos/javascript/Dollyfile-janis <sha256>
 
 FILE /tmp/example.c
     #include <stdio.h>
@@ -288,7 +288,7 @@ EXPORTS TOOL rg
 - A recipe installs it with `INSTALL RECIPE SHA256`, anywhere.
 - A package holds its build (`FROM` a toolchain, then steps: `zlib`,
   `ripgrep`, `sdl2`) or keeps the outputs of the toolchain that built them,
-  with `FROM` and only `EXPORTS` (`cc`, `cmake`, `javascript`) or with `COPY`
+  with `FROM` and only `EXPORTS` (`cc`, `cmake`) or with `COPY`
   rows (`nvim`, `rust`, `codex`), which leaves an expensive builder as it
   is.
 - Packages install into standard paths (`/usr/bin`, `/usr/lib`, `/usr/share`)

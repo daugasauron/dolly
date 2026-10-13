@@ -1,0 +1,34 @@
+DOLLY 7
+PACKAGE typescript
+REQUIRES HOST runtime@0
+REQUIRES HOST download@0
+REQUIRES HOST http@0
+
+# TypeScript's compiler as Microsoft's npm archive holds it, unchanged, run
+# by Janis: tsc is the runner started on the archive's own compiler script.
+FROM /v0.1.3/Dollyfile-system-tools e19ab2a237b16de1596ccbb3a2ae07dd34b65488de38762b66ec0207a89c4b83
+INSTALL /v0.1.3/demos/javascript/Dollyfile-janis c9fa27f8bbaec063ee7bdbe3685ee8b67658768580c817f83c0f045c4048e622
+
+REQUIRES HEADER libc
+REQUIRES HEADER quickjs-runner
+REQUIRES LIB    dolly-js
+REQUIRES LIB    quickjs
+REQUIRES TOOL   cc
+REQUIRES TOOL   gzip
+REQUIRES TOOL   mkdir
+REQUIRES TOOL   tar
+
+SOURCE /v0.1.3/dist/static/default/typescript-5.9.3.tgz   10e108c9cf7d5f2879053dff18515fb405abf2ccef63eaaf017d9c571687a1d3 /tmp/typescript/typescript.tgz
+SOURCE /v0.1.3/dist/static/default/runtimes/tsc-dolly.mjs c81fe4905c8a1aeb83fd8dca09f7ad05242d2975efa91c1c7f004acc23eac80d /usr/lib/typescript/tsc-dolly.mjs
+SOURCE /v0.1.3/dist/static/default/commands/tsc.c         eed8eb879762896740cec873c5ff227bc819e82b422bb2a35d32d420c0aee5eb /tmp/typescript/tsc.c
+
+SLOP gzip -dc /tmp/typescript/typescript.tgz | tar -xf - -C /usr/lib/typescript
+SLOP cc -I /usr/include/dolly /tmp/typescript/tsc.c -ldolly-js -lquickjs -o /usr/bin/tsc
+
+SLOP tsc --version
+SLOP mkdir -p /usr/share/man/cat1
+SLOP tsc --help > /usr/share/man/cat1/tsc.1
+
+EXPORTS TOOL   tsc
+EXPORTS FOLDER typescript /usr/lib/typescript
+FILE /usr/share/man/cat1/tsc.1

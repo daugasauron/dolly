@@ -106,7 +106,8 @@ module: the program needs an image whose recipe declares it.
 
 ## JavaScript
 
-`janis` (also `qjs`) is QuickJS with Node's module rules: `.mjs` files and code
+`janis` is QuickJS with Node's module rules: `.mjs` files and code
 using `import` are ES modules, other files and `-e` are CommonJS with
-`require`. `fetch` and the `node:` built-ins work; worker threads do not exist. `tsc` compiles TypeScript. Without
+`require`. `fetch` and the `node:` built-ins work; worker threads do not exist.
+`qjs` is the engine alone, without them. `amy install typescript` adds `tsc`. Without
 npm, use dependency-free modules, for example from `https://cdn.jsdelivr.net/npm/`.

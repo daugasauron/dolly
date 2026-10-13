@@ -11,8 +11,8 @@ REQUIRES HOST threads@0
 REQUIRES HOST upload@0
 
 FROM /v0.1.3/demos/slopyard/Dollyfile-gamedev-sdk 3e4403df90ca6fcbd46d9a5d3af8b1d6625a6fb7930f87c1e9fcaab1660f2742
-INSTALL /v0.1.3/demos/javascript/Dollyfile-javascript cfb67082fa59f1f0b0c0ef97128ae3be3f7f107af78b9698f2b66537f3ccd2f1
-INSTALL /v0.1.3/demos/pi/Dollyfile-pi 37ce850089435b511edf32c2566f79837cb6bc27600c98cf03aff32d1b7073e5
+INSTALL /v0.1.3/demos/javascript/Dollyfile-janis c9fa27f8bbaec063ee7bdbe3685ee8b67658768580c817f83c0f045c4048e622
+INSTALL /v0.1.3/demos/pi/Dollyfile-pi dddd3e66544271993b8465f3f542a7fc7e1e3fc68f63f004a76202d3f736cc10
 REQUIRES TOOL cc
 REQUIRES TOOL ar
 REQUIRES TOOL make
@@ -46,6 +46,7 @@ REQUIRES LIB raylib
 REQUIRES LIB box3d
 REQUIRES LIB dolly-raylib
 REQUIRES LIB dolly-js
+REQUIRES LIB quickjs
 REQUIRES LIB lua55
 REQUIRES HEADER lua55
 REQUIRES HEADER gpu
@@ -55,7 +56,7 @@ REQUIRES HEADER quickjs-runner
 SOURCE /v0.1.3/dist/static/slopyard/source.tar 2167fc5bfdf9bc2647b22ad940665f2629a4305e4f48de00e91653fca55acd50 /tmp/slopyard.tar
 SLOP tar -xf /tmp/slopyard.tar -C / && rm /tmp/slopyard.tar
 SLOP make -f /usr/src/dolly/slopyard/box3d.mk
-SLOP cc -std=c17 -O2 -pthread -U__SIZEOF_INT128__ -I/usr/include/lua5.5 /usr/src/dolly/slopyard/main.c /usr/src/dolly/slopyard/data.c /usr/src/dolly/slopyard/pi.c /usr/src/dolly/slopyard/character.c /usr/src/dolly/slopyard/render.c /usr/src/dolly/slopyard/world.c /usr/src/dolly/slopyard/terrain.c /usr/src/dolly/slopyard/magnet.c -ldolly-gpu -llua5.5 -ldolly-js -ldolly-raylib -lraylib -lslopyard-box3d -lm -o /usr/bin/slopyard
+SLOP cc -std=c17 -O2 -pthread -U__SIZEOF_INT128__ -I/usr/include/lua5.5 /usr/src/dolly/slopyard/main.c /usr/src/dolly/slopyard/data.c /usr/src/dolly/slopyard/pi.c /usr/src/dolly/slopyard/character.c /usr/src/dolly/slopyard/render.c /usr/src/dolly/slopyard/world.c /usr/src/dolly/slopyard/terrain.c /usr/src/dolly/slopyard/magnet.c -ldolly-gpu -llua5.5 -ldolly-js -lquickjs -ldolly-raylib -lraylib -lslopyard-box3d -lm -o /usr/bin/slopyard
 SLOP /usr/bin/slopyard --check
 SLOP rm -rf /tmp/slopyard-box3d
 EXPORTS TOOL slopyard

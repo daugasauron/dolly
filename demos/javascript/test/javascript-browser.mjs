@@ -1,5 +1,6 @@
-// QuickJS, Janis and TypeScript in the javascript image: command behavior,
-// Janis files, processes and HTTP, and UTF-8 streams.
+// The quickjs, janis and typescript packages in a session that installs the
+// last: upstream's qjs, Janis's commands, files, processes and HTTP, UTF-8
+// streams, and tsc.
 // Usage: node demos/javascript/test/javascript-browser.mjs
 import assert from "node:assert/strict";
 import { mkdtemp, rm } from "node:fs/promises";
@@ -62,36 +63,53 @@ const overlapping = new Map();
 
 const fixtures = Object.fromEntries(["janis-files.mjs", "janis-process.mjs", "janis-terminal.mjs", "node-oracle.mjs", "utf8-browser.mjs", "utf8-cases.mjs", "utf8-writer.c"]
   .map(name => [name, `demos/javascript/test/fixtures/${name}`]));
-await demoTest("javascript", { image: "javascript", timeout: 600_000, server: { handle, fixtures } }, async ({ server, open }) => {
-  const { page, submit, run, start, waitText } = await open({ ...await installProbe("javascript"), policy: { maxRequests: 256,
+await demoTest("javascript", { image: "typescript", timeout: 600_000, server: { handle, fixtures } }, async ({ server, open }) => {
+  const { page, submit, run, start, waitText } = await open({ ...await installProbe("typescript"), policy: { maxRequests: 256,
     rules: [{ origin: server.origin, pathPrefix: "/fixture/", methods: ["GET", "POST"] }] } });
   const scratch = "/tmp/dolly-javascript-test";
   await run(`mkdir ${scratch} && cd ${scratch} && for name in ${Object.keys(fixtures).join(" ")}; do curl -fsS ${server.origin}/fixture/$name -o $name || exit 1; done`);
   for (const [command, status = 0] of [
-    ["qjs --version"],
-    [`qjs -e 'Dolly.httpStart("GET", "${server.origin}/fixture/http.txt", "", null)'`],
-    ["qjs -e \"Dolly.writeFile('tty.txt', [process.stdin.isTTY, process.stdout.isTTY, process.stderr.isTTY].join(','))\" && grep -q '^true,true,true$' tty.txt"],
-    ["qjs -e \"Dolly.writeFile('redirect.txt', String(process.stdout.isTTY))\" > discard.txt && grep -q '^false$' redirect.txt"],
-    ["test \"$(qjs -e \"console.log('JS-' + (6 * 7))\")\" = JS-42"],
-    ["echo \"console.log('ARGS-' + scriptArgs.join(':'))\" > args.js && test \"$(qjs args.js alpha beta)\" = ARGS-alpha:beta"],
+    // qjs is upstream's command: the engine, its own modules over Dolly's files, and nothing of Node or Dolly.
+    ["test \"$(qjs -e 'console.log(6 * 7, typeof process, typeof require, typeof Dolly)')\" = '42 undefined undefined undefined'"],
     ["echo 'export const answer = 42' > value.mjs && echo \"import { answer } from './value.mjs'; console.log('ESM-' + answer)\" > main.mjs && test \"$(qjs main.mjs)\" = ESM-42"],
-    ["test \"$(echo \"print([1,2,3].map(x => x * 2).join(','))\" | qjs -)\" = 2,4,6"],
+    [`qjs --std -e "const file = std.open('cwd.txt', 'w'); file.puts(os.getcwd()[0]); file.close()" && test "$(cat cwd.txt)" = ${scratch}`],
+    // Nothing forks here, and upstream's os.exec says so.
+    ["qjs --std -e \"try { os.exec(['true']) } catch (error) { std.exit(7) }\"", 7],
     ["qjs -e \"throw new Error('JS-EXPECTED')\"", 1],
-    ["qjs --unsupported", 64],
+    ["janis --version"],
+    [`janis -e 'Dolly.httpStart("GET", "${server.origin}/fixture/http.txt", "", null)'`],
+    ["janis -e \"Dolly.writeFile('tty.txt', [process.stdin.isTTY, process.stdout.isTTY, process.stderr.isTTY].join(','))\" && grep -q '^true,true,true$' tty.txt"],
+    ["janis -e \"Dolly.writeFile('redirect.txt', String(process.stdout.isTTY))\" > discard.txt && grep -q '^false$' redirect.txt"],
+    ["test \"$(janis -e \"console.log('JS-' + (6 * 7))\")\" = JS-42"],
+    ["echo \"console.log('ARGS-' + scriptArgs.join(':'))\" > args.js && test \"$(janis args.js alpha beta)\" = ARGS-alpha:beta"],
+    ["test \"$(janis main.mjs)\" = ESM-42"],
+    ["test \"$(echo \"print([1,2,3].map(x => x * 2).join(','))\" | janis -)\" = 2,4,6"],
+    ["janis -e \"throw new Error('JS-EXPECTED')\"", 1],
+    ["janis --unsupported", 64],
     // A noninteractive Dolly.shell gives stdin readers EOF and enforces its deadline.
-    ["qjs -e \"const r = Dolly.shell('cat', ''); if (r.status !== 0) throw new Error(String(r.status))\""],
+    ["janis -e \"const r = Dolly.shell('cat', ''); if (r.status !== 0) throw new Error(String(r.status))\""],
     ["echo 'int main(void) { volatile unsigned long n = 0; for (;;) n++; }' > loop.c && cc -O0 loop.c -o loop"],
-    [`qjs -e "const r = Dolly.shell('${scratch}/loop', '', 50); if (r.status !== 124) throw new Error('status ' + r.status)"`],
+    [`janis -e "const r = Dolly.shell('${scratch}/loop', '', 50); if (r.status !== 124) throw new Error('status ' + r.status)"`],
     ["janis -e \"const c = process.getBuiltinModule('node:crypto'); if (c.createHash('sha256').update('abc').digest('hex') !== 'ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad') process.exit(1)\""],
     ["janis -e \"const h = process.getBuiltinModule('node:http'); const s = new h.Server(); s.on('error', e => process.exit(e.code === 'ENOSYS' ? 0 : 1)); s.listen(1455)\""],
     ["echo 'export const answer: number = 6 * 7;' > answer.ts && tsc --target ES2023 --module ES2022 --outDir ts answer.ts"],
-    [`qjs -m -e "import { answer } from '${scratch}/ts/answer.js'; if (answer !== 42) throw new Error('bad TypeScript emit')"`],
+    [`janis -m -e "import { answer } from '${scratch}/ts/answer.js'; if (answer !== 42) throw new Error('bad TypeScript emit')"`],
   ]) await run(command, status);
 
-  const loop = start("qjs -e 'console.log(\"LOOP-STARTED\"); for (;;) {}'");
-  await waitText(/\nLOOP-STARTED/);
-  await page.keyboard.press("Control+c");
-  assert.equal(await loop.done, 130, "Ctrl-C did not interrupt a QuickJS bytecode loop");
+  for (const engine of ["qjs", "janis"]) {
+    const loop = start(`${engine} -e 'console.log("LOOP-STARTED"); for (;;) {}'`);
+    await waitText(/\nLOOP-STARTED/);
+    await page.keyboard.press("Control+c");
+    assert.equal(await loop.done, 130, `Ctrl-C did not interrupt a bytecode loop of ${engine}`);
+    await run("clear");
+  }
+  // Upstream's prompt reads the terminal itself: an expression, then end of input.
+  const prompt = start("qjs");
+  await waitText(/qjs >\s*$/);
+  await page.keyboard.type("6 * 7\n");
+  await waitText(/\n42\nqjs >\s*$/);
+  await page.keyboard.press("Control+d");
+  assert.equal(await prompt.done, 0);
 
   await run("janis -m janis-terminal.mjs");
   await run("mkdir files && echo target > files/target && ln -s target files/link && ln -s absent files/dangling && ln -s keep-dir files/directory-link");

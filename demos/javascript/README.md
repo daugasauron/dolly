@@ -11,13 +11,21 @@ cancellation tests.
 
 ## Images
 
-- `javascript`: `janis` (also `qjs`), QuickJS with a Node-compatible surface: `janis FILE.js` runs Node-style programs, and there is no `node`; and TypeScript's `tsc`.
-- `typescript-build`: QuickJS, Janis and the TypeScript compiler build.
+- `quickjs`: `qjs` and the QuickJS-ng engine as a library (`-lquickjs`, `quickjs.h`): upstream's own command with its `std` and `os` modules, and nothing of Node.
+- `janis`: `janis`, QuickJS with a Node-compatible surface: `janis FILE.js` runs Node-style programs, and there is no `node`.
+- `typescript`: TypeScript's `tsc`, run by Janis.
 
-`janis`, `tsc` and `qjs` (a link to `janis`) are ordinary programs;
-`typescript-build` compiles them headless on `system-tools` and the `javascript`
-package keeps them for `INSTALL` (`pi-runtime`, `bhop`, `slopyard`) and
-`amy install javascript`.
+Each package holds its own build on `system-tools`, and each is built on the
+one before: `quickjs` compiles upstream's engine and `qjs` from the pinned
+checkout, as upstream's `CMakeLists.txt` does; `janis` installs `quickjs` and
+links Dolly's runner on its library; `typescript` installs `janis` and adds
+Microsoft's npm archive. A recipe or `amy install` that names one gets the
+ones below it.
+
+A C program that is one script links the runner, `-ldolly-js -lquickjs` with
+[`quickjs-runner.h`](quickjs-runner.h): `tsc`, `pi` and the games' agents are
+such programs. The archive is in `janis` because every program linked with it
+reads Janis's two scripts when it starts.
 
 ## Supported
 
@@ -47,13 +55,17 @@ package keeps them for `INSTALL` (`pi-runtime`, `bhop`, `slopyard`) and
 
 - [`quickjs-main.c`](quickjs-main.c), [`janis.c`](janis.c),
   [`janis.js`](janis.js), [`dolly-node.js`](dolly-node.js): the runtime.
-- [`Dollyfile-typescript-build`](Dollyfile-typescript-build), [`Dollyfile-javascript`](Dollyfile-javascript),
-  [`tsc-dolly.mjs`](tsc-dolly.mjs): builds; QuickJS's ambient
-  `quickjs-libc.c` is excluded.
+- [`Dollyfile-quickjs`](Dollyfile-quickjs), [`Dollyfile-janis`](Dollyfile-janis),
+  [`Dollyfile-typescript`](Dollyfile-typescript), [`tsc-dolly.mjs`](tsc-dolly.mjs):
+  builds. Upstream's `quickjs-libc.c` (`std`, `os`) is in `qjs` and not in Janis.
 - Tests: [`test/`](test/).
 
 ## Limits
 
+- `qjs` is upstream's command and has none of what follows `janis` here: its
+  modules are upstream's `std`, `os` and `bjson` (`--std`). Built with
+  upstream's switch for a target without threads, it has no `os.Worker`,
+  `os.exec` fails (nothing forks) and `os.platform` is `js`.
 - No npm client, native addons, worker threads (constructing a `Worker` fails
   with `ENOSYS`) or nested WebAssembly. Requiring an ES module fails with
   `ERR_REQUIRE_ESM`.

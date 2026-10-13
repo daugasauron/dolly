@@ -6,9 +6,9 @@ Dolly's files, processes and HTTP broker.
 
 ## Images
 
-- `pi`: `pi`, the Pi coding agent, with the `javascript`, `ripgrep` and `fd` packages.
+- `pi`: `pi`, the Pi coding agent, with the `janis`, `ripgrep` and `fd` packages.
 - `pi-agent`: Pi coding agent with JavaScript, shell tools, ripgrep and fd.
-- `pi-runtime`: Reusable Pi and JavaScript runtime.
+- `pi-runtime`: Reusable Pi and Janis runtime.
 - `pi-build`: Pi packages compiled from pinned TypeScript sources.
 
 Open `/pi-agent/`; build with `npm run image -- pi-agent`. Leave Pi with
@@ -16,7 +16,7 @@ Open `/pi-agent/`; build with `npm run image -- pi-agent`. Leave Pi with
 
 ## How it works
 
-- `pi-build` runs the official TypeScript compiler inside Dolly and emits Pi's
+- `pi-build` installs the `typescript` package, runs its compiler inside Dolly and emits Pi's
   workspace packages to `/usr/lib/node_modules` (`noCheck` emit, no type
   checking). `pi-runtime` adds the prompt, settings, theme and extension.
 - Bootstrap exception: [`pi-secret-input.patch`](pi-secret-input.patch) makes
