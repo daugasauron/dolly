@@ -247,6 +247,7 @@ const zipped = "\\120\\113\\003\\004\\012\\000\\000\\000\\000\\000\\307\\273\\11
 // The manual pages that packages format when they are built, each with a word
 // of its text: man prints the text, and no macros.
 const pages = {
+  sqlite: { sqlite3: "SQLite" },
   mandoc: { mandoc: "manual" },
 };
 const reads = name => Object.entries(pages[name] ?? {}).map(([page, word]) =>
@@ -286,7 +287,7 @@ const tools = {
   sqlite: ["sqlite3", "sqlite3 /tmp/amy.db \"create table word(n, name); insert into word values (6, 'six'), (7, 'seven'), (9, 'nine'); pragma journal_mode = wal\" > /dev/null && " +
     "test \"$(sqlite3 /tmp/amy.db \"select sum(n) * 3 + 3, json_group_array(name) from word where name like 's%'\")\" = '42|[\"six\",\"seven\"]' && " +
     "sqlite3 /tmp/amy.db 'select count(*) from word' \".shell sqlite3 /tmp/amy.db 'select count(*) from word' 2>&1\" | grep -q 'database is locked' && " +
-    links("sqlite3", "sqlite3", "sqlite3_libversion_number() != SQLITE_VERSION_NUMBER") + " && man sqlite3 > /dev/null"],
+    links("sqlite3", "sqlite3", "sqlite3_libversion_number() != SQLITE_VERSION_NUMBER")],
   // A sum, and a number that a regular expression takes out of a string.
   jq: ["jq", "echo '{\"a\": [1, 20, 21], \"b\": \"x-42\"}' > /tmp/amy.json && " +
     "test \"$(jq -r '(.a | add | tostring) + \" \" + (.b | capture(\"(?<n>[0-9]+)\").n)' /tmp/amy.json)\" = '42 42' && man jq > /dev/null"],
