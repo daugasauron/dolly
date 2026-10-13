@@ -180,3 +180,17 @@ An image builds in 5 to 15 s once its base is restored (SQLite 33 s).
   Not `ed` either: it reads its commands a line at a time from the terminal,
   which has no line discipline; `ex` (the `vi` package) edits by script.
 - Both in Chromium and Firefox, with the entries of `test/amy-browser.mjs`.
+
+### meson (09:15)
+
+- `meson` is Meson 1.12.1 from the wheel PyPI publishes (a `SOURCE` with its
+  SHA-256), installed by `pip install --no-index --no-deps`. It `INSTALL`s
+  `python`, `cc` and `ninja` (Python runs it, `meson setup` starts the
+  compiler, `meson compile` starts Ninja) and declares Python's host modules
+  (`dso@0`, `http@0`, `sockets@0`), which `default` has. The recipe builds a
+  project as its check; the image builds in 26 s on cached bases.
+- Alone in `default` (no compiler before): 3,765 files, 177 MB in 3.1 s;
+  `meson setup build && meson compile -C build` and the program's status 42
+  in 6.4 s (Chromium) and 6.9 s (Firefox). Meson finds `clang` ("dolly
+  toolchain: Clang/LLD 24, wasm64-unknown-dolly"), `ld.lld` and
+  `ninja-1.9.0`, cpu family `wasm64`.

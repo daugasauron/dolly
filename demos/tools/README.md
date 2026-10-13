@@ -20,6 +20,7 @@ find here, in the comments beside its flags.
 - `vi`: Neatvi, a small `vi` and `ex` that needs no terminal database, as a package.
 - `xxd`: xxd, the hex dump that also reads one back, as a package.
 - `base64`: `base64` (Alfred Klomp's) and libbase64, as a package.
+- `meson`: Meson, with the `python`, `cc` and `ninja` packages it runs on, as a package.
 - `tar`: sbase's `tar`, which writes archives and reads links and pax headers, in place of the one that only unpacks, as a package.
 - `sbase`: the sbase commands the image leaves out: `yes`, `cal`, `sha1sum`, `sha512sum`, `sponge`, `cols`, `uuencode` and `uudecode`, as a package.
 

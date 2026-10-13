@@ -1,5 +1,6 @@
 # Sourced by scripts/prepare-image-sources.sh.
-# Release archives that Dolly's tar reads as published (package, file name).
+# Release archives that Dolly's tar reads as published, and Meson's wheel
+# (package, file name).
 while read -r tool tool_archive; do
   if has_image "${tool}"; then
     copy_static "$(bash scripts/fetch-pinned-archive.sh "${tool}")" "tools/${tool_archive}"
@@ -10,6 +11,7 @@ xz xz-5.8.4.tar.gz
 bzip2 bzip2-1.0.8.tar.gz
 zip zip30.tar.gz
 unzip unzip60.tar.gz
+meson meson-1.12.1-py3-none-any.whl
 ARCHIVES
 # xxd is one file of Vim's repository, with its manual page.
 if has_image xxd; then

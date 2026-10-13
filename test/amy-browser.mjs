@@ -300,7 +300,7 @@ const elsewhere = {
   "llvm-runtimes": "a build stage", "minicpm5-2b": "demos/local-llm", "qwen3.5-2b": "demos/local-llm",
   ...Object.fromEntries([1, 2, 3, 4].map(shard => [`qwen3.5-4b-${shard}`, "demos/local-llm"])),
 };
-const used = new Set([...preinstalled, "python", "cargo", "mojo-compiler", "dolly-docs", "transfer", "llama", "tar", ...Object.keys({ ...programs, ...tools, ...elsewhere })]);
+const used = new Set([...preinstalled, "python", "cargo", "mojo-compiler", "dolly-docs", "transfer", "llama", "tar", "meson", ...Object.keys({ ...programs, ...tools, ...elsewhere })]);
 assert.deepEqual(packages.filter(name => !used.has(name)), [], "packages that no test installs and uses");
 
 // A package brings the programs its own programs start. rustc links through
@@ -316,8 +316,12 @@ const crate = "mkdir -p /tmp/amy-crate/src && cd /tmp/amy-crate && " +
 // mojo build links what it compiles through cc.
 const hello = "mkdir /tmp/amy-mojo && cd /tmp/amy-mojo && printf 'def main():\\n    print(\"hello\", 6 * 7)\\n' > hello.mojo && " +
   "mojo build hello.mojo && test \"$(./hello)\" = 'hello 42'";
+// Python runs Meson; meson setup configures with the C compiler and meson
+// compile builds with Ninja: the meson package installs the three.
+const mesoned = "mkdir /tmp/amy-meson && cd /tmp/amy-meson && printf 'int main(void) { return 42; }\\n' > main.c && " +
+  "printf '%s\\n' \"project('probe', 'c')\" \"executable('probe', 'main.c')\" > meson.build && meson setup build && meson compile -C build; build/probe; test $? = 42";
 for (const [name, command, program] of [["rust", "rustc", programs.rust], ["cargo", "cargo", crate], ["cmake", "cmake", programs.cmake],
-  ["mojo-compiler", "mojo", hello]]) {
+  ["mojo-compiler", "mojo", hello], ["meson", "meson", mesoned]]) {
   await browserTest(`amy ${name} alone`, { image: "default", timeout: 300_000 }, async ({ open }) => {
     const run = check(await open());
     await run(`! cc --version 2> /dev/null && ! command -v ${command}`);

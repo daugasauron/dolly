@@ -131,5 +131,6 @@
 {"name": "bc (Gavin Howard)", "use": "bc and dc", "licence": "BSD-2-Clause", "repository": "https://github.com/gavinhoward/bc", "pins": ["BC"], "sources": ["dist/static/tools/bc.tar"]},
 {"name": "Neatvi", "use": "vi and ex", "licence": "ISC", "repository": "https://github.com/aligrudi/neatvi", "pins": ["NEATVI"], "sources": ["dist/static/tools/neatvi.tar"]},
 {"name": "xxd", "use": "xxd, from Vim's source", "licence": "MIT OR GPL-2.0-only", "repository": "https://github.com/vim/vim", "pins": ["XXD", "XXD_MAN"], "sources": ["dist/static/tools/xxd.c", "dist/static/tools/xxd.1"]},
-{"name": "base64 (Alfred Klomp)", "use": "base64 and libbase64", "licence": "BSD-2-Clause", "repository": "https://github.com/aklomp/base64", "pins": ["BASE64"], "sources": ["dist/static/tools/base64.tar"]}
+{"name": "base64 (Alfred Klomp)", "use": "base64 and libbase64", "licence": "BSD-2-Clause", "repository": "https://github.com/aklomp/base64", "pins": ["BASE64"], "sources": ["dist/static/tools/base64.tar"]},
+{"name": "Meson", "use": "meson, from its wheel", "licence": "Apache-2.0", "repository": "https://github.com/mesonbuild/meson", "pins": ["MESON"], "sources": ["dist/static/tools/meson-1.12.1-py3-none-any.whl"]}
 ]
