@@ -186,6 +186,18 @@ that nothing applies (`:767`).
 for each of the 18 directories under `host/`. What each row says was not
 read against the code tonight; the boundary's audit of 2026-10-13 did that.
 
+"Documentation rot" (`AGENTS.md`), a sample: nine quantities the documents
+state were read against the code, and all nine are the code's. 32
+pseudo-terminals with 4 KiB of input and 64 KiB of output
+(`docs/browser-boundary.md:76`, `host/pty/abi.mjs`); at most 32 processes
+(`docs/process-model.md:63`, `src/process-supervisor.mjs:23`); a stack of
+8 MiB (`:95`, `scripts/build.sh:138`); 64 compiled modules and 256 MiB
+(`:62`, `src/process-supervisor.mjs:25-26`); a line of `/proc/processes` of
+2047 bytes (`:46`, `src/process-kernel.c:890`); the 16 ms tick (`:306`,
+`src/process-supervisor.mjs:147`). The README's turnaround table was the
+one place found tonight where a number had gone stale
+([iteration cost](../20260930-100000-audit-53/TASK.md)).
+
 ## As filed (2026-10-13, main `50c698f8`)
 
 - [The audit of 2026-10-13](../20261012-230015-audit-fable/TASK.md) has five
