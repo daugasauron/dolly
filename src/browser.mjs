@@ -128,7 +128,7 @@ async function boot() {
   if (bootMode === "rebuild" && !runnable) {
     // An image without ENTRY has no program to run: keep the complete log and report the result.
     const artifacts = await prepareArtifacts();
-    const built = await buildImage(image, artifacts, host.builder, appendBootstrap, { customSource });
+    const built = await buildImage(image, artifacts, host.builder, appendBootstrap, { customSource, consume: true });
     const name = customSource === undefined ? image : recipe.image;
     appendBootstrap(`\nBUILT ${name} · ${(built.byteLength / 1024 / 1024).toFixed(1)} MiB · sha256 ${built.sha256}\n`);
     document.documentElement.dataset.dollyStatus = "built";

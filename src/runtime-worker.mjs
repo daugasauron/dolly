@@ -164,7 +164,7 @@ try {
     files.write("/etc/dolly/upload.Dollyfile", bootConfig.customSource);
   }
   const releaseInput = artifact => {
-    if (bootConfig.buildOnly) self.postMessage({ type: "build-input", recipeSha256: artifact.recipeSha256,
+    if (bootConfig.returnInputs) self.postMessage({ type: "build-input", recipeSha256: artifact.recipeSha256,
       bytes: artifact.bytes }, [artifact.bytes]);
     else artifact.bytes.transfer(0);
     artifact.bytes = null;

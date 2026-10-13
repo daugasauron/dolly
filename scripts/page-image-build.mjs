@@ -15,14 +15,14 @@ export async function buildImageInPage(base, image, custom) {
   ];
   const network = { ...transport.localServicesTransport(policy.consumeDollyHttpPolicy(globalThis, sources, new URL(base))),
     site: base };
-  const build = (name, artifacts) => builder.buildImage(name, artifacts, { http: { network } }, log,
-    { customSource: name === "custom" ? custom : undefined });
+  const build = (name, artifacts, consume) => builder.buildImage(name, artifacts, { http: { network } }, log,
+    { customSource: name === "custom" ? custom : undefined, consume });
   let dependenciesBuilt = 0;
   const dependencies = await graph.prepareImageArtifacts(image, custom, (name, artifacts) => {
     dependenciesBuilt++;
     return build(name, artifacts);
   }, text => log(`${text}\n`));
-  const { bytes, inputs } = await build(image, dependencies);
+  const { bytes, inputs } = await build(image, dependencies, true);
   globalThis.dollySnapshot = new Uint8Array(bytes);
   return { inputs, dependenciesBuilt };
 }
