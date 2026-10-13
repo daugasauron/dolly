@@ -253,3 +253,16 @@ wants a program's non-zero status must capture it, not let it end the line
 The full `test/amy-browser.mjs` was not run here: it installs every package
 of the catalog, and this tree builds only the images named above. It is for
 the integration tree.
+
+### What is left
+
+- The full `test/amy-browser.mjs` in the integration tree, both browsers:
+  the `amy tools` case grew by seventeen installs, eight small compiles and
+  three programs typed at (17 s here on their own); its limit is 300 s.
+- From the list as filed: `file` (dropped, above) and the libraries tmux
+  builds for itself (libevent, a terminfo library), which belong with the
+  tmux demo's build image as thin packages once that branch is on main.
+- `pi-local` could `INSTALL` `llama` in place of its two `COPY` rows.
+- Dropped for cost: nano and `ne` (above), GNU sed and grep (gnulib), a roff
+  formatter (useful only through `man`). `vi` at the terminal: insert,
+  Backspace, Enter, arrow keys and `:wq` were typed and work.
