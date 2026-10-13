@@ -239,9 +239,6 @@ met on the branch.
   started before the rebuild does not know the new pack and answers 404 for
   it: restart it.
 
-Done when: tmux runs in a Dolly session with two panes, or the task says
-exactly which operations are missing, each with its measurement.
-
 ## 2026-10-13 08:30: Pi's test and this branch
 
 `npm run test:demos -- pi` typed `! printf 'DOLLY-ENTRY-CWD=%s\n' "$(pwd)"` and
@@ -365,3 +362,9 @@ amy's test the catalog, which the caps of this tree do not allow.
 `config/domain-pages-images.txt`, both sides kept. The runtime and the image
 inputs are the same after it; source suite 424 of 424, the tmux test and
 amy's two cases again in both browsers.
+
+The done-when is met on the branch. The task stays open until the round has
+measured Pi's test (12 of 12) and amy's on the new seed.
+
+Done when: tmux runs in a Dolly session with two panes, or the task says
+exactly which operations are missing, each with its measurement.
