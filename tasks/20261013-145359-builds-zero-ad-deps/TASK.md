@@ -2,7 +2,7 @@
 
 - STATUS: OPEN
 - PRIORITY: 254
-- TAGS: packages,catalog,0ad
+- TAGS: packages,catalog,0ad,owner
 
 Owner (2026-10-13), on
 [the inventory of builds](../20261013-142800-generic-builds/inventory.md): "I
@@ -34,6 +34,67 @@ The owner decides what, if anything, follows.
 
 The owner's example of what he meant by packages (2026-10-13): "One example
 would be breaking out spidermonkey (just an example) into a package."
+
+## State (2026-10-14, 02:30): investigated, the owner's to read
+
+[The investigation](investigation.md), by a Fable agent that read `main`
+`8af8f983`, the built images and the build logs, and changed nothing. The
+integrator checked the SpiderMonkey recipe's rows and configure line, the
+patch's size, four commits, the two quoted records and that no pin names
+SpiderMonkey. It gives no verdict. What it found:
+
+- Why SpiderMonkey's build sits where it does is written down
+  ([0 A.D. built in Dolly](../20260930-231200-self-host-zero-ad/TASK.md),
+  2026-10-07, decided before the build): a build image of its own, `FROM
+  zero-ad-deps` "for pkgconf, zlib.pc and the C++ toolchain", Python and
+  Cargo by `INSTALL`, the engine taking two rows by `COPY`, because "the
+  engine needs only headers and two archives; the deps image … should not
+  carry Python, Rust and Cargo (about 700 MB) for every rebuild;
+  SpiderMonkey's patch changes should rebuild SpiderMonkey alone".
+- No version in `zero-ad-deps` is one 0 A.D. pins. Six are the versions of
+  Emscripten's ports from the host build of 2026-09-23 (ICU 68.2, Boost
+  1.83.0, FreeType, libpng, Ogg, Vorbis); four were Dolly's own choice with
+  no reason recorded (fmt 7.1.3, libxml2, ENet, libsodium). 0 A.D. asks
+  pkg-config for each and has one floor, fmt 5.3.0. SpiderMonkey's version
+  is 0 A.D.'s: its release bundles `mozjs-128.13.0.tar.xz`.
+- SpiderMonkey as a package, written out (section 5.a): it needs a build
+  base that no image is today (compiler, `patch`, pkg-config, a `zlib.pc`,
+  Python, Cargo with Rust, cbindgen), because a package's `INSTALL` rows
+  arrive with it ([build needs](../20261013-144754-build-needs/TASK.md)).
+  With the tools in the base, `amy install spidermonkey` brings two
+  archives (26.6 MB), 341 header paths, a `.pc` file and `zlib`. With the
+  tools as rows it would bring Python, Rust and Cargo (about 425 MB) and
+  three host modules into the engine's image and into a session.
+- Its source has no pin of its own: the staged tree is pinned by the recipe
+  and the bytes by 0 A.D.'s release. 0 A.D.'s own script names where the
+  archive comes from (Wildfire's server, or Mozilla's ESR source through a
+  packaging script); whether those equal the bundled one was not checked
+  (no network).
+- Of 0 A.D.'s patches to SpiderMonkey two are needed to build here and one
+  fixes a crash in garbage collection; Dolly's 490 lines share no hunk with
+  them. Of the configure flags four are 0 A.D.'s, one (`--disable-shared-js`)
+  is Dolly's and the opposite of 0 A.D.'s, the rest are the port's. A
+  package's flags are chosen once for everyone, and the engine compiles
+  against the feature set as configured.
+- Nothing else would install SpiderMonkey today: every other JavaScript
+  user links QuickJS, and the one time it was weighed as an engine (for
+  Claude Code, 2026-10-05) the decision was "extend Janis".
+- The plain libraries: FreeType and libpng are upstream's CMake builds,
+  unchanged, and written out as packages on `cmake-build` they are a dozen
+  rows each; `xonotic-build` and `wine-build` would say two `INSTALL` rows
+  for five and eight `COPY` rows.
+- The entangled ones are less entangled than the ruling of 2026-10-12 says
+  ("ICU's data file is 0 A.D.'s, ENet's transport is 0 A.D.'s relay"): the
+  data file is ICU's own, byte-identical to the one in ICU's archive, and
+  only its delivery is the demo's; ENet's replaced socket file is a general
+  transport over Dolly's HTTP module that names no game, and the relay
+  server is the demo's. A package of ENet would declare `http@0`.
+- No recipe outside the 0 A.D. chain asks for `pkg-config`, and nothing
+  installs the three views except `freetype` installing `libpng`.
+- Not found out, each needs a build or the network: whether SpiderMonkey
+  builds unchanged on another base; whether Wildfire's archive equals the
+  bundled one; whether 0 A.D. compiles against fmt 11; sizes of the single
+  libraries.
 
 ## What the inventory says (2026-10-13, unchecked)
 
