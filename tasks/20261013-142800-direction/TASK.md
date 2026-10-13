@@ -182,6 +182,10 @@ The known ones are in [file modes](../20261006-120641-umask/TASK.md):
 (`src/process/libc-adapter.c:934-976`), and `umask` keeps a value per process
 that nothing applies (`:767`).
 
+"Maintain the review map" (`AGENTS.md`): `docs/browser-boundary.md` has a row
+for each of the 18 directories under `host/`. What each row says was not
+read against the code tonight; the boundary's audit of 2026-10-13 did that.
+
 ## As filed (2026-10-13, main `50c698f8`)
 
 - [The audit of 2026-10-13](../20261012-230015-audit-fable/TASK.md) has five
