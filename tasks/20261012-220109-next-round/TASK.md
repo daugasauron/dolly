@@ -35,9 +35,6 @@ that change the seed or every recipe, and so want one round together:
 
 ## Left by the round of 2026-10-13
 
-- `zero-ad` is `FROM default` and its recipe now removes `default`'s `nena`
-  command, which a game's page may not hold: an image of its own packages is
-  the clean shape (audit 19).
 - `gpu-sdk` and `audio-sdk` hold nothing of their own; with `nena` a shell
   with a GPU is `default` and one command (audit 18).
 - The terminal does not turn Enter's carriage return into the newline a

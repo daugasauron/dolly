@@ -37,11 +37,11 @@ REQUIRES HOST http@0
 REQUIRES HOST snapshot@0
 REQUIRES HOST upload@0
 
-FROM ${siteReference("Dollyfile")} ${hash(await readFile(resolve(root, "Dollyfile")))}
-# default's nena command asks for nena@0, which a game's page does not declare:
-# the image keeps default without it.
-REQUIRES TOOL rm
-SLOP rm /bin/nena /usr/share/man/cat1/nena.1
+# The shell, its tools, the terminal, curl and the file exchange, as default
+# installs them. Not FROM default: a change to the image people open then
+# rebuilds no game, and this page holds none of default's amy or nena.
+${(await Promise.all(["core", "posix", "display", "curl", "transfer"].map(async name =>
+    `INSTALL ${siteReference(`Dollyfile-${name}`)} ${hash(await readFile(resolve(root, `Dollyfile-${name}`)))}`))).join("\n")}
 COPY ${engine} /opt/0ad/system/pyrogenesis /opt/0ad/system/pyrogenesis
 # Licences of the libraries statically linked into the engine.
 ${linked.map(name => `COPY ${engine} /usr/share/licenses/${name} /usr/share/licenses/${name}`).join("\n")}
