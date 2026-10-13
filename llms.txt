@@ -17,6 +17,16 @@ curl; `amy install NAME` adds a package, such as `cc` (C and C++, make) or
 megabytes for default, far more for the largest. The bulk is under dist/,
 which crawlers are asked to leave alone.
 
+## Driving a page
+
+The terminal is drawn on a canvas, so its text is not in the page's DOM: read
+it from a screenshot. The `data-dolly-status` attribute of the page's `html`
+element says where the page is: `loading`, then `ready` when the image runs
+(`built` on a rebuild page of an image that only builds), `failed` when it
+could not start, with the reason in the page's text, and `exited` when the
+image's program has ended. Once it is `ready`, keys typed into the page go to
+the terminal.
+
 ## Pages
 
 - [Menu](./): every image with its page, its rebuild page and its recipe
