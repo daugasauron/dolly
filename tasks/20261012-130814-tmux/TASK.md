@@ -22,7 +22,7 @@ unchanged, but tmux needs three more things, each measured below:
    does on Cygwin.
 
 With (1) as the host module `pty@0`, two operations in the kernel and the
-supervisor, and a patch of eight hunks for (2) and (3), upstream tmux 3.8
+supervisor, and a patch of nine hunks for (2) and (3), upstream tmux 3.8
 built by Dolly's `cc` runs: two panes, a shell in each, typing in the active
 pane, Ctrl+C for the program in it, a window resize, detach and attach, and
 its jobs (`run-shell`, `if-shell`, `#()`). The unchanged `less` and `nvim`
@@ -300,9 +300,10 @@ what the proposal's first open point describes; image inputs go from
   such a recipe does not seal (tested).
 - The libc forwards `ioctl(TIOCSWINSZ)` on a master (`libc-adapter.c`): the
   only way to a master is `openpty`, so nothing unstamped can use it.
-- The two libc findings: `ttyname` of a terminal answers `/dev/tty`, and
-  `waitpid` accepts `WUNTRACED`. With them tmux's patch loses two hunks
-  (eight are left) and the demo its own `pty.c`.
+- The two libc findings: `waitpid` accepts `WUNTRACED`, and `ttyname` of a
+  terminal answered `/dev/tty`. The second was taken out again the same
+  morning (below, 10:10). tmux's patch loses one hunk (nine are left) and
+  the demo its own `pty.c`.
 - `docs/process-model.md` has the section, `docs/browser-boundary.md` the
   row, `host/README.md` a paragraph; all three and the two WAT files are
   pinned in `Dollyfile-dolly-docs`, which repins `pi`, `pi-local` and
@@ -356,12 +357,56 @@ Measured on the new seed at `fe04b918`, Chromium and Firefox unless said:
 
 Not measured here, for the round: Pi's test and the whole of
 `test/amy-browser.mjs` on the new seed. Pi's image needs `rust-build` and
-amy's test the catalog, which the caps of this tree do not allow.
+amy's test the catalog, which the caps of this tree do not allow. Nor
+`nvim` built on the new seed in a pane: it ran there as the package built
+before the module existed.
 
 `main` at `743757a4` is merged (`7b81cff1`): one conflict, adjacent rows of
 `config/domain-pages-images.txt`, both sides kept. The runtime and the image
 inputs are the same after it; source suite 424 of 424, the tmux test and
 amy's two cases again in both browsers.
+
+## 2026-10-13 10:10: `ttyname` is out of the libc again (the seed changes once more)
+
+`706afa45` made `ttyname` of a terminal answer `/dev/tty`. That is not a
+small change. libuv's `uv_tty_init` reopens a terminal by the name `ttyname`
+gives, for a description of its own, and sets `O_NONBLOCK` on it. `ttyname`
+has always failed here, so libuv has kept the descriptor it was given, with
+blocking writes. With a name, every libuv program built on the new seed
+(`nvim`, Lua's `luv`, CMake) would take the other way for the first time,
+and in a tmux pane `/dev/tty` is the slave the pane's programs share, not a
+new description.
+
+Measured on `09ec882b…`, Chromium (`build/tmux-evidence/reopen.mjs`): a
+program does what libuv does (`ttyname_r`, `open`, `dup2`, `O_NONBLOCK`) and
+exits, then `cat` runs in the same shell. At the display's terminal `cat`
+waits. In a pane it ends with `cat: standard input: Resource temporarily
+unavailable`.
+
+`19660a44` takes the name out: `ttyname` fails as before, tmux's client names
+its terminal itself (the patch has nine hunks again), the pty test checks
+that a terminal has no name, and the process model says that `/dev/tty` in
+a pane is the same open file, `O_NONBLOCK` included. Image inputs:
+`09ec882b…` -> `b2adae1b…`. What was measured at 10:00 is measured again:
+
+The chain again, now with `libevent`, `libterminfo` and `ninja`: 28 images
+in **1095 s** at one job. On `b2adae1b…` at `126e2f39`, Chromium and
+Firefox unless said:
+
+| Check | Result |
+| --- | --- |
+| Source suite | 424 of 424 |
+| `test/pty-browser.mjs` | passes in both |
+| `demos/tmux/test/tmux-browser.mjs` | passes in both (the package part is Chromium's) |
+| `javascript` demo test | passes (Chromium, as it runs) |
+| `python` demo test | passes: CPython in Chromium, NumPy built by pip in `default` in both (205 s, 265 s) |
+| amy's two new cases, alone in `default` after `amy install cc` | pass in both |
+| Core suite (`slot.sh hugebuild`) | in each browser all but `amy-browser.mjs`, which stops at `amy install cmake`: 42 tests pass |
+| `reopen.mjs`, Chromium | `ttyname_r` fails in a pane and at the display, and `cat` waits in both |
+
+Open, for whoever takes pseudo-terminals further: a second open of a slave
+with flags of its own. No program here needs one while `ttyname` names
+nothing.
 
 The done-when is met on the branch. The task stays open until the round has
 measured Pi's test (12 of 12) and amy's on the new seed.
