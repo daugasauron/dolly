@@ -137,6 +137,24 @@ of builds (`system-build` 63 s, `zig-build` 7 min 22 s, `ghostty-build`
 `cc`, `make`, `ninja`, `zig`, `system`, `python` (148 s), `javascript`,
 `git`, `less`, `raylib`, `box3d` and `dolly-docs`: 17 min 21 s.
 
+## Qwen3.5-4B as one package
+
+`demos/local-llm/Dollyfile-qwen3.5-4b` is the recipe: four `INSTALL` rows,
+one per shard, and nothing else. `amy install qwen3.5-4b` then installs the
+four, one snapshot at a time, as a session installs them by name today. Not
+built here (the model images are the round's). Two things to know:
+
+- Its build is heavy for what it produces. `INSTALL` in a package's recipe
+  restores the installed files for the build, so the builder holds the four
+  shard snapshots and their files. By the sizes, not measured: 3.01 GB of
+  snapshots in the page, the same in the builder's artifacts and the same
+  restored, where a shard's own build handles 1 GB. It wants the slot the
+  largest images get. If it does not fit, the fix is in the engine: a
+  package whose recipe only installs needs no files.
+- The four shards stay packages with index rows, and Pi's `/local` still
+  names the four (`models/qwen3.5-4b.json`). Taking them out of `amy list`
+  is a change to the index's generator and to `pi-local`, with its test.
+
 ## Not done, and why
 
 - `rust`, `cargo`, `ripgrep`, `fd`, `codex-cli`, `pi-coding-agent`, `llvm`,
