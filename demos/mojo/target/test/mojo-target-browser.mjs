@@ -17,8 +17,8 @@ const gpu = "-lmojo-gpu -ldolly-gpu", programs = { hello: "", library: "", tasks
   upstream_hello_writing: gpu, upstream_gpu_hello: gpu };
 const objects = Object.fromEntries(Object.keys(programs).map(name => [`${name}.o`, `build/mojo-target/objects/${name}.o`]));
 if (!Object.values(objects).every(path => existsSync(new URL(path, root)))) {
-  console.log("mojo-target: skipped, it needs the objects of demos/mojo/target/cross-compile.sh");
-  process.exit(0);
+  console.log("mojo-target: skipped: needs the objects of demos/mojo/target/cross-compile.sh");
+  process.exit(77);
 }
 // The installed Firefox is a snap with a private /tmp: its profile must live under $HOME.
 process.env.TMPDIR = new URL("build/mojo-target/tmp/", root).pathname;

@@ -78,7 +78,7 @@ export const syntaxCases = [
   [false, probe("SLOP true\0")],
   [false, probe("# comment\0")],
   [false, root(image("FILE /usr/share/a\n    body\0\n"))],
-  [false, probe(`USE ${site("modules/probe.dm")} ` + zeros)],
+  [false, probe(`USE ${site("Dollyfile-probe")} ` + zeros)],
   [false, probe("COMPILEC /tmp/slop/slop.c /bin/slop")],
   [false, probe("slop true")],
 
@@ -205,7 +205,7 @@ export const syntaxCases = [
   [true, root(`DOLLY 7\nPACKAGE default\nINSTALL ${site("Dollyfile-pkg")} PIN(/Dollyfile-pkg)\n`, pkg)],
   [false, root(image(`INSTALL ${site("Dollyfile-pkg")}\n`), pkg)],
   [false, root(image(`INSTALL ${site("Dollyfile-pkg")} PIN(/Dollyfile-pkg) / /\n`), pkg)],
-  [false, root(image(`INSTALL ${site("pkg.dm")} PIN(/Dollyfile-pkg)\n`), pkg)],
+  [false, root(image(`INSTALL ${site("pkg")} PIN(/Dollyfile-pkg)\n`), pkg)],
   [true, root(image(`COPY ${site("Dollyfile-base")} PIN(/Dollyfile-base) /usr /usr\n`), base)],
   [true, root(image(`COPY ${site("Dollyfile-pkg")} PIN(/Dollyfile-pkg) /usr/share/pkg /opt/pkg\n`), pkg)],
   [true, root(image(`COPY ${site("Dollyfile-base")} PIN(/Dollyfile-base) / /opt/base\n`), base)],

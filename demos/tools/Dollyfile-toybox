@@ -1,0 +1,54 @@
+DOLLY 7
+PACKAGE toybox
+REQUIRES HOST runtime@0
+
+# toybox's grep and sed, from upstream's release: grep -r, -o, --include and
+# context lines, and sed -i, which the image's sbase grep and sed do not
+# have. One program under both names, which take the place of the posix
+# package's: /bin comes first on PATH. The headers that toybox's scripts
+# generate for this configuration come with the source (prepare-toybox.sh);
+# every file of C is compiled here, unchanged but for three lines (below).
+# NOMMU in that configuration says there is no fork; neither command starts
+# a program.
+FROM /v0.1.3/Dollyfile-system-tools e19ab2a237b16de1596ccbb3a2ae07dd34b65488de38762b66ec0207a89c4b83
+
+REQUIRES HEADER libc
+REQUIRES TOOL   cc
+REQUIRES TOOL   ln
+REQUIRES TOOL   mkdir
+REQUIRES TOOL   mv
+REQUIRES TOOL   printf
+REQUIRES TOOL   sed
+REQUIRES TOOL   tar
+REQUIRES TOOL   test
+
+SOURCE /v0.1.3/dist/static/tools/toybox.tar 819813e6f19a40be2a5be239ecd8286eeb58362c66288adb0f25e0b0a09a67f4 /tmp/toybox.tar
+SLOP tar -xf /tmp/toybox.tar -C /
+# toybox stops the compiler (#error) in the three functions that take a
+# device's number apart on a system it does not know, each above a fallback
+# of its own. grep and sed read no device number, so those lines go; it is
+# the one change to the source. Its <sys/statfs.h> is named for Linux alone,
+# and syscall(), which is not here, is what it would copy a file range with
+# had it found that call's number. It calls what runs at exit with the signal
+# as an argument, and the function that removes sed -i's temporary file is
+# declared with none: WebAssembly traps on such a call, so it is given one.
+SLOP CWD /tmp/toybox sed '/^#error$/d' lib/portability.c > portability.c && mv portability.c lib/portability.c
+SLOP CWD /tmp/toybox cc -O2 -funsigned-char -fno-strict-aliasing -include sys/statfs.h '-Dsyscall(...)=-1' '-Dtempfile_handler(...)=tempfile_handler(int at_exit)' -I. '-DTOYBOX_VERSION="0.8.15"' main.c lib/*.c toys/posix/grep.c toys/posix/sed.c -o /usr/bin/toybox
+SLOP ln -sf /usr/bin/toybox /bin/grep
+SLOP ln -sf /usr/bin/toybox /bin/sed
+
+# toybox has no manual pages: a command's help is its page. grep ends with 2
+# whenever it did not search.
+SLOP grep --help > /usr/share/man/cat1/grep.1 || test -s /usr/share/man/cat1/grep.1
+SLOP sed --help > /usr/share/man/cat1/sed.1
+
+SLOP mkdir -p /tmp/toybox-check/deep && printf 'hay\nneedle\n' > /tmp/toybox-check/deep/stack
+SLOP CWD /tmp/toybox-check test "$(grep -rn needle .)" = ./deep/stack:2:needle
+SLOP CWD /tmp/toybox-check sed -i 's/needle/pin/' deep/stack && test "$(grep -rc pin .)" = ./deep/stack:1
+
+EXPORTS TOOL toybox
+EXPORTS TOOL grep
+EXPORTS TOOL sed
+FILE /usr/share/licenses/toybox/LICENSE
+FILE /usr/share/man/cat1/grep.1
+FILE /usr/share/man/cat1/sed.1

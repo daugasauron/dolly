@@ -7,7 +7,7 @@ REQUIRES HOST runtime@0
 # (a -pthread program would need threads@0) and without the gzip, xz and lz4
 # formats, which their own packages read. unzstd and zstdcat are zstd under
 # the names it looks for.
-FROM /v0.1.3/Dollyfile-system-tools e19ab2a237b16de1596ccbb3a2ae07dd34b65488de38762b66ec0207a89c4b83
+FROM /v0.1.3/demos/tools/Dollyfile-tools-build 6ba4c47ce2631185f78f778a161ffc23f43f3948e2676ed8a287f7b07d6cbfc4
 
 REQUIRES HEADER libc
 REQUIRES TOOL   ar
@@ -17,6 +17,7 @@ REQUIRES TOOL   cp
 REQUIRES TOOL   ln
 REQUIRES TOOL   make
 REQUIRES TOOL   tar
+REQUIRES TOOL   text-page
 
 SOURCE /v0.1.3/dist/static/tools/zstd.tar 16bb1c795593c0a6d4016e17b240b071cdb726d6b09e6922b36413aa7b93bbc3 /tmp/zstd.tar
 SLOP tar -xf /tmp/zstd.tar -C /
@@ -56,4 +57,5 @@ EXPORTS HEADER zdict       /usr/include/zdict.h
 EXPORTS HEADER zstd_errors /usr/include/zstd_errors.h
 # Zstandard is taken under its BSD licence.
 FILE /usr/share/licenses/zstd/LICENSE
-FILE /usr/share/man/man1/zstd.1
+SLOP text-page /usr/share/man/man1/zstd.1
+FILE /usr/share/man/cat1/zstd.1

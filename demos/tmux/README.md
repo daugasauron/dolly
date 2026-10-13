@@ -6,9 +6,9 @@ pseudo-terminal of `pty@0`
 
 ## Images
 
-- `tmux`: tmux, the terminal multiplexer, as a package.
-- `libevent`: libevent's core, the event loop with its buffers and listeners, a library for programs the `cc` package builds; it installs no compiler, as a package.
-- `libterminfo`: NetBSD's terminfo library with the terminal descriptions it holds, for programs the `cc` package builds; it installs no compiler, as a package.
+- `tmux`: tmux, the terminal multiplexer.
+- `libevent`: libevent's core, the event loop with its buffers and listeners, a library for programs the `cc` package builds; it brings no compiler.
+- `libterminfo`: NetBSD's terminfo library with the terminal descriptions it holds, for programs the `cc` package builds; it brings no compiler.
 - `tmux-panes`: an application that opens into tmux with a shell in each of two panes.
 
 Open `/tmux-panes/`; build with `npm run image -- tmux-panes`. `Ctrl+B d`

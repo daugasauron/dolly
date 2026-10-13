@@ -4,11 +4,11 @@ set -euo pipefail
 project_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 source "${project_dir}/config/source-pins.sh"
 source_dir="$("${project_dir}/scripts/fetch-zig.sh")"
-patch_file="${project_dir}/patches/zig-0.16.0-dolly-native.patch"
+patch_file="${project_dir}/config/zig-0.16.0-dolly-native.patch"
 recipe_digest="$({
   cd -- "${project_dir}"
   printf '%s\n' "zig-source=${DOLLY_ZIG_SHA256}"
-  sha256sum scripts/prepare-zig-native.sh patches/zig-0.16.0-dolly-native.patch
+  sha256sum scripts/prepare-zig-native.sh config/zig-0.16.0-dolly-native.patch
 } | sha256sum | cut -d ' ' -f 1)"
 prepared_dir="${project_dir}/.cache/zig-native-${DOLLY_ZIG_VERSION}-${recipe_digest:0:16}"
 

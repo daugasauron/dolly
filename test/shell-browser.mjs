@@ -158,7 +158,8 @@ await browserTest("shell", { image: "system", server: { handle } }, async ({ ser
   assert.notEqual(await submit("echo DOWNLOAD > 'a\u202Etxt.exe' && download 'a\u202Etxt.exe'"), 0);
   assert.equal(await page.locator("#downloads li").count(), 0);
 
-  // Ctrl-C stops an uncooperative CPU loop; the shell and its files survive.
+  // Ctrl-C ends an uncooperative CPU loop by terminating its Worker; the
+  // kernel, the shell and its files survive.
   const looping = submit("./loop");
   await page.waitForFunction(() => __dolly.terminal.foregroundInterruptible());
   await page.locator("#keyboard").focus();

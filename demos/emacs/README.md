@@ -4,7 +4,7 @@ GNU Emacs 31.1 for the terminal, compiled inside Dolly from the pinned release.
 
 ## Images
 
-- `emacs`: the Emacs package; `INSTALL` it into any image.
+- `emacs`: `emacs`, GNU Emacs for the terminal, and `etags`.
 - `gnu-emacs`: an application that opens straight into Emacs.
 
 Open `/gnu-emacs/`; build with `npm run image -- gnu-emacs`. `C-x C-c` returns

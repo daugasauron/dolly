@@ -73,7 +73,7 @@ mounted, and reads no other version's.
   (`qwen3.5-4b`). An application that opens into a package takes another
   name: what the image adds (`pi-agent`, `mojo-gpu`) or the product's
   longer name (`neovim`, `gnu-emacs`). The
-  start page lists images by role, toolchains grouped by their directory.
+  start page lists images in groups by role, each group by name.
 - `/etc/dolly/recipes/` retains every recipe an image was built from, by file
   name; `/etc/dolly/Dollyfile` is the image's own.
 

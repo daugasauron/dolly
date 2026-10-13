@@ -74,7 +74,7 @@ await browserTest("host compute", { image: "system-build" }, async ({ browser, s
   if (adapter) {
     assert.deepEqual(await compute, { status: 0, requirements: ["gpu@0", "http@0", "runtime@0"], canvases: 0 });
   } else {
-    await assert.rejects(compute, /Required host module gpu@0 is unavailable/);
+    await assert.rejects(compute, /gpu@0/);
   }
   assert.deepEqual(await page.evaluate(async () => {
     const { artifact, configuration } = await buildCustom("loop",

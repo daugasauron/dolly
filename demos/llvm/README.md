@@ -20,8 +20,8 @@ seed, built again by Dolly's own `cc`. The seed stays the bootstrap.
   those archives, requires the same bytes from it as from the seed compiler
   for two programs and a sample of LLVM's sources, and installs it for `cc`,
   `c++`, `ld` and `ar`.
-- `llvm`: the compiler built in Dolly, as a package: `llvm-cc` and `llvm-c++`.
-- `llvm-runtimes`: build-only: the C++ runtime and builtins, compiled in Dolly.
+- `llvm`: `llvm-cc` and `llvm-c++`, Clang and LLD as built inside Dolly, beside the `cc` package.
+- `llvm-runtimes`: libc++, libc++abi, libunwind and the compiler-rt builtins as compiled in Dolly, in `/usr/lib/llvm-runtimes`; a link takes them with `-L`.
 
   libc++, libc++abi, libunwind and the compiler-rt builtins from the pinned
   Emscripten sources, as Emscripten's container builds them, DWARF included.

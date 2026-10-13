@@ -42,12 +42,16 @@ before its Worker handles anything else.
 
 - When the supervisor starts, it measures how many calls a small recursive
   module nests before the stack ends, entered each way
-  ([`process-supervisor.mjs`](../src/process-supervisor.mjs)). Processes and
-  their threads enter through `promising` only where that is at least half
-  again as deep ([`process-worker.mjs`](../src/process-worker.mjs)).
-- Chrome measures 1.90 times and enters through `promising`. Firefox
-  measures 1.01 and enters directly. Both gave the same reading in 48
-  measurements of 48, in under 3 ms. No browser is named in the code.
+  ([`process-supervisor.mjs`](../src/process-supervisor.mjs)).
+- An executable asks for the deeper stack with a `dolly.process.stack` custom
+  section, and only the compiler carries one
+  ([`compiler-main.c`](../src/process/compiler-main.c)). It and its threads
+  enter through `promising` where that is at least half again as deep
+  ([`process-worker.mjs`](../src/process-worker.mjs)); every other program is
+  entered directly, in every browser.
+- Chrome measures 1.90 times and enters the compiler through `promising`.
+  Firefox measures 1.01 and enters it directly. Both gave the same reading in
+  48 measurements of 48, in under 3 ms. No browser is named in the code.
 - The probe keeps sixteen values across each call, so its frame is the same
   size whichever compiler tier runs it. A one-local recursion was useless in
   Firefox: its ratio moved between 0.4 and 2.4 as tiers changed.

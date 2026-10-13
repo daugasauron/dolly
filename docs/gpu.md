@@ -8,8 +8,8 @@ kernels return `ENOSYS`. It is a small C client, not `webgpu.h`, OpenGL or Vulka
 ```mermaid
 flowchart LR
   prog["C program + WGSL"] -- "process call 128" --> kernel["Kernel host/gpu/kernel.c"]
-  kernel -- "env.dolly_gpu_dispatch(packet, bytes)" --> bridge["gpu-bridge.mjs"]
-  bridge --> worker["GPU Worker: gpu-worker.mjs"]
+  kernel -- "env.dolly_gpu_dispatch(packet, bytes)" --> bridge["host/gpu/bridge.mjs"]
+  bridge --> worker["GPU Worker: host/gpu/worker.mjs"]
   worker --> webgpu["WebGPU device"] --> canvas["OffscreenCanvas to compositor"]
 ```
 

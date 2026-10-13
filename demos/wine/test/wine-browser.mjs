@@ -511,7 +511,7 @@ async function site(page, prompt, start, waitText, server) {
   await startMenu("s");
   await until(async () => (await coloured(page, dark)).count > 200_000, "the site's landing page as the home page");
   await page.screenshot({ path: `${evidence}netsurf-home.png` });
-  await click(page, 552, 318);                // "Licences and sources", in the row of links under IMAGES
+  await click(page, 95, 318);                 // "Licences and sources", the first of the row of links under IMAGES
   await delay(2500);
   await click(page, 18, 58);                  // Back
   await delay(2000);

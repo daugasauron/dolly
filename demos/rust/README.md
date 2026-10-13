@@ -10,12 +10,12 @@ Rust in the catalog is built by the result with Cargo.
 - `rust-llvm`: the LLVM 22 libraries rustc links, built by Dolly's `c++`.
 - `rust-build`: rustc, the standard library and Cargo built from source, the kept rustc by the first one built here; the base of every Rust build.
 - `rust-tools`: interactive shell: `system` with the `rust` and `cargo` packages.
-- `rust`: the SDK that `rust-build` built, as a package.
-- `cargo`: the Cargo that `rust-build` built, with the `rust` package, as a package.
-- `ripgrep`: rg, as a package.
-- `fd`: fd, as a package.
-- `protox`: the protobuf compiler Codex builds with, as a package.
-- `cbindgen`: the header generator SpiderMonkey's configure requires, as a package.
+- `rust`: `rustc` and the Rust standard library, built inside Dolly, with the `cc` package it links through.
+- `cargo`: `cargo`, built inside Dolly, with the `rust` package it compiles with.
+- `ripgrep`: `rg`, which searches files by regular expression.
+- `fd`: `fd`, which finds files by name.
+- `protox`: `protox`, a protobuf compiler; Codex is built with it.
+- `cbindgen`: `cbindgen`, which writes C headers for Rust libraries; SpiderMonkey's configure requires it.
 
 Build the seed once with `./demos/rust/build-rust-toolchain.sh` (Linux x86_64, Podman, Python
 3.12+, curl, patch), then `npm run image -- rust-tools`. `rust-sdk` starts from
@@ -90,8 +90,10 @@ with the compiler.
   "/opt/rust-sdk/src/libc" }` in the project's `.cargo/config.toml`.
 - A build script that compiles C needs `CRATE_CC_NO_DEFAULTS=1`, which the
   package sets: the `cc` crate's default flags name a target.
-- No incremental builds (the package sets `CARGO_INCREMENTAL=0`) until Dolly
-  has file locks; no `cargo search`, `publish` or `login`.
+- Incremental builds are off (the package sets `CARGO_INCREMENTAL=0`, from
+  before the kernel had file locks). With `CARGO_INCREMENTAL=1` Cargo builds
+  incrementally and warns each time that it copies the cache: there are no
+  hard links. No `cargo search`, `publish` or `login`.
 - Its sources are upstream's with target patches only: Cargo's manifest
   without TLS, SSH and HTTP/2 features (`cargo-features`, `git2-curl`), and
   `is_executable`, `jobserver-in-process`, `socket2`, `zlib-rs` and

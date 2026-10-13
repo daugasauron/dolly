@@ -8,26 +8,36 @@ the script would find here, in the comments beside its flags.
 
 ## Images
 
-- `sqlite`: SQLite: the `sqlite3` shell, and its library and headers for programs the `cc` package builds, as a package.
-- `jq`: jq, the JSON processor, with regular expressions, as a package.
-- `xz`: XZ Utils: `xz`, `unxz`, `xzcat` and liblzma, as a package.
-- `zstd`: Zstandard: `zstd`, `unzstd`, `zstdcat` and libzstd, as a package.
-- `bzip2`: bzip2: `bzip2`, `bunzip2`, `bzcat` and libbz2, as a package.
-- `lz4`: LZ4: `lz4`, `unlz4`, `lz4cat` and liblz4, as a package.
-- `pigz`: pigz, which writes the `.gz` files `gzip` here only reads, and `unpigz`, as a package.
-- `zip`: Info-ZIP's `zip`, with the `unzip` package, which `zip -T` starts, as a package.
-- `unzip`: Info-ZIP's `unzip` and `zipinfo`, as a package.
-- `tree`: tree, which draws a directory as a tree, as a package.
-- `bc`: the `bc` and `dc` calculators (Gavin Howard's), as a package.
-- `vi`: Neatvi, a small `vi` and `ex` that needs no terminal database, as a package.
-- `xxd`: xxd, the hex dump that also reads one back, as a package.
-- `base64`: `base64` (Alfred Klomp's) and libbase64, as a package.
-- `yacc`: Berkeley Yacc, as `yacc` and `byacc`, as a package.
-- `flex`: flex 2.5.4 as Thomas Dickey maintains it (reflex), which starts no m4, also as `lex`, with libfl and the `yacc` package, as a package.
-- `wabt`: the WebAssembly Binary Toolkit: `wat2wasm`, `wasm2wat`, `wasm-objdump`, `wasm-strip` and `wasm-validate`, as a package.
-- `meson`: Meson, with the `python`, `cc` and `ninja` packages it runs on, as a package.
-- `tar`: sbase's `tar`, which writes archives and reads links and pax headers, in place of the one that only unpacks, as a package.
-- `sbase`: the sbase commands the image leaves out: `yes`, `cal`, `sha1sum`, `sha512sum`, `sponge`, `cols`, `uuencode` and `uudecode`, as a package.
+- `sqlite`: SQLite: the `sqlite3` shell, and its library and headers for programs the `cc` package builds.
+- `jq`: jq, the JSON processor, with regular expressions.
+- `xz`: XZ Utils: `xz`, `unxz`, `xzcat` and liblzma.
+- `zstd`: Zstandard: `zstd`, `unzstd`, `zstdcat` and libzstd.
+- `bzip2`: bzip2: `bzip2`, `bunzip2`, `bzcat` and libbz2.
+- `lz4`: LZ4: `lz4`, `unlz4`, `lz4cat` and liblz4.
+- `pigz`: pigz, which writes the `.gz` files `gzip` here only reads, and `unpigz`.
+- `zip`: Info-ZIP's `zip`, with the `unzip` package, which `zip -T` starts.
+- `unzip`: Info-ZIP's `unzip` and `zipinfo`.
+- `tree`: tree, which draws a directory as a tree.
+- `bc`: the `bc` and `dc` calculators (Gavin Howard's).
+- `vi`: Neatvi, a small `vi` and `ex` that needs no terminal database.
+- `xxd`: xxd, the hex dump that also reads one back.
+- `base64`: `base64` (Alfred Klomp's) and libbase64.
+- `yacc`: Berkeley Yacc, as `yacc` and `byacc`.
+- `flex`: flex 2.5.4 as Thomas Dickey maintains it (reflex), which starts no m4, also as `lex`, with libfl and the `yacc` package.
+- `wabt`: the WebAssembly Binary Toolkit: `wat2wasm`, `wasm2wat`, `wasm-objdump`, `wasm-strip` and `wasm-validate`.
+- `meson`: Meson, with the `python`, `cc` and `ninja` packages it runs on.
+- `toybox`: toybox's `grep` and `sed`, which have `grep -r` and `sed -i`, in place of the image's.
+- `dte`: dte, a small full-screen editor with the keys of a desktop one.
+- `mandoc`: mandoc, which formats a manual page of man or mdoc macros as text.
+- `tools-build`: Build-only: `cmake-build` with mandoc, what these packages are built on.
+- `tar`: sbase's `tar`, which writes archives and reads links and pax headers, in place of the one that only unpacks.
+- `sbase`: the sbase commands the image leaves out: `yes`, `cal`, `sha1sum`, `sha512sum`, `sponge`, `cols`, `uuencode` and `uudecode`.
+
+`man` prints a page of text (`/usr/share/man/cat1`) as it is and has no
+formatter, so a package formats its upstream page when it is built:
+`text-page` in `tools-build` runs mandoc and takes the overstrikes out. A
+package with a page is built `FROM tools-build` and keeps none of it, so
+mandoc is no row of the package and nothing installs it for a page.
 
 What the platform decides ([process model](../../docs/process-model.md)):
 
@@ -41,21 +51,31 @@ What the platform decides ([process model](../../docs/process-model.md)):
 - The terminal has no line discipline: nothing echoes a line, edits it or
   turns Enter into a newline for a program that only reads one. So `sqlite3`
   is built with linenoise, `dc` edits its lines as `bc` does, and `vi` reads
-  Enter through a few lines the recipe adds, which is the one change to an
-  upstream source here. A question that waits for a line gets none: answer
-  it on the command line (`unzip -o` or `-n`, `zstd -f`) or end it with Ctrl+C.
+  Enter through a few lines the recipe adds, a change to an upstream source
+  with its reason there. A question that waits for a line shows nothing
+  typed and ends at Ctrl+J, not at Enter: answer it on the command line
+  (`unzip -o` or `-n`, `zstd -f`).
 - Dolly's `tar` reads files and directories. An archive with a pax header
   (every `git archive`) or links is staged as a plain tar of the files a
   build reads ([`prepare-sources.sh`](prepare-sources.sh)); `sqlite`, `xz`,
-  `bzip2`, `pigz`, `zip`, `unzip`, `yacc` and `flex` build from the archive as
-  published.
+  `bzip2`, `pigz`, `zip`, `unzip`, `yacc`, `flex` and `mandoc` build from the
+  archive as published.
 - `fork` fails: `vi`'s `!` commands and language servers, and `tar`'s `-z`,
   `-j` and `-J`, which start the compressor that way, say so. Pipe an
   archive through `pigz`, `bzip2`, `xz` or `zstd`.
 - `/bin` comes before `/usr/bin`, so `tar` installs over the core's
-  `/bin/tar`; no other package here replaces a command.
+  `/bin/tar`, and `toybox` over `/bin/grep` and `/bin/sed` of `posix` with
+  links to its one program; no other package here replaces a command.
+- toybox's headers (its configuration, option flags and help) are written by
+  its own bash scripts and three generators compiled for the host:
+  [`prepare-toybox.sh`](prepare-toybox.sh) runs them outside Dolly for `grep`
+  and `sed` alone, and the recipe compiles the C. It is the one build step of
+  this demo that does not run in Dolly. The recipe takes three `#error`
+  lines out of the source and says why.
+- There are no process groups, and `dte` asks `tcgetpgrp` whether a stream
+  is the terminal: its recipe changes that line to `isatty`.
 
 Test: the `amy tools` case of [`test/amy-browser.mjs`](../../test/amy-browser.mjs)
 installs each into `default`, uses it, links a program with each library and
-types at the terminal into `sqlite3`, `dc` and `vi`; `amy meson alone`
+types at the terminal into `sqlite3`, `dc`, `vi` and `dte`; `amy meson alone`
 builds a project in a session that had no compiler.

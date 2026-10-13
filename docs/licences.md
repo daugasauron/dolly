@@ -36,14 +36,14 @@ entry.
 
 | Family | Shipped as binaries | Obligation | Status |
 | --- | --- | --- | --- |
-| GPL-2.0/3.0 | Git, Make, less (through GNU termcap), Emacs, tree, the lz4 program, Seven Kingdoms, 0 A.D. engine, Xonotic (engine, game logic, data, fonts), Dolly's GPL files | Complete corresponding source, including build scripts, or a written offer | Met: the prepared source archives and the recipe that builds them are served beside the images, for 0 A.D. and Xonotic too (below) |
+| GPL-2.0/3.0 | Git, Make, less (through GNU termcap), Emacs, tree, dte, the lz4 program, Seven Kingdoms, 0 A.D. engine, Xonotic (engine, game logic, data, fonts), Dolly's GPL files | Complete corresponding source, including build scripts, or a written offer | Met: the prepared source archives and the recipe that builds them are served beside the images, for 0 A.D. and Xonotic too (below) |
 | IJG | libjpeg in Xonotic | Source: the unaltered `README` with it; binaries: the documentation states that the software is based in part on the work of the Independent JPEG Group | `README` kept as `/usr/share/licenses/libjpeg/README`; the statement is in the Xonotic section below and on `/licences/` |
 | LGPL-2.0+ | OpenAL Soft, static in the 0 A.D. engine | Source, and the means to relink | Source served (`openal/source.tar`), and the engine's (below), so it can be relinked |
 | MPL-2.0 | SpiderMonkey in 0 A.D.; MPL crates vendored by Codex | Source of the MPL files available; tell recipients where | Codex sources served; SpiderMonkey's pinned tarball is served (below); its MPL text is in `zero-ad` |
 | Apache-2.0 | LLVM (with exception), Mojo (with exception), TypeScript, Neovim, luv, Codex, WAMR, Meson, WABT, crates, npm packages | Licence copy, NOTICE files, modified files marked | Codex `NOTICE`, crates' notices and TypeScript notices shipped. LLVM's text is in every compiler image as `/usr/share/licenses/libcxx`; its exception covers runtime code compiled into programs. The Mojo compiler's patched files are those of `mojo-dolly.patch` and the target's patches, served with its source |
 | MIT, BSD, ISC, curl, Zlib, BSL, bzip2, ICU | Most of the catalog | Copyright and permission notice with copies, binaries included (not for Zlib or BSL binaries) | Shipped in `/usr/share/licenses`, including musl, Emscripten and every vendored crate's own licence files |
 | Info-ZIP | zip, unzip | The licence with copies, binaries included; an altered version may not be called Zip or UnZip | Built from the release archives unchanged; `LICENSE` is in each package |
-| Public domain, 0BSD | SQLite, XZ Utils, Berkeley Yacc | None | SQLite's dedication, xz's `COPYING` and yacc's `LICENSE` are in the packages |
+| Public domain, 0BSD | SQLite, XZ Utils, Berkeley Yacc, toybox | None | SQLite's dedication, xz's `COPYING`, and yacc's and toybox's `LICENSE` are in the packages |
 | flex 2.5.4's licence (BSD, with an acknowledgement) | flex (reflex) | Documentation with binaries displays: this product includes software developed by the University of California, Berkeley and its contributors | The sentence is in this row and in the package's `COPYING`; scanners that it writes carry no such term (flex's own notice) |
 | PSF-2.0 | CPython | Licence, and a brief summary of changes in a derivative | Both shipped (`DOLLY-CHANGES`) |
 | CC-BY-SA-3.0 | 0 A.D. art and audio | Attribution and licence; share-alike for adaptations | The repacked mod archives keep `art/`, `audio/` and font licence files; repacking adapts nothing |
@@ -178,8 +178,8 @@ notice in gpu-fluid, and CPython's change summary.
 The owner delegated three decisions (task `20261005-135857-licence-owner`):
 
 1. 0 A.D.'s missing corresponding source is now served (above).
-2. Dolly's agents, spectators and viewers are MIT; only the 8 files compiled
-   into Seven Kingdoms or 0 A.D. stay GPL-2.0-or-later.
+2. Dolly's agents, spectators and viewers are MIT; only the 10 files compiled
+   into Seven Kingdoms, 0 A.D. or Xonotic stay GPL-2.0-or-later.
 3. ClassiCube's default texture pack names no licence: upstream's
    `license.txt` covers its code, `credits.txt` names Goodlyay as the artist,
    and when asked for the pack's licence (ClassiCube issue 1430, 2025-09-07) he

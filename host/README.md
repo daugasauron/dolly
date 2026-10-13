@@ -18,6 +18,7 @@ packaging and ABI tests read only these manifests.
 | `gives` | One line of what the module gives a session, as `nena` lists it |
 | `fixed` | Why the module is never enabled or disabled after boot (below); absent when `nena@0` may switch it |
 | `provides` | `"kernel"` on a runtime (below); absent otherwise |
+| `switches` | `true` on the one module whose page side is given the registry's `list`, `enable` and `disable` (`nena`); absent otherwise |
 | `dependencies` | Modules this one uses through `get(name)` |
 | `phase` | When the Worker side starts: after the kernel loads (`kernel`) or after the image is restored (`image`) |
 | `imports` | Kernel Wasm imports this module provides; `abi/dolly-browser-0.wat` is their reviewed allowlist |

@@ -16,7 +16,7 @@ files.
 - `mojo-build`: build-only: the compiler, compiled and linked from those
   archives with the target's patches, and the standard library and the
   package `gpu` that it precompiles. It keeps `/opt/mojo`.
-- `mojo`: the Mojo compiler built in Dolly, with its standard library, the package `gpu` and the `cc` package: `mojo build NAME.mojo` makes a Dolly executable, as a package.
+- `mojo`: the Mojo compiler built in Dolly, with its standard library, the package `gpu` and the `cc` package: `mojo build NAME.mojo` makes a Dolly executable.
 - `mojo-gpu`: a shell that installs `mojo` on a base with a GPU, where the
   kernels of its programs run. Requires WebGPU.
 - `mojo-runtime`: What a Mojo object links against, and its `DeviceContext` over WebGPU. Requires WebGPU.

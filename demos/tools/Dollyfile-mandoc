@@ -1,0 +1,107 @@
+DOLLY 7
+PACKAGE mandoc
+REQUIRES HOST runtime@0
+
+# mandoc, the formatter of manual pages, from upstream's release archive,
+# unchanged: it turns a page of man or mdoc macros into text. Slop does not
+# run its configure, so config.h says what that script would find here. The
+# man, apropos and makewhatis the same program can be are not installed: man
+# is the core's.
+FROM /v0.1.3/Dollyfile-system-tools e19ab2a237b16de1596ccbb3a2ae07dd34b65488de38762b66ec0207a89c4b83
+INSTALL /v0.1.3/Dollyfile-zlib 165f968379cd44d7ea9e5612678a493b4ece2fa67564b93341a54dcba89fd5dc
+
+REQUIRES HEADER libc
+REQUIRES HEADER zlib
+REQUIRES LIB    z
+REQUIRES TOOL   awk
+REQUIRES TOOL   cc
+REQUIRES TOOL   cp
+REQUIRES TOOL   grep
+REQUIRES TOOL   gzip
+REQUIRES TOOL   make
+REQUIRES TOOL   mkdir
+REQUIRES TOOL   tar
+
+SOURCE /v0.1.3/dist/static/tools/mandoc-1.14.6.tar.gz 8bf0d570f01e70a6e124884088870cbed7537f36328d512909eb10cd53179d9c /tmp/mandoc.tar.gz
+SLOP gzip -dc /tmp/mandoc.tar.gz | tar -xf - -C /tmp
+
+# Not found here: fts, getprogname, recallocarray, strtonum, ohash, BSD's
+# word boundaries in regcomp, pledge and sandbox_init; the archive's own
+# replacements are compiled for the first five.
+FILE /tmp/mandoc-1.14.6/config.h
+    #define _GNU_SOURCE
+    #include <sys/types.h>
+    #define MAN_CONF_FILE "/etc/man.conf"
+    #define MANPATH_BASE "/usr/share/man"
+    #define MANPATH_DEFAULT "/usr/share/man"
+    #define OSENUM MANDOC_OS_OTHER
+    #define UTF8_LOCALE "C.UTF-8"
+    #define EFTYPE EINVAL
+    #define HAVE_DIRENT_NAMLEN 0
+    #define HAVE_ENDIAN 1
+    #define HAVE_ERR 1
+    #define HAVE_FTS 0
+    #define HAVE_FTS_COMPARE_CONST 0
+    #define HAVE_GETLINE 1
+    #define HAVE_GETSUBOPT 1
+    #define HAVE_ISBLANK 1
+    #define HAVE_LESS_T 1
+    #define HAVE_MKDTEMP 1
+    #define HAVE_MKSTEMPS 1
+    #define HAVE_NTOHL 1
+    #define HAVE_PLEDGE 0
+    #define HAVE_PROGNAME 0
+    #define HAVE_REALLOCARRAY 1
+    #define HAVE_RECALLOCARRAY 0
+    #define HAVE_REWB_BSD 0
+    #define HAVE_REWB_SYSV 1
+    #define HAVE_SANDBOX_INIT 0
+    #define HAVE_STRCASESTR 1
+    #define HAVE_STRINGLIST 0
+    #define HAVE_STRLCAT 1
+    #define HAVE_STRLCPY 1
+    #define HAVE_STRNDUP 1
+    #define HAVE_STRPTIME 1
+    #define HAVE_STRSEP 1
+    #define HAVE_STRTONUM 0
+    #define HAVE_SYS_ENDIAN 0
+    #define HAVE_VASPRINTF 1
+    #define HAVE_WCHAR 1
+    #define HAVE_OHASH 0
+    #define NEED_XPG4_2 0
+    #define BINM_APROPOS "apropos"
+    #define BINM_CATMAN "catman"
+    #define BINM_MAKEWHATIS "makewhatis"
+    #define BINM_MAN "man"
+    #define BINM_SOELIM "soelim"
+    #define BINM_WHATIS "whatis"
+    #define BINM_PAGER "less"
+    extern const char *getprogname(void);
+    extern void setprogname(const char *);
+    extern void *recallocarray(void *, size_t, size_t, size_t);
+    extern long long strtonum(const char *, long long, long long, const char **);
+FILE /tmp/mandoc.mk
+    .RECIPEPREFIX := >
+    S := /tmp/mandoc-1.14.6
+    BIN := /usr/bin
+    # The objects of upstream's Makefile for mandoc: every source but
+    # configure's tests, the archive's other programs and the replacements of
+    # what libc has.
+    SOURCES := $(filter-out $S/test-% $S/compat_% $(addprefix $S/,cgi.c catman.c mandocd.c demandoc.c soelim.c), \
+      $(wildcard $S/*.c)) $(addprefix $S/compat_,fts.c ohash.c progname.c recallocarray.c strtonum.c)
+    $(BIN)/mandoc: $(SOURCES:.c=.o)
+    >cc $^ -lz -o $@
+    $S/%.o: $S/%.c $S/config.h
+    >cc -O2 -c $< -o $@
+SLOP make -j4 -f /tmp/mandoc.mk
+SLOP mkdir -p /usr/share/licenses/mandoc
+SLOP cp /tmp/mandoc-1.14.6/LICENSE /usr/share/licenses/mandoc/LICENSE
+
+# Its own page, formatted by itself as text, which man prints as it is.
+# mandoc marks bold and underlined words by overstriking; awk takes that out.
+SLOP mandoc -T utf8 /tmp/mandoc-1.14.6/mandoc.1 | LC_ALL=C.UTF-8 awk '{ gsub(/.\b/, ""); print }' > /usr/share/man/cat1/mandoc.1
+SLOP grep -q 'format manual pages' /usr/share/man/cat1/mandoc.1
+
+EXPORTS TOOL mandoc
+FILE /usr/share/licenses/mandoc/LICENSE
+FILE /usr/share/man/cat1/mandoc.1
