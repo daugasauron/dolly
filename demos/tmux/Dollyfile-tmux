@@ -28,7 +28,7 @@ REQUIRES TOOL sleep
 REQUIRES TOOL tar
 
 SOURCE /v0.1.2/dist/static/tmux/tmux-3.8.tar.gz e79c699c7e949dccd0a4a125e17b8d1261e311b16979dbc8eb34542f3966d82e /tmp/tmux.tar.gz
-SOURCE /v0.1.2/dist/static/tmux/port.tar bff48b4d85559b05e7d7dd4f45592ea45bcf639fed3ad1e09c1775acb6c21c11 /tmp/tmux-port.tar
+SOURCE /v0.1.2/dist/static/tmux/port.tar 573434f60399eacab9672e6665d7d2a68eb9c2d5869e25e9d9e4f6f8abfaae84 /tmp/tmux-port.tar
 SLOP gzip -dc /tmp/tmux.tar.gz | tar -xf - -C /tmp
 SLOP tar -xf /tmp/tmux-port.tar -C /
 SLOP patch -p1 -d /tmp/tmux-3.8 -i /tmp/tmux-3.8/tmux-dolly.patch

@@ -47,8 +47,9 @@ puts an editor beside a shell.
   upstream's `configure` script would find and builds tmux, linked with
   `-ldolly-sockets` and `-ldolly-pty`; then runs a server, a pane and a
   command typed into it.
-- [`tmux-dolly.patch`](tmux-dolly.patch), eight hunks:
-  - `client.c`: the client sends no descriptors, since `sockets@0` passes
+- [`tmux-dolly.patch`](tmux-dolly.patch), nine hunks:
+  - `client.c`: the client names its terminal `/dev/tty`, since `ttyname`
+    has no name for one, and sends no descriptors, since `sockets@0` passes
     none.
   - `server-client.c`: the server opens the client's terminal by the name
     the client gives, `/dev/tty`, on upstream's Cygwin path, and does not
