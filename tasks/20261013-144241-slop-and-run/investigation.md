@@ -1,0 +1,60 @@
+# SLOP and RUN: the investigation
+
+## History
+
+**2026-08-31, `9e013dd9`, DOLLY 1.** The language had `RUN <slop-command>` and `CHECK <slop-command>`; both "launch `/bin/slop -e -c ...`" (`docs/dollyfile.md` at that commit, line 20). "The separate names communicate intent: `RUN` produces the image, while `CHECK` demonstrates a required result." Slop was host-built with the kernel (`toolchain/CMakeLists.txt`); the root `Dollyfile` began `RUN cc … /tmp/bootstrap/tar.c -o /bin/tar`. There was no argv-only step and no bootstrap. The commit has no message body.
+
+**2026-09-03, `c4dbe3ad`, DOLLY 2.** `RUN`/`CHECK` became `SLOP [CWD /directory] command …`; `WORKDIR` and `ENV` went. The engine's `run_slop` kept the same spawn. A "SLOP tool discipline" was added: "The executable that starts each `SLOP` row must have appeared in an earlier `REQUIRES TOOL` or local `EXPORTS TOOL` row"; `99093739` (2026-09-06, DOLLY 3) removed it with the module cache. No message explains the rename.
+
+**2026-09-05, `b95459ce`.** Private wasm64 processes; `src/process/bootstrap.c` appears and compiles eight programs before the first row: `slop`, `mkdir`, `rm`, `dollyfile`, `cc`, `c++`, `ld`, `ar` (lines 104-111 at that commit). This is the state the reflection proposes to return to.
+
+**2026-09-07, `1f2954b6`.** The first scripts written by `FILE` and run by `SLOP` (`/tmp/cmake/build.slop`, `/tmp/neovim-parsers/build.slop` with a `for` loop). The pattern is as old as DOLLY 3, not a workaround for anything later.
+
+**2026-09-30, `d8fa8c47`.** The rule "Each `SLOP` is a new shell: use `CWD` and `EXPORTS ENV` instead of `cd` and assignments" enters the document.
+
+**2026-10-01, `tasks/20261001-123500-bootstrap-boundary/TASK.md`.** Owner request: "investigate why the bootstrap boundary is where it is. Slop could be compiled by a Dollyfile instead of being a 'kernel thing' included by default; the core should be as small as possible, with everything else modular." Owner proposal: "A `COMPILEC` step that runs the seed compiler directly … so `modules/slop.dm` can compile Slop before any `SLOP` step. Leading design, prototyped against a general argv-only `RUN`." The task measured the seed (126,928,711 B; everything movable 171,282 B, 0.13%) and wrote: "The change is about identity and modularity, not download size." Its table compares `COMPILEC` with `RUN`: `RUN` is "Any program with any argv; a second general exec form beside `SLOP`", "The seed path and mode flag appear in recipes", "A generic escape hatch that 'might be useful'". `COMPILEC` shipped as `62bec931`: "The seed compiled Slop, cc/c++/ld/ar, mkdir and rm before the first recipe line because SLOP was the only command step … The bootstrap now compiles only /bin/dollyfile … identity of Slop moves from the seed hash into the system-build recipe graph." Measurements: `npm run build:runtime` warm 63 s to 13 s "(no kernel relink)"; root build "about 1-1.5 s (8%) slower" (interleaved pairs; mkdir/rm then compiled through `slop`+`cc`); snapshots byte-identical across three builds. Delegated decision: "`COMPILEC` stays C-only, single-source, `-O1`; widen it only for a real need."
+
+**2026-10-01, `9fc8b997` (design) and `5ec4783c` (Phase 3), same day.** Owner: "`COMPILEC`/`SLOP`/`REQUIRES TOOL slop` is inconsistent." Design: "`RUN` replaces `COMPILEC`; `SLOP` is its shell form … one way to run programs, with `SLOP` defined as `RUN /bin/slop -e -c command`. The seed compiler is a program, so the five bootstrap compiles are `RUN /usr/libexec/dolly/process-bin/compiler --dolly-toolchain-mode=c …`." And: "a SLOP step depends on `/bin/slop` by definition: the engine rejects `REQUIRES TOOL slop` and a SLOP step before the recipe has `/bin/slop` fails naming the line." The commit: "SLOP is RUN of /bin/slop -e -c and fails clearly before the shell exists." So the sequence is: host-built Slop (DOLLY 1), bootstrap-compiled Slop (2026-09-05), recipe-compiled by a special directive (2026-10-01 morning), recipe-compiled by the general one (2026-10-01 night), each step on the owner's word.
+
+**2026-10-06, `68f71983`.** `test/shell-env-browser.mjs:13` builds an image that holds no shell at all and compiles its probe with `RUN /usr/libexec/dolly/process-bin/compiler …` ("an image that holds only a program has none").
+
+**2026-10-12, `tasks/20261012-230015-audit-fable/dollyfile.md`** points 6 and 14 are the origin of the reflection's sentence, with the same numbers (931 continuations, 26 scripts, 5 `RUN`). No task before it proposes a body for `SLOP` (grep: "indented body", "heredoc", "here-doc" hit only Slop's own parser work).
+
+## Today
+
+129 recipes, 10,352 lines (`main` as merged into this worktree).
+
+**`RUN`**: 5 rows, `Dollyfile-system-build:88-91` (the `cc`, `c++`, `ld`, `ar` proxies) and `:112` (Slop); the comments at `:82-83` and `:106-107` and `bootstrap.c:36` still say `COMPILEC`. Outside the catalog: the no-shell test and 11 syntax-fixture cases (`test/fixtures/dollyfile-syntax.mjs:132-142`). The JS parser collects `runs` (`dollyfile-view.mjs:282`) and nothing reads them.
+
+**`SLOP`**: 776 rows, 88 with `CWD`. First words: `cp` 124, `cc` 74, `rm` 69, `tar` 59, `make` 55, `mkdir` 54, `gzip` 39, `slop` 26, `time` 23. Shell features used: `|` in about 79 rows, redirection 42, `&&` 29, `$` 28, `;` 23, globs 19, `||` 2. 19 rows nest `slop -c '…'` (llvm, mojo, rust: `time` over a pipeline, `for` loops, `$(…)`). 13 rows run a Slop script: 12 `slop -e PATH`, 1 `slop PATH`, from 10 scratch scripts (4 to 43 lines) and 2 retained ones (`/usr/lib/llvm-build/link-compiler.slop`, run with an argument; `/usr/share/dollyfile-studio/install.slop`). 60 rows name a scratch file a `FILE` body wrote: 25 `make -f` Makefiles, 12 `cc` check sources, the 13 scripts, 3 `timeout`, Lua, proto, wat.
+
+**`FILE`**: 471 rows, 181 with a body, 27 of them `.slop` (12 build scripts, 15 `init.slop`-style startup scripts that stay in the image).
+
+**Continuations**: 950 lines end in `\` (9.2% of lines); 694 belong to 158 `SLOP` rows; the other ~256 are literal body text (Makefiles), which the engine never joins. Longest joined `SLOP` row: 1,969 bytes. `Dollyfile-python`: 215 of 425 lines.
+
+**Engine** (`src/dollyfile.c`): `run_program` (884) spawns with stdin `/dev/null`, the engine's own environment (`EXPORTS ENV` is `setenv`, 764-773), waits. `execute_run` (912): `split_words`, optional `CWD`, at most 256 words of 4,096 bytes and a 64 KiB record (ENTRY's limits), absolute program path, `chdir` there and back; a missing program is `-ENOENT` from the spawn. `execute_slop` (945): lexes the words only to reject unclosed quotes, then hands the original text to `run_slop` (896), which spawns `/bin/slop -e -c COMMAND` and maps `-ENOENT` to "SLOP needs /bin/slop, which this recipe has not built yet", status 2. The `FILE` body lexer (1777-1791) is keyed on the literal "FILE", as is the JS one (`dollyfile-view.mjs:102`). A logical line is physical lines joined by one space, so a newline can never reach Slop from a row: no here-document, no comment, one `#` outside quotes ends the row.
+
+**`bootstrap.c`** (121 lines) compiles `/usr/src/dolly/dollyfile.c` with the seed compiler and runs the recipe named by `/etc/dolly/recipe.locator`. The seed lists only the engine's source (`toolchain/CMakeLists.txt:88-90`); `slop.c` is staged by `prepare-image-sources.sh:66` and pinned by `Dollyfile-system-build:111`. The kernel target depends on the seed (`CMakeLists.txt:97`).
+
+Slop itself (`docs/slop.md:49-51`) takes `-c 'command'`, a script file, or stdin; `time` measures any pipeline.
+
+## The claims, checked
+
+- "`RUN`: 5 rows, all `Dollyfile-system-build:88-112`": **true** for the catalog; the no-shell test and the fixtures also use it.
+- "to compile Slop before Slop exists": **partly**. Four rows compile the compiler proxies, one compiles Slop. The Phase 3 record gives the reason as consistency ("one way to run programs"), not only the bootstrap.
+- "`SLOP` is one line": **true** by construction (above).
+- "25 rows run a script a `FILE` row wrote": **partly**. 13 rows run Slop scripts; the 25-26 figure counts Makefiles and C check files, which a `SLOP` body cannot absorb.
+- "9% of all recipe text is line continuations": **partly**. 9.2% of lines end in `\`; 6.7% are `SLOP` continuations; the rest are literal Makefile text.
+- "`FILE` has the lexer a body needs (`dollyfile.c:1687-1700`)": **partly**. The lexer exists (1781 here; 1691 at the audit's commit `213066e8`; 1687-1700 on `main` today is the recipe-record code). It is keyed on "FILE" in C and JS, and `run_program` fixes stdin to `/dev/null`, so a body needs a delivery path (`-c BODY`, a temporary file, or a pipe), which no code has.
+- "`bootstrap.c` already compiles `/bin/dollyfile` first and could compile Slop too": **true that it can**: it did until `62bec931`. The reflection does not mention `tasks/20261001-123500-bootstrap-boundary`, which records the owner asking for exactly the opposite and why ("identity and modularity"), nor `9fc8b997`, where `RUN` is the definition `SLOP` is written against.
+- Implied, "`RUN` exists only for those five rows": **partly**. It is the only way to run a program in an image that has no shell (`test/shell-env-browser.mjs`), and the definition of `SLOP`.
+
+## If it changed
+
+**Bootstrap compiles Slop; `RUN` goes.** `slop.c` returns to the seed list; the kernel target depends on the seed, so every Slop edit relinks the kernel (the 63 s against 13 s of 2026-10-01); Slop's identity returns to the image build ID, outside any pin. `Dollyfile-system-build:111-112` go. The proxies either return to the bootstrap too (the 2026-09-05 table) or become `SLOP /usr/libexec/dolly/process-bin/compiler --dolly-toolchain-mode=c -O1 /tmp/process-tools/cc.c -o /bin/cc`, in which case the seed path stays in the recipe, the one thing the `COMPILEC` table held against `RUN`. `/bin/slop` is retained only by `EXPORTS TOOL slop`, as now. The no-shell test rewrites its one row to `SLOP`. Deleted: `execute_run` (32 lines), the `runs` branch, 11 fixtures, three document passages, the "needs /bin/slop" branch and the `REQUIRES TOOL slop` error (they become unreachable). Lost: a step that fails with the program's name rather than a shell's parse, argv with no expansion, and the sentence "`SLOP` is `RUN /bin/slop -e -c`". `SLOP` can do what `RUN` cannot: pipelines, lists, redirection, globs, `$VAR`, `time` over a pipeline, nested shells.
+
+**`SLOP` with a body.** Extend the lexer's "FILE" test to `SLOP` in C and JS; choose delivery. `slop -e -c BODY` fits `run_slop` unchanged but makes the body an argv word (4,096-byte and 64 KiB limits against bodies of 43 lines); stdin needs a pipe or unlinked file that `run_program` does not open; a scratch file is what `FILE`+`SLOP` does today. The 158 continued rows could become bodies; the log line `+ SLOP CWD / command` needs a body form. Of the 13 script rows, 4 cannot become bodies as they stand: `rust-build:64-72` runs `compiler.slop` and `std.slop` twice each (a body runs once); `llvm-cc:49` runs a retained script with an argument; `dollyfile-studio:28` runs a script the image keeps. Body text is literal: `#` inside it is Slop's comment, not the recipe's, and the engine's quote check before Slop would not apply. The 25 Makefiles and 12 C checks stay `FILE`.
+
+## Not found out
+
+Why `RUN`/`CHECK` became `SLOP` in DOLLY 2 and why `CHECK` went: `9e013dd9` and `c4dbe3ad` have no message body and no task. Whether `slop -c` with a multi-line body reports line numbers as `slop -e FILE` does, and whether a pipe to a child's stdin works through `dolly_spawn`: needs a build. The cost of a root build today with and without a bootstrap-compiled Slop: only the 2026-10-01 interleaved pairs exist (1-1.5 s, under a different recipe). Whether the owner's "hard earned wisdom" refers to more than the bootstrap-boundary and Phase 3 records.
