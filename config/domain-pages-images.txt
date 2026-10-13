@@ -78,3 +78,4 @@ libterminfo
 tmux
 tmux-panes
 mandoc
+toybox

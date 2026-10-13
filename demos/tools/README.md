@@ -26,6 +26,7 @@ the script would find here, in the comments beside its flags.
 - `flex`: flex 2.5.4 as Thomas Dickey maintains it (reflex), which starts no m4, also as `lex`, with libfl and the `yacc` package, as a package.
 - `wabt`: the WebAssembly Binary Toolkit: `wat2wasm`, `wasm2wat`, `wasm-objdump`, `wasm-strip` and `wasm-validate`, as a package.
 - `meson`: Meson, with the `python`, `cc` and `ninja` packages it runs on, as a package.
+- `toybox`: toybox's `grep` and `sed`, which have `grep -r` and `sed -i`, in place of the image's, as a package.
 - `mandoc`: mandoc, which formats a manual page of man or mdoc macros as text, as a package.
 - `tools-build`: Build-only: `cmake-build` with mandoc, what these packages are built on.
 - `tar`: sbase's `tar`, which writes archives and reads links and pax headers, in place of the one that only unpacks, as a package.
@@ -62,7 +63,14 @@ What the platform decides ([process model](../../docs/process-model.md)):
   `-j` and `-J`, which start the compressor that way, say so. Pipe an
   archive through `pigz`, `bzip2`, `xz` or `zstd`.
 - `/bin` comes before `/usr/bin`, so `tar` installs over the core's
-  `/bin/tar`; no other package here replaces a command.
+  `/bin/tar`, and `toybox` over `/bin/grep` and `/bin/sed` of `posix` with
+  links to its one program; no other package here replaces a command.
+- toybox's headers (its configuration, option flags and help) are written by
+  its own bash scripts and three generators compiled for the host:
+  [`prepare-toybox.sh`](prepare-toybox.sh) runs them outside Dolly for `grep`
+  and `sed` alone, and the recipe compiles the C. It is the one build step of
+  this demo that does not run in Dolly. The recipe takes three `#error`
+  lines out of the source and says why.
 
 Test: the `amy tools` case of [`test/amy-browser.mjs`](../../test/amy-browser.mjs)
 installs each into `default`, uses it, links a program with each library and

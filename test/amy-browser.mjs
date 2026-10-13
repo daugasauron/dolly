@@ -350,6 +350,13 @@ const tools = {
     "uuencode /tmp/amy-sponge sponge | uudecode -o /tmp/amy-uu && cmp /tmp/amy-uu /tmp/amy-sponge"],
   // ex edits by commands; vi at the terminal is the step after this table.
   vi: ["vi", "printf 'one\\ntwo\\n' > /tmp/amy-ex && printf '%s\\n' '%s/two/2/' w q | ex -s /tmp/amy-ex > /dev/null && test \"$(tr '\\n' ' ' < /tmp/amy-ex)\" = 'one 2 '"],
+  // grep and sed with the options the image's lack, in their place: a tree is
+  // searched, edited where it matched, and searched again. Last in this table,
+  // so that the checks above ran the image's own.
+  toybox: ["toybox", "mkdir -p /tmp/amy-toybox/a/b && cd /tmp/amy-toybox && printf 'one\\nneedle\\n' > a/b/hay && echo needle > a/top && echo none > a/other && " +
+    "test \"$(grep -rn needle . | sort | tr '\\n' ' ')\" = './a/b/hay:2:needle ./a/top:1:needle ' && grep -rl needle . | xargs sed -i 's/needle/pin/' && " +
+    "! grep -rq needle . && test \"$(grep -rc pin a | sort | tr '\\n' ' ')\" = 'a/b/hay:1 a/other:0 a/top:1 ' && " +
+    "test \"$(echo 'a needle b' | grep -o 'ne*dle')\" = needle && man sed | grep -q -- '-i'"],
 };
 // The terminal has no line discipline: a program that reads lines there edits
 // them itself. For each command, what the screen shows and what is then typed
