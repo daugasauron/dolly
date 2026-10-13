@@ -166,10 +166,11 @@ binding. A switch has to act there.
 | `packages@0` | local service of `http@0` | switched | service registered and removed; needs `http@0` |
 | `nena@0` | the page's set | disabled only | disabling it is the lock |
 
-`pty@0` (on `demo/tmux`) is as `sockets@0` with no client: no stamp, no page
-side. Enabling it records it in `/etc/dolly/enabled`, which is what the
-engine's install check reads. Its `module.json` needs a `gives` line
-(`test/host-modules.test.mjs` says so once it is merged).
+`pty@0` (on `integrate/round-1013`) is as `sockets@0`: a stamped client and
+no page side. Enabling it admits its programs to the loader and records it in
+`/etc/dolly/enabled`, which the engine's install check reads. Its
+`module.json` needs a `gives` line (`test/host-modules.test.mjs` says so);
+the merge below adds one.
 
 ## Seed
 
@@ -226,14 +227,14 @@ catalog round. Image inputs before: `sha256:a7ee26c5…`; after:
   nena` among them (its answer is sent first, so the command had returned).
   A module's `check()` now has five seconds when it is enabled after boot;
   boot itself is unchanged.
-- The core suite (`slot.sh hugebuild node test/browser-tests.mjs`), on the
-  rebuilt core images: Chromium 536 s, Firefox 592 s. Every test passes in
-  both but two that could not: `amy-browser.mjs` installs the catalog
-  (`cmake`, `rust`, `codex-cli`, …), which is stale until the catalog round
-  (its first case, the one that installs `python`, passes); and
-  `docs-browser.mjs` in those two runs read `dolly-docs` from before the last
-  repin (run again below). `sockets-browser.mjs` lists the kernel's imports
-  exactly and now names `env.dolly_nena_dispatch`.
+- The core suite (`slot.sh hugebuild node test/browser-tests.mjs`) on the
+  final code and the rebuilt core images: Chromium 576 s, Firefox 538 s, 41
+  cases pass in each and one file fails, `amy-browser.mjs`, at
+  `amy install cmake` ("this site publishes no such package"): the catalog's
+  packages are not built on this seed. Its first case, which installs
+  `python` and reloads a saved session, passes in both.
+  `sockets-browser.mjs` lists the kernel's imports exactly and now names
+  `env.dolly_nena_dispatch`.
 - Source suite: 345 pass. `npm run test:artifacts`: 25 pass, on the images
   built here.
 - Chain, one job: the other core images, `javascript` and `python` (19 named
@@ -254,13 +255,39 @@ catalog round. Image inputs before: `sha256:a7ee26c5…`; after:
 - `amy-browser.mjs` beyond its first case needs the catalog's packages on
   this seed: also the round's.
 
+## The merge with `integrate/round-1013`
+
+`core/bridges` ends in a merge of `integrate/round-1013` (`f55da1fb`); only
+the source suite ran on it (346 pass), nothing was built. Resolved by hand:
+
+- `Dollyfile`: the round's rows (`transfer`, no `COPY`), plus
+  `REQUIRES HOST nena@0`, `INSTALL …/Dollyfile-nena` before `transfer`, and
+  the comment's last sentence.
+- `host/manifests.mjs`: `…, "sockets", "pty", "build", "packages", "nena"`.
+- `host/pty/module.json`: `"gives": "pseudo-terminals: a terminal one program
+  gives another, as tmux does",` after `"version"`.
+- `docs/dollyfile.md`: `default` is `core`, `posix`, `display`, `curl`, `amy`,
+  `nena`, `transfer`; the sentence about `nena@0` ends the round's paragraph
+  on what `amy install` checks.
+- `test/dollyfile-graph.test.mjs`: `default: [… "amy", "nena", "transfer"]`.
+- `Dollyfile-dolly-docs`: the round's rows plus `host/nena/dolly-nena-0.wat`;
+  every pin by `DOLLY_BUILD_IMAGES=dolly-docs node
+  scripts/update-recipe-pins.mjs --sources`.
+- `src/dollyfile.c`, `src/process-supervisor.mjs`, `src/browser.mjs`, the
+  other documents and tests merged without conflict. `src/commands/amy.c` is
+  the round's: this work never edited it. The engine prints the refusal
+  (`dollyfile: /vX/demos/tmux/Dollyfile-tmux needs pty@0: nena enable pty`),
+  which holds the `needs pty@0` that `demos/tmux/test/tmux-browser.mjs` greps.
+- No test or document of this work names a package the round renamed.
+- To check there once `default` and `tmux` are built, after the refusal in
+  the tmux test's `default` session: `nena enable pty && amy install tmux &&
+  command -v tmux`.
+
 ## Left
 
 - The round: every image is stale. Then Pi's test twelve times and
   `amy-browser.mjs` in both browsers.
-- After `pty@0` merges: its `module.json` needs `gives`; then the done-when's
-  tmux flow (`amy install tmux` names `nena enable pty`; enabled, it
-  installs).
+- The done-when's tmux flow, on the merged tree (above).
 - `snapshot@0` and `build@0` are fixed without a measurement of a late start.
 - After `nena disable nena` the loader says of a module the image declares
   and the session disabled that it "is not declared by this image".
