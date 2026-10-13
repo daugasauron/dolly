@@ -1,0 +1,75 @@
+# Audit: the minimal core and its contracts (`main` @ 743757a4)
+
+## The five things I would do first
+
+1. Take the ten host-module SDKs (24 headers, their `libdolly-NAME.a`) out of the root toolchain image and `dist/dolly.data`; ship them as packages so a `gpu.h` edit rebuilds GPU descendants, not 103 images.
+2. Cut `runtime.h` to `dolly_spawn_mapped`, `dolly_wait`, `dolly_terminal_publish_result`; everything else in it duplicates POSIX or has one user. Same catalog round as (1).
+3. Stamp executables with a digest of the generated layout constants, not the bytes of `process.h`; comment edits restamp the catalog today.
+4. Move the 18 inline C programs out of `Dollyfile-system-build` (1,817 of its 2,248 lines are indented C) into `src/commands/`, and build `du rev hostname tty` from sbase instead of Dolly rewrites.
+5. Kernel-only cleanups that cost no catalog round: register the core operation groups through the existing `dolly_kernel_module` table instead of the 669-line `process_dispatch`, and delete the supervisor's mirrored process tree and 32-process check.
+
+## What the core is (counted)
+
+- Process contract (`include/dolly/process.h`, 702 lines): **50 operations** in five groups (5 argv/env/exit; 16 `FD_*`; 12 `PATH_*`; 9 clock/random/terminal/poll/flags/lock; 8 spawn/wait/signal/alarm); `TERMINAL` carries 6 sub-operations; 78 errno values; 36 packet structs. Every operation has at least one caller; 43 are called only from `src/process/libc-adapter.c` (with `signal.c`, `poll.c`, `time.c`). None has zero users.
+- Module operations: **44 numbers** across 11 modules (51, 57, 80–83, 88–91, 96–103, 112–114, 120–123, 128–132, 144–147, 160–169): 94 operation numbers in all.
+- Other boundaries: kernel→supervisor 26 exports (`abi/dolly-supervisor-0.wat`); image boot 13 exports; browser imports = memory + 10 functions (`abi/dolly-browser-0.wat`); display plugin 30 kernel-libc imports (`abi/dolly-kernel-plugin-0.wat`).
+- `runtime.h`: 19 functions, six of them spawn variants.
+- Code: kernel C 3,711 lines; process-side libc glue 3,713 (11 files); trusted JS on the process path 2,062; `host/` 11,827 lines in 16 directories (smallest kernel module `audio` 394 lines/9 files, largest `dso` 1,563/11; `packages` 83/3); WAT 329; `include/dolly` 861.
+- 16 "host modules" of four kinds: 10 browser bridges (6 with an import, 4 mailbox-only), 2 kernel/supervisor features with no browser side (`sockets.mjs` is 2 lines, `threads.mjs` 34), 1 served in the process Worker (`dso`), 2 HTTP-origin page services (`build`, `packages`: 6 of 10 manifest fields empty), 1 runtime.
+
+## Findings, ranked by value for effort
+
+**1. Module SDKs sit in the root image and the seed.** `Dollyfile-system-build:9-34` pins 24 headers of 10 modules and `EXPORTS LIB dolly-gpu/dolly-audio`; `scripts/build.sh:233-234` packs every `libdolly-NAME.a` into the seed sysroot. 30-day churn: `host/*/*.h` 19 commits, `host/*/client.c` 11, each a catalog round, though only GPU/audio/microphone/buttons programs include those headers. Against "development iteration speed is king". Do: root = libc + `process.h`/`runtime.h`/`toolchain.h`; module SDKs as packages (`gpu-sdk`, `audio-sdk` already exist as homes). Cost: one catalog round plus recipe work (coordinate with `core/packages`). Confidence: high on mechanism, medium on saving (header edits often accompany kernel edits anyway).
+
+**2. The ABI digest hashes `process.h` bytes, so prose restamps every executable.** `abi/README.md:44-46` chooses this deliberately; `process.h` had 15 commits in 30 days, `ae86e8c0` changed only a comment. `scripts/generate-abi-constants.mjs` already emits a canonical, comment-free form (`DOLLY_PROCESS_SIZEOF`, op numbers, flags). Do: digest = WAT + generated names/values/sizes/offsets. Cost: one digest change and a reversal of a documented decision. Confidence: medium (offsets must be included or a layout edit could hide).
+
+**3. `runtime.h` duplicates POSIX and carries one-user helpers.** `dolly_spawn_env_timeout`'s only caller is the probe `src/process/env-driver.c`; `dolly_spawn_timeout` only `demos/javascript`; `dolly_spawn_foreground` only `demos/codex/launch.c`; all five wrap `dolly_spawn_mapped` (`runtime-adapter.c:123-196`). libc's `tcgetattr`/`isatty`/`kill`/`waitpid` are implemented by calling `dolly_terminal_mode_get`/`dolly_isatty`/`dolly_kill`/`dolly_waitpid` (`libc-adapter.c:1251,1284`), so programs have two spellings of each. Slop uses `dolly_terminal_read_raw_timeout` five times where `poll`+`read` exist (`slop.c:5008-5048`). `dolly_write_file` is `open/write/close` (`dollyfile.c` is its real user). Do: keep spawn_mapped, wait, publish_result; port Slop and `quickjs-main.c` (12 distinct `dolly_*` calls) to POSIX. Cost: seed change, bundle with (1). Confidence: high.
+
+**4. Core commands live as C inside a recipe.** 18 `FILE /tmp/core-tools/*.c` programs; no generator (`grep core-tools scripts/` is empty). They get no compiler check outside a build, no `grep` by filename, and every edit is a root edit. Do: `SOURCE` them from `src/commands/` as `slop.c` is. Cost: cheap edit, one root round. Confidence: high.
+
+**5. Four rewrites of sbase tools.** `src/commands/du.c` 222, `rev.c` 90, `hostname.c` 17, `tty.c` 20 lines, while `Dollyfile-system-tools:11-26` builds sbase's tree with a `TOOLS` list that omits them. `find`/`xargs`/`env`/`time` rewrites are explained by no fork/exec; these four are not. Do: add them to `TOOLS`, delete the files. Cost: cheap, system-tools round. Confidence: medium (I did not find why they were excluded).
+
+**6. Fourteen operations are fd/path or two-step twins of another.** `ARGUMENT_SIZES`+`ARGUMENTS`, `ENVIRONMENT_SIZES`+`ENVIRONMENT` (4→2: one packet, capacity-bounded); `FD_STAT`/`PATH_STAT`, `FD_STAT_FILESYSTEM`/`PATH_STAT_FILESYSTEM`, `FD_SET_TIMES`/`PATH_SET_TIMES` (`path_request` already has `directory_descriptor`; empty path = the descriptor, 6→3); the four `FD_*FLAGS` ops (`libc-adapter.c:1400-1413` already switches on `F_GETFD/F_SETFD/F_GETFL/F_SETFL`, 4→2); `FD_READ`/`FD_PREAD`, `FD_WRITE`/`FD_PWRITE` (offset+flag, 4→2); `CLOCK_RESOLUTION` is a constant (1→0). 50→36 with the same semantics. Cost: digest change, kernel and libc edits, one round. Confidence: medium; the win is contract size, not code.
+
+**7. `process_dispatch` is one 669-line function.** `src/process-kernel.c:1581-2250`, 50 `case` labels; the kernel already has a range-dispatch table `dolly_kernel_module {first_operation,last_operation,call,release}` (`process-kernel.h:19-24`) that only modules use. Do: register fd, path, clock, spawn groups through it. Cost: kernel-only; `dolly.wasm` is not an image input (`scripts/write-build-id.mjs:8-11`), so no catalog round. Confidence: high.
+
+**8. The supervisor mirrors kernel state.** `processWorkerLimit = 32` (`process-supervisor.mjs:23`) duplicates `DOLLY_KERNEL_PROCESS_LIMIT = 32` (`process-kernel.c:21`) and pre-empts the kernel's `EAGAIN` (`supervisor:516-521` vs `kernel:684`); `#descendantDepth`, `#terminateDescendantWorkers`, `#interruptForeground` walk a mirrored `parent` while the kernel has `dolly_process_descends_from` (`kernel:168`) and uses it for the same decision (`kernel:342`). Do: one kernel export listing descendants deepest-first; delete the JS walk and the JS limit. Cost: no round. Confidence: medium-high.
+
+**9. Module operation numbers squat the core block; allocation has no rule.** `process.h:110` says modules never reuse a number below; `download` uses 51 and `upload` 57, holes inside the core's 48–59 block; others start at 80, 88, 96, 112, 120, 128, 144, 160. Also `DOLLY_NAME_VERSION` is exported by 4 WATs only (gpu, audio, microphone, buttons) though `module.json.version` exists for all 16; 20 differently named quota constants (`SLOTS`/`SLOT_COUNT`, `*_CAPACITY`/`MAX_*`/`LIMIT`). Errors are uniform (all `dolly_process_error`), which is right. Do: a 16-number block per manifest, checked in `test/host-modules.test.mjs`; drop the 4 VERSION globals. Cost: digest round for download/upload executables (`default` carries both). Confidence: high.
+
+**10. Adding a module costs 20+ files outside its directory.** `ef06bf34` (microphone): 32 files/892 lines, 22 outside `host/microphone/`, including `AGENTS.md` (+3), `README.md`, `Dollyfile-dolly-docs` (+7), `abi/dolly-browser-0.wat` (+3), `docs/browser-boundary.md`; `7a6daada` (buttons): 23 files/508 lines. `AGENTS.md:46,49` names `microphone@0` and `buttons@0`; the other 14 modules are not in the constitution. Do: remove module names from `AGENTS.md`; generate `Dollyfile-dolly-docs` rows from manifests; keep the human review in `browser-boundary.md` only (the WAT allowlist can stay hand-written if that is where review happens, but then the doc row is the duplicate). Cost: cheap edits plus a small generator. Confidence: medium.
+
+**11. The engine's source is a seed input, so an engine fix rebuilds the catalog.** `toolchain/CMakeLists.txt:88` packs `src/dollyfile.c` (2,183 lines, 20 commits/30 days) into `dolly.data`, which is `DOLLY_IMAGE_BUILD_ID`'s first input. Image bytes are determined by recipes; `DOLLY 7` already names the language version. Do: build the engine beside the kernel, version it by the recipe language, drop it from `dolly.data`. Cost: build scripts, one round. Confidence: medium (an engine bug that changed step output would then not invalidate images; choose iteration speed consciously).
+
+**12. Slop is pinned in the root toolchain because the engine shells out to `/bin/slop`.** `dollyfile.c:892-900`; `Dollyfile-system-build` `SOURCE slop.c`; `slop.c` is the most-changed seed file (36 commits/30 days). Do: make the build shell a builder input restored with `/bin/dollyfile` (`dolly.c:224` already special-cases that), and deliver Slop to images only via the `core` package. Cost: builder redesign. Confidence: medium.
+
+**13. `docs/*.md` are not a catalog input today.** Only `Dollyfile-dolly-docs` and `demos/closed-source-agent` `SOURCE` docs; `dolly-docs` is installed only by `demos/pi/Dollyfile-pi`; neither `scripts/prepare-kernel-seed.sh` nor `Dollyfile-system-build` touch `docs/`. The brief's premise is false on `main`; `README.md:94` is accurate. Do nothing but keep it so. Confidence: high.
+
+**14. Recipes assert what the core now provides.** `demos/python/prepare-cpython.sh:87-91` sets `ac_cv_func_dup3=no lockf=no truncate=no fdopendir=no rewinddir=no`; `libc-adapter.c` implements `__syscall_dup3`, `__syscall_truncate64`, `F_SETLK/F_SETLKW` (locks landed in `85a01262`). 132 such overrides exist across recipes; the cluster that is a real gap is process groups/sessions (`setpgid`, `tcsetpgrp`, `killpg`, `getsid`: 7 overrides) and ptys (`demo/tmux` in flight). Do: drop stale overrides at the next python round; keep refusals in one list (`process-model.md` "Unsupported"). Cost: cheap. Confidence: medium.
+
+**15. Patches carried: 57 files, 12,821 lines.** `__dolly__`-guarded additions name `poll` (3), `wait4` (2), `fcntl` (2), `select`, `fork`, `link`, `getrandom`, `realpath`, `sem_*`. The large ones are ports (zero-ad 2,809, mojo 3,131, wine 1,536, rust 1,200), not core gaps; the small ones all touch fork/wait/select, which the core refuses by design. Nothing here argues for a new core operation. Confidence: medium.
+
+**16. The layering rule holds in code; the image graph says otherwise.** Only 6 core files mention `demos/`, all enumerators (`scripts/recipe-files.mjs`, `image-menu.mjs`, `package-documentation.mjs`, `prepare-image-sources.sh`, `export-cloudflare-pages.mjs`, `package.json`). But `demos/cmake/Dollyfile-cmake-build` is the `FROM` of 10 recipes in 7 demos (llvm, local-llm, mojo, neovim, rust, sdl2, speech); `rust-build` of 5; `pi-runtime` of 4; `typescript-build` of 2. `ninja` is a core package while CMake, which needs it, is a demo. Do: a `toolchains/` tier (cmake, rust, javascript, pi-runtime) or promote `cmake-build` (it is `FROM system-tools`, no display). Cost: moves and README; pins unchanged. Confidence: medium.
+
+**17. `host/runtime/module.json` does not name its own process library.** `client` lists `runtime-adapter.c`, `socket-refusals.c`; `libc-adapter.c`, `signal.c`, `mmap.c`, `poll.c`, `time.c`, `threads.c`, `pthread-stubs.c`, `bootstrap.c`, `crt1.c` are listed only in `scripts/build.sh:146-163`, contradicting `host/README.md:4-6`. Cheap. Confidence: high.
+
+**18. Eleven probe executables live in the contract directory.** `src/process/*-check.c`, `*-driver.c`, `check.c`: 694 lines built as `build/process-probes` (`build.sh:223-226`), beside the 11 libc files, while `test/fixtures/` holds 20+ process fixtures. Move them. Cheap. Confidence: high.
+
+**19. The shell-result mailbox is a page-automation channel inside the process contract.** `TERMINAL_PUBLISH_RESULT`, 2 of 6 terminal-mailbox words, `dolly_terminal_publish_result` in kernel and libc: produced only by `slop.c:5267`, consumed only by `submit()` in `host/input/input.mjs:284-290`. If `submit` is test-only, this is test plumbing in the ABI; if the page needs it, it belongs to `input@0`/`display@0`, not the core. Cost: digest round. Confidence: low-medium (see below).
+
+**20. 78 errno values, 39 returned.** The kernel side returns 39 distinct `-E*`; JS 22; the other half of `dolly_process_error` (ENETDOWN, EMULTIHOP, EIDRM, ENOMSG, EDQUOT...) exists for a libc mapping table. Harmless, but "typed, inspectable" reads better with the used set plus a stated rule. Cost: digest round. Confidence: low.
+
+## What is right and should stay
+
+- One import, one packet shape, relative ranges, errors as negated `dolly_process_error`, and the same error vocabulary in every module: this is the small typed substrate the thesis asks for.
+- Range-dispatched `dolly_kernel_module`, the per-process device lease (`device-lease.c`, 84 lines; four modules' kernel sides are 29–34 lines each), and the `dolly.host` digest records: cheap, uniform, enforced.
+- `dolly.wasm` is not an image input; kernel work is free of catalog rounds. Keep that line bright.
+- Refusing fork/exec, ids and raw sockets explicitly, and the libc `socket-refusals.c` archive-order trick that keeps `sockets@0` off programs that never call it.
+- The sealed-image/recipe-pin model with digests per dependency output (`image-inputs.mjs`): staleness is exact, not heuristic.
+
+## What I could not determine
+
+- Whether `submit()` (finding 19) has a non-test consumer; I did not read `src/browser.mjs` or the build service's use of it.
+- Why sbase's `du rev hostname tty` were excluded from `TOOLS` (finding 5); there may be a musl/nftw reason.
+- Whether the display plugin must be kernel-resident. It is the one exception to "programs must not compile against kernel libc" and brings 2,031 lines of Zig/Ghostty port glue plus a second loader (`dolly-kernel-plugin-0.wat`) into the core; I did not measure the latency case for the alternative.
+- How much of the `process.h` churn would survive finding 2: of 15 commits, I could verify only one as comment-only; two merges show empty combined diffs and may hide more.
