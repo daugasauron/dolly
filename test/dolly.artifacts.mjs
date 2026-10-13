@@ -274,12 +274,10 @@ test("system snapshots are sealed to their visible recipe chain", async () => {
       definition => definition.filename === sitePath(graph.root.from.location).slice(1)).image;
     const inherited = base === undefined ? [] : (await import(
       artifact(`dolly-${base}-system-snapshot.mjs`))).DOLLY_SYSTEM_SNAPSHOT.manifest;
-    // A package it installs brings that package's files: rust installs cc, cargo installs rust.
-    const installed = (await Promise.all(definitions.find(definition => definition.image === image).source.split("\n")
-      .map(line => /^INSTALL (\S+)/.exec(line)?.[1]).filter(Boolean)
-      .map(async recipe => (await import(artifact(`dolly-${definitions.find(
-        definition => definition.filename === sitePath(recipe).slice(1)).image}-system-snapshot.mjs`)))
-        .DOLLY_SYSTEM_SNAPSHOT.manifest))).flat();
+    // An application or toolchain holds the packages its recipe installs and
+    // the ones those name; a package names them and holds none of their files.
+    const installed = graph.root.role === "package" ? [] : (await Promise.all(graph.root.installTargets.map(async target =>
+      (await import(artifact(`dolly-${target.image}-system-snapshot.mjs`))).DOLLY_SYSTEM_SNAPSHOT.manifest))).flat();
     const declared = { amy: ["/bin/dollyfile"], cc: toolchain, core: ["/bin/foreground"] }[image] ?? [];
     for (const path of ["/bin/dollyfile", "/bin/foreground", ...toolchain]) {
       assert.equal(metadata.manifest.includes(path), image === "system-build" || inherited.includes(path) ||
