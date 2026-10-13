@@ -37,6 +37,9 @@ that change the seed or every recipe, and so want one round together:
 
 ## Left by the round of 2026-10-13
 
+- `python` stops installing `ninja`, by the owner's word
+  ([task](../20261013-132701-python-ninja/TASK.md)): its recipe repins the
+  chains that build with Python.
 - The terminal does not turn Enter's carriage return into the newline a
   program reading a line waits for: `unzip` and `zstd` wait at their
   overwrite question until Ctrl+J. The measurement and a design are in
