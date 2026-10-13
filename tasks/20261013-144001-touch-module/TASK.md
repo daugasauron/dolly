@@ -33,6 +33,58 @@ buttons, captions or any program; a small program proves it (two fingers
 zoom something it draws), in Chromium with touch emulation and on a phone;
 `buttons@0` is replaced by it.
 
+## State (2026-10-14, 04:05): the groundwork is gathered; the contract is still the owner's
+
+[The groundwork](groundwork.md), by a Fable agent that read `main`, the
+pinned SDL2 and raylib sources and the tasks, and changed nothing. It holds
+facts and the questions a contract has to answer, and proposes no contract.
+The integrator checked the input record's fields, the page's branch for a
+finger, that Dolly's SDL2 driver never sends a touch, four commits and two
+of the owner's quoted sentences. What it found:
+
+- The owner asked for touch for programs three times (2026-10-06,
+  2026-10-10, 2026-10-13). What was built on 2026-10-10 answered another
+  sentence of the same request ("There should be no keyboard input, just a
+  "button" menu and speech to text. API keys need to be pasteable"). His
+  words that night: "Buttons is sort of irrelevant for that?", then "Keep
+  it as is for now, I want to try it before rejecting it."
+- Touch on the page has been decided three ways: a finger's drag scrolled
+  the terminal and the page had a menu of buttons (2026-08-31); both were
+  removed, "touch drags are ordinary pointer records … The host has no
+  phone menu", and a game drew its own touch buttons inside Wasm
+  (2026-09-06); the drag-to-scroll came back and a pinch became the keys
+  for the font's size, both in page code (2026-10-10).
+- No contract carries a finger's identity today. The input record has no
+  pointer id; a program holding the input lease gets every finger as the
+  one pointer with button 0, its position sampled once a frame, so two
+  fingers interleave in one stream of positions.
+- Two sketches of touch are in the record and neither was built: touch
+  records inside `input@0` (using the record's two unused words) and a
+  module `touch@0` of its own. The owner's word of 2026-10-13 is "separate".
+- `buttons@0` is five things in one lease, and a touch module that "knows
+  nothing of buttons" leaves each without a home: the strip the page draws;
+  keeping the phone's on-screen keyboard down while it shows; the page's
+  Paste button, the one clipboard read a program can ask for; the
+  operation that types into the terminal from inside Wasm; and the
+  terminal's area ending above the strip. Its lease has no foreground
+  rule, which is what lets `voice` hold it as a background job beside Pi.
+- Programs in the tree that have a touch path of their own, fed by nothing
+  today: SDL2 (finger ids, positions from 0 to 1, pressure, its own pinch
+  and rotate events), raylib (up to 8 points with ids, its own gestures),
+  Xonotic's engine (compiled in, reached only if SDL sends fingers),
+  ClassiCube and 0 A.D. (compiled out).
+- The existing modules answered a touch contract's questions four
+  different ways (who may hold it, a ring or a call, what a full queue
+  does, whether time is stamped): a table in section 4. Section 5 lists
+  sixteen questions for the design, each with its evidence and none
+  answered.
+- Tests reach touch three ways today, all in `test/buttons-browser.mjs`;
+  none sends a touch to a program that holds the input lease. Two fingers
+  on a real phone have never been measured.
+- Cost, from the newest modules: a module with a header and a client moves
+  the seed, so every image; removing `buttons@0` moves it again and
+  touches 21 files outside its directory.
+
 ## As filed (2026-10-13, main `11d2bd0a`)
 
 - What `buttons@0` is (`host/buttons/dolly-buttons-0.wat`): the program
