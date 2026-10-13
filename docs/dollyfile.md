@@ -318,9 +318,12 @@ EXPORTS TOOL rg
   SHA256` restores the files, merges the exported variables into
   `/etc/dolly/environment` and records the row as a build does; `amy
   installed` prints the record. The rows the package's record names come
-  first: amy fetches the snapshot of each one the session lacks and installs
-  it the same way, so `amy install cmake` installs `cc` and then `cmake`, and
-  says so. No solver chooses anything: the rows are the pins of the recipe. The check is the recipe's: a package whose
+  first. The engine is asked before anything is fetched for them, so a
+  package the image may not hold is refused with nothing installed; it ends
+  with status 3 when a row is not installed yet, and amy then fetches that
+  row's snapshot and installs it the same way: `amy install cmake` installs
+  `cc` and then `cmake`, and says so. No solver chooses anything: the rows
+  are the pins of the recipe. The check is the recipe's: a package whose
   host modules the booted image does not declare is refused by name. Looking
   a name up in the index is the only unpinned step. The index describes the
   site's newest release and the service serves the release the tab runs: a
