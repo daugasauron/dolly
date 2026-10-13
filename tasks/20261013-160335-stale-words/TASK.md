@@ -77,3 +77,29 @@ metadata's format), each for a catalog round.
   Neovim demo's own archives; `demos/cmake/Dollyfile-cmake-build:21,76` pins
   them under that name. A path of their own repins `cmake-build`, which 82
   images are built on: with a round.
+
+## 2026-10-14 06:25: a search for code nothing reaches
+
+Searched on `main` `e72b7f8e`, nothing changed:
+
+- Every file under `scripts/` and every `.mjs` under `src/` and `host/` is
+  named by another tracked file. No page-side file imports a `node:` module
+  or asks whether it runs in Node.
+- The constants in `src/process-constants.mjs` and `host/*/abi.mjs` that no
+  file names one by one are generated from the headers and the WATs
+  (`scripts/generate-abi-constants.mjs`) and imported whole
+  (`import * as`); each `abi.mjs` has an importer in its module.
+- Eighteen names are exported and named by no other tracked file, each used
+  inside its own file: `hostModuleNames` (`host/manifests.mjs:3`),
+  `PACKAGES_ORIGIN` and `PACKAGE_LIMITS` (`host/packages/service.mjs:5-6`),
+  `IMAGE_CACHE_MAX_BYTES` (`src/image-artifact.mjs:249`), `kernelModuleList`
+  (`scripts/host-modules.mjs:38`), `menuRow` (`scripts/image-menu.mjs:29`),
+  `domainOnlyApplications` (`scripts/package-github-pages.mjs:10`),
+  `bootVersions` (`scripts/published-version.mjs:107`), `verifySite`
+  (`scripts/site-release.mjs:75`), and nine of the fifteen commands of
+  `scripts/dolly-abi.mjs`, which exports every command alike. Taking the
+  word `export` off changes no behaviour; whether a script is an image input
+  shows in `npm run image -- --plan` after the edit.
+- The search reads names in `.mjs`, `.js` and `.html` files. It does not see
+  a function that is exported, imported and never called.
+
