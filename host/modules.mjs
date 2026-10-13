@@ -180,9 +180,12 @@ export async function createHost(side, enabled, { send, resources = {}, configur
     reasons.delete(name);
     try {
       // A browser that never answers a module's check must not hold every
-      // later switch, nor the boot of a session that recorded the module.
-      const unavailable = await Promise.race([module.check?.(),
-        new Promise(resolve => setTimeout(resolve, 5000, "the browser did not answer in time"))]);
+      // later switch: after five seconds the switch is refused and the check
+      // told so, that an answer coming later shows nothing on the page.
+      const abandoned = new AbortController(), timer = setTimeout(() => abandoned.abort(), 5000);
+      const unavailable = await Promise.race([module.check?.(abandoned.signal), new Promise(resolve =>
+        abandoned.signal.addEventListener("abort", () => resolve("the browser did not answer in time")))]);
+      clearTimeout(timer);
       if (unavailable) return unavailable;
       await attach(value, new Set(), true);
       if (!instances.has(name)) return reasons.get(name);
