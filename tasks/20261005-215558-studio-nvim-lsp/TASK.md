@@ -29,7 +29,7 @@ What was stale, and is fixed:
   `PACKAGE`, `INSTALL` and `RUN`, nor `FILE` and `FOLDER` after `EXPORTS` or `REQUIRES`. Drawn
   by a native Neovim 0.12 (`tohtml`) over the catalog's 103 recipes, 264 of 3,513 directive
   lines came out plain, the role line of every recipe among them; with the corrected file none
-  does, and none of the 5,097 `FILE` body lines is highlighted. The fixture asserted only
+  does, and none of the 5,085 `FILE` body lines is highlighted. The fixture asserted only
   `DOLLY` and `FILE`, which is why it passed.
 - **The plugin still claimed `*.dm`**, the module files that left with Dollyfile 6.
 - The fixture now asks the highlighting of every directive line of `/workspace/Dollyfile` and
