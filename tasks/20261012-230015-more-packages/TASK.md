@@ -234,7 +234,7 @@ Firefox): the replaced `/bin/tar` lists the archive, `sqlite3` reads the
 database, `vi` is there and `amy installed` names the packages. 6.0 MB of
 changes, 2.2 MB stored.
 
-### State at 09:30: 22 packages, every check in Chromium and Firefox
+### State at 09:30: 22 packages (23 with pigz, below), every check in Chromium and Firefox
 
 Besides the thirteen of the table above: `llama` (refused in `default`),
 `openal` (15 files, 3.4 MB), `tar` (3 files, 78 KB), `sbase` (17 files,
@@ -254,19 +254,6 @@ The full `test/amy-browser.mjs` was not run here: it installs every package
 of the catalog, and this tree builds only the images named above. It is for
 the integration tree.
 
-### What is left
-
-- The full `test/amy-browser.mjs` in the integration tree, both browsers:
-  the `amy tools` case grew by seventeen installs, eight small compiles and
-  three programs typed at (17 s here on their own); its limit is 300 s.
-- From the list as filed: `file` (dropped, above) and the libraries tmux
-  builds for itself (libevent, a terminfo library), which belong with the
-  tmux demo's build image as thin packages once that branch is on main.
-- `pi-local` could `INSTALL` `llama` in place of its two `COPY` rows.
-- Dropped for cost: nano and `ne` (above), GNU sed and grep (gnulib), a roff
-  formatter (useful only through `man`). `vi` at the terminal: insert,
-  Backspace, Enter, arrow keys and `:wq` were typed and work.
-
 ### pigz (09:50)
 
 `gzip` here is Dolly's own and only unpacks (`gzip: Dolly version 0
@@ -277,3 +264,16 @@ package) does: 9 files, 507 KB. Its check packs 20,000 lines smaller and
 back, and the image's `gzip -dc` reads what it wrote; the tar check now
 goes `tar -cf - in | pigz | gzip -dc | tar -tf -`. Both browsers. tar's
 advice (recipe and README) names pigz, bzip2, xz and zstd.
+
+### What is left
+
+- The full `test/amy-browser.mjs` in the integration tree, both browsers:
+  the `amy tools` case grew by eighteen installs, eight small compiles and
+  three programs typed at (17 s here on their own); its limit is 300 s.
+- From the list as filed: `file` (dropped, above) and the libraries tmux
+  builds for itself (libevent, a terminfo library), which belong with the
+  tmux demo's build image as thin packages once that branch is on main.
+- `pi-local` could `INSTALL` `llama` in place of its two `COPY` rows.
+- Dropped for cost: nano and `ne` (above), GNU sed and grep (gnulib), a roff
+  formatter (useful only through `man`). `vi` at the terminal: insert,
+  Backspace, Enter, arrow keys and `:wq` were typed and work.
