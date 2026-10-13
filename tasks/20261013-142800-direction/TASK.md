@@ -110,6 +110,44 @@ Met on the way and filed, none acted on:
 [no test of a trap with running children](../20261013-163336-crash-with-children/TASK.md),
 [nothing compares the engine's module list with the page's](../20261013-170737-receipt-hosts/TASK.md).
 
+## The core's size, counted (2026-10-14, 06:20)
+
+A baseline for "as clean and small as possible", with no verdict. Lines of
+tracked text per part at two releases and on `main` `a90eb4e6`, counted with
+`git grep -Ic '' REF` by path; the generated tables under
+`src/ghostty/generated` and `src/zig` are left out.
+
+| Part | v0.1.0 (10-08) | v0.1.2 (10-11) | `main` (10-14) |
+| --- | ---: | ---: | ---: |
+| kernel and snapshot C (`src/*.c`, `*.h`, `*.cpp` without the rows below) | 4,492 | 4,515 | 4,684 |
+| the process side below libc (`src/process/`) | 4,538 | 4,538 | 4,549 |
+| contract headers (`include/`) | 861 | 861 | 861 |
+| machine contracts (`abi/`) | 403 | 410 | 417 |
+| page JavaScript (`src/*.mjs`) | 4,121 | 4,121 | 4,169 |
+| host modules (`host/`) | 11,244 | 12,313 | 13,283 |
+| the shell (`src/slop.c`) | 5,380 | 5,380 | 5,381 |
+| the recipe engine (`src/dollyfile.c`) | 2,183 | 2,183 | 2,282 |
+| commands (`src/commands/`) | 2,875 | 2,875 | 4,845 |
+| the root's recipes (`Dollyfile*`) | 3,587 | 3,590 | 1,907 |
+| compiler driver and libcurl adapter | 2,974 | 2,974 | 2,975 |
+| display plugin (`src/ghostty/` without `generated/`) | 1,018 | 1,046 | 1,046 |
+| build scripts (`scripts/`) | 5,630 | 5,651 | 5,687 |
+| `toolchain/`, `config/` | 1,928 | 2,012 | 2,262 |
+| **summed** | **51,234** | **52,469** | **54,348** |
+| tests (`test/`) | 14,898 | 15,656 | 17,006 |
+| demos (`demos/`) | 66,263 | 73,677 | 82,566 |
+
+- The browser's trusted JavaScript, `src/*.mjs` and the modules' `.mjs`: 9,723,
+  10,204 and 10,564 lines. The modules: 16 at v0.1.2, 18 now (`nena`, `pty`).
+- Commands and recipes moved against each other: 23 command sources that
+  were bodies in the root recipe became files of `src/commands/`. Together
+  the two rows went from 6,465 to 6,752.
+- Since v0.1.2, in `src`, `include`, `abi`, `host`, `scripts`, `toolchain`
+  and `config`: 114 files changed, 3,829 lines added, 267 removed
+  (`git diff --shortstat`).
+- Lines compare a part with itself over time. They do not weigh one part
+  against another.
+
 ## As filed (2026-10-13, main `50c698f8`)
 
 - [The audit of 2026-10-13](../20261012-230015-audit-fable/TASK.md) has five
