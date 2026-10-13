@@ -1,17 +1,19 @@
 # Sourced by scripts/prepare-image-sources.sh.
 # Release archives that Dolly's tar reads as published, and Meson's wheel
-# (package, file name).
-while read -r tool tool_archive; do
+# (package, source pin, file name).
+while read -r tool tool_pin tool_archive; do
   if has_image "${tool}"; then
-    copy_static "$(bash scripts/fetch-pinned-archive.sh "${tool}")" "tools/${tool_archive}"
+    copy_static "$(bash scripts/fetch-pinned-archive.sh "${tool_pin}")" "tools/${tool_archive}"
   fi
 done <<'ARCHIVES'
-sqlite sqlite-autoconf-3540000.tar.gz
-xz xz-5.8.4.tar.gz
-bzip2 bzip2-1.0.8.tar.gz
-zip zip30.tar.gz
-unzip unzip60.tar.gz
-meson meson-1.12.1-py3-none-any.whl
+sqlite sqlite sqlite-autoconf-3540000.tar.gz
+xz xz xz-5.8.4.tar.gz
+bzip2 bzip2 bzip2-1.0.8.tar.gz
+zip zip zip30.tar.gz
+unzip unzip unzip60.tar.gz
+yacc byacc byacc-20260126.tgz
+flex reflex reflex-20260131.tgz
+meson meson meson-1.12.1-py3-none-any.whl
 ARCHIVES
 # xxd is one file of Vim's repository, with its manual page.
 if has_image xxd; then
@@ -81,6 +83,35 @@ if has_image base64; then
     "${tool_dir}/include" /tmp/base64/include \
     "${tool_dir}/lib" /tmp/base64/lib \
     "${tool_dir}/LICENSE" /usr/share/licenses/base64/LICENSE
+fi
+# wabt's source release, with the libraries it vendors, is an xz archive.
+if has_image wabt; then
+  tool_archive="$(bash scripts/fetch-pinned-archive.sh wabt)"
+  tool_dir="${tool_archive%.tar.gz}-source"
+  if [[ ! -d "${tool_dir}" ]]; then
+    rm -rf -- "${tool_dir}.partial"
+    mkdir -- "${tool_dir}.partial"
+    tar -xJf "${tool_archive}" --strip-components=1 -C "${tool_dir}.partial"
+    mv -T -- "${tool_dir}.partial" "${tool_dir}"
+  fi
+  tool_inputs=()
+  for tool_file in wasm-rt-exceptions-impl.c wasm-rt-exceptions.h wasm-rt-impl-tableops.inc wasm-rt-impl.c \
+      wasm-rt-impl.h wasm-rt-mem-impl-helper.inc wasm-rt-mem-impl.c wasm-rt.h; do
+    tool_inputs+=("${tool_dir}/wasm2c/${tool_file}" "/tmp/wabt/wasm2c/${tool_file}")
+  done
+  for tool_file in wat2wasm wasm2wat wasm-objdump wasm-strip wasm-validate; do
+    tool_inputs+=("${tool_dir}/man/${tool_file}.1" "/usr/share/man/man1/${tool_file}.1")
+  done
+  node scripts/build-source-tar.mjs "${static_dir}/tools/wabt.tar" \
+    "${tool_dir}/CMakeLists.txt" /tmp/wabt/CMakeLists.txt \
+    "${tool_dir}/src" /tmp/wabt/src \
+    "${tool_dir}/include" /tmp/wabt/include \
+    "${tool_dir}/scripts/gen-wasm2c-templates.cmake" /tmp/wabt/scripts/gen-wasm2c-templates.cmake \
+    "${tool_dir}/scripts/wabt-config.cmake.in" /tmp/wabt/scripts/wabt-config.cmake.in \
+    "${tool_dir}/third_party/picosha2" /tmp/wabt/third_party/picosha2 \
+    "${tool_inputs[@]}" \
+    "${tool_dir}/LICENSE" /usr/share/licenses/wabt/LICENSE \
+    "${tool_dir}/third_party/picosha2/LICENSE" /usr/share/licenses/wabt/picosha2-LICENSE
 fi
 if has_image vi; then
   tool_dir="$(bash scripts/fetch-pinned-source.sh neatvi)"

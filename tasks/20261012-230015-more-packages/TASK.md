@@ -194,3 +194,62 @@ An image builds in 5 to 15 s once its base is restored (SQLite 33 s).
   in 6.4 s (Chromium) and 6.9 s (Firefox). Meson finds `clang` ("dolly
   toolchain: Clang/LLD 24, wasm64-unknown-dolly"), `ld.lld` and
   `ninja-1.9.0`, cpu family `wasm64`.
+
+### yacc, lex and wabt (09:20)
+
+- `yacc` is Berkeley Yacc 20260126 (Thomas Dickey's), from the release
+  archive as published; `flex` is his reflex 20260131: flex 2.5.4, kept up,
+  under the name upstream installs it by, and as `lex`. flex since 2.5.31
+  pipes its skeleton through `m4` by `fork`, which fails here; this one
+  writes the scanner itself. Its grammar is compiled by yacc when the image
+  is built, so `flex` installs `yacc`. jq's
+  first build here stopped at `make: yacc: No such file or directory`
+  (make's built-in rule, the grammar being newer than the parser it ships):
+  a port that regenerates a parser now has the two commands. It says what
+  it is (`flex version 2.5.4`): a grammar that wants a reentrant scanner
+  fails at that option.
+- `wabt` is the WebAssembly Binary Toolkit 1.0.42 from its source release
+  (an `.tar.xz` with its submodules), built by its own CMake `FROM
+  cmake-build` as `sdl2` is: `wat2wasm`, `wasm2wat`, `wasm-objdump`,
+  `wasm-strip`, `wasm-validate`. Not built: the interpreter, `wasm2c` and
+  their runtime (a Dolly program is not what they run).
+
+### Gaps seen on the way, not fixed here
+
+- **`sed -i` and `grep -r`** (also `-o` and context lines) are what an agent
+  types most, and sbase's `sed` and `grep` have neither. GNU's need gnulib's
+  configure answers by the hundred; ripgrep covers the second. The cheap fix
+  is in the commands Dolly owns or in sbase's list, both image inputs.
+- **`man` prints a `man1` page as roff source.** Every upstream page here is
+  one. A formatter (mandoc) as a package helps only if `man` pipes through
+  it, which is the core's.
+- **`chmod`**: there are no modes, so none; a script that runs `chmod +x`
+  stops at `command not found`.
+
+### A saved session (09:25)
+
+`amy install tar sqlite vi`, an archive and a database written, the session
+saved and reopened (`build/more-evidence/session-case.mjs`, Chromium and
+Firefox): the replaced `/bin/tar` lists the archive, `sqlite3` reads the
+database, `vi` is there and `amy installed` names the packages. 6.0 MB of
+changes, 2.2 MB stored.
+
+### State at 09:30: 22 packages, every check in Chromium and Firefox
+
+Besides the thirteen of the table above: `llama` (refused in `default`),
+`openal` (15 files, 3.4 MB), `tar` (3 files, 78 KB), `sbase` (17 files,
+404 KB), `meson` (with python, cc and ninja: 3,765 files, 177 MB), `yacc`
+(4 files, 190 KB), `flex` (10 files, 571 KB) and `wabt` (12 files, 6.4 MB;
+its 60 C++ files compile here in 45 s, the image in 67 s). The last run of
+every entry on the committed tree: `tools-all-5.log` (17 table entries,
+openal, tar, the llama refusal, the three typed at the terminal: Chromium
+17.1 s, Firefox 14.9 s) and `meson-2.log` under `build/more-evidence/`.
+
+`wabt` reads what `cc` links here: `wasm-objdump -x` of a Dolly program
+shows its 64-bit memory. A recipe's `SLOP` runs with `-e`: a check that
+wants a program's non-zero status must capture it, not let it end the line
+(flex's first check stopped on its own right answer).
+
+The full `test/amy-browser.mjs` was not run here: it installs every package
+of the catalog, and this tree builds only the images named above. It is for
+the integration tree.

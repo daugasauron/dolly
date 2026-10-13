@@ -1,9 +1,10 @@
 # Tools
 
 Everyday command-line programs as packages: `amy install NAME` in a running
-session. Each is built inside Dolly by `cc` from upstream's release, unchanged.
-Slop does not run a configure script, so a recipe states what the script would
-find here, in the comments beside its flags.
+session. Each is built inside Dolly from a pinned upstream release, unchanged:
+by `cc` and a Makefile in the recipe, wabt by its own CMake, Meson from its
+wheel by pip. Slop does not run a configure script, so a recipe states what
+the script would find here, in the comments beside its flags.
 
 ## Images
 
@@ -20,6 +21,9 @@ find here, in the comments beside its flags.
 - `vi`: Neatvi, a small `vi` and `ex` that needs no terminal database, as a package.
 - `xxd`: xxd, the hex dump that also reads one back, as a package.
 - `base64`: `base64` (Alfred Klomp's) and libbase64, as a package.
+- `yacc`: Berkeley Yacc, as `yacc` and `byacc`, as a package.
+- `flex`: flex 2.5.4 as Thomas Dickey maintains it (reflex), which starts no m4, also as `lex`, with libfl and the `yacc` package, as a package.
+- `wabt`: the WebAssembly Binary Toolkit: `wat2wasm`, `wasm2wat`, `wasm-objdump`, `wasm-strip` and `wasm-validate`, as a package.
 - `meson`: Meson, with the `python`, `cc` and `ninja` packages it runs on, as a package.
 - `tar`: sbase's `tar`, which writes archives and reads links and pax headers, in place of the one that only unpacks, as a package.
 - `sbase`: the sbase commands the image leaves out: `yes`, `cal`, `sha1sum`, `sha512sum`, `sponge`, `cols`, `uuencode` and `uudecode`, as a package.
@@ -42,7 +46,8 @@ What the platform decides ([process model](../../docs/process-model.md)):
 - Dolly's `tar` reads files and directories. An archive with a pax header
   (every `git archive`) or links is staged as a plain tar of the files a
   build reads ([`prepare-sources.sh`](prepare-sources.sh)); `sqlite`, `xz`,
-  `bzip2`, `zip` and `unzip` build from the archive as published.
+  `bzip2`, `zip`, `unzip`, `yacc` and `flex` build from the archive as
+  published.
 - `fork` fails: `vi`'s `!` commands and language servers, and `tar`'s `-z`,
   `-j` and `-J`, which start the compressor that way, say so. Pipe an
   archive through `gzip`, `bzip2` or `xz`.
@@ -51,4 +56,5 @@ What the platform decides ([process model](../../docs/process-model.md)):
 
 Test: the `amy tools` case of [`test/amy-browser.mjs`](../../test/amy-browser.mjs)
 installs each into `default`, uses it, links a program with each library and
-types at the terminal into `sqlite3`, `dc` and `vi`.
+types at the terminal into `sqlite3`, `dc` and `vi`; `amy meson alone`
+builds a project in a session that had no compiler.

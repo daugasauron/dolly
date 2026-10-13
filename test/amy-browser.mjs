@@ -243,6 +243,18 @@ const tools = {
   xxd: ["xxd", "test \"$(echo hello | xxd -p)\" = 68656c6c6f0a && seq 1 300 > /tmp/amy-xxd && xxd /tmp/amy-xxd | xxd -r | cmp - /tmp/amy-xxd && man xxd > /dev/null"],
   base64: ["base64", `test "$(echo packed | base64)" = cGFja2VkCg== && seq 1 3000 | base64 > /tmp/amy-base64 && base64 -d /tmp/amy-base64 | tail -n 1 | grep -qx 3000 && ` +
     links("libbase64", "base64", "base64_decode(0, 0, 0, 0, 0) != 1")],
+  // A module written from text is valid, reads back and loses its names to
+  // wasm-strip; a program cc links here is a module with 64-bit memory.
+  wabt: ["wasm2wat", "cd /tmp && echo '(module (func $answer (export \"answer\") (result i32) i32.const 42))' > amy.wat && wat2wasm --debug-names amy.wat -o amy.wasm && " +
+    "wasm-validate amy.wasm && wasm2wat amy.wasm | grep -q 'i32.const 42' && wasm-objdump -x amy.wasm | grep -q answer && cp amy.wasm amy-named.wasm && " +
+    "wasm-strip amy.wasm && test \"$(stat -c %s amy.wasm)\" -lt \"$(stat -c %s amy-named.wasm)\" && echo 'int main(void) { return 0; }' > amy-wabt.c && " +
+    "cc amy-wabt.c -o amy-wabt && wasm-objdump -x amy-wabt | grep -q i64 && man wasm-objdump > /dev/null"],
+  // A grammar becomes a parser that counts its tokens, and a scanner counts the numbers it reads. flex comes with yacc.
+  yacc: ["yacc", "cd /tmp && printf '%s\\n' '%{' 'int count; int yylex(void); void yyerror(const char *message) {}' '%}' '%token A' '%%' 'list: | list A { count++; };' '%%' " +
+    "'#include <stdio.h>' 'int yylex(void) { return getchar() == EOF ? 0 : A; }' 'int main(void) { yyparse(); return count; }' > amy.y && " +
+    "yacc -o amy-y.c amy.y && cc amy-y.c -o amy-y; printf abcdef | ./amy-y; test $? = 6 && man yacc > /dev/null"],
+  flex: ["flex", "cd /tmp && printf '%s\\n' '%{' 'static int numbers;' '%}' '%%' '[0-9]+ numbers++;' '.|\\n ;' '%%' 'int main(void) { yylex(); return numbers; }' > amy.l && " +
+    "flex -o amy-l.c amy.l && cc amy-l.c -lfl -o amy-l; echo 'a 1 bb 22 c 333' | ./amy-l; test $? = 3 && lex --version > /dev/null && man flex > /dev/null"],
   // yes ends when its reader does.
   sbase: ["yes", "test \"$(yes | head -n 3 | tr '\\n' ' ')\" = 'y y y ' && test \"$(printf abc | sha1sum | cut -c 1-40)\" = a9993e364706816aba3e25717850c26c9cd0d89d && " +
     "printf abc | sha512sum | grep -q '^ddaf35a193617aba' && cal 10 2026 | grep -q 2026 && echo sponged > /tmp/amy-sponge && " +
@@ -285,7 +297,7 @@ await browserTest("amy tools", { image: "default", timeout: 300_000 }, async ({ 
   // sbase's in its place: a tree with a link archived, listed and unpacked.
   await run("mkdir -p /tmp/amy-tar/in/deep /tmp/amy-tar/out && cd /tmp/amy-tar && seq 1 2000 > in/deep/numbers && ln -s deep/numbers in/link && ! tar -cf in.tar in 2> /dev/null");
   await run("amy install tar && cd /tmp/amy-tar && tar -cf in.tar in && tar -xf in.tar -C out && cmp out/in/deep/numbers in/deep/numbers && " +
-    "test \"$(readlink out/in/link)\" = deep/numbers && tar -cf - in | tar -tf - | grep -qx in/link && man tar | grep -q archive");
+    "test \"$(readlink out/in/link)\" = deep/numbers && tar -cf - in | tar -tf - | grep -qx in/link && amy files tar | grep -q ' /usr/share/man/cat1/tar.1$'");
   // dolly-llama computes on the GPU, a host module default does not declare:
   // the package is refused by the module's name and nothing of it is installed.
   assert.notEqual(await session.submit("amy install llama 2> /tmp/refused"), 0);

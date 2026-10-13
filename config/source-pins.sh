@@ -359,3 +359,14 @@ DOLLY_LINENOISE_SHA256=97ad7d4041e11d7fa395819fd773c1892dea89e5292342378a8345692
 DOLLY_MESON_VERSION=1.12.1
 DOLLY_MESON_URL='https://files.pythonhosted.org/packages/57/99/36cd25f9598eef70db97577440a70a360af505f6f01c2338a18d1556079c/meson-1.12.1-py3-none-any.whl'
 DOLLY_MESON_SHA256=930bc7542cbd9f57009e182fd014eba48cf1a0180a7b9006d2d32d8f168d8b02
+# The WebAssembly Binary Toolkit: the source release, with its submodules.
+DOLLY_WABT_VERSION=1.0.42
+DOLLY_WABT_URL='https://github.com/WebAssembly/wabt/releases/download/1.0.42/wabt-1.0.42.tar.xz'
+DOLLY_WABT_SHA256=a76cda3c174a43097863a07fc0b0c202f770f53e21806ea2636f167d1ffb1e30
+# Thomas Dickey's Berkeley Yacc and reflex: the yacc and flex packages.
+DOLLY_BYACC_VERSION=20260126
+DOLLY_BYACC_URL='https://invisible-island.net/archives/byacc/byacc-20260126.tgz'
+DOLLY_BYACC_SHA256=b618c5fb44c2f5f048843db90f7d1b24f78f47b07913c8c7ba8c942d3eb24b00
+DOLLY_REFLEX_VERSION=20260131
+DOLLY_REFLEX_URL='https://invisible-island.net/archives/reflex/reflex-20260131.tgz'
+DOLLY_REFLEX_SHA256=ab51a65f33623bb9a3877fc5991ca7960b2421ed112d94c733d85597991748bd

@@ -67,3 +67,6 @@ openal
 tar
 sbase
 meson
+wabt
+yacc
+flex
