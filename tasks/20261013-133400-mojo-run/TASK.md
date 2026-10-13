@@ -1,6 +1,6 @@
 # mojo run builds the program and starts it
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 240
 - TAGS: toolchain,mojo,demo
 
@@ -30,3 +30,13 @@ Firefox.
   unchanged program 0.7 s where the first is 4.4 s (hello, Chrome 151).
 - What it costs: `mojo-build` again (12 minutes) and the `mojo` package and
   `mojo-gpu` after it; no catalog round.
+
+## Closed (2026-10-13): not done, by decision
+
+Owner: "I think it's ok to keep as is I want to minimize the amount of
+patches". The integrator agrees: the change would be in the compiler's
+driver, which the port already patches only to refuse; building and starting
+there would be more of Modular's source carried against every new release,
+for what `mojo build NAME.mojo && ./NAME` does in one line. Should the one
+step be wanted later, it belongs in a script beside the compiler, not in
+its source.
