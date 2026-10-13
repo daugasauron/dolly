@@ -89,9 +89,53 @@ Yes: no new syntax, and nothing has to parse a Dollyfile at install time.
 - **A refusal.** `amy install transcribe` on `default` is refused for
   `microphone@0` before `parakeet`, which it names, is fetched.
 
-## Measured
+## Measured (2026-10-13, this tree, the chain rebuilt on the changed seed)
 
-To be filled from the chain rebuilt on this seed.
+Snapshot bytes, before on main's seed and after:
+
+| Package | Its rows | Before | After |
+| --- | --- | ---: | ---: |
+| `gzip` | `zlib` | 508,918 | 279,954 |
+| `zig` | `cc` | 186,887,937 | 60,778,163 |
+| `python`, with the held rows | `cc`, `ninja` | 173,588,803 | 47,325,381 |
+| `cc`, `ninja`, `make` (no rows) | | 126,284,177; 387,072; 595,184 | the same |
+
+`amy install` on `default`, from the local checkout server:
+
+| | Before | After |
+| --- | --- | --- |
+| `zig`, no compiler in the session | one snapshot of 187 MB: 1.8 s Chromium, 2.2 s Firefox | `cc`, then `zig`: 2.2 s Chromium |
+| `python`, `cc` in the session | 173 MB again, `cc` restored a second time | `ninja` and `python`: 1.0 s |
+
+What amy prints for `amy install zig`:
+
+```text
+amy: fetching zig
+dollyfile: /v0.1.2/Dollyfile-zig installs /v0.1.2/Dollyfile-cc first
+amy: fetching cc
+dollyfile: INSTALL /v0.1.2/Dollyfile-cc (2056 paths)
+dollyfile: INSTALL /v0.1.2/Dollyfile-zig (1450 paths)
+amy: cc installed: 1951 files, 125907943 bytes, commands: ar c++ cc ld make; amy files cc lists them
+amy: zig installed: 1333 files, 60452098 bytes, commands: zig; amy files zig lists them
+```
+
+Tests on that chain:
+
+- `test/default-browser.mjs`, Chromium and Firefox: "composed dependency" is
+  new. The page builds an image whose recipe installs `zig` alone: it holds
+  `cc` too, recorded before `zig`, and compiles a C program.
+- `npm run test:demos -- python`: `python` (a `system` image built in the
+  page with `INSTALL python`: `cc` and `ninja` come from their own
+  snapshots) 29.1 s; "python on default" (`amy install python` alone, `cc`
+  absent before, then `pip install numpy` from the sdist) Chromium 181.3 s,
+  Firefox 217.8 s.
+- `npm run test:demos -- javascript`: passes, Chromium 25.0 s.
+
+The chain, one image at a time: `system-build` to `default` in 12 min 5 s
+of builds (`system-build` 63 s, `zig-build` 7 min 22 s, `ghostty-build`
+65 s, `system-tools` 116 s, the eight packages and `default` 39 s). With
+`cc`, `make`, `ninja`, `zig`, `system`, `python` (148 s), `javascript`,
+`git`, `less`, `raylib`, `box3d` and `dolly-docs`: 17 min 21 s.
 
 ## Not done, and why
 

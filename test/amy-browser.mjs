@@ -288,6 +288,12 @@ await browserTest("amy cc", { image: "default", timeout: 300_000 }, async ({ ope
   await run("! cc --version 2> /dev/null");
   console.log(`amy install cc: ${await timed(run, "amy install cc")} ms`);
   await run("echo 'int main(void) { return 42; }' > /tmp/amy-cc.c && cc /tmp/amy-cc.c -o /tmp/amy-cc; /tmp/amy-cc; test $? = 42");
+  // zig names cc and holds none of it. The session has cc: it is not installed
+  // again, so a file of it changed since stays; each package lists its own files.
+  await run("echo changed > /usr/share/man/cat1/cc.1");
+  console.log(`amy install zig beside cc: ${await timed(run, "amy install zig")} ms`);
+  await run("test \"$(cat /usr/share/man/cat1/cc.1)\" = changed && amy files zig | grep -q ' /usr/bin/zig$' && " +
+    "! amy files zig | grep -q ' /bin/cc$' && amy files cc | grep -q ' /bin/cc$'");
 });
 
 // An image that does not declare a package's host module refuses it, naming
