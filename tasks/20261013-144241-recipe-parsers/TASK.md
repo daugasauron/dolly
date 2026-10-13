@@ -2,7 +2,7 @@
 
 - STATUS: OPEN
 - PRIORITY: 260
-- TAGS: core,dollyfile,boundary
+- TAGS: core,dollyfile,boundary,owner
 
 Owner (2026-10-13), on
 [the reflection](../20261013-142800-direction/reflection.md): "The audit is
@@ -27,6 +27,64 @@ Done when it holds, with the evidence and without a verdict:
 - what could not be found out.
 
 The owner decides what, if anything, follows.
+
+## State (2026-10-14, 02:10): investigated, the owner's to read
+
+[The investigation](investigation.md), by a Fable agent that read
+`integrate/round-1013` and changed nothing. The integrator checked the three
+line counts, the first commit's document, the code that derives a sealed
+image's modules, the one JavaScript line that touches the engine's receipt,
+and `amy`'s loop. It gives no verdict. What it found:
+
+- The JavaScript parser is as old as the language (`9e013dd9`, 2026-08-31),
+  then for Node and a viewer only: "The browser does not parse or execute
+  build rows. JavaScript only discovers image names for routes and renders
+  source text for the viewer." The page began to parse with DOLLY 3
+  (`99093739`, 2026-09-06), the commit that made an image a complete
+  artifact the page has to supply before the engine runs.
+- Why the page must know a build's inputs before the kernel runs is
+  mechanical: a `FROM` base is restored as the kernel's filesystem before
+  `/bin/dollyfile` is started, and that engine is inside the base ("The
+  build runs the base's `/bin/dollyfile`", `docs/dollyfile.md`); every
+  `INSTALL` and `COPY` snapshot is a file the page writes before the start;
+  a builder has no service to ask.
+- The "fetch-on-demand loop" is `amy`'s, not the engine's. The engine ends
+  with status 3 naming one row; `amy` fetches it through `packages@0` and
+  asks again. In a build the same status is a failure. And the page answers
+  only for pins that the registry lists as packages, a list the JavaScript
+  parser wrote.
+- The module list the page trusts is the JavaScript parser's output on
+  every path: the registry, the packaged metadata, and for a rebuilt or
+  custom image the recipes kept inside the sealed snapshot, parsed again in
+  JavaScript (`src/image-artifact.mjs:184-191`). The engine seals its own
+  list into its receipt (`/etc/dolly/artifact`); no JavaScript reads it. So
+  "read from the sealed artifact" in the reflection is not the engine's
+  word either.
+- Under the threat model every input to that decision is recipe text whose
+  hash the page holds (the root against its own digest, each recipe of the
+  chain against the pin in its parent). A compromised build cannot widen
+  the module set without breaking SHA-256.
+- The two parsers were made to agree after a real disagreement
+  ([audit 48](../20260930-100000-audit-48/TASK.md), 2026-09-30: JavaScript
+  refused `gpu@0` with `gpu@1`, C accepted). Since then 232 cases run
+  through both, the C side as a native build of the real `dollyfile.c`. A
+  proposal for one grammar was "written and rejected by the owner"
+  ([audit 50](../20260930-100000-audit-50/TASK.md)); his words on two
+  parsers were not found.
+- Facts only the JavaScript parser can know when they are needed: a custom
+  image's modules before any Wasm exists; a build's base before the kernel
+  can be resumed from it; the modules of a packaged image on its ordinary
+  route, where the engine never runs; the order of 130 builds in Node
+  before any browser starts.
+- Met on the way: at packaging the engine's lock, kept recipes and `ENTRY`
+  are compared with the JavaScript graph for every image
+  (`scripts/snapshot-identity.mjs`); the engine's module list in the receipt
+  is not compared with the page's, so a disagreement on a live recipe there
+  would go unnoticed
+  ([a task](../20261013-170737-receipt-hosts/TASK.md)).
+- Not found out: whether a Wasm build of the engine's parser for the page
+  or Node was ever weighed; why Node parses in JavaScript; why the receipt
+  carries a list nothing outside the engine reads.
 
 ## What the reflection claims and proposes (2026-10-13, unchecked)
 
