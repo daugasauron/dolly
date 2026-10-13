@@ -158,7 +158,7 @@ export async function createHost(side, enabled, { send, resources = {}, configur
   // the modules others depend on (runtime@0, http@0) are among them.
   const requirementOf = ({ name, version }) => `${name}@${version}`;
   const list = () => hostContracts.map(contract => ({ name: contract.name, version: contract.version,
-    gives: contract.gives, fixed: contract.fixed ?? "", enabled: instances.has(contract.name),
+    gives: contract.gives ?? "", fixed: contract.fixed ?? "", enabled: instances.has(contract.name),
     declared: selected.includes(requirementOf(contract)) }));
   // Enabling hands the Worker's side what boot would have: the page side's
   // configuration and what it transfers, such as a canvas.
