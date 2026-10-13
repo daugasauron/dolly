@@ -1,0 +1,12 @@
+{
+  "name": "pty",
+  "version": 0,
+  "dependencies": ["runtime@0"],
+  "imports": [],
+  "host": "pty.mjs",
+  "contracts": ["dolly-pty-supervisor-0.wat"],
+  "process": ["dolly-pty-0.wat"],
+  "headers": ["pty.h", "pty-abi.h"],
+  "kernel": ["kernel.c"],
+  "client": ["client.c"]
+}

@@ -82,6 +82,11 @@ entry.
 - less links GNU termcap (GPL-2.0-or-later) statically, so the program is a
   GPL one. less itself is taken under its own two-clause licence, which the
   GPL admits; its `LICENSE` and termcap's `COPYING` are in the package.
+- tmux (ISC) links libevent (BSD-3-Clause) and NetBSD's libterminfo
+  (BSD-2-Clause and BSD-3-Clause) statically: permissive throughout. The
+  terminal descriptions compiled into libterminfo are from ncurses's
+  `terminfo.src`, which carries no copyright notice of its own. The three
+  licence files are in the package.
 - The 0 A.D. engine (GPL-2.0-or-later) links SpiderMonkey (MPL-2.0, whose
   secondary-licence clause allows the GPL combination), OpenAL Soft (LGPL),
   SDL2, FreeType, libpng, Ogg/Vorbis, ICU, Boost, {fmt}, libxml2, ENet and

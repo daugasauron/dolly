@@ -110,5 +110,23 @@ await demoTest("javascript", { image: "javascript", timeout: 600_000, server: { 
   await run(`cc utf8-writer.c -o writer && janis -m utf8-browser.mjs ${server.origin}`);
   await run("./writer stdin | janis -m utf8-browser.mjs stdin");
   assert.equal(await submit("janis -m -e 'await new Promise(() => {})'"), 1, "a stranded promise must fail, not spin");
+
+  // A program that is late to read gets what was typed meanwhile in one
+  // read, not cut inside a key's sequence. With kitty keyboard flags 7, as
+  // Pi asks, a key is its text and an escape sequence for its release: 60
+  // keys are 660 bytes. (The script joins its cue so that the echoed command
+  // does not show it.)
+  const late = start("janis -e '" + [
+    "process.stdin.setRawMode(true); process.stdout.write(\"\\x1b[>7u\" + [\"TYPE\", \"NOW\"].join(\"-\") + \"\\n\");",
+    "for (const until = Date.now() + 3000; Date.now() < until;) {}",
+    "const reads = []; process.stdin.on(\"data\", chunk => reads.push(chunk.length)); process.stdin.resume();",
+    "setTimeout(() => { process.stdout.write(\"\\x1b[<u\"); process.stdin.setRawMode(false);",
+    "console.log(\"READS-\" + reads.join(\"-\") + \"-END\"); process.exit(0); }, 1000);",
+  ].join(" ") + "'");
+  await waitText(/TYPE-NOW/);
+  await page.keyboard.type("x".repeat(60));
+  const [, first] = /READS-(\d+)[-\d]*-END/.exec(await waitText(/READS-[-\d]*-END/));
+  assert.ok(Number(first) > 256, `the first read took ${first} bytes`);
+  assert.equal(await late.done, 0);
   await run(`cd /workspace && rm -rf ${scratch}`);
 });

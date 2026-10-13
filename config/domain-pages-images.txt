@@ -73,3 +73,7 @@ wabt
 yacc
 flex
 pigz
+libevent
+libterminfo
+tmux
+tmux-panes

@@ -43,3 +43,16 @@ Pi.
 
 Done means: no text in Pi's prompt after start on the phone, and a test that fails without the
 fix.
+
+## 2026-10-13: the same cut, seen on this desktop (the tmux agent)
+
+Pi's reader takes the `readRaw` branch: `janisStdin.isTTY` is true at a
+terminal (`demos/javascript/janis.js`, the pump), so every read of Pi's is
+cut at 256 bytes. On 2026-10-13 that cut put a `u` into a typed line in 12 of
+43 runs of Pi's demo test on a loaded desktop, with and without `pty@0`
+(numbers in `tasks/20261012-130814-tmux` and
+`tasks/20261001-095000-terminal-text-flake`). The eighteen colour answers of
+this task are longer than 256 bytes together, so the same cut can leave the
+end of one, `d7d7`, for a read that comes after Pi's 100 ms: not measured
+here.
+
