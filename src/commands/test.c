@@ -21,8 +21,10 @@ static int unary(const char *operation, const char *value, int *known) {
       strcmp(operation, "-w") == 0) return stat(value, &metadata) == 0;
   if (strcmp(operation, "-f") == 0) return stat(value, &metadata) == 0 && S_ISREG(metadata.st_mode);
   // Dolly has no execute permission bits. PATH resolution likewise accepts a
-  // regular file and leaves Wasm-format/ABI validation to the loader.
-  if (strcmp(operation, "-x") == 0) return stat(value, &metadata) == 0 && S_ISREG(metadata.st_mode);
+  // regular file and leaves Wasm-format/ABI validation to the loader; every
+  // directory can be searched.
+  if (strcmp(operation, "-x") == 0)
+    return stat(value, &metadata) == 0 && (S_ISREG(metadata.st_mode) || S_ISDIR(metadata.st_mode));
   if (strcmp(operation, "-d") == 0) return stat(value, &metadata) == 0 && S_ISDIR(metadata.st_mode);
   if (strcmp(operation, "-s") == 0) return stat(value, &metadata) == 0 && metadata.st_size > 0;
   *known = 0;

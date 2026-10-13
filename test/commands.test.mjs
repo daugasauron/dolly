@@ -68,7 +68,7 @@ test("timeout 0 disables the deadline", () => {
 test("Dolly's own core tools keep their no-permission and finite semantics", async () => {
   const testTool = build("test"), bracket = build("bracket");
   const status = (program, args) => run(program, args).status;
-  assert.equal(status(testTool, ["-x", "."]), 1, "a directory is not an executable candidate");
+  assert.equal(status(testTool, ["-x", "."]), 0, "a directory can be searched");
   assert.equal(status(testTool, ["-x", testTool]), 0);
   assert.equal(status(bracket, ["(", "-n", "a", "-a", "-z", "", ")", "-o", "!", "-d", ".", "]"]), 0);
   assert.equal(status(bracket, ["!", "(", "a", "=", "a", ")", "-a", "-d", ".", "]"]), 1);
