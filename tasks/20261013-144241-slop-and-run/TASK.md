@@ -33,7 +33,7 @@ is hard earned wisdom." Start from the history, not from the reflection: why
 there are two, what each can do that the other cannot, and what was tried
 before.
 
-## State (2026-10-14, 01:00): investigated, the owner's to read
+## State (2026-10-14, 00:50): investigated, the owner's to read
 
 [The investigation](investigation.md), by a Fable agent that read
 `integrate/round-1013` `0155af64` and changed nothing. Its commits and counts
