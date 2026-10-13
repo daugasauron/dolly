@@ -78,7 +78,8 @@ bash scripts/package-pages.sh build/github-releases github-pages
   included automatically.
 - The second packaging argument selects the site: `slopshare.dev` adds the
   `/agents/` showcase ([`package-domain.mjs`](../scripts/package-domain.mjs));
-  `github-pages` links Studio, Pi Local and 0 A.D. to the domain
+  `github-pages` links every application that only the domain publishes to
+  it, as a group of the menu
   ([`package-github-pages.mjs`](../scripts/package-github-pages.mjs)).
 - [`package-pages.sh`](../scripts/package-pages.sh) `RELEASES SITE` seals a
   release into `RELEASES/ID` and points `RELEASES/current` at it (default

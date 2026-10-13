@@ -100,14 +100,17 @@ program, built from a [Dollyfile](dollyfile.md). Core images:
 ```mermaid
 flowchart TD
   seed["compiler seed<br/>dist/dolly.data"] -- "root build" --> sb["system-build<br/>cc, Slop, core tools, make, tar"]
-  sb --> st["system-tools<br/>sbase, git, curl, awk, /bin/sh"]
   sb --> zb["zig-build<br/>Zig"]
   zb --> gb["ghostty-build<br/>Ghostty"]
-  st --> sys["system<br/>display, sessions"]
-  gb -. "COPY plugin + font" .-> sys
-  sys --> def["default"]
+  gb -. "COPY plugin + font" .-> disp["display<br/>package"]
+  sb --> st["system-tools<br/>sbase, git, awk, /bin/sh"]
+  disp -. "INSTALL" .-> st
+  st --> sys["system<br/>sessions"]
   sys --> gpu["gpu-sdk"]
   sys --> audio["audio-sdk"]
+  sb -. "packages: core, curl, nena" .-> def["default<br/>packages only"]
+  st -. "packages: posix, amy, transfer" .-> def
+  disp -. "INSTALL" .-> def
   demos["demos/*"]
   sb -.-> demos
   st -.-> demos
@@ -118,16 +121,18 @@ flowchart TD
   [`Dollyfile-system-tools`](../Dollyfile-system-tools),
   [`Dollyfile-zig-build`](../Dollyfile-zig-build),
   [`Dollyfile-ghostty-build`](../Dollyfile-ghostty-build),
+  [`Dollyfile-display`](../Dollyfile-display),
   [`Dollyfile-system`](../Dollyfile-system), [`Dollyfile`](../Dollyfile) (default),
   [`Dollyfile-gpu-sdk`](../Dollyfile-gpu-sdk), [`Dollyfile-audio-sdk`](../Dollyfile-audio-sdk);
-- The graph is split so an edit rebuilds only its descendants: each builder
-  starts from the smallest image with its tools. Neither Git nor display
-  packaging is an input to the Rust producers (`rust-sdk` starts from
-  `system-build`); CMake, Neovim and SDL build from `system-tools` without
-  display or Rust.
+- An edit rebuilds its descendants: each builder starts from the smallest
+  image with its tools. `default` has no base: it installs packages, each
+  built in `system-build` or `system-tools`. `system-tools` installs the
+  `display` package, so Zig and Ghostty are inputs to everything built from
+  it (CMake, Neovim, SDL); `rust-sdk` starts from `system-build` and installs
+  `display` as well.
 - Toolchains stay in images that are only built; applications and packages keep
-  exact outputs, as `system` copies Ghostty's plugin and font without the Zig
-  SDK and `pi-runtime` installs the `javascript` package
+  exact outputs, as the `display` package copies Ghostty's plugin and font
+  without the Zig SDK and `pi-runtime` installs the `javascript` package
   ([Dollyfile](dollyfile.md#building)).
 - Prebuilt boot restores a sealed snapshot without downloading the compiler seed
   or compiling anything.

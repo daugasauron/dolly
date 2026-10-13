@@ -12,7 +12,7 @@ test("preparation keys track their code and survive checkout relocation", async 
   const inputs = [
     "config/source-pins.sh", "config/samurai-dolly.patch",
     "scripts/prepare-samurai.sh", "scripts/prepare-zig-native.sh",
-    "patches/zig-0.16.0-dolly-native.patch",
+    "config/zig-0.16.0-dolly-native.patch",
   ];
   const recipes = [
     ["prepare-samurai.sh", "recipe_hash"],

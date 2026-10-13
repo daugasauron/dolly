@@ -178,8 +178,8 @@ notice in gpu-fluid, and CPython's change summary.
 The owner delegated three decisions (task `20261005-135857-licence-owner`):
 
 1. 0 A.D.'s missing corresponding source is now served (above).
-2. Dolly's agents, spectators and viewers are MIT; only the 8 files compiled
-   into Seven Kingdoms or 0 A.D. stay GPL-2.0-or-later.
+2. Dolly's agents, spectators and viewers are MIT; only the 10 files compiled
+   into Seven Kingdoms, 0 A.D. or Xonotic stay GPL-2.0-or-later.
 3. ClassiCube's default texture pack names no licence: upstream's
    `license.txt` covers its code, `credits.txt` names Goodlyay as the artist,
    and when asked for the pack's licence (ClassiCube issue 1430, 2025-09-07) he

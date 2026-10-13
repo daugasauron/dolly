@@ -13,7 +13,7 @@ WAT file document its semantics.
 | [`host/dso/dolly-dso-0.wat`](../host/dso/dolly-dso-0.wat) | Optional process-local shared objects and FFI: the side-module profile and the operations of `dso@0` |
 | [`host/threads/dolly-threads-0.wat`](../host/threads/dolly-threads-0.wat), [`host/threads/dolly-threads-supervisor-0.wat`](../host/threads/dolly-threads-supervisor-0.wat) | Optional `-pthread` profile and its supervisor exports |
 | [`dolly-host-0.wat`](dolly-host-0.wat) | `dolly.host` records naming required host modules and their ABI digests; no authority |
-| [`host/gpu/dolly-gpu-0.wat`](../host/gpu/dolly-gpu-0.wat), [`host/audio/dolly-audio-0.wat`](../host/audio/dolly-audio-0.wat) | Additive process operations 128 and 129 and their browser imports |
+| [`host/gpu/dolly-gpu-0.wat`](../host/gpu/dolly-gpu-0.wat), [`host/audio/dolly-audio-0.wat`](../host/audio/dolly-audio-0.wat), [`host/microphone/dolly-microphone-0.wat`](../host/microphone/dolly-microphone-0.wat), [`host/buttons/dolly-buttons-0.wat`](../host/buttons/dolly-buttons-0.wat), [`host/nena/dolly-nena-0.wat`](../host/nena/dolly-nena-0.wat) | Additive process operations 128 (GPU), 129 (audio), 130 (microphone), 131 and 132 (buttons) and 133 (nena), and their browser imports |
 | [`dolly-kernel-plugin-0.wat`](dolly-kernel-plugin-0.wat) | The resident display plugin and its registration as the terminal's input decoder; never an ordinary program target |
 | [`dolly-browser-0.wat`](dolly-browser-0.wat) | The complete typed outer import allowlist of the kernel |
 | [`dolly-supervisor-0.wat`](dolly-supervisor-0.wat) | Kernel exports the trusted supervisor uses, and the page's terminal mailbox (foreground, results, Ctrl+C) |
@@ -62,7 +62,7 @@ Architecture and authority: [architecture](../docs/architecture.md),
 stamps, validates again and publishes atomically:
 
 ```sh
-node scripts/dolly-abi.mjs validate-process build/dolly-process-0.wasm build/process-bin/ls
+node scripts/dolly-abi.mjs validate-process build/dolly-process-0.wasm build/process-bin/bootstrap
 node scripts/dolly-abi.mjs validate-runtime build/dolly-kernel-plugin-0.wasm dist/dolly.wasm
 node scripts/dolly-abi.mjs validate-browser build/dolly-browser-0.wasm dist/dolly.wasm
 ```
