@@ -68,8 +68,11 @@ found:
 - For another origin the browser already asks the destination which
   request headers it accepts (CORS); that gate is the destination's
   choice, not the embedding's.
-- Tests: the removal is tested for `authorization` and `cookie`; not for
-  the other four names, and no test shows a seventh name passing.
+- Tests: the removal was tested for `authorization` and `cookie` only. Since
+  2026-10-14 `test/http-policy.test.mjs` checks all six: a hardened rule
+  lets through exactly those it names, and none when it names none (the
+  test fails when one name is let slip; shown by breaking the loop for one
+  run). No test shows a seventh name passing: that is the open question.
 - Not found out: any word of the owner on the list or on its form; which
   headers Pi's, pip's and npm's clients really send (a capture in a browser
   would tell).

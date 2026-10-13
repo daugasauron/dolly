@@ -226,3 +226,16 @@ test("a relay is transport for a destination the policy admits, with no credenti
   assert.equal(consumeDollyHttpPolicy(page).relays.size, 1);
   assert.equal("DOLLY_HTTP_RELAYS" in page, false, "the page must not keep the relay configuration");
 });
+
+test("a hardened rule lets through only the credential headers it names", () => {
+  const names = ["authorization", "cookie", "proxy-authorization", "x-api-key", "api-key", "x-goog-api-key"];
+  const target = new URL("https://models.example/v1/chat");
+  const left = credentialHeaders => {
+    const headers = new Headers(names.map(name => [name, "secret"]));
+    new DollyHttpPolicy({ rules: [{ origin: target.origin, credentialHeaders }] }).authorize(target, "GET", headers, 0);
+    return [...headers.keys()];
+  };
+  for (const name of names) assert.deepEqual(left([name]), [name]);
+  assert.deepEqual(left([]), []);
+  assert.deepEqual(left(undefined), []);
+});
