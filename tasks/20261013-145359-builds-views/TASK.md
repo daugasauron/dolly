@@ -2,7 +2,7 @@
 
 - STATUS: OPEN
 - PRIORITY: 252
-- TAGS: packages,catalog,dollyfile
+- TAGS: packages,catalog,dollyfile,owner
 
 Owner (2026-10-13), on
 [the inventory of builds](../20261013-142800-generic-builds/inventory.md): "I
@@ -31,6 +31,62 @@ in the group:
 - what could not be found out without building.
 
 The owner decides what, if anything, follows.
+
+## State (2026-10-14, 02:45): investigated, the owner's to read
+
+[The investigation](investigation.md), by a Fable agent that read `main`
+`1b8e4b9c`, the built images and the logs, and changed nothing. The
+integrator checked the counts (77 packages, 19 views under the strict rule,
+9 made of `COPY` rows), Slopyard's second Box3D build, the two port patches'
+sizes and the quoted rule. It gives no verdict. What it found:
+
+- The document names three shapes of a package and ranks none
+  (`docs/dollyfile.md:289-293`, both commits of 2026-10-05). The ranking,
+  "Cheapest shape first: a thin `PACKAGE` over the image that builds the
+  program … adds no image input and rebuilds nothing", is the packages
+  task's of 2026-10-12, and it made the views of that night and the next.
+  That the thin packages are "the shortcut" is the integrator's reading of
+  the owner's words of 2026-10-13, not a sentence of his.
+- Today 30 of 77 packages hold no build: 21 views and 9 made of `COPY`
+  rows; 42 hold their build; 5 are data or a script. The inventory's
+  numbers are right for its tree.
+- Of the twelve views outside the base images, nine are installed by no
+  recipe (`openal`, `libuv`, `raylib`, `box3d`, `llama`, `zig`,
+  `session-recover`, `pkgconf`, `freetype`).
+- "Nothing entangled" holds for the build steps (each is one block of rows
+  that moves whole) and not for what stands around them:
+  - `openal`: Dolly's 123-line patch applied at staging, options chosen for
+    0 A.D. (a serial mixer, no threads, no backend), and `zero-ad-deps` is
+    built on `openal-build`, so twelve images stand on it. The library plays
+    nothing itself: a program renders samples and writes them to `audio@0`,
+    so the package declares no host module (the ruling of 2026-10-12 read
+    it the other way; both are on record).
+  - `libuv`: Dolly's port (the 151-line patch, two C files, a header, a
+    Makefile) of upstream's archive at Neovim's pin, not CMake's bundled
+    copy; 82 images stand on `cmake-build` and each carries `libuv.a`.
+  - `raylib` and `box3d`: one `sdk.mk` for both; Slopyard builds Box3D a
+    second time from the SDK's kept source tree, with threads and SIMD, and
+    links that one, so the SDK's `libbox3d.a` has no user but the `box3d`
+    view. Here two users do want different options.
+  - `nvim`: five libraries that exist only as static archives, plus CMake,
+    libuv and the page formatter; no base holds all of it.
+- Written out (section 5), a package holding its own build is the build
+  image's recipe with the view's export rows appended, in every case but
+  `nvim`; the build image then goes or becomes a composition. The question
+  left open each time is [build needs](../20261013-144754-build-needs/TASK.md).
+- The catalog already has both shapes for the same kind of thing:
+  `libevent` and `libterminfo` hold their builds and `tmux` installs them,
+  so `tmux-panes` carries 851 KB of libraries its program linked
+  statically; `quickjs`, `janis` and `typescript` hold their builds since
+  this night at 1.65 MB more than the view they replace, built in 14.9, 4.1
+  and 5.2 s.
+- What would rebuild, on today's graph: `openal` 12 images; `raylib` and
+  `box3d` 4; `libuv` 82; `llama` 3; `nvim` and `lua` 4; `session-recover`
+  51; `zig` and `display` 118 and 115.
+- Not found out: the time and memory of these builds (no log holds a
+  duration); what `zero-ad-deps` declares `audio@0` for; whether the
+  rulings of 2026-10-05 and 2026-10-12 ("one consumer", "portable C …
+  stays") still stand for the owner.
 
 ## What the inventory says (2026-10-13, unchecked)
 
