@@ -250,6 +250,7 @@ const pages = {
   sqlite: { sqlite3: "SQLite" },
   jq: { jq: "JSON" },
   xz: { xz: "compress" },
+  zstd: { zstd: "compress" },
   mandoc: { mandoc: "manual" },
 };
 const reads = name => Object.entries(pages[name] ?? {}).map(([page, word]) =>
@@ -294,7 +295,7 @@ const tools = {
   jq: ["jq", "echo '{\"a\": [1, 20, 21], \"b\": \"x-42\"}' > /tmp/amy.json && " +
     "test \"$(jq -r '(.a | add | tostring) + \" \" + (.b | capture(\"(?<n>[0-9]+)\").n)' /tmp/amy.json)\" = '42 42'"],
   xz: ["xz", `${packs("xz", "unxz", "xz")} && ${links("lzma", "lzma", "lzma_version_number() != LZMA_VERSION")}`],
-  zstd: ["zstd", `${packs("zstd", "unzstd", "zst")} && ${links("zstd", "zstd", "ZSTD_versionNumber() != ZSTD_VERSION_NUMBER")} && man zstd > /dev/null`],
+  zstd: ["zstd", `${packs("zstd", "unzstd", "zst")} && ${links("zstd", "zstd", "ZSTD_versionNumber() != ZSTD_VERSION_NUMBER")}`],
   bzip2: ["bzip2", `${packs("bzip2", "bunzip2", "bz2")} && ${links("bzlib", "bz2", "BZ2_bzlibVersion()[0] != '1'")} && man bzip2 > /dev/null`],
   lz4: ["lz4", `${packs("lz4", "unlz4", "lz4")} && ${links("lz4", "lz4", "LZ4_versionNumber() != LZ4_VERSION_NUMBER")} && man lz4 > /dev/null`],
   // gzip, earlier in this table, only unpacks: it reads what pigz packs.
