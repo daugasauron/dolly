@@ -1338,16 +1338,6 @@ int __syscall_ioctl(int descriptor, int request, uintptr_t arguments) {
   }
 }
 
-/* A terminal has one name here: /dev/tty opens the terminal a process stands
- * on, the display's or a pseudo-terminal's slave. The libc's own asks /proc. */
-int ttyname_r(int descriptor, char *name, size_t size) {
-  static const char terminal[] = "/dev/tty";
-  if (!isatty(descriptor)) return errno;
-  if (size < sizeof(terminal)) return ERANGE;
-  memcpy(name, terminal, sizeof(terminal));
-  return 0;
-}
-
 /* Only a request that waits is interrupted by a signal handler. */
 static int lock_call(int descriptor, uint32_t flags, uint32_t type, const struct flock *range,
                      dolly_process_fd_lock_response *holder) {

@@ -259,8 +259,10 @@ static int libc(void) {
   CHECK(ioctl(slave, TIOCGWINSZ, &size) == 0 && size.ws_row == 11 && size.ws_col == 13);
   CHECK(ioctl(slave, TIOCSWINSZ, &size) == -1 && errno == EPERM);
   CHECK(ioctl(STDIN_FILENO, TIOCSWINSZ, &size) == -1 && errno == EPERM);
-  CHECK(strcmp(ttyname(slave), "/dev/tty") == 0 && strcmp(ttyname(STDIN_FILENO), "/dev/tty") == 0);
-  CHECK(ttyname(master) == NULL && errno == ENOTTY);
+  /* A terminal has no name: a program that got one would open it for a
+   * description of its own (libuv does, to set O_NONBLOCK), and a slave is
+   * one open file. */
+  CHECK(ttyname(slave) == NULL && ttyname(STDIN_FILENO) == NULL);
   const pid_t child = spawn_on(slave, "terminal");
   CHECK(close(slave) == 0);
   expect(master, "ready\r\n");

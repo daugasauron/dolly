@@ -96,8 +96,8 @@ sequenceDiagram
   descriptor 0, 1 or 2.
 - `/dev/tty` opens the terminal for reading and writing. There are no sessions,
   so it is every process's controlling terminal, except a process on a
-  [pseudo-terminal](#pseudo-terminals), which opens that. `ttyname` of a
-  terminal answers `/dev/tty`.
+  [pseudo-terminal](#pseudo-terminals), which opens that. `ttyname` fails: a
+  terminal has no name of its own.
 - `poll` covers files, pipes, sockets, pseudo-terminals and the terminal; signals wake it with `EINTR`.
 - Terminal reads return raw input bytes. `ICANON`/`ECHO` round-trip through termios
   without a line discipline; `OPOST`/`ONLCR` map LF to CRLF on output. While
@@ -204,7 +204,9 @@ nothing and declares nothing: any program built for Dolly runs on one.
   size of its own: `isatty`, termios and `TIOCGWINSZ` answer as for the
   display's terminal, with the same discipline (no input editing or echo,
   `OPOST` with `ONLCR`, `ISIG`). A process whose descriptor 0, 1 or 2 is a
-  slave opens it as `/dev/tty`. The master is not a terminal.
+  slave opens it as `/dev/tty`: the same open file again, so `O_NONBLOCK` set
+  there is set for every process that holds the slave. The master is not a
+  terminal.
 - `ioctl(TIOCSWINSZ)` on the master sets the size, and the processes that
   hold the slave get `SIGWINCH`.
 - While `ISIG` is set, byte 3 written to the master is `SIGINT` for the
