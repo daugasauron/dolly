@@ -283,6 +283,78 @@ the source suite ran on it (346 pass), nothing was built. Resolved by hand:
   the tmux test's `default` session: `nena enable pty && amy install tmux &&
   command -v tmux`.
 
+## The audit of 2026-10-13 (`core/nena-audit`, from `integrate/round-1013` `b069404a`)
+
+A read-only audit found no hole and these weaknesses, all in page or Worker
+JavaScript: no image input changed (`build:runtime` prints the round's image
+inputs, `538c5a8a…`).
+
+- **W2, a call pending when its module is disabled.** Reproduced first, in
+  Chromium on `default`: a program calling `audio@0` without pause while its
+  child runs `nena disable audio` hung in 20 runs of 20; Ctrl+C ended it each
+  time with status 130, so a deferred call can be interrupted. The lease
+  bridge's Worker side now answers every pending call with `ENOSYS` when it
+  is disposed (`host/lease-bridge.mjs`; audio, microphone, buttons, nena).
+  After: 20 of 20 exit 0 in Chromium and in Firefox. `src/device-lease.c` is
+  unchanged: the bridge writes the reply the lease waits for.
+- **W1, the switches went to every provider.** `host/nena/module.json` says
+  `"switches": true` and the registry gives `list`, `enable` and `disable`
+  to that manifest's page side only. The test enables a stand-in for
+  `audio@0`'s provider and finds it handed none.
+- **W3, a slow module could stop a session from loading.** Reproduced with a
+  stand-in provider whose Worker side starts in 12 s, in Firefox: "host
+  provider nena did not acknowledge initialization". Boot now waits three
+  seconds for the record's modules; a slower one comes while the session
+  runs. Decided against enabling only after the acknowledgement: an ENTRY's
+  start-up script would then race the modules it needs in the usual case.
+- **W6.** One status line names what the record enabled and, with the
+  command, what the browser did not give.
+- **C6 and the indicator.** A check that lost its five seconds is told so and
+  paints nothing when the browser answers later; after `nena disable gpu`
+  the indicator says again what a page without the module says.
+- **W4 and the tests asked for**: every module another depends on is fixed
+  (`test/host-modules.test.mjs`); `/etc/dolly/enabled` planted in `system`,
+  saved and loaded, leaves the page's modules as they were; no track of the
+  microphone's stream stays live after `nena disable microphone` under a
+  recording program.
+- **C3, C4.** The ledger of `20260930-100000-audit-24` names `nena@0`
+  (10,578 lines); `AGENTS.md` says what a page adds to a recipe's list.
+
+Each new assertion for W1, W2, W3, C6 and the indicator was seen to fail with
+its fix taken out.
+
+Two sentences of documents are now inexact and wait for the next change to
+the documents, which are image inputs: `host/README.md`'s table of manifest
+fields has no row for `switches` ("the registry's `list`, `enable` and
+`disable` go to this module's page side; only `nena`"), and
+`docs/process-model.md` says a loaded session's modules are enabled "before
+ENTRY", which holds for those the browser gives within three seconds.
+
+Measured on the final code, Chromium and Firefox:
+
+- `test/nena-browser.mjs` (36 s each) and `test/host-modules-browser.mjs`.
+- The core suite file by file under `slot.sh browser`: every file passes in
+  both browsers but those whose image the round had not built yet when this
+  ran: `audio-browser`, `microphone-browser` (`audio-sdk`),
+  `gpu-indicator-browser` (`gpu-sdk`), `docs-browser`, `site-browser`
+  (`dolly-docs`), and `amy-browser` after its first case (the catalog).
+- The audio, microphone and GPU indicator tests then ran as copies that open
+  `system` composed in the page with the SDK image's host modules
+  (`build/audit-evidence/composed/`, not committed): all pass in both
+  browsers. They are the tests of the lease bridge and of the indicator,
+  which these fixes changed.
+- Not run: `fs-growth-browser` (it needs the `hugebuild` cap), `docs-browser`,
+  `site-browser`, the rest of `amy-browser`.
+- Source suite: 350 pass.
+
+No image was built here: the round holds the one build slot (`build.count`
+is 1 and the round's `hugebuild` has slot 1), so `slot.sh build` and
+`slot.sh hugebuild` wait for the round's end. `default`, `system`, `cc`,
+`git`, `less`, `python`, `zig` and what they are built from are the round's
+own snapshots, hard-linked from `work/rust/dist` once it had built them,
+each verified a cache hit by the builder's plan (the same image inputs and,
+after the pin update the round's build also made, the same recipe pins).
+
 ## Left
 
 - The round: every image is stale. Then Pi's test twelve times and

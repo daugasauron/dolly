@@ -156,11 +156,12 @@ await browserTest("nena", { image: "default", timeout: 300_000, server: { fixtur
   assert.equal(await sending, 0);
   await run("test \"$(cat /tmp/sent)\" = 'sent late'");
   // A fixed module is neither enabled nor disabled, and a name the page lacks is refused.
-  for (const command of ["disable runtime", "disable http", "disable display", "enable build", "enable nosuch"]) {
+  for (const command of ["disable runtime", "disable http", "disable display", "disable input", "disable snapshot", "enable build", "enable nosuch"]) {
     assert.equal(await submit(`nena ${command} 2> /tmp/fixed`), 1, command);
     await run("test -s /tmp/fixed");
   }
-  assert.deepEqual((await enabled()).filter(module => /^(runtime|http|display|build)@/.test(module)).sort(), ["display@0", "http@0", "runtime@0"]);
+  assert.deepEqual((await enabled()).filter(module => /^(runtime|http|display|input|snapshot|build)@/.test(module)).sort(),
+    ["display@0", "http@0", "input@0", "runtime@0", "snapshot@0"]);
   // gpu@0 is enabled where the browser has WebGPU and refused with the reason where it has not.
   const gpu = await submit("nena enable gpu 2> /tmp/gpu");
   assert.equal((await enabled()).includes("gpu@0"), gpu === 0, await session.text());
