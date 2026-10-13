@@ -8,7 +8,7 @@ REQUIRES HOST runtime@0
 # editing its own lines as bc does (-s dc.tty_mode): the terminal has no line
 # discipline, so a program that leaves a line to it never gets one. dc is bc
 # under the name it looks for.
-FROM /v0.1.3/Dollyfile-system-tools e19ab2a237b16de1596ccbb3a2ae07dd34b65488de38762b66ec0207a89c4b83
+FROM /v0.1.3/demos/tools/Dollyfile-tools-build 6ba4c47ce2631185f78f778a161ffc23f43f3948e2676ed8a287f7b07d6cbfc4
 
 REQUIRES HEADER libc
 REQUIRES TOOL   cc
@@ -17,6 +17,7 @@ REQUIRES TOOL   ln
 REQUIRES TOOL   make
 REQUIRES TOOL   tar
 REQUIRES TOOL   test
+REQUIRES TOOL   text-page
 
 SOURCE /v0.1.3/dist/static/tools/bc.tar 4b12b7753ab51bd93bd5948e7a854a80b259a5baab2fd69047f1741c9d02afc7 /tmp/bc.tar
 SLOP tar -xf /tmp/bc.tar -C /
@@ -60,5 +61,6 @@ EXPORTS TOOL dc
 FILE /usr/share/licenses/bc/LICENSE.md
 FILE /usr/share/licenses/bc/NOTICE.md
 # The manuals of this build: every feature but the message catalogues.
-FILE /usr/share/man/man1/bc.1
-FILE /usr/share/man/man1/dc.1
+SLOP text-page /usr/share/man/man1/bc.1 /usr/share/man/man1/dc.1
+FILE /usr/share/man/cat1/bc.1
+FILE /usr/share/man/cat1/dc.1

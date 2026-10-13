@@ -257,6 +257,7 @@ const pages = {
   unzip: { unzip: "extract", zipinfo: "archive" },
   zip: { zip: "compress" },
   tree: { tree: "director" },
+  bc: { bc: "calculator", dc: "calculator" },
   mandoc: { mandoc: "manual" },
 };
 const reads = name => Object.entries(pages[name] ?? {}).map(([page, word]) =>
@@ -314,7 +315,7 @@ const tools = {
   tree: ["tree", "mkdir -p /tmp/amy-tree/a/b && touch /tmp/amy-tree/a/b/leaf /tmp/amy-tree/top && cd /tmp/amy-tree && " +
     "test \"$(tree --noreport -i -f . | tr '\\n' ' ')\" = '. ./a ./a/b ./a/b/leaf ./top ' && tree -J . | grep -q '\"name\":\"leaf\"'"],
   bc: ["bc", "test \"$(echo '6 * 7; 2 ^ 64; scale = 20; 4 * a(1)' | bc -l | tr '\\n' ' ')\" = '42 18446744073709551616 3.14159265358979323844 ' && " +
-    "test \"$(echo '6 7 * p' | dc)\" = 42 && man bc > /dev/null && man dc > /dev/null"],
+    "test \"$(echo '6 7 * p' | dc)\" = 42"],
   xxd: ["xxd", "test \"$(echo hello | xxd -p)\" = 68656c6c6f0a && seq 1 300 > /tmp/amy-xxd && xxd /tmp/amy-xxd | xxd -r | cmp - /tmp/amy-xxd && man xxd > /dev/null"],
   base64: ["base64", `test "$(echo packed | base64)" = cGFja2VkCg== && seq 1 3000 | base64 > /tmp/amy-base64 && base64 -d /tmp/amy-base64 | tail -n 1 | grep -qx 3000 && ` +
     links("libbase64", "base64", "base64_decode(0, 0, 0, 0, 0) != 1")],
