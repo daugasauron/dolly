@@ -215,6 +215,7 @@ x5"`, 0],
   ["a subshell of one program runs in the background", '( slop -c "exit 7" ) & wait $!; test $? = 7 || exit 91; ( sleep 1 ) & pid=$!; test -n "$pid" && wait "$pid"', 0],
   ["a background pipeline is waited for", 'seq 1 3 | tail -n 1 > last & wait; test "$(cat last)" = 3', 0],
   ["a background program does not read the shell's input", "cat & wait $!", 0],
+  ["a shell whose directory was removed can still change directory", 'start=$PWD; mkdir -p gone/sub && cd gone/sub && rm -r "$start/gone" || exit 91; slop -c "cd /" 2> /dev/null || exit 92; cd "$start" || exit 93; test "$PWD:$OLDPWD" = "$start:$start/gone/sub"', 0],
   ["& ends a word and follows redirections", 'slop -c "echo o; echo e >&2" > both 2>&1& wait; test "$(wc -l < both)" -eq 2', 0],
 ];
 

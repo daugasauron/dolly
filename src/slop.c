@@ -2802,7 +2802,9 @@ static int builtin(Shell *shell, int argc, char **argv) {
       fprintf(stderr, "slop: cd: %s is not set\n", previous ? "OLDPWD" : "HOME");
       return 1;
     }
+    // A removed working directory has no name left but the one in PWD.
     char *old_cwd = getcwd(NULL, 0);
+    if (old_cwd == NULL && getenv("PWD") != NULL) old_cwd = strdup(getenv("PWD"));
     if (old_cwd == NULL) {
       fprintf(stderr, "slop: cd: %s\n", strerror(errno));
       return 1;
@@ -5352,11 +5354,10 @@ int main(int argc, char **argv) {
     functions_dispose(&functions);
     return status;
   }
+  // Started in a removed directory, the shell keeps the PWD it was given.
   char *cwd = getcwd(NULL, 0);
-  if (cwd == NULL) { perror("slop: getcwd"); return 1; }
-  const int cwd_status = setenv("PWD", cwd, 1);
+  if (cwd != NULL && setenv("PWD", cwd, 1) != 0) { perror("slop: PWD"); return 1; }
   free(cwd);
-  if (cwd_status != 0) { perror("slop: PWD"); return 1; }
   if (command) {
     if (index == argc) { usage(stderr); return 2; }
     const char *text = argv[index++];
