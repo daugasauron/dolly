@@ -114,6 +114,18 @@ await browserTest("host modules", { image: "system", server: { sourceOverrides, 
   assert.equal(loaderFetches(), loaderFetchesBefore, "an image without dso@0 fetched its loader");
   assert.notEqual(await submit(`curl -fsS ${server.origin}/denied`), 0);
   assert.equal(server.requests.has("/denied"), false, "denied network request escaped the broker");
+  // The record nena@0 keeps of a session's modules is a file of the session.
+  // Planted in this image, saved and loaded, it changes nothing: the page
+  // reads it only where the image declares nena@0.
+  const modules = () => page.evaluate(() => [...__dolly.hostModules].sort());
+  const declared = await modules();
+  await run("printf 'audio@0\\ngpu@0\\n' > /etc/dolly/enabled");
+  assert.equal(await page.evaluate(() => __dolly.saveSession("planted")), "planted");
+  await page.goto(`${server.origin}/session/?name=planted`);
+  await page.waitForFunction(() => ["ready", "failed"].includes(document.documentElement.dataset.dollyStatus));
+  await page.evaluate(() => __dolly.waitForInteractiveTerminal(/dolly:[^\n]*\$\s*$/, "session shell"));
+  assert.deepEqual(await modules(), declared);
+  await run("test \"$(cat /etc/dolly/enabled | tr '\\n' ' ')\" = 'audio@0 gpu@0 '");
   assert.deepEqual(errors, []);
 
   // An image whose required provider is disabled fails before its large downloads.
