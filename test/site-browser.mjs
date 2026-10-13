@@ -48,17 +48,17 @@ await browserTest("site", { server: { handle } }, async ({ browser, server }) =>
   // The static menu links each image's routes, and every linked route exists.
   await page.goto(`${origin}${prefix}/`);
   assert.equal(await page.locator("script").count(), 0);
-  const images = await page.$$eval("tr.image", rows => rows.map(row => ({ image: row.dataset.image, graphics: row.dataset.graphics,
+  const images = await page.$$eval("tr.image", rows => rows.map(row => ({ image: row.dataset.image, cells: row.cells.length,
     links: [...row.querySelectorAll(".image-links a")].map(link => new URL(link.href).pathname) })));
   assert.deepEqual(images.map(row => row.image).sort(), DOLLY_IMAGES.map(definition => definition.image).sort());
-  for (const { image, links, graphics } of images) {
+  for (const { image, links, cells } of images) {
     const definition = DOLLY_IMAGES.find(definition => definition.image === image);
     const displayed = definition.entry !== null && definition.hostRequirements.includes("display@0");
     assert.deepEqual(links.sort(), [...displayed ? [`${prefix}/${image}/`] : [], `${prefix}/${image}/rebuild/`,
       `${prefix}/view/${image}/`].sort(), image);
     for (const link of links) assert.ok(existsSync(`${root}${link.slice(prefix.length + 1)}index.html`), link);
-    // An image reaches a GPU only through gpu@0: its row says GPU, and every other image that opens says CPU.
-    assert.equal(graphics, definition.hostRequirements.includes("gpu@0") ? "gpu" : displayed ? "cpu" : "", image);
+    // A row is the image's name, its description and its links.
+    assert.equal(cells, 3, image);
   }
   const menu = await page.evaluate(() => {
     const groups = [];
@@ -139,8 +139,6 @@ await browserTest("site", { server: { handle } }, async ({ browser, server }) =>
   assert.equal(await typed("test -f /etc/dolly/Dollyfile"), 0);
   await page.evaluate(() => document.activeElement.blur());
   assert.equal(await typed("test -d /workspace"), 0);
-  // default declares no gpu@0, and its page says what that means.
-  assert.equal(await page.locator("#gpu-status").getAttribute("data-gpu"), "absent");
   // amy's index and a recipe are site paths, so they are read under the prefix.
   assert.equal(await page.evaluate(() => __dolly.submit("amy list | grep -q '^curl  *installed '")), 0);
   assert.ok(prefixed.includes(`${prefix}/amy-index.txt`), "amy did not read the site's index");

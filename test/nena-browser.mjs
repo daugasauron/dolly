@@ -185,22 +185,27 @@ await browserTest("nena", { image: "default", timeout: 300_000, server: { fixtur
   }
   assert.deepEqual((await enabled()).filter(module => /^(runtime|http|display|input|snapshot|build)@/.test(module)).sort(),
     ["display@0", "http@0", "input@0", "runtime@0", "snapshot@0"]);
-  // gpu@0 is enabled where the browser has WebGPU and refused with the reason where it has not.
+  // gpu@0 is enabled where the browser has WebGPU and refused with the reason
+  // where it has not. The page's indicator is there, naming an adapter, only
+  // while the session has the module: not before, not once it is disabled,
+  // and not when it is refused.
+  const indicated = () => page.evaluate(() => document.querySelector("#gpu-status")?.dataset.gpu ?? null);
+  assert.equal(await indicated(), null);
   const gpu = await submit("nena enable gpu 2> /tmp/gpu");
   assert.equal((await enabled()).includes("gpu@0"), gpu === 0, await session.text());
-  if (gpu !== 0) await run("test -s /tmp/gpu");
-  // The page's indicator names an adapter only while the module is enabled.
-  const indicated = () => page.evaluate(() => document.querySelector("#gpu-status").dataset.gpu);
   if (gpu === 0) assert.match(await indicated(), /^(software|hardware)$/);
+  else {
+    await run("test -s /tmp/gpu");
+    assert.equal(await indicated(), null);
+  }
   await run("nena disable gpu");
-  if (gpu === 0) assert.equal(await indicated(), "absent");
+  assert.equal(await indicated(), null);
   // An adapter that answers after the switch was refused changes nothing on the page.
-  const before = await indicated();
   await page.evaluate(() => Object.defineProperty(Navigator.prototype, "gpu", { configurable: true, value: {
     requestAdapter: () => new Promise(resolve => setTimeout(resolve, 6000, { info: { vendor: "late" }, features: new Set() })) } }));
   assert.equal(await submit("nena enable gpu 2> /dev/null"), 1);
   await page.waitForTimeout(2000);
-  assert.deepEqual([await indicated(), (await enabled()).includes("gpu@0")], [before, false]);
+  assert.deepEqual([await indicated(), (await enabled()).includes("gpu@0")], [null, false]);
 
   // A saved session has the modules it enabled again when it is loaded, and
   // the page says which in one line. One the browser does not give in time

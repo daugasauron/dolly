@@ -25,31 +25,3 @@ export function toggleIndicators() {
   clearTimeout(timer);
   set(document.documentElement.dataset.indicators === "hidden");
 }
-
-// The GPU indicator's border while it has nothing for the user to act on.
-const quiet = "#77736c";
-
-// What the image's programs draw and compute with, over the display's bottom
-// right corner: gpu@0 names the adapter it gives them (host/gpu/gpu.mjs); a
-// page whose image has no gpu@0 says that everything is done on the CPU.
-// Guest frames cannot draw, cover or remove it, and only a link in it takes
-// clicks.
-export function gpuIndicator() {
-  let element = document.querySelector("#gpu-status");
-  if (!element) {
-    element = document.body.appendChild(document.createElement("div"));
-    element.id = "gpu-status";
-    element.className = "page-indicator";
-    element.setAttribute("role", "status");
-    element.style.cssText = "position:fixed;right:0.5rem;bottom:2rem;z-index:8;max-width:calc(100vw - 1rem);" +
-      "padding:0.15rem 0.45rem;background:#262626;border:1px solid " + quiet + ";font-size:13px;pointer-events:none";
-  }
-  return element;
-}
-
-export function indicateNoGpu() {
-  const element = gpuIndicator();
-  element.dataset.gpu = "absent";
-  element.style.borderColor = quiet;
-  element.textContent = "CPU: this image has no GPU module";
-}
