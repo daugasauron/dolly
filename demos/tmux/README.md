@@ -7,6 +7,8 @@ pseudo-terminal of `pty@0`
 ## Images
 
 - `tmux`: tmux, the terminal multiplexer, as a package.
+- `libevent`: libevent's core, the event loop with its buffers and listeners, a library for programs the `cc` package builds; it installs no compiler, as a package.
+- `libterminfo`: NetBSD's terminfo library with the terminal descriptions it holds, for programs the `cc` package builds; it installs no compiler, as a package.
 - `tmux-panes`: an application that opens into tmux with a shell in each of two panes.
 
 Open `/tmux-panes/`; build with `npm run image -- tmux-panes`. `Ctrl+B d`
@@ -33,11 +35,18 @@ puts an editor beside a shell.
 
 ## Key files
 
-- [`Dollyfile-tmux`](Dollyfile-tmux): states what upstream's `configure`
-  scripts would find; builds NetBSD's libterminfo (its tables written by its
-  own scripts with `nbperf` and `tic` compiled in the same recipe),
-  libevent's core over `poll`, and tmux, linked with `-ldolly-sockets` and
-  `-ldolly-pty`; then runs a server, a pane and a command typed into it.
+- [`Dollyfile-libevent`](Dollyfile-libevent): states what upstream's
+  `configure` script would find and builds libevent's core over `poll`:
+  `-levent_core`, and `-ldolly-sockets` after it for a program that gives
+  it sockets.
+- [`Dollyfile-libterminfo`](Dollyfile-libterminfo): builds NetBSD's
+  libterminfo, its tables written by its own scripts with `nbperf` and
+  `tic` compiled in the same recipe: `-lterminfo`, `<term.h>` and
+  `<termcap.h>`. It is not curses, which is not built.
+- [`Dollyfile-tmux`](Dollyfile-tmux): installs the two, states what
+  upstream's `configure` script would find and builds tmux, linked with
+  `-ldolly-sockets` and `-ldolly-pty`; then runs a server, a pane and a
+  command typed into it.
 - [`tmux-dolly.patch`](tmux-dolly.patch), eight hunks:
   - `client.c`: the client sends no descriptors, since `sockets@0` passes
     none.

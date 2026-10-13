@@ -1,0 +1,62 @@
+DOLLY 7
+PACKAGE libterminfo
+REQUIRES HOST runtime@0
+
+# NetBSD's terminfo library from the netbsd-curses release, unchanged, for
+# programs the cc package builds (-lterminfo): <term.h> and <termcap.h> over
+# the terminal descriptions the library holds.
+FROM /v0.1.2/Dollyfile-system-tools a79e48b88e5552cc965f0aa06dd9d28c05712649cc7b059036eb6a3857665632
+
+REQUIRES HEADER libc
+REQUIRES TOOL ar
+REQUIRES TOOL awk
+REQUIRES TOOL cat
+REQUIRES TOOL cc
+REQUIRES TOOL cp
+REQUIRES TOOL make
+REQUIRES TOOL sed
+REQUIRES TOOL sh
+REQUIRES TOOL tar
+
+SOURCE /v0.1.2/dist/static/tmux/terminfo.tar 02f16349f246ae130a95a41ef88a78aabf7d5374d6e962ce0520dd216274edbe /tmp/terminfo.tar
+SLOP tar -xf /tmp/terminfo.tar -C /
+
+FILE /tmp/terminfo.mk
+    .RECIPEPREFIX := >
+    .DELETE_ON_ERROR:
+    MAKEFLAGS += -r
+    N := /tmp/terminfo
+    all: /usr/lib/libterminfo.a /usr/include/term.h /usr/include/termcap.h
+    
+    # libterminfo as its GNUmakefile builds it. nbperf and tic are built
+    # first: the library's own scripts run them to write its hash tables
+    # and the terminal descriptions it holds (xterm-256color among them).
+    # tic needs TERMINFO_COMPAT for _ti_promote, which the release's
+    # GNUmakefile leaves out.
+    L := $(N)/libterminfo
+    $(N)/nbperf/nbperf: $(wildcard $(N)/nbperf/*.c) $(L)/mi_vector_hash.c
+    >cc -O1 -I$(N) -I$(N)/nbperf $^ -o $@
+    $(L)/hash.c: $(L)/genhash $(L)/term.h $(N)/nbperf/nbperf
+    >TOOL_NBPERF=$(N)/nbperf/nbperf sh $(L)/genhash $(L)/term.h > $@
+    $(L)/termcap_hash.c: $(L)/genthash $(L)/termcap_map.c $(N)/nbperf/nbperf
+    >TOOL_NBPERF=$(N)/nbperf/nbperf sh $(L)/genthash $(L)/termcap_map.c > $@
+    $(N)/tic/tic: $(N)/tic/tic.c $(N)/tic/cdbw.c $(L)/compile.c $(L)/mi_vector_hash.c $(L)/hash.c
+    >cc -O1 -I$(N) -I$(L) -I$(N)/tic -DTERMINFO_COMPAT $^ -o $@
+    $(L)/compiled_terms.c: $(L)/genterms $(N)/terminfo/terminfo $(N)/tic/tic
+    >TOOL_TIC=$(N)/tic/tic TERMINFODIR=$(N)/terminfo sh $(L)/genterms > $@
+    TI := term ti setupterm curterm tparm tputs compile hash cdbr mi_vector_hash termcap
+    $(L)/term.o: $(L)/compiled_terms.c
+    $(L)/termcap.o: $(L)/termcap_hash.c
+    $(L)/%.o: $(L)/%.c
+    >cc -O2 -I$(N) -I$(L) -I$(N)/libcurses '-DINSTALL_PREFIX="/usr"' \
+    >  -DTERMINFO_COMPILE -DTERMINFO_DB -DTERMINFO_COMPAT -c $< -o $@
+    /usr/lib/libterminfo.a: $(addprefix $(L)/,$(addsuffix .o,$(TI)))
+    >ar rcs $@ $^
+    /usr/include/%.h: $(L)/%.h
+    >cp $< $@
+SLOP make -j4 -f /tmp/terminfo.mk
+
+EXPORTS LIB    terminfo /usr/lib/libterminfo.a
+EXPORTS HEADER term     /usr/include/term.h
+EXPORTS HEADER termcap  /usr/include/termcap.h
+FILE /usr/share/licenses/netbsd-curses/COPYING

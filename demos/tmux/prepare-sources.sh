@@ -1,7 +1,8 @@
 # Sourced by scripts/prepare-image-sources.sh.
-if has_image tmux; then
-  copy_static "$(bash scripts/fetch-pinned-archive.sh tmux)" tmux/tmux-3.8.tar.gz
+if has_image libevent; then
   copy_static "$(bash scripts/fetch-pinned-archive.sh libevent)" tmux/libevent-2.1.13-stable.tar.gz
+fi
+if has_image libterminfo; then
   # libterminfo, the two tools that write its tables and the terminal
   # descriptions they read. The archive's links are left out: manual pages,
   # and the files tic and nbperf share with the library.
@@ -18,6 +19,9 @@ if has_image tmux; then
     "${netbsd_curses_dir}/libcurses/unctrl.h" /tmp/terminfo/libcurses/unctrl.h \
     "${netbsd_curses_dir}/terminfo/terminfo" /tmp/terminfo/terminfo/terminfo \
     "${netbsd_curses_dir}/COPYING" /usr/share/licenses/netbsd-curses/COPYING
+fi
+if has_image tmux; then
+  copy_static "$(bash scripts/fetch-pinned-archive.sh tmux)" tmux/tmux-3.8.tar.gz
   # Dolly's part of the port, into the unpacked release.
   node scripts/build-source-tar.mjs "${static_dir}/tmux/port.tar" \
     demos/tmux/tmux-dolly.patch /tmp/tmux-3.8/tmux-dolly.patch \

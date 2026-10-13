@@ -49,5 +49,7 @@ libpng
 freetype
 mojo
 mojo-compiler
+libevent
+libterminfo
 tmux
 tmux-panes
