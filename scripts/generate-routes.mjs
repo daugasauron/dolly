@@ -37,6 +37,9 @@ const graphs = await Promise.all(definitions.map(async (definition) => ({
 // An image opens when it has ENTRY and a display; otherwise it only builds.
 const openable = new Set(graphs.filter(({ definition, graph }) =>
   definition.parsed.entry && graph.root.hostRequirements.includes("display@0")).map(({ definition }) => definition.image));
+// A name that no longer opens, such as an application renamed to its package, keeps no page.
+await Promise.all(definitions.filter(({ image }) => !openable.has(image))
+  .map(({ image }) => rm(resolve(projectDir, image, "index.html"), { force: true })));
 await writeImageRegistry(projectDir, definitions, staticSources);
 const descriptions = await imageDescriptions(projectDir, definitions);
 const described = definitions.map(({ image, parsed }) => ({ image, description: descriptions.get(image), parsed }));
