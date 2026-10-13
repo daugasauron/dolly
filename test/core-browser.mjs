@@ -56,7 +56,7 @@ await browserTest("core", { image }, async ({ server, open }) => {
   assert.equal(await submit("printf 'needle\\n' > /tmp/core-search; grep -q needle /tmp/core-search && test \"$(find /tmp -maxdepth 1 -name core-search)\" = /tmp/core-search && rm /tmp/core-search"), 0);
   assert.equal(await submit([
     "mkdir -p /tmp/core-commands/a /tmp/core-commands/b /tmp/core-commands/many && cd /tmp/core-commands",
-    "test \"$(echo --)\" = -- && ! test -x /tmp && [ \\( -d / -a ! -f / \\) -o -z x ]",
+    "test \"$(echo --)\" = -- && test -x /tmp && ! test -x /tmp/no-such-file && [ \\( -d / -a ! -f / \\) -o -z x ]",
     "printf 'gr\\303\\274\\303\\237e\\n' > utf8 && test \"$(file -b utf8)\" = 'UTF-8 Unicode text'",
     "printf abcdef > dd.txt && printf XY | dd of=dd.txt bs=1 seek=2 conv=notrunc && test \"$(cat dd.txt)\" = abXYef",
     "printf XY | dd of=dd.txt bs=1 seek=1 && test \"$(cat dd.txt)\" = aXY && test \"$(tail -c 2 dd.txt)\" = XY && test \"$(hostname)\" = dolly",

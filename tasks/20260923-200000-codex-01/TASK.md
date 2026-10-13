@@ -4,18 +4,37 @@
 - PRIORITY: 100
 - TAGS: runtime,persistence,memory
 
-## State (2026-10-12)
+## State (2026-10-13)
 
-Half done on 2026-09-24: a save of the 388 MB session followed by closing and reopening the tab
-stays under 4 GiB (3.08 GiB peak), with every file hash preserved. Left: the same save followed
-by a refresh of the same tab, where the replacement boot exceeds 4 GiB in Chrome because the old
-kernel's 2.2 GiB of Wasm memory is not yet reclaimed; a forced collection frees it, which shows
-the memory is reclaimable and is not a fix.
+Still true on today's tree, with the size it begins at. Half was done on 2026-09-24: a save of
+the 388 MB session followed by closing and reopening the tab stays under 4 GiB (3.08 GiB peak),
+with every file hash preserved.
 
-Not measured since: the runtime has changed under it (since 2026-10-06 the Worker instantiates
-the kernel itself, without Emscripten's JavaScript). Owed first: the synthetic probe described
-below (grow a file to 1,800 MiB, unlink it, write 256 MiB, Save, refresh) on today's `main`
-under a 4 GiB cgroup. The logs it names are under `build/` on this machine only.
+The synthetic probe, run on `core/polish` (`system`, Chrome 151.0.7922.71 under Playwright, a
+scope with `MemoryMax=4G` and no swap; the scope's own peak): a file grown to 1,800 MiB and
+removed, a file under `$HOME` that does not compress, Save, a refresh of the same tab, then the
+file's SHA-256 checked in the restored session.
+
+| File kept | Before the save | After it | Refresh | Result |
+| --- | --- | --- | --- | --- |
+| 256 MiB | 2.6 GiB | 3.1 GiB | peak 3.86 GiB | restored and verified, 2 of 2 |
+| 388 MiB | 2.6 GiB | 3.3 GiB | over 4 GiB | renderer killed, 3 of 3 |
+
+- The save's own 0.8 GiB is gone ten seconds after it (2.44 GiB), and the 388 MiB refresh is
+  killed just the same when it waits those ten seconds (2 of the 3 runs did).
+- After a refresh that passes, the scope still holds 3.6 GiB, a gibibyte more than before the
+  save: the old kernel's memory is not given back by the reload, as the record below found in
+  September.
+
+So the runtime's changes since September moved the line by about 0.4 GiB and no further. Not
+fixed today: what the record rules out (a forced collection) is the only thing that has freed
+that memory, and the other way, a page that holds no reference to kernel memory so that only
+Workers do, moves the display and input mailboxes out of kernel memory, which is a design
+change and not a polish.
+
+The probe is `build/polish-evidence/session-refresh.mjs` with `random-file.c` (not committed):
+`KEEP_MIB=388 systemd-run --user --scope -p MemoryMax=4G -p MemorySwapMax=0 node
+build/polish-evidence/session-refresh.mjs chromium`.
 
 ## The record (2026-09-23 and 24)
 

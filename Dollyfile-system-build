@@ -242,8 +242,9 @@ FILE /usr/share/man/cat1/test.1
            [ EXPRESSION ]
     Exit 0 when EXPRESSION is true, 1 when it is false or missing, 2 when it is malformed.
       -e FILE          FILE exists (-r and -w are the same: there are no permission bits)
-      -f FILE, -x FILE FILE is a regular file
+      -f FILE          FILE is a regular file
       -d FILE          FILE is a directory
+      -x FILE          FILE is a regular file or a directory
       -h FILE, -L FILE FILE is a symbolic link
       -s FILE          FILE is not empty
       -n STRING        STRING is not empty (so is a lone STRING)

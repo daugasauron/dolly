@@ -50,5 +50,9 @@ export async function buildBufferReuse() {
       digest = actual;
     }
   }
+  // A build told to consume its inputs frees them: the page holds none afterwards.
+  const consumed = await builder.buildImage("custom", inputs, { http: { network } }, () => {}, { customSource: source, consume: true });
+  if (inputs.some(input => input.bytes.byteLength !== 0)) throw new Error("A consuming build left its input buffers in the page");
+  if (await artifactStore.sha256(consumed.bytes) !== digest) throw new Error("Consuming build inputs changed output");
   return digest;
 }

@@ -1,12 +1,23 @@
 # Slop cannot cd anywhere once its working directory is deleted
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 200
 - TAGS: bug,slop,shell
 
-## State (2026-10-12)
+## Closed (2026-10-13)
 
-Unchanged since it was filed on 2026-10-08: no fix and no test.
+Fixed in `bb040357` (`core/polish`, a seed change: `src/slop.c`). The `cd` builtin asked for the
+current directory's name before it changed it and gave up when there was none; a shell started
+in a removed directory (`slop -c`, a script) stopped the same way at its first line. `cd` now
+takes the old name from `PWD`, as every POSIX shell does, and a shell started there keeps the
+`PWD` it was given.
+
+The test: "a shell whose directory was removed can still change directory" in
+`test/fixtures/slop-cases.mjs` removes its own directory, starts `slop -c "cd /"` there and
+changes back by an absolute path, checking `PWD` and `OLDPWD`. Natively
+(`node --test test/slop.test.mjs`, Slop under sanitizers against Bash) it fails before the fix
+and passes with it; in the browser `test/slop-browser.mjs` passes in Chromium and Firefox on a
+`system` image rebuilt on the seed with the fix.
 
 ## The defect
 

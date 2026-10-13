@@ -4,13 +4,20 @@
 - PRIORITY: 40
 - TAGS: core,process,abi,slop,design
 
-## State (2026-10-12)
+## State (2026-10-13)
 
-Not started, by the owner's word ("very low priority for now"). Operation 61 is still free on
-`main`; 58 and 60 are taken on `core/file-modes-2` (`tasks/20261006-120641-umask`), 59 is locks.
-Asked for since: `cargo run`, which builds and then fails because Cargo `exec`s the program
-(`tasks/20261009-110500-rust-followups`). The uses seen in real scripts are listed in
-`tasks/20261006-121403-configure-survey` (closed).
+Not started, by the owner's word ("very low priority for now"), and still wanted: `cargo run`
+builds and then fails because Cargo `exec`s the program
+(`tasks/20261009-110500-rust-followups`), and libtool's wrappers use `exec PROGRAM`
+(`tasks/20261006-121403-configure-survey`, closed). tmux does not wait for it: its jobs start
+by spawn (`tasks/20261012-130814-tmux`).
+
+Verified on main `4ed1d9ef`: `docs/process-model.md` still says there is no `fork` or `exec`,
+and operation 61 is free in `include/dolly/process.h` (59 is locks; 58 and 60 are taken only on
+`core/file-modes-2`, `tasks/20261006-120641-umask`).
+
+It changes the process contract, so it goes in a round that changes the contract anyway, file
+modes for one. Nothing below is decided or built.
 
 ## The request
 

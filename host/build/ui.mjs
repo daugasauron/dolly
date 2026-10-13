@@ -12,7 +12,7 @@ export function mountImageBuild(http, keyboard) {
       (image, artifacts) => buildImage(image, artifacts, builders, report, { signal }),
       text => report(text + "\n"), signal);
     signal.throwIfAborted();
-    const artifact = await buildImage("custom", artifacts, builders, report, { signal, customSource: source });
+    const artifact = await buildImage("custom", artifacts, builders, report, { signal, customSource: source, consume: true });
     signal.throwIfAborted();
     const descriptor = await loadImageArtifactDescriptor(artifact.recipeSha256, artifact.inputs);
     if (!descriptor || descriptor.sha256 !== artifact.sha256) {

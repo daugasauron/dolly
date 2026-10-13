@@ -145,8 +145,8 @@ that run inside the shell stay serial.
   `cat [-n]`, `cp`, `mv`, `ls [--color]`, `echo`, `touch`, `pwd`, `mkdir`, `rm`,
   `test`/`[` with `!`, `-a`, `-o` and parentheses, `foreground`, `help`, `clear`,
   `stat`, `file`.
-  There are no permission bits: `test -x` means a regular file, `-r`/`-w` that
-  the path exists. `ls -l` is the POSIX long format: the fixed modes `stat`
+  There are no permission bits: `test -x` means a regular file or a directory,
+  `-r`/`-w` that the path exists. `ls -l` is the POSIX long format: the fixed modes `stat`
   reports, numeric owner and group (there is no name database) and a `total`
   of the listed sizes in KiB (there are no disk blocks).
   `/bin/cd` is a compatibility command; plain `cd` is the builtin.

@@ -6,8 +6,10 @@ import { inspectDollyfile } from "./dollyfile-view.mjs";
 // Disposable Wasm userspace on the runtime the image declares, with the build
 // host's modules, configured as the caller's host says (host.builder): the
 // caller's browser policy and no display, file picker, local service or ENTRY.
-// Used for dependencies and Studio builds.
-export async function buildImage(image, artifacts, configuration, report, { customSource, signal } = {}) {
+// Used for dependencies and Studio builds. A caller that builds nothing more
+// from these artifacts says `consume`: the Worker then frees each one once it
+// is in Wasm instead of handing it back to be held for the whole build.
+export async function buildImage(image, artifacts, configuration, report, { customSource, signal, consume = false } = {}) {
   signal?.throwIfAborted();
   const inputs = new Map(artifacts.map(artifact => [artifact.recipeSha256, artifact]));
   const declared = image === "custom" ? inspectDollyfile(customSource).hostRequirements
@@ -42,9 +44,9 @@ export async function buildImage(image, artifacts, configuration, report, { cust
 
         } catch (error) { reject(error); }
       });
-      // The Worker returns each buffer after importing it into Wasm, so shared
-      // dependencies remain reusable without cloning gigabytes of inputs.
-      worker.postMessage({ type: "configure", mode: "rebuild", image, buildOnly: true, artifacts,
+      // Unless consumed, the Worker returns each buffer after importing it into
+      // Wasm, so shared dependencies remain reusable without cloning gigabytes of inputs.
+      worker.postMessage({ type: "configure", mode: "rebuild", image, buildOnly: true, returnInputs: !consume, artifacts,
         hostModules: host.enabled, hostConfiguration: host.configuration,
         ...(customSource === undefined ? {} : { customSource }) }, [...new Set(artifacts.map(artifact => artifact.bytes))]);
     });

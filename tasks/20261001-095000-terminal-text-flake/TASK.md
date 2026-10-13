@@ -1,51 +1,49 @@
 # Terminal input and screen reading: the losses and flakes still open
 
 - STATUS: OPEN
-- PRIORITY: 190
+- PRIORITY: 120
 - TAGS: tests,flaky,display,firefox
 
-## State (2026-10-12)
+## State (2026-10-13)
 
 `__dolly.visibleTerminalText()` reads the screen by a pointer drag and the display library's
 copy, and a script types faster than a person: both have lost text under load. This task began
 as one Firefox failure of `test/terminal-browser.mjs` (2026-10-01) and holds what is open on that
 path; each cause found keeps its section below.
 
-Fixed and released: the empty selection at retirement (`fix/firefox-selection`), the pixel wait
-after fullscreen (`9b21ab9e`, test only), the gesture repeated across a program's exit
-(`ac4b4e5d`), the input discarded at exit (`9abd08b0`). The core suite passed in Chromium and
-Firefox in the release rounds of v0.1.0, v0.1.1 and v0.1.2.
+Fixed: the empty selection at retirement (`fix/firefox-selection`), the pixel wait after
+fullscreen (`9b21ab9e`, test only), the gesture repeated across a program's exit (`ac4b4e5d`),
+the input discarded at exit (`9abd08b0`), and on 2026-10-13 (`core/polish`):
 
-Not on `main`, though their commits are in its history: the two fixes of `fix/terminal-input`
-(`92a64117`, `d621a31d`). They changed `host/display/kernel.c` and `host/display/input.mjs`,
-which `input@0` replaced in the same round (`a1284224`); neither test they added is in
-`test/display-browser.mjs` or `test/terminal-browser.mjs` today.
+- **A paste with nothing focused** arrives (`e3ff5fc1`, page only): the paste chord gives the
+  keyboard element the focus in the terminal too. `test/terminal-browser.mjs` pastes after a
+  blur.
+- **A burst of typed keys** costs a frame a tick: `test/display-browser.mjs` pushes 100 keys at
+  Slop's prompt and counts the frames (`e3ff5fc1`). It passes on `input@0` as it is, so the
+  kernel change of `92a64117` is not needed.
+- **Janis cut a read at 256 bytes** (`cb9ae5cd`, and the tmux agent's `503e90fc`, which the
+  round keeps): one read takes all that waits. That is
+  sighting 1 (`DOLLY-ENTRY-CWuD`) and the `/d7d7` of
+  `tasks/20261010-234000-pi-stray-reply`, which has the measurements.
 
-Left:
+Left, none of them reproduced:
 
-- **A paste with nothing focused is lost, silently** ("A paste a person can lose").
-  `host/input/input.mjs:328` gives the keyboard element the focus at the paste chord only while
-  a program holds the input lease. Port `d621a31d`, one line, with its test (a paste after a
-  blur). Page code: no image changes.
-- **A burst of typed keys.** On `input@0` every frame is the tick's, which should make
-  `92a64117` unnecessary; not measured. Port its test (100 keys at Slop's prompt, frames
-  counted) to say so.
-- **Janis cuts a read at 256 bytes** (`demos/javascript/quickjs-main.c:882`), which can split
-  one key's escape sequence ("Sighting 1 explained"). The fix rebuilds `javascript` and Pi's
-  chain.
-- **Sighting 3**: Emacs received `/t` of a 26-byte text record. Not explained.
-- **The mouse drag** at `test/terminal-browser.mjs:67` after font zoom and paste ("Narrowed").
-  Not seen in the release rounds, not explained.
-- **"timed out waiting for terminal selection reset"**: `local-llm` once in Firefox on
-  2026-10-07, Emacs in Firefox under load ("Seen again", "Note").
+- **Sighting 3**: Emacs received `/t` of a 26-byte text record, once, on 2026-10-07. Emacs is
+  not Janis, so the 256-byte cut does not explain it.
+- **The mouse drag** at `test/terminal-browser.mjs:67` after font zoom and paste ("Narrowed"),
+  and **"timed out waiting for terminal selection reset"** in Firefox under load ("Seen
+  again", "Note"). Neither was seen in the release rounds.
 - The ring drops what it has no room for and counts it on the page (`data-input-dropped`); a
-  test that types should read that when it fails.
-- Not measured: key-to-paint after 250 ms of silence, now that the presenter no longer wakes on
-  input (from `tasks/20261002-072000-input-host-module`); Python's REPL; a paste over 50,000
-  characters; AltGr and Option.
+  test that types does not read that when it fails.
+- Not measured: key-to-paint after 250 ms of silence, Python's REPL, a paste over 50,000
+  characters, AltGr and Option.
 
-Done when each line is fixed with a test that fails without the fix, or shown to be elsewhere.
-Raised from 170: the first line is a loss a person meets.
+Ran on the three commits: `terminal`, `display` and every other core suite in Chromium and
+Firefox, JavaScript's demo test, Pi's twelve times (12 of 12, twice: with the reader fix alone
+and with the page and kernel commits).
+
+Done when the two unexplained lines are explained or have a rate from a hundred runs that says
+they are gone. Lowered from 190: what a person met is fixed.
 
 ## Narrowed (2026-10-01, 12:40)
 

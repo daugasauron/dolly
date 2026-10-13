@@ -324,8 +324,10 @@ export function browser({ canvas, keyboard, showStatus, claimsKey, surfaceSize, 
       (event.code === "KeyV" && (event.ctrlKey || event.metaKey)) ||
       (event.code === "Insert" && event.shiftKey && !event.ctrlKey && !event.metaKey));
     if (programPaste || terminalPaste) {
-      // Let the browser deliver clipboard bytes through a user-initiated PasteEvent.
-      if (programPaste && event.type === "keydown") keyboard.focus({ preventScroll: true });
+      // Let the browser deliver clipboard bytes through a user-initiated
+      // PasteEvent. It goes to the focused element, and a click on page text
+      // leaves none: the paste handler would not see it.
+      if (event.type === "keydown") keyboard.focus({ preventScroll: true });
       return;
     }
     if (interruptChord(event) && interruptForeground()) {
