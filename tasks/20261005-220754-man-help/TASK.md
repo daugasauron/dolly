@@ -18,9 +18,9 @@ Done on 2026-10-13:
 
 - **`help` fits 80 columns.** The greeting sends a newcomer to `help`, whose lines were up to
   200 characters and broke inside words at the page's width. The same words on lines of at
-  most 78 characters, held by `test/man-browser.mjs`: commit `d05f6443` on the branch
-  `core/site-polish-help`, apart from the rest of that day's work because it is an image input
-  (`Dollyfile-system-build`, every recipe repinned). Built on the chain of `default`, `cc`,
+  most 78 characters, held by `test/man-browser.mjs`: the commit "help fits a terminal of 80
+  columns" on the branch `core/site-polish-help`, apart from the rest of that day's work
+  because it is an image input (`Dollyfile-system-build`, every recipe repinned). Built on the chain of `default`, `cc`,
   `git` and `less` (15 images, 888 s); `man`, `pager` and `shell-env` tests passed there in
   Chromium and Firefox. It is done when that commit is on `main`.
 - **`llms.txt` says how a page is driven** (`d9402889`): the terminal is a canvas and is read
@@ -43,8 +43,8 @@ Left, in the order of what a newcomer meets:
    row beside the export, as in `Dollyfile-zig`; the check belongs in each package's row of
    `test/amy-browser.mjs`.
 3. **`amy install` says "its environment applies when the session is next loaded" after every
-   package**, also one that exports no variable, and nothing between "fetching" and the end of
-   a large install. `src/commands/amy.c` was the packages work's file on 2026-10-13; said to
+   package**, also one that exports no variable (`less`, `make`), and nothing between
+   "fetching" and the end of a large install. `src/commands/amy.c` was the packages work's file on 2026-10-13; said to
    the integrator that day.
 
 Decided on 2026-10-13, and not planned:
