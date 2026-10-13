@@ -88,9 +88,11 @@ await browserTest("amy", { image: "default", timeout: 300_000, server: { fixture
   // The record lists what the image's recipes installed, before the session adds to it.
   await run(`test "$(amy list | awk '$2 == "installed" { print $1 }' | tr '\\n' ' ')" = '${preinstalled.join(" ")} '`);
   // Each row carries the index's description and the INSTALL row a recipe writes.
-  const [, curlUrl, curlPin, ...description] = indexed("curl");
-  await run(`test "$(amy info curl)" = "$(printf '%s\\n' 'curl: ${description.join(" ")}' 'INSTALL ${curlUrl} ${curlPin}' installed)"`);
-  await run(`amy list | grep -q '^curl  *installed  *${description.join(" ")}$'`);
+  const [, curlUrl, curlPin, ...words] = indexed("curl");
+  // The description may hold an apostrophe, which ends the shell's quotes.
+  const description = words.join(" ").replaceAll("'", "'\\''");
+  await run(`test "$(amy info curl)" = "$(printf '%s\\n' 'curl: ${description}' 'INSTALL ${curlUrl} ${curlPin}' installed)"`);
+  await run(`amy list | grep -q '^curl  *installed  *${description}$'`);
   // The files of a package the image installed come from the release's snapshot, sizes included.
   await run("amy files curl > /tmp/curl-files && grep -q ' /usr/bin/curl$' /tmp/curl-files && ! grep -q ' /etc/dolly/' /tmp/curl-files");
   await run("while read size path; do test \"$(stat -c %s \"$path\")\" = \"$size\" || exit 1; done < /tmp/curl-files");
