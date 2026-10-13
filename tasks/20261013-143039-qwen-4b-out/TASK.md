@@ -37,3 +37,76 @@ is written where the limit is, so that it can come back as one.
   `tasks/20261005-215557-local-models`.
 - Rebuilds: `pi-local` and `dollyfile-studio`, and the docs package with the
   Pi images for the two words in `docs/dollyfile.md`.
+
+## The limit, so that it can come back as one package (read at `11d2bd0a`, not changed)
+
+- One number in two places: `MAX_SNAPSHOT_BYTES` (`src/snapshot-records.mjs`,
+  the page and the build scripts) and `DOLLY_SNAPSHOT_MAX_SIZE`
+  (`src/fs-record.h`, the kernel and `src/dollyfile.c`, so the seed). It
+  bounds an image, a pack and one file's record.
+- No reason is written beside either. The code's reason is one buffer on both
+  sides: the kernel captures an image into one `malloc` (`capture_snapshot`)
+  and restores a staged one from one `realloc`; the page copies the capture
+  into one `Uint8Array`, and merges a published image's packs into one buffer
+  for a build input and for `amy install` (`loadPackagedSystemSnapshot`,
+  `PackageService.fetch`).
+- The way in already goes record by record: booting a published image
+  (`dolly_snapshot_stream_*`), and `amy` and `dollyfile` reading an artifact
+  file. What is missing is the same on the way out and for inputs: a capture
+  that leaves the kernel pack by pack, packs handed on unmerged, and a file's
+  record that may span them. Then 3.01 GB is one package holding one file.
+- Not measured: whether Chrome and Firefox give one buffer above 2 GiB, which
+  would make it a change of the number alone.
+
+## Done on `core/qwen-4b-out` (2026-10-13), not built
+
+`21cc75b4`: the model is out.
+
+- Deleted: the five recipes, `models/qwen3.5-4b.json`, its rows in
+  `config/upstreams.json`, `docs/licences.md`,
+  `config/domain-pages-images.txt` (five) and `test/amy-browser.mjs` (two
+  lines), the README's rows, table row and sentences. It had no pins in
+  `config/source-pins.sh`: a model's pin is its description's `source`.
+- What reaches `/local`: `demos/local-llm/models/` is packed into
+  `provider.tar` as `/usr/share/dolly/llm`, and the provider lists that
+  directory. The archive now holds two descriptions (listed with `tar -t`),
+  and `models.test.mjs` fails a description whose package has no recipe.
+- Decided: what only this model reached goes with it, since nothing left
+  can run it. `build-gguf-split.sh` and the split branch of
+  `prepare-local-llm-weights.mjs`; and `unmet()` in `model.mjs`, the refusal
+  for a description that omits a shader kind, with its three callers.
+  `models.test.mjs` requires both kinds instead. A model that fits only with
+  16-bit floats brings `unmet()` back from this commit's parent.
+- Kept: `packages` and `files` stay lists in a description, so the two model
+  packages are not repinned.
+- Measured: the edited staging script, run on the cached weights of
+  `work/rust`, wrote the eight files of `qwen3.5-2b` and `minicpm5-2b` with
+  the hashes their recipes pin. `build-source-tar.mjs` reproduced
+  `provider.tar`'s old pin from the parent, so the new pin
+  (`817376e8…`) is what staging will write.
+- The GPU test (`local-llm-browser.mjs`) proved with a second model: `/local`
+  lists a model the image does not bundle as not installed, choosing it asks
+  for and runs `amy install`, Pi switches to it, its temperature and context
+  size change through `/local`, a context too large is refused, the task is
+  done again with it and its rate shows, `amy installed` lists its package,
+  and nothing left the site. All of that stays, with `minicpm5-2b` on every
+  adapter. Lost: an install of several packages in a row, which no model
+  needs now.
+
+`86686e1f`: `docs/dollyfile.md` says `qwen3.5-2b` in its two examples. An
+image input: `Dollyfile-dolly-docs` and `studio.tar` (old pin reproduced
+first) are repinned.
+
+Source suite with the demos' tests: 429 of 429 after each commit. The plan
+over all 128 images rebuilds four and reuses the rest: `dolly-docs`,
+`pi-agent`, `pi-local`, `dollyfile-studio`. No seed change.
+
+Left, for the tree that can build them; the task closes after it:
+
+- Build those four.
+- `npm run test:demos -- local-llm` headless (both start screens open
+  `/local` through the edited provider), then with a GPU window in Chrome
+  and Firefox. New there: where the adapter has `shader-f16` the second
+  model is `minicpm5-2b`, a path the test took only with f32 before.
+- `npm run test:demos -- studio` and `-- pi`; `test/amy-browser.mjs` (its
+  catalog check lost five names) and `test/docs-browser.mjs`.
