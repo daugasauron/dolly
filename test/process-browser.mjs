@@ -69,7 +69,7 @@ const settle = () => new Promise(resolve => setTimeout(resolve, 200));
 await browserTest("process", { image: "system", server: { fixtures, handle } }, async ({ server, open }) => {
   const { page, submit, text, waitForText } = await open({
     policy: { rules: [{ origin: server.origin, pathPrefix: "/fixture/", methods: ["GET"] }] } });
-  // The page's Workers while the shell waits for a line: the runtime's and one a process.
+  // The page's Workers while the shell waits for a line: the runtime's and one per process.
   const idleWorkers = page.workers().length;
   const run = async command => assert.equal(await submit(command), 0, command);
   const fetchFixture = name => run(`curl -fsS ${server.origin}/fixture/${name} -o ${scratch}/${name}`);
