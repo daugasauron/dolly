@@ -60,7 +60,7 @@ async function handle(request, response, path, headers) {
 }
 const overlapping = new Map();
 
-const fixtures = Object.fromEntries(["janis-files.mjs", "janis-process.mjs", "node-oracle.mjs", "utf8-browser.mjs", "utf8-cases.mjs", "utf8-writer.c"]
+const fixtures = Object.fromEntries(["janis-files.mjs", "janis-process.mjs", "janis-terminal.mjs", "node-oracle.mjs", "utf8-browser.mjs", "utf8-cases.mjs", "utf8-writer.c"]
   .map(name => [name, `demos/javascript/test/fixtures/${name}`]));
 await demoTest("javascript", { image: "javascript", timeout: 600_000, server: { handle, fixtures } }, async ({ server, open }) => {
   const { page, submit, run, start, waitText } = await open({ ...await installProbe("javascript"), policy: { maxRequests: 256,
@@ -93,6 +93,7 @@ await demoTest("javascript", { image: "javascript", timeout: 600_000, server: { 
   await page.keyboard.press("Control+c");
   assert.equal(await loop.done, 130, "Ctrl-C did not interrupt a QuickJS bytecode loop");
 
+  await run("janis -m janis-terminal.mjs");
   await run("mkdir files && echo target > files/target && ln -s target files/link && ln -s absent files/dangling && ln -s keep-dir files/directory-link");
   await run(`janis -m janis-files.mjs ${scratch}/files`);
   await run(`janis -m node-oracle.mjs ${scratch}/oracle ${server.origin}`);
