@@ -7,6 +7,8 @@
 #include <cerrno>
 #include <cstdlib>
 #include <cstring>
+#include <malloc.h>
+#include <unistd.h>
 
 #include "memory_backend.h"
 #include "wasmfs.h"
@@ -50,7 +52,19 @@ class BlockFile : public DataFile {
     }
   }
 
+  // Whether memory has `growth` more bytes and the reserve to give: what the
+  // break has not reached, and what malloc holds free below it.
+  static bool fits(size_t growth) {
+    const size_t used = reinterpret_cast<uintptr_t>(sbrk(0)) - mallinfo().fordblks;
+    return used <= DOLLY_KERNEL_MEMORY_MAXIMUM - kKernelReserve &&
+        growth <= DOLLY_KERNEL_MEMORY_MAXIMUM - kKernelReserve - used;
+  }
+
   bool reserve(size_t wanted) {
+    // A growth of many blocks that cannot fit is refused before it takes any:
+    // allocating until memory ran out left kernel memory at its maximum, which
+    // never shrinks, and Chrome then collects garbage at every system call.
+    if (wanted > capacity() + kBlockSize && !fits(wanted - capacity())) return false;
     while (capacity() < wanted) {
       if (blockCount == 0 || lastCapacity == kBlockSize) {
         auto table = static_cast<uint8_t **>(realloc(blocks, (blockCount + 1) * sizeof(*blocks)));
