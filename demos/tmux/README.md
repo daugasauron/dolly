@@ -78,10 +78,10 @@ puts an editor beside a shell.
 - The mouse does nothing: tmux asks the terminal for mouse reports and the
   display's terminal gives none ([input](../../docs/input.md)). Keys choose a
   pane (`Ctrl+B o`, `Ctrl+B` and an arrow) and scroll one back (`Ctrl+B [`).
-- A window keeps its shell's name whatever runs in it, and a new pane starts
-  in the server's directory: nothing tells tmux which program holds a pane
+- A window keeps its shell's name whatever that shell runs (a pane started
+  with a command is named after it), and a new pane starts in the session's
+  directory, not the pane's: nothing tells tmux which program holds a pane
   or where it stands.
-- `man tmux` shows the page's source: Dolly has no formatter for it.
 
 Test: `npm run test:demos -- tmux` ([`test/`](test/)); the module's own is
 `test/pty-browser.mjs`.

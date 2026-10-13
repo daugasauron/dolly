@@ -46,9 +46,13 @@ holds it, and the suites pass.
   ([the investigation](../20261013-154704-terminal-mouse/investigation.md)).
   The row also skips Emacs's XTVERSION probe, which is why it works. A
   correction rebuilds `emacs` and the image that opens into it.
-- `demos/tmux/README.md:81-83` says a new pane starts "in the server's
+- `demos/tmux/README.md` said a new pane starts "in the server's
   directory"; it is the session's, the directory of the client that created
   it ([who holds a terminal](../20261013-154704-terminal-holder/investigation.md)).
+  It also said `man tmux` shows the page's source, which stopped being true
+  when the package began to format its page (`eb50e952`; the tmux test
+  asserts the formatted text). Both corrected on 2026-10-14; the README is
+  no image's input (the plan builds nothing).
 
 ## 2026-10-14 02:30: two of them done
 
