@@ -208,12 +208,13 @@ await browserTest("startup script", {}, async ({ open }) => {
 });
 
 // /proc/processes is the kernel's list of the processes that have not exited,
-// a line each: PID, parent, state, arguments.
+// a line each: PID, parent, state, arguments. ps prints it.
 await browserTest("process list", {}, async ({ open }) => {
   const { submit, text } = await open();
   const run = async command => assert.equal(await submit(command), 0, `${command}\n${await text()}`);
   // A program started with & is listed under $!, as a child of its shell.
   await run("sleep 100 & until grep -qx \"$! $$ running sleep 100\" /proc/processes; do :; done");
+  await run("ps | grep -qx \"$! $$ running sleep 100\" && ps | grep -q \"^$$ [0-9]* running \"");
   // Gone once it has ended, before its parent has waited for it.
   await run("kill $!; while grep -q \"^$! \" /proc/processes; do :; done; wait $!; test $? = 143");
   // Each open is the table of that moment, whole, while another is being read.
@@ -227,4 +228,7 @@ await browserTest("process list", {}, async ({ open }) => {
   await run("slop -c 'sleep 100' \"$(printf 'two\\nlines\\033c')\" & until grep -qx \"$! $$ running slop -c sleep 100 two?lines?c\" /proc/processes; do :; done; kill $!; wait");
   await run("slop -c 'sleep 100' $(printf %03000d 0) & until grep -q \"^$! $$ running \" /proc/processes; do :; done; " +
     "test \"$(grep \"^$! \" /proc/processes | wc -c)\" -eq 2048; cut=$?; kill $!; wait; test $cut = 0");
+  // ps takes no options.
+  assert.equal(await submit("ps -e > /tmp/out 2> /tmp/err"), 2);
+  await run("test -s /tmp/err && test ! -s /tmp/out");
 });

@@ -13,8 +13,8 @@ REQUIRES HOST sockets@0
 REQUIRES HOST threads@0
 REQUIRES HOST upload@0
 
-# The image people open: a shell, its text tools, the terminal, curl, amy and
-# the page's file exchange.
+# The image people open: a shell, its text tools, the terminal, curl, amy, ps
+# and the page's file exchange.
 # It holds no compiler; amy installs what a session needs, and nena enables
 # the host modules a package needs beyond these (nena@0).
 INSTALL /v0.1.3/Dollyfile-core 8db5a36e7b57fb96b25f314652db9d368f7eea0534dcbdea429a1a39bc14ad6d
@@ -24,6 +24,7 @@ INSTALL /v0.1.3/Dollyfile-curl e500483cf609f74f51f15dca56a1f7793e2d0c78d993d9aae
 INSTALL /v0.1.3/Dollyfile-amy 02c9fa3574c7fa8dca2383e48661149a2544269b0740573e5b323a3c6980ebfa
 INSTALL /v0.1.3/Dollyfile-nena 4b2e4925ecc879d27bfe09c9ed1fa05fe6dc1ecf513865392ea03c1faaa9eff0
 INSTALL /v0.1.3/Dollyfile-transfer 6b43b140823ea8f3f2e51464ea0d96749a5117a6c37e5634a298b78e4491b32a
+INSTALL /v0.1.3/Dollyfile-ps 0b991bedd82a41acce14d67e9ca336f29c440f520e9fa0e00ea4efb6dc044a50
 REQUIRES TOOL foreground
 REQUIRES TOOL test
 REQUIRES TOOL echo

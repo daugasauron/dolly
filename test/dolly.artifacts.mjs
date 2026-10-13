@@ -234,6 +234,7 @@ test("system snapshots are sealed to their visible recipe chain", async () => {
     ["nena", "/bin/nena"],
     ["ninja", "/usr/bin/ninja"],
     ["posix", "/bin/grep"],
+    ["ps", "/bin/ps"],
     ["session-recover", "/usr/bin/session-recover"],
     ["system", "/usr/lib/libdisplay.so"],
     ["system-build", "/bin/slop"],
