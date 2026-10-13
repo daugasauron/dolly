@@ -11,8 +11,10 @@ await browserTest("indicators", { image: "system", server }, async ({ server, op
   const { page, submit, text } = await open({
     policy: { rules: [{ origin: server.origin, pathPrefix: "/fixture/", methods: ["GET"] }] },
     setup: page => page.clock.install() });
-  const save = page.locator("#session-open"), downloads = page.locator("#downloads");
+  const save = page.locator("#session-open"), downloads = page.locator("#downloads"), gpu = page.locator("#gpu-status");
   assert.equal(await save.isVisible(), true, "the Save button is not shown on load");
+  // system declares no gpu@0: the page says that it draws and computes on the CPU.
+  assert.equal(await gpu.isVisible() && await gpu.getAttribute("data-gpu"), "absent");
   await page.clock.fastForward(5000);
   assert.equal(await save.isVisible(), true, "the indicators hid within five seconds");
   const box = await save.boundingBox(), { width } = page.viewportSize();
@@ -21,7 +23,7 @@ await browserTest("indicators", { image: "system", server }, async ({ server, op
   const probe = "/tmp/corner-control";
   assert.equal(await submit(`curl -fsS ${server.origin}/fixture/corner-control.c -o ${probe}.c && cc ${probe}.c -o ${probe}`), 0, await text());
   await page.clock.fastForward(5000);
-  assert.equal(await save.isHidden(), true, "the indicators outlived their ten seconds");
+  assert.equal(await save.isHidden() && await gpu.isHidden(), true, "the indicators outlived their ten seconds");
 
   const running = submit(probe);
   await page.waitForFunction(() => __dolly.graphicsActive);
