@@ -157,3 +157,6 @@ the builds as packages).
 - `mojo run`'s refusal says what to type instead
   ([task](../20261013-134032-mojo-run-message/TASK.md)), with the next
   rebuild of `mojo-build`.
+- The core's C is compiled without `-Wall`; asked, the compiler has one
+  remark on the kernel and none on the process side
+  ([task](../20261013-212251-core-warnings/TASK.md)). No image input.
