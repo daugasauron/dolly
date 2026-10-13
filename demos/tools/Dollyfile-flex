@@ -9,7 +9,7 @@ REQUIRES HOST runtime@0
 # grammar is compiled by yacc, and a scanner seldom goes without a grammar,
 # so the yacc package comes with it.
 FROM /v0.1.3/Dollyfile-system-tools e19ab2a237b16de1596ccbb3a2ae07dd34b65488de38762b66ec0207a89c4b83
-INSTALL /v0.1.3/demos/tools/Dollyfile-yacc d9827769df0d3fba5c5540a911838f31112d2dd6d7900cc993be11cebcdfcf3e
+INSTALL /v0.1.3/demos/tools/Dollyfile-yacc c3a919362dd0d4be356d82b8af5735fe1a8108891d3c2746decaa272a71fbf38
 
 REQUIRES HEADER libc
 REQUIRES TOOL   ar

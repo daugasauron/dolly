@@ -259,6 +259,7 @@ const pages = {
   tree: { tree: "director" },
   bc: { bc: "calculator", dc: "calculator" },
   xxd: { xxd: "hex" },
+  yacc: { yacc: "parser" },
   mandoc: { mandoc: "manual" },
 };
 const reads = name => Object.entries(pages[name] ?? {}).map(([page, word]) =>
@@ -329,7 +330,7 @@ const tools = {
   // A grammar becomes a parser that counts its tokens, and a scanner counts the numbers it reads. flex comes with yacc.
   yacc: ["yacc", "cd /tmp && printf '%s\\n' '%{' 'int count; int yylex(void); void yyerror(const char *message) {}' '%}' '%token A' '%%' 'list: | list A { count++; };' '%%' " +
     "'#include <stdio.h>' 'int yylex(void) { return getchar() == EOF ? 0 : A; }' 'int main(void) { yyparse(); return count; }' > amy.y && " +
-    "yacc -o amy-y.c amy.y && cc amy-y.c -o amy-y; printf abcdef | ./amy-y; test $? = 6 && man yacc > /dev/null"],
+    "yacc -o amy-y.c amy.y && cc amy-y.c -o amy-y; printf abcdef | ./amy-y; test $? = 6"],
   flex: ["flex", "cd /tmp && printf '%s\\n' '%{' 'static int numbers;' '%}' '%%' '[0-9]+ numbers++;' '.|\\n ;' '%%' 'int main(void) { yylex(); return numbers; }' > amy.l && " +
     "flex -o amy-l.c amy.l && cc amy-l.c -lfl -o amy-l; echo 'a 1 bb 22 c 333' | ./amy-l; test $? = 3 && lex --version > /dev/null && man flex > /dev/null"],
   // A page of macros becomes text; the pages default holds as macros are such pages.
