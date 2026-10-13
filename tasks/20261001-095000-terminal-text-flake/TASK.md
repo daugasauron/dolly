@@ -469,7 +469,7 @@ task did: the whole test pinned to one processor
 (`taskset -c 5 work/slot.sh browser node TEST`), and "beside two loops" with
 two busy shell loops pinned to that same processor. `main` at `66f9fc47`,
 runtime `c470bb6e…`, images as built in `work/rust`. Logs and the probes:
-`build/flake-evidence/` (not committed). No tracked source is changed.
+`work/evidence-2026-10-14/flake/` (not committed). No tracked source is changed.
 
 | What ran | Chromium | Firefox |
 | --- | --- | --- |
@@ -560,7 +560,7 @@ Measured with a temporary log in the kernel (`fill_terminal_input` of
 terminal write of `src/dolly.c`; lines kept in memory and written to the
 page's log after 2.4 s without one). Image inputs `538c5a8aea82…` with and
 without it; the log is taken out again and `dist/dolly.wasm` is `main`'s byte
-for byte (`build/flake-evidence/kernel-log-buffered.patch` keeps the log).
+for byte (`work/evidence-2026-10-14/flake/kernel-log-buffered.patch` keeps the log).
 36 first steps logged, 5 failed, every one with the same lines
 (`pair-klog2-2-c6.log`, the number is the service tick, 16 ms):
 
