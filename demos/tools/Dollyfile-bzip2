@@ -4,7 +4,7 @@ REQUIRES HOST runtime@0
 
 # bzip2 and libbz2 from upstream's release archive, unchanged, by the rules of
 # its Makefile. bunzip2 and bzcat are bzip2 under the names it looks for.
-FROM /v0.1.3/Dollyfile-system-tools e19ab2a237b16de1596ccbb3a2ae07dd34b65488de38762b66ec0207a89c4b83
+FROM /v0.1.3/demos/tools/Dollyfile-tools-build 6ba4c47ce2631185f78f778a161ffc23f43f3948e2676ed8a287f7b07d6cbfc4
 
 REQUIRES HEADER libc
 REQUIRES TOOL   ar
@@ -16,6 +16,7 @@ REQUIRES TOOL   ln
 REQUIRES TOOL   make
 REQUIRES TOOL   mkdir
 REQUIRES TOOL   tar
+REQUIRES TOOL   text-page
 
 SOURCE /v0.1.3/dist/static/tools/bzip2-1.0.8.tar.gz ab5a03176ee106d3f0fa90e381da478ddae405918153cca248e682cd0c4a2269 /tmp/bzip2.tar.gz
 SLOP gzip -dc /tmp/bzip2.tar.gz | tar -xf - -C /tmp
@@ -41,7 +42,7 @@ SLOP ln -s bzip2 /usr/bin/bzcat
 SLOP cp /tmp/bzip2-1.0.8/bzlib.h /usr/include/bzlib.h
 SLOP mkdir -p /usr/share/licenses/bzip2
 SLOP cp /tmp/bzip2-1.0.8/LICENSE /usr/share/licenses/bzip2/LICENSE
-SLOP cp /tmp/bzip2-1.0.8/bzip2.1 /usr/share/man/man1/bzip2.1
+SLOP text-page /tmp/bzip2-1.0.8/bzip2.1
 
 # The checks of upstream's Makefile: each sample at its block size, both ways.
 SLOP CWD /tmp/bzip2-1.0.8 bzip2 -1 < sample1.ref | cmp - sample1.bz2
@@ -58,4 +59,4 @@ EXPORTS TOOL   bzip2recover
 EXPORTS LIB    bz2   /usr/lib/libbz2.a
 EXPORTS HEADER bzlib /usr/include/bzlib.h
 FILE /usr/share/licenses/bzip2/LICENSE
-FILE /usr/share/man/man1/bzip2.1
+FILE /usr/share/man/cat1/bzip2.1

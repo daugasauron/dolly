@@ -244,6 +244,35 @@ const zipped = "\\120\\113\\003\\004\\012\\000\\000\\000\\000\\000\\307\\273\\11
   "\\000\\000\\007\\000\\000\\000\\004\\000\\000\\000\\000\\000\\000\\000\\000\\000\\000\\000\\264\\201\\000\\000\\000\\000\\156\\157\\164\\145\\120\\113\\005\\006\\000\\000" +
   "\\000\\000\\001\\000\\001\\000\\062\\000\\000\\000\\051\\000\\000\\000\\000\\000";
 
+// The manual pages that packages format when they are built, each with a word
+// of its text: man prints the text, and no macros.
+const pages = {
+  sqlite: { sqlite3: "SQLite" },
+  jq: { jq: "JSON" },
+  xz: { xz: "compress" },
+  zstd: { zstd: "compress" },
+  bzip2: { bzip2: "compress" },
+  lz4: { lz4: "compress" },
+  pigz: { pigz: "compress" },
+  unzip: { unzip: "extract", zipinfo: "archive" },
+  zip: { zip: "compress" },
+  tree: { tree: "director" },
+  bc: { bc: "calculator", dc: "calculator" },
+  xxd: { xxd: "hex" },
+  yacc: { yacc: "parser" },
+  flex: { flex: "scanner" },
+  wabt: { "wasm-objdump": "WebAssembly", wat2wasm: "WebAssembly" },
+  sbase: { yes: "output", cal: "calendar" },
+  mandoc: { mandoc: "manual" },
+  tar: { tar: "archive" },
+  meson: { meson: "build" },
+  lua: { lua: "interpreter" },
+  nvim: { nvim: "edit text" },
+  dte: { dte: "text editor" },
+};
+const reads = name => Object.entries(pages[name] ?? {}).map(([page, word]) =>
+  `man ${page} > /tmp/amy-man && grep -q '${word}' /tmp/amy-man && ! grep -Eq '^[.](TH|SH|Dd|Sh) ' /tmp/amy-man`);
+
 // What a session adds one package at a time: each command is absent from
 // default, installs alone and is used. None brings the compiler until zig,
 // which writes C for it.
@@ -278,26 +307,26 @@ const tools = {
   sqlite: ["sqlite3", "sqlite3 /tmp/amy.db \"create table word(n, name); insert into word values (6, 'six'), (7, 'seven'), (9, 'nine'); pragma journal_mode = wal\" > /dev/null && " +
     "test \"$(sqlite3 /tmp/amy.db \"select sum(n) * 3 + 3, json_group_array(name) from word where name like 's%'\")\" = '42|[\"six\",\"seven\"]' && " +
     "sqlite3 /tmp/amy.db 'select count(*) from word' \".shell sqlite3 /tmp/amy.db 'select count(*) from word' 2>&1\" | grep -q 'database is locked' && " +
-    links("sqlite3", "sqlite3", "sqlite3_libversion_number() != SQLITE_VERSION_NUMBER") + " && man sqlite3 > /dev/null"],
+    links("sqlite3", "sqlite3", "sqlite3_libversion_number() != SQLITE_VERSION_NUMBER")],
   // A sum, and a number that a regular expression takes out of a string.
   jq: ["jq", "echo '{\"a\": [1, 20, 21], \"b\": \"x-42\"}' > /tmp/amy.json && " +
-    "test \"$(jq -r '(.a | add | tostring) + \" \" + (.b | capture(\"(?<n>[0-9]+)\").n)' /tmp/amy.json)\" = '42 42' && man jq > /dev/null"],
-  xz: ["xz", `${packs("xz", "unxz", "xz")} && ${links("lzma", "lzma", "lzma_version_number() != LZMA_VERSION")} && man xz > /dev/null`],
-  zstd: ["zstd", `${packs("zstd", "unzstd", "zst")} && ${links("zstd", "zstd", "ZSTD_versionNumber() != ZSTD_VERSION_NUMBER")} && man zstd > /dev/null`],
-  bzip2: ["bzip2", `${packs("bzip2", "bunzip2", "bz2")} && ${links("bzlib", "bz2", "BZ2_bzlibVersion()[0] != '1'")} && man bzip2 > /dev/null`],
-  lz4: ["lz4", `${packs("lz4", "unlz4", "lz4")} && ${links("lz4", "lz4", "LZ4_versionNumber() != LZ4_VERSION_NUMBER")} && man lz4 > /dev/null`],
+    "test \"$(jq -r '(.a | add | tostring) + \" \" + (.b | capture(\"(?<n>[0-9]+)\").n)' /tmp/amy.json)\" = '42 42'"],
+  xz: ["xz", `${packs("xz", "unxz", "xz")} && ${links("lzma", "lzma", "lzma_version_number() != LZMA_VERSION")}`],
+  zstd: ["zstd", `${packs("zstd", "unzstd", "zst")} && ${links("zstd", "zstd", "ZSTD_versionNumber() != ZSTD_VERSION_NUMBER")}`],
+  bzip2: ["bzip2", `${packs("bzip2", "bunzip2", "bz2")} && ${links("bzlib", "bz2", "BZ2_bzlibVersion()[0] != '1'")}`],
+  lz4: ["lz4", `${packs("lz4", "unlz4", "lz4")} && ${links("lz4", "lz4", "LZ4_versionNumber() != LZ4_VERSION_NUMBER")}`],
   // gzip, earlier in this table, only unpacks: it reads what pigz packs.
-  pigz: ["pigz", `${packs("pigz", "unpigz", "gz")} && pigz -c /tmp/amy-pigz | gzip -dc | cmp - /tmp/amy-pigz && man pigz > /dev/null`],
+  pigz: ["pigz", `${packs("pigz", "unpigz", "gz")} && pigz -c /tmp/amy-pigz | gzip -dc | cmp - /tmp/amy-pigz`],
   unzip: ["unzip", `mkdir /tmp/amy-unzip && cd /tmp/amy-unzip && printf '${zipped}' > note.zip && test "$(zipinfo -1 note.zip)" = note && ` +
-    "unzip -q note.zip && grep -qx packed note && man unzip > /dev/null"],
+    "unzip -q note.zip && grep -qx packed note"],
   // zip comes with unzip, which zip -T starts.
   zip: ["zip", "mkdir -p /tmp/amy-zip/in/deep /tmp/amy-zip/out && cd /tmp/amy-zip && seq 1 2000 > in/deep/numbers && zip -q -r in.zip in && zip -T in.zip > /dev/null && " +
-    "unzip -q in.zip -d out && cmp out/in/deep/numbers in/deep/numbers && test \"$(stat -c %s in.zip)\" -lt \"$(stat -c %s in/deep/numbers)\" && man zip > /dev/null"],
+    "unzip -q in.zip -d out && cmp out/in/deep/numbers in/deep/numbers && test \"$(stat -c %s in.zip)\" -lt \"$(stat -c %s in/deep/numbers)\""],
   tree: ["tree", "mkdir -p /tmp/amy-tree/a/b && touch /tmp/amy-tree/a/b/leaf /tmp/amy-tree/top && cd /tmp/amy-tree && " +
-    "test \"$(tree --noreport -i -f . | tr '\\n' ' ')\" = '. ./a ./a/b ./a/b/leaf ./top ' && tree -J . | grep -q '\"name\":\"leaf\"' && man tree > /dev/null"],
+    "test \"$(tree --noreport -i -f . | tr '\\n' ' ')\" = '. ./a ./a/b ./a/b/leaf ./top ' && tree -J . | grep -q '\"name\":\"leaf\"'"],
   bc: ["bc", "test \"$(echo '6 * 7; 2 ^ 64; scale = 20; 4 * a(1)' | bc -l | tr '\\n' ' ')\" = '42 18446744073709551616 3.14159265358979323844 ' && " +
-    "test \"$(echo '6 7 * p' | dc)\" = 42 && man bc > /dev/null && man dc > /dev/null"],
-  xxd: ["xxd", "test \"$(echo hello | xxd -p)\" = 68656c6c6f0a && seq 1 300 > /tmp/amy-xxd && xxd /tmp/amy-xxd | xxd -r | cmp - /tmp/amy-xxd && man xxd > /dev/null"],
+    "test \"$(echo '6 7 * p' | dc)\" = 42"],
+  xxd: ["xxd", "test \"$(echo hello | xxd -p)\" = 68656c6c6f0a && seq 1 300 > /tmp/amy-xxd && xxd /tmp/amy-xxd | xxd -r | cmp - /tmp/amy-xxd"],
   base64: ["base64", `test "$(echo packed | base64)" = cGFja2VkCg== && seq 1 3000 | base64 > /tmp/amy-base64 && base64 -d /tmp/amy-base64 | tail -n 1 | grep -qx 3000 && ` +
     links("libbase64", "base64", "base64_decode(0, 0, 0, 0, 0) != 1")],
   // A module written from text is valid, reads back and loses its names to
@@ -305,20 +334,33 @@ const tools = {
   wabt: ["wasm2wat", "cd /tmp && echo '(module (func $answer (export \"answer\") (result i32) i32.const 42))' > amy.wat && wat2wasm --debug-names amy.wat -o amy.wasm && " +
     "wasm-validate amy.wasm && wasm2wat amy.wasm | grep -q 'i32.const 42' && wasm-objdump -x amy.wasm | grep -q answer && cp amy.wasm amy-named.wasm && " +
     "wasm-strip amy.wasm && test \"$(stat -c %s amy.wasm)\" -lt \"$(stat -c %s amy-named.wasm)\" && echo 'int main(void) { return 0; }' > amy-wabt.c && " +
-    "cc amy-wabt.c -o amy-wabt && wasm-objdump -x amy-wabt | grep -q i64 && man wasm-objdump > /dev/null"],
+    "cc amy-wabt.c -o amy-wabt && wasm-objdump -x amy-wabt | grep -q i64"],
   // A grammar becomes a parser that counts its tokens, and a scanner counts the numbers it reads. flex comes with yacc.
   yacc: ["yacc", "cd /tmp && printf '%s\\n' '%{' 'int count; int yylex(void); void yyerror(const char *message) {}' '%}' '%token A' '%%' 'list: | list A { count++; };' '%%' " +
     "'#include <stdio.h>' 'int yylex(void) { return getchar() == EOF ? 0 : A; }' 'int main(void) { yyparse(); return count; }' > amy.y && " +
-    "yacc -o amy-y.c amy.y && cc amy-y.c -o amy-y; printf abcdef | ./amy-y; test $? = 6 && man yacc > /dev/null"],
+    "yacc -o amy-y.c amy.y && cc amy-y.c -o amy-y; printf abcdef | ./amy-y; test $? = 6"],
   flex: ["flex", "cd /tmp && printf '%s\\n' '%{' 'static int numbers;' '%}' '%%' '[0-9]+ numbers++;' '.|\\n ;' '%%' 'int main(void) { yylex(); return numbers; }' > amy.l && " +
-    "flex -o amy-l.c amy.l && cc amy-l.c -lfl -o amy-l; echo 'a 1 bb 22 c 333' | ./amy-l; test $? = 3 && lex --version > /dev/null && man flex > /dev/null"],
+    "flex -o amy-l.c amy.l && cc amy-l.c -lfl -o amy-l; echo 'a 1 bb 22 c 333' | ./amy-l; test $? = 3 && lex --version > /dev/null"],
+  // A page of macros becomes text; the pages default holds as macros are such pages.
+  mandoc: ["mandoc", "printf '%s\\n' '.Dd October 13, 2026' '.Dt PROBE 1' '.Os' '.Sh NAME' '.Nm probe' '.Nd a page of macros' > /tmp/amy.1 && " +
+    "mandoc -T ascii /tmp/amy.1 | grep -q 'a page of macros' && mandoc -T ascii /usr/share/man/man1/grep.1 | grep -q 'search files for patterns'"],
   // yes ends when its reader does.
   sbase: ["yes", "test \"$(yes | head -n 3 | tr '\\n' ' ')\" = 'y y y ' && test \"$(printf abc | sha1sum | cut -c 1-40)\" = a9993e364706816aba3e25717850c26c9cd0d89d && " +
     "printf abc | sha512sum | grep -q '^ddaf35a193617aba' && cal 10 2026 | grep -q 2026 && echo sponged > /tmp/amy-sponge && " +
     "tr a-z A-Z < /tmp/amy-sponge | sponge /tmp/amy-sponge && grep -qx SPONGED /tmp/amy-sponge && " +
-    "uuencode /tmp/amy-sponge sponge | uudecode -o /tmp/amy-uu && cmp /tmp/amy-uu /tmp/amy-sponge && man yes > /dev/null"],
+    "uuencode /tmp/amy-sponge sponge | uudecode -o /tmp/amy-uu && cmp /tmp/amy-uu /tmp/amy-sponge"],
   // ex edits by commands; vi at the terminal is the step after this table.
   vi: ["vi", "printf 'one\\ntwo\\n' > /tmp/amy-ex && printf '%s\\n' '%s/two/2/' w q | ex -s /tmp/amy-ex > /dev/null && test \"$(tr '\\n' ' ' < /tmp/amy-ex)\" = 'one 2 '"],
+  // A syntax file dte holds is written out and loads; dte at the terminal is
+  // the step after this table too.
+  dte: ["dte", "dte -b syntax/json > /tmp/json && dte -s /tmp/json > /dev/null"],
+  // grep and sed with the options the image's lack, in their place: a tree is
+  // searched, edited where it matched, and searched again. Last in this table,
+  // so that the checks above ran the image's own.
+  toybox: ["toybox", "mkdir -p /tmp/amy-toybox/a/b && cd /tmp/amy-toybox && printf 'one\\nneedle\\n' > a/b/hay && echo needle > a/top && echo none > a/other && " +
+    "test \"$(grep -rn needle . | sort | tr '\\n' ' ')\" = './a/b/hay:2:needle ./a/top:1:needle ' && grep -rl needle . | xargs sed -i 's/needle/pin/' && " +
+    "! grep -rq needle . && test \"$(grep -rc pin a | sort | tr '\\n' ' ')\" = 'a/b/hay:1 a/other:0 a/top:1 ' && " +
+    "test \"$(echo 'a needle b' | grep -o 'ne*dle')\" = needle && man sed | grep -q -- '-i'"],
 };
 // The terminal has no line discipline: a program that reads lines there edits
 // them itself. For each command, what the screen shows and what is then typed
@@ -327,6 +369,8 @@ const typed = {
   "sqlite3 /tmp/amy.db": [[/amy\.db->\s*$/, "select count(*) * 14 from word;\n"], [/\D42\D[^>]*amy\.db->\s*$/, ".quit\n"]],
   dc: [[/>>>\s*$/, "6 7 * p\n"], [/\n42\n>>>\s*$/, "q\n"]],
   "vi /tmp/amy-vi": [[/^~$/m, "ione\ntwo\x1b:wq\n"]],
+  // Its status line is up; Ctrl+S saves and Ctrl+Q quits.
+  "dte /tmp/amy-dte": [[/INS +UTF-8/, "one\ntwo\x13\x11"]],
 };
 await browserTest("amy tools", { image: "default", timeout: 300_000 }, async ({ open }) => {
   const session = await open(), run = check(session);
@@ -334,6 +378,7 @@ await browserTest("amy tools", { image: "default", timeout: 300_000 }, async ({ 
     await run(`! command -v ${command}`);
     console.log(`amy install ${name}: ${await timed(run, `amy install ${name}`)} ms`);
     await run(use);
+    for (const read of reads(name)) await run(read);
   }
   for (const [command, steps] of Object.entries(typed)) {
     const running = session.submit(command);
@@ -342,18 +387,22 @@ await browserTest("amy tools", { image: "default", timeout: 300_000 }, async ({ 
       await session.waitForText(shown);
       for (const [index, text] of keys.split("\x1b").entries()) {
         if (index) await session.page.keyboard.press("Escape");
-        await session.page.keyboard.type(text);
+        for (const [control, part] of text.split(/([\x11\x13])/).entries()) {
+          if (control % 2) await session.page.keyboard.press(`Control+${String.fromCharCode(part.charCodeAt(0) + 96)}`);
+          else await session.page.keyboard.type(part);
+        }
       }
     }
     assert.equal(await running, 0, `${command}\n${await session.text()}`);
   }
-  await run("test \"$(tr '\\n' ' ' < /tmp/amy-vi)\" = 'one two '");
+  await run("test \"$(tr '\\n' ' ' < /tmp/amy-vi)\" = 'one two ' && test \"$(tr '\\n' ' ' < /tmp/amy-dte)\" = 'one two '");
   await run("amy install dolly-docs && test -f /usr/share/doc/dolly/docs/dollyfile.md");
   // The core's tar only unpacks files and directories. The tar package puts
   // sbase's in its place: a tree with a link archived, listed and unpacked.
   await run("mkdir -p /tmp/amy-tar/in/deep /tmp/amy-tar/out && cd /tmp/amy-tar && seq 1 2000 > in/deep/numbers && ln -s deep/numbers in/link && ! tar -cf in.tar in 2> /dev/null");
   await run("amy install tar && cd /tmp/amy-tar && tar -cf in.tar in && tar -xf in.tar -C out && cmp out/in/deep/numbers in/deep/numbers && " +
-    "test \"$(readlink out/in/link)\" = deep/numbers && tar -cf - in | pigz | gzip -dc | tar -tf - | grep -qx in/link && amy files tar | grep -q ' /usr/share/man/cat1/tar.1$'");
+    "test \"$(readlink out/in/link)\" = deep/numbers && tar -cf - in | pigz | gzip -dc | tar -tf - | grep -qx in/link");
+  for (const read of reads("tar")) await run(read);
   // dolly-llama computes on the GPU, a host module default does not declare:
   // the package is refused by the module's name and nothing of it is installed.
   assert.notEqual(await session.submit("amy install llama 2> /tmp/refused"), 0);
@@ -388,7 +437,7 @@ const hello = "mkdir /tmp/amy-mojo && cd /tmp/amy-mojo && printf 'def main():\\n
 // Python runs Meson; meson setup configures with the C compiler and meson
 // compile builds with Ninja: the meson package installs the three.
 const mesoned = "mkdir /tmp/amy-meson && cd /tmp/amy-meson && printf 'int main(void) { return 42; }\\n' > main.c && " +
-  "printf '%s\\n' \"project('probe', 'c')\" \"executable('probe', 'main.c')\" > meson.build && meson setup build && meson compile -C build; build/probe; test $? = 42";
+  "printf '%s\\n' \"project('probe', 'c')\" \"executable('probe', 'main.c')\" > meson.build && meson setup build && meson compile -C build; build/probe; test $? = 42 && " + reads("meson")[0];
 for (const [name, command, program] of [["rust", "rustc", programs.rust], ["cargo", "cargo", crate], ["cmake", "cmake", programs.cmake],
   ["mojo", "mojo", hello], ["meson", "meson", mesoned]]) {
   await browserTest(`amy ${name} alone`, { image: "default", timeout: 300_000 }, async ({ open }) => {

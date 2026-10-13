@@ -1,0 +1,66 @@
+DOLLY 7
+PACKAGE dte
+REQUIRES HOST runtime@0
+
+# dte, a small full-screen editor with the keys of a desktop one (Ctrl+S
+# saves, Ctrl+Q quits, Ctrl+Z undoes, Ctrl+F searches), from the files of
+# upstream's release archive, one line of them changed (below). It draws
+# with its own escape sequences and reads no terminal database. Its makefile
+# asks the compiler ten questions through a shell that Slop is not;
+# feature.h holds the answers.
+FROM /v0.1.3/demos/tools/Dollyfile-tools-build 6ba4c47ce2631185f78f778a161ffc23f43f3948e2676ed8a287f7b07d6cbfc4
+
+REQUIRES HEADER libc
+REQUIRES TOOL   awk
+REQUIRES TOOL   cc
+REQUIRES TOOL   grep
+REQUIRES TOOL   make
+REQUIRES TOOL   mv
+REQUIRES TOOL   sed
+REQUIRES TOOL   tar
+REQUIRES TOOL   text-page
+
+SOURCE /v0.1.3/dist/static/tools/dte.tar 305efb06b81e80833a50faaae17d7a9a6d3ba29654de409111173c237d19aff5 /tmp/dte.tar
+SLOP tar -xf /tmp/dte.tar -C /
+
+# dte takes a stream for the terminal when tcgetpgrp answers for it. There
+# are no process groups here and it answers for none; isatty answers what is
+# asked. This line is the one change to the source.
+SLOP CWD /tmp/dte sed 's/tcgetpgrp(fd) != -1/isatty(fd)/' src/util/fd.h > fd.h && mv fd.h src/util/fd.h && grep -q 'isatty(fd)' src/util/fd.h
+
+# Not found here: sig2str, sigabbrev_np, and a controlling terminal to leave
+# (TIOCNOTTY).
+FILE /tmp/dte/build/feature.h
+    #define _GNU_SOURCE
+    #define HAVE_DUP3 1
+    #define HAVE_PIPE2 1
+    #define HAVE_FSYNC 1
+    #define HAVE_MEMMEM 1
+    #define HAVE_SIG2STR 0
+    #define HAVE_SIGABBREV_NP 0
+    #define HAVE_TIOCGWINSZ 1
+    #define HAVE_TIOCNOTTY 0
+    #define HAVE_TCGETWINSIZE 1
+    #define HAVE_POSIX_MADVISE 1
+FILE /tmp/dte/build/version.h
+    #define VERSION "1.11.1"
+# The key bindings, colours and syntax files the program holds are every file
+# of config/, as in upstream's makefile.
+FILE /tmp/dte.mk
+    .RECIPEPREFIX := >
+    S := /tmp/dte
+    BIN := /usr/bin
+    SOURCES := $(wildcard $(addprefix $S/src/,*.c command/*.c editorconfig/*.c syntax/*.c terminal/*.c util/*.c))
+    CONFIGS := $(filter-out config/syntax/inc,$(patsubst $S/%,%,$(wildcard $(addprefix $S/config/,rc binding/* compiler/* color/* syntax/* syntax/inc/*))))
+    $(BIN)/dte: $(SOURCES:.c=.o)
+    >cc $^ -o $@
+    $S/src/%.o: $S/src/%.c $S/build/builtin-config.h
+    >cc -O2 -std=gnu11 -DDEBUG=0 -I$S/src -c $< -o $@
+    $S/build/builtin-config.h:
+    >cd $S && awk -f mk/config2c.awk $(CONFIGS) > build/builtin-config.h
+SLOP make -j4 -f /tmp/dte.mk
+SLOP text-page /usr/share/man/man1/dte.1
+
+EXPORTS TOOL dte
+FILE /usr/share/licenses/dte/LICENSE
+FILE /usr/share/man/cat1/dte.1

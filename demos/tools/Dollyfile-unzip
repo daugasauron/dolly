@@ -8,7 +8,7 @@ REQUIRES HOST runtime@0
 # lchmod. The sources are C of 1990, which -std=gnu89 compiles; they call
 # read, write and lseek without their header unless the system says it is
 # BSD 4.4 or System V, and a call through the wrong type traps in Wasm.
-FROM /v0.1.3/Dollyfile-system-tools e19ab2a237b16de1596ccbb3a2ae07dd34b65488de38762b66ec0207a89c4b83
+FROM /v0.1.3/demos/tools/Dollyfile-tools-build 6ba4c47ce2631185f78f778a161ffc23f43f3948e2676ed8a287f7b07d6cbfc4
 
 REQUIRES HEADER libc
 REQUIRES TOOL   cc
@@ -19,6 +19,7 @@ REQUIRES TOOL   make
 REQUIRES TOOL   mkdir
 REQUIRES TOOL   tar
 REQUIRES TOOL   test
+REQUIRES TOOL   text-page
 
 SOURCE /v0.1.3/dist/static/tools/unzip60.tar.gz 036d96991646d0449ed0aa952e4fbe21b476ce994abc276e49d30e686708bd37 /tmp/unzip.tar.gz
 SLOP gzip -dc /tmp/unzip.tar.gz | tar -xf - -C /tmp
@@ -40,7 +41,7 @@ SLOP make -j4 -f /tmp/unzip.mk
 SLOP ln -s unzip /usr/bin/zipinfo
 SLOP mkdir -p /usr/share/licenses/unzip
 SLOP cp /tmp/unzip60/LICENSE /usr/share/licenses/unzip/LICENSE
-SLOP cp /tmp/unzip60/man/unzip.1 /tmp/unzip60/man/zipinfo.1 /usr/share/man/man1
+SLOP text-page /tmp/unzip60/man/unzip.1 /tmp/unzip60/man/zipinfo.1
 
 # The archive upstream ships to test a build with.
 SLOP CWD /tmp/unzip60 unzip -tq testmake.zip
@@ -49,5 +50,5 @@ SLOP CWD /tmp unzip -q /tmp/unzip60/testmake.zip notes && test -s /tmp/notes
 EXPORTS TOOL unzip
 EXPORTS TOOL zipinfo
 FILE /usr/share/licenses/unzip/LICENSE
-FILE /usr/share/man/man1/unzip.1
-FILE /usr/share/man/man1/zipinfo.1
+FILE /usr/share/man/cat1/unzip.1
+FILE /usr/share/man/cat1/zipinfo.1

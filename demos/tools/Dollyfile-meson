@@ -8,7 +8,7 @@ REQUIRES HOST sockets@0
 # Meson from the wheel PyPI publishes, installed by pip. Python runs it, meson
 # setup starts the C compiler and meson compile starts Ninja, so those three
 # packages come with it; the host modules are the ones Python declares.
-FROM /v0.1.3/Dollyfile-system-tools e19ab2a237b16de1596ccbb3a2ae07dd34b65488de38762b66ec0207a89c4b83
+FROM /v0.1.3/demos/tools/Dollyfile-tools-build 6ba4c47ce2631185f78f778a161ffc23f43f3948e2676ed8a287f7b07d6cbfc4
 INSTALL /v0.1.3/demos/python/Dollyfile-python 7670bbeb776fa8d69f0cfeeffd6194b1147737c4279ee06893a7d4472cfd00d9
 INSTALL /v0.1.3/Dollyfile-cc 496482dedb8df6eda0014425cc726c9f1dafd1225a2af952f0b8e147efeaf295
 INSTALL /v0.1.3/Dollyfile-ninja d0d732690414cfe3a4d2b7608afe4e286110022a2928bbe81c3b129c6dc58022
@@ -18,6 +18,7 @@ REQUIRES TOOL cp
 REQUIRES TOOL mkdir
 REQUIRES TOOL ninja
 REQUIRES TOOL pip
+REQUIRES TOOL text-page
 
 SOURCE /v0.1.3/dist/static/tools/meson-1.12.1-py3-none-any.whl 930bc7542cbd9f57009e182fd014eba48cf1a0180a7b9006d2d32d8f168d8b02 /tmp/meson-1.12.1-py3-none-any.whl
 SLOP pip install --no-compile --no-index --no-deps /tmp/meson-1.12.1-py3-none-any.whl
@@ -35,4 +36,5 @@ EXPORTS TOOL meson
 FOLDER /usr/lib/python3.14/site-packages/mesonbuild
 FOLDER /usr/lib/python3.14/site-packages/meson-1.12.1.dist-info
 FILE /usr/share/licenses/meson/COPYING
-FILE /usr/share/man/man1/meson.1
+SLOP text-page /usr/share/man/man1/meson.1
+FILE /usr/share/man/cat1/meson.1

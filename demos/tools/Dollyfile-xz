@@ -4,7 +4,7 @@ REQUIRES HOST runtime@0
 
 # XZ Utils from upstream's release archive, unchanged: the xz program and
 # liblzma. unxz and xzcat are xz under the names it looks for.
-FROM /v0.1.3/Dollyfile-system-tools e19ab2a237b16de1596ccbb3a2ae07dd34b65488de38762b66ec0207a89c4b83
+FROM /v0.1.3/demos/tools/Dollyfile-tools-build 6ba4c47ce2631185f78f778a161ffc23f43f3948e2676ed8a287f7b07d6cbfc4
 
 REQUIRES HEADER libc
 REQUIRES TOOL   ar
@@ -16,6 +16,7 @@ REQUIRES TOOL   ln
 REQUIRES TOOL   make
 REQUIRES TOOL   mkdir
 REQUIRES TOOL   tar
+REQUIRES TOOL   text-page
 
 SOURCE /v0.1.3/dist/static/tools/xz-5.8.4.tar.gz 0014c7886930454fe8bd4228665b51af55eeae560ea135c9c4cd33f55b2591d9 /tmp/xz.tar.gz
 SLOP gzip -dc /tmp/xz.tar.gz | tar -xf - -C /tmp
@@ -119,7 +120,7 @@ SLOP ln -s xz /usr/bin/xzcat
 SLOP cp -r /tmp/xz-5.8.4/src/liblzma/api/lzma.h /tmp/xz-5.8.4/src/liblzma/api/lzma /usr/include
 SLOP mkdir -p /usr/share/licenses/xz
 SLOP cp /tmp/xz-5.8.4/COPYING /tmp/xz-5.8.4/COPYING.0BSD /usr/share/licenses/xz
-SLOP cp /tmp/xz-5.8.4/src/xz/xz.1 /usr/share/man/man1/xz.1
+SLOP text-page /tmp/xz-5.8.4/src/xz/xz.1
 
 SLOP xz -9e -c /tmp/xz-5.8.4/NEWS | unxz | cmp - /tmp/xz-5.8.4/NEWS
 SLOP xz -k /tmp/xz-5.8.4/NEWS && xz -t /tmp/xz-5.8.4/NEWS.xz && xzcat /tmp/xz-5.8.4/NEWS.xz | cmp - /tmp/xz-5.8.4/NEWS
@@ -135,4 +136,4 @@ EXPORTS HEADER lzma /usr/include/lzma.h
 EXPORTS FOLDER lzma-headers /usr/include/lzma
 FILE /usr/share/licenses/xz/COPYING
 FILE /usr/share/licenses/xz/COPYING.0BSD
-FILE /usr/share/man/man1/xz.1
+FILE /usr/share/man/cat1/xz.1

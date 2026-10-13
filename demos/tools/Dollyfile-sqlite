@@ -15,7 +15,7 @@ REQUIRES HOST runtime@0
 # - zlib, for the shell's archives (.archive, sqlite3 -A, zip files as tables);
 # - linenoise (--with-linenoise): the terminal has no line discipline, so the
 #   shell edits its own lines.
-FROM /v0.1.3/Dollyfile-system-tools e19ab2a237b16de1596ccbb3a2ae07dd34b65488de38762b66ec0207a89c4b83
+FROM /v0.1.3/demos/tools/Dollyfile-tools-build 6ba4c47ce2631185f78f778a161ffc23f43f3948e2676ed8a287f7b07d6cbfc4
 INSTALL /v0.1.3/Dollyfile-zlib 165f968379cd44d7ea9e5612678a493b4ece2fa67564b93341a54dcba89fd5dc
 
 REQUIRES HEADER libc
@@ -30,6 +30,7 @@ REQUIRES TOOL   mkdir
 REQUIRES TOOL   sed
 REQUIRES TOOL   tar
 REQUIRES TOOL   test
+REQUIRES TOOL   text-page
 
 SOURCE /v0.1.3/dist/static/tools/sqlite-autoconf-3540000.tar.gz 134ec0802dda5795816e25d25872d20b312cb3973438c49b30bc40b7705ea9ed /tmp/sqlite.tar.gz
 SLOP gzip -dc /tmp/sqlite.tar.gz | tar -xf - -C /tmp
@@ -58,7 +59,7 @@ FILE /tmp/sqlite.mk
     >cc $^ -lz -lm -o $@
 SLOP make -j2 -f /tmp/sqlite.mk
 SLOP cp /tmp/sqlite-autoconf-3540000/sqlite3.h /tmp/sqlite-autoconf-3540000/sqlite3ext.h /usr/include
-SLOP cp /tmp/sqlite-autoconf-3540000/sqlite3.1 /usr/share/man/man1/sqlite3.1
+SLOP text-page /tmp/sqlite-autoconf-3540000/sqlite3.1
 
 # SQLite is in the public domain and ships no licence file: its sources open
 # with the dedication.
@@ -73,4 +74,4 @@ EXPORTS HEADER sqlite3    /usr/include/sqlite3.h
 EXPORTS HEADER sqlite3ext /usr/include/sqlite3ext.h
 FILE /usr/share/licenses/sqlite/blessing
 FILE /usr/share/licenses/linenoise/LICENSE
-FILE /usr/share/man/man1/sqlite3.1
+FILE /usr/share/man/cat1/sqlite3.1

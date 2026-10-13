@@ -6,8 +6,8 @@ REQUIRES HOST runtime@0
 # run unix/configure, so the flags say what it would find here. The sources
 # are C of 1990, which -std=gnu89 compiles. zip -T starts unzip, so unzip
 # comes with it.
-FROM /v0.1.3/Dollyfile-system-tools e19ab2a237b16de1596ccbb3a2ae07dd34b65488de38762b66ec0207a89c4b83
-INSTALL /v0.1.3/demos/tools/Dollyfile-unzip 5506c055cfab1056b07d645de0085bf88c372f9b6d95b0081450dba2b6168199
+FROM /v0.1.3/demos/tools/Dollyfile-tools-build 6ba4c47ce2631185f78f778a161ffc23f43f3948e2676ed8a287f7b07d6cbfc4
+INSTALL /v0.1.3/demos/tools/Dollyfile-unzip 52b9bbde343b1e80f453ed643f57527d53c644b06ac4e08be9bf4cc350b2ee96
 
 REQUIRES HEADER libc
 REQUIRES TOOL   cc
@@ -17,6 +17,7 @@ REQUIRES TOOL   make
 REQUIRES TOOL   mkdir
 REQUIRES TOOL   tar
 REQUIRES TOOL   unzip
+REQUIRES TOOL   text-page
 
 SOURCE /v0.1.3/dist/static/tools/zip30.tar.gz f0e8bb1f9b7eb0b01285495a2699df3a4b766784c1765a8f1aeedf63c0806369 /tmp/zip.tar.gz
 SLOP gzip -dc /tmp/zip.tar.gz | tar -xf - -C /tmp
@@ -36,10 +37,10 @@ FILE /tmp/zip.mk
 SLOP make -j4 -f /tmp/zip.mk
 SLOP mkdir -p /usr/share/licenses/zip
 SLOP cp /tmp/zip30/LICENSE /usr/share/licenses/zip/LICENSE
-SLOP cp /tmp/zip30/man/zip.1 /usr/share/man/man1/zip.1
+SLOP text-page /tmp/zip30/man/zip.1
 
 SLOP CWD /tmp/zip30 zip -q -r /tmp/zip-check.zip man && zip -T /tmp/zip-check.zip
 
 EXPORTS TOOL zip
 FILE /usr/share/licenses/zip/LICENSE
-FILE /usr/share/man/man1/zip.1
+FILE /usr/share/man/cat1/zip.1

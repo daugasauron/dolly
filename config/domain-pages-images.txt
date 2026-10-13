@@ -77,3 +77,6 @@ libevent
 libterminfo
 tmux
 tmux-panes
+mandoc
+toybox
+dte
