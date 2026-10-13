@@ -62,6 +62,8 @@ The browser runtime and the boundary:
 - [The mouse in the terminal](../20261013-154704-terminal-mouse/TASK.md).
 - [Tests that assert wording](../20261013-191218-wording-tests/TASK.md): half
   of them have no other way to tell one refusal from another.
+- [Every provider's script is loaded on every page](../20261013-192655-providers-loaded/TASK.md):
+  41 KB of 1.2 MB on `default`, and importing one does nothing to the page.
 
 Host modules:
 
