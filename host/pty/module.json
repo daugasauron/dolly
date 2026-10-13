@@ -1,6 +1,7 @@
 {
   "name": "pty",
   "version": 0,
+  "gives": "pseudo-terminals: a terminal one program gives another, as tmux does",
   "dependencies": ["runtime@0"],
   "imports": [],
   "host": "pty.mjs",

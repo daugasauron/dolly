@@ -10,7 +10,7 @@ REQUIRES HOST http@0
 REQUIRES HOST snapshot@0
 REQUIRES HOST upload@0
 
-FROM /v0.1.2/Dollyfile 6e35b19dce2e2aa4731e6dd968248c42d8d3979f8e4e214702e0cb2a87fd2190
+FROM /v0.1.2/Dollyfile 823e5e3b717b7358aa2f50d89dfa600ec07cdfb98261d62b2e288a7226a44bff
 COPY /v0.1.2/demos/zero-ad/Dollyfile-zero-ad-engine 4ce0b9d50e3b161ee2c0f3b40449ac2d539ba5f7e4a6c5a80281398d66671398 /opt/0ad/system/pyrogenesis /opt/0ad/system/pyrogenesis
 # Licences of the libraries statically linked into the engine.
 COPY /v0.1.2/demos/zero-ad/Dollyfile-zero-ad-engine 4ce0b9d50e3b161ee2c0f3b40449ac2d539ba5f7e4a6c5a80281398d66671398 /usr/share/licenses/OpenAL /usr/share/licenses/OpenAL

@@ -1,6 +1,7 @@
 {
   "name": "download",
   "version": 0,
+  "gives": "offer a file to save; the user clicks",
   "dependencies": ["runtime@0"],
   "imports": ["env.dolly_download_dispatch"],
   "host": "download.mjs",

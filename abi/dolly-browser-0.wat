@@ -18,6 +18,11 @@
   ;; no key or pointer of the page, no URL or browser object access.
   (import "env" "dolly_buttons_dispatch" (func (param i64 i64) (result i32)))
 
+  ;; The session's request to enable or disable a host module, for an image
+  ;; that declares nena@0; the page makes every switch. A packet names a module
+  ;; of the page's fixed registry, never a URL, file or provider.
+  (import "env" "dolly_nena_dispatch" (func (param i64 i64) (result i32)))
+
   ;; The only Wasm-selected network edge. Null method means cancellation.
   ;; Implementation: host/http/kernel.c supplies spans; host/http/broker.mjs applies
   ;; host/http/policy.mjs BEFORE making the request. No other import loads URLs.

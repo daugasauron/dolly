@@ -232,6 +232,7 @@ test("system snapshots are sealed to their visible recipe chain", async () => {
     ["gzip", "/bin/gzip"],
     ["less", "/usr/bin/less"],
     ["make", "/usr/bin/make"],
+    ["nena", "/bin/nena"],
     ["ninja", "/usr/bin/ninja"],
     ["gpu-sdk", "/usr/lib/dolly/process/libdolly-gpu.a"],
     ["posix", "/bin/grep"],

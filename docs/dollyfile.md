@@ -135,7 +135,7 @@ mounted, and reads no other version's.
   package keeps none of it: the base is only the environment the package is
   built in. The build runs the base's `/bin/dollyfile`.
 - A recipe without `FROM` starts from nothing and keeps only what it installs
-  and declares: `default` is `core`, `posix`, `display`, `curl`, `amy`,
+  and declares: `default` is `core`, `posix`, `display`, `curl`, `amy`, `nena`,
   `transfer`, its start-up script and an ENTRY, with no compiler. It opens, and `amy` installs
   into it, but it is not a base to compile on: `FROM` a toolchain for that.
 - `INSTALL` restores a package's retained files, applies and exports its
@@ -325,7 +325,9 @@ EXPORTS TOOL rg
   row's snapshot and installs it the same way: `amy install cmake` installs
   `cc` and then `cmake`, and says so. No solver chooses anything: the rows
   are the pins of the recipe. The check is the recipe's: a package whose
-  host modules the booted image does not declare is refused by name. Looking
+  host modules the booted image does not declare is refused by name, and
+  where the image declares `nena@0` the session may have enabled them
+  (`/etc/dolly/enabled`) or is told the command: `nena enable pty`. Looking
   a name up in the index is the only unpinned step. The index describes the
   site's newest release and the service serves the release the tab runs: a
   pin that release does not publish fails by name, asking for a reload, and

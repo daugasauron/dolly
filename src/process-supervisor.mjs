@@ -188,6 +188,15 @@ export class DollyProcessSupervisor {
     }
   }
 
+  // threads@0 was disabled and its Workers are terminated: the programs that
+  // ran on them end here, each told why on its own stderr.
+  withdrawThreads() {
+    this.threadHost = undefined;
+    for (const process of [...this.processes.values()]) {
+      if (process.threaded) this.#fail(process, new Error("threads@0 was disabled"));
+    }
+  }
+
   spawn(arguments_, { foreground = false } = {}) {
     if (this.processes.size >= processWorkerLimit) throw new Error("Dolly process limit reached");
     const packet = encodeSpawn(arguments_, foreground ? DOLLY_PROCESS_SPAWN_FOREGROUND : 0);
@@ -329,19 +338,15 @@ export class DollyProcessSupervisor {
     let processInterface;
     let threaded;
     let largeStack;
-    let local;
+    let requirements;
     let prepared = false;
     try {
       const parsed = parseWasmInterface(bytes);
       memoryRequirements = validateProcessInterface(this.processContract, parsed, DOLLY_PROCESS_ABI_DIGEST);
-      const requirements = executableHostRequirements(parsed);
+      requirements = executableHostRequirements(parsed);
       checkHostAbi(requirements, this.hostAbi);
       threaded = validateThreadProfile(parsed, requirements, this.threadContract);
       largeStack = parsed.customSections.includes("dolly.process.stack");
-      // The modules served in this executable's own Worker. Each holds one
-      // Worker's state, such as its function table, so none goes with threads.
-      local = [...requirements.keys()].filter(requirement => this.processModules.has(requirement));
-      if (threaded && local.length) throw new TypeError(`a program using threads@0 cannot use ${local.join(", ")}`);
       module = await WebAssembly.compile(bytes);
       processInterface = { imports: parsed.imports, exports: parsed.exports };
       prepared = true;
@@ -355,7 +360,7 @@ export class DollyProcessSupervisor {
         );
       }
     }
-    const compiled = { module, memoryRequirements, processInterface, threaded, largeStack, local, byteLength: bytes.byteLength };
+    const compiled = { module, memoryRequirements, processInterface, threaded, largeStack, requirements, byteLength: bytes.byteLength };
     if (bytes.byteLength <= compiledModuleCacheBytes) {
       this.compiledModules.set(key, compiled);
       this.compiledModuleBytes += bytes.byteLength;
@@ -402,8 +407,15 @@ export class DollyProcessSupervisor {
         if (this.dolly._dolly_process_image_consumed(pid) !== 0) {
           throw new Error(`kernel did not release executable ${pid}`);
         }
-        const { module, memoryRequirements, processInterface, threaded, largeStack, local } = await this.#compileProcess(bytes);
+        const { module, memoryRequirements, processInterface, threaded, largeStack, requirements } = await this.#compileProcess(bytes);
         if (!this.#canLaunch(process)) continue;
+        // Checked at every launch, not only when compiled: nena@0 may have
+        // disabled a module since. The modules served in this executable's
+        // own Worker each hold one Worker's state, such as its function
+        // table, so none goes with threads.
+        checkHostAbi(requirements, this.hostAbi);
+        const local = [...requirements.keys()].filter(requirement => this.processModules.has(requirement));
+        if (threaded && local.length) throw new TypeError(`a program using threads@0 cannot use ${local.join(", ")}`);
         const memory = createProcessMemory(memoryRequirements);
         process.memory = memory;
         const gate = new WebAssembly.Instance(this.gateModule, {
@@ -524,7 +536,7 @@ export class DollyProcessSupervisor {
       if (process.threaded) args.splice(1, 0, thread.tid);
       const exhausted = message.operation === DOLLY_PROCESS_SPAWN
         ? this.processes.size >= processWorkerLimit
-        : process.threaded && message.operation === DOLLY_THREAD_SPAWN && !this.threadHost.available(process.pid);
+        : process.threaded && message.operation === DOLLY_THREAD_SPAWN && !this.threadHost?.available(process.pid);
       // Firefox can enter a direct Wasm call twice. Use the generic call path
       // so a completed syscall is never replayed against its response packet.
       result = exhausted ? -BigInt(DOLLY_ERRNO.EAGAIN)
@@ -762,7 +774,8 @@ export class DollyProcessSupervisor {
       thread.worker.removeEventListener("message", thread.messageHandler);
       thread.worker.removeEventListener("error", thread.errorHandler);
       thread.worker.removeEventListener("messageerror", thread.messageErrorHandler);
-      if (process.threaded) this.threadHost.release(thread.worker);
+      // threads@0 disabled since has already terminated its Workers.
+      if (process.threaded && this.threadHost) this.threadHost.release(thread.worker);
       else thread.worker.terminate();
     }
     thread.worker = null;

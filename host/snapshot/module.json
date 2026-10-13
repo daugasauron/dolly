@@ -1,6 +1,8 @@
 {
   "name": "snapshot",
   "version": 0,
+  "gives": "save the session in this browser and restore it",
+  "fixed": "its baseline is the image as loaded",
   "dependencies": ["runtime@0"],
   "phase": "image",
   "imports": [],

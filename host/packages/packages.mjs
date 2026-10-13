@@ -8,5 +8,8 @@
 import { PackageService } from "./service.mjs";
 
 export function browser({ get }) {
-  return { entryStarted() { get("http").services.packages = new PackageService(); } };
+  return {
+    entryStarted() { get("http").services.packages = new PackageService(); },
+    disabled() { delete get("http").services.packages; },
+  };
 }

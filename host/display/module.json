@@ -1,6 +1,8 @@
 {
   "name": "display",
   "version": 0,
+  "gives": "the terminal and programs' frames; the selection on Ctrl+Shift+C",
+  "fixed": "its driver is installed once, before ENTRY",
   "dependencies": ["runtime@0"],
   "phase": "image",
   "imports": [],

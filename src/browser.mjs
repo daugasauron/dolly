@@ -119,6 +119,7 @@ async function boot() {
     resources: { mount, canvas, keyboard, applicationBase, showStatus, fatal, bootstrapSources,
       inherited: bootMode === "snapshot" ? custom : undefined },
     configuration: selected?.configuration ?? {},
+    closed: globalThis.DOLLY_HOST_MODULES !== undefined,
   });
   delete globalThis.DOLLY_HOST_MODULES;
   const buildDependency = (name, inputs) => buildImage(name, inputs, host.builder, appendBootstrap);
@@ -224,7 +225,7 @@ async function boot() {
 
   window.__dolly = Object.create(host.page, Object.getOwnPropertyDescriptors({
     ...terminalText(host.page),
-    hostModules: host.enabled,
+    get hostModules() { return host.enabled; },
     get systemSnapshot() { return builtSystemSnapshot; },
   }));
 }

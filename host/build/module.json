@@ -1,6 +1,8 @@
 {
   "name": "build",
   "version": 0,
+  "gives": "start an image build from a Dollyfile",
+  "fixed": "its panel and service are never taken down",
   "dependencies": ["http@0"],
   "imports": [],
   "host": "build.mjs",

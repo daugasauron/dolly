@@ -55,7 +55,7 @@ sequenceDiagram
   instances; at most 32 processes exist at once and further spawns fail `EAGAIN`.
 - A refusal is reported to the program that asked, not to the person at the
   page. An executable the loader refuses (a wrong stamp or import, a host module
-  the image does not declare or whose layout differs, a thread client without
+  the session does not have or whose layout differs, a thread client without
   `dolly_thread_start` or with `dso@0`) and a Worker that fails while running exit with status
   126 after one line on the process's own descriptor 2 that names the cause
   ([`process-supervisor.mjs`](../src/process-supervisor.mjs)); unrelated
@@ -326,6 +326,34 @@ nothing and declares nothing: any program built for Dolly runs on one.
     `ENOSYS` and a `dlerror()` naming `-rdynamic` and `dso@0`, and the raw
     operations are unknown ones. With it, the image must declare
     `REQUIRES HOST dso@0` or the program is refused before it starts.
+
+## Host modules at run time
+
+- An image's host modules are the `REQUIRES HOST` lines of its recipe. A
+  session of an image that declares `nena@0`
+  ([`host/nena/dolly-nena-0.wat`](../host/nena/dolly-nena-0.wat),
+  `<dolly/nena.h>`), as `default` does, may enable and disable modules while
+  it runs; any other image's list is fixed, and nothing in Wasm changes it
+  ([browser boundary](browser-boundary.md#host-modules)).
+- `nena` lists every module of the page with its state and what it gives;
+  `nena enable NAME...` and `nena disable NAME...` switch them. The loader's
+  refusal of a program and the engine's refusal of a package name the command:
+  `host module gpu@0 is not enabled: nena enable gpu`.
+- Enabling starts the module as at boot; where the browser lacks what it
+  needs, the refusal says so. Disabling takes it away at once: programs that
+  record it are refused, and a running program's next call through it fails
+  with `ENOSYS`. Sockets and other state a module keeps in the kernel stay
+  with their processes; a threaded program ends with status 126 when
+  `threads@0` is disabled under it.
+- Not switched: `runtime@0`, `http@0`, `build@0`, `display@0`, `input@0` and
+  `snapshot@0`; `nena` says why for each.
+- `nena disable nena` gives the privilege up until the page is reloaded: the
+  session then is as an image without `nena@0`, and its refusals read so.
+- The modules a session enabled are listed in `/etc/dolly/enabled`, one
+  `name@version` a line, written by the page's provider. A saved session
+  holds the file, and loading it enables them again before ENTRY; one that
+  cannot be enabled then is said on the page, with the command. A module the
+  image declares and the session disabled is back when the page loads.
 
 ## Unsupported
 

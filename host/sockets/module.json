@@ -1,6 +1,7 @@
 {
   "name": "sockets",
   "version": 0,
+  "gives": "local stream sockets between processes",
   "dependencies": ["runtime@0"],
   "imports": [],
   "host": "sockets.mjs",

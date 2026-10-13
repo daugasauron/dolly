@@ -1,6 +1,7 @@
 {
   "name": "buttons",
   "version": 0,
+  "gives": "a strip of buttons below the terminal, and Paste",
   "dependencies": ["runtime@0"],
   "phase": "kernel",
   "imports": ["env.dolly_buttons_dispatch"],

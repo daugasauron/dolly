@@ -8,6 +8,7 @@ import { executableHostRequirements, checkHostAbi } from "../host/requirements.m
 import { createDollyfileGraphLoader } from "../scripts/dollyfile-graph.mjs";
 import { discoverImageDefinitions } from "../scripts/image-definitions.mjs";
 import { hostManifests } from "../host/manifests.mjs";
+import { DOLLY_NENA_GIVES_BYTES, DOLLY_NENA_REASON_BYTES } from "../host/nena/abi.mjs";
 import { siteReference } from "../src/static-asset.mjs";
 
 const digest = value => createHash("sha256").update(value).digest("hex");
@@ -21,13 +22,14 @@ test("every image declares its complete host set itself", async () => {
   // system-tools; a terminal draws with display@0 and reads keys with
   // input@0, which the display package alone does not ask for; default
   // installs packages with amy and runs what they bring: threaded tools and
-  // programs that load modules.
+  // programs that load modules; nena enables what else they need.
   const core = {
-    default: [...interactive, "packages@0", "threads@0", "dso@0", "sockets@0"], system: interactive, "gpu-sdk": [...interactive, "gpu@0"],
+    default: [...interactive, "packages@0", "threads@0", "dso@0", "sockets@0", "nena@0"], system: interactive, "gpu-sdk": [...interactive, "gpu@0"],
     "audio-sdk": [...interactive, "audio@0", "microphone@0"], "system-build": ["runtime@0", "http@0"], "zig-build": ["runtime@0", "http@0"],
     "ghostty-build": [...terminal, "http@0"],
     "system-tools": [...terminal, "download@0", "http@0", "upload@0"],
     zlib: ["runtime@0"], gzip: ["runtime@0"], curl: ["runtime@0", "http@0"], display: ["runtime@0", "display@0"],
+    nena: ["runtime@0", "nena@0"],
   };
   for (const image of await discoverImageDefinitions(root)) {
     const graph = await load(image.filename);
@@ -82,6 +84,17 @@ test("executable requirements reject malformed records and incompatible provider
   assert.throws(() => checkHostAbi(parse(record("http", 1)), provided), /http@1 is not declared/);
   assert.throws(() => checkHostAbi(parse(record("audio")), provided), /audio@0 is not declared/);
   assert.throws(() => checkHostAbi(parse(record("http", 0, other)), provided), /http@0 has a different layout/);
+  // Where the session has nena@0, the refusal names the command that enables the module.
+  assert.throws(() => checkHostAbi(parse(record("audio")), new Map([...provided, ["nena@0", layout]])), /nena enable audio/);
+});
+
+// nena prints each module's line, and the reason of one that is never
+// switched after "fixed: ": both must fit the record of host/nena.
+test("every host module says what it gives within nena's record", () => {
+  for (const { name, gives, fixed } of hostManifests) {
+    assert.ok(typeof gives === "string" && gives && Buffer.byteLength(gives) < DOLLY_NENA_GIVES_BYTES, `host/${name}/module.json: gives`);
+    assert.ok(fixed === undefined || (fixed && Buffer.byteLength(`fixed: ${fixed}`) < DOLLY_NENA_REASON_BYTES), `host/${name}/module.json: fixed`);
+  }
 });
 
 // Operation numbers are one space: module_for() in src/process-kernel.c hands a

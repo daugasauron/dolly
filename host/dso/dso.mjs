@@ -20,5 +20,6 @@ export function worker({ get, abi, applicationBase }) {
       get("runtime").serveInProcess("dso@0", { bundle: new Blob([bundle], { type: "text/javascript" }),
         configuration: { contract: parseWasmInterface(contract, "dolly-dso-0"), hostAbi: abi } });
     },
+    disabled() { get("runtime").serveInProcess("dso@0"); },
   };
 }

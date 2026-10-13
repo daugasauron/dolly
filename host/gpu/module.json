@@ -1,6 +1,7 @@
 {
   "name": "gpu",
   "version": 0,
+  "gives": "WebGPU on the browser's adapter, over the display",
   "dependencies": ["runtime@0"],
   "phase": "kernel",
   "imports": ["env.dolly_gpu_dispatch"],

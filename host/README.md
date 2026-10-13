@@ -15,6 +15,8 @@ packaging and ABI tests read only these manifests.
 | Field | Meaning |
 | --- | --- |
 | `name`, `version` | The requirement `name@version` that images (`REQUIRES HOST`) and executables (`dolly.host` records) name |
+| `gives` | One line of what the module gives a session, as `nena` lists it |
+| `fixed` | Why the module is never enabled or disabled after boot (below); absent when `nena@0` may switch it |
 | `provides` | `"kernel"` on a runtime (below); absent otherwise |
 | `dependencies` | Modules this one uses through `get(name)` |
 | `phase` | When the Worker side starts: after the kernel loads (`kernel`) or after the image is restored (`image`) |
@@ -37,7 +39,7 @@ imports), `service` (periodic work), `imageRestored(context)` (after the system
 image is restored, before image-phase starts), `claimsKey(event)` (take a key
 from the guest's input), `surfaceSize`, `entryStarted(context)` (the image ENTRY may
 now run), `ended()` (the links, `{ text, href }`, it offers on the page's
-notice once the image has ended) and `dispose`; and whose optional records
+notice once the image has ended), `dispose` and `disabled` (below); and whose optional records
 the registry assembles:
 `page` (members of `window.__dolly`, by descriptor), `builder` (the module's
 configuration for a child build host, `host.builder`) and `inherited` (what an
@@ -59,6 +61,22 @@ in `abi/dolly-browser-0.wat` and its row in
 reviews the authority it adds. A module without imports may instead own a
 reserved origin of the HTTP broker ([`http/local-services.mjs`](http/local-services.mjs)),
 as `build` and `packages` do: its service admits each request itself.
+
+## Modules switched at run time
+
+`nena@0` lets the session of an image that declares it enable and disable
+modules ([process model](../docs/process-model.md#host-modules-at-run-time)).
+Its page side alone is given the registry's `list`, `enable` and `disable`
+([`modules.mjs`](modules.mjs)); the page attaches or detaches its side and the
+Worker's follows by message, starting the provider with the context of boot.
+A module that can be switched therefore keeps to this: `browser()` and
+`worker()` may run again after `dispose()`, which lets go of what the side
+holds of the page (DOM, listeners, Workers); `disabled()` follows it when the
+module is switched off and the runtime goes on, and takes back what the
+module gave the runtime or a dependency (a registered service, the thread
+provider). An import asks at each call whether its module is enabled. A
+module that cannot keep to this (it consumes page state once, or what it
+starts cannot start twice) says why in `fixed`.
 
 ## Modules served in the process Worker
 

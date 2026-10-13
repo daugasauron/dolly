@@ -1,6 +1,8 @@
 {
   "name": "runtime",
   "version": 0,
+  "gives": "the kernel's memory, clocks, entropy and process Workers",
+  "fixed": "it is the kernel",
   "provides": "kernel",
   "dependencies": [],
   "phase": "kernel",
