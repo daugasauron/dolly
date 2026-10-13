@@ -69,3 +69,11 @@ On `main` after the night's small rebuild (`dolly-docs`, `pi-agent`,
 
 Left: the three `COMPILEC` comments (root recipe and seed) and `kind` (the
 metadata's format), each for a catalog round.
+
+## 2026-10-14 06:20: one more, met while timing unchanged image runs
+
+- `demos/cmake/prepare-sources.sh:4,13` stages CMake's and libuv's sources
+  as `dist/static/neovim/cmake.tar.gz` and `neovim/libuv.tar`, beside the
+  Neovim demo's own archives; `demos/cmake/Dollyfile-cmake-build:21,76` pins
+  them under that name. A path of their own repins `cmake-build`, which 82
+  images are built on: with a round.

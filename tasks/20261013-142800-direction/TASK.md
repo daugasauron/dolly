@@ -148,6 +148,15 @@ tracked text per part at two releases and on `main` `a90eb4e6`, counted with
 - Lines compare a part with itself over time. They do not weigh one part
   against another.
 
+"The core never depends on `demos/`" (`AGENTS.md`), checked by search on the
+same commit: no file under `src/`, `include/`, `abi/` or `host/` and no
+recipe of the root names `demos/`. `scripts/` reaches the demos in seven
+lines, each by scanning `demos/*/` for recipes, READMEs and
+`prepare-sources.sh`; none names a demo. One core test does:
+`test/amy-browser.mjs` installs every package of the catalog into `default`,
+the demos' among them, so the core suite passes only where the demos'
+packages are built.
+
 ## As filed (2026-10-13, main `50c698f8`)
 
 - [The audit of 2026-10-13](../20261012-230015-audit-fable/TASK.md) has five
