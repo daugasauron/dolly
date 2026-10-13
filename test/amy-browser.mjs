@@ -262,6 +262,7 @@ const pages = {
   yacc: { yacc: "parser" },
   flex: { flex: "scanner" },
   wabt: { "wasm-objdump": "WebAssembly", wat2wasm: "WebAssembly" },
+  sbase: { yes: "output", cal: "calendar" },
   mandoc: { mandoc: "manual" },
 };
 const reads = name => Object.entries(pages[name] ?? {}).map(([page, word]) =>
@@ -342,7 +343,7 @@ const tools = {
   sbase: ["yes", "test \"$(yes | head -n 3 | tr '\\n' ' ')\" = 'y y y ' && test \"$(printf abc | sha1sum | cut -c 1-40)\" = a9993e364706816aba3e25717850c26c9cd0d89d && " +
     "printf abc | sha512sum | grep -q '^ddaf35a193617aba' && cal 10 2026 | grep -q 2026 && echo sponged > /tmp/amy-sponge && " +
     "tr a-z A-Z < /tmp/amy-sponge | sponge /tmp/amy-sponge && grep -qx SPONGED /tmp/amy-sponge && " +
-    "uuencode /tmp/amy-sponge sponge | uudecode -o /tmp/amy-uu && cmp /tmp/amy-uu /tmp/amy-sponge && man yes > /dev/null"],
+    "uuencode /tmp/amy-sponge sponge | uudecode -o /tmp/amy-uu && cmp /tmp/amy-uu /tmp/amy-sponge"],
   // ex edits by commands; vi at the terminal is the step after this table.
   vi: ["vi", "printf 'one\\ntwo\\n' > /tmp/amy-ex && printf '%s\\n' '%s/two/2/' w q | ex -s /tmp/amy-ex > /dev/null && test \"$(tr '\\n' ' ' < /tmp/amy-ex)\" = 'one 2 '"],
 };

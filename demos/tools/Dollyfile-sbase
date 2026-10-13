@@ -4,7 +4,7 @@ REQUIRES HOST runtime@0
 
 # The sbase commands that posix leaves out and people type, unchanged, built
 # by sbase's own Makefile from the archive system-tools builds its from.
-FROM /v0.1.3/Dollyfile-system-tools e19ab2a237b16de1596ccbb3a2ae07dd34b65488de38762b66ec0207a89c4b83
+FROM /v0.1.3/demos/tools/Dollyfile-tools-build 6ba4c47ce2631185f78f778a161ffc23f43f3948e2676ed8a287f7b07d6cbfc4
 
 REQUIRES HEADER libc
 REQUIRES TOOL   ar
@@ -14,6 +14,7 @@ REQUIRES TOOL   make
 REQUIRES TOOL   mv
 REQUIRES TOOL   test
 REQUIRES TOOL   wc
+REQUIRES TOOL   text-page
 
 SOURCE /v0.1.3/dist/static/default/sbase.tar c05c64631cbc8441a50785da447c129c0a4f07fa3c3a10a5355c0f1102d3b1cd /tmp/sbase.tar
 SLOP tar -xf /tmp/sbase.tar -C /
@@ -23,10 +24,10 @@ FILE /tmp/sbase/dolly.mk
     .RECIPEPREFIX := >
     dolly-bin: $(TOOLS)
     >mv $(TOOLS) /usr/bin
-    >mv $(TOOLS:=.1) /usr/share/man/man1
     .RECIPEPREFIX :=
     include Makefile
 SLOP make -C /tmp/sbase -f dolly.mk CFLAGS=-O2 ARFLAGS=rc RANLIB=:
+SLOP CWD /tmp/sbase text-page cal.1 cols.1 sha1sum.1 sha512sum.1 sponge.1 uudecode.1 uuencode.1 yes.1
 
 SLOP test "$(yes | head -n 3 | wc -l)" -eq 3
 
@@ -39,11 +40,11 @@ EXPORTS TOOL uudecode
 EXPORTS TOOL uuencode
 EXPORTS TOOL yes
 FILE /usr/share/licenses/sbase/LICENSE
-FILE /usr/share/man/man1/cal.1
-FILE /usr/share/man/man1/cols.1
-FILE /usr/share/man/man1/sha1sum.1
-FILE /usr/share/man/man1/sha512sum.1
-FILE /usr/share/man/man1/sponge.1
-FILE /usr/share/man/man1/uudecode.1
-FILE /usr/share/man/man1/uuencode.1
-FILE /usr/share/man/man1/yes.1
+FILE /usr/share/man/cat1/cal.1
+FILE /usr/share/man/cat1/cols.1
+FILE /usr/share/man/cat1/sha1sum.1
+FILE /usr/share/man/cat1/sha512sum.1
+FILE /usr/share/man/cat1/sponge.1
+FILE /usr/share/man/cat1/uudecode.1
+FILE /usr/share/man/cat1/uuencode.1
+FILE /usr/share/man/cat1/yes.1
