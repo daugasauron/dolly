@@ -261,6 +261,7 @@ const pages = {
   xxd: { xxd: "hex" },
   yacc: { yacc: "parser" },
   flex: { flex: "scanner" },
+  wabt: { "wasm-objdump": "WebAssembly", wat2wasm: "WebAssembly" },
   mandoc: { mandoc: "manual" },
 };
 const reads = name => Object.entries(pages[name] ?? {}).map(([page, word]) =>
@@ -327,7 +328,7 @@ const tools = {
   wabt: ["wasm2wat", "cd /tmp && echo '(module (func $answer (export \"answer\") (result i32) i32.const 42))' > amy.wat && wat2wasm --debug-names amy.wat -o amy.wasm && " +
     "wasm-validate amy.wasm && wasm2wat amy.wasm | grep -q 'i32.const 42' && wasm-objdump -x amy.wasm | grep -q answer && cp amy.wasm amy-named.wasm && " +
     "wasm-strip amy.wasm && test \"$(stat -c %s amy.wasm)\" -lt \"$(stat -c %s amy-named.wasm)\" && echo 'int main(void) { return 0; }' > amy-wabt.c && " +
-    "cc amy-wabt.c -o amy-wabt && wasm-objdump -x amy-wabt | grep -q i64 && man wasm-objdump > /dev/null"],
+    "cc amy-wabt.c -o amy-wabt && wasm-objdump -x amy-wabt | grep -q i64"],
   // A grammar becomes a parser that counts its tokens, and a scanner counts the numbers it reads. flex comes with yacc.
   yacc: ["yacc", "cd /tmp && printf '%s\\n' '%{' 'int count; int yylex(void); void yyerror(const char *message) {}' '%}' '%token A' '%%' 'list: | list A { count++; };' '%%' " +
     "'#include <stdio.h>' 'int yylex(void) { return getchar() == EOF ? 0 : A; }' 'int main(void) { yyparse(); return count; }' > amy.y && " +

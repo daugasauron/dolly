@@ -6,7 +6,7 @@ REQUIRES HOST runtime@0
 # unchanged, configured by its own CMake: the tools that read, write and
 # check a module. Dolly's programs are such modules. Its interpreter, wasm2c
 # and their runtime are not built.
-FROM /v0.1.3/demos/cmake/Dollyfile-cmake-build 181addf84cf4a67a51858fe92f6738924560fc96dd64e563a60aef1f08605758
+FROM /v0.1.3/demos/tools/Dollyfile-tools-build 6ba4c47ce2631185f78f778a161ffc23f43f3948e2676ed8a287f7b07d6cbfc4
 
 REQUIRES HEADER libc
 REQUIRES HEADER cpp
@@ -19,6 +19,7 @@ REQUIRES TOOL   cp
 REQUIRES TOOL   grep
 REQUIRES TOOL   make
 REQUIRES TOOL   tar
+REQUIRES TOOL   text-page
 
 SOURCE /v0.1.3/dist/static/tools/wabt.tar 9432dcf5b4c875fd6948cbb0b66a94f36709b4021cb66502fd1220f8ce27994c /tmp/wabt.tar
 SLOP tar -xf /tmp/wabt.tar -C /
@@ -43,8 +44,9 @@ EXPORTS TOOL wasm-strip
 EXPORTS TOOL wasm-validate
 FILE /usr/share/licenses/wabt/LICENSE
 FILE /usr/share/licenses/wabt/picosha2-LICENSE
-FILE /usr/share/man/man1/wat2wasm.1
-FILE /usr/share/man/man1/wasm2wat.1
-FILE /usr/share/man/man1/wasm-objdump.1
-FILE /usr/share/man/man1/wasm-strip.1
-FILE /usr/share/man/man1/wasm-validate.1
+SLOP text-page /usr/share/man/man1/wat2wasm.1 /usr/share/man/man1/wasm2wat.1 /usr/share/man/man1/wasm-objdump.1 /usr/share/man/man1/wasm-strip.1 /usr/share/man/man1/wasm-validate.1
+FILE /usr/share/man/cat1/wat2wasm.1
+FILE /usr/share/man/cat1/wasm2wat.1
+FILE /usr/share/man/cat1/wasm-objdump.1
+FILE /usr/share/man/cat1/wasm-strip.1
+FILE /usr/share/man/cat1/wasm-validate.1
