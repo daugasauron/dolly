@@ -57,7 +57,7 @@ await writeFile(resolve(projectDir, "licences/index.html"),
 await writeFile(resolve(projectDir, "amy-index.txt"), definitions
   .filter(({ parsed }) => parsed.role === "package").sort((left, right) => alphabetical(left.image, right.image))
   .map(({ image, filename, source }) => `${image} ${siteReference(filename)} ` +
-    `${createHash("sha256").update(source).digest("hex")} ${descriptions.get(image)}\n`)
+    `${createHash("sha256").update(source).digest("hex")} ${descriptions.get(image).replaceAll("`", "")}\n`)
   .join(""));
 const routes = pageRoutes(definitions.map(({ image }) => ({ image, openable: openable.has(image) })), primaryImage);
 for (const route of routes) {

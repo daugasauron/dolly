@@ -15,7 +15,8 @@ import { existsSync, readdirSync } from "node:fs";
 import { runSideBySide } from "../test/side-by-side.mjs";
 
 const limit = 4;
-const together = ["python", "classicube", "rts", "bhop", "pi", "closed-source-agent", "codex", "javascript", "cmake", "tmux", "emacs", "neovim", "sdl2"];
+// classicube compares the game's pixels and failed one of four runs beside three others.
+const together = ["python", "rts", "bhop", "pi", "closed-source-agent", "codex", "javascript", "cmake", "tmux", "emacs", "neovim", "sdl2"];
 const window = "DISPLAY: a GPU window";
 const needs = new Map([
   ["gpu-fluid/test/gpu-fluid-browser.mjs", window],

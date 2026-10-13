@@ -53,10 +53,12 @@ that change the seed or every recipe, and so want one round together:
   [file modes](../20261006-120641-umask/TASK.md)), `file`, and formatted
   pages for `less`, `ninja`, `posix`, Python, Emacs, Cargo, Rust, `fd`,
   CMake ([man and --help](../20261005-220754-man-help/TASK.md)).
-- The fluid demo's GPU test passes in Chrome on the GPU and its Firefox half
-  times out waiting for a frame on an Xvfb display (2026-10-13, after the
-  SDK images went; not attributed): it starts Playwright's Firefox, where
-  Mojo's test starts the installed one and gets an adapter.
+- The fluid demo's GPU test passes in Chrome on the GPU; its Firefox half
+  does not (2026-10-13, not attributed, and never run by a round before the
+  runner was fixed today): Playwright's Firefox draws no frame on an Xvfb
+  display and the wait times out; started as the installed Firefox, as
+  Mojo's test does, it draws and then fails "Smoke mode did not change
+  pixels".
 - At their next rebuild: `xonotic-build` and `wine-build` install `libpng`
   and `freetype`; `gamedev-sdk` drops its `/usr/lib/libm.a`.
 - `qwen3.5-4b` is one package of four rows now; the four shard packages stay
