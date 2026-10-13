@@ -2,7 +2,7 @@
 
 - STATUS: OPEN
 - PRIORITY: 235
-- TAGS: core,process,abi
+- TAGS: core,process,abi,owner
 
 Owner (2026-10-13), on
 [the reflection](../20261013-142800-direction/reflection.md): "The audit is
@@ -27,6 +27,59 @@ Done when it holds, with the evidence and without a verdict:
 - what could not be found out.
 
 The owner decides what, if anything, follows.
+
+## State (2026-10-14, 02:15): investigated, the owner's to read
+
+[The investigation](investigation.md), by a Fable agent that read
+`integrate/round-1013` and changed nothing (one report in two parts; the
+other is [`runtime.h`](../20261013-144241-runtime-h/investigation.md)). The
+integrator checked the count of core operations (50), the two modules'
+numbers, the clock's two constants, the rule's two lines and the kernel's
+refusal of an empty path. It gives no verdict. What it found:
+
+- Every pair was in the contract's first version (`b95459ce`, 2026-09-05).
+  None was ever one operation that was split, none has been merged. The
+  shapes are WASI's and Linux's, one operation for each entry point that
+  Emscripten's musl calls (`__wasi_args_sizes_get` and `__wasi_args_get`;
+  `fstat` and `fstatat`; `futimens` and `utimensat`; `fstatfs` and
+  `statfs`), which made the adapter one line of translation each. No commit
+  names WASI.
+- The pairs are not the same thing twice. `FD_STAT` answers for pipes,
+  sockets, pseudo-terminals and the terminal, which have no path;
+  `PATH_STAT` resolves against a directory and follows a link or not. The
+  kernel refuses an empty path today, so "an empty path means the
+  descriptor" is new meaning. The two that are closest to one are the
+  filesystem statistics: both return the same figures whatever they are
+  asked about.
+- `CLOCK_RESOLUTION` asks the kernel's own libc, which answers with two
+  constants chosen for the browser's two clocks (a millisecond and a
+  microsecond, `src/libc-host.c:27-31`). A kernel on another host is the one
+  case that would answer differently.
+- `TERMINAL` and `FD_LOCK` are not alone in their conventions: five module
+  contracts put the operation inside the packet under one number (gpu,
+  audio, microphone, buttons, nena), and `ALARM` changes meaning with the
+  size of its request.
+- `download` (51) and `upload` (57) were core operations and kept their
+  numbers when they became modules (`cec22729`, 2026-10-01); the message
+  gives no reason, and the same commit restamped every client anyway. The
+  one written rule is `process.h:110-111`. Practice shows three habits:
+  blocks of 16 (core, threads 144, sockets 160, pty 176), of 8 (http 80,
+  input 88), and single numbers in a row (128 to 133). The test asserts
+  only that ranges do not overlap. Numbers 44 and 58 are holes left by the
+  file modes that lived one day (`26277ef5` to `d41df0cb`, 2026-09-30, the
+  owner's one-user decision).
+- What a change touches: any edit of `process.h` is a new identity for
+  every executable, by the owner's decision that the identity hashes its
+  exact bytes ("replicability over rebuild time",
+  [audit 9](../20260930-100000-audit-09/TASK.md)): the seed and every
+  image. Renumbering `download` and `upload` changes those two modules'
+  digests and their two programs; `process.h` and other executables keep
+  their stamps.
+- No word of the owner on twins or on numbering was found.
+- Not found out: whether a stat by descriptor could go through the path
+  operation in WasmFS; which programs reach the rarely used operations (a
+  scan of the executables would say); whether the two numbers were kept on
+  purpose.
 
 ## What the reflection claims and proposes (2026-10-13, unchecked)
 
