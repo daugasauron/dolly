@@ -1,6 +1,6 @@
 # The core's C is compiled with the compiler's default warnings only; under -Wall one line of the kernel warns
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 120
 - TAGS: core,kernel,build
 
@@ -42,4 +42,29 @@ then.
   check. The process side is in the seed: a flag there goes with a round.
   Whether `toolchain/CMakeLists.txt` itself is hashed into the image inputs
   shows in `npm run image -- --plan` after the edit.
-- Not done tonight: found half an hour before the owner's check at 07:00.
+
+## Done for the kernel (2026-10-14, 06:30)
+
+`toolchain/CMakeLists.txt` compiles the kernel target with `-Wall -Werror`,
+and the condition at `src/process-kernel.c:412` has its parentheses.
+
+- The 20 C files and `src/file-blocks.cpp` were compiled again and linked:
+  `dist/dolly.wasm` has the bytes it had (`sha256` `7eae91c9c367cf6e…`
+  before and after), the runtime is `c470bb6e…` and the image inputs
+  `538c5a8a…` as before. The plan builds no image.
+- A warning stops the build: with an unused variable appended to
+  `src/device-lease.c`, `npm run build:runtime` ends with `error: unused
+  variable 'dolly_warning_probe' [-Werror,-Wunused-variable]` and status 2.
+  Taken out again, the three hashes are the ones above.
+- Source tests 430/0, artifact tests 25/0, `test/core-browser.mjs` in
+  Chromium (24 s) and Firefox (32 s). The whole browser suite was not run
+  again: the kernel's bytes are the same.
+- `src/file-blocks.cpp` has no remark under `-Wall` either, so the flags
+  are the target's, not C's alone.
+
+Left, each with a round because it is in the seed or in an image:
+`-Wall` for the process side (`scripts/build.sh:114`; its 13 checked files
+and the 17 clients have no remark), a check of `pthread-stubs.c`,
+`threads.c`, `src/slop.c`, `src/dollyfile.c` and `src/commands/`. `-Wextra`
+would ask for 19 `(void)` lines in ten modules' `kernel.c`; not done.
+

@@ -31,6 +31,8 @@ target_include_directories(dolly PRIVATE
 target_compile_options(dolly PRIVATE
   -m64
   -O2
+  -Wall
+  -Werror
   -fPIC
   -fvisibility=default
   -matomics

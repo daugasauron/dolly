@@ -409,7 +409,7 @@ static int redirect_shebang(dolly_kernel_process *process) {
          *cursor != '\r' && *cursor != '\0') ++cursor;
   const size_t interpreter_size = (size_t)(cursor - interpreter);
   if (interpreter_size == 0 || interpreter[0] != '/' ||
-      cursor != line_end && *cursor == '\0') return -ENOEXEC;
+      (cursor != line_end && *cursor == '\0')) return -ENOEXEC;
   while (cursor != line_end && (*cursor == ' ' || *cursor == '\t')) ++cursor;
   const unsigned char *optional = cursor;
   while (line_end != optional &&
