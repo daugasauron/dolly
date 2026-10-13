@@ -172,3 +172,14 @@ if (browsers.includes("chromium")) {
     await run("man tmux > /tmp/page && grep -q 'terminal multiplexer' /tmp/page && ! grep -Eq '^[.](Dd|Sh) ' /tmp/page");
   });
 }
+
+// In default, as a person installs it: nena gives the session pty@0, and ps
+// lists the server the shell starts until tmux has ended it.
+for (const browser of browsers) {
+  await demoTest("tmux in ps", { image: "default", timeout: 300_000, browser }, async ({ open }) => {
+    const { run } = await open();
+    await run("nena enable pty && amy install tmux");
+    await run("tmux -D & until test -e /tmp/tmux-0/default; do sleep 1; done; ps | grep -qx \"$! $$ running tmux -D\"");
+    await run("tmux kill-server; while ps | grep -q \"^$! \"; do sleep 1; done; wait");
+  });
+}

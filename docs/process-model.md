@@ -39,6 +39,14 @@ sequenceDiagram
 - Found through `PATH`; `#!` lines name an absolute in-Wasm interpreter, nested at most 4 deep.
 - `readlink("/proc/self/exe")` returns the loaded image's canonical path; there is
   no general `/proc`.
+- Opening `/proc/processes` for reading gives the processes that have not
+  exited, a line each in PID order, `PID PARENT STATE ARGUMENTS`: the state is
+  `starting` until the program runs and `running` from then, the arguments
+  are joined by spaces with each control character as `?`, and a line ends
+  after 2047 bytes. It is the kernel's answer and no file: each open is its
+  own copy of the table in a pipe, `stat` and `ls /proc` find nothing, and
+  neither the path nor its descriptor takes a write; [`ps`](../Dollyfile-ps)
+  prints it under a heading.
 - The target's identity: a program sees `__dolly__`, `__unix__` and
   `__wasm64__`, and no macro of Emscripten, Linux or WASI; `cc -dumpmachine`
   prints `wasm64-unknown-dolly` and `uname` `Dolly wasm64`. The libc is a

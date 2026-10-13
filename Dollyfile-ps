@@ -1,0 +1,22 @@
+DOLLY 7
+PACKAGE ps
+REQUIRES HOST runtime@0
+
+# ps prints the kernel's list of processes, /proc/processes, under a heading.
+# A script: every image with a shell has Slop, echo and cat.
+FILE /usr/share/man/cat1/ps.1
+    usage: ps
+    List the processes that have not exited, one a line: PID, the parent's
+    PID, state and command line. A process is starting until its program
+    runs, then running. A control character of the command line shows as ?,
+    and a line ends after 2047 bytes.
+    The lines are the kernel's /proc/processes, which any program can open
+    and read. ps takes no options.
+FILE /bin/ps
+    #!/bin/slop
+    case "$*" in
+      '') echo 'PID PPID STATE COMMAND' && cat /proc/processes ;;
+      --help) cat /usr/share/man/cat1/ps.1 ;;
+      *) cat /usr/share/man/cat1/ps.1 >&2; exit 2 ;;
+    esac
+EXPORTS TOOL ps

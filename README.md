@@ -17,7 +17,7 @@ Every image declares its role: an `APPLICATION` people open, a `TOOLCHAIN`
 recipes build on, or a `PACKAGE` recipes and sessions install
 ([Dollyfile](docs/dollyfile.md#roles-and-names)).
 
-- `default`: A shell, its text tools, curl, amy, which installs the rest, and nena, which enables the host modules they need.
+- `default`: A shell, its text tools, curl, ps, amy, which installs the rest, and nena, which enables the host modules they need.
 - `system`: `system-tools` with saved sessions (`snapshot@0`, `session-recover`).
 - `system-tools`: Shell, display, Git, curl, Make and POSIX tools.
 - `system-build`: C/C++ compiler, headers and basic build tools.
@@ -37,6 +37,7 @@ recipes build on, or a `PACKAGE` recipes and sessions install
 - `make`: GNU `make` alone, for rules that compile nothing; `cc` brings it too.
 - `zig`: `zig` with its standard library, and the `cc` package: it emits C (`-ofmt=c`) that `cc` compiles.
 - `transfer`: `download` and `upload`, the page's file exchange.
+- `ps`: `ps`, which lists the processes: PID, parent, state and command line.
 - `session-recover`: `session-recover`, which copies the files of a saved session file into a new directory.
 - `display`: the terminal: the Ghostty display plugin, its font and the termcap entry.
 - `dolly-docs`: the platform's documents and machine contracts, in `/usr/share/doc/dolly`.
