@@ -146,6 +146,46 @@ headless Chrome, Chrome on the NVIDIA GPU and Firefox 157.0.1 on Xvfb; the
 source suite with the demos' tests passes (424). To build:
 `DOLLY_IMAGE_JOBS=1 DOLLY_BUILD_IMAGES=mojo,mojo-gpu work/slot.sh build npm run image`.
 
+## The catalog's names (2026-10-13, branch `core/names` from main `743757a4`)
+
+The owner's rule, applied to every package: a package has the plain name a
+person types, the command it brings; the application that opens into it is
+named for what the image adds. `docs/dollyfile.md` says so now (its own
+commit: the document is pinned in `Dollyfile-dolly-docs`).
+
+| Was | Is | Why |
+| --- | --- | --- |
+| package `pi-coding-agent`, application `pi` | `pi`, `pi-agent` | the command is `pi` |
+| package `codex-cli`, application `codex` | `codex`, `codex-agent` | the command is `codex` |
+| package `transcribe`, application `speech-to-text` | `speech-to-text`, `speech-to-text-mic` | the command is `speech-to-text`; the image adds `microphone@0`, as `mojo-gpu` adds `gpu@0` |
+
+Kept: `nvim` and the packages named for their one command; `ripgrep`
+(command `rg`): the product's name wherever it is installed, and renaming it
+compiles it again with Cargo; `rust` (`rustc`) and `pkgconf` (`pkgconf`,
+`pkg-config`): the product; `javascript` (`qjs`, `janis`, `tsc`), `llvm`
+(`llvm-cc`, `llvm-c++`), `transfer` (`upload`, `download`), `core`, `posix`,
+`display`, `dolly-docs`: sets without one command; the libraries and the
+models: the product; `llvm-runtimes`: a build stage.
+
+What still spells an old name is upstream's: the npm path
+`@earendil-works/pi-coding-agent`, `codex-cli` in the output of
+`codex --version`, and transcribe.cpp.
+
+Built in `work/mojo` (08:26 to 08:47; `codex-build`, `pi-build` and
+`speech-build` reused): `pi`, `pi-runtime`, `pi-agent`, `pi-phone`, `codex`,
+`codex-agent`, `speech-to-text`, `speech-to-text-mic`, `dolly-docs`, and the
+four that install `pi` or build on `pi-runtime`: `bhop`, `classicube`,
+`rts-arena`, `slopyard`. Not built here, and repinned too: `pi-local` and
+`dollyfile-studio`.
+
+Tested (08:33 to 09:02): the source suite with the demos' tests (424);
+`npm run test:demos -- pi codex speech bhop classicube rts` in headless
+Chrome (`pi`, `codex`, `speech`, `pi-phone`, `bhop`, `classicube`, `rts`
+pass); the speech test in Firefox; Slopyard's test on Xvfb;
+`test/amy-browser.mjs` (18 passes) and `test/site-browser.mjs` in Chromium
+and Firefox.
+
+## Sources (2026-10-12)
 
 - Mojo: tag `mojo/v1.1.0` of `github.com/modular/modular`, commit
   `c6fa49f712fe15c99d0461ad2baaf2a15cbc58ce` (`DOLLY_MODULAR_*`). Fetched
