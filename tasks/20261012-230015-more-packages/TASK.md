@@ -277,3 +277,43 @@ advice (recipe and README) names pigz, bzip2, xz and zstd.
 - Dropped for cost: nano and `ne` (above), GNU sed and grep (gnulib), a roff
   formatter (useful only through `man`). `vi` at the terminal: insert,
   Backspace, Enter, arrow keys and `:wq` were typed and work.
+
+## 2026-10-13: the root recipe's C programs as files (branch `core/commands-source`)
+
+Asked by the integrator after three auditors found it: `Dollyfile-system-build`
+held 23 C programs in `FILE` bodies. They are `src/commands/NAME.c` now
+(`ar bracket cat cc cd clear cp cxx echo file foreground help ld ls man mkdir
+mv pwd rm stat tar test touch`), byte for byte, staged as
+`dist/static/default/commands/` and brought by one `SOURCE` row each to the
+path the `FILE` wrote; no compile row changed. The recipe went from 2,248
+lines (85,205 bytes) to 475 (20,946). Left inline there: the manual page of
+`test` and the Makefile that builds libc++. `Dollyfile-system-tools` still
+holds `download.c` and `upload.c` inline: the same kind, not this job's.
+
+Proof that nothing changed (`build/more-evidence/root/compare-snapshots.mjs`,
+every record by path, kind and SHA-256, before and after):
+
+| Image | Records | Identical | Programs in `/bin`, `/usr/bin` | What differs |
+| --- | --- | --- | --- | --- |
+| `system-build` | 2,107 | 2,103 | 26 of 26 identical | the recipe's text: `/etc/dolly/Dollyfile`, `recipes/Dollyfile-system-build`, `artifact`, `recipes.lock` |
+| `default` | 212 | 196 | 84 of 84 | 16 records under `/etc/dolly`: recipes, pins, receipt |
+| `system` | 2,312 | 2,299 | 95 of 95 | 13 records under `/etc/dolly` |
+
+Eighteen of the files compile natively with `-Wall -Wextra -Werror`; the four
+proxies and `foreground` need Dolly's runtime to link. `commands.test.mjs`
+and `tar.test.mjs` compile the files where they read the recipe's bodies.
+
+Run on the chain rebuilt from the moved root (25 images, `system-build` in
+69 s, to `default` and the images the suite opens):
+
+- the source suite with the demos' tests: 424 of 424;
+- the core browser suite, 34 files, `fs-growth` among them, in a `hugebuild`
+  slot: Chromium all passed in 457 s, Firefox all passed in 548 s
+  (`core-suite.mjs` is `test/browser-tests.mjs` without `amy-browser.mjs`,
+  whose other cases install the whole catalog);
+- amy's cases about `default` itself (`amy`, `amy cc`, `amy refusal`, from
+  `test/amy-browser.mjs` unchanged): both browsers;
+- not run: Pi's demo test. `pi` installs ripgrep and fd, and this tree cannot
+  rebuild the Rust chain; the round runs it.
+
+Logs and the comparisons are under `build/more-evidence/root/`.
