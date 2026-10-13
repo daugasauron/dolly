@@ -4,7 +4,7 @@ REQUIRES HOST runtime@0
 
 # xxd, the hex dump Vim ships, from Vim's tagged source, unchanged: one file
 # and its manual page.
-FROM /v0.1.3/Dollyfile-system-tools e19ab2a237b16de1596ccbb3a2ae07dd34b65488de38762b66ec0207a89c4b83
+FROM /v0.1.3/demos/tools/Dollyfile-tools-build 6ba4c47ce2631185f78f778a161ffc23f43f3948e2676ed8a287f7b07d6cbfc4
 
 REQUIRES HEADER libc
 REQUIRES TOOL   cc
@@ -13,9 +13,10 @@ REQUIRES TOOL   grep
 REQUIRES TOOL   mkdir
 REQUIRES TOOL   sed
 REQUIRES TOOL   test
+REQUIRES TOOL   text-page
 
 SOURCE /v0.1.3/dist/static/tools/xxd.c f4f9812f9b83651e30040c83bd722651cc4656eb95b86a852edd1cd60e9b2fcd /tmp/xxd.c
-SOURCE /v0.1.3/dist/static/tools/xxd.1 ab329ce79d69f86007ace6040d5915fc3453368ba0568bed8a944f9e5bd02ae5 /usr/share/man/man1/xxd.1
+SOURCE /v0.1.3/dist/static/tools/xxd.1 ab329ce79d69f86007ace6040d5915fc3453368ba0568bed8a944f9e5bd02ae5 /tmp/xxd.1
 SLOP cc -O2 /tmp/xxd.c -o /usr/bin/xxd
 # xxd ships no licence file: its source says under which it is used.
 SLOP mkdir -p /usr/share/licenses/xxd
@@ -25,4 +26,5 @@ SLOP test "$(echo hello | xxd -p)" = 68656c6c6f0a && echo 68656c6c6f0a | xxd -r 
 
 EXPORTS TOOL xxd
 FILE /usr/share/licenses/xxd/LICENSE
-FILE /usr/share/man/man1/xxd.1
+SLOP text-page /tmp/xxd.1
+FILE /usr/share/man/cat1/xxd.1
