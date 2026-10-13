@@ -54,7 +54,7 @@ dolly:/workspace$ _fill(1.5)                          │dolly:/workspace$ nena 
 
 Driven through the page as the tmux test does: keys typed into it, the
 screen read back or photographed, `default` after `nena enable pty` and `amy
-install tmux vi`. Evidence is in `work/tmuxuse/build/tmuxuse-evidence/`.
+install tmux vi`. Evidence is in `work/evidence-2026-10-14/tmuxuse/`.
 
 ### 1. The runtime's notice lands in another pane (fixed, `2fcc6c62`)
 
