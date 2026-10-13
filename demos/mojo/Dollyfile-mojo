@@ -5,13 +5,13 @@ REQUIRES HOST runtime@0
 # The Mojo compiler as mojo-build built it in Dolly, with the standard library
 # and the package gpu it precompiled, and what a program links against, as
 # mojo-runtime built it: mojo build NAME.mojo makes a Dolly executable.
-COPY /v0.1.2/demos/mojo/Dollyfile-mojo-build 766c8d0b58b73b43ba3a661853bc9c7227586d4613e90ed9227cc84990a5cfd7 /opt/mojo/bin/mojo /usr/bin/mojo
-COPY /v0.1.2/demos/mojo/Dollyfile-mojo-build 766c8d0b58b73b43ba3a661853bc9c7227586d4613e90ed9227cc84990a5cfd7 /opt/mojo/lib/mojo /usr/lib/mojo
-COPY /v0.1.2/demos/mojo/Dollyfile-mojo-build 766c8d0b58b73b43ba3a661853bc9c7227586d4613e90ed9227cc84990a5cfd7 /usr/share/licenses/mojo /usr/share/licenses/mojo
-COPY /v0.1.2/demos/mojo/Dollyfile-mojo-runtime 20406307c639a5795221a477455f349599387491149006717ff556f0bf9ef806 /usr/lib/libmojo-rt.a /usr/lib/libmojo-rt.a
-COPY /v0.1.2/demos/mojo/Dollyfile-mojo-runtime 20406307c639a5795221a477455f349599387491149006717ff556f0bf9ef806 /usr/lib/libmojo-gpu.a /usr/lib/libmojo-gpu.a
+COPY /v0.1.2/demos/mojo/Dollyfile-mojo-build af68142810c89e9f9e9413edd36d30bd15a32f7e603ed7b58536ba59c64fd136 /opt/mojo/bin/mojo /usr/bin/mojo
+COPY /v0.1.2/demos/mojo/Dollyfile-mojo-build af68142810c89e9f9e9413edd36d30bd15a32f7e603ed7b58536ba59c64fd136 /opt/mojo/lib/mojo /usr/lib/mojo
+COPY /v0.1.2/demos/mojo/Dollyfile-mojo-build af68142810c89e9f9e9413edd36d30bd15a32f7e603ed7b58536ba59c64fd136 /usr/share/licenses/mojo /usr/share/licenses/mojo
+COPY /v0.1.2/demos/mojo/Dollyfile-mojo-runtime 0d34ab7c2e5b6476086dfec1d423cf62808c52cf1c2fb9824ca28f27eead8456 /usr/lib/libmojo-rt.a /usr/lib/libmojo-rt.a
+COPY /v0.1.2/demos/mojo/Dollyfile-mojo-runtime 0d34ab7c2e5b6476086dfec1d423cf62808c52cf1c2fb9824ca28f27eead8456 /usr/lib/libmojo-gpu.a /usr/lib/libmojo-gpu.a
 # mojo build links what it compiles with the C toolchain.
-INSTALL /v0.1.2/Dollyfile-cc 08a3d6c0c850c1c2a565d53ee1081fb08ce714284581bdee5bb08b92aa630903
+INSTALL /v0.1.2/Dollyfile-cc 3c6df9b9fba2eb38d3fbce1af8149ea307c6f4d6cca10a134c0707998681a7ab
 # Where the compiler looks for packages, and what it hands cc to link a
 # program: the runtime in place of upstream's shared CompilerRT, and the
 # libraries of the package gpu, of which a link takes what the program uses.

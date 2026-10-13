@@ -5,7 +5,7 @@ REQUIRES HOST runtime@0
 # Qwen3.5-4B Q4_K_M. One image holds 2 GiB and the model is 3.01 GB, so its
 # weights are four shard packages; this one names them, and installing it
 # installs the four.
-INSTALL /v0.1.2/demos/local-llm/Dollyfile-qwen3.5-4b-1 a9ef732d394c136567d9b2124e7dc71cee40270cdd9cbff1b194d84a3af5c096
-INSTALL /v0.1.2/demos/local-llm/Dollyfile-qwen3.5-4b-2 68fe7c2424c6edb0dfb44b53a6e1ad6bf96b5ed5d3f665b9d8a42fbd2060490f
-INSTALL /v0.1.2/demos/local-llm/Dollyfile-qwen3.5-4b-3 b29edbddf8c60515a816d198e19a733db52f4a2294f28d6ec36728bd2bc9750c
-INSTALL /v0.1.2/demos/local-llm/Dollyfile-qwen3.5-4b-4 026273a66b499c08e03d751d33e62621494b2960daacd8d9ed72f7b429f5a98e
+INSTALL /v0.1.2/demos/local-llm/Dollyfile-qwen3.5-4b-1 30d281cd2c32281eb32db242b027760fb7ecd66c1245649a49124fb3bf9834af
+INSTALL /v0.1.2/demos/local-llm/Dollyfile-qwen3.5-4b-2 24cee2ccf602996045eb9bd5775d20864fa7858530c60bd44370ff26aa4f740b
+INSTALL /v0.1.2/demos/local-llm/Dollyfile-qwen3.5-4b-3 3b8e1b5dceb4f79c2a80cdf0df469fc6424f7792befbf8f45358b0b866a810a7
+INSTALL /v0.1.2/demos/local-llm/Dollyfile-qwen3.5-4b-4 a704a7fb641a4e3dbe097956c48834d44400f4e03461416698ae4f59830b15cc

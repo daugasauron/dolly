@@ -4,7 +4,7 @@ REQUIRES HOST runtime@0
 
 # GNU Emacs 31.1 for the terminal. demos/emacs/prepare-emacs.sh patches and
 # configures the release outside; Dolly compiles every object and dumps it.
-FROM /v0.1.2/Dollyfile-system 2d6032d09bc3e4d729d343188242c47db03c78cfae233885e7a5898883cc8995
+FROM /v0.1.2/Dollyfile-system 7b156dd4eef7042abb9e6ec29e8d9ebd5f0c2a60163761d79f77021d7066680b
 REQUIRES HEADER libc
 REQUIRES TOOL   cc
 REQUIRES TOOL   ar

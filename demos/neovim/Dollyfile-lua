@@ -5,7 +5,7 @@ REQUIRES HOST dso@0
 
 # PUC Lua 5.1 as neovim-build compiles it for Neovim: the interpreter, its
 # library and headers, and the LPeg and luv modules built for it.
-FROM /v0.1.2/demos/neovim/Dollyfile-neovim-build 3e1b2d0d79be14997f0af039b4284851e5f6ab33add86471740c7ba155edd523
+FROM /v0.1.2/demos/neovim/Dollyfile-neovim-build 712f4074949f545e56bde6432f4f469c9cea26ab34c0f5d2872cdfd711ecd636
 
 EXPORTS TOOL   lua
 EXPORTS HEADER lua      /usr/include/lua5.1

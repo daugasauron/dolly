@@ -6,7 +6,7 @@ REQUIRES HOST runtime@0
 # with the files and flags of upstream's Makefiles for one thread (a -pthread
 # program would need threads@0). unlz4 and lz4cat are lz4 under the names it
 # looks for. The library is BSD-licensed and the program GPL-2.0-or-later.
-FROM /v0.1.2/Dollyfile-system-tools 9457ba3339f733500590faac8a24663ee5250cbd87e367303874fc88250b0132
+FROM /v0.1.2/Dollyfile-system-tools 0b45999e6aa7b373f5abb794c278bb22cd3733f33931581e4673c9bf280af08e
 
 REQUIRES HEADER libc
 REQUIRES TOOL   ar

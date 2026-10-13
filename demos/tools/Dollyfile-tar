@@ -7,7 +7,7 @@ REQUIRES HOST runtime@0
 # and pax headers, which the tar of the core package does not, and it takes
 # that one's place: /bin comes first on PATH. Its -z, -j and -J start the
 # compressor by fork, which fails here; pipe through pigz, bzip2 or xz.
-FROM /v0.1.2/Dollyfile-system-tools 9457ba3339f733500590faac8a24663ee5250cbd87e367303874fc88250b0132
+FROM /v0.1.2/Dollyfile-system-tools 0b45999e6aa7b373f5abb794c278bb22cd3733f33931581e4673c9bf280af08e
 
 REQUIRES HEADER libc
 REQUIRES TOOL   ar

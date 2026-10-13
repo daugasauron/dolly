@@ -9,11 +9,11 @@ REQUIRES HOST snapshot@0
 REQUIRES HOST threads@0
 REQUIRES HOST upload@0
 
-FROM /v0.1.2/demos/pi/Dollyfile-pi-runtime 58ada0b8f65527a95941b12ae01f93810cc7f3d038d3db7aa4a4cdc318f733c0
-COPY /v0.1.2/demos/classicube/Dollyfile-classicube-build 3498d87964ca3627ea485e16e64848ccf5969d9c08eee5b09e5951a2472d42d1 /usr/bin/classicube /usr/bin/classicube
-COPY /v0.1.2/demos/classicube/Dollyfile-classicube-build 3498d87964ca3627ea485e16e64848ccf5969d9c08eee5b09e5951a2472d42d1 /usr/share/classicube /home/dolly/classicube
-COPY /v0.1.2/demos/classicube/Dollyfile-classicube-build 3498d87964ca3627ea485e16e64848ccf5969d9c08eee5b09e5951a2472d42d1 /usr/share/licenses/classicube /usr/share/licenses/classicube
-INSTALL /v0.1.2/demos/sdl2/Dollyfile-sdl2 839cdb47b425e735e7eda4c6400ed91d3730e29a6405a4ecae4d6dcabe3d1915
+FROM /v0.1.2/demos/pi/Dollyfile-pi-runtime 05b9647dcafc2c1a6997233e7d0f2954a054f93c643869f3405a540f6ee19c73
+COPY /v0.1.2/demos/classicube/Dollyfile-classicube-build bec1cc2e19d4c39845b71f40574f35942610dff6ccf97892a767db054854f809 /usr/bin/classicube /usr/bin/classicube
+COPY /v0.1.2/demos/classicube/Dollyfile-classicube-build bec1cc2e19d4c39845b71f40574f35942610dff6ccf97892a767db054854f809 /usr/share/classicube /home/dolly/classicube
+COPY /v0.1.2/demos/classicube/Dollyfile-classicube-build bec1cc2e19d4c39845b71f40574f35942610dff6ccf97892a767db054854f809 /usr/share/licenses/classicube /usr/share/licenses/classicube
+INSTALL /v0.1.2/demos/sdl2/Dollyfile-sdl2 45b51dbd12c3251479e2a5f6a9405cd5e1df0f5405b7685732af4b5cfad2aa82
 EXPORTS TOOL classicube
 REQUIRES HEADER cpp
 REQUIRES HEADER quickjs-runner

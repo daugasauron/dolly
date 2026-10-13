@@ -7,7 +7,7 @@ REQUIRES HOST download@0
 REQUIRES HOST http@0
 REQUIRES HOST upload@0
 
-FROM /v0.1.2/Dollyfile-system-build 649847d5f1a95cfa7c8c01e899ab6b404aae3825ce8ddb46f6ecb224d135067c
+FROM /v0.1.2/Dollyfile-system-build 5e4a5908281f1c50478e817dbb91662328fe56b9d347986d2dec52fe5f638e87
 # Unchanged upstream sbase commands, built by sbase's own Makefile.
 REQUIRES HEADER libc
 REQUIRES TOOL   ar
@@ -212,9 +212,9 @@ FILE /usr/share/licenses/samurai/LICENSE
 SLOP rm \
   -rf \
   /tmp/ninja
-INSTALL /v0.1.2/Dollyfile-zlib de52ff78ed3be8aa36d3e05f10b3ce18606d8c26ac0ec3218f8475720e9fff39
-INSTALL /v0.1.2/Dollyfile-gzip a8ac09cc0d9e544d4e013139e788d3058571a36113a0b6d9840db902ccbaf8e3
-INSTALL /v0.1.2/Dollyfile-curl 81e861b717ce22eaf5110cc9ea457f278c58e4931ceeeff9011b4e4c052a1cad
+INSTALL /v0.1.2/Dollyfile-zlib a33b767f92922c0c8fc799bbae34df27de3b985dd732b5bdb206b725990bdbcc
+INSTALL /v0.1.2/Dollyfile-gzip 9786da3cfe1823b275abab9db7cc001a399fcad2394cdf2911b39a57d5ccf158
+INSTALL /v0.1.2/Dollyfile-curl 5085d3488b420b214adac1754101952c45737443120f201567bb6c2888c313aa
 REQUIRES TOOL   mkdir
 REQUIRES LIB    curl
 REQUIRES LIB    z
@@ -444,6 +444,6 @@ SLOP ln -s slop /bin/sh
 EXPORTS TOOL sh
 SLOP cp /usr/share/man/cat1/slop.1 /usr/share/man/cat1/sh.1
 FOLDER /usr/share/man
-INSTALL /v0.1.2/Dollyfile-display 4e221423a0cfaa4b178e73b0132d86321524a3a1d377a44e75e79dacb87d1050
+INSTALL /v0.1.2/Dollyfile-display 224ecd55ea2005fbd2f54a5c368c6663055031595de8a30c3283b1c7caa50218
 
 ENTRY /bin/foreground -i /bin/slop
