@@ -264,6 +264,7 @@ const pages = {
   wabt: { "wasm-objdump": "WebAssembly", wat2wasm: "WebAssembly" },
   sbase: { yes: "output", cal: "calendar" },
   mandoc: { mandoc: "manual" },
+  tar: { tar: "archive" },
 };
 const reads = name => Object.entries(pages[name] ?? {}).map(([page, word]) =>
   `man ${page} > /tmp/amy-man && grep -q '${word}' /tmp/amy-man && ! grep -Eq '^[.](TH|SH|Dd|Sh) ' /tmp/amy-man`);
@@ -381,7 +382,8 @@ await browserTest("amy tools", { image: "default", timeout: 300_000 }, async ({ 
   // sbase's in its place: a tree with a link archived, listed and unpacked.
   await run("mkdir -p /tmp/amy-tar/in/deep /tmp/amy-tar/out && cd /tmp/amy-tar && seq 1 2000 > in/deep/numbers && ln -s deep/numbers in/link && ! tar -cf in.tar in 2> /dev/null");
   await run("amy install tar && cd /tmp/amy-tar && tar -cf in.tar in && tar -xf in.tar -C out && cmp out/in/deep/numbers in/deep/numbers && " +
-    "test \"$(readlink out/in/link)\" = deep/numbers && tar -cf - in | pigz | gzip -dc | tar -tf - | grep -qx in/link && amy files tar | grep -q ' /usr/share/man/cat1/tar.1$'");
+    "test \"$(readlink out/in/link)\" = deep/numbers && tar -cf - in | pigz | gzip -dc | tar -tf - | grep -qx in/link");
+  for (const read of reads("tar")) await run(read);
   // dolly-llama computes on the GPU, a host module default does not declare:
   // the package is refused by the module's name and nothing of it is installed.
   assert.notEqual(await session.submit("amy install llama 2> /tmp/refused"), 0);
