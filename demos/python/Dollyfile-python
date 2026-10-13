@@ -5,7 +5,7 @@ REQUIRES HOST dso@0
 REQUIRES HOST http@0
 REQUIRES HOST sockets@0
 
-FROM /v0.1.2/Dollyfile-system 8456fa8f6e7bb23173a7fe3dc45cd631851c55370c76ecc77cdfdc3bf40ff262
+FROM /v0.1.2/Dollyfile-system 2d6032d09bc3e4d729d343188242c47db03c78cfae233885e7a5898883cc8995
 # Build the Python runtime and native extension SDK; pip.dm adds pip.
 REQUIRES HEADER curl
 REQUIRES HEADER dso
@@ -404,8 +404,8 @@ EXPORTS TOOL pip3
 
 # pip builds what has no wheel for Dolly, which is every native package: a C
 # extension with the compiler, a Meson project such as NumPy with Ninja too.
-INSTALL /v0.1.2/Dollyfile-cc fde55370dfb28cc38ba5e7aec641b0501449abc73e70a4af6fa7ecc2eee49ae0
-INSTALL /v0.1.2/Dollyfile-ninja a61d203024002022d16e73c551c9b55bd411085fb4c3273443126999cd4c79fa
+INSTALL /v0.1.2/Dollyfile-cc 08a3d6c0c850c1c2a565d53ee1081fb08ce714284581bdee5bb08b92aa630903
+INSTALL /v0.1.2/Dollyfile-ninja cc692071a571316fbd12a5200f2708c63427206c2e538e6f9dc67d67d7b3e522
 
 # The browser policy decides which indexes are reachable; skip pip's own
 # PyPI version check. Dolly has one user, uid 0. Progress bars refresh from a

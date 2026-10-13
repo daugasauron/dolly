@@ -9,6 +9,6 @@ REQUIRES HOST http@0
 REQUIRES HOST snapshot@0
 REQUIRES HOST upload@0
 
-FROM /v0.1.2/Dollyfile-system 8456fa8f6e7bb23173a7fe3dc45cd631851c55370c76ecc77cdfdc3bf40ff262
+FROM /v0.1.2/Dollyfile-system 2d6032d09bc3e4d729d343188242c47db03c78cfae233885e7a5898883cc8995
 
 ENTRY /bin/foreground -i /bin/slop

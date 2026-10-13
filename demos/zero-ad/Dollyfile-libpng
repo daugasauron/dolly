@@ -5,8 +5,8 @@ REQUIRES HOST runtime@0
 # libpng as zero-ad-deps builds it with upstream's CMake, for programs the cc
 # package builds, with the zlib it needs. zlib installs no .pc file of its
 # own; libpng's names it, so the one zero-ad-deps writes comes along.
-FROM /v0.1.2/demos/zero-ad/Dollyfile-zero-ad-deps da927e3d591e54cc59a0a22d4860c15bd48c7825bf0dcd14ca2a531f3b2de751
-INSTALL /v0.1.2/Dollyfile-zlib d4b599bd8e0b9abadc856d1c387716fde1982758021a8ff16d6e77b5fcde90ef
+FROM /v0.1.2/demos/zero-ad/Dollyfile-zero-ad-deps 16267c8311c384ca8c890beabee3e5845689be37efeca7a0c1b3b40b499245a1
+INSTALL /v0.1.2/Dollyfile-zlib de52ff78ed3be8aa36d3e05f10b3ce18606d8c26ac0ec3218f8475720e9fff39
 
 EXPORTS LIB    png16      /usr/lib/libpng16.a
 EXPORTS HEADER png        /usr/include/png.h

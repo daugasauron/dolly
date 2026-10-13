@@ -4,17 +4,14 @@ import { mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
-import { inspectDollyfile } from "../src/dollyfile-view.mjs";
 import { tarArchive } from "./fixtures/tar.mjs";
 
 test("tar extracts paths and stdin, preserves block padding, and rejects damaged input", async () => {
-  const recipe = inspectDollyfile(await readFile(new URL("../Dollyfile-system-build", import.meta.url), "utf8"));
   const directory = await mkdtemp(join(tmpdir(), "dolly-tar-check-"));
   try {
     const binary = join(directory, "tar"), archivePath = join(directory, "input.tar");
-    const compilation = spawnSync("cc", ["-std=c17", "-D_DEFAULT_SOURCE", "-Wall", "-Wextra", "-Werror", "-x", "c", "-", "-o", binary], {
-      input: recipe.files.find(file => file.path.endsWith("/tar.c")).body, encoding: "utf8",
-    });
+    const compilation = spawnSync("cc", ["-std=c17", "-D_DEFAULT_SOURCE", "-Wall", "-Wextra", "-Werror",
+      new URL("../src/commands/tar.c", import.meta.url).pathname, "-o", binary], { encoding: "utf8" });
     assert.equal(compilation.status, 0, compilation.stderr);
     for (const size of [0, 511, 512, 513]) {
       const contents = Buffer.from(Array.from({ length: size }, (_, index) => index % 256));

@@ -4,7 +4,6 @@ import { chmod, mkdir, mkdtemp, readFile, rm, stat, symlink, utimes, writeFile }
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import test from "node:test";
-import { inspectDollyfile } from "../src/dollyfile-view.mjs";
 import { stagedIncludeDirectory } from "../scripts/host-modules.mjs";
 const includeDirectory = await stagedIncludeDirectory();
 
@@ -12,18 +11,11 @@ const project = resolve(import.meta.dirname, "..");
 const scratch = await mkdtemp(join(tmpdir(), "dolly-commands-"));
 test.after(() => rm(scratch, { recursive: true, force: true }));
 
-function build(name, source = `src/commands/${name}.c`) {
+function build(name) {
   const output = join(scratch, name);
-  execFileSync("cc", ["-std=c17", "-Wall", "-Wextra", "-Werror", `-I${includeDirectory}`, source,
+  execFileSync("cc", ["-std=c17", "-Wall", "-Wextra", "-Werror", `-I${includeDirectory}`, `src/commands/${name}.c`,
     "test/fixtures/native-spawn.c", "-o", output, "-lm"], { cwd: project, stdio: "pipe" });
   return output;
-}
-
-async function buildInline(name) {
-  const recipe = inspectDollyfile(await readFile(join(project, "Dollyfile-system-build"), "utf8"));
-  const source = join(scratch, `${name}.c`);
-  await writeFile(source, recipe.files.find(({ path }) => path.endsWith(`/${name}.c`)).body);
-  return build(name, source);
 }
 
 const run = (program, args, options = {}) =>
@@ -74,16 +66,16 @@ test("timeout 0 disables the deadline", () => {
 });
 
 test("Dolly's own core tools keep their no-permission and finite semantics", async () => {
-  const testTool = await buildInline("test"), bracket = await buildInline("bracket");
+  const testTool = build("test"), bracket = build("bracket");
   const status = (program, args) => run(program, args).status;
   assert.equal(status(testTool, ["-x", "."]), 1, "a directory is not an executable candidate");
   assert.equal(status(testTool, ["-x", testTool]), 0);
   assert.equal(status(bracket, ["(", "-n", "a", "-a", "-z", "", ")", "-o", "!", "-d", ".", "]"]), 0);
   assert.equal(status(bracket, ["!", "(", "a", "=", "a", ")", "-a", "-d", ".", "]"]), 1);
   assert.equal(status(bracket, ["-n", "a"]), 2);
-  assert.equal(run(await buildInline("cat"), ["-n"], { input: "a\nb\n" }).stdout, "     1\ta\n     2\tb\n");
-  assert.equal(run(await buildInline("echo"), ["--"]).stdout, "--\n");
-  const ls = await buildInline("ls");
+  assert.equal(run(build("cat"), ["-n"], { input: "a\nb\n" }).stdout, "     1\ta\n     2\tb\n");
+  assert.equal(run(build("echo"), ["--"]).stdout, "--\n");
+  const ls = build("ls");
   assert.equal(status(ls, ["--color=never", "."]), 0);
   // The POSIX long format; a directory starts with its total, an empty one has nothing else.
   await mkdir(join(scratch, "listing/empty"), { recursive: true });
@@ -148,7 +140,7 @@ test("diff reports 0/1/2 and patch reads the patch, never a file operand", async
 });
 
 test("file recognizes UTF-8 text and stat reports modes or rejects unknown formats", async () => {
-  const file = await buildInline("file");
+  const file = build("file");
   const samples = {
     "ascii.txt": ["plain\n", "ASCII text"],
     "utf8.txt": ["grüße ✓\n", "UTF-8 Unicode text"],
@@ -159,7 +151,7 @@ test("file recognizes UTF-8 text and stat reports modes or rejects unknown forma
     await writeFile(join(scratch, name), contents);
     assert.equal(run(file, ["-b", name]).stdout, `${expected}\n`, name);
   }
-  const stat = await buildInline("stat");
+  const stat = build("stat");
   await chmod(join(scratch, "ascii.txt"), 0o640);
   assert.equal(run(stat, ["-c", "%a %A %s", "ascii.txt"]).stdout, "640 -rw-r----- 6\n");
   const unknown = run(stat, ["-c", "%a %Q", "ascii.txt"]);
@@ -168,17 +160,17 @@ test("file recognizes UTF-8 text and stat reports modes or rejects unknown forma
 });
 
 test("Dolly's own commands answer --help with their usage and status 0; man reports a missing page", async () => {
-  const inline = ["cat", "cd", "clear", "cp", "echo", "file", "help", "ls", "man", "mkdir", "mv", "pwd", "rm", "stat", "touch"];
+  const core = ["cat", "cd", "clear", "cp", "echo", "file", "help", "ls", "man", "mkdir", "mv", "pwd", "rm", "stat", "touch"];
   const sources = ["command", "diff", "du", "env", "find", "hostname", "install", "nproc", "patch", "realpath", "rev",
     "time", "timeout", "tty", "xargs"];
-  const programs = [...await Promise.all(inline.map(buildInline)), ...sources.map(name => build(name))];
+  const programs = [...core.map(name => build(name)), ...sources.map(name => build(name))];
   for (const program of programs) {
     const help = run(program, ["--help"]);
     assert.equal(help.status, 0, program);
     assert.notEqual(help.stdout, "", program);
     assert.equal(help.stderr, "", program);
   }
-  const man = programs[inline.indexOf("man")];
+  const man = programs[core.indexOf("man")];
   for (const wrong of [[], ["a", "b"], ["-k"], ["../etc/passwd"]]) {
     const result = run(man, wrong);
     assert.equal(result.status, 2, wrong.join(" "));
