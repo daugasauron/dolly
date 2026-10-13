@@ -42,6 +42,26 @@ no verdict. What it holds:
   overwritten, peak memory per image after 2026-10-01, cold against cached
   for one image, what failed in the two heavy attempts of 2026-10-13.
 
+## The README's turnaround table, measured again (2026-10-14, 06:00, load 1)
+
+Each row that needs no edit to measure, twice, in `work/rust` at `eeef65d7`:
+
+| Command | The table said | Measured |
+| --- | --- | --- |
+| `npm run test:source` | 20 s | 19.9 and 20.0 s |
+| `npm run test:artifacts` | 2 s | 23.5 and 24.4 s |
+| `npm run test:core`, Chromium | 24-32 s | 24.1 and 24.2 s |
+| `npm run test:core`, Firefox | 32-68 s | 31.7 and 31.8 s |
+| `npm run build:runtime`, nothing changed | 9-12 s | 10.8 and 12.5 s |
+| `npm run image -- default`, nothing changed | 2 s | 2.6 and 3.6 s |
+| `npm run test:browser`, both browsers | 17 min | 403 to 427 s in seven runs since `d08dca57` |
+
+The table carries the measured numbers now. Of the artifact tests' 24 s, 19.6 s
+are one test, "system snapshots are sealed to their visible recipe chain",
+which reads every image's snapshot (130 images today, 23 when the 2 s were
+measured), and 4.7 s "published inputs are independent exact pinned files".
+Not changed.
+
 ## State (2026-10-13)
 
 `AGENTS.md`: "Development iteration speed is king." Since the review of 2026-10-05 this is the
