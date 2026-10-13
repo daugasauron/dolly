@@ -317,3 +317,45 @@ what the proposal's first open point describes; image inputs go from
   record against the modules admitted for the session, which is the other
   agent's.
 
+
+## 2026-10-13 10:00: the new seed measured; `libevent` and `libterminfo`
+
+The chain for the seed step, rebuilt in this tree at one job on image inputs
+`09ec882b…`: `system-build` and what `default`, `system`, `tmux` and
+`tmux-panes` stand on, with `cc`, `git`, `less`, `python`, `javascript`,
+`dolly-docs`, `audio-sdk` and `gpu-sdk` for the core suite: 24 images in
+**1136 s**. The Janis fix repins the recipes that take its source
+(`066b253a`).
+
+`38f9faa6` breaks out of tmux's recipe what another program would link, as
+packages of the demo that tmux installs:
+
+- `libevent`: upstream's core, `-levent_core`, with event2's headers and the
+  older `<event.h>` over them (three of tmux's files include it). The extra
+  library (DNS, HTTP, RPC, tagging) is not built.
+- `libterminfo`: NetBSD's, `-lterminfo`, `<term.h>` and `<termcap.h>`. It is
+  not curses. tmux's `tty.c` includes `<curses.h>` and takes nothing from
+  it, so tmux's recipe writes an empty one and no longer claims
+  `HAVE_CURSES_H`.
+- Both need `runtime@0` alone: `amy install libevent` works in `default`.
+  `amy install tmux` brings both (2.7 MB against 2.1 MB), as `gzip` brings
+  `zlib`.
+- Each has its case in `test/amy-browser.mjs`: a loop whose timer writes
+  into a pipe the loop watches, and a cursor address written from
+  `xterm-256color`'s description.
+
+Measured on the new seed at `fe04b918`, Chromium and Firefox unless said:
+
+| Check | Result |
+| --- | --- |
+| Source suite | 424 of 424 |
+| `test/pty-browser.mjs` | passes in both |
+| `demos/tmux/test/tmux-browser.mjs` | passes in both (the package part is Chromium's) |
+| `javascript` demo test | passes (Chromium, as it runs) |
+| `python` demo test, with `ninja` built for it | passes: CPython in Chromium, NumPy built by pip in `default` in both (186 s, 254 s) |
+| amy's two new cases, alone in `default` after `amy install cc` | pass in both |
+| Core suite (`slot.sh hugebuild`) | in each browser all but `amy-browser.mjs`, which stops at `amy install cmake`: 42 tests pass, `fs-growth` among them |
+
+Not measured here, for the round: Pi's test and the whole of
+`test/amy-browser.mjs` on the new seed. Pi's image needs `rust-build` and
+amy's test the catalog, which the caps of this tree do not allow.
