@@ -417,8 +417,7 @@ const elsewhere = {
   git: "man-browser.mjs, pager-browser.mjs", less: "pager-browser.mjs", llvm: "demos/llvm",
   parakeet: "demos/speech", "speech-to-text": "demos/speech: default refuses it", voice: "demos/speech, in pi-phone",
   tmux: "demos/tmux: default refuses it",
-  "llvm-runtimes": "a build stage", "minicpm5-2b": "demos/local-llm", "qwen3.5-2b": "demos/local-llm", "qwen3.5-4b": "demos/local-llm",
-  ...Object.fromEntries([1, 2, 3, 4].map(shard => [`qwen3.5-4b-${shard}`, "demos/local-llm"])),
+  "llvm-runtimes": "a build stage", "minicpm5-2b": "demos/local-llm", "qwen3.5-2b": "demos/local-llm",
 };
 const used = new Set([...preinstalled, "python", "cargo", "mojo", "dolly-docs", "llama", "tar", "meson", ...Object.keys({ ...programs, ...tools, ...elsewhere })]);
 assert.deepEqual(packages.filter(name => !used.has(name)), [], "packages that no test installs and uses");

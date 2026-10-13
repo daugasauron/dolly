@@ -21,7 +21,7 @@ REQUIRES TOOL janis
 REQUIRES TOOL tar
 REQUIRES TOOL dolly-llama
 
-SOURCE /v0.1.3/dist/static/llama/provider.tar 0c92a330cceb666ebabe9a93e1bbeb68c7f21f61c9167864ab82319c9d24c426 /tmp/llm-provider.tar
+SOURCE /v0.1.3/dist/static/llama/provider.tar 817376e879b6852d0c103716aa49bbd9f377fdd21cfd3b6cb0efd279e68fefb9 /tmp/llm-provider.tar
 SLOP tar -xf /tmp/llm-provider.tar -C /
 
 FILE /home/dolly/.pi/agent/settings.json
