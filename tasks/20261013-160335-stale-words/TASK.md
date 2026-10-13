@@ -20,8 +20,9 @@ holds it, and the suites pass.
   ([SLOP and RUN](../20261013-144241-slop-and-run/investigation.md)).
 - `src/dollyfile-view.mjs` collects every `RUN` row into `runs` (lines 179,
   282, 307). `git grep -w runs` finds no reader in the page, the scripts or
-  the tests. Whether Dollyfile Studio's image carries the file and has to be
-  rebuilt with it is to be checked first.
+  the tests. Dollyfile Studio's image carries the file
+  (`demos/studio/prepare-sources.sh:8` packs it into `studio.tar`), so
+  taking the field out repins and rebuilds `dollyfile-studio`, one image.
 - The reflection's figure "181 of 364 `FILE` rows without a body" is wrong
   (471 rows, 183 with a body, 288 without); corrected in
   [the investigation](../20261013-144241-dollyfile-words/investigation.md),
