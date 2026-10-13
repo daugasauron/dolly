@@ -11,6 +11,7 @@ xz xz xz-5.8.4.tar.gz
 bzip2 bzip2 bzip2-1.0.8.tar.gz
 zip zip zip30.tar.gz
 unzip unzip unzip60.tar.gz
+mandoc mandoc mandoc-1.14.6.tar.gz
 pigz pigz pigz-2.8.tar.gz
 yacc byacc byacc-20260126.tgz
 flex reflex reflex-20260131.tgz

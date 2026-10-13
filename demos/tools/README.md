@@ -26,6 +26,7 @@ the script would find here, in the comments beside its flags.
 - `flex`: flex 2.5.4 as Thomas Dickey maintains it (reflex), which starts no m4, also as `lex`, with libfl and the `yacc` package, as a package.
 - `wabt`: the WebAssembly Binary Toolkit: `wat2wasm`, `wasm2wat`, `wasm-objdump`, `wasm-strip` and `wasm-validate`, as a package.
 - `meson`: Meson, with the `python`, `cc` and `ninja` packages it runs on, as a package.
+- `mandoc`: mandoc, which formats a manual page of man or mdoc macros as text, as a package.
 - `tar`: sbase's `tar`, which writes archives and reads links and pax headers, in place of the one that only unpacks, as a package.
 - `sbase`: the sbase commands the image leaves out: `yes`, `cal`, `sha1sum`, `sha512sum`, `sponge`, `cols`, `uuencode` and `uudecode`, as a package.
 
@@ -41,14 +42,15 @@ What the platform decides ([process model](../../docs/process-model.md)):
 - The terminal has no line discipline: nothing echoes a line, edits it or
   turns Enter into a newline for a program that only reads one. So `sqlite3`
   is built with linenoise, `dc` edits its lines as `bc` does, and `vi` reads
-  Enter through a few lines the recipe adds, which is the one change to an
-  upstream source here. A question that waits for a line gets none: answer
-  it on the command line (`unzip -o` or `-n`, `zstd -f`) or end it with Ctrl+C.
+  Enter through a few lines the recipe adds, a change to an upstream source
+  with its reason there. A question that waits for a line shows nothing
+  typed and ends at Ctrl+J, not at Enter: answer it on the command line
+  (`unzip -o` or `-n`, `zstd -f`).
 - Dolly's `tar` reads files and directories. An archive with a pax header
   (every `git archive`) or links is staged as a plain tar of the files a
   build reads ([`prepare-sources.sh`](prepare-sources.sh)); `sqlite`, `xz`,
-  `bzip2`, `pigz`, `zip`, `unzip`, `yacc` and `flex` build from the archive as
-  published.
+  `bzip2`, `pigz`, `zip`, `unzip`, `yacc`, `flex` and `mandoc` build from the
+  archive as published.
 - `fork` fails: `vi`'s `!` commands and language servers, and `tar`'s `-z`,
   `-j` and `-J`, which start the compressor that way, say so. Pipe an
   archive through `pigz`, `bzip2`, `xz` or `zstd`.

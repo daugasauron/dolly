@@ -139,5 +139,6 @@
 {"name": "Meson", "use": "meson, from its wheel", "licence": "Apache-2.0", "repository": "https://github.com/mesonbuild/meson", "pins": ["MESON"], "sources": ["dist/static/tools/meson-1.12.1-py3-none-any.whl"]},
 {"name": "WABT", "use": "wat2wasm, wasm2wat, wasm-objdump, wasm-strip and wasm-validate, with the PicoSHA2 it vendors", "licence": "Apache-2.0 AND MIT", "repository": "https://github.com/WebAssembly/wabt", "pins": ["WABT"], "sources": ["dist/static/tools/wabt.tar"]},
 {"name": "Berkeley Yacc", "use": "yacc", "licence": "LicenseRef-Public-Domain", "repository": "https://invisible-island.net/byacc/", "pins": ["BYACC"], "sources": ["dist/static/tools/byacc-20260126.tgz"]},
-{"name": "reflex", "use": "flex 2.5.4 as Thomas Dickey maintains it, also as lex", "licence": "X11 AND BSD-4-Clause-UC", "repository": "https://invisible-island.net/reflex/", "pins": ["REFLEX"], "sources": ["dist/static/tools/reflex-20260131.tgz"]}
+{"name": "reflex", "use": "flex 2.5.4 as Thomas Dickey maintains it, also as lex", "licence": "X11 AND BSD-4-Clause-UC", "repository": "https://invisible-island.net/reflex/", "pins": ["REFLEX"], "sources": ["dist/static/tools/reflex-20260131.tgz"]},
+{"name": "mandoc", "use": "mandoc, which also formats the manual pages of the tools packages as text when they are built", "licence": "ISC AND BSD-2-Clause AND BSD-3-Clause", "repository": "https://mandoc.bsd.lv/", "pins": ["MANDOC"], "sources": ["dist/static/tools/mandoc-1.14.6.tar.gz"]}
 ]

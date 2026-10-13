@@ -387,3 +387,7 @@ DOLLY_REFLEX_SHA256=ab51a65f33623bb9a3877fc5991ca7960b2421ed112d94c733d855979917
 DOLLY_PIGZ_VERSION=2.8
 DOLLY_PIGZ_URL='https://zlib.net/pigz/pigz-2.8.tar.gz'
 DOLLY_PIGZ_SHA256=eb872b4f0e1f0ebe59c9f7bd8c506c4204893ba6a8492de31df416f0d5170fd0
+# mandoc: the package, and the formatter of the tools packages' manual pages.
+DOLLY_MANDOC_VERSION=1.14.6
+DOLLY_MANDOC_URL='https://mandoc.bsd.lv/snapshots/mandoc-1.14.6.tar.gz'
+DOLLY_MANDOC_SHA256=8bf0d570f01e70a6e124884088870cbed7537f36328d512909eb10cd53179d9c

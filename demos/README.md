@@ -26,7 +26,7 @@ README. Demos may use each other; the core never uses a demo.
 - [speech](speech/README.md): speech to text from the microphone, and Pi on a phone with speech and buttons in place of a keyboard.
 - [studio](studio/README.md): Dollyfile Studio.
 - [tmux](tmux/README.md): tmux on pseudo-terminals, as a package and an application with two panes; libevent and NetBSD's terminfo library as packages.
-- [tools](tools/README.md): SQLite, jq, the xz, zstd, bzip2, lz4 and pigz compressors, zip and unzip, tree, bc, xxd, base64, Meson, yacc and flex, wabt, a tar that writes archives and a small vi, as packages built from their release archives.
+- [tools](tools/README.md): SQLite, jq, the xz, zstd, bzip2, lz4 and pigz compressors, zip and unzip, tree, bc, xxd, base64, Meson, yacc and flex, wabt, mandoc, a tar that writes archives and a small vi, as packages built from their release archives.
 - [wine](wine/README.md): Wine 4.0.4 as one wasm64 process: a desktop that is a folder, with Notepad, WineMine, ReactOS Paint, GIMP 2.2, the NetSurf browser (fetching through libcurl), a Command Prompt, and an interpreter for small x86-64 Windows programs with TinyCC to compile them.
 - [xonotic](xonotic/README.md): Xonotic 0.8.6 on the DarkPlaces engine, built inside Dolly and drawn by its software rasterizer.
 - [zero-ad](zero-ad/README.md): 0 A.D. Release 28 and its OpenAL build.
