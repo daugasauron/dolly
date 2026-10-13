@@ -20,6 +20,8 @@ find here, in the comments beside its flags.
 - `vi`: Neatvi, a small `vi` and `ex` that needs no terminal database, as a package.
 - `xxd`: xxd, the hex dump that also reads one back, as a package.
 - `base64`: `base64` (Alfred Klomp's) and libbase64, as a package.
+- `tar`: sbase's `tar`, which writes archives and reads links and pax headers, in place of the one that only unpacks, as a package.
+- `sbase`: the sbase commands the image leaves out: `yes`, `cal`, `sha1sum`, `sha512sum`, `sponge`, `cols`, `uuencode` and `uudecode`, as a package.
 
 What the platform decides ([process model](../../docs/process-model.md)):
 
@@ -40,7 +42,11 @@ What the platform decides ([process model](../../docs/process-model.md)):
   (every `git archive`) or links is staged as a plain tar of the files a
   build reads ([`prepare-sources.sh`](prepare-sources.sh)); `sqlite`, `xz`,
   `bzip2`, `zip` and `unzip` build from the archive as published.
-- `vi`'s `!` commands and language servers start by `fork`, which fails.
+- `fork` fails: `vi`'s `!` commands and language servers, and `tar`'s `-z`,
+  `-j` and `-J`, which start the compressor that way, say so. Pipe an
+  archive through `gzip`, `bzip2` or `xz`.
+- `/bin` comes before `/usr/bin`, so `tar` installs over the core's
+  `/bin/tar`; no other package here replaces a command.
 
 Test: the `amy tools` case of [`test/amy-browser.mjs`](../../test/amy-browser.mjs)
 installs each into `default`, uses it, links a program with each library and

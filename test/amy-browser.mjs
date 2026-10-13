@@ -243,6 +243,11 @@ const tools = {
   xxd: ["xxd", "test \"$(echo hello | xxd -p)\" = 68656c6c6f0a && seq 1 300 > /tmp/amy-xxd && xxd /tmp/amy-xxd | xxd -r | cmp - /tmp/amy-xxd && man xxd > /dev/null"],
   base64: ["base64", `test "$(echo packed | base64)" = cGFja2VkCg== && seq 1 3000 | base64 > /tmp/amy-base64 && base64 -d /tmp/amy-base64 | tail -n 1 | grep -qx 3000 && ` +
     links("libbase64", "base64", "base64_decode(0, 0, 0, 0, 0) != 1")],
+  // yes ends when its reader does.
+  sbase: ["yes", "test \"$(yes | head -n 3 | tr '\\n' ' ')\" = 'y y y ' && test \"$(printf abc | sha1sum | cut -c 1-40)\" = a9993e364706816aba3e25717850c26c9cd0d89d && " +
+    "printf abc | sha512sum | grep -q '^ddaf35a193617aba' && cal 10 2026 | grep -q 2026 && echo sponged > /tmp/amy-sponge && " +
+    "tr a-z A-Z < /tmp/amy-sponge | sponge /tmp/amy-sponge && grep -qx SPONGED /tmp/amy-sponge && " +
+    "uuencode /tmp/amy-sponge sponge | uudecode -o /tmp/amy-uu && cmp /tmp/amy-uu /tmp/amy-sponge && man yes > /dev/null"],
   // ex edits by commands; vi at the terminal is the step after this table.
   vi: ["vi", "printf 'one\\ntwo\\n' > /tmp/amy-ex && printf '%s\\n' '%s/two/2/' w q | ex -s /tmp/amy-ex > /dev/null && test \"$(tr '\\n' ' ' < /tmp/amy-ex)\" = 'one 2 '"],
 };
@@ -276,6 +281,11 @@ await browserTest("amy tools", { image: "default", timeout: 300_000 }, async ({ 
   await run("test \"$(tr '\\n' ' ' < /tmp/amy-vi)\" = 'one two '");
   await run("amy install dolly-docs && test -f /usr/share/doc/dolly/docs/dollyfile.md");
   await run("amy install transfer && amy files transfer | grep -q ' /bin/upload$' && download --help | grep -q '^usage: download'");
+  // The core's tar only unpacks files and directories. The tar package puts
+  // sbase's in its place: a tree with a link archived, listed and unpacked.
+  await run("mkdir -p /tmp/amy-tar/in/deep /tmp/amy-tar/out && cd /tmp/amy-tar && seq 1 2000 > in/deep/numbers && ln -s deep/numbers in/link && ! tar -cf in.tar in 2> /dev/null");
+  await run("amy install tar && cd /tmp/amy-tar && tar -cf in.tar in && tar -xf in.tar -C out && cmp out/in/deep/numbers in/deep/numbers && " +
+    "test \"$(readlink out/in/link)\" = deep/numbers && tar -cf - in | tar -tf - | grep -qx in/link && man tar | grep -q archive");
   // dolly-llama computes on the GPU, a host module default does not declare:
   // the package is refused by the module's name and nothing of it is installed.
   assert.notEqual(await session.submit("amy install llama 2> /tmp/refused"), 0);
@@ -290,7 +300,7 @@ const elsewhere = {
   "llvm-runtimes": "a build stage", "minicpm5-2b": "demos/local-llm", "qwen3.5-2b": "demos/local-llm",
   ...Object.fromEntries([1, 2, 3, 4].map(shard => [`qwen3.5-4b-${shard}`, "demos/local-llm"])),
 };
-const used = new Set([...preinstalled, "python", "cargo", "mojo-compiler", "dolly-docs", "transfer", "llama", ...Object.keys({ ...programs, ...tools, ...elsewhere })]);
+const used = new Set([...preinstalled, "python", "cargo", "mojo-compiler", "dolly-docs", "transfer", "llama", "tar", ...Object.keys({ ...programs, ...tools, ...elsewhere })]);
 assert.deepEqual(packages.filter(name => !used.has(name)), [], "packages that no test installs and uses");
 
 // A package brings the programs its own programs start. rustc links through

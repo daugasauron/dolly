@@ -1,0 +1,49 @@
+DOLLY 7
+PACKAGE sbase
+REQUIRES HOST runtime@0
+
+# The sbase commands that posix leaves out and people type, unchanged, built
+# by sbase's own Makefile from the archive system-tools builds its from.
+FROM /v0.1.2/Dollyfile-system-tools a79e48b88e5552cc965f0aa06dd9d28c05712649cc7b059036eb6a3857665632
+
+REQUIRES HEADER libc
+REQUIRES TOOL   ar
+REQUIRES TOOL   cc
+REQUIRES TOOL   head
+REQUIRES TOOL   make
+REQUIRES TOOL   mv
+REQUIRES TOOL   test
+REQUIRES TOOL   wc
+
+SOURCE /v0.1.2/dist/static/default/sbase.tar c05c64631cbc8441a50785da447c129c0a4f07fa3c3a10a5355c0f1102d3b1cd /tmp/sbase.tar
+SLOP tar -xf /tmp/sbase.tar -C /
+
+FILE /tmp/sbase/dolly.mk
+    TOOLS = cal cols sha1sum sha512sum sponge uudecode uuencode yes
+    .RECIPEPREFIX := >
+    dolly-bin: $(TOOLS)
+    >mv $(TOOLS) /usr/bin
+    >mv $(TOOLS:=.1) /usr/share/man/man1
+    .RECIPEPREFIX :=
+    include Makefile
+SLOP make -C /tmp/sbase -f dolly.mk CFLAGS=-O2 ARFLAGS=rc RANLIB=:
+
+SLOP test "$(yes | head -n 3 | wc -l)" -eq 3
+
+EXPORTS TOOL cal
+EXPORTS TOOL cols
+EXPORTS TOOL sha1sum
+EXPORTS TOOL sha512sum
+EXPORTS TOOL sponge
+EXPORTS TOOL uudecode
+EXPORTS TOOL uuencode
+EXPORTS TOOL yes
+FILE /usr/share/licenses/sbase/LICENSE
+FILE /usr/share/man/man1/cal.1
+FILE /usr/share/man/man1/cols.1
+FILE /usr/share/man/man1/sha1sum.1
+FILE /usr/share/man/man1/sha512sum.1
+FILE /usr/share/man/man1/sponge.1
+FILE /usr/share/man/man1/uudecode.1
+FILE /usr/share/man/man1/uuencode.1
+FILE /usr/share/man/man1/yes.1

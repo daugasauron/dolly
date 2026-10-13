@@ -156,3 +156,27 @@ An image builds in 5 to 15 s once its base is restored (SQLite 33 s).
   browsers).
 - Both build images were cache hits in this tree's plan
   (`reuse local-llm-build`, `reuse openal-build`).
+
+### tar and sbase (09:10)
+
+- `tar` is sbase's, built from the archive `system-tools` already stages
+  (same pin, no new upstream): it writes archives and reads symbolic and
+  hard links, GNU long names and pax headers. It installs **over
+  `/bin/tar`** (and over the core's page in `cat1`, which `man` reads
+  first): `/bin` precedes `/usr/bin`, so anywhere else it would never start.
+  The engine accepts a package that replaces a file; `amy files tar` lists
+  the three. 78 KB. `-z`, `-j`, `-J` fork the compressor and fail by name
+  (`tar: fork: Function not implemented`); `tar -cf - dir | gzip` works.
+  The check: `tar -c` fails before the install; after it a tree with a link
+  is archived, unpacked to the same bytes and link, and listed through a pipe.
+- `sbase` holds the sbase commands `posix` leaves out and people type:
+  `yes`, `cal`, `sha1sum`, `sha512sum`, `sponge`, `cols`, `uuencode`,
+  `uudecode`; 17 files, 404 KB. One package, as the integrator asked;
+  `base64` stays its own (another upstream, with a library). `yes | head`
+  ends: the pipe's reader going away stops the writer.
+- **No `chmod`**: main has no file modes (`docs/process-model.md`: "one user
+  and no permission bits: `chmod`, `chown` and `access` only check that the
+  file exists"). A `chmod` command would report success and change nothing.
+  Not `ed` either: it reads its commands a line at a time from the terminal,
+  which has no line discipline; `ex` (the `vi` package) edits by script.
+- Both in Chromium and Firefox, with the entries of `test/amy-browser.mjs`.
