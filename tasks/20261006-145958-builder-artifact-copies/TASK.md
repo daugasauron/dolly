@@ -4,13 +4,28 @@
 - PRIORITY: 180
 - TAGS: core,builder,memory
 
-## State (2026-10-12)
+## State (2026-10-13)
 
-Unchanged since it was filed: `src/runtime-worker.mjs` still writes every dependency artifact to
-`/etc/dolly/artifacts/` (line 173) and removes them only after the recipe has run (line 202).
-Not measured again since Cargo replaced Patti; the `cargo` image is now a copy of what
-`rust-build` built (`d678b040`), so the done-when's measurement needs another large image
-(`rust-build` itself, or `codex-build`).
+Both copies are gone on `core/polish`; the done-when's measurement is not made.
+
+- **The page's copy** (`39615bcc`, page only): the build that ends a caller's work says
+  `consume`, and the Worker frees each dependency snapshot once it is in the kernel instead of
+  handing it back to the page. The command-line builder, the page's own build and Studio's say
+  it; dependency builds in a page still get their inputs back for the next build.
+  `test/image-browser.mjs` builds with consumed inputs and requires the page to hold none
+  afterwards and the same image.
+- **The kernel's copy** (`b1e07029`, a seed change: `src/dollyfile.c`): `dollyfile` removes a
+  snapshot from `/etc/dolly/artifacts` with the recipe's last line that names it, so its blocks
+  are malloc's again before the first `RUN`. `dollyfile install` keeps it, because `amy` lists
+  it afterwards. The image suite's recipe checks that the directory is empty after `FROM`; it
+  passes in Chromium and Firefox on a chain rebuilt on that seed.
+
+Left: the measurement. Kernel memory never shrinks, so the kernel half shows only in a build
+that writes as much as its inputs; and the base is still in kernel memory twice until `FROM`
+has read it (the restore that starts the builder, and the snapshot `FROM` reads). The installer's
+side, `amy install` of a 1.4 GB package peaking at 6.6 to 8.2 GB
+(`tasks/20261012-130814-packages`), is the same file read twice and is not changed by either
+commit: `amy` keeps the snapshot to list it.
 
 ## The finding
 

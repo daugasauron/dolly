@@ -4,7 +4,7 @@
 - PRIORITY: 150
 - TAGS: core,boundary,cleanup
 
-## State (2026-10-12)
+## State (2026-10-13)
 
 Found by the 2026-09-30 audit of main `4340d03`: authority code should be short and reviewable,
 and test hooks apart from it. The done-when, as the review of 2026-10-05 made it measurable: the
@@ -17,7 +17,7 @@ Trusted JavaScript by that review's count (`wc -l`):
 | --- | --- | --- | --- |
 | 2026-10-05 (`c5b9e132`) | 4,942 | 4,164 | 9,106 |
 | v0.1.0 and v0.1.1 | 4,121 | 5,602 | 9,723 |
-| v0.1.2 and `main` today | 4,121 | 6,083 | 10,204 |
+| v0.1.2 and `main` `4ed1d9ef` (2026-10-13) | 4,121 | 6,083 | 10,204 |
 
 Up to v0.1.0 the DSO loader and FFI moved from `src/` into `host/dso`, and `input@0` and
 `sockets@0` became modules. v0.1.2 added authority the owner asked for: `microphone@0` (236
@@ -36,7 +36,13 @@ Done: step 1 of "Order proposed" (`133ac892`, five lines nobody read). Left:
 6. Two demo tests still rewrite the trusted GPU worker's source before serving it
    (`demos/zero-ad/test/0ad-menu-browser.mjs:13`, `demos/gpu-fluid/test/gpu-fluid-browser.mjs:11`).
 7. `publicURL` in `src/static-asset.mjs` strips a `_dolly/RELEASE/` path, a layout gone since
-   `17793187` (from `tasks/20261007-131241-release-v010`).
+   `17793187` (from `tasks/20261007-131241-release-v010`). Tried on 2026-10-13 and put back: it
+   is not one line. The HTTP policy keeps a public address and a `mirror` for every trusted
+   source because of that layout (`normalizeTrustedSource`, `host/http/policy.mjs`), and two
+   unit tests (`test/http-policy.test.mjs`, `test/http-broker.test.mjs`) build a release under
+   `_dolly/` to show a request for the mirror itself is denied. Without the layout the two
+   addresses are one: the removal is the `mirror` field in the policy and the broker and those
+   two tests, read as a boundary change.
 8. From `tasks/20261006-142127-kboundary-02` (closed into this task): trusted code still calls
    the kernel through an object of Emscripten's `_NAME` spellings, 52 call sites in ten files
    (`dolly._dolly_process_dispatch`). The rename is on `core/kernel-boundary-rename`
@@ -44,7 +50,9 @@ Done: step 1 of "Order proposed" (`133ac892`, five lines nobody read). Left:
    without it in 0 of 8, unexplained. Done when that failure is explained, the call sites use
    the exports' names and the terminal suite passes twenty times in Firefox.
 
-Lowered from 250: clean-up, with an owner's decision in step 3.
+Lowered from 250: clean-up, with an owner's decision in step 3. Not advanced on 2026-10-13
+beyond step 7's finding: the day went to reproduced bugs. The count on `core/polish` is 10,208
+(two lines for a build that consumes its inputs, two for the paste chord).
 
 ## Review (2026-10-05, `20261005-131642-big-picture`): the number goes the wrong way
 

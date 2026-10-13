@@ -4,15 +4,26 @@
 - PRIORITY: 190
 - TAGS: demo,rts,tests,flaky,bug
 
-## State (2026-10-12)
+## State (2026-10-13)
 
-Open: which early step freezes the match is not found, and the done-when's loop has not been
-run again. Since `8262c6ba` (2026-10-08) only the compiler is entered through JSPI, so the
-comparison "with the entry disabled" that the last section still owed is what `main` does now.
-The `rts` demo test passed in the release rounds of v0.1.0, v0.1.1 and v0.1.2, one run each.
+Open and reproduced on today's tree: the match loop of "Evidence", 20 rounds in one `rts-arena`
+session (main `4ed1d9ef` with the Janis reader fix `cb9ae5cd`, Chromium, load 9), stalled in 2
+of 20, rounds 13 and 16, both with "mouse menu/quit must not stall either player": frames 17
+and 18 at 1.3 s after launch and the same two frames 6 s later. The other 18 rounds took 36 to
+39 s each. So it does not need the 2026-10-08 process entry or an image build beside it.
 
-Owed: the match loop of "Evidence", 20 rounds on today's `main` under load. If it passes, close
-with the count; if it stalls, "Work" below stands. Lowered from 240: three rounds without it.
+Not found: which early step freezes the match. Read on 2026-10-13 and not the cause by
+reading: the fixture's relay between the two engines and Janis's child pump (one read and one
+write a child a pump, at most 10 ms apart; `write` reports back-pressure only past 64 KiB), the
+engine's pipe transport (`demos/rts/arena.cpp`, non-blocking, framed), and the guards that keep
+a player out of the menus. Upstream's `Sys::is_mp_sync` waits for the other player's
+`MSG_NEXT_FRAME` and asks for a resend after 2 s, which the fixture's 5 s does not outlast by
+much: whether a stalled match recovers on its own is not measured.
+
+Next, as "Work" has it, with a loop that keeps what a failed round leaves (the engines'
+`inputs.log` and standard error) and waits 30 s before it gives up. The loop is
+`build/polish-evidence/rts-loop.mjs` (not committed): open `rts-arena`, choose the shell, fetch
+the fixture, run it 20 times.
 
 ## The defect
 

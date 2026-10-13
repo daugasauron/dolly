@@ -4,7 +4,7 @@
 - PRIORITY: 170
 - TAGS: core,iteration,build
 
-## State (2026-10-12)
+## State (2026-10-13)
 
 `AGENTS.md`: "Development iteration speed is king." Since the review of 2026-10-05 this is the
 one task for measured iteration cost; `tasks/20260930-231102-parallel-rust` was closed into it
@@ -17,25 +17,33 @@ it; nothing under `scripts/` imports from `test/`; `npm run build` and `test:ful
 
 Left:
 
-1. **Three demo images prepare for 10 s or more with nothing changed** (2026-10-06, the last
-   section): `codex` 13 s, `zero-ad` 10 s (a 1.8 GB copy), `pi-local` 10 to 15 s (its plan
-   re-hashes 24 snapshots). The third done-when line is not met for them. Codex's preparer has
-   changed since (`2370dc85`); owed is `npm run image -- NAME` timed unchanged for the three.
-2. **Ninja spawns serially.** Samurai runs one `dolly_spawn` at a time
+1. **Every program start copies and hashes the whole executable, one start at a time**
+   (measured 2026-10-13, `system`, Chromium, load 9): 40 runs of `cc --version` under Make take
+   4.0 to 4.2 s at `-j1` and 3.2 to 3.7 s at `-j8`, 100 ms a start. By reading: the kernel reads
+   the 78 MB compiler into its memory, the supervisor copies it out, hashes it with SHA-256 to
+   find the compiled module it already has, and does this for one start at a time
+   (`#compileProcess` on `launchChain`, `src/process-supervisor.mjs`). An identity the kernel
+   can give without reading the file (the file and a count of its writes) would let a cached
+   module skip all three. Not built: it is a new kernel export and a change to the start
+   protocol.
+2. **The supervisor admits 32 processes** (`processWorkerLimit`, `src/process-supervisor.mjs`),
+   and a spawn past them fails: the same Makefile at `make -j16` ends in a second with "compiler
+   process failed" and `Error 126` for five targets. It holds CMake builds and LLVM at `-j4`. Decided on 2026-10-01 and not built: a memory budget (admit
+   a spawn while committed Wasm memory stays under a page budget), the count kept as a
+   backstop.
+3. **Ninja spawns serially.** Samurai runs one `dolly_spawn` at a time
    (`config/samurai-dolly.patch`): its upstream `jobstart` needs `posix_spawn`'s `addclose` of
    an inherited pipe end, which spawn mappings cannot express, and `addopen`.
-3. **The supervisor admits 32 processes** (`processWorkerLimit`, `src/process-supervisor.mjs`),
-   which holds CMake builds and LLVM at `-j4`. Decided on 2026-10-01 and not built: a memory
-   budget (admit a spawn while committed Wasm memory stays under a page budget), the count kept
-   as a backstop.
-4. **Part of each `cc` launch does not run in parallel**: 40 runs of `cc --version` took 4.2 s
-   at `-j1` and 3.3 s at `-j8` (2026-10-01), which capped small-unit builds near 2x. Not
-   profiled, not measured again since.
+4. **Three demo images prepare for 10 s or more with nothing changed** (2026-10-06, the last
+   section): `codex` 13 s, `zero-ad` 10 s (a 1.8 GB copy), `pi-local` 10 to 15 s (its plan
+   re-hashes 24 snapshots). Codex's preparer has changed since (`2370dc85`); owed is
+   `npm run image -- NAME` timed unchanged for the three, in a tree that has their sources.
 5. **Demo tests run in Chrome only.** `demos/run-browser-tests.mjs` starts headless Chrome; ten
    of the thirty demo test files name Firefox. "Every demo test once in Firefox" was on
    v0.1.0's list (`tasks/20261007-133708-v010`) and has not been done.
 
-Lowered from 300: the done-when lines that cost every edit are met.
+Not done on 2026-10-13: the day went to reproduced bugs; 1 and 2 are the two that cost every
+build inside Dolly and come first.
 
 ## Done when
 

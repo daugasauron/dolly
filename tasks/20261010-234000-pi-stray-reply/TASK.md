@@ -1,19 +1,40 @@
 # On a slow device Pi starts with part of a terminal reply in its prompt
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 110
 - TAGS: bug,pi,terminal
 
-## State (2026-10-12)
+## Closed (2026-10-13)
 
-Unchanged since it was found: no fix, no reproduction on a desktop yet. It waits with the parked
-phone image (`tasks/20261010-193000-phone-voice-pi`). Lowered from 150 with it.
+Fixed in `cb9ae5cd` (branch `core/polish`): Janis's terminal read hands over all that waits, up
+to 64 KiB, in place of 256 bytes a call (`demos/javascript/quickjs-main.c`, `js_dolly_read_raw`).
 
-A lead, not checked: `demos/javascript/janis.js` reads the terminal with `Dolly.readStdin(4096)`
-in one branch and `Dolly.readRaw` in the other (lines 3130 to 3132), and `readRaw` returns at
-most 256 bytes a call (`demos/javascript/quickjs-main.c:882`), fewer than the eighteen colour
-answers together. `tasks/20261001-095000-terminal-text-flake` found that cut splitting a key's
-sequence. Which branch Pi's reader takes was not read.
+The cause, measured:
+
+- Pi's reader is the terminal branch of Janis's pump (`Dolly.readRaw`), which read 256 bytes a
+  call. The terminal's answers to Pi's eighteen colour questions are 472 bytes, and byte 256 is
+  the last `7` of `rgb:e8e8/e3e3/d7d7` in the answer for palette colour 7: its `ESC \` came with
+  the next read (`build/polish-evidence/reply-cut.mjs`, not committed, does the count).
+- Pi's input buffer sets its 50 ms timer when a chunk ends in an unfinished sequence. Janis runs
+  due timers before it reads again, so when Pi's own work after the first chunk takes longer than
+  that, the buffer gives up and what it held is taken as typed text: `/d7d7`.
+- Reproduced on this desktop, Chromium, with the browser pinned to one core that nine busy loops
+  share (Pi is up after 73 to 108 s in place of 6 s): the `pi` image of main `4ed1d9ef` shows
+  `/d7d7` in Pi's prompt in 3 of 3 loads, the image with the fix in 0 of 3. Runs 2 and 3 on the
+  old image had a timing probe for another task in the supervisor; run 1 did not.
+- The same cut explains the `u` of `DOLLY-ENTRY-CWuD`
+  (`tasks/20261001-095000-terminal-text-flake`, "Sighting 1 explained").
+
+The test that fails without the fix: `demos/javascript/test/fixtures/janis-terminal.mjs` asks the
+eighteen questions and requires every `data` event to end where an answer ends. Against the
+image before the fix it exits 1 and the rest of the answers land at the shell's prompt.
+
+Ran on the rebuilt chain (`typescript-build`, `javascript`, `pi-build`, `pi-coding-agent`,
+`pi-runtime`, `pi`): JavaScript's demo test, Pi's twelve times (12 of 12), Python's in Chromium
+and Firefox.
+
+Not done: the phone itself was not used. `/pi/` and `/pi-phone/` on the MD06P show it after the
+next release; the phone image is `tasks/20261010-193000-phone-voice-pi`.
 
 ## The defect
 

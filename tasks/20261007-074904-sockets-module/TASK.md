@@ -1,28 +1,26 @@
 # sockets@0: Janis `net` on a path is not written
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 120
 - TAGS: core,process,host-modules,abi,compatibility
 
-## State (2026-10-12)
+## Closed (2026-10-13)
 
-Shipped in v0.1.0 (`ef4b01dc`): local stream sockets between Dolly processes, as a module a
-program asks for at link time (`-ldolly-sockets`) and its image declares; thirteen recipes
-declare `sockets@0` today. `test/sockets-browser.mjs` is in the core suite, which passed in
-Chromium and Firefox in the release rounds of v0.1.0, v0.1.1 and v0.1.2, and
-`docs/process-model.md` ("Local sockets") says what is served and refused. Tokio, crossterm,
-libuv and CPython run upstream's socket code again ("What was decided for each port").
+Done: local stream sockets between Dolly processes shipped in v0.1.0 (`ef4b01dc`) as a module a
+program asks for at link time (`-ldolly-sockets`) and its image declares; fifteen recipes
+declare `sockets@0` on main `4ed1d9ef`. `docs/process-model.md` ("Local sockets") says what is
+served and refused. `test/sockets-browser.mjs` passes in Chromium and Firefox today, both with
+the module declared and without it. Tokio, crossterm, libuv and CPython run upstream's socket
+code again ("What was decided for each port").
 
-Left, and the only reason this is open:
+Not written, and not carried to another task: Janis `net` on a path. Nothing in the catalog
+asks for it, and a program that does gets an explicit `ENOSYS` from `listen`
+(`demos/javascript/janis.js`, tested in `demos/javascript/test`). It is written when a program
+needs it, with that program as its test.
 
-- **Janis `net` on a path.** Kept refused, to be written when a program needs it: three native
-  calls, a duplex stream and a server in its event pump, cases for the Node oracle. Nothing in
-  the catalog asks for it. Lowered from 300 for that reason.
-
-Refused by design, and asked for twice since: descriptor passing (`SCM_RIGHTS`, `ENOTSUP`). A
-`wineserver` process of its own (`tasks/20261008-145108-wine-bringup`, measured there) and tmux
-(`tasks/20261012-130814-tmux`, read and not yet measured) would use it. It is a kernel change and
-an owner's decision, not part of this task.
+Refused by design, and not part of this task: descriptor passing (`SCM_RIGHTS`, `ENOTSUP`).
+tmux and a `wineserver` process of its own would use it; it is a kernel change and the owner's
+decision, recorded in `tasks/20261012-130814-tmux` and `tasks/20261008-145108-wine-bringup`.
 
 ## The request
 

@@ -1,35 +1,52 @@
-# File modes and umask, so that an autoconf configure runs under Slop: on a branch, not on main
+# File modes: chmod and umask, where an autoconf configure under Slop now stops; on a branch, not on main
 
 - STATUS: OPEN
 - PRIORITY: 240
 - TAGS: core,kernel,slop
 
-## State (2026-10-12)
+## State (2026-10-13)
 
-Not on `main`: Slop still refuses `umask` by name ("Dolly has no permission bits", `src/slop.c`),
-so no unchanged `config.status` finishes under it. v0.1.0, v0.1.1 and v0.1.2 each left it out.
+An unchanged autoconf `configure` now runs all of its checks under Slop and stops where it needs
+file modes: `chmod` and `umask`. Those are still only on `core/file-modes-2`.
 
-The work exists on `core/file-modes-2` (`0e4b4c26`, 2026-10-08): permission bits as real
-metadata (the creation mode, a mask in the process record that a child inherits, `chmod`, modes
-kept in images and sessions, `test -x`), and an image whose recipe runs an unchanged autoconf
-`configure` under Slop (`49aa9138`). It was built there on a 15-image chain and its cases passed
-in Chromium and Firefox. That branch's copy of this file is the record of the design, the
-decisions and what ran:
+Measured on `core/polish` (`system` rebuilt on the seed with both changes below, Chromium):
+
+- GNU Make 4.4.1, `sh ../make-4.4.1/configure --build=wasm64-unknown-none
+  --disable-dependency-tracking`: 200 checks in 45 s, then "configure: creating
+  ./config.status", `slop: chmod: command not found`, "write failure creating ./config.status".
+- tmux 3.8, `sh ../tmux-3.8/configure --build=wasm64-unknown-none`: 129 checks in 24 s, then
+  "libevent not found", which is true.
+- Make's without `--build`: 52 checks, then `config.guess` at its `umask 077` ("Dolly has no
+  permission bits") and "cannot guess build type".
+
+Before today both stopped at their first lines. Two stops were not modes and are fixed (seed
+changes, `core/polish`):
+
+- `ae118619`: `test -x` is true of a directory. Every configure requires `test -x /` of its
+  shell; Dolly's `test` answered -x only for a regular file, which is the "requires a shell more
+  modern than all the shells that I found" that tmux's configure printed.
+- `b2b99766`: `ls -i`, `-t` and `-L`, the two `ls` commits of `core/file-modes-2` (`7cba3e8b`,
+  `0c895f98`), which apply to today's recipe unchanged: configure compares `ls -di .` and
+  automake's sanity check asks for two files in time order.
+
+Not brought onto `main` today, and what it takes: the rest of `core/file-modes-2` (`0e4b4c26`,
+18 commits; `main` is 325 commits past its base `f3cc8b29`) is permission bits as real metadata:
+the creation mode, a mask in the process record that a child inherits, `chmod`, modes kept in
+images and sessions. It changes the process contract (operations 58 and 60, a `mode` word in the
+path request), so every executable is rebuilt and the Rust seed is relinked on the host, and
+the image and session formats (version 3). That is a day in a full tree with the large build
+slot and then a catalog round, not a morning in a slim one: today's round would have had to
+take it unbuilt. Its two open decisions stand: the exec check (starting a program needs an x
+bit), not built, and whether the source packer keeps x bits, which repins every source archive.
+
+That branch's copy of this file is the record of the design, the decisions and what ran there
+(Make's configure to exit 0 in 49 s):
 
     git show core/file-modes-2:tasks/20261006-120641-umask/TASK.md
 
-Left:
-
-- Bring the branch onto today's `main`, which is 216 commits past its base (`f3cc8b29`). It
-  changes the process contract (operations 58 and 60, a `mode` word in the path request) and
-  the image and session formats (version 3), so it costs a full catalog round and the Rust
-  seed, and sessions saved before it do not load.
-- Its two open decisions: the exec check (starting a program needs an x bit), not built, and
-  whether the source packer keeps x bits, which repins every source archive.
-
-Done when `umask`, `chmod` and `test -x` work under Slop on `main`, the branch's mode cases pass
-there in Chromium and Firefox, and the image whose recipe runs an unchanged `configure` builds
-in the catalog.
+Done when `umask` and `chmod` work under Slop on `main`, the branch's mode cases pass there in
+Chromium and Firefox, and the image whose recipe runs an unchanged `configure` builds in the
+catalog.
 
 From the configure survey (`tasks/20261006-121403-configure-survey`, closed 2026-10-12): what an
 autoconf `configure` needs inside Dolly beyond modes.
