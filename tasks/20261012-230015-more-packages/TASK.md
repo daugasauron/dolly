@@ -317,3 +317,220 @@ Run on the chain rebuilt from the moved root (25 images, `system-build` in
   rebuild the Rust chain; the round runs it.
 
 Logs and the comparisons are under `build/more-evidence/root/`.
+
+## 2026-10-13: manual pages as text (branch `core/man-pages`)
+
+Asked by the integrator: `man` prints a page of text in `cat1` as it is and
+has no formatter, so an upstream page in `man1` read as roff source (the gap
+noted above).
+
+### Decisions
+
+- **`mandoc`** (1.14.6, the release archive as published, with a `config.h`
+  that states what its configure would find) is a package of `demos/tools`:
+  the formatter for a person, with its own page. Of the programs the archive
+  can be, only `mandoc` is installed; `man` stays the core's.
+- **A page is formatted when its package is built**, as UTF-8 text of 78
+  columns with mandoc's overstrikes taken out, into
+  `/usr/share/man/cat1/NAME.1`; the page of macros is no longer kept. A
+  reader without a pager, an agent among them, gets the words.
+  `text-page PAGE...` does it; awk takes the overstrikes out in a UTF-8
+  locale, so a letter outside ASCII loses its overstrike whole (the
+  toolchain's recipe checks `café`).
+- **The formatter comes from the base, not from an `INSTALL` row.** Since
+  this round an `INSTALL` in a package's recipe is a row of the package:
+  amy installs it first. A row for mandoc would put mandoc and zlib into
+  every session that installs `tree`. So the packages are built
+  `FROM tools-build`, a build-only toolchain (`cmake-build` with the mandoc
+  package and `text-page`). A package keeps nothing of its base, and its
+  record names no formatter.
+- **`tools-build` is on `cmake-build`**, which wabt needs, and not on
+  `system-tools`: tried, and wabt then has no way to the formatter for its
+  build alone (`COPY` may not write under `/tmp`; measured, `COPY failed
+  (-28)`). The cost: a package of this demo now waits for `cmake-build`
+  when the seed changes (1482 s here, alone in the slot).
+- **`lua` and `nvim` had no page** and get upstream's (`doc/lua.1`,
+  `src/man/nvim.1`) the same way: each recipe is `FROM tools-build`, reads
+  the page out of the archive `neovim-build` compiles, and takes its files
+  from `neovim-build` by `COPY` (`lua` took them by `FROM` before).
+- **The test reads a word of each page** and that no line begins with a
+  macro (`.TH`, `.SH`, `.Dd`, `.Sh`): `pages` in `test/amy-browser.mjs`.
+
+### Not reached, and why
+
+- **`less`, `ninja`, `posix`** (the core's packages with roff pages: one,
+  one and 45). A core recipe may not depend on a demo, and mandoc is a
+  package of `demos/tools`. With mandoc and `text-page` at the top level
+  each is one changed line and a `FROM`. `ninja` is also an `INSTALL` of
+  `python`, whose pin is in the chains of `llvm-tablegen`, `rust-llvm`,
+  `mojo-llvm` and `zero-ad-spidermonkey`; `posix` is in `default` and in
+  `rust-build`. `less` has no dependent.
+- **Pages still in `default` as macros** (`awk.1` and sbase's): they come
+  with `posix`. `mandoc /usr/share/man/man1/find.1` reads one after
+  `amy install mandoc`.
+- **Without a page though upstream has one**: `python` (`Misc/python.man`;
+  its pin is in the four chains above), `emacs` (`doc/man` is not in the
+  staged source and the recipe builds Emacs itself), `cargo`, `rust`, `fd`
+  (the Rust chain is not built in this tree), `cmake` (its pages are
+  written by Sphinx, not in the archive), `pkgconf` (prints `--help`; in
+  0 A.D.'s chain).
+- **Without an upstream page**: `vi` (Neatvi), `base64`, `javascript`,
+  `llama`, `openal`, `mojo`, `pi`.
+
+### `grep -r` and `sed -i`: the `toybox` package
+
+Asked by the integrator: the two an agent types most, as a package.
+
+- **toybox 0.8.15**, its `grep` and `sed` alone, one program under both
+  names (`toybox grep` also works): 188 kB installed, with its two pages
+  and licence. GNU grep and sed were not
+  tried again: gnulib's answers by the hundred, as above.
+- **It installs over `/bin/grep` and `/bin/sed`** of `posix`, with links to
+  `/usr/bin/toybox`: `/bin` is first on `PATH`, so a `grep` in `/usr/bin`
+  would never start. Its `cat1` pages for both (each command's `--help`)
+  come before `posix`'s pages of macros, so `man grep` describes the
+  `grep` that runs.
+- **One build step runs outside Dolly**: toybox's headers (configuration,
+  option flags, help) are written by its bash scripts and three small
+  generators compiled for the host. `demos/tools/prepare-toybox.sh` runs
+  them for a configuration of `grep` and `sed` and stages the result; the
+  recipe compiles every file of C. Two runs gave the same six headers.
+- **What the source needed here** (each with its reason in the recipe):
+  the three `#error` lines that stop the compiler on a system toybox does
+  not know are taken out with `sed` (the one change to the source);
+  `-include sys/statfs.h`, which it names for Linux alone; `syscall()`
+  defined away (not in Dolly's libc; toybox reaches it only with a number
+  it does not find); and `tempfile_handler` given the `int` argument its
+  caller passes: without it `sed -i` did its work and then trapped at exit
+  (`function signature mismatch`), which a native ABI lets through.
+- **Not brought: toybox's `find` and `xargs`.** They start `-exec`'s
+  command and the command line by `fork` or `vfork` (read in
+  `lib/xwrap.c`, not measured), which Dolly has not, and the core's do
+  start them.
+
+Measured in Chromium on `default` over a small tree, the core's commands
+and the same session after `amy install toybox`
+(`build/more-evidence/man/core-text-*.log`):
+
+| | core | with `toybox` |
+| --- | --- | --- |
+| `grep -r`, `-rl`, `--include`, `--exclude-dir` | usage error | yes |
+| `grep -o` | usage error | yes |
+| `grep -A`, `-B`, `-C` | usage error | yes |
+| `grep --color` | usage error | yes |
+| `grep -P` | usage error | no: unknown option |
+| `grep -E -F -f -i -v -w -c -l -n -q -x` | yes | yes |
+| `sed -i`, `-i.bak` | usage error | yes |
+| `sed -z` | usage error | yes |
+| `sed 's/a/b/I'` | no error, nothing replaced | yes |
+| `sed -E`, `-n`, ranges, `\n` and `\t` in `s` | yes | yes |
+| `sed 'a\text'` on one line | `text` | a tab and `ext` |
+| `find -name -type -maxdepth -path -prune -not -print0 -exec` | yes | the core's |
+| `find -iname -newer -size -mtime -delete` | unsupported predicate | the core's |
+| `xargs -0 -n -I` | yes | the core's |
+| `grep -rl x . \| xargs sed -i s/x/y/` | usage errors | yes |
+
+The one row where toybox does less well than sbase is `a\text` written on
+one line when the text begins with a letter that makes an escape.
+
+### An editor that is not vi: `dte`
+
+- **dte 1.11.1** (GPL-2.0-only, 27 000 lines of C): the keys of a desktop
+  editor (Ctrl+S saves, Ctrl+Q quits, Ctrl+Z undoes, Ctrl+F searches,
+  Ctrl+C, Ctrl+X and Ctrl+V on a selection), syntax colours for 49
+  languages, undo, several files in tabs. It draws with its own escape
+  sequences and reads no terminal database, so it needs no curses.
+- **Not nano**: it needs a curses library, which here would be NetBSD's
+  built on `libterminfo` (not built: a second port before the first key),
+  and since 2.9 its source is gnulib's too.
+- Built by a Makefile in the recipe: upstream's own asks the compiler ten
+  questions through `sh` scripts, and `feature.h` in the recipe holds the
+  answers. The key bindings, colours and syntax files it holds are every
+  file of `config/`, as upstream's makefile lists them.
+- Its raw mode only clears flags and asks for one byte at a time, which
+  the terminal accepts (the measurement below says what it refuses). Typed
+  in a session: text, undo, a search, its command line (Alt+x), arrow keys,
+  Ctrl+S, Ctrl+Q; the terminal is as it was afterwards.
+- **One line of the source is changed**: dte takes a stream for the
+  terminal when `tcgetpgrp` answers for it, and here it fails with `Not a
+  tty` (there are no process groups), so dte stopped with status 71 before
+  its first screen. The recipe makes the test `isatty`.
+- **`select` fails and dte goes on**: it asks `select` only whether more
+  bytes follow a lone Escape, and takes the failure (`ENOSYS`, measured;
+  `poll` works) for none. Escape, then Alt+x, each did what it should.
+- Ctrl+Q closes Firefox on Linux, and Ctrl+W a tab: a person there quits
+  with Alt+x, `quit`.
+
+### State at 13:05: every check in Chromium and Firefox
+
+Built in this tree on the round's seed (`ee311115…`): `mandoc`,
+`tools-build`, the 18 packages with a page, `toybox`, `dte`, `tmux` with
+`tmux-panes`, and `neovim-build`, `lua`, `nvim`, `neovim` (`lua` and `nvim`
+had no page; both get upstream's). The entries of `amy tools` for the 21
+packages of `demos/tools` in the table, `tar`, `lua` and `nvim`, and `amy
+meson alone`, pass in both browsers; each reads its page as text. `man
+sqlite3`, `man jq` and `man xz` print the same text in both and no line
+begins with a dot and a letter. With `toybox` installed first, the checks
+of the other 20 packages pass on its `grep` and `sed` (Chromium). The tmux
+demo's test passes in both, Neovim's in Chromium.
+
+## 2026-10-13: a question at the terminal (measured; nothing changed)
+
+Asked by the integrator: what exactly happens when `unzip` and `zstd` ask
+before they overwrite. Chromium and Firefox on `default`, the same in both
+(`build/more-evidence/man/tty-probe-*.log`; the probe is a C program
+compiled in the session, and keys are pressed one at a time).
+
+**What the program calls.** unzip 6.0 prints `replace f? [y]es, [n]o,
+[A]ll, [N]one, [r]ename: ` and calls `fgets(G.answerbuf, 10, stdin)`
+(`extract.c:1489`); it sets no terminal mode for the question. zstd 1.5.7
+prints `overwrite (y/n) ? `, calls `getchar()` for the answer and then
+`getchar()` until it has read `'\n'` (`programs/util.c:138-146`). Both
+reach the terminal as `read(0, …)` under stdio.
+
+**What the terminal answers.**
+
+- `read(0, buf, 16)` returns as soon as one byte is there, with the byte
+  the page sent: `y` is `79`, Enter `0d`, Backspace `7f`, Ctrl+J `0a`,
+  Ctrl+D `04`. Each key was a read of one byte (`src/process-kernel.c`,
+  the read of a terminal descriptor: what is queued, at least one byte).
+- Nothing typed is shown, Enter stays a carriage return, Backspace erases
+  nothing, and Ctrl+D is a byte and no end of input.
+- `tcgetattr` says `ICANON`, `ECHO` and `ISIG` are set (`ICRNL` clear,
+  `VMIN` 1): the first two are stored and reported
+  (`terminal_mode_flags` in `src/dolly.c`) and nothing consults them, so a
+  program that asks is told of a line discipline that is not there.
+- `tcsetattr` with `ICRNL` set fails with `EINVAL`
+  (`terminal_mode_from_attributes` in `src/process/libc-adapter.c`): a
+  program cannot ask for the mapping either.
+- `tcgetpgrp` fails with `ENOTTY` and `select` with `ENOSYS` (both met
+  with dte, above); `poll` waits and answers.
+
+**Where it waits.**
+
+- `fgets(line, 9)` after `y` and Enter is still in `read`; after Ctrl+J it
+  returns `79 0d 0a`. Eight characters without Enter fill it and it
+  returns.
+- unzip: `y` (nothing shown) and Enter leave it in that `fgets`. Ctrl+J:
+  `extracting: f`, status 0; it looks at the first byte alone. `y`, Ctrl+J
+  without Enter does the same.
+- zstd: `y` and Enter leave it in the loop that reads up to `'\n'`.
+  Ctrl+J: it compresses, status 0. After `n` it prints `Not overwritten`
+  at once (the answer was read) and stays in the same loop until Ctrl+J,
+  status 1.
+- So neither waits for ever, as was written above: each waits for the byte
+  `0a`, which Enter does not send and Ctrl+J does. Ctrl+C ends either.
+
+**The same wait elsewhere.** `cat` with no file (the core's: `fread` of
+4096 bytes) shows nothing and does not end at Ctrl+D; Slop's `read answer`
+and Python's `input()` return at Ctrl+J and not at Enter. The programs
+that work at the terminal take keys raw and treat `0d` as Enter
+themselves: Slop's prompt, `bc`, `sqlite3` with linenoise, `vi` with its
+header, `dte`, Neovim, tmux.
+
+**What these programs would need of a line discipline**, as facts for its
+design: while `ICANON` is set, a read gets a whole line with `0d` turned
+into `0a`, the line is shown as it is typed (`ECHO`), `7f` erases, and
+`04` on an empty line ends the read with 0 bytes; while it is clear,
+reads are as they are now. The two flags already travel through
+`tcgetattr` and `tcsetattr`.
