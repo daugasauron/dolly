@@ -66,3 +66,12 @@ that change the seed or every recipe, and so want one round together:
   and `freetype`; `gamedev-sdk` drops its `/usr/lib/libm.a`.
 - `qwen3.5-4b` is one package of four rows now; the four shard packages stay
   until Pi's `/local` installs the one.
+- From tmux in use ([task](../20261013-133111-tmux-use/TASK.md)): the
+  display's terminal reports the mouse to no program, so tmux's mouse (and
+  nvim's) does nothing: reporting it to a program that asks is in
+  `src/ghostty/display.c`, an image input. And the comment on
+  `dolly_terminal_write_bytes` in `abi/dolly-supervisor-0.wat`, pinned in the
+  docs package, should say that the supervisor's words go to the terminal of
+  the process being launched (`2fcc6c62`). tmux's window names and a new
+  pane's directory wait for a way to ask the kernel which program holds a
+  terminal ([ps](../20261013-132514-ps/TASK.md)).
