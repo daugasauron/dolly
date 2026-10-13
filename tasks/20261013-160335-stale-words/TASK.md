@@ -120,4 +120,7 @@ Searched on `main` `e72b7f8e`, nothing changed:
   `src/ghostty/display.c:7`). Of the 290 `DOLLY_*` macros in the contract's
   and the modules' headers, the 15 no other file names are include guards
   and helpers their own header uses. Nothing to remove.
+- Leftovers by pattern (06:55): no `TODO`, `FIXME`, `XXX` or `HACK` in
+  `src/`, `host/`, `include/`, `abi/`, `scripts/`, `toolchain/` or `test/`;
+  no `#if 0`; no commented-out statement in the core's `.mjs` files.
 
