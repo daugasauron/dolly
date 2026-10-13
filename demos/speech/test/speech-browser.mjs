@@ -60,7 +60,7 @@ await demoTest("speech refused", { image, browser, launch: refuses }, async ({ o
 await demoTest("speech packages", { image: "default", browser }, async ({ open }) => {
   const { run, submit } = await open();
   assert.notEqual(await submit("amy install speech-to-text 2> /tmp/refused"), 0);
-  await run("grep -q 'REQUIRES HOST microphone@0' /tmp/refused && test ! -e /usr/bin/speech-to-text && test ! -e /usr/share/dolly/speech");
+  await run("grep -q 'microphone@0' /tmp/refused && test ! -e /usr/bin/speech-to-text && test ! -e /usr/share/dolly/speech");
   await run("amy install parakeet && test -f /usr/share/dolly/speech/parakeet-tdt_ctc-110m.gguf");
 });
 

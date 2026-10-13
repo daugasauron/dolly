@@ -26,6 +26,15 @@ function meter() {
   };
 }
 
+// Counts what the page asks of the browser's inputs.
+function countCaptures() {
+  globalThis.captureRequests = 0;
+  for (const name of ["getUserMedia", "getDisplayMedia"]) {
+    const native = MediaDevices.prototype[name];
+    MediaDevices.prototype[name] = function(...options) { ++captureRequests; return native.apply(this, options); };
+  }
+}
+
 // Queues one packet on a provider created before any user activation. It runs
 // on a page that never boots Dolly, because Chrome's page.evaluate activates.
 async function queueBeforeActivation(origin) {
@@ -63,7 +72,7 @@ await browserTest("audio", { image: "audio-sdk", server: { fixtures } }, async (
     policy: { maxRequests: 3, rules: [{ origin: server.origin, pathPrefix: "/fixture/", methods: ["GET"] }] },
     setup: page => {
       page.on("pageerror", error => errors.push(error.message));
-      return page.addInitScript(meter);
+      return Promise.all([page.addInitScript(meter), page.addInitScript(countCaptures)]);
     } });
   await page.mouse.click(10, 10);
   // A host without audio@0 refuses audio images and requests.
@@ -100,5 +109,8 @@ await browserTest("audio", { image: "audio-sdk", server: { fixtures } }, async (
   // Quotas, leases, sequence replay and revocation at the provider boundary.
   await page.evaluate(async () => (await import("/test/fixtures/audio-boundary.mjs")).audioBoundaryProof());
   await run("true");
+  // audio@0 gives playback and no capture: nothing a program did through it,
+  // nor a packet at its boundary, made the page ask the browser for an input.
+  assert.equal(await page.evaluate(() => captureRequests), 0);
   assert.deepEqual(errors, []);
 });
