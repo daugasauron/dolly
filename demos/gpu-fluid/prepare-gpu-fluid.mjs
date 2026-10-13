@@ -12,7 +12,7 @@ for(const [source,path] of entries){const content=await readFile(new URL(source,
 for(const [path,include] of [["cglm/cglm.h","../platform.h"],["webgpu/wgpu_common.h","../platform.h"],["webgpu/imgui_overlay.h","../without-imgui.h"],["cimgui.h","without-imgui.h"],["sokol_time.h","platform.h"]])files+=`FILE /usr/src/dolly/fluid/${path}\n    #include "${include}"\n\n`;
 const headers=JSON.parse(await readFile(new URL("demos/gpu-fluid/fluid-cglm-headers.json",root),"utf8"));
 const cglm=headers.map(({path,sha256})=>`SOURCE https://raw.githubusercontent.com/recp/cglm/144d1e7c29b3b0c6dede7917a0476cc95248559c/include/${path} ${sha256} /usr/src/dolly/fluid/${path}`).join("\n");
-const parent=hash(await readFile(new URL("Dollyfile-gpu-sdk",root)));
+const parent=hash(await readFile(new URL("Dollyfile-system",root)));
 await writeFile(new URL("demos/gpu-fluid/Dollyfile-gpu-fluid",root),`DOLLY 7
 APPLICATION gpu-fluid
 REQUIRES HOST runtime@0
@@ -24,7 +24,7 @@ REQUIRES HOST http@0
 REQUIRES HOST snapshot@0
 REQUIRES HOST upload@0
 
-FROM ${siteReference("Dollyfile-gpu-sdk")} ${parent}
+FROM ${siteReference("Dollyfile-system")} ${parent}
 REQUIRES TOOL cc
 REQUIRES HEADER gpu
 REQUIRES LIB dolly-gpu

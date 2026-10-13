@@ -24,8 +24,8 @@ test("every image declares its complete host set itself", async () => {
   // installs packages with amy and runs what they bring: threaded tools and
   // programs that load modules; nena enables what else they need.
   const core = {
-    default: [...interactive, "packages@0", "threads@0", "dso@0", "sockets@0", "nena@0"], system: interactive, "gpu-sdk": [...interactive, "gpu@0"],
-    "audio-sdk": [...interactive, "audio@0", "microphone@0"], "system-build": ["runtime@0", "http@0"], "zig-build": ["runtime@0", "http@0"],
+    default: [...interactive, "packages@0", "threads@0", "dso@0", "sockets@0", "nena@0"], system: interactive,
+    "system-build": ["runtime@0", "http@0"], "zig-build": ["runtime@0", "http@0"],
     "ghostty-build": [...terminal, "http@0"],
     "system-tools": [...terminal, "download@0", "http@0", "upload@0"],
     zlib: ["runtime@0"], gzip: ["runtime@0"], curl: ["runtime@0", "http@0"], display: ["runtime@0", "display@0"],

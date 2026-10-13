@@ -5,7 +5,6 @@ python
 cc
 git
 less
-audio-sdk
 wine
 neovim
 speech-to-text-mic

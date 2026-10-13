@@ -2,7 +2,6 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { worker } from "../host/audio/audio.mjs";
 import { DOLLY_ERRNO as E } from "../src/process-constants.mjs";
-import { createDollyfileGraphLoader } from "../scripts/dollyfile-graph.mjs";
 
 test("audio module binds the bridge, acknowledges replies, revokes and disposes", () => {
   const memory = new WebAssembly.Memory({ initial: 1, maximum: 2, shared: true });
@@ -42,13 +41,4 @@ test("audio module binds the bridge, acknowledges replies, revokes and disposes"
   module.dispose();
   assert.deepEqual([...new Int32Array(memory.buffer, mailbox, 5)], [1, 5, 1, E.ENOSYS, 0]);
   assert.equal(dispatch(BigInt(address), 32n), -E.ENOSYS);
-});
-
-test("the audio SDK declares playback without requiring threads", async () => {
-  const root = new URL("../", import.meta.url).pathname;
-  const graph = createDollyfileGraphLoader(root);
-  const requirements = (await graph("Dollyfile-audio-sdk")).root.hostRequirements;
-  assert.ok(requirements.includes("audio@0"));
-  assert.ok(!requirements.includes("threads@0"));
-  assert.ok(!(await graph("Dollyfile")).root.hostRequirements.includes("audio@0"));
 });

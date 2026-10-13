@@ -4,7 +4,7 @@
 import assert from "node:assert/strict";
 import { mkdir, writeFile } from "node:fs/promises";
 import { dirname } from "node:path";
-import { browserTest } from "./browser.mjs";
+import { browserTest, composed } from "./browser.mjs";
 
 // One second of a 440 Hz sine, 48 kHz mono 16-bit: Chrome's fake device loops it.
 const tone = new URL("../build/fixtures/microphone-tone.wav", import.meta.url).pathname;
@@ -23,11 +23,14 @@ const granted = { chromium: ["--use-fake-device-for-media-stream", "--use-fake-u
 const denied = { chromium: ["--use-fake-device-for-media-stream", "--deny-permission-prompts"],
   firefox: { "media.navigator.streams.fake": true, "permissions.default.microphone": 2 } };
 
+// system's host modules: the image under test adds the one it tests.
+const systemModules = ["runtime", "display", "input", "http", "download", "upload", "snapshot"];
 async function compiled(open, server) {
   const errors = [];
   const session = await open({
     policy: { maxRequests: 3, rules: [{ origin: server.origin, pathPrefix: "/fixture/", methods: ["GET"] }] },
-    setup: page => page.on("pageerror", error => errors.push(error.message)) });
+    ...await composed([...systemModules, "microphone"], [], { base: "system",
+      setup: page => page.on("pageerror", error => errors.push(error.message)) }) });
   const run = async command => assert.equal(await session.submit(command), 0, await session.text());
   await run(`curl -fsS ${server.origin}/fixture/microphone.c -o /tmp/microphone.c`);
   await run("cc /tmp/microphone.c -lm -o /tmp/microphone");
@@ -36,7 +39,7 @@ async function compiled(open, server) {
 const idle = () => __dolly.microphone.active === 0 && __dolly.microphone.liveTracks === 0 &&
   document.querySelector("#microphone-status").hidden;
 
-await browserTest("microphone", { image: "audio-sdk", server: { fixtures }, launch: granted }, async ({ name, server, open }) => {
+await browserTest("microphone", { image: "system", server: { fixtures }, launch: granted }, async ({ name, server, open }) => {
   const { page, submit, text, run, errors } = await compiled(open, server);
   // A host without microphone@0 refuses its images and requests.
   const selection = await page.evaluate(async () => {
@@ -79,7 +82,7 @@ await browserTest("microphone", { image: "audio-sdk", server: { fixtures }, laun
   assert.deepEqual(errors, []);
 });
 
-await browserTest("microphone denied", { image: "audio-sdk", server: { fixtures }, launch: denied }, async ({ server, open }) => {
+await browserTest("microphone denied", { image: "system", server: { fixtures }, launch: denied }, async ({ server, open }) => {
   const { page, text, run, errors } = await compiled(open, server);
   await run("/tmp/microphone --denied");
   assert.match(await text(), /MICROPHONE_DENIED/);
