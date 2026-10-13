@@ -82,11 +82,11 @@ Seen: limit 32, 4 listed (`foreground`, `slop`, `timeout`, the fixture), room
 null" in Firefox. The loop's status reaches the shell 604 ms after its
 command line was submitted, the 500 ms of the rule included. The grep pattern
 matches the three lines of a living tree
-(`build/crash-evidence/probe-pattern.mjs`).
+(`work/evidence-2026-10-14/crash/probe-pattern.mjs`).
 
 ### Each can fail
 
-Broken for one run each, then restored (`build/crash-evidence/break-*.log`):
+Broken for one run each, then restored (`work/evidence-2026-10-14/crash/break-*.log`):
 
 | Broken | The test said |
 | --- | --- |
@@ -113,7 +113,7 @@ parent is acknowledged in the same pass. Left as it is: only
 
 Neither browser ended one Worker. `error` and `messageerror` were raised in
 no case. Each run was held to 3 GB (`systemd-run -p MemoryMax=3G` inside a
-browser slot); scripts and logs are in `build/crash-evidence/oom/`.
+browser slot); scripts and logs are in `work/evidence-2026-10-14/crash/oom/`.
 
 - A Dolly process that grows without touching its memory: `malloc` fails
   with `ENOMEM` at 8128 MiB in both browsers, the program goes on and exits

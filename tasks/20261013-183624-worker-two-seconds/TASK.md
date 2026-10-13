@@ -77,6 +77,6 @@ kernel uses for a deferred call, which no program is ever handed; the Worker
 unwinds as it does for `EXIT` and closes itself. A program cannot make the
 value: results come from the supervisor alone.
 
-Only `build/crash-evidence/probe-linger.mjs` was run with it, in both
+Only `work/evidence-2026-10-14/crash/probe-linger.mjs` was run with it, in both
 browsers. Not run with it: the core suite, the demo tests, a threaded program
 (`threadHost.release`), a program entered through JSPI (`promisingEntry`).
