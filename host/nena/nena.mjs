@@ -117,6 +117,6 @@ export function worker({ send, get }) {
         if (enabled.length) files.write(record, `${enabled.join("\n")}\n`); else files.remove(record);
       },
     },
-    dispose() { bridge = undefined; },
+    dispose() { bridge?.dispose(); bridge = undefined; },
   };
 }

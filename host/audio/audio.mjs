@@ -49,6 +49,6 @@ export function worker({ send, get }) {
         () => get("runtime").serviceDeferred());
     },
     messages: { "audio-complete": message => bridge?.acknowledge(message) },
-    dispose() { bridge = undefined; },
+    dispose() { bridge?.dispose(); bridge = undefined; },
   };
 }
