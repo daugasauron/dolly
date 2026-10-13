@@ -255,6 +255,7 @@ const pages = {
   lz4: { lz4: "compress" },
   pigz: { pigz: "compress" },
   unzip: { unzip: "extract", zipinfo: "archive" },
+  zip: { zip: "compress" },
   mandoc: { mandoc: "manual" },
 };
 const reads = name => Object.entries(pages[name] ?? {}).map(([page, word]) =>
@@ -308,7 +309,7 @@ const tools = {
     "unzip -q note.zip && grep -qx packed note"],
   // zip comes with unzip, which zip -T starts.
   zip: ["zip", "mkdir -p /tmp/amy-zip/in/deep /tmp/amy-zip/out && cd /tmp/amy-zip && seq 1 2000 > in/deep/numbers && zip -q -r in.zip in && zip -T in.zip > /dev/null && " +
-    "unzip -q in.zip -d out && cmp out/in/deep/numbers in/deep/numbers && test \"$(stat -c %s in.zip)\" -lt \"$(stat -c %s in/deep/numbers)\" && man zip > /dev/null"],
+    "unzip -q in.zip -d out && cmp out/in/deep/numbers in/deep/numbers && test \"$(stat -c %s in.zip)\" -lt \"$(stat -c %s in/deep/numbers)\""],
   tree: ["tree", "mkdir -p /tmp/amy-tree/a/b && touch /tmp/amy-tree/a/b/leaf /tmp/amy-tree/top && cd /tmp/amy-tree && " +
     "test \"$(tree --noreport -i -f . | tr '\\n' ' ')\" = '. ./a ./a/b ./a/b/leaf ./top ' && tree -J . | grep -q '\"name\":\"leaf\"' && man tree > /dev/null"],
   bc: ["bc", "test \"$(echo '6 * 7; 2 ^ 64; scale = 20; 4 * a(1)' | bc -l | tr '\\n' ' ')\" = '42 18446744073709551616 3.14159265358979323844 ' && " +
