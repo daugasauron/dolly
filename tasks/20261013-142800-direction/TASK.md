@@ -13,7 +13,11 @@ thing)." And: "you mentioned that complete rebuilds is a problem. This is
 intentional, this way is robust and reliable but changing stuff does mean
 rebuilding a lot of stuff. That is also why I want to get the core parts
 right. It's still in development, and I want backward compatible versions
-for now."
+for now." And, the same evening: "The long term goal is that the core things
+(that triggers rebuilds of everything), like the slop shell, runtime, modules
+etc, become stable and reusable. Recently we're rebuilding from the core all
+the time because the core has issues. This is expected but the long term goal
+is to get away from that."
 
 Done when: for each part of the core (the process contract, the Dollyfile
 language, host modules and `nena`, the browser runtime, the base images) this
