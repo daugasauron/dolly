@@ -137,3 +137,22 @@ of the catalog and runs in the integration tree). Each install takes 0.1 to
 | `vi` | 4 | 242,573 | `vi` `ex` | a substitution by `ex`; two lines typed in `vi` and written with `:wq` |
 
 An image builds in 5 to 15 s once its base is restored (SQLite 33 s).
+
+### Thin packages the integrator asked for (09:00)
+
+- `llama` (`demos/local-llm`): `dolly-llama` and its licences, kept from
+  `local-llm-build`; 11.1 MB. It declares `gpu@0`, so `default` refuses it by
+  that name and installs nothing (`amy tools` asserts it, both browsers):
+  `Dollyfile-llama needs gpu@0: add REQUIRES HOST gpu@0`. `pi-local` still
+  takes the same files with two `COPY` rows; it could `INSTALL` this instead
+  (not done: its image is not this branch's to build).
+- `openal` (`demos/zero-ad`): OpenAL Soft's library, headers, CMake and
+  pkg-config files, kept from `openal-build`; 15 files, 3.4 MB. It asks for
+  **no host module**, not `audio@0`: the library is built with every playback
+  backend off, and 0 A.D. renders through `alcLoopbackOpenDeviceSOFT` and
+  writes the samples to `audio@0` itself (`engine.patch`). So it installs
+  into `default`, and `amy programs` compiles a C++ program that plays a
+  square wave from a buffer and finds it in the rendered samples (both
+  browsers).
+- Both build images were cache hits in this tree's plan
+  (`reuse local-llm-build`, `reuse openal-build`).

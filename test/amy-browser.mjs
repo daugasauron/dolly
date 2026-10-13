@@ -151,6 +151,15 @@ const programs = {
     "BeginDrawing(); ClearBackground(RAYWHITE); DrawCircle(64, 64, 32, RED); int shown = dolly_raylib_end_frame(&window); " +
     "return dolly_raylib_close(&window) != 0 || shown != 0; }' > /tmp/amy-raylib.c && " +
     "cc -O0 /tmp/amy-raylib.c -ldolly-raylib -lraylib -lm -o /tmp/amy-raylib && /tmp/amy-raylib > /dev/null",
+  // A square wave played from a buffer is in the samples the loopback device renders.
+  openal: "printf '%s\\n' '#define AL_ALEXT_PROTOTYPES' '#include <AL/al.h>' '#include <AL/alc.h>' '#include <AL/alext.h>' " +
+    "'int main() { ALCdevice *device = alcLoopbackOpenDeviceSOFT(0); " +
+    "int format[] = { ALC_FORMAT_CHANNELS_SOFT, ALC_MONO_SOFT, ALC_FORMAT_TYPE_SOFT, ALC_SHORT_SOFT, ALC_FREQUENCY, 48000, 0 }; " +
+    "alcMakeContextCurrent(alcCreateContext(device, format)); short wave[4800], heard[4800]; int loud = 0; ALuint buffer, source; " +
+    "for (int at = 0; at < 4800; at++) wave[at] = at % 100 < 50 ? 12000 : -12000; alGenBuffers(1, &buffer); alGenSources(1, &source); " +
+    "alBufferData(buffer, AL_FORMAT_MONO16, wave, sizeof wave, 48000); alSourcei(source, AL_BUFFER, buffer); alSourcePlay(source); " +
+    "alcRenderSamplesSOFT(device, heard, 4800); for (int at = 0; at < 4800; at++) loud += heard[at] > 1000 || heard[at] < -1000; " +
+    "return loud < 2400 || alGetError() != AL_NO_ERROR; }' > /tmp/amy-openal.cpp && c++ -O0 /tmp/amy-openal.cpp -lopenal -o /tmp/amy-openal && /tmp/amy-openal",
   // A body dropped for a second falls.
   box3d: "printf '%s\\n' '#include <box3d/box3d.h>' 'int main(void) { b3WorldDef world = b3DefaultWorldDef(); b3WorldId id = b3CreateWorld(&world); " +
     "b3BodyDef body = b3DefaultBodyDef(); body.type = b3_dynamicBody; b3BodyId ball = b3CreateBody(id, &body); b3ShapeDef shape = b3DefaultShapeDef(); " +
@@ -267,6 +276,10 @@ await browserTest("amy tools", { image: "default", timeout: 300_000 }, async ({ 
   await run("test \"$(tr '\\n' ' ' < /tmp/amy-vi)\" = 'one two '");
   await run("amy install dolly-docs && test -f /usr/share/doc/dolly/docs/dollyfile.md");
   await run("amy install transfer && amy files transfer | grep -q ' /bin/upload$' && download --help | grep -q '^usage: download'");
+  // dolly-llama computes on the GPU, a host module default does not declare:
+  // the package is refused by the module's name and nothing of it is installed.
+  assert.notEqual(await session.submit("amy install llama 2> /tmp/refused"), 0);
+  await run("grep -q gpu /tmp/refused && ! command -v dolly-llama");
 });
 
 // Every package of the catalog is installed into default and used: by a case
@@ -277,7 +290,7 @@ const elsewhere = {
   "llvm-runtimes": "a build stage", "minicpm5-2b": "demos/local-llm", "qwen3.5-2b": "demos/local-llm",
   ...Object.fromEntries([1, 2, 3, 4].map(shard => [`qwen3.5-4b-${shard}`, "demos/local-llm"])),
 };
-const used = new Set([...preinstalled, "python", "cargo", "mojo-compiler", "dolly-docs", "transfer", ...Object.keys({ ...programs, ...tools, ...elsewhere })]);
+const used = new Set([...preinstalled, "python", "cargo", "mojo-compiler", "dolly-docs", "transfer", "llama", ...Object.keys({ ...programs, ...tools, ...elsewhere })]);
 assert.deepEqual(packages.filter(name => !used.has(name)), [], "packages that no test installs and uses");
 
 // A package brings the programs its own programs start. rustc links through

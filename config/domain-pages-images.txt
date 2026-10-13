@@ -62,3 +62,5 @@ bc
 vi
 xxd
 base64
+llama
+openal
