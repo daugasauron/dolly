@@ -56,9 +56,6 @@ that change the seed or every recipe, and so want one round together:
   [file modes](../20261006-120641-umask/TASK.md)), `file`, and formatted
   pages for `less`, `ninja`, `posix`, Python, Emacs, Cargo, Rust, `fd`,
   CMake ([man and --help](../20261005-220754-man-help/TASK.md)).
-- Branch `demo/overlay-word-wrap` (`614fe59d`): the game overlays break lines
-  at words. Never built: it wants the three game images built and their
-  tests run before it merges.
 - At their next rebuild: `xonotic-build` and `wine-build` install `libpng`
   and `freetype`; `gamedev-sdk` drops its `/usr/lib/libm.a`.
 - `qwen3.5-4b` is one package of four rows now; the four shard packages stay

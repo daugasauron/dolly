@@ -26,7 +26,7 @@ REQUIRES HEADER sdl2
 REQUIRES LIB dolly-js
 REQUIRES LIB SDL2
 
-SOURCE /v0.1.3/dist/static/bhop/source.tar 545e1598c5b30df2c6c27988e2b28938d511a335be491d1a8d037d8066cdf94b /tmp/bhop-source.tar
+SOURCE /v0.1.3/dist/static/bhop/source.tar 0446cbeb662cd144fac5cd12973093bf92db6c0295b4a55dd71a0aa283df4c3c /tmp/bhop-source.tar
 SOURCE /v0.1.3/dist/static/default/stb_truetype.h ecd30b05e0dd4fea3a13c26810dd9e1992dc379049482c393d5a19e6b5090aab /tmp/bhop-stb/stb_truetype.h
 SLOP tar -xf /tmp/bhop-source.tar -C /
 
