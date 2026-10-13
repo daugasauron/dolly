@@ -147,6 +147,11 @@ tracked text per part at two releases and on `main` `a90eb4e6`, counted with
   (`git diff --shortstat`).
 - Lines compare a part with itself over time. They do not weigh one part
   against another.
+- The perimeter, counted on `dist/dolly.wasm`
+  (`node scripts/dolly-abi.mjs inspect`): the kernel imports its memory and
+  11 functions, which are a bootstrap sink, two clocks, entropy and seven
+  dispatches (`http`, `gpu`, `audio`, `microphone`, `buttons`, `download`,
+  `nena`), and exports 95 functions.
 
 "The core never depends on `demos/`" (`AGENTS.md`), checked by search on the
 same commit: no file under `src/`, `include/`, `abi/` or `host/` and no
