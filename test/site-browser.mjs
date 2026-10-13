@@ -103,7 +103,9 @@ await browserTest("site", { server: { handle } }, async ({ browser, server }) =>
   // names a page or a file this site serves.
   const about = await fetch(`${origin}${prefix}/llms.txt`);
   assert.match(about.headers.get("content-type"), /^text\/plain/);
-  const named = [...(await about.text()).matchAll(/\]\((\S+)\)/g)].map(([, target]) => new URL(target, about.url));
+  const sections = (await about.text()).split(/^## /m);
+  const named = sections.flatMap(section => [...section.matchAll(/\]\((\S+)\)/g)]).map(([, target]) => new URL(target, about.url));
+  for (const section of sections) inOrder([...section.matchAll(/^- \[([^\]]+)\]/gm)].map(([, label]) => label), section.split("\n")[0]);
   assert.ok(named.filter(url => url.origin === origin).length > 10);
   for (const url of named) if (url.origin === origin) assert.equal((await fetch(url)).status, 200, url.pathname);
 

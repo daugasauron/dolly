@@ -4,7 +4,7 @@
 - PRIORITY: 150
 - TAGS: page,catalog
 
-## Closed (2026-10-13, `8a7561d8`)
+## Closed (2026-10-13, `8a7561d8` and the commit of this text)
 
 One comparison, `alphabetical` in `src/alphabetical.mjs` (by name, ignoring case; names equal but
 for case keep one order), sorts each list where it is produced:
@@ -17,14 +17,15 @@ for case keep one order), sorts each list where it is produced:
 | The licences page's projects, and the images that build each | `scripts/upstreams.mjs` | the order of `config/upstreams.json` and of discovery |
 | Saved sessions | `listStoredSessions` in `src/session-store.mjs` | newest first |
 
-Two lists are written by hand in `menu.html`, the row of pages under "Images" and the
-shortcuts: they are in order now, and the test fails when an entry is put out of it. `default`
-is no longer the first row, so the page's first sentence links it. Not sorted, because their
-order is what they say: a recipe's lines, a build's log, and the reading order of `llms.txt`.
-No page lists versions: the root leads to the newest.
+Four lists are written by hand: in `menu.html` the row of pages under "Images" and the
+shortcuts, in `llms.txt` its pages and its files. They are in order now, and the test fails when
+an entry is put out of it. `default` is no longer the first row, so the page's first sentence
+links it and `llms.txt` says to start there. Not sorted, because their order is what they say:
+a recipe's lines and a build's log. No page lists versions: the root leads to the newest.
 
 `test/site-browser.mjs` reads the order from the DOM (the groups, each group's images, the
-pages row, the shortcuts, the licences table and its "Built by" cells, the package index) and
+pages row, the shortcuts, the licences table and its "Built by" cells), from the package index
+and from `llms.txt`, and
 saves two sessions, `versioned` and then `Zeta`, which the sessions page must list in that
 order: by time or by code unit `Zeta` would be first. Passed in Chromium (Chrome 151) and
 Firefox 155 on 2026-10-13. A new image, package, upstream or session lands in order by the
