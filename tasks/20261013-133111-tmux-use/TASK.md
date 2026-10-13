@@ -46,10 +46,6 @@ dolly:/workspace$ _fill(1.5)                          │dolly:/workspace$ nena 
   (`dolly:/workspace$ _fill(1.5)`). The refusal of `./yeah` did reach its
   own pane.
 - **The status line flickers.**
-- The status line's clock is UTC (13:27 at 22:27 in Japan).
-- Known before, from [tmux](../20261012-130814-tmux/TASK.md): plain `tmux`
-  cannot start its own server and says `start one with: tmux -D &`, which
-  the owner met ("Why do I see this instead of entering into tmux?"); a
-  server started so dies with that shell's next Ctrl+C; `pipe-pane` fails.
-  A `tmux` that starts the server as its own child would enter at once, at
-  the price that the session ends with it.
+- Not defects, by the owner's word the same day: plain `tmux` saying `start
+  one with: tmux -D &` ("fine due to the fork limitation"), and the status
+  line's clock in UTC ("I don't want to add like timezone host bridges").
