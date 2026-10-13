@@ -1,6 +1,6 @@
 # In Chrome a Worker that is terminated while it is blocked in a system call lives two more seconds
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 90
 - TAGS: core,browser,owner
 
@@ -8,6 +8,29 @@ Found by the tests of
 [a parent that ends while its children run](../20261013-163336-crash-with-children/TASK.md)
 (2026-10-14, branch `core/crash-children`). Page JavaScript only: no image
 input.
+
+## Done (2026-10-14)
+
+Owner (2026-10-14): "If your investigation confirms they are fixes that
+improve things and aligh with the main goal of the project go ahead."
+
+The three measured lines are on `main`: the supervisor answers the call a
+Worker waits in before it terminates it, and the Worker leaves as it does
+for `EXIT`. Page JavaScript only; the plan builds no image.
+
+- Measured again on `main` (`build/probe-1014/probe-linger.mjs`): in Chrome
+  the Workers of a tree whose parent trapped or called through a null
+  pointer are gone 0 to 10 ms after the parent's status, where they stayed
+  2005 ms. A looping process still stays 2002 to 2006 ms: nothing reaches a
+  loop that never enters the kernel. Firefox 10 ms, as before.
+- With it: `test/process-browser.mjs` in both browsers, the whole core suite
+  in both browsers (all passed in 423 s, `build/day-1014/browser-worker-fix.log`)
+  and the demo suites of `pi`, `javascript`, `python`, `tmux`, `emacs` and
+  `rust` (6 passed, `build/day-1014/demos-worker-fix.log`). Those cover what
+  the measurement had not run: a threaded program, and the compiler, which
+  is entered through JSPI.
+- The test's deadline stays 5 s: its `spin` endings leave a looping Worker
+  for Chrome's two seconds.
 
 ## State (2026-10-14): measured, waits for the owner
 

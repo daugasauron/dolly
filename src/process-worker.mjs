@@ -124,6 +124,8 @@ function call(operation, requestAddressValue, requestSizeValue,
     Atomics.wait(control, 1, observed);
   }
   const result = decodeResult();
+  // The supervisor's answer to a call whose process it is ending.
+  if (result === -(1n << 63n)) throw PROCESS_EXIT;
   lastSignalCheck = result === -BigInt(DOLLY_ERRNO.EINTR) ? -Infinity : performance.now();
   if (operation === DOLLY_THREAD_EXIT && result >= 0n) {
     threadResult = exitingResult;

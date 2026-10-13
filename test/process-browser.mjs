@@ -113,8 +113,8 @@ await browserTest("process", { image: "system", server: { fixtures, handle } }, 
     assert.equal(await ended, status, ending);
     await run(`! grep -q "^[0-9]* [0-9]* [a-z]* ${scratch}/tree " /proc/processes`);
   }
-  // Their Workers are gone too. Chrome keeps one that was blocked in a system
-  // call or spinning for two seconds after it is terminated.
+  // Their Workers are gone too. Chrome keeps one that was spinning for two
+  // seconds after it is terminated.
   for (const deadline = Date.now() + 5000; page.workers().length !== idleWorkers; await settle()) {
     assert.ok(Date.now() < deadline, `${page.workers().length - idleWorkers} Workers of the trees are left`);
   }

@@ -774,6 +774,10 @@ export class DollyProcessSupervisor {
       thread.worker.removeEventListener("message", thread.messageHandler);
       thread.worker.removeEventListener("error", thread.errorHandler);
       thread.worker.removeEventListener("messageerror", thread.messageErrorHandler);
+      // Chrome keeps a Worker terminated inside Atomics.wait, and its memory,
+      // for two seconds. Answered with the deferred result, which no program
+      // is handed, a waiting Worker leaves Wasm and closes itself.
+      if (thread.control) this.#signal(thread, Atomics.load(thread.control, 0), deferredResult);
       // threads@0 disabled since has already terminated its Workers.
       if (process.threaded && this.threadHost) this.threadHost.release(thread.worker);
       else thread.worker.terminate();
