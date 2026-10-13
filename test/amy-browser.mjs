@@ -252,6 +252,7 @@ const pages = {
   xz: { xz: "compress" },
   zstd: { zstd: "compress" },
   bzip2: { bzip2: "compress" },
+  lz4: { lz4: "compress" },
   mandoc: { mandoc: "manual" },
 };
 const reads = name => Object.entries(pages[name] ?? {}).map(([page, word]) =>
@@ -298,7 +299,7 @@ const tools = {
   xz: ["xz", `${packs("xz", "unxz", "xz")} && ${links("lzma", "lzma", "lzma_version_number() != LZMA_VERSION")}`],
   zstd: ["zstd", `${packs("zstd", "unzstd", "zst")} && ${links("zstd", "zstd", "ZSTD_versionNumber() != ZSTD_VERSION_NUMBER")}`],
   bzip2: ["bzip2", `${packs("bzip2", "bunzip2", "bz2")} && ${links("bzlib", "bz2", "BZ2_bzlibVersion()[0] != '1'")}`],
-  lz4: ["lz4", `${packs("lz4", "unlz4", "lz4")} && ${links("lz4", "lz4", "LZ4_versionNumber() != LZ4_VERSION_NUMBER")} && man lz4 > /dev/null`],
+  lz4: ["lz4", `${packs("lz4", "unlz4", "lz4")} && ${links("lz4", "lz4", "LZ4_versionNumber() != LZ4_VERSION_NUMBER")}`],
   // gzip, earlier in this table, only unpacks: it reads what pigz packs.
   pigz: ["pigz", `${packs("pigz", "unpigz", "gz")} && pigz -c /tmp/amy-pigz | gzip -dc | cmp - /tmp/amy-pigz && man pigz > /dev/null`],
   unzip: ["unzip", `mkdir /tmp/amy-unzip && cd /tmp/amy-unzip && printf '${zipped}' > note.zip && test "$(zipinfo -1 note.zip)" = note && ` +
