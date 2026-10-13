@@ -179,7 +179,7 @@ changes nothing (`src/process/libc-adapter.c:608`). The search does not find
 an operation that checks its arguments and then returns 0 without an effect.
 The known ones are in [file modes](../20261006-120641-umask/TASK.md):
 `chmod`, `fchmod` and `chown` check that the file exists and store nothing
-(`src/process/libc-adapter.c:948-962`), and `umask` keeps a value per process
+(`src/process/libc-adapter.c:934-976`), and `umask` keeps a value per process
 that nothing applies (`:767`).
 
 ## As filed (2026-10-13, main `50c698f8`)
