@@ -16,24 +16,24 @@ owner's to take or leave.
 Done when: each item is in a round that passed, or is dropped here with the
 reason.
 
-## The audit's ranking
+## The audit's ranking, as the owner reads it
 
 [The audit of 2026-10-13](../20261012-230015-audit-fable/TASK.md) ranks
-thirty items and eight of the boundary, each with evidence and cost. Those
-that change the seed or every recipe, and so want one round together:
-
-- 1: the release version leaves every reference (a version change alone is a
-  full rebuild today).
-- 2, 4: the host modules' SDKs leave the root image, and `display` leaves
-  `system-tools`.
-- 3: the ABI digest hashes the generated layout, not the bytes of `process.h`.
-- 5: recipe digests are no longer written into `FROM`, `INSTALL`, `COPY`.
-- 8 to 11: `REQUIRES TOOL` goes, `EXPORTS FILE|FOLDER` lose their names,
-  `SLOP` takes a body, licences and manual pages are kept by convention.
-- 13, 14, 16: `runtime.h` to three functions, fifty operations to thirty-six,
-  a block of operation numbers per module.
-- 22: `system-tools` and `system` become one base, and the builds move into
-  the packages that are views of them.
+thirty items and eight of the boundary. The owner, the same night: complete
+rebuilds are intentional ("robust and reliable"), and he wants backward
+compatible versions. So its items 1 and 5 (the release version out of
+references, recipe digests no longer written into `FROM`, `INSTALL`, `COPY`)
+are dropped, and nothing here is wanted because it rebuilds less. What he
+does want is the core right, small and clean:
+[is the core in line with the direction](../20261013-142800-direction/TASK.md)
+re-reads the reports for that, and
+[builds become generic](../20261013-142800-generic-builds/TASK.md) is what he
+meant by packages. Until those say otherwise, the audit's items that make
+the core smaller stand as candidates: 3 (what the ABI digest hashes), 8 to
+11 (`REQUIRES TOOL`, the names of `EXPORTS FILE|FOLDER`, a body for `SLOP`,
+licences and manual pages by convention), 13, 14, 16 (`runtime.h`, the twin
+operations, operation numbers per module), 2 and 22 (the modules' SDKs and
+the builds as packages).
 
 ## Left by the round of 2026-10-13
 
