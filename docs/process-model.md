@@ -68,10 +68,11 @@ sequenceDiagram
   pointers of the process itself; a wild one is `EFAULT` too, while a trap in
   the function an FFI call reaches ends the process like any other trap.
 - Wasm calls nest on a browser stack that a page cannot size; a program that
-  exhausts it fails with 126 like any other trap. The Worker enters the
-  process through `WebAssembly.promising` where that stack is measured half
-  again as deep: Chrome 151, about 950 KB instead of a Worker's 500 KB, and
-  not Firefox 155 ([browser stack](browser-stack.md)).
+  exhausts it fails with 126 like any other trap. The Worker enters an
+  executable that asks for it, which only the compiler does, through
+  `WebAssembly.promising` where that stack is measured half again as deep:
+  Chrome 151, about 950 KB instead of a Worker's 500 KB, and not Firefox 155
+  ([browser stack](browser-stack.md)).
   `RLIMIT_STACK` describes only the stack inside the process's memory.
 - `cc`, `c++`, `ld` and `ar` retry status 126 up to twice
   ([`runtime-adapter.c`](../src/process/runtime-adapter.c)), so long
@@ -351,8 +352,10 @@ nothing and declares nothing: any program built for Dolly runs on one.
   session then is as an image without `nena@0`, and its refusals read so.
 - The modules a session enabled are listed in `/etc/dolly/enabled`, one
   `name@version` a line, written by the page's provider. A saved session
-  holds the file, and loading it enables them again before ENTRY; one that
-  cannot be enabled then is said on the page, with the command. A module the
+  holds the file, and loading it enables them again: ENTRY waits three
+  seconds for them and starts without one the browser has not given by then.
+  The page says in one line which were enabled; one that cannot be is said
+  there too, with the command. A module the
   image declares and the session disabled is back when the page loads.
 
 ## Unsupported

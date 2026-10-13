@@ -5,7 +5,7 @@ lease, one foreground graphics process. Terminal parsing and rasterization stay
 in Wasm; the browser only checks and blits RGBA frames and publishes the size of
 the surface it shows them on
 ([`host/display/dolly-display-0.wat`](../host/display/dolly-display-0.wat),
-[`host/display.mjs`](../host/display/display.mjs)). Keys and the pointer are
+[`host/display/display.mjs`](../host/display/display.mjs)). Keys and the pointer are
 another module, [`input@0`](input.md): an image that only draws declares no
 input.
 
@@ -106,7 +106,7 @@ flowchart LR
   `system` copies only that plugin, the font and licenses.
 - This Zig has no LLVM: it emits only C, so there is no `zig build` or `zig cc`.
   Host preparation only patches the pinned tree for Emscripten's wasm64 layouts
-  and WasmFS ([`zig-0.16.0-dolly-native.patch`](../patches/zig-0.16.0-dolly-native.patch));
+  and WasmFS ([`zig-0.16.0-dolly-native.patch`](../config/zig-0.16.0-dolly-native.patch));
   the SDK files are listed in [`zig-sdk-files.txt`](../config/zig-sdk-files.txt).
 - Ghostty's generated option and Unicode tables are pinned source inputs
   ([`src/ghostty/generated/`](../src/ghostty/generated/README.md));

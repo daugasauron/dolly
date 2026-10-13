@@ -3,7 +3,7 @@
 Slop ([`slop.c`](../src/slop.c)) is Dolly's shell: the POSIX shell command
 language for scripts and `-c` commands, as far as upstream build scripts and
 agents use it. It is an ordinary process at `/bin/slop`,
-compiled by [`Dollyfile-system-build`](../Dollyfile-system-build) with `COMPILEC` in `system-build`
+compiled in `system-build` by a `RUN` of the seed's compiler ([`Dollyfile-system-build`](../Dollyfile-system-build))
 (`/bin/sh` links to it from `system-tools`). It is not Bash and not yet all of
 POSIX `sh`: this page is what it supports, `help` says what it lacks in every
 image, and `man NAME` describes a command.
