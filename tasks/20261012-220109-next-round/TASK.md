@@ -80,6 +80,12 @@ Builds as packages ([overview](../20261013-142800-generic-builds/TASK.md)):
 [the engines](../20261013-145359-builds-engines/TASK.md),
 [what is compiled twice](../20261013-145359-builds-twice/TASK.md).
 
+What a round costs, image by image, from the logs
+([the measurements](../20260930-100000-audit-53/round-costs.md)): 5.1 hours
+of single builds, a longest chain of 1 h 49 min, and a `system-tools` change
+within 4% of a seed change because the six long images all sit below
+`cmake-build`.
+
 ## The audit's ranking, as the owner reads it
 
 [The audit of 2026-10-13](../20261012-230015-audit-fable/TASK.md) ranks

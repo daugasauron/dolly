@@ -2,7 +2,45 @@
 
 - STATUS: OPEN
 - PRIORITY: 170
-- TAGS: core,iteration,build
+- TAGS: core,iteration,build,owner
+
+## What a catalog round costs (2026-10-14, 06:00): gathered from the logs, the owner's to read
+
+Owner (2026-10-13): "Recently we're rebuilding from the core all the time
+because the core has issues. This is expected but the long term goal is to get
+away from that." [The measurements that exist](round-costs.md), image by
+image, by a Fable agent that read the logs under `build/` and the tasks and
+built nothing. The integrator recomputed its sums from its table, read five
+durations in the logs and corrected three things, listed at its top. It gives
+no verdict. What it holds:
+
+- A build duration for 124 of the 130 images. They sum to 5.1 hours of single
+  builds. Six images take more than 1,000 s each (`mojo-llvm` 2,730,
+  `llvm-build` 2,341, `codex-build` 1,769, `rust-build` 1,719, `rust-llvm`
+  1,246, `cmake-build` 1,075) and the ten longest are 72% of the sum; 88
+  images build in under a minute.
+- The longest chain is 6,536 s (1 h 49 min): `system-build`, `zig-build`,
+  `ghostty-build`, `display`, `system-tools`, `cmake-build`, `rust-llvm`,
+  `rust-build`, `protox`, `codex-build`, `codex`. No job count makes a full
+  round shorter than that. Measured at one job: 6,765 s (v0.1.2).
+- A change of the seed and a change of `system-tools` cost within 4% of each
+  other, because all six long images sit below `cmake-build`. The cost
+  halves only at `rust-build` (25 images, 1.6 h) and falls to minutes only
+  for what avoids the Rust, LLVM and Mojo chains: `tools-build` and its 25
+  dependents 500 s, `pi` and its nine 453 s, a docs file 4 images in 476 s
+  wall (measured tonight).
+- Heavy images stretch beside each other: `rust-build` 2,940 s beside
+  `mojo-llvm` against 1,719 s alone, `mojo-llvm` 4,065 s against 2,730 s.
+- Whole rounds: v0.1.2 took 5 h 36 min (3 h 40 min building, 1 h 16 min of
+  tests, 37 min publishing); the round of 2026-10-13 5 h 02 min of build
+  stages, 77 min of them two failed attempts at the heavy stage, and 66 min
+  of tests.
+- Tests of a round: the core suite 403 to 427 s in both browsers since it
+  runs four files at a time (`d08dca57`), 916 and 951 s before; the demo
+  suites 36 to 41 min; the GPU checks 18 to 23 min.
+- Not found in any log: the durations of six images whose stage log was
+  overwritten, peak memory per image after 2026-10-01, cold against cached
+  for one image, what failed in the two heavy attempts of 2026-10-13.
 
 ## State (2026-10-13)
 

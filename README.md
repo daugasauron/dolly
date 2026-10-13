@@ -92,7 +92,7 @@ Image builds rewrite SHA-256 pins in `Dollyfile*`. Check by what you changed
 | Kernel C | `npm run build:runtime`, then `npm run test:core` | 9-12 s without changes |
 | A recipe or its sources | `npm run image -- IMAGE` | 2 s when nothing changed (`default`); 9 s to rebuild `gzip` |
 | Seed: headers, Slop, commands, libc adapter | every image rebuilds | 888 s for `default`, `cc`, `git` and `less`, 15 images (2026-10-13) |
-| Before merging | `npm run test:browser` (`test/*-browser.mjs`), `npm run test:demos` (`demos/*/test/`) | 17 min for the core tests in both browsers (2026-10-13) |
+| Before merging | `npm run test:browser` (`test/*-browser.mjs`), `npm run test:demos` (`demos/*/test/`) | 7 min for the core tests in both browsers, four files at a time (2026-10-14) |
 
 ## Docs
 
