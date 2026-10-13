@@ -1,6 +1,6 @@
 # Everything that makes sense is a package amy installs
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 305
 - TAGS: packages,amy,images
 
@@ -10,7 +10,7 @@ that are installable with amy."
 Done when: the list is here with a decision per row, the packages exist,
 install into `default` with `amy`, and run.
 
-State (2026-10-13): the list is below; fifteen packages and `mojo-compiler`
+State (2026-10-13): the list is below; fifteen packages and `mojo` (made as `mojo-compiler`)
 were made and tested in Chromium and Firefox, and amy's test now installs and uses the
 catalog's packages on `default`, or names the test that does; what is open
 is "Left" and "Held for a catalog round". [`package-needs`](../20261007-003116-package-needs/TASK.md),
@@ -106,7 +106,7 @@ break out there.
 | `zero-ad-deps` | libpng (262 KB), FreeType (903 KB, headers 878 KB), which `xonotic-build` and `wine-build` copy with the same rows | **`libpng`**, **`freetype`** | made |
 | `zero-ad-deps` | Ogg, Vorbis, fmt, libxml2 | - | stay: upstream's CMake builds them here unchanged, one consumer |
 | `zero-ad-deps` | ICU, libsodium, ENet, Boost's headers (150 MB) | - | stay: one consumer; ICU's data file is 0 A.D.'s, ENet's transport is 0 A.D.'s relay |
-| `mojo-build`, `mojo-runtime` | the Mojo compiler (96 MB), its standard library and its package `gpu`, precompiled, `libmojo-rt.a`, `libmojo-gpu.a` | **`mojo-compiler`** | made (2026-10-13, `demo/mojo`): installs `cc`, through which `mojo build` links; the `mojo` image is `gpu-sdk` and this package; `mojo-llvm` is a build stage |
+| `mojo-build`, `mojo-runtime` | the Mojo compiler (96 MB), its standard library and its package `gpu`, precompiled, `libmojo-rt.a`, `libmojo-gpu.a` | **`mojo`** | made (2026-10-13, `demo/mojo`, at first as `mojo-compiler`): installs `cc`, through which `mojo build` links; the `mojo-gpu` image is `gpu-sdk` and this package; `mojo-llvm` is a build stage |
 | `wine-build`, `wine` | Wine, with GIMP and NetSurf | - | stays: a desktop the image boots into, with files under `/home/dolly` and `/etc`, not a program a session adds |
 
 ## Made (2026-10-12, branch `core/packages`)
@@ -296,3 +296,18 @@ Designs, not code:
    `Unknown compiler(s)`. Slop's `command not found` could name the package
    from the index's `TOOL` rows; that is `src/slop.c`, the seed. The pager
    half is done (`c6e8ac47`: Git prints straight through without `less`).
+
+## Closed (2026-10-13)
+
+The done-when is met on main `b6c3d716`: the list has a decision per row;
+sixteen packages were made (the fifteen above and `mojo`, made as `mojo-compiler`), the
+catalog has 49; `test/amy-browser.mjs` installs each into `default` and uses
+it, or names the test that does, and fails by name for a package without a
+check. It passes in Chromium and Firefox in the integration tree, where
+every image is built. `transcribe` and `voice` are refused by `default`,
+naming the host module it does not declare, and run in the images that
+declare it.
+
+"Left" and "Held for a catalog round" above are not done and still wanted:
+they are the list of [the next catalog round](../20261012-220109-next-round/TASK.md),
+which keeps this task's numbers and designs by reference.

@@ -1,0 +1,38 @@
+DOLLY 7
+APPLICATION mojo-gpu
+REQUIRES HOST runtime@0
+REQUIRES HOST display@0
+REQUIRES HOST input@0
+REQUIRES HOST download@0
+REQUIRES HOST gpu@0
+REQUIRES HOST http@0
+REQUIRES HOST snapshot@0
+REQUIRES HOST upload@0
+
+# A shell with the Mojo compiler that mojo-build built in Dolly and what its
+# programs link against, on a base with a GPU: kernels run here.
+FROM /v0.1.2/Dollyfile-gpu-sdk 1c89c5226ff3d5c118ac86e0df869ee68add2c419db6f33723e7f3984810679b
+INSTALL /v0.1.2/demos/mojo/Dollyfile-mojo 8b1fc524a3df41832fc41087294e2afd82892aadea0e65f374f7674e1be36c96
+REQUIRES TOOL mojo
+REQUIRES LIB dolly-gpu
+
+# Programs to start from: the target's test programs, as they are tested.
+SOURCE /v0.1.2/dist/static/mojo/examples/hello.mojo d4e226386de30b33dba73929f423f9c820f482edc771bdd2b0a625b204fd25e5 /home/dolly/mojo/hello.mojo
+SOURCE /v0.1.2/dist/static/mojo/examples/saxpy.mojo 15035ff21b6e8a5c00ba7f7ac62ab28f33663fa1df00e54ab7ecf0c6cee4d891 /home/dolly/mojo/saxpy.mojo
+SOURCE /v0.1.2/dist/static/mojo/examples/mandelbrot.mojo 08b7af85c9f3ee75311940c02c7392d327622faa3741b51ee5b627dbdbb16d6c /home/dolly/mojo/mandelbrot.mojo
+FOLDER /home/dolly/mojo
+FILE /home/dolly/.dollyrc
+    echo 'DOLLY / MOJO-GPU: the Mojo compiler, compiled inside Dolly, and WebGPU.'
+    echo '  cd ~/mojo && mojo build mandelbrot.mojo && ./mandelbrot    kernels on the GPU'
+    echo '  mojo build hello.mojo && ./hello'
+    echo 'There is no mojo run here: build, then run. Elsewhere: amy install mojo.'
+    echo
+
+# The compiler and the link work here; a kernel runs where there is a GPU.
+REQUIRES TOOL mkdir
+REQUIRES TOOL test
+SLOP mkdir /tmp/mojo-check
+SLOP CWD /home/dolly/mojo slop -c 'mojo build -o /tmp/mojo-check/hello hello.mojo && test "$(/tmp/mojo-check/hello)" = "hello from mojo"'
+SLOP CWD /home/dolly/mojo slop -c 'mojo build -o /tmp/mojo-check/saxpy saxpy.mojo && mojo build -o /tmp/mojo-check/mandelbrot mandelbrot.mojo'
+
+ENTRY /bin/foreground -i /bin/slop
