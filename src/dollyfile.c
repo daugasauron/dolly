@@ -1318,7 +1318,8 @@ static int image_control_file(const char *path) {
 
 static int load_artifact(Engine *engine, const char *locator, const char *expected,
                          ImportMode mode, int package_recipe, const char *source,
-                         const char *destination, Scope *visible, Scope *exports, const Scope *own);
+                         const char *destination, Scope *visible, Scope *exports, const Scope *own,
+                         const char *rest);
 
 // A package's record names the packages its recipe installed, dependencies
 // first. Installs the rows this filesystem's record lacks, for `locator`. A
@@ -1327,7 +1328,7 @@ static int load_artifact(Engine *engine, const char *locator, const char *expect
 // asks again.
 enum { ROW_FIRST = 3 };
 static int install_rows(Engine *engine, const char *locator, const unsigned char *rows, size_t size,
-                        int package_recipe, Scope *visible, Scope *exports, const Scope *own) {
+                        int package_recipe, Scope *visible, Scope *exports, const Scope *own, const char *rest) {
   char *text = strndup((const char *)rows, size);
   int result = text == NULL ? -ENOMEM : 0;
   for (char *row = text, *next; result == 0 && row != NULL && *row != '\0'; row = next) {
@@ -1342,7 +1343,7 @@ static int install_rows(Engine *engine, const char *locator, const unsigned char
     if (access(artifact_path, F_OK) != 0) {
       fprintf(stderr, "dollyfile: %s installs %s first\n", locator, row + 8);
       result = ROW_FIRST;
-    } else result = load_artifact(engine, row + 8, sha256, IMPORT_INSTALL, package_recipe, NULL, NULL, visible, exports, own);
+    } else result = load_artifact(engine, row + 8, sha256, IMPORT_INSTALL, package_recipe, NULL, NULL, visible, exports, own, rest);
   }
   free(text);
   return result;
@@ -1352,9 +1353,12 @@ static int install_rows(Engine *engine, const char *locator, const unsigned char
 // package, COPY takes files. A package recipe keeps nothing of its base nor
 // of the packages it installs: their files, environment and exports serve
 // the build, and its record names the packages for whoever installs it.
+// `rest` is the recipe after this line, or NULL when the caller reads the
+// snapshot afterwards.
 static int load_artifact(Engine *engine, const char *locator, const char *expected,
                          ImportMode mode, int package_recipe, const char *source,
-                         const char *destination, Scope *visible, Scope *exports, const Scope *own) {
+                         const char *destination, Scope *visible, Scope *exports, const Scope *own,
+                         const char *rest) {
   Artifact *artifact = &engine->artifact;
   char artifact_path[128];
   snprintf(artifact_path, sizeof(artifact_path), "/etc/dolly/artifacts/%s.snapshot", expected);
@@ -1391,7 +1395,7 @@ static int load_artifact(Engine *engine, const char *locator, const char *expect
   const dolly_fs_record *needs = result == 0 && mode == IMPORT_INSTALL ? artifact_file(artifact, installed_path) : NULL;
   if (needs != NULL) {
     // Installing a row reads another artifact; this one is read again after.
-    result = install_rows(engine, locator, needs->data, needs->size, package_recipe, visible, exports, own);
+    result = install_rows(engine, locator, needs->data, needs->size, package_recipe, visible, exports, own, rest);
     if (result == 0) result = read_artifact(artifact, artifact_path, expected);
   }
   const int keep = !(package_recipe && mode != IMPORT_COPY);
@@ -1462,6 +1466,12 @@ static int load_artifact(Engine *engine, const char *locator, const char *expect
   for (size_t index = 0; index < count; ++index) free(selected[index].path);
   free(indices);
   free(selected);
+  // A snapshot is as large as its image: it leaves with the recipe's last line
+  // that names it, so the commands that follow have its room.
+  if (result == 0 && rest != NULL && strstr(rest, expected) == NULL) {
+    dispose_artifact(artifact);
+    if (unlink(artifact_path) != 0) result = -errno;
+  }
   return result;
 }
 
@@ -1499,7 +1509,7 @@ static int require_host(Engine *engine, const char *value) {
 }
 
 static int process_line(Engine *engine, const char *locator,
-                        size_t line_number, char *line,
+                        size_t line_number, char *line, const char *rest,
                         const unsigned char *body, size_t body_length,
                         Scope *visible, Scope *exports, Scope *own, char **kind, char **name,
                         int *header_seen, size_t *operations, int execute) {
@@ -1546,14 +1556,14 @@ static int process_line(Engine *engine, const char *locator,
     if (result == 0 && (count != 2 || (mode == IMPORT_FROM && *operations != 0) ||
         !valid_image_reference(words[0]) || !valid_sha256(words[1]))) result = 2;
     if (result == 0 && execute) result = load_artifact(engine, words[0], words[1], mode, package,
-                                                       NULL, NULL, visible, exports, own);
+                                                       NULL, NULL, visible, exports, own, rest);
   } else if (strcmp(text, "COPY") == 0) {
     result = split_words(arguments, &words, &count);
     if (result == 0 && (count != 4 || !valid_image_reference(words[0]) || !valid_sha256(words[1]) ||
         (strcmp(words[2], "/") != 0 && !valid_absolute_path(words[2])) ||
         (strcmp(words[3], "/") != 0 && !valid_absolute_path(words[3])))) result = 2;
     if (result == 0 && execute) result = load_artifact(engine, words[0], words[1], IMPORT_COPY, package,
-                                                       words[2], words[3], visible, exports, own);
+                                                       words[2], words[3], visible, exports, own, rest);
   } else if (strcmp(text, "REQUIRES") == 0) {
     result = split_words(arguments, &words, &count);
     const int host = result == 0 && count == 2 && strcmp(words[0], "HOST") == 0;
@@ -1781,7 +1791,7 @@ static int execute_recipe(Engine *engine, const char *locator, int execute, Scop
     }
     if (result == 0) {
       result = process_line(engine, locator, logical_line,
-                            (char *)logical.data,
+                            (char *)logical.data, (const char *)recipe.data + cursor,
                             body.data, body.length, &visible, exports_out, &own,
                             &kind, &name, &header_seen, &operations, execute);
     }
@@ -2206,7 +2216,7 @@ static int install_live(Engine *engine, const char *locator, const char *expecte
     fprintf(stderr, "dollyfile: install takes a recipe's site path and its SHA256\n");
     result = 2;
   }
-  if (result == 0) result = load_artifact(engine, locator, expected, IMPORT_INSTALL, 0, NULL, NULL, &visible, &exports, &own);
+  if (result == 0) result = load_artifact(engine, locator, expected, IMPORT_INSTALL, 0, NULL, NULL, &visible, &exports, &own, NULL);
   if (result == 0) result = write_environment_file(engine);
   dispose_scope(&exports);
   dispose_scope(&visible);

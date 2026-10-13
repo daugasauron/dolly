@@ -88,10 +88,10 @@ int main(int argc, char **argv) {
     int header = 0;
     size_t operations = 0;
     char blank[] = "  ", declaration[] = "DOLLY 7";
-    if (result == 0) result = process_line(&engine, "probe", 1, blank,
+    if (result == 0) result = process_line(&engine, "probe", 1, blank, NULL,
         NULL, 0, &tools, &exports, &own, &kind, &name, &header, &operations, 0);
     if (engine.artifact.stream == NULL) result = 2;
-    if (result == 0) result = process_line(&engine, "probe", 2, declaration,
+    if (result == 0) result = process_line(&engine, "probe", 2, declaration, NULL,
         NULL, 0, &tools, &exports, &own, &kind, &name, &header, &operations, 0);
     if (engine.artifact.stream != NULL || engine.artifact.recipe_sha256[0]) result = 2;
     engine.artifact.stream = tmpfile();

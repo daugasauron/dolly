@@ -25,8 +25,9 @@ function handle(request, response, path, headers) {
   return true;
 }
 
-// A derived image built in the tab from a published base: shell, exports,
-// deletions, and an ENTRY argument that must keep its U+FEFF.
+// A derived image built in the tab from a published base: the base's snapshot
+// gone once FROM has read it, shell, exports, deletions, and an ENTRY argument
+// that must keep its U+FEFF.
 const iterationRecipe = (base, marker) => `DOLLY 7
 APPLICATION iteration
 REQUIRES HOST runtime@0
@@ -37,6 +38,7 @@ REQUIRES HOST http@0
 REQUIRES HOST snapshot@0
 REQUIRES HOST upload@0
 FROM ${siteReference(base.dollyfile)} ${base.sha256}
+SLOP test -z "$(ls /etc/dolly/artifacts)"
 SLOP mkdir -p /opt/iteration/bin; cp /bin/echo /opt/iteration/bin/echo
 EXPORTS ENV PATH /opt/iteration/bin:/bin:/usr/bin
 EXPORTS TOOL echo
