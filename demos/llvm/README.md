@@ -22,6 +22,7 @@ seed, built again by Dolly's own `cc`. The seed stays the bootstrap.
   `c++`, `ld` and `ar`.
 - `llvm`: the compiler built in Dolly, as a package: `llvm-cc` and `llvm-c++`.
 - `llvm-runtimes`: build-only: the C++ runtime and builtins, compiled in Dolly.
+
   libc++, libc++abi, libunwind and the compiler-rt builtins from the pinned
   Emscripten sources, as Emscripten's container builds them, DWARF included.
   The seed ships the container's builtins; `system-build` compiles the other

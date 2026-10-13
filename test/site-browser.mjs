@@ -7,6 +7,7 @@ import { DOLLY_IMAGES } from "../dist/dolly-images.mjs";
 import { discoverImageDefinitions } from "../scripts/image-definitions.mjs";
 import { DOLLY_VERSION } from "../src/version.mjs";
 import { browserTest } from "./browser.mjs";
+import { alphabetical } from "../src/alphabetical.mjs";
 import { siteReference } from "../src/static-asset.mjs";
 
 const root = new URL("..", import.meta.url).pathname;
@@ -17,6 +18,8 @@ const root = new URL("..", import.meta.url).pathname;
 const prefix = `/v${DOLLY_VERSION}`, other = "/v0.0.0";
 let origin;
 const prefixed = [], unprefixed = [];
+// Every list a visitor reads is in one order: by name, ignoring case.
+const inOrder = (names, list) => assert.deepEqual(names, [...names].sort(alphabetical), `${list} is not in alphabetical order`);
 async function handle(request, response, path, headers) {
   if (request.headers["x-dolly-proxy"]) return false;
   const version = [prefix, other].find(version => path === version || path.startsWith(`${version}/`));
@@ -45,21 +48,39 @@ await browserTest("site", { server: { handle } }, async ({ browser, server }) =>
   // The static menu links each image's routes, and every linked route exists.
   await page.goto(`${origin}${prefix}/`);
   assert.equal(await page.locator("script").count(), 0);
-  const images = await page.$$eval("tr.image", rows => rows.map(row => ({ image: row.dataset.image,
+  const images = await page.$$eval("tr.image", rows => rows.map(row => ({ image: row.dataset.image, graphics: row.dataset.graphics,
     links: [...row.querySelectorAll(".image-links a")].map(link => new URL(link.href).pathname) })));
   assert.deepEqual(images.map(row => row.image).sort(), DOLLY_IMAGES.map(definition => definition.image).sort());
-  for (const { image, links } of images) {
+  for (const { image, links, graphics } of images) {
     const definition = DOLLY_IMAGES.find(definition => definition.image === image);
     const displayed = definition.entry !== null && definition.hostRequirements.includes("display@0");
     assert.deepEqual(links.sort(), [...displayed ? [`${prefix}/${image}/`] : [], `${prefix}/${image}/rebuild/`,
       `${prefix}/view/${image}/`].sort(), image);
     for (const link of links) assert.ok(existsSync(`${root}${link.slice(prefix.length + 1)}index.html`), link);
+    // An image reaches a GPU only through gpu@0: its row says GPU, and every other image that opens says CPU.
+    assert.equal(graphics, definition.hostRequirements.includes("gpu@0") ? "gpu" : displayed ? "cpu" : "", image);
   }
+  const menu = await page.evaluate(() => {
+    const groups = [];
+    for (const row of document.querySelectorAll("tbody tr")) {
+      if (row.classList.contains("group")) groups.push({ heading: row.textContent.trim(), images: [] });
+      else groups.at(-1).images.push(row.dataset.image);
+    }
+    const texts = selector => [...document.querySelectorAll(selector)].map(element => element.textContent);
+    return { groups, pages: texts("#pages a"), shortcuts: texts("#shortcuts dt") };
+  });
+  inOrder(menu.groups.map(group => group.heading), "the menu's groups");
+  for (const { heading, images } of menu.groups) inOrder(images, heading);
+  inOrder(menu.pages, "the menu's pages");
+  inOrder(menu.shortcuts, "the shortcuts");
+  // The lead's link opens the image a newcomer starts with.
+  assert.equal(new URL(await page.locator(".lead a").getAttribute("href"), page.url()).pathname, `${prefix}/default/`);
   // The menu links the package index, a plain file with a row per package.
   const index = await fetch(await page.locator('a[href="./amy-index.txt"]').evaluate(link => link.href));
   assert.match(index.headers.get("content-type"), /^text\/plain/);
-  assert.deepEqual((await index.text()).trimEnd().split("\n").map(row => row.split(" ")[0]),
-    DOLLY_IMAGES.filter(definition => definition.role === "package").map(definition => definition.image));
+  const packages = (await index.text()).trimEnd().split("\n").map(row => row.split(" ")[0]);
+  assert.deepEqual([...packages].sort(), DOLLY_IMAGES.filter(definition => definition.role === "package").map(definition => definition.image).sort());
+  inOrder(packages, "the package index");
   await page.click('a[href="#shortcuts"]');
   assert.equal(await page.evaluate(() => location.hash), "#shortcuts");
   await page.locator("#shortcuts").waitFor();
@@ -73,6 +94,10 @@ await browserTest("site", { server: { handle } }, async ({ browser, server }) =>
     if (registered.has(image) && parsed.sources.length) assert.ok(attributed.includes(`${prefix}/view/${image}/`), image);
   }
   for (const link of attributed) assert.ok(existsSync(`${root}${link.slice(prefix.length + 1)}index.html`), link);
+  const inventory = await page.$$eval(".inventory tbody tr", rows => rows.map(row => ({ project: row.querySelector("th").textContent,
+    images: [...row.querySelectorAll("td:last-child a")].map(link => link.textContent) })));
+  inOrder(inventory.map(row => row.project), "the licences page");
+  for (const { project, images } of inventory) inOrder(images, `what builds ${project}`);
 
   // llms.txt says how the site is used, in links relative to itself: each
   // names a page or a file this site serves.
@@ -102,6 +127,18 @@ await browserTest("site", { server: { handle } }, async ({ browser, server }) =>
   assert.deepEqual(await page.evaluate(() => [crossOriginIsolated, !!navigator.serviceWorker.controller]), [true, true]);
   await page.evaluate(() => __dolly.waitForInteractiveTerminal(/dolly:[^\n]*\$\s*$/, "shell"));
   assert.equal(await page.evaluate(() => __dolly.submit("test -f /etc/dolly/Dollyfile")), 0);
+  // As llms.txt tells an agent: on a ready page typed keys reach the shell,
+  // also when no element of the page holds the focus.
+  const typed = async line => {
+    const sequence = await page.evaluate(() => __dolly.terminal.currentResultSequence());
+    await page.keyboard.type(`${line}\n`);
+    return page.evaluate(sequence => __dolly.terminal.waitForResult(sequence), sequence);
+  };
+  assert.equal(await typed("test -f /etc/dolly/Dollyfile"), 0);
+  await page.evaluate(() => document.activeElement.blur());
+  assert.equal(await typed("test -d /workspace"), 0);
+  // default declares no gpu@0, and its page says what that means.
+  assert.equal(await page.locator("#gpu-status").getAttribute("data-gpu"), "absent");
   // amy's index and a recipe are site paths, so they are read under the prefix.
   assert.equal(await page.evaluate(() => __dolly.submit("amy list | grep -q '^curl  *installed '")), 0);
   assert.ok(prefixed.includes(`${prefix}/amy-index.txt`), "amy did not read the site's index");
@@ -117,13 +154,17 @@ await browserTest("site", { server: { handle } }, async ({ browser, server }) =>
   // takes its exported file, and its own version restores it.
   assert.equal(await page.evaluate(() => __dolly.submit("echo kept > $HOME/kept")), 0);
   await page.evaluate(() => __dolly.saveSession("versioned"));
+  await page.evaluate(() => __dolly.saveSession("Zeta"));
   const sessions = async version => {
     await page.goto(`${origin}${version}/sessions/`);
     await page.waitForFunction(() => document.documentElement.dataset.sessionsStatus === "ready");
     return page.locator("#sessions li").filter({ hasText: "versioned" });
   };
   const exported = page.waitForEvent("download");
-  await (await sessions(prefix)).getByRole("button", { name: "Export", exact: true }).click();
+  const kept = await sessions(prefix);
+  // By name: the later save and the capital letter both come second.
+  assert.deepEqual(await page.locator("#sessions li > :first-child").allTextContents(), ["versioned", "Zeta"]);
+  await kept.getByRole("button", { name: "Export", exact: true }).click();
   const file = await (await exported).path();
   assert.equal(await (await sessions(other)).count(), 0, "another version lists the save");
   await page.locator("#import-session").setInputFiles(file);
