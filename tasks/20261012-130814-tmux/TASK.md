@@ -357,9 +357,7 @@ Measured on the new seed at `fe04b918`, Chromium and Firefox unless said:
 
 Not measured here, for the round: Pi's test and the whole of
 `test/amy-browser.mjs` on the new seed. Pi's image needs `rust-build` and
-amy's test the catalog, which the caps of this tree do not allow. Nor
-`nvim` built on the new seed in a pane: it ran there as the package built
-before the module existed.
+amy's test the catalog, which the caps of this tree do not allow.
 
 `main` at `743757a4` is merged (`7b81cff1`): one conflict, adjacent rows of
 `config/domain-pages-images.txt`, both sides kept. The runtime and the image
@@ -403,6 +401,8 @@ Firefox unless said:
 | amy's two new cases, alone in `default` after `amy install cc` | pass in both |
 | Core suite (`slot.sh hugebuild`) | in each browser all but `amy-browser.mjs`, which stops at `amy install cmake`: 42 tests pass |
 | `reopen.mjs`, Chromium | `ttyname_r` fails in a pane and at the display, and `cat` waits in both |
+| `nvim` built on this seed (`cmake-build`, `neovim-build`, `nvim`: 1540 s), in a pane | in both: it edits and writes a file, and `cat` in the pane afterwards waits until Ctrl+C (`nvim-pane.mjs`) |
+| `node --test test/dolly.artifacts.mjs`, the images registered here | 17 of 17: the kernel exports what its contracts name, its browser imports are unchanged |
 
 Open, for whoever takes pseudo-terminals further: a second open of a slave
 with flags of its own. No program here needs one while `ttyname` names
