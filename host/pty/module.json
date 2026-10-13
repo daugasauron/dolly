@@ -1,0 +1,13 @@
+{
+  "name": "pty",
+  "version": 0,
+  "gives": "pseudo-terminals: a terminal one program gives another, as tmux does",
+  "dependencies": ["runtime@0"],
+  "imports": [],
+  "host": "pty.mjs",
+  "contracts": ["dolly-pty-supervisor-0.wat"],
+  "process": ["dolly-pty-0.wat"],
+  "headers": ["pty.h", "pty-abi.h"],
+  "kernel": ["kernel.c"],
+  "client": ["client.c"]
+}

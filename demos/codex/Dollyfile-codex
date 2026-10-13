@@ -1,23 +1,27 @@
 DOLLY 7
-APPLICATION codex
+PACKAGE codex
 REQUIRES HOST runtime@0
-REQUIRES HOST display@0
-REQUIRES HOST input@0
-REQUIRES HOST download@0
 REQUIRES HOST http@0
-REQUIRES HOST snapshot@0
 REQUIRES HOST sockets@0
 REQUIRES HOST threads@0
-REQUIRES HOST upload@0
 
-FROM /v0.1.2/Dollyfile-system cb003619fa38f3340386739e0df6a500c95f5ff040b1efb6804461adf294b259
-INSTALL /v0.1.2/demos/codex/Dollyfile-codex-cli 10189a82720f4373bb3cc6436f0c3313ed9c39c5253c07cd2f392c5647e6613d
-REQUIRES TOOL codex
-REQUIRES TOOL sh
+# Codex as codex-build compiles it, the launcher that seeds CODEX_HOME, and
+# the search tools Codex runs.
+FROM /v0.1.2/Dollyfile-system 7b156dd4eef7042abb9e6ec29e8d9ebd5f0c2a60163761d79f77021d7066680b
+COPY /v0.1.2/demos/codex/Dollyfile-codex-build 7d0c14a7339488b7290ff30d818b703835ddfeceeeb4582eec2938aa500f139b /usr/bin/codex /usr/libexec/codex
+COPY /v0.1.2/demos/codex/Dollyfile-codex-build 7d0c14a7339488b7290ff30d818b703835ddfeceeeb4582eec2938aa500f139b /usr/share/licenses/codex /usr/share/licenses/codex
+COPY /v0.1.2/demos/codex/Dollyfile-codex-build 7d0c14a7339488b7290ff30d818b703835ddfeceeeb4582eec2938aa500f139b /usr/share/dolly/builds/codex.lock /usr/share/dolly/builds/codex.lock
+INSTALL /v0.1.2/demos/rust/Dollyfile-ripgrep 93a2a30ac319713c87b8029e18fa1eb7c7df96d09d5153b876f1faf0f1516faa
+INSTALL /v0.1.2/demos/rust/Dollyfile-fd f30bcf8560a1061bd9bf0fed94b488c236133239e33412d5eade8847ea2691dc
+REQUIRES HEADER libc
+REQUIRES HEADER runtime
+REQUIRES TOOL cc
+REQUIRES TOOL rm
 
-FILE /etc/dolly/init.slop
-    /bin/foreground -i /usr/bin/codex
-    printf '\nDolly: image entry exited; entering the recovery Slop shell.\n'
-    /bin/foreground -i /bin/slop
+SOURCE /v0.1.2/dist/static/codex/launch.c 976af0443f20a29fb54d0e9b04d21138ba6d2fde269d2d6fd4a88b413ac9b04c /tmp/codex-launch.c
+SOURCE /v0.1.2/dist/static/codex/config.toml 41195a65f4ae7b2502f30cf0ed938d0746954ed5434af4a2ef99ce0e05683c97 /usr/share/codex/config.toml
+SLOP cc -O1 /tmp/codex-launch.c -o /usr/bin/codex
+SLOP rm /tmp/codex-launch.c
 
-ENTRY /bin/foreground -i /bin/slop /etc/dolly/init.slop
+EXPORTS TOOL codex
+FILE /usr/share/codex/config.toml

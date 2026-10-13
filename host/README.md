@@ -107,6 +107,15 @@ first archive that defines it; every other program gets libc's refusals
 ([`socket-refusals.c`](../src/process/socket-refusals.c), an object that
 names the same functions and nothing else) and records nothing.
 
+## Pseudo-terminals
+
+`pty@0` has no import and no page side either: its kernel side is a second
+kind of the descriptor that sockets are, and the supervisor delivers the
+signals a pseudo-terminal raises for the programs on its slave
+([process model](../docs/process-model.md#pseudo-terminals)). Its client
+defines the libc's `openpty`, so a program asks with `-ldolly-pty` as one
+asks for sockets. The libc itself forwards `ioctl(TIOCSWINSZ)` on a master.
+
 ## Runtimes
 
 A runtime is a module whose manifest says `"provides": "kernel"`; `runtime@0`

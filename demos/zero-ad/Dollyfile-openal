@@ -1,0 +1,16 @@
+DOLLY 7
+PACKAGE openal
+REQUIRES HOST runtime@0
+
+# OpenAL Soft as openal-build builds it with upstream's CMake, for programs
+# the cc and cmake packages build; it installs neither. It has no playback
+# backend: a program renders through a loopback device and plays the samples
+# itself (<dolly/audio.h>, audio@0), as 0 A.D. does, so the library asks for
+# no host module.
+FROM /v0.1.2/demos/zero-ad/Dollyfile-openal-build 4190f3cc2b379b537d1d33415ac6ca19d2cc16092ffc4ba0ec91f80e3f6516df
+
+EXPORTS LIB    openal          /usr/lib/libopenal.a
+EXPORTS HEADER openal          /usr/include/AL
+EXPORTS FOLDER openal-cmake    /usr/lib/cmake/OpenAL
+EXPORTS FOLDER openal-licenses /usr/share/licenses/OpenAL
+FILE /usr/lib/pkgconfig/openal.pc

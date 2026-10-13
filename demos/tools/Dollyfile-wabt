@@ -1,0 +1,50 @@
+DOLLY 7
+PACKAGE wabt
+REQUIRES HOST runtime@0
+
+# The WebAssembly Binary Toolkit from the files of upstream's source release,
+# unchanged, configured by its own CMake: the tools that read, write and
+# check a module. Dolly's programs are such modules. Its interpreter, wasm2c
+# and their runtime are not built.
+FROM /v0.1.2/demos/cmake/Dollyfile-cmake-build 7fba368b51efb19e49e4fdc4e4f3e4f11ba046921ea3176a1e5609dcb08dd2b5
+
+REQUIRES HEADER libc
+REQUIRES HEADER cpp
+REQUIRES LIB    c++
+REQUIRES LIB    c++abi
+REQUIRES TOOL   c++
+REQUIRES TOOL   cc
+REQUIRES TOOL   cmake
+REQUIRES TOOL   cp
+REQUIRES TOOL   grep
+REQUIRES TOOL   make
+REQUIRES TOOL   tar
+
+SOURCE /v0.1.2/dist/static/tools/wabt.tar 9432dcf5b4c875fd6948cbb0b66a94f36709b4021cb66502fd1220f8ce27994c /tmp/wabt.tar
+SLOP tar -xf /tmp/wabt.tar -C /
+SLOP cmake -S /tmp/wabt -B /tmp/wabt/build \
+  -DCMAKE_SYSTEM_NAME=Dolly -DCMAKE_SYSTEM_PROCESSOR=wasm64 \
+  -DCMAKE_BUILD_TYPE=Release -DCMAKE_C_FLAGS_RELEASE=-O1 -DCMAKE_CXX_FLAGS_RELEASE=-O1 \
+  -DBUILD_TESTS=OFF -DBUILD_LIBWASM=OFF -DUSE_INTERNAL_SHA256=ON
+SLOP cmake --build /tmp/wabt/build -j4 --target wat2wasm wasm2wat wasm-objdump wasm-strip wasm-validate
+SLOP CWD /tmp/wabt/build cp wat2wasm wasm2wat wasm-objdump wasm-strip wasm-validate /usr/bin
+
+# A module written from text, checked, and read back; then this program itself.
+FILE /tmp/wabt/check.wat
+    (module (func (export "answer") (result i32) i32.const 42))
+SLOP wat2wasm /tmp/wabt/check.wat -o /tmp/wabt/check.wasm && wasm-validate /tmp/wabt/check.wasm
+SLOP wasm2wat /tmp/wabt/check.wasm | grep -q 'i32.const 42'
+SLOP wasm-objdump -h /usr/bin/wasm-objdump | grep -q Code
+
+EXPORTS TOOL wat2wasm
+EXPORTS TOOL wasm2wat
+EXPORTS TOOL wasm-objdump
+EXPORTS TOOL wasm-strip
+EXPORTS TOOL wasm-validate
+FILE /usr/share/licenses/wabt/LICENSE
+FILE /usr/share/licenses/wabt/picosha2-LICENSE
+FILE /usr/share/man/man1/wat2wasm.1
+FILE /usr/share/man/man1/wasm2wat.1
+FILE /usr/share/man/man1/wasm-objdump.1
+FILE /usr/share/man/man1/wasm-strip.1
+FILE /usr/share/man/man1/wasm-validate.1

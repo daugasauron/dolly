@@ -24,7 +24,7 @@
       <a href="../">Dolly →</a>
       <h1>Run a Dollyfile</h1>
       <p>Paste a recipe or choose a UTF-8 file (128 KiB maximum). It builds and runs inside Wasm.</p>
-      <p>Recipes can make HTTP requests. Run only ones you intend to run. Custom builds stay in this tab; named-session saving is not supported yet.</p>
+      <p>Recipes can make HTTP requests. Run only ones you intend to run. A custom image saves its session like any other when its recipe declares <code>snapshot@0</code> (Ctrl+Shift+S); the save opens as long as this browser still keeps the image it built.</p>
       <form id="custom-dollyfile">
         <input type="file" id="dollyfile-upload" aria-label="Choose a Dollyfile">
         <textarea id="source" aria-label="Dollyfile source" spellcheck="false" required></textarea>

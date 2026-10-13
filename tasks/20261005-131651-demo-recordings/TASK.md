@@ -1,23 +1,23 @@
 # Demo recordings: RTS Arena, ClassiCube and bhop wait for a model and a budget
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 100
 - TAGS: demo,site,openrouter
 
-## State (2026-10-12)
+## Closed into `20261012-232215-owner-answers` (2026-10-13)
 
 Owner (2026-10-05): "Use the openrouter API key in ~/.openrouter to regenerate some demos, the
 current ones are nice regarding format but the results in the videos are very underwhelming."
 
-The agents page (`sites/slopshare.dev/agents/`) shows two recordings: Studio, the new take
-(`a8b5198e`, `tasks/20261006-094507-studio-video-game`), and RTS Arena, still the old Codex
-match. The ClassiCube and bhop videos were taken off the page on 2026-10-06 (`bb153d4b`) and not
-replaced.
+Done: the Studio recording is the new take (`a8b5198e`, `tasks/20261006-094507-studio-video-game`).
+The agents page (`sites/slopshare.dev/agents/`, read on 2026-10-13) shows it and RTS Arena, still
+the old Codex match; the ClassiCube and bhop videos were taken off the page on 2026-10-06
+(`bb153d4b`) and not replaced.
 
-Left: RTS Arena recorded again, and ClassiCube and bhop back on the page with new takes. No free
-model played them visibly better than the old recordings (takes below) and the owner's rule was
-free models only, so this waits on one owner decision: which model, and what budget. Lowered from
-250 for that reason. The rig and its commands are under "Rerun".
+Not done: RTS Arena recorded again, and ClassiCube and bhop back on the page with new takes. No
+free model played them visibly better than the old recordings (takes below) and the owner's rule
+was free models only, so this waits on one decision, which model and what budget: the second
+item of `tasks/20261012-232215-owner-answers`. The rig and its commands are under "Rerun".
 
 The key is read from `~/.openrouter` at run time. It is never printed, logged, committed, or sent
 anywhere but openrouter.ai.

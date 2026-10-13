@@ -216,7 +216,7 @@ export async function runCodexLogin(page, fixture) {
   assert.equal(await running, 0);
   await run("grep -q dolly-refreshed-access-token ~/.codex/auth.json && grep -q dolly-refreshed-refresh-token ~/.codex/auth.json");
   await run("codex logout && test ! -f ~/.codex/auth.json");
-  await run("codex login --device-auth > /tmp/codex-cli-login 2>&1 && grep -q 'Successfully logged in' /tmp/codex-cli-login");
+  await run("codex login --device-auth > /tmp/codex-login 2>&1 && grep -q 'Successfully logged in' /tmp/codex-login");
   await run("test -s ~/.codex/log/codex-login.log && codex login status");
   console.log("CODEX-DEVICE-RESTART-REFRESH-CLI-PASSED");
 }

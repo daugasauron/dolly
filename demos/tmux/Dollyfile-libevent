@@ -1,0 +1,144 @@
+DOLLY 7
+PACKAGE libevent
+REQUIRES HOST runtime@0
+
+# libevent's core from upstream's release archive, unchanged: the event loop
+# over poll, buffers and listeners, for programs the cc package builds
+# (-levent_core). A program that gives it sockets links -ldolly-sockets too.
+FROM /v0.1.2/Dollyfile-system-tools 0b45999e6aa7b373f5abb794c278bb22cd3733f33931581e4673c9bf280af08e
+
+REQUIRES HEADER libc
+REQUIRES TOOL ar
+REQUIRES TOOL cc
+REQUIRES TOOL cp
+REQUIRES TOOL gzip
+REQUIRES TOOL make
+REQUIRES TOOL mkdir
+REQUIRES TOOL tar
+
+SOURCE /v0.1.2/dist/static/tmux/libevent-2.1.13-stable.tar.gz f7e9383b8c0baa81b687e5b5eecc01beefaf1b19b64151d95ed61647fe7a315c /tmp/libevent.tar.gz
+SLOP gzip -dc /tmp/libevent.tar.gz | tar -xf - -C /tmp
+
+# Slop does not run upstream's configure script, so these say what it would
+# find here. Not claimed: epoll and select (libevent polls), threads,
+# sendfile and getrandom, whose header is missing.
+FILE /tmp/libevent-2.1.13-stable/evconfig-private.h
+    #define _GNU_SOURCE 1
+FILE /tmp/libevent-2.1.13-stable/include/event2/event-config.h
+    #ifndef EVENT2_EVENT_CONFIG_H_INCLUDED_
+    #define EVENT2_EVENT_CONFIG_H_INCLUDED_
+    #define EVENT__NUMERIC_VERSION 0x02010d00
+    #define EVENT__PACKAGE_VERSION "2.1.13"
+    #define EVENT__VERSION_MAJOR 2
+    #define EVENT__VERSION_MINOR 1
+    #define EVENT__VERSION_PATCH 13
+    #define EVENT__VERSION "2.1.13-stable"
+    #define EVENT__PACKAGE "libevent"
+    #define EVENT__DISABLE_THREAD_SUPPORT 1
+    #define EVENT__HAVE_ARPA_INET_H 1
+    #define EVENT__HAVE_CLOCK_GETTIME 1
+    #define EVENT__HAVE_ERRNO_H 1
+    #define EVENT__HAVE_FCNTL 1
+    #define EVENT__HAVE_FCNTL_H 1
+    #define EVENT__HAVE_FD_MASK 1
+    #define EVENT__HAVE_GETEGID 1
+    #define EVENT__HAVE_GETEUID 1
+    #define EVENT__HAVE_GETTIMEOFDAY 1
+    #define EVENT__HAVE_INTTYPES_H 1
+    #define EVENT__HAVE_NANOSLEEP 1
+    #define EVENT__HAVE_NETDB_H 1
+    #define EVENT__HAVE_NETINET_IN_H 1
+    #define EVENT__HAVE_PIPE 1
+    #define EVENT__HAVE_PIPE2 1
+    #define EVENT__HAVE_POLL 1
+    #define EVENT__HAVE_POLL_H 1
+    #define EVENT__HAVE_SA_FAMILY_T 1
+    #define EVENT__HAVE_SETFD 1
+    #define EVENT__HAVE_SIGACTION 1
+    #define EVENT__HAVE_SIGNAL 1
+    #define EVENT__HAVE_STDARG_H 1
+    #define EVENT__HAVE_STDDEF_H 1
+    #define EVENT__HAVE_STDINT_H 1
+    #define EVENT__HAVE_STDLIB_H 1
+    #define EVENT__HAVE_STRING_H 1
+    #define EVENT__HAVE_STRLCPY 1
+    #define EVENT__HAVE_STRSEP 1
+    #define EVENT__HAVE_STRTOK_R 1
+    #define EVENT__HAVE_STRTOLL 1
+    #define EVENT__HAVE_STRUCT_ADDRINFO 1
+    #define EVENT__HAVE_STRUCT_IN6_ADDR 1
+    #define EVENT__HAVE_STRUCT_SOCKADDR_IN6 1
+    #define EVENT__HAVE_STRUCT_SOCKADDR_STORAGE 1
+    #define EVENT__HAVE_STRUCT_SOCKADDR_STORAGE_SS_FAMILY 1
+    #define EVENT__HAVE_STRUCT_SOCKADDR_UN 1
+    #define EVENT__HAVE_SYS_IOCTL_H 1
+    #define EVENT__HAVE_SYS_PARAM_H 1
+    #define EVENT__HAVE_SYS_RESOURCE_H 1
+    #define EVENT__HAVE_SYS_SOCKET_H 1
+    #define EVENT__HAVE_SYS_STAT_H 1
+    #define EVENT__HAVE_SYS_TIME_H 1
+    #define EVENT__HAVE_SYS_TYPES_H 1
+    #define EVENT__HAVE_SYS_UIO_H 1
+    #define EVENT__HAVE_SYS_UN_H 1
+    #define EVENT__HAVE_SYS_WAIT_H 1
+    #define EVENT__HAVE_TIMERADD 1
+    #define EVENT__HAVE_TIMERCMP 1
+    #define EVENT__HAVE_TIMERISSET 1
+    #define EVENT__HAVE_UINT8_T 1
+    #define EVENT__HAVE_UINT16_T 1
+    #define EVENT__HAVE_UINT32_T 1
+    #define EVENT__HAVE_UINT64_T 1
+    #define EVENT__HAVE_UINTPTR_T 1
+    #define EVENT__HAVE_UNISTD_H 1
+    #define EVENT__HAVE_USLEEP 1
+    #define EVENT__HAVE_VASPRINTF 1
+    #define EVENT__HAVE___func__ 1
+    #define EVENT__HAVE___FUNCTION__ 1
+    #define EVENT__HAVE_DECL_CTL_KERN 0
+    #define EVENT__HAVE_DECL_KERN_ARND 0
+    #define EVENT__SIZEOF_INT 4
+    #define EVENT__SIZEOF_LONG 8
+    #define EVENT__SIZEOF_LONG_LONG 8
+    #define EVENT__SIZEOF_OFF_T 8
+    #define EVENT__SIZEOF_SSIZE_T 8
+    #define EVENT__SIZEOF_SHORT 2
+    #define EVENT__SIZEOF_SIZE_T 8
+    #define EVENT__SIZEOF_SOCKLEN_T 4
+    #define EVENT__SIZEOF_VOID_P 8
+    #define EVENT__SIZEOF_TIME_T 8
+    #define EVENT__TIME_WITH_SYS_TIME 1
+    #define EVENT__inline inline
+    #endif
+
+FILE /tmp/libevent.mk
+    .RECIPEPREFIX := >
+    .DELETE_ON_ERROR:
+    MAKEFLAGS += -r
+    E := /tmp/libevent-2.1.13-stable
+    # The core's sources in upstream's CMakeLists.txt without threads, and
+    # of the headers upstream installs those that declare them: event2's and
+    # the older <event.h> over them, which tmux includes. <event.h> brings
+    # event2/tag.h, whose functions are in upstream's extra library with DNS,
+    # HTTP and RPC: that one is not built.
+    SOURCES := buffer bufferevent bufferevent_filter bufferevent_pair bufferevent_ratelim \
+      bufferevent_sock event evmap evutil evutil_rand evutil_time listener log signal \
+      strlcpy poll
+    HEADERS := event evutil $(addprefix event2/,buffer buffer_compat bufferevent \
+      bufferevent_compat bufferevent_struct event event_compat event_struct event-config \
+      keyvalq_struct listener tag tag_compat util visibility)
+    all: /usr/lib/libevent_core.a $(addprefix /usr/include/,$(addsuffix .h,$(HEADERS)))
+    $(E)/%.o: $(E)/%.c
+    >cc -O2 -I$(E) -I$(E)/include -I$(E)/compat -c $< -o $@
+    /usr/lib/libevent_core.a: $(addprefix $(E)/,$(addsuffix .o,$(SOURCES)))
+    >ar rcs $@ $^
+    /usr/include/%.h: $(E)/include/%.h
+    >cp $< $@
+SLOP mkdir -p /usr/include/event2 /usr/share/licenses/libevent
+SLOP make -j4 -f /tmp/libevent.mk
+SLOP cp /tmp/libevent-2.1.13-stable/LICENSE /usr/share/licenses/libevent/LICENSE
+
+EXPORTS LIB    event_core /usr/lib/libevent_core.a
+EXPORTS HEADER event2     /usr/include/event2
+EXPORTS HEADER event      /usr/include/event.h
+EXPORTS HEADER evutil     /usr/include/evutil.h
+FILE /usr/share/licenses/libevent/LICENSE

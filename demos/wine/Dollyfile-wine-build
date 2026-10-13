@@ -9,16 +9,16 @@ REQUIRES HOST sockets@0
 REQUIRES HOST threads@0
 REQUIRES HOST upload@0
 
-FROM /v0.1.2/Dollyfile-system-tools a79e48b88e5552cc965f0aa06dd9d28c05712649cc7b059036eb6a3857665632
+FROM /v0.1.2/Dollyfile-system-tools 0b45999e6aa7b373f5abb794c278bb22cd3733f33931581e4673c9bf280af08e
 # FreeType (with its libpng) for gdi32's fonts, as 0 A.D. built them; libpng's headers for NetSurf.
-COPY /v0.1.2/demos/zero-ad/Dollyfile-zero-ad-deps 885e93b8eb52cd42e4d691fd12580893ecf8614d1791ce6b2d179274e66db7ae /usr/include/freetype2 /usr/include/freetype2
-COPY /v0.1.2/demos/zero-ad/Dollyfile-zero-ad-deps 885e93b8eb52cd42e4d691fd12580893ecf8614d1791ce6b2d179274e66db7ae /usr/lib/libfreetype.a /usr/lib/libfreetype.a
-COPY /v0.1.2/demos/zero-ad/Dollyfile-zero-ad-deps 885e93b8eb52cd42e4d691fd12580893ecf8614d1791ce6b2d179274e66db7ae /usr/lib/libpng16.a /usr/lib/libpng16.a
-COPY /v0.1.2/demos/zero-ad/Dollyfile-zero-ad-deps 885e93b8eb52cd42e4d691fd12580893ecf8614d1791ce6b2d179274e66db7ae /usr/include/png.h /usr/include/png.h
-COPY /v0.1.2/demos/zero-ad/Dollyfile-zero-ad-deps 885e93b8eb52cd42e4d691fd12580893ecf8614d1791ce6b2d179274e66db7ae /usr/include/pngconf.h /usr/include/pngconf.h
-COPY /v0.1.2/demos/zero-ad/Dollyfile-zero-ad-deps 885e93b8eb52cd42e4d691fd12580893ecf8614d1791ce6b2d179274e66db7ae /usr/include/pnglibconf.h /usr/include/pnglibconf.h
-COPY /v0.1.2/demos/zero-ad/Dollyfile-zero-ad-deps 885e93b8eb52cd42e4d691fd12580893ecf8614d1791ce6b2d179274e66db7ae /usr/share/licenses/freetype /usr/share/licenses/freetype
-COPY /v0.1.2/demos/zero-ad/Dollyfile-zero-ad-deps 885e93b8eb52cd42e4d691fd12580893ecf8614d1791ce6b2d179274e66db7ae /usr/share/licenses/libpng /usr/share/licenses/libpng
+COPY /v0.1.2/demos/zero-ad/Dollyfile-zero-ad-deps 37193c962ae0d6a3c683168508e7a2f8a3e484ebf483084689c66a6af23f5a16 /usr/include/freetype2 /usr/include/freetype2
+COPY /v0.1.2/demos/zero-ad/Dollyfile-zero-ad-deps 37193c962ae0d6a3c683168508e7a2f8a3e484ebf483084689c66a6af23f5a16 /usr/lib/libfreetype.a /usr/lib/libfreetype.a
+COPY /v0.1.2/demos/zero-ad/Dollyfile-zero-ad-deps 37193c962ae0d6a3c683168508e7a2f8a3e484ebf483084689c66a6af23f5a16 /usr/lib/libpng16.a /usr/lib/libpng16.a
+COPY /v0.1.2/demos/zero-ad/Dollyfile-zero-ad-deps 37193c962ae0d6a3c683168508e7a2f8a3e484ebf483084689c66a6af23f5a16 /usr/include/png.h /usr/include/png.h
+COPY /v0.1.2/demos/zero-ad/Dollyfile-zero-ad-deps 37193c962ae0d6a3c683168508e7a2f8a3e484ebf483084689c66a6af23f5a16 /usr/include/pngconf.h /usr/include/pngconf.h
+COPY /v0.1.2/demos/zero-ad/Dollyfile-zero-ad-deps 37193c962ae0d6a3c683168508e7a2f8a3e484ebf483084689c66a6af23f5a16 /usr/include/pnglibconf.h /usr/include/pnglibconf.h
+COPY /v0.1.2/demos/zero-ad/Dollyfile-zero-ad-deps 37193c962ae0d6a3c683168508e7a2f8a3e484ebf483084689c66a6af23f5a16 /usr/share/licenses/freetype /usr/share/licenses/freetype
+COPY /v0.1.2/demos/zero-ad/Dollyfile-zero-ad-deps 37193c962ae0d6a3c683168508e7a2f8a3e484ebf483084689c66a6af23f5a16 /usr/share/licenses/libpng /usr/share/licenses/libpng
 REQUIRES HEADER curl
 REQUIRES HEADER zlib
 REQUIRES LIB curl

@@ -1,44 +1,43 @@
 # LLVM is built inside Dolly; the seed's compiler still comes from the host
 
 - STATUS: OPEN
-- PRIORITY: 180
-- TAGS: toolchain,bootstrap,llvm,core
+- PRIORITY: 80
+- TAGS: toolchain,bootstrap,llvm,core,owner
 
-## State (2026-10-12)
+## State (2026-10-13)
 
-In v0.1.0 (`b02b9428`, then `49845778`): LLVM, Clang and LLD are built inside Dolly from the
-pinned sources, as the images `llvm-tablegen`, `llvm-build` and `llvm-cc` and the package
-`llvm`. A second stage built by that compiler is identical to the first in every archive, the
-compiler and the TableGen tools (`demos/llvm/test/stage2-browser.mjs`); a third was run once.
-`system-build` compiles libc++, libc++abi and libunwind from the pinned source. Rust's LLVM is
-built the same way since v0.1.1 (`rust-llvm`). The first two clauses of the done-when hold.
+Left is one thing, and it waits for the owner: **the seed's compiler still comes from the host**
+(`scripts/build-toolchain.sh`, the second row of `docs/sources.md`; read on 2026-10-13). A trial
+seed carrying the compiler linked in Dolly built an 18-image chain to the same files, the
+compiler aside ("The seed's compiler from inside Dolly: a trial"; branch `core/llvm-seed-trial`,
+not merged). That section lists what would change, the bootstrap order and the cost: every
+driver or libc change would then need a round through `llvm-cc`. Whether to switch is his
+decision; lowered from 180 because nothing here is for an agent until he makes it.
 
-Left:
+Shipped, and the first two clauses of the done-when: LLVM, Clang and LLD are built inside Dolly
+from the pinned sources since v0.1.0 (`b02b9428`, `49845778`: the images `llvm-tablegen`,
+`llvm-build`, `llvm-cc` and the package `llvm`), a second stage built by that compiler equals
+the first in every archive, the compiler and the TableGen tools
+(`demos/llvm/test/stage2-browser.mjs`; a third was run once), `system-build` compiles libc++,
+libc++abi and libunwind from the pinned source, and Rust's LLVM is built the same way since
+v0.1.1 (`rust-llvm`). On `main` on 2026-10-13 the tests of `llvm-cc`, the `llvm` package and
+`llvm-runtimes` passed in Chromium and Firefox
+(`work/rust/build/integrate-evidence/final-demos.log`).
 
-- **The seed's compiler still comes from the host** (`scripts/build-toolchain.sh`, the second
-  row of `docs/sources.md`). A trial seed carrying the compiler linked in Dolly built an
-  18-image chain to the same files, the compiler aside ("The seed's compiler from inside Dolly:
-  a trial"; branch `core/llvm-seed-trial`, not merged). That section lists what would change,
-  the bootstrap order and the cost: every driver or libc change would need a round through
-  `llvm-cc`. The owner's decision.
-- **The sysroot reproduction demo is not on `main`.** It rebuilt the rest of the process sysroot
-  inside Dolly and held it against the seed's ("The rest of the process sysroot"). `d148aa86`
-  took it out before v0.1.0: its unit list no longer matched the C library once sockets split
-  its refusals from the client. It stays on `core/runtimes-in-seed`.
-- **The browser stack has no general fix.** Only the compiler is entered on the deeper JSPI
-  stack (`8262c6ba`). Why Chrome's tab crashed with every process entered that way was not
-  found and, by the owner's decision, not hunted. `MSP430.cpp` fits with a margin of 635 in 760
-  and `SemaARM.cpp` only with LLVM's warnings off. A process primitive that continues on a
-  fresh stack is an ABI decision for the owner ("The two stack overflows").
-- Jobs are four, because a CMake job is three processes and the supervisor admits 32
-  (`tasks/20260930-100000-audit-53`).
-- Each stage extracts the sources and runs TableGen again, because snapshots keep no file times
-  (about 4 of `llvm-build`'s 44 minutes).
+Known limits, recorded and not planned as work:
+
+- The sysroot reproduction demo is not on `main`: `d148aa86` took it out before v0.1.0, when
+  its unit list no longer matched the C library; it stays on `core/runtimes-in-seed` ("The rest
+  of the process sysroot").
+- The browser stack has no general fix. Only the compiler is entered on the deeper JSPI stack
+  (`8262c6ba`); `MSP430.cpp` fits with a margin of 635 in 760 and `SemaARM.cpp` only with
+  LLVM's warnings off. A process primitive that continues on a fresh stack would be an ABI
+  decision ("The two stack overflows").
+- `llvm-build` runs four jobs, because a CMake job is three processes and the supervisor
+  admits 32 (`tasks/20260930-100000-audit-53`); each stage extracts the sources and runs
+  TableGen again, about 4 of its 44 minutes, because snapshots keep no file times.
 - The closure was built in Chrome only; Firefox compiles the two deepest units and was not
   given the whole build.
-
-Lowered from 345: what the owner called very high priority is shipped, and the first item waits
-for him.
 
 ## The request
 

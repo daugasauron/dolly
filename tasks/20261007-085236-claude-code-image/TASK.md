@@ -1,26 +1,25 @@
 # closed-source-agent (Claude Code): one real-model turn with the owner's key is owed
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 130
 - TAGS: javascript,janis,agent,demo,licences
 
-## State (2026-10-12)
+## Closed into `20261012-232215-owner-answers` (2026-10-13)
 
-On the domain since v0.1.0 as `closed-source-agent` (`a7108038`; in
-`config/domain-pages-images.txt`, not in the GitHub Pages subset). The image opens on the notice,
-fetches the pinned Claude Code 2.1.112 from npm only after a key is pressed, and starts its
-interface with an API key the user types. Its browser test (the notice, no request for the
-package before the key, a file-tool turn against a scripted endpoint) passed in Chromium and
-Firefox on 2026-10-07 and in Chrome in each release round;
+Everything an agent could do is done and verified again on `main`: `closed-source-agent` is on
+the domain since v0.1.0 (`a7108038`; in `config/domain-pages-images.txt`, not in the GitHub
+Pages subset), opens on the notice, fetches the pinned Claude Code 2.1.112 from npm only after a
+key is pressed and starts its interface with an API key the user types. Its browser test (the
+notice, no request for the package before the key, a file-tool turn against a scripted
+endpoint) passed in Chromium and Firefox on 2026-10-07, in Chrome in each release round, and in
+Chrome on 2026-10-13 (`closed-source-agent: chromium passed in 40.5s`,
+`work/rust/build/integrate-evidence/final-demos.log`);
 `demos/closed-source-agent/test/closed-source-agent.artifacts.mjs` holds that the sealed image
 contains no file of the package. The owner, shown the Commercial Terms gate and the open
 readings: "All of this is fine."
 
-Left, the third done-when line and the owner's to do: **one real-model turn in a browser** with
-a funded key, recorded here without the key. Open the image, press Enter, paste the key. The
-made-up key drew the API's 401, which proves the request path and not an answer.
-
-Lowered from 320: nothing is left for an agent.
+Not done, and only the owner can: the third done-when line, **one real-model turn in a browser**
+with a funded key. It is the first item of `tasks/20261012-232215-owner-answers`.
 
 ## The request
 

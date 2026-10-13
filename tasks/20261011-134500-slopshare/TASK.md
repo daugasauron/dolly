@@ -1,20 +1,28 @@
 # slopshare.dev: Cloudflare still rewrites two pages; www and the old domain are undecided
 
 - STATUS: OPEN
-- PRIORITY: 170
-- TAGS: release,site
+- PRIORITY: 60
+- TAGS: release,site,owner
 
-## State (2026-10-12)
+## State (2026-10-13)
+
+Waits for the owner: every item left is his switch or his decision, and nothing here is for an
+agent until one of them is made. Lowered from 170 for that reason.
 
 slopshare.dev serves v0.1.0, v0.1.1 and v0.1.2 and the repository names it (`dbdf87f8`); `boot`
-passes for every version in Chromium and Firefox (2026-10-12, below). Left:
+passed for every version in Chromium and Firefox on 2026-10-12 (below). Left:
 
-- **Email Address Obfuscation is still on for the zone.** `/v0.1.2/view/system-tools/` still
-  comes with a `/cdn-cgi/l/email-protection` link (curl, 2026-10-12 22:16 JST), so
-  `published-version.mjs verify https://slopshare.dev …` stops there. The owner switches it off
-  in the dashboard (the token cannot); then `verify` is run again.
+- **Email Address Obfuscation is still on for the zone.** A plain
+  `curl -sL https://slopshare.dev/v0.1.2/view/system-tools/` on 2026-10-13 08:18 JST answers 200
+  with 47,389 bytes, and line 235 of the recipe (`email = dolly@example.invalid`) comes as a
+  `/cdn-cgi/l/email-protection` link with Cloudflare's decoding script, as on 2026-10-12. So
+  `published-version.mjs verify https://slopshare.dev …` still stops there
+  (`view/xonotic/` is the other page). The owner switches it off in the dashboard (the token
+  cannot); then `verify` is run again. If the setting is to stay on, Cloudflare documents
+  `<!--email_off-->` around such text: `scripts/render-dollyfile-view.mjs` does not write it,
+  it would help only versions published after it, and only a deployment could show it works.
 - **`www.slopshare.dev` is not the site**: it has the registrar's record still, and a request
-  from this machine timed out after 15 s (2026-10-12).
+  from this machine timed out after 15 s (2026-10-12; not asked again on 2026-10-13).
 - **daugasauron.com** serves the same deployment with no redirect until the owner says to take
   it off. Its stale `/default/` is 404 now (`tasks/20261010-112540-stale-default`, closed); if
   the domain stays, one run of `boot https://daugasauron.com v0.1.0 v0.1.1 v0.1.2` is owed.

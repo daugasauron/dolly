@@ -1,5 +1,4 @@
-vim.filetype.add({ filename = { Dollyfile = "dollyfile" },
-  pattern = { [".*/Dollyfile%-.*"] = "dollyfile" }, extension = { dm = "dollyfile" } })
+vim.filetype.add({ filename = { Dollyfile = "dollyfile" }, pattern = { [".*/Dollyfile%-.*"] = "dollyfile" } })
 local namespace = vim.api.nvim_create_namespace("dollyfile")
 vim.diagnostic.config({ virtual_text = { prefix = "!" }, signs = true, underline = true }, namespace)
 vim.api.nvim_set_hl(0, "DiagnosticError", { fg = "#f2d45c", ctermfg = 3 })

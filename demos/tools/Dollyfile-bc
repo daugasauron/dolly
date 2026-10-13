@@ -1,0 +1,64 @@
+DOLLY 7
+PACKAGE bc
+REQUIRES HOST runtime@0
+
+# bc and dc by Gavin Howard, the bc of FreeBSD and macOS, from the files of
+# upstream's release archive, unchanged. Slop does not run its configure.sh, so the flags
+# are that script's defaults, without message catalogues (its -N) and with dc
+# editing its own lines as bc does (-s dc.tty_mode): the terminal has no line
+# discipline, so a program that leaves a line to it never gets one. dc is bc
+# under the name it looks for.
+FROM /v0.1.2/Dollyfile-system-tools 0b45999e6aa7b373f5abb794c278bb22cd3733f33931581e4673c9bf280af08e
+
+REQUIRES HEADER libc
+REQUIRES TOOL   cc
+REQUIRES TOOL   echo
+REQUIRES TOOL   ln
+REQUIRES TOOL   make
+REQUIRES TOOL   tar
+REQUIRES TOOL   test
+
+SOURCE /v0.1.2/dist/static/tools/bc.tar 4b12b7753ab51bd93bd5948e7a854a80b259a5baab2fd69047f1741c9d02afc7 /tmp/bc.tar
+SLOP tar -xf /tmp/bc.tar -C /
+
+FILE /tmp/bc.mk
+    .RECIPEPREFIX := >
+    S := /tmp/bc
+    BIN := /usr/bin
+    CPPFLAGS := -I $S/include -DBC_ENABLED=1 -DDC_ENABLED=1 -DBUILD_TYPE=N -DEXECPREFIX= -DMAINEXEC=bc \
+      -DBC_NUM_KARATSUBA_LEN=32 -DBC_ENABLE_NLS=0 -DBC_ENABLE_EXTRA_MATH=1 -DBC_ENABLE_HISTORY=1 \
+      -DBC_ENABLE_LIBRARY=0 -DBC_ENABLE_MEMCHECK=0 -DBC_ENABLE_AFL=0 -DBC_ENABLE_OSSFUZZ=0 \
+      -DBC_DEFAULT_BANNER=0 -DBC_DEFAULT_SIGINT_RESET=1 -DBC_DEFAULT_TTY_MODE=1 -DBC_DEFAULT_PROMPT=1 \
+      -DBC_DEFAULT_EXPR_EXIT=1 -DBC_DEFAULT_DIGIT_CLAMP=0 -DDC_DEFAULT_SIGINT_RESET=1 \
+      -DDC_DEFAULT_TTY_MODE=1 -DDC_DEFAULT_PROMPT=1 -DDC_DEFAULT_EXPR_EXIT=1 -DDC_DEFAULT_DIGIT_CLAMP=0
+    # The program's sources, and the math libraries and help texts that
+    # upstream's strgen turns into C.
+    SOURCES := $(filter-out %_fuzzer.c %/library.c,$(wildcard $S/src/*.c)) \
+      $(addprefix $S/gen/,lib.c lib2.c bc_help.c dc_help.c)
+    $(BIN)/bc: $(SOURCES:.c=.o)
+    >cc $^ -o $@
+    $S/gen/strgen: $S/gen/strgen.c
+    >cc -I $S/include -DBC_ENABLE_AFL=0 -DBC_ENABLE_OSSFUZZ=0 $< -o $@
+    $S/gen/lib.c: $S/gen/lib.bc $S/gen/strgen
+    >$S/gen/strgen $< $@ 0 bc_lib bc_lib_name BC_ENABLED 1
+    $S/gen/lib2.c: $S/gen/lib2.bc $S/gen/strgen
+    >$S/gen/strgen $< $@ 0 bc_lib2 bc_lib2_name 'BC_ENABLED && BC_ENABLE_EXTRA_MATH' 1
+    $S/gen/bc_help.c: $S/gen/bc_help.txt $S/gen/strgen
+    >$S/gen/strgen $< $@ 0 bc_help '' BC_ENABLED 0
+    $S/gen/dc_help.c: $S/gen/dc_help.txt $S/gen/strgen
+    >$S/gen/strgen $< $@ 0 dc_help '' DC_ENABLED 0
+    $S/%.o: $S/%.c
+    >cc -O2 $(CPPFLAGS) -c $< -o $@
+SLOP make -j4 -f /tmp/bc.mk
+SLOP ln -s bc /usr/bin/dc
+
+SLOP test "$(echo 'scale = 20; 4 * a(1)' | bc -l)" = 3.14159265358979323844
+SLOP test "$(echo '2 100 ^ p' | dc)" = 1267650600228229401496703205376
+
+EXPORTS TOOL bc
+EXPORTS TOOL dc
+FILE /usr/share/licenses/bc/LICENSE.md
+FILE /usr/share/licenses/bc/NOTICE.md
+# The manuals of this build: every feature but the message catalogues.
+FILE /usr/share/man/man1/bc.1
+FILE /usr/share/man/man1/dc.1

@@ -1,35 +1,32 @@
 # Zig self-host follow-ups
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 140
 - TAGS: toolchain,zig,display
 
-## State (2026-10-12)
+## Closed into `20261009-110500-rust-followups` (2026-10-13)
 
 From merging `work/zig-self-host` (2026-10-01): Zig is built inside Dolly and emits Ghostty as C.
-Done since: the kernel-plugin contract imports `strlen`, `memcmp` and `bcmp` from the kernel's
-libc, so the display plugin no longer carries its own. Nothing else on this list has moved since
-2026-10-07. Left:
 
-- **`src/ghostty/generated/` is committed output**: 5.4 MB; `uucode-tables.zig` alone is
-  233,478 lines, 89% of the lines under `src/` when counted on 2026-10-05. Generate it with the
-  upstream Zig generators inside Dolly and drop the checked-in copy: the largest deletion
-  available in the core tree.
-- **WAMR is compiled with `-DBUILD_TARGET_X86_64`** (`Dollyfile-zig-build:35`). The guest never
-  observes it ("WAMR target", below), but it is dead configuration for a CPU Dolly is not; an
-  honest form needs a WAMR source change or an upstream generic target.
-- **`libdisplay.so` grew 63%** (1,007,438 to 1,644,382 bytes) with Ghostty emitted as C instead
-  of compiled by an LLVM Zig. Not measured: where the size comes from, and whether `cc` flags
-  recover it.
-- **No test runs Zig as a user would**: the in-sandbox Zig compiling a small Zig program and a
-  C interop case through its C output and `cc` (from `20261001-014500-zig-sdk-browser`).
-- **`zig build`, `zig run` and `zig test` cannot work**: Zig's standard library has no way to
-  start a process on this target (from `20261006-103306-zig-child`). `docs/display.md` says
-  there is no `zig build` or `zig cc` and gives the missing LLVM as the reason; what a user
-  sees for each command is not recorded. Either the document names them with the real reason,
-  or Zig's spawn is ported to `posix_spawn` and `zig run` of a hello program passes.
+Done since:
 
-Lowered from 180: nothing here blocks a user or a build.
+- The kernel-plugin contract imports `strlen`, `memcmp` and `bcmp` from the kernel's libc, so
+  the display plugin no longer carries its own.
+- **A test runs Zig as a user would**: the `zig` row of `test/amy-browser.mjs` installs the
+  package into `default`, compiles a Zig function to C and calls it from a C program, and
+  builds and runs a program on Zig's standard library (from `20261001-014500-zig-sdk-browser`).
+- **What `zig build`, `zig run` and `zig test` print is recorded** (from
+  `20261006-103306-zig-child`). Measured on 2026-10-13 in Chromium, `default` after
+  `amy install zig`: each ends with status 126 and one line, `panic: development environment
+  cbe does not support feature build_command` for `zig build`, `wasm_linker` for `zig run` and
+  `zig test`, `cc_command` for `zig cc`, `fmt_command`, `version_command`, `help_command`. This
+  Zig is built with the C backend alone (`src/zig/config.zig`), which is the reason
+  `docs/display.md` gives; `man zig` names the missing commands and shows the two that work.
+  A Zig that could start a process would be a different build of Zig, not a fix here.
+
+Left, and moved to `tasks/20261009-110500-rust-followups` ("From Zig"): the committed
+`src/ghostty/generated/` (5.4 MB), the size of `libdisplay.so`, and WAMR's
+`-DBUILD_TARGET_X86_64`.
 
 ## WAMR target (read 2026-10-01)
 

@@ -36,12 +36,15 @@ entry.
 
 | Family | Shipped as binaries | Obligation | Status |
 | --- | --- | --- | --- |
-| GPL-2.0/3.0 | Git, Make, less (through GNU termcap), Emacs, Seven Kingdoms, 0 A.D. engine, Xonotic (engine, game logic, data, fonts), Dolly's GPL files | Complete corresponding source, including build scripts, or a written offer | Met: the prepared source archives and the recipe that builds them are served beside the images, for 0 A.D. and Xonotic too (below) |
+| GPL-2.0/3.0 | Git, Make, less (through GNU termcap), Emacs, tree, the lz4 program, Seven Kingdoms, 0 A.D. engine, Xonotic (engine, game logic, data, fonts), Dolly's GPL files | Complete corresponding source, including build scripts, or a written offer | Met: the prepared source archives and the recipe that builds them are served beside the images, for 0 A.D. and Xonotic too (below) |
 | IJG | libjpeg in Xonotic | Source: the unaltered `README` with it; binaries: the documentation states that the software is based in part on the work of the Independent JPEG Group | `README` kept as `/usr/share/licenses/libjpeg/README`; the statement is in the Xonotic section below and on `/licences/` |
 | LGPL-2.0+ | OpenAL Soft, static in the 0 A.D. engine | Source, and the means to relink | Source served (`openal/source.tar`), and the engine's (below), so it can be relinked |
 | MPL-2.0 | SpiderMonkey in 0 A.D.; MPL crates vendored by Codex | Source of the MPL files available; tell recipients where | Codex sources served; SpiderMonkey's pinned tarball is served (below); its MPL text is in `zero-ad` |
-| Apache-2.0 | LLVM (with exception), Mojo (with exception), TypeScript, Neovim, luv, Codex, WAMR, crates, npm packages | Licence copy, NOTICE files, modified files marked | Codex `NOTICE`, crates' notices and TypeScript notices shipped. LLVM's text is in every compiler image as `/usr/share/licenses/libcxx`; its exception covers runtime code compiled into programs. The Mojo compiler's patched files are those of `mojo-dolly.patch` and the target's patches, served with its source |
-| MIT, BSD, ISC, curl, Zlib, BSL | Most of the catalog | Copyright and permission notice with copies, binaries included (not for Zlib or BSL binaries) | Shipped in `/usr/share/licenses`, including musl, Emscripten and every vendored crate's own licence files |
+| Apache-2.0 | LLVM (with exception), Mojo (with exception), TypeScript, Neovim, luv, Codex, WAMR, Meson, WABT, crates, npm packages | Licence copy, NOTICE files, modified files marked | Codex `NOTICE`, crates' notices and TypeScript notices shipped. LLVM's text is in every compiler image as `/usr/share/licenses/libcxx`; its exception covers runtime code compiled into programs. The Mojo compiler's patched files are those of `mojo-dolly.patch` and the target's patches, served with its source |
+| MIT, BSD, ISC, curl, Zlib, BSL, bzip2, ICU | Most of the catalog | Copyright and permission notice with copies, binaries included (not for Zlib or BSL binaries) | Shipped in `/usr/share/licenses`, including musl, Emscripten and every vendored crate's own licence files |
+| Info-ZIP | zip, unzip | The licence with copies, binaries included; an altered version may not be called Zip or UnZip | Built from the release archives unchanged; `LICENSE` is in each package |
+| Public domain, 0BSD | SQLite, XZ Utils, Berkeley Yacc | None | SQLite's dedication, xz's `COPYING` and yacc's `LICENSE` are in the packages |
+| flex 2.5.4's licence (BSD, with an acknowledgement) | flex (reflex) | Documentation with binaries displays: this product includes software developed by the University of California, Berkeley and its contributors | The sentence is in this row and in the package's `COPYING`; scanners that it writes carry no such term (flex's own notice) |
 | PSF-2.0 | CPython | Licence, and a brief summary of changes in a derivative | Both shipped (`DOLLY-CHANGES`) |
 | CC-BY-SA-3.0 | 0 A.D. art and audio | Attribution and licence; share-alike for adaptations | The repacked mod archives keep `art/`, `audio/` and font licence files; repacking adapts nothing |
 | OFL-1.1 | Iosevka; 0 A.D. fonts | Licence with the font; no sale of the font alone | Iosevka's name table carries the notice; fonts are unmodified |
@@ -71,9 +74,19 @@ entry.
   (BSD-2-Clause) and inline code of OpenTelemetry's headers (Apache-2.0); each
   text is in `/usr/share/licenses/mojo`. Nothing of Modular's `max/`, which
   has another licence, is fetched or staged.
+- Of the packages of `demos/tools`, `lz4` (the program,
+  GPL-2.0-or-later) links liblz4 (BSD-2-Clause) and keeps both texts; `jq`
+  links the Oniguruma (BSD-2-Clause) and decNumber (ICU licence, in jq's
+  `COPYING`) of its own archive; `sqlite3` links zlib and linenoise
+  (BSD-2-Clause).
 - less links GNU termcap (GPL-2.0-or-later) statically, so the program is a
   GPL one. less itself is taken under its own two-clause licence, which the
   GPL admits; its `LICENSE` and termcap's `COPYING` are in the package.
+- tmux (ISC) links libevent (BSD-3-Clause) and NetBSD's libterminfo
+  (BSD-2-Clause and BSD-3-Clause) statically: permissive throughout. The
+  terminal descriptions compiled into libterminfo are from ncurses's
+  `terminfo.src`, which carries no copyright notice of its own. The three
+  licence files are in the package.
 - The 0 A.D. engine (GPL-2.0-or-later) links SpiderMonkey (MPL-2.0, whose
   secondary-licence clause allows the GPL combination), OpenAL Soft (LGPL),
   SDL2, FreeType, libpng, Ogg/Vorbis, ICU, Boost, {fmt}, libxml2, ENet and

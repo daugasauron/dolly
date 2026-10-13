@@ -13,20 +13,17 @@ REQUIRES HOST sockets@0
 REQUIRES HOST threads@0
 REQUIRES HOST upload@0
 
-# The image people open: a shell, its text tools, the terminal, curl and amy.
+# The image people open: a shell, its text tools, the terminal, curl, amy and
+# the page's file exchange.
 # It holds no compiler; amy installs what a session needs, and nena enables
 # the host modules a package needs beyond these (nena@0).
-INSTALL /v0.1.2/Dollyfile-core df5b101a605e45348e95929d202fb24c3a1e38cb0f69763a0973047710294220
-INSTALL /v0.1.2/Dollyfile-posix f86fffdfdd22e67543d0c8f787f3623f6cf1953f89242a0da66ae287d21a9ec2
-INSTALL /v0.1.2/Dollyfile-display 133d99fcd484b7cb260939ee300895459bd30164ec61aadfcd853cb9571215e8
-INSTALL /v0.1.2/Dollyfile-curl fa7dc027b8d70e8439ba5f6e03c12c396af3773b38577ceec7bcb30763a0c6f3
-INSTALL /v0.1.2/Dollyfile-amy 32d0c32b1443a49c7ef0720e261961ca6f6ca4f6b7419222392f2ca4a321bcb0
-INSTALL /v0.1.2/Dollyfile-nena 7e7b9f6a1ae9332a1148ad92826e7a271ebcfa57bc7f9a4c40fd853410500b8d
-# The page's file exchange. system-tools builds them and no package holds them yet.
-COPY /v0.1.2/Dollyfile-system-tools a79e48b88e5552cc965f0aa06dd9d28c05712649cc7b059036eb6a3857665632 /bin/download /bin/download
-COPY /v0.1.2/Dollyfile-system-tools a79e48b88e5552cc965f0aa06dd9d28c05712649cc7b059036eb6a3857665632 /bin/upload /bin/upload
-COPY /v0.1.2/Dollyfile-system-tools a79e48b88e5552cc965f0aa06dd9d28c05712649cc7b059036eb6a3857665632 /usr/share/man/cat1/download.1 /usr/share/man/cat1/download.1
-COPY /v0.1.2/Dollyfile-system-tools a79e48b88e5552cc965f0aa06dd9d28c05712649cc7b059036eb6a3857665632 /usr/share/man/cat1/upload.1 /usr/share/man/cat1/upload.1
+INSTALL /v0.1.2/Dollyfile-core f12ab6792f4442e1bcbca0e080d2e882221eea4e1adffe6638c5ebf5b5e686b6
+INSTALL /v0.1.2/Dollyfile-posix 0185e35c2c482423b249e2a76fd5e805c39c6519561f89e1710ca7cbcad78ac3
+INSTALL /v0.1.2/Dollyfile-display 224ecd55ea2005fbd2f54a5c368c6663055031595de8a30c3283b1c7caa50218
+INSTALL /v0.1.2/Dollyfile-curl 5085d3488b420b214adac1754101952c45737443120f201567bb6c2888c313aa
+INSTALL /v0.1.2/Dollyfile-amy bf78936a6daa6f50e227e8fd044c7fd615d6f84e287ce3563e497dfd621eb36a
+INSTALL /v0.1.2/Dollyfile-nena 08a7594e7d3c3e376f1363342692d972f491829e435e9f7cfb99285c489b9fbf
+INSTALL /v0.1.2/Dollyfile-transfer 54fe299ba1597f04c052feee25c54710c50276128133831c752d6897d3a14159
 REQUIRES TOOL foreground
 REQUIRES TOOL test
 REQUIRES TOOL echo

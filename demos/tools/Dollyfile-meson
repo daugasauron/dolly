@@ -1,0 +1,38 @@
+DOLLY 7
+PACKAGE meson
+REQUIRES HOST runtime@0
+REQUIRES HOST dso@0
+REQUIRES HOST http@0
+REQUIRES HOST sockets@0
+
+# Meson from the wheel PyPI publishes, installed by pip. Python runs it, meson
+# setup starts the C compiler and meson compile starts Ninja, so those three
+# packages come with it; the host modules are the ones Python declares.
+FROM /v0.1.2/Dollyfile-system-tools 0b45999e6aa7b373f5abb794c278bb22cd3733f33931581e4673c9bf280af08e
+INSTALL /v0.1.2/demos/python/Dollyfile-python 853121164f23a297adbccd1ae753fc71d598fe7307cee0262196bd9842992529
+INSTALL /v0.1.2/Dollyfile-cc 3c6df9b9fba2eb38d3fbce1af8149ea307c6f4d6cca10a134c0707998681a7ab
+INSTALL /v0.1.2/Dollyfile-ninja 51c81936dd630d0eac8a0f4b7adfdcc572873013405ccfc8aeea495d227f7fd1
+
+REQUIRES TOOL cc
+REQUIRES TOOL cp
+REQUIRES TOOL mkdir
+REQUIRES TOOL ninja
+REQUIRES TOOL pip
+
+SOURCE /v0.1.2/dist/static/tools/meson-1.12.1-py3-none-any.whl 930bc7542cbd9f57009e182fd014eba48cf1a0180a7b9006d2d32d8f168d8b02 /tmp/meson-1.12.1-py3-none-any.whl
+SLOP pip install --no-compile --no-index --no-deps /tmp/meson-1.12.1-py3-none-any.whl
+SLOP mkdir -p /usr/share/licenses/meson
+SLOP cp /usr/lib/python3.14/site-packages/meson-1.12.1.dist-info/licenses/COPYING /usr/share/licenses/meson/COPYING
+
+FILE /tmp/meson-check/meson.build
+    project('check', 'c')
+    executable('check', 'check.c')
+FILE /tmp/meson-check/check.c
+    int main(void) { return 0; }
+SLOP CWD /tmp/meson-check meson setup build && meson compile -C build && build/check
+
+EXPORTS TOOL meson
+FOLDER /usr/lib/python3.14/site-packages/mesonbuild
+FOLDER /usr/lib/python3.14/site-packages/meson-1.12.1.dist-info
+FILE /usr/share/licenses/meson/COPYING
+FILE /usr/share/man/man1/meson.1

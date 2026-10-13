@@ -1,0 +1,35 @@
+DOLLY 7
+PACKAGE tree
+REQUIRES HOST runtime@0
+
+# tree from the files of upstream's release archive, unchanged, by the rules of its
+# Makefile; the paths it keeps for Linux alone are not taken.
+FROM /v0.1.2/Dollyfile-system-tools 0b45999e6aa7b373f5abb794c278bb22cd3733f33931581e4673c9bf280af08e
+
+REQUIRES HEADER libc
+REQUIRES TOOL   cc
+REQUIRES TOOL   make
+REQUIRES TOOL   mkdir
+REQUIRES TOOL   tar
+REQUIRES TOOL   test
+REQUIRES TOOL   wc
+
+SOURCE /v0.1.2/dist/static/tools/tree.tar 2dc320ddce8575de63146bb58fc68101dcce7bf9630334510dc7e83c0bf505ea /tmp/tree.tar
+SLOP tar -xf /tmp/tree.tar -C /
+
+FILE /tmp/tree.mk
+    .RECIPEPREFIX := >
+    S := /tmp/tree
+    BIN := /usr/bin
+    NAMES := color file filter hash html info json list tree unix util xml strverscmp
+    $(BIN)/tree: $(addprefix $S/,$(addsuffix .o,$(NAMES)))
+    >cc $^ -o $@
+    $S/%.o: $S/%.c $S/tree.h
+    >cc -O2 -std=c11 -DLARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -c $< -o $@
+SLOP make -j4 -f /tmp/tree.mk
+
+SLOP mkdir -p /tmp/tree-check/a/b && test "$(tree -dn --noreport /tmp/tree-check | wc -l)" = 3
+
+EXPORTS TOOL tree
+FILE /usr/share/licenses/tree/LICENSE
+FILE /usr/share/man/man1/tree.1

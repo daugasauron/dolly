@@ -1,6 +1,7 @@
 #define _GNU_SOURCE
 
 #include <dolly/process.h>
+#include <dolly/pty.h>
 #include <dolly/runtime.h>
 
 #include <errno.h>
@@ -1318,7 +1319,15 @@ int __syscall_ioctl(int descriptor, int request, uintptr_t arguments) {
       memcpy((void *)argument, &size, sizeof(size));
       return 0;
     }
+    /* A pseudo-terminal's master takes a size (pty@0, host/pty). The
+     * display's terminal is the page's to size. */
     case TIOCSWINSZ: {
+      if (argument == 0) return -EFAULT;
+      struct winsize size;
+      memcpy(&size, (const void *)argument, sizeof(size));
+      const dolly_pty_request resize = {(uint32_t)descriptor, 0, size.ws_row, size.ws_col};
+      const int64_t resized = dolly_process_call(DOLLY_PTY_RESIZE, &resize, sizeof(resize), NULL, 0);
+      if (resized != -ENOTTY && resized != -ENOSYS) return (int)resized;
       const int mode = dolly_terminal_mode_get(descriptor);
       return mode < 0 ? mode : -EPERM;
     }

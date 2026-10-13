@@ -1,15 +1,17 @@
 # Reduce simulation stalls in developed 0 A.D. matches
 
-- STATUS: OPEN
+- STATUS: CLOSED
 - PRIORITY: 80
 - TAGS: performance,wasm64,0ad
 
-## State (2026-10-12)
+## Closed into `20260930-231200-self-host-zero-ad` (2026-10-13)
 
-Not worked on since it was filed. The numbers below are of the host-built engine of 2026-09-25;
-since 2026-10-07 the engine and SpiderMonkey are built inside Dolly, without debug info, and
-this workload has not been measured on them. The harness and evidence are under `.cache/0ad/`
-on this machine only.
+Not fixed and not measured again: the numbers below are of the host-built engine of 2026-09-25,
+which no longer exists (since 2026-10-07 the engine and SpiderMonkey are built inside Dolly,
+without debug info). Whether developed matches still stall is the second item of
+`tasks/20260930-231200-self-host-zero-ad`, the one task for what is left of the 0 A.D. port;
+this file keeps the setup, the harness and the measurement. The harness and its evidence are
+under `.cache/0ad/` on this machine only.
 
 ## The finding
 

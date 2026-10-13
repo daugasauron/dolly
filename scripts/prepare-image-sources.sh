@@ -64,6 +64,13 @@ if has_image ghostty-build; then
   runtime_font="${font_paths[1]}"
 fi
 has_image system-build && copy_static src/slop.c default/slop.c
+if has_image system-build; then
+  # The tools the root recipe compiles before it has tar: one SOURCE row each.
+  for source in ar.c bracket.c cat.c cc.c cd.c clear.c cp.c cxx.c echo.c file.c foreground.c help.c ld.c \
+      ls.c man.c mkdir.c mv.c pwd.c rm.c stat.c tar.c test.c touch.c; do
+    copy_static "src/commands/${source}" "default/commands/${source}"
+  done
+fi
 if has_image system; then
   copy_static src/commands/session-recover.c session-recovery/session-recover.c
   for header in session-records.h fs-record.h; do

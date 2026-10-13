@@ -1,0 +1,28 @@
+DOLLY 7
+PACKAGE xxd
+REQUIRES HOST runtime@0
+
+# xxd, the hex dump Vim ships, from Vim's tagged source, unchanged: one file
+# and its manual page.
+FROM /v0.1.2/Dollyfile-system-tools 0b45999e6aa7b373f5abb794c278bb22cd3733f33931581e4673c9bf280af08e
+
+REQUIRES HEADER libc
+REQUIRES TOOL   cc
+REQUIRES TOOL   echo
+REQUIRES TOOL   grep
+REQUIRES TOOL   mkdir
+REQUIRES TOOL   sed
+REQUIRES TOOL   test
+
+SOURCE /v0.1.2/dist/static/tools/xxd.c f4f9812f9b83651e30040c83bd722651cc4656eb95b86a852edd1cd60e9b2fcd /tmp/xxd.c
+SOURCE /v0.1.2/dist/static/tools/xxd.1 ab329ce79d69f86007ace6040d5915fc3453368ba0568bed8a944f9e5bd02ae5 /usr/share/man/man1/xxd.1
+SLOP cc -O2 /tmp/xxd.c -o /usr/bin/xxd
+# xxd ships no licence file: its source says under which it is used.
+SLOP mkdir -p /usr/share/licenses/xxd
+SLOP sed -n 81,86p /tmp/xxd.c > /usr/share/licenses/xxd/LICENSE
+
+SLOP test "$(echo hello | xxd -p)" = 68656c6c6f0a && echo 68656c6c6f0a | xxd -r -p | grep -qx hello
+
+EXPORTS TOOL xxd
+FILE /usr/share/licenses/xxd/LICENSE
+FILE /usr/share/man/man1/xxd.1

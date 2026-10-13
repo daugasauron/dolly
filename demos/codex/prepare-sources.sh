@@ -6,7 +6,7 @@ if has_image codex-build; then
   done
   copy_static demos/codex/config/no-js.c codex/no-js.c
 fi
-if has_image codex-cli; then
+if has_image codex; then
   copy_static demos/codex/launch.c codex/launch.c
   copy_static demos/codex/config.toml codex/config.toml
 fi

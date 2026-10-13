@@ -21,14 +21,15 @@ unchanged, but tmux needs three more things, each measured below:
    terminal, `/dev/tty`, which the server opens by name, as upstream already
    does on Cygwin.
 
-With a prototype of (1) as a host module of two operations, kernel and
-supervisor only and **not a seed change** (`pty@0`, below), and a patch of
-ten hunks for (2) and (3), upstream tmux 3.8 built by Dolly's `cc` runs: two panes, a shell in each,
-typing in the active pane, Ctrl+C for the program in it, a window resize,
-detach and attach, and its jobs (`run-shell`, `if-shell`, `#()`). The
-unchanged `less` and `nvim` packages run in a pane.
-The contract's shape is the owner's to decide; the proposal and what the
-prototype leaves out are under "Proposal".
+With (1) as the host module `pty@0`, two operations in the kernel and the
+supervisor, and a patch of nine hunks for (2) and (3), upstream tmux 3.8
+built by Dolly's `cc` runs: two panes, a shell in each, typing in the active
+pane, Ctrl+C for the program in it, a window resize, detach and attach, and
+its jobs (`run-shell`, `if-shell`, `#()`). The unchanged `less` and `nvim`
+packages run in a pane.
+The owner accepted the module on 2026-10-13 ("adding pty is fine"). It was a
+prototype outside the seed until then and is a contract since `706afa45`, a
+seed change: the sections below follow that order, the proposal first.
 
 To try it: `npm run dev -- tmux-panes` in `work/tmux`, then `/tmux-panes/`
 ([demo](../../demos/tmux/README.md)). Screenshots of both browsers are in
@@ -237,6 +238,178 @@ met on the branch.
 - The `tmux` and `tmux-panes` images are rebuilt for the new patch. A server
   started before the rebuild does not know the new pack and answers 404 for
   it: restart it.
+
+## 2026-10-13 08:30: Pi's test and this branch
+
+`npm run test:demos -- pi` typed `! printf 'DOLLY-ENTRY-CWD=%s\n' "$(pwd)"` and
+the screen held `DOLLY-ENTRY-CWuD=`: 3 of 7 runs on `main` with `demo/tmux`
+merged (runtime `aacab8fb…`), none of 11 without it, measured by the
+integrator in `work/rust`. Measured again in `work/tmux`, Chromium, the same
+test, every failure with that same text:
+
+| Runtime | Three at a time | One at a time |
+| --- | --- | --- |
+| `bd347084…`, built in `work/tmux` from `main`'s kernel and supervisor: the same bytes as `main`'s | 2 of 9 | 1 of 8 |
+| `aacab8fb…`, `demo/tmux` | 2 of 9 | 4 of 8 |
+| `aacab8fb…` with the supervisor's three `#deliverRaised` calls taken out | 3 of 9 | |
+
+So it fails without `pty@0`, on `main`'s own runtime. It is sighting 1 of
+`tasks/20261001-095000-terminal-text-flake`, explained there on 2026-10-08:
+Janis reads the terminal 256 bytes at a time (`js_dolly_read_raw`,
+`demos/javascript/quickjs-main.c`), byte 256 of this line as Playwright types
+it is the `3` of W's key release `ESC [ 119 ; 1 : 3 u`, and Pi takes the `u`
+as text when it has spent 50 ms on the first 256 bytes. It needs 23 keys
+waiting when Pi starts to read: Pi late, as under load. Another agent ran
+Pi's test in `work/polish` during these runs, so the rates above are those of
+a loaded machine and do not rank the two runtimes: 3 of 17 against 9 of 26.
+Nothing in the module is on the display terminal's read path (read in the
+code, and the drain taken out changes nothing).
+
+Decision: the cut is fixed where it is, in Janis, in a commit of its own on
+this branch (`503e90fc`; today's round rebuilds Pi's chain anyway): the first
+byte is waited for as before and the rest comes in one read of up to 64 KiB.
+**The branch must not merge until Pi's test passes 12 of 12 on it.**
+
+Measured on the branch's kernel and supervisor with the old seed
+(`aacab8fb…`, the runtime that failed above), Chromium:
+
+- The `javascript` demo's new case types 60 keys under kitty flags 7 at a
+  program that reads three seconds late. Against the image before the fix it
+  fails: reads of 256, 256 and 148 bytes. After it the whole test passes.
+- Pi's chain rebuilt with the fix (`typescript-build`, `javascript`,
+  `pi-build`, `pi-coding-agent`, `pi-runtime`, `pi`: 218 s): **Pi's test 12
+  of 12**, three at a time, the load under which 2 of 9 and 2 of 9 had
+  failed.
+- Pi's chain cannot be staged in this tree by itself (its Rust sources are
+  in `work/rust/build/rustc-port`, read here through a link for this build
+  only), and on the new seed it needs `rust-build`, which the caps here do
+  not allow: Pi on the new seed is for the round to measure.
+
+## 2026-10-13: `pty@0` from prototype to contract (a seed change)
+
+The owner accepted the module ("adding pty is fine"). `706afa45` makes it
+what the proposal's first open point describes; image inputs go from
+`a7ee26c5…` to `09ec882b…`, so every image is stale until the round.
+
+- `host/pty/module.json` lists `pty.h`, the generated `pty-abi.h` and
+  `client.c`. `libdolly-pty.a` defines `openpty` and records `pty@0` with
+  the module's digest; a program asks for it with `-ldolly-pty`, as for
+  sockets, because libc has an `openpty` of its own that programs name
+  without using (`scripts/build.sh`, `src/compiler.cpp`). The loader refuses
+  a program that asked in an image that does not declare the module, and
+  such a recipe does not seal (tested).
+- The libc forwards `ioctl(TIOCSWINSZ)` on a master (`libc-adapter.c`): the
+  only way to a master is `openpty`, so nothing unstamped can use it.
+- The two libc findings: `waitpid` accepts `WUNTRACED`, and `ttyname` of a
+  terminal answered `/dev/tty`. The second was taken out again the same
+  morning (below, 10:10). tmux's patch loses one hunk (nine are left) and
+  the demo its own `pty.c`.
+- `docs/process-model.md` has the section, `docs/browser-boundary.md` the
+  row, `host/README.md` a paragraph; all three and the two WAT files are
+  pinned in `Dollyfile-dolly-docs`, which repins `pi`, `pi-local` and
+  `dollyfile-studio`.
+- `tmux` and `tmux-panes` are in `config/domain-pages-images.txt`.
+- For `nena@0`: nothing in the module reads an image's declared list. The
+  kernel part is always there and serves any process, the supervisor's
+  drain runs for every session, and `pty.mjs` has no page or Worker side to
+  start. The one gate is the loader's check of an executable's `pty@0`
+  record against the modules admitted for the session, which is the other
+  agent's.
+
+
+## 2026-10-13 10:00: the new seed measured; `libevent` and `libterminfo`
+
+The chain for the seed step, rebuilt in this tree at one job on image inputs
+`09ec882b…`: `system-build` and what `default`, `system`, `tmux` and
+`tmux-panes` stand on, with `cc`, `git`, `less`, `python`, `javascript`,
+`dolly-docs`, `audio-sdk` and `gpu-sdk` for the core suite: 24 images in
+**1136 s**. The Janis fix repins the recipes that take its source
+(`066b253a`).
+
+`38f9faa6` breaks out of tmux's recipe what another program would link, as
+packages of the demo that tmux installs:
+
+- `libevent`: upstream's core, `-levent_core`, with event2's headers and the
+  older `<event.h>` over them (three of tmux's files include it). The extra
+  library (DNS, HTTP, RPC, tagging) is not built.
+- `libterminfo`: NetBSD's, `-lterminfo`, `<term.h>` and `<termcap.h>`. It is
+  not curses. tmux's `tty.c` includes `<curses.h>` and takes nothing from
+  it, so tmux's recipe writes an empty one and no longer claims
+  `HAVE_CURSES_H`.
+- Both need `runtime@0` alone: `amy install libevent` works in `default`.
+  `amy install tmux` brings both (2.7 MB against 2.1 MB), as `gzip` brings
+  `zlib`.
+- Each has its case in `test/amy-browser.mjs`: a loop whose timer writes
+  into a pipe the loop watches, and a cursor address written from
+  `xterm-256color`'s description.
+
+Measured on the new seed at `fe04b918`, Chromium and Firefox unless said:
+
+| Check | Result |
+| --- | --- |
+| Source suite | 424 of 424 |
+| `test/pty-browser.mjs` | passes in both |
+| `demos/tmux/test/tmux-browser.mjs` | passes in both (the package part is Chromium's) |
+| `javascript` demo test | passes (Chromium, as it runs) |
+| `python` demo test, with `ninja` built for it | passes: CPython in Chromium, NumPy built by pip in `default` in both (186 s, 254 s) |
+| amy's two new cases, alone in `default` after `amy install cc` | pass in both |
+| Core suite (`slot.sh hugebuild`) | in each browser all but `amy-browser.mjs`, which stops at `amy install cmake`: 42 tests pass, `fs-growth` among them |
+
+Not measured here, for the round: Pi's test and the whole of
+`test/amy-browser.mjs` on the new seed. Pi's image needs `rust-build` and
+amy's test the catalog, which the caps of this tree do not allow. Nor
+`nvim` built on the new seed in a pane: it ran there as the package built
+before the module existed.
+
+`main` at `743757a4` is merged (`7b81cff1`): one conflict, adjacent rows of
+`config/domain-pages-images.txt`, both sides kept. The runtime and the image
+inputs are the same after it; source suite 424 of 424, the tmux test and
+amy's two cases again in both browsers.
+
+## 2026-10-13 10:10: `ttyname` is out of the libc again (the seed changes once more)
+
+`706afa45` made `ttyname` of a terminal answer `/dev/tty`. That is not a
+small change. libuv's `uv_tty_init` reopens a terminal by the name `ttyname`
+gives, for a description of its own, and sets `O_NONBLOCK` on it. `ttyname`
+has always failed here, so libuv has kept the descriptor it was given, with
+blocking writes. With a name, every libuv program built on the new seed
+(`nvim`, Lua's `luv`, CMake) would take the other way for the first time,
+and in a tmux pane `/dev/tty` is the slave the pane's programs share, not a
+new description.
+
+Measured on `09ec882b…`, Chromium (`build/tmux-evidence/reopen.mjs`): a
+program does what libuv does (`ttyname_r`, `open`, `dup2`, `O_NONBLOCK`) and
+exits, then `cat` runs in the same shell. At the display's terminal `cat`
+waits. In a pane it ends with `cat: standard input: Resource temporarily
+unavailable`.
+
+`19660a44` takes the name out: `ttyname` fails as before, tmux's client names
+its terminal itself (the patch has nine hunks again), the pty test checks
+that a terminal has no name, and the process model says that `/dev/tty` in
+a pane is the same open file, `O_NONBLOCK` included. Image inputs:
+`09ec882b…` -> `b2adae1b…`. What was measured at 10:00 is measured again:
+
+The chain again, now with `libevent`, `libterminfo` and `ninja`: 28 images
+in **1095 s** at one job. On `b2adae1b…` at `126e2f39`, Chromium and
+Firefox unless said:
+
+| Check | Result |
+| --- | --- |
+| Source suite | 424 of 424 |
+| `test/pty-browser.mjs` | passes in both |
+| `demos/tmux/test/tmux-browser.mjs` | passes in both (the package part is Chromium's) |
+| `javascript` demo test | passes (Chromium, as it runs) |
+| `python` demo test | passes: CPython in Chromium, NumPy built by pip in `default` in both (205 s, 265 s) |
+| amy's two new cases, alone in `default` after `amy install cc` | pass in both |
+| Core suite (`slot.sh hugebuild`) | in each browser all but `amy-browser.mjs`, which stops at `amy install cmake`: 42 tests pass |
+| `reopen.mjs`, Chromium | `ttyname_r` fails in a pane and at the display, and `cat` waits in both |
+
+Open, for whoever takes pseudo-terminals further: a second open of a slave
+with flags of its own. No program here needs one while `ttyname` names
+nothing.
+
+The done-when is met on the branch. The task stays open until the round has
+measured Pi's test (12 of 12) and amy's on the new seed.
 
 Done when: tmux runs in a Dolly session with two panes, or the task says
 exactly which operations are missing, each with its measurement.

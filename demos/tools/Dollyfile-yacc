@@ -1,0 +1,88 @@
+DOLLY 7
+PACKAGE yacc
+REQUIRES HOST runtime@0
+
+# Berkeley Yacc from upstream's release archive, unchanged. Slop does not run
+# its configure, so config.h says what it would find here. byacc is the name
+# it goes by beside another yacc.
+FROM /v0.1.2/Dollyfile-system-tools 0b45999e6aa7b373f5abb794c278bb22cd3733f33931581e4673c9bf280af08e
+
+REQUIRES HEADER libc
+REQUIRES TOOL   cc
+REQUIRES TOOL   cp
+REQUIRES TOOL   echo
+REQUIRES TOOL   gzip
+REQUIRES TOOL   ln
+REQUIRES TOOL   make
+REQUIRES TOOL   mkdir
+REQUIRES TOOL   tar
+REQUIRES TOOL   test
+
+SOURCE /v0.1.2/dist/static/tools/byacc-20260126.tgz b618c5fb44c2f5f048843db90f7d1b24f78f47b07913c8c7ba8c942d3eb24b00 /tmp/byacc.tgz
+SLOP gzip -dc /tmp/byacc.tgz | tar -xf - -C /tmp
+
+FILE /tmp/byacc-20260126/config.h
+    #define HAVE_FCNTL_H 1
+    #define HAVE_GETOPT 1
+    #define HAVE_GETOPT_H 1
+    #define HAVE_GETOPT_HEADER 1
+    #define HAVE_INTTYPES_H 1
+    #define HAVE_MKSTEMP 1
+    #define HAVE_STDINT_H 1
+    #define HAVE_STDLIB_H 1
+    #define HAVE_STDNORETURN_H 1
+    #define HAVE_STRINGS_H 1
+    #define HAVE_STRING_H 1
+    #define HAVE_SYS_STAT_H 1
+    #define HAVE_SYS_TYPES_H 1
+    #define HAVE_UNISTD_H 1
+    #define HAVE_VSNPRINTF 1
+    #define MIXEDCASE_FILENAMES 1
+    #define NEED_GETOPT_H 1
+    #define STDC_HEADERS 1
+    #define STDC_NORETURN 1
+FILE /tmp/yacc.mk
+    .RECIPEPREFIX := >
+    S := /tmp/byacc-20260126
+    BIN := /usr/bin
+    # The sources of upstream's makefile, with its plain skeleton.
+    NAMES := closure error graph lalr lr0 main mkpar mstring output reader yaccpar symtab verbose warshall
+    $(BIN)/yacc: $(addprefix $S/,$(addsuffix .o,$(NAMES)))
+    >cc $^ -o $@
+    $S/%.o: $S/%.c $S/config.h $S/defs.h
+    >cc -O2 -DHAVE_CONFIG_H -DYYPATCH=20260126 -I $S -c $< -o $@
+SLOP make -j4 -f /tmp/yacc.mk
+SLOP ln -s yacc /usr/bin/byacc
+SLOP mkdir -p /usr/share/licenses/yacc
+SLOP cp /tmp/byacc-20260126/LICENSE /usr/share/licenses/yacc/LICENSE
+SLOP cp /tmp/byacc-20260126/yacc.1 /usr/share/man/man1/yacc.1
+
+# A grammar with precedence becomes a parser that computes.
+FILE /tmp/yacc-check/sum.y
+    %{
+    #include <ctype.h>
+    #include <stdio.h>
+    int yylex(void);
+    void yyerror(const char *message) { fputs(message, stderr); }
+    %}
+    %token NUMBER
+    %left '+'
+    %left '*'
+    %%
+    line: sum '\n' { printf("%d\n", $1); };
+    sum: NUMBER | sum '+' sum { $$ = $1 + $3; } | sum '*' sum { $$ = $1 * $3; };
+    %%
+    int yylex(void) {
+      int c = getchar();
+      if (!isdigit(c)) return c == EOF ? 0 : c;
+      for (yylval = 0; isdigit(c); c = getchar()) yylval = yylval * 10 + c - '0';
+      ungetc(c, stdin);
+      return NUMBER;
+    }
+    int main(void) { return yyparse(); }
+SLOP CWD /tmp/yacc-check yacc -o sum.c sum.y && cc sum.c -o sum && test "$(echo '2+4*10' | ./sum)" = 42
+
+EXPORTS TOOL yacc
+EXPORTS TOOL byacc
+FILE /usr/share/licenses/yacc/LICENSE
+FILE /usr/share/man/man1/yacc.1

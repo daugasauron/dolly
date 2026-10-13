@@ -1,5 +1,5 @@
 # Sourced by scripts/prepare-image-sources.sh.
-if has_image pi-coding-agent; then
+if has_image pi; then
   copy_static demos/pi/dolly-tools.js default/pi/dolly-tools.js
   copy_static demos/pi/SYSTEM.md default/pi/SYSTEM.md
   copy_static demos/pi/settings.json default/pi/settings.json

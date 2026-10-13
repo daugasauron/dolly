@@ -6,12 +6,13 @@ Dolly's files, processes and HTTP broker.
 
 ## Images
 
-- `pi`: Pi coding agent with JavaScript, shell tools, ripgrep and fd.
+- `pi`: Pi with ripgrep and fd, as a package.
+- `pi-agent`: Pi coding agent with JavaScript, shell tools, ripgrep and fd.
 - `pi-runtime`: Reusable Pi and JavaScript runtime.
 - `pi-build`: Pi packages compiled from pinned TypeScript sources.
-- `pi-coding-agent`: Pi with ripgrep and fd, as a package.
 
-Open `/pi/`; build with `npm run image -- pi`. Leave Pi with `/exit` or Ctrl+D.
+Open `/pi-agent/`; build with `npm run image -- pi-agent`. Leave Pi with
+`/exit` or Ctrl+D. In another image, `amy install pi` brings the agent.
 
 ## How it works
 
@@ -36,7 +37,7 @@ Open `/pi/`; build with `npm run image -- pi`. Leave Pi with `/exit` or Ctrl+D.
 
 ## Key files
 
-- [`Dollyfile-pi-build`](Dollyfile-pi-build), [`Dollyfile-pi-coding-agent`](Dollyfile-pi-coding-agent), [`pi.c`](pi.c): build and launcher.
+- [`Dollyfile-pi-build`](Dollyfile-pi-build), [`Dollyfile-pi`](Dollyfile-pi), [`pi.c`](pi.c): build and launcher.
 - [`SYSTEM.md`](SYSTEM.md), [`settings.json`](settings.json),
   [`skills/dolly/SKILL.md`](skills/dolly/SKILL.md): the agent's Dolly guidance.
 - Tests: [`test/`](test/).

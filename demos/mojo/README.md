@@ -16,16 +16,16 @@ files.
 - `mojo-build`: build-only: the compiler, compiled and linked from those
   archives with the target's patches, and the standard library and the
   package `gpu` that it precompiles. It keeps `/opt/mojo`.
-- `mojo-compiler`: the Mojo compiler built in Dolly, with its standard library, the package `gpu` and the `cc` package: `mojo build NAME.mojo` makes a Dolly executable, as a package.
-- `mojo`: a shell that installs `mojo-compiler` on a base with a GPU, where
-  the kernels of its programs run. Requires WebGPU.
+- `mojo`: the Mojo compiler built in Dolly, with its standard library, the package `gpu` and the `cc` package: `mojo build NAME.mojo` makes a Dolly executable, as a package.
+- `mojo-gpu`: a shell that installs `mojo` on a base with a GPU, where the
+  kernels of its programs run. Requires WebGPU.
 - `mojo-runtime`: What a Mojo object links against, and its `DeviceContext` over WebGPU. Requires WebGPU.
 
 Programs for Dolly, their runtime and GPU kernels: [target](target/README.md).
 
 ## Using it
 
-Open the `mojo` image (`/mojo/`). `~/mojo` holds three programs:
+Open the `mojo-gpu` image (`/mojo-gpu/`). `~/mojo` holds three programs:
 
 ```sh
 cd ~/mojo
@@ -33,15 +33,15 @@ mojo build hello.mojo && ./hello
 mojo build mandelbrot.mojo && ./mandelbrot    # the set as text, from a kernel on the GPU
 ```
 
-In another image, `amy install mojo-compiler` brings the compiler, its
-libraries and `cc` (1,963 files, 227 MB), and `mojo build hello.mojo &&
-./hello` works there, on `default` too. The package is named as upstream
-names what holds its compiler (`mojo-compiler`, beside the `mojo` that
-people install); here `mojo` is the image people open. It declares
-`runtime@0` alone: a program that imports `gpu` builds and links anywhere,
-and where the image has no `gpu@0`, as on `default`, starting it fails with
-status 126 and `dolly: process 128 was refused: host module gpu@0 is not
-declared by this image (REQUIRES HOST)`. Its kernels run in the `mojo` image.
+In another image, `amy install mojo` brings the compiler, its libraries and
+`cc` (1,963 files, 227 MB), and `mojo build hello.mojo && ./hello` works
+there, on `default` too. The package has the plain name, as what a session
+installs; the image that opens into it is named for what it adds, the GPU.
+The package declares `runtime@0` alone: a program that imports `gpu` builds
+and links anywhere, and where the image has no `gpu@0`, as on `default`,
+starting it fails with status 126 and `dolly: process 128 was refused: host
+module gpu@0 is not declared by this image (REQUIRES HOST)`. Its kernels run
+in the `mojo-gpu` image.
 
 - `mojo build` compiles for Dolly when given no `--target-triple`
   (`wasm64-unknown-dolly` is this LLVM's default target) and links with `cc`
@@ -74,16 +74,16 @@ Test: `npm run test:demos -- mojo` ([`test/`](test/)) builds and runs ten
 programs in the image, seven of them with kernels on WebGPU; with a GPU
 window on `DISPLAY`, `node demos/mojo/test/mojo-browser.mjs` runs it in
 Chrome on the GPU and in the installed Firefox too. `test/amy-browser.mjs`
-installs `mojo-compiler` alone into `default`, where `mojo` and `cc` are
+installs `mojo` alone into `default`, where the command and `cc` are
 absent, and builds and runs a hello.
 
 ## Building it
 
-`npm run image -- mojo` builds the chain: `mojo-llvm` takes 45 to 77 minutes
+`npm run image -- mojo-gpu` builds the chain: `mojo-llvm` takes 45 to 77 minutes
 at four jobs and `mojo-build` 13 minutes at three, each in a 9 GB slot
 (`mojo-llvm`'s `ROCDLDialect.cpp` alone takes a compiler about 5 GB natively;
-`mojo-build` held 6.2 GB of anonymous memory), `mojo-compiler` and `mojo`
-under a minute each.
+`mojo-build` held 6.2 GB of anonymous memory), `mojo` and `mojo-gpu` under
+a minute each.
 
 ## Key files
 

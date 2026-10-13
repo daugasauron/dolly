@@ -1,0 +1,61 @@
+DOLLY 7
+PACKAGE bzip2
+REQUIRES HOST runtime@0
+
+# bzip2 and libbz2 from upstream's release archive, unchanged, by the rules of
+# its Makefile. bunzip2 and bzcat are bzip2 under the names it looks for.
+FROM /v0.1.2/Dollyfile-system-tools 0b45999e6aa7b373f5abb794c278bb22cd3733f33931581e4673c9bf280af08e
+
+REQUIRES HEADER libc
+REQUIRES TOOL   ar
+REQUIRES TOOL   cc
+REQUIRES TOOL   cmp
+REQUIRES TOOL   cp
+REQUIRES TOOL   gzip
+REQUIRES TOOL   ln
+REQUIRES TOOL   make
+REQUIRES TOOL   mkdir
+REQUIRES TOOL   tar
+
+SOURCE /v0.1.2/dist/static/tools/bzip2-1.0.8.tar.gz ab5a03176ee106d3f0fa90e381da478ddae405918153cca248e682cd0c4a2269 /tmp/bzip2.tar.gz
+SLOP gzip -dc /tmp/bzip2.tar.gz | tar -xf - -C /tmp
+
+FILE /tmp/bzip2.mk
+    .RECIPEPREFIX := >
+    S := /tmp/bzip2-1.0.8
+    BIN := /usr/bin
+    LIB := /usr/lib
+    NAMES := blocksort huffman crctable randtable compress decompress bzlib
+    all: $(BIN)/bzip2 $(BIN)/bzip2recover
+    $S/%.o: $S/%.c
+    >cc -O2 -D_FILE_OFFSET_BITS=64 -c $< -o $@
+    $(LIB)/libbz2.a: $(addprefix $S/,$(addsuffix .o,$(NAMES)))
+    >ar rcs $@ $^
+    $(BIN)/bzip2: $S/bzip2.o $(LIB)/libbz2.a
+    >cc $^ -o $@
+    $(BIN)/bzip2recover: $S/bzip2recover.o
+    >cc $^ -o $@
+SLOP make -j4 -f /tmp/bzip2.mk
+SLOP ln -s bzip2 /usr/bin/bunzip2
+SLOP ln -s bzip2 /usr/bin/bzcat
+SLOP cp /tmp/bzip2-1.0.8/bzlib.h /usr/include/bzlib.h
+SLOP mkdir -p /usr/share/licenses/bzip2
+SLOP cp /tmp/bzip2-1.0.8/LICENSE /usr/share/licenses/bzip2/LICENSE
+SLOP cp /tmp/bzip2-1.0.8/bzip2.1 /usr/share/man/man1/bzip2.1
+
+# The checks of upstream's Makefile: each sample at its block size, both ways.
+SLOP CWD /tmp/bzip2-1.0.8 bzip2 -1 < sample1.ref | cmp - sample1.bz2
+SLOP CWD /tmp/bzip2-1.0.8 bzip2 -2 < sample2.ref | cmp - sample2.bz2
+SLOP CWD /tmp/bzip2-1.0.8 bzip2 -3 < sample3.ref | cmp - sample3.bz2
+SLOP CWD /tmp/bzip2-1.0.8 bunzip2 < sample1.bz2 | cmp - sample1.ref
+SLOP CWD /tmp/bzip2-1.0.8 bzcat sample2.bz2 | cmp - sample2.ref
+SLOP CWD /tmp/bzip2-1.0.8 bzip2 -ds < sample3.bz2 | cmp - sample3.ref
+
+EXPORTS TOOL   bzip2
+EXPORTS TOOL   bunzip2
+EXPORTS TOOL   bzcat
+EXPORTS TOOL   bzip2recover
+EXPORTS LIB    bz2   /usr/lib/libbz2.a
+EXPORTS HEADER bzlib /usr/include/bzlib.h
+FILE /usr/share/licenses/bzip2/LICENSE
+FILE /usr/share/man/man1/bzip2.1

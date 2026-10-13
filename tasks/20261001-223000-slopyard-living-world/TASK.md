@@ -1,13 +1,18 @@
 # Slopyard living world: measured stalls on the current catalog
 
 - STATUS: OPEN
-- PRIORITY: 60
+- PRIORITY: 50
 - TAGS: game,controllers,cargo,combat
 
-## State (2026-10-12)
+## State (2026-10-13)
 
-Not worked on since 2026-10-06: the open problems measured below stand, and no controller has
-changed since. `audit.c` and `run.mjs` are beside this file.
+Not worked on since 2026-10-06, and nobody is on it: the open problems measured below stand as
+measured then. No controller has changed since (the last commit to
+`demos/slopyard/src/controller.lua`, `designs.lua` and `programs/` is `07f5f582` of 2026-10-01);
+Box3D's SIMD paths did (`463ee297`, 2026-10-06), so a new audit run may count other deliveries
+than the table's. The image's GPU test passed in the release round of 2026-10-11 (`slopyard exit 0`,
+`work/rust/build/v012-evidence/round.log`). `audit.c` and `run.mjs` are beside this file; the
+first step is to run the audit again (25 minutes, a GPU display) and compare.
 
 ## What this is
 

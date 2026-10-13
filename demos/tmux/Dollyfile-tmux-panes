@@ -1,0 +1,40 @@
+DOLLY 7
+APPLICATION tmux-panes
+REQUIRES HOST runtime@0
+REQUIRES HOST display@0
+REQUIRES HOST input@0
+REQUIRES HOST download@0
+REQUIRES HOST dso@0
+REQUIRES HOST http@0
+REQUIRES HOST packages@0
+REQUIRES HOST pty@0
+REQUIRES HOST snapshot@0
+REQUIRES HOST sockets@0
+REQUIRES HOST threads@0
+REQUIRES HOST upload@0
+
+# packages, threads and dso are for what amy installs into a pane, as in default.
+
+FROM /v0.1.2/Dollyfile-system 7b156dd4eef7042abb9e6ec29e8d9ebd5f0c2a60163761d79f77021d7066680b
+INSTALL /v0.1.2/demos/tmux/Dollyfile-tmux afe122b6c2c03a7bb14e58a1edc69274cea32eaee0a6a44903145ae6b8731f52
+
+FILE /usr/share/tmux/welcome.txt
+    tmux inside Dolly: two shells, each on a pseudo-terminal.
+    Ctrl+B o   the other pane          Ctrl+B x   close this pane
+    Ctrl+B %   split left and right    Ctrl+B "   split above and below
+    Ctrl+B d   detach: the shells keep running, tmux attach returns
+
+# Dolly has no fork, so tmux cannot start its own server: this shell does,
+# and the server lives as long as it. A child ends with its parent here.
+FILE /etc/dolly/init.slop
+    /usr/bin/tmux -D &
+    tries=0
+    until test -e /tmp/tmux-0/default || test $tries = 100; do tries=$((tries + 1)); done
+    /usr/bin/tmux new-session -d
+    /usr/bin/tmux split-window -h
+    /usr/bin/tmux send-keys 'cat /usr/share/tmux/welcome.txt' Enter
+    /bin/foreground /usr/bin/tmux attach
+    printf '\nThe tmux server runs on: tmux attach returns, tmux new starts a session.\n'
+    /bin/foreground -i /bin/slop
+
+ENTRY /bin/foreground -i /bin/slop /etc/dolly/init.slop

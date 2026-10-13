@@ -1,7 +1,7 @@
 import { createGpuBridge } from "./bridge.mjs";
 import { DOLLY_ERRNO as E } from "../../src/process-constants.mjs";
 import { publicURL } from "../../src/static-asset.mjs";
-import { holdIndicators, showIndicators } from "../../src/page-indicators.mjs";
+import { gpuIndicator, holdIndicators, showIndicators } from "../../src/page-indicators.mjs";
 export { DOLLY_GPU_ABI_DIGEST as digest } from "./abi.mjs";
 
 // The page names the adapter gpu@0 programs get before any of them runs. A
@@ -28,18 +28,9 @@ function announce(element, state, borderColor) {
   element.style.borderColor = borderColor;
 }
 
-// Trusted page DOM over the display: guest frames cannot draw, cover or remove
-// it, and only its link takes clicks.
+// The page's indicator names the adapter, or says why there is none.
 function indicate(info, unavailable) {
-  let element = document.querySelector("#gpu-status");
-  if (!element) {
-    element = document.body.appendChild(document.createElement("div"));
-    element.id = "gpu-status";
-    element.className = "page-indicator";
-    element.setAttribute("role", "status");
-    element.style.cssText = "position:fixed;right:0.5rem;bottom:2rem;z-index:8;max-width:calc(100vw - 1rem);" +
-      "padding:0.15rem 0.45rem;background:#262626;border:1px solid;font-size:13px;pointer-events:none";
-  }
+  const element = gpuIndicator();
   if (unavailable) {
     const link = Object.assign(document.createElement("a"), { textContent: "How to enable WebGPU ↗",
       href: publicURL("docs/gpu.md#enabling-webgpu").href, target: "_blank", rel: "noopener" });

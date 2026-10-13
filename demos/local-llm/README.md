@@ -9,8 +9,10 @@ or remote fallback.
 - `pi-local`: Pi with the bundled Qwen3.5-2B; `/local` installs and switches models. Requires WebGPU.
 - `llama-build`: llama.cpp libraries built for the GPU interface.
 - `local-llm-build`: The dolly-llama command built from those libraries.
+- `llama`: `dolly-llama`, llama.cpp on WebGPU serving a GGUF over stdin and stdout; it needs `gpu@0`, as a package.
 - `qwen3.5-2b`: Model package: Qwen3.5-2B weights, description and license.
 - `minicpm5-2b`: Model package: MiniCPM5-2B weights, description and license.
+- `qwen3.5-4b`: Model package: Qwen3.5-4B; it names the four shards below and installing it installs them.
 - `qwen3.5-4b-1`: Model package: Qwen3.5-4B, shard 1 of 4, description and license.
 - `qwen3.5-4b-2`: Model package: Qwen3.5-4B, shard 2 of 4.
 - `qwen3.5-4b-3`: Model package: Qwen3.5-4B, shard 3 of 4.

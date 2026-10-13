@@ -1,4 +1,4 @@
-// The speech-to-text image writes what the microphone hears while it is being
+// The speech-to-text-mic image writes what the microphone hears while it is being
 // said; refused the microphone, the program says so and leaves a shell. The
 // pi-phone image is Pi worked by touch on a phone's screen: an OpenRouter key
 // pasted, a model and a thinking level chosen, a prompt spoken and sent, with
@@ -14,7 +14,7 @@ import { delay, demoTest, shellPrompt } from "../../browser.mjs";
 const root = new URL("../../../", import.meta.url).pathname;
 const archive = execFileSync("bash", ["scripts/fetch-pinned-archive.sh", "transcribe"], { cwd: root, encoding: "utf8" }).trim();
 const sample = execFileSync("tar", ["-xzOf", archive, "--wildcards", "*/samples/jfk.wav"], { maxBuffer: 1 << 24 }).toString("base64");
-const image = "speech-to-text", browser = process.argv[2] ?? "chromium";
+const image = "speech-to-text-mic", browser = process.argv[2] ?? "chromium";
 const plays = { chromium: ["--autoplay-policy=no-user-gesture-required"], firefox: { "media.autoplay.default": 0 } }[browser];
 const refuses = { chromium: ["--use-fake-device-for-media-stream", "--deny-permission-prompts"],
   firefox: { "media.navigator.streams.fake": true, "permissions.default.microphone": 2 } }[browser];
@@ -54,13 +54,14 @@ await demoTest("speech refused", { image, browser, launch: refuses }, async ({ o
   assert.match(await text(), /the browser refused the microphone/);
 });
 
-// The model is a package any session installs. The programs need the
-// microphone, which default does not declare: amy refuses them, naming it.
+// The programs need the microphone, which default does not declare: amy
+// refuses speech-to-text, naming the module, before the model it names is
+// fetched. The model alone installs into any session.
 await demoTest("speech packages", { image: "default", browser }, async ({ open }) => {
   const { run, submit } = await open();
+  assert.notEqual(await submit("amy install speech-to-text 2> /tmp/refused"), 0);
+  await run("grep -q 'REQUIRES HOST microphone@0' /tmp/refused && test ! -e /usr/bin/speech-to-text && test ! -e /usr/share/dolly/speech");
   await run("amy install parakeet && test -f /usr/share/dolly/speech/parakeet-tdt_ctc-110m.gguf");
-  assert.notEqual(await submit("amy install transcribe 2> /tmp/refused"), 0);
-  await run("grep -q 'REQUIRES HOST microphone@0' /tmp/refused && test ! -e /usr/bin/speech-to-text");
 });
 
 // Chrome on Android is the phone this is for; Firefox has no phone to stand in for.

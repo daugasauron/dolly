@@ -1,0 +1,132 @@
+--- a/client.c
++++ b/client.c
+@@ -302,8 +302,12 @@
+ 	/* Save these before pledge(). */
+ 	if ((cwd = find_cwd()) == NULL && (cwd = find_home()) == NULL)
+ 		cwd = "/";
++#ifdef __dolly__
++	ttynam = isatty(STDIN_FILENO) ? _PATH_TTY : "";
++#else
+ 	if ((ttynam = ttyname(STDIN_FILENO)) == NULL)
+ 		ttynam = "";
++#endif
+ 	if ((termname = getenv("TERM")) == NULL)
+ 		termname = "";
+ 
+@@ -467,12 +471,18 @@
+ 		    caps[i], strlen(caps[i]) + 1);
+ 	}
+ 
++#ifdef __dolly__
++	fd = -1;
++	proc_send(client_peer, MSG_IDENTIFY_STDIN, fd, NULL, 0);
++	proc_send(client_peer, MSG_IDENTIFY_STDOUT, fd, NULL, 0);
++#else
+ 	if ((fd = dup(STDIN_FILENO)) == -1)
+ 		fatal("dup failed");
+ 	proc_send(client_peer, MSG_IDENTIFY_STDIN, fd, NULL, 0);
+ 	if ((fd = dup(STDOUT_FILENO)) == -1)
+ 		fatal("dup failed");
+ 	proc_send(client_peer, MSG_IDENTIFY_STDOUT, fd, NULL, 0);
++#endif
+ 
+ 	pid = getpid();
+ 	proc_send(client_peer, MSG_IDENTIFY_CLIENTPID, -1, &pid, sizeof pid);
+--- a/job.c
++++ b/job.c
+@@ -113,11 +113,21 @@
+ 		memset(&ws, 0, sizeof ws);
+ 		ws.ws_col = sx;
+ 		ws.ws_row = sy;
++#ifdef __dolly__
++		pid = osdep_job(flags, &master, tty, &ws, -1, env, cwd, shell,
++		    cmd, argc, argv);
++#else
+ 		pid = fdforkpty(ptm_fd, &master, tty, NULL, &ws);
++#endif
+ 	} else {
+ 		if (socketpair(AF_UNIX, SOCK_STREAM, PF_UNSPEC, out) != 0)
+ 			goto fail;
++#ifdef __dolly__
++		pid = osdep_job(flags, NULL, NULL, NULL, out[1], env, cwd,
++		    shell, cmd, argc, argv);
++#else
+ 		pid = fork();
++#endif
+ 	}
+ 	if (cmd == NULL) {
+ 		cmd_log_argv(argc, argv, "%s:", __func__);
+--- a/server-client.c
++++ b/server-client.c
+@@ -331,6 +331,7 @@
+ 	if (c->flags & CLIENT_CONTROL)
+ 		return (0);
+ 
++#ifndef __dolly__
+ 	if (strcmp(c->ttyname, ttynam) == 0||
+ 	    ((isatty(STDIN_FILENO) &&
+ 	    (ttynam = ttyname(STDIN_FILENO)) != NULL &&
+@@ -344,6 +345,7 @@
+ 		xasprintf(cause, "can't use %s", c->ttyname);
+ 		return (-1);
+ 	}
++#endif
+ 
+ 	if (!(c->flags & CLIENT_TERMINAL)) {
+ 		*cause = xstrdup("not a terminal");
+@@ -3020,7 +3022,7 @@
+ 	c->name = name;
+ 	log_debug("client %p name is %s", c, c->name);
+ 
+-#ifdef __CYGWIN__
++#if defined(__CYGWIN__) || defined(__dolly__)
+ 	c->fd = open(c->ttyname, O_RDWR|O_NOCTTY);
+ 	c->out_fd = dup(c->fd);
+ #endif
+--- a/server.c
++++ b/server.c
+@@ -187,6 +187,11 @@
+ 	sigprocmask(SIG_BLOCK, &set, &oldset);
+ 
+ 	if (~flags & CLIENT_NOFORK) {
++#ifdef __dolly__
++		fprintf(stderr, "no server running on %s; start one with: "
++		    "tmux -D &\n", socket_path);
++		exit(1);
++#endif
+ 		if (proc_fork_and_daemon(&fd) != 0) {
+ 			sigprocmask(SIG_SETMASK, &oldset, NULL);
+ 			return (fd);
+--- a/spawn.c
++++ b/spawn.c
+@@ -475,7 +475,14 @@
+ 	}
+ 
+ 	/* Fork the new process. */
++#ifdef __dolly__
++	if (actual_cwd != NULL)
++		environ_set(child, "PWD", 0, "%s", actual_cwd);
++	new_wp->pid = osdep_spawn(&new_wp->fd, new_wp->tty, &ws, child,
++	    new_wp->shell, new_wp->argc, new_wp->argv);
++#else
+ 	new_wp->pid = fdforkpty(ptm_fd, &new_wp->fd, new_wp->tty, NULL, &ws);
++#endif
+ 	if (new_wp->pid == -1) {
+ 		xasprintf(cause, "fork failed: %s", strerror(errno));
+ 		new_wp->fd = -1;
+--- a/tmux.h
++++ b/tmux.h
+@@ -4147,6 +4147,13 @@
+ char		*osdep_get_name(int, char *);
+ char		*osdep_get_cwd(int);
+ struct event_base *osdep_event_init(void);
++#ifdef __dolly__
++pid_t		 osdep_spawn(int *, char *, struct winsize *, struct environ *,
++		     const char *, int, char **);
++pid_t		 osdep_job(int, int *, char *, struct winsize *, int,
++		     struct environ *, const char *, const char *, const char *,
++		     int, char **);
++#endif
+ 
+ /* utf8-combined.c */
+ int		 utf8_has_zwj(const struct utf8_data *);

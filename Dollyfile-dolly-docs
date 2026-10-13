@@ -5,20 +5,20 @@ REQUIRES HOST runtime@0
 # The platform as a program sees it: the documents and machine contracts of
 # this release at their repository paths, so their links to each other work.
 # The rows are checked against the documents' links (test/platform-documents.test.mjs).
-SOURCE /v0.1.2/docs/process-model.md de19a2a0cb3da2257b59234100f4b39e5cda2603331b9314d67774262bd4e2ab /usr/share/doc/dolly/docs/process-model.md
+SOURCE /v0.1.2/docs/process-model.md db439ab1a82b2ba1368a38347db4c86b9787a532e308ee5ec63895ef2fdb3b40 /usr/share/doc/dolly/docs/process-model.md
 SOURCE /v0.1.2/docs/browser-stack.md 2944e47cd37225b0729452455d762054021a50c09a87c1254af8d2b1fbb6a335 /usr/share/doc/dolly/docs/browser-stack.md
 SOURCE /v0.1.2/docs/slop.md 63eed39c0dc495f4be624571a6cb2ed652af39c4b5eb2b17dc9ea69a152484f1 /usr/share/doc/dolly/docs/slop.md
 SOURCE /v0.1.2/docs/display.md 899caac956383f6795adae9c67b5364197d709ba3da0dbb6e141fbf4e735664f /usr/share/doc/dolly/docs/display.md
-SOURCE /v0.1.2/docs/gpu.md f57940e72153898014baa7882a70a0d5d5fcd24508d5d22c70bcf323e3f5bef4 /usr/share/doc/dolly/docs/gpu.md
+SOURCE /v0.1.2/docs/gpu.md 78453f20153bf514cfd6dc9965343adac3c418a165734f7f59f8abebc47ac24f /usr/share/doc/dolly/docs/gpu.md
 SOURCE /v0.1.2/docs/audio.md 89f9be5ce1814b8eaf6502df06150d2b77a4224b7c9aa16663f501df70b6304c /usr/share/doc/dolly/docs/audio.md
 SOURCE /v0.1.2/docs/http.md 5936786e22365406fc79b00db86feaf25c1c829db325f9295fb1d4eb01b76168 /usr/share/doc/dolly/docs/http.md
 SOURCE /v0.1.2/docs/sessions.md 116fb5d1535f39243029af1ad4b6796982da203f5493cbfd456d09fbef85ad9e /usr/share/doc/dolly/docs/sessions.md
-SOURCE /v0.1.2/docs/dollyfile.md 54cbf544be5c882dd2cfc0c468fbad9a3697b5d507237a4986492d135f7069d2 /usr/share/doc/dolly/docs/dollyfile.md
+SOURCE /v0.1.2/docs/dollyfile.md 6299b3918fecccf8a1be7030d96132dce54b29b4765a41b23a5583143617b322 /usr/share/doc/dolly/docs/dollyfile.md
 SOURCE /v0.1.2/docs/architecture.md 426e04102b4c97517553efa7ee910d7462f44d67e9ae3e1ccfd76e96681d847b /usr/share/doc/dolly/docs/architecture.md
-SOURCE /v0.1.2/docs/browser-boundary.md 8807af9f5a186a105b63d80b29fcbf078dc46e3dcbdbf7921e2b9cb61d20753b /usr/share/doc/dolly/docs/browser-boundary.md
+SOURCE /v0.1.2/docs/browser-boundary.md eb6013a422414970e0b5b6a7d8efa85d9c2868ddf88e020f3b49fc173d0b906f /usr/share/doc/dolly/docs/browser-boundary.md
 SOURCE /v0.1.2/docs/image-build-service.md 43bbcfcf7c5e7c8ce83f91c55b3c4bc0682651b2905ba35089b2b85b3b13efa9 /usr/share/doc/dolly/docs/image-build-service.md
 SOURCE /v0.1.2/abi/README.md 4a3caf8ffbf15cf7a4b4aaea5e1ec1f0278cd1df5e23b61d71cccef796f1788d /usr/share/doc/dolly/abi/README.md
-SOURCE /v0.1.2/host/README.md 6c04739fe3edea96b1ea57165693f53118a4616df166eea190ad8c1b3a8cce33 /usr/share/doc/dolly/host/README.md
+SOURCE /v0.1.2/host/README.md 9455ee83b4110eb662d77232596bfde9ec2bd6bccb789456f984410422af5635 /usr/share/doc/dolly/host/README.md
 SOURCE /v0.1.2/abi/dolly-browser-0.wat 6d77eb50ec406c144ccd37325749c1e018df683d072b91744a1f136771dcd0c3 /usr/share/doc/dolly/abi/dolly-browser-0.wat
 SOURCE /v0.1.2/abi/dolly-host-0.wat 7d1a02e3317086c06ca022e917d6d8537d9a005e9804e5ffdf256dc7d70c8671 /usr/share/doc/dolly/abi/dolly-host-0.wat
 SOURCE /v0.1.2/abi/dolly-image-0.wat 9a16a6472d26ee6ca5d7a67a474a1723745b3eefaf585bd292d115725bf44d6a /usr/share/doc/dolly/abi/dolly-image-0.wat
@@ -37,6 +37,8 @@ SOURCE /v0.1.2/host/download/dolly-download-0.wat 6aacfaf743af4bc16ce3099e006836
 SOURCE /v0.1.2/host/dso/dolly-dso-0.wat c7ec277a279bf43f660ae802ddfb3e2c8a8f211cde3492efccca9842496661a6 /usr/share/doc/dolly/host/dso/dolly-dso-0.wat
 SOURCE /v0.1.2/host/gpu/dolly-gpu-0.wat 2dc0bed0e75621938eac9e7d65c1575dbd666bb24ada4e176a1ef1bf1b9f2ab7 /usr/share/doc/dolly/host/gpu/dolly-gpu-0.wat
 SOURCE /v0.1.2/host/http/dolly-http-0.wat d15733708906375e1f717b447d5d743d7c6562a7fe8bc44ec2cf018acb960f12 /usr/share/doc/dolly/host/http/dolly-http-0.wat
+SOURCE /v0.1.2/host/pty/dolly-pty-0.wat 711407713902cef02d468e86f68f8e09c41bda562fd1e2291c6dd2ff1f5ca7ac /usr/share/doc/dolly/host/pty/dolly-pty-0.wat
+SOURCE /v0.1.2/host/pty/dolly-pty-supervisor-0.wat cce1edb921a3d4f93c3c2d94e51fc009bf659d85336349b880730df3294e2ca4 /usr/share/doc/dolly/host/pty/dolly-pty-supervisor-0.wat
 SOURCE /v0.1.2/host/snapshot/dolly-snapshot-0.wat 952a3f794788c0a59c57c0e61b182036794fa84fa6e91787f3cf7f5a54b00f2a /usr/share/doc/dolly/host/snapshot/dolly-snapshot-0.wat
 SOURCE /v0.1.2/host/sockets/dolly-sockets-0.wat 9be4f7cb45d09c2e442033f8ce283c1ce5d04d1538918540740423a29443fbe4 /usr/share/doc/dolly/host/sockets/dolly-sockets-0.wat
 SOURCE /v0.1.2/host/threads/dolly-threads-0.wat b900fd7380154710aad9bfe76cd4ee69a73de31a7265b5cb81f1008e1e19d003 /usr/share/doc/dolly/host/threads/dolly-threads-0.wat

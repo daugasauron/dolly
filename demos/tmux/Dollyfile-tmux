@@ -1,0 +1,96 @@
+DOLLY 7
+PACKAGE tmux
+REQUIRES HOST runtime@0
+REQUIRES HOST pty@0
+REQUIRES HOST sockets@0
+
+# tmux from upstream's release archive over the libevent and libterminfo
+# packages. tmux takes Dolly's port (README.md): a patch and its operating
+# system file.
+FROM /v0.1.2/Dollyfile-system-tools 0b45999e6aa7b373f5abb794c278bb22cd3733f33931581e4673c9bf280af08e
+INSTALL /v0.1.2/demos/tmux/Dollyfile-libevent 488ad489a62b3e2f3e2cc00eba77e070c6725ba586e10888771bc4e0e4395862
+INSTALL /v0.1.2/demos/tmux/Dollyfile-libterminfo cc9fed1eda5a1d33a2855df92e371ccc8b7abaacbc0bb77f3f3c3663461d3df5
+
+REQUIRES HEADER libc
+REQUIRES HEADER event
+REQUIRES HEADER event2
+REQUIRES HEADER term
+REQUIRES LIB event_core
+REQUIRES LIB terminfo
+REQUIRES TOOL cc
+REQUIRES TOOL cp
+REQUIRES TOOL grep
+REQUIRES TOOL gzip
+REQUIRES TOOL make
+REQUIRES TOOL mkdir
+REQUIRES TOOL patch
+REQUIRES TOOL sleep
+REQUIRES TOOL tar
+
+SOURCE /v0.1.2/dist/static/tmux/tmux-3.8.tar.gz e79c699c7e949dccd0a4a125e17b8d1261e311b16979dbc8eb34542f3966d82e /tmp/tmux.tar.gz
+SOURCE /v0.1.2/dist/static/tmux/port.tar 573434f60399eacab9672e6665d7d2a68eb9c2d5869e25e9d9e4f6f8abfaae84 /tmp/tmux-port.tar
+SLOP gzip -dc /tmp/tmux.tar.gz | tar -xf - -C /tmp
+SLOP tar -xf /tmp/tmux-port.tar -C /
+SLOP patch -p1 -d /tmp/tmux-3.8 -i /tmp/tmux-3.8/tmux-dolly.patch
+
+# tty.c includes <curses.h> and takes nothing from it. There is no curses
+# here: tmux calls libterminfo, which <term.h> declares.
+FILE /tmp/tmux-3.8/curses.h
+    /* No curses library: see the recipe. */
+
+FILE /tmp/tmux.mk
+    .RECIPEPREFIX := >
+    .DELETE_ON_ERROR:
+    MAKEFLAGS += -r
+    T := /tmp/tmux-3.8
+    all: /usr/bin/tmux
+    
+    # tmux: HAVE is what its configure would define here and COMPAT the
+    # functions it would replace. Not claimed: SO_PEERCRED, which sockets@0
+    # refuses (tmux then answers the one user itself). TMUX_SOCK_PERM is
+    # upstream's knob: Dolly has no permission bits to check on /tmp/tmux-0.
+    # TMUX_TERM is configure's pick among the names libterminfo knows.
+    HAVE := DIRENT_H FCNTL_H INTTYPES_H PATHS_H PTY_H STDINT_H SYS_DIR_H \
+      EVENT2_EVENT_H ERR_H DIRFD FLOCK SYSCONF ASPRINTF CFMAKERAW CLOCK_GETTIME \
+      EXPLICIT_BZERO GETLINE MEMMEM SETENV STRCASESTR STRLCAT STRLCPY STRNDUP \
+      STRNLEN STRSEP FORKPTY TIPARM
+    COMPAT := base64 closefrom daemon fdforkpty freezero getdtablecount getdtablesize \
+      getopt_long getpeereid getprogname htonll imsg imsg-buffer ntohll recallocarray \
+      setproctitle strtonum unvis vis
+    SOURCES := $(filter-out $(T)/osdep-%.c $(T)/image.c $(T)/image-sixel.c,$(wildcard $(T)/*.c)) \
+      $(T)/osdep-dolly.c $(addprefix $(T)/compat/,$(addsuffix .c,$(COMPAT)))
+    CPPFLAGS := -D_GNU_SOURCE $(addprefix -DHAVE_,$(HAVE)) '-DTMUX_VERSION="3.8"' \
+      '-DTMUX_CONF="/etc/tmux.conf:~/.tmux.conf:$$XDG_CONFIG_HOME/tmux/tmux.conf:~/.config/tmux/tmux.conf"' \
+      '-DTMUX_LOCK_CMD="lock -np"' '-DTMUX_TERM="tmux-256color"' -DTMUX_MOUSE=1 \
+      -DTMUX_SOCK_PERM=0 -I$(T)
+    $(T)/%.o: $(T)/%.c
+    >cc -O2 -std=gnu99 $(CPPFLAGS) -c $< -o $@
+    /usr/bin/tmux: $(SOURCES:.c=.o)
+    >cc $^ -levent_core -lterminfo -ldolly-sockets -ldolly-pty -o $@
+SLOP make -j4 -f /tmp/tmux.mk
+SLOP mkdir -p /usr/share/licenses/tmux
+SLOP cp /tmp/tmux-3.8/COPYING /usr/share/licenses/tmux/COPYING
+SLOP cp /tmp/tmux-3.8/tmux.1 /usr/share/man/man1/tmux.1
+
+# A server, one pane on a pseudo-terminal, a command typed into its shell
+# and the file that command wrote.
+FILE /tmp/tmux-check.slop
+    tmux -S /tmp/tmux-check.sock -D &
+    for attempt in 1 2 3 4 5; do test -e /tmp/tmux-check.sock || sleep 1; done
+    tmux -S /tmp/tmux-check.sock new-session -d -x 80 -y 24
+    tmux -S /tmp/tmux-check.sock send-keys 'echo $((6 * 7)) > /tmp/tmux-check.out' Enter
+    for attempt in 1 2 3 4 5 6 7 8 9 10; do test -s /tmp/tmux-check.out || sleep 1; done
+    tmux -S /tmp/tmux-check.sock kill-server
+    wait
+    grep -qx 42 /tmp/tmux-check.out
+SLOP tmux -V | grep -qx 'tmux 3.8'
+SLOP slop -e /tmp/tmux-check.slop
+
+# Dolly's termcap programs (less) know one terminal, the display's
+# (/etc/termcap): a pane is that one to them.
+FILE /etc/tmux.conf
+    set -g default-terminal xterm-256color
+
+EXPORTS TOOL tmux
+FILE /usr/share/licenses/tmux/COPYING
+FILE /usr/share/man/man1/tmux.1

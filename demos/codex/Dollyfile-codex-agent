@@ -1,0 +1,23 @@
+DOLLY 7
+APPLICATION codex-agent
+REQUIRES HOST runtime@0
+REQUIRES HOST display@0
+REQUIRES HOST input@0
+REQUIRES HOST download@0
+REQUIRES HOST http@0
+REQUIRES HOST snapshot@0
+REQUIRES HOST sockets@0
+REQUIRES HOST threads@0
+REQUIRES HOST upload@0
+
+FROM /v0.1.2/Dollyfile-system 7b156dd4eef7042abb9e6ec29e8d9ebd5f0c2a60163761d79f77021d7066680b
+INSTALL /v0.1.2/demos/codex/Dollyfile-codex 795312df596ca0a5a9afd227512c1f60851fb8e80c423d482e9648fbe530c1ca
+REQUIRES TOOL codex
+REQUIRES TOOL sh
+
+FILE /etc/dolly/init.slop
+    /bin/foreground -i /usr/bin/codex
+    printf '\nDolly: image entry exited; entering the recovery Slop shell.\n'
+    /bin/foreground -i /bin/slop
+
+ENTRY /bin/foreground -i /bin/slop /etc/dolly/init.slop

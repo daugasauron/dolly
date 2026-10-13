@@ -5,7 +5,7 @@ builds, plus stock pip over Dolly's HTTP broker.
 
 ## Images
 
-- `python`: CPython, pip and the native-extension SDK; with `cc` and `ninja` installed pip builds NumPy, as a package.
+- `python`: CPython and pip, with the `cc` and `ninja` packages pip builds NumPy and other native packages with, as a package.
 
 Install it with `INSTALL` or `amy install python`; build with
 `npm run image -- python`.
@@ -14,8 +14,8 @@ Install it with `INSTALL` or `amy install python`; build with
 
 - `pip install PACKAGE` installs wheels and builds sdists (PEP 517, isolated
   build environments). An sdist with C code needs the compiler, and one built
-  with Meson (NumPy, Pandas) needs Ninja: `amy install python cc ninja` in a
-  `default` session, which has neither.
+  with Meson (NumPy, Pandas) needs Ninja: the package installs `cc` and
+  `ninja`, so `amy install python` is enough in a `default` session.
 - `urllib.request` and `requests`, including pip's vendored copy, send
   through `env.dolly_http_dispatch` and its browser policy.
 - `sys.platform` is `"dolly"`. Emscripten/Pyodide wheels are not compatible.

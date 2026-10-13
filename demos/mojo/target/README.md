@@ -34,7 +34,7 @@ flowchart LR
 
 ## Build and test
 
-In [the `mojo` image](../README.md) `mojo build program.mojo` does all of
+In [the `mojo-gpu` image](../README.md) `mojo build program.mojo` does all of
 it, and that image's test compiles these fixtures there. The test here
 needs no compiler in Dolly: it takes its programs as objects from a native
 compiler built from the patched source (45 minutes at six jobs, 10 GB):

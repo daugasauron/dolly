@@ -1,0 +1,76 @@
+DOLLY 7
+PACKAGE sqlite
+REQUIRES HOST runtime@0
+
+# SQLite from upstream's autoconf archive, unchanged: the sqlite3 shell, and
+# the library and headers for programs the cc package builds. Slop does not
+# run upstream's configure, so the flags say what it would be told here:
+# - its own defaults (OPT_SHELL, math functions, JSON, carray) and FTS5;
+# - one thread: a -pthread library would need threads@0 in every program;
+# - no loadable extensions: a program loads none without -rdynamic and dso@0;
+# - a database is locked by the process that has it open, the mode SQLite
+#   documents for a system without shared memory: a write-ahead log's index
+#   is a mapping shared between processes, and a mapping here is a private
+#   copy. PRAGMA locking_mode = NORMAL is still there for rollback journals;
+# - zlib, for the shell's archives (.archive, sqlite3 -A, zip files as tables);
+# - linenoise (--with-linenoise): the terminal has no line discipline, so the
+#   shell edits its own lines.
+FROM /v0.1.2/Dollyfile-system-tools 0b45999e6aa7b373f5abb794c278bb22cd3733f33931581e4673c9bf280af08e
+INSTALL /v0.1.2/Dollyfile-zlib a33b767f92922c0c8fc799bbae34df27de3b985dd732b5bdb206b725990bdbcc
+
+REQUIRES HEADER libc
+REQUIRES HEADER zlib
+REQUIRES LIB    z
+REQUIRES TOOL   ar
+REQUIRES TOOL   cc
+REQUIRES TOOL   cp
+REQUIRES TOOL   gzip
+REQUIRES TOOL   make
+REQUIRES TOOL   mkdir
+REQUIRES TOOL   sed
+REQUIRES TOOL   tar
+REQUIRES TOOL   test
+
+SOURCE /v0.1.2/dist/static/tools/sqlite-autoconf-3540000.tar.gz 134ec0802dda5795816e25d25872d20b312cb3973438c49b30bc40b7705ea9ed /tmp/sqlite.tar.gz
+SLOP gzip -dc /tmp/sqlite.tar.gz | tar -xf - -C /tmp
+SOURCE /v0.1.2/dist/static/tools/linenoise.tar af43b5f86a81c4ae570a49520451f08756ae72b57e05328951cc18fbcb01973a /tmp/linenoise.tar
+SLOP tar -xf /tmp/linenoise.tar -C /
+
+FILE /tmp/sqlite.mk
+    .RECIPEPREFIX := >
+    S := /tmp/sqlite-autoconf-3540000
+    N := /tmp/linenoise
+    BIN := /usr/bin
+    LIB := /usr/lib
+    FEATURES := -DSQLITE_DQS=0 -DSQLITE_ENABLE_FTS4 -DSQLITE_ENABLE_FTS5 -DSQLITE_ENABLE_RTREE \
+      -DSQLITE_ENABLE_EXPLAIN_COMMENTS -DSQLITE_ENABLE_UNKNOWN_SQL_FUNCTION -DSQLITE_ENABLE_STMTVTAB \
+      -DSQLITE_ENABLE_DBPAGE_VTAB -DSQLITE_ENABLE_DBSTAT_VTAB -DSQLITE_ENABLE_BYTECODE_VTAB \
+      -DSQLITE_ENABLE_OFFSET_SQL_FUNC -DSQLITE_ENABLE_PERCENTILE -DSQLITE_STRICT_SUBTYPE=1 \
+      -DSQLITE_ENABLE_MATH_FUNCTIONS -DSQLITE_ENABLE_CARRAY -DSQLITE_THREADSAFE=0 \
+      -DSQLITE_OMIT_LOAD_EXTENSION=1 -DSQLITE_DEFAULT_LOCKING_MODE=1 -DSQLITE_HAVE_ZLIB=1
+    all: $(BIN)/sqlite3
+    $S/shell.o: FEATURES += -DHAVE_LINENOISE=1 -I $N
+    %.o: %.c
+    >cc -O2 $(FEATURES) -c $< -o $@
+    $(LIB)/libsqlite3.a: $S/sqlite3.o
+    >ar rcs $@ $^
+    $(BIN)/sqlite3: $S/shell.o $N/linenoise.o $(LIB)/libsqlite3.a
+    >cc $^ -lz -lm -o $@
+SLOP make -j2 -f /tmp/sqlite.mk
+SLOP cp /tmp/sqlite-autoconf-3540000/sqlite3.h /tmp/sqlite-autoconf-3540000/sqlite3ext.h /usr/include
+SLOP cp /tmp/sqlite-autoconf-3540000/sqlite3.1 /usr/share/man/man1/sqlite3.1
+
+# SQLite is in the public domain and ships no licence file: its sources open
+# with the dedication.
+SLOP mkdir -p /usr/share/licenses/sqlite
+SLOP sed -n 2,10p /tmp/sqlite-autoconf-3540000/sqlite3.h > /usr/share/licenses/sqlite/blessing
+
+SLOP test "$(sqlite3 :memory: "select sqlite_version(), json_extract(json_array(6, 7), '\$[1]'), sqrt(16)")" = '3.54.0|7|4.0'
+
+EXPORTS TOOL   sqlite3
+EXPORTS LIB    sqlite3    /usr/lib/libsqlite3.a
+EXPORTS HEADER sqlite3    /usr/include/sqlite3.h
+EXPORTS HEADER sqlite3ext /usr/include/sqlite3ext.h
+FILE /usr/share/licenses/sqlite/blessing
+FILE /usr/share/licenses/linenoise/LICENSE
+FILE /usr/share/man/man1/sqlite3.1
