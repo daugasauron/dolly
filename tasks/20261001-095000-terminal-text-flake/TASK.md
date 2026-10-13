@@ -617,11 +617,14 @@ until it compiles the hot ones again:
   against 8 of 42 without it (and 6 of 37 runs of the demo's test).
 
 So the first minibuffer of an Emacs built at `-O0` needs more stack than a
-Worker has until Chrome has optimized its code. That is where the loss was
-seen and where it was not: a fresh Chromium's first page; not a later page,
-which reuses the browser's compiled module; not Firefox, another compiler
-and stack. Not shown: how a stack that runs out loses 24 bytes while Emacs
-lives on and the page reports no failure, as in every `/t` run.
+Worker has while its code is baseline code, and the `/t` loss goes with the
+large stack as the crash does: that is the evidence that the two are one
+cause. It is not seen directly: in every `/t` run Emacs lives on and the page
+reports no failure, and how a stack that runs out loses 24 bytes that way is
+not shown. It fits where the loss was seen and where it was not: a fresh
+Chromium's first page; not a later page (Chrome is said to keep a compiled
+module for the pages of one browser; not measured here); not Firefox,
+another compiler and stack.
 
 What a fix would be is a decision, and none is made here: Emacs asking for
 the large stack with a `dolly.process.stack` section as the compiler does
