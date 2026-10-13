@@ -157,6 +157,17 @@ lines, each by scanning `demos/*/` for recipes, READMEs and
 the demos' among them, so the core suite passes only where the demos'
 packages are built.
 
+"Avoid feature flags" (`AGENTS.md`), checked by search on the same commit:
+the page reads URL parameters in one place, a session route's `name` and
+`recover` (`host/snapshot/snapshot.mjs:15`), and keeps nothing in
+`localStorage`; `sessionStorage` carries a custom recipe's text from one page
+to the next (`src/custom-dollyfile.mjs`, `src/custom-image.mjs`). The scripts
+read six names from the environment: which images (`DOLLY_BUILD_IMAGES`,
+`DOLLY_SNAPSHOT_IMAGE`), how many at once (`DOLLY_IMAGE_JOBS`,
+`DOLLY_BUILD_JOBS`), and where (`DOLLY_PORT`, `DOLLY_BROWSER_PROFILE`). None
+turns a behaviour on or off. The other `DOLLY_*` names in `scripts/` are the
+294 pins of `config/source-pins.sh`.
+
 ## As filed (2026-10-13, main `50c698f8`)
 
 - [The audit of 2026-10-13](../20261012-230015-audit-fable/TASK.md) has five
