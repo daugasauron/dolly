@@ -265,6 +265,7 @@ const pages = {
   sbase: { yes: "output", cal: "calendar" },
   mandoc: { mandoc: "manual" },
   tar: { tar: "archive" },
+  meson: { meson: "build" },
 };
 const reads = name => Object.entries(pages[name] ?? {}).map(([page, word]) =>
   `man ${page} > /tmp/amy-man && grep -q '${word}' /tmp/amy-man && ! grep -Eq '^[.](TH|SH|Dd|Sh) ' /tmp/amy-man`);
@@ -418,7 +419,7 @@ const hello = "mkdir /tmp/amy-mojo && cd /tmp/amy-mojo && printf 'def main():\\n
 // Python runs Meson; meson setup configures with the C compiler and meson
 // compile builds with Ninja: the meson package installs the three.
 const mesoned = "mkdir /tmp/amy-meson && cd /tmp/amy-meson && printf 'int main(void) { return 42; }\\n' > main.c && " +
-  "printf '%s\\n' \"project('probe', 'c')\" \"executable('probe', 'main.c')\" > meson.build && meson setup build && meson compile -C build; build/probe; test $? = 42";
+  "printf '%s\\n' \"project('probe', 'c')\" \"executable('probe', 'main.c')\" > meson.build && meson setup build && meson compile -C build; build/probe; test $? = 42 && " + reads("meson")[0];
 for (const [name, command, program] of [["rust", "rustc", programs.rust], ["cargo", "cargo", crate], ["cmake", "cmake", programs.cmake],
   ["mojo", "mojo", hello], ["meson", "meson", mesoned]]) {
   await browserTest(`amy ${name} alone`, { image: "default", timeout: 300_000 }, async ({ open }) => {
