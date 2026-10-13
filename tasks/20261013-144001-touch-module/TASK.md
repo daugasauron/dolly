@@ -17,57 +17,37 @@ image without being built): "a smartphone-input module so it's easy to write
 programs for phones (respond to touch, drag etc), and a simple image with
 some demo to prove/test that it works nicely."
 
-Done when: a program reads what fingers do on the screen (each touch with
-its identity, position and phase, so that a tap, a drag and two fingers are
-the program's to tell apart) through a module that knows nothing of buttons,
-captions, keyboards or Pi; `voice` in `pi-phone` draws its own buttons and
-reads its own taps through it and does what it does today; `buttons@0` is
-gone; the module's contract, its row in the review map and the sentence of
-`AGENTS.md` say what it is; tested in Chromium with touch emulation and on a
-phone.
+And when the first version of this task mixed other things in: "Your
+interpretation seems off again. Do not include keyboard in this. The main
+thing is like, if you touch with 2 fingers at the same time and do a zoom
+for example, the program should be able to regognize that, this is quite
+different from just moving a mouse pointer which is why I think it has to be
+separate."
+
+Done when: a module of its own, separate from `input@0`, gives a program
+what fingers do on a touchscreen: every touch that is down at the same time,
+each with an identity that lasts from its start to its end, its position and
+its phase, so that the program itself can tell a tap from a drag and
+recognise two fingers moving apart as a zoom; the module knows nothing of
+buttons, captions or any program; a small program proves it (two fingers
+zoom something it draws), in Chromium with touch emulation and on a phone;
+`buttons@0` is replaced by it.
 
 ## As filed (2026-10-13, main `11d2bd0a`)
 
-What `buttons@0` is (`host/buttons/dolly-buttons-0.wat`): the program sends
-a caption and up to twelve labelled buttons, the page draws them as a strip
-below the terminal and reports presses; one kind of button is the page's own
-Paste, which hands over the clipboard's text; a second operation types bytes
-into the terminal. One process holds it.
-
-Why that is not the module he asked for:
-
-- It is policy in the host. The page decides that input on a phone is a row
-  of labelled buttons with a caption; a program that wants a slider, a
-  drawing surface, a swipe or its own layout cannot have it. A module should
-  carry the mechanism, what the fingers did, and leave the meaning to the
-  program.
-- It is three things under one name: a widget toolkit, the clipboard, and
-  typing into the terminal.
-- It is written around one program: its own comment says "A program that
-  holds the buttons stands in for a keyboard".
-
-What exists to build on, to read before designing: `input@0` already
-carries records for keys, text, focus, paste, the pointer, scrolling,
-relative motion and pointer capture to a program that holds the input lease
-(`host/input/dolly-input-0.wat`). Whether touches are more records of that
-module or a module of their own is the first question; the owner's word is
-"very generic", and one module for what comes from the user's hands may be
-the smaller answer.
-
-Questions the design answers, each the owner's to confirm:
-
-- Where a program that draws its own controls draws them: the terminal's
-  cells, a frame through the display, or a region of the page the module
-  gives it. `pi-phone` needs Pi's terminal and `voice`'s controls on one
-  screen.
-- The clipboard. Today it reaches a program only by the user's press on the
-  page's own Paste button, which is a rule of the boundary; it stays a rule
-  whatever module carries it, and it is not touch input.
-- Typing into the terminal for another program (`voice` types what was said
-  into Pi): today an operation of `buttons@0`; it is not touch input either.
-  A pseudo-terminal (`pty@0`) may be the Unix answer: `voice` runs Pi on a
-  slave and writes to its master.
-- What the on-screen keyboard does while a program holds the touches.
-
-It changes a contract and the boundary's review map, and a module's client
-is in the seed: design first, in this task, before code.
+- What `buttons@0` is (`host/buttons/dolly-buttons-0.wat`): the program
+  sends a caption and up to twelve labelled buttons, the page draws them as
+  a strip below the terminal and reports which was pressed. The page decides
+  what input on a phone looks like; a program gets presses of buttons, never
+  fingers. That is the contract the owner does not like.
+- Why it is a module of its own and not more of the pointer: a pointer is
+  one position that moves; a touchscreen is several contacts at once, each
+  beginning, moving and ending by itself, and a gesture is a relation
+  between them. `input@0` carries one pointer
+  (`host/input/dolly-input-0.wat`, records 6 to 10).
+- Not part of this module: keys, an on-screen keyboard, typing, the
+  clipboard.
+- The contract is the owner's: design it here first (the record of a touch,
+  how a program asks for touches and gives them up, what the page does with
+  a touch nobody reads, limits), then code. A module's client is in the
+  seed.

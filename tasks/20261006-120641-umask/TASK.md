@@ -6,6 +6,14 @@
 
 ## State (2026-10-13)
 
+The reflection on the direction
+([reflection](../20261013-142800-direction/reflection.md), section 1) names
+the smallest form: store the twelve bits and enforce nothing. A mode in the
+reserved word of the path request for `OPEN|CREATE` and `CREATE_DIRECTORY`,
+and `SET_TIMES` becomes an operation that sets attributes, the mode among
+them. Today `git` commits every file as 644 and `tar` and `install -m` lose
+the execute bit.
+
 An unchanged autoconf `configure` now runs all of its checks under Slop and stops where it needs
 file modes: `chmod` and `umask`. Those are still only on `core/file-modes-2`.
 

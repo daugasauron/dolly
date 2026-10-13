@@ -22,6 +22,46 @@ with its evidence, and what the smallest change is that brings it in line;
 ranked by how much smaller and more composable the core gets, not by what a
 change costs to rebuild.
 
+## State (2026-10-13, 23:45)
+
+[The reflection](reflection.md) is in, by a Fable agent that read `main`
+`d89bca74` and changed nothing. Its answer: at the machine layer the core is
+the direction (one import, one shape of packet, one vocabulary of errors, a
+table of modules that gives `nena` a kernel side of thirty lines). One layer
+up it is not, in three places: the process contract carries a shell's policy
+and a hook for tests while it withholds a line discipline and a stored file
+mode; the Dollyfile says "retain" four ways and "run" two, and `COPY` lets a
+build image serve as a library with no interface; the supervisor and the
+page work out again what the kernel and the engine already decided.
+
+Its ten changes, in its order (how much smaller and more composable the core
+gets), each a task of its own:
+
+1. [The Dollyfile says each thing one way](../20261013-144241-dollyfile-words/TASK.md).
+2. [`COPY` goes](../20261013-144241-copy-goes/TASK.md), and the base images
+   become packages that hold their builds
+   ([builds become generic](../20261013-142800-generic-builds/TASK.md)).
+3. [`SPAWN_INTERACTIVE` goes](../20261013-144241-spawn-interactive/TASK.md),
+   and [the supervisor stops mirroring the kernel](../20261013-144241-supervisor-mirror/TASK.md).
+4. [Two roles](../20261013-144241-two-roles/TASK.md).
+5. [A module's header and client are its own package](../20261013-144241-module-sdks/TASK.md),
+   and the page names no module
+   ([no CPU and GPU](../20261013-135951-no-cpu-gpu-category/TASK.md)).
+6. [The test surface leaves the product](../20261013-144241-test-surface/TASK.md).
+7. [A line discipline](../20261013-144241-line-discipline/TASK.md),
+   [a stored file mode](../20261006-120641-umask/TASK.md), and
+   [a list of processes](../20261013-132514-ps/TASK.md).
+8. [The engine asks for every pin](../20261013-144241-engine-asks-pins/TASK.md).
+9. [`SLOP` takes a body, `RUN` goes](../20261013-144241-slop-body/TASK.md).
+10. [`runtime.h` is spawn and wait](../20261013-144241-runtime-h/TASK.md), and
+    [the contract loses its twins](../20261013-144241-contract-twins/TASK.md).
+
+What changes the language or a contract (1, 2, 4, and the removals in 3, 5,
+6, 9, 10) is the owner's to confirm before a row is touched; what is inside
+the kernel or the page and changes no contract is taken first, one step at a
+time, each with its tests: the supervisor's mirror, the line discipline, the
+page side of the test surface.
+
 ## As filed (2026-10-13, main `50c698f8`)
 
 - [The audit of 2026-10-13](../20261012-230015-audit-fable/TASK.md) has five
