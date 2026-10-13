@@ -8,14 +8,14 @@ REQUIRES HOST input@0
 REQUIRES HOST snapshot@0
 REQUIRES HOST upload@0
 
-FROM /v0.1.3/Dollyfile-system b3b69ed31ed3671cb1d2b1c16b04acc0b057ec3fbd7fe295ff4b35cced249d20
-COPY /v0.1.3/demos/xonotic/Dollyfile-xonotic-build 4330f66020fc2b146e2262c1585941dc6ad73e2bbd3774047b566bd78180460c /usr/bin/xonotic-sdl /usr/bin/xonotic-sdl
-COPY /v0.1.3/demos/xonotic/Dollyfile-xonotic-build 4330f66020fc2b146e2262c1585941dc6ad73e2bbd3774047b566bd78180460c /usr/share/licenses/xonotic /usr/share/licenses/xonotic
-COPY /v0.1.3/demos/sdl2/Dollyfile-sdl2 9d2bdf21f71d47dcff6e82483cd824013d484b2d6cd07abb3223771f41bf7bed /usr/share/licenses/SDL2 /usr/share/licenses/SDL2
+FROM /v0.1.3/Dollyfile-system c2d3a3a3923270d9c691146a5a3fbf4893266ab543350acb2c26f8cb115b92b4
+COPY /v0.1.3/demos/xonotic/Dollyfile-xonotic-build 2eeda87f6a65cceeac7fa1321ebb23c7441ae7a3a35d1ef1426588d6d8f7f0b7 /usr/bin/xonotic-sdl /usr/bin/xonotic-sdl
+COPY /v0.1.3/demos/xonotic/Dollyfile-xonotic-build 2eeda87f6a65cceeac7fa1321ebb23c7441ae7a3a35d1ef1426588d6d8f7f0b7 /usr/share/licenses/xonotic /usr/share/licenses/xonotic
+COPY /v0.1.3/demos/sdl2/Dollyfile-sdl2 45637d0fca8217942ee7ba0376560348e0643eddb3a7d8936811bad6484136a4 /usr/share/licenses/SDL2 /usr/share/licenses/SDL2
 # Licences of the libraries linked into the client.
-COPY /v0.1.3/demos/xonotic/Dollyfile-xonotic-build 4330f66020fc2b146e2262c1585941dc6ad73e2bbd3774047b566bd78180460c /usr/share/licenses/libjpeg /usr/share/licenses/libjpeg
-COPY /v0.1.3/demos/zero-ad/Dollyfile-zero-ad-deps 9b1cbb3204423f4dea7b801514b6282212b7533c80b10e57e83c77b19286fc6c /usr/share/licenses/freetype /usr/share/licenses/freetype
-COPY /v0.1.3/demos/zero-ad/Dollyfile-zero-ad-deps 9b1cbb3204423f4dea7b801514b6282212b7533c80b10e57e83c77b19286fc6c /usr/share/licenses/libpng /usr/share/licenses/libpng
+COPY /v0.1.3/demos/xonotic/Dollyfile-xonotic-build 2eeda87f6a65cceeac7fa1321ebb23c7441ae7a3a35d1ef1426588d6d8f7f0b7 /usr/share/licenses/libjpeg /usr/share/licenses/libjpeg
+COPY /v0.1.3/demos/zero-ad/Dollyfile-zero-ad-deps f91cd1e4585ca389a932459100166f3371b15ff4cb06e052b27357ad5a01eaad /usr/share/licenses/freetype /usr/share/licenses/freetype
+COPY /v0.1.3/demos/zero-ad/Dollyfile-zero-ad-deps f91cd1e4585ca389a932459100166f3371b15ff4cb06e052b27357ad5a01eaad /usr/share/licenses/libpng /usr/share/licenses/libpng
 # Dolly's notices for this image: the IJG sentence, the fonts' terms and the
 # Bitstream Vera glyph sheet (the release carries no notice for it).
 FILE /usr/share/licenses/xonotic/NOTICE

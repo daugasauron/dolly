@@ -3,10 +3,10 @@ PACKAGE display
 REQUIRES HOST runtime@0
 REQUIRES HOST display@0
 
-COPY /v0.1.3/Dollyfile-ghostty-build f52c4e5314865ac9244d4ef490d9095de311d6a45e56726bf13b8f6a21de9317 /usr/lib/libdisplay.so /usr/lib/libdisplay.so
-COPY /v0.1.3/Dollyfile-ghostty-build f52c4e5314865ac9244d4ef490d9095de311d6a45e56726bf13b8f6a21de9317 /usr/share/fonts/IosevkaTerm-SemiBold.ttf /usr/share/fonts/IosevkaTerm-SemiBold.ttf
-COPY /v0.1.3/Dollyfile-ghostty-build f52c4e5314865ac9244d4ef490d9095de311d6a45e56726bf13b8f6a21de9317 /usr/share/licenses/ghostty /usr/share/licenses/ghostty
-COPY /v0.1.3/Dollyfile-ghostty-build f52c4e5314865ac9244d4ef490d9095de311d6a45e56726bf13b8f6a21de9317 /usr/share/licenses/uucode /usr/share/licenses/uucode
+COPY /v0.1.3/Dollyfile-ghostty-build ca712e5fd20bcbc9a7d1d4aab9540fc9e6d6b638540cfdbe5bcfe58fbdd59949 /usr/lib/libdisplay.so /usr/lib/libdisplay.so
+COPY /v0.1.3/Dollyfile-ghostty-build ca712e5fd20bcbc9a7d1d4aab9540fc9e6d6b638540cfdbe5bcfe58fbdd59949 /usr/share/fonts/IosevkaTerm-SemiBold.ttf /usr/share/fonts/IosevkaTerm-SemiBold.ttf
+COPY /v0.1.3/Dollyfile-ghostty-build ca712e5fd20bcbc9a7d1d4aab9540fc9e6d6b638540cfdbe5bcfe58fbdd59949 /usr/share/licenses/ghostty /usr/share/licenses/ghostty
+COPY /v0.1.3/Dollyfile-ghostty-build ca712e5fd20bcbc9a7d1d4aab9540fc9e6d6b638540cfdbe5bcfe58fbdd59949 /usr/share/licenses/uucode /usr/share/licenses/uucode
 # The terminal as termcap describes it, for programs that link a termcap
 # library (less, Emacs): TERM is xterm-256color.
 FILE /etc/termcap

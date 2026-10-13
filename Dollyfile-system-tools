@@ -7,7 +7,7 @@ REQUIRES HOST download@0
 REQUIRES HOST http@0
 REQUIRES HOST upload@0
 
-FROM /v0.1.3/Dollyfile-system-build 7312d575219ff6646a5250746da65f9dc240ea33a27b89d962ac25e0f7bf2e63
+FROM /v0.1.3/Dollyfile-system-build 4b852e08c9e2dbff7d91f6b028d00a1e55ef0397333f6bbedda7fd14814149a4
 # Unchanged upstream sbase commands, built by sbase's own Makefile.
 REQUIRES HEADER libc
 REQUIRES TOOL   ar
@@ -212,9 +212,9 @@ FILE /usr/share/licenses/samurai/LICENSE
 SLOP rm \
   -rf \
   /tmp/ninja
-INSTALL /v0.1.3/Dollyfile-zlib cacef8fb83aee9755ec2ea3d4df97bebf31c0903ef08efbc8e5b2d365ff4060e
-INSTALL /v0.1.3/Dollyfile-gzip c7e486bd3478dee1afa791d4e5dc942fa6d3f8941ff21ccd8e753fcb045458cc
-INSTALL /v0.1.3/Dollyfile-curl fb9fc3df13ae19c89aa06505dd6653e94498cca97e6f701aad4b519f71875c27
+INSTALL /v0.1.3/Dollyfile-zlib 165f968379cd44d7ea9e5612678a493b4ece2fa67564b93341a54dcba89fd5dc
+INSTALL /v0.1.3/Dollyfile-gzip 65141028e6a909f99cc955467f45b49e96957eae3a05ba2e7fced20c27782061
+INSTALL /v0.1.3/Dollyfile-curl e500483cf609f74f51f15dca56a1f7793e2d0c78d993d9aae507da86d5bfd7d0
 REQUIRES TOOL   mkdir
 REQUIRES LIB    curl
 REQUIRES LIB    z
@@ -404,7 +404,7 @@ SOURCE /v0.1.3/dist/static/default/commands/hostname.c    14a20a493c8559d8b28f22
 SOURCE /v0.1.3/dist/static/default/commands/tty.c         c51c9598e8245d5f651ade70995f2b03fb936c42a0e99c4c81c83749c5714c7e /tmp/agent-tools/tty.c
 SOURCE /v0.1.3/dist/static/default/commands/nproc.c       96ce7b8d1b1cee59d12193c2fa6fab5210bb7f0c9a0d0cc9bde7e0fd8d87c7ac /tmp/agent-tools/nproc.c
 SOURCE /v0.1.3/dist/static/default/commands/amy.c         7bb0b4b59750320c339e7455eede09a0144b76c90e71887c739c99fdf14d56da /tmp/agent-tools/amy.c
-SOURCE /v0.1.3/dist/static/default/commands/version.h   38d6aed46e71d8422aaace40bb483753d7ce253c8de759df3966475927377dde /tmp/agent-tools/version.h
+SOURCE /v0.1.3/dist/static/default/commands/version.h   b5258bb195b5058ae99d9d1592decdb4d7013ed377f0eddfb27fa3a696aa1afb /tmp/agent-tools/version.h
 
 FILE /tmp/agent-tools/Makefile
     .RECIPEPREFIX := >
@@ -444,6 +444,6 @@ SLOP ln -s slop /bin/sh
 EXPORTS TOOL sh
 SLOP cp /usr/share/man/cat1/slop.1 /usr/share/man/cat1/sh.1
 FOLDER /usr/share/man
-INSTALL /v0.1.3/Dollyfile-display b15a6e8f7426d8ce5fbb3bf72059d431ee4cff4a0df85b15c8eb9695ec79755e
+INSTALL /v0.1.3/Dollyfile-display 185ccd26f1f7662ee635cf90af539bf4441d636cf89e2ba85d6e443dda53a772
 
 ENTRY /bin/foreground -i /bin/slop
