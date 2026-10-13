@@ -57,8 +57,8 @@ and the condition at `src/process-kernel.c:412` has its parentheses.
   variable 'dolly_warning_probe' [-Werror,-Wunused-variable]` and status 2.
   Taken out again, the three hashes are the ones above.
 - Source tests 430/0, artifact tests 25/0, `test/core-browser.mjs` in
-  Chromium (24 s) and Firefox (32 s). The whole browser suite was not run
-  again: the kernel's bytes are the same.
+  Chromium (24 s) and Firefox (32 s), then the whole core suite in both
+  browsers: all passed in 410 s (06:38, `build/night-1014d/browser.log`).
 - `src/file-blocks.cpp` has no remark under `-Wall` either, so the flags
   are the target's, not C's alone.
 
