@@ -114,4 +114,10 @@ Searched on `main` `e72b7f8e`, nothing changed:
   same 534 sources as before; the plan builds nothing; source tests 430/0;
   `test/dso-browser.mjs` passes in both browsers and
   `test/host-modules-browser.mjs` in Chromium.
+- Macros (2026-10-14, 06:55): of the macros the 157 C files of `src/`,
+  `host/` and `include/` define, one is named nowhere else, and it
+  configures an included header (`GHOSTTY_STATIC`,
+  `src/ghostty/display.c:7`). Of the 290 `DOLLY_*` macros in the contract's
+  and the modules' headers, the 15 no other file names are include guards
+  and helpers their own header uses. Nothing to remove.
 
